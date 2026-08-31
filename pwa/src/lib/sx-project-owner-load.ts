@@ -232,7 +232,7 @@ export function sxProjectOwnerLoads(
 
   for (const task of management.tasks) {
     if (task.status === "completed") continue;
-    const milestone = milestoneById.get(task.milestoneId);
+    const milestone = task.milestoneId ? milestoneById.get(task.milestoneId) : undefined;
     push({
       id: task.id,
       kind: "task",

@@ -1,5 +1,23 @@
 # HANDOFF - AMD OS PWA
 
+## 2026-08-31 ZMPテーマ作業画面（全クライアント向け）
+
+- PWAのp19ワークスペースは`#theme-progress`の「テーマ」を既定表示する。順序はKR経営改革、水素循環PJ、OkuDoor運営、OkuDoorシステム開発＆運用。既存9成果目標を4/2/2/1件で接続し、進捗値は変更しない。
+- 目的、現在地、次の焦点、期限付きの仕事、予定成果物、既存MTG、論点、判断、行動、運用MSを同じ記録への接続で扱う。タスクや論点の編集は既存の管理画面を再利用する。
+- **MTGの新規作成と編集だけは停止中。** `THEME_HUB_MEETING_WRITE_ENABLED=false`を維持する。既存の匿名読取ポリシーを変更するまさの明示承認が未取得。承認、対象ポリシー修正、権限別検証の完了までは解除しない。既存MTGの閲覧とテーマへの紐付けは可。旧Project Shareは復活させない。
+- DBの4 migrationは適用済み。`20260831120000_project_theme_hub.sql`、`20260901090000_project_theme_hub_meeting_prep.sql`、`20260901093000_project_theme_hub_standalone_milestone.sql`、`20260901120000_project_theme_hub_client_token_extend.sql`を再適用しない。既存MTGの7引数RPCと新8引数RPCは共存する。
+- ローカルbuild、テーマ保存ヘルパー14試験、既存管理機能と資料権限の回帰試験を通過。DBはROLLBACK試験、画面は実コンポーネントと模擬応答で1440×900/390×844の操作を検証した。認証付き本番E2E保存は未検証で、本番に架空の業務記録は置いていない。
+- iOS、macOS、Androidのテーマ作業画面は未移植。共通DBのタスクと運用MSは親IDがNULLの行を許容するため、移植時は親のない行を落とさない。PWAの共有DTOと認可済みAPIを利用し、テーマ所属を権限判定に使わない。
+
+| 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
+|---|---|---|---|
+| 4テーマと記録の操作 | `spec/3-16-project-weekly-control-current-spec.md`、`design/FEATURE_REGISTRY.md` | `manual/2-3-pj-cockpit.md` | 同期済み |
+| DB、保存経路、権限とMTG停止範囲 | `spec/3-16-project-weekly-control-current-spec.md`、`design/db_schema.md` | `manual/2-3-pj-cockpit.md` | 同期済み。MTG公開範囲の承認待ち |
+| 他プラットフォームへの移植境界 | `../ios/DESIGN.md`、`../macos/PARITY.md` | `manual/2-3-pj-cockpit.md` | PWAのみ。Native未移植を記載 |
+
+附則は`manual/9-3`と`spec/6-1`へ追記した。
+BZMは理論と数式の変更がないため対象外。
+
 ## 2026-08-31 月次報告書の書式復旧（全クライアント向け）
 
 - SX 2026年8月の「本書」リンクを既存提出版帳票へ戻した（migration 357）。文書ID・保管場所・可視性を維持し、汎用Markdown readerへは送らない。新しい帳票・書式は追加していない。

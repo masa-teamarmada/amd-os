@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { unstable_cache } from "next/cache";
 import { canAccessWorkspaceProject, getCurrentMemberAccess } from "@/lib/project-workspace";
 import { getSxManagementBundle } from "@/lib/sx-management";
 import { assertSafeRelationshipOrigin } from "@/lib/sx-relationship-origin";
@@ -173,7 +174,25 @@ const COMMITMENT_STATUSES = ["open", "in_progress", "completed", "blocked", "can
 const TEST_STATUSES = ["unassessed", "planned", "running", "passed", "failed", "blocked"];
 const ROLE_STATUSES = ["unassessed", "candidate", "committed", "filled", "on_hold"];
 const RACI_ROLES = ["R", "A", "C", "I"];
-const TRACKS = ["business_development", "technology_development", "funding", "organizational_building"];
+// migration 273 replaced the old 4-value CHECK on track/primary_track with a per-project
+// (project_id, track) composite FK into project_management_tracks — p21 (SolvioraX) was seeded
+// with the same 4 keys this constant used to hardcode, but p19 (ZMP) and p30 (EHM) have their own
+// track sets entirely. Any resource whose track/primary_track this route validates must be
+// checked against the requesting project's actual track_keys, not a fixed list, or every project
+// other than p21 would be unable to create/edit those resources through this route at all.
+const getProjectTrackKeysCached = unstable_cache(
+  async (projectId: string): Promise<string[]> => {
+    const db = createAdminClient();
+    const { data, error } = await db
+      .from("project_management_tracks")
+      .select("track_key")
+      .eq("project_id", projectId);
+    if (error) throw new Error(`テーマの確認に失敗したよ: ${error.message}`);
+    return (data ?? []).map((row) => String(row.track_key));
+  },
+  ["project-management-track-keys-v1"],
+  { revalidate: 60 },
+);
 const CONFIDENCES = ["high", "medium", "low", "unknown"];
 const BALL_SIDES = ["sx", "partner", "shared", "none", "unknown"];
 const DATE_PRECISIONS = ["day", "month", "unknown"];
@@ -295,7 +314,7 @@ function booleanValue(value: unknown, field: string) {
   return value;
 }
 
-function patchFor(resource: Resource, raw: unknown): Record<string, unknown> {
+function patchFor(resource: Resource, raw: unknown, projectTracks: string[]): Record<string, unknown> {
   if (!isRecord(raw)) throw new Error("更新内容が空だよ");
   const patch: Record<string, unknown> = {};
   const takeText = (input: string, output = input, max = 1000) => { if (input in raw) patch[output] = text(raw[input], input, max); };
@@ -313,15 +332,32 @@ function patchFor(resource: Resource, raw: unknown): Record<string, unknown> {
   }
   if (resource === "milestone") {
     takeText("title", "title", 180); takeText("gate", "gate", 240); takeEnum("status", MILESTONE_STATUSES); takeDate("planned_start"); takeDate("planned_end"); takeDate("forecast_end"); takeDate("actual_end"); takeNumber("progress_pct", { min: 0, max: 100 }); takeEnum("date_certainty", ["confirmed", "provisional"]); takeText("owner_label", "owner_label", 120); takeText("next_deliverable", "next_deliverable", 500); takeText("max_issue", "max_issue", 500); takeText("completion_criteria", "completion_criteria", 1200); takeOptionalText("completion_evidence", "completion_evidence", 1200); takeEnum("criticality", ["critical", "high", "medium", "low"]); takeText("baseline_plan_version", "baseline_plan_version", 120); takeOptionalText("forecast_change_reason", "forecast_change_reason", 500); takeEnum("confidence", CONFIDENCES);
-    if ("display_lane_keys" in raw) patch.display_lane_keys = displayLaneKeysValue(raw.display_lane_keys, "display_lane_keys");
+    // track/objective_id/outcome_id — assigning an existing milestone to a different theme
+    // (theme hub's existing-record picker) genuinely needs to update the canonical track, not
+    // just note the intent and drop it. objective_id/outcome_id stay optional-together (migration
+    // 20260901093000): PATCHing one without the other is rejected below, same as create.
+    takeEnum("track", projectTracks);
+    if ("objective_id" in raw) patch.objective_id = raw.objective_id == null || raw.objective_id === "" ? null : text(raw.objective_id, "objective_id", 80);
+    if ("outcome_id" in raw) patch.outcome_id = raw.outcome_id == null || raw.outcome_id === "" ? null : text(raw.outcome_id, "outcome_id", 80);
+    // Pairing (both null or both non-null) is checked against the MERGED (patch + existing row)
+    // state at the PATCH handler call site below, not here — patchFor only sees the partial
+    // patch, not beforeRecord, so it cannot tell a caller who only touches one of the two fields
+    // apart from one who is deliberately clearing both.
     if ("status_source" in raw) patch.status_source = enumValue(raw.status_source, "status_source", ["derived", "manual", "override"]);
     takeOptionalText("status_override_reason", "status_override_reason", 500); takeDate("status_override_expires_on"); takeOptionalText("status_override_approved_by", "status_override_approved_by", 120);
+    if ("display_lane_keys" in raw) patch.display_lane_keys = displayLaneKeysValue(raw.display_lane_keys, "display_lane_keys");
   }
   if (resource === "kpi") {
     takeText("title", "title", 180); takeText("metric_kind", "metric_kind", 120); takeNumber("baseline"); takeNumber("target"); takeNumber("actual"); takeText("unit", "unit", 60); takeNumber("threshold"); takeEnum("threshold_rule", ["gte", "lte", "between"]); takeNumber("threshold_upper"); takeDate("measurement_date"); takeText("frequency", "frequency", 60); takeText("source_label", "source_label", 240); takeEnum("confidence", CONFIDENCES);
   }
   if (resource === "issue") {
     takeText("title", "title", 180); takeOptionalText("background", "background", 4000); takeEnum("knowledge_type", ISSUE_KINDS); takeEnum("status", ISSUE_STATUSES); takeText("owner_label", "owner_label", 120); takeDate("due_date"); takeEnum("confidence", CONFIDENCES);
+    // Assigning an existing issue to a different theme needs to actually move its track, not
+    // silently drop the field (root review: "existing issue and milestone PATCH do not expose
+    // track"). milestone_id/outcome_id stay optional (issues can already stand alone).
+    takeEnum("track", projectTracks);
+    if ("milestone_id" in raw) patch.milestone_id = raw.milestone_id == null || raw.milestone_id === "" ? null : text(raw.milestone_id, "milestone_id", 80);
+    if ("outcome_id" in raw) patch.outcome_id = raw.outcome_id == null || raw.outcome_id === "" ? null : text(raw.outcome_id, "outcome_id", 80);
   }
   if (resource === "hypothesis") {
     takeText("statement", "statement", 1200); takeEnum("status", ["open", "validating", "validated", "rejected", "decided", "on_hold"]); takeText("owner_label", "owner_label", 120); takeDate("due_date"); takeEnum("confidence", CONFIDENCES);
@@ -345,7 +381,7 @@ function patchFor(resource: Resource, raw: unknown): Record<string, unknown> {
     takeText("title", "title", 240); takeText("owner_label", "owner_label", 120); takeDate("due_date"); takeText("completion_criteria", "completion_criteria", 1200); takeDate("next_review_on"); takeEnum("status", ACTION_STATUSES); takeOptionalText("completion_note", "completion_note", 1200); takeDate("completed_at");
   }
   if (resource === "partner") {
-    takeText("name", "name", 180); takeOptionalText("introducer_label", "introducer_label", 120); takeOptionalText("connection_context", "connection_context", 500); takeText("role_label", "role_label", 240); takeEnum("primary_track", TRACKS); takeEnum("relationship_stage", PARTNER_STAGES); takeEnum("agreement_state", AGREEMENT_STATES); takeText("agreed_scope", "agreed_scope", 1000); takeText("unagreed_scope", "unagreed_scope", 1000); takeDate("last_contact_date"); takeText("next_commitment", "next_commitment", 1000); takeDate("due_date"); takeText("owner_label", "owner_label", 120); takeEnum("current_ball_side", BALL_SIDES); takeOptionalText("current_ball_owner", "current_ball_owner", 120); takeOptionalText("next_ball_owner", "next_ball_owner", 120); takeOptionalText("target_state", "target_state", 500); takeEnum("due_date_precision", DATE_PRECISIONS); takeEnum("confidence", CONFIDENCES);
+    takeText("name", "name", 180); takeOptionalText("introducer_label", "introducer_label", 120); takeOptionalText("connection_context", "connection_context", 500); takeText("role_label", "role_label", 240); takeEnum("primary_track", projectTracks); takeEnum("relationship_stage", PARTNER_STAGES); takeEnum("agreement_state", AGREEMENT_STATES); takeText("agreed_scope", "agreed_scope", 1000); takeText("unagreed_scope", "unagreed_scope", 1000); takeDate("last_contact_date"); takeText("next_commitment", "next_commitment", 1000); takeDate("due_date"); takeText("owner_label", "owner_label", 120); takeEnum("current_ball_side", BALL_SIDES); takeOptionalText("current_ball_owner", "current_ball_owner", 120); takeOptionalText("next_ball_owner", "next_ball_owner", 120); takeOptionalText("target_state", "target_state", 500); takeEnum("due_date_precision", DATE_PRECISIONS); takeEnum("confidence", CONFIDENCES);
     takeEnum("activity_state", PARTNER_ACTIVITY_STATES);
     if ("poc_category" in raw) patch.poc_category = raw.poc_category == null || raw.poc_category === "" ? null : enumValue(raw.poc_category, "poc_category", POC_CATEGORIES);
     // 分類は複数可。単一値の poc_category は旧コードの読み手のために分類から同期する
@@ -418,8 +454,11 @@ function patchFor(resource: Resource, raw: unknown): Record<string, unknown> {
     takeText("role_label", "role_label", 180); takeNumber("required_people", { min: 0 }); takeNumber("confirmed_people", { min: 0 }); takeNumber("available_hours_week", { min: 0 }); takeNumber("planned_hours_week", { min: 0 }); takeDate("measurement_date"); takeText("source_label", "source_label", 240); takeEnum("confidence", CONFIDENCES);
   }
   if (resource === "task") {
-    takeText("title", "title", 180); takeOptionalText("description", "description", 1600); takeEnum("track", TRACKS); takeEnum("status", TASK_STATUSES); takeDate("planned_start"); takeDate("planned_end"); takeDate("forecast_end"); takeDate("actual_end"); takeNumber("progress_pct", { min: 0, max: 100 }); takeEnum("date_certainty", ["confirmed", "provisional"]); takeText("owner_label", "owner_label", 120); takeOptionalText("owner_member_id", "owner_member_id", 80); takeOptionalText("goal", "goal", 1200); takeOptionalText("next_deliverable", "next_deliverable", 500); takeOptionalText("blocker", "blocker", 500); takeOptionalText("completion_criteria", "completion_criteria", 1200); takeOptionalText("forecast_change_reason", "forecast_change_reason", 500); takeNumber("sort_order", { min: 0 }); takeEnum("confidence", CONFIDENCES);
-    if ("milestone_id" in raw) patch.milestone_id = text(raw.milestone_id, "milestone_id", 80);
+    takeText("title", "title", 180); takeOptionalText("description", "description", 1600); takeEnum("track", projectTracks); takeEnum("status", TASK_STATUSES); takeDate("planned_start"); takeDate("planned_end"); takeDate("forecast_end"); takeDate("actual_end"); takeNumber("progress_pct", { min: 0, max: 100 }); takeEnum("date_certainty", ["confirmed", "provisional"]); takeText("owner_label", "owner_label", 120); takeOptionalText("owner_member_id", "owner_member_id", 80); takeOptionalText("goal", "goal", 1200); takeOptionalText("next_deliverable", "next_deliverable", 500); takeOptionalText("blocker", "blocker", 500); takeOptionalText("completion_criteria", "completion_criteria", 1200); takeOptionalText("forecast_change_reason", "forecast_change_reason", 500); takeNumber("sort_order", { min: 0 }); takeEnum("confidence", CONFIDENCES);
+    // Standalone (milestone-less) tasks are additive (migration 20260831120000): milestone_id may
+    // now be cleared to null as long as the row still carries a track (DB CHECK
+    // project_management_tasks_standalone_needs_track enforces the combination atomically).
+    if ("milestone_id" in raw) patch.milestone_id = raw.milestone_id == null || raw.milestone_id === "" ? null : text(raw.milestone_id, "milestone_id", 80);
     if ("parent_task_id" in raw) patch.parent_task_id = raw.parent_task_id == null || raw.parent_task_id === "" ? null : text(raw.parent_task_id, "parent_task_id", 80);
   }
   if (Object.keys(patch).length === 0) throw new Error("更新できる項目がないよ");
@@ -442,7 +481,7 @@ function safeDeletePatch(memberId: string) {
   return { deleted_at: new Date().toISOString(), deleted_by: memberId };
 }
 
-function createFor(resource: Resource, raw: unknown, projectId: string, memberId: string, today: string): Record<string, unknown> {
+function createFor(resource: Resource, raw: unknown, projectId: string, memberId: string, today: string, projectTracks: string[]): Record<string, unknown> {
   if (!isRecord(raw)) throw new Error("追加内容が空だよ");
   const source = { source_kind: "manual", source_ref: "PWA共有管理画面" };
   const requiredText = (key: string, max = 1000) => text(raw[key], key, max);
@@ -453,11 +492,20 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
   const optionalNumber = (key: string, options?: { min?: number; max?: number }) => raw[key] == null || raw[key] === "" ? null : numericValue(raw[key], key, options);
   const requiredEnum = (key: string, allowed: string[], fallback?: string) => enumValue(raw[key] == null && fallback ? fallback : raw[key], key, allowed);
   const optionalId = (key: string) => raw[key] == null || raw[key] === "" ? null : text(raw[key], key, 80);
+  // Retry-safety token (20260901120000): validated as a real UUID when provided, never a hard
+  // requirement here (existing non-theme-hub callers of this same route for these resources never
+  // send one) — mirrors the task branch's own clientToken parsing below. A malformed value is
+  // rejected, never silently dropped.
+  const optionalClientToken = () => raw.client_token == null || raw.client_token === ""
+    ? null
+    : /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(raw.client_token))
+      ? String(raw.client_token)
+      : (() => { throw new Error("client_tokenの形式が不正だよ"); })();
   const requiredId = (key: string) => text(raw[key], key, 80);
   const common = (withSource = true) => withSource ? source : {};
 
   if (resource === "objective") return { ...common(), project_id: projectId, slug: requiredText("slug", 120), title: requiredText("title", 180), definition_of_done: requiredText("definition_of_done", 1200), target_date: optionalDate("target_date"), date_certainty: requiredEnum("date_certainty", ["confirmed", "provisional"], "provisional"), status: "unassessed", last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), created_by: memberId, updated_by: memberId };
-  if (resource === "outcome") return { ...common(), project_id: projectId, objective_id: requiredId("objective_id"), slug: requiredText("slug", 120), track: requiredEnum("track", TRACKS), title: requiredText("title", 180), definition_of_done: requiredText("definition_of_done", 1200), owner_label: requiredText("owner_label", 120), status: "unassessed", last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), created_by: memberId, updated_by: memberId };
+  if (resource === "outcome") return { ...common(), project_id: projectId, objective_id: requiredId("objective_id"), slug: requiredText("slug", 120), track: requiredEnum("track", projectTracks), title: requiredText("title", 180), definition_of_done: requiredText("definition_of_done", 1200), owner_label: requiredText("owner_label", 120), status: "unassessed", last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), created_by: memberId, updated_by: memberId };
   if (resource === "milestone") {
     const plannedStart = optionalDate("planned_start");
     const plannedEnd = optionalDate("planned_end");
@@ -478,13 +526,21 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
     }
     const title = requiredText("title", 180);
     const pointMs = timelineKind === "milestone";
+    // Theme-only operational milestones (migration 20260901093000) have no built objective/
+    // outcome hierarchy yet: both stay NULL rather than pointing at a fabricated placeholder row.
+    // A milestone that DOES belong to one still needs both — the DB CHECK
+    // project_management_milestones_objective_outcome_paired enforces this pairing too.
+    const objectiveId = optionalId("objective_id");
+    const outcomeId = optionalId("outcome_id");
+    if ((objectiveId == null) !== (outcomeId == null)) throw new Error("設立目標と成果はどちらも指定するか、どちらも空にしてね");
     return {
       ...common(),
       project_id: projectId,
-      objective_id: requiredId("objective_id"),
-      outcome_id: requiredId("outcome_id"),
+      objective_id: objectiveId,
+      outcome_id: outcomeId,
       slug,
-      track: requiredEnum("track", TRACKS),
+      client_token: optionalClientToken(),
+      track: requiredEnum("track", projectTracks),
       title,
       display_lane_keys: displayLaneKeysValue(raw.display_lane_keys, "display_lane_keys"),
       // gate/next_deliverable are legacy NOT NULL columns. A point MS can start with these
@@ -525,10 +581,10 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
     const threshold = optionalNumber("threshold");
     const thresholdUpper = optionalNumber("threshold_upper");
     if (thresholdRule === "between" && (threshold == null || thresholdUpper == null || threshold > thresholdUpper)) throw new Error("範囲内ルールは下限と上限を入力し、下限を上限以下にしてね");
-    return { ...common(), project_id: projectId, outcome_id: requiredId("outcome_id"), track: requiredEnum("track", TRACKS), slug: requiredText("slug", 120), title: requiredText("title", 180), metric_kind: requiredText("metric_kind", 120), baseline: optionalNumber("baseline"), target: optionalNumber("target"), actual: optionalNumber("actual"), unit: requiredText("unit", 60), threshold, measurement_date: optionalDate("measurement_date"), frequency: requiredText("frequency", 60), source_label: requiredText("source_label", 240), threshold_rule: thresholdRule, threshold_upper: thresholdUpper, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), last_verified_at: today, created_by: memberId, updated_by: memberId };
+    return { ...common(), project_id: projectId, outcome_id: requiredId("outcome_id"), track: requiredEnum("track", projectTracks), slug: requiredText("slug", 120), title: requiredText("title", 180), metric_kind: requiredText("metric_kind", 120), baseline: optionalNumber("baseline"), target: optionalNumber("target"), actual: optionalNumber("actual"), unit: requiredText("unit", 60), threshold, measurement_date: optionalDate("measurement_date"), frequency: requiredText("frequency", 60), source_label: requiredText("source_label", 240), threshold_rule: thresholdRule, threshold_upper: thresholdUpper, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), last_verified_at: today, created_by: memberId, updated_by: memberId };
   }
-  if (resource === "issue") return { ...common(), project_id: projectId, milestone_id: optionalId("milestone_id"), outcome_id: optionalId("outcome_id"), slug: requiredText("slug", 120), track: requiredEnum("track", TRACKS, "business_development"), title: requiredText("title", 180), background: optionalTextValue("background", 4000), knowledge_type: requiredEnum("knowledge_type", ISSUE_KINDS, "fact"), status: requiredEnum("status", ISSUE_STATUSES, "open"), owner_label: optionalTextValue("owner_label", 120) || "未確認", due_date: optionalDate("due_date"), last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), created_by: memberId, updated_by: memberId };
-  if (resource === "hypothesis") return { ...common(), project_id: projectId, issue_id: requiredId("issue_id"), statement: requiredText("statement", 1200), status: requiredEnum("status", ["open", "validating", "validated", "rejected", "decided", "on_hold"], "open"), owner_label: optionalTextValue("owner_label", 120) || "未確認", due_date: optionalDate("due_date"), confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), last_verified_at: today };
+  if (resource === "issue") return { ...common(), project_id: projectId, milestone_id: optionalId("milestone_id"), outcome_id: optionalId("outcome_id"), slug: requiredText("slug", 120), client_token: optionalClientToken(), track: requiredEnum("track", projectTracks, projectTracks[0]), title: requiredText("title", 180), background: optionalTextValue("background", 4000), knowledge_type: requiredEnum("knowledge_type", ISSUE_KINDS, "fact"), status: requiredEnum("status", ISSUE_STATUSES, "open"), owner_label: optionalTextValue("owner_label", 120) || "未確認", due_date: optionalDate("due_date"), last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), created_by: memberId, updated_by: memberId };
+  if (resource === "hypothesis") return { ...common(), project_id: projectId, issue_id: requiredId("issue_id"), client_token: optionalClientToken(), statement: requiredText("statement", 1200), status: requiredEnum("status", ["open", "validating", "validated", "rejected", "decided", "on_hold"], "open"), owner_label: optionalTextValue("owner_label", 120) || "未確認", due_date: optionalDate("due_date"), confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), last_verified_at: today };
   if (resource === "evidence") return { project_id: projectId, issue_id: requiredId("issue_id"), hypothesis_id: optionalId("hypothesis_id"), evidence_kind: requiredEnum("evidence_kind", ["supporting", "counter", "missing", "observation"]), summary: requiredText("summary", 1600), observed_on: optionalDate("observed_on"), source_label: requiredText("source_label", 240), confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), last_verified_at: today, created_by: memberId };
   if (resource === "validation") return { ...common(), project_id: projectId, hypothesis_id: requiredId("hypothesis_id"), validation_kind: requiredText("validation_kind", 180), planned_on: optionalDate("planned_on"), due_date: optionalDate("due_date"), completed_on: optionalDate("completed_on"), status: requiredEnum("status", ["planned", "running", "completed", "blocked", "cancelled"], "planned"), owner_label: requiredText("owner_label", 120), method: requiredText("method", 1200), result_summary: optionalTextValue("result_summary", 1600), confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
   if (resource === "decision") {
@@ -540,9 +596,9 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
     const decidedBy = optionalTextValue("decided_by", 120);
     const decidedOn = optionalDate("decided_on");
     if (status === "decided" && (!decisionText || !decidedBy || !decidedOn)) throw new Error("決定済みにするには決定内容・決定者・決定日が必要だよ");
-    return { ...common(), project_id: projectId, issue_id: issueId, hypothesis_id: hypothesisId, title: requiredText("title", 180), context: requiredText("context", 1200), decision_state: status, rationale: requiredText("rationale", 1200), decision_text: decisionText, decided_by: decidedBy, decided_on: decidedOn, owner_label: requiredText("owner_label", 120), due_date: optionalDate("due_date"), is_this_week: raw.is_this_week == null ? false : booleanValue(raw.is_this_week, "is_this_week"), sort_order: optionalNumber("sort_order", { min: 0 }) || 0, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), last_verified_at: today };
+    return { ...common(), project_id: projectId, issue_id: issueId, hypothesis_id: hypothesisId, client_token: optionalClientToken(), title: requiredText("title", 180), context: requiredText("context", 1200), decision_state: status, rationale: requiredText("rationale", 1200), decision_text: decisionText, decided_by: decidedBy, decided_on: decidedOn, owner_label: requiredText("owner_label", 120), due_date: optionalDate("due_date"), is_this_week: raw.is_this_week == null ? false : booleanValue(raw.is_this_week, "is_this_week"), sort_order: optionalNumber("sort_order", { min: 0 }) || 0, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), last_verified_at: today };
   }
-  if (resource === "action") return { ...common(), project_id: projectId, decision_id: requiredId("decision_id"), title: requiredText("title", 240), owner_label: requiredText("owner_label", 120), due_date: optionalDate("due_date"), completion_criteria: requiredText("completion_criteria", 1200), next_review_on: optionalDate("next_review_on"), status: requiredEnum("status", ACTION_STATUSES, "open"), completion_note: optionalTextValue("completion_note", 1200), completed_at: optionalDate("completed_at"), last_verified_at: today };
+  if (resource === "action") return { ...common(), project_id: projectId, decision_id: requiredId("decision_id"), client_token: optionalClientToken(), title: requiredText("title", 240), owner_label: requiredText("owner_label", 120), due_date: optionalDate("due_date"), completion_criteria: requiredText("completion_criteria", 1200), next_review_on: optionalDate("next_review_on"), status: requiredEnum("status", ACTION_STATUSES, "open"), completion_note: optionalTextValue("completion_note", 1200), completed_at: optionalDate("completed_at"), last_verified_at: today };
   if (resource === "partner") {
     // 分類は複数可。単一値の poc_category は分類の先頭のPoC系値から同期する (migration 243)。
     const classifications = Array.isArray(raw.classifications)
@@ -565,7 +621,7 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
     const connectionContext = optionalTextValue("connection_context", 500);
     assertDatePrecisionConsistency(dueDate, dueDatePrecision, "期限日", "期限精度");
     assertSafeRelationshipOrigin(introducerLabel, "紹介者"); assertSafeRelationshipOrigin(connectionContext, "接点の経緯");
-    return { ...common(), project_id: projectId, slug: requiredText("slug", 120), name: requiredText("name", 180), introducer_label: introducerLabel, connection_context: connectionContext, role_label: optionalTextValue("role_label", 240) || inferredRole, primary_track: requiredEnum("primary_track", TRACKS, "business_development"), relationship_stage: requiredEnum("relationship_stage", PARTNER_STAGES, "candidate"), activity_state: requiredEnum("activity_state", PARTNER_ACTIVITY_STATES, "unknown"), poc_category: pocCategory, classifications, agreement_state: requiredEnum("agreement_state", AGREEMENT_STATES, "unagreed"), agreed_scope: optionalTextValue("agreed_scope", 1000) || "未確認", unagreed_scope: optionalTextValue("unagreed_scope", 1000) || "未確認", last_contact_date: optionalDate("last_contact_date"), next_commitment: optionalTextValue("next_commitment", 1000) || "未確認", due_date: dueDate, owner_label: optionalTextValue("owner_label", 120) || "未確認", current_ball_side: requiredEnum("current_ball_side", BALL_SIDES, "unknown"), current_ball_owner: optionalTextValue("current_ball_owner", 120), next_ball_owner: optionalTextValue("next_ball_owner", 120), target_state: optionalTextValue("target_state", 500), due_date_precision: dueDatePrecision, effluent_procured: null, last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
+    return { ...common(), project_id: projectId, slug: requiredText("slug", 120), name: requiredText("name", 180), introducer_label: introducerLabel, connection_context: connectionContext, role_label: optionalTextValue("role_label", 240) || inferredRole, primary_track: requiredEnum("primary_track", projectTracks, projectTracks[0]), relationship_stage: requiredEnum("relationship_stage", PARTNER_STAGES, "candidate"), activity_state: requiredEnum("activity_state", PARTNER_ACTIVITY_STATES, "unknown"), poc_category: pocCategory, classifications, agreement_state: requiredEnum("agreement_state", AGREEMENT_STATES, "unagreed"), agreed_scope: optionalTextValue("agreed_scope", 1000) || "未確認", unagreed_scope: optionalTextValue("unagreed_scope", 1000) || "未確認", last_contact_date: optionalDate("last_contact_date"), next_commitment: optionalTextValue("next_commitment", 1000) || "未確認", due_date: dueDate, owner_label: optionalTextValue("owner_label", 120) || "未確認", current_ball_side: requiredEnum("current_ball_side", BALL_SIDES, "unknown"), current_ball_owner: optionalTextValue("current_ball_owner", 120), next_ball_owner: optionalTextValue("next_ball_owner", 120), target_state: optionalTextValue("target_state", 500), due_date_precision: dueDatePrecision, effluent_procured: null, last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
   }
   if (resource === "interaction") {
     const occurredOn = optionalDate("occurred_on");
@@ -634,12 +690,29 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
   if (resource === "funding_snapshot") return { ...common(), project_id: projectId, snapshot_date: requiredDate("snapshot_date"), required_amount: optionalNumber("required_amount", { min: 0 }), secured_amount: optionalNumber("secured_amount", { min: 0 }), unconfirmed_amount: optionalNumber("unconfirmed_amount", { min: 0 }), use_summary: requiredText("use_summary", 1000), burn_per_month: optionalNumber("burn_per_month", { min: 0 }), runway_months: optionalNumber("runway_months", { min: 0 }), probability: optionalNumber("probability", { min: 0, max: 1 }), cash_condition: requiredText("cash_condition", 1200), source_label: requiredText("source_label", 240), confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
   if (resource === "organization_role") return { ...common(), project_id: projectId, role_slug: requiredText("role_slug", 120), role_name: requiredText("role_name", 180), required: raw.required == null ? true : booleanValue(raw.required, "required"), candidate: optionalTextValue("candidate", 240), commitment: optionalTextValue("commitment", 500), authority: requiredText("authority", 1000), vacancy: raw.vacancy == null ? true : booleanValue(raw.vacancy, "vacancy"), join_condition: requiredText("join_condition", 1000), due_date: optionalDate("due_date"), status: "unassessed", owner_label: requiredText("owner_label", 120), last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
   if (resource === "raci") return { ...common(), project_id: projectId, milestone_id: requiredId("milestone_id"), stakeholder_label: requiredText("stakeholder_label", 180), responsibility_role: requiredEnum("responsibility_role", RACI_ROLES), owner_label: requiredText("owner_label", 120), confirmed: raw.confirmed == null ? false : booleanValue(raw.confirmed, "confirmed"), last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
-  if (resource === "capacity") return { ...common(), project_id: projectId, track: requiredEnum("track", TRACKS), milestone_id: optionalId("milestone_id"), role_label: requiredText("role_label", 180), required_people: requiredNumber("required_people", { min: 0 }), confirmed_people: requiredNumber("confirmed_people", { min: 0 }), available_hours_week: optionalNumber("available_hours_week", { min: 0 }), planned_hours_week: optionalNumber("planned_hours_week", { min: 0 }), measurement_date: requiredDate("measurement_date"), source_label: requiredText("source_label", 240), confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
+  if (resource === "capacity") return { ...common(), project_id: projectId, track: requiredEnum("track", projectTracks), milestone_id: optionalId("milestone_id"), role_label: requiredText("role_label", 180), required_people: requiredNumber("required_people", { min: 0 }), confirmed_people: requiredNumber("confirmed_people", { min: 0 }), available_hours_week: optionalNumber("available_hours_week", { min: 0 }), planned_hours_week: optionalNumber("planned_hours_week", { min: 0 }), measurement_date: requiredDate("measurement_date"), source_label: requiredText("source_label", 240), confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
   if (resource === "task") {
     const plannedStart = optionalDate("planned_start");
     const plannedEnd = optionalDate("planned_end");
     if (!isValidPlannedRange({ plannedStart, plannedEnd })) throw new Error("計画開始は計画完了より後にできないよ");
-    return { ...common(), project_id: projectId, milestone_id: requiredId("milestone_id"), parent_task_id: optionalId("parent_task_id"), track: raw.track == null ? null : requiredEnum("track", TRACKS), title: requiredText("title", 180), description: optionalTextValue("description", 1600), status: requiredEnum("status", TASK_STATUSES, "unassessed"), planned_start: plannedStart, planned_end: plannedEnd, forecast_end: optionalDate("forecast_end"), actual_end: optionalDate("actual_end"), progress_pct: optionalNumber("progress_pct", { min: 0, max: 100 }) || 0, date_certainty: requiredEnum("date_certainty", ["confirmed", "provisional"], "provisional"), owner_member_id: optionalId("owner_member_id"), owner_label: requiredText("owner_label", 120), goal: optionalTextValue("goal", 1200), next_deliverable: optionalTextValue("next_deliverable", 500), blocker: optionalTextValue("blocker", 500), completion_criteria: optionalTextValue("completion_criteria", 1200), forecast_change_reason: optionalTextValue("forecast_change_reason", 500), sort_order: optionalNumber("sort_order", { min: 0 }) || 0, last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), created_by: memberId, updated_by: memberId };
+    // Standalone (milestone-less) tasks are additive (migration 20260831120000): milestone_id is
+    // now optional, but the row must then carry a valid track (its theme) — the DB CHECK
+    // project_management_tasks_standalone_needs_track enforces this too, checked here first for a
+    // readable error instead of a raw constraint-violation message.
+    const milestoneId = optionalId("milestone_id");
+    const track = raw.track == null || raw.track === "" ? null : requiredEnum("track", projectTracks);
+    if (!milestoneId && !track) throw new Error("運用マイルストーンが無いタスクにはテーマ(track)が必要だよ");
+    // client_token: the gantt's existing milestone-bound task creation never sends one (this
+    // route serves both callers), so it stays optional here rather than a hard requirement like
+    // project-theme-hub.ts's own resources — but a *provided* token is validated as a real UUID
+    // (garbage in is rejected, not silently ignored) so the theme hub's standalone-task retry
+    // flow gets the partial-unique-index (project_id, client_token) idempotency it needs.
+    const clientToken = raw.client_token == null || raw.client_token === ""
+      ? null
+      : /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(raw.client_token))
+        ? String(raw.client_token)
+        : (() => { throw new Error("client_tokenの形式が不正だよ"); })();
+    return { ...common(), project_id: projectId, milestone_id: milestoneId, parent_task_id: optionalId("parent_task_id"), track, client_token: clientToken, title: requiredText("title", 180), description: optionalTextValue("description", 1600), status: requiredEnum("status", TASK_STATUSES, "unassessed"), planned_start: plannedStart, planned_end: plannedEnd, forecast_end: optionalDate("forecast_end"), actual_end: optionalDate("actual_end"), progress_pct: optionalNumber("progress_pct", { min: 0, max: 100 }) || 0, date_certainty: requiredEnum("date_certainty", ["confirmed", "provisional"], "provisional"), owner_member_id: optionalId("owner_member_id"), owner_label: requiredText("owner_label", 120), goal: optionalTextValue("goal", 1200), next_deliverable: optionalTextValue("next_deliverable", 500), blocker: optionalTextValue("blocker", 500), completion_criteria: optionalTextValue("completion_criteria", 1200), forecast_change_reason: optionalTextValue("forecast_change_reason", 500), sort_order: optionalNumber("sort_order", { min: 0 }) || 0, last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), created_by: memberId, updated_by: memberId };
   }
   throw new Error("追加できる種類が不正だよ");
 }
@@ -700,7 +773,7 @@ async function assertNoTaskCycle(db: ReturnType<typeof createAdminClient>, proje
   }
 }
 
-async function assertTaskPlacement(db: ReturnType<typeof createAdminClient>, projectId: string, milestoneId: string, parentTaskId: string | null) {
+async function assertTaskPlacement(db: ReturnType<typeof createAdminClient>, projectId: string, milestoneId: string | null, parentTaskId: string | null) {
   if (!parentTaskId) return;
   const { data, error } = await db
     .from("project_management_tasks")
@@ -710,22 +783,32 @@ async function assertTaskPlacement(db: ReturnType<typeof createAdminClient>, pro
     .is("deleted_at", null)
     .maybeSingle();
   if (error) throw new Error(`親タスクの配置確認に失敗したよ: ${error.message}`);
-  if (!data || String((data as { milestone_id: string }).milestone_id) !== milestoneId) throw new Error("親タスクは同じタスク群から選んでね");
+  if (!data) throw new Error("親タスクは同じタスク群から選んでね");
+  const parentMilestoneId = (data as { milestone_id: string | null }).milestone_id;
+  // Standalone (milestone-less) tasks can only nest under another standalone task — the DB
+  // trigger (project_management_task_guard) separately enforces that both then share the same
+  // track (theme). A milestone-bound task keeps the original exact-match requirement.
+  if (milestoneId ? String(parentMilestoneId) !== milestoneId : parentMilestoneId != null) {
+    throw new Error("親タスクは同じタスク群から選んでね");
+  }
 }
 
 // A milestone's outcome_id must actually belong to its objective_id, and the outcome's track must
 // match the milestone's own track — assertParentsInProject only checks that each id individually
 // exists in the project, not that they cohere with each other. Checked on create and on merged
-// PATCH values (patchFor's milestone branch does not currently expose objective_id/outcome_id/
-// track as editable, so the merged-PATCH call site is a defensive no-op today, but stays wired
-// for if that ever changes).
+// PATCH values (patchFor's milestone branch now exposes track/objective_id/outcome_id as
+// editable). objectiveId/outcomeId are null together for a theme-only operational milestone
+// (migration 20260901093000, DB CHECK project_management_milestones_objective_outcome_paired) —
+// nothing to cross-check against in that case, so this is a no-op rather than a lookup failure.
 async function assertMilestoneParentIntegrity(
   db: ReturnType<typeof createAdminClient>,
   projectId: string,
-  objectiveId: string,
-  outcomeId: string,
+  objectiveId: string | null,
+  outcomeId: string | null,
   track: string,
 ) {
+  if (objectiveId == null && outcomeId == null) return;
+  if (objectiveId == null || outcomeId == null) throw new Error("設立目標と成果はどちらも指定するか、どちらも空にしてね");
   const { data, error } = await db
     .from("project_management_outcomes")
     .select("objective_id,track")
@@ -798,6 +881,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const issueId = text(fields.issue_id, "issue_id", 80);
       const summary = text(fields.summary, "summary", 1600);
       const discussedOn = dateValue(fields.discussed_on ?? todayJst(), "discussed_on");
+      // root review (UI completion phase, point 1): 議論(issue_discussions)は仮説(hypothesis)
+      // とは別物 — client_token列を足す新規migrationの代わりに、クライアントが供給する
+      // 安定uuidをそのままPKへ使う。project_management_issue_discussions.idは
+      // `uuid PRIMARY KEY DEFAULT gen_random_uuid()`なので、明示idを渡してもスキーマ変更は
+      // 不要。リトライで同じidが再送されたら23505を捕まえて既存行を返す(タイトル/時刻の
+      // 推測で重複判定しない)。
+      const clientId = fields.id == null || fields.id === ""
+        ? null
+        : /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(fields.id))
+          ? String(fields.id)
+          : (() => { throw new Error("idの形式が不正だよ"); })();
       const db = createAdminClient();
       const { data: issue, error: issueError } = await db
         .from("project_management_issues")
@@ -808,33 +902,113 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         .maybeSingle();
       if (issueError) throw new Error(`論点の確認に失敗したよ: ${issueError.message}`);
       if (!issue) throw new Error("この論点は見つからないか、非表示になっているよ");
+      const insertRow: Record<string, unknown> = {
+        project_id: projectId,
+        issue_id: issueId,
+        summary,
+        discussed_on: discussedOn,
+        created_by: context.access.memberId,
+      };
+      if (clientId) insertRow.id = clientId;
       const { data, error } = await db
         .from("project_management_issue_discussions")
-        .insert({
-          project_id: projectId,
-          issue_id: issueId,
-          summary,
-          discussed_on: discussedOn,
-          created_by: context.access.memberId,
-        })
+        .insert(insertRow)
         .select("id")
         .single();
-      if (error) throw new Error(`議論の進捗を追加できなかったよ: ${error.message}`);
+      let resultId: string;
+      if (error) {
+        if (clientId && String((error as { code?: string }).code) === "23505") {
+          // root review (release checkpoint, point 1): a bare `.eq("id", clientId)` would report
+          // success for ANY row with that id, including one that (by uuid collision odds aside)
+          // belongs to a different project or a different issue than this request's own scope —
+          // never report someone else's row as this operation's own result.
+          const { data: existing, error: existingError } = await db
+            .from("project_management_issue_discussions")
+            .select("id")
+            .eq("id", clientId)
+            .eq("project_id", projectId)
+            .eq("issue_id", issueId)
+            .maybeSingle();
+          if (existingError || !existing) throw new Error(`議論の進捗を追加できなかったよ: ${error.message}`);
+          resultId = String((existing as { id: string }).id);
+        } else {
+          throw new Error(`議論の進捗を追加できなかったよ: ${error.message}`);
+        }
+      } else {
+        resultId = String((data as { id: string }).id);
+      }
       const bundle = await getSxManagementBundle(projectId, true);
       return NextResponse.json(
-        { id: String((data as { id: string }).id), bundle },
+        { id: resultId, bundle },
         { status: 201, headers: { "Cache-Control": "no-store, max-age=0" } },
       );
     }
     const resource = parseResource(body.resource);
-    const payload = createFor(resource, body.fields ?? body.payload, projectId, context.access.memberId, todayJst());
+    const projectTracks = await getProjectTrackKeysCached(projectId);
+    const payload = createFor(resource, body.fields ?? body.payload, projectId, context.access.memberId, todayJst(), projectTracks);
     const db = createAdminClient();
     await assertParentsInProject(db, projectId, resource, payload);
-    if (resource === "milestone") await assertMilestoneParentIntegrity(db, projectId, String(payload.objective_id), String(payload.outcome_id), String(payload.track));
-    if (resource === "task") await assertTaskPlacement(db, projectId, String(payload.milestone_id), payload.parent_task_id ? String(payload.parent_task_id) : null);
-    const { data, error } = await db.from(RESOURCE_TABLES[resource]).insert(payload).select("id").single();
+    if (resource === "milestone") await assertMilestoneParentIntegrity(db, projectId, payload.objective_id ? String(payload.objective_id) : null, payload.outcome_id ? String(payload.outcome_id) : null, String(payload.track));
+    if (resource === "task") await assertTaskPlacement(db, projectId, payload.milestone_id ? String(payload.milestone_id) : null, payload.parent_task_id ? String(payload.parent_task_id) : null);
+    // A retry carrying the same client_token must not create a second row — check first so a
+    // resend after a dropped response returns the original id instead of a duplicate row (or a
+    // raw 23505 if the app-level check below were skipped). 20260901120000 extended client_token
+    // to milestone/issue/hypothesis/decision/action alongside the original task column; every one
+    // of those tables carries its own project_id, so the same (project_id, client_token) lookup
+    // works unchanged across all of them — never a title/time heuristic.
+    const CLIENT_TOKEN_RESOURCES: readonly Resource[] = ["task", "milestone", "issue", "hypothesis", "decision", "action"];
+    if (CLIENT_TOKEN_RESOURCES.includes(resource) && payload.client_token) {
+      // deleted_at IS NULL — a soft-deleted row (root review: the history-write compensation
+      // below archives a row whose audit log failed to write, but historically left its
+      // client_token in place) must never be reported as "this retry already succeeded"; that
+      // row is invisible to every normal read, so a caller told 201 would see nothing. The
+      // compensation path now also clears client_token on the row it archives (below), so a
+      // genuine retry lands on a real INSERT instead of colliding with the dead row's token.
+      const { data: existingRow, error: existingRowError } = await db
+        .from(RESOURCE_TABLES[resource])
+        .select("id")
+        .eq("project_id", projectId)
+        .eq("client_token", payload.client_token)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (existingRowError) throw new Error(`既存データの確認に失敗したよ: ${existingRowError.message}`);
+      if (existingRow) {
+        const bundle = await getSxManagementBundle(projectId, true);
+        return NextResponse.json(
+          { id: String((existingRow as { id: string }).id), bundle },
+          { status: 201, headers: { "Cache-Control": "no-store, max-age=0" } },
+        );
+      }
+    }
+    let { data, error } = await db.from(RESOURCE_TABLES[resource]).insert(payload).select("id").single();
+    // root review (UI completion phase, point 2): the pre-check above only closes the gap between
+    // two *sequential* retries. Two genuinely concurrent requests carrying the same client_token
+    // can both pass that SELECT before either commits, so the loser must not surface a raw 23505
+    // (or worse, get guessed-at via title/time) — reread the winner's row by the same token and
+    // treat it as this call's own success, exactly like a sequential retry would see. recovered
+    // marks this so the audit-history write below is skipped — the winning request already wrote
+    // one for this same entity, and a second row would double-count the create in history.
+    let recovered = false;
+    if (error && CLIENT_TOKEN_RESOURCES.includes(resource) && payload.client_token && String((error as { code?: string }).code) === "23505") {
+      const { data: winner, error: winnerError } = await db
+        .from(RESOURCE_TABLES[resource])
+        .select("id")
+        .eq("project_id", projectId)
+        .eq("client_token", payload.client_token)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (!winnerError && winner) {
+        data = winner as { id: string };
+        error = null;
+        recovered = true;
+      }
+    }
     if (error) throw new Error(`共有情報の追加に失敗したよ: ${error.message}`);
     const id = String((data as { id: string }).id);
+    if (recovered) {
+      const bundle = await getSxManagementBundle(projectId, true);
+      return NextResponse.json({ ok: true, id, bundle }, { status: 201 });
+    }
     const meta = RESOURCE_META[resource];
     const status = meta.statusColumn && typeof payload[meta.statusColumn] === "string" ? String(payload[meta.statusColumn]) : null;
     const { error: historyError } = await db.from("project_management_update_history").insert({
@@ -860,6 +1034,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         rollback.source_kind = "manual";
         rollback.source_ref = "PWA共有管理画面:履歴失敗時の補償";
       }
+      // root review (UI completion phase, point 2): this archived row's client_token (if any)
+      // must not keep occupying the (project_id, client_token) partial-unique index forever — a
+      // caller retrying the exact same create with the same token would otherwise either see this
+      // invisible archived row reported as "already succeeded" (fixed above by filtering
+      // deleted_at IS NULL in the pre-check) or hit a raw 23505 against a row it can never see.
+      // Freeing the token here lets a genuine retry land on a real new INSERT instead.
+      if (CLIENT_TOKEN_RESOURCES.includes(resource)) rollback.client_token = null;
       const { error: rollbackError } = await db
         .from(RESOURCE_TABLES[resource])
         .update(rollback)
@@ -919,7 +1100,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (deleting && restoring) throw new Error("非表示化と復元は同時に指定できないよ");
     if (deleting && !meta.softDelete) throw new Error("この共有情報は非表示化に対応していないよ");
     if (restoring && !meta.softDelete) throw new Error("この共有情報は復元に対応していないよ");
-    const patch: Record<string, unknown> = deleting ? safeDeletePatch(context.access.memberId) : restoring ? { deleted_at: null, deleted_by: null } : patchFor(resource, body.patch);
+    const patch: Record<string, unknown> = deleting ? safeDeletePatch(context.access.memberId) : restoring ? { deleted_at: null, deleted_by: null } : patchFor(resource, body.patch, await getProjectTrackKeysCached(projectId));
     if (resource === "milestone" && !deleting && "status" in patch && !("status_source" in patch)) patch.status_source = "manual";
     if (resource === "milestone" && patch.status_source === "override" && (!patch.status_override_reason || !patch.status_override_expires_on || !patch.status_override_approved_by)) throw new Error("状態の上書きには理由・期限・承認者が必要だよ");
     if (meta.hasLastVerified && !deleting && !restoring) patch.last_verified_at = todayJst();
@@ -995,8 +1176,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       });
     }
     if (resource === "milestone" && !deleting && !restoring) {
-      const mergedObjectiveId = String(patch.objective_id !== undefined ? patch.objective_id : beforeRecord.objective_id);
-      const mergedOutcomeId = String(patch.outcome_id !== undefined ? patch.outcome_id : beforeRecord.outcome_id);
+      const mergedObjectiveRaw = patch.objective_id !== undefined ? patch.objective_id : beforeRecord.objective_id;
+      const mergedOutcomeRaw = patch.outcome_id !== undefined ? patch.outcome_id : beforeRecord.outcome_id;
+      const mergedObjectiveId = mergedObjectiveRaw == null ? null : String(mergedObjectiveRaw);
+      const mergedOutcomeId = mergedOutcomeRaw == null ? null : String(mergedOutcomeRaw);
       const mergedTrack = String(patch.track !== undefined ? patch.track : beforeRecord.track);
       await assertMilestoneParentIntegrity(db, projectId, mergedObjectiveId, mergedOutcomeId, mergedTrack);
       // Generic point-MS invariant (the 2 NewCo founding-prerequisite gates are exempt): PATCHing
@@ -1034,7 +1217,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       await assertParentsInProject(db, projectId, resource, patch);
     }
     if (resource === "task" && !deleting && !restoring) {
-      const mergedMilestoneId = patch.milestone_id !== undefined ? String(patch.milestone_id) : String(beforeRecord.milestone_id);
+      const mergedMilestoneId = patch.milestone_id !== undefined
+        ? (patch.milestone_id ? String(patch.milestone_id) : null)
+        : (beforeRecord.milestone_id ? String(beforeRecord.milestone_id) : null);
+      const mergedTrack = patch.track !== undefined
+        ? (patch.track ? String(patch.track) : null)
+        : (beforeRecord.track ? String(beforeRecord.track) : null);
+      if (!mergedMilestoneId && !mergedTrack) throw new Error("運用マイルストーンが無いタスクにはテーマ(track)が必要だよ");
       const mergedParentTaskId = patch.parent_task_id !== undefined ? patch.parent_task_id ? String(patch.parent_task_id) : null : beforeRecord.parent_task_id ? String(beforeRecord.parent_task_id) : null;
       await assertTaskPlacement(db, projectId, mergedMilestoneId, mergedParentTaskId);
       await assertNoTaskCycle(db, projectId, id, mergedParentTaskId);

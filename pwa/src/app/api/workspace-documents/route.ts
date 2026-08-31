@@ -94,28 +94,50 @@ export async function GET(request: Request) {
   if (!access) return json({ ok: false, error: "Not found" }, 404);
 
   const db = createAdminClient();
-  let query = db
-    .from("workspace_documents")
-    .select(WORKSPACE_DOCUMENT_FIELDS)
-    .eq("scope_kind", scope.kind)
-    .eq("upload_status", "active")
-    .order("entry_kind", { ascending: false })
-    .order("display_name")
-    .limit(3000);
-
-  query = scope.kind === "project"
-    ? query.eq("project_id", access.projectId)
-    : query.eq("institution_workspace_id", access.workspaceId);
-  // workspace面はprincipalに関係なくPJ全体へ共有済みの資料だけを一覧化する。
-  // 外部accountの既存境界もここで維持する。
-  if (surface === "workspace" || !access.canReadInternal) {
-    query = query.eq("visibility", "workspace_shared");
+  // root review (UI completion phase, point 6): the old fixed 3000-row limit never actually returned more than
+  // PostgREST's own configured max_rows (1000) — a silent truncation, same class of bug as
+  // project-workspace.ts's theme-bridge queries. Real range-loop pagination with a stable order
+  // (entry_kind desc, display_name, then document_id as a tiebreaker — display_name alone is not
+  // unique enough for range paging) instead of a single bounded .limit().
+  // TS does not carry the `if (!scope/access) return` narrowing above across a nested function
+  // declaration's closure — buildPage is only ever invoked synchronously within this same request
+  // (never stored/deferred), so these are provably safe, not a workaround for a real nullability
+  // gap.
+  function buildPage(from: number, to: number) {
+    let q = db
+      .from("workspace_documents")
+      .select(WORKSPACE_DOCUMENT_FIELDS)
+      .eq("scope_kind", scope!.kind)
+      .eq("upload_status", "active")
+      .order("entry_kind", { ascending: false })
+      .order("display_name")
+      .order("document_id")
+      .range(from, to);
+    q = scope!.kind === "project"
+      ? q.eq("project_id", access!.projectId)
+      : q.eq("institution_workspace_id", access!.workspaceId);
+    // workspace面はprincipalに関係なくPJ全体へ共有済みの資料だけを一覧化する。
+    // 外部accountの既存境界もここで維持する。
+    if (surface === "workspace" || !access!.canReadInternal) {
+      q = q.eq("visibility", "workspace_shared");
+    }
+    return q;
   }
-
-  const { data, error } = await query;
-  if (error) {
-    console.error("[workspace-documents] list failed:", error.message);
-    return json({ ok: false, error: "資料一覧を読み込めなかったよ。" }, 500);
+  const data: WorkspaceDocumentRow[] = [];
+  {
+    const pageSize = 1000;
+    let from = 0;
+    for (;;) {
+      const { data: page, error } = await buildPage(from, from + pageSize - 1);
+      if (error) {
+        console.error("[workspace-documents] list failed:", error.message);
+        return json({ ok: false, error: "資料一覧を読み込めなかったよ。" }, 500);
+      }
+      const rows = (page ?? []) as unknown as WorkspaceDocumentRow[];
+      data.push(...rows);
+      if (rows.length < pageSize) break;
+      from += pageSize;
+    }
   }
 
   // 月次帳票はStorageへ複製せず、現在の正本を帳票routeから開く仮想entryとして
@@ -174,7 +196,7 @@ export async function GET(request: Request) {
   return json({
     ok: true,
     documents: [
-      ...((data ?? []) as unknown as WorkspaceDocumentRow[]).map(publicWorkspaceDocument),
+      ...data.map(publicWorkspaceDocument),
       ...monthlyReportEntries,
     ],
     permissions: {

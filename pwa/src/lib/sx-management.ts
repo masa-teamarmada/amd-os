@@ -176,8 +176,10 @@ export type SxManagementMilestone = {
   id: string;
   slug: string;
   track: SxTrackKey;
-  objectiveId: string;
-  outcomeId: string;
+  /** null = theme-only operational milestone with no built objective/outcome hierarchy yet
+   * (migration 20260901093000). Always null together with outcomeId, never independently. */
+  objectiveId: string | null;
+  outcomeId: string | null;
   title: string;
   gate: string;
   /** phase = gantt bar (工程追加); milestone = gantt diamond (MSを置く). Rendering must read
@@ -233,7 +235,8 @@ export type SxManagementMilestone = {
 export type SxTask = {
   id: string;
   projectId: string;
-  milestoneId: string;
+  /** null = standalone (theme-only) task with no operational milestone yet (migration 20260831120000). */
+  milestoneId: string | null;
   parentTaskId: string | null;
   track: SxTrackKey | null;
   title: string;
@@ -1046,7 +1049,7 @@ function mapAction(row: RawRow): SxActionItem {
 
 function mapTask(row: RawRow): SxTask {
   return {
-    id: stringValue(row, "id"), projectId: stringValue(row, "project_id"), milestoneId: stringValue(row, "milestone_id"),
+    id: stringValue(row, "id"), projectId: stringValue(row, "project_id"), milestoneId: nullableString(row, "milestone_id"),
     parentTaskId: nullableString(row, "parent_task_id"), track: typeof row.track === "string" && row.track.length > 0 ? row.track : null,
     title: stringValue(row, "title"), description: nullableString(row, "description"), status: asStatus(row.status),
     plannedStart: nullableString(row, "planned_start"), plannedEnd: nullableString(row, "planned_end"), forecastEnd: nullableString(row, "forecast_end"), actualEnd: nullableString(row, "actual_end"),
@@ -1230,7 +1233,7 @@ function makeMilestone(row: RawRow, derived: MilestoneDerivedResult, dependencyR
   const plannedEnd = nullableString(row, "planned_end");
   const forecastEnd = nullableString(row, "forecast_end");
   return {
-    id: stringValue(row, "id"), slug: stringValue(row, "slug"), track: asTrack(row.track), objectiveId: stringValue(row, "objective_id"), outcomeId: stringValue(row, "outcome_id"), title: stringValue(row, "title"), gate: stringValue(row, "gate"),
+    id: stringValue(row, "id"), slug: stringValue(row, "slug"), track: asTrack(row.track), objectiveId: nullableString(row, "objective_id"), outcomeId: nullableString(row, "outcome_id"), title: stringValue(row, "title"), gate: stringValue(row, "gate"),
     timelineKind: asTimelineKind(row.timeline_kind), displayLaneKeys: Array.isArray(row.display_lane_keys) ? (row.display_lane_keys as unknown[]).map((value) => String(value)) : [], version: numberValue(row, "version", 1),
     status: derived.status, manualStatus: asStatus(row.status), derivedStatus: derived.status, statusReason: derived.reasonCodes.length ? derived.reasonCodes.join(" / ") : "必要項目を確認済み", reasonCodes: derived.reasonCodes,
     plannedStart: nullableString(row, "planned_start"), plannedEnd, forecastEnd, actualEnd: nullableString(row, "actual_end"), deltaDays: deltaDays(plannedEnd, forecastEnd), progressPct: Math.max(0, Math.min(100, numberValue(row, "progress_pct"))), dateCertainty: row.date_certainty === "confirmed" ? "confirmed" : "provisional", ownerMemberId: nullableString(row, "owner_member_id"), ownerLabel: stringValue(row, "owner_label", "担当未確認"), nextDeliverable: stringValue(row, "next_deliverable", "次の成果未確認"), maxIssue: stringValue(row, "max_issue", "最大論点未確認"), completionCriteria: stringValue(row, "completion_criteria", "完了条件未確認"), completionEvidence: nullableString(row, "completion_evidence"), criticality: (row.criticality as SxManagementMilestone["criticality"]) || "high", baselinePlanVersion: stringValue(row, "baseline_plan_version"), forecastChangeReason: nullableString(row, "forecast_change_reason"), statusSource: (row.status_source as SxManagementMilestone["statusSource"]) || "derived", statusOverrideReason: nullableString(row, "status_override_reason"), statusOverrideExpiresOn: nullableString(row, "status_override_expires_on"), statusOverrideApprovedBy: nullableString(row, "status_override_approved_by"), lastVerifiedAt: stringValue(row, "last_verified_at"), confidence: asConfidence(row.confidence), sourceKind: asSourceKind(row.source_kind), sourceRef: nullableString(row, "source_ref"),

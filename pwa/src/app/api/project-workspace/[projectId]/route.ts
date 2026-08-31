@@ -22,7 +22,10 @@ export async function GET(
     if (!bundle) {
       return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
     }
-    return NextResponse.json({ ok: true, access, bundle });
+    // Includes the theme work hub (profiles/meetings/documents/deliverables/links) — mutable,
+    // edited-in-place content, not a low-frequency reference table. Always re-fetched fresh so a
+    // client refresh after a save (POST/PATCH under .../theme/[trackKey]) reflects the write.
+    return NextResponse.json({ ok: true, access, bundle }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   } catch (error) {
     return NextResponse.json(
       { ok: false, error: error instanceof Error ? error.message : "workspace bundle failed" },

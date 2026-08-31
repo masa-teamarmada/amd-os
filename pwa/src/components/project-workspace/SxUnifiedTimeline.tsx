@@ -143,6 +143,12 @@ function pointerOffsetToTimelinePct(offsetX: number, paneWidth: number) {
   );
 }
 
+// The gantt renders tasks keyed by milestone; standalone (milestone-less) tasks from the theme
+// work hub (migration 20260831120000, SxTask.milestoneId now `string | null`) never reach this
+// component (SxWeeklyControlDashboard filters them out before passing `tasks`). This alias keeps
+// that invariant explicit instead of re-deriving the intersection type at every call site.
+type GanttTask = SxTask & { milestoneId: string };
+
 type DisplayRow = {
   id: string;
   entity: "milestone" | "task";
@@ -317,7 +323,7 @@ function milestoneAnchorRow(
 }
 
 function taskDisplayRow(
-  task: SxTask,
+  task: GanttTask,
   depth: number,
   hasChildren: boolean,
   timeline: SxEcdUnifiedTimeline,
@@ -866,7 +872,9 @@ export function SxUnifiedTimeline({
    * task-only renderer no longer treats milestone dependencies as displayed parent rows. */
   dependencies?: SxDependency[];
   scheduleDependencies?: SxScheduleDependency[];
-  tasks?: SxTask[];
+  /** Gantt rows are keyed by milestone. Standalone (milestone-less) tasks from the theme work hub
+   * never belong here — callers must filter them out before passing this prop. See GanttTask. */
+  tasks?: GanttTask[];
   outcomes?: SxOutcome[];
   objectiveId?: string | null;
   onSelectMilestone: (milestoneId: string | null) => void;
@@ -1478,7 +1486,7 @@ export function SxUnifiedTimeline({
     [milestones],
   );
   const taskChildren = useMemo(() => {
-    const map = new Map<string, SxTask[]>();
+    const map = new Map<string, GanttTask[]>();
     for (const task of tasks) {
       const key = task.parentTaskId || `milestone:${task.milestoneId}`;
       map.set(key, [...(map.get(key) || []), task]);
@@ -1502,7 +1510,7 @@ export function SxUnifiedTimeline({
   // FK containers, but their promoted root task is the visual root. Point-MS records are kept
   // separately as lane-wide overlays, never as parent-like rows.
   const visibleLanes = useMemo(() => {
-    const appendTaskTree = (task: SxTask, rows: DisplayRow[], depth: number) => {
+    const appendTaskTree = (task: GanttTask, rows: DisplayRow[], depth: number) => {
       const children = taskChildren.get(task.id) || [];
       rows.push(taskDisplayRow(task, depth, children.length > 0, timeline, asOf));
       if (children.length > 0 && expandedTasks.has(task.id)) {
@@ -1513,7 +1521,7 @@ export function SxUnifiedTimeline({
     const bucket: Record<SxDisplayLaneKey, DisplayRow[]> = {};
     for (const key of laneFold.order) bucket[key] = [];
 
-    const laneForTask = (task: SxTask): SxDisplayLaneKey => {
+    const laneForTask = (task: GanttTask): SxDisplayLaneKey => {
       const backing = milestoneById.get(task.milestoneId);
       // A task keeps its own workstream even when it contributes to a blocking MS whose diamond
       // spans another lane. Only the MS marker is forced to the blocking-milestone lane.
@@ -1943,7 +1951,7 @@ export function SxUnifiedTimeline({
     }
   }
 
-  function laneKeyForTask(task: SxTask): SxDisplayLaneKey {
+  function laneKeyForTask(task: GanttTask): SxDisplayLaneKey {
     const backing = milestoneById.get(task.milestoneId);
     if (task.track) return laneFold.laneKeyForTrack(task.track);
     if (backing && sxIsBlockingMilestone(backing)) {
@@ -1955,7 +1963,7 @@ export function SxUnifiedTimeline({
 
   /** Sibling group of a task in display order: same parent, and for top-level tasks also the same
    * visible lane — reordering must renumber only the rows the person can actually see reordering. */
-  function orderedSiblings(task: SxTask): SxTask[] {
+  function orderedSiblings(task: GanttTask): GanttTask[] {
     const lane = laneKeyForTask(task);
     return tasks
       .filter(

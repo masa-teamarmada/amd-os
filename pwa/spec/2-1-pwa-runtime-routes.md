@@ -79,6 +79,14 @@
 
 ## API / cron の境界
 
+ZMP（p19）のワークスペースには「テーマ」タブが加わり、`#theme-progress`で直接開ける。
+上表の外部アカウントへの表示制限は維持し、テーマ所属をアクセス権の根拠にしない。
+読取は既存`GET /api/project-workspace/[projectId]`、テーマ固有の保存は`POST/PATCH /api/project-workspace/[projectId]/theme/[trackKey]`を使う。
+タスク、運用MS、論点などは既存`/management` routeを再利用する。
+保存はsame-origin、内部認証、PJアクセス、portfolio/adminの管理権限を確認する。
+MTG新規作成と編集は安全側のフラグで一時停止している。
+詳細は`3-16-project-weekly-control-current-spec.md`の「ZMPテーマ作業ハブ」を正本とする。
+
 - LLM を使う定期抽出は PWA / Vercel cron へ戻さない。subscription automation / Codex automation / outbox applier へ寄せる。
 - PWA cron に残すのは、原則として LLM 非依存の同期・集計・通知系。
 - `/api/report/generate` と `/api/monthly-report/edit-by-tsukuyomi` は従量課金の誤実行防止で410停止。`/api/cron/monthly-reports-backfill` は重い手動復旧 route のため定期実行しない。

@@ -104,8 +104,19 @@ type WorkloadBucketKey =
   | "due_soon"
   | "due_unset"
   | "decision";
-type EditorState =
-  | { kind: "create_issue" }
+// Explicit default-navigation allowlist for the theme hub (2026-09-01 UI completion phase — see
+// hasThemes below). ZMP (p19) is the only project this hub has been built and reviewed for so
+// far; adding a project here is a product decision, not something a data shape should imply.
+const THEME_HUB_DEFAULT_PROJECT_IDS = new Set<string>(["p19"]);
+
+export type EditorState =
+  | {
+      kind: "create_issue";
+      /** Theme hub only (root review point 10: "creating from water/OkuDoor goes to KR" because
+       * this form always defaulted to management.tracks[0]). Prefills the track field instead of
+       * silently landing on the first track in the project. */
+      track?: SxTrackKey | null;
+    }
   | { kind: "create_hypothesis_any" }
   | { kind: "edit_issue"; issue: SxManagementIssue }
   | { kind: "create_hypothesis"; issue: SxManagementIssue }
@@ -160,13 +171,31 @@ type EditorState =
       timelineKind?: SxTimelineKind;
       plannedDate?: string | null;
       outcomeId?: string | null;
+      /** Theme hub (ProjectThemeRoutes) only. p19 has 0 objectives/0 outcomes, so the lane-based
+       * outcome lookup below always returns null there — that must not be treated as a hard error
+       * the way it correctly is for the gantt's own "MSを置く" (where no outcome really does mean
+       * "this lane has no basis to place a MS yet"). When true, skip that gate and submit with
+       * both objective_id/outcome_id left empty (migration 20260901093000). */
+      allowStandalone?: boolean;
+      /** root review (UI completion phase, second pass): the gantt's own optimistic
+       * close-immediately save (screen updates first, DB write happens in the background) is
+       * correct for the gantt itself, but the theme hub needs the opposite — await the real
+       * write and keep the dialog/draft open on failure, never close on an unconfirmed save.
+       * True only when this editor was opened from ProjectThemeRoutes. */
+      hubOrigin?: boolean;
     }
-  | { kind: "edit_milestone"; milestone: SxManagementMilestone }
+  | { kind: "edit_milestone"; milestone: SxManagementMilestone; hubOrigin?: boolean }
   | {
       kind: "create_task";
       laneKey: SxDisplayLaneKey;
+      /** Theme hub only — see create_milestone.allowStandalone. p19 has no lane-backed milestone
+       * to inherit a track from yet, so standalone creation derives track from laneKey directly
+       * instead of erroring. */
+      allowStandalone?: boolean;
+      /** See create_milestone.hubOrigin. */
+      hubOrigin?: boolean;
     }
-  | { kind: "edit_task"; task: SxTask }
+  | { kind: "edit_task"; task: SxTask; hubOrigin?: boolean }
   | { kind: "create_dependency"; successor: SxManagementMilestone }
   | { kind: "edit_dependency"; dependency: SxDependency }
   | { kind: "create_partner" }
@@ -557,6 +586,7 @@ function editorInitialValues(
     return {
       display_lane_keys: editor.laneKey || "",
       title: "",
+      owner_label: "",
       planned_date: editor.plannedDate || "",
       completion_criteria: "",
     };
@@ -610,7 +640,11 @@ function editorInitialValues(
   }
   if (editor.kind === "edit_task")
     return {
-      milestone_id: editor.task.milestoneId,
+      // standalone (theme-only) tasks (migration 20260831120000) carry milestoneId=null; the
+      // gantt's task editor still only edits milestone-bound tasks (SxUnifiedTimeline filters
+      // standalone tasks out before this form can ever open on one), but this keeps the form
+      // value's type honest (controlled <input> cannot bind null).
+      milestone_id: editor.task.milestoneId || "",
       parent_task_id: editor.task.parentTaskId || "",
       track: editor.task.track || "",
       title: editor.task.title,
@@ -783,7 +817,7 @@ function editorInitialValues(
     };
   if (editor.kind === "create_issue")
     return {
-      track: management.tracks[0]?.key || "",
+      track: editor.track || management.tracks[0]?.key || "",
       milestone_id: "",
       title: "",
       knowledge_type: "fact",
@@ -981,20 +1015,30 @@ function editorDefinition(
     confidence,
   ];
   if (editor.kind === "create_milestone") {
+    // 運用テーマハブ発の作成は、常にそのテーマ(=1本のtrack)だけへ置く — 複数グループに
+    // またがるMSを選べる複数選択UI(lanesのcheckbox群)は、ここでは実態と合わない選択肢を
+    // 見せてしまう(root review, release checkpoint, point5)。テーマは開いた時点で確定して
+    // いるので、選ばせるフィールドごと出さない。代わりに承認済みの運用MS項目である担当を追加
+    // する — 旧ガントの「MSを置く」フォームはこれまで通り複数グループ選択のままにする。
+    const hubFields: FormField[] = editor.hubOrigin
+      ? []
+      : [
+          {
+            key: "display_lane_keys",
+            label: "配置するグループ",
+            type: "lanes",
+            required: true,
+            span: true,
+            help: "このMSをゲートとして出すグループ。複数のグループにまたがるMSは、またがる分だけ選んでね。",
+          },
+        ];
     return {
       title: "MSを追加",
       eyebrow: "MS",
       resource: "milestone",
       method: "POST",
       fields: [
-        {
-          key: "display_lane_keys",
-          label: "配置するグループ",
-          type: "lanes",
-          required: true,
-          span: true,
-          help: "このMSをゲートとして出すグループ。複数のグループにまたがるMSは、またがる分だけ選んでね。",
-        },
+        ...hubFields,
         {
           key: "title",
           label: "MS名",
@@ -1002,6 +1046,9 @@ function editorDefinition(
           required: true,
           span: true,
         },
+        ...(editor.hubOrigin
+          ? [{ key: "owner_label", label: "担当", type: "owner" as const, required: false }]
+          : []),
         {
           key: "planned_date",
           label: "予定日",
@@ -2180,12 +2227,25 @@ function IssueEditor({
   onKeepEditing?: () => void;
   ariaDescribedBy?: string;
 }) {
+  // root review (release checkpoint, point 8): IssueEditor previously had zero readOnly guard of
+  // its own — a canManage=false viewer opening any task/milestone/issue/etc through it reached a
+  // fully editable form with an enabled Save button. management.canManage is the same
+  // authoritative capability check every other action in this file already gates on; IssueEditor
+  // must gate on it too, not merely be opened from a place that already checked it once.
+  const isReadOnly = !management.canManage;
   const initialValues = useRef(
     editorInitialValues(editor, access, management),
   );
   const [values, setValues] = useState<Record<string, string>>(
     () => initialValues.current,
   );
+  // root review (UI completion phase, point 10): "Shared ManagementEditor sends no client_token
+  // at all yet." Generated once per mount (this component remounts on every distinct editor
+  // target via the `key` at its render site) and reused across retries of the same submit, never
+  // regenerated per attempt — the actual retry-safety token for every create_* resource that has
+  // one (task/milestone/issue/hypothesis/decision/action, migrations 20260831120000 +
+  // 20260901120000).
+  const [clientToken] = useState(() => crypto.randomUUID());
   const definition = editorDefinition(editor, management);
   // 表示レーンの折り畳みルール（p21は3レーン、他PJは柱1本=レーン1本）。MS/タスク作成の
   // グループ選択と、レーン→保存用トラックの変換に使う。
@@ -2367,6 +2427,7 @@ function IssueEditor({
   });
 
   async function save() {
+    if (isReadOnly) return;
     setError(null);
     const minimalCreateField =
       editor.kind === "create_partner"
@@ -2450,21 +2511,33 @@ function IssueEditor({
         return;
       }
     }
-    // MSが立つ場所は人にとっては「グループ」。DBの親成果はそこから逆算する。
+    // MSが立つ場所は人にとっては「グループ」。DBの親成果はそこから逆算する。テーマハブ発は
+    // フォームにこのフィールドが無い(既にそのテーマ1本へ確定済み) — editor.laneKeyから直接
+    // 導く。
     const selectedMilestoneLanes =
-      editor.kind === "create_milestone"
-        ? parseLaneKeys(values.display_lane_keys, laneFold)
-        : [];
+      editor.kind === "create_milestone" && editor.hubOrigin && editor.laneKey
+        ? [editor.laneKey]
+        : editor.kind === "create_milestone"
+          ? parseLaneKeys(values.display_lane_keys, laneFold)
+          : [];
     const selectedMilestoneOutcome =
       editor.kind === "create_milestone" && selectedMilestoneLanes.length
         ? milestoneOutcomeForLane(management, laneFold, selectedMilestoneLanes[0])
         : null;
-    if (editor.kind === "create_milestone" && !selectedMilestoneLanes.length) {
+    if (
+      editor.kind === "create_milestone" &&
+      !editor.hubOrigin &&
+      !selectedMilestoneLanes.length
+    ) {
       setError("配置するグループを選んでね");
       focusField(`display_lane_keys:${laneFold.order[0] ?? ""}`);
       return;
     }
-    if (editor.kind === "create_milestone" && !selectedMilestoneOutcome) {
+    if (
+      editor.kind === "create_milestone" &&
+      !selectedMilestoneOutcome &&
+      !editor.allowStandalone
+    ) {
       setError("このグループにMSを置くための基準情報がまだないよ");
       return;
     }
@@ -2472,7 +2545,11 @@ function IssueEditor({
       editor.kind === "create_task"
         ? taskBackingMilestone(management, laneFold, editor.laneKey)
         : null;
-    if (editor.kind === "create_task" && !selectedTaskMilestone) {
+    if (
+      editor.kind === "create_task" &&
+      !selectedTaskMilestone &&
+      !editor.allowStandalone
+    ) {
       setError("このレーンにタスクを置くための基準情報がまだないよ");
       return;
     }
@@ -2528,9 +2605,16 @@ function IssueEditor({
     }
     if (editor.kind === "create_task") {
       // The visible lane is not a persistence parent. Derive the authoritative raw track from
-      // its internal backing record so the three visible lanes remain stable.
-      fields.track = selectedTaskMilestone?.track || "";
-      fields.milestone_id = selectedTaskMilestone?.id || "";
+      // its internal backing record so the three visible lanes remain stable. Standalone (no
+      // backing milestone, theme hub only): fall back to the lane's own track directly — there is
+      // no milestone to inherit one from yet.
+      fields.track = selectedTaskMilestone?.track || laneFold.trackForLane(editor.laneKey) || "";
+      // root review (second pass): send an explicit null for an absent standalone parent rather
+      // than "" — the server's optionalId() already normalizes "" to null identically, but a
+      // captured payload showing a real null is unambiguous evidence, not something that merely
+      // happens to work the same as an empty string today.
+      fields.milestone_id = selectedTaskMilestone?.id ?? null;
+      if (!values.parent_task_id) fields.parent_task_id = null;
     }
     if (editor.kind === "create_milestone") {
       fields.objective_id = management.objective?.id || "";
@@ -2541,8 +2625,10 @@ function IssueEditor({
       // keeps the form's visible taxonomy at the project's approved Gantt lanes (see
       // src/lib/sx-display-lanes.ts — p21 folds funding/organizational_building into one lane;
       // other projects use one lane per track) while satisfying the DB invariant
-      // milestone.track === outcome.track.
-      fields.track = selectedMilestoneOutcome?.track || "";
+      // milestone.track === outcome.track. Standalone (no outcome yet, theme hub only): fall back
+      // to the editor's own explicit track (migration 20260901093000 — objective_id/outcome_id
+      // both stay "" -> null server-side, never a fabricated parent).
+      fields.track = selectedMilestoneOutcome?.track || editor.track || "";
       fields.timeline_kind = "milestone";
       fields.slug = `ms-${Date.now().toString(36)}`;
       // MSは単一の予定日。フォームでは1項目だけ見せ、保存時にplanned_start/
@@ -2581,6 +2667,21 @@ function IssueEditor({
     }
     if (editor.kind === "create_action")
       fields.decision_id = editor.decision.id;
+    // 6リソース(task/milestone/issue/hypothesis/decision/action)は(project_id, client_token)の
+    // partial unique indexを持つ(20260831120000 + 20260901120000)。新規作成だけに乗せる —
+    // PATCHにclient_tokenは意味を持たない。
+    if (
+      !isPatch &&
+      (editor.kind === "create_task" ||
+        editor.kind === "create_milestone" ||
+        editor.kind === "create_issue" ||
+        editor.kind === "create_hypothesis" ||
+        editor.kind === "create_hypothesis_any" ||
+        editor.kind === "create_decision" ||
+        editor.kind === "create_action")
+    ) {
+      fields.client_token = clientToken;
+    }
     // MS/タスクの計画日程は本番データで、ガントの直接編集(ドラッグ)と同じ楽観的並行制御を
     // 使う。読み込んだ時点のversionを一緒に送り、他の変更と競合していたら409で検知する
     // （最後に保存した側が黙って上書きしない）。
@@ -2601,10 +2702,23 @@ function IssueEditor({
         }
       : { resource: definition.resource, fields };
 
+    // root review (UI completion phase, second pass): theme-hub-origin task/MS create+edit must
+    // await the real write and keep the dialog/draft open on failure — the two optimistic
+    // branches below (screen updates first, DB write happens after) are correct for the gantt's
+    // own usage but wrong here, where a synthetic-fixture 503 was found closing the dialog and
+    // discarding the typed draft before the request even resolved. Falling through past both
+    // branches lands in the plain await/setError branch every other resource already uses.
+    const isHubOriginTaskOrMilestone =
+      (editor.kind === "create_task" ||
+        editor.kind === "create_milestone" ||
+        editor.kind === "edit_task" ||
+        editor.kind === "edit_milestone") &&
+      editor.hubOrigin === true;
+
     // Existing records commit to the screen first. A PM should be able to continue straight
     // away; the server's full-bundle rebuild is deliberately no longer on the modal's critical
     // path. A failed background write always reconciles from the DB and is called out explicitly.
-    if (isPatch && definition.id) {
+    if (!isHubOriginTaskOrMilestone && isPatch && definition.id) {
       const optimistic = sxApplyOptimisticManagementPatch(
         management,
         definition.resource,
@@ -2660,8 +2774,8 @@ function IssueEditor({
     // 初期値で埋まり、次にDBから読み直したときに揃う。書き込みが失敗したら、置いた
     // 仮レコードを取り消してDBの内容へ戻す。
     if (
-      editor.kind === "create_task" ||
-      editor.kind === "create_milestone"
+      !isHubOriginTaskOrMilestone &&
+      (editor.kind === "create_task" || editor.kind === "create_milestone")
     ) {
       const resource = editor.kind === "create_task" ? "task" : "milestone";
       const temporaryId = sxNewOptimisticId(
@@ -2982,7 +3096,10 @@ function IssueEditor({
   const fieldGroups = inlineField ? null : groupFormFields(remainingFields);
 
   const fieldsBlock = (
-    <>
+    // fieldset disabled=true is the standard HTML mechanism that disables every descendant
+    // input/textarea/select/button in one place — reliable even as new field types get added to
+    // renderField later, unlike threading disabled={isReadOnly} through each branch individually.
+    <fieldset disabled={isReadOnly} style={{ border: 0, margin: 0, padding: 0 }}>
       {primaryField && (
         <div className={styles.formGrid}>{renderField(primaryField, true)}</div>
       )}
@@ -3007,7 +3124,7 @@ function IssueEditor({
           {error}
         </p>
       )}
-    </>
+    </fieldset>
   );
 
   const footerBlock = (
@@ -3046,6 +3163,14 @@ function IssueEditor({
             </button>
           </div>
         </div>
+      ) : isReadOnly ? (
+        <button
+          type="button"
+          className={styles.secondaryButton}
+          onClick={onClose}
+        >
+          閉じる
+        </button>
       ) : (
         <>
           {dirty && <span className={styles.unsavedIndicator}>未保存</span>}
@@ -3278,7 +3403,7 @@ function IssueRow({
   asOf: string;
   canManage: boolean;
   onEdit: (editor: EditorState) => void;
-  onAddDiscussion: (issueId: string, summary: string) => Promise<void>;
+  onAddDiscussion: (issueId: string, summary: string, discussionId: string) => Promise<void>;
   onOpen: (issueId: string) => void;
 }) {
   // 詳細はワークベンチへ統合。旧inline詳細は移行中も表示されない。
@@ -3286,6 +3411,7 @@ function IssueRow({
   const [discussionDraft, setDiscussionDraft] = useState("");
   const [discussionSaving, setDiscussionSaving] = useState(false);
   const [discussionError, setDiscussionError] = useState<string | null>(null);
+  const [discussionId, setDiscussionId] = useState(() => crypto.randomUUID());
   const track = trackMeta(tracks, issue.track);
   const stale = sxWeeklyIssueIsStale(issue, asOf);
   const overdue = sxWeeklyIssueIsOverdue(issue, asOf);
@@ -3448,8 +3574,11 @@ function IssueRow({
                   }
                   setDiscussionSaving(true);
                   setDiscussionError(null);
-                  void onAddDiscussion(issue.id, summary)
-                    .then(() => setDiscussionDraft(""))
+                  void onAddDiscussion(issue.id, summary, discussionId)
+                    .then(() => {
+                      setDiscussionDraft("");
+                      setDiscussionId(crypto.randomUUID());
+                    })
                     .catch((caught) =>
                       setDiscussionError(
                         caught instanceof Error
@@ -3714,7 +3843,7 @@ function IssueWorkbench({
   onReconciledId: (temporaryId: string, realId: string) => void;
   onRolledBack: (temporaryId: string) => void;
   onShowNotice: (message: string) => void;
-  onAddDiscussion: (issueId: string, summary: string) => Promise<void>;
+  onAddDiscussion: (issueId: string, summary: string, discussionId: string) => Promise<void>;
   onAddHypothesis: (issueId: string, statement: string) => Promise<void>;
   onSetResolved: (issueId: string, resolved: boolean) => Promise<void>;
 }) {
@@ -3726,6 +3855,9 @@ function IssueWorkbench({
   const [discussionDraft, setDiscussionDraft] = useState("");
   const [hypothesisDraft, setHypothesisDraft] = useState("");
   const [discussionSaving, setDiscussionSaving] = useState(false);
+  // root review (UI completion phase, point 1): stable retry-safety id for this draft, reused
+  // across retries of a failed submit, replaced only once the draft is actually consumed.
+  const [discussionId, setDiscussionId] = useState(() => crypto.randomUUID());
   const [hypothesisSaving, setHypothesisSaving] = useState(false);
   const [resolutionSaving, setResolutionSaving] = useState(false);
   const [discussionError, setDiscussionError] = useState<string | null>(null);
@@ -3893,8 +4025,11 @@ function IssueWorkbench({
                     }
                     setDiscussionSaving(true);
                     setDiscussionError(null);
-                    void onAddDiscussion(issue.id, summary)
-                      .then(() => setDiscussionDraft(""))
+                    void onAddDiscussion(issue.id, summary, discussionId)
+                      .then(() => {
+                        setDiscussionDraft("");
+                        setDiscussionId(crypto.randomUUID());
+                      })
                       .catch((caught) => setDiscussionError(caught instanceof Error ? caught.message : "議論を記録できなかったよ"))
                       .finally(() => setDiscussionSaving(false));
                   }}
@@ -4707,12 +4842,22 @@ export function SxWeeklyControlDashboard({
   const dynamicTabs = useMemo(() => {
     const tabs = [...PROJECT_WORKSPACE_TABS_BASE];
     if (bundle.themes.length > 0) {
-      tabs.unshift({ key: "themes", label: "テーマ進捗" });
+      tabs.unshift({ key: "themes", label: "テーマ" });
     }
     return tabs;
   }, [bundle.themes.length]);
 
-  const hasThemes = bundle.themes.length > 0;
+  // project-workspace.ts now builds a theme skeleton for every project with defined
+  // project_management_tracks rows (migration 273 seeded that for p19/p21/p30 alike, and the
+  // theme hub needs an empty-but-present theme even with no current value plan). That used to be
+  // conflated with "should this PJ's dashboard default-land on the themes tab" by gating on
+  // theme.milestones.length > 0 (financial value-milestone bridges) — which broke the moment a
+  // value plan went away, since the whole point of the theme hub is to work on operational data
+  // alone. Root (UI completion phase): "ZMP must default to themes even without valuePlan;
+  // non-ZMP initial view stays unchanged." Default landing is therefore an explicit product
+  // decision (which project IDs get the operational hub as their home screen), independent of
+  // whatever financial data happens to exist right now — not something inferred from row counts.
+  const hasThemes = THEME_HUB_DEFAULT_PROJECT_IDS.has(bundle.project.projectId) && bundle.themes.length > 0;
   const [internalView, setActiveView] = useState<SxWeeklyControlView>(
     () => (hasThemes ? "themes" : "weekly"),
   );
@@ -5020,7 +5165,7 @@ export function SxWeeklyControlDashboard({
     return true;
   }
 
-  async function addIssueDiscussion(issueId: string, summary: string) {
+  async function addIssueDiscussion(issueId: string, summary: string, discussionId: string) {
     const response = await fetch(
       `/api/project-workspace/${encodeURIComponent(bundle.project.projectId)}/management`,
       {
@@ -5031,6 +5176,7 @@ export function SxWeeklyControlDashboard({
           fields: {
             issue_id: issueId,
             summary,
+            id: discussionId,
           },
         }),
       },
@@ -5706,7 +5852,13 @@ export function SxWeeklyControlDashboard({
                 milestones={management.milestones}
                 dependencies={management.dependencies}
                 scheduleDependencies={management.scheduleDependencies}
-                tasks={management.tasks}
+                // ガントはマイルストーン配下の工程だけを描く軸。テーマ単位の未着手(standalone)
+                // タスク(migration 20260831120000でmilestone_id nullable化)は「テーマ」タブ側の
+                // 作業ハブでのみ扱い、ここには出さない — 出すと `milestone:null` という
+                // 存在しないグループへ全standaloneタスクが集約されてしまう。
+                tasks={management.tasks.filter(
+                  (task): task is typeof task & { milestoneId: string } => task.milestoneId != null,
+                )}
                 outcomes={management.outcomes}
                 objectiveId={management.objective?.id ?? null}
                 onManagementChange={(next, message) => {
@@ -6071,9 +6223,20 @@ export function SxWeeklyControlDashboard({
             id="theme-progress"
             className={styles.section}
             role="tabpanel"
-            aria-label="テーマ進捗"
+            aria-label="テーマ"
           >
-            <ProjectThemeRoutes themes={bundle.themes} />
+            <ProjectThemeRoutes
+              projectId={bundle.project.projectId}
+              themes={bundle.themes}
+              sxManagement={management}
+              allMeetings={bundle.allMeetings}
+              members={bundle.members}
+              canManage={access.scope === "portfolio" || access.isAdmin}
+              currentMemberId={access.memberId}
+              onOpenEditor={setEditor}
+              onManagementChange={setManagement}
+              onOpenIssueWorkbench={setSelectedIssueId}
+            />
           </section>
         )}
 

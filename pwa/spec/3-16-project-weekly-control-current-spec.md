@@ -29,13 +29,39 @@
 | shell | 共有ワークスペースshell。月初合意overlayの対象外 |
 | write | portfolio/adminだけ。既存 `/api/project-workspace/[projectId]/management` を使い、clientからDBへ直接書かない |
 
-## ZMPテーマ進捗（p19、2026-08-26追加）
+## ZMPテーマ作業ハブ（p19、2026-08-26追加・2026-08-31拡張）
 
-- p19は9本のvalue milestoneを最上位テーマとして横並びにせず、`OkuDoor`（3件）/ `葛飾水素循環`（2件）/ `KR経営改革`（4件）の3テーマへ束ねる。MSは削除・複製せず、テーマ内の「成果目標」としてそのまま残す。
+- p19の9本のvalue milestoneは`KR経営改革`（4件）/ `水素循環PJ`（2件）/ `OkuDoor運営`（2件）/ `OkuDoorシステム開発＆運用`（1件）の4テーマへ束ねる（`ios/supabase/migrations/20260831120000_project_theme_hub.sql`が既存3テーマから改名・分割）。MSは削除・複製せず、テーマ内の「成果目標」としてそのまま残す。
 - 所属正本は `project_management_tracks` と `project_management_track_value_milestones`。同一PJの1成果目標は1テーマだけに所属し、bridgeの`project_id`とvalue milestoneのplan cycleのPJ一致をDBで強制する。
-- テーマ接続が1件以上あるPJだけ、タブ列の先頭へ`テーマ進捗`（`#theme-progress`）を動的に追加する。hash指定が無いp19の初期表示はこのタブ。明示hashは初期表示より優先し、別PJで保存したlocalStorageはp19の初期表示を上書きしない。
+- テーマタブ（`#theme-progress`、表示名`テーマ`、`ProjectThemeRoutes.tsx`）は成果目標の閲覧だけでなく、運用タスク・運用マイルストーン（`project_management_milestones`、objective/outcomeが未構築でもtimeline_kind='milestone'の単一予定日として作成可）・論点/仮説/決定/アクション（既存の`IssueEditor`/`IssueWorkbench`をそのまま開く。コピーのフォームは作らない）・予定成果物（`project_theme_deliverables`、既存資料への後付けひもづけ可）・作業間の関連（`project_theme_work_links`、テーマ横断のcanonical global）を実際に作成・編集できるハブ。
+- 既定表示PJは明示許可リスト（`THEME_HUB_DEFAULT_PROJECT_IDS`、現状p19のみ）で判定する。価値計画（financial milestone）が0件でもp19はこのタブが既定になる。明示hashは初期表示より優先し、別PJで保存したlocalStorageはp19の初期表示を上書きしない。
+- 読み取り専用の閲覧者（`management.canManage`=false）は共有エディタ自身（IssueEditor）がfieldset disabled＋Save/削除ボタン非表示で読み取り専用になる。テーマハブ独自のMTG/予定成果物ダイアログも`readOnly` propで同様に振る舞う。
+- **テーマ画面からのMTG新規作成と編集は一時停止中**（`src/lib/theme-hub-rollout.ts`の`THEME_HUB_MEETING_WRITE_ENABLED=false`）。既存`project_meeting_summaries`の匿名読取りポリシー（`pms_read_anon`）を変更する承認がないため、API側も独立して拒否する。既存MTGの閲覧とテーマへの紐付け、紐付け解除は利用できる。コックピットMTGカード（`/project/[projectId]/cockpit?meeting=<id>`）への遷移はportfolio/adminだけに表示し、PJ限定memberはハブ内で同じ記録を読む。フラグの解除には、まさの明示承認、対象ポリシーの修正、権限別の検証がすべて必要。承認だけでは解除しない。
 - テーマの進捗率を平均してPJ進捗に見せない。各成果目標について累積進捗、目標月、更新時刻、sourceを個別表示する。`routine_auto`は人が確定した実績ではなく`予定進行`として破線表示し、PM locked sourceだけを`確定進捗`とする。
 - AMD内部のportfolio/adminにはヘッダーへ`AMD OSホーム`（`/dashboard`）と`PJコックピット`（`/project/p19/cockpit`）を出す。PJ限定memberはroute isolationにより両routeへ移動できないため表示しない。外部workspace accountは本体dashboard自体を描画しないので、この2導線も出ない。
+- 回帰防止: `npm run test:zmp-workspace-themes`（契約全般）、`npm run test:project-theme-hub-helpers`（保存ヘルパーのmock動作検証）。実コンポーネントの模擬201/503応答で保存後の再表示と失敗時の下書き保持を検証し、DBの整合性と権限はROLLBACK試験で確認した。認証付き本番E2E保存は未検証。
+
+### データと保存経路
+
+| 対象 | 正本と契約 |
+|---|---|
+| テーマの内容 | `project_theme_profiles`が目的、現在地、次の焦点を保存する。`project_management_tracks`の表示分類や権限を置き換えない |
+| 既存記録との接続 | `project_theme_meetings`と`project_theme_documents`は同一PJのMTGと資料への参照だけを保存する。複数テーマへの所属を許し、本文とファイルを複製しない |
+| 予定成果物 | `project_theme_deliverables`に資料の名称、説明、担当、期限、状態を置き、`linked_document_id`で後から実資料へ接続する |
+| 作業間の関連 | `project_theme_work_links`は具体的な記録種別とIDの組を保存する。同一PJ内でテーマをまたぐ関連を許すが、親子など既存FKで表現済みの関係は重複登録しない |
+| 読取 | `GET /api/project-workspace/[projectId]`の認可済みbundleにテーマと接続記録を含める。追加一覧はrangeで全ページを読み、資料は既存の可視性を守る。可変データなので応答は`no-store` |
+| 新規保存 | `POST /api/project-workspace/[projectId]/theme/[trackKey]`。`meeting_link`、`document_link`、`deliverable`、`work_link`を扱う。`meeting`は実装済みだが上記フラグで拒否する |
+| 更新と解除 | 同じrouteの`PATCH`。`profile`、`deliverable`を更新し、`delete=true`で`meeting`、`document`、`deliverable`、`work_link`を論理削除する。MTG本文と実資料は削除しない |
+| 運用記録 | タスク、運用MS、論点、仮説、議論、判断、行動は既存の`/management` routeと共有エディタを再利用する。新規登録時に選択中の`track`を渡す。タスクはMS未所属、運用MSはobjective/outcome両方未所属でも登録でき、既存の親子整合性検査は維持する |
+
+変更はsame-origin確認、内部認証、対象PJアクセス、portfolio/adminの管理権限をすべて満たしてから行う。
+テーマへの所属はアクセス権の付与にならず、外部アカウントへ本体や内部資料を開放しない。
+新設5テーブルはPJ境界のRLSと整合性制約を持ち、参照先の存在と同一PJ所属を保存時にも検査する。
+更新時は`expected_version`を必須とし、MTG本文の更新経路だけは既存の`expected_updated_at`を使う。
+競合は409で返し、古い画面から無条件で上書きしない。
+新規作成の再送は同じ`client_token`を使い、既存議論は同じUUIDの主キーで重複を防ぐ。
+保存後はbundleを再取得し、書込み失敗は下書きを保持する。
+書込み成功後に再取得だけ失敗した場合は画面上でエラーを知らせる。
 
 ## 画面構造
 

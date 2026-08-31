@@ -5,7 +5,8 @@
  */
 export type SxGanttNestingTask = {
   id: string;
-  milestoneId: string;
+  /** null = standalone (theme-only) task with no operational milestone. */
+  milestoneId: string | null;
   parentTaskId: string | null;
 };
 

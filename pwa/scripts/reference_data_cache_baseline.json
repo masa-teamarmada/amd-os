@@ -10,6 +10,7 @@
   ],
   "generatedAt": "2026-08-23",
   "reasons": {
+    "src/components/project-workspace/ProjectThemeRoutes.tsx": "可変系。/api/project-workspace/:p はテーマハブのタスク/MTG/資料/予定成果物/プロフィールの読み直し (保存直後に自分で更新した内容を反映するrefreshBundle) で、参照系キャッシュを挟むと自分の書き込みが古い値で上書き表示される。/api/project-workspace/:p/theme/:p はthemeHubFetch経由でPOST/PATCHの書き込みにしか使わない (GETで読むことはない) — このガードの静的検出が読み取りと誤検知しているだけの偽陽性。/api/workspace-documents はPJ資料室のアップロード済み実ファイル一覧 (ユーザーが随時アップロード/共有変更する) で、確定済みマスタではない。",
     "src/components/admin/MemberPayoutBreakdownModal.tsx": "可変系。支払額・繰越・未払い残は報酬キャッシュ再計算や合意ゲートの操作で当日中に変わる残高で、開くたびに最新を読む必要がある (古い値を出すと支払判断を誤らせる)。",
     "src/components/cockpit/CockpitProjectControl.tsx": "可変系。週次差分・ガント・関係先・論点仮説はこの画面から直接編集し、他メンバーの更新も当日中に反映される必要がある。PJコックピットの管制4タブとPJワークスペース (/project/[projectId]/workspace) が同じ束を読む (2026-08-28 統合)。4タブは1マウントを共有するのでタブ移動では読み直さない。",
     "src/components/admin/kiyo-money-flow/KiyoMoneyFlowPanel.tsx": "可変系。入金確認・支払記録で当日中に増える集計 (manual/6-11-kiyo-money-flow-spec.md)。サーバ側 (src/lib/finance/kiyo-money-flow.ts) がプロセス内TTL5分で持つのでクライアントは素のfetchでよい。",
@@ -17,6 +18,11 @@
     "src/lib/governance-client.ts": "参照系。会社概要タブと資本政策表タブが共有するキャッシュ層で、中身は @/lib/reference-data-cache を通している (素の fetch はこの1本だけ。画面側からは fetch しない)。REFERENCE_DATA_ENDPOINTS へ /api/governance を登録すると、guard が配下パスも同じ扱いにするため /api/governance/killer-factors (キラー要素カタログ) と /api/governance/capital-plans (資本政策プラン台帳) の別画面まで巻き込む。それらの移行は別作業なので、登録はせずここへ置く (2026-08-29 追加)。"
   },
   "allowed": {
+    "src/components/project-workspace/ProjectThemeRoutes.tsx": [
+      "/api/project-workspace/:p",
+      "/api/project-workspace/:p/theme/:p",
+      "/api/workspace-documents"
+    ],
     "src/app/(app)/admin/monthly-work-agreements/page.tsx": [
       "/api/admin/monthly-work-agreements",
       "/api/admin/monthly-work-agreements/amount-change-reasons",

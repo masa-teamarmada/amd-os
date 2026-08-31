@@ -640,9 +640,11 @@ export type NavMilestoneDetail = {
   kind: "milestone";
   id: string;
   slug: string;
-  /** 論点・技術試験を追加するときの親付け先として、詳細ペインから安全に参照できるIDだけを持つ。 */
-  objectiveId: string;
-  outcomeId: string;
+  /** 論点・技術試験を追加するときの親付け先として、詳細ペインから安全に参照できるIDだけを持つ。
+   * null = 運用マイルストーンにまだ設立目標/成果の階層が無いテーマ限定MS(migration
+   * 20260901093000)。objectiveId/outcomeIdは常にどちらもnullかどちらも非null。 */
+  objectiveId: string | null;
+  outcomeId: string | null;
   title: string;
   gate: string;
   track: SxTrackKey;
@@ -1328,8 +1330,13 @@ export function buildSxNavigationViewModel(input: {
 
   const pillarDefaults: SxNavigationViewModelV2["pillarDefaults"] = {};
   for (const pillar of NAV_PILLARS) {
-    const first = mgmt.milestones.find((m) => m.track === pillar.key);
-    if (first) pillarDefaults[pillar.key] = { objectiveId: first.objectiveId, outcomeId: first.outcomeId };
+    // A theme-only operational milestone (migration 20260901093000) has no objective/outcome to
+    // offer as a default — skip it and keep looking for one that does, rather than pre-filling a
+    // new-gate form with a default that can't actually satisfy that form's own requirement.
+    const first = mgmt.milestones.find((m) => m.track === pillar.key && m.objectiveId != null && m.outcomeId != null);
+    if (first && first.objectiveId != null && first.outcomeId != null) {
+      pillarDefaults[pillar.key] = { objectiveId: first.objectiveId, outcomeId: first.outcomeId };
+    }
   }
 
   return {

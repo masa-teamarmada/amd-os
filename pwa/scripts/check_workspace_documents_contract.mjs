@@ -46,7 +46,13 @@ assert.match(source.capabilities, /role: "manager" \| "contributor" \| "readonly
 assert.match(source.capabilities, /External role labels currently do not grant membership management/, "未実装権限を強いrole名から推定しない");
 assert.match(source.access, /scope\.institutionWorkspaces\.find/, "機関資料は機関membershipを明示確認する");
 assert.doesNotMatch(source.access, /institutionWorkspaces.*project_access/s, "機関membershipからPJ権限を自動生成しない");
-assert.match(source.list, /surface === "workspace" \|\| !access\.canReadInternal[\s\S]*?visibility", "workspace_shared"/s, "workspace面と外部一覧は共有資料だけに絞る");
+// UI completion phase: GET now paginates via a real range-loop (buildPage), not a single bounded
+// .limit() — the visibility filter moved inside that closure, so `access` there is a non-null
+// assertion (access! — provably safe, buildPage is only ever called synchronously within this
+// same request) rather than the plain narrowed `access` it was as an inline conditional before.
+// Same behavior, same filter, different (legitimate) source shape — root review (UI completion
+// phase) point 7/"contract test source-structure improvement" guidance.
+assert.match(source.list, /surface === "workspace" \|\| !access!?\.canReadInternal[\s\S]*?visibility", "workspace_shared"/s, "workspace面と外部一覧は共有資料だけに絞る");
 assert.match(source.open, /row\.visibility === "amd_internal" && !access\.canReadInternal/, "open routeも内部資料を404にする");
 assert.match(source.open, /!download && isWorkspaceDocumentHtml[\s\S]*?\/render/, "旧open URLもHTMLをブラウザ表示へ振り分ける");
 assert.match(source.open, /!download && isWorkspaceDocumentMarkdown[\s\S]*?\/workspace-document\//, "旧open URLもMarkdown Readerへ振り分ける");

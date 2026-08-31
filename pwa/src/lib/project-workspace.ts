@@ -97,6 +97,7 @@ export type ProjectWorkspaceBundle = {
     shortLabel: string;
     accent: string;
     sortOrder: number;
+    /** 契約上の価値マイルストーン(9件)。まさの現行UIが依存する既存フィールド、意味・進捗は不変。 */
     milestones: Array<{
       milestoneId: string;
       title: string;
@@ -107,7 +108,69 @@ export type ProjectWorkspaceBundle = {
       progressConfirmedAt: string | null;
       progressRecordedAt: string | null;
     }>;
+    /** テーマの目的/現状/次の焦点。project_theme_profiles(authenticated限定)。未登録ならnull。 */
+    profile: {
+      purposeMd: string | null;
+      currentStateMd: string | null;
+      nextFocusNote: string | null;
+      updatedAt: string;
+      version: number;
+    } | null;
+    /** 運用マイルストーン(track一致、契約上の価値MSとは別枠)。sxManagement.milestonesの部分集合。 */
+    operationalMilestoneIds: string[];
+    /** 運用タスク(track一致、または運用MS配下)。sxManagement.tasksの部分集合。 */
+    taskIds: string[];
+    /** 課題(track一致)。sxManagement.issuesの部分集合。 */
+    issueIds: string[];
+    /** テーマへ紐付けたMTG(project_theme_meetings経由)。既存project_meeting_summariesそのもの。
+     * linkId/linkVersionはproject_theme_meetings側の行(紐付け解除のexpected_version用)。
+     * meetingUpdatedAtはproject_meeting_summaries.updated_at(この表に独自versionは無く、
+     * 会議編集の楽観排他はこのタイムスタンプをexpected_updated_atとして送り返す)。 */
+    meetings: Array<{
+      meetingId: string;
+      title: string;
+      meetingDate: string;
+      prepDraftMd: string | null;
+      prepStatus: string | null;
+      summaryShort: string;
+      meetingUpdatedAt: string;
+      linkId: string;
+      linkVersion: number;
+    }>;
+    /** テーマへ紐付けた書類(project_theme_documents経由)。安全なDTOのみ(storage_path/external_urlは含まない)。
+     * linkId/linkVersionはproject_theme_documents側の行(紐付け解除のexpected_version用)。 */
+    documents: Array<{
+      documentId: string;
+      displayName: string;
+      entryKind: string;
+      mimeType: string;
+      linkId: string;
+      linkVersion: number;
+    }>;
+    /** ファイル未着手の予定成果物。project_theme_deliverables。 */
+    deliverables: Array<{
+      id: string;
+      title: string;
+      descriptionMd: string | null;
+      ownerMemberId: string | null;
+      dueOn: string | null;
+      status: string;
+      linkedDocumentId: string | null;
+      version: number;
+    }>;
+    /** MTG/書類 <-> 課題/タスク/決定/マイルストーンの型付き関連。project_theme_work_links。 */
+    workLinks: Array<{
+      id: string;
+      fromKind: string;
+      fromId: string;
+      toKind: string;
+      toId: string;
+      relation: string;
+      version: number;
+    }>;
   }>;
+  /** PJの全MTG(62件相当)。既存レコードピッカー用。project_meeting_summariesそのもの、本文は含まない。 */
+  allMeetings: Array<{ meetingId: string; title: string; meetingDate: string }>;
   evidenceByMonth: Array<{ ym: string; count: number }>;
   evidenceBySource: Array<{ source: string; count: number; lastObservedAt: string | null; scope: "member" | "project" }>;
   weeklyTrend: Array<{ weekStart: string; plannedHours: number; actualHours: number }>;
@@ -288,6 +351,29 @@ const getWorkspaceIdentityCached = unstable_cache(
   { revalidate: 60 },
 );
 
+// PostgREST's actual configured max_rows is 1000 — a query's own .limit(N>1000) does not raise
+// that ceiling, it silently returns at most 1000 rows anyway. .limit(5000) on a theme-bridge/
+// meeting-history query is therefore not "a generous bound", it is a truncation that never
+// surfaces as an error (root review, UI completion phase). This loops real .range() pages with a
+// caller-supplied stable order until a short page proves there is no more data, so complete
+// history (all MTGs/documents/links, not just the newest ~1000) is always returned.
+async function fetchAllRows<T>(
+  buildPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+  pageSize = 1000,
+): Promise<T[]> {
+  const rows: T[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await buildPage(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    const page = data ?? [];
+    rows.push(...page);
+    if (page.length < pageSize) break;
+    from += pageSize;
+  }
+  return rows;
+}
+
 export async function getProjectWorkspaceBundle(
   projectId: string,
   access: WorkspaceProjectAccess,
@@ -307,7 +393,23 @@ export async function getProjectWorkspaceBundle(
   // waterfall made a reload pay both costs. Start it in the same fan-out and
   // make the response wait only for the slowest branch.
   const canManage = access.scope === "portfolio" || access.isAdmin;
-  const [identity, { data: activityRows, error: activityError }, { data: effortRows, error: effortError }, { data: tallyRows, error: tallyError }, { data: planCycleRows, error: planError }, { data: sourceCacheRows, error: sourceCacheError }, { data: trackRows, error: trackError }, { data: vmRows, error: vmError }, sxManagement] = await Promise.all([
+  const [
+    identity,
+    { data: activityRows, error: activityError },
+    { data: effortRows, error: effortError },
+    { data: tallyRows, error: tallyError },
+    { data: planCycleRows, error: planError },
+    { data: sourceCacheRows, error: sourceCacheError },
+    { data: trackRows, error: trackError },
+    { data: vmRows, error: vmError },
+    sxManagement,
+    themeProfileRows,
+    themeMeetingRows,
+    themeDocumentRows,
+    themeDeliverableRows,
+    themeWorkLinkRows,
+    meetingRows,
+  ] = await Promise.all([
     getWorkspaceIdentityCached(projectId),
     db.from("member_activities").select("member_id,ym,source,item_date,raw_metadata").eq("project_id", projectId).gte("ym", months[0]).limit(5000),
     db.from("project_weekly_effort_entries").select("member_id,week_start,work_category,planned_hours,actual_hours,source_kind,management_track,management_milestone_id,deliverable_label").eq("project_id", projectId).gte("week_start", weeks[0]).limit(5000),
@@ -317,6 +419,40 @@ export async function getProjectWorkspaceBundle(
     db.from("project_management_tracks").select("track_key,label,short_label,accent,sort_order").eq("project_id", projectId).order("sort_order"),
     db.from("project_management_track_value_milestones").select("milestone_id,track_key,sort_order").eq("project_id", projectId).order("sort_order").limit(40),
     getSxManagementBundle(projectId, canManage),
+    // テーマ作業ハブ(migration 20260831120000)。低頻度参照ではなく編集対象の可変系データなので、
+    // sxManagementと同じ都度取得のfan-outへ乗せる(参照系キャッシュの対象外)。
+    // Real range-loop pagination (fetchAllRows), not a raw .limit(): PostgREST's own configured
+    // max_rows is 1000, so a bare .limit(5000) silently truncates at 1000 with no error signal at
+    // all — root review (UI completion phase) caught this. A secondary `id`/`track_key` tiebreaker
+    // is added to every order() so ties within one page cannot appear twice or be silently
+    // dropped across a page boundary just because two rows share the same primary sort value (a
+    // due_on-only order, for example, is not unique enough on its own for range pagination). This
+    // is ordinary bounded-list paging, not a database snapshot: a row inserted or deleted by a
+    // concurrent write while this loop is mid-flight can still shift which page an unrelated row
+    // lands on, the same as any other non-snapshotted paged read — that is an accepted, normal
+    // limitation here, not something this stable order claims to solve.
+    fetchAllRows((from, to) =>
+      db.from("project_theme_profiles").select("track_key,purpose_md,current_state_md,next_focus_note,updated_at,version").eq("project_id", projectId).is("deleted_at", null).order("track_key", { ascending: true }).range(from, to),
+    ),
+    fetchAllRows((from, to) =>
+      db.from("project_theme_meetings").select("id,track_key,meeting_id,version").eq("project_id", projectId).is("deleted_at", null).order("id", { ascending: true }).range(from, to),
+    ),
+    fetchAllRows((from, to) =>
+      db.from("project_theme_documents").select("id,track_key,document_id,version").eq("project_id", projectId).is("deleted_at", null).order("id", { ascending: true }).range(from, to),
+    ),
+    fetchAllRows((from, to) =>
+      db.from("project_theme_deliverables").select("id,track_key,title,description_md,owner_member_id,due_on,status,linked_document_id,version").eq("project_id", projectId).is("deleted_at", null).order("due_on", { ascending: true, nullsFirst: false }).order("id", { ascending: true }).range(from, to),
+    ),
+    fetchAllRows((from, to) =>
+      db.from("project_theme_work_links").select("id,track_key,from_kind,from_id,to_kind,to_id,relation,version").eq("project_id", projectId).is("deleted_at", null).order("id", { ascending: true }).range(from, to),
+    ),
+    // 全MTG(既存レコードピッカー用 + テーマ紐付けの解決先)。本文(narrative_md/decided等)は
+    // 含めない。root review: "meetingRows limit500 can hide linked older MTGs" — a 500/5000 bound
+    // of any size is the same bug in a different disguise, so this is a real range loop too, with
+    // meeting_id as the tiebreaker under meeting_date (dates repeat across meetings).
+    fetchAllRows((from, to) =>
+      db.from("project_meeting_summaries").select("meeting_id,title,meeting_date,prep_draft_md,prep_status,summary_short,updated_at").eq("project_id", projectId).order("meeting_date", { ascending: false }).order("meeting_id", { ascending: true }).range(from, to),
+    ),
   ]);
 
   if (!identity) return null;
@@ -327,6 +463,44 @@ export async function getProjectWorkspaceBundle(
   if (sourceCacheError) throw new Error(`project workspace source cache: ${sourceCacheError.message}`);
   if (trackError) throw new Error(`project workspace tracks: ${trackError.message}`);
   if (vmError) throw new Error(`project workspace track milestones: ${vmError.message}`);
+
+  const meetingById = new Map(
+    (meetingRows ?? []).map((row) => [String(row.meeting_id), {
+      meetingId: String(row.meeting_id),
+      title: String(row.title),
+      meetingDate: String(row.meeting_date),
+      prepDraftMd: row.prep_draft_md ? String(row.prep_draft_md) : null,
+      prepStatus: row.prep_status ? String(row.prep_status) : null,
+      summaryShort: String(row.summary_short || ""),
+      meetingUpdatedAt: String(row.updated_at),
+    }]),
+  );
+  const linkedDocumentIds = Array.from(new Set((themeDocumentRows ?? []).map((row) => String(row.document_id))));
+  let documentById = new Map<string, { documentId: string; displayName: string; entryKind: string; mimeType: string }>();
+  if (linkedDocumentIds.length > 0) {
+    // Deliberately hand-picked safe columns only (no storage_path/external_url) — this mirrors
+    // publicWorkspaceDocument()'s allowlist in workspace-documents-server.ts without importing a
+    // route-facing helper into a server-only data-assembly module (workspace-document-access.ts
+    // imports getCurrentMemberAccess FROM this file, so importing it back here would be
+    // circular). project_id + upload_status='active' are NOT optional here even though the
+    // composite FK already guarantees the (project_id, document_id) pair was valid at link time —
+    // a document later archived (or, in theory, a stale cross-PJ id) must not silently keep
+    // rendering as a usable, current document. Associating a document with a theme is also not a
+    // sharing grant: visibility/scope_kind on the row itself are untouched here.
+    const { data: docRows, error: docError } = await db
+      .from("workspace_documents")
+      .select("document_id,display_name,entry_kind,mime_type")
+      .eq("project_id", projectId)
+      .eq("upload_status", "active")
+      .in("document_id", linkedDocumentIds);
+    if (docError) throw new Error(`project workspace theme documents lookup: ${docError.message}`);
+    documentById = new Map((docRows ?? []).map((row) => [String(row.document_id), {
+      documentId: String(row.document_id),
+      displayName: String(row.display_name),
+      entryKind: String(row.entry_kind),
+      mimeType: String(row.mime_type),
+    }]));
+  }
 
   const { project, membershipRows, memberNames: memberNameRows } = identity;
   const memberDisplayNames = new Map(
@@ -404,7 +578,7 @@ export async function getProjectWorkspaceBundle(
 
   const currentPlan = (planCycleRows ?? []).find((row) => row.status === "active") ?? (planCycleRows ?? [])[0] ?? null;
   let milestones: ProjectWorkspaceBundle["milestones"] = [];
-  let themes: ProjectWorkspaceBundle["themes"] = [];
+  const financialMilestonesByTrack = new Map<string, ProjectWorkspaceBundle["milestones"]>();
 
   if (currentPlan?.plan_cycle_id) {
     const { data: milestoneRows, error: milestoneError } = await db
@@ -449,63 +623,175 @@ export async function getProjectWorkspaceBundle(
       };
     });
 
-    // Bridge track milestones to themes
-    const milestoneById = new Map(
-      milestones.map((m) => [m.milestoneId, m]),
-    );
+    const milestoneById = new Map(milestones.map((m) => [m.milestoneId, m]));
+    for (const vm of vmRows ?? []) {
+      const trackKey = vm.track_key ? String(vm.track_key) : null;
+      const milestone = trackKey ? milestoneById.get(String(vm.milestone_id)) : undefined;
+      if (!trackKey || !milestone) continue;
+      const list = financialMilestonesByTrack.get(trackKey) ?? [];
+      list.push(milestone);
+      financialMilestonesByTrack.set(trackKey, list);
+    }
+  }
 
-    const tracksByKey = new Map<string, { label: string; shortLabel: string; accent: string; sortOrder: number }>();
-    for (const track of trackRows ?? []) {
-      const trackKey = track.track_key ? String(track.track_key) : null;
-      if (!trackKey) continue;
-      tracksByKey.set(trackKey, {
+  // テーマ本体は project_management_tracks が正 — 価値計画が無い/未確定でも(brief「A valid
+  // empty theme must appear」)、常に4テーマ(またはPJごとの定義済みテーマ)を組み立てる。
+  const operationalMilestoneIdsByTrack = new Map<string, string[]>();
+  for (const m of sxManagement.milestones) {
+    const list = operationalMilestoneIdsByTrack.get(m.track) ?? [];
+    list.push(m.id);
+    operationalMilestoneIdsByTrack.set(m.track, list);
+  }
+  const taskIdsByTrack = new Map<string, string[]>();
+  const milestoneTrackById = new Map(sxManagement.milestones.map((m) => [m.id, m.track]));
+  for (const t of sxManagement.tasks) {
+    const trackKey = t.track ?? (t.milestoneId ? milestoneTrackById.get(t.milestoneId) : null) ?? null;
+    if (!trackKey) continue;
+    const list = taskIdsByTrack.get(trackKey) ?? [];
+    list.push(t.id);
+    taskIdsByTrack.set(trackKey, list);
+  }
+  const issueIdsByTrack = new Map<string, string[]>();
+  for (const issue of sxManagement.issues) {
+    const list = issueIdsByTrack.get(issue.track) ?? [];
+    list.push(issue.id);
+    issueIdsByTrack.set(issue.track, list);
+  }
+  const profileByTrack = new Map(
+    (themeProfileRows ?? []).map((row) => [String(row.track_key), {
+      purposeMd: row.purpose_md ? String(row.purpose_md) : null,
+      currentStateMd: row.current_state_md ? String(row.current_state_md) : null,
+      nextFocusNote: row.next_focus_note ? String(row.next_focus_note) : null,
+      updatedAt: String(row.updated_at),
+      version: Number(row.version || 1),
+    }]),
+  );
+  // meeting/document -> theme membership, both directions. meetingThemesByMeetingId feeds the
+  // work-links cross-theme rendering fix below (a meeting/document can legitimately belong to
+  // more than one theme; a work_link touching it must be visible in all of them, not only the
+  // one the link row happened to be created under).
+  const meetingThemesByMeetingId = new Map<string, Set<string>>();
+  const meetingsByTrack = new Map<string, ProjectWorkspaceBundle["themes"][number]["meetings"]>();
+  for (const row of themeMeetingRows ?? []) {
+    const trackKey = String(row.track_key);
+    const meetingId = String(row.meeting_id);
+    const meeting = meetingById.get(meetingId);
+    if (!meeting) continue;
+    const list = meetingsByTrack.get(trackKey) ?? [];
+    list.push({
+      ...meeting,
+      linkId: String(row.id),
+      linkVersion: Number(row.version || 1),
+    });
+    meetingsByTrack.set(trackKey, list);
+    const themeSet = meetingThemesByMeetingId.get(meetingId) ?? new Set<string>();
+    themeSet.add(trackKey);
+    meetingThemesByMeetingId.set(meetingId, themeSet);
+  }
+  const documentThemesByDocumentId = new Map<string, Set<string>>();
+  const documentsByTrack = new Map<string, ProjectWorkspaceBundle["themes"][number]["documents"]>();
+  for (const row of themeDocumentRows ?? []) {
+    const trackKey = String(row.track_key);
+    const documentId = String(row.document_id);
+    const doc = documentById.get(documentId);
+    if (!doc) continue;
+    const list = documentsByTrack.get(trackKey) ?? [];
+    list.push({
+      ...doc,
+      linkId: String(row.id),
+      linkVersion: Number(row.version || 1),
+    });
+    documentsByTrack.set(trackKey, list);
+    const themeSet = documentThemesByDocumentId.get(documentId) ?? new Set<string>();
+    themeSet.add(trackKey);
+    documentThemesByDocumentId.set(documentId, themeSet);
+  }
+  const deliverablesByTrack = new Map<string, ProjectWorkspaceBundle["themes"][number]["deliverables"]>();
+  for (const row of themeDeliverableRows ?? []) {
+    const trackKey = String(row.track_key);
+    const list = deliverablesByTrack.get(trackKey) ?? [];
+    list.push({
+      id: String(row.id),
+      title: String(row.title),
+      descriptionMd: row.description_md ? String(row.description_md) : null,
+      ownerMemberId: row.owner_member_id ? String(row.owner_member_id) : null,
+      dueOn: row.due_on ? String(row.due_on) : null,
+      status: String(row.status),
+      linkedDocumentId: row.linked_document_id ? String(row.linked_document_id) : null,
+      version: Number(row.version || 1),
+    });
+    deliverablesByTrack.set(trackKey, list);
+  }
+  // project_theme_work_links' natural UNIQUE deliberately excludes track_key (project-theme-hub.ts
+  // createWorkLink's doc comment): a link is a canonical fact about its two endpoints, not a
+  // per-theme record, so the SAME link must render under every theme either endpoint actually
+  // belongs to — not only the track_key the row happened to be created under. issue/task/
+  // milestone/decision each have (at most) one owning track; meeting/document can legitimately
+  // belong to several (their own theme-bridge tables, above); deliverable belongs to exactly the
+  // theme it was created under.
+  const decisionTrackById = new Map(sxManagement.decisions.map((d) => [d.id, d.track]));
+  const deliverableTrackById = new Map((themeDeliverableRows ?? []).map((row) => [String(row.id), String(row.track_key)]));
+  function themesForEndpoint(kind: string, id: string): Set<string> {
+    switch (kind) {
+      case "meeting": return meetingThemesByMeetingId.get(id) ?? new Set();
+      case "document": return documentThemesByDocumentId.get(id) ?? new Set();
+      case "issue": { const t = issueIdsByTrack; for (const [track, ids] of t) if (ids.includes(id)) return new Set([track]); return new Set(); }
+      case "task": { const t = taskIdsByTrack; for (const [track, ids] of t) if (ids.includes(id)) return new Set([track]); return new Set(); }
+      case "milestone": { const t = operationalMilestoneIdsByTrack; for (const [track, ids] of t) if (ids.includes(id)) return new Set([track]); return new Set(); }
+      case "decision": { const track = decisionTrackById.get(id); return track ? new Set([track]) : new Set(); }
+      case "deliverable": { const track = deliverableTrackById.get(id); return track ? new Set([track]) : new Set(); }
+      default: return new Set();
+    }
+  }
+  const workLinksByTrack = new Map<string, ProjectWorkspaceBundle["themes"][number]["workLinks"]>();
+  for (const row of themeWorkLinkRows ?? []) {
+    const entry = {
+      id: String(row.id),
+      fromKind: String(row.from_kind),
+      fromId: String(row.from_id),
+      toKind: String(row.to_kind),
+      toId: String(row.to_id),
+      relation: String(row.relation),
+      version: Number(row.version || 1),
+    };
+    const memberTracks = new Set([
+      ...themesForEndpoint(entry.fromKind, entry.fromId),
+      ...themesForEndpoint(entry.toKind, entry.toId),
+    ]);
+    // Neither endpoint resolved to a known theme (e.g. a decision with no linked issue) — fall
+    // back to the row's own provenance track_key so the link is not silently dropped entirely.
+    if (memberTracks.size === 0) memberTracks.add(String(row.track_key));
+    for (const trackKey of memberTracks) {
+      const list = workLinksByTrack.get(trackKey) ?? [];
+      list.push(entry);
+      workLinksByTrack.set(trackKey, list);
+    }
+  }
+
+  const themes: ProjectWorkspaceBundle["themes"] = (trackRows ?? [])
+    .map((track) => {
+      const trackKey = String(track.track_key);
+      return {
+        themeKey: trackKey,
         label: String(track.label || ""),
         shortLabel: String(track.short_label || ""),
         accent: String(track.accent || ""),
         sortOrder: Number(track.sort_order || 0),
-      });
-    }
-
-    themes = (vmRows ?? [])
-      .filter((vm) => {
-        const trackKey = vm.track_key ? String(vm.track_key) : null;
-        return trackKey && tracksByKey.has(trackKey);
-      })
-      .reduce(
-        (acc, vm) => {
-          const trackKey = String(vm.track_key);
-          const milestoneId = String(vm.milestone_id);
-          const milestone = milestoneById.get(milestoneId);
-          if (!milestone) return acc;
-
-          let theme = acc.find((t) => t.themeKey === trackKey);
-          if (!theme) {
-            const trackInfo = tracksByKey.get(trackKey);
-            if (!trackInfo) return acc;
-            theme = {
-              themeKey: trackKey,
-              label: trackInfo.label,
-              shortLabel: trackInfo.shortLabel,
-              accent: trackInfo.accent,
-              sortOrder: trackInfo.sortOrder,
-              milestones: [],
-            };
-            acc.push(theme);
-          }
-          theme.milestones.push(milestone);
-          return acc;
-        },
-        [] as Array<{
-          themeKey: string;
-          label: string;
-          shortLabel: string;
-          accent: string;
-          sortOrder: number;
-          milestones: (typeof milestones)[0][];
-        }>,
-      )
-      .sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder));
-  }
+        milestones: financialMilestonesByTrack.get(trackKey) ?? [],
+        profile: profileByTrack.get(trackKey) ?? null,
+        operationalMilestoneIds: operationalMilestoneIdsByTrack.get(trackKey) ?? [],
+        taskIds: taskIdsByTrack.get(trackKey) ?? [],
+        issueIds: issueIdsByTrack.get(trackKey) ?? [],
+        meetings: meetingsByTrack.get(trackKey) ?? [],
+        documents: documentsByTrack.get(trackKey) ?? [],
+        deliverables: deliverablesByTrack.get(trackKey) ?? [],
+        workLinks: workLinksByTrack.get(trackKey) ?? [],
+      };
+    })
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+  const allMeetings: ProjectWorkspaceBundle["allMeetings"] = Array.from(meetingById.values())
+    .map((m) => ({ meetingId: m.meetingId, title: m.title, meetingDate: m.meetingDate }))
+    .sort((a, b) => b.meetingDate.localeCompare(a.meetingDate));
 
   const evidenceByMonth = months.map((ym) => ({
     ym,
@@ -611,6 +897,7 @@ export async function getProjectWorkspaceBundle(
     members,
     milestones,
     themes,
+    allMeetings,
     evidenceByMonth,
     evidenceBySource,
     weeklyTrend,

@@ -46,7 +46,9 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - safe DTO: 共有面はPJ名、表示名、役割、週次時間、5区分、MS、抽出済み活動の件数・種別・最終日だけ。raw本文、URL、email、報酬、契約、内部戦略を含めない。
 - effort write: `project_weekly_effort_entries` はPJ / member / week / categoryで一意。PJ限定ユーザーは自分だけ、portfolio/adminはactive PJ memberを更新できる。
 - admin onboarding: `/admin/members` でPJ限定Googleアカウントを事前登録し、既存のPJメンバー編集で対象PJへ紐付ける。作成時は支払通知対象外。
-- p19 theme progress: ZMPは`OkuDoor` / `葛飾水素循環` / `KR経営改革`の3テーマへ既存9 value milestoneを3/2/4件で接続する。接続があるPJだけ`#theme-progress`を先頭・既定タブにし、テーマ平均は出さない。`routine_auto`は予定進行、PM lockedだけ確定進捗。AMD内部portfolio/adminだけに`/dashboard`と`/project/p19/cockpit`の戻り導線を出し、外部workspace accountとPJ限定memberには出さない。回帰防止は`npm run test:zmp-workspace-themes`。
+- p19 theme hub (2026-08-31 拡張): ZMPは`KR経営改革` / `水素循環PJ` / `OkuDoor運営` / `OkuDoorシステム開発＆運用`の4テーマへ既存9 value milestoneを4/2/2/1件で接続する。テーマタブは運用タスク、運用MS、論点、判断、予定成果物、作業間の関連を作成でき、既存の共有管理エディタを再利用する。読み取り専用では入力を無効にし、保存と削除の操作を出さない。既定表示は明示許可リスト（現状p19のみ）で判定し、価値計画の有無に依存しない。詳細契約は`spec/3-16-project-weekly-control-current-spec.md`。回帰防止は`test:zmp-workspace-themes`と`test:project-theme-hub-helpers`。
+- テーマ画面からのMTG新規作成と編集は`src/lib/theme-hub-rollout.ts`の共有定数でAPIとUI双方から停止する。既存の匿名読取ポリシーについて、まさの明示承認、修正、権限別検証が完了するまで解除しない。既存MTGの閲覧とテーマへの紐付けは利用できる。コックピットMTGカードとホームへの遷移はportfolio/adminだけに出す。外部アカウントとPJ限定memberへ権限外の導線を出さない。
+- テーマ平均は出さず、各成果目標の`routine_auto`は予定進行、PM lockedだけ確定進捗として区別する。実コンポーネントの模擬201/503応答とDB ROLLBACK試験は確認済み。認証付き本番E2E保存は未検証。
 
 ## /portfolio-preview — 研究ポートフォリオ構造プレビュー (2026-08-02 /dashboard へ統合済み・退役)
 
