@@ -1,5 +1,9 @@
 # 附則（設計書変更履歴）
 
+| 2026-09-01 JST | 3-16 | テーマ資料の形式別閲覧 | 資料・成果物・作業関連・経緯出典の5導線を既存open APIへ統一。HTMLをMarkdown専用routeへ送る404を修正。認可不変 | 本番で出典資料を開く導線を確認 | えいみ |
+
+| 2026-09-01 JST | 3-16 | 本番外枠を含む初期表示密度 | desktopのthemeHubSectionはpadding-top 0、テーマ状態/経緯header操作は局所32px。mobileと他タブは不変 | 外枠込みで水素7行を初期画面へ収める | えいみ |
+
 | 2026-09-01 JST | 2-7 / 3-8 / 3-16 | ZMP経緯・コックピット統合・MS密度 | p19のthemesタブで共有コンポーネントを再利用。profile.history_rowsを既存認可/version付きPATCHへ追加し、出典は同PJ同テーマへ接続済みの正本参照。schema/水素7対象seedの2migrationは適用済み。wide editorは左右分割最大1120px。MTG新規/編集停止は維持 | 経緯と現在地を一覧し、編集時も主要情報を同時に把握するため | えいみ |
 
 | 2026-08-31 23:55 JST | 3-8 PJ Cockpit | KUTE完了タスクの状態色 | p25のcompletedタスクだけを緑の全幅バーとdesktop/mobileの完了badgeで表示。未登録進捗率から完了を推定しない。非KUTEとMSは不変、DB変更なし | 完了タスクを識別するため | えいみ |

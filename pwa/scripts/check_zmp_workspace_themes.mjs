@@ -222,7 +222,7 @@ assert.match(themeRoutes, /resource: "meeting_link"/, "既存MTG紐付けは mee
 assert.match(themeRoutes, /resource: "document_link"/, "既存資料紐付けは document_link resource");
 assert.match(themeRoutes, /resource: "deliverable"/, "予定成果物は deliverable resource");
 assert.match(themeRoutes, /resource: "work_link"/, "作業間の関連は work_link resource");
-assert.match(themeRoutes, /workspace-document\/\$\{encodeURIComponent\(/, "資料は既存の資料アクセスルート(/workspace-document/[documentId])を使う");
+assert.match(themeRoutes, /api\/workspace-documents\/\$\{encodeURIComponent\([^)]*\)\}\/open\?download=0/, "資料は既存の認可付き形式別openを使う（Markdown専用routeへHTMLを送らない）");
 assert.match(themeRoutes, /useStableClientToken/, "作成フォームは開いている間ずっと同じclient_tokenを使い回す");
 assert.match(themeRoutes, /useState\(\(\) => crypto\.randomUUID\(\)\)/, "client_tokenは送信の都度ではなくフォームの初回マウントで1回だけ生成する");
 

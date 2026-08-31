@@ -439,6 +439,9 @@ button.issueRowTitleButton:hover, button.issueRowTitleButton:focus-visible { bor
 .editorPanel[data-editor-resource="decision"] .iconButton:hover, .editorPanel[data-editor-resource="decision"] .iconButton:focus-visible,
 .editorPanel[data-editor-resource="action"] .iconButton:hover, .editorPanel[data-editor-resource="action"] .iconButton:focus-visible { background: #E8F3FC; }
 .editorPanel[data-editor-width="wide"] { width: min(760px, calc(100vw - 48px)); }
+@media (min-width: 901px) {
+  .section.themeHubSection { padding-top: 0; }
+}
 /* MS/タスクの全体編集: 内容と運用条件を同時に読む。mobile/行内編集には波及させない。 */
 @media (min-width: 768px) {
   .editorPanel[data-editor-density="compact"] { width: min(1120px, calc(100vw - 48px)); }

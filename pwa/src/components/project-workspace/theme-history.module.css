@@ -30,6 +30,11 @@
 .sourceList label { display: flex; align-items: center; font-weight: 400; min-height: 36px; }
 .sourceList input { flex-shrink: 0; }
 .error { color: #b91c1c; font-size: 12px; }
+@media (min-width: 901px) {
+  .section { padding-top: 6px; }
+  .header { margin-bottom: 4px; }
+  .section .header button { min-height: 32px; height: 32px; }
+}
 @media (max-width: 767px) {
   .table, .table tbody, .table tr, .table th, .table td { display: block; width: 100% !important; }
   .table thead { display: none; }

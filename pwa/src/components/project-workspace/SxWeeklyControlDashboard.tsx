@@ -6223,7 +6223,7 @@ export function SxWeeklyControlDashboard({
         {activeView === "themes" && (
           <section
             id="theme-progress"
-            className={styles.section}
+            className={`${styles.section} ${styles.themeHubSection}`}
             role="tabpanel"
             aria-label="テーマ"
           >

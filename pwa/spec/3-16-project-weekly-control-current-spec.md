@@ -40,6 +40,8 @@
 保存は既存profile PATCHの部分更新と`expected_version`を使う。目的・現状の編集で経緯を消さず、経緯の編集で目的・現状を消さない。保存前に40行/文字数/実在日付/重複ID/出典種別/同一PJの有効な出典を検証する。権限を増やさず、通知・外部送信・自動抽出は追加しない。
 
 ZMPコックピットにも`?tab=themes`で同じテーマ画面を組み込む。通常の既定タブは進捗管理のまま。他PJの`?tab=themes`は進捗管理へ戻す。
+desktop幅901px以上ではテーマ区画の外側上余白を除き、テーマ状態・経緯のヘッダー操作を32pxにする。共通`.sx-management-workspace`の44px指定より局所規則を優先し、mobileの44px操作は変更しない。水素7行が外枠込み1440×900の初期画面に収まる密度を検証する。
+テーマ内の資料・予定成果物・作業関連・経緯出典は`/api/workspace-documents/[id]/open?download=0`で開く。既存open APIがHTML安全表示・Markdown Reader・その他ファイルへ振り分け、同じ可視性を再検証する。Markdown専用の`/workspace-document/[id]`をすべての形式へ使わない。
 
 - p19の9本のvalue milestoneは`KR経営改革`（4件）/ `水素循環PJ`（2件）/ `OkuDoor運営`（2件）/ `OkuDoorシステム開発＆運用`（1件）の4テーマへ束ねる（`ios/supabase/migrations/20260831120000_project_theme_hub.sql`が既存3テーマから改名・分割）。MSは削除・複製せず、テーマ内の「成果目標」としてそのまま残す。
 - 所属正本は `project_management_tracks` と `project_management_track_value_milestones`。同一PJの1成果目標は1テーマだけに所属し、bridgeの`project_id`とvalue milestoneのplan cycleのPJ一致をDBで強制する。

@@ -1012,7 +1012,7 @@ function DeliverableFormDialog({
               {deliverable.linkedDocumentId && (
                 <>
                   <a
-                    href={`/workspace-document/${encodeURIComponent(deliverable.linkedDocumentId)}`}
+                    href={`/api/workspace-documents/${encodeURIComponent(deliverable.linkedDocumentId)}/open?download=0`}
                     target="_blank"
                     rel="noreferrer"
                     className={styles.detailRowSub}
@@ -1449,7 +1449,7 @@ export function ProjectThemeRoutes({
       }
       case "document": {
         const doc = allThemes.flatMap((t) => t.documents).find((d) => d.documentId === id);
-        return { label: doc?.displayName ?? "(見つからない資料)", onClick: doc ? () => window.open(`/workspace-document/${encodeURIComponent(doc.documentId)}`, "_blank") : null };
+        return { label: doc?.displayName ?? "(見つからない資料)", onClick: doc ? () => window.open(`/api/workspace-documents/${encodeURIComponent(doc.documentId)}/open?download=0`, "_blank", "noopener,noreferrer") : null };
       }
       case "deliverable": {
         const deliverable = allThemes.flatMap((t) => t.deliverables).find((d) => d.id === id);
@@ -1538,7 +1538,7 @@ export function ProjectThemeRoutes({
           canManage={canManage}
           sources={[
             ...selectedTheme.meetings.map(meeting => ({ kind: "meeting" as const, id: meeting.meetingId, label: `${formatYmd(meeting.meetingDate)} ${meeting.title}`, onOpen: () => setActiveDialog({ kind: "edit_meeting", meeting }) })),
-            ...selectedTheme.documents.map(document => ({ kind: "document" as const, id: document.documentId, label: document.displayName, onOpen: () => window.open(`/workspace-document/${encodeURIComponent(document.documentId)}`, "_blank", "noopener,noreferrer") })),
+            ...selectedTheme.documents.map(document => ({ kind: "document" as const, id: document.documentId, label: document.displayName, onOpen: () => window.open(`/api/workspace-documents/${encodeURIComponent(document.documentId)}/open?download=0`, "_blank", "noopener,noreferrer") })),
           ]}
           onSave={async rows => {
             await themeHubFetch(projectId, selectedTheme.themeKey, "PATCH", { resource: "profile", fields: { history_rows: rows }, expected_version: selectedTheme.profile?.version ?? null });
@@ -1592,7 +1592,7 @@ export function ProjectThemeRoutes({
                   </span>
                 </RowButton>
                 {d.linkedDocumentId && (
-                  <a href={`/workspace-document/${encodeURIComponent(d.linkedDocumentId)}`} target="_blank" rel="noreferrer" className={styles.detailRowSub}>
+                  <a href={`/api/workspace-documents/${encodeURIComponent(d.linkedDocumentId)}/open?download=0`} target="_blank" rel="noreferrer" className={styles.detailRowSub}>
                     資料を開く
                   </a>
                 )}
@@ -1601,7 +1601,7 @@ export function ProjectThemeRoutes({
             {selectedTheme.documents.map((doc) => (
               <li key={doc.linkId} className={styles.detailRow}>
                 <a
-                  href={`/workspace-document/${encodeURIComponent(doc.documentId)}`}
+                  href={`/api/workspace-documents/${encodeURIComponent(doc.documentId)}/open?download=0`}
                   target="_blank"
                   rel="noreferrer"
                   className={styles.detailRowMain}

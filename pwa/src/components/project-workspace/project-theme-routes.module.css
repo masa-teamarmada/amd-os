@@ -707,11 +707,15 @@
 
 /* 経緯と現在地を冒頭で見渡せるように、desktopのテーマ切替は4列に集約する。 */
 @media (min-width: 901px) {
+  .container { gap: 8px; padding-top: 8px; padding-bottom: 8px; }
+  .themePanel { gap: 8px; }
+  .themeStateCard { gap: 4px; padding-top: 8px; padding-bottom: 8px; }
+  .container .themeStateHeader button { min-height: 32px; height: 32px; }
   .pageHeader { flex-direction: row; align-items: baseline; gap: 12px; }
   .themeStateBlock { flex-direction: row; align-items: baseline; gap: 8px; }
   .themeStateLabel { flex-shrink: 0; }
   .themeSelector { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-  .themeSelectorRow { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 6px; padding: 8px; }
+  .themeSelectorRow { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px 6px; padding: 6px 8px; }
   .themeSelectorName { grid-column: 1 / -1; font-size: 12px; }
   .themeSelectorStatValue { font-size: 11px; }
 }
