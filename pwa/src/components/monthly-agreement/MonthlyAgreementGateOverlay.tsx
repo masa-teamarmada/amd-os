@@ -49,13 +49,13 @@ export function MonthlyAgreementGateOverlay({ bundle }: MonthlyAgreementGateOver
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px] sm:p-8 lg:p-12"
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-3 backdrop-blur-[2px] sm:p-5 lg:p-8"
       role="dialog"
       aria-modal="true"
       aria-label="月初合意"
       onClick={onBackdropClick}
     >
-      <div className="flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-[#d1d1d6] bg-[#f5f5f7] shadow-2xl">
+      <div className="flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-[#d1d1d6] bg-[#f5f5f7] shadow-2xl">
         <MonthlyAgreementExperience
           mode="modal"
           initialBundle={bundle}

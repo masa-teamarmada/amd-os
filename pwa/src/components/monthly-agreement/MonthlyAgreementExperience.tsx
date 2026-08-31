@@ -328,7 +328,7 @@ export function MonthlyAgreementExperience({
             onClick={onDismiss}
             aria-label="閉じる"
             title="閉じる（合意はまだ保存されません）"
-            className="absolute right-2 top-2 inline-flex size-10 items-center justify-center rounded-md border border-[#d1d1d6] bg-white text-[#3c3c43] transition-colors hover:bg-[#f5f5f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007aff]"
+            className="absolute right-2 top-2 inline-flex size-10 items-center justify-center rounded-md border border-[#d1d1d6] bg-white text-[#3c3c43] transition-colors hover:bg-[#f5f5f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007aff] sm:size-8"
           >
             <X className="size-4" />
           </button>
@@ -336,23 +336,23 @@ export function MonthlyAgreementExperience({
         <div
           className={`mx-auto flex ${contentWidth} flex-col gap-3 sm:flex-row sm:items-end sm:justify-between`}
         >
-          <div>
+          <div className="min-w-0">
             <p
               className={`${isModal ? "text-[10px]" : "text-[11px]"} font-semibold tracking-[0.16em] text-[#86868b]`}
             >
               月初合意
             </p>
             <h1
-              className={`${isModal ? "text-[17px] sm:text-[20px]" : "text-[22px]"} mt-1 font-semibold text-[#1d1d1f]`}
+              className={`${isModal ? "text-[16px] sm:text-[18px]" : "text-[22px]"} mt-0.5 font-semibold leading-tight text-[#1d1d1f]`}
             >
               {formatYm(bundle.ym)}の担当内容と予定額
             </h1>
-            <p className="mt-1 text-[13px] text-[#6e6e73]">
+            <p className={`${isModal ? "mt-0.5 text-[11px]" : "mt-1 text-[13px]"} text-[#6e6e73]`}>
               {bundle.member.codeName}
             </p>
           </div>
           {isModal ? (
-            <p className="max-w-xs text-[12px] leading-[18px] text-[#6e6e73]">
+            <p className="hidden max-w-[220px] text-[11px] leading-4 text-[#6e6e73] sm:block">
               右上の × か背景のクリックで閉じます（合意は保存されません）。
             </p>
           ) : (
@@ -371,7 +371,7 @@ export function MonthlyAgreementExperience({
       >
         <section
           data-testid="monthly-agreement-status"
-          className={`w-full rounded-lg border p-4 ${statusClass(bundle.status)}`}
+          className={`w-full rounded-lg border ${isModal ? "p-2.5 sm:p-3" : "p-4"} ${statusClass(bundle.status)}`}
         >
           <div className="flex min-w-0 items-start gap-2.5">
             {bundle.status === "agreed" ? (
@@ -380,10 +380,10 @@ export function MonthlyAgreementExperience({
               <FileCheck2 className="mt-0.5 size-4" />
             )}
             <div className="min-w-0">
-              <p className="text-[14px] font-semibold">
+              <p className={`${isModal ? "text-[12px]" : "text-[14px]"} font-semibold`}>
                 合意状態：{statusLabel(bundle.status)}
               </p>
-              <p className="mt-1 text-[13px] leading-[20px]">
+              <p className={`${isModal ? "mt-0.5 text-[11px] leading-4" : "mt-1 text-[13px] leading-[20px]"}`}>
                 {agreementStatusMessage(bundle)}
               </p>
             </div>
@@ -445,7 +445,7 @@ export function MonthlyAgreementExperience({
           }}
         />
 
-        <section className="w-full rounded-lg border border-[#e5e5e7] bg-white p-4">
+        <section className={`w-full rounded-lg border border-[#e5e5e7] bg-white ${isModal ? "p-3" : "p-4"}`}>
           {/* PJ単位化 (202609 稼働分〜) より前の月と、参加PJが無い月は、従来どおり1回の合意 */}
           {(!bundle.projectScopedAgreement || bundle.snapshot.projects.length === 0) &&
             bundle.status !== "not_required" && (
@@ -1054,28 +1054,28 @@ function RequiredChecksSection({
   return (
     <section
       data-testid="monthly-agreement-required-checks"
-      className="flex w-full max-w-full flex-col gap-4"
+      className={`flex w-full max-w-full flex-col ${compact ? "gap-2.5" : "gap-4"}`}
     >
-      <div className="px-1">
-        <h2 className="text-[18px] font-semibold text-[#1d1d1f] sm:text-[20px]">
+      <div className={compact ? "px-0.5" : "px-1"}>
+        <h2 className={`${compact ? "text-[15px] sm:text-[16px]" : "text-[18px] sm:text-[20px]"} font-semibold text-[#1d1d1f]`}>
           確認して合意する内容{" "}
           <span className="inline-flex align-middle [&_button]:h-5 [&_button]:w-5 [&_button]:text-[12px]">
             <Hint id="monthly-agreement.flow" />
           </span>
         </h2>
-        <p className="mt-1 text-[13px] leading-[20px] text-[#6e6e73]">
+        <p className={`${compact ? "mt-0.5 text-[11px] leading-4" : "mt-1 text-[13px] leading-[20px]"} text-[#6e6e73]`}>
           {projectScoped
             ? "合意はプロジェクトごとです。あなたが担当する仕事と受け取る額に加えて、同じプロジェクトの全員が今月いくら受け取るかを見たうえで、プロジェクトごとに合意してください。"
             : "あなたが担当する仕事と受け取る額に加えて、同じプロジェクトの全員が今月いくら受け取るかを確認してください。この月の合意はまとめて1回です。"}
         </p>
         {projects.length > 0 && (
-          <div className="mt-2 flex flex-wrap items-baseline gap-x-5 gap-y-1">
+          <div className={`${compact ? "mt-1 gap-x-3" : "mt-2 gap-x-5"} flex flex-wrap items-baseline gap-y-1`}>
             {projectScoped && (
             <p className="text-[14px] text-[#3c3c43]">
               合意済み{" "}
               <span
                 data-testid="monthly-agreement-agreed-project-count"
-                className="text-[18px] font-semibold tabular-nums text-[#1d1d1f]"
+                className={`${compact ? "text-[15px]" : "text-[18px]"} font-semibold tabular-nums text-[#1d1d1f]`}
               >
                 {agreedCount} / {agreements.length}
               </span>{" "}
@@ -1084,7 +1084,7 @@ function RequiredChecksSection({
             )}
             <p className="text-[14px] text-[#3c3c43]">
               {payoutExcluded ? "今月お支払いする額" : "今月受け取る額の合計"}{" "}
-              <span className="text-[20px] font-semibold tabular-nums text-[#1d1d1f]">
+              <span className={`${compact ? "text-[16px]" : "text-[20px]"} font-semibold tabular-nums text-[#1d1d1f]`}>
                 {formatYen(totalExpectedRewardYen)}
               </span>
             </p>
@@ -1188,11 +1188,11 @@ function ProjectAgreementBlock({
     <section
       data-testid="monthly-agreement-project-block"
       data-project-id={project.projectId}
-      className={`w-full max-w-full rounded-lg border border-[#e5e5e7] bg-white ${compact ? "p-4" : "p-4 sm:p-6"}`}
+      className={`w-full max-w-full rounded-lg border border-[#e5e5e7] bg-white ${compact ? "p-3" : "p-4 sm:p-6"}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="break-words text-[18px] font-semibold text-[#1d1d1f] sm:text-[20px]">
+          <h3 className={`${compact ? "text-[15px] sm:text-[16px]" : "text-[18px] sm:text-[20px]"} break-words font-semibold text-[#1d1d1f]`}>
             {project.projectName}
           </h3>
           {roleText && <p className="mt-0.5 text-[13px] text-[#6e6e73]">{roleText}</p>}
@@ -1207,10 +1207,10 @@ function ProjectAgreementBlock({
         )}
       </div>
 
-      <div className="mt-4">
+      <div className={compact ? "mt-3" : "mt-4"}>
         <div className="flex items-center gap-2">
           <SectionNumberBadge number="01" />
-          <h4 className="text-[16px] font-semibold text-[#1d1d1f] sm:text-[18px]">
+          <h4 className={`${compact ? "text-[13px] sm:text-[14px]" : "text-[16px] sm:text-[18px]"} font-semibold text-[#1d1d1f]`}>
             あなたが担当する仕事
           </h4>
         </div>
@@ -1222,7 +1222,7 @@ function ProjectAgreementBlock({
               <li
                 key={milestone.milestoneId}
                 data-testid="monthly-agreement-check-scope"
-                className="flex min-w-0 items-start gap-1.5 text-[14px] leading-[22px] text-[#3c3c43]"
+                className={`flex min-w-0 items-start gap-1.5 ${compact ? "text-[12px] leading-[18px]" : "text-[14px] leading-[22px]"} text-[#3c3c43]`}
               >
                 <span aria-hidden="true" className="text-[#86868b]">
                   ・
@@ -1241,21 +1241,21 @@ function ProjectAgreementBlock({
         )}
       </div>
 
-      <div className="mt-5">
+      <div className={compact ? "mt-3" : "mt-5"}>
         <div className="flex items-center gap-2">
           <SectionNumberBadge number="02" />
-          <h4 className="text-[16px] font-semibold text-[#1d1d1f] sm:text-[18px]">
+          <h4 className={`${compact ? "text-[13px] sm:text-[14px]" : "text-[16px] sm:text-[18px]"} font-semibold text-[#1d1d1f]`}>
             その対価としてあなたが受け取る額
           </h4>
         </div>
-        <div className="mt-2 rounded-lg border border-[#dbeafe] bg-sky-50 px-4 py-3">
+        <div className={`mt-2 rounded-lg border border-[#dbeafe] bg-sky-50 ${compact ? "px-3 py-2" : "px-4 py-3"}`}>
           <p
             data-testid="monthly-agreement-check-reward"
-            className="text-[26px] font-bold tabular-nums text-sky-950 sm:text-[28px]"
+            className={`${compact ? "text-[20px] sm:text-[22px]" : "text-[26px] sm:text-[28px]"} font-bold tabular-nums text-sky-950`}
           >
             {formatYen(project.expectedRewardYen)}
           </p>
-          <p className="mt-1 text-[13px] leading-[20px] text-sky-900">
+          <p className={`${compact ? "mt-0.5 text-[11px] leading-4" : "mt-1 text-[13px] leading-[20px]"} text-sky-900`}>
             今月の担当分から発生する額は {formatYen(selfAccrualYen)}
             {carryInYen > 0 ? `、これまで支払いを待ってもらっている分の返済を含みます` : ""}
             {stockYen > 0 ? `。今月末に残る未払い分は ${formatYen(stockYen)}` : ""}
@@ -1271,20 +1271,20 @@ function ProjectAgreementBlock({
         </div>
       </div>
 
-      <div className="mt-5">
+      <div className={compact ? "mt-3" : "mt-5"}>
         <div className="flex items-center gap-2">
           <SectionNumberBadge number="03" />
-          <h4 className="text-[16px] font-semibold text-[#1d1d1f] sm:text-[18px]">
+          <h4 className={`${compact ? "text-[13px] sm:text-[14px]" : "text-[16px] sm:text-[18px]"} font-semibold text-[#1d1d1f]`}>
             このプロジェクトの今月の配分
           </h4>
         </div>
-        <p className="mt-2 text-[13px] leading-[20px] text-[#6e6e73]">
+        <p className={`${compact ? "mt-1 text-[11px] leading-4" : "mt-2 text-[13px] leading-[20px]"} text-[#6e6e73]`}>
           同じプロジェクトの全員が、今月それぞれいくら受け取るかです。発生する額は、担当した仕事の消化ptとMSごとの単価から決まります。全員で同じ原資を分け合うので、誰かの取り分を増やすと他の人の取り分が減ります。
         </p>
         <ProjectAllocationTable project={project} />
       </div>
 
-      <SeasonRewardTrend project={project} ym={ym} />
+      <SeasonRewardTrend project={project} ym={ym} compact={compact} />
 
       {status === "needs_reagreement" && agreement?.changeSummary && (
         <div className="mt-5">
@@ -1301,7 +1301,7 @@ function ProjectAgreementBlock({
         </div>
       )}
 
-      <div className="mt-5 border-t border-[#e5e5e7] pt-4">
+      <div className={`${compact ? "mt-3 pt-3" : "mt-5 pt-4"} border-t border-[#e5e5e7]`}>
         {projectScoped && agreement && !agreement.canAgree && agreement.blockedReason && (
           <p
             data-testid="monthly-agreement-missing-change-reason"
@@ -1534,7 +1534,7 @@ function seasonMonths(project: MonthlyWorkAgreementProject): string[] {
  * 同じ月軸に棒とMSの期間を並べる。まさ 2026-08-29「各MSがどの期間に割り当てられているかも
  * 矢印とかで表示してあげると、ああこのMSが始まるからここから報酬が高くなるんだ、とかも分かりやすい」。
  */
-function SeasonRewardTrend({ project, ym }: { project: MonthlyWorkAgreementProject; ym: string }) {
+function SeasonRewardTrend({ project, ym, compact = false }: { project: MonthlyWorkAgreementProject; ym: string; compact?: boolean }) {
   const months = seasonMonths(project);
   if (months.length === 0) return null;
 
@@ -1581,14 +1581,14 @@ function SeasonRewardTrend({ project, ym }: { project: MonthlyWorkAgreementProje
   };
 
   return (
-    <div className="mt-5">
-      <div className="flex items-center gap-2">
+    <div className={compact ? "mt-3" : "mt-5"}>
+      <div className={compact ? "flex items-center gap-1.5" : "flex items-center gap-2"}>
         <SectionNumberBadge number="04" />
-        <h4 className="text-[16px] font-semibold text-[#1d1d1f] sm:text-[18px]">
+        <h4 className={`${compact ? "text-[13px] sm:text-[14px]" : "text-[16px] sm:text-[18px]"} font-semibold text-[#1d1d1f]`}>
           このシーズンの報酬の見通し
         </h4>
       </div>
-      <p className="mt-2 text-[13px] leading-[20px] text-[#6e6e73]">
+      <p className={`${compact ? "mt-1 text-[11px] leading-4" : "mt-2 text-[13px] leading-[20px]"} text-[#6e6e73]`}>
         {formatYm(months[0])}から{formatYm(months[months.length - 1])}まで、あなたがこのプロジェクトで月ごとにいくら受け取るかです。下の帯は、担当しているMSがどの期間に割り当たっているかを同じ月の並びで示しています。MSが始まる月から受け取る額が増えます。
       </p>
 

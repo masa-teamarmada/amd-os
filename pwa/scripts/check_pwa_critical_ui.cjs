@@ -3007,7 +3007,7 @@ expectIncludes(
     // モーダル外クリックの余白と、閉じる導線 (× ボタン / Escape) を退行させない
     "onDismiss={close}",
     'event.key === "Escape"',
-    "sm:p-8 lg:p-12",
+    "sm:p-5 lg:p-8",
     "max-h-full w-full max-w-4xl",
   ],
 );
