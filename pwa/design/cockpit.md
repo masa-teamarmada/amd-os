@@ -3,7 +3,7 @@
 作成: 2026-05-06 (cool-booth-b72d09 セッション)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
 
-2026-09-01: p19のみ`テーマ`タブ（`?tab=themes`）を追加。PJワークスペースと同じ4テーマ作業画面・経緯表を`CockpitProjectControl`から表示する。現在のroute・認可契約は`../spec/3-8-cockpit-current-spec.md`、経緯の保存・出典・編集契約は`../spec/3-16-project-weekly-control-current-spec.md`。
+2026-09-01: p19のみ`テーマ`タブ（`?tab=themes`）を追加。PJワークスペースと同じ4テーマ作業画面を`CockpitProjectControl`から表示する。テーマ面は経緯表を複製せず、ガント区画の`ガント / 目的構造`切替と関係先リストへ接続する。水素は最上位目的と3成立条件へ分離し、相手別接点とボールは関係先台帳、計画変更と助成金はタスクで追う。現在のroute・認可契約は`../spec/3-8-cockpit-current-spec.md`、正本と表示切替は`../spec/3-16-project-weekly-control-current-spec.md`。
 
 ---
 

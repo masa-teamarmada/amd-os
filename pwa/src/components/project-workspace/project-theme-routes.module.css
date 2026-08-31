@@ -348,6 +348,135 @@
   color: #6b6b6b;
 }
 
+/* --- 正本タブへの索引。テーマ面は要約に徹し、時系列・接点を複製しない --- */
+.controlIndex {
+  overflow: hidden;
+  border: 1px solid #d8dde3;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.controlIndexRow {
+  display: grid;
+  grid-template-columns: minmax(11rem, 1.25fr) minmax(14rem, 2fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 48px;
+  padding: 0.45rem 0.65rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.controlIndexLead {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 0;
+}
+
+.controlIndexLead strong {
+  overflow: hidden;
+  color: #1a1a1a;
+  font-size: 0.82rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.controlIndexLabel {
+  color: #0f766e;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.controlIndexMetrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.controlIndexMetrics span {
+  padding: 0.16rem 0.4rem;
+  border: 1px solid #d8dde3;
+  border-radius: 999px;
+  color: #4b5563;
+  font-size: 0.7rem;
+  line-height: 1.25;
+}
+
+.controlIndexButton {
+  min-height: 32px;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid #0f766e;
+  border-radius: 5px;
+  background: #ffffff;
+  color: #0f766e;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.controlIndexButton:hover { background: #ecfdf5; }
+.controlIndexButton:focus-visible { outline: 2px solid #0f766e; outline-offset: 2px; }
+
+.partnerControlPreview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.partnerControlPreview li {
+  display: grid;
+  grid-template-columns: minmax(8rem, 0.9fr) auto minmax(12rem, 1.5fr);
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.4rem 0.65rem;
+  border-right: 1px solid #e5e7eb;
+  color: #1a1a1a;
+  font-size: 0.73rem;
+}
+
+.partnerControlPreview li:nth-child(2n) { border-right: 0; }
+
+.partnerControlPreview strong {
+  padding: 0.12rem 0.35rem;
+  border-radius: 3px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 0.65rem;
+  white-space: nowrap;
+}
+
+.partnerControlPreview strong[data-state="on_hold"] { background: #f1f5f9; color: #475569; }
+
+.partnerControlPreview small {
+  overflow: hidden;
+  color: #60646c;
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .controlIndexRow { grid-template-columns: minmax(0, 1fr) auto; }
+  .controlIndexMetrics { grid-column: 1 / -1; grid-row: 2; }
+  .partnerControlPreview { grid-template-columns: 1fr; }
+  .partnerControlPreview li,
+  .partnerControlPreview li:nth-child(2n) { border-right: 0; border-bottom: 1px solid #e5e7eb; }
+  .partnerControlPreview li:last-child { border-bottom: 0; }
+}
+
+@media (max-width: 640px) {
+  .partnerControlPreview li { grid-template-columns: minmax(0, 1fr) auto; }
+  .partnerControlPreview small { grid-column: 1 / -1; white-space: normal; }
+}
+
 /* --- 次の仕事サマリー --- */
 .nextWorkCard {
   display: flex;

@@ -13,13 +13,8 @@ const sxWorkspaceDashboard = read("src/components/project-workspace/SxWeeklyCont
 
 assert.match(workspacePage, /resolveSharedWorkspaceAccess\(projectId\)/);
 assert.match(workspacePage, /if \(!access\) notFound\(\)/);
-assert.match(workspacePage, /if \(access\.principal === "workspace_account"\) \{/);
+assert.match(workspacePage, /access\.principal === "workspace_account" && \(/);
 assert.match(workspacePage, /externalWorkspaceRoleCapabilityLabel\(access\.role\)/);
-assert.match(
-  workspacePage,
-  /href=\{`\/project\/\$\{encodeURIComponent\(projectId\)\}\/workspace\/files`\}/,
-);
-assert.match(workspacePage, /PJの内部管理情報は表示しない/);
 assert.match(workspacePage, /getProjectWorkspaceBundle\(projectId, access\)/);
 assert.match(workspacePage, /<SxWeeklyControlDashboard bundle=\{bundle\} access=\{access\} \/>/);
 assert.match(workspacePage, /<SharedWorkspaceScopeRibbon[\s\S]*?principal="workspace_account"/);
@@ -31,6 +26,9 @@ assert.doesNotMatch(legacyWeeklyPage, /SxWeeklyControlDashboard|getProjectWorksp
 assert.doesNotMatch(sxWorkspaceDashboard, /supportsDrive/);
 assert.match(sxWorkspaceDashboard, /PROJECT_WORKSPACE_TABS/);
 assert.match(sxWorkspaceDashboard, /\{ key: "drive", label: "ドライブ" \}/);
+assert.match(sxWorkspaceDashboard, /access\.principal === "workspace_account"/);
+assert.match(sxWorkspaceDashboard, /tab\.key === "gantt" \|\| tab\.key === "partners" \|\| tab\.key === "drive"/);
+assert.match(sxWorkspaceDashboard, /bundle\.themes\.length > 0 \? "themes" : "gantt"/);
 assert.match(
   sxWorkspaceDashboard,
   /<WorkspaceDocumentRoom[\s\S]*scopeKind="project"[\s\S]*scopeId=\{bundle\.project\.projectId\}[\s\S]*presentation="modal"/,

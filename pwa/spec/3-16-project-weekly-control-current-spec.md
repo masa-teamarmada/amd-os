@@ -24,20 +24,20 @@
 |---|---|
 | page | `src/app/(shared-workspace)/project/[projectId]/workspace/page.tsx` |
 | view | `SxWeeklyControlDashboard` |
-| auth | `resolveSharedWorkspaceAccess(projectId)`で当該PJ accessを確認する。内部memberだけが本体dashboardへ進み、外部workspace accountはPJ名と共有資料室だけの別面へ分岐する |
+| auth | `resolveSharedWorkspaceAccess(projectId)`で当該PJ accessを確認する。内部memberと、個別PJアクセスを持つ外部workspace accountが同じdashboardへ進む。外部は管理台帳を読み取り専用とし、共同作業用のテーマ・ガント／目的構造・関係先・共有資料だけをナビへ出す |
 | PJ境界 | `getProjectWorkspaceBundle(projectId, access)` と `projectScopedPathAllowed()`。PJ限定ユーザーは所属PJだけ閲覧可 |
 | shell | 共有ワークスペースshell。月初合意overlayの対象外 |
 | write | portfolio/adminだけ。既存 `/api/project-workspace/[projectId]/management` を使い、clientからDBへ直接書かない |
 
 ## ZMPテーマ作業ハブ（p19、2026-08-26追加・2026-08-31拡張）
 
-### 経緯・計画変更（2026-09-01）
+### テーマ索引・目的構造・経緯の正規化（2026-09-01）
 
-テーマ上部の「これまでの流れ」は、MTGの一覧や編集ログではなく、観点別の経緯サマリーを常時表示する。列は「対象 / 当初の狙い / 動き・結果 / 現在地 / 次の確認」。水素循環PJでは研究者・連携先、助成金ごとの応募経緯と採否、ステーション計画の変更を分ける。desktopは横比較、mobileは対象ごとにラベル付きで読み下す。
+テーマ面は経緯を再入力する別台帳にしない。目的・現在地・次の焦点の短いprofileと、`目的構造とガント`、`接点と現在のボール`の2導線を置き、詳細は既存正本へ戻る。計画側は`project_management_objectives / outcomes / milestones / tasks`、相手側は`project_management_partners / partner_interactions / partner_work_items`を使う。MTGと資料はテーマへの参照のまま保持し、本文を複製しない。
 
-正本は既存`project_theme_profiles.history_rows`（migration `20260901003000_project_theme_history.sql`）。各行は安定ID、対象、当初、経緯、現在地、次の確認、記録時点、確認範囲、元MTG/資料の型付きID参照を持つ。本文・タスク・判断の正本は従来の各台帳に残し、サマリーから戻る。問い合わせ・準備・応募・採択は別状態として記す。日付不明や結果未確認を、未応募・不採択・計画通りへ変換しない。未確認の内容を自動確定しない。
+ガント区画は`ガント / 目的構造`の表示切替を持つ。ガントは計画日を左から右へ追う時間順。目的構造は最上位目的→成立条件→親子タスク→関係先と現在のボールの順に逆算して読む。どちらも同じbundleをクライアント内で切り替え、別fetch・別保存・フィッシュボーン専用JSONを作らない。テーマ面から開いた場合はそのtrackへ絞り、`全テーマを見る`で解除する。タスクは既存editor、関係先は同じ関係先台帳へ遷移する。
 
-保存は既存profile PATCHの部分更新と`expected_version`を使う。目的・現状の編集で経緯を消さず、経緯の編集で目的・現状を消さない。保存前に40行/文字数/実在日付/重複ID/出典種別/同一PJの有効な出典を検証する。権限を増やさず、通知・外部送信・自動抽出は追加しない。
+水素循環PJはmigration `20260901153000_zmp_hydrogen_management_ledger.sql`で正規化する。最上位目的は`都内で水素をつくる・ためる・つかう`、成立条件は`水素供給元の確保 / 水素ステーション建設 / 助成金・整備資金の確保`。シーズリスト作成は完了、堂脇先生は`on_hold`かつボールなし、pHydrogenは`waiting_internal`かつAMD側ボール。ステーションの計画変更と助成金4対象はタスク、相手別の接点履歴は関係先台帳に置く。以前の水素7件の`project_theme_profiles.history_rows`は空にし、同じ事実を二重編集しない。日付、提出、受付、採否、合意、着工は確認できた状態だけを保存する。
 
 ZMPコックピットにも`?tab=themes`で同じテーマ画面を組み込む。通常の既定タブは進捗管理のまま。他PJの`?tab=themes`は進捗管理へ戻す。
 desktop幅901px以上ではテーマ区画の外側上余白を除き、テーマ状態・経緯のヘッダー操作を32pxにする。共通`.sx-management-workspace`の44px指定より局所規則を優先し、mobileの44px操作は変更しない。水素7行が外枠込み1440×900の初期画面に収まる密度を検証する。
@@ -50,7 +50,7 @@ desktop幅901px以上ではテーマ区画の外側上余白を除き、テー�
 - 読み取り専用の閲覧者（`management.canManage`=false）は共有エディタ自身（IssueEditor）がfieldset disabled＋Save/削除ボタン非表示で読み取り専用になる。テーマハブ独自のMTG/予定成果物ダイアログも`readOnly` propで同様に振る舞う。
 - **テーマ画面からのMTG新規作成と編集は一時停止中**（`src/lib/theme-hub-rollout.ts`の`THEME_HUB_MEETING_WRITE_ENABLED=false`）。既存`project_meeting_summaries`の匿名読取りポリシー（`pms_read_anon`）を変更する承認がないため、API側も独立して拒否する。既存MTGの閲覧とテーマへの紐付け、紐付け解除は利用できる。コックピットMTGカード（`/project/[projectId]/cockpit?meeting=<id>`）への遷移はportfolio/adminだけに表示し、PJ限定memberはハブ内で同じ記録を読む。フラグの解除には、まさの明示承認、対象ポリシーの修正、権限別の検証がすべて必要。承認だけでは解除しない。
 - テーマの進捗率を平均してPJ進捗に見せない。各成果目標について累積進捗、目標月、更新時刻、sourceを個別表示する。`routine_auto`は人が確定した実績ではなく`予定進行`として破線表示し、PM locked sourceだけを`確定進捗`とする。
-- AMD内部のportfolio/adminにはヘッダーへ`AMD OSホーム`（`/dashboard`）と`PJコックピット`（`/project/p19/cockpit`）を出す。PJ限定memberはroute isolationにより両routeへ移動できないため表示しない。外部workspace accountは本体dashboard自体を描画しないので、この2導線も出ない。
+- AMD内部のportfolio/adminにはヘッダーへ`AMD OSホーム`（`/dashboard`）と`PJコックピット`（`/project/p19/cockpit`）を出す。外部workspace accountは同じPJ dashboardを読み取れるが、この2導線は出さない。
 - 回帰防止: `npm run test:zmp-workspace-themes`（契約全般）、`npm run test:project-theme-hub-helpers`（保存ヘルパーのmock動作検証）。実コンポーネントの模擬201/503応答で保存後の再表示と失敗時の下書き保持を検証し、DBの整合性と権限はROLLBACK試験で確認した。認証付き本番E2E保存は未検証。
 
 ### データと保存経路
@@ -67,7 +67,7 @@ desktop幅901px以上ではテーマ区画の外側上余白を除き、テー�
 | 運用記録 | タスク、運用MS、論点、仮説、議論、判断、行動は既存の`/management` routeと共有エディタを再利用する。新規登録時に選択中の`track`を渡す。タスクはMS未所属、運用MSはobjective/outcome両方未所属でも登録でき、既存の親子整合性検査は維持する |
 
 変更はsame-origin確認、内部認証、対象PJアクセス、portfolio/adminの管理権限をすべて満たしてから行う。
-テーマへの所属はアクセス権の付与にならず、外部アカウントへ本体や内部資料を開放しない。
+テーマへの所属はアクセス権の付与にならない。外部アカウントは`project_access_memberships`で個別付与されたPJだけを読み、AMD内部の週次介入・担当負荷・コスト・知財・内部資料は開放しない。
 新設5テーブルはPJ境界のRLSと整合性制約を持ち、参照先の存在と同一PJ所属を保存時にも検査する。
 更新時は`expected_version`を必須とし、MTG本文の更新経路だけは既存の`expected_updated_at`を使う。
 競合は409で返し、古い画面から無条件で上書きしない。

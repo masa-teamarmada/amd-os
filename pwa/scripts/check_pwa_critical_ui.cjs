@@ -347,7 +347,7 @@ expectIncludes(
     "notFound()",
     "SharedWorkspaceScopeRibbon",
     "externalWorkspaceRoleCapabilityLabel",
-    "/workspace/files",
+    '<SxWeeklyControlDashboard bundle={bundle} access={access} />',
   ],
 );
 
@@ -3786,7 +3786,7 @@ expectIncludes(
     "sx-plan-inspector-overlay",
     'aria-modal="true"',
     "planInspectorLayer",
-    "ガント上に詳細が開く",
+    "バー・MS・名称から詳細を開ける",
     "createPortal",
     "useModalContainment",
     'data-testid="sx-inline-editor"',

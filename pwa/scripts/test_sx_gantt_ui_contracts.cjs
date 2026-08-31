@@ -294,7 +294,7 @@ assertIncludes(dashboardFile, dashboard, [
   "taskBackingMilestone(management, laneFold, editor.laneKey)",
   "const candidates = management.milestones.filter(",
   'milestone.status !== "completed"',
-  'fields.track = selectedTaskMilestone?.track || "";',
+  'fields.track = selectedTaskMilestone?.track || laneFold.trackForLane(editor.laneKey) || "";',
   "className={styles.inspectorInlineSlot}",
   "className={styles.inspectorTitleEditor}",
   // 柱がPJ属性になったので、既定レーンの固定文字列 "organizational_building" は持たない。
@@ -376,7 +376,7 @@ assertIncludes(dashboardFile, dashboard, [
   "function milestoneOutcomeForLane(",
   "const selectedMilestoneOutcome =",
   "fields.display_lane_keys = selectedMilestoneLanes;",
-  'fields.track = selectedMilestoneOutcome?.track || "";',
+  'fields.track = selectedMilestoneOutcome?.track || editor.track || "";',
 ]);
 
 // -- Point-MS creation stays lightweight: place/name/date are required, completion is optional --
@@ -400,7 +400,6 @@ assertIncludes(dashboardFile, createMilestoneInitial, [
 ]);
 assertNotIncludes(dashboardFile, createMilestoneInitial, [
   "gate:",
-  "owner_label:",
   "next_deliverable:",
   "max_issue:",
   "criticality:",
@@ -415,7 +414,6 @@ assertIncludes(dashboardFile, createMilestoneDefinition, [
 ]);
 assertNotIncludes(dashboardFile, createMilestoneDefinition, [
   'key: "gate"',
-  'key: "owner_label"',
   'key: "next_deliverable"',
   'key: "criticality"',
 ]);

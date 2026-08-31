@@ -90,6 +90,7 @@ import {
   type SxLaneFold,
 } from "@/lib/sx-display-lanes";
 import { SxPartnerPipeline } from "./SxPartnerPipeline";
+import { SxObjectiveMap } from "./SxObjectiveMap";
 import { CockpitCostModel } from "@/components/cockpit/CockpitCostModel";
 import { WorkspaceDocumentRoom } from "@/components/workspace-documents/WorkspaceDocumentRoom";
 import { CockpitIpPortfolio } from "@/components/cockpit/CockpitIpPortfolio";
@@ -98,6 +99,10 @@ import styles from "./weekly-control.module.css";
 
 type StageKey = SxWeeklyIssueStage;
 type ViewFilter = "all" | "attention" | "stale" | "overdue";
+type SxDashboardAccess = Pick<CurrentMemberAccess, "displayName" | "isAdmin" | "scope"> & {
+  memberId: string | null;
+  principal?: "member" | "workspace_account";
+};
 type WorkloadBucketKey =
   | "blocked"
   | "overdue"
@@ -576,7 +581,7 @@ function isGenericPointMilestone(milestone: SxManagementMilestone): boolean {
 
 function editorInitialValues(
   editor: EditorState,
-  access: CurrentMemberAccess,
+  access: SxDashboardAccess,
   management: SxManagementBundle,
 ): Record<string, string> {
   const asOf = management.asOf;
@@ -2201,7 +2206,7 @@ function IssueEditor({
 }: {
   editor: EditorState;
   management: SxManagementBundle;
-  access: CurrentMemberAccess;
+  access: SxDashboardAccess;
   projectId: string;
   onClose: () => void;
   onSaved: (bundle: SxManagementBundle, message: string) => void;
@@ -3838,7 +3843,7 @@ function IssueWorkbench({
 }: {
   issue: SxManagementIssue;
   management: SxManagementBundle;
-  access: CurrentMemberAccess;
+  access: SxDashboardAccess;
   projectId: string;
   onClose: () => void;
   onManagementChange: (bundle: SxManagementBundle) => void;
@@ -4793,7 +4798,7 @@ export function SxWeeklyControlDashboard({
   onViewChange,
 }: {
   bundle: ProjectWorkspaceBundle;
-  access: CurrentMemberAccess;
+  access: SxDashboardAccess;
   /** PJコックピットへ埋め込むとき、表示するタブを外 (CockpitView のタブ列) が決める。 */
   view?: SxWeeklyControlView;
   /** true のとき自前のタイトル行・タブ列・ページ枠を出さない (2026-08-28 コックピット統合)。 */
@@ -4811,6 +4816,11 @@ export function SxWeeklyControlDashboard({
   // (2026-08-08 まさ「タイトルの右の空いたスペースにボタン型で設置」)。
   const [partnerClassification, setPartnerClassification] =
     useState<SxPartnerClassification | null>("poc_candidate");
+  // テーマから開いたときだけ、そのテーマの関係先へ絞る。台帳正本は共通のままで、
+  // 外部を含むPJメンバーにも同じ読み取りビューを出す。
+  const [partnerTrackFilter, setPartnerTrackFilter] = useState<SxTrackKey | null>(null);
+  const [ganttTrackFilter, setGanttTrackFilter] = useState<SxTrackKey | null>(null);
+  const [ganttDisplayMode, setGanttDisplayMode] = useState<"timeline" | "objective">("timeline");
   // Only meaningful alongside editor.kind === "edit_partner" — restricts the generic 関係先編集
   // form down to the partner_next_action provenance's own fields (PARTNER_NEXT_ACTION_FIELD_KEYS).
   // null means "show every field" (the normal full-editor open path).
@@ -4842,12 +4852,16 @@ export function SxWeeklyControlDashboard({
   // データ接続は週次差分タブへ内包する。テーマ接続済みPJはテーマ進捗を既定にし、
   // 明示hashがある場合だけその表示を優先する。テーマ未接続PJは従来どおりlocalStorageを復元する。
   const dynamicTabs = useMemo(() => {
-    const tabs = [...PROJECT_WORKSPACE_TABS_BASE];
+    // 外部PJメンバーは共同作業に必要なテーマ・計画・関係先・資料だけを見る。
+    // AMD内部の週次介入、コスト、知財は同じbundleに含まれていてもナビへ出さない。
+    const tabs = access.principal === "workspace_account"
+      ? PROJECT_WORKSPACE_TABS_BASE.filter((tab) => tab.key === "gantt" || tab.key === "partners" || tab.key === "drive")
+      : [...PROJECT_WORKSPACE_TABS_BASE];
     if (bundle.themes.length > 0) {
       tabs.unshift({ key: "themes", label: "テーマ" });
     }
     return tabs;
-  }, [bundle.themes.length]);
+  }, [access.principal, bundle.themes.length]);
 
   // project-workspace.ts now builds a theme skeleton for every project with defined
   // project_management_tracks rows (migration 273 seeded that for p19/p21/p30 alike, and the
@@ -4860,8 +4874,10 @@ export function SxWeeklyControlDashboard({
   // decision (which project IDs get the operational hub as their home screen), independent of
   // whatever financial data happens to exist right now — not something inferred from row counts.
   const hasThemes = THEME_HUB_DEFAULT_PROJECT_IDS.has(bundle.project.projectId) && bundle.themes.length > 0;
+  const externalViewer = access.principal === "workspace_account";
+  const externalDefaultView: SxWeeklyControlView = bundle.themes.length > 0 ? "themes" : "gantt";
   const [internalView, setActiveView] = useState<SxWeeklyControlView>(
-    () => (hasThemes ? "themes" : "weekly"),
+    () => (externalViewer ? externalDefaultView : hasThemes ? "themes" : "weekly"),
   );
   // 埋め込み時は外から渡された view が正。単体ページのときだけ hash / localStorage を見る。
   const activeView = embedded && view ? view : internalView;
@@ -4869,7 +4885,11 @@ export function SxWeeklyControlDashboard({
     if (embedded) return;
     const fromHash = viewForHash(window.location.hash);
     if (fromHash) {
-      if (fromHash === "themes" && !hasThemes) {
+      if (externalViewer && !dynamicTabs.some((tab) => tab.key === fromHash)) {
+        setActiveView(externalDefaultView);
+        return;
+      }
+      if (!externalViewer && fromHash === "themes" && !hasThemes) {
         setActiveView("weekly");
         return;
       }
@@ -4890,6 +4910,11 @@ export function SxWeeklyControlDashboard({
       );
     };
 
+    if (externalViewer) {
+      setActiveView(externalDefaultView);
+      return;
+    }
+
     if (hasThemes) {
       setActiveView("themes");
       return;
@@ -4900,7 +4925,7 @@ export function SxWeeklyControlDashboard({
       return;
     }
     setActiveView("weekly");
-  }, [embedded, hasThemes]);
+  }, [dynamicTabs, embedded, externalDefaultView, externalViewer, hasThemes]);
 
   function selectView(next: SxWeeklyControlView) {
     setActiveView(next);
@@ -4909,6 +4934,24 @@ export function SxWeeklyControlDashboard({
     window.localStorage.setItem(SX_WEEKLY_VIEW_STORAGE_KEY, next);
     window.history.replaceState(null, "", `#${SX_WEEKLY_VIEW_HASH[next]}`);
   }
+
+  function openThemeControlView(view: "gantt" | "partners", themeKey: string) {
+    if (view === "gantt") {
+      setGanttTrackFilter(themeKey);
+      setGanttDisplayMode("objective");
+    } else {
+      setPartnerTrackFilter(themeKey);
+      setPartnerClassification(null);
+    }
+    selectView(view);
+  }
+
+  const scopedPartners = useMemo(
+    () => partnerTrackFilter
+      ? management.partners.filter((partner) => partner.track === partnerTrackFilter || partner.tracks.some((track) => track.track === partnerTrackFilter))
+      : management.partners,
+    [management.partners, partnerTrackFilter],
+  );
 
   function showNotice(message: string) {
     setNotice(message);
@@ -5644,7 +5687,11 @@ export function SxWeeklyControlDashboard({
                 role="tab"
                 aria-selected={activeView === tab.key}
                 aria-controls={SX_WEEKLY_VIEW_HASH[tab.key]}
-                onClick={() => selectView(tab.key)}
+                onClick={() => {
+                  if (tab.key === "partners") setPartnerTrackFilter(null);
+                  if (tab.key === "gantt") setGanttTrackFilter(null);
+                  selectView(tab.key);
+                }}
               >
                 {tab.label}
               </button>
@@ -5837,13 +5884,39 @@ export function SxWeeklyControlDashboard({
         >
           <div className={styles.sectionHeading}>
             <div>
-              <h2>全体ガント</h2>
+              <h2>{ganttDisplayMode === "timeline" ? "全体ガント" : "目的構造"}</h2>
               <p>
-                タスクは階層を開閉できる。バー・MS・名称を押すとガント上に詳細が開く
+                {ganttDisplayMode === "timeline"
+                  ? "時間から工程を見る。タスクは階層を開閉でき、バー・MS・名称から詳細を開ける"
+                  : "目的から逆算し、成立条件・やること・関係先・現在のボールを同じ枝で見る"}
               </p>
             </div>
-            <p>基準日 {formatDate(management.asOf)}</p>
+            <div className={styles.planViewControls}>
+              <div className={styles.planViewSwitch} role="group" aria-label="計画の表示方法">
+                <button type="button" aria-pressed={ganttDisplayMode === "timeline"} onClick={() => setGanttDisplayMode("timeline")}>ガント</button>
+                <button type="button" aria-pressed={ganttDisplayMode === "objective"} onClick={() => setGanttDisplayMode("objective")}>目的構造</button>
+              </div>
+              <p>基準日 {formatDate(management.asOf)}</p>
+            </div>
           </div>
+          {ganttTrackFilter && ganttDisplayMode === "objective" && (
+            <div className={styles.planScopeBar}>
+              <span>{management.tracks.find((track) => track.key === ganttTrackFilter)?.label ?? ganttTrackFilter}の枝を表示中</span>
+              <button type="button" onClick={() => setGanttTrackFilter(null)}>全テーマを見る</button>
+            </div>
+          )}
+          {ganttDisplayMode === "objective" ? (
+            <SxObjectiveMap
+              management={management}
+              activeTrack={ganttTrackFilter}
+              onOpenTask={(task) => setEditor({ kind: "edit_task", task })}
+              onOpenPartners={(track) => {
+                setPartnerTrackFilter(track);
+                setPartnerClassification(null);
+                selectView("partners");
+              }}
+            />
+          ) : (
           <div className={styles.ganttWorkspace}>
             <div className={styles.ganttFrame}>
               <SxUnifiedTimeline
@@ -6022,6 +6095,7 @@ export function SxWeeklyControlDashboard({
               }}
             />
           </div>
+          )}
         </section>
         )}
 
@@ -6052,11 +6126,11 @@ export function SxWeeklyControlDashboard({
                   {partnerClassification === null && (
                     <span aria-hidden="true">✓ </span>
                   )}
-                  全関係先 {management.partners.length}
+                  全関係先 {scopedPartners.length}
                 </button>
                 {SX_PARTNER_CLASSIFICATION_ORDER.map((classification) => {
                   const active = partnerClassification === classification;
-                  const count = management.partners.filter((partner) =>
+                  const count = scopedPartners.filter((partner) =>
                     sxPartnerHasClassification(partner, classification),
                   ).length;
                   return (
@@ -6075,6 +6149,11 @@ export function SxWeeklyControlDashboard({
                   );
                 })}
               </div>
+              {partnerTrackFilter && (
+                <button type="button" className={styles.partnerScopeChip} onClick={() => setPartnerTrackFilter(null)} aria-label="テーマの絞り込みを解除">
+                  {management.tracks.find((track) => track.key === partnerTrackFilter)?.label ?? partnerTrackFilter}のみ ×
+                </button>
+              )}
             </div>
             {management.canManage && (
               <button
@@ -6095,6 +6174,7 @@ export function SxWeeklyControlDashboard({
               onSyncNotice={showNotice}
               activeClassification={partnerClassification}
               onClassificationChange={setPartnerClassification}
+              activeTrack={partnerTrackFilter}
               onCreateInteraction={(partnerId) =>
                 setEditor({ kind: "create_interaction", partnerId })
               }
@@ -6238,6 +6318,7 @@ export function SxWeeklyControlDashboard({
               onOpenEditor={setEditor}
               onManagementChange={setManagement}
               onOpenIssueWorkbench={setSelectedIssueId}
+              onOpenControlView={openThemeControlView}
             />
           </section>
         )}

@@ -49,7 +49,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - p19 theme hub (2026-08-31 拡張): ZMPは`KR経営改革` / `水素循環PJ` / `OkuDoor運営` / `OkuDoorシステム開発＆運用`の4テーマへ既存9 value milestoneを4/2/2/1件で接続する。テーマタブは運用タスク、運用MS、論点、判断、予定成果物、作業間の関連を作成でき、既存の共有管理エディタを再利用する。読み取り専用では入力を無効にし、保存と削除の操作を出さない。既定表示は明示許可リスト（現状p19のみ）で判定し、価値計画の有無に依存しない。詳細契約は`spec/3-16-project-weekly-control-current-spec.md`。回帰防止は`test:zmp-workspace-themes`と`test:project-theme-hub-helpers`。
 - テーマ画面からのMTG新規作成と編集は`src/lib/theme-hub-rollout.ts`の共有定数でAPIとUI双方から停止する。既存の匿名読取ポリシーについて、まさの明示承認、修正、権限別検証が完了するまで解除しない。既存MTGの閲覧とテーマへの紐付けは利用できる。コックピットMTGカードとホームへの遷移はportfolio/adminだけに出す。外部アカウントとPJ限定memberへ権限外の導線を出さない。
 - テーマ平均は出さず、各成果目標の`routine_auto`は予定進行、PM lockedだけ確定進捗として区別する。実コンポーネントの模擬201/503応答とDB ROLLBACK試験は確認済み。認証付き本番E2E保存は未検証。
-- p19のコックピット`?tab=themes`も同じ4テーマ作業画面を開く。テーマ上部の「これまでの流れ」は対象別の当初・経緯・現在地・次の確認と出典を持ち、MTG履歴の折りたたみだけに退行させない。`project_theme_profiles.history_rows`へ既存version付きAPIで保存し、未確認の応募・採否・合意を補完しない。MS/タスクのwide editorは主要入力を左右に配置し、desktop一画面で見渡せる密度を維持する。回帰防止は`test:theme-history`（2026-09-01）。
+- p19のコックピット`?tab=themes`も同じ4テーマ作業画面を開く。テーマ上部は別の経緯台帳ではなく、同じ`project_management_*`正本を読む`目的構造とガント`、`接点と現在のボール`への高密度な索引。ガント区画は時間順の`ガント`と、最上位目的→成立条件→親子タスク→関係先・現在ボールを逆算する`目的構造`を切り替える。水素は3成立条件へ分離し、堂脇先生は一旦停止、pHydrogenはAMD側ボール。旧水素7行の`project_theme_profiles.history_rows`は空にして二重編集を止める。MS/タスクのwide editorは主要入力を左右に配置し、desktop一画面で見渡せる密度を維持する。回帰防止は`test:zmp-workspace-themes`（2026-09-01）。
 
 ## /portfolio-preview — 研究ポートフォリオ構造プレビュー (2026-08-02 /dashboard へ統合済み・退役)
 
@@ -71,12 +71,12 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - public top: `/` は認証不要で、認証状態にかかわらず自動転送せず必ずポータルを表示する。`institution_workspaces` の `status='active'` かつ `is_publicly_listed=true` の行だけを slug / ワークスペース名 / 機関の名称・種別・地域で一覧し、説明文、件数、ECR、AMD Score を公開面へ出さない。ログイン済み内部メンバーにはARMADA OSへの明示ボタン、外部アカウントには `/workspaces` への明示リンクを出す。
 - external hub: `/workspaces` は所属する機関ワークスペースと、個別に許可されたPJだけを並べる。機関所属をPJ一覧の根拠にしない。PJ取得失敗は参加0件へ変換せず、参加状況は変わっていないことと再読込案内を出す。
 - institution workspace: `/workspace/[slug]` は内部アプリのchromeを共有しない独立シェルで、対象機関のPJ・シーズ・ECRを読み取り専用で出す。個別に許可されたPJリンクは `/workspace/[slug]/project/[projectId]` を開き、最新の承認済みpublicationだけを研究機関レンズで表示する。
-- dual surface: `/project/[projectId]/workspace` は**同じURLのまま**、アクセス解決の後に内部メンバー向け詳細バンドルか外部向け読み取り専用DTOかを選ぶ。外部面のURLを別に切らない。
+- dual surface: `/project/[projectId]/workspace` は**同じURLのまま**、アクセス解決の後に内部メンバーと個別PJ権限を持つ外部メンバーが同じPJ管理bundleを使う。外部は読み取り専用で、ナビを`テーマ / ガント（目的構造を含む） / 関係先 / ドライブ`へ限定する。外部面のURLや管理台帳を別に複製しない。
 - explicit grant only: 認可はアカウント登録 (`workspace_user_accounts`) + 機関ワークスペース所属 (`institution_workspace_memberships`) + PJ個別アクセス (`project_access_memberships`) の3つの明示的な付与だけ。**機関所属はPJアクセスを含意しない**。メールのドメイン一致を認可の根拠にしない。
 - narrow auth: メールリンクでログインし、Supabaseセッション成立直後に `signOut({ scope: "local" })` してHTTP-only署名cookie `amd_os_workspace_session` へ交換する。cookieは毎リクエスト検証したうえで必ずDBを引き直し、アカウント停止・所属失効・ワークスペースpauseを次のリクエストで反映する。cookieの中身だけを信用しない。メール送信は登録account単位のDB atomic claimで60秒cooldown、15分5回までとする。
 - route isolation: `amd_os_workspace_session` が通常セッションの代わりになるのは `/workspaces`、`/workspace/**`、`/project/[projectId]/workspace` だけ。内部メンバーrouteや `/admin/**` へは効かない。
 - fail closed: 未認可・不明slug・未許可PJは redirect せず not found。機関やPJの存在自体を漏らさない。`/api/auth/email-start` は登録の有無で応答の形も状態コードも変えない。
-- safe DTO: 外部PJ面はPJ名・状態、計画サイクル、マイルストーンの表題・目標年月・進捗率だけ。進捗行なしは `null` と「未登録」を返し、0%へ変換しない。内部バンドルの取得経路を外部面から呼ばず、メンバー名、工数、根拠、出典、社内管理項目 (目的 / 成果 / 論点 / 仮説 / 意思決定 / 資金 / 関係先)、連絡先を含めない。機関ワークスペースDTOも要約・説明・URL・出典・連絡先・根拠の形をした列と、SPSの `axis_evidence` / `evaluator`、ECRの note / evaluator / rubric を返さない。
+- scoped project bundle: 外部PJ面は毎回`project_access_memberships`を再確認し、許可されたPJの共同実行情報（テーマ、目的、成立条件、タスク、MS、関係先、接点履歴、現在のボール、共有資料）だけを読み取り表示する。書込み権限は付けず、AMD内部の週次介入・担当工数・コスト・知財・契約・採算・内部資料・連絡先・raw本文はナビにも表示しない。進捗未登録や結果未確認を0件・0%・不採択へ変換しない。機関ワークスペースDTOの要約・説明・URL・出典・連絡先・根拠、SPSの`axis_evidence` / `evaluator`、ECRのnote / evaluator / rubricを返さない境界は維持する。
 - list sorting: 機関ワークスペースのシーズ一覧は `/seeds` と同じライフサイクル優先度 (PJ化済み → PJ化検討中 → PJなし・SPS算出済み → その他) で並べ、同区分内は表題の日本語順。
 - ECR transpose: ECR は1機関の縦並びで総合値と8軸を上から読む。機関横断の比較表 (1機関=1行×軸を列) とは別の見せ方として維持し、**SPSとは別系列のまま合算しない** (合成スコア・相関・因果指標を作らない)。
 - 愛媛スコープ: p30 は `ehime` ワークスペースへ `shared_surface='summary'` (サマリのみ共有、詳細ワークスペースは非共有)。**p21 の詳細ワークスペースはPJ個別付与でのみ到達可能**で、機関ワークスペースのPJ範囲には含めない。シーズ範囲は `inst_ehime` 紐付け全件をPJ化有無で絞らない。

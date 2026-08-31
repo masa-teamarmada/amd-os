@@ -18,11 +18,15 @@ const migration = readRepo(
   "ios/supabase/migrations/20260826150000_project_management_track_value_milestones.sql",
 );
 const themeHubMigration = readRepo("ios/supabase/migrations/20260831120000_project_theme_hub.sql");
+const hydrogenLedgerMigration = readRepo("ios/supabase/migrations/20260901153000_zmp_hydrogen_management_ledger.sql");
 const bundle = readPwa("src/lib/project-workspace.ts");
 const dashboard = readPwa("src/components/project-workspace/SxWeeklyControlDashboard.tsx");
 const themeRoutes = readPwa("src/components/project-workspace/ProjectThemeRoutes.tsx");
+const objectiveMap = readPwa("src/components/project-workspace/SxObjectiveMap.tsx");
+const partnerPipeline = readPwa("src/components/project-workspace/SxPartnerPipeline.tsx");
 const themeCss = readPwa("src/components/project-workspace/project-theme-routes.module.css");
 const sharedPage = readPwa("src/app/(shared-workspace)/project/[projectId]/workspace/page.tsx");
+const sharedAccess = readPwa("src/lib/project-shared-workspace-access.ts");
 const themeHubRoute = readPwa("src/app/api/project-workspace/[projectId]/theme/[trackKey]/route.ts");
 const themeHubLib = readPwa("src/lib/project-theme-hub.ts");
 
@@ -118,7 +122,7 @@ assert.doesNotMatch(bundle, /milestoneRows \?\? \[\]\)\.slice\(0, 8\)/, "9件目
 
 assert.match(dashboard, /themes: "theme-progress"/, "既存hash(#theme-progress)は互換のため維持する");
 assert.match(dashboard, /tabs\.unshift\(\{ key: "themes", label: "テーマ" \}\)/, "テーマ進捗→テーマへラベル変更(root review)");
-assert.match(dashboard, /\(\) => \(hasThemes \? "themes" : "weekly"\)/);
+assert.match(dashboard, /externalViewer \? externalDefaultView : hasThemes \? "themes" : "weekly"/);
 assert.ok(
   dashboard.indexOf("const fromHash = viewForHash") < dashboard.indexOf("window.localStorage.getItem"),
   "明示hashをlocalStorageより優先する",
@@ -154,14 +158,11 @@ assert.match(
   "内部portfolio/adminだけにAMD OSホームとコックピット導線を出す",
 );
 
-const externalBranch = sharedPage.indexOf('if (access.principal === "workspace_account")');
-const internalDashboard = sharedPage.indexOf("<SxWeeklyControlDashboard");
-assert.ok(externalBranch >= 0 && internalDashboard > externalBranch, "外部accountを内部dashboardより先に分岐する");
-assert.doesNotMatch(
-  sharedPage.slice(externalBranch, internalDashboard),
-  /href="\/dashboard"|\/cockpit/,
-  "外部accountの画面に内部導線を置かない",
-);
+assert.match(sharedPage, /access\.principal === "workspace_account"[\s\S]*?<SharedWorkspaceScopeRibbon/, "外部PJメンバーには外部スコープ表示を残す");
+assert.match(sharedPage, /<SxWeeklyControlDashboard bundle=\{bundle\} access=\{access\}/, "内部・外部とも同じPJワークスペースを読む");
+assert.doesNotMatch(sharedPage, /共有資料をひとつの場所で|PJの内部管理情報は表示しない/, "外部を資料室だけへ閉じる旧分岐を残さない");
+assert.match(sharedAccess, /memberId: null;[\s\S]*?canManage: false;/, "外部PJメンバーは閲覧専用のまま");
+assert.match(dashboard, /access\.principal === "workspace_account"[\s\S]*?tab\.key === "gantt"[\s\S]*?tab\.key === "partners"[\s\S]*?tab\.key === "drive"/, "外部PJメンバーの共有ナビはテーマ・ガント・関係先・資料へ限定する");
 
 assert.match(themeRoutes, /routine_auto: "予定進行"/);
 assert.match(themeRoutes, /PM_LOCKED_SOURCES/);
@@ -169,6 +170,33 @@ assert.match(themeRoutes, /timeZone: "Asia\/Tokyo"/);
 assert.match(themeRoutes, /月の月次値/);
 assert.doesNotMatch(themeRoutes, /平均|average/i, "テーマ平均を偽の進捗として出さない");
 assert.doesNotMatch(themeCss, /linear-gradient|radial-gradient/, "テーマ画面にgradientを持ち込まない");
+
+// 水素循環PJの混在履歴を、時間軸(ガント)と相手軸(関係先)へ正規化する。
+assert.match(hydrogenLedgerMigration, /都内で水素をつくる・ためる・つかう/, "最上位目的をseedする");
+for (const title of ["水素供給元の確保", "水素ステーション建設", "助成金・整備資金の確保", "シーズリスト作成"]) {
+  assert.ok(hydrogenLedgerMigration.includes(title), `${title}をガント正本へseedする`);
+}
+assert.match(hydrogenLedgerMigration, /'東京理科大学・堂脇先生'[\s\S]*?'on_hold', 'on_hold'/, "堂脇先生は一旦停止");
+assert.match(hydrogenLedgerMigration, /'pHydrogen'[\s\S]*?'information_exchange', 'waiting_internal'/, "pHydrogenは当方アクション待ち");
+assert.match(hydrogenLedgerMigration, /'sx', NULL, '供給量・時期・単価・稼働枠/, "pHydrogenの現在ボールはAMD側");
+assert.match(hydrogenLedgerMigration, /history_rows = '\[\]'::jsonb/, "既知7行の重複履歴はテーマ概要から外す");
+assert.match(hydrogenLedgerMigration, /jsonb_array_length\(history_rows\) = 7/, "後続の手編集履歴を無条件で消さない");
+
+// テーマは索引、ガントタブ内で時間軸と目的からの逆算を切替える。
+assert.doesNotMatch(themeRoutes, /<ThemeHistory|import \{ ThemeHistory \}/, "テーマ面に重複する履歴台帳を残さない");
+assert.match(themeRoutes, /onOpenControlView\?\.\("gantt", selectedTheme\.themeKey\)/, "テーマから目的構造へ遷移する");
+assert.match(themeRoutes, /onOpenControlView\?\.\("partners", selectedTheme\.themeKey\)/, "テーマから関係先へ遷移する");
+assert.match(dashboard, /"timeline" \| "objective"/, "ガントと目的構造の表示モードを持つ");
+assert.match(dashboard, /<SxObjectiveMap/, "ガントタブ内に目的構造を描く");
+assert.match(dashboard, />ガント<\/button>/, "ガント切替を出す");
+assert.match(dashboard, />目的構造<\/button>/, "目的構造切替を出す");
+assert.match(objectiveMap, /最上位の目的/);
+assert.match(objectiveMap, /成立条件/);
+assert.match(objectiveMap, /関係先とボール/);
+assert.match(objectiveMap, /AMD側ボール/);
+assert.match(objectiveMap, /一旦停止/);
+assert.match(partnerPipeline, /activeTrack\?: SxTrackKey \| null/, "関係先リストは同じ正本をテーマで絞れる");
+assert.match(partnerPipeline, /partner\.tracks\.some\(\(track\) => track\.track === activeTrack\)/, "副track所属もテーマ絞り込みへ含める");
 
 // UI完成フェーズ (phase-ui.md / acceptance.md): 旧カードグリッドではなく、実際に作成/編集できる
 // 機能面へ置き換わっていること。タスク/運用MS/論点/決定/アクションは既存のダッシュボード編集

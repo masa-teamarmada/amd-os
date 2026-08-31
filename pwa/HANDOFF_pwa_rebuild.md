@@ -1,24 +1,32 @@
 # HANDOFF - AMD OS PWA
 
-## 2026-09-01 ZMP経緯・コックピット・編集密度（全クライアント向け）
+## 2026-09-01 ZMP目的構造・関係先正規化・PJメンバー共有（PWA）
+
+- p19の`ガント`は、時間順の`ガント`と、最上位目的→成立条件→親子タスク→関係先・現在ボールを逆算する`目的構造`を同じ場所で切り替える。別のフィッシュボーン用保存データは持たない。
+- 水素循環PJは`都内で水素をつくる・ためる・つかう`を最上位に、`水素供給元の確保 / 水素ステーション建設 / 助成金・整備資金の確保`へ分離。シーズリスト作成は完了、堂脇先生は一旦停止、pHydrogenはAMD側ボール。migration `20260901153000_zmp_hydrogen_management_ledger.sql`を本番適用済み。
+- テーマ面の旧`これまでの流れ`は撤去。計画変更・助成金はタスク、相手別の接点履歴は関係先台帳へ正規化し、水素profileの既知7行`history_rows`は空にした。profileは目的・現在地・次の焦点の概要だけを持つ。
+- 個別PJアクセスを持つ外部workspace accountも、同じ`/project/[projectId]/workspace`で`テーマ / ガント（目的構造） / 関係先 / ドライブ`を閲覧する。管理台帳はread-only。AMD内部の週次介入・担当負荷・コスト・知財と、`AMD OSホーム` / `PJコックピット`導線は出さない。
+- 回帰: `test:zmp-workspace-themes`、workspace access系、型検査、build、desktop/mobile実寸を確認する。iOS/macOS/Androidは未移植。
+
+## 2026-09-01 旧ZMP経緯表・コックピット・編集密度（上記で一部置換）
 
 - 本番コックピットは外枠の28px余白と共通44px操作が加わるため、desktopのテーマ区画だけ余白を除き、ヘッダー操作を32pxへ限定。本文文字とmobile操作は縮小しない。v3.100.8の実寸確認で見つかった最後の1行の画面外表示を補正する。
 - テーマ内の資料・出典・予定成果物は既存`/api/workspace-documents/[id]/open?download=0`へ統一。`/workspace-document/[id]`はMarkdown専用なのでHTMLを直接送ると404になる。形式振分け・認可は既存open APIに委譲し、公開権限は変えない。
 
 - p19コックピットの`?tab=themes`はワークスペースと同じ4テーマ画面。他PJと既定の進捗管理は不変。
-- 各テーマ上部の「これまでの流れ」に対象別の当初・動きと結果・現在地・次の確認・記録日・元記録参照を置く。水素のみ7対象を確認済み記録から初期整理し、応募・採否・合意の未確認は区別。他3テーマを推測で埋めていない。
-- `project_theme_profiles.history_rows`を既存profile API/versionで保存。出典は同一PJ・同一テーマの接続済みMTG/資料だけ。保存後の再読込失敗では保存を再送せずGETだけ再試行する。
+- 各テーマ上部の「これまでの流れ」に対象別の当初・動きと結果・現在地・次の確認・記録日・元記録参照を置いていたが、上記正規化で画面から撤去した。
+- `project_theme_profiles.history_rows`の保存経路は互換として残るが、水素では使わず、同じ事実をガントと関係先へ二重保存しない。
 - migration `20260901003000_project_theme_history.sql` / `20260901004500_seed_zmp_hydrogen_history.sql`は本番適用済み、再適用禁止。seedは既存水素profileを上書きしない。RLS・MTG本文は変更なし。`THEME_HUB_MEETING_WRITE_ENABLED=false`を維持する。
 - 共通MS/タスクのwide editorはdesktop最大1120px、内容を左・状態担当日程を右に集約。1440×900で15入力と保存を同時表示。mobileは44px操作/16px入力のbottom sheetを維持。
 - iOS/macOS/Android未移植。モデル/BZM・ネイティブコード・GASに変更なし。共有checkoutの既存BZM原稿と8月セッションログの変更は今回の反映から除外する。
 
 | 同期対象 | 結果 |
 |---|---|
-| manual | 2-3の経緯入口・読方・編集密度、9-3履歴を更新 |
-| spec | 2-7、3-8、3-16、6-1履歴、db_schemaを更新 |
+| manual | 2-3をガント／目的構造・関係先正本・外部PJメンバー共有へ更新、9-3履歴を追記 |
+| spec | 3-8、3-16、FEATURE_REGISTRY、6-1履歴、ios/DESIGNを更新 |
 | BZM | 理論・計算式に変更なし、更新不要 |
 | 全クライアント | ios/DESIGNと本節で未移植・適用済みmigrationを明記 |
-| 検証 | test:theme-history、theme-hub helpers、ZMPテーマ、KUTEタブ、critical-ui、共有保存契約、型検査。実コンポーネントの模擬保存/失敗/再読込を確認。本番の架空記録保存は行わない |
+| 検証 | ZMPテーマ、workspace access/session/route、ガントUI、shared control、critical-ui、型検査、production buildを通過。関係先ファイルの既存Lint 2件は本変更外。本番の架空記録保存は行わない |
 
 
 ## 2026-08-31 KUTE完了表示とタスク棚卸し

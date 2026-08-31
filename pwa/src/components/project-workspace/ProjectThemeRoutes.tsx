@@ -7,6 +7,7 @@ import type {
   SxManagementBundle,
   SxManagementIssue,
   SxManagementMilestone,
+  SxManagementPartner,
   SxTask,
 } from "@/lib/sx-management";
 import type { EditorState } from "./SxWeeklyControlDashboard";
@@ -29,7 +30,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { THEME_HUB_MEETING_WRITE_ENABLED, THEME_HUB_MEETING_WRITE_BLOCKED_MESSAGE } from "@/lib/theme-hub-rollout";
 import styles from "./project-theme-routes.module.css";
-import { ThemeHistory } from "./ThemeHistory";
 
 type ThemeData = ProjectWorkspaceBundle["themes"][number];
 type MilestoneData = ThemeData["milestones"][number];
@@ -287,6 +287,22 @@ function themeIssues(theme: ThemeData, sx: SxManagementBundle): SxManagementIssu
 function themeDecisions(theme: ThemeData, sx: SxManagementBundle) {
   const issueIds = new Set(themeIssues(theme, sx).map((issue) => issue.id));
   return sx.decisions.filter((decision) => decision.issueId != null && issueIds.has(decision.issueId));
+}
+
+function themePartners(theme: ThemeData, sx: SxManagementBundle): SxManagementPartner[] {
+  return sx.partners.filter((partner) =>
+    partner.track === theme.themeKey || partner.tracks.some((track) => track.track === theme.themeKey),
+  );
+}
+
+function partnerControlLabel(partner: SxManagementPartner): string {
+  if (partner.activityState === "on_hold") return "一旦停止";
+  if (partner.activityState === "dropped") return "終了";
+  if (partner.activityState === "waiting_internal") return "当方が動く";
+  if (partner.activityState === "waiting_partner") return "先方待ち";
+  if (partner.activityState === "stalled") return "停滞";
+  if (partner.activityState === "active") return "進行中";
+  return "状態未確認";
 }
 
 function themeSummary(theme: ThemeData, sx: SxManagementBundle) {
@@ -1263,6 +1279,7 @@ export function ProjectThemeRoutes({
   onOpenEditor,
   onManagementChange,
   onOpenIssueWorkbench,
+  onOpenControlView,
 }: {
   projectId: string;
   themes: ProjectWorkspaceBundle["themes"];
@@ -1270,7 +1287,7 @@ export function ProjectThemeRoutes({
   allMeetings: ProjectWorkspaceBundle["allMeetings"];
   members: ProjectWorkspaceBundle["members"];
   canManage: boolean;
-  currentMemberId: string;
+  currentMemberId: string | null;
   onOpenEditor?: (editor: EditorState) => void;
   onManagementChange?: (next: SxManagementBundle) => void;
   /** root review (point 13): edit_issue is a bare field editor, not the rich issue detail view
@@ -1278,6 +1295,9 @@ export function ProjectThemeRoutes({
    * IssueWorkbench the issues tab uses, not a copy — this callback is that tab's own
    * setSelectedIssueId, passed straight through. */
   onOpenIssueWorkbench?: (issueId: string) => void;
+  /** テーマの要約から、同じ正本を読むガント／関係先リストへ移る。閲覧導線なので
+   * project-scope の外部PJメンバーにも出し、編集権限とは分ける。 */
+  onOpenControlView?: (view: "gantt" | "partners", themeKey: string) => void;
 }) {
   const [localThemes, setLocalThemes] = useState(themes);
   const [localAllMeetings, setLocalAllMeetings] = useState(allMeetings);
@@ -1340,6 +1360,11 @@ export function ProjectThemeRoutes({
   const opMilestones = themeMilestonesOperational(selectedTheme, sxManagement);
   const issues = themeIssues(selectedTheme, sxManagement);
   const decisions = themeDecisions(selectedTheme, sxManagement);
+  const partners = themePartners(selectedTheme, sxManagement);
+  const openTasks = tasks.filter((task) => task.status !== "completed");
+  const completedTasks = tasks.filter((task) => task.status === "completed");
+  const ourBallPartners = partners.filter((partner) => partner.currentBallSide === "sx");
+  const pausedPartners = partners.filter((partner) => partner.activityState === "on_hold");
   const linkedMeetingIds = new Set(selectedTheme.meetings.map((m) => m.meetingId));
   const linkedDocumentIds = new Set(selectedTheme.documents.map((d) => d.documentId));
 
@@ -1532,21 +1557,47 @@ export function ProjectThemeRoutes({
           </div>
         </div>
 
-        <ThemeHistory
-          key={selectedTheme.themeKey}
-          rows={selectedTheme.profile?.historyRows ?? []}
-          canManage={canManage}
-          sources={[
-            ...selectedTheme.meetings.map(meeting => ({ kind: "meeting" as const, id: meeting.meetingId, label: `${formatYmd(meeting.meetingDate)} ${meeting.title}`, onOpen: () => setActiveDialog({ kind: "edit_meeting", meeting }) })),
-            ...selectedTheme.documents.map(document => ({ kind: "document" as const, id: document.documentId, label: document.displayName, onOpen: () => window.open(`/api/workspace-documents/${encodeURIComponent(document.documentId)}/open?download=0`, "_blank", "noopener,noreferrer") })),
-          ]}
-          onSave={async rows => {
-            await themeHubFetch(projectId, selectedTheme.themeKey, "PATCH", { resource: "profile", fields: { history_rows: rows }, expected_version: selectedTheme.profile?.version ?? null });
-          }}
-          onRefresh={async () => {
-            if (!(await refreshBundle())) throw new Error("保存は完了したけど、最新表示を読み込めなかったよ。もう一度読み込んでね。");
-          }}
-        />
+        <div className={styles.controlIndex} aria-label="このテーマの進行内訳">
+          <div className={styles.controlIndexRow}>
+            <div className={styles.controlIndexLead}>
+              <span className={styles.controlIndexLabel}>計画</span>
+              <strong>目的構造とガント</strong>
+            </div>
+            <div className={styles.controlIndexMetrics}>
+              <span>進行中 {openTasks.length}</span>
+              <span>完了 {completedTasks.length}</span>
+              <span>枝 {opMilestones.length}</span>
+            </div>
+            <button type="button" className={styles.controlIndexButton} onClick={() => onOpenControlView?.("gantt", selectedTheme.themeKey)}>
+              目的構造を見る
+            </button>
+          </div>
+          <div className={styles.controlIndexRow}>
+            <div className={styles.controlIndexLead}>
+              <span className={styles.controlIndexLabel}>関係先</span>
+              <strong>接点と現在のボール</strong>
+            </div>
+            <div className={styles.controlIndexMetrics}>
+              <span>関係先 {partners.length}</span>
+              <span>当方が動く {ourBallPartners.length}</span>
+              <span>一旦停止 {pausedPartners.length}</span>
+            </div>
+            <button type="button" className={styles.controlIndexButton} onClick={() => onOpenControlView?.("partners", selectedTheme.themeKey)}>
+              関係先を見る
+            </button>
+          </div>
+          {partners.length > 0 && (
+            <ul className={styles.partnerControlPreview}>
+              {partners.slice(0, 4).map((partner) => (
+                <li key={partner.id}>
+                  <span>{partner.name}</span>
+                  <strong data-state={partner.activityState}>{partnerControlLabel(partner)}</strong>
+                  <small>{partner.nextCommitment || "次の行動 未確認"}</small>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
         <div className={styles.nextWorkCard}>
           <div className={styles.nextWorkHeader}>

@@ -32,6 +32,7 @@ import type {
   SxPartnerStage,
   SxPartnerWorkItem,
   SxPartnerClassification,
+  SxTrackKey,
   SxPocJudgment,
   SxSampleStatus,
 } from "@/lib/sx-management";
@@ -4881,6 +4882,7 @@ export function SxPartnerPipeline({
   onCreateInteraction,
   activeClassification: controlledClassification,
   onClassificationChange,
+  activeTrack = null,
 }: {
   management: SxManagementBundle;
   projectId: string;
@@ -4890,6 +4892,9 @@ export function SxPartnerPipeline({
   /** 指定すると分類タブを親が持つ (週次管制はタイトル行へ出す)。未指定なら内部stateで従来表示。 */
   activeClassification?: SxPartnerClassification | null;
   onClassificationChange?: (classification: SxPartnerClassification | null) => void;
+  /** テーマ面から遷移したときの表示スコープ。台帳や編集候補は複製せず、同じ正本の
+   * primary_track / partner_tracks だけで絞る。 */
+  activeTrack?: SxTrackKey | null;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeInlineEditorKey, setActiveInlineEditorKey] = useState<
@@ -4911,6 +4916,11 @@ export function SxPartnerPipeline({
     if (classificationControlled) onClassificationChange?.(classification);
     else setInternalClassification(classification);
   };
+  const trackScopedPartners = activeTrack
+    ? management.partners.filter((partner) =>
+        partner.track === activeTrack || partner.tracks.some((track) => track.track === activeTrack),
+      )
+    : management.partners;
   const { widths, setWidth, commitWidths } = usePartnerLedgerColumnWidths();
   const { order, moveColumn } = usePartnerLedgerColumnOrder();
   // 担当・紹介者に入れる名前の候補。表記ゆれを止めるため自由入力ではなく名簿から選ばせる。
@@ -5020,7 +5030,7 @@ export function SxPartnerPipeline({
   const classificationCounts = Object.fromEntries(
     SX_PARTNER_CLASSIFICATION_ORDER.map((classification) => [
       classification,
-      management.partners.filter((partner) =>
+      trackScopedPartners.filter((partner) =>
         partnerHasClassification(partner, classification),
       ).length,
     ]),
@@ -5031,10 +5041,10 @@ export function SxPartnerPipeline({
     (partner.roles.find((role) => role.isPrimary)?.roleKind ||
       "unclassified") === activeRoleKind;
   const ownerScopePartners = activeClassification
-    ? management.partners.filter((partner) =>
+    ? trackScopedPartners.filter((partner) =>
         partnerHasClassification(partner, activeClassification),
       )
-    : management.partners.filter(matchesRole);
+    : trackScopedPartners.filter(matchesRole);
   const filterablePartners = ownerScopePartners;
 
   const comparisonPartners = [...filterablePartners].sort((left, right) =>
@@ -5057,12 +5067,12 @@ export function SxPartnerPipeline({
   // 通常台帳の管制帯は全関係先、PoC比較の要対応集計は表示中PoC先を分母にする。
   const countScopePartners = comparisonOnly
     ? ownerScopePartners
-    : management.partners;
+    : trackScopedPartners;
   const counts = sxComputeControlBandCounts(
     countScopePartners,
     management.asOf,
   );
-  const roleCounts = sxPrimaryRoleKindCounts(management.partners);
+  const roleCounts = sxPrimaryRoleKindCounts(trackScopedPartners);
 
   const rowProps = {
     columnOrder: order,
@@ -5128,7 +5138,7 @@ export function SxPartnerPipeline({
       )}
       <CategoryNav
         counts={roleCounts}
-        totalCount={management.partners.length}
+        totalCount={trackScopedPartners.length}
         classificationCounts={classificationCounts}
         activeClassification={activeClassification}
         showClassificationRow={!classificationControlled}

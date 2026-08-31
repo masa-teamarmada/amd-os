@@ -1,7 +1,10 @@
 import "server-only";
 
 import type { ProjectNavItem } from "@/lib/project-workspace-types";
-import { getCurrentMemberAccess, type CurrentMemberAccess } from "@/lib/project-workspace";
+import {
+  getCurrentMemberAccess,
+  type CurrentMemberAccess,
+} from "@/lib/project-workspace";
 import { resolveWorkspaceAccess } from "@/lib/workspace-access-resolver";
 
 // Access shape for the *shared* workspace page/bundle only. Internal/legacy member routes
@@ -16,6 +19,7 @@ export type InternalMemberViewerAccess = CurrentMemberAccess & {
 export type ExternalProjectViewerAccess = {
   principal: "workspace_account";
   memberId: null;
+  displayName: string;
   accountId: string;
   email: string;
   role: "manager" | "contributor" | "readonly";
@@ -26,7 +30,8 @@ export type ExternalProjectViewerAccess = {
   projects: ProjectNavItem[];
 };
 
-export type SharedWorkspaceAccess = InternalMemberViewerAccess | ExternalProjectViewerAccess;
+export type SharedWorkspaceAccess =
+  InternalMemberViewerAccess | ExternalProjectViewerAccess;
 
 /**
  * Resolves access for the shared `/project/[projectId]/workspace` page only.
@@ -37,11 +42,15 @@ export type SharedWorkspaceAccess = InternalMemberViewerAccess | ExternalProject
  * Returns null on any failure; callers must render a generic not-found, never leak
  * project/tenant existence to an unauthorized caller.
  */
-export async function resolveSharedWorkspaceAccess(projectId: string): Promise<SharedWorkspaceAccess | null> {
+export async function resolveSharedWorkspaceAccess(
+  projectId: string,
+): Promise<SharedWorkspaceAccess | null> {
   const memberAccess = await getCurrentMemberAccess();
   if (memberAccess) {
-    const allowed = memberAccess.scope === "portfolio" || memberAccess.isAdmin
-      || memberAccess.projects.some((project) => project.projectId === projectId);
+    const allowed =
+      memberAccess.scope === "portfolio" ||
+      memberAccess.isAdmin ||
+      memberAccess.projects.some((project) => project.projectId === projectId);
     if (!allowed) return null;
     return {
       ...memberAccess,
@@ -53,12 +62,15 @@ export async function resolveSharedWorkspaceAccess(projectId: string): Promise<S
   const scopeSummary = await resolveWorkspaceAccess();
   if (!scopeSummary) return null;
 
-  const membership = scopeSummary.projects.find((project) => project.projectId === projectId);
+  const membership = scopeSummary.projects.find(
+    (project) => project.projectId === projectId,
+  );
   if (!membership) return null;
 
   return {
     principal: "workspace_account",
     memberId: null,
+    displayName: scopeSummary.email,
     accountId: scopeSummary.accountId,
     email: scopeSummary.email,
     role: membership.role,
@@ -66,6 +78,8 @@ export async function resolveSharedWorkspaceAccess(projectId: string): Promise<S
     isAdmin: false,
     canEditEffort: false,
     canManage: false,
-    projects: [{ projectId: membership.projectId, projectName: membership.projectId }],
+    projects: [
+      { projectId: membership.projectId, projectName: membership.projectId },
+    ],
   };
 }
