@@ -191,7 +191,9 @@ assert.match(monthlyModal, /ドライブで開く/, "月次モーダルは帳票
 assert.doesNotMatch(monthlyModal, /NIMS提出版|愛媛大提出版|工学院提出版|社内版を編集|社内版プレビュー/, "月次モーダルに提出先別・操作混在ラベルを残さない");
 assert.doesNotMatch(monthlyModal, /報告書を生成|再生成|修正指示/, "月次モーダルから従量課金の生成導線を除く");
 assert.doesNotMatch(monthlyModal, /社内版を確認・編集|提出版を確認・編集/, "月次モーダルに帳票の直接入口を戻さない");
-assert.match(printClient, /主要成果物[\s\S]*?formatMonthlyDeliverableDate\(ym\)/, "社内版の主要成果物は日付不明時も◯月中で表示する");
+assert.match(printClient, /monthlyDeliverables\.find[\s\S]*?row\[nameIndex\]/, "主要成果物表の成果物名はドライブ資料と照合する");
+assert.match(printClient, /\^\\d\{1,2\}月\$[\s\S]*?\$\{value\}中/, "主要成果物表は日付不明時も◯月中で表示する");
+assert.doesNotMatch(printClient, /sub-num">D<\/span>[\s\S]*?sub-title">主要成果物/, "主要成果物を表の外へ重複表示しない");
 assert.match(printRoute, /monthlyReportDriveFolderPath\(ymStr\)/, "主要成果物は当月の月次報告書folderから読む");
 assert.doesNotMatch(monthlyModal, /本文を編集|提出版を編集|SubmissionReportEditor/, "モーダルに別経路の本文編集導線を残さない");
 assert.doesNotMatch(paidGenerateRoute, /@anthropic-ai\/sdk|anthropic\.messages\.create/, "旧生成APIはAnthropicを呼ばない");

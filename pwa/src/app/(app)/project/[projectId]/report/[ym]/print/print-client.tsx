@@ -32,7 +32,6 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { formatMonthlyDeliverableDate } from "@/lib/monthly-report-drive";
 import { MonthlyReportHistoryPanel } from "./monthly-report-history-panel";
 
 // ─── 型定義 ───────────────────────────────────────────────────────────────
@@ -248,7 +247,7 @@ function stripStandaloneHorizontalRules(content: string): string {
     .trim();
 }
 
-function MarkdownBlock({ text }: { text: string }) {
+function MarkdownBlock({ text, monthlyDeliverables = [] }: { text: string; monthlyDeliverables?: AssetRow[] }) {
   if (!text) return null;
   const sanitized = stripStandaloneHorizontalRules(stripInternalJargon(text));
   const lines = sanitized.split("\n");
@@ -274,11 +273,28 @@ function MarkdownBlock({ text }: { text: string }) {
               <tr>{headers.map((header, cellIndex) => <th key={cellIndex}>{renderInline(header)}</th>)}</tr>
             </thead>
             <tbody>
-              {rows.map((row, rowIndex) => (
-                <tr key={rowIndex}>
-                  {headers.map((_, cellIndex) => <td key={cellIndex}>{renderInline(row[cellIndex] || "")}</td>)}
-                </tr>
-              ))}
+              {rows.map((row, rowIndex) => {
+                const nameIndex = headers.findIndex((header) => header === "成果物名");
+                const dateIndex = headers.findIndex((header) => header === "提示・共有日");
+                const deliverable = nameIndex >= 0
+                  ? monthlyDeliverables.find((item) => item.fileName === row[nameIndex])
+                  : undefined;
+                return (
+                  <tr key={rowIndex}>
+                    {headers.map((_, cellIndex) => {
+                      const value = row[cellIndex] || "";
+                      if (cellIndex === nameIndex && deliverable?.webViewLink) {
+                        return <td key={cellIndex}><a href={deliverable.webViewLink} target="_blank" rel="noreferrer" className="underline">{value}</a></td>;
+                      }
+                      // 日を確定できない成果物は、月だけの表記を「○月中」と明示する。
+                      const displayValue = cellIndex === dateIndex && /^\d{1,2}月$/.test(value)
+                        ? `${value}中`
+                        : value;
+                      return <td key={cellIndex}>{renderInline(displayValue)}</td>;
+                    })}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -370,10 +386,12 @@ function InlineMarkdownReview({
   text,
   editMode,
   onChange,
+  monthlyDeliverables,
 }: {
   text: string;
   editMode: boolean;
   onChange: (next: string) => void;
+  monthlyDeliverables?: AssetRow[];
 }) {
   const [editingPiece, setEditingPiece] = useState<MarkdownPiece | null>(null);
   const [draft, setDraft] = useState("");
@@ -429,7 +447,7 @@ function InlineMarkdownReview({
             ) : (
               <>
                 {editMode && <span className="report-edit-affordance">この箇所を編集</span>}
-                <MarkdownBlock text={piece.text} />
+                <MarkdownBlock text={piece.text} monthlyDeliverables={monthlyDeliverables} />
               </>
             )}
           </section>
@@ -473,11 +491,13 @@ function SubmissionReport({
   editMode,
   onBodyChange,
   headerLabel,
+  monthlyDeliverables,
 }: {
   reportBody: string;
   editMode: boolean;
   onBodyChange: (next: string) => void;
   headerLabel: string;
+  monthlyDeliverables: AssetRow[];
 }) {
 
   return (
@@ -488,7 +508,7 @@ function SubmissionReport({
       </div>
       <h1 className="submission-title">月次業務報告書</h1>
       {reportBody ? (
-        <InlineMarkdownReview key={editMode ? "editing" : "review"} text={reportBody} editMode={editMode} onChange={onBodyChange} />
+        <InlineMarkdownReview key={editMode ? "editing" : "review"} text={reportBody} editMode={editMode} onChange={onBodyChange} monthlyDeliverables={monthlyDeliverables} />
       ) : (
         <div className="empty">提出用の月次業務報告書本文は未生成です。</div>
       )}
@@ -770,7 +790,7 @@ function ProgressSection({
         </div>
         {reportBody ? (
           <div className="report-body">
-            <InlineMarkdownReview key={editMode ? "editing" : "review"} text={reportBody} editMode={editMode} onChange={onBodyChange} />
+            <InlineMarkdownReview key={editMode ? "editing" : "review"} text={reportBody} editMode={editMode} onChange={onBodyChange} monthlyDeliverables={monthlyDeliverables} />
           </div>
         ) : (
           <div className="empty">月次報告書本文は未生成です。</div>
@@ -843,27 +863,6 @@ function ProgressSection({
                 );
               })}
             </div>
-          </>
-        )}
-
-        {monthlyDeliverables.length > 0 && (
-          <>
-            <div className="sub-head sub-head-achieve" style={{ marginTop: "7mm" }}>
-              <span className="sub-num">D</span>
-              <span className="sub-title">主要成果物</span>
-            </div>
-            <ul className="decision-list">
-              {monthlyDeliverables.map((asset) => (
-                <li key={asset.documentId}>
-                  <span className="decision-src">{formatMonthlyDeliverableDate(ym)}</span>
-                  {asset.webViewLink ? (
-                    <a href={asset.webViewLink} target="_blank" rel="noreferrer" className="decision-text underline">
-                      {asset.fileName}
-                    </a>
-                  ) : <span className="decision-text">{asset.fileName}</span>}
-                </li>
-              ))}
-            </ul>
           </>
         )}
 
@@ -1801,7 +1800,7 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
         )}
 
         {previewData.isSubmission ? (
-          <SubmissionReport reportBody={reportBody} editMode={editMode} onBodyChange={setReportBody} headerLabel={headerLabel} />
+          <SubmissionReport reportBody={reportBody} editMode={editMode} onBodyChange={setReportBody} headerLabel={headerLabel} monthlyDeliverables={data.attachments.monthlyDeliverables} />
         ) : (
           <>
             <CoverPage data={previewData} />
