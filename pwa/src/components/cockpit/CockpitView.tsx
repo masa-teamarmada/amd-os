@@ -292,6 +292,10 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
   const [modalInitialTab, setModalInitialTab] = useState<MonthlyModalTab | undefined>(undefined);
   const [pastExpanded, setPastExpanded] = useState(false);
   const [progressPatches, setProgressPatches] = useState<ProgressShape[]>([]);
+  // 連携シーズタブ (KUTE限定): 初回訪問まではマウントせず、訪問後は hidden で保持して
+  // タブを行き来しても Seeds を読み直さない。
+  const [hasVisitedSeeds, setHasVisitedSeeds] = useState(false);
+  if (activeTab === "seeds" && !hasVisitedSeeds) setHasVisitedSeeds(true);
 
   function selectTab(tab: CockpitTab) {
     setLocalActiveTab(tab);
@@ -314,6 +318,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
   // フェーズ表と年次試算表はSX (p21) 固有データなので、SXのときだけ足す。
   const hasSxBusinessPlanDetail = project.projectId === "p21";
   const hasKuteRegulationsTab = project.projectId === "p25";
+  const hasKuteSeedsTab = project.projectId === "p25";
 
   const currentProgress = mergeProgress(progress, progressPatches);
   const patchedPastPlanCycles = (pastPlanCycles || []).map((bundle) => ({
@@ -384,6 +389,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     // hover で先読みしておき、クリック時には手元にある状態にする (参照系データの体感速度)。
     { key: "cost-model", label: "コスト試算", onHover: () => prefetchProjectCostModel(project.projectId) },
     ...(hasKuteRegulationsTab ? [{ key: "regulations" as const, label: "規程・内規" }] : []),
+    ...(hasKuteSeedsTab ? [{ key: "seeds" as const, label: "シーズ" }] : []),
     { key: "ip", label: "知財" },
     { key: "documents", label: "ドライブ" },
     // PJ概要 = 契約上の実行条件の置き場所 (2026-08-28 まさ依頼で最上段から移設)。
@@ -460,8 +466,9 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       {/* [A] Project Header (full width) */}
       <CockpitHeader project={project} members={members} />
 
-      {activeTab === "progress" && project.projectId === "p25" && <CockpitKuteAnnualRoadmap currentYm={currentYm} />}
-      {activeTab === "progress" && <ProjectInstitutionSeeds projectId={project.projectId} />}
+      {/* KUTE (p25) は年次ロードマップをガントタブへ、連携シーズ比較を専用タブへ移設済み
+          (2026-08-31)。他の研究機関PJ (institution_projects 所属) は従来どおり進捗タブに表示する。 */}
+      {activeTab === "progress" && project.projectId !== "p25" && <ProjectInstitutionSeeds projectId={project.projectId} />}
 
       {/* 旧 [A2] Hero (PJの見出し・担当・事業概要・XRL進捗) は 2026-08-28 まさ依頼で
           「PJ概要」タブへ丸ごと移した。上段に残すのは CockpitHeader だけで、
@@ -645,6 +652,17 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
         </section>
       )}
 
+      {hasKuteSeedsTab && hasVisitedSeeds && (
+        <section
+          role="tabpanel"
+          aria-label="シーズ"
+          hidden={activeTab !== "seeds"}
+          className={activeTab === "seeds" ? "min-w-0" : "hidden"}
+        >
+          <ProjectInstitutionSeeds projectId={project.projectId} />
+        </section>
+      )}
+
       {/* 技術タブ (2026-08-29 まさ依頼)。この技術がどの範囲で成立し、競合とどこで差がつき、
           今どこまで行っているかを貯める。自前で fetch するので開いた時だけマウントする。 */}
       {activeTab === "technology" && (
@@ -678,6 +696,12 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
           4タブで1つのマウントを共有するので、行き来しても束を読み直さない。 */}
       {workspaceView && (
         <section role="tabpanel" aria-label="PJ管制" className="min-w-0">
+          {/* KUTE (p25) の年次ロードマップ。ガントタブの先頭にのみ表示 (2026-08-31 進捗タブから移設)。 */}
+          {activeTab === "gantt" && project.projectId === "p25" && (
+            <div className="mb-3">
+              <CockpitKuteAnnualRoadmap currentYm={currentYm} />
+            </div>
+          )}
           <CockpitProjectControl
             projectId={project.projectId}
             view={workspaceView}

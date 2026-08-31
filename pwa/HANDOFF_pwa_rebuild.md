@@ -1,5 +1,12 @@
 # HANDOFF - AMD OS PWA
 
+## 2026-08-31 KUTEタブ配置 / 他プラットフォームへの引き継ぎ
+
+- PWAのKUTE (`p25`) だけ、年度内ロードマップを「ガント」の先頭へ、連携シーズ比較を「シーズ」タブへ移設。既存ガントと比較表の内容・評価・データ正本は不変。
+- iOS / macOS / Androidは未移植。他研究機関PJも現行配置を維持。次はKUTEの画面で設計を確認し、まさの合意後に横展開を検討する。自動で広げない。
+- 正本: `spec/3-8-cockpit-current-spec.md`、`design/cockpit.md`、`../ios/DESIGN.md`。マニュアル: `manual/2-3-pj-cockpit.md`。回帰チェック: `npm run test:kute-seeds-tab-contract`。
+- 同期棚卸し: 年度内ロードマップの配置とシーズタブは上記設計・マニュアルへ反映済み。理論、DB、外部共有の権限は変更なし。
+
 - 更新: 2026-08-23 JST
 - セッション: 参照系データのキャッシュ既定化（シーズ一次選別帯）+ Vercelリージョン最適化 + シーズリスト障害修正
 - 作業種別: development

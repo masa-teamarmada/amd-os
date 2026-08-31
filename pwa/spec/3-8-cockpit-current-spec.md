@@ -80,6 +80,8 @@ JST「起業後支援の手引き」は外部制度欄に置く。PSI事務局�
 
 ## Initial Modal Rules
 
+KUTE (`p25`) の `?tab=seeds` は専用「シーズ」タブを復元する。許可リストは `src/lib/cockpit-tabs.ts` の `COCKPIT_TABS` と共有し、他PJの同queryは `progress` へフォールバックする。KUTEの比較表は初回訪問後hidden保持で再取得と絞り込みリセットを防ぐ。他研究機関の進捗管理内の比較表は変更しない。横展開はKUTEでの設計合意後に行う（2026-08-31）。
+
 | query | behavior |
 |---|---|
 | `?ym=YYYYMM` | monthly modal を開く |
@@ -96,7 +98,7 @@ JST「起業後支援の手引き」は外部制度欄に置く。PSI事務局�
 | section | component | source |
 |---|---|---|
 | header | `CockpitHeader` | project metadata + PJリスト由来の実行サマリー。PJメンバーに続き、各現行契約を `契約期間` / `請求・振込` / `業務・成果物` / `経費申請` / 必要時だけ `推進条件` の最大5項目で表示する。短文の正本は `projects.contract_terms_json.currentContracts[].terms.cockpitSummary`。請求・振込タイミングは必須表示とし、未確認なら未確認と明示する。知財、秘密保持、解除、責任等の法務条項は通常契約のサマリーへ常設せず `/admin/contracts` に残す。NDAは例外として `契約期間` / `利用目的` / `運用条件` を表示する |
-| KUTE annual roadmap | `CockpitKuteAnnualRoadmap` | KUTE (`p25`) only。`CockpitHeader` 直下で、2026-06〜2027-03 の年度内ロードマップを表示する。規程整備レーンは 2027-01 整備完了目途、シーズ発掘 / after GTIE レーンは 2027-03 型化目途。現時点の source は 6/11 キックオフ資料 / `PROJECT_BRIEF` 由来の静的 contract |
+| KUTE annual roadmap | `CockpitKuteAnnualRoadmap` | KUTE (`p25`) only。`?tab=gantt` のPJ管制section先頭、既存 `CockpitProjectControl` の手前で、2026-06〜2027-03 の年度内ロードマップを表示する。規程整備レーンは 2027-01 整備完了目途、シーズ発掘 / after GTIE レーンは 2027-03 型化目途。現時点の source は 6/11 キックオフ資料 / `PROJECT_BRIEF` 由来の静的 contract。タブ列より上とprogressには描画しない（2026-08-31移設） |
 | KUTE 規程・内規 | `CockpitKuteRegulations` | KUTE (`p25`) only。`/project/p25/cockpit?tab=regulations` の専用タブ。契約対象の7規程（兼業、知財・ライセンス、出資・新株予約権、共同研究、利益相反、認定、共有機器利用）を最上段に置き、認定委員会内規・支援細則・認定審査チェックシートは随伴する認定運用文書として分離する。行は進捗順に並べ、`S0 対象確定 → S1 原典確認 → S2 AMD原案 → S3 学内調整 → S4 決裁・施行` の5段階バー、現状、次ゲート、次ゲートの時期、実在する資料と途中版数を密度高く示す。行ごとに一律の最終期限を置かず、全体工程として8月の残り6規程素案、9/4の修正案・進捗確認、9〜11月の学内議論・修正、1月の施行版・様式・運用フローを表示する。原案未作成・原典回収待ちはリンクを偽装せず明示する。文書実体はKUTE共有Driveの版管理フォルダへ集約し、画面にはメール本文・個人情報・secretを保存・表示しない。 |
 | venture status | `CockpitVentureStatus` | **置き場所は「PJ概要」タブ (`?tab=overview`)**。2026-08-28 まさ「さっき貼ったオブジェクト全部移動して」で、コックピット上段からこのタブへ丸ごと移した。タブより上に残るのは `CockpitHeader` だけで、コックピットを開いた直後は進捗管理の中身が最初に目に入る。中身はPJの見出し行 (アウトカム / レーン / 設立 / 起源機関 / PL・PM・クローザー / 事業概要 / 沿革・メンバー・事業会社) と XRL進捗グラフ。同じ 2026-08-28 に `Bzm22CockpitSummary` の$J/P/Q/S$も外した (8-27 に「古いモデルの試算結果」としてスコア詳細から外したのと同じもので、ここにだけ残っていた)。`Bzm22CockpitSummary` コンポーネントと単体画面 `?view=summary` は残すが、コックピットからは出さない。現行SPSの凍結評価は読むが、カードはスコア詳細タブが唯一の置き場所で、ここには「最新版未評価 →」バッジだけ出す。XRLは`ResizeObserver`で実寸を測り、その幅・高さをSVG座標系へ使う。mobileは600pxの内部横スクロールだけを許す。回帰防止は `scripts/check_pwa_critical_ui.cjs` と `scripts/check_bzm_2_2_pilot_ui_contract.mts`。`project_ventures`, `project_xrl_log`, related data |
 | AMD / Management score hero | `CockpitManagementScoreHero` | AMD Score / Management Score derived data |

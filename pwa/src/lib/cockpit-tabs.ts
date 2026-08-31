@@ -21,6 +21,7 @@ export const COCKPIT_TABS = [
   "business-plan",
   "cost-model",
   "regulations",
+  "seeds",
   "ip",
   "documents",
   "overview",

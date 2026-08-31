@@ -342,7 +342,7 @@ XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → 手動 `/v
 
 ### KUTE (p25) 連携シーズ一覧 (2026-07-20)
 
-`ecosystem` PJ である KUTE は特定SUのAMD Scoreを付けない代わりに、進捗タブに **連携シーズ一覧** セクションを持つ。`CockpitKuteAnnualRoadmap` の直後、タブ本体の前にフル幅で表示 (`CockpitView.tsx`、`activeTab === "progress" && project.projectId === "p25"` gate)。
+`ecosystem` PJ である KUTE (`p25`) は、**シーズ** タブ (`?tab=seeds`) に `ProjectInstitutionSeeds` の連携シーズ比較を表示する（2026-08-31移設）。`CockpitKuteAnnualRoadmap` は **ガント** タブ (`?tab=gantt`) の先頭へ移し、既存 `CockpitProjectControl` をその下に保持する。両者を進捗管理とタブ列の上には描画しない。シーズタブは初回訪問まで遅延マウントし、訪問後はhiddenで保持して再取得・絞り込みのリセットを防ぐ。`seeds` は共通タブ許可リストへ登録するが、タブ表示はKUTEのみ。他PJへの `?tab=seeds` 直入力は進捗管理へフォールバックする。他の研究機関PJの比較表は従来どおり進捗管理で表示し、横展開はKUTEでの設計合意後とする。データ正本・評価・比較表の内容は変更しない。
 
 - データソースは Seeds テーブル1本 (`org_name='工学院大学'`)。KUTE専用テーブルは作らない。
 - p25 → 研究機関名のスコープ対応は `researchInstitutionSeedsOrgNameForProject()` (`pwa/src/lib/kute-seeds-scoring.ts`) が唯一の定義。他の研究機関PJへ拡張する場合もここに追記する。

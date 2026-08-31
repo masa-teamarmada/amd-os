@@ -88,7 +88,9 @@ export default function CockpitPage() {
   const ymParam = searchParams.get("ym");
   const meetingParam = searchParams.get("meeting");
   const tabParam = searchParams.get("tab");
-  const activeTab: CockpitTab = isNonDefaultTab(tabParam) ? tabParam : "progress";
+  const rawTab: CockpitTab = isNonDefaultTab(tabParam) ? tabParam : "progress";
+  // seeds タブは KUTE (p25) 限定。他PJへの直URL入力は進捗管理へ落とす。
+  const activeTab: CockpitTab = rawTab === "seeds" && projectId !== "p25" ? "progress" : rawTab;
   // ?meeting= がある場合は MTG詳細モーダルを優先し、月次モーダルとの二重起動を避ける。
 
   function handleTabChange(tab: CockpitTab) {
