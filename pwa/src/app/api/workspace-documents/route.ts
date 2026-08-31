@@ -25,6 +25,10 @@ import {
 } from "@/lib/workspace-documents-server";
 import { recordWorkspaceAuditEvent } from "@/lib/workspace-access-audit";
 import { isSameOriginWorkspaceMutation } from "@/lib/workspace-mutation-origin";
+import {
+  monthlyReportDriveFolderPath,
+  normalizeMonthlyReportYm,
+} from "@/lib/monthly-report-drive";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -114,9 +118,65 @@ export async function GET(request: Request) {
     return json({ ok: false, error: "資料一覧を読み込めなかったよ。" }, 500);
   }
 
+  // 月次帳票はStorageへ複製せず、現在の正本を帳票routeから開く仮想entryとして
+  // AMD内部のPJドライブだけへ置く。外部workspace面には内部帳票を混ぜない。
+  let monthlyReportEntries: Array<Record<string, unknown>> = [];
+  const projectId = scope.kind === "project" ? access.projectId : null;
+  if (projectId && surface === "cockpit" && access.canReadInternal) {
+    const [internalReports, submissionReports] = await Promise.all([
+      db.from("monthly_reports").select("ym,generated_at,fixed_at,updated_at")
+        .eq("project_id", projectId),
+      db.from("monthly_reports_external").select("ym,updated_at,created_at")
+        .eq("project_id", projectId),
+    ]);
+    if (internalReports.error || submissionReports.error) {
+      console.error("[workspace-documents] monthly report list failed:", internalReports.error?.message ?? submissionReports.error?.message);
+      return json({ ok: false, error: "月次報告書を読み込めなかったよ。" }, 500);
+    }
+    const months = new Map<string, string>();
+    for (const report of [...(internalReports.data ?? []), ...(submissionReports.data ?? [])] as Array<Record<string, string | null>>) {
+      const normalized = typeof report.ym === "string" ? normalizeMonthlyReportYm(report.ym) : null;
+      if (normalized) months.set(normalized, report.updated_at ?? report.fixed_at ?? report.generated_at ?? report.created_at ?? new Date(0).toISOString());
+    }
+    monthlyReportEntries = Array.from(months.entries()).flatMap(([ym, updatedAt]) => {
+      const folderPath = monthlyReportDriveFolderPath(ym);
+      return [
+        {
+          documentId: `monthly-report:${projectId}:${ym}:internal`,
+          entryKind: "report",
+          visibility: "amd_internal",
+          folderPath,
+          displayName: "社内版 月次報告書",
+          mimeType: "application/x-amd-monthly-report",
+          fileSizeBytes: 0,
+          sourceKind: "monthly_report_internal",
+          createdAt: updatedAt,
+          updatedAt,
+          reportHref: `/project/${encodeURIComponent(projectId)}/report/${ym}/print?template=internal`,
+        },
+        {
+          documentId: `monthly-report:${projectId}:${ym}:submission`,
+          entryKind: "report",
+          visibility: "amd_internal",
+          folderPath,
+          displayName: "提出版 月次報告書",
+          mimeType: "application/x-amd-monthly-report",
+          fileSizeBytes: 0,
+          sourceKind: "monthly_report_submission",
+          createdAt: updatedAt,
+          updatedAt,
+          reportHref: `/project/${encodeURIComponent(projectId)}/report/${ym}/print?template=submission`,
+        },
+      ];
+    });
+  }
+
   return json({
     ok: true,
-    documents: ((data ?? []) as unknown as WorkspaceDocumentRow[]).map(publicWorkspaceDocument),
+    documents: [
+      ...((data ?? []) as unknown as WorkspaceDocumentRow[]).map(publicWorkspaceDocument),
+      ...monthlyReportEntries,
+    ],
     permissions: {
       principal: access.principal,
       role: access.role,

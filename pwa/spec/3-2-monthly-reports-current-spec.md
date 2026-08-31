@@ -259,6 +259,13 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 
 ### 対象 PJ (2026-07-01 まさ確定)
 
+### 保管場所と主要成果物 (2026-08-31)
+
+- 月次報告書のUI上の保管先は、各PJコックピットの**ドライブ** `月次報告書 / YYYY年M月`。進捗管理の月次モーダルには社内版・提出版の直接リンクを置かず、ドライブへの入口だけを置く
+- `monthly_reports` / `monthly_reports_external` の行が作成・対象月変更された時、DB trigger が内部専用folderを作る。帳票自体は二重保存せず、現在の正本を指す仮想entryとして社内版・提出版を同じ月folderへ表示する
+- `月次報告書 / YYYY年M月` にある `workspace_documents` のfile/linkが主要成果物。社内版の「主要成果物」欄は認可済みopen routeへのリンクを出す。提出版および外部workspace面には内部資料を出さない
+- 成果日の根拠が日までない場合、画面・帳票とも `YYYY年M月中` と書く。保存日時や月初日を成果日として推測・表示しない
+
 | scope | PJ | 動作 |
 |---|---|---|
 | `internal_and_external` | p25 KUTE / p21 SX / p20 CX (NIMS) | 内部保存版 + 対外提出版 + PDF 生成 |

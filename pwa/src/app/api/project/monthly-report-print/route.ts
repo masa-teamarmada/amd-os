@@ -22,6 +22,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/supabase/api-auth";
+import { monthlyReportDriveFolderPath } from "@/lib/monthly-report-drive";
 
 // UI は全PJ共通の submission を使う。旧提出先別キーは保存済みURLの互換性だけ残す。
 const VALID_PRINT_TEMPLATES = new Set(["internal", "submission", "nims-cx", "ehime-sx", "kogakuin-kute"]);
@@ -393,6 +394,17 @@ export async function GET(req: NextRequest) {
     .lte("created_at", `${ymEnd}T23:59:59Z`)
     .order("created_at", { ascending: false });
 
+  // 成果物は月次報告書フォルダに置かれたfile/linkだけを参照する。upload日時は
+  // 成果日ではないため、帳票では月だけ確定した「◯月中」として表示する。
+  const monthlyDeliverablesRes = await db.from("workspace_documents")
+    .select("document_id,display_name,mime_type,created_at,updated_at")
+    .eq("scope_kind", "project")
+    .eq("project_id", projectId)
+    .eq("folder_path", monthlyReportDriveFolderPath(ymStr))
+    .eq("upload_status", "active")
+    .in("entry_kind", ["file", "link"])
+    .order("display_name");
+
   // 契約書 PDF (最新)
   const contractDocsRes = await db.from("contract_documents")
     .select("document_id,document_kind,file_name,web_view_link,is_latest,received_at")
@@ -537,6 +549,14 @@ export async function GET(req: NextRequest) {
     webViewLink: d.web_view_link || null,
     receivedAt: d.received_at,
   }));
+  const monthlyDeliverables = ((monthlyDeliverablesRes.data || []) as Array<{ document_id: string; display_name: string; mime_type: string; created_at: string; updated_at: string }>).map((d) => ({
+    documentId: d.document_id,
+    fileName: d.display_name,
+    webViewLink: `/api/workspace-documents/${encodeURIComponent(d.document_id)}/open?download=0`,
+    mimeType: d.mime_type,
+    createdAt: d.created_at,
+    uploadedAt: d.updated_at,
+  }));
 
   const founding = ((foundingRes.data || []) as Array<{ person_name: string; affiliation: string | null; role: string | null; role_label_jp: string | null; category: string }>).map((f) => ({
     personName: f.person_name,
@@ -674,6 +694,7 @@ export async function GET(req: NextRequest) {
       meetingAssets,
       projectDocs,
       contractDocs,
+      monthlyDeliverables,
     },
     sourceCheck,
   };

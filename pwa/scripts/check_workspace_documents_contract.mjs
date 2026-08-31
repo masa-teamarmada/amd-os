@@ -245,7 +245,10 @@ assert.match(source.institutionPage, /surface="workspace"/, "機関workspace資�
 assert.match(source.projectPage, /surface="workspace"/, "PJ workspace資料室は公開面を明示する");
 assert.match(source.sxWorkspace, /<WorkspaceDocumentRoom[\s\S]*?surface="workspace"/s, "SXドライブはworkspace面として資料室を開く");
 assert.match(source.middleware, /workspace\(\?:\\\/files\)\?/, "外部workspace sessionでPJ資料室routeへ到達できる");
-assert.match(source.cockpit, /aria-label="資料室"[\s\S]*?<WorkspaceDocumentRoom/s, "cockpitは資料一覧でなく資料室タブを置く");
+assert.match(source.cockpit, /aria-label="ドライブ"[\s\S]*?<WorkspaceDocumentRoom/s, "cockpitは資料一覧でなくドライブタブを置く");
+assert.match(source.list, /monthly_report_internal[\s\S]*?monthly_report_submission/s, "社内版・提出版は月次報告書folderの仮想entryとして並べる");
+assert.match(source.list, /surface === "cockpit" && access\.canReadInternal/, "月次帳票は内部cockpit面だけに限定する");
+assert.match(source.room, /item\.entryKind !== "report"/, "月次帳票の仮想entryは移動・削除できない");
 assert.doesNotMatch(source.cockpit, /WorkspaceDocumentLauncher/, "進捗管理タブへ資料室launcherを戻さない (2026-08-21 まさ確定)");
 assert.doesNotMatch(source.cockpit, /WorkspaceDocumentSummary/, "cockpitの資料サマリ一覧を復活させない");
 assert.match(source.room, /同名のファイルがあります/, "同名uploadはFinder型の確認dialogを出す");

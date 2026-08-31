@@ -385,7 +385,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     { key: "cost-model", label: "コスト試算", onHover: () => prefetchProjectCostModel(project.projectId) },
     ...(hasKuteRegulationsTab ? [{ key: "regulations" as const, label: "規程・内規" }] : []),
     { key: "ip", label: "知財" },
-    { key: "documents", label: "資料室" },
+    { key: "documents", label: "ドライブ" },
     // PJ概要 = 契約上の実行条件の置き場所 (2026-08-28 まさ依頼で最上段から移設)。
     // SU側の登記・株主を見る会社概要と隣に置き、月単位で変わらない前提をまとめて開けるようにする。
     { key: "overview", label: "PJ概要" },
@@ -663,7 +663,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
 
       {/* 資料室タブ。WorkspaceDocumentRoom は自前で fetch するので、開いた時だけマウントする。 */}
       {activeTab === "documents" && (
-        <section role="tabpanel" aria-label="資料室" className="min-w-0">
+        <section role="tabpanel" aria-label="ドライブ" className="min-w-0">
           <WorkspaceDocumentRoom
             scopeKind="project"
             scopeId={project.projectId}

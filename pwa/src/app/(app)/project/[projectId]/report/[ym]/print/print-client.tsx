@@ -32,6 +32,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { formatMonthlyDeliverableDate } from "@/lib/monthly-report-drive";
 import { MonthlyReportHistoryPanel } from "./monthly-report-history-panel";
 
 // ─── 型定義 ───────────────────────────────────────────────────────────────
@@ -165,6 +166,7 @@ interface PrintData {
     meetingAssets: AssetRow[];
     projectDocs: AssetRow[];
     contractDocs: AssetRow[];
+    monthlyDeliverables: AssetRow[];
   };
   sourceCheck: Record<string, unknown> | null;
 }
@@ -742,6 +744,7 @@ function ProgressSection({
   onBodyChange: (next: string) => void;
 }) {
   const { milestones, achievementSignals, grants, media, meetings, ym } = data;
+  const monthlyDeliverables = data.attachments.monthlyDeliverables;
   const activeMs = selectActiveMilestonesForReport(milestones, ym).sort((a, b) => b.points - a.points);
 
   // 会議由来の Decided (旧§03 から統合)
@@ -843,11 +846,32 @@ function ProgressSection({
           </>
         )}
 
-        {/* Block D: 議論・打合せで固まった事項 */}
-        {meetingDecisions.length > 0 && (
+        {monthlyDeliverables.length > 0 && (
           <>
             <div className="sub-head sub-head-achieve" style={{ marginTop: "7mm" }}>
               <span className="sub-num">D</span>
+              <span className="sub-title">主要成果物</span>
+            </div>
+            <ul className="decision-list">
+              {monthlyDeliverables.map((asset) => (
+                <li key={asset.documentId}>
+                  <span className="decision-src">{formatMonthlyDeliverableDate(ym)}</span>
+                  {asset.webViewLink ? (
+                    <a href={asset.webViewLink} target="_blank" rel="noreferrer" className="decision-text underline">
+                      {asset.fileName}
+                    </a>
+                  ) : <span className="decision-text">{asset.fileName}</span>}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        {/* Block E: 議論・打合せで固まった事項 */}
+        {meetingDecisions.length > 0 && (
+          <>
+            <div className="sub-head sub-head-achieve" style={{ marginTop: "7mm" }}>
+              <span className="sub-num">E</span>
               <span className="sub-title">議論・打合せで固まった事項</span>
             </div>
             <ul className="decision-list">
@@ -861,11 +885,11 @@ function ProgressSection({
           </>
         )}
 
-        {/* Block E: 公募採択 / メディア掲載 */}
+        {/* Block F: 公募採択 / メディア掲載 */}
         {(currentYmGrants.length > 0 || media.length > 0) && (
           <>
             <div className="sub-head sub-head-achieve" style={{ marginTop: "7mm" }}>
-              <span className="sub-num">E</span>
+              <span className="sub-num">F</span>
               <span className="sub-title">対外発信・採択</span>
             </div>
             {currentYmGrants.length > 0 && (

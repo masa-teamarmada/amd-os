@@ -187,11 +187,12 @@ assert.match(printRoute, /4字の日本人フルネーム＋役職/, "保存前g
 assert.match(printRoute, /monthly_reports_external/, "提出版は対外版テーブルを正本にする");
 assert.doesNotMatch(printRoute, /fallbackBody\s*=\s*repRes\.data\?\.(?:final_content|draft_content)/, "提出版が未生成でも社内版へフォールバックしない");
 assert.match(printRoute, /usingSubmissionFallback:\s*false/, "提出版フォールバックは互換フィールド上も無効にする");
-assert.match(monthlyModal, /SUBMISSION_TEMPLATE = "submission"/, "月次モーダルは提出先名を操作ラベルへ持ち込まない");
+assert.match(monthlyModal, /ドライブで開く/, "月次モーダルは帳票の置き場をドライブへ案内する");
 assert.doesNotMatch(monthlyModal, /NIMS提出版|愛媛大提出版|工学院提出版|社内版を編集|社内版プレビュー/, "月次モーダルに提出先別・操作混在ラベルを残さない");
 assert.doesNotMatch(monthlyModal, /報告書を生成|再生成|修正指示/, "月次モーダルから従量課金の生成導線を除く");
-assert.match(monthlyModal, /社内版を確認・編集/, "社内版の確認と編集を一つの入口にする");
-assert.match(monthlyModal, /提出版を確認・編集/, "提出版の確認と編集を一つの入口にする");
+assert.doesNotMatch(monthlyModal, /社内版を確認・編集|提出版を確認・編集/, "月次モーダルに帳票の直接入口を戻さない");
+assert.match(printClient, /主要成果物[\s\S]*?formatMonthlyDeliverableDate\(ym\)/, "社内版の主要成果物は日付不明時も◯月中で表示する");
+assert.match(printRoute, /monthlyReportDriveFolderPath\(ymStr\)/, "主要成果物は当月の月次報告書folderから読む");
 assert.doesNotMatch(monthlyModal, /本文を編集|提出版を編集|SubmissionReportEditor/, "モーダルに別経路の本文編集導線を残さない");
 assert.doesNotMatch(paidGenerateRoute, /@anthropic-ai\/sdk|anthropic\.messages\.create/, "旧生成APIはAnthropicを呼ばない");
 assert.match(paidGenerateRoute, /PAID_REPORT_GENERATION_DISABLED/, "旧生成APIは410で停止理由を返す");

@@ -68,7 +68,7 @@ import { subscribeWorkspaceDocumentUpdates } from "./workspace-document-sync";
 
 type DocumentItem = {
   documentId: string;
-  entryKind: WorkspaceDocumentEntryKind;
+  entryKind: WorkspaceDocumentEntryKind | "report";
   visibility: WorkspaceDocumentVisibility;
   folderPath: string;
   displayName: string;
@@ -77,6 +77,7 @@ type DocumentItem = {
   sourceKind: string;
   createdAt: string;
   updatedAt: string;
+  reportHref?: string;
 };
 
 type Permissions = {
@@ -110,10 +111,11 @@ type UploadQueueItem = {
   replaceDocumentId: string | null;
 };
 
-const kindOrder: Record<WorkspaceDocumentEntryKind, number> = {
+const kindOrder: Record<WorkspaceDocumentEntryKind | "report", number> = {
   folder: 0,
-  file: 1,
-  link: 2,
+  report: 1,
+  file: 2,
+  link: 3,
 };
 
 type WorkspaceDocumentSurface = "cockpit" | "workspace";
@@ -133,6 +135,7 @@ function fullPath(item: DocumentItem) {
 }
 
 function workspaceDocumentViewHref(item: DocumentItem) {
+  if (item.reportHref) return item.reportHref;
   const encodedId = encodeURIComponent(item.documentId);
   if (isWorkspaceDocumentHtml(item.mimeType, item.displayName)) {
     return `/api/workspace-documents/${encodedId}/render`;
@@ -184,6 +187,8 @@ function EntryIcon({ item }: { item: DocumentItem }) {
         aria-hidden
       />
     );
+  if (item.entryKind === "report")
+    return <FileText className="h-5 w-5 text-indigo-700" aria-hidden />;
   if (item.mimeType.startsWith("image/"))
     return (
       <FileImage
@@ -211,7 +216,7 @@ function VisibilityBadge({
   entryKind,
 }: {
   visibility: WorkspaceDocumentVisibility;
-  entryKind: WorkspaceDocumentEntryKind;
+  entryKind: WorkspaceDocumentEntryKind | "report";
 }) {
   return (
     <span
@@ -226,7 +231,9 @@ function VisibilityBadge({
         ? entryKind === "folder"
           ? "PJ全体"
           : "外部共有"
-        : "AMD内部"}
+        : entryKind === "report"
+          ? "月次帳票"
+          : "AMD内部"}
     </span>
   );
 }
@@ -533,7 +540,7 @@ export function WorkspaceDocumentRoom({
   }
 
   function startEntryDrag(event: DragEvent<HTMLElement>, item: DocumentItem) {
-    if (!permissions?.canManage || busy) {
+    if (!permissions?.canManage || busy || item.entryKind === "report") {
       event.preventDefault();
       return;
     }
@@ -575,6 +582,7 @@ export function WorkspaceDocumentRoom({
     if (folder.documentId === draggedDocumentId) return false;
     const item = draggedEntry();
     const destinationPath = fullPath(folder);
+    if (item?.entryKind === "report") return false;
     if (item && item.folderPath === destinationPath) return false;
     return eligibleMoveTargetFor(item, destinationPath);
   }
@@ -1372,7 +1380,7 @@ export function WorkspaceDocumentRoom({
               visibleDocuments.map((item) => (
                 <article
                   key={item.documentId}
-                  draggable={permissions?.canManage && !busy}
+                  draggable={permissions?.canManage && !busy && item.entryKind !== "report"}
                   onDragStart={(event) => startEntryDrag(event, item)}
                   onDragEnd={() => {
                     setDraggedDocumentId(null);
@@ -1393,7 +1401,7 @@ export function WorkspaceDocumentRoom({
                   )}
                 >
                   <div className="col-span-2 flex min-w-0 items-center gap-2 xl:col-span-1">
-                    {permissions?.canManage && (
+                    {permissions?.canManage && item.entryKind !== "report" && (
                       <span
                         className="hidden shrink-0 text-slate-400 xl:inline"
                         title="フォルダかパンくずへドラッグして移動"
@@ -1450,7 +1458,9 @@ export function WorkspaceDocumentRoom({
                           ? formatBytes(item.fileSizeBytes)
                           : item.entryKind === "link"
                             ? "オンライン資料"
-                            : "フォルダ"}
+                            : item.entryKind === "report"
+                              ? "月次報告書"
+                              : "フォルダ"}
                       </p>
                     </div>
                   </div>
@@ -1475,7 +1485,7 @@ export function WorkspaceDocumentRoom({
                         <Download className="h-4 w-4" aria-hidden />
                         PDF化
                       </button>
-                    ) : item.entryKind !== "folder" ? (
+                    ) : item.entryKind !== "folder" && item.entryKind !== "report" ? (
                       <a
                         href={item.entryKind === "link"
                           ? workspaceDocumentViewHref(item)
@@ -1508,7 +1518,7 @@ export function WorkspaceDocumentRoom({
                         編集
                       </a>
                     )}
-                    {permissions?.canManage && (
+                    {permissions?.canManage && item.entryKind !== "report" && (
                       <button
                         type="button"
                         onClick={() => openDialog("organize", item)}
@@ -1519,7 +1529,7 @@ export function WorkspaceDocumentRoom({
                         <MoreHorizontal className="h-4 w-4" aria-hidden />
                       </button>
                     )}
-                    {permissions?.canUpload && (
+                    {permissions?.canUpload && item.entryKind !== "report" && (
                       <button
                         type="button"
                         onClick={() => openDialog("archive", item)}

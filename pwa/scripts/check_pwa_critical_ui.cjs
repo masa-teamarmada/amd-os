@@ -480,10 +480,8 @@ expectIncludes("src/components/cockpit/CockpitMonthlyModal.tsx", [
   "PATCH",
   "break-words",
   "scheduleLabel",
-  "INTERNAL_TEMPLATE",
-  "SUBMISSION_TEMPLATE",
-  "社内版を確認・編集",
-  "提出版を確認・編集",
+  "ドライブで開く",
+  "cockpit?tab=documents",
 ]);
 
 expectIncludes(
@@ -3104,10 +3102,10 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   'key: "company", label: "会社概要"',
   'aria-label="会社概要"',
 ]);
-// 資料室タブ (2026-08-21 まさ確定): コックピットの独立タブ。進捗管理タブ側の launcher は廃止。
+// ドライブタブ: コックピットの独立タブ。進捗管理側に帳票の直接入口は置かない。
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
-  'key: "documents", label: "資料室"',
-  'aria-label="資料室"',
+  'key: "documents", label: "ドライブ"',
+  'aria-label="ドライブ"',
   "WorkspaceDocumentRoom",
 ]);
 expectNotIncludes("src/components/cockpit/CockpitView.tsx", [

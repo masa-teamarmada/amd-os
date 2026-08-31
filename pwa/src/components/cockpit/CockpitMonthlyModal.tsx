@@ -13,11 +13,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-// 画面上の名称は全PJで「社内版」「提出版」に固定する。
-// 提出先ごとの事情は本文と帳票データが担い、操作ラベルへ漏らさない。
-const SUBMISSION_TEMPLATE = "submission";
-const INTERNAL_TEMPLATE = "internal";
-
 // ─── 型定義 ─────────────────────────────────────────────────────────────────
 
 interface Report {
@@ -765,22 +760,11 @@ export function CockpitMonthlyModal({
             )}
             <div className="ml-auto flex flex-wrap items-center gap-2">
               <a
-                href={`/project/${projectId}/report/${ym}/print?template=${INTERNAL_TEMPLATE}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex min-h-11 items-center text-xs px-3 py-2 rounded-md border border-border text-foreground hover:bg-accent transition-colors"
-                title="社内版を確認・編集する画面を新しいタブで開く"
-              >
-                社内版を確認・編集
-              </a>
-              <a
-                href={`/project/${projectId}/report/${ym}/print?template=${SUBMISSION_TEMPLATE}`}
-                target="_blank"
-                rel="noopener noreferrer"
+                href={`/project/${projectId}/cockpit?tab=documents`}
                 className="inline-flex min-h-11 items-center text-xs px-3 py-2 rounded-md border border-sky-200 bg-sky-50 text-sky-950 hover:bg-sky-100 transition-colors"
-                title="提出版を確認・編集する画面を新しいタブで開く"
+                title="月次報告書と主要成果物をドライブで開く"
               >
-                提出版を確認・編集
+                ドライブで開く
               </a>
             </div>
           </DialogTitle>

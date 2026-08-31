@@ -195,7 +195,7 @@ PM向けの cockpit 右カラム routine step UI は廃止済み。`CockpitRouti
 
 現行の月次導線は `CockpitMonthlyList` / `HudCockpitMonthlyList` から月を選び、`CockpitMonthlyModal` / `HudCockpitMonthlyModal` を開く形に一本化する。月次報告書の軽い確認 nudge は Slack 側に寄せ、OS 上の月次 routine step は発生させない。契約 apply 済みPJでは、請求額は `contract-billing-auto-confirm` と `/admin/invoices` / `/admin/payouts` 側で扱う。
 
-`CockpitMonthlyModal` の月次報告書導線は、全 PJ 共通の `社内版` / `提出版` / `本文を編集` の3操作に固定する。`社内版` (`template=internal`) と `提出版` (`template=submission`) は同格のリンクで、どちらも `/project/[projectId]/report/[ym]/print?template=...` を新規タブで開くだけの操作。`本文を編集` はこの2つとは別の第三操作で、可視化帳票の元になる `monthly_reports` 本文 (社内版本文) の表示・直接編集・保存・確定 panel を開閉する。パネルを開くと二段階クリックを挟まず直接編集状態に入る。提出先名を操作ラベルへ埋め込まない。旧 template (`nims-cx` / `ehime-sx` / `kogakuin-kute`) は既存 URL 互換のため route だけが受理し、新しい UI は使わない。社内版・提出版とも既存の表紙・要約・進捗/成果・Gantt・体制・次月計画・添付を持つリッチ帳票を維持し、提出版は `monthly_reports_external.body_md` を業務遂行レポートへ差し込む。提出版だけ章ごとの強制改頁を入れず、自然改頁で流す。
+`CockpitMonthlyModal` は月次報告書の直接入口を持たず、該当PJの**ドライブで開く**だけを置く。社内版 (`template=internal`) と提出版 (`template=submission`) は `月次報告書 / YYYY年M月` の仮想entryから開く。主要成果物も同じfolderのfile/linkに集約し、社内版の「主要成果物」欄から認可済みrouteで開く。提出先名を操作ラベルへ埋め込まない。旧 template (`nims-cx` / `ehime-sx` / `kogakuin-kute`) は既存 URL 互換のため route だけが受理する。提出版は `monthly_reports_external.body_md` を業務遂行レポートへ差し込み、章ごとの強制改頁を入れず自然改頁で流す。
 
 ## Monthly Modal / API Contract
 
