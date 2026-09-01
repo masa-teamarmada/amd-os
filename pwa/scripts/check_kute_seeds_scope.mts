@@ -241,6 +241,7 @@ function readSrc(relPath: string): string {
       trl: null,
       brl: null,
       hrl: null,
+      company_note: null,
       deep_dive_material_url: null,
       primary_commercialization_type: null,
       secondary_commercialization_types: null,

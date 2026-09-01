@@ -146,6 +146,11 @@ export function KuteSeedDetailModal({
                 </div>
               </section>
             )}
+            {seed.company_note && (
+              <p className="mb-4 border-l-4 border-slate-300 bg-slate-50 px-3 py-2 text-sm font-medium leading-relaxed text-slate-700">
+                {seed.company_note}
+              </p>
+            )}
             {seed.summary && (
               <p className="mb-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-relaxed text-slate-700">
                 {seed.summary}

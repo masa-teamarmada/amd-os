@@ -508,6 +508,9 @@ function SeedReadView({
               ? data.project_links.map((project) => `${project.project_name} (${project.project_status})`).join(" / ")
               : "—"}
           </KV>
+          <KV label="会社名の但し書き">
+            <span className="whitespace-pre-wrap">{s.company_note || "—"}</span>
+          </KV>
           <KV label="旧スピンアウト参照">
             {s.spun_off_project_id ? (data.spun_off_project_name ?? s.spun_off_project_id) : "—"}
           </KV>
@@ -770,6 +773,14 @@ function SeedEditForm({
             rows={5}
             value={draft.additional_research_hypothesis ?? ""}
             onChange={(e) => update("additional_research_hypothesis", e.target.value || null)}
+          />
+        </Field>
+        <Field label="会社名の但し書き（一覧の会社名セルに小さく出す・研究機関にも見える）">
+          <input
+            className="w-full px-2 py-1.5 rounded border border-border bg-background text-xs"
+            value={draft.company_note ?? ""}
+            onChange={(e) => update("company_note", e.target.value || null)}
+            placeholder="例: ※設立予定（工学院大学認定第1号）"
           />
         </Field>
         <Field label="社内メモ (非公開)">

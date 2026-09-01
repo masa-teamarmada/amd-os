@@ -247,6 +247,8 @@ export interface Seed {
   secondary_commercialization_types: SeedCommercializationType[] | null;
   // 公開面向け事業化詳細 (internal_notes / source_detail とは別、外部に見せてよい内容のみ)
   // migration 186 の kute_* から全国共通名へ改名 (187)
+  /** 会社名セルに添える但し書き。設立予定、大学の認定状態など。研究機関面にも出す。 */
+  company_note: string | null;
   envisioned_use_case: string | null;
   first_customer_candidate: string | null;
   market_size_range: string | null;
@@ -297,6 +299,8 @@ export interface SeedPublicView {
   trl: number | null;
   brl: number | null;
   hrl: number | null;
+  /** 会社名セルに添える但し書き。会社名が未確定でも設立予定・認定状態を一覧で読めるようにする。 */
+  company_note: string | null;
   deep_dive_material_url: string | null;
   primary_commercialization_type: SeedCommercializationType | null;
   secondary_commercialization_types: SeedCommercializationType[] | null;
@@ -335,6 +339,7 @@ export const SEED_PUBLIC_VIEW_COLUMNS = [
   "trl",
   "brl",
   "hrl",
+  "company_note",
   "deep_dive_material_url",
   "primary_commercialization_type",
   "secondary_commercialization_types",

@@ -785,6 +785,11 @@ function SeedRow({
         <span className={`block whitespace-normal break-words pr-7 text-[13px] font-bold leading-snug ${companyName ? "text-slate-950" : "text-slate-400"}`}>
           {companyLabel}
         </span>
+        {seed.company_note && (
+          <span className="mt-1 block whitespace-normal break-words pr-7 text-[11px] font-medium leading-snug text-slate-500">
+            {seed.company_note}
+          </span>
+        )}
         {projectLink && (
           <span
             title={`紐付くPJ: ${projectLink.project_name}`}
