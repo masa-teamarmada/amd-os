@@ -13,10 +13,11 @@
 7. `pwa/manual/1-1-intro.md`
 8. `pwa/spec/1-3-reconstruction-coverage-audit.md`
 9. `pwa/spec/2-7-ui-design-code-current-spec.md`
-10. `pwa/spec/3-16-project-weekly-control-current-spec.md`
-11. `pwa/manual/2-3-pj-cockpit.md`
-12. `pwa/BUGS.md` のPWA/project-workspace節
-13. `pwa/design_log/sessions_2026-09.md`
+10. `pwa/spec/3-8-cockpit-current-spec.md`
+11. `pwa/spec/3-16-project-weekly-control-current-spec.md`
+12. `pwa/manual/2-3-pj-cockpit.md`
+13. `pwa/BUGS.md` のPWA/project-workspace節
+14. `pwa/design_log/sessions_2026-09.md`
 
 ## 現在地
 

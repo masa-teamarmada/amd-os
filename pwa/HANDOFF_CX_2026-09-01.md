@@ -15,11 +15,12 @@
 ## 未解決と次の一手
 
 - この機能の未解決はない。次の画面フィードバックが来たら、まず本番のログイン済み現物で対象タブを確認する。
-- PWAを再び変更する場合は、`BUILD_VERSION`、`pwa/spec/3-16-project-weekly-control-current-spec.md`、`pwa/manual/2-3-pj-cockpit.md`、両附則を同じcommitで更新する。`npm run test:critical-ui`とproduction buildを通し、main push後に`/api/build-info`のSHAをHEADと照合する。
+- PWAを再び変更する場合は、`BUILD_VERSION`、論点追加なら`pwa/spec/3-8-cockpit-current-spec.md`、リストなら`pwa/spec/3-16-project-weekly-control-current-spec.md`、`pwa/manual/2-3-pj-cockpit.md`、両附則を同じcommitで更新する。`npm run test:critical-ui`とproduction buildを通し、main push後に`/api/build-info`のSHAをHEADと照合する。
 
 ## 参照先
 
 - 仕様: `pwa/spec/3-16-project-weekly-control-current-spec.md`
+- 論点追加の仕様: `pwa/spec/3-8-cockpit-current-spec.md`
 - 利用説明: `pwa/manual/2-3-pj-cockpit.md`
 - 実装履歴: `pwa/design_log/sessions_2026-09.md`
 - 不具合・教訓: `pwa/BUGS.md` の `[PWA/project-workspace] 互換表示した論点分類を保存APIが拒否した`
