@@ -460,6 +460,7 @@ function patchFor(resource: Resource, raw: unknown, projectTracks: string[]): Re
     // project_management_tasks_standalone_needs_track enforces the combination atomically).
     if ("milestone_id" in raw) patch.milestone_id = raw.milestone_id == null || raw.milestone_id === "" ? null : text(raw.milestone_id, "milestone_id", 80);
     if ("parent_task_id" in raw) patch.parent_task_id = raw.parent_task_id == null || raw.parent_task_id === "" ? null : text(raw.parent_task_id, "parent_task_id", 80);
+    if ("partner_id" in raw) patch.partner_id = raw.partner_id == null || raw.partner_id === "" ? null : text(raw.partner_id, "partner_id", 80);
   }
   if (Object.keys(patch).length === 0) throw new Error("更新できる項目がないよ");
   return patch;
@@ -712,7 +713,7 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
       : /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(raw.client_token))
         ? String(raw.client_token)
         : (() => { throw new Error("client_tokenの形式が不正だよ"); })();
-    return { ...common(), project_id: projectId, milestone_id: milestoneId, parent_task_id: optionalId("parent_task_id"), track, client_token: clientToken, title: requiredText("title", 180), description: optionalTextValue("description", 1600), status: requiredEnum("status", TASK_STATUSES, "unassessed"), planned_start: plannedStart, planned_end: plannedEnd, forecast_end: optionalDate("forecast_end"), actual_end: optionalDate("actual_end"), progress_pct: optionalNumber("progress_pct", { min: 0, max: 100 }) || 0, date_certainty: requiredEnum("date_certainty", ["confirmed", "provisional"], "provisional"), owner_member_id: optionalId("owner_member_id"), owner_label: requiredText("owner_label", 120), goal: optionalTextValue("goal", 1200), next_deliverable: optionalTextValue("next_deliverable", 500), blocker: optionalTextValue("blocker", 500), completion_criteria: optionalTextValue("completion_criteria", 1200), forecast_change_reason: optionalTextValue("forecast_change_reason", 500), sort_order: optionalNumber("sort_order", { min: 0 }) || 0, last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), created_by: memberId, updated_by: memberId };
+    return { ...common(), project_id: projectId, milestone_id: milestoneId, parent_task_id: optionalId("parent_task_id"), partner_id: optionalId("partner_id"), track, client_token: clientToken, title: requiredText("title", 180), description: optionalTextValue("description", 1600), status: requiredEnum("status", TASK_STATUSES, "unassessed"), planned_start: plannedStart, planned_end: plannedEnd, forecast_end: optionalDate("forecast_end"), actual_end: optionalDate("actual_end"), progress_pct: optionalNumber("progress_pct", { min: 0, max: 100 }) || 0, date_certainty: requiredEnum("date_certainty", ["confirmed", "provisional"], "provisional"), owner_member_id: optionalId("owner_member_id"), owner_label: requiredText("owner_label", 120), goal: optionalTextValue("goal", 1200), next_deliverable: optionalTextValue("next_deliverable", 500), blocker: optionalTextValue("blocker", 500), completion_criteria: optionalTextValue("completion_criteria", 1200), forecast_change_reason: optionalTextValue("forecast_change_reason", 500), sort_order: optionalNumber("sort_order", { min: 0 }) || 0, last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), created_by: memberId, updated_by: memberId };
   }
   throw new Error("追加できる種類が不正だよ");
 }
@@ -751,7 +752,7 @@ const PARENT_FIELDS: Partial<Record<Resource, Array<[string, string]>>> = {
   raci: [["milestone_id", "project_management_milestones"]],
   capacity: [["milestone_id", "project_management_milestones"]],
   technical_test: [["milestone_id", "project_management_milestones"], ["outcome_id", "project_management_outcomes"]],
-  task: [["milestone_id", "project_management_milestones"], ["parent_task_id", "project_management_tasks"]],
+  task: [["milestone_id", "project_management_milestones"], ["parent_task_id", "project_management_tasks"], ["partner_id", "project_management_partners"]],
 };
 
 // A task can be re-parented onto another task via `parent_task_id`; a cycle (task A's

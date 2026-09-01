@@ -193,6 +193,10 @@ export type EditorState =
   | {
       kind: "create_task";
       laneKey: SxDisplayLaneKey;
+      /** 目的構造から追加したときの接続先。 */
+      parentTaskId?: string | null;
+      /** 親タスクと同じタスク群へ確実に置くための明示的なMS。nullはstandalone。 */
+      milestoneId?: string | null;
       /** Theme hub only — see create_milestone.allowStandalone. p19 has no lane-backed milestone
        * to inherit a track from yet, so standalone creation derives track from laneKey directly
        * instead of erroring. */
@@ -619,14 +623,15 @@ function editorInitialValues(
       confidence: editor.milestone.confidence,
     };
   if (editor.kind === "create_task") {
-    const selected = taskBackingMilestone(
-      management,
-      buildSxLaneFold(management.tracks),
-      editor.laneKey,
-    );
+    const selected = editor.milestoneId !== undefined
+      ? editor.milestoneId
+        ? management.milestones.find((milestone) => milestone.id === editor.milestoneId) ?? null
+        : null
+      : taskBackingMilestone(management, buildSxLaneFold(management.tracks), editor.laneKey);
     return {
       milestone_id: selected?.id || "",
-      parent_task_id: "",
+      parent_task_id: editor.parentTaskId || "",
+      partner_id: "",
       track: selected?.track || "",
       title: "",
       description: "",
@@ -651,6 +656,7 @@ function editorInitialValues(
       // value's type honest (controlled <input> cannot bind null).
       milestone_id: editor.task.milestoneId || "",
       parent_task_id: editor.task.parentTaskId || "",
+      partner_id: editor.task.partnerId || "",
       track: editor.task.track || "",
       title: editor.task.title,
       description: editor.task.description || "",
@@ -1170,6 +1176,16 @@ function editorDefinition(
       id: editor.kind === "edit_task" ? editor.task.id : undefined,
       fields: [
         ...planFields,
+        {
+          key: "partner_id",
+          label: "関係先（アプローチ時）",
+          type: "select",
+          options: [
+            { value: "", label: "関係先に直接ひもづけない" },
+            ...management.partners.map((partner) => ({ value: partner.id, label: partner.name })),
+          ],
+          help: "特定の相手へのアプローチなら選ぶと、目的構造で接点の経緯と現在のボールがこの枝につながるよ。",
+        },
         { key: "description", label: "作業内容", type: "textarea", span: true },
         { key: "goal", label: "ゴール", type: "textarea", span: true },
         { key: "next_deliverable", label: "次の成果物", type: "textarea", span: true },
@@ -2104,6 +2120,7 @@ const FIELD_GROUP_BASIC_KEYS = new Set([
   "outcome_id",
   "milestone_id",
   "parent_task_id",
+  "partner_id",
   "related_milestone_id",
   "predecessor_milestone_id",
   "successor_milestone_id",
@@ -2548,7 +2565,11 @@ function IssueEditor({
     }
     const selectedTaskMilestone =
       editor.kind === "create_task"
-        ? taskBackingMilestone(management, laneFold, editor.laneKey)
+        ? editor.milestoneId !== undefined
+          ? editor.milestoneId
+            ? management.milestones.find((milestone) => milestone.id === editor.milestoneId) ?? null
+            : null
+          : taskBackingMilestone(management, laneFold, editor.laneKey)
         : null;
     if (
       editor.kind === "create_task" &&
@@ -2564,7 +2585,7 @@ function IssueEditor({
       );
       if (
         !selectedParentTask ||
-        selectedParentTask.milestoneId !== selectedTaskMilestone?.id
+        selectedParentTask.milestoneId !== (selectedTaskMilestone?.id ?? null)
       ) {
         setError("親タスクは同じタスク群から選んでね");
         focusField("parent_task_id");
@@ -4963,6 +4984,30 @@ export function SxWeeklyControlDashboard({
     }, 3500);
   }
 
+  async function moveObjectiveTask(task: SxTask, parentTaskId: string | null): Promise<void> {
+    setManagement(sxApplyOptimisticManagementPatch(management, "task", task.id, { parent_task_id: parentTaskId }));
+    try {
+      const response = await fetch(`/api/project-workspace/${encodeURIComponent(bundle.project.projectId)}/management`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resource: "task", id: task.id, expected_version: task.version, patch: { parent_task_id: parentTaskId } }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : "タスクの接続を変更できなかったよ");
+      if (body.bundle) setManagement(body.bundle as SxManagementBundle);
+      showNotice(parentTaskId ? "タスクを新しい接続先へ移したよ" : "タスクを成立条件の直下へ移したよ");
+    } catch (error) {
+      try {
+        const latest = await fetch(`/api/project-workspace/${encodeURIComponent(bundle.project.projectId)}/management`, { headers: { "Cache-Control": "no-store" } });
+        const latestBody = await latest.json().catch(() => null);
+        if (latest.ok && latestBody) setManagement(latestBody as SxManagementBundle);
+      } catch {
+        // The card keeps the failure visible when current state cannot be read back.
+      }
+      throw error;
+    }
+  }
+
   useEffect(
     () => () => {
       if (noticeTimerRef.current != null)
@@ -5909,7 +5954,17 @@ export function SxWeeklyControlDashboard({
             <SxObjectiveMap
               management={management}
               activeTrack={ganttTrackFilter}
+              canManage={management.canManage}
               onOpenTask={(task) => setEditor({ kind: "edit_task", task })}
+              onCreateTask={(outcome, parentTask) =>
+                setEditor({
+                  kind: "create_task",
+                  laneKey: laneFold.laneKeyForTrack(outcome.track),
+                  ...(parentTask ? { parentTaskId: parentTask.id, milestoneId: parentTask.milestoneId } : {}),
+                  allowStandalone: true,
+                })
+              }
+              onMoveTask={moveObjectiveTask}
               onOpenPartners={(track) => {
                 setPartnerTrackFilter(track);
                 setPartnerClassification(null);

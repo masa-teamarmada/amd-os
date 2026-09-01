@@ -238,6 +238,8 @@ export type SxTask = {
   /** null = standalone (theme-only) task with no operational milestone yet (migration 20260831120000). */
   milestoneId: string | null;
   parentTaskId: string | null;
+  /** 関係先へのアプローチ枝だけが持つ直接リンク。接点履歴と現在のボールはpartner正本から読む。 */
+  partnerId: string | null;
   track: SxTrackKey | null;
   title: string;
   description: string | null;
@@ -1050,7 +1052,7 @@ function mapAction(row: RawRow): SxActionItem {
 function mapTask(row: RawRow): SxTask {
   return {
     id: stringValue(row, "id"), projectId: stringValue(row, "project_id"), milestoneId: nullableString(row, "milestone_id"),
-    parentTaskId: nullableString(row, "parent_task_id"), track: typeof row.track === "string" && row.track.length > 0 ? row.track : null,
+    parentTaskId: nullableString(row, "parent_task_id"), partnerId: nullableString(row, "partner_id"), track: typeof row.track === "string" && row.track.length > 0 ? row.track : null,
     title: stringValue(row, "title"), description: nullableString(row, "description"), status: asStatus(row.status),
     plannedStart: nullableString(row, "planned_start"), plannedEnd: nullableString(row, "planned_end"), forecastEnd: nullableString(row, "forecast_end"), actualEnd: nullableString(row, "actual_end"),
     progressPct: numberValue(row, "progress_pct"), dateCertainty: row.date_certainty === "confirmed" ? "confirmed" : "provisional",
@@ -1314,7 +1316,7 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
     live("project_management_milestones", "id,project_id,objective_id,outcome_id,slug,track,title,gate,timeline_kind,display_lane_keys,version,status,planned_start,planned_end,forecast_end,actual_end,progress_pct,date_certainty,owner_member_id,owner_label,next_deliverable,max_issue,completion_criteria,completion_evidence,criticality,baseline_plan_version,forecast_change_reason,status_source,status_reason,status_override_reason,status_override_expires_on,status_override_approved_by,last_verified_at,confidence,source_kind,source_ref,sort_order").order("sort_order"),
     live("project_management_kpis", "id,project_id,outcome_id,track,slug,title,metric_kind,baseline,target,actual,unit,threshold,threshold_rule,threshold_upper,measurement_date,frequency,source_label,confidence,last_verified_at,source_kind,source_ref").order("track"),
     plain("project_management_milestone_kpis", "project_id,milestone_id,kpi_id"),
-    live("project_management_tasks", "id,project_id,milestone_id,parent_task_id,track,title,description,status,planned_start,planned_end,forecast_end,actual_end,progress_pct,date_certainty,owner_member_id,owner_label,goal,next_deliverable,blocker,completion_criteria,forecast_change_reason,sort_order,last_verified_at,confidence,source_kind,source_ref,created_by,updated_by,version").order("sort_order"),
+    live("project_management_tasks", "id,project_id,milestone_id,parent_task_id,partner_id,track,title,description,status,planned_start,planned_end,forecast_end,actual_end,progress_pct,date_certainty,owner_member_id,owner_label,goal,next_deliverable,blocker,completion_criteria,forecast_change_reason,sort_order,last_verified_at,confidence,source_kind,source_ref,created_by,updated_by,version").order("sort_order"),
     live("project_management_milestone_dependencies", "id,project_id,predecessor_milestone_id,successor_milestone_id,dependency_type,required,lag_days,note").order("created_at"),
     live("project_management_schedule_dependencies", "id,project_id,predecessor_type,predecessor_task_id,predecessor_milestone_id,successor_type,successor_task_id,successor_milestone_id,dependency_type").order("created_at"),
     live("project_management_issues", "id,project_id,milestone_id,outcome_id,slug,track,title,background,knowledge_type,status,owner_label,due_date,last_verified_at,confidence,source_kind,source_ref,sort_order").order("sort_order"),

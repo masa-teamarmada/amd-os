@@ -2,6 +2,8 @@
 
 | 2026-09-01 JST | 3-8 / 3-16 / FEATURE_REGISTRY | ZMP目的構造と外部PJメンバー共有 | `SxObjectiveMap`を追加し、既存bundleだけでガント／目的構造を切替。p19水素をobjective 1・outcome 3・task 9・partner 2・interaction 6へ正規化し、旧history_rows 7件を空にした。外部workspace accountは個別PJ権限を再検証して同じdashboardをread-only表示し、ナビはテーマ・ガント・関係先・ドライブに限定。内部ホーム／コックピット導線、週次介入、コスト、知財は非表示。migration `20260901153000_zmp_hydrogen_management_ledger.sql` | 経緯表の再入力を止め、目的からの逆算と相手別の現在地を同じ正本から読めるようにするため | まさ・えいみ |
 
+| 2026-09-01 JST | 3-16 / DB schema / DESIGN | ZMP目的構造の再帰分岐と編集 | `project_management_tasks.partner_id`を追加し、同PJの関係先へだけ接続。供給元→シーズリスト→堂脇先生／pHydrogen／その他探索をseedし、堂脇先生の4イベントを正規化。`SxObjectiveMap`を親子所有コネクタ、相手別時系列、手動追加、DnD・接続選択によるreparentへ変更。循環参照はUI/API/DBで拒否。migration `20260901223000_zmp_objective_branch_history.sql` | 目的から分岐と各アプローチの流れを同時に読み、その場で構造を更新するため | まさ・えいみ |
+
 | 2026-09-01 18:45 JST | 3-8 PJ Cockpit | KUTE FY2026業務台帳の再編 | p25の旧6タスクをpreflight後にsoft-deleteし、6 track・38 taskへ置換。完了9件は100%・actual_endあり。作成完了と大学決裁、調査完了と実証受注を分離。日程根拠なしはNULL。既存objective/outcome/phaseを再利用し、schema/RLS/API/他PJは不変。migration `20260901184500_kute_fy2026_task_rebuild.sql` | 旧タスク名だけでは実作業と完了条件が分からなかったため | まさ・えいみ |
 
 | 2026-09-01 JST | 3-16 | テーマ資料の形式別閲覧 | 資料・成果物・作業関連・経緯出典の5導線を既存open APIへ統一。HTMLをMarkdown専用routeへ送る404を修正。認可不変 | 本番で出典資料を開く導線を確認 | えいみ |

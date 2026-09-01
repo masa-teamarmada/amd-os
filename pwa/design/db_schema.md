@@ -5248,7 +5248,7 @@ PRIMARY KEY: `id`
 
 ## project_management_tasks
 
-行数 (概算): 74
+行数 (概算): 77
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -5287,6 +5287,7 @@ PRIMARY KEY: `id`
 | 32 | `next_deliverable` | `text` | NULL | `` |
 | 33 | `blocker` | `text` | NULL | `` |
 | 34 | `client_token` | `uuid` | NULL | `` |
+| 35 | `partner_id` | `uuid` | NULL | `` |
 
 ## project_management_technical_tests
 

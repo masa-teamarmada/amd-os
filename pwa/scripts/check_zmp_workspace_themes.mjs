@@ -19,10 +19,12 @@ const migration = readRepo(
 );
 const themeHubMigration = readRepo("ios/supabase/migrations/20260831120000_project_theme_hub.sql");
 const hydrogenLedgerMigration = readRepo("ios/supabase/migrations/20260901153000_zmp_hydrogen_management_ledger.sql");
+const objectiveBranchMigration = readRepo("ios/supabase/migrations/20260901223000_zmp_objective_branch_history.sql");
 const bundle = readPwa("src/lib/project-workspace.ts");
 const dashboard = readPwa("src/components/project-workspace/SxWeeklyControlDashboard.tsx");
 const themeRoutes = readPwa("src/components/project-workspace/ProjectThemeRoutes.tsx");
 const objectiveMap = readPwa("src/components/project-workspace/SxObjectiveMap.tsx");
+const objectiveMapCss = readPwa("src/components/project-workspace/sx-objective-map.module.css");
 const partnerPipeline = readPwa("src/components/project-workspace/SxPartnerPipeline.tsx");
 const themeCss = readPwa("src/components/project-workspace/project-theme-routes.module.css");
 const sharedPage = readPwa("src/app/(shared-workspace)/project/[projectId]/workspace/page.tsx");
@@ -182,6 +184,16 @@ assert.match(hydrogenLedgerMigration, /'sx', NULL, '供給量・時期・単価�
 assert.match(hydrogenLedgerMigration, /history_rows = '\[\]'::jsonb/, "既知7行の重複履歴はテーマ概要から外す");
 assert.match(hydrogenLedgerMigration, /jsonb_array_length\(history_rows\) = 7/, "後続の手編集履歴を無条件で消さない");
 
+assert.match(objectiveBranchMigration, /ADD COLUMN IF NOT EXISTS partner_id uuid/, "タスクから関係先正本へ直接接続する");
+for (const title of ["東京理科大学・堂脇先生へのアプローチ", "pHydrogenへのアプローチ", "その他の供給候補を探索"]) {
+  assert.ok(objectiveBranchMigration.includes(title), `${title}をシーズリスト作成の子へseedする`);
+}
+for (const event of ["コンタクト", "MTG実施", "やりとり継続・返答待ち", "先方からレスなし・一旦停止"]) {
+  assert.ok(objectiveBranchMigration.includes(event), `堂脇先生の時系列に${event}を残す`);
+}
+assert.match(objectiveBranchMigration, /branch_count <> 3/, "シーズリスト作成からの3分岐をassertする");
+assert.match(objectiveBranchMigration, /linked_count <> 2/, "2アプローチを関係先へ接続する");
+
 // テーマは索引、ガントタブ内で時間軸と目的からの逆算を切替える。
 assert.doesNotMatch(themeRoutes, /<ThemeHistory|import \{ ThemeHistory \}/, "テーマ面に重複する履歴台帳を残さない");
 assert.match(themeRoutes, /onOpenControlView\?\.\("gantt", selectedTheme\.themeKey\)/, "テーマから目的構造へ遷移する");
@@ -192,9 +204,17 @@ assert.match(dashboard, />ガント<\/button>/, "ガント切替を出す");
 assert.match(dashboard, />目的構造<\/button>/, "目的構造切替を出す");
 assert.match(objectiveMap, /最上位の目的/);
 assert.match(objectiveMap, /成立条件/);
-assert.match(objectiveMap, /関係先とボール/);
+assert.match(objectiveMap, /接点の経緯/);
 assert.match(objectiveMap, /AMD側ボール/);
 assert.match(objectiveMap, /一旦停止/);
+assert.match(objectiveMap, /draggable=\{canManage/, "管理権限時にタスクカードをドラッグできる");
+assert.match(objectiveMap, /＋ 子タスク/, "各カードから子タスクを手動追加できる");
+assert.match(objectiveMap, /接続変更/, "接続先を明示選択できる");
+assert.match(objectiveMap, /taskHasDescendant/, "循環参照になる接続をUIでも除外する");
+assert.doesNotMatch(objectiveMapCss, /calc\(50%\s*\/|--branch-count|branchGrid/, "雑な全幅コネクタへ戻さない");
+assert.match(objectiveMapCss, /\.treeBranch::before[\s\S]*?\.treeBranch::after/, "コネクタは各親子枝が所有する");
+assert.match(dashboard, /onMoveTask=\{moveObjectiveTask\}/, "接続変更を既存management writerへ保存する");
+assert.match(dashboard, /parentTaskId: parentTask\.id/, "子タスク追加は親をフォームへ事前入力する");
 assert.match(partnerPipeline, /activeTrack\?: SxTrackKey \| null/, "関係先リストは同じ正本をテーマで絞れる");
 assert.match(partnerPipeline, /partner\.tracks\.some\(\(track\) => track\.track === activeTrack\)/, "副track所属もテーマ絞り込みへ含める");
 

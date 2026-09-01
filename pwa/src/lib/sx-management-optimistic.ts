@@ -185,6 +185,7 @@ function optimisticTask(
     projectId,
     milestoneId: "",
     parentTaskId: null,
+    partnerId: null,
     track: null,
     title: "",
     description: null,
