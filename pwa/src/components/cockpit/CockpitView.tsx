@@ -558,7 +558,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
                     aria-controls={desktopHoverEnabled && groupItems.length > 1 ? `cockpit-group-menu-${group.key}` : undefined}
                     data-cockpit-group={group.key}
                     onClick={() => selectGroup(group.key)}
-                    className={`min-h-12 w-full cursor-pointer whitespace-nowrap rounded-lg px-3 text-center text-[13px] font-bold transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 ${
+                    className={`min-h-11 sm:min-h-9 w-full cursor-pointer whitespace-nowrap rounded-lg px-2 sm:px-3 text-center text-[13px] font-bold transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 ${
                       selected
                         ? "bg-white text-slate-950 shadow-[inset_0_-2px_0_#0f172a]"
                         : "text-slate-500 hover:bg-white/80 hover:text-slate-900"
@@ -589,7 +589,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
                               }}
                               onMouseEnter={tab.onHover}
                               onFocus={tab.onHover}
-                              className={`flex min-h-11 w-full cursor-pointer items-center whitespace-nowrap rounded-md px-3 text-left text-[12px] font-semibold transition-[background-color,color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-inset ${
+                              className={`flex min-h-11 sm:min-h-7 w-full cursor-pointer items-center whitespace-nowrap rounded-md px-2.5 text-left text-[12px] font-semibold transition-[background-color,color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-inset ${
                                 tabSelected
                                   ? "bg-[#f5f5f7] text-slate-950"
                                   : "text-slate-600 hover:bg-[#f5f5f7] hover:text-slate-900"
@@ -623,7 +623,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
                     onClick={() => selectTab(tab.key)}
                     onMouseEnter={tab.onHover}
                     onFocus={tab.onHover}
-                    className={`min-h-11 shrink-0 cursor-pointer whitespace-nowrap rounded-md px-3 text-[12px] font-semibold transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 ${
+                    className={`min-h-11 sm:min-h-8 shrink-0 cursor-pointer whitespace-nowrap rounded-md px-2.5 sm:px-3 text-[12px] font-semibold transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 ${
                       selected
                         ? "bg-[#f5f5f7] text-slate-950 shadow-[inset_0_-2px_0_#0f172a]"
                         : "text-slate-500 hover:bg-[#f5f5f7] hover:text-slate-900"

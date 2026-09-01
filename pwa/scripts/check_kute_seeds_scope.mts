@@ -110,7 +110,7 @@ function readSrc(relPath: string): string {
   assert.ok(!/\btruncate\b/.test(ui), "KUTE比較表に1行省略(truncate)が残っています");
   assert.ok(!/\bline-clamp-\d+\b/.test(ui), "KUTE比較表に複数行省略(line-clamp)が残っています");
   assert.ok(/whitespace-normal/.test(ui) && /break-words/.test(ui), "KUTE比較表の全文折り返し指定が見つかりません");
-  assert.ok(/1行＝技術 × 用途/.test(ui), "同じ研究者が複数シーズを持てる案件単位の説明が見つかりません");
+  assert.ok(!/優先順位と次の検証を決める候補一覧/.test(ui), "研究機関シーズ一覧の不要な導入説明が残っています");
   assert.ok(/公開情報候補/.test(ui), "大学・研究者確認前の公開情報候補表示が見つかりません");
   // 社内の全件一覧と研究機関コックピットは同じ完全版詳細を使う。
   // 公開面を将来この表へ接続する場合だけ、明示的に公開用モーダルへ分岐する。

@@ -298,30 +298,29 @@ export function CockpitKuteSeeds({
 
   return (
     <section className="px-1 py-2">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <h2 className="text-lg font-bold text-slate-950">{scope === "all" ? "シーズリスト" : "連携シーズ比較"}</h2>
-          <p className="mt-1 max-w-4xl text-sm leading-relaxed text-slate-600">
-            {scope === "all"
-              ? "AMDとの契約有無に関係なく蓄積する全シーズ一覧。1行＝1シーズで、PJ化済み、PJ化検討中、PJなし・SPS評価済み、その他の順に並べる。"
-              : "優先順位と次の検証を決める候補一覧。1行＝技術 × 用途の1案件として比較する。"}
-          </p>
-          <p className="mt-1 text-[11px] leading-relaxed text-amber-700">
-            「公開情報候補」は大学・研究者による確認前。SPSとXRLは評価が揃うまで未評価のまま表示する。
-          </p>
-          {seeds && (
-            <p className="mt-1.5 text-[11px] text-slate-500" aria-label="シーズ集計">
-              対象{scopedSeeds.length}件
-              {scope === "all" && `・機関${institutionCount}機関`}
-              {scope === "all" && `・PJ化済み${realizedProjectSeedCount}件`}
-              {scope === "all" && `・PJ化検討中${consideringProjectSeedCount}件`}
-              {scope === "all" && `・PJなし・SPS評価済み${unrealizedScoredSeedCount}件`}
-              ・研究者{researcherCount}名・資料{materialCount}件
-              {`・現行SPS評価済み${scoredCount}件`}
+      {scope === "all" && (
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <h2 className="text-lg font-bold text-slate-950">シーズリスト</h2>
+            <p className="mt-1 max-w-4xl text-sm leading-relaxed text-slate-600">
+              AMDとの契約有無に関係なく蓄積する全シーズ一覧。1行＝1シーズで、PJ化済み、PJ化検討中、PJなし・SPS評価済み、その他の順に並べる。
             </p>
-          )}
-        </div>
-        <div className="flex shrink-0 items-start gap-3">
+            <p className="mt-1 text-[11px] leading-relaxed text-amber-700">
+              「公開情報候補」は大学・研究者による確認前。SPSとXRLは評価が揃うまで未評価のまま表示する。
+            </p>
+            {seeds && (
+              <p className="mt-1.5 text-[11px] text-slate-500" aria-label="シーズ集計">
+                対象{scopedSeeds.length}件
+                {`・機関${institutionCount}機関`}
+                {`・PJ化済み${realizedProjectSeedCount}件`}
+                {`・PJ化検討中${consideringProjectSeedCount}件`}
+                {`・PJなし・SPS評価済み${unrealizedScoredSeedCount}件`}
+                ・研究者{researcherCount}名・資料{materialCount}件
+                {`・現行SPS評価済み${scoredCount}件`}
+              </p>
+            )}
+          </div>
+          <div className="flex shrink-0 items-start gap-3">
           {scope === "all" && (
             <Link
               href="/seeds/sensitivity"
@@ -355,8 +354,9 @@ export function CockpitKuteSeeds({
           >
             <RotateCcw className="h-4 w-4" aria-hidden="true" />
           </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {seeds && seeds.length > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-3 text-[11px]">
