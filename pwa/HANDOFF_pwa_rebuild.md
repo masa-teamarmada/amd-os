@@ -62,6 +62,8 @@ BZMは理論と数式の変更がないため対象外。
 - DriveのSX 2026年8月PDFは8月29日に使用した既存生成経路で書式を復旧した。日付・リンク・ヒアリング事実の修正は保持。既存のPWA帳票CSSは変更していない。
 - Native側にコード変更は不要。月次帳票は既存の専用画面へ誘導し、元のPDF・HTMLを書式のない本文から別デザインで再生成しない。
 - 同期棚卸し: 新画面・新機能なし、manual/bzm変更対象外。復旧仕様と記録は `spec/3-2-monthly-reports-current-spec.md`、`spec/6-1-appendix-changelog.md`。
+- 主要成果物の旧統合Markdownリンクは、日本食研PDF（文書ID `ef26cc87-2870-41ea-8cec-bc2349b8f0a1`）とユナイテッドシルクPDF（文書ID `6391a633-f003-4828-9124-8e6db4dd5745`）の2行へ置換済み。2件とも同じ月次報告書フォルダにあり、PWA保存物の再取得と生成物のSHA一致まで確認した。
+- 会社別ヒアリング資料は1社1PDFとし、月次提出版と同じCSS・比較項目で作る。旧統合版は削除せず主要成果物から除外。2件の可視性は `amd_internal` のため、社外提出ではPDF本体も添付する。非開発側の共通様式正本は `/Users/masa/projects/AMD/SX/CUSTOMER_HEARING_REPORT_STANDARD.md`。
 
 ## 2026-08-31 KUTEタブ配置 / 他プラットフォームへの引き継ぎ
 
