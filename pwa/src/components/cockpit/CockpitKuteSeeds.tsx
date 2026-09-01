@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowDown,
@@ -12,6 +12,7 @@ import {
   Dna,
   FileText,
   FlaskConical,
+  ListFilter,
   Loader2,
   Plus,
   Recycle,
@@ -97,6 +98,13 @@ function initialSeedColumnWidths(): Record<SeedColumnKey, number> {
 const SORT_LABEL: Record<SortKey, string> = {
   spsBand: "産業創出価値(中央値)",
 };
+
+/** 評価状態の絞り込み。BZM 3.0 のスコアを持つかどうかで分ける。先頭が絞り込みなしの状態。 */
+const EVALUATION_FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
+  { value: "all", label: "すべて" },
+  { value: "assessed", label: "評価済み" },
+  { value: "unassessed", label: "最新版未評価" },
+];
 
 const SEED_DOMAIN_VISUAL: Record<SeedDomainLane, {
   Icon: LucideIcon;
@@ -287,6 +295,29 @@ export function CockpitKuteSeeds({
 
   const isEmptyResult = flatSeeds.length === 0;
 
+  // 表の下に余白を残さない。表より上にある見出しやタブの高さは画面幅と scope で変わるので、
+  // 固定の 70vh ではなく、表の上端を実測して画面下端までをスクロール領域にする。
+  const tableRef = useRef<HTMLDivElement | null>(null);
+  const [tableMaxHeight, setTableMaxHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    function measure() {
+      const element = tableRef.current;
+      if (!element) return;
+      // 高さ制限を外した状態で測ると、表の下に積まれている余白（ページの下パディング等）が
+      // ページ全体の高さとの差として出る。その余白を残した残り全部を表の高さにする。
+      const applied = element.style.maxHeight;
+      element.style.maxHeight = "none";
+      const rect = element.getBoundingClientRect();
+      const below = Math.max(0, document.documentElement.scrollHeight - Math.round(rect.bottom + window.scrollY));
+      element.style.maxHeight = applied;
+      setTableMaxHeight(Math.max(320, Math.round(window.innerHeight - rect.top - below)));
+    }
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [seeds, error, isEmptyResult]);
+
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
       setSortDir((d) => (d === "desc" ? "asc" : "desc"));
@@ -358,22 +389,7 @@ export function CockpitKuteSeeds({
         </div>
       )}
 
-      {seeds && seeds.length > 0 && (
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-[11px]">
-          <FilterSelect
-            label="評価状態"
-            value={statusFilter}
-            onChange={(v) => setStatusFilter(v as StatusFilter)}
-            options={[
-              { value: "all", label: "すべて" },
-              { value: "assessed", label: "評価済み" },
-              { value: "unassessed", label: "最新版未評価" },
-            ]}
-          />
-        </div>
-      )}
-
-      <div className="mt-4">
+      <div className="mt-3">
         {error ? (
           <div className="flex flex-col gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-[12px] text-amber-900 sm:flex-row sm:items-center sm:justify-between">
             <span>{error}</span>
@@ -400,11 +416,22 @@ export function CockpitKuteSeeds({
             対象のシーズがまだ登録されていない
           </div>
         ) : isEmptyResult ? (
-          <div className="border border-slate-200 bg-slate-50 px-3 py-8 text-center text-sm text-slate-500">
-            条件に合うシーズがない
+          <div className="flex flex-col items-center gap-2 border border-slate-200 bg-slate-50 px-3 py-8 text-center text-sm text-slate-500">
+            <span>条件に合うシーズがない</span>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("all")}
+              className="inline-flex h-8 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+            >
+              絞り込みを解除
+            </button>
           </div>
         ) : (
-          <div className="max-h-[70vh] overflow-auto border border-slate-200">
+          <div
+            ref={tableRef}
+            style={tableMaxHeight === null ? undefined : { maxHeight: tableMaxHeight }}
+            className="max-h-[70vh] overflow-auto border border-slate-200"
+          >
             <table className="table-fixed border-collapse text-[12px]" style={{ width: tableWidth }}>
               <colgroup>
                 {visibleColumnKeys.map((key) => <col key={key} style={{ width: columnWidths[key] }} />)}
@@ -417,7 +444,15 @@ export function CockpitKuteSeeds({
                   <ResizableTh columnKey="institution" width={columnWidths.institution} onResize={resizeColumn} onReset={() => resizeColumn("institution", SEED_COLUMN_DEFAULTS.institution)}>研究機関</ResizableTh>
                   <ResizableTh columnKey="researcher" width={columnWidths.researcher} onResize={resizeColumn} onReset={() => resizeColumn("researcher", SEED_COLUMN_DEFAULTS.researcher)}>研究者 / PI</ResizableTh>
                   <ResizableTh columnKey="value" width={columnWidths.value} onResize={resizeColumn} onReset={() => resizeColumn("value", SEED_COLUMN_DEFAULTS.value)}>
-                    <SortButton label="産業創出価値(億円)" sortKey="spsBand" activeKey={sortKey} dir={sortDir} onSort={toggleSort} hint="BZM 3.0。中央値でソートする。天井が未調査の案件は金額が出ないので末尾" />
+                    <div className="flex items-center justify-between gap-1">
+                      <SortButton label="産業創出価値(億円)" sortKey="spsBand" activeKey={sortKey} dir={sortDir} onSort={toggleSort} hint="BZM 3.0。中央値でソートする。天井が未調査の案件は金額が出ないので末尾" />
+                      <ColumnFilter
+                        label="評価状態"
+                        value={statusFilter}
+                        options={EVALUATION_FILTER_OPTIONS}
+                        onChange={setStatusFilter}
+                      />
+                    </div>
                   </ResizableTh>
                   <ResizableTh columnKey="stage" width={columnWidths.stage} onResize={resizeColumn} onReset={() => resizeColumn("stage", SEED_COLUMN_DEFAULTS.stage)}>現在地・型</ResizableTh>
                   <ResizableTh columnKey="trl" width={columnWidths.trl} onResize={resizeColumn} onReset={() => resizeColumn("trl", SEED_COLUMN_DEFAULTS.trl)}>TRL</ResizableTh>
@@ -476,32 +511,80 @@ export function CockpitKuteSeeds({
   );
 }
 
-function FilterSelect<T extends string>({
+/**
+ * 列見出しに付ける絞り込み。表の上に横帯を作らずに済むよう、対象の列の中で開閉する。
+ * options の先頭を「絞り込みなし」として扱い、それ以外を選んでいる間はボタンを色で示す。
+ */
+function ColumnFilter<T extends string>({
   label,
   value,
-  onChange,
   options,
+  onChange,
 }: {
   label: string;
   value: T;
-  onChange: (v: T) => void;
   options: { value: T; label: string }[];
+  onChange: (value: T) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const active = value !== options[0].value;
+  const current = options.find((option) => option.value === value) ?? options[0];
+
+  useEffect(() => {
+    if (!open) return;
+    function handlePointerDown(event: PointerEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
   return (
-    <label className="inline-flex items-center gap-1.5 text-slate-600">
-      <span className="font-semibold">{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value as T)}
-        className="h-8 rounded-md border border-slate-300 bg-white px-2 text-[11px] text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+    <div ref={containerRef} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`${label}で絞り込み`}
+        title={`${label}で絞り込み（現在: ${current.label}）`}
+        className={`inline-flex h-5 w-5 items-center justify-center rounded border ${active ? "border-sky-400 bg-sky-100 text-sky-700" : "border-slate-300 bg-white text-slate-500 hover:border-slate-400 hover:text-slate-800"}`}
       >
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-    </label>
+        <ListFilter className="h-3 w-3" aria-hidden="true" />
+      </button>
+      {open && (
+        <div
+          role="listbox"
+          aria-label={label}
+          className="absolute right-0 top-6 z-50 w-40 overflow-hidden rounded-md border border-slate-200 bg-white py-1 text-left normal-case shadow-lg"
+        >
+          <span className="block px-2.5 pb-1 text-[10px] font-semibold text-slate-400">{label}</span>
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="option"
+              aria-selected={option.value === value}
+              onClick={() => {
+                onChange(option.value);
+                setOpen(false);
+              }}
+              className={`block w-full px-2.5 py-1.5 text-left text-[11px] ${option.value === value ? "bg-sky-50 font-semibold text-sky-800" : "font-normal text-slate-700 hover:bg-slate-50"}`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -620,6 +703,15 @@ function AxisCell({ value }: { value: number | null | undefined }) {
   );
 }
 
+// 固定列（シーズNo. / シーズ）は横スクロールする列の上に重なるので、背景に半透明を使うと
+// 下を流れる文字が透ける。ホバーとフォーカスの色は「行の地色に sky-50 を 60% 重ねた結果」を
+// 不透明色として直接置き、非固定列の hover:bg-sky-50/60 と同じ見え方にそろえる。
+const STICKY_CELL_BG = {
+  realized: "bg-indigo-50 group-hover:bg-[#eff6ff] group-focus-visible:bg-[#eff6ff]",
+  considering: "bg-amber-50 group-hover:bg-[#f6faf7] group-focus-visible:bg-[#f6faf7]",
+  none: "bg-white group-hover:bg-[#f6fbff] group-focus-visible:bg-[#f6fbff]",
+} as const;
+
 function SeedRow({
   seed,
   onOpen,
@@ -652,6 +744,8 @@ function SeedRow({
   const companyLabel = companyName
     ? `${companyName}${projectLink?.commercialization_stage === "pre_incorporation" ? "（未設立）" : ""}`
     : "未設立";
+  const stickyCellBg = realized ? STICKY_CELL_BG.realized : considering ? STICKY_CELL_BG.considering : STICKY_CELL_BG.none;
+  const stickyCellBorder = realized ? "border-indigo-200" : considering ? "border-amber-200" : "border-slate-200";
 
   return (
     <tr
@@ -671,10 +765,10 @@ function SeedRow({
       role="button"
       tabIndex={0}
     >
-      <td className={`sticky left-0 z-10 border-b border-r px-3 py-2 align-top font-mono text-[11px] font-semibold group-hover:bg-sky-50/60 group-focus-visible:bg-sky-50/60 ${realized ? "border-indigo-200 bg-indigo-50 text-indigo-700" : considering ? "border-amber-200 bg-amber-50 text-amber-700" : "border-slate-200 bg-white text-slate-600"}`}>
+      <td className={`sticky left-0 z-10 border-b border-r px-3 py-2 align-top font-mono text-[11px] font-semibold ${stickyCellBorder} ${stickyCellBg} ${realized ? "text-indigo-700" : considering ? "text-amber-700" : "text-slate-600"}`}>
         {seed.seed_no == null ? "—" : String(seed.seed_no).padStart(2, "0")}
       </td>
-      <td style={{ left: seedNoWidth }} className={`border-b border-r px-3 py-2 align-top group-hover:bg-sky-50/60 group-focus-visible:bg-sky-50/60 sm:sticky sm:z-10 ${realized ? "border-indigo-200 bg-indigo-50" : considering ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"}`}>
+      <td style={{ left: seedNoWidth }} className={`border-b border-r px-3 py-2 align-top sm:sticky sm:z-10 ${stickyCellBorder} ${stickyCellBg}`}>
         <div className="whitespace-normal break-words font-semibold leading-snug text-slate-950">
           <SeedDomainIcon domain={seed.domain_lane} />
           <span className="ml-1">
