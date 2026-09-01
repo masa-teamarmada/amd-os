@@ -13,20 +13,19 @@
 - 組織状態は機能1だけでなく、機能1・3〜7をまとめて扱う。初期状態では未充足で、機能1の探索見込み `e=0.50`、機能3〜7は評価時点で `0` とするTier 0条件を用いる。
 - `κIP=0.55` とそこから導かれる `φ_u` は未調査時のTier 0仮置きであって、市場シェアや事実認定ではない。SAMにはSOM想定を掛けない。
 
-## fresh確認結果
+## 完了した比較用再計算
 
-- `seed_bzm30_inputs` と `seed_value_ceilings` が揃うKUTEシーズは熱電の1件だけだった。
-- 他21件の現行SPS（BZM 3.0）数値は、登録済みの技術根拠と明示的な低信頼SAM推定を使うTier 0試算にとどまる。
+- 22件すべてを同一の組織ゼロ条件でTier 0再計算し、根拠・SAM・置換控除・型・規制・証拠段階・下限/中央値/上限を [`model/cases/kute_22_tier0_baseline_2026-09-01.md`](model/cases/kute_22_tier0_baseline_2026-09-01.md) に記録した。
+- `seed_bzm30_inputs` と `seed_value_ceilings` が揃うKUTEシーズは熱電の1件だけだった。22件表は既存DBスコアを上書きせず、公開技術根拠と低確度の明示的SAM推定を使う比較用試算である。
 - 本番DB、PJ状態、外部連絡への書込みはしていない。
 
 ## 次に再開するとき
 
 1. `/Users/masa/projects/AGENTS.common.md`、`AGENTS.md`、`pwa/manual/5-1-research-assets-vc-seeds-scholar-spec.md`、`pwa/spec/4-8-bzm30-seed-score-panel-current-spec.md`、`model/MODEL_VERSION_LEDGER.md`、`model/cases/README.md`を読む。
-2. KUTE 22件の用途別SAM、置換分、技術証拠、権利帰属をfreshに調べる。
+2. 表の用途別SAM、置換分、技術証拠、権利帰属を一次根拠で更新する。
 3. 仮置きを正本入力へ採用する前に、まさへパラメータ別の根拠と採否を提示する。候補化・DB入力・現行SPS（BZM 3.0）の採用を混同しない。
 
 ## リポジトリ状態
 
-- この検討ではリポジトリファイル・DB・本番を変更していない。
-- このファイルと対応するmigration promptだけをcloseout記録として追加する。
+- 比較用台帳、このファイル、対応するmigration promptだけを追加した。DB・本番は変更していない。
 - 正本checkoutには別作業者由来のdirtyがあるため、触らない。
