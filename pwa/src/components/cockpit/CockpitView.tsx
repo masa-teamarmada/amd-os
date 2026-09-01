@@ -280,6 +280,7 @@ export type { CockpitTab } from "@/lib/cockpit-tabs";
 const WORKSPACE_VIEW_BY_TAB: Partial<Record<CockpitTab, SxWeeklyControlView>> = {
   weekly: "weekly",
   gantt: "gantt",
+  "objective-structure": "gantt",
   partners: "partners",
   issues: "issues",
 };
@@ -297,6 +298,8 @@ const TAB_BY_WORKSPACE_VIEW: Partial<Record<SxWeeklyControlView, CockpitTab>> = 
 
 export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab, onTabChange, institutionId: providedInstitutionId, hideNavigation = false }: CockpitViewProps) {
   const [localActiveTab, setLocalActiveTab] = useState<CockpitTab>("progress");
+  const [openGroupKey, setOpenGroupKey] = useState<CockpitGroupKey | null>(null);
+  const [desktopHoverEnabled, setDesktopHoverEnabled] = useState(false);
   const requestedTab = controlledTab ?? localActiveTab;
   const [resolvedInstitutionId, setResolvedInstitutionId] = useState<string | null | undefined>(providedInstitutionId);
   useEffect(() => {
@@ -316,6 +319,13 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       cancelled = true;
     };
   }, [cockpit.project.projectId, providedInstitutionId]);
+  useEffect(() => {
+    const media = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const update = () => setDesktopHoverEnabled(media.matches);
+    update();
+    media.addEventListener?.("change", update);
+    return () => media.removeEventListener?.("change", update);
+  }, []);
   const isInstitutionProject = resolvedInstitutionId != null;
   const resolvedTab = resolveCockpitTab(requestedTab, isInstitutionProject);
   const [modalYm, setModalYm] = useState<string | null>(initialModalYm || null);
@@ -397,6 +407,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     meetings: "動向・会議",
     weekly: "週次差分",
     gantt: "ガント",
+    "objective-structure": "目的構造",
     partners: "関係先",
     issues: "論点・仮説",
     "score-detail": "スコア詳細",
@@ -429,7 +440,8 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     : activeGroupWithAvailableChildren?.children[0] ?? "progress";
   const childTabs = activeGroupWithAvailableChildren?.children ?? ["progress"];
   const workspaceView = WORKSPACE_VIEW_BY_TAB[activeTab];
-  const childTabItems: { key: CockpitTab; label: string; onHover?: () => void }[] = childTabs.map((key) => ({
+  const workspaceGanttDisplayMode = activeTab === "objective-structure" ? "objective" : activeTab === "gantt" ? "timeline" : undefined;
+  const tabItem = (key: CockpitTab) => ({
     key,
     label: tabLabel[key] ?? key,
     onHover: key === "score-detail" ? () => prefetchProjectOrg(project.projectId)
@@ -437,7 +449,9 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       : key === "cost-model" ? () => prefetchProjectCostModel(project.projectId)
       : key === "capital-policy" || key === "company" ? () => prefetchGovernance(project.projectId)
       : undefined,
-  }));
+  });
+  const childTabItems: { key: CockpitTab; label: string; onHover?: () => void }[] = childTabs.map(tabItem);
+  const groupTabItems = (group: typeof visibleGroups[number]) => group.children.map(tabItem);
 
   function selectGroup(groupKey: CockpitGroupKey) {
     const group = visibleGroups.find((candidate) => candidate.key === groupKey);
@@ -518,21 +532,77 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
           >
             {visibleGroups.map((group) => {
               const selected = activeGroupWithAvailableChildren?.key === group.key;
+              const groupItems = groupTabItems(group);
               return (
-                <button
+                <div
                   key={group.key}
-                  type="button"
-                  aria-current={selected ? "page" : undefined}
-                  data-cockpit-group={group.key}
-                  onClick={() => selectGroup(group.key)}
-                  className={`min-h-12 cursor-pointer whitespace-nowrap rounded-lg px-3 text-center text-[13px] font-bold transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 ${
-                    selected
-                      ? "bg-white text-slate-950 shadow-[inset_0_-2px_0_#0f172a]"
-                      : "text-slate-500 hover:bg-white/80 hover:text-slate-900"
-                  }`}
+                  className="group relative min-w-0"
+                  onPointerEnter={() => {
+                    if (desktopHoverEnabled) setOpenGroupKey(group.key);
+                  }}
+                  onPointerLeave={() => {
+                    if (desktopHoverEnabled) setOpenGroupKey(null);
+                  }}
+                  onFocusCapture={() => setOpenGroupKey(group.key)}
+                  onBlurCapture={(event) => {
+                    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                      setOpenGroupKey(null);
+                    }
+                  }}
                 >
-                  {group.label}
-                </button>
+                  <button
+                    type="button"
+                    aria-current={selected ? "page" : undefined}
+                    aria-haspopup={desktopHoverEnabled && groupItems.length > 1 ? "true" : undefined}
+                    aria-expanded={desktopHoverEnabled && groupItems.length > 1 ? openGroupKey === group.key : undefined}
+                    aria-controls={desktopHoverEnabled && groupItems.length > 1 ? `cockpit-group-menu-${group.key}` : undefined}
+                    data-cockpit-group={group.key}
+                    onClick={() => selectGroup(group.key)}
+                    className={`min-h-12 w-full cursor-pointer whitespace-nowrap rounded-lg px-3 text-center text-[13px] font-bold transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 ${
+                      selected
+                        ? "bg-white text-slate-950 shadow-[inset_0_-2px_0_#0f172a]"
+                        : "text-slate-500 hover:bg-white/80 hover:text-slate-900"
+                    }`}
+                  >
+                    {group.label}
+                  </button>
+                  {desktopHoverEnabled && openGroupKey === group.key && groupItems.length > 1 && (
+                    <div
+                      className="pointer-events-auto absolute left-0 top-full z-30 w-max min-w-full pt-1"
+                      id={`cockpit-group-menu-${group.key}`}
+                      role="region"
+                      aria-label={`${group.label}のタブ`}
+                      data-testid={`cockpit-floating-${group.key}`}
+                    >
+                      <div className="overflow-hidden rounded-lg border border-[#bfc0c7] bg-white p-1 shadow-[0_8px_24px_rgba(15,23,42,0.12)]">
+                        {groupItems.map((tab) => {
+                          const tabSelected = activeTab === tab.key;
+                          return (
+                            <button
+                              key={tab.key}
+                              type="button"
+                              aria-current={tabSelected ? "page" : undefined}
+                              data-cockpit-tab={tab.key}
+                              onClick={() => {
+                                setOpenGroupKey(null);
+                                selectTab(tab.key);
+                              }}
+                              onMouseEnter={tab.onHover}
+                              onFocus={tab.onHover}
+                              className={`flex min-h-11 w-full cursor-pointer items-center whitespace-nowrap rounded-md px-3 text-left text-[12px] font-semibold transition-[background-color,color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-inset ${
+                                tabSelected
+                                  ? "bg-[#f5f5f7] text-slate-950"
+                                  : "text-slate-600 hover:bg-[#f5f5f7] hover:text-slate-900"
+                              }`}
+                            >
+                              {tab.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </nav>
@@ -747,13 +817,14 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
         </section>
       )}
 
-      {/* 管制4タブ (週次差分 / ガント / 関係先 / 論点・仮説)。
-          4タブで1つのマウントを共有するので、行き来しても束を読み直さない。 */}
+      {/* 管制タブ (週次差分 / ガント / 目的構造 / 関係先 / 論点・仮説)。
+          ガントと目的構造も1つのマウントを共有するので、行き来しても束を読み直さない。 */}
       {workspaceView && (
         <section role="tabpanel" aria-label="PJ管制" className="min-w-0">
           <CockpitProjectControl
             projectId={project.projectId}
             view={workspaceView}
+            ganttDisplayMode={workspaceGanttDisplayMode}
             onViewChange={(next) => {
               const tab = TAB_BY_WORKSPACE_VIEW[next];
               if (tab) selectTab(tab);

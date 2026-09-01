@@ -4813,6 +4813,7 @@ export function SxWeeklyControlDashboard({
   access,
   view,
   embedded = false,
+  ganttDisplayMode: ganttDisplayModeProp,
   onViewChange,
 }: {
   bundle: ProjectWorkspaceBundle;
@@ -4821,6 +4822,8 @@ export function SxWeeklyControlDashboard({
   view?: SxWeeklyControlView;
   /** true のとき自前のタイトル行・タブ列・ページ枠を出さない (2026-08-28 コックピット統合)。 */
   embedded?: boolean;
+  /** 埋め込みコックピットからガントの表示モードを固定する。単体ワークスペースでは未指定。 */
+  ganttDisplayMode?: "timeline" | "objective";
   /** 画面内の導線 (「ガントで見る」等) が別タブへ飛ぶとき、外側のタブ列へ知らせる。 */
   onViewChange?: (view: SxWeeklyControlView) => void;
 }) {
@@ -4838,7 +4841,10 @@ export function SxWeeklyControlDashboard({
   // 外部を含むPJメンバーにも同じ読み取りビューを出す。
   const [partnerTrackFilter, setPartnerTrackFilter] = useState<SxTrackKey | null>(null);
   const [ganttTrackFilter, setGanttTrackFilter] = useState<SxTrackKey | null>(null);
-  const [ganttDisplayMode, setGanttDisplayMode] = useState<"timeline" | "objective">("timeline");
+  const [ganttDisplayModeState, setGanttDisplayMode] = useState<"timeline" | "objective">("timeline");
+  const ganttDisplayMode = embedded && ganttDisplayModeProp
+    ? ganttDisplayModeProp
+    : ganttDisplayModeState;
   // Only meaningful alongside editor.kind === "edit_partner" — restricts the generic 関係先編集
   // form down to the partner_next_action provenance's own fields (PARTNER_NEXT_ACTION_FIELD_KEYS).
   // null means "show every field" (the normal full-editor open path).
@@ -5923,7 +5929,8 @@ export function SxWeeklyControlDashboard({
           id="project-gantt"
           className={styles.section}
           role="tabpanel"
-          aria-label="全体ガントパネル"
+          aria-label={ganttDisplayMode === "timeline" ? "全体ガントパネル" : "目的構造パネル"}
+          data-plan-display-mode={ganttDisplayMode}
         >
           <div className={styles.sectionHeading}>
             <div>
@@ -5935,10 +5942,12 @@ export function SxWeeklyControlDashboard({
               </p>
             </div>
             <div className={styles.planViewControls}>
-              <div className={styles.planViewSwitch} role="group" aria-label="計画の表示方法">
-                <button type="button" aria-pressed={ganttDisplayMode === "timeline"} onClick={() => setGanttDisplayMode("timeline")}>ガント</button>
-                <button type="button" aria-pressed={ganttDisplayMode === "objective"} onClick={() => setGanttDisplayMode("objective")}>目的構造</button>
-              </div>
+              {!embedded && (
+                <div className={styles.planViewSwitch} role="group" aria-label="計画の表示方法">
+                  <button type="button" aria-pressed={ganttDisplayMode === "timeline"} onClick={() => setGanttDisplayMode("timeline")}>ガント</button>
+                  <button type="button" aria-pressed={ganttDisplayMode === "objective"} onClick={() => setGanttDisplayMode("objective")}>目的構造</button>
+                </div>
+              )}
               <p>基準日 {formatDate(management.asOf)}</p>
             </div>
           </div>

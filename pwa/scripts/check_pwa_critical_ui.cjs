@@ -625,13 +625,14 @@ expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
   '(activeTab === "progress" || activeTab === "score-detail")',
 ]);
 
-// PJワークスペースの管制4タブをコックピットへ取り込んだ
+// PJワークスペースの管制5タブをコックピットへ取り込んだ
 // (2026-08-28 まさ「コックピットとワークスペースを統合できそうじゃない？」→「コックピット側を12タブにしよう」)。
 // 実装は同じ SxWeeklyControlDashboard を埋め込みモードで共有し、二重実装を作らない。
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   "CockpitProjectControl",
   'weekly: "週次差分"',
   'gantt: "ガント"',
+  '"objective-structure": "目的構造"',
   'partners: "関係先"',
   'issues: "論点・仮説"',
 ]);
@@ -3317,6 +3318,15 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   'data-cockpit-project-kind={isInstitutionProject ? "institution" : "standard"}',
   'childTabItems.length > 1',
   'grid-cols-2 sm:grid-cols-4',
+  'aria-controls={desktopHoverEnabled && groupItems.length > 1 ? `cockpit-group-menu-${group.key}` : undefined}',
+  'data-testid={`cockpit-floating-${group.key}`}',
+  'matchMedia("(hover: hover) and (pointer: fine)")',
+  'ganttDisplayMode={workspaceGanttDisplayMode}',
+]);
+expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
+  'data-plan-display-mode={ganttDisplayMode}',
+  'aria-label={ganttDisplayMode === "timeline" ? "全体ガントパネル" : "目的構造パネル"}',
+  '!embedded && (',
 ]);
 expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
   'themes: "themes"',

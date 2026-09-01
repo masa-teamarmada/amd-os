@@ -7,6 +7,7 @@ import {
 } from "../src/lib/cockpit-tabs.ts";
 
 assert.ok(!COCKPIT_TABS.includes("themes" as never), "themes must stay out of the PJ cockpit");
+assert.ok(COCKPIT_TABS.includes("objective-structure"), "objective structure must be a cockpit tab");
 
 assert.deepEqual(
   COCKPIT_GROUPS.normal.map((group) => group.label),
@@ -27,6 +28,8 @@ for (const [kind, groups] of Object.entries(COCKPIT_GROUPS)) {
 }
 
 assert.equal(cockpitGroupForTab("gantt", false).label, "進捗管理");
+assert.equal(cockpitGroupForTab("objective-structure", false).label, "進捗管理");
+assert.equal(cockpitGroupForTab("objective-structure", true).label, "進捗管理");
 assert.equal(cockpitGroupForTab("capital-policy", false).label, "事業計画");
 assert.equal(cockpitGroupForTab("overview", false).label, "PJ管理");
 assert.equal(cockpitGroupForTab("seeds", true).label, "シーズリスト");

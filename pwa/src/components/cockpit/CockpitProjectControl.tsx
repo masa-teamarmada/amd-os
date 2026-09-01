@@ -33,10 +33,13 @@ type LoadState =
 export function CockpitProjectControl({
   projectId,
   view,
+  ganttDisplayMode,
   onViewChange,
 }: {
   projectId: string;
   view: SxWeeklyControlView;
+  /** コックピットの独立タブからガント内の表示モードを固定する。 */
+  ganttDisplayMode?: "timeline" | "objective";
   onViewChange?: (view: SxWeeklyControlView) => void;
 }) {
   const [loadState, setState] = useState<LoadState>(() => ({ status: "loading", projectId }));
@@ -88,6 +91,7 @@ export function CockpitProjectControl({
       bundle={state.bundle}
       access={state.viewer}
       view={view}
+      ganttDisplayMode={ganttDisplayMode}
       embedded
       onViewChange={onViewChange}
     />
