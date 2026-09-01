@@ -5696,6 +5696,7 @@ export function SxWeeklyControlDashboard({
         <header className={styles.header}>
           <div className={styles.titleRow}>
             <div>
+              <p className={styles.eyebrow}>PJ共有ワークスペース</p>
               {/* p21の受入済み表示名 SolvioraX は維持 (critical UI anchor)。他PJは
                   projects.project_name を出す (p31 ZEO 等、この面をPJ横断で使うため) */}
               {/* p21の「SolvioraX PJワークスペース」はまさ受入済みの表示名(critical UI anchor)。

@@ -1,5 +1,7 @@
 # 附則（設計書変更履歴）
 
+| 2026-09-01 JST | 2-7 / 3-16 | PJワークスペースの視覚体系再構築 | build v3.100.12。共有ワークスペースをコックピットの通常業務画面に合わせ、sky識別帯、白いheader/panel、AMD Blue選択tab、役割色つき目的構造へ再構築した。コックピット埋込と共有ページのmount rootへ色トークンを固定し、global CSS分割時も透明・黒へ脱落しない検査を追加。対象は外部を含む当該PJメンバーのまま、権限変更なし | 白黒化とfeature-local配色の両方を防ぎ、同じPJ情報を両面で同じ意味色として読めるようにするため | まさ・えいみ |
+
 | 2026-09-01 JST | 2-7 / 3-16 / 5-2 / FEATURE_REGISTRY | 通常OS画面の色役割統一 | build v3.100.11。目的構造・ガント・テーマ索引の独自teal主色を廃止し、既存のsky/white/slateへ統一。`globals.css`へ意味別`--amd-*`トークンを追加し、emeraldを完了・充足・確認済み成功だけに限定。`test:ui-design-code`を`test:critical-ui`とdeploy前ゲートへ接続した。pHydrogenの予定・実施履歴・MTGカードの正本境界も明記 | 水素や環境の連想色を操作色へ持ち込まず、OS全体の操作体系と記録場所を一貫させるため | まさ・えいみ |
 
 | 2026-09-01 JST | 3-8 / 3-16 / FEATURE_REGISTRY | ZMP目的構造と外部PJメンバー共有 | `SxObjectiveMap`を追加し、既存bundleだけでガント／目的構造を切替。p19水素をobjective 1・outcome 3・task 9・partner 2・interaction 6へ正規化し、旧history_rows 7件を空にした。外部workspace accountは個別PJ権限を再検証して同じdashboardをread-only表示し、ナビはテーマ・ガント・関係先・ドライブに限定。内部ホーム／コックピット導線、週次介入、コスト、知財は非表示。migration `20260901153000_zmp_hydrogen_management_ledger.sql` | 経緯表の再入力を止め、目的からの逆算と相手別の現在地を同じ正本から読めるようにするため | まさ・えいみ |

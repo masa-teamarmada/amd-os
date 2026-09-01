@@ -34,15 +34,18 @@ assert.match(designCode, /通常のOS業務画面の主色はsky/);
 assert.match(designCode, /emeraldは、根拠確認済みの安全・完了・成功/);
 assert.match(designCode, /test:ui-design-code/);
 
-assert.match(objectiveMap, /--tree-accent:\s*var\(--amd-action\)/);
-assert.match(objectiveMap, /--tree-accent-soft:\s*var\(--amd-action-soft\)/);
+assert.match(objectiveMap, /--tree-accent:\s*var\(--amd-action,\s*#027fdc\)/);
+assert.match(objectiveMap, /--tree-accent-soft:\s*var\(--amd-action-soft,\s*#e8f3fc\)/);
 assert.match(
   objectiveMap,
-  /\.nodeState\[data-state="completed"\][\s\S]*?var\(--amd-success-soft\)[\s\S]*?var\(--amd-success\)/,
+  /\.nodeState\[data-state="completed"\][\s\S]*?var\(--amd-success-soft,\s*#ecfdf5\)[\s\S]*?var\(--amd-success,\s*#047857\)/,
   "目的構造のemeraldは完了状態だけに使う",
 );
 assert.doesNotMatch(weeklyControl, /--green(?:-soft)?:/, "役割不明のgreenトークンを復活させない");
+assert.match(weeklyControl, /\.page\s*\{[\s\S]*?--amd-action:\s*#027fdc;/, "共有ワークスペースとcockpit埋込のmount rootへ共通色を固定する");
 assert.match(weeklyControl, /--action:\s*var\(--amd-action\)/);
+assert.match(weeklyControl, /\.sectionNav button\[aria-selected="true"\][\s\S]*?var\(--action\)/, "共有ワークスペースの選択タブはAMD Blueを使う");
+assert.match(weeklyControl, /\.section\s*\{[\s\S]*?border-radius:\s*12px;[\s\S]*?background:\s*rgba\(255, 255, 255, \.98\)/, "共有ワークスペースは共通の高密度panel shellを使う");
 assert.match(themeRoutes, /var\(--amd-action\)/);
 
 const count = (text, pattern) => [...text.matchAll(pattern)].length;

@@ -44,6 +44,8 @@
 ZMPコックピットにも`?tab=themes`で同じテーマ画面を組み込む。通常の既定タブは進捗管理のまま。他PJの`?tab=themes`は進捗管理へ戻す。
 desktop幅901px以上ではテーマ区画の外側上余白を除き、テーマ状態・経緯のヘッダー操作を32pxにする。共通`.sx-management-workspace`の44px指定より局所規則を優先し、mobileの44px操作は変更しない。水素7行が外枠込み1440×900の初期画面に収まる密度を検証する。
 通常のワークスペース配色は`spec/2-7-ui-design-code-current-spec.md`に従い、操作・選択・現在地・focusはsky、白・slateを構造色とする。emeraldは完了・充足・確認済み成功だけに限定し、水素や環境領域の連想を画面主色へ使わない。
+
+共有ワークスペースの外枠はコックピットの通常業務画面を基準にする。方眼背景は使わず、薄いskyからslateへ移るpage面、skyの識別帯を持つ白いheader、AMD Blueの選択下線を持つ高密度tab、白い1枚panelへ揃える。各tabの見出しはAMD Blueの左railで現在地を示し、目的構造は最上位目的・成立条件・選択中の枝・接続線をskyの濃淡で区別する。完了はemerald、当方action待ち・注意はamber、停止・中立はslateとし、色だけに頼らず既存文言を併記する。コックピット埋込時は外枠headerとpage panelを重ねず、目的構造・状態色だけを同じcomponentから共有する。この視覚変更はアクセス範囲を変えず、外部を含む当該PJメンバーが従来どおり同じ共有ワークスペースを読む。
 テーマ内の資料・予定成果物・作業関連・経緯出典は`/api/workspace-documents/[id]/open?download=0`で開く。既存open APIがHTML安全表示・Markdown Reader・その他ファイルへ振り分け、同じ可視性を再検証する。Markdown専用の`/workspace-document/[id]`をすべての形式へ使わない。
 
 - p19の9本のvalue milestoneは`KR経営改革`（4件）/ `水素循環PJ`（2件）/ `OkuDoor運営`（2件）/ `OkuDoorシステム開発＆運用`（1件）の4テーマへ束ねる（`ios/supabase/migrations/20260831120000_project_theme_hub.sql`が既存3テーマから改名・分割）。MSは削除・複製せず、テーマ内の「成果目標」としてそのまま残す。
@@ -462,7 +464,7 @@ v3.63.1 の再指摘対応: (10) 名前・バーのボタンはワークスペ�
 - **担当プルダウンの候補から状態記述を落とす**（`SxPartnerPipeline` の `ROSTER_STATUS_PHRASE_RE = /(待ち|未確認|要確認|未定)/` を `isSelectableRosterName` に追加）。「紹介接続待ち」「先方回答待ち」「担当者未確認」は人名ではないので候補に載せない。**すでに保存済みの値は選択中として先頭に残る**ので、表示が消えるわけではない（まさ 2026-08-07「Bで。」＝ 自動除外案の承認）。
 ## 2026-08-20 仕様追補: 全PJ共通のSXワークスペース面
 
-- `/project/[projectId]/workspace` は、p21で先行実装した `SxWeeklyControlDashboard` を全PJへ適用する共通の操作面とする。タブ構成は `週次差分 / ガント / 関係先 / 論点・仮説 / 知財 / ドライブ` を固定する (`PROJECT_WORKSPACE_TABS` が正本)。タブUIはPJコックピット (`CockpitView`) と同じ見た目に揃える: 枠付き角丸の等分グリッド1本で、選択タブだけ白地 + `inset 0 -2px 0 #0f172a`。列数は `PROJECT_WORKSPACE_TABS.length` から inline の `grid-template-columns` で出すので、タブを増やしてもCSSは直さない。`知財` は `CockpitIpPortfolio` をそのまま置く (仕様は [`3-19`](/spec/3-19-project-ip-current-spec))。
+- `/project/[projectId]/workspace` は、p21で先行実装した `SxWeeklyControlDashboard` を全PJへ適用する共通の操作面とする。タブ構成は `週次差分 / ガント / 関係先 / 論点・仮説 / 知財 / ドライブ` を固定する (`PROJECT_WORKSPACE_TABS` が正本)。タブUIはPJコックピット (`CockpitView`) の高密度な等分グリッドを基礎にしつつ、共有ワークスペースではheaderと一体化したsky/slate面へ載せ、選択タブを白地 + AMD Blueの3px下線で示す。列数は `PROJECT_WORKSPACE_TABS.length` から inline の `grid-template-columns` で出すので、タブを増やしてもCSSは直さない。`知財` は `CockpitIpPortfolio` をそのまま置く (仕様は [`3-19`](/spec/3-19-project-ip-current-spec))。
 - `ドライブ` は `WorkspaceDocumentRoom` を `scopeKind="project"`、`scopeId={bundle.project.projectId}`、`surface="workspace"`、`presentation="modal"` で開く。PJごとに別資料室、別テーブル、別一覧を作らない。
 - 共通化の対象はタブ、配置、操作、資料室の仕様であり、`project_name`、管理柱・表示レーン、実データ、`externalWorkspaceRoleCapabilityLabel` と共有PJアクセスによる絞り込みはbundle/accessの正本を使う。PJ固有の柱を3レーンへ統合するDB変更はしない。
 - 導線は Seed詳細モーダル → `/project/{projectId}/cockpit` → `/project/{projectId}/workspace` の一方向とする。Seed詳細モーダルからworkspaceへ直接リンクしない。

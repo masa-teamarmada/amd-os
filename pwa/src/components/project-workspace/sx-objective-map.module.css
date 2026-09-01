@@ -1,15 +1,16 @@
 .map {
-  --tree-ink: var(--amd-ink);
-  --tree-muted: var(--amd-muted);
-  --tree-line: #a8b6c2;
-  --tree-accent: var(--amd-action);
-  --tree-accent-soft: var(--amd-action-soft);
-  --tree-surface: var(--amd-surface);
-  --tree-surface-muted: var(--amd-surface-muted);
+  --tree-ink: var(--amd-ink, #1d1d1f);
+  --tree-muted: var(--amd-muted, #3c3c43);
+  --tree-line: #8fc8ee;
+  --tree-accent: var(--amd-action, #027fdc);
+  --tree-accent-strong: var(--amd-action-strong, #0267b2);
+  --tree-accent-soft: var(--amd-action-soft, #e8f3fc);
+  --tree-surface: var(--amd-surface, #ffffff);
+  --tree-surface-muted: var(--amd-surface-muted, #f5f5f7);
   padding: 0.75rem;
-  border: 1px solid #c8d2db;
+  border: 1px solid #b9d5e9;
   border-radius: 8px;
-  background: #f7f9fa;
+  background: linear-gradient(180deg, #f0f8fd 0, #f8fbfd 170px, #f5f8fa 100%);
   color: var(--tree-ink);
 }
 
@@ -45,7 +46,8 @@
   border: 1px solid var(--tree-accent);
   border-left-width: 5px;
   border-radius: 6px;
-  background: var(--tree-surface);
+  background: linear-gradient(90deg, var(--tree-accent-soft), #ffffff 72%);
+  box-shadow: 0 5px 16px rgba(2, 103, 178, .1);
 }
 
 .objective > span,
@@ -88,11 +90,25 @@
 .objective small,
 .outcomeNode small {
   padding: 0.08rem 0.3rem;
-  border: 1px solid #d6dee5;
+  border: 1px solid #c7d9e6;
   border-radius: 3px;
+  background: #f4f8fb;
   color: #51606d;
   font-size: 0.61rem;
   line-height: 1.35;
+}
+
+.objective small,
+.outcomeNode small:first-child {
+  border-color: #b9d9ee;
+  background: var(--tree-accent-soft);
+  color: var(--tree-accent-strong);
+}
+
+.outcomeNode small:nth-child(2) {
+  border-color: #a7e3c7;
+  background: var(--amd-success-soft, #ecfdf5);
+  color: var(--amd-success, #047857);
 }
 
 .overviewChildren,
@@ -184,22 +200,23 @@
   width: 100%;
   min-height: 116px;
   padding: 0.55rem 0.65rem;
-  border: 1px solid #bdc9d3;
+  border: 1px solid #b9cfdf;
   border-radius: 6px;
   background: var(--tree-surface);
   color: inherit;
   cursor: pointer;
   text-align: left;
+  box-shadow: 0 2px 8px rgba(20, 65, 96, .06);
 }
 
 .outcomeNode:hover {
-  border-color: var(--amd-action-line);
-  background: #f8fbfd;
+  border-color: var(--amd-action-line, #7cbceb);
+  background: #f3f9fd;
 }
 
 .outcomeNode[aria-pressed="true"] {
   border-color: var(--tree-accent);
-  box-shadow: inset 3px 0 0 var(--tree-accent);
+  box-shadow: inset 4px 0 0 var(--tree-accent), 0 5px 16px rgba(2, 103, 178, .13);
   background: var(--tree-accent-soft);
 }
 
@@ -222,8 +239,10 @@
 
 .expandedBranch {
   margin-top: 0.75rem;
-  padding-top: 0.65rem;
-  border-top: 1px solid #cdd6de;
+  padding: 0.65rem 0.45rem 0.45rem;
+  border-top: 2px solid var(--tree-accent);
+  border-radius: 0 0 6px 6px;
+  background: rgba(232, 243, 252, .36);
 }
 
 .expandedHeader {
@@ -254,14 +273,24 @@
 .nodeActions button {
   min-height: 30px;
   padding: 0.2rem 0.42rem;
-  border: 1px solid var(--amd-action-line);
+  border: 1px solid var(--amd-action-line, #7cbceb);
   border-radius: 4px;
   background: #ffffff;
-  color: var(--amd-action-strong);
+  color: var(--amd-action-strong, #0267b2);
   cursor: pointer;
   font: inherit;
   font-size: 0.61rem;
   font-weight: 700;
+}
+
+.branchTools button {
+  border-color: var(--tree-accent);
+  background: var(--tree-accent);
+  color: #ffffff;
+}
+
+.branchTools button:hover {
+  background: var(--tree-accent-strong);
 }
 
 .branchTools button:hover,
@@ -287,16 +316,18 @@
 
 .outcomeRootNode,
 .treeNode {
-  border: 1px solid #bdc9d3;
+  border: 1px solid #b9cfdf;
   border-radius: 6px;
   background: var(--tree-surface);
+  box-shadow: 0 2px 8px rgba(20, 65, 96, .06);
 }
 
 .outcomeRootNode {
   width: 310px;
   padding: 0.55rem 0.65rem;
   border-color: var(--tree-accent);
-  border-top-width: 3px;
+  border-left-width: 4px;
+  background: linear-gradient(90deg, var(--tree-accent-soft), #ffffff 82%);
 }
 
 .outcomeRootNode > strong,
@@ -315,7 +346,11 @@
 
 .treeNode[data-kind="approach"] {
   width: 282px;
-  border-top: 3px solid var(--amd-action);
+  border-top: 3px solid var(--amd-action, #027fdc);
+}
+
+.treeNode[data-state="completed"] {
+  border-top: 3px solid var(--amd-success, #047857);
 }
 
 .treeNode[data-state="on_hold"],
@@ -334,9 +369,9 @@
 
 .treeNode[data-drop-target="true"],
 .outcomeRootNode[data-drop-target="true"] {
-  outline: 3px solid var(--amd-action);
+  outline: 3px solid var(--amd-action, #027fdc);
   outline-offset: 3px;
-  background: var(--amd-action-soft);
+  background: var(--amd-action-soft, #e8f3fc);
 }
 
 .nodeMain {
@@ -355,7 +390,7 @@ button.nodeMain {
   cursor: pointer;
 }
 button.nodeMain:hover {
-  background: var(--amd-action-soft);
+  background: var(--amd-action-soft, #e8f3fc);
 }
 
 .nodeActions {
@@ -387,7 +422,7 @@ button.nodeMain:hover {
   gap: 0.2rem;
   padding: 0.38rem 0.45rem;
   border-top: 1px solid #d2dde3;
-  background: var(--amd-action-soft);
+  background: var(--amd-action-soft, #e8f3fc);
 }
 
 .connectionEditor span {
@@ -420,8 +455,8 @@ button.nodeMain:hover {
 }
 
 .nodeState[data-state="completed"] {
-  background: var(--amd-success-soft);
-  color: var(--amd-success);
+  background: var(--amd-success-soft, #ecfdf5);
+  color: var(--amd-success, #047857);
 }
 
 .nodeState[data-state="blocked"],
@@ -469,7 +504,7 @@ button.nodeMain:hover {
 .eventSpine li {
   position: relative;
   padding: 0 0 0.45rem 0.55rem;
-  border-left: 1px solid #9cabb6;
+  border-left: 2px solid #9fc8e5;
 }
 
 .eventSpine li:last-child {
@@ -483,7 +518,7 @@ button.nodeMain:hover {
   left: -4px;
   width: 7px;
   height: 7px;
-  border: 1px solid #738490;
+  border: 2px solid #6f9fc0;
   border-radius: 50%;
   background: #ffffff;
   content: "";
@@ -530,7 +565,7 @@ button.nodeMain:hover {
   align-items: center;
   padding: 0.38rem 0.5rem;
   border-top: 1px solid #dce3e8;
-  background: var(--amd-action-soft);
+  background: var(--amd-action-soft, #e8f3fc);
 }
 
 .currentBall > span {
@@ -540,7 +575,7 @@ button.nodeMain:hover {
 }
 
 .currentBall > strong {
-  color: var(--amd-action-strong);
+  color: var(--amd-action-strong, #0267b2);
   font-size: 0.62rem;
 }
 
@@ -555,10 +590,10 @@ button.nodeMain:hover {
   grid-row: 1 / 3;
   min-height: 30px;
   padding: 0.2rem 0.4rem;
-  border: 1px solid var(--amd-action-line);
+  border: 1px solid var(--amd-action-line, #7cbceb);
   border-radius: 4px;
   background: #ffffff;
-  color: var(--amd-action-strong);
+  color: var(--amd-action-strong, #0267b2);
   cursor: pointer;
   font: inherit;
   font-size: 0.59rem;
@@ -567,7 +602,7 @@ button.nodeMain:hover {
 
 .currentBall button:hover {
   border-color: var(--tree-accent);
-  background: var(--amd-action-soft);
+  background: var(--amd-action-soft, #e8f3fc);
 }
 
 .empty {
