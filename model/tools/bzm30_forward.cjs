@@ -159,9 +159,10 @@ const CFG = {
 
   // 価値の側
   phiU0: 0.25, phiU1: 0.55,  // φ_u = φ0 + φ1·κ_IP
-  alphaLoc: 0.85,            // 前倒し期間 L_u 以降の控除率（立地差だけが残る）
-  alphaNow: 0.30,            // 評価日の控除率（案件ごとの調査項目。既定は暫定）
-  Lu: 36,                    // 前倒し期間（月）。6.E-3 の確定値のうち「競合が活発」側を Tier 0 既定にする
+  // 国内立地差の水準。#2026-09-02-1 で反実仮想の控除をモデルから外したので、
+  // この係数は前向き計算に入らない。§5.8 の追加的貢献 V^add = (1 - alphaLoc)·V = 0.15·V への
+  // 換算にだけ使う（全案件一律の定数倍なので、順位も比も動かさない）。
+  alphaLoc: 0.85,
   rampMonths: 12,            // 稼働度の立ち上がり
   Hc: 120,                   // 継続価値の延長
 
@@ -342,15 +343,16 @@ function tailSplit(tM4, cfg, kip) {
   for (let t = tM4; t < end; t++) {
     const h = t - tM4;
     const ramp = Math.min(1, (h + 1) / cfg.rampMonths);
-    const alpha = (t < cfg.Lu) ? cfg.alphaNow : cfg.alphaLoc;
-    const inc = Math.pow(1 + dm, -t) * s * ramp * phiU * (1 - alpha) / 12;
+    // 反実仮想の控除は #2026-09-02-1 で外した。スコアはその案件が国内に立てる付加価値を
+    // 案件ごとに数えるもので、他者が同じ用途を実現していたかどうかでは差し引かない（§3）。
+    const inc = Math.pow(1 + dm, -t) * s * ramp * phiU / 12;
     v += inc; if (t < cfg.T) inT += inc;
     s *= surv;
   }
   // 延長終端で生き残っている分の永久年金
   const q = surv / Math.pow(1 + cfg.d, 1 / 12);
   const ann = q / (1 - q);
-  const perp = Math.pow(1 + dm, -end) * s * phiU * (1 - cfg.alphaLoc) / 12 * ann;
+  const perp = Math.pow(1 + dm, -end) * s * phiU / 12 * ann;
   return { inT, beyond: v - inT + perp, total: v + perp };
 }
 function tailValue(tM4, cfg, kip) { return tailSplit(tM4, cfg, kip).total; }
@@ -775,20 +777,20 @@ if (require.main === module) {
   if (mode === 'sens') {
     // 型ごとに振り方を変える（率型は乗数、確率型はオッズ比、期間型は乗数）
     // 全係数を同じ定義（水準の ×1.1 / ÷1.1）で振る。確率型は 0.999 で切る。
-    const PROB = new Set(['alphaLoc','alphaNow','phiBase','restrictedWaste','rZeroProb','stallShare','dOther','qLic']);
+    const PROB = new Set(['phiBase','restrictedWaste','rZeroProb','stallShare','dOther','qLic']);
     const bump = (base, k, f) => {
-      // 控除率は 1 に近いので、意味を持つ量（貢献として残る割合 1-α）の側を振る
-      if (k === 'alphaLoc' || k === 'alphaNow') return Math.max(0.001, 1 - (1 - base[k]) * f);
       const v = base[k] * f;
       return PROB.has(k) ? Math.min(0.999, v) : v;
     };
+    // alphaLoc・alphaNow・Lu は #2026-09-02-1 で前向き計算から外したので、振る対象ではない。
+    // なお ±10% の摂動は、正本が離散の水準を定義している係数の差を捉えられない（§6.I-1-3）。
     const knobs = [
-      ['alphaLoc', '貢献として残る割合 1-α'], ['scale', 'M_g 共通倍率'], ['phiBase', 'φ 基準採択率'],
+      ['scale', 'M_g 共通倍率'], ['phiBase', 'φ 基準採択率'],
       ['oppRate', '機会の到来率'], ['nuLic', 'ライセンス到来率'], ['betaBar', '承認の解決率'],
       ['lamComp', '競合の消失率'], ['lamDem', '需要の消失率'], ['lamObs', '陳腐化'],
       ['kSup', '機能の供給速度'], ['kEva', 'エバンジェリスト探索'], ['nuC', '受託の到来率'],
       ['nuEq', '民間調達の到来率'], ['stallShare', '滞留の分岐'], ['phiU0', 'φ_u 切片'],
-      ['phiU1', 'φ_u 傾き'], ['Lu', '前倒し期間'], ['rZeroProb', '自走力ゼロの確率'],
+      ['phiU1', 'φ_u 傾き'], ['rZeroProb', '自走力ゼロの確率'],
       ['restrictedWaste', '充当できない割合'], ['dOther', '主担当でない空席'],
       ['qLic', '承継者の到達確率'], ['kIP', '専有可能性'],
     ];

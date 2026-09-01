@@ -1,6 +1,6 @@
 {
-  "approval_ref": "2026-08-30-1",
-  "locked_at": "2026-08-30T16:23:57.352+09:00",
+  "approval_ref": "2026-09-02-1",
+  "locked_at": "2026-09-02T00:22:36.869+09:00",
   "frozen_versions": {
     "model_version": "sps-ind-tier0-v1",
     "measure_version": "sps-ind-v1",
@@ -51,15 +51,15 @@
     },
     {
       "path": "model/CURRENT.json",
-      "sha256": "a983547de84adefdca60dab4a7d72ee93a3b8fc669344d3629a59713d0965118"
+      "sha256": "3e05614397766261ba2c28184e138bf3647a5654d8849a1c43cbad06140c2de8"
     },
     {
       "path": "model/MODEL_VERSION_LEDGER.md",
-      "sha256": "62e5c4508b46debce295847b767658917e29557a62de6c48e9a9cded6e125326"
+      "sha256": "069dbcbabd97b65229a455fa1d33f7605cbc5c569de8f4088fa5b9caca671a95"
     },
     {
       "path": "model/tools/bzm30_forward.cjs",
-      "sha256": "d13da79bc3f3d8a61c5347b58270b2acebb74b7d0a964f037f553c8d0868fc13"
+      "sha256": "e4f1fffa319d2a96f1d568f2c1bc15b901d3797f523243056f5bae95a8d4f0b5"
     }
   ]
 }
