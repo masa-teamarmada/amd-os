@@ -44,6 +44,7 @@ function readSrc(relPath: string): string {
     "next_action",
     "created_by",
     "updated_by",
+    "additional_research_hypothesis",
   ];
   for (const col of forbidden) {
     assert.ok(
@@ -87,7 +88,7 @@ function readSrc(relPath: string): string {
   assert.ok(/function AxisCell/.test(ui), "XRL 独立列用の AxisCell が見つかりません");
   for (const axisLabel of ["TRL", "BRL", "HRL"]) {
     assert.ok(
-      new RegExp(`<th className="[^"]*">${axisLabel}</th>`).test(ui),
+      new RegExp(`>${axisLabel}</ResizableTh>`).test(ui),
       `XRL の独立列見出し ${axisLabel} が見つかりません`
     );
   }
@@ -226,6 +227,7 @@ function readSrc(relPath: string): string {
   function makeSeed(overrides: Partial<SeedPublicView>): SeedPublicView {
     return {
       id: "id",
+      seed_no: null,
       title: "title",
       summary: null,
       org_name: "工学院大学",
@@ -387,10 +389,10 @@ function readSrc(relPath: string): string {
 {
   const ui = readSrc("../src/components/cockpit/CockpitKuteSeeds.tsx");
   assert.ok(/flatSeeds\.map/.test(ui), "1シーズ1行のflat mapが見つかりません");
-  assert.ok(/研究機関<\/th>/.test(ui), "研究機関の通常列が見つかりません");
-  assert.ok(/研究者 \/ PI<\/th>/.test(ui), "研究者/PIの通常列が見つかりません");
-  assert.ok(/会社名<\/th>/.test(ui), "会社名の通常列が見つかりません");
-  assert.ok(!/PJ状態<\/th>/.test(ui), "廃止済みのPJ状態カラムが残っています");
+  assert.ok(/研究機関<\/ResizableTh>/.test(ui), "研究機関の通常列が見つかりません");
+  assert.ok(/研究者 \/ PI<\/ResizableTh>/.test(ui), "研究者/PIの通常列が見つかりません");
+  assert.ok(/会社名<\/ResizableTh>/.test(ui), "会社名の通常列が見つかりません");
+  assert.ok(!/PJ状態<\/(?:th|ResizableTh)>/.test(ui), "廃止済みのPJ状態カラムが残っています");
   assert.ok(/absolute right-2 top-2[\s\S]*>\s*PJ\s*<\/span>/.test(ui), "会社名セル右上のPJバッジが見つかりません");
   assert.ok(!/scope="rowgroup"/.test(ui), "rowgroup見出しが残っています");
   assert.ok(!/data-researcher-group/.test(ui), "研究者group rowが残っています");

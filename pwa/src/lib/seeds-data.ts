@@ -12,9 +12,10 @@ import type {
   SeedListItem,
   SeedDetail,
   SeedPublicView,
+  SeedInternalComparisonView,
   SeedProjectLink,
 } from "@/types/seeds";
-import { SEED_PUBLIC_VIEW_COLUMNS } from "@/types/seeds";
+import { SEED_INTERNAL_COMPARISON_COLUMNS, SEED_PUBLIC_VIEW_COLUMNS } from "@/types/seeds";
 export {
   SEED_COMMERCIALIZATION_TYPE_LABEL,
   SEED_COMMERCIALIZATION_TYPE_ORDER,
@@ -548,6 +549,14 @@ export async function fetchResearchInstitutionSeedsForProject(
   return institutionId ? fetchSeedsForInstitution(institutionId) : [];
 }
 
+/** AMD内部の研究機関PJ比較表。未検証の追加研究仮説を含む。 */
+export async function fetchInternalResearchInstitutionSeedsForProject(
+  projectId: string,
+): Promise<SeedInternalComparisonView[]> {
+  const institutionId = await fetchInstitutionIdForProject(projectId);
+  return institutionId ? fetchInternalSeedsForInstitution(institutionId) : [];
+}
+
 /** institution_projects を正本に project_id の研究機関スコープを解決する。 */
 export async function fetchInstitutionIdForProject(
   projectId: string,
@@ -587,6 +596,25 @@ export async function fetchSeedsForInstitution(
   }));
 }
 
+async function fetchInternalSeedsForInstitution(
+  institutionId: string,
+): Promise<SeedInternalComparisonView[]> {
+  const { data, error } = await supabase
+    .from("seeds")
+    .select(SEED_INTERNAL_COMPARISON_COLUMNS.join(", "))
+    .eq("institution_id", institutionId)
+    .order("seed_no", { ascending: true, nullsFirst: false })
+    .order("researcher_name", { ascending: true });
+  if (error) throw new Error(error.message);
+  const seeds = (data ?? []) as unknown as SeedInternalComparisonView[];
+  const projectLinksBySeed = await fetchSeedProjectLinks(seeds.map((seed) => seed.id));
+  return seeds.map((seed) => ({
+    ...seed,
+    latest_sps: null,
+    project_links: projectLinksBySeed.get(seed.id) ?? [],
+  }));
+}
+
 /**
  * /seeds (全機関横断比較) 向け: 全シーズを公開安全なホワイトリスト select で取得する。
  * org_name / institution_id での絞り込みは行わない。internal_notes / source_detail /
@@ -608,6 +636,26 @@ export async function fetchAllResearchInstitutionSeeds(
     ...s,
     latest_sps: null,
     project_links: projectLinksBySeed.get(s.id) ?? [],
+  }));
+}
+
+/** /seeds のAMD内部一覧。公開安全列に追加研究仮説だけを明示的に加える。 */
+export async function fetchAllInternalResearchInstitutionSeeds(
+  readClient: SupabaseClient = supabase,
+): Promise<SeedInternalComparisonView[]> {
+  const { data, error } = await readClient
+    .from("seeds")
+    .select(SEED_INTERNAL_COMPARISON_COLUMNS.join(", "))
+    .order("org_name", { ascending: true })
+    .order("seed_no", { ascending: true, nullsFirst: false })
+    .order("researcher_name", { ascending: true });
+  if (error) throw new Error(error.message);
+  const seeds = (data ?? []) as unknown as SeedInternalComparisonView[];
+  const projectLinksBySeed = await fetchSeedProjectLinks(seeds.map((seed) => seed.id), readClient);
+  return seeds.map((seed) => ({
+    ...seed,
+    latest_sps: null,
+    project_links: projectLinksBySeed.get(seed.id) ?? [],
   }));
 }
 

@@ -24,8 +24,10 @@ import { KuteSeedDetailModal } from "@/components/seeds/KuteSeedDetailModal";
 import { SeedDetailModal } from "@/components/seeds/SeedDetailModal";
 import {
   fetchResearchInstitutionSeedsForProject,
+  fetchInternalResearchInstitutionSeedsForProject,
   fetchInstitutionIdForProject,
   fetchAllResearchInstitutionSeeds,
+  fetchAllInternalResearchInstitutionSeeds,
   SEED_DOMAIN_LANE_LABEL,
   SEED_COMMERCIALIZATION_TYPE_LABEL,
   SEED_KUTE_MARKET_CONFIDENCE_LABEL,
@@ -42,10 +44,55 @@ import { prefetchBzm30Model } from "@/lib/bzm30-model-client";
 import { prefetchSeedBzm30, loadSeedBzm30Summaries } from "@/lib/bzm30-seed-client";
 import type { SeedBzm30Summary } from "@/lib/bzm30/seed-score";
 import { STAGE_LABEL, BZM30_SCORES_PUBLISHED } from "@/lib/bzm30/seed-inputs";
-import type { SeedDomainLane, SeedPublicView } from "@/types/seeds";
+import type { SeedDomainLane, SeedInternalComparisonView, SeedPublicView } from "@/types/seeds";
 
 type SortKey = "spsBand";
 type StatusFilter = "all" | "assessed" | "unassessed";
+type DisplaySeed = SeedPublicView | SeedInternalComparisonView;
+type SeedColumnKey =
+  | "seedNo" | "title" | "company" | "institution" | "researcher" | "value"
+  | "stage" | "trl" | "brl" | "hrl" | "commercialization" | "useCase"
+  | "customer" | "market" | "bottleneck" | "ip" | "verification" | "hypothesis" | "material";
+
+const SEED_TABLE_WIDTHS_KEY = "amd-os:seed-table-column-widths:v1";
+const SEED_COLUMN_DEFAULTS: Record<SeedColumnKey, number> = {
+  seedNo: 72,
+  title: 220,
+  company: 180,
+  institution: 140,
+  researcher: 130,
+  value: 190,
+  stage: 150,
+  trl: 52,
+  brl: 52,
+  hrl: 52,
+  commercialization: 140,
+  useCase: 180,
+  customer: 180,
+  market: 160,
+  bottleneck: 200,
+  ip: 150,
+  verification: 200,
+  hypothesis: 300,
+  material: 70,
+};
+
+function initialSeedColumnWidths(): Record<SeedColumnKey, number> {
+  if (typeof window === "undefined") return SEED_COLUMN_DEFAULTS;
+  try {
+    const stored = window.localStorage.getItem(SEED_TABLE_WIDTHS_KEY);
+    if (!stored) return SEED_COLUMN_DEFAULTS;
+    const parsed = JSON.parse(stored) as Partial<Record<SeedColumnKey, number>>;
+    const next = { ...SEED_COLUMN_DEFAULTS };
+    for (const key of Object.keys(next) as SeedColumnKey[]) {
+      const value = parsed[key];
+      if (typeof value === "number" && Number.isFinite(value)) next[key] = Math.max(48, Math.min(720, value));
+    }
+    return next;
+  } catch {
+    return SEED_COLUMN_DEFAULTS;
+  }
+}
 
 const SORT_LABEL: Record<SortKey, string> = {
   spsBand: "産業創出価値(中央値)",
@@ -135,20 +182,23 @@ export function CockpitKuteSeeds({
   scope?: "project" | "all";
   detailSurface: "internal" | "public";
 }) {
-  const [seeds, setSeeds] = useState<SeedPublicView[] | null>(null);
+  const [seeds, setSeeds] = useState<DisplaySeed[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<SeedPublicView | null>(null);
+  const [selected, setSelected] = useState<DisplaySeed | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [requestKey, setRequestKey] = useState(0);
   const [sortKey, setSortKey] = useState<SortKey>("spsBand");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [columnWidths, setColumnWidths] = useState(SEED_COLUMN_DEFAULTS);
   // 全scope共通: BZM 3.0 の算出済みスコアをまとめて読む。
   const [scoresBySeedId, setScoresBySeedId] = useState<Map<string, SeedBzm30Summary>>(new Map());
 
   useEffect(() => {
     let cancelled = false;
-    const request = scope === "all" ? fetchAllResearchInstitutionSeeds() : fetchResearchInstitutionSeedsForProject(projectId ?? "");
+    const request = detailSurface === "internal"
+      ? (scope === "all" ? fetchAllInternalResearchInstitutionSeeds() : fetchInternalResearchInstitutionSeedsForProject(projectId ?? ""))
+      : (scope === "all" ? fetchAllResearchInstitutionSeeds() : fetchResearchInstitutionSeedsForProject(projectId ?? ""));
     request
       .then((data) => {
         if (!cancelled) setSeeds(data);
@@ -159,7 +209,29 @@ export function CockpitKuteSeeds({
     return () => {
       cancelled = true;
     };
-  }, [projectId, scope, requestKey]);
+  }, [detailSurface, projectId, scope, requestKey]);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setColumnWidths(initialSeedColumnWidths()));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  const visibleColumnKeys = useMemo<SeedColumnKey[]>(() => [
+    "seedNo", "title", "company", "institution", "researcher", "value", "stage",
+    "trl", "brl", "hrl", "commercialization", "useCase", "customer", "market",
+    "bottleneck", "ip", "verification",
+    ...(detailSurface === "internal" ? ["hypothesis" as const] : []),
+    "material",
+  ], [detailSurface]);
+  const tableWidth = visibleColumnKeys.reduce((sum, key) => sum + columnWidths[key], 0);
+
+  function resizeColumn(key: SeedColumnKey, width: number) {
+    setColumnWidths((current) => {
+      const next = { ...current, [key]: Math.max(48, Math.min(720, Math.round(width))) };
+      window.localStorage.setItem(SEED_TABLE_WIDTHS_KEY, JSON.stringify(next));
+      return next;
+    });
+  }
 
   // スコアは参照系。lib/bzm30-seed-client.ts のキャッシュを通し、
   // 一覧 → 詳細 → 一覧 と行き来しても読み直さない。
@@ -333,28 +405,35 @@ export function CockpitKuteSeeds({
           </div>
         ) : (
           <div className="max-h-[70vh] overflow-auto border border-slate-200">
-            <table className="w-full min-w-[1500px] border-collapse text-[12px]">
+            <table className="table-fixed border-collapse text-[12px]" style={{ width: tableWidth }}>
+              <colgroup>
+                {visibleColumnKeys.map((key) => <col key={key} style={{ width: columnWidths[key] }} />)}
+              </colgroup>
               <thead className="sticky top-0 z-20">
                 <tr className="bg-slate-100 text-left text-[10px] font-semibold uppercase text-slate-500">
-                  <th className="sticky left-0 z-30 w-[160px] min-w-[160px] max-w-[160px] border-b border-r border-slate-200 bg-slate-100 px-3 py-2 sm:w-[220px] sm:min-w-[220px] sm:max-w-[220px]">
-                    シーズ
-                  </th>
-                  <th className="min-w-[180px] border-b border-slate-200 px-3 py-2">会社名</th>
-                  <th className="min-w-[140px] border-b border-slate-200 px-3 py-2">研究機関</th>
-                  <th className="min-w-[130px] border-b border-slate-200 px-3 py-2">研究者 / PI</th>
-                  <SortableTh label="産業創出価値(億円)" sortKey="spsBand" activeKey={sortKey} dir={sortDir} onSort={toggleSort} hint="BZM 3.0。中央値でソートする。天井が未調査の案件は金額が出ないので末尾" widthClass="min-w-[190px]" />
-                  <th className="min-w-[150px] border-b border-slate-200 px-2 py-2">現在地・型</th>
-                  <th className="min-w-[52px] border-b border-slate-200 px-2 py-2">TRL</th>
-                  <th className="min-w-[52px] border-b border-slate-200 px-2 py-2">BRL</th>
-                  <th className="min-w-[52px] border-b border-slate-200 px-2 py-2">HRL</th>
-                  <th className="min-w-[140px] border-b border-slate-200 px-3 py-2">事業化タイプ</th>
-                  <th className="min-w-[160px] border-b border-slate-200 px-3 py-2">用途</th>
-                  <th className="min-w-[160px] border-b border-slate-200 px-3 py-2">最初の顧客</th>
-                  <th className="min-w-[160px] border-b border-slate-200 px-3 py-2">市場/確度</th>
-                  <th className="min-w-[180px] border-b border-slate-200 px-3 py-2">ネック</th>
-                  <th className="min-w-[140px] border-b border-slate-200 px-3 py-2">知財</th>
-                  <th className="min-w-[180px] border-b border-slate-200 px-3 py-2">次の検証</th>
-                  <th className="min-w-[70px] border-b border-slate-200 px-3 py-2">資料</th>
+                  <ResizableTh columnKey="seedNo" width={columnWidths.seedNo} onResize={resizeColumn} onReset={() => resizeColumn("seedNo", SEED_COLUMN_DEFAULTS.seedNo)} stickyLeft={0}>シーズNo.</ResizableTh>
+                  <ResizableTh columnKey="title" width={columnWidths.title} onResize={resizeColumn} onReset={() => resizeColumn("title", SEED_COLUMN_DEFAULTS.title)} stickyLeft={columnWidths.seedNo} desktopSticky>シーズ</ResizableTh>
+                  <ResizableTh columnKey="company" width={columnWidths.company} onResize={resizeColumn} onReset={() => resizeColumn("company", SEED_COLUMN_DEFAULTS.company)}>会社名</ResizableTh>
+                  <ResizableTh columnKey="institution" width={columnWidths.institution} onResize={resizeColumn} onReset={() => resizeColumn("institution", SEED_COLUMN_DEFAULTS.institution)}>研究機関</ResizableTh>
+                  <ResizableTh columnKey="researcher" width={columnWidths.researcher} onResize={resizeColumn} onReset={() => resizeColumn("researcher", SEED_COLUMN_DEFAULTS.researcher)}>研究者 / PI</ResizableTh>
+                  <ResizableTh columnKey="value" width={columnWidths.value} onResize={resizeColumn} onReset={() => resizeColumn("value", SEED_COLUMN_DEFAULTS.value)}>
+                    <SortButton label="産業創出価値(億円)" sortKey="spsBand" activeKey={sortKey} dir={sortDir} onSort={toggleSort} hint="BZM 3.0。中央値でソートする。天井が未調査の案件は金額が出ないので末尾" />
+                  </ResizableTh>
+                  <ResizableTh columnKey="stage" width={columnWidths.stage} onResize={resizeColumn} onReset={() => resizeColumn("stage", SEED_COLUMN_DEFAULTS.stage)}>現在地・型</ResizableTh>
+                  <ResizableTh columnKey="trl" width={columnWidths.trl} onResize={resizeColumn} onReset={() => resizeColumn("trl", SEED_COLUMN_DEFAULTS.trl)}>TRL</ResizableTh>
+                  <ResizableTh columnKey="brl" width={columnWidths.brl} onResize={resizeColumn} onReset={() => resizeColumn("brl", SEED_COLUMN_DEFAULTS.brl)}>BRL</ResizableTh>
+                  <ResizableTh columnKey="hrl" width={columnWidths.hrl} onResize={resizeColumn} onReset={() => resizeColumn("hrl", SEED_COLUMN_DEFAULTS.hrl)}>HRL</ResizableTh>
+                  <ResizableTh columnKey="commercialization" width={columnWidths.commercialization} onResize={resizeColumn} onReset={() => resizeColumn("commercialization", SEED_COLUMN_DEFAULTS.commercialization)}>事業化タイプ</ResizableTh>
+                  <ResizableTh columnKey="useCase" width={columnWidths.useCase} onResize={resizeColumn} onReset={() => resizeColumn("useCase", SEED_COLUMN_DEFAULTS.useCase)}>用途</ResizableTh>
+                  <ResizableTh columnKey="customer" width={columnWidths.customer} onResize={resizeColumn} onReset={() => resizeColumn("customer", SEED_COLUMN_DEFAULTS.customer)}>最初の顧客</ResizableTh>
+                  <ResizableTh columnKey="market" width={columnWidths.market} onResize={resizeColumn} onReset={() => resizeColumn("market", SEED_COLUMN_DEFAULTS.market)}>市場/確度</ResizableTh>
+                  <ResizableTh columnKey="bottleneck" width={columnWidths.bottleneck} onResize={resizeColumn} onReset={() => resizeColumn("bottleneck", SEED_COLUMN_DEFAULTS.bottleneck)}>ネック</ResizableTh>
+                  <ResizableTh columnKey="ip" width={columnWidths.ip} onResize={resizeColumn} onReset={() => resizeColumn("ip", SEED_COLUMN_DEFAULTS.ip)}>知財</ResizableTh>
+                  <ResizableTh columnKey="verification" width={columnWidths.verification} onResize={resizeColumn} onReset={() => resizeColumn("verification", SEED_COLUMN_DEFAULTS.verification)}>次の検証</ResizableTh>
+                  {detailSurface === "internal" && (
+                    <ResizableTh columnKey="hypothesis" width={columnWidths.hypothesis} onResize={resizeColumn} onReset={() => resizeColumn("hypothesis", SEED_COLUMN_DEFAULTS.hypothesis)} title="AMD側の未検証な提案。研究成果や市場成立の確定情報ではない">追加研究による市場創出案</ResizableTh>
+                  )}
+                  <ResizableTh columnKey="material" width={columnWidths.material} onResize={resizeColumn} onReset={() => resizeColumn("material", SEED_COLUMN_DEFAULTS.material)}>資料</ResizableTh>
                 </tr>
               </thead>
               <tbody>
@@ -364,6 +443,8 @@ export function CockpitKuteSeeds({
                     seed={seed}
                     onOpen={() => setSelected(seed)}
                     bzm30={scoresBySeedId.get(seed.id) ?? null}
+                    seedNoWidth={columnWidths.seedNo}
+                    showHypothesis={detailSurface === "internal"}
                   />
                 ))}
               </tbody>
@@ -424,14 +505,13 @@ function FilterSelect<T extends string>({
   );
 }
 
-function SortableTh({
+function SortButton({
   label,
   sortKey,
   activeKey,
   dir,
   onSort,
   hint,
-  widthClass,
 }: {
   label: string;
   sortKey: SortKey;
@@ -440,14 +520,11 @@ function SortableTh({
   onSort: (key: SortKey) => void;
   /** タイトルツールチップへ追記する補足説明 (省略可) */
   hint?: string;
-  /** 列幅の上書き (省略時は従来の min-w-[64px]) */
-  widthClass?: string;
 }) {
   const active = activeKey === sortKey;
   const Icon = active ? (dir === "desc" ? ArrowDown : ArrowUp) : ArrowUpDown;
   return (
-    <th className={`${widthClass ?? "min-w-[64px]"} border-b border-slate-200 px-2 py-2`}>
-      <button
+    <button
         type="button"
         onClick={() => onSort(sortKey)}
         title={hint ? `${SORT_LABEL[sortKey]}で並び替え。${hint}` : `${SORT_LABEL[sortKey]}で並び替え`}
@@ -455,15 +532,80 @@ function SortableTh({
       >
         {label}
         <Icon className="h-3 w-3" aria-hidden="true" />
-      </button>
+    </button>
+  );
+}
+
+function ResizableTh({
+  columnKey,
+  width,
+  onResize,
+  onReset,
+  stickyLeft,
+  desktopSticky = false,
+  title,
+  children,
+}: {
+  columnKey: SeedColumnKey;
+  width: number;
+  onResize: (key: SeedColumnKey, width: number) => void;
+  onReset: () => void;
+  stickyLeft?: number;
+  desktopSticky?: boolean;
+  title?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <th
+      className={`relative border-b border-r border-slate-200 bg-slate-100 px-3 py-2 ${stickyLeft !== undefined ? (desktopSticky ? "sm:sticky sm:z-30" : "sticky z-30") : ""}`}
+      style={stickyLeft !== undefined ? { left: stickyLeft } : undefined}
+      title={title}
+    >
+      {children}
+      <span
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={`${typeof children === "string" ? children : "列"}の幅を変更`}
+        aria-valuemin={48}
+        aria-valuemax={720}
+        aria-valuenow={width}
+        tabIndex={0}
+        className="absolute inset-y-0 -right-1 z-40 w-2 cursor-col-resize touch-none focus:outline-none focus-visible:bg-sky-500/50"
+        onDoubleClick={(event) => {
+          event.preventDefault();
+          onReset();
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+          event.preventDefault();
+          onResize(columnKey, width + (event.key === "ArrowRight" ? 16 : -16));
+        }}
+        onPointerDown={(event) => {
+          event.preventDefault();
+          const handle = event.currentTarget;
+          handle.setPointerCapture(event.pointerId);
+          handle.dataset.startX = String(event.clientX);
+          handle.dataset.startWidth = String(width);
+        }}
+        onPointerMove={(event) => {
+          const handle = event.currentTarget;
+          if (!handle.hasPointerCapture(event.pointerId)) return;
+          const startX = Number(handle.dataset.startX);
+          const startWidth = Number(handle.dataset.startWidth);
+          onResize(columnKey, startWidth + event.clientX - startX);
+        }}
+        onPointerUp={(event) => {
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+        }}
+      />
     </th>
   );
 }
 
-function Cell({ value, widthClass = "max-w-[160px]" }: { value: string | null; widthClass?: string }) {
+function Cell({ value }: { value: string | null }) {
   return (
     <td className="border-b border-slate-100 px-3 py-2 align-top">
-      <span className={`block whitespace-normal break-words leading-relaxed ${widthClass} ${value ? "text-slate-700" : "text-slate-400"}`}>
+      <span className={`block whitespace-normal break-words leading-relaxed ${value ? "text-slate-700" : "text-slate-400"}`}>
         {value ?? "未確定"}
       </span>
     </td>
@@ -482,10 +624,14 @@ function SeedRow({
   seed,
   onOpen,
   bzm30,
+  seedNoWidth,
+  showHypothesis,
 }: {
-  seed: SeedPublicView;
+  seed: DisplaySeed;
   onOpen: () => void;
   bzm30: SeedBzm30Summary | null;
+  seedNoWidth: number;
+  showHypothesis: boolean;
 }) {
   const commercializationTypes = [
     seed.primary_commercialization_type,
@@ -525,7 +671,10 @@ function SeedRow({
       role="button"
       tabIndex={0}
     >
-      <td className={`sticky left-0 z-10 w-[160px] min-w-[160px] max-w-[160px] border-b border-r px-3 py-2 align-top group-hover:bg-sky-50/60 group-focus-visible:bg-sky-50/60 sm:w-[220px] sm:min-w-[220px] sm:max-w-[220px] ${realized ? "border-indigo-200 bg-indigo-50" : considering ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"}`}>
+      <td className={`sticky left-0 z-10 border-b border-r px-3 py-2 align-top font-mono text-[11px] font-semibold group-hover:bg-sky-50/60 group-focus-visible:bg-sky-50/60 ${realized ? "border-indigo-200 bg-indigo-50 text-indigo-700" : considering ? "border-amber-200 bg-amber-50 text-amber-700" : "border-slate-200 bg-white text-slate-600"}`}>
+        {seed.seed_no == null ? "—" : String(seed.seed_no).padStart(2, "0")}
+      </td>
+      <td style={{ left: seedNoWidth }} className={`border-b border-r px-3 py-2 align-top group-hover:bg-sky-50/60 group-focus-visible:bg-sky-50/60 sm:sticky sm:z-10 ${realized ? "border-indigo-200 bg-indigo-50" : considering ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"}`}>
         <div className="whitespace-normal break-words font-semibold leading-snug text-slate-950">
           <SeedDomainIcon domain={seed.domain_lane} />
           <span className="ml-1">
@@ -539,7 +688,7 @@ function SeedRow({
         )}
       </td>
       <td className="relative border-b border-slate-100 px-3 py-2 align-top">
-        <span className={`block max-w-[156px] whitespace-normal break-words pr-7 text-[13px] font-bold leading-snug ${companyName ? "text-slate-950" : "text-slate-400"}`}>
+        <span className={`block whitespace-normal break-words pr-7 text-[13px] font-bold leading-snug ${companyName ? "text-slate-950" : "text-slate-400"}`}>
           {companyLabel}
         </span>
         {projectLink && (
@@ -551,12 +700,11 @@ function SeedRow({
           </span>
         )}
       </td>
-      <Cell value={seed.org_name} widthClass="max-w-[140px]" />
+      <Cell value={seed.org_name} />
       <Cell
         value={seed.researcher_name
           ? `${seed.researcher_name}${seed.researcher_title ? ` / ${seed.researcher_title}` : ""}`
           : null}
-        widthClass="max-w-[130px]"
       />
       <td className="border-b border-slate-100 px-3 py-2 align-top font-mono">
           {!BZM30_SCORES_PUBLISHED ? (
@@ -598,7 +746,7 @@ function SeedRow({
       <AxisCell value={seed.hrl} />
       <td className="border-b border-slate-100 px-3 py-2 align-top">
         {commercializationTypes.length > 0 ? (
-          <div className="flex max-w-[140px] flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1">
             {commercializationTypes.map((t) => (
               <span
                 key={t}
@@ -615,9 +763,12 @@ function SeedRow({
       <Cell value={seed.envisioned_use_case} />
       <Cell value={seed.first_customer_candidate} />
       <Cell value={marketText} />
-      <Cell value={seed.biggest_bottleneck} widthClass="max-w-[180px]" />
+      <Cell value={seed.biggest_bottleneck} />
       <Cell value={seed.ip_status} />
-      <Cell value={seed.next_verification_step} widthClass="max-w-[180px]" />
+      <Cell value={seed.next_verification_step} />
+      {showHypothesis && (
+        <Cell value={("additional_research_hypothesis" in seed ? seed.additional_research_hypothesis : null) ?? null} />
+      )}
       <td className="border-b border-slate-100 px-3 py-2 align-top">
         {seed.deep_dive_material_url ? (
           <span title="資料あり">

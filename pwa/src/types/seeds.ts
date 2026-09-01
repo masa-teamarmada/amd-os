@@ -202,6 +202,8 @@ export interface SeedScreeningBandDetail extends SeedScreeningBandSummary {
 export interface Seed {
   id: string;
   // 識別
+  /** 研究機関内で固定する識別番号。並び替えによって変えない。 */
+  seed_no: number | null;
   title: string;
   summary: string | null;
   // 機関
@@ -252,6 +254,8 @@ export interface Seed {
   biggest_bottleneck: string | null;
   ip_status: string | null;
   next_verification_step: string | null;
+  /** AMD側の未検証な追加研究・市場創出仮説。研究成果の確定情報ではない。 */
+  additional_research_hypothesis: string | null;
   // 監査
   created_at: string;
   updated_at: string;
@@ -277,6 +281,7 @@ export interface SeedProjectLink {
  */
 export interface SeedPublicView {
   id: string;
+  seed_no: number | null;
   title: string;
   summary: string | null;
   org_name: string;
@@ -308,9 +313,15 @@ export interface SeedPublicView {
   project_links: SeedProjectLink[];
 }
 
+/** AMD 内部の比較表でだけ取得する市場創出仮説を加えたビュー。 */
+export interface SeedInternalComparisonView extends SeedPublicView {
+  additional_research_hypothesis: string | null;
+}
+
 /** SeedPublicView の select 用ホワイトリスト列 (internal_notes / source_detail 等を含めない) */
 export const SEED_PUBLIC_VIEW_COLUMNS = [
   "id",
+  "seed_no",
   "title",
   "summary",
   "org_name",
@@ -334,6 +345,11 @@ export const SEED_PUBLIC_VIEW_COLUMNS = [
   "biggest_bottleneck",
   "ip_status",
   "next_verification_step",
+] as const;
+
+export const SEED_INTERNAL_COMPARISON_COLUMNS = [
+  ...SEED_PUBLIC_VIEW_COLUMNS,
+  "additional_research_hypothesis",
 ] as const;
 
 export interface SeedFunding {

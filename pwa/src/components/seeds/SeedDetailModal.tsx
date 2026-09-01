@@ -447,6 +447,7 @@ function SeedReadView({
     <div className="space-y-5">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
         <Section title="シーズ概要">
+          <KV label="シーズNo.">{s.seed_no == null ? "—" : String(s.seed_no).padStart(2, "0")}</KV>
           <KV label="概要">{s.summary || "—"}</KV>
           <KV label="領域">{s.domain_lane ? SEED_DOMAIN_LANE_LABEL[s.domain_lane] ?? s.domain_lane : "—"}</KV>
           <KV label="成熟度 (TRL/BRL/HRL)">
@@ -495,6 +496,9 @@ function SeedReadView({
           </KV>
           <KV label="担当">{data.amd_owner_code_name || "—"}</KV>
           <KV label="次の一手">{s.next_action || "—"}</KV>
+          <KV label="追加研究による市場創出案">
+            <span className="whitespace-pre-wrap">{s.additional_research_hypothesis || "—"}</span>
+          </KV>
           <KV label="社内メモ"><span className="whitespace-pre-wrap">{s.internal_notes || "—"}</span></KV>
         </Section>
 
@@ -585,6 +589,15 @@ function SeedEditForm({
       {/* シーズ概要 */}
       <div className="space-y-2">
         <h3 className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">シーズ概要</h3>
+        <Field label="シーズNo.（研究機関内の固定番号）">
+          <input
+            type="number"
+            min={1}
+            className="w-full px-2 py-1.5 rounded border border-border bg-background text-xs"
+            value={draft.seed_no ?? ""}
+            onChange={(e) => update("seed_no", e.target.value === "" ? null : Number(e.target.value))}
+          />
+        </Field>
         <Field label="概要">
           <textarea
             className="w-full px-2 py-1.5 rounded border border-border bg-background text-xs"
@@ -749,6 +762,14 @@ function SeedEditForm({
             className="w-full px-2 py-1.5 rounded border border-border bg-background text-xs"
             value={draft.next_action ?? ""}
             onChange={(e) => update("next_action", e.target.value || null)}
+          />
+        </Field>
+        <Field label="追加研究による市場創出案（AMD仮説・未検証）">
+          <textarea
+            className="w-full px-2 py-1.5 rounded border border-border bg-background text-xs"
+            rows={5}
+            value={draft.additional_research_hypothesis ?? ""}
+            onChange={(e) => update("additional_research_hypothesis", e.target.value || null)}
           />
         </Field>
         <Field label="社内メモ (非公開)">

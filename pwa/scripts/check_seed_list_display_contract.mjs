@@ -10,7 +10,14 @@ const seedDetail = await readFile(
   "utf8",
 );
 
-assert.match(cockpit, />会社名<\/th>/);
+assert.match(cockpit, />会社名<\/ResizableTh>/);
+assert.match(cockpit, />シーズNo\.<\/ResizableTh>/);
+assert.match(cockpit, />追加研究による市場創出案<\/ResizableTh>/);
+assert.match(cockpit, /role="separator"/);
+assert.match(cockpit, /setPointerCapture/);
+assert.match(cockpit, /SEED_TABLE_WIDTHS_KEY = "amd-os:seed-table-column-widths:v1"/);
+assert.match(cockpit, /String\(seed\.seed_no\)\.padStart\(2, "0"\)/);
+assert.match(seedDetail, /追加研究による市場創出案（AMD仮説・未検証）/);
 assert.match(cockpit, /const companyName = projectLink\?\.venture_name \?\? projectLink\?\.project_name \?\? null/);
 assert.match(cockpit, /commercialization_stage === "pre_incorporation" \? "（未設立）" : ""/);
 assert.match(cockpit, /: "未設立"/);
