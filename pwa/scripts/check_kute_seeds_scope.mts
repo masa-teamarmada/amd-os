@@ -77,7 +77,7 @@ function readSrc(relPath: string): string {
   assert.ok(ui.includes("<table"), "テーブル要素が見つかりません");
   assert.ok(ui.includes("sticky"), "sticky 列/ヘッダーが見つかりません");
   assert.ok(ui.includes("toggleSort") || ui.includes("onSort"), "ソート機能が見つかりません");
-  assert.ok(ui.includes("FilterSelect") || ui.includes("confidenceFilter"), "フィルタ機能が見つかりません");
+  assert.ok(ui.includes("ColumnFilter") && ui.includes("statusFilter"), "評価状態の絞り込みが見つかりません");
   assert.ok(!/SeedCard/.test(ui), "旧 SeedCard パターンが残っています");
   assert.ok(!/CompactField/.test(ui), "旧 CompactField パターンが残っています");
   assert.ok(!/kute_score/.test(ui), "旧 kute_score パターンが残っています");

@@ -232,6 +232,10 @@ export interface Seed {
   amd_rating_note: string | null;
   amd_owner_member_id: string | null;
   next_action: string | null;
+  /** 経営チームの状況。CEO/CTO候補、経営経験、研究者との役割分担。内部のみ。 */
+  management_team_note: string | null;
+  /** 紹介経路・リファラル。誰の紹介か、研究者本人の人脈から経営人材が出ているか。内部のみ。 */
+  referral_note: string | null;
   internal_notes: string | null;
   public_summary: string | null;
   is_public: boolean;

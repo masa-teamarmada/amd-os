@@ -495,6 +495,12 @@ function SeedReadView({
             {s.amd_rating_note && <span className="text-muted-foreground ml-2">{s.amd_rating_note}</span>}
           </KV>
           <KV label="担当">{data.amd_owner_code_name || "—"}</KV>
+          <KV label="経営チーム">
+            <span className="whitespace-pre-wrap">{s.management_team_note || "—"}</span>
+          </KV>
+          <KV label="紹介経路・リファラル">
+            <span className="whitespace-pre-wrap">{s.referral_note || "—"}</span>
+          </KV>
           <KV label="次の一手">{s.next_action || "—"}</KV>
           <KV label="追加研究による市場創出案">
             <span className="whitespace-pre-wrap">{s.additional_research_hypothesis || "—"}</span>
@@ -758,6 +764,24 @@ function SeedEditForm({
             className="w-full px-2 py-1.5 rounded border border-border bg-background text-xs"
             value={draft.amd_rating_note ?? ""}
             onChange={(e) => update("amd_rating_note", e.target.value || null)}
+          />
+        </Field>
+        <Field label="経営チーム（CEO/CTO候補・経営経験・研究者との役割分担）">
+          <textarea
+            className="w-full px-2 py-1.5 rounded border border-border bg-background text-xs"
+            rows={3}
+            value={draft.management_team_note ?? ""}
+            onChange={(e) => update("management_team_note", e.target.value || null)}
+            placeholder="例: 社長予定は◯◯さん。事業会社でCXO経験あり。研究者は経営に入らず技術顧問。"
+          />
+        </Field>
+        <Field label="紹介経路・リファラル（誰の紹介か・研究者の人脈から出た人材か）">
+          <textarea
+            className="w-full px-2 py-1.5 rounded border border-border bg-background text-xs"
+            rows={3}
+            value={draft.referral_note ?? ""}
+            onChange={(e) => update("referral_note", e.target.value || null)}
+            placeholder="例: 研究者の同級生。大学の担当者経由で判明。"
           />
         </Field>
         <Field label="次の一手">
