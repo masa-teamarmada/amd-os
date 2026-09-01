@@ -22,3 +22,10 @@
 - commit `38a1c7e6` をmainへpush。本番データreadbackは6区分・38件・完了9件・旧6件soft-delete・依存0件。KUTEタブ契約検査と完了色検査を通過し、Vercel deployment `dpl_CFNctc8rtLV2wouaVRWj11VusaV4` のREADYを確認した。
 - 一括critical UI検査は、同時進行中だった共有ワークスペースの別差分が既存anchorを外していたため、この時点ではKUTE変更単独の判定に使わなかった。KUTE専用検査とVercel production buildは成功している。
 - 最初に内部track key自体を変更する案を試したが、親整合性triggerがcascade途中のoutcome/milestone不一致を検知してトランザクション全体をrollbackした。表示labelだけ更新する方式へ変更し、再適用した。失敗した試行による本番データ変更はない。
+
+## 2026-09-01 CX論点追加の復旧・論点リスト行密度
+
+- CX (`p20`) では、画面が互換表示した標準4分類と、保存APIが受け付ける実登録分類が食い違っていた。`project_management_tracks`が0件のため、論点追加フォームは分類を選べても保存時だけ`trackが不正だよ`で拒否された。
+- migration `pwa/scripts/migrations/358_seed_cx_management_tracks.sql`で事業開発・技術開発・資金調達・体制構築を追加登録した。既存の業務記録を更新しない追加のみで、本番readbackでCXの4分類と追加APIの保存条件が一致することを確認した。commit `ad5918cd`。
+- 論点・仮説リストは列幅ではなく短い論点の行高が縦に間延びしていた。タイトルが共通44px操作高を引き継いでいたため、タイトルだけは表の行高へ戻し、担当未設定の空の補助行、セル上下余白、見出し、詳細ボタンを詰めた。全文表示と8列構成は維持する。commit `f7495b7a`、本番build `v3.100.14`のbuild-info SHA readback済み。
+- 検証: `npx tsc --noEmit`、`npm run test:sx-weekly-control`、`npm run test:sx-management-save-contract`、`npm run test:critical-ui`、`npm run build`。認証境界を越える自動ブラウザ操作は行わず、ログイン入口の正常表示だけを確認した。

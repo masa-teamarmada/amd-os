@@ -4975,3 +4975,10 @@ kiyo-amd-os 側の設定で解消しているので、そちらは触ってい�
 - **原因**: feature CSSが`var(--amd-action)`等を参照していたが、本番で分割・cacheされたglobal CSS chunkにtoken宣言が含まれない組み合わせが発生した。未解決custom propertyをfallbackなしで使ったため、該当宣言ごと無効になった。
 - **対応内容**: 共有ワークスペースとcockpit埋込が共用するmount rootへ`--amd-action* / --amd-success* / --amd-warning*`の確定値を置き、目的構造側の参照にもfallbackを追加。選択はsky、完了はemerald、注意はamber、停止はslateへ役割を固定した。
 - **再発防止策**: 新しい共通色をglobal CSSだけに依存させない。分割配信される共有componentはmount rootでもtokenを解決し、`test:ui-design-code`でroot宣言・選択tab・panel shell・完了色を、`test:zmp-workspace-themes`で目的構造の主色と旧teal不在を検査する。本番ではcomputed styleのtoken値・背景色・border色をreadbackする。
+
+## [PWA/project-workspace] 互換表示した論点分類を保存APIが拒否した (2026-09-01)
+
+- **症状**: CX (`p20`) の論点・仮説追加で、画面に出ている分類を選んでも保存時だけ`trackが不正だよ`で止まった。
+- **原因**: 表示bundleは`project_management_tracks`が0件なら標準4分類を互換表示するが、保存APIは実際に登録された分類だけを正とした。表示用fallbackと書込み条件が別の集合になっていた。
+- **対応内容**: migration 358でCXへ標準4分類を追加登録し、既存記録を上書きせずに表示・保存の正本を一致させた。本番readbackと`test:sx-management-save-contract`で確認した。
+- **再発防止策**: 画面のfallbackを新規PJの作成可能な状態と扱わない。論点追加を使うPJは、実登録分類が必要数あることをmigrationまたは初期化経路で保証し、表示分類とAPI許可集合を同じデータから読む。
