@@ -4045,7 +4045,7 @@ expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", 
 expectIncludes("src/components/project-workspace/weekly-control.module.css", [
   ".issueWorkbenchGrid",
   "grid-template-columns: minmax(280px, .82fr) minmax(360px, 1.18fr) minmax(300px, .92fr)",
-  ".issueRowTruncate { margin: 3px 0 0; line-height: 1.5; white-space: normal; overflow-wrap: anywhere; }",
+  ".issueRowTruncate { margin: 2px 0 0; line-height: 1.35; white-space: normal; overflow-wrap: anywhere; }",
 ]);
 expectNotIncludes("src/components/project-workspace/weekly-control.module.css", [
   ".issueRowTitleButton { display: block; width: 100%; margin-top: 4px; border: 0; border-bottom: 1px dashed transparent; background: transparent; color: var(--ink); font-size: 12px; line-height: 1.4; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }",

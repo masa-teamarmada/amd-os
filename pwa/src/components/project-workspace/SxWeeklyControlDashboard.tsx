@@ -3477,12 +3477,9 @@ function IssueRow({
           >
             {issue.title}
           </button>
-          <small
-            className={styles.issueRowSub}
-            data-missing={sxWeeklyValueMissing(issue.ownerLabel) || undefined}
-          >
-            {sxWeeklyValueMissing(issue.ownerLabel) ? "" : issue.ownerLabel}
-          </small>
+          {!sxWeeklyValueMissing(issue.ownerLabel) && (
+            <small className={styles.issueRowSub}>{issue.ownerLabel}</small>
+          )}
         </td>
         <td className={styles.issueRowKindCell}>
           <span className={styles.issueRowKind}>

@@ -328,17 +328,18 @@
    詳細行(.issueDetailRow)は既存の.detailBody以下のスタイルをそのまま流用する。 */
 .issueTableWrap { overflow-x: auto; border: 1px solid var(--line); background: var(--sheet); }
 .issueTable { width: 100%; min-width: 1120px; border-collapse: collapse; }
-.issueTable thead th { position: sticky; top: 0; padding: 9px 10px; border-bottom: 1px solid #7CBCEB; background: #E8F3FC; color: #0267B2; font-size: 10px; font-weight: 800; text-align: left; white-space: nowrap; }
+.issueTable thead th { position: sticky; top: 0; padding: 7px 10px; border-bottom: 1px solid #7CBCEB; background: #E8F3FC; color: #0267B2; font-size: 10px; font-weight: 800; text-align: left; white-space: nowrap; }
 .issueRow { border-top: 1px solid #D2E7F8; }
 .issueRow[data-attention] { background: #F7FBFF; box-shadow: inset 3px 0 0 #7CBCEB; }
-.issueRow > td { padding: 9px 10px; vertical-align: top; font-size: 11px; }
+.issueRow > td { padding: 6px 10px; vertical-align: middle; font-size: 11px; }
+.issueRowTitleCell { vertical-align: top !important; }
 .issueRowTitleCell { min-width: 200px; max-width: 260px; }
 .issueRowKindCell { min-width: 92px; }
 .issueRowKind { display: inline-flex; min-height: 22px; align-items: center; padding: 2px 7px; border: 1px solid #7CBCEB; border-radius: 999px; background: #E8F3FC; color: #0267B2; font-size: 9px; font-weight: 800; letter-spacing: .04em; }
-.issueRowTitleButton { display: block; width: 100%; margin-top: 4px; border: 0; border-bottom: 1px dashed transparent; background: transparent; color: var(--ink); font-size: 12px; line-height: 1.5; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.issueRowTitleButton { display: block; width: 100%; min-height: 0 !important; margin-top: 2px; padding: 0; border: 0; border-bottom: 1px dashed transparent; background: transparent; color: var(--ink); font-size: 12px; line-height: 1.35; text-align: left; white-space: normal; overflow-wrap: anywhere; }
 button.issueRowTitleButton { border-bottom-color: #7CBCEB; cursor: pointer; }
 button.issueRowTitleButton:hover, button.issueRowTitleButton:focus-visible { border-color: #027FDC; color: #0267B2; outline: 2px solid #7CBCEB; outline-offset: 2px; }
-.issueRowSub { display: block; margin-top: 3px; color: var(--muted); font-size: 9px; }
+.issueRowSub { display: block; margin-top: 1px; color: var(--muted); font-size: 9px; line-height: 1.25; }
 .issueRowSub[data-missing] { color: var(--red); }
 .issueRowStatusCell { min-width: 150px; }
 .issueRowDueCell { min-width: 92px; color: var(--muted); font-size: 10px !important; font-weight: 750; white-space: nowrap; }
@@ -346,9 +347,9 @@ button.issueRowTitleButton:hover, button.issueRowTitleButton:focus-visible { bor
 .issueRowDueCell[data-overdue] { color: var(--red); }
 .issueRowTruncateCell { min-width: 150px; max-width: 220px; }
 .issueRowCount { display: block; color: var(--quiet); font-size: 9px; font-weight: 750; }
-.issueRowTruncate { margin: 3px 0 0; line-height: 1.5; white-space: normal; overflow-wrap: anywhere; }
+.issueRowTruncate { margin: 2px 0 0; line-height: 1.35; white-space: normal; overflow-wrap: anywhere; }
 .issueRowExpandCell { width: 46px; text-align: right; }
-.issueRowExpandButton { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--muted); }
+.issueRowExpandButton { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; min-height: 28px !important; border: 1px solid var(--line); border-radius: 5px; background: transparent; color: var(--muted); }
 .issueRowExpandButton:hover, .issueRowExpandButton:focus-visible { border-color: #027FDC; color: #0267B2; outline: 2px solid #7CBCEB; outline-offset: 2px; }
 .issueRowExpandButton svg { width: 14px; height: 14px; transition: transform .16s ease; }
 .issueRowActionCount { position: absolute; top: -5px; right: -5px; display: grid; place-items: center; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 999px; background: var(--amber); color: #fff; font-size: 8px; font-weight: 800; }
