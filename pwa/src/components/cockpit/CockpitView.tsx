@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CockpitHeader } from "./CockpitHeader";
 import { CockpitVentureStatus } from "./CockpitVentureStatus";
 import { CockpitManagementScoreHero } from "./CockpitManagementScoreHero";
@@ -12,7 +12,7 @@ import { CockpitGrants } from "./CockpitGrants";
 import { WorkspaceDocumentRoom } from "@/components/workspace-documents/WorkspaceDocumentRoom";
 import { CockpitIpPortfolio } from "@/components/cockpit/CockpitIpPortfolio";
 import { CockpitTechnology } from "@/components/cockpit/CockpitTechnology";
-import { CockpitKuteRegulations } from "./CockpitKuteRegulations";
+import { InstitutionRegulationsPanel } from "@/components/institutions/InstitutionRegulations";
 import { ProjectInstitutionSeeds } from "./CockpitKuteSeeds";
 import { CockpitSeasonFinance } from "./CockpitSeasonFinance";
 import { CockpitMsChangeHistory } from "./CockpitMsChangeHistory";
@@ -35,6 +35,13 @@ import { CockpitCostModel } from "@/components/cockpit/CockpitCostModel";
 import { prefetchProjectOrg } from "@/lib/project-org-client";
 import { prefetchProjectCostModel } from "@/lib/project-cost-model-client";
 import { prefetchProjectTech } from "@/lib/project-tech-client";
+import {
+  cockpitGroupForTab,
+  cockpitGroupsForProject,
+  resolveCockpitTab,
+  type CockpitGroupKey,
+} from "@/lib/cockpit-tabs";
+import { fetchInstitutionIdForProject } from "@/lib/seeds-data";
 
 interface PlanCycleShape {
   planCycleId: string; status: string; budgetYen: number; extraDesignBudgetYen?: number; totalPoints: number;
@@ -197,6 +204,10 @@ interface CockpitViewProps {
   initialModalYm?: string | null;
   activeTab?: CockpitTab;
   onTabChange?: (tab: CockpitTab) => void;
+  /** 研究機関ページから埋め込む場合は、正本で解決済みの機関IDを渡す。 */
+  institutionId?: string | null;
+  /** 研究機関専用ページ側のタブと二重表示しないための埋め込みモード。 */
+  hideNavigation?: boolean;
 }
 
 function formatYm(ym: string) {
@@ -264,10 +275,9 @@ export type { CockpitTab } from "@/lib/cockpit-tabs";
 /**
  * PJワークスペースの管制タブをコックピットのタブへ対応づける (2026-08-28 まさ確定)。
  * ここに載っているタブは同じ `CockpitProjectControl` を共有するので、
- * テーマ・週次差分・ガント・関係先・論点を行き来しても束を読み直さない。
+ * 週次差分・ガント・関係先・論点を行き来しても束を読み直さない。
  */
 const WORKSPACE_VIEW_BY_TAB: Partial<Record<CockpitTab, SxWeeklyControlView>> = {
-  themes: "themes",
   weekly: "weekly",
   gantt: "gantt",
   partners: "partners",
@@ -276,7 +286,6 @@ const WORKSPACE_VIEW_BY_TAB: Partial<Record<CockpitTab, SxWeeklyControlView>> = 
 
 /** 管制画面の中の導線 (「ガントで見る」等) が飛ぶ先を、コックピットのタブへ戻す。 */
 const TAB_BY_WORKSPACE_VIEW: Partial<Record<SxWeeklyControlView, CockpitTab>> = {
-  themes: "themes",
   weekly: "weekly",
   gantt: "gantt",
   partners: "partners",
@@ -286,18 +295,39 @@ const TAB_BY_WORKSPACE_VIEW: Partial<Record<SxWeeklyControlView, CockpitTab>> = 
   drive: "documents",
 };
 
-export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab, onTabChange }: CockpitViewProps) {
+export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab, onTabChange, institutionId: providedInstitutionId, hideNavigation = false }: CockpitViewProps) {
   const [localActiveTab, setLocalActiveTab] = useState<CockpitTab>("progress");
   const requestedTab = controlledTab ?? localActiveTab;
-  const activeTab = requestedTab === "themes" && cockpit.project.projectId !== "p19" ? "progress" : requestedTab;
+  const [resolvedInstitutionId, setResolvedInstitutionId] = useState<string | null | undefined>(providedInstitutionId);
+  useEffect(() => {
+    if (providedInstitutionId !== undefined) {
+      setResolvedInstitutionId(providedInstitutionId);
+      return;
+    }
+    let cancelled = false;
+    fetchInstitutionIdForProject(cockpit.project.projectId)
+      .then((nextInstitutionId) => {
+        if (!cancelled) setResolvedInstitutionId(nextInstitutionId);
+      })
+      .catch(() => {
+        if (!cancelled) setResolvedInstitutionId(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cockpit.project.projectId, providedInstitutionId]);
+  const isInstitutionProject = resolvedInstitutionId != null;
+  const resolvedTab = resolveCockpitTab(requestedTab, isInstitutionProject);
   const [modalYm, setModalYm] = useState<string | null>(initialModalYm || null);
   const [modalInitialTab, setModalInitialTab] = useState<MonthlyModalTab | undefined>(undefined);
   const [pastExpanded, setPastExpanded] = useState(false);
   const [progressPatches, setProgressPatches] = useState<ProgressShape[]>([]);
-  // 連携シーズタブ (KUTE限定): 初回訪問まではマウントせず、訪問後は hidden で保持して
+  // 連携シーズタブ: 初回訪問まではマウントせず、訪問後は hidden で保持して
   // タブを行き来しても Seeds を読み直さない。
   const [hasVisitedSeeds, setHasVisitedSeeds] = useState(false);
-  if (activeTab === "seeds" && !hasVisitedSeeds) setHasVisitedSeeds(true);
+  useEffect(() => {
+    if (resolvedTab === "seeds") setHasVisitedSeeds(true);
+  }, [resolvedTab]);
 
   function selectTab(tab: CockpitTab) {
     setLocalActiveTab(tab);
@@ -316,11 +346,11 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
 
   const { project, currentYm, billingCycles, planCycle, milestones, progress, reports, members, subItems, responsibilities, memberMap, pastPlanCycles, msActivities, memberActivities, seasonFinance, msChangeHistory, strategySignals } = cockpit;
   const usesMsProgress = usesMsProgressCategory(project.projectCategory);
-  // 事業計画タブは全PJ常設 (2026-08-21 まさ依頼)。資本政策プランは会社概要ではなくこのタブが正本。
+  // 通常PJの事業計画グループは常設。研究機関PJはシーズリスト・規程内規へ置き換える。
   // フェーズ表と年次試算表はSX (p21) 固有データなので、SXのときだけ足す。
   const hasSxBusinessPlanDetail = project.projectId === "p21";
-  const hasKuteRegulationsTab = project.projectId === "p25";
-  const hasKuteSeedsTab = project.projectId === "p25";
+  const hasInstitutionRegulationsTab = isInstitutionProject && Boolean(resolvedInstitutionId);
+  const hasInstitutionSeedsTab = isInstitutionProject && Boolean(resolvedInstitutionId);
 
   const currentProgress = mergeProgress(progress, progressPatches);
   const patchedPastPlanCycles = (pastPlanCycles || []).map((bundle) => ({
@@ -356,54 +386,63 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
   const modalResponsibilities = !usesMsProgress || isReportOnlyMonth ? [] : (modalBundle?.responsibilities || responsibilities || []);
   const modalMsActivities = !usesMsProgress || isReportOnlyMonth ? [] : (modalBundle?.msActivities || msActivities || []);
   const modalMemberActivities = isReportOnlyMonth ? [] : (modalBundle?.memberActivities || memberActivities || []);
-  const workspaceView = WORKSPACE_VIEW_BY_TAB[activeTab];
   const showLiveOperations = isLiveOperationalProject(project, currentYm);
   const showAmdScore = (project.projectCategory || "dtsu") !== "ecosystem";
   const hasScoreDetailTab = project.projectId !== "p00" && showAmdScore;
 
-  // タブ構成はここが正本。列数は tabs.length から出すので、追加時に grid の計算を直す必要はない。
-  const tabs: { key: CockpitTab; label: string; onHover?: () => void }[] = [
-    { key: "progress", label: "進捗管理" },
-    ...(project.projectId === "p19" ? [{ key: "themes" as const, label: "テーマ" }] : []),
-    // PJワークスペースの管制4タブ (2026-08-28 まさ「コックピット側を12タブにしよう」)。
-    // 実装・データは `/project/[projectId]/workspace` と同じものを共有する。
-    // 外向けのワークスペースは別ルートのまま残す (認可の境界をルートで持つため)。
-    { key: "weekly", label: "週次差分" },
-    { key: "gantt", label: "ガント" },
-    { key: "partners", label: "関係先" },
-    { key: "issues", label: "論点・仮説" },
-    ...(hasScoreDetailTab
-      ? [
-          {
-            key: "score-detail" as const,
-            label: "スコア詳細",
-            // 組織セクションは参照系。タブを押す前に温めておき、開いた瞬間に出す。
-            onHover: () => prefetchProjectOrg(project.projectId),
-          },
-        ]
-      : []),
-    // 技術タブは全PJ常設 (2026-08-29 まさ依頼)。成立条件・解説・星取り表・到達実績の4形式で、
-    // PJごとに違うのは並べるトピックと項目名だけ。PJ専用の実装は作らない。
-    // 参照系。hover で先読みして、押した瞬間に出ている状態にする。
-    { key: "technology", label: "技術", onHover: () => prefetchProjectTech(project.projectId) },
-    { key: "business-plan", label: "事業計画" },
-    // コスト試算は全PJ常設 (2026-08-23 まさ確定。SX専用ではなく雛形として全PJへ)。
-    // 未登録のPJでは、何を登録する面なのかを説明する空状態が出る。
-    // hover で先読みしておき、クリック時には手元にある状態にする (参照系データの体感速度)。
-    { key: "cost-model", label: "コスト試算", onHover: () => prefetchProjectCostModel(project.projectId) },
-    ...(hasKuteRegulationsTab ? [{ key: "regulations" as const, label: "規程・内規" }] : []),
-    ...(hasKuteSeedsTab ? [{ key: "seeds" as const, label: "シーズ" }] : []),
-    { key: "ip", label: "知財" },
-    { key: "documents", label: "ドライブ" },
-    // PJ概要 = 契約上の実行条件の置き場所 (2026-08-28 まさ依頼で最上段から移設)。
-    // SU側の登記・株主を見る会社概要と隣に置き、月単位で変わらない前提をまとめて開けるようにする。
-    { key: "overview", label: "PJ概要" },
-    // 資本政策表は 2026-08-29 に会社概要から独立させた (まさ「会社概要タブのコンテンツが
-    // 増えすぎて見にくいので」)。会社概要 = 登記・総会・決算、資本政策表 = 資本構成の記録。
-    // 参照系。タブ見出しの hover で先読みして、押した瞬間に表が出ている状態にする。
-    { key: "capital-policy", label: "資本政策表", onHover: () => prefetchGovernance(project.projectId) },
-    { key: "company", label: "会社概要", onHover: () => prefetchGovernance(project.projectId) },
-  ];
+  // グループと所属タブは cockpit-tabs.ts が正本。ここでは表示条件とラベルだけを足す。
+  const groups = cockpitGroupsForProject(isInstitutionProject);
+  const tabLabel: Partial<Record<CockpitTab, string>> = {
+    progress: "MS・月次",
+    meetings: "動向・会議",
+    weekly: "週次差分",
+    gantt: "ガント",
+    partners: "関係先",
+    issues: "論点・仮説",
+    "score-detail": "スコア詳細",
+    technology: "技術",
+    "business-plan": "事業計画",
+    "cost-model": "コスト試算",
+    ip: "知財",
+    seeds: "シーズ一覧",
+    regulations: "規程一覧",
+    documents: "ドライブ",
+    overview: "PJ概要",
+    "capital-policy": "資本政策",
+    company: "会社概要",
+  };
+  const availableTab = (tab: CockpitTab) => {
+    if (tab === "score-detail") return hasScoreDetailTab;
+    if (tab === "seeds") return hasInstitutionSeedsTab;
+    if (tab === "regulations") return hasInstitutionRegulationsTab;
+    return true;
+  };
+  const visibleGroups = groups.map((group) => ({
+    ...group,
+    children: group.children.filter(availableTab),
+  })).filter((group) => group.children.length > 0);
+  const requestedGroup = cockpitGroupForTab(resolvedTab, isInstitutionProject);
+  const activeGroupWithAvailableChildren = visibleGroups.find((group) => group.key === requestedGroup.key) ?? visibleGroups[0];
+  // URLが現在のPJでは非表示になるタブを指していても、空画面にせず同じグループの先頭へ落とす。
+  const activeTab = activeGroupWithAvailableChildren?.children.includes(resolvedTab)
+    ? resolvedTab
+    : activeGroupWithAvailableChildren?.children[0] ?? "progress";
+  const childTabs = activeGroupWithAvailableChildren?.children ?? ["progress"];
+  const workspaceView = WORKSPACE_VIEW_BY_TAB[activeTab];
+  const childTabItems: { key: CockpitTab; label: string; onHover?: () => void }[] = childTabs.map((key) => ({
+    key,
+    label: tabLabel[key] ?? key,
+    onHover: key === "score-detail" ? () => prefetchProjectOrg(project.projectId)
+      : key === "technology" ? () => prefetchProjectTech(project.projectId)
+      : key === "cost-model" ? () => prefetchProjectCostModel(project.projectId)
+      : key === "capital-policy" || key === "company" ? () => prefetchGovernance(project.projectId)
+      : undefined,
+  }));
+
+  function selectGroup(groupKey: CockpitGroupKey) {
+    const group = visibleGroups.find((candidate) => candidate.key === groupKey);
+    if (group?.children[0]) selectTab(group.children[0]);
+  }
 
   // [B2] MS設定バナー / 直接編集 ロジックを案Cの col1 内で使うため関数化。
   const renderMsSetupBanner = () => {
@@ -455,58 +494,79 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     statusBadges.push({ key: "restart", cls: "bg-blue-50 text-blue-800 border-blue-300", text: `📅 ${formatYm(project.restartExpectedYm)} から再開予定` });
   }
   const mainGridClass = statusBadges.length > 0
-    ? "grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_300px] gap-3 items-start"
-    : "grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3 items-start";
+    ? "grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-3 items-start"
+    : "block";
 
   return (
-    // 案D レイアウト (2026-05-24 #28 まさ確定):
-    //  上: Header + Hero (AMD Score chart + XRL chart 横並び)
-    //  メインボード:
-    //    col1 = 今期MS + 次期MS設定 + 過去の期間 + 月次カード + 休止期間 backfill
-    //    col2 = 資料 + 経営ハイライト (D-6) + MTGサマリ
-    //    col3 = ステータスバッジ (必要な時だけ sticky)
-    <div className={`max-w-[1600px] mx-auto flex flex-col ${activeTab === "score-detail" ? "px-2 py-2 gap-2" : "px-4 py-3 gap-3"}`}>
+    <div
+      className={`max-w-[1600px] mx-auto flex flex-col ${activeTab === "score-detail" ? "px-2 py-2 gap-2" : "px-4 py-3 gap-3"}`}
+      data-cockpit-project-kind={isInstitutionProject ? "institution" : "standard"}
+    >
       {/* [A] Project Header (full width) */}
       <CockpitHeader project={project} members={members} />
-
-      {/* KUTE (p25) は年次ロードマップをガントタブへ、連携シーズ比較を専用タブへ移設済み
-          (2026-08-31)。他の研究機関PJ (institution_projects 所属) は従来どおり進捗タブに表示する。 */}
-      {activeTab === "progress" && project.projectId !== "p25" && <ProjectInstitutionSeeds projectId={project.projectId} />}
 
       {/* 旧 [A2] Hero (PJの見出し・担当・事業概要・XRL進捗) は 2026-08-28 まさ依頼で
           「PJ概要」タブへ丸ごと移した。上段に残すのは CockpitHeader だけで、
           コックピットを開いた直後は進捗管理の中身がすぐ目に入る。 */}
 
-      {/* タブは等分グリッドではなく flex。15枚を超えたあたりで等分だと1枚あたりが狭くなり、
-          「論点・仮説」「コスト試算」がラベルの途中で折り返して読めなくなる (2026-08-29)。
-          flex-1 + whitespace-nowrap にすると、余りは均等に配り、入らないときだけ行が増える。 */}
-      <div
-        className="flex flex-wrap gap-1 rounded-xl border border-[#d6d6da] bg-[#f5f5f7] p-1"
-        role="tablist"
-        aria-label="コックピット表示切り替え"
-      >
-          {tabs.map((tab) => {
-            const selected = activeTab === tab.key;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                onClick={() => selectTab(tab.key)}
-                onMouseEnter={tab.onHover}
-                onFocus={tab.onHover}
-                className={`relative min-h-11 flex-1 basis-auto cursor-pointer whitespace-nowrap rounded-lg px-1.5 text-center text-[12px] font-semibold sm:px-3 sm:text-[13px] transition-[background-color,color,transform,box-shadow] duration-150 ease-out hover:-translate-y-[2px] active:translate-y-0 active:duration-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 motion-reduce:transform-none motion-reduce:transition-none ${
-                  selected
-                    ? "bg-white text-slate-950 shadow-[inset_0_-2px_0_#0f172a] hover:shadow-[inset_0_-2px_0_#0f172a,0_6px_14px_-6px_rgba(15,23,42,0.45)]"
-                    : "text-slate-500 hover:bg-white/80 hover:text-slate-900 hover:shadow-[0_6px_14px_-6px_rgba(15,23,42,0.4)]"
-                }`}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-      </div>
+      {!hideNavigation && (
+        <>
+          <nav
+            className={`grid gap-1 rounded-xl border border-[#bfc0c7] bg-[#f5f5f7] p-1 ${visibleGroups.length === 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}
+            aria-label="コックピット分類"
+            data-testid="cockpit-group-navigation"
+          >
+            {visibleGroups.map((group) => {
+              const selected = activeGroupWithAvailableChildren?.key === group.key;
+              return (
+                <button
+                  key={group.key}
+                  type="button"
+                  aria-current={selected ? "page" : undefined}
+                  data-cockpit-group={group.key}
+                  onClick={() => selectGroup(group.key)}
+                  className={`min-h-12 cursor-pointer whitespace-nowrap rounded-lg px-3 text-center text-[13px] font-bold transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 ${
+                    selected
+                      ? "bg-white text-slate-950 shadow-[inset_0_-2px_0_#0f172a]"
+                      : "text-slate-500 hover:bg-white/80 hover:text-slate-900"
+                  }`}
+                >
+                  {group.label}
+                </button>
+              );
+            })}
+          </nav>
+          {childTabItems.length > 1 && (
+            <nav
+              className="flex gap-1 overflow-x-auto rounded-lg border border-[#d6d6da] bg-white p-1"
+              aria-label={`${activeGroupWithAvailableChildren?.label ?? "コックピット"}の表示切り替え`}
+              data-testid="cockpit-child-navigation"
+            >
+              {childTabItems.map((tab) => {
+                const selected = activeTab === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    aria-current={selected ? "page" : undefined}
+                    data-cockpit-tab={tab.key}
+                    onClick={() => selectTab(tab.key)}
+                    onMouseEnter={tab.onHover}
+                    onFocus={tab.onHover}
+                    className={`min-h-11 shrink-0 cursor-pointer whitespace-nowrap rounded-md px-3 text-[12px] font-semibold transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 ${
+                      selected
+                        ? "bg-[#f5f5f7] text-slate-950 shadow-[inset_0_-2px_0_#0f172a]"
+                        : "text-slate-500 hover:bg-[#f5f5f7] hover:text-slate-900"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </nav>
+          )}
+        </>
+      )}
 
       {activeTab === "progress" && (
         <>
@@ -587,15 +647,6 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
           />
         </div>
 
-        {/* col2: 経営ハイライト (D-6) + MTGサマリ。
-            資料室は独立タブ (?tab=documents) へ移したので、ここには launcher を置かない (2026-08-21 まさ確定)。
-            旧 proactive_outbox TODO は 2026-06-27 に廃止済みのため表示しない。 */}
-        <div className="flex flex-col gap-3 min-w-0">
-          <CockpitStrategySignals signals={strategySignals || []} projectId={project.projectId} />
-          <CockpitGrants projectId={project.projectId} />
-          <CockpitMeetingSummary projectId={project.projectId} />
-        </div>
-
         {statusBadges.length > 0 && (
           <div className="flex flex-col gap-3 min-w-0 lg:sticky lg:top-12">
             <div className="flex flex-col gap-1">
@@ -609,13 +660,14 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
         )}
       </div>
 
-      {/* 進捗タブ末尾 (2026-08-14 まさ確定):
-            「得てきたもの」= 獲得台帳 (旧スコア詳細から移設)
-            「行ってきたこと」= AMD側の活動。PJが得たものと、AMDが投じたものを並べて読む。 */}
-      {hasScoreDetailTab && <Bzm22AcquisitionLedger projectId={project.projectId} />}
-      <CockpitAmdContributions projectId={project.projectId} />
-
         </>
+      )}
+
+      {activeTab === "meetings" && (
+        <section role="tabpanel" aria-label="動向・会議" className="grid min-w-0 gap-3 lg:grid-cols-2">
+          <CockpitStrategySignals signals={strategySignals || []} projectId={project.projectId} />
+          <CockpitMeetingSummary projectId={project.projectId} />
+        </section>
       )}
 
       {hasScoreDetailTab && (
@@ -644,21 +696,21 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
         </section>
       )}
 
-      {hasKuteRegulationsTab && (
+      {hasInstitutionRegulationsTab && resolvedInstitutionId && (
         <section
           role="tabpanel"
           aria-label="規程・内規"
           hidden={activeTab !== "regulations"}
           className={activeTab === "regulations" ? "min-w-0" : "hidden"}
         >
-          <CockpitKuteRegulations />
+          <InstitutionRegulationsPanel institutionId={resolvedInstitutionId} />
         </section>
       )}
 
-      {hasKuteSeedsTab && hasVisitedSeeds && (
+      {hasInstitutionSeedsTab && hasVisitedSeeds && resolvedInstitutionId && (
         <section
           role="tabpanel"
-          aria-label="シーズ"
+          aria-label="シーズ一覧"
           hidden={activeTab !== "seeds"}
           className={activeTab === "seeds" ? "min-w-0" : "hidden"}
         >
@@ -729,6 +781,17 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
             />
           ) : null}
           <CockpitProjectOverview project={project} />
+          <section aria-labelledby="cockpit-activity-results-title" className="flex min-w-0 flex-col gap-3">
+            <div className="flex items-center gap-3 px-1 pt-1">
+              <h2 id="cockpit-activity-results-title" className="shrink-0 text-sm font-semibold text-slate-900">
+                活動・実績
+              </h2>
+              <span className="h-px flex-1 bg-slate-200" aria-hidden="true" />
+            </div>
+            <CockpitGrants projectId={project.projectId} />
+            {hasScoreDetailTab && <Bzm22AcquisitionLedger projectId={project.projectId} />}
+            <CockpitAmdContributions projectId={project.projectId} />
+          </section>
         </section>
       )}
 

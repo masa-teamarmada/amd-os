@@ -1,5 +1,5 @@
 /**
- * PJコックピットのタブ一覧。
+ * PJコックピットのタブ一覧と二階層ナビゲーション。
  *
  * 画面本体 (`CockpitView`) のタブ列も、URL の `?tab=` を受け付けるかどうかの判定
  * (`app/(app)/project/[projectId]/cockpit/page.tsx`) も、この1本から作る。
@@ -12,11 +12,11 @@
  */
 export const COCKPIT_TABS = [
   "progress",
-  "themes",
   "weekly",
   "gantt",
   "partners",
   "issues",
+  "meetings",
   "score-detail",
   "technology",
   "business-plan",
@@ -39,3 +39,86 @@ export const DEFAULT_COCKPIT_TAB: CockpitTab = "progress";
 export const NON_DEFAULT_COCKPIT_TABS: readonly string[] = COCKPIT_TABS.filter(
   (tab) => tab !== DEFAULT_COCKPIT_TAB,
 );
+
+export type CockpitGroupKey =
+  | "progress-group"
+  | "business-plan-group"
+  | "project-management-group"
+  | "seeds-group"
+  | "regulations-group";
+
+export type CockpitGroup = {
+  key: CockpitGroupKey;
+  label: string;
+  children: readonly CockpitTab[];
+};
+
+/** 通常PJと研究機関PJで共有する、画面の分類正本。 */
+export const COCKPIT_GROUPS: {
+  normal: readonly CockpitGroup[];
+  institution: readonly CockpitGroup[];
+} = {
+  normal: [
+    {
+      key: "progress-group",
+      label: "進捗管理",
+      children: ["progress", "meetings", "weekly", "gantt", "partners", "issues"],
+    },
+    {
+      key: "business-plan-group",
+      label: "事業計画",
+      children: ["score-detail", "technology", "business-plan", "cost-model", "ip", "capital-policy"],
+    },
+    {
+      key: "project-management-group",
+      label: "PJ管理",
+      children: ["overview", "documents", "company"],
+    },
+  ],
+  institution: [
+    {
+      key: "progress-group",
+      label: "進捗管理",
+      children: ["progress", "meetings", "weekly", "gantt", "partners", "issues"],
+    },
+    { key: "seeds-group", label: "シーズリスト", children: ["seeds"] },
+    { key: "regulations-group", label: "規程・内規", children: ["regulations"] },
+    {
+      key: "project-management-group",
+      label: "PJ管理",
+      children: ["overview", "documents", "company"],
+    },
+  ],
+};
+
+const INSTITUTION_ONLY_TABS = new Set<CockpitTab>(["seeds", "regulations"]);
+const BUSINESS_PLAN_TABS = new Set<CockpitTab>([
+  "score-detail",
+  "technology",
+  "business-plan",
+  "cost-model",
+  "ip",
+  "capital-policy",
+]);
+
+/** URLに残っている旧フラットタブを、現在のPJ分類に合わせて解決する。 */
+export function resolveCockpitTab(
+  tab: CockpitTab,
+  isInstitutionProject: boolean,
+): CockpitTab {
+  if (isInstitutionProject && BUSINESS_PLAN_TABS.has(tab)) return DEFAULT_COCKPIT_TAB;
+  if (!isInstitutionProject && INSTITUTION_ONLY_TABS.has(tab)) return DEFAULT_COCKPIT_TAB;
+  return tab;
+}
+
+export function cockpitGroupsForProject(isInstitutionProject: boolean): readonly CockpitGroup[] {
+  return isInstitutionProject ? COCKPIT_GROUPS.institution : COCKPIT_GROUPS.normal;
+}
+
+export function cockpitGroupForTab(
+  tab: CockpitTab,
+  isInstitutionProject: boolean,
+): CockpitGroup {
+  const groups = cockpitGroupsForProject(isInstitutionProject);
+  return groups.find((group) => group.children.includes(tab)) ?? groups[0];
+}

@@ -185,7 +185,14 @@ export default function InstitutionCockpitPage() {
             </div>
           </section>
 
-          <CockpitView cockpit={cockpit} tasks={cockpit.tasks || []} />
+          {/* この画面はECR専用の外側タブを持つ。関連PJのCockpitViewは進捗面だけを埋め込み、
+              PJコックピット用の二階層ナビを重ねて同じ画面に2組出さない。 */}
+          <CockpitView
+            cockpit={cockpit}
+            tasks={cockpit.tasks || []}
+            institutionId={projectLink.institutionId}
+            hideNavigation
+          />
 
           <InstitutionMeetingTree
             projectLink={projectLink}

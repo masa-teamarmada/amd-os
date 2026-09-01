@@ -41,7 +41,7 @@
 
 水素循環PJはmigration `20260901153000_zmp_hydrogen_management_ledger.sql`と`20260901223000_zmp_objective_branch_history.sql`で正規化する。最上位目的は`都内で水素をつくる・ためる・つかう`、成立条件は`水素供給元の確保 / 水素ステーション建設 / 助成金・整備資金の確保`。`水素供給元の確保→シーズリスト作成`から`東京理科大学・堂脇先生へのアプローチ / pHydrogenへのアプローチ / その他の供給候補を探索`へ3分岐する。堂脇先生は`コンタクト→MTG実施→やりとり継続・返答待ち→先方からレスなし・一旦停止`、pHydrogenは`waiting_internal`かつAMD側ボール。アプローチタスクはnullable `partner_id`で同PJの関係先正本へ接続する。ステーションの計画変更と助成金4対象はタスク、相手別の接点履歴は関係先台帳に置く。以前の水素7件の`project_theme_profiles.history_rows`は空にし、同じ事実を二重編集しない。日付、提出、受付、採否、合意、着工は確認できた状態だけを保存する。
 
-ZMPコックピットにも`?tab=themes`で同じテーマ画面を組み込む。通常の既定タブは進捗管理のまま。他PJの`?tab=themes`は進捗管理へ戻す。
+テーマ画面はPJワークスペースに集約する。社内コックピットにはテーマタブやテーマ用の`?tab=`導線を置かない。
 desktop幅901px以上ではテーマ区画の外側上余白を除き、テーマ状態・経緯のヘッダー操作を32pxにする。共通`.sx-management-workspace`の44px指定より局所規則を優先し、mobileの44px操作は変更しない。水素7行が外枠込み1440×900の初期画面に収まる密度を検証する。
 通常のワークスペース配色は`spec/2-7-ui-design-code-current-spec.md`に従い、操作・選択・現在地・focusはsky、白・slateを構造色とする。emeraldは完了・充足・確認済み成功だけに限定し、水素や環境領域の連想を画面主色へ使わない。
 
@@ -53,7 +53,7 @@ desktop幅901px以上ではテーマ区画の外側上余白を除き、テー�
 - テーマタブ（`#theme-progress`、表示名`テーマ`、`ProjectThemeRoutes.tsx`）は成果目標の閲覧だけでなく、運用タスク・運用マイルストーン（`project_management_milestones`、objective/outcomeが未構築でもtimeline_kind='milestone'の単一予定日として作成可）・論点/仮説/決定/アクション（既存の`IssueEditor`/`IssueWorkbench`をそのまま開く。コピーのフォームは作らない）・予定成果物（`project_theme_deliverables`、既存資料への後付けひもづけ可）・作業間の関連（`project_theme_work_links`、テーマ横断のcanonical global）を実際に作成・編集できるハブ。
 - 既定表示PJは明示許可リスト（`THEME_HUB_DEFAULT_PROJECT_IDS`、現状p19のみ）で判定する。価値計画（financial milestone）が0件でもp19はこのタブが既定になる。明示hashは初期表示より優先し、別PJで保存したlocalStorageはp19の初期表示を上書きしない。
 - 読み取り専用の閲覧者（`management.canManage`=false）は共有エディタ自身（IssueEditor）がfieldset disabled＋Save/削除ボタン非表示で読み取り専用になる。テーマハブ独自のMTG/予定成果物ダイアログも`readOnly` propで同様に振る舞う。
-- **テーマ画面からのMTG新規作成と編集は一時停止中**（`src/lib/theme-hub-rollout.ts`の`THEME_HUB_MEETING_WRITE_ENABLED=false`）。既存`project_meeting_summaries`の匿名読取りポリシー（`pms_read_anon`）を変更する承認がないため、API側も独立して拒否する。既存MTGの閲覧とテーマへの紐付け、紐付け解除は利用できる。コックピットMTGカード（`/project/[projectId]/cockpit?meeting=<id>`）への遷移はportfolio/adminだけに表示し、PJ限定memberはハブ内で同じ記録を読む。フラグの解除には、まさの明示承認、対象ポリシーの修正、権限別の検証がすべて必要。承認だけでは解除しない。
+- **テーマ画面からのMTG新規作成と編集は一時停止中**（`src/lib/theme-hub-rollout.ts`の`THEME_HUB_MEETING_WRITE_ENABLED=false`）。既存`project_meeting_summaries`の匿名読取りポリシー（`pms_read_anon`）を変更する承認がないため、API側も独立して拒否する。既存MTGの閲覧とテーマへの紐付け、紐付け解除は利用できる。PJ限定memberはワークスペース内で同じ記録を読む。フラグの解除には、まさの明示承認、対象ポリシーの修正、権限別の検証がすべて必要。承認だけでは解除しない。
 - テーマの進捗率を平均してPJ進捗に見せない。各成果目標について累積進捗、目標月、更新時刻、sourceを個別表示する。`routine_auto`は人が確定した実績ではなく`予定進行`として破線表示し、PM locked sourceだけを`確定進捗`とする。
 - AMD内部のportfolio/adminにはヘッダーへ`AMD OSホーム`（`/dashboard`）と`PJコックピット`（`/project/p19/cockpit`）を出す。外部workspace accountは同じPJ dashboardを読み取れるが、この2導線は出さない。
 - 回帰防止: `npm run test:zmp-workspace-themes`（契約全般）、`npm run test:project-theme-hub-helpers`（保存ヘルパーのmock動作検証）。実コンポーネントの模擬201/503応答で保存後の再表示と失敗時の下書き保持を検証し、DBの整合性と権限はROLLBACK試験で確認した。認証付き本番E2E保存は未検証。

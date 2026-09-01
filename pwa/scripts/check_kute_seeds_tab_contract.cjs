@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// KUTE (p25): 年度内ロードマップのデータを通常のガントへ統合し、
-// 連携シーズ比較を専用 seeds タブへ移した契約を検査する。
-// - KUTE の新配置 / 他PJ不変 / seeds URL の非KUTEフォールバック / ガント既存維持。
+// 研究機関PJ: 年度内ロードマップのデータを通常のガントへ統合し、
+// 連携シーズ比較を専用 seeds グループへ置いた契約を検査する。
+// - institution_projects による動的判定 / 通常PJのフォールバック / ガント既存維持。
 const fs = require("fs");
 const path = require("path");
 const root = path.resolve(__dirname, "..");
@@ -11,18 +11,17 @@ const tabs = read("src/lib/cockpit-tabs.ts");
 if (!tabs.includes('"seeds",')) throw new Error("COCKPIT_TABS must list seeds (共通URL一覧)");
 
 const page = read("src/app/(app)/project/[projectId]/cockpit/page.tsx");
-if (!page.includes('rawTab === "seeds" && projectId !== "p25"'))
-  throw new Error("cockpit page.tsx must fall back non-KUTE ?tab=seeds to progress");
+if (!page.includes("resolveCockpitTab") || !page.includes("fetchInstitutionIdForProject"))
+  throw new Error("cockpit page.tsx must resolve seeds by actual institution linkage");
 
 const cockpit = read("src/components/cockpit/CockpitView.tsx");
 for (const anchor of [
-  'const hasKuteSeedsTab = project.projectId === "p25";',
-  '...(hasKuteSeedsTab ? [{ key: "seeds" as const, label: "シーズ" }] : []),',
-  'aria-label="シーズ"',
+  "hasInstitutionSeedsTab",
+  'seeds: "シーズ一覧"',
+  'aria-label="シーズ一覧"',
   'hidden={activeTab !== "seeds"}',
-  'activeTab === "progress" && project.projectId !== "p25" && <ProjectInstitutionSeeds',
   "hasVisitedSeeds",
-  "hasKuteSeedsTab && hasVisitedSeeds",
+  "hasInstitutionSeedsTab && hasVisitedSeeds",
 ])
   if (!cockpit.includes(anchor)) throw new Error(`CockpitView missing ${anchor}`);
 
@@ -32,8 +31,8 @@ if (!cockpit.includes("<CockpitProjectControl") || !cockpit.includes("view={work
 
 if (cockpit.includes("CockpitKuteAnnualRoadmap") || fs.existsSync(path.join(root, "src/components/cockpit/CockpitKuteAnnualRoadmap.tsx")))
   throw new Error("standalone roadmap must be retired; its data belongs to the existing gantt");
-if (!/hasKuteSeedsTab && hasVisitedSeeds[\s\S]*?hidden=\{activeTab !== "seeds"\}[\s\S]*?<ProjectInstitutionSeeds/.test(cockpit))
-  throw new Error("KUTE seeds must remain mounted in their own hidden panel after the first visit");
+if (!/hasInstitutionSeedsTab && hasVisitedSeeds[\s\S]*?hidden=\{activeTab !== "seeds"\}[\s\S]*?<ProjectInstitutionSeeds/.test(cockpit))
+  throw new Error("institution seeds must remain mounted in their own hidden panel after the first visit");
 
 const migration = read("../ios/supabase/migrations/20260901184500_kute_fy2026_task_rebuild.sql");
 const sql = migration.replace(/--[^\n]*/g, "");

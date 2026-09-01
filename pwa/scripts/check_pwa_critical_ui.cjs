@@ -608,8 +608,12 @@ expectNotIncludes("src/components/cockpit/CockpitHeader.tsx", [
 // このタブへまとめた。コックピット上段に残すのは CockpitHeader だけ。
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   'CockpitProjectOverview',
-  '{ key: "overview", label: "PJ概要" }',
+  'overview: "PJ概要"',
   'aria-label="PJ概要"',
+  '活動・実績',
+  '<CockpitGrants projectId={project.projectId} />',
+  '<Bzm22AcquisitionLedger projectId={project.projectId} />',
+  '<CockpitAmdContributions projectId={project.projectId} />',
 ]);
 expectPattern("src/components/cockpit/CockpitView.tsx", [
   // PJ概要タブの中に PJ の姿 (or p00 の Management Score) と契約条件が並ぶ
@@ -626,10 +630,10 @@ expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
 // 実装は同じ SxWeeklyControlDashboard を埋め込みモードで共有し、二重実装を作らない。
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   "CockpitProjectControl",
-  '{ key: "weekly", label: "週次差分" }',
-  '{ key: "gantt", label: "ガント" }',
-  '{ key: "partners", label: "関係先" }',
-  '{ key: "issues", label: "論点・仮説" }',
+  'weekly: "週次差分"',
+  'gantt: "ガント"',
+  'partners: "関係先"',
+  'issues: "論点・仮説"',
 ]);
 expectIncludes("src/components/cockpit/CockpitProjectControl.tsx", [
   "SxWeeklyControlDashboard",
@@ -1956,12 +1960,13 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   "seasonFinance",
   "CockpitMsChangeHistory",
   "msChangeHistory",
-  // 案C レイアウト (2026-05-23 まさ確定) — 旧 max-w-[1060px] 2カラムには戻さない
+  // 全体幅は維持し、MS・月次は状態badgeがあるときだけ右列を足す。
+  // 経営ハイライトとMTGは「動向・会議」、活動・実績はPJ概要へ分離済み。
   "max-w-[1600px]",
-  "lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_300px]",
+  "lg:grid-cols-[minmax(0,1fr)_300px]",
   "lg:sticky lg:top-12",
   "renderMsSetupBanner",
-  // 進捗タブ末尾の2枠 (2026-08-14 まさ確定)。スコア詳細へ戻さない
+  'activeTab === "meetings"',
   "Bzm22AcquisitionLedger",
   "CockpitAmdContributions",
   "CockpitAmdScoreDetailTab",
@@ -3112,12 +3117,12 @@ require("./model_lock.cjs");
 // 会社概要タブ (2026-07-16 まさ確定): 全PJ常設・全AMDメンバー閲覧編集。旧 CockpitGovernance を統合廃止。
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   "CockpitCompanyOverview",
-  'key: "company", label: "会社概要"',
+  'company: "会社概要"',
   'aria-label="会社概要"',
 ]);
 // ドライブタブ: コックピットの独立タブ。進捗管理側に帳票の直接入口は置かない。
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
-  'key: "documents", label: "ドライブ"',
+  'documents: "ドライブ"',
   'aria-label="ドライブ"',
   "WorkspaceDocumentRoom",
 ]);
@@ -3132,7 +3137,7 @@ expectIncludes("src/lib/cockpit-tabs.ts", [
 ]);
 // 知財タブ (2026-08-21 まさ依頼): 自社/大学/共同/障害/ウォッチを同じ台帳で見る独立タブ。特許マップ必須。
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
-  'key: "ip", label: "知財"',
+  'ip: "知財"',
   'aria-label="知財"',
   "CockpitIpPortfolio",
 ]);
@@ -3148,7 +3153,7 @@ expectIncludes("src/components/cockpit/PatentMap.tsx", [
 // 技術タブ (2026-08-29 まさ依頼): 技術の事実を成立条件/解説/星取り表/到達実績の4形式で貯める全PJ常設タブ。
 // PJごとに実装を分けない (block_kind の分岐だけで表現する) ことが設計の中心。
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
-  'key: "technology", label: "技術"',
+  'technology: "技術"',
   'aria-label="技術"',
   "CockpitTechnology",
 ]);
@@ -3298,6 +3303,24 @@ expectIncludes("src/lib/cockpit-tabs.ts", [
   '"capital-policy"',
   "export type CockpitTab = (typeof COCKPIT_TABS)[number];",
   "export const NON_DEFAULT_COCKPIT_TABS",
+  'label: "進捗管理"',
+  'label: "事業計画"',
+  'label: "PJ管理"',
+  'label: "シーズリスト"',
+  'label: "規程・内規"',
+  'children: ["score-detail", "technology", "business-plan", "cost-model", "ip", "capital-policy"]',
+]);
+expectNotIncludes("src/lib/cockpit-tabs.ts", ['"themes"']);
+expectIncludes("src/components/cockpit/CockpitView.tsx", [
+  'data-testid="cockpit-group-navigation"',
+  'data-testid="cockpit-child-navigation"',
+  'data-cockpit-project-kind={isInstitutionProject ? "institution" : "standard"}',
+  'childTabItems.length > 1',
+  'grid-cols-2 sm:grid-cols-4',
+]);
+expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
+  'themes: "themes"',
+  'key: "themes"',
 ]);
 expectIncludes("src/app/(app)/project/[projectId]/cockpit/page.tsx", [
   "const NON_DEFAULT_TABS = NON_DEFAULT_COCKPIT_TABS;",
@@ -3310,7 +3333,7 @@ expectNotIncludes("src/app/(app)/project/[projectId]/cockpit/page.tsx", [
 // 縦積み100%グラフ / ラウンド一覧 / 株式イベント追加導線を保護する。
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   'import { CockpitCapitalPolicy } from "./CockpitCapitalPolicy";',
-  '{ key: "capital-policy", label: "資本政策表"',
+  '"capital-policy": "資本政策"',
   "<CockpitCapitalPolicy",
 ]);
 expectIncludes("src/components/cockpit/CockpitCapitalPolicy.tsx", [
