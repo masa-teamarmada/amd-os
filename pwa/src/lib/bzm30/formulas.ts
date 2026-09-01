@@ -47,7 +47,7 @@ const WANTED: { id: string; needle: string; title: string; section: string; seed
     needle: "\\Pi(\\omega) \\;=\\;",
     title: "シナリオの価値 — 実現した月ごとの国内純増を割り引いて足す",
     section: "§5.7",
-    seedInputs: ["天井 P̄_u", "置き換え分 δ_u", "前倒し期間 L_u"],
+    seedInputs: ["天井 P̄_u", "置き換え分 δ_u"],
   },
   {
     id: "theta",

@@ -39,6 +39,7 @@ import {
   type ProcessType,
   type RegClass,
 } from "@/lib/bzm30/seed-inputs";
+import { resolveFormulaSymbols, paramsNotInFormulas } from "@/lib/bzm30/symbol-index";
 import type { Seed, SeedDetail, SeedScreeningBandDetail } from "@/types/seeds";
 
 const ORIGIN_TONE: Record<Bzm30SeedInput["origin"], string> = {
@@ -177,10 +178,10 @@ export function Bzm30ScorePanel({
     >
       <ScoreHeadlineBlock score={bzm30?.score ?? null} />
       <SeedInputBlock inputs={inputs} summary={summary} />
-      <ScoreDefinitionBlock model={model} inputs={inputs} />
-      <GridBlock model={model} />
-      <FormulaListBlock model={model} />
+      <ScoreDefinitionBlock inputs={inputs} />
+      <FormulaListBlock model={model} inputs={inputs} score={bzm30?.score ?? null} />
       <ParamListBlock model={model} />
+      <GridBlock model={model} />
       <ApproximationBlock model={model} />
     </FormulaPanelShell>
   );
@@ -395,23 +396,17 @@ function SeedInputBlock({
 
 // ───────────────────────────────── スコアの定義と、円にする道筋
 
-function ScoreDefinitionBlock({ model, inputs }: { model: Bzm30Model; inputs: Bzm30SeedInput[] }) {
-  const score = model.formulas.find((f) => f.id === "score");
-  const report = model.formulas.find((f) => f.id === "report");
-  const value = model.formulas.find((f) => f.id === "value");
+function ScoreDefinitionBlock({ inputs }: { inputs: Bzm30SeedInput[] }) {
   const ceilingKnown = inputs.find((i) => i.key === "P_bar")?.filled ?? false;
 
   return (
     <section className="min-w-0 rounded border border-border bg-muted/20 p-3">
-      <h4 className="mb-2 text-[13px] font-semibold text-foreground">スコアの定義と、金額になるまでの道筋</h4>
+      <h4 className="mb-2 text-[13px] font-semibold text-foreground">金額になるまでの道筋</h4>
+      <p className="mb-2 text-[11px] leading-relaxed text-muted-foreground">
+        式そのものと、式に入っている値は下の「モデルの式と、そこに入っている値」に全部出してある。ここはその順番だけ。
+      </p>
 
-      <div className="space-y-2">
-        {score ? <FormulaCard f={score} /> : null}
-        {report ? <FormulaCard f={report} /> : null}
-        {value ? <FormulaCard f={value} /> : null}
-      </div>
-
-      <div className="mt-3 rounded border border-border bg-background/60 px-3 py-2.5">
+      <div className="rounded border border-border bg-background/60 px-3 py-2.5">
         <div className="text-[11px] font-semibold text-foreground">この式を、いまのシーズに当てはめる順番</div>
         <ol className="mt-1.5 space-y-1.5 text-[11px] leading-relaxed text-muted-foreground">
           <li>
@@ -446,36 +441,6 @@ function ScoreDefinitionBlock({ model, inputs }: { model: Bzm30Model; inputs: Bz
   );
 }
 
-function FormulaCard({ f }: { f: Bzm30Model["formulas"][number] }) {
-  return (
-    <div className="rounded border border-border bg-background/60 px-3 py-2">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-        <span className="text-[11px] font-semibold text-foreground">{f.title}</span>
-        <Link href={`/model#${f.anchor}`} className="font-mono text-[10px] text-indigo-600 underline hover:opacity-80">
-          正本 {f.section}
-        </Link>
-      </div>
-      <div className="mt-1.5 w-0 min-w-full overflow-x-auto">
-        <Tex tex={f.tex} display />
-      </div>
-      {f.symbols.length > 0 ? (
-        <div className="mt-1.5 space-y-0.5 text-[10px] leading-snug text-muted-foreground">
-          {f.symbols.map((s, i) => (
-            <div key={i} className="flex gap-1">
-              <span className="shrink-0 whitespace-nowrap">
-                <BzmMathText source={s.symbol} />
-              </span>
-              <span className="shrink-0">=</span>
-              <span className="min-w-0 flex-1">
-                <BzmMathText source={s.meaning} />
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
 
 
 // ───────────────────────────────── 型 × 規制 × 証拠水準の格子
@@ -581,75 +546,161 @@ function GridBlock({ model }: { model: Bzm30Model }) {
 
 // ───────────────────────────────── 式の一覧
 
-function FormulaListBlock({ model }: { model: Bzm30Model }) {
+function FormulaListBlock({
+  model,
+  inputs,
+  score,
+}: {
+  model: Bzm30Model;
+  inputs: Bzm30SeedInput[];
+  score: SeedBzm30Dto["score"];
+}) {
+  // スコアそのものを指す記号には、この案件の算出結果を入れる（式の中で決まる量、で終わらせない）。
+  const scoreValue =
+    score && BZM30_SCORES_PUBLISHED
+      ? [
+          {
+            symbol: "V",
+            value:
+              score.score_median_yen !== null
+                ? `${okuYen(score.score_median_yen)}（下限 ${okuYen(score.score_lower_yen)} 〜 上限 ${okuYen(score.score_upper_yen)}）`
+                : `天井1円あたり ${score.v_median.toFixed(3)}（天井が未調査なので金額にできない）`,
+          },
+          { symbol: "v(\\theta)", value: `${score.v_median.toFixed(3)}（天井1円あたりの現在価値）` },
+        ]
+      : undefined;
   return (
-    <Foldable title="モデルの式（正本から）" summary={`${model.formulas.length} 本`}>
-      <div className="w-0 min-w-full overflow-x-auto rounded border border-border">
-        <table className="w-full table-fixed border-collapse text-[11px]">
-          <thead>
-            <tr className="bg-muted/60 text-left text-[10px] text-muted-foreground">
-              <th className="w-[33%] px-2 py-1 font-medium">式</th>
-              <th className="w-[22%] px-2 py-1 font-medium">何を決めている式か</th>
-              <th className="w-[45%] px-2 py-1 font-medium">記号の意味 / 案件ごとの入力</th>
-            </tr>
-          </thead>
-          <tbody>
-            {model.formulas.map((f) => (
-              <tr key={f.id} className="border-t border-border/40 align-top">
-                <td className="px-2 py-1.5">
-                  <div className="w-0 min-w-full overflow-x-auto [&_.katex-display]:my-0 [&_.katex-display]:text-left">
-                    <Tex tex={f.tex} display />
-                  </div>
-                </td>
-                <td className="px-2 py-1.5 leading-snug">
-                  <div className="font-medium text-foreground">{f.title}</div>
-                  <Link href={`/model#${f.anchor}`} className="font-mono text-[10px] text-indigo-600 underline hover:opacity-80">
-                    正本 {f.section}
-                  </Link>
-                </td>
-                <td className="px-2 py-1.5 leading-snug text-[10px] text-muted-foreground">
-                  <div className="space-y-0.5">
-                    {f.symbols.map((s, i) => (
-                      <div key={i} className="flex gap-1">
-                        <span className="shrink-0 whitespace-nowrap">
-                          <BzmMathText source={s.symbol} />
-                        </span>
-                        <span className="shrink-0">=</span>
-                        <span className="min-w-0 flex-1">
-                          <BzmMathText source={s.meaning} />
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  {f.seedInputs ? (
-                    <div className="mt-1 text-emerald-700 dark:text-emerald-300">
-                      案件ごとの入力: {f.seedInputs.join(" / ")}
-                    </div>
-                  ) : null}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <section className="min-w-0 rounded border border-border bg-muted/20 p-3">
+      <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3">
+        <h4 className="text-[13px] font-semibold text-foreground">モデルの式と、そこに入っている値</h4>
+        <span className="font-mono text-[10px] text-muted-foreground">{model.formulas.length} 本</span>
       </div>
-    </Foldable>
+      <p className="mb-2 text-[11px] leading-relaxed text-muted-foreground">
+        式は<Link href="/model" className="text-indigo-600 underline hover:opacity-80">モデルページ</Link>の正本から、
+        記号の意味はその式の記号表から取っている。右の2列が、その記号に<strong className="text-foreground">いま入っている値</strong>と、
+        それが<strong className="text-foreground">この案件について調べた値か、全案件共通の係数か</strong>。
+        式・意味・値・根拠を横に並べてあるので、どこかが実態と合っていなければこの表の上で見つかる。
+      </p>
+      <div className="space-y-2">
+        {model.formulas.map((f) => (
+          <FormulaWithValues key={f.id} f={f} inputs={inputs} params={model.params} scoreValue={scoreValue} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** 1本の式と、その式に出てくる記号すべての意味・値・出どころ。 */
+function FormulaWithValues({
+  f,
+  inputs,
+  params,
+  scoreValue,
+}: {
+  f: Bzm30Model["formulas"][number];
+  inputs: Bzm30SeedInput[];
+  params: Bzm30Model["params"];
+  scoreValue?: { symbol: string; value: string }[];
+}) {
+  const rows = resolveFormulaSymbols(f.symbols, inputs, params, scoreValue);
+  return (
+    <div className="min-w-0 rounded border border-border bg-background/60">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 border-b border-border/60 px-3 py-1.5">
+        <span className="text-[11px] font-semibold text-foreground">{f.title}</span>
+        <Link href={`/model#${f.anchor}`} className="font-mono text-[10px] text-indigo-600 underline hover:opacity-80">
+          正本 {f.section}
+        </Link>
+      </div>
+      <div className="w-0 min-w-full overflow-x-auto px-3 py-2 [&_.katex-display]:my-0 [&_.katex-display]:text-left">
+        <Tex tex={f.tex} display />
+      </div>
+      {rows.length === 0 ? null : (
+        <div className="w-0 min-w-full overflow-x-auto border-t border-border/60">
+          <table className="w-full border-collapse text-[11px]">
+            <thead>
+              <tr className="bg-muted/50 text-left text-[10px] text-muted-foreground">
+                <th className="w-[12%] px-2 py-1 font-medium">記号</th>
+                <th className="w-[40%] px-2 py-1 font-medium">意味</th>
+                <th className="w-[26%] px-2 py-1 font-medium">いま入っている値</th>
+                <th className="w-[22%] px-2 py-1 font-medium">出どころ・根拠</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i} className="border-t border-border/40 align-top">
+                  <td className="whitespace-nowrap px-2 py-1 font-mono text-foreground">
+                    <BzmMathText source={r.symbol} />
+                  </td>
+                  {/* 意味は正本の記号表から。係数の説明（note）は同じことを言うので、ここでは出さない
+                      （出すと1行に同義の文が2つ並ぶ）。note は下の「式には記号で現れない係数」の表にある。 */}
+                  <td className="px-2 py-1 leading-snug text-muted-foreground">
+                    <BzmMathText source={r.meaning} />
+                  </td>
+                  <td className="px-2 py-1 leading-snug">
+                    {r.value ? (
+                      <span className="font-medium text-foreground">{r.value}</span>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground">式の中で決まる量</span>
+                    )}
+                  </td>
+                  <td className="px-2 py-1 leading-snug">
+                    {r.origin ? (
+                      <span
+                        className={`inline-block whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] ${
+                          ORIGIN_TONE[r.origin as Bzm30SeedInput["origin"]] ?? "border-border bg-muted/60 text-muted-foreground"
+                        }`}
+                      >
+                        {r.origin}
+                      </span>
+                    ) : null}
+                    {r.level ? (
+                      <span
+                        className="ml-1 inline-block whitespace-nowrap rounded border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                        title={LEVEL_NOTE[r.level] ?? ""}
+                      >
+                        根拠 {r.level}
+                      </span>
+                    ) : null}
+                    {r.source ? (
+                      <div className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{r.source}</div>
+                    ) : null}
+                    {r.section ? <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">正本 §{r.section}</div> : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }
 
 // ───────────────────────────────── 係数の実値
 
 function ParamListBlock({ model }: { model: Bzm30Model }) {
+  // 式に記号として現れる係数は、上の「式と、そこに入っている値」で式のすぐ下に出している。
+  // ここに出すのは、式の記号にならず過程の中だけで効く係数（ゲートの所要月数・採択率・到来率など）。
+  const rest = paramsNotInFormulas(model.formulas, model.params);
   const groups: { group: string; params: Bzm30Model["params"] }[] = [];
-  for (const p of model.params) {
+  for (const p of rest) {
     const last = groups[groups.length - 1];
     if (last && last.group === p.group) last.params.push(p);
     else groups.push({ group: p.group, params: [p] });
   }
 
   return (
-    <Foldable title="式に入る係数の実値と、その根拠" summary={`${model.params.length} 件`}>
+    <section className="min-w-0 rounded border border-border bg-muted/20 p-3">
+      <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3">
+        <h4 className="text-[13px] font-semibold text-foreground">式には記号で現れない係数と、その根拠</h4>
+        <span className="font-mono text-[10px] text-muted-foreground">
+          {rest.length} 件 / 全 {model.params.length} 件
+        </span>
+      </div>
       <p className="mb-2 text-[11px] leading-relaxed text-muted-foreground">
-        値はすべて参照実装（<code className="break-all rounded bg-muted px-1 font-mono text-[10px]">{model.reference_impl}</code>）から取っている。
+        月ごとの計算の中で効く係数。ゲートを越えるのにかかる月数、公募に採択される確率、引き合いが来る率、
+        毎月の支出など。<strong className="text-foreground">式に記号で出てくる分は、上の式の表に値ごと出してある。</strong>
+        値はすべて参照実装（<code className="break-all rounded bg-muted px-1 font-mono text-[10px]">{model.reference_impl}</code>）から取っていて、
         画面が書き起こした数字は無い。根拠レベルは
         <strong className="text-foreground"> A</strong> = 公開統計・実測から直接引ける、
         <strong className="text-foreground"> B</strong> = 制度・文献から水準が導出されている、
@@ -696,7 +747,7 @@ function ParamListBlock({ model }: { model: Bzm30Model }) {
           </div>
         ))}
       </div>
-    </Foldable>
+    </section>
   );
 }
 
