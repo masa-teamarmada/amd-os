@@ -29,3 +29,13 @@
 - migration `pwa/scripts/migrations/358_seed_cx_management_tracks.sql`で事業開発・技術開発・資金調達・体制構築を追加登録した。既存の業務記録を更新しない追加のみで、本番readbackでCXの4分類と追加APIの保存条件が一致することを確認した。commit `ad5918cd`。
 - 論点・仮説リストは列幅ではなく短い論点の行高が縦に間延びしていた。タイトルが共通44px操作高を引き継いでいたため、タイトルだけは表の行高へ戻し、担当未設定の空の補助行、セル上下余白、見出し、詳細ボタンを詰めた。全文表示と8列構成は維持する。commit `f7495b7a`、本番build `v3.100.14`のbuild-info SHA readback済み。
 - 検証: `npx tsc --noEmit`、`npm run test:sx-weekly-control`、`npm run test:sx-management-save-contract`、`npm run test:critical-ui`、`npm run build`。認証境界を越える自動ブラウザ操作は行わず、ログイン入口の正常表示だけを確認した。
+
+## 2026-09-01 シーズ一覧の会社名に但し書き（KUTE認定第1号）
+
+- まさから「シーズリストの永井先生のところにも認定第1号の情報を入れて」。最初は `seeds.internal_notes` / `amd_rating_note` / `next_action` へ書いたが、シーズ一覧は `SEED_PUBLIC_VIEW_COLUMNS` のホワイトリスト取得で社内メモ系を読まないため、行の見た目は変わらなかった。まさの「まだ何も変わってなさそう」で判明した。書く前に画面がどの列を読むかを確認していれば防げた。
+- 会社名セルに但し書きを出す `seeds.company_note` を追加した。migration `ios/supabase/migrations/20260901234500_seed_company_note.sql`、本番適用済み。`SEED_PUBLIC_VIEW_COLUMNS` に含めて研究機関向け公開ビューにも出す。社内限定の内容は従来どおり `internal_notes`。
+- 表示先は一覧の会社名セル直下の小さい注記、`SeedDetailModal`（表示＋編集欄）、`KuteSeedDetailModal`。KUTE seed 19（永井裕己先生）に「※設立予定（工学院大学認定第1号）」を投入した。
+- 根拠は 2026-08-07 眞鍋課長の学内メール（第1号案件＝永井先生、16号館1室を2025年6月運営委決裁で原則3年無償貸与）と 2026-07-08 平本さんメール（7/13ピッチ審査員の吉本様が認定SU第1号の社長予定、研究者の同級生）。大学側文書は「永井先生」表記のみで、`seeds` 側の永井裕己先生とのフルネーム一致は未確認。
+- 検証: `npx tsc --noEmit`、`npm run build`、`test:seed-list-display`、`test:kute-seeds-tab-contract`、deploy wrapper の全ゲート。commit `e37e115a`、本番 `v3.100.18` の build-info SHA readback と `/seeds` 実画面で行の表示を確認した。
+- 既知の未解決2件。(1) `npm run test:kute-seeds-scope` が本変更の前から失敗している。`FilterSelect` / `confidenceFilter` を探すが現行実装は `statusFilter` + `EVALUATION_FILTER_OPTIONS`。deploy ゲートには含まれないため反映は止まらないが、シーズ画面の防波堤が効いていない。(2) `output/seed_cockpits_20260901` は22件成功と記録が残るのに、本番に残る「事業化検討｜」コックピットは桑折先生の1件のみ。原因未調査で、作り直しは二重作成の恐れがあるため未実施。
+- 正規checkoutに他セッションのdirty（bzm論文、8月design_log）があり `deploy.sh` が停止したため、使い捨てclean cloneから push した。push後に正規checkoutで fetch し、`origin/main` と `e37e115a` で一致を確認済み。
