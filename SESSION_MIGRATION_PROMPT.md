@@ -14,14 +14,14 @@
 
 ## 状態スナップショット
 
-- canonical branchは `main`。引き継ぎ時点の採用commitは `3ac19c23f55f19c1169a0ea3d41d3090a6dd59fc`。
-- PWA本番は `v3.100.17`。`origin/main`、local `main`、本番SHAは一致確認済み。
+- canonical branchは `main`。コックピットの採用commitは `3ac19c23f55f19c1169a0ea3d41d3090a6dd59fc`。handoff文書commit `03432c90` も後続mainに包含済み。開始時は必ずfetchして最新 `origin/main` を正本にする。
+- PWA本番は `v3.100.17`。最終監査時点で `origin/main`、local `main`、本番SHAは `97ad6988` で一致確認済み。
 - PJコックピットは、通常PJが3グループ、研究機関PJが4グループ。親hover/focusで子タブをフロート表示し、`目的構造` は独立タブ。
 - desktop寸法は親36px・常設子タブ32px・フロート行28px。mobileは44px以上。
 - KUTE内のシーズ一覧は説明ブロックなしで評価フィルタと表から始まる。全体 `/seeds` の見出し・集計は維持。
 - 今回の変更はcommit・push・production反映・desktop/mobile本番確認まで完了。残作業なし。
 - 共有checkoutには別作業のBZM原稿・監査資料と `pwa/design_log/sessions_2026-08.md` の既存dirtyがある。今回の作業では触れていない。削除、巻き込み、stash、resetをしない。
-- handoff作成中に `pwa/src/components/cockpit/CockpitKuteSeeds.tsx` へ別作業の新規dirtyを検知。評価フィルタを列見出しへ移す途中差分で、現行productionには未反映。所有元が不明なため、この引き継ぎでは触れていない。次に同ファイルを編集する場合は、先に所有中のセッションを確認する。
+- handoff作成中に `pwa/src/components/cockpit/CockpitKuteSeeds.tsx` と `pwa/scripts/_seed_table_shot.mjs` へ別作業の新規dirtyを検知。評価フィルタを列見出しへ移す途中差分と検証用スクリプトで、現行productionには未反映。所有元が不明なため、この引き継ぎでは触れていない。次に同ファイルを編集する場合は、先に所有中のセッションを確認する。
 
 ## 次タスク
 
