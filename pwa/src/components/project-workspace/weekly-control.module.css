@@ -675,6 +675,7 @@ button.issueRowTitleButton:hover, button.issueRowTitleButton:focus-visible { bor
 @media (max-width: 640px) {
   .sectionNav { display: flex; flex-direction: row; overflow-x: auto; }
   .sectionNav button { min-width: 96px; flex: 0 0 auto; }
+  .planViewSwitch button { min-height: 44px; }
   .planInspectorLayer,
   .editorBackdrop { place-items: end center; padding: 0; }
   .planInspector,
