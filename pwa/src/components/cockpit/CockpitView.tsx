@@ -452,6 +452,12 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
   });
   const childTabItems: { key: CockpitTab; label: string; onHover?: () => void }[] = childTabs.map(tabItem);
   const groupTabItems = (group: typeof visibleGroups[number]) => group.children.map(tabItem);
+  // 分類の数だけ横に並べる。研究機関PJは5つ (進捗管理・シーズリスト・規程内規・ドライブ・PJ管理)。
+  const groupGridClass = visibleGroups.length >= 5
+    ? "grid-cols-3 sm:grid-cols-5"
+    : visibleGroups.length === 4
+      ? "grid-cols-2 sm:grid-cols-4"
+      : "grid-cols-3";
 
   function selectGroup(groupKey: CockpitGroupKey) {
     const group = visibleGroups.find((candidate) => candidate.key === groupKey);
@@ -526,7 +532,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       {!hideNavigation && (
         <>
           <nav
-            className={`grid gap-1 rounded-xl border border-[#bfc0c7] bg-[#f5f5f7] p-1 ${visibleGroups.length === 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}
+            className={`grid gap-1 rounded-xl border border-[#bfc0c7] bg-[#f5f5f7] p-1 ${groupGridClass}`}
             aria-label="コックピット分類"
             data-testid="cockpit-group-navigation"
           >

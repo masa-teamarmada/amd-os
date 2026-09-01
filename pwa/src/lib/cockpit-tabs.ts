@@ -44,6 +44,7 @@ export const NON_DEFAULT_COCKPIT_TABS: readonly string[] = COCKPIT_TABS.filter(
 export type CockpitGroupKey =
   | "progress-group"
   | "business-plan-group"
+  | "documents-group"
   | "project-management-group"
   | "seeds-group"
   | "regulations-group";
@@ -70,10 +71,11 @@ export const COCKPIT_GROUPS: {
       label: "事業計画",
       children: ["score-detail", "technology", "business-plan", "cost-model", "ip", "capital-policy"],
     },
+    { key: "documents-group", label: "ドライブ", children: ["documents"] },
     {
       key: "project-management-group",
       label: "PJ管理",
-      children: ["overview", "documents", "company"],
+      children: ["overview", "company"],
     },
   ],
   institution: [
@@ -84,10 +86,11 @@ export const COCKPIT_GROUPS: {
     },
     { key: "seeds-group", label: "シーズリスト", children: ["seeds"] },
     { key: "regulations-group", label: "規程・内規", children: ["regulations"] },
+    { key: "documents-group", label: "ドライブ", children: ["documents"] },
     {
       key: "project-management-group",
       label: "PJ管理",
-      children: ["overview", "documents", "company"],
+      children: ["overview", "company"],
     },
   ],
 };
