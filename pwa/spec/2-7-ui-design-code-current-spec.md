@@ -26,6 +26,13 @@ AMDメンバーが業務画面を開いたとき、スクロールや個別カ�
 - rose/redは発生・逸脱などの重大状態、amberは明確な悪化・未整備・整備中、skyは要観察・実装済み、emeraldは根拠確認済みの安全、slateは未確認または中立に限定する。
 - 主要操作をすべて同じ強い色にしない。通常の状態更新は中立、追加は標準操作、重大状態だけを危険色にする。
 
+## 色役割とOS統一
+
+- 通常のOS業務画面の主色はsky（`--amd-action: #027FDC`）と白・slateに固定する。PJ名、技術領域、機能名から連想した色を、画面全体、選択、現在地、focus、追加、保存、DnDへ持ち込まない。PJ固有色が必要な場合も、識別用の小さな印に限定し、操作体系を塗り替えない。
+- emeraldは、根拠確認済みの安全・完了・成功だけに使う。`active`、`selected`、`current`、当方ボール、進行中、通常リンク、通常CTAには使わない。未確認と保留はslate、注意と当方アクション待ちはamber、重大状態はrose/redを使い、必ず文言または記号を併記する。
+- 通常画面の実装は`globals.css`の`--amd-action* / --amd-success* / --amd-warning* / --amd-ink / --amd-muted / --amd-line / --amd-surface*`を使う。役割不明の`--green`やfeature-localな主色トークンを新設しない。
+- `npm run test:ui-design-code`は、PJワークスペースで退役済みteal主色が復活していないこと、ガント・目的構造の操作色がskyであること、emeraldが充足・完了表示に限定されていることを検査する。`test:critical-ui`と本番deploy前ゲートから必ず実行する。
+
 ## Responsive契約
 
 - desktop基準は `desktop 1440×900`。列の位置を揃え、全件比較と全体要約を同時に成立させる。
@@ -51,3 +58,5 @@ AMDメンバーが業務画面を開いたとき、スクロールや個別カ�
 - `pwa/src/components/cockpit/CockpitKillerFactorCatalog.tsx`
 - `pwa/src/lib/killer-factor-risk.ts`
 - `pwa/scripts/check_killer_factor_catalog_contract.mjs`
+- `pwa/src/app/globals.css`（通常OS画面の意味別カラートークン）
+- `pwa/scripts/check_ui_design_code.mjs`

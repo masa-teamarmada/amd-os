@@ -383,7 +383,7 @@
 }
 
 .controlIndexLabel {
-  color: #0f766e;
+  color: var(--amd-action-strong);
   font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -407,10 +407,10 @@
 .controlIndexButton {
   min-height: 32px;
   padding: 0.35rem 0.65rem;
-  border: 1px solid #0f766e;
+  border: 1px solid var(--amd-action);
   border-radius: 5px;
   background: #ffffff;
-  color: #0f766e;
+  color: var(--amd-action-strong);
   cursor: pointer;
   font: inherit;
   font-size: 0.75rem;
@@ -418,8 +418,8 @@
   white-space: nowrap;
 }
 
-.controlIndexButton:hover { background: #ecfdf5; }
-.controlIndexButton:focus-visible { outline: 2px solid #0f766e; outline-offset: 2px; }
+.controlIndexButton:hover { background: var(--amd-action-soft); }
+.controlIndexButton:focus-visible { outline: 2px solid var(--amd-action); outline-offset: 2px; }
 
 .partnerControlPreview {
   display: grid;

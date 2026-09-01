@@ -215,7 +215,7 @@ export function SxDevelopmentThemeBoard({ management }: { management: SxManageme
     <section className="overflow-hidden border-y border-[#cbd5e1] bg-[#ffffff]" aria-labelledby="development-theme-heading" data-testid="sx-development-theme-board">
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1 border-b border-[#cbd5e1] px-3 py-2 sm:px-4">
         <div className="min-w-0">
-          <p className="text-[9px] font-semibold tracking-[0.15em] text-[#059669]">開発テーマ管制 / 全体ゲートへの寄与</p>
+          <p className="text-[9px] font-semibold tracking-[0.15em] text-[#027FDC]">開発テーマ管制 / 全体ゲートへの寄与</p>
           <h2 id="development-theme-heading" className="mt-0.5 text-sm font-semibold text-[#1d1d1f]">7テーマの成立条件・証拠・次実験</h2>
         </div>
         <p className="text-[10px] text-[#3c3c43]">{assessed === 0 ? "全7テーマ 未評価 ・ " : `評価済 ${assessed}/7 ・ `}証拠未登録 {missingEvidence} ・ 担当未確認 {missingOwner}</p>
@@ -228,8 +228,8 @@ export function SxDevelopmentThemeBoard({ management }: { management: SxManageme
         </div>
         {rows.slice(0, 7).map((row, index) => (
           <details key={row.id} className={`group border-b border-[#e2e8f0] [&>summary::-webkit-details-marker]:hidden ${index === 0 || index === 6 ? "bg-[#f5f5f7]" : "bg-white"}`}>
-            <summary className="grid min-h-[62px] max-h-[76px] cursor-pointer list-none overflow-hidden grid-cols-[minmax(130px,1.15fr)_72px_minmax(128px,1.2fr)_minmax(118px,1.1fr)_minmax(112px,1.05fr)_minmax(118px,1.1fr)_minmax(128px,1.15fr)_minmax(112px,1fr)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]">
-              <div className="min-w-0 border-l-[3px] border-[#059669] px-2 py-2">
+            <summary className="grid min-h-[62px] max-h-[76px] cursor-pointer list-none overflow-hidden grid-cols-[minmax(130px,1.15fr)_72px_minmax(128px,1.2fr)_minmax(118px,1.1fr)_minmax(112px,1.05fr)_minmax(118px,1.1fr)_minmax(128px,1.15fr)_minmax(112px,1fr)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]">
+              <div className="min-w-0 border-l-[3px] border-[#027FDC] px-2 py-2">
                 <p className="line-clamp-2 text-xs font-semibold leading-[15px] text-[#1d1d1f]">{row.name}</p>
                 <p className="mt-0.5 truncate text-[10px] text-[#3c3c43]">{row.position} ・ 全文を表示</p>
               </div>
@@ -254,8 +254,8 @@ export function SxDevelopmentThemeBoard({ management }: { management: SxManageme
         </div>
         {rows.slice(0, 7).map((row, index) => (
           <details key={row.id} className={`group border-b border-[#e2e8f0] [&>summary::-webkit-details-marker]:hidden ${index === 0 || index === 6 ? "bg-[#f5f5f7]" : "bg-white"}`}>
-            <summary className="grid min-h-[62px] max-h-[74px] cursor-pointer list-none grid-cols-[150px_70px_minmax(0,1fr)_190px] overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]">
-              <div className="min-w-0 border-l-[3px] border-[#059669] px-2 py-2"><p className="line-clamp-2 text-[11px] font-semibold leading-[14px] text-[#1d1d1f]">{row.name}</p><p className="truncate text-[10px] text-[#3c3c43]">{row.position} ・ 全文</p></div>
+            <summary className="grid min-h-[62px] max-h-[74px] cursor-pointer list-none grid-cols-[150px_70px_minmax(0,1fr)_190px] overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]">
+              <div className="min-w-0 border-l-[3px] border-[#027FDC] px-2 py-2"><p className="line-clamp-2 text-[11px] font-semibold leading-[14px] text-[#1d1d1f]">{row.name}</p><p className="truncate text-[10px] text-[#3c3c43]">{row.position} ・ 全文</p></div>
               <div className="px-1 py-2"><SxBadge tone={STATUS_TONE[row.status] || STATUS_TONE.unassessed}><span className="flex items-center gap-1"><StatusMark status={row.status} />{row.statusLabel}</span></SxBadge></div>
               <div className="min-w-0 px-2 py-2 text-[10px] leading-[13px]"><p className="truncate text-[#3c3c43]">完了: {row.completion}</p><p className="truncate text-[#3c3c43]">証拠: {row.evidence} / 未確定: {row.uncertainty}</p><p className={`truncate ${row.nextExperiment.includes("未登録") ? "text-[#86868b]" : "text-[#3c3c43]"}`}>次実験: {row.nextExperiment}</p></div>
               <div className="min-w-0 px-2 py-1.5 text-[10px] leading-[13px]"><p className="truncate text-[#3c3c43]">{row.owner}</p>{row.schedule.slice(0, 2).map((line) => <p key={line} className="truncate text-[#3c3c43]">{line}</p>)}<p className={`truncate font-semibold ${row.contribution === "未接続" ? "text-[#86868b]" : "text-[#027FDC]"}`}>→ {row.contribution}</p></div>
@@ -268,7 +268,7 @@ export function SxDevelopmentThemeBoard({ management }: { management: SxManageme
       <div className="divide-y divide-[#e2e8f0] md:hidden">
         {rows.slice(0, 7).map((row, index) => (
           <details key={row.id} className={`group [&>summary::-webkit-details-marker]:hidden ${index === 0 || index === 6 ? "bg-[#f5f5f7]" : "bg-white"}`}>
-            <summary className="h-[106px] cursor-pointer list-none overflow-hidden px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669] sm:px-4">
+            <summary className="h-[106px] cursor-pointer list-none overflow-hidden px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC] sm:px-4">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0"><h3 className="truncate text-xs font-semibold text-[#1d1d1f]">{row.name}</h3><p className="truncate text-[10px] text-[#3c3c43]">{row.position} → {row.contribution} ・ タップで全文</p></div>
                 <SxBadge tone={STATUS_TONE[row.status] || STATUS_TONE.unassessed}><span className="flex items-center gap-1"><StatusMark status={row.status} />{row.statusLabel}</span></SxBadge>

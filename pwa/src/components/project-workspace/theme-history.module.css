@@ -16,8 +16,8 @@
 .sources { display: flex; flex-wrap: wrap; gap: 2px 8px; margin-top: 2px; }
 .sources summary { font-size: 10px; min-height: 32px; display: list-item; align-content: center; cursor: pointer; }
 .sources details button { display: block; }
-.sources button { max-width: 100%; border: 0; background: transparent; color: #036b50; text-align: left; text-decoration: underline; text-underline-offset: 3px; font-size: 10px; min-height: 32px; cursor: pointer; }
-.sources button:focus-visible { outline: 2px solid #047857; outline-offset: 2px; }
+.sources button { max-width: 100%; border: 0; background: transparent; color: var(--amd-action-strong); text-align: left; text-decoration: underline; text-underline-offset: 3px; font-size: 10px; min-height: 32px; cursor: pointer; }
+.sources button:focus-visible { outline: 2px solid var(--amd-action); outline-offset: 2px; }
 .empty { color: #64748b; font-size: 12px; margin: 4px 0; }
 .dialog { width: min(980px, calc(100vw - 32px)); max-width: none; max-height: calc(100dvh - 32px); display: flex; flex-direction: column; gap: 12px; }
 .form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 12px; min-height: 0; overflow-y: auto; }

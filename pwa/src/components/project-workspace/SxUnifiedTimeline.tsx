@@ -498,7 +498,7 @@ function RowBar({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
-      className={`group relative h-full w-full ${selected ? "bg-[#ecfdf5]/70" : "hover:bg-[#f5f5f7]/70"} ${dragging ? "cursor-grabbing" : ""} ${saving ? "opacity-60" : ""}`}
+      className={`group relative h-full w-full ${selected ? "bg-[#E8F3FC]/70" : "hover:bg-[#f5f5f7]/70"} ${dragging ? "cursor-grabbing" : ""} ${saving ? "opacity-60" : ""}`}
     >
       {/* The row is split into two real interactions: its true blank timeline surface proposes
           a new MS, while the rendered bar/diamond alone owns record selection and drag. Keeping
@@ -508,7 +508,7 @@ function RowBar({
         type="button"
         onClick={onTimelinePoint}
         disabled={!canManage || saving || connectionDrafting}
-        className="absolute inset-0 z-0 w-full cursor-crosshair text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669] disabled:cursor-default"
+        className="absolute inset-0 z-0 w-full cursor-crosshair text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC] disabled:cursor-default"
         aria-label={`${row.title}行の日付を選んでMSを追加`}
       />
       {/* Move-drag hit target: the actual bar's full width, never empty row space. Sits below
@@ -527,7 +527,7 @@ function RowBar({
             onOpen();
           }}
           onLostPointerCapture={onLostPointerCapture}
-          className="absolute z-20 cursor-grab focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
+          className="absolute z-20 cursor-grab focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]"
           style={{
             top: DRAG_HIT_TOP,
             left: barGeometry!.left,
@@ -545,7 +545,7 @@ function RowBar({
             event.stopPropagation();
             onOpen();
           }}
-          className="absolute z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
+          className="absolute z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]"
           style={detailHitStyle}
           aria-label={`${row.title}の詳細を開く`}
         />
@@ -631,7 +631,7 @@ function RowBar({
             onOpen();
           }}
           onLostPointerCapture={onLostPointerCapture}
-          className="absolute z-30 grid -translate-x-1/2 cursor-grab place-items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
+          className="absolute z-30 grid -translate-x-1/2 cursor-grab place-items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]"
           style={{ top: DRAG_HIT_TOP, left: timelinePctCss(plannedEnd), width: DRAG_HIT_HEIGHT, height: DRAG_HIT_HEIGHT }}
           aria-label={`${row.title}。ドラッグで予定日を変更、クリックで詳細を開く`}
         >
@@ -651,7 +651,7 @@ function RowBar({
             event.stopPropagation();
             onOpen();
           }}
-          className="absolute z-20 grid -translate-x-1/2 cursor-pointer place-items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
+          className="absolute z-20 grid -translate-x-1/2 cursor-pointer place-items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]"
           style={detailHitStyle}
           aria-label={`${row.title}の詳細を開く`}
         >
@@ -679,7 +679,7 @@ function RowBar({
               if (event.detail !== 0) return;
               onKeyboardStartDependency(row);
             }}
-            className="sx-gantt-dependency-port absolute z-40 grid h-11 w-6 cursor-crosshair place-items-center rounded-full text-[#027FDC] opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#027FDC] data-[active=true]:text-[#047857] data-[active=true]:opacity-100"
+            className="sx-gantt-dependency-port absolute z-40 grid h-11 w-6 cursor-crosshair place-items-center rounded-full text-[#027FDC] opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#027FDC] data-[active=true]:text-[#0267B2] data-[active=true]:opacity-100"
             style={{
               top: 2,
               left: isMilestoneMarker
@@ -727,7 +727,7 @@ function RowBar({
             event.stopPropagation();
             onOpen();
           }}
-          className="absolute bottom-0 left-0 z-20 grid h-11 w-11 cursor-pointer place-items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
+          className="absolute bottom-0 left-0 z-20 grid h-11 w-11 cursor-pointer place-items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]"
           aria-label={`${row.title}の詳細を開く`}
         >
           <i
@@ -2464,7 +2464,7 @@ export function SxUnifiedTimeline({
         <div
           aria-hidden
           data-gantt-task-drag-ghost={taskNestDrag.taskId}
-          className="pointer-events-none fixed z-[70] max-w-[240px] truncate border border-[#047857] bg-[#ecfdf5] px-2 py-1 text-[11px] font-semibold text-[#065f46] shadow-[0_6px_14px_rgba(5,150,105,0.28)]"
+          className="pointer-events-none fixed z-[70] max-w-[240px] truncate border border-[#027FDC] bg-[#E8F3FC] px-2 py-1 text-[11px] font-semibold text-[#0267B2] shadow-[0_6px_14px_rgba(2,127,220,0.22)]"
           style={{
             left: taskNestDrag.pointerClientX + 12,
             top: taskNestDrag.pointerClientY + 12,
@@ -2529,7 +2529,7 @@ export function SxUnifiedTimeline({
             value={timeScale}
             onChange={(event) => commitTimeScale(Number(event.target.value))}
             onDoubleClick={() => commitTimeScale(1)}
-            className="h-1 w-32 cursor-ew-resize accent-[#059669]"
+            className="h-1 w-32 cursor-ew-resize accent-[#027FDC]"
             aria-label="ガントの時間軸の縮尺"
             aria-valuetext={`${timeScale.toFixed(2)}倍`}
             title="ドラッグで時間軸を伸縮。ダブルクリックで等倍に戻る"
@@ -2677,14 +2677,14 @@ export function SxUnifiedTimeline({
                     data-gantt-nest-target-task={
                       isNestCandidate ? row.id : undefined
                     }
-                    className={`relative p-2.5 transition-colors ${isNestSource ? "opacity-45" : ""} ${isNestTaskTarget || isNestRootTarget ? "bg-[#ecfdf5] outline outline-2 outline-[#047857] outline-offset-[-2px]" : selected ? "bg-[#ecfdf5]" : "bg-white"}`}
+                    className={`relative p-2.5 transition-colors ${isNestSource ? "opacity-45" : ""} ${isNestTaskTarget || isNestRootTarget ? "bg-[#E8F3FC] outline outline-2 outline-[#027FDC] outline-offset-[-2px]" : selected ? "bg-[#E8F3FC]" : "bg-white"}`}
                     style={{ marginLeft: row.depth * 12 }}
                   >
                     {reorderPlace && (
                       <span
                         aria-hidden
                         data-gantt-task-reorder-indicator={reorderPlace}
-                        className={`pointer-events-none absolute inset-x-0 z-30 h-[3px] bg-[#047857] ${reorderPlace === "before" ? "top-0" : "bottom-0"}`}
+                        className={`pointer-events-none absolute inset-x-0 z-30 h-[3px] bg-[#027FDC] ${reorderPlace === "before" ? "top-0" : "bottom-0"}`}
                       />
                     )}
                     <div className="flex items-start gap-2">
@@ -2721,7 +2721,7 @@ export function SxUnifiedTimeline({
                           onPointerUp={(event) => void finishTaskNestDrag(event)}
                           onPointerCancel={(event) => cancelTaskNestDrag(event)}
                           onLostPointerCapture={(event) => cancelTaskNestDrag(event)}
-                          className="grid min-h-11 min-w-11 touch-none place-items-center text-[#86868b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669] disabled:opacity-40"
+                          className="grid min-h-11 min-w-11 touch-none place-items-center text-[#86868b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC] disabled:opacity-40"
                           disabled={Boolean(dependencySource) || taskNestDrag?.saving}
                           aria-label={`${row.title}をドラッグして並び順や親タスクを変更`}
                         >
@@ -2731,7 +2731,7 @@ export function SxUnifiedTimeline({
                       <button
                         type="button"
                         onClick={() => select(row)}
-                        className="min-h-11 min-w-0 flex-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
+                        className="min-h-11 min-w-0 flex-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]"
                         aria-pressed={selected}
                       >
                         <span className="flex flex-wrap items-center gap-1">
@@ -2757,7 +2757,7 @@ export function SxUnifiedTimeline({
                           </span>
                         )}
                         {(isNestTaskTarget || isNestRootTarget) && (
-                          <span className="mt-1 block text-[10px] font-bold text-[#047857]">
+                          <span className="mt-1 block text-[10px] font-bold text-[#027FDC]">
                             {isNestTaskTarget
                               ? "ここを親タスクにする"
                               : "最上位タスクに戻す"}
@@ -2813,13 +2813,13 @@ export function SxUnifiedTimeline({
                 <button
                   type="button"
                   onClick={(event) => proposeMilestone(lane.key, event)}
-                  className="relative min-h-11 w-full overflow-hidden border-t border-[#cbd5e1] bg-[#ffffff] px-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
+                  className="relative min-h-11 w-full overflow-hidden border-t border-[#cbd5e1] bg-[#ffffff] px-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]"
                   aria-label={`${lane.label}のモバイル日付軸でMSを追加`}
                 >
                   <span className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent_0,transparent_calc(12.5%-1px),rgba(134,134,139,0.16)_12.5%)]" />
                   <span className="relative flex items-center justify-between gap-3 text-[9px] text-[#86868b]">
                     <span>{sxFormatDate(timeline.domainStart)}</span>
-                    <b className="text-[10px] text-[#047857]">MS｜日付位置をタップ</b>
+                    <b className="text-[10px] text-[#027FDC]">MS｜日付位置をタップ</b>
                     <span>{sxFormatDate(timeline.domainEnd)}</span>
                   </span>
                 </button>
@@ -2829,7 +2829,7 @@ export function SxUnifiedTimeline({
                   type="button"
                   data-gantt-add-task-lane={lane.key}
                   onClick={() => onCreateTask(lane.key)}
-                  className="flex min-h-12 w-full items-center gap-2 bg-[#f8fafc] px-3 text-left text-[11px] font-bold text-[#047857] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
+                  className="flex min-h-12 w-full items-center gap-2 bg-[#f8fafc] px-3 text-left text-[11px] font-bold text-[#027FDC] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]"
                   aria-label={`${lane.label}に新規タスクを追加`}
                   aria-haspopup="dialog"
                 >
@@ -2909,7 +2909,7 @@ export function SxUnifiedTimeline({
                     data-gantt-nest-root-lane={lane.key}
                     onClick={() => toggleLaneCollapsed(lane.key)}
                     aria-expanded={!collapsed}
-                    className="!min-h-0 flex w-full items-center gap-1.5 border-b border-[#cbd5e1] px-2 text-left hover:bg-[#f5f5f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
+                    className="!min-h-0 flex w-full items-center gap-1.5 border-b border-[#cbd5e1] px-2 text-left hover:bg-[#f5f5f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]"
                     style={{ height: LANE_HEADER_H }}
                     title={collapsed ? "このグループを開く" : "このグループを折りたたむ（MSは残る）"}
                   >
@@ -2952,14 +2952,14 @@ export function SxUnifiedTimeline({
                         data-gantt-nest-target-task={
                           isNestCandidate ? row.id : undefined
                         }
-                        className={`group relative flex scroll-mt-3 border-b border-[#e8e8ed] transition-colors ${isNestSource ? "opacity-45" : ""} ${isNestTaskTarget || isNestRootTarget ? "bg-[#ecfdf5] outline outline-2 outline-[#047857] outline-offset-[-2px]" : selected ? "bg-[#ecfdf5]" : "hover:bg-[#f5f5f7]"}`}
+                        className={`group relative flex scroll-mt-3 border-b border-[#e8e8ed] transition-colors ${isNestSource ? "opacity-45" : ""} ${isNestTaskTarget || isNestRootTarget ? "bg-[#E8F3FC] outline outline-2 outline-[#027FDC] outline-offset-[-2px]" : selected ? "bg-[#E8F3FC]" : "hover:bg-[#f5f5f7]"}`}
                         style={{ height: ROW_H, paddingLeft: row.depth * 15 }}
                       >
                         {reorderPlace && (
                           <span
                             aria-hidden
                             data-gantt-task-reorder-indicator={reorderPlace}
-                            className={`pointer-events-none absolute inset-x-0 z-30 h-[3px] bg-[#047857] ${reorderPlace === "before" ? "top-0" : "bottom-0"}`}
+                            className={`pointer-events-none absolute inset-x-0 z-30 h-[3px] bg-[#027FDC] ${reorderPlace === "before" ? "top-0" : "bottom-0"}`}
                           />
                         )}
                         <button
@@ -2995,7 +2995,7 @@ export function SxUnifiedTimeline({
                             onPointerUp={(event) => void finishTaskNestDrag(event)}
                             onPointerCancel={(event) => cancelTaskNestDrag(event)}
                             onLostPointerCapture={(event) => cancelTaskNestDrag(event)}
-                            className="grid h-full w-6 shrink-0 touch-none place-items-center text-[#86868b] transition-colors hover:text-[#047857] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669] disabled:opacity-40"
+                            className="grid h-full w-6 shrink-0 touch-none place-items-center text-[#86868b] transition-colors hover:text-[#027FDC] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC] disabled:opacity-40"
                             disabled={Boolean(dependencySource) || taskNestDrag?.saving}
                             title="ドラッグして並び替え。行の上下端で順番、中央へ重ねると子タスク、レーン見出しへ戻すと最上位"
                             aria-label={`${row.title}をドラッグして並び順や親タスクを変更`}
@@ -3006,7 +3006,7 @@ export function SxUnifiedTimeline({
                         <button
                           type="button"
                           onClick={() => select(row)}
-                          className={`min-w-0 flex-1 px-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669] ${row.isCritical ? "border-l-[3px] border-[#1d1d1f]" : ""}`}
+                          className={`min-w-0 flex-1 px-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC] ${row.isCritical ? "border-l-[3px] border-[#1d1d1f]" : ""}`}
                           aria-pressed={selected}
                         >
                           <span className="flex items-center gap-1">
@@ -3017,7 +3017,7 @@ export function SxUnifiedTimeline({
                             </b>
                             <i className="shrink-0 border border-[#cbd5e1] px-1 text-[8px] not-italic text-[#3c3c43]">タスク</i>
                             {row.isCurrent && (
-                              <i className="shrink-0 bg-[#059669] px-1 text-[8px] not-italic text-white">
+                              <i className="shrink-0 bg-[#027FDC] px-1 text-[8px] not-italic text-white">
                                 進行中
                               </i>
                             )}
@@ -3029,7 +3029,7 @@ export function SxUnifiedTimeline({
                             <span>{row.ownerLabel}</span>
                           </span>
                           {(isNestTaskTarget || isNestRootTarget) && (
-                            <span className="mt-0.5 block text-[9px] font-bold text-[#047857]">
+                            <span className="mt-0.5 block text-[9px] font-bold text-[#027FDC]">
                               {isNestTaskTarget
                                 ? "ここを親タスクにする"
                                 : "最上位タスクに戻す"}
@@ -3044,7 +3044,7 @@ export function SxUnifiedTimeline({
                       type="button"
                       data-gantt-add-task-lane={lane.key}
                       onClick={() => onCreateTask(lane.key)}
-                      className="flex w-full items-center gap-2 border-b border-[#e2e8f0] bg-[#f8fafc] px-3 text-left text-[10px] font-bold text-[#047857] hover:bg-[#f1f5f9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
+                      className="flex w-full items-center gap-2 border-b border-[#e2e8f0] bg-[#f8fafc] px-3 text-left text-[10px] font-bold text-[#027FDC] hover:bg-[#f1f5f9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]"
                       style={{ height: ROW_H }}
                       aria-label={`${lane.label}に新規タスクを追加`}
                       aria-haspopup="dialog"
@@ -3159,7 +3159,7 @@ export function SxUnifiedTimeline({
                     <path
                       d={`M ${dependencySource.startX} ${dependencySource.startY} L ${dependencyPreview.x} ${dependencyPreview.y}`}
                       fill="none"
-                      stroke="#047857"
+                      stroke="#027FDC"
                       strokeWidth="2"
                       markerEnd={`url(#${dependencyArrowMarkerId})`}
                     />
@@ -3509,7 +3509,7 @@ export function SxUnifiedTimeline({
                     pendingMilestonePoint.date,
                   )
                 }
-                className="min-h-11 border border-[#047857] bg-[#047857] px-3 text-[11px] font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#047857]"
+                className="min-h-11 border border-[#027FDC] bg-[#027FDC] px-3 text-[11px] font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#027FDC]"
               >
                 Y　追加する
               </button>
@@ -3521,7 +3521,7 @@ export function SxUnifiedTimeline({
                     milestonePromptOriginRef.current?.focus(),
                   );
                 }}
-                className="min-h-11 border border-[#94a3b8] bg-[#ffffff] px-3 text-[11px] font-bold text-[#3c3c43] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#059669]"
+                className="min-h-11 border border-[#94a3b8] bg-[#ffffff] px-3 text-[11px] font-bold text-[#3c3c43] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#027FDC]"
               >
                 N　閉じる
               </button>

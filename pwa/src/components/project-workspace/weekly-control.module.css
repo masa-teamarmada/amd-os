@@ -5,8 +5,8 @@
   --muted: #3c3c43;
   --quiet: #86868b;
   --line: #d2d2d7;
-  --green: #047857;
-  --green-soft: #ecfdf5;
+  --action: var(--amd-action);
+  --action-soft: var(--amd-action-soft);
   --amber: #d97706;
   --amber-soft: #fef3c7;
   --red: #dc2626;
@@ -33,16 +33,16 @@
 .headerTop, .titleRow, .issueHeading, .sectionHeading, .editorHeader, .editorFooter, .pageFooter { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .badgeRow, .headerActions, .filterGroup { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .productBadge, .previewBadge, .scopeBadge, .trackBadge, .statusBadge { display: inline-flex; align-items: center; gap: 5px; min-height: 26px; padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px; font-size: 10px; font-weight: 750; line-height: 1.2; }
-.productBadge { color: #fff; background: var(--green); border-color: var(--green); }
+.productBadge { color: #fff; background: var(--action); border-color: var(--action); }
 .productBadge svg { width: 13px; height: 13px; }
 .previewBadge { color: #92400e; background: var(--amber-soft); border-color: #fbbf24; }
 .scopeBadge { color: var(--muted); background: rgba(255, 255, 255, .7); }
 .headerActions a, .headerActions button { min-height: 40px; display: inline-flex; align-items: center; gap: 7px; padding: 0 12px; border: 1px solid var(--line); border-radius: 6px; background: rgba(255, 255, 255, .7); color: #3c3c43; font-size: 12px; font-weight: 700; transition: border-color .16s ease, background .16s ease; }
-.headerActions button { border-color: var(--green); background: var(--green); color: white; }
+.headerActions button { border-color: var(--action); background: var(--action); color: white; }
 .headerActions a:hover { border-color: #94a3b8; background: var(--sheet); }
 .headerActions svg { width: 15px; height: 15px; }
 .titleRow { align-items: flex-end; padding: 14px 0 10px; }
-.eyebrow { margin: 0; color: var(--green); font-size: 10px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+.eyebrow { margin: 0; color: var(--action); font-size: 10px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
 .titleRow h1 { margin: 4px 0 0; font-size: clamp(22px, 2.6vw, 34px); font-weight: 680; line-height: 1.05; letter-spacing: -.04em; }
 .readinessStamp { min-width: 170px; padding-left: 16px; border-left: 3px solid var(--amber); }
 .readinessStamp span, .readinessStamp small { display: block; color: var(--muted); font-size: 10px; }
@@ -66,7 +66,7 @@
 .workloadBand > button:last-child { border-right: 0; }
 .workloadBand > button:hover { background: rgba(5, 150, 105, .07); }
 .workloadBand > button[data-alert] { box-shadow: inset 0 3px 0 var(--amber); }
-.workloadBand > button[data-active] { background: var(--green-soft); box-shadow: inset 0 3px 0 var(--green); }
+.workloadBand > button[data-active] { background: var(--action-soft); box-shadow: inset 0 3px 0 var(--action); }
 .workloadBand span, .workloadBand small { display: block; color: var(--muted); font-size: 10px; line-height: 1.2; }
 .workloadBand strong { display: block; margin: 2px 0; font-size: 18px; line-height: 1.1; }
 
@@ -92,7 +92,7 @@
 .flowRail::before { position: absolute; z-index: 0; top: 30px; left: 12%; right: 12%; height: 1px; background: #cbd5e1; content: ""; }
 .flowStep { position: relative; z-index: 1; min-height: 200px; padding: 12px; border: 1px solid var(--line); background: var(--sheet); }
 .flowNumber { position: absolute; top: 10px; right: 12px; color: #cbd5e1; font-size: 22px; font-weight: 300; letter-spacing: -.05em; }
-.flowIcon { position: relative; display: grid; width: 32px; height: 32px; place-items: center; border: 1px solid #cbd5e1; border-radius: 50%; background: var(--sheet); color: var(--green); }
+.flowIcon { position: relative; display: grid; width: 32px; height: 32px; place-items: center; border: 1px solid #cbd5e1; border-radius: 50%; background: var(--sheet); color: var(--action); }
 .flowIcon svg { width: 15px; height: 15px; }
 .flowKicker { margin: 10px 0 0; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .08em; }
 .flowStep h3 { margin: 3px 0 8px; font-size: 15px; }
@@ -100,8 +100,8 @@
 .placeholderList li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid #e2e8f0; font-size: 11px; }
 .placeholderList b { color: var(--amber); font-size: 10px; }
 .flowItems { display: grid; gap: 6px; }
-.flowItems > div { padding: 7px 9px; border-left: 2px solid var(--green); background: #ecfdf5; }
-.flowItems span { color: var(--green); font-size: 10px; font-weight: 800; }
+.flowItems > div { padding: 7px 9px; border-left: 2px solid var(--action); background: var(--action-soft); }
+.flowItems span { color: var(--action); font-size: 10px; font-weight: 800; }
 .flowItems p { margin: 2px 0 0; font-size: 11px; font-weight: 700; line-height: 1.4; }
 .flowItems small { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
 .emptyState { padding: 22px 12px; border: 1px dashed var(--line); color: var(--quiet); font-size: 12px; text-align: center; }
@@ -111,22 +111,22 @@
 .planViewControls > p { margin: 0; color: var(--muted); font-size: 11px; }
 .planViewSwitch { display: inline-grid; grid-template-columns: repeat(2, minmax(76px, 1fr)); gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 7px; background: #f5f5f7; }
 .planViewSwitch button { min-height: 32px; padding: 4px 10px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); font: inherit; font-size: 10px; font-weight: 750; cursor: pointer; }
-.planViewSwitch button[aria-pressed="true"] { background: #fff; color: #0f766e; box-shadow: 0 1px 2px rgba(15, 23, 42, .14); }
-.planViewSwitch button:hover { color: #0f766e; }
-.planViewSwitch button:focus-visible { outline: 2px solid #0f766e; outline-offset: 1px; }
+.planViewSwitch button[aria-pressed="true"] { background: #fff; color: var(--action); box-shadow: 0 1px 2px rgba(15, 23, 42, .14); }
+.planViewSwitch button:hover { color: var(--action); }
+.planViewSwitch button:focus-visible { outline: 2px solid var(--action); outline-offset: 1px; }
 .planScopeBar { display: flex; min-height: 36px; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 7px; padding: 5px 8px; border: 1px solid #99b7b2; border-radius: 5px; background: #f0fdfa; color: #115e59; font-size: 10px; font-weight: 700; }
-.planScopeBar button, .partnerScopeChip { min-height: 28px; padding: 3px 7px; border: 1px solid #5ea49b; border-radius: 4px; background: #fff; color: #0f766e; font: inherit; font-size: 9px; font-weight: 750; cursor: pointer; }
-.planScopeBar button:focus-visible, .partnerScopeChip:focus-visible { outline: 2px solid #0f766e; outline-offset: 1px; }
+.planScopeBar button, .partnerScopeChip { min-height: 28px; padding: 3px 7px; border: 1px solid var(--amd-action-line); border-radius: 4px; background: #fff; color: var(--action); font: inherit; font-size: 9px; font-weight: 750; cursor: pointer; }
+.planScopeBar button:focus-visible, .partnerScopeChip:focus-visible { outline: 2px solid var(--action); outline-offset: 1px; }
 .partnerScopeChip { white-space: nowrap; }
 .ganttFrame { min-width: 0; overflow: hidden; border: 1px solid #d2d2d7; background: var(--sheet); padding: 12px 14px 10px; }
-.planInspectorLayer { --sheet: #ffffff; --ink: #1d1d1f; --muted: #3c3c43; --quiet: #86868b; --line: #d2d2d7; --green: #047857; --amber: #d97706; --red: #dc2626; --red-soft: #fee2e2; position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 24px; background: rgba(29, 29, 31, .46); backdrop-filter: blur(4px); }
+.planInspectorLayer { --sheet: #ffffff; --ink: #1d1d1f; --muted: #3c3c43; --quiet: #86868b; --line: #d2d2d7; --action: var(--amd-action); --action-soft: var(--amd-action-soft); --amber: #d97706; --red: #dc2626; --red-soft: #fee2e2; position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 24px; background: rgba(29, 29, 31, .46); backdrop-filter: blur(4px); }
 .planInspector { display: flex; width: min(820px, calc(100vw - 48px)); max-height: min(720px, calc(100dvh - 48px)); min-width: 0; flex-direction: column; overflow: hidden; border: 1px solid #d2d2d7; border-radius: 10px; background: var(--sheet); box-shadow: 0 20px 60px rgba(29, 29, 31, .22); }
 .planInspector > header { flex: 0 0 auto; min-height: 54px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 10px 16px 9px; border-bottom: 1px solid rgba(226, 232, 240, .72); background: var(--sheet); }
 .planInspector > header > div { flex: 1 1 auto; min-width: 0; }
-.planInspector > header p { margin: 0; color: var(--green); font-size: 10px; font-weight: 800; }
+.planInspector > header p { margin: 0; color: var(--action); font-size: 10px; font-weight: 800; }
 .planInspector > header h3 { margin: 2px 0 0; max-width: 680px; font-size: 18px; line-height: 1.3; overflow-wrap: anywhere; }
 .planInspectorClose { display: grid; width: 36px; height: 36px; flex: 0 0 auto; place-items: center; border: 1px solid #d2d2d7; border-radius: 6px; background: var(--sheet); color: var(--muted); }
-.planInspectorClose:hover, .planInspectorClose:focus-visible { border-color: var(--green); background: #ecfdf5; color: var(--green); outline: 2px solid var(--green); outline-offset: 2px; }
+.planInspectorClose:hover, .planInspectorClose:focus-visible { border-color: var(--action); background: var(--action-soft); color: var(--action); outline: 2px solid var(--action); outline-offset: 2px; }
 .planInspectorClose svg { width: 16px; height: 16px; }
 .inspectorBreadcrumb { display: flex; align-items: center; gap: 5px; overflow: hidden; margin: 0 16px; padding: 6px 0; border-bottom: 1px solid #e2e8f0; color: var(--muted); font-size: 10px; white-space: nowrap; }
 .inspectorBreadcrumb span, .inspectorBreadcrumb strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
@@ -141,8 +141,8 @@
 .inspectorFacts dd { margin: 2px 0 0; font-size: 11px; font-weight: 760; line-height: 1.35; overflow-wrap: anywhere; }
 .inspectorFacts dd[data-missing] { color: var(--amber); }
 .inspectorEditable { min-height: 40px; width: 100%; border-bottom: 1px dashed #cbd5e1; color: inherit; text-align: left; transition: border-color 0.16s ease, background 0.16s ease; }
-.inspectorEditable:hover, .inspectorEditable:focus-visible { border-color: var(--green); background: rgba(236, 253, 245, 0.72); outline: 2px solid var(--green); outline-offset: 1px; }
-.inspectorEditable[data-editing] { border-color: var(--green); background: rgba(236, 253, 245, 0.72); }
+.inspectorEditable:hover, .inspectorEditable:focus-visible { border-color: var(--action); background: var(--action-soft); outline: 2px solid var(--action); outline-offset: 1px; }
+.inspectorEditable[data-editing] { border-color: var(--action); background: var(--action-soft); }
 .inspectorInlineSlot { display: block; width: 100%; }
 .inspectorTitleEditor { max-width: 680px; margin-top: 3px; }
 .inspectorTitleEditor .inlineFieldEditor { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px; }
@@ -166,7 +166,7 @@
 .inspectorDangerRow span { color: #dc2626; }
 .inspectorDangerRow span[data-tone="quiet"] { color: #3c3c43; }
 .inspectorSection:nth-child(even) { border-right: 0; }
-.inspectorSection > span, .inspectorSectionHeading span { color: var(--green); font-size: 10px; font-weight: 800; letter-spacing: 0.06em; }
+.inspectorSection > span, .inspectorSectionHeading span { color: var(--action); font-size: 10px; font-weight: 800; letter-spacing: 0.06em; }
 .inspectorSectionValue { margin-top: 4px; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
 .inspectorRequirements { grid-column: 1 / -1; border-right: 0; }
 .inspectorWideSection { grid-column: 1 / -1; border-right: 0; }
@@ -179,17 +179,17 @@
 .requirementFields span, .requirementDependency span { display: block; color: var(--muted); font-size: 11px; font-weight: 700; }
 .requirementDependency { display: grid; width: 144px; flex: 0 0 auto; gap: 8px; padding-left: 8px; border-left: 1px solid #d2d2d7; }
 .planInspector > footer { display: grid; grid-template-columns: minmax(0, 210px); justify-content: end; gap: 6px; padding: 8px 16px calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid rgba(226, 232, 240, .72); background: var(--sheet); }
-.planInspector > footer button { min-height: 38px; display: flex; align-items: center; justify-content: center; gap: 5px; border: 1px solid var(--green); color: var(--green); font-size: 10px; font-weight: 800; }
-.planInspector > footer button:hover, .planInspector > footer button:focus-visible { background: var(--green); color: white; outline: 2px solid var(--green); outline-offset: 2px; }
+.planInspector > footer button { min-height: 38px; display: flex; align-items: center; justify-content: center; gap: 5px; border: 1px solid var(--action); color: var(--action); font-size: 10px; font-weight: 800; }
+.planInspector > footer button:hover, .planInspector > footer button:focus-visible { background: var(--action); color: white; outline: 2px solid var(--action); outline-offset: 2px; }
 .planInspector > footer svg { width: 13px; height: 13px; }
-.ganttSelection { display: grid; grid-template-columns: minmax(220px, .8fr) minmax(440px, 1.4fr) auto; align-items: center; gap: 18px; padding: 12px 14px; border: 1px solid #d2d2d7; border-top: 0; background: #ecfdf5; }
+.ganttSelection { display: grid; grid-template-columns: minmax(220px, .8fr) minmax(440px, 1.4fr) auto; align-items: center; gap: 18px; padding: 12px 14px; border: 1px solid #d2d2d7; border-top: 0; background: var(--action-soft); }
 .ganttSelection > div span, .ganttSelection > div strong { display: block; }
 .ganttSelection > div span { color: var(--muted); font-size: 10px; }
 .ganttSelection > div strong { margin-top: 3px; font-size: 13px; }
 .ganttSelection dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 0; }
 .ganttSelection dt { color: var(--quiet); font-size: 9px; }
 .ganttSelection dd { margin: 2px 0 0; font-size: 11px; font-weight: 700; }
-.ganttSelection a { display: inline-flex; align-items: center; gap: 5px; min-height: 40px; color: var(--green); font-size: 11px; font-weight: 750; white-space: nowrap; }
+.ganttSelection a { display: inline-flex; align-items: center; gap: 5px; min-height: 40px; color: var(--action); font-size: 11px; font-weight: 750; white-space: nowrap; }
 .ganttSelection a svg { width: 13px; height: 13px; }
 
 .issueHeading { align-items: flex-end; margin-bottom: 16px; }
@@ -197,12 +197,12 @@
 .issueHeading .primaryButton:hover { border-color: #0267B2; background: #0267B2; }
 .issueHeading .primaryButton:focus-visible { outline-color: #027FDC; }
 .issueCreateActions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.primaryButton, .secondaryButton { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; border: 1px solid var(--green); border-radius: 6px; font-size: 12px; font-weight: 750; }
-.primaryButton { background: var(--green); color: white; }
+.primaryButton, .secondaryButton { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; border: 1px solid var(--action); border-radius: 6px; font-size: 12px; font-weight: 750; }
+.primaryButton { background: var(--action); color: white; }
 .primaryButton:disabled { cursor: wait; opacity: .55; }
 .secondaryButton { border-color: var(--line); background: transparent; color: var(--muted); }
 .primaryButton svg, .secondaryButton svg { width: 15px; height: 15px; }
-.primaryButton:focus-visible, .secondaryButton:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.primaryButton:focus-visible, .secondaryButton:focus-visible { outline: 2px solid var(--action); outline-offset: 2px; }
 .controls { display: grid; grid-template-columns: minmax(220px, 1fr) auto 180px; align-items: center; gap: 12px; margin-bottom: 14px; padding: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, .78); }
 .searchBox { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 11px; border: 1px solid var(--line); background: white; }
 .searchBox svg { width: 15px; height: 15px; color: var(--quiet); }
@@ -244,7 +244,7 @@
    keeps its own smaller 14px glyph. */
 .iconButton svg { width: 16px; height: 16px; }
 .miniIconButton svg { width: 14px; height: 14px; }
-.iconButton:hover, .iconButton:focus-visible { border-color: var(--green); background: #ecfdf5; color: var(--green); outline: 2px solid var(--green); outline-offset: 2px; }
+.iconButton:hover, .iconButton:focus-visible { border-color: var(--action); background: var(--action-soft); color: var(--action); outline: 2px solid var(--action); outline-offset: 2px; }
 .issueType { margin: 12px 11px 0; color: var(--quiet); font-size: 9px; font-weight: 800; letter-spacing: .1em; }
 .issueCard > h3 { margin: 4px 11px 0; font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; }
 .cardMeta { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 10px; margin: 12px 11px 0; padding-top: 10px; border-top: 1px solid #e2e8f0; }
@@ -336,7 +336,7 @@ button.issueRowTitleButton:hover, button.issueRowTitleButton:focus-visible { bor
 
 /* 論点ワークベンチ。デスクトップは3ペインを同時表示し、背景→議論→判断/次の一手を
    視線移動だけで往復できる密度にする。portal先でもAMD色と文字色が欠落しないよう変数を持つ。 */
-.issueWorkbenchBackdrop { --sheet: #ffffff; --ink: #1d1d1f; --muted: #3c3c43; --quiet: #64748b; --line: #D2E7F8; --green: #027FDC; --green-soft: #E8F3FC; --red: #dc2626; --red-soft: #fee2e2; position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(15, 23, 42, .5); backdrop-filter: blur(4px); }
+.issueWorkbenchBackdrop { --sheet: #ffffff; --ink: #1d1d1f; --muted: #3c3c43; --quiet: #64748b; --line: #D2E7F8; --action: var(--amd-action); --action-soft: var(--amd-action-soft); --red: #dc2626; --red-soft: #fee2e2; position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(15, 23, 42, .5); backdrop-filter: blur(4px); }
 .issueWorkbench { display: flex; width: min(1360px, calc(100vw - 32px)); max-height: min(880px, calc(100dvh - 32px)); min-width: 0; flex-direction: column; overflow: hidden; border: 1px solid #7CBCEB; border-radius: 10px; background: #fff; color: var(--ink); box-shadow: 0 24px 72px rgba(15, 23, 42, .28); }
 .issueWorkbenchHeader { flex: 0 0 auto; display: flex; min-height: 64px; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 10px 12px 9px; border-bottom: 1px solid #7CBCEB; background: #fff; }
 .issueWorkbenchTitle { min-width: 0; flex: 1; }
@@ -428,21 +428,21 @@ button.issueRowTitleButton:hover, button.issueRowTitleButton:focus-visible { bor
 .inputCards { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); background: var(--sheet); }
 .inputCards article { min-width: 0; display: flex; align-items: flex-start; gap: 9px; padding: 14px; border-right: 1px solid var(--line); }
 .inputCards article:last-child { border-right: 0; }
-.inputCards svg { width: 17px; height: 17px; flex: 0 0 auto; color: var(--green); }
+.inputCards svg { width: 17px; height: 17px; flex: 0 0 auto; color: var(--action); }
 .inputCards span, .inputCards strong, .inputCards small { display: block; }
 .inputCards span { color: var(--muted); font-size: 10px; }
 .inputCards strong { margin: 4px 0; font-size: 17px; }
 .inputCards small { color: var(--quiet); font-size: 9px; line-height: 1.45; }
 .pageFooter { padding-top: 16px; color: var(--muted); font-size: 10px; }
-.pageFooter a { display: inline-flex; align-items: center; gap: 6px; color: var(--green); font-weight: 750; }
+.pageFooter a { display: inline-flex; align-items: center; gap: 6px; color: var(--action); font-weight: 750; }
 .pageFooter svg { width: 13px; height: 13px; }
 
 /* root editorはcreatePortalでdocument.body直下へ描画され、.pageが定義するCSS変数の
    継承チェーンから外れる。PlanInspectorLayerと同じトークン一式をここで再定義し、
-   portal先でも不透明な生成りsheet・濃墨文字・深緑CTAを保証する（2026-08 監査追補）。 */
-.editorBackdrop { --sheet: #ffffff; --ink: #1d1d1f; --muted: #3c3c43; --quiet: #86868b; --line: #d2d2d7; --green: #047857; --amber: #d97706; --red: #dc2626; --red-soft: #fee2e2; position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(29, 29, 31, .46); backdrop-filter: blur(4px); }
+   portal先でも不透明な生成りsheet・濃墨文字・sky CTAを保証する（2026-09-01 UIデザインコード準拠）。 */
+.editorBackdrop { --sheet: #ffffff; --ink: #1d1d1f; --muted: #3c3c43; --quiet: #86868b; --line: #d2d2d7; --action: var(--amd-action); --action-soft: var(--amd-action-soft); --amber: #d97706; --red: #dc2626; --red-soft: #fee2e2; position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(29, 29, 31, .46); backdrop-filter: blur(4px); }
 .editorPanel { display: flex; flex-direction: column; width: min(640px, calc(100vw - 48px)); max-height: min(720px, calc(100dvh - 48px)); min-width: 0; overflow: hidden; border: 1px solid #d2d2d7; border-radius: 10px; background: var(--sheet); color: var(--ink); box-shadow: 0 20px 60px rgba(29, 29, 31, .22); }
-.editorPanel[data-editor-resource="issue"], .editorPanel[data-editor-resource="hypothesis"], .editorPanel[data-editor-resource="evidence"], .editorPanel[data-editor-resource="validation"], .editorPanel[data-editor-resource="decision"], .editorPanel[data-editor-resource="action"] { --green: #027FDC; --green-soft: #E8F3FC; }
+.editorPanel[data-editor-resource="issue"], .editorPanel[data-editor-resource="hypothesis"], .editorPanel[data-editor-resource="evidence"], .editorPanel[data-editor-resource="validation"], .editorPanel[data-editor-resource="decision"], .editorPanel[data-editor-resource="action"] { --action: var(--amd-action); --action-soft: var(--amd-action-soft); }
 .editorPanel[data-editor-resource="issue"] .iconButton:hover, .editorPanel[data-editor-resource="issue"] .iconButton:focus-visible,
 .editorPanel[data-editor-resource="hypothesis"] .iconButton:hover, .editorPanel[data-editor-resource="hypothesis"] .iconButton:focus-visible,
 .editorPanel[data-editor-resource="evidence"] .iconButton:hover, .editorPanel[data-editor-resource="evidence"] .iconButton:focus-visible,
@@ -470,11 +470,11 @@ button.issueRowTitleButton:hover, button.issueRowTitleButton:focus-visible { bor
    .planInspectorInlineEditorがflexで高さを配って自身はscrollせず、この.editorEmbedded自身が
    その高さいっぱいのflex columnになり、.editorEmbeddedBodyだけがoverflow-y:autoを持つ
    （2026-08 再監査是正: 従来は.planInspectorInlineEditor側でscrollしておりfooterごと流れていた）。 */
-.editorEmbedded { --sheet: #ffffff; --ink: #1d1d1f; --muted: #3c3c43; --line: #d2d2d7; --green: #047857; --red: #dc2626; --red-soft: #fee2e2; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; background: transparent; }
+.editorEmbedded { --sheet: #ffffff; --ink: #1d1d1f; --muted: #3c3c43; --line: #d2d2d7; --action: var(--amd-action); --action-soft: var(--amd-action-soft); --red: #dc2626; --red-soft: #fee2e2; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; background: transparent; }
 .editorEmbeddedBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px 14px; }
 .editorEmbedded .formGrid { margin-top: 0; }
 .editorEmbedded .editorFooter { flex: 0 0 auto; margin-top: 0; padding: 8px 14px; border-top: 1px solid var(--line); background: var(--sheet); }
-.inlineFieldEditor { --sheet: #ffffff; --ink: #1d1d1f; --muted: #3c3c43; --line: #d2d2d7; --green: #047857; --red: #dc2626; --red-soft: #fee2e2; min-width: 0; width: 100%; padding: 0; background: transparent; }
+.inlineFieldEditor { --sheet: #ffffff; --ink: #1d1d1f; --muted: #3c3c43; --line: #d2d2d7; --action: var(--amd-action); --action-soft: var(--amd-action-soft); --red: #dc2626; --red-soft: #fee2e2; min-width: 0; width: 100%; padding: 0; background: transparent; }
 .inlineFieldForm { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 8px; }
 .inlineFieldForm .fieldSpan { grid-column: 1 / -1; }
 .inlineFieldForm .field > span:first-child, .inlineFieldForm .fieldSpan > span:first-child { margin-bottom: 3px; font-size: 10px; }
@@ -493,7 +493,7 @@ button.issueRowTitleButton:hover, button.issueRowTitleButton:focus-visible { bor
 .formGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; margin-top: 8px; }
 .fieldGroup { grid-column: 1 / -1; display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 10px; margin-top: 0; padding-top: 8px; border-top: 1px solid #e2e8f0; }
 .fieldGroup:first-child { margin-top: 0; }
-.fieldGroupLabel { margin: 0; color: var(--green); font-size: 10px; font-weight: 800; }
+.fieldGroupLabel { margin: 0; color: var(--action); font-size: 10px; font-weight: 800; }
 .fieldGroup .formGrid { margin-top: 0; }
 .field, .fieldSpan { min-width: 0; }
 .fieldSpan { grid-column: 1 / -1; }
@@ -501,20 +501,20 @@ button.issueRowTitleButton:hover, button.issueRowTitleButton:focus-visible { bor
 .field b, .fieldSpan b { padding: 1px 4px; background: var(--red-soft); color: var(--red); font-size: 9px; }
 .field input, .field select, .field textarea, .fieldSpan input, .fieldSpan select, .fieldSpan textarea { width: 100%; min-height: 36px; border: 1px solid #d2d2d7; border-radius: 5px; background: #ffffff; padding: 6px 8px; color: var(--ink); font-size: 12px; line-height: 1.35; outline: 0; }
 .field textarea, .fieldSpan textarea { min-height: 54px; resize: vertical; }
-.field input:focus, .field select:focus, .field textarea:focus, .fieldSpan input:focus, .fieldSpan select:focus, .fieldSpan textarea:focus { border-color: var(--green); box-shadow: 0 0 0 2px rgba(5, 150, 105, .12); }
-.field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible, .fieldSpan input:focus-visible, .fieldSpan select:focus-visible, .fieldSpan textarea:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
+.field input:focus, .field select:focus, .field textarea:focus, .fieldSpan input:focus, .fieldSpan select:focus, .fieldSpan textarea:focus { border-color: var(--action); box-shadow: 0 0 0 2px rgba(2, 127, 220, .12); }
+.field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible, .fieldSpan input:focus-visible, .fieldSpan select:focus-visible, .fieldSpan textarea:focus-visible { outline: 2px solid var(--action); outline-offset: 1px; }
 .field small, .fieldSpan small { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; line-height: 1.35; }
 .checkboxRow { min-height: 36px; display: flex !important; align-items: center; gap: 7px; margin: 0 !important; padding: 0 8px; border: 1px solid #d2d2d7; border-radius: 4px; background: #f8fafc; font-size: 10px !important; }
 .checkboxRow input { width: 16px; min-height: 16px; height: 16px; }
-.checkboxRow input:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.checkboxRow input:focus-visible { outline: 2px solid var(--action); outline-offset: 2px; }
 /* ガントのグループ複数選択。MSは1件で複数グループにまたがれるので、択一のselectではなく
    3つのチェックを1行に並べる。 */
 .laneChoiceRow { display: flex !important; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 !important; }
 .laneChoiceRow label { display: flex; align-items: center; gap: 5px; min-height: 36px; padding: 0 9px; border: 1px solid #d2d2d7; border-radius: 4px; background: #f8fafc; font-size: 10px; font-weight: 700; color: var(--ink-soft, #3c3c43); cursor: pointer; }
 .laneChoiceRow label:hover { background: #f1f5f9; }
 .laneChoiceRow input { width: 16px; min-height: 16px; height: 16px; }
-.laneChoiceRow input:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
-.laneChoiceRow input:checked + span { color: var(--green); }
+.laneChoiceRow input:focus-visible { outline: 2px solid var(--action); outline-offset: 2px; }
+.laneChoiceRow input:checked + span { color: var(--action); }
 
 /* 担当の新規入力モード。入力欄と「一覧から選ぶ」を1行に並べ、select と同じ高さに収める。 */
 /* インライン編集セルは幅が狭い。1行に収まらない時はボタンを次行へ落とし、名前の入力欄が

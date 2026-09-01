@@ -40,7 +40,7 @@ AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts
 
 契約:
 
-- script は push 前に次を検査し、満たさなければ hard-stop する: M-1current branch = main D-1tracked ファイルに未コミット変更なし D-2`origin/main` がローカル main の ancestor (= 別マシンの push を取り込み済み) D-3origin/main との差分 commit が 1 つ以上ある。
+- script は push 前に次を検査し、満たさなければ hard-stop する: M-1current branch = main D-1tracked ファイルに未コミット変更なし D-2`origin/main` がローカル main の ancestor (= 別マシンの push を取り込み済み) D-3origin/main との差分 commit が 1 つ以上ある。`test:critical-ui`には`test:ui-design-code`を含め、通常OS画面へ退役済みteal主色や役割不明のgreenトークンが戻った場合もpush前に止める。
 - script は push 前に rollback guard (`deploy-version-guard.cjs`) を実行し、local `BUILD_VERSION` が production current より古い deploy を止める。
 - `bash pwa/scripts/deploy.sh --dry-run` は push せず、上記検査と rollback guard だけを確認する。
 - `AMD_OS_VERCEL_DEPLOY_APPROVED=1` は承認済みを示す値ではなく、誤実行防止の明示スイッチ。原則、deploy 前の事前確認で止めず、deploy bundle は事後報告に残す。

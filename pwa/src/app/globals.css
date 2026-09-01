@@ -105,6 +105,23 @@
 }
 
 :root {
+  /* AMD OS normal-workspace color roles.
+     Keep feature identity out of primary controls: sky = action/current/observed,
+     emerald = verified success/completion, amber = attention, slate = neutral/unknown. */
+  --amd-action: #027fdc;
+  --amd-action-strong: #0267b2;
+  --amd-action-soft: #e8f3fc;
+  --amd-action-line: #7cbceb;
+  --amd-ink: #1d1d1f;
+  --amd-muted: #3c3c43;
+  --amd-quiet: #86868b;
+  --amd-line: #d2d2d7;
+  --amd-surface: #ffffff;
+  --amd-surface-muted: #f5f5f7;
+  --amd-success: #047857;
+  --amd-success-soft: #ecfdf5;
+  --amd-warning: #d97706;
+  --amd-warning-soft: #fef3c7;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);

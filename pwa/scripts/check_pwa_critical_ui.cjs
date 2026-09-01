@@ -3840,11 +3840,11 @@ expectIncludes("src/components/project-workspace/weekly-control.module.css", [
 // おり、透明な生成りsheet・崩れたink/border/focusの原因だった。PlanInspectorLayerと同じ
 // トークン一式をここで再定義し、44pxヒットターゲットとfocus-visibleの可視outlineも揃える。
 expectPattern("src/components/project-workspace/weekly-control.module.css", [
-  // v3.66.0: AMD標準カラートーン刷新で.editorBackdropの--sheet: #fffdf7→#ffffff,
-  // --ink: #24231f→#1d1d1f, --green: #235f4b→#047857 に置換
+  // 2026-09-01 UIデザインコード準拠: portal先も通常OS画面のsky操作色を再定義する。
+  // 役割不明の--greenへ戻さず、globals.cssの意味別tokenを参照する。
   /\.editorBackdrop\s*\{[^}]*--sheet:\s*#ffffff;/,
   /\.editorBackdrop\s*\{[^}]*--ink:\s*#1d1d1f;/,
-  /\.editorBackdrop\s*\{[^}]*--green:\s*#047857;/,
+  /\.editorBackdrop\s*\{[^}]*--action:\s*var\(--amd-action\);/,
   // 監査追補 (2026-08-02、色再監査): CSS変数の再定義だけでは、.editorPanel配下のh2/strong/
   // label/本文がcolorを明示していない限りbody側のdark themeを継承してしまい、不透明な生成り
   // #fffdf7背景の上で文字が薄く読めなくなる。.editorPanel自体にcolor: var(--ink)を明示する。
@@ -3852,15 +3852,14 @@ expectPattern("src/components/project-workspace/weekly-control.module.css", [
 ]);
 expectIncludes("src/components/project-workspace/weekly-control.module.css", [
   ".iconButton { width: 44px; height: 44px; border-radius: 8px; }",
-  // v3.66.0: AMD標準カラートーン刷新でhover背景 #e8f2eb→#ecfdf5 に置換
-  ".iconButton:hover, .iconButton:focus-visible { border-color: var(--green); background: #ecfdf5; color: var(--green); outline: 2px solid var(--green); outline-offset: 2px; }",
+  ".iconButton:hover, .iconButton:focus-visible { border-color: var(--action); background: var(--action-soft); color: var(--action); outline: 2px solid var(--action); outline-offset: 2px; }",
   ".primaryButton, .secondaryButton { min-height: 44px;",
-  ".primaryButton:focus-visible, .secondaryButton:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }",
+  ".primaryButton:focus-visible, .secondaryButton:focus-visible { outline: 2px solid var(--action); outline-offset: 2px; }",
   // v3.66.0: AMD標準カラートーン刷新でborder #c9c0b2→#d2d2d7, background #fffefa→#ffffff に置換
   "min-height: 36px; border: 1px solid #d2d2d7; border-radius: 5px; background: #ffffff; padding: 6px 8px; color: var(--ink); font-size: 12px;",
-  ".field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible, .fieldSpan input:focus-visible, .fieldSpan select:focus-visible, .fieldSpan textarea:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }",
+  ".field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible, .fieldSpan input:focus-visible, .fieldSpan select:focus-visible, .fieldSpan textarea:focus-visible { outline: 2px solid var(--action); outline-offset: 1px; }",
   ".checkboxRow { min-height: 36px;",
-  ".checkboxRow input:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }",
+  ".checkboxRow input:focus-visible { outline: 2px solid var(--action); outline-offset: 2px; }",
 ]);
 expectPattern("src/components/project-workspace/weekly-control.module.css", [
   // Compact desktop controls re-inflate to safe touch targets and 16px text on narrow screens.

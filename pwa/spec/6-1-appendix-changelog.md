@@ -1,5 +1,7 @@
 # 附則（設計書変更履歴）
 
+| 2026-09-01 JST | 2-7 / 3-16 / 5-2 / FEATURE_REGISTRY | 通常OS画面の色役割統一 | build v3.100.11。目的構造・ガント・テーマ索引の独自teal主色を廃止し、既存のsky/white/slateへ統一。`globals.css`へ意味別`--amd-*`トークンを追加し、emeraldを完了・充足・確認済み成功だけに限定。`test:ui-design-code`を`test:critical-ui`とdeploy前ゲートへ接続した。pHydrogenの予定・実施履歴・MTGカードの正本境界も明記 | 水素や環境の連想色を操作色へ持ち込まず、OS全体の操作体系と記録場所を一貫させるため | まさ・えいみ |
+
 | 2026-09-01 JST | 3-8 / 3-16 / FEATURE_REGISTRY | ZMP目的構造と外部PJメンバー共有 | `SxObjectiveMap`を追加し、既存bundleだけでガント／目的構造を切替。p19水素をobjective 1・outcome 3・task 9・partner 2・interaction 6へ正規化し、旧history_rows 7件を空にした。外部workspace accountは個別PJ権限を再検証して同じdashboardをread-only表示し、ナビはテーマ・ガント・関係先・ドライブに限定。内部ホーム／コックピット導線、週次介入、コスト、知財は非表示。migration `20260901153000_zmp_hydrogen_management_ledger.sql` | 経緯表の再入力を止め、目的からの逆算と相手別の現在地を同じ正本から読めるようにするため | まさ・えいみ |
 
 | 2026-09-01 JST | 3-16 / DB schema / DESIGN | ZMP目的構造の再帰分岐と編集 | `project_management_tasks.partner_id`を追加し、同PJの関係先へだけ接続。供給元→シーズリスト→堂脇先生／pHydrogen／その他探索をseedし、堂脇先生の4イベントを正規化。`SxObjectiveMap`を親子所有コネクタ、相手別時系列、手動追加、DnD・接続選択によるreparentへ変更。循環参照はUI/API/DBで拒否。migration `20260901223000_zmp_objective_branch_history.sql` | 目的から分岐と各アプローチの流れを同時に読み、その場で構造を更新するため | まさ・えいみ |

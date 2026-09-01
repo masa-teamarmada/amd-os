@@ -1,11 +1,11 @@
 .map {
-  --tree-ink: #17212b;
-  --tree-muted: #5d6c79;
+  --tree-ink: var(--amd-ink);
+  --tree-muted: var(--amd-muted);
   --tree-line: #a8b6c2;
-  --tree-accent: #0f766e;
-  --tree-accent-soft: #ecf8f5;
-  --tree-surface: #ffffff;
-  --tree-surface-muted: #f5f7f9;
+  --tree-accent: var(--amd-action);
+  --tree-accent-soft: var(--amd-action-soft);
+  --tree-surface: var(--amd-surface);
+  --tree-surface-muted: var(--amd-surface-muted);
   padding: 0.75rem;
   border: 1px solid #c8d2db;
   border-radius: 8px;
@@ -193,8 +193,8 @@
 }
 
 .outcomeNode:hover {
-  border-color: #7f968f;
-  background: #fbfefd;
+  border-color: var(--amd-action-line);
+  background: #f8fbfd;
 }
 
 .outcomeNode[aria-pressed="true"] {
@@ -254,10 +254,10 @@
 .nodeActions button {
   min-height: 30px;
   padding: 0.2rem 0.42rem;
-  border: 1px solid #91aaa5;
+  border: 1px solid var(--amd-action-line);
   border-radius: 4px;
   background: #ffffff;
-  color: #0f675f;
+  color: var(--amd-action-strong);
   cursor: pointer;
   font: inherit;
   font-size: 0.61rem;
@@ -315,7 +315,7 @@
 
 .treeNode[data-kind="approach"] {
   width: 282px;
-  border-top: 3px solid #6d8c86;
+  border-top: 3px solid var(--amd-action);
 }
 
 .treeNode[data-state="on_hold"],
@@ -334,9 +334,9 @@
 
 .treeNode[data-drop-target="true"],
 .outcomeRootNode[data-drop-target="true"] {
-  outline: 3px solid #55a79c;
+  outline: 3px solid var(--amd-action);
   outline-offset: 3px;
-  background: #eaf8f5;
+  background: var(--amd-action-soft);
 }
 
 .nodeMain {
@@ -355,7 +355,7 @@ button.nodeMain {
   cursor: pointer;
 }
 button.nodeMain:hover {
-  background: #f2faf8;
+  background: var(--amd-action-soft);
 }
 
 .nodeActions {
@@ -387,7 +387,7 @@ button.nodeMain:hover {
   gap: 0.2rem;
   padding: 0.38rem 0.45rem;
   border-top: 1px solid #d2dde3;
-  background: #edf5f3;
+  background: var(--amd-action-soft);
 }
 
 .connectionEditor span {
@@ -420,8 +420,8 @@ button.nodeMain:hover {
 }
 
 .nodeState[data-state="completed"] {
-  background: #eaf7ef;
-  color: #17633b;
+  background: var(--amd-success-soft);
+  color: var(--amd-success);
 }
 
 .nodeState[data-state="blocked"],
@@ -530,7 +530,7 @@ button.nodeMain:hover {
   align-items: center;
   padding: 0.38rem 0.5rem;
   border-top: 1px solid #dce3e8;
-  background: #edf5f3;
+  background: var(--amd-action-soft);
 }
 
 .currentBall > span {
@@ -540,7 +540,7 @@ button.nodeMain:hover {
 }
 
 .currentBall > strong {
-  color: #185e56;
+  color: var(--amd-action-strong);
   font-size: 0.62rem;
 }
 
@@ -555,10 +555,10 @@ button.nodeMain:hover {
   grid-row: 1 / 3;
   min-height: 30px;
   padding: 0.2rem 0.4rem;
-  border: 1px solid #86a49f;
+  border: 1px solid var(--amd-action-line);
   border-radius: 4px;
   background: #ffffff;
-  color: #0f675f;
+  color: var(--amd-action-strong);
   cursor: pointer;
   font: inherit;
   font-size: 0.59rem;
@@ -567,7 +567,7 @@ button.nodeMain:hover {
 
 .currentBall button:hover {
   border-color: var(--tree-accent);
-  background: #f8fffd;
+  background: var(--amd-action-soft);
 }
 
 .empty {
