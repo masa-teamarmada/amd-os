@@ -1193,6 +1193,19 @@ expectIncludes("src/lib/sx-display-lanes.ts", [
   "組織開発",
 ]);
 
+// 管理分類が未登録のPJで画面だけが互換4分類を表示すると、論点追加時に
+// APIが正規の分類一覧（空）で弾く。BWE(p11)はこの不整合を実際に踏んだため、
+// 画面が使う4分類をDBへ登録するmigrationをこの回帰ゲートで固定する。
+expectIncludes("../ios/supabase/migrations/20260901190000_bwe_management_tracks.sql", [
+  "'p11'",
+  "'business_development'",
+  "'technology_development'",
+  "'funding'",
+  "'organizational_building'",
+  "ON CONFLICT (project_id, track_key) DO NOTHING",
+  "BWE management track bootstrap is incomplete",
+]);
+
 expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "sx-unified-timeline",
   "今日",
