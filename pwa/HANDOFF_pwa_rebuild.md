@@ -23,7 +23,7 @@ PJコックピットの親グループと子タブを整理し、本番へ反映
 
 - canonical commit: `3ac19c23f55f19c1169a0ea3d41d3090a6dd59fc`
 - production: `v3.100.17`
-- コックピット採用commitは `3ac19c23`。handoff作成後に別作業のcommitを含むmainが進み、最終監査時点の `origin/main` とlocal `main` は `97ad6988` で一致（ahead 0 / behind 0）。
+- コックピット採用commitは `3ac19c23`。handoff作成後の別作業も本流へ入り、最終更新前の `origin/main` とlocal `main` は `effcf1e7` で一致（ahead 0 / behind 0）。
 - 本番desktop: 親35.994px、子31.996px、フロート209.794px、7行×27.997px。フロートは747px高の28.1%。
 - 本番mobile相当: 子タブ44px、document横overflowなし。
 - KUTE内では不要な導入文なし、全体 `/seeds` では見出し・集計を維持。
@@ -38,14 +38,14 @@ PJコックピットの親グループと子タブを整理し、本番へ反映
 - 今回作成したbranch / worktree: なし
 - 今回の対象変更: commit・push・production反映済み
 - 別作業の既存dirty: BZM原稿・監査資料と `pwa/design_log/sessions_2026-08.md`。今回のcommitには含めず、内容にも触れていない。
-- handoff作成中に `pwa/src/components/cockpit/CockpitKuteSeeds.tsx` と `pwa/scripts/_seed_table_shot.mjs` へ別作業の新規dirtyを検知。評価フィルタを列見出しへ移す途中差分と検証用スクリプトで、現行productionには未反映。所有元が確定するまでstage・revert・整形しない。
+- handoff作成中に検知したシーズ表の別作業は `effcf1e7` でcommit・push済み。固定列の透け防止と評価フィルタの列見出し化で、途中差分と検証用一時スクリプトは解消済み。最終監査時点では自動production反映待ち。
 - 一時clean cloneは `/Users/masa/.Trash/amd-os-cockpit-density.DqQkIY` へ移動済み（復旧可能）。
 
 ## 未解決
 
 - このコックピット変更に残作業なし。
 - iOS / macOS / Androidへの同じグループナビ移植は未実施。まさが横展開を指示した場合だけ着手する。
-- リポ全体のarchiveは、別作業の既存dirtyと `CockpitKuteSeeds.tsx` の所有・処理が確定するまで不可。
+- リポ全体のarchiveは、別作業のBZM原稿・監査資料と8月開発ログの既存dirtyが解消されるまで不可。
 
 ## 次の最初の行動
 
