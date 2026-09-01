@@ -20,8 +20,8 @@ cwd: `/Users/masa/projects/AMD/amd-os`
 ## 状態スナップショット
 
 - canonical repoは`/Users/masa/projects/AMD/amd-os`、branchは`main`一本。
-- 受入済みHEADは`96d04c63e2d2ced2b8395aa8ca3b7f6f6a463dc3`。`origin/main`と本番も同じSHA。
-- 本番buildは`v3.100.13`。`https://amd-os-pwa.vercel.app/api/build-info`でreadback済み。
+- 受入済みUI commitは`96d04c63e2d2ced2b8395aa8ca3b7f6f6a463dc3`。
+- 現在の本番は`v3.100.14` / `f7495b7a6956c2d38b116ba2199e440328494908`で、受入済みUI commitを祖先に含む。`origin/main`はその後ろにhandoffの`[skip ci]` docs commitだけを持つ。着手時に`git log -5`と`/api/build-info`を再読する。
 - 共有ワークスペースは`/project/p19/workspace`、コックピットは`/project/p19/cockpit?tab=gantt`。
 - 実装正本は`SxWeeklyControlDashboard.tsx`、`weekly-control.module.css`、`sx-objective-map.module.css`。
 - DB migration、schema、RLS、認可、writer、モデル、iOS/macOS/Android、GASは今回変更していない。

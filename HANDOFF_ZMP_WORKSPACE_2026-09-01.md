@@ -17,8 +17,9 @@
 
 - canonical path: `/Users/masa/projects/AMD/amd-os`
 - branch: `main`
-- HEAD / origin/main / production: `96d04c63e2d2ced2b8395aa8ca3b7f6f6a463dc3`
-- production build: `v3.100.13`
+- accepted UI commit: `96d04c63e2d2ced2b8395aa8ca3b7f6f6a463dc3`
+- current production: `v3.100.14` / `f7495b7a6956c2d38b116ba2199e440328494908`。上のUI commitを祖先に含む。
+- `origin/main`はcurrent productionの後ろにこのhandoffの`[skip ci]` docs commitだけを持つ。現在値は`git log -1`で確認する。
 - commits: `d2e305e9`（共有面再設計）、`96d04c63`（mobile切替44px）
 - branch / 追加worktree: none
 
@@ -30,7 +31,7 @@
 
 ## 次の最初の行動
 
-1. `/api/build-info`で`v3.100.13`と上記SHAを確認する。
+1. `/api/build-info`を読み、少なくともaccepted UI commit `96d04c63`を祖先に含む本番であることを確認する。
 2. ZMP workspaceの`ガント > 目的構造`とcockpitの同画面を開き、まさの次の指摘箇所を現物で確認する。
 3. 変更する場合は、認可を触らず、`spec/2-7`の情報密度・意味色・実寸検証を維持する。
 
