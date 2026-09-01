@@ -39,3 +39,13 @@
 - 検証: `npx tsc --noEmit`、`npm run build`、`test:seed-list-display`、`test:kute-seeds-tab-contract`、deploy wrapper の全ゲート。commit `e37e115a`、本番 `v3.100.18` の build-info SHA readback と `/seeds` 実画面で行の表示を確認した。
 - 既知の未解決2件。(1) `npm run test:kute-seeds-scope` が本変更の前から失敗している。`FilterSelect` / `confidenceFilter` を探すが現行実装は `statusFilter` + `EVALUATION_FILTER_OPTIONS`。deploy ゲートには含まれないため反映は止まらないが、シーズ画面の防波堤が効いていない。(2) `output/seed_cockpits_20260901` は22件成功と記録が残るのに、本番に残る「事業化検討｜」コックピットは桑折先生の1件のみ。原因未調査で、作り直しは二重作成の恐れがあるため未実施。
 - 正規checkoutに他セッションのdirty（bzm論文、8月design_log）があり `deploy.sh` が停止したため、使い捨てclean cloneから push した。push後に正規checkoutで fetch し、`origin/main` と `e37e115a` で一致を確認済み。
+
+## 2026-09-01 シーズカードに経営チーム・リファラル
+
+- まさ「CEOが経営経験者だし、そもそも研究者のリファラルって結構加点ポイントだと思うので、そういう情報もモーダルの中に入れておけるようにしてほしい」。
+- `seeds.management_team_note` と `seeds.referral_note` を追加した。migration `ios/supabase/migrations/20260901235500_seed_team_and_referral.sql`、本番適用済み。AMDはBefore Zeroで経営機能を外から供給するため、CEO候補の経営経験と、研究者本人の人脈から経営人材が出ているか（リファラル）は移植可能性の評価に直結する。
+- 機微なので `SEED_PUBLIC_VIEW_COLUMNS` には含めない。内部モーダル `SeedDetailModal` の「AMD 評価」セクションで表示と編集のみ。一覧と研究機関向け公開面には出ない。
+- KUTE seed 19（永井裕己先生）へ投入。社長予定の吉本さんはまさの認識で経営経験者、2026-07-13ピッチでまさと同席した審査員の1人、永井先生の同級生。フルネーム・所属・現職・経歴の裏取りはAMD未実施であることを本文に明記した。
+- あわせて `check_kute_seeds_scope` のフィルタ検査を現行実装（`ColumnFilter` + `statusFilter`）へ更新した。旧 `FilterSelect` / `confidenceFilter` を探し続けて失敗しており、シーズ画面の防波堤が効いていなかった。deploy ゲート対象外のため反映は素通りしていた。実装側は変更していない。
+- 検証: `npx tsc --noEmit`、`npm run build`、`test:kute-seeds-scope`（今回から通過）、`test:seed-list-display`、`test:kute-seeds-tab-contract`、deploy wrapper 全ゲート。commit `7c20db20`、本番 `v3.100.19` の build-info SHA readback と実画面でカード表示を確認した。
+- 正規checkoutは他セッションのdirtyが続いているため、今回も使い捨てclean cloneから push し、push後に正規checkoutで fetch して `7c20db20` 一致を確認した。
