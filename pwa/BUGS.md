@@ -4969,3 +4969,9 @@ kiyo-amd-os 側の設定で解消しているので、そちらは触ってい�
 **解決策**: Plaud原文を会社別に確認し、日本食研とユナイテッドシルクを同一6章・同一比較項目の別PDFへ作り直した。既存月次提出版のCSSをそのまま使い、全6ページを実寸確認。PWA保存物を再取得して生成物とのSHA一致を確認し、月次報告書のリンクを2件のPDFへ置換した。旧統合版は削除せず、主要成果物からのみ外した。
 
 **再発防止**: 会社別ヒアリング報告書は1社1PDF、編集用Markdownを同じフォルダに保持、月次提出版のCSSを固定利用する。事実・仮説・未確認を分離し、全ページの実寸確認と保存物のreadbackを終えるまで月次報告書へリンクしない。比較項目の非開発正本は `/Users/masa/projects/AMD/SX/CUSTOMER_HEARING_REPORT_STANDARD.md`。
+## [PWA/project-workspace] 目的構造の共通色tokenが本番で未解決になり白黒化 (2026-09-01)
+
+- **症状**: ZMPの共有ワークスペースとコックピット内の目的構造で、選択・構造を示すAMD Blueが消え、カード背景が透明、borderが黒に見えた。緑の独自主色を撤去した直後だったため「色をなくした」画面になった。
+- **原因**: feature CSSが`var(--amd-action)`等を参照していたが、本番で分割・cacheされたglobal CSS chunkにtoken宣言が含まれない組み合わせが発生した。未解決custom propertyをfallbackなしで使ったため、該当宣言ごと無効になった。
+- **対応内容**: 共有ワークスペースとcockpit埋込が共用するmount rootへ`--amd-action* / --amd-success* / --amd-warning*`の確定値を置き、目的構造側の参照にもfallbackを追加。選択はsky、完了はemerald、注意はamber、停止はslateへ役割を固定した。
+- **再発防止策**: 新しい共通色をglobal CSSだけに依存させない。分割配信される共有componentはmount rootでもtokenを解決し、`test:ui-design-code`でroot宣言・選択tab・panel shell・完了色を、`test:zmp-workspace-themes`で目的構造の主色と旧teal不在を検査する。本番ではcomputed styleのtoken値・背景色・border色をreadbackする。

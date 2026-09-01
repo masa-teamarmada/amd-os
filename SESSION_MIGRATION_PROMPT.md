@@ -1,70 +1,44 @@
-# 次セッション用プロンプト（2026-08-30 時点）
+# 次セッション用プロンプト — ZMP共有ワークスペース
 
 cwd: `/Users/masa/projects/AMD/amd-os`
 
-## 読む順
+まず次の順で全文を読む。
 
-1. `/Users/masa/projects/AGENTS.common.md` — えいみ共通ルールの正本
-2. `/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md` — AMD横断 memory
-3. `/Users/masa/projects/AMD/amd-os/AGENTS.md` — AMD OS 固有のルール
-4. `HANDOFF.md` — 現在地（E がこのタスク）
-5. `SESSION_MIGRATION_PROMPT_PROJECT_PROFITABILITY_2026-08-30.md` — **このタスクの本体。禁止事項11点と確定した事実**
-6. `pwa/manual/7-1-reward-calc-spec.md` — **報酬計算の正本。全文を Read で通す（必須）**
-7. `pwa/spec/5-14-project-profitability-current-spec.md` — 現行仕様（作り直し対象）
-8. `pwa/spec/5-10-reference-data-caching-current-spec.md` — 参照系キャッシュ規範
-9. `pwa/BUGS.md` の 2026-08-30 節 — 今回の事故3件
+1. `/Users/masa/projects/AGENTS.common.md`
+2. `/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md`
+3. `/Users/masa/projects/AMD/amd-os/AGENTS.md`
+4. `/Users/masa/projects/AMD/amd-os/pwa/AGENTS.md`
+5. `/Users/masa/projects/AMD/amd-os/pwa/manual/1-1-intro.md`
+6. `/Users/masa/projects/AMD/amd-os/pwa/spec/1-3-reconstruction-coverage-audit.md`
+7. `/Users/masa/projects/AMD/amd-os/HANDOFF_ZMP_WORKSPACE_2026-09-01.md`
+8. `/Users/masa/projects/AMD/amd-os/pwa/spec/2-7-ui-design-code-current-spec.md`
+9. `/Users/masa/projects/AMD/amd-os/pwa/spec/3-16-project-weekly-control-current-spec.md`
+10. `/Users/masa/projects/AMD/amd-os/pwa/manual/2-3-pj-cockpit.md`
+11. `/Users/masa/projects/AMD/amd-os/pwa/BUGS.md`の`[PWA/project-workspace]`節
+12. `/Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-09.md`のZMP節
 
 ## 状態スナップショット
 
-- `main` 一本。着手時に `git fetch` して behind を解消してから触る
-- 本番: `https://amd-os-pwa.vercel.app`。`/api/build-info` の `git_sha` で反映を確認する
-- 画面: `/admin/project-profitability`（左メニュー「契約・お金」＞「PJ別利益構造」、admin のみ）
-- **本番の現行画面には誤った表示が残っている**: 「需要 N×」警報、「未配分 ¥X」の金額表示
-- 実装ファイル: `pwa/src/lib/project-profitability.ts` / `project-profitability-client.ts` /
-  `pwa/src/app/api/admin/project-profitability/route.ts` /
-  `pwa/src/components/admin/AdminProjectProfitabilityClient.tsx` /
-  `pwa/src/app/(app)/admin/project-profitability/page.tsx`
-- 検査: `pwa/scripts/check_project_profitability.mts`（`npm run test:project-profitability`、deploy.sh に登録済み）。
-  **途中の設計を固定しているので、作り直しに合わせて書き直す**
-- ナビ登録済み: `pwa/src/lib/surface-catalog.ts` の `admin-project-profitability`
+- canonical repoは`/Users/masa/projects/AMD/amd-os`、branchは`main`一本。
+- 受入済みHEADは`96d04c63e2d2ced2b8395aa8ca3b7f6f6a463dc3`。`origin/main`と本番も同じSHA。
+- 本番buildは`v3.100.13`。`https://amd-os-pwa.vercel.app/api/build-info`でreadback済み。
+- 共有ワークスペースは`/project/p19/workspace`、コックピットは`/project/p19/cockpit?tab=gantt`。
+- 実装正本は`SxWeeklyControlDashboard.tsx`、`weekly-control.module.css`、`sx-objective-map.module.css`。
+- DB migration、schema、RLS、認可、writer、モデル、iOS/macOS/Android、GASは今回変更していない。
+- 本件開始前からBZM P1原稿・プレビュー・監査メモと`pwa/design_log/sessions_2026-08.md`に別作業のdirtyがある。本件へ混ぜず、削除・revert・一括stageしない。
+
+## このセッションで確定したこと
+
+- 共有ワークスペースの対象はAMD内部だけではない。外部を含む当該PJメンバーが同じ共有情報を読む。色の変更とメンバー制限を結びつけない。
+- ワークスペース外枠はコックピットの設計体系を使う。sky/white/slateを基礎に、white header/panel、AMD Blueの選択tab、見出し左railを使う。
+- コックピット側の目的構造は、blue=構造・選択、emerald=完了、amber=当方action待ち・注意、slate=停止・中立。PJや水素の連想から独自green/tealを操作主色にしない。
+- global CSS chunkだけへ色tokenを預けない。共有component rootでも`--amd-*`を解決し、fallbackなしのcustom propertyで透明・黒へ脱落させない。
+- desktop 1440×900とmobile 391×844で横overflow 0を維持する。mobileの主要操作は44px以上。情報密度を落とす巨大見出し・過剰余白・装飾カード縦積みへ戻さない。
 
 ## 次のタスク
 
-**PJ別 利益構造ダッシュボードを白紙から作り直す。** 現行実装を踏襲しない。
+この受入範囲の実装は完了している。次は、まさから新しい画面フィードバックが来た場合だけ、その指摘箇所を本番の現物で確認して続ける。先回りして認可・データ構造・対象メンバーを変更しない。
 
-まさが知りたいのは「どのPJが儲かっていて、どのPJがまさの持ち出しで回っているか」。
-ここでの「儲かっている」は **まさ自身の稼働を織り込んだうえで**の話であり、
-現金が出ていかないだけの状態を利益と呼ばない（まさの労働の対価を会社に付け替えているだけ）。
+継続作業が入ったら、最初に`git fetch origin main`と`git status --short`を実行し、上記の既存BZM dirtyを保全する。対象ファイルだけを明示stageする。PWA変更は`BUILD_VERSION`、該当spec/manual、附則を同じcommitで更新し、`test:ui-design-code`、`test:zmp-workspace-themes`、`test:critical-ui`、production build、desktop/mobile実寸確認を行う。
 
-禁止事項11点の全文は `SESSION_MIGRATION_PROMPT_PROJECT_PROFITABILITY_2026-08-30.md` にある。要点:
-
-- 「持ち出し」「枠超え」という語を使わない（意味が逆、または予算オーバーと誤読される）
-- 年で切らない。シーズン（`value_plan_cycles`）で見る。シーズンは年をまたぐ
-- 未払残（`stockYen`）を収益率に混ぜない
-- **ポイント（MS pt / `grossDueYen`）を収益率の指標にしない。** まさ「マイルストーンをどのように
-  設定しようが、原資を超える支出にならない設計じゃん」。「需要 N×」警報は無意味
-- **OSにデータが無いことをお金の状態として語らない。** まさ「報酬を渡すべき人には渡し終わってるよ。
-  計算ができてないだけ」
-- **`tally_weekly_effort_entries` はまさ専用。** まさ「tallyはおれの稼働だけをカウントするアプリだよ」。
-  他メンバーとの比較や「依存度」は作れない
-
-**先に決めること（コードを書く前にまさへ提示して合意を取る）**
-1. まさの時間の価値をいくらと置くか（前セッションの暫定20,000円/時は**まさ未承認**）
-2. まさ以外の投下時間がOSに無いことを踏まえ、何を収益性の指標にするか
-
-提示は抽象的なA/B/C案ではなく、**実データを入れた表**で見せる。
-
-## このPJで確立済みの運用ルール
-
-- **お金の集計を書く前に `pwa/manual/7-1-reward-calc-spec.md` を全文 Read。** grep や `sed -n` の
-  拾い読みは不可。守らないと PreToolUse hook（`~/.claude/hooks/guard_canon_read.py`）が deny する
-- 参照系データは3層キャッシュを最初から通す。`npm run test:reference-data-cache` に通す
-- 実装後は**本番相当の実データで desktop 実寸を確認**（PWAのスマホ幅は対象外）。
-  認証は service role で magiclink を発行し `sb-<ref>-auth-token` を **base64url** で cookie 注入して Playwright
-- 反映は `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`。
-  ただし他セッションの未コミットがあると止まるので、その場合は個別 commit → `git push origin main`
-- **Vercel は1日100デプロイ/アカウント全体。** `pwa/scripts/check_deploy_quota.mjs` が90超で push を止める。
-  枯渇時は override せず枠が空くのを待つ（枠は1件ずつしか戻らない）
-- `pwa/vercel.json` の `ignoreCommand` を**パス限定に戻さない**（08-29〜08-30 に本番反映を丸1日止めた）
-- 指標や順位を出したら、**実態を知るまさに見せて違和感を聞く**。データが実態を持っているかは
-  データを見ても分からない
+本番反映は`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`だけを使い、Vercel CLIの直接deployは行わない。main push後、`/api/build-info`のSHAがHEADと一致するまで確認する。新しいbranch/worktreeは作らない。
