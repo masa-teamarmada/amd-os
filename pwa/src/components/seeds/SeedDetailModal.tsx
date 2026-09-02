@@ -1246,7 +1246,6 @@ function SeedCompanyFactSection({
   const today = new Date().toISOString().slice(0, 10);
   const emptyDraft: Partial<SeedCompanyFact> = {
     observed_on: today,
-    category: "other",
     source_kind: "meeting",
     confidence: "reported",
     sps_relevance: [],
@@ -1266,11 +1265,11 @@ function SeedCompanyFactSection({
   };
 
   const submit = async () => {
-    if (!draft.fact?.trim() || !draft.observed_on) return;
+    if (!draft.fact?.trim() || !draft.observed_on || !draft.category) return;
     setBusy(true);
     await insertSeedCompanyFact({
       seed_id: seed.id,
-      category: (draft.category ?? "other") as SeedCompanyFactCategory,
+      category: draft.category,
       fact: draft.fact.trim(),
       detail: draft.detail?.trim() || null,
       observed_on: draft.observed_on,
@@ -1333,9 +1332,10 @@ function SeedCompanyFactSection({
             />
             <select
               className="px-2 py-1 rounded border border-border bg-background text-xs"
-              value={draft.category ?? "other"}
-              onChange={(e) => setDraft({ ...draft, category: e.target.value as SeedCompanyFactCategory })}
+              value={draft.category ?? ""}
+              onChange={(e) => setDraft({ ...draft, category: (e.target.value || undefined) as SeedCompanyFactCategory | undefined })}
             >
+              <option value="">— 分類 —</option>
               {Object.entries(SEED_COMPANY_FACT_CATEGORY_LABEL).map(([k, v]) => (
                 <option key={k} value={k}>{v}</option>
               ))}
@@ -1396,7 +1396,7 @@ function SeedCompanyFactSection({
           </div>
           <button
             onClick={submit}
-            disabled={busy || !draft.fact?.trim()}
+            disabled={busy || !draft.fact?.trim() || !draft.category}
             className="text-[11px] px-3 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
           >
             {busy ? "追加中…" : "追加"}
@@ -1415,7 +1415,7 @@ function SeedCompanyFactSection({
                 <th className="px-1 py-1 text-left w-24">分類</th>
                 <th className="px-1 py-1 text-left">事実</th>
                 <th className="px-1 py-1 text-left w-32">効く先</th>
-                <th className="px-1 py-1 text-left w-28">確度・出どころ</th>
+                <th className="px-1 py-1 text-left w-20">確度・出どころ</th>
                 <th className="px-1 py-1 w-8"></th>
               </tr>
             </thead>
@@ -1450,13 +1450,13 @@ function SeedCompanyFactSection({
                       </div>
                     )}
                   </td>
-                  <td className="px-1 py-1 text-[10px]">
-                    <span className={confidenceColor[f.confidence] ?? ""}>
+                  <td className="px-1 py-1 text-[10px] whitespace-nowrap">
+                    <div className={confidenceColor[f.confidence] ?? ""}>
                       {SEED_COMPANY_FACT_CONFIDENCE_LABEL[f.confidence] ?? f.confidence}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {" / "}{SEED_COMPANY_FACT_SOURCE_KIND_LABEL[f.source_kind] ?? f.source_kind}
-                    </span>
+                    </div>
+                    <div className="text-muted-foreground">
+                      {SEED_COMPANY_FACT_SOURCE_KIND_LABEL[f.source_kind] ?? f.source_kind}
+                    </div>
                   </td>
                   <td className="px-1 py-1 text-right">
                     <button

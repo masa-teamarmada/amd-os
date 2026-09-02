@@ -884,15 +884,15 @@ export const SEED_COMPANY_FACT_CATEGORY_LABEL: Record<string, string> = {
 };
 
 export const SEED_COMPANY_FACT_SOURCE_KIND_LABEL: Record<string, string> = {
-  meeting: "会議で聞いた",
-  document: "資料で読んだ",
+  meeting: "会議",
+  document: "資料",
   public: "公開情報",
   hearsay: "伝聞",
 };
 
 export const SEED_COMPANY_FACT_CONFIDENCE_LABEL: Record<string, string> = {
   confirmed: "確認済",
-  reported: "本人談",
+  reported: "聞いた話",
   unconfirmed: "未確認",
 };
 

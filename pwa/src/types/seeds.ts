@@ -94,7 +94,7 @@ export type SeedCompanyFactSourceKind =
 
 export type SeedCompanyFactConfidence =
   | "confirmed"    // 一次資料または当事者で確認済
-  | "reported"     // 当事者から聞いたが裏取り前
+  | "reported"     // 会議や人から聞いた話。裏取り前
   | "unconfirmed"; // 未確認
 
 /** この事実がSPSのどこに効くか。空でもよい。 */

@@ -741,9 +741,14 @@ function SeedRow({
   const realized = lifecycle === "realized";
   const considering = lifecycle === "considering";
   const companyName = projectLink?.venture_name ?? projectLink?.project_name ?? null;
+  // PJが無いシーズについて、会社があるかを OS が知る手がかりは seeds.status しかない。
+  // spun_off (法人化済み) へ「未設立」を出すと事実と逆になるので、そこだけ分ける。
+  // 会社名そのものの正本は seed_projects.venture_name なので、PJが無い間は company_note の但し書きに委ねる。
   const companyLabel = companyName
     ? `${companyName}${projectLink?.commercialization_stage === "pre_incorporation" ? "（未設立）" : ""}`
-    : "未設立";
+    : seed.status === "spun_off"
+      ? "法人化済み"
+      : "未設立";
   const stickyCellBg = realized ? STICKY_CELL_BG.realized : considering ? STICKY_CELL_BG.considering : STICKY_CELL_BG.none;
   const stickyCellBorder = realized ? "border-indigo-200" : considering ? "border-amber-200" : "border-slate-200";
 

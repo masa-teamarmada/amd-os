@@ -53,7 +53,7 @@ comment on column public.seed_company_facts.heard_at is
 comment on column public.seed_company_facts.source_kind is
   'meeting=会議・面談で聞いた / document=資料で読んだ / public=公開情報 / hearsay=伝聞';
 comment on column public.seed_company_facts.confidence is
-  'confirmed=一次資料または当事者で確認済 / reported=当事者から聞いたが裏取り前 / unconfirmed=未確認';
+  'confirmed=一次資料または当事者で確認済 / reported=会議や人から聞いた話。裏取り前 / unconfirmed=未確認';
 comment on column public.seed_company_facts.sps_relevance is
   'SPSのどこに効く事実か。stage=段階仮説 / q=到達見込み / p=産業創出価値の帯 / bzm30=BZM 3.0 の入力。空でもよい。';
 
