@@ -35,7 +35,6 @@ import {
   PROCESS_TYPE_LABEL,
   REG_CLASS_LABEL,
   type Bzm30SeedInput,
-  BZM30_SCORES_PUBLISHED,
   type ProcessType,
   type RegClass,
 } from "@/lib/bzm30/seed-inputs";
@@ -176,7 +175,7 @@ export function Bzm30ScorePanel({
         </>
       }
     >
-      <ScoreHeadlineBlock score={bzm30?.score ?? null} />
+      <ScoreHeadlineBlock score={bzm30?.score ?? null} model={model} />
       <SeedInputBlock inputs={inputs} summary={summary} />
       <ScoreDefinitionBlock inputs={inputs} />
       <FormulaListBlock model={model} inputs={inputs} score={bzm30?.score ?? null} />
@@ -197,29 +196,7 @@ const okuYen = (yen: number | null | undefined) => {
   return `${(yen / 1e4).toLocaleString("ja-JP", { maximumFractionDigits: 0 })} 万円`;
 };
 
-function ScoreHeadlineBlock({ score }: { score: SeedBzm30Dto["score"] }) {
-  if (!BZM30_SCORES_PUBLISHED) {
-    return (
-      <section className="min-w-0 rounded border border-amber-500/40 bg-amber-500/10 p-3">
-        <h4 className="text-[13px] font-semibold text-foreground">このシーズの産業創出価値 — いまは伏せている</h4>
-        <p className="mt-1.5 text-[11px] leading-relaxed text-amber-900 dark:text-amber-200">
-          2026-08-27 に一度算出したが、<strong className="font-semibold">OS にある資金繰り・議事録・契約・知財・創業メンバーを読まずに、
-          XRL と月報1か月分だけで入力を決めていた</strong>。実データと突き合わせたら大きくずれていたので、
-          埋め直すまで金額を出さない。
-        </p>
-        <ul className="mt-2 space-y-0.5 text-[10px] leading-relaxed text-amber-900 dark:text-amber-200">
-          <li>・手元資金を実額で入れていなかった（ある会社は入れた値 1.5億に対して、資金繰り表の実績が 2.24億）</li>
-          <li>・毎月の支出に既定値を使っていた（実績は既定値の2〜3倍だった会社が複数）</li>
-          <li>・資金が尽きるまでの月数を見ていなかった（取締役会で判断期限が議論されている会社がある）</li>
-          <li>・資金の入り方を見ていなかった（民間からの出資が事実上来ない前提で動いている会社を、来る前提で計算していた）</li>
-        </ul>
-        <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
-          下の表は<strong className="text-foreground">いま何が埋まっていて何が空か</strong>を出したもので、これは伏せていない。
-          式と係数もそのまま読める。
-        </p>
-      </section>
-    );
-  }
+function ScoreHeadlineBlock({ score, model }: { score: SeedBzm30Dto["score"]; model: Bzm30Model }) {
   if (!score) {
     return (
       <section className="min-w-0 rounded border border-border bg-muted/20 p-3">
@@ -235,6 +212,9 @@ function ScoreHeadlineBlock({ score }: { score: SeedBzm30Dto["score"] }) {
     );
   }
 
+  // 画面の式・係数は現行の定義から出しているのに、金額だけ古い定義のまま残ることがある
+  // （定義を変えたあと計算し直していない場合）。数字を伏せる代わりに、食い違いを名指しする。
+  const stale = score.approval_ref !== model.approval_ref || score.model_version !== model.model_version;
   const hasYen = score.score_median_yen !== null;
   const ratio = score.v_lower > 0 ? score.v_upper / score.v_lower : null;
   const o = score.outcome ?? {};
@@ -249,6 +229,19 @@ function ScoreHeadlineBlock({ score }: { score: SeedBzm30Dto["score"] }) {
           {score.model_version} / 承認 #{score.approval_ref} / {score.computed_at.slice(0, 10)} 算出
         </span>
       </div>
+
+      {stale ? (
+        <p className="mb-2 rounded border border-rose-500/40 bg-rose-500/10 px-2.5 py-2 text-[11px] leading-relaxed text-rose-800 dark:text-rose-200">
+          <strong className="font-semibold">この金額は、いまのモデル定義で計算したものではない。</strong>{" "}
+          計算に使われたのは <span className="font-mono">#{score.approval_ref}</span> の定義で、現行は{" "}
+          <span className="font-mono">#{model.approval_ref}</span>。定義が変わったあと計算し直していないので、
+          <strong className="font-semibold">下の式や係数の値と、この金額は食い違っている。</strong>
+          <code className="mx-1 break-all rounded bg-rose-500/10 px-1 font-mono text-[10px]">
+            node model/tools/bzm30_score_seeds.cjs &lt;seed_id&gt;
+          </code>
+          で計算し直すと直る。
+        </p>
+      ) : null}
 
       {hasYen ? (
         <div className="mb-2 flex flex-wrap items-end gap-x-4 gap-y-1">
@@ -557,7 +550,7 @@ function FormulaListBlock({
 }) {
   // スコアそのものを指す記号には、この案件の算出結果を入れる（式の中で決まる量、で終わらせない）。
   const scoreValue =
-    score && BZM30_SCORES_PUBLISHED
+    score
       ? [
           {
             symbol: "V",

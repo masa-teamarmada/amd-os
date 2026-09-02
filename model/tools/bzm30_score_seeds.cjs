@@ -34,8 +34,10 @@ for (const line of require('node:fs').readFileSync(path.join(__dirname, '..', '.
   if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^['"]|['"]$/g, '');
 }
 
-const MODEL_VERSION = 'bzm-3.0';
-const APPROVAL_REF = '2026-08-29-3';
+// 版はロックから配る（model/tools/model_version.cjs）。ここで定数を持つと、
+// 正本を変えても手で直さない限り古い承認番号を書き込み続ける。
+const { MODEL_VERSION, currentApprovalRef } = require('./model_version.cjs');
+const APPROVAL_REF = currentApprovalRef();
 
 function db() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

@@ -23,6 +23,8 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+// 版はロックから配る。ここで定数を持つと、正本を変えても古い承認番号を書き出し続ける。
+const { MODEL_VERSION, currentApprovalRef } = require('./model_version.cjs');
 const { CFG, runTheta, gateSequence } = require('./bzm30_forward.cjs');
 
 const REPO = path.resolve(__dirname, '..', '..');
@@ -340,8 +342,8 @@ function main() {
   const prev = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT, 'utf8')) : null;
 
   const payload = {
-    model_version: 'bzm-3.0',
-    approval_ref: '2026-08-29-1',
+    model_version: MODEL_VERSION,
+    approval_ref: currentApprovalRef(),
     canon: 'model/MODEL_VERSION_LEDGER.md（モデルページ §5・§6）',
     reference_impl: 'model/tools/bzm30_forward.cjs',
     note: 'V は天井（用途ごとの国内の年額の付加価値、円）を 1 に正規化した現在価値。円のスコアは天井を掛けて出す。',

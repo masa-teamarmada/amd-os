@@ -44,7 +44,7 @@ import { projectStatusLifecycle } from "@/lib/institution-projects";
 import { prefetchBzm30Model } from "@/lib/bzm30-model-client";
 import { prefetchSeedBzm30, loadSeedBzm30Summaries } from "@/lib/bzm30-seed-client";
 import type { SeedBzm30Summary } from "@/lib/bzm30/seed-score";
-import { STAGE_LABEL, BZM30_SCORES_PUBLISHED } from "@/lib/bzm30/seed-inputs";
+import { STAGE_LABEL } from "@/lib/bzm30/seed-inputs";
 import type { SeedDomainLane, SeedInternalComparisonView, SeedPublicView } from "@/types/seeds";
 
 type SortKey = "spsBand";
@@ -806,16 +806,22 @@ function SeedRow({
           : null}
       />
       <td className="border-b border-slate-100 px-3 py-2 align-top font-mono">
-          {!BZM30_SCORES_PUBLISHED ? (
-            <span className="whitespace-nowrap text-[11px] text-amber-700" title="OS にある資金繰り・議事録・契約・知財を読まずに算出していたため、埋め直すまで金額を出さない">
-              入力を埋め直し中
-            </span>
-          ) : bzm30 && bzm30.score_median_yen !== null ? (
+          {bzm30 && bzm30.score_median_yen !== null ? (
             <span className="whitespace-nowrap">
-              <span className="font-semibold text-slate-950">{formatOkuYen(bzm30.score_median_yen)}</span>
+              <span className={bzm30.current ? "font-semibold text-slate-950" : "font-semibold text-rose-700"}>
+                {formatOkuYen(bzm30.score_median_yen)}
+              </span>
               <span className="ml-1 text-[10px] text-slate-500">
                 ({formatOkuYen(bzm30.score_lower_yen)}〜{formatOkuYen(bzm30.score_upper_yen)})
               </span>
+              {bzm30.current ? null : (
+                <span
+                  className="ml-1 text-[10px] text-rose-700"
+                  title="いまのモデル定義が変わったあと計算し直していない。他の行と並べて順位を読まない"
+                >
+                  古い定義
+                </span>
+              )}
             </span>
           ) : bzm30 ? (
             <span className="whitespace-nowrap text-[11px] text-amber-700">

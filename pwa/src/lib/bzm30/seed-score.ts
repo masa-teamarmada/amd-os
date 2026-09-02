@@ -9,6 +9,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { BZM30_TIER0 } from "./tier0";
 import type { ProcessType, RegClass } from "./seed-inputs";
 
 const TTL_MS = 5 * 60 * 1000;
@@ -176,6 +177,8 @@ export interface SeedBzm30Summary {
   reg_class: RegClass | null;
   evidence_stage: number | null;
   computed_at: string;
+  /** いまのモデル定義で計算されたものか。false なら定義が変わったあと計算し直していない */
+  current: boolean;
 }
 
 let summaryCache: { value: Map<string, SeedBzm30Summary>; storedAt: number } | null = null;
@@ -195,7 +198,7 @@ export async function fetchSeedBzm30Summaries(options?: { force?: boolean }): Pr
   const [scoreRes, inputRes] = await Promise.all([
     supabase
       .from("seed_bzm30_scores")
-      .select("seed_id, score_lower_yen, score_median_yen, score_upper_yen, v_median, ceiling_total_yen, computed_at")
+      .select("seed_id, score_lower_yen, score_median_yen, score_upper_yen, v_median, ceiling_total_yen, computed_at, model_version, approval_ref")
       .order("computed_at", { ascending: false }),
     supabase.from("seed_bzm30_inputs").select("seed_id, process_type, reg_class, evidence_stage"),
   ]);
@@ -221,6 +224,9 @@ export async function fetchSeedBzm30Summaries(options?: { force?: boolean }): Pr
       reg_class: inp?.reg_class ?? null,
       evidence_stage: inp?.evidence_stage ?? null,
       computed_at: row.computed_at as string,
+      // 一覧に古い定義の金額が混ざると順位を誤って読ませる。行ごとに現行かどうかを持たせる。
+      current:
+        row.approval_ref === BZM30_TIER0.approval_ref && row.model_version === BZM30_TIER0.model_version,
     });
   }
 
