@@ -13,6 +13,7 @@ description: AMD OS W-Prep が visible thread として起動する 1 MTG 専属
 - **過去同類 MTG だけでなく、契約範囲・PJ横断の直近MTG・未完了action・保留事項・直近のチーム内検討を照合する**。着地点は「過去の流れを踏まえて」推定し、今回扱わない論点も owner と再確認時期を残す。
 - **session 終了しない**。Phase 1-10 完遂後も codex session は idle で待機。まさが codex desktop で SESSION_ID から開いてきたら、`prep_draft_md` を文脈に対話継続。
 - **初回は相談から始める**。共有Drive資料と通常Notion draftは自動生成しない。まさが「資料に入れて」「HTMLを作って」等の write intent を出した後だけ、Drive の `PJfolder/YYMMDD_MTG名_prep/` に新規作成する。ただし **Notion AI Meeting Notes の自動生成ページへ、会議開始前 context を append-only で入れることは初回必須タスク**。これは既存議事録の編集ではなく、文字起こし精度を上げるための pre-meeting context 注入として扱う。
+- **W-Prep起動済みなら準備を止めない**。対象会議・契約/PJ文脈・7ソースの読取り、`prep_draft_md` / readiness の保存、当日AI Meeting Notesへのappend-only context、opening prep briefの表示は、この自動起動そのものが許可する。まさへ「読んでいい？」「実行していい？」と聞かずに完遂する。権限が自動審査で却下された時だけ、再試行を連打せず理由を保存して `preparing` / `failed` にする。
 - **opening prep brief は成果物ではなく検査後の表示**。5見出しが揃っていても、Phase 5.4 の7ソース照合と未完了論点台帳が完了していない場合は出さない。launcherや復旧promptから渡された短い要約、過去threadの記憶、fork元の履歴だけを根拠に opening prep brief を作らない。
 - **claude code は使わない** (= まさ確定で codex 一本化)。
 - **定額外トークン課金経路を使わない** (= worker は codex session 内で動くため自動的にサブスク枠)。
@@ -385,4 +386,5 @@ Phase 10: session を待機状態で保持
 - Calendar event の description / attendees を変更しない
 - Gmail を本送信しない (= 既存 H-1 と同じ、worker は Gmail draft 含めて書き出さない)
 - まさへ直接 nudge しない (= nudge は H-1 Phase P の末尾で deterministic に Slack DM 送信される)
+- 読取りや正規の準備状態保存の失敗を回避するために、browser / Chrome / SSH / Vercel など別経路へ切り替え、まさの承認を求めない
 - 定額外トークン課金経路 (= OpenAI API key / Anthropic API key) を使わない (= codex session 内で動くため自動的にサブスク枠だが、prompt 内で別の課金 API を呼ばないこと)
