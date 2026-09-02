@@ -72,6 +72,38 @@ export type SeedContactMethod =
   | "visit"
   | "other";
 
+// 会社メモ (seed_company_facts)。migration 20260902090000_seed_company_facts.sql
+export type SeedCompanyFactCategory =
+  | "facility"     // 設備・拠点
+  | "scale_up"     // 量産・規模拡大
+  | "customer"     // 顧客・引き合い
+  | "partner"      // 提携・出資
+  | "capital"      // 資金
+  | "team"         // 人・体制
+  | "ip"           // 知財
+  | "regulation"   // 規制・許認可
+  | "competition"  // 競合
+  | "market"       // 市場・価格
+  | "other";
+
+export type SeedCompanyFactSourceKind =
+  | "meeting"   // 会議・面談で聞いた
+  | "document"  // 資料で読んだ
+  | "public"    // 公開情報
+  | "hearsay";  // 伝聞
+
+export type SeedCompanyFactConfidence =
+  | "confirmed"    // 一次資料または当事者で確認済
+  | "reported"     // 当事者から聞いたが裏取り前
+  | "unconfirmed"; // 未確認
+
+/** この事実がSPSのどこに効くか。空でもよい。 */
+export type SeedCompanyFactRelevance =
+  | "stage"   // 段階仮説 S0〜S5 / BZM 3.0 の証拠水準
+  | "q"       // 到達見込み q の11要因
+  | "p"       // 産業創出価値の帯 P^ind
+  | "bzm30";  // BZM 3.0 の入力 (seed_bzm30_inputs)
+
 // KUTE 等の事業化面談向け事業化タイプ (主 + 副、複数可)
 // migration: scripts/migrations/186_kute_seeds_commercialization_score.sql
 export type SeedCommercializationType =
@@ -402,6 +434,33 @@ export interface SeedContactLog {
   updated_at: string;
 }
 
+/**
+ * 会社メモ — シーズの背後にある会社・技術について分かった断片的な事実を1行1件で貯める。
+ * 補助金 (採択という出来事) / ニュース (公表済みで出典URLがある) /
+ * 接触履歴 (誰といつ会ったか) のどれにも収まらない、会議で聞いた設備・体制・顧客の事実の置き場。
+ * SPS 初回評価が読む source facts の6系統目になる (heard_at と source_url は評価へ渡さない)。
+ */
+export interface SeedCompanyFact {
+  id: string;
+  seed_id: string;
+  category: SeedCompanyFactCategory;
+  /** 事実そのもの。1行240字以内。 */
+  fact: string;
+  detail: string | null;
+  /** いつ時点の事実か。SPSの情報締切より後の行は評価の素材に入らない。 */
+  observed_on: string;
+  /** どこで知ったか (例: LST経営会議)。SPSへは渡さない。 */
+  heard_at: string | null;
+  source_kind: SeedCompanyFactSourceKind;
+  confidence: SeedCompanyFactConfidence;
+  sps_relevance: SeedCompanyFactRelevance[];
+  source_url: string | null;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // 集約ビュー用 (リスト画面)
 
 export interface SeedListItem extends Seed {
@@ -421,6 +480,7 @@ export interface SeedDetail {
   funding: SeedFunding[];
   news: SeedNews[];
   contact_log: (SeedContactLog & { amd_member_code_name?: string | null })[];
+  company_facts: SeedCompanyFact[];
   amd_owner_code_name: string | null;
   spun_off_project_name: string | null; // 旧互換
   project_links: SeedProjectLink[];

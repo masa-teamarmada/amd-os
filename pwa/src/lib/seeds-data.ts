@@ -9,6 +9,7 @@ import type {
   SeedFunding,
   SeedNews,
   SeedContactLog,
+  SeedCompanyFact,
   SeedListItem,
   SeedDetail,
   SeedPublicView,
@@ -215,7 +216,7 @@ export async function fetchSeedList(): Promise<SeedListItem[]> {
 export async function fetchSeedDetail(
   seedId: string,
 ): Promise<SeedDetail | null> {
-  const [seedRes, fundingRes, newsRes, contactRes] = await Promise.all([
+  const [seedRes, fundingRes, newsRes, contactRes, companyFactsRes] = await Promise.all([
     supabase.from("seeds").select("*").eq("id", seedId).maybeSingle(),
     supabase
       .from("seed_funding")
@@ -233,6 +234,12 @@ export async function fetchSeedDetail(
       .select("*")
       .eq("seed_id", seedId)
       .order("contacted_on", { ascending: false }),
+    supabase
+      .from("seed_company_facts")
+      .select("*")
+      .eq("seed_id", seedId)
+      .order("observed_on", { ascending: false })
+      .limit(200),
   ]);
 
   const seed = seedRes.data as Seed | null;
@@ -293,6 +300,7 @@ export async function fetchSeedDetail(
         ? (memberNameMap.get(c.amd_member_id) ?? null)
         : null,
     })),
+    company_facts: (companyFactsRes.data ?? []) as SeedCompanyFact[],
     amd_owner_code_name: seed.amd_owner_member_id
       ? (memberNameMap.get(seed.amd_owner_member_id) ?? null)
       : null,
@@ -438,6 +446,44 @@ export async function deleteSeedContactLog(
 ): Promise<{ ok: boolean; error?: string }> {
   const client = getAuthClient();
   const { error } = await client.from("seed_contact_log").delete().eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function insertSeedCompanyFact(
+  payload: Partial<SeedCompanyFact> & {
+    seed_id: string;
+    category: SeedCompanyFact["category"];
+    fact: string;
+    observed_on: string;
+    source_kind: SeedCompanyFact["source_kind"];
+    confidence: SeedCompanyFact["confidence"];
+  },
+): Promise<{ ok: boolean; error?: string }> {
+  const client = getAuthClient();
+  const { error } = await client.from("seed_company_facts").insert(payload);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function updateSeedCompanyFact(
+  id: string,
+  patch: Partial<SeedCompanyFact>,
+): Promise<{ ok: boolean; error?: string }> {
+  const client = getAuthClient();
+  const { error } = await client
+    .from("seed_company_facts")
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function deleteSeedCompanyFact(
+  id: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const client = getAuthClient();
+  const { error } = await client.from("seed_company_facts").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }
@@ -821,6 +867,44 @@ export const SEED_CONTACT_METHOD_LABEL: Record<string, string> = {
   visit: "訪問",
   other: "その他",
 };
+
+// 会社メモ (seed_company_facts)。語彙はDBのCHECK制約が正本。
+export const SEED_COMPANY_FACT_CATEGORY_LABEL: Record<string, string> = {
+  facility: "設備・拠点",
+  scale_up: "量産・規模拡大",
+  customer: "顧客・引き合い",
+  partner: "提携・出資",
+  capital: "資金",
+  team: "人・体制",
+  ip: "知財",
+  regulation: "規制・許認可",
+  competition: "競合",
+  market: "市場・価格",
+  other: "その他",
+};
+
+export const SEED_COMPANY_FACT_SOURCE_KIND_LABEL: Record<string, string> = {
+  meeting: "会議で聞いた",
+  document: "資料で読んだ",
+  public: "公開情報",
+  hearsay: "伝聞",
+};
+
+export const SEED_COMPANY_FACT_CONFIDENCE_LABEL: Record<string, string> = {
+  confirmed: "確認済",
+  reported: "本人談",
+  unconfirmed: "未確認",
+};
+
+/** SPSのどこに効く事実か。SPS評価者がこの印を見て、どの値を動かすか決める。 */
+export const SEED_COMPANY_FACT_RELEVANCE_LABEL: Record<string, string> = {
+  stage: "段階",
+  q: "到達見込み",
+  p: "産業創出価値",
+  bzm30: "BZM 3.0 入力",
+};
+
+export const SEED_COMPANY_FACT_RELEVANCE_ORDER = ["stage", "q", "p", "bzm30"] as const;
 
 // 一次選別スクリーニング帯の根拠Lv (スコア成熟度)。
 // 正本: bzm/BZM_SEED_TIER0_SCREENING_DESIGN_2026-08-15.md §6 確定13

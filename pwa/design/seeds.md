@@ -42,6 +42,7 @@ migration: [024_seeds_overhaul.sql](../scripts/migrations/024_seeds_overhaul.sql
 | `seed_funding` | 補助金履歴 (NEDO/AMED/JST GAP 等) |
 | `seed_news` | 関連ニュース・論文・プレス (Atlas とは別系統) |
 | `seed_contact_log` | AMD メンバー × シーズ の接触履歴 |
+| `seed_company_facts` | 会社メモ。会社・技術について会議や資料で分かった断片的な事実を1行1件。SPS初回評価が読む source facts の6系統目 |
 | `institutions` | 研究機関カタログ。シーズとは別の一覧を持つ |
 | `seed_projects` | 個別シーズを対象にするAMD契約PJ。`projects` と1対1、`seeds` と多対1 |
 | `seed_status_transitions` | `seeds.status` の遷移履歴 (旧状態/新状態/時刻/変更者)。migration 280 のトリガが自動記録。観測開始 2026-08-15、過去遷移は復元しない。一次選別 (Tier 0) の遷移率検証の前提インフラ |
@@ -52,9 +53,39 @@ migration: [024_seeds_overhaul.sql](../scripts/migrations/024_seeds_overhaul.sql
 
 未評価とは、`seed_screening_bands` に current tuple（`sps-ind-tier0-v1` / `sps-ind-v1` / `q-eval-v2` / `rubric-v1.1` / `p-ind-v1` / `rubric-v1.1+ind-v1`）の凍結行がない状態だけを指す。旧評価をfallbackにしない。
 
-`npm run sps:initial:prepare -- --output /private/tmp/sps-initial-prepared.json` は正本prompt本文と、基本情報・確定系補助金・確認済みニュース短縮要約・接触日/方法・PJ有無の安全化source factsを決定順で出す。Codex automation は評価値だけを候補JSONにし、facts・prompt/model/prepared hashは非LLM submitterがpreparedから注入する。`validate` はprepared自己hash、prompt/model hash、P×qの端点丸め・11要因・段階順序・情報締切を検証し、`submit` と `apply` はDB再計算のfacts/full source fingerprint CASを同一seed lock下で通す。pending候補と採否済み監査履歴は内容変更不可。公開は別操作の `apply --candidate-id <UUID> --actor <識別子>` だけで、DB RPC が既存評価の不在を確認してから初回candidate FK付き凍結行をappendする。候補ゼロと同一candidateの冪等submitは正常で、batchは全件成功か全件rollbackになる。
+`npm run sps:initial:prepare -- --output /private/tmp/sps-initial-prepared.json` は正本prompt本文と、基本情報・確定系補助金・確認済みニュース短縮要約・接触日/方法・PJ有無・会社メモの安全化source factsを決定順で出す。Codex automation は評価値だけを候補JSONにし、facts・prompt/model/prepared hashは非LLM submitterがpreparedから注入する。`validate` はprepared自己hash、prompt/model hash、P×qの端点丸め・11要因・段階順序・情報締切を検証し、`submit` と `apply` はDB再計算のfacts/full source fingerprint CASを同一seed lock下で通す。pending候補と採否済み監査履歴は内容変更不可。公開は別操作の `apply --candidate-id <UUID> --actor <識別子>` だけで、DB RPC が既存評価の不在を確認してから初回candidate FK付き凍結行をappendする。候補ゼロと同一candidateの冪等submitは正常で、batchは全件成功か全件rollbackになる。
 
-議事録、Slack、Teams等からシーズ情報を取り込むときは、本文要約や `internal_notes` だけで完了扱いにしない。助成金・採択は `seed_funding`、接触は `seed_contact_log`、ニュース・論文・特許は `seed_news`、PJ化は `seed_projects` または `institution_projects` へそれぞれ構造化して保存する。採択年度・金額・実施期間など根拠にない値は `null` のままにし、確認済み事実だけを登録する。
+議事録、Slack、Teams等からシーズ情報を取り込むときは、本文要約や `internal_notes` だけで完了扱いにしない。助成金・採択は `seed_funding`、接触は `seed_contact_log`、ニュース・論文・特許は `seed_news`、PJ化は `seed_projects` または `institution_projects` へそれぞれ構造化して保存する。**どれにも当てはまらない断片的な事実は `seed_company_facts` (会社メモ) へ入れる**——「ベンチプラントが川崎にある」のような、会議で聞いた設備・体制・顧客・資金の事実がここに当たる。採択年度・金額・実施期間など根拠にない値は `null` のままにし、確認済み事実だけを登録する。
+
+### 会社メモ (`seed_company_facts`、2026-09-02)
+
+まさ 2026-09-02「いまLSTの経営会議で『つばめBHBのベンチプラントが川崎にある』という情報を得た。こういう会社のちょっとした情報をためておける場所を作ってほしい。そしてそれがSPS計算の素材になるようにしてほしい」。
+
+会議や資料で分かった、会社・技術についての断片的な事実を1行1件で貯める。既存の3つでは受け止められない:
+
+| テーブル | 入るもの | 入らないもの |
+|---|---|---|
+| `seed_funding` | 採択という出来事 | 採択以外 |
+| `seed_news` | 公表済みの記事・論文・プレス (出典URLが前提) | 公表されていない話 |
+| `seed_contact_log` | 誰といつ会ったか | 聞いた中身の構造化 |
+| `seed_company_facts` | 上のどれにも収まらない事実 | — |
+
+列は 分類 (`category`) / 事実 (`fact`、240字) / 補足 (`detail`) / いつ時点か (`observed_on`) / どこで知ったか (`heard_at`) / 出どころ (`source_kind`) / 確からしさ (`confidence`) / SPSのどこに効くか (`sps_relevance`) / URL。語彙はDBのCHECK制約が正本で、画面のラベルは [`seeds-data.ts`](../src/lib/seeds-data.ts) の `SEED_COMPANY_FACT_*_LABEL`。
+
+- `category`: facility=設備・拠点 / scale_up=量産・規模拡大 / customer=顧客・引き合い / partner=提携・出資 / capital=資金 / team=人・体制 / ip=知財 / regulation=規制・許認可 / competition=競合 / market=市場・価格 / other
+- `source_kind`: meeting=会議で聞いた / document=資料で読んだ / public=公開情報 / hearsay=伝聞
+- `confidence`: confirmed=一次資料または当事者で確認済 / reported=当事者から聞いたが裏取り前 / unconfirmed=未確認
+- `sps_relevance`: stage=段階仮説とBZM 3.0の証拠水準 / q=到達見込みの11要因 / p=産業創出価値の帯 / bzm30=`seed_bzm30_inputs` の入力。**空でもよい**——印は評価者への申し送りであって、必須にすると印を付けるために事実を歪める
+
+**SPS計算の素材になる経路。** `sps_initial_assessment_source_snapshot` の6系統目として、既存5系統と同じ扱いで渡る (migration `20260902090000_seed_company_facts.sql`)。
+
+- 情報締切より後に更新された行があれば prepare をやり直させる。`observed_on` が締切より後の行は facts に載らない
+- 本文は `sps_initial_assessment_safe_text` でURL・連絡先・認証情報を落としてから渡す
+- fingerprint の材料に入るので、素材が動いた候補は stale になる
+- **`heard_at` と `source_url` は評価へ渡さない。** どこで聞いたかは評価の材料ではなく (個人名が入りうる)、確からしさは `confidence` と `source_kind` が担う
+- 正本prompt (`sps.initial-assessment.candidate.v1`) に「confidenceがconfirmedでない行を確定事実として帯へ入れない。source_kindがmeetingやhearsayの行は、そう明記したうえで幅を広げる側にだけ使う」を追記済み
+
+BZM 3.0 側へは自動では入らない。`seed_bzm30_inputs` の `evidence_stage_reason` などを人が置くときの材料として、同じモーダルの上に置く ([`pwa/spec` 4-8 §7.1](../spec/4-8-bzm30-seed-score-panel-current-spec.md))。
 
 `seeds.status` は migration 280 で上記6値の CHECK 制約つき (`seeds_status_check`)。
 
@@ -136,7 +167,7 @@ GlobalNav に **Seeds** を Venture Map と VC の間に追加 ([GlobalNav.tsx](
 - **案件ごとの入力とスコアは DB に持つ** (2026-08-27。migration 331): 用途ごとの天井は `seed_value_ceilings`、工程の型・規制属性・証拠水準・観測状態は `seed_bzm30_inputs`、算出結果は `seed_bzm30_scores`。算出は `model/tools/bzm30_score_seeds.cjs`（1件2〜3分なので画面のリクエストでは走らせない）。詳細は [`pwa/spec` 4-8 §7](../spec/4-8-bzm30-seed-score-panel-current-spec.md)
 - **旧の一次選別の帯は「V の上限としての検算基準」へ降格** (2026-08-27。それ以前は「一次選別スクリーニング帯 (SPS = 産業創出価値)」の見出しで詳細の主役だった): BZM 3.0 パネルの下に折りたたみ (初期閉じ) で残す。中身は従来どおり共通UI [`SpsScreeningBandSection`](../src/components/sps/SpsScreeningBandSection.tsx)。位置づけと規律は [`pwa/spec` 4-8 §5](../spec/4-8-bzm30-seed-score-panel-current-spec.md)
 - **編集モード**: 編集ボタンで全フィールド inline form に切替。保存 / キャンセル
-- **サブセクション CRUD**: 補助金・接触履歴・ニュースは「+ 追加」ボタン → 軽量 form。接触履歴はメール、電話、Slack、Teams、MTG/面談、イベント、紹介、訪問、その他を記録できる。削除は ✕ ボタン
+- **サブセクション CRUD**: 会社メモ・補助金・接触履歴・ニュースは「+ 追加」ボタン → 軽量 form。会社メモは4つの先頭に置き、1行1事実の表で出す (列: 時点 / 分類 / 事実 / 効く先 / 確度・出どころ)。接触履歴はメール、電話、Slack、Teams、MTG/面談、イベント、紹介、訪問、その他を記録できる。削除は ✕ ボタン
 - **事業化検討の開始** (2026-08-19): 接触済み・協議中への状態変更だけではPJを自動作成しない。詳細画面の「事業化検討を開始」から、member認証済みの `/api/seeds/[seedId]/commercialization` を呼び、DB RPC `activate_seed_commercialization` がseed行をロックしたうえで `projects.status='draft'`、`seed_projects`、実行者の `project_members` を同一transactionで作成する。機関所属や外部共有権限は自動付与しない。既に複数PJ接続がある場合はstatus優先で表示PJを選べる。
 - **事業化ワークベンチ (2026-08-19 導入 → 2026-08-20 廃止)**: `seed_projects` 接続後にモーダルを全画面型へ切り替え、固定ヘッダー・判断レール (根拠→仮説→次の検証→判断→行動)・判断 / 推進 / 記録の3領域を出していた `CommercializationWorkbench` は削除した。PJ化したシーズだけモーダルの中身が別物になり、補助金・接触履歴・ニュースまで消えていたため。事業化検討開始とPJ化で本物のPJコックピットが生成される以上、モーダル内に簡易コックピットを二重実装しない。MTGカード・AMD内部資料・内部判断記録はPJコックピット、週次差分・ガント・関係先・論点仮説・共有資料はそこから開くPJワークスペースで扱う。`check_pwa_critical_ui.cjs` に `CommercializationWorkbench` の `expectNotIncludes` を置いて再導入を止めている。
 

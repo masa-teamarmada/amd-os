@@ -166,6 +166,8 @@ mobile（375px）で `documentElement.scrollWidth === clientWidth` になるこ�
 | `seed_bzm30_inputs` | 工程の型 × 規制属性、評価日の証拠水準、観測状態（会社化・自由資金・権利残件・受託契約）、案件パラメータ（$\sigma$・$e$・$\kappa_{\mathrm{IP}}$・自走力・単位採算・未着手の用途）と、**パラメータ1件ずつの根拠**（migration 332） | 調査（人） |
 | `seed_bzm30_scores` | 天井1円あたりの現在価値 $v$（10%点・中央・90%点）、天井を掛けた金額、9区分の確率、量産到達確率と到達月数、計算に使った入力の写し | 算出バッチ |
 
+**根拠を調べる前の材料は会社メモ (`seed_company_facts`) に貯める**（2026-09-02）。会議や資料で分かった断片的な事実を1行1件で置く台帳で、同じシーズ詳細モーダルのサブセクションの先頭に出る。`sps_relevance` に `bzm30` の印が付いた行が、下の `*_reason` を埋めるときの材料になる。**この台帳から入力値が自動で決まることはない**——値と根拠を置くのは人で、会社メモはその手前の観測にとどまる。仕様は [`pwa/design/seeds.md`](../design/seeds.md) の「会社メモ」。
+
 **根拠は1件ずつの欄に置く**（`free_cash_reason`・`rights_open_reason`・`under_contract_reason`・
 `kappa_ip_reason`・`sigma_reason`・`evangelist_e_reason`・`unit_margin_reason`・`incorporated_reason`・
 `burn_rate_reason` と、既存の `classification_reason`・`evidence_stage_reason`・`self_revenue_note`）。

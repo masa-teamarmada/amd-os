@@ -56,9 +56,10 @@ assert.match(migration, /extensions\.digest/);
 assert.match(migration, /f\.status IN \('awarded','ongoing','completed'\)/);
 assert.match(migration, /\[認証情報省略\]/);
 const tool = fs.readFileSync(path.join(here, "sps_initial_assessment_tool.mjs"), "utf8");
-assert.match(tool, /\.limit\(1000\)/);
+assert.match(tool, /\.range\(from, from \+ 999\)/);
 assert.match(tool, /source_fingerprint: input\.source_fingerprint/);
 assert.doesNotMatch(tool, /source_fingerprint: p\.source_fingerprint/);
+assert.match(tool, /company_facts \?\? \[\]\)\.map\(\(x\) => x\.observed_on\)/);
 assert.match(tool, /prompt or model changed after prepare/);
 assert.match(tool, /const body = String\(data\?\.body \?\? ""\); if \(error \|\| !body\.trim\(\)\)/);
 assert.match(migration, /stage_lower must not exceed stage_upper/);
@@ -67,4 +68,12 @@ assert.match(migration, /apply_sps_initial_assessment_candidate[\s\S]*pg_advisor
 assert.match(migration, /INSERT INTO public\.seed_screening_bands[\s\S]*true/);
 assert.doesNotMatch(migration, /UPDATE public\.seed_screening_bands/);
 assert.match(migration, /REVOKE ALL ON FUNCTION public\.apply_sps_initial_assessment_candidate/);
+const companyFactsMigration = fs.readFileSync(path.join(here, "../../ios/supabase/migrations/20260902090000_seed_company_facts.sql"), "utf8");
+assert.match(companyFactsMigration, /FROM public\.seed_company_facts x WHERE x\.seed_id=p_seed_id AND x\.updated_at>p_cutoff/);
+assert.match(companyFactsMigration, /'company_facts', coalesce\(\(SELECT jsonb_agg/);
+assert.match(companyFactsMigration, /sps_initial_assessment_safe_text\(cf\.fact,240\)/);
+assert.match(companyFactsMigration, /cf\.updated_at<=p_cutoff AND cf\.observed_on::timestamptz<=p_cutoff/);
+// heard_at と source_url は評価へ渡さない (個人名・URLを評価の材料にしない)
+assert.doesNotMatch(companyFactsMigration, /'heard_at',/);
+assert.doesNotMatch(companyFactsMigration, /'source_url',/);
 console.log("SPS initial assessment flow tests passed");

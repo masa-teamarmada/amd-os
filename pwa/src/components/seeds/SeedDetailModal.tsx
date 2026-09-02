@@ -14,6 +14,8 @@ import {
   deleteSeedNews,
   insertSeedContactLog,
   deleteSeedContactLog,
+  insertSeedCompanyFact,
+  deleteSeedCompanyFact,
   formatJpy,
   SEED_STATUS_LABEL,
   SEED_STATUS_ORDER,
@@ -24,6 +26,11 @@ import {
   SEED_FUNDING_STATUS_LABEL,
   SEED_NEWS_KIND_LABEL,
   SEED_CONTACT_METHOD_LABEL,
+  SEED_COMPANY_FACT_CATEGORY_LABEL,
+  SEED_COMPANY_FACT_SOURCE_KIND_LABEL,
+  SEED_COMPANY_FACT_CONFIDENCE_LABEL,
+  SEED_COMPANY_FACT_RELEVANCE_LABEL,
+  SEED_COMPANY_FACT_RELEVANCE_ORDER,
 } from "@/lib/seeds-data";
 import type {
   Seed,
@@ -34,6 +41,11 @@ import type {
   SeedNewsKind,
   SeedContactLog,
   SeedContactMethod,
+  SeedCompanyFact,
+  SeedCompanyFactCategory,
+  SeedCompanyFactConfidence,
+  SeedCompanyFactRelevance,
+  SeedCompanyFactSourceKind,
   SeedProjectLink,
 } from "@/types/seeds";
 import { createClient } from "@/lib/supabase/client";
@@ -394,6 +406,11 @@ export function SeedDetailModal({
             {/* サブセクション (作成モードでは未生成のため非表示) */}
             {!createMode && data && (
               <>
+                <SeedCompanyFactSection
+                  seed={data.seed}
+                  companyFacts={data.company_facts}
+                  onChanged={reload}
+                />
                 <SeedFundingSection seed={data.seed} funding={data.funding} onChanged={reload} />
                 <SeedContactLogSection
                   seed={data.seed}
@@ -1202,6 +1219,256 @@ function SeedContactLogSection({
             </li>
           ))}
         </ul>
+      )}
+    </div>
+  );
+}
+
+// =====================================================================
+// 会社メモセクション
+// =====================================================================
+//
+// 会議や資料で分かった、会社・技術についての断片的な事実を1行ずつ貯める。
+// 補助金 (採択という出来事) / ニュース (公表済みで出典URLがある) /
+// 接触履歴 (誰といつ会ったか) のどれにも収まらない事実の置き場。
+// 「効く先」の印を付けた行は、SPS初回評価が読む source facts へそのまま渡る
+// (仕様は pwa/design/seeds.md「会社メモ」)。
+
+function SeedCompanyFactSection({
+  seed,
+  companyFacts,
+  onChanged,
+}: {
+  seed: Seed;
+  companyFacts: SeedCompanyFact[];
+  onChanged: () => void;
+}) {
+  const today = new Date().toISOString().slice(0, 10);
+  const emptyDraft: Partial<SeedCompanyFact> = {
+    observed_on: today,
+    category: "other",
+    source_kind: "meeting",
+    confidence: "reported",
+    sps_relevance: [],
+  };
+  const [showAdd, setShowAdd] = useState(false);
+  const [draft, setDraft] = useState<Partial<SeedCompanyFact>>(emptyDraft);
+  const [busy, setBusy] = useState(false);
+
+  const toggleRelevance = (key: SeedCompanyFactRelevance) => {
+    const current = draft.sps_relevance ?? [];
+    setDraft({
+      ...draft,
+      sps_relevance: current.includes(key)
+        ? current.filter((r) => r !== key)
+        : [...current, key],
+    });
+  };
+
+  const submit = async () => {
+    if (!draft.fact?.trim() || !draft.observed_on) return;
+    setBusy(true);
+    await insertSeedCompanyFact({
+      seed_id: seed.id,
+      category: (draft.category ?? "other") as SeedCompanyFactCategory,
+      fact: draft.fact.trim(),
+      detail: draft.detail?.trim() || null,
+      observed_on: draft.observed_on,
+      heard_at: draft.heard_at?.trim() || null,
+      source_kind: (draft.source_kind ?? "meeting") as SeedCompanyFactSourceKind,
+      confidence: (draft.confidence ?? "reported") as SeedCompanyFactConfidence,
+      sps_relevance: draft.sps_relevance ?? [],
+      source_url: draft.source_url?.trim() || null,
+    });
+    setBusy(false);
+    setDraft(emptyDraft);
+    setShowAdd(false);
+    onChanged();
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm("削除しますか?")) return;
+    await deleteSeedCompanyFact(id);
+    onChanged();
+  };
+
+  const confidenceColor: Record<string, string> = {
+    confirmed: "text-emerald-600 dark:text-emerald-400",
+    reported: "text-amber-600 dark:text-amber-400",
+    unconfirmed: "text-muted-foreground",
+  };
+
+  return (
+    <div className="border border-border rounded p-3">
+      <div className="flex items-center justify-between mb-1">
+        <h3 className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
+          会社メモ ({companyFacts.length})
+        </h3>
+        <button
+          onClick={() => setShowAdd((v) => !v)}
+          className="text-[10px] px-2 py-0.5 rounded border border-border hover:bg-accent"
+        >
+          {showAdd ? "閉じる" : "+ 追加"}
+        </button>
+      </div>
+      <p className="text-[10px] text-muted-foreground mb-2">
+        会議や資料で分かった断片的な事実を1行ずつ。効く先の印を付けた行は、次のSPS評価が読む材料に入る。
+      </p>
+
+      {showAdd && (
+        <div className="mb-3 p-2 bg-muted/30 rounded space-y-1.5 text-xs">
+          <input
+            className="w-full px-2 py-1 rounded border border-border bg-background text-xs"
+            placeholder="事実 (例: ベンチプラントが川崎にある)"
+            maxLength={240}
+            value={draft.fact ?? ""}
+            onChange={(e) => setDraft({ ...draft, fact: e.target.value })}
+          />
+          <div className="grid grid-cols-4 gap-2">
+            <input
+              type="date"
+              className="px-2 py-1 rounded border border-border bg-background text-xs"
+              value={draft.observed_on ?? today}
+              onChange={(e) => setDraft({ ...draft, observed_on: e.target.value })}
+            />
+            <select
+              className="px-2 py-1 rounded border border-border bg-background text-xs"
+              value={draft.category ?? "other"}
+              onChange={(e) => setDraft({ ...draft, category: e.target.value as SeedCompanyFactCategory })}
+            >
+              {Object.entries(SEED_COMPANY_FACT_CATEGORY_LABEL).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+            <select
+              className="px-2 py-1 rounded border border-border bg-background text-xs"
+              value={draft.source_kind ?? "meeting"}
+              onChange={(e) => setDraft({ ...draft, source_kind: e.target.value as SeedCompanyFactSourceKind })}
+            >
+              {Object.entries(SEED_COMPANY_FACT_SOURCE_KIND_LABEL).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+            <select
+              className="px-2 py-1 rounded border border-border bg-background text-xs"
+              value={draft.confidence ?? "reported"}
+              onChange={(e) => setDraft({ ...draft, confidence: e.target.value as SeedCompanyFactConfidence })}
+            >
+              {Object.entries(SEED_COMPANY_FACT_CONFIDENCE_LABEL).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-[10px] text-muted-foreground">SPSのどこに効くか</span>
+            {SEED_COMPANY_FACT_RELEVANCE_ORDER.map((key) => (
+              <label key={key} className="flex items-center gap-1 text-[11px] cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="accent-primary"
+                  checked={(draft.sps_relevance ?? []).includes(key)}
+                  onChange={() => toggleRelevance(key)}
+                />
+                {SEED_COMPANY_FACT_RELEVANCE_LABEL[key]}
+              </label>
+            ))}
+          </div>
+          <textarea
+            className="w-full px-2 py-1 rounded border border-border bg-background text-xs"
+            rows={2}
+            placeholder="補足 (規模・条件・数字など。任意)"
+            value={draft.detail ?? ""}
+            onChange={(e) => setDraft({ ...draft, detail: e.target.value })}
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              className="px-2 py-1 rounded border border-border bg-background text-xs"
+              placeholder="どこで知ったか (例: LST経営会議)"
+              value={draft.heard_at ?? ""}
+              onChange={(e) => setDraft({ ...draft, heard_at: e.target.value })}
+            />
+            <input
+              className="px-2 py-1 rounded border border-border bg-background text-xs"
+              placeholder="URL (任意)"
+              value={draft.source_url ?? ""}
+              onChange={(e) => setDraft({ ...draft, source_url: e.target.value })}
+            />
+          </div>
+          <button
+            onClick={submit}
+            disabled={busy || !draft.fact?.trim()}
+            className="text-[11px] px-3 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {busy ? "追加中…" : "追加"}
+          </button>
+        </div>
+      )}
+
+      {companyFacts.length === 0 ? (
+        <div className="text-[11px] text-muted-foreground py-2">なし</div>
+      ) : (
+        <div className="w-0 min-w-full overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="text-[10px] uppercase text-muted-foreground">
+              <tr>
+                <th className="px-1 py-1 text-left w-20">時点</th>
+                <th className="px-1 py-1 text-left w-24">分類</th>
+                <th className="px-1 py-1 text-left">事実</th>
+                <th className="px-1 py-1 text-left w-32">効く先</th>
+                <th className="px-1 py-1 text-left w-28">確度・出どころ</th>
+                <th className="px-1 py-1 w-8"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {companyFacts.map((f) => (
+                <tr key={f.id} className="border-t border-border/40 align-top">
+                  <td className="px-1 py-1 text-muted-foreground text-[10px] whitespace-nowrap">{f.observed_on}</td>
+                  <td className="px-1 py-1 text-[10px] text-muted-foreground">
+                    {SEED_COMPANY_FACT_CATEGORY_LABEL[f.category] ?? f.category}
+                  </td>
+                  <td className="px-1 py-1">
+                    {f.source_url ? (
+                      <a className="underline hover:text-primary" href={f.source_url} target="_blank" rel="noreferrer">{f.fact}</a>
+                    ) : f.fact}
+                    {f.detail && (
+                      <div className="text-[10px] text-muted-foreground whitespace-pre-wrap mt-0.5">{f.detail}</div>
+                    )}
+                    {f.heard_at && (
+                      <div className="text-[10px] text-muted-foreground mt-0.5">{f.heard_at}</div>
+                    )}
+                  </td>
+                  <td className="px-1 py-1">
+                    {f.sps_relevance.length === 0 ? (
+                      <span className="text-[10px] text-muted-foreground">—</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {f.sps_relevance.map((r) => (
+                          <span key={r} className="text-[9px] px-1 py-px rounded bg-primary/10 text-primary whitespace-nowrap">
+                            {SEED_COMPANY_FACT_RELEVANCE_LABEL[r] ?? r}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-1 py-1 text-[10px]">
+                    <span className={confidenceColor[f.confidence] ?? ""}>
+                      {SEED_COMPANY_FACT_CONFIDENCE_LABEL[f.confidence] ?? f.confidence}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {" / "}{SEED_COMPANY_FACT_SOURCE_KIND_LABEL[f.source_kind] ?? f.source_kind}
+                    </span>
+                  </td>
+                  <td className="px-1 py-1 text-right">
+                    <button
+                      onClick={() => remove(f.id)}
+                      className="text-red-500 hover:text-red-700 text-[10px]"
+                    >✕</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
