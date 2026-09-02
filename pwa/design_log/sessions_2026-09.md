@@ -49,3 +49,16 @@
 - あわせて `check_kute_seeds_scope` のフィルタ検査を現行実装（`ColumnFilter` + `statusFilter`）へ更新した。旧 `FilterSelect` / `confidenceFilter` を探し続けて失敗しており、シーズ画面の防波堤が効いていなかった。deploy ゲート対象外のため反映は素通りしていた。実装側は変更していない。
 - 検証: `npx tsc --noEmit`、`npm run build`、`test:kute-seeds-scope`（今回から通過）、`test:seed-list-display`、`test:kute-seeds-tab-contract`、deploy wrapper 全ゲート。commit `7c20db20`、本番 `v3.100.19` の build-info SHA readback と実画面でカード表示を確認した。
 - 正規checkoutは他セッションのdirtyが続いているため、今回も使い捨てclean cloneから push し、push後に正規checkoutで fetch して `7c20db20` 一致を確認した。
+
+## 2026-09-02 会社メモ（seed_company_facts）とSPSの素材への接続
+
+- まさ「いまLSTの経営会議で『つばめBHBのベンチプラントが川崎にある』という情報を得た。シーズリストのところに『つばめBHB』を追加したうえで、こういう会社のちょっとした情報をためておける場所を作ってほしい。そしてそれがSPS計算の素材になるようにしてほしい」。
+- 会議で聞いた設備・体制・顧客・資金の事実は、`seed_funding`（採択という出来事）にも `seed_news`（公表済みで出典URLが要る）にも `seed_contact_log`（誰といつ会ったか）にも収まらず、これまで `internal_notes` の自由記述に埋もれていた。1行1事実の台帳 `seed_company_facts` を作った。migration `ios/supabase/migrations/20260902090000_seed_company_facts.sql`、本番適用済み。
+- 列は 分類 / 事実（240字）/ 補足 / いつ時点か / どこで知ったか / 出どころ / 確からしさ / SPSのどこに効くか / URL。語彙はCHECK制約が正本。RLSは `seeds` と同じ member ゲート。他のsource系統と同じ `sps_initial_source_lock` トリガを付けた。
+- **SPSの素材への接続**が依頼の本体。`sps_initial_assessment_source_snapshot` へ6系統目として足し、既存5系統と同じ扱いにした。(1) 情報締切より後に更新された行があれば prepare をやり直させる、(2) 本文は `sps_initial_assessment_safe_text` でURL・連絡先・認証情報を落とす、(3) fingerprint の材料に入れて素材が動いた候補を stale にする。`heard_at` と `source_url` は評価へ渡さない（どこで聞いたかは評価の材料ではなく個人名が入りうる。確からしさは `confidence` と `source_kind` が担う）。
+- 正本prompt `sps.initial-assessment.candidate.v1` へ「company_factsは確からしさが混ざる。confidenceがconfirmedでない行を確定事実として帯へ入れない。source_kindがmeetingやhearsayの行はそう明記したうえで幅を広げる側にだけ使う」を追記した。素材だけ増やして扱いの規律を書かないと、裏取り前の話が確定事実として帯へ入る。
+- BZM 3.0 側へは自動では入らない。`seed_bzm30_inputs` の `*_reason` を人が置くときの材料という位置づけで、`pwa/spec` 4-8 §7.1 に明記した。この台帳から入力値が自動で決まることはない。
+- つばめBHBを `seeds` へ追加した（seed_id `51ef66de-a571-4ecb-9fca-3891ff2eb4bf`、東京科学大学 / 細野秀雄栄誉教授 / gx_energy / status=spun_off）。会社メモ6件を投入。まさの会議情報「ベンチプラントが川崎にある」（confidence=reported）に加え、公開情報で裏を取った5件（味の素川崎事業所内・年産数十トン・2019年10月竣工 / 柏崎でINPEXと年産500トン・2025年8月商業運転開始と公表 / 累計調達76億円・シリーズC53億円で独Heraeus参画 / 日本郵船が2021年6月に出資 / NEDO GI基金の燃料アンモニアSC構築PJへ参画）。
+- **副次で見つけた誤表示を直した**。一覧の会社名欄がPJ未紐付けを一律「未設立」と断定しており、つばめBHBが「未設立 つばめBHB株式会社（2017年設立）」になった。PJが無いシーズについて会社の有無を知る手がかりは `seeds.status` しかないので、`spun_off` は「法人化済み」と出す。PJ未紐付けの spun_off は7件あり、いずれも同じ誤表示だった。
+- `test_sps_initial_assessment_flow.mjs` が本変更の前から落ちていた（`.limit(1000)` を期待し続けており、実装は `.range(from, from + 999)` のページ読みへ移っていた）。実装に合わせて直し、あわせて会社メモの契約（6系統目・安全化・締切・heard_at非送出）を検査に加えた。
+- 検証: `npx tsc --noEmit`、eslint、`test_sps_initial_assessment_flow.mjs`。`prepare --seed-id` を実走して source facts に company_facts 6件が載ること、`heard_at` が漏れていないこと、promptに規律が入ったことを確認。認証cookieを起こしたPlaywrightで desktop 1440 の実画面を撮り、モーダルのセクション・追加フォーム・一覧行の表示と横スクロールなしを確認した。commit `eccd8309` / `c3a48929`。
