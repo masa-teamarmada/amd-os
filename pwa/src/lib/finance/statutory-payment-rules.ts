@@ -156,6 +156,8 @@ export type SettlementSearch = {
   to: string;
   matched: boolean;
   candidateCount: number;
+  /** 期待額と1円まで一致する出金の件数。1件以上あって未消込なら、金額違いではなく割り当ての問題 */
+  exactAmountCandidateCount: number;
   candidates: Array<{ date: string; amountYen: number; sourceRef: string }>;
 };
 
@@ -165,7 +167,8 @@ function settlementSearch(
   dueDate: string,
   beforeDays: number,
   afterDays: number,
-  matched: boolean
+  matched: boolean,
+  expectedAmountYen: number | null
 ): SettlementSearch {
   const candidates = evidenceCandidates(evidence, kind, dueDate, beforeDays, afterDays);
   return {
@@ -174,6 +177,7 @@ function settlementSearch(
     to: addDays(dueDate, afterDays),
     matched,
     candidateCount: candidates.length,
+    exactAmountCandidateCount: expectedAmountYen == null ? 0 : candidates.filter((row) => row.amountYen === expectedAmountYen).length,
     candidates: candidates.slice(0, 8).map((row) => ({ date: row.date, amountYen: row.amountYen, sourceRef: row.sourceRef })),
   };
 }
@@ -251,7 +255,7 @@ function withholdingDrafts(input: BuildStatutoryPaymentsInput, horizonYm: string
           amountFormula: "freee payroll withholding income tax; missing months use latest observed month",
           scheduleBasis: "AMD has a prior Jan 20 semiannual tax-office payment",
           paidEvidenceRef: paid?.sourceRef ?? null,
-          settlementSearch: settlementSearch(input.paymentEvidence, "tax_office", dueDate, 15, 35, Boolean(paid)),
+          settlementSearch: settlementSearch(input.paymentEvidence, "tax_office", dueDate, 15, 35, Boolean(paid), amount),
         },
       });
     }
@@ -326,7 +330,7 @@ function socialInsuranceDrafts(input: BuildStatutoryPaymentsInput, horizonYm: st
         originCashOffsets: amount == null ? [] : [{ ym, amountYen: amount, amountStatus: exact ? "exact" : "estimated" }],
         amountFormula: exact ? "freee payroll employer plus employee contributions" : "latest observed freee payroll contribution",
         paidEvidenceRef: paid?.sourceRef ?? null,
-        settlementSearch: settlementSearch(input.paymentEvidence, "social_insurance", dueDate, 10, 35, Boolean(paid)),
+        settlementSearch: settlementSearch(input.paymentEvidence, "social_insurance", dueDate, 10, 35, Boolean(paid), amount),
       },
     };
   });
@@ -408,7 +412,7 @@ function laborInsuranceDrafts(input: BuildStatutoryPaymentsInput, horizonYm: str
         amountFormula: paid ? "current freee bank payment" : "previous annual freee bank payment",
         priorEvidenceRef: prior?.sourceRef ?? null,
         paidEvidenceRef: paid?.sourceRef ?? null,
-        settlementSearch: settlementSearch(input.paymentEvidence, "labor_insurance", dueDate, 40, 60, Boolean(paid)),
+        settlementSearch: settlementSearch(input.paymentEvidence, "labor_insurance", dueDate, 40, 60, Boolean(paid), amount),
       },
     });
   }
@@ -468,7 +472,7 @@ function taxDrafts(input: BuildStatutoryPaymentsInput, horizonYm: string): Statu
         payload: {
           ruleKey: "consumption_tax_interim",
           fiscalStartYm,
-          settlementSearch: settlementSearch(input.paymentEvidence, "tax_office", interimDueDate, 15, 35, false),
+          settlementSearch: settlementSearch(input.paymentEvidence, "tax_office", interimDueDate, 15, 35, false, null),
           amountFormula: startYear === currentYear ? "previous confirmed annual tax / 2" : "management forecast tax payment",
           priorAnnualTaxYen: priorConsumption || null,
         },
@@ -500,7 +504,7 @@ function taxDrafts(input: BuildStatutoryPaymentsInput, horizonYm: string): Statu
         payload: {
           ruleKey: "corporate_tax_interim",
           fiscalStartYm,
-          settlementSearch: settlementSearch(input.paymentEvidence, "tax_office", interimDueDate, 15, 35, false),
+          settlementSearch: settlementSearch(input.paymentEvidence, "tax_office", interimDueDate, 15, 35, false, null),
           amountFormula: "floor(previous corporate tax / 12) * 6; generated only when over 100,000 yen",
           priorCorporateTaxYen: priorCorporate || null,
         },
@@ -524,7 +528,7 @@ function taxDrafts(input: BuildStatutoryPaymentsInput, horizonYm: string): Statu
         confidence: 0.85,
         paidAt: null,
         paidAmountYen: null,
-        payload: { ruleKey: "consumption_tax_final", fiscalStartYm, amountFormula: "management monthly forecast", settlementSearch: settlementSearch(input.paymentEvidence, "tax_office", finalDueDate, 15, 35, false) },
+        payload: { ruleKey: "consumption_tax_final", fiscalStartYm, amountFormula: "management monthly forecast", settlementSearch: settlementSearch(input.paymentEvidence, "tax_office", finalDueDate, 15, 35, false, null) },
       });
     }
     if (finalForecast?.corporateTaxYen && finalForecast.corporateTaxYen > 0 && withinHorizon(finalDueDate, input.today, horizonYm)) {
@@ -544,7 +548,7 @@ function taxDrafts(input: BuildStatutoryPaymentsInput, horizonYm: string): Statu
         confidence: 0.85,
         paidAt: null,
         paidAmountYen: null,
-        payload: { ruleKey: "corporate_tax_final", fiscalStartYm, amountFormula: "management monthly forecast", settlementSearch: settlementSearch(input.paymentEvidence, "tax_office", finalDueDate, 15, 35, false) },
+        payload: { ruleKey: "corporate_tax_final", fiscalStartYm, amountFormula: "management monthly forecast", settlementSearch: settlementSearch(input.paymentEvidence, "tax_office", finalDueDate, 15, 35, false, null) },
       });
     }
   }

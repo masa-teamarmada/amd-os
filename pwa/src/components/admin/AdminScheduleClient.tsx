@@ -109,6 +109,7 @@ type SettlementSearch = {
   to?: string;
   matched?: boolean;
   candidateCount?: number;
+  exactAmountCandidateCount?: number;
   candidates?: Array<{ date?: string; amountYen?: number }>;
 };
 
@@ -134,6 +135,9 @@ function settlementSearchLabel(search: SettlementSearch): string | null {
   const listed = (search.candidates ?? [])
     .map((row) => `${row.date}に${formatScheduleYen(row.amountYen ?? 0)}`)
     .join("、");
+  if ((search.exactAmountCandidateCount ?? 0) > 0) {
+    return `${kind}の同額の出金がある（${listed}）。別の月の納付として使われているか、口座で消込が済んでいない`;
+  }
   return `${kind}の出金は${count}件あるが金額が合わない（${listed}）`;
 }
 
