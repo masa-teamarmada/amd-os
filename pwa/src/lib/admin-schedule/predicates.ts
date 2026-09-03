@@ -100,3 +100,39 @@ export function isScheduleActionItem(row: SchedulePredicateRow): boolean {
     metadata.domain,
   ].some(isAllowedActionClassification);
 }
+
+export type ComputedScheduleStatus =
+  | "completed" | "cancelled" | "needs_source" | "overdue" | "due_today" | "due_soon" | "open";
+
+/**
+ * 予定の表示状態。元台帳で納付済みになった予定は、期限日が過去でも期限超過にしない。
+ * 支払済みの照合が付いた法定納付を「要照合」や「期限超過」に混ぜると、
+ * これから払う額と払い終えた額の区別が付かなくなる。
+ */
+export function computedScheduleStatus(
+  row: SchedulePredicateRow,
+  latestActionKind: string | null,
+  today: string
+): ComputedScheduleStatus {
+  if (latestActionKind === "completed" || latestActionKind === "not_applicable") return "completed";
+  const lifecycle = String(row.lifecycle_status ?? "");
+  if (lifecycle === "cancelled") return "cancelled";
+  if (lifecycle === "completed" && latestActionKind !== "reopened") return "completed";
+  if (lifecycle === "needs_source" || present(row.missing_reason)) return "needs_source";
+  if (latestActionKind === "reopened" && !present(row.due_on) && !present(row.due_ym)) return "needs_source";
+  const dueOn = present(row.due_on) ? String(row.due_on) : null;
+  if (dueOn) {
+    const offset = Math.round((Date.parse(`${dueOn}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86400000);
+    if (offset < 0) return "overdue";
+    if (offset === 0) return "due_today";
+    if (offset <= 14) return "due_soon";
+    return "open";
+  }
+  const todayYm = today.slice(0, 7).replace("-", "");
+  const dueYm = present(row.due_ym) ? String(row.due_ym) : null;
+  if (dueYm && todayYm) {
+    if (dueYm < todayYm) return "overdue";
+    if (dueYm === todayYm) return "due_soon";
+  }
+  return "open";
+}

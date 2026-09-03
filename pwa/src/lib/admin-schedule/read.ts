@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- this reader must tolerate a database before migration 178 is applied. */
-import { daysUntil, isIsoDate, todayJst, ymFromDate, ymInRange } from "@/lib/admin-schedule/date";
+import { isIsoDate, todayJst, ymInRange } from "@/lib/admin-schedule/date";
+import { computedScheduleStatus } from "@/lib/admin-schedule/predicates";
 import type {
   OperatingFact,
   ScheduleAction,
@@ -41,23 +42,7 @@ function inView(row: RawRow, from: string, to: string): boolean {
 }
 
 function statusFor(row: ScheduleOccurrence, latestAction: ScheduleAction | null, today: string): ScheduleViewOccurrence["computed_status"] {
-  if (latestAction?.action === "completed" || latestAction?.action === "not_applicable") return "completed";
-  if (row.lifecycle_status === "cancelled") return "cancelled";
-  if (row.lifecycle_status === "needs_source" || row.missing_reason) return "needs_source";
-  if (latestAction?.action === "reopened" && !row.due_on && !row.due_ym) return "needs_source";
-  if (row.due_on) {
-    const offset = daysUntil(row.due_on, today);
-    if (offset < 0) return "overdue";
-    if (offset === 0) return "due_today";
-    if (offset <= 14) return "due_soon";
-    return "open";
-  }
-  const todayYm = ymFromDate(today);
-  if (row.due_ym && todayYm) {
-    if (row.due_ym < todayYm) return "overdue";
-    if (row.due_ym === todayYm) return "due_soon";
-  }
-  return "open";
+  return computedScheduleStatus(row as unknown as Record<string, unknown>, latestAction?.action ?? null, today);
 }
 
 function freshnessFor(row: ScheduleOccurrence, today: string): GenerationState {

@@ -14,6 +14,7 @@ import {
   isAcceptedAmdContract,
   isContractSigningExpected,
   isCurrentAmdContract,
+  computedScheduleStatus,
   isEligibleTaxSocialObligation,
   isScheduleActionItem,
   isStatutoryScheduleObligation,
@@ -278,6 +279,16 @@ assert.equal(paymentObligationEventKind({ title: "法人税等 延滞税", categ
 assert.equal(paymentObligationEventKind({ title: "健康保険・厚生年金保険料 延滞金", category: "social_insurance" }), "social_insurance_penalty_payment");
 assert.equal(INTERNAL_PREP_SPECS.tax_penalty_payment, undefined);
 assert.equal(INTERNAL_PREP_SPECS.social_insurance_penalty_payment, undefined);
+
+// 納付済みの予定を、期限日が過去だからという理由で期限超過に落とさない。
+const paidOccurrence = { lifecycle_status: "completed", due_on: "2026-06-30", missing_reason: null };
+assert.equal(computedScheduleStatus(paidOccurrence, null, "2026-09-03"), "completed");
+assert.equal(computedScheduleStatus(paidOccurrence, "reopened", "2026-09-03"), "overdue");
+assert.equal(computedScheduleStatus({ lifecycle_status: "open", due_on: "2026-07-10", missing_reason: null }, null, "2026-09-03"), "overdue");
+assert.equal(computedScheduleStatus({ lifecycle_status: "cancelled", due_on: "2026-06-30", missing_reason: null }, null, "2026-09-03"), "cancelled");
+assert.equal(computedScheduleStatus({ lifecycle_status: "open", due_on: "2026-09-03", missing_reason: null }, null, "2026-09-03"), "due_today");
+assert.equal(computedScheduleStatus({ lifecycle_status: "open", due_on: "2026-09-10", missing_reason: null }, null, "2026-09-03"), "due_soon");
+assert.equal(computedScheduleStatus({ lifecycle_status: "open", due_on: "2026-12-01", missing_reason: null }, null, "2026-09-03"), "open");
 assert.equal(paymentObligationEventKind({ title: "労働保険料（年度更新・2026年度）", category: "social_insurance" }), "labor_insurance_annual_update");
 assert.equal(paymentObligationEventKind({ title: "消費税等（確定納付）", category: "tax" }), "tax_payment");
 
