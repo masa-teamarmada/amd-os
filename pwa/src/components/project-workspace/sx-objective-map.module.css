@@ -228,7 +228,69 @@
   line-height: 1.35;
 }
 
+/* 業務ラインの追加カード。成立条件カードと同じ枠に収めつつ、まだ中身のある行では
+   ないことが分かるように破線・淡色にする。 */
+.outcomeAddNode {
+  display: block;
+  width: 100%;
+  min-height: 116px;
+  padding: 0.55rem 0.65rem;
+  border: 1px dashed #b9cfdf;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.outcomeAddNode:hover {
+  border-color: var(--amd-action-line, #7cbceb);
+  background: #f3f9fd;
+}
+
+.outcomeAddNode > span {
+  color: var(--tree-muted);
+  font-size: 0.64rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+}
+
+.outcomeAddNode > strong {
+  display: block;
+  margin-top: 0.08rem;
+  color: var(--tree-accent-strong);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.outcomeAddNode p {
+  margin: 0.18rem 0 0;
+  color: var(--tree-muted);
+  font-size: 0.69rem;
+  line-height: 1.45;
+}
+
+.empty button {
+  align-self: flex-start;
+  margin-top: 0.35rem;
+  min-height: 32px;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--tree-accent);
+  border-radius: 5px;
+  background: var(--tree-surface);
+  color: var(--tree-accent-strong);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.empty button:hover {
+  background: var(--tree-accent-soft);
+}
+
 .outcomeNode:focus-visible,
+.outcomeAddNode:focus-visible,
+.empty button:focus-visible,
 .nodeMain:focus-visible,
 .currentBall button:focus-visible {
   position: relative;

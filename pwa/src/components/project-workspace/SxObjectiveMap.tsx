@@ -341,6 +341,8 @@ export function SxObjectiveMap({
   onOpenTask,
   onOpenPartners,
   onCreateTask,
+  onCreateOutcome,
+  onEditOutcome,
   onMoveTask,
 }: {
   management: SxManagementBundle;
@@ -349,6 +351,10 @@ export function SxObjectiveMap({
   onOpenTask?: (task: SxTask) => void;
   onOpenPartners?: (track: SxTrackKey) => void;
   onCreateTask?: (outcome: SxOutcome, parentTask?: SxTask) => void;
+  /** 業務ライン (= 成立条件) の追加・編集。目的の下に横並びで増える単位なので、
+   * DBへ直接入れなくても画面から立てられるようにする。 */
+  onCreateOutcome?: () => void;
+  onEditOutcome?: (outcome: SxOutcome) => void;
   onMoveTask?: (
     task: SxTask,
     parentTaskId: string | null,
@@ -536,8 +542,15 @@ export function SxObjectiveMap({
       <div className={styles.empty}>
         <strong>{trackLabel ? `${trackLabel}の目的構造` : "目的構造"}</strong>
         <span>
-          目的と成立条件がまだ登録されていないよ。ガントの工程はそのまま見られる。
+          {management.objective
+            ? "最上位の目的はあるけど、その下の業務ラインがまだ無いよ。"
+            : "目的と成立条件がまだ登録されていないよ。ガントの工程はそのまま見られる。"}
         </span>
+        {canManage && management.objective && onCreateOutcome && (
+          <button type="button" onClick={onCreateOutcome}>
+            ＋ 業務ラインを追加
+          </button>
+        )}
       </div>
     );
   }
@@ -586,6 +599,19 @@ export function SxObjectiveMap({
                   </li>
                 );
               })}
+              {canManage && onCreateOutcome && (
+                <li>
+                  <button
+                    type="button"
+                    className={styles.outcomeAddNode}
+                    onClick={onCreateOutcome}
+                  >
+                    <span>成立条件</span>
+                    <strong>＋ 業務ラインを追加</strong>
+                    <p>新しく立ち上がった業務を、この目的の下に1本足す</p>
+                  </button>
+                </li>
+              )}
             </ul>
           </li>
         </ul>
@@ -606,6 +632,14 @@ export function SxObjectiveMap({
                 上から下へ流れをたどる
                 {canManage && " · カードを別カードへドラッグして接続変更"}
               </p>
+              {canManage && onEditOutcome && (
+                <button
+                  type="button"
+                  onClick={() => onEditOutcome(selectedTree.outcome)}
+                >
+                  このラインを編集
+                </button>
+              )}
               {canManage && (
                 <button
                   type="button"

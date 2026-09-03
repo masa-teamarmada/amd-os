@@ -36,6 +36,7 @@ import type {
   SxManagementIssue,
   SxManagementMilestone,
   SxManagementPartner,
+  SxOutcome,
   SxPartnerCommitment,
   SxPartnerInteraction,
   SxPartnerRole,
@@ -167,6 +168,13 @@ export type EditorState =
       decision: SxDecisionRecord;
       action: SxActionItem;
     }
+  /** 成立条件 (= 目的構造で横に並ぶ業務ライン) の追加・編集。目的構造タブから開く。
+   * 追加時は slug/track/objective_id をフォームに出さず、保存時に補う (create_milestone
+   * と同じ流儀)。作成後、その直下にタスクを置くための phase MS を続けて1件作る —
+   * milestone を持たないタスクは track 一致で拾われるので、同じ柱に業務ラインが2本
+   * 以上あると全部の枝に同じタスクが出てしまう。 */
+  | { kind: "create_outcome" }
+  | { kind: "edit_outcome"; outcome: SxOutcome }
   | {
       kind: "create_milestone";
       track: SxTrackKey | null;
@@ -589,6 +597,22 @@ function editorInitialValues(
   management: SxManagementBundle,
 ): Record<string, string> {
   const asOf = management.asOf;
+  if (editor.kind === "create_outcome")
+    return {
+      title: "",
+      definition_of_done: "",
+      owner_label: access.displayName,
+      track: management.tracks[0]?.key || "",
+      confidence: "unknown",
+    };
+  if (editor.kind === "edit_outcome")
+    return {
+      title: editor.outcome.title,
+      definition_of_done: editor.outcome.definitionOfDone,
+      owner_label: editor.outcome.ownerLabel,
+      status: editor.outcome.status,
+      confidence: editor.outcome.confidence,
+    };
   if (editor.kind === "create_milestone") {
     // A new MS is always a point. The legacy phase creation branch intentionally has no UI
     // path: people place task and MS records only.
@@ -1025,6 +1049,71 @@ function editorDefinition(
     },
     confidence,
   ];
+  if (editor.kind === "create_outcome" || editor.kind === "edit_outcome") {
+    // 柱が1本しかないPJでは選ばせない。保存時に management.tracks[0] を補う。
+    const trackField: FormField[] =
+      editor.kind === "create_outcome" && management.tracks.length > 1
+        ? [
+            {
+              key: "track",
+              label: "柱",
+              type: "select",
+              required: true,
+              options: management.tracks.map((track) => ({
+                value: track.key,
+                label: track.label,
+              })),
+            },
+          ]
+        : [];
+    return {
+      title:
+        editor.kind === "create_outcome"
+          ? "業務ラインを追加"
+          : "業務ラインを編集",
+      eyebrow: "成立条件",
+      resource: "outcome",
+      method: editor.kind === "create_outcome" ? "POST" : "PATCH",
+      id: editor.kind === "edit_outcome" ? editor.outcome.id : undefined,
+      fields: [
+        {
+          key: "title",
+          label: "業務ライン名",
+          type: "textarea",
+          required: true,
+          span: true,
+          help: "目的の下に横並びで出る単位。例: AMD HoldCo設立 / 決算対応。",
+        },
+        {
+          key: "definition_of_done",
+          label: "完了条件",
+          type: "textarea",
+          required: true,
+          span: true,
+          help: "何がそろえばこのラインが終わったと言えるか。分からない部分は「未確認」と書いて、埋まった時点で直してね。",
+        },
+        ...trackField,
+        { key: "owner_label", label: "担当", required: true },
+        ...(editor.kind === "edit_outcome"
+          ? [
+              {
+                key: "status",
+                label: "状態",
+                type: "select",
+                required: true,
+                options: [
+                  { value: "unassessed", label: "進捗未登録" },
+                  { value: "active", label: "進行中" },
+                  { value: "on_hold", label: "一旦停止" },
+                  { value: "completed", label: "完了" },
+                ],
+              } satisfies FormField,
+            ]
+          : []),
+        confidence,
+      ],
+    };
+  }
   if (editor.kind === "create_milestone") {
     // 運用テーマハブ発の作成は、常にそのテーマ(=1本のtrack)だけへ置く — 複数グループに
     // またがるMSを選べる複数選択UI(lanesのcheckbox群)は、ここでは実態と合わない選択肢を
@@ -2592,6 +2681,12 @@ function IssueEditor({
         return;
       }
     }
+    if (editor.kind === "create_outcome" && !management.objective) {
+      setError(
+        "先に最上位の目的を登録してね。業務ラインは目的の下にぶら下がるよ",
+      );
+      return;
+    }
     setSaving(true);
     const isPatch = definition.method === "PATCH";
     const fieldsToSubmit = fieldKeySet
@@ -2641,6 +2736,13 @@ function IssueEditor({
       // happens to work the same as an empty string today.
       fields.milestone_id = selectedTaskMilestone?.id ?? null;
       if (!values.parent_task_id) fields.parent_task_id = null;
+    }
+    if (editor.kind === "create_outcome") {
+      // 業務ラインは最上位の目的の直下にしか置けない (DBのobjective_idは必須)。
+      fields.objective_id = management.objective?.id || "";
+      fields.track =
+        String(fields.track || "").trim() || management.tracks[0]?.key || "";
+      fields.slug = `outcome-${Date.now().toString(36)}`;
     }
     if (editor.kind === "create_milestone") {
       fields.objective_id = management.objective?.id || "";
@@ -2893,6 +2995,55 @@ function IssueEditor({
         throw new Error(
           typeof body.error === "string" ? body.error : "保存できなかったよ",
         );
+      if (editor.kind === "create_outcome" && typeof body.id === "string" && body.id) {
+        // タスクを置くための入れ物 (phase MS)。画面には出さない。これが無いと、この
+        // ラインへ足したタスクは milestone を持たない扱いになり、同じ柱の他ラインの
+        // 枝にも同じタスクが出てしまう (SxObjectiveMap は track 一致で拾うため)。
+        const phaseResponse = await fetch(
+          `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              resource: "milestone",
+              fields: {
+                objective_id: management.objective?.id || "",
+                outcome_id: body.id,
+                slug: `${String(fields.slug || "outcome")}-phase`,
+                track: fields.track,
+                title: String(fields.title || ""),
+                timeline_kind: "phase",
+                gate: "未設定",
+                date_certainty: "provisional",
+                owner_label: String(fields.owner_label || "担当未確認"),
+                next_deliverable: "未確認",
+                max_issue: "未確認",
+                completion_criteria: String(fields.definition_of_done || "未確認"),
+                criticality: "high",
+                baseline_plan_version: "amd-operations-20260903",
+                confidence: String(fields.confidence || "unknown"),
+              },
+            }),
+          },
+        );
+        const phaseBody = await phaseResponse.json().catch(() => ({}));
+        if (!phaseResponse.ok) {
+          // ラインの行そのものは保存済み。ここで失敗を黙って飲み込むと、タスクを足した
+          // ときに初めて別ラインへ混ざる形で気づくことになる。
+          onSaved(
+            (phaseBody.bundle as SxManagementBundle) ||
+              (body.bundle as SxManagementBundle),
+            "業務ラインは保存したけど、タスクを置く入れ物を作れなかったよ。もう一度開いて保存し直してね",
+          );
+          return;
+        }
+        onSaved(
+          (phaseBody.bundle as SxManagementBundle) ||
+            (body.bundle as SxManagementBundle),
+          "業務ラインを追加したよ",
+        );
+        return;
+      }
       onSaved(
         body.bundle as SxManagementBundle,
         `${definition.title}を保存したよ`,
@@ -5967,10 +6118,21 @@ export function SxWeeklyControlDashboard({
                 setEditor({
                   kind: "create_task",
                   laneKey: laneFold.laneKeyForTrack(outcome.track),
-                  ...(parentTask ? { parentTaskId: parentTask.id, milestoneId: parentTask.milestoneId } : {}),
+                  ...(parentTask
+                    ? { parentTaskId: parentTask.id, milestoneId: parentTask.milestoneId }
+                    : {
+                        // このラインの入れ物へ入れる。柱に業務ラインが2本以上あるとき、
+                        // milestoneを持たないタスクは全部の枝に出てしまうため。
+                        milestoneId:
+                          management.milestones.find(
+                            (milestone) => milestone.outcomeId === outcome.id,
+                          )?.id ?? null,
+                      }),
                   allowStandalone: true,
                 })
               }
+              onCreateOutcome={() => setEditor({ kind: "create_outcome" })}
+              onEditOutcome={(outcome) => setEditor({ kind: "edit_outcome", outcome })}
               onMoveTask={moveObjectiveTask}
               onOpenPartners={(track) => {
                 setPartnerTrackFilter(track);

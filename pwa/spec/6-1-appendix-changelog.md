@@ -1,5 +1,7 @@
 # 附則（設計書変更履歴）
 
+| 2026-09-03 JST | 3-16 / FEATURE_REGISTRY | AMD社内業務の目的構造 | build v3.100.20。p00へ`amd_operations`柱、最上位目的`AMDの経営基盤を整える`、`AMD HoldCo設立`／`決算対応`の2ラインをseedし、目的構造の`＋ 業務ラインを追加`／`このラインを編集`で`project_management_outcomes`を作成・更新できるようにした。outcome作成時に同じラインのphase MSを続けて1件作り、目的構造からのタスク追加もそのphase MSへ入れる。法定期限そのものは`/admin/schedule`が正本のまま。migration `20260903120600_amd_operations_objective_structure.sql` | HoldCo設立や決算対応のような社内業務PJを支援先PJと同じ画面で追えるようにし、新しいラインが立ち上がるたびにmigrationを書かずに済ませるため | まさ・えいみ |
+
 | 2026-09-02 JST | 3-3 Meeting Flow / W-Prep | 自動準備へ訂正 | W-Prep起動時点で、読取り・7ソース照合・準備状態保存・当日AI Meeting Notesへのappend-only context・opening prep brief表示を追加承認なしで完遂する。共有Drive資料、通常Notion編集、Calendar変更、Gmail/Slack送信は従来どおり明示指示が必要。自動審査が却下した時だけ理由を残し、別経路の承認要求や連打はしない | 会議ごとのvisible taskが読取りの承認待ちで止まり、準備が数分単位で滞留していたため | まさ・えいみ |
 
 | 2026-09-01 JST | 3-8 PJ Cockpit / DESIGN | 親グループの子一覧フロートと目的構造分離 | build v3.100.16。fine pointerのhoverまたはkeyboard focusで複数子を持つ親グループの子一覧をフロート表示する。タッチ端末の常時子列は維持。`objective-structure`を進捗管理の独立URLタブにし、埋め込み`SxWeeklyControlDashboard`へ表示モードを固定して、ガント内の切替を隠す | 親選択後に子タブを再選択する二段階操作をなくし、計画の二つの見方を同じタブに重ねないため | まさ・えいみ |

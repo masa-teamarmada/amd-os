@@ -50,6 +50,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - テーマ画面からのMTG新規作成と編集は`src/lib/theme-hub-rollout.ts`の共有定数でAPIとUI双方から停止する。既存の匿名読取ポリシーについて、まさの明示承認、修正、権限別検証が完了するまで解除しない。既存MTGの閲覧とテーマへの紐付けは利用できる。コックピットMTGカードとホームへの遷移はportfolio/adminだけに出す。外部アカウントとPJ限定memberへ権限外の導線を出さない。
 - テーマ平均は出さず、各成果目標の`routine_auto`は予定進行、PM lockedだけ確定進捗として区別する。実コンポーネントの模擬201/503応答とDB ROLLBACK試験は確認済み。認証付き本番E2E保存は未検証。
 - テーマの4テーマ作業画面はPJワークスペースへ集約する。コックピットにはテーマタブや`?tab=themes`導線を戻さず、`project_management_*`正本・目的構造・関係先接点の実装はワークスペース側で維持する。回帰防止は`test:zmp-workspace-themes`（2026-09-01）。
+- AMD本体（`p00`）の社内業務は同じ目的構造（`project_management_objectives / outcomes / milestones / tasks`）で追う。p00専用の別テーブル・別画面を作らない。柱は`amd_operations`1本、業務ライン=outcome。管理権限者は目的構造の`＋ 業務ラインを追加`／`このラインを編集`でoutcomeを作成・更新でき、作成時に同じラインのphase MSを1件続けて作る（milestoneを持たないタスクはtrack一致で拾われ、同じ柱の全ラインへ同じタスクが出るため）。決算・税務・社会保険・定時株主総会の法定期限そのものは`/admin/schedule`が正本で、目的構造へ複製しない。seedはmigration `20260903120600_amd_operations_objective_structure.sql`（2026-09-03）。
 - pHydrogenとの予定は関係先の`次回面談`、実施後の相手別時系列と接点後ボールは`やり取り履歴`、会議全体の議事・判断・アクションはコックピットMTGカードを正本にする。目的構造は関係先履歴を読む派生面で本文を複製せず、現時点でMTGカードから関係先履歴への自動同期は行わない。通常ワークスペースはsky/white/slateを主色とし、emeraldは完了・充足だけに限定する。`test:ui-design-code`を`test:critical-ui`へ接続し、退役済みteal主色と役割不明のgreenトークンの復活を止める（2026-09-01）。
 
 ## /portfolio-preview — 研究ポートフォリオ構造プレビュー (2026-08-02 /dashboard へ統合済み・退役)
