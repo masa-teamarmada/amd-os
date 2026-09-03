@@ -75,3 +75,23 @@ CREATE TRIGGER meeting_minutes_backfill_ledger_touch
 ALTER TABLE public.meeting_minutes_backfill_ledger ENABLE ROW LEVEL SECURITY;
 
 COMMIT;
+
+-- RLS policy。`l2_coverage_gaps` と同じ形。admin画面は user-scoped client で読むため、
+-- policy が無いと RLS 有効化だけでは常に0件になる。
+BEGIN;
+
+DROP POLICY IF EXISTS meeting_minutes_backfill_ledger_admin ON public.meeting_minutes_backfill_ledger;
+CREATE POLICY meeting_minutes_backfill_ledger_admin
+  ON public.meeting_minutes_backfill_ledger
+  FOR ALL TO authenticated
+  USING (is_admin())
+  WITH CHECK (is_admin());
+
+DROP POLICY IF EXISTS meeting_minutes_backfill_ledger_service ON public.meeting_minutes_backfill_ledger;
+CREATE POLICY meeting_minutes_backfill_ledger_service
+  ON public.meeting_minutes_backfill_ledger
+  FOR ALL TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+COMMIT;

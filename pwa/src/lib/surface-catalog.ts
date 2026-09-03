@@ -99,6 +99,7 @@ export const SURFACE_CATALOG: readonly SurfaceDefinition[] = [
   { id: "admin-weekly", title: "週次活動", navLabel: "週次活動", primaryPath: "/admin/weekly", domain: "project_execution", lens: "amd_operations", status: "projection", exact: ["/admin/weekly"] },
   { id: "admin-protocols", title: "AMD Protocol", navLabel: "AMD Protocol", primaryPath: "/admin/protocols", domain: "decision_review", lens: "amd_operations", status: "canonical", exact: ["/admin/protocols"] },
   { id: "admin-ms-overview", title: "MS一覧", navLabel: "MS一覧", primaryPath: "/admin/ms-overview", domain: "project_execution", lens: "amd_operations", status: "projection", exact: ["/admin/ms-overview"] },
+  { id: "admin-meeting-gaps", title: "議事録の抜け", navLabel: "議事録の抜け", primaryPath: "/admin/meeting-gaps", domain: "project_execution", lens: "amd_operations", status: "canonical", exact: ["/admin/meeting-gaps"] },
   { id: "admin-coverage", title: "Coverage Scanner", navLabel: "未充足データ", primaryPath: "/admin/coverage-gaps", domain: "project_execution", lens: "amd_operations", status: "projection", exact: ["/admin/coverage-gaps"] },
   { id: "admin-ip", title: "知財・IP", navLabel: "知財・IP", primaryPath: "/admin/ip", domain: "project_execution", lens: "amd_operations", status: "canonical", exact: ["/admin/ip"] },
   { id: "admin-japanese-culture", title: "日本文化マップ", navLabel: "日本文化", primaryPath: "/admin/japanese-culture-map", domain: "knowledge_documents", lens: "amd_operations", status: "canonical", exact: ["/admin/japanese-culture-map"] },
@@ -119,7 +120,7 @@ export const ADMIN_SURFACE_GROUPS = [
   { label: "カレンダー", surfaceIds: ["admin-schedule"] },
   { label: "組織・権限", surfaceIds: ["admin-projects", "admin-members", "admin-access", "admin-company", "admin-governance"] },
   { label: "契約・お金", surfaceIds: ["admin-contracts", "admin-kiyo", "admin-invoices", "admin-payouts", "admin-monthly-agreements", "admin-season-pl", "admin-finance", "admin-project-profitability"] },
-  { label: "PJ・実行", surfaceIds: ["management-score", "admin-weekly", "admin-protocols", "admin-ms-overview", "admin-coverage", "admin-ip"] },
+  { label: "PJ・実行", surfaceIds: ["management-score", "admin-weekly", "admin-protocols", "admin-ms-overview", "admin-meeting-gaps", "admin-coverage", "admin-ip"] },
   { label: "知識・AI", surfaceIds: ["admin-japanese-culture", "admin-contexts", "admin-management-knowledge", "admin-private-wiki", "admin-tsukuyomi", "admin-prompts"] },
   { label: "運用", surfaceIds: ["admin-settings"] },
 ] as const;
