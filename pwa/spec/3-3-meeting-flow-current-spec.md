@@ -113,6 +113,68 @@ Notion connector の `oauth_token_invalid_grant` / `TRIGGER_REAUTHENTICATION` �
 
 過去 run で `source_kinds='none'` / `summary_short='議事録なし'` になった開催済みMTGは、次回以降 24 時間は自動再探索する。通常の終了60-180分 window から外れていても、`meeting_start_at` / `calendar_event_id` / `title` から event payload を再構成し、Local Notion fallback、Gmail、Drive、Slack、Calendar を再評価する。本文が取れた場合は同じ `meeting_id` を source 付きに更新し、本文が取れない場合だけ `none` を維持する。
 
+## 議事録の欠損台帳と拾い直し (2026-09-03)
+
+開催済み議事録の writer は H-1 だけで、抽出窓は「イベント終了の60分後から180分後」の2時間しかない。**この窓の中で run が走ったときにしか確定版は作られない。** 窓を外した会議は、上の recent none recovery でも拾えない。recovery は「直近24時間」かつ「`source_kinds='none'` / `summary_short='議事録なし'` の既存行がある」ものだけが対象で、行が1行も作られなかった会議は対象に入らないためである。
+
+実際に3つ重なって落ちた事例がある。
+
+| 日付 | 何が起きたか |
+|---|---|
+| 2026-08-19 14:31 | migration `292_sps_reassessment_review_flow.sql` が `project_meeting_summaries` に SPS の source-event trigger を付けた。この trigger は `digest()` を呼ぶが、関数の `search_path` に `extensions` が無く、**以後すべての insert が失敗した** |
+| 2026-08-19 16:00 | SX定例MTG。議事録本文は取れて品質gateも通ったのに保存できず、行が1行も残らなかった |
+| 2026-08-19 〜 08-23 | 全PJで確定版が0件。H-1 は「保存先エラー、次回runで再試行する」と report に書いたが、**その report は次の run の入力ではないので再試行は起きなかった** |
+| 2026-08-23 17:20 | migration `319_sps_reassessment_pgcrypto_resolution.sql` が `search_path` を直した。障害自体はここで解消 |
+
+弱点は「失敗の記録が残らないこと」ではなく「失敗の記録が次の実行に渡らないこと」だった。
+
+### 台帳 `meeting_minutes_backfill_ledger`
+
+欠損を**期限なく**保持する。`calendar_event_id` が主キー。
+
+| status | 意味 | 次にどうなるか |
+|---|---|---|
+| `pending` | 確定版が無い | 毎 run 再試行の候補になる |
+| `recovered` | 確定版ができた | 追跡を終える |
+| `no_material` | 元データが無いと確認済み | 再試行しない |
+| `abandoned` | `max_attempts` (既定5) まで試して取れなかった | 再試行を止め、まさの画面に出す |
+| `ignored` | まさが対象外と判断した (視察、懇親会など) | 再試行しない |
+
+### 台帳は観測事実で書き直す
+
+`h1_background_candidate_gate.mjs` が毎 run 照合する。**writer の自己申告を入力にしない。** 今回の穴が「保存に失敗したと報告が出ているのに次の実行へ渡らない」ことだったため、報告を信じる作りにしない。
+
+1. 予定カード行 (`upcoming:`) のうち開始から60分以上経ったものに、確定版が無ければ `pending` として記録する。
+2. 確定版ができていれば `recovered` にする。手動で埋めた場合も同じ判定で閉じる。
+3. **前回 run で候補として出した (`last_emitted_at`) のに、まだ確定版が無い**なら、試行が1回消化されたと数えて `attempt_count` を増やす。
+4. `attempt_count >= max_attempts` で `abandoned` にする。
+5. `pending` を試行回数の少ない順、同数なら新しい会議順で、1 run あたり最大3件だけ候補 (`candidates.backlog`) として出す。元データは古くなるほど失われるため新しい方を優先する。
+
+検出は **DB の予定カード行だけを見る**。PWA も gate も Google Calendar を直接読めない (`/api/meeting-prep/calendar-sync` は automation が POST body で渡した events を受け取るだけ) ため、Calendar 認証が切れていても台帳レーンは動く。実際にこの Mac では Calendar を直接読めず既存3レーンは常に0件になるが、台帳レーンは候補を出せる。
+
+同じ会議が別の Calendar id で複数の予定カードを持つことがある (LiSTie経営会議が id 違いで3枚あった)。確定版の照合は event id だけでなく `(project_id, meeting_start_at)` でも引くので、1つ埋まれば重複分も閉じる。
+
+### 後から埋める正規手順
+
+`POST /api/meeting-summary/backfill`。既存の2経路では埋められない (`manual-update` は行が無いと404、`narrate` は予定カード行を除外する) ため、これが唯一の正規手順である。
+
+- 予定カード行は消さない。確定版を `meeting_id = <calendar_event_id>` の別行として作る。
+- 議事録本文は Phase D-1 と同じ品質gateを通す (`src/lib/meeting/narrative-gate.ts`)。見出し5つの固定順、最低500字、背景と経緯は段落、後半3節は `- ` 始まり。**手動 backfill を抜け道にしない。**
+- `dry_run` 既定 `true`。書くのは `"dry_run": false` を明示したときだけ。既存の確定版があるときは `overwrite: true` が要る。
+- 埋めたら台帳を `recovered` にする。
+- CLI は `npm run meeting:backfill-minutes -- --file <minutes.json> --apply`。`--list` で台帳の未処理を一覧する。
+
+### 画面と検査
+
+| 用途 | 場所 |
+|---|---|
+| まさが欠損を見る | `/admin/meeting-gaps` (admin左メニュー「PJ・実行」)。諦めたものは赤。添付が1件も無い開催済みMTGも同じ画面 |
+| 全PJ・全期間の棚卸し | `npm run meeting:audit-missing-minutes -- --since 2026-05-01`。読み取りのみ |
+| 実データの検査 | `npm run check:meeting-minutes-coverage`。`abandoned` があるか、`pending` のまま14日を超えたら落ちる |
+| 仕組みの回帰検査 | `npm run test:meeting-backfill-ledger` / `npm run test:meeting-narrative-gate`。deploy.sh が本番反映前に実行する |
+
+運用検査を deploy gate に入れない。入れると「会議の議事録が無い」という運用の話でコードの deploy が止まる。deploy gate に置くのは仕組みの回帰検査だけにする。
+
 ## Notion minutes metadata backfill
 
 H-1 が該当 Notion 議事録ページを特定できた場合、本文取得とは別にページプロパティを補完する。対象は `eventId`、`PJ` relation、member relation (`NOTION_MINUTES_MEMBER_PROP`。現行DBでは `メンバー` / `参加メンバー` 相当)。
@@ -194,6 +256,9 @@ PJフォルダ直下の `YYMMDD_件名` は、MTG資料置き場と成果物置�
 - freebusy を見ずに重複枠を作らない (= MTG カード → Calendar 一次防御 / tasks→Calendar 枠側の制約)。**Phase P の prep 枠は freebusy 不在時の F2 deterministic fallback で作ってよい** (= 2026-06-24 まさ確定、Phase P 節 + SKILL Phase P-2 A 参照)。
 - 前提データが足りない資料を強引に生成しない。
 - 旧 GAS 153 / 074 を定期 writer として復活させない。
+- 議事録の欠損を「抽出窓を外したから仕方ない」で終わらせない。窓を外した会議は台帳に残り、拾い直しの対象になる。
+- 欠損台帳の試行回数を、writer の自己申告で増やさない。確定版があるかどうかの観測だけで数える。
+- 後から議事録を埋めるとき、`summary_short` と配列だけで `project_meeting_summaries` へ直書きしない。`POST /api/meeting-summary/backfill` を通し、自動抽出と同じ品質gateを通す。
 
 ## 旧 H-1 MTG Prep セッション自動立ち上げ (移行履歴)
 

@@ -14,8 +14,9 @@ H-1は「毎時すべての知識を読み直す」仕事ではない。開始�
 1. 終了60-180分前の確定Calendar MTG
 2. 直近24時間の `none` / `議事録なし` recovery row
 3. 現在前後24時間のうち、newまたはCalendar metadataが変化した確定upcoming card
+4. 議事録欠損台帳 (`candidates.backlog`) が出した、抽出窓を外した会議の拾い直し
 
-3種類がすべて0件なら、H-1は対象なしのsanitized report・automation memoryだけを確定して終了する。**対象なし・変更なしではOS通知を作らない。** Notion / Gmail / Drive / Slackの本文取得、Drive folder探索、広い正本読込、git status、fixture test、browser、prep thread操作を実行してはいけない。通常3分以内に終える。
+4種類がすべて0件なら、H-1は対象なしのsanitized report・automation memoryだけを確定して終了する。**対象なし・変更なしではOS通知を作らない。** Notion / Gmail / Drive / Slackの本文取得、Drive folder探索、広い正本読込、git status、fixture test、browser、prep thread操作を実行してはいけない。通常3分以内に終える。
 
 候補が1件でもある時だけ、後続の正本とその候補に必要なsourceを読む。開催済みMTGは5 source確認を省略しないが、関係のないPJ・期間・sourceを探索しない。通常は対象1件あたり12分以内を目安とし、取得不能なsourceは `review_required` と不足理由を残して次の対象へ進む。これは対象件数の上限ではなく、待機・無制限retry・無関係探索を禁止する時間設計である。
 
@@ -41,6 +42,7 @@ H-1は「毎時すべての知識を読み直す」仕事ではない。開始�
 - **eventId 欠損で弾かない**: Notion page に `eventId` が無いのは欠落インシデントとして記録しつつ、必ず title + event date + attendees + Gemini/Drive/Gmail URL で fallback 検索する。`eventId` が無いことだけを理由に `source_kinds='none'` や `skip_no_notion_event_id` にしない。
 - **Notion 再認証待ち禁止**: Notion connector が `UNAUTHORIZED oauth_token_invalid_grant` / `TRIGGER_REAUTHENTICATION` を返しても、H-1 は止まらない。Chrome / local fallback と Gmail / Drive / Slack / Calendar / AMD OS artifact を同一ターンで読み、十分な会議本文があれば Notion なしで開催済み row を作る。詳細は `pwa/design/h1_source_auth_fallback.md`。
 - **Local Notion 自動 fallback**: Notion connector auth failure 時は、手動でDBを直さず、必ず `npm run h1:local-notion-fallback -- --title "<event title>" --date "<YYYY-MM-DD>" --event-id "<calendar_event_id>"` を実行する。hit したら `source_kind='notion-local'` の Notion source として扱い、`notion_page_id` / `notion_url` / `source_hash` を使って通常の H-1 narrative 抽出に進む。
+- **欠損台帳の拾い直し**: gate の `candidates.backlog` は、抽出窓を外したまま議事録が作られなかった会議である。24時間の壁は無く、確定版の行が1行も無い会議も入る。通常の開催済みMTGと同じ5 source確認・同じ品質gateで処理する。本文が取れなければ `source_kinds='none'` のマーカー行を作らず、**何も保存せずに次へ進む**。台帳側は次の run が「候補として出したのにまだ確定版が無い」ことを観測して試行回数を増やすので、こちらから台帳を更新しない。`attempt_count` が上限に達した会議は gate が候補から外す。
 - **直近 none row recovery**: H-1 が過去 run で `source_kinds='none'` / `summary_short='議事録なし'` を入れた開催済みMTGは、次回以降 24 時間は再探索対象に戻す。対象時間窓外でも、Calendar event id / title / meeting_start_at が残っていれば Local Notion fallback と Gmail / Drive / Slack / Calendar を再実行し、本文が取れたら `none` を `notion-local+calendar` 等へ更新する。
 - **held-source preflight guard**: Calendar event に Gemini/Google Meet notes Doc 添付、Notion fallback hit、Gmail Gemini notes / follow-up がある場合は、既存 `upcoming:<event_id>` があっても開催済み `meeting_id=<event_id>` 候補へ進む。fixture guard は `npm run test:l6-held-source-guard`。これは外部サービスや DB に触らない deterministic test で、飯野さんケース相当 (`Calendar添付Geminiメモ + Notion eventId空 + report_emails空`) を落とさないことを検査する。
 
