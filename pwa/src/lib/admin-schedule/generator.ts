@@ -470,6 +470,7 @@ function generatePaymentObligations(obligations: RawRow[]): GeneratedOccurrence[
         autoDebit: row.auto_debit ?? null,
         paidAt: row.paid_at || null,
         paidAmountYen: row.paid_amount_yen ?? null,
+        obligationSourceKey: text(row.source_key),
         penaltyEstimate: record(row.payload).penaltyEstimate ?? null,
         penaltyForSourceKey: record(row.payload).penaltyForSourceKey ?? null,
       },

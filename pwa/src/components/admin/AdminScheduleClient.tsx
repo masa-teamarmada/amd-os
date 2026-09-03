@@ -125,6 +125,13 @@ function OverdueStatutoryAlert({ items, today }: { items: ScheduleViewOccurrence
     .filter((item) => isStatutoryPaymentOccurrence(item) && item.computed_status === "overdue")
     .sort((a, b) => (a.due_on ?? "").localeCompare(b.due_on ?? ""));
   if (overdue.length === 0) return null;
+  // 届いた賦課決定通知を、元の未納の隣に置く。見込みより実額のほうが強い根拠になる。
+  const noticesByParent = new Map<string, ScheduleViewOccurrence[]>();
+  for (const item of items) {
+    const parent = item.metadata_json?.penaltyForSourceKey;
+    if (typeof parent !== "string" || !parent) continue;
+    noticesByParent.set(parent, [...(noticesByParent.get(parent) ?? []), item]);
+  }
   const principalYen = overdue.reduce((sum, item) => sum + (item.amount_yen ?? 0), 0);
   const penaltyYen = overdue.reduce((sum, item) => sum + (penaltyEstimateOf(item)?.totalYen ?? 0), 0);
   const unknownAmountCount = overdue.filter((item) => item.amount_status === "unknown").length;
@@ -145,11 +152,18 @@ function OverdueStatutoryAlert({ items, today }: { items: ScheduleViewOccurrence
         {overdue.map((item) => {
           const penalty = penaltyEstimateOf(item);
           const days = penalty?.overdueDays ?? overdueDaysOf(item, today);
+          const sourceKey = item.metadata_json?.obligationSourceKey;
+          const notices = typeof sourceKey === "string" ? noticesByParent.get(sourceKey) ?? [] : [];
           return (
             <li key={item.occurrence_id} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 py-2 text-sm">
               <span className="font-semibold">{item.title}</span>
               <span className="text-xs">{dateLabel(item)}{days != null && ` · ${days}日超過`}</span>
               <span className="tabular-nums">{formatScheduleYen(item.amount_yen)}</span>
+              {notices.map((notice) => (
+                <span key={notice.occurrence_id} className="text-xs tabular-nums">
+                  通知書が届いている: {notice.title} {formatScheduleYen(notice.amount_yen)} / {dateLabel(notice)}まで
+                </span>
+              ))}
               {penalty && (penalty.totalYen ?? 0) > 0 ? (
                 <span className="text-xs tabular-nums">
                   見込み {formatScheduleYen(penalty.totalYen ?? 0)}
