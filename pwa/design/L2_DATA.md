@@ -17,6 +17,8 @@ L2抽出をClaude定額token/routineへ載せる方針は決定済みだった�
 - **Codex automation**: `~/.codex/automations` とoutbox/applierで回るCodex側automation。Claude routineとは別物。
 - **PWA non-LLM cron**: Vercel/PWA上で動いてよいLLM非依存cron。
 - **PWA/Vercel LLM cron**: Anthropic/Gemini/OpenAI等の従量課金LLMを背景実行するcron。L2抽出用途では禁止/停止。
+  - 機械の防波堤 (2026-09-04、まさ確定「認めていない従量課金が絶対起きないように」): `pwa/scripts/check_llm_spend_gate_contract.mjs` (`npm run test:llm-spend-gate`) を `deploy.sh` が本番反映前に必ず走らせる。`src/app/api/cron/**` で従量課金LLMに触れるファイルは `getBackgroundAnthropic()` / `isBackgroundLlmAllowed()` の封鎖ゲートを通していなければ反映できない。cron 以外の直接利用は `pwa/scripts/llm_spend_gate_baseline.json` に載っている既存分 (2026-09-04 時点 21 件、人の操作起点) だけ許し、新規はまさの承認と理由の記載なしに増やせない。封鎖の解除スイッチは Vercel 環境変数 `ALLOW_PWA_LLM_CRONS=1` だけで、2026-09-04 時点で未設定。
+  - 7/1 の封鎖は Anthropic だけに効いていて Gemini を直接呼ぶ cron (`venture-narrative-refresh` / `venture-xrl-refresh`) には効いていなかった。2026-09-04 に `isBackgroundLlmAllowed()` で同じ封鎖を掛けた。
 
 ### cadence ベース束ね設計 (2026-06-08 まさ確定、新ナンバリング D / M / W / H)
 
@@ -272,7 +274,7 @@ Codex cron sandbox は外向きネットワークが落ちることがあるた�
 
 | 新 | L2 | 意味 | primary table / source | writer方針 |
 |---|---|---|---|---|
-| **D-8** | D-8 **Atlas Signals** | 外部政策・産業・市場シグナルの観測 | `atlas_signals`、派生 `atlas_stories` / `atlas_reports` | Claude routine `amd-os-l2-consolidated-evidence` 対象 (daily)。`POST /api/atlas/signals-ingest` 経由。派生 stories/reports は別系統 |
+| **D-8** | D-8 **Atlas Signals** | 外部政策・産業・市場シグナルの観測 | `atlas_signals`、派生 `atlas_stories` / `atlas_reports` | 2026-09-04停止中。Codex automation は収集までで、`POST /api/atlas/signals-ingest` 側の auto-tag / attachStory が PWA/Vercel 側 Anthropic に残っていた。分類・紐づけ・保存まで非課金経路へ移植するまで official outbox を作らない |
 | **D-9** | D-9 **Macrotrend Evidence / Index** | macro observation / index / lane weight の根拠 | `observation_log`, `macro_index_log`, 派生 `macro_lane_weights`, `triple_helix_state_log` | routine は外部 observation 収集 (daily)。`macro_index_log` の集計は LLM非依存 → PWA non-LLM cron `macro-aggregate-indicators` |
 | **D-10** | D-10 **Member Activity Evidence** | Dashboard / MyPage「今週やったこと」の根拠。Calendarの開始・終了だけから週次実績時間を作り、all-day と Gmail / Slack / Drive は時間換算しない | `member_activities`, `project_weekly_effort_entries(source_kind='inferred')` | Codex automation `amd-os-l2-2` が primary。PWA route は `GET ?mode=evidence` と `POST activities[]` の evidence/write 境界。Slack は actor ID、Drive は編集者/所有者 email が一致した場合のみメンバー帰属する |
 | **D-11** | D-11 **Media Mentions** | メディア掲載・公開露出 | `project_media_mentions` / `news_mention` notifications | Codex `amd-os-d-11` が `POST /api/media-mentions/extract` へ候補化。承認前は非表示 |
@@ -296,7 +298,7 @@ Codex cron sandbox は外向きネットワークが落ちることがあるた�
 | **Atlas 日次** | `atlas_stories` 等 | `cron/atlas-daily` (06:00 daily) | PWA |
 | **Atlas 週次** | 同上 | `cron/atlas-weekly` (fri 17:00) | PWA |
 | **Atlas 月次** | 同上 | `cron/atlas-monthly` (毎月 1 日 07:00) | PWA |
-| **Atlas マクロ収集** | `atlas_signals`, `macro_index_log` | Codex automation `AMD Atlas外部シグナルレビュー` (08:10 daily)。旧 `cron/atlas-collect` は課金回避のため停止済み | Codex automation + PWA ingest |
+| **Atlas マクロ収集** | `atlas_signals`, `macro_index_log` | 停止中。旧 `cron/atlas-collect` は課金回避で停止済み。Codex automation `AMD Atlas外部シグナルレビュー` も、PWA ingest が従量課金 Anthropic に依存していたため official outbox 作成禁止 | Codex review-only / PWA ingest は要改修 |
 | **Atlas 政策シグナル** | `atlas_policy_signals` | `cron/atlas-collect-policy` (07:00 daily) | PWA |
 | **Atlas divergence** | テーマ単位 | `cron/atlas-divergence` (sun 06:00) | PWA |
 | **macro lane weights 再学習** | macro index 関連 | `cron/relearn-lane-weights` (03:30 daily) | PWA |
@@ -343,7 +345,7 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 | **06:00** | `cron/atlas-daily` | atlas 日次レポート | PWA |
 | **07:00** | `cron/atlas-collect-policy` | 政府方針シグナル | PWA |
 | **08:00** | `cron/atlas-collect` | **停止済み**。旧マクロニュース収集 | PWA |
-| **08:10** | Codex automation `AMD Atlas外部シグナルレビュー` | subscription 枠で外部マクロシグナル収集 → outbox → ローカル非LLM applier → `/api/atlas/signals-ingest` に投入 | Codex automation + PWA |
+| **08:10** | ~~Codex automation `AMD Atlas外部シグナルレビュー`~~ | 停止中。subscription 枠で集めても、受け口 `/api/atlas/signals-ingest` の分類・story紐づけが PWA/Vercel 側 Anthropic に残っていた。official outbox 作成は投入要求なので禁止 | Codex review-only / PWA ingest は要改修 |
 | ~~18:00 daily~~ ⛔ | ~~`cron/member-weekly-activities` legacy GET synthesis~~ | Anthropic 経路を持つため 2026-05-29 に Vercel active cron から退避。2026-07-08 以降の定期D-10は `mode=evidence` → Codex合成 → POST保存で動かす | 旧 PWA |
 | **土 09:00** | `cron/vc-discover` | **停止中**。VC ニュース + 新規 VC 発見 (旧 weekly) | PWA |
 | ~~mon 03:00~~ ⛔ | `cron/amd-score-l2-refresh` | AMD Score / XRL根拠リフレッシュ (M-2)。Sonnet 利用のため schedule 停止中、route は手動検証用に残す | PWA |

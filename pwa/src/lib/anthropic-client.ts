@@ -71,3 +71,16 @@ export function getInteractiveAnthropic(): Anthropic {
   }
   return new Anthropic({ apiKey });
 }
+
+/**
+ * 背景処理 (cron / routine / 背景 lib) が従量課金 LLM 全般 (Anthropic だけでなく Gemini 等も) を
+ * 使ってよいか。ALLOW_PWA_LLM_CRONS=1 が明示されていなければ false (= デフォルト封鎖)。
+ *
+ * 2026-09-04: 7/1 の封鎖は getBackgroundAnthropic() を通る Anthropic だけに効いていて、
+ * Gemini を直接呼ぶ cron には効いていなかった。Gemini 系の背景処理はこの関数で入口を閉じる。
+ * scripts/check_llm_spend_gate_contract.mjs が「cron で従量課金 LLM に触れるのに、
+ * このゲートを通していないファイル」を deploy 前に落とす。
+ */
+export function isBackgroundLlmAllowed(): boolean {
+  return isBackgroundAnthropicAllowed();
+}

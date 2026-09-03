@@ -1,0 +1,26 @@
+{
+  "_note": "従量課金 LLM (Anthropic / Gemini) を封鎖ゲートを通さずに直接呼んでいる既存ファイルの基準線 (2026-09-04)。check_llm_spend_gate_contract.mjs のラチェット用。ここに載っているのは『2026-09-04 時点で既に存在した直接利用』であって、まさが承認済みという意味ではない。増やすときは、まさの承認を得てから reason に『誰の操作で動くか』を書く。cron (src/app/api/cron/**) はこの基準線では免除できない。",
+  "files": [
+    { "file": "src/app/api/activities/infer/route.ts", "provider": "anthropic", "reason": "既存 (2026-09-04 基準線)。活動の推定。画面操作起点と推定、まさ未確認" },
+    { "file": "src/app/api/admin/enrich-vcs/route.ts", "provider": "anthropic", "reason": "既存 (2026-09-04 基準線)。管理画面のVC情報補完ボタン" },
+    { "file": "src/app/api/admin/extract-amd-pj-investments/route.ts", "provider": "anthropic", "reason": "既存 (2026-09-04 基準線)。管理画面の投資情報抽出ボタン" },
+    { "file": "src/app/api/admin/import-contacts-from-sheet/route.ts", "provider": "anthropic", "reason": "既存 (2026-09-04 基準線)。管理画面の連絡先取り込みボタン" },
+    { "file": "src/app/api/admin/pj-introduction-html/route.ts", "provider": "anthropic", "reason": "既存 (2026-09-04 基準線)。PJ紹介HTML生成ボタン" },
+    { "file": "src/app/api/admin/seed-vcs/route.ts", "provider": "anthropic", "reason": "既存 (2026-09-04 基準線)。管理画面のVC初期投入ボタン" },
+    { "file": "src/app/api/dialogue-meeting/narrate/route.ts", "provider": "anthropic", "reason": "既存 (2026-09-04 基準線)。対話MTGの語り生成 (画面操作起点)" },
+    { "file": "src/app/api/founding-members/revise/route.ts", "provider": "anthropic", "reason": "既存 (2026-09-04 基準線)。創業メンバー情報の修正 (画面操作起点と推定、まさ未確認)" },
+    { "file": "src/app/api/manual/tsukuyomi/ask/route.ts", "provider": "gemini", "reason": "既存 (2026-09-04 基準線)。マニュアルのつくよみ質問 (画面操作起点)" },
+    { "file": "src/app/api/meeting-summary/narrate/route.ts", "provider": "anthropic", "reason": "既存 (2026-09-04 基準線)。会議要約の語り生成 (画面操作起点と推定、まさ未確認)" },
+    { "file": "src/app/api/progress/revisions/route.ts", "provider": "anthropic", "reason": "既存 (2026-09-04 基準線)。進捗の修正提案 (画面 / macOS アプリの操作起点)" },
+    { "file": "src/app/api/project-events/parse/route.ts", "provider": "gemini", "reason": "既存 (2026-09-04 基準線)。PJイベントの文章解析 (画面操作起点)" },
+    { "file": "src/app/api/project-ventures/[projectId]/description-merge/route.ts", "provider": "anthropic", "reason": "既存 (2026-09-04 基準線)。PJ説明文の統合 (画面操作起点)" },
+    { "file": "src/app/api/project-ventures/[projectId]/narrative-regen/route.ts", "provider": "gemini+anthropic", "reason": "既存 (2026-09-04 基準線)。沿革の再生成ボタン" },
+    { "file": "src/app/api/project-ventures/[projectId]/pl-hearing/turn/route.ts", "provider": "anthropic", "reason": "既存 (2026-09-04 基準線)。PLヒアリングの対話 (画面操作起点)" },
+    { "file": "src/app/api/project-ventures/[projectId]/xrl-revise/route.ts", "provider": "gemini", "reason": "既存 (2026-09-04 基準線)。XRL の修正提案ボタン" },
+    { "file": "src/app/api/tsukuyomi/chat/route.ts", "provider": "anthropic", "reason": "既存 (2026-09-04 基準線)。つくよみチャット (画面 / macOS アプリの操作起点)。費用は tsukuyomi_usage_log に記録" },
+    { "file": "src/lib/atlas-policy-filter.ts", "provider": "gemini", "reason": "既存 (2026-09-04 基準線)。呼び出し元は封鎖済み cron/atlas-collect-policy だけ" },
+    { "file": "src/lib/atlas-policy-sources.ts", "provider": "gemini", "reason": "既存 (2026-09-04 基準線)。呼び出し元は封鎖済み cron/atlas-collect-policy だけ" },
+    { "file": "src/lib/business-card-ocr.ts", "provider": "gemini", "reason": "既存 (2026-09-04 基準線)。名刺画像の読み取り (アップロード操作起点)" },
+    { "file": "src/lib/narrative-generator.ts", "provider": "gemini", "reason": "既存 (2026-09-04 基準線)。沿革生成の共通部。cron 側の入口は封鎖済み、画面側は narrative-regen ボタン" }
+  ]
+}

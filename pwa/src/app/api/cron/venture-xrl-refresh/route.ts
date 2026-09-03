@@ -15,6 +15,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getPrimaryProjectAlias } from "@/lib/project-labels";
+import { isBackgroundLlmAllowed } from "@/lib/anthropic-client";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -111,6 +112,10 @@ export async function GET(req: Request) {
     if (auth !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
+  }
+  // 背景処理での従量課金 LLM (ここは Gemini) はデフォルト封鎖。7/1 の Anthropic 封鎖と同じ扱い。
+  if (!isBackgroundLlmAllowed()) {
+    return NextResponse.json({ ok: true, disabled: true, reason: "background llm disabled" });
   }
   const geminiKey = process.env.GEMINI_API_KEY;
   if (!geminiKey) return NextResponse.json({ error: "GEMINI_API_KEY not set" }, { status: 500 });

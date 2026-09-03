@@ -103,6 +103,7 @@ fi
 echo "Running critical UI / spec rollback guard ..."
 (cd "$REPO_ROOT/pwa" && npm run test:critical-ui)
 (cd "$REPO_ROOT/pwa" && npm run test:reference-data-cache)
+(cd "$REPO_ROOT/pwa" && npm run test:llm-spend-gate)
 (cd "$REPO_ROOT/pwa" && npm run test:meeting-backfill-ledger)
 (cd "$REPO_ROOT/pwa" && npm run test:meeting-narrative-gate)
 (cd "$REPO_ROOT/pwa" && npm run test:project-profitability)
