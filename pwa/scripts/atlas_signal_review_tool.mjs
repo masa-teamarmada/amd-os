@@ -17,6 +17,11 @@ const DEFAULT_RECENT_URL = "https://amd-os-pwa.vercel.app/api/atlas/recent-title
 const DEFAULT_GET_TIMEOUT_MS = 30000;
 const DEFAULT_POST_TIMEOUT_MS = 300000;
 const TEMPFAIL_EXIT_CODE = 75;
+// 受け口が「封鎖中 (disabled)」を返したら、この時間は outbox を一切送らずに待つ。
+// 2026-09-04: 封鎖中の 62 件を 5 分ごとに全件再送し続け (約 17,000 req/日)、
+// Vercel の Fast Origin Transfer 上限 (10GB/30日) を超えた事故の再発防止。
+const DEFAULT_COOLDOWN_FILE = path.join(DEFAULT_AUTOMATION_DIR, "ingest-cooldown.json");
+const INGEST_DISABLED_COOLDOWN_MS = 6 * 60 * 60 * 1000;
 const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
 const RETRYABLE_ERROR_CODES = new Set([
   "EAI_AGAIN",
@@ -364,7 +369,7 @@ async function applyOutbox(args) {
       action: classified.retryable ? "left in outbox for next LaunchAgent retry" : "inspect helper/API configuration",
     }, null, 2));
     process.exitCode = classified.retryable ? TEMPFAIL_EXIT_CODE : 1;
-    return;
+    return classified.retryable ? "retryable" : "failed";
   }
   if (!result.ok || result.json?.ok === false) {
     if (isRetryableResponse(result)) {
@@ -377,12 +382,12 @@ async function applyOutbox(args) {
         action: "left in outbox for next LaunchAgent retry",
       }, null, 2));
       process.exitCode = TEMPFAIL_EXIT_CODE;
-      return;
+      return "retryable";
     }
     const dest = await moveFile(file, DEFAULT_FAILED_DIR, "failed");
     console.log(JSON.stringify({ ok: false, file, movedTo: dest, result }, null, 2));
     process.exitCode = 1;
-    return;
+    return "failed";
   }
   if (result.json?.disabled === true) {
     console.log(JSON.stringify({
@@ -394,10 +399,37 @@ async function applyOutbox(args) {
       action: "left in outbox until Atlas ingest is enabled",
     }, null, 2));
     process.exitCode = TEMPFAIL_EXIT_CODE;
-    return;
+    return "disabled";
   }
   const dest = await moveFile(file, DEFAULT_APPLIED_DIR, "applied");
   console.log(JSON.stringify({ ok: true, file, movedTo: dest, result }, null, 2));
+  return "ok";
+}
+
+async function readCooldown() {
+  try {
+    const parsed = JSON.parse(await fs.readFile(DEFAULT_COOLDOWN_FILE, "utf8"));
+    const until = Date.parse(parsed?.until || "");
+    if (Number.isFinite(until) && until > Date.now()) {
+      return { until: new Date(until).toISOString(), reason: parsed?.reason };
+    }
+  } catch {
+    // no cooldown
+  }
+  return null;
+}
+
+async function writeCooldown(reason) {
+  const until = new Date(Date.now() + INGEST_DISABLED_COOLDOWN_MS).toISOString();
+  await fs.writeFile(
+    DEFAULT_COOLDOWN_FILE,
+    JSON.stringify({ until, reason, setAt: new Date().toISOString() }, null, 2),
+  );
+  return until;
+}
+
+async function clearCooldown() {
+  await fs.rm(DEFAULT_COOLDOWN_FILE, { force: true });
 }
 
 async function applyOutboxDir(args) {
@@ -407,29 +439,60 @@ async function applyOutboxDir(args) {
     .filter((name) => name.endsWith(".json"))
     .sort()
     .map((name) => path.join(dir, name));
+  const cooldown = files.length > 0 ? await readCooldown() : null;
+  if (cooldown) {
+    console.log(JSON.stringify({
+      ok: false,
+      retryable: true,
+      errorKind: "ingest_cooldown",
+      dir,
+      pending: files.length,
+      until: cooldown.until,
+      reason: cooldown.reason,
+      action: "left files in outbox; no request until cooldown expires",
+    }, null, 2));
+    process.exitCode = TEMPFAIL_EXIT_CODE;
+    return;
+  }
   const results = [];
-  for (const file of files) {
+  let skipped = 0;
+  let cooldownUntil;
+  for (let i = 0; i < files.length; i += 1) {
+    const file = files[i];
     const beforeExitCode = process.exitCode;
     process.exitCode = 0;
-    await applyOutbox({ ...args, file });
+    const outcome = await applyOutbox({ ...args, file });
     const exitCode = process.exitCode || 0;
     results.push({ file, ok: exitCode === 0, retryable: exitCode === TEMPFAIL_EXIT_CODE });
     process.exitCode = beforeExitCode;
+    if (outcome === "ok") {
+      await clearCooldown();
+      continue;
+    }
+    // 受け口が封鎖中・不調なら残りは送らない。同じ応答が返るだけで、1 run で全件を投げ直すと
+    // 5 分ごとの再送嵐になる。封鎖中は cooldown を置き、次の run 以降は期限まで通信しない。
+    if (outcome === "disabled" || outcome === "retryable") {
+      skipped = files.length - i - 1;
+      if (outcome === "disabled") cooldownUntil = await writeCooldown("ingest disabled");
+      break;
+    }
   }
   const failed = results.filter((r) => !r.ok).length;
   const retryable = results.filter((r) => r.retryable).length;
   const permanentFailed = results.filter((r) => !r.ok && !r.retryable).length;
   console.log(JSON.stringify({
-    ok: failed === 0,
+    ok: failed === 0 && skipped === 0,
     processed: results.length,
     failed,
     retryable,
     permanentFailed,
+    skipped,
+    cooldownUntil,
     action: retryable > 0 && permanentFailed === 0 ? "left retryable files in outbox" : undefined,
     results,
   }, null, 2));
   if (permanentFailed > 0) process.exitCode = 1;
-  else if (retryable > 0) process.exitCode = TEMPFAIL_EXIT_CODE;
+  else if (retryable > 0 || skipped > 0) process.exitCode = TEMPFAIL_EXIT_CODE;
 }
 
 const { command, args } = parseArgs(process.argv.slice(2));

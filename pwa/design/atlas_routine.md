@@ -167,6 +167,13 @@ automation は原則:
 - `401/403`, schema 不正, `signals` 空などの恒久エラーだけ `failed/` へ退避する。
 - Codex automation 側で公式 outbox に書けない sandbox の場合は、`/Users/masa/.codex/automations/amd-atlas-2/outbox/` に valid JSON を staging し、公式 outbox へ移せなかったことを結果に明記する。
 
+### 受け口が封鎖中のときの再送抑制 (2026-09-04)
+
+- 背景: 2026-07-01 に PWA の background Anthropic 呼び出しが封鎖され、`/api/atlas/signals-ingest` は `{ ok: true, disabled: true }` を返すようになった。applier は「封鎖解除まで outbox に残す」設計だったため、LaunchAgent (5 分間隔) が溜まった outbox 全件 (最大 62 件、各 ~10KB) を毎回再送し続け、約 17,000 req/日で Vercel Hobby の Fast Origin Transfer (10GB/30 日) と Function Invocations を食い潰した。最後に取り込みが成功したのは 2026-07-08。
+- `apply-outbox-dir` は 1 run の中で `disabled` または retryable (一時ネットワーク断 / 5xx) を 1 件受けたら、残りのファイルは送らずに終了する (`skipped` に件数を出す)。
+- `disabled` を受けた run は `/Users/masa/.codex/automations/amd-atlas/ingest-cooldown.json` に 6 時間の cooldown を書く。cooldown 中の run は通信せず `errorKind: "ingest_cooldown"` で exit `75` を返す。成功した run は cooldown を消す。
+- 事故時に溜まっていた 62 件は `amd-atlas/paused-20260904/` (55 件) と `amd-atlas-2/paused-20260904/` (7 件) に退避してある。取り込みを再開する判断が出たら、この 2 フォルダから `outbox/` へ戻せば順に投入される。
+
 ## Claude Routine 登録手順 (旧案)
 
 [claude.ai](https://claude.ai) > Settings > Routines or Schedule で新規作成。
