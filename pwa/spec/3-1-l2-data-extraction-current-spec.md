@@ -174,6 +174,13 @@ Executable guard: `cd pwa && npm run test:l6-held-source-guard`。fixture は飯
 
 反映はローカルの非LLM LaunchAgent `jp.teamarmada.amd-os-ms-outbox-applier` が行う。成功 file は `applied/`、失敗 file は `failed/` へ移動する。
 
+### D-8 Atlas raw ingest の安全契約 (2026-09-04)
+
+- `signals-ingest` の ACK は認証・validation・dedupeを通過した raw `atlas_signals` insert の後にだけ返す。background LLM、tag/story enrichment はこの同期境界に入れない。
+- raw row は `suggested_tags=[]`、`story_id=null` を許容する。enrichment は raw 保存後の別処理であり、失敗しても raw row の削除や sender の再送を起こさない。
+- `apply-outbox-dir` は retryable 応答（network、408、425、429、5xx）または disabled で最初の1 fileだけを試行し、残りを送らず停止する。cooldown 中は request 0 件。400/401/403 は `failed/` へ隔離する。
+- 2026-09-04 の既存62 fileは `paused-20260904/` で保留し、通常 outbox と同列に自動復帰させない。
+
 ## 採否 / 正本反映
 
 | kind | yes | no |

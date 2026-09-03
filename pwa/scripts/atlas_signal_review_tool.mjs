@@ -2,12 +2,14 @@
 
 import fs from "node:fs/promises";
 import dns from "node:dns";
+import http from "node:http";
 import https from "node:https";
 import path from "node:path";
 import process from "node:process";
 
 const REPO_ROOT = path.resolve(new URL("../..", import.meta.url).pathname);
-const DEFAULT_AUTOMATION_DIR = "/Users/masa/.codex/automations/amd-atlas";
+// テスト時だけ隔離した queue を使えるようにする。本番既定値は変えない。
+const DEFAULT_AUTOMATION_DIR = process.env.ATLAS_AUTOMATION_DIR || "/Users/masa/.codex/automations/amd-atlas";
 const DEFAULT_OUTBOX_DIR = path.join(DEFAULT_AUTOMATION_DIR, "outbox");
 const DEFAULT_APPLIED_DIR = path.join(DEFAULT_AUTOMATION_DIR, "applied");
 const DEFAULT_FAILED_DIR = path.join(DEFAULT_AUTOMATION_DIR, "failed");
@@ -22,6 +24,8 @@ const TEMPFAIL_EXIT_CODE = 75;
 // Vercel の Fast Origin Transfer 上限 (10GB/30日) を超えた事故の再発防止。
 const DEFAULT_COOLDOWN_FILE = path.join(DEFAULT_AUTOMATION_DIR, "ingest-cooldown.json");
 const INGEST_DISABLED_COOLDOWN_MS = 6 * 60 * 60 * 1000;
+const RETRY_BACKOFF_BASE_MS = 5 * 60 * 1000;
+const RETRY_BACKOFF_MAX_MS = 6 * 60 * 60 * 1000;
 const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
 const RETRYABLE_ERROR_CODES = new Set([
   "EAI_AGAIN",
@@ -171,10 +175,11 @@ function requestJson(
   return new Promise((resolve, reject) => {
     const target = new URL(url);
     const bodyText = body === undefined ? undefined : JSON.stringify(body);
-    const req = https.request({
+    const transport = target.protocol === "http:" ? http : https;
+    const req = transport.request({
       protocol: target.protocol,
       hostname: target.hostname,
-      port: target.port || 443,
+      port: target.port || (target.protocol === "http:" ? 80 : 443),
       path: `${target.pathname}${target.search}`,
       method,
       headers: {
@@ -306,7 +311,7 @@ async function health(args) {
     result.recent.ok &&
     result.recent.json?.ok === true &&
     result.ingest.status === 400 &&
-    result.ingest.json?.error === "signals array required";
+    result.ingest.json?.error === "signals_array_required";
   console.log(JSON.stringify(result, null, 2));
   if (!result.ok) process.exitCode = 1;
 }
@@ -420,10 +425,21 @@ async function readCooldown() {
 }
 
 async function writeCooldown(reason) {
-  const until = new Date(Date.now() + INGEST_DISABLED_COOLDOWN_MS).toISOString();
+  let previous = null;
+  try {
+    previous = JSON.parse(await fs.readFile(DEFAULT_COOLDOWN_FILE, "utf8"));
+  } catch {
+    // first cooldown
+  }
+  const disabled = reason === "ingest disabled";
+  const attempts = disabled ? 1 : Math.min(Number(previous?.attempts || 0) + 1, 10);
+  const delayMs = disabled
+    ? INGEST_DISABLED_COOLDOWN_MS
+    : Math.min(RETRY_BACKOFF_BASE_MS * (2 ** Math.max(attempts - 1, 0)), RETRY_BACKOFF_MAX_MS);
+  const until = new Date(Date.now() + delayMs).toISOString();
   await fs.writeFile(
     DEFAULT_COOLDOWN_FILE,
-    JSON.stringify({ until, reason, setAt: new Date().toISOString() }, null, 2),
+    JSON.stringify({ until, reason, attempts, setAt: new Date().toISOString() }, null, 2),
   );
   return until;
 }
@@ -473,7 +489,9 @@ async function applyOutboxDir(args) {
     // 5 分ごとの再送嵐になる。封鎖中は cooldown を置き、次の run 以降は期限まで通信しない。
     if (outcome === "disabled" || outcome === "retryable") {
       skipped = files.length - i - 1;
-      if (outcome === "disabled") cooldownUntil = await writeCooldown("ingest disabled");
+      cooldownUntil = await writeCooldown(
+        outcome === "disabled" ? "ingest disabled" : "retryable ingest failure",
+      );
       break;
     }
   }

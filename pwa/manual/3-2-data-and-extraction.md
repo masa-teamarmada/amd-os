@@ -80,6 +80,7 @@ BZM 2.1や契約・ガバナンス等への反映先もまず接続候補にし�
 | M-2 XRL 根拠 | Codex automation + outbox applier | `amd-os-ms` / SKILL `amd-os-l8-xrl-evidence-extract` | subscription automation 枠。PWA/GAS LLM cron ではない | `amd-os-ms` automation 履歴、`outbox.xrlEvidence`、LaunchAgent applier |
 | D-6 経営ハイライト | Codex automation + outbox applier | `amd-os` / SKILL `amd-os-l9-strategy-signal-extract` | subscription automation 枠。PWA/GAS LLM cron ではない | `amd-os` automation 履歴、strategy-signals outbox、LaunchAgent applier |
 | D-7 Textbook Insights | Codex automation / local worker + outbox applier + local BZM applier | SKILL `amd-os-l10-textbook-insight-extract` / `apply_approved_textbook_insights.mjs` | subscription automation 枠。承認後も Vercel runtime から git file は直接編集しない | `amd-os-ms` outbox `textbookInsights`、`textbook_insight_candidates`、local BZM applier |
+| D-8 Atlas Signals | 停止中（安全契約の修正済み） | collector → outbox → `POST /api/atlas/signals-ingest` → raw `atlas_signals`。受け口はLLMを呼ばない | background LLM / PWA LLM cron は使わない | `amd-atlas*/paused-20260904/`、LaunchAgent、`atlas_signals`。62 fileは自動復帰禁止 |
 
 **M-1の primary writer**: Claude Code Routine `amd-os-l2-monthend-evidence` の M-1 phase (毎月25日 16:00 JST、Fable 5固定)。実行手順の正本は [`pwa/scheduled-tasks/amd-os-l2m1-monthly-report/SKILL.md`](../scheduled-tasks/amd-os-l2m1-monthly-report/SKILL.md)。毎月25日に確認済み事実を `evidence_bundle` として LLM へ渡し、件数・source refs・draft処理経緯を入れた `audit_metadata` は本文入力と分離する。`/Users/masa/.codex/automations/amd-os-ms/outbox/` の `monthlyReports` JSONを既存 LaunchAgent + `ms_progress_review_tool.mjs` が非LLMで検査し、Supabase `monthly_reports` に反映する。旧 Codex automation `AMD OS M-1 月次報告抽出` はPAUSED / 復活禁止。
 
@@ -193,6 +194,7 @@ D-1D-3D-4H-1の復旧/移管状況は [8-3 章](8-3-l2-extraction-routines-spec.
 | M-2 | `project_xrl_evidence` | XRL 根拠 | 5 ソース + OS snapshot | Codex automation `amd-os-ms` (= `outbox.xrlEvidence`) + SKILL `amd-os-l8-xrl-evidence-extract` | ✅ subscription automation 枠で稼働 |
 | D-6 | `project_strategy_signals` | **経営ハイライト** | 5 ソース + OS snapshot | Codex automation `amd-os` (= daily 03:20) + SKILL `amd-os-l9-strategy-signal-extract` + dialogue API (= 提案前の論点整理セッション) | ✅ subscription automation 枠で稼働。修正依頼ループは対話型と接続予定 |
 | D-7 | `textbook_insight_candidates` | **Textbook Insights** | Supabase 内の既存 L2 / OS データ primary。必要なら 5 ソースは gap check | Codex automation / local worker `amd-os-l10-textbook-insight-extract` → `outbox.textbookInsights` → 通知 yes で approved → local BZM applier が `pwa/bzm/*.md` へ追記 | 🟡 partial。DB/API/outbox/local applier の最小導線を追加。実 schedule は未確定 |
+| D-8 | `atlas_signals` | **Atlas外部signal raw受領** | collectorが作る検証済みsignal。`title + source_url` の全期間重複を除外 | outbox → non-LLM applier → `signals-ingest` の auth・validation・dedupe・raw insert。tag/story enrichmentは別系統 | ⛔ 自動化停止中。retryable/disabledは1 file後に停止しcooldown、4xxはfailed。既存62 fileは保留 |
 | D-15 | `l2_coverage_gaps` → `project_important_evidence` | **重要情報** | 5生データ、PDF / Office / Google文書本文、親フォルダ、PJ root、発行主体 | Codex collector + 意味抽出 + 決定論的検査 → `coverageGaps[]` outbox → non-LLM applier → 通知採否 | 🟡 27 PJ dry-run済。定期schedule、OCR owner、root未登録PJは残課題 |
 
 **📊 別 L2** (= `member_activities`、メンバー活動ログ): `cron/member-weekly-activities` の legacy GET synthesis は Anthropic 経路を持つため 2026-05-29 に Vercel active cron から退避。2026-07-08 以降の D-10 定期生成は、Codex automation が `GET ?mode=evidence` で証拠を読み、活動文を合成して `POST activities[]` で保存する。
@@ -301,7 +303,7 @@ Calendar event に Gemini / Google Meet notes Doc 添付がある、Notion の `
   - **`amd-os-ms`** (= 6h ごと) — MS 進捗の修正候補 / D-5 OS 台帳差分 / M-2 XRL 根拠を outbox 書き出し。MS 進捗の primary writer ではない。PWA `/api/cron/hourly-estimate` は停止済 fallback。D-1D-3D-4H-1 は生成しない (= 2026-05-25 ghost 化の原因、[9-1 章 5.7](9-1-decisions-and-history.md#57-l2-D-1D-3D-4H-1-ghost-化と-claude-routine-4-個新設計画--2026-05-25) 参照)
   - **`amd-os`** (= daily 03:20 JST) — D-6 経営ハイライト抽出 + outbox 書き出し
   - **`amd-os-l10-textbook-insight-extract`** (= TBD / manual start) — D-7 Textbook Insights 候補を `outbox.textbookInsights` に書き出す。approved 後の BZM 追記は local applier
-  - **`amd-atlas-2`** (= daily 08:10 JST) — 外部マクロ Atlas 抽出
+  - **`amd-atlas-2`** — D-8 Atlas抽出。**現在はPAUSED**。再開時もraw受領だけを行い、LLM enrichmentや既存62 fileの自動再投入をしない
   - **`amd-macrotrend-evidence-review`** (= weekly Mon 07:30) — UN SDGs / WEF Global Risks 整理
 - それぞれ outbox に JSON を吐くだけ、Supabase 直接書き込みはしない
 - prompt は `automation.toml` 内に記述 (= 将来 DB 化予定、現状は file)
@@ -314,6 +316,7 @@ Calendar event に Gemini / Google Meet notes Doc 添付がある、Notion の `
   - `~/.codex/automations/amd-os-ms/outbox/` ✅
   - `~/.codex/automations/amd-os/strategy-signals-outbox/` ✅ (= 2026-05-25 監視先修復済)
   - `~/.codex/automations/amd-atlas/outbox/` ✅
+  - Atlas は `408/425/429/5xx`・network・disabledで先頭1 fileだけ送って停止し、cooldown中は通信しない。`400/401/403` は `failed/` へ隔離する
 - apply ツール:
   - `pwa/scripts/ms_progress_review_tool.mjs apply-outbox-dir [--dir <path>]`
   - `pwa/scripts/atlas_signal_review_tool.mjs apply-outbox-dir`

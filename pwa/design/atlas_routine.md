@@ -174,6 +174,14 @@ automation は原則:
 - `disabled` を受けた run は `/Users/masa/.codex/automations/amd-atlas/ingest-cooldown.json` に 6 時間の cooldown を書く。cooldown 中の run は通信せず `errorKind: "ingest_cooldown"` で exit `75` を返す。成功した run は cooldown を消す。
 - 事故時に溜まっていた 62 件は `amd-atlas/paused-20260904/` (55 件) と `amd-atlas-2/paused-20260904/` (7 件) に退避してある。取り込みを再開する判断が出たら、この 2 フォルダから `outbox/` へ戻せば順に投入される。
 
+### raw ingest と enrichment の分離 (2026-09-04, current)
+
+- `POST /api/atlas/signals-ingest` は認証、入力検証、同一 request 内と `atlas_signals` の既存 `title + source_url` 重複除外、raw `atlas_signals` insert までを同期処理とする。正常 ACK は raw insert 成功後に限る。
+- 受け口は background Anthropic を参照しない。`ALLOW_PWA_LLM_CRONS` の有無、tag/story enrichment の失敗、background LLM の停止は raw ingest の成否に影響させない。raw row は `suggested_tags=[]`、`story_id=null`、`status=inbox` で保存する。
+- enrichment は raw 保存後の別系統の明示的な処理だけが行う。enrichment が失敗しても raw row は消さず、outbox sender を再送させない。
+- sender は `408/425/429/5xx` とネットワーク失敗を retryable とし、1 run で最初の1 fileだけを送って停止する。retryable/disabled は指数バックオフの cooldown 中、HTTP request を一切出さない。`400/401/403` は `failed/` に隔離し、再送しない。
+- 62 file（raw signal 694件）は現在も `paused-20260904/` に隔離したまま。復旧は quality・重複・年齢を事前確認した上で、明示承認を得た限定再投入に限る。
+
 ## Claude Routine 登録手順 (旧案)
 
 [claude.ai](https://claude.ai) > Settings > Routines or Schedule で新規作成。

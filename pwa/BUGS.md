@@ -5,6 +5,16 @@
 
 ---
 
+### [automation/atlas] LLM停止を「成功」と返し、5分ごとに滞留outboxを再送し続けた (2026-09-04)
+
+- **状態**: 修正済み・自動実行は停止継続。既存62 fileは保留。
+- **症状**: background Anthropic が停止している間、Atlasの受け口が raw signal を保存しないまま `{ ok: true, disabled: true }` を返した。sender はoutboxを残し、5分間隔のapplierが同じ滞留群を繰り返し送れる構造だった。
+- **根本原因**: raw ingest と任意の LLM enrichment を同じ同期トランザクションに置き、disabledをACK相当で返していたこと。さらに queue 全件走査と、disabled時に解除を待つだけの挙動が組み合わさった。
+- **恒久対応**: 受け口は auth・validation・dedupe・raw insert だけでACKし、LLMを参照しない。retryable/disabledは先頭1 fileで停止して指数backoff cooldown、永久4xxは `failed/` 隔離とする。raw保存後のenrichment失敗は再送理由にしない。
+- **再発防止**: 62 file / cooldown / disabled LLM / duplicate / enrichment failure / permanent 4xx の契約テストを追加。paused fileを自動復帰しない。
+
+---
+
 ### [ops/deploy] 「文書だけの変更は反映されない」と信じて push を6回に分け、枠を無駄に6件使った (2026-08-30)
 
 - **状態**: クローズ (2026-08-30 — 警告文を実態へ直し、手元で判定して `[skip ci]` を渡す仕組みを入れた)

@@ -1904,11 +1904,13 @@ expectIncludes("src/lib/reward-summary.ts", [
   "resolveContributionShares",
 ]);
 
-expectIncludes("vercel.json", [
+// 2026-09-04: 事故調査中はVercel cronを1件も動かさない。routeの存在と
+// 手動実行契約は上で検査し、scheduleを戻すことはこのガードで禁止する。
+expectIncludes("vercel.json", ["regions", "hnd1", "ignoreCommand"]);
+expectNotIncludes("vercel.json", [
+  '"crons"',
   "/api/cron/payout-reward-cache-refresh",
-  "5 18 * * *",
   "/api/cron/payout-notice-prebuild",
-  "0 17 * * *",
 ]);
 
 expectIncludes("design/FEATURE_REGISTRY.md", [

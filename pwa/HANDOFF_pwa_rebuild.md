@@ -6,6 +6,13 @@
 
 ## 最新セッションの到達点
 
+### Atlas signals-ingest 再送嵐の恒久修正（2026-09-04）
+
+- `/api/atlas/signals-ingest` から background Anthropic と同期enrichmentを外し、raw `atlas_signals` の validation・dedupe・insert 成功後だけACKする契約へ変更した。
+- Atlas senderはretryable/disabledで1 file後に停止し、指数backoff cooldown中はrequestを出さない。400/401/403は `failed/` 隔離する。
+- 事故時の62 file（公式55、staging7、raw signal計694）は `paused-20260904/` に隔離したまま。再投入も全自動再開も未実施。
+- 自動化は緊急停止を維持。復旧時はまず限定再投入の品質・重複・年齢審査とproduction readbackを行う。
+
 PJコックピットの親グループと子タブを整理し、本番へ反映した。
 
 - 通常PJは `進捗管理 / 事業計画 / PJ管理` の3グループ。
