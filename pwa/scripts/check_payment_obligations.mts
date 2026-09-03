@@ -401,4 +401,15 @@ assert.equal(freeeStatusLabel(1), "freeeで消込待ち");
 assert.equal(freeeStatusLabel(2), "freeeで消込済み");
 assert.equal(freeeStatusLabel(null), null);
 
+// メール由来の候補は、人の確認が付いた行だけを納付として数える。
+const mailLedger = buildPaymentLedger([
+  ledgerObligation({ id: "m1", source_key: "gmail-obligation:noise", title: "高機能素材Week 来場登録受付中", amount_yen: 5000, due_date: "2026-09-30", source_kind: "gmail" }),
+  ledgerObligation({ id: "m2", source_key: "gmail-obligation:reviewed", title: "納付書が届いた件", amount_yen: 12000, due_date: "2026-09-30", source_kind: "gmail", reviewed_at: "2026-09-01T00:00:00Z" }),
+  ledgerObligation({ id: "m3", source_key: "statutory:x", title: "源泉所得税（納期の特例・7-12月分）", amount_yen: 278460, due_date: "2027-01-20" }),
+], "2026-09-03");
+assert.equal(mailLedger.rows.length, 2, "未確認のメール候補は納付として数えない");
+assert.equal(mailLedger.summary.unreviewedMailCandidateCount, 1, "除外した件数は隠さず出す");
+assert.deepEqual(mailLedger.rows.map((row) => row.id).sort(), ["m2", "m3"]);
+assert.equal(mailLedger.summary.upcomingYen, 12000 + 278460);
+
 console.log("payment obligation checks passed");

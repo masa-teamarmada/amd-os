@@ -223,7 +223,10 @@ export function AdminPaymentsClient({ data }: { data: AdminPaymentsData }) {
       <section aria-labelledby="payment-ledger-title" data-testid="payment-ledger" className="space-y-3 border border-border bg-card p-4">
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <h2 id="payment-ledger-title" className="text-lg font-semibold">納付の予定と実績</h2>
-          <p className="text-sm text-muted-foreground">期限の近い順。金額・期日・納付済みの正本は支払義務台帳で、この画面からは直せない。</p>
+          <p className="text-sm text-muted-foreground">
+            期限の近い順。金額・期日・納付済みの正本は支払義務台帳で、この画面からは直せない。
+            {summary.unreviewedMailCandidateCount > 0 && `メール由来で人の確認が付いていない候補${summary.unreviewedMailCandidateCount}件はここに数えていない。`}
+          </p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[64rem] border-collapse text-sm">

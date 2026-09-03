@@ -8,7 +8,8 @@
  * 金額・期日・納付済みの正本は `company_payment_obligations` のままで、ここでは作らない。
  */
 
-import type { CompanyPaymentObligation } from "./payment-obligations";
+import { isEligibleTaxSocialObligation } from "../admin-schedule/predicates.ts";
+import type { CompanyPaymentObligation } from "./payment-obligations.ts";
 
 export type PaymentLedgerState = "paid" | "overdue" | "due_today" | "due_soon" | "upcoming" | "needs_review";
 
@@ -72,6 +73,8 @@ export type PaymentLedgerSummary = {
   unknownAmountCount: number;
   penaltyEstimateYen: number;
   penaltyNoticeYen: number;
+  /** メール由来で人の確認が付いていないため、納付として数えなかった候補の件数 */
+  unreviewedMailCandidateCount: number;
 };
 
 const PENALTY_TITLE_WORDS = ["加算税", "延滞税", "延滞金", "督促", "滞納処分"];
@@ -167,9 +170,13 @@ export function buildPaymentLedger(
   obligations: readonly CompanyPaymentObligation[],
   today: string
 ): { rows: PaymentLedgerRow[]; summary: PaymentLedgerSummary } {
-  const statutory = obligations.filter(
+  const inScope = obligations.filter(
     (row) => (row.category === "tax" || row.category === "social_insurance") && row.status !== "cancelled"
   );
+  // メール由来の候補は、人が確認した行だけを納付として扱う。件名の分類語だけで
+  // 納税予定へ昇格させると、展示会の案内や宛名確認のお知らせが納付額に混ざる。
+  const statutory = inScope.filter((row) => isEligibleTaxSocialObligation(row as unknown as Record<string, unknown>));
+  const unreviewedMailCandidateCount = inScope.length - statutory.length;
   const noticesByParent = new Map<string, Array<{ title: string; amountYen: number | null; dueDate: string | null }>>();
   for (const row of statutory) {
     const parent = textOrNull(record(row.payload).penaltyForSourceKey);
@@ -225,6 +232,7 @@ export function buildPaymentLedger(
       penaltyNoticeYen: rows
         .filter((row) => row.isPenalty && row.state !== "paid")
         .reduce((sum, row) => sum + (row.amountYen ?? 0), 0),
+      unreviewedMailCandidateCount,
     },
   };
 }
