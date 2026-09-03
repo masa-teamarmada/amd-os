@@ -9,7 +9,9 @@ import {
   currentDateJst,
   currentYmJst,
   gmailObligationSourceKey,
+  isUnsettledStatutoryPayment,
   notificationStage,
+  shouldSendNudgeOnStage,
   parsePaymentEmail,
   type CompanyPaymentObligation,
 } from "@/lib/finance/payment-obligations";
@@ -26,6 +28,8 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_BASE_URL || "https://amd-os-pwa.vercel.app";
+
+type NotificationRecipient = { member_id: string; slack_id: string };
 
 type GeneratedObligation = Omit<CompanyPaymentObligation, "id" | "created_at" | "updated_at"> & {
   first_seen_at?: string;
@@ -73,6 +77,32 @@ async function kiyoMember(db: ReturnType<typeof createAdminClient>) {
   if (error) throw error;
   if (!data?.member_id) throw new Error("active member code_name=きよ not found");
   return data as { member_id: string; code_name: string; slack_id: string | null };
+}
+
+/**
+ * 通知先。通常の支払義務はきよだけに送る。
+ * 納期限を過ぎた法定納付だけは、まさを含む管理者全員へ送る。
+ * 2026-07-10の源泉所得税が55日放置され不納付加算税になったとき、督促はきよ宛の
+ * Slack DMだけで、しかも既定停止だったため誰にも届いていなかった。
+ */
+async function notificationRecipients(
+  db: ReturnType<typeof createAdminClient>,
+  kiyo: { member_id: string; slack_id: string | null }
+): Promise<{ kiyoOnly: NotificationRecipient[]; escalated: NotificationRecipient[] }> {
+  const kiyoOnly = kiyo.slack_id ? [{ member_id: kiyo.member_id, slack_id: kiyo.slack_id }] : [];
+  const { data, error } = await db
+    .from("members")
+    .select("member_id, slack_id")
+    .eq("is_admin", true)
+    .eq("status", "active")
+    .not("slack_id", "is", null);
+  if (error) throw error;
+  const bySlackId = new Map<string, NotificationRecipient>();
+  for (const row of kiyoOnly) bySlackId.set(row.slack_id, row);
+  for (const row of data ?? []) {
+    if (row.slack_id) bySlackId.set(row.slack_id, { member_id: row.member_id, slack_id: row.slack_id });
+  }
+  return { kiyoOnly, escalated: [...bySlackId.values()] };
 }
 
 function numeric(value: unknown): number {
@@ -711,12 +741,11 @@ async function upsertGenerated(db: ReturnType<typeof createAdminClient>, rows: G
   return { upserted: writable.length, preserved: rows.length - writable.length };
 }
 
-async function sendKiyoNotifications(
+async function sendObligationNotifications(
   db: ReturnType<typeof createAdminClient>,
-  kiyo: { member_id: string; slack_id: string | null },
+  recipients: { kiyoOnly: NotificationRecipient[]; escalated: NotificationRecipient[] },
   today: string,
-  dryRun: boolean,
-  sourceKey?: string | null
+  options: { dryRun: boolean; includeRoutine: boolean; sourceKey?: string | null }
 ) {
   let obligationQuery = db
     .from("company_payment_obligations")
@@ -724,75 +753,101 @@ async function sendKiyoNotifications(
     .in("status", ["needs_review", "open", "scheduled"])
     .or(`expected_payment_ym.is.null,expected_payment_ym.lte.${addMonthsToYm(today.slice(0, 7).replace("-", ""), 1)}`)
     .limit(2000);
-  if (sourceKey) obligationQuery = obligationQuery.eq("source_key", sourceKey);
+  if (options.sourceKey) obligationQuery = obligationQuery.eq("source_key", options.sourceKey);
   const { data, error } = await obligationQuery;
   if (error) throw error;
   const candidates = ((data ?? []) as CompanyPaymentObligation[])
-    .map((obligation) => ({ obligation, stage: notificationStage(obligation, today) }))
-    .filter((item): item is { obligation: CompanyPaymentObligation; stage: { scheduleKey: string; stage: string } } => item.stage !== null);
-  if (dryRun) return { candidates: candidates.map(({ obligation, stage }) => ({ id: obligation.id, title: obligation.title, stage: stage.stage })), sent: 0, skipped: 0 };
-  if (!kiyo.slack_id) throw new Error("きよのslack_idが未設定");
+    .map((obligation) => ({
+      obligation,
+      stage: notificationStage(obligation, today),
+      // 納期限を過ぎた法定納付は、通知の既定停止に関わらず送る。放置が加算税になる。
+      escalate: isUnsettledStatutoryPayment(obligation, today),
+    }))
+    .filter((item): item is { obligation: CompanyPaymentObligation; stage: { scheduleKey: string; stage: string }; escalate: boolean } => item.stage !== null)
+    .filter((item) => shouldSendNudgeOnStage(item.stage.stage))
+    .filter((item) => options.includeRoutine || item.escalate);
+  if (options.dryRun) {
+    return {
+      candidates: candidates.map(({ obligation, stage, escalate }) => ({ id: obligation.id, title: obligation.title, stage: stage.stage, escalate })),
+      sent: 0,
+      skipped: 0,
+    };
+  }
   const { WebClient } = await import("@slack/web-api");
   const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
-  const opened = await slack.conversations.open({ users: kiyo.slack_id });
-  const channel = opened.channel?.id || kiyo.slack_id;
+  const channelBySlackId = new Map<string, string>();
   let sent = 0;
   let skipped = 0;
-  for (const { obligation, stage } of candidates) {
-    const { data: previous, error: previousError } = await db
-      .from("company_payment_obligation_notifications")
-      .select("id,status")
-      .eq("obligation_id", obligation.id)
-      .eq("recipient_slack_id", kiyo.slack_id)
-      .eq("schedule_key", stage.scheduleKey)
-      .eq("stage", stage.stage)
-      .maybeSingle();
-    if (previousError) throw previousError;
-    if (previous?.status === "sent") {
-      skipped += 1;
-      continue;
-    }
-    const auditPayload = {
-      obligation_id: obligation.id,
-      recipient_member_id: kiyo.member_id,
-      recipient_slack_id: kiyo.slack_id,
-      schedule_key: stage.scheduleKey,
-      stage: stage.stage,
-      status: "pending",
-      attempted_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    const { data: audit, error: auditError } = await db
-      .from("company_payment_obligation_notifications")
-      .upsert(auditPayload, { onConflict: "obligation_id,recipient_slack_id,schedule_key,stage" })
-      .select("id")
-      .single();
-    if (auditError) throw auditError;
-    const due = obligation.due_date || (obligation.expected_payment_ym ? `${obligation.expected_payment_ym.slice(0, 4)}年${Number(obligation.expected_payment_ym.slice(4, 6))}月` : "期日未確認");
-    const needsReview = obligation.status === "needs_review" || obligation.amount_status === "unknown" || obligation.due_date_precision === "unknown";
-    const amountText = obligation.amount_status === "estimated" && obligation.amount_yen != null ? `約${yen(obligation.amount_yen)}` : yen(obligation.amount_yen);
-    const text = needsReview
-      ? `支払義務の確認が必要: ${obligation.title} / ${amountText} / ${due}`
-      : `支払期限アラート: ${obligation.title} / ${amountText} / ${due}`;
-    try {
-      const posted = await slack.chat.postMessage({
-        channel,
-        text,
-        blocks: [
-          { type: "section", text: { type: "mrkdwn", text: `*${needsReview ? "支払義務を確認して" : "支払期限アラート"}*\n${obligation.title}\n金額: *${amountText}* / 期日: *${due}*` } },
-          { type: "actions", elements: [{ type: "button", text: { type: "plain_text", text: "支払義務を開く" }, url: `${APP_BASE_URL}/admin/finance#payment-obligations` }] },
-        ],
-      });
-      await db.from("company_payment_obligation_notifications").update({ status: "sent", slack_channel_id: channel, slack_ts: posted.ts ?? null, sent_at: new Date().toISOString(), error_message: null, updated_at: new Date().toISOString() }).eq("id", audit.id);
-      sent += 1;
-    } catch (postError) {
-      await db.from("company_payment_obligation_notifications").update({ status: "failed", error_message: postError instanceof Error ? postError.message.slice(0, 500) : String(postError).slice(0, 500), updated_at: new Date().toISOString() }).eq("id", audit.id);
+  for (const { obligation, stage, escalate } of candidates) {
+    const targets = escalate ? recipients.escalated : recipients.kiyoOnly;
+    for (const target of targets) {
+      const { data: previous, error: previousError } = await db
+        .from("company_payment_obligation_notifications")
+        .select("id,status")
+        .eq("obligation_id", obligation.id)
+        .eq("recipient_slack_id", target.slack_id)
+        .eq("schedule_key", stage.scheduleKey)
+        .eq("stage", stage.stage)
+        .maybeSingle();
+      if (previousError) throw previousError;
+      if (previous?.status === "sent") {
+        skipped += 1;
+        continue;
+      }
+      let channel = channelBySlackId.get(target.slack_id);
+      if (!channel) {
+        const opened = await slack.conversations.open({ users: target.slack_id });
+        channel = opened.channel?.id || target.slack_id;
+        channelBySlackId.set(target.slack_id, channel);
+      }
+      const auditPayload = {
+        obligation_id: obligation.id,
+        recipient_member_id: target.member_id,
+        recipient_slack_id: target.slack_id,
+        schedule_key: stage.scheduleKey,
+        stage: stage.stage,
+        status: "pending",
+        attempted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      const { data: audit, error: auditError } = await db
+        .from("company_payment_obligation_notifications")
+        .upsert(auditPayload, { onConflict: "obligation_id,recipient_slack_id,schedule_key,stage" })
+        .select("id")
+        .single();
+      if (auditError) throw auditError;
+      const due = obligation.due_date || (obligation.expected_payment_ym ? `${obligation.expected_payment_ym.slice(0, 4)}年${Number(obligation.expected_payment_ym.slice(4, 6))}月` : "期日未確認");
+      const needsReview = obligation.status === "needs_review" || obligation.amount_status === "unknown" || obligation.due_date_precision === "unknown";
+      const amountText = obligation.amount_status === "estimated" && obligation.amount_yen != null ? `約${yen(obligation.amount_yen)}` : yen(obligation.amount_yen);
+      const overdueDays = /^overdue-(\d+)-days$/.exec(stage.stage)?.[1] ?? null;
+      const penalty = (obligation.payload as Record<string, unknown> | null)?.penaltyEstimate as { totalYen?: number | null } | null | undefined;
+      const penaltyText = escalate && penalty && (penalty.totalYen ?? 0) > 0
+        ? `\nこのままだと加算税・延滞税が *${yen(penalty.totalYen ?? 0)}* 積み上がる見込み`
+        : "";
+      const heading = escalate
+        ? `納期限を過ぎたまま納付を確認できていない${overdueDays ? `（${overdueDays}日超過）` : ""}`
+        : needsReview ? "支払義務を確認して" : "支払期限アラート";
+      const text = `${heading}: ${obligation.title} / ${amountText} / ${due}`;
+      try {
+        const posted = await slack.chat.postMessage({
+          channel,
+          text,
+          blocks: [
+            { type: "section", text: { type: "mrkdwn", text: `*${heading}*\n${obligation.title}\n金額: *${amountText}* / 期日: *${due}*${penaltyText}` } },
+            { type: "actions", elements: [{ type: "button", text: { type: "plain_text", text: escalate ? "管理カレンダーを開く" : "支払義務を開く" }, url: escalate ? `${APP_BASE_URL}/admin/schedule` : `${APP_BASE_URL}/admin/finance#payment-obligations` }] },
+          ],
+        });
+        await db.from("company_payment_obligation_notifications").update({ status: "sent", slack_channel_id: channel, slack_ts: posted.ts ?? null, sent_at: new Date().toISOString(), error_message: null, updated_at: new Date().toISOString() }).eq("id", audit.id);
+        sent += 1;
+      } catch (postError) {
+        await db.from("company_payment_obligation_notifications").update({ status: "failed", error_message: postError instanceof Error ? postError.message.slice(0, 500) : String(postError).slice(0, 500), updated_at: new Date().toISOString() }).eq("id", audit.id);
+      }
     }
   }
   return { candidates: candidates.length, sent, skipped };
 }
 
-async function run(req: NextRequest, options: { dryRun: boolean; sendNotifications: boolean; notificationSourceKey?: string | null }) {
+async function run(req: NextRequest, options: { dryRun: boolean; sendNotifications: boolean; includeRoutineNotifications: boolean; notificationSourceKey?: string | null }) {
   const db = createAdminClient();
   const { dryRun, sendNotifications } = options;
   const today = req.nextUrl.searchParams.get("date") || currentDateJst();
@@ -804,9 +859,14 @@ async function run(req: NextRequest, options: { dryRun: boolean; sendNotificatio
   ]);
   const all = [...statutory.obligations, ...osSources.obligations, ...gmail.obligations];
   const sync = dryRun ? { upserted: 0, preserved: 0 } : await upsertGenerated(db, all);
-  const notifications = dryRun || !sendNotifications
+  const recipients = await notificationRecipients(db, kiyo);
+  const notifications = !sendNotifications
     ? { candidates: [], sent: 0, skipped: 0 }
-    : await sendKiyoNotifications(db, kiyo, today, false, options.notificationSourceKey);
+    : await sendObligationNotifications(db, recipients, today, {
+        dryRun,
+        includeRoutine: options.includeRoutineNotifications,
+        sourceKey: options.notificationSourceKey,
+      });
   return NextResponse.json({
     ok: true,
     dryRun,
@@ -829,14 +889,14 @@ export async function GET(req: NextRequest) {
   if (!isCronAuthorized(req)) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   try {
     const dryRun = req.nextUrl.searchParams.get("dryRun") === "1";
+    const notifyDisabled = req.nextUrl.searchParams.get("notify") === "0";
     return await run(req, {
       dryRun,
-      // 台帳同期とSlack DMは別責務。初回同期で未確認候補を一括送信しないよう、
-      // 自動DMは本番環境で明示的に有効化されるまで停止しておく。
-      sendNotifications:
-        !dryRun &&
-        process.env.PAYMENT_OBLIGATION_AUTO_NUDGE_ENABLED === "1" &&
-        req.nextUrl.searchParams.get("notify") !== "0",
+      // 納期限を過ぎた法定納付の督促は常に送る。放置すると加算税と延滞税になるため、
+      // 未確認候補の一括送信を避ける目的の既定停止をここに適用しない。
+      sendNotifications: !notifyDisabled,
+      // 請求メールや継続支払いなど、期限前・未確認の通常通知は本番で明示的に有効化するまで止める。
+      includeRoutineNotifications: process.env.PAYMENT_OBLIGATION_AUTO_NUDGE_ENABLED === "1",
       notificationSourceKey: req.nextUrl.searchParams.get("sourceKey"),
     });
   } catch (error) {
@@ -852,7 +912,12 @@ export async function POST(req: NextRequest) {
     let body: { dryRun?: boolean; sendNotifications?: boolean; notificationSourceKey?: string | null } = {};
     try { body = await req.json(); } catch { body = {}; }
     const dryRun = Boolean(body.dryRun);
-    return await run(req, { dryRun, sendNotifications: !dryRun && body.sendNotifications !== false, notificationSourceKey: body.notificationSourceKey });
+    return await run(req, {
+      dryRun,
+      sendNotifications: body.sendNotifications !== false,
+      includeRoutineNotifications: true,
+      notificationSourceKey: body.notificationSourceKey,
+    });
   } catch (error) {
     console.error("[payment-obligations manual]", error);
     return NextResponse.json({ ok: false, error: errorMessage(error) }, { status: 500 });

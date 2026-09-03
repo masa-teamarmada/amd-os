@@ -244,3 +244,30 @@ export function notificationStage(
   }
   return null;
 }
+
+/**
+ * 期限超過の督促を送る日かどうか。
+ * `notificationStage` は超過中の毎日に段階名を返すが、毎日送ると読まれなくなる。
+ * 超過1日・3日・7日・14日、それ以降は7日ごとに絞る。超過以外の段階はそのまま送る。
+ */
+export function shouldSendNudgeOnStage(stage: string): boolean {
+  const matched = /^overdue-(\d+)-days$/.exec(stage);
+  if (!matched) return true;
+  const days = Number(matched[1]);
+  if (days <= 14) return days === 1 || days === 3 || days === 7 || days === 14;
+  return days % 7 === 0;
+}
+
+/**
+ * 法定納付が納期限を過ぎたまま、支払実績と消し込めていない状態。
+ * ここに該当するものは、通知の既定停止に関わらず必ず送る。放置すると加算税と延滞税になる。
+ */
+export function isUnsettledStatutoryPayment(
+  obligation: Pick<CompanyPaymentObligation, "source_kind" | "category" | "due_date" | "status">,
+  today: string
+): boolean {
+  if (obligation.source_kind !== "statutory_rule") return false;
+  if (obligation.category !== "tax" && obligation.category !== "social_insurance") return false;
+  if (obligation.status === "paid" || obligation.status === "cancelled") return false;
+  return Boolean(obligation.due_date && obligation.due_date < today);
+}

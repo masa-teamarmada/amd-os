@@ -471,6 +471,7 @@ function generatePaymentObligations(obligations: RawRow[]): GeneratedOccurrence[
         paidAt: row.paid_at || null,
         paidAmountYen: row.paid_amount_yen ?? null,
         obligationSourceKey: text(row.source_key),
+        settlementSearch: record(row.payload).settlementSearch ?? null,
         penaltyEstimate: record(row.payload).penaltyEstimate ?? null,
         penaltyForSourceKey: record(row.payload).penaltyForSourceKey ?? null,
       },

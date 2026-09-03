@@ -3,8 +3,10 @@ import {
   extractPaymentAmount,
   extractPaymentDueDate,
   gmailObligationSourceKey,
+  isUnsettledStatutoryPayment,
   notificationStage,
   parsePaymentEmail,
+  shouldSendNudgeOnStage,
 } from "../src/lib/finance/payment-obligations.ts";
 import {
   buildAmdStatutoryPaymentDrafts,
@@ -295,5 +297,37 @@ assert.equal(
   "賦課決定通知を受け取った親には見込みを重ねない",
 );
 assert.equal(buildStatutoryPenaltyEstimates(penaltyBase, "2026-07-10").length, 0, "期限内は見込みを作らない");
+
+// ── 期限超過の督促 ────────────────────────────────────
+// 超過中は毎日段階が変わるが、送るのは1・3・7・14日、以降は7日ごと。
+assert.equal(shouldSendNudgeOnStage("overdue-1-days"), true);
+assert.equal(shouldSendNudgeOnStage("overdue-2-days"), false);
+assert.equal(shouldSendNudgeOnStage("overdue-7-days"), true);
+assert.equal(shouldSendNudgeOnStage("overdue-14-days"), true);
+assert.equal(shouldSendNudgeOnStage("overdue-15-days"), false);
+assert.equal(shouldSendNudgeOnStage("overdue-21-days"), true);
+assert.equal(shouldSendNudgeOnStage("overdue-55-days"), false);
+assert.equal(shouldSendNudgeOnStage("overdue-56-days"), true);
+assert.equal(shouldSendNudgeOnStage("7-days-before"), true, "期限前の段階はそのまま送る");
+assert.equal(shouldSendNudgeOnStage("needs-review"), true);
+
+// 納期限を過ぎた法定納付だけが、通知の既定停止を越えて送られる。
+const overdueTax = { source_kind: "statutory_rule", category: "tax", due_date: "2026-07-10", status: "open" } as never;
+assert.equal(isUnsettledStatutoryPayment(overdueTax, "2026-09-03"), true);
+assert.equal(isUnsettledStatutoryPayment(overdueTax, "2026-07-01"), false, "期限内は対象外");
+assert.equal(
+  isUnsettledStatutoryPayment({ source_kind: "statutory_rule", category: "tax", due_date: "2026-07-10", status: "paid" } as never, "2026-09-03"),
+  false,
+  "納付済みは対象外",
+);
+assert.equal(
+  isUnsettledStatutoryPayment({ source_kind: "gmail", category: "tax", due_date: "2026-07-10", status: "open" } as never, "2026-09-03"),
+  false,
+  "メール由来の候補は法定納付として督促しない",
+);
+assert.equal(
+  isUnsettledStatutoryPayment({ source_kind: "statutory_rule", category: "social_insurance", due_date: "2026-08-31", status: "needs_review" } as never, "2026-09-03"),
+  true,
+);
 
 console.log("payment obligation checks passed");
