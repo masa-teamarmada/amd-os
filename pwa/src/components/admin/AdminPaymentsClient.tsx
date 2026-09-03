@@ -73,7 +73,7 @@ function candidateLabel(candidate: PaymentSettlement["candidates"][number]): str
 }
 
 /** freeeの口座明細を探した結果を、未納か記録漏れかが分かる日本語にする。 */
-function settlementText(row: PaymentLedgerRow): string {
+function settlementText(row: PaymentLedgerRow, today: string): string | null {
   if (row.state === "paid") {
     const paid = row.paidAt ? row.paidAt.slice(0, 10) : null;
     return paid ? `freeeの出金と一致（${paid} ${yen(row.paidAmountYen ?? row.amountYen)}）` : "納付済みとして記録されている";
@@ -82,8 +82,10 @@ function settlementText(row: PaymentLedgerRow): string {
   if (!search) {
     return row.sourceKind === "mail_notice"
       ? "届いた通知書をもとに登録した行。口座の照合はしていない"
-      : "口座の照合対象になっていない";
+      : null;
   }
+  // 照合の窓がまだ開いていない納付に「出金が無い」と書かない。払う時期が来ていないだけ。
+  if (search.from > today) return null;
   const kind = SETTLEMENT_KIND_LABELS[search.kind] ?? "該当する";
   if (search.candidateCount === 0) return `${search.from}〜${search.to}に${kind}の出金は無い`;
   const listed = search.candidates.map(candidateLabel).join(" ／ ");
@@ -243,6 +245,7 @@ export function AdminPaymentsClient({ data }: { data: AdminPaymentsData }) {
             <tbody>
               {visible.map((row) => {
                 const penalty = penaltyText(row);
+                const settlement = settlementText(row, data.today);
                 return (
                   <tr key={row.id} className="border-b border-border/60 align-top">
                     <td className="py-2 pr-3 whitespace-nowrap tabular-nums">
@@ -265,7 +268,7 @@ export function AdminPaymentsClient({ data }: { data: AdminPaymentsData }) {
                       <span className={`inline-block rounded px-1.5 py-0.5 text-xs font-semibold ${STATE_STYLES[row.state]}`}>{STATE_LABELS[row.state]}</span>
                     </td>
                     <td className="py-2 text-xs leading-5">
-                      <span>{settlementText(row)}</span>
+                      {settlement && <span>{settlement}</span>}
                       {penalty && <span className="mt-0.5 block font-semibold">{penalty}</span>}
                     </td>
                   </tr>
