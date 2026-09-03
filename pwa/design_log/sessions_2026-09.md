@@ -116,3 +116,8 @@
 - **freeeの日次取り込みと月次予実への反映は、既に動いていた**。`management-score-refresh`（毎日21:00 JST、`includeFreee` 既定on）が試算表と `company_actual_monthly` を更新している。足りなかったのは取り込みではなく、取り込んだ取引と納税義務を突き合わせて、合わないときに知らせることだった。
 - 検証: `npx tsc --noEmit` / eslint / `npm run test:payment-obligations` / `npm run test:admin-schedule` / `npm run build`。本番で `payment-obligations` と `company-schedule` を実行して再生成し、認証cookieを起こしたPlaywrightで desktop 1440 の実画面を確認した。
 - **今回のpushは束ねて1回にし、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` を使う**（前半の4回の単発pushはAGENTS.md違反）。正規checkoutは他セッションのdirtyが続いているため、使い捨てclean cloneから実行する。
+
+- **督促の段階を週単位へ直した**。「超過14日以降は7日ごと」を日数の剰余で判定していたため、55日超過の源泉所得税がその日は送られず、いちばん長く放置されているものが黙って飛ばされていた。段階名そのものを `overdue-week-N` に丸め、同じ段階を二度送らない既存の仕組みがそのまま週1回になるようにした。週が変わった最初の実行で必ず1通届く。
+- **目録の突き合わせを2点直した**。消費税の中間と確定が同じ `event_kind: tax_payment` のため両方に同じ件数が出ていたので、予定名で絞る。日付を作れていない `needs_source` の予定は「カレンダーに出ている」に数えない（法人税中間の4件がこれで、実態は生成不能）。結果、23件のうち16件がまだ出せていない状態として並ぶ。
+- 本番確認: `/admin/schedule` desktop 1440、横スクロール0。通知候補は dry-run で4件（労働保険料・社会保険料7月分・源泉所得税・消費税中間）、宛先は `is_admin` のまさ（ID001）ときよ（ID002）で計8通。**実送信はまだ行っていない**。対人通知の初回なので内容と宛先をまさへ提示し、明日09:20の定期実行から自然に流れる状態にしてある。
+- commit `82e73624` / `03dbebdb` / `7d48e16e` / `779b1174`。すべて `deploy.sh` 経由で反映（live git_sha 確認済み）。
