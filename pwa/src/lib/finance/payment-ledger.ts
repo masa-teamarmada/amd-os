@@ -294,7 +294,7 @@ export function paymentKindOf(row: Pick<PaymentLedgerRow, "sourceKey" | "title" 
   return "other";
 }
 
-export type PaymentMatrixCellState = "none" | "paid" | "attention" | "scheduled";
+export type PaymentMatrixCellState = "none" | "paid" | "overdue" | "review" | "scheduled";
 
 export type PaymentMatrixCell = {
   state: PaymentMatrixCellState;
@@ -304,7 +304,8 @@ export type PaymentMatrixCell = {
   unknownAmountCount: number;
   count: number;
   paidCount: number;
-  attentionCount: number;
+  overdueCount: number;
+  reviewCount: number;
   /** セルに入った納付の内訳。同じ月に2件以上入るとき何が入っているかを示す */
   entries: Array<{ title: string; amountYen: number | null; state: PaymentLedgerState; dueDate: string | null }>;
 };
@@ -345,7 +346,7 @@ function emptyTotals(): PaymentMatrixTotals {
 }
 
 function emptyCell(): PaymentMatrixCell {
-  return { state: "none", totalYen: 0, paidYen: 0, unpaidYen: 0, unknownAmountCount: 0, count: 0, paidCount: 0, attentionCount: 0, entries: [] };
+  return { state: "none", totalYen: 0, paidYen: 0, unpaidYen: 0, unknownAmountCount: 0, count: 0, paidCount: 0, overdueCount: 0, reviewCount: 0, entries: [] };
 }
 
 function addToTotals(totals: PaymentMatrixTotals, row: PaymentLedgerRow): void {
@@ -399,18 +400,21 @@ export function buildPaymentMatrix(
     else cell.unpaidYen += amount;
     if (row.amountStatus === "unknown") cell.unknownAmountCount += 1;
     if (row.state === "paid") cell.paidCount += 1;
-    if (row.state === "overdue" || row.state === "needs_review") cell.attentionCount += 1;
+    if (row.state === "overdue") cell.overdueCount += 1;
+    if (row.state === "needs_review") cell.reviewCount += 1;
     cell.entries.push({ title: row.title, amountYen: row.amountYen, state: row.state, dueDate: row.dueDate });
     addToTotals(month.totals, row);
     addToTotals(kindTotals[kind], row);
     addToTotals(totals, row);
   }
-  // 1件でも期限切れ・要確認があればその月・その種類は注意。全件納付済みのときだけ済とする。
+  // 期限を過ぎているものを最優先で見せる。期限前でも金額や期日が未確認なら要確認として分ける。
+  // 全件が納付済みのときだけ済とする。
   for (const month of months) {
     for (const kind of PAYMENT_KINDS) {
       const cell = month.cells[kind.key];
       if (cell.count === 0) cell.state = "none";
-      else if (cell.attentionCount > 0) cell.state = "attention";
+      else if (cell.overdueCount > 0) cell.state = "overdue";
+      else if (cell.reviewCount > 0) cell.state = "review";
       else if (cell.paidCount === cell.count) cell.state = "paid";
       else cell.state = "scheduled";
     }

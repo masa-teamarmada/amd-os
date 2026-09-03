@@ -474,12 +474,17 @@ assert.equal(march?.cells.social_insurance.state, "paid");
 assert.equal(march?.cells.social_insurance.paidYen, 333366);
 assert.equal(march?.cells.withholding.state, "none");
 const july = matrix.months.find((row) => row.ym === "202607");
-assert.equal(july?.cells.withholding.state, "attention");
+assert.equal(july?.cells.withholding.state, "overdue");
 assert.equal(july?.cells.withholding.unpaidYen, 325500);
 assert.equal(july?.cells.social_insurance.state, "paid");
 assert.equal(july?.totals.totalYen, 325500 + 304119);
 const september = matrix.months.find((row) => row.ym === "202609");
 assert.equal(september?.cells.penalty.state, "scheduled");
+// 期限前でも金額や期日が確認できていないものは、期限超過と同じ色にしない。
+const reviewMatrix = buildPaymentMatrix([
+  ledgerRow({ id: "f", dueDate: "2026-09-30", amountYen: 304119, state: "needs_review" }),
+], "2026-09-04", 12);
+assert.equal(reviewMatrix.months.find((row) => row.ym === "202609")?.cells.social_insurance.state, "review");
 assert.equal(september?.cells.penalty.totalYen, 26500);
 assert.equal(matrix.kindTotals.social_insurance.totalYen, 333366 + 304119);
 assert.equal(matrix.kindTotals.social_insurance.unpaidYen, 0);

@@ -144,7 +144,8 @@ function SummaryTile({ label, value, note, tone }: { label: string; value: strin
 const MATRIX_CELL_STYLES: Record<PaymentMatrixCellState, string> = {
   none: "text-muted-foreground/40",
   paid: "bg-emerald-50 text-emerald-900",
-  attention: "bg-rose-100 text-rose-950 font-semibold",
+  overdue: "bg-rose-100 text-rose-950 font-semibold",
+  review: "bg-amber-100 text-amber-950 font-semibold",
   scheduled: "bg-sky-50 text-sky-950",
 };
 
@@ -187,7 +188,8 @@ function PaymentMatrixSection({ rows, today, fiscalYearEndMonth }: { rows: Payme
         <div className="flex items-center gap-2">
           <span className="mr-2 inline-flex items-center gap-2 text-xs text-muted-foreground">
             <span className="inline-block h-3 w-3 rounded-sm bg-emerald-100" />納付済み
-            <span className="inline-block h-3 w-3 rounded-sm bg-rose-200" />期限超過・要確認
+            <span className="inline-block h-3 w-3 rounded-sm bg-rose-200" />期限超過
+            <span className="inline-block h-3 w-3 rounded-sm bg-amber-200" />要確認
             <span className="inline-block h-3 w-3 rounded-sm bg-sky-100" />これから
           </span>
           <button type="button" onClick={() => setOffset((value) => value - 1)} className="min-h-9 rounded-lg border border-border px-3 text-xs font-semibold hover:bg-muted">前の期</button>
