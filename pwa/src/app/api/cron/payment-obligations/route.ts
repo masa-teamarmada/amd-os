@@ -16,6 +16,7 @@ import {
 import {
   addMonthsToStatutoryYm,
   buildAmdStatutoryPaymentDrafts,
+  buildStatutoryPenaltyEstimates,
   type StatutoryPayrollMonth,
   type StatutoryPaymentEvidence,
   type StatutoryTaxForecast,
@@ -300,6 +301,20 @@ async function generatedFromStatutoryRules(
     paymentEvidence,
     taxForecasts: [...forecastsByYm.values()],
   });
+  // 加算税・延滞税の賦課決定通知を既に受け取っている親には、見込みを重ねない。
+  const { data: settledRows, error: settledError } = await db
+    .from("company_payment_obligations")
+    .select("status,payload")
+    .not("payload->>penaltyForSourceKey", "is", null)
+    .limit(500);
+  if (settledError) throw settledError;
+  const settledParentKeys = (settledRows ?? [])
+    .filter((row) => row.status !== "cancelled")
+    .map((row) => String((row.payload as Record<string, unknown> | null)?.penaltyForSourceKey ?? ""))
+    .filter(Boolean);
+  const penaltyEstimates = buildStatutoryPenaltyEstimates(drafts, today, settledParentKeys);
+  const penaltyByParent = new Map(penaltyEstimates.map((row) => [row.parentSourceKey, row]));
+
   const now = new Date().toISOString();
   const obligations: GeneratedObligation[] = drafts.map((draft) => ({
     source_key: draft.sourceKey,
@@ -321,7 +336,11 @@ async function generatedFromStatutoryRules(
     confidence: draft.confidence,
     paid_at: draft.paidAt,
     paid_amount_yen: draft.paidAmountYen,
-    payload: { ...draft.payload, generatedFrom: "statutory_rule+freee+management_forecast" },
+    payload: {
+      ...draft.payload,
+      generatedFrom: "statutory_rule+freee+management_forecast",
+      penaltyEstimate: penaltyByParent.get(draft.sourceKey) ?? null,
+    },
     last_seen_at: now,
     updated_at: now,
   }));
@@ -334,6 +353,7 @@ async function generatedFromStatutoryRules(
       residentTax: obligations.filter((row) => row.payload.ruleKey === "resident_tax_special_collection").length,
       laborInsurance: obligations.filter((row) => row.payload.ruleKey === "annual_labor_insurance").length,
       corporateAndConsumptionTax: obligations.filter((row) => /tax_(?:interim|final)$/.test(String(row.payload.ruleKey ?? ""))).length,
+      penaltyEstimates: penaltyEstimates.filter((row) => (row.totalYen ?? 0) > 0).length,
     },
     sourceError,
   };

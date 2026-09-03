@@ -272,6 +272,12 @@ assert.equal(paymentObligationEventKind({ title: "法人税等（確定納付）
 assert.equal(paymentObligationEventKind({ title: "法人税等（中間納付）", category: "tax" }), "corporate_tax_interim");
 assert.equal(paymentObligationEventKind({ title: "源泉所得税（納期の特例）", category: "tax" }), "withholding_tax_payment");
 assert.equal(paymentObligationEventKind({ title: "社会保険料（2026年7月分）", category: "social_insurance" }), "social_insurance_payment");
+// 加算税・延滞税は本税と同じ種別にしない。徴収高計算書のような社内締切を派生させないため。
+assert.equal(paymentObligationEventKind({ title: "源泉所得税 不納付加算税（2026年1-6月分）", category: "tax" }), "tax_penalty_payment");
+assert.equal(paymentObligationEventKind({ title: "法人税等 延滞税", category: "tax" }), "tax_penalty_payment");
+assert.equal(paymentObligationEventKind({ title: "健康保険・厚生年金保険料 延滞金", category: "social_insurance" }), "social_insurance_penalty_payment");
+assert.equal(INTERNAL_PREP_SPECS.tax_penalty_payment, undefined);
+assert.equal(INTERNAL_PREP_SPECS.social_insurance_penalty_payment, undefined);
 assert.equal(paymentObligationEventKind({ title: "労働保険料（年度更新・2026年度）", category: "social_insurance" }), "labor_insurance_annual_update");
 assert.equal(paymentObligationEventKind({ title: "消費税等（確定納付）", category: "tax" }), "tax_payment");
 

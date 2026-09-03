@@ -88,6 +88,86 @@ const CATEGORY_ICONS: Record<ScheduleCategory, typeof CalendarDays> = {
   governance: CalendarDays,
 };
 
+type PenaltyEstimate = {
+  parentSourceKey?: string;
+  overdueDays?: number;
+  delinquencyKind?: string;
+  delinquencyYen?: number | null;
+  underpaymentPenaltyYen?: number | null;
+  totalYen?: number | null;
+  ratesAsOf?: string;
+  formula?: string;
+};
+
+function penaltyEstimateOf(item: ScheduleViewOccurrence): PenaltyEstimate | null {
+  const value = item.metadata_json?.penaltyEstimate;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as PenaltyEstimate;
+}
+
+function isStatutoryPaymentOccurrence(item: ScheduleViewOccurrence): boolean {
+  return item.notification_owner === "payment_obligation"
+    && item.amount_role === "outgoing"
+    && (item.category === "tax" || item.category === "labor");
+}
+
+function overdueDaysOf(item: ScheduleViewOccurrence, today: string): number | null {
+  if (!item.due_on) return null;
+  return Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${item.due_on}T00:00:00Z`)) / 86400000);
+}
+
+/**
+ * 納期限を過ぎたまま納付を確認できていない法定納付を、カレンダーの先頭で名指しする。
+ * 過去の月へ遡らないと気づけない状態だと、加算税と延滞税が積み上がってから郵送で届く。
+ */
+function OverdueStatutoryAlert({ items, today }: { items: ScheduleViewOccurrence[]; today: string }) {
+  const overdue = items
+    .filter((item) => isStatutoryPaymentOccurrence(item) && item.computed_status === "overdue")
+    .sort((a, b) => (a.due_on ?? "").localeCompare(b.due_on ?? ""));
+  if (overdue.length === 0) return null;
+  const principalYen = overdue.reduce((sum, item) => sum + (item.amount_yen ?? 0), 0);
+  const penaltyYen = overdue.reduce((sum, item) => sum + (penaltyEstimateOf(item)?.totalYen ?? 0), 0);
+  const unknownAmountCount = overdue.filter((item) => item.amount_status === "unknown").length;
+  return (
+    <section role="alert" data-testid="overdue-statutory-alert" className="border border-rose-300 bg-rose-50 p-4 text-rose-950">
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <span className="inline-flex items-center gap-2 text-sm font-semibold"><AlertTriangle className="h-4 w-4" aria-hidden="true" />納期限を過ぎたまま納付を確認できていない</span>
+        <span className="text-sm tabular-nums">{overdue.length}件 / 本税・保険料 {formatScheduleYen(principalYen)}</span>
+        {penaltyYen > 0 && <span className="text-sm font-semibold tabular-nums">加算税・延滞税の見込み {formatScheduleYen(penaltyYen)}</span>}
+      </div>
+      <p className="mt-1 text-xs leading-5">
+        納めるまで延滞税は日ごとに増える。実額は税務署・年金機構の通知書で確定するので、届いた通知は
+        <Link href="/admin/finance#payment-obligations" className="mx-1 underline underline-offset-2">支払義務</Link>
+        へ登録すると、この見込みに代わって期日つきで並ぶ。
+        {unknownAmountCount > 0 && ` 金額を取得できていない行が${unknownAmountCount}件ある。`}
+      </p>
+      <ul className="mt-3 divide-y divide-rose-200 border-t border-rose-200">
+        {overdue.map((item) => {
+          const penalty = penaltyEstimateOf(item);
+          const days = penalty?.overdueDays ?? overdueDaysOf(item, today);
+          return (
+            <li key={item.occurrence_id} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 py-2 text-sm">
+              <span className="font-semibold">{item.title}</span>
+              <span className="text-xs">{dateLabel(item)}{days != null && ` · ${days}日超過`}</span>
+              <span className="tabular-nums">{formatScheduleYen(item.amount_yen)}</span>
+              {penalty && (penalty.totalYen ?? 0) > 0 ? (
+                <span className="text-xs tabular-nums">
+                  見込み {formatScheduleYen(penalty.totalYen ?? 0)}
+                  （{(penalty.underpaymentPenaltyYen ?? 0) > 0 ? `不納付加算税 ${formatScheduleYen(penalty.underpaymentPenaltyYen ?? 0)} + ` : ""}
+                  {penalty.delinquencyKind === "social_insurance" ? "延滞金" : "延滞税"} {formatScheduleYen(penalty.delinquencyYen ?? 0)}）
+                </span>
+              ) : penalty && penalty.totalYen == null ? (
+                <span className="text-xs">加算税・延滞税は割合が未収録の期間にかかるため未算出</span>
+              ) : null}
+              <Link href="/admin/finance#payment-obligations" className="ml-auto text-xs underline underline-offset-2">支払義務で確認</Link>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 function monthKey(year: number, month: number): string {
   return `${year}${String(month).padStart(2, "0")}`;
 }
@@ -345,6 +425,8 @@ export function AdminScheduleClient({ initialData }: Props) {
           <div><p className="font-semibold">運営カレンダーの正本テーブルが未適用、または読み込みに失敗してる</p><p className="mt-1 text-xs leading-5">migration 178 を適用してから再生成して。既存の契約・債務データはこの画面から書き換えないよ。</p></div>
         </div>
       )}
+
+      <OverdueStatutoryAlert items={data.occurrences} today={today} />
 
       <section aria-label="カレンダーの状態" className="flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-border py-3 text-sm">
         <span className="inline-flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden="true" /><span className="text-muted-foreground">生成済み</span><strong>{data.meta.generatedCount}</strong></span>

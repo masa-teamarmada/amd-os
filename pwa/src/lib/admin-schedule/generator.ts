@@ -409,9 +409,14 @@ function officialNextMonthEnd(ym: string): { raw: string; dueOn: string | null }
   return { raw, dueOn: officialBusinessDate(raw) };
 }
 
+const PENALTY_TITLE_WORDS = ["加算税", "延滞税", "延滞金", "督促", "滞納処分"];
+
 export function paymentObligationEventKind(row: RawRow): string {
   const title = normalized(row.title);
   const category = normalized(row.category);
+  if (PENALTY_TITLE_WORDS.some((word) => title.includes(normalized(word)))) {
+    return category === "socialinsurance" ? "social_insurance_penalty_payment" : "tax_penalty_payment";
+  }
   if (category === "socialinsurance") {
     return /労働保険|年度更新/.test(String(row.title ?? ""))
       ? "labor_insurance_annual_update"
@@ -465,6 +470,8 @@ function generatePaymentObligations(obligations: RawRow[]): GeneratedOccurrence[
         autoDebit: row.auto_debit ?? null,
         paidAt: row.paid_at || null,
         paidAmountYen: row.paid_amount_yen ?? null,
+        penaltyEstimate: record(row.payload).penaltyEstimate ?? null,
+        penaltyForSourceKey: record(row.payload).penaltyForSourceKey ?? null,
       },
     });
   });

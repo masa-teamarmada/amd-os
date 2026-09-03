@@ -8,8 +8,11 @@ import {
 } from "../src/lib/finance/payment-obligations.ts";
 import {
   buildAmdStatutoryPaymentDrafts,
+  buildStatutoryPenaltyEstimates,
+  delinquencyEstimateYen,
   nextStatutoryBusinessDay,
   statutoryEndOfMonthDueDate,
+  withholdingUnderpaymentPenaltyYen,
 } from "../src/lib/finance/statutory-payment-rules.ts";
 import { runMonthlyPlSimulation } from "../src/lib/finance/monthly-pl-simulation.ts";
 
@@ -216,5 +219,81 @@ const weekendSettlement = runMonthlyPlSimulation({
 });
 assert.equal(weekendSettlement.rows[1].ctaxPayment, 0);
 assert.equal(weekendSettlement.rows[2].ctaxPayment, 810400);
+
+// ── 加算税・延滞税の見込み ──────────────────────────────────
+// 不納付加算税は本税の1万円未満を切り捨てて10%、100円未満は切り捨て、5,000円未満は不徴収。
+assert.equal(withholdingUnderpaymentPenaltyYen(325500), 32000);
+assert.equal(withholdingUnderpaymentPenaltyYen(269999), 26000);
+assert.equal(withholdingUnderpaymentPenaltyYen(49000), 0, "加算税が5,000円未満なら課されない");
+assert.equal(withholdingUnderpaymentPenaltyYen(0), 0);
+
+// 延滞税は納期限の翌日から起算し、2か月を境に割合が変わる。令和8年は2.8%と9.1%。
+assert.equal(delinquencyEstimateYen(325500, "2026-07-10", "2026-07-10", "national_tax"), 0, "納期限当日は発生しない");
+assert.equal(delinquencyEstimateYen(325500, "2026-07-10", "2026-08-10", "national_tax"), 0, "全額が1,000円未満なら切り捨てる");
+// 納期限の翌日から55日。2か月を越えていないので低いほうの割合だけが乗る。
+const within = delinquencyEstimateYen(325500, "2026-07-10", "2026-09-03", "national_tax");
+assert.equal(within, Math.floor(Math.floor(((320000 * 2.8) / 100 / 365) * 55) / 100) * 100);
+assert.equal(within, 1300);
+// 2か月の境目は2026-09-10。そこまでが62日、翌日から年末までの112日は高いほうの割合になる。
+const across = delinquencyEstimateYen(325500, "2026-07-10", "2026-12-31", "national_tax");
+assert.equal(across, Math.floor(Math.floor(((320000 * 2.8) / 100 / 365) * 62 + ((320000 * 9.1) / 100 / 365) * 112) / 100) * 100);
+assert.equal(across, 10400);
+assert.equal(delinquencyEstimateYen(325500, "2026-07-10", "2030-01-01", "national_tax"), null, "割合が未収録の年は見積もらない");
+// 社会保険料の延滞金は3か月区切りで割合も違う。
+assert.notEqual(
+  delinquencyEstimateYen(304119, "2026-05-31", "2026-09-03", "social_insurance"),
+  delinquencyEstimateYen(304119, "2026-05-31", "2026-09-03", "national_tax"),
+);
+
+const penaltyBase = [
+  {
+    sourceKey: "statutory:withholding-income-tax:special:2026-h1",
+    title: "源泉所得税（納期の特例・1-6月分）",
+    counterparty: "税務署",
+    category: "tax" as const,
+    amountYen: 325500,
+    amountStatus: "exact" as const,
+    dueDate: "2026-07-10",
+    status: "open" as const,
+    cashflowTreatment: "additive" as const,
+    budgetCategory: null,
+    autoDebit: false,
+    sourceRef: "",
+    confidence: 1,
+    paidAt: null,
+    paidAmountYen: null,
+    payload: { ruleKey: "withholding_income_tax_special" },
+  },
+  {
+    sourceKey: "statutory:social-insurance:202605",
+    title: "社会保険料（2026年5月分）",
+    counterparty: "日本年金機構",
+    category: "social_insurance" as const,
+    amountYen: 334818,
+    amountStatus: "exact" as const,
+    dueDate: "2026-06-30",
+    status: "paid" as const,
+    cashflowTreatment: "included_in_budget" as const,
+    budgetCategory: null,
+    autoDebit: false,
+    sourceRef: "",
+    confidence: 1,
+    paidAt: "2026-07-16T00:00:00+09:00",
+    paidAmountYen: 334818,
+    payload: { ruleKey: "monthly_social_insurance" },
+  },
+];
+const penalties = buildStatutoryPenaltyEstimates(penaltyBase, "2026-09-03");
+assert.equal(penalties.length, 1, "納付済みには見込みを作らない");
+assert.equal(penalties[0].parentSourceKey, "statutory:withholding-income-tax:special:2026-h1");
+assert.equal(penalties[0].underpaymentPenaltyYen, 32000);
+assert.equal(penalties[0].overdueDays, 55);
+assert.equal(penalties[0].totalYen, 32000 + (penalties[0].delinquencyYen ?? 0));
+assert.equal(
+  buildStatutoryPenaltyEstimates(penaltyBase, "2026-09-03", ["statutory:withholding-income-tax:special:2026-h1"]).length,
+  0,
+  "賦課決定通知を受け取った親には見込みを重ねない",
+);
+assert.equal(buildStatutoryPenaltyEstimates(penaltyBase, "2026-07-10").length, 0, "期限内は見込みを作らない");
 
 console.log("payment obligation checks passed");

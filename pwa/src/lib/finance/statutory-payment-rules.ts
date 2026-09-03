@@ -499,6 +499,158 @@ function taxDrafts(input: BuildStatutoryPaymentsInput, horizonYm: string): Statu
   return drafts;
 }
 
+// ── 加算税・延滞税 ────────────────────────────────────────────────
+// 法定納付が納期限を過ぎても未納なら、加算税と延滞税が後から必ず請求される。
+// 賦課決定通知が届くまで実額は分からないが、算式は法令で決まっているので、
+// 「このまま未納なら今いくら積み上がっているか」は決定的に計算できる。
+// 実際の通知書が届いたらそれが正本になり、その親については見込みを作らない。
+
+const NTA_DELINQUENT_TAX_URL = "https://www.nta.go.jp/taxes/nozei/entaizei/keisan/entai_wariai.htm";
+const NTA_WITHHOLDING_PENALTY_URL = "https://www.nta.go.jp/law/jimu-unei/shotoku/gensen/000703/01.htm";
+const PENSION_DELINQUENT_URL = "https://www.nenkin.go.jp/service/kounen/hokenryo/nofu/20141219-02.html";
+
+// 国税庁が年ごとに公表する延滞税の割合（％）。区切りは納期限の翌日から2か月。
+// 未収録の年は見込みを出さない。推定値で埋めない。
+const NATIONAL_DELINQUENT_RATES: Record<string, { withinBoundary: number; afterBoundary: number }> = {
+  "2024": { withinBoundary: 2.9, afterBoundary: 9.2 },
+  "2025": { withinBoundary: 2.8, afterBoundary: 9.1 },
+  "2026": { withinBoundary: 2.8, afterBoundary: 9.1 },
+};
+
+// 日本年金機構が年ごとに公表する延滞金の割合（％）。区切りは納期限の翌日から3か月で、
+// 国税の延滞税とは区切りも率も違う。
+const PENSION_DELINQUENT_RATES: Record<string, { withinBoundary: number; afterBoundary: number }> = {
+  "2024": { withinBoundary: 2.4, afterBoundary: 8.7 },
+  "2025": { withinBoundary: 2.4, afterBoundary: 8.7 },
+  "2026": { withinBoundary: 2.4, afterBoundary: 8.7 },
+};
+
+export const PENALTY_RATES_AS_OF = "2026-09-03";
+
+function addMonthsToDate(date: string, months: number): string {
+  const year = Number(date.slice(0, 4));
+  const month = Number(date.slice(5, 7));
+  const day = Number(date.slice(8, 10));
+  const lastDay = new Date(Date.UTC(year, month - 1 + months + 1, 0)).getUTCDate();
+  const shifted = new Date(Date.UTC(year, month - 1 + months, Math.min(day, lastDay)));
+  return isoDate(shifted);
+}
+
+export type DelinquencyKind = "national_tax" | "social_insurance";
+
+/**
+ * 延滞税（国税）・延滞金（社会保険料）の見込み額。
+ * 本税は1万円未満を切り捨て、日数は納期限の翌日から起算日まで、年365日の日割りで積む。
+ * 1,000円未満は切り捨て（不徴収）、それ以上は100円未満を切り捨てる。
+ * 率が未収録の年をまたぐ場合はnullを返し、金額未取得として扱う。
+ */
+export function delinquencyEstimateYen(
+  principalYen: number,
+  dueDate: string,
+  asOf: string,
+  kind: DelinquencyKind
+): number | null {
+  const base = Math.floor(principalYen / 10000) * 10000;
+  if (base <= 0) return 0;
+  if (asOf <= dueDate) return 0;
+  const rates = kind === "national_tax" ? NATIONAL_DELINQUENT_RATES : PENSION_DELINQUENT_RATES;
+  const boundary = addMonthsToDate(dueDate, kind === "national_tax" ? 2 : 3);
+  let total = 0;
+  for (let day = addDays(dueDate, 1); day <= asOf; day = addDays(day, 1)) {
+    const rate = rates[day.slice(0, 4)];
+    if (!rate) return null;
+    const percent = day <= boundary ? rate.withinBoundary : rate.afterBoundary;
+    total += (base * percent) / 100 / 365;
+  }
+  const yen = Math.floor(total);
+  if (yen < 1000) return 0;
+  return Math.floor(yen / 100) * 100;
+}
+
+/**
+ * 源泉所得税の不納付加算税の見込み額。
+ * 納税告知を受けた場合は本税（1万円未満切捨）の10%。100円未満は切り捨て、
+ * 全額が5,000円未満なら不徴収。自主納付なら5%だが、安全側の10%で見積もる。
+ */
+export function withholdingUnderpaymentPenaltyYen(principalYen: number): number {
+  const base = Math.floor(principalYen / 10000) * 10000;
+  if (base <= 0) return 0;
+  const penalty = Math.floor((base * 0.1) / 100) * 100;
+  return penalty < 5000 ? 0 : penalty;
+}
+
+export type StatutoryPenaltyEstimate = {
+  parentSourceKey: string;
+  parentTitle: string;
+  parentDueDate: string;
+  parentAmountYen: number;
+  overdueDays: number;
+  delinquencyKind: DelinquencyKind;
+  delinquencyYen: number | null;
+  underpaymentPenaltyYen: number | null;
+  totalYen: number | null;
+  ratesAsOf: string;
+  officialRefs: string[];
+  formula: string;
+};
+
+const DELINQUENCY_KIND_BY_RULE: Record<string, DelinquencyKind> = {
+  withholding_income_tax_special: "national_tax",
+  consumption_tax_interim: "national_tax",
+  consumption_tax_final: "national_tax",
+  corporate_tax_interim: "national_tax",
+  corporate_tax_final: "national_tax",
+  resident_tax_special_collection: "national_tax",
+  monthly_social_insurance: "social_insurance",
+};
+
+/**
+ * 期限を過ぎて未納の法定納付から、いま積み上がっている加算税・延滞税を見積もる。
+ * 労働保険料は延滞金の割合の一次情報を保持していないため対象外にし、督促状が届いたら
+ * 実受領の支払義務として登録する運用で拾う。
+ */
+export function buildStatutoryPenaltyEstimates(
+  drafts: StatutoryPaymentDraft[],
+  today: string,
+  settledParentSourceKeys: string[] = []
+): StatutoryPenaltyEstimate[] {
+  const settled = new Set(settledParentSourceKeys);
+  const estimates: StatutoryPenaltyEstimate[] = [];
+  for (const draft of drafts) {
+    if (draft.status === "paid" || draft.status === "cancelled") continue;
+    if (draft.dueDate >= today) continue;
+    if (draft.amountYen == null || draft.amountYen <= 0) continue;
+    if (settled.has(draft.sourceKey)) continue;
+    const ruleKey = String(draft.payload.ruleKey ?? "");
+    const kind = DELINQUENCY_KIND_BY_RULE[ruleKey];
+    if (!kind) continue;
+    const delinquency = delinquencyEstimateYen(draft.amountYen, draft.dueDate, today, kind);
+    const penalty = ruleKey === "withholding_income_tax_special"
+      ? withholdingUnderpaymentPenaltyYen(draft.amountYen)
+      : null;
+    const total = delinquency == null ? null : delinquency + (penalty ?? 0);
+    estimates.push({
+      parentSourceKey: draft.sourceKey,
+      parentTitle: draft.title,
+      parentDueDate: draft.dueDate,
+      parentAmountYen: draft.amountYen,
+      overdueDays: Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${draft.dueDate}T00:00:00Z`)) / 86400000),
+      delinquencyKind: kind,
+      delinquencyYen: delinquency,
+      underpaymentPenaltyYen: penalty,
+      totalYen: total,
+      ratesAsOf: PENALTY_RATES_AS_OF,
+      officialRefs: kind === "national_tax"
+        ? [NTA_DELINQUENT_TAX_URL, ...(penalty != null ? [NTA_WITHHOLDING_PENALTY_URL] : [])]
+        : [PENSION_DELINQUENT_URL],
+      formula: kind === "national_tax"
+        ? "本税(1万円未満切捨) × 延滞税の割合 × 経過日数 ÷ 365。納期限の翌日から2か月までと以後で割合が変わる"
+        : "保険料(1万円未満切捨) × 延滞金の割合 × 経過日数 ÷ 365。納期限の翌日から3か月までと以後で割合が変わる",
+    });
+  }
+  return estimates;
+}
+
 export function buildAmdStatutoryPaymentDrafts(input: BuildStatutoryPaymentsInput): StatutoryPaymentDraft[] {
   const horizonYm = addMonthsToStatutoryYm(ymFromDate(input.today), Math.max(1, input.horizonMonths));
   return [
