@@ -305,6 +305,8 @@ export type PaymentMatrixCell = {
   count: number;
   paidCount: number;
   attentionCount: number;
+  /** セルに入った納付の内訳。同じ月に2件以上入るとき何が入っているかを示す */
+  entries: Array<{ title: string; amountYen: number | null; state: PaymentLedgerState; dueDate: string | null }>;
 };
 
 export type PaymentMatrixTotals = {
@@ -343,7 +345,7 @@ function emptyTotals(): PaymentMatrixTotals {
 }
 
 function emptyCell(): PaymentMatrixCell {
-  return { state: "none", totalYen: 0, paidYen: 0, unpaidYen: 0, unknownAmountCount: 0, count: 0, paidCount: 0, attentionCount: 0 };
+  return { state: "none", totalYen: 0, paidYen: 0, unpaidYen: 0, unknownAmountCount: 0, count: 0, paidCount: 0, attentionCount: 0, entries: [] };
 }
 
 function addToTotals(totals: PaymentMatrixTotals, row: PaymentLedgerRow): void {
@@ -398,6 +400,7 @@ export function buildPaymentMatrix(
     if (row.amountStatus === "unknown") cell.unknownAmountCount += 1;
     if (row.state === "paid") cell.paidCount += 1;
     if (row.state === "overdue" || row.state === "needs_review") cell.attentionCount += 1;
+    cell.entries.push({ title: row.title, amountYen: row.amountYen, state: row.state, dueDate: row.dueDate });
     addToTotals(month.totals, row);
     addToTotals(kindTotals[kind], row);
     addToTotals(totals, row);

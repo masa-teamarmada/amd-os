@@ -219,10 +219,15 @@ function PaymentMatrixSection({ rows, today, fiscalYearEndMonth }: { rows: Payme
                 {PAYMENT_KINDS.map((kind) => {
                   const cell = month.cells[kind.key];
                   return (
-                    <td key={kind.key} className={`px-2 py-1.5 text-right ${MATRIX_CELL_STYLES[cell.state]}`}>
+                    <td
+                      key={kind.key}
+                      className={`px-2 py-1.5 text-right ${MATRIX_CELL_STYLES[cell.state]}`}
+                      title={cell.entries.map((entry) => `${entry.title}（${yen(entry.amountYen)}・${STATE_LABELS[entry.state]}）`).join("\n")}
+                    >
                       {cell.count === 0 ? "·" : (
                         <>
                           {compactYen(cell.totalYen)}
+                          {cell.count > 1 && <span className="ml-1 text-[10px] font-normal">{cell.count}件</span>}
                           {cell.unknownAmountCount > 0 && <span className="ml-1 text-[10px]">額未取得{cell.unknownAmountCount}件</span>}
                         </>
                       )}
@@ -257,7 +262,8 @@ function PaymentMatrixSection({ rows, today, fiscalYearEndMonth }: { rows: Payme
         </table>
       </div>
       <p className="text-xs leading-5 text-muted-foreground">
-        金額は納期限が属する月に置く。未納には期限がまだ来ていない分も含む。
+        金額は納期限が属する月に置く。社会保険料は対象月の翌月末、源泉所得税は1-6月分が7月10日なので、対象の月とはずれる。
+        1つの枠に2件以上入るときは件数を添えた。枠にカーソルを合わせると内訳が出る。未納には期限がまだ来ていない分も含む。
         {matrix.outsideCount > 0 && ` この期の外に期限がある納付が${matrix.outsideCount}件あり、下の明細に並ぶ。`}
       </p>
     </section>
