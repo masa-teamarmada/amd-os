@@ -305,9 +305,16 @@ assert.equal(shouldSendNudgeOnStage("overdue-2-days"), false);
 assert.equal(shouldSendNudgeOnStage("overdue-7-days"), true);
 assert.equal(shouldSendNudgeOnStage("overdue-14-days"), true);
 assert.equal(shouldSendNudgeOnStage("overdue-15-days"), false);
-assert.equal(shouldSendNudgeOnStage("overdue-21-days"), true);
-assert.equal(shouldSendNudgeOnStage("overdue-55-days"), false);
-assert.equal(shouldSendNudgeOnStage("overdue-56-days"), true);
+// 2週間を超えると段階そのものが週単位になる。週が変わった最初の実行で必ず1通届く。
+assert.deepEqual(
+  notificationStage({ status: "open", due_date: "2026-07-10", due_date_precision: "day", expected_payment_ym: "202607", amount_status: "exact" }, "2026-09-03"),
+  { scheduleKey: "2026-07-10", stage: "overdue-week-7" },
+);
+assert.deepEqual(
+  notificationStage({ status: "open", due_date: "2026-07-10", due_date_precision: "day", expected_payment_ym: "202607", amount_status: "exact" }, "2026-09-04"),
+  { scheduleKey: "2026-07-10", stage: "overdue-week-8" },
+);
+assert.equal(shouldSendNudgeOnStage("overdue-week-7"), true);
 assert.equal(shouldSendNudgeOnStage("7-days-before"), true, "期限前の段階はそのまま送る");
 assert.equal(shouldSendNudgeOnStage("needs-review"), true);
 

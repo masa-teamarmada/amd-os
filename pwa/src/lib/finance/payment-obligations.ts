@@ -240,22 +240,24 @@ export function notificationStage(
   if ([30, 14, 7, 1, 0].includes(days)) return { scheduleKey: obligation.due_date, stage: days === 0 ? "due-today" : `${days}-days-before` };
   if (days < 0) {
     const overdueDays = Math.abs(days);
-    return { scheduleKey: obligation.due_date, stage: `overdue-${overdueDays}-days` };
+    // 2週間までは日ごと、それ以降は週ごとの段階にする。日ごとのままだと長期の放置に
+    // 毎日1通が積み上がり、週単位に丸めると「週が変わった最初の実行」で必ず1通届く。
+    if (overdueDays <= 14) return { scheduleKey: obligation.due_date, stage: `overdue-${overdueDays}-days` };
+    return { scheduleKey: obligation.due_date, stage: `overdue-week-${Math.floor(overdueDays / 7)}` };
   }
   return null;
 }
 
 /**
  * 期限超過の督促を送る日かどうか。
- * `notificationStage` は超過中の毎日に段階名を返すが、毎日送ると読まれなくなる。
- * 超過1日・3日・7日・14日、それ以降は7日ごとに絞る。超過以外の段階はそのまま送る。
+ * 超過2週間までは1日・3日・7日・14日だけに絞る。それ以降は `notificationStage` が
+ * 週単位の段階を返すので、同じ段階を二度送らない仕組みがそのまま週1回になる。
  */
 export function shouldSendNudgeOnStage(stage: string): boolean {
   const matched = /^overdue-(\d+)-days$/.exec(stage);
   if (!matched) return true;
   const days = Number(matched[1]);
-  if (days <= 14) return days === 1 || days === 3 || days === 7 || days === 14;
-  return days % 7 === 0;
+  return days === 1 || days === 3 || days === 7 || days === 14;
 }
 
 /**
