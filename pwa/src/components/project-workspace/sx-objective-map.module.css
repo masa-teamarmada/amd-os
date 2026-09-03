@@ -722,7 +722,8 @@ button.nodeMain:hover {
     padding: 0;
   }
 
-  .outcomeNode {
+  .outcomeNode,
+  .outcomeAddNode {
     min-height: 0;
   }
 
