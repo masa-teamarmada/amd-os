@@ -62,3 +62,15 @@
 - **副次で見つけた誤表示を直した**。一覧の会社名欄がPJ未紐付けを一律「未設立」と断定しており、つばめBHBが「未設立 つばめBHB株式会社（2017年設立）」になった。PJが無いシーズについて会社の有無を知る手がかりは `seeds.status` しかないので、`spun_off` は「法人化済み」と出す。PJ未紐付けの spun_off は7件あり、いずれも同じ誤表示だった。
 - `test_sps_initial_assessment_flow.mjs` が本変更の前から落ちていた（`.limit(1000)` を期待し続けており、実装は `.range(from, from + 999)` のページ読みへ移っていた）。実装に合わせて直し、あわせて会社メモの契約（6系統目・安全化・締切・heard_at非送出）を検査に加えた。
 - 検証: `npx tsc --noEmit`、eslint、`test_sps_initial_assessment_flow.mjs`。`prepare --seed-id` を実走して source facts に company_facts 6件が載ること、`heard_at` が漏れていないこと、promptに規律が入ったことを確認。認証cookieを起こしたPlaywrightで desktop 1440 の実画面を撮り、モーダルのセクション・追加フォーム・一覧行の表示と横スクロールなしを確認した。commit `eccd8309` / `c3a48929`。
+
+## 2026-09-03 AMD社内業務（p00）を目的構造で追えるようにした
+
+- まさ「AMDの業務として、AMD HoldCo設立とか、決算対応とか、色々PJベースのタスクが立ち上がるので、それらの進捗を目的構造タブで進捗管理と全体把握ができるようにしたい」。
+- 器は既にあった。`p00`（AMD 会社全体PJ）のコックピットは以前から `?tab=objective-structure` を持つが、`project_management_tracks / objectives / outcomes` が空で「目的と成立条件がまだ登録されていないよ」の空表示だった。新規の画面もテーブルも作らず、既存の `objective → outcome → milestone(phase) → task` にAMD自身を載せる方針にした。
+- migration `ios/supabase/migrations/20260903120600_amd_operations_objective_structure.sql`（本番適用済み）。柱 `amd_operations`（AMD運営）1本、最上位目的「AMDの経営基盤を整える」、業務ライン「AMD HoldCo設立」「決算対応」とその phase MS。**柱を業務の種類で分けなかった**のは、分類を先に決めると入れる場所で迷うため。ラインが増えて分類が要ると分かってから足す。**工程・期限・担当・完了条件は入れていない**。まさが名前を挙げたのは2本の名前だけで、中身は未確認。`未確認` と明示して置いた。
+- **依頼の本体は「色々立ち上がる」への対応**。ラインが増えるたびにmigrationを書く運用では回らないので、目的構造から `＋ 業務ラインを追加` / `このラインを編集` で `project_management_outcomes` をCRUDできるようにした。`EditorState` に `create_outcome` / `edit_outcome` を足し、既存の汎用エディタ機構（`editorInitialValues` / `editorDefinition`）へ乗せた。`slug` と `objective_id` はフォームに出さず保存時に補う（`create_milestone` と同じ流儀）。柱はPJに2本以上あるときだけ選ばせる。最上位目的が無いPJでは追加を受け付けない（DBの `objective_id` が必須）。
+- **outcome作成時に phase MS を1件続けて作る**のが今回いちばん効く判断。`SxObjectiveMap` は `task.milestoneId ? milestoneIds.has(...) : task.track === outcome.track` でタスクを枝へ割り当てるので、入れ物が無いと「同じ柱の全ラインに同じタスクが出る」。柱1本＋ライン複数というp00の形では確実に踏む。phase MS の作成に失敗したときは outcome が保存済みであることを通知し、成功したようには見せない。目的構造からのタスク追加も、親タスクが無い場合はそのラインの phase MS へ入れる（従来は standalone になっていた）。
+- **決算の締切そのものは持たない**。申告・納付・社会保険・定時株主総会の法定期限は `/admin/schedule`（管理カレンダー）が正本。目的構造へ日付を複製すると、どちらが本当か分からなくなる。目的構造が持つのは締切へ向けた進行状態だけで、これは仕様（`spec/3-16`）と manual、業務ラインの完了条件本文の3か所に書いた。
+- 検証: `npx tsc --noEmit` / `npm run build` / `npm run test:critical-ui` / deploy wrapper 全ゲート。**本番実画面で追加と編集を通した**。`＋ 業務ラインを追加` からテスト行を1本作り、outcome と phase MS の両方がDBに入ることを確認、`このラインを編集` で状態を `on_hold` へ変えてPATCHが通ることを確認したのち、両行を soft delete で消した（`project_management_outcome_preserve_milestones` トリガがあるので milestone → outcome の順でないと消せない）。
+- commit `7e12fa18` / `cb4fd1fe`、本番 `v3.100.20` → `v3.100.21`。正規checkoutに他セッションのdirty（bzm論文、8月design_log）が続いているため、今回も使い捨てclean cloneから push した。
+- **まさ確認待ち**: (1) 最上位目的の文言「AMDの経営基盤を整える」はえいみの仮置き。(2) HoldCo設立・決算対応のほかに、いま立ち上がっている業務ライン。(3) 決算のように毎年回る業務を、年ごとに1本立てるか1本を使い回すか。いまは1本で、年度の区別を持っていない。
