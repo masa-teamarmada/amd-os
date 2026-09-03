@@ -9,6 +9,12 @@ import path from "node:path";
 import process from "node:process";
 import { createClient } from "@supabase/supabase-js";
 import { google } from "googleapis";
+import {
+  planLedgerReconciliation,
+  readLedgerRows,
+  applyLedgerPlan,
+  DEFAULT_EMIT_LIMIT,
+} from "./lib/meeting_backfill_ledger.mjs";
 
 const PWA_ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const REPO_ROOT = path.resolve(PWA_ROOT, "..");
@@ -20,6 +26,11 @@ loadEnv(path.join(PWA_ROOT, ".vercel", ".env.production.local"));
 
 const args = parseArgs(process.argv.slice(2));
 const NOTION_METADATA_CANDIDATE_LIMIT = 25;
+// 台帳から1runで出す再試行の上限。毎時runを長時間化させないための数であり、
+// 欠損の保持期間の上限ではない。台帳は期限なく残る。
+const BACKLOG_EMIT_LIMIT = DEFAULT_EMIT_LIMIT;
+// 新しい欠損を検出する範囲。検出済みの行は範囲外へ出ても台帳に残り続ける。
+const BACKLOG_DETECT_LOOKBACK_DAYS = 45;
 const NOTION_METADATA_MAX_SCAN_PAGES = 8;
 
 async function main() {
@@ -35,6 +46,7 @@ async function main() {
     recovery_min: new Date(now.getTime() - 24 * 60 * 60 * 1000),
     upcoming_min: new Date(now.getTime() - 24 * 60 * 60 * 1000),
     upcoming_max: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+    backlog_min: new Date(now.getTime() - BACKLOG_DETECT_LOOKBACK_DAYS * 24 * 60 * 60 * 1000),
   };
 
   const db = await createDb();
@@ -64,9 +76,30 @@ async function main() {
     .filter((event) => isNewOrChanged(event, rowsByEventId.get(event.id)))
     .map((event) => ({ ...normalizeEvent(event), reason: rowsByEventId.has(event.id) ? "calendar_metadata_changed" : "new_calendar_card" }));
 
+  // 議事録欠損台帳。抽出窓を外した会議はここに残り、期限なく再試行の対象になる。
+  // Calendarが読めなくても動く必要があるため、検出はDBの予定カード行だけを見る。
+  let backlog = { candidates: [], stats: null, error: null };
+  try {
+    const [backlogRows, ledgerRows] = await Promise.all([
+      readBacklogSummaryRows(db, windows),
+      readLedgerRows(db),
+    ]);
+    const plan = planLedgerReconciliation({
+      now,
+      summaryRows: backlogRows,
+      ledgerRows,
+      emitLimit: BACKLOG_EMIT_LIMIT,
+    });
+    await applyLedgerPlan(db, plan, { now });
+    backlog = { candidates: plan.emits, stats: plan.stats, error: null };
+  } catch (error) {
+    // 台帳が壊れてもH-1本体を止めない。旧来の3レーンは従来どおり動かす。
+    backlog = { candidates: [], stats: null, error: String(error?.message || error).slice(0, 180) };
+  }
+
   const result = {
     generated_at: now.toISOString(),
-    external_writes: "none",
+    external_writes: "ledger_only",
     calendar: {
       status: calendarError ? "connector_required" : "direct_api",
       error: calendarError,
@@ -78,6 +111,7 @@ async function main() {
       held: heldCandidates,
       recovery: recoveryCandidates,
       upcoming: upcomingCandidates,
+      backlog: backlog.candidates,
       notion_metadata: {
         scan_required: true,
         scope: "all_history",
@@ -93,9 +127,11 @@ async function main() {
       },
     },
   };
+  result.backlog_ledger = { stats: backlog.stats, error: backlog.error };
   writeJson(outputPath, result);
 
-  const candidateCount = heldCandidates.length + recoveryCandidates.length + upcomingCandidates.length;
+  const candidateCount = heldCandidates.length + recoveryCandidates.length
+    + upcomingCandidates.length + backlog.candidates.length;
   // The bounded Notion metadata repair lane is independent from Calendar.
   // Codex must scan it before a run may be reported as a no-op.
   if (candidateCount > 0 || calendarError || result.candidates.notion_metadata.scan_required) {
@@ -195,6 +231,28 @@ async function readSummaryRows(db, windows, eventIds) {
   if (recoveryResult.error) throw recoveryResult.error;
   if (windowResult.error) throw windowResult.error;
   return { recoveryRows: recoveryResult.data ?? [], windowRows: windowResult.data ?? [] };
+}
+
+/**
+ * 台帳の照合に使う行。予定カードと確定版の両方を、検出範囲ぶんまとめて読む。
+ * 旧救済レーンの「直近24時間」「既存行のみ」という条件はここでは使わない。
+ */
+async function readBacklogSummaryRows(db, windows) {
+  const select = "meeting_id,calendar_event_id,project_id,meeting_start_at,title,source_kinds";
+  const rows = [];
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await db
+      .from("project_meeting_summaries")
+      .select(select)
+      .gte("meeting_start_at", windows.backlog_min.toISOString())
+      .lte("meeting_start_at", new Date().toISOString())
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if (!data || data.length < pageSize) break;
+  }
+  return rows;
 }
 
 function isEligibleCalendarEvent(event) {
