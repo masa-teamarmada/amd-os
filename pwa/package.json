@@ -106,6 +106,8 @@
     "test:l6-prep-scope-coverage-gate": "node scripts/l6_prep_scope_coverage_gate.cjs --fixture scripts/__fixtures__/l6_prep_scope_coverage_gate_complete.json && node scripts/l6_prep_scope_coverage_gate.cjs --fixture scripts/__fixtures__/l6_prep_scope_coverage_gate_silent_omission.json && node scripts/l6_prep_scope_coverage_gate.cjs --fixture scripts/__fixtures__/l6_prep_scope_coverage_gate_missing_impact.json && node scripts/l6_prep_scope_coverage_gate.cjs --fixture scripts/__fixtures__/l6_prep_scope_coverage_gate_partial_schedule.json && node scripts/l6_prep_scope_coverage_gate.cjs --fixture scripts/__fixtures__/l6_prep_scope_coverage_gate_source_mismatch.json",
     "h1:local-notion-fallback": "node scripts/h1_local_notion_fallback.mjs",
     "test:h1-local-notion-fallback": "node scripts/check_h1_local_notion_fallback.mjs",
+    "test:meeting-narrative-gate": "node --experimental-strip-types scripts/check_meeting_narrative_gate.mts",
+    "meeting:backfill-minutes": "node scripts/backfill_meeting_minutes.mjs",
     "test:meeting-backfill-ledger": "node scripts/check_meeting_backfill_ledger.mjs",
     "meeting:audit-missing-minutes": "node scripts/audit_missing_meeting_minutes.mjs",
     "test:h1-meeting-summary-reviewer": "node scripts/check_h1_meeting_summary_reviewer.mjs",
