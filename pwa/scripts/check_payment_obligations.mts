@@ -17,6 +17,7 @@ import {
   withholdingUnderpaymentPenaltyYen,
 } from "../src/lib/finance/statutory-payment-rules.ts";
 import { runMonthlyPlSimulation } from "../src/lib/finance/monthly-pl-simulation.ts";
+import { buildPaymentLedger, freeeStatusLabel, isPenaltyObligationTitle } from "../src/lib/finance/payment-ledger.ts";
 
 assert.equal(extractPaymentAmount("納付額 512,300円"), 512300);
 assert.equal(extractPaymentAmount("請求額 ¥12,000 / 合計 ¥13,200"), 13200);
@@ -336,5 +337,68 @@ assert.equal(
   isUnsettledStatutoryPayment({ source_kind: "statutory_rule", category: "social_insurance", due_date: "2026-08-31", status: "needs_review" } as never, "2026-09-03"),
   true,
 );
+
+// ── 納付ページの読み取りモデル ────────────────────────────
+const ledgerObligation = (overrides: Record<string, unknown>) => ({
+  id: String(overrides.id ?? "x"),
+  source_key: String(overrides.source_key ?? "k"),
+  title: String(overrides.title ?? "t"),
+  counterparty: "税務署",
+  category: "tax",
+  amount_yen: 100000,
+  amount_status: "exact",
+  due_date: "2026-07-10",
+  due_date_precision: "day",
+  expected_payment_ym: "202607",
+  status: "open",
+  cashflow_treatment: "additive",
+  budget_category: null,
+  auto_debit: false,
+  owner_member_id: null,
+  source_kind: "statutory_rule",
+  source_ref: null,
+  confidence: 1,
+  paid_at: null,
+  paid_amount_yen: null,
+  payload: {},
+  created_at: "2026-01-01T00:00:00Z",
+  updated_at: "2026-09-03T00:00:00Z",
+  ...overrides,
+}) as never;
+
+const ledger = buildPaymentLedger([
+  ledgerObligation({ id: "a", source_key: "statutory:withholding-income-tax:special:2026-h1", title: "源泉所得税（納期の特例・1-6月分）", amount_yen: 325500, payload: { penaltyEstimate: { totalYen: 1300, delinquencyYen: 1300, underpaymentPenaltyYen: 0 } } }),
+  ledgerObligation({ id: "b", source_key: "mail-notice:x", title: "源泉所得税 不納付加算税（2026年1-6月分）", amount_yen: 26500, due_date: "2026-09-30", source_kind: "mail_notice", payload: { penaltyForSourceKey: "statutory:withholding-income-tax:special:2026-h1" } }),
+  ledgerObligation({ id: "c", source_key: "statutory:social-insurance:202604", title: "社会保険料（2026年4月分）", category: "social_insurance", amount_yen: 334818, due_date: "2026-06-01", status: "paid", paid_at: "2026-06-15T15:00:00Z", paid_amount_yen: 334818 }),
+  ledgerObligation({ id: "d", source_key: "statutory:corp", title: "法人税等（確定納付）", amount_yen: 70000, due_date: "2027-03-01" }),
+  ledgerObligation({ id: "e", source_key: "cancelled", title: "取消済み", status: "cancelled" }),
+  ledgerObligation({ id: "f", source_key: "other", title: "カード請求", category: "card_payment" }),
+  ledgerObligation({ id: "g", source_key: "no-date", title: "期限未確定", due_date: null, due_date_precision: "unknown", expected_payment_ym: null }),
+], "2026-09-03");
+
+assert.equal(ledger.rows.length, 5, "税・社会保険だけを対象にし、取消は落とす");
+const ledgerById = new Map(ledger.rows.map((row) => [row.id, row]));
+assert.equal(ledgerById.get("a")?.state, "overdue");
+assert.equal(ledgerById.get("a")?.overdueDays, 55);
+assert.equal(ledgerById.get("a")?.penaltyNotices.length, 1, "届いた加算税を元の納付へ紐づける");
+assert.equal(ledgerById.get("a")?.penaltyNotices[0]?.amountYen, 26500);
+assert.equal(ledgerById.get("b")?.isPenalty, true);
+assert.equal(ledgerById.get("c")?.state, "paid");
+assert.equal(ledgerById.get("d")?.state, "upcoming");
+assert.equal(ledgerById.get("g")?.state, "needs_review", "期限を作れない行も落とさない");
+assert.equal(ledger.rows.at(-1)?.id, "g", "期限が無い行は最後に置く");
+assert.equal(ledger.summary.overdueCount, 2, "期限超過と要確認を未決として数える");
+assert.equal(ledger.summary.overdueYen, 325500 + 100000);
+assert.equal(ledger.summary.upcomingYen, 26500 + 70000);
+assert.equal(ledger.summary.paidYen, 334818);
+assert.equal(ledger.summary.penaltyEstimateYen, 1300);
+assert.equal(ledger.summary.penaltyNoticeYen, 26500);
+
+assert.equal(isPenaltyObligationTitle("源泉所得税 不納付加算税（2026年1-6月分）"), true);
+assert.equal(isPenaltyObligationTitle("健康保険・厚生年金保険料 延滞金"), true);
+assert.equal(isPenaltyObligationTitle("社会保険料（2026年7月分）"), false);
+assert.equal(freeeStatusLabel(1), "freeeで消込待ち");
+assert.equal(freeeStatusLabel(2), "freeeで消込済み");
+assert.equal(freeeStatusLabel(null), null);
 
 console.log("payment obligation checks passed");

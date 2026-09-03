@@ -135,6 +135,8 @@ type FreeeWalletTxn = {
   amount?: number | string | null;
   description?: string | null;
   walletable_type?: string | null;
+  /** freee公式の処理状態。1=消込待ち、2=消込済み、3=無視、4=消込中、6=対象外 */
+  status?: number | string | null;
 };
 
 async function fetchFreeePayrollDeals(startDate: string, endDate: string, accountItemId: string): Promise<FreeeDeal[]> {
@@ -182,11 +184,14 @@ async function fetchFreeeWalletEvidence(startYm: string, endYm: string): Promise
                 ? "local_tax"
                 : null;
         if (!kind) continue;
+        const status = row.status == null ? null : Number(row.status);
         evidence.push({
           kind,
           date: row.date,
           amountYen: numeric(row.amount),
           sourceRef: `freee:wallet_txn:${row.id}`,
+          description: description.slice(0, 120) || null,
+          freeeStatus: Number.isFinite(status) ? status : null,
         });
       }
       if (page.length < 100) break;

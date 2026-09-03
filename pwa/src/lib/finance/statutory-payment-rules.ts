@@ -18,6 +18,10 @@ export type StatutoryPaymentEvidence = {
   date: string;
   amountYen: number;
   sourceRef: string;
+  /** 口座明細の摘要。どこへ払ったかを人が確かめるために残す */
+  description?: string | null;
+  /** freee公式の処理状態。1=消込待ち、2=消込済み、3=無視、4=消込中、6=対象外 */
+  freeeStatus?: number | null;
 };
 
 export type StatutoryTaxForecast = {
@@ -158,7 +162,7 @@ export type SettlementSearch = {
   candidateCount: number;
   /** 期待額と1円まで一致する出金の件数。1件以上あって未消込なら、金額違いではなく割り当ての問題 */
   exactAmountCandidateCount: number;
-  candidates: Array<{ date: string; amountYen: number; sourceRef: string }>;
+  candidates: Array<{ date: string; amountYen: number; sourceRef: string; description: string | null; freeeStatus: number | null }>;
 };
 
 function settlementSearch(
@@ -178,7 +182,13 @@ function settlementSearch(
     matched,
     candidateCount: candidates.length,
     exactAmountCandidateCount: expectedAmountYen == null ? 0 : candidates.filter((row) => row.amountYen === expectedAmountYen).length,
-    candidates: candidates.slice(0, 8).map((row) => ({ date: row.date, amountYen: row.amountYen, sourceRef: row.sourceRef })),
+    candidates: candidates.slice(0, 8).map((row) => ({
+      date: row.date,
+      amountYen: row.amountYen,
+      sourceRef: row.sourceRef,
+      description: row.description ?? null,
+      freeeStatus: row.freeeStatus ?? null,
+    })),
   };
 }
 

@@ -673,6 +673,26 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - **`/admin/projects` の「総会」「役会」checkbox + `/api/cron/governance-email-sweep`**: `projects.governance_watch_shareholder_meetings` / `governance_watch_board_meetings` がONのPJだけ、`report_emails` とのGmailやりとりを総会/役会keywordで狭く検索し、`/api/governance/extract` に candidate / apply を渡す。削除禁止理由: D-14G の検索範囲をPJ台帳から明示的に制御し、全メール横断の誤検知・取りこぼしを減らすため (まさ依頼 2026-06-16)。
 - 既存 `tasks` は H-1 / cockpit 互換の旧データレーン。`action_items` は5生データ抽出 + 採否ループ + personal scope を持つ inbound 義務で、`tasks` table を置換しない。
 
+## /admin/payments
+
+目的: 税務署・都道府県・市町村・年金機構・労働局へ「いつ・いくら納めるか」と「納めたかどうか」だけを期限順に並べるadmin read model。管理カレンダーは契約・月次報告・提出物も同じ時間軸へ並べるため納付が埋もれる（まさ 2026-09-04「カレンダーのとこ、月報とかに埋もれて納付が見にくい」）。
+
+必須機能:
+
+- `AdminSidebar` の「納税・カレンダー」グループへ、管理カレンダーより上に `納付` を置く。`/admin` の着地は `/admin/schedule` のまま変えない。
+- 対象は `company_payment_obligations` の `category in ('tax','social_insurance')` だけ。カード・サブスク・家賃・報酬・立替をこの画面へ出さない。
+- 上段に「期限を過ぎている・要確認」「これから納める」「加算税・延滞税（届いた通知書の額と未納から積み上がる見込みを分けて）」「納付済みとして消し込めた分」を出す。
+- 一覧は期限の近い順。各行に期限・名前・納付先・金額・状態・**freeeで調べた結果**を出す。期限を作れない行は最後に残し、落とさない。
+- `freeeで調べた結果` は、口座を探した窓と見つかった出金（日付・金額・摘要・freee公式の処理状態）を書き、「窓に出金が無い」「同額の出金があるが消込が済んでいない」「金額が合わない」を区別する。納めたのにfreeeで消込していない状態をここで見分ける。
+- 加算税・延滞税は、届いた通知書があればその額と納期限を、無ければ未納から積み上がる見込みを、元の納付の行へ添える。
+- 画面下部に「会社が負う税・保険料・提出の全件」目録を置く（`StatutoryObligationCatalog` を管理カレンダーと共有せず、納付ページ側に置く）。
+- 金額・期日・納付済みをこの画面から編集しない。修正は `/admin/finance#payment-obligations`。
+
+回帰防止:
+
+- `npm run test:payment-obligations` が `buildPaymentLedger` の状態判定、加算税の親子の紐づけ、合計、対象範囲、期限が無い行の並びを検査する。
+- 納付ページに編集フォームを置かない。カード・サブスクなど公的機関以外の支払をこの画面へ混ぜない。freeeの照合結果の文言から「同額だが未消込」と「金額違い」の区別を消さない。
+
 ## /admin/schedule
 
 目的: 契約・法定支払義務・報告書・確定 action item・会社運営ファクト・定時株主総会正本・公式期限ルールから、連続12か月の締切と書類作成工程を自動生成するadmin read model。
