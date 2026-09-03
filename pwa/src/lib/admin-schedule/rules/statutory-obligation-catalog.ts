@@ -24,6 +24,8 @@ export type StatutoryObligationCatalogEntry = {
   kind: "payment" | "filing";
   /** カレンダー上でこの義務に対応する event_kind。1件でもあれば「出ている」 */
   matchEventKinds: string[];
+  /** event_kind だけでは区別できない義務を、予定名に必ず含まれる語で絞る */
+  matchTitleIncludes?: string[];
   /** 判定・生成に必要な会社の事実。欠けていれば needs_fact */
   requiredFacts: string[];
   /** 生成ルールが無いときに、何をすれば埋まるか */
@@ -64,6 +66,7 @@ export const STATUTORY_OBLIGATION_CATALOG: StatutoryObligationCatalogEntry[] = [
     cadence: "事業年度終了から2か月以内",
     kind: "payment",
     matchEventKinds: ["tax_payment"],
+    matchTitleIncludes: ["消費税", "確定"],
     requiredFacts: ["fiscal_year_end_month"],
     note: "月次試算の税額予測から生成する。",
     officialUrl: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shohi/6609.htm",
@@ -75,6 +78,7 @@ export const STATUTORY_OBLIGATION_CATALOG: StatutoryObligationCatalogEntry[] = [
     cadence: "前年の税額に応じた回数。AMDは年1回",
     kind: "payment",
     matchEventKinds: ["tax_payment"],
+    matchTitleIncludes: ["消費税", "中間"],
     requiredFacts: ["consumption_tax_filing_mode"],
     note: "前年確定額の約2分の1で生成している。申告区分そのものは未取得。",
     officialUrl: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shohi/6609.htm",
@@ -309,6 +313,7 @@ export type ResolvedObligationCatalogEntry = StatutoryObligationCatalogEntry & {
 
 type CatalogOccurrence = {
   event_kind: string;
+  title: string;
   due_on: string | null;
   lifecycle_status: string;
 };
@@ -324,8 +329,13 @@ export function resolveObligationCatalog(
   entries: readonly StatutoryObligationCatalogEntry[] = STATUTORY_OBLIGATION_CATALOG
 ): ResolvedObligationCatalogEntry[] {
   return entries.map((entry) => {
+    // 生成不能（needs_source）は「出ている」に数えない。日付を作れていない予定は、
+    // 画面には残るが義務を追えている状態ではない。
     const matched = occurrences.filter(
-      (row) => entry.matchEventKinds.includes(row.event_kind) && row.lifecycle_status !== "cancelled"
+      (row) => entry.matchEventKinds.includes(row.event_kind)
+        && row.lifecycle_status !== "cancelled"
+        && row.lifecycle_status !== "needs_source"
+        && (entry.matchTitleIncludes ?? []).every((word) => row.title.includes(word))
     );
     const upcoming = matched
       .map((row) => row.due_on)

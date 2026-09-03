@@ -278,7 +278,7 @@ function StatutoryObligationCatalogSection({ items, facts, today }: { items: Sch
         .map((fact) => fact.fact_key)
     );
     return resolveObligationCatalog(
-      items.map((item) => ({ event_kind: item.event_kind, due_on: item.due_on, lifecycle_status: item.lifecycle_status })),
+      items.map((item) => ({ event_kind: item.event_kind, title: item.title, due_on: item.due_on, lifecycle_status: item.lifecycle_status })),
       knownFactKeys,
       today
     );

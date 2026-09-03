@@ -37,6 +37,10 @@ import {
   SHAREHOLDER_MEETING_FLOW,
 } from "../src/lib/admin-schedule/generator.ts";
 import type { GeneratedOccurrence, OperatingFact } from "../src/lib/admin-schedule/types.ts";
+import {
+  resolveObligationCatalog,
+  STATUTORY_OBLIGATION_CATALOG,
+} from "../src/lib/admin-schedule/rules/statutory-obligation-catalog.ts";
 
 const root = join(import.meta.dirname, "..");
 const read = (relative: string) => readFileSync(join(root, relative), "utf8");
@@ -289,6 +293,27 @@ assert.equal(computedScheduleStatus({ lifecycle_status: "cancelled", due_on: "20
 assert.equal(computedScheduleStatus({ lifecycle_status: "open", due_on: "2026-09-03", missing_reason: null }, null, "2026-09-03"), "due_today");
 assert.equal(computedScheduleStatus({ lifecycle_status: "open", due_on: "2026-09-10", missing_reason: null }, null, "2026-09-03"), "due_soon");
 assert.equal(computedScheduleStatus({ lifecycle_status: "open", due_on: "2026-12-01", missing_reason: null }, null, "2026-09-03"), "open");
+
+// ── 会社が負う税・保険料・提出の全件目録 ────────────────
+// 生成できた予定だけを並べると、仕組みの無い義務が画面から消える。目録は行を落とさない。
+const catalogOccurrences = [
+  { event_kind: "tax_payment", title: "消費税等（中間納付）", due_on: "2026-08-31", lifecycle_status: "open" },
+  { event_kind: "corporate_tax_interim", title: "法人税中間申告・納付", due_on: null, lifecycle_status: "needs_source" },
+  { event_kind: "tax_penalty_payment", title: "源泉所得税 不納付加算税（2026年1-6月分）", due_on: "2026-09-30", lifecycle_status: "open" },
+];
+const resolvedCatalog = resolveObligationCatalog(catalogOccurrences, new Set(["fiscal_year_end_month", "consumption_tax_filing_mode", "social_insurance_enrollment"]), "2026-09-03");
+assert.equal(resolvedCatalog.length, STATUTORY_OBLIGATION_CATALOG.length, "目録の行は状態にかかわらず全件残す");
+const byKey = new Map(resolvedCatalog.map((row) => [row.key, row]));
+assert.equal(byKey.get("consumption_tax_interim")?.coverage, "generated");
+assert.equal(byKey.get("consumption_tax_interim")?.occurrenceCount, 1);
+assert.equal(byKey.get("consumption_tax_final")?.coverage, "not_implemented", "同じevent_kindでも中間と確定を混ぜない");
+assert.equal(byKey.get("corporate_tax_interim")?.coverage, "needs_fact", "生成不能の予定は「出ている」に数えない");
+assert.deepEqual(byKey.get("corporate_tax_interim")?.missingFacts, ["previous_corporate_tax_yen", "corporate_tax_interim_required"]);
+assert.equal(byKey.get("tax_penalty")?.coverage, "generated");
+assert.equal(byKey.get("tax_penalty")?.nextDueOn, "2026-09-30");
+assert.equal(byKey.get("depreciable_assets_filing")?.coverage, "needs_fact", "償却資産の申告は目録に必ず出る");
+assert.equal(byKey.get("santei_kiso")?.coverage, "not_implemented", "算定基礎届は目録に必ず出る");
+assert.ok(STATUTORY_OBLIGATION_CATALOG.every((row) => row.officialUrl.startsWith("https://")), "全件に公的な根拠URLを持たせる");
 assert.equal(paymentObligationEventKind({ title: "労働保険料（年度更新・2026年度）", category: "social_insurance" }), "labor_insurance_annual_update");
 assert.equal(paymentObligationEventKind({ title: "消費税等（確定納付）", category: "tax" }), "tax_payment");
 
