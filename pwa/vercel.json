@@ -2,5 +2,43 @@
   "regions": [
     "hnd1"
   ],
-  "ignoreCommand": "[ \"$VERCEL_GIT_COMMIT_REF\" != \"main\" ] && exit 0; SUBJ=$(printf '%s\\n' \"${VERCEL_GIT_COMMIT_MESSAGE:-$(git log -1 --pretty=%B 2>/dev/null)}\" | head -1); case \"$SUBJ\" in *\"[skip ci]\"*) echo skip-screen-invisible; exit 0;; *) exit 1;; esac"
+  "ignoreCommand": "[ \"$VERCEL_GIT_COMMIT_REF\" != \"main\" ] && exit 0; SUBJ=$(printf '%s\\n' \"${VERCEL_GIT_COMMIT_MESSAGE:-$(git log -1 --pretty=%B 2>/dev/null)}\" | head -1); case \"$SUBJ\" in *\"[skip ci]\"*) echo skip-screen-invisible; exit 0;; *) exit 1;; esac",
+  "crons": [
+    {
+      "path": "/api/cron/freee-payment-sync",
+      "schedule": "10 0 * * *"
+    },
+    {
+      "path": "/api/cron/freee-member-payout-sync",
+      "schedule": "12 0 * * *"
+    },
+    {
+      "path": "/api/cron/payment-obligations",
+      "schedule": "20 0 * * *"
+    },
+    {
+      "path": "/api/cron/payment-confirm-nudges",
+      "schedule": "30 0 * * *"
+    },
+    {
+      "path": "/api/cron/payout-reward-cache-refresh",
+      "schedule": "5 18 * * *"
+    },
+    {
+      "path": "/api/cron/payout-notice-prebuild",
+      "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/cron/contract-billing-auto-confirm",
+      "schedule": "0 22 1 * *"
+    },
+    {
+      "path": "/api/cron/freee-accounting-weekly",
+      "schedule": "0 1 * * 4"
+    },
+    {
+      "path": "/api/cron/reimbursement-reminders",
+      "schedule": "0 1 * * *"
+    }
+  ]
 }

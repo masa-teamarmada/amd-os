@@ -1904,13 +1904,38 @@ expectIncludes("src/lib/reward-summary.ts", [
   "resolveContributionShares",
 ]);
 
-// 2026-09-04: 事故調査中はVercel cronを1件も動かさない。routeの存在と
-// 手動実行契約は上で検査し、scheduleを戻すことはこのガードで禁止する。
-expectIncludes("vercel.json", ["regions", "hnd1", "ignoreCommand"]);
-expectNotIncludes("vercel.json", [
-  '"crons"',
+// 2026-09-04: 事故調査中に全cronを止めたが、まさ確定「支払・経理まわりは止めるわけにはいかない」で
+// 支払・経理の9本だけ戻した。残り8本は調査が終わるまで止めたまま (一覧は下の expectNotIncludes)。
+// 戻すときはここの allowlist と vercel.json を同じ commit で更新する。
+expectIncludes("vercel.json", ["regions", "hnd1", "ignoreCommand", '"crons"',
+  "/api/cron/freee-payment-sync",
+  "10 0 * * *",
+  "/api/cron/freee-member-payout-sync",
+  "12 0 * * *",
+  "/api/cron/payment-obligations",
+  "20 0 * * *",
+  "/api/cron/payment-confirm-nudges",
+  "30 0 * * *",
   "/api/cron/payout-reward-cache-refresh",
+  "5 18 * * *",
   "/api/cron/payout-notice-prebuild",
+  "0 17 * * *",
+  "/api/cron/contract-billing-auto-confirm",
+  "0 22 1 * *",
+  "/api/cron/freee-accounting-weekly",
+  "0 1 * * 4",
+  "/api/cron/reimbursement-reminders",
+  "0 1 * * *",
+]);
+expectNotIncludes("vercel.json", [
+  "/api/cron/company-operating-facts",
+  "/api/cron/company-schedule",
+  "/api/cron/ms-schedule-progress",
+  "/api/cron/papers-quarterly-ingest",
+  "/api/cron/sync-pj-facts",
+  "/api/cron/macro-aggregate-indicators",
+  "/api/cron/management-score-refresh",
+  "/api/cron/proactive-todo-extract",
 ]);
 
 expectIncludes("design/FEATURE_REGISTRY.md", [
