@@ -247,3 +247,170 @@ export function freeeStatusLabel(status: number | null): string | null {
   if (status === 6) return "freeeで対象外";
   return null;
 }
+
+// ── 月 × 種類の集計 ────────────────────────────────────────
+// 期限順の一覧は同じ名前が何十行も続き、どの税がいつ・いくら残っているかを掴めない。
+// 行を年月、列を税・保険料の種類にして、支払済みと未納を色で分け、種類ごとの
+// 今期合計を最後に置く。
+
+export type PaymentKindKey =
+  | "withholding"
+  | "social_insurance"
+  | "labor_insurance"
+  | "consumption_tax"
+  | "corporate_tax"
+  | "resident_tax"
+  | "penalty"
+  | "other";
+
+export const PAYMENT_KINDS: Array<{ key: PaymentKindKey; label: string; payee: string }> = [
+  { key: "withholding", label: "源泉所得税", payee: "税務署" },
+  { key: "social_insurance", label: "社会保険料", payee: "日本年金機構" },
+  { key: "labor_insurance", label: "労働保険料", payee: "労働局" },
+  { key: "consumption_tax", label: "消費税", payee: "税務署" },
+  { key: "corporate_tax", label: "法人税等", payee: "税務署・県・市" },
+  { key: "resident_tax", label: "住民税", payee: "市区町村" },
+  { key: "penalty", label: "加算税・延滞税", payee: "税務署・年金機構" },
+  { key: "other", label: "その他", payee: "—" },
+];
+
+/** 納付の種類。法定ルールの source_key を先に見て、手で登録した納付書は名前で拾う。 */
+export function paymentKindOf(row: Pick<PaymentLedgerRow, "sourceKey" | "title" | "isPenalty">): PaymentKindKey {
+  if (row.isPenalty) return "penalty";
+  const key = row.sourceKey;
+  if (key.includes("withholding-income-tax")) return "withholding";
+  if (key.includes("social-insurance")) return "social_insurance";
+  if (key.includes("labor-insurance")) return "labor_insurance";
+  if (key.includes("consumption-tax")) return "consumption_tax";
+  if (key.includes("corporate-tax")) return "corporate_tax";
+  if (key.includes("resident-tax")) return "resident_tax";
+  const title = row.title;
+  if (title.includes("源泉所得税") || title.includes("源泉徴収")) return "withholding";
+  if (title.includes("社会保険") || title.includes("厚生年金") || title.includes("健康保険")) return "social_insurance";
+  if (title.includes("労働保険") || title.includes("雇用保険") || title.includes("労災")) return "labor_insurance";
+  if (title.includes("消費税")) return "consumption_tax";
+  if (title.includes("法人税") || title.includes("県民税") || title.includes("市民税") || title.includes("事業税")) return "corporate_tax";
+  if (title.includes("住民税")) return "resident_tax";
+  return "other";
+}
+
+export type PaymentMatrixCellState = "none" | "paid" | "attention" | "scheduled";
+
+export type PaymentMatrixCell = {
+  state: PaymentMatrixCellState;
+  totalYen: number;
+  paidYen: number;
+  unpaidYen: number;
+  unknownAmountCount: number;
+  count: number;
+  paidCount: number;
+  attentionCount: number;
+};
+
+export type PaymentMatrixTotals = {
+  totalYen: number;
+  paidYen: number;
+  unpaidYen: number;
+  unknownAmountCount: number;
+  count: number;
+};
+
+export type PaymentMatrix = {
+  startYm: string;
+  endYm: string;
+  months: Array<{ ym: string; cells: Record<PaymentKindKey, PaymentMatrixCell>; totals: PaymentMatrixTotals }>;
+  kindTotals: Record<PaymentKindKey, PaymentMatrixTotals>;
+  totals: PaymentMatrixTotals;
+  /** 今期の外に期日がある、または期日も対象月も取れていない行の件数 */
+  outsideCount: number;
+};
+
+/** 決算月から今期の期首・期末を出す。12月決算なら1月から12月。 */
+export function fiscalWindowFor(today: string, fiscalYearEndMonth: number): { startYm: string; endYm: string } {
+  const month = Number(today.slice(5, 7));
+  const year = Number(today.slice(0, 4));
+  const endYear = month <= fiscalYearEndMonth ? year : year + 1;
+  const startMonth = (fiscalYearEndMonth % 12) + 1;
+  const startYear = fiscalYearEndMonth === 12 ? endYear : endYear - 1;
+  return {
+    startYm: `${startYear}${String(startMonth).padStart(2, "0")}`,
+    endYm: `${endYear}${String(fiscalYearEndMonth).padStart(2, "0")}`,
+  };
+}
+
+function emptyTotals(): PaymentMatrixTotals {
+  return { totalYen: 0, paidYen: 0, unpaidYen: 0, unknownAmountCount: 0, count: 0 };
+}
+
+function emptyCell(): PaymentMatrixCell {
+  return { state: "none", totalYen: 0, paidYen: 0, unpaidYen: 0, unknownAmountCount: 0, count: 0, paidCount: 0, attentionCount: 0 };
+}
+
+function addToTotals(totals: PaymentMatrixTotals, row: PaymentLedgerRow): void {
+  const amount = row.amountYen ?? 0;
+  totals.count += 1;
+  totals.totalYen += amount;
+  if (row.state === "paid") totals.paidYen += row.paidAmountYen ?? amount;
+  else totals.unpaidYen += amount;
+  if (row.amountStatus === "unknown") totals.unknownAmountCount += 1;
+}
+
+function ymOf(row: PaymentLedgerRow): string | null {
+  if (row.dueDate) return row.dueDate.slice(0, 7).replace("-", "");
+  return row.expectedPaymentYm;
+}
+
+export function buildPaymentMatrix(
+  rows: readonly PaymentLedgerRow[],
+  today: string,
+  fiscalYearEndMonth: number,
+  window?: { startYm: string; endYm: string }
+): PaymentMatrix {
+  const { startYm, endYm } = window ?? fiscalWindowFor(today, fiscalYearEndMonth);
+  const months: PaymentMatrix["months"] = [];
+  for (let ym = startYm; ym <= endYm; ) {
+    const cells = Object.fromEntries(PAYMENT_KINDS.map((kind) => [kind.key, emptyCell()])) as Record<PaymentKindKey, PaymentMatrixCell>;
+    months.push({ ym, cells, totals: emptyTotals() });
+    const year = Number(ym.slice(0, 4));
+    const month = Number(ym.slice(4, 6));
+    const next = new Date(Date.UTC(year, month, 1));
+    ym = `${next.getUTCFullYear()}${String(next.getUTCMonth() + 1).padStart(2, "0")}`;
+  }
+  const monthByYm = new Map(months.map((row) => [row.ym, row]));
+  const kindTotals = Object.fromEntries(PAYMENT_KINDS.map((kind) => [kind.key, emptyTotals()])) as Record<PaymentKindKey, PaymentMatrixTotals>;
+  const totals = emptyTotals();
+  let outsideCount = 0;
+
+  for (const row of rows) {
+    const ym = ymOf(row);
+    const month = ym ? monthByYm.get(ym) : undefined;
+    if (!month) {
+      outsideCount += 1;
+      continue;
+    }
+    const kind = paymentKindOf(row);
+    const cell = month.cells[kind];
+    const amount = row.amountYen ?? 0;
+    cell.count += 1;
+    cell.totalYen += amount;
+    if (row.state === "paid") cell.paidYen += row.paidAmountYen ?? amount;
+    else cell.unpaidYen += amount;
+    if (row.amountStatus === "unknown") cell.unknownAmountCount += 1;
+    if (row.state === "paid") cell.paidCount += 1;
+    if (row.state === "overdue" || row.state === "needs_review") cell.attentionCount += 1;
+    addToTotals(month.totals, row);
+    addToTotals(kindTotals[kind], row);
+    addToTotals(totals, row);
+  }
+  // 1件でも期限切れ・要確認があればその月・その種類は注意。全件納付済みのときだけ済とする。
+  for (const month of months) {
+    for (const kind of PAYMENT_KINDS) {
+      const cell = month.cells[kind.key];
+      if (cell.count === 0) cell.state = "none";
+      else if (cell.attentionCount > 0) cell.state = "attention";
+      else if (cell.paidCount === cell.count) cell.state = "paid";
+      else cell.state = "scheduled";
+    }
+  }
+  return { startYm, endYm, months, kindTotals, totals, outsideCount };
+}

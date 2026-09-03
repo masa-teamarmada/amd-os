@@ -4,10 +4,14 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { AlertTriangle, CalendarDays, CheckCircle2, CircleAlert, ExternalLink, Landmark } from "lucide-react";
 import {
+  buildPaymentMatrix,
+  fiscalWindowFor,
   freeeStatusLabel,
+  PAYMENT_KINDS,
   type PaymentLedgerRow,
   type PaymentLedgerState,
   type PaymentLedgerSummary,
+  type PaymentMatrixCellState,
   type PaymentSettlement,
 } from "@/lib/finance/payment-ledger";
 import { StatutoryObligationCatalog, type CatalogOccurrenceInput } from "@/components/admin/StatutoryObligationCatalog";
@@ -137,7 +141,137 @@ function SummaryTile({ label, value, note, tone }: { label: string; value: strin
   );
 }
 
+const MATRIX_CELL_STYLES: Record<PaymentMatrixCellState, string> = {
+  none: "text-muted-foreground/40",
+  paid: "bg-emerald-50 text-emerald-900",
+  attention: "bg-rose-100 text-rose-950 font-semibold",
+  scheduled: "bg-sky-50 text-sky-950",
+};
+
+function compactYen(value: number): string {
+  return value.toLocaleString("ja-JP");
+}
+
+function fiscalLabel(startYm: string, endYm: string): string {
+  const s = `${startYm.slice(0, 4)}年${Number(startYm.slice(4, 6))}月`;
+  const e = `${endYm.slice(0, 4)}年${Number(endYm.slice(4, 6))}月`;
+  return `${s}〜${e}`;
+}
+
+/**
+ * 月を行、税・保険料の種類を列にした一覧。
+ * 期限順に並べた明細だけだと同じ名前が何十行も続き、どの税がいつ・いくら残っているかを掴めない。
+ * 納付済みは緑、期限を過ぎている・要確認は赤、これから納めるものは青で塗り分け、
+ * 最後に種類ごとの今期合計と、そのうち未納の額を置く。
+ */
+function PaymentMatrixSection({ rows, today, fiscalYearEndMonth }: { rows: PaymentLedgerRow[]; today: string; fiscalYearEndMonth: number }) {
+  const [offset, setOffset] = useState(0);
+  const fiscalRange = useMemo(() => {
+    const base = fiscalWindowFor(today, fiscalYearEndMonth);
+    if (offset === 0) return base;
+    const shift = (ym: string) => `${Number(ym.slice(0, 4)) + offset}${ym.slice(4, 6)}`;
+    return { startYm: shift(base.startYm), endYm: shift(base.endYm) };
+  }, [fiscalYearEndMonth, offset, today]);
+  const matrix = useMemo(
+    () => buildPaymentMatrix(rows, today, fiscalYearEndMonth, fiscalRange),
+    [fiscalRange, fiscalYearEndMonth, rows, today]
+  );
+  const currentYm = today.slice(0, 7).replace("-", "");
+  return (
+    <section aria-labelledby="payment-matrix-title" data-testid="payment-matrix" className="space-y-3 border border-border bg-card p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h2 id="payment-matrix-title" className="text-lg font-semibold">月ごと・種類ごとの納付</h2>
+          <span className="text-sm text-muted-foreground">{fiscalLabel(matrix.startYm, matrix.endYm)}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="mr-2 inline-flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="inline-block h-3 w-3 rounded-sm bg-emerald-100" />納付済み
+            <span className="inline-block h-3 w-3 rounded-sm bg-rose-200" />期限超過・要確認
+            <span className="inline-block h-3 w-3 rounded-sm bg-sky-100" />これから
+          </span>
+          <button type="button" onClick={() => setOffset((value) => value - 1)} className="min-h-9 rounded-lg border border-border px-3 text-xs font-semibold hover:bg-muted">前の期</button>
+          <button type="button" onClick={() => setOffset(0)} disabled={offset === 0} className="min-h-9 rounded-lg border border-border px-3 text-xs font-semibold hover:bg-muted disabled:opacity-40">今期</button>
+          <button type="button" onClick={() => setOffset((value) => value + 1)} className="min-h-9 rounded-lg border border-border px-3 text-xs font-semibold hover:bg-muted">次の期</button>
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[64rem] border-collapse text-sm tabular-nums">
+          <thead>
+            <tr className="border-b border-border text-xs text-muted-foreground">
+              <th scope="col" className="sticky left-0 bg-card py-2 pr-3 text-left font-semibold">月</th>
+              {PAYMENT_KINDS.map((kind) => (
+                <th key={kind.key} scope="col" className="px-2 py-2 text-right font-semibold">
+                  {kind.label}
+                  <span className="block text-[10px] font-normal text-muted-foreground/80">{kind.payee}</span>
+                </th>
+              ))}
+              <th scope="col" className="px-2 py-2 text-right font-semibold">月合計</th>
+            </tr>
+          </thead>
+          <tbody>
+            {matrix.months.map((month) => (
+              <tr key={month.ym} className={`border-b border-border/60 ${month.ym === currentYm ? "outline outline-1 outline-[#027FDC]/40" : ""}`}>
+                <th scope="row" className="sticky left-0 bg-card py-1.5 pr-3 text-left font-medium">
+                  {month.ym.slice(0, 4)}年{Number(month.ym.slice(4, 6))}月
+                  {month.ym === currentYm && <span className="ml-1 text-[10px] font-semibold text-[#027FDC]">今月</span>}
+                </th>
+                {PAYMENT_KINDS.map((kind) => {
+                  const cell = month.cells[kind.key];
+                  return (
+                    <td key={kind.key} className={`px-2 py-1.5 text-right ${MATRIX_CELL_STYLES[cell.state]}`}>
+                      {cell.count === 0 ? "·" : (
+                        <>
+                          {compactYen(cell.totalYen)}
+                          {cell.unknownAmountCount > 0 && <span className="ml-1 text-[10px]">額未取得{cell.unknownAmountCount}件</span>}
+                        </>
+                      )}
+                    </td>
+                  );
+                })}
+                <td className="px-2 py-1.5 text-right font-medium">{month.totals.count === 0 ? "·" : compactYen(month.totals.totalYen)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-foreground/20 text-sm">
+              <th scope="row" className="sticky left-0 bg-card py-2 pr-3 text-left font-semibold">今期合計</th>
+              {PAYMENT_KINDS.map((kind) => (
+                <td key={kind.key} className="px-2 py-2 text-right font-semibold">{compactYen(matrix.kindTotals[kind.key].totalYen)}</td>
+              ))}
+              <td className="px-2 py-2 text-right font-semibold">{compactYen(matrix.totals.totalYen)}</td>
+            </tr>
+            <tr className="text-sm">
+              <th scope="row" className="sticky left-0 bg-card py-2 pr-3 text-left font-semibold text-rose-900">うち未納</th>
+              {PAYMENT_KINDS.map((kind) => {
+                const unpaid = matrix.kindTotals[kind.key].unpaidYen;
+                return (
+                  <td key={kind.key} className={`px-2 py-2 text-right ${unpaid > 0 ? "font-semibold text-rose-900" : "text-muted-foreground/50"}`}>
+                    {unpaid > 0 ? compactYen(unpaid) : "·"}
+                  </td>
+                );
+              })}
+              <td className={`px-2 py-2 text-right font-semibold ${matrix.totals.unpaidYen > 0 ? "text-rose-900" : ""}`}>{compactYen(matrix.totals.unpaidYen)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <p className="text-xs leading-5 text-muted-foreground">
+        金額は納期限が属する月に置く。未納には期限がまだ来ていない分も含む。
+        {matrix.outsideCount > 0 && ` この期の外に期限がある納付が${matrix.outsideCount}件あり、下の明細に並ぶ。`}
+      </p>
+    </section>
+  );
+}
+
 export function AdminPaymentsClient({ data }: { data: AdminPaymentsData }) {
+  // 決算月。取れないときは12月決算として扱う（AMDの現行）。
+  const fiscalYearEndMonth = useMemo(() => {
+    const fact = data.facts.find((row) => row.fact_key === "fiscal_year_end_month");
+    const raw = (fact?.value_json as { value?: unknown } | null)?.value;
+    const parsed = typeof raw === "number" ? raw : Number(raw);
+    return Number.isFinite(parsed) && parsed >= 1 && parsed <= 12 ? parsed : 12;
+  }, [data.facts]);
   const [filter, setFilter] = useState<StateFilter>("all");
   const visible = useMemo(() => data.rows.filter((row) => matchesFilter(row, filter)), [data.rows, filter]);
   const { summary } = data;
@@ -200,6 +334,8 @@ export function AdminPaymentsClient({ data }: { data: AdminPaymentsData }) {
           tone="ok"
         />
       </section>
+
+      <PaymentMatrixSection rows={data.rows} today={data.today} fiscalYearEndMonth={fiscalYearEndMonth} />
 
       <section className="flex flex-wrap items-center gap-2 border border-border bg-card p-3" aria-label="表示の絞り込み">
         <span className="px-1 text-xs font-semibold text-muted-foreground">絞り込み</span>

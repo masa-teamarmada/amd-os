@@ -17,6 +17,12 @@ import {
   withholdingUnderpaymentPenaltyYen,
 } from "../src/lib/finance/statutory-payment-rules.ts";
 import { runMonthlyPlSimulation } from "../src/lib/finance/monthly-pl-simulation.ts";
+import {
+  buildPaymentMatrix,
+  fiscalWindowFor,
+  paymentKindOf,
+  type PaymentLedgerRow,
+} from "../src/lib/finance/payment-ledger.ts";
 import { buildPaymentLedger, freeeStatusLabel, isPenaltyObligationTitle } from "../src/lib/finance/payment-ledger.ts";
 
 assert.equal(extractPaymentAmount("納付額 512,300円"), 512300);
@@ -411,5 +417,75 @@ assert.equal(mailLedger.rows.length, 2, "未確認のメール候補は納付と
 assert.equal(mailLedger.summary.unreviewedMailCandidateCount, 1, "除外した件数は隠さず出す");
 assert.deepEqual(mailLedger.rows.map((row) => row.id).sort(), ["m2", "m3"]);
 assert.equal(mailLedger.summary.upcomingYen, 12000 + 278460);
+
+// ── 月 × 種類の集計 ──────────────────────────────────
+// 12月決算なら今期は1月から12月。3月決算なら4月から翌年3月。
+assert.deepEqual(fiscalWindowFor("2026-09-04", 12), { startYm: "202601", endYm: "202612" });
+assert.deepEqual(fiscalWindowFor("2026-01-05", 12), { startYm: "202601", endYm: "202612" });
+assert.deepEqual(fiscalWindowFor("2026-09-04", 3), { startYm: "202604", endYm: "202703" });
+assert.deepEqual(fiscalWindowFor("2026-02-01", 3), { startYm: "202504", endYm: "202603" });
+
+assert.equal(paymentKindOf({ sourceKey: "statutory:withholding-income-tax:special:2026-h1", title: "源泉所得税（納期の特例・1-6月分）", isPenalty: false }), "withholding");
+assert.equal(paymentKindOf({ sourceKey: "statutory:social-insurance:202607", title: "社会保険料（2026年7月分）", isPenalty: false }), "social_insurance");
+assert.equal(paymentKindOf({ sourceKey: "statutory:consumption-tax:interim:202601", title: "消費税等（中間納付）", isPenalty: false }), "consumption_tax");
+assert.equal(paymentKindOf({ sourceKey: "mail-notice:2026-08-31:x", title: "源泉所得税 不納付加算税（2026年1-6月分）", isPenalty: true }), "penalty", "加算税は元の税目に混ぜない");
+assert.equal(paymentKindOf({ sourceKey: "manual:x", title: "法人県民税（均等割）", isPenalty: false }), "corporate_tax", "手で登録した納付書は名前で拾う");
+assert.equal(paymentKindOf({ sourceKey: "manual:x", title: "なにかの納付", isPenalty: false }), "other", "分類できない納付も消さない");
+
+const ledgerRow = (overrides: Partial<PaymentLedgerRow>): PaymentLedgerRow => ({
+  id: overrides.id ?? "r1",
+  sourceKey: overrides.sourceKey ?? "statutory:social-insurance:202602",
+  title: overrides.title ?? "社会保険料（2026年2月分）",
+  counterparty: "日本年金機構",
+  category: "social_insurance",
+  amountYen: overrides.amountYen ?? 333366,
+  amountStatus: overrides.amountStatus ?? "exact",
+  dueDate: overrides.dueDate ?? "2026-03-02",
+  dueDatePrecision: "day",
+  expectedPaymentYm: overrides.expectedPaymentYm ?? null,
+  state: overrides.state ?? "paid",
+  overdueDays: null,
+  paidAt: null,
+  paidAmountYen: overrides.paidAmountYen ?? null,
+  sourceRef: null,
+  sourceKind: "statutory_rule",
+  isPenalty: overrides.isPenalty ?? false,
+  penaltyForSourceKey: null,
+  settlement: null,
+  penaltyEstimate: null,
+  penaltyNotices: [],
+  ...overrides,
+});
+
+const matrix = buildPaymentMatrix([
+  ledgerRow({ id: "a", dueDate: "2026-03-02", amountYen: 333366, state: "paid", paidAmountYen: 333366 }),
+  ledgerRow({ id: "b", dueDate: "2026-07-10", sourceKey: "statutory:withholding-income-tax:special:2026-h1", title: "源泉所得税（納期の特例・1-6月分）", amountYen: 325500, state: "overdue" }),
+  ledgerRow({ id: "c", dueDate: "2026-07-31", amountYen: 304119, state: "paid", paidAmountYen: 304119 }),
+  ledgerRow({ id: "d", dueDate: "2026-09-30", sourceKey: "mail-notice:2026-08-31:x", title: "源泉所得税 不納付加算税（2026年1-6月分）", amountYen: 26500, state: "due_soon", isPenalty: true }),
+  ledgerRow({ id: "e", dueDate: "2028-02-29", amountYen: 912633, state: "upcoming" }),
+], "2026-09-04", 12);
+
+assert.equal(matrix.months.length, 12);
+assert.equal(matrix.startYm, "202601");
+assert.equal(matrix.endYm, "202612");
+assert.equal(matrix.outsideCount, 1, "今期の外に期日がある行は表に混ぜず件数だけ残す");
+const march = matrix.months.find((row) => row.ym === "202603");
+assert.equal(march?.cells.social_insurance.state, "paid");
+assert.equal(march?.cells.social_insurance.paidYen, 333366);
+assert.equal(march?.cells.withholding.state, "none");
+const july = matrix.months.find((row) => row.ym === "202607");
+assert.equal(july?.cells.withholding.state, "attention");
+assert.equal(july?.cells.withholding.unpaidYen, 325500);
+assert.equal(july?.cells.social_insurance.state, "paid");
+assert.equal(july?.totals.totalYen, 325500 + 304119);
+const september = matrix.months.find((row) => row.ym === "202609");
+assert.equal(september?.cells.penalty.state, "scheduled");
+assert.equal(september?.cells.penalty.totalYen, 26500);
+assert.equal(matrix.kindTotals.social_insurance.totalYen, 333366 + 304119);
+assert.equal(matrix.kindTotals.social_insurance.unpaidYen, 0);
+assert.equal(matrix.kindTotals.withholding.unpaidYen, 325500);
+assert.equal(matrix.kindTotals.penalty.totalYen, 26500);
+assert.equal(matrix.totals.totalYen, 333366 + 325500 + 304119 + 26500);
+assert.equal(matrix.totals.unpaidYen, 325500 + 26500);
 
 console.log("payment obligation checks passed");
