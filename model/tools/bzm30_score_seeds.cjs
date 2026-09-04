@@ -46,22 +46,18 @@ function db() {
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
-/**
- * 用途の天井を合計して、価値の式に入る年額の純増（円）を出す。未調査の用途は数えない。
+/** 用途の天井を合計して、価値の式に入る年額の純増（円）を出す。未調査の用途は数えない。
  *
- * **近似 A16（用途を1本に畳む）に従い、`is_primary === false` の行は数えない。**
- * 用途ごとに計算して足すと同じゲート列を二重に数えるので、正本は「主たる用途1本で計算し、
- * 他の用途は参考として別に併記する」と定めている（MODEL_VERSION_LEDGER.md の近似表 A16）。
- * 2026-09-02 まで is_primary を見ずに全行を合計しており、p01 OPTMASS が
- * 窓の熱線遮蔽フィルム 399億円/年 と 建材一体型太陽光 199.5億円/年 を足した
- * 598.5億円/年 で計算されていた（正本違反）。
+ * **用途ごとの天井は足す。** 近似 A16 が禁じているのは「用途ごとに前向き計算を回して、
+ * 出てきた価値どうしを足す」ことで（同じゲート列を二重に数えるため）、天井の合計ではない。
+ * 実装は合計した天井で runTheta を1回だけ回すので、ゲート列は一度しか数えていない。
+ * 複数用途を足す形はまさが決めた設計である（2026-09-04 まさ「複数の用途を足すモデルに変更したのはおれ」）。
  */
 function ceilingTotal(ceilings) {
   let total = 0;
   let known = false;
   for (const c of ceilings) {
     if (c.ceiling_yen === null || c.ceiling_yen === undefined) continue;
-    if (c.is_primary === false) continue;
     known = true;
     total += Number(c.ceiling_yen) - Number(c.displacement_yen || 0);
   }
