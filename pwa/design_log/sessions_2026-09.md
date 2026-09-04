@@ -185,3 +185,13 @@
 - **ドライブの分類化**: `cockpit-tabs.ts` の通常PJ・研究機関PJ両方で `documents` を `project-management-group` から出し、`documents-group`（ラベル「ドライブ」）として独立させた。研究機関PJは5分類（進捗管理／シーズリスト／規程・内規／ドライブ／PJ管理）、通常PJは4分類。分類タブの grid 列数を分類数から決めるようにして、5つでも1段に収まる。`PJ管理` に残るのは `PJ概要` と `会社概要`。`?tab=documents` は従来どおり。
 - 検証: `npx tsc --noEmit` / eslint / `npx tsx scripts/check_cockpit_navigation.mts`（分類ラベル契約と `documents` の所属を更新）。Playwright で service role からセッションを起こし desktop 1440×900 の実画面で確認。`/seeds` は 749件 → 評価済み42件 → 最新版未評価707件 → すべて749件（42+707=749 で整合）、表の下端と画面下端が一致して文書全体のスクロールが消えた。横スクロール状態でも固定列は透けない。`p25` で5分類・`p21` で4分類がいずれも1段に収まり、ドライブを押すと資料一覧（45件）が出る。
 - commit `effcf1e7` / `0240997d`。DB・モデル定義・iOS/macOS・GAS は変更していない。
+
+## 2026-09-04 VSX(p26) の論点・仮説へ香川大クロアポの現在地を登録
+
+- 香川大学は機関PJ契約前（`institutions` 側は `prospect`）で独立PJを持たない。香川大まわりの実務は **p26 VasculaX** に載せる方針を確認したうえで、クロアポ協定の現在地を `p26` の論点・仮説台帳へ入れた。
+- **p26 は `project_management_tracks` が0件**だった。`project_management_issues` には複合FK `(project_id, track) → project_management_tracks(project_id, track_key)` があるため、そのままでは論点を1件も入れられない。p20 で同じ理由の事故（論点追加フォームが柱を出さないまま `trackが不正だよ` で保存不可）があり、`358_seed_cx_management_tracks.sql` が同型の対処をしていたので、それに合わせて標準4本柱（事業開発／技術開発／資金調達／体制構築）を先に登録した。
+- 登録した論点5件: クロアポ協定の現在地（fact）／従事割合を10分の1と10分の2のどちらにするか（decision_needed）／協定書が従業員の出向前提で代表取締役の扱いが未確定（decision_needed）／協定書ひな形の未処理レビュー論点（decision_needed）／金額根拠となる年間人件費9,671,068円と甲乙の分母213日（fact）。
+- migration は `pwa/scripts/migrations/366_seed_vsx_kagawa_kuroapo_issues.sql`。**番号は当初364で書いたが、他セッションの未commitファイルが364を2本使っていた**（`364_seed_cx_build_visit_20260904.sql` / `364_seed_project_tech_kenq.sql`）ため366へずらした。冪等性は `ON CONFLICT DO NOTHING` で、人が後から直した内容を上書きしない。末尾の `DO $$` で柱4本と論点5件を検算する。
+- 適用は Supabase の SQL 実行。DDLは無くデータseedのみ。**OSマニュアルは対象外**: 新規route / table / column / status / permission / cron のいずれも増やしておらず、既存の論点・仮説機能へデータを入れただけ。
+- 検証: 本番 `amd-os-pwa.vercel.app/project/p26/cockpit?tab=issues` を開き、「すべて 5」と体制/資金の柱ラベル、owner表示を目視確認。背景テキストがリテラルの `\n` にならず実改行で格納されていることをDB側でも確認（5件合計2,264文字）。
+- commit `b77ef8ec`。画面コードの変更が無いので hook が `[skip ci]` を付け、本番デプロイは走っていない。データは適用済みなので画面には出る。
