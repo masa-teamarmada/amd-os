@@ -171,31 +171,35 @@ function buildAccount(account: AccountRow, rows: EntryRow[], today: string): Cas
       isPlanned,
     });
 
+    // 画面に出す残高は、原本に書いてあればそれを使う。OSの積み上げはあくまで検算用。
+    // 積み上げを表に出すと、原本がズレている先の月ほど実態より多く見えて、資金繰りの判断を誤らせる。
+    const shown = sheetBalance ?? running;
+
     const ym = r.entry_date.slice(0, 7);
     const month = monthly.get(ym) ?? {
-      ym, label: ymLabel(ym), inflow: 0, outflow: 0, net: 0, endBalance: running, hasPlanned: false,
+      ym, label: ymLabel(ym), inflow: 0, outflow: 0, net: 0, endBalance: shown, hasPlanned: false,
     };
     month.inflow += num(r.deposit);
     month.outflow += num(r.withdrawal);
     month.net = month.inflow - month.outflow;
-    month.endBalance = running;
+    month.endBalance = shown;
     if (isPlanned) month.hasPlanned = true;
     monthly.set(ym, month);
 
     if (!isPlanned) {
       // 原本に残高が書いてある行だけを「いまの残高」に採る。残高が空の行 (会費の続きなど) を
       // 拾うと、OSの積み上げ値がそのまま口座残高として出てしまう。
-      lastActualRunning = running;
+      lastActualRunning = shown;
       lastActualDate = r.entry_date;
       if (sheetBalance != null) {
         actualBalance = sheetBalance;
         actualAsOf = r.entry_date;
       }
     } else {
-      plannedBalance = running;
+      plannedBalance = shown;
       plannedAsOf = r.entry_date;
-      if (!lowestPlanned || running < lowestPlanned.balance) {
-        lowestPlanned = { date: r.entry_date, balance: running };
+      if (!lowestPlanned || shown < lowestPlanned.balance) {
+        lowestPlanned = { date: r.entry_date, balance: shown };
       }
     }
   }
