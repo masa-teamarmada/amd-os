@@ -3,7 +3,7 @@
  * イベント受信 → スレッド履歴取得 → LLM → 返信。
  */
 
-function reply_handleThreadEvent_(channelId, threadTs, triggerUserId, replyPersona) {
+function reply_handleThreadEvent_(channelId, threadTs, triggerUserId, replyPersona, teamId) {
   channelId = String(channelId || "").trim();
   threadTs = String(threadTs || "").trim();
   if (!channelId || !threadTs) return;
@@ -11,10 +11,10 @@ function reply_handleThreadEvent_(channelId, threadTs, triggerUserId, replyPerso
 
   try {
     // 0) チャンネル → PJ解決
-    const projectId = context_getProjectIdByChannelId_(channelId) || null;
+    const projectId = context_getProjectIdByChannelId_(channelId, teamId) || null;
 
     // 1) スレッド履歴
-    const history = slack_getThreadHistory_(channelId, threadTs, 12, replyPersona);
+    const history = slack_getThreadHistory_(channelId, threadTs, 12, replyPersona, teamId);
 
     // 2) systemPrompt（PJ知識＋PJ固有メモリ＋メンバー情報を注入）
     const systemPrompt = context_buildSystemPrompt_(projectId, triggerUserId, replyPersona);
@@ -53,11 +53,11 @@ function reply_handleThreadEvent_(channelId, threadTs, triggerUserId, replyPerso
     }
 
     // 5) 返信
-    slack_postThreadReply_(channelId, threadTs, finalText, null, replyPersona);
+    slack_postThreadReply_(channelId, threadTs, finalText, null, replyPersona, teamId);
 
     // 6) 記憶抽出（失敗しても返信には影響させない）
     try {
-      if (replyPersona !== "eimi") context_extractAndSaveMemory_(history, channelId);
+      if (replyPersona !== "eimi") context_extractAndSaveMemory_(history, channelId, teamId);
     } catch(_me) {
       console.log("memory extract error: " + (_me && _me.message ? _me.message : String(_me)));
     }
@@ -68,7 +68,7 @@ function reply_handleThreadEvent_(channelId, threadTs, triggerUserId, replyPerso
       const fallback = replyPersona === "eimi"
         ? "今ちょっと詰まっちゃった。もう一回投げてくれたら拾うね。"
         : "今ちょっとコケたかも…。もう一回言ってみて🌙\n（" + msg.slice(0, 120) + "）";
-      slack_postThreadReply_(channelId, threadTs, fallback, null, replyPersona);
+      slack_postThreadReply_(channelId, threadTs, fallback, null, replyPersona, teamId);
     } catch(_e) {}
   }
 }
@@ -92,10 +92,10 @@ function reply_buildUserPrompt_(history, triggerUserId, projectId) {
   return lines.join("\n");
 }
 
-function reply_isParentTsukuyomi_(msg) {
+function reply_isParentTsukuyomi_(msg, teamId) {
   if (!msg) return false;
-  const botUserId = utils_getProp_("SLACK_TSUKUYOMI_BOT_USER_ID");
-  const botId = utils_getProp_("SLACK_TSUKUYOMI_BOT_ID");
+  const botUserId = utils_getTeamProp_("SLACK_TSUKUYOMI_BOT_USER_ID", teamId);
+  const botId = utils_getTeamProp_("SLACK_TSUKUYOMI_BOT_ID", teamId);
   const user = String(msg.user || "").trim();
   const mBotId = String(msg.bot_id || "").trim();
   const username = String(msg.username || "").trim();
@@ -108,10 +108,10 @@ function reply_isParentTsukuyomi_(msg) {
   return false;
 }
 
-function reply_isParentEimi_(msg) {
+function reply_isParentEimi_(msg, teamId) {
   if (!msg) return false;
-  const botUserId = utils_getProp_("SLACK_EIMI_BOT_USER_ID") || "U0ACK22BBDF";
-  const botId = utils_getProp_("SLACK_EIMI_BOT_ID") || "B0AC42V38ES";
+  const botUserId = utils_getTeamProp_("SLACK_EIMI_BOT_USER_ID", teamId) || "U0ACK22BBDF";
+  const botId = utils_getTeamProp_("SLACK_EIMI_BOT_ID", teamId) || "B0AC42V38ES";
   const user = String(msg.user || "").trim();
   const mBotId = String(msg.bot_id || "").trim();
   const username = String(msg.username || "").trim();
@@ -124,14 +124,14 @@ function reply_isParentEimi_(msg) {
   return false;
 }
 
-function reply_detectParentPersona_(msg) {
-  if (reply_isParentEimi_(msg)) return "eimi";
-  if (reply_isParentTsukuyomi_(msg)) return "tsukuyomi";
+function reply_detectParentPersona_(msg, teamId) {
+  if (reply_isParentEimi_(msg, teamId)) return "eimi";
+  if (reply_isParentTsukuyomi_(msg, teamId)) return "tsukuyomi";
   return "";
 }
 
-function reply_detectThreadPersona_(history) {
+function reply_detectThreadPersona_(history, teamId) {
   const arr = Array.isArray(history) ? history : [];
   if (!arr.length) return "";
-  return reply_detectParentPersona_(arr[0] || null);
+  return reply_detectParentPersona_(arr[0] || null, teamId);
 }

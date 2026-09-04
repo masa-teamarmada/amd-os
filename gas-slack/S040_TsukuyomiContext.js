@@ -69,29 +69,60 @@ function context_buildMemoryBlock_(projectId) {
   return lines.join("\n").trim();
 }
 
-function context_getProjectIdByChannelId_(channelId) {
+/**
+ * チャンネル → PJ解決。
+ * DB_Projects に該当行が無い場合は、そのワークスペースの既定PJへ落ちる。
+ * AMDワークスペースは既定PJ未設定なので従来どおり null のまま。
+ */
+function context_getProjectIdByChannelId_(channelId, teamId) {
   channelId = String(channelId || "").trim();
-  if (!channelId) return null;
+  if (!channelId) return context_getWorkspaceProjectId_(teamId);
   const ss = context_getMainSs_();
   const sh = ss.getSheetByName("DB_Projects");
-  if (!sh) return null;
+  if (!sh) return context_getWorkspaceProjectId_(teamId);
   const lastRow = sh.getLastRow();
-  if (lastRow < 2) return null;
+  if (lastRow < 2) return context_getWorkspaceProjectId_(teamId);
   const lastCol = sh.getLastColumn();
   const header = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(v => String(v || "").trim());
   const rows = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
   const iCh = header.indexOf("slackChannelId");
   const iPj = header.indexOf("projectId");
-  if (iCh < 0 || iPj < 0) return null;
+  if (iCh < 0 || iPj < 0) return context_getWorkspaceProjectId_(teamId);
   for (let i = 0; i < rows.length; i++) {
     if (String(rows[i][iCh] || "").trim() === channelId) {
-      return String(rows[i][iPj] || "").trim() || null;
+      const pj = String(rows[i][iPj] || "").trim();
+      if (pj) return pj;
     }
   }
-  return null;
+  return context_getWorkspaceProjectId_(teamId);
 }
 
-function context_extractAndSaveMemory_(threadHistory, channelId) {
+/**
+ * ワークスペース単位の既定PJ。
+ * `SLACK_DEFAULT_PROJECT_ID__<teamId>` を設定したワークスペースだけ、
+ * チャンネル未登録でもそのPJとして扱う。SXのように全チャンネルへ入れる
+ * ワークスペースを、1チャンネルずつ登録せずに運用するための入口。
+ */
+function context_getWorkspaceProjectId_(teamId) {
+  const t = String(teamId || "").trim();
+  if (!t) return null;
+  return utils_getProp_("SLACK_DEFAULT_PROJECT_ID__" + t) || null;
+}
+
+/**
+ * PJが特定できない会話を、どのPJ記憶へ入れるか。
+ * ホーム(AMD)ワークスペースは従来どおりAMD記憶へ。
+ * それ以外のワークスペースは、既定PJが無いかぎりどこにも保存しない。
+ * 他社・他機関が参加する部屋の会話をAMD記憶へ混ぜないための線引き。
+ */
+function context_getMemoryFallbackProjectId_(teamId) {
+  const t = String(teamId || "").trim();
+  const home = utils_getProp_("SLACK_HOME_TEAM_ID");
+  if (t && home && t !== home) return "";
+  return "AMD";
+}
+
+function context_extractAndSaveMemory_(threadHistory, channelId, teamId) {
   const rows = context_readSheet_("DB_TsukuyomiContext");
   const promptRow = rows.find(r => {
     const tags = r.tags ? r.tags.split(",").map(s => s.trim()) : [];
@@ -99,7 +130,9 @@ function context_extractAndSaveMemory_(threadHistory, channelId) {
   });
   if (!promptRow) return;
 
-  const projectId = context_getProjectIdByChannelId_(channelId) || "AMD";
+  const projectId = context_getProjectIdByChannelId_(channelId, teamId)
+    || context_getMemoryFallbackProjectId_(teamId);
+  if (!projectId) return;
 
   // スレッド内のユーザーslackIdを収集（メンバー解決用）
   const userIds = [];
