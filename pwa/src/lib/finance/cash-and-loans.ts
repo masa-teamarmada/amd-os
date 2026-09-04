@@ -101,18 +101,15 @@ function buildAccount(account: AccountRow, rows: EntryRow[], today: string): Cas
     a.entry_date === b.entry_date ? a.seq - b.seq : a.entry_date < b.entry_date ? -1 : 1,
   );
 
-  // 残高の積み上げは「スプレッドシートの行順」で行う。日付順ではない。
-  // 元の表は日付が前後している箇所があり (8/6 の行が 8/5 の行より上にある等)、
-  // そこに書かれている残高は行の並びどおりに積まれている。日付で並べ替えて足すと、
-  // その1か所から先が全部ずれて見え、実際の入力ミスが埋もれる。
-  // 同じ口座に複数のタブ (2025年_PayPay と 2026年_PayPay) が入るので、
-  // まず取り込み元で分け、その中を行番号で並べる。source の文字列順が年の順になっている。
+  // 残高の積み上げは日付順。同じ日の中だけ、取り込み元の行番号 (無ければ seq) で並べる。
+  // OS 上で足した行が正しい位置に入るようにするため、ここは日付を主にする。
+  // 元の表には日付が前後している箇所が1か所あり (8/6 の行が 8/5 の行より上)、
+  // そこは「その行で新しくズレた」1件として印が付く。
   const inSheetOrder = [...rows].sort((a, b) => {
-    if (a.source !== b.source) return a.source < b.source ? -1 : 1;
-    if (a.source_row != null && b.source_row != null) return a.source_row - b.source_row;
-    if (a.source_row != null) return -1;
-    if (b.source_row != null) return 1;
-    return a.entry_date === b.entry_date ? a.seq - b.seq : a.entry_date < b.entry_date ? -1 : 1;
+    if (a.entry_date !== b.entry_date) return a.entry_date < b.entry_date ? -1 : 1;
+    const ao = a.source_row ?? a.seq + 1_000_000;
+    const bo = b.source_row ?? b.seq + 1_000_000;
+    return ao - bo;
   });
 
   // 期首残高: 残高が入っている最初の行から、そこまでの増減を差し引いて逆算する。

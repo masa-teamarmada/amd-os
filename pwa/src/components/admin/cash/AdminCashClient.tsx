@@ -13,13 +13,13 @@ import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { CashAndLoansResult } from "@/lib/finance/cash-and-loans-types";
 import { invalidateCashAndLoans, loadCashAndLoans, peekCashAndLoans } from "@/lib/finance/cash-and-loans-client";
-import { CashAccountsPanel } from "./CashAccountsPanel";
+import { CashLedgerPanel } from "./CashLedgerPanel";
 import { CashLoansPanel } from "./CashLoansPanel";
 import { LoanSimulatorPanel } from "./LoanSimulatorPanel";
 import { yen } from "./format";
 
 const TASKS = [
-  { id: "accounts", step: "00", label: "口座のお金", description: "入ってきた額・出ていった額・残高" },
+  { id: "accounts", step: "00", label: "出入りと残高", description: "全口座を1枚の表で。セルを押すと直せる" },
   { id: "loans", step: "01", label: "借りているお金", description: "PayPay銀行・商工中金の残高と返済" },
   { id: "simulator", step: "02", label: "利息の試算", description: "借りたら利子がいくら付くか" },
 ] as const;
@@ -126,7 +126,7 @@ export function AdminCashClient({ initialTask }: { initialTask: CashTask }) {
           ) : null}
 
           {task === "accounts" ? (
-            <CashAccountsPanel data={data} loading={loading} onChanged={() => void reload(true)} />
+            <CashLedgerPanel data={data} loading={loading} onChanged={() => void reload(true)} />
           ) : null}
           {task === "loans" ? (
             <CashLoansPanel data={data} loading={loading} onChanged={() => void reload(true)} />

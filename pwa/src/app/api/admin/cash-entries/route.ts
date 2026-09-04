@@ -73,8 +73,12 @@ export async function POST(req: NextRequest) {
 
   const supabase = createAdminClient();
   const row = toRow(body);
+  // 既存の行を書き換えるときは source を触らない。'manual' に変えてしまうと、
+  // 次のスプレッドシート取り込みで置き換えられず、同じ行が二重に増える。
+  const updateRow = { ...row };
+  delete (updateRow as { source?: string }).source;
   const { data, error } = body.id
-    ? await supabase.from("cash_ledger_entries").update(row).eq("id", body.id).select("id").maybeSingle()
+    ? await supabase.from("cash_ledger_entries").update(updateRow).eq("id", body.id).select("id").maybeSingle()
     : await supabase.from("cash_ledger_entries").insert(row).select("id").maybeSingle();
 
   if (error) {

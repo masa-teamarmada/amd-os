@@ -16,8 +16,8 @@
     "src/components/admin/kiyo-money-flow/KiyoMoneyFlowPanel.tsx": "可変系。入金確認・支払記録で当日中に増える集計 (manual/6-11-kiyo-money-flow-spec.md)。サーバ側 (src/lib/finance/kiyo-money-flow.ts) がプロセス内TTL5分で持つのでクライアントは素のfetchでよい。",
     "src/app/(app)/admin/monthly-work-agreements/page.tsx#revision-requests": "可変系。修正要望のステータス更新 (PATCH) と、その直後の状態。open のあいだ支払通知書が発行できないので、古い状態を見せると支払判断を誤らせる (2026-08-28 追加)。",
     "src/lib/governance-client.ts": "参照系。会社概要タブと資本政策表タブが共有するキャッシュ層で、中身は @/lib/reference-data-cache を通している (素の fetch はこの1本だけ。画面側からは fetch しない)。REFERENCE_DATA_ENDPOINTS へ /api/governance を登録すると、guard が配下パスも同じ扱いにするため /api/governance/killer-factors (キラー要素カタログ) と /api/governance/capital-plans (資本政策プラン台帳) の別画面まで巻き込む。それらの移行は別作業なので、登録はせずここへ置く (2026-08-29 追加)。",
-    "src/components/admin/cash/CashAccountsPanel.tsx": "書き込み専用。口座明細 (cash-entries) と借入・返済 (cash-loan-events) の POST/DELETE にしか使わない。読み取りは src/lib/finance/cash-and-loans-client.ts のキャッシュ経由で、書き込み直後に invalidateCashAndLoans() を通して読み直す。ガードの静的検出が読み取りと誤認しないよう、読み取りの /api/admin/cash とパスを分けている。",
-    "src/components/admin/cash/CashLoansPanel.tsx": "書き込み専用。口座明細 (cash-entries) と借入・返済 (cash-loan-events) の POST/DELETE にしか使わない。読み取りは src/lib/finance/cash-and-loans-client.ts のキャッシュ経由で、書き込み直後に invalidateCashAndLoans() を通して読み直す。ガードの静的検出が読み取りと誤認しないよう、読み取りの /api/admin/cash とパスを分けている。"
+    "src/components/admin/cash/CashLoansPanel.tsx": "書き込み専用。口座明細 (cash-entries) と借入・返済 (cash-loan-events) の POST/DELETE にしか使わない。読み取りは src/lib/finance/cash-and-loans-client.ts のキャッシュ経由で、書き込み直後に invalidateCashAndLoans() を通して読み直す。ガードの静的検出が読み取りと誤認しないよう、読み取りの /api/admin/cash とパスを分けている。",
+    "src/components/admin/cash/CashLedgerPanel.tsx": "書き込み専用。口座明細 (cash-entries) と借入・返済 (cash-loan-events) の POST/DELETE にしか使わない。読み取りは src/lib/finance/cash-and-loans-client.ts のキャッシュ経由で、書き込み直後に invalidateCashAndLoans() を通して読み直す。ガードの静的検出が読み取りと誤認しないよう、読み取りの /api/admin/cash とパスを分けている。"
   },
   "allowed": {
     "src/components/project-workspace/ProjectThemeRoutes.tsx": [
@@ -320,11 +320,11 @@
     "src/lib/governance-client.ts": [
       "/api/governance"
     ],
-    "src/components/admin/cash/CashAccountsPanel.tsx": [
-      "/api/admin/cash-entries"
-    ],
     "src/components/admin/cash/CashLoansPanel.tsx": [
       "/api/admin/cash-loan-events"
+    ],
+    "src/components/admin/cash/CashLedgerPanel.tsx": [
+      "/api/admin/cash-entries"
     ]
   }
 }
