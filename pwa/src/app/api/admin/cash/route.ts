@@ -1,4 +1,4 @@
-// `/admin/cash`「現金と融資」の読み取り。正本は pwa/manual/6-12-cash-and-loans-spec.md。
+// `/admin/cash`「現金と融資」の読み取り。正本は pwa/manual/6-13-cash-and-loans-spec.md。
 // 口座残高と借入は役員報酬の振込額まで読めるので admin 専用。
 // きよが手で更新する参照系なので、spec 5-10 のとおり 3 層キャッシュを通す。
 // 画面は必ず src/lib/finance/cash-and-loans-client.ts 経由で読む。

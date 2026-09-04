@@ -1,5 +1,5 @@
 // きよの Google スプレッドシート「収支」から、口座の入出金を取り込む。
-// 正本は pwa/manual/6-12-cash-and-loans-spec.md。
+// 正本は pwa/manual/6-13-cash-and-loans-spec.md。
 //
 // 移植は一度きりではない。きよがスプシ側で過去分を直すことがあるので、
 // タブ単位でまるごと読み直して入れ替えられるようにしてある。
@@ -43,6 +43,13 @@ type SheetSource = {
   cols: ColumnMap;
   /** この文字がセルに出たら、そこから下は明細ではないので読まない (商工中金の返済予定表など)。 */
   stopAt?: string;
+  /**
+   * 12月の次に1月が来たら年を繰り上げるか。1年ぶんで閉じているタブ (年ごとの PayPay) では
+   * false にする。途中で月が戻る行が1つでもあると、そこから先が丸ごと翌年になってしまうため。
+   */
+  allowYearRollover?: boolean;
+  /** 日付が空の行を、直前の行と同じ日として扱うか (商工中金の会費行がこの形)。 */
+  carryDate?: boolean;
 };
 
 /**
@@ -64,6 +71,8 @@ const SHEET_SOURCES: SheetSource[] = [
     sheet: "商工中金", accountId: "shokochukin", baseYear: 2026,
     cols: { date: 2, withdrawal: 3, deposit: 4, balance: 5, note: 6 },
     stopAt: "返済日",
+    allowYearRollover: true,
+    carryDate: true,
   },
   {
     sheet: "UFJ通帳", accountId: "ufj", baseYear: 2023,
@@ -89,7 +98,11 @@ function text(value: unknown): string | null {
  *   「2023.9.15」 … 年つき。
  * 読めない行 (「5/〇(〇)」のような未定) は null を返して読み飛ばす。
  */
-function parseDate(raw: unknown, state: { year: number; lastMonth: number }): string | null {
+function parseDate(
+  raw: unknown,
+  state: { year: number; lastMonth: number },
+  allowYearRollover: boolean,
+): string | null {
   const s = String(raw ?? "").trim();
   if (!s) return null;
 
@@ -106,8 +119,8 @@ function parseDate(raw: unknown, state: { year: number; lastMonth: number }): st
   const month = Number(md[1]);
   const day = Number(md[2]);
   if (!(month >= 1 && month <= 12) || !(day >= 1 && day <= 31)) return null;
-  // 12月の次に1月が来たら年が変わったとみなす。
-  if (month < state.lastMonth - 6) state.year += 1;
+  // 12月の次に1月が来たら年が変わったとみなす。年ごとに閉じたタブでは繰り上げない。
+  if (allowYearRollover && month < state.lastMonth - 6) state.year += 1;
   state.lastMonth = month;
   return `${state.year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
@@ -159,16 +172,21 @@ export async function POST(req: NextRequest) {
       let skipped = 0;
 
       let stopped = false;
+      let carried: string | null = null;
       for (let i = 0; i < rows.length; i += 1) {
         const row = rows[i] ?? [];
         if (target.stopAt && row.some((cellValue) => String(cellValue ?? "").trim() === target.stopAt)) stopped = true;
         if (stopped) continue;
         const cell = (index: number | undefined) => (index == null ? "" : row[index]);
-        const entryDate = parseDate(cell(target.cols.date), state);
+        const rawDate = String(cell(target.cols.date) ?? "").trim();
+        const parsed = parseDate(rawDate, state, target.allowYearRollover === true);
+        // 日付が空でも、直前の行と同じ日として続く表がある (商工中金の会費行)。
+        const entryDate: string | null = parsed ?? (target.carryDate && !rawDate ? carried : null);
         if (!entryDate) {
-          if (String(cell(target.cols.date) ?? "").trim()) skipped += 1;
+          if (rawDate) skipped += 1;
           continue;
         }
+        carried = entryDate;
         const withdrawal = yen(cell(target.cols.withdrawal));
         const deposit = yen(cell(target.cols.deposit));
         const balanceRaw = String(cell(target.cols.balance) ?? "").trim();

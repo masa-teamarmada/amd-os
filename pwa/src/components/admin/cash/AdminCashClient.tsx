@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * `/admin/cash`「現金と融資」本体。正本は pwa/manual/6-12-cash-and-loans-spec.md。
+ * `/admin/cash`「現金と融資」本体。正本は pwa/manual/6-13-cash-and-loans-spec.md。
  *
  * きよが手入力しているスプレッドシート「収支」の口座タブを移した表と、
  * PayPay銀行 / 商工中金 の借入残高、それに借入の利息を試す場所を1画面にまとめる。

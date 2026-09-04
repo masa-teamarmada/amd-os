@@ -1,5 +1,5 @@
 /**
- * `/admin/cash`「現金と融資」の集計。正本は pwa/manual/6-12-cash-and-loans-spec.md。
+ * `/admin/cash`「現金と融資」の集計。正本は pwa/manual/6-13-cash-and-loans-spec.md。
  *
  * 【この画面が持つもの】
  * きよが Google スプレッドシート「収支」で手入力している口座の入出金と、

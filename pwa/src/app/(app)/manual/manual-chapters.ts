@@ -135,6 +135,7 @@ export const MANUAL_SECTIONS: ManualSectionConfig[] = [
       "6-10-freee-accounting-reconciliation-spec",
       "6-11-kiyo-money-flow-spec",
       "6-12-member-payout-flow",
+      "6-13-cash-and-loans-spec",
     ],
   },
   {
@@ -207,6 +208,7 @@ export const MANUAL_CHAPTERS: ManualChapterConfig[] = [
   { slug: "6-10-freee-accounting-reconciliation-spec", title: "freee週次会計照合 / 会計照合レール", summary: "毎週木曜10:00 JSTのfreee会計照合cron、4回review gate、5回目以降の役員報酬/内部振替allowlist、/admin/finance会計照合レールUI。", topics: ["monthly", "admin-dev"], screens: ["/admin/finance"], tables: ["freee_reconciliation_runs", "freee_reconciliation_findings", "freee_reconciliation_actions"] },
   { slug: "6-12-member-payout-flow", title: "メンバー支払フロー", summary: "合意から振込までの全体像。金額は月初合意で確定し、入金と合意がそろった翌月7日までに払う。立替の合流、振込の自動確認、混同しやすい2つの月。", topics: ["monthly", "admin"], screens: ["/admin/payouts", "/admin/monthly-work-agreements", "/monthly-agreement"], tables: ["payout_notices", "member_monthly_work_agreements", "member_payout_settlements", "reimbursements"] },
   { slug: "6-11-kiyo-money-flow-spec", title: "きよ お金の流れ", summary: "きよページ「00 お金の流れ」タブ。どこから入り何に使われたかの流れ図+3ステップ+ドリルダウン。分類別の出どころ定義と二重計上の防波堤。", topics: ["monthly", "admin-dev"], screens: ["/admin/kiyo"], tables: ["billing_cycles", "member_payout_settlements", "company_actual_monthly", "company_payment_obligations", "company_finance_recurring_items"] },
+  { slug: "6-13-cash-and-loans-spec", title: "現金と融資", summary: "口座にいくら残っていて、いくら借りているか。きよの収支スプレッドシートを移した入出金と、PayPay銀行・商工中金の借入残高、日割りの利子を試す場所。", topics: ["monthly", "admin-dev"], screens: ["/admin/cash"], tables: ["cash_accounts", "cash_ledger_entries", "loans", "loan_events"] },
 
   { slug: "7-1-reward-calc-spec", title: "報酬計算ロジック 詳細仕様", summary: "メンバー報酬がどう決まるか。 計算式、入力データ、進捗ソース優先度、月次キャップ、繰越制御の正本。", topics: ["monthly", "decision", "admin-dev"], screens: ["/mypage", "/admin/payouts"], tables: ["billing_cycles", "value_milestones", "value_plan_cycles", "milestone_monthly_progress", "milestone_responsibility", "sub_item_responsibility", "pj_deductions"] },
 
