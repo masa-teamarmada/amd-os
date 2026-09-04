@@ -1,4 +1,4 @@
-// 口座の入出金明細の追加・書き換え・削除。正本は pwa/manual/6-12-cash-and-loans-spec.md。
+// 口座の入出金明細の追加・書き換え・削除。正本は pwa/manual/6-13-cash-and-loans-spec.md。
 // これがあることで、きよはスプレッドシートに戻らずに OS だけで記録を続けられる。
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/supabase/api-auth";

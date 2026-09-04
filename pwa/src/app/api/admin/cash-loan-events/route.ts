@@ -1,4 +1,4 @@
-// 借入・返済の記録。正本は pwa/manual/6-12-cash-and-loans-spec.md。
+// 借入・返済の記録。正本は pwa/manual/6-13-cash-and-loans-spec.md。
 // PayPay銀行の枠は何度も借りて返すので、その都度ここへ1行足すと残高と利息が更新される。
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/supabase/api-auth";
