@@ -339,11 +339,11 @@ export function CashAccountsPanel({
                       </td>
                       <td className={cn(
                         "px-2 py-1 text-right font-mono text-xs tabular-nums",
-                        e.balanceGap != null && e.balanceGap !== 0 ? "bg-amber-100 font-semibold text-amber-900 dark:bg-amber-950/40 dark:text-amber-300" : "text-muted-foreground",
+                        e.balanceGapStep ? "bg-amber-100 font-semibold text-amber-900 dark:bg-amber-950/40 dark:text-amber-300" : "text-muted-foreground",
                       )}>
                         {e.runningBalance.toLocaleString("ja-JP")}
-                        {e.balanceGap != null && e.balanceGap !== 0 ? (
-                          <span className="ml-1 text-[10px]">差{e.balanceGap.toLocaleString("ja-JP")}</span>
+                        {e.balanceGapStep ? (
+                          <span className="ml-1 text-[10px]">この行で{e.balanceGapStep.toLocaleString("ja-JP")}</span>
                         ) : null}
                       </td>
                       <td className="max-w-[280px] px-2 py-1 text-[11px] leading-snug text-muted-foreground">{e.note}</td>
@@ -368,8 +368,8 @@ export function CashAccountsPanel({
 
             {active.gapCount > 0 ? (
               <p className="mt-1 text-[11px] leading-relaxed text-amber-700 dark:text-amber-500">
-                黄色の行は、スプレッドシートに書いてあった残高と、OSが1行ずつ足し引きした結果が食い違っているところ。
-                元の表で式が切れていた箇所なので、正しい方に直すときはここを見て。（{active.gapCount}件）
+                黄色の行は、スプレッドシートの残高が、その行の出入りだけでは説明できない金額に飛んでいるところ。
+                一度飛ぶと以降の行にも同じ差が残るので、直すのはこの黄色の行だけでいい。（{active.gapCount}件）
               </p>
             ) : null}
           </>

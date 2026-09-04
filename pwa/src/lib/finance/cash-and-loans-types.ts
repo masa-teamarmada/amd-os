@@ -15,6 +15,11 @@ export type CashLedgerEntry = {
   runningBalance: number;
   /** 原本の残高と積み上げが食い違っている額。0 なら一致。 */
   balanceGap: number | null;
+  /**
+   * その行で新しく生じたズレ。前の「残高が書いてある行」からの差。
+   * 一度ズレると以降の行にも同じ差が残り続けるので、直すべき行はこれが 0 でない行だけ。
+   */
+  balanceGapStep: number | null;
   category: string | null;
   targetMonth: string | null;
   note: string | null;
@@ -47,7 +52,7 @@ export type CashAccountView = {
   /** 期間中いちばん低くなる予定残高。資金ショートの手前を見るために出す。 */
   lowestPlanned: { date: string; balance: number } | null;
   entryCount: number;
-  /** 原本の残高と積み上げが食い違う行。きよが直せるように出す。 */
+  /** その行で新しくズレが生じた行の数。きよが直すのはこの行だけでよい。 */
   gapCount: number;
   monthly: CashMonthRow[];
   entries: CashLedgerEntry[];

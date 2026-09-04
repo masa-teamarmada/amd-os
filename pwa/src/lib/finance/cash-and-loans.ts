@@ -126,11 +126,20 @@ function buildAccount(account: AccountRow, rows: EntryRow[], today: string): Cas
   }
 
   const runningById = new Map<string, number>();
+  // 一度ズレると以降の行にも同じ差が残るので、「その行で新しく生じたズレ」も出す。
+  // 直すべきなのは、新しくズレた行だけ。
+  const gapStepById = new Map<string, number>();
   {
     let acc = opening;
+    let previousGap = 0;
     for (const r of inSheetOrder) {
       acc += num(r.deposit) - num(r.withdrawal);
       runningById.set(r.id, acc);
+      if (r.balance != null) {
+        const gap = num(r.balance) - acc;
+        gapStepById.set(r.id, gap - previousGap);
+        previousGap = gap;
+      }
     }
   }
 
@@ -150,13 +159,14 @@ function buildAccount(account: AccountRow, rows: EntryRow[], today: string): Cas
     const running = runningById.get(r.id) ?? 0;
     const sheetBalance = r.balance == null ? null : num(r.balance);
     const gap = sheetBalance == null ? null : sheetBalance - running;
-    if (gap != null && gap !== 0) gapCount += 1;
+    const gapStep = gapStepById.get(r.id) ?? null;
+    if (gapStep != null && gapStep !== 0) gapCount += 1;
 
     entries.push({
       id: r.id, accountId: r.account_id, entryDate: r.entry_date, seq: r.seq,
       counterparty: text(r.counterparty), transferName: text(r.transfer_name),
       withdrawal: num(r.withdrawal), deposit: num(r.deposit),
-      sheetBalance, runningBalance: running, balanceGap: gap,
+      sheetBalance, runningBalance: running, balanceGap: gap, balanceGapStep: gapStep,
       category: text(r.category), targetMonth: text(r.target_month), note: text(r.note),
       isPlanned,
     });
