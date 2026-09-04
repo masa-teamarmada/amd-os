@@ -33,6 +33,12 @@ const BASELINE_PATH = path.join(scriptDir, "reference_data_cache_baseline.json")
 /** 参照系として確定済みのエンドポイント。新しい参照系データを足したらここへ登録する。 */
 const REFERENCE_DATA_ENDPOINTS = [
   {
+    endpoint: "/api/admin/cash",
+    label: "現金と融資 (口座の入出金・借入残高)",
+    routeFile: "src/app/api/admin/cash/route.ts",
+    clientModule: "src/lib/finance/cash-and-loans-client.ts",
+  },
+  {
     endpoint: "/api/seeds/screening-bands",
     label: "一次選別スクリーニング帯 (SPS)",
     routeFile: "src/app/api/seeds/screening-bands/route.ts",

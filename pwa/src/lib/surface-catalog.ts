@@ -89,6 +89,7 @@ export const SURFACE_CATALOG: readonly SurfaceDefinition[] = [
   { id: "admin-governance", title: "株主・ガバナンス", navLabel: "株主・ガバナンス", primaryPath: "/admin/governance", domain: "company_operations", lens: "amd_operations", status: "canonical", exact: ["/admin/governance"] },
   { id: "admin-contracts", title: "Admin 契約", navLabel: "契約", primaryPath: "/admin/contracts", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/admin/contracts"] },
   { id: "admin-kiyo", title: "きよ", navLabel: "きよ", primaryPath: "/admin/kiyo", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/admin/kiyo"] },
+  { id: "admin-cash", title: "現金と融資", navLabel: "現金と融資", primaryPath: "/admin/cash", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/admin/cash"] },
   { id: "admin-invoices", title: "請求書発行", navLabel: "請求書発行", primaryPath: "/admin/invoices", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/admin/invoices"] },
   { id: "admin-billing", title: "請求書発行", navLabel: "旧請求入口", primaryPath: "/admin/billing", domain: "finance_contracts", lens: "amd_operations", status: "mirror", exact: ["/admin/billing"] },
   { id: "admin-payouts", title: "支払通知書", navLabel: "支払通知書", primaryPath: "/admin/payouts", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/admin/payouts"] },
@@ -120,7 +121,7 @@ export const SURFACE_CATALOG: readonly SurfaceDefinition[] = [
 export const ADMIN_SURFACE_GROUPS = [
   { label: "納税・カレンダー", surfaceIds: ["admin-payments", "admin-schedule"] },
   { label: "組織・権限", surfaceIds: ["admin-projects", "admin-members", "admin-access", "admin-company", "admin-governance"] },
-  { label: "契約・お金", surfaceIds: ["admin-contracts", "admin-kiyo", "admin-invoices", "admin-payouts", "admin-monthly-agreements", "admin-season-pl", "admin-finance", "admin-project-profitability"] },
+  { label: "契約・お金", surfaceIds: ["admin-contracts", "admin-kiyo", "admin-cash", "admin-invoices", "admin-payouts", "admin-monthly-agreements", "admin-season-pl", "admin-finance", "admin-project-profitability"] },
   { label: "PJ・実行", surfaceIds: ["management-score", "admin-weekly", "admin-protocols", "admin-ms-overview", "admin-meeting-gaps", "admin-coverage", "admin-ip"] },
   { label: "知識・AI", surfaceIds: ["admin-japanese-culture", "admin-contexts", "admin-management-knowledge", "admin-private-wiki", "admin-tsukuyomi", "admin-prompts"] },
   { label: "運用", surfaceIds: ["admin-settings"] },

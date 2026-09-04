@@ -1,0 +1,325 @@
+/**
+ * `/admin/cash`「現金と融資」の集計。正本は pwa/manual/6-12-cash-and-loans-spec.md。
+ *
+ * 【この画面が持つもの】
+ * きよが Google スプレッドシート「収支」で手入力している口座の入出金と、
+ * PayPay銀行 / 商工中金 からの借入残高。つまり「現金がいくらあって、いくら借りているか」。
+ *
+ * 【`/admin/kiyo` の「00 お金の流れ」との違い】
+ * あちらは freee 試算表から損益を見る画面 (manual/6-11)。こちらは現金と借入。
+ * 同じ月でも数字は一致しない。損益と現金は別物だからで、それは 6-11 に書いてある。
+ *
+ * 【残高の扱い】
+ * スプシに書かれている残高をそのまま持ち、あわせて OS が期首から積み上げた残高も出す。
+ * 手入力なので式が切れている箇所があり、両方並べないと「どこで狂ったか」が分からない。
+ * 直すのはきよなので、OS は食い違いを見せるところまでを担う。
+ *
+ * 参照系 (きよが日〜週単位で手で更新する) なので、spec 5-10 のとおり
+ * プロセス内スナップショットを 5 分持つ。書き込み経路からは invalidate を呼ぶ。
+ */
+import "server-only";
+
+import { createAdminClient } from "@/lib/supabase/admin";
+import { daysBetween } from "@/lib/finance/loan-interest";
+import type {
+  CashAccountView,
+  CashAndLoansResult,
+  CashLedgerEntry,
+  CashMonthRow,
+  LoanEventView,
+  LoanView,
+} from "@/lib/finance/cash-and-loans-types";
+
+export type * from "@/lib/finance/cash-and-loans-types";
+
+const PAGE_SIZE = 1000;
+
+function num(value: unknown): number {
+  if (value == null) return 0;
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? Math.round(n) : 0;
+}
+
+function text(value: unknown): string | null {
+  const s = value == null ? "" : String(value).trim();
+  return s === "" ? null : s;
+}
+
+/** 日本時間の今日を 'YYYY-MM-DD' で返す。 */
+export function todayJst(now: Date = new Date()): string {
+  return new Date(now.getTime() + 9 * 3_600_000).toISOString().slice(0, 10);
+}
+
+function ymLabel(ym: string): string {
+  return `${ym.slice(0, 4)}年${Number(ym.slice(5, 7))}月`;
+}
+
+/**
+ * PostgREST の 1 レスポンス上限 (既定 1000 行) を跨いでも落とさないページ読み。
+ * 素の select にすると、行が 1000 を超えた日に黙って切り捨てられる (spec 5-10)。
+ */
+async function selectAll<T>(
+  build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await build(from, from + PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    const rows = data ?? [];
+    out.push(...rows);
+    if (rows.length < PAGE_SIZE) break;
+  }
+  return out;
+}
+
+type AccountRow = {
+  account_id: string; name: string; short_name: string; institution: string;
+  purpose: string | null; sort_order: number; is_active: boolean;
+};
+type EntryRow = {
+  id: string; account_id: string; entry_date: string; seq: number;
+  counterparty: string | null; transfer_name: string | null;
+  withdrawal: number; deposit: number; balance: number | null;
+  category: string | null; target_month: string | null; note: string | null; is_planned: boolean;
+  source_row: number | null;
+};
+type LoanRow = {
+  loan_id: string; lender: string; short_name: string; account_id: string | null;
+  annual_rate: number | string; day_count_basis: number; repayment_type: string;
+  contracted_on: string | null; drawdown_on: string | null;
+  principal_amount: number | null; credit_limit: number | null; term_months: number | null;
+  note: string | null; is_active: boolean;
+};
+type LoanEventRow = {
+  id: string; loan_id: string; event_date: string; kind: string; amount: number;
+  principal_amount: number | null; interest_amount: number | null;
+  is_planned: boolean; note: string | null;
+};
+
+function buildAccount(account: AccountRow, rows: EntryRow[], today: string): CashAccountView {
+  const sorted = [...rows].sort((a, b) =>
+    a.entry_date === b.entry_date ? a.seq - b.seq : a.entry_date < b.entry_date ? -1 : 1,
+  );
+
+  // 残高の積み上げは「スプレッドシートの行順」で行う。日付順ではない。
+  // 元の表は日付が前後している箇所があり (8/6 の行が 8/5 の行より上にある等)、
+  // そこに書かれている残高は行の並びどおりに積まれている。日付で並べ替えて足すと、
+  // その1か所から先が全部ずれて見え、実際の入力ミスが埋もれる。
+  const inSheetOrder = [...rows].sort((a, b) => {
+    if (a.source_row != null && b.source_row != null) return a.source_row - b.source_row;
+    if (a.source_row != null) return -1;
+    if (b.source_row != null) return 1;
+    return a.entry_date === b.entry_date ? a.seq - b.seq : a.entry_date < b.entry_date ? -1 : 1;
+  });
+
+  // 期首残高: 残高が入っている最初の行から、そこまでの増減を差し引いて逆算する。
+  const first = inSheetOrder.find((r) => r.balance != null);
+  let opening = first ? num(first.balance) - num(first.deposit) + num(first.withdrawal) : 0;
+  if (first) {
+    for (const r of inSheetOrder) {
+      if (r.id === first.id) break;
+      opening -= num(r.deposit) - num(r.withdrawal);
+    }
+  }
+
+  const runningById = new Map<string, number>();
+  {
+    let acc = opening;
+    for (const r of inSheetOrder) {
+      acc += num(r.deposit) - num(r.withdrawal);
+      runningById.set(r.id, acc);
+    }
+  }
+
+  const entries: CashLedgerEntry[] = [];
+  const monthly = new Map<string, CashMonthRow>();
+  let actualBalance: number | null = null;
+  let actualAsOf: string | null = null;
+  let plannedBalance: number | null = null;
+  let plannedAsOf: string | null = null;
+  let lowestPlanned: { date: string; balance: number } | null = null;
+  let gapCount = 0;
+
+  for (const r of sorted) {
+    const isPlanned = r.is_planned || r.entry_date > today;
+    const running = runningById.get(r.id) ?? 0;
+    const sheetBalance = r.balance == null ? null : num(r.balance);
+    const gap = sheetBalance == null ? null : sheetBalance - running;
+    if (gap != null && gap !== 0) gapCount += 1;
+
+    entries.push({
+      id: r.id, accountId: r.account_id, entryDate: r.entry_date, seq: r.seq,
+      counterparty: text(r.counterparty), transferName: text(r.transfer_name),
+      withdrawal: num(r.withdrawal), deposit: num(r.deposit),
+      sheetBalance, runningBalance: running, balanceGap: gap,
+      category: text(r.category), targetMonth: text(r.target_month), note: text(r.note),
+      isPlanned,
+    });
+
+    const ym = r.entry_date.slice(0, 7);
+    const month = monthly.get(ym) ?? {
+      ym, label: ymLabel(ym), inflow: 0, outflow: 0, net: 0, endBalance: running, hasPlanned: false,
+    };
+    month.inflow += num(r.deposit);
+    month.outflow += num(r.withdrawal);
+    month.net = month.inflow - month.outflow;
+    month.endBalance = running;
+    if (isPlanned) month.hasPlanned = true;
+    monthly.set(ym, month);
+
+    if (!isPlanned) {
+      actualBalance = sheetBalance ?? running;
+      actualAsOf = r.entry_date;
+    } else {
+      plannedBalance = running;
+      plannedAsOf = r.entry_date;
+      if (!lowestPlanned || running < lowestPlanned.balance) {
+        lowestPlanned = { date: r.entry_date, balance: running };
+      }
+    }
+  }
+
+  return {
+    accountId: account.account_id, name: account.name, shortName: account.short_name,
+    institution: account.institution, purpose: text(account.purpose),
+    actualBalance, actualAsOf, plannedBalance, plannedAsOf, lowestPlanned,
+    entryCount: entries.length, gapCount,
+    monthly: [...monthly.values()].sort((a, b) => (a.ym < b.ym ? -1 : 1)),
+    entries,
+  };
+}
+
+function buildLoan(loan: LoanRow, rows: LoanEventRow[], accountName: string | null, today: string): LoanView {
+  const sorted = [...rows].sort((a, b) => (a.event_date < b.event_date ? -1 : a.event_date > b.event_date ? 1 : 0));
+  const annualRate = Number(loan.annual_rate) || 0;
+
+  let balance = 0;
+  let totalDrawdown = 0;
+  let repaidPrincipal = 0;
+  let paidInterest = 0;
+  let plannedInterest = 0;
+  let outstanding = 0;
+  const events: LoanEventView[] = [];
+
+  for (const r of sorted) {
+    const isPlanned = r.is_planned || r.event_date > today;
+    const principal = r.principal_amount == null ? (r.kind === "fee" ? 0 : num(r.amount)) : num(r.principal_amount);
+    if (r.kind === "drawdown") {
+      balance += principal;
+      totalDrawdown += principal;
+    } else if (r.kind === "repayment") {
+      balance -= principal;
+      if (isPlanned) plannedInterest += num(r.interest_amount);
+      else {
+        repaidPrincipal += principal;
+        paidInterest += num(r.interest_amount);
+      }
+    }
+    if (!isPlanned) outstanding = balance;
+    events.push({
+      id: r.id, eventDate: r.event_date, kind: r.kind as LoanEventView["kind"],
+      amount: num(r.amount),
+      principalAmount: r.principal_amount == null ? null : num(r.principal_amount),
+      interestAmount: r.interest_amount == null ? null : num(r.interest_amount),
+      isPlanned, note: text(r.note), balanceAfter: balance,
+    });
+  }
+  // 実績のイベントが1件も無いときは、借入もまだ起きていない。
+  if (!events.some((e) => !e.isPlanned)) outstanding = 0;
+
+  const upcoming = events.find((e) => e.isPlanned && e.kind === "repayment");
+  const lastRepayment = [...events].reverse().find((e) => e.kind === "repayment");
+
+  return {
+    loanId: loan.loan_id, lender: loan.lender, shortName: loan.short_name,
+    accountId: loan.account_id, accountName,
+    annualRate, dayCountBasis: loan.day_count_basis || 365,
+    repaymentType: loan.repayment_type,
+    contractedOn: loan.contracted_on, drawdownOn: loan.drawdown_on,
+    principalAmount: loan.principal_amount == null ? null : num(loan.principal_amount),
+    creditLimit: loan.credit_limit == null ? null : num(loan.credit_limit),
+    termMonths: loan.term_months, note: text(loan.note),
+    outstanding, totalDrawdown, repaidPrincipal, paidInterest, plannedInterest,
+    nextDue: upcoming
+      ? { date: upcoming.eventDate, amount: upcoming.amount, principal: upcoming.principalAmount, interest: upcoming.interestAmount }
+      : null,
+    finalDueOn: lastRepayment?.eventDate ?? null,
+    events,
+  };
+}
+
+async function computeInternal(): Promise<CashAndLoansResult> {
+  const supabase = createAdminClient();
+  const today = todayJst();
+
+  const [accounts, entries, loans, loanEvents] = await Promise.all([
+    selectAll<AccountRow>((from, to) =>
+      supabase.from("cash_accounts").select("*").eq("is_active", true).order("sort_order").range(from, to),
+    ),
+    selectAll<EntryRow>((from, to) =>
+      supabase.from("cash_ledger_entries").select("*").order("entry_date").order("seq").range(from, to),
+    ),
+    selectAll<LoanRow>((from, to) =>
+      supabase.from("loans").select("*").eq("is_active", true).order("loan_id").range(from, to),
+    ),
+    selectAll<LoanEventRow>((from, to) =>
+      supabase.from("loan_events").select("*").order("event_date").range(from, to),
+    ),
+  ]);
+
+  const entriesByAccount = new Map<string, EntryRow[]>();
+  for (const row of entries) {
+    const list = entriesByAccount.get(row.account_id) ?? [];
+    list.push(row);
+    entriesByAccount.set(row.account_id, list);
+  }
+  const eventsByLoan = new Map<string, LoanEventRow[]>();
+  for (const row of loanEvents) {
+    const list = eventsByLoan.get(row.loan_id) ?? [];
+    list.push(row);
+    eventsByLoan.set(row.loan_id, list);
+  }
+
+  const accountViews = accounts.map((a) => buildAccount(a, entriesByAccount.get(a.account_id) ?? [], today));
+  const accountNameById = new Map(accounts.map((a) => [a.account_id, a.short_name]));
+  const loanViews = loans.map((l) =>
+    buildLoan(l, eventsByLoan.get(l.loan_id) ?? [], l.account_id ? accountNameById.get(l.account_id) ?? null : null, today),
+  );
+
+  return {
+    today,
+    accounts: accountViews,
+    loans: loanViews,
+    totalActualBalance: accountViews.reduce((sum, a) => sum + (a.actualBalance ?? 0), 0),
+    totalOutstanding: loanViews.reduce((sum, l) => sum + l.outstanding, 0),
+    computedAtIso: new Date().toISOString(),
+  };
+}
+
+const CACHE_TTL_MS = 5 * 60 * 1000;
+let cached: { value: CashAndLoansResult; storedAt: number } | null = null;
+let inflight: Promise<CashAndLoansResult> | null = null;
+
+export async function getCashAndLoans(force = false): Promise<CashAndLoansResult> {
+  if (!force && cached && Date.now() - cached.storedAt < CACHE_TTL_MS) return cached.value;
+  if (!force && inflight) return inflight;
+
+  const request = computeInternal()
+    .then((value) => {
+      cached = { value, storedAt: Date.now() };
+      return value;
+    })
+    .finally(() => {
+      if (inflight === request) inflight = null;
+    });
+  inflight = request;
+  return request;
+}
+
+/** 明細や借入を書き換えたあとに呼ぶ。 */
+export function invalidateCashAndLoansCache(): void {
+  cached = null;
+  inflight = null;
+}
+
+export { daysBetween };
