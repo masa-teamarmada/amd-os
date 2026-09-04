@@ -50,6 +50,12 @@ type SheetSource = {
   allowYearRollover?: boolean;
   /** 日付が空の行を、直前の行と同じ日として扱うか (商工中金の会費行がこの形)。 */
   carryDate?: boolean;
+  /**
+   * 日付がこの月数より大きく戻ったら、そこから下は別の表とみなして読まない。
+   * 2025年_PayPay は明細の下に、同じ形の別ブロックがぶら下がっている
+   * (2025年10月の次の行が2025年2月から始まる)。読み込むと残高が合わなくなる。
+   */
+  stopWhenDateGoesBackMonths?: number;
 };
 
 /**
@@ -64,6 +70,7 @@ const SHEET_SOURCES: SheetSource[] = [
   {
     sheet: "2025年_PayPay", accountId: "paypay", baseYear: 2025,
     cols: { date: 1, transferName: 2, counterparty: 3, withdrawal: 4, deposit: 5, balance: 6, category: 7, targetMonth: 8, note: 9 },
+    stopWhenDateGoesBackMonths: 3,
   },
   {
     // 相手先の列が無く、備考にだけ書いてある。下部に返済予定表が続くので「返済日」で打ち切る
@@ -173,6 +180,7 @@ export async function POST(req: NextRequest) {
 
       let stopped = false;
       let carried: string | null = null;
+      let stoppedAtRow: number | null = null;
       for (let i = 0; i < rows.length; i += 1) {
         const row = rows[i] ?? [];
         if (target.stopAt && row.some((cellValue) => String(cellValue ?? "").trim() === target.stopAt)) stopped = true;
@@ -185,6 +193,16 @@ export async function POST(req: NextRequest) {
         if (!entryDate) {
           if (rawDate) skipped += 1;
           continue;
+        }
+        // 日付が大きく戻ったら、そこから下は別の表。
+        if (target.stopWhenDateGoesBackMonths && carried && entryDate < carried) {
+          const back = (Number(carried.slice(0, 4)) * 12 + Number(carried.slice(5, 7)))
+            - (Number(entryDate.slice(0, 4)) * 12 + Number(entryDate.slice(5, 7)));
+          if (back >= target.stopWhenDateGoesBackMonths) {
+            stopped = true;
+            stoppedAtRow = i + 1;
+            continue;
+          }
         }
         carried = entryDate;
         const withdrawal = yen(cell(target.cols.withdrawal));
@@ -229,6 +247,7 @@ export async function POST(req: NextRequest) {
       report.push({
         sheet: target.sheet, accountId: target.accountId,
         sheetRows: rows.length, imported: records.length, skippedDateRows: skipped,
+        stoppedAtRow,
         firstDate: records[0]?.entry_date ?? null,
         lastDate: records[records.length - 1]?.entry_date ?? null,
       });

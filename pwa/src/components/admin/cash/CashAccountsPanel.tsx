@@ -68,7 +68,8 @@ export function CashAccountsPanel({
 }) {
   const accounts = useMemo(() => data?.accounts ?? [], [data]);
   const [accountId, setAccountId] = useState<string | null>(null);
-  const [ym, setYm] = useState<string | "all">("all");
+  // 明細は1000行を超えるので、既定は今月だけ出す。月の行を押すとその月、「ぜんぶ」で全期間。
+  const [ym, setYm] = useState<string | "all" | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -78,11 +79,20 @@ export function CashAccountsPanel({
     [accounts, accountId],
   );
 
+  // 未選択なら今月。その口座に今月の行が無ければ、いちばん新しい月にする。
+  const effectiveYm = useMemo(() => {
+    if (ym) return ym;
+    if (!active || active.monthly.length === 0) return "all";
+    const current = (data?.today ?? todayIso()).slice(0, 7);
+    return active.monthly.some((m) => m.ym === current) ? current : active.monthly[active.monthly.length - 1].ym;
+  }, [ym, active, data]);
+
   const rows = useMemo(() => {
     if (!active) return [] as CashLedgerEntry[];
-    const filtered = ym === "all" ? active.entries : active.entries.filter((e) => e.entryDate.slice(0, 7) === ym);
+    const filtered =
+      effectiveYm === "all" ? active.entries : active.entries.filter((e) => e.entryDate.slice(0, 7) === effectiveYm);
     return [...filtered].reverse();
-  }, [active, ym]);
+  }, [active, effectiveYm]);
 
   async function save() {
     if (!draft || !active) return;
@@ -166,7 +176,7 @@ export function CashAccountsPanel({
             <button
               key={a.accountId}
               type="button"
-              onClick={() => { setAccountId(a.accountId); setYm("all"); setDraft(null); }}
+              onClick={() => { setAccountId(a.accountId); setYm(null); setDraft(null); }}
               className={cn(
                 "h-7 rounded-none border border-border px-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 active?.accountId === a.accountId ? "bg-foreground text-background" : "bg-background text-muted-foreground hover:bg-accent",
@@ -198,9 +208,9 @@ export function CashAccountsPanel({
                       key={m.ym}
                       className={cn(
                         "cursor-pointer border-b border-border last:border-b-0 hover:bg-accent/40",
-                        ym === m.ym && "bg-accent/60",
+                        effectiveYm === m.ym && "bg-accent/60",
                       )}
-                      onClick={() => setYm(ym === m.ym ? "all" : m.ym)}
+                      onClick={() => setYm(effectiveYm === m.ym ? "all" : m.ym)}
                     >
                       <td className="px-2 py-1 text-xs text-foreground">
                         {m.label}
@@ -224,15 +234,28 @@ export function CashAccountsPanel({
             <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-xs font-semibold text-foreground">
                 {active.shortName} の明細
-                {ym !== "all" ? <span className="ml-1 text-[11px] font-normal text-muted-foreground">{ym.replace("-", "年")}月だけ表示中（月の行をもう一度押すと全部）</span> : null}
+                <span className="ml-1 text-[11px] font-normal text-muted-foreground">
+                  {effectiveYm === "all"
+                    ? `全期間 ${rows.length}件`
+                    : `${effectiveYm.replace("-", "年")}月 ${rows.length}件（上の月の行を押すと切り替わる）`}
+                </span>
               </h2>
-              <button
-                type="button"
-                onClick={() => setDraft({ ...EMPTY_DRAFT })}
-                className="h-7 rounded-none border border-border px-2 text-xs text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                行を足す
-              </button>
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => setYm(effectiveYm === "all" ? null : "all")}
+                  className="h-7 rounded-none border border-border px-2 text-xs text-muted-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {effectiveYm === "all" ? "今月だけ" : "ぜんぶ"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDraft({ ...EMPTY_DRAFT })}
+                  className="h-7 rounded-none border border-border px-2 text-xs text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  行を足す
+                </button>
+              </div>
             </div>
 
             {message ? <p className="mb-1 border border-destructive/40 bg-destructive/5 p-1.5 text-[11px] text-destructive">{message}</p> : null}
