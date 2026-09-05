@@ -22,7 +22,7 @@ const TRAILING_BLANKS = 5;
 
 type EditableField =
   | "entryDate" | "accountId" | "counterparty" | "withdrawal" | "deposit"
-  | "sheetBalance" | "category" | "targetMonth" | "note";
+  | "category" | "targetMonth" | "note";
 
 /** 保存前の行。DB にはまだ無い。 */
 type DraftRow = {
@@ -34,7 +34,6 @@ type DraftRow = {
   counterparty: string;
   withdrawal: string;
   deposit: string;
-  sheetBalance: string;
   category: string;
   targetMonth: string;
   note: string;
@@ -71,13 +70,13 @@ function newDraftId(): string {
 function blankDraft(anchorId: string | null, entryDate: string, accountId: string): DraftRow {
   return {
     draftId: newDraftId(), anchorId, entryDate, accountId,
-    counterparty: "", withdrawal: "", deposit: "", sheetBalance: "",
+    counterparty: "", withdrawal: "", deposit: "",
     category: "", targetMonth: "", note: "",
   };
 }
 
 function draftIsEmpty(d: DraftRow): boolean {
-  return !d.counterparty && !d.withdrawal && !d.deposit && !d.sheetBalance && !d.note && !d.category && !d.targetMonth;
+  return !d.counterparty && !d.withdrawal && !d.deposit && !d.note && !d.category && !d.targetMonth;
 }
 
 function numText(value: number | null | undefined): string {
@@ -199,7 +198,7 @@ export function CashLedgerPanel({
       counterparty: d.counterparty || null, transferName: null,
       withdrawal: Number(d.withdrawal.replace(/[^\d]/g, "")) || 0,
       deposit: Number(d.deposit.replace(/[^\d]/g, "")) || 0,
-      sheetBalance: d.sheetBalance ? Number(d.sheetBalance.replace(/[^\d-]/g, "")) : null,
+      sheetBalance: null,
       runningBalance: null, balanceGapStep: null,
       category: d.category || null, targetMonth: d.targetMonth || null, note: d.note || null,
       isPlanned: d.entryDate > today,
@@ -252,7 +251,7 @@ export function CashLedgerPanel({
           {
             accountId: next.accountId, entryDate: next.entryDate, counterparty: next.counterparty,
             withdrawal: next.withdrawal, deposit: next.deposit,
-            balance: next.sheetBalance === "" ? null : next.sheetBalance,
+            balance: null,
             category: next.category, targetMonth: next.targetMonth, note: next.note,
           },
           null,
@@ -276,10 +275,6 @@ export function CashLedgerPanel({
         const n = Number(raw.replace(/[^\d]/g, "")) || 0;
         payload[field] = n;
         patch[field] = n;
-      } else if (field === "sheetBalance") {
-        const n = raw.trim() === "" ? null : Number(raw.replace(/[^\d-]/g, ""));
-        payload.balance = n;
-        patch.sheetBalance = n;
       } else if (field === "accountId") {
         payload.accountId = raw;
         patch.accountId = raw;
@@ -345,7 +340,7 @@ export function CashLedgerPanel({
             autoFocus
             type={field === "entryDate" ? "date" : "text"}
             defaultValue={field === "entryDate" ? row.entryDate : value}
-            inputMode={field === "withdrawal" || field === "deposit" || field === "sheetBalance" ? "numeric" : undefined}
+            inputMode={field === "withdrawal" || field === "deposit" ? "numeric" : undefined}
             onFocus={(e) => e.currentTarget.select()}
             onBlur={(e) => void commitCell(row, field, e.target.value)}
             onKeyDown={(e) => {
@@ -562,27 +557,25 @@ export function CashLedgerPanel({
 
                 {accounts.map((a) => {
                   const isOwn = a.accountId === row.accountId;
-                  if (isOwn) {
-                    return (
-                      <Cell
-                        key={a.accountId}
-                        row={row}
-                        field="sheetBalance"
-                        value={row.sheetBalance == null ? "" : row.sheetBalance.toLocaleString("ja-JP")}
-                        align="right"
-                        width="w-[110px]"
-                        className={cn(
-                          "border-l border-border font-semibold",
-                          row.balanceGapStep
-                            ? "bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
-                            : "text-foreground",
-                        )}
-                      />
-                    );
-                  }
                   const carried = row.accountBalances[a.accountId];
+                  // 残高は計算した結果なので直接は書き換えない。金額を直すと、その先の残高がぜんぶ変わる。
                   return (
-                    <td key={a.accountId} className="border-l border-border px-1.5 py-1 text-right font-mono text-xs tabular-nums text-muted-foreground/50">
+                    <td
+                      key={a.accountId}
+                      title={
+                        isOwn && row.balanceGapStep
+                          ? `スプレッドシートにはここが ${row.sheetBalance?.toLocaleString("ja-JP") ?? "空"} と書いてあった（差 ${row.balanceGapStep.toLocaleString("ja-JP")}）`
+                          : undefined
+                      }
+                      className={cn(
+                        "border-l border-border px-1.5 py-1 text-right font-mono text-xs tabular-nums",
+                        isOwn
+                          ? row.balanceGapStep
+                            ? "bg-amber-100 font-semibold text-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+                            : "font-semibold text-foreground"
+                          : "text-muted-foreground/50",
+                      )}
+                    >
                       {carried == null ? "" : carried.toLocaleString("ja-JP")}
                     </td>
                   );
@@ -621,8 +614,10 @@ export function CashLedgerPanel({
 
       <p className="text-[11px] leading-relaxed text-muted-foreground">
         残高の列は、その行の口座のところが濃い字で、ほかの口座はその時点の持ち越し。
-        黄色いセルは、スプレッドシートの残高がその行の出入りだけでは説明できない金額に飛んでいるところ。
-        一度飛ぶと以降の行にも同じ差が残るので、直すのは黄色いセルだけでいい。
+        <span className="font-medium text-foreground">残高はこの画面が毎回その場で足し引きして出している</span>ので、
+        途中の行の金額を直すと、その先の残高がぜんぶ変わる。だから残高のセルは直接は書き換えられない。
+        黄色いセルは、きよのスプレッドシートに書いてあった残高と食い違うところ（カーソルを乗せると元の値が出る）。
+        freee から取り込んだ行では、そこに書かれている銀行の実残高で計算を合わせ直している。
       </p>
     </div>
   );

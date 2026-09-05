@@ -122,21 +122,35 @@ function buildAccount(account: AccountRow, rows: EntryRow[], today: string): Cas
     }
   }
 
+  // 残高は毎回この場で積み上げ直す。取り込んだときの値を持ち回さないので、
+  // 途中の行の金額を直せば、その先の残高がぜんぶ変わる (まさ 2026-09-05)。
+  //
+  // freee 由来の行だけは例外で、そこに書かれている残高 (銀行の実残高) で積み上げを合わせ直す。
+  // 銀行の記録が唯一の事実なので、そこまでの取りこぼしをここで吸収する。
   const runningById = new Map<string, number>();
-  // 一度ズレると以降の行にも同じ差が残るので、「その行で新しく生じたズレ」も出す。
-  // 直すべきなのは、新しくズレた行だけ。
+  /** その行で新しく生じたズレ。スプレッドシートの残高と積み上げが食い違う行だけに印を付ける。 */
   const gapStepById = new Map<string, number>();
   {
     let acc = opening;
     let previousGap = 0;
     for (const r of inSheetOrder) {
-      acc += num(r.deposit) - num(r.withdrawal);
-      runningById.set(r.id, acc);
-      if (r.balance != null) {
-        const gap = num(r.balance) - acc;
-        gapStepById.set(r.id, gap - previousGap);
-        previousGap = gap;
+      const moved = num(r.deposit) - num(r.withdrawal);
+      if (r.source === "freee" && r.balance != null) {
+        // 銀行の実残高で合わせ直す。ここまでの積み上げとの差は「取りこぼしがあった」印。
+        const before = acc + moved;
+        const diff = num(r.balance) - before;
+        if (diff !== 0) gapStepById.set(r.id, diff);
+        acc = num(r.balance);
+        previousGap = 0;
+      } else {
+        acc += moved;
+        if (r.balance != null) {
+          const gap = num(r.balance) - acc;
+          gapStepById.set(r.id, gap - previousGap);
+          previousGap = gap;
+        }
       }
+      runningById.set(r.id, acc);
     }
   }
 
@@ -168,9 +182,8 @@ function buildAccount(account: AccountRow, rows: EntryRow[], today: string): Cas
       isPlanned, source: r.source,
     });
 
-    // 画面に出す残高は、原本に書いてあればそれを使う。OSの積み上げはあくまで検算用。
-    // 積み上げを表に出すと、原本がズレている先の月ほど実態より多く見えて、資金繰りの判断を誤らせる。
-    const shown = sheetBalance ?? running;
+    // 画面に出す残高は、常に積み上げた値。スプレッドシートに書いてあった残高は照合用に持つだけ。
+    const shown = running;
 
     const ym = r.entry_date.slice(0, 7);
     const month = monthly.get(ym) ?? {
@@ -184,14 +197,10 @@ function buildAccount(account: AccountRow, rows: EntryRow[], today: string): Cas
     monthly.set(ym, month);
 
     if (!isPlanned) {
-      // 原本に残高が書いてある行だけを「いまの残高」に採る。残高が空の行 (会費の続きなど) を
-      // 拾うと、OSの積み上げ値がそのまま口座残高として出てしまう。
       lastActualRunning = shown;
       lastActualDate = r.entry_date;
-      if (sheetBalance != null) {
-        actualBalance = sheetBalance;
-        actualAsOf = r.entry_date;
-      }
+      actualBalance = shown;
+      actualAsOf = r.entry_date;
     } else {
       plannedBalance = shown;
       plannedAsOf = r.entry_date;

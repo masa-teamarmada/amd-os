@@ -166,6 +166,17 @@ export async function POST(req: NextRequest) {
   const today = todayJst();
   const report: Record<string, unknown>[] = [];
 
+  // freee から実績を取っている期間は、スプレッドシートから取り込まない。
+  // 同じ取引が2行に見えるうえ、銀行の実記録である freee 側が正しい。
+  // 未来日の行は freee にまだ無い「予定」なので、この制限をかけない。
+  const { data: linkRows } = await supabase
+    .from("cash_accounts")
+    .select("account_id, freee_sync_from");
+  const freeeFrom = new Map<string, string>();
+  for (const row of (linkRows ?? []) as { account_id: string; freee_sync_from: string | null }[]) {
+    if (row.freee_sync_from) freeeFrom.set(row.account_id, row.freee_sync_from);
+  }
+
   try {
     for (const target of targets) {
       const values = await sheets.spreadsheets.values.get({
@@ -181,6 +192,7 @@ export async function POST(req: NextRequest) {
       let stopped = false;
       let carried: string | null = null;
       let stoppedAtRow: number | null = null;
+      let coveredByFreee = 0;
       for (let i = 0; i < rows.length; i += 1) {
         const row = rows[i] ?? [];
         if (target.stopAt && row.some((cellValue) => String(cellValue ?? "").trim() === target.stopAt)) stopped = true;
@@ -188,8 +200,10 @@ export async function POST(req: NextRequest) {
         const cell = (index: number | undefined) => (index == null ? "" : row[index]);
         const rawDate = String(cell(target.cols.date) ?? "").trim();
         const parsed = parseDate(rawDate, state, target.allowYearRollover === true);
-        // 日付が空でも、直前の行と同じ日として続く表がある (商工中金の会費行)。
-        const entryDate: string | null = parsed ?? (target.carryDate && !rawDate ? carried : null);
+        // 日付が空の行 (商工中金の会費行) と、日付が決まっていない行 (「5/〇(〇)」のような
+        // 入金予定) は、直前の行と同じ日として扱う。読み飛ばすと、その金額だけ抜けたまま
+        // 残高が合わなくなる (2026-09-05: 商工中金の 5 月の 400,000 円の入金が抜けていた)。
+        const entryDate: string | null = parsed ?? (target.carryDate ? carried : null);
         if (!entryDate) {
           if (rawDate) skipped += 1;
           continue;
@@ -216,6 +230,13 @@ export async function POST(req: NextRequest) {
         if (!withdrawal && !deposit && !balanceRaw && counterparty === "対象") continue;
         if (String(cell(target.cols.date) ?? "").trim() === "取引日") continue;
 
+        // freee が実績を持っている期間 (freee_sync_from 〜 今日) は飛ばす。
+        const from = freeeFrom.get(target.accountId);
+        if (from && entryDate >= from && entryDate <= today) {
+          coveredByFreee += 1;
+          continue;
+        }
+
         const seq = seqByDate.get(entryDate) ?? 0;
         seqByDate.set(entryDate, seq + 1);
         records.push({
@@ -229,7 +250,8 @@ export async function POST(req: NextRequest) {
           balance: balanceRaw ? yen(balanceRaw) : null,
           category: text(cell(target.cols.category)),
           target_month: text(cell(target.cols.targetMonth)),
-          note: note === counterparty ? null : note,
+          note: parsed || !rawDate ? (note === counterparty ? null : note)
+            : [note === counterparty ? null : note, `スプレッドシートの日付は「${rawDate}」`].filter(Boolean).join(" / "),
           is_planned: entryDate > today,
           source: `sheet:${target.sheet}`,
           source_row: i + 1,
@@ -248,6 +270,7 @@ export async function POST(req: NextRequest) {
         sheet: target.sheet, accountId: target.accountId,
         sheetRows: rows.length, imported: records.length, skippedDateRows: skipped,
         stoppedAtRow,
+        coveredByFreee,
         firstDate: records[0]?.entry_date ?? null,
         lastDate: records[records.length - 1]?.entry_date ?? null,
       });
