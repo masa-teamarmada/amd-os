@@ -14,11 +14,18 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import type { CashAndLoansResult, CashLedgerEntry } from "@/lib/finance/cash-and-loans-types";
+import type { CashAccountView, CashAndLoansResult, CashLedgerEntry } from "@/lib/finance/cash-and-loans-types";
 import { longDate, shortDate, todayIso, yen } from "./format";
 
 /** 末尾に常に置いておく空行の数。 */
 const TRAILING_BLANKS = 5;
+
+/**
+ * 見出し行を上に貼り付けておくための指定。
+ * `position: sticky` は `<thead>` には効かないブラウザがあるので、各 `<th>` に付ける。
+ * 下線も border ではなく box-shadow で引く (sticky なセルの border は一緒に動かない)。
+ */
+const STICKY_HEAD = "sticky top-0 z-20 bg-muted shadow-[inset_0_-1px_0_hsl(var(--border))]";
 
 type EditableField =
   | "entryDate" | "accountId" | "counterparty" | "withdrawal" | "deposit"
@@ -84,6 +91,77 @@ function numText(value: number | null | undefined): string {
   return value.toLocaleString("ja-JP");
 }
 
+/**
+ * 表の1マス。押すとその場で入力になる。
+ *
+ * **必ずコンポーネントの外に置く。** 中で定義すると、画面を描き直すたびに別物として
+ * 作り直され、入力中の欄が消えて打った内容が失われる。
+ */
+function Cell({
+  row, field, value, align = "left", className, width,
+  editing, accounts, onStartEdit, onCancelEdit, onCommit,
+}: {
+  row: Row; field: EditableField; value: string; align?: "left" | "right";
+  className?: string; width?: string;
+  editing: { key: string; field: EditableField } | null;
+  accounts: CashAccountView[];
+  onStartEdit: (key: string, field: EditableField) => void;
+  onCancelEdit: () => void;
+  onCommit: (row: Row, field: EditableField, raw: string) => void;
+}) {
+  const isEditing = editing?.key === row.key && editing.field === field;
+  if (isEditing) {
+    if (field === "accountId") {
+      return (
+        <td className={cn("p-0", width)}>
+          <select
+            autoFocus
+            defaultValue={row.accountId}
+            onBlur={(e) => onCommit(row, field, e.target.value)}
+            onChange={(e) => onCommit(row, field, e.target.value)}
+            className="h-6 w-full rounded-none border border-foreground bg-background px-1 text-xs text-foreground focus:outline-none"
+          >
+            {accounts.map((a) => <option key={a.accountId} value={a.accountId}>{a.shortName}</option>)}
+          </select>
+        </td>
+      );
+    }
+    return (
+      <td className={cn("p-0", width)}>
+        <input
+          autoFocus
+          type={field === "entryDate" ? "date" : "text"}
+          defaultValue={field === "entryDate" ? row.entryDate : value}
+          inputMode={field === "withdrawal" || field === "deposit" ? "numeric" : undefined}
+          onFocus={(e) => e.currentTarget.select()}
+          onBlur={(e) => onCommit(row, field, e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            if (e.key === "Escape") onCancelEdit();
+          }}
+          className={cn(
+            "h-6 w-full rounded-none border border-foreground bg-background px-1 text-xs text-foreground focus:outline-none",
+            align === "right" && "text-right font-mono tabular-nums",
+          )}
+        />
+      </td>
+    );
+  }
+  return (
+    <td
+      onClick={() => onStartEdit(row.key, field)}
+      title={value || undefined}
+      className={cn(
+        "max-w-0 cursor-text truncate whitespace-nowrap px-1.5 py-1 text-xs",
+        align === "right" ? "text-right font-mono tabular-nums" : "text-left",
+        className,
+      )}
+    >
+      {value || <span className="text-transparent">-</span>}
+    </td>
+  );
+}
+
 export function CashLedgerPanel({
   data,
   loading,
@@ -136,7 +214,9 @@ export function CashLedgerPanel({
         loanNow[loanEvents[loanCursor].loanId] = loanEvents[loanCursor].balance;
         loanCursor += 1;
       }
-      accountNow[e.accountId] = e.sheetBalance ?? e.runningBalance;
+      // 残高はサーバが期首から積み上げ直した値 (runningBalance) を使う。
+      // 取り込んだときの値 (sheetBalance) を出すと、金額を直しても残高が変わらない。
+      accountNow[e.accountId] = e.runningBalance;
       out.push({
         key: e.id, id: e.id, draft: null,
         accountId: e.accountId, entryDate: e.entryDate,
@@ -241,6 +321,8 @@ export function CashLedgerPanel({
   const commitCell = useCallback(
     async (row: Row, field: EditableField, raw: string) => {
       setEditing(null);
+      // 日付を空や読めない形で確定させない。ここを通すと、行そのものが保存できなくなる。
+      if (field === "entryDate" && !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return;
       if (row.draft) {
         // 保存前の行。まず手元で書き換え、中身が入ったら保存する。
         const next: DraftRow = { ...row.draft, [field]: raw };
@@ -311,66 +393,17 @@ export function CashLedgerPanel({
   );
 
   // ── セル ──
-  function Cell({
-    row, field, value, align = "left", className, width,
-  }: {
-    row: Row; field: EditableField; value: string; align?: "left" | "right";
-    className?: string; width?: string;
-  }) {
-    const isEditing = editing?.key === row.key && editing.field === field;
-    if (isEditing) {
-      if (field === "accountId") {
-        return (
-          <td className={cn("p-0", width)}>
-            <select
-              autoFocus
-              defaultValue={row.accountId}
-              onBlur={(e) => void commitCell(row, field, e.target.value)}
-              onChange={(e) => void commitCell(row, field, e.target.value)}
-              className="h-6 w-full rounded-none border border-foreground bg-background px-1 text-xs text-foreground focus:outline-none"
-            >
-              {accounts.map((a) => <option key={a.accountId} value={a.accountId}>{a.shortName}</option>)}
-            </select>
-          </td>
-        );
-      }
-      return (
-        <td className={cn("p-0", width)}>
-          <input
-            autoFocus
-            type={field === "entryDate" ? "date" : "text"}
-            defaultValue={field === "entryDate" ? row.entryDate : value}
-            inputMode={field === "withdrawal" || field === "deposit" ? "numeric" : undefined}
-            onFocus={(e) => e.currentTarget.select()}
-            onBlur={(e) => void commitCell(row, field, e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-              if (e.key === "Escape") setEditing(null);
-            }}
-            className={cn(
-              "h-6 w-full rounded-none border border-foreground bg-background px-1 text-xs text-foreground focus:outline-none",
-              align === "right" && "text-right font-mono tabular-nums",
-            )}
-          />
-        </td>
-      );
-    }
-    return (
-      <td
-        onClick={() => setEditing({ key: row.key, field })}
-        title={value || undefined}
-        className={cn(
-          "max-w-0 cursor-text truncate whitespace-nowrap px-1.5 py-1 text-xs",
-          align === "right" ? "text-right font-mono tabular-nums" : "text-left",
-          className,
-        )}
-      >
-        {value || <span className="text-transparent">-</span>}
-      </td>
-    );
-  }
 
   const loanColumns = loans;
+
+  // Cell へ毎回渡すもの。Cell 自体はコンポーネントの外にあるので、状態はここから渡す。
+  const cellProps = {
+    editing,
+    accounts,
+    onStartEdit: (key: string, field: EditableField) => setEditing({ key, field }),
+    onCancelEdit: () => setEditing(null),
+    onCommit: (row: Row, field: EditableField, raw: string) => void commitCell(row, field, raw),
+  };
 
   return (
     <div className="space-y-2">
@@ -489,29 +522,29 @@ export function CashLedgerPanel({
       {/* ── 本体の1枚表 ── */}
       <div className="max-h-[720px] overflow-auto border border-border">
         <table className="w-full min-w-[1620px] border-collapse">
-          <thead className="sticky top-0 z-20 bg-muted">
-            <tr className="border-b border-border text-[11px] text-muted-foreground">
-              <th scope="col" className="w-6 px-0 py-1"> </th>
-              <th scope="col" className="w-[96px] px-1.5 py-1 text-left font-medium">日付</th>
-              <th scope="col" className="w-[52px] px-1 py-1 text-left font-medium">出どころ</th>
-              <th scope="col" className="w-[92px] px-1.5 py-1 text-left font-medium">口座</th>
-              <th scope="col" className="w-[150px] px-1.5 py-1 text-left font-medium">相手先</th>
-              <th scope="col" className="w-[96px] px-1.5 py-1 text-right font-medium">出ていった</th>
-              <th scope="col" className="w-[96px] px-1.5 py-1 text-right font-medium">入ってきた</th>
+          <thead>
+            <tr className="text-[11px] text-muted-foreground">
+              <th scope="col" className={cn(STICKY_HEAD, "w-6 px-0 py-1")}> </th>
+              <th scope="col" className={cn(STICKY_HEAD, "w-[96px] px-1.5 py-1 text-left font-medium")}>日付</th>
+              <th scope="col" className={cn(STICKY_HEAD, "w-[52px] px-1 py-1 text-left font-medium")}>出どころ</th>
+              <th scope="col" className={cn(STICKY_HEAD, "w-[92px] px-1.5 py-1 text-left font-medium")}>口座</th>
+              <th scope="col" className={cn(STICKY_HEAD, "w-[150px] px-1.5 py-1 text-left font-medium")}>相手先</th>
+              <th scope="col" className={cn(STICKY_HEAD, "w-[96px] px-1.5 py-1 text-right font-medium")}>出ていった</th>
+              <th scope="col" className={cn(STICKY_HEAD, "w-[96px] px-1.5 py-1 text-right font-medium")}>入ってきた</th>
               {accounts.map((a) => (
-                <th key={a.accountId} scope="col" className="w-[110px] border-l border-border px-1.5 py-1 text-right font-medium">
+                <th key={a.accountId} scope="col" className={cn(STICKY_HEAD, "w-[110px] border-l border-border px-1.5 py-1 text-right font-medium")}>
                   {a.shortName}
                 </th>
               ))}
               {loanColumns.map((l) => (
-                <th key={l.loanId} scope="col" className="w-[110px] border-l border-border bg-muted/60 px-1.5 py-1 text-right font-medium">
+                <th key={l.loanId} scope="col" className={cn(STICKY_HEAD, "w-[110px] border-l border-border px-1.5 py-1 text-right font-medium")}>
                   借入 {l.shortName}
                 </th>
               ))}
-              <th scope="col" className="w-[90px] border-l border-border px-1.5 py-1 text-left font-medium">対象</th>
-              <th scope="col" className="w-[96px] px-1.5 py-1 text-left font-medium">対象月</th>
-              <th scope="col" className="min-w-[220px] px-1.5 py-1 text-left font-medium">備考</th>
-              <th scope="col" className="w-8 px-1 py-1"> </th>
+              <th scope="col" className={cn(STICKY_HEAD, "w-[90px] border-l border-border px-1.5 py-1 text-left font-medium")}>対象</th>
+              <th scope="col" className={cn(STICKY_HEAD, "w-[96px] px-1.5 py-1 text-left font-medium")}>対象月</th>
+              <th scope="col" className={cn(STICKY_HEAD, "min-w-[220px] px-1.5 py-1 text-left font-medium")}>備考</th>
+              <th scope="col" className={cn(STICKY_HEAD, "w-8 px-1 py-1")}> </th>
             </tr>
           </thead>
           <tbody>
@@ -543,17 +576,17 @@ export function CashLedgerPanel({
                   )}
                 </td>
 
-                <Cell row={row} field="entryDate" value={shortDate(row.entryDate)} width="w-[96px]"
+                <Cell row={row} {...cellProps} field="entryDate" value={shortDate(row.entryDate)} width="w-[96px]"
                   className={cn(row.isPlanned && "text-muted-foreground")} />
                 <td className="w-[52px] px-1 py-1 text-[10px] text-muted-foreground">
                   {row.isPlanned ? "予定" : row.source === "freee" ? "freee" : row.source === "manual" ? "手入力" : ""}
                 </td>
-                <Cell row={row} field="accountId"
+                <Cell row={row} {...cellProps} field="accountId"
                   value={accounts.find((a) => a.accountId === row.accountId)?.shortName ?? row.accountId}
                   width="w-[92px]" className="text-muted-foreground" />
-                <Cell row={row} field="counterparty" value={row.counterparty ?? ""} width="w-[150px]" />
-                <Cell row={row} field="withdrawal" value={numText(row.withdrawal)} align="right" width="w-[96px]" />
-                <Cell row={row} field="deposit" value={numText(row.deposit)} align="right" width="w-[96px]" />
+                <Cell row={row} {...cellProps} field="counterparty" value={row.counterparty ?? ""} width="w-[150px]" />
+                <Cell row={row} {...cellProps} field="withdrawal" value={numText(row.withdrawal)} align="right" width="w-[96px]" />
+                <Cell row={row} {...cellProps} field="deposit" value={numText(row.deposit)} align="right" width="w-[96px]" />
 
                 {accounts.map((a) => {
                   const isOwn = a.accountId === row.accountId;
@@ -590,11 +623,11 @@ export function CashLedgerPanel({
                   );
                 })}
 
-                <Cell row={row} field="category" value={row.category ?? ""} width="w-[90px]"
+                <Cell row={row} {...cellProps} field="category" value={row.category ?? ""} width="w-[90px]"
                   className="border-l border-border text-muted-foreground" />
-                <Cell row={row} field="targetMonth" value={row.targetMonth ?? ""} width="w-[96px]"
+                <Cell row={row} {...cellProps} field="targetMonth" value={row.targetMonth ?? ""} width="w-[96px]"
                   className="text-muted-foreground" />
-                <Cell row={row} field="note" value={row.note ?? ""} className="text-muted-foreground" />
+                <Cell row={row} {...cellProps} field="note" value={row.note ?? ""} className="text-muted-foreground" />
 
                 <td className="w-8 px-1 py-1 text-right">
                   <button

@@ -328,7 +328,10 @@ async function computeInternal(): Promise<CashAndLoansResult> {
   };
 }
 
-const CACHE_TTL_MS = 5 * 60 * 1000;
+// この画面は編集する場所なので、参照系の既定 (5分) より短く持つ。
+// 書き込み経路からは invalidate を呼ぶが、サーバが複数で動くと書き込みを処理した側しか
+// 消えない。別のタブや別の人が開いたときに古い残高が出る時間を短くする。
+const CACHE_TTL_MS = 60 * 1000;
 let cached: { value: CashAndLoansResult; storedAt: number } | null = null;
 let inflight: Promise<CashAndLoansResult> | null = null;
 

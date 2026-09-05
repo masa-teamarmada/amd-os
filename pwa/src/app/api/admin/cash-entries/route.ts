@@ -73,6 +73,20 @@ export async function POST(req: NextRequest) {
 
   const supabase = createAdminClient();
   const row = toRow(body);
+
+  // 新しい行は、その日のいちばん最後に並べる。seq を 0 のままにすると、同じ日の既存行と
+  // 順番が決まらず、残高の積み上げ順が安定しない。
+  if (!body.id && !Number.isFinite(body.seq)) {
+    const { data: sameDay } = await supabase
+      .from("cash_ledger_entries")
+      .select("seq")
+      .eq("account_id", row.account_id)
+      .eq("entry_date", row.entry_date)
+      .order("seq", { ascending: false })
+      .limit(1);
+    const maxSeq = (sameDay ?? [])[0]?.seq;
+    row.seq = Number.isFinite(maxSeq) ? Number(maxSeq) + 1 : 0;
+  }
   // 既存の行を書き換えるときは source を触らない。'manual' に変えてしまうと、
   // 次のスプレッドシート取り込みで置き換えられず、同じ行が二重に増える。
   const updateRow = { ...row };
