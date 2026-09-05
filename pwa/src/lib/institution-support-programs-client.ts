@@ -39,6 +39,8 @@ async function requestSupportPrograms(force?: boolean): Promise<SupportProgramBu
   return {
     columns: payload.columns,
     cells: payload.cells,
+    items: payload.items ?? [],
+    extraCells: payload.extraCells ?? [],
     recommendations: payload.recommendations ?? [],
     generatedAt: payload.generatedAt,
     canEdit: payload.canEdit,

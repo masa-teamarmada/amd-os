@@ -52,6 +52,8 @@ export async function GET(req: Request) {
         ok: true,
         columns: snapshot.columns,
         cells: snapshot.cells,
+        items: snapshot.items,
+        extraCells: snapshot.extraCells,
         recommendations: snapshot.recommendations,
         generatedAt: snapshot.generatedAt,
         canEdit: Boolean(memberResult.data?.is_admin),
