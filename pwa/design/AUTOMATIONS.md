@@ -1,6 +1,6 @@
 # 自動処理の一覧（誰が見ても分かる題名で）
 
-最終更新: 2026-09-05
+最終更新: 2026-09-05（連携ヘルス再開）
 
 > **この文書は何か**: AMD OS と、まさのMac、Google側で動いている自動処理を、
 > 「いつ・何をする・どこで動く・止め方」で一覧にした正本。
@@ -32,7 +32,7 @@
 | 平日9:00 つくよみ向けの外部リサーチ候補を集める | 停止 | AMD OS 通知（review-first） | |
 | 毎朝8:00 Googleアラートを選別して要点だけ拾う | 停止 | 報告 + Gmail ゴミ箱移動 | |
 | 毎朝7:00 Personal OSへの日次追記案を作る | 停止 | えいみOSスイート「対話」 | |
-| 毎朝6:15 えいみOSの連携ヘルスを確認する | 停止 | outbox → Mac の届ける係（5分ごと上書き） | |
+| 毎朝6:15 えいみOSの連携ヘルスを確認する | 再開 | outbox → Mac の届ける係（5分ごと上書き） | 2026-09-05 まさ指示で再開。読み取り専用で箱が溜まらない型（4件を上書きするだけ）なので、9/4の再送嵐とは別種 |
 | 毎朝9:00 レ・ジェイドつくば高層階の空室チェック（個人） | 停止 | 通知 | |
 | 毎月27日10:00 freeeの月次会計締めを実行する | 停止 | freee 画面操作 | 実行記録なし |
 | 毎月27日9:00 freeeの月次会計締め（旧版・automation-4と重複） | 停止 | — | 重複。どちらを残すかまさ判断 |
@@ -83,7 +83,7 @@
 | 題名 | 周期 | 実体 |
 |---|---|---|
 | 5分ごと Codexの成果物（L2差分・経営ハイライト・Atlas）をAMD OSへ届ける | 300秒 | `jp.teamarmada.amd-os-ms-outbox-applier` → `scripts/run-ms-outbox-applier.sh` |
-| 5分ごと えいみOSの連携ヘルスを共有DBへ書く | 300秒 | `com.teamarmada.integration-health` |
+| 5分ごと えいみOSの連携ヘルスを共有DBへ書く | 300秒 | `com.teamarmada.integration-health`（2026-09-05 再開。送り側の Codex automation と対で戻した） |
 | 5分ごと 古いCodexスレッドを片付ける | 300秒 | `jp.teamarmada.codex-h1-thread-watchdog` |
 | 毎時15分 会議の背景処理（H-1）を回す | 毎時 | `jp.teamarmada.amd-os-h1-background` |
 | 毎時45分 会議レビューの背景処理を回す | 毎時 | `jp.teamarmada.amd-os-h1-reviewer-background` |
@@ -92,9 +92,9 @@
 
 状態（2026-09-05 15:50 更新）: 9/4 00:36 に7本すべて `launchctl disable` された。9/5 にまさの指示「PDCAを再開したい」で、
 `com.teamarmada.weekly-strategy-evidence-scan` と `com.teamarmada.weekly-strategy-loop` の2本だけを再開した。
-この2本は えいみOSスイート共有DB の週次テーブルへ書くだけで、箱（outbox）も届ける係も外部送信も持たない。
+この3本（2026-09-05 に連携ヘルスも再開）は えいみOSスイート共有DB へ書くだけで、外部送信を持たない。連携ヘルスは箱を持つが、4件を毎回上書きするだけで溜まらない。
 週次ループは一時的な503で丸ごと落ちないよう、有限のやり直し（最大3回・2/8/30秒待ち、4回目で停止）を入れた
-（orchestration-board v2.9.99、`BUGS.md` 2026-09-05）。残り5本（届ける係3本・H-1 の2本）は停止のまま。
+（orchestration-board v2.9.99、`BUGS.md` 2026-09-05）。残り4本（届ける係2本・H-1 の2本）は停止のまま。
 
 止め方: `launchctl bootout gui/$(id -u)/<label>` + `launchctl disable gui/$(id -u)/<label>`。届ける係は箱（outbox）が空なら何もしない。
 再開: `launchctl enable gui/$(id -u)/<label>` → `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/<label>.plist` の順。
