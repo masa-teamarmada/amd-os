@@ -332,3 +332,21 @@ commit `f045000c` / `bc4c5974`。
 
 商工中金の「要確認」は 10→9 件へ。会費行がスプレッドシート側で残高に反映されていない月が
 残っているので、そこは印として残る (OS の積み上げの方が正しい)。
+
+## 2026-09-05 研究機関ページ: 支援プログラム比較・推奨表・分析タブ・機関詳細の支援節（ultracode）
+
+- まさ依頼「研究機関リストに『支援プログラム比較』タブ。認定条件、敷地内本店登記、部屋貸し、共用設備などを表形式で機関横断比較。掲載機関はSU関連規程と同じにして、片方に足せばもう片方にも出るように。規程探索の内容から表を埋め、SU関連規程の穴埋めと新規機関の探索も同時並行。ultracode」。追加で「表の下に、比較を踏まえてAMDが理想とする規程類へ盛り込む論点・条件を、推奨の根拠と統計（例: 120機関中105機関が認めている）つきでまとめた表」。さらに「工学院大の本店登記が未確認なのはおかしい（AMDが規程を作っている）。愛媛大も支援を受けているSUがある。2時間トークン無制限で研究機関ページのコンテンツをどんどん埋めて多視点で分析し拡充して」。
+- **実装（本番反映済み、v3.100.23〜25）**:
+  - `/institutions` に「支援プログラム比較」タブ。行は `institutions` 全件（SU関連規程と同じ母集団なので、機関を1件足せば4タブ全部に出る）、列は `institution_policy_items.compare_sort` を持つ16項目・5群（migration 375 で `compare_group / compare_sort / compare_label` を追加し、学内本店登記・施設貸与（部屋）・大学名/ロゴ使用・支援の対価・認定実績の5項目を新設。項目マスタは32→37）。セルは状態（整備済み/検討中/未整備/未確認）＋短い内容、クリックで根拠と出典、adminは編集（既存 `POST /api/institutions/policies` へ書き、保存後にサーバ側スナップショットを捨てる）。
+  - 表の下に「AMDが規程類に盛り込むべき論点と推奨」（migration 376 `institution_policy_recommendations`。論点/スタンス/推奨/条件/根拠/代表例/統計補足。他機関の整備状況は画面が cells から自動集計、未確認は分母に入れない。adminは追加・編集・表から外す。書き込みは `POST /api/institutions/support-program-recommendations`）。**推奨文はまだ0件**（調査の検証が終わってから起草する設計）。
+  - 参照系3層キャッシュ: `src/lib/institution-support-programs.ts`（server-only、5分、single-flight、ページ読み）→ `GET /api/institutions/support-programs`（member + portfolio scope、`Cache-Control`、`source_path`/`evaluator` は返さない）→ `src/lib/institution-support-programs-client.ts`（`reference-data-cache`、タブhoverで先読み）。`check_reference_data_cache_contract.mjs` に登録、書き込み専用2経路は baseline に理由付きで登録。
+  - 「分析」タブ（`InstitutionSupportAnalysis.tsx` + 純粋関数 `src/lib/institution-support-analysis.ts`）: 列別整備率、地域ブロック×列の整備率、機関の支援充実度ランキング、AMDの提案余地（未整備・検討中の列数。未確認は余地に数えない）、属性項目の型分布（先頭語で束ねる）。大学/研究機関で絞れる。契約テスト `npm run test:institution-support-analysis`。APIは全37項目 `items` と比較列外の `extraCells`（状態と値だけ）も返す。
+  - 機関詳細 `/institutions/[institutionId]` のヘッダー直下に「支援プログラム」節（`InstitutionSupportProfile.tsx`）: 16項目を群ごとに根拠・出典つき、制度整備の詳細（21項目）は折りたたみ、冒頭に所見（`attr_support_summary`、投入は次セッション）。
+  - manual 4-9、spec 4-3（支援プログラム比較 Contract）、spec 5-10（登録済み参照系）、FEATURE_REGISTRY、db_schema.md を同期。commits `f7534bca` / `7ac7d0c6`(=分析タブ) / `999b61ec` / `62845cb3`(+v3.100.25 に amend)。
+- **調査（ultracode 3本、結果は DB 未投入）**: 結果JSONと入力・内部資料・生成スクリプトを `pwa/output/institution_support_research_20260905/`（git管理外）へ退避した。
+  - wf1（支援比較16項目＋規程穴埋め＋新規機関探索）: 既存48機関中40機関の調査完了（東北大・筑波大・茨城大・立命館・長崎大・静岡大・森林総研・産総研の8機関は未完）。探索5角度で新規候補39件（認定制度確認済み35件）、うち上位16件を調査する設計だが**全件未着手**。**検証（引用URLを開いて反証）は全件未実施**。
+  - wf3 契約4機関（内部資料ベースの37項目埋め直し）: 4機関とも調査完了。工学院大は確定版規程第13条（施設貸与・貸与施設での商業登記・共用機器）を根拠に「検討中（案:…）」で埋まった。照合は工学院大のみ完了、他3機関は未実施。
+  - wf3 他44機関（比較列外21項目＋略称・概要）: 7機関完了（山口大・QST・京工繊・京都大・信州大・北大・京都府立医大）、37機関未着手。
+  - 途中で **Claude のセッション上限（20:10 JST に回復）** に当たり、走行中のエージェント108本が失敗して3本とも終了した。同じ台本・同じ引数で `resumeFromRunId` 再開すれば、完了済みの調査は再実行されずに検証だけ走る（journal はセッション固有ディレクトリにあり、次セッションからは参照できないため、再開できない場合は退避したJSONから台本を組み直す）。
+  - 設計上の反省: `pipeline()` は第1段の全件を先に投入するので、検証が調査の後ろに溜まった。並列枠は1ワークフロー8本（CPU10）。次回は調査と検証を機関ごとに小分け（数機関ずつの pipeline を parallel で束ねる）にする。
+- **未完了（次セッション）**: 検証の再開 → migration 377（支援比較16項目・新規規程・新規機関）と 378（21項目・所見・略称/概要）の生成（`gen_migration.mjs` / `gen_items_migration.mjs`）→ apply → 本番readback → 推奨表の起草ワークフロー（`workflow2_recommendations.js`。KUTE論点メモを AMD の立場の土台に、統計と代表例を照合）→ migration 379 → 手引き（manual 4-9 の件数更新、changelog 6-1/9-3 に行追加。今回は両ファイルが他セッションの未コミット変更を含んでいたため行を足していない）。
