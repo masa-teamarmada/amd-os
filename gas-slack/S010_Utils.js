@@ -31,18 +31,3 @@ function utils_nowYmJst_() {
 function utils_getProp_(key) {
   return String(PropertiesService.getScriptProperties().getProperty(key) || "").trim();
 }
-/**
- * ワークスペース(team_id)ごとに上書きできるプロパティ解決。
- * `<key>__<teamId>` があればそれを使い、無ければ従来の `<key>` へ落ちる。
- * 既存のAMDワークスペースは teamスコープ無しでこれまで通り動く。
- */
-function utils_getTeamProp_(key, teamId) {
-  const k = String(key || "").trim();
-  if (!k) return "";
-  const t = String(teamId || "").trim();
-  if (t) {
-    const scoped = utils_getProp_(k + "__" + t);
-    if (scoped) return scoped;
-  }
-  return utils_getProp_(k);
-}

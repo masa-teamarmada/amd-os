@@ -45,9 +45,6 @@ function router_handleEvent_(body) {
   const ev = body && body.event ? body.event : null;
   if (!ev) return;
 
-  // どのワークスペースから来たイベントか。トークン・BOT ID・PJ解決の切替に使う。
-  const teamId = router_detectTeamId_(body, ev);
-
   const evType = String(ev.type || "").trim();
   const subtype = String(ev.subtype || "").trim();
   const channelId = String(ev.channel || "").trim();
@@ -65,19 +62,19 @@ function router_handleEvent_(body) {
     const targetThreadTs = (threadTsRaw && msgTsRaw && threadTsRaw !== msgTsRaw)
       ? threadTsRaw
       : msgTsRaw;
-    const mentionPersona = router_detectMentionPersona_(body, ev, teamId);
+    const mentionPersona = router_detectMentionPersona_(body, ev);
     let replyPersona = mentionPersona;
 
     if (targetThreadTs && targetThreadTs !== msgTsRaw) {
-      const msgs = slack_getThreadHistoryAny_(channelId, targetThreadTs, 20, teamId);
-      replyPersona = reply_detectThreadPersona_(msgs, teamId) || mentionPersona;
+      const msgs = slack_getThreadHistoryAny_(channelId, targetThreadTs, 20);
+      replyPersona = reply_detectThreadPersona_(msgs) || mentionPersona;
     }
     if (!replyPersona) return;
 
     // channelId + thread/message ts ベースのdedup（app_mention + message 2イベント対策）
-    if (!router_acquireSlot_(teamId + "_" + channelId, targetThreadTs + "_" + msgTsRaw)) return;
+    if (!router_acquireSlot_(channelId, targetThreadTs + "_" + msgTsRaw)) return;
     try {
-      reply_handleThreadEvent_(channelId, targetThreadTs, userIdRaw, replyPersona, teamId);
+      reply_handleThreadEvent_(channelId, targetThreadTs, userIdRaw, replyPersona);
     } catch(_e) {}
     return;
   }
@@ -92,44 +89,28 @@ function router_handleEvent_(body) {
   if (!threadTs) return;
 
   // 自己発言は無視
-  const botUserId = utils_getTeamProp_("SLACK_TSUKUYOMI_BOT_USER_ID", teamId);
+  const botUserId = utils_getProp_("SLACK_TSUKUYOMI_BOT_USER_ID");
   if (botUserId && userIdRaw === botUserId) return;
-  const eimiBotUserId = utils_getTeamProp_("SLACK_EIMI_BOT_USER_ID", teamId) || "U0ACK22BBDF";
+  const eimiBotUserId = utils_getProp_("SLACK_EIMI_BOT_USER_ID") || "U0ACK22BBDF";
   if (eimiBotUserId && userIdRaw === eimiBotUserId) return;
 
   // channelId + threadTs ベースのdedup
-  if (!router_acquireSlot_(teamId + "_" + channelId, threadTs + "_" + msgTsRaw)) return;
+  if (!router_acquireSlot_(channelId, threadTs + "_" + msgTsRaw)) return;
 
   // 親投稿のpersonaを確認。親がえいみなら、返信もえいみへ寄せる。
-  const msgs = slack_getThreadHistoryAny_(channelId, threadTs, 20, teamId);
-  const replyPersona = reply_detectThreadPersona_(msgs, teamId);
+  const msgs = slack_getThreadHistoryAny_(channelId, threadTs, 20);
+  const replyPersona = reply_detectThreadPersona_(msgs);
   if (!replyPersona) return;
 
   try {
-    reply_handleThreadEvent_(channelId, threadTs, userIdRaw, replyPersona, teamId);
+    reply_handleThreadEvent_(channelId, threadTs, userIdRaw, replyPersona);
   } catch(_e) {}
 }
 
-/**
- * どのワークスペース宛のイベントかを決める。
- * アプリのインストール先を表す authorizations を優先し、
- * 無い場合だけ team_id / event.team へ落ちる。
- */
-function router_detectTeamId_(body, ev) {
-  const auths = body && Array.isArray(body.authorizations) ? body.authorizations : [];
-  for (let i = 0; i < auths.length; i++) {
-    const t = String((auths[i] && auths[i].team_id) || "").trim();
-    if (t) return t;
-  }
-  const bodyTeam = String((body && body.team_id) || "").trim();
-  if (bodyTeam) return bodyTeam;
-  return String((ev && ev.team) || "").trim();
-}
-
-function router_detectMentionPersona_(body, ev, teamId) {
+function router_detectMentionPersona_(body, ev) {
   const text = String((ev && ev.text) || "");
-  const eimiBotUserId = utils_getTeamProp_("SLACK_EIMI_BOT_USER_ID", teamId) || "U0ACK22BBDF";
-  const tsukuyomiBotUserId = utils_getTeamProp_("SLACK_TSUKUYOMI_BOT_USER_ID", teamId) || "U0A663YPJNQ";
+  const eimiBotUserId = utils_getProp_("SLACK_EIMI_BOT_USER_ID") || "U0ACK22BBDF";
+  const tsukuyomiBotUserId = utils_getProp_("SLACK_TSUKUYOMI_BOT_USER_ID") || "U0A663YPJNQ";
 
   if (eimiBotUserId && text.indexOf("<@" + eimiBotUserId + ">") !== -1) return "eimi";
   if (tsukuyomiBotUserId && text.indexOf("<@" + tsukuyomiBotUserId + ">") !== -1) return "tsukuyomi";
