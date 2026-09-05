@@ -627,6 +627,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 - `/institutions` の「SU関連規程」は、全研究機関×10規程種別を同じ行列で比較する。施行中のセルはクリック可能な `◯` とし、外部文書URLがあれば外部正本へ、なければOS内の `/institutions/[institutionId]/regulations/[regulationId]` へ遷移する。
 - `/institutions` の「支援プログラム比較」(2026-09-05) は、同じ `institutions` 全件を行に、制度比較マトリクス (`institution_policy_items.compare_sort` を持つ16項目・5群) を列にして、認定条件と認定後の支援 (学内本店登記・施設貸与・共用設備・大学名/ロゴ・知財・株式/SO・資金・伴走・兼業/COI・対価・認定実績) を横断比較する。セルは状態 (整備済み/検討中/未整備/未確認) + 短い内容で、クリックで根拠と出典を開き admin は編集できる。表の下に「AMDが規程類に盛り込むべき論点と推奨」(`institution_policy_recommendations`) を置き、他機関の整備状況は比較表から自動集計する (未確認は分母に入れない)。行の母集団はコードに持たず、機関を足せば SU関連規程・支援プログラム比較の両方に出る。データは参照系 3 層キャッシュ (`/api/institutions/support-programs`)。契約は `pwa/spec/4-3-ers-current-spec.md`「支援プログラム比較 Contract」。
+- `/institutions` の「分析」(2026-09-05) は、支援プログラム比較のデータを列別整備率 / 地域ブロック別 / 機関ごとの充実度 / AMDの提案余地 / 制度の型の分布で見る読み取り専用タブ。集計は `src/lib/institution-support-analysis.ts` の純粋関数に閉じ、分母は確認済み機関、未確認は別集計 (`npm run test:institution-support-analysis`)。機関詳細 `/institutions/[institutionId]` のヘッダー直下には同じキャッシュから1機関分を出す「支援プログラム」節 (`InstitutionSupportProfile`) を置く。
 - 機関コックピットの「SU関連規程」は同じ `institution_regulation_*` 台帳から当該機関だけを投影する。作成中・審議中・決裁済・施行中を区別し、現在版、版履歴、次のゲートを管理する。
 - AMD memberは閲覧可、`members.is_admin=true` だけが台帳・版を更新できる。外部文書が存在する場合はそのリンクを正本とし、OSには本文を複製しない。
 
