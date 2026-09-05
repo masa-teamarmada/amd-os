@@ -44,3 +44,6 @@ _snapshots/
 next-env.d.ts
 
 .vercel
+
+# 2026-09-05 研究機関 支援プログラム調査の退避物 (内部資料を含むため git 管理外。次セッションが読む)
+output/institution_support_research_20260905/
