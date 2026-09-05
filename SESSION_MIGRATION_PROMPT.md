@@ -15,8 +15,8 @@
 
 ## 状態スナップショット
 
-- canonical branchは `main`。PJワークスペースの採用commitは `5004fa84881552fef55122a4433a5da8681c0dc6`、`origin/main`へpush済みでlocal mainも一致している。
-- productionは `v3.100.25`。`https://amd-os-pwa.vercel.app/api/build-info` で同commitのSHAを確認済み。
+- canonical branchは `main`。PJワークスペースの採用commitは `5004fa84881552fef55122a4433a5da8681c0dc6`、最新handoff commitは `3b442d0a809a0d49d8681edb06d5d536a81609d5`。どちらも`origin/main`へpush済みでlocal mainも一致している。
+- productionは `v3.100.25`。`https://amd-os-pwa.vercel.app/api/build-info` で最新handoff commitのSHAを確認済み。製品変更commitはその親として含まれる。
 - PJワークスペースは、内部メンバーには `実行 / 計画・根拠 / 経営・会社 / 資料` の分類→子タブを出す。外部workspace accountはテーマ（存在時）/ ガント / 関係先 / ドライブだけ。
 - `動向・会議`は経営会議を含むためワークスペースへ出さない。外部に会社概要、資本政策、コスト試算、知財、週次介入、担当負荷を出さない。
 - このcheckoutには別作業の未commit変更が残る。BZM原稿・監査資料群、Atlas/L2関連のPWA仕様・手引き群は今回の変更ではない。削除、stash、reset、まとめてstageをしない。

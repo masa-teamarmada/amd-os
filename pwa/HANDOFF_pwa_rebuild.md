@@ -17,8 +17,8 @@
 
 ## 反映・検証
 
-- canonical commit: `5004fa84881552fef55122a4433a5da8681c0dc6`
-- production: `v3.100.25`、`/api/build-info` の `git_sha` が上記commitと一致。
+- 製品変更commit: `5004fa84881552fef55122a4433a5da8681c0dc6`。handoff更新commit: `3b442d0a809a0d49d8681edb06d5d536a81609d5`（前者を含む）。
+- production: `v3.100.25`、`/api/build-info` の `git_sha` が `3b442d0a809a0d49d8681edb06d5d536a81609d5` と一致。
 - 実行済み: `npm run test:project-workspace-route`、`npm run test:critical-ui`、`npx tsc --noEmit`、`npm run build`、`git diff --check`。
 - 本番でSolvioraXのワークスペースを開き、分類ナビ、PJ概要、会社概要、資本政策を確認済み。外部範囲はroute contractでallowlist外を拒否することを確認済み。
 
