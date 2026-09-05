@@ -38,7 +38,7 @@
 
 .shell { max-width: 1480px; margin: 0 auto; }
 .header {
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid #c8d7e3;
   border-radius: 12px;
   background: rgba(255, 255, 255, .96);
@@ -75,8 +75,22 @@
 .sectionNav button:active { transform: translateY(0); }
 .sectionNav button[aria-selected="true"] { background: #fff; color: var(--action-strong); box-shadow: inset 0 -3px 0 var(--action), 0 1px 3px rgba(20, 65, 96, .1); }
 .sectionNav button[aria-selected="true"]:hover { box-shadow: inset 0 -3px 0 var(--action), 0 5px 12px -7px rgba(2, 103, 178, .5); }
+/* コックピットと同じ「分類 → 面」の二段ナビ。PCは子タブを分類の直下へ浮かせ、touchでは選択中分類の子列を常時出す。 */
+.workspaceGroupNavigation { display: grid; gap: 3px; padding: 5px; border-top: 1px solid #d6e3ec; background: #f1f5f8; }
+.workspaceNavGroup { position: relative; min-width: 0; }
+.workspaceGroupButton { width: 100%; min-height: 44px; padding: 8px 12px; border: 0; border-radius: 8px; background: transparent; color: #64748b; font-size: 13px; font-weight: 700; text-align: center; cursor: pointer; transition: background .15s ease-out, color .15s ease-out, box-shadow .15s ease-out; }
+.workspaceGroupButton:hover { background: rgba(255, 255, 255, .9); color: var(--action-strong); }
+.workspaceGroupButton[data-selected] { background: #fff; color: var(--action-strong); box-shadow: inset 0 -3px 0 var(--action), 0 1px 3px rgba(20, 65, 96, .1); }
+.workspaceGroupButton:focus-visible, .workspaceFloatingTabs button:focus-visible, .workspaceChildNavigation button:focus-visible { outline: 2px solid var(--action); outline-offset: 2px; }
+.workspaceFloatingTabs { position: absolute; z-index: 40; top: 100%; left: 0; display: grid; min-width: 100%; width: max-content; max-width: min(320px, calc(100vw - 24px)); gap: 2px; margin-top: 5px; padding: 5px; border: 1px solid #c8d7e3; border-radius: 8px; background: #fff; box-shadow: 0 8px 24px rgba(20, 65, 96, .12); }
+.workspaceFloatingTabs button { min-height: 32px; padding: 6px 10px; border: 0; border-radius: 5px; background: transparent; color: #64748b; font-size: 12px; font-weight: 650; text-align: left; white-space: nowrap; cursor: pointer; }
+.workspaceFloatingTabs button:hover, .workspaceFloatingTabs button[data-selected] { background: #eef7fd; color: var(--action-strong); }
+.workspaceChildNavigation { display: flex; gap: 4px; overflow-x: auto; padding: 5px; border-top: 1px solid #d6e3ec; border-radius: 0 0 11px 11px; background: #fff; }
+.workspaceChildNavigation button { min-height: 44px; flex: 0 0 auto; padding: 8px 12px; border: 0; border-radius: 6px; background: transparent; color: #64748b; font-size: 12px; font-weight: 650; white-space: nowrap; cursor: pointer; transition: background .15s ease-out, color .15s ease-out, box-shadow .15s ease-out; }
+.workspaceChildNavigation button:hover { background: #eef7fd; color: var(--action-strong); }
+.workspaceChildNavigation button[data-selected] { background: #f4f9fd; color: var(--action-strong); box-shadow: inset 0 -2px 0 var(--action); }
 @media (prefers-reduced-motion: reduce) {
-  .sectionNav button, .sectionNav button:hover { transform: none; transition: none; }
+  .sectionNav button, .sectionNav button:hover, .workspaceGroupButton, .workspaceFloatingTabs button, .workspaceChildNavigation button { transform: none; transition: none; }
 }
 
 .workloadBand { display: grid; grid-template-columns: repeat(6, 1fr); margin-top: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, .86); }
@@ -676,6 +690,9 @@ button.issueRowTitleButton:hover, button.issueRowTitleButton:focus-visible { bor
 @media (max-width: 640px) {
   .sectionNav { display: flex; flex-direction: row; overflow-x: auto; }
   .sectionNav button { min-width: 96px; flex: 0 0 auto; }
+  .workspaceGroupNavigation { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .workspaceGroupButton { min-height: 44px; padding-right: 6px; padding-left: 6px; }
+  .workspaceChildNavigation button { min-width: 96px; }
   .planViewSwitch button { min-height: 44px; }
   .planInspectorLayer,
   .editorBackdrop { place-items: end center; padding: 0; }

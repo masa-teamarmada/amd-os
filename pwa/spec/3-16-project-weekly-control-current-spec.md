@@ -10,6 +10,14 @@
 - ガントと関係先はこの画面から手動修正でき、手動で確認・保存した現在値を正本とする。将来の自動抽出は既存値を直接上書きせず、差分候補として人の確認へ回す。
 - H1見出しは p21 だけ `SolvioraX PJワークスペース` に固定し、それ以外はPJ名を使う。p30は `愛媛大学 産学連携ポートフォリオ` の表示名へ上書きする。
 
+## 2026-09-06 現行ナビゲーション
+
+PJワークスペースはコックピットと同じく、上段の分類と選択中分類の子タブからなる二段ナビゲーションを使う。内部PJメンバーの分類は、`実行`（テーマ / 週次差分 / ガント / 目的構造 / 関係先 / 論点・仮説）、`計画・根拠`（PJ概要 / 技術 / 事業計画）、`経営・会社`（会社概要 / 資本政策 / コスト試算 / 知財）、`資料`（ドライブ）である。テーマはデータがあるPJだけに出す。目的構造はガントと同じ管理bundleの別表示であり、別の計画・保存経路を作らない。
+
+PCでは分類へのhoverまたはkeyboard focusで子タブ一覧を直下に出し、タッチ端末では選択中分類の子タブ列を44px以上の操作領域で常時表示する。分類の先頭を押すと最初の子タブを開く。
+
+外部workspace accountはテーマ（存在時） / ガント / 関係先 / ドライブだけを読む。`動向・会議`は経営会議を含むためワークスペースに置かず、社内コックピットだけに残す。会社概要、資本政策、コスト試算、知財、PJ概要、技術、事業計画、週次介入、担当負荷も外部へ出さない。
+
 ## 2026-08-04 現行ガント契約（本文中の旧工程表記より優先）
 
 - 週次管制の利用者に見せる計画単位は **タスク** と **MS** の2つだけとする。`phase` は既存データ・外部キーを保つための内部互換コンテナであり、名称・行・選択肢・パンくず・モーダルに出さない。
@@ -24,7 +32,7 @@
 |---|---|
 | page | `src/app/(shared-workspace)/project/[projectId]/workspace/page.tsx` |
 | view | `SxWeeklyControlDashboard` |
-| auth | `resolveSharedWorkspaceAccess(projectId)`で当該PJ accessを確認する。内部memberと、個別PJアクセスを持つ外部workspace accountが同じdashboardへ進む。外部は管理台帳を読み取り専用とし、共同作業用のテーマ・ガント／目的構造・関係先・共有資料だけをナビへ出す |
+| auth | `resolveSharedWorkspaceAccess(projectId)`で当該PJ accessを確認する。内部memberと、個別PJアクセスを持つ外部workspace accountが同じdashboardへ進む。外部は管理台帳を読み取り専用とし、共同作業用のテーマ・ガント・関係先・共有資料だけをナビへ出す |
 | PJ境界 | `getProjectWorkspaceBundle(projectId, access)` と `projectScopedPathAllowed()`。PJ限定ユーザーは所属PJだけ閲覧可 |
 | shell | 共有ワークスペースshell。月初合意overlayの対象外 |
 | write | portfolio/adminだけ。既存 `/api/project-workspace/[projectId]/management` を使い、clientからDBへ直接書かない |
@@ -477,7 +485,7 @@ v3.63.1 の再指摘対応: (10) 名前・バーのボタンはワークスペ�
 - **担当プルダウンの候補から状態記述を落とす**（`SxPartnerPipeline` の `ROSTER_STATUS_PHRASE_RE = /(待ち|未確認|要確認|未定)/` を `isSelectableRosterName` に追加）。「紹介接続待ち」「先方回答待ち」「担当者未確認」は人名ではないので候補に載せない。**すでに保存済みの値は選択中として先頭に残る**ので、表示が消えるわけではない（まさ 2026-08-07「Bで。」＝ 自動除外案の承認）。
 ## 2026-08-20 仕様追補: 全PJ共通のSXワークスペース面
 
-- `/project/[projectId]/workspace` は、p21で先行実装した `SxWeeklyControlDashboard` を全PJへ適用する共通の操作面とする。タブ構成は `週次差分 / ガント / 関係先 / 論点・仮説 / 知財 / ドライブ` を固定する (`PROJECT_WORKSPACE_TABS` が正本)。タブUIはPJコックピット (`CockpitView`) の高密度な等分グリッドを基礎にしつつ、共有ワークスペースではheaderと一体化したsky/slate面へ載せ、選択タブを白地 + AMD Blueの3px下線で示す。列数は `PROJECT_WORKSPACE_TABS.length` から inline の `grid-template-columns` で出すので、タブを増やしてもCSSは直さない。`知財` は `CockpitIpPortfolio` をそのまま置く (仕様は [`3-19`](/spec/3-19-project-ip-current-spec))。
+- `/project/[projectId]/workspace` は、p21で先行実装した `SxWeeklyControlDashboard` を全PJへ適用する共通の操作面とする。タブの正本は `PROJECT_WORKSPACE_GROUPS` で、`実行 / 計画・根拠 / 経営・会社 / 資料`の二段ナビへ分類する。PCはhover/focusで子一覧、touchは常設子列を使う。`知財` は `CockpitIpPortfolio` をそのまま置く (仕様は [`3-19`](/spec/3-19-project-ip-current-spec))。外部アカウントは共同実行のallowlistだけへ絞る。
 - `ドライブ` は `WorkspaceDocumentRoom` を `scopeKind="project"`、`scopeId={bundle.project.projectId}`、`surface="workspace"`、`presentation="modal"` で開く。PJごとに別資料室、別テーブル、別一覧を作らない。
 - 共通化の対象はタブ、配置、操作、資料室の仕様であり、`project_name`、管理柱・表示レーン、実データ、`externalWorkspaceRoleCapabilityLabel` と共有PJアクセスによる絞り込みはbundle/accessの正本を使う。PJ固有の柱を3レーンへ統合するDB変更はしない。
 - 導線は Seed詳細モーダル → `/project/{projectId}/cockpit` → `/project/{projectId}/workspace` の一方向とする。Seed詳細モーダルからworkspaceへ直接リンクしない。

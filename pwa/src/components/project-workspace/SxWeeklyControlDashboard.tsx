@@ -95,6 +95,11 @@ import { SxObjectiveMap } from "./SxObjectiveMap";
 import { CockpitCostModel } from "@/components/cockpit/CockpitCostModel";
 import { WorkspaceDocumentRoom } from "@/components/workspace-documents/WorkspaceDocumentRoom";
 import { CockpitIpPortfolio } from "@/components/cockpit/CockpitIpPortfolio";
+import { CockpitTechnology } from "@/components/cockpit/CockpitTechnology";
+import { CockpitBusinessPlan } from "@/components/cockpit/CockpitBusinessPlan";
+import { CockpitProjectOverview } from "@/components/cockpit/CockpitProjectOverview";
+import { CockpitCapitalPolicy } from "@/components/cockpit/CockpitCapitalPolicy";
+import { CockpitCompanyOverview } from "@/components/cockpit/CockpitCompanyOverview";
 import { ProjectThemeRoutes } from "./ProjectThemeRoutes";
 import styles from "./weekly-control.module.css";
 
@@ -337,13 +342,19 @@ const STAGE_LABEL: Record<StageKey, string> = Object.fromEntries(
 // (#weekly-change / #project-gantt / #partner-ledger / #issue-hypothesis / #input-readiness)
 // は他画面からのリンク互換のためhashとしてそのまま残す。
 // themes タブは bundle.themes.length > 0 のPJだけ動的に先頭に追加される。
-export type SxWeeklyControlView = "weekly" | "gantt" | "partners" | "issues" | "cost" | "ip" | "drive" | "themes";
+export type SxWeeklyControlView = "weekly" | "gantt" | "objective-structure" | "partners" | "issues" | "overview" | "technology" | "business-plan" | "company" | "capital-policy" | "cost" | "ip" | "drive" | "themes";
 const SX_WEEKLY_VIEW_STORAGE_KEY = "sx-weekly-control-view-v1";
 const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   weekly: "weekly-change",
   gantt: "project-gantt",
+  "objective-structure": "objective-structure",
   partners: "partner-ledger",
   issues: "issue-hypothesis",
+  overview: "project-overview",
+  technology: "technology",
+  "business-plan": "business-plan",
+  company: "company-overview",
+  "capital-policy": "capital-policy",
   cost: "cost-model",
   ip: "project-ip",
   drive: "project-drive",
@@ -355,26 +366,31 @@ const WORKSPACE_TITLE_OVERRIDES: Record<string, string> = {
   p30: "愛媛大学 産学連携ポートフォリオ",
 };
 
-const PROJECT_WORKSPACE_TABS_BASE: Array<{ key: SxWeeklyControlView; label: string }> = [
-  { key: "weekly", label: "週次差分" },
-  { key: "gantt", label: "ガント" },
-  { key: "partners", label: "関係先" },
-  { key: "issues", label: "論点・仮説" },
-  // コスト試算はPJコックピットと同じコンポーネントを共有する (2026-08-23 まさ依頼)。
-  // ワークスペース側は閲覧専用。前提の書き換えはコックピット側 (admin) だけ。
-  { key: "cost", label: "コスト試算" },
-  { key: "ip", label: "知財" },
-  { key: "drive", label: "ドライブ" },
+type WorkspaceGroupKey = "execution" | "planning" | "company" | "documents";
+type WorkspaceTab = { key: SxWeeklyControlView; label: string };
+type WorkspaceTabGroup = { key: WorkspaceGroupKey; label: string; children: readonly WorkspaceTab[] };
+const PROJECT_WORKSPACE_GROUPS: readonly WorkspaceTabGroup[] = [
+  { key: "execution", label: "実行", children: [{ key: "themes", label: "テーマ" }, { key: "weekly", label: "週次差分" }, { key: "gantt", label: "ガント" }, { key: "objective-structure", label: "目的構造" }, { key: "partners", label: "関係先" }, { key: "issues", label: "論点・仮説" }] },
+  { key: "planning", label: "計画・根拠", children: [{ key: "overview", label: "PJ概要" }, { key: "technology", label: "技術" }, { key: "business-plan", label: "事業計画" }] },
+  { key: "company", label: "経営・会社", children: [{ key: "company", label: "会社概要" }, { key: "capital-policy", label: "資本政策" }, { key: "cost", label: "コスト試算" }, { key: "ip", label: "知財" }] },
+  { key: "documents", label: "資料", children: [{ key: "drive", label: "ドライブ" }] },
 ];
+const EXTERNAL_WORKSPACE_TABS = new Set<SxWeeklyControlView>(["themes", "gantt", "partners", "drive"]);
 function viewForHash(hash: string): SxWeeklyControlView | null {
   const normalized = hash.replace(/^#/, "");
   if (!normalized) return null;
   if (normalized === "project-gantt") return "gantt";
+  if (normalized === "objective-structure") return "objective-structure";
   if (normalized === "partner-ledger") return "partners";
   if (normalized === "cost-model") return "cost";
   if (normalized === "issue-hypothesis") return "issues";
   if (normalized === "project-ip") return "ip";
   if (normalized === "project-drive") return "drive";
+  if (normalized === "project-overview") return "overview";
+  if (normalized === "technology") return "technology";
+  if (normalized === "business-plan") return "business-plan";
+  if (normalized === "company-overview") return "company";
+  if (normalized === "capital-policy") return "capital-policy";
   if (normalized === "theme-progress") return "themes";
   if (normalized === "weekly-change" || normalized === "input-readiness")
     return "weekly";
@@ -5023,20 +5039,11 @@ export function SxWeeklyControlDashboard({
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [workloadFilter, setWorkloadFilter] =
     useState<WorkloadBucketKey | null>(null);
-  // タブ化 (2026-08-08 まさ指示 #11)。週次差分・ガント・関係先・論点仮説の4タブ、
-  // データ接続は週次差分タブへ内包する。テーマ接続済みPJはテーマ進捗を既定にし、
-  // 明示hashがある場合だけその表示を優先する。テーマ未接続PJは従来どおりlocalStorageを復元する。
-  const dynamicTabs = useMemo(() => {
-    // 外部PJメンバーは共同作業に必要なテーマ・計画・関係先・資料だけを見る。
-    // AMD内部の週次介入、コスト、知財は同じbundleに含まれていてもナビへ出さない。
-    const tabs = access.principal === "workspace_account"
-      ? PROJECT_WORKSPACE_TABS_BASE.filter((tab) => tab.key === "gantt" || tab.key === "partners" || tab.key === "drive")
-      : [...PROJECT_WORKSPACE_TABS_BASE];
-    if (bundle.themes.length > 0) {
-      tabs.unshift({ key: "themes", label: "テーマ" });
-    }
-    return tabs;
-  }, [access.principal, bundle.themes.length]);
+  const [openGroupKey, setOpenGroupKey] = useState<WorkspaceGroupKey | null>(null);
+  const [desktopHoverEnabled, setDesktopHoverEnabled] = useState(false);
+  const externalViewer = access.principal === "workspace_account";
+  const workspaceGroups = useMemo(() => PROJECT_WORKSPACE_GROUPS.map((group) => ({ ...group, children: group.children.filter((tab) => (tab.key !== "themes" || bundle.themes.length > 0) && (!externalViewer || EXTERNAL_WORKSPACE_TABS.has(tab.key))) })).filter((group) => group.children.length > 0), [bundle.themes.length, externalViewer]);
+  const dynamicTabs = useMemo(() => workspaceGroups.flatMap((group) => group.children), [workspaceGroups]);
 
   // project-workspace.ts now builds a theme skeleton for every project with defined
   // project_management_tracks rows (migration 273 seeded that for p19/p21/p30 alike, and the
@@ -5049,7 +5056,6 @@ export function SxWeeklyControlDashboard({
   // decision (which project IDs get the operational hub as their home screen), independent of
   // whatever financial data happens to exist right now — not something inferred from row counts.
   const hasThemes = THEME_HUB_DEFAULT_PROJECT_IDS.has(bundle.project.projectId) && bundle.themes.length > 0;
-  const externalViewer = access.principal === "workspace_account";
   const externalDefaultView: SxWeeklyControlView = bundle.themes.length > 0 ? "themes" : "gantt";
   const [internalView, setActiveView] = useState<SxWeeklyControlView>(
     () => (externalViewer ? externalDefaultView : hasThemes ? "themes" : "weekly"),
@@ -5068,6 +5074,8 @@ export function SxWeeklyControlDashboard({
         setActiveView("weekly");
         return;
       }
+      if (fromHash === "objective-structure") setGanttDisplayMode("objective");
+      if (fromHash === "gantt") setGanttDisplayMode("timeline");
       setActiveView(fromHash);
       return;
     }
@@ -5076,8 +5084,14 @@ export function SxWeeklyControlDashboard({
       return (
         value === "weekly" ||
         value === "gantt" ||
+        value === "objective-structure" ||
         value === "partners" ||
         value === "issues" ||
+        value === "overview" ||
+        value === "technology" ||
+        value === "business-plan" ||
+        value === "company" ||
+        value === "capital-policy" ||
         value === "cost" ||
         value === "ip" ||
         value === "drive" ||
@@ -5096,6 +5110,8 @@ export function SxWeeklyControlDashboard({
     }
 
     if (isValidView(stored) && stored !== "themes") {
+      if (stored === "objective-structure") setGanttDisplayMode("objective");
+      if (stored === "gantt") setGanttDisplayMode("timeline");
       setActiveView(stored);
       return;
     }
@@ -5103,11 +5119,34 @@ export function SxWeeklyControlDashboard({
   }, [dynamicTabs, embedded, externalDefaultView, externalViewer, hasThemes]);
 
   function selectView(next: SxWeeklyControlView) {
+    if (next === "gantt") setGanttDisplayMode("timeline");
+    if (next === "objective-structure") setGanttDisplayMode("objective");
     setActiveView(next);
     onViewChange?.(next);
     if (embedded) return;
     window.localStorage.setItem(SX_WEEKLY_VIEW_STORAGE_KEY, next);
     window.history.replaceState(null, "", `#${SX_WEEKLY_VIEW_HASH[next]}`);
+  }
+
+  useEffect(() => {
+    if (embedded) return;
+    const media = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const update = () => setDesktopHoverEnabled(media.matches);
+    update();
+    media.addEventListener?.("change", update);
+    return () => media.removeEventListener?.("change", update);
+  }, [embedded]);
+  const activeWorkspaceGroup = workspaceGroups.find((group) => group.children.some((tab) => tab.key === activeView)) ?? workspaceGroups[0];
+  const activeGroupTabs = activeWorkspaceGroup?.children ?? [];
+  const isGanttView = activeView === "gantt" || activeView === "objective-structure";
+  function selectWorkspaceTab(tab: SxWeeklyControlView) {
+    if (tab === "partners") setPartnerTrackFilter(null);
+    if (tab === "gantt" || tab === "objective-structure") setGanttTrackFilter(null);
+    selectView(tab);
+  }
+  function selectWorkspaceGroup(groupKey: WorkspaceGroupKey) {
+    const group = workspaceGroups.find((candidate) => candidate.key === groupKey);
+    if (group?.children[0]) selectWorkspaceTab(group.children[0].key);
   }
 
   function openThemeControlView(view: "gantt" | "partners", themeKey: string) {
@@ -5871,32 +5910,24 @@ export function SxWeeklyControlDashboard({
               </div>
             )}
           </div>
-          {/* タブのUIは PJ コックピット (CockpitView) と揃える (2026-08-21 まさ指示)。
-              列数はタブ件数から出すので、タブを増やしても CSS を直す必要はない。
-              mobile 640px以下ではsectionNavを横スクロール可能なflex rowにする。 */}
-          <nav
-            className={styles.sectionNav}
-            style={{ gridTemplateColumns: `repeat(${dynamicTabs.length}, minmax(0, 1fr))` }}
-            aria-label="週次管制ナビ"
-            role="tablist"
-          >
-            {dynamicTabs.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                role="tab"
-                aria-selected={activeView === tab.key}
-                aria-controls={SX_WEEKLY_VIEW_HASH[tab.key]}
-                onClick={() => {
-                  if (tab.key === "partners") setPartnerTrackFilter(null);
-                  if (tab.key === "gantt") setGanttTrackFilter(null);
-                  selectView(tab.key);
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <nav className={styles.workspaceGroupNavigation} style={{ gridTemplateColumns: `repeat(${workspaceGroups.length}, minmax(0, 1fr))` }} aria-label="PJワークスペースの分類">
+            {workspaceGroups.map((group) => {
+              const selected = activeWorkspaceGroup?.key === group.key;
+              return <div key={group.key} className={styles.workspaceNavGroup} onPointerEnter={() => { if (desktopHoverEnabled) setOpenGroupKey(group.key); }} onPointerLeave={() => { if (desktopHoverEnabled) setOpenGroupKey(null); }} onFocusCapture={() => setOpenGroupKey(group.key)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpenGroupKey(null); }}>
+                <button type="button" className={styles.workspaceGroupButton} aria-current={selected ? "page" : undefined} aria-haspopup={desktopHoverEnabled && group.children.length > 1 ? "true" : undefined} aria-expanded={desktopHoverEnabled && group.children.length > 1 ? openGroupKey === group.key : undefined} aria-controls={desktopHoverEnabled && group.children.length > 1 ? `workspace-group-menu-${group.key}` : undefined} data-selected={selected || undefined} onClick={() => selectWorkspaceGroup(group.key)}>{group.label}</button>
+                {desktopHoverEnabled && openGroupKey === group.key && group.children.length > 1 && (
+                  <div className={styles.workspaceFloatingTabs} id={`workspace-group-menu-${group.key}`} role="region" aria-label={`${group.label}のタブ`}>
+                    {group.children.map((tab) => <button key={tab.key} type="button" aria-current={activeView === tab.key ? "page" : undefined} data-selected={activeView === tab.key || undefined} onClick={() => { setOpenGroupKey(null); selectWorkspaceTab(tab.key); }}>{tab.label}</button>)}
+                  </div>
+                )}
+              </div>;
+            })}
           </nav>
+          {activeGroupTabs.length > 1 && (
+            <nav className={styles.workspaceChildNavigation} aria-label={`${activeWorkspaceGroup?.label ?? "PJワークスペース"}の表示切り替え`} role="tablist">
+              {activeGroupTabs.map((tab) => <button key={tab.key} type="button" role="tab" aria-selected={activeView === tab.key} aria-controls={SX_WEEKLY_VIEW_HASH[tab.key]} data-selected={activeView === tab.key || undefined} onClick={() => selectWorkspaceTab(tab.key)}>{tab.label}</button>)}
+            </nav>
+          )}
         </header>
         )}
 
@@ -6075,7 +6106,7 @@ export function SxWeeklyControlDashboard({
         </section>
         )}
 
-        {activeView === "gantt" && (
+        {isGanttView && (
         <section
           id="project-gantt"
           className={styles.section}
@@ -6095,8 +6126,8 @@ export function SxWeeklyControlDashboard({
             <div className={styles.planViewControls}>
               {!embedded && (
                 <div className={styles.planViewSwitch} role="group" aria-label="計画の表示方法">
-                  <button type="button" aria-pressed={ganttDisplayMode === "timeline"} onClick={() => setGanttDisplayMode("timeline")}>ガント</button>
-                  <button type="button" aria-pressed={ganttDisplayMode === "objective"} onClick={() => setGanttDisplayMode("objective")}>目的構造</button>
+                  <button type="button" aria-pressed={ganttDisplayMode === "timeline"} onClick={() => selectWorkspaceTab("gantt")}>ガント</button>
+                  <button type="button" aria-pressed={ganttDisplayMode === "objective"} onClick={() => selectWorkspaceTab("objective-structure")}>目的構造</button>
                 </div>
               )}
               <p>基準日 {formatDate(management.asOf)}</p>
@@ -6544,6 +6575,32 @@ export function SxWeeklyControlDashboard({
               onOpenIssueWorkbench={setSelectedIssueId}
               onOpenControlView={openThemeControlView}
             />
+          </section>
+        )}
+
+        {activeView === "overview" && (
+          <section id="project-overview" className={styles.section} role="tabpanel" aria-label="PJ概要">
+            <CockpitProjectOverview project={{ projectId: bundle.project.projectId, projectName: bundle.project.projectName, clientName: bundle.project.clientName ?? "", status: bundle.project.status }} />
+          </section>
+        )}
+        {activeView === "technology" && (
+          <section id="technology" className={styles.section} role="tabpanel" aria-label="技術">
+            <CockpitTechnology projectId={bundle.project.projectId} />
+          </section>
+        )}
+        {activeView === "business-plan" && (
+          <section id="business-plan" className={styles.section} role="tabpanel" aria-label="事業計画">
+            <CockpitBusinessPlan projectId={bundle.project.projectId} projectName={bundle.project.projectName} showSxDetail={bundle.project.projectId === "p21"} />
+          </section>
+        )}
+        {activeView === "company" && (
+          <section id="company-overview" className={styles.section} role="tabpanel" aria-label="会社概要">
+            <CockpitCompanyOverview projectId={bundle.project.projectId} projectName={bundle.project.projectName} />
+          </section>
+        )}
+        {activeView === "capital-policy" && (
+          <section id="capital-policy" className={styles.section} role="tabpanel" aria-label="資本政策">
+            <CockpitCapitalPolicy projectId={bundle.project.projectId} />
           </section>
         )}
 

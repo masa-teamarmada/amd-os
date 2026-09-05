@@ -24,10 +24,21 @@ assert.match(legacyWeeklyPage, /redirect\(`\/project\/\$\{encodeURIComponent\(pr
 assert.doesNotMatch(legacyWeeklyPage, /SxWeeklyControlDashboard|getProjectWorkspaceBundle|getCurrentMemberAccess/);
 
 assert.doesNotMatch(sxWorkspaceDashboard, /supportsDrive/);
-assert.match(sxWorkspaceDashboard, /PROJECT_WORKSPACE_TABS/);
+assert.match(sxWorkspaceDashboard, /PROJECT_WORKSPACE_GROUPS/);
+assert.match(sxWorkspaceDashboard, /label: "実行"/);
+assert.match(sxWorkspaceDashboard, /label: "計画・根拠"/);
+assert.match(sxWorkspaceDashboard, /label: "経営・会社"/);
+assert.match(sxWorkspaceDashboard, /label: "資料"/);
+assert.match(sxWorkspaceDashboard, /key: "objective-structure", label: "目的構造"/);
+assert.match(sxWorkspaceDashboard, /key: "company", label: "会社概要"/);
+assert.match(sxWorkspaceDashboard, /key: "capital-policy", label: "資本政策"/);
 assert.match(sxWorkspaceDashboard, /\{ key: "drive", label: "ドライブ" \}/);
 assert.match(sxWorkspaceDashboard, /access\.principal === "workspace_account"/);
-assert.match(sxWorkspaceDashboard, /tab\.key === "gantt" \|\| tab\.key === "partners" \|\| tab\.key === "drive"/);
+assert.match(sxWorkspaceDashboard, /EXTERNAL_WORKSPACE_TABS/);
+assert.match(sxWorkspaceDashboard, /"themes",[\s\S]*?"gantt",[\s\S]*?"partners",[\s\S]*?"drive"/);
+const externalAllowlist = sxWorkspaceDashboard.match(/const EXTERNAL_WORKSPACE_TABS = new Set<SxWeeklyControlView>\(\[([\s\S]*?)\]\);/);
+assert.ok(externalAllowlist, "external workspace tab allowlist must exist");
+assert.doesNotMatch(externalAllowlist[1], /"overview"|"technology"|"business-plan"|"company"|"capital-policy"|"cost"|"ip"/, "external allowlist must not include internal planning or company tabs");
 assert.match(sxWorkspaceDashboard, /bundle\.themes\.length > 0 \? "themes" : "gantt"/);
 assert.match(
   sxWorkspaceDashboard,
