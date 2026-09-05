@@ -8,19 +8,20 @@
 
 - `/project/{projectId}/workspace` を、上段の分類と子タブからなる二段ナビへ変更した。
   - `実行`: テーマ（あるPJだけ）/ 週次差分 / ガント / 目的構造 / 関係先 / 論点・仮説
-  - `計画・根拠`: PJ概要 / 技術 / 事業計画
+  - `計画・根拠`: 技術 / 事業計画
   - `経営・会社`: 会社概要 / 資本政策 / コスト試算 / 知財
   - `資料`: ドライブ
+- `PJ概要`はワークスペースへ置かず、社内コックピット専用に戻した。workspaceのcomponent、hash、保存済み表示状態からも外したため、古い`#project-overview`は通常の初期表示へ戻る。
 - PCは分類のhover/focusで子タブをフロート表示し、touch端末は選択中分類の子タブ列を常時表示する。子タブの操作領域は44px以上。
 - 外部workspace accountはテーマ（存在時）/ ガント / 関係先 / ドライブだけ。`動向・会議`は経営会議を含むためワークスペースへ出さず、会社・資本・コスト・知財・週次介入も出さない。
 - 目的構造は同じ管理bundleの別表示のまま。DB、API、環境変数、migrationは追加していない。
 
 ## 反映・検証
 
-- 製品変更commit: `5004fa84881552fef55122a4433a5da8681c0dc6`。handoff更新commit: `3b442d0a809a0d49d8681edb06d5d536a81609d5`（前者を含む）。
-- production: `v3.100.25`、`/api/build-info` の `git_sha` が `3b442d0a809a0d49d8681edb06d5d536a81609d5` と一致。
+- 製品変更は `5004fa84`（二段ナビ）に続く2026-09-06の`PJ概要`撤回を含む。handoffと仕様は同じ変更単位で更新済み。
+- productionは最新mainのdeployでReadyと`/api/build-info`のSHAをreadbackする。
 - 実行済み: `npm run test:project-workspace-route`、`npm run test:critical-ui`、`npx tsc --noEmit`、`npm run build`、`git diff --check`。
-- 本番でSolvioraXのワークスペースを開き、分類ナビ、PJ概要、会社概要、資本政策を確認済み。外部範囲はroute contractでallowlist外を拒否することを確認済み。
+- 本番でSolvioraXのワークスペースを開き、分類ナビ、会社概要、資本政策を確認する。route contractはPJ概要componentの非mountと外部allowlist外の拒否を確認する。
 
 ## Repo状態
 

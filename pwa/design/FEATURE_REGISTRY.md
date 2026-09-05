@@ -846,7 +846,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 - `SeedDetailModal` の接続PJリンクは `/project/{projectId}/cockpit` だけ。workspaceへの直リンクや「ワークスペース（コックピット）」の混同表記を置かない。
 - `CockpitHeader` の「共有ワークスペースへ」をworkspaceの内部入口とし、Seed詳細モーダルからworkspaceへ直接飛ばさない。
-- 全PJの `/project/{projectId}/workspace` は `SxWeeklyControlDashboard` を使う。AMD内部は`実行`（テーマ / 週次差分 / ガント / 目的構造 / 関係先 / 論点・仮説）、`計画・根拠`（PJ概要 / 技術 / 事業計画）、`経営・会社`（会社概要 / 資本政策 / コスト試算 / 知財）、`資料`（ドライブ）の二段ナビを持つ。外部workspace accountはテーマ（存在時） / ガント / 関係先 / ドライブだけを読む。
+- 全PJの `/project/{projectId}/workspace` は `SxWeeklyControlDashboard` を使う。AMD内部は`実行`（テーマ / 週次差分 / ガント / 目的構造 / 関係先 / 論点・仮説）、`計画・根拠`（技術 / 事業計画）、`経営・会社`（会社概要 / 資本政策 / コスト試算 / 知財）、`資料`（ドライブ）の二段ナビを持つ。`PJ概要`は社内コックピット専用とする。外部workspace accountはテーマ（存在時） / ガント / 関係先 / ドライブだけを読む。
 - `動向・会議`は経営会議を含むためPJワークスペースへ出さず、社内コックピットに残す。
 - `ドライブ` は `WorkspaceDocumentRoom(scopeKind='project', scopeId=当該PJ, surface='workspace')` を再利用する。資料の共有境界とアクセス権はPJごとのaccess bundleを維持する。
 - 仕様の共通化は画面操作に限定し、PJ固有の名称、管理柱・表示レーン、実データ、外部workspace accountの権限範囲を変更しない。DB上の柱を3レーンへ変換しない。

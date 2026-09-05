@@ -387,3 +387,9 @@ commit `f045000c` / `bc4c5974`。
 - 仕様は `spec/2-1` / `spec/3-16`、利用者向け説明は `manual/2-3`、業務導線は `FEATURE_REGISTRY`、両附則に同期。DB、API、migration、環境変数は変更なし。
 - 検証: `npm run test:project-workspace-route`、`npm run test:critical-ui`、`npx tsc --noEmit`、`npm run build`、`git diff --check`。本番でSolvioraXの分類ナビ、PJ概要、会社概要、資本政策を確認した。
 - commit `5004fa84`、production `v3.100.25`。`/api/build-info`の`git_sha`が `5004fa84881552fef55122a4433a5da8681c0dc6` と一致した。
+
+### 2026-09-06 追補: PJ概要をワークスペースから撤回
+
+- まさの訂正により、`PJ概要`は共有実行面に置かないと確定した。`計画・根拠`は技術 / 事業計画だけとし、PJ概要は社内コックピット専用に戻した。会社概要と資本政策、外部workspace accountのallowlist、`動向・会議`を出さない境界は変えていない。
+- `SxWeeklyControlDashboard`からPJ概要のcomponent、view型、hash、保存済み表示値を外した。以前の`#project-overview`は内容を再表示せず、既存の初期表示選択へ戻る。
+- route contractにPJ概要tabとcomponentがworkspaceへ戻らない検査を加え、`spec/2-1` / `spec/3-16`、`manual/2-3`、`FEATURE_REGISTRY`、iOS全画面設計、両附則を同期した。DB、API、migration、環境変数は変更なし。

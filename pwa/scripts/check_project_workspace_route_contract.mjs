@@ -30,6 +30,8 @@ assert.match(sxWorkspaceDashboard, /label: "計画・根拠"/);
 assert.match(sxWorkspaceDashboard, /label: "経営・会社"/);
 assert.match(sxWorkspaceDashboard, /label: "資料"/);
 assert.match(sxWorkspaceDashboard, /key: "objective-structure", label: "目的構造"/);
+assert.doesNotMatch(sxWorkspaceDashboard, /key: "overview", label: "PJ概要"/, "PJ概要 must remain cockpit-only");
+assert.doesNotMatch(sxWorkspaceDashboard, /CockpitProjectOverview/, "PJ概要 component must not be mounted in the workspace");
 assert.match(sxWorkspaceDashboard, /key: "company", label: "会社概要"/);
 assert.match(sxWorkspaceDashboard, /key: "capital-policy", label: "資本政策"/);
 assert.match(sxWorkspaceDashboard, /\{ key: "drive", label: "ドライブ" \}/);

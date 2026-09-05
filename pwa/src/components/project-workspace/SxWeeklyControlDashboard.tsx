@@ -97,7 +97,6 @@ import { WorkspaceDocumentRoom } from "@/components/workspace-documents/Workspac
 import { CockpitIpPortfolio } from "@/components/cockpit/CockpitIpPortfolio";
 import { CockpitTechnology } from "@/components/cockpit/CockpitTechnology";
 import { CockpitBusinessPlan } from "@/components/cockpit/CockpitBusinessPlan";
-import { CockpitProjectOverview } from "@/components/cockpit/CockpitProjectOverview";
 import { CockpitCapitalPolicy } from "@/components/cockpit/CockpitCapitalPolicy";
 import { CockpitCompanyOverview } from "@/components/cockpit/CockpitCompanyOverview";
 import { ProjectThemeRoutes } from "./ProjectThemeRoutes";
@@ -342,7 +341,7 @@ const STAGE_LABEL: Record<StageKey, string> = Object.fromEntries(
 // (#weekly-change / #project-gantt / #partner-ledger / #issue-hypothesis / #input-readiness)
 // は他画面からのリンク互換のためhashとしてそのまま残す。
 // themes タブは bundle.themes.length > 0 のPJだけ動的に先頭に追加される。
-export type SxWeeklyControlView = "weekly" | "gantt" | "objective-structure" | "partners" | "issues" | "overview" | "technology" | "business-plan" | "company" | "capital-policy" | "cost" | "ip" | "drive" | "themes";
+export type SxWeeklyControlView = "weekly" | "gantt" | "objective-structure" | "partners" | "issues" | "technology" | "business-plan" | "company" | "capital-policy" | "cost" | "ip" | "drive" | "themes";
 const SX_WEEKLY_VIEW_STORAGE_KEY = "sx-weekly-control-view-v1";
 const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   weekly: "weekly-change",
@@ -350,7 +349,6 @@ const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   "objective-structure": "objective-structure",
   partners: "partner-ledger",
   issues: "issue-hypothesis",
-  overview: "project-overview",
   technology: "technology",
   "business-plan": "business-plan",
   company: "company-overview",
@@ -371,7 +369,7 @@ type WorkspaceTab = { key: SxWeeklyControlView; label: string };
 type WorkspaceTabGroup = { key: WorkspaceGroupKey; label: string; children: readonly WorkspaceTab[] };
 const PROJECT_WORKSPACE_GROUPS: readonly WorkspaceTabGroup[] = [
   { key: "execution", label: "実行", children: [{ key: "themes", label: "テーマ" }, { key: "weekly", label: "週次差分" }, { key: "gantt", label: "ガント" }, { key: "objective-structure", label: "目的構造" }, { key: "partners", label: "関係先" }, { key: "issues", label: "論点・仮説" }] },
-  { key: "planning", label: "計画・根拠", children: [{ key: "overview", label: "PJ概要" }, { key: "technology", label: "技術" }, { key: "business-plan", label: "事業計画" }] },
+  { key: "planning", label: "計画・根拠", children: [{ key: "technology", label: "技術" }, { key: "business-plan", label: "事業計画" }] },
   { key: "company", label: "経営・会社", children: [{ key: "company", label: "会社概要" }, { key: "capital-policy", label: "資本政策" }, { key: "cost", label: "コスト試算" }, { key: "ip", label: "知財" }] },
   { key: "documents", label: "資料", children: [{ key: "drive", label: "ドライブ" }] },
 ];
@@ -386,7 +384,6 @@ function viewForHash(hash: string): SxWeeklyControlView | null {
   if (normalized === "issue-hypothesis") return "issues";
   if (normalized === "project-ip") return "ip";
   if (normalized === "project-drive") return "drive";
-  if (normalized === "project-overview") return "overview";
   if (normalized === "technology") return "technology";
   if (normalized === "business-plan") return "business-plan";
   if (normalized === "company-overview") return "company";
@@ -5087,7 +5084,6 @@ export function SxWeeklyControlDashboard({
         value === "objective-structure" ||
         value === "partners" ||
         value === "issues" ||
-        value === "overview" ||
         value === "technology" ||
         value === "business-plan" ||
         value === "company" ||
@@ -6578,11 +6574,6 @@ export function SxWeeklyControlDashboard({
           </section>
         )}
 
-        {activeView === "overview" && (
-          <section id="project-overview" className={styles.section} role="tabpanel" aria-label="PJ概要">
-            <CockpitProjectOverview project={{ projectId: bundle.project.projectId, projectName: bundle.project.projectName, clientName: bundle.project.clientName ?? "", status: bundle.project.status }} />
-          </section>
-        )}
         {activeView === "technology" && (
           <section id="technology" className={styles.section} role="tabpanel" aria-label="技術">
             <CockpitTechnology projectId={bundle.project.projectId} />
