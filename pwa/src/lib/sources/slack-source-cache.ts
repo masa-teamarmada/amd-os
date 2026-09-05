@@ -158,7 +158,38 @@ async function getChannelName(client: WebClient, channelId: string, fallback?: s
   }
 }
 
-async function getPermalink(client: WebClient, channelId: string, ts: string) {
+/**
+ * permalink はURL規則で組み立てる。
+ * chat.getPermalink をメッセージごとに呼ぶと、100件で100リクエストになり
+ * daily cron が Slack のレート制限と実行時間上限に当たる。
+ * ワークスペースのドメインさえ分かれば同じURLをローカルで作れる。
+ */
+async function getTeamDomain(client: WebClient): Promise<string> {
+  try {
+    const res = (await client.auth.test()) as { url?: string };
+    const matched = String(res.url || "").match(/^https?:\/\/([^./]+)\.slack\.com/);
+    return matched ? matched[1] : "";
+  } catch {
+    return "";
+  }
+}
+
+function buildPermalink(
+  teamDomain: string,
+  channelId: string,
+  ts: string,
+  threadTs?: string | null
+): string | null {
+  if (!teamDomain) return null;
+  const base = `https://${teamDomain}.slack.com/archives/${channelId}/p${ts.replace(".", "")}`;
+  if (threadTs && threadTs !== ts) {
+    return `${base}?thread_ts=${encodeURIComponent(threadTs)}&cid=${channelId}`;
+  }
+  return base;
+}
+
+/** ドメインが取れなかったワークスペース向けのフォールバック。 */
+async function fetchPermalink(client: WebClient, channelId: string, ts: string) {
   try {
     const res = await client.chat.getPermalink({ channel: channelId, message_ts: ts });
     return typeof res.permalink === "string" ? res.permalink : null;
@@ -229,6 +260,7 @@ export async function collectSlackSourceRows(
   const includeBots = options.includeBots === true;
   const includeReplies = options.includeReplies !== false;
   const channelName = await getChannelName(client, options.channelId, options.channelName);
+  const teamDomain = await getTeamDomain(client);
   const byTs = new Map<string, SlackApiMessage>();
   const threadReplies = new Map<string, SlackApiMessage[]>();
   let cursor: string | undefined;
@@ -291,7 +323,9 @@ export async function collectSlackSourceRows(
   for (const message of messages) {
     const ts = String(message.ts);
     const at = slackTsToDate(ts).toISOString();
-    const url = await getPermalink(client, options.channelId, ts);
+    const url = teamDomain
+      ? buildPermalink(teamDomain, options.channelId, ts, message.thread_ts)
+      : await fetchPermalink(client, options.channelId, ts);
     const replies = threadReplies.get(ts) || [];
     const content = buildContent({
       message,

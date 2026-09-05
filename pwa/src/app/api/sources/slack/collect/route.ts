@@ -1,37 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import {
-  collectSlackSourceRows,
-  type SlackSourceCacheRow,
-  type SlackSourcePreview,
-} from "@/lib/sources/slack-source-cache";
-import {
-  DEFAULT_SLACK_WORKSPACE_KEY,
-  normalizeWorkspaceKey,
-  slackEnvNameForWorkspace,
-  slackTokenForWorkspace,
-} from "@/lib/slack/workspace-token";
+import { collectProjectSlackSources } from "@/lib/sources/slack-project-collect";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const UPSERT_CHUNK = 400;
-
-type CollectTarget = {
-  workspaceKey: string;
-  channelId: string;
-  channelName: string | null;
-};
-
-type ChannelResult = {
-  workspaceKey: string;
-  channelId: string;
-  channelName: string | null;
-  messageCount?: number;
-  threadReplyCount?: number;
-  skipped?: string;
-  error?: string;
-};
+export const maxDuration = 300;
 
 function checkCronAuth(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
@@ -42,51 +15,6 @@ function checkCronAuth(req: NextRequest) {
 function boolParam(value: string | null, fallback = false) {
   if (value == null) return fallback;
   return ["1", "true", "yes", "on"].includes(value.toLowerCase());
-}
-
-/**
- * 取り込み対象チャンネルの決定。
- * 1. channelId 明示指定があればそれだけ
- * 2. project_slack_sources の enabled 行 (複数チャンネル・複数ワークスペース)
- * 3. どちらも無ければ projects.slack_channel_id を armada の1件として扱う
- */
-async function resolveTargets(
-  supabase: ReturnType<typeof createAdminClient>,
-  projectId: string,
-  explicitChannelId: string,
-  explicitWorkspaceKey: string,
-  fallbackChannelId: string | null
-): Promise<CollectTarget[]> {
-  if (explicitChannelId) {
-    return [{
-      workspaceKey: normalizeWorkspaceKey(explicitWorkspaceKey),
-      channelId: explicitChannelId,
-      channelName: null,
-    }];
-  }
-
-  const { data, error } = await supabase
-    .from("project_slack_sources")
-    .select("workspace_key, channel_id, channel_name")
-    .eq("project_id", projectId)
-    .eq("enabled", true)
-    .order("workspace_key", { ascending: true })
-    .order("channel_id", { ascending: true });
-  if (error) throw new Error(error.message);
-
-  const configured = (data || [])
-    .map((row) => ({
-      workspaceKey: normalizeWorkspaceKey(row.workspace_key as string | null),
-      channelId: String(row.channel_id || "").trim(),
-      channelName: (row.channel_name as string | null) || null,
-    }))
-    .filter((target) => target.channelId);
-  if (configured.length) return configured;
-
-  const fallback = String(fallbackChannelId || "").trim();
-  return fallback
-    ? [{ workspaceKey: DEFAULT_SLACK_WORKSPACE_KEY, channelId: fallback, channelName: null }]
-    : [];
 }
 
 export async function GET(req: NextRequest) {
@@ -115,14 +43,19 @@ export async function GET(req: NextRequest) {
     if (projectError) return NextResponse.json({ ok: false, error: projectError.message }, { status: 500 });
     if (!project) return NextResponse.json({ ok: false, error: `project not found: ${projectId}` }, { status: 404 });
 
-    const targets = await resolveTargets(
-      supabase,
+    const result = await collectProjectSlackSources(supabase, {
       projectId,
+      projectName: project.project_name,
+      fallbackChannelId: project.slack_channel_id,
+      ym,
+      save,
+      maxMessages,
+      includeBots,
       explicitChannelId,
       explicitWorkspaceKey,
-      project.slack_channel_id
-    );
-    if (!targets.length) {
+    });
+
+    if (result.note === "no slack channel configured") {
       return NextResponse.json({
         ok: true,
         project: { project_id: project.project_id, project_name: project.project_name },
@@ -130,79 +63,22 @@ export async function GET(req: NextRequest) {
         channels: [],
         rows: [],
         savedCount: 0,
-        note: "no slack channel configured",
+        note: result.note,
       });
     }
 
-    const allRows: SlackSourceCacheRow[] = [];
-    const allPreviews: SlackSourcePreview[] = [];
-    const channels: ChannelResult[] = [];
-    let messageCount = 0;
-    let threadReplyCount = 0;
-
-    for (const target of targets) {
-      const token = slackTokenForWorkspace(target.workspaceKey);
-      if (!token) {
-        channels.push({
-          workspaceKey: target.workspaceKey,
-          channelId: target.channelId,
-          channelName: target.channelName,
-          skipped: `${slackEnvNameForWorkspace(target.workspaceKey)} is missing`,
-        });
-        continue;
-      }
-      try {
-        const collected = await collectSlackSourceRows({
-          token,
-          projectId,
-          projectName: project.project_name,
-          ym,
-          channelId: target.channelId,
-          channelName: target.channelName,
-          maxMessages,
-          includeBots,
-        });
-        allRows.push(...collected.rows);
-        allPreviews.push(...collected.previews);
-        messageCount += collected.messageCount;
-        threadReplyCount += collected.threadReplyCount;
-        channels.push({
-          workspaceKey: target.workspaceKey,
-          channelId: target.channelId,
-          channelName: collected.channelName,
-          messageCount: collected.messageCount,
-          threadReplyCount: collected.threadReplyCount,
-        });
-      } catch (channelError) {
-        const message = channelError instanceof Error ? channelError.message : String(channelError);
-        console.error("[sources/slack/collect] channel failed", target.workspaceKey, target.channelId, message);
-        channels.push({
-          workspaceKey: target.workspaceKey,
-          channelId: target.channelId,
-          channelName: target.channelName,
-          error: message,
-        });
-      }
-    }
-
-    const succeeded = channels.filter((channel) => !channel.skipped && !channel.error);
+    const succeeded = result.channels.filter((channel) => !channel.skipped && !channel.error);
     if (!succeeded.length) {
       return NextResponse.json(
-        { ok: false, error: "all slack channels failed", channels },
+        { ok: false, error: "all slack channels failed", channels: result.channels },
         { status: 500 }
       );
     }
-
-    let savedCount = 0;
-    if (save && allRows.length) {
-      for (let i = 0; i < allRows.length; i += UPSERT_CHUNK) {
-        const chunk = allRows.slice(i, i + UPSERT_CHUNK);
-        const { error } = await supabase
-          .from("source_cache")
-          .upsert(chunk, { onConflict: "project_id,source,item_id" });
-        if (error) return NextResponse.json({ ok: false, error: error.message, channels }, { status: 500 });
-        savedCount += chunk.length;
-      }
+    if (result.saveError) {
+      return NextResponse.json(
+        { ok: false, error: result.saveError, channels: result.channels },
+        { status: 500 }
+      );
     }
 
     const primary = succeeded[0];
@@ -213,11 +89,11 @@ export async function GET(req: NextRequest) {
       // 後方互換: 単一チャンネル時代からのキー。内訳は channels を見る。
       channelId: primary.channelId,
       channelName: primary.channelName,
-      messageCount,
-      threadReplyCount,
-      savedCount,
-      channels,
-      rows: allPreviews,
+      messageCount: result.messageCount,
+      threadReplyCount: result.threadReplyCount,
+      savedCount: result.savedCount,
+      channels: result.channels,
+      rows: result.previews,
       includeBots,
     });
   } catch (error) {
