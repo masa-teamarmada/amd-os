@@ -44,6 +44,22 @@ export interface Project {
   updated_at: string;
 }
 
+/**
+ * PJが取り込むSlackチャンネル。1PJが複数チャンネル・複数ワークスペースを持てる。
+ * workspace_key が 'armada' なら SLACK_BOT_TOKEN、それ以外は SLACK_BOT_TOKEN_<大文字>。
+ */
+export interface ProjectSlackSource {
+  id: string; // UUID
+  project_id: string;
+  workspace_key: string;
+  channel_id: string;
+  channel_name: string | null;
+  enabled: boolean;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ProjectMember {
   id: string;
   project_id: string;
