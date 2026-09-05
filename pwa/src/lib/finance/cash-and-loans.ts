@@ -165,7 +165,7 @@ function buildAccount(account: AccountRow, rows: EntryRow[], today: string): Cas
       withdrawal: num(r.withdrawal), deposit: num(r.deposit),
       sheetBalance, runningBalance: running, balanceGap: gap, balanceGapStep: gapStep,
       category: text(r.category), targetMonth: text(r.target_month), note: text(r.note),
-      isPlanned,
+      isPlanned, source: r.source,
     });
 
     // 画面に出す残高は、原本に書いてあればそれを使う。OSの積み上げはあくまで検算用。

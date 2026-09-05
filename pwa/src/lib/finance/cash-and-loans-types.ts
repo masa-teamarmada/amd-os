@@ -24,6 +24,8 @@ export type CashLedgerEntry = {
   targetMonth: string | null;
   note: string | null;
   isPlanned: boolean;
+  /** どこから来た行か。'freee' / 'sheet:<タブ名>' / 'manual'。 */
+  source: string;
 };
 
 export type CashMonthRow = {

@@ -58,6 +58,7 @@ type Row = {
   targetMonth: string | null;
   note: string | null;
   isPlanned: boolean;
+  source: string;
   /** その行の時点での、各口座と各借入の残高。 */
   accountBalances: Record<string, number | null>;
   loanBalances: Record<string, number | null>;
@@ -144,6 +145,7 @@ export function CashLedgerPanel({
         withdrawal: e.withdrawal, deposit: e.deposit,
         sheetBalance: e.sheetBalance, runningBalance: e.runningBalance, balanceGapStep: e.balanceGapStep,
         category: e.category, targetMonth: e.targetMonth, note: e.note, isPlanned: e.isPlanned,
+        source: e.source,
         accountBalances: { ...accountNow }, loanBalances: { ...loanNow },
       });
     }
@@ -201,6 +203,7 @@ export function CashLedgerPanel({
       runningBalance: null, balanceGapStep: null,
       category: d.category || null, targetMonth: d.targetMonth || null, note: d.note || null,
       isPlanned: d.entryDate > today,
+      source: "manual",
       accountBalances: {}, loanBalances: {},
     });
     for (const r of visibleRows) {
@@ -490,11 +493,12 @@ export function CashLedgerPanel({
 
       {/* ── 本体の1枚表 ── */}
       <div className="max-h-[720px] overflow-auto border border-border">
-        <table className="w-full min-w-[1560px] border-collapse">
+        <table className="w-full min-w-[1620px] border-collapse">
           <thead className="sticky top-0 z-20 bg-muted">
             <tr className="border-b border-border text-[11px] text-muted-foreground">
               <th scope="col" className="w-6 px-0 py-1"> </th>
               <th scope="col" className="w-[96px] px-1.5 py-1 text-left font-medium">日付</th>
+              <th scope="col" className="w-[52px] px-1 py-1 text-left font-medium">出どころ</th>
               <th scope="col" className="w-[92px] px-1.5 py-1 text-left font-medium">口座</th>
               <th scope="col" className="w-[150px] px-1.5 py-1 text-left font-medium">相手先</th>
               <th scope="col" className="w-[96px] px-1.5 py-1 text-right font-medium">出ていった</th>
@@ -517,7 +521,7 @@ export function CashLedgerPanel({
           </thead>
           <tbody>
             {displayRows.length === 0 && loading ? (
-              <tr><td colSpan={12 + accounts.length + loanColumns.length} className="px-2 py-8 text-center text-xs text-muted-foreground">読み込み中…</td></tr>
+              <tr><td colSpan={13 + accounts.length + loanColumns.length} className="px-2 py-8 text-center text-xs text-muted-foreground">読み込み中…</td></tr>
             ) : null}
             {displayRows.map((row) => (
               <tr
@@ -546,6 +550,9 @@ export function CashLedgerPanel({
 
                 <Cell row={row} field="entryDate" value={shortDate(row.entryDate)} width="w-[96px]"
                   className={cn(row.isPlanned && "text-muted-foreground")} />
+                <td className="w-[52px] px-1 py-1 text-[10px] text-muted-foreground">
+                  {row.isPlanned ? "予定" : row.source === "freee" ? "freee" : row.source === "manual" ? "手入力" : ""}
+                </td>
                 <Cell row={row} field="accountId"
                   value={accounts.find((a) => a.accountId === row.accountId)?.shortName ?? row.accountId}
                   width="w-[92px]" className="text-muted-foreground" />
