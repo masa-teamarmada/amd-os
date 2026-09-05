@@ -1,6 +1,6 @@
 # 自動処理の一覧（誰が見ても分かる題名で）
 
-最終更新: 2026-09-04
+最終更新: 2026-09-05
 
 > **この文書は何か**: AMD OS と、まさのMac、Google側で動いている自動処理を、
 > 「いつ・何をする・どこで動く・止め方」で一覧にした正本。
@@ -88,9 +88,17 @@
 | 毎時15分 会議の背景処理（H-1）を回す | 毎時 | `jp.teamarmada.amd-os-h1-background` |
 | 毎時45分 会議レビューの背景処理を回す | 毎時 | `jp.teamarmada.amd-os-h1-reviewer-background` |
 | 毎朝6:20 週次戦略の根拠を走査する | 毎日 | `com.teamarmada.weekly-strategy-evidence-scan` |
-| 毎週木曜6:30 週次戦略ループ | 週1 | `com.teamarmada.weekly-strategy-loop`（9/3 の回は共有DB側の503で失敗） |
+| 毎週木曜6:30 週次戦略ループ | 週1 | `com.teamarmada.weekly-strategy-loop`（9/3 の回は共有DB側の503で失敗 → 9/5 に手動で拾い直し済み） |
 
-止め方: `launchctl unload ~/Library/LaunchAgents/<label>.plist`。届ける係は箱（outbox）が空なら何もしない。
+状態（2026-09-05 15:50 更新）: 9/4 00:36 に7本すべて `launchctl disable` された。9/5 にまさの指示「PDCAを再開したい」で、
+`com.teamarmada.weekly-strategy-evidence-scan` と `com.teamarmada.weekly-strategy-loop` の2本だけを再開した。
+この2本は えいみOSスイート共有DB の週次テーブルへ書くだけで、箱（outbox）も届ける係も外部送信も持たない。
+週次ループは一時的な503で丸ごと落ちないよう、有限のやり直し（最大3回・2/8/30秒待ち、4回目で停止）を入れた
+（orchestration-board v2.9.99、`BUGS.md` 2026-09-05）。残り5本（届ける係3本・H-1 の2本）は停止のまま。
+
+止め方: `launchctl bootout gui/$(id -u)/<label>` + `launchctl disable gui/$(id -u)/<label>`。届ける係は箱（outbox）が空なら何もしない。
+再開: `launchctl enable gui/$(id -u)/<label>` → `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/<label>.plist` の順。
+disabled のまま bootstrap すると `Input/output error` で失敗する（各 installer は bootstrap→enable の順なので、disabled 状態からは installer だけでは戻らない）。
 
 ## 4. Google側（Apps Script）
 
