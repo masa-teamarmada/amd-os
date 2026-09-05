@@ -19,7 +19,7 @@
 ## 反映・検証
 
 - 製品変更は `5004fa84`（二段ナビ）に続く2026-09-06の`PJ概要`撤回を含む。handoffと仕様は同じ変更単位で更新済み。
-- production: `v3.100.25`。`/api/build-info`の`git_sha`が`70e396d4b1b5acb65943d39f9d590eaba155852a`と一致。
+- `PJ概要`撤回を含む製品buildのproduction確認は`v3.100.25`、`/api/build-info`の`git_sha`が`70e396d4b1b5acb65943d39f9d590eaba155852a`と一致。その後の`9eede0bf`はhandoffの本番確認記録だけを更新したcommitで、製品変更は含まない。
 - 実行済み: `npm run test:project-workspace-route`、`npm run test:critical-ui`、`npx tsc --noEmit`、`npm run build`、`git diff --check`。
 - 本番でSolvioraXのワークスペースを開き、古い`#project-overview`が週次差分へ戻ること、`計画・根拠`が技術 / 事業計画だけであることを確認済み。route contractはPJ概要componentの非mountと外部allowlist外の拒否を確認済み。
 
