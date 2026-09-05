@@ -12,6 +12,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { fetchErsBundle, type ErsBundle } from "@/lib/ers-data";
 import { selectPrimaryInstitutionProject } from "@/lib/institution-projects";
+import { InstitutionSupportProfile } from "@/components/institutions/InstitutionSupportProfile";
 import {
   computeErs,
   ersScoreColor,
@@ -112,6 +113,9 @@ export default function InstitutionDetailPage() {
           <span className="font-medium text-foreground">AMD Score（個体レイヤー）とは別ロジック</span>で、σ_SU 経由でのみ概念連動する。
         </p>
       </header>
+
+      {/* === 支援プログラム (認定条件と認定後の支援) === */}
+      <InstitutionSupportProfile institutionId={institutionId} />
 
       {/* === レーダー + 軸サマリ === */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center rounded-lg border border-border p-4">
