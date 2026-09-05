@@ -376,3 +376,14 @@ commit `f045000c` / `bc4c5974`。
 検証はローカルの dev server で、末尾の空行に日付と相手先を実際に打って保存し、見通しが
 774,801 → 774,800、10/23 が −609,243 → −609,244 と1円ぶん動くことを確認。テスト行は DB から
 削除済み (`source='manual'` が 0 件であることを確認)。commit `b21afb0c`。
+
+## 2026-09-06 PJワークスペース: 目的別の二段ナビと会社・資本の入口
+
+まさの依頼は、コックピット側で確立済みのタブ分類をPJワークスペースにも適用し、表示する面を増やすこと。同時に、経営会議を含む`動向・会議`を全PJメンバーへ出さないことだった。
+
+- `SxWeeklyControlDashboard` の単一タブ列を `PROJECT_WORKSPACE_GROUPS` に置換した。内部は`実行`（テーマ / 週次差分 / ガント / 目的構造 / 関係先 / 論点・仮説）、`計画・根拠`（PJ概要 / 技術 / 事業計画）、`経営・会社`（会社概要 / 資本政策 / コスト試算 / 知財）、`資料`（ドライブ）。
+- PCでは親分類のhover/focusで子タブをフロート表示、touchでは選択中分類の子タブ列を常設した。親分類を押すと先頭の子タブを開く。目的構造はガントと同じ管理bundleの表示切替で、保存経路を増やしていない。
+- 外部workspace accountは`themes / gantt / partners / drive`のallowlistで絞る。PJ概要、技術、事業計画、会社概要、資本政策、コスト試算、知財、週次差分、論点・仮説、`動向・会議`を出さない。route contractにもallowlist外が入らない検査を追加した。
+- 仕様は `spec/2-1` / `spec/3-16`、利用者向け説明は `manual/2-3`、業務導線は `FEATURE_REGISTRY`、両附則に同期。DB、API、migration、環境変数は変更なし。
+- 検証: `npm run test:project-workspace-route`、`npm run test:critical-ui`、`npx tsc --noEmit`、`npm run build`、`git diff --check`。本番でSolvioraXの分類ナビ、PJ概要、会社概要、資本政策を確認した。
+- commit `5004fa84`、production `v3.100.25`。`/api/build-info`の`git_sha`が `5004fa84881552fef55122a4433a5da8681c0dc6` と一致した。

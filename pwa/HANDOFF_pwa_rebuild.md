@@ -1,69 +1,48 @@
 # HANDOFF - AMD OS PWA
 
-- 更新: 2026-09-01 JST
-- セッション: PJコックピットのタブ整理・高密度化・KUTEシーズ導入部の撤去
+- 更新: 2026-09-06 JST
+- セッション: PJワークスペースの目的別グループ化と閲覧境界の整理
 - 作業種別: development
 
 ## 最新セッションの到達点
 
-### Atlas signals-ingest 再送嵐の恒久修正（2026-09-04）
-
-- `/api/atlas/signals-ingest` から background Anthropic と同期enrichmentを外し、raw `atlas_signals` の validation・dedupe・insert 成功後だけACKする契約へ変更した。
-- Atlas senderはretryable/disabledで1 file後に停止し、指数backoff cooldown中はrequestを出さない。400/401/403は `failed/` 隔離する。
-- 事故時の62 file（公式55、staging7、raw signal計694）は `paused-20260904/` に隔離したまま。再投入も全自動再開も未実施。
-- 自動化は緊急停止を維持。復旧時はまず限定再投入の品質・重複・年齢審査とproduction readbackを行う。
-
-PJコックピットの親グループと子タブを整理し、本番へ反映した。
-
-- 通常PJは `進捗管理 / 事業計画 / PJ管理` の3グループ。
-- 研究機関PJは `進捗管理 / シーズリスト / 規程・内規 / PJ管理` の4グループ。事業計画グループは出さない。
-- 親グループのhover/focusで子タブ一覧をフロート表示し、クリックを1回減らした。
-- `目的構造` を `ガント` から独立タブへ分離した。
-- `活動・実績` はPJ概要、`資本政策` は事業計画へ所属させた。
-- ZMPの仮 `テーマ` タブはコックピットから削除した。ワークスペース側のテーマ機能は変更していない。
-- desktopは親36px、常設子タブ32px、フロート行28pxへ圧縮。mobileは44px以上を維持。
-- KUTEコックピットのシーズ一覧は、見出し・説明・注意・件数サマリを外し、評価フィルタと比較表から始める。全体 `/seeds` は従来の見出しと集計を維持。
-
-恒久仕様は `pwa/spec/3-8-cockpit-current-spec.md`、利用者向け説明は `pwa/manual/2-3-pj-cockpit.md`、履歴は各附則へ同期済み。
+- `/project/{projectId}/workspace` を、上段の分類と子タブからなる二段ナビへ変更した。
+  - `実行`: テーマ（あるPJだけ）/ 週次差分 / ガント / 目的構造 / 関係先 / 論点・仮説
+  - `計画・根拠`: PJ概要 / 技術 / 事業計画
+  - `経営・会社`: 会社概要 / 資本政策 / コスト試算 / 知財
+  - `資料`: ドライブ
+- PCは分類のhover/focusで子タブをフロート表示し、touch端末は選択中分類の子タブ列を常時表示する。子タブの操作領域は44px以上。
+- 外部workspace accountはテーマ（存在時）/ ガント / 関係先 / ドライブだけ。`動向・会議`は経営会議を含むためワークスペースへ出さず、会社・資本・コスト・知財・週次介入も出さない。
+- 目的構造は同じ管理bundleの別表示のまま。DB、API、環境変数、migrationは追加していない。
 
 ## 反映・検証
 
-- canonical commit: `3ac19c23f55f19c1169a0ea3d41d3090a6dd59fc`
-- production: `v3.100.17`
-- コックピット採用commitは `3ac19c23`。handoff作成後の別作業も本流へ入り、最終更新前の `origin/main` とlocal `main` は `effcf1e7` で一致（ahead 0 / behind 0）。
-- 本番desktop: 親35.994px、子31.996px、フロート209.794px、7行×27.997px。フロートは747px高の28.1%。
-- 本番mobile相当: 子タブ44px、document横overflowなし。
-- KUTE内では不要な導入文なし、全体 `/seeds` では見出し・集計を維持。
-- console errorなし。
-- 回帰、型検査、production build、公式deploy guardは通過。
+- canonical commit: `5004fa84881552fef55122a4433a5da8681c0dc6`
+- production: `v3.100.25`、`/api/build-info` の `git_sha` が上記commitと一致。
+- 実行済み: `npm run test:project-workspace-route`、`npm run test:critical-ui`、`npx tsc --noEmit`、`npm run build`、`git diff --check`。
+- 本番でSolvioraXのワークスペースを開き、分類ナビ、PJ概要、会社概要、資本政策を確認済み。外部範囲はroute contractでallowlist外を拒否することを確認済み。
 
 ## Repo状態
 
-- branch: `main`
-- コックピット採用commit: `3ac19c23`
-- handoff文書commit: `03432c90`（後続mainに包含）
-- 今回作成したbranch / worktree: なし
-- 今回の対象変更: commit・push・production反映済み
-- 別作業の既存dirty: BZM原稿・監査資料と `pwa/design_log/sessions_2026-08.md`。今回のcommitには含めず、内容にも触れていない。
-- handoff作成中に検知したシーズ表の別作業は `effcf1e7` でcommit・push済み。固定列の透け防止と評価フィルタの列見出し化で、途中差分と検証用一時スクリプトは解消済み。最終監査時点では自動production反映待ち。
-- 一時clean cloneは `/Users/masa/.Trash/amd-os-cockpit-density.DqQkIY` へ移動済み（復旧可能）。
+- branch: `main`。`origin/main` と一致（ahead 0 / behind 0）。今回作成したbranch / worktree: なし。
+- 実装・仕様・マニュアル・履歴はcommit・push済み。main pushによるproduction buildもReady。
+- このcheckoutには別作業の未commit変更が残る。BZM原稿/監査資料群、ならびにAtlas・L2関連のPWA仕様/手引き群で、今回の変更ではない。削除・stash・reset・巻き込みcommitをしない。
+- quarantine owner: それぞれの作業を開始した共有checkoutの担当者。次に触る担当者は、作業開始前に`git status --short`と差分を読み、対象単位でcommitする。未分類のまま本セッションが処分できる状態ではない。
 
 ## 未解決
 
-- このコックピット変更に残作業なし。
-- iOS / macOS / Androidへの同じグループナビ移植は未実施。まさが横展開を指示した場合だけ着手する。
-- リポ全体のarchiveは、別作業のBZM原稿・監査資料と8月開発ログの既存dirtyが解消されるまで不可。
+- 今回のワークスペース変更に残作業なし。
+- リポ全体のarchive/closeoutは、上記の別作業dirtyを担当者がcommitまたは明示的に処分するまで不可。
 
 ## 次の最初の行動
 
-まさの次の指示を待つ。コックピットを続ける場合は、先に本番 `v3.100.17` と `pwa/spec/3-8-cockpit-current-spec.md` を読み、タブ正本 `pwa/src/lib/cockpit-tabs.ts` を起点にする。PJごとの画面内コピーを増やさない。
+まさの次の指示を待つ。ワークスペースを続けるなら、先に `pwa/spec/3-16-project-weekly-control-current-spec.md` と `pwa/manual/2-3-pj-cockpit.md` を読み、外部allowlistを広げずに扱う。
 
 ## 参照先
 
-- 現行仕様: `pwa/spec/3-8-cockpit-current-spec.md`
+- 現行仕様: `pwa/spec/3-16-project-weekly-control-current-spec.md`、`pwa/spec/2-1-pwa-runtime-routes.md`
 - OSマニュアル: `pwa/manual/2-3-pj-cockpit.md`
-- 仕様履歴: `pwa/spec/6-1-appendix-changelog.md`
-- マニュアル履歴: `pwa/manual/9-3-appendix-changelog.md`
+- 存在契約: `pwa/design/FEATURE_REGISTRY.md`
+- 実装履歴: `pwa/design_log/sessions_2026-09.md`
+- 仕様履歴: `pwa/spec/6-1-appendix-changelog.md`、`pwa/manual/9-3-appendix-changelog.md`
 - バグ・教訓: `pwa/BUGS.md`
-- タブ正本: `pwa/src/lib/cockpit-tabs.ts`
-- 回帰: `pwa/scripts/check_cockpit_navigation.mts`、`pwa/scripts/check_kute_seeds_scope.mts`
