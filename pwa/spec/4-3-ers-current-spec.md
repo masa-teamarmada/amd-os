@@ -23,6 +23,9 @@
 | `pwa/src/lib/institution-support-programs-client.ts` | クライアント層。`reference-data-cache` 経由の読み取りと、セル・推奨の保存 |
 | `pwa/src/app/api/institutions/support-programs/route.ts` | 支援プログラム比較の読み取り (member、portfolio scope、Cache-Control 明示) |
 | `pwa/src/app/api/institutions/support-program-recommendations/route.ts` | 推奨 (論点) の upsert (admin) |
+| `pwa/src/components/institutions/InstitutionSupportAnalysis.tsx` | `/institutions` 分析タブ (列別整備率 / 地域別 / 充実度 / 提案余地 / 型分布) |
+| `pwa/src/lib/institution-support-analysis.ts` | 分析タブの純粋関数。`@/` alias を使わず、`scripts/check_institution_support_analysis.mts` が直接読む |
+| `pwa/src/components/institutions/InstitutionSupportProfile.tsx` | 機関詳細の「支援プログラム」節 (1機関分の16項目 + 制度整備の詳細 + 所見) |
 
 ## DB
 
@@ -155,7 +158,7 @@ python3 -X utf8 scripts/apply_ddl.py scripts/migrations/120_institution_policy_a
 - 認証: `requireMember()` に加えて `getCurrentMemberAccess()` が `portfolio` scope のときだけ通す。PJ限定の外部メンバーへ横断母集団を返さない。
 - `institution_policy_assessments` の RLS は admin 限定のまま。route が service client で読み、会員へは `status` / `attribute_value` / `evidence_note` / `source_url` / `source_type` / `confirmed_at` だけ返す。**`source_path` と `evaluator` は返さない**。
 - 3 層キャッシュ (spec 5-10)。サーバ層は列定義と推奨を並列に読み、セルは `.range()` のページ読みで 1000 行上限を跨ぐ。`?fresh=1` でサーバ層を強制再読込。`Cache-Control: private, max-age=60, stale-while-revalidate=600`。
-- 応答: `{ ok, columns[], cells[], recommendations[], generatedAt, canEdit }`。`canEdit` は `members.is_admin`。
+- 応答: `{ ok, columns[], cells[], items[], extraCells[], recommendations[], generatedAt, canEdit }`。`columns` は比較列 (compare_sort 非 NULL)、`items` は制度比較マトリクスの全項目、`extraCells` は比較列以外のセル (状態と値だけ、根拠・出典は持たない。分析タブと機関詳細の折りたたみが使う)。`canEdit` は `members.is_admin`。
 - 書き込み経路 (`POST /api/institutions/policies`、`POST /api/institutions/support-program-recommendations`) は保存後に `invalidateInstitutionSupportProgramsCache()` を呼ぶ。クライアントは `invalidateInstitutionSupportPrograms()` の後に `fresh=1` で読み直す。
 
 推奨の書き込み `POST /api/institutions/support-program-recommendations` (admin):
@@ -176,8 +179,16 @@ python3 -X utf8 scripts/apply_ddl.py scripts/migrations/120_institution_policy_a
 - 論点に `policyItemId` があるとき、全機関のセル状態を数える。`confirmed = total - unknown`、割合は `established / confirmed`。**未確認を分母に入れない**。
 - 比較表上部の要約 (認定制度あり / 学内本店登記 可 / 施設貸与あり / 共用設備あり) も `established` だけを数える。
 
+分析タブの集計契約 (`pwa/src/lib/institution-support-analysis.ts`):
+
+- `computeColumnRates` / `computeRegionMatrix` / `rankInstitutions` / `rankGaps` / `bucketAttribute` は純粋関数。割合の分母は `confirmed = total - unknown`、`confirmed = 0` のとき `rate = null` (0% と偽らない)。
+- 充実度は `established` の列数だけ。提案余地 (ギャップ) は `drafting` + `not_started` の列で、`unknown` を含めない。
+- 地域寄せは `regionBlockOf` (都道府県名の部分一致)。該当なしは「不明」。
+- `npm run test:institution-support-analysis` が上の 3 点を検査する。
+
 Validation:
 
+- `npm run test:institution-support-analysis` が通ること。
 - `npm run test:reference-data-cache` で `/api/institutions/support-programs` が登録済み参照系として契約 1〜3 を満たすこと。書き込み専用の 2 経路は `reference_data_cache_baseline.json` に理由付きで載っている。
 - `institutions` に 1 件足すと、一覧 / SU関連規程 / 支援プログラム比較 / ECR比較 の全部に同じ行が出ること (行の母集団はコード側で持たない)。
 
