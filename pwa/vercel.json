@@ -5,6 +5,10 @@
   "ignoreCommand": "[ \"$VERCEL_GIT_COMMIT_REF\" != \"main\" ] && exit 0; SUBJ=$(printf '%s\\n' \"${VERCEL_GIT_COMMIT_MESSAGE:-$(git log -1 --pretty=%B 2>/dev/null)}\" | head -1); case \"$SUBJ\" in *\"[skip ci]\"*) echo skip-screen-invisible; exit 0;; *) exit 1;; esac",
   "crons": [
     {
+      "path": "/api/cron/freee-cash-ledger-sync",
+      "schedule": "5 0 * * *"
+    },
+    {
       "path": "/api/cron/freee-payment-sync",
       "schedule": "10 0 * * *"
     },
