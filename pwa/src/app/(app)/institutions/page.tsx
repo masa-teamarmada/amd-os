@@ -23,9 +23,10 @@ import {
 } from "@/lib/institution-projects";
 import { RegulationMatrix } from "@/components/institutions/InstitutionRegulations";
 import { SupportProgramMatrix } from "@/components/institutions/InstitutionSupportPrograms";
+import { SupportProgramAnalysis } from "@/components/institutions/InstitutionSupportAnalysis";
 import { prefetchInstitutionSupportPrograms } from "@/lib/institution-support-programs-client";
 
-type ViewMode = "catalog" | "regulations" | "support" | "ecr";
+type ViewMode = "catalog" | "regulations" | "support" | "analysis" | "ecr";
 
 /** ヒートマップ用 単色 (indigo) 濃淡。score 0..1、高いほど濃い。null=未評価グレー。 */
 function heatCell(score: number | null): { background: string; color: string } {
@@ -181,7 +182,7 @@ export default function InstitutionsPage() {
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div
-            className="inline-grid grid-cols-4 rounded-md border border-slate-300 bg-slate-100 p-0.5"
+            className="inline-grid grid-cols-5 rounded-md border border-slate-300 bg-slate-100 p-0.5"
             role="tablist"
             aria-label="研究機関の表示切り替え"
           >
@@ -205,13 +206,20 @@ export default function InstitutionsPage() {
               支援プログラム比較
             </ViewButton>
             <ViewButton
+              active={viewMode === "analysis"}
+              onClick={() => setViewMode("analysis")}
+              onPrefetch={prefetchInstitutionSupportPrograms}
+            >
+              分析
+            </ViewButton>
+            <ViewButton
               active={viewMode === "ecr"}
               onClick={() => setViewMode("ecr")}
             >
               ECR比較
             </ViewButton>
           </div>
-          {viewMode !== "ecr" && (
+          {viewMode !== "ecr" && viewMode !== "analysis" && (
             <label className="relative block w-full sm:w-72">
               <Search
                 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
@@ -235,6 +243,8 @@ export default function InstitutionsPage() {
         <RegulationMatrix institutions={bundle.institutions} query={query} />
       ) : viewMode === "support" ? (
         <SupportProgramMatrix institutions={bundle.institutions} query={query} />
+      ) : viewMode === "analysis" ? (
+        <SupportProgramAnalysis institutions={bundle.institutions} />
       ) : (
         <EcrComparison bundle={bundle} results={results} />
       )}

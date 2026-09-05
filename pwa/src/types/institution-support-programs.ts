@@ -21,6 +21,25 @@ export interface SupportProgramColumn {
   itemKind: "status" | "attribute";
 }
 
+/** 制度比較マトリクスの全項目 (比較表の列に限らない)。分析タブが使う。 */
+export interface SupportProgramItem {
+  policyItemId: string;
+  key: string;
+  label: string;
+  category: string;
+  itemKind: "status" | "attribute";
+  /** 比較表の列なら compare_sort、そうでなければ null。 */
+  compareSort: number | null;
+}
+
+/** 比較表の列に無い項目のセル (分析用の軽い形。根拠・出典は持たない)。 */
+export interface SupportProgramExtraCell {
+  institutionId: string;
+  policyItemId: string;
+  status: InstitutionPolicyStatus;
+  value: string | null;
+}
+
 /** 研究機関 × 列 のセル。内部資料パスと入力者は会員向けには返さない。 */
 export interface SupportProgramCell {
   institutionId: string;
@@ -71,6 +90,8 @@ export interface SupportProgramRecommendation {
 export interface SupportProgramBundle {
   columns: SupportProgramColumn[];
   cells: SupportProgramCell[];
+  items: SupportProgramItem[];
+  extraCells: SupportProgramExtraCell[];
   recommendations: SupportProgramRecommendation[];
   generatedAt: string;
   canEdit: boolean;

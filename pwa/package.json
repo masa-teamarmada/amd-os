@@ -63,6 +63,7 @@
     "test:cockpit-navigation": "node --experimental-strip-types scripts/check_cockpit_navigation.mts",
     "test:ui-design-code": "node scripts/check_ui_design_code.mjs",
     "test:reference-data-cache": "node scripts/check_reference_data_cache_contract.mjs",
+    "test:institution-support-analysis": "node --experimental-strip-types scripts/check_institution_support_analysis.mts",
     "test:llm-spend-gate": "node scripts/check_llm_spend_gate_contract.mjs",
     "test:atlas-ingest": "node scripts/test_atlas_ingest_contract.mjs",
     "check:bzm30-sensitivity-base": "node scripts/check_bzm30_sensitivity_base.mjs",

@@ -21,6 +21,8 @@ import type {
   RecommendationStance,
   SupportProgramCell,
   SupportProgramColumn,
+  SupportProgramExtraCell,
+  SupportProgramItem,
   SupportProgramRecommendation,
 } from "@/types/institution-support-programs";
 
@@ -30,6 +32,8 @@ const PAGE_SIZE = 1000;
 export type SupportProgramSnapshot = {
   columns: SupportProgramColumn[];
   cells: SupportProgramCell[];
+  items: SupportProgramItem[];
+  extraCells: SupportProgramExtraCell[];
   recommendations: SupportProgramRecommendation[];
   generatedAt: string;
 };
@@ -72,11 +76,13 @@ type ItemRow = {
   policy_item_id: string;
   key: string;
   label: string;
+  category: string;
   compare_label: string | null;
   description: string | null;
   item_kind: string | null;
   compare_group: string | null;
   compare_sort: number | null;
+  sort_order: number | null;
 };
 
 type CellRow = {
@@ -120,9 +126,8 @@ async function loadSupportProgramSnapshot(client: SupabaseClient): Promise<Suppo
   const [itemsResult, recommendationsResult] = await Promise.all([
     client
       .from("institution_policy_items")
-      .select("policy_item_id,key,label,compare_label,description,item_kind,compare_group,compare_sort")
-      .not("compare_sort", "is", null)
-      .order("compare_sort", { ascending: true }),
+      .select("policy_item_id,key,label,category,compare_label,description,item_kind,compare_group,compare_sort,sort_order")
+      .order("sort_order", { ascending: true }),
     client
       .from("institution_policy_recommendations")
       .select(
@@ -152,20 +157,34 @@ async function loadSupportProgramSnapshot(client: SupabaseClient): Promise<Suppo
     updatedAt: row.updated_at,
   }));
 
-  const columns: SupportProgramColumn[] = ((itemsResult.data ?? []) as ItemRow[]).map((row) => ({
+  const allRows = (itemsResult.data ?? []) as ItemRow[];
+  const items: SupportProgramItem[] = allRows.map((row) => ({
     policyItemId: row.policy_item_id,
     key: row.key,
-    label: row.compare_label || row.label,
-    fullLabel: row.label,
-    description: row.description ?? null,
-    group: row.compare_group || "その他",
-    compareSort: Number(row.compare_sort ?? 0),
+    label: row.label,
+    category: row.category,
     itemKind: row.item_kind === "attribute" ? "attribute" : "status",
+    compareSort: row.compare_sort == null ? null : Number(row.compare_sort),
   }));
-  const itemIds = columns.map((column) => column.policyItemId);
+  const columns: SupportProgramColumn[] = allRows
+    .filter((row) => row.compare_sort != null)
+    .sort((a, b) => Number(a.compare_sort) - Number(b.compare_sort))
+    .map((row) => ({
+      policyItemId: row.policy_item_id,
+      key: row.key,
+      label: row.compare_label || row.label,
+      fullLabel: row.label,
+      description: row.description ?? null,
+      group: row.compare_group || "その他",
+      compareSort: Number(row.compare_sort ?? 0),
+      itemKind: row.item_kind === "attribute" ? "attribute" : "status",
+    }));
+  const compareIds = new Set(columns.map((column) => column.policyItemId));
+  const itemIds = items.map((item) => item.policyItemId);
 
   // PostgREST の1レスポンス上限 (1000行) を跨いでも落とさないよう、ページで読む。
   const cells: SupportProgramCell[] = [];
+  const extraCells: SupportProgramExtraCell[] = [];
   if (itemIds.length) {
     for (let from = 0; ; from += PAGE_SIZE) {
       const page = await client
@@ -180,6 +199,17 @@ async function loadSupportProgramSnapshot(client: SupabaseClient): Promise<Suppo
       if (page.error) throw new Error(page.error.message);
       const rows = (page.data ?? []) as CellRow[];
       for (const row of rows) {
+        if (!compareIds.has(row.policy_item_id)) {
+          extraCells.push({
+            institutionId: row.institution_id,
+            policyItemId: row.policy_item_id,
+            status: STATUSES.includes(row.status as InstitutionPolicyStatus)
+              ? (row.status as InstitutionPolicyStatus)
+              : "unknown",
+            value: row.attribute_value ? row.attribute_value.slice(0, 120) : null,
+          });
+          continue;
+        }
         cells.push({
           institutionId: row.institution_id,
           policyItemId: row.policy_item_id,
@@ -199,5 +229,5 @@ async function loadSupportProgramSnapshot(client: SupabaseClient): Promise<Suppo
     }
   }
 
-  return { columns, cells, recommendations, generatedAt: new Date().toISOString() };
+  return { columns, cells, items, extraCells, recommendations, generatedAt: new Date().toISOString() };
 }
