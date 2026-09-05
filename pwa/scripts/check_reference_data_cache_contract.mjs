@@ -116,6 +116,12 @@ const REFERENCE_DATA_ENDPOINTS = [
     routeFile: "src/app/api/admin/project-profitability/route.ts",
     clientModule: "src/lib/project-profitability-client.ts",
   },
+  {
+    endpoint: "/api/institutions/support-programs",
+    label: "研究機関の支援プログラム比較 (/institutions)",
+    routeFile: "src/app/api/institutions/support-programs/route.ts",
+    clientModule: "src/lib/institution-support-programs-client.ts",
+  },
 ];
 
 // ---------------------------------------------------------------------------

@@ -10,6 +10,7 @@
   ],
   "generatedAt": "2026-08-23",
   "reasons": {
+    "src/lib/institution-support-programs-client.ts": "書き込み専用。支援プログラム比較のセル保存 (POST /api/institutions/policies) にしか使わない。推奨 (論点) の保存 (POST /api/institutions/support-program-recommendations) も同じ。読み取りは同じファイルのキャッシュ経由 (/api/institutions/support-programs) で、保存直後に invalidateInstitutionSupportPrograms() を通して読み直す (2026-09-05 追加)。",
     "src/components/project-workspace/ProjectThemeRoutes.tsx": "可変系。/api/project-workspace/:p はテーマハブのタスク/MTG/資料/予定成果物/プロフィールの読み直し (保存直後に自分で更新した内容を反映するrefreshBundle) で、参照系キャッシュを挟むと自分の書き込みが古い値で上書き表示される。/api/project-workspace/:p/theme/:p はthemeHubFetch経由でPOST/PATCHの書き込みにしか使わない (GETで読むことはない) — このガードの静的検出が読み取りと誤検知しているだけの偽陽性。/api/workspace-documents はPJ資料室のアップロード済み実ファイル一覧 (ユーザーが随時アップロード/共有変更する) で、確定済みマスタではない。",
     "src/components/admin/MemberPayoutBreakdownModal.tsx": "可変系。支払額・繰越・未払い残は報酬キャッシュ再計算や合意ゲートの操作で当日中に変わる残高で、開くたびに最新を読む必要がある (古い値を出すと支払判断を誤らせる)。",
     "src/components/cockpit/CockpitProjectControl.tsx": "可変系。週次差分・ガント・関係先・論点仮説はこの画面から直接編集し、他メンバーの更新も当日中に反映される必要がある。PJコックピットの管制4タブとPJワークスペース (/project/[projectId]/workspace) が同じ束を読む (2026-08-28 統合)。4タブは1マウントを共有するのでタブ移動では読み直さない。",
@@ -20,6 +21,10 @@
     "src/components/admin/cash/CashLedgerPanel.tsx": "書き込み専用。口座明細 (cash-entries) と借入・返済 (cash-loan-events) の POST/DELETE にしか使わない。読み取りは src/lib/finance/cash-and-loans-client.ts のキャッシュ経由で、書き込み直後に invalidateCashAndLoans() を通して読み直す。ガードの静的検出が読み取りと誤認しないよう、読み取りの /api/admin/cash とパスを分けている。"
   },
   "allowed": {
+    "src/lib/institution-support-programs-client.ts": [
+      "/api/institutions/policies",
+      "/api/institutions/support-program-recommendations"
+    ],
     "src/components/project-workspace/ProjectThemeRoutes.tsx": [
       "/api/project-workspace/:p",
       "/api/project-workspace/:p/theme/:p",

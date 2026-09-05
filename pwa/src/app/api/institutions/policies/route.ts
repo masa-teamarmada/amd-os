@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { InstitutionPolicySourceType, InstitutionPolicyStatus } from "@/lib/institution-policy";
+import { invalidateInstitutionSupportProgramsCache } from "@/lib/institution-support-programs";
 
 const VALID_STATUSES = new Set<InstitutionPolicyStatus>([
   "unknown",
@@ -103,5 +104,7 @@ export async function POST(req: NextRequest) {
     )
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // /institutions「支援プログラム比較」のサーバ側スナップショットを捨てる (参照系の書き込み経路の約束)
+  invalidateInstitutionSupportProgramsCache();
   return NextResponse.json({ ok: true, assessment: data });
 }

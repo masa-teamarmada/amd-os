@@ -3,6 +3,7 @@
 /**
  * /institutions — 契約有無に依存しない研究機関カタログ。
  * ECR比較は同じ正本データの別表示とし、一覧の主役にはしない。
+ * SU関連規程と支援プログラム比較は同じ institutions マスタを行にするので、機関を足せば両方に出る。
  */
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -21,8 +22,10 @@ import {
   type ProjectLifecycle,
 } from "@/lib/institution-projects";
 import { RegulationMatrix } from "@/components/institutions/InstitutionRegulations";
+import { SupportProgramMatrix } from "@/components/institutions/InstitutionSupportPrograms";
+import { prefetchInstitutionSupportPrograms } from "@/lib/institution-support-programs-client";
 
-type ViewMode = "catalog" | "regulations" | "ecr";
+type ViewMode = "catalog" | "regulations" | "support" | "ecr";
 
 /** ヒートマップ用 単色 (indigo) 濃淡。score 0..1、高いほど濃い。null=未評価グレー。 */
 function heatCell(score: number | null): { background: string; color: string } {
@@ -178,7 +181,7 @@ export default function InstitutionsPage() {
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div
-            className="inline-grid grid-cols-3 rounded-md border border-slate-300 bg-slate-100 p-0.5"
+            className="inline-grid grid-cols-4 rounded-md border border-slate-300 bg-slate-100 p-0.5"
             role="tablist"
             aria-label="研究機関の表示切り替え"
           >
@@ -193,6 +196,13 @@ export default function InstitutionsPage() {
               onClick={() => setViewMode("regulations")}
             >
               SU関連規程
+            </ViewButton>
+            <ViewButton
+              active={viewMode === "support"}
+              onClick={() => setViewMode("support")}
+              onPrefetch={prefetchInstitutionSupportPrograms}
+            >
+              支援プログラム比較
             </ViewButton>
             <ViewButton
               active={viewMode === "ecr"}
@@ -223,6 +233,8 @@ export default function InstitutionsPage() {
         <InstitutionCatalog rows={catalogRows} />
       ) : viewMode === "regulations" ? (
         <RegulationMatrix institutions={bundle.institutions} query={query} />
+      ) : viewMode === "support" ? (
+        <SupportProgramMatrix institutions={bundle.institutions} query={query} />
       ) : (
         <EcrComparison bundle={bundle} results={results} />
       )}
@@ -244,10 +256,13 @@ function SummaryMetric({ label, value }: { label: string; value: string }) {
 function ViewButton({
   active,
   onClick,
+  onPrefetch,
   children,
 }: {
   active: boolean;
   onClick: () => void;
+  /** タブを開く前に裏でデータを温める (参照系タブの hover / focus 先読み)。 */
+  onPrefetch?: () => void;
   children: React.ReactNode;
 }) {
   return (
@@ -256,6 +271,8 @@ function ViewButton({
       role="tab"
       aria-selected={active}
       onClick={onClick}
+      onMouseEnter={onPrefetch}
+      onFocus={onPrefetch}
       className={`min-h-9 rounded px-4 text-xs font-semibold ${active ? "bg-white text-slate-950 shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
     >
       {children}

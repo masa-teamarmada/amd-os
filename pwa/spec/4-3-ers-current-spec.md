@@ -18,6 +18,11 @@
 | `pwa/src/lib/ers.ts` | ECR 型 / score calculation |
 | `pwa/src/lib/institution-projects.ts` | `institution_projects` 行を画面用の関連PJへ変換する純粋関数 |
 | `pwa/src/app/api/institutions/assess/route.ts` | 評価 cell upsert |
+| `pwa/src/components/institutions/InstitutionSupportPrograms.tsx` | `/institutions` 支援プログラム比較タブ (比較表 + 推奨表 + 詳細/編集ドロワー) |
+| `pwa/src/lib/institution-support-programs.ts` | server-only。比較列・セル・推奨のプロセス内スナップショット (TTL 5分、single-flight、ページ読み) |
+| `pwa/src/lib/institution-support-programs-client.ts` | クライアント層。`reference-data-cache` 経由の読み取りと、セル・推奨の保存 |
+| `pwa/src/app/api/institutions/support-programs/route.ts` | 支援プログラム比較の読み取り (member、portfolio scope、Cache-Control 明示) |
+| `pwa/src/app/api/institutions/support-program-recommendations/route.ts` | 推奨 (論点) の upsert (admin) |
 
 ## DB
 
@@ -29,7 +34,9 @@
 | `institution_capability_criteria` | 各軸の sub criteria。`criterion_id` PK、axis_id、code、name、rubric JSON |
 | `institution_assessments` | 評価履歴。`assessment_id` PK、unique `(institution_id, criterion_id, evaluated_at)` |
 | `institution_policy_items` | 制度比較マトリクスの項目 master。`policy_item_id` PK、category、key、label、description、value_type、sort_order |
+| `institution_policy_items` (追加列) | `compare_group` / `compare_sort` / `compare_label` (migration 375)。`compare_sort` を持つ項目だけが `/institutions` 支援プログラム比較の列になる。列の並び・短い見出しは DB が正本 |
 | `institution_policy_assessments` | 機関 × 制度項目の証拠台帳。`policy_assessment_id` PK、unique `(institution_id, policy_item_id)`、status、attribute_value、evidence_note、source_type、source_url、source_path、confirmed_at、evaluator |
+| `institution_policy_recommendations` | AMD が規程類へ盛り込むべき論点と推奨 (migration 376)。`recommendation_id` PK、`policy_item_id` (nullable FK)、topic、stance (`recommend` / `conditional` / `not_recommend` / `open`)、recommendation、conditions、rationale、evidence_note、stat_note、sort_order、is_active。統計は持たず画面が算出する。RLS は member read / admin all / service_role |
 
 `institution_assessments.level` は 1..5 または NULL。`na=true` の場合は該当なしとして軸平均から除外する。
 
@@ -138,6 +145,41 @@ python3 -X utf8 scripts/apply_ddl.py scripts/migrations/120_institution_policy_a
 - `confirmed_at is null` が0件。
 - 機関別status分布が入力記録 `pwa/design/institution_policy_matrix_inputs_2026-05-31.md` と一致する。
 - `/institutions/assess` の `制度整備` / `規程比較` / `根拠資料` タブで、香川大/KUTE/NIMSの各セルと根拠が読める。
+
+## 支援プログラム比較 Contract (2026-09-05)
+
+`/institutions` の「支援プログラム比較」タブ。行は `institutions` 全件 (SU関連規程タブと同じ母集団)、列は `institution_policy_items` の `compare_sort` 非 NULL 項目 (16 列、5 群)。
+
+読み取り `GET /api/institutions/support-programs`:
+
+- 認証: `requireMember()` に加えて `getCurrentMemberAccess()` が `portfolio` scope のときだけ通す。PJ限定の外部メンバーへ横断母集団を返さない。
+- `institution_policy_assessments` の RLS は admin 限定のまま。route が service client で読み、会員へは `status` / `attribute_value` / `evidence_note` / `source_url` / `source_type` / `confirmed_at` だけ返す。**`source_path` と `evaluator` は返さない**。
+- 3 層キャッシュ (spec 5-10)。サーバ層は列定義と推奨を並列に読み、セルは `.range()` のページ読みで 1000 行上限を跨ぐ。`?fresh=1` でサーバ層を強制再読込。`Cache-Control: private, max-age=60, stale-while-revalidate=600`。
+- 応答: `{ ok, columns[], cells[], recommendations[], generatedAt, canEdit }`。`canEdit` は `members.is_admin`。
+- 書き込み経路 (`POST /api/institutions/policies`、`POST /api/institutions/support-program-recommendations`) は保存後に `invalidateInstitutionSupportProgramsCache()` を呼ぶ。クライアントは `invalidateInstitutionSupportPrograms()` の後に `fresh=1` で読み直す。
+
+推奨の書き込み `POST /api/institutions/support-program-recommendations` (admin):
+
+| field | required | contract |
+|---|---|---|
+| `recommendationId` | no | 省略で新規 (`rec_<uuid>`)。指定で上書き |
+| `policyItemId` | no | 比較列に紐づける `institution_policy_items.policy_item_id`。存在しない ID は 400。null なら統計なし |
+| `topic` | yes | 論点 (問いの形) |
+| `stance` | yes | `recommend` / `conditional` / `not_recommend` / `open` |
+| `recommendation` | yes | AMD の推奨 (一文) |
+| `conditions` / `rationale` / `evidenceNote` / `statNote` | no | 規程へ盛り込む条件 / 根拠 / 代表例・出典 / 統計への補足 |
+| `sortOrder` | no | 既定 100 |
+| `isActive` | no | false で表から外す (行は残す) |
+
+画面の集計契約 (純粋関数 `computeRecommendationStats`):
+
+- 論点に `policyItemId` があるとき、全機関のセル状態を数える。`confirmed = total - unknown`、割合は `established / confirmed`。**未確認を分母に入れない**。
+- 比較表上部の要約 (認定制度あり / 学内本店登記 可 / 施設貸与あり / 共用設備あり) も `established` だけを数える。
+
+Validation:
+
+- `npm run test:reference-data-cache` で `/api/institutions/support-programs` が登録済み参照系として契約 1〜3 を満たすこと。書き込み専用の 2 経路は `reference_data_cache_baseline.json` に理由付きで載っている。
+- `institutions` に 1 件足すと、一覧 / SU関連規程 / 支援プログラム比較 / ECR比較 の全部に同じ行が出ること (行の母集団はコード側で持たない)。
 
 ## Failure Mode
 
