@@ -18,6 +18,38 @@ export interface SxMonthlyFinancePlanRow {
   nonDilutiveFundingYen: number;
 }
 
+export interface SxSourceCashflowRow {
+  ym: string;
+  operating_cash_flow_yen?: number | null;
+  investing_cash_flow_yen?: number | null;
+  equity_funding_yen?: number | null;
+  grant_receipt_yen?: number | null;
+  net_cash_flow_yen: number;
+  opening_cash_yen: number | null;
+  closing_cash_yen: number | null;
+  source_note: string | null;
+}
+
+/** Adopted workbook cash flows are independent of P/L and capital-policy scenarios. */
+export function buildSxSourceCashLedger(rows: readonly SxSourceCashflowRow[]) {
+  return rows.flatMap((row) => {
+    if (row.operating_cash_flow_yen == null || row.investing_cash_flow_yen == null
+      || row.equity_funding_yen == null || row.grant_receipt_yen == null) return [];
+    return [{
+      ym: row.ym,
+      operatingCashFlowYen: row.operating_cash_flow_yen,
+      capexCashFlowYen: row.investing_cash_flow_yen,
+      equityFundingYen: row.equity_funding_yen,
+      grantReceiptYen: row.grant_receipt_yen,
+      loanDrawdownYen: null,
+      nonDilutiveFundingYen: 0,
+      netCashFlowYen: row.net_cash_flow_yen,
+      openingCashYen: row.opening_cash_yen,
+      closingCashYen: row.closing_cash_yen,
+    }];
+  });
+}
+
 export type SxMonthlyFinanceCommentMetric =
   | "capexYen"
   | "equityFundingYen"
@@ -124,7 +156,18 @@ export function buildSxMonthlyFinancePlan(
 export function buildSxMonthlyFinanceComments(
   yms: readonly string[],
   equityEvents: readonly SxEquityFundingPlanEvent[] = SX_DEFAULT_EQUITY_FUNDING_EVENTS,
+  sourceRows?: readonly SxSourceCashflowRow[],
 ): SxMonthlyFinanceComment[] {
+  if (sourceRows) return buildSxSourceCashLedger(sourceRows).flatMap((row): SxMonthlyFinanceComment[] => {
+    if (!yms.includes(row.ym)) return [];
+    const source = sourceRows.find((item) => item.ym === row.ym);
+    const result: SxMonthlyFinanceComment[] = [];
+    if (row.capexCashFlowYen !== 0) result.push({ metric: "capexYen", ym: row.ym,
+      title: "設備投資（採用試算表）", detail: source?.source_note?.split(" source_sha256=")[0] ?? "採用した月次試算表の設備投資。", evidenceState: "plan" });
+    if (row.equityFundingYen !== 0) result.push({ metric: "equityFundingYen", ym: row.ym,
+      title: "株式調達（採用試算表）", detail: source?.source_note?.split(" source_sha256=")[0] ?? "採用した月次試算表の調達計画。着金実績ではない。", evidenceState: "plan" });
+    return result;
+  });
   const rows = buildSxMonthlyFinancePlan(yms, equityEvents);
   return rows.flatMap((row): SxMonthlyFinanceComment[] => {
     const comments: SxMonthlyFinanceComment[] = [];

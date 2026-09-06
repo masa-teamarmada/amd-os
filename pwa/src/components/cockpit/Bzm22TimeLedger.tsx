@@ -18,7 +18,7 @@ import {
   type ProjectPlMonthly,
 } from "@/lib/venture-status-data";
 import {
-  buildSxMonthlyFinancePlan,
+  buildSxSourceCashLedger,
   buildSxMonthlyFinanceComments,
   SX_DEFAULT_EQUITY_FUNDING_EVENTS,
   type SxMonthlyFinanceComment,
@@ -615,13 +615,20 @@ export function Bzm22TimeLedger({
   pilot: Bzm22PilotProject;
   gateMonths: Record<string, number>;
 }) {
-  const axis = useMemo(
-    () => buildBzm22SharedMonthAxis(pilot.valuationDate, pilot.calculationTrace.inputs.horizonMonths),
-    [pilot.valuationDate, pilot.calculationTrace.inputs.horizonMonths],
-  );
-  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [rows, setRows] = useState<ProjectPlMonthly[]>([]);
   const [monthlyCashflows, setMonthlyCashflows] = useState<ProjectMonthlyCashflow[]>([]);
+  const axis = useMemo(() => {
+    let horizon = pilot.calculationTrace.inputs.horizonMonths;
+    if (pilot.projectId === "p21") {
+      const [startYear, startMonth] = pilot.valuationDate.slice(0, 7).split("-").map(Number);
+      for (const row of [...rows, ...monthlyCashflows]) {
+        const [year, month] = row.ym.split("-").map(Number);
+        horizon = Math.max(horizon, (year - startYear) * 12 + month - startMonth);
+      }
+    }
+    return buildBzm22SharedMonthAxis(pilot.valuationDate, horizon);
+  }, [pilot.projectId, pilot.valuationDate, pilot.calculationTrace.inputs.horizonMonths, rows, monthlyCashflows]);
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -773,17 +780,9 @@ export function Bzm22TimeLedger({
   const visiblePlRows = pilot.projectId === "p21" ? SX_PL_ROWS : PL_ROWS;
   const sxCashLedger = useMemo(() => {
     if (pilot.projectId !== "p21") return [] as SxCashLedgerRow[];
-    const financeRows = buildSxMonthlyFinancePlan(axis.map((month) => month.ym), sxEquityEvents)
-      .filter((finance) => finance.ym >= sxIncorporationYm);
-    return financeRows.map((finance): SxCashLedgerRow => {
-      const plRow = rowByMonth.get(finance.ym) ?? emptyPlRow(pilot.projectId, finance.ym);
-      const operatingCashFlowYen = plValue(plRow, "operating_profit");
-      const capexCashFlowYen = -finance.capexYen;
-      const netCashFlowYen = operatingCashFlowYen + capexCashFlowYen + finance.equityFundingYen
-        + (finance.loanDrawdownYen ?? 0) + finance.grantReceiptYen;
-      return { ...finance, nonDilutiveFundingYen: 0, operatingCashFlowYen, capexCashFlowYen, netCashFlowYen, openingCashYen: null, closingCashYen: null };
-    });
-  }, [axis, pilot.projectId, rowByMonth, sxEquityEvents, sxIncorporationYm]);
+    return buildSxSourceCashLedger(monthlyCashflows)
+      .filter((row) => row.ym >= sxIncorporationYm);
+  }, [pilot.projectId, monthlyCashflows, sxIncorporationYm]);
   const sxCashByMonth = useMemo(() => new Map(sxCashLedger.map((row) => [row.ym, row])), [sxCashLedger]);
   const cxCashLedger = useMemo(() => {
     if (pilot.projectId !== "p20") return [] as SxCashLedgerRow[];
@@ -864,14 +863,14 @@ export function Bzm22TimeLedger({
       grantReceiptYen: sum("grantReceiptYen"),
       // 採用月次試算表の対象外の資金は、C/F要約へ補完計上しない。
       phase0FundingYen: 0,
-      closingCashYen: null,
+      closingCashYen: sxVisibleCashLedger.at(-1)?.closingCashYen ?? null,
       adoptedYen,
       disbursedKnown,
       disbursedYen,
     };
   }, [sxGrantEvidence, sxVisibleCashLedger]);
   const sxFinanceCommentsByCell = useMemo(() => {
-    const comments = buildSxMonthlyFinanceComments(axis.map((month) => month.ym), sxEquityEvents);
+    const comments = buildSxMonthlyFinanceComments(axis.map((month) => month.ym), sxEquityEvents, monthlyCashflows);
     const grouped = new Map<string, LedgerCellComment[]>();
     const add = (metric: SxMonthlyFinanceComment["metric"], ym: string, comment: LedgerCellComment) => {
       const key = `${metric}:${ym}`;
@@ -898,7 +897,7 @@ export function Bzm22TimeLedger({
       });
     }
     return grouped;
-  }, [axis, sxEquityEvents, sxGrantEvidence]);
+  }, [axis, sxEquityEvents, sxGrantEvidence, monthlyCashflows]);
   const cxFinanceCommentsByCell = useMemo(() => {
     const grouped = new Map<string, LedgerCellComment[]>();
     const add = (metric: string, ym: string, comment: LedgerCellComment) => {
@@ -1030,7 +1029,7 @@ export function Bzm22TimeLedger({
               ["株式調達", formatMillionFromYen(sxFinanceSummary.equityFundingYen)],
               ["融資", "未計画"],
               ["助成金等入金（計画）", formatMillionFromYen(sxFinanceSummary.grantReceiptYen)],
-              ["M60 月末資金", sxFinanceSummary.closingCashYen === null ? "算定不能" : formatMillionFromYen(sxFinanceSummary.closingCashYen)],
+              [`${sxVisibleCashLedger.at(-1)?.ym ?? "期末"} 月末資金`, sxFinanceSummary.closingCashYen === null ? "未登録" : formatMillionFromYen(sxFinanceSummary.closingCashYen)],
             ].map(([label, value]) => (
               <div key={label} className="bg-white px-1.5 py-1">
                 <div className="truncate text-[8px] font-medium leading-3 text-slate-500">{label}</div>
@@ -1045,7 +1044,7 @@ export function Bzm22TimeLedger({
           </div>
           <details className="mt-0.5 text-[8px] leading-3 text-slate-500">
             <summary className="cursor-pointer list-none font-semibold text-[#376274] marker:content-none">計上規則と精度を表示</summary>
-            <p className="mt-0.5">設立前PJのPhase 0資金はNewCoのC/F・現金残高へ入れない。NewCo C/Fは2027-02から表示し、設立時残高が未確認のため月初・月末残高は算定不能。設備投資・助成金等は年次額を各FY4月へ仮置きした低精度の入出金時期。</p>
+            <p className="mt-0.5">採用試算表 v3.2（2027年4月〜2037年3月）の計画値。営業CFは税金・償却の足し戻し・運転資金を反映した原表の額。設備投資・調達・月初月末現金も原表の月別額を表示する。初回1.5億円、STS入金なし。回収・支払は翌月の仮定。対象期間外の資金は補完しない。</p>
           </details>
         </div>
       ) : null}
@@ -1075,8 +1074,8 @@ export function Bzm22TimeLedger({
               />
             ) : null}
             {registeredPolicy ? (
-              <div className="absolute top-1 z-10 h-[18px] border-y border-[#82a3ae] bg-[#e7eff2]" style={{ left: MONTH_WIDTH / 2, width: (axis.length - 1) * MONTH_WIDTH }}>
-                <span className="sticky left-1 block w-fit px-1 text-[9px] font-semibold leading-[16px] text-[#24596a]">{registeredPolicy.label} · M0–M{axis.length - 1}</span>
+              <div className="absolute top-1 z-10 h-[18px] border-y border-[#82a3ae] bg-[#e7eff2]" style={{ left: MONTH_WIDTH / 2, width: pilot.calculationTrace.inputs.horizonMonths * MONTH_WIDTH }}>
+                <span className="sticky left-1 block w-fit px-1 text-[9px] font-semibold leading-[16px] text-[#24596a]">{registeredPolicy.label} · M0–M{pilot.calculationTrace.inputs.horizonMonths}</span>
               </div>
             ) : null}
             <div className="absolute left-0 right-0 h-px bg-[#173f51]" style={{ top: AXIS_Y }} />
@@ -1174,7 +1173,7 @@ export function Bzm22TimeLedger({
                 <div key={metric.key} className="contents">
                   <div className={`sticky left-0 z-30 border-b border-r border-slate-300 px-2 py-0.5 ${metric.emphasis ? "bg-[#edf3f5]" : "bg-white"}`}>
                     <div className={`truncate text-[10px] leading-4 ${metric.emphasis ? "font-semibold text-[#173f51]" : "text-slate-700"}`}>
-                      {metric.label}
+                      {pilot.projectId === "p21" && metric.key === "operatingCashFlowYen" ? "営業C/F（採用試算）" : metric.label}
                       {metric.kind === "unplanned" ? <span className="ml-1 text-[8px] text-slate-500">未計画</span> : null}
                     </div>
                   </div>
@@ -1233,12 +1232,12 @@ export function Bzm22TimeLedger({
             <div className="text-[8px] leading-3 text-slate-500">資金繰りと別。J・Pへ接続</div>
           </div>
           {axis.map((month) => {
-            const value = month.month === 0
+            const value = month.month > pilot.calculationTrace.inputs.horizonMonths ? null : month.month === 0
               ? 0
               : pilot.calculationTrace.inputs.cashFlow.monthlyEconomicCFMillionJpy.base[month.month - 1] ?? 0;
             return (
               <MonthCellFrame key={`bzm-cf-${month.ym}`} month={month} className={`border-t-2 border-t-slate-400 bg-[#fdfaf4] px-1.5 py-0.5 text-right ${month.ym === accountingEntityYm ? "border-l-2 border-l-[#173f51]" : ""}`}>
-                <span className="font-mono text-[11px] leading-4 tabular-nums text-[#6b5127]">{formatMillion(value)}</span>
+                <span className="font-mono text-[11px] leading-4 tabular-nums text-[#6b5127]">{value === null ? "—" : formatMillion(value)}</span>
               </MonthCellFrame>
             );
           })}

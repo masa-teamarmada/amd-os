@@ -439,6 +439,10 @@ export interface ProjectMonthlyCashflow {
   project_id: string;
   ym: string;
   source_status: "actual" | "forecast" | "estimated";
+  operating_cash_flow_yen?: number | null;
+  investing_cash_flow_yen?: number | null;
+  equity_funding_yen?: number | null;
+  grant_receipt_yen?: number | null;
   cash_inflow_yen: number;
   sbir_payment_yen: number;
   nedo_payment_yen: number;
@@ -457,7 +461,7 @@ export interface ProjectMonthlyCashflow {
 export async function fetchMonthlyCashflow(projectId: string): Promise<ProjectMonthlyCashflow[]> {
   const { data, error } = await supabase
     .from("project_monthly_cashflow")
-    .select("id, project_id, ym, source_status, cash_inflow_yen, sbir_payment_yen, nedo_payment_yen, working_capital_payment_yen, free_cash_flow_yen, financing_cash_flow_yen, net_cash_flow_yen, opening_cash_yen, closing_cash_yen, sbir_account_balance_yen, working_capital_balance_yen, bank_borrowing_balance_yen, source_note")
+    .select("id, project_id, ym, source_status, operating_cash_flow_yen, investing_cash_flow_yen, equity_funding_yen, grant_receipt_yen, cash_inflow_yen, sbir_payment_yen, nedo_payment_yen, working_capital_payment_yen, free_cash_flow_yen, financing_cash_flow_yen, net_cash_flow_yen, opening_cash_yen, closing_cash_yen, sbir_account_balance_yen, working_capital_balance_yen, bank_borrowing_balance_yen, source_note")
     .eq("project_id", projectId)
     .order("ym", { ascending: true });
   if (error) {
