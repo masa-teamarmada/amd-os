@@ -8,7 +8,6 @@
 2. `/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md` — AMD level memory
 3. `/Users/masa/.claude/projects/-Users-masa-projects-AMD-amd-os/memory/MEMORY.md` — amd-os memory (**特に「ナラティブ判断は本文で見せる」— 2026-07-17 新設。抽象 A/B/C 案の提示は禁止、本文を書いてから承認を取る**)
 4. `/Users/masa/projects/AMD/amd-os/CLAUDE.md` — モノレポルール (ブランチ禁止・即 push)
-5. `~/.claude/skills/kaku/SKILL.md` → 指示される 2 規範 (japanese-tech-writing / cognitive-rhythm-writing) — **執筆前に必読、提出前に点検手順**
 6. `pwa/bzm/BOOK_A_MASTER_PLAN.md` §9 Ch14 行 (章仕様正本)
 7. `pwa/bzm/BOOK_A_NARRATIVE_DESIGN.md` §1 設計表 Ch14 行・§6 骨抜き防止 3+1 条項・§8 中心命題台帳
 8. `pwa/bzm/BOOK_A_STORY_WORLD.md` §2.1 (Ch14 = 楢原視点・柏木陪席)・§4 (案件 D 計測装置)
@@ -55,4 +54,3 @@
 - 分量: 章全体 22,000字上限 (現在 理論 16,831 + 章頭 2,614 = 19,445字余地内)
 - 文体: 常体 (である調)、台詞内敬語保持、章末注記は STORY_WORLD §1.2 統一短文
 - 変更したら同 commit で `pwa/bzm/9-5-appendix-changelog.md` へ追記
-- kaku 点検 (話題テスト・漏出テスト・緊張台帳・拍・境界) を提出前に必ず通し、修正版にも再適用

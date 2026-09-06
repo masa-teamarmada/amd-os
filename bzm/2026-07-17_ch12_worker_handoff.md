@@ -26,7 +26,6 @@
 
 ## 確立済み運用ルール (このレーン)
 
-- 執筆規範は kaku 入口経由 (`~/.claude/skills/kaku/SKILL.md` → 本体2規範)。提出前に点検手順 (話題テスト・漏出テスト・緊張台帳・拍・境界) 必須、修正版にも再適用。
 - 理論パート執筆中はまさへ確認質問しない (2026-07-16 まさ明示)。judgment call は自分で決めて司令塔へ事後報告。
 - 語彙: 鬼門禁止 (→不可逆点) / validation 語彙禁止 (D-056) / 運用数値 (n₀・自動降格窓 Δ・θ 閾値) 非公開 (PF-010) / SPS = M×P×R×S (B案)。
 - git: main 一本・ブランチ作成禁止・`git add .` 禁止・push 直前 fetch 必須。main checkout が他レーン dirty で pull 不可の場合は disposable clean clone 経由 (今回の実績: clone → コピー → commit → push → 削除)。
@@ -42,7 +41,6 @@
 2. /Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md — AMD level memory
 3. /Users/masa/projects/AMD/amd-os/CLAUDE.md — モノレポルール (ブランチ禁止・即push)
 4. /Users/masa/projects/AMD/amd-os/pwa/bzm/2026-07-17_ch12_worker_handoff.md — 本引き継ぎ (状態・残タスク・設計判断)
-5. ~/.claude/skills/kaku/SKILL.md → 指示される本体2規範 (執筆規範、提出前点検必須)
 6. /Users/masa/projects/AMD/amd-os/pwa/bzm/book-a-ch-12.md — 理論パート v1 (正本)
 7. /Users/masa/projects/AMD/amd-os/pwa/bzm/2026-07-16_narrative_rebuild_ch12_v1.md — 章頭白紙構想 v1 + 中心命題C案の記録
 
@@ -52,7 +50,7 @@
 - 中心命題 C案のみまさ確定済み:「RTとは、署名を集める協定ではなく、退路を断ったコミットが連鎖し続ける共同体である」
 
 ## タスク (どちらかを司令塔起票で指定される)
-(a) まさの理論パート確認対応: 修正指示を受けて book-a-ch-12.md を改稿。kaku 点検を通して commit + push、9-5 附則に1行追記。
+(a) まさの理論パート確認対応: 修正指示を受けて book-a-ch-12.md を改稿。commit + push、9-5 附則に1行追記。
 (b) 章頭ナラティブ (12.0) 執筆: 白紙構想 v1 を素材候補とし (確定扱いにしない — 骨抜き防止 3+1 条項は NARRATIVE_DESIGN §6)、要求仕様 (NARRATIVE_DESIGN §1 Ch12 行 = 春・新緑/円卓の空席/空席の絵/待つことの緊張/志野視点/柏木陪席、STORY_WORLD §2.1 = 湊の名前初出・B触媒・G蓄電材料候補) でまさと対話しながら確定。討議課題A・章末免責注記の位置調整 (現在は章末に暫定)・B面回収の理論側癒着も同時に。
 
 ## 禁止・注意

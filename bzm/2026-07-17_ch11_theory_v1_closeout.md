@@ -59,11 +59,10 @@ kaku 点検手順 (話題テスト・LLM 空句照合・冗長排除・緊張台
 - book-a-ch-11.md 理論パート v1 = origin/main 反映済み (8fbf693 + edad4bb)。11.0 はプレースホルダ (章頭は別プロセス)
 - まさ承認待ち。承認 or 指摘が来たら本 prompt の次タスクを実行
 - root checkout は behind + 他レーン dirty で pull 不能 → 編集・push は disposable clean clone 経由 (closeout md の「git / worktree / branch 状態」参照。root には書かない)
-- 執筆規範 = kaku 入口 (~/.claude/skills/kaku/SKILL.md) 経由で 2 規範 Read → 提出前に点検手順を通す (恒久ルール)
 - まさへの確認質問は最小限 (理論パート範囲は自分で判断、事後報告)
 
 ## 次タスク (優先順)
-1. まさの指摘を本文へ反映 (kaku 点検を再度通す) → clean clone 経由 commit & push
+1. まさの指摘を本文へ反映 → clean clone 経由 commit & push
 2. pwa/bzm/9-5-appendix-changelog.md へ Ch11 行を1行追記 (フォーマットは既存行に揃える。まさ承認が下りた commit と同時)
 3. 司令塔 (list_sessions で現行世代を確認してから) へ cross-session 報告
 4. bzm-chapters.ts の slug 再マッピングは掃討レーン管轄 — 依頼が来た場合のみ対応
