@@ -377,7 +377,9 @@
   position: absolute;
   top: 0;
   left: 50%;
-  height: 20px;
+  /* 下の根タスクの横幹まで届かせる。treeViewportのtop paddingと
+     子リストの分岐余白をまたぐため、ここで線を切り替えない。 */
+  height: 40px;
   border-left: 2px solid var(--tree-line);
   content: "";
 }
