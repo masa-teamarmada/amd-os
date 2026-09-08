@@ -39,6 +39,12 @@
   align-items: center;
 }
 
+.treeRoot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .objective {
   width: min(680px, calc(100% - 2rem));
   padding: 0.65rem 0.8rem;
@@ -47,6 +53,10 @@
   border-radius: 6px;
   background: linear-gradient(90deg, var(--tree-accent-soft), #ffffff 72%);
   box-shadow: 0 5px 16px rgba(2, 103, 178, .1);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
 }
 
 .objective > span,
@@ -180,13 +190,10 @@
   border-top-color: transparent;
 }
 
-.overviewChildren > li:only-child,
 .treeBranch:only-child {
-  padding-top: 0;
+  padding-top: 20px;
 }
 
-.overviewChildren > li:only-child::before,
-.overviewChildren > li:only-child::after,
 .treeBranch:only-child::before,
 .treeBranch:only-child::after {
   display: none;
@@ -368,20 +375,7 @@
 
 .treeViewport {
   position: relative;
-  padding: 20px 0 0.75rem;
-}
-
-/* 選択中の成立条件は見出しで一度だけ示し、その直下から根タスクへ幹線を落とす。
-   同じ成立条件カードをもう一枚置かず、2段目→3段目の因果を線で読み取れるようにする。 */
-.treeViewport::before {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  /* 下の根タスクの横幹まで届かせる。treeViewportのtop paddingと
-     子リストの分岐余白をまたぐため、ここで線を切り替えない。 */
-  height: 40px;
-  border-left: 2px solid var(--tree-line);
-  content: "";
+  padding: 0.15rem 0 0.75rem;
 }
 
 .workTree {
@@ -411,6 +405,12 @@
 .treeNode[data-kind="approach"] {
   width: 282px;
   border-top: 3px solid var(--amd-action, #027fdc);
+}
+
+.treeNode[data-kind="outcome"] {
+  width: 294px;
+  border-left: 4px solid var(--tree-accent);
+  background: var(--tree-accent-soft);
 }
 
 .treeNode[data-state="completed"] {
@@ -448,6 +448,44 @@
   color: inherit;
   font: inherit;
   text-align: left;
+}
+
+.nodeDisclosure {
+  display: inline-block;
+  margin-top: 0.26rem;
+  color: var(--tree-accent-strong);
+  font-size: 0.6rem;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.outcomeCounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.35rem;
+}
+
+.outcomeCounts small {
+  padding: 0.08rem 0.3rem;
+  border: 1px solid #c7d9e6;
+  border-radius: 3px;
+  background: #f4f8fb;
+  color: #51606d;
+  font-size: 0.61rem;
+  line-height: 1.35;
+}
+
+.outcomeCounts small:first-child {
+  border-color: #b9d9ee;
+  background: #ffffff;
+  color: var(--tree-accent-strong);
+}
+
+.outcomeCounts small:nth-child(2) {
+  border-color: #a7e3c7;
+  background: var(--amd-success-soft, #ecfdf5);
+  color: var(--amd-success, #047857);
 }
 
 button.nodeMain {

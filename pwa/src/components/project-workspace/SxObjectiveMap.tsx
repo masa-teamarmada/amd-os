@@ -1,6 +1,12 @@
 "use client";
 
-import { useMemo, useState, type DragEvent } from "react";
+import {
+  useMemo,
+  useState,
+  type Dispatch,
+  type DragEvent,
+  type SetStateAction,
+} from "react";
 import type {
   SxManagementBundle,
   SxManagementPartner,
@@ -97,6 +103,7 @@ function interactionDate(interaction: SxPartnerInteraction): string {
 
 type OutcomeTree = {
   outcome: SxOutcome;
+  tasks: SxTask[];
   roots: SxTask[];
   childMap: Map<string, SxTask[]>;
   partners: SxManagementPartner[];
@@ -161,8 +168,10 @@ function TaskNode({
   dropTargetTaskId,
   connectingTaskId,
   movingTaskId,
+  expandedTaskIds,
   onOpenTask,
   onOpenPartner,
+  onToggleTask,
   onCreateTask,
   onBeginConnect,
   onMoveTask,
@@ -180,8 +189,10 @@ function TaskNode({
   dropTargetTaskId: string | null;
   connectingTaskId: string | null;
   movingTaskId: string | null;
+  expandedTaskIds: Set<string>;
   onOpenTask?: (task: SxTask) => void;
   onOpenPartner?: (partner: SxManagementPartner) => void;
+  onToggleTask: (taskId: string) => void;
   onCreateTask?: (parentTask: SxTask) => void;
   onBeginConnect: (taskId: string | null) => void;
   onMoveTask: (task: SxTask, parentTaskId: string | null) => void;
@@ -191,6 +202,8 @@ function TaskNode({
   onDrop: (event: DragEvent<HTMLElement>, task: SxTask) => void;
 }) {
   const children = childMap.get(task.id) ?? [];
+  const hasChildren = children.length > 0;
+  const expanded = expandedTaskIds.has(task.id);
   const partner = task.partnerId ? partnerById.get(task.partnerId) : null;
   const stateLabel = partner
     ? partnerStateLabel(partner)
@@ -214,12 +227,20 @@ function TaskNode({
         <button
           type="button"
           className={styles.nodeMain}
-          onClick={() => onOpenTask?.(task)}
+          aria-expanded={hasChildren ? expanded : undefined}
+          onClick={() => {
+            if (hasChildren) onToggleTask(task.id);
+          }}
         >
           <span className={styles.nodeKind}>
             {partner ? "アプローチ" : "やること"}
           </span>
           <strong className={styles.nodeTitle}>{task.title}</strong>
+          {hasChildren && (
+            <span className={styles.nodeDisclosure}>
+              子タスク {children.length}件 {expanded ? "たたむ" : "開く"}
+            </span>
+          )}
           {detail && <p>{detail}</p>}
           <span
             className={styles.nodeState}
@@ -278,7 +299,7 @@ function TaskNode({
           />
         )}
       </article>
-      {children.length > 0 && (
+      {hasChildren && expanded && (
         <ul className={styles.treeChildren}>
           {children.map((child) => (
             <TaskNode
@@ -292,8 +313,10 @@ function TaskNode({
               dropTargetTaskId={dropTargetTaskId}
               connectingTaskId={connectingTaskId}
               movingTaskId={movingTaskId}
+              expandedTaskIds={expandedTaskIds}
               onOpenTask={onOpenTask}
               onOpenPartner={onOpenPartner}
+              onToggleTask={onToggleTask}
               onCreateTask={onCreateTask}
               onBeginConnect={onBeginConnect}
               onMoveTask={onMoveTask}
@@ -301,6 +324,146 @@ function TaskNode({
               onDragEnd={onDragEnd}
               onDragOver={onDragOver}
               onDrop={onDrop}
+            />
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+function OutcomeNode({
+  tree,
+  partnerById,
+  allTasks,
+  canManage,
+  expanded,
+  expandedTaskIds,
+  draggedTaskId,
+  dropTargetTaskId,
+  connectingTaskId,
+  movingTaskId,
+  onToggle,
+  onToggleTask,
+  onOpenTask,
+  onOpenPartner,
+  onCreateTask,
+  onEdit,
+  onBeginConnect,
+  onMoveTask,
+  onDragStart,
+  onDragEnd,
+  onDragOverTask,
+  onDropTask,
+  onDragOverRoot,
+  onDropRoot,
+}: {
+  tree: OutcomeTree;
+  partnerById: Map<string, SxManagementPartner>;
+  allTasks: SxTask[];
+  canManage: boolean;
+  expanded: boolean;
+  expandedTaskIds: Set<string>;
+  draggedTaskId: string | null;
+  dropTargetTaskId: string | null;
+  connectingTaskId: string | null;
+  movingTaskId: string | null;
+  onToggle: () => void;
+  onToggleTask: (taskId: string) => void;
+  onOpenTask?: (task: SxTask) => void;
+  onOpenPartner?: (partner: SxManagementPartner) => void;
+  onCreateTask?: (outcome: SxOutcome, parentTask?: SxTask) => void;
+  onEdit?: (outcome: SxOutcome) => void;
+  onBeginConnect: (taskId: string | null) => void;
+  onMoveTask: (task: SxTask, parentTaskId: string | null) => void;
+  onDragStart: (event: DragEvent<HTMLElement>, task: SxTask) => void;
+  onDragEnd: () => void;
+  onDragOverTask: (event: DragEvent<HTMLElement>, task: SxTask) => void;
+  onDropTask: (event: DragEvent<HTMLElement>, task: SxTask) => void;
+  onDragOverRoot: (event: DragEvent<HTMLElement>, tree: OutcomeTree) => void;
+  onDropRoot: (event: DragEvent<HTMLElement>, tree: OutcomeTree) => void;
+}) {
+  const childCount = tree.roots.length + tree.unlinkedPartners.length;
+
+  return (
+    <li className={styles.treeBranch}>
+      <article
+        className={styles.treeNode}
+        data-kind="outcome"
+        data-drop-target={
+          dropTargetTaskId === `outcome:${tree.outcome.id}` || undefined
+        }
+        onDragOver={(event) => onDragOverRoot(event, tree)}
+        onDrop={(event) => onDropRoot(event, tree)}
+      >
+        <button
+          type="button"
+          className={styles.nodeMain}
+          aria-expanded={expanded}
+          onClick={onToggle}
+        >
+          <span className={styles.nodeKind}>成立条件</span>
+          <strong className={styles.nodeTitle}>{tree.outcome.title}</strong>
+          <span className={styles.nodeDisclosure}>
+            {childCount > 0
+              ? `やること ${childCount}件 ${expanded ? "たたむ" : "開く"}`
+              : "やることを追加"}
+          </span>
+          <p>{tree.outcome.definitionOfDone}</p>
+          <span className={styles.outcomeCounts}>
+            <small>進行中 {tree.openCount}</small>
+            <small>完了 {tree.completedCount}</small>
+            <small>関係先 {tree.partners.length}</small>
+          </span>
+        </button>
+        {canManage && (
+          <div className={styles.nodeActions}>
+            <span aria-hidden="true">└</span>
+            <button type="button" onClick={() => onCreateTask?.(tree.outcome)}>
+              ＋ タスク
+            </button>
+            {onEdit && (
+              <button type="button" onClick={() => onEdit(tree.outcome)}>
+                編集
+              </button>
+            )}
+          </div>
+        )}
+      </article>
+      {expanded && childCount > 0 && (
+        <ul className={styles.treeChildren}>
+          {tree.roots.map((task) => (
+            <TaskNode
+              key={task.id}
+              task={task}
+              childMap={tree.childMap}
+              partnerById={partnerById}
+              allTasks={allTasks}
+              canManage={canManage}
+              draggedTaskId={draggedTaskId}
+              dropTargetTaskId={dropTargetTaskId}
+              connectingTaskId={connectingTaskId}
+              movingTaskId={movingTaskId}
+              expandedTaskIds={expandedTaskIds}
+              onOpenTask={onOpenTask}
+              onOpenPartner={onOpenPartner}
+              onToggleTask={(taskId) => onToggleTask(taskId)}
+              onCreateTask={(parentTask) =>
+                onCreateTask?.(tree.outcome, parentTask)
+              }
+              onBeginConnect={onBeginConnect}
+              onMoveTask={onMoveTask}
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+              onDragOver={onDragOverTask}
+              onDrop={onDropTask}
+            />
+          ))}
+          {tree.unlinkedPartners.map((partner) => (
+            <PartnerNode
+              key={partner.id}
+              partner={partner}
+              onOpen={() => onOpenPartner?.(partner)}
             />
           ))}
         </ul>
@@ -419,6 +582,7 @@ export function SxObjectiveMap({
       );
       return {
         outcome,
+        tasks,
         roots,
         childMap,
         partners,
@@ -438,33 +602,35 @@ export function SxObjectiveMap({
     outcomes,
   ]);
 
-  const preferredOutcome =
-    outcomeTrees.find((tree) =>
-      tree.roots.some(
-        (root) =>
-          root.partnerId ||
-          (tree.childMap.get(root.id) ?? []).some((task) => task.partnerId),
-      ),
-    ) ||
-    outcomeTrees.find((tree) => tree.outcome.title.includes("供給")) ||
-    outcomeTrees[0];
-  const [selectedOutcomeId, setSelectedOutcomeId] = useState(
-    preferredOutcome?.outcome.id ?? "",
+  const [objectiveExpanded, setObjectiveExpanded] = useState(true);
+  const [expandedOutcomeIds, setExpandedOutcomeIds] = useState<Set<string>>(
+    new Set(),
   );
-  const selectedTree =
-    outcomeTrees.find((tree) => tree.outcome.id === selectedOutcomeId) ||
-    preferredOutcome;
-
-  const selectedTasks = useMemo(() => {
-    if (!selectedTree) return [];
-    const tasks: SxTask[] = [];
-    const visit = (task: SxTask) => {
-      tasks.push(task);
-      (selectedTree.childMap.get(task.id) ?? []).forEach(visit);
-    };
-    selectedTree.roots.forEach(visit);
-    return tasks;
-  }, [selectedTree]);
+  const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const allTasks = useMemo(() => {
+    const byId = new Map<string, SxTask>();
+    outcomeTrees.forEach((tree) => {
+      tree.tasks.forEach((task) => byId.set(task.id, task));
+    });
+    return [...byId.values()];
+  }, [outcomeTrees]);
+  const treeForTask = (task: SxTask) =>
+    outcomeTrees.find((tree) =>
+      tree.tasks.some((candidate) => candidate.id === task.id),
+    );
+  const toggleSetMember = (
+    setValues: Dispatch<SetStateAction<Set<string>>>,
+    id: string,
+  ) => {
+    setValues((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const moveTask = async (task: SxTask, parentTaskId: string | null) => {
     if (task.parentTaskId === parentTaskId) {
@@ -472,13 +638,14 @@ export function SxObjectiveMap({
       return;
     }
     const parent = parentTaskId
-      ? selectedTasks.find((candidate) => candidate.id === parentTaskId)
+      ? allTasks.find((candidate) => candidate.id === parentTaskId)
       : null;
+    const taskTree = treeForTask(task);
     if (
       parent &&
       (parent.milestoneId !== task.milestoneId ||
         taskHasDescendant(
-          selectedTree?.childMap ?? new Map(),
+          taskTree?.childMap ?? new Map(),
           task.id,
           parent.id,
         ))
@@ -511,13 +678,14 @@ export function SxObjectiveMap({
   };
 
   const dragOverTask = (event: DragEvent<HTMLElement>, target: SxTask) => {
-    const dragged = selectedTasks.find((task) => task.id === draggedTaskId);
+    const dragged = allTasks.find((task) => task.id === draggedTaskId);
+    const draggedTree = dragged ? treeForTask(dragged) : null;
     if (
       !dragged ||
       dragged.id === target.id ||
       dragged.milestoneId !== target.milestoneId ||
       taskHasDescendant(
-        selectedTree?.childMap ?? new Map(),
+        draggedTree?.childMap ?? new Map(),
         dragged.id,
         target.id,
       )
@@ -533,8 +701,27 @@ export function SxObjectiveMap({
     event.preventDefault();
     event.stopPropagation();
     const taskId = event.dataTransfer.getData("text/plain") || draggedTaskId;
-    const dragged = selectedTasks.find((task) => task.id === taskId);
+    const dragged = allTasks.find((task) => task.id === taskId);
     if (dragged) void moveTask(dragged, target.id);
+  };
+
+  const dragOverRoot = (event: DragEvent<HTMLElement>, tree: OutcomeTree) => {
+    const dragged = allTasks.find((task) => task.id === draggedTaskId);
+    if (!dragged || !tree.tasks.some((task) => task.id === dragged.id)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = "move";
+    setDropTargetTaskId(`outcome:${tree.outcome.id}`);
+  };
+
+  const dropOnRoot = (event: DragEvent<HTMLElement>, tree: OutcomeTree) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const taskId = event.dataTransfer.getData("text/plain") || draggedTaskId;
+    const dragged = allTasks.find((task) => task.id === taskId);
+    if (dragged && tree.tasks.some((task) => task.id === dragged.id)) {
+      void moveTask(dragged, null);
+    }
   };
 
   if (!management.objective || outcomeTrees.length === 0) {
@@ -561,142 +748,55 @@ export function SxObjectiveMap({
 
   return (
     <div className={styles.map} data-testid="sx-objective-map">
-      <div className={styles.overviewViewport}>
-        <ul className={styles.overviewTree}>
-          <li>
-            <section className={styles.objective} aria-label="最上位の目的">
+      {moveMessage && (
+        <p className={styles.moveMessage} role="status">
+          {moveMessage}
+        </p>
+      )}
+      <div className={styles.treeViewport}>
+        <ul className={styles.workTree} aria-label="目的構造">
+          <li className={styles.treeRoot}>
+            <button
+              type="button"
+              className={styles.objective}
+              aria-expanded={objectiveExpanded}
+              onClick={() => setObjectiveExpanded((current) => !current)}
+            >
               <span>最上位の目的</span>
               <h3>{management.objective.title}</h3>
               <p>{management.objective.definitionOfDone}</p>
               <div>
-                <small>成立条件 {outcomeTrees.length}</small>
+                <small>
+                  成立条件 {outcomeTrees.length}件 {objectiveExpanded ? "たたむ" : "開く"}
+                </small>
                 {trackLabel && <small>{trackLabel}</small>}
               </div>
-            </section>
-            <ul
-              className={styles.overviewChildren}
-              aria-label="目的を成立させる枝"
-            >
-              {outcomeTrees.map((tree) => {
-                const selected = tree.outcome.id === selectedTree?.outcome.id;
-                return (
-                  <li key={tree.outcome.id}>
-                    <button
-                      type="button"
-                      className={styles.outcomeNode}
-                      aria-pressed={selected}
-                      onClick={() => setSelectedOutcomeId(tree.outcome.id)}
-                    >
-                      <span>成立条件</span>
-                      <strong>{tree.outcome.title}</strong>
-                      <p>{tree.outcome.definitionOfDone}</p>
-                      <div>
-                        <small>進行中 {tree.openCount}</small>
-                        <small>完了 {tree.completedCount}</small>
-                        <small>関係先 {tree.partners.length}</small>
-                      </div>
-                    </button>
-                  </li>
-                );
-              })}
-              {canManage && onCreateOutcome && (
-                <li>
-                  <button
-                    type="button"
-                    className={styles.outcomeAddNode}
-                    onClick={onCreateOutcome}
-                  >
-                    <span>成立条件</span>
-                    <strong>＋ 業務ラインを追加</strong>
-                    <p>新しく立ち上がった業務を、この目的の下に1本足す</p>
-                  </button>
-                </li>
-              )}
-            </ul>
-          </li>
-        </ul>
-      </div>
-
-      {selectedTree && (
-        <section
-          className={styles.expandedBranch}
-          aria-label={`${selectedTree.outcome.title}の分岐`}
-        >
-          <header className={styles.expandedHeader}>
-            <div>
-              <span>選択中の成立条件</span>
-              <h4>{selectedTree.outcome.title}</h4>
-            </div>
-            <div className={styles.branchTools}>
-              <p>
-                上から下へ流れをたどる
-                {canManage && " · カードを別カードへドラッグして接続変更"}
-              </p>
-              {canManage && onEditOutcome && (
-                <button
-                  type="button"
-                  onClick={() => onEditOutcome(selectedTree.outcome)}
-                >
-                  このラインを編集
-                </button>
-              )}
-              {canManage && (
-                <button
-                  type="button"
-                  onClick={() => onCreateTask?.(selectedTree.outcome)}
-                >
-                  ＋ タスク追加
-                </button>
-              )}
-            </div>
-          </header>
-          {moveMessage && (
-            <p className={styles.moveMessage} role="status">
-              {moveMessage}
-            </p>
-          )}
-          <div className={styles.treeViewport}>
-            {(selectedTree.roots.length > 0 ||
-              selectedTree.unlinkedPartners.length > 0) && (
-              <ul
-                className={`${styles.workTree} ${styles.treeChildren} ${styles.rootTaskTree}`}
-                aria-label={`${selectedTree.outcome.title}を進めるやること`}
-                data-drop-target={dropTargetTaskId === "root" || undefined}
-                onDragOver={(event) => {
-                  if (!draggedTaskId) return;
-                  event.preventDefault();
-                  event.dataTransfer.dropEffect = "move";
-                  setDropTargetTaskId("root");
-                }}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  const taskId =
-                    event.dataTransfer.getData("text/plain") || draggedTaskId;
-                  const dragged = selectedTasks.find(
-                    (task) => task.id === taskId,
-                  );
-                  if (dragged) void moveTask(dragged, null);
-                }}
-              >
-                {selectedTree.roots.map((task) => (
-                  <TaskNode
-                    key={task.id}
-                    task={task}
-                    childMap={selectedTree.childMap}
+            </button>
+            {objectiveExpanded && (
+              <ul className={styles.treeChildren} aria-label="目的を成立させる枝">
+                {outcomeTrees.map((tree) => (
+                  <OutcomeNode
+                    key={tree.outcome.id}
+                    tree={tree}
                     partnerById={partnerById}
-                    allTasks={selectedTasks}
+                    allTasks={allTasks}
                     canManage={canManage}
+                    expanded={expandedOutcomeIds.has(tree.outcome.id)}
+                    expandedTaskIds={expandedTaskIds}
                     draggedTaskId={draggedTaskId}
                     dropTargetTaskId={dropTargetTaskId}
                     connectingTaskId={connectingTaskId}
                     movingTaskId={movingTaskId}
+                    onToggle={() =>
+                      toggleSetMember(setExpandedOutcomeIds, tree.outcome.id)
+                    }
+                    onToggleTask={(taskId) =>
+                      toggleSetMember(setExpandedTaskIds, taskId)
+                    }
                     onOpenTask={onOpenTask}
-                    onOpenPartner={() =>
-                      onOpenPartners?.(selectedTree.outcome.track)
-                    }
-                    onCreateTask={(parentTask) =>
-                      onCreateTask?.(selectedTree.outcome, parentTask)
-                    }
+                    onOpenPartner={() => onOpenPartners?.(tree.outcome.track)}
+                    onCreateTask={onCreateTask}
+                    onEdit={onEditOutcome}
                     onBeginConnect={setConnectingTaskId}
                     onMoveTask={(task, parentTaskId) =>
                       void moveTask(task, parentTaskId)
@@ -706,24 +806,30 @@ export function SxObjectiveMap({
                       setDraggedTaskId(null);
                       setDropTargetTaskId(null);
                     }}
-                    onDragOver={dragOverTask}
-                    onDrop={dropOnTask}
+                    onDragOverTask={dragOverTask}
+                    onDropTask={dropOnTask}
+                    onDragOverRoot={dragOverRoot}
+                    onDropRoot={dropOnRoot}
                   />
                 ))}
-                {selectedTree.unlinkedPartners.map((partner) => (
-                  <PartnerNode
-                    key={partner.id}
-                    partner={partner}
-                    onOpen={() =>
-                      onOpenPartners?.(selectedTree.outcome.track)
-                    }
-                  />
-                ))}
+                {canManage && onCreateOutcome && (
+                  <li className={styles.treeBranch}>
+                    <button
+                      type="button"
+                      className={styles.outcomeAddNode}
+                      onClick={onCreateOutcome}
+                    >
+                      <span>成立条件</span>
+                      <strong>＋ 業務ラインを追加</strong>
+                      <p>新しく立ち上がった業務を、この目的の下に1本足す</p>
+                    </button>
+                  </li>
+                )}
               </ul>
             )}
-          </div>
-        </section>
-      )}
+          </li>
+        </ul>
+      </div>
     </div>
   );
 }
