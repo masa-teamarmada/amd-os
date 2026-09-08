@@ -107,7 +107,6 @@ type OutcomeTree = {
   roots: SxTask[];
   childMap: Map<string, SxTask[]>;
   partners: SxManagementPartner[];
-  unlinkedPartners: SxManagementPartner[];
   openCount: number;
   completedCount: number;
 };
@@ -383,7 +382,7 @@ function OutcomeNode({
   onDragOverRoot: (event: DragEvent<HTMLElement>, tree: OutcomeTree) => void;
   onDropRoot: (event: DragEvent<HTMLElement>, tree: OutcomeTree) => void;
 }) {
-  const childCount = tree.roots.length + tree.unlinkedPartners.length;
+  const childCount = tree.roots.length;
 
   return (
     <li className={styles.treeBranch}>
@@ -459,40 +458,8 @@ function OutcomeNode({
               onDrop={onDropTask}
             />
           ))}
-          {tree.unlinkedPartners.map((partner) => (
-            <PartnerNode
-              key={partner.id}
-              partner={partner}
-              onOpen={() => onOpenPartner?.(partner)}
-            />
-          ))}
         </ul>
       )}
-    </li>
-  );
-}
-
-function PartnerNode({
-  partner,
-  onOpen,
-}: {
-  partner: SxManagementPartner;
-  onOpen?: (partner: SxManagementPartner) => void;
-}) {
-  return (
-    <li className={styles.treeBranch}>
-      <article
-        className={styles.treeNode}
-        data-kind="approach"
-        data-state={partner.activityState}
-      >
-        <div className={styles.nodeMain}>
-          <span className={styles.nodeKind}>関係先</span>
-          <strong className={styles.nodeTitle}>{partner.name}</strong>
-          {partner.connectionContext && <p>{partner.connectionContext}</p>}
-        </div>
-        <PartnerHistory partner={partner} onOpen={() => onOpen?.(partner)} />
-      </article>
     </li>
   );
 }
@@ -577,18 +544,12 @@ export function SxObjectiveMap({
           outcomesInTrack,
         ),
       );
-      const linkedPartnerIds = new Set(
-        tasks.map((task) => task.partnerId).filter(Boolean),
-      );
       return {
         outcome,
         tasks,
         roots,
         childMap,
         partners,
-        unlinkedPartners: partners.filter(
-          (partner) => !linkedPartnerIds.has(partner.id),
-        ),
         openCount: tasks.filter((task) => task.status !== "completed").length,
         completedCount: tasks.filter((task) => task.status === "completed")
           .length,

@@ -10,6 +10,7 @@ const read = (relativePath) => readFileSync(path.join(pwaDir, relativePath), "ut
 const globals = read("src/app/globals.css");
 const designCode = read("spec/2-7-ui-design-code-current-spec.md");
 const objectiveMap = read("src/components/project-workspace/sx-objective-map.module.css");
+const objectiveMapComponent = read("src/components/project-workspace/SxObjectiveMap.tsx");
 const weeklyControl = read("src/components/project-workspace/weekly-control.module.css");
 const themeRoutes = read("src/components/project-workspace/project-theme-routes.module.css");
 const timeline = read("src/components/project-workspace/SxUnifiedTimeline.tsx");
@@ -40,6 +41,21 @@ assert.match(
   objectiveMap,
   /\.nodeState\[data-state="completed"\][\s\S]*?var\(--amd-success-soft,\s*#ecfdf5\)[\s\S]*?var\(--amd-success,\s*#047857\)/,
   "目的構造のemeraldは完了状態だけに使う",
+);
+assert.match(
+  objectiveMap,
+  /\.treeChildren\s*\{[\s\S]*?justify-content:\s*safe center;/,
+  "目的構造の横枝は、画面幅を超えるとき左端を到達不能にしない",
+);
+assert.match(
+  objectiveMap,
+  /\.workTree\s*\{[\s\S]*?width:\s*max-content;[\s\S]*?min-width:\s*100%;/,
+  "目的構造は実内容幅を横移動枠へ渡し、左端を原点にする",
+);
+assert.doesNotMatch(
+  objectiveMapComponent,
+  /unlinkedPartners|<PartnerNode/,
+  "タスクへ接続していない関係先を目的構造の枝へ自動表示しない",
 );
 assert.doesNotMatch(weeklyControl, /--green(?:-soft)?:/, "役割不明のgreenトークンを復活させない");
 assert.match(weeklyControl, /\.page\s*\{[\s\S]*?--amd-action:\s*#027fdc;/, "共有ワークスペースとcockpit埋込のmount rootへ共通色を固定する");

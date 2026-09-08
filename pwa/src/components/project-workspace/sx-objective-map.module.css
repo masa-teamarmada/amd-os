@@ -122,7 +122,7 @@
 .treeChildren {
   position: relative;
   display: flex;
-  justify-content: center;
+  justify-content: safe center;
   padding-top: 20px;
 }
 
@@ -375,11 +375,14 @@
 
 .treeViewport {
   position: relative;
+  width: 100%;
+  max-width: 100%;
   padding: 0.15rem 0 0.75rem;
 }
 
 .workTree {
-  min-width: max-content;
+  width: max-content;
+  min-width: 100%;
 }
 
 .treeNode {
