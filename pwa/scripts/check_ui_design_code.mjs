@@ -52,6 +52,16 @@ assert.match(
   /\.workTree\s*\{[\s\S]*?width:\s*max-content;[\s\S]*?min-width:\s*100%;/,
   "目的構造は実内容幅を横移動枠へ渡し、左端を原点にする",
 );
+assert.match(
+  objectiveMap,
+  /\.treeBranch\s*>\s*\.treeChildren\s*\{[\s\S]*?align-self:\s*flex-start;/,
+  "成立条件や親タスクより広い子枝は、負方向へ中央寄せせず右方向へ展開する",
+);
+assert.match(
+  objectiveMap,
+  /\.treeBranch\s*>\s*\.treeChildren::before\s*\{[\s\S]*?left:\s*147px;/,
+  "左寄せした子枝の接続線は294px親カードの中央へ接続する",
+);
 assert.doesNotMatch(
   objectiveMapComponent,
   /unlinkedPartners|<PartnerNode/,
