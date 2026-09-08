@@ -36,6 +36,8 @@ function assertTrue(condition, message) {
 
 const timelineFile = "src/components/project-workspace/SxUnifiedTimeline.tsx";
 const timeline = read(timelineFile);
+const weeklyFile = "src/components/project-workspace/SxWeeklyControlDashboard.tsx";
+const weekly = read(weeklyFile);
 
 // -- 1. Direct point confirmation never POSTs by itself; Y hands the parent a prefill -----------
 assertIncludes(timelineFile, timeline, [
@@ -132,6 +134,11 @@ assertNotIncludes(timelineFile, timeline, [
   "data-gantt-nest-root-milestone",
 ]);
 assertIncludes(timelineFile, timeline, [
+  "type GanttTask = SxTask;",
+  "Every live task belongs in the gantt",
+  "every parent starts open",
+  "task.milestoneId ? milestoneById.get(task.milestoneId) : undefined",
+  'label: "タスク構造", shortLabel: "タスク"',
   "function milestoneAnchorRow(",
   "data-gantt-lane-milestone-spine={milestone.id}",
   "data-gantt-milestone-marker={milestone.id}",
@@ -175,6 +182,46 @@ assertIncludes(timelineFile, timeline, [
 ]);
 assertCount(timelineFile, timeline, "data-gantt-add-task-lane={lane.key}", 2);
 assertCount(timelineFile, timeline, "onClick={() => onCreateTask(lane.key)}", 2);
+assertIncludes(weeklyFile, weekly, [
+  "tasks={management.tasks}",
+  "milestoneId: null",
+  "allowStandalone: true",
+]);
+
+// -- 9a. p21 uses one concise task tree; the former objective/outcome/MS graph is recoverable --
+const reviewedTreeMigrationFile =
+  "../ios/supabase/migrations/20260909103000_sx_newco_task_tree_gantt.sql";
+const reviewedTreeMigration = read(reviewedTreeMigrationFile);
+assertIncludes(reviewedTreeMigrationFile, reviewedTreeMigration, [
+  "sx-gantt-tree-rebuild-20260909",
+  "'NewCo設立'",
+  "'NewCo体制案確定'",
+  "'チーム全体の設計'",
+  "'役割・最低エフォート決定'",
+  "'登記事項の最終合意'",
+  "'出資の確約'",
+  "'DD対応'",
+  "'出資者・出資額・条件の確定'",
+  "'出資確約の取得'",
+  "'愛媛大との諸手続き完了'",
+  "'愛媛大発SU認定'",
+  "'知財ライセンス合意'",
+  "'学内手続き'",
+  "'SIERのMOU締結'",
+  "'参画企業・役割の確定'",
+  "'条件合意'",
+  "'MOU締結'",
+  "p21 reviewed gantt must contain 17 live tasks",
+  "p21 reviewed gantt must contain three schedule dependencies",
+]);
+assertNotIncludes(reviewedTreeMigrationFile, reviewedTreeMigration, [
+  "'JSTと4月1日設立の条件を確定する'",
+  "'移籍・残留メンバー決定'",
+  "'AMDとの出資確約締結'",
+  "'MOU条件・承継条件の合意'",
+  "'定款'",
+  "'SO枠'",
+]);
 
 // -- 9b. The illustrative 12-task seed is a recoverable removal, not a broad task deletion ---
 const fineSeedRemovalMigrationFile = "scripts/migrations/228_sx_remove_fine_seed_tasks.sql";

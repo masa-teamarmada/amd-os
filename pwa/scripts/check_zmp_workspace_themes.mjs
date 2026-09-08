@@ -194,14 +194,12 @@ for (const event of ["コンタクト", "MTG実施", "やりとり継続・返�
 assert.match(objectiveBranchMigration, /branch_count <> 3/, "シーズリスト作成からの3分岐をassertする");
 assert.match(objectiveBranchMigration, /linked_count <> 2/, "2アプローチを関係先へ接続する");
 
-// テーマは索引、ガントタブ内で時間軸と目的からの逆算を切替える。
+// テーマは索引、目的構造はガントの左側タスク階層へ統合する。
 assert.doesNotMatch(themeRoutes, /<ThemeHistory|import \{ ThemeHistory \}/, "テーマ面に重複する履歴台帳を残さない");
-assert.match(themeRoutes, /onOpenControlView\?\.\("gantt", selectedTheme\.themeKey\)/, "テーマから目的構造へ遷移する");
+assert.match(themeRoutes, /onOpenControlView\?\.\("gantt", selectedTheme\.themeKey\)/, "テーマからガントへ遷移する");
 assert.match(themeRoutes, /onOpenControlView\?\.\("partners", selectedTheme\.themeKey\)/, "テーマから関係先へ遷移する");
-assert.match(dashboard, /"timeline" \| "objective"/, "ガントと目的構造の表示モードを持つ");
-assert.match(dashboard, /<SxObjectiveMap/, "ガントタブ内に目的構造を描く");
-assert.match(dashboard, />ガント<\/button>/, "ガント切替を出す");
-assert.match(dashboard, />目的構造<\/button>/, "目的構造切替を出す");
+assert.doesNotMatch(dashboard, /<SxObjectiveMap|>目的構造<\/button>/, "目的構造の別表示を復活させない");
+assert.match(dashboard, /tasks=\{management\.tasks\}/, "standaloneを含む全タスクをガントへ渡す");
 assert.match(objectiveMap, /最上位の目的/);
 assert.match(objectiveMap, /成立条件/);
 assert.match(objectiveMap, /接点の経緯/);
@@ -216,8 +214,6 @@ assert.match(objectiveMapCss, /\.treeBranch::before[\s\S]*?\.treeBranch::after/,
 assert.match(objectiveMapCss, /--tree-accent:\s*var\(--amd-action,\s*#027fdc\)/, "目的構造の主色はAMD OS共通の操作色を使う");
 assert.match(objectiveMapCss, /\.nodeState\[data-state="completed"\][\s\S]*?var\(--amd-success,\s*#047857\)/, "greenは完了状態に限定する");
 assert.doesNotMatch(objectiveMapCss, /#0f766e|#ecf8f5|#0f675f|#185e56/i, "水素の連想から独自teal主色を復活させない");
-assert.match(dashboard, /onMoveTask=\{moveObjectiveTask\}/, "接続変更を既存management writerへ保存する");
-assert.match(dashboard, /parentTaskId: parentTask\.id/, "子タスク追加は親をフォームへ事前入力する");
 assert.match(partnerPipeline, /activeTrack\?: SxTrackKey \| null/, "関係先リストは同じ正本をテーマで絞れる");
 assert.match(partnerPipeline, /partner\.tracks\.some\(\(track\) => track\.track === activeTrack\)/, "副track所属もテーマ絞り込みへ含める");
 

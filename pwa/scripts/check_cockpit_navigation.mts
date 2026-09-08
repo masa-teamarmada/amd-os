@@ -8,7 +8,11 @@ import {
 } from "../src/lib/cockpit-tabs.ts";
 
 assert.ok(!COCKPIT_TABS.includes("themes" as never), "themes must stay out of the PJ cockpit");
-assert.ok(COCKPIT_TABS.includes("objective-structure"), "objective structure must be a cockpit tab");
+assert.ok(COCKPIT_TABS.includes("objective-structure"), "legacy objective URL must remain parseable");
+assert.ok(
+  !COCKPIT_GROUPS.normal.some((group) => group.children.includes("objective-structure")),
+  "objective structure must no longer be a visible cockpit tab",
+);
 
 assert.deepEqual(
   COCKPIT_GROUPS.normal.map((group) => group.label),
@@ -44,6 +48,8 @@ assert.equal(resolveCockpitTab("business-plan", true), "progress");
 assert.equal(resolveCockpitTab("seeds", false), "progress");
 assert.equal(resolveCockpitTab("regulations", false), "progress");
 assert.equal(resolveCockpitTab("overview", true), "overview");
+assert.equal(resolveCockpitTab("objective-structure", false), "gantt");
+assert.equal(resolveCockpitTab("objective-structure", true), "gantt");
 
 const cockpitViewSource = fs.readFileSync(
   new URL("../src/components/cockpit/CockpitView.tsx", import.meta.url),

@@ -1572,10 +1572,46 @@ function issue(overrides = {}) {
     interventionRows: [],
   });
   assert.equal(empty.valid, false);
-  assert.equal(empty.reason, "日程付きマイルストーン未登録");
+  assert.equal(empty.reason, "日程付きタスク・マイルストーン未登録");
 }
 
-// 22c. 週次管制のplanned_onlyは予測日を範囲・並び・表示値に使わない。
+// 22c. マイルストーンのないタスク階層も、タスク日程から時間軸を作る。
+{
+  const timeline = deriveSxUnifiedTimeline({
+    today: "2026-09-09",
+    milestones: [],
+    tasks: [
+      {
+        status: "not_started",
+        plannedStart: "2026-09-08",
+        plannedEnd: "2027-04-01",
+        forecastEnd: null,
+      },
+    ],
+    criticalPathSlugs: [],
+    dagValid: true,
+    tracks: [
+      {
+        key: "organizational_building",
+        label: "組織開発",
+        shortLabel: "組織",
+        accent: "#76637b",
+        deltaDays: null,
+        dateCertainty: "provisional",
+        maxIssue: "",
+      },
+    ],
+    objectiveTargetDate: null,
+    interventionRows: [],
+    dateMode: "planned_only",
+  });
+  assert.equal(timeline.valid, true);
+  assert.equal(timeline.domainStart, "2026-09-01");
+  assert.equal(timeline.domainEnd, "2027-05-01");
+  assert.equal(timeline.undatedCount, 0);
+}
+
+// 22d. 週次管制のplanned_onlyは予測日を範囲・並び・表示値に使わない。
 {
   const timeline = deriveSxUnifiedTimeline({
     today: "2026-07-25",

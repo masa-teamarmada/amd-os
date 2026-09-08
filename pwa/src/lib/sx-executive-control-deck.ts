@@ -1623,6 +1623,13 @@ function addMonths(monthStart: string, count: number): string {
 export function deriveSxUnifiedTimeline(params: {
   today: string;
   milestones: SxEcdMilestone[];
+  /** Task-only plans have no milestone dates. Include their schedule in the same time domain. */
+  tasks?: Array<{
+    status: string;
+    plannedStart: string | null;
+    plannedEnd: string | null;
+    forecastEnd: string | null;
+  }>;
   criticalPathSlugs: string[];
   dagValid: boolean;
   tracks: Array<{
@@ -1651,6 +1658,7 @@ export function deriveSxUnifiedTimeline(params: {
     interventionRows,
     pinCount = 5,
   } = params;
+  const tasks = params.tasks ?? [];
   const plannedOnly = params.dateMode === "planned_only";
   // PJごとに柱のキーが違う (2026-08-13 柱の汎用化)。既定は渡された tracks の並び順そのもの —
   // p21固定の4値リストを持たない。呼び出し元が特定の並びを強制したい場合だけ laneOrder を渡す。
@@ -1677,17 +1685,23 @@ export function deriveSxUnifiedTimeline(params: {
   const active = milestones.filter(
     (milestone) => milestone.status !== "completed",
   );
+  const activeTasks = tasks.filter((task) => task.status !== "completed");
   const dated = active.filter(
     (milestone) =>
       milestone.plannedEnd || (!plannedOnly && milestone.forecastEnd),
   );
-  const undatedCount = active.length - dated.length;
-  const completedCount = milestones.length - active.length;
+  const datedTasks = activeTasks.filter(
+    (task) => task.plannedEnd || (!plannedOnly && task.forecastEnd),
+  );
+  const undatedCount =
+    active.length - dated.length + activeTasks.length - datedTasks.length;
+  const completedCount =
+    milestones.length - active.length + tasks.length - activeTasks.length;
 
-  if (dated.length === 0) {
+  if (dated.length === 0 && datedTasks.length === 0) {
     return {
       valid: false,
-      reason: "日程付きマイルストーン未登録",
+      reason: "日程付きタスク・マイルストーン未登録",
       domainStart: today,
       domainEnd: today,
       todayPct: 0,
@@ -1706,10 +1720,17 @@ export function deriveSxUnifiedTimeline(params: {
     [milestone.plannedEnd, plannedOnly ? null : milestone.forecastEnd].filter(
       (value): value is string => Boolean(value),
     ),
+  ).concat(
+    datedTasks.flatMap((task) =>
+      [task.plannedEnd, plannedOnly ? null : task.forecastEnd].filter(
+        (value): value is string => Boolean(value),
+      ),
+    ),
   );
-  const startCandidates = dated
-    .map((milestone) => milestone.plannedStart ?? null)
-    .filter((value): value is string => Boolean(value));
+  const startCandidates = [
+    ...dated.map((milestone) => milestone.plannedStart ?? null),
+    ...datedTasks.map((task) => task.plannedStart ?? null),
+  ].filter((value): value is string => Boolean(value));
   const minDate = [today, ...allDates, ...startCandidates].reduce(
     (min, value) => (value < min ? value : min),
   );

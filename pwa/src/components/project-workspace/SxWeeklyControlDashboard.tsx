@@ -91,7 +91,6 @@ import {
   type SxLaneFold,
 } from "@/lib/sx-display-lanes";
 import { SxPartnerPipeline } from "./SxPartnerPipeline";
-import { SxObjectiveMap } from "./SxObjectiveMap";
 import { CockpitCostModel } from "@/components/cockpit/CockpitCostModel";
 import { WorkspaceDocumentRoom } from "@/components/workspace-documents/WorkspaceDocumentRoom";
 import { CockpitIpPortfolio } from "@/components/cockpit/CockpitIpPortfolio";
@@ -209,9 +208,8 @@ export type EditorState =
       parentTaskId?: string | null;
       /** 親タスクと同じタスク群へ確実に置くための明示的なMS。nullはstandalone。 */
       milestoneId?: string | null;
-      /** Theme hub only — see create_milestone.allowStandalone. p19 has no lane-backed milestone
-       * to inherit a track from yet, so standalone creation derives track from laneKey directly
-       * instead of erroring. */
+      /** Gantt / Theme hub: a milestone is not required for a task. Standalone creation derives
+       * track from laneKey directly instead of erroring. */
       allowStandalone?: boolean;
       /** See create_milestone.hubOrigin. */
       hubOrigin?: boolean;
@@ -368,7 +366,7 @@ type WorkspaceGroupKey = "execution" | "planning" | "company" | "documents";
 type WorkspaceTab = { key: SxWeeklyControlView; label: string };
 type WorkspaceTabGroup = { key: WorkspaceGroupKey; label: string; children: readonly WorkspaceTab[] };
 const PROJECT_WORKSPACE_GROUPS: readonly WorkspaceTabGroup[] = [
-  { key: "execution", label: "実行", children: [{ key: "themes", label: "テーマ" }, { key: "weekly", label: "週次差分" }, { key: "gantt", label: "ガント" }, { key: "objective-structure", label: "目的構造" }, { key: "partners", label: "関係先" }, { key: "issues", label: "論点・仮説" }] },
+  { key: "execution", label: "実行", children: [{ key: "themes", label: "テーマ" }, { key: "weekly", label: "週次差分" }, { key: "gantt", label: "ガント" }, { key: "partners", label: "関係先" }, { key: "issues", label: "論点・仮説" }] },
   { key: "planning", label: "計画・根拠", children: [{ key: "technology", label: "技術" }, { key: "business-plan", label: "事業計画" }] },
   { key: "company", label: "経営・会社", children: [{ key: "company", label: "会社概要" }, { key: "capital-policy", label: "資本政策" }, { key: "cost", label: "コスト試算" }, { key: "ip", label: "知財" }] },
   { key: "documents", label: "資料", children: [{ key: "drive", label: "ドライブ" }] },
@@ -378,7 +376,7 @@ function viewForHash(hash: string): SxWeeklyControlView | null {
   const normalized = hash.replace(/^#/, "");
   if (!normalized) return null;
   if (normalized === "project-gantt") return "gantt";
-  if (normalized === "objective-structure") return "objective-structure";
+  if (normalized === "objective-structure") return "gantt";
   if (normalized === "partner-ledger") return "partners";
   if (normalized === "cost-model") return "cost";
   if (normalized === "issue-hypothesis") return "issues";
@@ -1286,7 +1284,7 @@ function editorDefinition(
             { value: "", label: "関係先に直接ひもづけない" },
             ...management.partners.map((partner) => ({ value: partner.id, label: partner.name })),
           ],
-          help: "特定の相手へのアプローチなら選ぶと、目的構造で接点の経緯と現在のボールがこの枝につながるよ。",
+          help: "特定の相手へのアプローチなら選ぶと、ガント上のタスクに接点の経緯と現在のボールがつながるよ。",
         },
         { key: "description", label: "作業内容", type: "textarea", span: true },
         { key: "goal", label: "ゴール", type: "textarea", span: true },
@@ -2740,8 +2738,8 @@ function IssueEditor({
     if (editor.kind === "create_task") {
       // The visible lane is not a persistence parent. Derive the authoritative raw track from
       // its internal backing record so the three visible lanes remain stable. Standalone (no
-      // backing milestone, theme hub only): fall back to the lane's own track directly — there is
-      // no milestone to inherit one from yet.
+      // backing milestone): fall back to the lane's own track directly — there is no milestone
+      // to inherit one from yet.
       fields.track = selectedTaskMilestone?.track || laneFold.trackForLane(editor.laneKey) || "";
       // root review (second pass): send an explicit null for an absent standalone parent rather
       // than "" — the server's optionalId() already normalizes "" to null identically, but a
@@ -4977,7 +4975,6 @@ export function SxWeeklyControlDashboard({
   access,
   view,
   embedded = false,
-  ganttDisplayMode: ganttDisplayModeProp,
   onViewChange,
 }: {
   bundle: ProjectWorkspaceBundle;
@@ -4986,8 +4983,6 @@ export function SxWeeklyControlDashboard({
   view?: SxWeeklyControlView;
   /** true のとき自前のタイトル行・タブ列・ページ枠を出さない (2026-08-28 コックピット統合)。 */
   embedded?: boolean;
-  /** 埋め込みコックピットからガントの表示モードを固定する。単体ワークスペースでは未指定。 */
-  ganttDisplayMode?: "timeline" | "objective";
   /** 画面内の導線 (「ガントで見る」等) が別タブへ飛ぶとき、外側のタブ列へ知らせる。 */
   onViewChange?: (view: SxWeeklyControlView) => void;
 }) {
@@ -5004,11 +4999,6 @@ export function SxWeeklyControlDashboard({
   // テーマから開いたときだけ、そのテーマの関係先へ絞る。台帳正本は共通のままで、
   // 外部を含むPJメンバーにも同じ読み取りビューを出す。
   const [partnerTrackFilter, setPartnerTrackFilter] = useState<SxTrackKey | null>(null);
-  const [ganttTrackFilter, setGanttTrackFilter] = useState<SxTrackKey | null>(null);
-  const [ganttDisplayModeState, setGanttDisplayMode] = useState<"timeline" | "objective">("timeline");
-  const ganttDisplayMode = embedded && ganttDisplayModeProp
-    ? ganttDisplayModeProp
-    : ganttDisplayModeState;
   // Only meaningful alongside editor.kind === "edit_partner" — restricts the generic 関係先編集
   // form down to the partner_next_action provenance's own fields (PARTNER_NEXT_ACTION_FIELD_KEYS).
   // null means "show every field" (the normal full-editor open path).
@@ -5071,8 +5061,6 @@ export function SxWeeklyControlDashboard({
         setActiveView("weekly");
         return;
       }
-      if (fromHash === "objective-structure") setGanttDisplayMode("objective");
-      if (fromHash === "gantt") setGanttDisplayMode("timeline");
       setActiveView(fromHash);
       return;
     }
@@ -5106,22 +5094,19 @@ export function SxWeeklyControlDashboard({
     }
 
     if (isValidView(stored) && stored !== "themes") {
-      if (stored === "objective-structure") setGanttDisplayMode("objective");
-      if (stored === "gantt") setGanttDisplayMode("timeline");
-      setActiveView(stored);
+      setActiveView(stored === "objective-structure" ? "gantt" : stored);
       return;
     }
     setActiveView("weekly");
   }, [dynamicTabs, embedded, externalDefaultView, externalViewer, hasThemes]);
 
   function selectView(next: SxWeeklyControlView) {
-    if (next === "gantt") setGanttDisplayMode("timeline");
-    if (next === "objective-structure") setGanttDisplayMode("objective");
-    setActiveView(next);
-    onViewChange?.(next);
+    const resolved = next === "objective-structure" ? "gantt" : next;
+    setActiveView(resolved);
+    onViewChange?.(resolved);
     if (embedded) return;
-    window.localStorage.setItem(SX_WEEKLY_VIEW_STORAGE_KEY, next);
-    window.history.replaceState(null, "", `#${SX_WEEKLY_VIEW_HASH[next]}`);
+    window.localStorage.setItem(SX_WEEKLY_VIEW_STORAGE_KEY, resolved);
+    window.history.replaceState(null, "", `#${SX_WEEKLY_VIEW_HASH[resolved]}`);
   }
 
   useEffect(() => {
@@ -5134,10 +5119,9 @@ export function SxWeeklyControlDashboard({
   }, [embedded]);
   const activeWorkspaceGroup = workspaceGroups.find((group) => group.children.some((tab) => tab.key === activeView)) ?? workspaceGroups[0];
   const activeGroupTabs = activeWorkspaceGroup?.children ?? [];
-  const isGanttView = activeView === "gantt" || activeView === "objective-structure";
+  const isGanttView = activeView === "gantt";
   function selectWorkspaceTab(tab: SxWeeklyControlView) {
     if (tab === "partners") setPartnerTrackFilter(null);
-    if (tab === "gantt" || tab === "objective-structure") setGanttTrackFilter(null);
     selectView(tab);
   }
   function selectWorkspaceGroup(groupKey: WorkspaceGroupKey) {
@@ -5147,13 +5131,12 @@ export function SxWeeklyControlDashboard({
 
   function openThemeControlView(view: "gantt" | "partners", themeKey: string) {
     if (view === "gantt") {
-      setGanttTrackFilter(themeKey);
-      setGanttDisplayMode("objective");
+      selectView("gantt");
     } else {
       setPartnerTrackFilter(themeKey);
       setPartnerClassification(null);
+      selectView(view);
     }
-    selectView(view);
   }
 
   const scopedPartners = useMemo(
@@ -5171,30 +5154,6 @@ export function SxWeeklyControlDashboard({
       setNotice(null);
       noticeTimerRef.current = null;
     }, 3500);
-  }
-
-  async function moveObjectiveTask(task: SxTask, parentTaskId: string | null): Promise<void> {
-    setManagement(sxApplyOptimisticManagementPatch(management, "task", task.id, { parent_task_id: parentTaskId }));
-    try {
-      const response = await fetch(`/api/project-workspace/${encodeURIComponent(bundle.project.projectId)}/management`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resource: "task", id: task.id, expected_version: task.version, patch: { parent_task_id: parentTaskId } }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : "タスクの接続を変更できなかったよ");
-      if (body.bundle) setManagement(body.bundle as SxManagementBundle);
-      showNotice(parentTaskId ? "タスクを新しい接続先へ移したよ" : "タスクを成立条件の直下へ移したよ");
-    } catch (error) {
-      try {
-        const latest = await fetch(`/api/project-workspace/${encodeURIComponent(bundle.project.projectId)}/management`, { headers: { "Cache-Control": "no-store" } });
-        const latestBody = await latest.json().catch(() => null);
-        if (latest.ok && latestBody) setManagement(latestBody as SxManagementBundle);
-      } catch {
-        // The card keeps the failure visible when current state cannot be read back.
-      }
-      throw error;
-    }
   }
 
   useEffect(
@@ -5293,6 +5252,12 @@ export function SxWeeklyControlDashboard({
       deriveSxUnifiedTimeline({
         today: management.asOf,
         milestones: management.milestones,
+        tasks: management.tasks.map((task) => ({
+          status: task.status,
+          plannedStart: task.plannedStart,
+          plannedEnd: task.plannedEnd,
+          forecastEnd: task.forecastEnd,
+        })),
         criticalPathSlugs: management.judgment.criticalPathSlugs,
         dagValid: management.judgment.dagValid,
         tracks: management.tracks.map((track) => ({
@@ -5304,7 +5269,7 @@ export function SxWeeklyControlDashboard({
           dateCertainty: track.dateCertainty,
           maxIssue: track.maxIssue,
         })),
-        objectiveTargetDate: management.objective?.targetDate ?? null,
+        objectiveTargetDate: null,
         interventionRows: [],
         pinCount: 0,
         dateMode: "planned_only",
@@ -6107,67 +6072,18 @@ export function SxWeeklyControlDashboard({
           id="project-gantt"
           className={styles.section}
           role="tabpanel"
-          aria-label={ganttDisplayMode === "timeline" ? "全体ガントパネル" : "目的構造パネル"}
-          data-plan-display-mode={ganttDisplayMode}
+          aria-label="全体ガントパネル"
+          data-plan-display-mode="timeline"
         >
           <div className={styles.sectionHeading}>
             <div>
-              <h2>{ganttDisplayMode === "timeline" ? "全体ガント" : "目的構造"}</h2>
-              <p>
-                {ganttDisplayMode === "timeline"
-                  ? "時間から工程を見る。タスクは階層を開閉でき、バー・MS・名称から詳細を開ける"
-                  : "目的から逆算し、成立条件・やること・関係先・現在のボールを同じ枝で見る"}
-              </p>
+              <h2>全体ガント</h2>
+              <p>左でタスク階層、右で日程と前後関係を見る。階層の追加・開閉・並べ替えもここで行う</p>
             </div>
             <div className={styles.planViewControls}>
-              {!embedded && (
-                <div className={styles.planViewSwitch} role="group" aria-label="計画の表示方法">
-                  <button type="button" aria-pressed={ganttDisplayMode === "timeline"} onClick={() => selectWorkspaceTab("gantt")}>ガント</button>
-                  <button type="button" aria-pressed={ganttDisplayMode === "objective"} onClick={() => selectWorkspaceTab("objective-structure")}>目的構造</button>
-                </div>
-              )}
               <p>基準日 {formatDate(management.asOf)}</p>
             </div>
           </div>
-          {ganttTrackFilter && ganttDisplayMode === "objective" && (
-            <div className={styles.planScopeBar}>
-              <span>{management.tracks.find((track) => track.key === ganttTrackFilter)?.label ?? ganttTrackFilter}の枝を表示中</span>
-              <button type="button" onClick={() => setGanttTrackFilter(null)}>全テーマを見る</button>
-            </div>
-          )}
-          {ganttDisplayMode === "objective" ? (
-            <SxObjectiveMap
-              management={management}
-              activeTrack={ganttTrackFilter}
-              canManage={management.canManage}
-              onOpenTask={(task) => setEditor({ kind: "edit_task", task })}
-              onCreateTask={(outcome, parentTask) =>
-                setEditor({
-                  kind: "create_task",
-                  laneKey: laneFold.laneKeyForTrack(outcome.track),
-                  ...(parentTask
-                    ? { parentTaskId: parentTask.id, milestoneId: parentTask.milestoneId }
-                    : {
-                        // このラインの入れ物へ入れる。柱に業務ラインが2本以上あるとき、
-                        // milestoneを持たないタスクは全部の枝に出てしまうため。
-                        milestoneId:
-                          management.milestones.find(
-                            (milestone) => milestone.outcomeId === outcome.id,
-                          )?.id ?? null,
-                      }),
-                  allowStandalone: true,
-                })
-              }
-              onCreateOutcome={() => setEditor({ kind: "create_outcome" })}
-              onEditOutcome={(outcome) => setEditor({ kind: "edit_outcome", outcome })}
-              onMoveTask={moveObjectiveTask}
-              onOpenPartners={(track) => {
-                setPartnerTrackFilter(track);
-                setPartnerClassification(null);
-                selectView("partners");
-              }}
-            />
-          ) : (
           <div className={styles.ganttWorkspace}>
             <div className={styles.ganttFrame}>
               <SxUnifiedTimeline
@@ -6178,13 +6094,7 @@ export function SxWeeklyControlDashboard({
                 milestones={management.milestones}
                 dependencies={management.dependencies}
                 scheduleDependencies={management.scheduleDependencies}
-                // ガントはマイルストーン配下の工程だけを描く軸。テーマ単位の未着手(standalone)
-                // タスク(migration 20260831120000でmilestone_id nullable化)は「テーマ」タブ側の
-                // 作業ハブでのみ扱い、ここには出さない — 出すと `milestone:null` という
-                // 存在しないグループへ全standaloneタスクが集約されてしまう。
-                tasks={management.tasks.filter(
-                  (task): task is typeof task & { milestoneId: string } => task.milestoneId != null,
-                )}
+                tasks={management.tasks}
                 outcomes={management.outcomes}
                 objectiveId={management.objective?.id ?? null}
                 onManagementChange={(next, message) => {
@@ -6218,7 +6128,12 @@ export function SxWeeklyControlDashboard({
                   })
                 }
                 onCreateTask={(laneKey) =>
-                  setEditor({ kind: "create_task", laneKey })
+                  setEditor({
+                    kind: "create_task",
+                    laneKey,
+                    milestoneId: null,
+                    allowStandalone: true,
+                  })
                 }
                 showPins={false}
               />
@@ -6346,7 +6261,6 @@ export function SxWeeklyControlDashboard({
               }}
             />
           </div>
-          )}
         </section>
         )}
 

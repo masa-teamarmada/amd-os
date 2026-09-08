@@ -280,7 +280,6 @@ export type { CockpitTab } from "@/lib/cockpit-tabs";
 const WORKSPACE_VIEW_BY_TAB: Partial<Record<CockpitTab, SxWeeklyControlView>> = {
   weekly: "weekly",
   gantt: "gantt",
-  "objective-structure": "gantt",
   partners: "partners",
   issues: "issues",
 };
@@ -407,7 +406,6 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     meetings: "動向・会議",
     weekly: "週次差分",
     gantt: "ガント",
-    "objective-structure": "目的構造",
     partners: "関係先",
     issues: "論点・仮説",
     "score-detail": "スコア詳細",
@@ -440,7 +438,6 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     : activeGroupWithAvailableChildren?.children[0] ?? "progress";
   const childTabs = activeGroupWithAvailableChildren?.children ?? ["progress"];
   const workspaceView = WORKSPACE_VIEW_BY_TAB[activeTab];
-  const workspaceGanttDisplayMode = activeTab === "objective-structure" ? "objective" : activeTab === "gantt" ? "timeline" : undefined;
   const tabItem = (key: CockpitTab) => ({
     key,
     label: tabLabel[key] ?? key,
@@ -823,14 +820,13 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
         </section>
       )}
 
-      {/* 管制タブ (週次差分 / ガント / 目的構造 / 関係先 / 論点・仮説)。
-          ガントと目的構造も1つのマウントを共有するので、行き来しても束を読み直さない。 */}
+      {/* 管制タブ (週次差分 / ガント / 関係先 / 論点・仮説)。
+          タスク階層はガントの固定左列に統合している。 */}
       {workspaceView && (
         <section role="tabpanel" aria-label="PJ管制" className="min-w-0">
           <CockpitProjectControl
             projectId={project.projectId}
             view={workspaceView}
-            ganttDisplayMode={workspaceGanttDisplayMode}
             onViewChange={(next) => {
               const tab = TAB_BY_WORKSPACE_VIEW[next];
               if (tab) selectTab(tab);

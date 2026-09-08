@@ -64,7 +64,7 @@ export const COCKPIT_GROUPS: {
     {
       key: "progress-group",
       label: "進捗管理",
-      children: ["progress", "meetings", "weekly", "gantt", "objective-structure", "partners", "issues"],
+      children: ["progress", "meetings", "weekly", "gantt", "partners", "issues"],
     },
     {
       key: "business-plan-group",
@@ -82,7 +82,7 @@ export const COCKPIT_GROUPS: {
     {
       key: "progress-group",
       label: "進捗管理",
-      children: ["progress", "meetings", "weekly", "gantt", "objective-structure", "partners", "issues"],
+      children: ["progress", "meetings", "weekly", "gantt", "partners", "issues"],
     },
     { key: "seeds-group", label: "シーズリスト", children: ["seeds"] },
     { key: "regulations-group", label: "規程・内規", children: ["regulations"] },
@@ -110,6 +110,8 @@ export function resolveCockpitTab(
   tab: CockpitTab,
   isInstitutionProject: boolean,
 ): CockpitTab {
+  // 目的構造はガントの左側タスク階層へ統合。共有済みの旧URLはガントへ着地させる。
+  if (tab === "objective-structure") return "gantt";
   if (isInstitutionProject && BUSINESS_PLAN_TABS.has(tab)) return DEFAULT_COCKPIT_TAB;
   if (!isInstitutionProject && INSTITUTION_ONLY_TABS.has(tab)) return DEFAULT_COCKPIT_TAB;
   return tab;

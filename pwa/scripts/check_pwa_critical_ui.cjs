@@ -632,7 +632,6 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   "CockpitProjectControl",
   'weekly: "週次差分"',
   'gantt: "ガント"',
-  '"objective-structure": "目的構造"',
   'partners: "関係先"',
   'issues: "論点・仮説"',
 ]);
@@ -3348,11 +3347,14 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   'aria-controls={desktopHoverEnabled && groupItems.length > 1 ? `cockpit-group-menu-${group.key}` : undefined}',
   'data-testid={`cockpit-floating-${group.key}`}',
   'matchMedia("(hover: hover) and (pointer: fine)")',
-  'ganttDisplayMode={workspaceGanttDisplayMode}',
+]);
+expectIncludes("src/lib/cockpit-tabs.ts", [
+  'if (tab === "objective-structure") return "gantt";',
 ]);
 expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
-  'data-plan-display-mode={ganttDisplayMode}',
-  'aria-label={ganttDisplayMode === "timeline" ? "全体ガントパネル" : "目的構造パネル"}',
+  'data-plan-display-mode="timeline"',
+  'aria-label="全体ガントパネル"',
+  'tasks={management.tasks}',
   '!embedded && (',
 ]);
 expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
@@ -3859,7 +3861,7 @@ expectIncludes(
     "sx-plan-inspector-overlay",
     'aria-modal="true"',
     "planInspectorLayer",
-    "バー・MS・名称から詳細を開ける",
+    "左でタスク階層、右で日程と前後関係を見る",
     "createPortal",
     "useModalContainment",
     'data-testid="sx-inline-editor"',

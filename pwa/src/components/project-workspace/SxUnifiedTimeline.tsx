@@ -144,16 +144,14 @@ function pointerOffsetToTimelinePct(offsetX: number, paneWidth: number) {
   );
 }
 
-// The gantt renders tasks keyed by milestone; standalone (milestone-less) tasks from the theme
-// work hub (migration 20260831120000, SxTask.milestoneId now `string | null`) never reach this
-// component (SxWeeklyControlDashboard filters them out before passing `tasks`). This alias keeps
-// that invariant explicit instead of re-deriving the intersection type at every call site.
-type GanttTask = SxTask & { milestoneId: string };
+// A gantt row is a task whether or not it belongs to a milestone. This lets a project express its
+// whole work breakdown as one task tree, with milestones remaining optional point markers.
+type GanttTask = SxTask;
 
 type DisplayRow = {
   id: string;
   entity: "milestone" | "task";
-  milestoneId: string;
+  milestoneId: string | null;
   parentTaskId: string | null;
   depth: number;
   title: string;
@@ -801,7 +799,7 @@ type TaskNestTarget =
  * mirrored under the cursor while the drag is live. */
 type TaskNestDragState = {
   taskId: string;
-  milestoneId: string;
+  milestoneId: string | null;
   title: string;
   version: number;
   pointerId: number;
@@ -877,8 +875,7 @@ export function SxUnifiedTimeline({
    * task-only renderer no longer treats milestone dependencies as displayed parent rows. */
   dependencies?: SxDependency[];
   scheduleDependencies?: SxScheduleDependency[];
-  /** Gantt rows are keyed by milestone. Standalone (milestone-less) tasks from the theme work hub
-   * never belong here — callers must filter them out before passing this prop. See GanttTask. */
+  /** Every live task belongs in the gantt. `milestoneId` may be null for a pure task hierarchy. */
   tasks?: GanttTask[];
   outcomes?: SxOutcome[];
   objectiveId?: string | null;
@@ -909,14 +906,9 @@ export function SxUnifiedTimeline({
   showPins?: boolean;
 }) {
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(
-    // Promoted legacy roots represent the initial, readable task hierarchy. Their own child
-    // tasks are visible immediately; deeper task nesting remains independently collapsible.
-    () =>
-      new Set(
-        tasks
-          .filter((task) => task.sourceRef?.startsWith("ui-root-from-phase:"))
-          .map((task) => task.id),
-      ),
+    // The gantt is the task-structure discussion surface, so every parent starts open. Each
+    // branch remains independently collapsible after the initial read.
+    () => new Set(tasks.filter((task) => tasks.some((child) => child.parentTaskId === task.id)).map((task) => task.id)),
   );
   // Collapsing a lane hides its task rows only. The lane header band stays, so the MS gates that
   // span the lane remain readable — that is the whole point of collapsing: keep the gate rhythm,
@@ -1527,7 +1519,7 @@ export function SxUnifiedTimeline({
     for (const key of laneFold.order) bucket[key] = [];
 
     const laneForTask = (task: GanttTask): SxDisplayLaneKey => {
-      const backing = milestoneById.get(task.milestoneId);
+      const backing = task.milestoneId ? milestoneById.get(task.milestoneId) : undefined;
       // A task keeps its own workstream even when it contributes to a blocking MS whose diamond
       // spans another lane. Only the MS marker is forced to the blocking-milestone lane.
       if (task.track) return laneFold.laneKeyForTrack(task.track);
@@ -1584,7 +1576,7 @@ export function SxUnifiedTimeline({
             .join(" / ")
         : (laneByKey.get(key)?.maxIssue ?? "");
 
-    return laneFold.order.map((key) => {
+    const lanes = laneFold.order.map((key) => {
       const collapsed = collapsedLanes.has(key);
       return {
         lane: {
@@ -1604,6 +1596,17 @@ export function SxUnifiedTimeline({
         ),
       };
     });
+    const populated = lanes.filter(
+      (lane) => lane.taskCount > 0 || lane.milestones.length > 0,
+    );
+    if (populated.length === 0) return lanes;
+    if (laneFold.isP21Fold && populated.length === 1) {
+      return populated.map((lane) => ({
+        ...lane,
+        lane: { ...lane.lane, label: "タスク構造", shortLabel: "タスク" },
+      }));
+    }
+    return populated;
   }, [
     asOf,
     collapsedLanes,
@@ -1957,7 +1960,7 @@ export function SxUnifiedTimeline({
   }
 
   function laneKeyForTask(task: GanttTask): SxDisplayLaneKey {
-    const backing = milestoneById.get(task.milestoneId);
+    const backing = task.milestoneId ? milestoneById.get(task.milestoneId) : undefined;
     if (task.track) return laneFold.laneKeyForTrack(task.track);
     if (backing && sxIsBlockingMilestone(backing)) {
       const forced = laneFold.blockingMilestoneLane(backing.slug);
