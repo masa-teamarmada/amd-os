@@ -33,8 +33,7 @@
   min-width: 820px;
 }
 
-.overviewTree > li,
-.treeRoot {
+.overviewTree > li {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -53,7 +52,6 @@
 .objective > span,
 .outcomeNode > span,
 .expandedHeader span,
-.outcomeRootNode > span,
 .nodeKind {
   color: var(--tree-accent);
   font-size: 0.64rem;
@@ -71,7 +69,6 @@
 
 .objective p,
 .outcomeNode p,
-.outcomeRootNode p,
 .nodeMain p {
   margin: 0.18rem 0 0;
   color: var(--tree-muted);
@@ -370,13 +367,25 @@
 }
 
 .treeViewport {
-  padding: 0.15rem 0 0.75rem;
+  position: relative;
+  padding: 20px 0 0.75rem;
 }
+
+/* 選択中の成立条件は見出しで一度だけ示し、その直下から根タスクへ幹線を落とす。
+   同じ成立条件カードをもう一枚置かず、2段目→3段目の因果を線で読み取れるようにする。 */
+.treeViewport::before {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 20px;
+  border-left: 2px solid var(--tree-line);
+  content: "";
+}
+
 .workTree {
   min-width: max-content;
 }
 
-.outcomeRootNode,
 .treeNode {
   border: 1px solid #b9cfdf;
   border-radius: 6px;
@@ -384,15 +393,6 @@
   box-shadow: 0 2px 8px rgba(20, 65, 96, .06);
 }
 
-.outcomeRootNode {
-  width: 310px;
-  padding: 0.55rem 0.65rem;
-  border-color: var(--tree-accent);
-  border-left-width: 4px;
-  background: linear-gradient(90deg, var(--tree-accent-soft), #ffffff 82%);
-}
-
-.outcomeRootNode > strong,
 .nodeTitle {
   display: block;
   margin-top: 0.08rem;
@@ -430,7 +430,7 @@
 }
 
 .treeNode[data-drop-target="true"],
-.outcomeRootNode[data-drop-target="true"] {
+.rootTaskTree[data-drop-target="true"] {
   outline: 3px solid var(--amd-action, #027fdc);
   outline-offset: 3px;
   background: var(--amd-action-soft, #e8f3fc);
@@ -698,7 +698,6 @@ button.nodeMain:hover {
   }
 
   .objective,
-  .outcomeRootNode,
   .treeNode,
   .treeNode[data-kind="approach"] {
     width: 100%;
@@ -747,10 +746,6 @@ button.nodeMain:hover {
     min-height: 44px;
   }
 
-  .treeRoot {
-    align-items: stretch;
-  }
-
   .treeChildren {
     display: block;
     width: calc(100% - 0.45rem);
@@ -761,6 +756,21 @@ button.nodeMain:hover {
 
   .treeChildren::before {
     display: none;
+  }
+
+  .treeViewport {
+    padding-top: 0.65rem;
+  }
+
+  .treeViewport::before {
+    left: 0.45rem;
+    height: 0.65rem;
+  }
+
+  .rootTaskTree {
+    width: calc(100% - 0.45rem);
+    min-width: 0;
+    margin-left: 0.45rem;
   }
 
   .treeBranch,

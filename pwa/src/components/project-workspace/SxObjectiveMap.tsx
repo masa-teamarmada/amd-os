@@ -656,79 +656,71 @@ export function SxObjectiveMap({
             </p>
           )}
           <div className={styles.treeViewport}>
-            <ul className={styles.workTree}>
-              <li className={styles.treeRoot}>
-                <article
-                  className={styles.outcomeRootNode}
-                  data-drop-target={dropTargetTaskId === "root" || undefined}
-                  onDragOver={(event) => {
-                    if (!draggedTaskId) return;
-                    event.preventDefault();
-                    event.dataTransfer.dropEffect = "move";
-                    setDropTargetTaskId("root");
-                  }}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    const taskId =
-                      event.dataTransfer.getData("text/plain") || draggedTaskId;
-                    const dragged = selectedTasks.find(
-                      (task) => task.id === taskId,
-                    );
-                    if (dragged) void moveTask(dragged, null);
-                  }}
-                >
-                  <span>成立条件</span>
-                  <strong>{selectedTree.outcome.title}</strong>
-                  <p>{selectedTree.outcome.definitionOfDone}</p>
-                </article>
-                {(selectedTree.roots.length > 0 ||
-                  selectedTree.unlinkedPartners.length > 0) && (
-                  <ul className={styles.treeChildren}>
-                    {selectedTree.roots.map((task) => (
-                      <TaskNode
-                        key={task.id}
-                        task={task}
-                        childMap={selectedTree.childMap}
-                        partnerById={partnerById}
-                        allTasks={selectedTasks}
-                        canManage={canManage}
-                        draggedTaskId={draggedTaskId}
-                        dropTargetTaskId={dropTargetTaskId}
-                        connectingTaskId={connectingTaskId}
-                        movingTaskId={movingTaskId}
-                        onOpenTask={onOpenTask}
-                        onOpenPartner={() =>
-                          onOpenPartners?.(selectedTree.outcome.track)
-                        }
-                        onCreateTask={(parentTask) =>
-                          onCreateTask?.(selectedTree.outcome, parentTask)
-                        }
-                        onBeginConnect={setConnectingTaskId}
-                        onMoveTask={(task, parentTaskId) =>
-                          void moveTask(task, parentTaskId)
-                        }
-                        onDragStart={beginDrag}
-                        onDragEnd={() => {
-                          setDraggedTaskId(null);
-                          setDropTargetTaskId(null);
-                        }}
-                        onDragOver={dragOverTask}
-                        onDrop={dropOnTask}
-                      />
-                    ))}
-                    {selectedTree.unlinkedPartners.map((partner) => (
-                      <PartnerNode
-                        key={partner.id}
-                        partner={partner}
-                        onOpen={() =>
-                          onOpenPartners?.(selectedTree.outcome.track)
-                        }
-                      />
-                    ))}
-                  </ul>
-                )}
-              </li>
-            </ul>
+            {(selectedTree.roots.length > 0 ||
+              selectedTree.unlinkedPartners.length > 0) && (
+              <ul
+                className={`${styles.workTree} ${styles.treeChildren} ${styles.rootTaskTree}`}
+                aria-label={`${selectedTree.outcome.title}を進めるやること`}
+                data-drop-target={dropTargetTaskId === "root" || undefined}
+                onDragOver={(event) => {
+                  if (!draggedTaskId) return;
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                  setDropTargetTaskId("root");
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const taskId =
+                    event.dataTransfer.getData("text/plain") || draggedTaskId;
+                  const dragged = selectedTasks.find(
+                    (task) => task.id === taskId,
+                  );
+                  if (dragged) void moveTask(dragged, null);
+                }}
+              >
+                {selectedTree.roots.map((task) => (
+                  <TaskNode
+                    key={task.id}
+                    task={task}
+                    childMap={selectedTree.childMap}
+                    partnerById={partnerById}
+                    allTasks={selectedTasks}
+                    canManage={canManage}
+                    draggedTaskId={draggedTaskId}
+                    dropTargetTaskId={dropTargetTaskId}
+                    connectingTaskId={connectingTaskId}
+                    movingTaskId={movingTaskId}
+                    onOpenTask={onOpenTask}
+                    onOpenPartner={() =>
+                      onOpenPartners?.(selectedTree.outcome.track)
+                    }
+                    onCreateTask={(parentTask) =>
+                      onCreateTask?.(selectedTree.outcome, parentTask)
+                    }
+                    onBeginConnect={setConnectingTaskId}
+                    onMoveTask={(task, parentTaskId) =>
+                      void moveTask(task, parentTaskId)
+                    }
+                    onDragStart={beginDrag}
+                    onDragEnd={() => {
+                      setDraggedTaskId(null);
+                      setDropTargetTaskId(null);
+                    }}
+                    onDragOver={dragOverTask}
+                    onDrop={dropOnTask}
+                  />
+                ))}
+                {selectedTree.unlinkedPartners.map((partner) => (
+                  <PartnerNode
+                    key={partner.id}
+                    partner={partner}
+                    onOpen={() =>
+                      onOpenPartners?.(selectedTree.outcome.track)
+                    }
+                  />
+                ))}
+              </ul>
+            )}
           </div>
         </section>
       )}
