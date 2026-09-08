@@ -22,9 +22,9 @@ const hydrogenLedgerMigration = readRepo("ios/supabase/migrations/20260901153000
 const objectiveBranchMigration = readRepo("ios/supabase/migrations/20260901223000_zmp_objective_branch_history.sql");
 const bundle = readPwa("src/lib/project-workspace.ts");
 const dashboard = readPwa("src/components/project-workspace/SxWeeklyControlDashboard.tsx");
+const unifiedTimeline = readPwa("src/components/project-workspace/SxUnifiedTimeline.tsx");
 const themeRoutes = readPwa("src/components/project-workspace/ProjectThemeRoutes.tsx");
-const objectiveMap = readPwa("src/components/project-workspace/SxObjectiveMap.tsx");
-const objectiveMapCss = readPwa("src/components/project-workspace/sx-objective-map.module.css");
+const cockpitTabs = readPwa("src/lib/cockpit-tabs.ts");
 const partnerPipeline = readPwa("src/components/project-workspace/SxPartnerPipeline.tsx");
 const themeCss = readPwa("src/components/project-workspace/project-theme-routes.module.css");
 const sharedPage = readPwa("src/app/(shared-workspace)/project/[projectId]/workspace/page.tsx");
@@ -123,7 +123,7 @@ assert.match(bundle, /themes: ProjectWorkspaceBundle\["themes"\]/);
 assert.doesNotMatch(bundle, /milestoneRows \?\? \[\]\)\.slice\(0, 8\)/, "9件目を落とさない");
 
 assert.match(dashboard, /themes: "theme-progress"/, "既存hash(#theme-progress)は互換のため維持する");
-assert.match(dashboard, /tabs\.unshift\(\{ key: "themes", label: "テーマ" \}\)/, "テーマ進捗→テーマへラベル変更(root review)");
+assert.match(dashboard, /children: \[\{ key: "themes", label: "テーマ" \}/, "実行グループの先頭はテーマ");
 assert.match(dashboard, /externalViewer \? externalDefaultView : hasThemes \? "themes" : "weekly"/);
 assert.ok(
   dashboard.indexOf("const fromHash = viewForHash") < dashboard.indexOf("window.localStorage.getItem"),
@@ -164,7 +164,7 @@ assert.match(sharedPage, /access\.principal === "workspace_account"[\s\S]*?<Shar
 assert.match(sharedPage, /<SxWeeklyControlDashboard bundle=\{bundle\} access=\{access\}/, "内部・外部とも同じPJワークスペースを読む");
 assert.doesNotMatch(sharedPage, /共有資料をひとつの場所で|PJの内部管理情報は表示しない/, "外部を資料室だけへ閉じる旧分岐を残さない");
 assert.match(sharedAccess, /memberId: null;[\s\S]*?canManage: false;/, "外部PJメンバーは閲覧専用のまま");
-assert.match(dashboard, /access\.principal === "workspace_account"[\s\S]*?tab\.key === "gantt"[\s\S]*?tab\.key === "partners"[\s\S]*?tab\.key === "drive"/, "外部PJメンバーの共有ナビはテーマ・ガント・関係先・資料へ限定する");
+assert.match(dashboard, /const EXTERNAL_WORKSPACE_TABS = new Set<SxWeeklyControlView>\(\["themes", "gantt", "partners", "drive"\]\)/, "外部PJメンバーの共有ナビはテーマ・ガント・関係先・資料へ限定する");
 
 assert.match(themeRoutes, /routine_auto: "予定進行"/);
 assert.match(themeRoutes, /PM_LOCKED_SOURCES/);
@@ -194,26 +194,21 @@ for (const event of ["コンタクト", "MTG実施", "やりとり継続・返�
 assert.match(objectiveBranchMigration, /branch_count <> 3/, "シーズリスト作成からの3分岐をassertする");
 assert.match(objectiveBranchMigration, /linked_count <> 2/, "2アプローチを関係先へ接続する");
 
-// テーマは索引、目的構造はガントの左側タスク階層へ統合する。
+// テーマは索引、目的構造はガントの同じ行・同じ時間軸へ統合する。
 assert.doesNotMatch(themeRoutes, /<ThemeHistory|import \{ ThemeHistory \}/, "テーマ面に重複する履歴台帳を残さない");
-assert.match(themeRoutes, /onOpenControlView\?\.\("gantt", selectedTheme\.themeKey\)/, "テーマからガントへ遷移する");
+assert.match(themeRoutes, /onOpenControlView\?\.\("gantt", selectedTheme\.themeKey\)/, "テーマから目的・全体ガントへ遷移する");
 assert.match(themeRoutes, /onOpenControlView\?\.\("partners", selectedTheme\.themeKey\)/, "テーマから関係先へ遷移する");
-assert.doesNotMatch(dashboard, /<SxObjectiveMap|>目的構造<\/button>/, "目的構造の別表示を復活させない");
+assert.doesNotMatch(dashboard, /<SxObjectiveMap|"timeline" \| "objective"/, "独立した目的構造表示へ戻さない");
 assert.match(dashboard, /tasks=\{management\.tasks\}/, "standaloneを含む全タスクをガントへ渡す");
-assert.match(objectiveMap, /最上位の目的/);
-assert.match(objectiveMap, /成立条件/);
-assert.match(objectiveMap, /接点の経緯/);
-assert.match(objectiveMap, /AMD側ボール/);
-assert.match(objectiveMap, /一旦停止/);
-assert.match(objectiveMap, /draggable=\{canManage/, "管理権限時にタスクカードをドラッグできる");
-assert.match(objectiveMap, /＋ 子タスク/, "各カードから子タスクを手動追加できる");
-assert.match(objectiveMap, /接続変更/, "接続先を明示選択できる");
-assert.match(objectiveMap, /taskHasDescendant/, "循環参照になる接続をUIでも除外する");
-assert.doesNotMatch(objectiveMapCss, /calc\(50%\s*\/|--branch-count|branchGrid/, "雑な全幅コネクタへ戻さない");
-assert.match(objectiveMapCss, /\.treeBranch::before[\s\S]*?\.treeBranch::after/, "コネクタは各親子枝が所有する");
-assert.match(objectiveMapCss, /--tree-accent:\s*var\(--amd-action,\s*#027fdc\)/, "目的構造の主色はAMD OS共通の操作色を使う");
-assert.match(objectiveMapCss, /\.nodeState\[data-state="completed"\][\s\S]*?var\(--amd-success,\s*#047857\)/, "greenは完了状態に限定する");
-assert.doesNotMatch(objectiveMapCss, /#0f766e|#ecf8f5|#0f675f|#185e56/i, "水素の連想から独自teal主色を復活させない");
+assert.match(dashboard, /objectives=\{management\.objectives\}/, "ガントへ全目的を渡す");
+assert.match(unifiedTimeline, /目的 → 成立条件 → タスク/, "ガント左列で目的構造を読む");
+assert.match(unifiedTimeline, /data-gantt-objective-expand-toggle/, "成立条件を一括開閉できる");
+assert.match(unifiedTimeline, /data-gantt-task-detail-toggle/, "同じガントでタスクまで段階表示できる");
+assert.match(unifiedTimeline, /data-gantt-add-outcome/, "成立条件の追加入口をガントへ残す");
+assert.match(dashboard, /onEditOutcome=\{\(outcomeId\) => \{/, "成立条件の行クリックを既存editorへつなぐ");
+assert.match(unifiedTimeline, /beginTaskNestDrag/, "タスク階層変更の既存操作を維持する");
+assert.doesNotMatch(cockpitTabs, /children: \[[^\]]*"objective-structure"/, "コックピットに独立した目的構造タブを残さない");
+assert.match(cockpitTabs, /if \(tab === "objective-structure"\) return "gantt";/, "旧URLはガントへ互換遷移する");
 assert.match(partnerPipeline, /activeTrack\?: SxTrackKey \| null/, "関係先リストは同じ正本をテーマで絞れる");
 assert.match(partnerPipeline, /partner\.tracks\.some\(\(track\) => track\.track === activeTrack\)/, "副track所属もテーマ絞り込みへ含める");
 

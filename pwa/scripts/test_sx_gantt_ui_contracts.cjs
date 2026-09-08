@@ -135,9 +135,8 @@ assertNotIncludes(timelineFile, timeline, [
 ]);
 assertIncludes(timelineFile, timeline, [
   "type GanttTask = SxTask;",
-  "Every live task belongs in the gantt",
   "every parent starts open",
-  "task.milestoneId ? milestoneById.get(task.milestoneId) : undefined",
+  "task.milestoneId ? milestoneById.get(task.milestoneId) : null",
   'label: "タスク構造", shortLabel: "タスク"',
   "function milestoneAnchorRow(",
   "data-gantt-lane-milestone-spine={milestone.id}",
@@ -156,6 +155,40 @@ assertNotIncludes(timelineFile, timeline, [
   "sxMilestoneRequiredTaskSummary",
   "requiredTaskSummary",
   "必須タスク",
+]);
+
+// -- 6b. The gantt carries the full objective -> outcome -> task structure --------------------
+assertIncludes(timelineFile, timeline, [
+  'type StructureRow = {',
+  'entity: "objective" | "outcome";',
+  'objectives = [],',
+  'const groupedObjectives = objectives.filter((objective) =>',
+  'laneOutcomes.some((outcome) => outcome.objectiveId === objective.id)',
+  'kind: "structure"',
+  'row: taskDisplayRow(task, depth, children.length > 0, timeline, asOf)',
+  'const [showTaskDetails, setShowTaskDetails] = useState(() => projectId !== "p19");',
+  'const [expandedObjectives, setExpandedObjectives] = useState<Set<string>>(',
+  'if (!expandedObjectives.has(objective.id)) continue;',
+  'if (showTaskDetails) appendTaskTree(root, bucket[laneKey], 0);',
+  'data-gantt-task-detail-toggle',
+  'data-gantt-objective-expand-toggle',
+  'data-gantt-add-outcome',
+  'onEditOutcome?.(row.id)',
+  'タスクまで見る',
+  '成立条件を開く',
+  'data-gantt-structure-row={`${row.entity}:${row.id}`}',
+  '目的 → 成立条件 → タスク',
+  '完了：{row.definitionOfDone}',
+  '<StructureTimelineRow row={row} accent={lane.accent} />',
+]);
+
+const managementFile = "src/lib/sx-management.ts";
+const management = read(managementFile);
+assertIncludes(managementFile, management, [
+  'objectives: SxObjective[];',
+  'const objectives: SxObjective[] = objectiveRows.map((row) =>',
+  'const objective = objectives[0] ?? null;',
+  'horizonMonths(objectives, milestones, today)',
 ]);
 
 // -- 9. Three permanent task-writer rows; MS creation starts from a true blank date point -------
@@ -311,6 +344,13 @@ assertNotIncludes(compactTaskTitleMigrationFile, compactTaskTitleMigration, [
 // -- 10. No role=alertdialog or nested editor: every PlanInspector value edits in place ---------
 const dashboardFile = "src/components/project-workspace/SxWeeklyControlDashboard.tsx";
 const dashboard = read(dashboardFile);
+assertIncludes(dashboardFile, dashboard, [
+  'management.objectives.length === 1',
+  'objectives={management.objectives}',
+  'onCreateOutcome={() => setEditor({ kind: "create_outcome" })}',
+  'onEditOutcome={(outcomeId) => {',
+  '目的・全体ガント',
+]);
 assertNotIncludes(dashboardFile, dashboard, [
   'role="alertdialog"',
   // Retired split: FACT_SLOTS restricted the shared tray to only 5 of the editable values.

@@ -50,8 +50,8 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - テーマ画面からのMTG新規作成と編集は`src/lib/theme-hub-rollout.ts`の共有定数でAPIとUI双方から停止する。既存の匿名読取ポリシーについて、まさの明示承認、修正、権限別検証が完了するまで解除しない。既存MTGの閲覧とテーマへの紐付けは利用できる。コックピットMTGカードとホームへの遷移はportfolio/adminだけに出す。外部アカウントとPJ限定memberへ権限外の導線を出さない。
 - テーマ平均は出さず、各成果目標の`routine_auto`は予定進行、PM lockedだけ確定進捗として区別する。実コンポーネントの模擬201/503応答とDB ROLLBACK試験は確認済み。認証付き本番E2E保存は未検証。
 - テーマの4テーマ作業画面はPJワークスペースへ集約する。コックピットにはテーマタブや`?tab=themes`導線を戻さず、`project_management_*`正本・目的構造・関係先接点の実装はワークスペース側で維持する。回帰防止は`test:zmp-workspace-themes`（2026-09-01）。
-- AMD本体（`p00`）の社内業務は同じ目的構造（`project_management_objectives / outcomes / milestones / tasks`）で追う。p00専用の別テーブル・別画面を作らない。柱は`amd_operations`1本、業務ライン=outcome。管理権限者は目的構造の`＋ 業務ラインを追加`／`このラインを編集`でoutcomeを作成・更新でき、作成時に同じラインのphase MSを1件続けて作る（milestoneを持たないタスクはtrack一致で拾われ、同じ柱の全ラインへ同じタスクが出るため）。決算・税務・社会保険・定時株主総会の法定期限そのものは`/admin/schedule`が正本で、目的構造へ複製しない。seedはmigration `20260903120600_amd_operations_objective_structure.sql`（2026-09-03）。
-- pHydrogenとの予定は関係先の`次回面談`、実施後の相手別時系列と接点後ボールは`やり取り履歴`、会議全体の議事・判断・アクションはコックピットMTGカードを正本にする。目的構造は関係先履歴を読む派生面で本文を複製せず、現時点でMTGカードから関係先履歴への自動同期は行わない。通常ワークスペースはsky/white/slateを主色とし、emeraldは完了・充足だけに限定する。`test:ui-design-code`を`test:critical-ui`へ接続し、退役済みteal主色と役割不明のgreenトークンの復活を止める（2026-09-01）。
+- AMD本体（`p00`）の社内業務は同じ目的構造（`project_management_objectives / outcomes / milestones / tasks`）で追う。p00専用の別テーブル・別画面を作らない。柱は`amd_operations`1本、業務ライン=outcome。管理権限者はガント上部の`成立条件を追加`／既存の成立条件行クリックでoutcomeを作成・更新でき、作成時に同じラインのphase MSを1件続けて作る。決算・税務・社会保険・定時株主総会の法定期限そのものは`/admin/schedule`が正本で、目的構造へ複製しない。seedはmigration `20260903120600_amd_operations_objective_structure.sql`（2026-09-03）。
+- pHydrogenとの予定は関係先の`次回面談`、実施後の相手別時系列と接点後ボールは`やり取り履歴`、会議全体の議事・判断・アクションはコックピットMTGカードを正本にする。関係先履歴は関係先タブで読み、ガントへ本文を複製しない。現時点でMTGカードから関係先履歴への自動同期は行わない。通常ワークスペースはsky/white/slateを主色とし、emeraldは完了・充足だけに限定する。`test:ui-design-code`を`test:critical-ui`へ接続し、退役済みteal主色と役割不明のgreenトークンの復活を止める（2026-09-01）。
 
 ## /portfolio-preview — 研究ポートフォリオ構造プレビュー (2026-08-02 /dashboard へ統合済み・退役)
 
@@ -562,7 +562,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 必須機能:
 
 - レイアウト: `max-w-[1600px]` の幅広 container、上 Header → hero (PJ Status) → 進捗管理本文へ進む案C系構成。通常時は MS / 月次側と、資料 / 経営ハイライト / ガバナンス / 助成金 / MTGサマリ側の 2 カラム。凍結中 / 再開予定などのステータスバッジがある時だけ右カラムを出す。`max-w-[1060px]` + 左 720 / 右 220 の旧 2 カラムには戻さない。最下段の旧 TODO かんばんと旧 `ProactiveQueuePanel` は主要導線から外す。
-- 二階層ナビゲーション: `src/lib/cockpit-tabs.ts`を正本に通常PJは3グループ、研究機関PJは4グループとする。進捗管理の子タブは`ガント`と`目的構造`を独立して持ち、同じ`SxWeeklyControlDashboard`の束を共有する。PCでは親グループのhover/focusで子一覧を直下へフロートし、タッチ端末ではhoverを模倣せず選択中グループの子列を常時表示する。フロートの子ボタンも既存のprefetch・focus-visible・44px操作域を守る。
+- 二階層ナビゲーション: `src/lib/cockpit-tabs.ts`を正本に通常PJは3グループ、研究機関PJは4グループとする。2026-09-09以降、進捗管理の`ガント`は目的→成立条件→タスクを固定左列へ内包し、独立した`目的構造`子タブを持たない。旧`?tab=objective-structure`はガントへ互換遷移する。PCでは親グループのhover/focusで子一覧を直下へフロートし、タッチ端末ではhoverを模倣せず選択中グループの子列を常時表示する。フロートの子ボタンも既存のprefetch・focus-visible・44px操作域を守る。
 - Header契約実行サマリー: `CockpitHeader` はPJ名/status/分類/PJメンバーに加え、現行契約ごとに `契約期間` / `請求・振込` / `業務・成果物` / `経費申請` / 必要時だけ `推進条件` の最大5項目を表示する。請求・振込タイミングは必須表示。短文は `projects.contract_terms_json.currentContracts[].terms.cockpitSummary` の `invoiceTiming` / `paymentTiming` / `scope` / `deliverables` / `expense` / `execution` を正本にする。知財、秘密保持、解除、責任など常設しても判断量が増えない法務条項は通常契約のサマリーへ出さず、`/admin/contracts` に残す。NDAは `契約期間` / `利用目的` / `運用条件` を表示する。コックピットから `/admin/projects` や旧configへ飛ばす導線は置かない。
 - KUTE年度内ロードマップ: `projectId === 'p25'` では Header 直下に `CockpitKuteAnnualRoadmap` を表示する。6/11キックオフ資料 / `PROJECT_BRIEF` の年度内スケジュールを根拠に、規程整備 (`2027-01` 完了目途) とシーズ発掘 / after GTIE (`2027-03` 型化目途) を同じ横軸で見せる。研究機関コックピット `/institutions/inst_kute/cockpit` でも同じ `CockpitView` 経由で表示する。
 - 上 hero: PJ ごとに出し分け。p00 (= AMD 会社全体) は `CockpitManagementScoreHero` で AMD Management Score の時系列折れ線 + 最新値カード。SU 系 PJ は `CockpitVentureStatus` 内の最上段に`Bzm22CockpitSummary`を置き、desktopは左の縦レールへ$J/P/Q/S$、右へXRLグラフを置く一体レイアウトにする。数式と肯定形の一文を主スコアとして表示する。XRLは右ペインの実寸幅・高さを使って描画し、BZM指標と上下に重ねたり固定aspect比の下へ空白を残したりしない。mobileはXRL面だけを内部横スクロールする。スコア詳細の旧SPS履歴は主スコア直下へ置かず、ページ最下部の旧モデルアーカイブへ集約する。
@@ -846,7 +846,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 - `SeedDetailModal` の接続PJリンクは `/project/{projectId}/cockpit` だけ。workspaceへの直リンクや「ワークスペース（コックピット）」の混同表記を置かない。
 - `CockpitHeader` の「共有ワークスペースへ」をworkspaceの内部入口とし、Seed詳細モーダルからworkspaceへ直接飛ばさない。
-- 全PJの `/project/{projectId}/workspace` は `SxWeeklyControlDashboard` を使う。AMD内部は`実行`（テーマ / 週次差分 / ガント / 関係先 / 論点・仮説）、`計画・根拠`（技術 / 事業計画）、`経営・会社`（会社概要 / 資本政策 / コスト試算 / 知財）、`資料`（ドライブ）の二段ナビを持つ。タスクの親子構造はガントの固定左列へ統合し、独立した目的構造タブは持たない。`PJ概要`は社内コックピット専用とする。外部workspace accountはテーマ（存在時） / ガント / 関係先 / ドライブだけを読む。
+- 全PJの `/project/{projectId}/workspace` は `SxWeeklyControlDashboard` を使う。AMD内部は`実行`（テーマ / 週次差分 / ガント / 関係先 / 論点・仮説）、`計画・根拠`（技術 / 事業計画）、`経営・会社`（会社概要 / 資本政策 / コスト試算 / 知財）、`資料`（ドライブ）の二段ナビを持つ。目的構造はガントへ統合する。`PJ概要`は社内コックピット専用とする。外部workspace accountはテーマ（存在時） / ガント / 関係先 / ドライブだけを読む。
 - `動向・会議`は経営会議を含むためPJワークスペースへ出さず、社内コックピットに残す。
 - `ドライブ` は `WorkspaceDocumentRoom(scopeKind='project', scopeId=当該PJ, surface='workspace')` を再利用する。資料の共有境界とアクセス権はPJごとのaccess bundleを維持する。
 - 仕様の共通化は画面操作に限定し、PJ固有の名称、管理柱・表示レーン、実データ、外部workspace accountの権限範囲を変更しない。DB上の柱を3レーンへ変換しない。

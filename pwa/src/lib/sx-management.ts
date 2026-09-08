@@ -749,6 +749,10 @@ export type SxJudgment = {
 export type SxManagementBundle = {
   asOf: string;
   horizonMonths: string[];
+  /** A project may carry several simultaneous objectives. `objective` remains as the
+   * compatibility primary objective for older consumers; planning surfaces must prefer this
+   * collection so objectives never disappear by sort order. */
+  objectives: SxObjective[];
   objective: SxObjective | null;
   outcomes: SxOutcome[];
   kpis: SxKpi[];
@@ -1186,7 +1190,7 @@ function toYearMonth(value: string | null | undefined): string | null {
   return `${match[1]}-${match[2]}`;
 }
 
-function horizonMonths(objective: SxObjective | null, milestones: SxManagementMilestone[], asOf: string): string[] {
+function horizonMonths(objectives: SxObjective[], milestones: SxManagementMilestone[], asOf: string): string[] {
   const candidates: string[] = [];
   for (const milestone of milestones) {
     for (const value of [milestone.plannedStart, milestone.plannedEnd, milestone.forecastEnd, milestone.actualEnd]) {
@@ -1194,8 +1198,10 @@ function horizonMonths(objective: SxObjective | null, milestones: SxManagementMi
       if (ym) candidates.push(ym);
     }
   }
-  const objectiveYm = toYearMonth(objective?.targetDate);
-  if (objectiveYm) candidates.push(objectiveYm);
+  for (const objective of objectives) {
+    const objectiveYm = toYearMonth(objective.targetDate);
+    if (objectiveYm) candidates.push(objectiveYm);
+  }
 
   const asOfYm = toYearMonth(asOf) || asOf.slice(0, 7);
   if (!candidates.length) return [asOfYm];
@@ -1362,8 +1368,8 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
       }))
     : SX_TRACKS.map((track, index) => ({ ...track, sortOrder: index + 1 }));
 
-  const objectiveRow = objectiveRows[0];
-  const objective: SxObjective | null = objectiveRow ? { id: stringValue(objectiveRow, "id"), slug: stringValue(objectiveRow, "slug"), title: stringValue(objectiveRow, "title"), definitionOfDone: stringValue(objectiveRow, "definition_of_done"), targetDate: nullableString(objectiveRow, "target_date"), dateCertainty: objectiveRow.date_certainty === "confirmed" ? "confirmed" : "provisional", status: (objectiveRow.status as SxObjective["status"]) || "unassessed", lastVerifiedAt: stringValue(objectiveRow, "last_verified_at"), confidence: asConfidence(objectiveRow.confidence), sourceKind: asSourceKind(objectiveRow.source_kind), sourceRef: nullableString(objectiveRow, "source_ref") } : null;
+  const objectives: SxObjective[] = objectiveRows.map((row) => ({ id: stringValue(row, "id"), slug: stringValue(row, "slug"), title: stringValue(row, "title"), definitionOfDone: stringValue(row, "definition_of_done"), targetDate: nullableString(row, "target_date"), dateCertainty: row.date_certainty === "confirmed" ? "confirmed" : "provisional", status: (row.status as SxObjective["status"]) || "unassessed", lastVerifiedAt: stringValue(row, "last_verified_at"), confidence: asConfidence(row.confidence), sourceKind: asSourceKind(row.source_kind), sourceRef: nullableString(row, "source_ref") }));
+  const objective = objectives[0] ?? null;
   const outcomes: SxOutcome[] = outcomeRows.map((row) => ({ id: stringValue(row, "id"), objectiveId: stringValue(row, "objective_id"), slug: stringValue(row, "slug"), track: asTrack(row.track), title: stringValue(row, "title"), definitionOfDone: stringValue(row, "definition_of_done"), ownerLabel: stringValue(row, "owner_label", "担当未確認"), status: (row.status as SxOutcome["status"]) || "unassessed", lastVerifiedAt: stringValue(row, "last_verified_at"), confidence: asConfidence(row.confidence) }));
   const kpis = kpiRows.map(mapKpi);
   const tasks: SxTask[] = taskRows.map(mapTask);
@@ -1520,5 +1526,5 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
   const judgment = computeSxJudgment(tracks, milestones, decisions, today, { kpis, actions, commitments: judgmentCommitments, roles: organizationRoles, dag, objectivePresent: Boolean(objective), outcomesCount: outcomes.length });
   const partnerRoles = partners.flatMap((partner) => partner.roles);
   const partnerWorkItems = partners.flatMap((partner) => partner.workItems);
-  return { asOf: today, horizonMonths: horizonMonths(objective, milestones, today), objective, outcomes, kpis, dependencies: dependencyDtos, scheduleDependencies, dag, judgment, tracks, milestones, tasks, issues, hypotheses, evidence, validationRuns, decisions, actions, partners, partnerCommitments: commitments, partnerInteractions: interactions, partnerRoles, partnerWorkItems, technicalTests, fundingSnapshots, organizationRoles, raci, capacity, history, fieldAudit, canManage, hasData: Boolean(objective || outcomes.length || milestones.length || issues.length || partners.length || decisions.length) };
+  return { asOf: today, horizonMonths: horizonMonths(objectives, milestones, today), objectives, objective, outcomes, kpis, dependencies: dependencyDtos, scheduleDependencies, dag, judgment, tracks, milestones, tasks, issues, hypotheses, evidence, validationRuns, decisions, actions, partners, partnerCommitments: commitments, partnerInteractions: interactions, partnerRoles, partnerWorkItems, technicalTests, fundingSnapshots, organizationRoles, raci, capacity, history, fieldAudit, canManage, hasData: Boolean(objectives.length || outcomes.length || milestones.length || issues.length || partners.length || decisions.length) };
 }

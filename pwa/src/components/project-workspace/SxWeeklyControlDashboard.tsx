@@ -5269,7 +5269,12 @@ export function SxWeeklyControlDashboard({
           dateCertainty: track.dateCertainty,
           maxIssue: track.maxIssue,
         })),
-        objectiveTargetDate: null,
+        // A single vertical objective marker cannot honestly represent a multi-objective
+        // project. Those deadlines are rendered on their own objective rows in the gantt.
+        objectiveTargetDate:
+          management.objectives.length === 1
+            ? management.objectives[0]?.targetDate ?? null
+            : null,
         interventionRows: [],
         pinCount: 0,
         dateMode: "planned_only",
@@ -6077,8 +6082,8 @@ export function SxWeeklyControlDashboard({
         >
           <div className={styles.sectionHeading}>
             <div>
-              <h2>全体ガント</h2>
-              <p>左でタスク階層、右で日程と前後関係を見る。階層の追加・開閉・並べ替えもここで行う</p>
+              <h2>目的・全体ガント</h2>
+              <p>左でタスク階層、右で日程と前後関係を見る。目的→成立条件→タスクを同じ行で追う</p>
             </div>
             <div className={styles.planViewControls}>
               <p>基準日 {formatDate(management.asOf)}</p>
@@ -6095,6 +6100,7 @@ export function SxWeeklyControlDashboard({
                 dependencies={management.dependencies}
                 scheduleDependencies={management.scheduleDependencies}
                 tasks={management.tasks}
+                objectives={management.objectives}
                 outcomes={management.outcomes}
                 objectiveId={management.objective?.id ?? null}
                 onManagementChange={(next, message) => {
@@ -6135,6 +6141,11 @@ export function SxWeeklyControlDashboard({
                     allowStandalone: true,
                   })
                 }
+                onCreateOutcome={() => setEditor({ kind: "create_outcome" })}
+                onEditOutcome={(outcomeId) => {
+                  const outcome = management.outcomes.find((item) => item.id === outcomeId);
+                  if (outcome) setEditor({ kind: "edit_outcome", outcome });
+                }}
                 showPins={false}
               />
             </div>

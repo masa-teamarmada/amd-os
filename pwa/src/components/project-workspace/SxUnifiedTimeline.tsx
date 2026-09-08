@@ -20,6 +20,7 @@ import type {
   SxDependency,
   SxManagementBundle,
   SxManagementMilestone,
+  SxObjective,
   SxOutcome,
   SxScheduleDependency,
   SxTask,
@@ -144,8 +145,8 @@ function pointerOffsetToTimelinePct(offsetX: number, paneWidth: number) {
   );
 }
 
-// A gantt row is a task whether or not it belongs to a milestone. This lets a project express its
-// whole work breakdown as one task tree, with milestones remaining optional point markers.
+// Standalone tasks are kept visible after the purpose-linked branches. They do not acquire an
+// inferred outcome: connecting work to a purpose remains an explicit management-data operation.
 type GanttTask = SxTask;
 
 type DisplayRow = {
@@ -181,6 +182,28 @@ type DisplayRow = {
    * funding-investment). Achievement here follows the MS's own state and evidence. */
   achievement?: SxGateRequirement["state"] | null;
 };
+
+type StructureRow = {
+  id: string;
+  entity: "objective" | "outcome";
+  title: string;
+  definitionOfDone: string;
+  ownerLabel: string | null;
+  status: SxObjective["status"] | SxOutcome["status"];
+  depth: 0 | 1;
+  childCount: number;
+  taskCount: number;
+  completedTaskCount: number;
+  plannedStart: string | null;
+  plannedEnd: string | null;
+  plannedStartPct: number | null;
+  plannedEndPct: number | null;
+  dateCertainty: "confirmed" | "provisional" | null;
+};
+
+type GanttPlanRow =
+  | { kind: "structure"; row: StructureRow }
+  | { kind: "task"; row: DisplayRow };
 
 type LaneMeta = {
   key: string;
@@ -367,7 +390,7 @@ function taskDisplayRow(
 }
 
 function lanesTotalHeight(
-  lanes: Array<{ rows: DisplayRow[]; collapsed: boolean }>,
+  lanes: Array<{ planRows: GanttPlanRow[]; collapsed: boolean }>,
   includeTaskWriterRow: boolean,
 ) {
   return lanes.reduce(
@@ -376,11 +399,72 @@ function lanesTotalHeight(
       LANE_HEADER_H +
       // A collapsed lane keeps only its header band — that band is where the MS gates live, so
       // they stay visible — and drops the task rows together with the "新規タスク" writer row.
-      (lane.rows.length +
+      (lane.planRows.length +
         (includeTaskWriterRow && !lane.collapsed ? 1 : 0)) *
         ROW_H +
       LANE_GAP,
     0,
+  );
+}
+
+function structureStatusLabel(status: StructureRow["status"]) {
+  if (status === "completed") return "完了";
+  if (status === "on_hold") return "保留";
+  if (status === "active") return "進行中";
+  return "未評価";
+}
+
+function StructureTimelineRow({
+  row,
+  accent,
+}: {
+  row: StructureRow;
+  accent: string;
+}) {
+  const startPct = row.plannedStartPct ?? row.plannedEndPct;
+  const endPct = row.plannedEndPct ?? row.plannedStartPct;
+  const hasRange = startPct != null && endPct != null;
+  const completionPct = row.taskCount > 0
+    ? Math.round((row.completedTaskCount / row.taskCount) * 100)
+    : row.status === "completed"
+      ? 100
+      : 0;
+  return (
+    <div
+      className={`relative h-full border-b ${row.entity === "objective" ? "border-[#b8d9ef] bg-[#E8F3FC]/55" : "border-[#dcecf7] bg-[#f8fbfe]"}`}
+      data-gantt-structure-row={`${row.entity}:${row.id}`}
+    >
+      {hasRange ? (
+        <span
+          className="pointer-events-none absolute top-1/2 h-2 -translate-y-1/2 overflow-hidden border"
+          style={{
+            left: timelinePctCss(startPct),
+            width: `max(10px, ${timelineSpanCss(startPct, endPct)})`,
+            borderColor: row.entity === "objective" ? accent : `${accent}88`,
+            background: row.entity === "objective" ? `${accent}22` : `${accent}12`,
+          }}
+          aria-hidden="true"
+        >
+          {completionPct > 0 && (
+            <i
+              className="block h-full not-italic"
+              style={{ width: `${completionPct}%`, background: row.entity === "objective" ? accent : `${accent}99` }}
+            />
+          )}
+        </span>
+      ) : (
+        <span className="absolute inset-0 flex items-center px-2 text-[9px] font-semibold text-[#86868b]">
+          日程未設定
+        </span>
+      )}
+      {row.plannedEndPct != null && (
+        <span
+          className={`pointer-events-none absolute top-1/2 -translate-x-1/2 -translate-y-1/2 ${row.entity === "objective" ? "h-3 w-3 rotate-45 border-2 bg-white" : "h-2 w-2 rounded-full border bg-white"}`}
+          style={{ left: timelinePctCss(row.plannedEndPct), borderColor: accent }}
+          aria-hidden="true"
+        />
+      )}
+    </div>
   );
 }
 
@@ -844,6 +928,7 @@ export function SxUnifiedTimeline({
   milestones = [],
   scheduleDependencies = [],
   tasks = [],
+  objectives = [],
   outcomes = [],
   objectiveId = null,
   onSelectMilestone,
@@ -851,6 +936,8 @@ export function SxUnifiedTimeline({
   canManage,
   onCreateMilestone,
   onCreateTask = () => {},
+  onCreateOutcome,
+  onEditOutcome,
   onManagementChange = () => {},
   onManagementOptimistic,
   showPins = true,
@@ -875,8 +962,10 @@ export function SxUnifiedTimeline({
    * task-only renderer no longer treats milestone dependencies as displayed parent rows. */
   dependencies?: SxDependency[];
   scheduleDependencies?: SxScheduleDependency[];
-  /** Every live task belongs in the gantt. `milestoneId` may be null for a pure task hierarchy. */
+  /** Includes purpose-linked and standalone work. Standalone work remains visible at the end of
+   * its lane without being silently assigned to an outcome. */
   tasks?: GanttTask[];
+  objectives?: SxObjective[];
   outcomes?: SxOutcome[];
   objectiveId?: string | null;
   onSelectMilestone: (milestoneId: string | null) => void;
@@ -896,6 +985,9 @@ export function SxUnifiedTimeline({
   }) => void;
   onEditTask?: (taskId: string) => void;
   onCreateTask?: (laneKey: SxDisplayLaneKey) => void;
+  /** Purpose-structure management stays in the gantt after retiring its standalone tab. */
+  onCreateOutcome?: () => void;
+  onEditOutcome?: (outcomeId: string) => void;
   onManagementChange?: (bundle: SxManagementBundle, message: string) => void;
   /** DBの応答を待たずに、親が持つbundleへ直接変更を当てる。このコンポーネントはbundle
    *  全体を持たないので、変換関数だけを渡す。省略された呼び出し元は従来どおり応答待ちで動く。 */
@@ -916,6 +1008,22 @@ export function SxUnifiedTimeline({
   const [collapsedLanes, setCollapsedLanes] = useState<Set<SxDisplayLaneKey>>(
     () => new Set(),
   );
+  // ZMP has several objectives and dozens of tasks. Opening every task by default recreates the
+  // old flat list and hides the management structure below the fold, so its first view is the
+  // objective/outcome overview. The same control remains available to every project and reveals
+  // the full editable task plan without leaving the gantt.
+  const [showTaskDetails, setShowTaskDetails] = useState(() => projectId !== "p19");
+  const [expandedObjectives, setExpandedObjectives] = useState<Set<string>>(
+    () => new Set(projectId === "p19" ? [] : objectives.map((objective) => objective.id)),
+  );
+  const toggleObjectiveExpanded = (objectiveId: string) => {
+    setExpandedObjectives((previous) => {
+      const next = new Set(previous);
+      if (next.has(objectiveId)) next.delete(objectiveId);
+      else next.add(objectiveId);
+      return next;
+    });
+  };
   const toggleLaneCollapsed = (key: SxDisplayLaneKey) => {
     setCollapsedLanes((previous) => {
       const next = new Set(previous);
@@ -1503,23 +1611,30 @@ export function SxUnifiedTimeline({
 
   const laneFold = useMemo(() => buildSxLaneFold(tracks), [tracks]);
 
-  // The visible tree contains only tasks. Legacy phase milestones remain in the database as
-  // FK containers, but their promoted root task is the visual root. Point-MS records are kept
-  // separately as lane-wide overlays, never as parent-like rows.
+  // The gantt is also the project's objective tree. Objective and outcome rows give each task a
+  // visible reason for existing; legacy phase milestones remain FK containers. Point-MS records are kept
+  // as lane-wide overlays rather than becoming fake parent rows.
   const visibleLanes = useMemo(() => {
-    const appendTaskTree = (task: GanttTask, rows: DisplayRow[], depth: number) => {
+    const appendTaskTree = (task: GanttTask, rows: GanttPlanRow[], depth: number) => {
       const children = taskChildren.get(task.id) || [];
-      rows.push(taskDisplayRow(task, depth, children.length > 0, timeline, asOf));
+      rows.push({
+        kind: "task",
+        row: taskDisplayRow(task, depth, children.length > 0, timeline, asOf),
+      });
       if (children.length > 0 && expandedTasks.has(task.id)) {
         for (const child of children) appendTaskTree(child, rows, depth + 1);
       }
     };
 
-    const bucket: Record<SxDisplayLaneKey, DisplayRow[]> = {};
-    for (const key of laneFold.order) bucket[key] = [];
+    const bucket: Record<SxDisplayLaneKey, GanttPlanRow[]> = {};
+    const rootTaskBucket: Record<SxDisplayLaneKey, GanttTask[]> = {};
+    for (const key of laneFold.order) {
+      bucket[key] = [];
+      rootTaskBucket[key] = [];
+    }
 
     const laneForTask = (task: GanttTask): SxDisplayLaneKey => {
-      const backing = task.milestoneId ? milestoneById.get(task.milestoneId) : undefined;
+      const backing = task.milestoneId ? milestoneById.get(task.milestoneId) : null;
       // A task keeps its own workstream even when it contributes to a blocking MS whose diamond
       // spans another lane. Only the MS marker is forced to the blocking-milestone lane.
       if (task.track) return laneFold.laneKeyForTrack(task.track);
@@ -1529,11 +1644,125 @@ export function SxUnifiedTimeline({
       }
       return laneFold.laneKeyForTrack(backing?.track);
     };
-    for (const task of tasks
+    const rootTasks = tasks
       .filter((candidate) => candidate.parentTaskId == null)
-      .sort((left, right) => left.sortOrder - right.sortOrder || left.title.localeCompare(right.title))) {
+      .sort((left, right) => left.sortOrder - right.sortOrder || left.title.localeCompare(right.title));
+    for (const task of rootTasks) {
       const laneKey = laneForTask(task);
-      if (bucket[laneKey]) appendTaskTree(task, bucket[laneKey], 0);
+      if (rootTaskBucket[laneKey]) rootTaskBucket[laneKey].push(task);
+    }
+
+    const outcomeIdForTask = (task: GanttTask) =>
+      (task.milestoneId ? milestoneById.get(task.milestoneId)?.outcomeId : null) ?? null;
+    const summarizeDates = (
+      scopedTasks: GanttTask[],
+      scopedMilestones: SxManagementMilestone[],
+      targetDate: string | null = null,
+    ) => {
+      const starts = [
+        ...scopedTasks.flatMap((task) => [task.plannedStart, task.plannedEnd]),
+        ...scopedMilestones.flatMap((milestone) => [milestone.plannedStart, milestone.plannedEnd]),
+      ].filter((value): value is string => Boolean(value)).sort();
+      const ends = [
+        ...scopedTasks.map((task) => task.plannedEnd),
+        ...scopedMilestones.map((milestone) => milestone.plannedEnd),
+        targetDate,
+      ].filter((value): value is string => Boolean(value)).sort();
+      const plannedStart = starts[0] ?? targetDate;
+      const plannedEnd = targetDate ?? ends[ends.length - 1] ?? plannedStart;
+      return {
+        plannedStart,
+        plannedEnd,
+        plannedStartPct: dateToPct(plannedStart, timeline.domainStart, timeline.domainEnd),
+        plannedEndPct: dateToPct(plannedEnd, timeline.domainStart, timeline.domainEnd),
+      };
+    };
+
+    for (const laneKey of laneFold.order) {
+      const laneOutcomes = outcomes.filter(
+        (outcome) => laneFold.laneKeyForTrack(outcome.track) === laneKey,
+      );
+      const roots = rootTaskBucket[laneKey];
+      const appendedRootIds = new Set<string>();
+      const groupedObjectives = objectives.filter((objective) =>
+        laneOutcomes.some((outcome) => outcome.objectiveId === objective.id),
+      );
+
+      for (const objective of groupedObjectives) {
+        const objectiveOutcomes = laneOutcomes.filter(
+          (outcome) => outcome.objectiveId === objective.id,
+        );
+        const objectiveOutcomeIds = new Set(objectiveOutcomes.map((outcome) => outcome.id));
+        const objectiveTasks = tasks.filter((task) => {
+          const outcomeId = outcomeIdForTask(task);
+          return outcomeId != null && objectiveOutcomeIds.has(outcomeId);
+        });
+        const objectiveMilestones = milestones.filter(
+          (milestone) => milestone.objectiveId === objective.id,
+        );
+        bucket[laneKey].push({
+          kind: "structure",
+          row: {
+            id: objective.id,
+            entity: "objective",
+            title: objective.title,
+            definitionOfDone: objective.definitionOfDone,
+            ownerLabel: null,
+            status: objective.status,
+            depth: 0,
+            childCount: objectiveOutcomes.length,
+            taskCount: objectiveTasks.length,
+            completedTaskCount: objectiveTasks.filter((task) => task.status === "completed").length,
+            ...summarizeDates(objectiveTasks, objectiveMilestones, objective.targetDate),
+            dateCertainty: objective.dateCertainty,
+          },
+        });
+
+        if (!expandedObjectives.has(objective.id)) continue;
+
+        for (const outcome of objectiveOutcomes) {
+          const outcomeTasks = tasks.filter(
+            (task) => outcomeIdForTask(task) === outcome.id,
+          );
+          const outcomeMilestones = milestones.filter(
+            (milestone) => milestone.outcomeId === outcome.id,
+          );
+          bucket[laneKey].push({
+            kind: "structure",
+            row: {
+              id: outcome.id,
+              entity: "outcome",
+              title: outcome.title,
+              definitionOfDone: outcome.definitionOfDone,
+              ownerLabel: outcome.ownerLabel,
+              status: outcome.status,
+              depth: 1,
+              childCount: 0,
+              taskCount: outcomeTasks.length,
+              completedTaskCount: outcomeTasks.filter((task) => task.status === "completed").length,
+              ...summarizeDates(outcomeTasks, outcomeMilestones),
+              dateCertainty: outcomeTasks.some((task) => task.dateCertainty === "provisional")
+                ? "provisional"
+                : outcomeTasks.some((task) => task.dateCertainty === "confirmed")
+                  ? "confirmed"
+                  : null,
+            },
+          });
+          for (const root of roots.filter(
+            (task) => outcomeIdForTask(task) === outcome.id,
+          )) {
+            appendedRootIds.add(root.id);
+            if (showTaskDetails) appendTaskTree(root, bucket[laneKey], 0);
+          }
+        }
+      }
+
+      // Data can be partially migrated. Keep unmatched tasks visible instead of silently
+      // dropping work whose milestone has not yet been connected to an outcome.
+      for (const root of roots) {
+        if (appendedRootIds.has(root.id)) continue;
+        if (showTaskDetails) appendTaskTree(root, bucket[laneKey], 0);
+      }
     }
 
     const milestoneBucket: Record<SxDisplayLaneKey, DisplayRow[]> = {};
@@ -1589,15 +1818,20 @@ export function SxUnifiedTimeline({
         collapsed,
         // Emptying `rows` is what makes the collapse ripple through every downstream consumer —
         // lane height, row layout, dependency endpoints — without a second code path.
-        rows: collapsed ? [] : bucket[key],
-        taskCount: bucket[key].length,
+        planRows: collapsed ? [] : bucket[key],
+        rows: collapsed
+          ? []
+          : bucket[key]
+              .filter((item): item is Extract<GanttPlanRow, { kind: "task" }> => item.kind === "task")
+              .map((item) => item.row),
+        taskCount: tasks.filter((task) => laneForTask(task) === key).length,
         milestones: milestoneBucket[key].sort(
           (left, right) => left.title.localeCompare(right.title),
         ),
       };
     });
     const populated = lanes.filter(
-      (lane) => lane.taskCount > 0 || lane.milestones.length > 0,
+      (lane) => lane.planRows.length > 0 || lane.milestones.length > 0,
     );
     if (populated.length === 0) return lanes;
     if (laneFold.isP21Fold && populated.length === 1) {
@@ -1610,13 +1844,17 @@ export function SxUnifiedTimeline({
   }, [
     asOf,
     collapsedLanes,
+    expandedObjectives,
     expandedTasks,
     laneFold,
     milestoneById,
+    objectives,
+    outcomes,
     taskChildren,
     tasks,
     timeline,
     milestones,
+    showTaskDetails,
   ]);
 
   const hasAnyChildren = taskChildren.size > 0;
@@ -1625,9 +1863,12 @@ export function SxUnifiedTimeline({
     tasks.every(
       (task) => !taskChildren.has(task.id) || expandedTasks.has(task.id),
     );
+  const allObjectivesExpanded =
+    objectives.length > 0 &&
+    objectives.every((objective) => expandedObjectives.has(objective.id));
   const lanesHeight = lanesTotalHeight(
     visibleLanes,
-    canManage && Boolean(projectId),
+    showTaskDetails && canManage && Boolean(projectId),
   );
   const pinRowHeight = showPins ? PIN_ROW_H : 0;
   const gridHeight = pinRowHeight + lanesHeight;
@@ -1643,7 +1884,7 @@ export function SxUnifiedTimeline({
     const rows = new Map<string, { row: DisplayRow; centerY: number }>();
     let top = pinRowHeight;
     for (const {
-      rows: laneRows,
+      planRows,
       milestones: laneMilestones,
       collapsed,
     } of visibleLanes) {
@@ -1652,7 +1893,7 @@ export function SxUnifiedTimeline({
       // vertical center of that band — not at the center of the lane header strip.
       const laneSpanH =
         LANE_HEADER_H +
-        (laneRows.length + (canManage && projectId && !collapsed ? 1 : 0)) * ROW_H;
+        (planRows.length + (showTaskDetails && canManage && projectId && !collapsed ? 1 : 0)) * ROW_H;
       for (const milestone of laneMilestones) {
         // A multi-lane MS is drawn in every selected group; dependency lines meet the first one.
         if (rows.has(`milestone:${milestone.id}`)) continue;
@@ -1662,18 +1903,23 @@ export function SxUnifiedTimeline({
         });
       }
       top += LANE_HEADER_H;
-      for (const row of laneRows) {
+      for (const item of planRows) {
+        if (item.kind === "structure") {
+          top += ROW_H;
+          continue;
+        }
+        const row = item.row;
         rows.set(`${row.entity}:${row.id}`, {
           row,
           centerY: top + ROW_H / 2,
         });
         top += ROW_H;
       }
-      if (canManage && projectId && !collapsed) top += ROW_H;
+      if (showTaskDetails && canManage && projectId && !collapsed) top += ROW_H;
       top += LANE_GAP;
     }
     return rows;
-  }, [canManage, pinRowHeight, projectId, visibleLanes]);
+  }, [canManage, pinRowHeight, projectId, showTaskDetails, visibleLanes]);
 
   useEffect(() => {
     const pane = gridPaneRef.current;
@@ -1960,7 +2206,7 @@ export function SxUnifiedTimeline({
   }
 
   function laneKeyForTask(task: GanttTask): SxDisplayLaneKey {
-    const backing = task.milestoneId ? milestoneById.get(task.milestoneId) : undefined;
+    const backing = task.milestoneId ? milestoneById.get(task.milestoneId) : null;
     if (task.track) return laneFold.laneKeyForTrack(task.track);
     if (backing && sxIsBlockingMilestone(backing)) {
       const forced = laneFold.blockingMilestoneLane(backing.slug);
@@ -2491,7 +2737,55 @@ export function SxUnifiedTimeline({
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
         <button
           type="button"
-          disabled={!hasAnyChildren}
+          data-gantt-task-detail-toggle
+          aria-pressed={showTaskDetails}
+          onClick={() => {
+            const next = !showTaskDetails;
+            setShowTaskDetails(next);
+            if (next) {
+              setExpandedObjectives(new Set(objectives.map((objective) => objective.id)));
+            }
+          }}
+          className={`inline-flex min-h-11 items-center border px-3 text-[11px] font-semibold ${showTaskDetails ? "border-[#027FDC] bg-[#E8F3FC] text-[#0267B2]" : "border-[#cbd5e1] bg-[#ffffff] text-[#3c3c43]"}`}
+        >
+          {showTaskDetails ? "構造だけ見る" : "タスクまで見る"}
+        </button>
+        {objectives.length > 0 && (
+          <button
+            type="button"
+            data-gantt-objective-expand-toggle
+            aria-pressed={allObjectivesExpanded}
+            onClick={() => {
+              setExpandedObjectives(
+                allObjectivesExpanded
+                  ? new Set()
+                  : new Set(objectives.map((objective) => objective.id)),
+              );
+            }}
+            className="inline-flex min-h-11 items-center gap-1 border border-[#cbd5e1] bg-[#ffffff] px-3 text-[11px] font-semibold text-[#3c3c43]"
+          >
+            {allObjectivesExpanded ? (
+              <ChevronsDownUp className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronsUpDown className="h-3.5 w-3.5" />
+            )}
+            {allObjectivesExpanded ? "成立条件を閉じる" : "成立条件を開く"}
+          </button>
+        )}
+        {canManage && onCreateOutcome && (
+          <button
+            type="button"
+            data-gantt-add-outcome
+            onClick={onCreateOutcome}
+            className="inline-flex min-h-11 items-center gap-1 border border-[#7CBCEB] bg-[#ffffff] px-3 text-[11px] font-semibold text-[#0267B2] hover:bg-[#E8F3FC] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]"
+          >
+            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+            成立条件を追加
+          </button>
+        )}
+        <button
+          type="button"
+          disabled={!showTaskDetails || !hasAnyChildren}
           onClick={toggleAll}
           className="inline-flex min-h-11 items-center gap-1 border border-[#cbd5e1] bg-[#ffffff] px-3 text-[11px] font-semibold text-[#3c3c43] disabled:cursor-not-allowed disabled:opacity-45"
         >
@@ -2554,7 +2848,7 @@ export function SxUnifiedTimeline({
           すでにあり、一覧は使われないまま縦を食っていた (まさ指示)。 */}
 
       <div className="space-y-2 lg:hidden" aria-label="MSとタスクの縦一覧">
-        {visibleLanes.map(({ lane, rows, milestones: laneMilestones, collapsed, taskCount }) => (
+        {visibleLanes.map(({ lane, planRows, milestones: laneMilestones, collapsed, taskCount }) => (
           <section
             key={`mobile-${lane.key}`}
             className="border border-[#cbd5e1] bg-[#ffffff]"
@@ -2614,7 +2908,7 @@ export function SxUnifiedTimeline({
                       <span className="min-w-0 flex-1 text-[10px] font-bold text-[#027FDC]">{milestone.title}</span>
                       <span className="shrink-0 text-[9px] text-[#86868b]">{milestone.plannedEnd ? sxFormatDate(milestone.plannedEnd) : "日程未設定"}</span>
                     </button>
-                    {dependencyDrawingEnabled && (
+                    {showTaskDetails && dependencyDrawingEnabled && (
                       <div className="flex items-center gap-2 border-t border-[#e2e8f0] px-3 py-1.5">
                         <button
                           type="button"
@@ -2649,7 +2943,49 @@ export function SxUnifiedTimeline({
                   </article>
                 );
               })}
-              {rows.map((row) => {
+              {planRows.map((item) => {
+                if (item.kind === "structure") {
+                  const row = item.row;
+                  return (
+                    <article
+                      key={`mobile-${row.entity}-${row.id}`}
+                      className={`${row.entity === "objective" ? "bg-[#E8F3FC]" : "border-l-4 border-l-[#7CBCEB] bg-[#f8fbfe]"}`}
+                      style={{ marginLeft: row.depth * 12 }}
+                      data-gantt-structure-row={`${row.entity}:${row.id}`}
+                    >
+                      <button
+                        type="button"
+                        disabled={row.entity === "outcome" && !(canManage && onEditOutcome)}
+                        aria-expanded={row.entity === "objective" ? expandedObjectives.has(row.id) : undefined}
+                        onClick={() => {
+                          if (row.entity === "objective") toggleObjectiveExpanded(row.id);
+                          else onEditOutcome?.(row.id);
+                        }}
+                        className="flex w-full items-start gap-2 px-3 py-2.5 text-left disabled:cursor-default"
+                      >
+                        {row.entity === "objective" && (
+                          <ChevronRight
+                            className={`mt-0.5 h-3.5 w-3.5 shrink-0 text-[#0267B2] transition-transform ${expandedObjectives.has(row.id) ? "rotate-90" : ""}`}
+                            aria-hidden="true"
+                          />
+                        )}
+                        <span className={`mt-0.5 shrink-0 border px-1.5 py-0.5 text-[8px] font-bold ${row.entity === "objective" ? "border-[#027FDC] bg-[#027FDC] text-white" : "border-[#7CBCEB] bg-white text-[#0267B2]"}`}>
+                          {row.entity === "objective" ? "目的" : "成立条件"}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <b className="block text-[11px] text-[#1d1d1f]">{row.title}</b>
+                          <span className="mt-1 block text-[9px] leading-4 text-[#3c3c43]">
+                            完了：{row.definitionOfDone}
+                          </span>
+                          <span className="mt-1 block text-[9px] text-[#86868b]">
+                            {row.ownerLabel ? `${row.ownerLabel} ・ ` : ""}{structureStatusLabel(row.status)} ・ {row.entity === "objective" ? `成立条件 ${row.childCount} ・ ` : ""}タスク {row.completedTaskCount}/{row.taskCount} ・ {row.plannedEnd ? sxFormatDate(row.plannedEnd) : "日程未設定"}
+                          </span>
+                        </div>
+                      </button>
+                    </article>
+                  );
+                }
+                const row = item.row;
                 const selected = selectedTaskId === row.id;
                 const expanded = expandedTasks.has(row.id);
                 const incomingScheduleCount = scheduleDependencies.filter(
@@ -2681,7 +3017,7 @@ export function SxUnifiedTimeline({
                       isNestCandidate ? row.id : undefined
                     }
                     className={`relative p-2.5 transition-colors ${isNestSource ? "opacity-45" : ""} ${isNestTaskTarget || isNestRootTarget ? "bg-[#E8F3FC] outline outline-2 outline-[#027FDC] outline-offset-[-2px]" : selected ? "bg-[#E8F3FC]" : "bg-white"}`}
-                    style={{ marginLeft: row.depth * 12 }}
+                    style={{ marginLeft: (row.depth + (planRows.some((planRow) => planRow.kind === "structure") ? 2 : 0)) * 12 }}
                   >
                     {reorderPlace && (
                       <span
@@ -2812,7 +3148,7 @@ export function SxUnifiedTimeline({
                   </article>
                 );
               })}
-              {canManage && projectId && timeline.valid && (
+              {showTaskDetails && canManage && projectId && timeline.valid && (
                 <button
                   type="button"
                   onClick={(event) => proposeMilestone(lane.key, event)}
@@ -2827,7 +3163,7 @@ export function SxUnifiedTimeline({
                   </span>
                 </button>
               )}
-              {canManage && projectId && (
+              {showTaskDetails && canManage && projectId && (
                 <button
                   type="button"
                   data-gantt-add-task-lane={lane.key}
@@ -2853,12 +3189,12 @@ export function SxUnifiedTimeline({
       >
         <div style={{ minWidth: GANTT_BASE_WIDTH_PX * timeScale }}>
           <div
-            className="sticky top-0 z-50 grid grid-cols-[minmax(275px,320px)_minmax(0,1fr)] items-end border-b border-[#cbd5e1] bg-[#ffffff] shadow-[0_3px_8px_rgba(29,29,31,0.08)]"
+            className="sticky top-0 z-50 grid grid-cols-[minmax(340px,380px)_minmax(0,1fr)] items-end border-b border-[#cbd5e1] bg-[#ffffff] shadow-[0_3px_8px_rgba(29,29,31,0.08)]"
             data-gantt-sticky-header
             style={{ height: MONTH_ROW_H }}
           >
             <p className="sticky left-0 z-[51] bg-[#ffffff] px-2 text-[9px] font-semibold tracking-[0.1em] text-[#3c3c43]">
-              タスク
+              目的 → 成立条件 → タスク
             </p>
             <div className="relative h-full">
               {timeline.months.map((month) =>
@@ -2893,7 +3229,7 @@ export function SxUnifiedTimeline({
             </div>
           </div>
 
-          <div className="grid grid-cols-[minmax(275px,320px)_minmax(0,1fr)]">
+          <div className="grid grid-cols-[minmax(340px,380px)_minmax(0,1fr)]">
             <div className="sticky left-0 z-30 border-r border-[#cbd5e1] bg-[#ffffff]">
               {showPins && (
                 <div
@@ -2903,7 +3239,7 @@ export function SxUnifiedTimeline({
                   介入の期限
                 </div>
               )}
-              {visibleLanes.map(({ lane, milestones: laneMilestones, rows, collapsed, taskCount }) => (
+              {visibleLanes.map(({ lane, milestones: laneMilestones, planRows, collapsed, taskCount }) => (
                 <div key={lane.key} style={{ marginBottom: LANE_GAP }}>
                   {/* The lane header is both the collapse control and the "move to top level"
                       drop target of the task-nesting drag, so the data attribute has to survive. */}
@@ -2932,7 +3268,48 @@ export function SxUnifiedTimeline({
                       {collapsed ? "（折りたたみ中）" : ""}
                     </span>
                   </button>
-                  {rows.map((row) => {
+                  {planRows.map((item) => {
+                    if (item.kind === "structure") {
+                      const row = item.row;
+                      return (
+                        <button
+                          type="button"
+                          key={`${row.entity}-${row.id}`}
+                          data-gantt-structure-row={`${row.entity}:${row.id}`}
+                          disabled={row.entity === "outcome" && !(canManage && onEditOutcome)}
+                          aria-expanded={row.entity === "objective" ? expandedObjectives.has(row.id) : undefined}
+                          onClick={() => {
+                            if (row.entity === "objective") toggleObjectiveExpanded(row.id);
+                            else onEditOutcome?.(row.id);
+                          }}
+                          className={`!min-h-0 flex w-full min-w-0 items-center border-b text-left disabled:cursor-default ${row.entity === "objective" ? "border-[#b8d9ef] bg-[#E8F3FC] hover:bg-[#d9ecfa]" : `border-[#dcecf7] bg-[#f8fbfe] ${canManage && onEditOutcome ? "hover:bg-[#edf7fd]" : ""}`}`}
+                          style={{ height: ROW_H, paddingLeft: row.depth * 15 + 8 }}
+                          title={`完了条件：${row.definitionOfDone}`}
+                        >
+                          {row.entity === "objective" && (
+                            <ChevronRight
+                              className={`mr-1 h-3.5 w-3.5 shrink-0 text-[#0267B2] transition-transform ${expandedObjectives.has(row.id) ? "rotate-90" : ""}`}
+                              aria-hidden="true"
+                            />
+                          )}
+                          <span className={`mr-2 shrink-0 border px-1.5 py-0.5 text-[8px] font-bold ${row.entity === "objective" ? "border-[#027FDC] bg-[#027FDC] text-white" : "border-[#7CBCEB] bg-white text-[#0267B2]"}`}>
+                            {row.entity === "objective" ? "目的" : "成立条件"}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <b className="block truncate text-[10px] text-[#1d1d1f]">{row.title}</b>
+                            <small className="mt-0.5 block truncate text-[9px] text-[#3c3c43]">
+                              {row.ownerLabel ? `${row.ownerLabel} ・ ` : ""}{structureStatusLabel(row.status)} ・ {row.entity === "objective" ? `成立条件 ${row.childCount} ・ ` : ""}タスク {row.completedTaskCount}/{row.taskCount}
+                            </small>
+                          </span>
+                          {row.plannedEnd && (
+                            <time className="ml-2 shrink-0 pr-2 text-[9px] font-semibold text-[#0267B2]" dateTime={row.plannedEnd}>
+                              {sxFormatDate(row.plannedEnd)}
+                            </time>
+                          )}
+                        </button>
+                      );
+                    }
+                    const row = item.row;
                     const selected = selectedTaskId === row.id;
                     const expanded = expandedTasks.has(row.id);
                     const isNestSource =
@@ -2956,7 +3333,7 @@ export function SxUnifiedTimeline({
                           isNestCandidate ? row.id : undefined
                         }
                         className={`group relative flex scroll-mt-3 border-b border-[#e8e8ed] transition-colors ${isNestSource ? "opacity-45" : ""} ${isNestTaskTarget || isNestRootTarget ? "bg-[#E8F3FC] outline outline-2 outline-[#027FDC] outline-offset-[-2px]" : selected ? "bg-[#E8F3FC]" : "hover:bg-[#f5f5f7]"}`}
-                        style={{ height: ROW_H, paddingLeft: row.depth * 15 }}
+                        style={{ height: ROW_H, paddingLeft: (row.depth + (planRows.some((planRow) => planRow.kind === "structure") ? 2 : 0)) * 15 }}
                       >
                         {reorderPlace && (
                           <span
@@ -3042,7 +3419,7 @@ export function SxUnifiedTimeline({
                       </div>
                     );
                   })}
-                  {canManage && projectId && !collapsed && (
+                  {showTaskDetails && canManage && projectId && !collapsed && (
                     <button
                       type="button"
                       data-gantt-add-task-lane={lane.key}
@@ -3241,7 +3618,7 @@ export function SxUnifiedTimeline({
               )}
 
               <div className="absolute inset-x-0" style={{ top: pinRowHeight }}>
-                {visibleLanes.map(({ lane, rows, milestones: laneMilestones, collapsed }) => (
+                {visibleLanes.map(({ lane, planRows, milestones: laneMilestones, collapsed }) => (
                   <div key={lane.key} className="relative" style={{ marginBottom: LANE_GAP }}>
                     {laneMilestones.map((milestone, index) => {
                       const isDraggingThisMilestone = drag?.rowId === milestone.id;
@@ -3380,7 +3757,19 @@ export function SxUnifiedTimeline({
                           : "MSなし"}
                       </span>
                     </div>
-                    {rows.map((row) => {
+                    {planRows.map((item) => {
+                      if (item.kind === "structure") {
+                        const row = item.row;
+                        return (
+                          <div
+                            key={`${row.entity}-${row.id}`}
+                            style={{ height: ROW_H }}
+                          >
+                            <StructureTimelineRow row={row} accent={lane.accent} />
+                          </div>
+                        );
+                      }
+                      const row = item.row;
                       const isDraggingThisRow = drag?.rowId === row.id;
                       const displayRow =
                         isDraggingThisRow && drag
@@ -3462,7 +3851,7 @@ export function SxUnifiedTimeline({
                         </div>
                       );
                     })}
-                    {canManage && projectId && !collapsed && (
+                    {showTaskDetails && canManage && projectId && !collapsed && (
                       <div
                         aria-hidden="true"
                         className="relative border-b border-[#e2e8f0] bg-[#f8fafc]/60"
