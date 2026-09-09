@@ -14,6 +14,8 @@ export type SlackMessageItem = {
   channelName: string;
   workspaceLabel: string;
   ts: string;
+  /** スレッド親のts。自分が親、または単発の発言なら null */
+  threadTs: string | null;
   /** ISO8601 (UTC) */
   at: string;
   user: string | null;

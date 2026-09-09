@@ -275,8 +275,14 @@ export function CockpitSlackMessages({ projectId }: Props) {
 
   const filtered = useMemo(() => {
     const messages = data?.messages ?? [];
+    // Slackと同じで、スレッド返信はチャンネルのタイムラインに出さず親の中だけで見せる。
+    // ただし親がこの月に無い返信は、行き場が無くなるのでそのまま出す。
+    const rootTs = new Set(
+      messages.filter((item) => !item.threadTs || item.threadTs === item.ts).map((item) => item.ts),
+    );
     const needle = query.trim().toLowerCase();
     const picked = messages.filter((item) => {
+      if (item.threadTs && item.threadTs !== item.ts && rootTs.has(item.threadTs)) return false;
       if (channelId && channelId !== ALL_CHANNELS && item.channelId !== channelId) return false;
       if (!needle) return true;
       if (item.text.toLowerCase().includes(needle)) return true;

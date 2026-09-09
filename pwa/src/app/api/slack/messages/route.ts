@@ -179,6 +179,7 @@ export async function GET(req: NextRequest) {
         channelName,
         workspaceLabel,
         ts: str(meta.slack_ts) || row.item_id.split(":")[1] || "",
+        threadTs: str(meta.thread_ts),
         at: row.item_date || "",
         user,
         userName: (user ? nameBySlackId.get(user) : null) ?? str(meta.user_name),
