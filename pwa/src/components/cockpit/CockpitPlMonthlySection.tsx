@@ -118,6 +118,19 @@ function groupByFiscalYear(rows: ProjectPlMonthly[]): FiscalYearGroup[] {
     });
 }
 
+/**
+ * 全期間ゼロの費目は列から落とす (PJによって使う費目が違うので、空列を並べない)。
+ * 売上と計算項目 (粗利・営業利益) は、ゼロでも読み筋として残す。
+ */
+function visibleMetrics(rows: ProjectPlMonthly[]): Metric[] {
+  return METRICS.filter(
+    (metric) =>
+      metric.key === "revenue" ||
+      metric.calculated ||
+      rows.some((row) => metric.of(row) !== 0),
+  );
+}
+
 function signClass(value: number): string {
   if (value > 0) return "text-emerald-700";
   if (value < 0) return "text-rose-600";
@@ -134,15 +147,15 @@ function ProvenanceBadge({ kind }: { kind: Provenance }) {
 }
 
 /** 年度サマリ: 行 = 年度、列 = 項目。まず全体の形を見る。 */
-function FiscalYearSummary({ groups }: { groups: FiscalYearGroup[] }) {
+function FiscalYearSummary({ groups, metrics }: { groups: FiscalYearGroup[]; metrics: Metric[] }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px] border-collapse text-[11px]">
+      <table className="w-full min-w-[560px] border-collapse text-[11px]">
         <thead>
           <tr className="bg-slate-50">
             <th className="border-b border-slate-200 px-2 py-1.5 text-left font-semibold text-slate-600">年度</th>
             <th className="border-b border-slate-200 px-2 py-1.5 text-left font-semibold text-slate-600">出所</th>
-            {METRICS.map((metric) => (
+            {metrics.map((metric) => (
               <th key={metric.key} className="border-b border-slate-200 px-2 py-1.5 text-right font-semibold text-slate-600">
                 {metric.label}
               </th>
@@ -158,7 +171,7 @@ function FiscalYearSummary({ groups }: { groups: FiscalYearGroup[] }) {
               <td className="border-b border-slate-100 px-2 py-1.5">
                 <ProvenanceBadge kind={group.provenance} />
               </td>
-              {METRICS.map((metric) => (
+              {metrics.map((metric) => (
                 <td
                   key={metric.key}
                   className={`border-b border-slate-100 px-2 py-1.5 text-right font-mono tabular-nums ${
@@ -177,7 +190,7 @@ function FiscalYearSummary({ groups }: { groups: FiscalYearGroup[] }) {
 }
 
 /** 月次: 行 = 項目、列 = 月。年度の切れ目に区切り線を入れる。 */
-function MonthlyPivot({ groups }: { groups: FiscalYearGroup[] }) {
+function MonthlyPivot({ groups, metrics }: { groups: FiscalYearGroup[]; metrics: Metric[] }) {
   const columns = useMemo(
     () => groups.flatMap((group) => group.rows.map((row, index) => ({ row, group, isFirstOfYear: index === 0 }))),
     [groups],
@@ -220,7 +233,7 @@ function MonthlyPivot({ groups }: { groups: FiscalYearGroup[] }) {
           </tr>
         </thead>
         <tbody>
-          {METRICS.map((metric) => (
+          {metrics.map((metric) => (
             <tr key={metric.key} className={metric.emphasis ? "border-t border-slate-300" : ""}>
               <th
                 scope="row"
@@ -308,6 +321,7 @@ export function CockpitPlMonthlySection({ projectId }: { projectId: string }) {
   }, [projectId]);
 
   const groups = useMemo(() => groupByFiscalYear(rows ?? []), [rows]);
+  const metrics = useMemo(() => visibleMetrics(rows ?? []), [rows]);
 
   if (coveredByTimeLedger) return null;
 
@@ -355,12 +369,12 @@ export function CockpitPlMonthlySection({ projectId }: { projectId: string }) {
 
       <div className="border-b border-slate-200 px-4 py-3">
         <div className="mb-1.5 text-[10px] font-semibold text-slate-700">年度別</div>
-        <FiscalYearSummary groups={groups} />
+        <FiscalYearSummary groups={groups} metrics={metrics} />
       </div>
 
       <div className="px-4 py-3">
         <div className="mb-1.5 text-[10px] font-semibold text-slate-700">月別</div>
-        <MonthlyPivot groups={groups} />
+        <MonthlyPivot groups={groups} metrics={metrics} />
       </div>
     </section>
   );
