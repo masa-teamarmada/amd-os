@@ -13,6 +13,9 @@ import type {
   VcNews,
   VcListItem,
   VcDetail,
+  StartupCompany,
+  StartupFundingRound,
+  VcInvestmentLedgerItem,
 } from "@/types/vc";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -220,7 +223,12 @@ export async function fetchVcDetail(vcId: string): Promise<VcDetail | null> {
   const [vcRes, fundsRes, invsRes, contactsRes, relsRes, newsRes] = await Promise.all([
     supabase.from("vcs").select("*").eq("id", vcId).maybeSingle(),
     supabase.from("vc_funds").select("*").eq("vc_id", vcId).order("fund_no", { ascending: true }),
-    supabase.from("vc_investments").select("*").eq("vc_id", vcId).order("invested_at", { ascending: false }),
+    supabase
+      .from("vc_investments")
+      .select("*")
+      .eq("vc_id", vcId)
+      .neq("verification_status", "dismissed")
+      .order("invested_at", { ascending: false }),
     supabase.from("vc_contacts").select("*").eq("vc_id", vcId).order("name"),
     supabase.from("project_vc_relations").select("*").eq("vc_id", vcId),
     supabase.from("vc_news").select("*").eq("vc_id", vcId).order("occurred_on", { ascending: false, nullsFirst: false }).limit(100),
@@ -302,6 +310,63 @@ export async function fetchVcInboxCount(): Promise<number> {
     .eq("verified", false)
     .eq("dismissed", false);
   return count ?? 0;
+}
+
+/** 投資履歴: VC 参加単位の一覧。ラウンド総額と VC 個別額は別テーブルから組み立てる。 */
+export async function fetchVcInvestmentLedger(): Promise<VcInvestmentLedgerItem[]> {
+  const [investmentsRes, vcsRes, startupsRes, roundsRes, fundsRes] = await Promise.all([
+    supabase
+      .from("vc_investments")
+      .select("*")
+      .neq("verification_status", "dismissed")
+      .order("invested_at", { ascending: false, nullsFirst: false }),
+    supabase.from("vcs").select("id, name, name_en"),
+    supabase.from("startup_companies").select("*"),
+    supabase
+      .from("startup_funding_rounds")
+      .select("*")
+      .neq("verification_status", "dismissed")
+      .order("announced_on", { ascending: false, nullsFirst: false }),
+    supabase.from("vc_funds").select("id, fund_no, name"),
+  ]);
+
+  const firstError = [
+    investmentsRes.error,
+    vcsRes.error,
+    startupsRes.error,
+    roundsRes.error,
+    fundsRes.error,
+  ].find(Boolean);
+  if (firstError) throw firstError;
+
+  const vcs = new Map(
+    ((vcsRes.data ?? []) as Pick<Vc, "id" | "name" | "name_en">[]).map((vc) => [vc.id, vc]),
+  );
+  const startups = new Map(
+    ((startupsRes.data ?? []) as StartupCompany[]).map((startup) => [startup.id, startup]),
+  );
+  const rounds = new Map(
+    ((roundsRes.data ?? []) as StartupFundingRound[]).map((round) => [round.id, round]),
+  );
+  const funds = new Map(
+    ((fundsRes.data ?? []) as Pick<VcFund, "id" | "fund_no" | "name">[]).map((fund) => [fund.id, fund]),
+  );
+
+  return ((investmentsRes.data ?? []) as VcInvestment[])
+    .map((investment) => {
+      const vc = vcs.get(investment.vc_id);
+      if (!vc) return null;
+      return {
+        investment,
+        vc,
+        startup: investment.startup_id ? startups.get(investment.startup_id) ?? null : null,
+        funding_round: investment.funding_round_id
+          ? rounds.get(investment.funding_round_id) ?? null
+          : null,
+        fund: investment.fund_id ? funds.get(investment.fund_id) ?? null : null,
+      } satisfies VcInvestmentLedgerItem;
+    })
+    .filter((item): item is VcInvestmentLedgerItem => item !== null);
 }
 
 // =====================================================================

@@ -72,6 +72,66 @@ export interface Vc {
   amd_rating_note: string | null;
   amd_rating_updated_by: string | null;
   amd_rating_updated_at: string | null;
+  investment_history_collected_at: string | null;
+  investment_history_model: string | null;
+  investment_history_candidate_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type InvestmentVerificationStatus =
+  | "candidate"
+  | "confirmed"
+  | "dismissed"
+  | "legacy_unreviewed";
+
+export type InvestmentDealStatus =
+  | "planned"
+  | "announced"
+  | "completed"
+  | "cancelled"
+  | "unknown";
+
+export type AmountDisclosure =
+  | "exact"
+  | "range"
+  | "undisclosed"
+  | "not_found";
+
+export type InvestorAmountDisclosure = AmountDisclosure | "legacy_unclassified";
+
+export type InvestorRole = "lead" | "co_lead" | "participant" | "unknown";
+
+export interface StartupCompany {
+  id: string;
+  canonical_name: string;
+  name_en: string | null;
+  normalized_name: string;
+  aliases: string[];
+  website: string | null;
+  our_project_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StartupFundingRound {
+  id: string;
+  startup_id: string;
+  dedupe_key: string;
+  round_label: string | null;
+  announced_on: string | null;
+  completed_on: string | null;
+  deal_status: InvestmentDealStatus;
+  total_amount_low: number | null;
+  total_amount_high: number | null;
+  total_amount_currency: string;
+  total_amount_disclosure: AmountDisclosure;
+  source_url: string | null;
+  source_title: string | null;
+  evidence_note: string | null;
+  verification_status: InvestmentVerificationStatus;
+  collected_by_model: string | null;
+  collected_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -114,6 +174,17 @@ export interface VcInvestment {
   is_lead: boolean;
   source_url: string | null;
   notes: string | null;
+  startup_id: string | null;
+  funding_round_id: string | null;
+  investor_amount_low: number | null;
+  investor_amount_high: number | null;
+  investor_amount_currency: string;
+  amount_disclosure: InvestorAmountDisclosure;
+  investor_role: InvestorRole;
+  deal_status: InvestmentDealStatus;
+  verification_status: InvestmentVerificationStatus;
+  collected_by_model: string | null;
+  collected_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -204,4 +275,12 @@ export interface VcDetail {
     amd_owner_code_name?: string | null;
   })[];
   news: VcNews[];
+}
+
+export interface VcInvestmentLedgerItem {
+  investment: VcInvestment;
+  vc: Pick<Vc, "id" | "name" | "name_en">;
+  startup: StartupCompany | null;
+  funding_round: StartupFundingRound | null;
+  fund: Pick<VcFund, "id" | "fund_no" | "name"> | null;
 }

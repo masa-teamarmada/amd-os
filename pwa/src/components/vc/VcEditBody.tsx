@@ -519,9 +519,11 @@ function InvestmentsSection({
                 <td className="py-1.5 pr-2">
                   {i.target_company}
                   {i.is_lead && <span className="ml-1 text-[9px] px-1 py-0.5 rounded bg-amber-500/15 text-amber-700">lead</span>}
+                  {i.verification_status === "candidate" && <span className="ml-1 rounded bg-cyan-500/15 px-1 py-0.5 text-[9px] text-cyan-700">収集候補</span>}
+                  {i.verification_status === "legacy_unreviewed" && <span className="ml-1 rounded bg-slate-500/15 px-1 py-0.5 text-[9px] text-slate-600">既存・要確認</span>}
                 </td>
                 <td className="py-1.5 pr-2">{i.round ?? "—"}</td>
-                <td className="py-1.5 pr-2">{i.amount_jpy?.toLocaleString() ?? "—"}</td>
+                <td className="py-1.5 pr-2">{i.amount_jpy?.toLocaleString() ?? "—"}{i.amount_jpy != null && i.verification_status === "legacy_unreviewed" ? "※" : ""}</td>
                 <td className="py-1.5 pr-2">{i.invested_at ?? "—"}</td>
                 <td className="py-1.5 pr-2">{i.our_project_id ?? "—"}</td>
                 <td className="py-1.5 pr-2 text-right">

@@ -33,6 +33,24 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 - `npm run test:surface-catalog-contract`が共通title解決、ホーム凍結、移行中・mirror status、全admin route登録、職務groupを検査する。
 
+## VC 投資履歴（2026-09-09）
+
+目的: VC 本体・ファンド・AMD PJ 接点の比較と、外部 SU への投資参加履歴を同じ巨大表へ混在させず、同じ正本から別タブで読む。
+
+必須機能:
+
+- `/vcs`、`/vcs/investments`、`/vcs/inbox` を上部タブで往復できる。HUD mirror も同じ導線を持つ。
+- 投資履歴は `startup_companies`、`startup_funding_rounds`、`vc_investments` を結合した投影で、独立 writer を持たない。
+- `VC個別出資額` と `ラウンド総額` を別列にし、`非公開`、`未確認`、`既存値・要確認` を分ける。
+- `予定 / 発表済み / 払込確認済み` と `確認済み / 収集候補 / 既存・要確認` を文字で表示し、色だけに依存しない。
+- SU / VC 検索、VC、年、確認状態、金額状態で絞り込める。
+- 収集 route は AMD PJ 接点あり VC だけを軽量モデルで処理し、結果を `candidate` で保存する。重いモデル設定では停止する。
+- 根拠URL本文にSU名・VC名が無い候補、サイトトップ、投資取引でない候補は保存しない。本文に同じ日付・金額が無い値は未確認へ戻す。
+
+回帰防止:
+
+- `npm run test:vc-investment-ledger` が画面、データ三層、候補境界、軽量モデル制約を検査する。
+
 ## PJ共有ダッシュボード / role-based top
 
 目的: AMDメンバーは全PJを横断し、SX等のPJ限定メンバーは自分の参加PJだけを同じAMD OS基盤で確認する。

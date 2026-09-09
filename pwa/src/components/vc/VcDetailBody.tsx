@@ -289,7 +289,7 @@ export function VcDetailBody({ data, onEdit }: { data: VcDetail; onEdit?: () => 
             )}
           </Pane>
 
-          <Pane title={`出資先 (${investments.length})`}>
+          <Pane title={`出資先・収集候補 (${investments.length})`}>
             {investments.length === 0 ? (
               <div className="text-xs text-muted-foreground">未登録</div>
             ) : (
@@ -307,9 +307,19 @@ export function VcDetailBody({ data, onEdit }: { data: VcDetail; onEdit?: () => 
                         自社 PJ
                       </span>
                     )}
+                    {inv.verification_status === "candidate" && (
+                      <span className="rounded bg-cyan-500/15 px-1 py-0.5 text-[9px] text-cyan-700 dark:text-cyan-300">
+                        収集候補
+                      </span>
+                    )}
+                    {inv.verification_status === "legacy_unreviewed" && (
+                      <span className="rounded bg-slate-500/15 px-1 py-0.5 text-[9px] text-slate-600 dark:text-slate-300">
+                        既存・要確認
+                      </span>
+                    )}
                     <span className="ml-auto text-muted-foreground text-[10px]">
                       {inv.round && <>{inv.round} </>}
-                      {inv.amount_jpy ? formatJpy(inv.amount_jpy) : ""}
+                      {inv.amount_jpy ? <>{formatJpy(inv.amount_jpy)}{inv.verification_status === "legacy_unreviewed" ? "※" : ""}</> : ""}
                       {inv.invested_at && <> · {inv.invested_at.slice(0, 7)}</>}
                     </span>
                   </li>

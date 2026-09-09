@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
   fetchVcList,
   formatJpy,
@@ -13,6 +11,7 @@ import {
 } from "@/lib/vc-data";
 import type { VcListItem } from "@/types/vc";
 import { VcDetailModal } from "@/components/vc/VcDetailModal";
+import { VcSectionNav } from "@/components/vc/VcSectionNav";
 
 type SortKey =
   | "name"
@@ -59,8 +58,6 @@ const COLUMNS: Column[] = [
 ];
 
 export default function VcListPage() {
-  const pathname = usePathname();
-  const vcsBase = pathname.startsWith("/hud/") ? "/hud/vcs" : "/vcs";
   const [items, setItems] = useState<VcListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>("amd_pj_total");
@@ -112,7 +109,7 @@ export default function VcListPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1800px] px-4 py-6">
-      <div className="mb-4 flex items-start justify-between gap-4 flex-wrap">
+      <div className="mb-4 space-y-4">
         <div>
           <h1 className="text-xl font-semibold">VC List</h1>
           <p className="text-xs text-muted-foreground mt-1">
@@ -120,12 +117,7 @@ export default function VcListPage() {
             自動収集 route (現在はスケジュール停止中) + つくよみ + 手入力。行クリックで詳細。
           </p>
         </div>
-        <Link
-          href={`${vcsBase}/inbox`}
-          className="text-xs px-3 py-1.5 rounded border border-emerald-300/45 bg-emerald-300/10 text-emerald-100 hover:bg-emerald-300/18 transition-colors font-mono"
-        >
-          ニュース受信箱 →
-        </Link>
+        <VcSectionNav />
       </div>
 
       <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">

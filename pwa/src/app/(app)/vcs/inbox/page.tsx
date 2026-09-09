@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
   fetchVcInbox,
   verifyVcNews,
@@ -11,12 +10,11 @@ import {
   VC_NEWS_KIND_LABEL,
 } from "@/lib/vc-data";
 import type { VcNews, VcFund } from "@/types/vc";
+import { VcSectionNav } from "@/components/vc/VcSectionNav";
 
 type InboxItem = VcNews & { vc_name: string };
 
 export default function VcInboxPage() {
-  const pathname = usePathname();
-  const vcsBase = pathname.startsWith("/hud/") ? "/hud/vcs" : "/vcs";
   const [items, setItems] = useState<InboxItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "fundraise" | "fund_close" | "investment">("all");
@@ -36,7 +34,7 @@ export default function VcInboxPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1400px] px-4 py-6">
-      <div className="mb-4 flex items-start justify-between gap-4 flex-wrap">
+      <div className="mb-4 space-y-4">
         <div>
           <h1 className="text-xl font-semibold">VC ニュース受信箱</h1>
           <p className="text-xs text-muted-foreground mt-1">
@@ -45,9 +43,7 @@ export default function VcInboxPage() {
             VC のファンド情報に 1 クリックで反映できる。
           </p>
         </div>
-        <Link href={vcsBase} className="text-xs px-3 py-1.5 rounded border border-border hover:bg-accent">
-          ← VC リスト
-        </Link>
+        <VcSectionNav />
       </div>
 
       <div className="mb-4 flex flex-wrap gap-2 text-xs">

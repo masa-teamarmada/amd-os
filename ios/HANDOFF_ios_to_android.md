@@ -443,6 +443,11 @@ iOS から完結できる UI を追加。
 
 ## Android 実装時の注意 / 差異
 
+### 2026-09-09 PWA VC投資履歴
+
+- PWAに`/vcs/investments`が追加された。`startup_companies`、`startup_funding_rounds`、`vc_investments`を結合し、出資・完了日と公表日、VC個別額とラウンド総額、成立状態と確認状態を分けて表示する。
+- Android Nativeは未移植。移植時はcandidate / confirmed / legacy_unreviewedを文字で区別し、candidateを確認済み出資先として表示しない。
+
 ### 2026-07-25 通知判断キュー
 
 - iOSは通知を一枚固定にせず縦スクロールの連続キューに変更。Androidも同様に次のカードまでスクロール可能にする。

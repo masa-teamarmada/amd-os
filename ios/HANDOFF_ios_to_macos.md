@@ -2,6 +2,11 @@
 
 最終更新: 2026-07-17 JST
 
+## 2026-09-09 PWA VC投資履歴
+
+- PWAに`/vcs/investments`が追加された。`startup_companies`、`startup_funding_rounds`、`vc_investments`を結合し、出資・完了日と公表日、VC個別額とラウンド総額、成立状態と確認状態を分けて表示する。
+- macOS Nativeは未移植。移植時はcandidate / confirmed / legacy_unreviewedを文字で区別し、candidateを確認済み出資先として表示しない。`macos/PARITY.md`を先に更新する。
+
 ## 設計
 
 - macOSはWKWebView wrapperではなく、`macos/`の独立SwiftUIクライアント。

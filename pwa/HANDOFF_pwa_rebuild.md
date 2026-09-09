@@ -1,10 +1,15 @@
 # HANDOFF - AMD OS PWA
 
 - 更新: 2026-09-09 JST
-- セッション: 目的構造のガント統合とSolvioraXタスク再編
+- セッション: VC投資履歴の分離と根拠付き候補収集
 - 作業種別: development
 
 ## 最新セッションの到達点
+
+- `/vcs/investments`と`/hud/vcs/investments`を追加。VC一覧・投資履歴・ニュース受信箱は共通タブで往復する。
+- `startup_companies`、`startup_funding_rounds`、`vc_investments`参加層を本番へ適用。旧投資データは要確認のまま保全した。
+- AMD PJ接点ありVCを軽量モデル`gemini-3.5-flash-lite`で10社まで収集。本文照合を通過した10件だけcandidateで表示し、誤候補はdismissedへ隔離。confirmedは0件。
+- 根拠URLは公開アドレスだけを手動redirectで取得し、トップページ、SU/VC不一致、投資取引でない要約を拒否。本文に無い日付・金額は未確認へ戻す。
 
 - `/project/{projectId}/workspace` を、上段の分類と子タブからなる二段ナビへ変更した。
   - `実行`: テーマ（あるPJだけ）/ 週次差分 / ガント / 関係先 / 論点・仮説

@@ -1,5 +1,7 @@
 # 附則（設計書変更履歴）
 
+| 2026-09-09 JST | VC投資履歴 / migration 378-383 | PWA投影・正規化・収集ゲート | `startup_companies`、`startup_funding_rounds`、既存`vc_investments`参加層を正規化し、`/vcs/investments`とHUD mirrorを追加。旧amountは`legacy_unclassified`、自動収集は`candidate`に固定。手動routeはAMD PJ接点ありVC、最大5社/回、Gemini 3.5 Flash-Lite allowlist、Google Search grounding、公開URLのSSRF防止付き本文取得、SU/VC一致、個別ページ、取引要約、日付・金額本文一致を保存条件にした。初回誤候補は削除せずdismissedへ隔離。現行候補10件、VC個別額0件、ラウンド総額3件 | ラウンド総額のVC個別額への誤転記と、発表・共同創業・払込完了の状態混同を機械的に止めるため | まさ・えいみ |
+
 | 2026-09-09 JST | 3-8 / 3-16 PJコックピット・ワークスペース | 目的構造のガント統合とp21タスク再編 | build v3.100.29。`objective-structure`を表示タブから外し、旧URLを`gantt`へ解決する。`SxUnifiedTimeline`はstandalone taskを含む全タスクを受け、親ノードを初期展開し、タスク日程からも時間軸を導出する。p21はmigration `20260909103000_sx_newco_task_tree_gantt.sql`で旧1 objective / 4 outcomes / 13 milestones / 67 tasks / 12 milestone dependencies / 12 schedule dependenciesをsoft-deleteし、17タスクと3 schedule dependenciesへ置換する。事前JSON snapshotは共有ドライブに保存する | 目的・成立条件を別種類として固定せず、タスク階層と時間軸を一つの操作面で議論するため | まさ・えいみ |
 
 | 2026-09-08 JST | 3-16 PJワークスペース | 目的構造の左端欠けと未接続関係先の重なりを修正 | 横枝が表示枠より広いときは左端始まりに切り替え、ツリーの実内容幅を横移動枠へ渡す。固定幅の親より広い子枝は親の左端から右方向へ展開し、展開後も先頭カードを横移動の開始位置で読めるようにする。目的構造に表示する関係先情報を、`partner_id`で明示接続したアプローチタスク内だけに限定し、未接続の関係先は関係先タブへ残す。`test:ui-design-code`で左端原点、子枝の右方向展開、未接続関係先の非表示を固定する | 中央寄せの負方向overflowで最初のカードへ到達できず、柱単位の関係先fallbackが大量の独立カードをタスク背面へ描画していたため | まさ・えいみ |

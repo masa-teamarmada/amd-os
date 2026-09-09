@@ -74,6 +74,7 @@ export const SURFACE_CATALOG: readonly SurfaceDefinition[] = [
   { id: "venture-su-detail", title: "SU Detail", domain: "portfolio", lens: "exploration", status: "projection", prefixes: ["/venture-map/su/"] },
   { id: "venture-map", title: "Venture Map", primaryPath: "/venture-map", domain: "portfolio", lens: "exploration", status: "canonical", exact: ["/venture-map"] },
   { id: "poc", title: "PoC案件化", primaryPath: "/poc", domain: "portfolio", lens: "exploration", status: "canonical", exact: ["/poc"] },
+  { id: "vcs-investments", title: "VC 投資履歴", domain: "portfolio", lens: "exploration", status: "projection", exact: ["/vcs/investments", "/hud/vcs/investments"] },
   { id: "vcs", title: "VC", primaryPath: "/vcs", domain: "portfolio", lens: "exploration", status: "canonical", exact: ["/vcs"] },
   { id: "mypage", title: "マイページ", primaryPath: "/mypage", domain: "company_operations", lens: "amd_operations", status: "canonical", exact: ["/mypage"] },
   { id: "monthly-agreement", title: "月初合意", primaryPath: "/monthly-agreement", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/monthly-agreement"] },

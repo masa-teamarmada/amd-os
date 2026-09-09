@@ -103,3 +103,50 @@ Claude + web_search に「国内ディープテック VC 25-40 社」を JSON �
 - VC × seeds ラインのマッピング (どの VC がどのレーンに張ってるか) — `stage_focus` だけでは粗い、`lane_focus` 列を追加検討
 - 受信箱の一括 verify / dismiss (Atlas inbox 風) — 件数が増えてきたら
 - **VC RSS / X feed cron** (= ノクターン的ロングテール VC の真の解決策、LLM 不要): `vcs.rss_url` / `vcs.x_handle` 列追加 → 別 cron で daily fetch → vc_news 自動投入
+
+## 投資履歴タブ（2026-09-09）
+
+### 目的と画面境界
+
+`/vcs` は「どの VC にアプローチするか」を比較する VC 本体・ファンド・AMD PJ 接点の一覧として維持する。
+「どの VC が、いつ、どの SU へ、いくら出資したか」は別の問いなので、`/vcs/investments` を同じ VC 台帳の投影タブとして追加する。
+独立した writer や別正本は作らず、VC 詳細の出資先表示も同じ投資データを読む。
+
+投資履歴は VC の参加 1 件を 1 行とし、次を比較する。
+
+- 出資・払込完了日
+- 公表日
+- SU
+- ラウンド
+- VC / 号ファンド
+- VC 個別出資額
+- ラウンド総額
+- 主幹 / 共同主幹 / 参加
+- 予定 / 発表済み / 払込確認済み / 取消 / 不明
+- 確認済み / 収集候補 / 既存・要確認
+- 根拠 URL
+
+「VC 個別出資額」と「ラウンド総額」は必ず別欄に置く。金額なしも、`非公開` と `未確認` を分ける。
+既存 `vc_investments.amount_jpy` は本来 VC 個別額だが、旧データにラウンド総額との混在余地があるため `legacy_unreviewed` / `legacy_unclassified` として表示し、確認済みに昇格させない。
+
+### データ正本
+
+| 層 | テーブル | 役割 |
+|---|---|---|
+| SU | `startup_companies` | 正式表示名、表記揺れ、外部名、Web、AMD PJ 任意接続 |
+| 資金調達ラウンド | `startup_funding_rounds` | 公表日、完了日、ラウンド総額、成立状態、一次根拠 |
+| 参加 VC | `vc_investments` | VC / 号ファンド、個別額、役割、確認状態 |
+
+`target_company` は旧画面・既存データ互換の表示用として残す。新規収集は `startup_id` と `funding_round_id` を必須で埋める。
+
+### 収集境界
+
+- 対象は `project_vc_relations.status != 'not_contacted'` の VC。現在進行中の `term_sheet / dd / evaluating / pitching`、既出資、過去接点の順で小分けに処理する。
+- 人が明示的に呼ぶ `POST /api/admin/collect-vc-investment-history?limit=1..5` だけが収集を開始する。自動 schedule は持たない。
+- モデルとプロンプトは `llm_prompts.prompt_key='vc.investment_history.collect.v1'` が正本。
+- モデルは軽量モデル allowlist に固定し、現行は Google Search grounding 対応の `gemini-3.5-flash-lite`。DB 側で重いモデルへ変えると route は `409` で停止する。
+- 収集結果は必ず `candidate`。根拠があっても自動で `confirmed` にしない。
+- VC / SU の公式発表を優先し、発表日と払込完了日、ラウンド総額と VC 個別額を分ける。換算推定、号ファンド推定、未公表額の補完は禁止する。
+- 候補保存の前に根拠URLをサーバーで取得し、トップページ、非公開アドレス、SU名不一致、VC名不一致、投資取引を述べない要約を拒否する。遷移先URLも同じ条件で再検査する。
+- 日付・金額は根拠本文に同じ値が存在する場合だけ保存する。公式ポートフォリオで参加関係だけ確認できても、本文に無い日付・金額は `未確認` のままにする。
+- `vcs.investment_history_collected_at` で処理済み VC を読み、再実行時の無駄打ちを避ける。明示 `refresh=1` のときだけ再収集する。
