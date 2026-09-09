@@ -361,6 +361,18 @@ export async function collectSlackSourceRows(
         source_url: url,
         text_preview: preview,
         text_sha256: text ? stableHash(text) : "",
+        // 表示用の全文。コックピットのSlackタブがこれを読む。
+        // content_text は L2 抽出が読むので snippet のまま据え置き、
+        // AI へ渡す量を増やさない (正本: design/L2_DATA.md)。
+        text_full: text,
+        thread_replies: replies
+          .filter((reply) => reply.ts)
+          .map((reply) => ({
+            ts: String(reply.ts),
+            user: sender(reply),
+            text: normalizeSlackText(reply.text),
+            is_bot: isBotMessage(reply),
+          })),
         files: (message.files || []).map((file) => ({
           id: file.id || null,
           name: file.name || file.title || null,

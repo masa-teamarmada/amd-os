@@ -19,6 +19,7 @@ import { CockpitMsChangeHistory } from "./CockpitMsChangeHistory";
 import { CockpitMonthlyList } from "./CockpitMonthlyList";
 import { CockpitMonthlyModal } from "./CockpitMonthlyModal";
 import { CockpitMeetingSummary } from "./CockpitMeetingSummary";
+import { CockpitSlackMessages } from "./CockpitSlackMessages";
 import { CockpitFreezeBackfill } from "./CockpitFreezeBackfill";
 import { CockpitAmdScoreDetailTab } from "./CockpitAmdScoreDetailTab";
 import { CockpitCompanyOverview } from "./CockpitCompanyOverview";
@@ -404,6 +405,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
   const tabLabel: Partial<Record<CockpitTab, string>> = {
     progress: "MS・月次",
     meetings: "動向・会議",
+    slack: "Slack",
     weekly: "週次差分",
     gantt: "ガント",
     partners: "関係先",
@@ -740,6 +742,12 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
         <section role="tabpanel" aria-label="動向・会議" className="grid min-w-0 gap-3 lg:grid-cols-2">
           <CockpitStrategySignals signals={strategySignals || []} projectId={project.projectId} />
           <CockpitMeetingSummary projectId={project.projectId} />
+        </section>
+      )}
+
+      {activeTab === "slack" && (
+        <section role="tabpanel" aria-label="Slackの会話" className="min-w-0">
+          <CockpitSlackMessages projectId={project.projectId} />
         </section>
       )}
 

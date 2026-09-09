@@ -122,6 +122,12 @@ const REFERENCE_DATA_ENDPOINTS = [
     routeFile: "src/app/api/institutions/support-programs/route.ts",
     clientModule: "src/lib/institution-support-programs-client.ts",
   },
+  {
+    endpoint: "/api/slack/messages",
+    label: "Slackの会話 (PJコックピット Slackタブ)",
+    routeFile: "src/app/api/slack/messages/route.ts",
+    clientModule: "src/lib/slack/slack-messages-client.ts",
+  },
 ];
 
 // ---------------------------------------------------------------------------
