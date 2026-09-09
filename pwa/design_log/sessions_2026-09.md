@@ -434,3 +434,40 @@ commit `f045000c` / `bc4c5974`。
 - **ローカルの `npm run build` は通していない。** 本体checkoutは別セッションの未コミット差分（Slack連携の途中で型エラーあり）があって `deploy.sh` の clean tree 検査で止まるため、使い捨てクリーンクローンから deploy した。そのクローンでは `node_modules` をシンボリックリンクで用意したので Turbopack が `Symlink ... points out of the filesystem root` で落ちる。**型検査（`tsc --noEmit`）・重要UI契約・参照系キャッシュ契約・Vercel本番buildはすべて通っている**ので反映自体は成立しているが、ローカルbuildを検証工程として数えていない。次にクリーンクローンから deploy するときは `npm ci` で実体を置くか、本体checkoutが clean になってから build する。
 - **スマホ実寸の確認ができていない。** Chrome拡張の `resize_window` が効かず（`innerWidth` が変わらない）、in-app browser はAMD OSにログインできない。構造としては表の枠内スクロールで、ページ全体の横あふれは desktop 幅で0を実測。狭い幅の実機確認は未了。
 - 契約テストは**自分の変更前から**本体checkoutで落ちていた（`CockpitView.tsx` に `"objective-structure": "目的構造"` が無い）。直近commit `c6d9df9f`「chore: remove retired objective map changes」で画面から撤去された一方、別セッションのdirtyな契約テストにアンカーが残っている状態。HEADのクリーンクローンでは通るので、別セッション側の未コミット作業の中で解決される見込み。こちらでは触っていない。
+
+## 2026-09-09 SolvioraX Slackの取り込みと、コックピット「Slack」タブの新設
+
+まさ「slackの中身をOSにコピーしておける場所をつくるのはどう？」から。**取り込みは毎朝動いているのに、貯めた会話がOSのどの画面にも出ていなかった**ことが起点。議事録経由で出るはずのH-1が 2026-09-04 のVercel消費事故で停止中のため、吸い上げた会話に行き場が無かった。
+
+### 取り込み側
+
+- `project_slack_sources`（`project_id` × `workspace_key` × `channel_id`、RLS有効）を新設し、既存 `projects.slack_channel_id` を持つ12PJを `workspace_key='armada'` として初期投入（migration `20260905103000`、MCP `apply_migration` で適用。`db push` はリモート履歴23件がローカルに無く使えない状態のため）。`projects.slack_channel_id` は通知の宛先として残す。
+- `lib/slack/workspace-token.ts`: `armada` は従来の `SLACK_BOT_TOKEN`、それ以外は `SLACK_BOT_TOKEN_<大文字>`。既存PJの挙動は不変。
+- `/api/sources/slack/collect` は enabled 行を順に回して収集し、1チャンネルが落ちても他は続行、内訳を `channels[]` で返す。行が無いPJは従来どおり `projects.slack_channel_id` へfallback。
+- `metadata_json` に `text_full` / `thread_replies` / `user_name` を保存。**`content_text` は700字snippetのまま据え置き**（L2抽出が読むのはこちらなので、全文保存でLLMへ渡す量とトークン消費を増やさない）。
+- `users:read` を追加し、取り込み時に `users.info` で表示名を引く。本文中の `<@Uxxx>` も `normalizeSlackText` に表示名マップを通して名前へ置換する（`content_text` 側にも効くので議事録抽出からも誰への言及か読める）。
+- システムメッセージ（`channel_join` 等）を除外。
+
+### 表示側
+
+- 進捗管理グループに `slack` タブを新設（`cockpit-tabs.ts` 1本で完結）。`GET /api/slack/messages`（`requireMember` / `Cache-Control: private, max-age=60`）と参照系クライアント層 `lib/slack/slack-messages-client.ts`、`check_reference_data_cache_contract.mjs` へ登録済み。
+- Slackと同じ読み方: 上が古く下が新しい / 日付セパレータ / アバター・名前・時刻 / 同一発言者の5分以内の連続投稿はヘッダ省略 / スレッドは「N件の返信」で開閉（返信にもアイコンと時刻、日をまたぐ返信には日付） / 添付はカードでSlackの元ファイルへ / チャンネルは既定で1つだけ選択。
+- Slackの画像実体URLは認証必須なのでプレビューはしない（ファイル名とリンクまで）。
+
+### SolvioraXワークスペース
+
+- SolvioraX（`T0A7JFY6U9H`）用のSlackアプリ「つくよみ」（`A0BV7LLTD8S`）を読み取り専用スコープで作成・インストール。**`chat:write` は付けていないので、このワークスペースへは投稿できない**。
+- 取り込み対象は **まさが参加している3チャンネル**（`00_全体_連絡` / `01_定例` / `20_商談_アポ`）に限定。残り6チャンネルは `enabled=false` で、つくよみも入っていない（まさ「おれが入ってないということは、BOTだけ勝手に入れるわけにもいかん。先に許可とってからにしよう」）。
+- **公開チャンネルから抜けるには `channels:manage` が必要**で、読み取り専用の建付けを崩す。一度アンインストールして3チャンネルだけへ入れ直す方法で回避した。
+- **SolvioraXはSlackフリープランで90日より古い履歴が消える**。6月分は一部が既に取得不能。日次取り込みを止めると復元できない。
+
+### 検証
+
+- 本番の `/project/p21/cockpit?tab=slack` で、9月2日〜9月6日の会話・発言者名・本文中のメンション・添付・スレッド返信の開閉・絵文字を実際に確認した。
+- `tsc --noEmit` と `test:reference-data-cache` は通している。**`npm run build` は通していない**（正規checkoutが別セッションのdirtyで `deploy.sh` のclean tree検査に掛かるため、使い捨てクリーンクローンから push した。Vercel本番buildは成功）。
+- スマホ実寸は未確認（`resize_window` が効かず `innerWidth` が変わらない。前回セッションと同じ症状）。
+
+### 途中で捨てた案
+
+- **GASのつくよみ（`slack_nudge_AMD_OS`）を複数ワークスペース対応にする改修**を一度実装してpushしたが、まさの指摘「今回は別にSX側のslackでは何も動かさない。ただ情報を吸い上げるだけ」で不要と分かり revert した（`7b058e4d`）。吸い上げの実体はPWA側の `/api/sources/slack/collect` で、GASは「AMD Slack内で話しかけられたら答える」役。次に同種の依頼が来たら、まずどちらの経路かを確認する。
+- `channels:leave` はボットトークンスコープに存在しない（`conversations.leave` は `channels:manage` を要求する）。
