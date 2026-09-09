@@ -25,6 +25,7 @@ type LedgerRow = {
   max_attempts: number;
   first_detected_at: string | null;
   last_attempt_at: string | null;
+  last_emitted_at: string | null;
   last_outcome: string | null;
   last_error: string | null;
   notes: string | null;
@@ -38,7 +39,7 @@ type AssetGapRow = {
 };
 
 const STATUS_LABEL: Record<string, { label: string; hint: string; tone: string }> = {
-  pending: { label: "再試行中", hint: "毎時の定期確認が拾い直している", tone: "text-amber-600 font-medium" },
+  pending: { label: "拾い直し待ち", hint: "定期確認が走れば再試行の対象になる", tone: "text-amber-600 font-medium" },
   abandoned: { label: "諦めた", hint: "上限まで試して取れなかった。手当てが要る", tone: "text-red-600 font-semibold" },
   no_material: { label: "元データなし", hint: "議事録の材料が残っていないと確認済み", tone: "text-muted-foreground" },
   ignored: { label: "対象外", hint: "議事録を作らないと判断した会議", tone: "text-muted-foreground line-through" },
@@ -75,7 +76,7 @@ export default async function AdminMeetingGapsPage() {
   const [{ data: ledgerData }, { data: assetGapData }] = await Promise.all([
     supabase
       .from("meeting_minutes_backfill_ledger")
-      .select("calendar_event_id, project_id, title, meeting_start_at, status, attempt_count, max_attempts, first_detected_at, last_attempt_at, last_outcome, last_error, notes")
+      .select("calendar_event_id, project_id, title, meeting_start_at, status, attempt_count, max_attempts, first_detected_at, last_attempt_at, last_emitted_at, last_outcome, last_error, notes")
       .neq("status", "recovered")
       .order("meeting_start_at", { ascending: false })
       .limit(500),
@@ -117,6 +118,16 @@ export default async function AdminMeetingGapsPage() {
 
   const pending = rows.filter((r) => r.status === "pending");
   const abandoned = rows.filter((r) => r.status === "abandoned");
+
+  // 拾い直しは毎時の定期確認が動いていて初めて進む。定期確認が止まっていると、
+  // この画面の「再試行中」は実態を表さなくなる。最後に候補を出した時刻から判定して
+  // 止まっていることを明示する。文言で「動いている」と書き切らない。
+  const lastEmittedAt = rows
+    .map((r) => Date.parse(r.last_emitted_at ?? ""))
+    .filter((t) => Number.isFinite(t))
+    .reduce<number | null>((acc, t) => (acc == null || t > acc ? t : acc), null);
+  const staleHours = lastEmittedAt == null ? null : Math.floor((Date.now() - lastEmittedAt) / 3600000);
+  const retryStalled = staleHours == null || staleHours >= 3;
   const oldest = pending.reduce<number | null>((acc, r) => {
     const d = daysAgo(r.meeting_start_at);
     return d != null && (acc == null || d > acc) ? d : acc;
@@ -124,7 +135,12 @@ export default async function AdminMeetingGapsPage() {
 
   const metrics: { label: string; value: string; hint: string; alert?: boolean }[] = [
     { label: "議事録がない会議", value: String(rows.length), hint: "予定はあるのに議事録が作られていない会議の総数" },
-    { label: "拾い直し中", value: String(pending.length), hint: "毎時の定期確認が再試行している。放っておいてよい" },
+    {
+      label: "拾い直し待ち",
+      value: String(pending.length),
+      hint: retryStalled ? "定期確認が止まっているので今は進まない" : "毎時の定期確認が再試行している。放っておいてよい",
+      alert: retryStalled && pending.length > 0,
+    },
     { label: "諦めた", value: String(abandoned.length), hint: "上限まで試して取れなかった。まさの手当てが要る", alert: abandoned.length > 0 },
     { label: "いちばん古い抜け", value: oldest != null ? `${oldest}日前` : "—", hint: "これより古い会議の議事録は残っていない" },
     { label: "添付が0件", value: String(assetGaps.length), hint: "Driveに資料があってもここに出ていなければ画面には出ない", alert: assetGaps.length > 0 },
@@ -135,11 +151,25 @@ export default async function AdminMeetingGapsPage() {
       <h1 className="text-lg font-semibold mb-1">🗂 議事録の抜け</h1>
       <p className="text-xs text-muted-foreground mb-4">
         会議は終わったのに議事録が作られなかったものの一覧。定期確認は会議終了の1〜3時間後にしか議事録を作らないので、
-        その時間帯に実行が走らないと抜ける。抜けた会議はこの台帳に残り、毎時の定期確認が拾い直す。
+        その時間帯に実行が走らないと抜ける。抜けた会議はこの台帳に期限なく残り、定期確認が動いている間は拾い直しの対象になる。
         <span className="text-red-600">諦めた</span>まで進んだものは自動では埋まらないので、
         <code className="text-xs bg-muted px-1 rounded mx-1">npm run meeting:backfill-minutes</code>
         で後から入れる。
       </p>
+
+      {retryStalled && pending.length > 0 ? (
+        <div className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/20 p-3 mb-4 text-xs">
+          <div className="font-semibold text-red-700 dark:text-red-400">いま拾い直しは動いていない</div>
+          <div className="text-muted-foreground mt-1 leading-relaxed">
+            議事録を作る定期確認が
+            {staleHours == null ? "一度も動いていない" : `${staleHours}時間止まっている`}
+            ので、下の会議は待っているだけで埋まらない。
+            2026年9月6日のVercel消費事故を受けて、本番へ届く定期処理をまとめて止めているのが原因で、
+            再開の条件は正本 <code className="bg-muted px-1 rounded">pwa/design/AUTOMATIONS.md</code> に書いてある。
+            止まっている間に埋めるなら、後から入れる手順を使う。
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-6">
         {metrics.map((m) => (
