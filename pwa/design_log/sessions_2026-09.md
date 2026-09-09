@@ -406,3 +406,22 @@ commit `f045000c` / `bc4c5974`。
 - push `09fa3bc9`（使い捨てクリーンクローンから `deploy.sh` 経由。本体checkoutは別セッションの未コミット差分で `deploy.sh` が止まるため）。Vercel は build を Canceled にした。アプリ本体の差分が無いので本番の挙動は変わらない。`pwa/vercel.json` の ignoreCommand は main かつ `[skip ci]` 無しなら build する内容なので、スキップは Vercel プロジェクト側のパス限定設定によるものと見られる（`pwa/scripts/` と `pwa/design_log/` のみの差分）。
 - やっていないこと: DDL変更なし。`company_budget_monthly(scope='project')` への寄せ（設計正本 `design/project_pl_monthly.md` の将来方針）は未着手。SEの試算表（2026/4〜）は未入手で、届いたら推定行を実績で置換する。
 - 関連: 藤原さんへの9/6メール（財務全閲覧依頼）に添えた年次表は `共有ドライブ/ARMADA/p10_se/260906_SE財務実績整理/`。長期ナレッジは `knowledge/SE.md` の2026-09-06節。
+
+## 2026-09-09 SEの事業計画タブに月次試算表を出す（暫定試算なしPJ共通）
+
+まさ「試算表のタブをSEにも作って」。前提の誤解を1つ正した上での実装。**「SEだけ特別」ではなく、BZM 2.2の暫定試算を持たないPJ（p00 / p10 SE / p19 ZMP / p25 KUTE / p28 NIMS / p30 EHM / p32 RTM / p33 SMILE）すべてで、事業計画タブに月次試算表が出ていなかった**。暫定試算は `bzm/pilot/bzm-2-2-all-pj-provisional-v0-1.mts` の直書き12PJ（ティエム・輝翠TECH・CrestecBio・LST・JOYCLE・BWE・Yellow Duck・CryoX・SX・チャレナジー・VasculaX・KENQ）だけに生成されていて、区分（advisor）とは無関係（LST・チャレナジーはadvisorだが暫定試算があるので出る）。`f8effee8` の作業記録にも「対象外PJ（例p10）で404のエラーカードが出る副作用」→「表そのものを出さない」と当時の判断が残っていて、代替の表は作られていなかった。
+
+- `CockpitPlMonthlySection.tsx` を追加し、`CockpitBusinessPlan` の `Bzm22TimeLedgerSection` 直後に置いた。**暫定試算があるPJでは `loadBzm22Pilot` 成功時に `null` を返す**ので、既存のpilot対象PJの表示は一切変えていない（判定を1か所に閉じ、`Bzm22TimeLedgerSection` と契約テストのアンカーは無改変）。
+- 上段=4月始まりの年度別サマリ、下段=月別の縦横表（項目行×月列、年度の切れ目に区切り線、項目列を左固定）。単位は万円（`Bzm22TimeLedger` の百万円とは別）。
+- **出所の区分を画面に出した**。`notes` 先頭の「実績 / 推定 / 見込」をバッジ化し、メモ全文は月セルの `title`。SEは2024-04以降が推測なので、帳簿由来の月と区別できないと数字を誤読する。
+- 全期間ゼロの費目は列から落とす（SEは販売促進費がゼロで、空列が1本並んでいた）。売上と計算項目（粗利・営業利益）はゼロでも残す。
+- 年度別表は `table-fixed`。auto レイアウトだと約1400px幅で9列が枠を超え、**営業利益が初期表示で画面外**に出ていた。実測で枠1132px・表1132px・ページ横あふれ0・営業利益の右端＝枠の右端を確認。月別表は自分の箱の中だけでスクロールする。
+- 読み取りは `pl-monthly-client.ts`（`@/lib/reference-data-cache` 経由）に集約。月次試算表は参照系なので、画面から素の取得をせず、同じPJの表を複数箇所に置いても1回。書き込み導線は持たない（表示のみ。編集を足すなら `invalidatePlMonthlyCache` を保存直後に呼ぶ）。
+- 正本同期: `spec/3-8`、`manual/2-3`、`design/FEATURE_REGISTRY.md`、`design/cockpit.md`、`ios/DESIGN.md`、契約テスト（`check_pwa_critical_ui.cjs`）。**付録の変更履歴（`spec/6-1` / `manual/9-3`）は別セッションが編集中だったので触っていない — 次に触る人が追記する。**
+- commit `a18efe58`（本体）→ `49058979`（空列）→ `7cfd756c`（枠内に収める）、production v3.100.33。本番の `/project/p10/cockpit?tab=business-plan` で年度別FY21〜FY26と月別2021-04〜2027-03の表示を確認済み。
+
+### 検証で足りていないこと
+
+- **ローカルの `npm run build` は通していない。** 本体checkoutは別セッションの未コミット差分（Slack連携の途中で型エラーあり）があって `deploy.sh` の clean tree 検査で止まるため、使い捨てクリーンクローンから deploy した。そのクローンでは `node_modules` をシンボリックリンクで用意したので Turbopack が `Symlink ... points out of the filesystem root` で落ちる。**型検査（`tsc --noEmit`）・重要UI契約・参照系キャッシュ契約・Vercel本番buildはすべて通っている**ので反映自体は成立しているが、ローカルbuildを検証工程として数えていない。次にクリーンクローンから deploy するときは `npm ci` で実体を置くか、本体checkoutが clean になってから build する。
+- **スマホ実寸の確認ができていない。** Chrome拡張の `resize_window` が効かず（`innerWidth` が変わらない）、in-app browser はAMD OSにログインできない。構造としては表の枠内スクロールで、ページ全体の横あふれは desktop 幅で0を実測。狭い幅の実機確認は未了。
+- 契約テストは**自分の変更前から**本体checkoutで落ちていた（`CockpitView.tsx` に `"objective-structure": "目的構造"` が無い）。直近commit `c6d9df9f`「chore: remove retired objective map changes」で画面から撤去された一方、別セッションのdirtyな契約テストにアンカーが残っている状態。HEADのクリーンクローンでは通るので、別セッション側の未コミット作業の中で解決される見込み。こちらでは触っていない。
