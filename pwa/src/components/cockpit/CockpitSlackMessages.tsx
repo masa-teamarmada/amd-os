@@ -52,6 +52,21 @@ function timeLabel(iso: string) {
   return `${String(jst.getUTCHours()).padStart(2, "0")}:${String(jst.getUTCMinutes()).padStart(2, "0")}`;
 }
 
+/** Slackのts (epoch秒) から時刻。親と日が違う返信には日付も付ける。 */
+function replyTimeLabel(ts: string, parentIso: string) {
+  const seconds = Number.parseFloat(String(ts || ""));
+  if (!Number.isFinite(seconds) || seconds <= 0) return "";
+  const jst = new Date(seconds * 1000 + 9 * 60 * 60 * 1000);
+  const hhmm = `${String(jst.getUTCHours()).padStart(2, "0")}:${String(jst.getUTCMinutes()).padStart(2, "0")}`;
+  const parent = jstOf(parentIso);
+  const sameDay =
+    !!parent &&
+    parent.getUTCFullYear() === jst.getUTCFullYear() &&
+    parent.getUTCMonth() === jst.getUTCMonth() &&
+    parent.getUTCDate() === jst.getUTCDate();
+  return sameDay ? hhmm : `${jst.getUTCMonth() + 1}/${jst.getUTCDate()} ${hhmm}`;
+}
+
 function collectedLabel(iso: string | null) {
   const jst = iso ? jstOf(iso) : null;
   if (!jst) return null;
@@ -163,15 +178,30 @@ function MessageRow({ item, grouped }: { item: SlackMessageItem; grouped: boolea
               {openReplies ? "返信を閉じる" : `${item.replies.length}件の返信`}
             </button>
             {openReplies && (
-              <div className="mt-1 flex flex-col gap-1.5 border-l-2 border-[#e5e5e7] pl-2.5">
-                {item.replies.map((reply) => (
-                  <div key={reply.ts}>
-                    <span className="mr-1.5 text-[12px] font-semibold text-[#3c3c43]">{speaker(reply)}</span>
-                    <span className="whitespace-pre-wrap break-words text-[12.5px] leading-[1.65] text-[#3c3c43]">
-                      {reply.text}
-                    </span>
-                  </div>
-                ))}
+              <div className="mt-1.5 flex flex-col gap-2 border-l-2 border-[#e5e5e7] pl-2.5">
+                {item.replies.map((reply) => {
+                  const replyName = speaker(reply);
+                  return (
+                    <div key={reply.ts} className="flex gap-2">
+                      <span
+                        className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-semibold text-white"
+                        style={{ backgroundColor: avatarColor(replyName) }}
+                        aria-hidden
+                      >
+                        {initial(replyName)}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-[12px] font-semibold text-[#1d1d1f]">{replyName}</span>
+                          <span className="text-[10.5px] text-[#86868b]">{replyTimeLabel(reply.ts, item.at)}</span>
+                        </div>
+                        <p className="whitespace-pre-wrap break-words text-[12.5px] leading-[1.65] text-[#3c3c43]">
+                          {reply.text}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
