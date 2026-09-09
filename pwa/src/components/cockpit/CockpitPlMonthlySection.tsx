@@ -150,13 +150,13 @@ function ProvenanceBadge({ kind }: { kind: Provenance }) {
 function FiscalYearSummary({ groups, metrics }: { groups: FiscalYearGroup[]; metrics: Metric[] }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[560px] border-collapse text-[11px]">
+      <table className="w-full min-w-[560px] table-fixed border-collapse text-[11px]">
         <thead>
           <tr className="bg-slate-50">
-            <th className="border-b border-slate-200 px-2 py-1.5 text-left font-semibold text-slate-600">年度</th>
-            <th className="border-b border-slate-200 px-2 py-1.5 text-left font-semibold text-slate-600">出所</th>
+            <th className="w-[68px] border-b border-slate-200 px-2 py-1.5 text-left font-semibold text-slate-600">年度</th>
+            <th className="w-[74px] border-b border-slate-200 px-2 py-1.5 text-left font-semibold text-slate-600">出所</th>
             {metrics.map((metric) => (
-              <th key={metric.key} className="border-b border-slate-200 px-2 py-1.5 text-right font-semibold text-slate-600">
+              <th key={metric.key} className="whitespace-nowrap border-b border-slate-200 px-1.5 py-1.5 text-right font-semibold text-slate-600">
                 {metric.label}
               </th>
             ))}
@@ -174,7 +174,7 @@ function FiscalYearSummary({ groups, metrics }: { groups: FiscalYearGroup[]; met
               {metrics.map((metric) => (
                 <td
                   key={metric.key}
-                  className={`border-b border-slate-100 px-2 py-1.5 text-right font-mono tabular-nums ${
+                  className={`border-b border-slate-100 px-1.5 py-1.5 text-right font-mono tabular-nums ${
                     metric.emphasis ? `font-semibold ${signClass(group.totals[metric.key])}` : "text-slate-700"
                   } ${metric.calculated ? "bg-slate-50/60" : ""}`}
                 >
