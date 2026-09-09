@@ -48,14 +48,24 @@ async function main() {
 
   // 確定版 = meeting_id が 'upcoming:' で始まらない行。calendar_event_id と meeting_id の
   // 両方を索引にする。過去の手動取り込みは meeting_id にだけ event id を入れた例がある。
+  //
+  // 同じ会議が別のCalendar idで複数の予定カードを持つことがある。Googleのrecurring event
+  // idが再生成で伸びるためで、LiSTie取締役会は190文字と198文字の2枚を持っていた。
+  // 確定版は片方にしか紐づかないので、id照合だけだと「もう片方は欠損」と誤判定する。
+  // 台帳の照合 (lib/meeting_backfill_ledger.mjs) と同じく (PJ, 開始時刻) でも引く。
   const confirmedByEvent = new Map();
   const upcomingByEvent = new Map();
+  const confirmedByOccurrence = new Map();
   for (const row of rows) {
     const isUpcoming = String(row.meeting_id || "").startsWith("upcoming:");
     const keys = [row.calendar_event_id, row.meeting_id].filter(Boolean).map(String);
     for (const key of keys) {
       const bare = key.startsWith("upcoming:") ? key.slice("upcoming:".length).replace(/_\d{8}T\d{6}Z$/, "") : key;
       (isUpcoming ? upcomingByEvent : confirmedByEvent).set(bare, row);
+    }
+    if (!isUpcoming) {
+      const key = occurrenceKey(row.project_id, row.meeting_start_at);
+      if (key) confirmedByOccurrence.set(key, row);
     }
   }
 
@@ -85,7 +95,9 @@ async function main() {
   const missing = [];
   const covered = [];
   for (const event of held) {
-    const confirmed = confirmedByEvent.get(event.id);
+    const prepRow = upcomingByEvent.get(event.id);
+    const confirmed = confirmedByEvent.get(event.id)
+      ?? confirmedByOccurrence.get(occurrenceKey(prepRow?.project_id, event.start_at));
     if (confirmed) {
       covered.push({ event, row: confirmed, assets: assets.get(confirmed.meeting_id) ?? 0 });
       continue;
@@ -214,6 +226,14 @@ function isEligibleCalendarEvent(event) {
       && !event.title.startsWith("+")
       && !event.title.startsWith("＋"),
   );
+}
+
+/** 同じ会議を指す別idを畳むための鍵。台帳の照合と同じ定義にそろえる。 */
+function occurrenceKey(projectId, startAt) {
+  if (!projectId) return null;
+  const time = Date.parse(startAt || "");
+  if (!Number.isFinite(time)) return null;
+  return `${projectId}@${Math.round(time / 60000)}`;
 }
 
 function bareEventId(meetingId) {
