@@ -239,8 +239,20 @@ function buildContent(input: {
   ].filter(Boolean).join("\n");
 }
 
+/**
+ * 会話ではないシステムメッセージ。「〜がチャンネルに参加しました」などを
+ * 会話として取り込むと、コックピットのSlackタブがノイズで埋まる。
+ */
+const SYSTEM_SUBTYPES = new Set([
+  "channel_join", "channel_leave", "channel_topic", "channel_purpose", "channel_name",
+  "channel_archive", "channel_unarchive", "group_join", "group_leave", "group_topic",
+  "group_purpose", "group_name", "bot_add", "bot_remove", "pinned_item", "unpinned_item",
+  "reminder_add", "tombstone",
+]);
+
 function canKeepMessage(message: SlackApiMessage, start: Date, end: Date, includeBots: boolean) {
   if (!message.ts) return false;
+  if (SYSTEM_SUBTYPES.has(String(message.subtype || ""))) return false;
   if (!includeBots && isBotMessage(message)) return false;
   if (!String(message.text || "").trim() && !(message.files || []).length) return false;
   return isWithin(slackTsToDate(message.ts), start, end);
