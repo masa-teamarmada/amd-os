@@ -1080,20 +1080,20 @@ function editorDefinition(
     return {
       title:
         editor.kind === "create_outcome"
-          ? "タスクを追加"
-          : "タスクを編集",
-      eyebrow: "タスク",
+          ? "業務ラインを追加"
+          : "業務ラインを編集",
+      eyebrow: "成立条件",
       resource: "outcome",
       method: editor.kind === "create_outcome" ? "POST" : "PATCH",
       id: editor.kind === "edit_outcome" ? editor.outcome.id : undefined,
       fields: [
         {
           key: "title",
-          label: "タスク名",
+          label: "業務ライン名",
           type: "textarea",
           required: true,
           span: true,
-          help: "最上位タスクとして並ぶ単位。例: AMD HoldCo設立 / 決算対応。",
+          help: "目的の下に横並びで出る単位。例: AMD HoldCo設立 / 決算対応。",
         },
         {
           key: "definition_of_done",
@@ -2694,7 +2694,7 @@ function IssueEditor({
     }
     if (editor.kind === "create_outcome" && !management.objective) {
       setError(
-        "先に最上位のタスクを登録してね。追加するタスクはその直下に置くよ",
+        "先に最上位の目的を登録してね。業務ラインは目的の下にぶら下がるよ",
       );
       return;
     }
@@ -3044,14 +3044,14 @@ function IssueEditor({
           onSaved(
             (phaseBody.bundle as SxManagementBundle) ||
               (body.bundle as SxManagementBundle),
-            "タスクは保存したけど、子タスクを置く入れ物を作れなかったよ。もう一度開いて保存し直してね",
+            "業務ラインは保存したけど、タスクを置く入れ物を作れなかったよ。もう一度開いて保存し直してね",
           );
           return;
         }
         onSaved(
           (phaseBody.bundle as SxManagementBundle) ||
             (body.bundle as SxManagementBundle),
-          "タスクを追加したよ",
+          "業務ラインを追加したよ",
         );
         return;
       }
@@ -6082,8 +6082,8 @@ export function SxWeeklyControlDashboard({
         >
           <div className={styles.sectionHeading}>
             <div>
-              <h2>タスク・全体ガント</h2>
-              <p>左でタスク階層、右で日程と前後関係を見る。どの深さでも同じカード操作で子タスクを開閉する</p>
+              <h2>目的・全体ガント</h2>
+              <p>左でタスク階層、右で日程と前後関係を見る。目的→成立条件→タスクを同じ行で追う</p>
             </div>
             <div className={styles.planViewControls}>
               <p>基準日 {formatDate(management.asOf)}</p>

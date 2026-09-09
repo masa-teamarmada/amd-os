@@ -4,6 +4,8 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { isKuteCompletedTask, KUTE_COMPLETED_BADGE, KUTE_COMPLETED_COLOR } from "@/lib/kute-gantt-completion";
 import {
+  ChevronsDownUp,
+  ChevronsUpDown,
   ChevronRight,
   Flag,
   GripVertical,
@@ -1006,28 +1008,19 @@ export function SxUnifiedTimeline({
   const [collapsedLanes, setCollapsedLanes] = useState<Set<SxDisplayLaneKey>>(
     () => new Set(),
   );
-  // The hierarchy is always a task tree. Each card owns its direct children; a global detail
-  // mode would make the same hierarchy behave differently at different depths.
-  const showTaskDetails = true;
+  // ZMP has several objectives and dozens of tasks. Opening every task by default recreates the
+  // old flat list and hides the management structure below the fold, so its first view is the
+  // objective/outcome overview. The same control remains available to every project and reveals
+  // the full editable task plan without leaving the gantt.
+  const [showTaskDetails, setShowTaskDetails] = useState(() => projectId !== "p19");
   const [expandedObjectives, setExpandedObjectives] = useState<Set<string>>(
-    () => new Set(objectives.map((objective) => objective.id)),
-  );
-  const [expandedOutcomes, setExpandedOutcomes] = useState<Set<string>>(
-    () => new Set(outcomes.map((outcome) => outcome.id)),
+    () => new Set(projectId === "p19" ? [] : objectives.map((objective) => objective.id)),
   );
   const toggleObjectiveExpanded = (objectiveId: string) => {
     setExpandedObjectives((previous) => {
       const next = new Set(previous);
       if (next.has(objectiveId)) next.delete(objectiveId);
       else next.add(objectiveId);
-      return next;
-    });
-  };
-  const toggleOutcomeExpanded = (outcomeId: string) => {
-    setExpandedOutcomes((previous) => {
-      const next = new Set(previous);
-      if (next.has(outcomeId)) next.delete(outcomeId);
-      else next.add(outcomeId);
       return next;
     });
   };
@@ -1744,9 +1737,7 @@ export function SxUnifiedTimeline({
               ownerLabel: outcome.ownerLabel,
               status: outcome.status,
               depth: 1,
-              childCount: roots.filter(
-                (task) => outcomeIdForTask(task) === outcome.id,
-              ).length,
+              childCount: 0,
               taskCount: outcomeTasks.length,
               completedTaskCount: outcomeTasks.filter((task) => task.status === "completed").length,
               ...summarizeDates(outcomeTasks, outcomeMilestones),
@@ -1757,7 +1748,6 @@ export function SxUnifiedTimeline({
                   : null,
             },
           });
-          if (!expandedOutcomes.has(outcome.id)) continue;
           for (const root of roots.filter(
             (task) => outcomeIdForTask(task) === outcome.id,
           )) {
@@ -1854,7 +1844,6 @@ export function SxUnifiedTimeline({
   }, [
     asOf,
     collapsedLanes,
-    expandedOutcomes,
     expandedObjectives,
     expandedTasks,
     laneFold,
@@ -1868,6 +1857,15 @@ export function SxUnifiedTimeline({
     showTaskDetails,
   ]);
 
+  const hasAnyChildren = taskChildren.size > 0;
+  const allExpanded =
+    hasAnyChildren &&
+    tasks.every(
+      (task) => !taskChildren.has(task.id) || expandedTasks.has(task.id),
+    );
+  const allObjectivesExpanded =
+    objectives.length > 0 &&
+    objectives.every((objective) => expandedObjectives.has(objective.id));
   const lanesHeight = lanesTotalHeight(
     visibleLanes,
     showTaskDetails && canManage && Boolean(projectId),
@@ -2027,6 +2025,14 @@ export function SxUnifiedTimeline({
       ),
     [scheduleDependencyItems],
   );
+
+  function toggleAll() {
+    if (allExpanded) {
+      setExpandedTasks(new Set());
+    } else {
+      setExpandedTasks(new Set(tasks.map((task) => task.id)));
+    }
+  }
 
   function select(row: DisplayRow) {
     if (row.entity === "milestone") {
@@ -2729,6 +2735,43 @@ export function SxUnifiedTimeline({
         </p>
       )}
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+        <button
+          type="button"
+          data-gantt-task-detail-toggle
+          aria-pressed={showTaskDetails}
+          onClick={() => {
+            const next = !showTaskDetails;
+            setShowTaskDetails(next);
+            if (next) {
+              setExpandedObjectives(new Set(objectives.map((objective) => objective.id)));
+            }
+          }}
+          className={`inline-flex min-h-11 items-center border px-3 text-[11px] font-semibold ${showTaskDetails ? "border-[#027FDC] bg-[#E8F3FC] text-[#0267B2]" : "border-[#cbd5e1] bg-[#ffffff] text-[#3c3c43]"}`}
+        >
+          {showTaskDetails ? "構造だけ見る" : "タスクまで見る"}
+        </button>
+        {objectives.length > 0 && (
+          <button
+            type="button"
+            data-gantt-objective-expand-toggle
+            aria-pressed={allObjectivesExpanded}
+            onClick={() => {
+              setExpandedObjectives(
+                allObjectivesExpanded
+                  ? new Set()
+                  : new Set(objectives.map((objective) => objective.id)),
+              );
+            }}
+            className="inline-flex min-h-11 items-center gap-1 border border-[#cbd5e1] bg-[#ffffff] px-3 text-[11px] font-semibold text-[#3c3c43]"
+          >
+            {allObjectivesExpanded ? (
+              <ChevronsDownUp className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronsUpDown className="h-3.5 w-3.5" />
+            )}
+            {allObjectivesExpanded ? "成立条件を閉じる" : "成立条件を開く"}
+          </button>
+        )}
         {canManage && onCreateOutcome && (
           <button
             type="button"
@@ -2737,9 +2780,22 @@ export function SxUnifiedTimeline({
             className="inline-flex min-h-11 items-center gap-1 border border-[#7CBCEB] bg-[#ffffff] px-3 text-[11px] font-semibold text-[#0267B2] hover:bg-[#E8F3FC] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]"
           >
             <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-            タスクを追加
+            成立条件を追加
           </button>
         )}
+        <button
+          type="button"
+          disabled={!showTaskDetails || !hasAnyChildren}
+          onClick={toggleAll}
+          className="inline-flex min-h-11 items-center gap-1 border border-[#cbd5e1] bg-[#ffffff] px-3 text-[11px] font-semibold text-[#3c3c43] disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          {allExpanded ? (
+            <ChevronsDownUp className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronsUpDown className="h-3.5 w-3.5" />
+          )}
+          {allExpanded ? "すべて閉じる" : "すべて展開"}
+        </button>
         <button
           type="button"
           onClick={() => {
@@ -2893,25 +2949,28 @@ export function SxUnifiedTimeline({
                   return (
                     <article
                       key={`mobile-${row.entity}-${row.id}`}
-                      className="border-l-4 border-l-[#7CBCEB] bg-[#f8fbfe]"
+                      className={`${row.entity === "objective" ? "bg-[#E8F3FC]" : "border-l-4 border-l-[#7CBCEB] bg-[#f8fbfe]"}`}
                       style={{ marginLeft: row.depth * 12 }}
                       data-gantt-structure-row={`${row.entity}:${row.id}`}
                     >
                       <button
                         type="button"
-                        aria-expanded={row.entity === "objective" ? expandedObjectives.has(row.id) : expandedOutcomes.has(row.id)}
+                        disabled={row.entity === "outcome" && !(canManage && onEditOutcome)}
+                        aria-expanded={row.entity === "objective" ? expandedObjectives.has(row.id) : undefined}
                         onClick={() => {
                           if (row.entity === "objective") toggleObjectiveExpanded(row.id);
-                          else toggleOutcomeExpanded(row.id);
+                          else onEditOutcome?.(row.id);
                         }}
                         className="flex w-full items-start gap-2 px-3 py-2.5 text-left disabled:cursor-default"
                       >
-                        <ChevronRight
-                          className={`mt-0.5 h-3.5 w-3.5 shrink-0 text-[#0267B2] transition-transform ${(row.entity === "objective" ? expandedObjectives.has(row.id) : expandedOutcomes.has(row.id)) ? "rotate-90" : ""}`}
-                          aria-hidden="true"
-                        />
-                        <span className="mt-0.5 shrink-0 border border-[#7CBCEB] bg-white px-1.5 py-0.5 text-[8px] font-bold text-[#0267B2]">
-                          タスク
+                        {row.entity === "objective" && (
+                          <ChevronRight
+                            className={`mt-0.5 h-3.5 w-3.5 shrink-0 text-[#0267B2] transition-transform ${expandedObjectives.has(row.id) ? "rotate-90" : ""}`}
+                            aria-hidden="true"
+                          />
+                        )}
+                        <span className={`mt-0.5 shrink-0 border px-1.5 py-0.5 text-[8px] font-bold ${row.entity === "objective" ? "border-[#027FDC] bg-[#027FDC] text-white" : "border-[#7CBCEB] bg-white text-[#0267B2]"}`}>
+                          {row.entity === "objective" ? "目的" : "成立条件"}
                         </span>
                         <div className="min-w-0 flex-1">
                           <b className="block text-[11px] text-[#1d1d1f]">{row.title}</b>
@@ -2919,7 +2978,7 @@ export function SxUnifiedTimeline({
                             完了：{row.definitionOfDone}
                           </span>
                           <span className="mt-1 block text-[9px] text-[#86868b]">
-                            {row.ownerLabel ? `${row.ownerLabel} ・ ` : ""}{structureStatusLabel(row.status)} ・ 子タスク {row.childCount} ・ タスク {row.completedTaskCount}/{row.taskCount} ・ {row.plannedEnd ? sxFormatDate(row.plannedEnd) : "日程未設定"}
+                            {row.ownerLabel ? `${row.ownerLabel} ・ ` : ""}{structureStatusLabel(row.status)} ・ {row.entity === "objective" ? `成立条件 ${row.childCount} ・ ` : ""}タスク {row.completedTaskCount}/{row.taskCount} ・ {row.plannedEnd ? sxFormatDate(row.plannedEnd) : "日程未設定"}
                           </span>
                         </div>
                       </button>
@@ -2968,6 +3027,30 @@ export function SxUnifiedTimeline({
                       />
                     )}
                     <div className="flex items-start gap-2">
+                      {row.hasChildren && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const update = (current: Set<string>) => {
+                              const next = new Set(current);
+                              if (next.has(row.id)) next.delete(row.id);
+                              else next.add(row.id);
+                              return next;
+                            };
+                            setExpandedTasks(update);
+                          }}
+                          className="grid min-h-11 min-w-11 place-items-center text-[#3c3c43]"
+                          aria-label={
+                            expanded
+                              ? `${row.title}を折りたたむ`
+                              : `${row.title}を展開する`
+                          }
+                        >
+                          <ChevronRight
+                            className={`h-4 w-4 transition-transform ${expanded ? "rotate-90" : ""}`}
+                          />
+                        </button>
+                      )}
                       {canManage && projectId && (
                         <button
                           type="button"
@@ -2986,29 +3069,11 @@ export function SxUnifiedTimeline({
                       )}
                       <button
                         type="button"
-                        aria-expanded={row.hasChildren ? expanded : undefined}
-                        onClick={() => {
-                          if (!row.hasChildren) {
-                            select(row);
-                            return;
-                          }
-                          setExpandedTasks((current) => {
-                            const next = new Set(current);
-                            if (next.has(row.id)) next.delete(row.id);
-                            else next.add(row.id);
-                            return next;
-                          });
-                        }}
+                        onClick={() => select(row)}
                         className="min-h-11 min-w-0 flex-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]"
                         aria-pressed={selected}
                       >
                         <span className="flex flex-wrap items-center gap-1">
-                          {row.hasChildren && (
-                            <ChevronRight
-                              className={`h-3.5 w-3.5 shrink-0 text-[#0267B2] transition-transform ${expanded ? "rotate-90" : ""}`}
-                              aria-hidden="true"
-                            />
-                          )}
                           <b className="text-[11px] text-[#1d1d1f]">
                             {row.title}
                           </b>
@@ -3129,7 +3194,7 @@ export function SxUnifiedTimeline({
             style={{ height: MONTH_ROW_H }}
           >
             <p className="sticky left-0 z-[51] bg-[#ffffff] px-2 text-[9px] font-semibold tracking-[0.1em] text-[#3c3c43]">
-              タスク構造
+              目的 → 成立条件 → タスク
             </p>
             <div className="relative h-full">
               {timeline.months.map((month) =>
@@ -3211,26 +3276,29 @@ export function SxUnifiedTimeline({
                           type="button"
                           key={`${row.entity}-${row.id}`}
                           data-gantt-structure-row={`${row.entity}:${row.id}`}
-                          aria-expanded={row.entity === "objective" ? expandedObjectives.has(row.id) : expandedOutcomes.has(row.id)}
+                          disabled={row.entity === "outcome" && !(canManage && onEditOutcome)}
+                          aria-expanded={row.entity === "objective" ? expandedObjectives.has(row.id) : undefined}
                           onClick={() => {
                             if (row.entity === "objective") toggleObjectiveExpanded(row.id);
-                            else toggleOutcomeExpanded(row.id);
+                            else onEditOutcome?.(row.id);
                           }}
-                          className="!min-h-0 flex w-full min-w-0 items-center border-b border-[#dcecf7] bg-[#f8fbfe] text-left hover:bg-[#edf7fd]"
+                          className={`!min-h-0 flex w-full min-w-0 items-center border-b text-left disabled:cursor-default ${row.entity === "objective" ? "border-[#b8d9ef] bg-[#E8F3FC] hover:bg-[#d9ecfa]" : `border-[#dcecf7] bg-[#f8fbfe] ${canManage && onEditOutcome ? "hover:bg-[#edf7fd]" : ""}`}`}
                           style={{ height: ROW_H, paddingLeft: row.depth * 15 + 8 }}
                           title={`完了条件：${row.definitionOfDone}`}
                         >
-                          <ChevronRight
-                            className={`mr-1 h-3.5 w-3.5 shrink-0 text-[#0267B2] transition-transform ${(row.entity === "objective" ? expandedObjectives.has(row.id) : expandedOutcomes.has(row.id)) ? "rotate-90" : ""}`}
-                            aria-hidden="true"
-                          />
-                          <span className="mr-2 shrink-0 border border-[#7CBCEB] bg-white px-1.5 py-0.5 text-[8px] font-bold text-[#0267B2]">
-                            タスク
+                          {row.entity === "objective" && (
+                            <ChevronRight
+                              className={`mr-1 h-3.5 w-3.5 shrink-0 text-[#0267B2] transition-transform ${expandedObjectives.has(row.id) ? "rotate-90" : ""}`}
+                              aria-hidden="true"
+                            />
+                          )}
+                          <span className={`mr-2 shrink-0 border px-1.5 py-0.5 text-[8px] font-bold ${row.entity === "objective" ? "border-[#027FDC] bg-[#027FDC] text-white" : "border-[#7CBCEB] bg-white text-[#0267B2]"}`}>
+                            {row.entity === "objective" ? "目的" : "成立条件"}
                           </span>
                           <span className="min-w-0 flex-1">
                             <b className="block truncate text-[10px] text-[#1d1d1f]">{row.title}</b>
                             <small className="mt-0.5 block truncate text-[9px] text-[#3c3c43]">
-                              {row.ownerLabel ? `${row.ownerLabel} ・ ` : ""}{structureStatusLabel(row.status)} ・ 子タスク {row.childCount} ・ タスク {row.completedTaskCount}/{row.taskCount}
+                              {row.ownerLabel ? `${row.ownerLabel} ・ ` : ""}{structureStatusLabel(row.status)} ・ {row.entity === "objective" ? `成立条件 ${row.childCount} ・ ` : ""}タスク {row.completedTaskCount}/{row.taskCount}
                             </small>
                           </span>
                           {row.plannedEnd && (
@@ -3274,6 +3342,30 @@ export function SxUnifiedTimeline({
                             className={`pointer-events-none absolute inset-x-0 z-30 h-[3px] bg-[#027FDC] ${reorderPlace === "before" ? "top-0" : "bottom-0"}`}
                           />
                         )}
+                        <button
+                          type="button"
+                          disabled={!row.hasChildren}
+                          onClick={() => {
+                            if (!row.hasChildren) return;
+                            const update = (current: Set<string>) => {
+                              const next = new Set(current);
+                              if (next.has(row.id)) next.delete(row.id);
+                              else next.add(row.id);
+                              return next;
+                            };
+                            setExpandedTasks(update);
+                          }}
+                          className={`flex w-11 shrink-0 items-center justify-center text-[#3c3c43] ${row.hasChildren ? "" : "opacity-0"}`}
+                          aria-label={
+                            expanded
+                              ? `${row.title}を折りたたむ`
+                              : `${row.title}を展開する`
+                          }
+                        >
+                          <ChevronRight
+                            className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-90" : ""}`}
+                          />
+                        </button>
                         {canManage && projectId && (
                           <button
                             type="button"
@@ -3293,29 +3385,11 @@ export function SxUnifiedTimeline({
                         )}
                         <button
                           type="button"
-                          aria-expanded={row.hasChildren ? expanded : undefined}
-                          onClick={() => {
-                            if (!row.hasChildren) {
-                              select(row);
-                              return;
-                            }
-                            setExpandedTasks((current) => {
-                              const next = new Set(current);
-                              if (next.has(row.id)) next.delete(row.id);
-                              else next.add(row.id);
-                              return next;
-                            });
-                          }}
+                          onClick={() => select(row)}
                           className={`min-w-0 flex-1 px-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC] ${row.isCritical ? "border-l-[3px] border-[#1d1d1f]" : ""}`}
                           aria-pressed={selected}
                         >
                           <span className="flex items-center gap-1">
-                            {row.hasChildren && (
-                              <ChevronRight
-                                className={`h-3 w-3 shrink-0 text-[#0267B2] transition-transform ${expanded ? "rotate-90" : ""}`}
-                                aria-hidden="true"
-                              />
-                            )}
                             <b
                               className="truncate text-[10px] font-medium"
                             >

@@ -1568,6 +1568,9 @@ export function ProjectThemeRoutes({
               <span>完了 {completedTasks.length}</span>
               <span>枝 {opMilestones.length}</span>
             </div>
+            <button type="button" className={styles.controlIndexButton} onClick={() => onOpenControlView?.("gantt", selectedTheme.themeKey)}>
+              ガントを見る
+            </button>
           </div>
           <div className={styles.controlIndexRow}>
             <div className={styles.controlIndexLead}>
