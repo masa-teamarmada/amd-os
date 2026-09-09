@@ -22,9 +22,10 @@ type CashSource = "actual" | "forecast";
 type CashBalanceRow = {
   ym: string;
   cashBalance: number;
-  budgetCashBalance: number;
+  /** 予算シミュレーションの範囲外 (開始月より前) の実績月は null。 */
+  budgetCashBalance: number | null;
   actualCashBalance: number | null;
-  runwayMonths: number;
+  runwayMonths: number | null;
   source: CashSource;
   forecastBasis: "actual_connected" | "budget";
   netCashFlow: number;
@@ -125,7 +126,10 @@ export async function GET(req: NextRequest) {
       if (projectedRows[index].actualCashBalance != null) anchorIndex = index;
     }
     if (anchorIndex >= 0) {
-      let runningCash = projectedRows[anchorIndex].actualCashBalance ?? projectedRows[anchorIndex].budgetCashBalance;
+      // projectedRows は必ず予算シミュレーション由来なので budgetCashBalance は非null。
+      let runningCash = projectedRows[anchorIndex].actualCashBalance
+        ?? projectedRows[anchorIndex].budgetCashBalance
+        ?? projectedRows[anchorIndex].cashBalance;
       projectedRows[anchorIndex].cashBalance = runningCash;
       projectedRows[anchorIndex].forecastBasis = "actual_connected";
       for (let index = anchorIndex + 1; index < projectedRows.length; index += 1) {
@@ -135,7 +139,26 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const rows = projectedRows
+    // 予算シミュレーションは params.startYm からしか行を作らない。それより前の月にも
+    // freee 由来の実績残高があるので、実績だけの行として前に足す。
+    // (2026-09-10 まさ依頼。えいみOSスイートが「直近12か月の実績ペース」を出すには
+    //  予算の開始月より前の実績も要る。)
+    const simulationStartYm = projectedRows[0]?.ym ?? "999999";
+    const historyRows: CashBalanceRow[] = [...actualCashByYm.entries()]
+      .filter(([ym]) => ym < simulationStartYm)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([ym, amount]) => ({
+        ym,
+        cashBalance: amount,
+        budgetCashBalance: null,
+        actualCashBalance: amount,
+        runwayMonths: null,
+        source: "actual" as CashSource,
+        forecastBasis: "actual_connected" as const,
+        netCashFlow: 0,
+      }));
+
+    const rows = [...historyRows, ...projectedRows]
       .filter((row) => (!from || row.ym >= from) && (!to || row.ym <= to));
 
     return NextResponse.json(
