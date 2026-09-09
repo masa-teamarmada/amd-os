@@ -100,9 +100,10 @@ function isWithin(date: Date, start: Date, end: Date) {
   return date >= start && date < end;
 }
 
-function normalizeSlackText(value: string | null | undefined) {
+function normalizeSlackText(value: string | null | undefined, userNames?: Map<string, string>) {
   return String(value || "")
-    .replace(/<@([A-Z0-9]+)>/g, "@$1")
+    // 本文中のメンションも表示名へ。引けない場合だけIDのまま残す。
+    .replace(/<@([A-Z0-9]+)>/g, (_match, id: string) => `@${userNames?.get(id) || id}`)
     .replace(/<#([A-Z0-9]+)\|([^>]+)>/g, "#$2")
     .replace(/<([^>|]+)\|([^>]+)>/g, "$2 ($1)")
     .replace(/<([^>]+)>/g, "$1")
@@ -112,8 +113,8 @@ function normalizeSlackText(value: string | null | undefined) {
     .trim();
 }
 
-function compact(value: string | null | undefined, max = 700) {
-  return normalizeSlackText(value)
+function compact(value: string | null | undefined, max = 700, userNames?: Map<string, string>) {
+  return normalizeSlackText(value, userNames)
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, max);
@@ -218,13 +219,15 @@ async function fetchPermalink(client: WebClient, channelId: string, ts: string) 
   }
 }
 
-function threadExcerpt(replies: SlackApiMessage[]) {
+function threadExcerpt(replies: SlackApiMessage[], userNames?: Map<string, string>) {
   const lines = replies
     .filter((reply) => reply.ts)
     .slice(0, 4)
     .map((reply) => {
       const at = slackTsToDate(reply.ts).toISOString();
-      return `- ${at} ${sender(reply) || "unknown"}: ${compact(reply.text, 260)}`;
+      const who = sender(reply);
+      const name = (who && userNames?.get(who)) || who || "unknown";
+      return `- ${at} ${name}: ${compact(reply.text, 260, userNames)}`;
     })
     .filter((line) => line.trim().length > 0);
   return lines.join("\n").slice(0, 1200);
@@ -237,10 +240,11 @@ function buildContent(input: {
   channelId: string;
   permalink: string | null;
   threadReplies: SlackApiMessage[];
+  userNames?: Map<string, string>;
 }) {
   const { message, projectName, channelName, channelId } = input;
   const at = slackTsToDate(message.ts).toISOString();
-  const replies = threadExcerpt(input.threadReplies);
+  const replies = threadExcerpt(input.threadReplies, input.userNames);
   return [
     projectName ? `PJ: ${projectName}` : "",
     `Slack: #${channelName} (${channelId})`,
@@ -251,7 +255,7 @@ function buildContent(input: {
     `Reply count: ${replyCount(message)}`,
     fileLine(message.files),
     "",
-    `Snippet: ${compact(message.text, 700)}`,
+    `Snippet: ${compact(message.text, 700, input.userNames)}`,
     replies ? "\nThread replies excerpt:" : "",
     replies,
     "",
@@ -380,10 +384,11 @@ export async function collectSlackSourceRows(
       channelId: options.channelId,
       permalink: url,
       threadReplies: replies,
+      userNames,
     });
-    const text = normalizeSlackText(message.text);
+    const text = normalizeSlackText(message.text, userNames);
     const itemId = `${options.channelId}:${ts}`;
-    const preview = compact(message.text, 300) || fileLine(message.files) || "(file only)";
+    const preview = compact(message.text, 300, userNames) || fileLine(message.files) || "(file only)";
     const title = `Slack #${channelName} ${at.slice(0, 10)} ${sender(message) || "unknown"}`;
     rows.push({
       cache_id: `slack-api-${options.projectId}-${options.channelId}-${ts.replace(".", "_")}`,
@@ -418,7 +423,7 @@ export async function collectSlackSourceRows(
             ts: String(reply.ts),
             user: sender(reply),
             user_name: userNames.get(sender(reply) || "") || null,
-            text: normalizeSlackText(reply.text),
+            text: normalizeSlackText(reply.text, userNames),
             is_bot: isBotMessage(reply),
           })),
         files: (message.files || []).map((file) => ({
