@@ -9,6 +9,10 @@
       "schedule": "5 0 * * *"
     },
     {
+      "path": "/api/cron/freee-cash-balance-sync",
+      "schedule": "15 0 * * *"
+    },
+    {
       "path": "/api/cron/freee-payment-sync",
       "schedule": "10 0 * * *"
     },
