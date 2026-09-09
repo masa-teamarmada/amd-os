@@ -45,31 +45,13 @@
   align-items: center;
 }
 
-.objective {
-  width: min(680px, calc(100% - 2rem));
-  padding: 0.65rem 0.8rem;
-  border: 1px solid var(--tree-accent);
-  border-left-width: 5px;
-  border-radius: 6px;
-  background: linear-gradient(90deg, var(--tree-accent-soft), #ffffff 72%);
-  box-shadow: 0 5px 16px rgba(2, 103, 178, .1);
-  color: inherit;
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
-}
-
-.objective > span,
-.outcomeNode > span,
-.expandedHeader span,
-.nodeKind {
+.expandedHeader span {
   color: var(--tree-accent);
   font-size: 0.64rem;
   font-weight: 750;
   letter-spacing: 0.06em;
 }
 
-.objective h3,
 .expandedHeader h4 {
   margin: 0.1rem 0 0;
   color: var(--tree-ink);
@@ -77,45 +59,11 @@
   line-height: 1.35;
 }
 
-.objective p,
-.outcomeNode p,
 .nodeMain p {
   margin: 0.18rem 0 0;
   color: var(--tree-muted);
   font-size: 0.69rem;
   line-height: 1.45;
-}
-
-.objective > div,
-.outcomeNode > div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  margin-top: 0.35rem;
-}
-
-.objective small,
-.outcomeNode small {
-  padding: 0.08rem 0.3rem;
-  border: 1px solid #c7d9e6;
-  border-radius: 3px;
-  background: #f4f8fb;
-  color: #51606d;
-  font-size: 0.61rem;
-  line-height: 1.35;
-}
-
-.objective small,
-.outcomeNode small:first-child {
-  border-color: #b9d9ee;
-  background: var(--tree-accent-soft);
-  color: var(--tree-accent-strong);
-}
-
-.outcomeNode small:nth-child(2) {
-  border-color: #a7e3c7;
-  background: var(--amd-success-soft, #ecfdf5);
-  color: var(--amd-success, #047857);
 }
 
 .overviewChildren,
@@ -210,41 +158,7 @@
   display: none;
 }
 
-.outcomeNode {
-  display: block;
-  width: 100%;
-  min-height: 116px;
-  padding: 0.55rem 0.65rem;
-  border: 1px solid #b9cfdf;
-  border-radius: 6px;
-  background: var(--tree-surface);
-  color: inherit;
-  cursor: pointer;
-  text-align: left;
-  box-shadow: 0 2px 8px rgba(20, 65, 96, .06);
-}
-
-.outcomeNode:hover {
-  border-color: var(--amd-action-line, #7cbceb);
-  background: #f3f9fd;
-}
-
-.outcomeNode[aria-pressed="true"] {
-  border-color: var(--tree-accent);
-  box-shadow: inset 4px 0 0 var(--tree-accent), 0 5px 16px rgba(2, 103, 178, .13);
-  background: var(--tree-accent-soft);
-}
-
-.outcomeNode > strong {
-  display: block;
-  margin-top: 0.08rem;
-  color: var(--tree-ink);
-  font-size: 0.8rem;
-  line-height: 1.35;
-}
-
-/* 業務ラインの追加カード。成立条件カードと同じ枠に収めつつ、まだ中身のある行では
-   ないことが分かるように破線・淡色にする。 */
+/* 追加も既存タスクと同じ幅・位置で表示し、破線だけで未作成の枝だと示す。 */
 .outcomeAddNode {
   display: block;
   width: 100%;
@@ -261,13 +175,6 @@
 .outcomeAddNode:hover {
   border-color: var(--amd-action-line, #7cbceb);
   background: #f3f9fd;
-}
-
-.outcomeAddNode > span {
-  color: var(--tree-muted);
-  font-size: 0.64rem;
-  font-weight: 750;
-  letter-spacing: 0.06em;
 }
 
 .outcomeAddNode > strong {
@@ -303,7 +210,6 @@
   background: var(--tree-accent-soft);
 }
 
-.outcomeNode:focus-visible,
 .outcomeAddNode:focus-visible,
 .empty button:focus-visible,
 .nodeMain:focus-visible,
@@ -401,30 +307,15 @@
   border-radius: 6px;
   background: var(--tree-surface);
   box-shadow: 0 2px 8px rgba(20, 65, 96, .06);
+  width: 294px;
+  overflow: hidden;
 }
 
 .nodeTitle {
   display: block;
-  margin-top: 0.08rem;
   color: var(--tree-ink);
   font-size: 0.76rem;
   line-height: 1.38;
-}
-
-.treeNode {
-  width: 252px;
-  overflow: hidden;
-}
-
-.treeNode[data-kind="approach"] {
-  width: 282px;
-  border-top: 3px solid var(--amd-action, #027fdc);
-}
-
-.treeNode[data-kind="outcome"] {
-  width: 294px;
-  border-left: 4px solid var(--tree-accent);
-  background: var(--tree-accent-soft);
 }
 
 .treeNode[data-state="completed"] {
@@ -467,7 +358,7 @@
 .nodeDisclosure {
   display: inline-block;
   margin-top: 0.26rem;
-  color: var(--tree-accent-strong);
+  color: #51606d;
   font-size: 0.6rem;
   font-weight: 750;
   line-height: 1.35;
@@ -751,9 +642,7 @@ button.nodeMain:hover {
     min-width: 0;
   }
 
-  .objective,
-  .treeNode,
-  .treeNode[data-kind="approach"] {
+  .treeNode {
     width: 100%;
   }
 
@@ -775,7 +664,6 @@ button.nodeMain:hover {
     padding: 0;
   }
 
-  .outcomeNode,
   .outcomeAddNode {
     min-height: 0;
   }

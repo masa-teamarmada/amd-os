@@ -1561,16 +1561,13 @@ export function ProjectThemeRoutes({
           <div className={styles.controlIndexRow}>
             <div className={styles.controlIndexLead}>
               <span className={styles.controlIndexLabel}>計画</span>
-              <strong>目的構造とガント</strong>
+              <strong>タスクとガント</strong>
             </div>
             <div className={styles.controlIndexMetrics}>
               <span>進行中 {openTasks.length}</span>
               <span>完了 {completedTasks.length}</span>
               <span>枝 {opMilestones.length}</span>
             </div>
-            <button type="button" className={styles.controlIndexButton} onClick={() => onOpenControlView?.("gantt", selectedTheme.themeKey)}>
-              目的構造を見る
-            </button>
           </div>
           <div className={styles.controlIndexRow}>
             <div className={styles.controlIndexLead}>

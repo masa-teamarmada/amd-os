@@ -213,7 +213,7 @@ function TaskNode({
     <li className={styles.treeBranch}>
       <article
         className={styles.treeNode}
-        data-kind={partner ? "approach" : "task"}
+        data-kind="task"
         data-state={partner?.activityState || task.status}
         data-dragging={draggedTaskId === task.id || undefined}
         data-drop-target={dropTargetTaskId === task.id || undefined}
@@ -231,13 +231,10 @@ function TaskNode({
             if (hasChildren) onToggleTask(task.id);
           }}
         >
-          <span className={styles.nodeKind}>
-            {partner ? "アプローチ" : "やること"}
-          </span>
           <strong className={styles.nodeTitle}>{task.title}</strong>
           {hasChildren && (
             <span className={styles.nodeDisclosure}>
-              子タスク {children.length}件 {expanded ? "たたむ" : "開く"}
+              子タスク {children.length}件
             </span>
           )}
           {detail && <p>{detail}</p>}
@@ -275,7 +272,7 @@ function TaskNode({
               disabled={movingTaskId === task.id}
               onChange={(event) => onMoveTask(task, event.target.value || null)}
             >
-              <option value="">成立条件の直下</option>
+              <option value="">最上位のタスク</option>
               {allTasks
                 .filter(
                   (candidate) =>
@@ -388,7 +385,7 @@ function OutcomeNode({
     <li className={styles.treeBranch}>
       <article
         className={styles.treeNode}
-        data-kind="outcome"
+        data-kind="task"
         data-drop-target={
           dropTargetTaskId === `outcome:${tree.outcome.id}` || undefined
         }
@@ -401,12 +398,11 @@ function OutcomeNode({
           aria-expanded={expanded}
           onClick={onToggle}
         >
-          <span className={styles.nodeKind}>成立条件</span>
           <strong className={styles.nodeTitle}>{tree.outcome.title}</strong>
           <span className={styles.nodeDisclosure}>
             {childCount > 0
-              ? `やること ${childCount}件 ${expanded ? "たたむ" : "開く"}`
-              : "やることを追加"}
+              ? `子タスク ${childCount}件`
+              : "子タスクはまだ無い"}
           </span>
           <p>{tree.outcome.definitionOfDone}</p>
           <span className={styles.outcomeCounts}>
@@ -481,8 +477,7 @@ export function SxObjectiveMap({
   onOpenTask?: (task: SxTask) => void;
   onOpenPartners?: (track: SxTrackKey) => void;
   onCreateTask?: (outcome: SxOutcome, parentTask?: SxTask) => void;
-  /** 業務ライン (= 成立条件) の追加・編集。目的の下に横並びで増える単位なので、
-   * DBへ直接入れなくても画面から立てられるようにする。 */
+  /** 最上位タスクの追加・編集。既存の永続化モデルとの互換のため内部名は outcome のまま保つ。 */
   onCreateOutcome?: () => void;
   onEditOutcome?: (outcome: SxOutcome) => void;
   onMoveTask?: (
@@ -688,15 +683,15 @@ export function SxObjectiveMap({
   if (!management.objective || outcomeTrees.length === 0) {
     return (
       <div className={styles.empty}>
-        <strong>{trackLabel ? `${trackLabel}の目的構造` : "目的構造"}</strong>
+        <strong>{trackLabel ? `${trackLabel}のタスク構造` : "タスク構造"}</strong>
         <span>
           {management.objective
-            ? "最上位の目的はあるけど、その下の業務ラインがまだ無いよ。"
-            : "目的と成立条件がまだ登録されていないよ。ガントの工程はそのまま見られる。"}
+            ? "最上位のタスクはあるけど、子タスクがまだ無いよ。"
+            : "タスクがまだ登録されていないよ。ガントの工程はそのまま見られる。"}
         </span>
         {canManage && management.objective && onCreateOutcome && (
           <button type="button" onClick={onCreateOutcome}>
-            ＋ 業務ラインを追加
+            ＋ タスクを追加
           </button>
         )}
       </div>
@@ -715,26 +710,25 @@ export function SxObjectiveMap({
         </p>
       )}
       <div className={styles.treeViewport}>
-        <ul className={styles.workTree} aria-label="目的構造">
+        <ul className={styles.workTree} aria-label="タスク構造">
           <li className={styles.treeRoot}>
-            <button
-              type="button"
-              className={styles.objective}
-              aria-expanded={objectiveExpanded}
-              onClick={() => setObjectiveExpanded((current) => !current)}
-            >
-              <span>最上位の目的</span>
-              <h3>{management.objective.title}</h3>
-              <p>{management.objective.definitionOfDone}</p>
-              <div>
-                <small>
-                  成立条件 {outcomeTrees.length}件 {objectiveExpanded ? "たたむ" : "開く"}
-                </small>
-                {trackLabel && <small>{trackLabel}</small>}
-              </div>
-            </button>
+            <article className={styles.treeNode} data-kind="task">
+              <button
+                type="button"
+                className={styles.nodeMain}
+                aria-expanded={objectiveExpanded}
+                onClick={() => setObjectiveExpanded((current) => !current)}
+              >
+                <strong className={styles.nodeTitle}>{management.objective.title}</strong>
+                <span className={styles.nodeDisclosure}>
+                  子タスク {outcomeTrees.length}件
+                </span>
+                <p>{management.objective.definitionOfDone}</p>
+                {trackLabel && <span className={styles.nodeState}>{trackLabel}</span>}
+              </button>
+            </article>
             {objectiveExpanded && (
-              <ul className={styles.treeChildren} aria-label="目的を成立させる枝">
+              <ul className={styles.treeChildren} aria-label="子タスク">
                 {outcomeTrees.map((tree) => (
                   <OutcomeNode
                     key={tree.outcome.id}
@@ -780,9 +774,8 @@ export function SxObjectiveMap({
                       className={styles.outcomeAddNode}
                       onClick={onCreateOutcome}
                     >
-                      <span>成立条件</span>
-                      <strong>＋ 業務ラインを追加</strong>
-                      <p>新しく立ち上がった業務を、この目的の下に1本足す</p>
+                      <strong>＋ タスクを追加</strong>
+                      <p>このタスクの直下に新しいタスクを置く</p>
                     </button>
                   </li>
                 )}
