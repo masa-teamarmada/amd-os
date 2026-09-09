@@ -23,7 +23,7 @@ export type SlackMessageItem = {
   permalink: string | null;
   replyCount: number;
   replies: SlackMessageReply[];
-  files: Array<{ name: string | null; permalink: string | null }>;
+  files: Array<{ name: string | null; permalink: string | null; mimetype: string | null }>;
 };
 
 export type SlackMessagesResult = {

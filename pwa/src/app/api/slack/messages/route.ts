@@ -166,7 +166,7 @@ export async function GET(req: NextRequest) {
           return {
             ts: String(reply?.ts ?? ""),
             user: replyUser,
-            userName: replyUser ? nameBySlackId.get(replyUser) ?? null : null,
+            userName: (replyUser ? nameBySlackId.get(replyUser) : null) ?? str(reply?.user_name),
             isBot: reply?.is_bot === true,
             text: String(reply?.text ?? ""),
           };
@@ -181,7 +181,7 @@ export async function GET(req: NextRequest) {
         ts: str(meta.slack_ts) || row.item_id.split(":")[1] || "",
         at: row.item_date || "",
         user,
-        userName: user ? nameBySlackId.get(user) ?? null : null,
+        userName: (user ? nameBySlackId.get(user) : null) ?? str(meta.user_name),
         isBot: meta.is_bot === true,
         // 全文。旧データは取り込み直すまで抜粋しか無いのでそこへ落ちる。
         text: String(meta.text_full ?? meta.text_preview ?? "").trim(),
@@ -191,6 +191,7 @@ export async function GET(req: NextRequest) {
         files: ((meta.files as Array<Record<string, unknown>>) || []).map((file) => ({
           name: str(file?.name),
           permalink: str(file?.permalink),
+          mimetype: str(file?.mimetype),
         })),
       };
     });

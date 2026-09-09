@@ -147,6 +147,26 @@ function fileLine(files: SlackFile[] | undefined) {
   return names.length ? `Files: ${names.join(", ")}` : "";
 }
 
+/**
+ * 発言者IDを表示名へ。`users:read` が無いワークスペースでは解決できないので、
+ * その場合は空のMapを返してIDのまま出す (取り込み自体は止めない)。
+ */
+async function resolveUserNames(client: WebClient, userIds: string[]) {
+  const names = new Map<string, string>();
+  for (const userId of userIds) {
+    try {
+      const res = await client.users.info({ user: userId });
+      const user = res.user as { name?: string; profile?: { display_name?: string; real_name?: string } } | undefined;
+      const profile = user?.profile || {};
+      const name = (profile.display_name || profile.real_name || user?.name || "").trim();
+      if (name) names.set(userId, name);
+    } catch {
+      // users:read が無い / 退職者などは黙って諦める
+    }
+  }
+  return names;
+}
+
 async function getChannelName(client: WebClient, channelId: string, fallback?: string | null) {
   if (fallback) return fallback;
   try {
@@ -324,6 +344,20 @@ export async function collectSlackSourceRows(
     }
   }
 
+  // 発言者の表示名をまとめて引く (1ユーザー1回)
+  const speakerIds = new Set<string>();
+  for (const message of byTs.values()) {
+    const who = sender(message);
+    if (who) speakerIds.add(who);
+  }
+  for (const replies of threadReplies.values()) {
+    for (const reply of replies) {
+      const who = sender(reply);
+      if (who) speakerIds.add(who);
+    }
+  }
+  const userNames = await resolveUserNames(client, Array.from(speakerIds));
+
   const collectedAt = new Date().toISOString();
   const messages = Array.from(byTs.values())
     .filter((message) => message.ts)
@@ -368,6 +402,7 @@ export async function collectSlackSourceRows(
         thread_ts: message.thread_ts || null,
         reply_count: replyCount(message),
         user: sender(message),
+        user_name: userNames.get(sender(message) || "") || null,
         is_bot: isBotMessage(message),
         permalink: url,
         source_url: url,
@@ -382,6 +417,7 @@ export async function collectSlackSourceRows(
           .map((reply) => ({
             ts: String(reply.ts),
             user: sender(reply),
+            user_name: userNames.get(sender(reply) || "") || null,
             text: normalizeSlackText(reply.text),
             is_bot: isBotMessage(reply),
           })),
