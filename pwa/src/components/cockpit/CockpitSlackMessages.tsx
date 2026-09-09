@@ -73,6 +73,33 @@ function collectedLabel(iso: string | null) {
   return `${jst.getUTCMonth() + 1}/${jst.getUTCDate()} ${String(jst.getUTCHours()).padStart(2, "0")}:${String(jst.getUTCMinutes()).padStart(2, "0")}`;
 }
 
+/**
+ * Slackの絵文字コードを絵文字へ。よく使うものだけ持ち、知らないコードは
+ * `:name:` のまま残す (ワークスペース独自の絵文字もあるため)。
+ */
+const EMOJI: Record<string, string> = {
+  smile: "\u{1F604}", smiley: "\u{1F603}", grinning: "\u{1F600}", blush: "\u{1F60A}",
+  wink: "\u{1F609}", laughing: "\u{1F606}", joy: "\u{1F602}", sweat_smile: "\u{1F605}",
+  thinking_face: "\u{1F914}", cry: "\u{1F622}", sob: "\u{1F62D}", sunglasses: "\u{1F60E}",
+  pray: "\u{1F64F}", bow: "\u{1F647}", raised_hands: "\u{1F64C}", clap: "\u{1F44F}",
+  "+1": "\u{1F44D}", thumbsup: "\u{1F44D}", "-1": "\u{1F44E}", thumbsdown: "\u{1F44E}",
+  ok_hand: "\u{1F44C}", muscle: "\u{1F4AA}", point_up: "\u{261D}\u{FE0F}", wave: "\u{1F44B}",
+  eyes: "\u{1F440}", tada: "\u{1F389}", confetti_ball: "\u{1F38A}", sparkles: "\u{2728}",
+  fire: "\u{1F525}", rocket: "\u{1F680}", star: "\u{2B50}", heart: "\u{2764}\u{FE0F}",
+  white_check_mark: "\u{2705}", heavy_check_mark: "\u{2714}\u{FE0F}", x: "\u{274C}",
+  warning: "\u{26A0}\u{FE0F}", bulb: "\u{1F4A1}", memo: "\u{1F4DD}", pencil: "\u{270F}\u{FE0F}",
+  bow_and_arrow: "\u{1F3F9}", mag: "\u{1F50D}", chart_with_upwards_trend: "\u{1F4C8}",
+  calendar: "\u{1F4C5}", clock3: "\u{1F553}", hourglass: "\u{231B}", bell: "\u{1F514}",
+  mail: "\u{2709}\u{FE0F}", phone: "\u{1F4DE}", office: "\u{1F3E2}", handshake: "\u{1F91D}",
+  moneybag: "\u{1F4B0}", yen: "\u{1F4B4}", books: "\u{1F4DA}", robot_face: "\u{1F916}",
+  see_no_evil: "\u{1F648}", sweat: "\u{1F613}", sleepy: "\u{1F62A}", zzz: "\u{1F4A4}",
+  100: "\u{1F4AF}", ok: "\u{1F197}", new: "\u{1F195}", sos: "\u{1F198}",
+};
+
+function withEmoji(text: string) {
+  return text.replace(/:([a-z0-9_+-]+):/g, (match, name: string) => EMOJI[name] ?? match);
+}
+
 function speaker(item: { userName: string | null; user: string | null; isBot: boolean }) {
   if (item.userName) return item.userName;
   if (item.isBot) return "BOT";
@@ -163,10 +190,12 @@ function MessageRow({ item, grouped }: { item: SlackMessageItem; grouped: boolea
           </div>
         )}
         {item.text ? (
-          <p className="whitespace-pre-wrap break-words text-[13px] leading-[1.7] text-[#1d1d1f]">{item.text}</p>
-        ) : (
+          <p className="whitespace-pre-wrap break-words text-[13px] leading-[1.7] text-[#1d1d1f]">
+            {withEmoji(item.text)}
+          </p>
+        ) : item.files.length === 0 ? (
           <p className="text-[12px] text-[#86868b]">（本文なし）</p>
-        )}
+        ) : null}
         <FileList files={item.files} />
         {item.replies.length > 0 && (
           <div className="mt-1">
@@ -196,7 +225,7 @@ function MessageRow({ item, grouped }: { item: SlackMessageItem; grouped: boolea
                           <span className="text-[10.5px] text-[#86868b]">{replyTimeLabel(reply.ts, item.at)}</span>
                         </div>
                         <p className="whitespace-pre-wrap break-words text-[12.5px] leading-[1.65] text-[#3c3c43]">
-                          {reply.text}
+                          {withEmoji(reply.text)}
                         </p>
                       </div>
                     </div>
