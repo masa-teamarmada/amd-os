@@ -2188,7 +2188,21 @@ expectIncludes("src/components/cockpit/Bzm22TimeLedgerSection.tsx", [
 ]);
 expectIncludes("src/components/cockpit/CockpitBusinessPlan.tsx", [
   "Bzm22TimeLedgerSection",
+  "CockpitPlMonthlySection",
   "showTimeLedger",
+]);
+// 暫定試算が無いPJ (SE / ZMP / RTM / SMILE 等) でも事業計画タブに月次試算表を出す
+// (2026-09-09)。暫定試算があるPJでは Bzm22TimeLedgerSection 側が出すので二重に描かない。
+expectIncludes("src/components/cockpit/CockpitPlMonthlySection.tsx", [
+  'data-testid="cockpit-pl-monthly-section"',
+  "loadPlMonthly",
+  "loadBzm22Pilot",
+  "coveredByTimeLedger",
+  "単位：万円",
+]);
+expectIncludes("src/components/cockpit/pl-monthly-client.ts", [
+  "@/lib/reference-data-cache",
+  "invalidatePlMonthlyCache",
 ]);
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   "showTimeLedger={hasScoreDetailTab}",

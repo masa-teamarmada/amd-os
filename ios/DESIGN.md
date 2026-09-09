@@ -57,6 +57,11 @@ PWAの全route・重要UI・iOS画面の対応状況は `../macos/PARITY.md` を
 > 同日、事業計画タブに載せていた資本政策プラン台帳（`CapitalPlanWorkspace`）の掲載はやめた（まさ確定）。
 > 資本構成の入口はこのタブ一本。台帳のコンポーネント・API・DBは残してあるので、必要なら戻せる。
 
+> 2026-09-09: PWAの事業計画タブは、BZM 2.2の暫定試算が無いPJでも月次試算表を出す（`CockpitPlMonthlySection`）。
+> `project_pl_monthly`の登録行を4月始まりの年度別サマリと月別縦横表（単位: 万円）で表示し、`notes`先頭の
+> 「実績 / 推定 / 見込」をバッジ化する。暫定試算があるPJでは`Bzm22TimeLedger`が出すので描かない。表示のみ。
+> Native未移植。
+
 > **PWA専用機能（Native未移植）**: p19 PJワークスペース `#theme-progress`（表示名「テーマ」）
 > （2026-08-26追加・2026-08-31拡張）。`KR経営改革` / `水素循環PJ` / `OkuDoor運営` /
 > `OkuDoorシステム開発＆運用` の4テーマへ既存9 value milestoneを4/2/2/1件で接続し、各成果目標の

@@ -26,6 +26,7 @@ import {
 } from "@/lib/sx-business-plan";
 import { downloadSxBusinessPlanPhaseMatrixXlsx } from "@/lib/sx-business-plan-xlsx";
 import { Bzm22TimeLedgerSection } from "./Bzm22TimeLedgerSection";
+import { CockpitPlMonthlySection } from "./CockpitPlMonthlySection";
 
 interface CockpitBusinessPlanProps {
   projectId: string;
@@ -485,6 +486,9 @@ export function CockpitBusinessPlan({ projectId, projectName, showSxDetail = fal
       {showSxDetail && <PhaseMatrix projectName={projectName} />}
 
       {showTimeLedger && <Bzm22TimeLedgerSection projectId={projectId} />}
+
+      {/* 暫定試算が無いPJ向けの月次試算表。暫定試算があるPJでは自分から何も描かない。 */}
+      {showTimeLedger && <CockpitPlMonthlySection projectId={projectId} />}
 
       {showSxDetail && <AnnualProjectionTable />}
     </div>
