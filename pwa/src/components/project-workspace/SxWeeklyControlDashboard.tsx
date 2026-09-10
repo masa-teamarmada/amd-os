@@ -3599,6 +3599,24 @@ type IssueReorderDrag = {
 };
 
 const ISSUE_DRAG_THRESHOLD_PX = 4;
+/** 掴んだまま窓の上下端へ寄せると、そのままページが送られる。リストは1画面に収まらないので、
+    これが無いと下の論点を上まで運べない。 */
+const ISSUE_DRAG_AUTOSCROLL_EDGE_PX = 120;
+const ISSUE_DRAG_AUTOSCROLL_MAX_SPEED_PX = 12;
+
+/** 掴んでいた状態の後始末。ref しか触らないので、hook の依存に載せずに呼べる。 */
+function teardownIssueDrag(
+  ghostRef: React.MutableRefObject<HTMLElement | null>,
+  frameRef: React.MutableRefObject<number>,
+  pointerRef: React.MutableRefObject<{ x: number; y: number } | null>,
+) {
+  if (frameRef.current) cancelAnimationFrame(frameRef.current);
+  frameRef.current = 0;
+  pointerRef.current = null;
+  ghostRef.current?.remove();
+  ghostRef.current = null;
+  document.body.style.removeProperty("user-select");
+}
 
 /** 掴んだ行を、見た目そのままの浮いた複製にする。列幅は実測値を焼き込む (table-layout は
     親テーブルの中でしか効かないので、複製単体では列が潰れてしまう)。行は画面より横に長い
@@ -5351,9 +5369,45 @@ export function SxWeeklyControlDashboard({
   const allIssuesRef = useRef(allIssues);
   allIssuesRef.current = allIssues;
 
+  const issueDragPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const issueDragAutoScrollFrameRef = useRef(0);
+
   function setIssueDragBoth(next: IssueReorderDrag | null) {
     issueDragRef.current = next;
     setIssueDrag(next);
+  }
+
+  /** ポインタが止まったままでも端に居るあいだは送り続けたいので、pointermove ではなく
+      requestAnimationFrame で回す。送ったぶん落とし先も変わるので、同じループで拾い直す。 */
+  function startIssueDragAutoScroll() {
+    if (issueDragAutoScrollFrameRef.current) return;
+    const step = () => {
+      issueDragAutoScrollFrameRef.current = requestAnimationFrame(step);
+      const pointer = issueDragPointerRef.current;
+      const current = issueDragRef.current;
+      if (!pointer || !current?.dragging) return;
+      const topOvershoot = ISSUE_DRAG_AUTOSCROLL_EDGE_PX - pointer.y;
+      const bottomOvershoot =
+        pointer.y - (window.innerHeight - ISSUE_DRAG_AUTOSCROLL_EDGE_PX);
+      const speed = (overshoot: number) =>
+        Math.min(ISSUE_DRAG_AUTOSCROLL_MAX_SPEED_PX, Math.max(4, overshoot / 4));
+      const dy =
+        topOvershoot > 0 ? -speed(topOvershoot) : bottomOvershoot > 0 ? speed(bottomOvershoot) : 0;
+      if (dy === 0) return;
+      const before = window.scrollY;
+      window.scrollBy(0, dy);
+      if (window.scrollY === before) return;
+      const target = resolveIssueDropTarget(current.issueId, pointer.x, pointer.y);
+      if (
+        current.target?.issueId !== target?.issueId ||
+        current.target?.place !== target?.place
+      ) {
+        const next = { ...current, target };
+        issueDragRef.current = next;
+        setIssueDrag(next);
+      }
+    };
+    issueDragAutoScrollFrameRef.current = requestAnimationFrame(step);
   }
 
   function moveIssueDragGhost(clientX: number, clientY: number) {
@@ -5376,19 +5430,22 @@ export function SxWeeklyControlDashboard({
   }
 
   function removeIssueDragGhost() {
-    issueDragGhostRef.current?.remove();
-    issueDragGhostRef.current = null;
-    document.body.style.removeProperty("user-select");
+    teardownIssueDrag(issueDragGhostRef, issueDragAutoScrollFrameRef, issueDragPointerRef);
   }
 
-  useEffect(() => removeIssueDragGhost, []);
+  useEffect(
+    () => () =>
+      teardownIssueDrag(issueDragGhostRef, issueDragAutoScrollFrameRef, issueDragPointerRef),
+    [],
+  );
 
   useEffect(() => {
     if (!issueDrag?.dragging) return;
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
-      removeIssueDragGhost();
-      setIssueDragBoth(null);
+      teardownIssueDrag(issueDragGhostRef, issueDragAutoScrollFrameRef, issueDragPointerRef);
+      issueDragRef.current = null;
+      setIssueDrag(null);
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -5403,10 +5460,24 @@ export function SxWeeklyControlDashboard({
       .elementFromPoint(clientX, clientY)
       ?.closest<HTMLElement>("[data-issue-row]");
     const targetIssueId = row?.dataset.issueRow || "";
-    if (!targetIssueId || targetIssueId === sourceIssueId) return null;
-    const rect = row!.getBoundingClientRect();
-    const place = clientY < rect.top + rect.height / 2 ? "before" : "after";
-    return { issueId: targetIssueId, place };
+    if (targetIssueId && targetIssueId !== sourceIssueId) {
+      const rect = row!.getBoundingClientRect();
+      const place = clientY < rect.top + rect.height / 2 ? "before" : "after";
+      return { issueId: targetIssueId, place };
+    }
+    if (targetIssueId === sourceIssueId) return null;
+    // 表の上下へはみ出した位置で離しても、いちばん上/いちばん下へ入れたかったのだと読む。
+    // 端まで送りながら運ぶと、行の無い余白で手を離すことが実際に起きる。
+    const rows = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-issue-row]"),
+    ).filter((element) => element.dataset.issueRow !== sourceIssueId);
+    if (rows.length === 0) return null;
+    const first = rows[0].getBoundingClientRect();
+    const last = rows[rows.length - 1].getBoundingClientRect();
+    if (clientY < first.top) return { issueId: rows[0].dataset.issueRow!, place: "before" };
+    if (clientY > last.bottom)
+      return { issueId: rows[rows.length - 1].dataset.issueRow!, place: "after" };
+    return null;
   }
 
   function beginIssueDrag(
@@ -5446,7 +5517,9 @@ export function SxWeeklyControlDashboard({
       issueDragGhostRef.current = createIssueDragGhost(row);
       // ドラッグ中に文章が青く選択されるのを止める。
       document.body.style.setProperty("user-select", "none");
+      startIssueDragAutoScroll();
     }
+    issueDragPointerRef.current = { x: event.clientX, y: event.clientY };
     const target = resolveIssueDropTarget(current.issueId, event.clientX, event.clientY);
     const next: IssueReorderDrag = { ...current, dragging: true, target };
     issueDragRef.current = next;
