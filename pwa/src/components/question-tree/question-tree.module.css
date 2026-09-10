@@ -28,6 +28,11 @@
   overflow-x: clip;
 }
 
+/* PJワークスペースのタブへ埋め込むとき。CSS変数は .page が持っているのでクラスは残し、
+   ページとしての枠（全画面の高さ・背景・外周余白）だけ外す。 */
+.page[data-embedded] { min-height: 0; padding: 0; background: none; overflow-x: visible; }
+.page[data-embedded] .shell { max-width: none; }
+
 .shell { max-width: 1480px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
 
 .header {

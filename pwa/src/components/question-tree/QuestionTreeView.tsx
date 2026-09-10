@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   ACTION_STATUS_LABEL,
@@ -31,31 +31,58 @@ function fmtDate(value: string | null): string {
   return value ? value.replace(/^\d{2}(\d{2})-/, "$1-") : "—";
 }
 
+/** 最初は根と、根の直下だけ開く。全部たたむと何も見えず、全部開くと読めない。 */
+function defaultOpenIds(bundle: QuestionTreeBundle | null | undefined): Set<string> {
+  const ids = new Set<string>();
+  for (const root of bundle?.roots ?? []) {
+    ids.add(root.id);
+    for (const child of root.children) ids.add(child.id);
+  }
+  return ids;
+}
+
 export function QuestionTreeView({
   initialBundle,
   projectId,
   projectName,
+  embedded = false,
 }: {
-  initialBundle: QuestionTreeBundle;
+  /** サーバ側で先に読めているときだけ渡す。無ければ開いたときに自分で取りに行く */
+  initialBundle?: QuestionTreeBundle;
   projectId: string;
   projectName: string;
+  /** PJワークスペースのタブに埋め込むとき。ページとしての枠を外す */
+  embedded?: boolean;
 }) {
-  const [bundle, setBundle] = useState(initialBundle);
-  const [openIds, setOpenIds] = useState<Set<string>>(() => {
-    // 最初は根と、根の直下だけ開く。全部たたむと何も見えず、全部開くと読めない。
-    const ids = new Set<string>();
-    for (const root of initialBundle.roots) {
-      ids.add(root.id);
-      for (const child of root.children) ids.add(child.id);
-    }
-    return ids;
-  });
+  const [bundle, setBundle] = useState<QuestionTreeBundle | null>(initialBundle ?? null);
+  const [openIds, setOpenIds] = useState<Set<string>>(() => defaultOpenIds(initialBundle));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [formKind, setFormKind] = useState<FormKind>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loadFailed, setLoadFailed] = useState<string | null>(null);
 
-  const { counts, roots, nextUp, looseActions, canManage } = bundle;
+  useEffect(() => {
+    if (initialBundle) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch(`/api/project/${projectId}/question-tree`);
+        const payload = (await response.json()) as QuestionTreeBundle & { error?: string };
+        if (cancelled) return;
+        if (!response.ok) throw new Error(payload.error || "問いの木を読めなかったよ");
+        setBundle(payload);
+        setOpenIds(defaultOpenIds(payload));
+      } catch (caught) {
+        if (!cancelled) setLoadFailed(caught instanceof Error ? caught.message : "問いの木を読めなかったよ");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [initialBundle, projectId]);
+
+  const roots = useMemo(() => bundle?.roots ?? [], [bundle]);
 
   const questionById = useMemo(() => {
     const map = new Map<string, QuestionNode>();
@@ -215,6 +242,29 @@ export function QuestionTreeView({
     },
     [projectId, send],
   );
+
+  // 以降は bundle が確定してから。hooks はすべてこの上で呼び終えている。
+  if (!bundle) {
+    return (
+      <div className={styles.page} data-embedded={embedded || undefined}>
+        <div className={styles.shell}>
+          <section className={styles.section}>
+            <div className={styles.sectionHead}>
+              <h2>問いの木</h2>
+              <span>{loadFailed ? "読み込めなかった" : "読み込み中"}</span>
+            </div>
+            {loadFailed ? (
+              <p className={styles.notice}>{loadFailed}</p>
+            ) : (
+              <p className={styles.emptyState}>問いとやることを読んでいる…</p>
+            )}
+          </section>
+        </div>
+      </div>
+    );
+  }
+
+  const { counts, nextUp, looseActions, canManage } = bundle;
 
   const renderAction = (action: ActionNode) => (
     <div className={styles.item} key={action.id}>
@@ -547,11 +597,11 @@ export function QuestionTreeView({
   };
 
   return (
-    <div className={styles.page}>
+    <div className={styles.page} data-embedded={embedded || undefined}>
       <div className={styles.shell}>
         <header className={styles.header}>
           <div className={styles.headerTitle}>
-            <h1>{projectName} ・ 問いの木</h1>
+            <h1>{embedded ? "論点・仮説" : `${projectName} ・ 問いの木`}</h1>
             <p>
               分からないことを分解して、確かめる行為をぶら下げる。答えが出た問いだけが閉じる。
             </p>
