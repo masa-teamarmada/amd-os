@@ -1,5 +1,7 @@
 # 附則（設計書変更履歴）
 
+| 2026-09-10 JST | 4-3 支援プログラム比較 / migration 385-390 | 全機関のデータ投入と、推奨20件の統計整合 | 機関マスタ 48→64件（認定制度か支援制度を公式ページで確認できた16機関を追加）。支援比較16項目は全64機関1,024セル（確認済み831）、制度比較の詳細21項目も全64機関。規程 227→422件で64機関すべてが施行中の規程を持つ。2026-09-05 の公開情報調査の主張を、別エージェントが引用URLと内部資料を開いて照合し、否認された136件は`unknown`へ落として否認理由を`evidence_note`へ残した。推奨20件（`institution_policy_recommendations`）は 388 で投入されたが、本文の統計が 389 の投入前に数えた値で、画面が`cells`から自動計算する件数と食い違っていたため 390 で16件を訂正した。契約4機関は内部資料版を公開情報版より後に適用して優先させ、工学院大学は規程が未施行のため`drafting`（案:）のまま | 検証を通った値だけを本番の表に載せ、本文の数字と画面の自動集計を一致させるため | まさ・えいみ |
+
 | 2026-09-09 JST | VC投資履歴 / migration 378-383 | PWA投影・正規化・収集ゲート | `startup_companies`、`startup_funding_rounds`、既存`vc_investments`参加層を正規化し、`/vcs/investments`とHUD mirrorを追加。旧amountは`legacy_unclassified`、自動収集は`candidate`に固定。手動routeはAMD PJ接点ありVC、最大5社/回、Gemini 3.5 Flash-Lite allowlist、Google Search grounding、公開URLのSSRF防止付き本文取得、SU/VC一致、個別ページ、取引要約、日付・金額本文一致を保存条件にした。初回誤候補は削除せずdismissedへ隔離。現行候補10件、VC個別額0件、ラウンド総額3件 | ラウンド総額のVC個別額への誤転記と、発表・共同創業・払込完了の状態混同を機械的に止めるため | まさ・えいみ |
 
 | 2026-09-09 JST | 3-8 / 3-16 PJコックピット・ワークスペース | 目的構造のガント統合とp21タスク再編 | build v3.100.29。`objective-structure`を表示タブから外し、旧URLを`gantt`へ解決する。`SxUnifiedTimeline`はstandalone taskを含む全タスクを受け、親ノードを初期展開し、タスク日程からも時間軸を導出する。p21はmigration `20260909103000_sx_newco_task_tree_gantt.sql`で旧1 objective / 4 outcomes / 13 milestones / 67 tasks / 12 milestone dependencies / 12 schedule dependenciesをsoft-deleteし、17タスクと3 schedule dependenciesへ置換する。事前JSON snapshotは共有ドライブに保存する | 目的・成立条件を別種類として固定せず、タスク階層と時間軸を一つの操作面で議論するため | まさ・えいみ |
