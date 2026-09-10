@@ -90,22 +90,25 @@
 .row[data-flag="stalled"] { background: var(--amber-soft); }
 .row[data-flag="dead_branch"] { background: var(--red-soft); }
 
-/* 親子のつながりを罫線で見せる。祖先が兄弟を残している深さに縦線を引く。 */
+/* 親子のつながりを罫線で見せる。1階層につき2枡（罫線の枡＋開閉マークの枡）進めると、
+   子の ├ が親のタイトルの1文字目の真下へ来る（まさ 2026-09-10）。
+   枡と開閉マークは同じ幅でなければ、この対応が崩れる。 */
 .rail {
   flex: none; display: inline-flex; align-items: center; align-self: stretch;
   color: #a3a3ad; font-size: 12px; line-height: 1; user-select: none;
 }
-.railCell { display: inline-flex; width: 15px; justify-content: center; }
+.railCell { flex: none; display: inline-flex; width: 15px; justify-content: center; }
 
-.flagBar {
-  flex: none; width: 3px; height: 15px; margin-right: 3px; border-radius: 2px; background: transparent;
+/* 状態は丸で示す。縦棒だと罫線と重なって読みにくい（まさ「丸の方が信号っぽい」）。 */
+.flagDot {
+  flex: none; width: 8px; height: 8px; border-radius: 50%; background: transparent;
 }
-.flagBar[data-flag="decidable"] { background: var(--amd-action); }
-.flagBar[data-flag="stalled"] { background: var(--amber); }
-.flagBar[data-flag="dead_branch"] { background: var(--red); }
-.flagBar[data-flag="in_progress"], .flagBar[data-flag="overdue"] { background: var(--red); }
+.flagDot[data-flag="decidable"] { background: var(--amd-action); }
+.flagDot[data-flag="stalled"] { background: var(--amber); }
+.flagDot[data-flag="dead_branch"] { background: var(--red); }
+.flagDot[data-flag="in_progress"], .flagDot[data-flag="overdue"] { background: var(--red); }
 
-.gripSpacer { flex: none; width: 16px; margin-left: 2px; }
+.gripSpacer { flex: none; width: 16px; }
 
 .row:hover { background: #f7fbfe; }
 .row[data-open="true"] { background: var(--amd-action-soft); }
@@ -114,7 +117,7 @@
    その問いの子になる。落とし先を線と枠で示さないと、どこへ入るのかが読めない。 */
 .grip {
   flex: none; display: inline-flex; align-items: center; justify-content: center;
-  width: 16px; height: 22px; margin-left: 2px; color: var(--quiet);
+  width: 16px; height: 20px; color: var(--quiet);
   cursor: grab; touch-action: none; border-radius: 3px;
 }
 .grip:hover { color: var(--amd-action-strong); background: var(--amd-action-soft); }
@@ -125,9 +128,15 @@
   box-shadow: inset 0 0 0 2px var(--amd-action); background: var(--amd-action-soft);
 }
 
-.rowLead { display: flex; align-items: center; gap: 5px; min-width: 0; padding-left: 4px; }
+/* 根の行をできるだけ左へ寄せる（まさ 2026-09-10「大元の親はもっと左側にないと変」）。 */
+/* 根の行をできるだけ左へ寄せる（まさ 2026-09-10「大元の親はもっと左側にないと変」）。
+   罫線とタイトルのあいだに余白を入れない。入れると、その分だけ子の ├ が
+   親のタイトルより左へずれる。 */
+.rowLead { display: flex; align-items: center; gap: 0; min-width: 0; padding-left: 0; }
+.rowLead > .chip, .rowLead > .flagDot { margin-left: 6px; }
+/* 開閉マークは罫線の枡と同じ幅。ここがずれると ├ と親タイトルの対応が崩れる。 */
 .twisty {
-  flex: none; width: 13px; height: 13px; display: inline-flex; align-items: center; justify-content: center;
+  flex: none; width: 15px; height: 15px; display: inline-flex; align-items: center; justify-content: center;
   color: var(--quiet); font-size: 8px;
 }
 .title {

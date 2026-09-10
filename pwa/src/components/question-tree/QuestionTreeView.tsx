@@ -961,17 +961,31 @@ export function QuestionTreeView({
     );
   };
 
-  /** ツリーの罫線。祖先が兄弟を残している深さに縦線を引き、自分の位置は ├ か └。 */
-  const renderRail = (lines: boolean[], isLast: boolean, depth: number) => (
-    <span className={styles.rail} aria-hidden="true">
-      {lines.map((show, index) => (
+  /**
+   * ツリーの罫線。1階層につき2枡進める（罫線の枡＋開閉マークの枡）。
+   * こうすると子の `├` が、親のタイトルの1文字目の真下へ来る
+   * （まさ 2026-09-10「子側の『├』は、『バイオディーゼル事業〜』の『バ』の下にないと変」）。
+   * lines[k-1] = 深さ k の祖先がまだ兄弟を残しているか（残していれば縦線を継ぐ）。
+   */
+  const renderRail = (lines: boolean[], isLast: boolean, depth: number, twisty: React.ReactNode) => {
+    const cells: React.ReactNode[] = [];
+    for (let index = 0; index < depth * 2; index += 1) {
+      let glyph = "";
+      if (index === depth * 2 - 1) glyph = isLast ? "└" : "├";
+      else if (index % 2 === 1 && lines[(index - 1) / 2]) glyph = "│";
+      cells.push(
         <span className={styles.railCell} key={index}>
-          {show ? "│" : ""}
-        </span>
-      ))}
-      {depth > 0 && <span className={styles.railCell}>{isLast ? "└" : "├"}</span>}
-    </span>
-  );
+          {glyph}
+        </span>,
+      );
+    }
+    return (
+      <span className={styles.rail} aria-hidden="true">
+        {cells}
+        {twisty}
+      </span>
+    );
+  };
 
   /** やることも木の子として出す。問いの下に何が積まれているかを1つの木で読む。 */
   const renderActionRow = (action: ActionNode, lines: boolean[], isLast: boolean, depth: number) => {
@@ -986,12 +1000,7 @@ export function QuestionTreeView({
         >
           <div className={styles.rowLead}>
             {canManage && <span className={styles.gripSpacer} aria-hidden="true" />}
-            {renderRail(lines, isLast, depth)}
-            <span className={styles.flagBar} data-flag={action.isOverdue ? "overdue" : undefined} />
-            <span className={styles.twisty} aria-hidden="true" />
-            <span className={styles.chip} data-kind={action.actionKind}>
-              {action.actionKind === "measure" ? "確かめる" : "作業"}
-            </span>
+            {renderRail(lines, isLast, depth, <span className={styles.twisty} aria-hidden="true" />)}
             <button
               type="button"
               className={styles.title}
@@ -1001,6 +1010,10 @@ export function QuestionTreeView({
             >
               {action.title}
             </button>
+            <span className={styles.chip} data-kind={action.actionKind}>
+              {action.actionKind === "measure" ? "確かめる" : "作業"}
+            </span>
+            <span className={styles.flagDot} data-flag={action.isOverdue ? "overdue" : undefined} />
           </div>
           <span className={styles.state} data-state="action">
             {ACTION_STATUS_LABEL[action.status]}
@@ -1060,28 +1073,21 @@ export function QuestionTreeView({
                 <GripVertical width={12} height={12} aria-hidden="true" />
               </span>
             )}
-            {renderRail(lines, isLast, depth)}
-            <span className={styles.flagBar} data-flag={needsAttention(node) ? node.state : undefined} />
-            <span
-              className={styles.twisty}
-              onClick={(event) => {
-                event.stopPropagation();
-                if (hasChildren) toggle(node.id);
-              }}
-              role={hasChildren ? "button" : undefined}
-              aria-label={hasChildren ? (isOpen ? "たたむ" : "ひらく") : undefined}
-            >
-              {hasChildren ? (isOpen ? "▾" : "▸") : ""}
-            </span>
-            {node.contribution && (
-              <span className={styles.chip} data-kind={node.contribution}>
-                {CONTRIBUTION_LABEL[node.contribution]}
-              </span>
-            )}
-            {node.questionKind === "decision" && (
-              <span className={styles.chip} data-kind="decision">
-                決める
-              </span>
+            {renderRail(
+              lines,
+              isLast,
+              depth,
+              <span
+                className={styles.twisty}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (hasChildren) toggle(node.id);
+                }}
+                role={hasChildren ? "button" : undefined}
+                aria-label={hasChildren ? (isOpen ? "たたむ" : "ひらく") : undefined}
+              >
+                {hasChildren ? (isOpen ? "▾" : "▸") : ""}
+              </span>,
             )}
             <button
               type="button"
@@ -1093,6 +1099,22 @@ export function QuestionTreeView({
             >
               {node.title}
             </button>
+            {/* 印はタイトルの後ろへ置く。前に置くと幅が可変なぶん、子の ├ と
+                親のタイトル位置がずれる（まさ 2026-09-10 の指摘の実体）。 */}
+            {node.contribution && (
+              <span className={styles.chip} data-kind={node.contribution}>
+                {CONTRIBUTION_LABEL[node.contribution]}
+              </span>
+            )}
+            {node.questionKind === "decision" && (
+              <span className={styles.chip} data-kind="decision">
+                決める
+              </span>
+            )}
+            {/* 状態は縦棒でなく丸で示す。縦棒は罫線と重なって読みにくい
+                （まさ 2026-09-10「丸の方が信号っぽい」）。タイトルの後ろへ置くと
+                子の罫線と親のタイトル位置がずれない。 */}
+            <span className={styles.flagDot} data-flag={needsAttention(node) ? node.state : undefined} />
           </div>
           <span className={styles.state} data-state={node.state}>
             {QUESTION_STATE_LABEL[node.state]}
