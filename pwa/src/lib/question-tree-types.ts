@@ -96,6 +96,23 @@ export type FindingNode = {
   questionIds: string[];
 };
 
+/** つくよみが拾ったまま、人がまだ見ていないもの。木へはつながず別枠で出す。 */
+export type ProposalNode = {
+  kind: "question" | "action" | "finding";
+  id: string;
+  title: string;
+  detail: string | null;
+  /** つくよみが推定した親の問い */
+  proposedParentId: string | null;
+  proposedParentTitle: string | null;
+  proposedContribution: Contribution | null;
+  /** なぜそこへ付くと考えたか */
+  reason: string | null;
+  /** 拾った元（議事録など） */
+  originRef: string | null;
+  createdAt: string;
+};
+
 export type QuestionNode = {
   id: string;
   projectId: string;
@@ -148,6 +165,8 @@ export type QuestionTreeBundle = {
   roots: QuestionNode[];
   /** 木に属さないやること。問いに紐づかない実行だけの作業 */
   looseActions: ActionNode[];
+  /** つくよみが拾った未確認。人が承認するまで木へ入らない */
+  proposals: ProposalNode[];
   allQuestions: QuestionNode[];
   allActions: ActionNode[];
   findings: FindingNode[];

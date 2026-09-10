@@ -521,7 +521,7 @@ export function QuestionTreeView({
     );
   }
 
-  const { counts, looseActions, canManage } = bundle;
+  const { counts, looseActions, canManage, proposals } = bundle;
 
   /** 根からこの問いまでの道。モーダルで文脈を見失わないために出す。 */
   const ancestorsOf = (node: QuestionNode): QuestionNode[] => {
@@ -1177,6 +1177,73 @@ export function QuestionTreeView({
             </span>
           </div>
         </header>
+
+        {proposals.length > 0 && (
+          <section className={styles.section}>
+            <div className={styles.sectionHead}>
+              <h2>つくよみが拾った、まだ木に無いもの（{proposals.length}）</h2>
+              <span>会議の記録に出ていたのに登録されていないもの。足すか、いらないかを決める</span>
+            </div>
+            <div className={styles.itemList} style={{ border: 0, borderRadius: 0 }}>
+              {proposals.map((proposal) => (
+                <div className={styles.proposal} key={`${proposal.kind}-${proposal.id}`}>
+                  <div className={styles.proposalMain}>
+                    <span className={styles.chip} data-kind={proposal.kind === "action" ? "measure" : proposal.kind === "finding" ? "work" : "required"}>
+                      {proposal.kind === "question" ? "論点" : proposal.kind === "action" ? "やること" : "分かったこと"}
+                    </span>
+                    <span className={styles.proposalTitle}>{proposal.title}</span>
+                  </div>
+                  <p className={styles.proposalWhere}>
+                    {proposal.proposedParentTitle ? (
+                      <>
+                        <b>{proposal.proposedParentTitle}</b> の下
+                        {proposal.proposedContribution
+                          ? `（${CONTRIBUTION_LABEL[proposal.proposedContribution]}）`
+                          : ""}
+                      </>
+                    ) : (
+                      "付ける先は未推定（根に入る）"
+                    )}
+                    {proposal.reason ? ` ・ ${proposal.reason}` : ""}
+                    {proposal.originRef ? ` ・ 出どころ: ${proposal.originRef}` : ""}
+                  </p>
+                  {canManage && (
+                    <div className={styles.actions}>
+                      <button
+                        type="button"
+                        className={styles.btn}
+                        data-variant="primary"
+                        disabled={busy}
+                        onClick={() =>
+                          void send("POST", {
+                            resource: "proposal_accept",
+                            fields: { kind: proposal.kind, id: proposal.id },
+                          })
+                        }
+                      >
+                        木に入れる
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.btn}
+                        data-variant="quiet"
+                        disabled={busy}
+                        onClick={() =>
+                          void send("POST", {
+                            resource: "proposal_reject",
+                            fields: { kind: proposal.kind, id: proposal.id },
+                          })
+                        }
+                      >
+                        いらない
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className={styles.section}>
           {roots.length === 0 ? (

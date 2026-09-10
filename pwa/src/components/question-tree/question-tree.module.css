@@ -253,6 +253,17 @@
 .itemTitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .empty { padding: 8px 10px; font-size: 11px; color: var(--quiet); }
 
+/* つくよみが拾ったまま人が見ていないもの。木とは別枠で、足すか捨てるかを決める。 */
+.proposal {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 8px 12px; border-bottom: 1px solid #f0f0f2; background: #fffdf5;
+}
+.proposal:last-child { border-bottom: 0; }
+.proposalMain { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.proposalTitle { font-size: 12.5px; font-weight: 600; }
+.proposalWhere { margin: 0; font-size: 11px; color: var(--muted); line-height: 1.6; }
+.proposalWhere b { font-weight: 700; color: var(--ink); }
+
 .actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .btn {
   min-height: 28px; padding: 0 10px; border: 1px solid var(--amd-action-line); border-radius: 5px;

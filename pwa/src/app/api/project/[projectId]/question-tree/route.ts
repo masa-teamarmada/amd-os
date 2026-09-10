@@ -207,6 +207,75 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ bundle }, { headers: NO_STORE });
     }
 
+    // つくよみが拾ったものを人が確定する。承認で初めて木へ線が入り、
+    // 却下は論理削除にして、同じものを次の巡回で拾い直させない（spec 3-21）。
+    if (body.resource === "proposal_accept" || body.resource === "proposal_reject") {
+      const fields = isRecord(body.fields) ? body.fields : {};
+      const kind = fields.kind;
+      const id = typeof fields.id === "string" ? fields.id : "";
+      if (kind !== "question" && kind !== "action" && kind !== "finding") throw new Error("扱えない種類だよ");
+      if (!id) throw new Error("どれを確定するのか分からないよ");
+
+      const table = kind === "question" ? "project_questions" : kind === "action" ? "project_actions" : "project_findings";
+      const db = createAdminClient();
+      const { data: row, error: readError } = await db
+        .from(table)
+        .select("*")
+        .eq("id", id)
+        .eq("project_id", projectId)
+        .eq("review_state", "proposed")
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (readError) throw new Error(readError.message);
+      if (!row) throw new Error("未確認の項目を見つけられなかったよ");
+
+      const record = row as Record<string, unknown>;
+      if (body.resource === "proposal_reject") {
+        const { error } = await db
+          .from(table)
+          .update({ deleted_at: new Date().toISOString(), deleted_by: context.access.memberId ?? null })
+          .eq("id", id)
+          .eq("project_id", projectId);
+        if (error) throw new Error(error.message);
+      } else if (kind === "question") {
+        const parentId = (record.proposed_parent_id as string | null) ?? null;
+        const patch: Record<string, unknown> = {
+          review_state: "accepted",
+          parent_id: parentId,
+          contribution: parentId ? (record.proposed_contribution as string | null) ?? "required" : null,
+          last_verified_at: todayJst(),
+          updated_by: context.access.memberId ?? null,
+        };
+        const { error } = await db.from(table).update(patch).eq("id", id).eq("project_id", projectId);
+        if (error) throw new Error(error.message);
+      } else {
+        const questionId = (record.proposed_question_id as string | null) ?? null;
+        const { error } = await db
+          .from(table)
+          .update({
+            review_state: "accepted",
+            last_verified_at: todayJst(),
+            updated_by: context.access.memberId ?? null,
+          })
+          .eq("id", id)
+          .eq("project_id", projectId);
+        if (error) throw new Error(error.message);
+        if (questionId) {
+          const linkTable = kind === "action" ? "project_question_actions" : "project_question_findings";
+          const linkRow =
+            kind === "action"
+              ? { project_id: projectId, question_id: questionId, action_id: id }
+              : { project_id: projectId, question_id: questionId, finding_id: id };
+          const { error: linkError } = await db.from(linkTable).insert(linkRow);
+          // すでに同じ線があるだけなら通す。線が無いまま「承認済み」にしない。
+          if (linkError && !linkError.message.includes("duplicate")) throw new Error(linkError.message);
+        }
+      }
+
+      const bundle = await getQuestionTreeBundle(projectId, true);
+      return NextResponse.json({ bundle }, { headers: NO_STORE });
+    }
+
     const resource = asResource(body.resource);
     const rawFields = body.fields ?? body.payload;
     if (!isRecord(rawFields)) throw new Error("入力が空だよ");

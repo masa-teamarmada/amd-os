@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type {
   ActionNode,
   ActionStatus,
+  ProposalNode,
   Confidence,
   Contribution,
   FindingKind,
@@ -237,24 +238,31 @@ export async function getQuestionTreeBundle(
   const [questionRes, actionRes, findingRes, qaRes, qfRes, depRes] = await Promise.all([
     live(
       "project_questions",
-      "id,project_id,parent_id,contribution,title,background,question_kind,status,answer,answered_on,answered_by,drop_reason,confidence,owner_label,due_date,origin_kind,origin_ref,origin_question_id,sort_order,last_verified_at",
+      "id,project_id,parent_id,contribution,title,background,question_kind,status,answer,answered_on,answered_by,drop_reason,confidence,owner_label,due_date,origin_kind,origin_ref,origin_question_id,sort_order,last_verified_at,review_state,proposed_parent_id,proposed_contribution,proposal_reason,created_at",
     ).order("sort_order"),
     live(
       "project_actions",
-      "id,project_id,parent_id,title,detail,action_kind,status,owner_label,planned_start,planned_end,actual_end,date_certainty,progress_pct,blocker,done_criteria,done_evidence,target,actual,unit,origin_kind,origin_ref,origin_question_id,sort_order,last_verified_at",
+      "id,project_id,parent_id,title,detail,action_kind,status,owner_label,planned_start,planned_end,actual_end,date_certainty,progress_pct,blocker,done_criteria,done_evidence,target,actual,unit,origin_kind,origin_ref,origin_question_id,sort_order,last_verified_at,review_state,proposed_question_id,proposal_reason,created_at",
     ).order("sort_order"),
     live(
       "project_findings",
-      "id,project_id,summary,finding_kind,observed_on,source_label,source_url,confidence,from_action_id,sort_order,last_verified_at",
+      "id,project_id,summary,finding_kind,observed_on,source_label,source_url,confidence,from_action_id,sort_order,last_verified_at,review_state,proposed_question_id,proposal_reason,created_at",
     ).order("observed_on", { ascending: false }),
     plain("project_question_actions", "question_id,action_id"),
     plain("project_question_findings", "question_id,finding_id"),
     plain("project_action_dependencies", "predecessor_action_id,successor_action_id"),
   ]);
 
-  const questionRows = (questionRes.data || []) as unknown as RawRow[];
-  const actionRows = (actionRes.data || []) as unknown as RawRow[];
-  const findingRows = (findingRes.data || []) as unknown as RawRow[];
+  const allQuestionRows = (questionRes.data || []) as unknown as RawRow[];
+  const allActionRows = (actionRes.data || []) as unknown as RawRow[];
+  const allFindingRows = (findingRes.data || []) as unknown as RawRow[];
+
+  // つくよみが拾ったまま人が見ていないものは木へ入れない。別枠で見せて、
+  // 承認されたときだけ親と線が確定する（spec 3-21）。
+  const isProposed = (row: RawRow) => row.review_state === "proposed";
+  const questionRows = allQuestionRows.filter((row) => !isProposed(row));
+  const actionRows = allActionRows.filter((row) => !isProposed(row));
+  const findingRows = allFindingRows.filter((row) => !isProposed(row));
   const qaRows = (qaRes.data || []) as unknown as RawRow[];
   const qfRows = (qfRes.data || []) as unknown as RawRow[];
   const depRows = (depRes.data || []) as unknown as RawRow[];
@@ -397,10 +405,34 @@ export async function getQuestionTreeBundle(
       .length,
   };
 
+  const titleById = new Map(allQuestionRows.map((row) => [str(row, "id"), str(row, "title")]));
+  const toProposal = (row: RawRow, kind: ProposalNode["kind"]): ProposalNode => {
+    const parentId =
+      kind === "question" ? nullableStr(row, "proposed_parent_id") : nullableStr(row, "proposed_question_id");
+    return {
+      kind,
+      id: str(row, "id"),
+      title: kind === "finding" ? str(row, "summary") : str(row, "title"),
+      detail: kind === "action" ? nullableStr(row, "detail") : nullableStr(row, "background"),
+      proposedParentId: parentId,
+      proposedParentTitle: parentId ? titleById.get(parentId) ?? null : null,
+      proposedContribution: (row.proposed_contribution as Contribution | null) ?? null,
+      reason: nullableStr(row, "proposal_reason"),
+      originRef: nullableStr(row, "origin_ref"),
+      createdAt: str(row, "created_at"),
+    };
+  };
+  const proposals: ProposalNode[] = [
+    ...allQuestionRows.filter(isProposed).map((row) => toProposal(row, "question")),
+    ...allActionRows.filter(isProposed).map((row) => toProposal(row, "action")),
+    ...allFindingRows.filter(isProposed).map((row) => toProposal(row, "finding")),
+  ].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+
   return {
     projectId,
     asOf: today,
     roots,
+    proposals,
     looseActions,
     allQuestions,
     allActions: actions,
