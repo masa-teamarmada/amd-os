@@ -1,5 +1,6 @@
 "use client";
 
+import { GripVertical } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -63,6 +64,56 @@ function defaultOpenIds(bundle: QuestionTreeBundle | null | undefined): Set<stri
     }
   }
   return ids;
+}
+
+/** 落とし先。上下の縁なら兄弟として挿し、真ん中ならその問いの子にする。 */
+type DropPosition = "before" | "after" | "inside";
+
+const DRAG_THRESHOLD_PX = 4;
+const DRAG_EDGE_PX = 120;
+const DRAG_MAX_SPEED_PX = 12;
+
+/**
+ * 掴んでいる行の複製。カーソルへ追従させないと「動かない一覧」に見える。
+ * body 直下へ置くので CSS 変数の継承が切れる。掴んだ行で実際に効いていた値を移して、
+ * 文字と枠が読める色のままにする。
+ */
+function createDragGhost(row: HTMLElement): HTMLElement {
+  const rect = row.getBoundingClientRect();
+  const clone = row.cloneNode(true) as HTMLElement;
+  clone.style.width = `${rect.width}px`;
+  clone.style.margin = "0";
+
+  const host = document.createElement("div");
+  host.setAttribute("aria-hidden", "true");
+  const inherited = window.getComputedStyle(row);
+  for (const name of [
+    "--sheet", "--ink", "--muted", "--quiet", "--line",
+    "--amd-action", "--amd-action-strong", "--amd-action-soft", "--amd-action-line",
+    "--amber", "--amber-soft", "--red", "--red-soft", "--violet", "--violet-soft",
+    "--green", "--green-soft",
+  ]) {
+    const value = inherited.getPropertyValue(name);
+    if (value) host.style.setProperty(name, value);
+  }
+  host.style.font = inherited.font;
+  host.style.color = inherited.color;
+  host.style.position = "fixed";
+  host.style.left = "0";
+  host.style.top = "0";
+  host.style.zIndex = "120";
+  host.style.width = `${Math.min(rect.width, window.innerWidth - 32)}px`;
+  host.style.overflow = "hidden";
+  host.style.pointerEvents = "none";
+  host.style.background = "#ffffff";
+  host.style.border = "1px solid #027FDC";
+  host.style.borderRadius = "4px";
+  host.style.boxShadow = "0 14px 30px rgba(2, 127, 220, .28)";
+  host.style.opacity = "1";
+  host.style.willChange = "transform";
+  host.appendChild(clone);
+  document.body.appendChild(host);
+  return host;
 }
 
 export function QuestionTreeView({
@@ -256,6 +307,159 @@ export function QuestionTreeView({
     },
     [projectId, send],
   );
+
+  // 掴んで動かす（まさ 2026-09-10「同じ階層内限定でいいから順番は入れ替えたい」
+  // 「親を変える場合は別の親のところにドラッグアンドドロップすればいい」）。
+  // ボタンを増やさず、1つの操作で並び替えと付け替えの両方をやる。
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropHint, setDropHint] = useState<{ id: string; position: DropPosition } | null>(null);
+  const dragStateRef = useRef<{ id: string; startX: number; startY: number; dragging: boolean } | null>(null);
+  const dropHintRef = useRef<{ id: string; position: DropPosition } | null>(null);
+  const ghostRef = useRef<HTMLElement | null>(null);
+  const pointerRef = useRef<{ x: number; y: number } | null>(null);
+  const autoScrollRef = useRef(0);
+  const bundleRef = useRef<QuestionTreeBundle | null>(bundle);
+  bundleRef.current = bundle;
+
+  const teardownDrag = useCallback(() => {
+    ghostRef.current?.remove();
+    ghostRef.current = null;
+    if (autoScrollRef.current) {
+      cancelAnimationFrame(autoScrollRef.current);
+      autoScrollRef.current = 0;
+    }
+    pointerRef.current = null;
+    dragStateRef.current = null;
+    dropHintRef.current = null;
+    setDragId(null);
+    setDropHint(null);
+  }, []);
+
+  /** カーソルの下の行と、その行のどこへ落ちるかを決める。上下の縁は兄弟、真ん中は子。 */
+  const resolveDrop = useCallback((x: number, y: number) => {
+    const state = dragStateRef.current;
+    if (!state) return null;
+    const row = document
+      .elementsFromPoint(x, y)
+      .find((node): node is HTMLElement => node instanceof HTMLElement && Boolean(node.dataset.questionRow));
+    if (!row) return null;
+    const id = row.dataset.questionRow as string;
+    if (id === state.id) return null;
+    const rect = row.getBoundingClientRect();
+    const ratio = (y - rect.top) / Math.max(rect.height, 1);
+    const position: DropPosition = ratio < 0.3 ? "before" : ratio > 0.7 ? "after" : "inside";
+    return { id, position };
+  }, []);
+
+  const applyMove = useCallback(
+    async (movedId: string, target: { id: string; position: DropPosition }) => {
+      const all = bundleRef.current?.allQuestions ?? [];
+      const byId = new Map(all.map((node) => [node.id, node]));
+      const targetNode = byId.get(target.id);
+      if (!targetNode || !byId.has(movedId)) return;
+
+      const newParentId = target.position === "inside" ? target.id : targetNode.parentId;
+
+      // 自分の子孫の下へは動かせない。DB側でも弾くが、画面で先に止めて理由を出す。
+      let cursor: string | null = newParentId;
+      while (cursor) {
+        if (cursor === movedId) {
+          setError("自分の下にある問いへは動かせないよ");
+          return;
+        }
+        cursor = byId.get(cursor)?.parentId ?? null;
+      }
+
+      const orderedIds = all
+        .filter((node) => node.parentId === newParentId && node.id !== movedId)
+        .sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title, "ja"))
+        .map((node) => node.id);
+      if (target.position === "inside") {
+        orderedIds.push(movedId);
+      } else {
+        const index = orderedIds.indexOf(target.id);
+        if (index < 0) orderedIds.push(movedId);
+        else orderedIds.splice(target.position === "before" ? index : index + 1, 0, movedId);
+      }
+
+      await send("POST", {
+        resource: "question_move",
+        fields: { id: movedId, parent_id: newParentId, ordered_ids: orderedIds },
+      });
+      // 付け替えた先が畳まれていると、動かしたものが画面から消える
+      if (newParentId) setOpenIds((current) => new Set([...current, newParentId]));
+    },
+    [send],
+  );
+
+  useEffect(() => {
+    if (!dragId) return;
+
+    // 端に居るあいだは送り続ける。pointermove だけだと、指を止めた瞬間に止まる。
+    const step = () => {
+      autoScrollRef.current = requestAnimationFrame(step);
+      const pointer = pointerRef.current;
+      if (!pointer || !dragStateRef.current?.dragging) return;
+      const topOvershoot = DRAG_EDGE_PX - pointer.y;
+      const bottomOvershoot = pointer.y - (window.innerHeight - DRAG_EDGE_PX);
+      const overshoot = topOvershoot > 0 ? -topOvershoot : bottomOvershoot > 0 ? bottomOvershoot : 0;
+      if (overshoot === 0) return;
+      const speed = Math.min(DRAG_MAX_SPEED_PX, Math.max(4, Math.abs(overshoot) / 4));
+      window.scrollBy(0, overshoot > 0 ? speed : -speed);
+      const next = resolveDrop(pointer.x, pointer.y);
+      dropHintRef.current = next;
+      setDropHint(next);
+    };
+    autoScrollRef.current = requestAnimationFrame(step);
+
+    const onMove = (event: PointerEvent) => {
+      const state = dragStateRef.current;
+      if (!state) return;
+      pointerRef.current = { x: event.clientX, y: event.clientY };
+      if (!state.dragging) {
+        if (Math.hypot(event.clientX - state.startX, event.clientY - state.startY) < DRAG_THRESHOLD_PX) return;
+        const row = document.querySelector<HTMLElement>(`[data-question-row="${state.id}"]`);
+        if (!row) return;
+        state.dragging = true;
+        ghostRef.current = createDragGhost(row);
+      }
+      if (ghostRef.current) {
+        ghostRef.current.style.transform = `translate3d(${event.clientX - 18}px, ${event.clientY - 14}px, 0)`;
+      }
+      const next = resolveDrop(event.clientX, event.clientY);
+      dropHintRef.current = next;
+      setDropHint(next);
+      event.preventDefault();
+    };
+
+    const onUp = () => {
+      const state = dragStateRef.current;
+      const target = dropHintRef.current;
+      const dragging = Boolean(state?.dragging);
+      const movedId = state?.id ?? null;
+      teardownDrag();
+      if (dragging && movedId && target) void applyMove(movedId, target);
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") teardownDrag();
+    };
+
+    window.addEventListener("pointermove", onMove, { passive: false });
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      window.removeEventListener("keydown", onKeyDown);
+      if (autoScrollRef.current) {
+        cancelAnimationFrame(autoScrollRef.current);
+        autoScrollRef.current = 0;
+      }
+    };
+  }, [dragId, applyMove, resolveDrop, teardownDrag]);
 
   const selectedNode = selectedId ? questionById.get(selectedId) ?? null : null;
   const panelRef = useRef<HTMLElement | null>(null);
@@ -588,12 +792,38 @@ export function QuestionTreeView({
       <div className={styles.node} key={node.id}>
         <div
           className={styles.row}
+          data-question-row={node.id}
           data-open={isSelected ? "true" : undefined}
           data-flag={needsAttention(node) ? node.state : undefined}
           data-overdue={node.isOverdue ? "true" : undefined}
+          data-dragging={dragId === node.id ? "true" : undefined}
+          data-drop={dropHint?.id === node.id ? dropHint.position : undefined}
           role="presentation"
         >
           <div className={styles.rowLead} style={{ paddingLeft: `${14 + node.depth * 18}px` }}>
+            {canManage && (
+              <span
+                className={styles.grip}
+                role="button"
+                tabIndex={-1}
+                aria-label={`${node.title} を掴んで動かす`}
+                onPointerDown={(event) => {
+                  if (event.button !== 0) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  dragStateRef.current = {
+                    id: node.id,
+                    startX: event.clientX,
+                    startY: event.clientY,
+                    dragging: false,
+                  };
+                  pointerRef.current = { x: event.clientX, y: event.clientY };
+                  setDragId(node.id);
+                }}
+              >
+                <GripVertical width={12} height={12} aria-hidden="true" />
+              </span>
+            )}
             <span
               className={styles.twisty}
               onClick={(event) => {

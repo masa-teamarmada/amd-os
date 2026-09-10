@@ -94,6 +94,21 @@
 .row:hover { background: #f7fbfe; }
 .row[data-open="true"] { background: var(--amd-action-soft); }
 
+/* 掴んで動かす（まさ 2026-09-10）。兄弟の間へ落とせば並び替え、真ん中へ落とせば
+   その問いの子になる。落とし先を線と枠で示さないと、どこへ入るのかが読めない。 */
+.grip {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 22px; margin-left: 2px; color: var(--quiet);
+  cursor: grab; touch-action: none; border-radius: 3px;
+}
+.grip:hover { color: var(--amd-action-strong); background: var(--amd-action-soft); }
+.row[data-dragging="true"] { opacity: .45; }
+.row[data-drop="before"] { box-shadow: inset 0 2px 0 0 var(--amd-action); }
+.row[data-drop="after"] { box-shadow: inset 0 -2px 0 0 var(--amd-action); }
+.row[data-drop="inside"] {
+  box-shadow: inset 0 0 0 2px var(--amd-action); background: var(--amd-action-soft);
+}
+
 .rowLead { display: flex; align-items: center; gap: 7px; min-width: 0; }
 .twisty {
   flex: none; width: 15px; height: 15px; display: inline-flex; align-items: center; justify-content: center;

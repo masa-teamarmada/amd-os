@@ -178,6 +178,35 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   try {
     const body: unknown = await request.json();
     if (!isRecord(body)) throw new Error("追加内容が不正だよ");
+
+    // 掴んで動かす操作。兄弟の間へ落とせば並びが変わり、別の問いの上へ落とせば
+    // その子になる。並び替えと親の付け替えを1回のDB関数でまとめて確定する。
+    if (body.resource === "question_move") {
+      const fields = isRecord(body.fields) ? body.fields : {};
+      const movedId = typeof fields.id === "string" ? fields.id : "";
+      if (!movedId) throw new Error("動かす問いが分からないよ");
+      const rawParent = fields.parent_id;
+      const newParentId =
+        rawParent === null || rawParent === undefined || rawParent === "" ? null : String(rawParent);
+      const orderedIds = Array.isArray(fields.ordered_ids)
+        ? fields.ordered_ids.filter((id): id is string => typeof id === "string" && id.length > 0)
+        : [];
+      if (orderedIds.length === 0) throw new Error("並び順が空だよ");
+
+      const db = createAdminClient();
+      const { error } = await db.rpc("reorder_project_questions", {
+        p_project_id: projectId,
+        p_moved_id: movedId,
+        p_new_parent_id: newParentId,
+        p_ordered_ids: orderedIds,
+        p_changed_by: context.access.memberId ?? "",
+      });
+      if (error) throw new Error(error.message);
+
+      const bundle = await getQuestionTreeBundle(projectId, true);
+      return NextResponse.json({ bundle }, { headers: NO_STORE });
+    }
+
     const resource = asResource(body.resource);
     const rawFields = body.fields ?? body.payload;
     if (!isRecord(rawFields)) throw new Error("入力が空だよ");
