@@ -1,10 +1,15 @@
 # HANDOFF - AMD OS PWA
 
-- 更新: 2026-09-09 JST
-- セッション: VC投資履歴の分離と根拠付き候補収集
+- 更新: 2026-09-11 JST
+- セッション: 問いの木・つくよみ書き漏らし検出
 - 作業種別: development
 
 ## 最新セッションの到達点
+
+- 毎日04:35 JST、前日以降の開催済み議事録と論点・仮説タブの問い・やることを意味で照合し、書き漏らしだけをPJあたり最大5件提案するCodex automationとSKILLを追加した。
+- 抽出はDBへ書かず、専用outboxへJSONを置くだけ。非LLM LaunchAgentが5分ごとに `review_state='proposed'` として取り込み、人が「木に入れる」を押すまで親へつながない。
+- outboxの重複排除を、部分unique indexへのPostgREST `on_conflict` 依存から、accepted / proposed / 却下済みの `client_token` 先読みへ変更した。同じJSON内の重複も除く。
+- 親候補・理由なし、1PJ 6件以上、空outboxは生成・取り込みの両段で止める。
 
 - `/vcs/investments`と`/hud/vcs/investments`を追加。VC一覧・投資履歴・ニュース受信箱は共通タブで往復する。
 - `startup_companies`、`startup_funding_rounds`、`vc_investments`参加層を本番へ適用。旧投資データは要確認のまま保全した。
@@ -38,7 +43,7 @@
 
 ## 未解決
 
-- 今回のワークスペース変更に残作業なし。
+- 問いの書き漏らし検出そのものに残作業なし。プロマネ設計案3-22の受託・催促・検収・報酬接続は、到達状態と遅れの骨格をまさと決めるまで未承認・未実装。
 - リポ全体のarchive/closeoutは、上記の別作業dirtyを担当者がcommitまたは明示的に処分するまで不可。
 
 ## 次の最初の行動

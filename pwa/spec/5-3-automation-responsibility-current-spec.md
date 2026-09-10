@@ -168,6 +168,8 @@ LaunchAgent は Codex automation の outbox を Supabase に反映する非LLM a
 
 新しい automation outbox を追加したら、`scripts/run-ms-outbox-applier.sh` の監視対象へ明示追加する。
 
+問いの木の書き漏らし検出は、Vercel消費事故で停止したL2/Atlas系outboxと失敗範囲を分けるため、専用の `jp.teamarmada.amd-os-question-tree-outbox-applier` を使う。Codex automation `4-35` は前日以降の議事録と既存の問い・やることをGETで照合し、PJあたり最大5件のJSONだけを作る。専用LaunchAgentは5分ごとに `apply_question_tree_outbox.mjs` を実行する。部分unique indexに対するPostgREST `on_conflict` は使わず、accepted / proposed / 却下済みを含む既存 `client_token` を先読みして新規だけをPOSTする。
+
 D-7 は既存 `amd-os-ms/outbox` の `textbookInsights` payload を使うため監視ディレクトリ追加は不要。ただし approved candidate を `pwa/bzm/*.md` に反映する local applier は git file を触る別段階であり、LaunchAgent の DB outbox applier だけでは完了しない。
 
 ## 再発防止

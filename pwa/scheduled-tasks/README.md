@@ -27,6 +27,7 @@
 | D-13 | Claude routine + PWA route | `amd-os-l2-consolidated-evidence` Phase K-B / `POST /api/contracts/extract-l2` | daily 08:00 JST | Contract Signals |
 | M-2 XRL 根拠 | Codex automation + outbox applier | `amd-os-l8-xrl-evidence-extract` | 6h ごと (L7 +15 分) | `project_xrl_evidence` |
 | D-6 経営ハイライト | Codex automation + outbox applier | `amd-os-l9-strategy-signal-extract` | daily 03:20 JST | `project_strategy_signals` |
+| つくよみ 書き漏らし検出 | Codex automation + 専用outbox applier | `4-35` | daily 04:35 JST | 前日以降の議事録と問い・やることを意味照合し、PJあたり最大5件を `review_state='proposed'` で受け皿へ入れる。抽出側はDBへ直接書かない |
 | つくよみ外部リサーチ | Codex automation + outbox applier | `amd-os-external-research` | weekdays 09:00 JST | 運用正本は[マニュアル3-3](../manual/3-3-notifications-and-tsukuyomi.md#つくよみ外部リサーチ)。公開情報を1件ずつ `/notifications` の候補へ出し、採用済みだけをPJ cockpitの「経営ハイライト → 採用リサーチ」に残す。全履歴+pending outboxでURL/出来事重複を除外し、新規ゼロは通知なし |
 | L2採否判断レビュー | 既存 Codex automation + non-LLM applier | `amd-os-proactive-heartbeat` | daily 10:15–20:15 JST の毎時15分 | 未審査 `l2_notifications` を読み、追加先・変更内容・採用/不採用の結果が揃ったcandidateだけをapprovedにする。candidate statusと正本、先手TODO、app通知は変更しない。provider課金APIは禁止。仕様: `pwa/spec/3-7-notifications-current-spec.md` |
 

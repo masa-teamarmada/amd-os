@@ -2,7 +2,7 @@
 /**
  * 問いの木の outbox applier。
  *
- * つくよみ（Codex automation `amd-os-l11-question-extract`）が議事録から拾った
+ * つくよみ（Codex automation `4-35`）が議事録から拾った
  * 問い・やること・分かったことを JSON で outbox へ吐き、このスクリプトが Supabase へ入れる。
  * 抽出側は DB を直接触らない（既存の D-6 経営ハイライトと同じ経路）。
  *
@@ -17,6 +17,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { fileURLToPath } from "node:url";
+import {
+  assertProposalLimit,
+  buildQuestionTreeClientToken,
+  dedupeRowsByClientToken,
+  isUuid,
+} from "./question_tree_outbox_contract.mjs";
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const DEFAULT_DIR = path.join(
@@ -76,6 +83,17 @@ function dateValue(value) {
   return raw && ISO_DATE.test(raw) ? raw : null;
 }
 
+function clientToken(item, projectId, sourceRef, kind, content) {
+  const provided = text(item.clientToken, 64);
+  if (provided && isUuid(provided)) return provided;
+  return buildQuestionTreeClientToken({
+    projectId,
+    sourceRef: text(item.originRef, 300) || sourceRef,
+    kind,
+    content,
+  });
+}
+
 /** 抽出側が id を間違えても、他PJの行へぶら下がらないようにする。 */
 function pickExistingId(candidate, existingIds) {
   const id = text(candidate, 64);
@@ -86,29 +104,56 @@ async function applyFile(env, file, dryRun) {
   const payload = JSON.parse(fs.readFileSync(file, "utf8"));
   const projectId = text(payload.projectId, 32);
   if (!projectId) throw new Error("projectId が無い");
+  assertProposalLimit(payload);
 
-  const existing = await rest(
+  // on_conflict は deleted_at 条件つき unique index を競合先として解決できない。
+  // accepted / proposed / 却下済みを含む token を先に読み、再投入分を POST 前に落とす。
+  const existingQuestions = await rest(
     env,
     "GET",
-    `project_questions?project_id=eq.${encodeURIComponent(projectId)}&deleted_at=is.null&select=id`,
+    `project_questions?project_id=eq.${encodeURIComponent(projectId)}&select=id,client_token,review_state,deleted_at`,
   );
-  const existingIds = new Set(existing.map((row) => row.id));
+  const [existingActions, existingFindings] = await Promise.all([
+    rest(
+      env,
+      "GET",
+      `project_actions?project_id=eq.${encodeURIComponent(projectId)}&select=client_token`,
+    ),
+    rest(
+      env,
+      "GET",
+      `project_findings?project_id=eq.${encodeURIComponent(projectId)}&select=client_token`,
+    ),
+  ]);
+  const existingIds = new Set(
+    existingQuestions
+      .filter((row) => row.review_state === "accepted" && !row.deleted_at)
+      .map((row) => row.id),
+  );
+  const existingTokens = {
+    questions: new Set(existingQuestions.map((row) => row.client_token).filter(isUuid)),
+    actions: new Set(existingActions.map((row) => row.client_token).filter(isUuid)),
+    findings: new Set(existingFindings.map((row) => row.client_token).filter(isUuid)),
+  };
 
   const sourceRef = text(payload.sourceRef, 300);
-  const summary = { questions: 0, actions: 0, findings: 0, skipped: 0 };
+  const summary = { questions: 0, actions: 0, findings: 0, skipped: 0, duplicates: 0 };
 
   const rows = { questions: [], actions: [], findings: [] };
 
   for (const item of Array.isArray(payload.questions) ? payload.questions : []) {
     const title = text(item.title, 400);
-    const clientToken = text(item.clientToken, 64);
-    if (!title || !clientToken) {
+    const originRef = text(item.originRef, 300) || sourceRef;
+    const proposalReason = text(item.proposalReason, 1200);
+    const proposedParentId = pickExistingId(item.proposedParentId, existingIds);
+    if (!title || !originRef || !proposalReason || !proposedParentId || !CONTRIBUTIONS.has(item.proposedContribution)) {
       summary.skipped += 1;
       continue;
     }
+    const token = clientToken(item, projectId, originRef, "question", title);
     rows.questions.push({
       project_id: projectId,
-      client_token: clientToken,
+      client_token: token,
       title,
       background: text(item.background, 8000),
       question_kind: QUESTION_KINDS.has(item.questionKind) ? item.questionKind : "open",
@@ -117,24 +162,27 @@ async function applyFile(env, file, dryRun) {
       status: "open",
       review_state: "proposed",
       origin_kind: "automation",
-      origin_ref: text(item.originRef, 300) || sourceRef,
-      proposed_parent_id: pickExistingId(item.proposedParentId, existingIds),
-      proposed_contribution: CONTRIBUTIONS.has(item.proposedContribution) ? item.proposedContribution : null,
-      proposal_reason: text(item.proposalReason, 1200),
+      origin_ref: originRef,
+      proposed_parent_id: proposedParentId,
+      proposed_contribution: item.proposedContribution,
+      proposal_reason: proposalReason,
       last_verified_at: new Date().toISOString().slice(0, 10),
     });
   }
 
   for (const item of Array.isArray(payload.actions) ? payload.actions : []) {
     const title = text(item.title, 400);
-    const clientToken = text(item.clientToken, 64);
-    if (!title || !clientToken) {
+    const originRef = text(item.originRef, 300) || sourceRef;
+    const proposalReason = text(item.proposalReason, 1200);
+    const proposedQuestionId = pickExistingId(item.proposedQuestionId, existingIds);
+    if (!title || !originRef || !proposalReason || !proposedQuestionId) {
       summary.skipped += 1;
       continue;
     }
+    const token = clientToken(item, projectId, originRef, "action", title);
     rows.actions.push({
       project_id: projectId,
-      client_token: clientToken,
+      client_token: token,
       title,
       detail: text(item.detail, 4000),
       action_kind: ACTION_KINDS.has(item.actionKind) ? item.actionKind : "measure",
@@ -143,53 +191,60 @@ async function applyFile(env, file, dryRun) {
       planned_end: dateValue(item.plannedEnd),
       review_state: "proposed",
       origin_kind: "automation",
-      origin_ref: text(item.originRef, 300) || sourceRef,
-      proposed_question_id: pickExistingId(item.proposedQuestionId, existingIds),
-      proposal_reason: text(item.proposalReason, 1200),
+      origin_ref: originRef,
+      proposed_question_id: proposedQuestionId,
+      proposal_reason: proposalReason,
       last_verified_at: new Date().toISOString().slice(0, 10),
     });
   }
 
   for (const item of Array.isArray(payload.findings) ? payload.findings : []) {
     const body = text(item.summary, 4000);
-    const clientToken = text(item.clientToken, 64);
-    if (!body || !clientToken) {
+    const originRef = text(item.originRef, 300) || sourceRef;
+    const proposalReason = text(item.proposalReason, 1200);
+    const proposedQuestionId = pickExistingId(item.proposedQuestionId, existingIds);
+    if (!body || !originRef || !proposalReason || !proposedQuestionId) {
       summary.skipped += 1;
       continue;
     }
+    const token = clientToken(item, projectId, originRef, "finding", body);
     rows.findings.push({
       project_id: projectId,
-      client_token: clientToken,
+      client_token: token,
       summary: body,
       finding_kind: FINDING_KINDS.has(item.findingKind) ? item.findingKind : "neutral",
       observed_on: dateValue(item.observedOn),
       source_label: text(item.sourceLabel, 300) || sourceRef || "出どころ未確認",
       source_url: text(item.sourceUrl, 500),
       review_state: "proposed",
-      proposed_question_id: pickExistingId(item.proposedQuestionId, existingIds),
-      proposal_reason: text(item.proposalReason, 1200),
+      proposed_question_id: proposedQuestionId,
+      proposal_reason: proposalReason,
       last_verified_at: new Date().toISOString().slice(0, 10),
     });
   }
 
+  for (const kind of ["questions", "actions", "findings"]) {
+    const deduped = dedupeRowsByClientToken(rows[kind], existingTokens[kind]);
+    rows[kind] = deduped.rows;
+    summary.duplicates += deduped.duplicateCount;
+    summary.skipped += deduped.duplicateCount;
+  }
+
   if (dryRun) {
-    console.log(`[dry-run] ${path.basename(file)} → 問い${rows.questions.length} やること${rows.actions.length} 分かったこと${rows.findings.length} 除外${summary.skipped}`);
+    console.log(`[dry-run] ${path.basename(file)} → 問い${rows.questions.length} やること${rows.actions.length} 分かったこと${rows.findings.length} 除外${summary.skipped}（重複${summary.duplicates}）`);
     return summary;
   }
 
-  // client_token の partial unique index が二重取り込みを弾く。同じ outbox を
-  // 二度流しても増えない（ignore-duplicates で既存行はそのまま）。
-  const header = { Prefer: "return=representation,resolution=ignore-duplicates" };
   if (rows.questions.length) {
-    const inserted = await rest(env, "POST", "project_questions?on_conflict=project_id,client_token", rows.questions, header);
+    const inserted = await rest(env, "POST", "project_questions", rows.questions);
     summary.questions = inserted?.length ?? 0;
   }
   if (rows.actions.length) {
-    const inserted = await rest(env, "POST", "project_actions?on_conflict=project_id,client_token", rows.actions, header);
+    const inserted = await rest(env, "POST", "project_actions", rows.actions);
     summary.actions = inserted?.length ?? 0;
   }
   if (rows.findings.length) {
-    const inserted = await rest(env, "POST", "project_findings?on_conflict=project_id,client_token", rows.findings, header);
+    const inserted = await rest(env, "POST", "project_findings", rows.findings);
     summary.findings = inserted?.length ?? 0;
   }
   return summary;
@@ -229,7 +284,7 @@ async function main() {
       total.findings += summary.findings;
       if (!dryRun) {
         fs.renameSync(file, path.join(appliedDir, name));
-        console.log(`applied ${name} → 問い${summary.questions} やること${summary.actions} 分かったこと${summary.findings}`);
+        console.log(`applied ${name} → 問い${summary.questions} やること${summary.actions} 分かったこと${summary.findings} 除外${summary.skipped}（重複${summary.duplicates}）`);
       }
     } catch (error) {
       total.failed += 1;
@@ -241,7 +296,9 @@ async function main() {
   if (total.failed) process.exitCode = 1;
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exitCode = 1;
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  });
+}

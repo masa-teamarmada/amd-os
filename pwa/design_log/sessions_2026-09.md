@@ -677,6 +677,17 @@ migration `20260910170000_question_tree.sql`（土台）/ `20260910171000_questi
 - **`deploy.sh` を使わず `git push` だけで済ませていた。** 正規手順を通したら**検査が4つ引っかかった**: 旧論点リストの表ヘッダー（critical UI guard）、参照系キャッシュ契約の未登録、昨日入った並び替えの契約検査、ボタン名変更。うち並び替えの検査は、**まさが前日に依頼した機能を撤去で消していた**ことを教えてくれた。TODOとして残し、後で移植して解除した。
 - 最後のデプロイで別セッションのpushを検知して停止。触ったファイルが重ならないことを確認して merge、再デプロイ。止まってくれなければ相手の変更を巻き戻していた。
 
+## 2026-09-11 つくよみの「書き漏らし検出」をdailyで動かす
+
+前日の続き。受け皿と承認・却下は本番v3.104.0にあったが、拾う側が無かった。まさ確定は「議事録から全部を作るのではなく、会議中に論点タブへ書き忘れたものだけをdailyで拾う」。
+
+- Codex automation `4-35` を毎日04:35 JSTで追加。前日00:00 JST以降の開催済み `project_meeting_summaries.narrative_md` と、PJごとの `project_questions` / `project_actions` を意味で照合する。
+- 出すのは問いとやることだけ。既存・提案中・過去に「いらない」とされた同義候補を除き、PJあたり合計5件まで。acceptedかつ未削除の問いを親候補として必須にし、理由も必須にした。
+- 抽出側はGETとoutbox JSON作成だけ。専用LaunchAgent `jp.teamarmada.amd-os-question-tree-outbox-applier` が5分ごとに取り込み、すべて `review_state='proposed'` で止める。既存のL2/Atlas applierはVercel消費事故の停止札で止まっているため、Vercelを呼ばないこの経路は失敗範囲を分けた。
+- 取り込みの `on_conflict=project_id,client_token` を廃止。部分unique indexはPostgRESTの競合先にならないため、accepted / proposed / 却下済みを含む既存tokenを先に読み、新規だけPOSTする。同じJSON内の重複も除く。tokenはPJ・議事録・種類・正規化した内容から決定的UUIDにする。
+- 安全弁は抽出と取り込みの両方に置いた。空outbox、6件以上、親候補・理由なし、他PJまたは未承認の親候補は反映しない。
+- 本番データを触る前の控えは、未削除が問い114件・やること233件・分かったこと11件、提案0件、client_tokenあり0件。並び替え関数は呼ばず、提案は木へつながない形で重複往復だけを試す。
+
 ### 正本
 
 - 設計: [3-21-question-tree-current-spec.md](../spec/3-21-question-tree-current-spec.md)（/spec 「論点・仮説 仕様」）
