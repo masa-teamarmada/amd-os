@@ -3912,6 +3912,31 @@ expectNotIncludes(
     'setDetailEditor({ kind: "edit_dependency"',
   ],
 );
+// 問いの木 (2026-09-10 まさ確定、spec 3-21)。
+// 上への抜き出しはしない（どの問いのどの部分か読めなくなる）。手を打つべき行は
+// 木の中で強調し、詳細は必ずモーダルで開く。
+expectIncludes("src/components/question-tree/QuestionTreeView.tsx", [
+  "答えを書いて閉じる",
+  "子の問いを足す",
+  "やることを足す",
+  "分かったことを足す",
+  "この枝は追わない",
+  "useModalContainment",
+  "createPortal",
+  'role="dialog"',
+  "ancestorsOf",
+  "needsAttention",
+]);
+expectNotIncludes("src/components/question-tree/QuestionTreeView.tsx", [
+  "次につぶすべき問い",
+]);
+expectIncludes("src/components/question-tree/question-tree.module.css", [
+  // portal で body 直下へ出る .backdrop にも変数を effect させる。片方だけだと透ける。
+  ".page,\n.backdrop {",
+  '.row[data-flag="decidable"]',
+  '.row[data-flag="stalled"]',
+  '.row[data-flag="dead_branch"]',
+]);
 expectIncludes("src/components/project-workspace/weekly-control.module.css", [
   ".planInspectorLayer",
   "place-items: center",
@@ -4106,8 +4131,10 @@ expectNotIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
 ]);
 expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
   "論点・仮説を追加",
-  '<th scope="col">種類</th>',
-  '<th scope="col">期限</th>',
+  // 2026-09-10 まさ確定: 論点・仮説タブの中身は問いの木そのもの（spec 3-21）。
+  // 旧・1論点1行の表（種類/期限のth）と手動並び替えは撤去した。IssueWorkbench 等の
+  // 部品はテーマタブが使い続けるので、ここには残す。
+  "<QuestionTreeView",
   "議論の進捗",
   "IssueWorkbench",
   "今回の議論",
