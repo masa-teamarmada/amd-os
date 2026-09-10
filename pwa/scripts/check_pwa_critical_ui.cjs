@@ -3937,8 +3937,15 @@ expectIncludes("src/components/question-tree/QuestionTreeView.tsx", [
   // 詳細の各項目は押すとその場で直せる (まさ 2026-09-10「それぞれの枠のクリックで
   // 編集できるようにして」)。導出値だけは押せない。
   "renderInline",
-  'title="押すと直せる"',
   "状態（自動）",
+  // やることも押せば詳細が開き、その場で直せる (まさ 2026-09-10「『確かめる』って
+  // 書いてあるところはモーダルが出ないけど…何の編集もできないのは困る」)。
+  "renderActionDetailBody",
+  'select("action", action.id)',
+  "これが答えを出す論点",
+  // 読みと編集で欄の大きさを変えない (まさ「入力状態になると欄の大きさが変わるのやめて」)
+  "autoSize",
+  'data-single={kind === "multiline" ? undefined : "true"}',
 ]);
 expectNotIncludes("src/components/question-tree/QuestionTreeView.tsx", [
   // 画面に「問いの木」という名前は出さない (まさ 2026-09-10「いらない」)

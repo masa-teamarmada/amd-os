@@ -37,6 +37,17 @@ const CONFIDENCE_LABEL: Record<string, string> = {
   unknown: "未評価",
 };
 
+/**
+ * textarea を中身の高さへ合わせる。読んでいるときと編集中で欄の大きさが変わると、
+ * 押した瞬間に画面が動いて混乱する（まさ 2026-09-10「入力状態になると欄の大きさが
+ * 変わるのやめて」）。
+ */
+function autoSize(el: HTMLTextAreaElement | null) {
+  if (!el) return;
+  el.style.height = "auto";
+  el.style.height = `${el.scrollHeight}px`;
+}
+
 function fmtDate(value: string | null): string {
   return value ? value.replace(/^\d{2}(\d{2})-/, "$1-") : "—";
 }
@@ -138,7 +149,7 @@ export function QuestionTreeView({
 }) {
   const [bundle, setBundle] = useState<QuestionTreeBundle | null>(initialBundle ?? null);
   const [openIds, setOpenIds] = useState<Set<string>>(() => defaultOpenIds(initialBundle));
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<{ kind: "question" | "action"; id: string } | null>(null);
   const [formKind, setFormKind] = useState<FormKind>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -188,15 +199,15 @@ export function QuestionTreeView({
     });
   }, []);
 
-  const select = useCallback((id: string) => {
-    setSelectedId((current) => (current === id ? null : id));
+  const select = useCallback((kind: "question" | "action", id: string) => {
+    setSelected((current) => (current && current.kind === kind && current.id === id ? null : { kind, id }));
     setFormKind(null);
     setEditingField(null);
     setError(null);
   }, []);
 
   const closeDetail = useCallback(() => {
-    setSelectedId(null);
+    setSelected(null);
     setFormKind(null);
     setEditingField(null);
     setError(null);
@@ -475,7 +486,13 @@ export function QuestionTreeView({
     };
   }, [dragId, applyMove, resolveDrop, teardownDrag]);
 
-  const selectedNode = selectedId ? questionById.get(selectedId) ?? null : null;
+  const actionById = useMemo(
+    () => new Map((bundle?.allActions ?? []).map((action) => [action.id, action])),
+    [bundle],
+  );
+  const selectedNode = selected?.kind === "question" ? questionById.get(selected.id) ?? null : null;
+  const selectedAction = selected?.kind === "action" ? actionById.get(selected.id) ?? null : null;
+  const openPanel = selectedNode ?? selectedAction;
   const panelRef = useRef<HTMLElement | null>(null);
 
   // 背面のスクロールとfocusを止める。詳細は行の下へ展開せず、必ずこのモーダルで開く
@@ -484,7 +501,7 @@ export function QuestionTreeView({
     dialogRef: panelRef,
     initialFocusRef: panelRef,
     onClose: closeDetail,
-    active: Boolean(selectedNode),
+    active: Boolean(openPanel),
   });
 
   // 以降は bundle が確定してから。hooks はすべてこの上で呼び終えている。
@@ -541,7 +558,8 @@ export function QuestionTreeView({
    * 導出値（状態・次の期限・最終更新）は人が触れないので押せない。
    */
   const renderInline = (
-    node: QuestionNode,
+    resource: "question" | "action",
+    id: string,
     label: string,
     field: string,
     raw: string | null,
@@ -549,7 +567,7 @@ export function QuestionTreeView({
     kind: "text" | "date" | "multiline" | "select" = "text",
     options?: { value: string; label: string }[],
   ) => {
-    const key = `${node.id}:${field}`;
+    const key = `${id}:${field}`;
     if (editingField !== key) {
       return (
         <div className={styles.field} key={key}>
@@ -558,11 +576,12 @@ export function QuestionTreeView({
             <button
               type="button"
               className={styles.fieldValue}
+              data-single={kind === "multiline" ? undefined : "true"}
               onClick={() => {
                 setEditingField(key);
                 setError(null);
               }}
-              title="押すと直せる"
+              title={display ? `${display}（押すと直せる）` : "押すと直せる"}
             >
               {display || "—"}
             </button>
@@ -579,16 +598,20 @@ export function QuestionTreeView({
         onSubmit={(event) => {
           event.preventDefault();
           const value = String(new FormData(event.currentTarget).get("value") ?? "").trim();
-          void send("PATCH", { resource: "question", id: node.id, fields: { [field]: value } }).then(
-            (ok) => {
-              if (ok) setEditingField(null);
-            },
-          );
+          void send("PATCH", { resource, id, fields: { [field]: value } }).then((ok) => {
+            if (ok) setEditingField(null);
+          });
         }}
       >
         <span>{label}</span>
         {kind === "multiline" ? (
-          <textarea name="value" defaultValue={raw ?? ""} autoFocus />
+          <textarea
+            name="value"
+            defaultValue={raw ?? ""}
+            autoFocus
+            ref={autoSize}
+            onInput={(event) => autoSize(event.currentTarget)}
+          />
         ) : kind === "select" ? (
           <select name="value" defaultValue={raw ?? ""} autoFocus>
             {(options ?? []).map((option) => (
@@ -617,6 +640,90 @@ export function QuestionTreeView({
     );
   };
 
+  /** やることの詳細。問いと同じく、値を押すとその位置が入力欄へ変わる。 */
+  const renderActionDetailBody = (action: ActionNode) => {
+    const owners = action.questionIds
+      .map((id) => questionById.get(id))
+      .filter((item): item is QuestionNode => Boolean(item));
+    return (
+      <div className={styles.panelBody}>
+        <div className={styles.detailGrid}>
+          {renderInline("action", action.id, "種類", "action_kind", action.actionKind, action.actionKind === "measure" ? "確かめる" : "作業", "select", [
+            { value: "measure", label: "確かめる（測る / 調べる / 聞く）" },
+            { value: "work", label: "作業（決まったことを実行する）" },
+          ])}
+          {renderInline("action", action.id, "状態", "status", action.status, ACTION_STATUS_LABEL[action.status], "select", [
+            { value: "unassessed", label: "進捗未登録" },
+            { value: "not_started", label: "未着手" },
+            { value: "running", label: "実行中" },
+            { value: "blocked", label: "止まっている" },
+            { value: "done", label: "完了" },
+            { value: "dropped", label: "やめた" },
+          ])}
+          {renderInline("action", action.id, "担当", "owner_label", action.ownerLabel, action.ownerLabel)}
+          {renderInline("action", action.id, "期限", "planned_end", action.plannedEnd, action.plannedEnd ? fmtDate(action.plannedEnd) : "期限なし", "date")}
+          {renderInline("action", action.id, "着手予定", "planned_start", action.plannedStart, action.plannedStart ? fmtDate(action.plannedStart) : "—", "date")}
+          {renderInline("action", action.id, "完了日", "actual_end", action.actualEnd, action.actualEnd ? fmtDate(action.actualEnd) : "—", "date")}
+          {action.actionKind === "measure" && (
+            <>
+              {renderInline("action", action.id, "目標値", "target", action.target, action.target ?? "—")}
+              {renderInline("action", action.id, "実測値", "actual", action.actual, action.actual ?? "—")}
+              {renderInline("action", action.id, "単位", "unit", action.unit, action.unit ?? "—")}
+            </>
+          )}
+        </div>
+
+        {renderInline("action", action.id, "見出し", "title", action.title, action.title, "multiline")}
+        {renderInline("action", action.id, "方法・条件", "detail", action.detail, action.detail ?? "", "multiline")}
+        {renderInline("action", action.id, "完了条件", "done_criteria", action.doneCriteria, action.doneCriteria ?? "", "multiline")}
+        {renderInline("action", action.id, "完了の証跡", "done_evidence", action.doneEvidence, action.doneEvidence ?? "", "multiline")}
+        {renderInline("action", action.id, "詰まっていること", "blocker", action.blocker, action.blocker ?? "", "multiline")}
+
+        {owners.length > 0 && (
+          <div>
+            <div className={styles.subHead}>これが答えを出す論点（{owners.length}）</div>
+            <div className={styles.itemList}>
+              {owners.map((owner) => (
+                <button
+                  type="button"
+                  className={styles.item}
+                  key={owner.id}
+                  onClick={() => select("question", owner.id)}
+                  style={{ textAlign: "left", cursor: "pointer", background: "none", border: 0, borderBottom: "1px solid #f0f0f2", width: "100%" }}
+                >
+                  <span className={styles.itemKind}>論点</span>
+                  <span className={styles.itemTitle}>{owner.title}</span>
+                  <span className={styles.meta}>{owner.ownerLabel}</span>
+                  <span className={styles.meta}>{fmtDate(owner.nextDueDate)}</span>
+                  <span className={styles.meta}>{QUESTION_STATE_LABEL[owner.state]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {action.findings.length > 0 && (
+          <div>
+            <div className={styles.subHead}>この結果として分かったこと（{action.findings.length}）</div>
+            <div className={styles.itemList}>
+              {action.findings.map((finding) => (
+                <div className={styles.item} key={finding.id}>
+                  <span className={styles.itemKind}>{FINDING_KIND_LABEL[finding.findingKind]}</span>
+                  <span className={styles.itemTitle}>{finding.summary}</span>
+                  <span className={styles.meta}>{finding.sourceLabel}</span>
+                  <span className={styles.meta}>{fmtDate(finding.observedOn)}</span>
+                  <span className={styles.meta}>{finding.confidence}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {error && <p className={styles.notice}>{error}</p>}
+      </div>
+    );
+  };
+
   const renderDetailBody = (node: QuestionNode) => {
     const derived = node.derivedQuestionIds
       .map((id) => questionById.get(id))
@@ -628,20 +735,20 @@ export function QuestionTreeView({
             <span>状態（自動）</span>
             <b>{QUESTION_STATE_LABEL[node.state]}</b>
           </div>
-          {renderInline(node, "担当", "owner_label", node.ownerLabel, node.ownerLabel)}
-          {renderInline(node, "期限", "due_date", node.dueDate, node.dueDate ? fmtDate(node.dueDate) : "期限なし", "date")}
-          {renderInline(node, "確からしさ", "confidence", node.confidence, CONFIDENCE_LABEL[node.confidence], "select", [
+          {renderInline("question", node.id, "担当", "owner_label", node.ownerLabel, node.ownerLabel)}
+          {renderInline("question", node.id, "期限", "due_date", node.dueDate, node.dueDate ? fmtDate(node.dueDate) : "期限なし", "date")}
+          {renderInline("question", node.id, "確からしさ", "confidence", node.confidence, CONFIDENCE_LABEL[node.confidence], "select", [
             { value: "high", label: "高い" },
             { value: "medium", label: "ふつう" },
             { value: "low", label: "低い" },
             { value: "unknown", label: "未評価" },
           ])}
-          {renderInline(node, "種類", "question_kind", node.questionKind, node.questionKind === "decision" ? "決めること" : "分からないこと", "select", [
+          {renderInline("question", node.id, "種類", "question_kind", node.questionKind, node.questionKind === "decision" ? "決めること" : "分からないこと", "select", [
             { value: "open", label: "分からないこと" },
             { value: "decision", label: "決めること" },
           ])}
           {node.parentId &&
-            renderInline(node, "親との関係", "contribution", node.contribution, node.contribution ? CONTRIBUTION_LABEL[node.contribution] : "—", "select", [
+            renderInline("question", node.id, "親との関係", "contribution", node.contribution, node.contribution ? CONTRIBUTION_LABEL[node.contribution] : "—", "select", [
               { value: "required", label: "論点（これが解けないと親が解けない）" },
               { value: "alternative", label: "仮説（どれか1つ立てば足りる）" },
             ])}
@@ -658,11 +765,12 @@ export function QuestionTreeView({
           </div>
         </div>
 
-        {renderInline(node, "見出し", "title", node.title, node.title, "multiline")}
+        {renderInline("question", node.id, "見出し", "title", node.title, node.title, "multiline")}
 
         {node.status === "answered" &&
           renderInline(
-            node,
+            "question",
+            node.id,
             `答え${node.answeredOn ? `（${fmtDate(node.answeredOn)}${node.answeredBy ? ` / ${node.answeredBy}` : ""}）` : ""}`,
             "answer",
             node.answer,
@@ -670,9 +778,9 @@ export function QuestionTreeView({
             "multiline",
           )}
         {node.status === "dropped" &&
-          renderInline(node, "取り下げた理由", "drop_reason", node.dropReason, node.dropReason ?? "", "multiline")}
+          renderInline("question", node.id, "取り下げた理由", "drop_reason", node.dropReason, node.dropReason ?? "", "multiline")}
 
-        {renderInline(node, "背景・前提", "background", node.background, node.background ?? "", "multiline")}
+        {renderInline("question", node.id, "背景・前提", "background", node.background, node.background ?? "", "multiline")}
 
         <div>
           <div className={styles.subHead}>やること（{node.actions.length}）</div>
@@ -870,7 +978,12 @@ export function QuestionTreeView({
     const closed = action.status === "done" || action.status === "dropped";
     return (
       <div className={styles.node} key={`action-${action.id}`}>
-        <div className={styles.row} data-row-kind="action" role="presentation">
+        <div
+          className={styles.row}
+          data-row-kind="action"
+          data-open={selected?.kind === "action" && selected.id === action.id ? "true" : undefined}
+          role="presentation"
+        >
           <div className={styles.rowLead}>
             {canManage && <span className={styles.gripSpacer} aria-hidden="true" />}
             {renderRail(lines, isLast, depth)}
@@ -879,9 +992,15 @@ export function QuestionTreeView({
             <span className={styles.chip} data-kind={action.actionKind}>
               {action.actionKind === "measure" ? "確かめる" : "作業"}
             </span>
-            <span className={styles.title} data-closed={closed ? "true" : undefined} title={action.title}>
+            <button
+              type="button"
+              className={styles.title}
+              data-closed={closed ? "true" : undefined}
+              onClick={() => select("action", action.id)}
+              title={action.title}
+            >
               {action.title}
-            </span>
+            </button>
           </div>
           <span className={styles.state} data-state="action">
             {ACTION_STATUS_LABEL[action.status]}
@@ -897,7 +1016,7 @@ export function QuestionTreeView({
 
   const renderNode = (node: QuestionNode, lines: boolean[] = [], isLast = true, depth = 0) => {
     const isOpen = openIds.has(node.id);
-    const isSelected = selectedId === node.id;
+    const isSelected = selected?.kind === "question" && selected.id === node.id;
     const childQuestions = node.children;
     const childActions = node.actions;
     const childCount = childQuestions.length + childActions.length;
@@ -969,7 +1088,7 @@ export function QuestionTreeView({
               className={styles.title}
               data-closed={node.status !== "open" ? "true" : undefined}
               data-parent={hasChildren ? "true" : undefined}
-              onClick={() => select(node.id)}
+              onClick={() => select("question", node.id)}
               title={node.title}
             >
               {node.title}
@@ -1060,7 +1179,7 @@ export function QuestionTreeView({
         )}
       </div>
 
-      {selectedNode &&
+      {openPanel &&
         typeof document !== "undefined" &&
         createPortal(
           <div
@@ -1076,42 +1195,48 @@ export function QuestionTreeView({
               tabIndex={-1}
               role="dialog"
               aria-modal="true"
-              aria-label={`${selectedNode.title} の詳細`}
+              aria-label={`${openPanel.title} の詳細`}
               className={styles.panel}
             >
               <header className={styles.panelHead}>
                 <div className={styles.panelTitle}>
                   <div className={styles.panelEyebrow}>
-                    {/* どの問いの下の話なのかを、開いた先でも見失わないようにする */}
-                    {ancestorsOf(selectedNode).map((ancestor) => (
-                      <button
-                        type="button"
-                        className={styles.crumb}
-                        key={ancestor.id}
-                        onClick={() => select(ancestor.id)}
-                        title={ancestor.title}
-                      >
-                        {ancestor.title}
-                      </button>
-                    ))}
-                    {selectedNode.contribution && (
+                    {/* どの論点の下の話なのかを、開いた先でも見失わないようにする */}
+                    {selectedNode &&
+                      ancestorsOf(selectedNode).map((ancestor) => (
+                        <button
+                          type="button"
+                          className={styles.crumb}
+                          key={ancestor.id}
+                          onClick={() => select("question", ancestor.id)}
+                          title={ancestor.title}
+                        >
+                          {ancestor.title}
+                        </button>
+                      ))}
+                    {selectedNode?.contribution && (
                       <span className={styles.chip} data-kind={selectedNode.contribution}>
                         {CONTRIBUTION_LABEL[selectedNode.contribution]}
                       </span>
                     )}
-                    {selectedNode.questionKind === "decision" && (
+                    {selectedNode?.questionKind === "decision" && (
                       <span className={styles.chip} data-kind="decision">
                         決める
                       </span>
                     )}
+                    {selectedAction && (
+                      <span className={styles.chip} data-kind={selectedAction.actionKind}>
+                        {selectedAction.actionKind === "measure" ? "確かめる" : "作業"}
+                      </span>
+                    )}
                   </div>
-                  <h3>{selectedNode.title}</h3>
+                  <h3>{openPanel.title}</h3>
                 </div>
                 <button type="button" className={styles.panelClose} onClick={closeDetail} aria-label="閉じる">
                   ×
                 </button>
               </header>
-              {renderDetailBody(selectedNode)}
+              {selectedNode ? renderDetailBody(selectedNode) : selectedAction ? renderActionDetailBody(selectedAction) : null}
             </section>
           </div>,
           document.body,

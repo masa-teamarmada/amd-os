@@ -215,13 +215,19 @@
   cursor: text; white-space: pre-wrap; line-height: 1.65; word-break: break-word;
 }
 .fieldValue:hover { border-color: var(--amd-action); background: var(--amd-action-soft); }
+/* 1行の欄は読んでいるときも1行に留める。折り返して高くなると、押した瞬間に
+   input の1行へ縮んで画面が飛ぶ（まさ 2026-09-10「欄の大きさが変わるのやめて」）。 */
+.fieldValue[data-single="true"] { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fieldValue:focus-visible { outline: 2px solid var(--amd-action-line); outline-offset: -1px; }
 .inlineActions { display: flex; gap: 6px; margin-top: 4px; }
+/* 読んでいるときの .fieldValue と、同じ余白・字送り・枠幅にする。
+   押した瞬間に欄の大きさが変わらないようにするため（まさ 2026-09-10）。 */
 .field textarea, .field input, .field select {
-  min-height: 30px; padding: 4px 7px; border: 1px solid var(--amd-action-line); border-radius: 4px;
-  font-size: 12px; color: var(--ink); background: #fff; font-family: inherit; width: 100%;
+  min-height: 30px; padding: 5px 8px; border: 1px solid var(--amd-action); border-radius: 4px;
+  font-size: 12px; line-height: 1.65; color: var(--ink); background: #fff;
+  font-family: inherit; width: 100%;
 }
-.field textarea { min-height: 92px; resize: vertical; line-height: 1.65; }
+.field textarea { resize: vertical; overflow: hidden; }
 .background { white-space: pre-wrap; font-size: 12px; line-height: 1.65; color: var(--muted); }
 
 .subHead { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; color: var(--muted); }
