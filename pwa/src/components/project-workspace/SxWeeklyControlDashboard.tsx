@@ -6257,6 +6257,12 @@ export function SxWeeklyControlDashboard({
                   <PanelsTopLeft aria-hidden="true" />
                   PJコックピット
                 </Link>
+                {/* 問いの木（spec 3-21）。目的→成立条件→工程を置き換える計画の背骨。
+                    このタブ群を段階的にそちらへ寄せる。 */}
+                <Link href={`/project/${encodeURIComponent(bundle.project.projectId)}/questions`}>
+                  <GitBranch aria-hidden="true" />
+                  問いの木
+                </Link>
               </div>
             )}
           </div>
@@ -6753,6 +6759,12 @@ export function SxWeeklyControlDashboard({
           <div className={styles.issueHeading}>
             <div>
               <h2>論点・仮説リスト</h2>
+              {/* 2026-09-10: 問いの木（spec 3-21）へ移行中。この一覧は同じ内容を旧構造のまま
+                  読み書きするため、両方で直すと食い違う。編集は問いの木側で行う。 */}
+              <p className={styles.issueHeadingNote}>
+                この一覧は<Link href={`/project/${encodeURIComponent(bundle.project.projectId)}/questions`}>問いの木</Link>へ移行中。
+                同じ内容を両方で直すと食い違うので、書き足しと書き換えは問いの木側でしてね。
+              </p>
               {management.canManage && (
                 <p className={styles.issueHeadingNote}>
                   新しく足した論点は一番上に入るよ。左端のつまみを掴んで上下に動かすと、並び順を手で入れ替えられる。

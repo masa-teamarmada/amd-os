@@ -380,12 +380,28 @@ export async function getQuestionTreeBundle(
       questionById.get(question.originQuestionId)?.derivedQuestionIds.push(question.id);
     }
     const parent = question.parentId ? questionById.get(question.parentId) : null;
-    if (parent) parent.children.push(question);
-    else roots.push(question);
+    if (parent) {
+      parent.children.push(question);
+    } else {
+      // 親が消えている子は根として扱い、行を失わない。かわりに親から見た役割
+      // （必須／代替）は意味を持たなくなるので外す。根に「必須」の印だけが
+      // 残ると、何に対して必須なのか読めない。
+      question.parentId = null;
+      question.contribution = null;
+      roots.push(question);
+    }
   }
 
+  // 閉じた問いは同じ並びの末尾へ落とす。未閉じが上に来ないと、
+  // いま何が残っているのかを目で拾えない。
+  const closedRank = (node: QuestionNode) => (node.status === "open" ? 0 : 1);
   const sortQuestions = (list: QuestionNode[]) => {
-    list.sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title, "ja"));
+    list.sort(
+      (a, b) =>
+        closedRank(a) - closedRank(b) ||
+        a.sortOrder - b.sortOrder ||
+        a.title.localeCompare(b.title, "ja"),
+    );
     for (const node of list) sortQuestions(node.children);
   };
   sortQuestions(roots);

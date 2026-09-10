@@ -304,6 +304,27 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
         .eq("id", id)
         .eq("project_id", projectId);
       if (error) throw new Error(error.message);
+
+      // 親を消しても子は残す。ただし親から見た役割は意味を失うので、
+      // 子を根へ上げて印を外す。子ごと道連れにしない。
+      if (resource === "question") {
+        const { error: orphanError } = await db
+          .from("project_questions")
+          .update({ parent_id: null, contribution: null })
+          .eq("parent_id", id)
+          .eq("project_id", projectId)
+          .is("deleted_at", null);
+        if (orphanError) throw new Error(orphanError.message);
+      }
+      if (resource === "action") {
+        const { error: orphanError } = await db
+          .from("project_actions")
+          .update({ parent_id: null })
+          .eq("parent_id", id)
+          .eq("project_id", projectId)
+          .is("deleted_at", null);
+        if (orphanError) throw new Error(orphanError.message);
+      }
     }
 
     const bundle = await getQuestionTreeBundle(projectId, true);
