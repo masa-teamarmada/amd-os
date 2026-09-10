@@ -30,6 +30,13 @@ const CONTRIBUTION_LABEL: Record<string, string> = {
   alternative: "代替",
 };
 
+const CONFIDENCE_LABEL: Record<string, string> = {
+  high: "高い",
+  medium: "ふつう",
+  low: "低い",
+  unknown: "未評価",
+};
+
 function fmtDate(value: string | null): string {
   return value ? value.replace(/^\d{2}(\d{2})-/, "$1-") : "—";
 }
@@ -136,6 +143,7 @@ export function QuestionTreeView({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [loadFailed, setLoadFailed] = useState<string | null>(null);
+  const [editingField, setEditingField] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialBundle) return;
@@ -183,12 +191,14 @@ export function QuestionTreeView({
   const select = useCallback((id: string) => {
     setSelectedId((current) => (current === id ? null : id));
     setFormKind(null);
+    setEditingField(null);
     setError(null);
   }, []);
 
   const closeDetail = useCallback(() => {
     setSelectedId(null);
     setFormKind(null);
+    setEditingField(null);
     setError(null);
   }, []);
 
@@ -525,6 +535,88 @@ export function QuestionTreeView({
     </div>
   );
 
+  /**
+   * その場で直せる欄。値を押すと、その位置だけが入力欄へ変わる
+   * （まさ 2026-09-10「それぞれの枠のクリックで編集できるようにして」）。
+   * 導出値（状態・次の期限・最終更新）は人が触れないので押せない。
+   */
+  const renderInline = (
+    node: QuestionNode,
+    label: string,
+    field: string,
+    raw: string | null,
+    display: string,
+    kind: "text" | "date" | "multiline" | "select" = "text",
+    options?: { value: string; label: string }[],
+  ) => {
+    const key = `${node.id}:${field}`;
+    if (editingField !== key) {
+      return (
+        <div className={styles.field} key={key}>
+          <span>{label}</span>
+          {canManage ? (
+            <button
+              type="button"
+              className={styles.fieldValue}
+              onClick={() => {
+                setEditingField(key);
+                setError(null);
+              }}
+              title="押すと直せる"
+            >
+              {display || "—"}
+            </button>
+          ) : (
+            <b>{display || "—"}</b>
+          )}
+        </div>
+      );
+    }
+    return (
+      <form
+        className={styles.field}
+        key={key}
+        onSubmit={(event) => {
+          event.preventDefault();
+          const value = String(new FormData(event.currentTarget).get("value") ?? "").trim();
+          void send("PATCH", { resource: "question", id: node.id, fields: { [field]: value } }).then(
+            (ok) => {
+              if (ok) setEditingField(null);
+            },
+          );
+        }}
+      >
+        <span>{label}</span>
+        {kind === "multiline" ? (
+          <textarea name="value" defaultValue={raw ?? ""} autoFocus />
+        ) : kind === "select" ? (
+          <select name="value" defaultValue={raw ?? ""} autoFocus>
+            {(options ?? []).map((option) => (
+              <option value={option.value} key={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input name="value" type={kind === "date" ? "date" : "text"} defaultValue={raw ?? ""} autoFocus />
+        )}
+        <div className={styles.inlineActions}>
+          <button type="submit" className={styles.btn} data-variant="primary" disabled={busy}>
+            {busy ? "保存中…" : "保存"}
+          </button>
+          <button
+            type="button"
+            className={styles.btn}
+            data-variant="quiet"
+            onClick={() => setEditingField(null)}
+          >
+            取消
+          </button>
+        </div>
+      </form>
+    );
+  };
+
   const renderDetailBody = (node: QuestionNode) => {
     const derived = node.derivedQuestionIds
       .map((id) => questionById.get(id))
@@ -533,19 +625,32 @@ export function QuestionTreeView({
       <div className={styles.panelBody}>
         <div className={styles.detailGrid}>
           <div className={styles.field}>
-            <span>状態</span>
+            <span>状態（自動）</span>
             <b>{QUESTION_STATE_LABEL[node.state]}</b>
           </div>
+          {renderInline(node, "担当", "owner_label", node.ownerLabel, node.ownerLabel)}
+          {renderInline(node, "期限", "due_date", node.dueDate, node.dueDate ? fmtDate(node.dueDate) : "期限なし", "date")}
+          {renderInline(node, "確からしさ", "confidence", node.confidence, CONFIDENCE_LABEL[node.confidence], "select", [
+            { value: "high", label: "高い" },
+            { value: "medium", label: "ふつう" },
+            { value: "low", label: "低い" },
+            { value: "unknown", label: "未評価" },
+          ])}
+          {renderInline(node, "種類", "question_kind", node.questionKind, node.questionKind === "decision" ? "決めること" : "分からないこと", "select", [
+            { value: "open", label: "分からないこと" },
+            { value: "decision", label: "決めること" },
+          ])}
+          {node.parentId &&
+            renderInline(node, "親との関係", "contribution", node.contribution, node.contribution ? CONTRIBUTION_LABEL[node.contribution] : "—", "select", [
+              { value: "required", label: "論点（これが解けないと親が解けない）" },
+              { value: "alternative", label: "仮説（どれか1つ立てば足りる）" },
+            ])}
           <div className={styles.field}>
-            <span>担当</span>
-            <b>{node.ownerLabel}</b>
-          </div>
-          <div className={styles.field}>
-            <span>次の期限</span>
+            <span>次の期限（自動）</span>
             <b>{fmtDate(node.nextDueDate)}</b>
           </div>
           <div className={styles.field}>
-            <span>最終更新</span>
+            <span>最終更新（自動）</span>
             <b>
               {fmtDate(node.latestVerifiedAt)}
               {node.isStale ? "（更新切れ）" : ""}
@@ -553,27 +658,21 @@ export function QuestionTreeView({
           </div>
         </div>
 
-        {node.answer && (
-          <div className={styles.field}>
-            <span>答え</span>
-            <b>
-              {node.answer}
-              {node.answeredOn ? `（${fmtDate(node.answeredOn)}${node.answeredBy ? ` / ${node.answeredBy}` : ""}）` : ""}
-            </b>
-          </div>
-        )}
-        {node.dropReason && (
-          <div className={styles.field}>
-            <span>追わない理由</span>
-            <b>{node.dropReason}</b>
-          </div>
-        )}
-        {node.background && (
-          <div>
-            <div className={styles.subHead}>背景・前提</div>
-            <p className={styles.background}>{node.background}</p>
-          </div>
-        )}
+        {renderInline(node, "見出し", "title", node.title, node.title, "multiline")}
+
+        {node.status === "answered" &&
+          renderInline(
+            node,
+            `答え${node.answeredOn ? `（${fmtDate(node.answeredOn)}${node.answeredBy ? ` / ${node.answeredBy}` : ""}）` : ""}`,
+            "answer",
+            node.answer,
+            node.answer ?? "",
+            "multiline",
+          )}
+        {node.status === "dropped" &&
+          renderInline(node, "取り下げた理由", "drop_reason", node.dropReason, node.dropReason ?? "", "multiline")}
+
+        {renderInline(node, "背景・前提", "background", node.background, node.background ?? "", "multiline")}
 
         <div>
           <div className={styles.subHead}>やること（{node.actions.length}）</div>

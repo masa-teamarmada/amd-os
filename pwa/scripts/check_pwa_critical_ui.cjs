@@ -3934,6 +3934,11 @@ expectIncludes("src/components/question-tree/QuestionTreeView.tsx", [
   'role="dialog"',
   "ancestorsOf",
   "needsAttention",
+  // 詳細の各項目は押すとその場で直せる (まさ 2026-09-10「それぞれの枠のクリックで
+  // 編集できるようにして」)。導出値だけは押せない。
+  "renderInline",
+  'title="押すと直せる"',
+  "状態（自動）",
 ]);
 expectNotIncludes("src/components/question-tree/QuestionTreeView.tsx", [
   // 画面に「問いの木」という名前は出さない (まさ 2026-09-10「いらない」)
