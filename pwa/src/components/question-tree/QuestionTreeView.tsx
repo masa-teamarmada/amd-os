@@ -23,7 +23,7 @@ import styles from "./question-tree.module.css";
  * 子の問い・やること・分かったことだけ。
  */
 
-type FormKind = "answer" | "drop" | "child" | "action" | "finding" | null;
+type FormKind = "answer" | "drop" | "child" | "finding" | null;
 
 const CONTRIBUTION_LABEL: Record<string, string> = {
   required: "必須",
@@ -145,11 +145,11 @@ export function QuestionTreeView({
         const response = await fetch(`/api/project/${projectId}/question-tree`);
         const payload = (await response.json()) as QuestionTreeBundle & { error?: string };
         if (cancelled) return;
-        if (!response.ok) throw new Error(payload.error || "問いの木を読めなかったよ");
+        if (!response.ok) throw new Error(payload.error || "読み込めなかったよ");
         setBundle(payload);
         setOpenIds(defaultOpenIds(payload));
       } catch (caught) {
-        if (!cancelled) setLoadFailed(caught instanceof Error ? caught.message : "問いの木を読めなかったよ");
+        if (!cancelled) setLoadFailed(caught instanceof Error ? caught.message : "読み込めなかったよ");
       }
     })();
     return () => {
@@ -239,44 +239,48 @@ export function QuestionTreeView({
         return;
       }
       if (kind === "child") {
+        // 子として足せるのは、論点 / 仮説（＝代替の論点）/ 決めること / やること。
+        // 種類ごとに別ボタンを置くとボタンが増えるので、1つのフォームで選ばせる
+        // （まさ 2026-09-10「ボタンが無駄に増えるとUXがどんどん悪くなる」）。
+        const childKind = text("child_kind") || "required";
+        if (childKind === "measure" || childKind === "work") {
+          const created = await fetch(`/api/project/${projectId}/question-tree`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              resource: "action",
+              fields: {
+                title: text("title"),
+                action_kind: childKind,
+                owner_label: text("owner_label") || "担当未確認",
+                planned_end: text("due_date"),
+                detail: text("detail"),
+                origin_question_id: node.id,
+              },
+            }),
+          });
+          const payload = (await created.json()) as { id?: string; error?: string };
+          if (!created.ok || !payload.id) {
+            setError(payload.error || "やることを足せなかったよ");
+            return;
+          }
+          await send("POST", {
+            resource: "question_action",
+            fields: { question_id: node.id, action_id: payload.id },
+          });
+          return;
+        }
         await send("POST", {
           resource: "question",
           fields: {
             parent_id: node.id,
-            contribution: text("contribution") || "required",
+            contribution: childKind === "alternative" ? "alternative" : "required",
             title: text("title"),
-            question_kind: text("question_kind") || "open",
+            question_kind: childKind === "decision" ? "decision" : "open",
             owner_label: text("owner_label") || "担当未確認",
             due_date: text("due_date"),
             origin_question_id: node.id,
           },
-        });
-        return;
-      }
-      if (kind === "action") {
-        const created = await fetch(`/api/project/${projectId}/question-tree`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            resource: "action",
-            fields: {
-              title: text("title"),
-              action_kind: text("action_kind") || "measure",
-              owner_label: text("owner_label") || "担当未確認",
-              planned_end: text("planned_end"),
-              detail: text("detail"),
-              origin_question_id: node.id,
-            },
-          }),
-        });
-        const payload = (await created.json()) as { id?: string; bundle?: QuestionTreeBundle; error?: string };
-        if (!created.ok || !payload.id) {
-          setError(payload.error || "やることを足せなかったよ");
-          return;
-        }
-        await send("POST", {
-          resource: "question_action",
-          fields: { question_id: node.id, action_id: payload.id },
         });
         return;
       }
@@ -479,14 +483,10 @@ export function QuestionTreeView({
       <div className={styles.page} data-embedded={embedded || undefined}>
         <div className={styles.shell}>
           <section className={styles.section}>
-            <div className={styles.sectionHead}>
-              <h2>問いの木</h2>
-              <span>{loadFailed ? "読み込めなかった" : "読み込み中"}</span>
-            </div>
             {loadFailed ? (
               <p className={styles.notice}>{loadFailed}</p>
             ) : (
-              <p className={styles.emptyState}>問いとやることを読んでいる…</p>
+              <p className={styles.emptyState}>読み込んでいる…</p>
             )}
           </section>
         </div>
@@ -630,21 +630,18 @@ export function QuestionTreeView({
           <div className={styles.actions}>
             {node.status === "open" && (
               <button type="button" className={styles.btn} data-variant="primary" onClick={() => setFormKind("answer")}>
-                答えを書いて閉じる
+                解決にする
               </button>
             )}
             <button type="button" className={styles.btn} onClick={() => setFormKind("child")}>
-              子の問いを足す
-            </button>
-            <button type="button" className={styles.btn} onClick={() => setFormKind("action")}>
-              やることを足す
+              子を追加
             </button>
             <button type="button" className={styles.btn} onClick={() => setFormKind("finding")}>
-              分かったことを足す
+              根拠を追加
             </button>
             {node.status === "open" && (
               <button type="button" className={styles.btn} data-variant="quiet" onClick={() => setFormKind("drop")}>
-                この枝は追わない
+                取り下げ
               </button>
             )}
           </div>
@@ -684,62 +681,35 @@ export function QuestionTreeView({
             )}
             {formKind === "child" && (
               <>
-                <label>
-                  問い
-                  <input name="title" required placeholder="〜は成立するか / 〜はどうか" />
-                </label>
                 <div className={styles.formRow}>
                   <label>
-                    親との関係
-                    <select name="contribution" defaultValue="required">
-                      <option value="required">必須（これが解けないと親は解けない）</option>
-                      <option value="alternative">代替（どれか1つ立てばいい）</option>
-                    </select>
-                  </label>
-                  <label>
                     種類
-                    <select name="question_kind" defaultValue="open">
-                      <option value="open">分からないこと</option>
-                      <option value="decision">決めること</option>
+                    <select name="child_kind" defaultValue="required">
+                      <option value="required">論点（これが解けないと親が解けない）</option>
+                      <option value="alternative">仮説（どれか1つ立てば足りる答えの候補）</option>
+                      <option value="decision">決めること（意思で決まる）</option>
+                      <option value="measure">やること・確かめる（測る / 調べる / 聞く）</option>
+                      <option value="work">やること・作業（決まったことを実行する）</option>
                     </select>
-                  </label>
-                  <label>
-                    担当
-                    <input name="owner_label" placeholder="担当未確認" />
-                  </label>
-                  <label>
-                    いつまでに答えを出すか
-                    <input name="due_date" type="date" />
                   </label>
                 </div>
-              </>
-            )}
-            {formKind === "action" && (
-              <>
                 <label>
-                  やること
-                  <input name="title" required placeholder="測る / 調べる / 見積もる / 相手に聞く" />
+                  内容
+                  <input name="title" required placeholder="〜は成立するか / 〜を測る" />
                 </label>
                 <div className={styles.formRow}>
-                  <label>
-                    種類
-                    <select name="action_kind" defaultValue="measure">
-                      <option value="measure">確かめる行為</option>
-                      <option value="work">作業</option>
-                    </select>
-                  </label>
                   <label>
                     担当
                     <input name="owner_label" placeholder="担当未確認" />
                   </label>
                   <label>
                     期限
-                    <input name="planned_end" type="date" />
+                    <input name="due_date" type="date" />
                   </label>
                 </div>
                 <label>
-                  方法・条件
-                  <textarea name="detail" placeholder="どうやって確かめるか" />
+                  補足（やることなら方法・条件）
+                  <textarea name="detail" placeholder="必要なら書く" />
                 </label>
               </>
             )}
@@ -784,15 +754,63 @@ export function QuestionTreeView({
     );
   };
 
-  const renderNode = (node: QuestionNode) => {
+  /** ツリーの罫線。祖先が兄弟を残している深さに縦線を引き、自分の位置は ├ か └。 */
+  const renderRail = (lines: boolean[], isLast: boolean, depth: number) => (
+    <span className={styles.rail} aria-hidden="true">
+      {lines.map((show, index) => (
+        <span className={styles.railCell} key={index}>
+          {show ? "│" : ""}
+        </span>
+      ))}
+      {depth > 0 && <span className={styles.railCell}>{isLast ? "└" : "├"}</span>}
+    </span>
+  );
+
+  /** やることも木の子として出す。問いの下に何が積まれているかを1つの木で読む。 */
+  const renderActionRow = (action: ActionNode, lines: boolean[], isLast: boolean, depth: number) => {
+    const closed = action.status === "done" || action.status === "dropped";
+    return (
+      <div className={styles.node} key={`action-${action.id}`}>
+        <div className={styles.row} data-row-kind="action" role="presentation">
+          <div className={styles.rowLead}>
+            {canManage && <span className={styles.gripSpacer} aria-hidden="true" />}
+            {renderRail(lines, isLast, depth)}
+            <span className={styles.flagBar} data-flag={action.isOverdue ? "overdue" : undefined} />
+            <span className={styles.twisty} aria-hidden="true" />
+            <span className={styles.chip} data-kind={action.actionKind}>
+              {action.actionKind === "measure" ? "確かめる" : "作業"}
+            </span>
+            <span className={styles.title} data-closed={closed ? "true" : undefined} title={action.title}>
+              {action.title}
+            </span>
+          </div>
+          <span className={styles.state} data-state="action">
+            {ACTION_STATUS_LABEL[action.status]}
+          </span>
+          <span className={styles.meta}>{action.ownerLabel}</span>
+          <span className={styles.meta} data-alert={action.isOverdue ? "true" : undefined}>
+            {action.plannedEnd ? fmtDate(action.plannedEnd) : "期限なし"}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
+  const renderNode = (node: QuestionNode, lines: boolean[] = [], isLast = true, depth = 0) => {
     const isOpen = openIds.has(node.id);
     const isSelected = selectedId === node.id;
-    const hasChildren = node.children.length > 0;
+    const childQuestions = node.children;
+    const childActions = node.actions;
+    const childCount = childQuestions.length + childActions.length;
+    const hasChildren = childCount > 0;
+    // 根同士のあいだには縦線を引かない。子から先が枝分かれの表現になる。
+    const childLines = depth === 0 ? [] : [...lines, !isLast];
     return (
       <div className={styles.node} key={node.id}>
         <div
           className={styles.row}
           data-question-row={node.id}
+          data-row-kind="question"
           data-open={isSelected ? "true" : undefined}
           data-flag={needsAttention(node) ? node.state : undefined}
           data-overdue={node.isOverdue ? "true" : undefined}
@@ -800,7 +818,7 @@ export function QuestionTreeView({
           data-drop={dropHint?.id === node.id ? dropHint.position : undefined}
           role="presentation"
         >
-          <div className={styles.rowLead} style={{ paddingLeft: `${14 + node.depth * 18}px` }}>
+          <div className={styles.rowLead}>
             {canManage && (
               <span
                 className={styles.grip}
@@ -824,6 +842,8 @@ export function QuestionTreeView({
                 <GripVertical width={12} height={12} aria-hidden="true" />
               </span>
             )}
+            {renderRail(lines, isLast, depth)}
+            <span className={styles.flagBar} data-flag={needsAttention(node) ? node.state : undefined} />
             <span
               className={styles.twisty}
               onClick={(event) => {
@@ -833,7 +853,7 @@ export function QuestionTreeView({
               role={hasChildren ? "button" : undefined}
               aria-label={hasChildren ? (isOpen ? "たたむ" : "ひらく") : undefined}
             >
-              {hasChildren ? (isOpen ? "▼" : "▶") : "・"}
+              {hasChildren ? (isOpen ? "▾" : "▸") : ""}
             </span>
             {node.contribution && (
               <span className={styles.chip} data-kind={node.contribution}>
@@ -849,9 +869,9 @@ export function QuestionTreeView({
               type="button"
               className={styles.title}
               data-closed={node.status !== "open" ? "true" : undefined}
+              data-parent={hasChildren ? "true" : undefined}
               onClick={() => select(node.id)}
               title={node.title}
-              style={{ background: "none", border: 0, padding: 0, cursor: "pointer", textAlign: "left" }}
             >
               {node.title}
             </button>
@@ -862,10 +882,23 @@ export function QuestionTreeView({
           <span className={styles.meta}>{node.ownerLabel}</span>
           <span className={styles.meta} data-alert={node.isOverdue ? "true" : undefined}>
             {node.nextDueDate ? fmtDate(node.nextDueDate) : "期限なし"}
-            {node.openMeasureCountDeep > 0 ? ` / 確認${node.openMeasureCountDeep}` : ""}
           </span>
         </div>
-        {isOpen && hasChildren && node.children.map(renderNode)}
+        {isOpen && (
+          <>
+            {childQuestions.map((child, index) =>
+              renderNode(child, childLines, index === childCount - 1, depth + 1),
+            )}
+            {childActions.map((action, index) =>
+              renderActionRow(
+                action,
+                childLines,
+                childQuestions.length + index === childCount - 1,
+                depth + 1,
+              ),
+            )}
+          </>
+        )}
       </div>
     );
   };
@@ -875,14 +908,14 @@ export function QuestionTreeView({
       <div className={styles.shell}>
         <header className={styles.header}>
           <div className={styles.headerTitle}>
-            <h1>{embedded ? "論点・仮説" : `${projectName} ・ 問いの木`}</h1>
+            <h1>{embedded ? "論点・仮説" : projectName}</h1>
             <p>
-              分からないことを分解して、確かめる行為をぶら下げる。答えが出た問いだけが閉じる。
+              分からないことを分解して、確かめる手をぶら下げる。答えが出たものから閉じる。
             </p>
           </div>
           <div className={styles.summary}>
             <span className={styles.stat}>
-              問い<b>{counts.questions}</b>
+              論点<b>{counts.questions}</b>
             </span>
             <span className={styles.stat}>
               未閉じ<b>{counts.open}</b>
@@ -906,23 +939,19 @@ export function QuestionTreeView({
         </header>
 
         <section className={styles.section}>
-          <div className={styles.sectionHead}>
-            <h2>問いの木</h2>
-            <span>
-              {roots.length}本の根 ・ やること{counts.actions}件（未完了の確認{counts.openMeasures}件）
-            </span>
-          </div>
           {roots.length === 0 ? (
-            <p className={styles.emptyState}>まだ問いが登録されていない。</p>
+            <p className={styles.emptyState}>まだ登録されていない。</p>
           ) : (
-            <div className={styles.tree}>{roots.map(renderNode)}</div>
+            <div className={styles.tree}>
+              {roots.map((root, index) => renderNode(root, [], index === roots.length - 1, 0))}
+            </div>
           )}
         </section>
 
         {looseActions.length > 0 && (
           <section className={styles.section}>
             <div className={styles.sectionHead}>
-              <h2>どの問いにもつながっていないやること</h2>
+              <h2>どの論点にもつながっていないやること</h2>
               <span>{looseActions.length}件。実行だけで答えを出さない作業か、つなぎ忘れ</span>
             </div>
             <div className={styles.itemList} style={{ border: 0, borderRadius: 0 }}>

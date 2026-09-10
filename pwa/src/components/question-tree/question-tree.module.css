@@ -78,18 +78,34 @@
 .node:last-child { border-bottom: 0; }
 
 .row {
-  display: grid; grid-template-columns: 1fr 150px 96px 116px; align-items: center; gap: 10px;
-  width: 100%; padding: 7px 14px 7px 0; background: none; border: 0; cursor: pointer; text-align: left;
-  border-left: 3px solid transparent;
+  display: grid; grid-template-columns: 1fr 132px 92px 104px; align-items: center; gap: 10px;
+  width: 100%; padding: 2px 14px 2px 0; background: none; border: 0; cursor: pointer; text-align: left;
 }
 
 /* 手を打つべき行は木の中で目立たせる。上に抜き出すと、それがどの問いの
-   どの部分なのかが読めなくなる（まさ 2026-09-10）。左の線と地色で示し、
-   親をたどれる位置のまま拾えるようにする。 */
-.row[data-flag="decidable"] { border-left-color: var(--amd-action); background: var(--amd-action-soft); }
-.row[data-flag="stalled"] { border-left-color: var(--amber); background: var(--amber-soft); }
-.row[data-flag="dead_branch"] { border-left-color: var(--red); background: var(--red-soft); }
-.row[data-flag="in_progress"] { border-left-color: var(--red); }
+   どの部分なのかが読めなくなる（まさ 2026-09-10）。地色で示す。
+   色の縦棒は行の左端ではなく、罫線の後（その行の実際の階層位置）へ置く。
+   左端に揃えると、どの深さの話なのかが読めなくなる（まさ 2026-09-10 指摘）。 */
+.row[data-flag="decidable"] { background: var(--amd-action-soft); }
+.row[data-flag="stalled"] { background: var(--amber-soft); }
+.row[data-flag="dead_branch"] { background: var(--red-soft); }
+
+/* 親子のつながりを罫線で見せる。祖先が兄弟を残している深さに縦線を引く。 */
+.rail {
+  flex: none; display: inline-flex; align-items: center; align-self: stretch;
+  color: #a3a3ad; font-size: 12px; line-height: 1; user-select: none;
+}
+.railCell { display: inline-flex; width: 15px; justify-content: center; }
+
+.flagBar {
+  flex: none; width: 3px; height: 15px; margin-right: 3px; border-radius: 2px; background: transparent;
+}
+.flagBar[data-flag="decidable"] { background: var(--amd-action); }
+.flagBar[data-flag="stalled"] { background: var(--amber); }
+.flagBar[data-flag="dead_branch"] { background: var(--red); }
+.flagBar[data-flag="in_progress"], .flagBar[data-flag="overdue"] { background: var(--red); }
+
+.gripSpacer { flex: none; width: 16px; margin-left: 2px; }
 
 .row:hover { background: #f7fbfe; }
 .row[data-open="true"] { background: var(--amd-action-soft); }
@@ -109,13 +125,18 @@
   box-shadow: inset 0 0 0 2px var(--amd-action); background: var(--amd-action-soft);
 }
 
-.rowLead { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.rowLead { display: flex; align-items: center; gap: 5px; min-width: 0; padding-left: 4px; }
 .twisty {
-  flex: none; width: 15px; height: 15px; display: inline-flex; align-items: center; justify-content: center;
-  color: var(--quiet); font-size: 9px;
+  flex: none; width: 13px; height: 13px; display: inline-flex; align-items: center; justify-content: center;
+  color: var(--quiet); font-size: 8px;
 }
-.title { font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.title[data-closed="true"] { color: var(--quiet); text-decoration: line-through; }
+.title {
+  font-size: 12px; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  background: none; border: 0; padding: 0; cursor: pointer; text-align: left; color: inherit;
+}
+/* 子を持つ問いを太くする。枝の分かれ目がどこかを字面で分からせる。 */
+.title[data-parent="true"] { font-weight: 700; }
+.title[data-closed="true"] { color: var(--quiet); text-decoration: line-through; font-weight: 400; }
 
 .chip {
   flex: none; display: inline-flex; align-items: center; padding: 1px 6px; border-radius: 4px;
@@ -125,6 +146,8 @@
 .chip[data-kind="required"] { border-color: var(--line); color: var(--muted); }
 .chip[data-kind="alternative"] { border-color: #c4b5fd; background: var(--violet-soft); color: var(--violet); }
 .chip[data-kind="decision"] { border-color: #fbbf24; background: var(--amber-soft); color: #92400e; }
+.chip[data-kind="measure"] { border-color: var(--amd-action-line); background: var(--amd-action-soft); color: var(--amd-action-strong); }
+.chip[data-kind="work"] { border-color: var(--line); background: #fff; color: var(--quiet); }
 
 .state {
   display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 999px;
@@ -136,6 +159,7 @@
 .state[data-state="answered"] { border-color: #6ee7b7; background: var(--green-soft); color: var(--green); }
 .state[data-state="dropped"] { color: var(--quiet); }
 .state[data-state="in_progress"] { color: var(--muted); }
+.state[data-state="action"] { color: var(--muted); }
 
 .meta { font-size: 11px; color: var(--quiet); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .meta[data-alert="true"] { color: var(--red); font-weight: 700; }
