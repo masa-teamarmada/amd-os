@@ -118,7 +118,7 @@ desktop幅901px以上ではテーマ区画の外側上余白を除き、テー�
 5. **関係先リスト**: `SxPartnerPipeline` を唯一の一覧とし、大学・金融機関・試作先・PoC候補先・VCを同じ台帳へ1社1行で表示する。`全関係先 / PoC候補先 / VC` は同じ表を絞る排他的なタブであり、別リストや別データを作らない。PoC候補先タブは候補全件を表示し、VCタブは保存済みroleの `role_kind='shareholder_investor'` だけで判定する。名称から推測しない。主列は `関係先 / 接点の経緯 / 現在の状況 / ゴール / 詰まり・PJ影響 / 次にやること / 担当・期限 / 現在地の根拠 / 履歴・保有`。`接点の経緯` は `project_management_partners.connection_context` を上段、`introducer_label` を下段の `紹介者` として固定2段で表示し、出典の `source_kind/source_ref` や個別接点の `actor_label` を紹介者へ流用しない。未登録は `経緯 未登録 / 紹介者 未確認` と明示し、メール本文・アドレス・電話番号・URLは保存しない。一覧の `現在の状況` は関係先本体の現在ボールだけを扱い、`保有側 / 担当` の2slotを閲覧時から明示する。編集時も同じ2slot・同じ高さ・同じ列幅のまま値だけをselect/inputへ置き換え、PATCHは `current_ball_side / current_ball_owner` に限定する。期限をこのcellへ重複表示・編集せず、`担当・期限` は主要対応事項1件の担当と期限だけを扱う。主要対応事項が関係先本体へfallbackする場合も `owner_label / due_date / due_date_precision` を使い、`current_ball_*` と保存先を重ねない。`ゴール` は目標状態だけを表示する。管理者は表示中の編集可能な値そのものを押し、そのセルだけで入力・保存・取消・エラー表示を完結させる。行全体はボタンにせず、行の余白や読み取り専用cellを押してもモーダルを開かない。確認済み接点（古い順）→現在地→未完了作業→次の一手→ゴールの可変長 `進行状況` と全履歴は、会社名下のsegment railだけから開く閲覧専用モーダルへ置く。railとモーダル内の進行blockは同じstep配列を使い、件数と順序を必ず一致させる。PoC/VC表示では役割groupや保留foldで行を分断しない。行動、担当、期限、関連工程は同じ構造化保有事項から選び、別レコードの値を合成しない。構造化保有事項がない場合だけ関係先本体の対応事項へフォールバックし、関連工程を推測接続せず `PJ影響 未接続` とする。上部は担当別の未完了件数・危険件数・情報不足を集計する。履歴モーダルは進行状況、全やり取り履歴、未完了/完了保有事項を表示し、関係先全体の編集フォームへ切り替えない。メール本文、アドレス、URL、個人連絡先、内部source refは保存・表示しない。p21のVCはPartners Fundに加え、別交渉主体としてDAVP、BNV、いよぎんキャピタルを保存済みpartner+roleで持つ。接触段階・合意・ボール・期限・ゴールの根拠がない3社は未確認のままにする。 PoC営業対象の関係先（保存済み`poc_category`を持つ行）は、`現在の状況`cellの上段へ `段階 / 活動状態 / 確度` の3チップを常時表示する。段階は`relationship_stage`そのものをPoC営業段階（candidate/first_contact/information_exchange/hearing/meeting_coordination/technical_review/condition_alignment/sample_acquisition/validation_preparation/agreement_confirmation/executing/on_hold/declined）へ拡張した単一fieldで、第二の段階fieldは作らない。活動状態`activity_state`（active/waiting_partner/waiting_internal/stalled/on_hold/dropped/unknown）と確度（high=確認済み / low・unknown=要確認）は段階と独立したfacetで、停滞・見送りと要確認は琥珀・赤系で警告表示する。チップ群を押すと同じ位置が段階/状態/確度/区分の2x2 select群へ変わり、blurまたはEnterで1回のPATCH（relationship_stage / activity_state / confidence / poc_category）を送る。候補区分`poc_category`は poc_candidate / tech_partner / sample_provider / sample_route の4値+null（PoC営業対象外）で、PoC候補先タブの母集団判定は保存済み区分を最優先し、区分が無い行だけroleLabel prefix（`PoC候補先`/`PoC接触先`）で後方互換判定する。PoC候補先タブには`区分`と`段階`のfilterチップ行を置き、段階チップの件数が営業ファネルKPI（段階別件数）を兼ねる。タブは`全関係先 / PoC候補先 / VC`の3枚のまま増やさない。試料は`project_management_partner_samples`（1関係先N試料。試料名/状態 intent/negotiating/agreed_pending/scheduled/received/analyzed/unknown /受領日/保管場所/担当/要確認メモ/確度）を軽量台帳として持ち、`履歴・保有`列に`試料 n件`を表示する。要確認事項は表示専用textにせず保有事項（work_item, question）として起票し、担当未確認はownerをnullにして週次管制の担当不明バケットへ浮上させる。
    - 9列1行は常に出す。収まらない分は一覧の中で横スクロールして読む（まさ 2026-08-28「別に横スクロールを許容してるんだから何も問題ないのでは？」）。実幅1248px未満で1社ずつ縦に積む旧条件は撤廃した（`@min-` のしきい値は480px＝実質すべての幅）。左メニューのあるPJコックピットへ関係先を載せると、1440px相当の画面では常に縦積みへ落ちてしまい、比較一覧として使えなかったのが直接の理由。会社名・最終確認日・segment railは同じ先頭cell内に横並びで収める。
    - 関係先名は識別主キーとして省略記号を使わず全文を自然改行で表示する。desktopは関係先列236px、接点の経緯列148px、担当・期限列72pxを基準に配分する。名称編集は表示中の文字だけを同じ位置の透明textareaへ置換し、背景・罫線・行高・最終確認日・railを変えず、編集中だけのラベル・緑枠・保存/取消行を追加しない。Enterまたはblurで保存、Escで取消し、日本語IME変換中のEnterは保存として扱わない。
-6. **論点・仮説リスト**: `要整理 → 検証中 → 判断待ち → 決定・棄却` の4状態で一覧する。desktopは4列、tabletは2列、mobileは1列へ再配置し、ページ横スクロールを発生させない。セクション名・列名は業務上の名詞を使い、目的説明やコピーを見出しへ置かない。
+6. **論点・仮説リスト**: 1論点=1行の表で一覧する（旧Kanbanの4列は2026-08-08に廃止）。段階（要整理 / 検証中 / 判断待ち / 決定・棄却）は状態列のバッジとして残す。行順は手動の並び順（下の「並び順」節が正本）。セクション名・列名は業務上の名詞を使い、目的説明やコピーを見出しへ置かない。desktop想定の表で、収まらない分は表の中で横スクロールして読む。
 7. **データ接続状況**: 週次差分、論点・仮説、工数（今週入力の人数はここに表示し、1の作業遅延バケットとは混ぜない）、関係先メール接点の接続状態を示す。
 
 ## 論点・仮説の放置防止
@@ -142,6 +142,19 @@ desktop幅901px以上ではテーマ区画の外側上余白を除き、テー�
 - **最終更新**: 親論点だけでなく、仮説・根拠・判断・actionの `lastVerifiedAt` の最新日を採用する。子だけを更新した論点を更新切れにしない。
 - **更新切れ**: 最終更新から7日以上。日付欠損も更新切れとして扱い、0日扱いしない。
 - **期限超過**: 未完了論点の次の期限が基準日より前。完了済み論点へ赤警報を残さない。
+
+### 並び順（手動、2026-09-10 まさ指示）
+
+行の順番はまさが手で決める。自動の要フォロー順は、手で決めていない範囲のタイブレークへ下げる。
+
+- **正本**: `project_management_issues.sort_order`。表示順は `sxWeeklyIssueOrder()`（`sx-weekly-control.ts`）が第一キー `sort_order` 昇順、同値のときだけ従来の自動順（未解決優先 → 要フォロー度 → 次の期限）で決める。一度でも並び替えれば `sort_order` は10刻みで一意になるので、以後は手で置いた順だけが効く。
+- **新規は一番上**: 論点を追加すると、そのPJの既存最小 `sort_order` より10小さい値を採る（API側で採番。画面からは指定しない）。並び替えのたびに0起点へ振り直されるので負の値は積み上がらない。
+- **掴んで入れ替える**: 行の左端のつまみ（`GripVertical`）をポインタで掴み、上下に動かして落とす。落とした行の上半分なら前、下半分なら後ろへ入る。挿入位置は落とし先の行の上下に出る線で示す。掴んでいるあいだは**その行そのものの複製**が指の下に付いてくる（`position: fixed` + `transform` でカーソル追従、窓の外へは出ない、複製へは掴んだ行のCSS変数を移して色を保つ）。元の行は薄くし、どれを動かしているか見失わせない。Escapeで取り消す。HTML5のネイティブdrag&dropは使わない（表の行では欠けたゴーストしか出ないため）。
+- **絞り込み中でも壊さない**: 状態フィルタや検索で一部だけ表示している状態で並び替えても、採番は表示行ではなく**そのPJの論点全体**に対して行う（`sxReorderIssueList()`）。隠れている論点の相対順は保たれる。
+- **保存**: 全件の `id / sort_order` を1リクエストで送り、`reorder_project_management_issues`（migration 391）が行ロック後に1トランザクションで更新する。動いた行だけ `project_management_update_history` へ残す。`project_management_issues` には version を進めるトリガーが無いため、タスクの並び替えと違い `expected_version` は取らない。並び替えは `last_verified_at` / `source_kind` を触らない（触ると「更新切れ」判定が並び替えただけで解除され、鮮度が嘘になる）。
+- **確定は待たせない**: 離した瞬間に画面へ反映し、DBの往復は後ろで行う。失敗したらDBの現状を読み直して戻し、必ず通知を出す（黙って楽観更新を残さない）。
+- 編集権限が無い利用者にはつまみ列自体を出さない。
+- 検査は `npm run test:issue-reorder`（`scripts/check_issue_reorder_contract.mjs` と `scripts/test_sx_weekly_control.mjs`）。`deploy.sh` が本番反映前に必ず走らせる。
 
 ## 書き込み契約
 
@@ -399,7 +412,7 @@ point-MS追加フォームは`配置するグループ（複数選択可） / MS
 - **背景は議論と分離**: `project_management_issues.background text NULL`（migration 250）へ、論点が生まれた経緯・前提を保存する。背景は冒頭に固定し、追記専用の議論履歴で上書きしない。
 - **議論から仮説をネスト**: 中央ペインで過去の議論を古い順に読み、同じペインから今回の議論を追記する。その直下に「この議論から生まれた仮説」の低摩擦入力を置き、親`issue_id`へ仮説を追加する。追加結果は左ペインの親論点配下へ即時反映する。
 - **編集で文脈を失わない**: 背景、仮説、検証、判断、actionの編集は別dialogを重ねず、右ペイン内のembedded editorで行う。編集しても背景・仮説と議論は画面に残る。
-- **解決後は下へ整理**: ワークベンチfooterの「解決済みにして下へ移動」でissue statusを`closed`へ更新する。一覧ソートはresolvedを常に末尾に置いたうえで、未解決行だけをattention score・期限順に並べる。解決済みから未解決へ戻す導線も同じfooterに置く。
+- **解決後は下へ整理**: ワークベンチfooterの「解決済みにして下へ移動」でissue statusを`closed`へ更新する。解決済みから未解決へ戻す導線も同じfooterに置く。（2026-09-10追記: 一覧ソートの第一キーは手動の `sort_order` へ変わった。resolvedを末尾へ置く判定とattention score・期限順は、`sort_order` が同値のときだけのタイブレークとして残る。上の「並び順」節が正本。）
 
 ### タブ化・論点表の再適用と「hydration停止」誤診の記録 (build v3.65.0→v3.67.1撤回→v3.67.2再適用、2026-08-08)
 

@@ -11,6 +11,7 @@ import {
   FileSearch,
   FlaskConical,
   GitBranch,
+  GripVertical,
   House,
   Mail,
   PanelsTopLeft,
@@ -74,14 +75,16 @@ import {
 } from "@/lib/sx-management-optimistic";
 import { sxIsMissingOwner } from "./sx-visual-shared";
 import {
-  sxWeeklyIssueAttentionScore,
+  sxReorderIssueList,
   sxWeeklyIssueIsOverdue,
   sxWeeklyIssueIsStale,
   sxWeeklyIssueNeedsAttention,
   sxWeeklyIssueNextDueDate,
   sxWeeklyIssueNextMove,
+  sxWeeklyIssueOrder,
   sxWeeklyIssueStage,
   sxWeeklyValueMissing,
+  type SxIssueReorderTarget,
   type SxWeeklyIssueStage,
 } from "@/lib/sx-weekly-control";
 import { SxUnifiedTimeline } from "./SxUnifiedTimeline";
@@ -3579,6 +3582,89 @@ function IssueEditor({
 // IssueRowへ置き換え、詳細(仮説/根拠/判断/行動)の編集導線はdetailBodyのマークアップをそのまま
 // 流用し、<details>展開だった箇所をローカルexpanded stateで制御するtrへ変える。新しいフォーム
 // モーダルは追加せず、既存onEdit(editor state)呼び出しをそのまま使う。
+/* 論点・仮説リストの手動並び替え (2026-09-10 まさ指示)。かんばんと同じ操作感にするため、
+   掴んでいるあいだは行そのものの複製がカーソルに付いてくる。HTML5の drag&drop は表の行だと
+   ブラウザごとに欠けたゴーストしか出ないので、pointer イベントで自前に持つ。 */
+type IssueReorderDrag = {
+  issueId: string;
+  pointerId: number;
+  startClientX: number;
+  startClientY: number;
+  /** 掴んだ点が行の左上からどれだけ内側か。複製が指の下でずれないようにする。 */
+  grabOffsetX: number;
+  grabOffsetY: number;
+  dragging: boolean;
+  target: SxIssueReorderTarget | null;
+  saving: boolean;
+};
+
+const ISSUE_DRAG_THRESHOLD_PX = 4;
+
+/** 掴んだ行を、見た目そのままの浮いた複製にする。列幅は実測値を焼き込む (table-layout は
+    親テーブルの中でしか効かないので、複製単体では列が潰れてしまう)。行は画面より横に長い
+    ことがあるので、窓の幅で切って中身を左から見せる。 */
+function createIssueDragGhost(row: HTMLTableRowElement): HTMLElement {
+  const rect = row.getBoundingClientRect();
+  const sourceCells = Array.from(row.children) as HTMLElement[];
+  const clone = row.cloneNode(true) as HTMLTableRowElement;
+  Array.from(clone.children).forEach((cell, index) => {
+    const source = sourceCells[index];
+    if (!source) return;
+    (cell as HTMLElement).style.width = `${source.getBoundingClientRect().width}px`;
+  });
+  const body = document.createElement("tbody");
+  body.appendChild(clone);
+  const table = document.createElement("table");
+  table.appendChild(body);
+  table.style.width = `${rect.width}px`;
+  table.style.tableLayout = "fixed";
+  table.style.borderCollapse = "collapse";
+  table.style.margin = "0";
+  table.style.background = "#ffffff";
+
+  const host = document.createElement("div");
+  host.setAttribute("aria-hidden", "true");
+  host.appendChild(table);
+  // 複製は body 直下に置くので、表の色を決めている CSS 変数の継承が切れる。切れると
+  // 期限や件数が読めない色になるため、掴んだ行で実際に効いていた値をそのまま移す。
+  const inherited = window.getComputedStyle(row);
+  for (const name of [
+    "--sheet",
+    "--ink",
+    "--muted",
+    "--quiet",
+    "--line",
+    "--action",
+    "--action-soft",
+    "--amber",
+    "--amber-soft",
+    "--red",
+    "--red-soft",
+    "--blue",
+  ]) {
+    const value = inherited.getPropertyValue(name);
+    if (value) host.style.setProperty(name, value);
+  }
+  host.style.font = inherited.font;
+  host.style.color = inherited.color;
+  host.style.position = "fixed";
+  host.style.left = "0";
+  host.style.top = "0";
+  host.style.zIndex = "120";
+  host.style.width = `${Math.min(rect.width, window.innerWidth - 32)}px`;
+  host.style.overflow = "hidden";
+  host.style.pointerEvents = "none";
+  host.style.background = "#ffffff";
+  host.style.border = "1px solid #027FDC";
+  host.style.borderRadius = "4px";
+  host.style.boxShadow = "0 14px 30px rgba(2, 127, 220, .28)";
+  // 透かさない。下の行の文字が重なって読めると、掴んでいるものが何か分からなくなる。
+  host.style.opacity = "1";
+  host.style.willChange = "transform";
+  document.body.appendChild(host);
+  return host;
+}
+
 function IssueRow({
   issue,
   tracks,
@@ -3587,6 +3673,12 @@ function IssueRow({
   onEdit,
   onAddDiscussion,
   onOpen,
+  dragging,
+  dropPlace,
+  onReorderPointerDown,
+  onReorderPointerMove,
+  onReorderPointerUp,
+  onReorderCancel,
 }: {
   issue: SxManagementIssue;
   tracks: SxManagementBundle["tracks"];
@@ -3595,6 +3687,13 @@ function IssueRow({
   onEdit: (editor: EditorState) => void;
   onAddDiscussion: (issueId: string, summary: string, discussionId: string) => Promise<void>;
   onOpen: (issueId: string) => void;
+  /** 掴んで並び替えている最中の見え方。落とし先の行には上下どちらへ入るかの線を出す。 */
+  dragging: boolean;
+  dropPlace: "before" | "after" | null;
+  onReorderPointerDown: (issueId: string, event: React.PointerEvent<HTMLButtonElement>) => void;
+  onReorderPointerMove: (event: React.PointerEvent<HTMLButtonElement>) => void;
+  onReorderPointerUp: (event: React.PointerEvent<HTMLButtonElement>) => void;
+  onReorderCancel: () => void;
 }) {
   // 詳細はワークベンチへ統合。旧inline詳細は移行中も表示されない。
   const expanded = false;
@@ -3621,7 +3720,32 @@ function IssueRow({
   ).length;
   return (
     <>
-      <tr className={styles.issueRow} data-attention={attention || undefined}>
+      <tr
+        className={styles.issueRow}
+        data-attention={attention || undefined}
+        data-issue-row={issue.id}
+        data-dragging={dragging || undefined}
+        data-drop={dropPlace || undefined}
+      >
+        {canManage && (
+          <td className={styles.issueRowHandleCell}>
+            <button
+              type="button"
+              className={styles.issueRowHandle}
+              aria-label={`${issue.title}をつまんで並び順を変える`}
+              title="つまんで上下に動かすと並び順が変わるよ"
+              onPointerDown={(event) => onReorderPointerDown(issue.id, event)}
+              onPointerMove={onReorderPointerMove}
+              onPointerUp={onReorderPointerUp}
+              onPointerCancel={onReorderCancel}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") onReorderCancel();
+              }}
+            >
+              <GripVertical aria-hidden="true" />
+            </button>
+          </td>
+        )}
         <td className={styles.issueRowTitleCell}>
           <div className={styles.badgeRow}>
             <span
@@ -3742,7 +3866,7 @@ function IssueRow({
       </tr>
       {expanded && (
         <tr className={styles.issueDetailRow}>
-        <td colSpan={9}>
+        <td colSpan={canManage ? 10 : 9}>
         <div className={styles.detailBody}>
           <section className={styles.discussionSection}>
             <div className={styles.detailTitle}>
@@ -5164,18 +5288,11 @@ export function SxWeeklyControlDashboard({
     [],
   );
 
+  // 並び順の第一キーは手動の sort_order (2026-09-10 まさ指示: 新規は一番上、以後はドラッグで
+  // 手で入れ替える)。同じ sort_order のときだけ、従来の自動順 (未解決優先→要フォロー度→期限)
+  // へ落とす。並び替えを一度でも行えば sort_order は一意になるので、以後は手動順だけが効く。
   const allIssues = useMemo(
-    () =>
-      [...management.issues].sort(
-        (left, right) =>
-          Number(sxWeeklyIssueStage(left) === "resolved") -
-            Number(sxWeeklyIssueStage(right) === "resolved") ||
-          sxWeeklyIssueAttentionScore(right, management.asOf) -
-            sxWeeklyIssueAttentionScore(left, management.asOf) ||
-          (sxWeeklyIssueNextDueDate(left) || "9999").localeCompare(
-            sxWeeklyIssueNextDueDate(right) || "9999",
-          ),
-      ),
+    () => sxWeeklyIssueOrder(management.issues, management.asOf),
     [management],
   );
   const selectedIssue = selectedIssueId
@@ -5227,6 +5344,200 @@ export function SxWeeklyControlDashboard({
       }),
     [allIssues, management.asOf, query, trackFilter, viewFilter],
   );
+  // ---- 論点・仮説リストの手動並び替え -------------------------------------------------
+  const [issueDrag, setIssueDrag] = useState<IssueReorderDrag | null>(null);
+  const issueDragRef = useRef<IssueReorderDrag | null>(null);
+  const issueDragGhostRef = useRef<HTMLElement | null>(null);
+  const allIssuesRef = useRef(allIssues);
+  allIssuesRef.current = allIssues;
+
+  function setIssueDragBoth(next: IssueReorderDrag | null) {
+    issueDragRef.current = next;
+    setIssueDrag(next);
+  }
+
+  function moveIssueDragGhost(clientX: number, clientY: number) {
+    const ghost = issueDragGhostRef.current;
+    const current = issueDragRef.current;
+    if (!ghost || !current) return;
+    // 掴んだ点との位置関係を保ちつつ、複製が窓の外へ出ないところで止める。
+    const rect = ghost.getBoundingClientRect();
+    const left = Math.min(
+      Math.max(clientX - current.grabOffsetX, 8),
+      Math.max(window.innerWidth - rect.width - 8, 8),
+    );
+    const top = Math.min(
+      Math.max(clientY - current.grabOffsetY, 8),
+      Math.max(window.innerHeight - rect.height - 8, 8),
+    );
+    // React の再描画を待たずに動かす。掴んでいる複製がカーソルから遅れて見えると、
+    // 掴んだ感じが消える。
+    ghost.style.transform = `translate3d(${left}px, ${top}px, 0)`;
+  }
+
+  function removeIssueDragGhost() {
+    issueDragGhostRef.current?.remove();
+    issueDragGhostRef.current = null;
+    document.body.style.removeProperty("user-select");
+  }
+
+  useEffect(() => removeIssueDragGhost, []);
+
+  useEffect(() => {
+    if (!issueDrag?.dragging) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      removeIssueDragGhost();
+      setIssueDragBoth(null);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [issueDrag?.dragging]);
+
+  function resolveIssueDropTarget(
+    sourceIssueId: string,
+    clientX: number,
+    clientY: number,
+  ): SxIssueReorderTarget | null {
+    const row = document
+      .elementFromPoint(clientX, clientY)
+      ?.closest<HTMLElement>("[data-issue-row]");
+    const targetIssueId = row?.dataset.issueRow || "";
+    if (!targetIssueId || targetIssueId === sourceIssueId) return null;
+    const rect = row!.getBoundingClientRect();
+    const place = clientY < rect.top + rect.height / 2 ? "before" : "after";
+    return { issueId: targetIssueId, place };
+  }
+
+  function beginIssueDrag(
+    issueId: string,
+    event: React.PointerEvent<HTMLButtonElement>,
+  ) {
+    if (!management.canManage || issueDragRef.current) return;
+    const row = event.currentTarget.closest<HTMLTableRowElement>("[data-issue-row]");
+    if (!row) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const rect = row.getBoundingClientRect();
+    setIssueDragBoth({
+      issueId,
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      grabOffsetX: event.clientX - rect.left,
+      grabOffsetY: event.clientY - rect.top,
+      dragging: false,
+      target: null,
+      saving: false,
+    });
+  }
+
+  function updateIssueDrag(event: React.PointerEvent<HTMLButtonElement>) {
+    const current = issueDragRef.current;
+    if (!current || current.pointerId !== event.pointerId || current.saving) return;
+    if (!current.dragging) {
+      const movedFar =
+        Math.abs(event.clientX - current.startClientX) > ISSUE_DRAG_THRESHOLD_PX ||
+        Math.abs(event.clientY - current.startClientY) > ISSUE_DRAG_THRESHOLD_PX;
+      if (!movedFar) return;
+      const row = event.currentTarget.closest<HTMLTableRowElement>("[data-issue-row]");
+      if (!row) return;
+      issueDragGhostRef.current = createIssueDragGhost(row);
+      // ドラッグ中に文章が青く選択されるのを止める。
+      document.body.style.setProperty("user-select", "none");
+    }
+    const target = resolveIssueDropTarget(current.issueId, event.clientX, event.clientY);
+    const next: IssueReorderDrag = { ...current, dragging: true, target };
+    issueDragRef.current = next;
+    moveIssueDragGhost(event.clientX, event.clientY);
+    // 落とし先が変わったときだけ再描画する。複製の追従は上の transform が直接やる。
+    if (
+      !current.dragging ||
+      current.target?.issueId !== target?.issueId ||
+      current.target?.place !== target?.place
+    )
+      setIssueDrag(next);
+  }
+
+  function cancelIssueDrag() {
+    removeIssueDragGhost();
+    setIssueDragBoth(null);
+  }
+
+  async function finishIssueDrag(event: React.PointerEvent<HTMLButtonElement>) {
+    const current = issueDragRef.current;
+    if (!current || current.pointerId !== event.pointerId) return;
+    const target = current.dragging
+      ? resolveIssueDropTarget(current.issueId, event.clientX, event.clientY)
+      : null;
+    removeIssueDragGhost();
+    setIssueDragBoth(null);
+    if (!target) return;
+    await commitIssueReorder(current.issueId, target);
+  }
+
+  /** 表示中の行だけでなく、絞り込みで隠れている論点も含めた全体を振り直す。見えている
+      2行のあいだへ落としたとき、そのあいだに隠れている論点があっても順序が壊れない。 */
+  async function commitIssueReorder(sourceIssueId: string, target: SxIssueReorderTarget) {
+    const ordered = allIssuesRef.current;
+    const source = ordered.find((issue) => issue.id === sourceIssueId);
+    const reordered = sxReorderIssueList(ordered, sourceIssueId, target);
+    if (!source || !reordered) return;
+    const { nextOrder, moved } = reordered;
+    // 掴んで離した瞬間に確定して見えてほしいので、DBの往復を待たずに並べ替える。
+    setManagement((currentBundle) =>
+      moved.reduce(
+        (accumulated, { issue, sortOrder }) =>
+          sxApplyOptimisticManagementPatch(accumulated, "issue", issue.id, {
+            sort_order: sortOrder,
+          }),
+        currentBundle,
+      ),
+    );
+    try {
+      const response = await fetch(
+        `/api/project-workspace/${encodeURIComponent(bundle.project.projectId)}/management`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "reorder_issues",
+            items: nextOrder.map((issue, index) => ({
+              id: issue.id,
+              sort_order: index * 10,
+            })),
+          }),
+        },
+      );
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(
+          typeof body.error === "string" ? body.error : "論点の並び順を保存できなかったよ",
+        );
+      showNotice(`「${source.title}」の並び順を変えたよ`);
+    } catch (caught) {
+      const message =
+        caught instanceof Error ? caught.message : "論点の並び順を保存できなかったよ";
+      // 楽観更新を残したまま黙らない。DBの現状へ戻して、何が起きたかを画面で言う。
+      try {
+        const refetched = await fetch(
+          `/api/project-workspace/${encodeURIComponent(bundle.project.projectId)}/management`,
+          { cache: "no-store" },
+        );
+        // GET はラップせずbundleそのものを返す。
+        const refetchedBundle = await refetched.json().catch(() => null);
+        if (!refetched.ok || !refetchedBundle || !Array.isArray(refetchedBundle.issues))
+          throw new Error("再読み込みに失敗");
+        setManagement(refetchedBundle as SxManagementBundle);
+        showNotice(`${message}。最新の並び順に戻したよ`);
+      } catch {
+        showNotice(`${message}。保存できたか確認できないから、画面を読み込み直してね`);
+      }
+    }
+  }
+  // -------------------------------------------------------------------------------------
+
   const pendingDecisions = management.decisions
     .filter((decision) => decision.status === "open")
     .sort(
@@ -6369,6 +6680,11 @@ export function SxWeeklyControlDashboard({
           <div className={styles.issueHeading}>
             <div>
               <h2>論点・仮説リスト</h2>
+              {management.canManage && (
+                <p className={styles.issueHeadingNote}>
+                  新しく足した論点は一番上に入るよ。左端のつまみを掴んで上下に動かすと、並び順を手で入れ替えられる。
+                </p>
+              )}
             </div>
             {management.canManage && (
               <button
@@ -6427,12 +6743,19 @@ export function SxWeeklyControlDashboard({
             </select>
           </div>
           {/* 論点・仮説は1論点=1行の表形式 (2026-08-08 まさ指示 #12)。旧Kanban(段階列×カード)は
-             見にくいとの指摘で廃止し、visibleIssuesの表示順(attention score優先)をそのまま行順に
-             使う。段階(STAGE_LABEL)は状態列のバッジとして残し、情報は失わない。 */}
+             見にくいとの指摘で廃止した。段階(STAGE_LABEL)は状態列のバッジとして残し、情報は失わない。
+             行順は手動の並び順 (allIssues の第一キー) をそのまま使う。かんばんと同じ掴んで動かす
+             操作は残す、という2026-09-10のまさ指示で、自動の要フォロー順は sort_order が同値の
+             ときだけのタイブレークへ下げた。 */}
           <div className={styles.issueTableWrap}>
             <table className={styles.issueTable}>
               <thead>
                 <tr>
+                  {management.canManage && (
+                    <th scope="col" className={styles.issueRowHandleCell}>
+                      並び
+                    </th>
+                  )}
                   <th scope="col">内容</th>
                   <th scope="col">種類</th>
                   <th scope="col">状態</th>
@@ -6458,6 +6781,16 @@ export function SxWeeklyControlDashboard({
                       setEditor(null);
                       setSelectedIssueId(issueId);
                     }}
+                    dragging={issueDrag?.dragging === true && issueDrag.issueId === issue.id}
+                    dropPlace={
+                      issueDrag?.target?.issueId === issue.id
+                        ? issueDrag.target.place
+                        : null
+                    }
+                    onReorderPointerDown={beginIssueDrag}
+                    onReorderPointerMove={updateIssueDrag}
+                    onReorderPointerUp={finishIssueDrag}
+                    onReorderCancel={cancelIssueDrag}
                   />
                 ))}
               </tbody>

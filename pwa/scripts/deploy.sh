@@ -108,6 +108,7 @@ echo "Running critical UI / spec rollback guard ..."
 (cd "$REPO_ROOT/pwa" && npm run test:meeting-narrative-gate)
 (cd "$REPO_ROOT/pwa" && npm run test:project-profitability)
 (cd "$REPO_ROOT/pwa" && npm run test:three-party-project-view)
+(cd "$REPO_ROOT/pwa" && npm run test:issue-reorder)
 (cd "$REPO_ROOT/pwa" && npm run test:sx-shared-control-migration)
 (cd "$REPO_ROOT/pwa" && npm run test:model-formula-canon)
 (cd "$REPO_ROOT/pwa" && npm run test:member-payout-matching)

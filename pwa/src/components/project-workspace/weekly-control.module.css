@@ -241,6 +241,7 @@
 .ganttSelection a svg { width: 13px; height: 13px; }
 
 .issueHeading { align-items: flex-end; margin-bottom: 16px; }
+.issueHeadingNote { margin: 4px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .issueHeading .primaryButton { border-color: #027FDC; background: #027FDC; }
 .issueHeading .primaryButton:hover { border-color: #0267B2; background: #0267B2; }
 .issueHeading .primaryButton:focus-visible { outline-color: #027FDC; }
@@ -346,6 +347,17 @@
 .issueRow { border-top: 1px solid #D2E7F8; }
 .issueRow[data-attention] { background: #F7FBFF; box-shadow: inset 3px 0 0 #7CBCEB; }
 .issueRow > td { padding: 6px 10px; vertical-align: middle; font-size: 11px; }
+/* 手動並び替え (2026-09-10 まさ指示)。左端のつまみを掴むと、行そのものの複製がカーソルに
+   付いてくる (複製は JS 側で body へ差す)。元の行はその間だけ薄くして、どれを動かしているか
+   分かるようにする。落とし先の行には、上へ入るか下へ入るかの線を出す。 */
+.issueRowHandleCell { width: 34px; padding-right: 0 !important; text-align: center; white-space: nowrap; }
+.issueRowHandle { display: inline-flex; width: 24px; height: 28px; min-height: 28px !important; align-items: center; justify-content: center; padding: 0; border: 1px solid transparent; border-radius: 5px; background: transparent; color: var(--quiet); cursor: grab; touch-action: none; }
+.issueRowHandle:hover, .issueRowHandle:focus-visible { border-color: #7CBCEB; background: #E8F3FC; color: #0267B2; outline: none; }
+.issueRowHandle:active { cursor: grabbing; }
+.issueRowHandle svg { width: 14px; height: 14px; }
+.issueRow[data-dragging] { opacity: .38; }
+.issueRow[data-drop="before"] > td { box-shadow: inset 0 3px 0 #027FDC; }
+.issueRow[data-drop="after"] > td { box-shadow: inset 0 -3px 0 #027FDC; }
 .issueRowTitleCell { vertical-align: top !important; }
 .issueRowTitleCell { min-width: 200px; max-width: 260px; }
 .issueRowKindCell { min-width: 92px; }

@@ -132,3 +132,46 @@ export function sxWeeklyIssueAttentionScore(issue: SxManagementIssue, asOf: stri
     + (issue.hypotheses.length === 0 ? 5 : 0)
     + (issue.knowledgeType === "decision_needed" ? 4 : 0);
 }
+
+/** 手動並び替えの並び順そのもの。第一キーは sort_order、同値のときだけ従来の自動順
+    (未解決優先 → 要フォロー度 → 期限) へ落とす。一度でも並び替えれば sort_order は
+    10刻みで一意になるので、以後は手で置いた順だけが効く。 */
+export function sxWeeklyIssueOrder(issues: SxManagementIssue[], asOf: string) {
+  return [...issues].sort(
+    (left, right) =>
+      left.sortOrder - right.sortOrder ||
+      Number(sxWeeklyIssueStage(left) === "resolved") -
+        Number(sxWeeklyIssueStage(right) === "resolved") ||
+      sxWeeklyIssueAttentionScore(right, asOf) - sxWeeklyIssueAttentionScore(left, asOf) ||
+      (sxWeeklyIssueNextDueDate(left) || "9999").localeCompare(
+        sxWeeklyIssueNextDueDate(right) || "9999",
+      ),
+  );
+}
+
+export type SxIssueReorderTarget = { issueId: string; place: "before" | "after" };
+
+/**
+ * 掴んだ論点を落とし先の前後へ入れた、並び替え後の全体を返す。渡すのは絞り込み後の
+ * 表示行ではなく論点の全体で、隠れている論点の相対順が崩れないようにする。落とし先が
+ * 見つからない、動かす先が同じ位置、のときは null を返す (保存に行かない)。
+ */
+export function sxReorderIssueList<T extends { id: string; sortOrder: number }>(
+  ordered: T[],
+  sourceIssueId: string,
+  target: SxIssueReorderTarget,
+): { nextOrder: T[]; moved: Array<{ issue: T; sortOrder: number }> } | null {
+  if (sourceIssueId === target.issueId) return null;
+  const source = ordered.find((issue) => issue.id === sourceIssueId);
+  if (!source) return null;
+  const rest = ordered.filter((issue) => issue.id !== sourceIssueId);
+  const anchorIndex = rest.findIndex((issue) => issue.id === target.issueId);
+  if (anchorIndex < 0) return null;
+  const nextOrder = [...rest];
+  nextOrder.splice(target.place === "before" ? anchorIndex : anchorIndex + 1, 0, source);
+  const moved = nextOrder
+    .map((issue, index) => ({ issue, sortOrder: index * 10 }))
+    .filter(({ issue, sortOrder }) => issue.sortOrder !== sortOrder);
+  if (moved.length === 0) return null;
+  return { nextOrder, moved };
+}

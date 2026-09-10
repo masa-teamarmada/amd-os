@@ -951,6 +951,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await assertParentsInProject(db, projectId, resource, payload);
     if (resource === "milestone") await assertMilestoneParentIntegrity(db, projectId, payload.objective_id ? String(payload.objective_id) : null, payload.outcome_id ? String(payload.outcome_id) : null, String(payload.track));
     if (resource === "task") await assertTaskPlacement(db, projectId, payload.milestone_id ? String(payload.milestone_id) : null, payload.parent_task_id ? String(payload.parent_task_id) : null);
+    // 新しく足した論点はリストの一番上に出す (2026-09-10 まさ指示)。既存の最小 sort_order より
+    // 10 小さい値を採る。並び替えのたびに 0 起点へ振り直されるので、負の値が積み上がることは
+    // なく、振り直し前でも「後から足したものほど上」という順序は保たれる。
+    if (resource === "issue") {
+      const { data: topIssue, error: topIssueError } = await db
+        .from("project_management_issues")
+        .select("sort_order")
+        .eq("project_id", projectId)
+        .is("deleted_at", null)
+        .order("sort_order", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (topIssueError) throw new Error(`論点の並び順の確認に失敗したよ: ${topIssueError.message}`);
+      payload.sort_order = topIssue ? Number((topIssue as { sort_order: unknown }).sort_order) - 10 : 0;
+    }
     // A retry carrying the same client_token must not create a second row — check first so a
     // resend after a dropped response returns the original id instead of a duplicate row (or a
     // raw 23505 if the app-level check below were skipped). 20260901120000 extended client_token
@@ -1089,6 +1104,37 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
             { status: 409 },
           );
         throw new Error(`タスクの並び順を保存できなかったよ: ${error.message}`);
+      }
+      const bundle = await getSxManagementBundle(projectId, true);
+      return NextResponse.json({ ok: true, bundle }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+    }
+    // 論点・仮説リストの手動並び替え (2026-09-10 まさ指示)。タスク版と違い expected_version は
+    // 取らない: project_management_issues には version を進める touch_updated_at トリガーが
+    // 無く (183のFOREACH配列に issues が入っていない)、version は常に1のまま = 楽観ロックの
+    // 役に立たないため。並び順だけを動かす操作なので、内容の取り違えも起きない。
+    if (body.action === "reorder_issues") {
+      if (!Array.isArray(body.items) || body.items.length < 2 || body.items.length > 500)
+        throw new Error("並び替える論点が不正だよ");
+      const items = body.items.map((item) => {
+        if (!isRecord(item)) throw new Error("並び替える論点が不正だよ");
+        return {
+          id: text(item.id, "id", 80),
+          sort_order: numericValue(item.sort_order, "sort_order", { min: 0 }),
+        };
+      });
+      const db = createAdminClient();
+      const { error } = await db.rpc("reorder_project_management_issues", {
+        p_project_id: projectId,
+        p_items: items,
+        p_changed_by: context.access.memberId,
+      });
+      if (error) {
+        if (error.message.includes("issue reorder row missing"))
+          return NextResponse.json(
+            { error: "他の人がこの論点を先に消したみたい。最新の状態に更新するね", code: "version_conflict" },
+            { status: 409 },
+          );
+        throw new Error(`論点の並び順を保存できなかったよ: ${error.message}`);
       }
       const bundle = await getSxManagementBundle(projectId, true);
       return NextResponse.json({ ok: true, bundle }, { headers: { "Cache-Control": "no-store, max-age=0" } });

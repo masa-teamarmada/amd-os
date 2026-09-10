@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import {
+  sxReorderIssueList,
   sxWeeklyIssueIsOverdue,
   sxWeeklyIssueIsStale,
   sxWeeklyIssueLastActivity,
   sxWeeklyIssueNeedsAttention,
   sxWeeklyIssueNextDueDate,
   sxWeeklyIssueNextMove,
+  sxWeeklyIssueOrder,
   sxWeeklyIssueStage,
   sxWeeklyWeekRangeLabel,
 } from "../src/lib/sx-weekly-control.ts";
@@ -20,6 +22,7 @@ function issue(overrides = {}) {
     background: null,
     knowledgeType: "hypothesis",
     status: "open",
+    sortOrder: 0,
     hypothesis: "",
     evidenceFor: "",
     counterevidenceOrMissing: "",
@@ -116,5 +119,69 @@ const overdueChild = issue({
 });
 assert.equal(sxWeeklyIssueIsOverdue(overdueChild, "2026-07-27"), true, "子の期限超過を拾う");
 assert.equal(sxWeeklyIssueIsOverdue(issue({ status: "closed", dueDate: "2026-07-20" }), "2026-07-27"), false, "完了論点は期限超過にしない");
+
+// --- 論点・仮説リストの手動並び替え (2026-09-10 まさ指示) ---------------------------------
+const ordering = [
+  issue({ id: "a", sortOrder: 0 }),
+  issue({ id: "b", sortOrder: 10 }),
+  issue({ id: "c", sortOrder: 20 }),
+];
+
+assert.deepEqual(
+  sxWeeklyIssueOrder([ordering[2], ordering[0], ordering[1]], "2026-07-27").map((row) => row.id),
+  ["a", "b", "c"],
+  "手動の並び順が第一キー",
+);
+assert.deepEqual(
+  sxWeeklyIssueOrder(
+    [
+      issue({ id: "new", sortOrder: -10, dueDate: null, hypotheses: [] }),
+      ordering[0],
+      ordering[1],
+    ],
+    "2026-07-27",
+  ).map((row) => row.id),
+  ["new", "a", "b"],
+  "新しく足した論点 (sort_orderが最小) は一番上",
+);
+assert.deepEqual(
+  sxWeeklyIssueOrder(
+    [
+      issue({ id: "fresh", sortOrder: 0, dueDate: "2026-08-31", lastVerifiedAt: "2026-07-27" }),
+      issue({ id: "overdue", sortOrder: 0, dueDate: "2026-07-01", lastVerifiedAt: "2026-07-27" }),
+    ],
+    "2026-07-27",
+  ).map((row) => row.id),
+  ["overdue", "fresh"],
+  "sort_orderが同値のときだけ自動の要フォロー順へ落ちる",
+);
+
+const movedDown = sxReorderIssueList(ordering, "a", { issueId: "c", place: "after" });
+assert.deepEqual(movedDown.nextOrder.map((row) => row.id), ["b", "c", "a"], "下へ落とすと最後尾へ");
+assert.deepEqual(
+  movedDown.moved.map(({ issue: row, sortOrder }) => [row.id, sortOrder]),
+  [["b", 0], ["c", 10], ["a", 20]],
+  "動いた行だけを10刻みで振り直す",
+);
+
+const movedUp = sxReorderIssueList(ordering, "c", { issueId: "a", place: "before" });
+assert.deepEqual(movedUp.nextOrder.map((row) => row.id), ["c", "a", "b"], "上へ落とすと先頭へ");
+
+assert.equal(sxReorderIssueList(ordering, "a", { issueId: "a", place: "before" }), null, "自分自身へは落とせない");
+assert.equal(sxReorderIssueList(ordering, "a", { issueId: "b", place: "before" }), null, "位置が変わらないなら保存に行かない");
+assert.equal(sxReorderIssueList(ordering, "zzz", { issueId: "b", place: "after" }), null, "掴んだ論点が消えていたら保存に行かない");
+assert.equal(sxReorderIssueList(ordering, "a", { issueId: "zzz", place: "after" }), null, "落とし先が消えていたら保存に行かない");
+
+// 絞り込みで隠れている論点をまたいで落としても、隠れている行の相対順は壊れない。
+const withHidden = [
+  issue({ id: "visible-1", sortOrder: 0 }),
+  issue({ id: "hidden", sortOrder: 10 }),
+  issue({ id: "visible-2", sortOrder: 20 }),
+];
+assert.deepEqual(
+  sxReorderIssueList(withHidden, "visible-2", { issueId: "visible-1", place: "before" }).nextOrder.map((row) => row.id),
+  ["visible-2", "visible-1", "hidden"],
+  "隠れている論点も含めた全体を振り直す",
+);
 
 console.log("sx weekly control tests passed");
