@@ -1,6 +1,6 @@
 # OSによるプロマネ 設計案
 
-> **状態**: まさ未承認の設計案（2026-09-11 えいみ起草）。§7 の3点をまさが決めてから実装に入る。承認後は `-plan` を外し、確定した部分だけを current-spec として書き直す。
+> **状態**: まさ未承認の設計案（2026-09-11 えいみ起草）。**同日まさ指摘: この案は作業を人に割り当てて追いかける経路だけで、シーズン終了時の到達状態と、そこからの遅れの判定が入っていない。骨格の合意前であり、§7 の判断3点は取り下げ。** 到達点の置き場所をまさと決めてから書き直す。承認後は `-plan` を外し、確定した部分だけを current-spec として書き直す。
 > **前提にした正本**: [3-21 論点・仮説](3-21-question-tree-current-spec.md) / [3-3 会議フロー](3-3-meeting-flow-current-spec.md) / [3-14 月初合意](3-14-monthly-work-agreement-current-spec.md) / [7-1 報酬計算](/manual/7-1-reward-calc-spec) / [3-16 PJワークスペース](3-16-project-weekly-control-current-spec.md) / [2-4 先手TODO](2-4-proactive-todo-current-spec.md) / [3-7 通知](3-7-notifications-current-spec.md)
 
 ## 1. 何を解くか
