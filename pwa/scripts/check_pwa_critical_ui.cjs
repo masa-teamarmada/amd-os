@@ -3950,6 +3950,9 @@ expectNotIncludes("src/components/question-tree/QuestionTreeView.tsx", [
 expectIncludes("src/components/question-tree/question-tree.module.css", [
   // portal で body 直下へ出る .backdrop にも変数を effect させる。片方だけだと透ける。
   ".page,\n.backdrop {",
+  // 直せる欄は読んでいる状態でも入力欄の枠を見せる。点線の下線だけだと
+  // 押せることに気づけなかった (まさ 2026-09-10「まだ編集できないよ」)。
+  "cursor: text;",
   '.row[data-flag="decidable"]',
   '.row[data-flag="stalled"]',
   '.row[data-flag="dead_branch"]',

@@ -203,14 +203,19 @@
 .detailGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
 .field { display: flex; flex-direction: column; gap: 2px; }
 .field > span { font-size: 10px; font-weight: 700; color: var(--quiet); }
+.field > b { padding: 5px 8px; }
 .field > b { font-size: 12px; font-weight: 500; }
-/* 値を押すとその位置が入力欄へ変わる（まさ 2026-09-10）。押せることを控えめに示す。 */
+/* 値を押すとその位置が入力欄へ変わる（まさ 2026-09-10）。
+   点線の下線だけだと押せることに気づけなかった（まさ「まだ編集できないよ」）ので、
+   読んでいる状態でも入力欄の枠を見せる。押した瞬間に枠の中身が入力へ変わる。 */
 .fieldValue {
+  width: 100%; min-height: 30px; padding: 5px 8px;
   font-size: 12px; font-weight: 500; text-align: left; color: var(--ink);
-  background: none; border: 0; border-bottom: 1px dashed var(--line); padding: 1px 0;
-  cursor: pointer; white-space: pre-wrap; line-height: 1.6; word-break: break-word;
+  background: #fff; border: 1px solid var(--line); border-radius: 4px;
+  cursor: text; white-space: pre-wrap; line-height: 1.65; word-break: break-word;
 }
-.fieldValue:hover { border-bottom-color: var(--amd-action); color: var(--amd-action-strong); }
+.fieldValue:hover { border-color: var(--amd-action); background: var(--amd-action-soft); }
+.fieldValue:focus-visible { outline: 2px solid var(--amd-action-line); outline-offset: -1px; }
 .inlineActions { display: flex; gap: 6px; margin-top: 4px; }
 .field textarea, .field input, .field select {
   min-height: 30px; padding: 4px 7px; border: 1px solid var(--amd-action-line); border-radius: 4px;
