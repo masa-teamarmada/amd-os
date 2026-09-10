@@ -106,6 +106,7 @@ function legacyCurrentContract(project: CockpitOverviewProject): ProjectCurrentC
     expirationDate: terms?.contractEndYm || null,
     renewalType: terms?.renewalType || nda?.term || null,
     renewalNoticeDate: terms?.renewalNoticeDate || null,
+    documentUrl: typeof terms?.documentUrl === "string" ? terms.documentUrl : null,
     terms: hasContractEvidence ? terms || {} : {},
   };
 }
@@ -191,6 +192,16 @@ function CurrentContractTerms({ contract, project }: { contract: ProjectCurrentC
         <span className="text-[11px] text-[#6e6e73]">{CONTRACT_TYPE_LABELS[contract.contractType || ""] || contract.contractType || "契約"}</span>
         <span className="text-[11px] text-[#6e6e73]">{contract.counterpartyName || "相手先未確認"}</span>
         <span className="text-[11px] font-medium text-[#1d1d1f]">{joinKnown([textTerm(contract.status), textTerm(contract.signatureStatus)], "状態未確認")}</span>
+        {contract.documentUrl && (
+          <a
+            href={contract.documentUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[11px] font-medium text-[#0071e3] underline underline-offset-2 hover:text-[#0058b8]"
+          >
+            契約書を開く ↗
+          </a>
+        )}
       </div>
       <dl className={`grid border-t border-[#ededf0] bg-[#fafafa] md:grid-cols-2 ${contractGridClass(blocks.length)}`}>
         {blocks.map((block) => (
