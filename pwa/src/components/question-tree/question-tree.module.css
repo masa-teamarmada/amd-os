@@ -1,7 +1,10 @@
 /* 問いの木。配色トークンは weekly-control.module.css と同じものを使う。
    カードのグリッドは項目数がばらついて空白を生むので、全体を密なリストで組む。 */
 
-.page {
+/* .backdrop は createPortal で document.body 直下へ出るので .page の子孫にならない。
+   変数をここで一緒に定義しないと、モーダルの地色や文字色が未定義になって透ける。 */
+.page,
+.backdrop {
   --amd-action: #027fdc;
   --amd-action-strong: #0267b2;
   --amd-action-soft: #e8f3fc;
@@ -20,11 +23,14 @@
   --red-soft: #fee2e2;
   --violet: #6d28d9;
   --violet-soft: #f3f0ff;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.page {
   min-height: 100vh;
   padding: 14px 16px 28px;
   background: linear-gradient(180deg, #eef7fd 0, #f5f7fa 180px, var(--paper) 420px);
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
   overflow-x: clip;
 }
 
@@ -119,9 +125,41 @@
 .meta { font-size: 11px; color: var(--quiet); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .meta[data-alert="true"] { color: var(--red); font-weight: 700; }
 
-.detail {
-  padding: 10px 14px 14px; background: #fbfcfe; border-top: 1px solid #ececed;
-  display: flex; flex-direction: column; gap: 10px;
+/* 詳細は行の下へ展開せず、重畳モーダルで開く
+   （まさ 2026-09-10「トグルで開くんじゃなくてモーダルにしてくれた方が分かりやすい」）。 */
+.backdrop {
+  position: fixed; inset: 0; z-index: 60; background: rgba(15, 23, 42, .45);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 40px 20px; overflow-y: auto;
+}
+.panel {
+  width: min(960px, 100%); display: flex; flex-direction: column;
+  max-height: calc(100vh - 80px);
+  border: 1px solid var(--line); border-radius: 12px; background: var(--sheet);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, .28);
+}
+.panelHead {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+  padding: 13px 16px; border-bottom: 1px solid var(--line);
+  background: var(--sheet); border-radius: 12px 12px 0 0;
+}
+.panelTitle { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.panelTitle h3 { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.5; }
+.panelEyebrow { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; }
+.crumb {
+  max-width: 260px; padding: 1px 6px; border: 1px solid var(--line); border-radius: 4px;
+  background: #fff; color: var(--quiet); font-size: 10px; font-weight: 700; cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.crumb:hover { border-color: var(--amd-action-line); color: var(--amd-action-strong); }
+.crumb::after { content: " ›"; }
+.panelClose {
+  flex: none; width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 6px;
+  background: #fff; color: var(--muted); font-size: 15px; line-height: 1; cursor: pointer;
+}
+.panelClose:hover { border-color: var(--amd-action-line); color: var(--amd-action-strong); }
+.panelBody {
+  padding: 12px 16px 16px; display: flex; flex-direction: column; gap: 11px; overflow-y: auto;
 }
 .detailGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
 .field { display: flex; flex-direction: column; gap: 2px; }

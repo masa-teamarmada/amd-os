@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
+import { useModalContainment } from "@/components/project-workspace/useModalContainment";
 import {
   ACTION_STATUS_LABEL,
   FINDING_KIND_LABEL,
@@ -133,6 +135,12 @@ export function QuestionTreeView({
     setError(null);
   }, []);
 
+  const closeDetail = useCallback(() => {
+    setSelectedId(null);
+    setFormKind(null);
+    setError(null);
+  }, []);
+
   const send = useCallback(
     async (method: "POST" | "PATCH" | "DELETE", body: Record<string, unknown>) => {
       setBusy(true);
@@ -249,6 +257,18 @@ export function QuestionTreeView({
     [projectId, send],
   );
 
+  const selectedNode = selectedId ? questionById.get(selectedId) ?? null : null;
+  const panelRef = useRef<HTMLElement | null>(null);
+
+  // 背面のスクロールとfocusを止める。詳細は行の下へ展開せず、必ずこのモーダルで開く
+  // （まさ 2026-09-10「トグルで開くんじゃなくてモーダルにしてくれた方が分かりやすい」）。
+  useModalContainment({
+    dialogRef: panelRef,
+    initialFocusRef: panelRef,
+    onClose: closeDetail,
+    active: Boolean(selectedNode),
+  });
+
   // 以降は bundle が確定してから。hooks はすべてこの上で呼び終えている。
   if (!bundle) {
     return (
@@ -272,6 +292,19 @@ export function QuestionTreeView({
 
   const { counts, looseActions, canManage } = bundle;
 
+  /** 根からこの問いまでの道。モーダルで文脈を見失わないために出す。 */
+  const ancestorsOf = (node: QuestionNode): QuestionNode[] => {
+    const trail: QuestionNode[] = [];
+    let cursor = node.parentId;
+    while (cursor) {
+      const parent = questionById.get(cursor);
+      if (!parent) break;
+      trail.unshift(parent);
+      cursor = parent.parentId;
+    }
+    return trail;
+  };
+
   const renderAction = (action: ActionNode) => (
     <div className={styles.item} key={action.id}>
       <span className={styles.itemKind} data-kind={action.actionKind}>
@@ -288,12 +321,12 @@ export function QuestionTreeView({
     </div>
   );
 
-  const renderDetail = (node: QuestionNode) => {
+  const renderDetailBody = (node: QuestionNode) => {
     const derived = node.derivedQuestionIds
       .map((id) => questionById.get(id))
       .filter((item): item is QuestionNode => Boolean(item));
     return (
-      <div className={styles.detail}>
+      <div className={styles.panelBody}>
         <div className={styles.detailGrid}>
           <div className={styles.field}>
             <span>状態</span>
@@ -602,7 +635,6 @@ export function QuestionTreeView({
             {node.openMeasureCountDeep > 0 ? ` / 確認${node.openMeasureCountDeep}` : ""}
           </span>
         </div>
-        {isSelected && renderDetail(node)}
         {isOpen && hasChildren && node.children.map(renderNode)}
       </div>
     );
@@ -669,6 +701,63 @@ export function QuestionTreeView({
           </section>
         )}
       </div>
+
+      {selectedNode &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className={styles.backdrop}
+            role="presentation"
+            data-modal-layer="question-tree-detail"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) closeDetail();
+            }}
+          >
+            <section
+              ref={panelRef}
+              tabIndex={-1}
+              role="dialog"
+              aria-modal="true"
+              aria-label={`${selectedNode.title} の詳細`}
+              className={styles.panel}
+            >
+              <header className={styles.panelHead}>
+                <div className={styles.panelTitle}>
+                  <div className={styles.panelEyebrow}>
+                    {/* どの問いの下の話なのかを、開いた先でも見失わないようにする */}
+                    {ancestorsOf(selectedNode).map((ancestor) => (
+                      <button
+                        type="button"
+                        className={styles.crumb}
+                        key={ancestor.id}
+                        onClick={() => select(ancestor.id)}
+                        title={ancestor.title}
+                      >
+                        {ancestor.title}
+                      </button>
+                    ))}
+                    {selectedNode.contribution && (
+                      <span className={styles.chip} data-kind={selectedNode.contribution}>
+                        {CONTRIBUTION_LABEL[selectedNode.contribution]}
+                      </span>
+                    )}
+                    {selectedNode.questionKind === "decision" && (
+                      <span className={styles.chip} data-kind="decision">
+                        決める
+                      </span>
+                    )}
+                  </div>
+                  <h3>{selectedNode.title}</h3>
+                </div>
+                <button type="button" className={styles.panelClose} onClick={closeDetail} aria-label="閉じる">
+                  ×
+                </button>
+              </header>
+              {renderDetailBody(selectedNode)}
+            </section>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
