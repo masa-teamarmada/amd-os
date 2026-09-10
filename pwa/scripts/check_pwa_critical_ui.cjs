@@ -3916,16 +3916,28 @@ expectNotIncludes(
 // 上への抜き出しはしない（どの問いのどの部分か読めなくなる）。手を打つべき行は
 // 木の中で強調し、詳細は必ずモーダルで開く。
 expectIncludes("src/components/question-tree/QuestionTreeView.tsx", [
-  "答えを書いて閉じる",
-  "子の問いを足す",
-  "やることを足す",
-  "分かったことを足す",
-  "この枝は追わない",
+  // ボタンは4つだけ。種類ごとに増やさない (まさ 2026-09-10「ボタンが無駄に増えると
+  // UXがどんどん悪くなる」)。子の種類はフォームの中で選ぶ。
+  "解決にする",
+  "子を追加",
+  "根拠を追加",
+  "取り下げ",
+  'name="child_kind"',
+  // やることも木の子として出す (まさ 2026-09-10「TODOがあるならその論点の子として
+  // 追加しないとじゃないの?」)。モーダルの別欄へ隔離しない。
+  "renderActionRow",
+  // 階層は罫線で示し、状態の色はその行の階層位置へ置く
+  "renderRail",
+  'data-parent={hasChildren ? "true" : undefined}',
   "useModalContainment",
   "createPortal",
   'role="dialog"',
   "ancestorsOf",
   "needsAttention",
+]);
+expectNotIncludes("src/components/question-tree/QuestionTreeView.tsx", [
+  // 画面に「問いの木」という名前は出さない (まさ 2026-09-10「いらない」)
+  "<h2>問いの木</h2>",
 ]);
 expectNotIncludes("src/components/question-tree/QuestionTreeView.tsx", [
   "次につぶすべき問い",
