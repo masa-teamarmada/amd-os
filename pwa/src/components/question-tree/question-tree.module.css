@@ -66,17 +66,6 @@
 .sectionHead h2 { margin: 0; font-size: 12px; font-weight: 700; }
 .sectionHead span { font-size: 11px; color: var(--quiet); }
 
-.nextList { display: flex; flex-direction: column; }
-.nextRow {
-  display: grid; grid-template-columns: 92px 1fr 132px 88px; align-items: center; gap: 10px;
-  padding: 7px 14px; border-bottom: 1px solid #ececed; font-size: 12px; text-align: left;
-  width: 100%; background: none; border-left: 0; border-right: 0; border-top: 0; cursor: pointer;
-}
-.nextRow:last-child { border-bottom: 0; }
-.nextRow:hover { background: var(--amd-action-soft); }
-.nextTitle { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.nextMeta { font-size: 11px; color: var(--quiet); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
 .tree { display: flex; flex-direction: column; }
 
 .node { border-bottom: 1px solid #ececed; }
@@ -85,7 +74,17 @@
 .row {
   display: grid; grid-template-columns: 1fr 150px 96px 116px; align-items: center; gap: 10px;
   width: 100%; padding: 7px 14px 7px 0; background: none; border: 0; cursor: pointer; text-align: left;
+  border-left: 3px solid transparent;
 }
+
+/* 手を打つべき行は木の中で目立たせる。上に抜き出すと、それがどの問いの
+   どの部分なのかが読めなくなる（まさ 2026-09-10）。左の線と地色で示し、
+   親をたどれる位置のまま拾えるようにする。 */
+.row[data-flag="decidable"] { border-left-color: var(--amd-action); background: var(--amd-action-soft); }
+.row[data-flag="stalled"] { border-left-color: var(--amber); background: var(--amber-soft); }
+.row[data-flag="dead_branch"] { border-left-color: var(--red); background: var(--red-soft); }
+.row[data-flag="in_progress"] { border-left-color: var(--red); }
+
 .row:hover { background: #f7fbfe; }
 .row[data-open="true"] { background: var(--amd-action-soft); }
 
@@ -173,8 +172,6 @@
 @media (max-width: 900px) {
   .row { grid-template-columns: 1fr 108px; }
   .row > .meta:nth-last-child(-n+2) { display: none; }
-  .nextRow { grid-template-columns: 84px 1fr; }
-  .nextRow > :nth-child(n+3) { display: none; }
   .item { grid-template-columns: 52px 1fr 84px; }
   .item > :nth-child(n+4) { display: none; }
 }

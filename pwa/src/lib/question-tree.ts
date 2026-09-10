@@ -222,34 +222,6 @@ function flatten(nodes: QuestionNode[]): QuestionNode[] {
   return out;
 }
 
-/**
- * 次につぶすべき問い。spec 3-21 の順。
- * 1. 判断できる  2. 手が止まっている  3. 期限超過  4. あと少しで閉じるもの
- */
-function pickNextUp(questions: QuestionNode[]): QuestionNode[] {
-  const rank = (node: QuestionNode): number => {
-    if (node.state === "decidable") return 0;
-    if (node.state === "stalled") return 1;
-    if (node.isOverdue) return 2;
-    return 3;
-  };
-  return questions
-    .filter((node) => node.status === "open")
-    .sort((a, b) => {
-      const rankDiff = rank(a) - rank(b);
-      if (rankDiff !== 0) return rankDiff;
-      const measureDiff = a.openMeasureCountDeep - b.openMeasureCountDeep;
-      if (measureDiff !== 0) return measureDiff;
-      const dueA = a.nextDueDate;
-      const dueB = b.nextDueDate;
-      if (dueA && dueB && dueA !== dueB) return dueA < dueB ? -1 : 1;
-      if (dueA && !dueB) return -1;
-      if (!dueA && dueB) return 1;
-      return a.title.localeCompare(b.title, "ja");
-    })
-    .slice(0, 12);
-}
-
 export async function getQuestionTreeBundle(
   projectId: string,
   canManage: boolean,
@@ -438,7 +410,6 @@ export async function getQuestionTreeBundle(
       successorActionId: str(row, "successor_action_id"),
     })),
     counts,
-    nextUp: pickNextUp(allQuestions),
     canManage,
     hasData: allQuestions.length > 0 || actions.length > 0,
   };

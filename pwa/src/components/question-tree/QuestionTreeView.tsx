@@ -31,12 +31,34 @@ function fmtDate(value: string | null): string {
   return value ? value.replace(/^\d{2}(\d{2})-/, "$1-") : "—";
 }
 
-/** 最初は根と、根の直下だけ開く。全部たたむと何も見えず、全部開くと読めない。 */
+/** 木の中で目立たせる問い。手を打つべきものだけに絞る。 */
+function needsAttention(node: QuestionNode): boolean {
+  return (
+    node.status === "open" &&
+    (node.state === "decidable" || node.state === "stalled" || node.state === "dead_branch" || node.isOverdue)
+  );
+}
+
+/**
+ * 最初に開いておく枝。
+ * 根と根の直下に加えて、手を打つべき問いへ至る道をすべて開く。
+ * 畳まれたままだと、強調しても目に入らない。
+ */
 function defaultOpenIds(bundle: QuestionTreeBundle | null | undefined): Set<string> {
   const ids = new Set<string>();
-  for (const root of bundle?.roots ?? []) {
+  if (!bundle) return ids;
+  for (const root of bundle.roots) {
     ids.add(root.id);
     for (const child of root.children) ids.add(child.id);
+  }
+  const byId = new Map(bundle.allQuestions.map((node) => [node.id, node]));
+  for (const node of bundle.allQuestions) {
+    if (!needsAttention(node)) continue;
+    let cursor = node.parentId;
+    while (cursor) {
+      ids.add(cursor);
+      cursor = byId.get(cursor)?.parentId ?? null;
+    }
   }
   return ids;
 }
@@ -110,22 +132,6 @@ export function QuestionTreeView({
     setFormKind(null);
     setError(null);
   }, []);
-
-  /** 「次につぶすべき」から飛ぶとき、その行までの親をすべて開く */
-  const reveal = useCallback(
-    (id: string) => {
-      const path: string[] = [];
-      let cursor = questionById.get(id);
-      while (cursor) {
-        path.push(cursor.id);
-        cursor = cursor.parentId ? questionById.get(cursor.parentId) : undefined;
-      }
-      setOpenIds((current) => new Set([...current, ...path]));
-      setSelectedId(id);
-      setFormKind(null);
-    },
-    [questionById],
-  );
 
   const send = useCallback(
     async (method: "POST" | "PATCH" | "DELETE", body: Record<string, unknown>) => {
@@ -264,7 +270,7 @@ export function QuestionTreeView({
     );
   }
 
-  const { counts, nextUp, looseActions, canManage } = bundle;
+  const { counts, looseActions, canManage } = bundle;
 
   const renderAction = (action: ActionNode) => (
     <div className={styles.item} key={action.id}>
@@ -547,7 +553,13 @@ export function QuestionTreeView({
     const hasChildren = node.children.length > 0;
     return (
       <div className={styles.node} key={node.id}>
-        <div className={styles.row} data-open={isSelected ? "true" : undefined} role="presentation">
+        <div
+          className={styles.row}
+          data-open={isSelected ? "true" : undefined}
+          data-flag={needsAttention(node) ? node.state : undefined}
+          data-overdue={node.isOverdue ? "true" : undefined}
+          role="presentation"
+        >
           <div className={styles.rowLead} style={{ paddingLeft: `${14 + node.depth * 18}px` }}>
             <span
               className={styles.twisty}
@@ -630,29 +642,6 @@ export function QuestionTreeView({
             </span>
           </div>
         </header>
-
-        {nextUp.length > 0 && (
-          <section className={styles.section}>
-            <div className={styles.sectionHead}>
-              <h2>次につぶすべき問い</h2>
-              <span>判断できるもの、手が止まっているもの、期限を過ぎたものの順</span>
-            </div>
-            <div className={styles.nextList}>
-              {nextUp.map((node) => (
-                <button type="button" className={styles.nextRow} key={node.id} onClick={() => reveal(node.id)}>
-                  <span className={styles.state} data-state={node.state}>
-                    {QUESTION_STATE_LABEL[node.state]}
-                  </span>
-                  <span className={styles.nextTitle}>{node.title}</span>
-                  <span className={styles.nextMeta}>{node.ownerLabel}</span>
-                  <span className={styles.nextMeta} data-alert={node.isOverdue ? "true" : undefined}>
-                    {node.nextDueDate ? fmtDate(node.nextDueDate) : "期限なし"}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
 
         <section className={styles.section}>
           <div className={styles.sectionHead}>

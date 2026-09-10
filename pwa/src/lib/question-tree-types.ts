@@ -164,8 +164,6 @@ export type QuestionTreeBundle = {
     actions: number;
     openMeasures: number;
   };
-  /** 次につぶすべき問い。並び順は spec 3-21 の定義どおり */
-  nextUp: QuestionNode[];
   canManage: boolean;
   hasData: boolean;
 };
