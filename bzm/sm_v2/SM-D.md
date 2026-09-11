@@ -63,9 +63,10 @@ any of these scores were computed**; the hashes and the commit are in SM-G. Appl
 items relative to the earlier attempt, in both directions: a burn rate whose source turned out to be a
 board paper's cash-flow table returned to the record side, while two projects' cash positions, whose
 only source was a verbal estimate, moved to the default side. The effect came out *smaller* than under
-the flawed classification — the maximum ratio fell from ×85.7 to ×88.2 in the tail but the count of
-projects moving by a factor of two fell from five to four, and the rank correlation rose from 0.895 to
-0.933 — which is the direction a genuine correction should move a result that had been inflated.
+the flawed classification — the count of projects moving by a factor of two fell from five to four
+and the rank correlation rose from 0.895 to 0.933, while the largest single ratio rose from ×85.7 to
+×88.2 — the middle of the distribution tightened and the outermost tail, a single out-of-domain project,
+moved further — which is the direction a genuine correction should move a result that had been inflated.
 
 **Cross-check.** The classification was made by reading each input's recorded justification, not by
 trusting a source tag. Three cases were re-checked against the raw justification text and all three
@@ -113,7 +114,7 @@ Aggregated by layer, the asymmetry that §7.3 reports is visible directly:
 | Outside the domain | 1 | ×88.18 | ×88.18 | 1 | 1 down, 0 up |
 
 The main sample is where the framework is meant to be used and is also where the exercise has no
-power: only four of the six had any input outside the record at all, and only one of those was
+power: only three of the six had any input outside the record at all, and only one of those was
 financial. The design could not have detected there the effect it detected among incorporated
 projects, and §7.3 reports that as a limitation rather than as a null result.
 
@@ -165,7 +166,7 @@ not a use it can reach. Nothing else about the project changed in that revision.
 
 The project's rank in the ledger fell from eighth to fifteenth across the same revision, but five other
 projects had inputs corrected in it, so that movement is not attributable to the ceiling alone and we do
-not report it as such. The ceiling and the score are single-project, single-cause and are.
+not report it as such. The ceiling and the score above are single-project and single-cause, and are reported as the effect; the rank is not.
 
 The score moves by more than the ceiling does, which is the second channel of §7.7 showing up in a
 real case: the ceiling also sets the economics multiplier that raises the award hazard, so narrowing

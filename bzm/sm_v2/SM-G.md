@@ -64,7 +64,7 @@ organizational observation exists; projects without one keep the population defa
 evangelist function and appears as $e$. The eighth slot is an extension reserved for volume-production
 functions and is empty at this version.
 
-| ID | Sector momentum $\sigma$ | Evangelist fill $ | Appropriability $\kappa_{\mathrm{IP}}$ | Conversion capacity $ | Quiet period (months) | $ | $ | $ | $ | $ | $ | Net annual ceiling |
+| ID | Sector momentum $\sigma$ | Evangelist fill $e$ | Appropriability $\kappa_{\mathrm{IP}}$ | Conversion capacity $c$ | Quiet period (months) | $f_2$ | $f_3$ | $f_4$ | $f_5$ | $f_6$ | $f_7$ | Net annual ceiling |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | A | 1 | 0.8 | 0.55 | 1.5 | 0 | — | — | — | — | — | — | 98796.2 |
 | B | 1 | 0.6 | 0.55 | 1 | 1 | — | — | — | — | — | — | 26880 |
