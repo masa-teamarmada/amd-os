@@ -731,3 +731,23 @@ migration `20260910170000_question_tree.sql`（土台）/ `20260910171000_questi
 - 正規checkoutは50件以上behind・別セッションのdirty38件のため、使い捨てクリーンクローンから全commitをpushした（すべて `[skip ci]`。本番の設計書ページには次の通常デプロイから載る）。
 - 同日、別セッションが同じ領域（問いの木の提案受け皿・書き漏らし検出）を動かしており、pushの直前に2回 origin が先に進んだ。`HEAD..origin/main` の中身を読んでから自分の1commitを載せ替えた。
 - 設計相談の進め方の教訓（診断→骨格の合意→詳細→判断点の順）は memory に残した。
+
+## 2026-09-11 関西大(KNS)・香川大(KGW)の機関PJ化と、PJ概要からの契約書リンク
+
+### やったこと
+
+- 関西大学を機関PJ化した。`inst_kansai` を institutions へ、`KNS`/`p35` を projects へ（ecosystem、学校法人関西大学、start_ym 202609）、`institution_projects` で紐づけて「シーズリスト」タブを出した。小金沢新治先生と山本真人先生のシーズ2件に `institution_id` を入れ、小金沢シーズは `activate_seed_commercialization` RPC でシーズ事業化PJ `seed-35805f95-315c9100` を作った。
+- 香川大学も同じ形で `KGW`/`p36` を作った（`inst_kagawa` は既存）。下川房男先生の「植物生体情報センシング」は既に VasculaX(p26) へ紐づいていたので、シーズリストからそのままPJコックピットへ行ける。
+- 秘密保持契約書（関西大学）を契約台帳へ登録した。2025-10-28にAMDが押印して郵送、10-30に大学が学内決裁へ回付したところで記録が切れており、押印版がDriveにもメールにも無い。`status=stalled`、締結日・満了日はnullのまま残した。`contract_documents` には押印前のクリーン版を1件。
+- **PJ概要の契約カードから契約書そのものを開けるようにした**（commit `00e86a38`、deploy済み）。`ProjectCurrentContract.documentUrl` を足し、カード見出しへ「契約書を開く」を出す。仕様は [2-3-pj-cockpit.md](../manual/2-3-pj-cockpit.md) と [5-6-contracts-management-current-spec.md](../spec/5-6-contracts-management-current-spec.md)。
+- 小金沢シーズの経緯を `seed_contact_log` 16件として入れた（2025-09-18の初回オンライン面談から2026-09-04の見積送付まで）。2025年度KSACの不採択は既存の `seed_funding` 行へ統合した（下のBUGS参照）。
+
+### 分かったこと
+
+- 2025年度KSACの不採択通知は **2025-12-25**（一次の書面審査、理由は非開示）。ファイル名にある2026年3月は不採択コメントを受領した時期であって、不採択の連絡そのものではない。
+- 2026-08-10の「本年度も申請したい」という連絡は、事業化支援機関を前回同様 Archetype Ventures へ依頼したいという相談だった。まさは「再打診の前に、不採択を踏まえた改善内容を確認したい」と返しており、この件は未決着。
+
+### 手順の記録
+
+- 正規checkoutが40件behind・別セッションのdirtyありだったため、使い捨てクリーンクローンからcommit・push・deployした。deployは `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`、2分27秒でReady。
+- projects への新規PJ追加はmigrationの前例が無く、SQL直接投入が実運用（管理画面に新規作成UIは無い）。

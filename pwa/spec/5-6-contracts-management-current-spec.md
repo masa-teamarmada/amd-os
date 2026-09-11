@@ -299,6 +299,12 @@ cron が機能するには、対象 PJ の契約が Contract Apply 済みであ�
 >
 > ⚠️ **過去の監査ミス記録 (2026-06-18)**: 当初このセッションで p19 ZMP の ¥300,000 を「単発/契約書根拠なし → apply 保留」と誤認した。原因は、過去セッションが既に抽出して DB に反映済みの 2 契約構造を、コード/source_cache 探索で再発見しようとしたこと ([feedback_read_spec_before_exploring_code] / [feedback_findings_must_become_docs] の典型的失敗)。**自分や過去のえいみが作った仕組みは、コード探索で再発見せず正本 doc / 抽出履歴を先に確認する**。
 
+## PJ概要からの契約書リンク (2026-09-11)
+
+`projects.contract_terms_json.currentContracts[].documentUrl` に契約書の Drive webViewLink を入れると、PJコックピットの `PJ概要` タブの契約カード見出しへ `契約書を開く` が出る (`CockpitProjectOverview.tsx`)。値が無ければ何も出さない。
+
+リンク先の閲覧可否はDrive側の権限で決まるため、この表示は「契約書はPJ member read へ開かない」という本仕様の境界を変えない。契約書ファイルの版管理は `contract_documents` を正本とし、`documentUrl` にはそのうち現行版を指す1本だけを置く。
+
 ## Verification
 
 - `npx tsc --noEmit --pretty false`
