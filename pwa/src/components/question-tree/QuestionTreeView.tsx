@@ -238,6 +238,8 @@ export function QuestionTreeView({
   const [loadFailed, setLoadFailed] = useState<string | null>(null);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [goalFormOpen, setGoalFormOpen] = useState(false);
+  /** 「消す」を押した行。同じ場所で2段階目を出すため、idで持つ */
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   // ---- ガント ------------------------------------------------------------
   /** 横軸の実px幅。日数→pxの換算に使う */
@@ -514,6 +516,63 @@ export function QuestionTreeView({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [depDraft]);
+
+  /**
+   * 木から消す。取り下げ（`status='dropped'`、取り消し線で残す）とは別の操作で、
+   * 論点でも仮説でもやることでもないものを木から外すために使う（まさ 2026-09-11
+   * 「論点でも仮説でもタスクでもないものは全部消す」「取り消し線になるだけで消せない」）。
+   * 入口は詳細の末尾、同じ場所で2段階確認、第2モーダルは開かない（3-16 の作法）。
+   * 実体は論理削除なので、間違えても復元できる。
+   */
+  const renderDeleteAction = (
+    resource: "question" | "action",
+    id: string,
+    blocked: boolean,
+    blockedReason: string,
+  ) => {
+    if (!canManage) return null;
+    if (blocked) {
+      return <span className={styles.deleteBlocked}>{blockedReason}</span>;
+    }
+    if (confirmDeleteId !== id) {
+      return (
+        <button
+          type="button"
+          className={styles.btn}
+          data-variant="danger"
+          onClick={() => setConfirmDeleteId(id)}
+        >
+          消す
+        </button>
+      );
+    }
+    return (
+      <span className={styles.deleteConfirm}>
+        <span>木から消す？</span>
+        <button
+          type="button"
+          className={styles.btn}
+          data-variant="danger"
+          disabled={busy}
+          onClick={async () => {
+            const ok = await send("DELETE", { resource, id });
+            setConfirmDeleteId(null);
+            if (ok) closeDetail();
+          }}
+        >
+          消す
+        </button>
+        <button
+          type="button"
+          className={styles.btn}
+          data-variant="quiet"
+          onClick={() => setConfirmDeleteId(null)}
+        >
+          やめる
+        </button>
+      </span>
+    );
+  };
 
   /** 到達点は親を持たないので、木の頭の導線から直接足す。 */
   const addGoal = useCallback(
@@ -1208,6 +1267,15 @@ export function QuestionTreeView({
         {renderInline("action", action.id, "完了の証跡", "done_evidence", action.doneEvidence, action.doneEvidence ?? "", "multiline")}
         {renderInline("action", action.id, "詰まっていること", "blocker", action.blocker, action.blocker ?? "", "multiline")}
 
+        <div className={styles.actions}>
+          {renderDeleteAction(
+            "action",
+            action.id,
+            action.children.length > 0,
+            "このやることの下に子があるから消せないよ。先に子を動かすか消してね",
+          )}
+        </div>
+
         {owners.length > 0 && (
           <div>
             <div className={styles.subHead}>これが答えを出す論点（{owners.length}）</div>
@@ -1380,6 +1448,10 @@ export function QuestionTreeView({
                 取り下げ
               </button>
             )}
+            {/* 取り下げ（取り消し線で残す）と削除（木から消す）は別。論点でも仮説でも
+                やることでもないものは、取り消し線で残すのではなく消す（まさ 2026-09-11）。
+                入口は詳細の末尾、同じ場所で2段階確認、第2モーダルは開かない（3-16 の作法）。 */}
+            {renderDeleteAction("question", node.id, node.children.length > 0, "この論点の下に子があるから消せないよ。先に子を動かすか消してね")}
           </div>
         )}
 

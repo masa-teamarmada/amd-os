@@ -315,6 +315,11 @@ button.stat:disabled { cursor: default; }
 .btn[data-variant="primary"] { border-color: var(--amd-action); background: var(--amd-action); color: #fff; }
 .btn[data-variant="primary"]:hover { background: var(--amd-action-strong); }
 .btn[data-variant="quiet"] { border-color: var(--line); color: var(--muted); }
+/* 消す。取り下げ（取り消し線で残す）と見分けがつくように、色を分ける */
+.btn[data-variant="danger"] { border-color: #fca5a5; color: #991b1b; }
+.btn[data-variant="danger"]:hover:not(:disabled) { background: var(--red-soft); }
+.deleteConfirm { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: #991b1b; }
+.deleteBlocked { font-size: 11px; color: var(--quiet); }
 .btn:disabled { opacity: .5; cursor: default; }
 
 .form { display: flex; flex-direction: column; gap: 7px; padding: 9px; border: 1px solid var(--amd-action-line); border-radius: 6px; background: #fff; }
