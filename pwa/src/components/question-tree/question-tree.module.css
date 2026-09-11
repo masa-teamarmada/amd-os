@@ -157,6 +157,13 @@
 .chip[data-kind="decision"] { border-color: #fbbf24; background: var(--amber-soft); color: #92400e; }
 .chip[data-kind="measure"] { border-color: var(--amd-action-line); background: var(--amd-action-soft); color: var(--amd-action-strong); }
 .chip[data-kind="work"] { border-color: var(--line); background: #fff; color: var(--quiet); }
+/* 到達点とMSは木の骨格。判定の色（青＝判断できる / 黄 / 赤）とは別の系統にして、
+   色の意味を増やさずに階層だけを濃さで示す。 */
+.chip[data-kind="goal"] { border-color: var(--ink); background: var(--ink); color: #fff; }
+.chip[data-kind="milestone"] { border-color: var(--muted); background: #fff; color: var(--muted); }
+.chip[data-kind="pt"] { border-color: #a7d7c5; background: var(--green-soft); color: var(--green); }
+/* 未アサインは件数が多く出る。気づける程度に留め、警告色にはしない。 */
+.chip[data-kind="unassigned"] { border-color: var(--line); background: var(--paper); color: var(--quiet); font-weight: 400; }
 
 .state {
   display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 999px;
@@ -284,6 +291,24 @@
 }
 .form textarea { min-height: 62px; resize: vertical; line-height: 1.6; }
 .form input:focus, .form select:focus, .form textarea:focus { outline: 2px solid var(--amd-action-line); outline-offset: -1px; }
+
+.formActions { display: flex; gap: 6px; }
+
+/* 到達点を足す導線。木のいちばん上に1つだけ置く。 */
+.goalAdd { display: flex; flex-direction: column; gap: 7px; padding: 8px 9px; border-bottom: 1px solid var(--line); }
+
+/* TODOの担当。押した瞬間に付け外しするので、保存ボタンを持たない。 */
+.ownerPicker { display: flex; flex-direction: column; gap: 4px; padding: 7px 0; }
+.ownerPickerLabel { font-size: 10px; font-weight: 700; color: var(--quiet); }
+.ownerChips { display: flex; flex-wrap: wrap; gap: 4px; }
+.ownerChip {
+  min-height: 26px; padding: 0 9px; border: 1px solid var(--line); border-radius: 999px;
+  background: #fff; color: var(--muted); font-size: 11px; font-weight: 700; cursor: pointer;
+}
+.ownerChip:hover:not(:disabled) { border-color: var(--amd-action-line); background: var(--amd-action-soft); }
+.ownerChip[data-on="true"] { border-color: var(--amd-action); background: var(--amd-action); color: #fff; }
+.ownerChip:disabled { opacity: .5; cursor: default; }
+.ownerEmpty { font-size: 11px; color: var(--quiet); }
 
 .notice { padding: 7px 10px; border: 1px solid #fca5a5; border-radius: 5px; background: var(--red-soft); color: #991b1b; font-size: 11px; }
 .hint { font-size: 11px; color: var(--quiet); line-height: 1.6; }

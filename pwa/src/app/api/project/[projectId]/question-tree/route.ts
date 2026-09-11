@@ -5,13 +5,22 @@ import { getQuestionTreeBundle } from "@/lib/question-tree";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
- * 問いの木の読み書き。正本は pwa/spec/3-21-question-tree-current-spec.md。
+ * ゴールツリーの読み書き。正本は pwa/spec/3-21-question-tree-current-spec.md と
+ * pwa/spec/3-22-goal-tree-plan.md（到達点・MS・ptの型）。
  * clientからDBへ直接書かず、必ずここを通す。
  */
 
 const NO_STORE = { "Cache-Control": "no-store, max-age=0" } as const;
 
-type Resource = "question" | "action" | "finding" | "question_action" | "question_finding" | "dependency";
+type Resource =
+  | "question"
+  | "action"
+  | "finding"
+  | "question_action"
+  | "question_finding"
+  | "dependency"
+  | "action_owner"
+  | "question_milestone";
 
 const TABLE: Record<Resource, string> = {
   question: "project_questions",
@@ -20,6 +29,8 @@ const TABLE: Record<Resource, string> = {
   question_action: "project_question_actions",
   question_finding: "project_question_findings",
   dependency: "project_action_dependencies",
+  action_owner: "project_action_owners",
+  question_milestone: "project_question_milestones",
 };
 
 /** 画面から更新してよい列。導出値と監査列はここに含めない。 */
@@ -34,6 +45,9 @@ const EDITABLE: Record<Resource, string[]> = {
     "planned_start", "planned_end", "actual_end", "date_certainty", "progress_pct",
     "blocker", "done_criteria", "done_evidence", "target", "actual", "unit",
     "origin_question_id", "sort_order",
+    // 見積ptはアサインのときにPMが付ける。確定ptは検収（Phase 2）で入る。
+    // accept_state は担当の付け外しに連動するので画面から直接は書かない。
+    "estimated_pt", "accepted_pt",
   ],
   finding: [
     "summary", "finding_kind", "observed_on", "source_label", "source_url",
@@ -42,6 +56,8 @@ const EDITABLE: Record<Resource, string[]> = {
   question_action: ["question_id", "action_id"],
   question_finding: ["question_id", "finding_id"],
   dependency: ["predecessor_action_id", "successor_action_id"],
+  action_owner: ["action_id", "member_id"],
+  question_milestone: ["question_id", "milestone_id"],
 };
 
 const REQUIRED_ON_CREATE: Record<Resource, string[]> = {
@@ -51,10 +67,15 @@ const REQUIRED_ON_CREATE: Record<Resource, string[]> = {
   question_action: ["question_id", "action_id"],
   question_finding: ["question_id", "finding_id"],
   dependency: ["predecessor_action_id", "successor_action_id"],
+  action_owner: ["action_id", "member_id"],
+  question_milestone: ["question_id", "milestone_id"],
 };
 
 /** リンクは実体を持たないので論理削除しない。 */
 const SOFT_DELETABLE: Resource[] = ["question", "action", "finding"];
+
+/** pt は小数1桁。負は入れない（3-22 §6 原則6）。 */
+const PT_FIELDS = new Set(["estimated_pt", "accepted_pt"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -112,6 +133,13 @@ function sanitize(resource: Resource, input: Record<string, unknown>): Record<st
       out[key] = Math.round(parsed);
       continue;
     }
+    if (PT_FIELDS.has(key)) {
+      const parsed = Number(value);
+      if (!Number.isFinite(parsed) || parsed < 0) throw new Error("ptは0以上の数で入れてね");
+      if (parsed > 9999) throw new Error("ptが大きすぎるよ");
+      out[key] = Math.round(parsed * 10) / 10;
+      continue;
+    }
     if (typeof value !== "string") throw new Error(`${key} の形が違うよ`);
     const trimmed = value.trim();
     out[key] = trimmed === "" ? null : trimmed;
@@ -144,6 +172,55 @@ function assertQuestionRules(fields: Record<string, unknown>, existing?: Record<
   }
   if (!parentId && contribution) {
     throw new Error("根の問いに「必須／代替」は付かないよ");
+  }
+}
+
+/**
+ * 到達点とMSの置き場所（3-22 §3）。DBのtriggerでも同じ検査をするが、
+ * 画面へ日本語で理由を返すためにここで先に止める。
+ */
+async function assertGoalTreePlacement(
+  db: ReturnType<typeof createAdminClient>,
+  projectId: string,
+  fields: Record<string, unknown>,
+  existing?: Record<string, unknown>,
+) {
+  const kind = (fields.question_kind ?? existing?.question_kind ?? "open") as string;
+  const parentId = (fields.parent_id ?? existing?.parent_id ?? null) as string | null;
+
+  if (kind === "goal" && parentId) {
+    throw new Error("到達点は木のいちばん上にしか置けないよ");
+  }
+  if (kind === "milestone") {
+    if (!parentId) throw new Error("MSは到達点の直下に置いてね");
+    const { data: parent, error } = await db
+      .from("project_questions")
+      .select("question_kind")
+      .eq("id", parentId)
+      .eq("project_id", projectId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!parent) throw new Error("親の問いを見つけられなかったよ");
+    if ((parent as { question_kind?: string }).question_kind !== "goal") {
+      throw new Error("MSの親は到達点だけだよ");
+    }
+  }
+
+  // 到達点をやめるときは、直下にMSが残っていないこと。残すとMSが宙に浮く。
+  const wasGoal = existing?.question_kind === "goal";
+  if (wasGoal && kind !== "goal") {
+    const { count, error } = await db
+      .from("project_questions")
+      .select("id", { count: "exact", head: true })
+      .eq("parent_id", existing?.id as string)
+      .eq("project_id", projectId)
+      .eq("question_kind", "milestone")
+      .is("deleted_at", null);
+    if (error) throw new Error(error.message);
+    if ((count ?? 0) > 0) {
+      throw new Error(`直下にMSが${count}件あるよ。先にMSを動かしてね`);
+    }
   }
 }
 
@@ -288,12 +365,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (resource === "action") assertActionRules(fields);
 
     const db = createAdminClient();
+    if (resource === "question") await assertGoalTreePlacement(db, projectId, fields);
     const insert: Record<string, unknown> = { ...fields, project_id: projectId };
     if (SOFT_DELETABLE.includes(resource)) {
       insert.last_verified_at = todayJst();
       insert.origin_kind = insert.origin_kind ?? "manual";
       insert.created_by = context.access.memberId ?? null;
       insert.updated_by = context.access.memberId ?? null;
+    }
+    if (resource === "action_owner" || resource === "question_milestone") {
+      insert.created_by = context.access.memberId ?? null;
     }
 
     const { data, error } = await db.from(TABLE[resource]).insert(insert).select("id").single();
@@ -339,6 +420,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     if (resource === "question") assertQuestionRules(fields, existing as Record<string, unknown>);
     if (resource === "action") assertActionRules(fields, existing as Record<string, unknown>);
+    if (resource === "question") {
+      await assertGoalTreePlacement(db, projectId, fields, existing as Record<string, unknown>);
+    }
 
     // 答えを書いた時点で、日付と書いた人を自動で残す。人に二度入力させない。
     if (resource === "question" && fields.status === "answered") {
@@ -406,6 +490,17 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       // 親を消しても子は残す。ただし親から見た役割は意味を失うので、
       // 子を根へ上げて印を外す。子ごと道連れにしない。
       if (resource === "question") {
+        // 到達点を消すと直下のMSは根へ上がるが、MSは到達点の直下にしか置けない。
+        // 種類を論点へ戻してから上げる（消さずに残す、を優先する）。
+        const { error: demoteError } = await db
+          .from("project_questions")
+          .update({ question_kind: "open" })
+          .eq("parent_id", id)
+          .eq("project_id", projectId)
+          .eq("question_kind", "milestone")
+          .is("deleted_at", null);
+        if (demoteError) throw new Error(demoteError.message);
+
         const { error: orphanError } = await db
           .from("project_questions")
           .update({ parent_id: null, contribution: null })

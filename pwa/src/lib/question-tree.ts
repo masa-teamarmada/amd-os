@@ -2,7 +2,9 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import type {
+  AcceptState,
   ActionNode,
+  ActionOwner,
   ActionStatus,
   ProposalNode,
   Confidence,
@@ -10,6 +12,7 @@ import type {
   FindingKind,
   FindingNode,
   OriginKind,
+  QuestionKind,
   QuestionNode,
   QuestionState,
   QuestionStatus,
@@ -56,6 +59,22 @@ function asOriginKind(value: unknown): OriginKind {
   return value === "meeting" || value === "automation" || value === "migrated" ? value : "manual";
 }
 
+function asQuestionKind(value: unknown): QuestionKind {
+  return value === "decision" || value === "goal" || value === "milestone" ? value : "open";
+}
+
+function asAcceptState(value: unknown): AcceptState {
+  return value === "assigned" || value === "accepted" || value === "negotiating" ? value : "unassigned";
+}
+
+/** numeric は driver によって文字列で届く。pt は小数1桁なので数に戻して扱う。 */
+function nullableNum(row: RawRow, key: string): number | null {
+  const value = row[key];
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -85,7 +104,7 @@ function isActionOpen(action: ActionNode): boolean {
   return ACTION_OPEN_STATUSES.includes(action.status);
 }
 
-function mapAction(row: RawRow, questionIds: string[]): ActionNode {
+function mapAction(row: RawRow, questionIds: string[], owners: ActionOwner[]): ActionNode {
   const status = (row.status as ActionStatus) || "unassessed";
   const plannedEnd = nullableStr(row, "planned_end");
   const today = todayIso();
@@ -119,6 +138,14 @@ function mapAction(row: RawRow, questionIds: string[]): ActionNode {
     findings: [],
     isOverdue:
       ACTION_OPEN_STATUSES.includes(status) && Boolean(plannedEnd) && (plannedEnd as string) < today,
+    estimatedPt: nullableNum(row, "estimated_pt"),
+    acceptedPt: nullableNum(row, "accepted_pt"),
+    acceptState: asAcceptState(row.accept_state),
+    owners,
+    // 会議中はタイトルだけで足せる（3-22 §4）。担当か期限のどちらかが空なら、
+    // まだアサインが済んでいない。終わった仕事は対象にしない。
+    isUnassigned:
+      ACTION_OPEN_STATUSES.includes(status) && (owners.length === 0 || !plannedEnd),
   };
 }
 
@@ -235,23 +262,28 @@ export async function getQuestionTreeBundle(
   const plain = (table: string, select: string) =>
     db.from(table).select(select).eq("project_id", projectId);
 
-  const [questionRes, actionRes, findingRes, qaRes, qfRes, depRes] = await Promise.all([
-    live(
-      "project_questions",
-      "id,project_id,parent_id,contribution,title,background,question_kind,status,answer,answered_on,answered_by,drop_reason,confidence,owner_label,due_date,origin_kind,origin_ref,origin_question_id,sort_order,last_verified_at,review_state,proposed_parent_id,proposed_contribution,proposal_reason,created_at",
-    ).order("sort_order"),
-    live(
-      "project_actions",
-      "id,project_id,parent_id,title,detail,action_kind,status,owner_label,planned_start,planned_end,actual_end,date_certainty,progress_pct,blocker,done_criteria,done_evidence,target,actual,unit,origin_kind,origin_ref,origin_question_id,sort_order,last_verified_at,review_state,proposed_question_id,proposal_reason,created_at",
-    ).order("sort_order"),
-    live(
-      "project_findings",
-      "id,project_id,summary,finding_kind,observed_on,source_label,source_url,confidence,from_action_id,sort_order,last_verified_at,review_state,proposed_question_id,proposal_reason,created_at",
-    ).order("observed_on", { ascending: false }),
-    plain("project_question_actions", "question_id,action_id"),
-    plain("project_question_findings", "question_id,finding_id"),
-    plain("project_action_dependencies", "predecessor_action_id,successor_action_id"),
-  ]);
+  const [questionRes, actionRes, findingRes, qaRes, qfRes, depRes, ownerRes, qmRes, memberRes] =
+    await Promise.all([
+      live(
+        "project_questions",
+        "id,project_id,parent_id,contribution,title,background,question_kind,status,answer,answered_on,answered_by,drop_reason,confidence,owner_label,due_date,origin_kind,origin_ref,origin_question_id,sort_order,last_verified_at,review_state,proposed_parent_id,proposed_contribution,proposal_reason,created_at",
+      ).order("sort_order"),
+      live(
+        "project_actions",
+        "id,project_id,parent_id,title,detail,action_kind,status,owner_label,planned_start,planned_end,actual_end,date_certainty,progress_pct,blocker,done_criteria,done_evidence,target,actual,unit,origin_kind,origin_ref,origin_question_id,sort_order,last_verified_at,review_state,proposed_question_id,proposal_reason,created_at,estimated_pt,accepted_pt,accept_state,accepted_at,accepted_by,reviewed_at,reviewed_by,review_result",
+      ).order("sort_order"),
+      live(
+        "project_findings",
+        "id,project_id,summary,finding_kind,observed_on,source_label,source_url,confidence,from_action_id,sort_order,last_verified_at,review_state,proposed_question_id,proposal_reason,created_at",
+      ).order("observed_on", { ascending: false }),
+      plain("project_question_actions", "question_id,action_id"),
+      plain("project_question_findings", "question_id,finding_id"),
+      plain("project_action_dependencies", "predecessor_action_id,successor_action_id"),
+      plain("project_action_owners", "action_id,member_id,share"),
+      plain("project_question_milestones", "question_id,milestone_id"),
+      // 担当に選べる人。名簿のとおり在籍者を出し、こちらで人を選り分けない
+      db.from("members").select("member_id,code_name").eq("status", "active").order("member_id"),
+    ]);
 
   const allQuestionRows = (questionRes.data || []) as unknown as RawRow[];
   const allActionRows = (actionRes.data || []) as unknown as RawRow[];
@@ -266,6 +298,38 @@ export async function getQuestionTreeBundle(
   const qaRows = (qaRes.data || []) as unknown as RawRow[];
   const qfRows = (qfRes.data || []) as unknown as RawRow[];
   const depRows = (depRes.data || []) as unknown as RawRow[];
+  const ownerRows = (ownerRes.data || []) as unknown as RawRow[];
+  const qmRows = (qmRes.data || []) as unknown as RawRow[];
+  const memberRows = (memberRes.data || []) as unknown as RawRow[];
+
+  const members = memberRows.map((row) => ({
+    memberId: str(row, "member_id"),
+    displayName: str(row, "code_name", str(row, "member_id")),
+  }));
+  const memberNameById = new Map(members.map((member) => [member.memberId, member.displayName]));
+
+  const ownersByAction = new Map<string, ActionOwner[]>();
+  for (const row of ownerRows) {
+    const actionId = str(row, "action_id");
+    const memberId = str(row, "member_id");
+    ownersByAction.set(actionId, [
+      ...(ownersByAction.get(actionId) || []),
+      {
+        memberId,
+        displayName: memberNameById.get(memberId) ?? memberId,
+        share: nullableNum(row, "share"),
+      },
+    ]);
+  }
+
+  const milestoneIdsByQuestion = new Map<string, string[]>();
+  for (const row of qmRows) {
+    const questionId = str(row, "question_id");
+    milestoneIdsByQuestion.set(questionId, [
+      ...(milestoneIdsByQuestion.get(questionId) || []),
+      str(row, "milestone_id"),
+    ]);
+  }
 
   const questionIdsByAction = new Map<string, string[]>();
   const actionIdsByQuestion = new Map<string, string[]>();
@@ -291,7 +355,11 @@ export async function getQuestionTreeBundle(
   const findingById = new Map(findings.map((finding) => [finding.id, finding]));
 
   const actions = actionRows.map((row) =>
-    mapAction(row, questionIdsByAction.get(str(row, "id")) || []),
+    mapAction(
+      row,
+      questionIdsByAction.get(str(row, "id")) || [],
+      ownersByAction.get(str(row, "id")) || [],
+    ),
   );
   const actionById = new Map(actions.map((action) => [action.id, action]));
 
@@ -319,7 +387,7 @@ export async function getQuestionTreeBundle(
       contribution: (row.contribution as Contribution | null) ?? null,
       title: str(row, "title"),
       background: nullableStr(row, "background"),
-      questionKind: row.question_kind === "decision" ? "decision" : "open",
+      questionKind: asQuestionKind(row.question_kind),
       status: (row.status as QuestionStatus) || "open",
       answer: nullableStr(row, "answer"),
       answeredOn: nullableStr(row, "answered_on"),
@@ -333,6 +401,7 @@ export async function getQuestionTreeBundle(
       originQuestionId: nullableStr(row, "origin_question_id"),
       sortOrder: num(row, "sort_order"),
       lastVerifiedAt: str(row, "last_verified_at", today),
+      milestoneIds: milestoneIdsByQuestion.get(id) || [],
       children: [],
       actions: linkedActionIds
         .map((actionId) => actionById.get(actionId))
@@ -403,6 +472,7 @@ export async function getQuestionTreeBundle(
     actions: actions.length,
     openMeasures: actions.filter((action) => action.actionKind === "measure" && isActionOpen(action))
       .length,
+    unassignedActions: actions.filter((action) => action.isUnassigned).length,
   };
 
   const titleById = new Map(allQuestionRows.map((row) => [str(row, "id"), str(row, "title")]));
@@ -441,6 +511,7 @@ export async function getQuestionTreeBundle(
       predecessorActionId: str(row, "predecessor_action_id"),
       successorActionId: str(row, "successor_action_id"),
     })),
+    members,
     counts,
     canManage,
     hasData: allQuestions.length > 0 || actions.length > 0,

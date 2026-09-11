@@ -8,6 +8,7 @@ import { useModalContainment } from "@/components/project-workspace/useModalCont
 import {
   ACTION_STATUS_LABEL,
   FINDING_KIND_LABEL,
+  QUESTION_KIND_LABEL,
   QUESTION_STATE_LABEL,
   type ActionNode,
   type QuestionNode,
@@ -17,13 +18,25 @@ import {
 import styles from "./question-tree.module.css";
 
 /**
- * 問いの木。正本は pwa/spec/3-21-question-tree-current-spec.md。
+ * ゴールツリー。正本は pwa/spec/3-21-question-tree-current-spec.md と
+ * pwa/spec/3-22-goal-tree-plan.md（到達点・MS・ptの型）。
  *
  * 状態は導出値なので編集させない。人が書くのは、答え・追わない理由・
  * 子の問い・やること・分かったことだけ。
  */
 
 type FormKind = "answer" | "drop" | "child" | "finding" | null;
+
+/** TODOの担当。新しい担当欄が空のときだけ、旧・自由記述の担当を出す。 */
+function ownerText(action: ActionNode): string {
+  if (action.owners.length > 0) return action.owners.map((owner) => owner.displayName).join("・");
+  return action.ownerLabel;
+}
+
+function ptText(value: number | null): string {
+  if (value === null) return "—";
+  return `${Number.isInteger(value) ? value : value.toFixed(1)}pt`;
+}
 
 const CONTRIBUTION_LABEL: Record<string, string> = {
   required: "必須",
@@ -155,6 +168,7 @@ export function QuestionTreeView({
   const [busy, setBusy] = useState(false);
   const [loadFailed, setLoadFailed] = useState<string | null>(null);
   const [editingField, setEditingField] = useState<string | null>(null);
+  const [goalFormOpen, setGoalFormOpen] = useState(false);
 
   useEffect(() => {
     if (initialBundle) return;
@@ -238,6 +252,25 @@ export function QuestionTreeView({
     [projectId],
   );
 
+  /** 到達点は親を持たないので、木の頭の導線から直接足す。 */
+  const addGoal = useCallback(
+    async (form: HTMLFormElement) => {
+      const data = new FormData(form);
+      const text = (key: string) => String(data.get(key) ?? "").trim();
+      const ok = await send("POST", {
+        resource: "question",
+        fields: {
+          title: text("title"),
+          question_kind: "goal",
+          due_date: text("due_date"),
+          background: text("background"),
+        },
+      });
+      if (ok) setGoalFormOpen(false);
+    },
+    [send],
+  );
+
   const submitForm = useCallback(
     async (kind: Exclude<FormKind, null>, node: QuestionNode, form: HTMLFormElement) => {
       const data = new FormData(form);
@@ -291,13 +324,16 @@ export function QuestionTreeView({
           });
           return;
         }
+        const questionKind =
+          childKind === "decision" ? "decision" : childKind === "milestone" ? "milestone" : "open";
         await send("POST", {
           resource: "question",
           fields: {
             parent_id: node.id,
+            // MSは到達点を成り立たせる条件なので、必ず「必須」で入る。
             contribution: childKind === "alternative" ? "alternative" : "required",
             title: text("title"),
-            question_kind: childKind === "decision" ? "decision" : "open",
+            question_kind: questionKind,
             owner_label: text("owner_label") || "担当未確認",
             due_date: text("due_date"),
             origin_question_id: node.id,
@@ -521,7 +557,7 @@ export function QuestionTreeView({
     );
   }
 
-  const { counts, looseActions, canManage, proposals } = bundle;
+  const { counts, looseActions, canManage, proposals, members } = bundle;
 
   /** 根からこの問いまでの道。モーダルで文脈を見失わないために出す。 */
   const ancestorsOf = (node: QuestionNode): QuestionNode[] => {
@@ -544,7 +580,7 @@ export function QuestionTreeView({
       <span className={styles.itemTitle} title={action.title}>
         {action.title}
       </span>
-      <span className={styles.meta}>{action.ownerLabel}</span>
+      <span className={styles.meta}>{ownerText(action)}</span>
       <span className={styles.meta} data-alert={action.isOverdue ? "true" : undefined}>
         {fmtDate(action.plannedEnd)}
       </span>
@@ -641,6 +677,40 @@ export function QuestionTreeView({
   };
 
   /** やることの詳細。問いと同じく、値を押すとその位置が入力欄へ変わる。 */
+  /**
+   * TODOの担当（複数可）。押すとその場で付け外しする。
+   * 担当が付いた瞬間が委託にあたる（3-22 §4）ので、フォームの保存を挟まない。
+   */
+  const renderOwnerPicker = (action: ActionNode) => (
+    <div className={styles.ownerPicker}>
+      <span className={styles.ownerPickerLabel}>担当（複数可）</span>
+      <div className={styles.ownerChips}>
+        {members.length === 0 && <span className={styles.ownerEmpty}>名簿が読めなかったよ</span>}
+        {members.map((member) => {
+          const on = action.owners.some((owner) => owner.memberId === member.memberId);
+          return (
+            <button
+              key={member.memberId}
+              type="button"
+              className={styles.ownerChip}
+              data-on={on ? "true" : undefined}
+              disabled={busy || !canManage}
+              aria-pressed={on}
+              onClick={() =>
+                void send(on ? "DELETE" : "POST", {
+                  resource: "action_owner",
+                  fields: { action_id: action.id, member_id: member.memberId },
+                })
+              }
+            >
+              {member.displayName}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   const renderActionDetailBody = (action: ActionNode) => {
     const owners = action.questionIds
       .map((id) => questionById.get(id))
@@ -660,10 +730,12 @@ export function QuestionTreeView({
             { value: "done", label: "完了" },
             { value: "dropped", label: "やめた" },
           ])}
-          {renderInline("action", action.id, "担当", "owner_label", action.ownerLabel, action.ownerLabel)}
+          {/* 相手側の人や役割名（こたさん、研究側）はここに残す。AMD側の担当は下の欄で選ぶ。 */}
+          {renderInline("action", action.id, "担当メモ", "owner_label", action.ownerLabel, action.ownerLabel)}
           {renderInline("action", action.id, "期限", "planned_end", action.plannedEnd, action.plannedEnd ? fmtDate(action.plannedEnd) : "期限なし", "date")}
           {renderInline("action", action.id, "着手予定", "planned_start", action.plannedStart, action.plannedStart ? fmtDate(action.plannedStart) : "—", "date")}
           {renderInline("action", action.id, "完了日", "actual_end", action.actualEnd, action.actualEnd ? fmtDate(action.actualEnd) : "—", "date")}
+          {renderInline("action", action.id, "見積pt", "estimated_pt", action.estimatedPt === null ? null : String(action.estimatedPt), ptText(action.estimatedPt))}
           {action.actionKind === "measure" && (
             <>
               {renderInline("action", action.id, "目標値", "target", action.target, action.target ?? "—")}
@@ -672,6 +744,8 @@ export function QuestionTreeView({
             </>
           )}
         </div>
+
+        {renderOwnerPicker(action)}
 
         {renderInline("action", action.id, "見出し", "title", action.title, action.title, "multiline")}
         {renderInline("action", action.id, "方法・条件", "detail", action.detail, action.detail ?? "", "multiline")}
@@ -891,7 +965,11 @@ export function QuestionTreeView({
                 <div className={styles.formRow}>
                   <label>
                     種類
-                    <select name="child_kind" defaultValue="required">
+                    <select name="child_kind" defaultValue={node.questionKind === "goal" ? "milestone" : "required"}>
+                      {/* MSは到達点の直下だけ。ほかの場所では選択肢に出さない（3-22 §3） */}
+                      {node.questionKind === "goal" && (
+                        <option value="milestone">MS（到達点を成り立たせる条件）</option>
+                      )}
                       <option value="required">論点（これが解けないと親が解けない）</option>
                       <option value="alternative">仮説（どれか1つ立てば足りる答えの候補）</option>
                       <option value="decision">決めること（意思で決まる）</option>
@@ -1013,12 +1091,24 @@ export function QuestionTreeView({
             <span className={styles.chip} data-kind={action.actionKind}>
               {action.actionKind === "measure" ? "確かめる" : "作業"}
             </span>
+            {action.estimatedPt !== null && (
+              <span className={styles.chip} data-kind="pt">
+                {ptText(action.estimatedPt)}
+              </span>
+            )}
+            {/* 会議中に足したまま、担当か期限が決まっていないもの。上部へ抜き出さず
+                行の中で示す（3-21「上部へ抜き出さない」、3-22 §4）。 */}
+            {action.isUnassigned && (
+              <span className={styles.chip} data-kind="unassigned">
+                未アサイン
+              </span>
+            )}
             <span className={styles.flagDot} data-flag={action.isOverdue ? "overdue" : undefined} />
           </div>
           <span className={styles.state} data-state="action">
             {ACTION_STATUS_LABEL[action.status]}
           </span>
-          <span className={styles.meta}>{action.ownerLabel}</span>
+          <span className={styles.meta}>{ownerText(action)}</span>
           <span className={styles.meta} data-alert={action.isOverdue ? "true" : undefined}>
             {action.plannedEnd ? fmtDate(action.plannedEnd) : "期限なし"}
           </span>
@@ -1111,6 +1201,12 @@ export function QuestionTreeView({
                 決める
               </span>
             )}
+            {/* 到達点とMSは木の骨格。3-21 の判定色は増やさず、印と字体だけで区別する。 */}
+            {(node.questionKind === "goal" || node.questionKind === "milestone") && (
+              <span className={styles.chip} data-kind={node.questionKind}>
+                {QUESTION_KIND_LABEL[node.questionKind]}
+              </span>
+            )}
             {/* 状態は縦棒でなく丸で示す。縦棒は罫線と重なって読みにくい
                 （まさ 2026-09-10「丸の方が信号っぽい」）。タイトルの後ろへ置くと
                 子の罫線と親のタイトル位置がずれない。 */}
@@ -1171,6 +1267,9 @@ export function QuestionTreeView({
             </span>
             <span className={styles.stat} data-tone={counts.overdue > 0 ? "bad" : undefined}>
               期限超過<b>{counts.overdue}</b>
+            </span>
+            <span className={styles.stat} data-tone={counts.unassignedActions > 0 ? "warn" : undefined}>
+              未アサイン<b>{counts.unassignedActions}</b>
             </span>
             <span className={styles.stat}>
               答えが出た<b>{counts.answered}</b>
@@ -1246,6 +1345,53 @@ export function QuestionTreeView({
         )}
 
         <section className={styles.section}>
+          {/* 到達点は木のいちばん上に置くので、どの行の「子を追加」からも作れない。
+              木の頭に導線を1つだけ置く（3-22 §3）。 */}
+          {canManage && (
+            <div className={styles.goalAdd}>
+              <button
+                type="button"
+                className={styles.btn}
+                data-variant={goalFormOpen ? undefined : "primary"}
+                onClick={() => setGoalFormOpen((open) => !open)}
+              >
+                {goalFormOpen ? "やめる" : "到達点を追加"}
+              </button>
+              {goalFormOpen && (
+                <form
+                  className={styles.form}
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void addGoal(event.currentTarget);
+                  }}
+                >
+                  <label>
+                    到達点（シーズンの終わりに、こうなっている）
+                    <input
+                      name="title"
+                      required
+                      placeholder="2027年4月1日にNewCoを設立し事業を開始している"
+                    />
+                  </label>
+                  <div className={styles.formRow}>
+                    <label>
+                      期日
+                      <input name="due_date" type="date" />
+                    </label>
+                  </div>
+                  <label>
+                    背景（任意）
+                    <textarea name="background" placeholder="なぜこれが到達点なのか" />
+                  </label>
+                  <div className={styles.formActions}>
+                    <button type="submit" className={styles.btn} data-variant="primary" disabled={busy}>
+                      保存
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
           {roots.length === 0 ? (
             <p className={styles.emptyState}>まだ登録されていない。</p>
           ) : (

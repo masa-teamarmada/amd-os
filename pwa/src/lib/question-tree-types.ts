@@ -1,16 +1,30 @@
 /**
- * 問いの木の型。正本は pwa/spec/3-21-question-tree-current-spec.md。
+ * ゴールツリーの型。正本は pwa/spec/3-21-question-tree-current-spec.md と
+ * pwa/spec/3-22-goal-tree-plan.md（到達点・MS・ptの型）。
  * server-only の読み込み層と client component の両方から使うため、型だけをここに置く。
  */
 
 export type QuestionStatus = "open" | "answered" | "dropped";
-export type QuestionKind = "open" | "decision";
+/**
+ * goal（到達点）は根だけ、milestone（MS）は goal の直下だけ。
+ * DBのCHECKとtrigger、APIの検査、画面の選択肢の3か所で同じ決まりを守る。
+ */
+export type QuestionKind = "open" | "decision" | "goal" | "milestone";
 export type Contribution = "required" | "alternative";
 export type ActionStatus = "unassessed" | "not_started" | "running" | "blocked" | "done" | "dropped";
 export type ActionKind = "work" | "measure";
 export type FindingKind = "supports" | "contradicts" | "neutral" | "missing";
 export type Confidence = "high" | "medium" | "low" | "unknown";
 export type OriginKind = "manual" | "meeting" | "automation" | "migrated";
+/** TODOの受託の段階（3-22 §7）。Phase 0 で動くのは担当の付け外しによる unassigned ⇄ assigned だけ。 */
+export type AcceptState = "unassigned" | "assigned" | "accepted" | "negotiating";
+
+export const QUESTION_KIND_LABEL: Record<QuestionKind, string> = {
+  goal: "到達点",
+  milestone: "MS",
+  open: "論点",
+  decision: "決めること",
+};
 
 /** 問いの状態。表示の主軸。 */
 export type QuestionState =
@@ -50,6 +64,14 @@ export const FINDING_KIND_LABEL: Record<FindingKind, string> = {
   missing: "不足",
 };
 
+/** TODOの担当。1件のTODOに複数付く（3-22 §6 メンバーへの配分）。 */
+export type ActionOwner = {
+  memberId: string;
+  displayName: string;
+  /** null は「均等」。人数で割った値として読む */
+  share: number | null;
+};
+
 export type ActionNode = {
   id: string;
   projectId: string;
@@ -58,6 +80,7 @@ export type ActionNode = {
   detail: string | null;
   actionKind: ActionKind;
   status: ActionStatus;
+  /** 旧・自由記述の担当。表示互換で残す。正本は owners */
   ownerLabel: string;
   plannedStart: string | null;
   plannedEnd: string | null;
@@ -80,6 +103,18 @@ export type ActionNode = {
   children: ActionNode[];
   findings: FindingNode[];
   isOverdue: boolean;
+
+  /** 見積pt。アサインのときにPMが付ける。0 は「やるがptは付かない」（3-22 §6 原則6・原則10） */
+  estimatedPt: number | null;
+  /** 確定pt。検収のときに検収者が付ける（Phase 2） */
+  acceptedPt: number | null;
+  acceptState: AcceptState;
+  owners: ActionOwner[];
+  /**
+   * 担当か期限が空。会議中に種類とタイトルだけで足したまま、まだアサインされていない状態。
+   * ガントの「日程未設定」行と木の印が同じ判定を使う（3-22 §4）。
+   */
+  isUnassigned: boolean;
 };
 
 export type FindingNode = {
@@ -134,6 +169,11 @@ export type QuestionNode = {
   originQuestionId: string | null;
   sortOrder: number;
   lastVerifiedAt: string;
+  /**
+   * この問いが対応するシーズンのMS（value_milestones.milestone_id）。
+   * question_kind='milestone' のときだけ入る。多対多（project_question_milestones）
+   */
+  milestoneIds: string[];
 
   children: QuestionNode[];
   /** この問いに直接ぶら下がるやること */
@@ -171,6 +211,8 @@ export type QuestionTreeBundle = {
   allActions: ActionNode[];
   findings: FindingNode[];
   dependencies: { predecessorActionId: string; successorActionId: string }[];
+  /** 担当に選べる人。TODOのアサインで使う */
+  members: { memberId: string; displayName: string }[];
   counts: {
     questions: number;
     open: number;
@@ -182,6 +224,8 @@ export type QuestionTreeBundle = {
     overdue: number;
     actions: number;
     openMeasures: number;
+    /** 担当か期限が空のTODO。会議後のアサイン待ち */
+    unassignedActions: number;
   };
   canManage: boolean;
   hasData: boolean;
