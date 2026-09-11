@@ -4,6 +4,7 @@ cwd: `/Users/masa/projects/AMD/amd-os`
 
 ## 読む順
 
+0. **正規checkout `/Users/masa/projects/AMD/amd-os` は本流より50件以上遅れていて、この引き継ぎで参照するファイル（3-22 等）が手元に無い。** 最初に `git fetch` し、使い捨てクリーンクローンを作って、以降のファイルはそのクローンで読む・書く（作り方は下の状態スナップショット）。正規checkoutは読み書きしない。
 1. `/Users/masa/projects/AGENTS.common.md`（えいみ共通ルール正本）
 2. AMD横断memory `/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md`
 3. `/Users/masa/projects/AMD/amd-os/HANDOFF.md` の **I節**
