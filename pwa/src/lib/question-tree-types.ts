@@ -197,6 +197,14 @@ export type QuestionNode = {
   /** 子孫全体の未完了「確かめる行為」の数 */
   openMeasureCountDeep: number;
   depth: number;
+
+  /**
+   * この枝にぶら下がるTODOの集計。ひとつのTODOが複数の問いに効くときは、
+   * 木を上から歩いて最初に出会った枝でだけ数える（同じptを二重に積まない）。
+   */
+  assignedPt: number;
+  todoCount: number;
+  unassignedCount: number;
 };
 
 export type QuestionTreeBundle = {
@@ -226,6 +234,8 @@ export type QuestionTreeBundle = {
     openMeasures: number;
     /** 担当か期限が空のTODO。会議後のアサイン待ち */
     unassignedActions: number;
+    /** TODOへ配った見積ptの合計。MSの枠との突き合わせは Phase 1 */
+    assignedPt: number;
   };
   canManage: boolean;
   hasData: boolean;

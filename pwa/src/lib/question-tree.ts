@@ -202,9 +202,14 @@ function resolveState(node: QuestionNode): QuestionState {
 }
 
 /** 子から順に導出値を埋める。戻り値は自分自身。 */
-function decorate(node: QuestionNode, today: string, depth: number): QuestionNode {
+function decorate(
+  node: QuestionNode,
+  today: string,
+  depth: number,
+  ownerQuestionOfAction: Map<string, string>,
+): QuestionNode {
   node.depth = depth;
-  for (const child of node.children) decorate(child, today, depth + 1);
+  for (const child of node.children) decorate(child, today, depth + 1, ownerQuestionOfAction);
 
   node.state = resolveState(node);
 
@@ -234,6 +239,21 @@ function decorate(node: QuestionNode, today: string, depth: number): QuestionNod
     (total, child) => total + child.openMeasureCountDeep,
     node.openMeasureCount,
   );
+
+  // この枝のTODOの集計。自分のものとして数えるのは、木の上から見て
+  // 最初にここへぶら下がったやることだけ。
+  const mine = node.actions.filter((action) => ownerQuestionOfAction.get(action.id) === node.id);
+  node.assignedPt =
+    Math.round(
+      (mine.reduce((total, action) => total + (action.estimatedPt ?? 0), 0) +
+        node.children.reduce((total, child) => total + child.assignedPt, 0)) *
+        10,
+    ) / 10;
+  node.todoCount =
+    mine.length + node.children.reduce((total, child) => total + child.todoCount, 0);
+  node.unassignedCount =
+    mine.filter((action) => action.isUnassigned).length +
+    node.children.reduce((total, child) => total + child.unassignedCount, 0);
 
   return node;
 }
@@ -529,6 +549,9 @@ export async function getQuestionTreeBundle(
       openDescendantCount: 0,
       openMeasureCountDeep: 0,
       depth: 0,
+      assignedPt: 0,
+      todoCount: 0,
+      unassignedCount: 0,
     };
   });
 
@@ -564,7 +587,19 @@ export async function getQuestionTreeBundle(
     for (const node of list) sortQuestions(node.children);
   };
   sortQuestions(roots);
-  for (const root of roots) decorate(root, today, 0);
+
+  // ひとつのやることが複数の問いに効くので、木を上から歩いて「最初に出会った問い」を
+  // そのやることの所属にする。これをしないと、同じptが複数の枝で二重に積まれる。
+  const ownerQuestionOfAction = new Map<string, string>();
+  const claim = (node: QuestionNode) => {
+    for (const action of node.actions) {
+      if (!ownerQuestionOfAction.has(action.id)) ownerQuestionOfAction.set(action.id, node.id);
+    }
+    for (const child of node.children) claim(child);
+  };
+  for (const root of roots) claim(root);
+
+  for (const root of roots) decorate(root, today, 0, ownerQuestionOfAction);
 
   const allQuestions = flatten(roots);
   const linkedActionIds = new Set(qaRows.map((row) => str(row, "action_id")));
@@ -583,6 +618,8 @@ export async function getQuestionTreeBundle(
     openMeasures: actions.filter((action) => action.actionKind === "measure" && isActionOpen(action))
       .length,
     unassignedActions: actions.filter((action) => action.isUnassigned).length,
+    assignedPt:
+      Math.round(actions.reduce((total, action) => total + (action.estimatedPt ?? 0), 0) * 10) / 10,
   };
 
   const titleById = new Map(allQuestionRows.map((row) => [str(row, "id"), str(row, "title")]));

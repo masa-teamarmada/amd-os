@@ -1500,16 +1500,37 @@ export function QuestionTreeView({
    * （まさ 2026-09-10「子側の『├』は、『バイオディーゼル事業〜』の『バ』の下にないと変」）。
    * lines[k-1] = 深さ k の祖先がまだ兄弟を残しているか（残していれば縦線を継ぐ）。
    */
-  const renderRail = (lines: boolean[], isLast: boolean, depth: number, twisty: React.ReactNode) => {
+  /**
+   * 親子のつながりを線で描く。罫線の文字（├ └ │）は字体とフォントで太さも位置も
+   * 変わるので、CSSの1pxの線で引く。枡の幅（15px）と「子の枝が親のタイトルの
+   * 1文字目の真下から出る」関係は 3-21 のまま変えない。
+   *
+   * `hasTwisty` は、この行が開閉マークを持つか。持たない行は枝の横線を
+   * マークの枡ぶんまで伸ばして、タイトルまで線を届かせる。
+   */
+  const renderRail = (
+    lines: boolean[],
+    isLast: boolean,
+    depth: number,
+    twisty: React.ReactNode,
+    hasTwisty: boolean,
+  ) => {
     const cells: React.ReactNode[] = [];
     for (let index = 0; index < depth * 2; index += 1) {
-      let glyph = "";
-      if (index === depth * 2 - 1) glyph = isLast ? "└" : "├";
-      else if (index % 2 === 1 && lines[(index - 1) / 2]) glyph = "│";
+      let kind: "pass" | "through" | "last" | null = null;
+      if (index === depth * 2 - 1) kind = isLast ? "last" : "through";
+      else if (index % 2 === 1 && lines[(index - 1) / 2]) kind = "pass";
       cells.push(
-        <span className={styles.railCell} key={index}>
-          {glyph}
-        </span>,
+        <span
+          className={styles.railCell}
+          data-line={kind ?? undefined}
+          key={index}
+          style={
+            kind === "through" || kind === "last"
+              ? ({ "--rail-arm": hasTwisty ? "8px" : "23px" } as React.CSSProperties)
+              : undefined
+          }
+        />,
       );
     }
     return (
@@ -1535,7 +1556,7 @@ export function QuestionTreeView({
         >
           <div className={styles.rowLead}>
             {canManage && <span className={styles.gripSpacer} aria-hidden="true" />}
-            {renderRail(lines, isLast, depth, <span className={styles.twisty} aria-hidden="true" />)}
+            {renderRail(lines, isLast, depth, <span className={styles.twisty} aria-hidden="true" />, false)}
             <button
               type="button"
               className={styles.title}
@@ -1643,6 +1664,7 @@ export function QuestionTreeView({
               >
                 {hasChildren ? (isOpen ? "▾" : "▸") : ""}
               </span>,
+              hasChildren,
             )}
             <button
               type="button"
@@ -1672,6 +1694,15 @@ export function QuestionTreeView({
                 {QUESTION_KIND_LABEL[node.questionKind]}
               </span>
             )}
+            {/* 骨格の行には、その枝に配ったptとTODOの数を出す。どこへいくら配ったかを
+                木のまま読めるようにする（別の一覧画面は作らない。3-22 §4）。 */}
+            {(node.questionKind === "goal" || node.questionKind === "milestone") &&
+              node.todoCount > 0 && (
+                <span className={styles.chip} data-kind="rollup">
+                  {ptText(node.assignedPt)} / TODO {node.todoCount}
+                  {node.unassignedCount > 0 ? `（未${node.unassignedCount}）` : ""}
+                </span>
+              )}
             {/* 状態は縦棒でなく丸で示す。縦棒は罫線と重なって読みにくい
                 （まさ 2026-09-10「丸の方が信号っぽい」）。タイトルの後ろへ置くと
                 子の罫線と親のタイトル位置がずれない。 */}
@@ -1743,6 +1774,9 @@ export function QuestionTreeView({
               期限超過<b>{counts.overdue}</b>
             </span>
             {/* アサインはツリーの上で行う（3-22 §4）。件数から最初の未アサイン行へ移す。 */}
+            <span className={styles.stat}>
+              配ったpt<b>{counts.assignedPt}</b>
+            </span>
             <button
               type="button"
               className={styles.stat}
