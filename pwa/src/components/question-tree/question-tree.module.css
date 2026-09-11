@@ -23,6 +23,8 @@
   --red-soft: #fee2e2;
   --violet: #6d28d9;
   --violet-soft: #f3f0ff;
+  /* ガントの左列（ゴールツリー）の幅。行・軸・オーバーレイが同じ値を見る */
+  --gantt-lead: 420px;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
@@ -57,6 +59,10 @@
   font-size: 11px; color: var(--muted); white-space: nowrap;
 }
 .stat b { font-size: 14px; font-weight: 700; color: var(--ink); }
+/* 押せる件数（未アサイン）。押すと木の中の該当行へ移る。 */
+.stat[data-clickable="true"] { cursor: pointer; font-family: inherit; }
+.stat[data-clickable="true"]:hover { border-color: var(--amber); }
+button.stat:disabled { cursor: default; }
 .stat[data-tone="action"] { border-color: var(--amd-action-line); background: var(--amd-action-soft); }
 .stat[data-tone="action"] b { color: var(--amd-action-strong); }
 .stat[data-tone="warn"] { border-color: #fbbf24; background: var(--amber-soft); }
@@ -292,10 +298,123 @@
 .form textarea { min-height: 62px; resize: vertical; line-height: 1.6; }
 .form input:focus, .form select:focus, .form textarea:focus { outline: 2px solid var(--amd-action-line); outline-offset: -1px; }
 
+/* ---- ガント -------------------------------------------------------------
+   左列は論点・仮説タブと同じ木そのもの。行の右側だけをバーへ差し替える。
+   行高は木と同じ詰めた密度のまま揃える。タブを切り替えたときに、同じ木が
+   違う高さで見えると別物に読めるため。 */
+.gantt { display: flex; flex-direction: column; overflow-x: auto; }
+.ganttHead {
+  position: sticky; top: 0; z-index: 3; display: grid; grid-template-columns: var(--gantt-lead) 1fr;
+  align-items: end; gap: 10px; min-width: 900px; padding: 0 14px 4px 0;
+  border-bottom: 1px solid var(--line); background: var(--sheet);
+}
+.ganttHeadLead { padding-left: 4px; font-size: 10px; font-weight: 700; color: var(--quiet); }
+.ganttAxis { position: relative; height: 18px; }
+.monthTick {
+  position: absolute; top: 0; bottom: 0; display: inline-flex; align-items: center;
+  padding-left: 4px; border-left: 1px solid var(--line);
+  font-size: 10px; font-weight: 700; color: var(--quiet); white-space: nowrap; overflow: hidden;
+}
+
+.ganttBody { position: relative; min-width: 900px; }
+.ganttOverlay {
+  position: absolute; inset: 0; z-index: 0; display: grid; grid-template-columns: var(--gantt-lead) 1fr;
+  gap: 10px; padding-right: 14px; pointer-events: none;
+}
+.ganttOverlayLead { min-width: 0; }
+.ganttOverlayLane { position: relative; min-width: 0; }
+.todayLine { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--red); opacity: .55; }
+.depLayer { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.depLayer path { fill: none; stroke: var(--quiet); stroke-width: 1.5; opacity: .7; }
+
+.tree[data-mode="gantt"] { position: relative; z-index: 1; }
+.tree[data-mode="gantt"] .row { grid-template-columns: var(--gantt-lead) 1fr; }
+
+.lane { position: relative; height: 20px; min-width: 0; }
+.bar {
+  position: absolute; top: 4px; height: 12px; border-radius: 3px; cursor: pointer;
+  border: 1px solid var(--amd-action); background: var(--amd-action);
+  display: flex; align-items: center; touch-action: none;
+}
+.bar[data-status="done"] { border-color: #a7d7c5; background: var(--green); }
+.bar[data-status="dropped"] { border-color: var(--line); background: var(--line); }
+.bar[data-status="blocked"] { border-color: #fbbf24; background: var(--amber); }
+.bar[data-overdue="true"] { border-color: var(--red); background: var(--red); }
+.bar[data-dragging="true"] { opacity: .75; }
+.barLabel {
+  flex: 1; min-width: 0; padding: 0 5px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  font-size: 10px; font-weight: 700; color: #fff;
+}
+/* 取っ手はバーの外側へ逃がし、中央の移動判定を覆わない（3-16 の現行ガントと同じ作法）。 */
+.barHandle { position: absolute; top: -6px; bottom: -6px; width: 12px; cursor: ew-resize; }
+.barHandle[data-handle="start"] { left: -6px; }
+.barHandle[data-handle="end"] { right: -6px; }
+
+/* 前後関係をつなぐ常設の「＋」。バーの終わりの外側に置き、日程の取っ手と重ねない。 */
+.depPort {
+  position: absolute; top: 2px; width: 16px; height: 16px; padding: 0;
+  border: 1px solid var(--line); border-radius: 4px; background: #fff;
+  color: var(--quiet); font-size: 10px; line-height: 1; cursor: pointer; opacity: 0;
+}
+.lane:hover .depPort, .depPort:focus-visible, .depPort[data-armed="true"] { opacity: 1; }
+.depPort[data-armed="true"] { border-color: var(--amd-action); background: var(--amd-action); color: #fff; }
+
+.rollupBar {
+  position: absolute; top: 8px; height: 4px; border-radius: 2px; background: var(--line);
+}
+.rollupBar[data-kind="goal"] { background: var(--ink); opacity: .55; }
+.rollupBar[data-kind="milestone"] { background: var(--muted); opacity: .45; }
+
+/* 会議後のアサイン作業面。ここで担当・期限・見積ptを入れるとガントへ並ぶ。 */
+.undated { display: flex; flex-direction: column; }
+.undatedRow {
+  display: grid; grid-template-columns: minmax(240px, 1fr) 160px 140px 140px;
+  align-items: center; gap: 8px; padding: 3px 12px; border-bottom: 1px solid #ececed;
+}
+.undatedRow:last-child { border-bottom: 0; }
+.undatedTitle {
+  min-width: 0; padding: 0; border: 0; background: none; cursor: pointer; text-align: left;
+  font-size: 12px; color: var(--ink); overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.undatedTitle:hover { color: var(--amd-action-strong); text-decoration: underline; }
+.undatedOwners { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }
+.undatedOwnerText {
+  min-width: 0; font-size: 11px; color: var(--quiet);
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.ownerTag {
+  display: inline-flex; align-items: center; gap: 1px; padding: 1px 2px 1px 7px;
+  border: 1px solid var(--amd-action-line); border-radius: 999px; background: var(--amd-action-soft);
+  font-size: 11px; font-weight: 700; color: var(--amd-action-strong); white-space: nowrap;
+}
+.ownerSelect {
+  min-height: 24px; padding: 1px 4px; border: 1px dashed var(--line); border-radius: 999px;
+  background: #fff; color: var(--quiet); font-size: 11px; font-family: inherit; cursor: pointer;
+}
+.ownerSelect:hover:not(:disabled) { border-color: var(--amd-action-line); color: var(--amd-action-strong); }
+.undatedInput {
+  min-height: 28px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 4px;
+  font-size: 11px; color: var(--ink); background: #fff; font-family: inherit;
+}
+
+/* スマホは横軸を出さず、木と同じ縦一覧に落とす（3-16 の mobile と同じ扱い）。 */
+@media (max-width: 767px) {
+  .ganttHead, .ganttBody { min-width: 0; }
+  .ganttHead, .ganttOverlay { display: none; }
+  .tree[data-mode="gantt"] .row { grid-template-columns: 1fr; }
+  .lane { display: none; }
+  .undatedRow { grid-template-columns: 1fr; }
+}
+
 .formActions { display: flex; gap: 6px; }
 
-/* 到達点を足す導線。木のいちばん上に1つだけ置く。 */
-.goalAdd { display: flex; flex-direction: column; gap: 7px; padding: 8px 9px; border-bottom: 1px solid var(--line); }
+/* 到達点を足す導線。木のいちばん上に1つだけ置く。
+   ボタンは中身の幅に留める（横いっぱいに伸ばすと木より目立つ）。 */
+.goalAdd {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 7px;
+  padding: 8px 9px; border-bottom: 1px solid var(--line);
+}
+.goalAdd .form { align-self: stretch; max-width: 620px; }
 
 /* TODOの担当。押した瞬間に付け外しするので、保存ボタンを持たない。 */
 .ownerPicker { display: flex; flex-direction: column; gap: 4px; padding: 7px 0; }
@@ -309,6 +428,26 @@
 .ownerChip[data-on="true"] { border-color: var(--amd-action); background: var(--amd-action); color: #fff; }
 .ownerChip:disabled { opacity: .5; cursor: default; }
 .ownerEmpty { font-size: 11px; color: var(--quiet); }
+
+/* TODOの前後関係。ガントの「＋」でつないだものを読み、外せる。 */
+.depBlock { display: flex; flex-direction: column; gap: 6px; padding: 7px 0; }
+.depRow { display: flex; flex-direction: column; gap: 3px; }
+.depItems { display: flex; flex-wrap: wrap; gap: 4px; }
+.depItem {
+  display: inline-flex; align-items: center; gap: 2px; padding: 2px 4px 2px 8px;
+  border: 1px solid var(--line); border-radius: 999px; background: #fff; max-width: 100%;
+}
+.depItemTitle {
+  min-width: 0; padding: 0; border: 0; background: none; cursor: pointer;
+  font-size: 11px; color: var(--ink); overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.depItemTitle:hover { color: var(--amd-action-strong); text-decoration: underline; }
+.depItemRemove {
+  flex: none; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 999px;
+  background: none; color: var(--quiet); font-size: 12px; line-height: 1; cursor: pointer;
+}
+.depItemRemove:hover:not(:disabled) { background: var(--red-soft); color: #991b1b; }
+.depItemRemove:disabled { opacity: .5; cursor: default; }
 
 .notice { padding: 7px 10px; border: 1px solid #fca5a5; border-radius: 5px; background: var(--red-soft); color: #991b1b; font-size: 11px; }
 .hint { font-size: 11px; color: var(--quiet); line-height: 1.6; }

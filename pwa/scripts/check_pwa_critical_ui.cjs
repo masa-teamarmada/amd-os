@@ -98,12 +98,15 @@ expectIncludes(
   [
     "週次差分・判断・介入",
     "先週 → 今週",
-    "全体ガント",
+    "全体ガントパネル",
     "論点・仮説リスト",
     "データ接続状況",
-    "deriveSxUnifiedTimeline",
-    "SxUnifiedTimeline",
-    "showPins={false}",
+    // 2026-09-11: ガントは旧 project_management_tasks ベースの SxUnifiedTimeline から、
+    // ゴールツリー（到達点→MS→論点→TODO）を左列に置く QuestionTreeView の gantt モードへ
+    // 置き換えた（spec 3-22 §5、まさ確定）。旧ガントのアンカー
+    // （deriveSxUnifiedTimeline / SxUnifiedTimeline / showPins={false}）はこのタブから外れ、
+    // SxExecutiveControlDeck の経営状況図でだけ生きている。
+    'mode="gantt"',
       "sxWeeklyIssueNextDueDate",
     "create_hypothesis",
     "create_validation",
@@ -3368,7 +3371,9 @@ expectIncludes("src/lib/cockpit-tabs.ts", [
 expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
   'data-plan-display-mode="timeline"',
   'aria-label="全体ガントパネル"',
-  'tasks={management.tasks}',
+  // 2026-09-11: ガントが読むのは project_management_tasks ではなく、ゴールツリーの
+  // TODO（project_actions）になった（spec 3-22 §5）。左列が木であることを守る。
+  'mode="gantt"',
   '!embedded && (',
 ]);
 expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
@@ -3875,7 +3880,8 @@ expectIncludes(
     "sx-plan-inspector-overlay",
     'aria-modal="true"',
     "planInspectorLayer",
-    "左でタスク階層、右で日程と前後関係を見る",
+    // 2026-09-11: ガントタブの見出しは、左列がタスク階層ではなくゴールツリーになった。
+    "日程の決まっていないTODOは下でまとめて決める",
     "createPortal",
     "useModalContainment",
     'data-testid="sx-inline-editor"',
@@ -3885,7 +3891,6 @@ expectIncludes(
     "data-plan-inline-slot",
     '"inline-edit"',
     "PlanFieldEditorState",
-    "planFieldEditor.fieldKeys",
     "fieldsToSubmit",
     "fieldKeySet.has(key)",
     "inlineField && !dirty",
@@ -3893,12 +3898,34 @@ expectIncludes(
     "data-detail-body",
     "className={styles.editorEmbedded}",
     "embedded = false",
-    "detailEditor={",
-    "onDirtyChange={setDetailEditorDirty}",
     "requestDetailClose",
     "requestAnimationFrame",
   ],
 );
+// ガント（2026-09-11、spec 3-22 §5）。旧 project_management_tasks ベースの
+// SxUnifiedTimeline から、ゴールツリーを左列に置く QuestionTreeView の gantt モードへ
+// 置き換えた。ここで守るのは「左列が木」「バーはTODO」「日程未設定がアサインの作業面」
+// 「前後関係を引ける／外せる」の4点。
+expectIncludes("src/components/question-tree/QuestionTreeView.tsx", [
+  'mode = "tree"',
+  'mode === "gantt"',
+  "renderActionLane",
+  "renderRollupLane",
+  "undatedActions",
+  "buildGanttDomain",
+  "buildMonthTicks",
+  "styles.depPort",
+  "renderDependencies",
+  "computeBarMove",
+  "computeBarResizeStart",
+  "computeBarResizeEnd",
+  "buildFinishToStartRoute",
+  // 会議中はタイトルだけで足せる。担当・期限・ptを必須にしない（3-22 §4）
+  "到達点を追加",
+  "未アサイン",
+  "担当（複数可）",
+  "見積pt",
+]);
 expectNotIncludes(
   "src/components/project-workspace/SxWeeklyControlDashboard.tsx",
   [

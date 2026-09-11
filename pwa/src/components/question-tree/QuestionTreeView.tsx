@@ -5,6 +5,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { useModalContainment } from "@/components/project-workspace/useModalContainment";
+import { buildFinishToStartRoute } from "@/lib/sx-gantt-dependency-route";
+import {
+  addDays,
+  computeBarMove,
+  computeBarResizeEnd,
+  computeBarResizeStart,
+  diffDays,
+  isWithinClickThreshold,
+  pxToDayDelta,
+} from "@/lib/sx-gantt-drag";
 import {
   ACTION_STATUS_LABEL,
   FINDING_KIND_LABEL,
@@ -36,6 +46,59 @@ function ownerText(action: ActionNode): string {
 function ptText(value: number | null): string {
   if (value === null) return "—";
   return `${Number.isInteger(value) ? value : value.toFixed(1)}pt`;
+}
+
+/** ガントの横軸。バーを引けるTODOの日程と基準日から決める。 */
+type GanttDomain = { start: string; end: string; totalDays: number };
+
+/**
+ * TODOの引ける期間。開始が無ければ期限の一点として扱う。
+ * 期限が無いものはバーを持たない（「日程未設定」へ集める）。
+ */
+function barRangeOf(action: ActionNode): { start: string; end: string } | null {
+  if (!action.plannedEnd) return null;
+  return { start: action.plannedStart ?? action.plannedEnd, end: action.plannedEnd };
+}
+
+function buildGanttDomain(actions: ActionNode[], asOf: string): GanttDomain | null {
+  let min: string | null = null;
+  let max: string | null = null;
+  for (const action of actions) {
+    const range = barRangeOf(action);
+    if (!range) continue;
+    if (!min || range.start < min) min = range.start;
+    if (!max || range.end > max) max = range.end;
+  }
+  if (!min || !max) return null;
+  // 基準日が範囲の外でも「今日」の線が見えるようにする。
+  if (asOf < min) min = asOf;
+  if (asOf > max) max = asOf;
+  const start = addDays(min, -7);
+  const end = addDays(max, 7);
+  return { start, end, totalDays: diffDays(start, end) + 1 };
+}
+
+/** 横軸の月の区切り。何月を見ているか分からないガントにしない。 */
+function buildMonthTicks(domain: GanttDomain): { key: string; label: string; leftPct: number; widthPct: number }[] {
+  const ticks: { key: string; label: string; leftPct: number; widthPct: number }[] = [];
+  let cursor = `${domain.start.slice(0, 7)}-01`;
+  while (cursor <= domain.end) {
+    const [year, month] = cursor.split("-").map(Number);
+    const nextMonth = month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, "0")}-01`;
+    const from = cursor < domain.start ? domain.start : cursor;
+    const to = nextMonth > domain.end ? domain.end : addDays(nextMonth, -1);
+    const days = diffDays(from, to) + 1;
+    if (days > 0) {
+      ticks.push({
+        key: cursor,
+        label: month === 1 ? `${year}年1月` : `${month}月`,
+        leftPct: (diffDays(domain.start, from) / domain.totalDays) * 100,
+        widthPct: (days / domain.totalDays) * 100,
+      });
+    }
+    cursor = nextMonth;
+  }
+  return ticks;
 }
 
 const CONTRIBUTION_LABEL: Record<string, string> = {
@@ -152,6 +215,7 @@ export function QuestionTreeView({
   projectId,
   projectName,
   embedded = false,
+  mode = "tree",
 }: {
   /** サーバ側で先に読めているときだけ渡す。無ければ開いたときに自分で取りに行く */
   initialBundle?: QuestionTreeBundle;
@@ -159,6 +223,11 @@ export function QuestionTreeView({
   projectName: string;
   /** PJワークスペースのタブに埋め込むとき。ページとしての枠を外す */
   embedded?: boolean;
+  /**
+   * 同じ木を2つの面で見せる（3-22 §2）。tree は論点・仮説タブ、gantt はガントタブ。
+   * 木・モーダル・その場編集・保存経路は共有し、行の右側だけを入れ替える。
+   */
+  mode?: "tree" | "gantt";
 }) {
   const [bundle, setBundle] = useState<QuestionTreeBundle | null>(initialBundle ?? null);
   const [openIds, setOpenIds] = useState<Set<string>>(() => defaultOpenIds(initialBundle));
@@ -169,6 +238,24 @@ export function QuestionTreeView({
   const [loadFailed, setLoadFailed] = useState<string | null>(null);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [goalFormOpen, setGoalFormOpen] = useState(false);
+
+  // ---- ガント ------------------------------------------------------------
+  /** 横軸の実px幅。日数→pxの換算に使う */
+  const axisRef = useRef<HTMLDivElement | null>(null);
+  const [axisWidth, setAxisWidth] = useState(0);
+  const ganttBodyRef = useRef<HTMLDivElement | null>(null);
+  const barRefs = useRef(new Map<string, HTMLElement>());
+  const [depPaths, setDepPaths] = useState<{ key: string; path: string }[]>([]);
+  const [barDrag, setBarDrag] = useState<{
+    actionId: string;
+    handle: "move" | "start" | "end";
+    startX: number;
+    original: { plannedStart: string; plannedEnd: string };
+    preview: { plannedStart: string; plannedEnd: string };
+    moved: boolean;
+  } | null>(null);
+  /** 前後関係をつなぐ途中。「＋」で起点を決め、次に押したバーが後ろになる。 */
+  const [depDraft, setDepDraft] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialBundle) return;
@@ -203,6 +290,97 @@ export function QuestionTreeView({
     walk(roots);
     return map;
   }, [roots]);
+
+  const ganttDomain = useMemo(
+    () => (bundle ? buildGanttDomain(bundle.allActions, bundle.asOf) : null),
+    [bundle],
+  );
+
+  const monthTicks = useMemo(() => (ganttDomain ? buildMonthTicks(ganttDomain) : []), [ganttDomain]);
+
+  /**
+   * まだバーを引けないTODO。会議で出たまま日程が決まっていないもので、
+   * ここがアサインの作業面になる（3-22 §4）。終わった仕事は並べない。
+   */
+  const undatedActions = useMemo(() => {
+    if (!bundle) return [];
+    return bundle.allActions.filter(
+      (action) =>
+        !barRangeOf(action) && action.status !== "done" && action.status !== "dropped",
+    );
+  }, [bundle]);
+
+  /**
+   * 問いの行に出す、配下TODOの広がり。到達点やMSが「いつ動いている枝なのか」を
+   * バーの位置で読めるようにする。人が編集する値ではない。
+   */
+  const rollupById = useMemo(() => {
+    const map = new Map<string, { start: string; end: string }>();
+    const visit = (node: QuestionNode): { start: string; end: string } | null => {
+      let start: string | null = null;
+      let end: string | null = null;
+      const absorb = (range: { start: string; end: string } | null) => {
+        if (!range) return;
+        if (!start || range.start < start) start = range.start;
+        if (!end || range.end > end) end = range.end;
+      };
+      for (const action of node.actions) absorb(barRangeOf(action));
+      for (const child of node.children) absorb(visit(child));
+      if (!start || !end) return null;
+      const range = { start, end };
+      map.set(node.id, range);
+      return range;
+    };
+    for (const root of roots) visit(root);
+    return map;
+  }, [roots]);
+
+  // 横軸の幅が変われば、1日あたりのpxも依存線の座標も変わる。
+  useEffect(() => {
+    if (mode !== "gantt") return;
+    const element = axisRef.current;
+    if (!element) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) setAxisWidth(entry.contentRect.width);
+    });
+    observer.observe(element);
+    setAxisWidth(element.getBoundingClientRect().width);
+    return () => observer.disconnect();
+  }, [mode, bundle]);
+
+  const pxPerDay = ganttDomain && axisWidth > 0 ? axisWidth / ganttDomain.totalDays : 0;
+
+  /**
+   * 依存線。バーの実座標から引く。畳まれている枝や日程未設定の端点は
+   * バーが無いので線を引かない（宙に浮いた線を残さない）。
+   */
+  useEffect(() => {
+    if (mode !== "gantt" || !bundle) {
+      setDepPaths([]);
+      return;
+    }
+    const frame = ganttBodyRef.current;
+    if (!frame) return;
+    const lane = frame.querySelector(`.${styles.ganttOverlayLane}`);
+    if (!lane) return;
+    const box = lane.getBoundingClientRect();
+    const next: { key: string; path: string }[] = [];
+    for (const dependency of bundle.dependencies) {
+      const from = barRefs.current.get(dependency.predecessorActionId);
+      const to = barRefs.current.get(dependency.successorActionId);
+      if (!from || !to || !from.isConnected || !to.isConnected) continue;
+      const a = from.getBoundingClientRect();
+      const b = to.getBoundingClientRect();
+      next.push({
+        key: `${dependency.predecessorActionId}->${dependency.successorActionId}`,
+        path: buildFinishToStartRoute(
+          { x: a.right - box.left, y: a.top + a.height / 2 - box.top },
+          { x: b.left - box.left, y: b.top + b.height / 2 - box.top },
+        ).path,
+      });
+    }
+    setDepPaths(next);
+  }, [mode, bundle, openIds, axisWidth, barDrag]);
 
   const toggle = useCallback((id: string) => {
     setOpenIds((current) => {
@@ -251,6 +429,91 @@ export function QuestionTreeView({
     },
     [projectId],
   );
+
+  /** バーを掴んで日程を変える。3-16 の現行ガントと同じ3操作（移動・開始・完了）。 */
+  useEffect(() => {
+    if (!barDrag || pxPerDay <= 0) return;
+    const onMove = (event: PointerEvent) => {
+      const deltaPx = event.clientX - barDrag.startX;
+      const moved = !isWithinClickThreshold(deltaPx, 0);
+      if (!moved) return;
+      const days = pxToDayDelta(deltaPx, pxPerDay);
+      if (days === 0 && barDrag.moved) return;
+      const next =
+        barDrag.handle === "move"
+          ? computeBarMove(barDrag.original, deltaPx, pxPerDay)
+          : barDrag.handle === "start"
+            ? { ...barDrag.original, ...computeBarResizeStart(barDrag.original, deltaPx, pxPerDay) }
+            : { ...barDrag.original, ...computeBarResizeEnd(barDrag.original, deltaPx, pxPerDay) };
+      setBarDrag((current) => (current ? { ...current, preview: next, moved: true } : current));
+    };
+    const onUp = () => {
+      const drag = barDrag;
+      setBarDrag(null);
+      if (!drag?.moved) return;
+      if (
+        drag.preview.plannedStart === drag.original.plannedStart &&
+        drag.preview.plannedEnd === drag.original.plannedEnd
+      ) {
+        return;
+      }
+      void send("PATCH", {
+        resource: "action",
+        id: drag.actionId,
+        fields: { planned_start: drag.preview.plannedStart, planned_end: drag.preview.plannedEnd },
+      });
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+  }, [barDrag, pxPerDay, send]);
+
+  /**
+   * 未アサインのTODOのうち、木の上から見て最初のものへ移る。
+   * アサインはツリーの上で行う（3-22 §4 まさ確定 2026-09-11）ので、
+   * 件数からその作業の入口へ直接つなぐ。上部へ一覧を抜き出すことはしない。
+   */
+  const goToFirstUnassigned = useCallback(() => {
+    if (!bundle) return;
+    const trail: string[] = [];
+    let target: { actionId: string; path: string[] } | null = null;
+    const walk = (node: QuestionNode) => {
+      if (target) return;
+      trail.push(node.id);
+      for (const action of node.actions) {
+        if (action.isUnassigned) {
+          target = { actionId: action.id, path: [...trail] };
+          break;
+        }
+      }
+      if (!target) for (const child of node.children) walk(child);
+      trail.pop();
+    };
+    for (const root of bundle.roots) walk(root);
+    if (!target) return;
+    const found: { actionId: string; path: string[] } = target;
+    // 畳まれた枝の中にあると、スクロールしても何も見えない。道を先に開く。
+    setOpenIds((current) => new Set([...current, ...found.path]));
+    window.setTimeout(() => {
+      const row = document.querySelector(`[data-action-row="${found.actionId}"]`);
+      row?.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, 60);
+  }, [bundle]);
+
+  // 前後関係をつなぐのをやめる。掴んでいる途中と同じく Esc で降りられるようにする。
+  useEffect(() => {
+    if (!depDraft) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDepDraft(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [depDraft]);
 
   /** 到達点は親を持たないので、木の頭の導線から直接足す。 */
   const addGoal = useCallback(
@@ -676,7 +939,133 @@ export function QuestionTreeView({
     );
   };
 
-  /** やることの詳細。問いと同じく、値を押すとその位置が入力欄へ変わる。 */
+  /** ガントのバーの位置。横軸いっぱいを100%として日数で割る。 */
+  const barStyle = (range: { start: string; end: string }) => {
+    if (!ganttDomain) return undefined;
+    const left = (diffDays(ganttDomain.start, range.start) / ganttDomain.totalDays) * 100;
+    const width = ((diffDays(range.start, range.end) + 1) / ganttDomain.totalDays) * 100;
+    return { left: `${left}%`, width: `${Math.max(width, 0.6)}%` };
+  };
+
+  /** TODOのバー。掴めるのは編集できる人だけ。押しただけなら詳細が開く。 */
+  const renderActionLane = (action: ActionNode) => {
+    const dragging = barDrag?.actionId === action.id;
+    const range = dragging
+      ? { start: barDrag.preview.plannedStart, end: barDrag.preview.plannedEnd }
+      : barRangeOf(action);
+    return (
+      <div className={styles.lane}>
+        {range && (
+          <div
+            ref={(element) => {
+              if (element) barRefs.current.set(action.id, element);
+              else barRefs.current.delete(action.id);
+            }}
+            className={styles.bar}
+            data-status={action.status}
+            data-dragging={dragging ? "true" : undefined}
+            data-overdue={action.isOverdue ? "true" : undefined}
+            style={barStyle(range)}
+            role="button"
+            tabIndex={0}
+            title={`${action.title}（${fmtDate(range.start)} 〜 ${fmtDate(range.end)}）`}
+            onClick={() => {
+              if (barDrag?.moved) return;
+              // 前後関係をつないでいる途中なら、押したバーが「後ろ」になる。
+              if (depDraft && depDraft !== action.id) {
+                void send("POST", {
+                  resource: "dependency",
+                  fields: { predecessor_action_id: depDraft, successor_action_id: action.id },
+                });
+                setDepDraft(null);
+                return;
+              }
+              if (depDraft === action.id) {
+                setDepDraft(null);
+                return;
+              }
+              select("action", action.id);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                select("action", action.id);
+              }
+            }}
+            onPointerDown={(event) => {
+              if (!canManage || event.button !== 0 || !action.plannedEnd) return;
+              const target = event.target as HTMLElement;
+              const handle = target.dataset.handle === "start"
+                ? "start"
+                : target.dataset.handle === "end"
+                  ? "end"
+                  : "move";
+              const original = {
+                plannedStart: action.plannedStart ?? action.plannedEnd,
+                plannedEnd: action.plannedEnd,
+              };
+              setBarDrag({
+                actionId: action.id,
+                handle,
+                startX: event.clientX,
+                original,
+                preview: original,
+                moved: false,
+              });
+            }}
+          >
+            {canManage && <span className={styles.barHandle} data-handle="start" aria-hidden="true" />}
+            <span className={styles.barLabel}>{action.title}</span>
+            {canManage && <span className={styles.barHandle} data-handle="end" aria-hidden="true" />}
+          </div>
+        )}
+        {/* 前後関係をつなぐ「＋」。日程ドラッグの取っ手と重ならない位置へ常設する
+            （3-16「依存線は常設の＋ポートから引く」）。押して起点を決め、
+            次に押したバーが後ろになる。Escでやめる。 */}
+        {range && canManage && (
+          <button
+            type="button"
+            className={styles.depPort}
+            data-armed={depDraft === action.id ? "true" : undefined}
+            style={
+              ganttDomain
+                ? {
+                    left: `calc(${
+                      ((diffDays(ganttDomain.start, range.end) + 1) / ganttDomain.totalDays) * 100
+                    }% + 6px)`,
+                  }
+                : undefined
+            }
+            title={depDraft === action.id ? "つなぐのをやめる" : "この後ろに来るTODOを選ぶ"}
+            onClick={(event) => {
+              event.stopPropagation();
+              setDepDraft((current) => (current === action.id ? null : action.id));
+            }}
+          >
+            ＋
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  /** 問いの行に出す、配下TODOの広がり。押せない（人が編集する値ではない）。 */
+  const renderRollupLane = (node: QuestionNode) => {
+    const range = rollupById.get(node.id) ?? null;
+    return (
+      <div className={styles.lane}>
+        {range && (
+          <div
+            className={styles.rollupBar}
+            data-kind={node.questionKind}
+            style={barStyle(range)}
+            aria-hidden="true"
+          />
+        )}
+      </div>
+    );
+  };
+
   /**
    * TODOの担当（複数可）。押すとその場で付け外しする。
    * 担当が付いた瞬間が委託にあたる（3-22 §4）ので、フォームの保存を挟まない。
@@ -710,6 +1099,71 @@ export function QuestionTreeView({
       </div>
     </div>
   );
+
+  /**
+   * TODOの前後関係。ガントの「＋」でつないだものをここで読み、外せる。
+   * 線だけ引けて外せないと、間違えたときに直す場所が無くなる。
+   */
+  const renderDependencies = (action: ActionNode) => {
+    if (!bundle) return null;
+    const before = bundle.dependencies
+      .filter((dependency) => dependency.successorActionId === action.id)
+      .map((dependency) => ({ dependency, other: actionById.get(dependency.predecessorActionId) }));
+    const after = bundle.dependencies
+      .filter((dependency) => dependency.predecessorActionId === action.id)
+      .map((dependency) => ({ dependency, other: actionById.get(dependency.successorActionId) }));
+    if (before.length === 0 && after.length === 0) return null;
+    const row = (
+      label: string,
+      list: { dependency: { predecessorActionId: string; successorActionId: string }; other?: ActionNode }[],
+    ) =>
+      list.length === 0 ? null : (
+        <div className={styles.depRow} key={label}>
+          <span className={styles.ownerPickerLabel}>{label}</span>
+          <div className={styles.depItems}>
+            {list.map(({ dependency, other }) => (
+              <span
+                className={styles.depItem}
+                key={`${dependency.predecessorActionId}->${dependency.successorActionId}`}
+              >
+                <button
+                  type="button"
+                  className={styles.depItemTitle}
+                  onClick={() => other && select("action", other.id)}
+                >
+                  {other?.title ?? "（見つからないTODO）"}
+                </button>
+                {canManage && (
+                  <button
+                    type="button"
+                    className={styles.depItemRemove}
+                    disabled={busy}
+                    aria-label="この前後関係を外す"
+                    onClick={() =>
+                      void send("DELETE", {
+                        resource: "dependency",
+                        fields: {
+                          predecessor_action_id: dependency.predecessorActionId,
+                          successor_action_id: dependency.successorActionId,
+                        },
+                      })
+                    }
+                  >
+                    ×
+                  </button>
+                )}
+              </span>
+            ))}
+          </div>
+        </div>
+      );
+    return (
+      <div className={styles.depBlock}>
+        {row("これより前に終わるTODO", before)}
+        {row("これが終わってから始まるTODO", after)}
+      </div>
+    );
+  };
 
   const renderActionDetailBody = (action: ActionNode) => {
     const owners = action.questionIds
@@ -746,6 +1200,7 @@ export function QuestionTreeView({
         </div>
 
         {renderOwnerPicker(action)}
+        {renderDependencies(action)}
 
         {renderInline("action", action.id, "見出し", "title", action.title, action.title, "multiline")}
         {renderInline("action", action.id, "方法・条件", "detail", action.detail, action.detail ?? "", "multiline")}
@@ -1073,6 +1528,8 @@ export function QuestionTreeView({
         <div
           className={styles.row}
           data-row-kind="action"
+          data-action-row={action.id}
+          data-unassigned={action.isUnassigned ? "true" : undefined}
           data-open={selected?.kind === "action" && selected.id === action.id ? "true" : undefined}
           role="presentation"
         >
@@ -1105,13 +1562,19 @@ export function QuestionTreeView({
             )}
             <span className={styles.flagDot} data-flag={action.isOverdue ? "overdue" : undefined} />
           </div>
-          <span className={styles.state} data-state="action">
-            {ACTION_STATUS_LABEL[action.status]}
-          </span>
-          <span className={styles.meta}>{ownerText(action)}</span>
-          <span className={styles.meta} data-alert={action.isOverdue ? "true" : undefined}>
-            {action.plannedEnd ? fmtDate(action.plannedEnd) : "期限なし"}
-          </span>
+          {mode === "gantt" ? (
+            renderActionLane(action)
+          ) : (
+            <>
+              <span className={styles.state} data-state="action">
+                {ACTION_STATUS_LABEL[action.status]}
+              </span>
+              <span className={styles.meta}>{ownerText(action)}</span>
+              <span className={styles.meta} data-alert={action.isOverdue ? "true" : undefined}>
+                {action.plannedEnd ? fmtDate(action.plannedEnd) : "期限なし"}
+              </span>
+            </>
+          )}
         </div>
       </div>
     );
@@ -1121,7 +1584,9 @@ export function QuestionTreeView({
     const isOpen = openIds.has(node.id);
     const isSelected = selected?.kind === "question" && selected.id === node.id;
     const childQuestions = node.children;
-    const childActions = node.actions;
+    // ガントでは日程の無いTODOを木の中に出さない。下の「日程未設定」へまとめて
+    // 集め、そこで担当・期限・見積ptを入れる（3-22 §4 会議後のアサイン）。
+    const childActions = mode === "gantt" ? node.actions.filter(barRangeOf) : node.actions;
     const childCount = childQuestions.length + childActions.length;
     const hasChildren = childCount > 0;
     // 根同士のあいだには縦線を引かない。子から先が枝分かれの表現になる。
@@ -1212,13 +1677,19 @@ export function QuestionTreeView({
                 子の罫線と親のタイトル位置がずれない。 */}
             <span className={styles.flagDot} data-flag={needsAttention(node) ? node.state : undefined} />
           </div>
-          <span className={styles.state} data-state={node.state}>
-            {QUESTION_STATE_LABEL[node.state]}
-          </span>
-          <span className={styles.meta}>{node.ownerLabel}</span>
-          <span className={styles.meta} data-alert={node.isOverdue ? "true" : undefined}>
-            {node.nextDueDate ? fmtDate(node.nextDueDate) : "期限なし"}
-          </span>
+          {mode === "gantt" ? (
+            renderRollupLane(node)
+          ) : (
+            <>
+              <span className={styles.state} data-state={node.state}>
+                {QUESTION_STATE_LABEL[node.state]}
+              </span>
+              <span className={styles.meta}>{node.ownerLabel}</span>
+              <span className={styles.meta} data-alert={node.isOverdue ? "true" : undefined}>
+                {node.nextDueDate ? fmtDate(node.nextDueDate) : "期限なし"}
+              </span>
+            </>
+          )}
         </div>
         {isOpen && (
           <>
@@ -1243,12 +1714,15 @@ export function QuestionTreeView({
     <div className={styles.page} data-embedded={embedded || undefined}>
       <div className={styles.shell}>
         <header className={styles.header}>
-          <div className={styles.headerTitle}>
-            <h1>{embedded ? "論点・仮説" : projectName}</h1>
-            <p>
-              分からないことを分解して、確かめる手をぶら下げる。答えが出たものから閉じる。
-            </p>
-          </div>
+          {/* ガントタブには「ガント」の見出しが既にある。同じ木に2つ見出しを付けない。 */}
+          {mode !== "gantt" && (
+            <div className={styles.headerTitle}>
+              <h1>{embedded ? "論点・仮説" : projectName}</h1>
+              <p>
+                分からないことを分解して、確かめる手をぶら下げる。答えが出たものから閉じる。
+              </p>
+            </div>
+          )}
           <div className={styles.summary}>
             <span className={styles.stat}>
               論点<b>{counts.questions}</b>
@@ -1268,9 +1742,22 @@ export function QuestionTreeView({
             <span className={styles.stat} data-tone={counts.overdue > 0 ? "bad" : undefined}>
               期限超過<b>{counts.overdue}</b>
             </span>
-            <span className={styles.stat} data-tone={counts.unassignedActions > 0 ? "warn" : undefined}>
+            {/* アサインはツリーの上で行う（3-22 §4）。件数から最初の未アサイン行へ移す。 */}
+            <button
+              type="button"
+              className={styles.stat}
+              data-tone={counts.unassignedActions > 0 ? "warn" : undefined}
+              data-clickable={counts.unassignedActions > 0 ? "true" : undefined}
+              disabled={counts.unassignedActions === 0}
+              title={
+                counts.unassignedActions > 0
+                  ? "担当か期限が空のTODOの、いちばん上へ移る"
+                  : undefined
+              }
+              onClick={goToFirstUnassigned}
+            >
               未アサイン<b>{counts.unassignedActions}</b>
-            </span>
+            </button>
             <span className={styles.stat}>
               答えが出た<b>{counts.answered}</b>
             </span>
@@ -1352,7 +1839,6 @@ export function QuestionTreeView({
               <button
                 type="button"
                 className={styles.btn}
-                data-variant={goalFormOpen ? undefined : "primary"}
                 onClick={() => setGoalFormOpen((open) => !open)}
               >
                 {goalFormOpen ? "やめる" : "到達点を追加"}
@@ -1394,12 +1880,123 @@ export function QuestionTreeView({
           )}
           {roots.length === 0 ? (
             <p className={styles.emptyState}>まだ登録されていない。</p>
+          ) : mode === "gantt" ? (
+            <div className={styles.gantt}>
+              <div className={styles.ganttHead}>
+                <div className={styles.ganttHeadLead}>
+                  <span>
+                    {depDraft
+                      ? "この後ろに来るTODOのバーを押してね（Escでやめる）"
+                      : "到達点 → MS → 論点 → TODO"}
+                  </span>
+                </div>
+                <div className={styles.ganttAxis} ref={axisRef}>
+                  {monthTicks.map((tick) => (
+                    <span
+                      key={tick.key}
+                      className={styles.monthTick}
+                      style={{ left: `${tick.leftPct}%`, width: `${tick.widthPct}%` }}
+                    >
+                      {tick.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className={styles.ganttBody} ref={ganttBodyRef}>
+                {/* 今日の線と依存線は行に属さないので、全行を覆う面へ置く。 */}
+                <div className={styles.ganttOverlay} aria-hidden="true">
+                  <div className={styles.ganttOverlayLead} />
+                  <div className={styles.ganttOverlayLane}>
+                    {ganttDomain && bundle.asOf >= ganttDomain.start && bundle.asOf <= ganttDomain.end && (
+                      <span
+                        className={styles.todayLine}
+                        style={{
+                          left: `${(diffDays(ganttDomain.start, bundle.asOf) / ganttDomain.totalDays) * 100}%`,
+                        }}
+                      />
+                    )}
+                    <svg className={styles.depLayer}>
+                      {depPaths.map((segment) => (
+                        <path key={segment.key} d={segment.path} />
+                      ))}
+                    </svg>
+                  </div>
+                </div>
+                <div className={styles.tree} data-mode="gantt">
+                  {roots.map((root, index) => renderNode(root, [], index === roots.length - 1, 0))}
+                </div>
+              </div>
+            </div>
           ) : (
             <div className={styles.tree}>
               {roots.map((root, index) => renderNode(root, [], index === roots.length - 1, 0))}
             </div>
           )}
         </section>
+
+        {mode === "gantt" && undatedActions.length > 0 && (
+          <section className={styles.section}>
+            <div className={styles.sectionHead}>
+              <h2>日程未設定</h2>
+              <span>
+                {undatedActions.length}件。ここで日程を付けると上のガントに並ぶ。担当と見積ptは
+                論点・仮説タブのゴールツリーで付ける
+              </span>
+            </div>
+            <div className={styles.undated}>
+              {undatedActions.map((action) => (
+                <div className={styles.undatedRow} key={action.id}>
+                  <button
+                    type="button"
+                    className={styles.undatedTitle}
+                    onClick={() => select("action", action.id)}
+                    title={action.title}
+                  >
+                    {action.title}
+                  </button>
+                  {/* 担当と見積ptはここで付けない。アサインはゴールツリーの上で行う
+                      （まさ確定 2026-09-11、3-22 §4）。ここは日程だけ。
+                      すでに決まっている担当は、誰の仕事かが分かるように読み取りで出す。 */}
+                  <span className={styles.undatedOwnerText}>
+                    {action.owners.length > 0 ? ownerText(action) : "担当はツリーで"}
+                  </span>
+                  <input
+                    className={styles.undatedInput}
+                    type="date"
+                    aria-label={`${action.title} の着手予定`}
+                    defaultValue={action.plannedStart ?? ""}
+                    disabled={busy || !canManage}
+                    onChange={(event) => {
+                      const value = event.currentTarget.value;
+                      if (!value) return;
+                      void send("PATCH", {
+                        resource: "action",
+                        id: action.id,
+                        fields: { planned_start: value },
+                      });
+                    }}
+                  />
+                  <input
+                    className={styles.undatedInput}
+                    type="date"
+                    aria-label={`${action.title} の期限`}
+                    defaultValue={action.plannedEnd ?? ""}
+                    disabled={busy || !canManage}
+                    onChange={(event) => {
+                      const value = event.currentTarget.value;
+                      if (!value) return;
+                      void send("PATCH", {
+                        resource: "action",
+                        id: action.id,
+                        fields: { planned_end: value },
+                      });
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {looseActions.length > 0 && (
           <section className={styles.section}>

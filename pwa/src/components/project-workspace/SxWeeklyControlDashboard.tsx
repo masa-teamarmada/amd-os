@@ -5592,196 +5592,24 @@ export function SxWeeklyControlDashboard({
         >
           <div className={styles.sectionHeading}>
             <div>
-              <h2>目的・全体ガント</h2>
-              <p>左でタスク階層、右で日程と前後関係を見る。目的→成立条件→タスクを同じ行で追う</p>
+              <h2>ガント</h2>
+              <p>
+                左が到達点→MS→論点→TODOの木、右がTODOの日程。日程の決まっていないTODOは下でまとめて決める
+              </p>
             </div>
             <div className={styles.planViewControls}>
               <p>基準日 {formatDate(management.asOf)}</p>
             </div>
           </div>
-          <div className={styles.ganttWorkspace}>
-            <div className={styles.ganttFrame}>
-              <SxUnifiedTimeline
-                timeline={timeline}
-                tracks={management.tracks}
-                asOf={management.asOf}
-                projectId={bundle.project.projectId}
-                milestones={management.milestones}
-                dependencies={management.dependencies}
-                scheduleDependencies={management.scheduleDependencies}
-                tasks={management.tasks}
-                objectives={management.objectives}
-                outcomes={management.outcomes}
-                objectiveId={management.objective?.id ?? null}
-                onManagementChange={(next, message) => {
-                  setManagement(next);
-                  setNotice(message);
-                  window.setTimeout(() => setNotice(null), 3500);
-                }}
-                onManagementOptimistic={(mutate, message) => {
-                  setManagement(mutate);
-                  showNotice(message);
-                }}
-                selectedMilestoneId={selectedMilestoneId}
-                selectedTaskId={selectedTaskId}
-                onSelectMilestone={(id) => {
-                  setSelectedMilestoneId(id);
-                  if (id) setSelectedTaskId(null);
-                }}
-                onSelectTask={(id) => {
-                  setSelectedTaskId(id);
-                  if (id) setSelectedMilestoneId(null);
-                }}
-                canManage={management.canManage}
-                onCreateMilestone={(prefill) =>
-                  setEditor({
-                    kind: "create_milestone",
-                    track: prefill.track,
-                    laneKey: prefill.laneKey ?? null,
-                    timelineKind: prefill.timelineKind,
-                    plannedDate: prefill.plannedDate ?? null,
-                    outcomeId: prefill.outcomeId ?? null,
-                  })
-                }
-                onCreateTask={(laneKey) =>
-                  setEditor({
-                    kind: "create_task",
-                    laneKey,
-                    milestoneId: null,
-                    allowStandalone: true,
-                  })
-                }
-                onCreateOutcome={() => setEditor({ kind: "create_outcome" })}
-                onEditOutcome={(outcomeId) => {
-                  const outcome = management.outcomes.find((item) => item.id === outcomeId);
-                  if (outcome) setEditor({ kind: "edit_outcome", outcome });
-                }}
-                showPins={false}
-              />
-            </div>
-            <PlanInspector
-              milestone={selectedPlanMilestone}
-              task={selectedTask}
-              laneFold={laneFold}
-              taskParentTitle={
-                selectedTask?.parentTaskId
-                  ? management.tasks.find(
-                      (candidate) => candidate.id === selectedTask.parentTaskId,
-                    )?.title || null
-                  : null
-              }
-              requirements={selectedRequirements}
-              canManage={management.canManage}
-              detailEditor={
-                detailEditor && selectedPlanMilestone ? (
-                  <IssueEditor
-                    key={`${detailEditor.kind}-${"milestone" in detailEditor ? detailEditor.milestone.id : ""}-${"task" in detailEditor ? detailEditor.task.id : ""}-${"laneKey" in detailEditor ? detailEditor.laneKey : ""}`}
-                    editor={detailEditor}
-                    management={management}
-                    access={access}
-                    projectId={bundle.project.projectId}
-                    embedded
-                    requestCloseRef={planEditorRequestCloseRef}
-                    onKeepEditing={() => { pendingPlanIntentRef.current = null; }}
-                    onDirtyChange={setDetailEditorDirty}
-                    onClose={() => {
-                      finishPlanEditorClose(focusSelectedPlanRowAfterClose);
-                    }}
-                    onSaved={(next, message) => {
-                      handleDetailSaved(next, message);
-                      focusSelectedPlanRowAfterClose();
-                    }}
-                    onReconciled={setManagement}
-                    onReconciledId={reconcileOptimisticId}
-                    onRolledBack={rollbackOptimisticRecord}
-                    onSyncFailed={showNotice}
-                  />
-                ) : null
-              }
-              inlineEditorSlot={planFieldEditor?.slot}
-              inlineEditor={
-                planFieldEditor ? (
-                  <IssueEditor
-                    key={`${planFieldEditor.slot}-${planFieldEditor.editor.kind}-${planFieldEditor.fieldKeys.join("-")}`}
-                    editor={planFieldEditor.editor}
-                    management={management}
-                    access={access}
-                    projectId={bundle.project.projectId}
-                    inlineField
-                    fieldKeys={planFieldEditor.fieldKeys}
-                    requestCloseRef={planEditorRequestCloseRef}
-                    onKeepEditing={() => { pendingPlanIntentRef.current = null; }}
-                    onDirtyChange={setDetailEditorDirty}
-                    onClose={() => {
-                      finishPlanEditorClose(() => focusPlanEditSlotAfterClose(planFieldEditor.slot));
-                    }}
-                    onSaved={(next, message) => {
-                      focusPlanEditSlotAfterClose(planFieldEditor.slot);
-                      handleDetailSaved(next, message);
-                    }}
-                    onReconciled={setManagement}
-                    onReconciledId={reconcileOptimisticId}
-                    onRolledBack={rollbackOptimisticRecord}
-                    onSyncFailed={showNotice}
-                  />
-                ) : null
-              }
-              deleteBlockedReason={
-                selectedTask
-                  ? management.tasks.some(
-                      (candidate) => candidate.parentTaskId === selectedTask.id,
-                    )
-                    ? "子タスクがあるから削除できないよ。先に子タスクを移すか削除してね"
-                    : null
-                  : selectedMilestone &&
-                      management.tasks.some(
-                        (candidate) =>
-                          candidate.milestoneId === selectedMilestone.id,
-                      )
-                    ? "このMSに紐づくタスクがあるから削除できないよ。先にタスクを別のMSへ移すか削除してね"
-                    : null
-              }
-              // 削除は押した瞬間に画面から消えるので、待ち状態の表示は残さない。
-              deleting={false}
-              onDelete={
-                selectedTask
-                  ? () => {
-                      const taskId = selectedTask.id;
-                      requestPlanIntent(() => {
-                        void deleteTask(taskId);
-                      });
-                    }
-                  : selectedMilestone
-                    ? () => {
-                        const milestoneId = selectedMilestone.id;
-                        requestPlanIntent(() => {
-                          void deleteMilestone(milestoneId);
-                        });
-                      }
-                    : undefined
-              }
-              onClose={() => {
-                requestPlanIntent(() => {
-                  setSelectedMilestoneId(null);
-                  setSelectedTaskId(null);
-                });
-              }}
-              onEditField={(slot, nextEditor, fieldKeys, targetLabel, fieldLabel) => {
-                requestPlanIntent(() => {
-                  // detailEditor/planFieldEditorは常に排他 — 片方を開く前にもう片方を確実に閉じる
-                  // （どちらも同じplanEditorRequestCloseRefを1つだけ登録する前提を保つ）。
-                  setDetailEditor(null);
-                  setPlanFieldEditor({
-                    slot,
-                    editor: nextEditor,
-                    fieldKeys,
-                    targetLabel,
-                    fieldLabel,
-                  });
-                });
-              }}
-            />
-          </div>
+          {/* 論点・仮説タブと同じゴールツリーを、行の右側だけバーへ替えて出す
+              （spec 3-22 §2・§5）。旧・project_management_tasks ベースのガントは
+              ここで置き換えた。 */}
+          <QuestionTreeView
+            projectId={bundle.project.projectId}
+            projectName={bundle.project.projectName}
+            embedded
+            mode="gantt"
+          />
         </section>
         )}
 
