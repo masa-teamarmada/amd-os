@@ -1189,7 +1189,7 @@ export function QuestionTreeView({
           {renderInline("action", action.id, "期限", "planned_end", action.plannedEnd, action.plannedEnd ? fmtDate(action.plannedEnd) : "期限なし", "date")}
           {renderInline("action", action.id, "着手予定", "planned_start", action.plannedStart, action.plannedStart ? fmtDate(action.plannedStart) : "—", "date")}
           {renderInline("action", action.id, "完了日", "actual_end", action.actualEnd, action.actualEnd ? fmtDate(action.actualEnd) : "—", "date")}
-          {renderInline("action", action.id, "見積pt", "estimated_pt", action.estimatedPt === null ? null : String(action.estimatedPt), ptText(action.estimatedPt))}
+          {/* 見積ptはMS・月次タブで決めて並べる。ここには出さない（外部も開く面） */}
           {action.actionKind === "measure" && (
             <>
               {renderInline("action", action.id, "目標値", "target", action.target, action.target ?? "—")}
@@ -1569,11 +1569,6 @@ export function QuestionTreeView({
             <span className={styles.chip} data-kind={action.actionKind}>
               {action.actionKind === "measure" ? "確かめる" : "作業"}
             </span>
-            {action.estimatedPt !== null && (
-              <span className={styles.chip} data-kind="pt">
-                {ptText(action.estimatedPt)}
-              </span>
-            )}
             {/* 会議中に足したまま、担当か期限が決まっていないもの。上部へ抜き出さず
                 行の中で示す（3-21「上部へ抜き出さない」、3-22 §4）。 */}
             {action.isUnassigned && (
@@ -1694,12 +1689,13 @@ export function QuestionTreeView({
                 {QUESTION_KIND_LABEL[node.questionKind]}
               </span>
             )}
-            {/* 骨格の行には、その枝に配ったptとTODOの数を出す。どこへいくら配ったかを
-                木のまま読めるようにする（別の一覧画面は作らない。3-22 §4）。 */}
+            {/* ptはここに出さない。ツリーとガントは外部メンバーも見る面で、
+                報酬に直結する数字を置けない（まさ 2026-09-11）。
+                ptを並べて比べるのはMS・月次タブ。ここではTODOの数だけ出す。 */}
             {(node.questionKind === "goal" || node.questionKind === "milestone") &&
               node.todoCount > 0 && (
                 <span className={styles.chip} data-kind="rollup">
-                  {ptText(node.assignedPt)} / TODO {node.todoCount}
+                  TODO {node.todoCount}
                   {node.unassignedCount > 0 ? `（未${node.unassignedCount}）` : ""}
                 </span>
               )}
@@ -1774,9 +1770,6 @@ export function QuestionTreeView({
               期限超過<b>{counts.overdue}</b>
             </span>
             {/* アサインはツリーの上で行う（3-22 §4）。件数から最初の未アサイン行へ移す。 */}
-            <span className={styles.stat}>
-              配ったpt<b>{counts.assignedPt}</b>
-            </span>
             <button
               type="button"
               className={styles.stat}

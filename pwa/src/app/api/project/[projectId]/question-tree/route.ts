@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { canAccessWorkspaceProject, getCurrentMemberAccess } from "@/lib/project-workspace";
-import { getGoalTreeAssignmentView, getQuestionTreeBundle } from "@/lib/question-tree";
+import {
+  getGoalTreeAssignmentView,
+  getGoalTreePointsView,
+  getQuestionTreeBundle,
+} from "@/lib/question-tree";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -246,6 +250,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         return NextResponse.json({ error: "共有情報の更新権限がないよ" }, { status: 403 });
       }
       const view = await getGoalTreeAssignmentView(projectId);
+      return NextResponse.json(view, { headers: NO_STORE });
+    }
+
+    // ptを並べて比べる面（MS・月次タブ）。木とガントには出さない数字なので、
+    // ここも権限のある人だけに返す。
+    if (request.nextUrl.searchParams.get("view") === "points") {
+      if (!canManage) {
+        return NextResponse.json({ error: "共有情報の更新権限がないよ" }, { status: 403 });
+      }
+      const view = await getGoalTreePointsView(projectId);
       return NextResponse.json(view, { headers: NO_STORE });
     }
 

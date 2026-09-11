@@ -5,6 +5,7 @@ import { CockpitHeader } from "./CockpitHeader";
 import { CockpitVentureStatus } from "./CockpitVentureStatus";
 import { CockpitManagementScoreHero } from "./CockpitManagementScoreHero";
 import { CockpitGoalsCompact } from "./CockpitGoalsCompact";
+import { CockpitGoalTreePoints } from "./CockpitGoalTreePoints";
 import { CockpitStrategySignals } from "./CockpitStrategySignals";
 import { Bzm22AcquisitionLedger } from "./Bzm22AcquisitionLedger";
 import { CockpitAmdContributions } from "./CockpitAmdContributions";
@@ -664,6 +665,9 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
               memberActivities={memberActivities || []}
             />
           )}
+          {/* TODOごとのpt。ツリーとガントは外部メンバーも見る面なので、
+              報酬に直結する数字はこの内部だけの面に置く（まさ 2026-09-11）。 */}
+          <CockpitGoalTreePoints projectId={project.projectId} />
           {renderMsSetupBanner()}
           {(usesMsProgress || (msChangeHistory?.length ?? 0) > 0) && (
             <CockpitMsChangeHistory history={msChangeHistory || []} memberMap={memberMap || {}} />

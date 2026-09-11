@@ -104,7 +104,18 @@ function isActionOpen(action: ActionNode): boolean {
   return ACTION_OPEN_STATUSES.includes(action.status);
 }
 
-function mapAction(row: RawRow, questionIds: string[], owners: ActionOwner[]): ActionNode {
+/**
+ * ptは報酬に直結するので、木とガントの束には載せない（まさ 2026-09-11
+ * 「ツリーはAMD外のメンバーも見るから、ここでptを書かれると困る」）。
+ * 共有ワークスペースの外部メンバーはガントを見るので、画面で隠すだけでなく
+ * 返す値から落とす。ptを並べて比べる面はMS・月次タブ（内部だけ）に置く。
+ */
+function mapAction(
+  row: RawRow,
+  questionIds: string[],
+  owners: ActionOwner[],
+  includePoints: boolean,
+): ActionNode {
   const status = (row.status as ActionStatus) || "unassessed";
   const plannedEnd = nullableStr(row, "planned_end");
   const today = todayIso();
@@ -138,8 +149,8 @@ function mapAction(row: RawRow, questionIds: string[], owners: ActionOwner[]): A
     findings: [],
     isOverdue:
       ACTION_OPEN_STATUSES.includes(status) && Boolean(plannedEnd) && (plannedEnd as string) < today,
-    estimatedPt: nullableNum(row, "estimated_pt"),
-    acceptedPt: nullableNum(row, "accepted_pt"),
+    estimatedPt: includePoints ? nullableNum(row, "estimated_pt") : null,
+    acceptedPt: includePoints ? nullableNum(row, "accepted_pt") : null,
     acceptState: asAcceptState(row.accept_state),
     owners,
     // 会議中はタイトルだけで足せる（3-22 §4）。担当か期限のどちらかが空なら、
@@ -279,7 +290,8 @@ function flatten(nodes: QuestionNode[]): QuestionNode[] {
  * 画面の提案列ではないので、木そのものには何も足さない。
  */
 export async function getGoalTreeAssignmentView(projectId: string) {
-  const bundle = await getQuestionTreeBundle(projectId, true);
+  // 割り振りを決める面なので、ここだけはptを載せて読む。
+  const bundle = await getQuestionTreeBundle(projectId, true, true);
 
   type Trail = { kind: QuestionKind; title: string; id: string }[];
   const trailByAction = new Map<string, Trail>();
@@ -380,9 +392,101 @@ export async function getGoalTreeAssignmentView(projectId: string) {
   };
 }
 
+/**
+ * ptを並べて比べる面（MS・月次タブ）。
+ *
+ * 木の中に飛び飛びで出ていると「このTODOはpt高すぎないか」を比べられない
+ * （まさ 2026-09-11）。MSごとにまとめ、同じMSの中はptの大きい順に並べて返す。
+ * ここは内部だけが開くコックピットの面で、共有ワークスペースには出さない。
+ */
+export async function getGoalTreePointsView(projectId: string) {
+  const bundle = await getQuestionTreeBundle(projectId, true, true);
+
+  const milestoneOfAction = new Map<string, QuestionNode>();
+  const goalOfMilestone = new Map<string, string>();
+  const walk = (node: QuestionNode, milestone: QuestionNode | null, goalTitle: string | null) => {
+    const nextGoal = node.questionKind === "goal" ? node.title : goalTitle;
+    const nextMilestone = node.questionKind === "milestone" ? node : milestone;
+    if (node.questionKind === "milestone" && nextGoal) goalOfMilestone.set(node.id, nextGoal);
+    for (const action of node.actions) {
+      if (!milestoneOfAction.has(action.id) && nextMilestone) {
+        milestoneOfAction.set(action.id, nextMilestone);
+      }
+    }
+    for (const child of node.children) walk(child, nextMilestone, nextGoal);
+  };
+  for (const root of bundle.roots) walk(root, null, null);
+
+  const rows = bundle.allActions
+    .filter((action) => action.status !== "dropped")
+    .map((action) => {
+      const milestone = milestoneOfAction.get(action.id) ?? null;
+      return {
+        id: action.id,
+        title: action.title,
+        actionKind: action.actionKind,
+        status: action.status,
+        estimatedPt: action.estimatedPt,
+        acceptedPt: action.acceptedPt,
+        plannedStart: action.plannedStart,
+        plannedEnd: action.plannedEnd,
+        isOverdue: action.isOverdue,
+        isUnassigned: action.isUnassigned,
+        owners: action.owners,
+        ownerLabel: action.ownerLabel,
+        milestoneId: milestone?.id ?? null,
+        milestoneTitle: milestone?.title ?? null,
+      };
+    });
+
+  const groups = bundle.allQuestions
+    .filter((question) => question.questionKind === "milestone")
+    .map((question) => {
+      const items = rows
+        .filter((row) => row.milestoneId === question.id)
+        // 大きい順。比べたいのは「どれが重いか」なので、pt無しは最後へ。
+        .sort((a, b) => (b.estimatedPt ?? -1) - (a.estimatedPt ?? -1) || a.title.localeCompare(b.title, "ja"));
+      return {
+        milestoneId: question.id,
+        title: question.title,
+        goalTitle: goalOfMilestone.get(question.id) ?? null,
+        dueDate: question.dueDate,
+        assignedPt: Math.round(items.reduce((total, row) => total + (row.estimatedPt ?? 0), 0) * 10) / 10,
+        todoCount: items.length,
+        unassignedCount: items.filter((row) => row.isUnassigned).length,
+        pricedCount: items.filter((row) => row.estimatedPt !== null).length,
+        items,
+      };
+    })
+    .sort((a, b) => (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999"));
+
+  // MSにぶら下がっていないTODO。ptを配る前に置き場所を決める必要がある。
+  const loose = rows
+    .filter((row) => !row.milestoneId)
+    .sort((a, b) => (b.estimatedPt ?? -1) - (a.estimatedPt ?? -1) || a.title.localeCompare(b.title, "ja"));
+
+  return {
+    projectId,
+    asOf: bundle.asOf,
+    groups,
+    loose,
+    totals: {
+      assignedPt: Math.round(rows.reduce((total, row) => total + (row.estimatedPt ?? 0), 0) * 10) / 10,
+      todoCount: rows.length,
+      pricedCount: rows.filter((row) => row.estimatedPt !== null).length,
+      unassignedCount: rows.filter((row) => row.isUnassigned).length,
+      maxPt: rows.reduce((max, row) => Math.max(max, row.estimatedPt ?? 0), 0),
+    },
+  };
+}
+
+export type GoalTreePointsView = Awaited<ReturnType<typeof getGoalTreePointsView>>;
+
 export async function getQuestionTreeBundle(
   projectId: string,
   canManage: boolean,
+  /** ptを束に載せるか。既定は載せない（木・ガントは外部も見る） */
+  includePoints = false,
 ): Promise<QuestionTreeBundle> {
   const db = createAdminClient();
   const today = todayIso();
@@ -489,6 +593,8 @@ export async function getQuestionTreeBundle(
       row,
       questionIdsByAction.get(str(row, "id")) || [],
       ownersByAction.get(str(row, "id")) || [],
+      // 木とガントにはptを載せない。外部メンバーがガントを見るため。
+      includePoints,
     ),
   );
   const actionById = new Map(actions.map((action) => [action.id, action]));
