@@ -16,7 +16,7 @@ cwd: `/Users/masa/projects/AMD/amd-os`
 
 ## 状態スナップショット（2026-09-11 時点）
 
-- 設計はまさ確定（骨格、予備50%、余りはシーズン合算で獲得pt比、検収実績への切り替え、Slack配信を既定、支払済み残作業は pt 0、SXの到達点直下は5本、CEO業務は定常継続、pt配分の暫定値）。正本は 3-22。**担当・期限・ptの割り振りは、ゴールツリーの構造に沿ってつくよみが提案し、PMが承認する（まさ確定 2026-09-11。人が手で全PJぶん付ける運用にはしない）。ガントは日程だけ。** 0-1 と 0-2 は本流に入った（25a73334 / 9902586b）。
+- 設計はまさ確定（骨格、予備50%、余りはシーズン合算で獲得pt比、検収実績への切り替え、Slack配信を既定、支払済み残作業は pt 0、SXの到達点直下は5本、CEO業務は定常継続、pt配分の暫定値）。正本は 3-22。**担当・期限・ptの割り振りは、まさかPMが Codex / Claude のセッションでえいみと話しながら決め、えいみが既存の更新APIで書き込む（まさ確定 2026-09-11。人が手でひとつずつ付ける運用にも、つくよみの自動バッチにもしない。定額外トークンは使わない）。ガントは日程だけ。** 0-1 と 0-2 は本流に入った（25a73334 / 9902586b）。
 - 本番DB: 問いの木のテーブル（`project_questions` / `project_actions` / `project_findings` / つなぎ3つ）は稼働中。SX（p21）は問い28・やること50、ZMP（p19）は問い37・やること70。`review_state='proposed'` の受け皿と承認/却下API、つくよみの書き漏らし検出（daily 04:35 JST、outbox → LaunchAgent applier）は本番稼働中。
 - 旧 `project_management_*` は読むだけ。ガントはまだ旧構造（`project_management_tasks`）で動いている（3-21 の残作業①）。
 - 9/9 の「NewCo設立」ツリー（根1 + 条件4 + 子12）は `project_actions` に「やること」として存在する。設立の停止条件2件（有償PoC口頭合意 / 出資口頭合意）は旧テーブルで論理削除済みで、どこにも生きていない。
@@ -40,7 +40,7 @@ git clone --reference-if-able /Users/masa/projects/AMD/amd-os --branch main --si
 - `project_action_owners`（`action_id`, `member_id`, `share numeric`、既定は均等）。既存の `owner_label` は表示互換で残す。
 - migration は `ios/supabase/migrations/2026091xHHMMSS_goal_tree_phase0_*.sql`。**`npx supabase db push` は使わない**（ローカルにあってリモート履歴に無いmigrationが20件以上あり、pushすると巻き込む）。MCP の `apply_migration` で1本ずつ当て、列と制約を readback する。
 - 検査: 既存行が新しい CHECK を通ること（`question_kind` の既存値は変えない）。
-- **0-1b（追加、2026-09-11 まさ指摘の反映）**: 割り振りの提案用の列を `project_actions` に足す。`proposed_owner_ids text[]`（`members.member_id`）、`proposed_due date`、`proposed_pt numeric(6,1)`、`assign_proposal_reason text`、`assign_proposal_state text`（`none` / `proposed` / `accepted` / `edited`、既定 `none`）。起票提案の `review_state` / `proposal_reason` とは別物。提案は確定値（`owner` / `planned_end` / `estimated_pt`）に触らない。
+- **0-1b（取り下げ 2026-09-11）**: 提案用の列は足さない。割り振りはセッションでえいみが決めて既存の更新APIで書き込む（3-22 §4）。
 
 ### 0-2. ゴールツリーの画面（論点・仮説タブ）
 
@@ -50,7 +50,7 @@ git clone --reference-if-able /Users/masa/projects/AMD/amd-os --branch main --si
 - 会議中の追加は種類とタイトルだけで保存できること。担当・期限・ptは任意で、必須にしない（まさ確定「会議中にアサインしない」）。
 - 名称: 正本と設計書では「ゴールツリー」。**画面のタブ名は「論点・仮説」のまま**にし、まさへ「タブ名を変えるか」を確認事項として残す。
 - 判定・並び・色・モーダル・ドラッグは 3-21 のまま変えない。
-- **割り振りは人が手で付ける運用にしない**（まさ 2026-09-11「いちいち手作業で全PJこれをやれるわけない」）。担当・期限・見積ptは、つくよみが提案しPMが承認する（3-22 §4）。Phase 0 で作るのは**その器**: 未アサインのTODO行に提案値（担当・期限・見積pt・根拠）を薄く表示し、行の「採用」で確定、値を直してから採用もできる。ヘッダーに「提案 n件をまとめて採用」。手入力の欄（見積pt・期限・担当）は提案を直すための入口として残す。提案を作る側（つくよみ）は Phase 1 の最初の単位。
+- **割り振り（担当・期限・見積pt）は、まさかPMがセッションでえいみと決め、えいみが書き込む**（3-22 §4、まさ確定 2026-09-11）。Phase 0 で作るのは、0-2 の更新API（担当の付け外し、期限、見積pt）が**1回の呼び出しで複数TODOをまとめて更新できる**ことと、**未アサインの一覧をAPIで取れる**こと。画面の提案表示・採用ボタン・提案用の列は作らない。手入力の欄は、あとから直す入口として残す。
 
 ### 0-3. ガントを新構造へ
 
@@ -81,7 +81,7 @@ git clone --reference-if-able /Users/masa/projects/AMD/amd-os --branch main --si
 
 ## Phase 0 の完了条件
 
-SXとZMPの論点・仮説タブで、根に到達点、直下にMS、その下に既存の論点・TODOが1本の木で見え、担当か期限が空のTODOに印が出て、ツリーのTODO行に割り振りの提案を表示して採用できる器（列・表示・採用ボタン）があり、ガントの左列がその木で日程を付けられる。本番反映済み。3-21 / 2-9 改訂済み。
+SXとZMPの論点・仮説タブで、根に到達点、直下にMS、その下に既存の論点・TODOが1本の木で見え、担当か期限が空のTODOに印が出て、未アサインの一覧と担当・期限・見積ptの一括更新がAPIでできて、ガントの左列がその木で日程を付けられる。本番反映済み。3-21 / 2-9 改訂済み。
 
 ## Phase 0 でやらないこと
 
@@ -90,7 +90,7 @@ SXとZMPの論点・仮説タブで、根に到達点、直下にMS、その下�
 - 旧 `project_management_*` の撤去（まさ確認後）。
 - つくよみの役割（書き漏らしだけ拾う）を変えない。
 - ptの見積・確定の運用開始（Phase 1）。Phase 0 は列と入力欄だけ。
-- **つくよみの割り振り提案（担当・期限・見積pt）の automation は Phase 1 の最初の単位。** 経路は書き漏らし検出と同じ（Codex automation → outbox → LaunchAgent applier → 提案で止める）。Phase 0 では器だけ作る。
+- **割り振りの自動バッチ（つくよみの automation）は作らない**（まさ確定 2026-09-11。定額外トークンは使わない）。割り振りセッションの手順（skill `goal-tree-assign`）と書き込みスクリプトは Phase 1 の最初の単位。
 
 ## 運用ルール（このPJで確立済み）
 
