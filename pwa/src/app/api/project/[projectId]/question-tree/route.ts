@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { canAccessWorkspaceProject, getCurrentMemberAccess } from "@/lib/project-workspace";
-import { getQuestionTreeBundle } from "@/lib/question-tree";
+import { getGoalTreeAssignmentView, getQuestionTreeBundle } from "@/lib/question-tree";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -232,12 +232,23 @@ function assertActionRules(fields: Record<string, unknown>, existing?: Record<st
   }
 }
 
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ projectId: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
   const context = await getWorkspaceContext(projectId);
   if ("response" in context) return context.response;
   try {
     const canManage = context.access.scope === "portfolio" || context.access.isAdmin;
+
+    // 割り振りセッション（3-22 §4）がまとめて読むための面。
+    // 未アサインのTODOを、到達点からの道・MS・前後関係つきで返す。
+    if (request.nextUrl.searchParams.get("view") === "unassigned") {
+      if (!canManage) {
+        return NextResponse.json({ error: "共有情報の更新権限がないよ" }, { status: 403 });
+      }
+      const view = await getGoalTreeAssignmentView(projectId);
+      return NextResponse.json(view, { headers: NO_STORE });
+    }
+
     const bundle = await getQuestionTreeBundle(projectId, canManage);
     return NextResponse.json(bundle, { headers: NO_STORE });
   } catch (error) {
@@ -397,6 +408,38 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   try {
     const body: unknown = await request.json();
     if (!isRecord(body)) throw new Error("更新内容が不正だよ");
+
+    /**
+     * 割り振りのまとめ書き込み（3-22 §4）。担当・期限・見積ptは、まさかPMが
+     * セッションでえいみと決め、えいみがここへ渡す。1件ずつ何十回も投げると
+     * 途中で落ちたときに半端に入るので、DB関数で1トランザクションにする。
+     *
+     * items: [{ action_id, planned_start?, planned_end?, estimated_pt?, member_ids? }]
+     * キーが無い項目は触らない。member_ids を渡したときだけ担当を入れ替える。
+     */
+    if (body.resource === "action_bulk") {
+      const items = Array.isArray(body.items) ? body.items : null;
+      if (!items) throw new Error("items を配列で渡してね");
+      if (items.length === 0) throw new Error("items が空だよ");
+      if (items.length > 200) throw new Error(`1回に渡せるのは200件までだよ（いまは${items.length}件）`);
+      for (const item of items) {
+        if (!isRecord(item) || typeof item.action_id !== "string" || !item.action_id) {
+          throw new Error("どの項目にも action_id が要るよ");
+        }
+      }
+
+      const db = createAdminClient();
+      const { data, error } = await db.rpc("apply_goal_tree_assignments", {
+        p_project_id: projectId,
+        p_items: items,
+        p_changed_by: context.access.memberId ?? null,
+      });
+      if (error) throw new Error(error.message);
+
+      const bundle = await getQuestionTreeBundle(projectId, true);
+      return NextResponse.json({ applied: data ?? null, bundle }, { headers: NO_STORE });
+    }
+
     const resource = asResource(body.resource);
     if (!SOFT_DELETABLE.includes(resource)) throw new Error("つなぎは付け外しで直してね");
     const id = typeof body.id === "string" ? body.id : "";

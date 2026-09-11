@@ -250,6 +250,116 @@ function flatten(nodes: QuestionNode[]): QuestionNode[] {
   return out;
 }
 
+/**
+ * 割り振りセッションが読む束（3-22 §4「えいみが読むもの」）。
+ *
+ * 担当・期限・見積ptは、まさかPMがセッションでえいみと決めてえいみが書き込む。
+ * その1回目に必要なもの——未アサインのTODOが、どの到達点のどのMSのどの論点の下に
+ * ぶら下がっているか、完了条件、前後関係、同じMSに既に配ったpt——をまとめて返す。
+ * 画面の提案列ではないので、木そのものには何も足さない。
+ */
+export async function getGoalTreeAssignmentView(projectId: string) {
+  const bundle = await getQuestionTreeBundle(projectId, true);
+
+  type Trail = { kind: QuestionKind; title: string; id: string }[];
+  const trailByAction = new Map<string, Trail>();
+  const milestoneByAction = new Map<string, QuestionNode>();
+
+  const walk = (node: QuestionNode, trail: Trail, milestone: QuestionNode | null) => {
+    const nextTrail: Trail = [...trail, { kind: node.questionKind, title: node.title, id: node.id }];
+    const nextMilestone = node.questionKind === "milestone" ? node : milestone;
+    for (const action of node.actions) {
+      // 同じやることが複数の問いに効くときは、最初に出会った道を使う。
+      if (!trailByAction.has(action.id)) {
+        trailByAction.set(action.id, nextTrail);
+        if (nextMilestone) milestoneByAction.set(action.id, nextMilestone);
+      }
+    }
+    for (const child of node.children) walk(child, nextTrail, nextMilestone);
+  };
+  for (const root of bundle.roots) walk(root, [], null);
+
+  const actionById = new Map(bundle.allActions.map((action) => [action.id, action]));
+  const titleOf = (id: string) => actionById.get(id)?.title ?? null;
+
+  // MSごとに、配下のTODOへ既に配った見積ptを積む。配りすぎの判断材料。
+  const milestoneRollup = new Map<string, { assignedPt: number; todos: number; unassigned: number }>();
+  for (const action of bundle.allActions) {
+    const milestone = milestoneByAction.get(action.id);
+    if (!milestone) continue;
+    const current = milestoneRollup.get(milestone.id) ?? { assignedPt: 0, todos: 0, unassigned: 0 };
+    current.assignedPt += action.estimatedPt ?? 0;
+    current.todos += 1;
+    if (action.isUnassigned) current.unassigned += 1;
+    milestoneRollup.set(milestone.id, current);
+  }
+
+  const milestones = bundle.allQuestions
+    .filter((question) => question.questionKind === "milestone")
+    .map((question) => {
+      const rollup = milestoneRollup.get(question.id) ?? { assignedPt: 0, todos: 0, unassigned: 0 };
+      const goal = question.parentId ? bundle.allQuestions.find((q) => q.id === question.parentId) : null;
+      return {
+        id: question.id,
+        title: question.title,
+        dueDate: question.dueDate,
+        goalTitle: goal?.title ?? null,
+        milestoneIds: question.milestoneIds,
+        assignedPt: Math.round(rollup.assignedPt * 10) / 10,
+        todoCount: rollup.todos,
+        unassignedCount: rollup.unassigned,
+      };
+    });
+
+  const unassigned = bundle.allActions
+    .filter((action) => action.isUnassigned)
+    .map((action) => {
+      const milestone = milestoneByAction.get(action.id) ?? null;
+      return {
+        id: action.id,
+        title: action.title,
+        actionKind: action.actionKind,
+        status: action.status,
+        detail: action.detail,
+        doneCriteria: action.doneCriteria,
+        plannedStart: action.plannedStart,
+        plannedEnd: action.plannedEnd,
+        estimatedPt: action.estimatedPt,
+        ownerLabel: action.ownerLabel,
+        owners: action.owners,
+        // 何の下の話かを、到達点からの道で渡す。これが無いとptの重みを判断できない。
+        path: trailByAction.get(action.id) ?? [],
+        milestoneId: milestone?.id ?? null,
+        milestoneTitle: milestone?.title ?? null,
+        predecessors: bundle.dependencies
+          .filter((dependency) => dependency.successorActionId === action.id)
+          .map((dependency) => ({
+            id: dependency.predecessorActionId,
+            title: titleOf(dependency.predecessorActionId),
+          })),
+        successors: bundle.dependencies
+          .filter((dependency) => dependency.predecessorActionId === action.id)
+          .map((dependency) => ({
+            id: dependency.successorActionId,
+            title: titleOf(dependency.successorActionId),
+          })),
+      };
+    });
+
+  return {
+    projectId,
+    asOf: bundle.asOf,
+    members: bundle.members,
+    milestones,
+    unassigned,
+    counts: {
+      unassigned: unassigned.length,
+      actions: bundle.allActions.length,
+      milestones: milestones.length,
+    },
+  };
+}
+
 export async function getQuestionTreeBundle(
   projectId: string,
   canManage: boolean,

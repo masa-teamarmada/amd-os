@@ -363,7 +363,7 @@ type WorkspaceGroupKey = "execution" | "planning" | "company" | "documents";
 type WorkspaceTab = { key: SxWeeklyControlView; label: string };
 type WorkspaceTabGroup = { key: WorkspaceGroupKey; label: string; children: readonly WorkspaceTab[] };
 const PROJECT_WORKSPACE_GROUPS: readonly WorkspaceTabGroup[] = [
-  { key: "execution", label: "実行", children: [{ key: "themes", label: "テーマ" }, { key: "weekly", label: "週次差分" }, { key: "gantt", label: "ガント" }, { key: "partners", label: "関係先" }, { key: "issues", label: "論点・仮説" }] },
+  { key: "execution", label: "実行", children: [{ key: "themes", label: "テーマ" }, { key: "weekly", label: "週次差分" }, { key: "gantt", label: "ガント" }, { key: "partners", label: "関係先" }, { key: "issues", label: "ゴールツリー" }] },
   { key: "planning", label: "計画・根拠", children: [{ key: "technology", label: "技術" }, { key: "business-plan", label: "事業計画" }] },
   { key: "company", label: "経営・会社", children: [{ key: "company", label: "会社概要" }, { key: "capital-policy", label: "資本政策" }, { key: "cost", label: "コスト試算" }, { key: "ip", label: "知財" }] },
   { key: "documents", label: "資料", children: [{ key: "drive", label: "ドライブ" }] },

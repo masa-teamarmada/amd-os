@@ -1717,9 +1717,9 @@ export function QuestionTreeView({
           {/* ガントタブには「ガント」の見出しが既にある。同じ木に2つ見出しを付けない。 */}
           {mode !== "gantt" && (
             <div className={styles.headerTitle}>
-              <h1>{embedded ? "論点・仮説" : projectName}</h1>
+              <h1>{embedded ? "ゴールツリー" : projectName}</h1>
               <p>
-                分からないことを分解して、確かめる手をぶら下げる。答えが出たものから閉じる。
+                到達点を一番上に置き、そこから分からないことを分解して、確かめる手をぶら下げる。答えが出たものから閉じる。
               </p>
             </div>
           )}

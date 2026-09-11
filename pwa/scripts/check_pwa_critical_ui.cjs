@@ -636,7 +636,8 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   'weekly: "週次差分"',
   'gantt: "ガント"',
   'partners: "関係先"',
-  'issues: "論点・仮説"',
+  // 2026-09-11 まさ確定: タブ名を「論点・仮説」から「ゴールツリー」へ。内部キー issues とURLは変えない。
+  'issues: "ゴールツリー"',
 ]);
 expectIncludes("src/components/cockpit/CockpitProjectControl.tsx", [
   "SxWeeklyControlDashboard",
@@ -3925,6 +3926,22 @@ expectIncludes("src/components/question-tree/QuestionTreeView.tsx", [
   "未アサイン",
   "担当（複数可）",
   "見積pt",
+]);
+// 割り振りセッションが使う経路（2026-09-11 まさ確定、spec 3-22 §4）。
+// 担当・期限・見積ptはセッションでえいみと決めて書き込む。画面に提案列も採用ボタンも作らない。
+// まとめ書き込みは1トランザクション（DB関数）で、半端に入った状態を残さない。
+expectIncludes("src/app/api/project/[projectId]/question-tree/route.ts", [
+  '"unassigned"',
+  "getGoalTreeAssignmentView",
+  '"action_bulk"',
+  "apply_goal_tree_assignments",
+  "1回に渡せるのは200件までだよ",
+]);
+expectIncludes("src/lib/question-tree.ts", [
+  "getGoalTreeAssignmentView",
+  "milestoneByAction",
+  "trailByAction",
+  "assignedPt",
 ]);
 expectNotIncludes(
   "src/components/project-workspace/SxWeeklyControlDashboard.tsx",
