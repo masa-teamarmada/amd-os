@@ -38,8 +38,8 @@ Session topic: 教科書2冊 (Book A/B) の設計確定 + RT 組成論を仮説�
 | 1 | **RT 独禁法務確認 (§7.3 field-of-use 分割の垂直ライセンス構成)** の発注パッケージ作成 → まさが法律事務所へ送付 | 別セッション (task_2985c953) 進行中 | 完了通知待ち。成果物 = `/Users/masa/projects/AMD/BZSF/RT_ANTITRUST_LEGAL_REVIEW_REQUEST_202607.md` |
 | 2 | **石原先生への Book A 共著正式打診** の段取り | まさ | Book A 企画概要1枚をえいみがドラフト可 (未着手) |
 | 3 | **Ch 9.5 段落 outline (ステージ3)** | えいみ | 書き順ルール (D-007 + D-056) により **Ch 10.7 の後**。現行の起草優先は Book I Ch 1 + Book II Ch 5 §5.0.1 (2026-06-28 まさ確定) を維持 |
-| 4 | KENQ / SX/EWIR / VSX の匿名化方針・TIEM D-010 の A/B 適用範囲を BOOK_DECISIONS.md に判例化 | まさ | Book B RT 部の執筆前提。P-001 (機関実名) と併せて判断 |
-| 5 | AMD OS 開発要件: ICT カラム (`/institutions` 独立表示) + ERS v1.1 (新サブ軸 4-d/2-e/8-b、全機関 N/A スタート) の実装 | OS 司令塔 | 実装タイミングは SX/EWIR 検証後を推奨 (BOOKS_PORTFOLIO PF-011) |
+| 4 | KENQ / SX/SIER / VSX の匿名化方針・TIEM D-010 の A/B 適用範囲を BOOK_DECISIONS.md に判例化 | まさ | Book B RT 部の執筆前提。P-001 (機関実名) と併せて判断 |
+| 5 | AMD OS 開発要件: ICT カラム (`/institutions` 独立表示) + ERS v1.1 (新サブ軸 4-d/2-e/8-b、全機関 N/A スタート) の実装 | OS 司令塔 | 実装タイミングは SX/SIER 検証後を推奨 (BOOKS_PORTFOLIO PF-011) |
 | 6 | Book B 企画書 + 目次 + サンプル2章 (実戦書の完成度が高い部分から) の Q4 作成 | えいみ | 版元打診用。着手は2026 Q4 の予定 (時間軸 §9) |
 | 7 | モノグラフ英訳工程の裁定 | まさ | Q10「Fable トークン料金次第。多分そんな時間かからん」→ 実施タイミングをどこかで決める |
 

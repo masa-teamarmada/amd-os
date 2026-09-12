@@ -28,7 +28,7 @@
 
 | 新 | 旧 |
 |---|---|
-| 問い | 目的 / 成立条件 / 論点 / 仮説 / 決めること |
+| 問い | 到達点 / MS / 論点 / 仮説 |
 | TODO | 工程 / 予定日MS / TODO / 検証 / 技術試験 / 決定後の行動 |
 | 分かったこと | 根拠 / 反証 |
 
@@ -45,7 +45,7 @@
 | `contribution` | 親から見たこの子の役割。`required`（これが解けないと親は解けない）/ `alternative`（これが解ければ親に答えが出る。他の代替は不要）。根はNULL |
 | `title` | 問いの文 |
 | `background` | 経緯・前提・成立条件の式など。結論で上書きせず積む |
-| `question_kind` | `open`（論点）/ `hypothesis`（仮説）/ `decision`（意思で決まること）/ `goal`（到達点）/ `milestone`（MS）。**到達点は根だけ、MSは到達点の直下だけ**。DBのCHECKとtrigger、APIの検査、画面の選択肢の3か所で同じ決まりを守る（2026-09-11 追加、`hypothesis` は 2026-09-12 追加） |
+| `question_kind` | `open`（論点）/ `hypothesis`（仮説）/ `goal`（到達点）/ `milestone`（MS）。**到達点は根だけ、MSは到達点の直下だけ**。`decision`（決めること）は2026-09-12 に廃止し、既存43行を`open`へ寄せた（まさ「意味がわからん。いらなくない？」）。CHECKには残すが画面の選択肢には出さない。DBのCHECKとtrigger、APIの検査、画面の選択肢の3か所で同じ決まりを守る（2026-09-11 追加、`hypothesis` は 2026-09-12 追加） |
 | `children_logic` | `all`（子が全部そろうと解ける、既定）/ `any`（子のどれか1つで解ける）。**親が持つ**。行そのものの種類（`question_kind`）とは別の軸（2026-09-12 追加） |
 | `status` | `open` / `answered` / `dropped`（追わないと決めた） |
 | `answer` | 答え。1行で足りる |
@@ -188,7 +188,6 @@
 | MS | `question_kind='milestone'` の問い。**到達点の行でだけ選べる** |
 | 論点 | `contribution='required'` の問い |
 | 仮説 | `contribution='alternative'` の問い |
-| 決めること | `question_kind='decision'` の問い |
 | TODO・確かめる | `action_kind='measure'` のTODO |
 | TODO・作業 | `action_kind='work'` のTODO |
 
@@ -291,11 +290,11 @@
 
 | 軸 | 列 | 持ち主 | 値 |
 |---|---|---|---|
-| その行が何か | `question_kind` | その行 | 到達点 / MS / 論点 / 仮説 / 決めること |
+| その行が何か | `question_kind` | その行 | 到達点 / MS / 論点 / 仮説 |
 | 親がどう解けるか | `children_logic` | **親** | `all`（全部そろう、既定）/ `any`（どれか1つ） |
 
 - 仮説は「どれか1つ立てば足りる候補」ではない。**それぞれ検証して真偽を確かめる**。
-- 「どれか1つ片付けば解ける」は親の性質。子が論点でも仮説でも決めることでも同じように使える。
+- 「どれか1つ片付けば解ける」は親の性質。子が論点でも仮説でも同じように使える。
 - 判定は `children_logic` で読む。`all` は子が全部 answered / dropped で判断できる、子が1件でも
   dropped なら枝が死んだ。`any` は子が1件でも answered で判断できる、子が全滅で枝が死んだ。
   未承認の子は判定に入れない。
@@ -304,7 +303,7 @@
 - `contribution` 列とそのCHECK制約は履歴として残す。画面からは外し、親があるときはAPIが `required` を
   補う。判定には使わない。
 - 移行（2026-09-12）: 子が全部 `alternative` の親 5件を `any` にした。必須と混ざっていた親1件
-  （SXの「EWIR組成の範囲・担当・決裁経路をどう定めるか」）は `all` のままにした——どちらも要る読みが
+  （SXの「SIER組成の範囲・担当・決裁経路をどう定めるか」）は `all` のままにした——どちらも要る読みが
   安全側のため。`alternative` かつ `open` だった7行を `hypothesis` にした。
 
 ### 見出しの直し方（2026-09-12 まさ確定）

@@ -9,6 +9,11 @@ export type QuestionStatus = "open" | "answered" | "dropped";
  * goal（到達点）は根だけ、milestone（MS）は goal の直下だけ。
  * DBのCHECKとtrigger、APIの検査、画面の選択肢の3か所で同じ決まりを守る。
  */
+/**
+ * `decision`（決めること）は 2026-09-12 に廃止した（まさ「意味がわからん。いらなくない？」）。
+ * 既存43行は論点へ寄せ、画面の選択肢からも外した。DBのCHECKには残してあるので、
+ * 型からは消さない（過去の行や履歴を読めるようにしておく）。
+ */
 export type QuestionKind = "open" | "hypothesis" | "decision" | "goal" | "milestone";
 export type Contribution = "required" | "alternative";
 /**
@@ -30,7 +35,7 @@ export const QUESTION_KIND_LABEL: Record<QuestionKind, string> = {
   milestone: "MS",
   open: "論点",
   hypothesis: "仮説",
-  decision: "決めること",
+  decision: "決めること",  // 廃止済み。画面の選択肢には出さない
 };
 
 export const CHILDREN_LOGIC_LABEL: Record<ChildrenLogic, string> = {

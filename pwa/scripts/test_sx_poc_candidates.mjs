@@ -100,11 +100,11 @@ const other = {
   roleLabel: "研究実証・大学側接続",
   relationshipStage: "validation_preparation",
 };
-// EWIR候補機関Aは stage=candidate だがPoC候補ではない。役割ラベルで判定すること。
+// SIER候補機関Aは stage=candidate だがPoC候補ではない。役割ラベルで判定すること。
 const ewirCandidate = {
   ...base,
   id: "6",
-  name: "EWIR候補機関A",
+  name: "SIER候補機関A",
   roleLabel: "地域連携・候補企業訪問",
   relationshipStage: "candidate",
 };

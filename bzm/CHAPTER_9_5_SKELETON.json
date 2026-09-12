@@ -43,7 +43,7 @@
         "BOOK_DECISIONS.md D-056",
         "Murmann 2003 Knowledge and Competitive Advantage (対比の予告のみ)"
       ],
-      "existing_reuse": "rt_roundtable_theory.md §0 (SX/EWIR・KENQ・VSX 並行観測の経緯) と §2 keystone 構図の温度感を、機関 type 匿名 (D-034)・composite 宣言付きの合成シーンに翻案。D-053 の SVG figure 方針で keystone 7 ノード + 二層経済の章頭図を置く。BOOK_MASTER_PLAN §3 の仮説的第三柱宣言文をロードマップ段落に接続。",
+      "existing_reuse": "rt_roundtable_theory.md §0 (SX/SIER・KENQ・VSX 並行観測の経緯) と §2 keystone 構図の温度感を、機関 type 匿名 (D-034)・composite 宣言付きの合成シーンに翻案。D-053 の SVG figure 方針で keystone 7 ノード + 二層経済の章頭図を置く。BOOK_MASTER_PLAN §3 の仮説的第三柱宣言文をロードマップ段落に接続。",
       "new_writing_required": "匿名化シーン (地域型 = 地銀与信が先頭ドミノ / 用途横断型 = 国費公知化→民間オフテイクの二段点火、既存計器が振れない対比まで) の新規執筆 1p、主張三分割の Tier 宣言段落 0.5p、章ロードマップ 0.5p。"
     },
     {
@@ -313,7 +313,7 @@
         "SX_EWIR_RT_DESIGN_20260701.md (地域型インスタンスの一次情報、内部参照のみ・type 匿名で使用)",
         "D-056 (Tier 分離・Ch 26b 登録形式・Ch 37.5 分担) / D-010 (露出制限)"
       ],
-      "existing_reuse": "rt_roundtable_theory.md §13.6 (Ψ 分解・二段定式化・法人化前カーネル・識別不能の自認・事前登録の但し書き)・§12 (新規性の一点圧縮と留保)・§9.3 (非型化の自認)・§14 (未解決リスク) を Tier A 語彙で再構成。SX/EWIR・KENQ の観測は機関 type 匿名 + 後付け校正語彙 (D-034/D-031) で翻案、SX_EWIR_RT_DESIGN は事象の実在確認の内部参照のみで本文引用しない。",
+      "existing_reuse": "rt_roundtable_theory.md §13.6 (Ψ 分解・二段定式化・法人化前カーネル・識別不能の自認・事前登録の但し書き)・§12 (新規性の一点圧縮と留保)・§9.3 (非型化の自認)・§14 (未解決リスク) を Tier A 語彙で再構成。SX/SIER・KENQ の観測は機関 type 匿名 + 後付け校正語彙 (D-034/D-031) で翻案、SX_EWIR_RT_DESIGN は事象の実在確認の内部参照のみで本文引用しない。",
       "new_writing_required": "Murmann 原典の観測窓 (法人設立後のみ) と pre-B カーネルの対比論証 + Ch 10.10 統合フック ~1p が新規 (Before Zero Studies 新規性主張の本文根拠)。H_RT flush 文言三点構成の固定段落 0.5p が新規。Tier A 観測記述 2 インスタンスの書き下ろし ~1.25p (composite 宣言・数値粒度は Kingpin 6 確定後)。弱点自己開示 + 前方参照 + 章末の問い ~0.75p。"
     }
   ]

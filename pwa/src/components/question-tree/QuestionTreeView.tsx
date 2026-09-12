@@ -693,7 +693,7 @@ export function QuestionTreeView({
         return;
       }
       if (kind === "child") {
-        // 子として足せるのは、論点 / 仮説 / 決めること / TODO。
+        // 子として足せるのは、論点 / 仮説 / TODO。
         // 種類ごとに別ボタンを置くとボタンが増えるので、1つのフォームで選ばせる
         // （まさ 2026-09-10「ボタンが無駄に増えるとUXがどんどん悪くなる」）。
         const childKind = text("child_kind") || "open";
@@ -726,9 +726,7 @@ export function QuestionTreeView({
           return;
         }
         const questionKind =
-          childKind === "decision" || childKind === "milestone" || childKind === "hypothesis"
-            ? childKind
-            : "open";
+          childKind === "milestone" || childKind === "hypothesis" ? childKind : "open";
         await send("POST", {
           resource: "question",
           fields: {
@@ -1441,7 +1439,6 @@ export function QuestionTreeView({
             renderInline("question", node.id, "種類", "question_kind", node.questionKind, QUESTION_KIND_LABEL[node.questionKind], "select", [
               { value: "open", label: "論点（答えが出れば閉じる問い）" },
               { value: "hypothesis", label: "仮説（検証して真偽を確かめる主張）" },
-              { value: "decision", label: "決めること（意思で決まる）" },
             ])}
           {/* 「どれか1つでよいか」は親が持つ。子が仮説かどうかとは別の軸
               （まさ確定 2026-09-12「仮説はそれぞれ検証されるべき。一方で、どれか１つが
@@ -1479,19 +1476,6 @@ export function QuestionTreeView({
           renderInline("question", node.id, "取り下げた理由", "drop_reason", node.dropReason, node.dropReason ?? "", "multiline")}
 
         {renderInline("question", node.id, "背景・前提", "background", node.background, node.background ?? "", "multiline")}
-
-        <div>
-          <div className={styles.subHead}>TODO（{node.actions.length}）</div>
-          <div className={styles.itemList}>
-            {node.actions.length === 0 ? (
-              <p className={styles.empty}>
-                ぶら下がっていない。この問いは、確かめる手が無いまま置かれている。
-              </p>
-            ) : (
-              node.actions.map(renderAction)
-            )}
-          </div>
-        </div>
 
         {node.findings.length > 0 && (
           <div>
@@ -1600,7 +1584,6 @@ export function QuestionTreeView({
                       )}
                       <option value="open">論点（答えが出れば閉じる問い）</option>
                       <option value="hypothesis">仮説（検証して真偽を確かめる主張）</option>
-                      <option value="decision">決めること（意思で決まる）</option>
                       <option value="measure">TODO・確認（測る / 調べる / 聞く）</option>
                       <option value="work">TODO・作業（決まったことを実行する）</option>
                     </select>
@@ -2093,11 +2076,6 @@ export function QuestionTreeView({
             {node.questionKind === "hypothesis" && (
               <span className={styles.chip} data-kind="alternative">
                 仮説
-              </span>
-            )}
-            {node.questionKind === "decision" && (
-              <span className={styles.chip} data-kind="decision">
-                決める
               </span>
             )}
             {/* 「どれか1つで解ける」は親の性質。子ごとの印ではない
