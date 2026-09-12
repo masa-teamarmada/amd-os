@@ -162,13 +162,32 @@ function defaultOpenIds(bundle: QuestionTreeBundle | null | undefined): Set<stri
     openTrail(node.parentId);
   }
   // 未承認のTODOが畳まれた枝の中にいると、光らせても見えない。
-  // ぶら下がっている問いから根までを開いておく（まさ確定 2026-09-12）。
+  // ぶら下がっている問いから根までと、親を持つTODOの親から上を開いておく
+  // （まさ確定 2026-09-12）。
+  const actionById = new Map(bundle.allActions.map((action) => [action.id, action]));
+  const openActionTrail = (from: string | null) => {
+    let cursor = from;
+    while (cursor) {
+      ids.add(cursor);
+      cursor = actionById.get(cursor)?.parentId ?? null;
+    }
+  };
+  for (const action of bundle.allActions) {
+    if (!action.isProposed) continue;
+    openActionTrail(action.parentId);
+    ids.add(action.id);
+  }
   for (const node of bundle.allQuestions) {
-    if (!node.actions.some((action) => action.isProposed)) continue;
+    if (!node.actions.some((action) => action.isProposed || hasProposedDescendant(action))) continue;
     ids.add(node.id);
     openTrail(node.parentId);
   }
   return ids;
+}
+
+/** そのTODOの下（孫まで）に未承認があるか。あるなら親を開いて見せる。 */
+function hasProposedDescendant(action: ActionNode): boolean {
+  return action.children.some((child) => child.isProposed || hasProposedDescendant(child));
 }
 
 /** 落とし先。上下の縁なら兄弟として挿し、真ん中ならその問いの子にする。 */
@@ -1653,6 +1672,14 @@ export function QuestionTreeView({
   /** TODOもツリーの子として出す。問いの下に何が積まれているかを1つのツリーで読む。 */
   const renderActionRow = (action: ActionNode, lines: boolean[], isLast: boolean, depth: number) => {
     const closed = action.status === "done" || action.status === "dropped";
+    // ガントは日程のあるTODOだけを並べる面なので、子もそこで絞る。
+    const childActions =
+      mode === "gantt"
+        ? action.children.filter((child) => !child.isProposed && barRangeOf(child))
+        : action.children;
+    const hasChildren = childActions.length > 0;
+    const isOpen = openIds.has(action.id);
+    const childLines = [...lines, !isLast];
     return (
       <div className={styles.node} key={`action-${action.id}`}>
         <div
@@ -1666,11 +1693,28 @@ export function QuestionTreeView({
         >
           <div className={styles.rowLead}>
             {canManage && <span className={styles.gripSpacer} aria-hidden="true" />}
-            {renderRail(lines, isLast, depth, <span className={styles.twisty} aria-hidden="true" />, false)}
+            {renderRail(
+              lines,
+              isLast,
+              depth,
+              <span
+                className={styles.twisty}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (hasChildren) toggle(action.id);
+                }}
+                role={hasChildren ? "button" : undefined}
+                aria-label={hasChildren ? (isOpen ? "たたむ" : "ひらく") : undefined}
+              >
+                {hasChildren ? (isOpen ? "▾" : "▸") : ""}
+              </span>,
+              hasChildren,
+            )}
             <button
               type="button"
               className={styles.title}
               data-closed={closed ? "true" : undefined}
+              data-parent={hasChildren ? "true" : undefined}
               onClick={() => select("action", action.id)}
               title={action.title}
             >
@@ -1744,6 +1788,13 @@ export function QuestionTreeView({
             </>
           )}
         </div>
+        {/* TODOの下にぶら下がるTODO。描かないと、親を持つ行がツリーのどこにも出ない
+            （2026-09-12 本番で確認。ZMPは未承認70件のうち52件がこの形で隠れていた）。 */}
+        {hasChildren &&
+          isOpen &&
+          childActions.map((child, index) =>
+            renderActionRow(child, childLines, index === childActions.length - 1, depth + 1),
+          )}
       </div>
     );
   };
