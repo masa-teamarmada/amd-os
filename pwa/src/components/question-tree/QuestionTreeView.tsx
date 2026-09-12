@@ -1691,7 +1691,7 @@ export function QuestionTreeView({
                   <>
                     <button
                       type="button"
-                      className={`${styles.inlineApprove} amd-goal-tree-inline-decision`}
+                      className={styles.inlineApprove}
                       disabled={busy}
                       onClick={(event) => {
                         event.stopPropagation();
@@ -1706,7 +1706,7 @@ export function QuestionTreeView({
                     </button>
                     <button
                       type="button"
-                      className={`${styles.inlineReject} amd-goal-tree-inline-decision`}
+                      className={styles.inlineReject}
                       disabled={busy}
                       onClick={(event) => {
                         event.stopPropagation();

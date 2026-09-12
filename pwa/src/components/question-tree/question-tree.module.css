@@ -514,20 +514,22 @@ button.stat:disabled { cursor: default; }
 }
 
 /* 行の中の承認・却下。押せることは分かる必要があるが、行の主役は本文なので
-   塗りつぶさない。ワークスペースの44pxタッチターゲットは高さで確保し、
-   幅は文字ぶんに留める（.sx-ip-portfolio と同じ密度側の例外）。 */
-.inlineApprove, .inlineReject {
+   塗りつぶさない。
+   セレクタを `.row button.…` にしているのは、globals.css の
+   `.sx-management-workspace button { min-height:44px; min-width:44px }` に勝つため
+   （クラス1つでは負けて、44px角の塗りつぶしボタンになる。2026-09-12 本番で確認）。 */
+.row button.inlineApprove, .row button.inlineReject {
   flex: none; min-width: 0; height: 22px; min-height: 22px; margin-left: 6px;
   padding: 0 8px; border-radius: 4px;
   font-size: 11px; font-weight: 600; line-height: 1; cursor: pointer; white-space: nowrap;
 }
-.inlineApprove {
+.row button.inlineApprove {
   border: 1px solid var(--amd-action-line); background: var(--amd-action-soft); color: var(--amd-action);
 }
-.inlineApprove:hover:not(:disabled) { border-color: var(--amd-action); background: var(--amd-action); color: #fff; }
-.inlineReject { border: 1px solid var(--line); background: #fff; color: var(--muted); }
-.inlineReject:hover:not(:disabled) { border-color: #fca5a5; color: #991b1b; }
-.inlineApprove:disabled, .inlineReject:disabled { opacity: .5; cursor: default; }
-.inlineApprove:focus-visible, .inlineReject:focus-visible {
+.row button.inlineApprove:hover:not(:disabled) { border-color: var(--amd-action); background: var(--amd-action); color: #fff; }
+.row button.inlineReject { border: 1px solid var(--line); background: #fff; color: var(--muted); }
+.row button.inlineReject:hover:not(:disabled) { border-color: #fca5a5; color: #991b1b; }
+.row button.inlineApprove:disabled, .row button.inlineReject:disabled { opacity: .5; cursor: default; }
+.row button.inlineApprove:focus-visible, .row button.inlineReject:focus-visible {
   outline: 2px solid var(--amd-action); outline-offset: 2px;
 }
