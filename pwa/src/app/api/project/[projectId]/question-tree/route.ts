@@ -197,12 +197,14 @@ function assertQuestionRules(fields: Record<string, unknown>, existing?: Record<
 }
 
 /**
- * 到達点とMSの置き場所（3-22 §3）。DBのtriggerでも同じ検査をするが、
- * 画面へ日本語で理由を返すためにここで先に止める。
+ * 到達点の置き場所。到達点はツリーのいちばん上だけ（DBのCHECKでも同じ）。
+ *
+ * MSの置き場所は縛らない（まさ確定 2026-09-12「それぞれの項目ごとに論点、仮説、TODOと
+ * 選べるところにMSを追加して、自分でMSかどうか決められるようにして」）。
+ * 以前は「MSは到達点の直下だけ」をこことDBのtriggerで縛っていたが、
+ * MSの下にMSを置けず、ある行をMSにするかどうかを人が決められなかった。
  */
-async function assertGoalTreePlacement(
-  db: ReturnType<typeof createAdminClient>,
-  projectId: string,
+function assertGoalTreePlacement(
   fields: Record<string, unknown>,
   existing?: Record<string, unknown>,
 ) {
@@ -211,37 +213,6 @@ async function assertGoalTreePlacement(
 
   if (kind === "goal" && parentId) {
     throw new Error("到達点はツリーのいちばん上にしか置けないよ");
-  }
-  if (kind === "milestone") {
-    if (!parentId) throw new Error("MSは到達点の直下に置いてね");
-    const { data: parent, error } = await db
-      .from("project_questions")
-      .select("question_kind")
-      .eq("id", parentId)
-      .eq("project_id", projectId)
-      .is("deleted_at", null)
-      .maybeSingle();
-    if (error) throw new Error(error.message);
-    if (!parent) throw new Error("親の問いを見つけられなかったよ");
-    if ((parent as { question_kind?: string }).question_kind !== "goal") {
-      throw new Error("MSの親は到達点だけだよ");
-    }
-  }
-
-  // 到達点をやめるときは、直下にMSが残っていないこと。残すとMSが宙に浮く。
-  const wasGoal = existing?.question_kind === "goal";
-  if (wasGoal && kind !== "goal") {
-    const { count, error } = await db
-      .from("project_questions")
-      .select("id", { count: "exact", head: true })
-      .eq("parent_id", existing?.id as string)
-      .eq("project_id", projectId)
-      .eq("question_kind", "milestone")
-      .is("deleted_at", null);
-    if (error) throw new Error(error.message);
-    if ((count ?? 0) > 0) {
-      throw new Error(`直下にMSが${count}件あるよ。先にMSを動かしてね`);
-    }
   }
 }
 
@@ -473,7 +444,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (resource === "action") assertActionRules(fields);
 
     const db = createAdminClient();
-    if (resource === "question") await assertGoalTreePlacement(db, projectId, fields);
+    if (resource === "question") assertGoalTreePlacement(fields);
     const insert: Record<string, unknown> = { ...fields, project_id: projectId };
     if (SOFT_DELETABLE.includes(resource)) {
       insert.last_verified_at = todayJst();
@@ -591,7 +562,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (resource === "question") assertQuestionRules(fields, existing as Record<string, unknown>);
     if (resource === "action") assertActionRules(fields, existing as Record<string, unknown>);
     if (resource === "question") {
-      await assertGoalTreePlacement(db, projectId, fields, existing as Record<string, unknown>);
+      assertGoalTreePlacement(fields, existing as Record<string, unknown>);
     }
 
     // 答えを書いた時点で、日付と書いた人を自動で残す。人に二度入力させない。

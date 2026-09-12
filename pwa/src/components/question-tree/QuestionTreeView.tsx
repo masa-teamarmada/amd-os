@@ -1434,11 +1434,13 @@ export function QuestionTreeView({
             { value: "low", label: "低い" },
             { value: "unknown", label: "未評価" },
           ])}
+          {/* MSにするかどうかは人が決める。置き場所は縛らない
+              （まさ確定 2026-09-12）。到達点だけは根の1本なので種類を変えさせない。 */}
           {node.questionKind !== "goal" &&
-            node.questionKind !== "milestone" &&
             renderInline("question", node.id, "種類", "question_kind", node.questionKind, QUESTION_KIND_LABEL[node.questionKind], "select", [
               { value: "open", label: "論点（答えが出れば閉じる問い）" },
               { value: "hypothesis", label: "仮説（検証して真偽を確かめる主張）" },
+              { value: "milestone", label: "MS（到達点を成り立たせる条件）" },
             ])}
           {/* 「どれか1つでよいか」は親が持つ。子が仮説かどうかとは別の軸
               （まさ確定 2026-09-12「仮説はそれぞれ検証されるべき。一方で、どれか１つが
@@ -1578,10 +1580,9 @@ export function QuestionTreeView({
                   <label>
                     種類
                     <select name="child_kind" defaultValue={node.questionKind === "goal" ? "milestone" : "open"}>
-                      {/* MSは到達点の直下だけ。ほかの場所では選択肢に出さない（3-22 §3） */}
-                      {node.questionKind === "goal" && (
-                        <option value="milestone">MS（到達点を成り立たせる条件）</option>
-                      )}
+                      {/* MSはどの行の下にも置ける。MSにするかどうかは人が決める
+                          （まさ確定 2026-09-12）。 */}
+                      <option value="milestone">MS（到達点を成り立たせる条件）</option>
                       <option value="open">論点（答えが出れば閉じる問い）</option>
                       <option value="hypothesis">仮説（検証して真偽を確かめる主張）</option>
                       <option value="measure">TODO・確認（測る / 調べる / 聞く）</option>
