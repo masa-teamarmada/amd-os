@@ -1739,7 +1739,7 @@ export function QuestionTreeView({
                       disabled={busy}
                       onClick={(event) => {
                         event.stopPropagation();
-                        void send("PATCH", {
+                        void send("POST", {
                           resource: "proposal_bulk",
                           decision: "accept",
                           ids: [action.id],
@@ -1754,7 +1754,7 @@ export function QuestionTreeView({
                       disabled={busy}
                       onClick={(event) => {
                         event.stopPropagation();
-                        void send("PATCH", {
+                        void send("POST", {
                           resource: "proposal_bulk",
                           decision: "reject",
                           ids: [action.id],
