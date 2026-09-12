@@ -86,7 +86,10 @@ button.stat:disabled { cursor: default; }
 /* 行と行のあいだの「＋」。押すとその位置へ論点を足す（まさ確定 2026-09-12）。
    当たり判定は左側だけにして、行そのものを押したときの詳細表示を邪魔しない。 */
 .gap { position: relative; z-index: 2; height: 0; }
-.gapAdd {
+/* セレクタを `.gap button.…` にしているのは、globals.css の
+   `.sx-management-workspace button { min-height:44px; min-width:44px }` に勝つため。
+   クラス1つでは負けて44px角に膨らむ（2026-09-12 本番で2度確認）。 */
+.gap button.gapAdd {
   /* 行と行の境目に中心を合わせる（top は高さの半分の負値）。左端に寄せる。 */
   position: absolute; left: 1px; top: -6px; width: 12px; height: 12px; min-width: 0; min-height: 0;
   padding: 0;
@@ -99,8 +102,8 @@ button.stat:disabled { cursor: default; }
 .gap::before {
   content: ""; position: absolute; left: 0; top: -8px; width: 150px; height: 16px;
 }
-.gap:hover .gapAdd, .gapAdd:focus-visible { opacity: 1; }
-.gapAdd:hover { background: var(--amd-action); color: #fff; border-color: var(--amd-action); }
+.gap:hover button.gapAdd, .gap button.gapAdd:focus-visible { opacity: 1; }
+.gap button.gapAdd:hover { background: var(--amd-action); color: #fff; border-color: var(--amd-action); }
 .gapForm {
   display: flex; align-items: center; gap: 6px; padding: 5px 12px 5px 24px;
   background: var(--amd-action-soft); border-bottom: 1px solid var(--amd-action-line);
