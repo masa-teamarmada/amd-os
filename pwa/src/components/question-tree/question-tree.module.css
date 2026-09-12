@@ -1,4 +1,4 @@
-/* 問いの木。配色トークンは weekly-control.module.css と同じものを使う。
+/* ゴールツリー。配色トークンは weekly-control.module.css と同じものを使う。
    カードのグリッドは項目数がばらついて空白を生むので、全体を密なリストで組む。 */
 
 /* .backdrop は createPortal で document.body 直下へ出るので .page の子孫にならない。
@@ -61,7 +61,7 @@
   font-size: 11px; color: var(--muted); white-space: nowrap;
 }
 .stat b { font-size: 14px; font-weight: 700; color: var(--ink); }
-/* 押せる件数（未アサイン）。押すと木の中の該当行へ移る。 */
+/* 押せる件数（未アサイン）。押すとツリーの中の該当行へ移る。 */
 .stat[data-clickable="true"] { cursor: pointer; font-family: inherit; }
 .stat[data-clickable="true"]:hover { border-color: var(--amber); }
 button.stat:disabled { cursor: default; }
@@ -90,7 +90,7 @@ button.stat:disabled { cursor: default; }
   width: 100%; padding: 2px 14px 2px 0; background: none; border: 0; cursor: pointer; text-align: left;
 }
 
-/* 手を打つべき行は木の中で目立たせる。上に抜き出すと、それがどの問いの
+/* 手を打つべき行はツリーの中で目立たせる。上に抜き出すと、それがどの問いの
    どの部分なのかが読めなくなる（まさ 2026-09-10）。地色で示す。
    色の縦棒は行の左端ではなく、罫線の後（その行の実際の階層位置）へ置く。
    左端に揃えると、どの深さの話なのかが読めなくなる（まさ 2026-09-10 指摘）。 */
@@ -190,7 +190,7 @@ button.stat:disabled { cursor: default; }
 .chip[data-kind="decision"] { border-color: #fbbf24; background: var(--amber-soft); color: #92400e; }
 .chip[data-kind="measure"] { border-color: var(--amd-action-line); background: var(--amd-action-soft); color: var(--amd-action-strong); }
 .chip[data-kind="work"] { border-color: var(--line); background: #fff; color: var(--quiet); }
-/* 到達点とMSは木の骨格。判定の色（青＝判断できる / 黄 / 赤）とは別の系統にして、
+/* 到達点とMSはツリーの骨格。判定の色（青＝判断できる / 黄 / 赤）とは別の系統にして、
    色の意味を増やさずに階層だけを濃さで示す。 */
 .chip[data-kind="goal"] { border-color: var(--ink); background: var(--ink); color: #fff; }
 .chip[data-kind="milestone"] { border-color: var(--muted); background: #fff; color: var(--muted); }
@@ -295,7 +295,7 @@ button.stat:disabled { cursor: default; }
 .itemTitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .empty { padding: 8px 10px; font-size: 11px; color: var(--quiet); }
 
-/* つくよみが拾ったまま人が見ていないもの。木とは別枠で、足すか捨てるかを決める。 */
+/* つくよみが拾ったまま人が見ていないもの。ツリーとは別枠で、足すか捨てるかを決める。 */
 .proposal {
   display: flex; flex-direction: column; gap: 4px;
   padding: 8px 12px; border-bottom: 1px solid #f0f0f2; background: #fffdf5;
@@ -333,8 +333,8 @@ button.stat:disabled { cursor: default; }
 .form input:focus, .form select:focus, .form textarea:focus { outline: 2px solid var(--amd-action-line); outline-offset: -1px; }
 
 /* ---- ガント -------------------------------------------------------------
-   左列は論点・仮説タブと同じ木そのもの。行の右側だけをバーへ差し替える。
-   行高は木と同じ詰めた密度のまま揃える。タブを切り替えたときに、同じ木が
+   左列は論点・仮説タブと同じツリーそのもの。行の右側だけをバーへ差し替える。
+   行高はツリーと同じ詰めた密度のまま揃える。タブを切り替えたときに、同じツリーが
    違う高さで見えると別物に読めるため。 */
 .gantt { display: flex; flex-direction: column; overflow-x: auto; }
 .ganttHead {
@@ -431,7 +431,7 @@ button.stat:disabled { cursor: default; }
   font-size: 11px; color: var(--ink); background: #fff; font-family: inherit;
 }
 
-/* スマホは横軸を出さず、木と同じ縦一覧に落とす（3-16 の mobile と同じ扱い）。 */
+/* スマホは横軸を出さず、ツリーと同じ縦一覧に落とす（3-16 の mobile と同じ扱い）。 */
 @media (max-width: 767px) {
   .ganttHead, .ganttBody { min-width: 0; }
   .ganttHead, .ganttOverlay { display: none; }
@@ -442,8 +442,8 @@ button.stat:disabled { cursor: default; }
 
 .formActions { display: flex; gap: 6px; }
 
-/* 到達点を足す導線。木のいちばん上に1つだけ置く。
-   ボタンは中身の幅に留める（横いっぱいに伸ばすと木より目立つ）。 */
+/* 到達点を足す導線。ツリーのいちばん上に1つだけ置く。
+   ボタンは中身の幅に留める（横いっぱいに伸ばすとツリーより目立つ）。 */
 .goalAdd {
   display: flex; flex-direction: column; align-items: flex-start; gap: 7px;
   padding: 8px 9px; border-bottom: 1px solid var(--line);
@@ -494,3 +494,30 @@ button.stat:disabled { cursor: default; }
   .item { grid-template-columns: 52px 1fr 84px; }
   .item > :nth-child(n+4) { display: none; }
 }
+
+/* 未承認（まさ確定 2026-09-12）。えいみが入れたものと旧管理表から移った行は、
+   承認するまでツリーの中で光らせる。承認したらどこへ入るかを、その場で見せるため。
+   TODOタブとガントには出さない。 */
+.chip[data-kind="proposed"] { border-color: #fbbf24; background: var(--amber-soft); color: #92400e; }
+
+.row[data-proposed="true"] {
+  background: linear-gradient(90deg, rgba(251, 191, 36, .16), rgba(251, 191, 36, .05));
+  animation: proposedPulse 2s ease-in-out infinite;
+}
+@keyframes proposedPulse {
+  0%, 100% { background-color: rgba(251, 191, 36, .06); }
+  50%      { background-color: rgba(251, 191, 36, .22); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .row[data-proposed="true"] { animation: none; background-color: rgba(251, 191, 36, .16); }
+}
+
+.inlineApprove, .inlineReject {
+  flex: none; min-height: 20px; padding: 0 7px; border-radius: 4px;
+  font-size: 10px; font-weight: 700; cursor: pointer; white-space: nowrap;
+}
+.inlineApprove { border: 1px solid var(--amd-action); background: var(--amd-action); color: #fff; }
+.inlineApprove:hover:not(:disabled) { background: var(--amd-action-strong); }
+.inlineReject { border: 1px solid var(--line); background: #fff; color: var(--muted); }
+.inlineReject:hover:not(:disabled) { border-color: #fca5a5; color: #991b1b; }
+.inlineApprove:disabled, .inlineReject:disabled { opacity: .5; cursor: default; }

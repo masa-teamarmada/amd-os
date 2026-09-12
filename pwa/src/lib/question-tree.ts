@@ -22,11 +22,11 @@ import type {
 export * from "@/lib/question-tree-types";
 
 /**
- * 問いの木。正本は pwa/spec/3-21-question-tree-current-spec.md。
+ * ゴールツリー。正本は pwa/spec/3-21-question-tree-current-spec.md。
  *
  * 型は3つだけ。
  *   問い       … 答えが出れば閉じる（論点・仮説・決めること・目的・成立条件）
- *   やること   … 実行すれば終わる（工程・タスク・検証・技術試験・決定後の行動）
+ *   TODO   … 実行すれば終わる（工程・タスク・検証・技術試験・決定後の行動）
  *   分かったこと … 事実と出どころ（根拠・反証）
  *
  * 状態はすべて導出値で、人が直接編集しない。子が片付いても親を自動で閉じない。
@@ -105,7 +105,7 @@ function isActionOpen(action: ActionNode): boolean {
 }
 
 /**
- * ptは報酬に直結するので、木とガントの束には載せない（まさ 2026-09-11
+ * ptは報酬に直結するので、ツリーとガントの束には載せない（まさ 2026-09-11
  * 「ツリーはAMD外のメンバーも見るから、ここでptを書かれると困る」）。
  * 共有ワークスペースの外部メンバーはガントを見るので、画面で隠すだけでなく
  * 返す値から落とす。ptを並べて比べる面はMS・月次タブ（内部だけ）に置く。
@@ -115,6 +115,7 @@ function mapAction(
   questionIds: string[],
   owners: ActionOwner[],
   includePoints: boolean,
+  isProposed = false,
 ): ActionNode {
   const status = (row.status as ActionStatus) || "unassessed";
   const plannedEnd = nullableStr(row, "planned_end");
@@ -158,6 +159,7 @@ function mapAction(
     isUnassigned:
       ACTION_OPEN_STATUSES.includes(status) && (owners.length === 0 || !plannedEnd),
     urgent: row.urgent === true,
+    isProposed,
     createdAt: nullableStr(row, "created_at"),
     createdBy: nullableStr(row, "created_by"),
   };
@@ -180,12 +182,12 @@ function mapFinding(row: RawRow, questionIds: string[]): FindingNode {
 }
 
 /**
- * 問いの状態を決める。子から先に確定している必要があるため、木を下から上へ辿る。
+ * 問いの状態を決める。子から先に確定している必要があるため、ツリーを下から上へ辿る。
  *
  * spec 3-21「判定」:
  *   判断できる … required の子がすべて片付き、alternative があれば1件以上 answered、
  *                 直下の measure がすべて完了
- *   手が止まっている … 未閉じで、子もやることも無い
+ *   手が止まっている … 未閉じで、子もTODOも無い
  *   枝が死んだ   … alternative が全滅、または required の子が捨てられた
  */
 function resolveState(node: QuestionNode): QuestionState {
@@ -254,9 +256,13 @@ function decorate(
     node.openMeasureCount,
   );
 
-  // この枝のTODOの集計。自分のものとして数えるのは、木の上から見て
-  // 最初にここへぶら下がったやることだけ。
-  const mine = node.actions.filter((action) => ownerQuestionOfAction.get(action.id) === node.id);
+  // この枝のTODOの集計。自分のものとして数えるのは、ツリーの上から見て
+  // 最初にここへぶら下がったTODOだけ。
+  // 未承認は数に入れない。承認するまでは「やると決まった仕事」ではないので、
+  // ptの合計や件数へ混ぜると、配りすぎの判断を誤らせる（まさ確定 2026-09-12）。
+  const mine = node.actions.filter(
+    (action) => ownerQuestionOfAction.get(action.id) === node.id && !action.isProposed,
+  );
   node.assignedPt =
     Math.round(
       (mine.reduce((total, action) => total + (action.estimatedPt ?? 0), 0) +
@@ -290,7 +296,7 @@ function flatten(nodes: QuestionNode[]): QuestionNode[] {
  * 担当・期限・見積ptは、まさかPMがセッションでえいみと決めてえいみが書き込む。
  * その1回目に必要なもの——未アサインのTODOが、どの到達点のどのMSのどの論点の下に
  * ぶら下がっているか、完了条件、前後関係、同じMSに既に配ったpt——をまとめて返す。
- * 画面の提案列ではないので、木そのものには何も足さない。
+ * 画面の提案列ではないので、ツリーそのものには何も足さない。
  */
 export async function getGoalTreeAssignmentView(projectId: string) {
   // 割り振りを決める面なので、ここだけはptを載せて読む。
@@ -304,7 +310,7 @@ export async function getGoalTreeAssignmentView(projectId: string) {
     const nextTrail: Trail = [...trail, { kind: node.questionKind, title: node.title, id: node.id }];
     const nextMilestone = node.questionKind === "milestone" ? node : milestone;
     for (const action of node.actions) {
-      // 同じやることが複数の問いに効くときは、最初に出会った道を使う。
+      // 同じTODOが複数の問いに効くときは、最初に出会った道を使う。
       if (!trailByAction.has(action.id)) {
         trailByAction.set(action.id, nextTrail);
         if (nextMilestone) milestoneByAction.set(action.id, nextMilestone);
@@ -320,6 +326,7 @@ export async function getGoalTreeAssignmentView(projectId: string) {
   // MSごとに、配下のTODOへ既に配った見積ptを積む。配りすぎの判断材料。
   const milestoneRollup = new Map<string, { assignedPt: number; todos: number; unassigned: number }>();
   for (const action of bundle.allActions) {
+    if (action.isProposed) continue;
     const milestone = milestoneByAction.get(action.id);
     if (!milestone) continue;
     const current = milestoneRollup.get(milestone.id) ?? { assignedPt: 0, todos: 0, unassigned: 0 };
@@ -347,7 +354,7 @@ export async function getGoalTreeAssignmentView(projectId: string) {
     });
 
   const unassigned = bundle.allActions
-    .filter((action) => action.isUnassigned)
+    .filter((action) => action.isUnassigned && !action.isProposed)
     .map((action) => {
       const milestone = milestoneByAction.get(action.id) ?? null;
       return {
@@ -398,7 +405,7 @@ export async function getGoalTreeAssignmentView(projectId: string) {
 /**
  * ptを並べて比べる面（MS・月次タブ）。
  *
- * 木の中に飛び飛びで出ていると「このTODOはpt高すぎないか」を比べられない
+ * ツリーの中に飛び飛びで出ていると「このTODOはpt高すぎないか」を比べられない
  * （まさ 2026-09-11）。MSごとにまとめ、同じMSの中はptの大きい順に並べて返す。
  * ここは内部だけが開くコックピットの面で、共有ワークスペースには出さない。
  */
@@ -421,7 +428,7 @@ export async function getGoalTreePointsView(projectId: string) {
   for (const root of bundle.roots) walk(root, null, null);
 
   const rows = bundle.allActions
-    .filter((action) => action.status !== "dropped")
+    .filter((action) => action.status !== "dropped" && !action.isProposed)
     .map((action) => {
       const milestone = milestoneOfAction.get(action.id) ?? null;
       return {
@@ -488,7 +495,7 @@ export type GoalTreePointsView = Awaited<ReturnType<typeof getGoalTreePointsView
 export async function getQuestionTreeBundle(
   projectId: string,
   canManage: boolean,
-  /** ptを束に載せるか。既定は載せない（木・ガントは外部も見る） */
+  /** ptを束に載せるか。既定は載せない（ツリー・ガントは外部も見る） */
   includePoints = false,
 ): Promise<QuestionTreeBundle> {
   const db = createAdminClient();
@@ -526,11 +533,17 @@ export async function getQuestionTreeBundle(
   const allActionRows = (actionRes.data || []) as unknown as RawRow[];
   const allFindingRows = (findingRes.data || []) as unknown as RawRow[];
 
-  // つくよみが拾ったまま人が見ていないものは木へ入れない。別枠で見せて、
+  // つくよみが拾ったまま人が見ていないものはツリーへ入れない。別枠で見せて、
   // 承認されたときだけ親と線が確定する（spec 3-21）。
   const isProposed = (row: RawRow) => row.review_state === "proposed";
   const questionRows = allQuestionRows.filter((row) => !isProposed(row));
-  const actionRows = allActionRows.filter((row) => !isProposed(row));
+  /**
+   * 未承認のTODOも、ツリーには出す（まさ確定 2026-09-12
+   * 「承認したらツリーのどこにいくかが分からないのに承認できない。
+   * ツリーの中に未承認として目立たせて表示して」）。
+   * 承認前は線が無いので、提案が持っている「戻り先」で仮に繋いで描く。
+   */
+  const actionRows = allActionRows;
   const findingRows = allFindingRows.filter((row) => !isProposed(row));
   const qaRows = (qaRes.data || []) as unknown as RawRow[];
   const qfRows = (qfRes.data || []) as unknown as RawRow[];
@@ -570,6 +583,15 @@ export async function getQuestionTreeBundle(
 
   const questionIdsByAction = new Map<string, string[]>();
   const actionIdsByQuestion = new Map<string, string[]>();
+  // 未承認は線をまだ持たないので、戻り先で仮に繋ぐ。承認すると本物の線が入る。
+  for (const row of allActionRows) {
+    if (!isProposed(row)) continue;
+    const questionId = nullableStr(row, "proposed_question_id");
+    if (!questionId) continue;
+    const actionId = str(row, "id");
+    questionIdsByAction.set(actionId, [...(questionIdsByAction.get(actionId) || []), questionId]);
+    actionIdsByQuestion.set(questionId, [...(actionIdsByQuestion.get(questionId) || []), actionId]);
+  }
   for (const row of qaRows) {
     const questionId = str(row, "question_id");
     const actionId = str(row, "action_id");
@@ -596,8 +618,9 @@ export async function getQuestionTreeBundle(
       row,
       questionIdsByAction.get(str(row, "id")) || [],
       ownersByAction.get(str(row, "id")) || [],
-      // 木とガントにはptを載せない。外部メンバーがガントを見るため。
+      // ツリーとガントにはptを載せない。外部メンバーがガントを見るため。
       includePoints,
+      isProposed(row),
     ),
   );
   const actionById = new Map(actions.map((action) => [action.id, action]));
@@ -607,7 +630,7 @@ export async function getQuestionTreeBundle(
     actionById.get(finding.fromActionId)?.findings.push(finding);
   }
 
-  // やることの入れ子を組む。親が消えている行は最上位として扱い、行を失わない。
+  // TODOの入れ子を組む。親が消えている行は最上位として扱い、行を失わない。
   const rootActions: ActionNode[] = [];
   for (const action of actions) {
     const parent = action.parentId ? actionById.get(action.parentId) : null;
@@ -697,8 +720,8 @@ export async function getQuestionTreeBundle(
   };
   sortQuestions(roots);
 
-  // ひとつのやることが複数の問いに効くので、木を上から歩いて「最初に出会った問い」を
-  // そのやることの所属にする。これをしないと、同じptが複数の枝で二重に積まれる。
+  // ひとつのTODOが複数の問いに効くので、ツリーを上から歩いて「最初に出会った問い」を
+  // そのTODOの所属にする。これをしないと、同じptが複数の枝で二重に積まれる。
   const ownerQuestionOfAction = new Map<string, string>();
   const claim = (node: QuestionNode) => {
     for (const action of node.actions) {
@@ -714,6 +737,8 @@ export async function getQuestionTreeBundle(
   const linkedActionIds = new Set(qaRows.map((row) => str(row, "action_id")));
   const looseActions = rootActions.filter((action) => !linkedActionIds.has(action.id));
 
+  // 承認済みだけを数える。未承認はツリーの中で光らせて見せるが、進捗の数字には入れない。
+  const liveActions = actions.filter((action) => !action.isProposed);
   const counts = {
     questions: allQuestions.length,
     open: allQuestions.filter((question) => question.status === "open").length,
@@ -723,12 +748,14 @@ export async function getQuestionTreeBundle(
     stalled: allQuestions.filter((question) => question.state === "stalled").length,
     deadBranch: allQuestions.filter((question) => question.state === "dead_branch").length,
     overdue: allQuestions.filter((question) => question.isOverdue).length,
-    actions: actions.length,
-    openMeasures: actions.filter((action) => action.actionKind === "measure" && isActionOpen(action))
-      .length,
-    unassignedActions: actions.filter((action) => action.isUnassigned).length,
+    actions: liveActions.length,
+    openMeasures: liveActions.filter(
+      (action) => action.actionKind === "measure" && isActionOpen(action),
+    ).length,
+    unassignedActions: liveActions.filter((action) => action.isUnassigned).length,
     assignedPt:
-      Math.round(actions.reduce((total, action) => total + (action.estimatedPt ?? 0), 0) * 10) / 10,
+      Math.round(liveActions.reduce((total, action) => total + (action.estimatedPt ?? 0), 0) * 10) /
+      10,
   };
 
   const titleById = new Map(allQuestionRows.map((row) => [str(row, "id"), str(row, "title")]));

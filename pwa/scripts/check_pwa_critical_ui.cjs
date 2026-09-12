@@ -3926,8 +3926,12 @@ expectIncludes("src/components/question-tree/QuestionTreeView.tsx", [
   // 会議中はタイトルだけで足せる。担当・期限・ptを必須にしない（3-22 §4）
   "到達点を追加",
   "未アサイン",
-  "担当（複数可）",
-  "見積pt",
+  "担当",
+  // 2026-09-12 まさ確定: 未承認はツリーの中で光らせ、その場で承認・却下する。
+  // 上部の一覧に抜き出さない。TODOタブとガントには出さない。
+  "未承認",
+  "proposal_bulk",
+  'data-proposed',
 ]);
 // 割り振りセッションが使う経路（2026-09-11 まさ確定、spec 3-22 §4）。
 // 担当・期限・見積ptはセッションでえいみと決めて書き込む。画面に提案列も採用ボタンも作らない。
@@ -3944,7 +3948,7 @@ expectIncludes("src/components/cockpit/CockpitProjectTasks.tsx", [
   // カード / 三本線を掴む自前ドラッグ / 並びの凍結 / 青い挿入線 / 中点で並べ替えを保存。
   "未完了",
   "完了",
-  "ツリー外",
+  "ツリーに紐づいていません",
   "新しいタスク",
   "追加",
   "frozenRef",
@@ -4002,7 +4006,7 @@ expectIncludes("src/components/question-tree/QuestionTreeView.tsx", [
   // 書いてあるところはモーダルが出ないけど…何の編集もできないのは困る」)。
   "renderActionDetailBody",
   'select("action", action.id)',
-  "これが答えを出す論点",
+  "対応する論点",
   // 読みと編集で欄の大きさを変えない (まさ「入力状態になると欄の大きさが変わるのやめて」)
   "autoSize",
   'data-single={kind === "multiline" ? undefined : "true"}',
@@ -4013,6 +4017,16 @@ expectNotIncludes("src/components/question-tree/QuestionTreeView.tsx", [
 ]);
 expectNotIncludes("src/components/question-tree/QuestionTreeView.tsx", [
   "次につぶすべき問い",
+  // 2026-09-12 まさ確定: 「木」と、子供向けの言い換えは画面に出さない。
+  // 「毎回こうなるので、何か理由があるのではと思ってる。もうすぐ有償で外部にも
+  // 提供していくビジネスツールとは到底思えない」。TODO・承認・却下・削除など、
+  // 一般的な語をそのまま使う。
+  "木に入れる",
+  "木から消す",
+  "いらない",
+  "やることを足",
+  "つくよみが拾った",
+  "確かめる手をぶら下げる",
 ]);
 expectIncludes("src/components/question-tree/question-tree.module.css", [
   // portal で body 直下へ出る .backdrop にも変数を effect させる。片方だけだと透ける。

@@ -28,9 +28,9 @@ export const QUESTION_KIND_LABEL: Record<QuestionKind, string> = {
 
 /** 問いの状態。表示の主軸。 */
 export type QuestionState =
-  /** 子とやることが片付き、人が答えを書けば閉じる */
+  /** 子とTODOが片付き、人が答えを書けば閉じる */
   | "decidable"
-  /** 未閉じなのに子もやることも無い。前に進む手が無い */
+  /** 未閉じなのに子もTODOも無い。前に進む手が無い */
   | "stalled"
   /** 代替が全滅、または必須の枝が捨てられた。親の答えが出せない */
   | "dead_branch"
@@ -98,7 +98,7 @@ export type ActionNode = {
   originQuestionId: string | null;
   sortOrder: number;
   lastVerifiedAt: string;
-  /** このやることが答えを出そうとしている問い。多対多 */
+  /** このTODOが答えを出そうとしている問い。多対多 */
   questionIds: string[];
   children: ActionNode[];
   findings: FindingNode[];
@@ -112,11 +112,16 @@ export type ActionNode = {
   owners: ActionOwner[];
   /**
    * 担当か期限が空。会議中に種類とタイトルだけで足したまま、まだアサインされていない状態。
-   * ガントの「日程未設定」行と木の印が同じ判定を使う（3-22 §4）。
+   * ガントの「日程未設定」行とツリーの印が同じ判定を使う（3-22 §4）。
    */
   isUnassigned: boolean;
   /** 緊急。タスクタブで上に出し、行をオレンジにする（OSスイートの やること と同じ） */
   urgent: boolean;
+  /**
+   * 未承認。えいみが入れたものと、旧管理表から移った行。ツリーの中に印付きで出し、
+   * 承認するまで TODO とガントには出さない（まさ確定 2026-09-12）。
+   */
+  isProposed: boolean;
   /** いつこの行ができたか。「これ誰が入れたの」に答えるために出す */
   createdAt: string | null;
   /** 誰が入れたか。移行で入った行は空 */
@@ -137,7 +142,7 @@ export type FindingNode = {
   questionIds: string[];
 };
 
-/** つくよみが拾ったまま、人がまだ見ていないもの。木へはつながず別枠で出す。 */
+/** つくよみが拾ったまま、人がまだ見ていないもの。ツリーへはつながず別枠で出す。 */
 export type ProposalNode = {
   kind: "question" | "action" | "finding";
   id: string;
@@ -182,7 +187,7 @@ export type QuestionNode = {
   milestoneIds: string[];
 
   children: QuestionNode[];
-  /** この問いに直接ぶら下がるやること */
+  /** この問いに直接ぶら下がるTODO */
   actions: ActionNode[];
   findings: FindingNode[];
   /** この問いを議論していて生まれた問い */
@@ -206,7 +211,7 @@ export type QuestionNode = {
 
   /**
    * この枝にぶら下がるTODOの集計。ひとつのTODOが複数の問いに効くときは、
-   * 木を上から歩いて最初に出会った枝でだけ数える（同じptを二重に積まない）。
+   * ツリーを上から歩いて最初に出会った枝でだけ数える（同じptを二重に積まない）。
    */
   assignedPt: number;
   todoCount: number;
@@ -217,9 +222,9 @@ export type QuestionTreeBundle = {
   projectId: string;
   asOf: string;
   roots: QuestionNode[];
-  /** 木に属さないやること。問いに紐づかない実行だけの作業 */
+  /** ツリーに属さないTODO。問いに紐づかない実行だけの作業 */
   looseActions: ActionNode[];
-  /** つくよみが拾った未確認。人が承認するまで木へ入らない */
+  /** つくよみが拾った未確認。人が承認するまでツリーへ入らない */
   proposals: ProposalNode[];
   allQuestions: QuestionNode[];
   allActions: ActionNode[];

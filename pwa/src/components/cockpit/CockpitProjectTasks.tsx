@@ -10,7 +10,7 @@ import {
 import type { ActionNode, QuestionNode, QuestionTreeBundle } from "@/lib/question-tree-types";
 
 /**
- * タスクタブ。PJのやることだけを一列に並べる。
+ * タスクタブ。PJのTODOだけを一列に並べる。
  *
  * まさ 2026-09-12「ゴールツリーにすべてのタスクを書き込もうとするから違和感がある。
  * 『タスク』タブも新たに作って、そっちはタスクだけをリストアップする。
@@ -31,8 +31,8 @@ import type { ActionNode, QuestionNode, QuestionTreeBundle } from "@/lib/questio
  *   - 緊急は炎マーク。カードの地色と枠がオレンジになる
  *   - 「…」に 編集 / 緊急 / 完了 / 削除
  *
- * データはゴールツリーと同じ束（project_actions 全部）。木にぶら下がっていない
- * やることも同じ列に出る。
+ * データはゴールツリーと同じ束（project_actions 全部）。ツリーにぶら下がっていない
+ * TODOも同じ列に出る。
  */
 
 type Props = { projectId: string };
@@ -53,7 +53,7 @@ function buildMilestoneIndex(roots: QuestionNode[]): Map<string, string> {
 }
 
 /**
- * そのタスクが木のどこにぶら下がっているか（到達点 → MS → 論点）と、
+ * そのタスクがツリーのどこにぶら下がっているか（到達点 → MS → 論点）と、
  * いちばん近い親の問いの背景。
  *
  * まさ 2026-09-12「何を意味してるのかが全然分からない。これおれが入力したんじゃないから、
@@ -104,12 +104,12 @@ function originText(action: ActionNode): string {
   const when = action.createdAt ? action.createdAt.slice(0, 10).replace(/-/g, "/") : null;
   const base =
     action.originKind === "migrated"
-      ? "前の管理表から機械で移した行"
+      ? "旧管理表からの移行データ"
       : action.originKind === "meeting"
-        ? "議事録から入った行"
+        ? "議事録から登録"
         : action.originKind === "automation"
-          ? "つくよみが拾った行"
-          : "画面から手で入れた行";
+          ? "つくよみが登録した行"
+          : "画面から登録";
   const who = action.createdBy ? `・${action.createdBy}` : "";
   return when ? `${base}（${when}${who}）` : `${base}${who}`;
 }
@@ -161,7 +161,7 @@ export function CockpitProjectTasks({ projectId }: Props) {
       try {
         setBundle(await loadQuestionTree(projectId, { force }));
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : "読み込めなかったよ");
+        setError(caught instanceof Error ? caught.message : "読み込めませんでした");
       }
     },
     [projectId],
@@ -187,6 +187,10 @@ export function CockpitProjectTasks({ projectId }: Props) {
   const liveOpen = useMemo(() => {
     const all = bundle?.allActions ?? [];
     return all
+      // 未承認はツリーでだけ扱う。ここは確認する面（まさ確定 2026-09-12
+      // 「ツリー側にある未承認タスクをタスクリスト側で表示しないで。
+      // あくまで入力はツリー側がメイン。TODO、ガントは確認するだけの目的」）。
+      .filter((action) => !action.isProposed)
       .filter((action) => action.status !== "done" && action.status !== "dropped")
       .sort((a, b) => orderKey(a) - orderKey(b) || a.id.localeCompare(b.id));
   }, [bundle]);
@@ -194,7 +198,7 @@ export function CockpitProjectTasks({ projectId }: Props) {
   const done = useMemo(() => {
     const all = bundle?.allActions ?? [];
     return all
-      .filter((action) => action.status === "done")
+      .filter((action) => !action.isProposed && action.status === "done")
       .sort((a, b) => (b.actualEnd ?? "").localeCompare(a.actualEnd ?? ""));
   }, [bundle]);
 
@@ -214,7 +218,7 @@ export function CockpitProjectTasks({ projectId }: Props) {
         });
         if (payload.bundle) setBundle(payload.bundle);
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : "保存できなかったよ");
+        setError(caught instanceof Error ? caught.message : "保存できませんでした");
       } finally {
         setBusyId(null);
       }
@@ -291,7 +295,7 @@ export function CockpitProjectTasks({ projectId }: Props) {
               });
               if (payload.bundle) setBundle(payload.bundle);
             } catch (caught) {
-              setError(caught instanceof Error ? caught.message : "並べ替えを保存できなかったよ");
+              setError(caught instanceof Error ? caught.message : "並べ替えを保存できませんでした");
             } finally {
               setBusyId(null);
             }
@@ -312,7 +316,7 @@ export function CockpitProjectTasks({ projectId }: Props) {
     };
   }, [dragId, dragSlot, patch]);
 
-  /** 承認待ち。やることの提案だけをここに出す（問いはゴールツリー側で見る）。 */
+  /** 承認待ち。TODOの提案だけをここに出す（問いはゴールツリー側で見る）。 */
   const proposals = useMemo(
     () => (bundle?.proposals ?? []).filter((proposal) => proposal.kind === "action"),
     [bundle],
@@ -331,7 +335,7 @@ export function CockpitProjectTasks({ projectId }: Props) {
       if (payload.bundle) setBundle(payload.bundle);
       setSelectedProposals(new Set());
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "確定できなかったよ");
+      setError(caught instanceof Error ? caught.message : "確定できませんでした");
     } finally {
       setBusyId(null);
     }
@@ -361,7 +365,7 @@ export function CockpitProjectTasks({ projectId }: Props) {
       setDraft("");
       setDraftUrgent(false);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "追加できなかったよ");
+      setError(caught instanceof Error ? caught.message : "追加できませんでした");
     } finally {
       setBusyId(null);
     }
@@ -510,7 +514,7 @@ export function CockpitProjectTasks({ projectId }: Props) {
                           });
                           if (payload.bundle) setBundle(payload.bundle);
                         } catch (caught) {
-                          setError(caught instanceof Error ? caught.message : "消せなかったよ");
+                          setError(caught instanceof Error ? caught.message : "削除できませんでした");
                         } finally {
                           setBusyId(null);
                         }
@@ -555,7 +559,7 @@ export function CockpitProjectTasks({ projectId }: Props) {
     return (
       <section className="rounded-xl border border-[#e5e5e7] bg-white px-4 py-3">
         <p className="text-[12px] text-[#86868b]">
-          {error ? `タスクを読み込めなかったよ（${error}）` : "読み込み中…"}
+          {error ? `タスクを読み込めませんでした（${error}）` : "読み込み中…"}
         </p>
       </section>
     );
@@ -609,80 +613,10 @@ export function CockpitProjectTasks({ projectId }: Props) {
         <p className="rounded-lg bg-[#fee2e2] px-3 py-2 text-[11px] text-[#991b1b]">{error}</p>
       )}
 
-      {/* まさが手で入れていないものは、承認するまでここに置く（まさ確定 2026-09-12）。
-          押すまでタスクの列にも木にも出ない。 */}
       {canManage && proposals.length > 0 && (
-        <section className="rounded-xl border border-[#fbbf24] bg-[#fffbeb]">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-[#fde68a] px-4 py-3">
-            <h3 className="text-[13px] font-bold text-[#92400e]">承認待ち</h3>
-            <span className="text-[11px] text-[#92400e]">
-              {proposals.length}件。あたしが入れたものと、前の管理表から機械で移った行。
-              入れると上のタスクに並ぶ
-            </span>
-            <div className="ml-auto flex gap-2">
-              <button
-                type="button"
-                disabled={selectedProposals.size === 0 || busyId === "proposals"}
-                className="rounded-lg bg-[#027fdc] px-3 py-[6px] text-[11px] font-bold text-white disabled:opacity-40"
-                onClick={() => void decideProposals("accept")}
-              >
-                選んだ{selectedProposals.size > 0 ? ` ${selectedProposals.size}件` : ""}を入れる
-              </button>
-              <button
-                type="button"
-                disabled={selectedProposals.size === 0 || busyId === "proposals"}
-                className="rounded-lg border border-[#d2d2d7] px-3 py-[6px] text-[11px] text-[#991b1b] disabled:opacity-40"
-                onClick={() => void decideProposals("reject")}
-              >
-                いらない
-              </button>
-              <button
-                type="button"
-                className="rounded-lg border border-[#d2d2d7] px-3 py-[6px] text-[11px] text-[#3c3c43]"
-                onClick={() =>
-                  setSelectedProposals(
-                    selectedProposals.size === proposals.length
-                      ? new Set()
-                      : new Set(proposals.map((p) => p.id)),
-                  )
-                }
-              >
-                {selectedProposals.size === proposals.length ? "選択を外す" : "全部選ぶ"}
-              </button>
-            </div>
-          </div>
-          <div className="max-h-[320px] overflow-y-auto">
-            {proposals.map((proposal) => (
-              <label
-                key={proposal.id}
-                className="flex cursor-pointer items-start gap-2 border-t border-[#fde68a] px-4 py-2 first:border-t-0 hover:bg-[#fef3c7]"
-              >
-                <input
-                  type="checkbox"
-                  className="mt-[3px]"
-                  checked={selectedProposals.has(proposal.id)}
-                  onChange={() =>
-                    setSelectedProposals((current) => {
-                      const next = new Set(current);
-                      if (next.has(proposal.id)) next.delete(proposal.id);
-                      else next.add(proposal.id);
-                      return next;
-                    })
-                  }
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[12px] text-[#1d1d1f]">{proposal.title}</p>
-                  <p className="text-[10px] text-[#92400e]">
-                    {proposal.proposedParentTitle
-                      ? `入れると「${proposal.proposedParentTitle}」の下に戻る`
-                      : "木のどこにも付いていない"}
-                    {proposal.reason ? ` ／ ${proposal.reason}` : ""}
-                  </p>
-                </div>
-              </label>
-            ))}
-          </div>
-        </section>
+        <p className="rounded-lg bg-[#fffbeb] px-3 py-2 text-[11px] text-[#92400e]">
+          未承認が {proposals.length} 件あります。ゴールツリーのタブで、光っている行から承認してください
+        </p>
       )}
 
       <div className="relative flex flex-col" style={{ gap: ROW_GAP }}>
@@ -704,10 +638,6 @@ export function CockpitProjectTasks({ projectId }: Props) {
           />
         )}
       </div>
-
-      {open.length > 0 && canManage && (
-        <p className="text-[10px] text-[#86868b]">右端の三本線を掴むと、その場で動かせる</p>
-      )}
 
       {done.length > 0 && (
         <div className="flex flex-col gap-2">
@@ -765,7 +695,7 @@ export function CockpitProjectTasks({ projectId }: Props) {
  *
  * まさ 2026-09-12「何を意味してるのかが全然分からない。これおれが入力したんじゃないから、
  * いつどういう流れで発生したかが全然分かってない」。タイトルだけでは読めないので、
- * **木のどこにぶら下がっているか（到達点 → MS → 論点）** と **なぜ要るのか（親の背景）**、
+ * **ツリーのどこにぶら下がっているか（到達点 → MS → 論点）** と **なぜ要るのか（親の背景）**、
  * **どこから来た行か（移行 / 議事録 / 手入力と、その日付）** を1枚に出す。
  */
 function TaskDetailDialog({
@@ -792,7 +722,7 @@ function TaskDetailDialog({
         className="max-h-full w-full max-w-[560px] overflow-y-auto rounded-xl bg-white p-5 shadow-xl"
         onClick={(event) => event.stopPropagation()}
       >
-        {/* 木のどこの話か。上から順に、到達点 → MS → 論点 */}
+        {/* ツリーのどこの話か。上から順に、到達点 → MS → 論点 */}
         {context && context.path.length > 0 ? (
           <div className="mb-3 flex flex-col gap-[3px]">
             {context.path.map((step, index) => (
@@ -811,7 +741,7 @@ function TaskDetailDialog({
           </div>
         ) : (
           <p className="mb-3 text-[11px] text-[#86868b]">
-            ゴールツリーのどこにもぶら下がっていない（ツリー外）
+            ツリーに紐づいていません
           </p>
         )}
 
@@ -823,7 +753,7 @@ function TaskDetailDialog({
         <div className="mt-3 flex flex-col gap-3">
           {action.detail && (
             <section>
-              <h4 className="text-[11px] font-bold text-[#86868b]">やり方・条件</h4>
+              <h4 className="text-[11px] font-bold text-[#86868b]">実施条件</h4>
               <p className="mt-[2px] whitespace-pre-wrap text-[12px] leading-relaxed text-[#1d1d1f]">
                 {action.detail}
               </p>
@@ -832,7 +762,7 @@ function TaskDetailDialog({
 
           {action.doneCriteria && (
             <section>
-              <h4 className="text-[11px] font-bold text-[#86868b]">終わったと言える条件</h4>
+              <h4 className="text-[11px] font-bold text-[#86868b]">完了条件</h4>
               <p className="mt-[2px] whitespace-pre-wrap text-[12px] leading-relaxed text-[#1d1d1f]">
                 {action.doneCriteria}
               </p>
@@ -843,7 +773,7 @@ function TaskDetailDialog({
           {context?.background && (
             <section className="rounded-lg bg-[#f5f7fa] px-3 py-2">
               <h4 className="text-[11px] font-bold text-[#86868b]">
-                なぜ要るか（「{context.parentTitle}」の背景）
+                背景（「{context.parentTitle}」）
               </h4>
               <p className="mt-[2px] whitespace-pre-wrap text-[12px] leading-relaxed text-[#3c3c43]">
                 {context.background}
@@ -853,7 +783,7 @@ function TaskDetailDialog({
 
           {action.blocker && (
             <section>
-              <h4 className="text-[11px] font-bold text-[#86868b]">詰まっていること</h4>
+              <h4 className="text-[11px] font-bold text-[#86868b]">ブロッカー</h4>
               <p className="mt-[2px] text-[12px] text-[#1d1d1f]">{action.blocker}</p>
             </section>
           )}

@@ -33,7 +33,7 @@ import styles from "./question-tree.module.css";
  * pwa/spec/3-22-goal-tree-plan.md（到達点・MS・ptの型）。
  *
  * 状態は導出値なので編集させない。人が書くのは、答え・追わない理由・
- * 子の問い・やること・分かったことだけ。
+ * 子の問い・TODO・分かったことだけ。
  */
 
 type FormKind = "answer" | "drop" | "child" | "finding" | null;
@@ -129,7 +129,7 @@ function fmtDate(value: string | null): string {
   return value ? value.replace(/^\d{2}(\d{2})-/, "$1-") : "—";
 }
 
-/** 木の中で目立たせる問い。手を打つべきものだけに絞る。 */
+/** ツリーの中で目立たせる問い。手を打つべきものだけに絞る。 */
 function needsAttention(node: QuestionNode): boolean {
   return (
     node.status === "open" &&
@@ -225,8 +225,8 @@ export function QuestionTreeView({
   /** PJワークスペースのタブに埋め込むとき。ページとしての枠を外す */
   embedded?: boolean;
   /**
-   * 同じ木を2つの面で見せる（3-22 §2）。tree は論点・仮説タブ、gantt はガントタブ。
-   * 木・モーダル・その場編集・保存経路は共有し、行の右側だけを入れ替える。
+   * 同じツリーを2つの面で見せる（3-22 §2）。tree は論点・仮説タブ、gantt はガントタブ。
+   * ツリー・モーダル・その場編集・保存経路は共有し、行の右側だけを入れ替える。
    */
   mode?: "tree" | "gantt";
 }) {
@@ -315,7 +315,10 @@ export function QuestionTreeView({
     if (!bundle) return [];
     return bundle.allActions.filter(
       (action) =>
-        !barRangeOf(action) && action.status !== "done" && action.status !== "dropped",
+        !action.isProposed &&
+        !barRangeOf(action) &&
+        action.status !== "done" &&
+        action.status !== "dropped",
     );
   }, [bundle]);
 
@@ -479,7 +482,7 @@ export function QuestionTreeView({
   }, [barDrag, pxPerDay, send]);
 
   /**
-   * 未アサインのTODOのうち、木の上から見て最初のものへ移る。
+   * 未アサインのTODOのうち、ツリーの上から見て最初のものへ移る。
    * アサインはツリーの上で行う（3-22 §4 まさ確定 2026-09-11）ので、
    * 件数からその作業の入口へ直接つなぐ。上部へ一覧を抜き出すことはしない。
    */
@@ -510,7 +513,7 @@ export function QuestionTreeView({
     }, 60);
   }, [bundle]);
 
-  // 前後関係をつなぐのをやめる。掴んでいる途中と同じく Esc で降りられるようにする。
+  // 前後関係を中止。掴んでいる途中と同じく Esc で降りられるようにする。
   useEffect(() => {
     if (!depDraft) return;
     const onKey = (event: KeyboardEvent) => {
@@ -521,8 +524,8 @@ export function QuestionTreeView({
   }, [depDraft]);
 
   /**
-   * 木から消す。取り下げ（`status='dropped'`、取り消し線で残す）とは別の操作で、
-   * 論点でも仮説でもやることでもないものを木から外すために使う（まさ 2026-09-11
+   * ツリーから削除する。取り下げ（`status='dropped'`、取り消し線で残す）とは別の操作で、
+   * 論点でも仮説でもTODOでもないものをツリーから外すために使う（まさ 2026-09-11
    * 「論点でも仮説でもタスクでもないものは全部消す」「取り消し線になるだけで消せない」）。
    * 入口は詳細の末尾、同じ場所で2段階確認、第2モーダルは開かない（3-16 の作法）。
    * 実体は論理削除なので、間違えても復元できる。
@@ -551,7 +554,7 @@ export function QuestionTreeView({
     }
     return (
       <span className={styles.deleteConfirm}>
-        <span>木から消す？</span>
+        <span>削除しますか</span>
         <button
           type="button"
           className={styles.btn}
@@ -577,7 +580,7 @@ export function QuestionTreeView({
     );
   };
 
-  /** 到達点は親を持たないので、木の頭の導線から直接足す。 */
+  /** 到達点は親を持たないので、ツリーのいちばん上の導線から直接足す。 */
   const addGoal = useCallback(
     async (form: HTMLFormElement) => {
       const data = new FormData(form);
@@ -618,7 +621,7 @@ export function QuestionTreeView({
         return;
       }
       if (kind === "child") {
-        // 子として足せるのは、論点 / 仮説（＝代替の論点）/ 決めること / やること。
+        // 子として足せるのは、論点 / 仮説（＝代替の論点）/ 決めること / TODO。
         // 種類ごとに別ボタンを置くとボタンが増えるので、1つのフォームで選ばせる
         // （まさ 2026-09-10「ボタンが無駄に増えるとUXがどんどん悪くなる」）。
         const childKind = text("child_kind") || "required";
@@ -637,11 +640,11 @@ export function QuestionTreeView({
               },
             });
           } catch (caught) {
-            setError(caught instanceof Error ? caught.message : "やることを足せなかったよ");
+            setError(caught instanceof Error ? caught.message : "TODOを追加できませんでした");
             return;
           }
           if (!payload.id) {
-            setError("やることを足せなかったよ");
+            setError("TODOを追加できませんでした");
             return;
           }
           await send("POST", {
@@ -886,6 +889,25 @@ export function QuestionTreeView({
 
   const { counts, looseActions, canManage, proposals, members } = bundle;
 
+  /**
+   * 未承認のTODOはツリーの行として光らせるので、上の一覧には出さない。
+   * ここへ残すのは、ツリーの行としてまだ描けない種類だけ
+   * （まさ確定 2026-09-12「ツリーの中に未承認として目立たせて表示して」）。
+   */
+  const offTreeProposals = proposals.filter((proposal) => proposal.kind !== "action");
+  const looseUnapprovedCount = looseActions.filter((action) => action.isProposed).length;
+  /**
+   * 未承認を先頭へ。下へ埋もれると、承認すべきものに気づけない。
+   * ガントは確認するだけの面なので、未承認は出さない（まさ確定 2026-09-12）。
+   */
+  const orderedLooseActions =
+    mode === "gantt"
+      ? looseActions.filter((action) => !action.isProposed)
+      : [
+          ...looseActions.filter((action) => action.isProposed),
+          ...looseActions.filter((action) => !action.isProposed),
+        ];
+
   /** 根からこの問いまでの道。モーダルで文脈を見失わないために出す。 */
   const ancestorsOf = (node: QuestionNode): QuestionNode[] => {
     const trail: QuestionNode[] = [];
@@ -1100,7 +1122,7 @@ export function QuestionTreeView({
                   }
                 : undefined
             }
-            title={depDraft === action.id ? "つなぐのをやめる" : "この後ろに来るTODOを選ぶ"}
+            title={depDraft === action.id ? "中止" : "後続を選択"}
             onClick={(event) => {
               event.stopPropagation();
               setDepDraft((current) => (current === action.id ? null : action.id));
@@ -1131,12 +1153,12 @@ export function QuestionTreeView({
   };
 
   /**
-   * TODOの担当（複数可）。押すとその場で付け外しする。
+   * TODOの担当。押すとその場で付け外しする。
    * 担当が付いた瞬間が委託にあたる（3-22 §4）ので、フォームの保存を挟まない。
    */
   const renderOwnerPicker = (action: ActionNode) => (
     <div className={styles.ownerPicker}>
-      <span className={styles.ownerPickerLabel}>担当（複数可）</span>
+      <span className={styles.ownerPickerLabel}>担当</span>
       <div className={styles.ownerChips}>
         {members.length === 0 && <span className={styles.ownerEmpty}>名簿が読めなかったよ</span>}
         {members.map((member) => {
@@ -1223,8 +1245,8 @@ export function QuestionTreeView({
       );
     return (
       <div className={styles.depBlock}>
-        {row("これより前に終わるTODO", before)}
-        {row("これが終わってから始まるTODO", after)}
+        {row("先行", before)}
+        {row("後続", after)}
       </div>
     );
   };
@@ -1277,13 +1299,13 @@ export function QuestionTreeView({
             "action",
             action.id,
             action.children.length > 0,
-            "このやることの下に子があるから消せないよ。先に子を動かすか消してね",
+            "下位のTODOがあるため削除できません。先に移動または削除してください",
           )}
         </div>
 
         {owners.length > 0 && (
           <div>
-            <div className={styles.subHead}>これが答えを出す論点（{owners.length}）</div>
+            <div className={styles.subHead}>対応する論点（{owners.length}）</div>
             <div className={styles.itemList}>
               {owners.map((owner) => (
                 <button
@@ -1306,7 +1328,7 @@ export function QuestionTreeView({
 
         {action.findings.length > 0 && (
           <div>
-            <div className={styles.subHead}>この結果として分かったこと（{action.findings.length}）</div>
+            <div className={styles.subHead}>分かったこと（{action.findings.length}）</div>
             <div className={styles.itemList}>
               {action.findings.map((finding) => (
                 <div className={styles.item} key={finding.id}>
@@ -1385,7 +1407,7 @@ export function QuestionTreeView({
         {renderInline("question", node.id, "背景・前提", "background", node.background, node.background ?? "", "multiline")}
 
         <div>
-          <div className={styles.subHead}>やること（{node.actions.length}）</div>
+          <div className={styles.subHead}>TODO（{node.actions.length}）</div>
           <div className={styles.itemList}>
             {node.actions.length === 0 ? (
               <p className={styles.empty}>
@@ -1453,10 +1475,10 @@ export function QuestionTreeView({
                 取り下げ
               </button>
             )}
-            {/* 取り下げ（取り消し線で残す）と削除（木から消す）は別。論点でも仮説でも
-                やることでもないものは、取り消し線で残すのではなく消す（まさ 2026-09-11）。
+            {/* 取り下げ（取り消し線で残す）と削除（ツリーから削除する）は別。論点でも仮説でも
+                TODOでもないものは、取り消し線で残すのではなく消す（まさ 2026-09-11）。
                 入口は詳細の末尾、同じ場所で2段階確認、第2モーダルは開かない（3-16 の作法）。 */}
-            {renderDeleteAction("question", node.id, node.children.length > 0, "この論点の下に子があるから消せないよ。先に子を動かすか消してね")}
+            {renderDeleteAction("question", node.id, node.children.length > 0, "下位の項目があるため削除できません。先に移動または削除してください")}
           </div>
         )}
 
@@ -1505,8 +1527,8 @@ export function QuestionTreeView({
                       <option value="required">論点（これが解けないと親が解けない）</option>
                       <option value="alternative">仮説（どれか1つ立てば足りる答えの候補）</option>
                       <option value="decision">決めること（意思で決まる）</option>
-                      <option value="measure">やること・確かめる（測る / 調べる / 聞く）</option>
-                      <option value="work">やること・作業（決まったことを実行する）</option>
+                      <option value="measure">TODO・確認（測る / 調べる / 聞く）</option>
+                      <option value="work">TODO・作業（決まったことを実行する）</option>
                     </select>
                   </label>
                 </div>
@@ -1525,7 +1547,7 @@ export function QuestionTreeView({
                   </label>
                 </div>
                 <label>
-                  補足（やることなら方法・条件）
+                  補足（TODOなら方法・条件）
                   <textarea name="detail" placeholder="必要なら書く" />
                 </label>
               </>
@@ -1618,7 +1640,7 @@ export function QuestionTreeView({
     );
   };
 
-  /** やることも木の子として出す。問いの下に何が積まれているかを1つの木で読む。 */
+  /** TODOもツリーの子として出す。問いの下に何が積まれているかを1つのツリーで読む。 */
   const renderActionRow = (action: ActionNode, lines: boolean[], isLast: boolean, depth: number) => {
     const closed = action.status === "done" || action.status === "dropped";
     return (
@@ -1627,6 +1649,7 @@ export function QuestionTreeView({
           className={styles.row}
           data-row-kind="action"
           data-action-row={action.id}
+          data-proposed={action.isProposed ? "true" : undefined}
           data-unassigned={action.isUnassigned ? "true" : undefined}
           data-open={selected?.kind === "action" && selected.id === action.id ? "true" : undefined}
           role="presentation"
@@ -1646,9 +1669,51 @@ export function QuestionTreeView({
             <span className={styles.chip} data-kind={action.actionKind}>
               {action.actionKind === "measure" ? "確かめる" : "作業"}
             </span>
-            {/* 会議中に足したまま、担当か期限が決まっていないもの。上部へ抜き出さず
-                行の中で示す（3-21「上部へ抜き出さない」、3-22 §4）。 */}
-            {action.isUnassigned && (
+            {/* 未承認。ツリーの中で光らせ、その場で承認・却下する
+                （まさ確定 2026-09-12「承認したらツリーのどこにいくかが分からないのに
+                承認できない。ツリーの中に未承認として目立たせて表示して」）。 */}
+            {action.isProposed && (
+              <>
+                <span className={styles.chip} data-kind="proposed">
+                  未承認
+                </span>
+                {canManage && (
+                  <>
+                    <button
+                      type="button"
+                      className={styles.inlineApprove}
+                      disabled={busy}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void send("PATCH", {
+                          resource: "proposal_bulk",
+                          decision: "accept",
+                          ids: [action.id],
+                        });
+                      }}
+                    >
+                      承認
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.inlineReject}
+                      disabled={busy}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void send("PATCH", {
+                          resource: "proposal_bulk",
+                          decision: "reject",
+                          ids: [action.id],
+                        });
+                      }}
+                    >
+                      却下
+                    </button>
+                  </>
+                )}
+              </>
+            )}
+            {action.isUnassigned && !action.isProposed && (
               <span className={styles.chip} data-kind="unassigned">
                 未アサイン
               </span>
@@ -1677,9 +1742,13 @@ export function QuestionTreeView({
     const isOpen = openIds.has(node.id);
     const isSelected = selected?.kind === "question" && selected.id === node.id;
     const childQuestions = node.children;
-    // ガントでは日程の無いTODOを木の中に出さない。下の「日程未設定」へまとめて
+    // ガントでは日程の無いTODOをツリーの中に出さない。下の「日程未設定」へまとめて
     // 集め、そこで担当・期限・見積ptを入れる（3-22 §4 会議後のアサイン）。
-    const childActions = mode === "gantt" ? node.actions.filter(barRangeOf) : node.actions;
+    // ガントは確認するだけの面。未承認はツリーでだけ扱う（まさ確定 2026-09-12）。
+    const childActions =
+      mode === "gantt"
+        ? node.actions.filter((action) => !action.isProposed && barRangeOf(action))
+        : node.actions;
     const childCount = childQuestions.length + childActions.length;
     const hasChildren = childCount > 0;
     // 根同士のあいだには縦線を引かない。子から先が枝分かれの表現になる。
@@ -1760,7 +1829,7 @@ export function QuestionTreeView({
                 決める
               </span>
             )}
-            {/* 到達点とMSは木の骨格。3-21 の判定色は増やさず、印と字体だけで区別する。 */}
+            {/* 到達点とMSはツリーの骨格。3-21 の判定色は増やさず、印と字体だけで区別する。 */}
             {(node.questionKind === "goal" || node.questionKind === "milestone") && (
               <span className={styles.chip} data-kind={node.questionKind}>
                 {QUESTION_KIND_LABEL[node.questionKind]}
@@ -1818,12 +1887,12 @@ export function QuestionTreeView({
     <div className={styles.page} data-embedded={embedded || undefined}>
       <div className={styles.shell}>
         <header className={styles.header}>
-          {/* ガントタブには「ガント」の見出しが既にある。同じ木に2つ見出しを付けない。 */}
+          {/* ガントタブには「ガント」の見出しが既にある。同じツリーに2つ見出しを付けない。 */}
           {mode !== "gantt" && (
             <div className={styles.headerTitle}>
               <h1>{embedded ? "ゴールツリー" : projectName}</h1>
               <p>
-                到達点を一番上に置き、そこから分からないことを分解して、確かめる手をぶら下げる。答えが出たものから閉じる。
+                
               </p>
             </div>
           )}
@@ -1868,18 +1937,20 @@ export function QuestionTreeView({
           </div>
         </header>
 
-        {proposals.length > 0 && (
+        {/* 未承認のTODOはツリーの中で光らせる。ここに残すのは、ツリーの行として
+            まだ描けない種類（論点・分かったこと）だけ。0件なら何も出ない
+            （まさ確定 2026-09-12「未承認リストが上にあるのもイケてない」）。 */}
+        {offTreeProposals.length > 0 && (
           <section className={styles.section}>
             <div className={styles.sectionHead}>
-              <h2>つくよみが拾った、まだ木に無いもの（{proposals.length}）</h2>
-              <span>会議の記録に出ていたのに登録されていないもの。足すか、いらないかを決める</span>
+              <h2>未承認の論点・分かったこと（{offTreeProposals.length}）</h2>
             </div>
             <div className={styles.itemList} style={{ border: 0, borderRadius: 0 }}>
-              {proposals.map((proposal) => (
+              {offTreeProposals.map((proposal) => (
                 <div className={styles.proposal} key={`${proposal.kind}-${proposal.id}`}>
                   <div className={styles.proposalMain}>
                     <span className={styles.chip} data-kind={proposal.kind === "action" ? "measure" : proposal.kind === "finding" ? "work" : "required"}>
-                      {proposal.kind === "question" ? "論点" : proposal.kind === "action" ? "やること" : "分かったこと"}
+                      {proposal.kind === "question" ? "論点" : "分かったこと"}
                     </span>
                     <span className={styles.proposalTitle}>{proposal.title}</span>
                   </div>
@@ -1911,7 +1982,7 @@ export function QuestionTreeView({
                           })
                         }
                       >
-                        木に入れる
+                        承認
                       </button>
                       <button
                         type="button"
@@ -1925,7 +1996,7 @@ export function QuestionTreeView({
                           })
                         }
                       >
-                        いらない
+                        却下
                       </button>
                     </div>
                   )}
@@ -1936,8 +2007,8 @@ export function QuestionTreeView({
         )}
 
         <section className={styles.section}>
-          {/* 到達点は木のいちばん上に置くので、どの行の「子を追加」からも作れない。
-              木の頭に導線を1つだけ置く（3-22 §3）。 */}
+          {/* 到達点はツリーのいちばん上に置くので、どの行の「子を追加」からも作れない。
+              ツリーのいちばん上に導線を1つだけ置く（3-22 §3）。 */}
           {canManage && (
             <div className={styles.goalAdd}>
               <button
@@ -1956,7 +2027,7 @@ export function QuestionTreeView({
                   }}
                 >
                   <label>
-                    到達点（シーズンの終わりに、こうなっている）
+                    到達点
                     <input
                       name="title"
                       required
@@ -1990,7 +2061,7 @@ export function QuestionTreeView({
                 <div className={styles.ganttHeadLead}>
                   <span>
                     {depDraft
-                      ? "この後ろに来るTODOのバーを押してね（Escでやめる）"
+                      ? "後続にするバーを選択（Esc で中止）"
                       : "到達点 → MS → 論点 → TODO"}
                   </span>
                 </div>
@@ -2044,7 +2115,7 @@ export function QuestionTreeView({
               <h2>日程未設定</h2>
               <span>
                 {undatedActions.length}件。ここで日程を付けると上のガントに並ぶ。担当と見積ptは
-                論点・仮説タブのゴールツリーで付ける
+                ゴールツリータブで付ける
               </span>
             </div>
             <div className={styles.undated}>
@@ -2102,15 +2173,31 @@ export function QuestionTreeView({
           </section>
         )}
 
-        {looseActions.length > 0 && (
+        {orderedLooseActions.length > 0 && (
           <section className={styles.section}>
             <div className={styles.sectionHead}>
-              <h2>どの論点にもつながっていないやること</h2>
-              <span>{looseActions.length}件。実行だけで答えを出さない作業か、つなぎ忘れ</span>
+              <h2>論点に紐づいていないTODO</h2>
+              <span>
+                {orderedLooseActions.length}件
+                {mode !== "gantt" && looseUnapprovedCount > 0
+                  ? `（うち未承認 ${looseUnapprovedCount}）`
+                  : ""}
+              </span>
             </div>
-            <div className={styles.itemList} style={{ border: 0, borderRadius: 0 }}>
-              {looseActions.slice(0, 40).map(renderAction)}
-            </div>
+            {mode === "gantt" ? (
+              <div className={styles.itemList} style={{ border: 0, borderRadius: 0 }}>
+                {orderedLooseActions.slice(0, 40).map(renderAction)}
+              </div>
+            ) : (
+              /* ツリーの行と同じ形で描く。未承認はここでも光り、その場で承認・却下できる
+                 （まさ確定 2026-09-12「ツリーの中に未承認として目立たせて表示して」）。
+                 件数で切らない。切ると未承認が黙って隠れる。 */
+              <div className={styles.tree}>
+                {orderedLooseActions.map((action, index) =>
+                  renderActionRow(action, [], index === orderedLooseActions.length - 1, 0),
+                )}
+              </div>
+            )}
           </section>
         )}
       </div>

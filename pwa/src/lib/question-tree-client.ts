@@ -5,7 +5,7 @@
  * 素の fetch を張ると、タブを行き来するたびに往復を払う（本番実測で 500〜700ms）。
  * 土台は src/lib/reference-data-cache.ts、規範は spec/5-10。
  *
- * 【分類】木そのものは編集する面なので純粋な参照系ではない。ただし
+ * 【分類】ツリーそのものは編集する面なので純粋な参照系ではない。ただし
  * 書き込みAPIが必ず最新の束を返す作りなので、保存のたびにキャッシュを
  * その戻り値で置き換えれば、自分の書き込みが古く見えることはない。
  * 他の人の更新のために、TTLは参照系の既定（5分）より短い60秒にする。
@@ -67,7 +67,7 @@ export function putQuestionTree(projectId: string, bundle: QuestionTreeBundle): 
     ttlMs: TTL_MS,
     force: true,
   });
-  // ptリストは木の内容から作るので、木が変わったら捨てる。
+  // ptリストはツリーの内容から作るので、ツリーが変わったら捨てる。
   invalidateReferenceData(pointsKey(projectId));
 }
 
@@ -88,7 +88,7 @@ export function invalidateQuestionTree(projectId?: string): void {
 }
 
 /**
- * 木への書き込み。画面は必ずここを通す（素の fetch を張ると、キャッシュが
+ * ツリーへの書き込み。画面は必ずここを通す（素の fetch を張ると、キャッシュが
  * 古いまま残る）。API が最新の束を返したら、その場でキャッシュを置き換える。
  * 失敗は例外で返すので、呼び手はメッセージをそのまま出せる。
  */
@@ -102,7 +102,7 @@ export async function mutateQuestionTree(
     headers: {
       "Content-Type": "application/json",
       // 画面で人が押したことを名乗る。これが無い書き込み（えいみのスクリプト）は
-      // 提案として入り、まさが承認するまで木に出ない（まさ確定 2026-09-12）。
+      // 提案として入り、まさが承認するまでツリーに出ない（まさ確定 2026-09-12）。
       "x-amd-os-actor": "screen",
     },
     body: JSON.stringify(body),

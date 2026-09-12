@@ -208,7 +208,7 @@ async function assertGoalTreePlacement(
   const parentId = (fields.parent_id ?? existing?.parent_id ?? null) as string | null;
 
   if (kind === "goal" && parentId) {
-    throw new Error("到達点は木のいちばん上にしか置けないよ");
+    throw new Error("到達点はツリーのいちばん上にしか置けないよ");
   }
   if (kind === "milestone") {
     if (!parentId) throw new Error("MSは到達点の直下に置いてね");
@@ -268,7 +268,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json(view, { headers: READ_CACHE });
     }
 
-    // ptを並べて比べる面（MS・月次タブ）。木とガントには出さない数字なので、
+    // ptを並べて比べる面（MS・月次タブ）。ツリーとガントには出さない数字なので、
     // ここも権限のある人だけに返す。
     if (request.nextUrl.searchParams.get("view") === "points") {
       if (!canManage) {
@@ -282,7 +282,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json(bundle, { headers: READ_CACHE });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "問いの木を取得できなかったよ" },
+      { error: error instanceof Error ? error.message : "ゴールツリーを取得できなかったよ" },
       { status: 500 },
     );
   }
@@ -324,7 +324,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ bundle }, { headers: NO_STORE });
     }
 
-    // つくよみが拾ったものを人が確定する。承認で初めて木へ線が入り、
+    // つくよみが拾ったものを人が確定する。承認で初めてツリーへ線が入り、
     // 却下は論理削除にして、同じものを次の巡回で拾い直させない（spec 3-21）。
     /**
      * 提案をまとめて確定する。まさ確定 2026-09-12 で、まさが手で入れていない233件を
@@ -481,8 +481,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
        * まさ確定 2026-09-12「タスクとかゴールツリーは、おれが自分で入れないといけない。
        * えいみに入れてもらう場合には、おれが承認してから追加にしないとだめだ」。
        *
-       * 画面で人が押した書き込みだけが、そのまま木へ入る。えいみがスクリプトから
-       * 入れたものは提案として置き、まさが承認するまで木に出ない。
+       * 画面で人が押した書き込みだけが、そのままツリーへ入る。えいみがスクリプトから
+       * 入れたものは提案として置き、まさが承認するまでツリーに出ない。
        */
       const fromScreen = request.headers.get("x-amd-os-actor") === "screen";
       insert.origin_kind = insert.origin_kind ?? (fromScreen ? "manual" : "automation");
