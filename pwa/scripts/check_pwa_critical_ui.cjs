@@ -3930,7 +3930,11 @@ expectIncludes("src/components/question-tree/QuestionTreeView.tsx", [
   // 2026-09-12 まさ確定: 未承認はツリーの中で光らせ、その場で承認・却下する。
   // 上部の一覧に抜き出さない。TODOタブとガントには出さない。
   "未承認",
-  "proposal_bulk",
+  // 未承認は論点・到達点・MSもTODOも、ツリーの中で光らせてその場で決める。
+  // 上へ抜き出す一覧は置かない（2026-09-12 まさ確定）。送り先は POST 側。
+  "renderProposedControls",
+  '"proposal_accept"',
+  '"proposal_reject"',
   'data-proposed',
 ]);
 // 割り振りセッションが使う経路（2026-09-11 まさ確定、spec 3-22 §4）。

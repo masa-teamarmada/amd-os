@@ -178,7 +178,10 @@ function defaultOpenIds(bundle: QuestionTreeBundle | null | undefined): Set<stri
     ids.add(action.id);
   }
   for (const node of bundle.allQuestions) {
-    if (!node.actions.some((action) => action.isProposed || hasProposedDescendant(action))) continue;
+    const carriesProposed =
+      node.isProposed ||
+      node.actions.some((action) => action.isProposed || hasProposedDescendant(action));
+    if (!carriesProposed) continue;
     ids.add(node.id);
     openTrail(node.parentId);
   }
@@ -315,7 +318,13 @@ export function QuestionTreeView({
     };
   }, [initialBundle, projectId]);
 
-  const roots = useMemo(() => bundle?.roots ?? [], [bundle]);
+  // ガントは確認するだけの面。未承認の到達点・論点はツリーでだけ扱う
+  // （まさ確定 2026-09-12）。根も同じ扱いにしないと、未承認の到達点が
+  // 外部メンバーの開くガントに出る。
+  const roots = useMemo(() => {
+    const all = bundle?.roots ?? [];
+    return mode === "gantt" ? all.filter((root) => !root.isProposed) : all;
+  }, [bundle, mode]);
 
   const questionById = useMemo(() => {
     const map = new Map<string, QuestionNode>();
@@ -916,14 +925,10 @@ export function QuestionTreeView({
     );
   }
 
-  const { counts, looseActions, canManage, proposals, members } = bundle;
+  const { counts, looseActions, canManage, members } = bundle;
 
-  /**
-   * 未承認のTODOはツリーの行として光らせるので、上の一覧には出さない。
-   * ここへ残すのは、ツリーの行としてまだ描けない種類だけ
-   * （まさ確定 2026-09-12「ツリーの中に未承認として目立たせて表示して」）。
-   */
-  const offTreeProposals = proposals.filter((proposal) => proposal.kind !== "action");
+  // 未承認は論点もTODOもツリーの中で光らせて決める。上へ抜き出す一覧は置かない
+  // （まさ確定 2026-09-12「未承認リストが上にあるのもイケてない」）。
   const looseUnapprovedCount = looseActions.filter((action) => action.isProposed).length;
   /**
    * 未承認を先頭へ。下へ埋もれると、承認すべきものに気づけない。
@@ -1669,6 +1674,45 @@ export function QuestionTreeView({
     );
   };
 
+  /**
+   * 未承認の印と、その場で決めるボタン。論点・到達点・MSとTODOで同じ形にする
+   * （まさ確定 2026-09-12「ツリーの中に未承認として目立たせて表示して」）。
+   * 送り先は POST 側のハンドラ。PATCH へ投げると 400 になる。
+   */
+  const renderProposedControls = (kind: "question" | "action", id: string) => (
+    <>
+      <span className={styles.chip} data-kind="proposed">
+        未承認
+      </span>
+      {canManage && (
+        <>
+          <button
+            type="button"
+            className={styles.inlineApprove}
+            disabled={busy}
+            onClick={(event) => {
+              event.stopPropagation();
+              void send("POST", { resource: "proposal_accept", fields: { kind, id } });
+            }}
+          >
+            承認
+          </button>
+          <button
+            type="button"
+            className={styles.inlineReject}
+            disabled={busy}
+            onClick={(event) => {
+              event.stopPropagation();
+              void send("POST", { resource: "proposal_reject", fields: { kind, id } });
+            }}
+          >
+            却下
+          </button>
+        </>
+      )}
+    </>
+  );
+
   /** TODOもツリーの子として出す。問いの下に何が積まれているかを1つのツリーで読む。 */
   const renderActionRow = (action: ActionNode, lines: boolean[], isLast: boolean, depth: number) => {
     const closed = action.status === "done" || action.status === "dropped";
@@ -1723,50 +1767,7 @@ export function QuestionTreeView({
             <span className={styles.chip} data-kind={action.actionKind}>
               {action.actionKind === "measure" ? "確かめる" : "作業"}
             </span>
-            {/* 未承認。ツリーの中で光らせ、その場で承認・却下する
-                （まさ確定 2026-09-12「承認したらツリーのどこにいくかが分からないのに
-                承認できない。ツリーの中に未承認として目立たせて表示して」）。 */}
-            {action.isProposed && (
-              <>
-                <span className={styles.chip} data-kind="proposed">
-                  未承認
-                </span>
-                {canManage && (
-                  <>
-                    <button
-                      type="button"
-                      className={styles.inlineApprove}
-                      disabled={busy}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        void send("POST", {
-                          resource: "proposal_bulk",
-                          decision: "accept",
-                          ids: [action.id],
-                        });
-                      }}
-                    >
-                      承認
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.inlineReject}
-                      disabled={busy}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        void send("POST", {
-                          resource: "proposal_bulk",
-                          decision: "reject",
-                          ids: [action.id],
-                        });
-                      }}
-                    >
-                      却下
-                    </button>
-                  </>
-                )}
-              </>
-            )}
+            {action.isProposed && renderProposedControls("action", action.id)}
             {action.isUnassigned && !action.isProposed && (
               <span className={styles.chip} data-kind="unassigned">
                 未アサイン
@@ -1802,7 +1803,9 @@ export function QuestionTreeView({
   const renderNode = (node: QuestionNode, lines: boolean[] = [], isLast = true, depth = 0) => {
     const isOpen = openIds.has(node.id);
     const isSelected = selected?.kind === "question" && selected.id === node.id;
-    const childQuestions = node.children;
+    // ガントは確認するだけの面。未承認はツリーでだけ扱う（まさ確定 2026-09-12）。
+    const childQuestions =
+      mode === "gantt" ? node.children.filter((child) => !child.isProposed) : node.children;
     // ガントでは日程の無いTODOをツリーの中に出さない。下の「日程未設定」へまとめて
     // 集め、そこで担当・期限・見積ptを入れる（3-22 §4 会議後のアサイン）。
     // ガントは確認するだけの面。未承認はツリーでだけ扱う（まさ確定 2026-09-12）。
@@ -1821,7 +1824,8 @@ export function QuestionTreeView({
           data-question-row={node.id}
           data-row-kind="question"
           data-open={isSelected ? "true" : undefined}
-          data-flag={needsAttention(node) ? node.state : undefined}
+          data-proposed={node.isProposed ? "true" : undefined}
+          data-flag={!node.isProposed && needsAttention(node) ? node.state : undefined}
           data-overdue={node.isOverdue ? "true" : undefined}
           data-dragging={dragId === node.id ? "true" : undefined}
           data-drop={dropHint?.id === node.id ? dropHint.position : undefined}
@@ -1896,6 +1900,7 @@ export function QuestionTreeView({
                 {QUESTION_KIND_LABEL[node.questionKind]}
               </span>
             )}
+            {node.isProposed && renderProposedControls("question", node.id)}
             {/* ptはここに出さない。ツリーとガントは外部メンバーも見る面で、
                 報酬に直結する数字を置けない（まさ 2026-09-11）。
                 ptを並べて比べるのはMS・月次タブ。ここではTODOの数だけ出す。 */}
@@ -1997,75 +2002,6 @@ export function QuestionTreeView({
             </span>
           </div>
         </header>
-
-        {/* 未承認のTODOはツリーの中で光らせる。ここに残すのは、ツリーの行として
-            まだ描けない種類（論点・分かったこと）だけ。0件なら何も出ない
-            （まさ確定 2026-09-12「未承認リストが上にあるのもイケてない」）。 */}
-        {offTreeProposals.length > 0 && (
-          <section className={styles.section}>
-            <div className={styles.sectionHead}>
-              <h2>未承認の論点・分かったこと（{offTreeProposals.length}）</h2>
-            </div>
-            <div className={styles.itemList} style={{ border: 0, borderRadius: 0 }}>
-              {offTreeProposals.map((proposal) => (
-                <div className={styles.proposal} key={`${proposal.kind}-${proposal.id}`}>
-                  <div className={styles.proposalMain}>
-                    <span className={styles.chip} data-kind={proposal.kind === "action" ? "measure" : proposal.kind === "finding" ? "work" : "required"}>
-                      {proposal.kind === "question" ? "論点" : "分かったこと"}
-                    </span>
-                    <span className={styles.proposalTitle}>{proposal.title}</span>
-                  </div>
-                  <p className={styles.proposalWhere}>
-                    {proposal.proposedParentTitle ? (
-                      <>
-                        <b>{proposal.proposedParentTitle}</b> の下
-                        {proposal.proposedContribution
-                          ? `（${CONTRIBUTION_LABEL[proposal.proposedContribution]}）`
-                          : ""}
-                      </>
-                    ) : (
-                      "付ける先は未推定（根に入る）"
-                    )}
-                    {proposal.reason ? ` ・ ${proposal.reason}` : ""}
-                    {proposal.originRef ? ` ・ 出どころ: ${proposal.originRef}` : ""}
-                  </p>
-                  {canManage && (
-                    <div className={styles.actions}>
-                      <button
-                        type="button"
-                        className={styles.btn}
-                        data-variant="primary"
-                        disabled={busy}
-                        onClick={() =>
-                          void send("POST", {
-                            resource: "proposal_accept",
-                            fields: { kind: proposal.kind, id: proposal.id },
-                          })
-                        }
-                      >
-                        承認
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.btn}
-                        data-variant="quiet"
-                        disabled={busy}
-                        onClick={() =>
-                          void send("POST", {
-                            resource: "proposal_reject",
-                            fields: { kind: proposal.kind, id: proposal.id },
-                          })
-                        }
-                      >
-                        却下
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
 
         <section className={styles.section}>
           {/* 到達点はツリーのいちばん上に置くので、どの行の「子を追加」からも作れない。

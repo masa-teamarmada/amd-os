@@ -308,7 +308,8 @@ export async function getGoalTreeAssignmentView(projectId: string) {
 
   const walk = (node: QuestionNode, trail: Trail, milestone: QuestionNode | null) => {
     const nextTrail: Trail = [...trail, { kind: node.questionKind, title: node.title, id: node.id }];
-    const nextMilestone = node.questionKind === "milestone" ? node : milestone;
+    // 未承認のMSは集計の器にしない。承認して初めてMSとして数える。
+    const nextMilestone = node.questionKind === "milestone" && !node.isProposed ? node : milestone;
     for (const action of node.actions) {
       // 同じTODOが複数の問いに効くときは、最初に出会った道を使う。
       if (!trailByAction.has(action.id)) {
@@ -337,7 +338,7 @@ export async function getGoalTreeAssignmentView(projectId: string) {
   }
 
   const milestones = bundle.allQuestions
-    .filter((question) => question.questionKind === "milestone")
+    .filter((question) => question.questionKind === "milestone" && !question.isProposed)
     .map((question) => {
       const rollup = milestoneRollup.get(question.id) ?? { assignedPt: 0, todos: 0, unassigned: 0 };
       const goal = question.parentId ? bundle.allQuestions.find((q) => q.id === question.parentId) : null;
@@ -415,9 +416,12 @@ export async function getGoalTreePointsView(projectId: string) {
   const milestoneOfAction = new Map<string, QuestionNode>();
   const goalOfMilestone = new Map<string, string>();
   const walk = (node: QuestionNode, milestone: QuestionNode | null, goalTitle: string | null) => {
-    const nextGoal = node.questionKind === "goal" ? node.title : goalTitle;
-    const nextMilestone = node.questionKind === "milestone" ? node : milestone;
-    if (node.questionKind === "milestone" && nextGoal) goalOfMilestone.set(node.id, nextGoal);
+    // 未承認のMS・到達点はptの集計単位にしない。承認して初めて器になる。
+    const isGoal = node.questionKind === "goal" && !node.isProposed;
+    const isMilestone = node.questionKind === "milestone" && !node.isProposed;
+    const nextGoal = isGoal ? node.title : goalTitle;
+    const nextMilestone = isMilestone ? node : milestone;
+    if (isMilestone && nextGoal) goalOfMilestone.set(node.id, nextGoal);
     for (const action of node.actions) {
       if (!milestoneOfAction.has(action.id) && nextMilestone) {
         milestoneOfAction.set(action.id, nextMilestone);
@@ -450,7 +454,7 @@ export async function getGoalTreePointsView(projectId: string) {
     });
 
   const groups = bundle.allQuestions
-    .filter((question) => question.questionKind === "milestone")
+    .filter((question) => question.questionKind === "milestone" && !question.isProposed)
     .map((question) => {
       const items = rows
         .filter((row) => row.milestoneId === question.id)
@@ -533,10 +537,14 @@ export async function getQuestionTreeBundle(
   const allActionRows = (actionRes.data || []) as unknown as RawRow[];
   const allFindingRows = (findingRes.data || []) as unknown as RawRow[];
 
-  // つくよみが拾ったまま人が見ていないものはツリーへ入れない。別枠で見せて、
-  // 承認されたときだけ親と線が確定する（spec 3-21）。
+  /**
+   * 未承認も、承認したら入る位置でツリーに出す（まさ確定 2026-09-12
+   * 「承認したらツリーのどこにいくかが分からないのに承認できない。
+   * ツリーの中に未承認として目立たせて表示して」）。
+   * 論点・到達点・MSは `parent_id` が空でも `proposed_parent_id` で仮に繋いで描く。
+   */
   const isProposed = (row: RawRow) => row.review_state === "proposed";
-  const questionRows = allQuestionRows.filter((row) => !isProposed(row));
+  const questionRows = allQuestionRows;
   /**
    * 未承認のTODOも、ツリーには出す（まさ確定 2026-09-12
    * 「承認したらツリーのどこにいくかが分からないのに承認できない。
@@ -648,13 +656,20 @@ export async function getQuestionTreeBundle(
 
   const questions: QuestionNode[] = questionRows.map((row) => {
     const id = str(row, "id");
+    const proposed = isProposed(row);
+    // 未承認は本物の線をまだ持たないことがある。そのときは戻り先で仮に繋ぐ。
+    const parentId = nullableStr(row, "parent_id") ?? (proposed ? nullableStr(row, "proposed_parent_id") : null);
+    const contribution =
+      (row.contribution as Contribution | null) ??
+      (proposed ? (row.proposed_contribution as Contribution | null) : null) ??
+      null;
     const linkedActionIds = actionIdsByQuestion.get(id) || [];
     const linkedFindingIds = findingIdsByQuestion.get(id) || [];
     return {
       id,
       projectId: str(row, "project_id"),
-      parentId: nullableStr(row, "parent_id"),
-      contribution: (row.contribution as Contribution | null) ?? null,
+      parentId,
+      contribution,
       title: str(row, "title"),
       background: nullableStr(row, "background"),
       questionKind: asQuestionKind(row.question_kind),
@@ -672,6 +687,7 @@ export async function getQuestionTreeBundle(
       sortOrder: num(row, "sort_order"),
       lastVerifiedAt: str(row, "last_verified_at", today),
       milestoneIds: milestoneIdsByQuestion.get(id) || [],
+      isProposed: proposed,
       children: [],
       actions: linkedActionIds
         .map((actionId) => actionById.get(actionId))
@@ -755,15 +771,16 @@ export async function getQuestionTreeBundle(
 
   // 承認済みだけを数える。未承認はツリーの中で光らせて見せるが、進捗の数字には入れない。
   const liveActions = actions.filter((action) => !action.isProposed);
+  const liveQuestions = allQuestions.filter((question) => !question.isProposed);
   const counts = {
-    questions: allQuestions.length,
-    open: allQuestions.filter((question) => question.status === "open").length,
-    answered: allQuestions.filter((question) => question.status === "answered").length,
-    dropped: allQuestions.filter((question) => question.status === "dropped").length,
-    decidable: allQuestions.filter((question) => question.state === "decidable").length,
-    stalled: allQuestions.filter((question) => question.state === "stalled").length,
-    deadBranch: allQuestions.filter((question) => question.state === "dead_branch").length,
-    overdue: allQuestions.filter((question) => question.isOverdue).length,
+    questions: liveQuestions.length,
+    open: liveQuestions.filter((question) => question.status === "open").length,
+    answered: liveQuestions.filter((question) => question.status === "answered").length,
+    dropped: liveQuestions.filter((question) => question.status === "dropped").length,
+    decidable: liveQuestions.filter((question) => question.state === "decidable").length,
+    stalled: liveQuestions.filter((question) => question.state === "stalled").length,
+    deadBranch: liveQuestions.filter((question) => question.state === "dead_branch").length,
+    overdue: liveQuestions.filter((question) => question.isOverdue).length,
     actions: liveActions.length,
     openMeasures: liveActions.filter(
       (action) => action.actionKind === "measure" && isActionOpen(action),

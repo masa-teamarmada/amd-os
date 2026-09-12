@@ -185,6 +185,11 @@ export type QuestionNode = {
    * question_kind='milestone' のときだけ入る。多対多（project_question_milestones）
    */
   milestoneIds: string[];
+  /**
+   * まだ承認されていない。ツリーの中で、承認したら入る位置に光らせて出す
+   * （まさ確定 2026-09-12）。数（件数・pt）には入れず、ガントにも出さない。
+   */
+  isProposed: boolean;
 
   children: QuestionNode[];
   /** この問いに直接ぶら下がるTODO */
