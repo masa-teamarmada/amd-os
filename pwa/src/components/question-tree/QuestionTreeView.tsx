@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { useModalContainment } from "@/components/project-workspace/useModalContainment";
+import { loadQuestionTree, mutateQuestionTree, peekQuestionTree } from "@/lib/question-tree-client";
 import { buildFinishToStartRoute } from "@/lib/sx-gantt-dependency-route";
 import {
   addDays,
@@ -229,8 +230,13 @@ export function QuestionTreeView({
    */
   mode?: "tree" | "gantt";
 }) {
-  const [bundle, setBundle] = useState<QuestionTreeBundle | null>(initialBundle ?? null);
-  const [openIds, setOpenIds] = useState<Set<string>>(() => defaultOpenIds(initialBundle));
+  // 読み込み済みなら同期で描く。タブを行き来するたびに往復を払わない（spec 5-10）。
+  const [bundle, setBundle] = useState<QuestionTreeBundle | null>(
+    () => initialBundle ?? peekQuestionTree(projectId) ?? null,
+  );
+  const [openIds, setOpenIds] = useState<Set<string>>(() =>
+    defaultOpenIds(initialBundle ?? peekQuestionTree(projectId)),
+  );
   const [selected, setSelected] = useState<{ kind: "question" | "action"; id: string } | null>(null);
   const [formKind, setFormKind] = useState<FormKind>(null);
   const [error, setError] = useState<string | null>(null);
@@ -262,18 +268,19 @@ export function QuestionTreeView({
   useEffect(() => {
     if (initialBundle) return;
     let cancelled = false;
-    void (async () => {
-      try {
-        const response = await fetch(`/api/project/${projectId}/question-tree`);
-        const payload = (await response.json()) as QuestionTreeBundle & { error?: string };
+    // キャッシュに載っていれば往復せずに返る。載っていなければ1回だけ取りに行き、
+    // 同時に開いた面があっても1本へ束ねる（spec 5-10 の層3）。
+    const hadCache = Boolean(peekQuestionTree(projectId));
+    void loadQuestionTree(projectId)
+      .then((payload) => {
         if (cancelled) return;
-        if (!response.ok) throw new Error(payload.error || "読み込めなかったよ");
         setBundle(payload);
-        setOpenIds(defaultOpenIds(payload));
-      } catch (caught) {
+        // 開いている枝は人が触った結果なので、キャッシュから即描いたときは畳み直さない。
+        if (!hadCache) setOpenIds(defaultOpenIds(payload));
+      })
+      .catch((caught: unknown) => {
         if (!cancelled) setLoadFailed(caught instanceof Error ? caught.message : "読み込めなかったよ");
-      }
-    })();
+      });
     return () => {
       cancelled = true;
     };
@@ -412,13 +419,9 @@ export function QuestionTreeView({
       setBusy(true);
       setError(null);
       try {
-        const response = await fetch(`/api/project/${projectId}/question-tree`, {
-          method,
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        const payload = (await response.json()) as { bundle?: QuestionTreeBundle; error?: string };
-        if (!response.ok) throw new Error(payload.error || "保存できなかったよ");
+        // 書き込みもキャッシュ層を通す。層の中で最新の束へ差し替わるので、
+        // 別のタブへ移っても自分の書き込みが古く見えない（spec 5-10）。
+        const payload = await mutateQuestionTree(projectId, method, body);
         if (payload.bundle) setBundle(payload.bundle);
         setFormKind(null);
         return true;
@@ -620,10 +623,9 @@ export function QuestionTreeView({
         // （まさ 2026-09-10「ボタンが無駄に増えるとUXがどんどん悪くなる」）。
         const childKind = text("child_kind") || "required";
         if (childKind === "measure" || childKind === "work") {
-          const created = await fetch(`/api/project/${projectId}/question-tree`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
+          let payload: { id?: string | null };
+          try {
+            payload = await mutateQuestionTree(projectId, "POST", {
               resource: "action",
               fields: {
                 title: text("title"),
@@ -633,11 +635,13 @@ export function QuestionTreeView({
                 detail: text("detail"),
                 origin_question_id: node.id,
               },
-            }),
-          });
-          const payload = (await created.json()) as { id?: string; error?: string };
-          if (!created.ok || !payload.id) {
-            setError(payload.error || "やることを足せなかったよ");
+            });
+          } catch (caught) {
+            setError(caught instanceof Error ? caught.message : "やることを足せなかったよ");
+            return;
+          }
+          if (!payload.id) {
+            setError("やることを足せなかったよ");
             return;
           }
           await send("POST", {
@@ -664,10 +668,9 @@ export function QuestionTreeView({
         return;
       }
       if (kind === "finding") {
-        const created = await fetch(`/api/project/${projectId}/question-tree`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+        let payload: { id?: string | null };
+        try {
+          payload = await mutateQuestionTree(projectId, "POST", {
             resource: "finding",
             fields: {
               summary: text("summary"),
@@ -675,11 +678,13 @@ export function QuestionTreeView({
               source_label: text("source_label") || "出どころ未確認",
               observed_on: text("observed_on"),
             },
-          }),
-        });
-        const payload = (await created.json()) as { id?: string; bundle?: QuestionTreeBundle; error?: string };
-        if (!created.ok || !payload.id) {
-          setError(payload.error || "分かったことを足せなかったよ");
+          });
+        } catch (caught) {
+          setError(caught instanceof Error ? caught.message : "分かったことを足せなかったよ");
+          return;
+        }
+        if (!payload.id) {
+          setError("分かったことを足せなかったよ");
           return;
         }
         await send("POST", {

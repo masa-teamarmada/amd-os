@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { loadGoalTreePoints, peekGoalTreePoints } from "@/lib/question-tree-client";
+
 /**
  * TODOごとのptを、MSごとに並べて比べる面。正本は spec 3-21 と 3-22 §5。
  *
@@ -69,15 +71,14 @@ function ownerText(row: Row): string {
 }
 
 export function CockpitGoalTreePoints({ projectId }: { projectId: string }) {
-  const [view, setView] = useState<View | null>(null);
+  const [view, setView] = useState<View | null>(() => peekGoalTreePoints<View>(projectId) ?? null);
   const [error, setError] = useState<string | null>(null);
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     try {
-      const response = await fetch(`/api/project/${projectId}/question-tree?view=points`);
-      const payload = (await response.json()) as View & { error?: string };
-      if (!response.ok) throw new Error(payload.error || "読み込めなかったよ");
+      // キャッシュ層を通す。開くたびに往復しない（spec 5-10）
+      const payload = await loadGoalTreePoints<View>(projectId);
       setView(payload);
       // 最初は、まだptを配っていないMSを開いておく。そこが手を入れる場所なので。
       setOpenIds(

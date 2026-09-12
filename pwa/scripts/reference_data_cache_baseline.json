@@ -18,9 +18,7 @@
     "src/app/(app)/admin/monthly-work-agreements/page.tsx#revision-requests": "可変系。修正要望のステータス更新 (PATCH) と、その直後の状態。open のあいだ支払通知書が発行できないので、古い状態を見せると支払判断を誤らせる (2026-08-28 追加)。",
     "src/lib/governance-client.ts": "参照系。会社概要タブと資本政策表タブが共有するキャッシュ層で、中身は @/lib/reference-data-cache を通している (素の fetch はこの1本だけ。画面側からは fetch しない)。REFERENCE_DATA_ENDPOINTS へ /api/governance を登録すると、guard が配下パスも同じ扱いにするため /api/governance/killer-factors (キラー要素カタログ) と /api/governance/capital-plans (資本政策プラン台帳) の別画面まで巻き込む。それらの移行は別作業なので、登録はせずここへ置く (2026-08-29 追加)。",
     "src/components/admin/cash/CashLoansPanel.tsx": "書き込み専用。口座明細 (cash-entries) と借入・返済 (cash-loan-events) の POST/DELETE にしか使わない。読み取りは src/lib/finance/cash-and-loans-client.ts のキャッシュ経由で、書き込み直後に invalidateCashAndLoans() を通して読み直す。ガードの静的検出が読み取りと誤認しないよう、読み取りの /api/admin/cash とパスを分けている。",
-    "src/components/admin/cash/CashLedgerPanel.tsx": "書き込み専用。口座明細 (cash-entries) と借入・返済 (cash-loan-events) の POST/DELETE にしか使わない。読み取りは src/lib/finance/cash-and-loans-client.ts のキャッシュ経由で、書き込み直後に invalidateCashAndLoans() を通して読み直す。ガードの静的検出が読み取りと誤認しないよう、読み取りの /api/admin/cash とパスを分けている。",
-    "src/components/question-tree/QuestionTreeView.tsx": "可変系。問いの木はこの画面から直接編集する（答えを書いて閉じる・子の問いを足す・やることを足す・分かったことを足す）ため、保存直後に自分の書き込みが反映されないと判断を誤らせる。書き込みAPIが最新の束を返すので、画面はその戻り値で差し替える。他メンバーの更新も当日中に反映される必要がある（2026-09-10 追加、spec 3-21）。",
-    "src/components/cockpit/CockpitGoalTreePoints.tsx": "可変系。TODOのptと担当・期限は割り振りセッションで書き換わり、書いた直後に読み戻して件数を確認する運用なので、古い値を見せると判断を誤らせる。MS・月次タブを開いたときだけ読み、外部メンバーには返さない（2026-09-11 追加、spec 3-21「割り振りセッションが使うAPI」）。"
+    "src/components/admin/cash/CashLedgerPanel.tsx": "書き込み専用。口座明細 (cash-entries) と借入・返済 (cash-loan-events) の POST/DELETE にしか使わない。読み取りは src/lib/finance/cash-and-loans-client.ts のキャッシュ経由で、書き込み直後に invalidateCashAndLoans() を通して読み直す。ガードの静的検出が読み取りと誤認しないよう、読み取りの /api/admin/cash とパスを分けている。"
   },
   "allowed": {
     "src/lib/institution-support-programs-client.ts": [
@@ -332,12 +330,6 @@
     ],
     "src/components/admin/cash/CashLedgerPanel.tsx": [
       "/api/admin/cash-entries"
-    ],
-    "src/components/question-tree/QuestionTreeView.tsx": [
-      "/api/project/:p/question-tree"
-    ],
-    "src/components/cockpit/CockpitGoalTreePoints.tsx": [
-      "/api/project/:p/question-tree"
     ]
   }
 }

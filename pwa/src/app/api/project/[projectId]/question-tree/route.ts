@@ -15,6 +15,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
  */
 
 const NO_STORE = { "Cache-Control": "no-store, max-age=0" } as const;
+/**
+ * 読み取りは短く持たせる。編集する面なので参照系の既定（60秒）より短いが、
+ * タブを行き来するたびの往復は消える（spec 5-10 の層2）。書き込みの戻り値で
+ * クライアント側のキャッシュを置き換えるので、自分の変更が古く見えることはない。
+ */
+const READ_CACHE = {
+  "Cache-Control": "private, max-age=15, stale-while-revalidate=120",
+} as const;
 
 type Resource =
   | "question"
@@ -250,7 +258,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         return NextResponse.json({ error: "共有情報の更新権限がないよ" }, { status: 403 });
       }
       const view = await getGoalTreeAssignmentView(projectId);
-      return NextResponse.json(view, { headers: NO_STORE });
+      return NextResponse.json(view, { headers: READ_CACHE });
     }
 
     // ptを並べて比べる面（MS・月次タブ）。木とガントには出さない数字なので、
@@ -260,11 +268,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         return NextResponse.json({ error: "共有情報の更新権限がないよ" }, { status: 403 });
       }
       const view = await getGoalTreePointsView(projectId);
-      return NextResponse.json(view, { headers: NO_STORE });
+      return NextResponse.json(view, { headers: READ_CACHE });
     }
 
     const bundle = await getQuestionTreeBundle(projectId, canManage);
-    return NextResponse.json(bundle, { headers: NO_STORE });
+    return NextResponse.json(bundle, { headers: READ_CACHE });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "問いの木を取得できなかったよ" },
