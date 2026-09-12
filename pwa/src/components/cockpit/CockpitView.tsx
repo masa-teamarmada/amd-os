@@ -340,6 +340,15 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     if (resolvedTab === "seeds") setHasVisitedSeeds(true);
   }, [resolvedTab]);
 
+  // 会社タブも同じ扱いにする（2026-09-12）。hidden で常時マウントしていたため、
+  // どのタブを開いていても中の KillerFactorCatalog が governance と
+  // governance/killer-factors を読んでいた。本番実測で合計2.0秒、
+  // ゴールツリーを見ているだけのときにも必ず払っていた。
+  const [hasVisitedCompany, setHasVisitedCompany] = useState(false);
+  useEffect(() => {
+    if (resolvedTab === "company") setHasVisitedCompany(true);
+  }, [resolvedTab]);
+
   function selectTab(tab: CockpitTab) {
     setLocalActiveTab(tab);
     onTabChange?.(tab);
@@ -886,14 +895,17 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
         </section>
       )}
 
-      <section
-        role="tabpanel"
-        aria-label="会社概要"
-        hidden={activeTab !== "company"}
-        className={activeTab === "company" ? "min-w-0" : "hidden"}
-      >
-        <CockpitCompanyOverview projectId={project.projectId} projectName={project.projectName} />
-      </section>
+      {/* 初回訪問まではマウントしない。訪問後は hidden で保持して読み直さない。 */}
+      {hasVisitedCompany && (
+        <section
+          role="tabpanel"
+          aria-label="会社概要"
+          hidden={activeTab !== "company"}
+          className={activeTab === "company" ? "min-w-0" : "hidden"}
+        >
+          <CockpitCompanyOverview projectId={project.projectId} projectName={project.projectName} />
+        </section>
+      )}
 
       {/* ===== Monthly Modal ===== */}
       {modalYm && (

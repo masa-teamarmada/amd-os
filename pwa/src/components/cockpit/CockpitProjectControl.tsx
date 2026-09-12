@@ -22,6 +22,7 @@ import {
   type SxWeeklyControlView,
 } from "@/components/project-workspace/SxWeeklyControlDashboard";
 import type { CurrentMemberAccess, ProjectWorkspaceBundle } from "@/lib/project-workspace";
+import { prefetchQuestionTree } from "@/lib/question-tree-client";
 
 // PJを切り替えた瞬間に前のPJの束を出さないよう、state 自身が projectId を持つ。
 // (effect の先頭で loading へ戻すと、描画中の setState になる)
@@ -43,6 +44,10 @@ export function CockpitProjectControl({
 
   useEffect(() => {
     let cancelled = false;
+    // ゴールツリー（木・ガント）は、この束が返って画面が描かれてから初めて
+    // 読み始めるので直列に積む。本番実測で workspace-bundle 1.3秒 →
+    // question-tree 0.4秒。同時に走らせれば後ろの1本が待ち時間から消える。
+    if (view === "issues" || view === "gantt") prefetchQuestionTree(projectId);
     fetch(`/api/project/${encodeURIComponent(projectId)}/workspace-bundle`)
       .then(async (response) => {
         const payload = (await response.json().catch(() => null)) as
