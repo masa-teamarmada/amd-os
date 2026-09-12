@@ -150,13 +150,23 @@ function defaultOpenIds(bundle: QuestionTreeBundle | null | undefined): Set<stri
     for (const child of root.children) ids.add(child.id);
   }
   const byId = new Map(bundle.allQuestions.map((node) => [node.id, node]));
-  for (const node of bundle.allQuestions) {
-    if (!needsAttention(node)) continue;
-    let cursor = node.parentId;
+  const openTrail = (from: string | null) => {
+    let cursor = from;
     while (cursor) {
       ids.add(cursor);
       cursor = byId.get(cursor)?.parentId ?? null;
     }
+  };
+  for (const node of bundle.allQuestions) {
+    if (!needsAttention(node)) continue;
+    openTrail(node.parentId);
+  }
+  // 未承認のTODOが畳まれた枝の中にいると、光らせても見えない。
+  // ぶら下がっている問いから根までを開いておく（まさ確定 2026-09-12）。
+  for (const node of bundle.allQuestions) {
+    if (!node.actions.some((action) => action.isProposed)) continue;
+    ids.add(node.id);
+    openTrail(node.parentId);
   }
   return ids;
 }
@@ -1681,7 +1691,7 @@ export function QuestionTreeView({
                   <>
                     <button
                       type="button"
-                      className={styles.inlineApprove}
+                      className={`${styles.inlineApprove} amd-goal-tree-inline-decision`}
                       disabled={busy}
                       onClick={(event) => {
                         event.stopPropagation();
@@ -1696,7 +1706,7 @@ export function QuestionTreeView({
                     </button>
                     <button
                       type="button"
-                      className={styles.inlineReject}
+                      className={`${styles.inlineReject} amd-goal-tree-inline-decision`}
                       disabled={busy}
                       onClick={(event) => {
                         event.stopPropagation();

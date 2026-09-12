@@ -284,6 +284,14 @@ body:has(.amd-workspace-page-skin) {
   min-width: 0;
 }
 
+/* ゴールツリーの行の中の承認・却下は、44px 角で塗ると行の本文より目立つ。
+   高さ22pxの小さなボタンにする (2026-09-12 まさ「未承認をツリーの中で目立たせる」の
+   目立たせる対象は行そのものであって、ボタンではない)。 */
+.sx-management-workspace button.amd-goal-tree-inline-decision {
+  min-height: 0;
+  min-width: 0;
+}
+
 /* ガントの依存線ポート (+) は 44px 幅を取るとバーから離れて見えるため例外。
    高さは 44px を保つのでタッチターゲットは縦方向で確保される。 */
 .sx-management-workspace button.sx-gantt-dependency-port {

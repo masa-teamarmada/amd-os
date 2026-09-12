@@ -598,6 +598,14 @@ export async function getQuestionTreeBundle(
     questionIdsByAction.set(actionId, [...(questionIdsByAction.get(actionId) || []), questionId]);
     actionIdsByQuestion.set(questionId, [...(actionIdsByQuestion.get(questionId) || []), actionId]);
   }
+  // 未承認へ戻した行は、戻り先（proposed_question_id）と本物の線を両方持っていることが
+  // ある。そのまま足すと同じ行が同じ親の下に2回出るので、ここで重複を落とす。
+  for (const [key, list] of questionIdsByAction) {
+    questionIdsByAction.set(key, [...new Set(list)]);
+  }
+  for (const [key, list] of actionIdsByQuestion) {
+    actionIdsByQuestion.set(key, [...new Set(list)]);
+  }
 
   const questionIdsByFinding = new Map<string, string[]>();
   const findingIdsByQuestion = new Map<string, string[]>();

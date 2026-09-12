@@ -502,6 +502,7 @@ button.stat:disabled { cursor: default; }
 
 .row[data-proposed="true"] {
   background: linear-gradient(90deg, rgba(251, 191, 36, .16), rgba(251, 191, 36, .05));
+  box-shadow: inset 3px 0 0 #f59e0b;
   animation: proposedPulse 2s ease-in-out infinite;
 }
 @keyframes proposedPulse {
@@ -512,12 +513,21 @@ button.stat:disabled { cursor: default; }
   .row[data-proposed="true"] { animation: none; background-color: rgba(251, 191, 36, .16); }
 }
 
+/* 行の中の承認・却下。押せることは分かる必要があるが、行の主役は本文なので
+   塗りつぶさない。ワークスペースの44pxタッチターゲットは高さで確保し、
+   幅は文字ぶんに留める（.sx-ip-portfolio と同じ密度側の例外）。 */
 .inlineApprove, .inlineReject {
-  flex: none; min-height: 20px; padding: 0 7px; border-radius: 4px;
-  font-size: 10px; font-weight: 700; cursor: pointer; white-space: nowrap;
+  flex: none; min-width: 0; height: 22px; min-height: 22px; margin-left: 6px;
+  padding: 0 8px; border-radius: 4px;
+  font-size: 11px; font-weight: 600; line-height: 1; cursor: pointer; white-space: nowrap;
 }
-.inlineApprove { border: 1px solid var(--amd-action); background: var(--amd-action); color: #fff; }
-.inlineApprove:hover:not(:disabled) { background: var(--amd-action-strong); }
+.inlineApprove {
+  border: 1px solid var(--amd-action-line); background: var(--amd-action-soft); color: var(--amd-action);
+}
+.inlineApprove:hover:not(:disabled) { border-color: var(--amd-action); background: var(--amd-action); color: #fff; }
 .inlineReject { border: 1px solid var(--line); background: #fff; color: var(--muted); }
 .inlineReject:hover:not(:disabled) { border-color: #fca5a5; color: #991b1b; }
 .inlineApprove:disabled, .inlineReject:disabled { opacity: .5; cursor: default; }
+.inlineApprove:focus-visible, .inlineReject:focus-visible {
+  outline: 2px solid var(--amd-action); outline-offset: 2px;
+}
