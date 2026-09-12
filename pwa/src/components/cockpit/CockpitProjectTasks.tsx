@@ -144,6 +144,7 @@ export function CockpitProjectTasks({ projectId }: Props) {
   const [menuId, setMenuId] = useState<string | null>(null);
   const [editing, setEditing] = useState<ActionNode | null>(null);
   const [detail, setDetail] = useState<ActionNode | null>(null);
+  const [selectedProposals, setSelectedProposals] = useState<Set<string>>(new Set());
 
   // ---- 並べ替え（掴んだ瞬間から指に付いてくる自前ドラッグ） -------------------
   const [dragId, setDragId] = useState<string | null>(null);
@@ -310,6 +311,31 @@ export function CockpitProjectTasks({ projectId }: Props) {
       window.removeEventListener("pointercancel", onUp);
     };
   }, [dragId, dragSlot, patch]);
+
+  /** 承認待ち。やることの提案だけをここに出す（問いはゴールツリー側で見る）。 */
+  const proposals = useMemo(
+    () => (bundle?.proposals ?? []).filter((proposal) => proposal.kind === "action"),
+    [bundle],
+  );
+
+  const decideProposals = async (decision: "accept" | "reject") => {
+    if (selectedProposals.size === 0) return;
+    setBusyId("proposals");
+    setError(null);
+    try {
+      const payload = await mutateQuestionTree(projectId, "PATCH", {
+        resource: "proposal_bulk",
+        decision,
+        ids: [...selectedProposals],
+      });
+      if (payload.bundle) setBundle(payload.bundle);
+      setSelectedProposals(new Set());
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "確定できなかったよ");
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const toggleDone = (action: ActionNode) =>
     patch(
@@ -581,6 +607,82 @@ export function CockpitProjectTasks({ projectId }: Props) {
 
       {error && (
         <p className="rounded-lg bg-[#fee2e2] px-3 py-2 text-[11px] text-[#991b1b]">{error}</p>
+      )}
+
+      {/* まさが手で入れていないものは、承認するまでここに置く（まさ確定 2026-09-12）。
+          押すまでタスクの列にも木にも出ない。 */}
+      {canManage && proposals.length > 0 && (
+        <section className="rounded-xl border border-[#fbbf24] bg-[#fffbeb]">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-[#fde68a] px-4 py-3">
+            <h3 className="text-[13px] font-bold text-[#92400e]">承認待ち</h3>
+            <span className="text-[11px] text-[#92400e]">
+              {proposals.length}件。あたしが入れたものと、前の管理表から機械で移った行。
+              入れると上のタスクに並ぶ
+            </span>
+            <div className="ml-auto flex gap-2">
+              <button
+                type="button"
+                disabled={selectedProposals.size === 0 || busyId === "proposals"}
+                className="rounded-lg bg-[#027fdc] px-3 py-[6px] text-[11px] font-bold text-white disabled:opacity-40"
+                onClick={() => void decideProposals("accept")}
+              >
+                選んだ{selectedProposals.size > 0 ? ` ${selectedProposals.size}件` : ""}を入れる
+              </button>
+              <button
+                type="button"
+                disabled={selectedProposals.size === 0 || busyId === "proposals"}
+                className="rounded-lg border border-[#d2d2d7] px-3 py-[6px] text-[11px] text-[#991b1b] disabled:opacity-40"
+                onClick={() => void decideProposals("reject")}
+              >
+                いらない
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border border-[#d2d2d7] px-3 py-[6px] text-[11px] text-[#3c3c43]"
+                onClick={() =>
+                  setSelectedProposals(
+                    selectedProposals.size === proposals.length
+                      ? new Set()
+                      : new Set(proposals.map((p) => p.id)),
+                  )
+                }
+              >
+                {selectedProposals.size === proposals.length ? "選択を外す" : "全部選ぶ"}
+              </button>
+            </div>
+          </div>
+          <div className="max-h-[320px] overflow-y-auto">
+            {proposals.map((proposal) => (
+              <label
+                key={proposal.id}
+                className="flex cursor-pointer items-start gap-2 border-t border-[#fde68a] px-4 py-2 first:border-t-0 hover:bg-[#fef3c7]"
+              >
+                <input
+                  type="checkbox"
+                  className="mt-[3px]"
+                  checked={selectedProposals.has(proposal.id)}
+                  onChange={() =>
+                    setSelectedProposals((current) => {
+                      const next = new Set(current);
+                      if (next.has(proposal.id)) next.delete(proposal.id);
+                      else next.add(proposal.id);
+                      return next;
+                    })
+                  }
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[12px] text-[#1d1d1f]">{proposal.title}</p>
+                  <p className="text-[10px] text-[#92400e]">
+                    {proposal.proposedParentTitle
+                      ? `入れると「${proposal.proposedParentTitle}」の下に戻る`
+                      : "木のどこにも付いていない"}
+                    {proposal.reason ? ` ／ ${proposal.reason}` : ""}
+                  </p>
+                </div>
+              </label>
+            ))}
+          </div>
+        </section>
       )}
 
       <div className="relative flex flex-col" style={{ gap: ROW_GAP }}>

@@ -99,7 +99,12 @@ export async function mutateQuestionTree(
 ): Promise<{ id?: string | null; bundle?: QuestionTreeBundle; applied?: unknown }> {
   const response = await fetch(`/api/project/${projectId}/question-tree`, {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      // 画面で人が押したことを名乗る。これが無い書き込み（えいみのスクリプト）は
+      // 提案として入り、まさが承認するまで木に出ない（まさ確定 2026-09-12）。
+      "x-amd-os-actor": "screen",
+    },
     body: JSON.stringify(body),
   });
   const payload = (await response.json()) as {

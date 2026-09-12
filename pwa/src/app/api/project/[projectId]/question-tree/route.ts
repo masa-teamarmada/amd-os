@@ -326,6 +326,72 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // つくよみが拾ったものを人が確定する。承認で初めて木へ線が入り、
     // 却下は論理削除にして、同じものを次の巡回で拾い直させない（spec 3-21）。
+    /**
+     * 提案をまとめて確定する。まさ確定 2026-09-12 で、まさが手で入れていない233件を
+     * 提案へ戻した。1件ずつ押させると233回になるので、選んだぶんを1回で通す。
+     * 承認したときは、提案が持っている「元いた場所」へそのまま戻す。
+     */
+    if (body.resource === "proposal_bulk") {
+      const ids = Array.isArray(body.ids)
+        ? body.ids.filter((id): id is string => typeof id === "string" && id.length > 0)
+        : [];
+      const accept = body.decision !== "reject";
+      if (ids.length === 0) throw new Error("選ばれていないよ");
+      if (ids.length > 500) throw new Error("1回に確定できるのは500件までだよ");
+
+      const db = createAdminClient();
+      const { data: rows, error: readError } = await db
+        .from("project_actions")
+        .select("id,proposed_question_id")
+        .eq("project_id", projectId)
+        .eq("review_state", "proposed")
+        .is("deleted_at", null)
+        .in("id", ids);
+      if (readError) throw new Error(readError.message);
+      const targets = (rows ?? []) as { id: string; proposed_question_id: string | null }[];
+
+      if (accept) {
+        const { error } = await db
+          .from("project_actions")
+          .update({
+            review_state: "accepted",
+            last_verified_at: todayJst(),
+            updated_by: context.access.memberId ?? null,
+          })
+          .eq("project_id", projectId)
+          .in("id", targets.map((row) => row.id));
+        if (error) throw new Error(error.message);
+
+        // 元いた場所へ戻す。線が既にあれば足さない。
+        const links = targets
+          .filter((row) => row.proposed_question_id)
+          .map((row) => ({
+            project_id: projectId,
+            question_id: row.proposed_question_id as string,
+            action_id: row.id,
+          }));
+        if (links.length > 0) {
+          const { error: linkError } = await db
+            .from("project_question_actions")
+            .upsert(links, { onConflict: "question_id,action_id", ignoreDuplicates: true });
+          if (linkError && !linkError.message.includes("duplicate")) throw new Error(linkError.message);
+        }
+      } else {
+        const { error } = await db
+          .from("project_actions")
+          .update({
+            deleted_at: new Date().toISOString(),
+            deleted_by: context.access.memberId ?? null,
+          })
+          .eq("project_id", projectId)
+          .in("id", targets.map((row) => row.id));
+        if (error) throw new Error(error.message);
+      }
+
+      const bundle = await getQuestionTreeBundle(projectId, true);
+      return NextResponse.json({ applied: targets.length, bundle }, { headers: NO_STORE });
+    }
+
     if (body.resource === "proposal_accept" || body.resource === "proposal_reject") {
       const fields = isRecord(body.fields) ? body.fields : {};
       const kind = fields.kind;
@@ -409,9 +475,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const insert: Record<string, unknown> = { ...fields, project_id: projectId };
     if (SOFT_DELETABLE.includes(resource)) {
       insert.last_verified_at = todayJst();
-      insert.origin_kind = insert.origin_kind ?? "manual";
       insert.created_by = context.access.memberId ?? null;
       insert.updated_by = context.access.memberId ?? null;
+      /**
+       * まさ確定 2026-09-12「タスクとかゴールツリーは、おれが自分で入れないといけない。
+       * えいみに入れてもらう場合には、おれが承認してから追加にしないとだめだ」。
+       *
+       * 画面で人が押した書き込みだけが、そのまま木へ入る。えいみがスクリプトから
+       * 入れたものは提案として置き、まさが承認するまで木に出ない。
+       */
+      const fromScreen = request.headers.get("x-amd-os-actor") === "screen";
+      insert.origin_kind = insert.origin_kind ?? (fromScreen ? "manual" : "automation");
+      insert.review_state = fromScreen ? "accepted" : "proposed";
+      if (!fromScreen && !insert.proposal_reason) {
+        insert.proposal_reason = "えいみが入れた。まさの承認を待っている";
+      }
     }
     if (resource === "action_owner" || resource === "question_milestone") {
       insert.created_by = context.access.memberId ?? null;
