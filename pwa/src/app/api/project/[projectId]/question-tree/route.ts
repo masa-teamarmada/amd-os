@@ -446,6 +446,24 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
      * items: [{ action_id, planned_start?, planned_end?, estimated_pt?, member_ids? }]
      * キーが無い項目は触らない。member_ids を渡したときだけ担当を入れ替える。
      */
+    // タスクの並べ替え。中点が潰れて全体を振り直すときだけ通る。
+    // 1件ずつ投げると並びが途中で見えるので、1トランザクションで確定する。
+    if (body.resource === "action_reorder") {
+      const ids = Array.isArray(body.ordered_ids)
+        ? body.ordered_ids.filter((id): id is string => typeof id === "string" && id.length > 0)
+        : [];
+      if (ids.length === 0) throw new Error("並び順が空だよ");
+      const db = createAdminClient();
+      const { error } = await db.rpc("reorder_project_actions", {
+        p_project_id: projectId,
+        p_ordered_ids: ids,
+        p_changed_by: context.access.memberId ?? null,
+      });
+      if (error) throw new Error(error.message);
+      const bundle = await getQuestionTreeBundle(projectId, true);
+      return NextResponse.json({ bundle }, { headers: NO_STORE });
+    }
+
     if (body.resource === "action_bulk") {
       const items = Array.isArray(body.items) ? body.items : null;
       if (!items) throw new Error("items を配列で渡してね");

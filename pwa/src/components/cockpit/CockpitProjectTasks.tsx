@@ -209,13 +209,23 @@ export function CockpitProjectTasks({ projectId }: Props) {
       else if (below === null) next = above + 1;
       else {
         const mid = (above + below) / 2;
-        // 中点が潰れたときだけ、その場で10刻みへ振り直す。
+        // 中点が潰れたときだけ全体を振り直す。1件ずつ投げると並びが途中で見えるので、
+        // まとめて1回で確定する。
         if (!(mid > above && mid < below)) {
           const renumbered = [...rest];
           renumbered.splice(target, 0, order[start]);
           void (async () => {
-            for (let i = 0; i < renumbered.length; i += 1) {
-              await patch(renumbered[i].id, { sort_order: (i + 1) * 10 });
+            setBusyId(movedId);
+            try {
+              const payload = await mutateQuestionTree(projectId, "PATCH", {
+                resource: "action_reorder",
+                ordered_ids: renumbered.map((action) => action.id),
+              });
+              if (payload.bundle) setBundle(payload.bundle);
+            } catch (caught) {
+              setError(caught instanceof Error ? caught.message : "並べ替えを保存できなかったよ");
+            } finally {
+              setBusyId(null);
             }
           })();
           return;
