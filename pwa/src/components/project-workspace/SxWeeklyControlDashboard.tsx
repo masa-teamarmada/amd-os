@@ -5594,7 +5594,7 @@ export function SxWeeklyControlDashboard({
             <div>
               <h2>ガント</h2>
               <p>
-                左が到達点→MS→論点→TODOの木、右がTODOの日程。日程の決まっていないTODOは下でまとめて決める
+                左が到達点→MS→論点→TODOのツリー、右がTODOの日程。日程の決まっていないTODOは下でまとめて決める
               </p>
             </div>
             <div className={styles.planViewControls}>

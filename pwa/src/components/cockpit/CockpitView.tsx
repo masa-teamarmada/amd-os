@@ -846,7 +846,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       {/* タスクタブ (2026-09-12 まさ依頼)。ゴールツリーに全部書こうとすると違和感が出るので、
           やることだけを一列に並べる面を分けた。設計は OSスイートの「やること」と同じ
           (上=未完了 / 下=完了 / チェックで完了 / 緊急はオレンジ / その場で足す)。
-          データは同じ束なので、木に入っていないやることも同じ列に出る。 */}
+          データは同じ束なので、ツリーに入っていないTODOも同じ列に出る。 */}
       {activeTab === "tasks" && (
         <section role="tabpanel" aria-label="タスク" className="min-w-0">
           <CockpitProjectTasks projectId={project.projectId} />
