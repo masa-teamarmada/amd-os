@@ -742,7 +742,15 @@ export async function getQuestionTreeBundle(
   for (const root of roots) decorate(root, today, 0, ownerQuestionOfAction);
 
   const allQuestions = flatten(roots);
-  const linkedActionIds = new Set(qaRows.map((row) => str(row, "action_id")));
+  // 「紐づいている」と数えるのは、ツリーに実在する論点への線だけ。消された論点への線を
+  // 数えると、そのTODOはツリーにも下の一覧にも出ず、画面から消える
+  // （2026-09-12 本番で確認。SXは未承認16件が消された論点にぶら下がっていた）。
+  const liveQuestionIds = new Set(allQuestions.map((question) => question.id));
+  const linkedActionIds = new Set(
+    qaRows
+      .filter((row) => liveQuestionIds.has(str(row, "question_id")))
+      .map((row) => str(row, "action_id")),
+  );
   const looseActions = rootActions.filter((action) => !linkedActionIds.has(action.id));
 
   // 承認済みだけを数える。未承認はツリーの中で光らせて見せるが、進捗の数字には入れない。
