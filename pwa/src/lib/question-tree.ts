@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { QUESTION_KIND_LABEL } from "@/lib/question-tree-types";
 import type {
   AcceptState,
   ActionNode,
@@ -59,8 +60,12 @@ function asOriginKind(value: unknown): OriginKind {
   return value === "meeting" || value === "automation" || value === "migrated" ? value : "manual";
 }
 
+/**
+ * 種類を足したときに直し忘れないよう、対応表のキーから判定する
+ * （2026-09-12 に hypothesis を足したとき、ここを直し忘れて画面に「仮説」が出なかった）。
+ */
 function asQuestionKind(value: unknown): QuestionKind {
-  return value === "decision" || value === "goal" || value === "milestone" ? value : "open";
+  return typeof value === "string" && value in QUESTION_KIND_LABEL ? (value as QuestionKind) : "open";
 }
 
 function asAcceptState(value: unknown): AcceptState {
