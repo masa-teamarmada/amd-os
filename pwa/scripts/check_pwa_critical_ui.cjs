@@ -3940,11 +3940,16 @@ expectIncludes("src/app/api/project/[projectId]/question-tree/route.ts", [
   "1回に渡せるのは200件までだよ",
 ]);
 expectIncludes("src/components/cockpit/CockpitProjectTasks.tsx", [
-  // OSスイートの「やること」と同じ形を守る（上=未完了 / 下=完了 / 緊急 / その場で足す）
+  // OSスイートの「やること」（orchestration-board の Todo）と同じ形を守る。
+  // カード / 三本線を掴む自前ドラッグ / 並びの凍結 / 青い挿入線 / 中点で並べ替えを保存。
   "未完了",
   "完了",
-  "緊急",
   "ツリー外",
+  "新しいタスク",
+  "追加",
+  "frozenRef",
+  "dragSlot",
+  "sort_order",
   "loadQuestionTree",
   "mutateQuestionTree",
 ]);

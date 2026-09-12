@@ -144,7 +144,8 @@ function sanitize(resource: Resource, input: Record<string, unknown>): Record<st
     if (key === "sort_order") {
       const parsed = Number(value);
       if (!Number.isFinite(parsed)) throw new Error("並び順が数字じゃないよ");
-      out[key] = Math.round(parsed);
+      // 丸めない。手動の並べ替えは前後の中点を書くので、整数へ潰すと隣と同値になる。
+      out[key] = parsed;
       continue;
     }
     if (key === "urgent") {

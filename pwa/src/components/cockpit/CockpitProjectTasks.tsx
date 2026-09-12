@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   loadQuestionTree,
@@ -13,25 +13,32 @@ import type { ActionNode, QuestionNode, QuestionTreeBundle } from "@/lib/questio
  * タスクタブ。PJのやることだけを一列に並べる。
  *
  * まさ 2026-09-12「ゴールツリーにすべてのタスクを書き込もうとするから違和感がある。
- * 『タスク』タブも新たに作って、そっちはタスクだけをリストアップする。多くはゴールツリーの
- * 中に入ったタスクだろうし、でも一部はゴールツリーにないものも含まれる。
+ * 『タスク』タブも新たに作って、そっちはタスクだけをリストアップする。
  * OSスイートで実装したものと同じ設計にしてほしい」。
  *
- * 設計の出どころは orchestration-board の「やること」（`Todo/TodoRootView.swift`、
- * 正本 masa/ORCHESTRATION_APP_DESIGN.md）。同じ形にそろえた:
- *   - 上が未完了、下が完了（完了の新しい順）
- *   - チェックを押した瞬間に完了へ移る
- *   - 緊急はオレンジ。未完了の中で先頭に出す
- *   - 行はタイトル＋補足＋分類バッジ（あちらはPJ区分、ここでは所属MS）
- *   - 上の入力欄でその場で足せる
+ * 設計の出どころは orchestration-board の「やること」
+ * （Sources/OrchestrationBoard/Todo/TodoRootView.swift + TodoStore.swift）。
+ * 中身をそのまま持ってきている:
+ *
+ *   - カード（角丸・枠線）を縦に並べる。上が未完了、下が完了
+ *   - 右端の三本線を掴むと、長押しなしでその場で動く。掴んだカードは指に追従して
+ *     少し浮き、入る場所は青い横線で示す。**ドラッグ中はリストの並びを凍結する**
+ *     （動かすと、掴んでいる指の下のビューが動いて移動量を測り直し、毎フレーム
+ *     往復して振動する。まさ報告 2026-09-09 と同じ罠なので同じ対策を採る）
+ *   - 並べ替えの保存は、動かした1行の sort_order を「前後の中点」にするだけ。
+ *     中点が潰れたときだけ全体を振り直す
+ *   - チェックは丸。押した瞬間に完了へ移る
+ *   - 緊急は炎マーク。カードの地色と枠がオレンジになる
+ *   - 「…」に 編集 / 緊急 / 完了 / 削除
  *
  * データはゴールツリーと同じ束（project_actions 全部）。木にぶら下がっていない
- * やることも同じ列に出るので、「ツリー外」として見える。
+ * やることも同じ列に出る。
  */
 
 type Props = { projectId: string };
 
-/** 木を歩いて、そのやることがどのMSの下にいるかを引けるようにする。 */
+const ROW_GAP = 8;
+
 function buildMilestoneIndex(roots: QuestionNode[]): Map<string, string> {
   const index = new Map<string, string>();
   const walk = (node: QuestionNode, milestone: string | null) => {
@@ -45,9 +52,22 @@ function buildMilestoneIndex(roots: QuestionNode[]): Map<string, string> {
   return index;
 }
 
+/** MSごとに色を振る。どのMSの仕事かを、読まずに色で拾えるようにする。 */
+const BAND_COLORS = ["#027fdc", "#6d28d9", "#047857", "#d97706", "#be185d", "#0369a1"];
+function bandColor(milestone: string | null, order: string[]): string {
+  if (!milestone) return "transparent";
+  const index = order.indexOf(milestone);
+  return BAND_COLORS[(index < 0 ? 0 : index) % BAND_COLORS.length];
+}
+
 function fmtDate(value: string | null): string {
   if (!value) return "";
   return value.slice(2).replace(/-/g, "/");
+}
+
+/** 並べ替えの位置。まだ位置を持たない行は作成が新しいほど上（OSスイートと同じ）。 */
+function orderKey(action: ActionNode): number {
+  return action.sortOrder;
 }
 
 export function CockpitProjectTasks({ projectId }: Props) {
@@ -59,6 +79,18 @@ export function CockpitProjectTasks({ projectId }: Props) {
   const [draft, setDraft] = useState("");
   const [draftUrgent, setDraftUrgent] = useState(false);
   const [showDone, setShowDone] = useState(false);
+  const [menuId, setMenuId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<ActionNode | null>(null);
+
+  // ---- 並べ替え（掴んだ瞬間から指に付いてくる自前ドラッグ） -------------------
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragY, setDragY] = useState(0);
+  const [dragSlot, setDragSlot] = useState<number | null>(null);
+  /** 掴んだ瞬間の並び。ドラッグ中はこれで描き続ける（動かすと振動する） */
+  const frozenRef = useRef<ActionNode[]>([]);
+  const startIndexRef = useRef<number | null>(null);
+  const startYRef = useRef(0);
+  const heightsRef = useRef(new Map<string, number>());
 
   const reload = useCallback(
     async (force = false) => {
@@ -79,36 +111,37 @@ export function CockpitProjectTasks({ projectId }: Props) {
     () => (bundle ? buildMilestoneIndex(bundle.roots) : new Map<string, string>()),
     [bundle],
   );
+  const milestoneOrder = useMemo(
+    () => [...new Set([...milestoneOf.values()])],
+    [milestoneOf],
+  );
 
-  const { open, done } = useMemo(() => {
+  const liveOpen = useMemo(() => {
     const all = bundle?.allActions ?? [];
-    // 上が未完了。緊急を先頭、次に期限の近い順、期限なしは後ろ。
-    const openItems = all
+    return all
       .filter((action) => action.status !== "done" && action.status !== "dropped")
-      .sort((a, b) => {
-        if (a.urgent !== b.urgent) return a.urgent ? -1 : 1;
-        const ad = a.plannedEnd ?? "9999-99-99";
-        const bd = b.plannedEnd ?? "9999-99-99";
-        if (ad !== bd) return ad.localeCompare(bd);
-        return a.sortOrder - b.sortOrder || a.title.localeCompare(b.title, "ja");
-      });
-    // 下が完了。終わった順の新しいものから。
-    const doneItems = all
-      .filter((action) => action.status === "done")
-      .sort((a, b) => (b.actualEnd ?? "").localeCompare(a.actualEnd ?? ""));
-    return { open: openItems, done: doneItems };
+      .sort((a, b) => orderKey(a) - orderKey(b) || a.id.localeCompare(b.id));
   }, [bundle]);
 
+  const done = useMemo(() => {
+    const all = bundle?.allActions ?? [];
+    return all
+      .filter((action) => action.status === "done")
+      .sort((a, b) => (b.actualEnd ?? "").localeCompare(a.actualEnd ?? ""));
+  }, [bundle]);
+
+  // ドラッグ中は掴んだ瞬間の並びのまま描く。
+  const open = dragId ? frozenRef.current : liveOpen;
   const canManage = bundle?.canManage ?? false;
 
   const patch = useCallback(
-    async (action: ActionNode, fields: Record<string, unknown>) => {
-      setBusyId(action.id);
+    async (id: string, fields: Record<string, unknown>) => {
+      setBusyId(id);
       setError(null);
       try {
         const payload = await mutateQuestionTree(projectId, "PATCH", {
           resource: "action",
-          id: action.id,
+          id,
           fields,
         });
         if (payload.bundle) setBundle(payload.bundle);
@@ -121,9 +154,89 @@ export function CockpitProjectTasks({ projectId }: Props) {
     [projectId],
   );
 
+  const heightOf = (action: ActionNode) => heightsRef.current.get(action.id) ?? 64;
+  const slotY = (index: number, order: ActionNode[]) => {
+    let y = 0;
+    for (let i = 0; i < Math.max(0, Math.min(index, order.length)); i += 1) {
+      y += heightOf(order[i]) + ROW_GAP;
+    }
+    return y;
+  };
+
+  // ドラッグ中の pointer は window で受ける。カード自身が動くので、
+  // カードの上でイベントを取ると基準がずれる。
+  useEffect(() => {
+    if (!dragId) return;
+    const onMove = (event: PointerEvent) => {
+      const order = frozenRef.current;
+      const start = startIndexRef.current;
+      if (start === null || order.length === 0) return;
+      const translation = event.clientY - startYRef.current;
+      setDragY(translation);
+      const moved = order[start];
+      const center = slotY(start, order) + translation + heightOf(moved) / 2;
+      let slot = order.length;
+      let y = 0;
+      for (let i = 0; i < order.length; i += 1) {
+        const bottom = y + heightOf(order[i]) + ROW_GAP;
+        if (center < bottom) {
+          slot = i;
+          break;
+        }
+        y = bottom;
+      }
+      setDragSlot(slot);
+    };
+    const onUp = () => {
+      const order = frozenRef.current;
+      const start = startIndexRef.current;
+      const slot = dragSlot;
+      const movedId = dragId;
+      setDragId(null);
+      setDragY(0);
+      setDragSlot(null);
+      startIndexRef.current = null;
+      if (start === null || slot === null || !movedId) return;
+      const target = slot > start ? slot - 1 : slot;
+      if (target === start) return;
+      // 動かした1行だけ、前後の中点へ書く（OSスイートと同じ）。
+      const rest = order.filter((action) => action.id !== movedId);
+      const above = target > 0 ? orderKey(rest[target - 1]) : null;
+      const below = target < rest.length ? orderKey(rest[target]) : null;
+      let next: number;
+      if (above === null && below === null) next = 0;
+      else if (above === null) next = (below as number) - 1;
+      else if (below === null) next = above + 1;
+      else {
+        const mid = (above + below) / 2;
+        // 中点が潰れたときだけ、その場で10刻みへ振り直す。
+        if (!(mid > above && mid < below)) {
+          const renumbered = [...rest];
+          renumbered.splice(target, 0, order[start]);
+          void (async () => {
+            for (let i = 0; i < renumbered.length; i += 1) {
+              await patch(renumbered[i].id, { sort_order: (i + 1) * 10 });
+            }
+          })();
+          return;
+        }
+        next = mid;
+      }
+      void patch(movedId, { sort_order: next });
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+  }, [dragId, dragSlot, patch]);
+
   const toggleDone = (action: ActionNode) =>
     patch(
-      action,
+      action.id,
       action.status === "done"
         ? { status: "not_started", actual_end: null }
         : { status: "done", actual_end: new Date().toISOString().slice(0, 10) },
@@ -135,23 +248,27 @@ export function CockpitProjectTasks({ projectId }: Props) {
     setBusyId("new");
     setError(null);
     try {
+      // 新しいものは先頭へ（OSスイートと同じく、いま書いたものが上に来る）。
+      const top = liveOpen.length > 0 ? orderKey(liveOpen[0]) : 0;
       const payload = await mutateQuestionTree(projectId, "POST", {
         resource: "action",
-        fields: { title, action_kind: "work", urgent: draftUrgent },
+        fields: { title, action_kind: "work", urgent: draftUrgent, sort_order: top - 1 },
       });
       if (payload.bundle) setBundle(payload.bundle);
       setDraft("");
       setDraftUrgent(false);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "足せなかったよ");
+      setError(caught instanceof Error ? caught.message : "追加できなかったよ");
     } finally {
       setBusyId(null);
     }
   };
 
-  const row = (action: ActionNode) => {
-    const milestone = milestoneOf.get(action.id);
+  const card = (action: ActionNode, index: number, draggable: boolean) => {
+    const milestone = milestoneOf.get(action.id) ?? null;
     const isDone = action.status === "done";
+    const isDragging = dragId === action.id;
+    const urgent = action.urgent && !isDone;
     const owner =
       action.owners.length > 0
         ? action.owners.map((o) => o.displayName).join("・")
@@ -159,64 +276,160 @@ export function CockpitProjectTasks({ projectId }: Props) {
     return (
       <div
         key={action.id}
-        className={`flex items-start gap-2 border-t border-[#f0f0f2] px-3 py-[6px] ${
-          action.urgent && !isDone ? "bg-[#fff7ed]" : ""
-        }`}
+        ref={(element) => {
+          if (element) heightsRef.current.set(action.id, element.offsetHeight);
+        }}
+        className={`relative flex items-start gap-3 rounded-xl border px-[14px] py-3 ${
+          urgent ? "border-[#fdba74] bg-[#fff7ed]" : "border-[#e5e5e7] bg-white"
+        } ${isDone ? "opacity-60" : ""} ${isDragging ? "z-10 border-[#027fdc] shadow-lg" : ""}`}
+        style={
+          isDragging
+            ? { transform: `translateY(${dragY}px) scale(1.02)`, transition: "none" }
+            : undefined
+        }
       >
         <button
           type="button"
           disabled={!canManage || busyId === action.id}
           aria-label={isDone ? `${action.title} を未完了に戻す` : `${action.title} を完了にする`}
-          className={`mt-[2px] grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border text-[11px] ${
+          className={`mt-[1px] grid h-[21px] w-[21px] shrink-0 place-items-center rounded-full border-[1.5px] text-[12px] ${
             isDone
-              ? "border-[#047857] bg-[#047857] text-white"
+              ? "border-[#027fdc] bg-[#027fdc] text-white"
               : "border-[#c9c9d1] text-transparent hover:border-[#027fdc]"
           }`}
           onClick={() => void toggleDone(action)}
         >
           ✓
         </button>
+
+        {/* MSごとの色帯。どの枝の仕事かを読まずに拾えるようにする */}
+        <span
+          className="mt-[2px] w-[3px] shrink-0 self-stretch rounded-full"
+          style={{ background: bandColor(milestone, milestoneOrder) }}
+          aria-hidden="true"
+        />
+
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-[2px]">
-            {action.urgent && !isDone && (
-              <span className="text-[11px] font-bold text-[#d97706]">緊急</span>
-            )}
-            <span className={`text-[12px] ${isDone ? "text-[#86868b] line-through" : "text-[#1d1d1f]"}`}>
+          <div className="flex flex-wrap items-baseline gap-x-[6px] gap-y-1">
+            {urgent && <span className="text-[13px] leading-none text-[#ea580c]">🔥</span>}
+            <span
+              className={`text-[13px] ${isDone ? "text-[#86868b] line-through" : "text-[#1d1d1f]"}`}
+            >
               {action.title}
             </span>
+          </div>
+          {action.detail && (
+            <p className="mt-[3px] line-clamp-2 text-[11px] text-[#86868b]">{action.detail}</p>
+          )}
+          <div className="mt-[5px] flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[#86868b]">
             {milestone ? (
-              <span className="rounded bg-[#f0f0f2] px-[5px] py-[1px] text-[10px] text-[#3c3c43]">
+              <span className="rounded bg-[#f0f0f2] px-[6px] py-[1px] text-[10px] text-[#3c3c43]">
                 {milestone}
               </span>
             ) : (
-              <span className="rounded border border-dashed border-[#d2d2d7] px-[5px] py-[1px] text-[10px] text-[#86868b]">
+              <span className="rounded border border-dashed border-[#d2d2d7] px-[6px] py-[1px] text-[10px]">
                 ツリー外
               </span>
             )}
+            {owner && <span>{owner}</span>}
+            {isDone
+              ? action.actualEnd && <span>完了 {fmtDate(action.actualEnd)}</span>
+              : action.plannedEnd && (
+                  <span className={action.isOverdue ? "font-bold text-[#dc2626]" : ""}>
+                    {fmtDate(action.plannedEnd)}
+                  </span>
+                )}
           </div>
-          {action.detail && (
-            <p className="mt-[1px] truncate text-[11px] text-[#86868b]">{action.detail}</p>
-          )}
         </div>
-        <span className="shrink-0 text-[11px] text-[#86868b]">{owner}</span>
-        <span
-          className={`w-[52px] shrink-0 text-right text-[11px] tabular-nums ${
-            action.isOverdue ? "text-[#dc2626]" : "text-[#86868b]"
-          }`}
-        >
-          {isDone ? fmtDate(action.actualEnd) : action.plannedEnd ? fmtDate(action.plannedEnd) : "—"}
-        </span>
+
         {canManage && (
-          <button
-            type="button"
-            disabled={busyId === action.id}
-            aria-label={action.urgent ? "緊急を外す" : "緊急にする"}
-            title={action.urgent ? "緊急を外す" : "緊急にする"}
-            className={`shrink-0 text-[13px] ${action.urgent ? "text-[#d97706]" : "text-[#d2d2d7] hover:text-[#d97706]"}`}
-            onClick={() => void patch(action, { urgent: !action.urgent })}
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              aria-label={`${action.title} の操作`}
+              className="h-[26px] w-[30px] text-[15px] font-bold text-[#86868b] hover:text-[#1d1d1f]"
+              onClick={() => setMenuId(menuId === action.id ? null : action.id)}
+            >
+              …
+            </button>
+            {menuId === action.id && (
+              <>
+                <div className="fixed inset-0 z-20" onClick={() => setMenuId(null)} />
+                <div className="absolute right-0 top-[26px] z-30 w-[150px] overflow-hidden rounded-lg border border-[#e5e5e7] bg-white py-1 shadow-lg">
+                  {[
+                    { label: "編集", run: () => setEditing(action) },
+                    {
+                      label: action.urgent ? "緊急を外す" : "緊急にする",
+                      run: () => void patch(action.id, { urgent: !action.urgent }),
+                    },
+                    {
+                      label: isDone ? "未完了に戻す" : "完了にする",
+                      run: () => void toggleDone(action),
+                    },
+                  ].map((item) => (
+                    <button
+                      key={item.label}
+                      type="button"
+                      className="block w-full px-3 py-[6px] text-left text-[12px] hover:bg-[#f5f5f7]"
+                      onClick={() => {
+                        setMenuId(null);
+                        item.run();
+                      }}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                  <div className="my-1 border-t border-[#f0f0f2]" />
+                  <button
+                    type="button"
+                    className="block w-full px-3 py-[6px] text-left text-[12px] text-[#991b1b] hover:bg-[#fee2e2]"
+                    onClick={() => {
+                      setMenuId(null);
+                      void (async () => {
+                        setBusyId(action.id);
+                        try {
+                          const payload = await mutateQuestionTree(projectId, "DELETE", {
+                            resource: "action",
+                            id: action.id,
+                          });
+                          if (payload.bundle) setBundle(payload.bundle);
+                        } catch (caught) {
+                          setError(caught instanceof Error ? caught.message : "消せなかったよ");
+                        } finally {
+                          setBusyId(null);
+                        }
+                      })();
+                    }}
+                  >
+                    削除
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* 掴みしろ。長押しなしでその場から動く。 */}
+        {draggable && canManage && (
+          <span
+            role="button"
+            tabIndex={0}
+            aria-label={`${action.title} を並べ替える`}
+            className={`-my-3 flex w-[30px] shrink-0 cursor-grab touch-none select-none items-center justify-center self-stretch text-[13px] ${
+              isDragging ? "cursor-grabbing text-[#027fdc]" : "text-[#c9c9d1] hover:text-[#86868b]"
+            }`}
+            onPointerDown={(event) => {
+              event.preventDefault();
+              frozenRef.current = liveOpen;
+              startIndexRef.current = index;
+              startYRef.current = event.clientY;
+              setDragId(action.id);
+              setDragY(0);
+              setDragSlot(index);
+            }}
           >
-            ●
-          </button>
+            ☰
+          </span>
         )}
       </div>
     );
@@ -226,90 +439,89 @@ export function CockpitProjectTasks({ projectId }: Props) {
     return (
       <section className="rounded-xl border border-[#e5e5e7] bg-white px-4 py-3">
         <p className="text-[12px] text-[#86868b]">
-          {error ? `タスクを読み込めなかったよ（${error}）` : "タスクを読み込んでいる…"}
+          {error ? `タスクを読み込めなかったよ（${error}）` : "読み込み中…"}
         </p>
       </section>
     );
   }
 
   return (
-    <section className="rounded-xl border border-[#e5e5e7] bg-white">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-[#e5e5e7] px-4 py-3">
-        <h2 className="text-[13px] font-bold text-[#1d1d1f]">タスク</h2>
-        <p className="text-[11px] text-[#86868b]">
-          このPJのやることを一列で。ゴールツリーに入っていないものも並ぶ
-        </p>
-        <span className="ml-auto flex gap-3 text-[11px] text-[#86868b]">
-          <span>
-            未完了 <b className="text-[13px] tabular-nums text-[#1d1d1f]">{open.length}</b>
-          </span>
-          <span>
-            緊急{" "}
-            <b className="text-[13px] tabular-nums text-[#d97706]">
-              {open.filter((a) => a.urgent).length}
-            </b>
-          </span>
-          <span>
-            期限超過{" "}
-            <b className="text-[13px] tabular-nums text-[#dc2626]">
-              {open.filter((a) => a.isOverdue).length}
-            </b>
-          </span>
-        </span>
+    <section className="mx-auto flex w-full max-w-[860px] flex-col gap-4">
+      <div className="flex items-baseline gap-3">
+        <h2 className="text-[19px] font-bold text-[#1d1d1f]">タスク</h2>
+        <span className="text-[12px] font-medium text-[#86868b]">未完了 {liveOpen.length}</span>
       </div>
 
       {canManage && (
-        <div className="flex items-center gap-2 border-b border-[#e5e5e7] px-3 py-2">
-          <input
-            className="min-w-0 flex-1 rounded border border-[#d2d2d7] px-2 py-[5px] text-[12px]"
-            placeholder="やることを足す"
-            value={draft}
-            disabled={busyId === "new"}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                void addTask();
-              }
-            }}
-          />
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <input
+              className="min-w-0 flex-1 rounded-xl border border-[#e5e5e7] bg-white px-[14px] py-[10px] text-[13px] outline-none focus:border-[#7cbceb]"
+              placeholder="新しいタスク"
+              value={draft}
+              disabled={busyId === "new"}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void addTask();
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="shrink-0 rounded-lg bg-[#027fdc] px-4 py-[9px] text-[13px] font-bold text-white disabled:opacity-40"
+              disabled={!draft.trim() || busyId === "new"}
+              onClick={() => void addTask()}
+            >
+              追加
+            </button>
+          </div>
           <button
             type="button"
-            className={`shrink-0 rounded border px-2 py-[5px] text-[11px] ${
-              draftUrgent
-                ? "border-[#d97706] bg-[#fff7ed] text-[#d97706]"
-                : "border-[#d2d2d7] text-[#86868b]"
+            className={`self-start rounded-full px-[10px] py-[4px] text-[11px] font-bold ${
+              draftUrgent ? "bg-[#ffedd5] text-[#ea580c]" : "bg-[#f0f0f2] text-[#86868b]"
             }`}
             onClick={() => setDraftUrgent((value) => !value)}
           >
-            緊急
-          </button>
-          <button
-            type="button"
-            className="shrink-0 rounded border border-[#027fdc] bg-[#027fdc] px-3 py-[5px] text-[11px] font-bold text-white disabled:opacity-50"
-            disabled={!draft.trim() || busyId === "new"}
-            onClick={() => void addTask()}
-          >
-            足す
+            🔥 緊急
           </button>
         </div>
       )}
 
       {error && (
-        <p className="border-b border-[#e5e5e7] px-4 py-2 text-[11px] text-[#991b1b]">{error}</p>
+        <p className="rounded-lg bg-[#fee2e2] px-3 py-2 text-[11px] text-[#991b1b]">{error}</p>
       )}
 
-      {open.length === 0 ? (
-        <p className="px-4 py-3 text-[12px] text-[#86868b]">未完了のタスクはありません。</p>
-      ) : (
-        <div>{open.map(row)}</div>
+      <div className="relative flex flex-col" style={{ gap: ROW_GAP }}>
+        {open.length === 0 ? (
+          <p className="py-3 text-[12px] text-[#86868b]">未完了はありません</p>
+        ) : (
+          open.map((action, index) => card(action, index, true))
+        )}
+        {/* 入る場所。レイアウトに影響させないよう重ねて描く */}
+        {dragId && dragSlot !== null && (
+          <span
+            className="pointer-events-none absolute left-0 right-0 z-20 h-[3px] rounded-full bg-[#027fdc]"
+            style={{
+              top:
+                dragSlot >= open.length
+                  ? slotY(open.length, open) - ROW_GAP
+                  : slotY(dragSlot, open) - ROW_GAP / 2,
+            }}
+          />
+        )}
+      </div>
+
+      {open.length > 0 && canManage && (
+        <p className="text-[10px] text-[#86868b]">右端の三本線を掴むと、その場で動かせる</p>
       )}
 
       {done.length > 0 && (
-        <div className="border-t border-[#e5e5e7]">
+        <div className="flex flex-col gap-2">
           <button
             type="button"
-            className="flex w-full items-baseline gap-2 px-4 py-2 text-left hover:bg-[#fafafa]"
+            className="flex items-baseline gap-2 self-start"
             onClick={() => setShowDone((value) => !value)}
           >
             <span
@@ -317,12 +529,117 @@ export function CockpitProjectTasks({ projectId }: Props) {
             >
               ▶
             </span>
-            <span className="text-[12px] font-bold text-[#1d1d1f]">完了</span>
-            <span className="text-[11px] tabular-nums text-[#86868b]">{done.length}</span>
+            <span className="text-[14px] font-bold text-[#1d1d1f]">完了</span>
+            <span className="text-[12px] text-[#86868b]">{done.length}</span>
           </button>
-          {showDone && <div>{done.map(row)}</div>}
+          {showDone && (
+            <div className="flex flex-col" style={{ gap: ROW_GAP }}>
+              {done.map((action, index) => card(action, index, false))}
+            </div>
+          )}
         </div>
       )}
+
+      {editing && (
+        <TaskEditDialog
+          action={editing}
+          busy={busyId === editing.id}
+          onClose={() => setEditing(null)}
+          onSave={async (fields) => {
+            await patch(editing.id, fields);
+            setEditing(null);
+          }}
+        />
+      )}
     </section>
+  );
+}
+
+/** 編集。タイトル・メモ・期限・緊急だけ。細かい欄はゴールツリー側の詳細で触る。 */
+function TaskEditDialog({
+  action,
+  busy,
+  onClose,
+  onSave,
+}: {
+  action: ActionNode;
+  busy: boolean;
+  onClose: () => void;
+  onSave: (fields: Record<string, unknown>) => Promise<void>;
+}) {
+  const [title, setTitle] = useState(action.title);
+  const [detail, setDetail] = useState(action.detail ?? "");
+  const [plannedEnd, setPlannedEnd] = useState(action.plannedEnd ?? "");
+  const [urgent, setUrgent] = useState(action.urgent);
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/30 px-4" onClick={onClose}>
+      <div
+        className="w-full max-w-[420px] rounded-xl bg-white p-5 shadow-xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h3 className="mb-3 text-[14px] font-bold text-[#1d1d1f]">タスクを編集</h3>
+        <div className="flex flex-col gap-3">
+          <label className="flex flex-col gap-1 text-[11px] font-bold text-[#86868b]">
+            タスク
+            <input
+              className="rounded-lg border border-[#d2d2d7] px-3 py-2 text-[13px] font-normal text-[#1d1d1f]"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-[11px] font-bold text-[#86868b]">
+            メモ
+            <textarea
+              className="min-h-[64px] rounded-lg border border-[#d2d2d7] px-3 py-2 text-[13px] font-normal text-[#1d1d1f]"
+              value={detail}
+              onChange={(event) => setDetail(event.target.value)}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-[11px] font-bold text-[#86868b]">
+            期限
+            <input
+              type="date"
+              className="rounded-lg border border-[#d2d2d7] px-3 py-2 text-[13px] font-normal text-[#1d1d1f]"
+              value={plannedEnd}
+              onChange={(event) => setPlannedEnd(event.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className={`self-start rounded-full px-[10px] py-[4px] text-[11px] font-bold ${
+              urgent ? "bg-[#ffedd5] text-[#ea580c]" : "bg-[#f0f0f2] text-[#86868b]"
+            }`}
+            onClick={() => setUrgent((value) => !value)}
+          >
+            🔥 緊急
+          </button>
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            className="rounded-lg border border-[#d2d2d7] px-3 py-2 text-[12px] text-[#3c3c43]"
+            onClick={onClose}
+          >
+            キャンセル
+          </button>
+          <button
+            type="button"
+            className="rounded-lg bg-[#027fdc] px-4 py-2 text-[12px] font-bold text-white disabled:opacity-40"
+            disabled={!title.trim() || busy}
+            onClick={() =>
+              void onSave({
+                title: title.trim(),
+                detail: detail.trim() || null,
+                planned_end: plannedEnd || null,
+                urgent,
+              })
+            }
+          >
+            保存
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
