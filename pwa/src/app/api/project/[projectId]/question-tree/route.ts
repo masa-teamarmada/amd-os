@@ -48,7 +48,7 @@ const TABLE: Record<Resource, string> = {
 /** 画面から更新してよい列。導出値と監査列はここに含めない。 */
 const EDITABLE: Record<Resource, string[]> = {
   question: [
-    "parent_id", "contribution", "title", "background", "question_kind", "status",
+    "parent_id", "contribution", "children_logic", "title", "background", "question_kind", "status",
     "answer", "answered_on", "answered_by", "drop_reason", "confidence",
     "owner_label", "due_date", "origin_question_id", "sort_order",
   ],
@@ -184,14 +184,16 @@ function assertQuestionRules(fields: Record<string, unknown>, existing?: Record<
       throw new Error("追わないと決めた理由を書いてね");
     }
   }
+  /**
+   * contribution（required / alternative）は 2026-09-12 に画面から外した。
+   * 「どれか1つでよいか」は親の children_logic が持ち、行そのものの種類は
+   * question_kind（論点 / 仮説 / 決めること）が持つ（まさ確定 2026-09-12）。
+   * 列とCHECK制約は履歴として残っているので、親があるときは required を補う。
+   */
   const parentId = fields.parent_id ?? existing?.parent_id ?? null;
   const contribution = fields.contribution ?? existing?.contribution ?? null;
-  if (parentId && !contribution) {
-    throw new Error("親のある問いには「必須」か「代替」を選んでね");
-  }
-  if (!parentId && contribution) {
-    throw new Error("根の問いに「必須／代替」は付かないよ");
-  }
+  if (parentId && !contribution) fields.contribution = "required";
+  if (!parentId && contribution) fields.contribution = null;
 }
 
 /**

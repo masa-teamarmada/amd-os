@@ -19,6 +19,7 @@ import {
 import {
   ACTION_STATUS_LABEL,
   FINDING_KIND_LABEL,
+  CHILDREN_LOGIC_LABEL,
   QUESTION_KIND_LABEL,
   QUESTION_STATE_LABEL,
   type ActionNode,
@@ -101,11 +102,6 @@ function buildMonthTicks(domain: GanttDomain): { key: string; label: string; lef
   }
   return ticks;
 }
-
-const CONTRIBUTION_LABEL: Record<string, string> = {
-  required: "必須",
-  alternative: "代替",
-};
 
 const CONFIDENCE_LABEL: Record<string, string> = {
   high: "高い",
@@ -326,6 +322,43 @@ export function QuestionTreeView({
     return mode === "gantt" ? all.filter((root) => !root.isProposed) : all;
   }, [bundle, mode]);
 
+  /** 最後にドラッグを終えた時刻。直後の click を詳細表示に使わないための目印。 */
+  const draggedAtRef = useRef(0);
+
+  /**
+   * 行と行のあいだに置く「＋」の行き先（まさ 2026-09-12「それぞれの項目の間に
+   * マウスオーバーしたら左側に＋マークが出て、それを押すとその間に論点を追加できる
+   * ようにして。追加される論点はその直上の子として追加して」）。
+   *
+   * 画面に出ている順に並べ直して、各行の1つ上の行を引けるようにする。1つ上が問いなら
+   * その子として入れる。1つ上がTODOのときは出さない（TODOの下に論点はぶら下がらない）。
+   */
+  const parentForGapAbove = useMemo(() => {
+    const map = new Map<string, string>();
+    let previousQuestionId: string | null = null;
+    let previousWasQuestion = false;
+    const walkAction = (action: ActionNode) => {
+      previousWasQuestion = false;
+      if (action.children.length > 0 && openIds.has(action.id)) action.children.forEach(walkAction);
+    };
+    const walkQuestion = (node: QuestionNode) => {
+      if (previousWasQuestion && previousQuestionId) map.set(node.id, previousQuestionId);
+      previousQuestionId = node.id;
+      previousWasQuestion = true;
+      if (!openIds.has(node.id)) return;
+      for (const child of node.children) walkQuestion(child);
+      for (const action of node.actions) walkAction(action);
+    };
+    if (mode === "gantt") return map;
+    for (const root of roots) walkQuestion(root);
+    return map;
+  }, [roots, openIds, mode]);
+
+  /**
+   * ＋を押した位置。ここに1行の入力欄を出す。値は「その行のすぐ上」を指す行ID。
+   */
+  const [insertAbove, setInsertAbove] = useState<string | null>(null);
+
   const questionById = useMemo(() => {
     const map = new Map<string, QuestionNode>();
     const walk = (nodes: QuestionNode[]) => {
@@ -496,6 +529,7 @@ export function QuestionTreeView({
     const onUp = () => {
       const drag = barDrag;
       setBarDrag(null);
+      if (drag?.moved) draggedAtRef.current = Date.now();
       if (!drag?.moved) return;
       if (
         drag.preview.plannedStart === drag.original.plannedStart &&
@@ -659,10 +693,10 @@ export function QuestionTreeView({
         return;
       }
       if (kind === "child") {
-        // 子として足せるのは、論点 / 仮説（＝代替の論点）/ 決めること / TODO。
+        // 子として足せるのは、論点 / 仮説 / 決めること / TODO。
         // 種類ごとに別ボタンを置くとボタンが増えるので、1つのフォームで選ばせる
         // （まさ 2026-09-10「ボタンが無駄に増えるとUXがどんどん悪くなる」）。
-        const childKind = text("child_kind") || "required";
+        const childKind = text("child_kind") || "open";
         if (childKind === "measure" || childKind === "work") {
           let payload: { id?: string | null };
           try {
@@ -692,13 +726,13 @@ export function QuestionTreeView({
           return;
         }
         const questionKind =
-          childKind === "decision" ? "decision" : childKind === "milestone" ? "milestone" : "open";
+          childKind === "decision" || childKind === "milestone" || childKind === "hypothesis"
+            ? childKind
+            : "open";
         await send("POST", {
           resource: "question",
           fields: {
             parent_id: node.id,
-            // MSは到達点を成り立たせる条件なので、必ず「必須」で入る。
-            contribution: childKind === "alternative" ? "alternative" : "required",
             title: text("title"),
             question_kind: questionKind,
             owner_label: text("owner_label") || "担当未確認",
@@ -757,6 +791,7 @@ export function QuestionTreeView({
       cancelAnimationFrame(autoScrollRef.current);
       autoScrollRef.current = 0;
     }
+    if (dragStateRef.current?.dragging) draggedAtRef.current = Date.now();
     pointerRef.current = null;
     dragStateRef.current = null;
     dropHintRef.current = null;
@@ -1082,6 +1117,7 @@ export function QuestionTreeView({
               else barRefs.current.delete(action.id);
             }}
             className={styles.bar}
+            data-bar="true"
             data-status={action.status}
             data-dragging={dragging ? "true" : undefined}
             data-overdue={action.isOverdue ? "true" : undefined}
@@ -1322,7 +1358,6 @@ export function QuestionTreeView({
         {renderOwnerPicker(action)}
         {renderDependencies(action)}
 
-        {renderInline("action", action.id, "見出し", "title", action.title, action.title, "multiline")}
         {renderInline("action", action.id, "方法・条件", "detail", action.detail, action.detail ?? "", "multiline")}
         {renderInline("action", action.id, "完了条件", "done_criteria", action.doneCriteria, action.doneCriteria ?? "", "multiline")}
         {renderInline("action", action.id, "完了の証跡", "done_evidence", action.doneEvidence, action.doneEvidence ?? "", "multiline")}
@@ -1401,14 +1436,20 @@ export function QuestionTreeView({
             { value: "low", label: "低い" },
             { value: "unknown", label: "未評価" },
           ])}
-          {renderInline("question", node.id, "種類", "question_kind", node.questionKind, node.questionKind === "decision" ? "決めること" : "分からないこと", "select", [
-            { value: "open", label: "分からないこと" },
-            { value: "decision", label: "決めること" },
-          ])}
-          {node.parentId &&
-            renderInline("question", node.id, "親との関係", "contribution", node.contribution, node.contribution ? CONTRIBUTION_LABEL[node.contribution] : "—", "select", [
-              { value: "required", label: "論点（これが解けないと親が解けない）" },
-              { value: "alternative", label: "仮説（どれか1つ立てば足りる）" },
+          {node.questionKind !== "goal" &&
+            node.questionKind !== "milestone" &&
+            renderInline("question", node.id, "種類", "question_kind", node.questionKind, QUESTION_KIND_LABEL[node.questionKind], "select", [
+              { value: "open", label: "論点（答えが出れば閉じる問い）" },
+              { value: "hypothesis", label: "仮説（検証して真偽を確かめる主張）" },
+              { value: "decision", label: "決めること（意思で決まる）" },
+            ])}
+          {/* 「どれか1つでよいか」は親が持つ。子が仮説かどうかとは別の軸
+              （まさ確定 2026-09-12「仮説はそれぞれ検証されるべき。一方で、どれか１つが
+              完了すればOKっていう論点もある」）。子が無いあいだは出さない。 */}
+          {node.children.length > 0 &&
+            renderInline("question", node.id, "子の扱い", "children_logic", node.childrenLogic, CHILDREN_LOGIC_LABEL[node.childrenLogic], "select", [
+              { value: "all", label: CHILDREN_LOGIC_LABEL.all },
+              { value: "any", label: CHILDREN_LOGIC_LABEL.any },
             ])}
           <div className={styles.field}>
             <span>次の期限（自動）</span>
@@ -1423,7 +1464,6 @@ export function QuestionTreeView({
           </div>
         </div>
 
-        {renderInline("question", node.id, "見出し", "title", node.title, node.title, "multiline")}
 
         {node.status === "answered" &&
           renderInline(
@@ -1553,13 +1593,13 @@ export function QuestionTreeView({
                 <div className={styles.formRow}>
                   <label>
                     種類
-                    <select name="child_kind" defaultValue={node.questionKind === "goal" ? "milestone" : "required"}>
+                    <select name="child_kind" defaultValue={node.questionKind === "goal" ? "milestone" : "open"}>
                       {/* MSは到達点の直下だけ。ほかの場所では選択肢に出さない（3-22 §3） */}
                       {node.questionKind === "goal" && (
                         <option value="milestone">MS（到達点を成り立たせる条件）</option>
                       )}
-                      <option value="required">論点（これが解けないと親が解けない）</option>
-                      <option value="alternative">仮説（どれか1つ立てば足りる答えの候補）</option>
+                      <option value="open">論点（答えが出れば閉じる問い）</option>
+                      <option value="hypothesis">仮説（検証して真偽を確かめる主張）</option>
                       <option value="decision">決めること（意思で決まる）</option>
                       <option value="measure">TODO・確認（測る / 調べる / 聞く）</option>
                       <option value="work">TODO・作業（決まったことを実行する）</option>
@@ -1674,6 +1714,168 @@ export function QuestionTreeView({
     );
   };
 
+
+  /** 行のすぐ上に論点を足す。押した位置の直上の子として、その先頭へ入れる。 */
+  const addQuestionAbove = async (rowId: string, title: string) => {
+    const parentId = parentForGapAbove.get(rowId);
+    if (!parentId) return;
+    const parent = questionById.get(parentId);
+    const minOrder = parent?.children.reduce(
+      (min, child) => Math.min(min, child.sortOrder),
+      Number.POSITIVE_INFINITY,
+    );
+    const sortOrder = minOrder !== undefined && Number.isFinite(minOrder) ? minOrder - 10 : 10;
+    const ok = await send("POST", {
+      resource: "question",
+      fields: {
+        parent_id: parentId,
+        title,
+        question_kind: "open",
+        owner_label: "担当未確認",
+        sort_order: sortOrder,
+      },
+    });
+    if (ok) {
+      setOpenIds((current) => new Set([...current, parentId]));
+      setInsertAbove(null);
+    }
+  };
+
+  /** 行のすぐ上に出す帯。ホバーしたときだけ＋が見える。 */
+  const renderGapAbove = (rowId: string) => {
+    if (!canManage || !parentForGapAbove.has(rowId)) return null;
+    if (insertAbove === rowId) {
+      return (
+        <form
+          className={styles.gapForm}
+          onSubmit={(event) => {
+            event.preventDefault();
+            const value = String(new FormData(event.currentTarget).get("value") ?? "").trim();
+            if (!value) {
+              setInsertAbove(null);
+              return;
+            }
+            void addQuestionAbove(rowId, value);
+          }}
+        >
+          <input
+            name="value"
+            autoFocus
+            placeholder="ここに入れる論点"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") setInsertAbove(null);
+            }}
+          />
+          <button type="submit" className={styles.btn} data-variant="primary" disabled={busy}>
+            {busy ? "追加中…" : "追加"}
+          </button>
+          <button
+            type="button"
+            className={styles.btn}
+            data-variant="quiet"
+            onClick={() => setInsertAbove(null)}
+          >
+            取消
+          </button>
+        </form>
+      );
+    }
+    return (
+      <div className={styles.gap}>
+        <button
+          type="button"
+          className={styles.gapAdd}
+          aria-label="ここに論点を足す"
+          title="ここに論点を足す"
+          onClick={(event) => {
+            event.stopPropagation();
+            setInsertAbove(rowId);
+          }}
+        >
+          ＋
+        </button>
+      </div>
+    );
+  };
+
+  /**
+   * 行のどこを押しても詳細を開く（まさ 2026-09-12「その行のどこをクリックしても
+   * モーダルが開くようにして。現状だとタイトルの文字の上しかモーダルが開かない」）。
+   * 承認・却下・つまみ・開閉のしるし・ガントのバーなど、それ自体に用のあるものは除く。
+   */
+  const openRowFrom = (kind: "question" | "action", id: string) => (event: React.MouseEvent) => {
+    // つまみやバーを離した直後にも click は飛んでくる。動かしただけで詳細が開くと邪魔。
+    if (Date.now() - draggedAtRef.current < 300) return;
+    const target = event.target as HTMLElement | null;
+    if (target?.closest("button, a, input, select, textarea, label, [role='button'], [data-bar]")) return;
+    select(kind, id);
+  };
+
+  /**
+   * モーダルの見出しを、その場で直せるようにする。別欄を作らない
+   * （まさ 2026-09-12「タイトルがそのまま編集できずに、代わりに別の場所に『見出し』って
+   * いうところがあってそこで編集するのがめちゃくちゃ分かりにくい」）。
+   * 保存経路は renderInline と同じ。
+   */
+  const renderTitleEditor = (resource: "question" | "action", id: string, title: string) => {
+    const key = `${id}:title`;
+    if (editingField !== key) {
+      if (!canManage) return <h3>{title}</h3>;
+      return (
+        <h3>
+          <button
+            type="button"
+            className={styles.titleEdit}
+            onClick={() => {
+              setEditingField(key);
+              setError(null);
+            }}
+            title="押すと直せる"
+          >
+            {title}
+          </button>
+        </h3>
+      );
+    }
+    return (
+      <form
+        className={styles.titleForm}
+        onSubmit={(event) => {
+          event.preventDefault();
+          const value = String(new FormData(event.currentTarget).get("value") ?? "").trim();
+          if (!value) {
+            setError("見出しは空にできないよ");
+            return;
+          }
+          void send("PATCH", { resource, id, fields: { title: value } }).then((ok) => {
+            if (ok) setEditingField(null);
+          });
+        }}
+      >
+        <textarea
+          name="value"
+          defaultValue={title}
+          autoFocus
+          ref={autoSize}
+          onInput={(event) => autoSize(event.currentTarget)}
+        />
+        <div className={styles.inlineActions}>
+          <button type="submit" className={styles.btn} data-variant="primary" disabled={busy}>
+            {busy ? "保存中…" : "保存"}
+          </button>
+          <button
+            type="button"
+            className={styles.btn}
+            data-variant="quiet"
+            onClick={() => setEditingField(null)}
+          >
+            取消
+          </button>
+        </div>
+      </form>
+    );
+  };
+
   /**
    * 未承認の印と、その場で決めるボタン。論点・到達点・MSとTODOで同じ形にする
    * （まさ確定 2026-09-12「ツリーの中に未承認として目立たせて表示して」）。
@@ -1726,6 +1928,7 @@ export function QuestionTreeView({
     const childLines = [...lines, !isLast];
     return (
       <div className={styles.node} key={`action-${action.id}`}>
+        {renderGapAbove(action.id)}
         <div
           className={styles.row}
           data-row-kind="action"
@@ -1734,6 +1937,7 @@ export function QuestionTreeView({
           data-unassigned={action.isUnassigned ? "true" : undefined}
           data-open={selected?.kind === "action" && selected.id === action.id ? "true" : undefined}
           role="presentation"
+          onClick={openRowFrom("action", action.id)}
         >
           <div className={styles.rowLead}>
             {canManage && <span className={styles.gripSpacer} aria-hidden="true" />}
@@ -1819,6 +2023,7 @@ export function QuestionTreeView({
     const childLines = depth === 0 ? [] : [...lines, !isLast];
     return (
       <div className={styles.node} key={node.id}>
+        {renderGapAbove(node.id)}
         <div
           className={styles.row}
           data-question-row={node.id}
@@ -1830,6 +2035,7 @@ export function QuestionTreeView({
           data-dragging={dragId === node.id ? "true" : undefined}
           data-drop={dropHint?.id === node.id ? dropHint.position : undefined}
           role="presentation"
+          onClick={openRowFrom("question", node.id)}
         >
           <div className={styles.rowLead}>
             {canManage && (
@@ -1884,14 +2090,21 @@ export function QuestionTreeView({
             </button>
             {/* 印はタイトルの後ろへ置く。前に置くと幅が可変なぶん、子の ├ と
                 親のタイトル位置がずれる（まさ 2026-09-10 の指摘の実体）。 */}
-            {node.contribution && (
-              <span className={styles.chip} data-kind={node.contribution}>
-                {CONTRIBUTION_LABEL[node.contribution]}
+            {node.questionKind === "hypothesis" && (
+              <span className={styles.chip} data-kind="alternative">
+                仮説
               </span>
             )}
             {node.questionKind === "decision" && (
               <span className={styles.chip} data-kind="decision">
                 決める
+              </span>
+            )}
+            {/* 「どれか1つで解ける」は親の性質。子ごとの印ではない
+                （まさ確定 2026-09-12）。既定の all は印を出さない。 */}
+            {node.childrenLogic === "any" && node.children.length > 0 && (
+              <span className={styles.chip} data-kind="anyOf" title="子のどれか1つ解ければ、この問いは解ける">
+                どれか1つ
               </span>
             )}
             {/* 到達点とMSはツリーの骨格。3-21 の判定色は増やさず、印と字体だけで区別する。 */}
@@ -2234,14 +2447,14 @@ export function QuestionTreeView({
                           {ancestor.title}
                         </button>
                       ))}
-                    {selectedNode?.contribution && (
-                      <span className={styles.chip} data-kind={selectedNode.contribution}>
-                        {CONTRIBUTION_LABEL[selectedNode.contribution]}
+                    {selectedNode && selectedNode.questionKind !== "open" && (
+                      <span className={styles.chip} data-kind={selectedNode.questionKind === "hypothesis" ? "alternative" : selectedNode.questionKind}>
+                        {QUESTION_KIND_LABEL[selectedNode.questionKind]}
                       </span>
                     )}
-                    {selectedNode?.questionKind === "decision" && (
-                      <span className={styles.chip} data-kind="decision">
-                        決める
+                    {selectedNode?.childrenLogic === "any" && selectedNode.children.length > 0 && (
+                      <span className={styles.chip} data-kind="anyOf">
+                        どれか1つ
                       </span>
                     )}
                     {selectedAction && (
@@ -2250,7 +2463,11 @@ export function QuestionTreeView({
                       </span>
                     )}
                   </div>
-                  <h3>{openPanel.title}</h3>
+                  {renderTitleEditor(
+                    selectedNode ? "question" : "action",
+                    selectedNode ? selectedNode.id : (selectedAction as ActionNode).id,
+                    openPanel.title,
+                  )}
                 </div>
                 <button type="button" className={styles.panelClose} onClick={closeDetail} aria-label="閉じる">
                   ×

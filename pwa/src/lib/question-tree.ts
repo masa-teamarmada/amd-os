@@ -184,36 +184,39 @@ function mapFinding(row: RawRow, questionIds: string[]): FindingNode {
 /**
  * 問いの状態を決める。子から先に確定している必要があるため、ツリーを下から上へ辿る。
  *
- * spec 3-21「判定」:
- *   判断できる … required の子がすべて片付き、alternative があれば1件以上 answered、
- *                 直下の measure がすべて完了
+ * spec 3-21「判定」（2026-09-12 改定）:
+ *   判断できる … children_logic='all' なら子が全部片付き、'any' なら1件以上 answered。
+ *                 加えて直下の measure がすべて完了
  *   手が止まっている … 未閉じで、子もTODOも無い
- *   枝が死んだ   … alternative が全滅、または required の子が捨てられた
+ *   枝が死んだ   … 'all' で子が1件でも捨てられた、または 'any' で子が全滅
+ *
+ * 「どれか1つでよいか」は親が持つ（children_logic）。子が仮説かどうか（question_kind）
+ * とは別の軸（まさ確定 2026-09-12「仮説はそれぞれ検証されるべき。一方で、どれか１つが
+ * 完了すればOKっていう論点もある」）。
  */
 function resolveState(node: QuestionNode): QuestionState {
   if (node.status === "answered") return "answered";
   if (node.status === "dropped") return "dropped";
 
-  const requiredChildren = node.children.filter((child) => child.contribution === "required");
-  const alternativeChildren = node.children.filter((child) => child.contribution === "alternative");
+  const children = node.children.filter((child) => !child.isProposed);
+  const anyOf = node.childrenLogic === "any";
 
-  const requiredDropped = requiredChildren.some((child) => child.status === "dropped");
-  const alternativesAllDropped =
-    alternativeChildren.length > 0 && alternativeChildren.every((child) => child.status === "dropped");
-  if (requiredDropped || alternativesAllDropped) return "dead_branch";
+  if (children.length > 0) {
+    const allDropped = children.every((child) => child.status === "dropped");
+    const someDropped = children.some((child) => child.status === "dropped");
+    if (anyOf ? allDropped : someDropped) return "dead_branch";
+  }
 
-  if (node.children.length === 0 && node.actions.length === 0) return "stalled";
+  if (children.length === 0 && node.actions.length === 0) return "stalled";
 
-  const requiredSettled = requiredChildren.every(
-    (child) => child.status === "answered" || child.status === "dropped",
-  );
-  const alternativeSettled =
-    alternativeChildren.length === 0 || alternativeChildren.some((child) => child.status === "answered");
+  const childrenSettled = anyOf
+    ? children.length === 0 || children.some((child) => child.status === "answered")
+    : children.every((child) => child.status === "answered" || child.status === "dropped");
   const measuresDone = node.actions
-    .filter((action) => action.actionKind === "measure")
+    .filter((action) => action.actionKind === "measure" && !action.isProposed)
     .every((action) => !isActionOpen(action));
 
-  if (requiredSettled && alternativeSettled && measuresDone) return "decidable";
+  if (childrenSettled && measuresDone) return "decidable";
   return "in_progress";
 }
 
@@ -514,7 +517,7 @@ export async function getQuestionTreeBundle(
     await Promise.all([
       live(
         "project_questions",
-        "id,project_id,parent_id,contribution,title,background,question_kind,status,answer,answered_on,answered_by,drop_reason,confidence,owner_label,due_date,origin_kind,origin_ref,origin_question_id,sort_order,last_verified_at,review_state,proposed_parent_id,proposed_contribution,proposal_reason,created_at",
+        "id,project_id,parent_id,contribution,children_logic,title,background,question_kind,status,answer,answered_on,answered_by,drop_reason,confidence,owner_label,due_date,origin_kind,origin_ref,origin_question_id,sort_order,last_verified_at,review_state,proposed_parent_id,proposed_contribution,proposal_reason,created_at",
       ).order("sort_order"),
       live(
         "project_actions",
@@ -670,6 +673,7 @@ export async function getQuestionTreeBundle(
       projectId: str(row, "project_id"),
       parentId,
       contribution,
+      childrenLogic: row.children_logic === "any" ? "any" : "all",
       title: str(row, "title"),
       background: nullableStr(row, "background"),
       questionKind: asQuestionKind(row.question_kind),

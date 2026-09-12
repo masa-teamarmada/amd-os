@@ -3933,9 +3933,21 @@ expectIncludes("src/components/question-tree/QuestionTreeView.tsx", [
   // 未承認は論点・到達点・MSもTODOも、ツリーの中で光らせてその場で決める。
   // 上へ抜き出す一覧は置かない（2026-09-12 まさ確定）。送り先は POST 側。
   "renderProposedControls",
+  // 2026-09-12 まさ確定: 見出しは別欄ではなく、見出しそのものを押して直す。
+  // 「どれか1つでよいか」は親の children_logic、行の種類は question_kind。
+  // この2つを1つの列（contribution）で兼ねない。
+  "renderTitleEditor",
+  '"children_logic"',
+  '{ value: "hypothesis"',
   '"proposal_accept"',
   '"proposal_reject"',
   'data-proposed',
+]);
+expectNotIncludes("src/components/question-tree/QuestionTreeView.tsx", [
+  // 2026-09-12 まさ確定: 「必須／代替」で仮説とAND/ORを兼ねない。種類の名前もこの3つは使わない。
+  "CONTRIBUTION_LABEL",
+  "分からないこと",
+  "どれか1つ立てば足りる",
 ]);
 // 割り振りセッションが使う経路（2026-09-11 まさ確定、spec 3-22 §4）。
 // 担当・期限・見積ptはセッションでえいみと決めて書き込む。画面に提案列も採用ボタンも作らない。

@@ -155,7 +155,7 @@ export const SPEC_CHAPTERS: SpecChapterConfig[] = [
   { slug: "3-18-important-document-extraction-current-spec", title: "重要書類の抽出 仕様", summary: "PJに紐づく重要書類と根拠を生データから拾い、台帳として保持する抽出契約。" },
   { slug: "3-19-project-ip-current-spec", title: "PJ知財ポートフォリオ 仕様", summary: "自社知財だけでなく大学の基本特許・共同出願・他社の障害特許まで同じ台帳に載せ、参入可否とライセンス交渉の材料にする。" },
   { slug: "3-20-project-technology-current-spec", title: "PJ技術台帳 仕様", summary: "技術の事実の置き場所。成立条件・解説・星取り表・到達実績の4形式で持ち、PJごとに違うのは並べるトピックだけにする。" },
-  { slug: "3-21-question-tree-current-spec", title: "論点・仮説 仕様", summary: "計画を「やることの階層」ではなく「分からないことをつぶす順序」として持つ。目的→成立条件→工程を廃し、問い・やること・分かったことの3型へ畳む。" },
+  { slug: "3-21-question-tree-current-spec", title: "ゴールツリー 仕様", summary: "到達点を根に置き、MS・論点・仮説・決めること・TODOを1本のツリーで持つ。承認、判定（どれか1つで解けるか）、ガントとの共有、未承認の見せ方。" },
   { slug: "3-22-goal-tree-plan", title: "ゴールツリー 設計案", summary: "ツリーの根に到達点、直下にMS、葉にTODOを置き、会議中に枝を増やして会議後にアサインする。TODOのptはMSのptの内訳として配り、予備・見積/確定・回収で配りすぎを防ぐ。骨格はまさ確定、pt分配のルールは確認待ち。" },
   { slug: "4-1-frl-ces-current-spec", title: "FRL CES 実装仕様", summary: "F_character × F_capability の CES 合成、DB列、実装関数、後方互換の現行契約。" },
   { slug: "4-2-amd-score-current-spec", title: "AMD Score 実装仕様", summary: "SPS (シーズ有望度、旧PRS) primary、legacy AMD comparison、DB、route、bottleneck、FRL 境界の契約。" },

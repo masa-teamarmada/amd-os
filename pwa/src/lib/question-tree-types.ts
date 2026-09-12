@@ -9,8 +9,14 @@ export type QuestionStatus = "open" | "answered" | "dropped";
  * goal（到達点）は根だけ、milestone（MS）は goal の直下だけ。
  * DBのCHECKとtrigger、APIの検査、画面の選択肢の3か所で同じ決まりを守る。
  */
-export type QuestionKind = "open" | "decision" | "goal" | "milestone";
+export type QuestionKind = "open" | "hypothesis" | "decision" | "goal" | "milestone";
 export type Contribution = "required" | "alternative";
+/**
+ * この問いが解けるのに、子が全部そろう必要があるか（all）、どれか1つでよいか（any）。
+ * 「仮説かどうか」とは別の軸（まさ確定 2026-09-12「仮説はそれぞれ検証されるべき。
+ * 一方で、どれか１つが完了すればOKっていう論点もある」）。
+ */
+export type ChildrenLogic = "all" | "any";
 export type ActionStatus = "unassessed" | "not_started" | "running" | "blocked" | "done" | "dropped";
 export type ActionKind = "work" | "measure";
 export type FindingKind = "supports" | "contradicts" | "neutral" | "missing";
@@ -23,7 +29,13 @@ export const QUESTION_KIND_LABEL: Record<QuestionKind, string> = {
   goal: "到達点",
   milestone: "MS",
   open: "論点",
+  hypothesis: "仮説",
   decision: "決めること",
+};
+
+export const CHILDREN_LOGIC_LABEL: Record<ChildrenLogic, string> = {
+  all: "子が全部そろうと解ける",
+  any: "子のどれか1つで解ける",
 };
 
 /** 問いの状態。表示の主軸。 */
@@ -164,6 +176,8 @@ export type QuestionNode = {
   projectId: string;
   parentId: string | null;
   contribution: Contribution | null;
+  /** 子が全部そろって解けるか（all）、どれか1つで解けるか（any） */
+  childrenLogic: ChildrenLogic;
   title: string;
   background: string | null;
   questionKind: QuestionKind;
