@@ -158,6 +158,8 @@ function mapAction(
     isUnassigned:
       ACTION_OPEN_STATUSES.includes(status) && (owners.length === 0 || !plannedEnd),
     urgent: row.urgent === true,
+    createdAt: nullableStr(row, "created_at"),
+    createdBy: nullableStr(row, "created_by"),
   };
 }
 
@@ -505,7 +507,7 @@ export async function getQuestionTreeBundle(
       ).order("sort_order"),
       live(
         "project_actions",
-        "id,project_id,parent_id,title,detail,action_kind,status,owner_label,planned_start,planned_end,actual_end,date_certainty,progress_pct,blocker,done_criteria,done_evidence,target,actual,unit,origin_kind,origin_ref,origin_question_id,sort_order,last_verified_at,review_state,proposed_question_id,proposal_reason,created_at,estimated_pt,accepted_pt,accept_state,accepted_at,accepted_by,reviewed_at,reviewed_by,review_result,urgent",
+        "id,project_id,parent_id,title,detail,action_kind,status,owner_label,planned_start,planned_end,actual_end,date_certainty,progress_pct,blocker,done_criteria,done_evidence,target,actual,unit,origin_kind,origin_ref,origin_question_id,sort_order,last_verified_at,review_state,proposed_question_id,proposal_reason,created_at,estimated_pt,accepted_pt,accept_state,accepted_at,accepted_by,reviewed_at,reviewed_by,review_result,urgent,created_by",
       ).order("sort_order"),
       live(
         "project_findings",

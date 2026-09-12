@@ -117,6 +117,10 @@ export type ActionNode = {
   isUnassigned: boolean;
   /** 緊急。タスクタブで上に出し、行をオレンジにする（OSスイートの やること と同じ） */
   urgent: boolean;
+  /** いつこの行ができたか。「これ誰が入れたの」に答えるために出す */
+  createdAt: string | null;
+  /** 誰が入れたか。移行で入った行は空 */
+  createdBy: string | null;
 };
 
 export type FindingNode = {

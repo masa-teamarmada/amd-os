@@ -52,6 +52,68 @@ function buildMilestoneIndex(roots: QuestionNode[]): Map<string, string> {
   return index;
 }
 
+/**
+ * そのタスクが木のどこにぶら下がっているか（到達点 → MS → 論点）と、
+ * いちばん近い親の問いの背景。
+ *
+ * まさ 2026-09-12「何を意味してるのかが全然分からない。これおれが入力したんじゃないから、
+ * いつどういう流れで発生したかが全然分かってない」。タイトルだけ見ても分からないので、
+ * 何の下の話で、なぜ要るのかを一緒に出す。
+ */
+type TaskContext = {
+  path: { id: string; title: string; kind: QuestionNode["questionKind"] }[];
+  background: string | null;
+  parentTitle: string | null;
+};
+
+function buildContextIndex(roots: QuestionNode[]): Map<string, TaskContext> {
+  const index = new Map<string, TaskContext>();
+  const walk = (node: QuestionNode, trail: TaskContext["path"]) => {
+    const next = [...trail, { id: node.id, title: node.title, kind: node.questionKind }];
+    for (const action of node.actions) {
+      if (index.has(action.id)) continue;
+      index.set(action.id, {
+        path: next,
+        // いちばん近い親から順にさかのぼって、最初に見つかった背景を使う。
+        background:
+          [...next].reverse().map((step) => step.id).reduce<string | null>((found, id) => {
+            if (found) return found;
+            const node2 = findNode(roots, id);
+            return node2?.background ?? null;
+          }, null),
+        parentTitle: node.title,
+      });
+    }
+    for (const child of node.children) walk(child, next);
+  };
+  for (const root of roots) walk(root, []);
+  return index;
+}
+
+function findNode(roots: QuestionNode[], id: string): QuestionNode | null {
+  for (const root of roots) {
+    if (root.id === id) return root;
+    const found = findNode(root.children, id);
+    if (found) return found;
+  }
+  return null;
+}
+
+/** どこから来た行か。まさが入れていないものを、そう見えるようにする。 */
+function originText(action: ActionNode): string {
+  const when = action.createdAt ? action.createdAt.slice(0, 10).replace(/-/g, "/") : null;
+  const base =
+    action.originKind === "migrated"
+      ? "前の管理表から機械で移した行"
+      : action.originKind === "meeting"
+        ? "議事録から入った行"
+        : action.originKind === "automation"
+          ? "つくよみが拾った行"
+          : "画面から手で入れた行";
+  const who = action.createdBy ? `・${action.createdBy}` : "";
+  return when ? `${base}（${when}${who}）` : `${base}${who}`;
+}
+
 /** MSごとに色を振る。どのMSの仕事かを、読まずに色で拾えるようにする。 */
 const BAND_COLORS = ["#027fdc", "#6d28d9", "#047857", "#d97706", "#be185d", "#0369a1"];
 function bandColor(milestone: string | null, order: string[]): string {
@@ -81,6 +143,7 @@ export function CockpitProjectTasks({ projectId }: Props) {
   const [showDone, setShowDone] = useState(false);
   const [menuId, setMenuId] = useState<string | null>(null);
   const [editing, setEditing] = useState<ActionNode | null>(null);
+  const [detail, setDetail] = useState<ActionNode | null>(null);
 
   // ---- 並べ替え（掴んだ瞬間から指に付いてくる自前ドラッグ） -------------------
   const [dragId, setDragId] = useState<string | null>(null);
@@ -114,6 +177,10 @@ export function CockpitProjectTasks({ projectId }: Props) {
   const milestoneOrder = useMemo(
     () => [...new Set([...milestoneOf.values()])],
     [milestoneOf],
+  );
+  const contextOf = useMemo(
+    () => (bundle ? buildContextIndex(bundle.roots) : new Map<string, TaskContext>()),
+    [bundle],
   );
 
   const liveOpen = useMemo(() => {
@@ -289,9 +356,22 @@ export function CockpitProjectTasks({ projectId }: Props) {
         ref={(element) => {
           if (element) heightsRef.current.set(action.id, element.offsetHeight);
         }}
-        className={`relative flex items-start gap-3 rounded-xl border px-[14px] py-3 ${
+        className={`relative flex cursor-pointer items-start gap-3 rounded-xl border px-[14px] py-3 ${
           urgent ? "border-[#fdba74] bg-[#fff7ed]" : "border-[#e5e5e7] bg-white"
-        } ${isDone ? "opacity-60" : ""} ${isDragging ? "z-10 border-[#027fdc] shadow-lg" : ""}`}
+        } ${isDone ? "opacity-60" : ""} ${isDragging ? "z-10 border-[#027fdc] shadow-lg" : ""} hover:border-[#7cbceb]`}
+        role="button"
+        tabIndex={0}
+        onClick={(event) => {
+          // チェック・「…」・掴みしろの上では開かない
+          if ((event.target as HTMLElement).closest("button,[role=button]") !== event.currentTarget) {
+            const hit = (event.target as HTMLElement).closest("button,[role=button]");
+            if (hit && hit !== event.currentTarget) return;
+          }
+          setDetail(action);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") setDetail(action);
+        }}
         style={
           isDragging
             ? { transform: `translateY(${dragY}px) scale(1.02)`, transition: "none" }
@@ -550,6 +630,19 @@ export function CockpitProjectTasks({ projectId }: Props) {
         </div>
       )}
 
+      {detail && (
+        <TaskDetailDialog
+          action={bundle.allActions.find((a) => a.id === detail.id) ?? detail}
+          context={contextOf.get(detail.id) ?? null}
+          onClose={() => setDetail(null)}
+          onEdit={() => {
+            const target = detail;
+            setDetail(null);
+            setEditing(target);
+          }}
+        />
+      )}
+
       {editing && (
         <TaskEditDialog
           action={editing}
@@ -562,6 +655,159 @@ export function CockpitProjectTasks({ projectId }: Props) {
         />
       )}
     </section>
+  );
+}
+
+/**
+ * タスクの中身。カードを押すと開く。
+ *
+ * まさ 2026-09-12「何を意味してるのかが全然分からない。これおれが入力したんじゃないから、
+ * いつどういう流れで発生したかが全然分かってない」。タイトルだけでは読めないので、
+ * **木のどこにぶら下がっているか（到達点 → MS → 論点）** と **なぜ要るのか（親の背景）**、
+ * **どこから来た行か（移行 / 議事録 / 手入力と、その日付）** を1枚に出す。
+ */
+function TaskDetailDialog({
+  action,
+  context,
+  onClose,
+  onEdit,
+}: {
+  action: ActionNode;
+  context: TaskContext | null;
+  onClose: () => void;
+  onEdit: () => void;
+}) {
+  const owner =
+    action.owners.length > 0
+      ? action.owners.map((o) => o.displayName).join("・")
+      : action.ownerLabel;
+  const kindLabel = (kind: QuestionNode["questionKind"]) =>
+    kind === "goal" ? "到達点" : kind === "milestone" ? "MS" : kind === "decision" ? "決めること" : "論点";
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/30 px-4 py-8" onClick={onClose}>
+      <div
+        className="max-h-full w-full max-w-[560px] overflow-y-auto rounded-xl bg-white p-5 shadow-xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        {/* 木のどこの話か。上から順に、到達点 → MS → 論点 */}
+        {context && context.path.length > 0 ? (
+          <div className="mb-3 flex flex-col gap-[3px]">
+            {context.path.map((step, index) => (
+              <div
+                key={step.id}
+                className="flex items-center gap-[6px] text-[11px] text-[#86868b]"
+                style={{ paddingLeft: index * 12 }}
+              >
+                {index > 0 && <span className="text-[#c9c9d1]">└</span>}
+                <span className="rounded bg-[#f0f0f2] px-[5px] py-[1px] text-[10px] text-[#3c3c43]">
+                  {kindLabel(step.kind)}
+                </span>
+                <span className="truncate">{step.title}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mb-3 text-[11px] text-[#86868b]">
+            ゴールツリーのどこにもぶら下がっていない（ツリー外）
+          </p>
+        )}
+
+        <h3 className="text-[16px] font-bold leading-snug text-[#1d1d1f]">
+          {action.urgent && <span className="mr-1">🔥</span>}
+          {action.title}
+        </h3>
+
+        <div className="mt-3 flex flex-col gap-3">
+          {action.detail && (
+            <section>
+              <h4 className="text-[11px] font-bold text-[#86868b]">やり方・条件</h4>
+              <p className="mt-[2px] whitespace-pre-wrap text-[12px] leading-relaxed text-[#1d1d1f]">
+                {action.detail}
+              </p>
+            </section>
+          )}
+
+          {action.doneCriteria && (
+            <section>
+              <h4 className="text-[11px] font-bold text-[#86868b]">終わったと言える条件</h4>
+              <p className="mt-[2px] whitespace-pre-wrap text-[12px] leading-relaxed text-[#1d1d1f]">
+                {action.doneCriteria}
+              </p>
+            </section>
+          )}
+
+          {/* なぜこれをやるのか。親の論点が持っている背景をそのまま出す */}
+          {context?.background && (
+            <section className="rounded-lg bg-[#f5f7fa] px-3 py-2">
+              <h4 className="text-[11px] font-bold text-[#86868b]">
+                なぜ要るか（「{context.parentTitle}」の背景）
+              </h4>
+              <p className="mt-[2px] whitespace-pre-wrap text-[12px] leading-relaxed text-[#3c3c43]">
+                {context.background}
+              </p>
+            </section>
+          )}
+
+          {action.blocker && (
+            <section>
+              <h4 className="text-[11px] font-bold text-[#86868b]">詰まっていること</h4>
+              <p className="mt-[2px] text-[12px] text-[#1d1d1f]">{action.blocker}</p>
+            </section>
+          )}
+
+          <section className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px]">
+            {[
+              ["担当", owner || "—"],
+              ["期限", action.plannedEnd ? fmtDate(action.plannedEnd) : "—"],
+              ["種類", action.actionKind === "measure" ? "確かめる" : "作業"],
+              [
+                "状態",
+                action.status === "done"
+                  ? `完了 ${action.actualEnd ? fmtDate(action.actualEnd) : ""}`
+                  : action.status === "running"
+                    ? "実行中"
+                    : action.status === "blocked"
+                      ? "止まっている"
+                      : action.status === "not_started"
+                        ? "未着手"
+                        : "進捗未登録",
+              ],
+            ].map(([label, value]) => (
+              <div key={label}>
+                <span className="text-[11px] text-[#86868b]">{label}</span>
+                <p className="text-[#1d1d1f]">{value}</p>
+              </div>
+            ))}
+          </section>
+
+          {/* どこから来た行か。「これ誰が入れたの」に答える */}
+          <section className="border-t border-[#f0f0f2] pt-2">
+            <p className="text-[11px] text-[#86868b]">{originText(action)}</p>
+            {action.originRef && (
+              <p className="mt-[2px] break-all text-[10px] text-[#c9c9d1]">{action.originRef}</p>
+            )}
+          </section>
+        </div>
+
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            className="rounded-lg border border-[#d2d2d7] px-3 py-2 text-[12px] text-[#3c3c43]"
+            onClick={onClose}
+          >
+            閉じる
+          </button>
+          <button
+            type="button"
+            className="rounded-lg bg-[#027fdc] px-4 py-2 text-[12px] font-bold text-white"
+            onClick={onEdit}
+          >
+            編集
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
