@@ -17,6 +17,7 @@ export const COCKPIT_TABS = [
   "objective-structure",
   "partners",
   "issues",
+  "tasks",
   "meetings",
   "slack",
   "score-detail",
@@ -65,7 +66,7 @@ export const COCKPIT_GROUPS: {
     {
       key: "progress-group",
       label: "進捗管理",
-      children: ["progress", "meetings", "slack", "weekly", "gantt", "partners", "issues"],
+      children: ["progress", "meetings", "slack", "weekly", "gantt", "partners", "issues", "tasks"],
     },
     {
       key: "business-plan-group",
@@ -83,7 +84,7 @@ export const COCKPIT_GROUPS: {
     {
       key: "progress-group",
       label: "進捗管理",
-      children: ["progress", "meetings", "slack", "weekly", "gantt", "partners", "issues"],
+      children: ["progress", "meetings", "slack", "weekly", "gantt", "partners", "issues", "tasks"],
     },
     { key: "seeds-group", label: "シーズリスト", children: ["seeds"] },
     { key: "regulations-group", label: "規程・内規", children: ["regulations"] },

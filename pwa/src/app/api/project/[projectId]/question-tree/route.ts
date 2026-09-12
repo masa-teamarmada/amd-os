@@ -60,6 +60,8 @@ const EDITABLE: Record<Resource, string[]> = {
     // 見積ptはアサインのときにPMが付ける。確定ptは検収（Phase 2）で入る。
     // accept_state は担当の付け外しに連動するので画面から直接は書かない。
     "estimated_pt", "accepted_pt",
+    // タスクタブの緊急フラグ（OSスイートの やること と同じ）
+    "urgent",
   ],
   finding: [
     "summary", "finding_kind", "observed_on", "source_label", "source_url",
@@ -143,6 +145,10 @@ function sanitize(resource: Resource, input: Record<string, unknown>): Record<st
       const parsed = Number(value);
       if (!Number.isFinite(parsed)) throw new Error("並び順が数字じゃないよ");
       out[key] = Math.round(parsed);
+      continue;
+    }
+    if (key === "urgent") {
+      out[key] = value === true || value === "true";
       continue;
     }
     if (PT_FIELDS.has(key)) {

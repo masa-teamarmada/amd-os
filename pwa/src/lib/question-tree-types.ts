@@ -115,6 +115,8 @@ export type ActionNode = {
    * ガントの「日程未設定」行と木の印が同じ判定を使う（3-22 §4）。
    */
   isUnassigned: boolean;
+  /** 緊急。タスクタブで上に出し、行をオレンジにする（OSスイートの やること と同じ） */
+  urgent: boolean;
 };
 
 export type FindingNode = {

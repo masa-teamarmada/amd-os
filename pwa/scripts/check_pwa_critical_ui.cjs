@@ -638,6 +638,8 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   'partners: "関係先"',
   // 2026-09-11 まさ確定: タブ名を「論点・仮説」から「ゴールツリー」へ。内部キー issues とURLは変えない。
   'issues: "ゴールツリー"',
+  // 2026-09-12 まさ依頼: やることだけを一列に並べるタスクタブ。設計はOSスイートの「やること」。
+  'tasks: "タスク"',
 ]);
 expectIncludes("src/components/cockpit/CockpitProjectControl.tsx", [
   "SxWeeklyControlDashboard",
@@ -3936,6 +3938,15 @@ expectIncludes("src/app/api/project/[projectId]/question-tree/route.ts", [
   '"action_bulk"',
   "apply_goal_tree_assignments",
   "1回に渡せるのは200件までだよ",
+]);
+expectIncludes("src/components/cockpit/CockpitProjectTasks.tsx", [
+  // OSスイートの「やること」と同じ形を守る（上=未完了 / 下=完了 / 緊急 / その場で足す）
+  "未完了",
+  "完了",
+  "緊急",
+  "ツリー外",
+  "loadQuestionTree",
+  "mutateQuestionTree",
 ]);
 expectIncludes("src/lib/question-tree.ts", [
   "getGoalTreeAssignmentView",

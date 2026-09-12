@@ -26,6 +26,7 @@ import { CockpitAmdScoreDetailTab } from "./CockpitAmdScoreDetailTab";
 import { CockpitCompanyOverview } from "./CockpitCompanyOverview";
 import { CockpitProjectOverview } from "./CockpitProjectOverview";
 import { CockpitProjectControl } from "./CockpitProjectControl";
+import { CockpitProjectTasks } from "./CockpitProjectTasks";
 import type { SxWeeklyControlView } from "@/components/project-workspace/SxWeeklyControlDashboard";
 import { CockpitBusinessPlan } from "./CockpitBusinessPlan";
 import { CockpitCapitalPolicy } from "./CockpitCapitalPolicy";
@@ -420,6 +421,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     gantt: "ガント",
     partners: "関係先",
     issues: "ゴールツリー",
+    tasks: "タスク",
     "score-detail": "スコア詳細",
     technology: "技術",
     "business-plan": "事業計画",
@@ -838,6 +840,16 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
             scopeTrail={[project.projectName]}
             presentation="modal"
           />
+        </section>
+      )}
+
+      {/* タスクタブ (2026-09-12 まさ依頼)。ゴールツリーに全部書こうとすると違和感が出るので、
+          やることだけを一列に並べる面を分けた。設計は OSスイートの「やること」と同じ
+          (上=未完了 / 下=完了 / チェックで完了 / 緊急はオレンジ / その場で足す)。
+          データは同じ束なので、木に入っていないやることも同じ列に出る。 */}
+      {activeTab === "tasks" && (
+        <section role="tabpanel" aria-label="タスク" className="min-w-0">
+          <CockpitProjectTasks projectId={project.projectId} />
         </section>
       )}
 
