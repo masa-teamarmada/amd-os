@@ -392,16 +392,6 @@ export function CostResultsPanel({
                 </button>
               </dd>
             </div>
-            {flow.customerHours > 0 && (
-              <div className="flex flex-wrap items-baseline justify-between gap-x-2 sm:col-span-2">
-                <dt>顧客がやる作業</dt>
-                <dd className="tabular-nums text-[#1d1d1f]">
-                  年 {int(flow.customerHours)}時間
-                  <Delta value={flow.customerHours - baselineFlow.customerHours} digits={0} className="ml-1 text-[10px]" />
-                  <span className="text-[10px] text-[#6e6e73]">（SXの原価に入れない）</span>
-                </dd>
-              </div>
-            )}
             <div className="flex justify-between gap-2">
               <dt>使い切る菌体</dt>
               <dd className="tabular-nums text-[#1d1d1f]">{num(current.biomassKgPerUnit, 3)} kg/{unit}</dd>

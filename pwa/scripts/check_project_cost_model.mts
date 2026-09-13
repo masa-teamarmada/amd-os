@@ -14,6 +14,8 @@
 // 2026-09-14 まさ指摘④: 「方式がオンサイトとオフサイトの2種類になってない。循環と投入ってなに？」— 方式と装置を分ける。
 // 「工数のほとんどが排液処理のところにかかってるけど、これは顧客側がやること。全顧客の工場にSXの社員が張り付くってありえない」
 // — 作業に誰がやるかを持たせ、SX がやる作業だけを SX の原価に入れる。
+// 2026-09-14 まさ指摘⑤: 顧客側に残る運転の時間は「知ったこっちゃなくない？SXのコストに含まれないじゃん」
+// — 顧客がやる作業の時間や円は、計算にも画面にも出さない。
 //
 // 正本: pwa/spec/5-13-project-cost-model-current-spec.md
 // fixture: scripts/__fixtures__/sx_cost_model_two_stage.json（migration 399 適用後の SX データ）
@@ -133,8 +135,8 @@ for (const strain of ["enhanced", "wild"] as const) {
   task(moreHours, "ct_run_injection").hoursPerOccurrence = 15;
   const offBase = scenario(fixture, "enhanced", "dye", "オフサイト-投入-新設");
   near(scenario(moreHours, "enhanced", "dye", "オフサイト-投入-新設").siteTaskPerUnit - offBase.siteTaskPerUnit, (7.5 * 4000 * 300) / derived.annualVolume, 1e-9, "工数2倍で運転の作業費が2倍");
-  near(scenario(moreHours, "enhanced", "dye", "投入-既設").customerTaskHours - s.customerTaskHours, 7.5 * 300, 1e-9, "オンサイトでは顧客の工数が増える");
   near(scenario(moreHours, "enhanced", "dye", "投入-既設").totalPerUnit, s.totalPerUnit, 1e-9, "オンサイトでは顧客の運転の工数を増やしても SX の総コストは変わらない");
+  near(scenario(moreHours, "enhanced", "dye", "投入-既設").siteTaskHours, s.siteTaskHours, 1e-9, "オンサイトでは顧客の運転の工数を増やしても SX の作業工数は変わらない");
   // 行に作業単価を入れると共通の単価より優先する。共通の単価を変えても、その行は動かない
   const ownRate = clone();
   task(ownRate, "ct_run_injection").hourlyRate = 6000;
@@ -275,8 +277,12 @@ near(scenario(fixture, "wild", "metal", "投入-既設").totalPerUnit, 408.1, 0.
   assert.match(main, /METHOD_DESCRIPTION\[selection\.method\]/, "装置が何かを一文で出す");
   assert.doesNotMatch(ui, /A:循環|B:投入|C:オフサイト/, "画面の文言に A:循環 / B:投入 / C:オフサイト を出さない");
   assert.match(controls, /誰がやるか/, "作業リストで誰がやるかを変えられる");
-  assert.match(read(files[4]), /顧客がやる/, "作業の流れに顧客がやる作業を分けて出す");
-  assert.match(results, /customerHours/, "結果の欄に顧客がやる作業の工数を出す");
+  assert.match(read(files[4]), /顧客がやる/, "作業の流れで顧客がやる作業に札を付ける");
+  // 2026-09-14 まさ指摘⑤: 顧客側に残る運転の時間について「知ったこっちゃなくない？SXのコストに含まれないじゃん」
+  // 顧客がやる作業の時間や円は、計算にも画面にも出さない。
+  assert.doesNotMatch(ui, /customerHours|customerTask|顧客がやる作業の工数|顧客 年/, "顧客がやる作業の時間を画面に出さない");
+  const engine = read("../src/lib/project-cost-model.ts");
+  assert.doesNotMatch(engine, /customerHours|customerTask/, "計算エンジンは顧客がやる作業の時間・参考の年額を持たない");
   assert.match(controls, /METAL_SINGLE_USE_NOTE/, "金属回収は使用回数1回で固定と出す");
   assert.match(controls, /reuse_count" && application === "metal"/, "金属回収では使用回数の欄を出さない");
   const route = read("../src/app/api/project-cost-model/route.ts");
@@ -371,13 +377,11 @@ near(scenario(fixture, "wild", "metal", "投入-既設").totalPerUnit, 408.1, 0.
     assert.equal(resolvePerformer({ ...t, performer: "customer" }, "onsite"), "sx", "製造拠点の作業は常に SX");
   }
   const on = scenario(fixture, "enhanced", "dye", "投入-既設");
-  near(on.customerTaskHours, 7.5 * 300, 1e-9, "オンサイト直接投入の顧客の工数 = 7.5時間 × 300バッチ");
-  near(on.customerTaskAnnual, 7.5 * 4000 * 300, 1e-6, "顧客の作業の参考年額");
-  // SX が運転を請け負う形にすると、オンサイトでも運転の分だけ SX の原価に入る
+  // SX が運転を請け負う形にすると、オンサイトでも運転の分だけ SX の原価と作業工数に入る
   const sxRuns = clone();
   task(sxRuns, "ct_run_injection").performer = "sx";
   near(scenario(sxRuns, "enhanced", "dye", "投入-既設").totalPerUnit - on.totalPerUnit, (7.5 * 4000 * 300) / 30000, 1e-9, "SX が運転すると 300円/m³ 上がる");
-  near(scenario(sxRuns, "enhanced", "dye", "投入-既設").customerTaskHours, 0, 1e-9, "顧客の工数は0");
+  near(scenario(sxRuns, "enhanced", "dye", "投入-既設").siteTaskHours - on.siteTaskHours, 7.5 * 300, 1e-9, "SX が運転すると SX の作業工数に 7.5時間 × 300バッチ が入る");
   // 顧客に運転を任せる形にすると、オフサイトでも SX の原価から外れる
   const customerRuns = clone();
   task(customerRuns, "ct_run_injection").performer = "customer";
@@ -399,7 +403,6 @@ near(scenario(fixture, "wild", "metal", "投入-既設").totalPerUnit, 408.1, 0.
           assert.ok(x, `${strain} ${application} ${location} ${method}`);
           const label = `${strain} ${application} ${location} ${method}`;
           near(flow.siteHours, x.siteTaskHours, 1e-9, `${label} 流れの SX の工数 = 作業工数`);
-          near(flow.customerHours, x.customerTaskHours, 1e-9, `${label} 流れの顧客の工数`);
           near(flow.siteAnnual, x.siteTaskAnnual, 1e-6, `${label} 流れの年額 = SX の作業の年額`);
           near(flow.sitePerUnit, x.siteTaskPerUnit, 1e-9, `${label} 流れの1単位 = SX の作業の1単位`);
           near(flow.productionHours, c.biomass.taskHoursAnnual, 1e-9, `${strain} 製造拠点の工数`);
@@ -425,10 +428,14 @@ near(scenario(fixture, "wild", "metal", "投入-既設").totalPerUnit, 408.1, 0.
   );
   const treat = onFlow.steps.find((st) => st.label === "排液を処理する");
   assert.ok(treat && treat.rows.every((r) => r.performer === "customer") && treat.siteHours === 0 && treat.perUnit === 0, "オンサイトの処理の運転は顧客がやり、SX の工数と原価に入らない");
+  // 顧客がやる作業は、工数が空欄でも「工数未確認」に数えない
+  const unknownRun = clone();
+  task(unknownRun, "ct_run_injection").hoursPerOccurrence = null;
+  const unknownFlow = computeTaskFlow(unknownRun, computeCostModel(unknownRun, { strain: "enhanced" }), { application: "dye", location: "onsite", method: "投入" });
+  assert.equal(unknownFlow.unknownCount, onFlow.unknownCount, "顧客がやる作業の空欄は工数未確認に数えない");
   const wildFlow = computeTaskFlow(fixture, computeCostModel(fixture, { strain: "wild" }), { application: "dye", location: "onsite", method: "投入" });
   assert.ok(!wildFlow.steps.some((st) => st.label.startsWith("閉鎖系")), "自然株に閉鎖系の管理の段は出ない");
   near(onFlow.siteHours, 192.7, 0.05, "強化株 色素 オンサイト直接投入 SX の作業工数（年）");
-  near(onFlow.customerHours, 2250, 1e-9, "強化株 色素 オンサイト直接投入 顧客の作業工数（年）");
   near(computeTaskFlow(fixture, c, { application: "dye", location: "offsite", method: "投入" }).siteHours, 10052.7, 0.05, "強化株 色素 オフサイト直接投入 SX の作業工数（年）");
 }
 

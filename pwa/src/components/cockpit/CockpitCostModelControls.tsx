@@ -412,7 +412,7 @@ function TaskList({
     <div>
       <p className="mb-1.5 text-[11px] leading-5 text-[#6e6e73]">
         年額 ＝ 年間回数 ×（1回の工数 × 作業単価 ＋ 1回の経費）。作業単価が空欄の行は共通の作業単価（{int(commonRate)}円/時）を使う。工数が空欄の行は未確認で、0時間として数える。
-        {PRODUCTION_SITE_LABEL}の作業は菌体費に入る。「誰がやるか」が顧客の作業は、工数だけを数えてSXの原価に入れない（円/{unit}は「—」）。段は「作業の流れと工数」と同じ順。選んだ方式・装置で発生しない段と行は薄く出す。
+        {PRODUCTION_SITE_LABEL}の作業は菌体費に入る。「誰がやるか」が顧客の作業は、SXの原価にも作業時間にも数えない（円/{unit}は「—」）。段は「作業の流れと工数」と同じ順。選んだ方式・装置で発生しない段と行は薄く出す。
       </p>
       <div className="hidden xl:grid xl:grid-cols-[minmax(0,1fr)_78px_150px_92px_92px_56px] xl:gap-x-1.5 xl:border-b xl:border-[#e5e5e7] xl:pb-1 xl:text-[10px] xl:font-medium xl:text-[#6e6e73]">
         <span>作業</span>
@@ -430,14 +430,15 @@ function TaskList({
           <p className={`flex flex-wrap items-baseline gap-x-2 text-[11px] font-semibold ${step ? "text-[#1d1d1f]" : "text-[#86868b]"}`}>
             <span>{step ? `${stepIndex + 1}. ` : ""}{g}</span>
             <span className="text-[10px] font-normal text-[#6e6e73]">
-              {step
-                ? [
-                    `SX 年 ${int(step.siteHours + step.productionHours)}時間${step.productionHours > 0 && step.siteHours === 0 ? "（拠点全体）" : ""}`,
-                    step.customerHours > 0 ? `顧客 年 ${int(step.customerHours)}時間（原価に入れない）` : null,
-                    `${num(step.perUnit)} 円/${unit}`,
-                    step.unknownCount > 0 ? `工数未確認 ${step.unknownCount}件` : null,
-                  ].filter(Boolean).join("・")
-                : "選んだ方式・装置では発生しない"}
+              {!step
+                ? "選んだ方式・装置では発生しない"
+                : step.rows.every((r) => r.performer === "customer")
+                  ? "顧客がやる（SXの原価に入れない）"
+                  : [
+                      `SX 年 ${int(step.siteHours + step.productionHours)}時間${step.productionHours > 0 && step.siteHours === 0 ? "（拠点全体）" : ""}`,
+                      `${num(step.perUnit)} 円/${unit}`,
+                      step.unknownCount > 0 ? `工数未確認 ${step.unknownCount}件` : null,
+                    ].filter(Boolean).join("・")}
             </span>
           </p>
           <ul className="flex flex-col divide-y divide-[#f0f0f2]">
@@ -460,9 +461,15 @@ function TaskList({
                       <ScopeTag strain={t.strain} application={t.application} />
                       <span className="ml-1 align-middle"><ConfidenceTag value={t.confidence} /></span>
                       <span className="block text-[10px] leading-4 text-[#6e6e73]">
-                        {SCENARIO_SCOPE_LABEL[t.scenario as CostScenarioScope]}・年 {yen(amt.annual)}
-                        {amt.annualHours > 0 ? `（${num(amt.annualHours, 0)}時間）` : ""}
-                        {applies && doneBy === "customer" && <span className="font-semibold text-[#3c3c43]">・顧客がやる（原価に入れない）</span>}
+                        {SCENARIO_SCOPE_LABEL[t.scenario as CostScenarioScope]}
+                        {doneBy === "customer" ? (
+                          <span className="font-semibold text-[#3c3c43]">・顧客がやる（SXの原価に入れない）</span>
+                        ) : (
+                          <>
+                            ・年 {yen(amt.annual)}
+                            {amt.annualHours > 0 ? `（${num(amt.annualHours, 0)}時間）` : ""}
+                          </>
+                        )}
                         <NoteToggle note={t.note} />
                       </span>
                       {!isCentral && (
@@ -578,7 +585,7 @@ function TaskList({
         <p className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 text-[11px] leading-5 text-[#3c3c43]">
           選んだ方式・装置でSXがやる作業（運ぶ・運転・保守・管理） <span className="font-semibold tabular-nums">{num(scenario.siteTaskPerUnit)} 円/{unit}</span>
           （年 {yen(scenario.siteTaskAnnual)}・{int(scenario.siteTaskHours)}時間）。
-          {scenario.customerTaskHours > 0 && <>顧客がやる作業は年 {int(scenario.customerTaskHours)}時間で、SXの原価に入れていない。</>}{PRODUCTION_SITE_LABEL}の作業は年 {yen(b.tasksAnnual)}（{int(b.taskHoursAnnual)}時間）で、菌体1kgあたり {num(b.rows.find((r) => r.key === "tasks")?.perKg ?? 0)} 円として菌体費に入る。
+{PRODUCTION_SITE_LABEL}の作業は年 {yen(b.tasksAnnual)}（{int(b.taskHoursAnnual)}時間）で、菌体1kgあたり {num(b.rows.find((r) => r.key === "tasks")?.perKg ?? 0)} 円として菌体費に入る。
         </p>
       )}
     </div>

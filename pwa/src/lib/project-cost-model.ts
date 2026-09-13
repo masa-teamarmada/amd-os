@@ -29,7 +29,8 @@
 //
 // 作業には「誰がやるか」(performer) を持たせる。SX がやる作業だけを SX の原価に入れる。
 // 顧客工場での処理の運転は顧客がやる (まさ 2026-09-14「全顧客の工場にSXの社員が張り付くってありえない」)。
-// performer = site の作業は、オンサイトなら顧客、オフサイトなら SX がやる。顧客がやる作業は工数だけを出し、原価に入れない。
+// performer = site の作業は、オンサイトなら顧客、オフサイトなら SX がやる。
+// 顧客がやる作業は SX の原価にも作業時間にも数えない。顧客側の時間は SX の試算の対象外 (まさ 2026-09-14「知ったこっちゃなくない？SXのコストに含まれないじゃん」)。
 //
 // 金属回収は酸で菌体を溶かして金属を取り出すので、菌体使用回数は1回で固定する。使い回せるのは色素分解だけ (まさ 2026-09-13)。
 //
@@ -447,7 +448,7 @@ export const BREAKDOWN_LABEL: Record<CostBreakdownKey, string> = {
 export const BREAKDOWN_HINT: Record<CostBreakdownKey, string> = {
   biomass: "第1段の菌体1kgの原価 × 使い切る菌体量",
   transport: "オンサイトは菌体の搬入・搬出と移動、オフサイトは排液の輸送。工数 × 作業単価 ＋ 経費",
-  labor: "運ぶ以外の作業（処理の運転、設備の交換、閉鎖系の管理など）。工数 × 作業単価 ＋ 経費",
+  labor: "SXがやる、運ぶ以外の作業（オフサイトの処理の運転、設備の交換、閉鎖系の管理など）。工数 × 作業単価 ＋ 経費",
   postProcess: "使用済み菌体の後処理。金属回収は酸処理、色素分解は汚泥としての処分",
   consumables: "処理に使う消耗品・電力・分析と、オフサイトの放流費",
   capex: "処理設備と槽の初期投資 ÷ 耐用年数",
@@ -484,10 +485,6 @@ export interface CostScenarioResult {
   siteTaskPerUnit: number;
   /** SX がやる作業の年間工数 (人時)。製造拠点の作業は含まない (拠点全体の工数は biomass.taskHoursAnnual)。 */
   siteTaskHours: number;
-  /** 顧客がやる作業の年間工数 (オンサイトの処理の運転など)。SX の原価には入れない。 */
-  customerTaskHours: number;
-  /** 顧客がやる作業を作業単価で円にした年額 (参考)。SX の原価には入れない。 */
-  customerTaskAnnual: number;
   /** うち「運ぶ」(巡回・輸送) の作業。 */
   transportPerUnit: number;
   /** 現場の OPEX 合計 = 明細 + 作業。 */
@@ -1052,12 +1049,9 @@ export function computeCostModel(
       const own = live.filter((i) => scopes.includes(i.scenario) && scopeApplies(i, sel));
       const counted = own.filter((i) => i.costType !== "参考");
       const applicableTasks = tasks.filter((t) => scopes.includes(t.scenario) && scopeApplies(t, sel));
-      // SX の原価に入れるのは SX がやる作業だけ。顧客がやる作業は工数と参考の年額だけを持つ。
+      // SX の原価と作業時間に入れるのは SX がやる作業だけ。顧客がやる作業は数えない。
       const siteTaskAmounts = applicableTasks
         .filter((t) => resolvePerformer(t, location) === "sx")
-        .map((t) => ({ task: t, amount: taskAnnualOf(t) }));
-      const customerTaskAmounts = applicableTasks
-        .filter((t) => resolvePerformer(t, location) === "customer")
         .map((t) => ({ task: t, amount: taskAnnualOf(t) }));
       const siteItemOpexAnnual = counted.filter((i) => i.costType === "OPEX").reduce((s, i) => s + amount(i), 0);
       const siteTaskAnnual = siteTaskAmounts.reduce((s, x) => s + x.amount.annual, 0);
@@ -1197,8 +1191,6 @@ export function computeCostModel(
           siteTaskAnnual,
           siteTaskPerUnit: perUnit(siteTaskAnnual),
           siteTaskHours,
-          customerTaskHours: customerTaskAmounts.reduce((t, x) => t + x.amount.annualHours, 0),
-          customerTaskAnnual: customerTaskAmounts.reduce((t, x) => t + x.amount.annual, 0),
           transportPerUnit: perUnit(transportAnnual),
           siteOpexAnnual,
           siteOpexPerUnit: perUnit(siteOpexAnnual),
@@ -1263,7 +1255,7 @@ export interface CostFlowTaskRow {
   amount: CostTaskAmount;
   /** 製造拠点の作業か (年額と工数は拠点全体。1単位あたりは菌体費に配った額)。 */
   isProduction: boolean;
-  /** 選んだ方式で、誰がやるか。customer の作業は SX の原価に入れない (perUnit は参考)。 */
+  /** 選んだ方式で、誰がやるか。customer の作業は段の工数・年額・1単位に数えない。 */
   performer: "sx" | "customer";
   /** 処理1単位あたり。製造拠点の作業は「年額 ÷ 生産能力 ÷ 販売率 × 使い切る菌体量」。 */
   perUnit: number;
@@ -1277,11 +1269,9 @@ export interface CostFlowStep {
   scopes: CostScenarioScope[];
   /** SX がやる作業の、顧客1社分の年間工数 (製造拠点の作業を除く)。 */
   siteHours: number;
-  /** 顧客がやる作業の年間工数。 */
-  customerHours: number;
   /** 製造拠点の年間工数 (拠点全体)。 */
   productionHours: number;
-  /** 工数が未確認 (空欄) の作業の数。 */
+  /** SX がやる作業のうち、工数が未確認 (空欄) の作業の数。 */
   unknownCount: number;
   /** SX がやる作業の、顧客1社分の年額 (製造拠点の作業を除く)。 */
   siteAnnual: number;
@@ -1293,8 +1283,6 @@ export interface CostTaskFlow {
   steps: CostFlowStep[];
   /** SX がやる作業の、顧客1社分の年間工数 (製造拠点の作業を除く)。シナリオの siteTaskHours と一致する。 */
   siteHours: number;
-  /** 顧客がやる作業の年間工数。シナリオの customerTaskHours と一致する。 */
-  customerHours: number;
   /** 製造拠点の年間工数 (拠点全体)。 */
   productionHours: number;
   unknownCount: number;
@@ -1334,16 +1322,14 @@ export function computeTaskFlow(
     const label = task.groupLabel ?? "作業";
     let step = steps.find((s) => s.label === label);
     if (!step) {
-      step = { label, rows: [], scopes: [], siteHours: 0, customerHours: 0, productionHours: 0, unknownCount: 0, siteAnnual: 0, perUnit: 0 };
+      step = { label, rows: [], scopes: [], siteHours: 0, productionHours: 0, unknownCount: 0, siteAnnual: 0, perUnit: 0 };
       steps.push(step);
     }
     step.rows.push({ task, amount, isProduction, performer, perUnit });
     if (!step.scopes.includes(task.scenario)) step.scopes.push(task.scenario);
+    // 顧客がやる作業は、行として流れに残すだけで、工数・年額・1単位・未確認の数には入れない。
+    if (performer === "customer") continue;
     if (task.hoursPerOccurrence === null || task.hoursPerOccurrence === undefined) step.unknownCount += 1;
-    if (performer === "customer") {
-      step.customerHours += amount.annualHours;
-      continue;
-    }
     if (isProduction) step.productionHours += amount.annualHours;
     else {
       step.siteHours += amount.annualHours;
@@ -1357,7 +1343,6 @@ export function computeTaskFlow(
   return {
     steps,
     siteHours,
-    customerHours: steps.reduce((t, s) => t + s.customerHours, 0),
     productionHours: steps.reduce((t, s) => t + s.productionHours, 0),
     unknownCount: steps.reduce((t, s) => t + s.unknownCount, 0),
     siteAnnual,

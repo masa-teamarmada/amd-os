@@ -194,7 +194,7 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
 
       <Card
         title={`${scenarios.length}シナリオの内訳（${[strainLabel, appLabel].filter(Boolean).join("・") || "全体"}）`}
-        hint={`CAPEXは償却後の年額換算。作業（人件費）はSXがやる作業だけを総コストに含み、顧客がやる作業は工数だけを出す。単位は 円/${unit}（括弧内は 円/年）。`}
+        hint={`CAPEXは償却後の年額換算。作業（人件費）はSXがやる作業だけを総コストに含む（顧客がやる作業は数えない）。単位は 円/${unit}（括弧内は 円/年）。`}
       >
         <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
           <table className="w-full min-w-[720px] border-collapse text-[12px]">
@@ -216,7 +216,6 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
               <Row label="　SXがやる作業（運ぶ・運転・保守・管理）" scenarios={scenarios} get={(s) => [s.siteTaskPerUnit, s.siteTaskAnnual]} />
               <Row label="　うち運ぶ（巡回・輸送）" scenarios={scenarios} get={(s) => [s.transportPerUnit, null]} muted />
               <Row label="　SXの作業工数（時間/年）" scenarios={scenarios} get={(s) => [null, s.siteTaskHours]} muted />
-              <Row label="　顧客がやる作業の工数（時間/年・原価に入れない）" scenarios={scenarios} get={(s) => [null, s.customerTaskHours]} muted />
               <Row label="　使用済み菌体の後処理" scenarios={scenarios} get={(s) => [s.postProcessPerUnit, null]} />
               <Row label="　CAPEX 年額（槽含む）" scenarios={scenarios} get={(s) => [s.siteCapexPerUnit, s.siteCapexAnnual]} />
               <Row label="　小計" scenarios={scenarios} get={(s) => [s.siteTotalPerUnit, null]} strong />
@@ -415,7 +414,7 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
       </Card>
 
       {tasks.length > 0 && (
-        <Card title="作業リストの根拠と確認先" hint={`操作パネルの作業リストと同じ行。年額は選んだシナリオの物量（年間バッチ数 ${num(derived.annualBatches, 0)}・訪問回数 ${num(derived.visitsPerYear, 1)}・輸送 ${int(derived.truckTripsPerYear)}）で出す。「誰がやるか」が顧客の作業は、SXの原価に入れない。`}>
+        <Card title="作業リストの根拠と確認先" hint={`操作パネルの作業リストと同じ行。年額は選んだシナリオの物量（年間バッチ数 ${num(derived.annualBatches, 0)}・訪問回数 ${num(derived.visitsPerYear, 1)}・輸送 ${int(derived.truckTripsPerYear)}）で出す。「誰がやるか」が顧客の作業は、SXの原価に入れない（年額は「—」）。`}>
           <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
             <table className="w-full min-w-[760px] border-collapse text-[11px]">
               <thead>
@@ -457,7 +456,9 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
                       </td>
                       <td className="whitespace-nowrap px-2 py-1.5 text-right text-[#1d1d1f]">{t.hourlyRate === null ? `共通 ${int(amt.rate)}円` : `${int(t.hourlyRate)}円`}</td>
                       <td className="whitespace-nowrap px-2 py-1.5 text-right text-[#1d1d1f]">{int(t.expensePerOccurrence)}円</td>
-                      <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold text-[#1d1d1f]">{int(amt.annual)}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold text-[#1d1d1f]">
+                        {!isCentral && resolvePerformer(t, selection.location) === "customer" ? <span className="font-normal text-[#6e6e73]">—</span> : int(amt.annual)}
+                      </td>
                       <td className="py-1.5 pl-2">
                         <div className="flex items-center gap-1.5">
                           <ConfidenceTag value={t.confidence} />
