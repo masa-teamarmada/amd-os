@@ -6,8 +6,11 @@ import {
   CONFIDENCE_LABEL,
   PRODUCTION_SITE_LABEL,
   SCENARIO_SCOPE_LABEL,
+  LOCATION_SHORT_LABEL,
   STRAIN_LABEL,
   TASK_DRIVER_LABEL,
+  TASK_PERFORMER_SHORT_LABEL,
+  resolvePerformer,
   annualAmount,
   centralItemPerKg,
   costItemLabel,
@@ -127,7 +130,9 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
   const tasks = working.tasks ?? [];
   const notesOf = (section: CostNoteSection) =>
     (notes ?? []).filter((n) => n.section === section).sort((a, b) => a.sortOrder - b.sortOrder);
+  // 方式 (オンサイト → オフサイト) × 装置 × 槽の順。
   const scenarios = computed.scenarios.filter((s) => s.application === selection.application);
+  const headOf = (s: CostScenarioResult) => `${LOCATION_SHORT_LABEL[s.location]}・${s.label}`;
   const strainLabel = computed.strain ? STRAIN_LABEL[computed.strain] : "";
   const appLabel = selection.application ? APPLICATION_LABEL[selection.application] : "";
   const sel: CostSelection = { strain: selection.strain, application: selection.application };
@@ -189,7 +194,7 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
 
       <Card
         title={`${scenarios.length}シナリオの内訳（${[strainLabel, appLabel].filter(Boolean).join("・") || "全体"}）`}
-        hint={`CAPEXは償却後の年額換算。作業（人件費）は作業リストの年額で総コストに含む。単位は 円/${unit}（括弧内は 円/年）。`}
+        hint={`CAPEXは償却後の年額換算。作業（人件費）はSXがやる作業だけを総コストに含み、顧客がやる作業は工数だけを出す。単位は 円/${unit}（括弧内は 円/年）。`}
       >
         <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
           <table className="w-full min-w-[720px] border-collapse text-[12px]">
@@ -197,7 +202,7 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
               <tr className="border-b border-[#e5e5e7] text-left text-[11px] text-[#6e6e73]">
                 <th className="py-2 pr-2 font-medium">指標</th>
                 {scenarios.map((s) => (
-                  <th key={s.key} className="whitespace-nowrap px-2 py-2 text-right font-medium">{s.label}</th>
+                  <th key={s.key} className="whitespace-nowrap px-2 py-2 text-right font-medium">{headOf(s)}</th>
                 ))}
               </tr>
             </thead>
@@ -208,9 +213,10 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
 
               <SectionRow label="処理（顧客1社あたり。オンサイトは顧客工場、オフサイトはSX工場）" span={scenarios.length + 1} />
               <Row label="　消耗品・電力・放流など" scenarios={scenarios} get={(s) => [s.siteItemOpexPerUnit - s.postProcessPerUnit, s.siteItemOpexAnnual - s.postProcessPerUnit * derived.annualVolume]} />
-              <Row label="　作業（運ぶ・運転・保守・管理）" scenarios={scenarios} get={(s) => [s.siteTaskPerUnit, s.siteTaskAnnual]} />
+              <Row label="　SXがやる作業（運ぶ・運転・保守・管理）" scenarios={scenarios} get={(s) => [s.siteTaskPerUnit, s.siteTaskAnnual]} />
               <Row label="　うち運ぶ（巡回・輸送）" scenarios={scenarios} get={(s) => [s.transportPerUnit, null]} muted />
-              <Row label="　作業工数（時間/年）" scenarios={scenarios} get={(s) => [null, s.siteTaskHours]} muted />
+              <Row label="　SXの作業工数（時間/年）" scenarios={scenarios} get={(s) => [null, s.siteTaskHours]} muted />
+              <Row label="　顧客がやる作業の工数（時間/年・原価に入れない）" scenarios={scenarios} get={(s) => [null, s.customerTaskHours]} muted />
               <Row label="　使用済み菌体の後処理" scenarios={scenarios} get={(s) => [s.postProcessPerUnit, null]} />
               <Row label="　CAPEX 年額（槽含む）" scenarios={scenarios} get={(s) => [s.siteCapexPerUnit, s.siteCapexAnnual]} />
               <Row label="　小計" scenarios={scenarios} get={(s) => [s.siteTotalPerUnit, null]} strong />
@@ -409,13 +415,14 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
       </Card>
 
       {tasks.length > 0 && (
-        <Card title="作業リストの根拠と確認先" hint={`操作パネルの作業リストと同じ行。年額は選んだシナリオの物量（年間バッチ数 ${num(derived.annualBatches, 0)}・訪問回数 ${num(derived.visitsPerYear, 1)}・輸送 ${int(derived.truckTripsPerYear)}）で出す。`}>
+        <Card title="作業リストの根拠と確認先" hint={`操作パネルの作業リストと同じ行。年額は選んだシナリオの物量（年間バッチ数 ${num(derived.annualBatches, 0)}・訪問回数 ${num(derived.visitsPerYear, 1)}・輸送 ${int(derived.truckTripsPerYear)}）で出す。「誰がやるか」が顧客の作業は、SXの原価に入れない。`}>
           <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
             <table className="w-full min-w-[760px] border-collapse text-[11px]">
               <thead>
                 <tr className="border-b border-[#e5e5e7] text-left text-[10px] text-[#6e6e73]">
                   <th className="py-1.5 pr-2 font-medium">作業</th>
                   <th className="px-2 py-1.5 font-medium">どこで発生するか</th>
+                  <th className="px-2 py-1.5 font-medium">誰がやるか</th>
                   <th className="px-2 py-1.5 text-right font-medium">1回の工数</th>
                   <th className="px-2 py-1.5 font-medium">年間回数</th>
                   <th className="px-2 py-1.5 text-right font-medium">作業単価</th>
@@ -429,8 +436,8 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
                   const base = savedTask(t.costTaskId);
                   const isCentral = t.scenario === "中央培養";
                   const amt = taskAmount(t, assumptions, derived, isCentral ? centralSel : sel);
-                  const applies = rowAppliesTo(t, selection.method, sel);
-                  const changed = !!base && (base.hoursPerOccurrence !== t.hoursPerOccurrence || base.countDriver !== t.countDriver || base.countPerYear !== t.countPerYear || base.hourlyRate !== t.hourlyRate || base.expensePerOccurrence !== t.expensePerOccurrence);
+                  const applies = rowAppliesTo(t, selection.location, selection.method, sel);
+                  const changed = !!base && (base.hoursPerOccurrence !== t.hoursPerOccurrence || base.countDriver !== t.countDriver || base.countPerYear !== t.countPerYear || base.hourlyRate !== t.hourlyRate || base.expensePerOccurrence !== t.expensePerOccurrence || base.performer !== t.performer);
                   return (
                     <tr key={t.costTaskId} className={`border-b border-[#f6f6f7] align-top ${applies ? "" : "opacity-50"}`}>
                       <td className="py-1.5 pr-2 text-[#1d1d1f]">
@@ -440,6 +447,10 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
                         {t.note && <p className="mt-0.5 max-w-[420px] text-[10px] leading-4 text-[#6e6e73]">{t.note}</p>}
                       </td>
                       <td className="px-2 py-1.5 text-[#6e6e73]">{scenarioLabel(t.scenario)}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-[#1d1d1f]">
+                        {isCentral ? "SX" : TASK_PERFORMER_SHORT_LABEL[t.performer]}
+                        {!isCentral && t.performer === "site" && <span className="text-[10px] text-[#6e6e73]">（いまは{resolvePerformer(t, selection.location) === "customer" ? "顧客" : "SX"}）</span>}
+                      </td>
                       <td className="whitespace-nowrap px-2 py-1.5 text-right text-[#1d1d1f]">{t.hoursPerOccurrence === null ? "未確認" : `${num(t.hoursPerOccurrence, t.hoursPerOccurrence % 1 === 0 ? 0 : 2)}時間`}</td>
                       <td className="whitespace-nowrap px-2 py-1.5 text-[#1d1d1f]">
                         {isCentral || t.countDriver === "fixed" ? `${num(t.countPerYear ?? 0, 0)}回` : `${TASK_DRIVER_LABEL[t.countDriver]}（${num(amt.occurrences, amt.occurrences < 10 ? 2 : 0)}回）`}
@@ -500,7 +511,7 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
                     <tbody className="tabular-nums">
                       {rows.map((i) => {
                         const rowSel = isCentral ? centralSel : sel;
-                        const applies = rowAppliesTo(i, selection.method, sel);
+                        const applies = rowAppliesTo(i, selection.location, selection.method, sel);
                         const annual = applies ? annualAmount(i, assumptions, derived, rowSel) : null;
                         const right = !applies ? null : isCentral ? centralItemPerKg(i, assumptions, computed.biomass.capacityKgYear, rowSel) : (annual ?? 0) / (derived.annualVolume || 1);
                         const base = savedItem(i.costItemId);

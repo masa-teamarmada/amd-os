@@ -6,13 +6,15 @@ import {
   BREAKDOWN_HINT,
   BREAKDOWN_LABEL,
   BREAKDOWN_ORDER,
-  LOCATION_LABEL,
+  LOCATION_SHORT_LABEL,
+  METHODS,
+  METHOD_LABEL,
   STRAIN_LABEL,
-  scenarioLabelOf,
-  tankModesFor,
+  scenarioFullLabelOf,
   type CostApplication,
   type CostBreakdownKey,
   type CostComputation,
+  type CostLocation,
   type CostMethod,
   type CostScenarioResult,
   type CostStrain,
@@ -23,22 +25,37 @@ import { CATEGORY_COLOR, CATEGORY_SHORT_LABEL, Delta, Swatch, int, num, signed, 
 
 // コスト試算タブの結果パネル。操作パネルの横に置き、数字を動かしたときに全体がどう変わるかを
 // スクロールせずに見られるようにする (まさ 2026-09-13)。値の横の矢印は保存値からの差。
-// 方式ごとの総コストは内訳の色で積んだ棒で並べ (オンサイトとオフサイトを同じ目盛りで比べる)、
-// 選んだ方式の内訳は区分ごとの棒と割合で出す (まさ 2026-09-13「どこがどのくらいの割合でコスト食ってるのか。棒グラフとかで」)。
+// 方式 (オンサイト / オフサイト) × 装置の総コストは内訳の色で積んだ棒で並べ (同じ目盛りで比べる)、
+// 選んだ組み合わせの内訳は区分ごとの棒と割合で出す (まさ 2026-09-13「どこがどのくらいの割合でコスト食ってるのか。棒グラフとかで」)。
 
 export interface CostViewSelection {
   strain: CostStrain | null;
   application: CostApplication | null;
+  /** 方式 (オンサイト / オフサイト)。 */
+  location: CostLocation;
+  /** 装置 (循環カートリッジ / 直接投入)。 */
   method: CostMethod;
+  /** 槽。オフサイトは常に新設。 */
   tankMode: CostTankMode;
 }
 
-export function findScenario(c: CostComputation, application: CostApplication | null, method: CostMethod, tankMode: CostTankMode) {
-  return c.scenarios.find((s) => s.application === application && s.method === method && s.tankMode === tankMode);
+export function findScenario(
+  c: CostComputation,
+  application: CostApplication | null,
+  location: CostLocation,
+  method: CostMethod,
+  tankMode: CostTankMode
+) {
+  const tank = location === "offsite" ? "新設" : tankMode;
+  return c.scenarios.find((s) => s.application === application && s.location === location && s.method === method && s.tankMode === tank);
 }
 
 export function selectionLabel(sel: CostViewSelection) {
-  return [sel.strain ? STRAIN_LABEL[sel.strain] : null, sel.application ? APPLICATION_LABEL[sel.application] : null, scenarioLabelOf(sel.method, sel.tankMode)]
+  return [
+    sel.strain ? STRAIN_LABEL[sel.strain] : null,
+    sel.application ? APPLICATION_LABEL[sel.application] : null,
+    scenarioFullLabelOf(sel.location, sel.method, sel.tankMode),
+  ]
     .filter(Boolean)
     .join("・");
 }
@@ -62,14 +79,14 @@ interface Props {
   flow: CostTaskFlow;
   baselineFlow: CostTaskFlow;
   onSelectStrain: (strain: CostStrain) => void;
-  onSelectScenario: (application: CostApplication | null, method: CostMethod, tankMode: CostTankMode) => void;
+  onSelectScenario: (application: CostApplication | null, location: CostLocation, method: CostMethod) => void;
   /** 操作パネルの「作業の流れと工数」へ移る。 */
   onShowFlow: () => void;
 }
 
-/** 方式×槽の並び (A:循環／既設 … C:オフサイト)。 */
-export function scenarioSlots(c: CostComputation): Array<{ method: CostMethod; tankMode: CostTankMode }> {
-  return c.methods.flatMap((method) => tankModesFor(method).map((tankMode) => ({ method, tankMode })));
+/** 結果の棒の並び。方式 (オンサイト → オフサイト) × 装置。オンサイトの槽は選んでいる槽。 */
+export function scenarioSlots(c: CostComputation, tankMode: CostTankMode): Array<{ location: CostLocation; method: CostMethod; tankMode: CostTankMode }> {
+  return c.locations.flatMap((location) => METHODS.map((method) => ({ location, method, tankMode: location === "offsite" ? "新設" : tankMode })));
 }
 
 function statusHint(hasMargin: boolean, targetTotal: number | null) {
@@ -145,16 +162,16 @@ export function CostResultsPanel({
   const apps: Array<CostApplication | null> = computed.applications.length > 0 ? computed.applications : [null];
   const app = selection.application;
   const otherApp = apps.find((a) => a !== app) ?? null;
-  const current = findScenario(computed, app, selection.method, selection.tankMode);
-  const currentBase = findScenario(baseline, app, selection.method, selection.tankMode);
-  const other = otherStrain ? findScenario(otherStrain, app, selection.method, selection.tankMode) : undefined;
+  const current = findScenario(computed, app, selection.location, selection.method, selection.tankMode);
+  const currentBase = findScenario(baseline, app, selection.location, selection.method, selection.tankMode);
+  const other = otherStrain ? findScenario(otherStrain, app, selection.location, selection.method, selection.tankMode) : undefined;
   const derived = computed.derivedByApplication.find((d) => d.application === app)?.derived ?? computed.derived;
   const b = computed.biomass;
-  const slots = scenarioSlots(computed);
-  const hasOffsite = computed.methods.includes("オフサイト");
+  const slots = scenarioSlots(computed, selection.tankMode);
+  const hasOffsite = computed.locations.includes("offsite");
 
   const rows = slots
-    .map((slot) => ({ slot, s: findScenario(computed, app, slot.method, slot.tankMode) }))
+    .map((slot) => ({ slot, s: findScenario(computed, app, slot.location, slot.method, slot.tankMode) }))
     .filter((r): r is { slot: (typeof slots)[number]; s: CostScenarioResult } => !!r.s);
   const onsiteMax = Math.max(0, ...rows.filter((r) => r.s.location === "onsite").map((r) => r.s.totalPerUnit));
   const allMax = Math.max(0, ...rows.map((r) => r.s.totalPerUnit));
@@ -162,12 +179,10 @@ export function CostResultsPanel({
   // オフサイトが桁違いに大きいとオンサイトの棒が読めなくなるので、目盛りはオンサイトの最大の2倍 (売価の1.3倍) で頭打ちにする。
   const scaleMax = Math.max(Math.min(allMax, Math.max(onsiteMax * 2, price * 1.3)), price * 1.1, targetTotal ?? 0, 1);
 
-  // 選んだ方式と、場所だけを入れ替えた比較相手 (オンサイトを選んでいればオフサイト、オフサイトならB:投入／既設)。
+  // 選んだ組み合わせと、方式だけを入れ替えた比較相手 (同じ装置。オンサイトの槽は選んでいる槽)。
   const counterpart = !hasOffsite || !current
     ? undefined
-    : current.location === "onsite"
-      ? findScenario(computed, app, "オフサイト", "新設")
-      : findScenario(computed, app, "投入", "既設");
+    : findScenario(computed, app, current.location === "onsite" ? "offsite" : "onsite", selection.method, selection.tankMode);
 
   const maxSlice = current ? Math.max(...current.breakdown.map((x) => x.perUnit), 1) : 1;
 
@@ -204,9 +219,9 @@ export function CostResultsPanel({
         )}
       </section>
 
-      {/* 方式ごとの総コスト。内訳の色で積んだ棒を同じ目盛りで並べる。行を押すとその方式を選ぶ。 */}
-      <section aria-label={`方式ごとの総コスト（円/${unit}）`}>
-        <div className="grid grid-cols-[72px_minmax(0,1fr)_84px] items-end gap-x-1.5 pb-0.5 text-[10px] text-[#6e6e73] sm:grid-cols-[72px_minmax(0,1fr)_84px_70px]">
+      {/* 方式 × 装置の総コスト。内訳の色で積んだ棒を同じ目盛りで並べる。行を押すとその組み合わせを選ぶ。 */}
+      <section aria-label={`方式と装置ごとの総コスト（円/${unit}）`}>
+        <div className="grid grid-cols-[88px_minmax(0,1fr)_84px] items-end gap-x-1.5 pb-0.5 text-[10px] text-[#6e6e73] sm:grid-cols-[88px_minmax(0,1fr)_84px_70px]">
           <h4 className="col-span-2 text-[11px] font-semibold text-[#3c3c43]">
             総コスト（円/{unit}）{computed.strain ? `・${STRAIN_LABEL[computed.strain]}` : ""}
             {app && <span className="font-normal text-[#6e6e73]">・棒は{APPLICATION_LABEL[app]}の内訳</span>}
@@ -216,28 +231,31 @@ export function CostResultsPanel({
         </div>
         <ul className="flex flex-col">
           {rows.map(({ slot, s }, i) => {
-            const sb = findScenario(baseline, app, slot.method, slot.tankMode);
+            const sb = findScenario(baseline, app, slot.location, slot.method, slot.tankMode);
             const st = costStatus(s, hasMargin);
-            const active = slot.method === selection.method && slot.tankMode === selection.tankMode;
-            const o = otherApp ? findScenario(computed, otherApp, slot.method, slot.tankMode) : undefined;
+            const active = slot.location === selection.location && slot.method === selection.method;
+            const o = otherApp ? findScenario(computed, otherApp, slot.location, slot.method, slot.tankMode) : undefined;
             const ost = o ? costStatus(o, hasMargin) : null;
-            const groupStart = hasOffsite && (i === 0 || rows[i - 1].s.location !== s.location);
+            const groupStart = i === 0 || rows[i - 1].slot.location !== slot.location;
             return (
-              <li key={`${slot.method}-${slot.tankMode}`}>
+              <li key={`${slot.location}-${slot.method}`}>
                 {groupStart && (
-                  <p className={`text-[10px] font-semibold text-[#6e6e73] ${i === 0 ? "" : "mt-1 border-t border-[#e5e5e7] pt-1"}`}>{LOCATION_LABEL[s.location]}</p>
+                  <p className={`text-[10px] font-semibold text-[#6e6e73] ${i === 0 ? "" : "mt-1 border-t border-[#e5e5e7] pt-1"}`}>
+                    {LOCATION_SHORT_LABEL[slot.location]}
+                    <span className="font-normal">（{slot.location === "offsite" ? "SX工場まで運んで処理・槽はSX工場に新設" : `顧客工場で処理・槽は${slot.tankMode}`}）</span>
+                  </p>
                 )}
                 <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-x-1.5 sm:grid-cols-[minmax(0,1fr)_70px]">
                   <button
                     type="button"
                     aria-pressed={active}
-                    onClick={() => onSelectScenario(app, slot.method, slot.tankMode)}
+                    onClick={() => onSelectScenario(app, slot.location, slot.method)}
                     title={breakdownTitle(s, unit, s.totalPerUnit > scaleMax)}
-                    className={`grid min-h-[44px] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1.5 gap-y-1 rounded-md border px-1 py-1 text-left sm:grid-cols-[72px_minmax(0,1fr)_84px] sm:py-0 xl:min-h-[24px] ${
+                    className={`grid min-h-[44px] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1.5 gap-y-1 rounded-md border px-1 py-1 text-left sm:grid-cols-[88px_minmax(0,1fr)_84px] sm:py-0 xl:min-h-[24px] ${
                       active ? "border-[#027fdc] bg-[#e8f3fc]" : "border-transparent hover:border-[#d2d2d7]"
                     }`}
                   >
-                    <span className="truncate text-[11px] text-[#3c3c43]">{s.label}</span>
+                    <span className="truncate text-[11px] text-[#3c3c43]">{METHOD_LABEL[slot.method]}</span>
                     <span className="order-3 col-span-2 sm:order-none sm:col-span-1">
                       <StackedBar scenario={s} scaleMax={scaleMax} price={price} target={targetTotal} />
                     </span>
@@ -250,7 +268,7 @@ export function CostResultsPanel({
                   {o && ost && otherApp && (
                     <button
                       type="button"
-                      onClick={() => onSelectScenario(otherApp, slot.method, slot.tankMode)}
+                      onClick={() => onSelectScenario(otherApp, slot.location, slot.method)}
                       title={`${APPLICATION_LABEL[otherApp]}に切り替える`}
                       className="hidden min-h-[26px] items-baseline justify-end gap-x-1 rounded-md border border-transparent px-1 tabular-nums hover:border-[#d2d2d7] sm:flex"
                     >
@@ -364,17 +382,26 @@ export function CostResultsPanel({
 
           <dl className="mt-1 grid grid-cols-1 gap-x-3 border-t border-[#e5e5e7] pt-1 text-[11px] leading-[18px] text-[#3c3c43] sm:grid-cols-2">
             <div className="flex flex-wrap items-baseline justify-between gap-x-2 sm:col-span-2">
-              <dt>作業工数</dt>
+              <dt>SXの作業工数</dt>
               <dd className="flex flex-wrap items-baseline justify-end gap-x-1 tabular-nums text-[#1d1d1f]">
                 <span className="font-semibold">年 {int(flow.siteHours)}時間</span>
                 <Delta value={flow.siteHours - baselineFlow.siteHours} digits={0} className="text-[10px]" />
-                <span className="text-[10px] text-[#6e6e73]">（顧客1社分）</span>
-                {flow.productionHours > 0 && <span className="text-[10px] text-[#6e6e73]">＋製造拠点 {int(flow.productionHours)}時間</span>}
+                <span className="text-[10px] text-[#6e6e73]">（顧客1社分{flow.productionHours > 0 ? `＋製造拠点 ${int(flow.productionHours)}時間` : ""}）</span>
                 <button type="button" onClick={onShowFlow} className="min-h-[36px] rounded px-1 text-[10px] font-semibold text-[#0267b2] hover:underline xl:min-h-0">
                   流れを見る
                 </button>
               </dd>
             </div>
+            {flow.customerHours > 0 && (
+              <div className="flex flex-wrap items-baseline justify-between gap-x-2 sm:col-span-2">
+                <dt>顧客がやる作業</dt>
+                <dd className="tabular-nums text-[#1d1d1f]">
+                  年 {int(flow.customerHours)}時間
+                  <Delta value={flow.customerHours - baselineFlow.customerHours} digits={0} className="ml-1 text-[10px]" />
+                  <span className="text-[10px] text-[#6e6e73]">（SXの原価に入れない）</span>
+                </dd>
+              </div>
+            )}
             <div className="flex justify-between gap-2">
               <dt>使い切る菌体</dt>
               <dd className="tabular-nums text-[#1d1d1f]">{num(current.biomassKgPerUnit, 3)} kg/{unit}</dd>
@@ -401,7 +428,7 @@ export function CostResultsPanel({
                   )}
                   {counterpart && (
                     <span>
-                      {counterpart.location === "offsite" ? "オフサイト" : counterpart.label} {num(counterpart.totalPerUnit)}（{signed(counterpart.totalPerUnit - current.totalPerUnit)}）
+                      {LOCATION_SHORT_LABEL[counterpart.location]} {num(counterpart.totalPerUnit)}（{signed(counterpart.totalPerUnit - current.totalPerUnit)}）
                     </span>
                   )}
                 </dd>
@@ -430,8 +457,8 @@ export function CostResultsSummaryBar({
   hasMargin: boolean;
   changeCount: number;
 }) {
-  const s = findScenario(computed, selection.application, selection.method, selection.tankMode);
-  const sb = findScenario(baseline, selection.application, selection.method, selection.tankMode);
+  const s = findScenario(computed, selection.application, selection.location, selection.method, selection.tankMode);
+  const sb = findScenario(baseline, selection.application, selection.location, selection.method, selection.tankMode);
   if (!s) return null;
   const st = costStatus(s, hasMargin);
   return (

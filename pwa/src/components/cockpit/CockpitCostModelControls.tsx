@@ -9,10 +9,14 @@ import {
   SCENARIO_SCOPE_LABEL,
   TASK_DRIVERS,
   TASK_DRIVER_LABEL,
+  TASK_PERFORMERS,
+  TASK_PERFORMER_LABEL,
+  TASK_PERFORMER_SHORT_LABEL,
   annualAmount,
   centralItemPerKg,
   costItemLabel,
   resolveAssumption,
+  resolvePerformer,
   rowAppliesTo,
   taskAmount,
   type CostAssumption,
@@ -24,11 +28,12 @@ import {
   type CostTask,
   type CostTaskDriver,
   type CostTaskFlow,
+  type CostTaskPerformer,
 } from "@/lib/project-cost-model";
 import type { DraftEntity, DraftField, DraftValue } from "@/lib/project-cost-model-draft";
 import { ConfidenceTag, NumberField, ScopeTag, int, num, yen } from "@/components/cockpit/CockpitCostModelParts";
 import { CostTaskFlowOverview, stepAnchorId } from "@/components/cockpit/CockpitCostModelFlow";
-import { selectionLabel, type CostViewSelection } from "@/components/cockpit/CockpitCostModelResults";
+import { findScenario, selectionLabel, type CostViewSelection } from "@/components/cockpit/CockpitCostModelResults";
 
 // コスト試算タブの操作パネル。まだ確定できない数字を、すべてここで動かせるようにする (まさ 2026-09-13)。
 // 書き換えはその場で再計算するだけで保存しない。保存は上の「保存していない変更」から admin が行う。
@@ -60,9 +65,7 @@ interface Section {
 export function CostControlsPanel({ saved, working, computed, selection, flow, unit, onChange, scrollable }: Props) {
   const paneRef = useRef<HTMLDivElement>(null);
   const derived = computed.derivedByApplication.find((d) => d.application === selection.application)?.derived ?? computed.derived;
-  const scenario = computed.scenarios.find(
-    (s) => s.application === selection.application && s.method === selection.method && s.tankMode === selection.tankMode
-  );
+  const scenario = findScenario(computed, selection.application, selection.location, selection.method, selection.tankMode);
 
   // 操作パネルに出す前提 = 計算が読む role_key で、いまの株・用途で実際に採られている行。
   // 金属回収の菌体使用回数は1回で固定なので、前提があっても出さない。
@@ -121,7 +124,7 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
             <p className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 text-[11px] leading-5 text-[#3c3c43]">
               輸送の回数 ＝ 年間処理量 {int(derived.annualVolume)} {unit} ÷ 1台の積載量 {num(derived.truckCapacity, 1)} ＝{" "}
               <span className="font-semibold tabular-nums">{int(derived.truckTripsPerYear)} 回/年</span>
-              {derived.annualBatches > 0 && <>（稼働日1日あたり {num(derived.truckTripsPerYear / derived.annualBatches, 1)} 台）</>}。C:オフサイトのときだけ効く。
+              {derived.annualBatches > 0 && <>（稼働日1日あたり {num(derived.truckTripsPerYear / derived.annualBatches, 1)} 台）</>}。オフサイトのときだけ効く。
             </p>
           )}
         </>
@@ -366,7 +369,7 @@ function BiomassFormula({ computed }: { computed: CostComputation }) {
 }
 
 function taskApplies(task: CostTask, selection: CostViewSelection) {
-  return rowAppliesTo(task, selection.method, { strain: selection.strain, application: selection.application });
+  return rowAppliesTo(task, selection.location, selection.method, { strain: selection.strain, application: selection.application });
 }
 
 function TaskList({
@@ -392,14 +395,12 @@ function TaskList({
   const centralSel: CostSelection = { strain: selection.strain, application: null };
   const b = computed.biomass;
   const tasks = [...(working.tasks ?? [])].sort((x, y) => x.sortOrder - y.sortOrder);
-  const scenario = computed.scenarios.find(
-    (s) => s.application === selection.application && s.method === selection.method && s.tankMode === selection.tankMode
-  );
+  const scenario = findScenario(computed, selection.application, selection.location, selection.method, selection.tankMode);
   const commonRate = resolveAssumption(working.assumptions, "labor_rate", sel)?.value ?? 4000;
   const groups = [...new Set(tasks.map((t) => t.groupLabel ?? "作業"))];
 
   const perUnitOf = (t: CostTask) => {
-    if (!taskApplies(t, selection)) return null;
+    if (!taskApplies(t, selection) || resolvePerformer(t, selection.location) === "customer") return null;
     if (t.scenario === "中央培養") {
       const annual = taskAmount(t, working.assumptions, derived, centralSel).annual;
       return b.capacityKgYear > 0 ? (annual / b.capacityKgYear / b.salesRate) * derived.biomassKgPerUnit : 0;
@@ -411,7 +412,7 @@ function TaskList({
     <div>
       <p className="mb-1.5 text-[11px] leading-5 text-[#6e6e73]">
         年額 ＝ 年間回数 ×（1回の工数 × 作業単価 ＋ 1回の経費）。作業単価が空欄の行は共通の作業単価（{int(commonRate)}円/時）を使う。工数が空欄の行は未確認で、0時間として数える。
-        {PRODUCTION_SITE_LABEL}の作業は菌体費に入る。段は「作業の流れと工数」と同じ順。選んだ方式で発生しない段と行は薄く出す。
+        {PRODUCTION_SITE_LABEL}の作業は菌体費に入る。「誰がやるか」が顧客の作業は、工数だけを数えてSXの原価に入れない（円/{unit}は「—」）。段は「作業の流れと工数」と同じ順。選んだ方式・装置で発生しない段と行は薄く出す。
       </p>
       <div className="hidden xl:grid xl:grid-cols-[minmax(0,1fr)_78px_150px_92px_92px_56px] xl:gap-x-1.5 xl:border-b xl:border-[#e5e5e7] xl:pb-1 xl:text-[10px] xl:font-medium xl:text-[#6e6e73]">
         <span>作業</span>
@@ -430,8 +431,13 @@ function TaskList({
             <span>{step ? `${stepIndex + 1}. ` : ""}{g}</span>
             <span className="text-[10px] font-normal text-[#6e6e73]">
               {step
-                ? `年 ${int(step.siteHours + step.productionHours)}時間${step.productionHours > 0 && step.siteHours === 0 ? "（拠点全体）" : ""}・${num(step.perUnit)} 円/${unit}${step.unknownCount > 0 ? `・工数未確認 ${step.unknownCount}件` : ""}`
-                : "選んだ方式では発生しない"}
+                ? [
+                    `SX 年 ${int(step.siteHours + step.productionHours)}時間${step.productionHours > 0 && step.siteHours === 0 ? "（拠点全体）" : ""}`,
+                    step.customerHours > 0 ? `顧客 年 ${int(step.customerHours)}時間（原価に入れない）` : null,
+                    `${num(step.perUnit)} 円/${unit}`,
+                    step.unknownCount > 0 ? `工数未確認 ${step.unknownCount}件` : null,
+                  ].filter(Boolean).join("・")
+                : "選んだ方式・装置では発生しない"}
             </span>
           </p>
           <ul className="flex flex-col divide-y divide-[#f0f0f2]">
@@ -443,6 +449,7 @@ function TaskList({
                 const amt = taskAmount(t, working.assumptions, derived, t.scenario === "中央培養" ? centralSel : sel);
                 const perUnit = perUnitOf(t);
                 const isCentral = t.scenario === "中央培養";
+                const doneBy = resolvePerformer(t, selection.location);
                 return (
                   <li
                     key={t.costTaskId}
@@ -455,8 +462,28 @@ function TaskList({
                       <span className="block text-[10px] leading-4 text-[#6e6e73]">
                         {SCENARIO_SCOPE_LABEL[t.scenario as CostScenarioScope]}・年 {yen(amt.annual)}
                         {amt.annualHours > 0 ? `（${num(amt.annualHours, 0)}時間）` : ""}
+                        {applies && doneBy === "customer" && <span className="font-semibold text-[#3c3c43]">・顧客がやる（原価に入れない）</span>}
                         <NoteToggle note={t.note} />
                       </span>
+                      {!isCentral && (
+                        <label className="mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[10px] text-[#6e6e73]">
+                          <span className="whitespace-nowrap">誰がやるか</span>
+                          <select
+                            aria-label={`${t.label} 誰がやるか`}
+                            value={t.performer}
+                            title={TASK_PERFORMER_LABEL[t.performer]}
+                            onChange={(e) => onChange("task", t.costTaskId, "performer", e.target.value as CostTaskPerformer)}
+                            className={`min-h-[36px] max-w-full rounded-md border px-1 text-[16px] text-[#1d1d1f] xl:h-6 xl:min-h-0 xl:text-[11px] ${
+                              base && base.performer !== t.performer ? "border-[#027fdc] bg-[#e8f3fc]" : "border-[#d2d2d7] bg-white"
+                            }`}
+                          >
+                            {TASK_PERFORMERS.map((pf) => (
+                              <option key={pf} value={pf}>{TASK_PERFORMER_SHORT_LABEL[pf]}</option>
+                            ))}
+                          </select>
+                          {t.performer === "site" && <span className="whitespace-nowrap">（オンサイトは顧客・オフサイトはSX）</span>}
+                        </label>
+                      )}
                     </div>
                     <Cell label="1回の工数（時間）">
                       <NumberField
@@ -549,8 +576,9 @@ function TaskList({
       })}
       {scenario && (
         <p className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 text-[11px] leading-5 text-[#3c3c43]">
-          選んだ方式の作業（運ぶ・運転・保守・管理） <span className="font-semibold tabular-nums">{num(scenario.siteTaskPerUnit)} 円/{unit}</span>
-          （年 {yen(scenario.siteTaskAnnual)}・{int(scenario.siteTaskHours)}時間）。{PRODUCTION_SITE_LABEL}の作業は年 {yen(b.tasksAnnual)}（{int(b.taskHoursAnnual)}時間）で、菌体1kgあたり {num(b.rows.find((r) => r.key === "tasks")?.perKg ?? 0)} 円として菌体費に入る。
+          選んだ方式・装置でSXがやる作業（運ぶ・運転・保守・管理） <span className="font-semibold tabular-nums">{num(scenario.siteTaskPerUnit)} 円/{unit}</span>
+          （年 {yen(scenario.siteTaskAnnual)}・{int(scenario.siteTaskHours)}時間）。
+          {scenario.customerTaskHours > 0 && <>顧客がやる作業は年 {int(scenario.customerTaskHours)}時間で、SXの原価に入れていない。</>}{PRODUCTION_SITE_LABEL}の作業は年 {yen(b.tasksAnnual)}（{int(b.taskHoursAnnual)}時間）で、菌体1kgあたり {num(b.rows.find((r) => r.key === "tasks")?.perKg ?? 0)} 円として菌体費に入る。
         </p>
       )}
     </div>
@@ -560,7 +588,7 @@ function TaskList({
 const SCOPE_ORDER: CostScenarioScope[] = ["中央培養", "共通", "現場共通", "循環", "投入", "オフサイト"];
 
 function itemApplies(item: CostItem, selection: CostViewSelection) {
-  return rowAppliesTo(item, selection.method, { strain: selection.strain, application: selection.application });
+  return rowAppliesTo(item, selection.location, selection.method, { strain: selection.strain, application: selection.application });
 }
 
 function ItemEditor({

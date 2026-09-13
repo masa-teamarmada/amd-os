@@ -3,12 +3,16 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   APPLICATION_LABEL,
+  LOCATION_DESCRIPTION,
+  LOCATION_SHORT_LABEL,
+  METHODS,
+  METHOD_DESCRIPTION,
   METHOD_LABEL,
-  OFFSITE_DESCRIPTION,
   STRAIN_LABEL,
   computeCostModel,
   computeTaskFlow,
   type CostApplication,
+  type CostLocation,
   type CostMethod,
   type CostModelBundle,
   type CostStrain,
@@ -53,8 +57,9 @@ import { CostReadingSections } from "@/components/cockpit/CockpitCostModelReadin
 //     正本へ書くのは、admin が「この値を保存」を押したときだけ
 //   - 人件費は作業リスト (工数 × 作業単価) で持つ。人件費だけを抜いた総コストの併記はしない
 //
-//   - 結果の欄に、方式ごとの総コストを内訳の色で積んだ棒と、選んだ方式の内訳 (区分ごとの棒と割合)、作業工数の合計を出す。
-//     操作パネルの一番上に「作業の流れと工数」を置く。方式は A:循環・B:投入 (オンサイト) と C:オフサイト
+//   - 結果の欄に、方式・装置ごとの総コストを内訳の色で積んだ棒と、選んだ組み合わせの内訳 (区分ごとの棒と割合)、作業工数の合計を出す。
+//     操作パネルの一番上に「作業の流れと工数」を置く
+//   - 切り替えは 方式 (オンサイト / オフサイト) と 装置 (循環カートリッジ / 直接投入) を分ける (まさ 2026-09-14)
 //
 // 二段階の計算 (2026-09-13 まさ確定): 第1段 株ごとの菌体1kgの原価 → 第2段 用途ごとの処理原価。
 // 正本は project_cost_* (migration 320/324/392/394/396)。計算結果は保存しない。保存するのは前提・明細・作業だけで、数字は常に導出する。
@@ -68,6 +73,7 @@ interface Props {
 interface ViewState {
   strain: CostStrain | null;
   application: CostApplication | null;
+  location: CostLocation;
   method: CostMethod;
   tankMode: CostTankMode;
 }
@@ -75,7 +81,7 @@ interface ViewState {
 // 試算中の変更と表示の選択は、タブを行き来しても消えないようにモジュールに持つ (再読み込みで消える)。
 const draftMemory = new Map<string, CostDraft>();
 const viewMemory = new Map<string, ViewState>();
-const DEFAULT_VIEW: ViewState = { strain: null, application: null, method: "投入", tankMode: "既設" };
+const DEFAULT_VIEW: ViewState = { strain: null, application: null, location: "onsite", method: "投入", tankMode: "既設" };
 
 export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
   const cached = peekProjectCostModel(projectId);
@@ -86,7 +92,7 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
   );
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraftState] = useState<CostDraft>(() => draftMemory.get(projectId) ?? {});
-  const [view, setViewState] = useState<ViewState>(() => viewMemory.get(projectId) ?? DEFAULT_VIEW);
+  const [view, setViewState] = useState<ViewState>(() => ({ ...DEFAULT_VIEW, ...viewMemory.get(projectId) }));
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [changesOpen, setChangesOpen] = useState(false);
@@ -231,18 +237,20 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
 
   const { model } = working;
   const unit = model.unitBasisLabel || "m³";
-  const { strains, applications, methods } = computed;
-  const method: CostMethod = methods.includes(view.method) ? view.method : "投入";
+  const { strains, applications, locations } = computed;
+  const location: CostLocation = locations.includes(view.location) ? view.location : "onsite";
   const selection: CostViewSelection = {
     strain: computed.strain,
     application: view.application && applications.includes(view.application) ? view.application : applications[0] ?? null,
-    method,
-    // C:オフサイトは SX工場に槽を新設する。オンサイトへ戻したときは、前に選んでいた槽に戻る。
-    tankMode: method === "オフサイト" ? "新設" : view.tankMode,
+    location,
+    method: METHODS.includes(view.method) ? view.method : "投入",
+    // オフサイトは SX工場に槽を新設する。オンサイトへ戻したときは、前に選んでいた槽に戻る。
+    tankMode: location === "offsite" ? "新設" : view.tankMode,
   };
   const hasMargin = model.targetMarginRate !== null && model.targetMarginRate > 0;
-  const flow = computeTaskFlow(working, computed, { application: selection.application, method: selection.method });
-  const baselineFlow = hasDraft ? computeTaskFlow(bundle, baseline, { application: selection.application, method: selection.method }) : flow;
+  const flowSel = { application: selection.application, location: selection.location, method: selection.method };
+  const flow = computeTaskFlow(working, computed, flowSel);
+  const baselineFlow = hasDraft ? computeTaskFlow(bundle, baseline, flowSel) : flow;
   const showFlow = () => {
     const target = document.getElementById("cm-flow");
     const pane = target?.closest<HTMLElement>('[data-testid="cost-controls"]');
@@ -287,15 +295,24 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
                 onChange={(v) => setView({ application: v })}
               />
             )}
+            {locations.length > 1 && (
+              <Segmented
+                label="方式"
+                ariaLabel="方式の切り替え"
+                options={locations.map((l) => ({ value: l, label: LOCATION_SHORT_LABEL[l] }))}
+                value={selection.location}
+                onChange={(v) => setView({ location: v })}
+              />
+            )}
             <Segmented
-              label="方式"
-              ariaLabel="方式の切り替え"
-              options={methods.map((m) => ({ value: m, label: METHOD_LABEL[m] }))}
+              label="装置"
+              ariaLabel="装置の切り替え"
+              options={METHODS.map((m) => ({ value: m, label: METHOD_LABEL[m] }))}
               value={selection.method}
               onChange={(v) => setView({ method: v })}
             />
-            {selection.method === "オフサイト" ? (
-              <div className="flex min-w-0 items-center gap-1.5" title={OFFSITE_DESCRIPTION}>
+            {selection.location === "offsite" ? (
+              <div className="flex min-w-0 items-center gap-1.5">
                 <span className="w-7 shrink-0 text-[11px] font-semibold text-[#3c3c43] xl:w-auto">槽</span>
                 <span className="inline-flex min-h-[40px] items-center rounded-lg border border-[#d2d2d7] bg-[#f5f5f7] px-2.5 text-[12px] font-semibold text-[#6e6e73] xl:min-h-[30px]">
                   SX工場に新設
@@ -310,8 +327,12 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
                 onChange={(v) => setView({ tankMode: v })}
               />
             )}
+            <p className="text-[10px] leading-4 text-[#6e6e73] sm:col-span-2 xl:basis-full" data-testid="cost-selection-note">
+              {locations.length > 1 && <>{LOCATION_SHORT_LABEL[selection.location]}＝{LOCATION_DESCRIPTION[selection.location]}。</>}
+              {METHOD_LABEL[selection.method]}＝{METHOD_DESCRIPTION[selection.method]}。
+            </p>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5 xl:self-start">
             {/* 書き換え中は「保存していない変更」のボタンを1行に収めるため、版ラベルを隠す（版は読み物の「この試算について」にも出る） */}
             {model.versionLabel && changes.length === 0 && (
               <span className="inline-flex items-center rounded-full border border-[#d2d2d7] px-2 py-0.5 text-[11px] text-[#3c3c43]">{model.versionLabel}</span>
@@ -419,7 +440,7 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
               flow={flow}
               baselineFlow={baselineFlow}
               onSelectStrain={(s) => setView({ strain: s })}
-              onSelectScenario={(a, m, t) => setView(m === "オフサイト" ? { application: a, method: m } : { application: a, method: m, tankMode: t })}
+              onSelectScenario={(a, l, m) => setView({ application: a, location: l, method: m })}
               onShowFlow={showFlow}
             />
           </div>

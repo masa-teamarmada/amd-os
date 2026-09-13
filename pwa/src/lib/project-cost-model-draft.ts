@@ -7,14 +7,16 @@
 // 契約チェック (node で直接読む) からも使うので、相対パスで拡張子つきで読む。
 import {
   TASK_DRIVER_LABEL,
+  TASK_PERFORMER_SHORT_LABEL,
   costItemLabel,
   type CostModelBundle,
   type CostTaskDriver,
+  type CostTaskPerformer,
 } from "./project-cost-model.ts";
 
 export type DraftEntity = "assumption" | "item" | "task" | "model";
 export type DraftItemField = "unitPrice" | "quantity" | "usefulLifeYears";
-export type DraftTaskField = "hoursPerOccurrence" | "countDriver" | "countPerYear" | "hourlyRate" | "expensePerOccurrence";
+export type DraftTaskField = "hoursPerOccurrence" | "countDriver" | "countPerYear" | "hourlyRate" | "expensePerOccurrence" | "performer";
 export type DraftField = "value" | DraftItemField | DraftTaskField | "targetTotalCostPerUnit";
 export type DraftValue = number | string | null;
 
@@ -50,6 +52,7 @@ const COLUMN: Record<DraftEntity, Partial<Record<DraftField, string>>> = {
     countPerYear: "count_per_year",
     hourlyRate: "hourly_rate",
     expensePerOccurrence: "expense_per_occurrence",
+    performer: "performer",
   },
   model: { targetTotalCostPerUnit: "target_total_cost_per_m3" },
 };
@@ -64,6 +67,7 @@ const FIELD_LABEL: Record<DraftField, string> = {
   countPerYear: "年間回数",
   hourlyRate: "作業単価",
   expensePerOccurrence: "1回の経費",
+  performer: "誰がやるか",
   targetTotalCostPerUnit: "",
 };
 
@@ -106,6 +110,7 @@ export function baselineValue(bundle: CostModelBundle, entity: DraftEntity, id: 
 /** 値として受け付けるか。数字は有限で、前提の値以外は0以上。空欄は空欄に戻せる欄だけ。 */
 export function isValidDraftValue(entity: DraftEntity, field: DraftField, value: DraftValue): boolean {
   if (field === "countDriver") return typeof value === "string" && value in TASK_DRIVER_LABEL;
+  if (field === "performer") return typeof value === "string" && value in TASK_PERFORMER_SHORT_LABEL;
   if (value === null) return isNullableField(entity, field);
   if (typeof value !== "number" || !Number.isFinite(value)) return false;
   return entity === "assumption" ? true : value >= 0;
@@ -212,6 +217,7 @@ export function listDraftChanges(bundle: CostModelBundle, draft: CostDraft): Dra
 export function formatDraftValue(field: DraftField, value: DraftValue): string {
   if (value === null) return "空欄";
   if (field === "countDriver") return TASK_DRIVER_LABEL[value as CostTaskDriver] ?? String(value);
+  if (field === "performer") return TASK_PERFORMER_SHORT_LABEL[value as CostTaskPerformer] ?? String(value);
   if (typeof value === "number") return value.toLocaleString("ja-JP", { maximumFractionDigits: 6 });
   return String(value);
 }

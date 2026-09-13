@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 
 // PJコックピット / PJワークスペース「コスト試算」タブの API。
 // read = ログイン済みメンバー、write = admin。
-// migration: scripts/migrations/320_project_cost_model.sql / 392 (株・用途の列と二段階計算) / 394 (作業リスト) / 396 (オフサイトの範囲と輸送の回数)
+// migration: scripts/migrations/320_project_cost_model.sql / 392 (株・用途の列と二段階計算) / 394 (作業リスト) / 396 (オフサイトの範囲と輸送の回数) / 398 (作業を誰がやるか)
 // 計算そのものは src/lib/project-cost-model.ts (純関数)。ここは入出力だけ。
 
 const NUM = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : Number(v) || 0);
@@ -94,6 +94,7 @@ export function mapBundle(model: any, assumptions: any[], items: any[], question
       countPerYear: NUM_OR_NULL(t.count_per_year),
       hourlyRate: NUM_OR_NULL(t.hourly_rate),
       expensePerOccurrence: NUM(t.expense_per_occurrence),
+      performer: t.performer === "customer" || t.performer === "site" ? t.performer : "sx",
       confidence: t.confidence ?? null,
       sourceKind: t.source_kind ?? null,
       owner: t.owner ?? null,
@@ -185,7 +186,7 @@ const QUESTION_FIELDS = new Set(["status", "answer", "answered_on", "visibility"
 const NOTE_FIELDS = new Set(["title", "body_md", "source_url", "source_label", "visibility", "sort_order"]);
 const ITEM_FIELDS = new Set(["unit_price", "quantity", "useful_life_years", "confidence", "source_kind", "owner", "note", "visibility"]);
 const TASK_FIELDS = new Set([
-  "hours_per_occurrence", "count_driver", "count_per_year", "hourly_rate", "expense_per_occurrence",
+  "hours_per_occurrence", "count_driver", "count_per_year", "hourly_rate", "expense_per_occurrence", "performer",
   "confidence", "source_kind", "owner", "note", "visibility",
 ]);
 const MODEL_FIELDS = new Set(["target_total_cost_per_m3", "target_margin_rate"]);
@@ -201,6 +202,7 @@ const NULLABLE_NUMERIC_FIELDS = new Set([
   "target_total_cost_per_m3", "target_margin_rate",
 ]);
 const TASK_DRIVERS = new Set(["fixed", "batch", "visit", "module_swap", "membrane_swap", "truck_trip"]);
+const TASK_PERFORMERS = new Set(["sx", "customer", "site"]);
 
 /**
  * PATCH /api/project-cost-model
@@ -258,6 +260,9 @@ export async function PATCH(req: NextRequest) {
     }
     if (k === "count_driver" && !TASK_DRIVERS.has(String(v))) {
       return NextResponse.json({ ok: false, error: "count_driver が不正" }, { status: 400 });
+    }
+    if (k === "performer" && !TASK_PERFORMERS.has(String(v))) {
+      return NextResponse.json({ ok: false, error: "performer が不正" }, { status: 400 });
     }
     clean[k] = v;
   }

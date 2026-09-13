@@ -9,7 +9,7 @@
 //     売れた1kgあたり = 生産1kgあたり ÷ 販売率。上書き値 (biomass_cost_per_kg_override) があれば生産1kgあたりをそれに置き換える
 //   第2段 用途別の処理原価 (円/単位) … 第1段の原価を一定として、色素分解 / 金属回収ごとに出す
 //     必要菌体量 (kg-DCW/単位) = 対象物質濃度 × k_ppm ÷ 取り込み効率α ÷ 菌体回収率η ÷ 菌体使用回数 ÷ 1000
-//     総コスト = 第1段の原価 × 必要菌体量 + 現場の明細 + 現場の作業 (方式・槽・用途・株で絞る)
+//     総コスト = 第1段の原価 × 必要菌体量 + 処理の明細 + SXがやる作業 (方式・装置・槽・用途・株で絞る)
 //
 // 菌体の製造拠点 (DB の scenario 値は '中央培養') = 顧客工場では培養せず、SX側の1拠点でまとめて菌体を育て、
 // 濃縮して各工場へ運ぶところ。画面では「中央培養」と書かない (まさ 2026-09-13「中央培養ってなに？」)。
@@ -22,8 +22,14 @@
 // 作業の group_label は「作業の流れ」の段 (菌体をつくる → 運ぶ → 処理する → 設備を保つ → 後処理 → 閉鎖系の管理) で、
 // sort_order の順に並べる。段ごとの年間工数と作業費を出す (computeTaskFlow)。
 //
-// 方式は、顧客工場で処理するオンサイト2つ (A:循環 / B:投入) と、排液をSX工場まで運んで処理するオフサイト (C) (まさ 2026-09-13)。
-// 明細・作業の scenario で「どの方式に効くか」を持つ (METHOD_SCOPES)。C は B:投入と同じ設備を SX工場に置き、槽は常に新設。
+// 方式は、顧客工場で処理するオンサイトと、排液をSX工場まで運んで処理するオフサイトの2つ (まさ 2026-09-14「方式はオンサイトとオフサイトの2種類」)。
+// 装置は、菌体と排液の触れさせ方の違いで、循環カートリッジ (菌体を筒に閉じ込めて排液を通す) と直接投入 (菌体を槽に入れて混ぜ、膜でこし取る) の2つ。
+// どちらの方式でも両方の装置を選べる。オフサイトの槽は常に SX工場に新設する。
+// 明細・作業の scenario で「どこに効くか」を持つ (scopesFor)。
+//
+// 作業には「誰がやるか」(performer) を持たせる。SX がやる作業だけを SX の原価に入れる。
+// 顧客工場での処理の運転は顧客がやる (まさ 2026-09-14「全顧客の工場にSXの社員が張り付くってありえない」)。
+// performer = site の作業は、オンサイトなら顧客、オフサイトなら SX がやる。顧客がやる作業は工数だけを出し、原価に入れない。
 //
 // 金属回収は酸で菌体を溶かして金属を取り出すので、菌体使用回数は1回で固定する。使い回せるのは色素分解だけ (まさ 2026-09-13)。
 //
@@ -32,15 +38,16 @@
 
 export type CostConfidence = "S" | "A" | "B" | "C" | "H";
 export type CostVisibility = "amd_internal" | "workspace_shared";
-export type CostMethod = "循環" | "投入" | "オフサイト";
+export type CostMethod = "循環" | "投入";
 export type CostTankMode = "既設" | "新設";
 export type CostStrain = "enhanced" | "wild";
 export type CostApplication = "dye" | "metal";
 export type CostLocation = "onsite" | "offsite";
 /**
  * 明細・作業が効く範囲。
- * 共通 = A・B・C すべて / 現場共通 = 顧客工場で処理する A・B だけ (巡回・顧客工場内の区画など) /
- * オフサイト = C だけ (排液の輸送・受け入れ・放流など) / 中央培養 = 菌体の製造拠点 (第1段)。
+ * 循環 / 投入 = その装置のとき (方式によらない) / 共通 = いつでも /
+ * 現場共通 = オンサイトだけ (顧客工場への巡回・顧客工場内の区画など) / オフサイト = オフサイトだけ (排液の輸送・受け入れ・放流など) /
+ * 中央培養 = 菌体の製造拠点 (第1段)。
  */
 export type CostScenarioScope = "循環" | "投入" | "共通" | "現場共通" | "オフサイト" | "中央培養";
 
@@ -51,34 +58,44 @@ export interface CostSelection {
 
 export const STRAIN_LABEL: Record<CostStrain, string> = { enhanced: "強化株", wild: "自然株" };
 export const APPLICATION_LABEL: Record<CostApplication, string> = { dye: "色素分解", metal: "金属回収" };
-export const METHOD_LABEL: Record<CostMethod, string> = { 循環: "A:循環", 投入: "B:投入", オフサイト: "C:オフサイト" };
+/** 装置の呼び名。 */
+export const METHOD_LABEL: Record<CostMethod, string> = { 循環: "循環カートリッジ", 投入: "直接投入" };
+export const METHOD_DESCRIPTION: Record<CostMethod, string> = {
+  循環: "菌体を筒（カートリッジ）に閉じ込め、ポンプで排液を通して槽へ戻す",
+  投入: "菌体を排液の槽に直接入れて混ぜ、処理後に膜でこして取り出す",
+};
+export const LOCATION_SHORT_LABEL: Record<CostLocation, string> = { onsite: "オンサイト", offsite: "オフサイト" };
 export const LOCATION_LABEL: Record<CostLocation, string> = {
   onsite: "オンサイト（顧客工場で処理）",
   offsite: "オフサイト（SX工場まで運んで処理）",
 };
-export const OFFSITE_DESCRIPTION =
-  "排液をタンクローリーでSX工場まで運び、B:投入と同じ設備と、SX工場に新設する槽で処理する。処理水はSX工場から流す。";
+export const LOCATION_DESCRIPTION: Record<CostLocation, string> = {
+  onsite: "顧客工場の槽の横に装置を置いて処理する。処理の運転は顧客がやり、SXは菌体の搬入・搬出や交換で巡回する",
+  offsite: "排液をタンクローリーでSX工場まで運び、SX工場に新設する槽で処理する。処理の運転はSXがやり、処理水はSX工場から流す",
+};
+export const OFFSITE_DESCRIPTION = LOCATION_DESCRIPTION.offsite;
+export const METHODS: CostMethod[] = ["循環", "投入"];
 const STRAIN_ORDER: CostStrain[] = ["enhanced", "wild"];
 const APPLICATION_ORDER: CostApplication[] = ["dye", "metal"];
 
-/** 方式ごとに、どの範囲の明細・作業を数えるか。C:オフサイトは B:投入の設備を SX工場で使う。 */
-export const METHOD_SCOPES: Record<CostMethod, CostScenarioScope[]> = {
-  循環: ["循環", "共通", "現場共通"],
-  投入: ["投入", "共通", "現場共通"],
-  オフサイト: ["投入", "共通", "オフサイト"],
-};
-
-export function methodLocation(method: CostMethod): CostLocation {
-  return method === "オフサイト" ? "offsite" : "onsite";
+/** 方式と装置の組み合わせで、どの範囲の明細・作業を数えるか。 */
+export function scopesFor(location: CostLocation, method: CostMethod): CostScenarioScope[] {
+  return [method, "共通", location === "offsite" ? "オフサイト" : "現場共通"];
 }
 
-/** C:オフサイトは SX工場に槽を新設するので、槽の選択肢は新設だけ。 */
-export function tankModesFor(method: CostMethod): CostTankMode[] {
-  return method === "オフサイト" ? ["新設"] : ["既設", "新設"];
+/** オフサイトは SX工場に槽を新設するので、槽の選択肢は新設だけ。 */
+export function tankModesFor(location: CostLocation): CostTankMode[] {
+  return location === "offsite" ? ["新設"] : ["既設", "新設"];
 }
 
-export function scenarioLabelOf(method: CostMethod, tankMode: CostTankMode): string {
-  return method === "オフサイト" ? METHOD_LABEL.オフサイト : `${METHOD_LABEL[method]}／${tankMode}`;
+/** シナリオの短い呼び名 (方式は含めない)。例: 直接投入・既設槽 / 直接投入・SX工場 */
+export function scenarioLabelOf(location: CostLocation, method: CostMethod, tankMode: CostTankMode): string {
+  return `${METHOD_LABEL[method]}・${location === "offsite" ? "SX工場" : `${tankMode}槽`}`;
+}
+
+/** シナリオの呼び名 (方式つき)。例: オンサイト・直接投入・既設槽 */
+export function scenarioFullLabelOf(location: CostLocation, method: CostMethod, tankMode: CostTankMode): string {
+  return `${LOCATION_SHORT_LABEL[location]}・${scenarioLabelOf(location, method, tankMode)}`;
 }
 
 /** 画面での呼び名。DB の値 '中央培養' はそのまま使い、表示だけ置き換える。 */
@@ -87,11 +104,11 @@ export const PRODUCTION_SITE_DESCRIPTION =
   "顧客工場では培養せず、SX側の1拠点でまとめて菌体を育て、濃縮して各工場へ運ぶところ。";
 export const SCENARIO_SCOPE_LABEL: Record<CostScenarioScope, string> = {
   中央培養: PRODUCTION_SITE_LABEL,
-  共通: "処理（A・B・C すべて）",
-  現場共通: "顧客工場（A・B だけ）",
-  循環: "A:循環",
-  投入: "B:投入（C:オフサイトも同じ設備）",
-  オフサイト: "C:オフサイト（SX工場）",
+  共通: "処理（方式・装置によらない）",
+  現場共通: "オンサイトだけ（顧客工場）",
+  循環: "循環カートリッジの装置",
+  投入: "直接投入の装置",
+  オフサイト: "オフサイトだけ（SX工場）",
 };
 
 /** 金属回収は酸で菌体を溶かして金属を取り出すので、菌体を使い回さない。 */
@@ -165,6 +182,24 @@ export const TASK_DRIVER_LABEL: Record<CostTaskDriver, string> = {
 };
 export const TASK_DRIVERS: CostTaskDriver[] = ["fixed", "batch", "visit", "module_swap", "membrane_swap", "truck_trip"];
 
+/** 作業を誰がやるか。sx = SX / customer = 顧客 / site = 処理する場所の人 (オンサイトは顧客、オフサイトは SX)。 */
+export type CostTaskPerformer = "sx" | "customer" | "site";
+export const TASK_PERFORMERS: CostTaskPerformer[] = ["sx", "customer", "site"];
+export const TASK_PERFORMER_LABEL: Record<CostTaskPerformer, string> = {
+  sx: "SX",
+  customer: "顧客",
+  site: "処理する場所の人（オンサイトは顧客・オフサイトはSX）",
+};
+export const TASK_PERFORMER_SHORT_LABEL: Record<CostTaskPerformer, string> = { sx: "SX", customer: "顧客", site: "場所による" };
+
+/** その方式で、作業を実際に誰がやるか。製造拠点の作業は常に SX。 */
+export function resolvePerformer(task: Pick<CostTask, "performer" | "scenario">, location: CostLocation): "sx" | "customer" {
+  if (task.scenario === "中央培養") return "sx";
+  if (task.performer === "customer") return "customer";
+  if (task.performer === "site") return location === "onsite" ? "customer" : "sx";
+  return "sx";
+}
+
 /** 「運ぶ」に数える作業 (菌体の巡回と、排液の輸送)。内訳ではほかの作業と分けて出す。 */
 export function isTransportTask(task: Pick<CostTask, "countDriver">): boolean {
   return task.countDriver === "visit" || task.countDriver === "truck_trip";
@@ -184,6 +219,8 @@ export interface CostTask {
   hourlyRate: number | null;
   /** 1回あたりの経費 (車両費・部材・外注費など)。 */
   expensePerOccurrence: number;
+  /** 誰がやるか。SX がやる作業だけを SX の原価に入れる。 */
+  performer: CostTaskPerformer;
   confidence: CostConfidence | null;
   sourceKind: string | null;
   owner: string | null;
@@ -324,7 +361,7 @@ export interface CostDerived {
   moduleSwapsPerYear: number;
   /** 作業の年間回数: 膜交換回数 = 1 ÷ 膜交換年数。 */
   membraneSwapsPerYear: number;
-  /** 作業の年間回数: 輸送の回数 = 年間処理量 ÷ 1台の積載量 (C:オフサイト)。 */
+  /** 作業の年間回数: 輸送の回数 = 年間処理量 ÷ 1台の積載量 (オフサイト)。 */
   truckTripsPerYear: number;
   /** 1台の積載量 (m³/台)。 */
   truckCapacity: number;
@@ -442,11 +479,15 @@ export interface CostScenarioResult {
   /** 現場の明細のうち OPEX (後処理を含む)。 */
   siteItemOpexAnnual: number;
   siteItemOpexPerUnit: number;
-  /** 現場と巡回の作業 (C:オフサイトは輸送と SX工場の作業)。製造拠点の作業は菌体費に入るので含まない。 */
+  /** SX がやる作業 (巡回・輸送・交換・管理、オフサイトの処理の運転など)。製造拠点の作業は菌体費に入るので含まない。 */
   siteTaskAnnual: number;
   siteTaskPerUnit: number;
-  /** 作業の年間工数 (人時)。製造拠点の作業は含まない (拠点全体の工数は biomass.taskHoursAnnual)。 */
+  /** SX がやる作業の年間工数 (人時)。製造拠点の作業は含まない (拠点全体の工数は biomass.taskHoursAnnual)。 */
   siteTaskHours: number;
+  /** 顧客がやる作業の年間工数 (オンサイトの処理の運転など)。SX の原価には入れない。 */
+  customerTaskHours: number;
+  /** 顧客がやる作業を作業単価で円にした年額 (参考)。SX の原価には入れない。 */
+  customerTaskAnnual: number;
   /** うち「運ぶ」(巡回・輸送) の作業。 */
   transportPerUnit: number;
   /** 現場の OPEX 合計 = 明細 + 作業。 */
@@ -503,8 +544,8 @@ export interface CostComputation {
   strain: CostStrain | null;
   strains: CostStrain[];
   applications: CostApplication[];
-  /** データに現れる方式。オフサイトの明細・作業が1行も無い試算は A・B だけ。 */
-  methods: CostMethod[];
+  /** データに現れる方式。オフサイトの明細・作業が1行も無い試算はオンサイトだけ。 */
+  locations: CostLocation[];
   biomass: CostBiomassCost;
   biomassByStrain: CostBiomassCost[];
   scenarios: CostScenarioResult[];
@@ -584,27 +625,28 @@ export function listApplications(bundle: CostInputs): CostApplication[] {
   return APPLICATION_ORDER.filter((a) => seen.has(a));
 }
 
-/** オフサイトの明細・作業があるか。無い試算 (他PJ) には C:オフサイトを出さない。 */
+/** オフサイトの明細・作業があるか。無い試算 (他PJ) にはオフサイトを出さない。 */
 export function hasOffsite(bundle: CostInputs): boolean {
   return [...bundle.items, ...(bundle.tasks ?? [])].some((r) => r.scenario === "オフサイト");
 }
 
-/** データに現れる方式。表示順は A:循環 → B:投入 → C:オフサイト。 */
-export function listMethods(bundle: CostInputs): CostMethod[] {
-  return hasOffsite(bundle) ? ["循環", "投入", "オフサイト"] : ["循環", "投入"];
+/** データに現れる方式。表示順は オンサイト → オフサイト。 */
+export function listLocations(bundle: CostInputs): CostLocation[] {
+  return hasOffsite(bundle) ? ["onsite", "offsite"] : ["onsite"];
 }
 
 /**
- * 明細・作業の1行が、選んだ方式・株・用途で発生するか。
- * 製造拠点の行は第1段で数えるので、方式と用途によらず株だけで決まる。
+ * 明細・作業の1行が、選んだ方式・装置・株・用途で発生するか。
+ * 製造拠点の行は第1段で数えるので、方式・装置・用途によらず株だけで決まる。
  */
 export function rowAppliesTo(
   row: { scenario: CostScenarioScope; strain: CostStrain | null; application: CostApplication | null },
+  location: CostLocation,
   method: CostMethod,
   sel: CostSelection
 ): boolean {
   if (row.scenario === "中央培養") return scopeApplies(row, { strain: sel.strain, application: null });
-  return METHOD_SCOPES[method].includes(row.scenario) && scopeApplies(row, sel);
+  return scopesFor(location, method).includes(row.scenario) && scopeApplies(row, sel);
 }
 
 /** 販売率 (0.01〜1)。前提が無ければ全量が売れる 1。 */
@@ -949,7 +991,7 @@ export function computeCostModel(
 
   const strains = listStrains(bundle);
   const applications = listApplications(bundle);
-  const methods = listMethods(bundle);
+  const locations = listLocations(bundle);
   const strain = options.strain !== undefined && options.strain !== null && strains.includes(options.strain)
     ? options.strain
     : strains[0] ?? null;
@@ -1005,13 +1047,18 @@ export function computeCostModel(
             })),
         ];
 
-    for (const method of methods) {
-      const scopes = METHOD_SCOPES[method];
-      const location = methodLocation(method);
+    for (const location of locations) for (const method of METHODS) {
+      const scopes = scopesFor(location, method);
       const own = live.filter((i) => scopes.includes(i.scenario) && scopeApplies(i, sel));
       const counted = own.filter((i) => i.costType !== "参考");
-      const siteTasks = tasks.filter((t) => scopes.includes(t.scenario) && scopeApplies(t, sel));
-      const siteTaskAmounts = siteTasks.map((t) => ({ task: t, amount: taskAnnualOf(t) }));
+      const applicableTasks = tasks.filter((t) => scopes.includes(t.scenario) && scopeApplies(t, sel));
+      // SX の原価に入れるのは SX がやる作業だけ。顧客がやる作業は工数と参考の年額だけを持つ。
+      const siteTaskAmounts = applicableTasks
+        .filter((t) => resolvePerformer(t, location) === "sx")
+        .map((t) => ({ task: t, amount: taskAnnualOf(t) }));
+      const customerTaskAmounts = applicableTasks
+        .filter((t) => resolvePerformer(t, location) === "customer")
+        .map((t) => ({ task: t, amount: taskAnnualOf(t) }));
       const siteItemOpexAnnual = counted.filter((i) => i.costType === "OPEX").reduce((s, i) => s + amount(i), 0);
       const siteTaskAnnual = siteTaskAmounts.reduce((s, x) => s + x.amount.annual, 0);
       const siteTaskHours = siteTaskAmounts.reduce((s, x) => s + x.amount.annualHours, 0);
@@ -1051,7 +1098,7 @@ export function computeCostModel(
           : []),
       ];
 
-      for (const tankMode of tankModesFor(method)) {
+      for (const tankMode of tankModesFor(location)) {
         const tankAnnual = tankMode === "新設" ? safeDiv(newTankCapex, tankLife) : 0;
         const tankLabel = location === "offsite" ? "SX工場の槽（新設）" : "新設槽（コンクリート地下タンク）";
         const opexTotalAnnual = siteOpexAnnual + centralOpexAnnual;
@@ -1065,7 +1112,7 @@ export function computeCostModel(
           ...(tankMode === "新設"
             ? [{
                 item: {
-                  costItemId: `${method}-tank`,
+                  costItemId: `${location}-${method}-tank`,
                   scenario: "共通",
                   costType: "CAPEX",
                   leafLabel: tankLabel,
@@ -1137,19 +1184,21 @@ export function computeCostModel(
         const appLabel = application ? APPLICATION_LABEL[application] : "";
 
         scenarios.push({
-          key: `${application ?? "all"}:${method}-${tankMode}`,
+          key: `${application ?? "all"}:${location === "offsite" ? "オフサイト-" : ""}${method}-${tankMode}`,
           application,
           applicationLabel: appLabel,
           method,
           tankMode,
           location,
-          label: scenarioLabelOf(method, tankMode),
+          label: scenarioLabelOf(location, method, tankMode),
 
           siteItemOpexAnnual,
           siteItemOpexPerUnit: perUnit(siteItemOpexAnnual),
           siteTaskAnnual,
           siteTaskPerUnit: perUnit(siteTaskAnnual),
           siteTaskHours,
+          customerTaskHours: customerTaskAmounts.reduce((t, x) => t + x.amount.annualHours, 0),
+          customerTaskAnnual: customerTaskAmounts.reduce((t, x) => t + x.amount.annual, 0),
           transportPerUnit: perUnit(transportAnnual),
           siteOpexAnnual,
           siteOpexPerUnit: perUnit(siteOpexAnnual),
@@ -1202,7 +1251,7 @@ export function computeCostModel(
     strain,
     strains,
     applications,
-    methods,
+    locations,
     biomass,
     biomassByStrain,
     scenarios,
@@ -1214,6 +1263,8 @@ export interface CostFlowTaskRow {
   amount: CostTaskAmount;
   /** 製造拠点の作業か (年額と工数は拠点全体。1単位あたりは菌体費に配った額)。 */
   isProduction: boolean;
+  /** 選んだ方式で、誰がやるか。customer の作業は SX の原価に入れない (perUnit は参考)。 */
+  performer: "sx" | "customer";
   /** 処理1単位あたり。製造拠点の作業は「年額 ÷ 生産能力 ÷ 販売率 × 使い切る菌体量」。 */
   perUnit: number;
 }
@@ -1224,22 +1275,26 @@ export interface CostFlowStep {
   rows: CostFlowTaskRow[];
   /** 段に含まれる作業の範囲 (製造拠点 / 顧客工場 / SX工場 など)。 */
   scopes: CostScenarioScope[];
-  /** 顧客1社分の年間工数 (製造拠点の作業を除く)。 */
+  /** SX がやる作業の、顧客1社分の年間工数 (製造拠点の作業を除く)。 */
   siteHours: number;
+  /** 顧客がやる作業の年間工数。 */
+  customerHours: number;
   /** 製造拠点の年間工数 (拠点全体)。 */
   productionHours: number;
   /** 工数が未確認 (空欄) の作業の数。 */
   unknownCount: number;
-  /** 顧客1社分の年額 (製造拠点の作業を除く)。 */
+  /** SX がやる作業の、顧客1社分の年額 (製造拠点の作業を除く)。 */
   siteAnnual: number;
-  /** 処理1単位あたり。製造拠点の作業は菌体費に配った額を含む。 */
+  /** SX の原価のうち処理1単位あたり。製造拠点の作業は菌体費に配った額を含む。顧客がやる作業は含まない。 */
   perUnit: number;
 }
 
 export interface CostTaskFlow {
   steps: CostFlowStep[];
-  /** 顧客1社分の年間工数 (製造拠点の作業を除く)。シナリオの siteTaskHours と一致する。 */
+  /** SX がやる作業の、顧客1社分の年間工数 (製造拠点の作業を除く)。シナリオの siteTaskHours と一致する。 */
   siteHours: number;
+  /** 顧客がやる作業の年間工数。シナリオの customerTaskHours と一致する。 */
+  customerHours: number;
   /** 製造拠点の年間工数 (拠点全体)。 */
   productionHours: number;
   unknownCount: number;
@@ -1258,7 +1313,7 @@ export interface CostTaskFlow {
 export function computeTaskFlow(
   bundle: CostInputs,
   computed: CostComputation,
-  selection: { application: CostApplication | null; method: CostMethod }
+  selection: { application: CostApplication | null; location: CostLocation; method: CostMethod }
 ): CostTaskFlow {
   const tasks = [...(bundle.tasks ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
   const sel: CostSelection = { strain: computed.strain, application: selection.application };
@@ -1269,8 +1324,9 @@ export function computeTaskFlow(
 
   const steps: CostFlowStep[] = [];
   for (const task of tasks) {
-    if (!rowAppliesTo(task, selection.method, sel)) continue;
+    if (!rowAppliesTo(task, selection.location, selection.method, sel)) continue;
     const isProduction = task.scenario === "中央培養";
+    const performer = resolvePerformer(task, selection.location);
     const amount = taskAmount(task, bundle.assumptions, isProduction ? centralDerived : derived, isProduction ? centralSel : sel);
     const perUnit = isProduction
       ? b.overridePerKg !== null ? 0 : (safeDiv(amount.annual, b.capacityKgYear) / b.salesRate) * derived.biomassKgPerUnit
@@ -1278,12 +1334,16 @@ export function computeTaskFlow(
     const label = task.groupLabel ?? "作業";
     let step = steps.find((s) => s.label === label);
     if (!step) {
-      step = { label, rows: [], scopes: [], siteHours: 0, productionHours: 0, unknownCount: 0, siteAnnual: 0, perUnit: 0 };
+      step = { label, rows: [], scopes: [], siteHours: 0, customerHours: 0, productionHours: 0, unknownCount: 0, siteAnnual: 0, perUnit: 0 };
       steps.push(step);
     }
-    step.rows.push({ task, amount, isProduction, perUnit });
+    step.rows.push({ task, amount, isProduction, performer, perUnit });
     if (!step.scopes.includes(task.scenario)) step.scopes.push(task.scenario);
     if (task.hoursPerOccurrence === null || task.hoursPerOccurrence === undefined) step.unknownCount += 1;
+    if (performer === "customer") {
+      step.customerHours += amount.annualHours;
+      continue;
+    }
     if (isProduction) step.productionHours += amount.annualHours;
     else {
       step.siteHours += amount.annualHours;
@@ -1297,6 +1357,7 @@ export function computeTaskFlow(
   return {
     steps,
     siteHours,
+    customerHours: steps.reduce((t, s) => t + s.customerHours, 0),
     productionHours: steps.reduce((t, s) => t + s.productionHours, 0),
     unknownCount: steps.reduce((t, s) => t + s.unknownCount, 0),
     siteAnnual,

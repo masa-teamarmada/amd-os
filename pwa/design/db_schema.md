@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-09-13 17:59 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-09-14 01:05 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -4338,6 +4338,7 @@ PRIMARY KEY: `cost_task_id`
 | 18 | `sort_order` | `int4` | NOT NULL | `0` |
 | 19 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 20 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 21 | `performer` | `text` | NOT NULL | `'sx'::text` |
 
 ## project_documents
 
