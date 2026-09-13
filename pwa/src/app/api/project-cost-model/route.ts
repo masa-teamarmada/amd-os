@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 
 // PJコックピット / PJワークスペース「コスト試算」タブの API。
 // read = ログイン済みメンバー、write = admin。
-// migration: scripts/migrations/320_project_cost_model.sql
+// migration: scripts/migrations/320_project_cost_model.sql / 392 (株・用途の列と二段階計算)
 // 計算そのものは src/lib/project-cost-model.ts (純関数)。ここは入出力だけ。
 
 const NUM = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : Number(v) || 0);
@@ -55,6 +55,8 @@ export function mapBundle(model: any, assumptions: any[], items: any[], question
       note: a.note ?? null,
       visibility: a.visibility,
       sortOrder: a.sort_order ?? 0,
+      strain: a.strain ?? null,
+      application: a.application ?? null,
     })),
     items: (items || []).map((i) => ({
       costItemId: i.cost_item_id,
@@ -78,6 +80,8 @@ export function mapBundle(model: any, assumptions: any[], items: any[], question
       note: i.note ?? null,
       visibility: i.visibility,
       sortOrder: i.sort_order ?? 0,
+      strain: i.strain ?? null,
+      application: i.application ?? null,
     })),
     questions: (questions || []).map((q) => ({
       costQuestionId: q.cost_question_id,
@@ -162,7 +166,7 @@ const ITEM_FIELDS = new Set(["unit_price", "quantity", "useful_life_years", "con
 /**
  * PATCH /api/project-cost-model
  * body: { entity: "assumption"|"item"|"question", id, patch: {...} }
- * 前提を1つ動かすとタブ側の4シナリオが再計算される。計算結果は保存しない (常に導出)。
+ * 前提を1つ動かすとタブ側の二段階計算 (菌体の製造原価 → 用途別の処理原価) が再計算される。計算結果は保存しない (常に導出)。
  */
 export async function PATCH(req: NextRequest) {
   const auth = await requireAdmin();

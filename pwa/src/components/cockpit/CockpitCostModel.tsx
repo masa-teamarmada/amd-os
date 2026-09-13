@@ -2,16 +2,24 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  APPLICATION_LABEL,
   CONFIDENCE_LABEL,
-  annualAmount as annualAmountImpl,
+  STRAIN_LABEL,
+  annualAmount,
+  centralItemPerKg,
   computeCostModel,
   costItemLabel,
+  scopeApplies,
+  type CostApplication,
   type CostAssumption,
+  type CostComputation,
   type CostItem,
   type CostModelBundle,
   type CostNote,
   type CostNoteSection,
   type CostScenarioResult,
+  type CostSelection,
+  type CostStrain,
 } from "@/lib/project-cost-model";
 import {
   loadProjectCostModel,
@@ -27,8 +35,11 @@ import {
 //   3. いくら以下ならユニットエコノミクスが成立するか
 //   4. どのパラメータの確度が低いせいで精度が落ちているか
 //
-// 正本は project_cost_* (migration 320/324)。前提を1つ動かすと4シナリオが再計算される。
-// 計算結果は保存しない。保存するのは前提と明細だけで、数字は常に導出する。
+// 二段階で見せる (2026-09-13 まさ確定):
+//   第1段 株 (強化株 / 自然株) ごとの菌体の製造原価。上部のスイッチで株を選ぶ。保存しない。
+//   第2段 第1段の原価を一定として、用途 (色素分解 / 金属回収) を横に並べる。下の詳細は用途のタブで切り替える。
+//
+// 正本は project_cost_* (migration 320/324/392)。計算結果は保存しない。保存するのは前提と明細だけで、数字は常に導出する。
 
 const num = (v: number, digits = 1) =>
   v.toLocaleString("ja-JP", { minimumFractionDigits: digits, maximumFractionDigits: digits });
@@ -81,6 +92,9 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
   );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  // 株と用途は見るための切り替え。保存しない。
+  const [strain, setStrain] = useState<CostStrain | null>(null);
+  const [application, setApplication] = useState<CostApplication | null>(null);
 
   const load = useCallback(
     async (force = false) => {
@@ -104,11 +118,11 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
   }, [load]);
 
   const computed = useMemo(
-    () => (bundle ? computeCostModel({ ...bundle, model: bundle.model }) : null),
-    [bundle]
+    () => (bundle ? computeCostModel({ ...bundle, model: bundle.model }, { strain }) : null),
+    [bundle, strain]
   );
 
-  async function patchAssumption(id: string, value: number) {
+  async function patchAssumption(id: string, value: number | null) {
     if (!bundle) return;
     setBundle({
       ...bundle,
@@ -144,16 +158,20 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
   const { model, assumptions, items, questions, notes } = bundle;
   const notesOf = (section: CostNoteSection) =>
     (notes ?? []).filter((n) => n.section === section).sort((a, b) => a.sortOrder - b.sortOrder);
-  const { derived, scenarios } = computed;
   const unit = model.unitBasisLabel || "m³";
-  const keyAssumptions = assumptions.filter((a) => a.isKey && a.value !== null);
+  const { strains, applications, biomass } = computed;
+  const activeApp: CostApplication | null =
+    application && applications.includes(application) ? application : applications[0] ?? null;
+  const selection: CostSelection = { strain: computed.strain, application: activeApp };
+  const scenarios = computed.scenarios.filter((s) => s.application === activeApp);
+  const derived = computed.derivedByApplication.find((d) => d.application === activeApp)?.derived ?? computed.derived;
+  const strainLabel = computed.strain ? STRAIN_LABEL[computed.strain] : "";
+  const appLabel = activeApp ? APPLICATION_LABEL[activeApp] : "";
+  const keyAssumptions = assumptions.filter(
+    (a) => a.isKey && (a.value !== null || a.roleKey === "biomass_cost_per_kg_override") && scopeApplies(a, selection)
+  );
   const openQuestions = questions.filter((q) => q.status === "open");
-
-  // 中央培養コストが菌体1kgあたりいくらに相当するか。文献値と突き合わせる共通単位。
-  // 中央培養コストは方式・槽によらず同額なので、どのシナリオから取っても同じ。
-  const biomassKgPerUnit = derived.biomassWithLossPerM3 / derived.reuseCount / 1000;
-  const impliedBiomassCost =
-    biomassKgPerUnit > 0 ? scenarios[0].centralTotalPerUnit / biomassKgPerUnit : 0;
+  const hasLegacyReference = scenarios.some((s) => s.referenceLaborPerUnit > 0);
 
   // 精度を下げている項目は方式ごとに違うので、両方式の既設ケースを混ぜて金額順に出す。
   const uncertainAcrossMethods = (() => {
@@ -179,7 +197,7 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
-      {/* 1. 何の試算か */}
+      {/* 1. 何の試算か。株のスイッチもここに置く。 */}
       <section className="rounded-xl border border-[#e5e5e7] bg-white p-4 sm:p-5">
         <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center rounded-full bg-[#1d1d1f] px-2.5 py-1 text-[11px] font-semibold text-white">
@@ -202,6 +220,18 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
             </a>
           )}
         </div>
+        {strains.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-[#e5e5e7] bg-[#fafafa] px-3 py-2.5">
+            <span className="text-[12px] font-semibold text-[#1d1d1f]">株</span>
+            <Segmented
+              ariaLabel="株の切り替え"
+              options={strains.map((s) => ({ value: s, label: STRAIN_LABEL[s] }))}
+              value={computed.strain}
+              onChange={(v) => setStrain(v)}
+            />
+            <span className="text-[11px] leading-5 text-[#86868b]">切り替えは保存されない。菌体の製造原価と、株に効く前提・明細が入れ替わる。</span>
+          </div>
+        )}
         {model.summaryMd && (
           <div className="mt-3">
             <MiniMarkdown text={model.summaryMd} />
@@ -224,9 +254,165 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
         </Card>
       )}
 
-      {/* 3. 成立ライン。表より先に「いくらならOKか」を出す。 */}
+      {/* 3. 第1段 菌体の製造原価。用途では変わらない。 */}
+      {biomass.capacityKgYear > 0 || biomass.overridePerKg !== null ? (
+        <Card
+          title="第1段 菌体の製造原価"
+          hint="乾燥菌体1kgをつくる原価。同じ株なら、色素分解でも金属回収でも同じ原価を使う。株を選ぶと下の第2段がこの原価で再計算される。"
+        >
+          {computed.biomassByStrain.length > 1 && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {computed.biomassByStrain.map((b) => {
+                const active = b.strain === computed.strain;
+                return (
+                  <button
+                    key={b.strain ?? "all"}
+                    type="button"
+                    onClick={() => b.strain && setStrain(b.strain)}
+                    aria-pressed={active}
+                    className={`rounded-lg border p-3 text-left transition-colors ${
+                      active ? "border-[#1d1d1f] bg-white shadow-[0_0_0_1px_#1d1d1f]" : "border-[#e5e5e7] bg-[#fafafa] hover:border-[#c7c7cc]"
+                    }`}
+                  >
+                    <p className="text-[11px] font-semibold text-[#4b4b52]">{b.strainLabel}</p>
+                    <p className="mt-1 text-[20px] font-semibold tabular-nums text-[#1d1d1f]">
+                      {num(b.perKg)} <span className="text-[12px] font-medium text-[#6e6e73]">円/kg-DCW</span>
+                    </p>
+                    <p className="mt-0.5 text-[10px] leading-4 text-[#86868b]">
+                      {b.overridePerKg !== null
+                        ? "上書き値で計算中"
+                        : b.strainSpecificPerKg > 0
+                          ? `うち株固有の費用（閉鎖系の追加など） ${num(b.strainSpecificPerKg)} 円/kg`
+                          : "株固有の費用なし"}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <div className={`${computed.biomassByStrain.length > 1 ? "mt-3" : ""} -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0`}>
+            <table className="w-full border-collapse text-[12px]">
+              <thead>
+                <tr className="border-b border-[#e5e5e7] text-left text-[11px] text-[#86868b]">
+                  <th className="py-2 pr-2 font-medium">{strainLabel ? `${strainLabel}の内訳` : "内訳"}</th>
+                  <th className="px-2 py-2 text-right font-medium">円/kg-DCW</th>
+                  <th className="pl-2 py-2 text-right font-medium">うち株固有</th>
+                </tr>
+              </thead>
+              <tbody className="tabular-nums">
+                {biomass.rows.map((r) => (
+                  <tr key={r.key} className="border-b border-[#f0f0f2]">
+                    <td className="py-2 pr-2 text-[#4b4b52]">
+                      {r.label}
+                      <span className="block text-[10px] leading-4 text-[#86868b]">{biomassRowFormula(r.key, biomass)}</span>
+                    </td>
+                    <td className="whitespace-nowrap px-2 py-2 text-right text-[#1d1d1f]">{num(r.perKg)}</td>
+                    <td className="whitespace-nowrap py-2 pl-2 text-right text-[#86868b]">{r.strainSpecificPerKg > 0 ? num(r.strainSpecificPerKg) : "—"}</td>
+                  </tr>
+                ))}
+                <tr className="border-b border-[#f0f0f2]">
+                  <td className="py-2 pr-2 font-semibold text-[#1d1d1f]">明細から計算した原価</td>
+                  <td className="whitespace-nowrap px-2 py-2 text-right font-semibold text-[#1d1d1f]">{num(biomass.computedPerKg)}</td>
+                  <td className="whitespace-nowrap py-2 pl-2 text-right text-[#86868b]">
+                    {biomass.overridePerKg === null && biomass.strainSpecificPerKg > 0 ? num(biomass.strainSpecificPerKg) : "—"}
+                  </td>
+                </tr>
+                {biomass.overridePerKg !== null && (
+                  <tr className="border-b border-[#f0f0f2] bg-[#fff8e1]">
+                    <td className="py-2 pr-2 font-semibold text-[#8d6e00]">上書き値（第2段はこちらで計算）</td>
+                    <td className="whitespace-nowrap px-2 py-2 text-right font-semibold text-[#8d6e00]">{num(biomass.overridePerKg)}</td>
+                    <td className="py-2 pl-2" />
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-2 text-[11px] leading-5 text-[#86868b]">
+            CAPEXは「初期投資 ÷ 耐用年数 ÷ 年間生産能力」で1kgあたりにしている。年間生産能力の量を作って使い切る前提なので、実際の供給量が能力を下回ると1kgあたりの原価は上がる。
+            閉鎖系スピルリナの商用実績は約390〜770円/kg。
+          </p>
+        </Card>
+      ) : null}
+
+      {/* 4. 第2段 用途を横に並べる。 */}
+      {applications.length > 0 && (
+        <Card
+          title="第2段 用途別の処理原価"
+          hint={`第1段の原価（${strainLabel ? `${strainLabel}・` : ""}${num(biomass.perKg)} 円/kg-DCW）を一定として、用途ごとに1${unit}あたりの総コストを並べる。下段の小さい数字は人件費を除いた値。`}
+        >
+          <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+            <table className="w-full border-collapse text-[12px]">
+              <thead>
+                <tr className="border-b border-[#e5e5e7] text-left text-[11px] text-[#86868b]">
+                  <th className="py-2 pr-2 font-medium">シナリオ</th>
+                  {applications.map((a) => (
+                    <th key={a} className="whitespace-nowrap px-2 py-2 text-right font-medium">{APPLICATION_LABEL[a]}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="tabular-nums">
+                {computed.scenarios
+                  .filter((s) => s.application === applications[0])
+                  .map((row) => (
+                    <tr key={row.label} className="border-b border-[#f0f0f2]">
+                      <td className="whitespace-nowrap py-2 pr-2 text-[#1d1d1f]">{row.label}</td>
+                      {applications.map((a) => {
+                        const s = computed.scenarios.find((x) => x.application === a && x.method === row.method && x.tankMode === row.tankMode);
+                        if (!s) return <td key={a} className="px-2 py-2 text-right">—</td>;
+                        const ok = s.gapToAllowedPerUnit >= 0;
+                        return (
+                          <td key={a} className="px-2 py-2 text-right align-top">
+                            <span className={`whitespace-nowrap font-semibold ${ok ? "text-[#1b5e20]" : "text-[#b71c1c]"}`}>{num(s.totalPerUnit)}</span>
+                            <span className="block text-[10px] leading-4 text-[#86868b]">
+                              人件費を除くと <span className="whitespace-nowrap">{num(s.totalWithoutLaborPerUnit)}</span>
+                            </span>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                <SectionRow label="用途で変わる量（方式・槽によらず同じ）" span={applications.length + 1} />
+                {([
+                  ["使い切る菌体量（kg-DCW/" + unit + "）", (s: CostScenarioResult) => num(s.biomassKgPerUnit, 3)],
+                  ["菌体費（円/" + unit + "）", (s: CostScenarioResult) => num(s.centralTotalPerUnit)],
+                  ["使用済み菌体の後処理（円/" + unit + "）", (s: CostScenarioResult) => num(s.postProcessPerUnit)],
+                ] as Array<[string, (s: CostScenarioResult) => string]>).map(([label, fmt]) => (
+                  <tr key={label} className="border-b border-[#f0f0f2]">
+                    <td className="py-2 pr-2 text-[#4b4b52]">{label}</td>
+                    {applications.map((a) => {
+                      const s = computed.scenarios.find((x) => x.application === a);
+                      return (
+                        <td key={a} className="whitespace-nowrap px-2 py-2 text-right align-top text-[#1d1d1f]">{s ? fmt(s) : "—"}</td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-2 text-[11px] leading-5 text-[#86868b]">
+            緑は売価 {num(derived.salePrice, 0)} 円/{unit} 以下、赤は超過。用途で違うのは、使い切る菌体の量（対象物質の濃度 ÷ 取り込み効率 ÷ 菌体使用回数）と後処理だけ。
+          </p>
+        </Card>
+      )}
+
+      {/* 4b. 下の詳細を見る用途 */}
+      {applications.length > 1 && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-[#e5e5e7] bg-white px-4 py-3">
+          <span className="text-[12px] font-semibold text-[#1d1d1f]">ここから下の詳細</span>
+          <Segmented
+            ariaLabel="詳細を見る用途"
+            options={applications.map((a) => ({ value: a, label: APPLICATION_LABEL[a] }))}
+            value={activeApp}
+            onChange={(v) => setApplication(v)}
+          />
+          <span className="text-[11px] text-[#86868b]">{strainLabel && `${strainLabel}・`}{appLabel}の4シナリオで出す。</span>
+        </div>
+      )}
+
+      {/* 5. 成立ライン。表より先に「いくらならOKか」を出す。 */}
       <Card
-        title="成立ライン"
+        title={appLabel ? `成立ライン（${appLabel}）` : "成立ライン"}
         hint={`売価 ${num(derived.salePrice, 0)} 円/${unit} ・ 年間処理量 ${int(derived.annualVolume)} ${unit}/年 ・ 年間売上 ${int(scenarios[0].revenueAnnual)} 円。`}
       >
         <div className="grid gap-2 sm:grid-cols-3">
@@ -245,9 +431,9 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
             note={model.targetNote ?? "PJとして置いている目標値。未設定なら損益分岐だけで判定する。"}
           />
           <Metric
-            label="必要菌体量あたり原価の含意"
-            value={`${num(impliedBiomassCost, 0)} 円/kg-DCW`}
-            note="中央培養コスト ÷ 年間菌体量。閉鎖系スピルリナの商用実績は約390〜770円/kg。"
+            label={strainLabel ? `菌体の製造原価（第1段・${strainLabel}）` : "菌体の製造原価（第1段）"}
+            value={`${num(biomass.perKg, 0)} 円/kg-DCW`}
+            note="閉鎖系スピルリナの商用実績は約390〜770円/kg。"
           />
         </div>
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -270,6 +456,12 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
                     <dt>損益分岐売価</dt>
                     <dd className="tabular-nums font-medium text-[#1d1d1f]">{num(s.breakEvenPricePerUnit)}</dd>
                   </div>
+                  <div className="flex justify-between gap-2">
+                    <dt>人件費を除くと</dt>
+                    <dd className={`tabular-nums font-medium ${s.allowedTotalCostPerUnit - s.totalWithoutLaborPerUnit >= 0 ? "text-[#1b5e20]" : "text-[#b71c1c]"}`}>
+                      {signed(s.allowedTotalCostPerUnit - s.totalWithoutLaborPerUnit)}
+                    </dd>
+                  </div>
                   {s.gapToTargetPerUnit !== null && (
                     <div className="flex justify-between gap-2">
                       <dt>目標総コストとの差</dt>
@@ -285,17 +477,17 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
         </div>
       </Card>
 
-      {/* 3b. 外部ベンチマークと出典。置いた値が相場から外れていないかを突き合わせる。 */}
+      {/* 5b. 外部ベンチマークと出典。置いた値が相場から外れていないかを突き合わせる。 */}
       {notesOf("benchmark").length > 0 && (
         <Card title="外部ベンチマークと出典" hint="モデルに置いた値を、外の相場や一次情報と突き合わせるための材料。">
           <NoteList notes={notesOf("benchmark")} />
         </Card>
       )}
 
-      {/* 4. CAPEX / OPEX を分けた損益。円/単位と円/年を併記する。 */}
+      {/* 6. CAPEX / OPEX を分けた損益。円/単位と円/年を併記する。 */}
       <Card
-        title="事業成立サマリー"
-        hint={`CAPEXは償却後の年額換算。人件費は無人運転前提で総コストへ算入せず、最下段に参考値として置く。単位は 円/${unit}（括弧内は 円/年）。`}
+        title={appLabel ? `事業成立サマリー（${strainLabel ? `${strainLabel}・` : ""}${appLabel}）` : "事業成立サマリー"}
+        hint={`CAPEXは償却後の年額換算。人件費は手動運用の作業時間で総コストに含め、除いた値を最下段に置く。単位は 円/${unit}（括弧内は 円/年）。`}
       >
         <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
           <table className="w-full min-w-[720px] border-collapse text-[12px]">
@@ -308,6 +500,10 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
               </tr>
             </thead>
             <tbody className="tabular-nums">
+              <SectionRow label="菌体（第1段の原価 × 使い切る菌体量）" span={scenarios.length + 1} />
+              <Row label={`　使い切る菌体量（kg-DCW/${unit}）`} scenarios={scenarios} get={(s) => [s.biomassKgPerUnit, null]} digits={3} muted />
+              <Row label="　菌体費" scenarios={scenarios} get={(s) => [s.centralTotalPerUnit, s.centralCapexAnnual + s.centralOpexAnnual]} />
+
               <SectionRow label="現場設備（顧客工場1拠点あたり）" span={scenarios.length + 1} />
               <Row label="　OPEX" scenarios={scenarios} get={(s) => [s.siteOpexPerUnit, s.siteOpexAnnual]} />
               <Row label="　CAPEX 年額（槽含む）" scenarios={scenarios} get={(s) => [s.siteCapexPerUnit, s.siteCapexAnnual]} />
@@ -319,10 +515,11 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
                 muted
               />
 
-              <SectionRow label="中央培養拠点（全顧客共通・供給拠点数で配賦）" span={scenarios.length + 1} />
-              <Row label="　OPEX" scenarios={scenarios} get={(s) => [s.centralOpexPerUnit, s.centralOpexAnnual]} />
-              <Row label="　CAPEX 年額" scenarios={scenarios} get={(s) => [s.centralCapexPerUnit, s.centralCapexAnnual]} />
-              <Row label="　小計" scenarios={scenarios} get={(s) => [s.centralTotalPerUnit, null]} sub />
+              <SectionRow label="総コストに含む主な内訳" span={scenarios.length + 1} />
+              <Row label="　人件費（現場の運転）" scenarios={scenarios} get={(s) => [s.laborPerUnit, null]} />
+              <Row label="　巡回サービス（搬入・搬出・交換作業）" scenarios={scenarios} get={(s) => [s.patrolPerUnit, null]} />
+              <Row label="　閉鎖系の追加（強化株のみ。第1段の分を含む）" scenarios={scenarios} get={(s) => [s.strainSpecificPerUnit, null]} />
+              <Row label="　使用済み菌体の後処理" scenarios={scenarios} get={(s) => [s.postProcessPerUnit, null]} />
 
               <SectionRow label="事業全体" span={scenarios.length + 1} />
               <Row label="　OPEX 合計" scenarios={scenarios} get={(s) => [s.opexTotalPerUnit, s.opexTotalAnnual]} />
@@ -341,9 +538,17 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
                 ))}
               </tr>
 
-              <SectionRow label="参考：人件費（総コストに不算入）" span={scenarios.length + 1} />
-              <Row label="　人件費" scenarios={scenarios} get={(s) => [s.referenceLaborPerUnit, null]} muted />
-              <Row label="　人件費を戻した利益" scenarios={scenarios} get={(s) => [s.profitWithLaborPerUnit, null]} signedRow />
+              <SectionRow label="人件費を除くと（無人運転に近づけた場合の目安）" span={scenarios.length + 1} />
+              <Row label="　総コスト" scenarios={scenarios} get={(s) => [s.totalWithoutLaborPerUnit, null]} sub />
+              <Row label="　営業利益" scenarios={scenarios} get={(s) => [s.profitWithoutLaborPerUnit, null]} signedRow />
+
+              {hasLegacyReference && (
+                <>
+                  <SectionRow label="参考：人件費（総コストに不算入）" span={scenarios.length + 1} />
+                  <Row label="　人件費" scenarios={scenarios} get={(s) => [s.referenceLaborPerUnit, null]} muted />
+                  <Row label="　人件費を戻した利益" scenarios={scenarios} get={(s) => [s.profitWithLaborPerUnit, null]} signedRow />
+                </>
+              )}
             </tbody>
           </table>
         </div>
@@ -352,17 +557,17 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
         </p>
       </Card>
 
-      {/* 4b. この表の読み方。原典②シートの「見る意味」列と投資回収の保留理由。 */}
+      {/* 6b. この表の読み方。 */}
       {notesOf("reading_guide").length > 0 && (
         <Card title="この表の読み方" hint="各行が何を見るためのものか。投資回収を保留にしている理由もここ。">
           <NoteList notes={notesOf("reading_guide")} />
         </Card>
       )}
 
-      {/* 5. この数字の確からしさ */}
+      {/* 7. この数字の確からしさ */}
       <Card
-        title="この数字の確からしさ"
-        hint="総コストのうち、どの確度の行がいくらを占めているか。仮説(H)と仮置き(C)の比率が高いほど、確定作業で数字は動く。"
+        title={appLabel ? `この数字の確からしさ（${appLabel}）` : "この数字の確からしさ"}
+        hint="総コストのうち、どの確度の行がいくらを占めているか。仮説(H)と仮置き(C)の比率が高いほど、確定作業で数字は動く。菌体費は第1段の行ごとに配って数えている。"
       >
         <div className="grid gap-3 lg:grid-cols-2">
           {scenarios.map((s) => (
@@ -439,10 +644,14 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
         </div>
       </Card>
 
-      {/* 6. 主要前提 */}
+      {/* 8. 主要前提 */}
       <Card
         title="主要前提（動かすと上の表が変わる）"
-        hint={canEdit ? "値を書き換えると4シナリオが再計算される。計算結果は保存せず、前提だけを保存する。" : "値の編集はコックピット側のadminのみ。"}
+        hint={
+          canEdit
+            ? `表示中の${strainLabel ? `株（${strainLabel}）と` : ""}用途${appLabel ? `（${appLabel}）` : ""}に効く前提だけを出す。値を書き換えると再計算される。計算結果は保存せず、前提だけを保存する。`
+            : "値の編集はコックピット側のadminのみ。"
+        }
       >
         <div className="grid gap-2 sm:grid-cols-2">
           {keyAssumptions.map((a) => (
@@ -456,11 +665,11 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
           ))}
         </div>
         <div className="mt-3 rounded-lg border border-[#e5e5e7] bg-[#fafafa] p-3">
-          <h4 className="text-[12px] font-semibold text-[#1d1d1f]">前提から導かれる物量</h4>
+          <h4 className="text-[12px] font-semibold text-[#1d1d1f]">前提から導かれる物量{appLabel ? `（${appLabel}）` : ""}</h4>
           <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px] sm:grid-cols-4">
             {[
-              ["必要菌体量", `${num(derived.biomassWithLossPerM3, 0)} g-DCW/${unit}`],
-              ["必要培養液量", `${num(derived.requiredBrothPerM3, 0)} L/${unit}`],
+              ["必要菌体量（ロス込）", `${num(derived.biomassWithLossPerM3, 0)} g-DCW/${unit}`],
+              ["使い切る菌体量（使用回数で割った後）", `${num(derived.biomassKgPerUnit, 3)} kg-DCW/${unit}`],
               ["年間菌体量", `${num(derived.annualBiomassKg, 0)} kg-DCW/年`],
               ["年間バッチ回数", `${num(derived.annualBatches, 0)} 回/年`],
             ].map(([k, v]) => (
@@ -473,12 +682,12 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
         </div>
       </Card>
 
-      {/* 7. すべての前提 (既定で開く) */}
-      <Card title="すべての前提" hint="計算に入っている変数の全件。確度と確認先つき。">
-        <AssumptionTable assumptions={assumptions} />
+      {/* 9. すべての前提 (既定で開く) */}
+      <Card title="すべての前提" hint="計算に入っている変数の全件。確度と確認先つき。株・用途の印がある行は、その株・用途のときだけ効く。">
+        <AssumptionTable assumptions={assumptions} selection={selection} />
       </Card>
 
-      {/* 8. 確認事項 */}
+      {/* 10. 確認事項 */}
       <Card
         title={`確認事項（未確定 ${openQuestions.length}件）`}
         hint="研究者に円は聞かない。先生方へは量・回数・条件だけを聞き、円への変換はAMD側でやる。並びは「確定したときに総コストが動く幅」の大きい順。"
@@ -513,18 +722,80 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
         </div>
       </Card>
 
-      {/* 8b. 版の履歴と、この試算が答えていないこと。 */}
+      {/* 10b. 版の履歴と、この試算が答えていないこと。 */}
       {notesOf("history").length > 0 && (
         <Card title="版の履歴と、この試算が答えていないこと" hint="前版との落差と、まだモデルに入っていない論点。">
           <NoteList notes={notesOf("history")} />
         </Card>
       )}
 
-      {/* 9. 費用明細 (既定で開く) */}
-      <Card title="費用明細" hint={`計算に入っている全 ${items.filter((i) => !i.isBreakdown).length} 行。内訳行は親の小計に含まれるため金額を持たない。`}>
-        <ItemTable items={items} assumptions={assumptions} unit={unit} />
+      {/* 11. 費用明細 (既定で開く) */}
+      <Card
+        title="費用明細"
+        hint={`計算に入っている全 ${items.filter((i) => !i.isBreakdown).length} 行。内訳行は親の小計に含まれるため金額を持たない。表示中の株・用途で発生しない行は薄く出し、金額を空欄にする。`}
+      >
+        <ItemTable items={items} assumptions={assumptions} unit={unit} computed={computed} selection={selection} />
       </Card>
     </div>
+  );
+}
+
+/** 第1段の各行が、何を何で割った値かを数字で示す。 */
+function biomassRowFormula(key: "capex" | "fixed" | "variable", b: CostComputation["biomass"]): string {
+  const cap = `年間生産能力 ${int(b.capacityKgYear)} kg`;
+  if (key === "capex") {
+    const life =
+      b.usefulLifeMinYears === null
+        ? "耐用年数 —"
+        : b.usefulLifeMinYears === b.usefulLifeMaxYears
+          ? `耐用 ${b.usefulLifeMinYears}年`
+          : `耐用 ${b.usefulLifeMinYears}〜${b.usefulLifeMaxYears}年`;
+    return `初期投資 ${int(b.capexInitial)} 円 ÷ ${life}（償却 年 ${int(b.capexAnnual)} 円）÷ ${cap}`;
+  }
+  if (key === "fixed") return `年 ${int(b.fixedOpexAnnual)} 円 ÷ ${cap}`;
+  return "菌体1kgあたりの単価を足し上げ";
+}
+
+function Segmented<T extends string>({
+  ariaLabel,
+  options,
+  value,
+  onChange,
+}: {
+  ariaLabel: string;
+  options: Array<{ value: T; label: string }>;
+  value: T | null;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div role="group" aria-label={ariaLabel} className="inline-flex rounded-lg border border-[#d2d2d7] bg-white p-0.5">
+      {options.map((o) => {
+        const active = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onChange(o.value)}
+            className={`min-h-[32px] rounded-md px-3 text-[12px] font-semibold transition-colors ${
+              active ? "bg-[#1d1d1f] text-white" : "text-[#4b4b52] hover:bg-[#f2f2f4]"
+            }`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ScopeTag({ strain, application }: { strain: CostStrain | null; application: CostApplication | null }) {
+  const parts = [strain ? `${STRAIN_LABEL[strain]}のみ` : null, application ? `${APPLICATION_LABEL[application]}のみ` : null].filter(Boolean);
+  if (parts.length === 0) return null;
+  return (
+    <span className="ml-1 inline-flex shrink-0 items-center whitespace-nowrap rounded border border-[#d6d3f5] bg-[#f3f1ff] px-1.5 py-[1px] align-middle text-[10px] font-semibold text-[#4a3fb0]">
+      {parts.join("・")}
+    </span>
   );
 }
 
@@ -640,6 +911,7 @@ function Row({
   sub,
   muted,
   signedRow,
+  digits = 1,
 }: {
   label: string;
   scenarios: CostScenarioResult[];
@@ -648,6 +920,7 @@ function Row({
   sub?: boolean;
   muted?: boolean;
   signedRow?: boolean;
+  digits?: number;
 }) {
   return (
     <tr className="border-b border-[#f0f0f2]">
@@ -666,7 +939,7 @@ function Row({
               negative ? "text-red-600" : muted ? "text-[#86868b]" : "text-[#1d1d1f]"
             }`}
           >
-            {per !== null && <span>{signedRow ? signed(per) : num(per)}</span>}
+            {per !== null && <span>{signedRow ? signed(per, digits) : num(per, digits)}</span>}
             {per !== null && annual !== null && <span className="text-[#86868b]"> </span>}
             {annual !== null && (
               <span className={per !== null ? "text-[10px] text-[#86868b]" : ""}>
@@ -795,21 +1068,24 @@ function AssumptionRow({
   assumption: CostAssumption;
   canEdit: boolean;
   saving: boolean;
-  onChange: (value: number) => void;
+  onChange: (value: number | null) => void;
 }) {
-  const [draft, setDraft] = useState(String(assumption.value ?? ""));
+  const [draft, setDraft] = useState(assumption.value === null ? "" : String(assumption.value));
   // 楽観更新やDB再読込で prop が変わったら入力欄を追従させる (レンダー中の調整)。
   const [syncedValue, setSyncedValue] = useState(assumption.value);
   if (assumption.value !== syncedValue) {
     setSyncedValue(assumption.value);
-    setDraft(String(assumption.value ?? ""));
+    setDraft(assumption.value === null ? "" : String(assumption.value));
   }
 
   return (
     <div className="rounded-lg border border-[#e5e5e7] p-3">
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-[12px] font-medium text-[#1d1d1f]">{assumption.label}</p>
+          <p className="text-[12px] font-medium text-[#1d1d1f]">
+            {assumption.label}
+            <ScopeTag strain={assumption.strain} application={assumption.application} />
+          </p>
           <p className="mt-0.5 text-[10px] text-[#86868b]">
             {assumption.groupLabel}
             {assumption.owner ? ` ・ 確認先 ${assumption.owner}` : ""}
@@ -824,8 +1100,13 @@ function AssumptionRow({
             type="number"
             step="any"
             value={draft}
+            placeholder={assumption.value === null ? "空欄" : undefined}
             onChange={(e) => setDraft(e.target.value)}
             onBlur={() => {
+              if (draft.trim() === "") {
+                if (assumption.value !== null) onChange(null);
+                return;
+              }
               const v = Number(draft);
               if (Number.isFinite(v) && v !== assumption.value) onChange(v);
             }}
@@ -833,7 +1114,7 @@ function AssumptionRow({
           />
         ) : (
           <span className="text-[13px] font-semibold tabular-nums text-[#1d1d1f]">
-            {assumption.value?.toLocaleString("ja-JP")}
+            {assumption.value === null ? "空欄" : assumption.value.toLocaleString("ja-JP")}
           </span>
         )}
         <span className="text-[11px] text-[#86868b]">{assumption.unit}</span>
@@ -844,7 +1125,7 @@ function AssumptionRow({
   );
 }
 
-function AssumptionTable({ assumptions }: { assumptions: CostAssumption[] }) {
+function AssumptionTable({ assumptions, selection }: { assumptions: CostAssumption[]; selection: CostSelection }) {
   const groups = [...new Set(assumptions.map((a) => a.groupLabel))];
   return (
     <div className="flex flex-col gap-3">
@@ -866,21 +1147,25 @@ function AssumptionTable({ assumptions }: { assumptions: CostAssumption[] }) {
               <tbody className="tabular-nums">
                 {assumptions
                   .filter((a) => a.groupLabel === g)
-                  .map((a) => (
-                    <tr key={a.costAssumptionId} className="border-b border-[#f6f6f7] align-top">
-                      <td className="py-1.5 pr-2 text-[#1d1d1f]">
-                        {a.label}
-                        {a.note && <p className="mt-0.5 text-[10px] leading-4 text-[#86868b]">{a.note}</p>}
-                      </td>
-                      <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold text-[#1d1d1f]">
-                        {a.value !== null ? a.value.toLocaleString("ja-JP") : a.valueText}
-                      </td>
-                      <td className="px-2 py-1.5 text-[#86868b]">{a.unit}</td>
-                      <td className="px-2 py-1.5"><ConfidenceTag value={a.confidence} /></td>
-                      <td className="px-2 py-1.5 text-[#86868b]">{a.sourceKind}</td>
-                      <td className="py-1.5 pl-2 text-[#86868b]">{a.owner}</td>
-                    </tr>
-                  ))}
+                  .map((a) => {
+                    const applies = scopeApplies(a, selection);
+                    return (
+                      <tr key={a.costAssumptionId} className={`border-b border-[#f6f6f7] align-top ${applies ? "" : "opacity-50"}`}>
+                        <td className="py-1.5 pr-2 text-[#1d1d1f]">
+                          {a.label}
+                          <ScopeTag strain={a.strain} application={a.application} />
+                          {a.note && <p className="mt-0.5 text-[10px] leading-4 text-[#86868b]">{a.note}</p>}
+                        </td>
+                        <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold text-[#1d1d1f]">
+                          {a.value !== null ? a.value.toLocaleString("ja-JP") : a.valueText ?? "空欄"}
+                        </td>
+                        <td className="px-2 py-1.5 text-[#86868b]">{a.unit}</td>
+                        <td className="px-2 py-1.5"><ConfidenceTag value={a.confidence} /></td>
+                        <td className="px-2 py-1.5 text-[#86868b]">{a.sourceKind}</td>
+                        <td className="py-1.5 pl-2 text-[#86868b]">{a.owner}</td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>
@@ -894,12 +1179,17 @@ function ItemTable({
   items,
   assumptions,
   unit,
+  computed,
+  selection,
 }: {
   items: CostItem[];
   assumptions: CostAssumption[];
   unit: string;
+  computed: CostComputation;
+  selection: CostSelection;
 }) {
-  const { derived } = useMemo(() => computeCostModel({ assumptions, items }), [assumptions, items]);
+  const derived = computed.derivedByApplication.find((d) => d.application === selection.application)?.derived ?? computed.derived;
+  const centralSelection: CostSelection = { strain: selection.strain, application: null };
   const visible = items.filter((i) => !i.isBreakdown);
   const groups = ["中央培養", "共通", "循環", "投入"] as const;
 
@@ -910,14 +1200,18 @@ function ItemTable({
         if (rows.length === 0) return null;
         const capex = rows.filter((r) => r.costType === "CAPEX");
         const opex = rows.filter((r) => r.costType === "OPEX");
+        const isCentral = g === "中央培養";
         return (
           <div key={g}>
             <h4 className="text-[12px] font-semibold text-[#1d1d1f]">
-              {g}
+              {isCentral ? "中央培養（第1段）" : g}
               <span className="ml-2 text-[10px] font-normal text-[#86868b]">
                 CAPEX {capex.length}行 / OPEX {opex.length}行
               </span>
             </h4>
+            {isCentral && (
+              <p className="mt-0.5 text-[10px] text-[#86868b]">中央培養の行は、菌体1kgあたりの原価へ畳んで第2段に配る。右端は 円/kg-DCW。</p>
+            )}
             <div className="mt-1.5 -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
               <table className="w-full min-w-[760px] border-collapse text-[11px]">
                 <thead>
@@ -928,20 +1222,28 @@ function ItemTable({
                     <th className="px-2 py-1.5 text-right font-medium">単価</th>
                     <th className="px-2 py-1.5 text-right font-medium">耐用</th>
                     <th className="px-2 py-1.5 text-right font-medium">年額(円)</th>
-                    <th className="px-2 py-1.5 text-right font-medium">円/{unit}</th>
+                    <th className="px-2 py-1.5 text-right font-medium">{isCentral ? "円/kg-DCW" : `円/${unit}`}</th>
                     <th className="pl-2 py-1.5 font-medium">確度・出所</th>
                   </tr>
                 </thead>
                 <tbody className="tabular-nums">
                   {rows.map((i) => {
-                    const annual = annualAmountOf(i, assumptions, derived);
+                    const sel = isCentral ? centralSelection : selection;
+                    const applies = scopeApplies(i, sel);
+                    const annual = applies ? annualAmount(i, assumptions, derived, sel) : null;
+                    const perCol = !applies
+                      ? null
+                      : isCentral
+                        ? centralItemPerKg(i, assumptions, computed.biomass.capacityKgYear, sel)
+                        : (annual ?? 0) / (derived.annualVolume || 1);
                     return (
-                      <tr key={i.costItemId} className="border-b border-[#f6f6f7] align-top">
+                      <tr key={i.costItemId} className={`border-b border-[#f6f6f7] align-top ${applies ? "" : "opacity-50"}`}>
                         <td className="py-1.5 pr-2 text-[#1d1d1f]">
                           {costItemLabel(i)}
                           {i.groupLabel && (
                             <span className="ml-1 text-[10px] text-[#86868b]">（{i.groupLabel}）</span>
                           )}
+                          <ScopeTag strain={i.strain} application={i.application} />
                           {i.note && <p className="mt-0.5 max-w-[420px] text-[10px] leading-4 text-[#86868b]">{i.note}</p>}
                         </td>
                         <td className="px-2 py-1.5 text-[#86868b]">{i.costType}</td>
@@ -959,9 +1261,9 @@ function ItemTable({
                         <td className="px-2 py-1.5 text-right text-[#86868b]">
                           {i.usefulLifeYears ? `${i.usefulLifeYears}年` : "—"}
                         </td>
-                        <td className="whitespace-nowrap px-2 py-1.5 text-right text-[#1d1d1f]">{int(annual)}</td>
+                        <td className="whitespace-nowrap px-2 py-1.5 text-right text-[#1d1d1f]">{annual === null ? "—" : int(annual)}</td>
                         <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold text-[#1d1d1f]">
-                          {num(annual / (derived.annualVolume || 1), 2)}
+                          {perCol === null ? "—" : num(perCol, 2)}
                         </td>
                         <td className="py-1.5 pl-2">
                           <div className="flex items-center gap-1.5">
@@ -999,13 +1301,4 @@ function EmptyState({ canEdit }: { canEdit: boolean }) {
       </p>
     </div>
   );
-}
-
-// ItemTable から使う。lib 側の annualAmount と同じ計算を呼ぶだけの薄い包み。
-function annualAmountOf(
-  item: CostItem,
-  assumptions: CostAssumption[],
-  derived: ReturnType<typeof computeCostModel>["derived"]
-): number {
-  return annualAmountImpl(item, assumptions, derived);
 }

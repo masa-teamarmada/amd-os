@@ -54,13 +54,14 @@ export function invalidateProjectCostModel(projectId?: string): void {
 }
 
 /**
- * 前提の値を1つ書き換える。書き込みもここへ寄せて、画面から素の fetch を消す。
+ * 前提の値を1つ書き換える。null は空欄へ戻す（菌体原価の上書きを外すときなど）。
+ * 書き込みもここへ寄せて、画面から素の fetch を消す。
  * 成功したらキャッシュを捨て、次の読み取りで最新へ戻す。
  */
 export async function saveCostAssumptionValue(
   projectId: string,
   costAssumptionId: string,
-  value: number,
+  value: number | null,
 ): Promise<void> {
   const res = await fetch("/api/project-cost-model", {
     method: "PATCH",
