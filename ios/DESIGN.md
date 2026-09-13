@@ -39,14 +39,15 @@ PWAのPJコックピットは、上段のグループと選択中グループの
 macOSはiOSの5タブを横展開せず、`仕事 / 探索 / 管理 / 設定` の常設ナビを使う。
 PWAの全route・重要UI・iOS画面の対応状況は `../macos/PARITY.md` を正本とし、実装済みだけを完了扱いにする。
 
-主要 Supabase テーブル: `projects` / `project_members` / `members` / `billing_cycles` / `payout_notices` / `reimbursements` / `knowledge_sessions` / `ms_*` (マイルストーン) / `tsukuyomi_*` / `proposals` / `app_notifications` / `l2_notifications` / `meeting_notifications` / `l2_feedbacks` / `project_cost_models` / `project_cost_assumptions` / `project_cost_items` / `project_cost_questions` ほか。
+主要 Supabase テーブル: `projects` / `project_members` / `members` / `billing_cycles` / `payout_notices` / `reimbursements` / `knowledge_sessions` / `ms_*` (マイルストーン) / `tsukuyomi_*` / `proposals` / `app_notifications` / `l2_notifications` / `meeting_notifications` / `l2_feedbacks` / `project_cost_models` / `project_cost_assumptions` / `project_cost_items` / `project_cost_tasks` / `project_cost_questions` ほか。
 
 > **PWA専用画面（Native未移植）**: PJコックピット `?tab=cost-model` とPJワークスペース `#cost-model` の
-> 「コスト試算」タブ（2026-08-23追加、**全PJ常設**）。前提（変数）と費用明細をDBに持ち、前提を1つ動かすと
-> 4シナリオ（循環/投入 × 既設/新設）をクライアントで再計算する。計算結果は保存せず常に導出する。
-> 1画面で「想定している系 / CAPEX・OPEXの内訳（円/単位と円/年）/ 成立ライン（許容上限・損益分岐売価・目標との差）/
-> 確度別の内訳と精度を下げている項目」が読めることを要件にしている。未登録PJは空状態を出す。
-> 実装: `pwa/src/lib/project-cost-model.ts`（純関数）/ `pwa/src/components/cockpit/CockpitCostModel.tsx`。
+> 「コスト試算」タブ（2026-08-23追加、**全PJ常設**、2026-09-13 二段階化・シミュレーター化）。前提（変数）・費用明細・作業リスト
+> （`project_cost_tasks`）をDBに持ち、株×用途×方式（循環/投入）×槽（既設/新設）をクライアントで再計算する。計算結果は保存せず常に導出する。
+> 上半分は「左 操作パネル（切り替え・前提・作業リスト・明細の書き換え）／右 結果（菌体1kgの原価・総コストの表・選んだシナリオの内訳）」の1枠で、
+> デスクトップは操作パネルの中だけスクロール、スマホは結果の要約を上に固定する。画面での書き換えは保存しない試算で、admin だけ「この値を保存」で正本へ書く。
+> 下半分の読み物で「想定している系 / CAPEX・OPEXの内訳（円/単位と円/年）/ 確度別の内訳と精度を下げている項目 / 確認事項」が読める。未登録PJは空状態を出す。
+> 実装: `pwa/src/lib/project-cost-model.ts`（純関数）/ `pwa/src/lib/project-cost-model-draft.ts`（試算中の変更）/ `pwa/src/components/cockpit/CockpitCostModel*.tsx`。
 > 行ごとに `visibility`（`amd_internal` / `workspace_shared`）を持ち、外部公開する行を選べる。
 
 > **PWA専用画面（Native未移植）**: PJコックピット `?tab=capital-policy` の「資本政策表」タブ

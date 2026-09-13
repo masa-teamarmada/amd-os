@@ -1,20 +1,26 @@
 // PJコックピット / PJワークスペース「コスト試算」タブの計算エンジン。
 //
-// 正本は project_cost_assumptions (変数) と project_cost_items (明細)。
+// 正本は project_cost_assumptions (変数)・project_cost_items (明細)・project_cost_tasks (作業リスト)。
 // ここは純関数だけを置く。DB アクセスも React も持たない。
 //
 // 二段階で計算する (2026-09-13 まさ確定):
-//   第1段 菌体の製造原価 (円/kg-DCW) … 株 (強化株 / 自然株) ごとに、中央培養拠点の明細から出す
-//     = (培養設備の償却年額 + 年額固定費) ÷ 年間生産能力 + 菌体量に比例する費用
-//     上書き値 (biomass_cost_per_kg_override) があればそれを使う
+//   第1段 菌体の製造原価 (円/kg-DCW) … 株 (強化株 / 自然株) ごとに、菌体の製造拠点の明細と作業から出す
+//     生産1kgあたり = (培養設備の償却年額 + 年額固定費 + 製造拠点の作業) ÷ 年間生産能力 + 菌体量に比例する費用
+//     売れた1kgあたり = 生産1kgあたり ÷ 販売率。上書き値 (biomass_cost_per_kg_override) があれば生産1kgあたりをそれに置き換える
 //   第2段 用途別の処理原価 (円/単位) … 第1段の原価を一定として、色素分解 / 金属回収ごとに出す
 //     必要菌体量 (kg-DCW/単位) = 対象物質濃度 × k_ppm ÷ 取り込み効率α ÷ 菌体回収率η ÷ 菌体使用回数 ÷ 1000
-//     総コスト = 第1段の原価 × 必要菌体量 + 現場の明細 (方式・槽・用途・株で絞る)
+//     総コスト = 第1段の原価 × 必要菌体量 + 現場の明細 + 現場の作業 (方式・槽・用途・株で絞る)
 //
-// 製造原価は用途で変わらない。用途で変わるのは必要菌体量 (濃度・取り込み効率・使用回数) と現場の後処理。
-// 株で変わるのは、第1段の原価 (閉鎖系の追加費用など) と、第2段の取り込み効率・現場の閉鎖系費用。
+// 菌体の製造拠点 (DB の scenario 値は '中央培養') = 顧客工場では培養せず、SX側の1拠点でまとめて菌体を育て、
+// 濃縮して各工場へ運ぶところ。画面では「中央培養」と書かない (まさ 2026-09-13「中央培養ってなに？」)。
 //
-// 前提と明細は strain / application 列で「どの株・どの用途に効くか」を持つ。null は共通。
+// 販売率 (sales_rate, %) は、生産した菌体のうち売れる割合。売れ残りも作った分の費用はかかるので、
+// 第1段の全費用を売れた量で割る (まさ 2026-09-13。既定は全量が売れる100%)。
+//
+// 作業 (人件費) は作業リストで持つ。年額 = 年間回数 × (1回の工数 × 作業単価 + 1回の経費)。
+// 「人件費を除くと」の併記はしない (まさ 2026-09-13)。工数と単価を入力して制御する。
+//
+// 前提・明細・作業は strain / application 列で「どの株・どの用途に効くか」を持つ。null は共通。
 // 同じ role_key が複数あるときは、株と用途の両方が一致する行 > 株だけ > 用途だけ > 共通 の順に採る。
 
 export type CostConfidence = "S" | "A" | "B" | "C" | "H";
@@ -23,6 +29,7 @@ export type CostMethod = "循環" | "投入";
 export type CostTankMode = "既設" | "新設";
 export type CostStrain = "enhanced" | "wild";
 export type CostApplication = "dye" | "metal";
+export type CostScenarioScope = "循環" | "投入" | "共通" | "中央培養";
 
 export interface CostSelection {
   strain: CostStrain | null;
@@ -31,8 +38,20 @@ export interface CostSelection {
 
 export const STRAIN_LABEL: Record<CostStrain, string> = { enhanced: "強化株", wild: "自然株" };
 export const APPLICATION_LABEL: Record<CostApplication, string> = { dye: "色素分解", metal: "金属回収" };
+export const METHOD_LABEL: Record<CostMethod, string> = { 循環: "A:循環", 投入: "B:投入" };
 const STRAIN_ORDER: CostStrain[] = ["enhanced", "wild"];
 const APPLICATION_ORDER: CostApplication[] = ["dye", "metal"];
+
+/** 画面での呼び名。DB の値 '中央培養' はそのまま使い、表示だけ置き換える。 */
+export const PRODUCTION_SITE_LABEL = "菌体の製造拠点";
+export const PRODUCTION_SITE_DESCRIPTION =
+  "顧客工場では培養せず、SX側の1拠点でまとめて菌体を育て、濃縮して各工場へ運ぶところ。";
+export const SCENARIO_SCOPE_LABEL: Record<CostScenarioScope, string> = {
+  中央培養: PRODUCTION_SITE_LABEL,
+  共通: "現場（方式によらない）",
+  循環: "現場（A:循環）",
+  投入: "現場（B:投入）",
+};
 
 export interface CostAssumption {
   costAssumptionId: string;
@@ -61,15 +80,11 @@ export type CostPriceRule =
   | "module_swap"
   | "power_circulation"
   | "power_injection"
-  | "labor_batch"
-  | "patrol"
-  | "patrol_module"
-  | "patrol_membrane"
   | "spent_disposal";
 
 export interface CostItem {
   costItemId: string;
-  scenario: "循環" | "投入" | "共通" | "中央培養";
+  scenario: CostScenarioScope;
   costType: "CAPEX" | "OPEX" | "参考";
   groupLabel: string | null;
   midLabel: string | null;
@@ -83,6 +98,42 @@ export interface CostItem {
   annualFactor: number;
   usefulLifeYears: number | null;
   isBreakdown: boolean;
+  confidence: CostConfidence | null;
+  sourceKind: string | null;
+  owner: string | null;
+  note: string | null;
+  visibility: CostVisibility;
+  sortOrder: number;
+  strain: CostStrain | null;
+  application: CostApplication | null;
+}
+
+/** 作業の年間回数の決め方。 */
+export type CostTaskDriver = "fixed" | "batch" | "visit" | "module_swap" | "membrane_swap";
+
+export const TASK_DRIVER_LABEL: Record<CostTaskDriver, string> = {
+  fixed: "固定の回数",
+  batch: "年間バッチ数",
+  visit: "訪問回数",
+  module_swap: "モジュール交換回数",
+  membrane_swap: "膜交換回数",
+};
+export const TASK_DRIVERS: CostTaskDriver[] = ["fixed", "batch", "visit", "module_swap", "membrane_swap"];
+
+export interface CostTask {
+  costTaskId: string;
+  scenario: CostScenarioScope;
+  groupLabel: string | null;
+  label: string;
+  /** 1回の工数 (人時)。null は未確認で、0時間として計算する。 */
+  hoursPerOccurrence: number | null;
+  countDriver: CostTaskDriver;
+  /** 固定の回数のときの年間回数。 */
+  countPerYear: number | null;
+  /** 作業単価 (円/時)。null は前提の共通の作業単価 (labor_rate) を使う。 */
+  hourlyRate: number | null;
+  /** 1回あたりの経費 (車両費・部材・外注費など)。 */
+  expensePerOccurrence: number;
   confidence: CostConfidence | null;
   sourceKind: string | null;
   owner: string | null;
@@ -148,9 +199,46 @@ export interface CostModelBundle {
   model: CostModel;
   assumptions: CostAssumption[];
   items: CostItem[];
+  tasks: CostTask[];
   questions: CostQuestion[];
   notes: CostNote[];
 }
+
+/** 計算に要るのは前提・明細・作業だけ。作業を持たない試算もある。 */
+export type CostInputs = Pick<CostModelBundle, "assumptions" | "items"> & { tasks?: CostTask[] };
+
+/**
+ * 計算エンジンが読む role_key。画面の操作パネルはこの前提だけを並べる
+ * (ここに無い前提を動かしても総コストは変わらない)。
+ */
+export const COST_ROLE_KEYS = new Set([
+  "sale_price",
+  "batch_volume",
+  "operating_days",
+  "utilization",
+  "target_concentration",
+  "k_ppm",
+  "uptake_alpha",
+  "recovery_eta",
+  "reuse_count",
+  "culture_capacity_kg_year",
+  "sales_rate",
+  "biomass_cost_per_kg_override",
+  "labor_rate",
+  "patrol_batches_per_delivery",
+  "module_unit_price",
+  "module_durability_batches",
+  "hrt_circulation",
+  "power_kw_circulation",
+  "membrane_life_years",
+  "hrt_injection",
+  "power_kw_injection",
+  "power_unit_price",
+  "new_tank_capex",
+  "tank_life_years",
+  "spent_wet_factor",
+  "sludge_disposal_price",
+]);
 
 // 旧 price_rule (biomass / broth) の除数。「使い捨て・50ppm・α=0.05・η=90%・5g/L」のときの値。
 // 二段階版の SX 明細はもう使っていないが、旧形式の明細を読んでも壊れないように残す。
@@ -177,11 +265,20 @@ export interface CostDerived {
   biomassFactor: number;
   brothFactor: number;
   reuseCount: number;
+  /** 作業の年間回数: 訪問回数 = 年間バッチ数 ÷ max(菌体使用回数, 1回の搬入でまかなうバッチ数)。 */
+  visitsPerYear: number;
+  /** 作業の年間回数: モジュール交換回数 = 年間バッチ数 ÷ モジュール耐用バッチ数。 */
+  moduleSwapsPerYear: number;
+  /** 作業の年間回数: 膜交換回数 = 1 ÷ 膜交換年数。 */
+  membraneSwapsPerYear: number;
 }
 
+export type CostBiomassRowKey = "capex" | "fixed" | "tasks" | "variable";
+
 export interface CostBiomassRow {
-  key: "capex" | "fixed" | "variable";
+  key: CostBiomassRowKey;
   label: string;
+  /** 売れた1kgあたり (販売率で割った後)。 */
   perKg: number;
   /** うち株固有 (閉鎖系の追加など) の分。 */
   strainSpecificPerKg: number;
@@ -190,21 +287,32 @@ export interface CostBiomassRow {
 export interface CostBiomassCost {
   strain: CostStrain | null;
   strainLabel: string;
-  /** 年間生産能力 (kg-DCW/年)。CAPEX と年額固定費はこの量で割って1kgあたりにする。 */
+  /** 年間生産能力 (kg-DCW/年)。CAPEX・年額固定費・作業はこの量で割って1kgあたりにする。 */
   capacityKgYear: number;
-  /** 中央培養の初期投資 (円)。償却年額 = 初期投資 ÷ 耐用年数。 */
+  /** 販売率 (0〜1)。生産した菌体のうち売れる割合。 */
+  salesRate: number;
+  /** 売れる量 (kg-DCW/年) = 年間生産能力 × 販売率。 */
+  soldKgYear: number;
+  /** 製造拠点の初期投資 (円)。償却年額 = 初期投資 ÷ 耐用年数。 */
   capexInitial: number;
-  /** 中央培養 CAPEX 行の耐用年数の最小・最大 (年)。行ごとに違うことがある。 */
+  /** 製造拠点 CAPEX 行の耐用年数の最小・最大 (年)。行ごとに違うことがある。 */
   usefulLifeMinYears: number | null;
   usefulLifeMaxYears: number | null;
   capexAnnual: number;
   fixedOpexAnnual: number;
+  /** 製造拠点の作業の年額 (安全委員会・検査・フィルター交換など)。 */
+  tasksAnnual: number;
+  /** 菌体量に比例する費用 (生産1kgあたり)。 */
   variablePerKg: number;
+  /** 明細と作業から計算した、生産1kgあたりの原価 (販売率で割る前)。 */
+  productionPerKg: number;
+  /** 明細と作業から計算した、売れた1kgあたりの原価。 */
   computedPerKg: number;
+  /** 上書き値 (生産1kgあたり)。 */
   overridePerKg: number | null;
-  /** 第2段で使う原価。上書き値があればそれ。 */
+  /** 第2段で使う原価 (売れた1kgあたり)。上書き値があれば それ ÷ 販売率。 */
   perKg: number;
-  /** 株固有の行 (閉鎖系の追加など) が 1kg あたりに乗せている額。 */
+  /** 株固有の行 (閉鎖系の追加など) が 売れた1kg あたりに乗せている額。 */
   strainSpecificPerKg: number;
   rows: CostBiomassRow[];
 }
@@ -226,6 +334,24 @@ export interface CostUncertainItem {
   owner: string | null;
 }
 
+export type CostBreakdownKey = "biomass" | "tasks" | "postProcess" | "siteOpex" | "siteCapex" | "tank";
+
+export const BREAKDOWN_LABEL: Record<CostBreakdownKey, string> = {
+  biomass: "菌体費（第1段の原価 × 使い切る菌体量）",
+  tasks: "現場と巡回の作業（工数 × 単価 ＋ 経費）",
+  postProcess: "使用済み菌体の後処理",
+  siteOpex: "現場の消耗品・電力など",
+  siteCapex: "現場設備の償却",
+  tank: "新設槽の償却",
+};
+const BREAKDOWN_ORDER: CostBreakdownKey[] = ["biomass", "tasks", "postProcess", "siteOpex", "siteCapex", "tank"];
+
+export interface CostBreakdownSlice {
+  key: CostBreakdownKey;
+  label: string;
+  perUnit: number;
+}
+
 export interface CostScenarioResult {
   key: string;
   application: CostApplication | null;
@@ -234,6 +360,13 @@ export interface CostScenarioResult {
   tankMode: CostTankMode;
   label: string;
 
+  /** 現場の明細のうち OPEX (後処理を含む)。 */
+  siteItemOpexAnnual: number;
+  siteItemOpexPerUnit: number;
+  /** 現場と巡回の作業。 */
+  siteTaskAnnual: number;
+  siteTaskPerUnit: number;
+  /** 現場の OPEX 合計 = 明細 + 作業。 */
   siteOpexAnnual: number;
   siteOpexPerUnit: number;
   siteCapexAnnual: number;
@@ -269,21 +402,12 @@ export interface CostScenarioResult {
   gapToAllowedPerUnit: number;
   gapToTargetPerUnit: number | null;
 
-  /** 総コストに含めた人件費 (現場の運転)。 */
-  laborPerUnit: number;
-  /** 巡回サービス (搬入・搬出・交換作業)。総コストに含む。 */
-  patrolPerUnit: number;
-  /** 株固有の行 (閉鎖系の追加など)。現場分と、第1段から配賦された分の合計。 */
+  /** 株固有の行 (閉鎖系の追加など)。現場の明細・作業と、第1段から配った分の合計。 */
   strainSpecificPerUnit: number;
   /** 使用済み菌体の後処理 (酸処理・処分など)。総コストに含む。 */
   postProcessPerUnit: number;
-  totalWithoutLaborPerUnit: number;
-  profitWithoutLaborPerUnit: number;
-
-  /** 旧形式の cost_type='参考' 行。総コストには含めない。 */
-  referenceLaborPerUnit: number;
-  totalWithLaborPerUnit: number;
-  profitWithLaborPerUnit: number;
+  /** 総コストの内訳。足すと totalPerUnit になる。 */
+  breakdown: CostBreakdownSlice[];
 
   confidenceBreakdown: CostConfidenceSlice[];
   topUncertain: CostUncertainItem[];
@@ -362,17 +486,23 @@ function roleValue(assumptions: CostAssumption[], roleKey: string, fallback: num
 }
 
 /** データに現れる株。表示順は 強化株 → 自然株。 */
-export function listStrains(bundle: Pick<CostModelBundle, "assumptions" | "items">): CostStrain[] {
+export function listStrains(bundle: CostInputs): CostStrain[] {
   const seen = new Set<string>();
-  for (const r of [...bundle.assumptions, ...bundle.items]) if (r.strain) seen.add(r.strain);
+  for (const r of [...bundle.assumptions, ...bundle.items, ...(bundle.tasks ?? [])]) if (r.strain) seen.add(r.strain);
   return STRAIN_ORDER.filter((s) => seen.has(s));
 }
 
 /** データに現れる用途。表示順は 色素分解 → 金属回収。 */
-export function listApplications(bundle: Pick<CostModelBundle, "assumptions" | "items">): CostApplication[] {
+export function listApplications(bundle: CostInputs): CostApplication[] {
   const seen = new Set<string>();
-  for (const r of [...bundle.assumptions, ...bundle.items]) if (r.application) seen.add(r.application);
+  for (const r of [...bundle.assumptions, ...bundle.items, ...(bundle.tasks ?? [])]) if (r.application) seen.add(r.application);
   return APPLICATION_ORDER.filter((a) => seen.has(a));
+}
+
+/** 販売率 (0.01〜1)。前提が無ければ全量が売れる 1。 */
+export function salesRateOf(assumptions: CostAssumption[], sel: CostSelection = NO_SELECTION): number {
+  const pct = roleValue(assumptions, "sales_rate", 100, sel);
+  return Math.min(Math.max(pct, 1), 100) / 100;
 }
 
 export function deriveCostBasis(assumptions: CostAssumption[], sel: CostSelection = NO_SELECTION): CostDerived {
@@ -394,6 +524,8 @@ export function deriveCostBasis(assumptions: CostAssumption[], sel: CostSelectio
   const requiredBrothPerM3 = safeDiv(biomassWithLossPerM3, cellDensity);
   const biomassKgPerUnit = biomassWithLossPerM3 / reuseCount / 1000;
 
+  const perDelivery = Math.max(roleValue(assumptions, "patrol_batches_per_delivery", 5, sel), 1);
+
   return {
     salePrice: roleValue(assumptions, "sale_price", 500, sel),
     annualBatches,
@@ -409,6 +541,9 @@ export function deriveCostBasis(assumptions: CostAssumption[], sel: CostSelectio
     biomassFactor: safeDiv(biomassWithLossPerM3 / reuseCount, BASELINE_BIOMASS_G_PER_M3),
     brothFactor: safeDiv(requiredBrothPerM3 / reuseCount, BASELINE_BROTH_L_PER_M3),
     reuseCount,
+    visitsPerYear: safeDiv(annualBatches, Math.max(reuseCount, perDelivery)),
+    moduleSwapsPerYear: safeDiv(annualBatches, roleValue(assumptions, "module_durability_batches", 50, sel)),
+    membraneSwapsPerYear: safeDiv(1, roleValue(assumptions, "membrane_life_years", 3, sel)),
   };
 }
 
@@ -454,36 +589,9 @@ export function effectiveUnitPrice(
   }
 }
 
-/** 変数から年額を直接出す行 (人件費・巡回)。該当しなければ null。 */
-function ruleAnnual(item: CostItem, assumptions: CostAssumption[], derived: CostDerived, sel: CostSelection): number | null {
-  const laborRate = roleValue(assumptions, "labor_rate", 4000, sel);
-  switch (item.priceRule) {
-    case "labor_batch": {
-      const role = item.scenario === "投入" ? "batch_hours_injection" : "batch_hours_circulation";
-      return roleValue(assumptions, role, 0, sel) * laborRate * derived.annualBatches * item.quantity;
-    }
-    case "patrol": {
-      const perDelivery = Math.max(roleValue(assumptions, "patrol_batches_per_delivery", 5, sel), 1);
-      const visits = safeDiv(derived.annualBatches, Math.max(derived.reuseCount, perDelivery));
-      const hours = roleValue(assumptions, "patrol_travel_hours", 2, sel) + roleValue(assumptions, "patrol_work_hours", 1, sel);
-      return visits * (hours * laborRate + roleValue(assumptions, "patrol_vehicle_cost", 5000, sel)) * item.quantity;
-    }
-    case "patrol_module": {
-      const swaps = safeDiv(derived.annualBatches, roleValue(assumptions, "module_durability_batches", 50, sel));
-      return swaps * roleValue(assumptions, "patrol_module_work_hours", 4, sel) * laborRate * item.quantity;
-    }
-    case "patrol_membrane": {
-      const swaps = safeDiv(1, roleValue(assumptions, "membrane_life_years", 3, sel));
-      return swaps * roleValue(assumptions, "patrol_membrane_work_hours", 8, sel) * laborRate * item.quantity;
-    }
-    default:
-      return null;
-  }
-}
-
 /**
  * 1行あたりの年間発生額 (円/年)。内訳行は親の小計に含まれるため 0。
- * 中央培養の「毎kg菌体比例」行は第1段で1kgあたりへ畳むので、ここでは現場で使う菌体量を掛けた額を返す。
+ * 製造拠点の「毎kg菌体比例」行は第1段で1kgあたりへ畳むので、ここでは現場で使う菌体量を掛けた額を返す。
  */
 export function annualAmount(
   item: CostItem,
@@ -492,8 +600,6 @@ export function annualAmount(
   sel: CostSelection = NO_SELECTION
 ): number {
   if (item.isBreakdown || item.basis === "内訳") return 0;
-  const direct = ruleAnnual(item, assumptions, derived, sel);
-  if (direct !== null) return direct;
   const price = effectiveUnitPrice(item, assumptions, derived, sel);
   switch (item.basis) {
     case "初期投資配賦":
@@ -511,7 +617,7 @@ export function annualAmount(
   }
 }
 
-/** 中央培養の1行が、菌体1kgあたりに乗せる額。明細表の円/kg列にも使う。 */
+/** 製造拠点の1行が、生産1kgあたりに乗せる額 (販売率で割る前)。明細表の円/kg列にも使う。 */
 export function centralItemPerKg(item: CostItem, assumptions: CostAssumption[], capacity: number, sel: CostSelection): number {
   if (item.isBreakdown || item.basis === "内訳") return 0;
   const derived = deriveCostBasis(assumptions, sel);
@@ -528,31 +634,115 @@ export function centralItemPerKg(item: CostItem, assumptions: CostAssumption[], 
   }
 }
 
+export interface CostTaskAmount {
+  /** 年間回数。 */
+  occurrences: number;
+  /** 使った作業単価 (円/時)。 */
+  rate: number;
+  /** 行に単価が無く、共通の作業単価を使ったか。 */
+  usesCommonRate: boolean;
+  hours: number;
+  /** 年間の工数 (人時)。 */
+  annualHours: number;
+  laborAnnual: number;
+  expenseAnnual: number;
+  annual: number;
+}
+
+/**
+ * 作業1行の年額。年額 = 年間回数 × (1回の工数 × 作業単価 + 1回の経費)。
+ * 製造拠点の作業は第1段の固定費に入るので、回数の決め方によらず固定の回数で数える。
+ */
+export function taskAmount(
+  task: CostTask,
+  assumptions: CostAssumption[],
+  derived: CostDerived,
+  sel: CostSelection = NO_SELECTION
+): CostTaskAmount {
+  const fixedCount = Math.max(task.countPerYear ?? 0, 0);
+  const occurrences =
+    task.scenario === "中央培養" || task.countDriver === "fixed" ? fixedCount
+    : task.countDriver === "batch" ? derived.annualBatches
+    : task.countDriver === "visit" ? derived.visitsPerYear
+    : task.countDriver === "module_swap" ? derived.moduleSwapsPerYear
+    : task.countDriver === "membrane_swap" ? derived.membraneSwapsPerYear
+    : 0;
+  const usesCommonRate = task.hourlyRate === null || task.hourlyRate === undefined || !Number.isFinite(task.hourlyRate);
+  const rate = usesCommonRate ? roleValue(assumptions, "labor_rate", 4000, sel) : (task.hourlyRate as number);
+  const hours = typeof task.hoursPerOccurrence === "number" && Number.isFinite(task.hoursPerOccurrence) ? Math.max(task.hoursPerOccurrence, 0) : 0;
+  const expense = Number.isFinite(task.expensePerOccurrence) ? Math.max(task.expensePerOccurrence, 0) : 0;
+  const laborAnnual = occurrences * hours * rate;
+  const expenseAnnual = occurrences * expense;
+  return {
+    occurrences,
+    rate,
+    usesCommonRate,
+    hours,
+    annualHours: occurrences * hours,
+    laborAnnual,
+    expenseAnnual,
+    annual: laborAnnual + expenseAnnual,
+  };
+}
+
+/** 作業を、確度の帯グラフや「精度を下げている項目」で明細と同じ形に並べるための変換。 */
+function taskAsItem(task: CostTask): CostItem {
+  return {
+    costItemId: task.costTaskId,
+    scenario: task.scenario,
+    costType: "OPEX",
+    groupLabel: task.groupLabel,
+    midLabel: null,
+    leafLabel: task.label,
+    basis: "年額固定",
+    quantity: 1,
+    quantityUnit: null,
+    unitPrice: 0,
+    unitPriceUnit: null,
+    priceRule: null,
+    annualFactor: 1,
+    usefulLifeYears: null,
+    isBreakdown: false,
+    confidence: task.confidence,
+    sourceKind: task.sourceKind,
+    owner: task.owner,
+    note: task.note,
+    visibility: task.visibility,
+    sortOrder: task.sortOrder,
+    strain: task.strain,
+    application: task.application,
+  };
+}
+
 /** 第1段: 株ごとの菌体の製造原価 (円/kg-DCW)。用途には依存しない。 */
-export function computeBiomassCost(
-  bundle: Pick<CostModelBundle, "assumptions" | "items">,
-  strain: CostStrain | null
-): CostBiomassCost {
+export function computeBiomassCost(bundle: CostInputs, strain: CostStrain | null): CostBiomassCost {
   const sel: CostSelection = { strain, application: null };
   const { assumptions, items } = bundle;
+  const tasks = bundle.tasks ?? [];
   const capacity = roleValue(assumptions, "culture_capacity_kg_year", 0, sel);
+  const salesRate = salesRateOf(assumptions, sel);
+  const derived = deriveCostBasis(assumptions, sel);
   const central = items.filter(
     (i) => i.scenario === "中央培養" && !i.isBreakdown && i.basis !== "内訳" && i.costType !== "参考" && scopeApplies(i, sel)
   );
+  const centralTasks = tasks.filter((t) => t.scenario === "中央培養" && scopeApplies(t, sel));
 
   const rows: CostBiomassRow[] = [
     { key: "capex", label: "培養設備の償却", perKg: 0, strainSpecificPerKg: 0 },
-    { key: "fixed", label: "年ごとの固定費（品質確認・検査など）", perKg: 0, strainSpecificPerKg: 0 },
+    { key: "fixed", label: "年ごとの固定費（品質確認など）", perKg: 0, strainSpecificPerKg: 0 },
+    { key: "tasks", label: "製造拠点の作業（安全委員会・検査・交換など）", perKg: 0, strainSpecificPerKg: 0 },
     { key: "variable", label: "菌体量に比例する費用（培地・CO2・濃縮など）", perKg: 0, strainSpecificPerKg: 0 },
   ];
+  const rowOf = (key: CostBiomassRowKey) => rows.find((r) => r.key === key) as CostBiomassRow;
   let capexAnnual = 0;
   let capexInitial = 0;
   let fixedOpexAnnual = 0;
+  let tasksAnnual = 0;
   let variablePerKg = 0;
   const lives: number[] = [];
   for (const i of central) {
     const perKg = centralItemPerKg(i, assumptions, capacity, sel);
-    const row = i.basis === "初期投資配賦" ? rows[0] : i.basis === "年額固定" ? rows[1] : rows[2];
+    const row = rowOf(i.basis === "初期投資配賦" ? "capex" : i.basis === "年額固定" ? "fixed" : "variable");
     row.perKg += perKg;
     if (i.strain) row.strainSpecificPerKg += perKg;
     if (i.basis === "初期投資配賦") {
@@ -563,7 +753,21 @@ export function computeBiomassCost(
     else if (i.basis === "年額固定") fixedOpexAnnual += i.quantity * i.unitPrice * i.annualFactor;
     else if (i.basis === "毎kg菌体比例") variablePerKg += perKg;
   }
-  const computedPerKg = rows.reduce((t, r) => t + r.perKg, 0);
+  for (const t of centralTasks) {
+    const annual = taskAmount(t, assumptions, derived, sel).annual;
+    tasksAnnual += annual;
+    const perKg = safeDiv(annual, capacity);
+    rowOf("tasks").perKg += perKg;
+    if (t.strain) rowOf("tasks").strainSpecificPerKg += perKg;
+  }
+
+  const productionPerKg = rows.reduce((t, r) => t + r.perKg, 0);
+  const productionStrainSpecificPerKg = rows.reduce((t, r) => t + r.strainSpecificPerKg, 0);
+  // 売れ残りも作った分の費用はかかるので、全行を販売率で割る。
+  for (const r of rows) {
+    r.perKg = r.perKg / salesRate;
+    r.strainSpecificPerKg = r.strainSpecificPerKg / salesRate;
+  }
   const overrideValue = resolveAssumption(assumptions, "biomass_cost_per_kg_override", sel)?.value;
   const overridePerKg = typeof overrideValue === "number" && Number.isFinite(overrideValue) && overrideValue > 0 ? overrideValue : null;
 
@@ -571,16 +775,20 @@ export function computeBiomassCost(
     strain,
     strainLabel: strain ? STRAIN_LABEL[strain] : "",
     capacityKgYear: capacity,
+    salesRate,
+    soldKgYear: capacity * salesRate,
     capexInitial,
     usefulLifeMinYears: lives.length > 0 ? Math.min(...lives) : null,
     usefulLifeMaxYears: lives.length > 0 ? Math.max(...lives) : null,
     capexAnnual,
     fixedOpexAnnual,
+    tasksAnnual,
     variablePerKg,
-    computedPerKg,
+    productionPerKg,
+    computedPerKg: productionPerKg / salesRate,
     overridePerKg,
-    perKg: overridePerKg ?? computedPerKg,
-    strainSpecificPerKg: overridePerKg !== null ? 0 : rows.reduce((t, r) => t + r.strainSpecificPerKg, 0),
+    perKg: (overridePerKg ?? productionPerKg) / salesRate,
+    strainSpecificPerKg: overridePerKg !== null ? 0 : productionStrainSpecificPerKg / salesRate,
     rows,
   };
 }
@@ -589,10 +797,11 @@ const METHODS: CostMethod[] = ["循環", "投入"];
 const TANK_MODES: CostTankMode[] = ["既設", "新設"];
 
 export function computeCostModel(
-  bundle: Pick<CostModelBundle, "assumptions" | "items"> & { model?: Partial<CostModel> },
+  bundle: CostInputs & { model?: Partial<CostModel> },
   options: { strain?: CostStrain | null } = {}
 ): CostComputation {
   const { assumptions, items } = bundle;
+  const tasks = bundle.tasks ?? [];
   const targetTotal = bundle.model?.targetTotalCostPerUnit ?? null;
   const targetMargin = bundle.model?.targetMarginRate ?? null;
 
@@ -605,7 +814,10 @@ export function computeCostModel(
 
   const biomass = computeBiomassCost(bundle, strain);
   const biomassByStrain = (strains.length > 0 ? strains : [null]).map((s) => computeBiomassCost(bundle, s));
-  const capexShare = biomass.overridePerKg !== null ? 0 : safeDiv(biomass.rows[0].perKg, biomass.perKg);
+  const capexRow = biomass.rows.find((r) => r.key === "capex");
+  const capexShare = biomass.overridePerKg !== null ? 0 : safeDiv(capexRow?.perKg ?? 0, biomass.perKg);
+  const centralSel: CostSelection = { strain, application: null };
+  const centralDerived = deriveCostBasis(assumptions, centralSel);
 
   const live = items.filter((i) => !i.isBreakdown && i.basis !== "内訳");
   const newTankCapex = roleValue(assumptions, "new_tank_capex", 18_000_000);
@@ -621,6 +833,7 @@ export function computeCostModel(
     const volume = derived.annualVolume;
     const perUnit = (annual: number) => safeDiv(annual, volume);
     const amount = (i: CostItem) => annualAmount(i, assumptions, derived, sel);
+    const taskAnnual = (t: CostTask) => taskAmount(t, assumptions, derived, sel).annual;
 
     const biomassAnnual = biomass.perKg * derived.biomassKgPerUnit * volume;
     const centralCapexAnnual = biomassAnnual * capexShare;
@@ -630,33 +843,43 @@ export function computeCostModel(
     // 第1段の各行が、この用途で1単位あたりいくらを乗せているか。確度の帯グラフ用。
     const centralContrib: Array<{ item: CostItem; annual: number }> = biomass.overridePerKg !== null
       ? []
-      : live
-          .filter((i) => i.scenario === "中央培養" && i.costType !== "参考" && scopeApplies(i, { strain, application: null }))
-          .map((i) => ({
-            item: i,
-            annual: centralItemPerKg(i, assumptions, biomass.capacityKgYear, { strain, application: null }) * derived.biomassKgPerUnit * volume,
-          }));
+      : [
+          ...live
+            .filter((i) => i.scenario === "中央培養" && i.costType !== "参考" && scopeApplies(i, centralSel))
+            .map((i) => ({
+              item: i,
+              annual: (centralItemPerKg(i, assumptions, biomass.capacityKgYear, centralSel) / biomass.salesRate) * derived.biomassKgPerUnit * volume,
+            })),
+          ...tasks
+            .filter((t) => t.scenario === "中央培養" && scopeApplies(t, centralSel))
+            .map((t) => ({
+              item: taskAsItem(t),
+              annual: (safeDiv(taskAmount(t, assumptions, centralDerived, centralSel).annual, biomass.capacityKgYear) / biomass.salesRate) *
+                derived.biomassKgPerUnit * volume,
+            })),
+        ];
 
     for (const method of METHODS) {
       const own = live.filter((i) => (i.scenario === method || i.scenario === "共通") && scopeApplies(i, sel));
       const counted = own.filter((i) => i.costType !== "参考");
-      const siteOpexAnnual = counted.filter((i) => i.costType === "OPEX").reduce((s, i) => s + amount(i), 0);
+      const siteTasks = tasks.filter((t) => (t.scenario === method || t.scenario === "共通") && scopeApplies(t, sel));
+      const siteItemOpexAnnual = counted.filter((i) => i.costType === "OPEX").reduce((s, i) => s + amount(i), 0);
+      const siteTaskAnnual = siteTasks.reduce((s, t) => s + taskAnnual(t), 0);
+      const siteOpexAnnual = siteItemOpexAnnual + siteTaskAnnual;
       const siteCapexAnnual = counted.filter((i) => i.costType === "CAPEX").reduce((s, i) => s + amount(i), 0);
       const siteCapexBase = items
         .filter((i) => (i.scenario === method || i.scenario === "共通") && i.costType === "CAPEX" && !i.isBreakdown && scopeApplies(i, sel))
         .reduce((s, i) => s + i.quantity * i.unitPrice, 0);
-      const referenceAnnual = own.filter((i) => i.costType === "参考").reduce((s, i) => s + amount(i), 0);
-      const laborAnnual = counted.filter((i) => i.priceRule === "labor_batch").reduce((s, i) => s + amount(i), 0);
-      const patrolAnnual = counted
-        .filter((i) => i.priceRule === "patrol" || i.priceRule === "patrol_module" || i.priceRule === "patrol_membrane")
-        .reduce((s, i) => s + amount(i), 0);
-      const siteStrainSpecificAnnual = counted.filter((i) => i.strain).reduce((s, i) => s + amount(i), 0);
+      const siteStrainSpecificAnnual =
+        counted.filter((i) => i.strain).reduce((s, i) => s + amount(i), 0) +
+        siteTasks.filter((t) => t.strain).reduce((s, t) => s + taskAnnual(t), 0);
       const postAnnual = counted
-        .filter((i) => i.groupLabel !== null && POST_PROCESS_GROUPS.has(i.groupLabel))
+        .filter((i) => i.costType === "OPEX" && i.groupLabel !== null && POST_PROCESS_GROUPS.has(i.groupLabel))
         .reduce((s, i) => s + amount(i), 0);
 
       const contributing: Array<{ item: CostItem; annual: number }> = [
         ...counted.map((i) => ({ item: i, annual: amount(i) })),
+        ...siteTasks.map((t) => ({ item: taskAsItem(t), annual: taskAnnual(t) })),
         ...centralContrib,
         ...(biomass.overridePerKg !== null
           ? [{
@@ -667,8 +890,8 @@ export function computeCostModel(
                 leafLabel: "菌体の製造原価（上書き値）",
                 midLabel: null,
                 groupLabel: "第1段",
-                confidence: resolveAssumption(assumptions, "biomass_cost_per_kg_override", { strain, application: null })?.confidence ?? null,
-                sourceKind: resolveAssumption(assumptions, "biomass_cost_per_kg_override", { strain, application: null })?.sourceKind ?? null,
+                confidence: resolveAssumption(assumptions, "biomass_cost_per_kg_override", centralSel)?.confidence ?? null,
+                sourceKind: resolveAssumption(assumptions, "biomass_cost_per_kg_override", centralSel)?.sourceKind ?? null,
                 owner: null,
               } as unknown as CostItem,
               annual: biomassAnnual,
@@ -732,6 +955,15 @@ export function computeCostModel(
           .sort((a, b) => b.perUnit - a.perUnit)
           .slice(0, 8);
 
+        const slices: Record<CostBreakdownKey, number> = {
+          biomass: perUnit(biomassAnnual),
+          tasks: perUnit(siteTaskAnnual),
+          postProcess: perUnit(postAnnual),
+          siteOpex: perUnit(siteItemOpexAnnual - postAnnual),
+          siteCapex: perUnit(siteCapexAnnual),
+          tank: perUnit(tankAnnual),
+        };
+
         const marginForRequired = targetMargin ?? 0;
         const allowedTotalCostPerUnit = price * (1 - marginForRequired);
         const appLabel = application ? APPLICATION_LABEL[application] : "";
@@ -742,8 +974,12 @@ export function computeCostModel(
           applicationLabel: appLabel,
           method,
           tankMode,
-          label: `${method === "循環" ? "A:循環" : "B:投入"}／${tankMode}`,
+          label: `${METHOD_LABEL[method]}／${tankMode}`,
 
+          siteItemOpexAnnual,
+          siteItemOpexPerUnit: perUnit(siteItemOpexAnnual),
+          siteTaskAnnual,
+          siteTaskPerUnit: perUnit(siteTaskAnnual),
           siteOpexAnnual,
           siteOpexPerUnit: perUnit(siteOpexAnnual),
           siteCapexAnnual: siteCapexAnnual + tankAnnual,
@@ -778,16 +1014,9 @@ export function computeCostModel(
           gapToAllowedPerUnit: allowedTotalCostPerUnit - totalPerUnit,
           gapToTargetPerUnit: targetTotal === null ? null : targetTotal - totalPerUnit,
 
-          laborPerUnit: perUnit(laborAnnual),
-          patrolPerUnit: perUnit(patrolAnnual),
           strainSpecificPerUnit: perUnit(siteStrainSpecificAnnual + centralStrainSpecificAnnual),
           postProcessPerUnit: perUnit(postAnnual),
-          totalWithoutLaborPerUnit: totalPerUnit - perUnit(laborAnnual),
-          profitWithoutLaborPerUnit: price - (totalPerUnit - perUnit(laborAnnual)),
-
-          referenceLaborPerUnit: perUnit(referenceAnnual),
-          totalWithLaborPerUnit: totalPerUnit + perUnit(referenceAnnual),
-          profitWithLaborPerUnit: price - totalPerUnit - perUnit(referenceAnnual),
+          breakdown: BREAKDOWN_ORDER.map((key) => ({ key, label: BREAKDOWN_LABEL[key], perUnit: slices[key] })),
 
           confidenceBreakdown,
           topUncertain,
@@ -815,6 +1044,7 @@ export function toSharedBundle(bundle: CostModelBundle): CostModelBundle | null 
     model: bundle.model,
     assumptions: bundle.assumptions.filter((a) => a.visibility === "workspace_shared"),
     items: bundle.items.filter((i) => i.visibility === "workspace_shared"),
+    tasks: (bundle.tasks ?? []).filter((t) => t.visibility === "workspace_shared"),
     questions: bundle.questions.filter((q) => q.visibility === "workspace_shared"),
     notes: bundle.notes.filter((n) => n.visibility === "workspace_shared"),
   };

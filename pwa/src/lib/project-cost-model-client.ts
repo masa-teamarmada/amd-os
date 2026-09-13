@@ -26,16 +26,17 @@ export interface CostModelResponse {
   bundle: CostModelBundle | null;
 }
 
-async function request(projectId: string): Promise<CostModelResponse> {
-  const res = await fetch(`/api/project-cost-model?projectId=${encodeURIComponent(projectId)}`);
+async function request(projectId: string, fresh = false): Promise<CostModelResponse> {
+  const url = `/api/project-cost-model?projectId=${encodeURIComponent(projectId)}${fresh ? "&fresh=1" : ""}`;
+  const res = await fetch(url, fresh ? { cache: "no-store" } : undefined);
   const payload = (await res.json()) as { ok: boolean; canEdit?: boolean; bundle?: CostModelBundle | null; error?: string };
   if (!res.ok || !payload.ok) throw new Error(payload.error || "コスト試算の読み込みに失敗");
   return { canEdit: !!payload.canEdit, bundle: payload.bundle ?? null };
 }
 
-/** タブ本体から呼ぶ。同時に来た呼び出しは1本へ束ねられる。 */
+/** タブ本体から呼ぶ。同時に来た呼び出しは1本へ束ねられる。force は保存直後の読み直しで、HTTP キャッシュも通さない。 */
 export function loadProjectCostModel(projectId: string, options?: { force?: boolean }) {
-  return loadReferenceData(key(projectId), () => request(projectId), options);
+  return loadReferenceData(key(projectId), () => request(projectId, !!options?.force), options);
 }
 
 /** キャッシュ済みなら同期で返す。タブを開いた瞬間に描画するために使う。 */
@@ -53,22 +54,34 @@ export function invalidateProjectCostModel(projectId?: string): void {
   invalidateReferenceData(projectId ? key(projectId) : KEY_PREFIX);
 }
 
-/**
- * 前提の値を1つ書き換える。null は空欄へ戻す（菌体原価の上書きを外すときなど）。
- * 書き込みもここへ寄せて、画面から素の fetch を消す。
- * 成功したらキャッシュを捨て、次の読み取りで最新へ戻す。
- */
-export async function saveCostAssumptionValue(
-  projectId: string,
-  costAssumptionId: string,
-  value: number | null,
-): Promise<void> {
+export type CostPatchEntity = "assumption" | "item" | "task" | "model";
+
+export interface CostPatch {
+  entity: CostPatchEntity;
+  id: string;
+  /** DB の列名 → 値。null は空欄へ戻す（菌体原価の上書きを外すときなど）。 */
+  patch: Record<string, number | string | null>;
+}
+
+async function sendPatch(p: CostPatch): Promise<void> {
   const res = await fetch("/api/project-cost-model", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ entity: "assumption", id: costAssumptionId, patch: { value } }),
+    body: JSON.stringify(p),
   });
-  const payload = (await res.json()) as { ok: boolean; error?: string };
-  if (!res.ok || !payload.ok) throw new Error(payload.error || "前提の保存に失敗");
-  invalidateProjectCostModel(projectId);
+  const payload = (await res.json().catch(() => ({ ok: false }))) as { ok: boolean; error?: string };
+  if (!res.ok || !payload.ok) throw new Error(payload.error || "保存に失敗");
+}
+
+/**
+ * 画面の試算で書き換えた値を正本へ書く（admin だけ）。
+ * 書き込みもここへ寄せて、画面から素の fetch を消す。
+ * 全件を送り終えたらキャッシュを捨て、次の読み取りで最新へ戻す。途中で失敗しても、それまでに書いた分の反映を読むために捨てる。
+ */
+export async function saveCostPatches(projectId: string, patches: CostPatch[]): Promise<void> {
+  try {
+    for (const p of patches) await sendPatch(p);
+  } finally {
+    invalidateProjectCostModel(projectId);
+  }
 }

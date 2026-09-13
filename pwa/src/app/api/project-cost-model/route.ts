@@ -7,13 +7,14 @@ export const runtime = "nodejs";
 
 // PJコックピット / PJワークスペース「コスト試算」タブの API。
 // read = ログイン済みメンバー、write = admin。
-// migration: scripts/migrations/320_project_cost_model.sql / 392 (株・用途の列と二段階計算)
+// migration: scripts/migrations/320_project_cost_model.sql / 392 (株・用途の列と二段階計算) / 394 (作業リスト)
 // 計算そのものは src/lib/project-cost-model.ts (純関数)。ここは入出力だけ。
 
 const NUM = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : Number(v) || 0);
+const NUM_OR_NULL = (v: unknown): number | null => (v === null || v === undefined ? null : NUM(v));
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-export function mapBundle(model: any, assumptions: any[], items: any[], questions: any[], notes: any[] = []): CostModelBundle {
+export function mapBundle(model: any, assumptions: any[], items: any[], questions: any[], notes: any[] = [], tasks: any[] = []): CostModelBundle {
   return {
     model: {
       costModelId: model.cost_model_id,
@@ -83,6 +84,25 @@ export function mapBundle(model: any, assumptions: any[], items: any[], question
       strain: i.strain ?? null,
       application: i.application ?? null,
     })),
+    tasks: (tasks || []).map((t) => ({
+      costTaskId: t.cost_task_id,
+      scenario: t.scenario,
+      groupLabel: t.group_label ?? null,
+      label: t.label,
+      hoursPerOccurrence: NUM_OR_NULL(t.hours_per_occurrence),
+      countDriver: t.count_driver,
+      countPerYear: NUM_OR_NULL(t.count_per_year),
+      hourlyRate: NUM_OR_NULL(t.hourly_rate),
+      expensePerOccurrence: NUM(t.expense_per_occurrence),
+      confidence: t.confidence ?? null,
+      sourceKind: t.source_kind ?? null,
+      owner: t.owner ?? null,
+      note: t.note ?? null,
+      visibility: t.visibility,
+      sortOrder: t.sort_order ?? 0,
+      strain: t.strain ?? null,
+      application: t.application ?? null,
+    })),
     questions: (questions || []).map((q) => ({
       costQuestionId: q.cost_question_id,
       addressee: q.addressee,
@@ -123,13 +143,14 @@ export async function loadCostModelBundle(projectId: string): Promise<CostModelB
     .maybeSingle();
   if (!model) return null;
 
-  const [a, i, q, n] = await Promise.all([
+  const [a, i, q, n, t] = await Promise.all([
     db.from("project_cost_assumptions").select("*").eq("cost_model_id", model.cost_model_id).order("sort_order"),
     db.from("project_cost_items").select("*").eq("cost_model_id", model.cost_model_id).order("sort_order"),
     db.from("project_cost_questions").select("*").eq("cost_model_id", model.cost_model_id).order("sort_order"),
     db.from("project_cost_notes").select("*").eq("cost_model_id", model.cost_model_id).order("sort_order"),
+    db.from("project_cost_tasks").select("*").eq("cost_model_id", model.cost_model_id).order("sort_order"),
   ]);
-  return mapBundle(model, a.data || [], i.data || [], q.data || [], n.data || []);
+  return mapBundle(model, a.data || [], i.data || [], q.data || [], n.data || [], t.data || []);
 }
 
 /** GET /api/project-cost-model?projectId=p21 */
@@ -147,8 +168,9 @@ export async function GET(req: NextRequest) {
     .maybeSingle();
 
   // 参照系。前提と明細はMTG前後にadminがまとめて直すだけなので、短時間の再利用を許す。
-  // 書き込み側は project-cost-model-client 側でキャッシュを捨てる。
-  const headers = { "Cache-Control": "private, max-age=60, stale-while-revalidate=300" };
+  // 書き込み側は project-cost-model-client 側でキャッシュを捨て、保存直後の読み直しだけ ?fresh=1 で HTTP キャッシュを通さない (spec 5-10)。
+  const fresh = req.nextUrl.searchParams.get("fresh") === "1";
+  const headers = { "Cache-Control": fresh ? "no-store" : "private, max-age=60, stale-while-revalidate=300" };
 
   const bundle = await loadCostModelBundle(projectId);
   if (!bundle) {
@@ -162,11 +184,28 @@ const ASSUMPTION_FIELDS = new Set(["value", "value_text", "confidence", "source_
 const QUESTION_FIELDS = new Set(["status", "answer", "answered_on", "visibility", "impact_low", "impact_high"]);
 const NOTE_FIELDS = new Set(["title", "body_md", "source_url", "source_label", "visibility", "sort_order"]);
 const ITEM_FIELDS = new Set(["unit_price", "quantity", "useful_life_years", "confidence", "source_kind", "owner", "note", "visibility"]);
+const TASK_FIELDS = new Set([
+  "hours_per_occurrence", "count_driver", "count_per_year", "hourly_rate", "expense_per_occurrence",
+  "confidence", "source_kind", "owner", "note", "visibility",
+]);
+const MODEL_FIELDS = new Set(["target_total_cost_per_m3", "target_margin_rate"]);
+
+/** 数字の列。画面の試算で書き換えた値を保存するので、数字でない値や負の値は DB へ流さない。 */
+const NUMERIC_FIELDS = new Set([
+  "value", "impact_low", "impact_high", "sort_order", "unit_price", "quantity", "useful_life_years",
+  "hours_per_occurrence", "count_per_year", "hourly_rate", "expense_per_occurrence", "target_total_cost_per_m3", "target_margin_rate",
+]);
+/** 空欄 (null) に戻せる数字の列。 */
+const NULLABLE_NUMERIC_FIELDS = new Set([
+  "value", "impact_low", "impact_high", "useful_life_years", "hours_per_occurrence", "count_per_year", "hourly_rate",
+  "target_total_cost_per_m3", "target_margin_rate",
+]);
+const TASK_DRIVERS = new Set(["fixed", "batch", "visit", "module_swap", "membrane_swap"]);
 
 /**
  * PATCH /api/project-cost-model
- * body: { entity: "assumption"|"item"|"question", id, patch: {...} }
- * 前提を1つ動かすとタブ側の二段階計算 (菌体の製造原価 → 用途別の処理原価) が再計算される。計算結果は保存しない (常に導出)。
+ * body: { entity: "assumption"|"item"|"task"|"model"|"question"|"note", id, patch: {...} }
+ * 画面の試算は保存しない。admin が「この値を保存」を押したときだけ、ここで正本へ書く。計算結果は保存しない (常に導出)。
  */
 export async function PATCH(req: NextRequest) {
   const auth = await requireAdmin();
@@ -183,26 +222,44 @@ export async function PATCH(req: NextRequest) {
   const table =
     entity === "assumption" ? "project_cost_assumptions"
     : entity === "item" ? "project_cost_items"
+    : entity === "task" ? "project_cost_tasks"
+    : entity === "model" ? "project_cost_models"
     : entity === "question" ? "project_cost_questions"
     : entity === "note" ? "project_cost_notes"
     : null;
   const pk =
     entity === "assumption" ? "cost_assumption_id"
     : entity === "item" ? "cost_item_id"
+    : entity === "task" ? "cost_task_id"
+    : entity === "model" ? "cost_model_id"
     : entity === "question" ? "cost_question_id"
     : entity === "note" ? "cost_note_id"
     : null;
   const allowed =
     entity === "assumption" ? ASSUMPTION_FIELDS
     : entity === "item" ? ITEM_FIELDS
+    : entity === "task" ? TASK_FIELDS
+    : entity === "model" ? MODEL_FIELDS
     : entity === "question" ? QUESTION_FIELDS
     : entity === "note" ? NOTE_FIELDS
     : null;
   if (!table || !pk || !allowed) return NextResponse.json({ ok: false, error: "unknown entity" }, { status: 400 });
 
   const clean: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(patch)) {
-    if (allowed.has(k)) clean[k] = v === "" ? null : v;
+  for (const [k, raw] of Object.entries(patch)) {
+    if (!allowed.has(k)) continue;
+    const v = raw === "" ? null : raw;
+    if (NUMERIC_FIELDS.has(k)) {
+      if (v === null) {
+        if (!NULLABLE_NUMERIC_FIELDS.has(k)) return NextResponse.json({ ok: false, error: `${k} は空欄にできない` }, { status: 400 });
+      } else if (typeof v !== "number" || !Number.isFinite(v) || (k !== "value" && v < 0)) {
+        return NextResponse.json({ ok: false, error: `${k} は0以上の数字で入れる` }, { status: 400 });
+      }
+    }
+    if (k === "count_driver" && !TASK_DRIVERS.has(String(v))) {
+      return NextResponse.json({ ok: false, error: "count_driver が不正" }, { status: 400 });
+    }
+    clean[k] = v;
   }
   if (Object.keys(clean).length === 0) {
     return NextResponse.json({ ok: false, error: "no writable field" }, { status: 400 });
