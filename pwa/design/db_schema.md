@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-09-13 14:14 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-09-13 17:59 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -4181,7 +4181,7 @@ PRIMARY KEY: `id`
 
 ## project_cost_assumptions
 
-行数 (概算): 48
+行数 (概算): 42
 PRIMARY KEY: `cost_assumption_id`
 
 | # | column | type | nullable | default |
@@ -4209,7 +4209,7 @@ PRIMARY KEY: `cost_assumption_id`
 
 ## project_cost_items
 
-行数 (概算): 137
+行数 (概算): 145
 PRIMARY KEY: `cost_item_id`
 
 | # | column | type | nullable | default |

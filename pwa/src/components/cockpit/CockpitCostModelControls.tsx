@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import {
   COST_ROLE_KEYS,
+  METAL_SINGLE_USE_NOTE,
   PRODUCTION_SITE_DESCRIPTION,
   PRODUCTION_SITE_LABEL,
   SCENARIO_SCOPE_LABEL,
@@ -12,7 +13,7 @@ import {
   centralItemPerKg,
   costItemLabel,
   resolveAssumption,
-  scopeApplies,
+  rowAppliesTo,
   taskAmount,
   type CostAssumption,
   type CostComputation,
@@ -22,13 +23,16 @@ import {
   type CostSelection,
   type CostTask,
   type CostTaskDriver,
+  type CostTaskFlow,
 } from "@/lib/project-cost-model";
 import type { DraftEntity, DraftField, DraftValue } from "@/lib/project-cost-model-draft";
 import { ConfidenceTag, NumberField, ScopeTag, int, num, yen } from "@/components/cockpit/CockpitCostModelParts";
-import type { CostViewSelection } from "@/components/cockpit/CockpitCostModelResults";
+import { CostTaskFlowOverview, stepAnchorId } from "@/components/cockpit/CockpitCostModelFlow";
+import { selectionLabel, type CostViewSelection } from "@/components/cockpit/CockpitCostModelResults";
 
 // コスト試算タブの操作パネル。まだ確定できない数字を、すべてここで動かせるようにする (まさ 2026-09-13)。
 // 書き換えはその場で再計算するだけで保存しない。保存は上の「保存していない変更」から admin が行う。
+// 一番上に「作業の流れと工数」を置き、作業リストも同じ段の順に並べる (まさ 2026-09-13)。
 
 export type CostChangeHandler = (entity: DraftEntity, id: string, field: DraftField, value: DraftValue) => void;
 
@@ -39,6 +43,8 @@ interface Props {
   working: CostModelBundle;
   computed: CostComputation;
   selection: CostViewSelection;
+  /** 選んだ株・用途・方式の作業の流れ。 */
+  flow: CostTaskFlow;
   unit: string;
   onChange: CostChangeHandler;
   /** 操作パネル自体がスクロールする枠か (デスクトップ)。目次の移動先を枠の中にする。 */
@@ -51,7 +57,7 @@ interface Section {
   node: ReactNode;
 }
 
-export function CostControlsPanel({ saved, working, computed, selection, unit, onChange, scrollable }: Props) {
+export function CostControlsPanel({ saved, working, computed, selection, flow, unit, onChange, scrollable }: Props) {
   const paneRef = useRef<HTMLDivElement>(null);
   const derived = computed.derivedByApplication.find((d) => d.application === selection.application)?.derived ?? computed.derived;
   const scenario = computed.scenarios.find(
@@ -59,11 +65,16 @@ export function CostControlsPanel({ saved, working, computed, selection, unit, o
   );
 
   // 操作パネルに出す前提 = 計算が読む role_key で、いまの株・用途で実際に採られている行。
+  // 金属回収の菌体使用回数は1回で固定なので、前提があっても出さない。
   const { strain, application } = selection;
   const groups = useMemo(() => {
     const sel: CostSelection = { strain, application };
     const shown = working.assumptions.filter(
-      (a) => a.roleKey !== null && COST_ROLE_KEYS.has(a.roleKey) && resolveAssumption(working.assumptions, a.roleKey, sel) === a
+      (a) =>
+        a.roleKey !== null &&
+        COST_ROLE_KEYS.has(a.roleKey) &&
+        !(a.roleKey === "reuse_count" && application === "metal") &&
+        resolveAssumption(working.assumptions, a.roleKey, sel) === a
     );
     const byGroup = new Map<string, CostAssumption[]>();
     for (const a of [...shown].sort((x, y) => x.sortOrder - y.sortOrder)) {
@@ -95,14 +106,22 @@ export function CostControlsPanel({ saved, working, computed, selection, unit, o
           </ul>
           {(rs.has("target_concentration") || rs.has("uptake_alpha") || rs.has("reuse_count")) && (
             <p className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 text-[11px] leading-5 text-[#3c3c43]">
-              必要な菌体 {num(derived.biomassWithLossPerM3, 0)} g/{unit}（濃度 ÷ 取り込み効率 ÷ 回収率）÷ 使用回数 {num(derived.reuseCount, 0)} ＝ 使い切る菌体{" "}
+              必要な菌体 {num(derived.biomassWithLossPerM3, 0)} g/{unit}（濃度 ÷ 取り込み効率 ÷ 回収率）÷ 使用回数 {num(derived.reuseCount, 0)}
+              {derived.reuseFixed && <span className="text-[#6e6e73]">（{METAL_SINGLE_USE_NOTE}）</span>} ＝ 使い切る菌体{" "}
               <span className="font-semibold tabular-nums">{num(derived.biomassKgPerUnit, 3)} kg/{unit}</span>
               {scenario && <>。菌体費は {num(computed.biomass.perKg)} 円/kg × この量 ＝ <span className="font-semibold tabular-nums">{num(scenario.centralTotalPerUnit)} 円/{unit}</span></>}
             </p>
           )}
           {(rs.has("labor_rate") || rs.has("patrol_batches_per_delivery")) && (
             <p className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 text-[11px] leading-5 text-[#3c3c43]">
-              作業リストの年間回数: 年間バッチ数 {num(derived.annualBatches, 0)}・訪問回数 {num(derived.visitsPerYear, 1)}・モジュール交換 {num(derived.moduleSwapsPerYear, 1)}・膜交換 {num(derived.membraneSwapsPerYear, 2)}（回/年）
+              作業リストの年間回数: 年間バッチ数 {num(derived.annualBatches, 0)}・訪問回数 {num(derived.visitsPerYear, 1)}・モジュール交換 {num(derived.moduleSwapsPerYear, 1)}・膜交換 {num(derived.membraneSwapsPerYear, 2)}・輸送 {int(derived.truckTripsPerYear)}（回/年）
+            </p>
+          )}
+          {rs.has("truck_capacity_m3") && (
+            <p className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 text-[11px] leading-5 text-[#3c3c43]">
+              輸送の回数 ＝ 年間処理量 {int(derived.annualVolume)} {unit} ÷ 1台の積載量 {num(derived.truckCapacity, 1)} ＝{" "}
+              <span className="font-semibold tabular-nums">{int(derived.truckTripsPerYear)} 回/年</span>
+              {derived.annualBatches > 0 && <>（稼働日1日あたり {num(derived.truckTripsPerYear / derived.annualBatches, 1)} 台）</>}。C:オフサイトのときだけ効く。
             </p>
           )}
         </>
@@ -110,16 +129,36 @@ export function CostControlsPanel({ saved, working, computed, selection, unit, o
     };
   };
 
+  const jump = (id: string) => {
+    const target = document.getElementById(id);
+    if (!target) return;
+    if (scrollable && paneRef.current) {
+      const pane = paneRef.current;
+      const navHeight = pane.querySelector("nav")?.getBoundingClientRect().height ?? 40;
+      const top = pane.scrollTop + target.getBoundingClientRect().top - pane.getBoundingClientRect().top - navHeight - 8;
+      pane.scrollTo({ top, behavior: "smooth" });
+    } else {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
   const early = groups.filter((g) => g.minSort < 40).map(renderGroup);
   const late = groups.filter((g) => g.minSort >= 40).map(renderGroup);
   const tasks = working.tasks ?? [];
   const sections: Section[] = [
+    ...(tasks.length > 0
+      ? [{
+          id: "cm-flow",
+          title: "作業の流れと工数",
+          node: <CostTaskFlowOverview flow={flow} unit={unit} scenarioLabel={selectionLabel(selection)} onJumpStep={(label) => jump(stepAnchorId(label))} />,
+        }]
+      : []),
     ...early,
     ...(tasks.length > 0
       ? [{
           id: "cm-tasks",
           title: "作業リスト",
-          node: <TaskList saved={saved} working={working} computed={computed} selection={selection} unit={unit} onChange={onChange} />,
+          node: <TaskList saved={saved} working={working} computed={computed} selection={selection} flow={flow} unit={unit} onChange={onChange} />,
         }]
       : []),
     ...late,
@@ -129,18 +168,6 @@ export function CostControlsPanel({ saved, working, computed, selection, unit, o
       node: <ItemEditor saved={saved} working={working} computed={computed} selection={selection} unit={unit} onChange={onChange} />,
     },
   ];
-
-  const jump = (id: string) => {
-    const target = document.getElementById(id);
-    if (!target) return;
-    if (scrollable && paneRef.current) {
-      const pane = paneRef.current;
-      const top = pane.scrollTop + target.getBoundingClientRect().top - pane.getBoundingClientRect().top - 40;
-      pane.scrollTo({ top, behavior: "smooth" });
-    } else {
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  };
 
   return (
     <div
@@ -339,8 +366,7 @@ function BiomassFormula({ computed }: { computed: CostComputation }) {
 }
 
 function taskApplies(task: CostTask, selection: CostViewSelection) {
-  const scopeOk = task.scenario === "中央培養" || task.scenario === "共通" || task.scenario === selection.method;
-  return scopeOk && scopeApplies(task, { strain: selection.strain, application: selection.application });
+  return rowAppliesTo(task, selection.method, { strain: selection.strain, application: selection.application });
 }
 
 function TaskList({
@@ -348,6 +374,7 @@ function TaskList({
   working,
   computed,
   selection,
+  flow,
   unit,
   onChange,
 }: {
@@ -355,6 +382,7 @@ function TaskList({
   working: CostModelBundle;
   computed: CostComputation;
   selection: CostViewSelection;
+  flow: CostTaskFlow;
   unit: string;
   onChange: CostChangeHandler;
 }) {
@@ -383,7 +411,7 @@ function TaskList({
     <div>
       <p className="mb-1.5 text-[11px] leading-5 text-[#6e6e73]">
         年額 ＝ 年間回数 ×（1回の工数 × 作業単価 ＋ 1回の経費）。作業単価が空欄の行は共通の作業単価（{int(commonRate)}円/時）を使う。工数が空欄の行は未確認で、0時間として数える。
-        {PRODUCTION_SITE_LABEL}の作業は菌体費に入る。選んだシナリオで発生しない行は薄く出す。
+        {PRODUCTION_SITE_LABEL}の作業は菌体費に入る。段は「作業の流れと工数」と同じ順。選んだ方式で発生しない段と行は薄く出す。
       </p>
       <div className="hidden xl:grid xl:grid-cols-[minmax(0,1fr)_78px_150px_92px_92px_56px] xl:gap-x-1.5 xl:border-b xl:border-[#e5e5e7] xl:pb-1 xl:text-[10px] xl:font-medium xl:text-[#6e6e73]">
         <span>作業</span>
@@ -393,9 +421,19 @@ function TaskList({
         <span className="text-right">1回の経費(円)</span>
         <span className="text-right">円/{unit}</span>
       </div>
-      {groups.map((g) => (
-        <div key={g} className="mt-1.5">
-          <p className="text-[11px] font-semibold text-[#3c3c43]">{g}</p>
+      {groups.map((g) => {
+        const stepIndex = flow.steps.findIndex((s) => s.label === g);
+        const step = stepIndex >= 0 ? flow.steps[stepIndex] : null;
+        return (
+        <div key={g} id={stepAnchorId(g)} className="mt-1.5 scroll-mt-12">
+          <p className={`flex flex-wrap items-baseline gap-x-2 text-[11px] font-semibold ${step ? "text-[#1d1d1f]" : "text-[#86868b]"}`}>
+            <span>{step ? `${stepIndex + 1}. ` : ""}{g}</span>
+            <span className="text-[10px] font-normal text-[#6e6e73]">
+              {step
+                ? `年 ${int(step.siteHours + step.productionHours)}時間${step.productionHours > 0 && step.siteHours === 0 ? "（拠点全体）" : ""}・${num(step.perUnit)} 円/${unit}${step.unknownCount > 0 ? `・工数未確認 ${step.unknownCount}件` : ""}`
+                : "選んだ方式では発生しない"}
+            </span>
+          </p>
           <ul className="flex flex-col divide-y divide-[#f0f0f2]">
             {tasks
               .filter((t) => (t.groupLabel ?? "作業") === g)
@@ -507,22 +545,22 @@ function TaskList({
               })}
           </ul>
         </div>
-      ))}
+        );
+      })}
       {scenario && (
         <p className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 text-[11px] leading-5 text-[#3c3c43]">
-          選んだシナリオの現場と巡回の作業 <span className="font-semibold tabular-nums">{num(scenario.siteTaskPerUnit)} 円/{unit}</span>
-          （年 {yen(scenario.siteTaskAnnual)}）。{PRODUCTION_SITE_LABEL}の作業は年 {yen(b.tasksAnnual)} で、菌体1kgあたり {num(b.rows.find((r) => r.key === "tasks")?.perKg ?? 0)} 円として菌体費に入る。
+          選んだ方式の作業（運ぶ・運転・保守・管理） <span className="font-semibold tabular-nums">{num(scenario.siteTaskPerUnit)} 円/{unit}</span>
+          （年 {yen(scenario.siteTaskAnnual)}・{int(scenario.siteTaskHours)}時間）。{PRODUCTION_SITE_LABEL}の作業は年 {yen(b.tasksAnnual)}（{int(b.taskHoursAnnual)}時間）で、菌体1kgあたり {num(b.rows.find((r) => r.key === "tasks")?.perKg ?? 0)} 円として菌体費に入る。
         </p>
       )}
     </div>
   );
 }
 
-const SCOPE_ORDER: CostScenarioScope[] = ["中央培養", "共通", "循環", "投入"];
+const SCOPE_ORDER: CostScenarioScope[] = ["中央培養", "共通", "現場共通", "循環", "投入", "オフサイト"];
 
 function itemApplies(item: CostItem, selection: CostViewSelection) {
-  if (item.scenario === "中央培養") return scopeApplies(item, { strain: selection.strain, application: null });
-  return (item.scenario === "共通" || item.scenario === selection.method) && scopeApplies(item, { strain: selection.strain, application: selection.application });
+  return rowAppliesTo(item, selection.method, { strain: selection.strain, application: selection.application });
 }
 
 function ItemEditor({

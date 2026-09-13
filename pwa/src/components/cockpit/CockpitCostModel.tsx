@@ -4,8 +4,10 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import {
   APPLICATION_LABEL,
   METHOD_LABEL,
+  OFFSITE_DESCRIPTION,
   STRAIN_LABEL,
   computeCostModel,
+  computeTaskFlow,
   type CostApplication,
   type CostMethod,
   type CostModelBundle,
@@ -51,8 +53,11 @@ import { CostReadingSections } from "@/components/cockpit/CockpitCostModelReadin
 //     正本へ書くのは、admin が「この値を保存」を押したときだけ
 //   - 人件費は作業リスト (工数 × 作業単価) で持つ。人件費だけを抜いた総コストの併記はしない
 //
+//   - 結果の欄に、方式ごとの総コストを内訳の色で積んだ棒と、選んだ方式の内訳 (区分ごとの棒と割合)、作業工数の合計を出す。
+//     操作パネルの一番上に「作業の流れと工数」を置く。方式は A:循環・B:投入 (オンサイト) と C:オフサイト
+//
 // 二段階の計算 (2026-09-13 まさ確定): 第1段 株ごとの菌体1kgの原価 → 第2段 用途ごとの処理原価。
-// 正本は project_cost_* (migration 320/324/392/394)。計算結果は保存しない。保存するのは前提・明細・作業だけで、数字は常に導出する。
+// 正本は project_cost_* (migration 320/324/392/394/396)。計算結果は保存しない。保存するのは前提・明細・作業だけで、数字は常に導出する。
 
 interface Props {
   projectId: string;
@@ -226,14 +231,24 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
 
   const { model } = working;
   const unit = model.unitBasisLabel || "m³";
-  const { strains, applications } = computed;
+  const { strains, applications, methods } = computed;
+  const method: CostMethod = methods.includes(view.method) ? view.method : "投入";
   const selection: CostViewSelection = {
     strain: computed.strain,
     application: view.application && applications.includes(view.application) ? view.application : applications[0] ?? null,
-    method: view.method,
-    tankMode: view.tankMode,
+    method,
+    // C:オフサイトは SX工場に槽を新設する。オンサイトへ戻したときは、前に選んでいた槽に戻る。
+    tankMode: method === "オフサイト" ? "新設" : view.tankMode,
   };
   const hasMargin = model.targetMarginRate !== null && model.targetMarginRate > 0;
+  const flow = computeTaskFlow(working, computed, { application: selection.application, method: selection.method });
+  const baselineFlow = hasDraft ? computeTaskFlow(bundle, baseline, { application: selection.application, method: selection.method }) : flow;
+  const showFlow = () => {
+    const target = document.getElementById("cm-flow");
+    const pane = target?.closest<HTMLElement>('[data-testid="cost-controls"]');
+    if (pane && pane.scrollHeight > pane.clientHeight) pane.scrollTo({ top: 0, behavior: "smooth" });
+    else target?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
     <div className="flex flex-col gap-3">
@@ -275,25 +290,35 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
             <Segmented
               label="方式"
               ariaLabel="方式の切り替え"
-              options={(["循環", "投入"] as CostMethod[]).map((m) => ({ value: m, label: METHOD_LABEL[m] }))}
+              options={methods.map((m) => ({ value: m, label: METHOD_LABEL[m] }))}
               value={selection.method}
               onChange={(v) => setView({ method: v })}
             />
-            <Segmented
-              label="槽"
-              ariaLabel="槽の切り替え"
-              options={(["既設", "新設"] as CostTankMode[]).map((t) => ({ value: t, label: t }))}
-              value={selection.tankMode}
-              onChange={(v) => setView({ tankMode: v })}
-            />
+            {selection.method === "オフサイト" ? (
+              <div className="flex min-w-0 items-center gap-1.5" title={OFFSITE_DESCRIPTION}>
+                <span className="w-7 shrink-0 text-[11px] font-semibold text-[#3c3c43] xl:w-auto">槽</span>
+                <span className="inline-flex min-h-[40px] items-center rounded-lg border border-[#d2d2d7] bg-[#f5f5f7] px-2.5 text-[12px] font-semibold text-[#6e6e73] xl:min-h-[30px]">
+                  SX工場に新設
+                </span>
+              </div>
+            ) : (
+              <Segmented
+                label="槽"
+                ariaLabel="槽の切り替え"
+                options={(["既設", "新設"] as CostTankMode[]).map((t) => ({ value: t, label: t }))}
+                value={selection.tankMode}
+                onChange={(v) => setView({ tankMode: v })}
+              />
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            {model.versionLabel && (
+            {/* 書き換え中は「保存していない変更」のボタンを1行に収めるため、版ラベルを隠す（版は読み物の「この試算について」にも出る） */}
+            {model.versionLabel && changes.length === 0 && (
               <span className="inline-flex items-center rounded-full border border-[#d2d2d7] px-2 py-0.5 text-[11px] text-[#3c3c43]">{model.versionLabel}</span>
             )}
             <a href="#cm-guide" className="text-[11px] font-medium text-[#0267b2] underline underline-offset-2">見方</a>
             {changes.length === 0 ? (
-              <span className="text-[11px] text-[#6e6e73]">保存値で表示中。数字を書き換えると、保存せずに再計算する</span>
+              <span className="text-[11px] text-[#6e6e73]" title="数字を書き換えると、保存せずにその場で再計算する">保存値で表示中</span>
             ) : (
               <>
                 <button
@@ -376,6 +401,7 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
               working={working}
               computed={computed}
               selection={selection}
+              flow={flow}
               unit={unit}
               onChange={onChange}
               scrollable={paneHeight !== null}
@@ -390,8 +416,11 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
               selection={selection}
               hasMargin={hasMargin}
               targetTotal={model.targetTotalCostPerUnit}
+              flow={flow}
+              baselineFlow={baselineFlow}
               onSelectStrain={(s) => setView({ strain: s })}
-              onSelectScenario={(a, m, t) => setView({ application: a, method: m, tankMode: t })}
+              onSelectScenario={(a, m, t) => setView(m === "オフサイト" ? { application: a, method: m } : { application: a, method: m, tankMode: t })}
+              onShowFlow={showFlow}
             />
           </div>
         </div>

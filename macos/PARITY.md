@@ -89,7 +89,7 @@ PWAロゴ正本をプロジェクト内へ同期し、AppIconの各サイズは�
 | `/dashboard` | `today` | proactive badge、ECR list、company shelf、旧routine非復活 |
 | `/tasks (deprecated)` | `today` | route/nav/helperを復活させない |
 | `/project/[projectId]/cockpit` | `projectCockpit` | PWA同一APIのMS/月次/MTG/資料、`document` deep link、資料Markdown更新、助成金台帳への管理導線、戦略シグナルの対話型修正依頼と履歴 |
-| `/project/[projectId]/cockpit?tab=cost-model`, `/project/[projectId]/workspace#cost-model` | 未割当 | コスト試算タブ (2026-08-23追加、全PJ常設、2026-09-13 シミュレーター化)。`project_cost_models` / `_assumptions` / `_items` / `_tasks` / `_questions` / `_notes` を読み、株×用途×方式×槽をクライアントで再計算する。左の操作パネル（切り替え・前提・作業リスト・明細の書き換え。保存しない試算、admin は「この値を保存」）と右の結果を1枠に並べ、下に想定系・CAPEX/OPEX内訳・確度別内訳・確認事項を出す。PWA/ワークスペース共通コンポーネント。macOS Native未移植 |
+| `/project/[projectId]/cockpit?tab=cost-model`, `/project/[projectId]/workspace#cost-model` | 未割当 | コスト試算タブ (2026-08-23追加、全PJ常設、2026-09-13 シミュレーター化・作業の流れとオフサイト)。`project_cost_models` / `_assumptions` / `_items` / `_tasks` / `_questions` / `_notes` を読み、株×用途×方式（A:循環 / B:投入 / C:オフサイト）×槽をクライアントで再計算する。左の操作パネル（作業の流れと工数・切り替え・前提・作業リスト・明細の書き換え。保存しない試算、admin は「この値を保存」）と右の結果（方式ごとの積み上げ棒・内訳の棒グラフ・作業工数）を1枠に並べ、下に想定系・CAPEX/OPEX内訳・確度別内訳・確認事項を出す。PWA/ワークスペース共通コンポーネント。macOS Native未移植 |
 | `株主・ガバナンス + 要対応` | `adminGovernance` | 会社概要タブ、cap table、action items、全member権限 |
 | `/admin/schedule` | `adminSchedule` | 年間レール、元正本再生成、手入力禁止 |
 

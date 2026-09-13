@@ -6,10 +6,39 @@ import {
   CONFIDENCE_LABEL,
   STRAIN_LABEL,
   type CostApplication,
+  type CostBreakdownKey,
   type CostStrain,
 } from "@/lib/project-cost-model";
 
 // コスト試算タブの小さな部品。操作パネル・結果・読み物の3か所から使う。
+
+/**
+ * 内訳の区分の色。積み上げ棒の並び (BREAKDOWN_ORDER) と同じ順で、隣り合う色が色覚の違いでも見分けられることを検査済み
+ * (dataviz validate_palette、白地・隣接ペア)。赤字の rose・目標超の amber・emerald とは別の色にしている。
+ * 黄とピンクは白地で薄いので、色だけで区分を伝えず、必ず区分名を並べて出す。
+ */
+export const CATEGORY_COLOR: Record<CostBreakdownKey, string> = {
+  biomass: "#2a78d6",
+  transport: "#eb6834",
+  labor: "#4a3aa7",
+  postProcess: "#e87ba4",
+  consumables: "#eda100",
+  capex: "#16a3b8",
+};
+
+/** 凡例と狭い欄で使う区分の短い呼び名。 */
+export const CATEGORY_SHORT_LABEL: Record<CostBreakdownKey, string> = {
+  biomass: "菌体費",
+  transport: "運ぶ",
+  labor: "作業",
+  postProcess: "後処理",
+  consumables: "消耗品など",
+  capex: "償却",
+};
+
+export function Swatch({ color, className = "" }: { color: string; className?: string }) {
+  return <span aria-hidden="true" className={`inline-block h-2 w-2 shrink-0 rounded-[2px] ${className}`} style={{ backgroundColor: color }} />;
+}
 
 export const num = (v: number, digits = 1) =>
   v.toLocaleString("ja-JP", { minimumFractionDigits: digits, maximumFractionDigits: digits });

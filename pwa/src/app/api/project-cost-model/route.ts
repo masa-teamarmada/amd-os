@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 
 // PJコックピット / PJワークスペース「コスト試算」タブの API。
 // read = ログイン済みメンバー、write = admin。
-// migration: scripts/migrations/320_project_cost_model.sql / 392 (株・用途の列と二段階計算) / 394 (作業リスト)
+// migration: scripts/migrations/320_project_cost_model.sql / 392 (株・用途の列と二段階計算) / 394 (作業リスト) / 396 (オフサイトの範囲と輸送の回数)
 // 計算そのものは src/lib/project-cost-model.ts (純関数)。ここは入出力だけ。
 
 const NUM = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : Number(v) || 0);
@@ -200,7 +200,7 @@ const NULLABLE_NUMERIC_FIELDS = new Set([
   "value", "impact_low", "impact_high", "useful_life_years", "hours_per_occurrence", "count_per_year", "hourly_rate",
   "target_total_cost_per_m3", "target_margin_rate",
 ]);
-const TASK_DRIVERS = new Set(["fixed", "batch", "visit", "module_swap", "membrane_swap"]);
+const TASK_DRIVERS = new Set(["fixed", "batch", "visit", "module_swap", "membrane_swap", "truck_trip"]);
 
 /**
  * PATCH /api/project-cost-model

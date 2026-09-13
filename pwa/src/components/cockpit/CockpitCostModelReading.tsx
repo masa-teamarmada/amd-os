@@ -11,6 +11,7 @@ import {
   annualAmount,
   centralItemPerKg,
   costItemLabel,
+  rowAppliesTo,
   scopeApplies,
   taskAmount,
   type CostComputation,
@@ -136,7 +137,7 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
 
   const uncertainAcrossMethods = (() => {
     const seen = new Map<string, CostScenarioResult["topUncertain"][number]>();
-    for (const s of scenarios.filter((x) => x.tankMode === "既設")) {
+    for (const s of scenarios.filter((x) => x.tankMode === "既設" || x.location === "offsite")) {
       for (const u of s.topUncertain) {
         const prev = seen.get(u.costItemId);
         if (!prev || u.perUnit > prev.perUnit) seen.set(u.costItemId, u);
@@ -187,7 +188,7 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
       )}
 
       <Card
-        title={`4シナリオの内訳（${[strainLabel, appLabel].filter(Boolean).join("・") || "全体"}）`}
+        title={`${scenarios.length}シナリオの内訳（${[strainLabel, appLabel].filter(Boolean).join("・") || "全体"}）`}
         hint={`CAPEXは償却後の年額換算。作業（人件費）は作業リストの年額で総コストに含む。単位は 円/${unit}（括弧内は 円/年）。`}
       >
         <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
@@ -205,9 +206,11 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
               <Row label={`　使い切る菌体量（kg-DCW/${unit}）`} scenarios={scenarios} get={(s) => [s.biomassKgPerUnit, null]} digits={3} muted />
               <Row label="　菌体費" scenarios={scenarios} get={(s) => [s.centralTotalPerUnit, s.centralCapexAnnual + s.centralOpexAnnual]} />
 
-              <SectionRow label="現場（顧客工場1拠点あたり）" span={scenarios.length + 1} />
-              <Row label="　消耗品・電力など" scenarios={scenarios} get={(s) => [s.siteItemOpexPerUnit - s.postProcessPerUnit, s.siteItemOpexAnnual - s.postProcessPerUnit * derived.annualVolume]} />
-              <Row label="　現場と巡回の作業" scenarios={scenarios} get={(s) => [s.siteTaskPerUnit, s.siteTaskAnnual]} />
+              <SectionRow label="処理（顧客1社あたり。オンサイトは顧客工場、オフサイトはSX工場）" span={scenarios.length + 1} />
+              <Row label="　消耗品・電力・放流など" scenarios={scenarios} get={(s) => [s.siteItemOpexPerUnit - s.postProcessPerUnit, s.siteItemOpexAnnual - s.postProcessPerUnit * derived.annualVolume]} />
+              <Row label="　作業（運ぶ・運転・保守・管理）" scenarios={scenarios} get={(s) => [s.siteTaskPerUnit, s.siteTaskAnnual]} />
+              <Row label="　うち運ぶ（巡回・輸送）" scenarios={scenarios} get={(s) => [s.transportPerUnit, null]} muted />
+              <Row label="　作業工数（時間/年）" scenarios={scenarios} get={(s) => [null, s.siteTaskHours]} muted />
               <Row label="　使用済み菌体の後処理" scenarios={scenarios} get={(s) => [s.postProcessPerUnit, null]} />
               <Row label="　CAPEX 年額（槽含む）" scenarios={scenarios} get={(s) => [s.siteCapexPerUnit, s.siteCapexAnnual]} />
               <Row label="　小計" scenarios={scenarios} get={(s) => [s.siteTotalPerUnit, null]} strong />
@@ -406,7 +409,7 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
       </Card>
 
       {tasks.length > 0 && (
-        <Card title="作業リストの根拠と確認先" hint={`操作パネルの作業リストと同じ行。年額は選んだシナリオの物量（年間バッチ数 ${num(derived.annualBatches, 0)}・訪問回数 ${num(derived.visitsPerYear, 1)}）で出す。`}>
+        <Card title="作業リストの根拠と確認先" hint={`操作パネルの作業リストと同じ行。年額は選んだシナリオの物量（年間バッチ数 ${num(derived.annualBatches, 0)}・訪問回数 ${num(derived.visitsPerYear, 1)}・輸送 ${int(derived.truckTripsPerYear)}）で出す。`}>
           <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
             <table className="w-full min-w-[760px] border-collapse text-[11px]">
               <thead>
@@ -426,7 +429,7 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
                   const base = savedTask(t.costTaskId);
                   const isCentral = t.scenario === "中央培養";
                   const amt = taskAmount(t, assumptions, derived, isCentral ? centralSel : sel);
-                  const applies = (isCentral || t.scenario === "共通" || t.scenario === selection.method) && scopeApplies(t, isCentral ? centralSel : sel);
+                  const applies = rowAppliesTo(t, selection.method, sel);
                   const changed = !!base && (base.hoursPerOccurrence !== t.hoursPerOccurrence || base.countDriver !== t.countDriver || base.countPerYear !== t.countPerYear || base.hourlyRate !== t.hourlyRate || base.expensePerOccurrence !== t.expensePerOccurrence);
                   return (
                     <tr key={t.costTaskId} className={`border-b border-[#f6f6f7] align-top ${applies ? "" : "opacity-50"}`}>
@@ -465,7 +468,7 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
         hint={`計算に入っている全 ${items.filter((i) => !i.isBreakdown).length} 行。内訳行は親の小計に含まれるため金額を持たない。選んだ株・用途・方式で発生しない行は薄く出し、金額を空欄にする。`}
       >
         <div className="flex flex-col gap-4">
-          {(["中央培養", "共通", "循環", "投入"] as const).map((g) => {
+          {(["中央培養", "共通", "現場共通", "循環", "投入", "オフサイト"] as const).map((g) => {
             const rows = items.filter((i) => !i.isBreakdown && i.scenario === g);
             if (rows.length === 0) return null;
             const isCentral = g === "中央培養";
@@ -497,7 +500,7 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
                     <tbody className="tabular-nums">
                       {rows.map((i) => {
                         const rowSel = isCentral ? centralSel : sel;
-                        const applies = scopeApplies(i, rowSel) && (isCentral || g === "共通" || g === selection.method);
+                        const applies = rowAppliesTo(i, selection.method, sel);
                         const annual = applies ? annualAmount(i, assumptions, derived, rowSel) : null;
                         const right = !applies ? null : isCentral ? centralItemPerKg(i, assumptions, computed.biomass.capacityKgYear, rowSel) : (annual ?? 0) / (derived.annualVolume || 1);
                         const base = savedItem(i.costItemId);
