@@ -39,6 +39,7 @@ import { prefetchProjectOrg } from "@/lib/project-org-client";
 import { prefetchProjectCostModel } from "@/lib/project-cost-model-client";
 import { prefetchProjectTech } from "@/lib/project-tech-client";
 import {
+  DEFAULT_COCKPIT_TAB,
   cockpitGroupForTab,
   cockpitGroupsForProject,
   resolveCockpitTab,
@@ -299,7 +300,7 @@ const TAB_BY_WORKSPACE_VIEW: Partial<Record<SxWeeklyControlView, CockpitTab>> = 
 };
 
 export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab, onTabChange, institutionId: providedInstitutionId, hideNavigation = false }: CockpitViewProps) {
-  const [localActiveTab, setLocalActiveTab] = useState<CockpitTab>("progress");
+  const [localActiveTab, setLocalActiveTab] = useState<CockpitTab>(DEFAULT_COCKPIT_TAB);
   const [openGroupKey, setOpenGroupKey] = useState<CockpitGroupKey | null>(null);
   const [desktopHoverEnabled, setDesktopHoverEnabled] = useState(false);
   const requestedTab = controlledTab ?? localActiveTab;
@@ -449,8 +450,8 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
   // URLが現在のPJでは非表示になるタブを指していても、空画面にせず同じグループの先頭へ落とす。
   const activeTab = activeGroupWithAvailableChildren?.children.includes(resolvedTab)
     ? resolvedTab
-    : activeGroupWithAvailableChildren?.children[0] ?? "progress";
-  const childTabs = activeGroupWithAvailableChildren?.children ?? ["progress"];
+    : activeGroupWithAvailableChildren?.children[0] ?? DEFAULT_COCKPIT_TAB;
+  const childTabs = activeGroupWithAvailableChildren?.children ?? [DEFAULT_COCKPIT_TAB];
   const workspaceView = WORKSPACE_VIEW_BY_TAB[activeTab];
   const tabItem = (key: CockpitTab) => ({
     key,

@@ -35,8 +35,12 @@ export const COCKPIT_TABS = [
 
 export type CockpitTab = (typeof COCKPIT_TABS)[number];
 
-/** 既定タブ。URL に `?tab=` を付けないのはこれだけ。 */
-export const DEFAULT_COCKPIT_TAB: CockpitTab = "progress";
+/**
+ * 既定タブ。URL に `?tab=` を付けないのはこれだけ。
+ * ゴールツリー（2026-09-13 まさ「進捗グループを使うときは最初に論点タブを開く」）。
+ * 進捗管理グループの一番左と揃える。揃えないと、PJを開いた瞬間に左から4番目が選ばれた状態になる。
+ */
+export const DEFAULT_COCKPIT_TAB: CockpitTab = "issues";
 
 /** `?tab=` に載せる (= 既定でない) タブ名の一覧。 */
 export const NON_DEFAULT_COCKPIT_TABS: readonly string[] = COCKPIT_TABS.filter(
@@ -66,7 +70,8 @@ export const COCKPIT_GROUPS: {
     {
       key: "progress-group",
       label: "進捗管理",
-      children: ["progress", "meetings", "slack", "weekly", "gantt", "partners", "issues", "tasks"],
+      // ゴールツリー → タスク → ガント → 残りは元の順（2026-09-13 まさ）
+      children: ["issues", "tasks", "gantt", "progress", "meetings", "slack", "weekly", "partners"],
     },
     {
       key: "business-plan-group",
@@ -84,7 +89,8 @@ export const COCKPIT_GROUPS: {
     {
       key: "progress-group",
       label: "進捗管理",
-      children: ["progress", "meetings", "slack", "weekly", "gantt", "partners", "issues", "tasks"],
+      // ゴールツリー → タスク → ガント → 残りは元の順（2026-09-13 まさ）
+      children: ["issues", "tasks", "gantt", "progress", "meetings", "slack", "weekly", "partners"],
     },
     { key: "seeds-group", label: "シーズリスト", children: ["seeds"] },
     { key: "regulations-group", label: "規程・内規", children: ["regulations"] },

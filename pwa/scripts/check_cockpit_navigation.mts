@@ -3,6 +3,7 @@ import fs from "node:fs";
 import {
   COCKPIT_GROUPS,
   COCKPIT_TABS,
+  DEFAULT_COCKPIT_TAB,
   cockpitGroupForTab,
   resolveCockpitTab,
 } from "../src/lib/cockpit-tabs.ts";
@@ -43,10 +44,23 @@ assert.equal(cockpitGroupForTab("documents", false).label, "ドライブ");
 assert.equal(cockpitGroupForTab("documents", true).label, "ドライブ");
 assert.equal(cockpitGroupForTab("regulations", true).label, "規程・内規");
 
-assert.equal(resolveCockpitTab("capital-policy", true), "progress");
-assert.equal(resolveCockpitTab("business-plan", true), "progress");
-assert.equal(resolveCockpitTab("seeds", false), "progress");
-assert.equal(resolveCockpitTab("regulations", false), "progress");
+// 進捗管理はゴールツリー → タスク → ガント → 残りは元の順。既定タブはその一番左
+// （2026-09-13 まさ「進捗グループを使うときは最初に論点タブを開くので、一番左を論点、
+//  次にタスク、次にガント、あとはそのままの順番に」）。
+for (const kind of ["normal", "institution"] as const) {
+  const progress = COCKPIT_GROUPS[kind].find((group) => group.key === "progress-group");
+  assert.deepEqual(
+    progress?.children,
+    ["issues", "tasks", "gantt", "progress", "meetings", "slack", "weekly", "partners"],
+    `${kind} progress group order`,
+  );
+}
+assert.equal(DEFAULT_COCKPIT_TAB, "issues");
+
+assert.equal(resolveCockpitTab("capital-policy", true), DEFAULT_COCKPIT_TAB);
+assert.equal(resolveCockpitTab("business-plan", true), DEFAULT_COCKPIT_TAB);
+assert.equal(resolveCockpitTab("seeds", false), DEFAULT_COCKPIT_TAB);
+assert.equal(resolveCockpitTab("regulations", false), DEFAULT_COCKPIT_TAB);
 assert.equal(resolveCockpitTab("overview", true), "overview");
 assert.equal(resolveCockpitTab("objective-structure", false), "gantt");
 assert.equal(resolveCockpitTab("objective-structure", true), "gantt");

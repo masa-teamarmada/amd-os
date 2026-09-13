@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CockpitView } from "@/components/cockpit/CockpitView";
 import {
+  DEFAULT_COCKPIT_TAB,
   NON_DEFAULT_COCKPIT_TABS,
   resolveCockpitTab,
   type CockpitTab,
@@ -99,7 +100,7 @@ export default function CockpitPage() {
   const ymParam = searchParams.get("ym");
   const meetingParam = searchParams.get("meeting");
   const tabParam = searchParams.get("tab");
-  const rawTab: CockpitTab = isNonDefaultTab(tabParam) ? tabParam : "progress";
+  const rawTab: CockpitTab = isNonDefaultTab(tabParam) ? tabParam : DEFAULT_COCKPIT_TAB;
   // 研究機関PJの事業計画系タブ、通常PJの研究機関専用タブは進捗管理へ正規化する。
   // 判定は p25 のようなPJ IDではなく institution_projects の実リンクを使う。
   const activeTab = resolveCockpitTab(rawTab, loadState.institutionId !== null);
