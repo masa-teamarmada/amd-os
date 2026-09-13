@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MarkdownView } from "@/components/cockpit/MarkdownView";
 import {
   BLOCK_KIND_HINT,
@@ -223,19 +223,25 @@ function MatrixBlock({ entries }: { entries: TechEntry[] }) {
                     </td>
                   );
                 }
-                const rating = e.rating ?? "unknown";
+                // 記号を持たないセル (条文の要件を並べる表など) は記号を出さず値だけを出す。
+                // 「調べていない」は rating='unknown' を明示して入れる (null を「?」扱いしない)。
+                const rating = e.rating;
                 const tip = [
-                  RATING_FULL_LABEL[rating],
+                  rating ? RATING_FULL_LABEL[rating] : "",
                   e.note || "",
                   e.source_ref ? `出典: ${SOURCE_KIND_LABEL[e.source_kind]} ${e.source_ref}` : SOURCE_KIND_LABEL[e.source_kind],
                 ]
                   .filter(Boolean)
                   .join(" / ");
                 return (
-                  <td key={c} className="border-b border-[#f0f0f2] px-2 py-1.5 text-center align-top" title={tip}>
-                    <div className={`text-[15px] font-semibold leading-5 ${RATING_STYLE[rating]}`}>{RATING_LABEL[rating]}</div>
+                  <td
+                    key={c}
+                    className={`border-b border-[#f0f0f2] px-2 py-1.5 align-top ${rating ? "text-center" : "text-left"}`}
+                    title={tip}
+                  >
+                    {rating && <div className={`text-[15px] font-semibold leading-5 ${RATING_STYLE[rating]}`}>{RATING_LABEL[rating]}</div>}
                     {(e.value_text || e.value_min !== null || e.value_max !== null) && (
-                      <div className="mt-0.5 text-[11px] leading-4 tabular-nums text-[#1d1d1f]">{formatTechValue(e)}</div>
+                      <div className={`${rating ? "mt-0.5" : ""} text-[11px] leading-4 tabular-nums text-[#1d1d1f]`}>{formatTechValue(e)}</div>
                     )}
                     {e.note && <div className="mt-0.5 text-[10px] leading-4 text-[#86868b]">{e.note}</div>}
                     {e.needs_check && <CheckNote reason={e.check_reason} />}
@@ -648,12 +654,15 @@ function TopicCard({
   canEdit,
   projectId,
   onChanged,
+  flash = false,
 }: {
   topic: TechTopic;
   entries: TechEntry[];
   canEdit: boolean;
   projectId: string;
   onChanged: () => void;
+  /** 全体像・目次から移動してきた直後だけ true。どこに着いたかを一瞬示す。 */
+  flash?: boolean;
 }) {
   const [editingTopic, setEditingTopic] = useState(false);
   const [addingEntry, setAddingEntry] = useState(false);
@@ -663,7 +672,13 @@ function TopicCard({
   const editingEntry = entries.find((e) => e.tech_entry_id === editingEntryId);
 
   return (
-    <section className="rounded-xl border border-[#e5e5e7] bg-white p-4">
+    <section
+      id={topicAnchorId(topic)}
+      data-tech-anchor=""
+      className={`scroll-mt-20 rounded-xl border bg-white p-4 transition-shadow duration-500 xl:scroll-mt-4 ${
+        flash ? "border-[#027FDC] shadow-[0_0_0_3px_rgba(2,127,220,0.18)]" : "border-[#e5e5e7]"
+      }`}
+    >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -899,6 +914,307 @@ function FragmentTable({ fragments }: { fragments: TechKnowledgeFragment[] }) {
  * タブ本体
  * ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ *
+ * 全体像と目次 (2026-09-14 まさ依頼)
+ *
+ * 「コンテンツが増えてきて、何がどこにあるのか分からない。全体感も見えるように、
+ *  それぞれのコンテンツへのアクセスもしやすく」。トピックが20件を超えたSXで起きた。
+ * 上に全体像 (区分ごとのトピック・行数・要確認)、広い画面は左に固定の目次、
+ * 狭い画面は上に固定の「いま読んでいる場所」と目次を置く。本文は畳まない。
+ * ------------------------------------------------------------------ */
+
+type TechGroup = {
+  domain: string;
+  anchorId: string;
+  topics: TechTopic[];
+  rows: number;
+  checks: number;
+};
+
+const TECH_TOP_ANCHOR = "tech-top";
+const TECH_FRAGMENTS_ANCHOR = "tech-fragments";
+/** 画面上端からこの距離より上へ抜けた見出しを「いま読んでいる場所」とみなす。狭い画面の固定バーの高さを含む。 */
+const TECH_SPY_OFFSET = 120;
+
+function topicAnchorId(topic: Pick<TechTopic, "tech_topic_id">): string {
+  return `tech-topic-${topic.tech_topic_id}`;
+}
+
+/** 目次では「 — 」より後ろの補足を落として短く出す。全文はホバーで見える。 */
+function shortTopicTitle(title: string): string {
+  return title.split(" — ")[0];
+}
+
+function compareTopics(a: TechTopic, b: TechTopic): number {
+  return (
+    a.sort_order - b.sort_order ||
+    BLOCK_ORDER.indexOf(a.block_kind) - BLOCK_ORDER.indexOf(b.block_kind) ||
+    a.title.localeCompare(b.title, "ja")
+  );
+}
+
+function topicCheckCount(topic: TechTopic, entries: TechEntry[]): number {
+  return countNeedsCheck(entries) + (topic.needs_check ? 1 : 0);
+}
+
+function TechOverview({
+  groups,
+  entriesByTopic,
+  fragmentsCount,
+  domainFilter,
+  onFilter,
+  onJump,
+}: {
+  groups: TechGroup[];
+  entriesByTopic: Map<string, TechEntry[]>;
+  fragmentsCount: number;
+  domainFilter: string;
+  onFilter: (domain: string) => void;
+  onJump: (anchorId: string, domain?: string) => void;
+}) {
+  const totalTopics = groups.reduce((s, g) => s + g.topics.length, 0);
+  const totalRows = groups.reduce((s, g) => s + g.rows, 0);
+  const totalChecks = groups.reduce((s, g) => s + g.checks, 0);
+  if (totalTopics === 0) return null;
+  const chip = (active: boolean) =>
+    `rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+      active ? "border-[#1d1d1f] bg-[#1d1d1f] text-white" : "border-[#d2d2d7] bg-white text-[#4b4b52] hover:bg-[#f5f5f7]"
+    }`;
+
+  return (
+    <section id={TECH_TOP_ANCHOR} data-testid="tech-overview" className="scroll-mt-4 rounded-xl border border-[#e5e5e7] bg-white p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h3 className="text-[13px] font-semibold text-[#1d1d1f]">全体像</h3>
+        <p className="text-[11px] text-[#86868b]">
+          区分 {groups.length} ・ トピック {totalTopics} ・ 行 {totalRows}
+          {totalChecks > 0 && <span className="text-[#b71c1c]"> ・ ⚠ 要確認 {totalChecks}</span>}
+          <span className="hidden sm:inline"> — タイトルを押すと、その位置へ移動する</span>
+        </p>
+      </div>
+
+      {groups.length > 1 && (
+        <div role="group" aria-label="区分で絞る" className="mt-3 flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-[11px] text-[#86868b]">区分で絞る</span>
+          <button type="button" aria-pressed={domainFilter === "all"} onClick={() => onFilter("all")} className={chip(domainFilter === "all")}>
+            すべて
+          </button>
+          {groups.map((g) => (
+            <button
+              key={g.domain}
+              type="button"
+              aria-pressed={domainFilter === g.domain}
+              onClick={() => onFilter(domainFilter === g.domain ? "all" : g.domain)}
+              className={chip(domainFilter === g.domain)}
+            >
+              {g.domain}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-3 grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {groups.map((g) => (
+          <div key={g.domain} className="min-w-0 rounded-lg border border-[#e5e5e7] bg-[#fafafa] p-3">
+            <button
+              type="button"
+              onClick={() => onJump(g.anchorId, g.domain)}
+              className="flex w-full items-baseline justify-between gap-2 text-left"
+            >
+              <span className="text-[12px] font-semibold text-[#1d1d1f] hover:text-[#027FDC]">{g.domain}</span>
+              <span className="shrink-0 text-[10px] tabular-nums text-[#86868b]">
+                {g.topics.length}件{g.rows > 0 && ` ・ ${g.rows}行`}
+                {g.checks > 0 && <span className="text-[#b71c1c]"> ・ ⚠{g.checks}</span>}
+              </span>
+            </button>
+            <ul className="mt-2 space-y-0.5">
+              {g.topics.map((t) => {
+                const entries = entriesByTopic.get(t.tech_topic_id) ?? [];
+                const checks = topicCheckCount(t, entries);
+                return (
+                  <li key={t.tech_topic_id}>
+                    <button
+                      type="button"
+                      onClick={() => onJump(topicAnchorId(t), g.domain)}
+                      title={t.summary ?? t.title}
+                      className="group flex w-full items-start gap-1.5 rounded px-1 py-1 text-left hover:bg-white"
+                    >
+                      <span className="mt-[2px] shrink-0 rounded border border-[#d2d2d7] bg-white px-1 text-[9px] leading-[14px] text-[#6e6e73]">
+                        {BLOCK_KIND_LABEL[t.block_kind]}
+                      </span>
+                      <span className="min-w-0 flex-1 text-[11px] leading-[18px] text-[#1d1d1f] group-hover:text-[#027FDC]">{t.title}</span>
+                      <span className="shrink-0 text-[10px] leading-[18px] tabular-nums text-[#86868b]">
+                        {entries.length > 0 ? `${entries.length}行` : ""}
+                        {checks > 0 && <span className="ml-1 text-[#b71c1c]">⚠{checks}</span>}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+        {fragmentsCount > 0 && (
+          <button
+            type="button"
+            onClick={() => onJump(TECH_FRAGMENTS_ANCHOR)}
+            className="rounded-lg border border-dashed border-[#d2d2d7] bg-white p-3 text-left hover:bg-[#fafafa]"
+          >
+            <span className="block text-[12px] font-semibold text-[#1d1d1f]">まだ整理していない技術の断片</span>
+            <span className="mt-1 block text-[11px] leading-5 text-[#86868b]">
+              自動抽出で拾った事実 {fragmentsCount}件。ここから上のトピックへ写して整理する。
+            </span>
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function TechTocList({
+  groups,
+  entriesByTopic,
+  activeAnchor,
+  fragmentsCount,
+  onJump,
+}: {
+  groups: TechGroup[];
+  entriesByTopic: Map<string, TechEntry[]>;
+  activeAnchor: string | null;
+  fragmentsCount: number;
+  onJump: (anchorId: string, domain?: string) => void;
+}) {
+  return (
+    <ul className="space-y-2.5">
+      {groups.map((g) => {
+        const inGroup = g.anchorId === activeAnchor || g.topics.some((t) => topicAnchorId(t) === activeAnchor);
+        return (
+          <li key={g.domain}>
+            <button
+              type="button"
+              onClick={() => onJump(g.anchorId, g.domain)}
+              className={`block w-full text-left text-[11px] font-semibold ${inGroup ? "text-[#1d1d1f]" : "text-[#6e6e73]"} hover:text-[#1d1d1f]`}
+            >
+              {g.domain}
+            </button>
+            <ul className="mt-1 border-l border-[#e5e5e7]">
+              {g.topics.map((t) => {
+                const a = topicAnchorId(t);
+                const on = a === activeAnchor;
+                const checks = topicCheckCount(t, entriesByTopic.get(t.tech_topic_id) ?? []);
+                return (
+                  <li key={t.tech_topic_id}>
+                    <button
+                      type="button"
+                      onClick={() => onJump(a, g.domain)}
+                      aria-current={on ? "location" : undefined}
+                      title={t.title}
+                      className={`-ml-px block w-full border-l-2 py-1 pl-2 pr-1 text-left text-[11px] leading-4 ${
+                        on
+                          ? "border-[#027FDC] bg-[#eef6fd] font-medium text-[#1d1d1f]"
+                          : "border-transparent text-[#4b4b52] hover:border-[#c7c7cc] hover:text-[#1d1d1f]"
+                      }`}
+                    >
+                      {shortTopicTitle(t.title)}
+                      {checks > 0 && <span className="ml-1 whitespace-nowrap text-[10px] text-[#b71c1c]">⚠{checks}</span>}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </li>
+        );
+      })}
+      {fragmentsCount > 0 && (
+        <li>
+          <button
+            type="button"
+            onClick={() => onJump(TECH_FRAGMENTS_ANCHOR)}
+            aria-current={activeAnchor === TECH_FRAGMENTS_ANCHOR ? "location" : undefined}
+            className={`block w-full text-left text-[11px] font-semibold ${
+              activeAnchor === TECH_FRAGMENTS_ANCHOR ? "text-[#1d1d1f]" : "text-[#6e6e73]"
+            } hover:text-[#1d1d1f]`}
+          >
+            まだ整理していない断片 {fragmentsCount}
+          </button>
+        </li>
+      )}
+    </ul>
+  );
+}
+
+/** 広い画面 (xl) だけ。左に固定し、読んでいる場所を光らせる。 */
+function TechToc(props: Parameters<typeof TechTocList>[0]) {
+  return (
+    <nav aria-label="技術タブの目次" data-testid="tech-toc" className="hidden xl:block">
+      <div className="sticky top-3 max-h-[calc(100vh-1.5rem)] overflow-y-auto rounded-xl border border-[#e5e5e7] bg-white p-3">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <p className="text-[11px] font-semibold text-[#86868b]">目次</p>
+          <button type="button" onClick={() => props.onJump(TECH_TOP_ANCHOR)} className="text-[10px] font-medium text-[#027FDC]">
+            全体像へ
+          </button>
+        </div>
+        <TechTocList {...props} />
+      </div>
+    </nav>
+  );
+}
+
+/** 狭い画面 (xl 未満) だけ。上に固定し、いま読んでいる場所と目次を出す。 */
+function TechJumpBar(props: Parameters<typeof TechTocList>[0]) {
+  const [open, setOpen] = useState(false);
+  const { groups, activeAnchor } = props;
+  let current = "全体像";
+  for (const g of groups) {
+    if (g.anchorId === activeAnchor) current = g.domain;
+    const hit = g.topics.find((t) => topicAnchorId(t) === activeAnchor);
+    if (hit) current = `${g.domain} › ${shortTopicTitle(hit.title)}`;
+  }
+  if (activeAnchor === TECH_FRAGMENTS_ANCHOR) current = "まだ整理していない断片";
+
+  return (
+    <div data-testid="tech-jump-bar" className="sticky top-0 z-40 xl:hidden">
+      <div className="relative rounded-lg border border-[#e5e5e7] bg-white/95 px-3 py-2 shadow-[0_2px_8px_rgba(0,0,0,0.06)] backdrop-blur">
+        <div className="flex items-center gap-2">
+          <p className="min-w-0 flex-1 truncate text-[11px] text-[#1d1d1f]">
+            <span className="mr-1 text-[#86868b]">いま</span>
+            {current}
+          </p>
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            className="min-h-[32px] shrink-0 rounded-md border border-[#d2d2d7] px-3 text-[12px] font-medium text-[#1d1d1f] hover:bg-[#f5f5f7]"
+          >
+            {open ? "閉じる" : "目次"}
+          </button>
+        </div>
+        {/* 本文を押し下げないよう、目次は重ねて開く。押し下げると、閉じた瞬間に着地位置がずれる。 */}
+        {open && (
+          <div className="absolute inset-x-0 top-full z-40 mt-1 max-h-[60vh] overflow-y-auto rounded-lg border border-[#e5e5e7] bg-white p-3 shadow-[0_8px_24px_rgba(0,0,0,0.12)]">
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                window.setTimeout(() => props.onJump(TECH_TOP_ANCHOR), 0);
+              }}
+              className="mb-2 text-[11px] font-medium text-[#027FDC]"
+            >
+              全体像へ戻る
+            </button>
+            <TechTocList
+              {...props}
+              onJump={(a, d) => {
+                setOpen(false);
+                window.setTimeout(() => props.onJump(a, d), 0);
+              }}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 interface Props {
   projectId: string;
 }
@@ -913,6 +1229,11 @@ export function CockpitTechnology({ projectId }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [domainFilter, setDomainFilter] = useState<string>("all");
+  const [activeAnchor, setActiveAnchor] = useState<string | null>(null);
+  const [flashAnchor, setFlashAnchor] = useState<string | null>(null);
+  const [pendingJump, setPendingJump] = useState<string | null>(null);
+  const flashTimer = useRef<number | null>(null);
+  const realignTimer = useRef<number | null>(null);
 
   const reload = useCallback(
     (force = false) => {
@@ -956,6 +1277,105 @@ export function CockpitTechnology({ projectId }: Props) {
     return map;
   }, [data]);
 
+  const groups = useMemo<TechGroup[]>(
+    () =>
+      domains.map((domain, i) => {
+        const topics = (data?.topics ?? []).filter((t) => (t.tech_domain || "未分類") === domain).sort(compareTopics);
+        return {
+          domain,
+          anchorId: `tech-domain-${i}`,
+          topics,
+          rows: topics.reduce((s, t) => s + (entriesByTopic.get(t.tech_topic_id)?.length ?? 0), 0),
+          checks: topics.reduce((s, t) => s + topicCheckCount(t, entriesByTopic.get(t.tech_topic_id) ?? []), 0),
+        };
+      }),
+    [domains, data, entriesByTopic]
+  );
+
+  const scrollToAnchor = useCallback((anchorId: string) => {
+    const el = document.getElementById(anchorId);
+    if (!el) return;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+    // 上にある図 (mermaid) は描画が遅れて高さが変わる。移動し終えたころに着地位置がずれていたら合わせ直す。
+    if (realignTimer.current) window.clearTimeout(realignTimer.current);
+    const realign = (remaining: number) => {
+      realignTimer.current = window.setTimeout(() => {
+        const target = document.getElementById(anchorId);
+        if (!target) return;
+        const margin = parseFloat(window.getComputedStyle(target).scrollMarginTop) || 0;
+        if (Math.abs(target.getBoundingClientRect().top - margin) > 24) target.scrollIntoView({ behavior: "auto", block: "start" });
+        if (remaining > 1) realign(remaining - 1);
+      }, 900);
+    };
+    realign(2);
+    setFlashAnchor(anchorId);
+    if (flashTimer.current) window.clearTimeout(flashTimer.current);
+    flashTimer.current = window.setTimeout(() => setFlashAnchor(null), 1600);
+  }, []);
+
+  // 区分で絞っている最中に、ほかの区分のトピックを目次から押したら、絞り込みを外してから移動する。
+  const jumpTo = useCallback(
+    (anchorId: string, domain?: string) => {
+      if (domain && domainFilter !== "all" && domainFilter !== domain) {
+        setDomainFilter("all");
+        setPendingJump(anchorId);
+        return;
+      }
+      if (anchorId === TECH_FRAGMENTS_ANCHOR && domainFilter !== "all") {
+        setDomainFilter("all");
+        setPendingJump(anchorId);
+        return;
+      }
+      scrollToAnchor(anchorId);
+    },
+    [domainFilter, scrollToAnchor]
+  );
+
+  // 絞り込みを外した描画が終わってから移動する。描画の間引きに左右されないよう、アニメーションフレームではなくタイマーで待つ。
+  useEffect(() => {
+    if (!pendingJump) return;
+    const timer = window.setTimeout(() => {
+      scrollToAnchor(pendingJump);
+      setPendingJump(null);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [pendingJump, domainFilter, scrollToAnchor]);
+
+  // いま読んでいる場所。ページ全体のスクロールに追従し、画面上端を越えた最後の見出しを選ぶ。
+  useEffect(() => {
+    if (!data) return;
+    let frame = 0;
+    const compute = () => {
+      frame = 0;
+      let current: string | null = null;
+      for (const node of document.querySelectorAll<HTMLElement>("[data-tech-anchor]")) {
+        if (node.getBoundingClientRect().top - TECH_SPY_OFFSET <= 0) current = node.id;
+        else break;
+      }
+      setActiveAnchor((prev) => (prev === current ? prev : current));
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(compute);
+    };
+    frame = requestAnimationFrame(compute);
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      document.removeEventListener("scroll", onScroll, { capture: true });
+      window.removeEventListener("resize", onScroll);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [data, domainFilter]);
+
+  useEffect(
+    () => () => {
+      if (flashTimer.current) window.clearTimeout(flashTimer.current);
+      if (realignTimer.current) window.clearTimeout(realignTimer.current);
+    },
+    []
+  );
+
   if (error) {
     return (
       <div className="rounded-xl border border-[#ffcdd2] bg-[#fff5f5] p-4 text-[12px] text-[#b71c1c]">
@@ -974,7 +1394,6 @@ export function CockpitTechnology({ projectId }: Props) {
     );
   }
 
-  const visibleTopics = data.topics.filter((t) => domainFilter === "all" || (t.tech_domain || "未分類") === domainFilter);
   const countByKind = BLOCK_ORDER.map((k) => ({ kind: k, n: data.topics.filter((t) => t.block_kind === k).length }));
   const needsCheckTotal = countNeedsCheck(data.entries) + data.topics.filter((t) => t.needs_check).length;
 
@@ -997,16 +1416,6 @@ export function CockpitTechnology({ projectId }: Props) {
             ))}
             {needsCheckTotal > 0 && (
               <Badge className="border-[#ffcdd2] bg-[#ffebee] text-[#b71c1c]">⚠ 要確認 {needsCheckTotal}</Badge>
-            )}
-            {domains.length > 1 && (
-              <select className={INPUT} value={domainFilter} onChange={(e) => setDomainFilter(e.target.value)}>
-                <option value="all">全区分</option>
-                {domains.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
             )}
             {data.canEdit && (
               <button
@@ -1043,36 +1452,80 @@ export function CockpitTechnology({ projectId }: Props) {
         </section>
       )}
 
-      {domains
-        .filter((d) => domainFilter === "all" || d === domainFilter)
-        .map((domain) => {
-          const topics = visibleTopics
-            .filter((t) => (t.tech_domain || "未分類") === domain)
-            .sort(
-              (a, b) =>
-                a.sort_order - b.sort_order ||
-                BLOCK_ORDER.indexOf(a.block_kind) - BLOCK_ORDER.indexOf(b.block_kind) ||
-                a.title.localeCompare(b.title, "ja")
-            );
-          if (topics.length === 0) return null;
-          return (
-            <div key={domain} className="space-y-3">
-              <h3 className="border-b border-[#e5e5e7] pb-1 text-[12px] font-semibold text-[#6e6e73]">{domain}</h3>
-              {topics.map((t) => (
-                <TopicCard
-                  key={t.tech_topic_id}
-                  topic={t}
-                  entries={entriesByTopic.get(t.tech_topic_id) ?? []}
-                  canEdit={data.canEdit}
-                  projectId={projectId}
-                  onChanged={() => reload(true)}
-                />
-              ))}
-            </div>
-          );
-        })}
+      <TechOverview
+        groups={groups}
+        entriesByTopic={entriesByTopic}
+        fragmentsCount={data.fragments.length}
+        domainFilter={domainFilter}
+        onFilter={setDomainFilter}
+        onJump={jumpTo}
+      />
 
-      <FragmentTable fragments={data.fragments} />
+      {data.topics.length > 0 ? (
+        <div className="xl:grid xl:grid-cols-[228px_minmax(0,1fr)] xl:gap-4">
+          <TechToc
+            groups={groups}
+            entriesByTopic={entriesByTopic}
+            activeAnchor={activeAnchor}
+            fragmentsCount={data.fragments.length}
+            onJump={jumpTo}
+          />
+          <div className="min-w-0 space-y-4">
+            <TechJumpBar
+              groups={groups}
+              entriesByTopic={entriesByTopic}
+              activeAnchor={activeAnchor}
+              fragmentsCount={data.fragments.length}
+              onJump={jumpTo}
+            />
+            {domainFilter !== "all" && (
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[#d2d2d7] bg-[#f5f5f7] px-3 py-2 text-[11px] text-[#4b4b52]">
+                <span>
+                  「{domainFilter}」だけを表示中
+                </span>
+                <button type="button" onClick={() => setDomainFilter("all")} className="font-medium text-[#027FDC]">
+                  すべて表示する
+                </button>
+              </div>
+            )}
+            {groups
+              .filter((g) => domainFilter === "all" || g.domain === domainFilter)
+              .map((g) => (
+                <div key={g.domain} className="space-y-3">
+                  <h3
+                    id={g.anchorId}
+                    data-tech-anchor=""
+                    className="flex scroll-mt-20 items-baseline justify-between gap-2 border-b border-[#e5e5e7] pb-1 text-[12px] font-semibold text-[#6e6e73] xl:scroll-mt-4"
+                  >
+                    <span>{g.domain}</span>
+                    <span className="text-[10px] font-normal tabular-nums text-[#86868b]">
+                      {g.topics.length}件{g.rows > 0 && ` ・ ${g.rows}行`}
+                      {g.checks > 0 && <span className="text-[#b71c1c]"> ・ ⚠{g.checks}</span>}
+                    </span>
+                  </h3>
+                  {g.topics.map((t) => (
+                    <TopicCard
+                      key={t.tech_topic_id}
+                      topic={t}
+                      entries={entriesByTopic.get(t.tech_topic_id) ?? []}
+                      canEdit={data.canEdit}
+                      projectId={projectId}
+                      onChanged={() => reload(true)}
+                      flash={flashAnchor === topicAnchorId(t)}
+                    />
+                  ))}
+                </div>
+              ))}
+            {domainFilter === "all" && data.fragments.length > 0 && (
+              <div id={TECH_FRAGMENTS_ANCHOR} data-tech-anchor="" className="scroll-mt-20 xl:scroll-mt-4">
+                <FragmentTable fragments={data.fragments} />
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <FragmentTable fragments={data.fragments} />
+      )}
     </div>
   );
 }

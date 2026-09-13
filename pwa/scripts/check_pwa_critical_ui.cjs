@@ -3206,6 +3206,11 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
 ]);
 expectIncludes("src/components/cockpit/CockpitTechnology.tsx", [
   'data-testid="cockpit-technology-tab"',
+  // 2026-09-14 まさ依頼: 増えた技術タブの全体像と、各トピックへの行き来。消すと「何がどこにあるか分からない」に戻る。
+  'data-testid="tech-overview"',
+  'data-testid="tech-toc"',
+  'data-testid="tech-jump-bar"',
+  "data-tech-anchor",
   "ConditionBlock",
   "MatrixBlock",
   "RecordBlock",
