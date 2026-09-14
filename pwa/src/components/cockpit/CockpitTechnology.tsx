@@ -100,10 +100,11 @@ const MATRIX_AXIS_COL_PX = 128;
 const MATRIX_COL_PX = 96;
 /**
  * 社外に出す形の星取り表は、PDF と同じく相手の列を一度に見せたいので列を細くする。
- * 1440px 幅 (トピック一覧が左にある xl 以上) で 9列 (自社＋8社) が横スクロールなしに収まる幅 (112 + 9 × 84 = 868px)。
+ * トピック一覧が左にある xl 以上なら、窓の幅 1300px 前後でも 9列 (自社＋8社) が横スクロールなしに収まる幅 (104 + 9 × 68 = 716px)。
+ * 広い画面では列が等分に広がる (table-fixed)。
  */
-const SHEET_AXIS_COL_PX = 112;
-const SHEET_COL_PX = 84;
+const SHEET_AXIS_COL_PX = 104;
+const SHEET_COL_PX = 68;
 
 /** 空文字を null に落として、0 と未入力を区別する。 */
 function numOrNull(v: string): number | null {
