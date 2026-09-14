@@ -180,6 +180,8 @@ export function CostResultsPanel({
   const onsiteMax = Math.max(0, ...rows.filter((r) => r.s.location === "onsite").map((r) => r.s.totalPerUnit));
   const allMax = Math.max(0, ...rows.map((r) => r.s.totalPerUnit));
   const price = derived.salePrice;
+  // オフサイトの売価をオンサイトと別に置いているとき、売価の線はそれぞれの方式の売価で引き、目標はオンサイトにだけ当てる。
+  const offsitePriced = hasOffsite && derived.offsitePriceSeparate;
   // オフサイトが桁違いに大きいとオンサイトの棒が読めなくなるので、目盛りはオンサイトの最大の2倍 (売価の1.3倍) で頭打ちにする。
   const scaleMax = Math.max(Math.min(allMax, Math.max(onsiteMax * 2, price * 1.3)), price * 1.1, targetTotal ?? 0, 1);
 
@@ -219,7 +221,10 @@ export function CostResultsPanel({
           <p className="w-full text-[10px] leading-4 text-[#6e6e73]" data-testid="cost-production-scale">
             {/* 数字と単位の途中で折り返さないよう、区切りごとにまとめる */}
             <span className="whitespace-nowrap">年に作る量 <span className="font-semibold text-[#1d1d1f]">{int(b.capacityKgYear / 1000)} t/年</span></span>
-            <span className="whitespace-nowrap">（年間処理量 {int(b.businessVolume)} {unit}{b.salesRate < 1 ? `・販売率 ${num(b.salesRate * 100, 0)}%` : ""}）・</span>
+            <span className="whitespace-nowrap">
+              （年間処理量{b.offsiteVolumeSeparate && b.offsiteVolume > 0 ? " オンサイト＋オフサイト" : ""} {int(b.businessVolume)} {unit}
+              {b.salesRate < 1 ? `・販売率 ${num(b.salesRate * 100, 0)}%` : ""}）・
+            </span>
             <span className="whitespace-nowrap">培養設備 {num(b.productionLines, 1)} 系列・</span>
             <span className="whitespace-nowrap">初期投資 {yen(b.capexInitial)}</span>
             {b.overridePerKg !== null && <span className="font-semibold text-[#b45309]">・上書き値 {num(b.overridePerKg)} 円/kg で計算中</span>}
@@ -257,6 +262,12 @@ export function CostResultsPanel({
                     {LOCATION_SHORT_LABEL[slot.location]}
                     {/* 槽は選べるとき（オンサイトの槽を SX が持つとき）だけ添える */}
                     <span className="font-normal">（{slot.location === "offsite" ? "SX工場まで運んで処理" : computed.onsiteTankBearer === "customer" ? "顧客工場で処理" : `顧客工場で処理・槽は${slot.tankMode}`}）</span>
+                    {offsitePriced && (
+                      <span className="font-normal" data-testid={`cost-price-${slot.location}`}>
+                        ・売価 {num(slot.location === "offsite" ? derived.offsiteSalePrice : price, 0)}
+                        {slot.location === "onsite" && targetTotal !== null ? `・目標 ${num(targetTotal, 0)}` : ""}
+                      </span>
+                    )}
                   </p>
                 )}
                 <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-x-1.5 sm:grid-cols-[minmax(0,1fr)_70px]">
@@ -271,7 +282,7 @@ export function CostResultsPanel({
                   >
                     <span className="truncate text-[11px] text-[#3c3c43]">{METHOD_LABEL[slot.method]}</span>
                     <span className="order-3 col-span-2 sm:order-none sm:col-span-1">
-                      <StackedBar scenario={s} scaleMax={scaleMax} price={price} target={targetTotal} />
+                      <StackedBar scenario={s} scaleMax={scaleMax} price={s.salePricePerUnit} target={s.gapToTargetPerUnit === null ? null : targetTotal} />
                     </span>
                     <span className="flex items-baseline justify-end gap-x-1 tabular-nums">
                       {sb && <Delta value={s.totalPerUnit - sb.totalPerUnit} digits={0} className="text-[9px]" />}
@@ -303,11 +314,12 @@ export function CostResultsPanel({
             </span>
           ))}
           <span className="inline-flex items-center gap-1">
-            <span aria-hidden="true" className="inline-block h-2.5 border-l border-dashed border-[#3c3c43]" />売価 {num(price, 0)}
+            {/* オフサイトの売価を別に置くときは、数字は方式の見出しに出し、凡例は線の種類だけにする */}
+            <span aria-hidden="true" className="inline-block h-2.5 border-l border-dashed border-[#3c3c43]" />売価{offsitePriced ? "" : ` ${num(price, 0)}`}
           </span>
           {targetTotal !== null && (
             <span className="inline-flex items-center gap-1">
-              <span aria-hidden="true" className="inline-block h-2.5 border-l border-dotted border-[#86868b]" />目標 {num(targetTotal, 0)}
+              <span aria-hidden="true" className="inline-block h-2.5 border-l border-dotted border-[#86868b]" />目標{offsitePriced ? "" : ` ${num(targetTotal, 0)}`}
             </span>
           )}
         </div>
@@ -428,7 +440,11 @@ export function CostResultsPanel({
             {current.businessVolume > 0 && (
               <div className="flex items-baseline justify-between gap-x-2 sm:col-span-2" data-testid="cost-business-annual">
                 <dt className="shrink-0">
-                  事業全体の年間<span className="ml-1 text-[10px] text-[#6e6e73]">（約{int(current.customerCount)}社）</span>
+                  {/* 見出しの幅が広がると金額が1行増えて結果の欄が伸びるので、顧客の数は見出しの下の行に出す */}
+                  {current.businessScope === "offsite" ? "オフサイトの年間" : current.businessScope === "onsite" ? "オンサイトの年間" : "事業全体の年間"}
+                  <span className="block text-[10px] leading-4 text-[#6e6e73]">
+                    約{current.customerCount < 10 ? num(current.customerCount, 1).replace(/\.0$/, "") : int(current.customerCount)}社
+                  </span>
                 </dt>
                 <dd className="flex min-w-0 flex-1 flex-wrap justify-end tabular-nums text-[#1d1d1f]">
                   <span className="whitespace-nowrap">売上 {yen(current.businessRevenueAnnual)}・</span>

@@ -8,7 +8,10 @@
 //     生産1kgあたり = (培養設備の償却年額 + 年額固定費 + 製造拠点の作業) ÷ 年に作る量 + 菌体量に比例する費用
 //     売れた1kgあたり = 生産1kgあたり ÷ 販売率。上書き値 (biomass_cost_per_kg_override) があれば生産1kgあたりをそれに置き換える
 //     年に作る量は入力ではなく計算で出す (まさ 2026-09-14「年間の生産能力は入力値じゃなくて計算結果にしてほしい」)。
-//       年に作る量 = 年間処理量 (事業全体、business_annual_volume) × 使い切る菌体量 ÷ 販売率。用途ごとに、その用途だけで処理したときの量
+//       年に作る量 = 年間処理量 (business_annual_volume ＋ offsite_annual_volume) × 使い切る菌体量 ÷ 販売率。用途ごとに、その用途だけで処理したときの量
+//       オフサイトは、売価 (offsite_sale_price) と年間処理量 (offsite_annual_volume) をオンサイトと別に持てる
+//       (まさ 2026-09-14「オフサイトは売価も処理量も別に分けて試算したい」「将来的にサイドビジネス的に、オフサイトもやれたらいいかな」)。
+//       同じ製造拠点で両方の菌体を作るので、年に作る量は両方の年間処理量を足して出す。前提が無い試算は、オフサイトもオンサイトの値を使う
 //       製造拠点の明細は培養設備の1系列 (culture_line_capacity_kg_year で年に作れる量) として、年に作る量 ÷ 1系列の量 だけ並べる。
 //       設備の償却・年額固定費・系列ごとの作業 (count_driver = production_line) は系列の数だけ増え、拠点に1つの作業 (fixed) は増えない
 //     年間処理量の前提が無い試算は、これまでどおり年間生産能力 (culture_capacity_kg_year) をそのまま年に作る量として使う (系列は1つ)
@@ -361,6 +364,8 @@ export const COST_ROLE_KEYS = new Set([
   "recovery_eta",
   "reuse_count",
   "business_annual_volume",
+  "offsite_sale_price",
+  "offsite_annual_volume",
   "culture_capacity_kg_year",
   "culture_line_capacity_kg_year",
   "sales_rate",
@@ -392,7 +397,12 @@ const BASELINE_BROTH_L_PER_M3 = 222.222222;
 const POST_PROCESS_GROUPS = new Set(["シアノ回収後処理", "使用済み菌体の処分"]);
 
 export interface CostDerived {
+  /** 売価 (オンサイト)。 */
   salePrice: number;
+  /** オフサイトの売価。前提 offsite_sale_price が無ければオンサイトと同じ。 */
+  offsiteSalePrice: number;
+  /** オフサイトの売価をオンサイトと別に持っているか。持っているとき、総コスト目標はオフサイトに当てない。 */
+  offsitePriceSeparate: boolean;
   annualBatches: number;
   annualVolume: number;
   targetConcentration: number;
@@ -443,10 +453,16 @@ export interface CostBiomassCost {
   strainLabel: string;
   /** 年に作る量を決めた用途。年間処理量から作る量を出す試算では、用途ごとに使い切る菌体量が違うので原価も用途ごとに出す。 */
   application: CostApplication | null;
-  /** 年間処理量 (事業全体) から年に作る量を計算しているか。false は年間生産能力の前提をそのまま使う試算 (系列は1つ)。 */
+  /** 年間処理量から年に作る量を計算しているか。false は年間生産能力の前提をそのまま使う試算 (系列は1つ)。 */
   fromVolume: boolean;
-  /** 年間処理量 (事業全体、単位/年)。fromVolume でない試算は 0。 */
+  /** 年に作る量の元にした年間処理量 (単位/年) = オンサイト ＋ オフサイト (別に持つとき)。fromVolume でない試算は 0。 */
   businessVolume: number;
+  /** うちオンサイトの年間処理量 (business_annual_volume)。 */
+  onsiteVolume: number;
+  /** うちオフサイトの年間処理量 (offsite_annual_volume)。別に持たない試算は 0。 */
+  offsiteVolume: number;
+  /** オフサイトの年間処理量をオンサイトと別に持っているか。持たない試算は、オフサイトの事業全体の年額もオンサイトの年間処理量で出す。 */
+  offsiteVolumeSeparate: boolean;
   /** 年に作る量 (kg-DCW/年)。CAPEX・年額固定費・作業はこの量で割って1kgあたりにする。 */
   capacityKgYear: number;
   /** 培養設備1系列で年に作れる量 (kg-DCW/年)。fromVolume でない試算は年に作る量と同じ。 */
@@ -587,13 +603,20 @@ export interface CostScenarioResult {
 
   totalAnnual: number;
   totalPerUnit: number;
+  /** この方式の売価 (オフサイトは offsite_sale_price を別に持てる)。 */
+  salePricePerUnit: number;
   revenueAnnual: number;
   profitPerUnit: number;
   profitAnnual: number;
   marginRate: number;
 
-  /** 事業全体 (年間処理量) での年額。年間処理量の前提が無い試算はどれも 0。 */
+  /**
+   * 事業全体 (年間処理量) での年額。年間処理量の前提が無い試算はどれも 0。
+   * オフサイトの年間処理量を別に持つ試算は、オンサイトはオンサイトの量、オフサイトはオフサイトの量で出す。
+   */
   businessVolume: number;
+  /** businessVolume がどの量か。total はオンサイトとオフサイトを分けていない試算。 */
+  businessScope: "total" | "onsite" | "offsite";
   /** 年間処理量 ÷ 顧客1社あたりの年間処理量。 */
   customerCount: number;
   businessRevenueAnnual: number;
@@ -775,6 +798,8 @@ export const CONDITIONAL_ROLE_KEYS = new Set<string>([
   ...NEW_TANK_ROLES,
   "onsite_tank_bearer",
   "labor_rate",
+  "sale_price",
+  "offsite_sale_price",
 ]);
 
 /** 前提が効くかを見る組み合わせ。 */
@@ -811,6 +836,9 @@ export function rolesInEffect(bundle: CostInputs, view: CostEffectSelection): Se
     if (hours > 0 || t.expensePerOccurrence > 0) add(ROLES_BY_TASK_DRIVER[t.countDriver]);
   }
   if (view.location === "onsite") inEffect.add("onsite_tank_bearer");
+  // 売価は選んだ方式のものだけが効く。オフサイトの売価を別に持たない試算は、オフサイトもオンサイトの売価で出す
+  const offsitePriceSeparate = typeof resolveAssumption(bundle.assumptions, "offsite_sale_price", sel)?.value === "number";
+  inEffect.add(view.location === "offsite" && offsitePriceSeparate ? "offsite_sale_price" : "sale_price");
   // 槽の償却が乗るのは、SX が槽を新設するとき (オフサイトは常に。オンサイトは槽を SX が持ち、新設を選んだとき)。
   const tank = view.location === "offsite" ? "新設" : onsiteTankBearer(bundle.assumptions) === "customer" ? "既設" : view.tankMode;
   if (tank === "新設") add(NEW_TANK_ROLES);
@@ -849,7 +877,7 @@ export const COST_PARAM_BLOCKS: CostParamBlock[] = [
 ];
 
 export const COST_PARAM_GROUPS: CostParamGroup[] = [
-  { key: "cond-scale", block: "conditions", title: "事業の規模と売価", hint: "事業全体の年間処理量から、売上・顧客の数・年に作る菌体の量が決まる", roles: ["business_annual_volume", "sale_price"] },
+  { key: "cond-scale", block: "conditions", title: "事業の規模と売価", hint: "オンサイトとオフサイトの年間処理量と売価から、売上・顧客の数が決まる。年に作る菌体の量は両方の年間処理量を足して出す", roles: ["business_annual_volume", "sale_price", "offsite_annual_volume", "offsite_sale_price"] },
   { key: "cond-site", block: "conditions", title: "顧客1社の処理", hint: "顧客1社あたりの年間処理量と年間バッチ数が決まる", roles: ["batch_volume", "operating_days", "utilization"] },
   { key: "cond-substance", block: "conditions", title: "対象物質と菌体の量", hint: "排水1単位あたりに使い切る菌体の量が決まる", roles: ["target_concentration", "uptake_alpha", "recovery_eta", "reuse_count", "k_ppm"] },
   { key: "cond-biomass", block: "conditions", title: "菌体の製造量と原価", hint: "年に作る菌体の量と、菌体1kgの原価の割り算", roles: ["sales_rate", "biomass_cost_per_kg_override"] },
@@ -940,9 +968,14 @@ export function deriveCostBasis(assumptions: CostAssumption[], sel: CostSelectio
 
   const perDelivery = Math.max(roleValue(assumptions, "patrol_batches_per_delivery", 5, sel), 1);
   const truckCapacity = roleValue(assumptions, "truck_capacity_m3", 10, sel);
+  const salePrice = roleValue(assumptions, "sale_price", 500, sel);
+  const offsitePrice = resolveAssumption(assumptions, "offsite_sale_price", sel)?.value;
+  const offsitePriceSeparate = typeof offsitePrice === "number" && Number.isFinite(offsitePrice);
 
   return {
-    salePrice: roleValue(assumptions, "sale_price", 500, sel),
+    salePrice,
+    offsiteSalePrice: offsitePriceSeparate ? offsitePrice : salePrice,
+    offsitePriceSeparate,
     annualBatches,
     annualVolume,
     targetConcentration: concentration,
@@ -1136,7 +1169,7 @@ function taskAsItem(task: CostTask): CostItem {
 /** 第1段: 株ごとの菌体の製造原価 (円/kg-DCW)。用途には依存しない。 */
 /**
  * 年に作る量と培養設備の系列数。
- * 年間処理量 (business_annual_volume) があれば、年に作る量 = 年間処理量 × その用途で使い切る菌体量 ÷ 販売率 で計算し、
+ * 年間処理量 (business_annual_volume ＋ 別に持つときは offsite_annual_volume) があれば、年に作る量 = 年間処理量 × その用途で使い切る菌体量 ÷ 販売率 で計算し、
  * 1系列の量 (culture_line_capacity_kg_year。無ければ culture_capacity_kg_year) で割った数だけ系列を並べる。
  * 無ければ、これまでどおり年間生産能力 (culture_capacity_kg_year) をそのまま年に作る量とし、系列は1つ。
  */
@@ -1145,20 +1178,37 @@ export function productionScaleOf(
   strain: CostStrain | null,
   application: CostApplication | null,
   salesRate: number
-): { fromVolume: boolean; businessVolume: number; capacityKgYear: number; lineCapacityKgYear: number; productionLines: number } {
+): {
+  fromVolume: boolean;
+  businessVolume: number;
+  onsiteVolume: number;
+  offsiteVolume: number;
+  offsiteVolumeSeparate: boolean;
+  capacityKgYear: number;
+  lineCapacityKgYear: number;
+  productionLines: number;
+} {
   const sel: CostSelection = { strain, application: null };
   const appSel: CostSelection = { strain, application };
-  const volume = roleValue(assumptions, "business_annual_volume", 0, appSel);
+  const onsiteVolume = Math.max(roleValue(assumptions, "business_annual_volume", 0, appSel), 0);
+  const offsiteValue = resolveAssumption(assumptions, "offsite_annual_volume", appSel)?.value;
+  const offsiteVolumeSeparate = typeof offsiteValue === "number" && Number.isFinite(offsiteValue);
+  const offsiteVolume = offsiteVolumeSeparate ? Math.max(offsiteValue, 0) : 0;
+  // オフサイトはオンサイトに足すサイドビジネスとして、同じ製造拠点で菌体を作る (まさ 2026-09-14)
+  const volume = onsiteVolume + offsiteVolume;
   const legacyCapacity = roleValue(assumptions, "culture_capacity_kg_year", 0, sel);
   const lineCapacity = roleValue(assumptions, "culture_line_capacity_kg_year", legacyCapacity, sel);
   if (!(volume > 0)) {
     const capacity = legacyCapacity > 0 ? legacyCapacity : lineCapacity;
-    return { fromVolume: false, businessVolume: 0, capacityKgYear: capacity, lineCapacityKgYear: capacity, productionLines: 1 };
+    return { fromVolume: false, businessVolume: 0, onsiteVolume: 0, offsiteVolume: 0, offsiteVolumeSeparate, capacityKgYear: capacity, lineCapacityKgYear: capacity, productionLines: 1 };
   }
   const capacity = safeDiv(volume * deriveCostBasis(assumptions, appSel).biomassKgPerUnit, salesRate);
   return {
     fromVolume: true,
     businessVolume: volume,
+    onsiteVolume,
+    offsiteVolume,
+    offsiteVolumeSeparate,
     capacityKgYear: capacity,
     lineCapacityKgYear: lineCapacity,
     productionLines: safeDiv(capacity, lineCapacity),
@@ -1241,6 +1291,9 @@ export function computeBiomassCost(
     application,
     fromVolume: scale.fromVolume,
     businessVolume: scale.businessVolume,
+    onsiteVolume: scale.onsiteVolume,
+    offsiteVolume: scale.offsiteVolume,
+    offsiteVolumeSeparate: scale.offsiteVolumeSeparate,
     capacityKgYear: capacity,
     lineCapacityKgYear: scale.lineCapacityKgYear,
     productionLines: lines,
@@ -1419,7 +1472,10 @@ export function computeCostModel(
         const capexTotalAnnual = siteCapexAnnual + tankAnnual + centralCapexAnnual;
         const totalAnnual = opexTotalAnnual + capexTotalAnnual;
         const totalPerUnit = perUnit(totalAnnual);
-        const price = derived.salePrice;
+        const offsitePriced = location === "offsite" && derived.offsitePriceSeparate;
+        const price = location === "offsite" ? derived.offsiteSalePrice : derived.salePrice;
+        const businessScope: CostScenarioResult["businessScope"] = biomass.offsiteVolumeSeparate ? location : "total";
+        const businessVolume = !biomass.fromVolume ? 0 : businessScope === "offsite" ? biomass.offsiteVolume : businessScope === "onsite" ? biomass.onsiteVolume : biomass.businessVolume;
 
         const rows = [
           ...contributing,
@@ -1535,22 +1591,25 @@ export function computeCostModel(
 
           totalAnnual,
           totalPerUnit,
+          salePricePerUnit: price,
           revenueAnnual: price * volume,
           profitPerUnit: price - totalPerUnit,
           profitAnnual: (price - totalPerUnit) * volume,
           marginRate: safeDiv(price - totalPerUnit, price),
 
-          businessVolume: biomass.businessVolume,
-          customerCount: safeDiv(biomass.businessVolume, volume),
-          businessRevenueAnnual: price * biomass.businessVolume,
-          businessTotalAnnual: totalPerUnit * biomass.businessVolume,
-          businessProfitAnnual: (price - totalPerUnit) * biomass.businessVolume,
+          businessVolume,
+          businessScope,
+          customerCount: safeDiv(businessVolume, volume),
+          businessRevenueAnnual: price * businessVolume,
+          businessTotalAnnual: totalPerUnit * businessVolume,
+          businessProfitAnnual: (price - totalPerUnit) * businessVolume,
 
           breakEvenPricePerUnit: totalPerUnit,
           requiredPricePerUnit: safeDiv(totalPerUnit, 1 - marginForRequired),
           allowedTotalCostPerUnit,
           gapToAllowedPerUnit: allowedTotalCostPerUnit - totalPerUnit,
-          gapToTargetPerUnit: targetTotal === null ? null : targetTotal - totalPerUnit,
+          // 総コスト目標はオンサイトの売価に対して置いた値なので、売価を別に持つオフサイトには当てない
+          gapToTargetPerUnit: targetTotal === null || offsitePriced ? null : targetTotal - totalPerUnit,
 
           strainSpecificPerUnit: perUnit(siteStrainSpecificAnnual + centralStrainSpecificAnnual),
           postProcessPerUnit: perUnit(postAnnual),

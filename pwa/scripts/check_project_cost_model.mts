@@ -32,9 +32,11 @@
 // 2026-09-14 まさ回答⑩: 汚泥の処分「オンサイトなら顧客」、循環カートリッジの処理の運転「オフサイトならSX」、
 // 顧客の装置の消耗品・電力・点検とモジュールの交換費「それ普通いれないでしょ」— 装置を動かす費用は処理する場所の持ち主（オンサイトは顧客）。
 // 2026-09-14 まさ回答⑪: お金も「100億円」の形ではなく、カンマ区切りの円に「カンマ区切りにそろえて」— 画面の金額も文章の金額も 10,000,000,000円 の形。
+// 2026-09-14 まさ⑫:「オフサイトは売価も処理量も別に分けて試算したい」「将来的にサイドビジネス的に、オフサイトもやれたらいいかな」
+// 「ペインがあれば割高でも成立するから」— オフサイトは売価と年間処理量を別の前提で持ち、年に作る量は両方を足して出す。
 //
 // 正本: pwa/spec/5-13-project-cost-model-current-spec.md
-// fixture: scripts/__fixtures__/sx_cost_model_two_stage.json（migration 416 適用後の SX データ）
+// fixture: scripts/__fixtures__/sx_cost_model_two_stage.json（migration 419 適用後の SX データ）
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {
@@ -90,7 +92,7 @@ const near = (got: number, want: number, tol: number, label: string) =>
 /** 年間処理量の前提を外し、年間生産能力を入力として持つ「これまでの形」に戻す（系列は1つ、製造拠点の作業は固定の回数）。 */
 const capacityShape = (bundle: CostModelBundle): CostModelBundle => {
   const b: CostModelBundle = JSON.parse(JSON.stringify(bundle));
-  b.assumptions = b.assumptions.filter((a) => a.roleKey !== "business_annual_volume");
+  b.assumptions = b.assumptions.filter((a) => a.roleKey !== "business_annual_volume" && a.roleKey !== "offsite_annual_volume");
   for (const a of b.assumptions) if (a.roleKey === "culture_line_capacity_kg_year") a.roleKey = "culture_capacity_kg_year";
   for (const t of b.tasks ?? []) if (t.countDriver === "production_line") t.countDriver = "fixed";
   return b;
@@ -666,7 +668,9 @@ assert.ok(
 // 17. 年に作る量は年間処理量から計算する（入力ではない）。培養設備は系列を並べて増やす（まさ 2026-09-14）
 {
   const vol = fixture.assumptions.find((a) => a.roleKey === "business_annual_volume");
-  assert.ok(vol && vol.value === 20_000_000, "年間処理量は売上100億円に届く2,000万m³（売価500円/m³）");
+  assert.ok(vol && vol.value === 20_000_000, "年間処理量（オンサイト）は売上100億円に届く2,000万m³（売価500円/m³）");
+  const offsiteVol = fixture.assumptions.find((a) => a.roleKey === "offsite_annual_volume")?.value ?? 0;
+  assert.equal(offsiteVol, 30_000, "年間処理量（オフサイト）はサイドビジネスとして SX工場1か所分");
   assert.ok(!fixture.assumptions.some((a) => a.roleKey === "culture_capacity_kg_year"), "年間生産能力を入力として持たない");
   assert.equal(fixture.assumptions.find((a) => a.roleKey === "culture_line_capacity_kg_year")?.value, 33333, "培養設備1系列の年間生産能力");
   const on = scenario(fixture, "enhanced", "dye", "投入-既設");
@@ -679,7 +683,7 @@ assert.ok(
       const b = computeBiomassCost(fixture, strain, application);
       const d = deriveCostBasis(fixture.assumptions, { strain, application });
       assert.equal(b.fromVolume, true, `${strain} ${application} 年間処理量から出す`);
-      near(b.capacityKgYear, (20_000_000 * d.biomassKgPerUnit) / b.salesRate, 1e-6, `${strain} ${application} 年に作る量 = 年間処理量 × 使い切る菌体量 ÷ 販売率`);
+      near(b.capacityKgYear, ((20_000_000 + offsiteVol) * d.biomassKgPerUnit) / b.salesRate, 1e-6, `${strain} ${application} 年に作る量 = 年間処理量（オンサイト ＋ オフサイト）× 使い切る菌体量 ÷ 販売率`);
       near(b.productionLines, b.capacityKgYear / 33333, 1e-9, `${strain} ${application} 系列数 = 年に作る量 ÷ 1系列`);
       near(b.capexInitial, b.lineCapexInitial * b.productionLines, 1e-3, `${strain} ${application} 初期投資 = 1系列 × 系列数`);
       near(b.rows.find((r) => r.key === "capex")!.perKg * b.soldKgYear, b.capexAnnual, 1e-3, `${strain} ${application} 償却の年額（系列の数だけ）= 1kgあたり × 売る量`);
@@ -689,8 +693,8 @@ assert.ok(
   const dyeBio = computeBiomassCost(fixture, "enhanced", "dye");
   const metalBio = computeBiomassCost(fixture, "enhanced", "metal");
   assert.ok(metalBio.capacityKgYear > dyeBio.capacityKgYear * 9, "使い捨ての金属回収は、10回使い回す色素分解の9倍以上の菌体を作る");
-  near(dyeBio.capacityKgYear, 2_222_222, 1, "強化株 色素分解で年に作る量");
-  near(metalBio.productionLines, 628.9, 0.05, "強化株 金属回収の培養設備の系列数");
+  near(dyeBio.capacityKgYear, 2_225_556, 1, "強化株 色素分解で年に作る量（オンサイト 20,000,000 ＋ オフサイト 30,000 m³）");
+  near(metalBio.productionLines, 629.9, 0.05, "強化株 金属回収の培養設備の系列数");
   // 系列ごとの作業は系列数に比例。拠点に1つの作業は変わらない
   const lineTasks = fixture.tasks.filter((t) => t.countDriver === "production_line").map((t) => t.costTaskId).sort();
   assert.deepEqual(lineTasks, ["ct4_culture_operation", "ct_c_filter_replace", "ct_c_integrity_test"], "培養設備の系列ごとの作業");
@@ -703,7 +707,7 @@ assert.ok(
   near(taskAmount(task(fixture, "ct_c_safety_committee"), fixture.assumptions, lineDerived, centralSel).occurrences, 1, 1e-12, "安全委員会は系列数によらず年1回");
   // 年間処理量を2倍にすると、系列数と初期投資が2倍。1kgあたりは、拠点に1つの作業が半分に薄まる分だけ下がる
   const doubleVol = clone();
-  for (const a of doubleVol.assumptions) if (a.roleKey === "business_annual_volume") a.value = 40_000_000;
+  for (const a of doubleVol.assumptions) if (a.roleKey === "business_annual_volume" || a.roleKey === "offsite_annual_volume") a.value = (a.value ?? 0) * 2;
   const dyeBio2 = computeBiomassCost(doubleVol, "enhanced", "dye");
   near(dyeBio2.productionLines, dyeBio.productionLines * 2, 1e-9, "年間処理量2倍で系列数2倍");
   near(dyeBio2.capexInitial, dyeBio.capexInitial * 2, 1e-3, "年間処理量2倍で初期投資2倍");
@@ -796,7 +800,7 @@ assert.ok(
   const signatureOf = (c: ReturnType<typeof computeCostModel>, key: string) => {
     const s = c.scenarios.find((x) => x.key === key);
     assert.ok(s, `scenario ${key}`);
-    return [s.totalPerUnit, s.siteTaskHours, ...s.breakdown.map((b) => b.perUnit)];
+    return [s.totalPerUnit, s.siteTaskHours, s.salePricePerUnit, s.businessRevenueAnnual, s.gapToAllowedPerUnit, ...s.breakdown.map((b) => b.perUnit)];
   };
   const differs = (a: number[], b: number[]) => a.some((v, i) => Math.abs(v - b[i]) > 1e-9);
   const numericRoles = [...CONDITIONAL_ROLE_KEYS].filter((role) => role !== "onsite_tank_bearer");
@@ -925,6 +929,85 @@ assert.ok(
     assert.doesNotMatch(s, /\d\s*[億万]/, `文章の金額もカンマ区切りの円: ${where}`);
   }
   assert.match(fixture.model.summaryMd ?? "", /売上10,000,000,000円/, "説明文の売上は 10,000,000,000円");
+}
+
+// 21. オフサイトの売価と年間処理量（まさ 2026-09-14「オフサイトは売価も処理量も別に分けて試算したい」「将来的にサイドビジネス的に、オフサイトもやれたらいいかな」）
+{
+  const price = (b: CostModelBundle, role: string) => b.assumptions.find((a) => a.roleKey === role)?.value ?? null;
+  assert.equal(price(fixture, "sale_price"), 500, "オンサイトの売価 500円/m³");
+  assert.equal(price(fixture, "offsite_sale_price"), 50_000, "オフサイトの売価 50,000円/m³（1Lあたり50円の仮置き）");
+  const labelOf = (role: string) => fixture.assumptions.find((a) => a.roleKey === role)?.label;
+  assert.equal(labelOf("business_annual_volume"), "年間処理量（オンサイト）", "オンサイトの年間処理量と呼ぶ");
+  assert.equal(labelOf("sale_price"), "想定売上単価（オンサイト）", "オンサイトの売価と呼ぶ");
+  assert.equal(labelOf("offsite_annual_volume"), "年間処理量（オフサイト）", "オフサイトの年間処理量");
+  assert.equal(labelOf("offsite_sale_price"), "想定売上単価（オフサイト）", "オフサイトの売価");
+  const scaleGroup = COST_PARAM_GROUPS.find((g) => g.key === "cond-scale");
+  assert.deepEqual(scaleGroup?.roles, ["business_annual_volume", "sale_price", "offsite_annual_volume", "offsite_sale_price"], "事業の規模と売価に、オンサイトとオフサイトの量と売価を並べる");
+  for (const strain of ["enhanced", "wild"] as const) {
+    for (const app of ["dye", "metal"] as const) {
+      for (const key of ["投入-既設", "循環-既設"]) {
+        const s = scenario(fixture, strain, app, key);
+        assert.equal(s.salePricePerUnit, 500, `${strain} ${app} ${key}: オンサイトはオンサイトの売価`);
+        assert.equal(s.businessScope, "onsite", "オンサイトの全体の年間");
+        near(s.businessVolume, 20_000_000, 1e-9, "オンサイトの全体の年間はオンサイトの年間処理量で出す");
+        near(s.businessRevenueAnnual, 10_000_000_000, 1e-3, "オンサイトの売上 = 20,000,000 × 500");
+        assert.ok(s.gapToTargetPerUnit !== null, "総コスト目標はオンサイトに当てる");
+      }
+      for (const key of ["オフサイト-投入-新設", "オフサイト-循環-新設"]) {
+        const s = scenario(fixture, strain, app, key);
+        assert.equal(s.salePricePerUnit, 50_000, `${strain} ${app} ${key}: オフサイトはオフサイトの売価`);
+        assert.equal(s.businessScope, "offsite", "オフサイトの全体の年間");
+        near(s.businessVolume, 30_000, 1e-9, "オフサイトの全体の年間はオフサイトの年間処理量で出す");
+        near(s.businessRevenueAnnual, 1_500_000_000, 1e-3, "オフサイトの売上 = 30,000 × 50,000");
+        near(s.businessTotalAnnual, s.totalPerUnit * 30_000, 1e-3, "オフサイトの総コスト = 1m³あたり × オフサイトの年間処理量");
+        near(s.customerCount, 1, 1e-9, "オフサイトの顧客数 = 30,000 ÷ 1社の年間処理量");
+        near(s.gapToAllowedPerUnit, 50_000 - s.totalPerUnit, 1e-9, "売価との差はオフサイトの売価で出す");
+        assert.equal(s.gapToTargetPerUnit, null, "売価を別に置いたオフサイトには総コスト目標を当てない");
+        near(s.marginRate, (50_000 - s.totalPerUnit) / 50_000, 1e-12, "利益率もオフサイトの売価で出す");
+      }
+    }
+  }
+  // 売価は1m³あたりの総コストを動かさない。オフサイトの量は年に作る量にだけ効く
+  const pricier = clone();
+  for (const a of pricier.assumptions) if (a.roleKey === "offsite_sale_price") a.value = 100_000;
+  for (const key of ["投入-既設", "オフサイト-投入-新設"]) near(scenario(pricier, "enhanced", "dye", key).totalPerUnit, scenario(fixture, "enhanced", "dye", key).totalPerUnit, 1e-9, "売価を変えても総コストは変わらない");
+  near(scenario(pricier, "enhanced", "dye", "投入-既設").businessRevenueAnnual, 10_000_000_000, 1e-3, "オフサイトの売価はオンサイトの売上に効かない");
+  const moreOffsite = clone();
+  for (const a of moreOffsite.assumptions) if (a.roleKey === "offsite_annual_volume") a.value = 300_000;
+  near(scenario(moreOffsite, "wild", "metal", "オフサイト-投入-新設").businessRevenueAnnual, 15_000_000_000, 1e-3, "オフサイトの量を10倍にするとオフサイトの売上も10倍");
+  near(scenario(moreOffsite, "wild", "metal", "投入-既設").businessRevenueAnnual, 10_000_000_000, 1e-3, "オフサイトの量はオンサイトの売上に効かない");
+  const wildDye = deriveCostBasis(fixture.assumptions, { strain: "wild", application: "dye" });
+  near(computeBiomassCost(moreOffsite, "wild", "dye").capacityKgYear - computeBiomassCost(fixture, "wild", "dye").capacityKgYear, 270_000 * wildDye.biomassKgPerUnit, 1e-6, "オフサイトの量を増やした分だけ年に作る量が増える（同じ製造拠点）");
+  // 前提が無い試算は、オフサイトもオンサイトの売価と年間処理量で出す（これまでの形）
+  const shared = clone();
+  shared.assumptions = shared.assumptions.filter((a) => a.roleKey !== "offsite_sale_price" && a.roleKey !== "offsite_annual_volume");
+  const sharedOff = scenario(shared, "wild", "dye", "オフサイト-投入-新設");
+  assert.equal(sharedOff.salePricePerUnit, 500, "オフサイトの売価が無ければオンサイトの売価");
+  assert.equal(sharedOff.businessScope, "total", "分けない試算は事業全体");
+  near(sharedOff.businessVolume, 20_000_000, 1e-9, "分けない試算は、オフサイトもオンサイトの年間処理量");
+  assert.ok(sharedOff.gapToTargetPerUnit !== null, "売価を分けない試算は、オフサイトにも総コスト目標を当てる");
+  near(computeBiomassCost(shared, "wild", "dye").capacityKgYear, 20_000_000 * wildDye.biomassKgPerUnit, 1e-6, "分けない試算の年に作る量は年間処理量だけ");
+  // 効く前提: 売価は選んだ方式のものだけ
+  const onsiteView = { strain: "wild", application: "dye", location: "onsite", method: "投入", tankMode: "既設" } as const;
+  const offsiteView = { strain: "wild", application: "dye", location: "offsite", method: "投入", tankMode: "新設" } as const;
+  assert.ok(rolesInEffect(fixture, onsiteView).has("sale_price") && !rolesInEffect(fixture, onsiteView).has("offsite_sale_price"), "オンサイトではオンサイトの売価だけが効く");
+  assert.ok(rolesInEffect(fixture, offsiteView).has("offsite_sale_price") && !rolesInEffect(fixture, offsiteView).has("sale_price"), "オフサイトではオフサイトの売価だけが効く");
+  assert.ok(rolesInEffect(shared, offsiteView).has("sale_price"), "オフサイトの売価を分けない試算は、オフサイトにもオンサイトの売価が効く");
+  for (const view of [onsiteView, offsiteView]) {
+    assert.ok(rolesInEffect(fixture, view).has("offsite_annual_volume") && rolesInEffect(fixture, view).has("business_annual_volume"), "年間処理量は2つとも年に作る量に効くので、どちらの方式でも薄くしない");
+  }
+  // 画面: 棒の売価の線は方式ごとの売価、目標はオンサイトだけ。全体の年間の見出しは方式で呼び分ける
+  const read = (f: string) => fs.readFileSync(new URL(f, import.meta.url), "utf8");
+  const results = read("../src/components/cockpit/CockpitCostModelResults.tsx");
+  assert.match(results, /price=\{s\.salePricePerUnit\}/, "棒の売価の線はそれぞれの方式の売価");
+  assert.match(results, /target=\{s\.gapToTargetPerUnit === null \? null : targetTotal\}/, "目標の線は目標を当てる方式だけ");
+  assert.match(results, /"オフサイトの年間"[\s\S]*"オンサイトの年間"[\s\S]*"事業全体の年間"/, "全体の年間の見出しを方式で呼び分ける");
+  assert.match(results, /data-testid=\{`cost-price-\$\{slot\.location\}`\}/, "売価を別に置くときは、方式の見出しにそれぞれの売価を出す");
+  const controls = read("../src/components/cockpit/CockpitCostModelControls.tsx");
+  assert.match(controls, /オフサイトの売上 ＝ 年間処理量/, "事業の規模と売価の割り算にオフサイトの売上を出す");
+  assert.match(controls, /オンサイトとオフサイトの年間処理量を足した量/, "年に作る量は両方の年間処理量から");
+  const reading = read("../src/components/cockpit/CockpitCostModelReading.tsx");
+  assert.match(reading, /売価（売上）/, "シナリオの内訳の表に売価の行");
 }
 
 console.log("project-cost-model: OK");

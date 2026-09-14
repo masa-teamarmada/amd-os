@@ -300,6 +300,7 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
               <Row label="　OPEX 合計" scenarios={scenarios} get={(s) => [s.opexTotalPerUnit, s.opexTotalAnnual]} />
               <Row label="　CAPEX 合計（年額）" scenarios={scenarios} get={(s) => [s.capexTotalPerUnit, s.capexTotalAnnual]} />
               <Row label="　総コスト" scenarios={scenarios} get={(s) => [s.totalPerUnit, s.totalAnnual]} strong />
+              <Row label="　売価（売上）" scenarios={scenarios} get={(s) => [s.salePricePerUnit, s.revenueAnnual]} />
               <Row label="　営業利益（償却後）" scenarios={scenarios} get={(s) => [s.profitPerUnit, s.profitAnnual]} signedRow />
               <tr className="border-b border-[#f0f0f2]">
                 <td className="py-2 pr-2 text-[#3c3c43]">　利益率</td>

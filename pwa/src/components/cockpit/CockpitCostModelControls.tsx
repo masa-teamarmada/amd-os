@@ -146,10 +146,19 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
       case "cond-scale":
         return biomass.fromVolume ? (
           <Formula testId="cost-business-scale">
-            売上 ＝ 年間処理量 {int(biomass.businessVolume)} {unit} × 想定売上単価 {int(derived.salePrice)} 円/{unit} ＝{" "}
-            <span className="font-semibold tabular-nums">{yen(biomass.businessVolume * derived.salePrice)}/年</span>。
-            顧客1社あたり年 {int(derived.annualVolume)} {unit} で約{int(safeRatio(biomass.businessVolume, derived.annualVolume))}社分。
-            {PRODUCTION_SITE_LABEL}で年に作る菌体は、この量から計算する（{selectionAppLabel(selection)}で{" "}
+            {biomass.offsiteVolumeSeparate ? "オンサイトの売上" : "売上"} ＝ 年間処理量 {int(biomass.onsiteVolume)} {unit} × 売価 {int(derived.salePrice)} 円/{unit} ＝{" "}
+            <span className="font-semibold tabular-nums">{yen(biomass.onsiteVolume * derived.salePrice)}/年</span>。
+            顧客1社あたり年 {int(derived.annualVolume)} {unit} で約{int(safeRatio(biomass.onsiteVolume, derived.annualVolume))}社分。
+            {biomass.offsiteVolumeSeparate && (
+              <>
+                <br />
+                オフサイトの売上 ＝ 年間処理量 {int(biomass.offsiteVolume)} {unit} × 売価 {int(derived.offsiteSalePrice)} 円/{unit} ＝{" "}
+                <span className="font-semibold tabular-nums">{yen(biomass.offsiteVolume * derived.offsiteSalePrice)}/年</span>（約
+                {num(safeRatio(biomass.offsiteVolume, derived.annualVolume), 1).replace(/\.0$/, "")}社分）。
+              </>
+            )}
+            <br />
+            {PRODUCTION_SITE_LABEL}で年に作る菌体は、{biomass.offsiteVolumeSeparate ? "オンサイトとオフサイトの年間処理量を足した量" : "この量"}から計算する（{selectionAppLabel(selection)}で{" "}
             <span className="font-semibold tabular-nums">{int(biomass.capacityKgYear / 1000)} t/年</span>・培養設備 {num(biomass.productionLines, 1)} 系列）。
           </Formula>
         ) : null;
@@ -490,11 +499,13 @@ function TargetControl({
   unit: string;
   onChange: CostChangeHandler;
 }) {
+  const offsitePriced = typeof resolveAssumption(working.assumptions, "offsite_sale_price")?.value === "number";
   return (
     <li className="flex flex-col gap-1 py-1.5 xl:flex-row xl:items-center xl:gap-2">
       <div className="min-w-0 flex-1 text-[12px] leading-5 text-[#1d1d1f]">
-        総コスト目標
+        総コスト目標{offsitePriced ? "（オンサイト）" : ""}
         <NoteToggle note={working.model.targetNote} />
+        {offsitePriced && <span className="block text-[10px] leading-4 text-[#6e6e73]">売価を別に置いたオフサイトは、売価との差だけを見る</span>}
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
         <NumberField
@@ -549,7 +560,9 @@ function BiomassFormula({ biomass: b, derived, unit }: { biomass: CostBiomassCos
       </p>
       {b.fromVolume && (
         <p className="mt-0.5">
-          年に作る量 ＝ 年間処理量 {int(b.businessVolume)} {unit} × 使い切る菌体 {num(derived.biomassKgPerUnit, 3)} kg/{unit}
+          年に作る量 ＝ 年間処理量{" "}
+          {b.offsiteVolumeSeparate ? `（オンサイト ${int(b.onsiteVolume)} ＋ オフサイト ${int(b.offsiteVolume)}）` : int(b.businessVolume)} {unit} × 使い切る菌体{" "}
+          {num(derived.biomassKgPerUnit, 3)} kg/{unit}
           {r < 1 ? ` ÷ 販売率 ${num(r * 100, 0)}%` : ""} ＝ <span className="font-semibold tabular-nums">{int(b.capacityKgYear)} kg/年</span>
           <span className="text-[#6e6e73]">
             {" "}→ 培養設備1系列 {int(b.lineCapacityKgYear)} kg/年 で {num(b.productionLines, 1)} 系列。系列ごとの費用は1kgあたり変わらず、拠点に1つの作業だけが量で薄まる
