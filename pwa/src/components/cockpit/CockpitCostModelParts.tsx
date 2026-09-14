@@ -3,6 +3,7 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   APPLICATION_LABEL,
+  CO2_FLUE_GAS_LABEL,
   CONFIDENCE_LABEL,
   STRAIN_LABEL,
   type CostApplication,
@@ -135,6 +136,37 @@ export function Segmented<T extends string>({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/**
+ * CO2 の明細の行に置く「排ガス利用可能」のスイッチ。廃液と燃料のコスト試算で共通。
+ * まさ 2026-09-14「「排ガス利用可能」のスイッチをCO2コストのところに設置してほしい。それがONのときはCO2コストがゼロになるようにして」。
+ * 切り替えは試算中の変更で、保存は「保存していない変更」から。保存値と違うときは枠を AMD Blue にする。
+ */
+export function FlueGasSwitch({ on, baselineOn, onToggle }: { on: boolean; baselineOn: boolean; onToggle: (on: boolean) => void }) {
+  const changed = on !== baselineOn;
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5" data-testid="flue-gas-switch">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        aria-label={CO2_FLUE_GAS_LABEL}
+        onClick={() => onToggle(!on)}
+        title={changed ? "保存値と違う（保存していない）" : undefined}
+        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7cbceb] xl:h-5 xl:w-9 ${
+          on ? "border-[#027fdc] bg-[#027fdc]" : "border-[#d2d2d7] bg-[#e5e5e7]"
+        } ${changed ? "ring-2 ring-[#7cbceb] ring-offset-1" : ""}`}
+      >
+        <span
+          aria-hidden="true"
+          className={`inline-block h-6 w-6 rounded-full bg-white shadow-sm transition-transform xl:h-4 xl:w-4 ${on ? "translate-x-[21px] xl:translate-x-[17px]" : "translate-x-[1px]"}`}
+        />
+      </button>
+      <span className="text-[11px] font-semibold text-[#1d1d1f]">{CO2_FLUE_GAS_LABEL}</span>
+      <span className="text-[10px] leading-4 text-[#6e6e73]">{on ? "ON：工場の排ガスを使うので、CO2 は0円" : "OFF：液化炭酸ガスを買う"}</span>
     </div>
   );
 }

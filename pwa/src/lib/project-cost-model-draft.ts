@@ -7,6 +7,7 @@
 
 // 契約チェック (node で直接読む) からも使うので、相対パスで拡張子つきで読む。
 import {
+  CO2_FLUE_GAS_CHOICES,
   ITEM_BEARER_SHORT_LABEL,
   TANK_BEARER_LABEL,
   TASK_DRIVER_LABEL,
@@ -270,7 +271,7 @@ export function formatDraftValue(field: DraftField, value: DraftValue): string {
   if (field === "countDriver") return TASK_DRIVER_LABEL[value as CostTaskDriver] ?? String(value);
   if (field === "performer") return TASK_PERFORMER_SHORT_LABEL[value as CostTaskPerformer] ?? String(value);
   if (field === "bearer") return ITEM_BEARER_SHORT_LABEL[value as CostItemBearer] ?? String(value);
-  if (field === "valueText") return TANK_BEARER_LABEL[value as CostTankBearer] ?? String(value);
+  if (field === "valueText") return TANK_BEARER_LABEL[value as CostTankBearer] ?? CO2_FLUE_GAS_CHOICES.find((c) => c.value === value)?.label ?? String(value);
   if (typeof value === "number") return value.toLocaleString("ja-JP", { maximumFractionDigits: 6 });
   return String(value);
 }

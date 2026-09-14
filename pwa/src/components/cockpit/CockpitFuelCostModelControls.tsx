@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, type ReactNode } from "react";
-import type { CostAssumption, CostItem, CostModelBundle, CostTask } from "@/lib/project-cost-model";
+import { CO2_FLUE_GAS_ROLE, ITEM_INLINE_ROLES, flueGasOn, type CostAssumption, type CostItem, type CostModelBundle, type CostTask } from "@/lib/project-cost-model";
 import {
   FUEL_BASIS_LABEL,
   FUEL_CULTURE_LABEL,
@@ -30,13 +30,14 @@ import {
   fuelTaskAmount,
   type FuelComputation,
   type FuelParamGroup,
+  type FuelPriceContext,
   type FuelScenarioResult,
   type FuelScope,
   type FuelTaskDriver,
   type FuelTaskFlow,
 } from "@/lib/project-fuel-cost-model";
 import type { DraftEntity, DraftField, DraftValue } from "@/lib/project-cost-model-draft";
-import { ConfidenceTag, NumberField, Swatch, int, num, yen } from "@/components/cockpit/CockpitCostModelParts";
+import { ConfidenceTag, FlueGasSwitch, NumberField, Swatch, int, num, yen } from "@/components/cockpit/CockpitCostModelParts";
 import { FUEL_CATEGORY_COLOR, fuelSelectionLabel } from "@/components/cockpit/CockpitFuelCostModelResults";
 import { CostBreakdownGuide, flashElement, type BreakdownGuideDriver } from "@/components/cockpit/CockpitCostBreakdownGuide";
 import { ItemCalcLine, ItemNoteLine } from "@/components/cockpit/CockpitCostItemCalc";
@@ -84,6 +85,8 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
     for (const g of FUEL_PARAM_GROUPS) {
       if (g.key === "cond-yield") continue;
       map.set(g.key, g.roles.flatMap((role) => {
+        // 排ガス利用可能は CO2 の明細の行に出す (まさ 2026-09-14「CO2コストのところに設置してほしい」)
+        if (ITEM_INLINE_ROLES.has(role)) return [];
         const a = fuelAssumptionOf(working.assumptions, role);
         return a ? [a] : [];
       }));
@@ -202,7 +205,7 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
         {hasTasks && <FuelTaskList saved={saved} working={working} current={current} flow={flow} onChange={onChange} />}
         {groupItems.length > 0 &&
           (visibleItems.length > 0 ? (
-            <FuelItemRows saved={saved} current={current} items={visibleItems} onChange={onChange} />
+            <FuelItemRows saved={saved} working={working} current={current} items={visibleItems} onChange={onChange} />
           ) : (
             <p className="mt-1 text-[11px] text-[#86868b]">選んだFAME転換では発生しない（{groupItems.length}行。上の「すべての行を出す」で見られる）</p>
           ))}
@@ -751,15 +754,21 @@ function FuelTaskList({
  */
 function FuelItemRows({
   saved,
+  working,
   current,
   items,
   onChange,
 }: {
   saved: CostModelBundle;
+  working: CostModelBundle;
   current: FuelScenarioResult;
   items: CostItem[];
   onChange: FuelChangeHandler;
 }) {
+  // CO2 と培養ロス補充の単価は、前提 (排ガス利用可能) とほかの行から出す
+  const ctx: FuelPriceContext = { assumptions: working.assumptions, items: working.items };
+  const flueGas = fuelAssumptionOf(working.assumptions, CO2_FLUE_GAS_ROLE);
+  const savedFlueGas = flueGas ? saved.assumptions.find((a) => a.costAssumptionId === flueGas.costAssumptionId) : undefined;
   return (
     <div className="mt-1.5">
       <div className="hidden xl:grid xl:grid-cols-[minmax(0,1fr)_64px_128px_64px_60px] xl:gap-x-1.5 xl:border-b xl:border-[#e5e5e7] xl:pb-1 xl:text-[10px] xl:font-medium xl:text-[#6e6e73]">
@@ -774,12 +783,13 @@ function FuelItemRows({
           const base = saved.items.find((x) => x.costItemId === i.costItemId);
           const applies = fuelRowApplies(i, current.conversion);
           const isCulture = i.scenario === "中央培養";
-          const perKg = isCulture ? fuelCultureItemPerKg(i, current.scale.cultureLineCapacityKgYear) : 0;
+          const perKg = isCulture ? fuelCultureItemPerKg(i, current.scale.cultureLineCapacityKgYear, ctx) : 0;
           const right = !applies
             ? null
             : isCulture
               ? current.biomass.overridePerKg !== null ? 0 : perKg * current.yield.kgDcwPerLiter
-              : current.scale.annualLiters > 0 ? fuelItemAnnual(i, current.scale) / current.scale.annualLiters : 0;
+              : current.scale.annualLiters > 0 ? fuelItemAnnual(i, current.scale, ctx) / current.scale.annualLiters : 0;
+          const flueGasSwitch = i.priceRule === "co2_supply" && flueGas;
           return (
             <li
               key={i.costItemId}
@@ -792,6 +802,13 @@ function FuelItemRows({
                 <span className="block text-[10px] leading-4 text-[#6e6e73]">
                   {FUEL_SCOPE_LABEL[i.scenario as FuelScope] ?? i.scenario}・{FUEL_BASIS_LABEL[i.basis] ?? i.basis}
                 </span>
+                {flueGasSwitch && (
+                  <FlueGasSwitch
+                    on={flueGasOn(flueGasSwitch)}
+                    baselineOn={flueGasOn(savedFlueGas)}
+                    onToggle={(on) => onChange("assumption", flueGasSwitch.costAssumptionId, "valueText", on ? "on" : "off")}
+                  />
+                )}
               </div>
               <Cell label={`数量（${i.quantityUnit ?? ""}）`}>
                 <NumberField
@@ -806,17 +823,23 @@ function FuelItemRows({
                 />
               </Cell>
               <Cell label={`単価（${i.unitPriceUnit ?? "円"}）`}>
-                <NumberField
-                  ariaLabel={`${fuelItemLabel(i)} 単価`}
-                  value={i.unitPrice}
-                  baseline={base?.unitPrice ?? i.unitPrice}
-                  min={0}
-                  compact
-                  widthClass="w-full xl:w-[5.5rem]"
-                  wrapperClass={FILL}
-                  onChange={(v) => onChange("item", i.costItemId, "unitPrice", v ?? 0)}
-                />
-                <span className="hidden w-8 shrink-0 text-[10px] text-[#6e6e73] xl:inline">{(i.unitPriceUnit ?? "").replace(/^円\//, "/")}</span>
+                {i.priceRule === "culture_loss" ? (
+                  <span className="min-h-[44px] w-full text-right text-[11px] leading-[44px] text-[#6e6e73] xl:min-h-0 xl:leading-normal">原料の合計</span>
+                ) : (
+                  <>
+                    <NumberField
+                      ariaLabel={`${fuelItemLabel(i)} ${i.priceRule === "co2_supply" ? "買値" : "単価"}`}
+                      value={i.unitPrice}
+                      baseline={base?.unitPrice ?? i.unitPrice}
+                      min={0}
+                      compact
+                      widthClass="w-full xl:w-[5.5rem]"
+                      wrapperClass={FILL}
+                      onChange={(v) => onChange("item", i.costItemId, "unitPrice", v ?? 0)}
+                    />
+                    <span className="hidden w-8 shrink-0 text-[10px] text-[#6e6e73] xl:inline">{(i.unitPriceUnit ?? "").replace(/^円\//, "/")}</span>
+                  </>
+                )}
               </Cell>
               <Cell label="耐用年数">
                 {i.basis === "初期投資配賦" ? (
@@ -840,7 +863,7 @@ function FuelItemRows({
                 </span>
               </Cell>
               <div className="col-span-2 flex flex-col gap-0.5 xl:col-span-5">
-                {right !== null && <ItemCalcLine calc={fuelItemCalc(i, current)} />}
+                {right !== null && <ItemCalcLine calc={fuelItemCalc(i, current, ctx)} />}
                 <ItemNoteLine note={i.note} />
               </div>
             </li>

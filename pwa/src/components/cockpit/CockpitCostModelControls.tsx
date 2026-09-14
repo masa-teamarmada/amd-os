@@ -3,12 +3,14 @@
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import {
   APPLICATION_LABEL,
+  CO2_FLUE_GAS_ROLE,
   COST_PARAM_BLOCKS,
   COST_PARAM_GROUPS,
   COST_ROLE_KEYS,
   ITEM_BEARERS,
   ITEM_BEARER_LABEL,
   ITEM_BEARER_SHORT_LABEL,
+  ITEM_INLINE_ROLES,
   LOCATION_SHORT_LABEL,
   METAL_SINGLE_USE_NOTE,
   METHOD_LABEL,
@@ -29,6 +31,7 @@ import {
   costItemLabel,
   derivedOf,
   driverUsesCount,
+  flueGasOn,
   paramGroupOfItem,
   paramGroupOfRole,
   resolveAssumption,
@@ -53,7 +56,7 @@ import {
   type CostTankMode,
 } from "@/lib/project-cost-model";
 import type { DraftEntity, DraftField, DraftValue } from "@/lib/project-cost-model-draft";
-import { CATEGORY_COLOR, ConfidenceTag, NumberField, ScopeTag, Segmented, int, num, yen } from "@/components/cockpit/CockpitCostModelParts";
+import { CATEGORY_COLOR, ConfidenceTag, FlueGasSwitch, NumberField, ScopeTag, Segmented, int, num, yen } from "@/components/cockpit/CockpitCostModelParts";
 import { CostTaskFlowOverview, stepAnchorId } from "@/components/cockpit/CockpitCostModelFlow";
 import { findScenario, selectionLabel, type CostViewSelection } from "@/components/cockpit/CockpitCostModelResults";
 import { CostBreakdownGuide, flashElement, type BreakdownGuideDriver } from "@/components/cockpit/CockpitCostBreakdownGuide";
@@ -112,6 +115,8 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
     for (const g of COST_PARAM_GROUPS) {
       const rows = g.roles.flatMap((role) => {
         if (role === "reuse_count" && application === "metal") return [];
+        // 排ガス利用可能は CO2 の明細の行に出す (まさ 2026-09-14「CO2コストのところに設置してほしい」)
+        if (ITEM_INLINE_ROLES.has(role)) return [];
         const a = resolveAssumption(working.assumptions, role, sel);
         return a ? [a] : [];
       });
@@ -889,6 +894,9 @@ function ItemRows({
   const centralSel: CostSelection = { strain: selection.strain, application: null };
   const derived = derivedOf(computed, selection.application, selection.location);
   const b = biomassOf(computed, selection.application);
+  // CO2 の行に置く「排ガス利用可能」のスイッチ。前提が無い試算 (ほかのPJ) には出さない
+  const flueGas = resolveAssumption(working.assumptions, CO2_FLUE_GAS_ROLE, centralSel);
+  const savedFlueGas = flueGas ? saved.assumptions.find((a) => a.costAssumptionId === flueGas.costAssumptionId) : undefined;
 
   return (
     <div className="mt-1.5">
@@ -908,8 +916,10 @@ function ItemRows({
           const right = !applies || paidBy === "customer"
             ? null
             : isCentral
-              ? centralItemPerKg(i, working.assumptions, b.lineCapacityKgYear, centralSel)
-              : derived.annualVolume > 0 ? annualAmount(i, working.assumptions, derived, sel) / derived.annualVolume : 0;
+              ? centralItemPerKg(i, working.assumptions, b.lineCapacityKgYear, centralSel, working.items)
+              : derived.annualVolume > 0 ? annualAmount(i, working.assumptions, derived, sel, working.items) / derived.annualVolume : 0;
+          const flueGasSwitch = i.priceRule === "co2_supply" && flueGas;
+          const flueGasActive = !!flueGasSwitch && flueGasOn(flueGas);
           return (
             <li
               key={i.costItemId}
@@ -942,6 +952,13 @@ function ItemRows({
                     {i.bearer === "site" && <span className="whitespace-nowrap">（オンサイトは顧客・オフサイトはSX）</span>}
                   </label>
                 )}
+                {flueGasSwitch && (
+                  <FlueGasSwitch
+                    on={flueGasActive}
+                    baselineOn={flueGasOn(savedFlueGas)}
+                    onToggle={(on) => onChange("assumption", flueGasSwitch.costAssumptionId, "valueText", on ? "on" : "off")}
+                  />
+                )}
               </div>
               <Cell label="数量">
                 <NumberField
@@ -956,12 +973,14 @@ function ItemRows({
                 />
               </Cell>
               <Cell label={`単価（${i.unitPriceUnit ?? "円"}）`}>
-                {i.priceRule ? (
-                  <span className="min-h-[44px] w-full text-right text-[11px] leading-[44px] text-[#6e6e73] xl:min-h-0 xl:leading-normal">前提から計算</span>
+                {i.priceRule && i.priceRule !== "co2_supply" ? (
+                  <span className="min-h-[44px] w-full text-right text-[11px] leading-[44px] text-[#6e6e73] xl:min-h-0 xl:leading-normal">
+                    {i.priceRule === "culture_loss" ? "原料の合計" : "前提から計算"}
+                  </span>
                 ) : (
                   <>
                     <NumberField
-                      ariaLabel={`${costItemLabel(i)} 単価`}
+                      ariaLabel={`${costItemLabel(i)} ${i.priceRule === "co2_supply" ? "買値" : "単価"}`}
                       value={i.unitPrice}
                       baseline={base?.unitPrice ?? i.unitPrice}
                       min={0}
@@ -998,7 +1017,7 @@ function ItemRows({
               </Cell>
               <div className="col-span-2 flex flex-col gap-0.5 xl:col-span-5">
                 {right !== null && (
-                  <ItemCalcLine calc={costItemCalc(i, working.assumptions, derived, sel, { capacity: b.lineCapacityKgYear, sel: centralSel }, unit)} />
+                  <ItemCalcLine calc={costItemCalc(i, working.assumptions, derived, sel, { capacity: b.lineCapacityKgYear, sel: centralSel }, unit, working.items)} />
                 )}
                 <ItemNoteLine note={i.note} />
               </div>

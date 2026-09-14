@@ -1,7 +1,7 @@
 "use client";
 
 import type { CostAssumption, CostItem, CostModelBundle, CostNote, CostNoteSection } from "@/lib/project-cost-model";
-import { CONFIDENCE_LABEL } from "@/lib/project-cost-model";
+import { CO2_FLUE_GAS_ROLE, CONFIDENCE_LABEL, flueGasOn } from "@/lib/project-cost-model";
 import {
   FUEL_BASIS_LABEL,
   FUEL_CONVERSION_LABEL,
@@ -14,7 +14,9 @@ import {
   FUEL_TASK_DRIVER_LABEL,
   FUEL_TEXT_CHOICE_ROLES,
   FUEL_YIELD_CASE_LABEL,
+  fuelAssumptionOf,
   fuelCultureItemPerKg,
+  fuelEffectiveUnitPrice,
   fuelItemAnnual,
   fuelItemLabel,
   fuelParamGroupOfItem,
@@ -22,6 +24,7 @@ import {
   fuelRowApplies,
   fuelTaskAmount,
   type FuelComputation,
+  type FuelPriceContext,
   type FuelScenarioResult,
   type FuelScope,
   type FuelTaskDriver,
@@ -80,6 +83,8 @@ type MetricRow = {
 
 export function FuelReadingSections({ saved, working, computed, current }: Props) {
   const { model, assumptions, items, questions } = working;
+  // CO2 と培養ロス補充の単価は、前提 (排ガス利用可能) とほかの行から出す
+  const priceCtx: FuelPriceContext = { assumptions, items };
   const tasks = working.tasks ?? [];
   const notesOf = (section: CostNoteSection) => (working.notes ?? []).filter((n) => n.section === section).sort((a, b) => a.sortOrder - b.sortOrder);
   const scenarios = computed.scenarios;
@@ -422,8 +427,9 @@ export function FuelReadingSections({ saved, working, computed, current }: Props
                     {section.rows.map((i) => {
                       const applies = fuelRowApplies(i, current.conversion);
                       const isCulture = i.scenario === "中央培養";
-                      const perKg = isCulture ? fuelCultureItemPerKg(i, current.scale.cultureLineCapacityKgYear) : null;
-                      const perLiter = !applies ? null : isCulture ? (perKg ?? 0) * current.yield.kgDcwPerLiter : current.scale.annualLiters > 0 ? fuelItemAnnual(i, current.scale) / current.scale.annualLiters : 0;
+                      const perKg = isCulture ? fuelCultureItemPerKg(i, current.scale.cultureLineCapacityKgYear, priceCtx) : null;
+                      const perLiter = !applies ? null : isCulture ? (perKg ?? 0) * current.yield.kgDcwPerLiter : current.scale.annualLiters > 0 ? fuelItemAnnual(i, current.scale, priceCtx) / current.scale.annualLiters : 0;
+                      const shownPrice = fuelEffectiveUnitPrice(i, priceCtx);
                       const base = savedItem(i.costItemId);
                       const changed = !!base && (base.quantity !== i.quantity || base.unitPrice !== i.unitPrice || base.usefulLifeYears !== i.usefulLifeYears);
                       return (
@@ -437,7 +443,13 @@ export function FuelReadingSections({ saved, working, computed, current }: Props
                             {i.quantity.toLocaleString("ja-JP", { maximumFractionDigits: 6 })} <span className="text-[10px] text-[#6e6e73]">{i.quantityUnit}</span>
                           </td>
                           <td className="px-2 py-1.5 text-right">
-                            {i.unitPrice.toLocaleString("ja-JP", { maximumFractionDigits: 2 })} <span className="text-[10px] text-[#6e6e73]">{i.unitPriceUnit}</span>
+                            {shownPrice.toLocaleString("ja-JP", { maximumFractionDigits: 2 })} <span className="text-[10px] text-[#6e6e73]">{i.unitPriceUnit}</span>
+                            {i.priceRule === "co2_supply" && (
+                              <span className="block text-[10px] text-[#6e6e73]">
+                                排ガス利用可能 {flueGasOn(fuelAssumptionOf(assumptions, CO2_FLUE_GAS_ROLE)) ? `ON（買うなら ${i.unitPrice.toLocaleString("ja-JP")}）` : "OFF"}
+                              </span>
+                            )}
+                            {i.priceRule === "culture_loss" && <span className="block text-[10px] text-[#6e6e73]">上の原料の合計</span>}
                             {i.usefulLifeYears ? <span className="block text-[10px] text-[#6e6e73]">{num(i.usefulLifeYears, 0)}年</span> : null}
                           </td>
                           <td className="px-2 py-1.5 text-right">{perKg === null ? "" : `${num(perKg, 2)}/kg`}</td>

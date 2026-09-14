@@ -4,10 +4,11 @@
 // 燃料1Lに要る菌体の量を掛け割りする。その掛け算を行ごとに式で出す。
 // 式の数はエンジンと同じ値から取り、契約チェック（check_project_fuel_cost_model.mts）で「式を計算した答え ＝ 右端の額」を確かめる。
 
-export type CalcOp = "×" | "÷";
+// 足し算 (+) は、培養ロス補充の単価 (上の原料の行の合計) の出し方にだけ使う。
+export type CalcOp = "×" | "÷" | "+";
 
 export interface CalcTerm {
-  /** 前の値に掛けるか割るか。前の段から続かない段の先頭の項は null。 */
+  /** 前の値に掛けるか割るか足すか。前の段から続かない段の先頭の項は null。 */
   op: CalcOp | null;
   value: number;
   unit: string;
@@ -42,7 +43,7 @@ export function evaluateCalcSegment(segment: CalcSegment, previous: number | nul
       value = term.value;
       return;
     }
-    value = term.op === "÷" ? divide(value, term.value) : value * term.value;
+    value = term.op === "÷" ? divide(value, term.value) : term.op === "+" ? value + term.value : value * term.value;
   });
   return value;
 }

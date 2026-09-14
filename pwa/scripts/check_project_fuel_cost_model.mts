@@ -19,12 +19,14 @@ import {
   FUEL_CONVERSIONS,
   FUEL_PARAM_GROUPS,
   FUEL_ROLE_KEYS,
+  FUEL_TEXT_CHOICE_ROLES,
   FUEL_YIELD_CASES,
   computeFuelCostModel,
   computeFuelScenario,
   computeFuelTaskFlow,
   findFuelScenario,
   fuelCultureItemPerKg,
+  fuelEffectiveUnitPrice,
   fuelItemAnnual,
   fuelItemCalc,
   fuelItemLabel,
@@ -36,10 +38,13 @@ import {
   fuelTaskAmount,
   fuelYieldOf,
   isFuelModel,
+  type FuelPriceContext,
 } from "../src/lib/project-fuel-cost-model.ts";
 import { applyDraft, draftKey, draftToPatches, setDraftValue } from "../src/lib/project-cost-model-draft.ts";
 import {
+  CO2_FLUE_GAS_ROLE,
   COST_PARAM_GROUPS,
+  ITEM_INLINE_ROLES,
   annualAmount,
   biomassOf,
   centralItemPerKg,
@@ -123,11 +128,11 @@ check("内訳は6区分で、足すと総コストに一致する。CAPEX と OP
   }
 });
 
-check("260914版の数字（外部に委託・自社で行う × 3ケース、円/L。413 でFAMEポテンシャルを置き直し、426 で培養の原料を「使う量 × 買値」に組み直した後）", () => {
+check("260914版の数字（外部に委託・自社で行う × 3ケース、円/L。413 でFAMEポテンシャルを置き直し、426 で培養の原料を「使う量 × 買値」に組み直し、430 で培養ロス補充の単価を原料の合計から出すようにした後。排ガス利用可能は OFF）", () => {
   const c = computeFuelCostModel(fixture);
   const expect: Record<string, number> = {
-    "outsourced:low": 11260.1, "outsourced:base": 6033.5, "outsourced:high": 4053.3,
-    "inhouse:low": 11258.6, "inhouse:base": 6007.6, "inhouse:high": 4018.2,
+    "outsourced:low": 11260.0, "outsourced:base": 6033.4, "outsourced:high": 4053.3,
+    "inhouse:low": 11258.5, "inhouse:base": 6007.5, "inhouse:high": 4018.1,
   };
   for (const [key, v] of Object.entries(expect)) {
     const s = c.scenarios.find((x) => x.key === key)!;
@@ -374,21 +379,29 @@ check("コスト試算（廃液・燃料）共通: 明細の行の下に、数�
   const shown = (items: CostModelBundle["items"]) => items.filter((i) => !i.isBreakdown && i.basis !== "内訳" && i.costType !== "参考");
 
   // 燃料: 右端の円/L は、培養設備の行は 菌体1kgあたり × 燃料1Lに要る菌体、それ以外は 年額 ÷ 年間の燃料の量
+  // CO2（排ガス利用可能）と培養ロス補充（原料の合計）の単価は、前提とほかの行から出すので、前提と明細の束を渡す
   const fuel = computeFuelCostModel(fixture);
+  const ctx: FuelPriceContext = { assumptions: fixture.assumptions, items: fixture.items };
   let fuelRows = 0;
+  let fuelPriced = 0;
   for (const sc of fuel.scenarios) {
     for (const i of shown(fixture.items).filter((x) => fuelRowApplies(x, sc.conversion))) {
-      const calc = fuelItemCalc(i, sc);
+      const calc = fuelItemCalc(i, sc, ctx);
       assert.ok(calc, `燃料 ${sc.key} ${i.costItemId} に式がある`);
       assert.equal(calc.segments[0].terms[0].value, i.quantity, `燃料 ${i.costItemId} 先頭は数量`);
-      assert.equal(calc.segments[0].terms[1].value, i.unitPrice, `燃料 ${i.costItemId} 次は単価`);
-      const right = i.scenario === "中央培養" ? fuelCultureItemPerKg(i, sc.scale.cultureLineCapacityKgYear) * sc.yield.kgDcwPerLiter : fuelItemAnnual(i, sc.scale) / sc.scale.annualLiters;
+      assert.equal(calc.segments[0].terms[1].value, fuelEffectiveUnitPrice(i, ctx), `燃料 ${i.costItemId} 次は単価`);
+      if (calc.price) {
+        fuelPriced += 1;
+        near(calc.price.result.value, fuelEffectiveUnitPrice(i, ctx), 1e-9, `燃料 ${i.costItemId} 計算で出した単価`);
+      }
+      const right = i.scenario === "中央培養" ? fuelCultureItemPerKg(i, sc.scale.cultureLineCapacityKgYear, ctx) * sc.yield.kgDcwPerLiter : fuelItemAnnual(i, sc.scale, ctx) / sc.scale.annualLiters;
       near(walk(calc, `燃料 ${sc.key} ${i.costItemId}`), right, 1e-9, `燃料 ${sc.key} ${i.costItemId} 式の答え ＝ 右端の円/L`);
       assert.equal(calc.excluded, null);
       fuelRows += 1;
     }
   }
   assert.ok(fuelRows >= 6 * 40, `燃料の式の行 ${fuelRows}`);
+  assert.equal(fuelPriced, 6, "燃料で単価を計算で出す行は培養ロス補充だけ（6通り × 1行。排ガス利用可能が OFF の CO2 は入力の買値）");
   // 行の名前で見分けられる（培養設備の OPEX は小項目。「ユーティリティ」が CO2 と補給水の2行に並ばない）
   const cultureOpex = shown(fixture.items).filter((i) => i.scenario === "中央培養" && i.costType === "OPEX").map((i) => fuelItemLabel(i));
   assert.equal(new Set(cultureOpex).size, cultureOpex.length, `培養設備の OPEX の行の名前が重なる: ${cultureOpex.join("・")}`);
@@ -398,7 +411,7 @@ check("コスト試算（廃液・燃料）共通: 明細の行の下に、数�
   assert.ok(base);
   const medium = fixture.items.find((x) => x.costItemId === "cif_culture_120");
   assert.ok(medium);
-  const mc = fuelItemCalc(medium, base);
+  const mc = fuelItemCalc(medium, base, ctx);
   assert.ok(mc);
   assert.deepEqual(mc.segments.map((s) => s.result.label ?? s.result.unit), ["菌体1kgあたり", "円/L"]);
   near(evaluateItemCalc(mc), 0.4854 * 187 * base.yield.kgDcwPerLiter, 1e-9, "窒素源");
@@ -408,7 +421,7 @@ check("コスト試算（廃液・燃料）共通: 明細の行の下に、数�
   const overridden = computeFuelCostModel(setRole(clone(), "biomass_cost_per_kg_override", { value: 100 }));
   const ob = findFuelScenario(overridden, "outsourced", "base");
   assert.ok(ob);
-  assert.match(fuelItemCalc(medium, ob)?.excluded ?? "", /上書き/);
+  assert.match(fuelItemCalc(medium, ob, ctx)?.excluded ?? "", /上書き/);
 
   // 廃液: 右端の額は、菌体の製造拠点の行は 円/kg（centralItemPerKg）、それ以外は 年額 ÷ 顧客1社の年間処理量
   const ww: CostModelBundle = JSON.parse(read("scripts/__fixtures__/sx_cost_model_two_stage.json"));
@@ -422,8 +435,8 @@ check("コスト試算（廃液・燃料）共通: 明細の行の下に、数�
       const centralSel = { strain, application: null };
       const capacity = biomassOf(cw, application).lineCapacityKgYear;
       for (const i of shown(ww.items)) {
-        const calc = costItemCalc(i, ww.assumptions, derived, sel, { capacity, sel: centralSel }, unit);
-        const right = i.scenario === "中央培養" ? centralItemPerKg(i, ww.assumptions, capacity, centralSel) : annualAmount(i, ww.assumptions, derived, sel) / derived.annualVolume;
+        const calc = costItemCalc(i, ww.assumptions, derived, sel, { capacity, sel: centralSel }, unit, ww.items);
+        const right = i.scenario === "中央培養" ? centralItemPerKg(i, ww.assumptions, capacity, centralSel, ww.items) : annualAmount(i, ww.assumptions, derived, sel, ww.items) / derived.annualVolume;
         if (!calc) {
           assert.equal(right, 0, `廃液 ${i.costItemId} 式が無い行は右端も0`);
           continue;
@@ -431,7 +444,8 @@ check("コスト試算（廃液・燃料）共通: 明細の行の下に、数�
         near(walk(calc, `廃液 ${strain} ${application} ${i.costItemId}`), right, 1e-9, `廃液 ${strain} ${application} ${i.costItemId} 式の答え ＝ 右端の額`);
         if (calc.price) {
           priced += 1;
-          near(calc.price.result.value, effectiveUnitPrice(i, ww.assumptions, derived, sel), 1e-9, `廃液 ${i.costItemId} 前提から計算した単価`);
+          const priceSel = i.scenario === "中央培養" ? centralSel : sel;
+          near(calc.price.result.value, effectiveUnitPrice(i, ww.assumptions, derived, priceSel, ww.items), 1e-9, `廃液 ${i.costItemId} 前提から計算した単価`);
         }
         wwRows += 1;
       }
@@ -447,12 +461,12 @@ check("コスト試算（廃液・燃料）共通: 明細の行の下に、数�
   assert.match(calcUi, /line-clamp-2/, "長い根拠は2行で畳む");
   const fuelControls = read("src/components/cockpit/CockpitFuelCostModelControls.tsx");
   const fuelRowsSrc = fuelControls.slice(fuelControls.indexOf("function FuelItemRows("));
-  assert.match(fuelRowsSrc, /<ItemCalcLine calc=\{fuelItemCalc\(i, current\)\} \/>/);
+  assert.match(fuelRowsSrc, /<ItemCalcLine calc=\{fuelItemCalc\(i, current, ctx\)\} \/>/);
   assert.match(fuelRowsSrc, /<ItemNoteLine note=\{i\.note\} \/>/);
   assert.ok(!/菌体1kgあたり \{num\(perKg/.test(fuelRowsSrc), "「菌体1kgあたり」を2回並べない");
   const wwControls = read("src/components/cockpit/CockpitCostModelControls.tsx");
   const wwRowsSrc = wwControls.slice(wwControls.indexOf("function ItemRows("));
-  assert.match(wwRowsSrc, /<ItemCalcLine calc=\{costItemCalc\(/);
+  assert.match(wwRowsSrc, /<ItemCalcLine calc=\{costItemCalc\([\s\S]*?, unit, working\.items\)\} \/>/, "廃液の式にも明細の束を渡す（培養ロス補充の単価）");
   assert.match(wwRowsSrc, /<ItemNoteLine note=\{i\.note\} \/>/);
 });
 
@@ -478,13 +492,69 @@ check("コスト試算（廃液・燃料）共通: 培養の原料10行は「使
     assert.notEqual(i.quantityUnit, "kg-DCW", `${i.costItemId}「${i.leafLabel}」は量を持つ（「1 kg-DCW × 円/kg-DCW」の額の直置きに戻さない）`);
     assert.ok(!/円\/kg-DCW$/.test(i.unitPriceUnit ?? ""), `${i.costItemId} の買値は物の単位あたり`);
   }
+  // 430 から、培養ロス補充の単価は原料9行の菌体1kgあたりの合計を計算で出す（直に置いた261.6円は使わない）。CO2 の行は排ガス利用可能で0円にできる
   const sum = fuelRows.slice(0, 9).reduce((t, i) => t + i.quantity * i.unitPrice, 0);
   const loss = fuelRows[9];
-  near(loss.unitPrice, Math.round(sum * 10) / 10, 1e-9, "培養ロス補充の単価 ＝ 原料9行の菌体1kgあたりの合計（原料の行を直したら、この行も直す）");
+  assert.equal(loss.priceRule, "culture_loss", "培養ロス補充は原料の合計から単価を出す");
+  assert.equal(wwRows[9].priceRule, "culture_loss", "廃液の培養ロス補充も同じ");
+  assert.deepEqual([fuelRows[3].priceRule, wwRows[3].priceRule], ["co2_supply", "co2_supply"], "CO2 の行は排ガス利用可能で切り替える");
+  near(fuelEffectiveUnitPrice(loss, { assumptions: fixture.assumptions, items: fixture.items }), sum, 1e-9, "燃料: 培養ロス補充の単価 ＝ 原料9行の菌体1kgあたりの合計");
+  const wwCentral = { strain: "wild" as const, application: null };
+  const wwDerived = computeCostModel(ww, { strain: "wild" }).derivedByApplication[0].derived;
+  near(effectiveUnitPrice(wwRows[9], ww.assumptions, wwDerived, wwCentral, ww.items), sum, 1e-9, "廃液: 培養ロス補充の単価 ＝ 原料9行の菌体1kgあたりの合計");
   // 量の元: 炭素50%・CO2の固定80% → 2.29kg、窒素8% ÷ 硝酸ナトリウムの窒素16.48%、リン1% ÷ りん酸二アンモニウムのリン23.45%
   near(fuelRows[3].quantity, 2.29, 1e-9, "CO2");
   near(fuelRows[0].quantity, Math.round((0.08 / (14.007 / 84.995)) * 1e4) / 1e4, 1e-12, "窒素源");
   near(fuelRows[1].quantity, Math.round((0.01 / (30.974 / 132.056)) * 1e4) / 1e4, 1e-12, "リン源");
+});
+
+check("排ガス利用可能: ON のとき CO2 の単価を0円にし、培養ロス補充も一緒に下がる。スイッチは CO2 の明細の行（前提の一覧に出さない）", () => {
+  // まさ 2026-09-14「「排ガス利用可能」のスイッチをCO2コストのところに設置してほしい。それがONのときはCO2コストがゼロになるようにして」
+  const flue = fixture.assumptions.filter((a) => a.roleKey === CO2_FLUE_GAS_ROLE);
+  assert.equal(flue.length, 1, "排ガス利用可能の前提は1行");
+  assert.equal(flue[0].valueText, "off", "既定は OFF");
+  assert.ok(FUEL_ROLE_KEYS.has(CO2_FLUE_GAS_ROLE), "計算に使う前提");
+  assert.equal(fuelParamGroupOfRole(CO2_FLUE_GAS_ROLE)?.key, "opex-culture", "置き場所は OPEX の培養の原料・品質確認");
+  assert.ok(ITEM_INLINE_ROLES.has(CO2_FLUE_GAS_ROLE));
+  const on = setRole(clone(), CO2_FLUE_GAS_ROLE, { valueText: "on" });
+  const co2 = fixture.items.find((i) => i.costItemId === "cif_culture_123")!;
+  const loss = fixture.items.find((i) => i.costItemId === "cif_culture_134")!;
+  const offCtx = { assumptions: fixture.assumptions, items: fixture.items };
+  const onCtx = { assumptions: on.assumptions, items: on.items };
+  assert.equal(fuelEffectiveUnitPrice(co2, offCtx), 50, "OFF は液化炭酸ガスの買値");
+  assert.equal(fuelEffectiveUnitPrice(co2, onCtx), 0, "ON は0円");
+  near(fuelEffectiveUnitPrice(loss, offCtx) - fuelEffectiveUnitPrice(loss, onCtx), 2.29 * 50, 1e-9, "培養ロス補充の単価は CO2 の分だけ下がる");
+  assert.equal(fuelEffectiveUnitPrice(loss), loss.unitPrice, "束を渡さなければ入力の単価");
+  const off = computeFuelCostModel(fixture);
+  const onc = computeFuelCostModel(on);
+  const drop = 2.29 * 50 * (1 + loss.quantity);
+  for (const s of off.scenarios) {
+    const t = onc.scenarios.find((x) => x.key === s.key)!;
+    near(s.biomass.perKg - t.biomass.perKg, drop, 1e-9, `${s.key} 菌体1kgの原価は CO2 と作り直す分の CO2 だけ下がる`);
+    near(s.totalPerLiter - t.totalPerLiter, drop * s.yield.kgDcwPerLiter, 1e-6, `${s.key} 燃料1Lあたりは その額 × 燃料1Lに要る菌体 だけ下がる`);
+  }
+  const ob = findFuelScenario(onc, "outsourced", "base")!;
+  assert.equal(Math.round(ob.totalPerLiter * 10) / 10, 3863.9, "ON 基準・委託（2026-09-14）");
+  assert.ok(onc.scenarios.every((s) => s.totalPerLiter > 200), "ON でも6通りすべて売価200円/Lを上回る");
+  // 菌体の原価を上書きしていれば、切り替えても数字は変わらない
+  const overridden = setRole(clone(), "biomass_cost_per_kg_override", { value: 100 });
+  const overriddenOn = setRole(JSON.parse(JSON.stringify(overridden)), CO2_FLUE_GAS_ROLE, { valueText: "on" });
+  near(findFuelScenario(computeFuelCostModel(overriddenOn), "outsourced", "base")!.totalPerLiter, findFuelScenario(computeFuelCostModel(overridden), "outsourced", "base")!.totalPerLiter, 1e-12, "上書き値のときは効かない");
+  // 式: ON のときは「液化炭酸ガスの買値 × 工場の排ガスを使うので 0」、培養ロス補充は原料9行の足し算
+  const onCalc = fuelItemCalc(co2, ob, onCtx);
+  assert.deepEqual(onCalc?.price?.terms.map((t) => t.label), ["液化炭酸ガスの買値", "工場の排ガスを使うので"]);
+  assert.equal(evaluateItemCalc(onCalc!), 0, "ON の CO2 は燃料1Lあたり0円");
+  const lossCalc = fuelItemCalc(loss, ob, onCtx);
+  assert.equal(lossCalc?.price?.terms.length, 9, "培養ロス補充は原料9行を足す");
+  near(lossCalc!.price!.result.value, fuelEffectiveUnitPrice(loss, onCtx), 1e-9, "式の単価 ＝ 計算の単価");
+  // 燃料の試算の読み物は、選択肢の前提の値を言葉で出す
+  assert.equal(FUEL_TEXT_CHOICE_ROLES[CO2_FLUE_GAS_ROLE]?.find((c) => c.value === "on")?.label, "使える（CO2は0円）");
+  // 画面の行の計算も同じ束を使う
+  const controls = read("src/components/cockpit/CockpitFuelCostModelControls.tsx");
+  assert.match(controls, /fuelCultureItemPerKg\(i, current\.scale\.cultureLineCapacityKgYear, ctx\)/);
+  assert.match(controls, /fuelItemAnnual\(i, current\.scale, ctx\)/);
+  const reading = read("src/components/cockpit/CockpitFuelCostModelReading.tsx");
+  assert.match(reading, /fuelCultureItemPerKg\(i, current\.scale\.cultureLineCapacityKgYear, priceCtx\)/);
 });
 
 console.log(`\n${passed} checks passed (project-fuel-cost-model)`);

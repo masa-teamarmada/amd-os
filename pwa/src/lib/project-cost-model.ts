@@ -173,7 +173,9 @@ export type CostPriceRule =
   | "module_swap"
   | "power_circulation"
   | "power_injection"
-  | "spent_disposal";
+  | "spent_disposal"
+  | "co2_supply"
+  | "culture_loss";
 
 export interface CostItem {
   costItemId: string;
@@ -392,6 +394,7 @@ export const COST_ROLE_KEYS = new Set([
   "spent_wet_factor",
   "sludge_disposal_price",
   "truck_capacity_m3",
+  "co2_flue_gas",
 ]);
 
 // 旧 price_rule (biomass / broth) の除数。「使い捨て・50ppm・α=0.05・η=90%・5g/L」のときの値。
@@ -795,12 +798,53 @@ export function rowAppliesTo(
   return scopesFor(location, method).includes(row.scenario) && scopeApplies(row, sel);
 }
 
+/**
+ * 培養の CO2 を工場の排ガスでまかなえるか。前提 co2_flue_gas の value_text が on なら使える (無い・off は使えない)。
+ * まさ 2026-09-14「「排ガス利用可能」のスイッチをCO2コストのところに設置してほしい。それがONのときはCO2コストがゼロになるようにして」。
+ * 使えるとき、単価の連動のしかたが co2_supply の明細 (CO2) の単価を0円にする。明細の単価の欄は液化炭酸ガスの買値のまま持ち、切ると戻る。
+ * スイッチは前提の区分の一覧には出さず、CO2 の明細の行に出す (ITEM_INLINE_ROLES)。燃料の試算も同じ前提と連動のしかたを使う。
+ */
+export const CO2_FLUE_GAS_ROLE = "co2_flue_gas";
+export const CO2_FLUE_GAS_LABEL = "排ガス利用可能";
+export const CO2_FLUE_GAS_CHOICES: Array<{ value: "off" | "on"; label: string }> = [
+  { value: "off", label: "使えない（液化炭酸ガスを買う）" },
+  { value: "on", label: "使える（CO2は0円）" },
+];
+export function flueGasOn(assumption: Pick<CostAssumption, "valueText"> | null | undefined): boolean {
+  return assumption?.valueText === "on";
+}
+/** 前提の区分の一覧に出さず、その前提で単価が決まる明細の行に出す前提。 */
+export const ITEM_INLINE_ROLES = new Set<string>([CO2_FLUE_GAS_ROLE]);
+
+/**
+ * 培養ロス補充 (単価の連動のしかた culture_loss) の単価の元にする行: 同じ群・同じ効く範囲の、菌体1kgあたりの原料の行。
+ * 作り直す割合は数量に持ち、単価はこの行の菌体1kgあたりの額の合計にする。原料の行を書き換える・CO2 を排ガスにすると一緒に動く。
+ */
+export function cultureLossSources<T extends Pick<CostItem, "costItemId" | "scenario" | "costType" | "groupLabel" | "basis" | "isBreakdown" | "priceRule" | "strain" | "application">>(
+  item: T,
+  items: T[],
+  sel: CostSelection = NO_SELECTION
+): T[] {
+  return items.filter(
+    (x) =>
+      x.costItemId !== item.costItemId &&
+      x.priceRule !== "culture_loss" &&
+      x.scenario === item.scenario &&
+      x.costType === item.costType &&
+      x.groupLabel === item.groupLabel &&
+      x.basis === "毎kg菌体比例" &&
+      !x.isBreakdown &&
+      scopeApplies(x, sel)
+  );
+}
+
 /** 画面で選択肢から選ぶ前提 (value_text に入れる)。 */
 export const TEXT_CHOICE_ROLES: Record<string, Array<{ value: string; label: string }>> = {
   onsite_tank_bearer: [
     { value: "customer", label: TANK_BEARER_LABEL.customer },
     { value: "sx", label: TANK_BEARER_LABEL.sx },
   ],
+  [CO2_FLUE_GAS_ROLE]: CO2_FLUE_GAS_CHOICES,
 };
 
 /** 明細の単価の連動のしかたが読む前提。 */
@@ -809,6 +853,7 @@ const ROLES_BY_PRICE_RULE: Record<string, string[]> = {
   power_circulation: ["power_unit_price", "power_kw_circulation", "hrt_circulation"],
   power_injection: ["power_unit_price", "power_kw_injection", "hrt_injection"],
   spent_disposal: ["spent_wet_factor", "sludge_disposal_price"],
+  co2_supply: [CO2_FLUE_GAS_ROLE],
 };
 /** 作業の年間回数の決め方が読む前提 (年間バッチ数・系列数のように、どの組み合わせでも効く前提は除く)。 */
 const ROLES_BY_TASK_DRIVER: Partial<Record<CostTaskDriver, string[]>> = {
@@ -859,6 +904,8 @@ export function rolesInEffect(bundle: CostInputs, view: CostEffectSelection): Se
   for (const i of bundle.items) {
     if (!i.priceRule || i.isBreakdown || i.basis === "内訳" || i.costType === "参考" || i.quantity * i.annualFactor === 0) continue;
     if (!counted(i) || (i.scenario !== "中央培養" && resolveBearer(i, view.location) !== "sx")) continue;
+    // 液化炭酸ガスの買値が0円なら、排ガスを使えるかを切り替えても数字は動かない
+    if (i.priceRule === "co2_supply" && i.unitPrice === 0) continue;
     add(ROLES_BY_PRICE_RULE[i.priceRule]);
   }
   for (const t of bundle.tasks ?? []) {
@@ -922,7 +969,7 @@ export const COST_PARAM_GROUPS: CostParamGroup[] = [
   { key: "capex-other", block: "capex", title: "その他の設備", hint: "上の区分に入らない設備", roles: [] },
   { key: "opex-labor", block: "opex", title: "人件費（作業）", hint: "作業単価は共通の1つ。作業ごとに1回の工数・年間回数・1回の経費を入れる", roles: ["labor_rate"], tasks: true },
   { key: "opex-transport", block: "opex", title: "運ぶ", hint: "菌体を運ぶ回数と排液を運ぶ台数を決める前提と、顧客工場への菌体の保管・梱包。移動と輸送の工数・経費は人件費の作業で動かす", roles: ["patrol_batches_per_delivery", "truck_capacity_m3"] },
-  { key: "opex-production", block: "opex", title: "菌体の製造拠点（原料・品質確認）", hint: "培地・CO2・濃縮など菌体1kgあたりの費用と、培養設備1系列あたりの品質確認", roles: [] },
+  { key: "opex-production", block: "opex", title: "菌体の製造拠点（原料・品質確認）", hint: "培地・CO2・濃縮など菌体1kgあたりの費用と、培養設備1系列あたりの品質確認。工場の排ガスを使えるかは CO2 の行で切り替える", roles: [CO2_FLUE_GAS_ROLE] },
   { key: "opex-parts", block: "opex", title: "交換部品", hint: "循環カートリッジの菌体保持モジュールと、直接投入の膜の交換", roles: ["module_unit_price", "module_durability_batches", "membrane_life_years"] },
   { key: "opex-power", block: "opex", title: "電力", hint: "装置を動かす電力。動力 × 反応時間 × 電力単価 ÷ バッチ容量", roles: ["power_unit_price", "power_kw_circulation", "hrt_circulation", "power_kw_injection", "hrt_injection"] },
   { key: "opex-consumables", block: "opex", title: "消耗品・点検・分析", hint: "洗浄・監視・点検・分析・菌体の補充など", roles: [] },
@@ -1044,15 +1091,25 @@ export function deriveCostBasis(
   };
 }
 
-/** 単価が変数へ連動する行の実効単価。連動しない行は unit_price をそのまま返す。 */
+/**
+ * 単価が変数へ連動する行の実効単価。連動しない行は unit_price をそのまま返す。
+ * 培養ロス補充 (culture_loss) はほかの行から単価を出すので、明細の束 (items) を渡す。渡さなければ入力の単価。
+ */
 export function effectiveUnitPrice(
   item: CostItem,
   assumptions: CostAssumption[],
   derived: CostDerived,
-  sel: CostSelection = NO_SELECTION
+  sel: CostSelection = NO_SELECTION,
+  items?: CostItem[]
 ): number {
   const batchVolume = roleValue(assumptions, "batch_volume", 100, sel);
   switch (item.priceRule) {
+    case "co2_supply":
+      return flueGasOn(resolveAssumption(assumptions, CO2_FLUE_GAS_ROLE, sel)) ? 0 : item.unitPrice;
+    case "culture_loss":
+      return items
+        ? cultureLossSources(item, items, sel).reduce((t, x) => t + x.quantity * effectiveUnitPrice(x, assumptions, derived, sel, items) * x.annualFactor, 0)
+        : item.unitPrice;
     case "biomass":
       return item.unitPrice * derived.biomassFactor;
     case "broth":
@@ -1094,10 +1151,11 @@ export function annualAmount(
   item: CostItem,
   assumptions: CostAssumption[],
   derived: CostDerived,
-  sel: CostSelection = NO_SELECTION
+  sel: CostSelection = NO_SELECTION,
+  items?: CostItem[]
 ): number {
   if (item.isBreakdown || item.basis === "内訳") return 0;
-  const price = effectiveUnitPrice(item, assumptions, derived, sel);
+  const price = effectiveUnitPrice(item, assumptions, derived, sel, items);
   switch (item.basis) {
     case "初期投資配賦":
       return safeDiv(item.quantity * price * item.annualFactor, item.usefulLifeYears ?? 0);
@@ -1114,11 +1172,11 @@ export function annualAmount(
   }
 }
 
-/** 製造拠点の1行が、生産1kgあたりに乗せる額 (販売率で割る前)。明細表の円/kg列にも使う。 */
-export function centralItemPerKg(item: CostItem, assumptions: CostAssumption[], capacity: number, sel: CostSelection): number {
+/** 製造拠点の1行が、生産1kgあたりに乗せる額 (販売率で割る前)。明細表の円/kg列にも使う。培養ロス補充の単価を出すため明細の束を渡す。 */
+export function centralItemPerKg(item: CostItem, assumptions: CostAssumption[], capacity: number, sel: CostSelection, items?: CostItem[]): number {
   if (item.isBreakdown || item.basis === "内訳") return 0;
   const derived = deriveCostBasis(assumptions, sel);
-  const price = effectiveUnitPrice(item, assumptions, derived, sel);
+  const price = effectiveUnitPrice(item, assumptions, derived, sel, items);
   switch (item.basis) {
     case "初期投資配賦":
       return safeDiv(safeDiv(item.quantity * price * item.annualFactor, item.usefulLifeYears ?? 0), capacity);
@@ -1131,10 +1189,45 @@ export function centralItemPerKg(item: CostItem, assumptions: CostAssumption[], 
   }
 }
 
+/** CO2 の行の単価の出し方。工場の排ガスを使えるときだけ出す (使えないときは入力の買値をそのまま使うので null)。燃料の試算と共通。 */
+export function co2SupplyCalc(item: Pick<CostItem, "unitPrice" | "unitPriceUnit">, on: boolean): CalcSegment | null {
+  if (!on) return null;
+  const priceUnit = item.unitPriceUnit ?? "円";
+  return {
+    continues: false,
+    terms: [
+      { op: null, value: item.unitPrice, unit: priceUnit, label: "液化炭酸ガスの買値" },
+      { op: "×", value: 0, unit: "", label: "工場の排ガスを使うので" },
+    ],
+    result: { value: 0, unit: priceUnit },
+  };
+}
+
+/** 培養ロス補充の単価の出し方: 元にする原料の行の、菌体1kgあたりの額を足す。燃料の試算と共通。 */
+export function cultureLossCalc(item: Pick<CostItem, "unitPriceUnit">, sources: Array<{ label: string; perKg: number }>): CalcSegment {
+  return {
+    continues: false,
+    terms: sources.map((s, index) => ({ op: index === 0 ? null : "+", value: s.perKg, unit: "円", label: s.label })),
+    result: { value: sources.reduce((t, s) => t + s.perKg, 0), unit: item.unitPriceUnit ?? "円" },
+  };
+}
+
+/** 式の先頭の「数量 × 単価」で、単価を計算で出した行の単価の呼び名。 */
+export function priceLabelOf(item: Pick<CostItem, "priceRule">): string {
+  if (item.priceRule === "co2_supply") return "単価（排ガスを使う）";
+  if (item.priceRule === "culture_loss") return "単価（原料の合計）";
+  return "単価（前提から計算）";
+}
+
+/** 式の中で、培養の原料の行を短く呼ぶ名前 (小項目)。 */
+export function cultureSourceLabel(item: Pick<CostItem, "groupLabel" | "midLabel" | "leafLabel">): string {
+  return item.leafLabel?.trim() || item.midLabel?.trim() || costItemLabel(item);
+}
+
 /** 単価を前提から計算する行の、単価の出し方 (effectiveUnitPrice と同じ前提と既定値)。単価をそのまま使う行は null。 */
-function priceRuleCalc(item: CostItem, assumptions: CostAssumption[], derived: CostDerived, sel: CostSelection, unit: string): CalcSegment | null {
+function priceRuleCalc(item: CostItem, assumptions: CostAssumption[], derived: CostDerived, sel: CostSelection, unit: string, items?: CostItem[]): CalcSegment | null {
   const batchVolume = roleValue(assumptions, "batch_volume", 100, sel);
-  const price = effectiveUnitPrice(item, assumptions, derived, sel);
+  const price = effectiveUnitPrice(item, assumptions, derived, sel, items);
   const priceUnit = item.unitPriceUnit ?? "円";
   // 画面は「単価 ＝ …」と書き出すので、答えに「単価」の名前を付けない
   const result = { value: price, unit: priceUnit };
@@ -1149,6 +1242,17 @@ function priceRuleCalc(item: CostItem, assumptions: CostAssumption[], derived: C
     result,
   });
   switch (item.priceRule) {
+    case "co2_supply":
+      return co2SupplyCalc(item, flueGasOn(resolveAssumption(assumptions, CO2_FLUE_GAS_ROLE, sel)));
+    case "culture_loss":
+      if (!items) return null;
+      return cultureLossCalc(
+        item,
+        cultureLossSources(item, items, sel).map((x) => ({
+          label: cultureSourceLabel(x),
+          perKg: x.quantity * effectiveUnitPrice(x, assumptions, derived, sel, items) * x.annualFactor,
+        }))
+      );
     case "biomass":
       return { continues: false, terms: [{ op: null, value: item.unitPrice, unit: priceUnit, label: "基準の単価" }, { op: "×", value: derived.biomassFactor, unit: "倍", label: "菌体の量の倍率" }], result };
     case "broth":
@@ -1193,14 +1297,15 @@ export function costItemCalc(
   derived: CostDerived,
   sel: CostSelection,
   central: { capacity: number; sel: CostSelection },
-  unit: string
+  unit: string,
+  items?: CostItem[]
 ): ItemCalc | null {
   if (item.isBreakdown || item.basis === "内訳") return null;
   if (item.scenario === "中央培養") {
     const centralDerived = deriveCostBasis(assumptions, central.sel);
-    const price = effectiveUnitPrice(item, assumptions, centralDerived, central.sel);
-    const priceCalc = priceRuleCalc(item, assumptions, centralDerived, central.sel, unit);
-    const head = quantityPriceTerms(item, price, priceCalc ? "単価（前提から計算）" : undefined);
+    const price = effectiveUnitPrice(item, assumptions, centralDerived, central.sel, items);
+    const priceCalc = priceRuleCalc(item, assumptions, centralDerived, central.sel, unit, items);
+    const head = quantityPriceTerms(item, price, priceCalc ? priceLabelOf(item) : undefined);
     const base = item.quantity * price * item.annualFactor;
     const toPerKg = (annual: number): CalcSegment => ({
       continues: true,
@@ -1225,9 +1330,9 @@ export function costItemCalc(
     }
   }
   if (derived.annualVolume <= 0) return null;
-  const price = effectiveUnitPrice(item, assumptions, derived, sel);
-  const priceCalc = priceRuleCalc(item, assumptions, derived, sel, unit);
-  const head = quantityPriceTerms(item, price, priceCalc ? "単価（前提から計算）" : undefined);
+  const price = effectiveUnitPrice(item, assumptions, derived, sel, items);
+  const priceCalc = priceRuleCalc(item, assumptions, derived, sel, unit, items);
+  const head = quantityPriceTerms(item, price, priceCalc ? priceLabelOf(item) : undefined);
   const base = item.quantity * price * item.annualFactor;
   const perUnit = `円/${unit}`;
   const toPerUnit = (annual: number): CalcSegment => ({
@@ -1439,7 +1544,7 @@ export function computeBiomassCost(
   const lives: number[] = [];
   for (const i of central) {
     // 明細は培養設備1系列ぶん。系列の数だけ並べるので、1kgあたりは「1系列の年額 ÷ 1系列の量」になる。
-    const perKg = centralItemPerKg(i, assumptions, scale.lineCapacityKgYear, sel);
+    const perKg = centralItemPerKg(i, assumptions, scale.lineCapacityKgYear, sel, items);
     const row = rowOf(i.basis === "初期投資配賦" ? "capex" : i.basis === "年額固定" ? "fixed" : "variable");
     row.perKg += perKg;
     if (i.strain) row.strainSpecificPerKg += perKg;
@@ -1590,7 +1695,7 @@ export function computeCostModel(
 
     for (const location of locations) for (const method of METHODS) {
       const derived = location === "offsite" ? offsiteDerived : onsiteDerived;
-      const amount = (i: CostItem) => annualAmount(i, assumptions, derived, sel);
+      const amount = (i: CostItem) => annualAmount(i, assumptions, derived, sel, items);
       const taskAnnualOf = (t: CostTask) => taskAmount(t, assumptions, derived, sel);
 
       const biomassAnnual = biomass.perKg * derived.biomassKgPerUnit * volume;
@@ -1609,7 +1714,7 @@ export function computeCostModel(
               .filter((i) => i.scenario === "中央培養" && i.costType !== "参考" && scopeApplies(i, centralSel))
               .map((i) => ({
                 item: i,
-                annual: (centralItemPerKg(i, assumptions, biomass.lineCapacityKgYear, centralSel) / biomass.salesRate) * derived.biomassKgPerUnit * volume,
+                annual: (centralItemPerKg(i, assumptions, biomass.lineCapacityKgYear, centralSel, items) / biomass.salesRate) * derived.biomassKgPerUnit * volume,
               })),
             ...tasks
               .filter((t) => t.scenario === "中央培養" && scopeApplies(t, centralSel))

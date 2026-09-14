@@ -36,17 +36,21 @@
 // 「ペインがあれば割高でも成立するから」— オフサイトは売価と年間処理量を別の前提で持ち、年に作る量は両方を足して出す。
 // 2026-09-14 まさ⑬の続き「置いて」（オフサイトに、オンサイトと別の液の濃さを置くかへの返事）— オフサイトで引き取る液の濃さ
 // (offsite_target_concentration) を別に持ち、オフサイトの使い切る菌体量はその濃さで出す。年に作る量は方式ごとに掛けてから足す。
+// 2026-09-14 まさ⑭「「排ガス利用可能」のスイッチをCO2コストのところに設置してほしい。それがONのときはCO2コストがゼロになるようにして」
+// — 前提 co2_flue_gas を CO2 の明細の行のスイッチで切り替え、ON なら CO2 の単価を0円にする。培養ロス補充は原料の合計から計算する。
 //
 // 正本: pwa/spec/5-13-project-cost-model-current-spec.md
-// fixture: scripts/__fixtures__/sx_cost_model_two_stage.json（migration 427 適用後の SOL データ。426 で培養の原料を「使う量 × 買値」に組み直し、427 でオフサイトで引き取る液の濃さを足した）
+// fixture: scripts/__fixtures__/sx_cost_model_two_stage.json（migration 430 適用後の SOL データ。426 で培養の原料を「使う量 × 買値」に組み直し、427 でオフサイトで引き取る液の濃さを足し、430 で CO2 の行に排ガス利用可能のスイッチを置いた）
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {
+  CO2_FLUE_GAS_ROLE,
   CONDITIONAL_ROLE_KEYS,
   COST_PARAM_BLOCKS,
   COST_PARAM_GROUPS,
   COST_ROLE_KEYS,
   ITEM_BEARERS,
+  ITEM_INLINE_ROLES,
   METHODS,
   PRODUCTION_TASK_DRIVERS,
   TASK_DRIVERS,
@@ -56,8 +60,10 @@ import {
   computeBiomassCost,
   computeCostModel,
   computeTaskFlow,
+  costItemCalc,
   deriveCostBasis,
   derivedOf,
+  effectiveUnitPrice,
   paramGroupOfItem,
   paramGroupOfRole,
   resolveBearer,
@@ -74,6 +80,7 @@ import {
   caretAfterGrouping,
   draftKey,
   draftToPatches,
+  formatDraftValue,
   formatYen,
   groupDigits,
   listDraftChanges,
@@ -110,7 +117,7 @@ const legacyCulture = (bundle: CostModelBundle): CostModelBundle => {
   for (const i of b.items) {
     const perKg = LEGACY_CULTURE_PER_KG[i.costItemId];
     if (perKg === undefined) continue;
-    Object.assign(i, { quantity: 1, quantityUnit: "kg-DCW", unitPrice: perKg, unitPriceUnit: "円/kg-DCW" });
+    Object.assign(i, { quantity: 1, quantityUnit: "kg-DCW", unitPrice: perKg, unitPriceUnit: "円/kg-DCW", priceRule: null });
   }
   return b;
 };
@@ -522,11 +529,12 @@ assert.ok(
   }
   // 仕様書の表と一致する（年間処理量2,000万m³で年に作る量から出した菌体原価）
   // オフサイトは引き取る液の濃さ（色素 1,000mg/L・金属 5,000ppm）で使い切る菌体量を出す（2026-09-14「置いて」）
+  // 430 から培養ロス補充の単価は原料の行の合計を丸めずに使う（261.6 → 261.5504円）ので、金属回収のオフサイトは 0.3〜0.4円下がった
   near(off.totalPerUnit, 4007.6, 0.05, "強化株 色素 オフサイト直接投入");
   near(scenario(fixture, "enhanced", "dye", "オフサイト-循環-新設").totalPerUnit, 4173.1, 0.05, "強化株 色素 オフサイト循環（処理の運転はオフサイトなら SX）");
-  near(scenario(fixture, "enhanced", "metal", "オフサイト-投入-新設").totalPerUnit, 43357.6, 0.05, "強化株 金属 オフサイト直接投入");
+  near(scenario(fixture, "enhanced", "metal", "オフサイト-投入-新設").totalPerUnit, 43357.3, 0.05, "強化株 金属 オフサイト直接投入");
   near(scenario(fixture, "wild", "dye", "オフサイト-投入-新設").totalPerUnit, 3941.7, 0.05, "自然株 色素 オフサイト直接投入");
-  near(scenario(fixture, "wild", "metal", "オフサイト-投入-新設").totalPerUnit, 51110.3, 0.05, "自然株 金属 オフサイト直接投入（売価 50,000円/m³ を超える）");
+  near(scenario(fixture, "wild", "metal", "オフサイト-投入-新設").totalPerUnit, 51109.9, 0.05, "自然株 金属 オフサイト直接投入（売価 50,000円/m³ を超える）");
   near(scenario(fixture, "enhanced", "dye", "循環-既設").totalPerUnit, 60.8, 0.05, "強化株 色素 オンサイト循環（菌体保持モジュールの交換費は顧客）");
 }
 
@@ -824,7 +832,8 @@ assert.ok(
     return [s.totalPerUnit, s.siteTaskHours, s.salePricePerUnit, s.businessRevenueAnnual, s.gapToAllowedPerUnit, ...s.breakdown.map((b) => b.perUnit)];
   };
   const differs = (a: number[], b: number[]) => a.some((v, i) => Math.abs(v - b[i]) > 1e-9);
-  const numericRoles = [...CONDITIONAL_ROLE_KEYS].filter((role) => role !== "onsite_tank_bearer");
+  // 選択肢から選ぶ前提（槽を持つのは・排ガス利用可能）は数字を3倍にして動かせないので、下で別に切り替えて確かめる
+  const numericRoles = [...CONDITIONAL_ROLE_KEYS].filter((role) => !TEXT_CHOICE_ROLES[role]);
   for (const role of numericRoles) assert.ok(fixture.assumptions.some((a) => a.roleKey === role && typeof a.value === "number"), `SX に ${role} の前提がある`);
   const sxTank = clone();
   for (const a of sxTank.assumptions) if (a.roleKey === "onsite_tank_bearer") a.valueText = "sx";
@@ -853,6 +862,10 @@ assert.ok(
           return [role, computeCostModel(b, { strain })] as const;
         })
       );
+      // 排ガス利用可能は ON に切り替えて動かす（選択肢の前提）
+      const flueOn: CostModelBundle = JSON.parse(JSON.stringify(bundle));
+      for (const a of flueOn.assumptions) if (a.roleKey === CO2_FLUE_GAS_ROLE) a.valueText = "on";
+      const flueMoved = computeCostModel(flueOn, { strain });
       for (const application of ["dye", "metal"] as const) for (const location of ["onsite", "offsite"] as const) for (const method of METHODS) {
         for (const tankMode of tankModesFor(location, bearer)) {
           const key = keyOf(application, location, method, tankMode);
@@ -864,6 +877,12 @@ assert.ok(
             checked++;
           }
           assert.equal(roles.has("onsite_tank_bearer"), location === "onsite", `${variant} ${key}: 槽を持つのはオンサイトだけに効く`);
+          assert.equal(
+            differs(before, signatureOf(flueMoved, key)),
+            roles.has(CO2_FLUE_GAS_ROLE),
+            `${variant} ${strain} ${key}: 排ガス利用可能は${roles.has(CO2_FLUE_GAS_ROLE) ? "効くはずが数字が動かない" : "効かないはずが数字が動く"}`
+          );
+          assert.equal(roles.has(CO2_FLUE_GAS_ROLE), variant !== "菌体の原価を上書き", `${variant} ${key}: 排ガス利用可能は菌体の原価を上書きしていないときだけ効く`);
           for (const role of COST_ROLE_KEYS) if (!CONDITIONAL_ROLE_KEYS.has(role)) assert.ok(roles.has(role), `${key}: ${role} はどの組み合わせでも効く`);
         }
       }
@@ -1105,7 +1124,8 @@ assert.ok(
     assert.equal(d.offsiteConcentrationSeparate, false, "オフサイトの濃さが無い");
     near(d.biomassKgPerUnit, deriveCostBasis(sameConc.assumptions, sel, "onsite").biomassKgPerUnit, 1e-12, `${strain} ${application} オフサイトもオンサイトの濃さで出す`);
   }
-  near(computeBiomassCost(sameConc, "enhanced", "dye").perKg, 334.3817, 0.0005, "オフサイトの濃さが無ければ、強化株 色素の菌体原価はこれまでの 334.38");
+  // 430 から培養ロス補充の単価は原料の合計を丸めずに使う（261.6 → 261.5504円）ので、菌体原価は 334.3817 → 334.3792
+  near(computeBiomassCost(sameConc, "enhanced", "dye").perKg, 334.3792, 0.0005, "オフサイトの濃さが無ければ、強化株 色素の菌体原価はこれまでの 334.38");
   near(scenario(sameConc, "enhanced", "dye", "オフサイト-投入-新設").totalPerUnit, 2903.8, 0.05, "オフサイトの濃さが無ければ、強化株 色素 オフサイト直接投入はこれまでの 2,903.8");
   near(scenario(sameConc, "enhanced", "metal", "オフサイト-投入-新設").totalPerUnit, 3250.8, 0.05, "オフサイトの濃さが無ければ、強化株 金属 オフサイト直接投入はこれまでの 3,250.8");
   near(scenario(sameConc, "wild", "metal", "オフサイト-投入-新設").totalPerUnit, 3310.5, 0.05, "オフサイトの濃さが無ければ、自然株 金属 オフサイト直接投入はこれまでの 3,310.5");
@@ -1123,6 +1143,86 @@ assert.ok(
   assert.doesNotMatch(results, /derivedByApplication\.find/, "結果で用途だけから物量を引かない");
   assert.match(controls, /<Formula testId="cost-substance-formula">[\s\S]*?derived\.offsiteConcentrationSeparate[\s\S]*?オフサイトで引き取る液の濃さ/, "対象物質と菌体の量の割り算に、どちらの濃さで出したかを添える");
   assert.match(controls, /data-testid="cost-production-formula"[\s\S]*?b\.onsiteBiomassKgPerUnit[\s\S]*?b\.offsiteBiomassKgPerUnit/, "年に作る量の割り算は、方式ごとに使い切る菌体の量を掛けて足す");
+}
+
+// 23. 排ガス利用可能（まさ 2026-09-14「「排ガス利用可能」のスイッチをCO2コストのところに設置してほしい。それがONのときはCO2コストがゼロになるようにして」）
+//     ON のとき CO2 の単価を0円にし、培養ロス補充（原料の合計 × 作り直す割合）も一緒に下がる。スイッチは CO2 の明細の行に出す
+{
+  const flue = fixture.assumptions.filter((a) => a.roleKey === CO2_FLUE_GAS_ROLE);
+  assert.equal(flue.length, 1, "排ガス利用可能の前提は1行");
+  assert.equal(flue[0].valueText, "off", "既定は OFF（液化炭酸ガスを買う）");
+  assert.equal(paramGroupOfRole(CO2_FLUE_GAS_ROLE)?.key, "opex-production", "置き場所は OPEX の菌体の製造拠点（原料・品質確認）");
+  assert.ok(ITEM_INLINE_ROLES.has(CO2_FLUE_GAS_ROLE), "前提の一覧ではなく CO2 の明細の行に出す");
+  const item = (b: CostModelBundle, id: string) => {
+    const i = b.items.find((x) => x.costItemId === id);
+    assert.ok(i, id);
+    return i;
+  };
+  const co2 = item(fixture, "ci_260820_123");
+  const loss = item(fixture, "ci_260820_134");
+  assert.deepEqual([co2.priceRule, loss.priceRule], ["co2_supply", "culture_loss"], "CO2 は排ガス利用可能で、培養ロス補充は原料の合計で単価を出す");
+  const on = clone();
+  for (const a of on.assumptions) if (a.roleKey === CO2_FLUE_GAS_ROLE) a.valueText = "on";
+  for (const strain of ["wild", "enhanced"] as const) {
+    const sel = { strain, application: null };
+    const d = deriveCostBasis(fixture.assumptions, sel);
+    assert.equal(effectiveUnitPrice(co2, fixture.assumptions, d, sel, fixture.items), 50, `${strain} OFF の CO2 は液化炭酸ガスの買値`);
+    assert.equal(effectiveUnitPrice(co2, on.assumptions, d, sel, on.items), 0, `${strain} ON の CO2 は0円`);
+    assert.equal(item(on, "ci_260820_123").unitPrice, 50, "ON にしても買値の欄は変わらない");
+    const lossOff = effectiveUnitPrice(loss, fixture.assumptions, d, sel, fixture.items);
+    const lossOn = effectiveUnitPrice(loss, on.assumptions, d, sel, on.items);
+    near(lossOff - lossOn, 2.29 * 50, 1e-9, `${strain} 培養ロス補充の単価は CO2 の分だけ下がる`);
+    for (const application of ["dye", "metal"] as const) {
+      const off = computeBiomassCost(fixture, strain, application);
+      near(off.perKg - computeBiomassCost(on, strain, application).perKg, (2.29 * 50 * (1 + loss.quantity)) / off.salesRate, 1e-9, `${strain} ${application} 菌体1kgの原価は CO2 と作り直す分の CO2 だけ下がる`);
+    }
+  }
+  // 自然株の数字（2026-09-14、仕様書の表）
+  near(scenario(fixture, "wild", "metal", "投入-既設").totalPerUnit, 528.3, 0.05, "OFF 自然株 金属回収 オンサイト・直接投入");
+  near(scenario(on, "wild", "metal", "投入-既設").totalPerUnit, 369.3, 0.05, "ON 自然株 金属回収 オンサイト・直接投入（売価500円/m³ の内）");
+  near(scenario(on, "wild", "dye", "投入-既設").totalPerUnit, 40.9, 0.05, "ON 自然株 色素分解 オンサイト・直接投入");
+  near(scenario(on, "wild", "metal", "オフサイト-投入-新設").totalPerUnit, 35207.2, 0.05, "ON 自然株 金属回収 オフサイト・直接投入（売価 50,000円/m³ の内）");
+  near(computeBiomassCost(on, "wild", "metal").perKg, 192.6, 0.05, "ON 自然株 菌体1kgの原価");
+  // 式: ON のときは「液化炭酸ガスの買値 × 工場の排ガスを使うので 0」、OFF は入力の買値のまま。培養ロス補充は原料9行の足し算
+  const sel = { strain: "wild" as const, application: null };
+  const d = deriveCostBasis(fixture.assumptions, sel);
+  const cap = computeBiomassCost(fixture, "wild", "metal").lineCapacityKgYear;
+  const onCalc = costItemCalc(co2, on.assumptions, d, sel, { capacity: cap, sel }, "m³", on.items);
+  assert.ok(onCalc?.price, "ON の CO2 に単価の出し方がある");
+  assert.deepEqual(onCalc.price.terms.map((t) => t.label), ["液化炭酸ガスの買値", "工場の排ガスを使うので"]);
+  assert.equal(onCalc.segments[0].result.value, 0, "ON の CO2 は菌体1kgあたり0円");
+  assert.equal(costItemCalc(co2, fixture.assumptions, d, sel, { capacity: cap, sel }, "m³", fixture.items)?.price, null, "OFF の CO2 は単価の出し方を出さない");
+  const lossCalc = costItemCalc(loss, fixture.assumptions, d, sel, { capacity: cap, sel }, "m³", fixture.items);
+  assert.ok(lossCalc?.price, "培養ロス補充に単価の出し方がある");
+  assert.equal(lossCalc.price.terms.length, 9, "原料9行を足す");
+  assert.ok(lossCalc.price.terms.slice(1).every((t) => t.op === "+"), "足し算で出す");
+  // 明細の束を渡さないときは入力の単価（旧形式の明細・ほかの試算でも壊れない）
+  assert.equal(effectiveUnitPrice(loss, fixture.assumptions, d, sel), 261.6, "束が無ければ培養ロス補充は入力の単価");
+  // 買値が0円なら、スイッチを切り替えても数字は動かないので、効かない前提として薄く出す
+  const free = clone();
+  item(free, "ci_260820_123").unitPrice = 0;
+  const view = { strain: "wild", application: "metal", location: "onsite", method: "投入", tankMode: "既設" } as const;
+  assert.ok(rolesInEffect(fixture, view).has(CO2_FLUE_GAS_ROLE), "買値があれば排ガス利用可能は効く");
+  assert.ok(!rolesInEffect(free, view).has(CO2_FLUE_GAS_ROLE), "買値が0円なら排ガス利用可能は効かない");
+  // 試算中の変更: 切り替えは value_text の patch。「保存していない変更」には選択肢の言葉で出す
+  const draft = setDraftValue({}, fixture, "assumption", flue[0].costAssumptionId, "valueText", "on");
+  assert.ok(draftToPatches(fixture, draft).some((x) => x.id === flue[0].costAssumptionId && x.patch.value_text === "on"), "value_text の patch");
+  assert.equal(formatDraftValue("valueText", "on"), "使える（CO2は0円）");
+  assert.equal(formatDraftValue("valueText", "off"), "使えない（液化炭酸ガスを買う）");
+  // 画面: 両方の操作パネルで、CO2 の明細の行にスイッチを出し、前提の一覧には出さない。読み物は ON / OFF と、ON のときの買値を出す
+  const read = (f: string) => fs.readFileSync(new URL(f, import.meta.url), "utf8");
+  const parts = read("../src/components/cockpit/CockpitCostModelParts.tsx");
+  assert.match(parts, /export function FlueGasSwitch[\s\S]*?role="switch"[\s\S]*?aria-checked=\{on\}/, "スイッチの部品");
+  for (const [name, file] of [["廃液", "../src/components/cockpit/CockpitCostModelControls.tsx"], ["燃料", "../src/components/cockpit/CockpitFuelCostModelControls.tsx"]] as const) {
+    const src = read(file);
+    assert.match(src, /i\.priceRule === "co2_supply" && flueGas/, `${name}: CO2 の行にだけスイッチを出す`);
+    assert.match(src, /<FlueGasSwitch[\s\S]*?valueText", on \? "on" : "off"\)/, `${name}: スイッチは前提の value_text を切り替える`);
+    assert.match(src, /if \(ITEM_INLINE_ROLES\.has\(role\)\) return \[\];/, `${name}: 前提の一覧に同じスイッチを二重に出さない`);
+  }
+  assert.match(read("../src/components/cockpit/CockpitCostModelReading.tsx"), /排ガス利用可能 \$\{flueGasActive \? "ON" : "OFF"\}/, "廃液の読み物に ON / OFF");
+  assert.match(read("../src/components/cockpit/CockpitFuelCostModelReading.tsx"), /排ガス利用可能 \{flueGasOn\(/, "燃料の読み物に ON / OFF");
+  // DB: 単価の連動のしかたの制約に2つを足した
+  assert.match(read("./migrations/430_sol_cost_model_co2_flue_gas_switch.sql"), /'co2_supply', 'culture_loss'/);
 }
 
 console.log("project-cost-model: OK");

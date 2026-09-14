@@ -2,6 +2,7 @@
 
 import {
   APPLICATION_LABEL,
+  CO2_FLUE_GAS_ROLE,
   COST_PARAM_BLOCKS,
   COST_PARAM_GROUPS,
   COST_ROLE_KEYS,
@@ -22,6 +23,8 @@ import {
   derivedOf,
   centralItemPerKg,
   costItemLabel,
+  flueGasOn,
+  resolveAssumption,
   paramGroupOfItem,
   paramGroupOfRole,
   rowAppliesTo,
@@ -617,8 +620,9 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
                         const rowSel = isCentral ? centralSel : sel;
                         const applies = rowAppliesTo(i, selection.location, selection.method, sel);
                         const paidBy = resolveBearer(i, selection.location);
-                        const annual = applies && paidBy === "sx" ? annualAmount(i, assumptions, derived, rowSel) : null;
-                        const right = !applies || paidBy === "customer" ? null : isCentral ? centralItemPerKg(i, assumptions, biomassOf(computed, selection.application).lineCapacityKgYear, rowSel) : (annual ?? 0) / (derived.annualVolume || 1);
+                        const annual = applies && paidBy === "sx" ? annualAmount(i, assumptions, derived, rowSel, items) : null;
+                        const right = !applies || paidBy === "customer" ? null : isCentral ? centralItemPerKg(i, assumptions, biomassOf(computed, selection.application).lineCapacityKgYear, rowSel, items) : (annual ?? 0) / (derived.annualVolume || 1);
+                        const flueGasActive = i.priceRule === "co2_supply" && flueGasOn(resolveAssumption(assumptions, CO2_FLUE_GAS_ROLE, rowSel));
                         const base = savedItem(i.costItemId);
                         const changed = !!base && (base.unitPrice !== i.unitPrice || base.quantity !== i.quantity || base.usefulLifeYears !== i.usefulLifeYears || base.bearer !== i.bearer);
                         return (
@@ -632,13 +636,23 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
                             </td>
                             <td className="px-2 py-1.5 text-[#6e6e73]">
                               {i.basis}
-                              {i.priceRule && <span className="ml-1 rounded bg-[#e8f3fc] px-1 py-[1px] text-[9px] font-medium text-[#0267b2]">前提から計算</span>}
+                              {i.priceRule && (
+                                <span className="ml-1 rounded bg-[#e8f3fc] px-1 py-[1px] text-[9px] font-medium text-[#0267b2]">
+                                  {i.priceRule === "co2_supply" ? `排ガス利用可能 ${flueGasActive ? "ON" : "OFF"}` : i.priceRule === "culture_loss" ? "原料の合計" : "前提から計算"}
+                                </span>
+                              )}
                             </td>
                             <td className="px-2 py-1.5 text-[#1d1d1f]">
                               {isCentral ? "SX" : ITEM_BEARER_SHORT_LABEL[i.bearer]}
                               {!isCentral && i.bearer === "site" && <span className="text-[10px] text-[#6e6e73]">（いまは{paidBy === "customer" ? "顧客" : "SX"}）</span>}
                             </td>
-                            <td className="whitespace-nowrap px-2 py-1.5 text-right text-[#3c3c43]">{i.priceRule ? "—" : i.unitPrice.toLocaleString("ja-JP")}</td>
+                            <td className="whitespace-nowrap px-2 py-1.5 text-right text-[#3c3c43]">
+                              {i.priceRule === "co2_supply"
+                                ? flueGasActive
+                                  ? <>0<span className="block text-[10px] text-[#6e6e73]">買うなら {i.unitPrice.toLocaleString("ja-JP")}</span></>
+                                  : i.unitPrice.toLocaleString("ja-JP")
+                                : i.priceRule ? "—" : i.unitPrice.toLocaleString("ja-JP")}
+                            </td>
                             <td className="px-2 py-1.5 text-right text-[#6e6e73]">{i.usefulLifeYears ? `${i.usefulLifeYears}年` : "—"}</td>
                             <td className="whitespace-nowrap px-2 py-1.5 text-right text-[#1d1d1f]">{annual === null ? "—" : int(annual)}</td>
                             <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold text-[#1d1d1f]">{right === null ? "—" : num(right, 2)}</td>
