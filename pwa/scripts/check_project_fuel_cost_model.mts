@@ -44,6 +44,7 @@ import { applyDraft, draftKey, draftToPatches, setDraftValue } from "../src/lib/
 import {
   CO2_FLUE_GAS_ROLE,
   COST_PARAM_GROUPS,
+  COST_ROLE_KEYS,
   ITEM_INLINE_ROLES,
   annualAmount,
   biomassOf,
@@ -555,6 +556,54 @@ check("排ガス利用可能: ON のとき CO2 の単価を0円にし、培養�
   assert.match(controls, /fuelItemAnnual\(i, current\.scale, ctx\)/);
   const reading = read("src/components/cockpit/CockpitFuelCostModelReading.tsx");
   assert.match(reading, /fuelCultureItemPerKg\(i, current\.scale\.cultureLineCapacityKgYear, priceCtx\)/);
+});
+
+check("コスト試算（廃液・燃料）共通: 数字の出どころを残す。計算に使う明細・前提・作業はすべて根拠を持ち、組み直した行は前の額とその出どころを持つ。書き換えは変更の記録に残る", () => {
+  // まさ 2026-09-14「「前の額が何を前提にしていたかは、記録が無くて分からない。」→これはまずいと思う。えいみが作ったんだから、えいみしか分からんよ。
+  // こういうことが起きないようにして」。記録は試算シートの古い版にあったのに、取り込みと組み直しで説明に書き写さず、たどらずに答えた（migration 431）
+  const ww: CostModelBundle = JSON.parse(read("scripts/__fixtures__/sx_cost_model_two_stage.json"));
+  const blank = (v: string | null | undefined) => !v || v.trim() === "";
+  for (const [name, b, calcRole] of [
+    ["廃液", ww, (r: string | null) => r !== null && COST_ROLE_KEYS.has(r)],
+    ["燃料", fixture, (r: string | null) => r !== null && FUEL_ROLE_KEYS.has(r)],
+  ] as const) {
+    const items = b.items.filter((i) => !i.isBreakdown && i.basis !== "内訳" && i.costType !== "参考" && blank(i.note)).map((i) => i.costItemId);
+    assert.deepEqual(items, [], `${name}: 根拠（説明）の無い明細を置かない。どの資料のどの版のどの行から来た数か、決め方が分からないならそう書く`);
+    const assumptions = b.assumptions.filter((a) => calcRole(a.roleKey) && blank(a.note)).map((a) => a.costAssumptionId);
+    assert.deepEqual(assumptions, [], `${name}: 根拠の無い計算用の前提を置かない`);
+    const tasks = (b.tasks ?? []).filter((t) => blank(t.note)).map((t) => t.costTaskId);
+    assert.deepEqual(tasks, [], `${name}: 根拠の無い作業を置かない`);
+  }
+  // 「使う量 × 買値」に組み直した培養の原料20行は、前の額と、その額が試算シートのどこから来たかを持つ
+  const OLD_PER_KG: Record<string, number> = { "120": 9, "121": 10.8, "122": 7.2, "123": 4.5, "124": 1.8, "125": 2.7, "126": 4.5, "127": 9, "128": 5.4, "134": 5.4 };
+  for (const [prefix, b] of [["ci_260820_", ww], ["cif_culture_", fixture]] as const) {
+    for (const [k, old] of Object.entries(OLD_PER_KG)) {
+      const note = b.items.find((i) => i.costItemId === `${prefix}${k}`)?.note ?? "";
+      assert.match(note, new RegExp(`前の額（2026-09-14 に「使う量 × 買値」へ組み直す前）: 菌体1kgあたり${old}円`), `${prefix}${k} の前の額`);
+      assert.match(note, /ちこさんの試算シート（2026-07-30版〜2026-08-20版）/, `${prefix}${k} の前の額の出どころ`);
+    }
+  }
+  assert.match(fixture.items.find((i) => i.costItemId === "cif_culture_123")?.note ?? "", /排ガス利用等も想定した最小構成/, "CO2 の前の額は排ガスを使う前提だった");
+  assert.match(fixture.items.find((i) => i.costItemId === "cif_culture_120")?.note ?? "", /培地原料低減率 80%（排液利用で大幅低減）/, "培地の前の額は排液を培地に使う前提だった");
+  assert.ok(fixture.notes.some((n) => n.section === "history" && n.title.includes("培養の原料の前の額は、どこから来たか")), "版の履歴に前の額の流れ");
+  // 変更の記録: 明細・前提・作業の書き換えと削除を、トリガーが前の値と後の値で残す
+  const migration431 = read("scripts/migrations/431_sol_cost_model_provenance_change_log.sql");
+  assert.match(migration431, /create table project_cost_change_log/);
+  for (const table of ["project_cost_items", "project_cost_assumptions", "project_cost_tasks"]) {
+    assert.match(migration431, new RegExp(`create trigger ${table}_change_log after update or delete on ${table}\\s+for each row execute function project_cost_log_change\\(\\)`), `${table} の書き換えを記録する`);
+  }
+  // これから数字や説明を書き換える migration は、理由（何を・なぜ・どこから来た数か）を変更の記録に渡す
+  const dir = new URL("scripts/migrations/", root);
+  const touching = /update\s+project_cost_(items|assumptions|tasks)\s+set/i;
+  for (const file of fs.readdirSync(dir).filter((f) => /^\d+_.*\.sql$/.test(f) && Number(f.split("_")[0]) >= 431)) {
+    const sql = fs.readFileSync(new URL(file, dir), "utf8");
+    if (!touching.test(sql)) continue;
+    assert.match(
+      sql,
+      /set_config\('amd\.cost_change_reason'/,
+      `${file}: コスト試算の明細・前提・作業を書き換える migration は、書き換えの前に select set_config('amd.cost_change_reason', '<何を・なぜ・どこから来た数か>', true); を呼ぶ（pwa/spec/5-13-project-cost-model-current-spec.md「数字の出どころと変更の記録」）`
+    );
+  }
 });
 
 console.log(`\n${passed} checks passed (project-fuel-cost-model)`);
