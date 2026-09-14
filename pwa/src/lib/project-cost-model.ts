@@ -182,7 +182,8 @@ export type CostPriceRule =
   | "power_injection"
   | "spent_disposal"
   | "co2_supply"
-  | "culture_loss";
+  | "culture_loss"
+  | "medium_supply";
 
 export interface CostItem {
   costItemId: string;
@@ -402,6 +403,8 @@ export const COST_ROLE_KEYS = new Set([
   "sludge_disposal_price",
   "truck_capacity_m3",
   "co2_flue_gas",
+  "waste_medium",
+  "waste_medium_reduction",
 ]);
 
 // 旧 price_rule (biomass / broth) の除数。「使い捨て・50ppm・α=0.05・η=90%・5g/L」のときの値。
@@ -820,8 +823,32 @@ export const CO2_FLUE_GAS_CHOICES: Array<{ value: "off" | "on"; label: string }>
 export function flueGasOn(assumption: Pick<CostAssumption, "valueText"> | null | undefined): boolean {
   return assumption?.valueText === "on";
 }
+/**
+ * 培養の培地を、工場の排液でまかなえるか。前提 waste_medium の value_text が on なら使える (無い・off は使えない)。
+ * まさ 2026-09-15「顧客の工場のCO2と排熱、排ガスをフル活用してやる方向」。
+ * 使えるとき、単価の連動のしかたが medium_supply の明細 (窒素源・リン源・カリウムなどの培地の原料) の単価を、
+ * 前提 waste_medium_reduction (減る割合、%) だけ引いた額にする。明細の単価の欄は試薬を買う買値のまま持ち、切ると戻る。
+ * スイッチは前提の区分の一覧には出さず、培地の原料の行に出す (ITEM_INLINE_ROLES)。燃料の試算も同じ前提と連動のしかたを使う。
+ * 出どころ: ちこさんの試算シート 2026-07-30版の前提「培地原料低減率 80%（排液利用で大幅低減）」。
+ */
+export const WASTE_MEDIUM_ROLE = "waste_medium";
+export const WASTE_MEDIUM_REDUCTION_ROLE = "waste_medium_reduction";
+export const WASTE_MEDIUM_LABEL = "工場の排液を培地に使える";
+export const WASTE_MEDIUM_CHOICES: Array<{ value: "off" | "on"; label: string }> = [
+  { value: "off", label: "使えない（試薬を買う）" },
+  { value: "on", label: "使える（培地の原料がその分だけ減る）" },
+];
+export function wasteMediumOn(assumption: Pick<CostAssumption, "valueText"> | null | undefined): boolean {
+  return assumption?.valueText === "on";
+}
+/** 排液を培地に使えるときに、培地の原料の買値に掛ける倍率 (減る割合 80% なら 0.2)。 */
+export function mediumPriceFactor(on: boolean, reductionPct: number): number {
+  if (!on) return 1;
+  return Math.min(Math.max(1 - reductionPct / 100, 0), 1);
+}
+
 /** 前提の区分の一覧に出さず、その前提で単価が決まる明細の行に出す前提。 */
-export const ITEM_INLINE_ROLES = new Set<string>([CO2_FLUE_GAS_ROLE]);
+export const ITEM_INLINE_ROLES = new Set<string>([CO2_FLUE_GAS_ROLE, WASTE_MEDIUM_ROLE]);
 
 /**
  * 培養ロス補充 (単価の連動のしかた culture_loss) の単価の元にする行: 同じ群・同じ効く範囲の、菌体1kgあたりの原料の行。
@@ -852,6 +879,7 @@ export const TEXT_CHOICE_ROLES: Record<string, Array<{ value: string; label: str
     { value: "sx", label: TANK_BEARER_LABEL.sx },
   ],
   [CO2_FLUE_GAS_ROLE]: CO2_FLUE_GAS_CHOICES,
+  [WASTE_MEDIUM_ROLE]: WASTE_MEDIUM_CHOICES,
 };
 
 /** 明細の単価の連動のしかたが読む前提。 */
@@ -861,6 +889,7 @@ const ROLES_BY_PRICE_RULE: Record<string, string[]> = {
   power_injection: ["power_unit_price", "power_kw_injection", "hrt_injection"],
   spent_disposal: ["spent_wet_factor", "sludge_disposal_price"],
   co2_supply: [CO2_FLUE_GAS_ROLE],
+  medium_supply: [WASTE_MEDIUM_ROLE, WASTE_MEDIUM_REDUCTION_ROLE],
 };
 /** 作業の年間回数の決め方が読む前提 (年間バッチ数・系列数のように、どの組み合わせでも効く前提は除く)。 */
 const ROLES_BY_TASK_DRIVER: Partial<Record<CostTaskDriver, string[]>> = {
@@ -913,6 +942,11 @@ export function rolesInEffect(bundle: CostInputs, view: CostEffectSelection): Se
     if (!counted(i) || (i.scenario !== "中央培養" && resolveBearer(i, view.location) !== "sx")) continue;
     // 液化炭酸ガスの買値が0円なら、排ガスを使えるかを切り替えても数字は動かない
     if (i.priceRule === "co2_supply" && i.unitPrice === 0) continue;
+    // 排液を培地に使う切り替えが OFF なら、減る割合を変えても数字は動かない
+    if (i.priceRule === "medium_supply" && !wasteMediumOn(resolveAssumption(bundle.assumptions, WASTE_MEDIUM_ROLE, centralSel))) {
+      inEffect.add(WASTE_MEDIUM_ROLE);
+      continue;
+    }
     add(ROLES_BY_PRICE_RULE[i.priceRule]);
   }
   for (const t of bundle.tasks ?? []) {
@@ -976,7 +1010,7 @@ export const COST_PARAM_GROUPS: CostParamGroup[] = [
   { key: "capex-other", block: "capex", title: "その他の設備", hint: "上の区分に入らない設備", roles: [] },
   { key: "opex-labor", block: "opex", title: "人件費（作業）", hint: "作業単価は共通の1つ。作業ごとに1回の工数・年間回数・1回の経費を入れる", roles: ["labor_rate"], tasks: true },
   { key: "opex-transport", block: "opex", title: "運ぶ", hint: "菌体を運ぶ回数と排液を運ぶ台数を決める前提と、顧客工場への菌体の保管・梱包。移動と輸送の工数・経費は人件費の作業で動かす", roles: ["patrol_batches_per_delivery", "truck_capacity_m3"] },
-  { key: "opex-production", block: "opex", title: "菌体の製造拠点（原料・品質確認）", hint: "培地・CO2・濃縮など菌体1kgあたりの費用と、培養設備1系列あたりの品質確認。工場の排ガスを使えるかは CO2 の行で切り替える", roles: [CO2_FLUE_GAS_ROLE] },
+  { key: "opex-production", block: "opex", title: "菌体の製造拠点（原料・品質確認）", hint: "培地・CO2・濃縮など菌体1kgあたりの費用と、培養設備1系列あたりの品質確認。工場の排ガスを使えるかは CO2 の行、工場の排液を培地に使えるかは培地の原料の行で切り替える", roles: [CO2_FLUE_GAS_ROLE, WASTE_MEDIUM_ROLE, WASTE_MEDIUM_REDUCTION_ROLE] },
   { key: "opex-parts", block: "opex", title: "交換部品", hint: "循環カートリッジの菌体保持モジュールと、直接投入の膜の交換", roles: ["module_unit_price", "module_durability_batches", "membrane_life_years"] },
   { key: "opex-power", block: "opex", title: "電力", hint: "装置を動かす電力。動力 × 反応時間 × 電力単価 ÷ バッチ容量", roles: ["power_unit_price", "power_kw_circulation", "hrt_circulation", "power_kw_injection", "hrt_injection"] },
   { key: "opex-consumables", block: "opex", title: "消耗品・点検・分析", hint: "洗浄・監視・点検・分析・菌体の補充など", roles: [] },
@@ -1113,6 +1147,11 @@ export function effectiveUnitPrice(
   switch (item.priceRule) {
     case "co2_supply":
       return flueGasOn(resolveAssumption(assumptions, CO2_FLUE_GAS_ROLE, sel)) ? 0 : item.unitPrice;
+    case "medium_supply":
+      return item.unitPrice * mediumPriceFactor(
+        wasteMediumOn(resolveAssumption(assumptions, WASTE_MEDIUM_ROLE, sel)),
+        roleValue(assumptions, WASTE_MEDIUM_REDUCTION_ROLE, 0, sel)
+      );
     case "culture_loss":
       return items
         ? cultureLossSources(item, items, sel).reduce((t, x) => t + x.quantity * effectiveUnitPrice(x, assumptions, derived, sel, items) * x.annualFactor, 0)
@@ -1210,6 +1249,21 @@ export function co2SupplyCalc(item: Pick<CostItem, "unitPrice" | "unitPriceUnit"
   };
 }
 
+/** 培地の原料の行の単価の出し方。工場の排液を培地に使えるときだけ出す (使えないときは入力の買値をそのまま使うので null)。燃料の試算と共通。 */
+export function mediumSupplyCalc(item: Pick<CostItem, "unitPrice" | "unitPriceUnit">, on: boolean, reductionPct: number): CalcSegment | null {
+  if (!on) return null;
+  const priceUnit = item.unitPriceUnit ?? "円";
+  const factor = mediumPriceFactor(on, reductionPct);
+  return {
+    continues: false,
+    terms: [
+      { op: null, value: item.unitPrice, unit: priceUnit, label: "試薬を買う買値" },
+      { op: "×", value: factor, unit: "", label: `工場の排液で${reductionPct}%減るので` },
+    ],
+    result: { value: item.unitPrice * factor, unit: priceUnit },
+  };
+}
+
 /** 培養ロス補充の単価の出し方: 元にする原料の行の、菌体1kgあたりの額を足す。燃料の試算と共通。 */
 export function cultureLossCalc(item: Pick<CostItem, "unitPriceUnit">, sources: Array<{ label: string; perKg: number }>): CalcSegment {
   return {
@@ -1222,6 +1276,7 @@ export function cultureLossCalc(item: Pick<CostItem, "unitPriceUnit">, sources: 
 /** 式の先頭の「数量 × 単価」で、単価を計算で出した行の単価の呼び名。 */
 export function priceLabelOf(item: Pick<CostItem, "priceRule">): string {
   if (item.priceRule === "co2_supply") return "単価（排ガスを使う）";
+  if (item.priceRule === "medium_supply") return "単価（排液を培地に使う）";
   if (item.priceRule === "culture_loss") return "単価（原料の合計）";
   return "単価（前提から計算）";
 }
@@ -1251,6 +1306,12 @@ function priceRuleCalc(item: CostItem, assumptions: CostAssumption[], derived: C
   switch (item.priceRule) {
     case "co2_supply":
       return co2SupplyCalc(item, flueGasOn(resolveAssumption(assumptions, CO2_FLUE_GAS_ROLE, sel)));
+    case "medium_supply":
+      return mediumSupplyCalc(
+        item,
+        wasteMediumOn(resolveAssumption(assumptions, WASTE_MEDIUM_ROLE, sel)),
+        roleValue(assumptions, WASTE_MEDIUM_REDUCTION_ROLE, 0, sel)
+      );
     case "culture_loss":
       if (!items) return null;
       return cultureLossCalc(

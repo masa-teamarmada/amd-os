@@ -32,6 +32,9 @@ import {
   derivedOf,
   driverUsesCount,
   flueGasOn,
+  wasteMediumOn,
+  WASTE_MEDIUM_REDUCTION_ROLE,
+  WASTE_MEDIUM_ROLE,
   paramGroupOfItem,
   paramGroupOfRole,
   resolveAssumption,
@@ -56,7 +59,7 @@ import {
   type CostTankMode,
 } from "@/lib/project-cost-model";
 import type { DraftEntity, DraftField, DraftValue } from "@/lib/project-cost-model-draft";
-import { CATEGORY_COLOR, ConfidenceTag, FlueGasSwitch, NumberField, ScopeTag, Segmented, int, num, yen } from "@/components/cockpit/CockpitCostModelParts";
+import { CATEGORY_COLOR, ConfidenceTag, FlueGasSwitch, NumberField, ScopeTag, Segmented, WasteMediumSwitch, int, num, yen } from "@/components/cockpit/CockpitCostModelParts";
 import { CostTaskFlowOverview, stepAnchorId } from "@/components/cockpit/CockpitCostModelFlow";
 import { findScenario, selectionLabel, type CostViewSelection } from "@/components/cockpit/CockpitCostModelResults";
 import { CostBreakdownGuide, flashElement, type BreakdownGuideDriver } from "@/components/cockpit/CockpitCostBreakdownGuide";
@@ -897,6 +900,10 @@ function ItemRows({
   // CO2 の行に置く「排ガス利用可能」のスイッチ。前提が無い試算 (ほかのPJ) には出さない
   const flueGas = resolveAssumption(working.assumptions, CO2_FLUE_GAS_ROLE, centralSel);
   const savedFlueGas = flueGas ? saved.assumptions.find((a) => a.costAssumptionId === flueGas.costAssumptionId) : undefined;
+  // 培地の原料の行に置く「工場の排液を培地に使える」のスイッチ（減る割合は前提の一覧で変える）
+  const wasteMedium = resolveAssumption(working.assumptions, WASTE_MEDIUM_ROLE, centralSel);
+  const savedWasteMedium = wasteMedium ? saved.assumptions.find((a) => a.costAssumptionId === wasteMedium.costAssumptionId) : undefined;
+  const mediumReduction = resolveAssumption(working.assumptions, WASTE_MEDIUM_REDUCTION_ROLE, centralSel)?.value ?? 0;
 
   return (
     <div className="mt-1.5">
@@ -919,6 +926,7 @@ function ItemRows({
               ? centralItemPerKg(i, working.assumptions, b.lineCapacityKgYear, centralSel, working.items)
               : derived.annualVolume > 0 ? annualAmount(i, working.assumptions, derived, sel, working.items) / derived.annualVolume : 0;
           const flueGasSwitch = i.priceRule === "co2_supply" && flueGas;
+          const mediumSwitch = i.priceRule === "medium_supply" && wasteMedium;
           const flueGasActive = !!flueGasSwitch && flueGasOn(flueGas);
           return (
             <li
@@ -957,6 +965,14 @@ function ItemRows({
                     on={flueGasActive}
                     baselineOn={flueGasOn(savedFlueGas)}
                     onToggle={(on) => onChange("assumption", flueGasSwitch.costAssumptionId, "valueText", on ? "on" : "off")}
+                  />
+                )}
+                {mediumSwitch && (
+                  <WasteMediumSwitch
+                    on={wasteMediumOn(mediumSwitch)}
+                    baselineOn={wasteMediumOn(savedWasteMedium)}
+                    reductionPct={mediumReduction}
+                    onToggle={(on) => onChange("assumption", mediumSwitch.costAssumptionId, "valueText", on ? "on" : "off")}
                   />
                 )}
               </div>

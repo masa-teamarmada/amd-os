@@ -52,6 +52,8 @@ import {
   COST_PARAM_GROUPS,
   COST_ROLE_KEYS,
   ITEM_INLINE_ROLES,
+  WASTE_MEDIUM_REDUCTION_ROLE,
+  WASTE_MEDIUM_ROLE,
   annualAmount,
   biomassOf,
   centralItemPerKg,
@@ -662,6 +664,62 @@ check("脂質分泌株: ON のとき第1段の単位が脂肪酸になり、菌�
   const controls = read("src/components/cockpit/CockpitFuelCostModelControls.tsx");
   assert.match(controls, /if \(role === LIPID_SECRETION_ROLE\) return \[\];/, "前提の一覧には出さない");
   assert.match(controls, /fuelRowApplies\(i, current\.conversion, sel\)/, "株で効かない行を薄く出す");
+});
+
+check("工場の排液を培地に使える: ON のとき培地の原料3行の買値が減る割合だけ引かれ、培養ロス補充も一緒に下がる。スイッチは培地の原料の行（前提の一覧に出さない）", () => {
+  // まさ 2026-09-15「その結果次第では、燃料事業は、顧客の工場のCO2と排熱、排ガスをフル活用してやる方向も見えてくる」
+  const wwBundle: CostModelBundle = JSON.parse(read("scripts/__fixtures__/sx_cost_model_two_stage.json"));
+  for (const [name, bundle] of [["燃料", fixture], ["廃液", wwBundle]] as const) {
+    const sw = bundle.assumptions.filter((a) => a.roleKey === WASTE_MEDIUM_ROLE);
+    const red = bundle.assumptions.filter((a) => a.roleKey === WASTE_MEDIUM_REDUCTION_ROLE);
+    assert.equal(sw.length, 1, `${name}: 排液の前提は1行`);
+    assert.equal(sw[0].valueText, "off", `${name}: 既定は OFF`);
+    assert.equal(red.length, 1, `${name}: 減る割合は1行`);
+    assert.equal(red[0].value, 80, `${name}: 減る割合は80%（試算シート 2026-07-30版）`);
+    const rows = bundle.items.filter((i) => i.priceRule === "medium_supply");
+    assert.equal(rows.length, 3, `${name}: 培地の原料3行`);
+    for (const r of rows) assert.ok(/窒素源|リン源|カリウム/.test(r.leafLabel ?? ""), `${name}: ${r.costItemId} は培地の原料`);
+  }
+  assert.ok(ITEM_INLINE_ROLES.has(WASTE_MEDIUM_ROLE), "スイッチは前提の一覧に出さない");
+  assert.ok(!ITEM_INLINE_ROLES.has(WASTE_MEDIUM_REDUCTION_ROLE), "減る割合は前提の一覧に出す");
+  assert.ok(FUEL_ROLE_KEYS.has(WASTE_MEDIUM_ROLE) && FUEL_ROLE_KEYS.has(WASTE_MEDIUM_REDUCTION_ROLE), "計算に使う前提");
+  assert.equal(fuelParamGroupOfRole(WASTE_MEDIUM_ROLE)?.key, "opex-culture", "置き場所は OPEX の培養の原料・品質確認");
+
+  const on = setRole(clone(), WASTE_MEDIUM_ROLE, { valueText: "on" });
+  const ctxOff = { assumptions: fixture.assumptions, items: fixture.items };
+  const ctxOn = { assumptions: on.assumptions, items: on.items };
+  const n = fixture.items.find((i) => i.costItemId === "cif_culture_120")!;
+  assert.equal(fuelEffectiveUnitPrice(n, ctxOff), 187, "OFF は試薬の買値");
+  near(fuelEffectiveUnitPrice(n, ctxOn), 187 * 0.2, 1e-9, "ON は80%引き");
+  assert.equal(fuelEffectiveUnitPrice(n), n.unitPrice, "束を渡さなければ入力の単価");
+  // 培養ロス補充は原料の合計から出すので一緒に下がる
+  const loss = fixture.items.find((i) => i.costItemId === "cif_culture_134")!;
+  const drop = (0.4854 * 187 + 0.0426 * 161 + 0.074 * 324) * 0.8;
+  near(fuelEffectiveUnitPrice(loss, ctxOff) - fuelEffectiveUnitPrice(loss, ctxOn), drop, 1e-9, "培養ロス補充は培地の原料の分だけ下がる");
+  // 菌体1kgの原価は、培地の原料と作り直す分だけ下がる
+  const off = findFuelScenario(computeFuelCostModel(fixture), "outsourced", "base")!;
+  const onSc = findFuelScenario(computeFuelCostModel(on), "outsourced", "base")!;
+  near(off.biomass.perKg - onSc.biomass.perKg, drop * (1 + loss.quantity), 1e-9, "菌体1kgの原価の下がり方");
+  assert.equal(Math.round(onSc.totalPerLiter * 10) / 10, 4190.1, "排液 ON 基準・委託（2026-09-15）");
+  // 割合を0にすると効かない、100にすると買値が0
+  const zero = setRole(JSON.parse(JSON.stringify(on)), WASTE_MEDIUM_REDUCTION_ROLE, { value: 0 });
+  near(findFuelScenario(computeFuelCostModel(zero), "outsourced", "base")!.totalPerLiter, off.totalPerLiter, 1e-9, "割合0なら効かない");
+  const full = setRole(JSON.parse(JSON.stringify(on)), WASTE_MEDIUM_REDUCTION_ROLE, { value: 100 });
+  assert.equal(fuelEffectiveUnitPrice(n, { assumptions: full.assumptions, items: full.items }), 0, "割合100なら買値0");
+  // 排ガスと組み合わせる（まさの「工場をフル活用」）
+  const both = setRole(JSON.parse(JSON.stringify(on)), CO2_FLUE_GAS_ROLE, { valueText: "on" });
+  assert.equal(Math.round(findFuelScenario(computeFuelCostModel(both), "outsourced", "base")!.totalPerLiter * 10) / 10, 2020.6, "排液＋排ガス 基準・委託");
+  // 式: ON のときは「試薬を買う買値 × 工場の排液で80%減るので 0.2」
+  const calc = fuelItemCalc(n, onSc, ctxOn);
+  assert.deepEqual(calc?.price?.terms.map((t) => t.label), ["試薬を買う買値", "工場の排液で80%減るので"]);
+  near(calc!.price!.result.value, 187 * 0.2, 1e-9, "式の単価 ＝ 計算の単価");
+  // 画面: スイッチは培地の原料の行に出す
+  const controls = read("src/components/cockpit/CockpitFuelCostModelControls.tsx");
+  assert.match(controls, /i\.priceRule === "medium_supply" && wasteMedium/);
+  assert.match(controls, /<WasteMediumSwitch/);
+  const wwControls = read("src/components/cockpit/CockpitCostModelControls.tsx");
+  assert.match(wwControls, /i\.priceRule === "medium_supply" && wasteMedium/);
+  assert.match(wwControls, /<WasteMediumSwitch/);
 });
 
 check("コスト試算（廃液・燃料）共通: 数字の出どころを残す。計算に使う明細・前提・作業はすべて根拠を持ち、組み直した行は前の額とその出どころを持つ。書き換えは変更の記録に残る", () => {
