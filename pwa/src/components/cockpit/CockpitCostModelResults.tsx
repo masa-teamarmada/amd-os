@@ -417,8 +417,12 @@ export function CostResultsPanel({
             <div className="flex flex-wrap justify-between gap-x-2 sm:col-span-2">
               <dt>1社の年間</dt>
               <dd className="tabular-nums text-[#1d1d1f]">
-                売上 {yen(current.revenueAnnual)}・総コスト {yen(current.totalAnnual)}・利益{" "}
-                <span className={current.profitAnnual < 0 ? "text-[#be123c]" : ""}>{yen(current.profitAnnual)}</span>
+                {/* 金額はカンマ区切りの円で長いので、「売上 金額」の組ごとに折り返す */}
+                <span className="whitespace-nowrap">売上 {yen(current.revenueAnnual)}・</span>
+                <span className="whitespace-nowrap">総コスト {yen(current.totalAnnual)}・</span>
+                <span className="whitespace-nowrap">
+                  利益 <span className={current.profitAnnual < 0 ? "text-[#be123c]" : ""}>{yen(current.profitAnnual)}</span>
+                </span>
               </dd>
             </div>
             {current.businessVolume > 0 && (
@@ -427,8 +431,11 @@ export function CostResultsPanel({
                   事業全体の年間<span className="ml-1 text-[10px] text-[#6e6e73]">（約{int(current.customerCount)}社）</span>
                 </dt>
                 <dd className="tabular-nums text-[#1d1d1f]">
-                  売上 {yen(current.businessRevenueAnnual)}・総コスト {yen(current.businessTotalAnnual)}・利益{" "}
-                  <span className={current.businessProfitAnnual < 0 ? "text-[#be123c]" : ""}>{yen(current.businessProfitAnnual)}</span>
+                  <span className="whitespace-nowrap">売上 {yen(current.businessRevenueAnnual)}・</span>
+                  <span className="whitespace-nowrap">総コスト {yen(current.businessTotalAnnual)}・</span>
+                  <span className="whitespace-nowrap">
+                    利益 <span className={current.businessProfitAnnual < 0 ? "text-[#be123c]" : ""}>{yen(current.businessProfitAnnual)}</span>
+                  </span>
                 </dd>
               </div>
             )}

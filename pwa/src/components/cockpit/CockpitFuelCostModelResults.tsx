@@ -314,8 +314,12 @@ export function FuelResultsPanel({ computed, baseline, current, flow, baselineFl
           <div className="flex flex-wrap items-baseline justify-between gap-x-2" data-testid="fuel-business-annual">
             <dt>事業全体の年間</dt>
             <dd className="tabular-nums text-[#1d1d1f]">
-              売上 {yen(current.revenueAnnual)}・総コスト {yen(current.totalAnnual)}・利益{" "}
-              <span className={current.profitAnnual < 0 ? "text-[#be123c]" : ""}>{yen(current.profitAnnual)}</span>
+              {/* 金額はカンマ区切りの円で長いので、「売上 金額」の組ごとに折り返す（排水処理のコスト試算と同じ） */}
+              <span className="whitespace-nowrap">売上 {yen(current.revenueAnnual)}・</span>
+              <span className="whitespace-nowrap">総コスト {yen(current.totalAnnual)}・</span>
+              <span className="whitespace-nowrap">
+                利益 <span className={current.profitAnnual < 0 ? "text-[#be123c]" : ""}>{yen(current.profitAnnual)}</span>
+              </span>
             </dd>
           </div>
         </dl>

@@ -9,7 +9,7 @@ import {
   type CostBreakdownKey,
   type CostStrain,
 } from "@/lib/project-cost-model";
-import { caretAfterGrouping, groupDigits, toHalfWidth } from "@/lib/project-cost-model-draft";
+import { caretAfterGrouping, formatYen, groupDigits, toHalfWidth } from "@/lib/project-cost-model-draft";
 
 // コスト試算タブの小さな部品。操作パネル・結果・読み物の3か所から使う。
 
@@ -47,11 +47,8 @@ export const int = (v: number) => Math.round(v).toLocaleString("ja-JP");
 export const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
 /** 差の表示。マイナスは全角でなく数学のマイナス記号にして桁を揃える。 */
 export const signed = (v: number, digits = 1) => `${v >= 0 ? "+" : "−"}${num(Math.abs(v), digits)}`;
-/** 円を万円で。1万円未満は円のまま。 */
-export const yen = (v: number) =>
-  Math.abs(v) >= 100_000_000
-    ? `${(v / 100_000_000).toLocaleString("ja-JP", { maximumFractionDigits: 1 })}億円`
-    : Math.abs(v) >= 10_000 ? `${(v / 10_000).toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万円` : `${int(v)}円`;
+/** 金額はカンマ区切りの円（10,000,000,000円）。億・万に丸めない。排水処理と燃料の試算で共通。 */
+export const yen = formatYen;
 
 /** 保存値からの差。差が無ければ何も出さない。色は付けない（試算の増減は良し悪しの判定ではない）。 */
 export function Delta({ value, digits = 1, className = "" }: { value: number; digits?: number; className?: string }) {

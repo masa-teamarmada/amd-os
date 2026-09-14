@@ -31,9 +31,10 @@
 // — 上端に槽を出さず、槽は選べるときだけ名前に入れる。選んだ組み合わせで効かない前提を薄く出す（効くかは rolesInEffect。動かして確かめる）。
 // 2026-09-14 まさ回答⑩: 汚泥の処分「オンサイトなら顧客」、循環カートリッジの処理の運転「オフサイトならSX」、
 // 顧客の装置の消耗品・電力・点検とモジュールの交換費「それ普通いれないでしょ」— 装置を動かす費用は処理する場所の持ち主（オンサイトは顧客）。
+// 2026-09-14 まさ回答⑪: お金も「100億円」の形ではなく、カンマ区切りの円に「カンマ区切りにそろえて」— 画面の金額も文章の金額も 10,000,000,000円 の形。
 //
 // 正本: pwa/spec/5-13-project-cost-model-current-spec.md
-// fixture: scripts/__fixtures__/sx_cost_model_two_stage.json（migration 410 適用後の SX データ）
+// fixture: scripts/__fixtures__/sx_cost_model_two_stage.json（migration 416 適用後の SX データ）
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {
@@ -68,11 +69,13 @@ import {
   caretAfterGrouping,
   draftKey,
   draftToPatches,
+  formatYen,
   groupDigits,
   listDraftChanges,
   pruneDraft,
   setDraftValue,
   toHalfWidth,
+  YEN_JOINER,
 } from "../src/lib/project-cost-model-draft.ts";
 
 const fixture = JSON.parse(fs.readFileSync(new URL("./__fixtures__/sx_cost_model_two_stage.json", import.meta.url), "utf8")) as CostModelBundle;
@@ -883,6 +886,42 @@ assert.ok(
   assert.equal(scenarioLabelOf("offsite", "循環", "新設", "customer"), "循環カートリッジ", "オフサイトは名前に槽を入れない");
   assert.equal(scenarioLabelOf("onsite", "投入", "新設", "sx"), "直接投入・新設槽", "オンサイトの槽を SX が持つときだけ、既設・新設を名前に入れる");
   assert.equal(scenario(fixture, "wild", "dye", "投入-既設").label, "直接投入", "SX のシナリオ名に槽を入れない");
+}
+
+// 20. 金額はカンマ区切りの円（まさ 2026-09-14「カンマ区切りにそろえて」）。億・万に丸めない
+{
+  const J = YEN_JOINER;
+  assert.equal(J, "\u2060", "数字と「円」の間は見えない語結合子（折り返しで「円」だけが次の行へ落ちない）");
+  assert.equal(formatYen(10_000_000_000), `10,000,000,000${J}円`, "売上は 10,000,000,000円 の形");
+  assert.equal(formatYen(480_123_456.6), `480,123,457${J}円`, "1円未満は四捨五入");
+  assert.equal(formatYen(-2_359_600_000), `-2,359,600,000${J}円`, "赤字もカンマ区切り");
+  assert.equal(formatYen(-0.2), `0${J}円`, "0円に「-」を付けない");
+  assert.equal(formatYen(Number.NaN), "—", "計算できない金額は —");
+  for (const v of [0, 123, 12_345, 1_234_567, 123_456_789, 98_765_432_100]) {
+    assert.equal(formatYen(v), `${v.toLocaleString("ja-JP")}${J}円`, `億・万に丸めずに全桁を出す: ${v}`);
+  }
+  const read = (p: string) => fs.readFileSync(new URL(p, import.meta.url), "utf8");
+  const parts = read("../src/components/cockpit/CockpitCostModelParts.tsx");
+  assert.match(parts, /export const yen = formatYen;/, "画面の金額は formatYen を通す（排水処理と燃料の試算で共通）");
+  const sxUi = [
+    parts,
+    ...["CockpitCostModel", "CockpitCostModelControls", "CockpitCostModelResults", "CockpitCostModelReading", "CockpitCostModelFlow"].map((f) => read(`../src/components/cockpit/${f}.tsx`)),
+  ].join("\n");
+  assert.doesNotMatch(sxUi, /億円|万円/, "画面のコードに億円・万円の書き方を置かない");
+  const results = read("../src/components/cockpit/CockpitCostModelResults.tsx");
+  assert.match(results, /whitespace-nowrap">売上 \{yen\(current\.businessRevenueAnnual\)\}・/, "事業全体の年間は「売上 金額」の組ごとに折り返す");
+  // 文章の中の金額も同じ形（まさの言葉をそのまま引いたところだけは書き換えない）
+  const QUOTES = ["売上100億到達レベル"];
+  const texts: Array<[string, string | null | undefined]> = [];
+  for (const k of ["summaryMd", "systemScopeMd", "sourceNote", "targetNote", "title"] as const) texts.push([`model.${k}`, fixture.model[k] as string | null]);
+  for (const a of fixture.assumptions) texts.push([`${a.costAssumptionId}.note`, a.note], [`${a.costAssumptionId}.label`, a.label]);
+  for (const i of fixture.items) texts.push([`${i.costItemId}.note`, i.note], [`${i.costItemId}.leafLabel`, i.leafLabel]);
+  for (const t of fixture.tasks) texts.push([`${t.costTaskId}.note`, t.note], [`${t.costTaskId}.label`, t.label]);
+  for (const [where, text] of texts) {
+    const s = QUOTES.reduce((acc, q) => acc.split(q).join(""), text ?? "");
+    assert.doesNotMatch(s, /\d\s*[億万]/, `文章の金額もカンマ区切りの円: ${where}`);
+  }
+  assert.match(fixture.model.summaryMd ?? "", /売上10,000,000,000円/, "説明文の売上は 10,000,000,000円");
 }
 
 console.log("project-cost-model: OK");

@@ -235,6 +235,18 @@ export function groupDigits(raw: string): string {
   return `${sign}${intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}${frac}`;
 }
 
+/** 数字と「円」の間で折り返さないための見えない語結合子 (U+2060)。 */
+export const YEN_JOINER = "\u2060";
+
+/**
+ * 金額はカンマ区切りの円で出す。億・万に丸めない (まさ 2026-09-14「カンマ区切りにそろえて」)。
+ * 1円未満は四捨五入。数字と「円」の間に YEN_JOINER を挟み、行の折り返しで「円」だけが次の行へ落ちないようにする。
+ */
+export function formatYen(value: number): string {
+  if (!Number.isFinite(value)) return "—";
+  return `${groupDigits(String(Math.round(value)))}${YEN_JOINER}円`;
+}
+
 const FULL_WIDTH_SIGN: Record<string, string> = { "．": ".", "，": ",", "－": "-" };
 /** 全角の数字・小数点・カンマ・マイナスを半角にする。文字数は変わらない。 */
 export const toHalfWidth = (raw: string) =>
