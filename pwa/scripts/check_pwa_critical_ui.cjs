@@ -3207,10 +3207,13 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
 expectIncludes("src/components/cockpit/CockpitTechnology.tsx", [
   'data-testid="cockpit-technology-tab"',
   // 2026-09-14 まさ依頼: 増えた技術タブの全体像と、各トピックへの行き来。消すと「何がどこにあるか分からない」に戻る。
+  // 同日2回目「クリックするとただそこにスクロールしていくだけ。タブ分けした方が見やすい」で、区分のタブ + トピックを1つずつ開く形にした。
   'data-testid="tech-overview"',
-  'data-testid="tech-toc"',
-  'data-testid="tech-jump-bar"',
-  "data-tech-anchor",
+  'data-testid="tech-domain-tabs"',
+  'data-testid="tech-topic-list"',
+  'data-testid="tech-topic-chips"',
+  'data-testid="tech-topic-pager"',
+  "TECH_VIEW_PARAM",
   "ConditionBlock",
   "MatrixBlock",
   "RecordBlock",
