@@ -219,7 +219,7 @@ async function loadOsContext(admin: AdminClient, meeting: MeetingRow): Promise<O
       : "- 既存の次MTG準備カードなし",
     ...(meeting.project_id === "p21" ? [
       "",
-      "### SXワークスペースの変更（会議文脈。会議での決定とは限らない）",
+      "### SOLワークスペースの変更（会議文脈。会議での決定とは限らない）",
       sxWorkspaceContext?.changes.length
         ? sxWorkspaceContext.changes.map((change) => {
             const status = change.fromStatus || change.toStatus

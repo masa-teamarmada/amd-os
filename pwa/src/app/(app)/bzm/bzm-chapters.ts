@@ -74,7 +74,7 @@ export const BZM_PARTS: BzmPartConfig[] = [
     key: "sps-2-reachability",
     label: "SPS 2.0 到達見込み",
     description:
-      "計画期限内の資本自立診断 q_plan(H_v)、共通期間比較 Q(h)、期限後を含む q_G の定義。共通到達目標、戦略余力、資金の崖、測定可能性ゲート、SX 1件の実測記録を扱う。全経路価値と前向き検証は未測定。",
+      "計画期限内の資本自立診断 q_plan(H_v)、共通期間比較 Q(h)、期限後を含む q_G の定義。共通到達目標、戦略余力、資金の崖、測定可能性ゲート、SOL 1件の実測記録を扱う。全経路価値と前向き検証は未測定。",
     slugs: [
       "sps-current-reachability-model",
       "sps-current-measurability-gate",
@@ -209,7 +209,7 @@ export const BZM_PARTS: BzmPartConfig[] = [
   {
     key: "new-bzm-book3",
     label: "Book III — 動機付け事例とパターン・ライブラリ (200p, 16 章)",
-    description: "8 PJ ケース + 5 機関ケース + 層間結合 3 章。TIEM / BWE / CX / SX / CTB / YD / JC / CLG / 機関 type 5 種 / Ch 25-26b。",
+    description: "8 PJ ケース + 5 機関ケース + 層間結合 3 章。TIEM / BWE / CX / SOL / CTB / YD / JC / CLG / 機関 type 5 種 / Ch 25-26b。",
     slugs: [
       "new-book3-ch-12", "new-book3-ch-13", "new-book3-ch-14", "new-book3-ch-15",
       "new-book3-ch-16", "new-book3-ch-17", "new-book3-ch-18", "new-book3-ch-19",
@@ -364,9 +364,9 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   },
   {
     slug: "sps-2-0-sx-measurement-log",
-    title: "SX 実測記録 — 版を追って q がどう動いたか",
+    title: "SOL 実測記録 — 版を追って q がどう動いたか",
     summary:
-      "SX 1件に当てた v0.2〜v0.5 の改訂ループ。q の推移と各変化の原因タグ、死因の内訳、期限を延ばしても到達率が増えないこと、燃焼と速度が資金切れをどう動かすか。",
+      "SOL 1件に当てた v0.2〜v0.5 の改訂ループ。q の推移と各変化の原因タグ、死因の内訳、期限を延ばしても到達率が増えないこと、燃焼と速度が資金切れをどう動かすか。",
     status: "completed",
   },
   {
@@ -585,7 +585,7 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   { slug: "new-book3-ch-12", title: "Ch 12 — TIEM — 早すぎ起業の解剖 (ゾンビ型 参照事例)", summary: "Y-001 + Y-004 重複原型。露出制限: 本章 + Ch 4 + Ch 26 + Ch 37 + 付録 C のみ。16p。", status: "not-started" },
   { slug: "new-book3-ch-13", title: "Ch 13 — BWE — 健全型 参照事例", summary: "F-CES 補完成功 (F_char 高 × F_cap 後発補完)。14p。", status: "not-started" },
   { slug: "new-book3-ch-14", title: "Ch 14 — CX — Carbon, R_net 共食いの観測", summary: "μ_I 単独高位 Triple Helix 不均衡。12p。", status: "not-started" },
-  { slug: "new-book3-ch-15", title: "Ch 15 — SX — 半導体, σ_SU 追い風 × R_net 共食い", summary: "R-bundle min (GRL 律速) 主要事例 (Ch 2.3)。14p。", status: "not-started" },
+  { slug: "new-book3-ch-15", title: "Ch 15 — SOL — 半導体, σ_SU 追い風 × R_net 共食い", summary: "R-bundle min (GRL 律速) 主要事例 (Ch 2.3)。14p。", status: "not-started" },
   { slug: "new-book3-ch-16", title: "Ch 16 — CTB — 創薬, 鋸歯型軌跡と段階補充", summary: "Ch 8.4 鋸歯型主要参照 + Ch 7.5 F_cap 経験順序 + Ch 29 GAP 期主要事例。14p。", status: "not-started" },
   { slug: "new-book3-ch-17", title: "Ch 17 — YD — 波力, UE 律速 NO_GO (即落型)", summary: "Ch 26b アンカーケース。NO_GO 判定の日付印付き公開記録 1 例を予測登録簿に登録。12p。", status: "not-started" },
   { slug: "new-book3-ch-18", title: "Ch 18 — JC — 浅技術型, 自走型 参照事例", summary: "σ_SU 低 / F 高 / R_net 早期。10p。", status: "not-started" },

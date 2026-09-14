@@ -35,7 +35,7 @@ export interface ProjectRow {
   governance_watch_board_meetings: boolean;
   /** L2M-1 月次報告書 routine の対象範囲。none = 対象外 / internal_only = 内部保存版のみ / internal_and_external = 内部 + 対外提出版 */
   monthly_report_scope: "none" | "internal_only" | "internal_and_external";
-  /** ローカル output ディレクトリ命名に使う短縮名 (例: KUTE / SX / AMD)。NULL の場合は project_id を fallback */
+  /** ローカル output ディレクトリ命名に使う短縮名 (例: KUTE / SOL / AMD)。NULL の場合は project_id を fallback */
   report_local_alias: string | null;
   /** 対外版 jargon check の禁止語 allow_list。PJ 固有で許可したい用語 */
   report_extra_allow_terms: string[];
@@ -754,7 +754,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
               <th className="text-left px-3 py-2 font-medium w-28">提出物</th>
               <th className="text-left px-3 py-2 font-medium w-52">月次報告 契約条件</th>
               <th className="text-left px-3 py-2 font-medium w-32" title="L2M-1 routine の対象範囲。none=対象外 / internal_only=内部のみ / internal_and_external=内部+対外">月報 scope</th>
-              <th className="text-left px-3 py-2 font-medium w-24" title="対外納品時のエイリアス (KUTE / SX 等)">エイリアス</th>
+              <th className="text-left px-3 py-2 font-medium w-24" title="対外納品時のエイリアス (KUTE / SOL 等)">エイリアス</th>
               <th className="text-left px-3 py-2 font-medium w-36" title="対外版 jargon check の allow_list (PJ 固有で許可したい語)">禁止語 allow</th>
               <th className="text-left px-3 py-2 font-medium w-40" title="業務内容配列 (対外版の第N領域章に展開)">業務内容 JSON</th>
               <th className="text-left px-3 py-2 font-medium w-28">立替精算</th>
@@ -1307,7 +1307,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                           autoFocus
                           onChange={(e) => setEditVals((v) => ({ ...v, report_local_alias: e.target.value }))}
                           onKeyDown={(e) => { if (e.key === "Enter") saveCell(p, "report_local_alias"); if (e.key === "Escape") cancelEdit(); }}
-                          placeholder="KUTE / SX / AMD"
+                          placeholder="KUTE / SOL / AMD"
                           className="w-full rounded border border-border bg-background px-1.5 py-0.5 text-[11px]"
                         />
                         {cellActions("report_local_alias")}

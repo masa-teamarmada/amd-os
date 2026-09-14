@@ -4,6 +4,12 @@
 
 > **manual / spec / bzm 3層分割中**: M/W/D/H L2、5 生データ、outbox / LaunchAgent、採否ループの確定仕様は `/spec/3-1-l2-data-extraction-current-spec.md` へ移行開始済み。移行完了までは、この `design/L2_DATA.md` も未移行領域の正本として残し、迷う内容は両方に置く。
 
+## 2026-09-14 p21 略称の現行値
+
+- p21の現行略称は **SOL**。画面、これから作る予定、L2の現在PJ表記はSOLを使う。
+- `SX`は過去予定・既存記録を読むための互換別名だけとして受け付け、入力時はSOLへ正規化する。
+- 内部ID `p21`、Slack接続キー、ブランド名 `SolvioraX`、過去本文・ファイル名・移行IDは変更しない。
+
 ---
 
 ## 2026-06-04 Claude routine未登録事故の訂正
@@ -68,7 +74,7 @@ SKILL 正本: [`pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md`](.
 | **M-3** | M-3 | Management Monthly Signal | Claude Code Routine `amd-os-l2-monthend-evidence` (Fable 5) | M-1/M-2後にcandidate生成 |
 | **W-1** | W-1 | VC News / Funding Signals | Claude routine `amd-os-l2-weekly-vc-funding-signals` | 差分なし: Claude UIでACTIVE / next run確認済み。MMO暫定automationはPAUSED |
 | **H-1** | H-1 | MTGサマリ + MTGフロー | MMOマシン Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` → `codex exec` Live launcher | 復旧済み: 2026-06-08 16:00 JST manual Live run 成功、次回 17:00 JST。Codex Desktop UI automation storeは未登録/旧DB不使用のため、UI上の`amd-os-l6-meeting-flow`ではなくLive launcherを実稼働証跡にする |
-| **W-Prep** | weekly prep launch | visible prep thread 起動 | Codex automation `w-prep-launch` | 2026-08-17 current: 毎週水曜15:00 JST。実行日から数えて7日後の23:59:59.999 JSTまでの確定 upcoming MTG を Calendar + DB で照合し、DBに無い active/sales PJ の確定MTGは upcomingカード作成後に claim → visible thread作成 → title変更 → pin → DB session保存。厳密な `now()+7 days` で切らず、DBだけを見て完了扱いにしない。Calendar直読みのPJ推定は `CFG_ColorPJHistory` を先に使い、`2025-06-01` 以降の `colorId=4` と `SolvioraX` title alias は SX/p21 として扱う。重複防止は `calendar_event_id` exact identity と `upcoming:<calendar_event_id>` canonical を優先する。workerは契約範囲・PJ横断の未完了論点を台帳化し、二次影響と今回prepへの配置を固定gateで検査する。初回は5項目のopening prep briefで相談を始め、共有Drive資料と通常Notion draftは作らない。Notion AI Meeting Notes contextだけ初回append-onlyで入れ、資料はまさの明示write後にHTMLで作る。scope coverage・session・pin・Notion gate・opening briefが揃うまでreadyにしない |
+| **W-Prep** | weekly prep launch | visible prep thread 起動 | Codex automation `w-prep-launch` | 2026-09-14 current: 毎週水曜15:00 JST。実行日から数えて7日後の23:59:59.999 JSTまでの確定 upcoming MTG を Calendar + DB で照合し、DBに無い active/sales PJ の確定MTGは upcomingカード作成後に claim → visible thread作成 → title変更 → pin → DB session保存。厳密な `now()+7 days` で切らず、DBだけを見て完了扱いにしない。Calendar直読みのPJ推定は `CFG_ColorPJHistory` を先に使い、`2026-09-14` 以降の `colorId=4` と `SolvioraX` / 旧 `SX` title alias は SOL/p21 として扱う。2026-09-13以前の色4予定はSXとして保持する。重複防止は `calendar_event_id` exact identity と `upcoming:<calendar_event_id>` canonical を優先する。workerは契約範囲・PJ横断の未完了論点を台帳化し、二次影響と今回prepへの配置を固定gateで検査する。初回は5項目のopening prep briefで相談を始め、共有Drive資料と通常Notion draftは作らない。Notion AI Meeting Notes contextだけ初回append-onlyで入れ、資料はまさの明示write後にHTMLで作る。scope coverage・session・pin・Notion gate・opening briefが揃うまでreadyにしない |
 | **D-13** | daily | Contract Signals | Codex automation `amd-os-d-13` + PWA route `POST /api/contracts/extract-l2` | 既存routeを呼ぶだけで候補reviewを保つ |
 | **D-14** | daily | 要対応 (Action Items) + Governance Email Sweep | Claude routine `amd-os-l2-consolidated-evidence` Phase K-C + PWA routes `POST /api/action-items/extract` / `GET /api/cron/governance-email-sweep` | 期日つき inbound 義務 (株主総会招集/議決権/事前承諾/契約更新/振込 等)。D-14G は `/admin/projects` の「総会」「役会」ON PJだけを `report_emails` と総会/役会 keyword で Gmail 検索して `governance/extract` へ流す。初期ON: p00/p07/p24。手動は `/admin/governance`。 |
 

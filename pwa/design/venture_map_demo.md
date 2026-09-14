@@ -356,6 +356,6 @@ atlas_themes 54本を5レーンに振り分ける必要がある。実装時に 
 - AMD価値モデル: `/Users/masa/projects/knowledge/amd_value_model.md`
 - AMD OS Vision: `/Users/masa/projects/knowledge/amd_os_vision.md`
 - CX overview: `/Users/masa/projects/AMD/CX/overview.md`
-- SX overview: `/Users/masa/projects/AMD/SX/overview.md`
+- SOL overview: `/Users/masa/projects/AMD/SOL/overview.md`
 - Atlas 基盤: `/Users/masa/projects/AMD/amd-os/pwa/atlas.md`
 - Atlas 政策収集: `/Users/masa/projects/AMD/amd-os/pwa/policy_signals.md`

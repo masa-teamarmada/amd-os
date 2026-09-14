@@ -391,7 +391,7 @@ export interface SxEcdInterventionRow {
 }
 
 const BALL_SIDE_LABEL: Record<SxEcdBallSide, string> = {
-  sx: "SX側",
+  sx: "SOL側",
   partner: "相手側",
   shared: "双方",
   none: "該当なし",
@@ -644,7 +644,7 @@ export function deriveSxInterventionQueue(params: {
     const partner = partnerById.get(item.partnerId);
     const milestone = milestoneById.get(item.relatedMilestoneId);
     const sideLabel: Record<SxEcdActorSide, string> = {
-      sx: "SX側",
+      sx: "SOL側",
       partner: "相手側",
       shared: "双方",
       unknown: "未確認",

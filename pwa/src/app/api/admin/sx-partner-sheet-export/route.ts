@@ -204,7 +204,7 @@ export async function GET(req: NextRequest) {
     minute: "2-digit",
   }).format(new Date());
   const metaRow = [
-    `SX 関係先リスト（AMD OS 同期）｜情報の基準時点 ${stamp} JST｜${partners.length}件｜正本はAMD OS。このシートは読み取り用で、編集してもOSへは戻りません。`,
+    `SOL 関係先リスト（AMD OS 同期）｜情報の基準時点 ${stamp} JST｜${partners.length}件｜正本はAMD OS。このシートは読み取り用で、編集してもOSへは戻りません。`,
   ];
   const values = [metaRow, COLUMNS.map((column) => column.header), ...partners.map((partner) => buildRow(partner, today))];
 

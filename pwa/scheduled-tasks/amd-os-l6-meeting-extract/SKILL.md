@@ -180,7 +180,7 @@ Phase A: Calendar events 取得 → filter → PJ 判定 (= GAS 153 移植)
    - `matchType=contains` の単純 substring や project_name / client_name substring は review-only。PJ 候補メモには残してよいが Live write target にはしない。
 
    **(d) pjCode → project_id 解決**:
-   - `lower(projects.project_name) == lower(pjCode)` の active PJ を優先 (= SX/CX/OQC/ZMP/SE/BWE/CTB/CLG など大半は project_name==code)
+   - `lower(projects.project_name) == lower(pjCode)` の active PJ を優先 (= SOL/CX/OQC/ZMP/SE/BWE/CTB/CLG など大半は project_name==code)。旧 `SX` alias は設定表でSOLへ解決する。
    - project_name と一致しない code は既知マップで解決: **VSX → VasculaX (project_id = p26)**
    - `pjCode` が `pNN` 形式なら project_id として直接使う
    - `pjCode` が `AMD` / 空 → **skip_no_pj** (= AMD 全体 MTG、ghost にしない)
@@ -521,7 +521,7 @@ Supabase から、この会議を PJ 全体の流れに位置づけるための 
    - `value_plan_cycles`: `project_id=<projectId>` かつ `period_start_ym <= ym <= period_end_ym`、`status in (active,confirmed,fixed,draft)`、最大 1 件
    - `value_milestones`: その `plan_cycle_id` の `is_active=true`、`sort_order asc`、最大 12 件
    - `milestone_monthly_progress`: 上記 `milestone_id` × `ym`
-6. **SXワークスペース変更 (`p21`だけ)**
+6. **SOLワークスペース変更 (`p21`だけ)**
    - `GET $APP_BASE_URL/api/project-workspace/p21/automation-context?since=<直前の開催済みMTG日>&until=<今回MTG日>`を、`Authorization: Bearer $WORKFLOW_SECRET`（未設定時は`$CRON_SECRET`）で読む。
    - `changes[]`は件数上限で切らず、今回会議に関係する事実の照合に使う。
    - `meetingEvidence.claimBoundary='context_only'`を守る。ワークスペースに記録された事実だけで「今回会議で決まった」と書かず、会議sourceと一致した内容だけを`決まったこと`へ入れる。

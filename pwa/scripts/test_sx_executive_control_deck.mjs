@@ -379,7 +379,7 @@ function issue(overrides = {}) {
   assert.equal(queue.rows[0].ballOwner, "未確認");
 }
 
-// 5. Internal (milestone/issue) ball rows never hardcode "SX側" — column semantics = 担当, owner
+// 5. Internal (milestone/issue) ball rows never hardcode "SOL側" — column semantics = 担当, owner
 // unavailable => "未確認".
 {
   const criticalMilestones = [
@@ -401,7 +401,7 @@ function issue(overrides = {}) {
   });
   assert.equal(queue.rows[0].ballOwner, "未確認");
   assert.equal(queue.rows[0].ballSide, "担当");
-  assert.notEqual(queue.rows[0].ballSide, "SX側");
+  assert.notEqual(queue.rows[0].ballSide, "SOL側");
 }
 
 // 5b. Technical test rows: blocked/failed top priority, exact testName/ownerLabel, due = parent gate
@@ -579,7 +579,7 @@ function issue(overrides = {}) {
   });
   const row = queue.rows.find((r) => r.kind === "partner_work_item");
   assert.ok(row, "SX-side partner work item must be shown, not hidden");
-  assert.equal(row.ballSide, "SX側");
+  assert.equal(row.ballSide, "SOL側");
   assert.equal(row.ballOwner, "社内担当D");
   assert.ok(row.target.includes("パートナーP2"));
   assert.ok(row.target.includes("社内確認待ち"));
@@ -901,7 +901,7 @@ function issue(overrides = {}) {
   });
   const row = queue.rows.find((r) => r.kind === "partner_fallback");
   assert.ok(row, "sx-side ball must still produce a fallback intervention row");
-  assert.equal(row.ballSide, "SX側");
+  assert.equal(row.ballSide, "SOL側");
   assert.equal(row.ballOwner, "石原先生");
   assert.ok(row.target.includes("SMBC"));
   assert.ok(

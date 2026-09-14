@@ -29,7 +29,7 @@ const plans = buildTaskCalendarSchedulePlans(
 );
 const sx = plans.find((plan) => plan.task_id === "meeting-action-001");
 assert.equal(sx?.action, "schedule_candidate");
-assert.equal(sx?.title, "+SX mail 杉浦先生");
+assert.equal(sx?.title, "+SOL mail 杉浦先生");
 // ＋枠は PJ コードを必ずタイトルに持ち、その PJ の色で書く (manual 3-2 §PJ → カレンダー色)
 assert.equal(sx?.color_id, "4");
 assert.ok(sx?.calendar_writes.every((write) => write.colorId === "4"));

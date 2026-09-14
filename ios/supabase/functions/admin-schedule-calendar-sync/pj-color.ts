@@ -28,7 +28,7 @@ export type ColorPJHistoryRow = {
   note?: string;
 };
 
-/** CFG_ColorPJHistory のスナップショット (2026-08-29 時点) */
+/** CFG_ColorPJHistory のスナップショット (2026-09-14 時点) */
 export const COLOR_PJ_HISTORY: ColorPJHistoryRow[] = [
   { colorId: "1", startDate: "2024-01-01", pjCode: "LST", note: "薄紫" },
   { colorId: "2", startDate: "2024-01-01", pjCode: "BWE", note: "エメラルド" },
@@ -38,6 +38,7 @@ export const COLOR_PJ_HISTORY: ColorPJHistoryRow[] = [
   { colorId: "4", startDate: "2024-01-01", pjCode: "MC", note: "桃" },
   { colorId: "4", startDate: "2025-01-01", pjCode: "AER" },
   { colorId: "4", startDate: "2025-06-01", pjCode: "SX" },
+  { colorId: "4", startDate: "2026-09-14", pjCode: "SOL", note: "SX→SOL 略称変更" },
   { colorId: "5", startDate: "2024-01-01", pjCode: "CTB", note: "黄" },
   { colorId: "5", startDate: "2025-05-01", pjCode: "YD" },
   { colorId: "5", startDate: "2025-11-01", pjCode: "UST" },
@@ -75,7 +76,7 @@ const PROJECT_TO_PJ_CODE: Record<string, string> = {
   p18: "YD",
   p19: "ZMP",
   p20: "CX",
-  p21: "SX",
+  p21: "SOL",
   p22: "OQC",
   p23: "UST",
   p24: "CLG",
@@ -86,6 +87,11 @@ const PROJECT_TO_PJ_CODE: Record<string, string> = {
   p30: "EHM",
   p31: "ZEO",
   vasculax: "VSX",
+};
+
+/** 過去の予定名・取込済みのSXを、現在のPJコードSOLとして扱う。 */
+const LEGACY_PJ_CODE_ALIASES: Record<string, string> = {
+  sx: "SOL",
 };
 
 /** Google Calendar の event colorId として実際に付けられる範囲 */
@@ -106,11 +112,12 @@ function ymd(on: Date | string): string {
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
-/** project_id (p21) / project_name (SX, VasculaX) / pjCode いずれからでも pjCode を返す */
+/** project_id (p21) / project_name (SOL, VasculaX) / pjCode いずれからでも現在のpjCodeを返す */
 export function normalizePjCode(value: string | null | undefined): string | null {
   const raw = String(value ?? "").trim();
   if (!raw) return null;
-  const mapped = PROJECT_TO_PJ_CODE[raw.toLowerCase()];
+  const key = raw.toLowerCase();
+  const mapped = PROJECT_TO_PJ_CODE[key] || LEGACY_PJ_CODE_ALIASES[key];
   if (mapped) return mapped;
   return raw;
 }
@@ -143,7 +150,8 @@ export function resolveColorIdForProject(project: string | null | undefined, on:
     .filter(isEventColorId)
     .filter((colorId) => {
       const current = resolveProjectForColorId(colorId, date);
-      return current !== null && current.toLowerCase() === pjCode.toLowerCase();
+      const currentCode = normalizePjCode(current) || current;
+      return currentCode !== null && currentCode.toLowerCase() === pjCode.toLowerCase();
     })
     .sort((a, b) => Number(a) - Number(b));
   return candidates.length ? candidates[0] : null;

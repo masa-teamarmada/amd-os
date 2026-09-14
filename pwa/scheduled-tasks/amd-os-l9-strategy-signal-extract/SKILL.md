@@ -58,7 +58,7 @@ Phase A: 5 生データ + OS snapshot 収集
 - `amd_score_inputs?project_id=eq.<projectId>&order=evaluated_at.desc&limit=3` (= 直近 AMD Score)
 - p00 のみ追加: `amd_management_score_snapshots` 直近 3 ヶ月 + `amd_management_score_evidence` 直近 1 ヶ月
 
-### A-1b: SXワークスペースの完了事実 (`p21`だけ)
+### A-1b: SOLワークスペースの完了事実 (`p21`だけ)
 
 - `GET $APP_BASE_URL/api/project-workspace/p21/automation-context?since=<前回成功日>&until=<JST今日>` を `Authorization: Bearer $WORKFLOW_SECRET`（未設定時は`$CRON_SECRET`）で読む。
 - `changes[]`は件数で切らず全件確認する。ただしLLMレビュー対象はまず`strategyEvidence.eligible=true`だけに絞る。

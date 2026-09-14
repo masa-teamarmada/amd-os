@@ -26,8 +26,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 
 // --- PJ → 色 (現在の割当) ---
-const TODAY = "2026-08-29";
+const TODAY = "2026-09-14";
 const EXPECTED_NOW: Array<[string, string | null]> = [
+  ["SOL", "4"],
   ["SX", "4"],
   ["p21", "4"],
   ["KUTE", "11"],
@@ -63,7 +64,10 @@ assert.equal(resolveProjectForColorId("11", "2026-05-01"), "KUTE");
 assert.equal(resolveProjectForColorId("6", "2026-05-27"), "JC", "colorId 6 は 2026-05-28 より前は JC");
 assert.equal(resolveProjectForColorId("6", "2026-05-28"), "VSX");
 assert.equal(resolveColorIdForProject("SX", "2025-05-31"), null, "SX の色は 2025-06-01 から");
+assert.equal(resolveColorIdForProject("SX", "2025-06-01"), "4", "旧略称SXでも過去の色を引ける");
 assert.equal(resolveProjectForColorId("4", "2025-05-31"), "AER");
+assert.equal(resolveProjectForColorId("4", "2026-09-13"), "SX", "改称前の予定はSXとして残す");
+assert.equal(resolveProjectForColorId("4", "2026-09-14"), "SOL", "改称日からSOLを使う");
 
 // --- 色 → PJ と PJ → 色 が同じ表から出ていること ---
 for (const colorId of [...new Set(COLOR_PJ_HISTORY.map((row) => row.colorId))]) {
@@ -78,6 +82,7 @@ for (const colorId of [...new Set(COLOR_PJ_HISTORY.map((row) => row.colorId))]) 
 }
 
 assert.equal(normalizePjCode("p26"), "VSX");
+assert.equal(normalizePjCode("SX"), "SOL", "旧略称SXは現在のSOLへ正規化する");
 assert.equal(normalizePjCode(""), null);
 
 // --- ＋枠の plan が PJ 名と色を必ず持つこと ---
@@ -91,9 +96,9 @@ const plan = buildTaskCalendarSchedulePlan(
   },
   [],
   [],
-  new Date("2026-08-29T00:00:00+09:00"),
+  new Date("2026-09-14T00:00:00+09:00"),
 );
-assert.ok(plan.title.startsWith("+SX "), `＋枠のタイトルに PJ コードが無い: ${plan.title}`);
+assert.ok(plan.title.startsWith("+SOL "), `＋枠のタイトルに PJ コードが無い: ${plan.title}`);
 assert.equal(plan.color_id, "4", "＋枠に PJ の色が付いていない");
 assert.ok(
   plan.calendar_writes.every((write) => write.colorId === "4"),

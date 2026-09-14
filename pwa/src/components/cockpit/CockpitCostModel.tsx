@@ -514,7 +514,7 @@ function EmptyState({ canEdit }: { canEdit: boolean }) {
       </p>
       <p className="mt-2 text-[11px] leading-5 text-[#6e6e73]">
         {canEdit
-          ? "登録するときは SX (p21) の構成を雛形にする。変数に role_key を振ると計算エンジンが読む。"
+          ? "登録するときは SOL (p21) の構成を雛形にする。変数に role_key を振ると計算エンジンが読む。"
           : "登録の依頼は AMD 側の管理者へ。"}
       </p>
     </div>

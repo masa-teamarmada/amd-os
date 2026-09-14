@@ -151,7 +151,7 @@ export const SPEC_CHAPTERS: SpecChapterConfig[] = [
   { slug: "3-14-monthly-work-agreement-current-spec", title: "月初タスク・報酬合意 仕様", summary: "当月の遂行対象・報酬条件を本人が確認し、snapshot hash つきで合意するDB/API/UI/admin管理契約。" },
   { slug: "3-15-management-guardrails-current-spec", title: "経営ガードレール仕様", summary: "まさの予防ノウハウをタグ付きカード化し、PJ / アクションタグとの照合で高リスク見落としを通知する契約。" },
   { slug: "3-16-project-weekly-control-current-spec", title: "PJ週次管制画面 仕様", summary: "既存計画から週次差分・判断・介入を確認し、論点と仮説を担当・期限・検証・根拠へ接続して放置を防ぐ別URL画面。" },
-  { slug: "3-17-project-navigation-current-spec", title: "SX PJ管制ダッシュボード 仕様", summary: "階層WBSガント、重要経路、技術試験・論点の掘り下げ、関係先7段階比較、同一画面での追加・編集を扱う別URL画面。RSC境界へは最小view modelだけを渡す。" },
+  { slug: "3-17-project-navigation-current-spec", title: "SOL PJ管制ダッシュボード 仕様", summary: "階層WBSガント、重要経路、技術試験・論点の掘り下げ、関係先7段階比較、同一画面での追加・編集を扱う別URL画面。RSC境界へは最小view modelだけを渡す。" },
   { slug: "3-18-important-document-extraction-current-spec", title: "重要書類の抽出 仕様", summary: "PJに紐づく重要書類と根拠を生データから拾い、台帳として保持する抽出契約。" },
   { slug: "3-19-project-ip-current-spec", title: "PJ知財ポートフォリオ 仕様", summary: "自社知財だけでなく大学の基本特許・共同出願・他社の障害特許まで同じ台帳に載せ、参入可否とライセンス交渉の材料にする。" },
   { slug: "3-20-project-technology-current-spec", title: "PJ技術台帳 仕様", summary: "技術の事実の置き場所。成立条件・解説・星取り表・到達実績の4形式で持ち、PJごとに違うのは並べるトピックだけにする。" },

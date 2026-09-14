@@ -275,13 +275,13 @@ Calendar event に Gemini / Google Meet notes Doc 添付がある、Notion の `
 
 **タイトル**: `＋<PJコード> <タスク名>`
 - 先頭の `＋` (または `+`) = 「動かしてよい作業枠」の印。MTG 実施の記録としては扱わない (H-1 は `+` / `＋` 始まりを skip する)。
-- PJ コードは `CFG_ColorPJHistory` の `pjCode` (例 `SX` / `KUTE` / `CX` / `CLG` / `VSX`)。`p21` のような内部 ID や、PJ が分かっているのに `AMD` を書かない。
-- 例: `＋SX JSTのSU設立審査依頼を開始` / `＋KUTE 月次報告書作成`
+- PJ コードは `CFG_ColorPJHistory` の `pjCode` (例 `SOL` / `KUTE` / `CX` / `CLG` / `VSX`)。`p21` のような内部 IDや、PJ が分かっているのに `AMD` を書かない。旧 `SX` は過去予定を読むための別名としてだけ扱う。
+- 例: `＋SOL JSTのSU設立審査依頼を開始` / `＋KUTE 月次報告書作成`
 - `【ZMP】…` のような角括弧の接頭辞は使わない。角括弧はまさや先方が付ける会議名の書式で、OS が入れた作業枠と混ざる。
 
 **色**: その日時点でその PJ に割り当たっている `colorId` を event に付ける
 - 解決は「色 → PJ」と同じ履歴方式の逆引き。`startDate <= 予定日` のうち startDate 最大の行で `pjCode` が一致する `colorId` を使う。
-- 2026-08-29 時点: `1=LST` / `3=ZMP` / `4=SX` / `5=UST` / `6=VSX` / `7=CLG` / `9=CX` / `10=SE` / `11=KUTE`。
+- 2026-09-14 時点: `1=LST` / `3=ZMP` / `4=SOL` / `5=UST` / `6=VSX` / `7=CLG` / `9=CX` / `10=SE` / `11=KUTE`。colorId 4 の2026-09-13以前の予定はSXとして読む。
 - **色が割り当たっていない PJ (AMD、NIMS、KENQ、EHM など) は色なしで書く**。空いている色を代用しない (代用すると色 → PJ 判定が別 PJ として読む)。`CFG_ColorPJHistory` の `colorId 21` はカレンダー単位の色で、予定には付けられない。
 
 **AMD 管理カレンダー (会社の期日を投影する共有カレンダー) も同じ書式**

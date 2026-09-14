@@ -1,5 +1,11 @@
 # iOS → Android ハンドオフ
 
+## 2026-09-14 p21 現行略称を SOL へ移行（共通カレンダー同期）
+
+- 共通PJ IDは引き続き `p21`。画面上の現行略称は `SOL`、外部ブランドは `SolvioraX`。
+- `admin-schedule-calendar-sync` の色4は、2026-09-13まで`SX`、2026-09-14以降`SOL`として予定タイトルを判定する。旧`SX`入力はSOLに正規化する。
+- iOS / Android のネイティブ画面・データモデルは変更しない。カレンダー同期を呼ぶ側は、旧SXを新規タイトルへ再出力せず、SOLとして扱う。
+
 ## 2026-08-31 KUTE年度内ロードマップのガント統合（共通DB・PWA）
 
 - KUTE (`p25`) の既存6工程を共通 `project_management_*` 台帳へ追加し、PWAの既存ガントで表示・編集する。移行ファイルは `supabase/migrations/20260831223000_kute_annual_roadmap_gantt.sql`。スキーマ変更なし。

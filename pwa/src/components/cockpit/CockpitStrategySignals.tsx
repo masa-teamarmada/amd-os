@@ -599,7 +599,7 @@ function StrategySignalRow({
               <div key={`${signal.signalId}:ref:${index}`} className="rounded bg-muted/40 px-2 py-1">
                 {ref.href ? (
                   <Link className="font-semibold text-emerald-700 underline underline-offset-2 hover:text-emerald-900" href={ref.href}>
-                    {ref.label} — SXワークスペースで確認
+                    {ref.label} — SOLワークスペースで確認
                   </Link>
                 ) : ref.label}
               </div>
