@@ -66,7 +66,7 @@ PWAの全route・重要UI・iOS画面の対応状況は `../macos/PARITY.md` を
 > **PWA専用画面（Native未移植）**: PJコックピット `?tab=business-model`（事業計画グループ、「競合比較」の右隣）とPJワークスペース `#business-model`（計画・根拠）の
 > 「ビジネスモデル」（2026-09-14追加。**技術台帳に区分 `tech_domain = 'ビジネスモデル'` のトピックを持つPJだけ**。いまは SOL）。
 > データは技術タブと同じ `/api/project-tech`（`project_tech_*`）で、区分「ビジネスモデル」だけを出し、技術タブと競合比較からはその区分を外す（振り分けは `techLedgerTabOf`）。形も技術タブと同じ4つで、区分のタブ・全体像・未整理の断片は出さず、開くと先頭のトピックを開く（`?business-model=`）。
-> SOL はオフサイトの廃液処理の検証（2026-09-14）を10トピック・社内限定で置く（評価・オンサイトとオフサイトの比較・事業の形の選択肢・量・値段・菌で処理できる濃さ・許可・競合・反社会的勢力・確認事項）。
+> SOL は先頭に事業全体のまとめ（本文の mermaid の図でお金とモノの流れ、収益の柱の表）を置き、その後ろにオフサイトの廃液処理の検証（2026-09-14）を置く（計11トピック・社内限定。評価・オンサイトとオフサイトの比較・事業の形の選択肢・量・値段・菌で処理できる濃さ・許可・競合・反社会的勢力・確認事項）。
 > 実装: `pwa/src/components/cockpit/CockpitTechnology.tsx`（`mode="business-model"`）/ `pwa/src/lib/project-tech.ts`（`isBusinessModelTopic` / `techLedgerTabOf` / `ledgerTabsPresent`）。仕様 `../pwa/spec/3-20-project-technology-current-spec.md` §5.5。
 
 > **PWA専用画面（Native未移植）**: PJコックピット `?tab=capital-policy` の「資本政策表」タブ
