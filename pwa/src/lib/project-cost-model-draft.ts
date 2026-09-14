@@ -3,6 +3,7 @@
 // 画面で数字を書き換えても保存しない (まさ 2026-09-13「前提条件やまだ確定できない数値はすべてUI上で変えられるようにして」)。
 // 保存値 (DB から読んだ束) はそのまま持ち、書き換えは下書きとして別に持つ。計算は「保存値 + 下書き」で行い、
 // 結果には保存値からの差を出す。admin が「この値を保存」を押したときだけ、下書きを API の patch に変えて正本へ書く。
+// 入力欄の数字の3桁カンマ (打っている最中の整形とカーソル位置) もここに置く。
 
 // 契約チェック (node で直接読む) からも使うので、相対パスで拡張子つきで読む。
 import {
@@ -22,7 +23,7 @@ import {
 export type DraftEntity = "assumption" | "item" | "task" | "model";
 export type DraftAssumptionField = "value" | "valueText";
 export type DraftItemField = "unitPrice" | "quantity" | "usefulLifeYears" | "bearer";
-export type DraftTaskField = "hoursPerOccurrence" | "countDriver" | "countPerYear" | "hourlyRate" | "expensePerOccurrence" | "performer";
+export type DraftTaskField = "hoursPerOccurrence" | "countDriver" | "countPerYear" | "expensePerOccurrence" | "performer";
 export type DraftField = DraftAssumptionField | DraftItemField | DraftTaskField | "targetTotalCostPerUnit";
 export type DraftValue = number | string | null;
 
@@ -56,7 +57,6 @@ const COLUMN: Record<DraftEntity, Partial<Record<DraftField, string>>> = {
     hoursPerOccurrence: "hours_per_occurrence",
     countDriver: "count_driver",
     countPerYear: "count_per_year",
-    hourlyRate: "hourly_rate",
     expensePerOccurrence: "expense_per_occurrence",
     performer: "performer",
   },
@@ -73,7 +73,6 @@ const FIELD_LABEL: Record<DraftField, string> = {
   hoursPerOccurrence: "1回の工数",
   countDriver: "年間回数の決め方",
   countPerYear: "年間回数",
-  hourlyRate: "作業単価",
   expensePerOccurrence: "1回の経費",
   performer: "誰がやるか",
   targetTotalCostPerUnit: "",
@@ -83,7 +82,7 @@ const FIELD_LABEL: Record<DraftField, string> = {
 const NULLABLE: Record<DraftEntity, Set<DraftField>> = {
   assumption: new Set(["value"]),
   item: new Set(["usefulLifeYears"]),
-  task: new Set(["hoursPerOccurrence", "countPerYear", "hourlyRate"]),
+  task: new Set(["hoursPerOccurrence", "countPerYear"]),
   model: new Set(["targetTotalCostPerUnit"]),
 };
 
@@ -188,7 +187,6 @@ function unitOf(bundle: CostModelBundle, entity: DraftEntity, id: string, field:
   }
   if (field === "hoursPerOccurrence") return "時間";
   if (field === "countPerYear") return "回/年";
-  if (field === "hourlyRate") return "円/時";
   if (field === "expensePerOccurrence") return "円";
   return "";
 }
@@ -224,6 +222,34 @@ export function listDraftChanges(bundle: CostModelBundle, draft: CostDraft): Dra
     });
   }
   return changes.sort((x, y) => order[x.entity] - order[y.entity] || x.label.localeCompare(y.label, "ja"));
+}
+
+/**
+ * 数字の整数部に3桁ごとのカンマを入れる (まさ 2026-09-14「桁の大きい数字は必ず３桁ごとにカンマ入れて」)。
+ * 打ちかけの「1.」「-」「0.50」はそのまま残す。数字として読めない文字列は触らない。
+ */
+export function groupDigits(raw: string): string {
+  const m = /^(-?)(\d*)(\.\d*)?$/.exec(raw.replace(/,/g, ""));
+  if (!m) return raw;
+  const [, sign, intPart, frac = ""] = m;
+  return `${sign}${intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}${frac}`;
+}
+
+const FULL_WIDTH_SIGN: Record<string, string> = { "．": ".", "，": ",", "－": "-" };
+/** 全角の数字・小数点・カンマ・マイナスを半角にする。文字数は変わらない。 */
+export const toHalfWidth = (raw: string) =>
+  raw.replace(/[０-９．，－]/g, (c) => FULL_WIDTH_SIGN[c] ?? String.fromCharCode(c.charCodeAt(0) - 0xfee0));
+
+/** カンマを入れ直したあとのカーソル位置。カーソルより左にあった数字の数を保つ。 */
+export function caretAfterGrouping(before: string, caret: number, after: string): number {
+  const keep = before.slice(0, caret).replace(/,/g, "").length;
+  if (keep === 0) return 0;
+  let seen = 0;
+  for (let i = 0; i < after.length; i++) {
+    if (after[i] !== ",") seen++;
+    if (seen === keep) return i + 1;
+  }
+  return after.length;
 }
 
 /** 年間回数の決め方を表示用の文字にする。 */

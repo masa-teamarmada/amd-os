@@ -264,8 +264,8 @@ export interface CostTask {
   countDriver: CostTaskDriver;
   /** 固定の回数のときの年間回数。 */
   countPerYear: number | null;
-  /** 作業単価 (円/時)。null は前提の共通の作業単価 (labor_rate) を使う。 */
-  hourlyRate: number | null;
+  // 作業単価は作業ごとに持たず、前提の共通の作業単価 (labor_rate) の1つだけを使う
+  // (まさ 2026-09-14「工数単価は共通で１つのパラメータで入力するようにして」)。DB の hourly_rate 列は使わない。
   /** 1回あたりの経費 (車両費・部材・外注費など)。 */
   expensePerOccurrence: number;
   /** 誰がやるか。SX がやる作業だけを SX の原価に入れる。 */
@@ -745,6 +745,95 @@ export const TEXT_CHOICE_ROLES: Record<string, Array<{ value: string; label: str
   ],
 };
 
+/**
+ * 前提・明細・作業を並べる区分。操作パネルと読み物で同じ並びにする。
+ * まさ 2026-09-14「前提となるパラメータについて、ページのあちこちに散らばってて、どこにあるか分からん。
+ * CAPEXとOPEXに分けて、さらにそれぞれのサブグループに分けるなどして整理してほしい」。
+ * 前提は role_key、明細は CAPEX / OPEX・効く範囲・群・連動のしかた、作業は人件費に振り分ける。
+ */
+export type CostParamBlockKey = "conditions" | "capex" | "opex";
+
+export interface CostParamBlock {
+  key: CostParamBlockKey;
+  title: string;
+  hint: string;
+}
+
+export interface CostParamGroup {
+  key: string;
+  block: CostParamBlockKey;
+  title: string;
+  hint: string;
+  /** この区分に並べる前提の role_key (表示順)。 */
+  roles: string[];
+  /** 作業リストをこの区分に出すか。 */
+  tasks?: boolean;
+}
+
+export const COST_PARAM_BLOCKS: CostParamBlock[] = [
+  { key: "conditions", title: "事業と処理の条件", hint: "量と売価。CAPEX と OPEX を1単位あたりに割る元になる数字" },
+  { key: "capex", title: "CAPEX（初期投資）", hint: "設備と槽の初期投資。耐用年数で割って年額にする" },
+  { key: "opex", title: "OPEX（毎年の費用）", hint: "人件費・運ぶ・菌体の原料・交換部品・電力・消耗品・後処理など、毎年かかる費用" },
+];
+
+export const COST_PARAM_GROUPS: CostParamGroup[] = [
+  { key: "cond-scale", block: "conditions", title: "事業の規模と売価", hint: "事業全体の年間処理量から、売上・顧客の数・年に作る菌体の量が決まる", roles: ["business_annual_volume", "sale_price"] },
+  { key: "cond-site", block: "conditions", title: "顧客1社の処理", hint: "顧客1社あたりの年間処理量と年間バッチ数が決まる", roles: ["batch_volume", "operating_days", "utilization"] },
+  { key: "cond-substance", block: "conditions", title: "対象物質と菌体の量", hint: "排水1単位あたりに使い切る菌体の量が決まる", roles: ["target_concentration", "uptake_alpha", "recovery_eta", "reuse_count", "k_ppm"] },
+  { key: "cond-biomass", block: "conditions", title: "菌体の製造量と原価", hint: "年に作る菌体の量と、菌体1kgの原価の割り算", roles: ["sales_rate", "biomass_cost_per_kg_override"] },
+  { key: "capex-production", block: "capex", title: "菌体の製造拠点（培養設備）", hint: "培養設備1系列の明細と、1系列で年に作れる量。年に作る量に合わせて系列を並べる", roles: ["culture_line_capacity_kg_year", "culture_capacity_kg_year"] },
+  { key: "capex-circulation", block: "capex", title: "処理設備：循環カートリッジ", hint: "顧客工場（オンサイト）では顧客が買い、SX工場（オフサイト）ではSXが持つ", roles: [] },
+  { key: "capex-injection", block: "capex", title: "処理設備：直接投入", hint: "顧客工場（オンサイト）では顧客が買い、SX工場（オフサイト）ではSXが持つ", roles: [] },
+  { key: "capex-tank", block: "capex", title: "槽", hint: "オンサイトの槽は顧客の設備。オフサイトはSX工場に新設する", roles: ["onsite_tank_bearer", "new_tank_capex", "tank_life_years"] },
+  { key: "capex-offsite", block: "capex", title: "排液の受け入れ設備（オフサイト）", hint: "オフサイトだけ。SX工場で排液を受け入れる設備", roles: [] },
+  { key: "capex-closed", block: "capex", title: "閉鎖系の追加（強化株のみ）", hint: "強化株のときだけ乗る設備", roles: [] },
+  { key: "capex-other", block: "capex", title: "その他の設備", hint: "上の区分に入らない設備", roles: [] },
+  { key: "opex-labor", block: "opex", title: "人件費（作業）", hint: "作業単価は共通の1つ。作業ごとに1回の工数・年間回数・1回の経費を入れる", roles: ["labor_rate"], tasks: true },
+  { key: "opex-transport", block: "opex", title: "運ぶ", hint: "菌体を運ぶ回数と排液を運ぶ台数を決める前提と、顧客工場への菌体の保管・梱包。移動と輸送の工数・経費は人件費の作業で動かす", roles: ["patrol_batches_per_delivery", "truck_capacity_m3"] },
+  { key: "opex-production", block: "opex", title: "菌体の製造拠点（原料・品質確認）", hint: "培地・CO2・濃縮など菌体1kgあたりの費用と、培養設備1系列あたりの品質確認", roles: [] },
+  { key: "opex-parts", block: "opex", title: "交換部品", hint: "循環カートリッジの菌体保持モジュールと、直接投入の膜の交換", roles: ["module_unit_price", "module_durability_batches", "membrane_life_years"] },
+  { key: "opex-power", block: "opex", title: "電力", hint: "装置を動かす電力。動力 × 反応時間 × 電力単価 ÷ バッチ容量", roles: ["power_unit_price", "power_kw_circulation", "hrt_circulation", "power_kw_injection", "hrt_injection"] },
+  { key: "opex-consumables", block: "opex", title: "消耗品・点検・分析", hint: "洗浄・監視・点検・分析・菌体の補充など", roles: [] },
+  { key: "opex-post", block: "opex", title: "使用済み菌体の後処理", hint: "金属回収の酸処理と、色素分解の汚泥の処分", roles: ["spent_wet_factor", "sludge_disposal_price"] },
+  { key: "opex-discharge", block: "opex", title: "処理水の放流（オフサイト）", hint: "オフサイトだけ。SX工場から処理水を流す費用", roles: [] },
+  { key: "opex-closed", block: "opex", title: "閉鎖系の追加（強化株のみ）", hint: "強化株のときだけ乗る薬剤など", roles: [] },
+];
+
+const PARAM_GROUP_BY_KEY = new Map(COST_PARAM_GROUPS.map((g) => [g.key, g]));
+const PARAM_GROUP_BY_ROLE = new Map(COST_PARAM_GROUPS.flatMap((g) => g.roles.map((r) => [r, g] as const)));
+
+/** 前提の置き場所。計算に使う前提 (COST_ROLE_KEYS) で、区分が決まっていないものは「その他」ではなく undefined を返す。 */
+export function paramGroupOfRole(roleKey: string | null): CostParamGroup | undefined {
+  return roleKey ? PARAM_GROUP_BY_ROLE.get(roleKey) : undefined;
+}
+
+/** 明細の置き場所。参考の行は計算に入らないので置かない (undefined)。 */
+export function paramGroupOfItem(
+  item: Pick<CostItem, "costType" | "scenario" | "groupLabel" | "priceRule">
+): CostParamGroup | undefined {
+  const group = (key: string) => PARAM_GROUP_BY_KEY.get(key);
+  const closed = (item.groupLabel ?? "").startsWith("閉鎖系の追加");
+  if (item.costType === "CAPEX") {
+    if (closed) return group("capex-closed");
+    if (item.scenario === "中央培養") return group("capex-production");
+    if (item.scenario === "循環") return group("capex-circulation");
+    if (item.scenario === "投入") return group("capex-injection");
+    if (item.scenario === "オフサイト") return group("capex-offsite");
+    return group("capex-other");
+  }
+  if (item.costType !== "OPEX") return undefined;
+  if (closed) return group("opex-closed");
+  if (item.scenario === "中央培養") return group("opex-production");
+  if (item.groupLabel !== null && POST_PROCESS_GROUPS.has(item.groupLabel)) return group("opex-post");
+  if (item.priceRule === "power_circulation" || item.priceRule === "power_injection") return group("opex-power");
+  if (item.priceRule === "module_swap") return group("opex-parts");
+  if (item.scenario === "オフサイト") return group("opex-discharge");
+  // 現場共通 (オンサイトだけ) の OPEX は、顧客工場へ運ぶ菌体の保管容器・梱包など。
+  if (item.scenario === "現場共通") return group("opex-transport");
+  // 残り (循環・投入・共通) は、処理設備の洗浄・監視・点検と、処理水の分析・菌体の補充。
+  return group("opex-consumables");
+}
+
 /** オンサイトの槽を誰が持つか。前提が無い試算は、これまでどおり SX。 */
 export function onsiteTankBearer(assumptions: CostAssumption[]): CostTankBearer {
   return resolveAssumption(assumptions, "onsite_tank_bearer")?.valueText === "customer" ? "customer" : "sx";
@@ -895,10 +984,8 @@ export function centralItemPerKg(item: CostItem, assumptions: CostAssumption[], 
 export interface CostTaskAmount {
   /** 年間回数。 */
   occurrences: number;
-  /** 使った作業単価 (円/時)。 */
+  /** 使った作業単価 (円/時)。いつも前提の共通の作業単価 (labor_rate)。 */
   rate: number;
-  /** 行に単価が無く、共通の作業単価を使ったか。 */
-  usesCommonRate: boolean;
   hours: number;
   /** 年間の工数 (人時)。 */
   annualHours: number;
@@ -909,7 +996,8 @@ export interface CostTaskAmount {
 
 /**
  * 作業1行の年額。年額 = 年間回数 × (1回の工数 × 作業単価 + 1回の経費)。
- * 製造拠点の作業は第1段の固定費に入るので、回数の決め方によらず固定の回数で数える。
+ * 作業単価は前提の共通の作業単価 (labor_rate) の1つだけ。作業ごとの単価は持たない (まさ 2026-09-14)。
+ * 製造拠点の作業は、拠点に1つの作業は固定の回数、培養設備の系列ごとの作業は 1系列あたりの回数 × 系列数 で数える。
  */
 export function taskAmount(
   task: CostTask,
@@ -927,8 +1015,7 @@ export function taskAmount(
     : task.countDriver === "membrane_swap" ? derived.membraneSwapsPerYear
     : task.countDriver === "truck_trip" ? derived.truckTripsPerYear
     : 0;
-  const usesCommonRate = task.hourlyRate === null || task.hourlyRate === undefined || !Number.isFinite(task.hourlyRate);
-  const rate = usesCommonRate ? roleValue(assumptions, "labor_rate", 4000, sel) : (task.hourlyRate as number);
+  const rate = roleValue(assumptions, "labor_rate", 4000, sel);
   const hours = typeof task.hoursPerOccurrence === "number" && Number.isFinite(task.hoursPerOccurrence) ? Math.max(task.hoursPerOccurrence, 0) : 0;
   const expense = Number.isFinite(task.expensePerOccurrence) ? Math.max(task.expensePerOccurrence, 0) : 0;
   const laborAnnual = occurrences * hours * rate;
@@ -936,7 +1023,6 @@ export function taskAmount(
   return {
     occurrences,
     rate,
-    usesCommonRate,
     hours,
     annualHours: occurrences * hours,
     laborAnnual,

@@ -93,7 +93,6 @@ export function mapBundle(model: any, assumptions: any[], items: any[], question
       hoursPerOccurrence: NUM_OR_NULL(t.hours_per_occurrence),
       countDriver: t.count_driver,
       countPerYear: NUM_OR_NULL(t.count_per_year),
-      hourlyRate: NUM_OR_NULL(t.hourly_rate),
       expensePerOccurrence: NUM(t.expense_per_occurrence),
       performer: t.performer === "customer" || t.performer === "site" ? t.performer : "sx",
       confidence: t.confidence ?? null,
@@ -187,7 +186,8 @@ const QUESTION_FIELDS = new Set(["status", "answer", "answered_on", "visibility"
 const NOTE_FIELDS = new Set(["title", "body_md", "source_url", "source_label", "visibility", "sort_order"]);
 const ITEM_FIELDS = new Set(["unit_price", "quantity", "useful_life_years", "bearer", "confidence", "source_kind", "owner", "note", "visibility"]);
 const TASK_FIELDS = new Set([
-  "hours_per_occurrence", "count_driver", "count_per_year", "hourly_rate", "expense_per_occurrence", "performer",
+  // 作業単価は前提の共通の作業単価 (labor_rate) だけ。作業ごとの hourly_rate は書かせない (まさ 2026-09-14)。
+  "hours_per_occurrence", "count_driver", "count_per_year", "expense_per_occurrence", "performer",
   "confidence", "source_kind", "owner", "note", "visibility",
 ]);
 const MODEL_FIELDS = new Set(["target_total_cost_per_m3", "target_margin_rate"]);
@@ -195,11 +195,11 @@ const MODEL_FIELDS = new Set(["target_total_cost_per_m3", "target_margin_rate"])
 /** 数字の列。画面の試算で書き換えた値を保存するので、数字でない値や負の値は DB へ流さない。 */
 const NUMERIC_FIELDS = new Set([
   "value", "impact_low", "impact_high", "sort_order", "unit_price", "quantity", "useful_life_years",
-  "hours_per_occurrence", "count_per_year", "hourly_rate", "expense_per_occurrence", "target_total_cost_per_m3", "target_margin_rate",
+  "hours_per_occurrence", "count_per_year", "expense_per_occurrence", "target_total_cost_per_m3", "target_margin_rate",
 ]);
 /** 空欄 (null) に戻せる数字の列。 */
 const NULLABLE_NUMERIC_FIELDS = new Set([
-  "value", "impact_low", "impact_high", "useful_life_years", "hours_per_occurrence", "count_per_year", "hourly_rate",
+  "value", "impact_low", "impact_high", "useful_life_years", "hours_per_occurrence", "count_per_year",
   "target_total_cost_per_m3", "target_margin_rate",
 ]);
 const TASK_DRIVERS = new Set(["fixed", "batch", "visit", "module_swap", "membrane_swap", "truck_trip", "production_line"]);

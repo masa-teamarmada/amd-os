@@ -23,7 +23,7 @@ import {
   type CostTankMode,
   type CostTaskFlow,
 } from "@/lib/project-cost-model";
-import { CATEGORY_COLOR, CATEGORY_SHORT_LABEL, Delta, Swatch, bigNum, int, num, signed, yen } from "@/components/cockpit/CockpitCostModelParts";
+import { CATEGORY_COLOR, CATEGORY_SHORT_LABEL, Delta, Swatch, int, num, signed, yen } from "@/components/cockpit/CockpitCostModelParts";
 
 // コスト試算タブの結果パネル。操作パネルの横に置き、数字を動かしたときに全体がどう変わるかを
 // スクロールせずに見られるようにする (まさ 2026-09-13)。値の横の矢印は保存値からの差。
@@ -217,8 +217,11 @@ export function CostResultsPanel({
         })}
         {b.fromVolume ? (
           <p className="w-full text-[10px] leading-4 text-[#6e6e73]" data-testid="cost-production-scale">
-            年に作る量 <span className="font-semibold text-[#1d1d1f]">{bigNum(b.capacityKgYear / 1000)} t/年</span>（年間処理量 {bigNum(b.businessVolume)} {unit}
-            {b.salesRate < 1 ? `・販売率 ${num(b.salesRate * 100, 0)}%` : ""}）・培養設備 {num(b.productionLines, 1)} 系列・初期投資 {yen(b.capexInitial)}
+            {/* 数字と単位の途中で折り返さないよう、区切りごとにまとめる */}
+            <span className="whitespace-nowrap">年に作る量 <span className="font-semibold text-[#1d1d1f]">{int(b.capacityKgYear / 1000)} t/年</span></span>
+            <span className="whitespace-nowrap">（年間処理量 {int(b.businessVolume)} {unit}{b.salesRate < 1 ? `・販売率 ${num(b.salesRate * 100, 0)}%` : ""}）・</span>
+            <span className="whitespace-nowrap">培養設備 {num(b.productionLines, 1)} 系列・</span>
+            <span className="whitespace-nowrap">初期投資 {yen(b.capexInitial)}</span>
             {b.overridePerKg !== null && <span className="font-semibold text-[#b45309]">・上書き値 {num(b.overridePerKg)} 円/kg で計算中</span>}
           </p>
         ) : (b.salesRate < 1 || b.overridePerKg !== null) && (

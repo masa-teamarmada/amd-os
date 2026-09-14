@@ -81,7 +81,8 @@ interface ViewState {
 // 試算中の変更と表示の選択は、タブを行き来しても消えないようにモジュールに持つ (再読み込みで消える)。
 const draftMemory = new Map<string, CostDraft>();
 const viewMemory = new Map<string, ViewState>();
-const DEFAULT_VIEW: ViewState = { strain: null, application: null, location: "onsite", method: "投入", tankMode: "既設" };
+// 開いたときの株は自然株 (まさ 2026-09-14「デフォルトが強化株になってるから、自然株に変えて」)。自然株が無い試算は最初の株。
+const DEFAULT_VIEW: ViewState = { strain: "wild", application: null, location: "onsite", method: "投入", tankMode: "既設" };
 
 export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
   const cached = peekProjectCostModel(projectId);

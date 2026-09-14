@@ -3,6 +3,8 @@
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import {
   APPLICATION_LABEL,
+  COST_PARAM_BLOCKS,
+  COST_PARAM_GROUPS,
   COST_ROLE_KEYS,
   ITEM_BEARERS,
   ITEM_BEARER_LABEL,
@@ -23,6 +25,8 @@ import {
   centralItemPerKg,
   costItemLabel,
   driverUsesCount,
+  paramGroupOfItem,
+  paramGroupOfRole,
   resolveAssumption,
   resolveBearer,
   resolvePerformer,
@@ -35,6 +39,7 @@ import {
   type CostItem,
   type CostItemBearer,
   type CostModelBundle,
+  type CostParamGroup,
   type CostScenarioScope,
   type CostSelection,
   type CostTask,
@@ -43,13 +48,15 @@ import {
   type CostTaskPerformer,
 } from "@/lib/project-cost-model";
 import type { DraftEntity, DraftField, DraftValue } from "@/lib/project-cost-model-draft";
-import { ConfidenceTag, NumberField, ScopeTag, bigNum, int, num, yen } from "@/components/cockpit/CockpitCostModelParts";
+import { ConfidenceTag, NumberField, ScopeTag, int, num, yen } from "@/components/cockpit/CockpitCostModelParts";
 import { CostTaskFlowOverview, stepAnchorId } from "@/components/cockpit/CockpitCostModelFlow";
 import { findScenario, selectionLabel, type CostViewSelection } from "@/components/cockpit/CockpitCostModelResults";
 
 // コスト試算タブの操作パネル。まだ確定できない数字を、すべてここで動かせるようにする (まさ 2026-09-13)。
 // 書き換えはその場で再計算するだけで保存しない。保存は上の「保存していない変更」から admin が行う。
 // 一番上に「作業の流れと工数」を置き、作業リストも同じ段の順に並べる (まさ 2026-09-13)。
+// 前提・作業・明細は「事業と処理の条件 / CAPEX / OPEX」の区分と、その中の小分け (COST_PARAM_GROUPS) に並べる
+// (まさ 2026-09-14「ページのあちこちに散らばってて、どこにあるか分からん。CAPEXとOPEXに分けて、さらにそれぞれのサブグループに分けるなどして整理してほしい」)。
 
 export type CostChangeHandler = (entity: DraftEntity, id: string, field: DraftField, value: DraftValue) => void;
 
@@ -68,100 +75,40 @@ interface Props {
   scrollable: boolean;
 }
 
-interface Section {
-  id: string;
-  title: string;
-  node: ReactNode;
-}
-
 export function CostControlsPanel({ saved, working, computed, selection, flow, unit, onChange, scrollable }: Props) {
   const paneRef = useRef<HTMLDivElement>(null);
+  const [showAllRows, setShowAllRows] = useState(false);
   const derived = computed.derivedByApplication.find((d) => d.application === selection.application)?.derived ?? computed.derived;
   const scenario = findScenario(computed, selection.application, selection.location, selection.method, selection.tankMode);
   const biomass = biomassOf(computed, selection.application);
-
-  // 操作パネルに出す前提 = 計算が読む role_key で、いまの株・用途で実際に採られている行。
-  // 金属回収の菌体使用回数は1回で固定なので、前提があっても出さない。
   const { strain, application } = selection;
-  const groups = useMemo(() => {
+  const tasks = working.tasks ?? [];
+
+  // 前提は区分 (COST_PARAM_GROUPS) の role_key の順に、いまの株・用途で採られている行だけを並べる。
+  // 金属回収の菌体使用回数は1回で固定なので、前提があっても出さない。
+  const assumptionRows = useMemo(() => {
     const sel: CostSelection = { strain, application };
-    const shown = working.assumptions.filter(
-      (a) =>
-        a.roleKey !== null &&
-        COST_ROLE_KEYS.has(a.roleKey) &&
-        !(a.roleKey === "reuse_count" && application === "metal") &&
-        resolveAssumption(working.assumptions, a.roleKey, sel) === a
-    );
     const byGroup = new Map<string, CostAssumption[]>();
-    for (const a of [...shown].sort((x, y) => x.sortOrder - y.sortOrder)) {
-      const list = byGroup.get(a.groupLabel) ?? [];
-      list.push(a);
-      byGroup.set(a.groupLabel, list);
+    for (const g of COST_PARAM_GROUPS) {
+      const rows = g.roles.flatMap((role) => {
+        if (role === "reuse_count" && application === "metal") return [];
+        const a = resolveAssumption(working.assumptions, role, sel);
+        return a ? [a] : [];
+      });
+      byGroup.set(g.key, rows);
     }
-    return [...byGroup.entries()].map(([title, rows]) => ({ title, rows, minSort: Math.min(...rows.map((r) => r.sortOrder)) }));
+    // 区分が決まっていない計算用の前提 (ほかのPJ) は「事業と処理の条件」の最後にまとめる。
+    const unplaced = working.assumptions.filter(
+      (a) => a.roleKey !== null && COST_ROLE_KEYS.has(a.roleKey) && !paramGroupOfRole(a.roleKey) && resolveAssumption(working.assumptions, a.roleKey, sel) === a
+    );
+    return { byGroup, unplaced };
   }, [working.assumptions, strain, application]);
+
+  const allItems = working.items.filter((i) => !i.isBreakdown && i.basis !== "内訳" && i.costType !== "参考");
+  const itemsOfGroup = (key: string) => allItems.filter((i) => paramGroupOfItem(i)?.key === key);
 
   const savedAssumption = (id: string) => saved.assumptions.find((a) => a.costAssumptionId === id)?.value ?? null;
   const savedAssumptionText = (id: string) => saved.assumptions.find((a) => a.costAssumptionId === id)?.valueText ?? null;
-  const roles = (rows: CostAssumption[]) => new Set(rows.map((r) => r.roleKey));
-
-  const renderGroup = (g: (typeof groups)[number]): Section => {
-    const rs = roles(g.rows);
-    return {
-      id: `cm-group-${g.minSort}`,
-      title: g.title,
-      node: (
-        <>
-          {(rs.has("culture_capacity_kg_year") || rs.has("culture_line_capacity_kg_year") || rs.has("sales_rate")) && (
-            <BiomassFormula biomass={biomass} derived={derived} unit={unit} />
-          )}
-          <ul className="flex flex-col divide-y divide-[#f0f0f2]">
-            {g.rows.map((a) => (
-              <AssumptionControl
-                key={a.costAssumptionId}
-                assumption={a}
-                baseline={savedAssumption(a.costAssumptionId)}
-                baselineText={savedAssumptionText(a.costAssumptionId)}
-                onChange={onChange}
-              />
-            ))}
-            {rs.has("sale_price") && (
-              <TargetControl saved={saved} working={working} unit={unit} onChange={onChange} />
-            )}
-          </ul>
-          {(rs.has("target_concentration") || rs.has("uptake_alpha") || rs.has("reuse_count")) && (
-            <p className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 text-[11px] leading-5 text-[#3c3c43]">
-              必要な菌体 {num(derived.biomassWithLossPerM3, 0)} g/{unit}（濃度 ÷ 取り込み効率 ÷ 回収率）÷ 使用回数 {num(derived.reuseCount, 0)}
-              {derived.reuseFixed && <span className="text-[#6e6e73]">（{METAL_SINGLE_USE_NOTE}）</span>} ＝ 使い切る菌体{" "}
-              <span className="font-semibold tabular-nums">{num(derived.biomassKgPerUnit, 3)} kg/{unit}</span>
-              {scenario && <>。菌体費は {num(biomass.perKg)} 円/kg × この量 ＝ <span className="font-semibold tabular-nums">{num(scenario.centralTotalPerUnit)} 円/{unit}</span></>}
-            </p>
-          )}
-          {rs.has("business_annual_volume") && biomass.fromVolume && (
-            <p className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 text-[11px] leading-5 text-[#3c3c43]" data-testid="cost-business-scale">
-              売上 ＝ 年間処理量 {bigNum(biomass.businessVolume)} {unit} × 想定売上単価 {int(derived.salePrice)} 円/{unit} ＝{" "}
-              <span className="font-semibold tabular-nums">{yen(biomass.businessVolume * derived.salePrice)}/年</span>。
-              顧客1社あたり年 {int(derived.annualVolume)} {unit}（バッチ容量 × 稼働日 × 稼働率）で約{int(safeRatio(biomass.businessVolume, derived.annualVolume))}社分。
-              {PRODUCTION_SITE_LABEL}で年に作る菌体は、この量から計算する（{selectionAppLabel(selection)}で{" "}
-              <span className="font-semibold tabular-nums">{bigNum(biomass.capacityKgYear / 1000)} t/年</span>・培養設備 {num(biomass.productionLines, 1)} 系列）。
-            </p>
-          )}
-          {(rs.has("labor_rate") || rs.has("patrol_batches_per_delivery")) && (
-            <p className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 text-[11px] leading-5 text-[#3c3c43]">
-              作業リストの年間回数: 年間バッチ数 {num(derived.annualBatches, 0)}・訪問回数 {num(derived.visitsPerYear, 1)}・モジュール交換 {num(derived.moduleSwapsPerYear, 1)}・膜交換 {num(derived.membraneSwapsPerYear, 2)}・輸送 {int(derived.truckTripsPerYear)}（回/年）
-            </p>
-          )}
-          {rs.has("truck_capacity_m3") && (
-            <p className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 text-[11px] leading-5 text-[#3c3c43]">
-              輸送の回数 ＝ 年間処理量 {int(derived.annualVolume)} {unit} ÷ 1台の積載量 {num(derived.truckCapacity, 1)} ＝{" "}
-              <span className="font-semibold tabular-nums">{int(derived.truckTripsPerYear)} 回/年</span>
-              {derived.annualBatches > 0 && <>（稼働日1日あたり {num(derived.truckTripsPerYear / derived.annualBatches, 1)} 台）</>}。オフサイトのときだけ効く。
-            </p>
-          )}
-        </>
-      ),
-    };
-  };
 
   const jump = (id: string) => {
     const target = document.getElementById(id);
@@ -176,32 +123,124 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
     }
   };
 
-  const early = groups.filter((g) => g.minSort < 40).map(renderGroup);
-  const late = groups.filter((g) => g.minSort >= 40).map(renderGroup);
-  const tasks = working.tasks ?? [];
-  const sections: Section[] = [
-    ...(tasks.length > 0
-      ? [{
-          id: "cm-flow",
-          title: "作業の流れと工数",
-          node: <CostTaskFlowOverview flow={flow} unit={unit} scenarioLabel={selectionLabel(selection)} onJumpStep={(label) => jump(stepAnchorId(label))} />,
-        }]
-      : []),
-    ...early,
-    ...(tasks.length > 0
-      ? [{
-          id: "cm-tasks",
-          title: "作業リスト",
-          node: <TaskList saved={saved} working={working} computed={computed} selection={selection} flow={flow} unit={unit} onChange={onChange} />,
-        }]
-      : []),
-    ...late,
-    {
-      id: "cm-items",
-      title: "設備・消耗品の明細",
-      node: <ItemEditor saved={saved} working={working} computed={computed} selection={selection} unit={unit} onChange={onChange} />,
-    },
-  ];
+  /** 区分の下に出す、いまの数字での割り算。 */
+  const derivedBox = (key: string): ReactNode => {
+    switch (key) {
+      case "cond-scale":
+        return biomass.fromVolume ? (
+          <Formula testId="cost-business-scale">
+            売上 ＝ 年間処理量 {int(biomass.businessVolume)} {unit} × 想定売上単価 {int(derived.salePrice)} 円/{unit} ＝{" "}
+            <span className="font-semibold tabular-nums">{yen(biomass.businessVolume * derived.salePrice)}/年</span>。
+            顧客1社あたり年 {int(derived.annualVolume)} {unit} で約{int(safeRatio(biomass.businessVolume, derived.annualVolume))}社分。
+            {PRODUCTION_SITE_LABEL}で年に作る菌体は、この量から計算する（{selectionAppLabel(selection)}で{" "}
+            <span className="font-semibold tabular-nums">{int(biomass.capacityKgYear / 1000)} t/年</span>・培養設備 {num(biomass.productionLines, 1)} 系列）。
+          </Formula>
+        ) : null;
+      case "cond-site":
+        return (
+          <Formula>
+            顧客1社の年間処理量 ＝ バッチ容量 × 稼働日 × 稼働率 ＝ <span className="font-semibold tabular-nums">{int(derived.annualVolume)} {unit}/年</span>（年間バッチ数 {num(derived.annualBatches, 0)}）
+          </Formula>
+        );
+      case "cond-substance":
+        return (
+          <Formula>
+            必要な菌体 {num(derived.biomassWithLossPerM3, 0)} g/{unit}（濃度 ÷ 取り込み効率 ÷ 回収率）÷ 使用回数 {num(derived.reuseCount, 0)}
+            {derived.reuseFixed && <span className="text-[#6e6e73]">（{METAL_SINGLE_USE_NOTE}）</span>} ＝ 使い切る菌体{" "}
+            <span className="font-semibold tabular-nums">{num(derived.biomassKgPerUnit, 3)} kg/{unit}</span>
+            {scenario && <>。菌体費は {num(biomass.perKg)} 円/kg × この量 ＝ <span className="font-semibold tabular-nums">{num(scenario.centralTotalPerUnit)} 円/{unit}</span></>}
+          </Formula>
+        );
+      case "cond-biomass":
+        return <BiomassFormula biomass={biomass} derived={derived} unit={unit} />;
+      case "capex-production":
+        return (
+          <Formula>
+            {biomass.fromVolume ? (
+              <>
+                年に作る量 {int(biomass.capacityKgYear)} kg ÷ 1系列 {int(biomass.lineCapacityKgYear)} kg ＝{" "}
+                <span className="font-semibold tabular-nums">{num(biomass.productionLines, 1)} 系列</span>。初期投資{" "}
+                <span className="font-semibold tabular-nums">{yen(biomass.capexInitial)}</span>（1系列 {yen(biomass.lineCapexInitial)}）
+              </>
+            ) : (
+              <>初期投資 <span className="font-semibold tabular-nums">{yen(biomass.capexInitial)}</span></>
+            )}
+            。償却は菌体1kgあたり {num(biomass.rows.find((r) => r.key === "capex")?.perKg ?? 0)} 円として菌体費に入る
+          </Formula>
+        );
+      case "capex-tank": {
+        const capex = resolveAssumption(working.assumptions, "new_tank_capex", { strain, application })?.value ?? 0;
+        const life = resolveAssumption(working.assumptions, "tank_life_years", { strain, application })?.value ?? 0;
+        return (
+          <Formula>
+            新設した槽の償却 ＝ {yen(capex)} ÷ {num(life, 0)}年 ÷ 年間処理量 {int(derived.annualVolume)} {unit} ＝{" "}
+            <span className="font-semibold tabular-nums">{num(safeRatio(safeRatio(capex, life), derived.annualVolume))} 円/{unit}</span>（SXが持つ槽だけ）
+          </Formula>
+        );
+      }
+      case "opex-labor":
+        return (
+          <Formula>
+            作業リストの年間回数: 年間バッチ数 {num(derived.annualBatches, 0)}・訪問回数 {num(derived.visitsPerYear, 1)}・モジュール交換 {num(derived.moduleSwapsPerYear, 1)}・膜交換 {num(derived.membraneSwapsPerYear, 2)}・輸送 {int(derived.truckTripsPerYear)}・培養設備 {num(derived.productionLines, 1)} 系列（回/年）
+          </Formula>
+        );
+      case "opex-transport":
+        return (
+          <Formula>
+            訪問回数 ＝ 年間バッチ数 {num(derived.annualBatches, 0)} ÷ 大きい方（使用回数 {num(derived.reuseCount, 0)}、1回の搬入でまかなうバッチ数）＝{" "}
+            <span className="font-semibold tabular-nums">{num(derived.visitsPerYear, 1)} 回/年</span>。輸送の回数 ＝ 年間処理量 {int(derived.annualVolume)} {unit} ÷ 1台の積載量 {num(derived.truckCapacity, 1)} ＝{" "}
+            <span className="font-semibold tabular-nums">{int(derived.truckTripsPerYear)} 回/年</span>（オフサイトのときだけ効く）
+          </Formula>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const renderGroup = (g: CostParamGroup) => {
+    const rows = [...(assumptionRows.byGroup.get(g.key) ?? []), ...(g.key === "cond-biomass" ? assumptionRows.unplaced : [])];
+    const groupItems = itemsOfGroup(g.key);
+    const visibleItems = showAllRows ? groupItems : groupItems.filter((i) => itemApplies(i, selection));
+    const hasTasks = !!g.tasks && tasks.length > 0;
+    const box = derivedBox(g.key);
+    if (rows.length === 0 && groupItems.length === 0 && !hasTasks) return null;
+    return (
+      <section key={g.key} id={`cm-g-${g.key}`} aria-label={g.title} className="scroll-mt-12 border-t border-[#f0f0f2] pt-2 first:border-t-0 first:pt-0">
+        <h5 className="flex flex-wrap items-baseline gap-x-2">
+          <span className="text-[12px] font-semibold text-[#1d1d1f]">{g.title}</span>
+          <span className="text-[10px] leading-4 text-[#6e6e73]">{g.hint}</span>
+        </h5>
+        {rows.length > 0 && (
+          <ul className="flex flex-col divide-y divide-[#f0f0f2]">
+            {rows.map((a) => (
+              <AssumptionControl
+                key={a.costAssumptionId}
+                assumption={a}
+                baseline={savedAssumption(a.costAssumptionId)}
+                baselineText={savedAssumptionText(a.costAssumptionId)}
+                onChange={onChange}
+              />
+            ))}
+            {g.key === "cond-scale" && <TargetControl saved={saved} working={working} unit={unit} onChange={onChange} />}
+          </ul>
+        )}
+        {box}
+        {hasTasks && <TaskList saved={saved} working={working} computed={computed} selection={selection} flow={flow} unit={unit} onChange={onChange} />}
+        {groupItems.length > 0 &&
+          (visibleItems.length > 0 ? (
+            <ItemRows saved={saved} working={working} computed={computed} selection={selection} unit={unit} items={visibleItems} onChange={onChange} />
+          ) : (
+            <p className="mt-1 text-[11px] text-[#86868b]">選んだ組み合わせでは発生しない（{groupItems.length}行。上の「すべての行を出す」で見られる）</p>
+          ))}
+      </section>
+    );
+  };
+
+  const blocks = COST_PARAM_BLOCKS.map((block) => {
+    const groups = COST_PARAM_GROUPS.filter((g) => g.block === block.key);
+    const rendered = groups.map((g) => ({ g, node: renderGroup(g) })).filter((x) => x.node !== null);
+    return { block, rendered };
+  }).filter((b) => b.rendered.length > 0);
 
   return (
     <div
@@ -211,28 +250,67 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
     >
       <nav
         aria-label="操作パネルの目次"
-        className={`${scrollable ? "sticky top-0" : ""} z-10 flex flex-wrap gap-x-0.5 gap-y-0 border-b border-[#e5e5e7] bg-white px-2 py-1`}
+        className={`${scrollable ? "sticky top-0" : ""} z-10 flex flex-wrap items-center gap-x-0.5 gap-y-0 border-b border-[#e5e5e7] bg-white px-2 py-1`}
       >
-        {sections.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            onClick={() => jump(s.id)}
-            className="min-h-[36px] shrink-0 rounded-md px-2 text-[11px] font-semibold text-[#3c3c43] hover:bg-[#e8f3fc] hover:text-[#0267b2] xl:min-h-[26px]"
-          >
-            {s.title}
+        {tasks.length > 0 && (
+          <button type="button" onClick={() => jump("cm-flow")} className={NAV_BUTTON}>
+            作業の流れと工数
+          </button>
+        )}
+        {blocks.map(({ block }) => (
+          <button key={block.key} type="button" onClick={() => jump(`cm-block-${block.key}`)} className={NAV_BUTTON}>
+            {block.title}
           </button>
         ))}
+        <button
+          type="button"
+          onClick={() => setShowAllRows((v) => !v)}
+          aria-pressed={showAllRows}
+          className="ml-auto min-h-[36px] rounded-md border border-[#d2d2d7] bg-white px-2 text-[11px] font-semibold text-[#3c3c43] hover:border-[#7cbceb] xl:min-h-[26px]"
+          title="明細の行を、選んだ株・用途・方式・装置に効く行だけにするか、すべて出すか"
+        >
+          {showAllRows ? "選んだ組み合わせの行だけにする" : `すべての行を出す（明細${allItems.length}行）`}
+        </button>
       </nav>
       <div className="flex flex-col gap-4 px-3 pb-6 pt-3">
-        {sections.map((s) => (
-          <section key={s.id} id={s.id} aria-label={s.title} className="scroll-mt-12">
-            <h4 className="mb-1 text-[12px] font-semibold text-[#1d1d1f]">{s.title}</h4>
-            {s.node}
+        {tasks.length > 0 && (
+          <section id="cm-flow" aria-label="作業の流れと工数" className="scroll-mt-12">
+            <h4 className="mb-1 text-[12px] font-semibold text-[#1d1d1f]">作業の流れと工数</h4>
+            <CostTaskFlowOverview flow={flow} unit={unit} scenarioLabel={selectionLabel(selection)} onJumpStep={(label) => jump(stepAnchorId(label))} />
+          </section>
+        )}
+        {blocks.map(({ block, rendered }) => (
+          <section key={block.key} id={`cm-block-${block.key}`} aria-label={block.title} className="scroll-mt-12 rounded-lg border border-[#e5e5e7] px-2.5 py-2">
+            <h4 className="text-[13px] font-semibold text-[#1d1d1f]">{block.title}</h4>
+            <p className="text-[10px] leading-4 text-[#6e6e73]">{block.hint}</p>
+            <div className="mt-1 flex flex-wrap gap-x-1 gap-y-0.5" aria-label={`${block.title}の区分`}>
+              {rendered.map(({ g }) => (
+                <button
+                  key={g.key}
+                  type="button"
+                  onClick={() => jump(`cm-g-${g.key}`)}
+                  className="min-h-[32px] rounded-full border border-[#e5e5e7] bg-[#fafafa] px-2 text-[10px] font-medium text-[#3c3c43] hover:border-[#7cbceb] hover:text-[#0267b2] xl:min-h-[22px]"
+                >
+                  {g.title}
+                </button>
+              ))}
+            </div>
+            <div className="mt-2 flex flex-col gap-3">{rendered.map(({ node }) => node)}</div>
           </section>
         ))}
       </div>
     </div>
+  );
+}
+
+const NAV_BUTTON = "min-h-[36px] shrink-0 rounded-md px-2 text-[11px] font-semibold text-[#3c3c43] hover:bg-[#e8f3fc] hover:text-[#0267b2] xl:min-h-[26px]";
+
+/** 前提の下に出す、いまの数字での割り算の箱。 */
+function Formula({ children, testId }: { children: ReactNode; testId?: string }) {
+  return (
+    <p className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 text-[11px] leading-5 text-[#3c3c43]" data-testid={testId}>
+      {children}
+    </p>
   );
 }
 
@@ -349,6 +427,8 @@ function AssumptionControl({
           min={isSalesRate ? 1 : undefined}
           max={isSalesRate ? 100 : undefined}
           placeholder={isOverride ? "空欄＝計算値" : undefined}
+          // 3桁カンマ入りの大きい数字（20,000,000 など）がスマホの16pxでも欄に収まる幅
+          widthClass="w-36 xl:w-24"
         />
         <span className="w-16 text-[11px] text-[#6e6e73]">{a.unit}</span>
       </div>
@@ -381,6 +461,7 @@ function TargetControl({
           allowNull
           min={0}
           placeholder="空欄＝目標なし"
+          widthClass="w-36 xl:w-24"
           onChange={(v) => onChange("model", working.model.costModelId, "targetTotalCostPerUnit", v)}
         />
         <span className="w-16 text-[11px] text-[#6e6e73]">円/{unit}</span>
@@ -425,7 +506,7 @@ function BiomassFormula({ biomass: b, derived, unit }: { biomass: CostBiomassCos
       </p>
       {b.fromVolume && (
         <p className="mt-0.5">
-          年に作る量 ＝ 年間処理量 {bigNum(b.businessVolume)} {unit} × 使い切る菌体 {num(derived.biomassKgPerUnit, 3)} kg/{unit}
+          年に作る量 ＝ 年間処理量 {int(b.businessVolume)} {unit} × 使い切る菌体 {num(derived.biomassKgPerUnit, 3)} kg/{unit}
           {r < 1 ? ` ÷ 販売率 ${num(r * 100, 0)}%` : ""} ＝ <span className="font-semibold tabular-nums">{int(b.capacityKgYear)} kg/年</span>
           <span className="text-[#6e6e73]">
             {" "}→ 培養設備1系列 {int(b.lineCapacityKgYear)} kg/年 で {num(b.productionLines, 1)} 系列。系列ごとの費用は1kgあたり変わらず、拠点に1つの作業だけが量で薄まる
@@ -492,15 +573,14 @@ function TaskList({
 
   return (
     <div>
-      <p className="mb-1.5 text-[11px] leading-5 text-[#6e6e73]">
-        年額 ＝ 年間回数 ×（1回の工数 × 作業単価 ＋ 1回の経費）。作業単価が空欄の行は共通の作業単価（{int(commonRate)}円/時）を使う。工数が空欄の行は未確認で、0時間として数える。
+      <p className="mb-1.5 mt-1.5 text-[11px] leading-5 text-[#6e6e73]">
+        年額 ＝ 年間回数 ×（1回の工数 × 作業単価 {int(commonRate)}円/時 ＋ 1回の経費）。作業単価は上の共通の1つで、作業ごとには持たない。工数が空欄の行は未確認で、0時間として数える。
         {PRODUCTION_SITE_LABEL}の作業は菌体費に入り、年間回数は「固定の回数」（拠点に1つの作業）か「系列ごと」（培養設備1系列あたりの回数 × 系列数）で数える。「誰がやるか」が顧客の作業は、SXの原価にも作業時間にも数えない（円/{unit}は「—」）。段は「作業の流れと工数」と同じ順。選んだ方式・装置で発生しない段と行は薄く出す。
       </p>
-      <div className="hidden xl:grid xl:grid-cols-[minmax(0,1fr)_78px_150px_92px_92px_56px] xl:gap-x-1.5 xl:border-b xl:border-[#e5e5e7] xl:pb-1 xl:text-[10px] xl:font-medium xl:text-[#6e6e73]">
+      <div className="hidden xl:grid xl:grid-cols-[minmax(0,1fr)_78px_150px_92px_56px] xl:gap-x-1.5 xl:border-b xl:border-[#e5e5e7] xl:pb-1 xl:text-[10px] xl:font-medium xl:text-[#6e6e73]">
         <span>作業</span>
         <span className="text-right">1回の工数(時)</span>
         <span>年間回数</span>
-        <span className="text-right">作業単価(円/時)</span>
         <span className="text-right">1回の経費(円)</span>
         <span className="text-right">円/{unit}</span>
       </div>
@@ -536,7 +616,7 @@ function TaskList({
                 return (
                   <li
                     key={t.costTaskId}
-                    className={`grid grid-flow-row-dense grid-cols-2 gap-x-2 gap-y-1 py-1.5 xl:grid-flow-row xl:grid-cols-[minmax(0,1fr)_78px_150px_92px_92px_56px] xl:items-center xl:gap-x-1.5 ${applies ? "" : "opacity-50"}`}
+                    className={`grid grid-flow-row-dense grid-cols-2 gap-x-2 gap-y-1 py-1.5 xl:grid-flow-row xl:grid-cols-[minmax(0,1fr)_78px_150px_92px_56px] xl:items-center xl:gap-x-1.5 ${applies ? "" : "opacity-50"}`}
                   >
                     <div className="col-span-2 min-w-0 text-[12px] leading-5 text-[#1d1d1f] xl:col-span-1">
                       {t.label}
@@ -627,20 +707,6 @@ function TaskList({
                         </span>
                       )}
                     </Cell>
-                    <Cell label="作業単価（円/時）">
-                      <NumberField
-                        ariaLabel={`${t.label} 作業単価`}
-                        value={t.hourlyRate}
-                        baseline={base?.hourlyRate ?? null}
-                        allowNull
-                        min={0}
-                        placeholder={`共通 ${int(commonRate)}`}
-                        compact
-                        widthClass="w-full xl:w-[5.5rem]"
-                        wrapperClass={FILL}
-                        onChange={(v) => onChange("task", t.costTaskId, "hourlyRate", v)}
-                      />
-                    </Cell>
                     <Cell label="1回の経費（円）">
                       <NumberField
                         ariaLabel={`${t.label} 1回の経費`}
@@ -676,18 +742,18 @@ function TaskList({
   );
 }
 
-const SCOPE_ORDER: CostScenarioScope[] = ["中央培養", "共通", "現場共通", "循環", "投入", "オフサイト"];
-
 function itemApplies(item: CostItem, selection: CostViewSelection) {
   return rowAppliesTo(item, selection.location, selection.method, { strain: selection.strain, application: selection.application });
 }
 
-function ItemEditor({
+/** 区分の明細の行。数量・単価・耐用年数・誰が持つかを動かす。前提から計算する行は、同じ区分の前提で動かす。 */
+function ItemRows({
   saved,
   working,
   computed,
   selection,
   unit,
+  items,
   onChange,
 }: {
   saved: CostModelBundle;
@@ -695,142 +761,126 @@ function ItemEditor({
   computed: CostComputation;
   selection: CostViewSelection;
   unit: string;
+  items: CostItem[];
   onChange: CostChangeHandler;
 }) {
-  const [onlyApplicable, setOnlyApplicable] = useState(true);
   const sel: CostSelection = { strain: selection.strain, application: selection.application };
   const centralSel: CostSelection = { strain: selection.strain, application: null };
   const derived = computed.derivedByApplication.find((d) => d.application === selection.application)?.derived ?? computed.derived;
   const b = biomassOf(computed, selection.application);
-  const rows = working.items.filter((i) => !i.isBreakdown && i.basis !== "内訳" && i.costType !== "参考");
-  const visible = rows.filter((i) => !onlyApplicable || itemApplies(i, selection));
 
   return (
-    <div>
-      <div className="mb-1.5 flex flex-wrap items-center gap-2 text-[11px] text-[#6e6e73]">
-        <span>数量・単価・耐用年数・誰が持つかを動かせる。前提から計算する行（電力・モジュール交換費など）は前提の欄で動かす。「誰が持つか」が顧客の明細は、SXの原価に入れない（円/{unit}は「—」）。</span>
-        <button
-          type="button"
-          onClick={() => setOnlyApplicable((v) => !v)}
-          aria-pressed={!onlyApplicable}
-          className="min-h-[36px] rounded-md border border-[#d2d2d7] bg-white px-2 font-semibold text-[#3c3c43] hover:border-[#7cbceb] xl:min-h-[26px]"
-        >
-          {onlyApplicable ? `すべての行を出す（${rows.length}行）` : "選んだシナリオに効く行だけにする"}
-        </button>
+    <div className="mt-1.5">
+      <div className="hidden xl:grid xl:grid-cols-[minmax(0,1fr)_64px_128px_64px_56px] xl:gap-x-1.5 xl:border-b xl:border-[#e5e5e7] xl:pb-1 xl:text-[10px] xl:font-medium xl:text-[#6e6e73]">
+        <span>明細</span>
+        <span className="text-right">数量</span>
+        <span className="text-right">単価</span>
+        <span className="text-right">耐用年数</span>
+        <span className="text-right">円/{unit}</span>
       </div>
-      {SCOPE_ORDER.map((scope) => {
-        const list = visible.filter((i) => i.scenario === scope);
-        if (list.length === 0) return null;
-        const isCentral = scope === "中央培養";
-        return (
-          <div key={scope} className="mt-2">
-            <p className="text-[11px] font-semibold text-[#3c3c43]">
-              {SCENARIO_SCOPE_LABEL[scope]}
-              <span className="ml-1 font-normal text-[#6e6e73]">{list.length}行・右端は {isCentral ? "円/kg（生産1kgあたり）" : `円/${unit}`}</span>
-            </p>
-            <ul className="flex flex-col divide-y divide-[#f0f0f2]">
-              {list.map((i) => {
-                const base = saved.items.find((x) => x.costItemId === i.costItemId);
-                const applies = itemApplies(i, selection);
-                const paidBy = resolveBearer(i, selection.location);
-                const right = !applies || paidBy === "customer"
-                  ? null
-                  : isCentral
-                    ? centralItemPerKg(i, working.assumptions, b.lineCapacityKgYear, centralSel)
-                    : derived.annualVolume > 0 ? annualAmount(i, working.assumptions, derived, sel) / derived.annualVolume : 0;
-                return (
-                  <li
-                    key={i.costItemId}
-                    className={`grid grid-cols-2 gap-x-2 gap-y-1 py-1.5 xl:grid-cols-[minmax(0,1fr)_64px_128px_64px_56px] xl:items-center xl:gap-x-1.5 ${applies ? "" : "opacity-50"}`}
-                  >
-                    <div className="col-span-2 min-w-0 text-[12px] leading-5 text-[#1d1d1f] xl:col-span-1">
-                      {costItemLabel(i)}
-                      <ScopeTag strain={i.strain} application={i.application} />
-                      <span className="ml-1 align-middle"><ConfidenceTag value={i.confidence} /></span>
-                      <span className="block text-[10px] leading-4 text-[#6e6e73]">
-                        {i.costType}・{i.basis}{i.groupLabel ? `・${i.groupLabel}` : ""}
-                        {paidBy === "customer" && <span className="font-semibold text-[#3c3c43]">・顧客が持つ（SXの原価に入れない）</span>}
-                        <NoteToggle note={i.note} />
-                      </span>
-                      {!isCentral && (
-                        <label className="mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[10px] text-[#6e6e73]">
-                          <span className="whitespace-nowrap">誰が持つか</span>
-                          <select
-                            aria-label={`${costItemLabel(i)} 誰が持つか`}
-                            value={i.bearer}
-                            title={ITEM_BEARER_LABEL[i.bearer]}
-                            onChange={(e) => onChange("item", i.costItemId, "bearer", e.target.value as CostItemBearer)}
-                            className={`min-h-[36px] max-w-full rounded-md border px-1 text-[16px] text-[#1d1d1f] xl:h-6 xl:min-h-0 xl:text-[11px] ${
-                              base && base.bearer !== i.bearer ? "border-[#027fdc] bg-[#e8f3fc]" : "border-[#d2d2d7] bg-white"
-                            }`}
-                          >
-                            {ITEM_BEARERS.map((bv) => (
-                              <option key={bv} value={bv}>{ITEM_BEARER_SHORT_LABEL[bv]}</option>
-                            ))}
-                          </select>
-                          {i.bearer === "site" && <span className="whitespace-nowrap">（オンサイトは顧客・オフサイトはSX）</span>}
-                        </label>
-                      )}
-                    </div>
-                    <Cell label="数量">
-                      <NumberField
-                        ariaLabel={`${costItemLabel(i)} 数量`}
-                        value={i.quantity}
-                        baseline={base?.quantity ?? i.quantity}
-                        min={0}
-                        compact
-                        widthClass="w-full xl:w-14"
-                        wrapperClass={FILL}
-                        onChange={(v) => onChange("item", i.costItemId, "quantity", v ?? 0)}
-                      />
-                    </Cell>
-                    <Cell label={`単価（${i.unitPriceUnit ?? "円"}）`}>
-                      {i.priceRule ? (
-                        <span className="min-h-[44px] w-full text-right text-[11px] leading-[44px] text-[#6e6e73] xl:min-h-0 xl:leading-normal">前提から計算</span>
-                      ) : (
-                        <>
-                          <NumberField
-                            ariaLabel={`${costItemLabel(i)} 単価`}
-                            value={i.unitPrice}
-                            baseline={base?.unitPrice ?? i.unitPrice}
-                            min={0}
-                            compact
-                            widthClass="w-full xl:w-[5.5rem]"
-                            wrapperClass={FILL}
-                            onChange={(v) => onChange("item", i.costItemId, "unitPrice", v ?? 0)}
-                          />
-                          <span className="hidden w-8 shrink-0 text-[10px] text-[#6e6e73] xl:inline">{(i.unitPriceUnit ?? "").replace(/^円\//, "/")}</span>
-                        </>
-                      )}
-                    </Cell>
-                    <Cell label="耐用年数">
-                      {i.basis === "初期投資配賦" ? (
-                        <NumberField
-                          ariaLabel={`${costItemLabel(i)} 耐用年数`}
-                          value={i.usefulLifeYears}
-                          baseline={base?.usefulLifeYears ?? i.usefulLifeYears}
-                          min={0.5}
-                          compact
-                          widthClass="w-full xl:w-12"
-                          wrapperClass={FILL}
-                          onChange={(v) => onChange("item", i.costItemId, "usefulLifeYears", v)}
-                        />
-                      ) : (
-                        <span className="min-h-[44px] w-full text-right leading-[44px] text-[#86868b] xl:min-h-0 xl:leading-normal">—</span>
-                      )}
-                    </Cell>
-                    <Cell label={isCentral ? "円/kg" : `円/${unit}`}>
-                      <span className="min-h-[44px] w-full text-right text-[13px] font-semibold leading-[44px] tabular-nums text-[#1d1d1f] xl:min-h-0 xl:text-[11px] xl:font-normal xl:leading-normal">
-                        {right === null ? "—" : num(right, 2)}
-                      </span>
-                    </Cell>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        );
-      })}
+      <ul className="flex flex-col divide-y divide-[#f0f0f2]">
+        {items.map((i) => {
+          const base = saved.items.find((x) => x.costItemId === i.costItemId);
+          const applies = itemApplies(i, selection);
+          const isCentral = i.scenario === "中央培養";
+          const paidBy = resolveBearer(i, selection.location);
+          const right = !applies || paidBy === "customer"
+            ? null
+            : isCentral
+              ? centralItemPerKg(i, working.assumptions, b.lineCapacityKgYear, centralSel)
+              : derived.annualVolume > 0 ? annualAmount(i, working.assumptions, derived, sel) / derived.annualVolume : 0;
+          return (
+            <li
+              key={i.costItemId}
+              className={`grid grid-cols-2 gap-x-2 gap-y-1 py-1.5 xl:grid-cols-[minmax(0,1fr)_64px_128px_64px_56px] xl:items-center xl:gap-x-1.5 ${applies ? "" : "opacity-50"}`}
+            >
+              <div className="col-span-2 min-w-0 text-[12px] leading-5 text-[#1d1d1f] xl:col-span-1">
+                {costItemLabel(i)}
+                <ScopeTag strain={i.strain} application={i.application} />
+                <span className="ml-1 align-middle"><ConfidenceTag value={i.confidence} /></span>
+                <span className="block text-[10px] leading-4 text-[#6e6e73]">
+                  {SCENARIO_SCOPE_LABEL[i.scenario as CostScenarioScope]}・{i.basis}{i.groupLabel ? `・${i.groupLabel}` : ""}
+                  {paidBy === "customer" && <span className="font-semibold text-[#3c3c43]">・顧客が持つ（SXの原価に入れない）</span>}
+                  <NoteToggle note={i.note} />
+                </span>
+                {!isCentral && (
+                  <label className="mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[10px] text-[#6e6e73]">
+                    <span className="whitespace-nowrap">誰が持つか</span>
+                    <select
+                      aria-label={`${costItemLabel(i)} 誰が持つか`}
+                      value={i.bearer}
+                      title={ITEM_BEARER_LABEL[i.bearer]}
+                      onChange={(e) => onChange("item", i.costItemId, "bearer", e.target.value as CostItemBearer)}
+                      className={`min-h-[36px] max-w-full rounded-md border px-1 text-[16px] text-[#1d1d1f] xl:h-6 xl:min-h-0 xl:text-[11px] ${
+                        base && base.bearer !== i.bearer ? "border-[#027fdc] bg-[#e8f3fc]" : "border-[#d2d2d7] bg-white"
+                      }`}
+                    >
+                      {ITEM_BEARERS.map((bv) => (
+                        <option key={bv} value={bv}>{ITEM_BEARER_SHORT_LABEL[bv]}</option>
+                      ))}
+                    </select>
+                    {i.bearer === "site" && <span className="whitespace-nowrap">（オンサイトは顧客・オフサイトはSX）</span>}
+                  </label>
+                )}
+              </div>
+              <Cell label="数量">
+                <NumberField
+                  ariaLabel={`${costItemLabel(i)} 数量`}
+                  value={i.quantity}
+                  baseline={base?.quantity ?? i.quantity}
+                  min={0}
+                  compact
+                  widthClass="w-full xl:w-14"
+                  wrapperClass={FILL}
+                  onChange={(v) => onChange("item", i.costItemId, "quantity", v ?? 0)}
+                />
+              </Cell>
+              <Cell label={`単価（${i.unitPriceUnit ?? "円"}）`}>
+                {i.priceRule ? (
+                  <span className="min-h-[44px] w-full text-right text-[11px] leading-[44px] text-[#6e6e73] xl:min-h-0 xl:leading-normal">前提から計算</span>
+                ) : (
+                  <>
+                    <NumberField
+                      ariaLabel={`${costItemLabel(i)} 単価`}
+                      value={i.unitPrice}
+                      baseline={base?.unitPrice ?? i.unitPrice}
+                      min={0}
+                      compact
+                      widthClass="w-full xl:w-[5.5rem]"
+                      wrapperClass={FILL}
+                      onChange={(v) => onChange("item", i.costItemId, "unitPrice", v ?? 0)}
+                    />
+                    <span className="hidden w-8 shrink-0 text-[10px] text-[#6e6e73] xl:inline">{(i.unitPriceUnit ?? "").replace(/^円\//, "/")}</span>
+                  </>
+                )}
+              </Cell>
+              <Cell label="耐用年数">
+                {i.basis === "初期投資配賦" ? (
+                  <NumberField
+                    ariaLabel={`${costItemLabel(i)} 耐用年数`}
+                    value={i.usefulLifeYears}
+                    baseline={base?.usefulLifeYears ?? i.usefulLifeYears}
+                    min={0.5}
+                    compact
+                    widthClass="w-full xl:w-12"
+                    wrapperClass={FILL}
+                    onChange={(v) => onChange("item", i.costItemId, "usefulLifeYears", v)}
+                  />
+                ) : (
+                  <span className="min-h-[44px] w-full text-right leading-[44px] text-[#86868b] xl:min-h-0 xl:leading-normal">—</span>
+                )}
+              </Cell>
+              <Cell label={isCentral ? "円/kg" : `円/${unit}`}>
+                <span className="min-h-[44px] w-full text-right text-[13px] font-semibold leading-[44px] tabular-nums text-[#1d1d1f] xl:min-h-0 xl:text-[11px] xl:font-normal xl:leading-normal">
+                  {right === null ? "—" : num(right, 2)}
+                  {right !== null && isCentral && <span className="ml-0.5 hidden text-[9px] font-normal text-[#6e6e73] xl:inline">/kg</span>}
+                </span>
+              </Cell>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
+

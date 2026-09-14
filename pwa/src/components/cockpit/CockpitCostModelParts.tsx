@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   APPLICATION_LABEL,
   CONFIDENCE_LABEL,
@@ -9,6 +9,7 @@ import {
   type CostBreakdownKey,
   type CostStrain,
 } from "@/lib/project-cost-model";
+import { caretAfterGrouping, groupDigits, toHalfWidth } from "@/lib/project-cost-model-draft";
 
 // コスト試算タブの小さな部品。操作パネル・結果・読み物の3か所から使う。
 
@@ -51,11 +52,6 @@ export const yen = (v: number) =>
   Math.abs(v) >= 100_000_000
     ? `${(v / 100_000_000).toLocaleString("ja-JP", { maximumFractionDigits: 1 })}億円`
     : Math.abs(v) >= 10_000 ? `${(v / 10_000).toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万円` : `${int(v)}円`;
-/** 大きな量を「2,000万」「2.1億」の形で出す (単位は呼び出し側で足す)。 */
-export const bigNum = (v: number) =>
-  Math.abs(v) >= 100_000_000
-    ? `${(v / 100_000_000).toLocaleString("ja-JP", { maximumFractionDigits: 1 })}億`
-    : Math.abs(v) >= 10_000 ? `${(v / 10_000).toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万` : int(v);
 
 /** 保存値からの差。差が無ければ何も出さない。色は付けない（試算の増減は良し悪しの判定ではない）。 */
 export function Delta({ value, digits = 1, className = "" }: { value: number; digits?: number; className?: string }) {
@@ -148,7 +144,7 @@ export function Segmented<T extends string>({
 
 function formatInput(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "";
-  return String(Math.round(value * 1e6) / 1e6);
+  return groupDigits(String(Math.round(value * 1e6) / 1e6));
 }
 
 /**
@@ -185,6 +181,16 @@ export function NumberField({
   wrapperClass?: string;
 }) {
   const [text, setText] = useState(formatInput(value));
+  const inputRef = useRef<HTMLInputElement>(null);
+  // カンマを入れ直したあと、カーソルを打っていた数字の後ろへ戻す。
+  const caretRef = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    const pos = caretRef.current;
+    const el = inputRef.current;
+    caretRef.current = null;
+    if (pos === null || !el || document.activeElement !== el) return;
+    el.setSelectionRange(pos, pos);
+  });
   // 下書きの取り消しや保存値の読み直しで値が変わったら、入力欄を追従させる（レンダー中の調整）。
   const [synced, setSynced] = useState(value);
   if (value !== synced) {
@@ -210,6 +216,7 @@ export function NumberField({
   return (
     <span className={wrapperClass}>
       <input
+        ref={inputRef}
         type="text"
         inputMode="decimal"
         aria-label={ariaLabel}
@@ -218,8 +225,22 @@ export function NumberField({
         placeholder={placeholder}
         title={changed ? `保存値: ${baseline === null ? "空欄" : baseline.toLocaleString("ja-JP")}` : undefined}
         onChange={(e) => {
-          setText(e.target.value);
-          commit(e.target.value);
+          const raw = e.target.value;
+          // 日本語入力の変換中は書き換えない（変換が切れる）。確定したときに整える。
+          if ((e.nativeEvent as InputEvent).isComposing) {
+            setText(raw);
+            return;
+          }
+          const normalized = toHalfWidth(raw);
+          const grouped = groupDigits(normalized);
+          caretRef.current = caretAfterGrouping(normalized, e.target.selectionStart ?? raw.length, grouped);
+          setText(grouped);
+          commit(grouped);
+        }}
+        onCompositionEnd={(e) => {
+          const grouped = groupDigits(toHalfWidth(e.currentTarget.value));
+          setText(grouped);
+          commit(grouped);
         }}
         onBlur={() => setText(formatInput(value))}
         className={`${widthClass} min-h-[44px] rounded-md border px-2 text-right text-[16px] font-semibold tabular-nums text-[#1d1d1f] placeholder:font-normal placeholder:text-[#86868b] focus:outline-none focus:ring-2 focus:ring-[#7cbceb] disabled:bg-[#f5f5f7] disabled:text-[#86868b] xl:h-7 xl:min-h-0 xl:text-[12px] ${

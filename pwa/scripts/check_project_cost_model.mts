@@ -22,12 +22,19 @@
 // 2026-09-14 まさ指摘⑦:「年間の生産能力は入力値じゃなくて計算結果にしてほしい。入力は、年間何立米の廃水を処理するか、にして」
 // 「この計算はIPOできるレベルの大量生産状態を前提にしたいので、売上100億到達レベルを前提にしたパラメータにして」
 // — 年に作る量 = 年間処理量 × 使い切る菌体量 ÷ 販売率。製造拠点の明細を培養設備の1系列として、必要な数だけ並べる。
+// 2026-09-14 まさ指摘⑧:「年間処理量みたいな桁の大きい数字は必ず３桁ごとにカンマ入れて」「デフォルトが強化株になってるから、自然株に変えて」
+// 「工数単価は共通で１つのパラメータで入力するようにして」「前提となるパラメータについて、ページのあちこちに散らばってて、どこにあるか分からん。
+// CAPEXとOPEXに分けて、さらにそれぞれのサブグループに分けるなどして整理してほしい」
+// — 入力欄に3桁カンマ、開いたときは自然株、作業単価は共通の1つだけ、前提・作業・明細を「事業と処理の条件 / CAPEX / OPEX」の区分に置く。
 //
 // 正本: pwa/spec/5-13-project-cost-model-current-spec.md
-// fixture: scripts/__fixtures__/sx_cost_model_two_stage.json（migration 405 適用後の SX データ）
+// fixture: scripts/__fixtures__/sx_cost_model_two_stage.json（migration 407 適用後の SX データ）
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {
+  COST_PARAM_BLOCKS,
+  COST_PARAM_GROUPS,
+  COST_ROLE_KEYS,
   ITEM_BEARERS,
   METHODS,
   PRODUCTION_TASK_DRIVERS,
@@ -39,6 +46,8 @@ import {
   computeCostModel,
   computeTaskFlow,
   deriveCostBasis,
+  paramGroupOfItem,
+  paramGroupOfRole,
   resolveBearer,
   resolvePerformer,
   rowAppliesTo,
@@ -47,11 +56,14 @@ import {
 } from "../src/lib/project-cost-model.ts";
 import {
   applyDraft,
+  caretAfterGrouping,
   draftKey,
   draftToPatches,
+  groupDigits,
   listDraftChanges,
   pruneDraft,
   setDraftValue,
+  toHalfWidth,
 } from "../src/lib/project-cost-model-draft.ts";
 
 const fixture = JSON.parse(fs.readFileSync(new URL("./__fixtures__/sx_cost_model_two_stage.json", import.meta.url), "utf8")) as CostModelBundle;
@@ -160,7 +172,7 @@ for (const strain of ["enhanced", "wild"] as const) {
   // 処理の運転（直接投入）: 7.5時間 × 共通4,000円 × 300バッチ
   const run = taskAmount(task(fixture, "ct_run_injection"), fixture.assumptions, derived, { strain: "enhanced", application: "dye" });
   near(run.annual, 7.5 * 4000 * 300, 1e-6, "処理の運転 = 工数 × 共通の作業単価 × 年間バッチ数");
-  assert.equal(run.usesCommonRate, true, "作業単価が空欄なら共通の作業単価");
+  near(run.rate, 4000, 1e-12, "作業単価は共通の作業単価");
   // 移動: 訪問回数 = 300 ÷ max(色素分解の使用回数10, 1回の搬入でまかなう5) = 30、(2時間 × 4,000 + 車両費5,000) × 30
   const travel = taskAmount(task(fixture, "ct_travel"), fixture.assumptions, derived, { strain: "enhanced", application: "dye" });
   near(travel.occurrences, 30, 1e-9, "訪問回数");
@@ -173,13 +185,19 @@ for (const strain of ["enhanced", "wild"] as const) {
   near(scenario(moreHours, "enhanced", "dye", "オフサイト-投入-新設").siteTaskPerUnit - offBase.siteTaskPerUnit, (7.5 * 4000 * 300) / derived.annualVolume, 1e-9, "工数2倍で運転の作業費が2倍");
   near(scenario(moreHours, "enhanced", "dye", "投入-既設").totalPerUnit, s.totalPerUnit, 1e-9, "オンサイトでは顧客の運転の工数を増やしても SX の総コストは変わらない");
   near(scenario(moreHours, "enhanced", "dye", "投入-既設").siteTaskHours, s.siteTaskHours, 1e-9, "オンサイトでは顧客の運転の工数を増やしても SX の作業工数は変わらない");
-  // 行に作業単価を入れると共通の単価より優先する。共通の単価を変えても、その行は動かない
-  const ownRate = clone();
-  task(ownRate, "ct_run_injection").hourlyRate = 6000;
-  for (const a of ownRate.assumptions) if (a.roleKey === "labor_rate") a.value = 5000;
-  const ownRun = taskAmount(task(ownRate, "ct_run_injection"), ownRate.assumptions, derived, { strain: "enhanced", application: "dye" });
-  near(ownRun.annual, 7.5 * 6000 * 300, 1e-6, "行の作業単価が優先");
-  near(taskAmount(task(ownRate, "ct_delivery"), ownRate.assumptions, derived, { strain: "enhanced", application: "dye" }).annual, 30 * 1 * 5000, 1e-6, "単価が空欄の行は共通の作業単価に連動");
+  // 作業単価は共通の1つだけ（まさ 2026-09-14「工数単価は共通で１つのパラメータで入力するようにして」）。
+  // 作業の行は単価を持たない。共通の単価を変えると、すべての作業が同じ比率で動く
+  for (const t of fixture.tasks) assert.ok(!("hourlyRate" in t), `${t.costTaskId} は作業ごとの単価を持たない`);
+  assert.equal(fixture.assumptions.filter((a) => a.roleKey === "labor_rate").length, 1, "作業単価の前提は1行");
+  const rate5000 = clone();
+  for (const a of rate5000.assumptions) if (a.roleKey === "labor_rate") a.value = 5000;
+  // DB に作業ごとの単価の値が残っていても使わない
+  (task(rate5000, "ct_run_injection") as unknown as Record<string, unknown>).hourlyRate = 6000;
+  near(taskAmount(task(rate5000, "ct_run_injection"), rate5000.assumptions, derived, { strain: "enhanced", application: "dye" }).annual, 7.5 * 5000 * 300, 1e-6, "作業ごとの単価は使わず、共通の作業単価で数える");
+  near(taskAmount(task(rate5000, "ct_delivery"), rate5000.assumptions, derived, { strain: "enhanced", application: "dye" }).annual, 30 * 1 * 5000, 1e-6, "共通の作業単価に連動");
+  const offRate = scenario(rate5000, "enhanced", "dye", "オフサイト-投入-新設");
+  near(offRate.siteTaskHours, offBase.siteTaskHours, 1e-9, "作業単価を変えても工数は変わらない");
+  near(offRate.siteTaskPerUnit - offBase.siteTaskPerUnit, (offBase.siteTaskHours * (5000 - 4000)) / derived.annualVolume, 1e-9, "共通の作業単価を1,000円上げると、SX がやる作業の工数すべてに1,000円ずつ乗る");
   // 工数が空欄（未確認）の行は0時間。経費だけが乗る
   const integrity = taskAmount(task(fixture, "ct_s_integrity_test"), fixture.assumptions, derived, { strain: "enhanced", application: "dye" });
   assert.equal(task(fixture, "ct_s_integrity_test").hoursPerOccurrence, null, "工数未確認の行は空欄");
@@ -335,8 +353,8 @@ assert.ok(
   assert.doesNotMatch(ui.replace(/"中央培養"/g, ""), /中央培養/, "画面の文言に「中央培養」を出さない（DB の値との比較だけ許す）");
   assert.match(ui, /第1段/, "第1段の表示がある");
   // 2026-09-13 まさ指摘③
-  assert.match(controls, /id: "cm-flow",\s*title: "作業の流れと工数"/, "操作パネルの一番上に作業の流れと工数");
-  assert.ok(controls.indexOf('id: "cm-flow"') < controls.indexOf("...early"), "作業の流れは前提の節より前");
+  assert.match(controls, /<section id="cm-flow" aria-label="作業の流れと工数"/, "操作パネルの一番上に作業の流れと工数");
+  assert.ok(controls.indexOf('<section id="cm-flow"') < controls.indexOf("{blocks.map(({ block, rendered })"), "作業の流れは前提の区分より前");
   assert.match(results, /作業工数/, "結果の欄に作業工数の合計");
   assert.match(results, /aria-label="内訳の棒グラフ"/, "結果の欄に内訳の棒グラフ");
   assert.match(results, /StackedBar/, "方式ごとの総コストを内訳の色で積んだ棒で並べる");
@@ -366,12 +384,30 @@ assert.ok(
   assert.match(read(files[3]), /誰が持つか/, "読み物の費用明細に誰が持つかの列");
   assert.match(read(files[3]), /SXの原価はオフサイトだけ（オンサイトは顧客）/, "精度を下げている項目で、オンサイトは顧客が持つ行にそう添える");
   // 2026-09-14 まさ指摘⑦
-  assert.match(controls, /business_annual_volume/, "年間処理量から売上・顧客数・年に作る量を出す");
+  assert.match(controls, /testId="cost-business-scale"/, "年間処理量から売上・顧客数・年に作る量を出す");
   assert.match(controls, /PRODUCTION_TASK_DRIVERS/, "製造拠点の作業は、固定の回数か培養設備の系列ごとを選べる");
   assert.doesNotMatch(controls, /disabled=\{isCentral\}/, "製造拠点の作業の回数の決め方を固定の回数に縛らない");
   assert.match(results, /cost-production-scale/, "結果の欄に年に作る量・培養設備の系列数・初期投資");
   assert.match(results, /事業全体の年間/, "結果の欄に事業全体の年間の売上・総コスト・利益");
   assert.doesNotMatch(ui, /菌体の製造拠点の年間生産能力/, "年間生産能力を入力として出さない");
+  // 2026-09-14 まさ指摘⑧
+  const parts = read("../src/components/cockpit/CockpitCostModelParts.tsx");
+  const draftModule = read("../src/lib/project-cost-model-draft.ts");
+  assert.match(parts, /return groupDigits\(String\(Math\.round\(value \* 1e6\) \/ 1e6\)\)/, "入力欄の数字は3桁ごとのカンマで出す");
+  assert.match(parts, /caretAfterGrouping\(normalized, e\.target\.selectionStart/, "打っている最中もカンマを入れ直し、カーソルを保つ");
+  assert.match(parts, /isComposing/, "日本語入力の変換中は書き換えない");
+  assert.doesNotMatch(ui + parts, /bigNum|万 \{unit\}|万 t\//, "量を「2,000万」の形で出さない（3桁カンマの数字で出す）");
+  assert.match(main, /const DEFAULT_VIEW: ViewState = \{ strain: "wild"/, "開いたときの株は自然株");
+  assert.doesNotMatch(ui + route + draftModule + engine, /hourlyRate/, "作業ごとの作業単価を持たない");
+  assert.doesNotMatch(route.replace(/\/\/.*$/gm, ""), /hourly_rate/, "API は作業ごとの作業単価を読まない・書かない");
+  assert.match(controls, /COST_PARAM_BLOCKS\.map\(\(block\)/, "操作パネルは「事業と処理の条件 / CAPEX / OPEX」の区分で並べる");
+  assert.match(controls, /id=\{`cm-g-\$\{g\.key\}`\}/, "小分けの区分ごとに移動先を持つ");
+  assert.match(controls, /jump\(`cm-block-\$\{block\.key\}`\)/, "目次から CAPEX / OPEX へ移動できる");
+  assert.match(controls, /paramGroupOfItem\(i\)\?\.key === key/, "明細は区分に置く");
+  assert.doesNotMatch(controls, /function ItemEditor|SCOPE_ORDER/, "明細を方式ごとの束で別の場所に出さない");
+  assert.match(read(files[3]), /COST_PARAM_BLOCKS\.map\(\(block\)/, "読み物の「すべての前提」も同じ区分");
+  assert.match(read(files[3]), /paramGroupOfItem\(i\)\?\.key === g\.key/, "読み物の「費用明細」も同じ区分");
+  assert.match(read(files[3]), /!i\.isBreakdown && !paramGroupOfItem\(i\)/, "読み物の「費用明細」は、区分に置かない参考の行も落とさない");
 }
 
 // 12. 金属回収の菌体使用回数は1回で固定。使い回せるのは色素分解だけ
@@ -633,6 +669,68 @@ assert.ok(
   const onlyCapacity = capacityShape(fixture);
   onlyCapacity.assumptions.push({ ...vol, costAssumptionId: "x_volume" });
   near(computeBiomassCost(onlyCapacity, "enhanced", "dye").lineCapacityKgYear, 33333, 1e-9, "年間生産能力を1系列の量として使う");
+}
+
+// 18. 前提・作業・明細の置き場所（まさ 2026-09-14「CAPEXとOPEXに分けて、さらにそれぞれのサブグループに分けるなどして整理してほしい」）
+//     と、入力欄の3桁カンマ（「年間処理量みたいな桁の大きい数字は必ず３桁ごとにカンマ入れて」）
+{
+  assert.deepEqual(COST_PARAM_BLOCKS.map((b) => b.key), ["conditions", "capex", "opex"], "事業と処理の条件 → CAPEX → OPEX の順");
+  const keys = COST_PARAM_GROUPS.map((g) => g.key);
+  assert.equal(new Set(keys).size, keys.length, "区分の key は重複しない");
+  let lastBlock = 0;
+  for (const g of COST_PARAM_GROUPS) {
+    const at = COST_PARAM_BLOCKS.findIndex((b) => b.key === g.block);
+    assert.ok(at >= lastBlock, `${g.key} は大区分の順に並ぶ`);
+    lastBlock = at;
+  }
+  // 計算に使う前提は、どれか1つの区分に置く。区分に置いた前提は計算に使う
+  const placed = COST_PARAM_GROUPS.flatMap((g) => g.roles);
+  assert.equal(new Set(placed).size, placed.length, "1つの前提を2つの区分に置かない");
+  for (const role of COST_ROLE_KEYS) assert.ok(paramGroupOfRole(role), `計算に使う前提 ${role} の区分`);
+  for (const role of placed) assert.ok(COST_ROLE_KEYS.has(role), `区分に置いた ${role} は計算に使う前提`);
+  assert.equal(paramGroupOfRole("business_annual_volume")?.key, "cond-scale", "年間処理量は事業の規模");
+  assert.equal(paramGroupOfRole("culture_line_capacity_kg_year")?.block, "capex", "培養設備1系列の年間生産能力は CAPEX の製造拠点");
+  assert.equal(paramGroupOfRole("new_tank_capex")?.key, "capex-tank", "槽の新設費は CAPEX の槽");
+  assert.equal(paramGroupOfRole("power_unit_price")?.key, "opex-power", "電力単価は OPEX の電力");
+  assert.equal(paramGroupOfRole("module_unit_price")?.key, "opex-parts", "モジュール単価は OPEX の交換部品");
+  // 作業リストと共通の作業単価は、OPEX の人件費（作業）に1回だけ
+  assert.deepEqual(COST_PARAM_GROUPS.filter((g) => g.tasks).map((g) => g.key), ["opex-labor"], "作業リストは OPEX の人件費（作業）");
+  assert.equal(paramGroupOfRole("labor_rate")?.key, "opex-labor", "共通の作業単価は作業リストと同じ区分");
+  // SX の明細は、参考と内訳の行を除いてすべて区分に入る。CAPEX の行は CAPEX、OPEX の行は OPEX
+  const rows = fixture.items.filter((i) => !i.isBreakdown && i.costType !== "参考");
+  const at = (i: (typeof rows)[number]) => paramGroupOfItem(i)?.key;
+  for (const i of rows) {
+    const g = paramGroupOfItem(i);
+    assert.ok(g, `${i.costItemId} の区分`);
+    assert.equal(g.block, i.costType === "CAPEX" ? "capex" : "opex", `${i.costItemId}（${i.costType}）は ${g.key}`);
+    if (i.priceRule === "power_circulation" || i.priceRule === "power_injection") assert.equal(at(i), "opex-power", `${i.costItemId} 電力`);
+    if (i.priceRule === "module_swap") assert.equal(at(i), "opex-parts", `${i.costItemId} 交換部品`);
+    if ((i.groupLabel ?? "").startsWith("閉鎖系の追加")) assert.equal(at(i), i.costType === "CAPEX" ? "capex-closed" : "opex-closed", `${i.costItemId} 閉鎖系`);
+    if (i.scenario === "中央培養" && !(i.groupLabel ?? "").startsWith("閉鎖系の追加")) {
+      assert.equal(at(i), i.costType === "CAPEX" ? "capex-production" : "opex-production", `${i.costItemId} 製造拠点`);
+    }
+    if (i.scenario === "オフサイト") assert.equal(at(i), i.costType === "CAPEX" ? "capex-offsite" : "opex-discharge", `${i.costItemId} オフサイト`);
+  }
+  assert.ok(!rows.some((i) => at(i) === "capex-other"), "SX にはその他の設備へ落ちる明細が無い");
+  assert.equal(rows.filter((i) => at(i) === "opex-post").length, 9, "使用済み菌体の後処理（金属回収の酸処理7行・色素分解の汚泥の処分と洗浄2行）");
+  const references = fixture.items.filter((x) => x.costType === "参考");
+  assert.ok(references.length > 0, "SX には参考の行がある");
+  for (const i of references) assert.equal(paramGroupOfItem(i), undefined, `${i.costItemId} 参考の行は区分に置かない`);
+  // 3桁カンマ: 表示・打ちかけ・全角
+  assert.equal(groupDigits("20000000"), "20,000,000", "年間処理量");
+  assert.equal(groupDigits("33333"), "33,333", "1系列の年間生産能力");
+  assert.equal(groupDigits("1234.5678"), "1,234.5678", "小数部にはカンマを入れない");
+  assert.equal(groupDigits("0.05"), "0.05", "1未満");
+  assert.equal(groupDigits("-1234"), "-1,234", "マイナス");
+  assert.equal(groupDigits("2,0000,00"), "2,000,000", "打ちかけのカンマは入れ直す");
+  assert.equal(groupDigits("12."), "12.", "打ちかけの小数点を残す");
+  assert.equal(groupDigits(""), "", "空欄");
+  assert.equal(groupDigits("abc"), "abc", "数字でない文字列は触らない");
+  assert.equal(groupDigits(toHalfWidth("２００００")), "20,000", "全角の数字");
+  assert.equal(caretAfterGrouping("20000", 5, "20,000"), 6, "末尾で打っていたら末尾");
+  assert.equal(caretAfterGrouping("2000", 1, "2,000"), 1, "先頭の数字の後ろ");
+  assert.equal(caretAfterGrouping("20000", 3, "20,000"), 4, "カンマをまたいでも、カーソルの左の数字の数を保つ");
+  assert.equal(caretAfterGrouping("1,00", 0, "100"), 0, "先頭");
 }
 
 console.log("project-cost-model: OK");
