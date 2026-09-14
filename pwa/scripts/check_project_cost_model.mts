@@ -19,17 +19,22 @@
 // 2026-09-14 まさ指摘⑥:「繰り返し使える色素分解の方が金属回収より高いのが変。もともと10回使える前提でしょ？」
 // 「リアクターは顧客が買う前提だよ」「汚泥の処理単価とかあるけど、これは顧客側がやることじゃないの？」
 // — 明細に誰が持つか (bearer) を持たせ、SX が持つ明細だけを SX の原価に入れる。オンサイトの槽を持つのは前提で持つ。
+// 2026-09-14 まさ指摘⑦:「年間の生産能力は入力値じゃなくて計算結果にしてほしい。入力は、年間何立米の廃水を処理するか、にして」
+// 「この計算はIPOできるレベルの大量生産状態を前提にしたいので、売上100億到達レベルを前提にしたパラメータにして」
+// — 年に作る量 = 年間処理量 × 使い切る菌体量 ÷ 販売率。製造拠点の明細を培養設備の1系列として、必要な数だけ並べる。
 //
 // 正本: pwa/spec/5-13-project-cost-model-current-spec.md
-// fixture: scripts/__fixtures__/sx_cost_model_two_stage.json（migration 403 適用後の SX データ）
+// fixture: scripts/__fixtures__/sx_cost_model_two_stage.json（migration 405 適用後の SX データ）
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {
   ITEM_BEARERS,
   METHODS,
+  PRODUCTION_TASK_DRIVERS,
   TASK_DRIVERS,
   TASK_PERFORMERS,
   TEXT_CHOICE_ROLES,
+  biomassOf,
   computeBiomassCost,
   computeCostModel,
   computeTaskFlow,
@@ -58,6 +63,14 @@ const scenario = (bundle: CostModelBundle, strain: "enhanced" | "wild", app: "dy
 };
 const near = (got: number, want: number, tol: number, label: string) =>
   assert.ok(Math.abs(got - want) <= tol, `${label}: got ${got.toFixed(4)}, want ${want} ±${tol}`);
+/** 年間処理量の前提を外し、年間生産能力を入力として持つ「これまでの形」に戻す（系列は1つ、製造拠点の作業は固定の回数）。 */
+const capacityShape = (bundle: CostModelBundle): CostModelBundle => {
+  const b: CostModelBundle = JSON.parse(JSON.stringify(bundle));
+  b.assumptions = b.assumptions.filter((a) => a.roleKey !== "business_annual_volume");
+  for (const a of b.assumptions) if (a.roleKey === "culture_line_capacity_kg_year") a.roleKey = "culture_capacity_kg_year";
+  for (const t of b.tasks ?? []) if (t.countDriver === "production_line") t.countDriver = "fixed";
+  return b;
+};
 const task = (bundle: CostModelBundle, id: string) => {
   const t = bundle.tasks.find((x) => x.costTaskId === id);
   assert.ok(t, `task ${id}`);
@@ -66,7 +79,7 @@ const task = (bundle: CostModelBundle, id: string) => {
 
 // 1. 旧版と同じ条件へ戻すと、260820版の検証値（原典スプレッドシート一致済み）に戻る
 {
-  const legacy = clone();
+  const legacy = capacityShape(fixture); // 旧版は菌体の製造拠点の年間生産能力を入力として持っていた
   for (const a of legacy.assumptions) if (a.roleKey === "uptake_alpha" && a.application === "metal" && a.strain === "wild") a.value = 0.05;
   legacy.tasks = []; // 人件費と巡回は旧版に無い（閉鎖系の作業は強化株のみで、自然株には元から乗らない）
   for (const i of legacy.items) i.bearer = "sx"; // 旧版は設備も槽も SX の原価に入れていた
@@ -79,19 +92,24 @@ const task = (bundle: CostModelBundle, id: string) => {
   for (const [key, want] of Object.entries(expected)) near(scenario(legacy, "wild", "metal", key).totalPerUnit, want, 0.05, `旧版再現 ${key}`);
 }
 
-// 2. 菌体の製造原価は用途で変わらない（第2段の菌体費 ÷ 使った菌体量 ＝ 第1段の原価）
+// 2. 第2段の菌体費 ÷ 使った菌体量 ＝ その用途の第1段の原価。用途で違うのは、拠点に1つの作業が作る量で薄まる分だけ
 for (const strain of ["enhanced", "wild"] as const) {
-  const perKg = computeBiomassCost(fixture, strain).perKg;
-  assert.ok(perKg > 0, `${strain} 第1段の原価が出ている`);
-  for (const s of computeCostModel(fixture, { strain }).scenarios) {
+  const c = computeCostModel(fixture, { strain });
+  for (const s of c.scenarios) {
+    const perKg = computeBiomassCost(fixture, strain, s.application).perKg;
+    assert.ok(perKg > 0, `${strain} 第1段の原価が出ている`);
     near(s.centralTotalPerUnit / s.biomassKgPerUnit, perKg, 1e-6, `${strain} ${s.key} の菌体1kg原価が第1段と一致`);
+    near(biomassOf(c, s.application).perKg, perKg, 1e-12, `${strain} ${s.key} 画面が引く第1段も同じ`);
   }
+  const dye = computeBiomassCost(fixture, strain, "dye");
+  const metal = computeBiomassCost(fixture, strain, "metal");
+  near(dye.perKg - dye.siteTasksAnnual / dye.soldKgYear, metal.perKg - metal.siteTasksAnnual / metal.soldKgYear, 1e-9, `${strain} 拠点に1つの作業を除けば、1kgあたりの原価は用途で同じ`);
 }
 
 // 3. 強化株は閉鎖系の追加費用で自然株より高い。自然株には強化株の行が1円も乗らない
 {
-  const enh = computeBiomassCost(fixture, "enhanced");
-  const wild = computeBiomassCost(fixture, "wild");
+  const enh = computeBiomassCost(fixture, "enhanced", "dye");
+  const wild = computeBiomassCost(fixture, "wild", "dye");
   assert.ok(enh.perKg > wild.perKg, "強化株の菌体原価 > 自然株");
   assert.ok(enh.strainSpecificPerKg > 0, "強化株に株固有の行が乗る");
   assert.equal(wild.strainSpecificPerKg, 0, "自然株に強化株の行は乗らない");
@@ -99,14 +117,23 @@ for (const strain of ["enhanced", "wild"] as const) {
   for (const s of computeCostModel(fixture, { strain: "wild" }).scenarios) assert.equal(s.strainSpecificPerUnit, 0, `自然株 ${s.key} に閉鎖系の追加費用なし`);
 }
 
-// 4. 菌体使用回数を2倍にすると、菌体費はちょうど半分になる（旧版の頭打ちを戻さない）
+// 4. 菌体使用回数を2倍にすると、菌体費は半分になる（旧版の頭打ちを戻さない）。
+//    年に作る量も半分になるので、拠点に1つの作業（強化株の安全委員会）だけは1m³あたり変わらない
 {
-  const base = scenario(fixture, "enhanced", "dye", "投入-既設");
   const doubled = clone();
   for (const a of doubled.assumptions) if (a.roleKey === "reuse_count" && a.application === "dye") a.value = (a.value ?? 1) * 2;
+  const wildBase = scenario(fixture, "wild", "dye", "投入-既設");
+  const wildTwice = scenario(doubled, "wild", "dye", "投入-既設");
+  near(wildTwice.centralTotalPerUnit, wildBase.centralTotalPerUnit / 2, 1e-6, "拠点に1つの作業が無い自然株は、使用回数2倍で菌体費がちょうど半分");
+  const base = scenario(fixture, "enhanced", "dye", "投入-既設");
   const twice = scenario(doubled, "enhanced", "dye", "投入-既設");
-  near(twice.centralTotalPerUnit, base.centralTotalPerUnit / 2, 1e-6, "使用回数2倍で菌体費が半分");
+  const bio = computeBiomassCost(fixture, "enhanced", "dye");
+  const sitePerUnit = bio.siteTasksAnnual / bio.businessVolume;
+  assert.ok(sitePerUnit > 0, "強化株には拠点に1つの作業がある");
+  near(twice.centralTotalPerUnit, (base.centralTotalPerUnit - sitePerUnit) / 2 + sitePerUnit, 1e-6, "強化株は、拠点に1つの作業を除いた菌体費が半分");
   near(twice.biomassKgPerUnit, base.biomassKgPerUnit / 2, 1e-9, "使用回数2倍で菌体量が半分");
+  const capBase = scenario(capacityShape(fixture), "enhanced", "dye", "投入-既設");
+  near(scenario(capacityShape(doubled), "enhanced", "dye", "投入-既設").centralTotalPerUnit, capBase.centralTotalPerUnit / 2, 1e-6, "年間生産能力を入力で持つ形では、ちょうど半分");
 }
 
 // 5. 用途の行は他の用途に混ざらない（色素分解に酸処理は乗らない。金属回収に汚泥処分は乗らない）
@@ -158,8 +185,9 @@ for (const strain of ["enhanced", "wild"] as const) {
   assert.equal(task(fixture, "ct_s_integrity_test").hoursPerOccurrence, null, "工数未確認の行は空欄");
   near(integrity.annual, 150000, 1e-6, "工数空欄は0時間として数え、経費だけ乗る");
   // 製造拠点の作業は第1段の固定費に入る（生産量で割って1kgあたり）
-  const enh = computeBiomassCost(fixture, "enhanced");
-  near(enh.rows.find((r) => r.key === "tasks")!.perKg, enh.tasksAnnual / enh.capacityKgYear, 1e-9, "製造拠点の作業 ÷ 生産能力");
+  const enh = computeBiomassCost(fixture, "enhanced", "dye");
+  near(enh.rows.find((r) => r.key === "tasks")!.perKg, enh.tasksAnnual / enh.capacityKgYear, 1e-9, "製造拠点の作業 ÷ 年に作る量");
+  near(enh.tasksAnnual, enh.lineTasksAnnual + enh.siteTasksAnnual, 1e-6, "製造拠点の作業 = 系列ごと + 拠点に1つ");
   // 内訳を足すと総コストになる
   for (const strain of ["enhanced", "wild"] as const) {
     for (const x of computeCostModel(fixture, { strain }).scenarios) {
@@ -168,7 +196,8 @@ for (const strain of ["enhanced", "wild"] as const) {
   }
 }
 
-// 7. 販売率: 売れ残りも作った分の費用はかかるので、第1段の全費用を売れた量で割る
+// 7. 販売率: 売れ残りも作った分の費用はかかるので、第1段の全費用を売れた量で割る。
+//    年間処理量から出す形では、売る量は変わらず作る量が増える（系列ごとの費用と比例費は増え、拠点に1つの作業は増えない）
 {
   const rate = (bundle: CostModelBundle, pctValue: number) => {
     const b: CostModelBundle = JSON.parse(JSON.stringify(bundle));
@@ -177,30 +206,49 @@ for (const strain of ["enhanced", "wild"] as const) {
     row.value = pctValue;
     return b;
   };
-  const full = computeBiomassCost(fixture, "enhanced");
-  const half = computeBiomassCost(rate(fixture, 50), "enhanced");
+  const full = computeBiomassCost(fixture, "enhanced", "dye");
+  const half = computeBiomassCost(rate(fixture, 50), "enhanced", "dye");
   near(full.salesRate, 1, 1e-12, "既定は全量が売れる100%");
-  near(half.perKg, full.perKg * 2, 1e-9, "販売率50%で菌体1kgの原価が2倍（比例費も含めて全部）");
-  for (const key of ["capex", "fixed", "tasks", "variable"]) {
-    near(half.rows.find((r) => r.key === key)!.perKg, full.rows.find((r) => r.key === key)!.perKg * 2, 1e-9, `販売率50%で ${key} の行も2倍`);
+  near(half.soldKgYear, full.soldKgYear, 1e-6, "売る量（年間処理量 × 使い切る菌体量）は販売率で変わらない");
+  near(half.capacityKgYear, full.capacityKgYear * 2, 1e-6, "販売率50%なら、売る量をまかなうために作る量が2倍");
+  near(half.soldKgYear, half.capacityKgYear * 0.5, 1e-9, "売れる量 = 年に作る量 × 販売率");
+  for (const key of ["capex", "fixed", "variable"]) {
+    near(half.rows.find((r) => r.key === key)!.perKg, full.rows.find((r) => r.key === key)!.perKg * 2, 1e-9, `販売率50%で ${key} の行は2倍`);
   }
-  near(half.soldKgYear, full.capacityKgYear * 0.5, 1e-9, "売れる量 = 生産能力 × 販売率");
-  near(computeBiomassCost(rate(fixture, 0), "enhanced").salesRate, 0.01, 1e-12, "販売率は1%より下げない（0で割らない）");
+  near(half.lineTasksAnnual, full.lineTasksAnnual * 2, 1e-6, "系列ごとの作業は作る量に合わせて2倍");
+  near(half.siteTasksAnnual, full.siteTasksAnnual, 1e-9, "拠点に1つの作業は増えない");
+  near(
+    half.rows.find((r) => r.key === "tasks")!.perKg,
+    full.rows.find((r) => r.key === "tasks")!.perKg * 2 - full.siteTasksAnnual / full.soldKgYear,
+    1e-9,
+    "製造拠点の作業の行は、系列ごとの分だけ2倍"
+  );
+  // 年間生産能力を入力で持つ形では、これまでどおり全行がちょうど2倍
+  const fullCap = computeBiomassCost(capacityShape(fixture), "enhanced", "dye");
+  const halfCap = computeBiomassCost(rate(capacityShape(fixture), 50), "enhanced", "dye");
+  near(halfCap.perKg, fullCap.perKg * 2, 1e-9, "年間生産能力を入力で持つ形は、販売率50%で菌体1kgの原価が2倍");
+  for (const key of ["capex", "fixed", "tasks", "variable"]) {
+    near(halfCap.rows.find((r) => r.key === key)!.perKg, fullCap.rows.find((r) => r.key === key)!.perKg * 2, 1e-9, `年間生産能力を入力で持つ形は ${key} の行も2倍`);
+  }
+  near(halfCap.soldKgYear, fullCap.capacityKgYear * 0.5, 1e-9, "年間生産能力を入力で持つ形: 売れる量 = 生産能力 × 販売率");
+  near(computeBiomassCost(rate(fixture, 0), "enhanced", "dye").salesRate, 0.01, 1e-12, "販売率は1%より下げない（0で割らない）");
   const noRow = clone();
   noRow.assumptions = noRow.assumptions.filter((a) => a.roleKey !== "sales_rate");
-  near(computeBiomassCost(noRow, "enhanced").perKg, full.perKg, 1e-9, "販売率の前提が無い試算は100%と同じ");
+  near(computeBiomassCost(noRow, "enhanced", "dye").perKg, full.perKg, 1e-9, "販売率の前提が無い試算は100%と同じ");
   // 上書き値も販売率で割る
   const over = rate(fixture, 50);
   for (const a of over.assumptions) if (a.roleKey === "biomass_cost_per_kg_override") a.value = 400;
-  near(computeBiomassCost(over, "enhanced").perKg, 800, 1e-9, "上書き値 ÷ 販売率");
+  near(computeBiomassCost(over, "enhanced", "dye").perKg, 800, 1e-9, "上書き値 ÷ 販売率");
 }
 
 // 8. 仕様書の検証表と一致する（オンサイト・直接投入・顧客の槽）。2026-09-14 から処理の運転は顧客の作業、リアクターと槽は顧客が買い、
 //    色素分解の汚泥の処分は顧客がやる。色素分解の菌体使用回数は10回
-near(computeBiomassCost(fixture, "enhanced").perKg, 127.1, 0.05, "強化株 菌体原価");
-near(computeBiomassCost(fixture, "wild").perKg, 98.5, 0.05, "自然株 菌体原価");
-near(scenario(fixture, "enhanced", "dye", "投入-既設").totalPerUnit, 102.6, 0.05, "強化株 色素 オンサイト直接投入");
-near(scenario(fixture, "enhanced", "metal", "投入-既設").totalPerUnit, 297.0, 0.05, "強化株 金属 オンサイト直接投入");
+//    年間処理量は2,000万m³（売上100億円）。年に作る量から培養設備の系列数を出す
+near(computeBiomassCost(fixture, "enhanced", "dye").perKg, 120.1, 0.05, "強化株 菌体原価（色素分解で年に作る量）");
+near(computeBiomassCost(fixture, "enhanced", "metal").perKg, 120.0, 0.05, "強化株 菌体原価（金属回収で年に作る量）");
+near(computeBiomassCost(fixture, "wild", "dye").perKg, 98.5, 0.05, "自然株 菌体原価");
+near(scenario(fixture, "enhanced", "dye", "投入-既設").totalPerUnit, 101.8, 0.05, "強化株 色素 オンサイト直接投入");
+near(scenario(fixture, "enhanced", "metal", "投入-既設").totalPerUnit, 289.5, 0.05, "強化株 金属 オンサイト直接投入");
 near(scenario(fixture, "wild", "dye", "投入-既設").totalPerUnit, 81.1, 0.05, "自然株 色素 オンサイト直接投入");
 near(scenario(fixture, "wild", "metal", "投入-既設").totalPerUnit, 291.5, 0.05, "自然株 金属 オンサイト直接投入");
 assert.ok(
@@ -241,6 +289,8 @@ assert.ok(
   let fixed = setDraftValue({}, bundle, "task", "ct_delivery", "countPerYear", 60);
   fixed = setDraftValue(fixed, bundle, "task", "ct_delivery", "countDriver", "fixed");
   assert.deepEqual(draftToPatches(bundle, fixed, [draftKey("task", "ct_delivery", "countDriver")])[0].patch, { count_driver: "fixed", count_per_year: 60 }, "固定の回数へ変えると年間回数も送る");
+  const lineDraft = setDraftValue({}, bundle, "task", "ct_c_safety_committee", "countDriver", "production_line");
+  assert.deepEqual(draftToPatches(bundle, lineDraft)[0].patch, { count_driver: "production_line", count_per_year: 1 }, "培養設備の系列ごとへ変えると、1系列あたりの年間回数も送る");
   // 誰がやるかも下書きで変えられる。値は3つだけ
   const pf = setDraftValue({}, bundle, "task", "ct_run_injection", "performer", "sx");
   assert.deepEqual(draftToPatches(bundle, pf)[0].patch, { performer: "sx" }, "誰がやるかの patch は DB の列名");
@@ -315,6 +365,13 @@ assert.ok(
   assert.match(main, /顧客の設備/, "オンサイトの槽を顧客が持つときは、槽の切り替えの代わりに「顧客の設備」と出す");
   assert.match(read(files[3]), /誰が持つか/, "読み物の費用明細に誰が持つかの列");
   assert.match(read(files[3]), /SXの原価はオフサイトだけ（オンサイトは顧客）/, "精度を下げている項目で、オンサイトは顧客が持つ行にそう添える");
+  // 2026-09-14 まさ指摘⑦
+  assert.match(controls, /business_annual_volume/, "年間処理量から売上・顧客数・年に作る量を出す");
+  assert.match(controls, /PRODUCTION_TASK_DRIVERS/, "製造拠点の作業は、固定の回数か培養設備の系列ごとを選べる");
+  assert.doesNotMatch(controls, /disabled=\{isCentral\}/, "製造拠点の作業の回数の決め方を固定の回数に縛らない");
+  assert.match(results, /cost-production-scale/, "結果の欄に年に作る量・培養設備の系列数・初期投資");
+  assert.match(results, /事業全体の年間/, "結果の欄に事業全体の年間の売上・総コスト・利益");
+  assert.doesNotMatch(ui, /菌体の製造拠点の年間生産能力/, "年間生産能力を入力として出さない");
 }
 
 // 12. 金属回収の菌体使用回数は1回で固定。使い回せるのは色素分解だけ
@@ -384,13 +441,13 @@ assert.ok(
       for (const b of x.breakdown) near(b.parts.reduce((t, p) => t + p.perUnit, 0), b.perUnit, 1e-6, `${strain} ${x.key} ${b.key} の中身の合計`);
     }
   }
-  // 仕様書の表と一致する（金属回収のオフサイトは、SX工場の設備・運転なので 2026-09-14 の前後で不変）
-  near(off.totalPerUnit, 2880.7, 0.05, "強化株 色素 オフサイト直接投入");
-  near(scenario(fixture, "enhanced", "dye", "オフサイト-循環-新設").totalPerUnit, 2816.2, 0.05, "強化株 色素 オフサイト循環（処理の運転は画面から顧客で保存）");
-  near(scenario(fixture, "enhanced", "metal", "オフサイト-投入-新設").totalPerUnit, 3033.7, 0.05, "強化株 金属 オフサイト直接投入");
+  // 仕様書の表と一致する（年間処理量2,000万m³で年に作る量から出した菌体原価）
+  near(off.totalPerUnit, 2880.0, 0.05, "強化株 色素 オフサイト直接投入");
+  near(scenario(fixture, "enhanced", "dye", "オフサイト-循環-新設").totalPerUnit, 2815.4, 0.05, "強化株 色素 オフサイト循環（処理の運転は画面から顧客で保存）");
+  near(scenario(fixture, "enhanced", "metal", "オフサイト-投入-新設").totalPerUnit, 3026.1, 0.05, "強化株 金属 オフサイト直接投入");
   near(scenario(fixture, "wild", "dye", "オフサイト-投入-新設").totalPerUnit, 2859.6, 0.05, "自然株 色素 オフサイト直接投入");
   near(scenario(fixture, "wild", "metal", "オフサイト-投入-新設").totalPerUnit, 3027.0, 0.05, "自然株 金属 オフサイト直接投入");
-  near(scenario(fixture, "enhanced", "dye", "循環-既設").totalPerUnit, 382.4, 0.05, "強化株 色素 オンサイト循環");
+  near(scenario(fixture, "enhanced", "dye", "循環-既設").totalPerUnit, 381.6, 0.05, "強化株 色素 オンサイト循環");
 }
 
 // 15. 誰がやるか: SX がやる作業だけを SX の原価に入れる。顧客工場での処理の運転は顧客（オンサイト）、SX（オフサイト）
@@ -435,7 +492,7 @@ assert.ok(
           near(flow.siteHours, x.siteTaskHours, 1e-9, `${label} 流れの SX の工数 = 作業工数`);
           near(flow.siteAnnual, x.siteTaskAnnual, 1e-6, `${label} 流れの年額 = SX の作業の年額`);
           near(flow.sitePerUnit, x.siteTaskPerUnit, 1e-9, `${label} 流れの1単位 = SX の作業の1単位`);
-          near(flow.productionHours, c.biomass.taskHoursAnnual, 1e-9, `${strain} 製造拠点の工数`);
+          near(flow.productionHours, biomassOf(c, application).taskHoursAnnual, 1e-9, `${strain} ${application} 製造拠点の工数（この用途で年に作る量の系列数で数える）`);
           const orders = flow.steps.map((st) => Math.min(...st.rows.map((r) => r.task.sortOrder)));
           assert.deepEqual(orders, [...orders].sort((a, b) => a - b), "段は sort_order の順");
           const ids = flow.steps.flatMap((st) => st.rows.map((r) => r.task.costTaskId));
@@ -494,12 +551,13 @@ assert.ok(
   assert.ok(offDye.breakdown.find((b) => b.key === "capex")!.perUnit > 60, "オフサイトは SX工場の設備と槽の償却が乗る");
   near(offDye.breakdown.find((b) => b.key === "postProcess")!.perUnit, 19.4, 0.05, "オフサイトの色素分解は SX工場で出る汚泥の処分が乗る");
 
-  // SX が設備・槽・処分を持つ形に戻すと、2026-09-14 の直前の数字（使用回数10回）に戻る
+  // SX が設備・槽・処分を持つ形に戻すと、その分だけ上がる（使用回数10回、年間処理量2,000万m³）
   const sxOwns = clone();
   for (const i of sxOwns.items) i.bearer = "sx";
   for (const a of sxOwns.assumptions) if (a.roleKey === "onsite_tank_bearer") a.valueText = "sx";
-  near(scenario(sxOwns, "enhanced", "dye", "投入-既設").totalPerUnit, 240.0, 0.05, "SX が持つ形の色素分解");
-  near(scenario(sxOwns, "enhanced", "metal", "投入-既設").totalPerUnit, 415.0, 0.05, "SX が持つ形の金属回収");
+  near(scenario(sxOwns, "enhanced", "dye", "投入-既設").totalPerUnit, 239.2, 0.05, "SX が持つ形の色素分解");
+  near(scenario(sxOwns, "enhanced", "metal", "投入-既設").totalPerUnit, 407.4, 0.05, "SX が持つ形の金属回収");
+  near(scenario(capacityShape(sxOwns), "enhanced", "dye", "投入-既設").totalPerUnit, 240.0, 0.05, "年間生産能力を入力で持つ形では 2026-09-14 の直前の数字（240.0）");
   const sxTank = computeCostModel(sxOwns, { strain: "enhanced" });
   assert.equal(sxTank.scenarios.length, 12, "槽を SX が持つと、オンサイトは既設と新設の2通りに戻る");
   near(scenario(sxOwns, "enhanced", "dye", "投入-新設").totalPerUnit - scenario(sxOwns, "enhanced", "dye", "投入-既設").totalPerUnit, 18_000_000 / 10 / 30000, 1e-9, "新設の槽は60円/m³");
@@ -513,6 +571,68 @@ assert.ok(
   const noTank = clone();
   noTank.assumptions = noTank.assumptions.filter((a) => a.roleKey !== "onsite_tank_bearer");
   assert.equal(computeCostModel(noTank, { strain: "enhanced" }).onsiteTankBearer, "sx", "槽を持つのはの前提が無い試算は SX");
+}
+
+// 17. 年に作る量は年間処理量から計算する（入力ではない）。培養設備は系列を並べて増やす（まさ 2026-09-14）
+{
+  const vol = fixture.assumptions.find((a) => a.roleKey === "business_annual_volume");
+  assert.ok(vol && vol.value === 20_000_000, "年間処理量は売上100億円に届く2,000万m³（売価500円/m³）");
+  assert.ok(!fixture.assumptions.some((a) => a.roleKey === "culture_capacity_kg_year"), "年間生産能力を入力として持たない");
+  assert.equal(fixture.assumptions.find((a) => a.roleKey === "culture_line_capacity_kg_year")?.value, 33333, "培養設備1系列の年間生産能力");
+  const on = scenario(fixture, "enhanced", "dye", "投入-既設");
+  near(on.businessRevenueAnnual, 10_000_000_000, 1e-3, "事業全体の売上 = 年間処理量 × 売価 = 100億円");
+  near(on.customerCount, 20_000_000 / 30_000, 1e-9, "顧客数 = 年間処理量 ÷ 1社の年間処理量");
+  near(on.businessTotalAnnual, on.totalPerUnit * 20_000_000, 1e-3, "事業全体の総コスト = 1m³あたり × 年間処理量");
+  near(on.businessProfitAnnual, on.businessRevenueAnnual - on.businessTotalAnnual, 1e-3, "事業全体の利益 = 売上 − 総コスト");
+  for (const strain of ["enhanced", "wild"] as const) {
+    for (const application of ["dye", "metal"] as const) {
+      const b = computeBiomassCost(fixture, strain, application);
+      const d = deriveCostBasis(fixture.assumptions, { strain, application });
+      assert.equal(b.fromVolume, true, `${strain} ${application} 年間処理量から出す`);
+      near(b.capacityKgYear, (20_000_000 * d.biomassKgPerUnit) / b.salesRate, 1e-6, `${strain} ${application} 年に作る量 = 年間処理量 × 使い切る菌体量 ÷ 販売率`);
+      near(b.productionLines, b.capacityKgYear / 33333, 1e-9, `${strain} ${application} 系列数 = 年に作る量 ÷ 1系列`);
+      near(b.capexInitial, b.lineCapexInitial * b.productionLines, 1e-3, `${strain} ${application} 初期投資 = 1系列 × 系列数`);
+      near(b.rows.find((r) => r.key === "capex")!.perKg * b.soldKgYear, b.capexAnnual, 1e-3, `${strain} ${application} 償却の年額（系列の数だけ）= 1kgあたり × 売る量`);
+      near(b.rows.find((r) => r.key === "fixed")!.perKg * b.soldKgYear, b.fixedOpexAnnual, 1e-3, `${strain} ${application} 年ごとの固定費（系列の数だけ）= 1kgあたり × 売る量`);
+    }
+  }
+  const dyeBio = computeBiomassCost(fixture, "enhanced", "dye");
+  const metalBio = computeBiomassCost(fixture, "enhanced", "metal");
+  assert.ok(metalBio.capacityKgYear > dyeBio.capacityKgYear * 9, "使い捨ての金属回収は、10回使い回す色素分解の9倍以上の菌体を作る");
+  near(dyeBio.capacityKgYear, 2_222_222, 1, "強化株 色素分解で年に作る量");
+  near(metalBio.productionLines, 628.9, 0.05, "強化株 金属回収の培養設備の系列数");
+  // 系列ごとの作業は系列数に比例。拠点に1つの作業は変わらない
+  const lineTasks = fixture.tasks.filter((t) => t.countDriver === "production_line").map((t) => t.costTaskId).sort();
+  assert.deepEqual(lineTasks, ["ct4_culture_operation", "ct_c_filter_replace", "ct_c_integrity_test"], "培養設備の系列ごとの作業");
+  assert.ok(fixture.tasks.filter((t) => t.countDriver === "production_line").every((t) => t.scenario === "中央培養"), "系列ごとは製造拠点の作業だけ");
+  assert.equal(task(fixture, "ct_c_safety_committee").countDriver, "fixed", "安全委員会の運営は拠点に1つ");
+  for (const d of PRODUCTION_TASK_DRIVERS) assert.ok(TASK_DRIVERS.includes(d), `製造拠点の作業の回数の決め方 ${d}`);
+  const centralSel = { strain: "enhanced" as const, application: null };
+  const lineDerived = { ...deriveCostBasis(fixture.assumptions, centralSel), productionLines: dyeBio.productionLines };
+  near(taskAmount(task(fixture, "ct_c_filter_replace"), fixture.assumptions, lineDerived, centralSel).occurrences, 4 * dyeBio.productionLines, 1e-9, "除菌フィルター交換 = 1系列あたり4回 × 系列数");
+  near(taskAmount(task(fixture, "ct_c_safety_committee"), fixture.assumptions, lineDerived, centralSel).occurrences, 1, 1e-12, "安全委員会は系列数によらず年1回");
+  // 年間処理量を2倍にすると、系列数と初期投資が2倍。1kgあたりは、拠点に1つの作業が半分に薄まる分だけ下がる
+  const doubleVol = clone();
+  for (const a of doubleVol.assumptions) if (a.roleKey === "business_annual_volume") a.value = 40_000_000;
+  const dyeBio2 = computeBiomassCost(doubleVol, "enhanced", "dye");
+  near(dyeBio2.productionLines, dyeBio.productionLines * 2, 1e-9, "年間処理量2倍で系列数2倍");
+  near(dyeBio2.capexInitial, dyeBio.capexInitial * 2, 1e-3, "年間処理量2倍で初期投資2倍");
+  near(dyeBio.perKg - dyeBio2.perKg, dyeBio.siteTasksAnnual / dyeBio.soldKgYear / 2, 1e-9, "1kgあたりは拠点に1つの作業が薄まる分だけ下がる");
+  near(scenario(doubleVol, "enhanced", "dye", "投入-既設").businessRevenueAnnual, 20_000_000_000, 1e-3, "年間処理量2倍で売上2倍");
+  near(computeBiomassCost(doubleVol, "wild", "dye").perKg, computeBiomassCost(fixture, "wild", "dye").perKg, 1e-9, "拠点に1つの作業が無い自然株は、年間処理量で1kgあたりが変わらない");
+  // 年間処理量の前提が無い試算は、これまでどおり年間生産能力をそのまま年に作る量として使う（系列は1つ）
+  const capShape = capacityShape(fixture);
+  const capBio = computeBiomassCost(capShape, "enhanced", "dye");
+  assert.equal(capBio.fromVolume, false, "年間処理量が無ければ年間生産能力を使う");
+  near(capBio.capacityKgYear, 33333, 1e-9, "年間生産能力をそのまま年に作る量に");
+  near(capBio.productionLines, 1, 1e-12, "系列は1つ");
+  near(capBio.perKg, 127.1, 0.05, "これまでの形では 127.1円/kg");
+  near(scenario(capShape, "enhanced", "dye", "投入-既設").totalPerUnit, 102.6, 0.05, "これまでの形では 102.6円/m³");
+  assert.equal(scenario(capShape, "enhanced", "dye", "投入-既設").businessVolume, 0, "年間処理量の前提が無い試算は事業全体の年額を出さない");
+  // 1系列の前提が無く、年間生産能力だけを持つ試算に年間処理量を足すと、年間生産能力を1系列の量として使う
+  const onlyCapacity = capacityShape(fixture);
+  onlyCapacity.assumptions.push({ ...vol, costAssumptionId: "x_volume" });
+  near(computeBiomassCost(onlyCapacity, "enhanced", "dye").lineCapacityKgYear, 33333, 1e-9, "年間生産能力を1系列の量として使う");
 }
 
 console.log("project-cost-model: OK");

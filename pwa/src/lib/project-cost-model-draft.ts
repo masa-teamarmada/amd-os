@@ -11,6 +11,7 @@ import {
   TASK_DRIVER_LABEL,
   TASK_PERFORMER_SHORT_LABEL,
   costItemLabel,
+  driverUsesCount,
   type CostItemBearer,
   type CostModelBundle,
   type CostTankBearer,
@@ -252,7 +253,8 @@ export function draftToPatches(bundle: CostModelBundle, draft: CostDraft, keys?:
     const mapKey = `${entity}:${id}`;
     const p = merged.get(mapKey) ?? { entity, id, patch: {} };
     p.patch[column] = draft[key];
-    if (entity === "task" && field === "countDriver" && draft[key] === "fixed") {
+    // 回数を行に入れる決め方 (固定の回数・培養設備の系列ごと) へ変えるときは、DB の制約を満たすため年間回数も送る。
+    if (entity === "task" && field === "countDriver" && driverUsesCount(draft[key] as CostTaskDriver)) {
       const task = (applied.tasks ?? []).find((t) => t.costTaskId === id);
       if (task) p.patch.count_per_year = task.countPerYear ?? 0;
     }

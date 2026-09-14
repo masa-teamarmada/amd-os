@@ -14,6 +14,7 @@ import {
   resolveBearer,
   resolvePerformer,
   annualAmount,
+  biomassOf,
   centralItemPerKg,
   costItemLabel,
   rowAppliesTo,
@@ -465,7 +466,9 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
                       </td>
                       <td className="whitespace-nowrap px-2 py-1.5 text-right text-[#1d1d1f]">{t.hoursPerOccurrence === null ? "未確認" : `${num(t.hoursPerOccurrence, t.hoursPerOccurrence % 1 === 0 ? 0 : 2)}時間`}</td>
                       <td className="whitespace-nowrap px-2 py-1.5 text-[#1d1d1f]">
-                        {isCentral || t.countDriver === "fixed" ? `${num(t.countPerYear ?? 0, 0)}回` : `${TASK_DRIVER_LABEL[t.countDriver]}（${num(amt.occurrences, amt.occurrences < 10 ? 2 : 0)}回）`}
+                        {t.countDriver === "production_line"
+                          ? `1系列 ${num(t.countPerYear ?? 0, 0)}回 × ${num(derived.productionLines, 1)}系列（${num(amt.occurrences, 0)}回）`
+                          : isCentral || t.countDriver === "fixed" ? `${num(t.countPerYear ?? 0, 0)}回` : `${TASK_DRIVER_LABEL[t.countDriver]}（${num(amt.occurrences, amt.occurrences < 10 ? 2 : 0)}回）`}
                       </td>
                       <td className="whitespace-nowrap px-2 py-1.5 text-right text-[#1d1d1f]">{t.hourlyRate === null ? `共通 ${int(amt.rate)}円` : `${int(t.hourlyRate)}円`}</td>
                       <td className="whitespace-nowrap px-2 py-1.5 text-right text-[#1d1d1f]">{int(t.expensePerOccurrence)}円</td>
@@ -529,7 +532,7 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
                         const applies = rowAppliesTo(i, selection.location, selection.method, sel);
                         const paidBy = resolveBearer(i, selection.location);
                         const annual = applies && paidBy === "sx" ? annualAmount(i, assumptions, derived, rowSel) : null;
-                        const right = !applies || paidBy === "customer" ? null : isCentral ? centralItemPerKg(i, assumptions, computed.biomass.capacityKgYear, rowSel) : (annual ?? 0) / (derived.annualVolume || 1);
+                        const right = !applies || paidBy === "customer" ? null : isCentral ? centralItemPerKg(i, assumptions, biomassOf(computed, selection.application).lineCapacityKgYear, rowSel) : (annual ?? 0) / (derived.annualVolume || 1);
                         const base = savedItem(i.costItemId);
                         const changed = !!base && (base.unitPrice !== i.unitPrice || base.quantity !== i.quantity || base.usefulLifeYears !== i.usefulLifeYears || base.bearer !== i.bearer);
                         return (

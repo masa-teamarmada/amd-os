@@ -10,6 +10,7 @@ import {
   METHODS,
   METHOD_LABEL,
   STRAIN_LABEL,
+  biomassOf,
   scenarioFullLabelOf,
   type CostApplication,
   type CostTankBearer,
@@ -22,7 +23,7 @@ import {
   type CostTankMode,
   type CostTaskFlow,
 } from "@/lib/project-cost-model";
-import { CATEGORY_COLOR, CATEGORY_SHORT_LABEL, Delta, Swatch, int, num, signed, yen } from "@/components/cockpit/CockpitCostModelParts";
+import { CATEGORY_COLOR, CATEGORY_SHORT_LABEL, Delta, Swatch, bigNum, int, num, signed, yen } from "@/components/cockpit/CockpitCostModelParts";
 
 // コスト試算タブの結果パネル。操作パネルの横に置き、数字を動かしたときに全体がどう変わるかを
 // スクロールせずに見られるようにする (まさ 2026-09-13)。値の横の矢印は保存値からの差。
@@ -169,7 +170,7 @@ export function CostResultsPanel({
   const currentBase = findScenario(baseline, app, selection.location, selection.method, selection.tankMode);
   const other = otherStrain ? findScenario(otherStrain, app, selection.location, selection.method, selection.tankMode) : undefined;
   const derived = computed.derivedByApplication.find((d) => d.application === app)?.derived ?? computed.derived;
-  const b = computed.biomass;
+  const b = biomassOf(computed, app);
   const slots = scenarioSlots(computed, selection.tankMode);
   const hasOffsite = computed.locations.includes("offsite");
 
@@ -194,9 +195,9 @@ export function CostResultsPanel({
       {/* 第1段: 株ごとの菌体1kgの原価。押すと株が切り替わる。 */}
       <section aria-label="菌体1kgの原価（第1段）" className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <h4 className="text-[11px] font-semibold text-[#3c3c43]">菌体1kgの原価（第1段）</h4>
-        {computed.biomassByStrain.map((bs) => {
+        {computed.biomassByStrain.filter((bs) => bs.application === app).map((bs) => {
           const active = bs.strain === computed.strain;
-          const base = baseline.biomassByStrain.find((x) => x.strain === bs.strain);
+          const base = baseline.biomassByStrain.find((x) => x.strain === bs.strain && x.application === bs.application);
           return (
             <button
               key={bs.strain ?? "all"}
@@ -214,7 +215,13 @@ export function CostResultsPanel({
             </button>
           );
         })}
-        {(b.salesRate < 1 || b.overridePerKg !== null) && (
+        {b.fromVolume ? (
+          <p className="w-full text-[10px] leading-4 text-[#6e6e73]" data-testid="cost-production-scale">
+            年に作る量 <span className="font-semibold text-[#1d1d1f]">{bigNum(b.capacityKgYear / 1000)} t/年</span>（年間処理量 {bigNum(b.businessVolume)} {unit}
+            {b.salesRate < 1 ? `・販売率 ${num(b.salesRate * 100, 0)}%` : ""}）・培養設備 {num(b.productionLines, 1)} 系列・初期投資 {yen(b.capexInitial)}
+            {b.overridePerKg !== null && <span className="font-semibold text-[#b45309]">・上書き値 {num(b.overridePerKg)} 円/kg で計算中</span>}
+          </p>
+        ) : (b.salesRate < 1 || b.overridePerKg !== null) && (
           <p className="w-full text-[10px] leading-4 text-[#6e6e73]">
             生産 {num(b.capacityKgYear, 0)} kg/年 × 販売率 {num(b.salesRate * 100, 0)}% ＝ 売れる量 {num(b.soldKgYear, 0)} kg/年
             {b.overridePerKg !== null && <span className="font-semibold text-[#b45309]">・上書き値 {num(b.overridePerKg)} 円/kg で計算中</span>}
@@ -410,6 +417,17 @@ export function CostResultsPanel({
                 <span className={current.profitAnnual < 0 ? "text-[#be123c]" : ""}>{yen(current.profitAnnual)}</span>
               </dd>
             </div>
+            {current.businessVolume > 0 && (
+              <div className="flex flex-wrap justify-between gap-x-2 sm:col-span-2" data-testid="cost-business-annual">
+                <dt>
+                  事業全体の年間<span className="ml-1 text-[10px] text-[#6e6e73]">（約{int(current.customerCount)}社）</span>
+                </dt>
+                <dd className="tabular-nums text-[#1d1d1f]">
+                  売上 {yen(current.businessRevenueAnnual)}・総コスト {yen(current.businessTotalAnnual)}・利益{" "}
+                  <span className={current.businessProfitAnnual < 0 ? "text-[#be123c]" : ""}>{yen(current.businessProfitAnnual)}</span>
+                </dd>
+              </div>
+            )}
             {((other && otherStrain?.strain) || counterpart) && (
               <div className="flex flex-wrap justify-between gap-x-2 sm:col-span-2">
                 <dt>比べると</dt>

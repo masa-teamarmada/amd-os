@@ -5,8 +5,13 @@
 //
 // 二段階で計算する (2026-09-13 まさ確定):
 //   第1段 菌体の製造原価 (円/kg-DCW) … 株 (強化株 / 自然株) ごとに、菌体の製造拠点の明細と作業から出す
-//     生産1kgあたり = (培養設備の償却年額 + 年額固定費 + 製造拠点の作業) ÷ 年間生産能力 + 菌体量に比例する費用
+//     生産1kgあたり = (培養設備の償却年額 + 年額固定費 + 製造拠点の作業) ÷ 年に作る量 + 菌体量に比例する費用
 //     売れた1kgあたり = 生産1kgあたり ÷ 販売率。上書き値 (biomass_cost_per_kg_override) があれば生産1kgあたりをそれに置き換える
+//     年に作る量は入力ではなく計算で出す (まさ 2026-09-14「年間の生産能力は入力値じゃなくて計算結果にしてほしい」)。
+//       年に作る量 = 年間処理量 (事業全体、business_annual_volume) × 使い切る菌体量 ÷ 販売率。用途ごとに、その用途だけで処理したときの量
+//       製造拠点の明細は培養設備の1系列 (culture_line_capacity_kg_year で年に作れる量) として、年に作る量 ÷ 1系列の量 だけ並べる。
+//       設備の償却・年額固定費・系列ごとの作業 (count_driver = production_line) は系列の数だけ増え、拠点に1つの作業 (fixed) は増えない
+//     年間処理量の前提が無い試算は、これまでどおり年間生産能力 (culture_capacity_kg_year) をそのまま年に作る量として使う (系列は1つ)
 //   第2段 用途別の処理原価 (円/単位) … 第1段の原価を一定として、色素分解 / 金属回収ごとに出す
 //     必要菌体量 (kg-DCW/単位) = 対象物質濃度 × k_ppm ÷ 取り込み効率α ÷ 菌体回収率η ÷ 菌体使用回数 ÷ 1000
 //     総コスト = 第1段の原価 × 必要菌体量 + 処理の明細 + SXがやる作業 (方式・装置・槽・用途・株で絞る)
@@ -188,7 +193,7 @@ export interface CostItem {
 }
 
 /** 作業の年間回数の決め方。 */
-export type CostTaskDriver = "fixed" | "batch" | "visit" | "module_swap" | "membrane_swap" | "truck_trip";
+export type CostTaskDriver = "fixed" | "batch" | "visit" | "module_swap" | "membrane_swap" | "truck_trip" | "production_line";
 
 export const TASK_DRIVER_LABEL: Record<CostTaskDriver, string> = {
   fixed: "固定の回数",
@@ -197,8 +202,15 @@ export const TASK_DRIVER_LABEL: Record<CostTaskDriver, string> = {
   module_swap: "モジュール交換回数",
   membrane_swap: "膜交換回数",
   truck_trip: "輸送の回数",
+  production_line: "系列ごと",
 };
-export const TASK_DRIVERS: CostTaskDriver[] = ["fixed", "batch", "visit", "module_swap", "membrane_swap", "truck_trip"];
+export const TASK_DRIVERS: CostTaskDriver[] = ["fixed", "batch", "visit", "module_swap", "membrane_swap", "truck_trip", "production_line"];
+/** 菌体の製造拠点の作業が選べる回数の決め方。拠点に1つの作業は固定の回数、培養設備ごとの作業は系列ごと (1系列あたりの回数 × 系列数)。 */
+export const PRODUCTION_TASK_DRIVERS: CostTaskDriver[] = ["fixed", "production_line"];
+/** 回数を行に入力する決め方 (固定の回数と、1系列あたりの回数)。 */
+export function driverUsesCount(driver: CostTaskDriver): boolean {
+  return driver === "fixed" || driver === "production_line";
+}
 
 /** 作業を誰がやるか。sx = SX / customer = 顧客 / site = 処理する場所の人 (オンサイトは顧客、オフサイトは SX)。 */
 export type CostTaskPerformer = "sx" | "customer" | "site";
@@ -345,7 +357,9 @@ export const COST_ROLE_KEYS = new Set([
   "uptake_alpha",
   "recovery_eta",
   "reuse_count",
+  "business_annual_volume",
   "culture_capacity_kg_year",
+  "culture_line_capacity_kg_year",
   "sales_rate",
   "biomass_cost_per_kg_override",
   "labor_rate",
@@ -403,6 +417,11 @@ export interface CostDerived {
   truckTripsPerYear: number;
   /** 1台の積載量 (m³/台)。 */
   truckCapacity: number;
+  /**
+   * 作業の年間回数: 菌体の製造拠点の培養設備の系列数 (端数も比例で数える)。count_driver = production_line の作業が使う。
+   * 物量だけからは決まらない (年に作る量が株・用途・販売率で変わる) ので、deriveCostBasis は 1 を返し、computeCostModel が用途ごとに入れる。
+   */
+  productionLines: number;
 }
 
 export type CostBiomassRowKey = "capex" | "fixed" | "tasks" | "variable";
@@ -419,21 +438,37 @@ export interface CostBiomassRow {
 export interface CostBiomassCost {
   strain: CostStrain | null;
   strainLabel: string;
-  /** 年間生産能力 (kg-DCW/年)。CAPEX・年額固定費・作業はこの量で割って1kgあたりにする。 */
+  /** 年に作る量を決めた用途。年間処理量から作る量を出す試算では、用途ごとに使い切る菌体量が違うので原価も用途ごとに出す。 */
+  application: CostApplication | null;
+  /** 年間処理量 (事業全体) から年に作る量を計算しているか。false は年間生産能力の前提をそのまま使う試算 (系列は1つ)。 */
+  fromVolume: boolean;
+  /** 年間処理量 (事業全体、単位/年)。fromVolume でない試算は 0。 */
+  businessVolume: number;
+  /** 年に作る量 (kg-DCW/年)。CAPEX・年額固定費・作業はこの量で割って1kgあたりにする。 */
   capacityKgYear: number;
+  /** 培養設備1系列で年に作れる量 (kg-DCW/年)。fromVolume でない試算は年に作る量と同じ。 */
+  lineCapacityKgYear: number;
+  /** 培養設備の系列数 = 年に作る量 ÷ 1系列の量 (端数も比例で数える)。fromVolume でない試算は 1。 */
+  productionLines: number;
   /** 販売率 (0〜1)。生産した菌体のうち売れる割合。 */
   salesRate: number;
-  /** 売れる量 (kg-DCW/年) = 年間生産能力 × 販売率。 */
+  /** 売れる量 (kg-DCW/年) = 年に作る量 × 販売率。年間処理量から出す試算では 年間処理量 × 使い切る菌体量。 */
   soldKgYear: number;
-  /** 製造拠点の初期投資 (円)。償却年額 = 初期投資 ÷ 耐用年数。 */
+  /** 製造拠点の初期投資 (円、系列の数だけ並べた総額)。償却年額 = 初期投資 ÷ 耐用年数。 */
   capexInitial: number;
+  /** 培養設備1系列あたりの初期投資 (円)。 */
+  lineCapexInitial: number;
   /** 製造拠点 CAPEX 行の耐用年数の最小・最大 (年)。行ごとに違うことがある。 */
   usefulLifeMinYears: number | null;
   usefulLifeMaxYears: number | null;
   capexAnnual: number;
   fixedOpexAnnual: number;
-  /** 製造拠点の作業の年額 (安全委員会・検査・フィルター交換など)。 */
+  /** 製造拠点の作業の年額 (安全委員会・検査・フィルター交換など)。= 系列ごとの作業 + 拠点に1つの作業。 */
   tasksAnnual: number;
+  /** うち培養設備の系列ごとの作業 (count_driver = production_line。系列の数だけ増える)。 */
+  lineTasksAnnual: number;
+  /** うち拠点に1つの作業 (固定の回数。作る量が増えても増えないので、1kgあたりは薄まる)。 */
+  siteTasksAnnual: number;
   /** 製造拠点の作業の年間工数 (人時、拠点全体)。 */
   taskHoursAnnual: number;
   /** 菌体量に比例する費用 (生産1kgあたり)。 */
@@ -554,6 +589,14 @@ export interface CostScenarioResult {
   profitAnnual: number;
   marginRate: number;
 
+  /** 事業全体 (年間処理量) での年額。年間処理量の前提が無い試算はどれも 0。 */
+  businessVolume: number;
+  /** 年間処理量 ÷ 顧客1社あたりの年間処理量。 */
+  customerCount: number;
+  businessRevenueAnnual: number;
+  businessTotalAnnual: number;
+  businessProfitAnnual: number;
+
   breakEvenPricePerUnit: number;
   requiredPricePerUnit: number;
   allowedTotalCostPerUnit: number;
@@ -582,9 +625,18 @@ export interface CostComputation {
   locations: CostLocation[];
   /** オンサイトの槽を誰が持つか (前提 onsite_tank_bearer)。顧客のとき、オンサイトの槽は「既設」(SX の負担0) だけになる。 */
   onsiteTankBearer: CostTankBearer;
+  /** 選択中の株と、最初の用途の第1段。用途ごとの値は biomassByApplication (biomassOf で引く)。 */
   biomass: CostBiomassCost;
+  /** 選択中の株の、用途ごとの第1段。年に作る量が用途ごとに違うので、1kgあたりの原価も用途ごとに出す。 */
+  biomassByApplication: Array<{ application: CostApplication | null; biomass: CostBiomassCost }>;
+  /** 株 × 用途ごとの第1段 (株の切り替えの表示用)。 */
   biomassByStrain: CostBiomassCost[];
   scenarios: CostScenarioResult[];
+}
+
+/** 用途ごとの第1段を引く。無ければ最初の用途の値。 */
+export function biomassOf(computed: Pick<CostComputation, "biomass" | "biomassByApplication">, application: CostApplication | null): CostBiomassCost {
+  return computed.biomassByApplication.find((b) => b.application === application)?.biomass ?? computed.biomass;
 }
 
 /**
@@ -749,6 +801,7 @@ export function deriveCostBasis(assumptions: CostAssumption[], sel: CostSelectio
     membraneSwapsPerYear: safeDiv(1, roleValue(assumptions, "membrane_life_years", 3, sel)),
     truckTripsPerYear: truckCapacity > 0 ? annualVolume / truckCapacity : 0,
     truckCapacity,
+    productionLines: 1,
   };
 }
 
@@ -866,7 +919,8 @@ export function taskAmount(
 ): CostTaskAmount {
   const fixedCount = Math.max(task.countPerYear ?? 0, 0);
   const occurrences =
-    task.scenario === "中央培養" || task.countDriver === "fixed" ? fixedCount
+    task.countDriver === "production_line" ? fixedCount * Math.max(derived.productionLines ?? 1, 0)
+    : task.scenario === "中央培養" || task.countDriver === "fixed" ? fixedCount
     : task.countDriver === "batch" ? derived.annualBatches
     : task.countDriver === "visit" ? derived.visitsPerYear
     : task.countDriver === "module_swap" ? derived.moduleSwapsPerYear
@@ -922,13 +976,51 @@ function taskAsItem(task: CostTask): CostItem {
 }
 
 /** 第1段: 株ごとの菌体の製造原価 (円/kg-DCW)。用途には依存しない。 */
-export function computeBiomassCost(bundle: CostInputs, strain: CostStrain | null): CostBiomassCost {
+/**
+ * 年に作る量と培養設備の系列数。
+ * 年間処理量 (business_annual_volume) があれば、年に作る量 = 年間処理量 × その用途で使い切る菌体量 ÷ 販売率 で計算し、
+ * 1系列の量 (culture_line_capacity_kg_year。無ければ culture_capacity_kg_year) で割った数だけ系列を並べる。
+ * 無ければ、これまでどおり年間生産能力 (culture_capacity_kg_year) をそのまま年に作る量とし、系列は1つ。
+ */
+export function productionScaleOf(
+  assumptions: CostAssumption[],
+  strain: CostStrain | null,
+  application: CostApplication | null,
+  salesRate: number
+): { fromVolume: boolean; businessVolume: number; capacityKgYear: number; lineCapacityKgYear: number; productionLines: number } {
+  const sel: CostSelection = { strain, application: null };
+  const appSel: CostSelection = { strain, application };
+  const volume = roleValue(assumptions, "business_annual_volume", 0, appSel);
+  const legacyCapacity = roleValue(assumptions, "culture_capacity_kg_year", 0, sel);
+  const lineCapacity = roleValue(assumptions, "culture_line_capacity_kg_year", legacyCapacity, sel);
+  if (!(volume > 0)) {
+    const capacity = legacyCapacity > 0 ? legacyCapacity : lineCapacity;
+    return { fromVolume: false, businessVolume: 0, capacityKgYear: capacity, lineCapacityKgYear: capacity, productionLines: 1 };
+  }
+  const capacity = safeDiv(volume * deriveCostBasis(assumptions, appSel).biomassKgPerUnit, salesRate);
+  return {
+    fromVolume: true,
+    businessVolume: volume,
+    capacityKgYear: capacity,
+    lineCapacityKgYear: lineCapacity,
+    productionLines: safeDiv(capacity, lineCapacity),
+  };
+}
+
+export function computeBiomassCost(
+  bundle: CostInputs,
+  strain: CostStrain | null,
+  application: CostApplication | null = null
+): CostBiomassCost {
   const sel: CostSelection = { strain, application: null };
   const { assumptions, items } = bundle;
   const tasks = bundle.tasks ?? [];
-  const capacity = roleValue(assumptions, "culture_capacity_kg_year", 0, sel);
   const salesRate = salesRateOf(assumptions, sel);
-  const derived = deriveCostBasis(assumptions, sel);
+  const scale = productionScaleOf(assumptions, strain, application, salesRate);
+  const capacity = scale.capacityKgYear;
+  const lines = scale.productionLines;
+  // 製造拠点の作業は系列ごとの作業に系列数を掛けるので、物量に系列数を入れて数える。
+  const derived: CostDerived = { ...deriveCostBasis(assumptions, sel), productionLines: lines };
   const central = items.filter(
     (i) => i.scenario === "中央培養" && !i.isBreakdown && i.basis !== "内訳" && i.costType !== "参考" && scopeApplies(i, sel)
   );
@@ -942,34 +1034,38 @@ export function computeBiomassCost(bundle: CostInputs, strain: CostStrain | null
   ];
   const rowOf = (key: CostBiomassRowKey) => rows.find((r) => r.key === key) as CostBiomassRow;
   let capexAnnual = 0;
-  let capexInitial = 0;
+  let lineCapexInitial = 0;
   let fixedOpexAnnual = 0;
-  let tasksAnnual = 0;
+  let lineTasksAnnual = 0;
+  let siteTasksAnnual = 0;
   let taskHoursAnnual = 0;
   let variablePerKg = 0;
   const lives: number[] = [];
   for (const i of central) {
-    const perKg = centralItemPerKg(i, assumptions, capacity, sel);
+    // 明細は培養設備1系列ぶん。系列の数だけ並べるので、1kgあたりは「1系列の年額 ÷ 1系列の量」になる。
+    const perKg = centralItemPerKg(i, assumptions, scale.lineCapacityKgYear, sel);
     const row = rowOf(i.basis === "初期投資配賦" ? "capex" : i.basis === "年額固定" ? "fixed" : "variable");
     row.perKg += perKg;
     if (i.strain) row.strainSpecificPerKg += perKg;
     if (i.basis === "初期投資配賦") {
-      capexAnnual += safeDiv(i.quantity * i.unitPrice * i.annualFactor, i.usefulLifeYears ?? 0);
-      capexInitial += i.quantity * i.unitPrice;
+      capexAnnual += safeDiv(i.quantity * i.unitPrice * i.annualFactor, i.usefulLifeYears ?? 0) * lines;
+      lineCapexInitial += i.quantity * i.unitPrice;
       if (i.usefulLifeYears && i.quantity * i.unitPrice > 0) lives.push(i.usefulLifeYears);
     }
-    else if (i.basis === "年額固定") fixedOpexAnnual += i.quantity * i.unitPrice * i.annualFactor;
+    else if (i.basis === "年額固定") fixedOpexAnnual += i.quantity * i.unitPrice * i.annualFactor * lines;
     else if (i.basis === "毎kg菌体比例") variablePerKg += perKg;
   }
   for (const t of centralTasks) {
     const amount = taskAmount(t, assumptions, derived, sel);
     const annual = amount.annual;
-    tasksAnnual += annual;
+    if (t.countDriver === "production_line") lineTasksAnnual += annual;
+    else siteTasksAnnual += annual;
     taskHoursAnnual += amount.annualHours;
     const perKg = safeDiv(annual, capacity);
     rowOf("tasks").perKg += perKg;
     if (t.strain) rowOf("tasks").strainSpecificPerKg += perKg;
   }
+  const tasksAnnual = lineTasksAnnual + siteTasksAnnual;
 
   const productionPerKg = rows.reduce((t, r) => t + r.perKg, 0);
   const productionStrainSpecificPerKg = rows.reduce((t, r) => t + r.strainSpecificPerKg, 0);
@@ -984,15 +1080,23 @@ export function computeBiomassCost(bundle: CostInputs, strain: CostStrain | null
   return {
     strain,
     strainLabel: strain ? STRAIN_LABEL[strain] : "",
+    application,
+    fromVolume: scale.fromVolume,
+    businessVolume: scale.businessVolume,
     capacityKgYear: capacity,
+    lineCapacityKgYear: scale.lineCapacityKgYear,
+    productionLines: lines,
     salesRate,
     soldKgYear: capacity * salesRate,
-    capexInitial,
+    capexInitial: lineCapexInitial * lines,
+    lineCapexInitial,
     usefulLifeMinYears: lives.length > 0 ? Math.min(...lives) : null,
     usefulLifeMaxYears: lives.length > 0 ? Math.max(...lives) : null,
     capexAnnual,
     fixedOpexAnnual,
     tasksAnnual,
+    lineTasksAnnual,
+    siteTasksAnnual,
     taskHoursAnnual,
     variablePerKg,
     productionPerKg,
@@ -1047,12 +1151,10 @@ export function computeCostModel(
     : strains[0] ?? null;
   const appList: Array<CostApplication | null> = applications.length > 0 ? applications : [null];
 
-  const biomass = computeBiomassCost(bundle, strain);
-  const biomassByStrain = (strains.length > 0 ? strains : [null]).map((s) => computeBiomassCost(bundle, s));
-  const capexRow = biomass.rows.find((r) => r.key === "capex");
-  const capexShare = biomass.overridePerKg !== null ? 0 : safeDiv(capexRow?.perKg ?? 0, biomass.perKg);
+  // 年に作る量は用途ごとに違う (使い切る菌体量が違う) ので、第1段も用途ごとに出す。
+  const biomassByApplication = appList.map((application) => ({ application, biomass: computeBiomassCost(bundle, strain, application) }));
+  const biomassByStrain = (strains.length > 0 ? strains : [null]).flatMap((s) => appList.map((application) => computeBiomassCost(bundle, s, application)));
   const centralSel: CostSelection = { strain, application: null };
-  const centralDerived = deriveCostBasis(assumptions, centralSel);
 
   const live = items.filter((i) => !i.isBreakdown && i.basis !== "内訳");
   const newTankCapex = roleValue(assumptions, "new_tank_capex", 18_000_000);
@@ -1064,7 +1166,12 @@ export function computeCostModel(
 
   for (const application of appList) {
     const sel: CostSelection = { strain, application };
-    const derived = deriveCostBasis(assumptions, sel);
+    const biomass = (biomassByApplication.find((b) => b.application === application) ?? biomassByApplication[0]).biomass;
+    const capexRow = biomass.rows.find((r) => r.key === "capex");
+    const capexShare = biomass.overridePerKg !== null ? 0 : safeDiv(capexRow?.perKg ?? 0, biomass.perKg);
+    // 製造拠点の系列ごとの作業は、この用途で年に作る量から出した系列数で数える。
+    const derived: CostDerived = { ...deriveCostBasis(assumptions, sel), productionLines: biomass.productionLines };
+    const centralDerived: CostDerived = { ...deriveCostBasis(assumptions, centralSel), productionLines: biomass.productionLines };
     derivedByApplication.push({ application, derived });
     const volume = derived.annualVolume;
     const perUnit = (annual: number) => safeDiv(annual, volume);
@@ -1087,7 +1194,7 @@ export function computeCostModel(
             .filter((i) => i.scenario === "中央培養" && i.costType !== "参考" && scopeApplies(i, centralSel))
             .map((i) => ({
               item: i,
-              annual: (centralItemPerKg(i, assumptions, biomass.capacityKgYear, centralSel) / biomass.salesRate) * derived.biomassKgPerUnit * volume,
+              annual: (centralItemPerKg(i, assumptions, biomass.lineCapacityKgYear, centralSel) / biomass.salesRate) * derived.biomassKgPerUnit * volume,
             })),
           ...tasks
             .filter((t) => t.scenario === "中央培養" && scopeApplies(t, centralSel))
@@ -1275,6 +1382,12 @@ export function computeCostModel(
           profitAnnual: (price - totalPerUnit) * volume,
           marginRate: safeDiv(price - totalPerUnit, price),
 
+          businessVolume: biomass.businessVolume,
+          customerCount: safeDiv(biomass.businessVolume, volume),
+          businessRevenueAnnual: price * biomass.businessVolume,
+          businessTotalAnnual: totalPerUnit * biomass.businessVolume,
+          businessProfitAnnual: (price - totalPerUnit) * biomass.businessVolume,
+
           breakEvenPricePerUnit: totalPerUnit,
           requiredPricePerUnit: safeDiv(totalPerUnit, 1 - marginForRequired),
           allowedTotalCostPerUnit,
@@ -1300,7 +1413,8 @@ export function computeCostModel(
     applications,
     locations,
     onsiteTankBearer: tankBearer,
-    biomass,
+    biomass: biomassByApplication[0].biomass,
+    biomassByApplication,
     biomassByStrain,
     scenarios,
   };
@@ -1363,8 +1477,8 @@ export function computeTaskFlow(
   const sel: CostSelection = { strain: computed.strain, application: selection.application };
   const centralSel: CostSelection = { strain: computed.strain, application: null };
   const derived = computed.derivedByApplication.find((d) => d.application === selection.application)?.derived ?? computed.derived;
-  const centralDerived = deriveCostBasis(bundle.assumptions, centralSel);
-  const b = computed.biomass;
+  const b = biomassOf(computed, selection.application);
+  const centralDerived: CostDerived = { ...deriveCostBasis(bundle.assumptions, centralSel), productionLines: b.productionLines };
 
   const steps: CostFlowStep[] = [];
   for (const task of tasks) {

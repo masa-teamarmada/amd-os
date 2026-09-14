@@ -202,7 +202,7 @@ const NULLABLE_NUMERIC_FIELDS = new Set([
   "value", "impact_low", "impact_high", "useful_life_years", "hours_per_occurrence", "count_per_year", "hourly_rate",
   "target_total_cost_per_m3", "target_margin_rate",
 ]);
-const TASK_DRIVERS = new Set(["fixed", "batch", "visit", "module_swap", "membrane_swap", "truck_trip"]);
+const TASK_DRIVERS = new Set(["fixed", "batch", "visit", "module_swap", "membrane_swap", "truck_trip", "production_line"]);
 const TASK_PERFORMERS = new Set(["sx", "customer", "site"]);
 /** 明細の「誰が持つか」。値は作業の「誰がやるか」と同じ3つ。 */
 const ITEM_BEARERS = new Set(["sx", "customer", "site"]);

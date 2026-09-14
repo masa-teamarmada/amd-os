@@ -48,7 +48,14 @@ export const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
 export const signed = (v: number, digits = 1) => `${v >= 0 ? "+" : "−"}${num(Math.abs(v), digits)}`;
 /** 円を万円で。1万円未満は円のまま。 */
 export const yen = (v: number) =>
-  Math.abs(v) >= 10_000 ? `${(v / 10_000).toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万円` : `${int(v)}円`;
+  Math.abs(v) >= 100_000_000
+    ? `${(v / 100_000_000).toLocaleString("ja-JP", { maximumFractionDigits: 1 })}億円`
+    : Math.abs(v) >= 10_000 ? `${(v / 10_000).toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万円` : `${int(v)}円`;
+/** 大きな量を「2,000万」「2.1億」の形で出す (単位は呼び出し側で足す)。 */
+export const bigNum = (v: number) =>
+  Math.abs(v) >= 100_000_000
+    ? `${(v / 100_000_000).toLocaleString("ja-JP", { maximumFractionDigits: 1 })}億`
+    : Math.abs(v) >= 10_000 ? `${(v / 10_000).toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万` : int(v);
 
 /** 保存値からの差。差が無ければ何も出さない。色は付けない（試算の増減は良し悪しの判定ではない）。 */
 export function Delta({ value, digits = 1, className = "" }: { value: number; digits?: number; className?: string }) {

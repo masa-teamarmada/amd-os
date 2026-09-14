@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import {
+  APPLICATION_LABEL,
   COST_ROLE_KEYS,
   ITEM_BEARERS,
   ITEM_BEARER_LABEL,
@@ -9,6 +10,7 @@ import {
   METAL_SINGLE_USE_NOTE,
   PRODUCTION_SITE_DESCRIPTION,
   PRODUCTION_SITE_LABEL,
+  PRODUCTION_TASK_DRIVERS,
   SCENARIO_SCOPE_LABEL,
   TASK_DRIVERS,
   TASK_DRIVER_LABEL,
@@ -17,15 +19,19 @@ import {
   TASK_PERFORMER_SHORT_LABEL,
   TEXT_CHOICE_ROLES,
   annualAmount,
+  biomassOf,
   centralItemPerKg,
   costItemLabel,
+  driverUsesCount,
   resolveAssumption,
   resolveBearer,
   resolvePerformer,
   rowAppliesTo,
   taskAmount,
   type CostAssumption,
+  type CostBiomassCost,
   type CostComputation,
+  type CostDerived,
   type CostItem,
   type CostItemBearer,
   type CostModelBundle,
@@ -37,7 +43,7 @@ import {
   type CostTaskPerformer,
 } from "@/lib/project-cost-model";
 import type { DraftEntity, DraftField, DraftValue } from "@/lib/project-cost-model-draft";
-import { ConfidenceTag, NumberField, ScopeTag, int, num, yen } from "@/components/cockpit/CockpitCostModelParts";
+import { ConfidenceTag, NumberField, ScopeTag, bigNum, int, num, yen } from "@/components/cockpit/CockpitCostModelParts";
 import { CostTaskFlowOverview, stepAnchorId } from "@/components/cockpit/CockpitCostModelFlow";
 import { findScenario, selectionLabel, type CostViewSelection } from "@/components/cockpit/CockpitCostModelResults";
 
@@ -72,6 +78,7 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
   const paneRef = useRef<HTMLDivElement>(null);
   const derived = computed.derivedByApplication.find((d) => d.application === selection.application)?.derived ?? computed.derived;
   const scenario = findScenario(computed, selection.application, selection.location, selection.method, selection.tankMode);
+  const biomass = biomassOf(computed, selection.application);
 
   // 操作パネルに出す前提 = 計算が読む role_key で、いまの株・用途で実際に採られている行。
   // 金属回収の菌体使用回数は1回で固定なので、前提があっても出さない。
@@ -105,7 +112,9 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
       title: g.title,
       node: (
         <>
-          {(rs.has("culture_capacity_kg_year") || rs.has("sales_rate")) && <BiomassFormula computed={computed} />}
+          {(rs.has("culture_capacity_kg_year") || rs.has("culture_line_capacity_kg_year") || rs.has("sales_rate")) && (
+            <BiomassFormula biomass={biomass} derived={derived} unit={unit} />
+          )}
           <ul className="flex flex-col divide-y divide-[#f0f0f2]">
             {g.rows.map((a) => (
               <AssumptionControl
@@ -125,7 +134,16 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
               必要な菌体 {num(derived.biomassWithLossPerM3, 0)} g/{unit}（濃度 ÷ 取り込み効率 ÷ 回収率）÷ 使用回数 {num(derived.reuseCount, 0)}
               {derived.reuseFixed && <span className="text-[#6e6e73]">（{METAL_SINGLE_USE_NOTE}）</span>} ＝ 使い切る菌体{" "}
               <span className="font-semibold tabular-nums">{num(derived.biomassKgPerUnit, 3)} kg/{unit}</span>
-              {scenario && <>。菌体費は {num(computed.biomass.perKg)} 円/kg × この量 ＝ <span className="font-semibold tabular-nums">{num(scenario.centralTotalPerUnit)} 円/{unit}</span></>}
+              {scenario && <>。菌体費は {num(biomass.perKg)} 円/kg × この量 ＝ <span className="font-semibold tabular-nums">{num(scenario.centralTotalPerUnit)} 円/{unit}</span></>}
+            </p>
+          )}
+          {rs.has("business_annual_volume") && biomass.fromVolume && (
+            <p className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 text-[11px] leading-5 text-[#3c3c43]" data-testid="cost-business-scale">
+              売上 ＝ 年間処理量 {bigNum(biomass.businessVolume)} {unit} × 想定売上単価 {int(derived.salePrice)} 円/{unit} ＝{" "}
+              <span className="font-semibold tabular-nums">{yen(biomass.businessVolume * derived.salePrice)}/年</span>。
+              顧客1社あたり年 {int(derived.annualVolume)} {unit}（バッチ容量 × 稼働日 × 稼働率）で約{int(safeRatio(biomass.businessVolume, derived.annualVolume))}社分。
+              {PRODUCTION_SITE_LABEL}で年に作る菌体は、この量から計算する（{selectionAppLabel(selection)}で{" "}
+              <span className="font-semibold tabular-nums">{bigNum(biomass.capacityKgYear / 1000)} t/年</span>・培養設備 {num(biomass.productionLines, 1)} 系列）。
             </p>
           )}
           {(rs.has("labor_rate") || rs.has("patrol_batches_per_delivery")) && (
@@ -371,28 +389,49 @@ function TargetControl({
   );
 }
 
-/** 第1段の割り算を、いまの数字で見せる。 */
-function BiomassFormula({ computed }: { computed: CostComputation }) {
-  const b = computed.biomass;
+const safeRatio = (a: number, b: number) => (b > 0 ? a / b : 0);
+/** 菌体の製造拠点の作業にだけ使う回数の決め方。現場の作業の選択肢には出さない。 */
+const PRODUCTION_ONLY_DRIVERS = new Set<CostTaskDriver>(["production_line"]);
+const selectionAppLabel = (selection: CostViewSelection) => (selection.application ? APPLICATION_LABEL[selection.application] : "この試算");
+
+/** 第1段の割り算を、いまの数字で見せる。年に作る量は年間処理量から計算し、培養設備を系列の数だけ並べる。 */
+function BiomassFormula({ biomass: b, derived, unit }: { biomass: CostBiomassCost; derived: CostDerived; unit: string }) {
   const r = b.salesRate;
   const row = (key: string) => b.rows.find((x) => x.key === key)?.perKg ?? 0;
   const life =
     b.usefulLifeMinYears === null ? "—"
     : b.usefulLifeMinYears === b.usefulLifeMaxYears ? `${b.usefulLifeMinYears}年`
     : `${b.usefulLifeMinYears}〜${b.usefulLifeMaxYears}年`;
+  const perLine = (total: string, line: string) => (b.fromVolume ? `${total}（1系列 ${line} × ${num(b.productionLines, 1)}系列）` : total);
+  const produced = `生産 ${int(b.capacityKgYear)}kg`;
   const lines: Array<[string, string, number]> = [
-    ["培養設備の償却", `初期投資 ${yen(b.capexInitial)} ÷ 耐用 ${life} ÷ 生産 ${int(b.capacityKgYear)}kg`, row("capex")],
-    ["年ごとの固定費", `年 ${yen(b.fixedOpexAnnual)} ÷ 生産 ${int(b.capacityKgYear)}kg`, row("fixed")],
-    ["製造拠点の作業", `年 ${yen(b.tasksAnnual)} ÷ 生産 ${int(b.capacityKgYear)}kg（作業リスト）`, row("tasks")],
+    ["培養設備の償却", `初期投資 ${perLine(yen(b.capexInitial), yen(b.lineCapexInitial))} ÷ 耐用 ${life} ÷ ${produced}`, row("capex")],
+    ["年ごとの固定費", `年 ${perLine(yen(b.fixedOpexAnnual), yen(safeRatio(b.fixedOpexAnnual, b.productionLines)))} ÷ ${produced}`, row("fixed")],
+    [
+      "製造拠点の作業",
+      b.fromVolume
+        ? `年 ${yen(b.tasksAnnual)}（系列ごと ${yen(b.lineTasksAnnual)} ＋ 拠点に1つ ${yen(b.siteTasksAnnual)}）÷ ${produced}`
+        : `年 ${yen(b.tasksAnnual)} ÷ ${produced}（作業リスト）`,
+      row("tasks"),
+    ],
     ["菌体量に比例する費用", "培地・CO2・濃縮など 1kgあたりの単価", row("variable")],
   ];
   return (
-    <div className="mb-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 text-[11px] leading-5 text-[#3c3c43]">
+    <div className="mb-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 text-[11px] leading-5 text-[#3c3c43]" data-testid="cost-biomass-formula">
       <p className="font-semibold text-[#1d1d1f]">
         {b.strainLabel ? `${b.strainLabel}の` : ""}菌体1kgの原価{" "}
         <span className="tabular-nums">{num(b.perKg)} 円/kg</span>
         <span className="font-normal text-[#6e6e73]">（{PRODUCTION_SITE_LABEL}＝{PRODUCTION_SITE_DESCRIPTION}）</span>
       </p>
+      {b.fromVolume && (
+        <p className="mt-0.5">
+          年に作る量 ＝ 年間処理量 {bigNum(b.businessVolume)} {unit} × 使い切る菌体 {num(derived.biomassKgPerUnit, 3)} kg/{unit}
+          {r < 1 ? ` ÷ 販売率 ${num(r * 100, 0)}%` : ""} ＝ <span className="font-semibold tabular-nums">{int(b.capacityKgYear)} kg/年</span>
+          <span className="text-[#6e6e73]">
+            {" "}→ 培養設備1系列 {int(b.lineCapacityKgYear)} kg/年 で {num(b.productionLines, 1)} 系列。系列ごとの費用は1kgあたり変わらず、拠点に1つの作業だけが量で薄まる
+          </span>
+        </p>
+      )}
       <ul className="mt-0.5">
         {lines.map(([label, formula, perKg]) => (
           <li key={label} className="flex justify-between gap-2">
@@ -434,9 +473,9 @@ function TaskList({
 }) {
   const sel: CostSelection = { strain: selection.strain, application: selection.application };
   const derived = computed.derivedByApplication.find((d) => d.application === selection.application)?.derived ?? computed.derived;
-  // 製造拠点の作業は固定の回数で数えるので、物量 (derived) には依存しない。
+  // 製造拠点の作業は、拠点に1つの作業 (固定の回数) か培養設備の系列ごと (derived.productionLines を掛ける) で数える。
   const centralSel: CostSelection = { strain: selection.strain, application: null };
-  const b = computed.biomass;
+  const b = biomassOf(computed, selection.application);
   const tasks = [...(working.tasks ?? [])].sort((x, y) => x.sortOrder - y.sortOrder);
   const scenario = findScenario(computed, selection.application, selection.location, selection.method, selection.tankMode);
   const commonRate = resolveAssumption(working.assumptions, "labor_rate", sel)?.value ?? 4000;
@@ -455,7 +494,7 @@ function TaskList({
     <div>
       <p className="mb-1.5 text-[11px] leading-5 text-[#6e6e73]">
         年額 ＝ 年間回数 ×（1回の工数 × 作業単価 ＋ 1回の経費）。作業単価が空欄の行は共通の作業単価（{int(commonRate)}円/時）を使う。工数が空欄の行は未確認で、0時間として数える。
-        {PRODUCTION_SITE_LABEL}の作業は菌体費に入る。「誰がやるか」が顧客の作業は、SXの原価にも作業時間にも数えない（円/{unit}は「—」）。段は「作業の流れと工数」と同じ順。選んだ方式・装置で発生しない段と行は薄く出す。
+        {PRODUCTION_SITE_LABEL}の作業は菌体費に入り、年間回数は「固定の回数」（拠点に1つの作業）か「系列ごと」（培養設備1系列あたりの回数 × 系列数）で数える。「誰がやるか」が顧客の作業は、SXの原価にも作業時間にも数えない（円/{unit}は「—」）。段は「作業の流れと工数」と同じ順。選んだ方式・装置で発生しない段と行は薄く出す。
       </p>
       <div className="hidden xl:grid xl:grid-cols-[minmax(0,1fr)_78px_150px_92px_92px_56px] xl:gap-x-1.5 xl:border-b xl:border-[#e5e5e7] xl:pb-1 xl:text-[10px] xl:font-medium xl:text-[#6e6e73]">
         <span>作業</span>
@@ -511,6 +550,7 @@ function TaskList({
                           <>
                             ・年 {yen(amt.annual)}
                             {amt.annualHours > 0 ? `（${num(amt.annualHours, 0)}時間）` : ""}
+                            {t.countDriver === "production_line" && `（1系列 ${num(t.countPerYear ?? 0, 0)}回 × ${num(derived.productionLines, 1)}系列）`}
                           </>
                         )}
                         <NoteToggle note={t.note} />
@@ -553,33 +593,34 @@ function TaskList({
                       <select
                         aria-label={`${t.label} 年間回数の決め方`}
                         value={t.countDriver}
-                        disabled={isCentral}
-                        title={isCentral ? `${PRODUCTION_SITE_LABEL}の作業は固定の回数だけ` : undefined}
+                        title={isCentral ? `${PRODUCTION_SITE_LABEL}の作業は、拠点に1つの作業（固定の回数）か、培養設備の系列ごと（1系列あたりの回数 × 系列数）。系列ごとのときは回数の欄に1系列あたりの回数を入れる` : undefined}
                         onChange={(e) => {
                           const next = e.target.value as CostTaskDriver;
-                          if (next === "fixed" && t.countPerYear === null) {
+                          if (driverUsesCount(next) && t.countPerYear === null) {
                             onChange("task", t.costTaskId, "countPerYear", Math.round(amt.occurrences * 100) / 100);
                           }
                           onChange("task", t.costTaskId, "countDriver", next);
                         }}
-                        className={`min-h-[44px] min-w-0 flex-1 rounded-md border px-1 text-[16px] text-[#1d1d1f] disabled:text-[#6e6e73] xl:h-7 xl:min-h-0 xl:max-w-[6.75rem] xl:flex-none xl:text-[11px] ${
+                        className={`min-h-[44px] min-w-0 flex-1 rounded-md border px-1 text-[16px] text-[#1d1d1f] xl:h-7 xl:min-h-0 xl:max-w-[6.75rem] xl:flex-none xl:text-[11px] ${
                           base && base.countDriver !== t.countDriver ? "border-[#027fdc] bg-[#e8f3fc]" : "border-[#d2d2d7] bg-white"
                         }`}
                       >
-                        {TASK_DRIVERS.map((d) => (
+                        {(isCentral ? PRODUCTION_TASK_DRIVERS : TASK_DRIVERS.filter((d) => !PRODUCTION_ONLY_DRIVERS.has(d))).map((d) => (
                           <option key={d} value={d}>{TASK_DRIVER_LABEL[d]}</option>
                         ))}
                       </select>
-                      {t.countDriver === "fixed" || isCentral ? (
-                        <NumberField
-                          ariaLabel={`${t.label} 年間回数`}
-                          value={t.countPerYear}
-                          baseline={base?.countPerYear ?? null}
-                          min={0}
-                          compact
-                          widthClass="w-16 xl:w-12"
-                          onChange={(v) => onChange("task", t.costTaskId, "countPerYear", v ?? 0)}
-                        />
+                      {driverUsesCount(t.countDriver) || isCentral ? (
+                        <>
+                          <NumberField
+                            ariaLabel={`${t.label} 年間回数`}
+                            value={t.countPerYear}
+                            baseline={base?.countPerYear ?? null}
+                            min={0}
+                            compact
+                            widthClass="w-16 xl:w-12"
+                            onChange={(v) => onChange("task", t.costTaskId, "countPerYear", v ?? 0)}
+                          />
+                        </>
                       ) : (
                         <span className="w-16 shrink-0 text-right text-[12px] tabular-nums text-[#1d1d1f] xl:w-auto xl:text-[11px]">
                           {num(amt.occurrences, amt.occurrences < 10 ? 2 : 0)}回
@@ -660,7 +701,7 @@ function ItemEditor({
   const sel: CostSelection = { strain: selection.strain, application: selection.application };
   const centralSel: CostSelection = { strain: selection.strain, application: null };
   const derived = computed.derivedByApplication.find((d) => d.application === selection.application)?.derived ?? computed.derived;
-  const b = computed.biomass;
+  const b = biomassOf(computed, selection.application);
   const rows = working.items.filter((i) => !i.isBreakdown && i.basis !== "内訳" && i.costType !== "参考");
   const visible = rows.filter((i) => !onlyApplicable || itemApplies(i, selection));
 
@@ -695,7 +736,7 @@ function ItemEditor({
                 const right = !applies || paidBy === "customer"
                   ? null
                   : isCentral
-                    ? centralItemPerKg(i, working.assumptions, b.capacityKgYear, centralSel)
+                    ? centralItemPerKg(i, working.assumptions, b.lineCapacityKgYear, centralSel)
                     : derived.annualVolume > 0 ? annualAmount(i, working.assumptions, derived, sel) / derived.annualVolume : 0;
                 return (
                   <li
