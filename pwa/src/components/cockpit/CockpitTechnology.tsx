@@ -17,11 +17,13 @@ import {
   isCompetitionTopic,
   matrixColumns,
   matrixRows,
+  readTechPresentation,
   type TechBlockKind,
   type TechConfidence,
   type TechConfidentiality,
   type TechEntry,
   type TechKnowledgeFragment,
+  type TechPresentation,
   type TechRating,
   type TechSourceKind,
   type TechTopic,
@@ -273,6 +275,124 @@ function MatrixBlock({ entries }: { entries: TechEntry[] }) {
   );
 }
 
+/** 社外に出す形の星取り表の記号の色。OS の色の決まり (spec 2-7) に合わせ、◎○ は sky、△ は注意色、× は赤、—と? は灰。 */
+const SHEET_RATING_STYLE: Record<TechRating, string> = {
+  excellent: "text-[#0267b2]",
+  good: "text-[#027FDC]",
+  fair: "text-[#d97706]",
+  poor: "text-[#b71c1c]",
+  na: "text-[#aeaeb2]",
+  unknown: "text-[#aeaeb2]",
+};
+
+/**
+ * 社外に出す資料 (VC 提出用の PDF) と同じ形の星取り表。トピックが presentation を持つときだけ使う。
+ * 2026-09-14 まさ「PDFの比較表めっちゃよく出来てるから、この３つそのままOSにも入れておいてほしい」。
+ * 並びは PDF と同じ (見出し → 表の上の一文 → 説明 → 表 → 注記) で、自社の列と強調する行に色を付ける。
+ * 色は OS の決まり (sky と白・灰) を使い、PJ のブランドの色は画面に持ち込まない (PDF だけが SolvioraX の色)。
+ */
+function MatrixSheet({ entries, presentation }: { entries: TechEntry[]; presentation: TechPresentation }) {
+  const cols = matrixColumns(entries);
+  const rows = matrixRows(entries);
+  const selfCol = presentation.selfCol && cols.includes(presentation.selfCol) ? presentation.selfCol : null;
+  const highlight = new Set(presentation.highlightRows);
+  const cell = (row: string, col: string) => entries.find((e) => e.row_label === row && e.col_label === col);
+  const minWidth = Math.max(520, MATRIX_AXIS_COL_PX + cols.length * MATRIX_COL_PX);
+  return (
+    <div data-testid="tech-matrix-sheet" className="rounded-lg border border-[#e5e5e7] bg-white px-4 py-4">
+      {presentation.heading && (
+        <div className="mb-2">
+          <p className="text-[18px] font-bold leading-6 text-[#0267b2]">{presentation.heading}</p>
+          <div aria-hidden className="mt-1.5 h-[3px] w-10 rounded-full bg-[#027FDC]" />
+        </div>
+      )}
+      {presentation.eyecatch && <p className="text-[15px] font-bold leading-6 text-[#1d1d1f]">{presentation.eyecatch}</p>}
+      {presentation.lead && <p className="mt-1 text-[12px] leading-5 text-[#6e6e73]">{presentation.lead}</p>}
+      {cols.length === 0 || rows.length === 0 ? (
+        <div className="mt-3">
+          <EmptyRows hint="比較軸 (行) と相手 (列) を決めて、1マスずつ足す" />
+        </div>
+      ) : (
+        <div className="mt-3 max-h-[80vh] overflow-auto">
+          <table className="w-full table-fixed border-collapse text-[12px]" style={{ minWidth }}>
+            <colgroup>
+              <col style={{ width: MATRIX_AXIS_COL_PX }} />
+              {cols.map((c) => (
+                <col key={c} />
+              ))}
+            </colgroup>
+            <thead>
+              <tr>
+                <th className="sticky left-0 top-0 z-30 border border-[#e5e5e7] bg-[#f5f5f7] px-2 py-2 text-left text-[11px] font-medium text-[#6e6e73]">
+                  比較軸
+                </th>
+                {cols.map((c) => (
+                  <th
+                    key={c}
+                    className={`sticky top-0 z-20 border px-1.5 py-2 text-center text-[12px] font-semibold leading-4 ${
+                      c === selfCol ? "border-[#027FDC] bg-[#027FDC] text-white" : "border-[#e5e5e7] bg-[#f5f5f7] text-[#1d1d1f]"
+                    }`}
+                  >
+                    {c}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const emphasized = highlight.has(r);
+                return (
+                  <tr key={r}>
+                    <th
+                      scope="row"
+                      className={`sticky left-0 z-10 border border-[#e5e5e7] px-2 py-2 text-left align-top text-[12px] font-semibold leading-5 text-[#1d1d1f] ${
+                        emphasized ? "bg-[#e8f3fc] shadow-[inset_4px_0_0_#027FDC]" : "bg-[#fafafa]"
+                      }`}
+                    >
+                      {r}
+                    </th>
+                    {cols.map((c) => {
+                      const e = cell(r, c);
+                      const tone =
+                        c === selfCol ? (emphasized ? "bg-[#d9ebfa]" : "bg-[#f2f8fd]") : emphasized ? "bg-[#f7fbfe]" : "bg-white";
+                      if (!e) return <td key={c} className={`border border-[#e5e5e7] ${tone}`} />;
+                      const rating = e.rating;
+                      const tip = [
+                        rating ? RATING_FULL_LABEL[rating] : "",
+                        e.note || "",
+                        e.source_ref ? `出典: ${SOURCE_KIND_LABEL[e.source_kind]} ${e.source_ref}` : SOURCE_KIND_LABEL[e.source_kind],
+                      ]
+                        .filter(Boolean)
+                        .join(" / ");
+                      return (
+                        <td
+                          key={c}
+                          title={tip}
+                          className={`border border-[#e5e5e7] px-1.5 py-2 align-top ${rating ? "text-center" : "text-left"} ${tone}`}
+                        >
+                          {rating && (
+                            <div className={`text-[18px] font-bold leading-6 ${SHEET_RATING_STYLE[rating]}`}>{RATING_LABEL[rating]}</div>
+                          )}
+                          {(e.value_text || e.value_min !== null || e.value_max !== null) && (
+                            <div className="text-[12px] font-medium leading-4 text-[#1d1d1f]">{formatTechValue(e)}</div>
+                          )}
+                          {e.note && <div className="mt-1 text-[10.5px] leading-4 text-[#6e6e73]">{e.note}</div>}
+                          {e.needs_check && <CheckNote reason={e.check_reason} />}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {presentation.note && <p className="mt-2 text-[11px] leading-5 text-[#6e6e73]">{presentation.note}</p>}
+    </div>
+  );
+}
+
 /** 到達実績 — 何を、いつ、どこまで。同じ項目が複数あれば古い順に並べて推移として読む。 */
 function RecordBlock({ entries }: { entries: TechEntry[] }) {
   if (entries.length === 0) return <EmptyRows hint="測る対象・到達値・測定日・出典を1行ずつ足す" />;
@@ -366,8 +486,32 @@ function TopicForm({
   const [order, setOrder] = useState(String(initial?.sort_order ?? 100));
   const [needsCheck, setNeedsCheck] = useState(initial?.needs_check ?? false);
   const [checkReason, setCheckReason] = useState(initial?.check_reason ?? "");
+  // 星取り表を社外に出す資料と同じ形で見せるための表示情報 (presentation)。星取り表のときだけ出して保存する。
+  const initialPresentation = readTechPresentation(initial?.presentation);
+  const [sheetHeading, setSheetHeading] = useState(initialPresentation?.heading ?? "");
+  const [sheetEyecatch, setSheetEyecatch] = useState(initialPresentation?.eyecatch ?? "");
+  const [sheetLead, setSheetLead] = useState(initialPresentation?.lead ?? "");
+  const [sheetNote, setSheetNote] = useState(initialPresentation?.note ?? "");
+  const [sheetSelfCol, setSheetSelfCol] = useState(initialPresentation?.selfCol ?? "");
+  const [sheetHighlight, setSheetHighlight] = useState((initialPresentation?.highlightRows ?? []).join("\n"));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /** 入力を presentation の jsonb の形にする。どれも空なら null (= 通常の星取り表) で保存する。 */
+  function presentationRow(): Record<string, unknown> | null {
+    const row = {
+      heading: textOrNull(sheetHeading),
+      eyecatch: textOrNull(sheetEyecatch),
+      lead: textOrNull(sheetLead),
+      note: textOrNull(sheetNote),
+      self_col: textOrNull(sheetSelfCol),
+      highlight_rows: sheetHighlight
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    };
+    return readTechPresentation(row) ? row : null;
+  }
 
   async function submit() {
     if (!title.trim()) {
@@ -390,6 +534,7 @@ function TopicForm({
         needs_check: needsCheck,
         check_reason: needsCheck ? textOrNull(checkReason) : null,
         sort_order: numOrNull(order) ?? 100,
+        ...(kind === "matrix" ? { presentation: presentationRow() } : {}),
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "保存に失敗");
@@ -427,6 +572,35 @@ function TopicForm({
       <Field label={kind === "article" ? "本文 (Markdown)" : "補足の本文 (Markdown、任意)"}>
         <textarea className={`${INPUT} min-h-[120px] font-mono`} value={body} onChange={(e) => setBody(e.target.value)} />
       </Field>
+      {kind === "matrix" && (
+        <div data-testid="tech-sheet-fields" className="space-y-2 rounded border border-[#d2d2d7] bg-white p-2">
+          <p className="text-[11px] leading-5 text-[#6e6e73]">
+            社外に出す資料と同じ形で見せる (任意)。どれかを入れると、表の上に見出しと一文、表の下に注記が出て、自社の列と強調する行に色が付く。本文は表の下に回る。
+          </p>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Field label="見出し">
+              <input className={INPUT} value={sheetHeading} onChange={(e) => setSheetHeading(e.target.value)} placeholder="競合の会社との比較" />
+            </Field>
+            <Field label="自社として色を付ける列 (列の名前)">
+              <input className={INPUT} value={sheetSelfCol} onChange={(e) => setSheetSelfCol(e.target.value)} placeholder="SolvioraX" />
+            </Field>
+          </div>
+          <Field label="表の上の一文">
+            <input className={INPUT} value={sheetEyecatch} onChange={(e) => setSheetEyecatch(e.target.value)} />
+          </Field>
+          <Field label="一文の下の説明">
+            <textarea className={`${INPUT} min-h-[56px]`} value={sheetLead} onChange={(e) => setSheetLead(e.target.value)} />
+          </Field>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Field label="表の下の注記">
+              <textarea className={`${INPUT} min-h-[56px]`} value={sheetNote} onChange={(e) => setSheetNote(e.target.value)} />
+            </Field>
+            <Field label="強調する行 (1行に1つ、行の名前)">
+              <textarea className={`${INPUT} min-h-[56px]`} value={sheetHighlight} onChange={(e) => setSheetHighlight(e.target.value)} />
+            </Field>
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
         <Field label="社外開示">
           <select className={INPUT} value={conf} onChange={(e) => setConf(e.target.value as TechConfidentiality)}>
@@ -681,6 +855,7 @@ function TopicCard({
   const [rowPicker, setRowPicker] = useState(false);
 
   const editingEntry = entries.find((e) => e.tech_entry_id === editingEntryId);
+  const presentation = topic.block_kind === "matrix" ? readTechPresentation(topic.presentation) : null;
 
   return (
     <section data-testid="tech-topic-card" className="rounded-xl border border-[#e5e5e7] bg-white p-4">
@@ -737,18 +912,35 @@ function TopicCard({
         </div>
       )}
 
-      {topic.body_md && (
-        <div className="mt-3 border-l-2 border-[#e5e5e7] pl-3">
-          <MarkdownView source={topic.body_md} />
-        </div>
-      )}
+      {presentation ? (
+        // 社外に出す形の星取り表は PDF と同じく表を先に出し、比べる相手・記号の付け方などの本文は表の下へ回す。
+        <>
+          <div className="mt-3">
+            <MatrixSheet entries={entries} presentation={presentation} />
+          </div>
+          {topic.body_md && (
+            <div className="mt-3 border-l-2 border-[#e5e5e7] pl-3">
+              <p className="mb-1 text-[11px] font-semibold text-[#6e6e73]">表の補足</p>
+              <MarkdownView source={topic.body_md} />
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          {topic.body_md && (
+            <div className="mt-3 border-l-2 border-[#e5e5e7] pl-3">
+              <MarkdownView source={topic.body_md} />
+            </div>
+          )}
 
-      {topic.block_kind !== "article" && (
-        <div className="mt-3">
-          {topic.block_kind === "condition" && <ConditionBlock entries={entries} />}
-          {topic.block_kind === "matrix" && <MatrixBlock entries={entries} />}
-          {topic.block_kind === "record" && <RecordBlock entries={entries} />}
-        </div>
+          {topic.block_kind !== "article" && (
+            <div className="mt-3">
+              {topic.block_kind === "condition" && <ConditionBlock entries={entries} />}
+              {topic.block_kind === "matrix" && <MatrixBlock entries={entries} />}
+              {topic.block_kind === "record" && <RecordBlock entries={entries} />}
+            </div>
+          )}
+        </>
       )}
 
       {canEdit && topic.block_kind !== "article" && (
@@ -1489,7 +1681,7 @@ export function CockpitTechnology({ projectId, mode = "technology" }: Props) {
               <h3 className="text-[13px] font-semibold text-[#1d1d1f]">{competition ? "競合比較" : "技術"}</h3>
               {competition ? (
                 <p className="mt-1 text-[11px] leading-5 text-[#86868b]">
-                  競合や既存の方式と比べる場所。星取り表の記号の付け方は、それぞれの表の上に書いてある。
+                  競合や既存の方式と比べる場所。社外に出す星取り表は VC 提出用の資料と同じ形で出し、記号の付け方は表の下の補足に書いてある。
                   バッジが<span className="font-medium text-[#1d1d1f]">「公開可」</span>のページは社外に出せる形、「社内限定」のページは社内で使う準備用。
                 </p>
               ) : (

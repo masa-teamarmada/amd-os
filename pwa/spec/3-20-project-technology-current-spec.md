@@ -58,7 +58,7 @@ PJごとに変わるのは「並べるトピックと項目名」だけで、テ
 
 | table | PK | 役割 |
 |---|---|---|
-| `project_tech_topics` | `tech_topic_id` (`ptt_*`) | トピック1件。形式・タイトル・1行説明・本文・技術区分・並び順・社外開示可否・出典 |
+| `project_tech_topics` | `tech_topic_id` (`ptt_*`) | トピック1件。形式・タイトル・1行説明・本文・技術区分・並び順・社外開示可否・出典・星取り表の見せ方 (`presentation`、§5.4) |
 | `project_tech_entries` | `tech_entry_id` (`pte_*`) | トピックの中身1行。成立条件の1項目、星取り表の1マス、到達実績の1測定を同じ形で持つ |
 
 `project_tech_entries` の使い分け:
@@ -222,6 +222,24 @@ where s.project_id = 'p21' and s.source in ('gmeet_minutes','drive');
 - PJワークスペース: `計画・根拠` の技術の右隣に「競合比較」(`#competition`)。表示条件はコックピットと同じ。外部の人 (ワークスペースアカウント) には出さない (技術と同じ)
 - 回帰防止: `check_pwa_critical_ui.cjs` (事業計画グループの並び、`isCompetitionTopic(t) === competition`、`mode="competition"`、表示条件、ワークスペースの並び) と、`check_project_fuel_cost_model.mts` の事業計画グループの並び
 
+
+### 5.4 社外に出す形の星取り表 (`presentation`、migration 425 / 2026-09-14)
+
+まさ (2026-09-14、VC 提出用の PDF を見て):
+
+> PDFの比較表めっちゃよく出来てるから、この３つそのままOSにも入れておいてほしい。
+
+「この３つ」は PDF の比較表 (競合の会社との比較・既存の方式との比較・燃料の比較)。3枚の中身はもともと技術台帳にあり、違っていたのは見せ方 (表の上の一文、自社の列の色、強調する行、表の下の注記) だったので、見せ方を DB に持たせて画面と PDF で同じものを使う形にした。
+
+- **列**: `project_tech_topics.presentation` (jsonb、null 可、`jsonb_typeof = 'object'` の制約 `project_tech_topics_presentation_object`)。中身は `heading` (見出し。PDF のページの題、番号は付けない) / `eyecatch` (表の上に太字で出す一文) / `lead` (その下の説明) / `note` (表の下の注記。PDF のページ番号の参照は書かない) / `self_col` (自社として色を付ける列の名前) / `highlight_rows` (強調する行の名前の配列)
+- **読み方**: 画面では必ず `readTechPresentation()` (`project-tech.ts`) を通す。文字でない値・空の値は捨て、何も残らなければ null (= 通常の星取り表)。列の名前・行の名前が表に無ければ色を付けない
+- **画面**: `block_kind = 'matrix'` で presentation があるトピックは、`TopicCard` が通常の `MatrixBlock` の代わりに `MatrixSheet` (`data-testid="tech-matrix-sheet"`) を出す。並びは PDF と同じ 見出し → 一文 → 説明 → 表 → 注記 で、本文 (比べる相手・記号の付け方・時点) は表の下に「表の補足」として回す。presentation の無いトピック (CX の星取り表、SX の閉鎖系の表、社内限定のページ) の見た目は変えない
+- **色**: 画面は OS の色の決まり (spec 2-7) に合わせる。自社の列の見出しは sky (`#027FDC`) に白字、列の中は薄い sky、強調する行は `#e8f3fc` と左の sky の線。記号は ◎ `#0267b2` / ○ `#027FDC` / △ `#d97706` / × `#b71c1c` / —と? は灰。**PJ のブランドの色 (SolvioraX の紺・水色・オレンジ) は画面に持ち込まない**。PDF だけが SolvioraX の事業概要に合わせた色を使う
+- 表の幅は通常の星取り表と同じ (比較軸の列 128px ＋ 相手の列の数 × 96px、最小 520px)。列の幅はそろえ (`table-fixed`)、見出しの行と比較軸の列は固定のまま表の中でスクロールする
+- **編集**: admin のトピック編集フォームで、形式が星取り表のときだけ「社外に出す資料と同じ形で見せる (任意)」の欄 (`data-testid="tech-sheet-fields"`) が出る (見出し・自社として色を付ける列・表の上の一文・一文の下の説明・表の下の注記・強調する行を1行に1つ)。全部空で保存すると null に戻る。星取り表以外の形式では presentation を送らない
+- **PDF**: VC 提出用の PDF の星取り表のページは、見出し・一文・説明・注記・自社の列・強調する行をこの列から読む (scratchpad の生成スクリプト。ページの番号と「記号の付け方は NN ページ。」は PDF を作るときに足す)。presentation の無い星取り表を PDF のページにしようとすると止まる。425 を当てたあとの PDF の HTML は、当てる前 (pages.json に文を持っていた版) と画像以外が1文字も違わないことを確かめた
+- SOL の3枚の中身: 競合の会社との比較 (強調する行「生きた細胞が金属を取り込む」)、既存の方式との比較 (同)、燃料の比較 (強調する行なし)。自社の列はどれも SolvioraX
+- 回帰防止: `check_pwa_critical_ui.cjs` が `readTechPresentation(`、`data-testid="tech-matrix-sheet"`、`data-testid="tech-sheet-fields"`、`TopicCard` の presentation の読み方と `<MatrixSheet …>` を検査する
 
 ## 6. 投入済みデータ (2026-09-04 時点)
 

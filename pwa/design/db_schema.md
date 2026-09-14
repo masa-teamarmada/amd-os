@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-09-14 11:43 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-09-14 19:53 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -4181,7 +4181,7 @@ PRIMARY KEY: `id`
 
 ## project_cost_assumptions
 
-行数 (概算): 42
+行数 (概算): 73
 PRIMARY KEY: `cost_assumption_id`
 
 | # | column | type | nullable | default |
@@ -4209,7 +4209,7 @@ PRIMARY KEY: `cost_assumption_id`
 
 ## project_cost_items
 
-行数 (概算): 147
+行数 (概算): 198
 PRIMARY KEY: `cost_item_id`
 
 | # | column | type | nullable | default |
@@ -4272,7 +4272,7 @@ PRIMARY KEY: `cost_model_id`
 
 ## project_cost_notes
 
-行数 (概算): 26
+行数 (概算): 43
 PRIMARY KEY: `cost_note_id`
 
 | # | column | type | nullable | default |
@@ -4314,7 +4314,7 @@ PRIMARY KEY: `cost_question_id`
 
 ## project_cost_tasks
 
-行数 (概算): -1
+行数 (概算): 23
 PRIMARY KEY: `cost_task_id`
 
 | # | column | type | nullable | default |
@@ -6245,7 +6245,7 @@ PRIMARY KEY: `signal_id`
 
 ## project_tech_entries
 
-行数 (概算): 335
+行数 (概算): 734
 PRIMARY KEY: `tech_entry_id`
 
 | # | column | type | nullable | default |
@@ -6277,7 +6277,7 @@ PRIMARY KEY: `tech_entry_id`
 
 ## project_tech_topics
 
-行数 (概算): 18
+行数 (概算): 62
 PRIMARY KEY: `tech_topic_id`
 
 | # | column | type | nullable | default |
@@ -6301,6 +6301,7 @@ PRIMARY KEY: `tech_topic_id`
 | 17 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
 | 18 | `needs_check` | `bool` | NOT NULL | `false` |
 | 19 | `check_reason` | `text` | NULL | `` |
+| 20 | `presentation` | `jsonb` | NULL | `` |
 
 ## project_theme_deliverables
 
@@ -7404,7 +7405,7 @@ PRIMARY KEY: `project_id, member_id`
 
 ## tally_weekly_effort_entries
 
-行数 (概算): 177
+行数 (概算): 180
 PRIMARY KEY: `project_id, member_id, week_start`
 
 | # | column | type | nullable | default |

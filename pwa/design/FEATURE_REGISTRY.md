@@ -888,10 +888,11 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - **出典と確度は全行に持たせる**。値が無い行を空欄で放置せず「未測定」+ `unverified` を入れる。空欄のままだと、調べた結果なのか調べていないのかを読み手が区別できない。
 - タブ最下段の「まだ整理していない技術の断片」（`project_knowledge` の `tech` / `term` / `competitor`）を消さない。自動抽出が貯めた事実をPJ画面から読める唯一の導線で、これが無いと2,700件超が再びPJから見えなくなる。
 - **競合比較は事業計画グループの子タブ「競合比較」（`?tab=competition`、技術の右隣）に出し、技術タブには出さない**（2026-09-14 まさ「この競合比較は、技術タブの中じゃなくて事業計画グループの直下に置いてほしい」）。データは同じ技術台帳の区分 `tech_domain = '競合比較'` で、判定は `isCompetitionTopic()` だけ。画面は `CockpitTechnology` の `mode="competition"`（別コンポーネントを作らない）。区分「競合比較」のトピックを持つPJだけに出し、PJワークスペースも計画・根拠の技術の右隣（`#competition`）に出す。SX の先頭3枚（競合の会社との星取り表・既存の方式との星取り表・燃料の比較表）は VC に出す文書（公開可）で、判断に使う不利な事実は社内限定のページに残す。公開可のページには社内の言葉・要確認・社内の資料名を置かない（VC 提出用の PDF は同じデータから作るため）。公開可の星取り表の観点は SolvioraX の違いが出るものを選び、他社が先行する観点は社内限定の「負けるところ」に残す。1つの強みを2回数える合わせ技の行（「色と金属の両方」など）は作らず、同じ強みを持つ相手とは ◎ を並べる。「生きた細胞」の強調は「金属を細胞の中へ取り込む」に限る（生きた微生物を使う他社はある。2026-09-14 まさ「そういう視点で他の項目も再検討してほしい」）。
+- **社外に出す形の星取り表**（2026-09-14 まさ「PDFの比較表めっちゃよく出来てるから、この３つそのままOSにも入れておいてほしい」）。`project_tech_topics.presentation`（見出し・表の上の一文・説明・注記・自社の列・強調する行）を持つ星取り表は、`MatrixSheet` で VC 提出用の PDF と同じ並びに出し、本文は表の下に回す。presentation は `readTechPresentation()` だけで読み、PDF も同じ列から作る（画面と PDF の文を二重に持たない）。色は OS の決まり（sky と白・灰）で、PJ のブランドの色を画面に持ち込まない。presentation の無い星取り表の見た目は変えない。
 
 回帰防止:
 
-- `npm run test:critical-ui` はコックピットの事業計画グループ内の技術（`technology: "技術"` / `aria-label="技術"` / `CockpitTechnology` 埋め込み）、`CockpitTechnology` の `"cockpit-technology-tab"`（競合比較のときは `"cockpit-competition-tab"`）と4形式ブロック・`loadProjectTech` 参照、`cockpit-tabs.ts` の `"technology"` / `"competition"` と事業計画グループの並び、競合比較タブの表示条件と `mode="competition"`（コックピット・ワークスペース）を検査する。
+- `npm run test:critical-ui` はコックピットの事業計画グループ内の技術（`technology: "技術"` / `aria-label="技術"` / `CockpitTechnology` 埋め込み）、`CockpitTechnology` の `"cockpit-technology-tab"`（競合比較のときは `"cockpit-competition-tab"`）と4形式ブロック・`loadProjectTech` 参照、`cockpit-tabs.ts` の `"technology"` / `"competition"` と事業計画グループの並び、競合比較タブの表示条件と `mode="competition"`（コックピット・ワークスペース）、社外に出す形の星取り表（`readTechPresentation(`・`tech-matrix-sheet`・`tech-sheet-fields`）を検査する。
 - `npm run test:reference-data-cache` は `/api/project-tech` が `Cache-Control` を明示し、クライアント層以外から直接 fetch されていないことを検査する。
 
 ---

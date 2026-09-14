@@ -3248,6 +3248,18 @@ expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", 
   'tab.key !== "competition" || hasCompetition',
   '<CockpitTechnology projectId={bundle.project.projectId} mode="competition" />',
 ]);
+// 社外に出す形の星取り表 (2026-09-14 まさ「PDFの比較表めっちゃよく出来てるから、この３つそのままOSにも入れておいてほしい」)。
+// presentation (migration 425) を持つ星取り表は、VC 提出用の PDF と同じ並び (見出し → 一文 → 説明 → 表 → 注記) で出す。
+// 消すと PDF と画面の見せ方がずれる。presentation の jsonb は readTechPresentation() だけで読む。
+expectIncludes("src/lib/project-tech.ts", [
+  "export function readTechPresentation(",
+]);
+expectIncludes("src/components/cockpit/CockpitTechnology.tsx", [
+  'data-testid="tech-matrix-sheet"',
+  'data-testid="tech-sheet-fields"',
+  'const presentation = topic.block_kind === "matrix" ? readTechPresentation(topic.presentation) : null;',
+  "<MatrixSheet entries={entries} presentation={presentation} />",
+]);
 
 expectFileMissing("src/components/cockpit/CockpitGovernance.tsx");
 expectNotIncludes("src/components/cockpit/CockpitView.tsx", [

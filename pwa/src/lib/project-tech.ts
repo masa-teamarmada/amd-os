@@ -40,11 +40,62 @@ export type TechTopic = {
   /** 要確認。資料間で値が食い違う / 実測が無い / 根拠が弱い。 */
   needs_check: boolean;
   check_reason: string | null;
+  /**
+   * 星取り表を社外に出す資料 (VC 提出用の PDF) と同じ形で見せる表示情報 (migration 425)。
+   * 中身は DB の jsonb なので、画面では必ず readTechPresentation() を通して読む。null なら通常の星取り表。
+   */
+  presentation?: Record<string, unknown> | null;
   created_by: string | null;
   updated_by: string | null;
   created_at: string;
   updated_at: string;
 };
+
+/**
+ * 星取り表の見せ方 (project_tech_topics.presentation を読んだもの)。
+ * 2026-09-14 まさ「PDFの比較表めっちゃよく出来てるから、この３つそのままOSにも入れておいてほしい」。
+ * PDF と画面で同じ文を使うため、PDF もこの列から作る。
+ */
+export type TechPresentation = {
+  /** 見出し (PDF のページの題。番号は付けない) */
+  heading: string | null;
+  /** 表の上に太字で出す一文 */
+  eyecatch: string | null;
+  /** 一文の下の説明 */
+  lead: string | null;
+  /** 表の下の注記 */
+  note: string | null;
+  /** 自社として色を付ける列 (列の名前と完全に同じとき) */
+  selfCol: string | null;
+  /** 強調する行 (行の名前と完全に同じもの) */
+  highlightRows: string[];
+};
+
+/** presentation の jsonb を読む。文字でない値・空の値は捨て、何も残らなければ null (= 通常の星取り表)。 */
+export function readTechPresentation(value: unknown): TechPresentation | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const v = value as Record<string, unknown>;
+  const text = (x: unknown) => (typeof x === "string" && x.trim() ? x.trim() : null);
+  const highlightRows = Array.isArray(v.highlight_rows)
+    ? v.highlight_rows.filter((x): x is string => typeof x === "string" && x.trim() !== "").map((x) => x.trim())
+    : [];
+  const presentation: TechPresentation = {
+    heading: text(v.heading),
+    eyecatch: text(v.eyecatch),
+    lead: text(v.lead),
+    note: text(v.note),
+    selfCol: text(v.self_col),
+    highlightRows,
+  };
+  const empty =
+    !presentation.heading &&
+    !presentation.eyecatch &&
+    !presentation.lead &&
+    !presentation.note &&
+    !presentation.selfCol &&
+    highlightRows.length === 0;
+  return empty ? null : presentation;
+}
 
 export type TechEntry = {
   tech_entry_id: string;
