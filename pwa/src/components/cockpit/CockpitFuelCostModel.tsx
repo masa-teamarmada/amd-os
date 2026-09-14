@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { CostModelBundle } from "@/lib/project-cost-model";
+import { CO2_FLUE_GAS_ROLE, WASTE_HEAT_ROLE, WASTE_MEDIUM_ROLE, flueGasOn, wasteHeatOn, wasteMediumOn, type CostModelBundle } from "@/lib/project-cost-model";
 import {
   FUEL_CONVERSIONS,
   FUEL_CONVERSION_DESCRIPTION,
@@ -39,7 +39,7 @@ import {
   type DraftValue,
 } from "@/lib/project-cost-model-draft";
 import { loadProjectFuelCostModel, peekProjectFuelCostModel, saveFuelCostPatches } from "@/lib/project-cost-model-client";
-import { Segmented } from "@/components/cockpit/CockpitCostModelParts";
+import { FactoryUtilitySwitches, Segmented } from "@/components/cockpit/CockpitCostModelParts";
 import { FuelControlsPanel } from "@/components/cockpit/CockpitFuelCostModelControls";
 import { FuelResultsPanel, FuelResultsSummaryBar } from "@/components/cockpit/CockpitFuelCostModelResults";
 import { FuelReadingSections } from "@/components/cockpit/CockpitFuelCostModelReading";
@@ -223,6 +223,25 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true }: Props) {
   const secretionAssumption = fuelAssumptionOf(working.assumptions, LIPID_SECRETION_ROLE);
   const secreting = fuelSecretionOn(working.assumptions);
   const secretionChanged = secreting !== fuelSecretionOn(bundle.assumptions);
+  // 枠の上端に並べる「工場から」の3つ（排液・排ガス・排熱）。明細の行のスイッチと同じ前提を切り替える
+  // （まさ 2026-09-15「一番上の「株」「用途」「方式」「装置」の切り替えスイッチの右にも並べてほしい」）
+  const factoryUtilities = [
+    { key: WASTE_MEDIUM_ROLE, label: "排液", on: wasteMediumOn, hint: "工場の排液を培地に使える（培地の原料の買値が減る割合だけ引かれる）" },
+    { key: CO2_FLUE_GAS_ROLE, label: "排ガス", on: flueGasOn, hint: "工場の排ガスを使える（CO2 が0円）" },
+    { key: WASTE_HEAT_ROLE, label: "排熱", on: wasteHeatOn, hint: "工場の排熱を使える（培養の加温の熱が0円）" },
+  ].flatMap(({ key, label, on, hint }) => {
+    const a = fuelAssumptionOf(working.assumptions, key);
+    if (!a) return [];
+    const saved = bundle.assumptions.find((x) => x.costAssumptionId === a.costAssumptionId);
+    return [{
+      key,
+      label,
+      hint,
+      on: on(a),
+      baselineOn: on(saved),
+      onToggle: (next: boolean) => onChange("assumption", a.costAssumptionId, "valueText", next ? "on" : "off"),
+    }];
+  });
   const baselineFlow = hasDraft && currentBase ? computeFuelTaskFlow(bundle, currentBase) : flow;
   const showFlow = () => {
     const target = document.getElementById("fuel-flow");
@@ -284,9 +303,19 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true }: Props) {
                 </div>
               </div>
             )}
+            <FactoryUtilitySwitches items={factoryUtilities} />
             <p className="text-[10px] leading-4 text-[#6e6e73] sm:col-span-2 xl:basis-full" data-testid="fuel-selection-note">
               {FUEL_CONVERSION_LABEL[current.conversion]}＝{FUEL_CONVERSION_DESCRIPTION[current.conversion]}。収率{FUEL_YIELD_CASE_LABEL[current.yieldCase]}＝{FUEL_YIELD_CASE_DESCRIPTION[current.yieldCase]}。
               {secretionAssumption && <>{LIPID_SECRETION_LABEL}を{secreting ? "使う" : "使わない"}＝{LIPID_SECRETION_DESCRIPTION[secreting ? "on" : "off"]}。</>}
+              {factoryUtilities.length > 0 && (
+                <>
+                  工場から＝
+                  {factoryUtilities.some((u) => u.on)
+                    ? `${factoryUtilities.filter((u) => u.on).map((u) => u.label).join("・")}をもらう前提（培養の拠点を工場の隣に置く）`
+                    : "何ももらわない（すべて買う）"}
+                  。
+                </>
+              )}
             </p>
           </div>
           {/* 書き換え中に保存のボタンが2段に折り返さないよう、右端は縮めない (説明の一文の方を折り返す) */}

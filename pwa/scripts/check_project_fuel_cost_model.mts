@@ -727,6 +727,17 @@ check("工場の排液を培地に使える: ON のとき培地の原料3行の�
   const wwControls = read("src/components/cockpit/CockpitCostModelControls.tsx");
   assert.match(wwControls, /i\.priceRule === "medium_supply" && wasteMedium/);
   assert.match(wwControls, /<WasteMediumSwitch/);
+  // 枠の上端にも3つ並べる（まさ 2026-09-15「一番上の「株」「用途」「方式」「装置」の切り替えスイッチの右にも並べてほしい」）
+  for (const [name, src] of [["廃液", read("src/components/cockpit/CockpitCostModel.tsx")], ["燃料", read("src/components/cockpit/CockpitFuelCostModel.tsx")]] as const) {
+    assert.match(src, /<FactoryUtilitySwitches items=\{factoryUtilities\} \/>/, `${name}: 枠の上端に工場からの3つ`);
+    for (const role of ["WASTE_MEDIUM_ROLE", "CO2_FLUE_GAS_ROLE", "WASTE_HEAT_ROLE"]) {
+      assert.ok(src.includes(role), `${name}: 上端の3つに ${role}`);
+    }
+    assert.match(src, /工場から＝/, `${name}: 選んだものを一文で出す`);
+  }
+  const parts = read("src/components/cockpit/CockpitCostModelParts.tsx");
+  assert.match(parts, /data-testid="factory-utility-switches"/);
+  assert.match(parts, /aria-label="工場のものを使うかの切り替え"/);
 });
 
 check("コスト試算（廃液・燃料）共通: 数字の出どころを残す。計算に使う明細・前提・作業はすべて根拠を持ち、組み直した行は前の額とその出どころを持つ。書き換えは変更の記録に残る", () => {

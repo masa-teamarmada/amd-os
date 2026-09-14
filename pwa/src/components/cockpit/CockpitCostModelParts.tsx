@@ -196,6 +196,42 @@ export function WasteHeatSwitch({ on, baselineOn, onToggle }: { on: boolean; bas
   );
 }
 
+/**
+ * 枠の上端に並べる「工場のものを使う」の3つ（排液・排ガス・排熱）。
+ * まさ 2026-09-15「排液、排ガス、排熱を利用するのスイッチは、一番上の「株」「用途」「方式」「装置」の切り替えスイッチの右にも並べてほしい」。
+ * 明細の行に置いたスイッチ（FlueGasSwitch / WasteMediumSwitch / WasteHeatSwitch）と同じ前提を切り替える。
+ * 切り替えは試算中の変更で、保存値と違うときは枠を AMD Blue にする。
+ */
+export function FactoryUtilitySwitches({ items }: { items: Array<{ key: string; label: string; on: boolean; baselineOn: boolean; hint: string; onToggle: (on: boolean) => void }> }) {
+  if (items.length === 0) return null;
+  return (
+    <div className="flex min-w-0 items-center gap-1.5" data-testid="factory-utility-switches">
+      <span className="w-[4.5rem] shrink-0 text-[11px] font-semibold text-[#3c3c43] xl:w-auto" title="培養の拠点を工場の隣に置いて、工場から出るものをもらう前提にする">工場から</span>
+      <div role="group" aria-label="工場のものを使うかの切り替え" className="inline-flex min-w-0 flex-1 gap-0.5 rounded-lg border border-[#d2d2d7] bg-white p-0.5 xl:flex-none">
+        {items.map((it) => {
+          const changed = it.on !== it.baselineOn;
+          return (
+            <button
+              key={it.key}
+              type="button"
+              role="switch"
+              aria-checked={it.on}
+              aria-label={it.label}
+              title={it.hint}
+              onClick={() => it.onToggle(!it.on)}
+              className={`min-h-[40px] flex-1 whitespace-nowrap rounded-md px-2 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7cbceb] xl:min-h-[30px] xl:flex-none ${
+                it.on ? "bg-[#027fdc] text-white" : "text-[#3c3c43] hover:bg-[#e8f3fc]"
+              } ${changed ? "ring-2 ring-[#7cbceb] ring-offset-1" : ""}`}
+            >
+              {it.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /** 明細の行に置く ON / OFF のスイッチ。切り替えは試算中の変更で、保存値と違うときは枠を AMD Blue にする。 */
 function ItemInlineSwitch({ on, baselineOn, onToggle, label, hint, testId }: { on: boolean; baselineOn: boolean; onToggle: (on: boolean) => void; label: string; hint: string; testId: string }) {
   const changed = on !== baselineOn;

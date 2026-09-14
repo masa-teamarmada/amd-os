@@ -3,14 +3,21 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   APPLICATION_LABEL,
+  CO2_FLUE_GAS_ROLE,
   LOCATION_DESCRIPTION,
   LOCATION_SHORT_LABEL,
   METHODS,
   METHOD_DESCRIPTION,
   METHOD_LABEL,
   STRAIN_LABEL,
+  WASTE_HEAT_ROLE,
+  WASTE_MEDIUM_ROLE,
   computeCostModel,
   computeTaskFlow,
+  flueGasOn,
+  resolveAssumption,
+  wasteHeatOn,
+  wasteMediumOn,
   type CostApplication,
   type CostLocation,
   type CostMethod,
@@ -36,7 +43,7 @@ import {
   peekProjectCostModel,
   saveCostPatches,
 } from "@/lib/project-cost-model-client";
-import { Segmented, num } from "@/components/cockpit/CockpitCostModelParts";
+import { FactoryUtilitySwitches, Segmented, num } from "@/components/cockpit/CockpitCostModelParts";
 import { CostControlsPanel } from "@/components/cockpit/CockpitCostModelControls";
 import { CostResultsPanel, CostResultsSummaryBar, type CostViewSelection } from "@/components/cockpit/CockpitCostModelResults";
 import { CostReadingSections } from "@/components/cockpit/CockpitCostModelReading";
@@ -252,6 +259,26 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
     tankMode: location === "offsite" ? "新設" : computed.onsiteTankBearer === "customer" ? "既設" : view.tankMode,
     onsiteTankBearer: computed.onsiteTankBearer,
   };
+  // 枠の上端に並べる「工場から」の3つ（排液・排ガス・排熱）。明細の行のスイッチと同じ前提を切り替える
+  // （まさ 2026-09-15「一番上の「株」「用途」「方式」「装置」の切り替えスイッチの右にも並べてほしい」）
+  const centralSel = { strain: computed.strain, application: null };
+  const factoryUtilities = [
+    { key: WASTE_MEDIUM_ROLE, label: "排液", on: wasteMediumOn, hint: "工場の排液を培地に使える（培地の原料の買値が減る割合だけ引かれる）" },
+    { key: CO2_FLUE_GAS_ROLE, label: "排ガス", on: flueGasOn, hint: "工場の排ガスを使える（CO2 が0円）" },
+    { key: WASTE_HEAT_ROLE, label: "排熱", on: wasteHeatOn, hint: "工場の排熱を使える（培養の加温の熱が0円）" },
+  ].flatMap(({ key, label, on, hint }) => {
+    const a = resolveAssumption(working.assumptions, key, centralSel);
+    if (!a) return [];
+    const saved = bundle.assumptions.find((x) => x.costAssumptionId === a.costAssumptionId);
+    return [{
+      key,
+      label,
+      hint,
+      on: on(a),
+      baselineOn: on(saved),
+      onToggle: (next: boolean) => onChange("assumption", a.costAssumptionId, "valueText", next ? "on" : "off"),
+    }];
+  });
   const hasMargin = model.targetMarginRate !== null && model.targetMarginRate > 0;
   const flowSel = { application: selection.application, location: selection.location, method: selection.method };
   const flow = computeTaskFlow(working, computed, flowSel);
@@ -316,9 +343,19 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
               value={selection.method}
               onChange={(v) => setView({ method: v })}
             />
+            <FactoryUtilitySwitches items={factoryUtilities} />
             <p className="text-[10px] leading-4 text-[#6e6e73] sm:col-span-2 xl:basis-full" data-testid="cost-selection-note">
               {locations.length > 1 && <>{LOCATION_SHORT_LABEL[selection.location]}＝{LOCATION_DESCRIPTION[selection.location]}。</>}
               {METHOD_LABEL[selection.method]}＝{METHOD_DESCRIPTION[selection.method]}。
+              {factoryUtilities.length > 0 && (
+                <>
+                  工場から＝
+                  {factoryUtilities.some((u) => u.on)
+                    ? `${factoryUtilities.filter((u) => u.on).map((u) => u.label).join("・")}をもらう前提（培養の拠点を工場の隣に置く）`
+                    : "何ももらわない（すべて買う）"}
+                  。
+                </>
+              )}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-1.5 xl:self-start">
