@@ -8,6 +8,12 @@ import {
   FUEL_CONVERSION_LABEL,
   FUEL_RESIDUE_ROUTE_LABEL,
   FUEL_YIELD_CASES,
+  LIPID_SECRETION_CHOICES,
+  LIPID_SECRETION_DESCRIPTION,
+  LIPID_SECRETION_LABEL,
+  LIPID_SECRETION_ROLE,
+  fuelAssumptionOf,
+  fuelSecretionOn,
   FUEL_YIELD_CASE_DESCRIPTION,
   FUEL_YIELD_CASE_LABEL,
   computeFuelCostModel,
@@ -67,10 +73,14 @@ const viewMemory = new Map<string, FuelViewState>();
 // 開いたときは、事業概要 (2026-09-03) の分担どおり FAME転換を外部に委託し、収率は基準。
 const DEFAULT_VIEW: FuelViewState = { conversion: "outsourced", yieldCase: "base" };
 
-/** 「保存していない変更」の一覧の値。選択肢で持つ前提 (残渣の行き先) は呼び名で出す。 */
+/** 「保存していない変更」の一覧の値。選択肢で持つ前提 (残渣の行き先・脂質分泌株) は呼び名で出す。 */
 export function formatFuelDraftValue(change: Pick<DraftChange, "field">, value: DraftValue): string {
   if (change.field === "valueText" && typeof value === "string" && value in FUEL_RESIDUE_ROUTE_LABEL) {
     return FUEL_RESIDUE_ROUTE_LABEL[value as FuelResidueRoute];
+  }
+  if (change.field === "valueText" && typeof value === "string") {
+    const choice = LIPID_SECRETION_CHOICES.find((c) => c.value === value);
+    if (choice) return `${LIPID_SECRETION_LABEL}を${choice.label}`;
   }
   return formatDraftValue(change.field, value);
 }
@@ -209,6 +219,10 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true }: Props) {
   const current = findFuelScenario(computed, view.conversion, view.yieldCase) ?? computed.scenarios[0];
   const currentBase = findFuelScenario(baseline, current.conversion, current.yieldCase);
   const flow = computeFuelTaskFlow(working, current);
+  // 株の切り替え (前提 lipid_secreting_strain)。保存値と違うときは枠を光らせる。
+  const secretionAssumption = fuelAssumptionOf(working.assumptions, LIPID_SECRETION_ROLE);
+  const secreting = fuelSecretionOn(working.assumptions);
+  const secretionChanged = secreting !== fuelSecretionOn(bundle.assumptions);
   const baselineFlow = hasDraft && currentBase ? computeFuelTaskFlow(bundle, currentBase) : flow;
   const showFlow = () => {
     const target = document.getElementById("fuel-flow");
@@ -252,8 +266,27 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true }: Props) {
                 />
               </div>
             </div>
+            {/* 株の切り替え。FAME転換・収率と違って前提 (保存する値) なので、切り替えると「保存していない変更」に出る
+                (まさ 2026-09-14「コスト試算表を「脂質分泌株」のスイッチオンオフで切り替えられるようにしてほしい」) */}
+            {secretionAssumption && (
+              <div className="flex min-w-0 items-center gap-1.5" data-testid="fuel-strain-switch">
+                <span className="w-[4.5rem] shrink-0 text-[11px] font-semibold text-[#3c3c43] xl:w-auto">株</span>
+                <div className={`min-w-0 flex-1 rounded-lg xl:flex-none ${secretionChanged ? "ring-2 ring-[#7cbceb]" : ""}`}>
+                  <Segmented
+                    ariaLabel="脂質分泌株の切り替え"
+                    options={[
+                      { value: "off" as const, label: "菌体から取り出す" },
+                      { value: "on" as const, label: LIPID_SECRETION_LABEL },
+                    ]}
+                    value={secreting ? "on" : "off"}
+                    onChange={(v) => onChange("assumption", secretionAssumption.costAssumptionId, "valueText", v)}
+                  />
+                </div>
+              </div>
+            )}
             <p className="text-[10px] leading-4 text-[#6e6e73] sm:col-span-2 xl:basis-full" data-testid="fuel-selection-note">
               {FUEL_CONVERSION_LABEL[current.conversion]}＝{FUEL_CONVERSION_DESCRIPTION[current.conversion]}。収率{FUEL_YIELD_CASE_LABEL[current.yieldCase]}＝{FUEL_YIELD_CASE_DESCRIPTION[current.yieldCase]}。
+              {secretionAssumption && <>{LIPID_SECRETION_LABEL}を{secreting ? "使う" : "使わない"}＝{LIPID_SECRETION_DESCRIPTION[secreting ? "on" : "off"]}。</>}
             </p>
           </div>
           {/* 書き換え中に保存のボタンが2段に折り返さないよう、右端は縮めない (説明の一文の方を折り返す) */}

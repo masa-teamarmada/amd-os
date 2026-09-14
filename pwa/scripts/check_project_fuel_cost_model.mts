@@ -15,6 +15,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import {
   FUEL_BREAKDOWN_ORDER,
+  FUEL_SECRETION_YIELD_ROLES,
+  LIPID_SECRETION_ROLE,
+  fuelBreakdownLabelOf,
+  fuelSecretionOn,
+  fuelSelectionOf,
+  fuelUnitFactorOf,
   FUEL_CASE_KIND,
   FUEL_CONVERSIONS,
   FUEL_PARAM_GROUPS,
@@ -91,7 +97,7 @@ check("収率の3ケース: FAMEポテンシャルは細胞の構造からの試
   near(fuelYieldOf(fixture.assumptions, "high").fameKgPerKgDcw * 1000, 72.997848, 1e-9, "改善");
   // 燃料1Lに要る菌体 = 密度 ÷ FAME kg/kg
   const y = fuelYieldOf(fixture.assumptions, "base");
-  near(y.kgDcwPerLiter, 0.88 / 0.04876578, 1e-9, "kg/L");
+  near(y.unitKgPerLiter, 0.88 / 0.04876578, 1e-9, "kg/L");
   near(y.litersPerKgDcw * 1000, 55.41566, 1e-4, "L/t");
 });
 
@@ -102,9 +108,9 @@ check("年に要る菌体の量と設備の系列数は、年間の燃料の量�
   for (const yc of FUEL_YIELD_CASES) {
     const y = fuelYieldOf(fixture.assumptions, yc);
     const s = fuelScaleOf(fixture.assumptions, y);
-    near(s.biomassKgYear, 50_000_000 * y.kgDcwPerLiter, 1e-12, `${yc} 年に要る菌体`);
-    near(s.cultureLines, s.biomassKgYear / 33_333, 1e-12, `${yc} 培養設備`);
-    near(s.plantLines, s.biomassKgYear / 50_000_000, 1e-12, `${yc} 燃料化設備`);
+    near(s.unitKgYear, 50_000_000 * y.unitKgPerLiter, 1e-12, `${yc} 年に要る菌体`);
+    near(s.cultureLines, s.unitKgYear / 33_333, 1e-12, `${yc} 培養設備`);
+    near(s.plantLines, s.unitKgYear / 50_000_000, 1e-12, `${yc} 燃料化設備`);
     near(s.shipmentsPerYear, 50_000_000 / 20_000, 1e-12, "出荷の台数");
     near(s.lotsPerYear, 50_000_000 / 500_000, 1e-12, "品質確認のロット数");
   }
@@ -152,7 +158,7 @@ check("FAMEポテンシャルを2倍にすると、菌体に比例する費用�
   const base = computeFuelScenario(fixture, "outsourced", "base");
   const baseFame = fixture.assumptions.find((a) => a.roleKey === "fame_potential")!.value!;
   const doubled = computeFuelScenario(setRole(clone(), "fame_potential", { value: baseFame * 2 }), "outsourced", "base");
-  near(doubled.yield.kgDcwPerLiter, base.yield.kgDcwPerLiter / 2, 1e-12, "1Lに要る菌体が半分");
+  near(doubled.yield.unitKgPerLiter, base.yield.unitKgPerLiter / 2, 1e-12, "1Lに要る菌体が半分");
   near(doubled.biomassPerLiter, base.biomassPerLiter / 2, 1e-9, "菌体費が半分");
   const sliceOf = (s: typeof base, key: string) => s.breakdown.find((b) => b.key === key)!.perLiter;
   // FAMEにする（委託費・輸送は燃料1Lあたり）は変わらない
@@ -192,7 +198,7 @@ check("残渣の行き先: 発酵などは正味の費用、産業廃棄物は �
   near(r.perKgDcw, 0.878 * 5 * 35, 1e-12, "処分の単価");
   const s = computeFuelScenario(disposed, "outsourced", "base");
   const base = computeFuelScenario(fixture, "outsourced", "base");
-  near(s.totalPerLiter - base.totalPerLiter, r.perKgDcw * base.yield.kgDcwPerLiter, 1e-9, "処分に変えた差");
+  near(s.totalPerLiter - base.totalPerLiter, r.perKgDcw * base.yield.unitKgPerLiter, 1e-9, "処分に変えた差");
   assert.equal(Math.round(s.totalPerLiter - base.totalPerLiter), 2773, "基準の収率で約2,770円/L 上がる");
 });
 
@@ -200,7 +206,7 @@ check("菌体の原価の上書き: 0 を入れると菌体費が0、売価で�
   const b = setRole(clone(), "biomass_cost_per_kg_override", { value: 0 });
   const s = computeFuelScenario(b, "outsourced", "high");
   assert.equal(s.biomassPerLiter, 0);
-  near(s.breakEvenBiomassPerKg, (200 - s.processPerLiter) / s.yield.kgDcwPerLiter, 1e-12, "成立ライン");
+  near(s.breakEvenBiomassPerKg, (200 - s.processPerLiter) / s.yield.unitKgPerLiter, 1e-12, "成立ライン");
   const flow = computeFuelTaskFlow(b, s);
   assert.equal(flow.steps.find((st) => st.label === "菌体をつくる")?.perLiter ?? 0, 0, "上書き値のとき培養の作業は1Lに配らない");
 });
@@ -395,7 +401,7 @@ check("コスト試算（廃液・燃料）共通: 明細の行の下に、数�
         fuelPriced += 1;
         near(calc.price.result.value, fuelEffectiveUnitPrice(i, ctx), 1e-9, `燃料 ${i.costItemId} 計算で出した単価`);
       }
-      const right = i.scenario === "中央培養" ? fuelCultureItemPerKg(i, sc.scale.cultureLineCapacityKgYear, ctx) * sc.yield.kgDcwPerLiter : fuelItemAnnual(i, sc.scale, ctx) / sc.scale.annualLiters;
+      const right = i.scenario === "中央培養" ? fuelCultureItemPerKg(i, sc.scale.cultureLineCapacityUnitYear, ctx, sc.scale) * sc.yield.unitKgPerLiter : fuelItemAnnual(i, sc.scale, ctx) / sc.scale.annualLiters;
       near(walk(calc, `燃料 ${sc.key} ${i.costItemId}`), right, 1e-9, `燃料 ${sc.key} ${i.costItemId} 式の答え ＝ 右端の円/L`);
       assert.equal(calc.excluded, null);
       fuelRows += 1;
@@ -415,7 +421,7 @@ check("コスト試算（廃液・燃料）共通: 明細の行の下に、数�
   const mc = fuelItemCalc(medium, base, ctx);
   assert.ok(mc);
   assert.deepEqual(mc.segments.map((s) => s.result.label ?? s.result.unit), ["菌体1kgあたり", "円/L"]);
-  near(evaluateItemCalc(mc), 0.4854 * 187 * base.yield.kgDcwPerLiter, 1e-9, "窒素源");
+  near(evaluateItemCalc(mc), 0.4854 * 187 * base.yield.unitKgPerLiter, 1e-9, "窒素源");
   near(evaluateItemCalc(mc), 1638.0, 1e-4, "窒素源 円/L");
   assert.deepEqual([mc.segments[0].terms[0].unit, mc.segments[0].terms[1].unit], ["kg/kg-DCW", "円/kg"], "量と買値の単位で式が読める");
   // 菌体の原価を上書きしているときは、培養設備の行は燃料の原価に入らないと式に書く
@@ -532,7 +538,7 @@ check("排ガス利用可能: ON のとき CO2 の単価を0円にし、培養�
   for (const s of off.scenarios) {
     const t = onc.scenarios.find((x) => x.key === s.key)!;
     near(s.biomass.perKg - t.biomass.perKg, drop, 1e-9, `${s.key} 菌体1kgの原価は CO2 と作り直す分の CO2 だけ下がる`);
-    near(s.totalPerLiter - t.totalPerLiter, drop * s.yield.kgDcwPerLiter, 1e-6, `${s.key} 燃料1Lあたりは その額 × 燃料1Lに要る菌体 だけ下がる`);
+    near(s.totalPerLiter - t.totalPerLiter, drop * s.yield.unitKgPerLiter, 1e-6, `${s.key} 燃料1Lあたりは その額 × 燃料1Lに要る菌体 だけ下がる`);
   }
   const ob = findFuelScenario(onc, "outsourced", "base")!;
   assert.equal(Math.round(ob.totalPerLiter * 10) / 10, 3863.9, "ON 基準・委託（2026-09-14）");
@@ -552,10 +558,110 @@ check("排ガス利用可能: ON のとき CO2 の単価を0円にし、培養�
   assert.equal(FUEL_TEXT_CHOICE_ROLES[CO2_FLUE_GAS_ROLE]?.find((c) => c.value === "on")?.label, "使える（CO2は0円）");
   // 画面の行の計算も同じ束を使う
   const controls = read("src/components/cockpit/CockpitFuelCostModelControls.tsx");
-  assert.match(controls, /fuelCultureItemPerKg\(i, current\.scale\.cultureLineCapacityKgYear, ctx\)/);
+  assert.match(controls, /fuelCultureItemPerKg\(i, current\.scale\.cultureLineCapacityUnitYear, ctx, current\.scale\)/);
   assert.match(controls, /fuelItemAnnual\(i, current\.scale, ctx\)/);
   const reading = read("src/components/cockpit/CockpitFuelCostModelReading.tsx");
-  assert.match(reading, /fuelCultureItemPerKg\(i, current\.scale\.cultureLineCapacityKgYear, priceCtx\)/);
+  assert.match(reading, /fuelCultureItemPerKg\(i, current\.scale\.cultureLineCapacityUnitYear, priceCtx, current\.scale\)/);
+});
+
+check("脂質分泌株: ON のとき第1段の単位が脂肪酸になり、菌体を集めて壊す行を数えない。スイッチは枠の上端（前提の一覧に出さない）", () => {
+  // まさ 2026-09-14「脂質を分泌できる株の開発も理論的には可能っていう話を杉浦先生からもらったので、
+  // コスト試算表を「脂質分泌株」のスイッチオンオフで切り替えられるようにしてほしい。脂質分泌株だと一気にコストが下がりそうな気がしてる」
+  const sw = fixture.assumptions.filter((a) => a.roleKey === LIPID_SECRETION_ROLE);
+  assert.equal(sw.length, 1, "脂質分泌株の前提は1行");
+  assert.equal(sw[0].valueText, "off", "既定は OFF（菌体から取り出す）");
+  assert.ok(FUEL_ROLE_KEYS.has(LIPID_SECRETION_ROLE), "計算に使う前提");
+  assert.ok(fuelParamGroupOfRole(LIPID_SECRETION_ROLE), "置き場所がある");
+  for (const role of FUEL_SECRETION_YIELD_ROLES) {
+    assert.ok(FUEL_ROLE_KEYS.has(role) && FUEL_ROLE_KEYS.has(`${role}_low`) && FUEL_ROLE_KEYS.has(`${role}_high`), `${role} の3ケース`);
+    assert.equal(fuelParamGroupOfRole(role)?.key, "cond-yield", `${role} は収率の区分`);
+  }
+  assert.equal(fuelSecretionOn(fixture.assumptions), false);
+  assert.deepEqual(fuelSelectionOf(fixture.assumptions), { strain: "wild", application: null }, "OFF は自然株の行が効く");
+
+  const on = setRole(clone(), LIPID_SECRETION_ROLE, { valueText: "on" });
+  assert.deepEqual(fuelSelectionOf(on.assumptions), { strain: "secreting", application: null });
+  const off = computeFuelCostModel(fixture);
+  const onc = computeFuelCostModel(on);
+  const ob = findFuelScenario(onc, "outsourced", "base")!;
+  const fb = findFuelScenario(off, "outsourced", "base")!;
+
+  // 収率: 分泌株は 密度 ÷（培養液からの回収率 × メチル化 × 精製）。菌体回収率・脂質抽出回収率・FAMEポテンシャルは効かない
+  near(ob.yield.unitKgPerLiter, 0.88 / (0.9 * 0.97 * 0.98), 1e-9, "燃料1Lに要る脂肪酸");
+  assert.equal(ob.yield.unitLabel, "脂肪酸");
+  assert.equal(fb.yield.unitLabel, "菌体");
+  const potential = setRole(JSON.parse(JSON.stringify(on)), "fame_potential", { value: 12 });
+  near(findFuelScenario(computeFuelCostModel(potential), "outsourced", "base")!.totalPerLiter, ob.totalPerLiter, 1e-9, "分泌株ではFAMEポテンシャルが効かない");
+
+  // 規模: 1系列が年に出す脂肪酸 ＝ 培養液量 × 分泌速度 × 稼働日数、培養液量 ＝ 年間生産能力 ÷（生産性 × 稼働日数）
+  near(ob.scale.cultureLineVolumeM3, 33333 / (0.5 * 300), 1e-9, "1系列の培養液量（m³）");
+  near(ob.scale.cultureLineCapacityUnitYear, ob.scale.cultureLineVolumeM3 * 0.036 * 300, 1e-9, "1系列が年に出す脂肪酸");
+  assert.equal(fb.scale.cultureLineCapacityUnitYear, 33333, "OFF は入力の年間生産能力そのまま");
+  const half = setRole(JSON.parse(JSON.stringify(on)), "secretion_rate", { value: 0.018 });
+  near(findFuelScenario(computeFuelCostModel(half), "outsourced", "base")!.scale.cultureLines, ob.scale.cultureLines * 2, 1e-6, "分泌速度が半分なら培養設備は2倍");
+
+  // 明細: 菌体1kgあたりの行は「入れ替える菌体」を掛けて脂肪酸1kgあたりに直す。脂肪酸あたりで入れた行はそのまま
+  const n = fixture.items.find((i) => i.costItemId === "cif_culture_120")!;
+  const co2fa = on.items.find((i) => i.costItemId === "cif_sec_co2")!;
+  assert.equal(fuelUnitFactorOf(n, ob.scale), 0.4, "菌体1kgあたりの行は入れ替える菌体を掛ける");
+  assert.equal(fuelUnitFactorOf(co2fa, ob.scale), 1, "脂肪酸1kgあたりの行はそのまま");
+  assert.equal(fuelUnitFactorOf(n, fb.scale), 1, "OFF は掛けない");
+  const calc = fuelItemCalc(n, ob, { assumptions: on.assumptions, items: on.items })!;
+  assert.ok(calc.segments[0].terms.some((t) => t.label === "脂肪酸1kgあたりに入れ替える菌体"), "式に入れ替える菌体の段が出る");
+  near(evaluateItemCalc(calc), n.quantity * n.unitPrice * 0.4 * ob.yield.unitKgPerLiter, 1e-9, "式の答え ＝ 右端の額");
+
+  // 株で行を出し入れする: 分泌株では菌体を集めて壊す設備を数えず、分泌株の設備を数える
+  const wildOnly = ["cif_plant_disruption", "cif_plant_extraction", "cif_plant_residue", "cif_culture_057", "cif_op_solvent"];
+  const secretingOnly = ["cif_sec_closed_exhaust", "cif_sec_solvent_fill", "cif_sec_co2", "cif_sec_plant_strip", "cif_sec_op_heat"];
+  for (const id of wildOnly) {
+    const i = fixture.items.find((x) => x.costItemId === id)!;
+    assert.equal(i.strain, "wild", `${id} は分泌株でないときだけ`);
+    assert.equal(fuelRowApplies(i, "outsourced", fuelSelectionOf(on.assumptions)), false, `${id} は分泌株では数えない`);
+  }
+  for (const id of secretingOnly) {
+    const i = on.items.find((x) => x.costItemId === id)!;
+    assert.equal(i.strain, "secreting", `${id} は分泌株のときだけ`);
+    assert.equal(fuelRowApplies(i, "outsourced", fuelSelectionOf(fixture.assumptions)), false, `${id} は分泌株でないときは数えない`);
+  }
+  const secretingItems = on.items.filter((i) => i.strain === "secreting");
+  assert.ok(secretingItems.length >= 13, `分泌株の明細 ${secretingItems.length} 行`);
+  for (const i of secretingItems) assert.ok((i.note ?? "").includes("確かめ方"), `${i.costItemId} の根拠に確かめ方`);
+  assert.ok((on.tasks ?? []).some((t) => t.strain === "secreting"), "分泌株の作業がある");
+  assert.ok(computeFuelTaskFlow(on, ob).steps.some((st) => st.label === "脂肪酸を回収する"), "作業の流れに脂肪酸を回収する段");
+  assert.ok(!computeFuelTaskFlow(on, ob).steps.some((st) => st.label === "脱水・油回収"), "分泌株では脱水・油回収の段が出ない");
+
+  // 残渣は入れ替えた菌体の分だけ
+  near(fuelResidueOf(on.assumptions, ob.yield).dryKgPerUnit, 0.878 * 0.4, 1e-9, "分泌株の残渣は入れ替えた菌体の分だけ");
+  assert.equal(fuelBreakdownLabelOf("recovery", true), "培養液からの回収");
+
+  // 260914版の数字（432 適用後、排ガス利用可能は OFF）
+  const table: Record<string, number> = {
+    "outsourced:low": 3994.9, "outsourced:base": 1311.8, "outsourced:high": 835.2,
+    "inhouse:low": 3960.0, "inhouse:base": 1273.9, "inhouse:high": 796.0,
+  };
+  for (const s of onc.scenarios) assert.equal(Math.round(s.totalPerLiter * 10) / 10, table[s.key], `分泌株 ${s.key}`);
+  assert.ok(onc.scenarios.every((s) => s.totalPerLiter > 200), "分泌株でも6通りすべて売価200円/Lを上回る");
+  assert.ok(ob.totalPerLiter < fb.totalPerLiter / 4, "基準・委託は4分の1より下がる");
+  // 下がるのは原料、上がるのは培養設備（光合成の速さで培養の系列数が決まるので、株を変えてもあまり減らない）
+  const materials = (s: typeof ob) => s.biomass.variablePerKg * s.yield.unitKgPerLiter;
+  const cultureCapex = (s: typeof ob) => (s.biomass.rows.find((r) => r.key === "capex")?.perKg ?? 0) * s.yield.unitKgPerLiter;
+  assert.ok(materials(ob) < materials(fb) / 10, "原料は10分の1より下がる");
+  assert.ok(cultureCapex(ob) > cultureCapex(fb), "培養設備の償却は1Lあたり上がる");
+  assert.ok(ob.scale.cultureLines > fb.scale.cultureLines * 0.6, "培養設備の系列数はあまり減らない");
+
+  // 排ガス利用可能は分泌株でも効く（脂肪酸の炭素の CO2 も0円になる）
+  const onFlue = setRole(JSON.parse(JSON.stringify(on)), CO2_FLUE_GAS_ROLE, { valueText: "on" });
+  assert.ok(findFuelScenario(computeFuelCostModel(onFlue), "outsourced", "base")!.totalPerLiter < ob.totalPerLiter, "分泌株でも排ガスで下がる");
+  assert.equal(fuelEffectiveUnitPrice(co2fa, { assumptions: onFlue.assumptions, items: onFlue.items }), 0, "脂肪酸の炭素の CO2 も0円");
+
+  // 画面: スイッチは枠の上端、前提の一覧には出さない
+  const shell = read("src/components/cockpit/CockpitFuelCostModel.tsx");
+  assert.match(shell, /data-testid="fuel-strain-switch"/, "枠の上端に株のスイッチ");
+  assert.match(shell, /ariaLabel="脂質分泌株の切り替え"/);
+  assert.match(shell, /LIPID_SECRETION_ROLE/);
+  const controls = read("src/components/cockpit/CockpitFuelCostModelControls.tsx");
+  assert.match(controls, /if \(role === LIPID_SECRETION_ROLE\) return \[\];/, "前提の一覧には出さない");
+  assert.match(controls, /fuelRowApplies\(i, current\.conversion, sel\)/, "株で効かない行を薄く出す");
 });
 
 check("コスト試算（廃液・燃料）共通: 数字の出どころを残す。計算に使う明細・前提・作業はすべて根拠を持ち、組み直した行は前の額とその出どころを持つ。書き換えは変更の記録に残る", () => {

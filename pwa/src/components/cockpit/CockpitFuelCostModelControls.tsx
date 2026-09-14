@@ -1,10 +1,15 @@
 "use client";
 
 import { useMemo, useRef, useState, type ReactNode } from "react";
-import { CO2_FLUE_GAS_ROLE, ITEM_INLINE_ROLES, flueGasOn, type CostAssumption, type CostItem, type CostModelBundle, type CostTask } from "@/lib/project-cost-model";
+import { CO2_FLUE_GAS_ROLE, ITEM_INLINE_ROLES, STRAIN_LABEL, flueGasOn, type CostAssumption, type CostItem, type CostModelBundle, type CostTask } from "@/lib/project-cost-model";
 import {
-  FUEL_BASIS_LABEL,
   FUEL_CULTURE_LABEL,
+  FUEL_SECRETION_YIELD_ROLES,
+  FUEL_SECRETION_YIELD_ROLE_LABEL,
+  LIPID_SECRETION_ROLE,
+  fuelBasisLabelOf,
+  fuelSecretionAssumptionOf,
+  fuelSelectionOf,
   FUEL_PARAM_BLOCKS,
   FUEL_PARAM_GROUPS,
   FUEL_PLANT_LABEL,
@@ -67,9 +72,9 @@ const stepAnchorId = (label: string) => `fuel-step-${label}`;
  * 内訳の区分の額を比例して動かす前提 (金額の行ではない)。燃料1Lに要る菌体の量に比例する区分は、収率の表を動かすと額が動く。
  * 菌体費は、菌体の原価を上書きしても動く。
  */
-const YIELD_DRIVER: BreakdownGuideDriver = { groupKey: "cond-yield", label: "収率（燃料1Lに要る菌体の量）" };
+const YIELD_DRIVER: BreakdownGuideDriver = { groupKey: "cond-yield", label: "収率（燃料1Lに要る量）" };
 const FUEL_BREAKDOWN_DRIVERS: Record<string, BreakdownGuideDriver[]> = {
-  biomass: [YIELD_DRIVER, { groupKey: "cond-biomass", label: "菌体の原価（上書き）" }],
+  biomass: [YIELD_DRIVER, { groupKey: "cond-biomass", label: "第1段の原価（上書き）" }],
   recovery: [YIELD_DRIVER],
   residue: [YIELD_DRIVER],
   capex: [YIELD_DRIVER],
@@ -80,6 +85,10 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
   const [showAllRows, setShowAllRows] = useState(false);
   const tasks = working.tasks ?? [];
 
+  // 第1段で数える単位の呼び名 (脂質分泌株なら「脂肪酸」、そうでなければ「菌体」) と、株で効く行の絞り込み。
+  const u = current.yield.unitLabel;
+  const sel = fuelSelectionOf(working.assumptions);
+
   const assumptionsByGroup = useMemo(() => {
     const map = new Map<string, CostAssumption[]>();
     for (const g of FUEL_PARAM_GROUPS) {
@@ -87,7 +96,9 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
       map.set(g.key, g.roles.flatMap((role) => {
         // 排ガス利用可能は CO2 の明細の行に出す (まさ 2026-09-14「CO2コストのところに設置してほしい」)
         if (ITEM_INLINE_ROLES.has(role)) return [];
-        const a = fuelAssumptionOf(working.assumptions, role);
+        // 脂質分泌株は枠の上端のスイッチで切り替える
+        if (role === LIPID_SECRETION_ROLE) return [];
+        const a = fuelAssumptionOf(working.assumptions, role, fuelSelectionOf(working.assumptions));
         return a ? [a] : [];
       }));
     }
@@ -125,23 +136,31 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
           <Formula testId="fuel-business-scale">
             売上 ＝ 年間の燃料の量 {int(s.annualLiters)} L × 想定売価 {int(current.salePrice)} 円/L ＝{" "}
             <span className="font-semibold tabular-nums">{yen(current.revenueAnnual)}/年</span>。
-            年に要る菌体 ＝ {int(s.annualLiters)} L × 燃料1Lに要る菌体 {num(current.yield.kgDcwPerLiter, 2)} kg（収率{FUEL_YIELD_CASE_LABEL[current.yieldCase]}）＝{" "}
-            <span className="font-semibold tabular-nums">{int(s.biomassKgYear / 1000)} t/年</span>。{FUEL_CULTURE_LABEL} {int(s.cultureLines)} 系列・{FUEL_PLANT_LABEL} {num(s.plantLines, 1)} 系列。
+            年に要る{u} ＝ {int(s.annualLiters)} L × 燃料1Lに要る{u} {num(current.yield.unitKgPerLiter, 2)} kg（収率{FUEL_YIELD_CASE_LABEL[current.yieldCase]}）＝{" "}
+            <span className="font-semibold tabular-nums">{int(s.unitKgYear / 1000)} t/年</span>。{FUEL_CULTURE_LABEL} {int(s.cultureLines)} 系列・{FUEL_PLANT_LABEL} {num(s.plantLines, 1)} 系列。
           </Formula>
         );
       case "cond-biomass":
         return <BiomassFormula scenario={current} />;
       case "capex-culture":
         return (
-          <Formula>
-            年に要る菌体 {int(s.biomassKgYear)} kg ÷ 1系列 {int(s.cultureLineCapacityKgYear)} kg ＝ <span className="font-semibold tabular-nums">{int(s.cultureLines)} 系列</span>。
-            初期投資 <span className="font-semibold tabular-nums">{yen(b.capexInitial)}</span>（1系列 {yen(b.lineCapexInitial)}）。償却は菌体1kgあたり {num(b.rows.find((r) => r.key === "capex")?.perKg ?? 0)} 円として菌体費に入る
+          <Formula testId="fuel-culture-capacity">
+            {s.secreting && (
+              <>
+                1系列の培養液 ＝ 1系列が年に作れる菌体 {int(s.cultureLineCapacityKgDcwYear)} kg ÷（菌体の生産性 {num(s.cultureBiomassProductivity, 2)} g/L/日 × 稼働 {int(s.cultureOperatingDays)} 日）＝{" "}
+                <span className="font-semibold tabular-nums">{num(s.cultureLineVolumeM3, 1)} m³</span>。
+                1系列が年に出す脂肪酸 ＝ {num(s.cultureLineVolumeM3, 1)} m³ × 分泌速度 {num(current.yield.secretionRatePerLiterDay, 3)} g/L/日 × {int(s.cultureOperatingDays)} 日 ＝{" "}
+                <span className="font-semibold tabular-nums">{int(s.cultureLineCapacityUnitYear)} kg/年</span>。{" "}
+              </>
+            )}
+            年に要る{u} {int(s.unitKgYear)} kg ÷ 1系列 {int(s.cultureLineCapacityUnitYear)} kg ＝ <span className="font-semibold tabular-nums">{int(s.cultureLines)} 系列</span>。
+            初期投資 <span className="font-semibold tabular-nums">{yen(b.capexInitial)}</span>（1系列 {yen(b.lineCapexInitial)}）。償却は{u}1kgあたり {num(b.rows.find((r) => r.key === "capex")?.perKg ?? 0)} 円として{u}費に入る
           </Formula>
         );
       case "capex-plant":
         return (
           <Formula>
-            年に要る菌体 {int(s.biomassKgYear)} kg ÷ 1系列 {int(s.plantLineCapacityKgYear)} kg ＝ <span className="font-semibold tabular-nums">{num(s.plantLines, 2)} 系列</span>。
+            年に要る{u} {int(s.unitKgYear)} kg ÷ 1系列 {int(s.plantLineCapacityKgYear)} kg ＝ <span className="font-semibold tabular-nums">{num(s.plantLines, 2)} 系列</span>。
             {FUEL_PLANT_LABEL}の初期投資 <span className="font-semibold tabular-nums">{yen(current.plantCapexInitial)}</span>（1系列 {yen(current.plantLineCapexInitial)}、FAME転換を{current.conversion === "inhouse" ? "自社で行う設備を含む" : "委託するので転換の設備は含まない"}）。
             償却は燃料1Lあたり {num(current.breakdown.find((x) => x.key === "capex")?.perLiter ?? 0)} 円
           </Formula>
@@ -155,11 +174,12 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
       case "opex-residue":
         return (
           <Formula testId="fuel-residue-formula">
-            残渣の処理 ＝ 残渣の量 {num(current.residue.dryKgPerKgDcw, 3)} kg/kg-DCW ×{" "}
+            残渣の処理 ＝ 残渣の量 {num(current.residue.dryKgPerKgDcw, 3)} kg/kg-DCW{" "}
+            {s.secreting ? `× 脂肪酸1kgあたりに入れ替える菌体 ${num(s.cellMakeupPerUnit, 2)} kg ` : ""}×{" "}
             {current.residue.route === "disposal"
               ? `（湿重量倍率 × 処分単価）${num(current.residue.pricePerKgDry, 1)} 円/kg`
               : `正味の費用 ${num(current.residue.pricePerKgDry, 1)} 円/kg`}{" "}
-            ＝ 菌体1kgあたり {num(current.residue.perKgDcw, 2)} 円 × 燃料1Lに要る菌体 {num(current.yield.kgDcwPerLiter, 2)} kg ＝{" "}
+            ＝ {u}1kgあたり {num(current.residue.perKgDcw, 2)} 円 × 燃料1Lに要る{u} {num(current.yield.unitKgPerLiter, 2)} kg ＝{" "}
             <span className="font-semibold tabular-nums">{num(current.breakdown.find((x) => x.key === "residue")?.perLiter ?? 0)} 円/L</span>
           </Formula>
         );
@@ -177,12 +197,12 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
 
   const renderGroup = (g: FuelParamGroup) => {
     const groupItems = itemsOfGroup(g.key);
-    const visibleItems = showAllRows ? groupItems : groupItems.filter((i) => fuelRowApplies(i, current.conversion));
+    const visibleItems = showAllRows ? groupItems : groupItems.filter((i) => fuelRowApplies(i, current.conversion, sel));
     const hasTasks = !!g.tasks && tasks.length > 0;
     const rows = assumptionsByGroup.get(g.key) ?? [];
     const box = derivedBox(g.key);
     if (g.key !== "cond-yield" && rows.length === 0 && groupItems.length === 0 && !hasTasks) return null;
-    const inactive = groupItems.length > 0 && groupItems.every((i) => !fuelRowApplies(i, current.conversion)) && rows.length === 0;
+    const inactive = groupItems.length > 0 && groupItems.every((i) => !fuelRowApplies(i, current.conversion, sel)) && rows.length === 0;
     return (
       <section key={g.key} id={`fuel-g-${g.key}`} aria-label={g.title} className="scroll-mt-12 border-t border-[#f0f0f2] pt-2 first:border-t-0 first:pt-0">
         <h5 className="flex flex-wrap items-baseline gap-x-2">
@@ -427,6 +447,8 @@ function YieldTable({
   const suffix = { low: "_low", base: "", high: "_high" } as const;
   const density = fuelAssumptionOf(working.assumptions, "fame_density");
   const savedOf = (id: string) => saved.assumptions.find((a) => a.costAssumptionId === id);
+  const secreting = current.yield.secreting;
+  const u = current.yield.unitLabel;
   return (
     <div className="mt-1.5" data-testid="fuel-yield-table">
       <div className="grid grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,4.5rem))] items-end gap-x-1.5 border-b border-[#e5e5e7] pb-1 text-[10px] font-medium text-[#6e6e73] xl:grid-cols-[minmax(0,1fr)_repeat(3,5.25rem)]">
@@ -436,8 +458,52 @@ function YieldTable({
         ))}
       </div>
       <ul className="flex flex-col divide-y divide-[#f0f0f2]">
+        {/* 脂質分泌株のときだけ効く行 (分泌速度・培養液からの回収率)。菌体を集めて取り出す形の3つは、そのとき効かないので薄く出す */}
+        {secreting &&
+          FUEL_SECRETION_YIELD_ROLES.map((role) => {
+            const baseRow = fuelSecretionAssumptionOf(working.assumptions, role, "base");
+            const unit = role === "secretion_rate" ? "g/L/日" : "%";
+            return (
+              <li key={role} className="grid grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,4.5rem))] items-center gap-x-1.5 py-1.5 xl:grid-cols-[minmax(0,1fr)_repeat(3,5.25rem)]">
+                <span className="min-w-0 text-[12px] leading-5 text-[#1d1d1f]">
+                  {FUEL_SECRETION_YIELD_ROLE_LABEL[role]}
+                  <span className="ml-1 text-[10px] text-[#6e6e73]">（{unit}）</span>
+                  {baseRow && <span className="ml-1 align-middle"><ConfidenceTag value={baseRow.confidence} /></span>}
+                  {baseRow && <NoteToggle note={baseRow.note} />}
+                </span>
+                {FUEL_YIELD_CASES.map((y) => {
+                  const a = fuelAssumptionOf(working.assumptions, `${role}${suffix[y]}`) ?? (y === "base" ? baseRow : undefined);
+                  if (!a) return <span key={y} className="text-right text-[11px] text-[#86868b]">基準と同じ</span>;
+                  return (
+                    <NumberField
+                      key={y}
+                      ariaLabel={`${FUEL_SECRETION_YIELD_ROLE_LABEL[role]}（${FUEL_YIELD_CASE_LABEL[y]}）`}
+                      value={a.value}
+                      baseline={savedOf(a.costAssumptionId)?.value ?? null}
+                      onChange={(v) => onChange("assumption", a.costAssumptionId, "value", v)}
+                      min={0}
+                      max={role === "broth_recovery" ? 100 : undefined}
+                      compact
+                      widthClass="w-full"
+                      wrapperClass="flex w-full items-center"
+                    />
+                  );
+                })}
+              </li>
+            );
+          })}
         {FUEL_YIELD_ROLES.map((role) => {
           const baseRow = fuelAssumptionOf(working.assumptions, role);
+          // 分泌株のときは、菌体を集めて壊す段の3つが効かない
+          const unused = secreting && (role === "fame_potential" || role === "harvest_recovery" || role === "extraction_recovery");
+          if (unused) {
+            return (
+              <li key={role} className="grid grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,4.5rem))] items-center gap-x-1.5 py-1.5 opacity-50 xl:grid-cols-[minmax(0,1fr)_repeat(3,5.25rem)]">
+                <span className="min-w-0 text-[12px] leading-5 text-[#1d1d1f]">{FUEL_YIELD_ROLE_LABEL[role]}</span>
+                <span className="col-span-3 text-right text-[11px] text-[#86868b]">脂質分泌株では使わない</span>
+              </li>
+            );
+          }
           return (
             <li key={role} className="grid grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,4.5rem))] items-center gap-x-1.5 py-1.5 xl:grid-cols-[minmax(0,1fr)_repeat(3,5.25rem)]">
               <span className="min-w-0 text-[12px] leading-5 text-[#1d1d1f]">
@@ -488,15 +554,22 @@ function YieldTable({
         )}
       </ul>
       <div className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 text-[11px] leading-5 text-[#3c3c43]" data-testid="fuel-yield-formula">
-        <p>燃料1Lに要る菌体 ＝ 密度 ÷（FAMEポテンシャル × 菌体回収率 × 脂質抽出回収率 × メチル化反応率 × FAME精製回収率）</p>
+        <p>
+          {secreting
+            ? "燃料1Lに要る脂肪酸 ＝ 密度 ÷（培養液からの回収率 × メチル化反応率 × FAME精製回収率）。分泌速度は、要る培養液の量（培養設備の系列数）を決める"
+            : "燃料1Lに要る菌体 ＝ 密度 ÷（FAMEポテンシャル × 菌体回収率 × 脂質抽出回収率 × メチル化反応率 × FAME精製回収率）"}
+        </p>
         <ul>
           {FUEL_YIELD_CASES.map((y) => {
             const sc = findFuelScenario(computed, current.conversion, y);
             if (!sc) return null;
             return (
               <li key={y} className={`flex flex-wrap justify-between gap-x-2 ${y === current.yieldCase ? "font-semibold text-[#1d1d1f]" : ""}`}>
-                <span>{FUEL_YIELD_CASE_LABEL[y]}: 乾燥菌体1kgから精製FAME {num(sc.yield.fameKgPerKgDcw * 1000, 1)} g（{num(sc.yield.litersPerKgDcw * 1000, 1)} mL）</span>
-                <span className="tabular-nums">燃料1Lに菌体 {num(sc.yield.kgDcwPerLiter, 2)} kg</span>
+                <span>
+                  {FUEL_YIELD_CASE_LABEL[y]}: {secreting ? "脂肪酸" : "乾燥菌体"}1kgから精製FAME {num(sc.yield.fameKgPerKgDcw * 1000, 1)} g（{num(sc.yield.litersPerKgDcw * 1000, 1)} mL）
+                  {secreting ? `・1系列が年に出す脂肪酸 ${int(sc.scale.cultureLineCapacityUnitYear)} kg` : ""}
+                </span>
+                <span className="tabular-nums">燃料1Lに{u} {num(sc.yield.unitKgPerLiter, 2)} kg</span>
               </li>
             );
           })}
@@ -512,16 +585,17 @@ function BiomassFormula({ scenario }: { scenario: FuelScenarioResult }) {
   const s = scenario.scale;
   const row = (key: string) => b.rows.find((x) => x.key === key)?.perKg ?? 0;
   const life = b.usefulLifeMinYears === null ? "—" : b.usefulLifeMinYears === b.usefulLifeMaxYears ? `${b.usefulLifeMinYears}年` : `${b.usefulLifeMinYears}〜${b.usefulLifeMaxYears}年`;
+  const u = scenario.yield.unitLabel;
   const lines: Array<[string, string, number]> = [
-    ["培養設備の償却", `1系列の初期投資 ${yen(b.lineCapexInitial)} ÷ 耐用 ${life} ÷ 1系列 ${int(s.cultureLineCapacityKgYear)} kg`, row("capex")],
-    ["年ごとの固定費", `1系列の年額 ${yen(b.cultureLines > 0 ? b.fixedOpexAnnual / b.cultureLines : 0)} ÷ 1系列 ${int(s.cultureLineCapacityKgYear)} kg`, row("fixed")],
-    ["培養の作業", `年 ${yen(b.tasksAnnual)} ÷ 年に要る菌体 ${int(s.biomassKgYear)} kg（作業リスト）`, row("tasks")],
-    ["菌体量に比例する費用", "培地・CO2・濃縮など 1kgあたりの単価", row("variable")],
+    ["培養設備の償却", `1系列の初期投資 ${yen(b.lineCapexInitial)} ÷ 耐用 ${life} ÷ 1系列 ${int(s.cultureLineCapacityUnitYear)} kg`, row("capex")],
+    ["年ごとの固定費", `1系列の年額 ${yen(b.cultureLines > 0 ? b.fixedOpexAnnual / b.cultureLines : 0)} ÷ 1系列 ${int(s.cultureLineCapacityUnitYear)} kg`, row("fixed")],
+    ["培養の作業", `年 ${yen(b.tasksAnnual)} ÷ 年に要る${u} ${int(s.unitKgYear)} kg（作業リスト）`, row("tasks")],
+    [`${u}の量に比例する費用`, s.secreting ? `培地・CO2・溶媒など 1kgあたりの単価（菌体1kgあたりの行は 入れ替える菌体 ${num(s.cellMakeupPerUnit, 2)} kg を掛ける）` : "培地・CO2・濃縮など 1kgあたりの単価", row("variable")],
   ];
   return (
     <div className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 text-[11px] leading-5 text-[#3c3c43]" data-testid="fuel-biomass-formula">
       <p className="font-semibold text-[#1d1d1f]">
-        菌体1kgの原価 <span className="tabular-nums">{num(b.computedPerKg)} 円/kg</span>
+        {u}1kgの原価 <span className="tabular-nums">{num(b.computedPerKg)} 円/kg</span>
         <span className="font-normal text-[#6e6e73]">（明細と作業から計算。設備は系列の数だけ並べるので、1kgあたりは作る量でほとんど変わらない）</span>
       </p>
       <ul className="mt-0.5">
@@ -536,7 +610,7 @@ function BiomassFormula({ scenario }: { scenario: FuelScenarioResult }) {
         ))}
       </ul>
       <p className="mt-0.5">
-        菌体費 ＝ {num(b.perKg)} 円/kg × 燃料1Lに要る菌体 {num(scenario.yield.kgDcwPerLiter, 2)} kg ＝{" "}
+        {u}費 ＝ {num(b.perKg)} 円/kg × 燃料1Lに要る{u} {num(scenario.yield.unitKgPerLiter, 2)} kg ＝{" "}
         <span className="font-semibold tabular-nums">{num(scenario.biomassPerLiter)} 円/L</span>
       </p>
       {b.overridePerKg !== null && <p className="mt-0.5 font-semibold text-[#b45309]">上書き値 {num(b.overridePerKg)} 円/kg で計算中</p>}
@@ -625,11 +699,13 @@ function FuelTaskList({
   const tasks = [...(working.tasks ?? [])].sort((x, y) => x.sortOrder - y.sortOrder);
   const groups = [...new Set(tasks.map((t) => t.groupLabel ?? "作業"))];
   const rate = fuelAssumptionOf(working.assumptions, "labor_rate")?.value ?? 4000;
+  const sel = fuelSelectionOf(working.assumptions);
+  const u = current.yield.unitLabel;
   const perLiterOf = (t: CostTask) => {
-    if (!fuelRowApplies(t, current.conversion)) return null;
+    if (!fuelRowApplies(t, current.conversion, sel)) return null;
     const annual = fuelTaskAmount(t, working.assumptions, current.scale).annual;
     if (t.scenario === "中央培養") {
-      return current.biomass.overridePerKg !== null ? 0 : (current.scale.biomassKgYear > 0 ? annual / current.scale.biomassKgYear : 0) * current.yield.kgDcwPerLiter;
+      return current.biomass.overridePerKg !== null ? 0 : (current.scale.unitKgYear > 0 ? annual / current.scale.unitKgYear : 0) * current.yield.unitKgPerLiter;
     }
     return current.scale.annualLiters > 0 ? annual / current.scale.annualLiters : 0;
   };
@@ -637,7 +713,7 @@ function FuelTaskList({
     <div>
       <p className="mb-1.5 mt-1.5 text-[11px] leading-5 text-[#6e6e73]">
         年額 ＝ 年間回数 ×（1回の工数 × 作業単価 {int(rate)}円/時 ＋ 1回の経費）。作業単価は上の共通の1つ。工数が空欄の行は未確認で、0時間として数える。
-        {FUEL_CULTURE_LABEL}の作業は菌体費に入る。選んだFAME転換で発生しない行は薄く出す。
+        {FUEL_CULTURE_LABEL}の作業は{u}費に入る。選んだFAME転換や株で発生しない行は薄く出す。
       </p>
       <div className="hidden xl:grid xl:grid-cols-[minmax(0,1fr)_78px_130px_92px_56px] xl:gap-x-1.5 xl:border-b xl:border-[#e5e5e7] xl:pb-1 xl:text-[10px] xl:font-medium xl:text-[#6e6e73]">
         <span>作業</span>
@@ -664,7 +740,7 @@ function FuelTaskList({
                 .filter((t) => (t.groupLabel ?? "作業") === g)
                 .map((t) => {
                   const base = (saved.tasks ?? []).find((x) => x.costTaskId === t.costTaskId);
-                  const applies = fuelRowApplies(t, current.conversion);
+                  const applies = fuelRowApplies(t, current.conversion, sel);
                   const amt = fuelTaskAmount(t, working.assumptions, current.scale);
                   const perLiter = perLiterOf(t);
                   const driver = t.countDriver as string;
@@ -768,12 +844,13 @@ function FuelItemRows({
   // CO2 と培養ロス補充の単価は、前提 (排ガス利用可能) とほかの行から出す
   const ctx: FuelPriceContext = { assumptions: working.assumptions, items: working.items };
   const flueGas = fuelAssumptionOf(working.assumptions, CO2_FLUE_GAS_ROLE);
+  const sel = fuelSelectionOf(working.assumptions);
   const savedFlueGas = flueGas ? saved.assumptions.find((a) => a.costAssumptionId === flueGas.costAssumptionId) : undefined;
   return (
     <div className="mt-1.5">
       <div className="hidden xl:grid xl:grid-cols-[minmax(0,1fr)_64px_128px_64px_60px] xl:gap-x-1.5 xl:border-b xl:border-[#e5e5e7] xl:pb-1 xl:text-[10px] xl:font-medium xl:text-[#6e6e73]">
         <span>明細（行の下に計算と根拠）</span>
-        <span className="text-right" title="行の「〜あたり」（1系列・菌体1kg・燃料1L など）に使う量。単位は行の下の計算に出す">数量</span>
+        <span className="text-right" title="行の「〜あたり」（1系列・1kg・燃料1L など）に使う量。単位は行の下の計算に出す">数量</span>
         <span className="text-right" title="数量の単位1つあたりの値段">単価</span>
         <span className="text-right">耐用年数</span>
         <span className="text-right" title="数量 × 単価 を燃料1Lあたりに直した額。掛け算は行の下の計算に出す">円/L</span>
@@ -781,13 +858,13 @@ function FuelItemRows({
       <ul className="flex flex-col divide-y divide-[#f0f0f2]">
         {items.map((i) => {
           const base = saved.items.find((x) => x.costItemId === i.costItemId);
-          const applies = fuelRowApplies(i, current.conversion);
+          const applies = fuelRowApplies(i, current.conversion, sel);
           const isCulture = i.scenario === "中央培養";
-          const perKg = isCulture ? fuelCultureItemPerKg(i, current.scale.cultureLineCapacityKgYear, ctx) : 0;
+          const perKg = isCulture ? fuelCultureItemPerKg(i, current.scale.cultureLineCapacityUnitYear, ctx, current.scale) : 0;
           const right = !applies
             ? null
             : isCulture
-              ? current.biomass.overridePerKg !== null ? 0 : perKg * current.yield.kgDcwPerLiter
+              ? current.biomass.overridePerKg !== null ? 0 : perKg * current.yield.unitKgPerLiter
               : current.scale.annualLiters > 0 ? fuelItemAnnual(i, current.scale, ctx) / current.scale.annualLiters : 0;
           const flueGasSwitch = i.priceRule === "co2_supply" && flueGas;
           return (
@@ -800,7 +877,7 @@ function FuelItemRows({
                 {i.midLabel && i.leafLabel && i.costType === "CAPEX" && <span className="ml-1 text-[10px] text-[#6e6e73]">{i.leafLabel}</span>}
                 <span className="ml-1 align-middle"><ConfidenceTag value={i.confidence} /></span>
                 <span className="block text-[10px] leading-4 text-[#6e6e73]">
-                  {FUEL_SCOPE_LABEL[i.scenario as FuelScope] ?? i.scenario}・{FUEL_BASIS_LABEL[i.basis] ?? i.basis}
+                  {FUEL_SCOPE_LABEL[i.scenario as FuelScope] ?? i.scenario}・{fuelBasisLabelOf(i, current.scale)}{i.strain ? `・${STRAIN_LABEL[i.strain]}のときだけ` : ""}
                 </span>
                 {flueGasSwitch && (
                   <FlueGasSwitch

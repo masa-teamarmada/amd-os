@@ -60,7 +60,14 @@ export type CostConfidence = "S" | "A" | "B" | "C" | "H";
 export type CostVisibility = "amd_internal" | "workspace_shared";
 export type CostMethod = "循環" | "投入";
 export type CostTankMode = "既設" | "新設";
-export type CostStrain = "enhanced" | "wild";
+/**
+ * 株。enhanced / wild は排水処理の試算の選択（強化株 / 自然株）。
+ * secreting は燃料の試算だけで使う「脂質分泌株」で、菌体を集めずに培養液へ出た脂肪酸を回収する形の行に付ける
+ * (まさ 2026-09-14「脂質を分泌できる株の開発も理論的には可能っていう話を杉浦先生からもらったので、
+ * コスト試算表を「脂質分泌株」のスイッチオンオフで切り替えられるようにしてほしい」)。
+ * 排水処理の試算の株の切り替え (strainsInModel → STRAIN_ORDER) には出さない。
+ */
+export type CostStrain = "enhanced" | "wild" | "secreting";
 export type CostApplication = "dye" | "metal";
 export type CostLocation = "onsite" | "offsite";
 /**
@@ -76,7 +83,7 @@ export interface CostSelection {
   application: CostApplication | null;
 }
 
-export const STRAIN_LABEL: Record<CostStrain, string> = { enhanced: "強化株", wild: "自然株" };
+export const STRAIN_LABEL: Record<CostStrain, string> = { enhanced: "強化株", wild: "自然株", secreting: "脂質分泌株" };
 export const APPLICATION_LABEL: Record<CostApplication, string> = { dye: "色素分解", metal: "金属回収" };
 /** 装置の呼び名。 */
 export const METHOD_LABEL: Record<CostMethod, string> = { 循環: "循環カートリッジ", 投入: "直接投入" };

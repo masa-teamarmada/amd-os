@@ -3,7 +3,7 @@
 import { useState } from "react";
 import {
   FUEL_BREAKDOWN_HINT,
-  FUEL_BREAKDOWN_LABEL,
+  fuelBreakdownLabelOf,
   FUEL_BREAKDOWN_ORDER,
   FUEL_BREAKDOWN_SHORT_LABEL,
   FUEL_CONVERSIONS,
@@ -113,6 +113,8 @@ export function FuelResultsPanel({ computed, baseline, current, flow, baselineFl
   const base = findFuelScenario(baseline, current.conversion, current.yieldCase);
   const b = current.biomass;
   const s = current.scale;
+  // 第1段で数える単位の呼び名 (脂質分泌株なら「脂肪酸」、そうでなければ「菌体」)
+  const u = current.yield.unitLabel;
 
   // 低位は桁違いに大きくなりやすいので、目盛りは基準・改善の最大の1.25倍 (売価の1.3倍) で頭打ちにし、超えた棒は ≫ を付ける。
   const allMax = Math.max(0, ...computed.scenarios.map((x) => x.totalPerLiter));
@@ -122,9 +124,9 @@ export function FuelResultsPanel({ computed, baseline, current, flow, baselineFl
 
   return (
     <div className="flex flex-col gap-1.5" data-testid="fuel-cost-results">
-      {/* 第1段: 菌体1kgの原価と、年に要る菌体の量・設備の系列数 */}
-      <section aria-label="菌体1kgの原価（第1段）" className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-        <h4 className="text-[11px] font-semibold text-[#3c3c43]">菌体1kgの原価（第1段）</h4>
+      {/* 第1段: 菌体 (脂質分泌株のときは脂肪酸) 1kgの原価と、年に要る量・設備の系列数 */}
+      <section aria-label={`${u}1kgの原価（第1段）`} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <h4 className="text-[11px] font-semibold text-[#3c3c43]">{u}1kgの原価（第1段）</h4>
         <span className="text-[14px] font-semibold tabular-nums text-[#1d1d1f]">{num(b.perKg)}</span>
         <span className="text-[10px] text-[#6e6e73]">円/kg</span>
         {base && <Delta value={b.perKg - base.biomass.perKg} className="text-[10px]" />}
@@ -132,10 +134,10 @@ export function FuelResultsPanel({ computed, baseline, current, flow, baselineFl
         <p
           className="w-full text-[10px] leading-4 text-[#6e6e73]"
           data-testid="fuel-production-scale"
-          title={`年に要る菌体 ＝ 年間の燃料の量 ${int(s.annualLiters)} L × 燃料1Lに要る菌体 ${num(current.yield.kgDcwPerLiter, 2)} kg`}
+          title={`年に要る${u} ＝ 年間の燃料の量 ${int(s.annualLiters)} L × 燃料1Lに要る${u} ${num(current.yield.unitKgPerLiter, 2)} kg`}
         >
           {/* 数字と単位の途中で折り返さないよう、区切りごとにまとめる */}
-          <span className="whitespace-nowrap">年に要る菌体 <span className="font-semibold text-[#1d1d1f]">{int(s.biomassKgYear / 1000)} t/年</span>・</span>
+          <span className="whitespace-nowrap">年に要る{u} <span className="font-semibold text-[#1d1d1f]">{int(s.unitKgYear / 1000)} t/年</span>・</span>
           <span className="whitespace-nowrap">{FUEL_CULTURE_LABEL} {int(s.cultureLines)} 系列・</span>
           <span className="whitespace-nowrap">{FUEL_PLANT_LABEL} {num(s.plantLines, 1)} 系列</span>
         </p>
@@ -245,7 +247,7 @@ export function FuelResultsPanel({ computed, baseline, current, flow, baselineFl
                 >
                   <span className="flex min-w-0 items-center gap-1 text-[#3c3c43]">
                     <Swatch color={FUEL_CATEGORY_COLOR[key]} />
-                    <span className="truncate">{FUEL_BREAKDOWN_LABEL[key]}</span>
+                    <span className="truncate">{fuelBreakdownLabelOf(key, current.yield.secreting)}</span>
                   </span>
                   <span className="order-last col-span-3 h-2 overflow-hidden sm:order-none sm:col-span-1" aria-hidden="true">
                     <span className="block h-full rounded-r-[4px]" style={{ width: `${Math.max((slice.perLiter / maxSlice) * 100, 0)}%`, backgroundColor: FUEL_CATEGORY_COLOR[key] }} />
@@ -279,7 +281,7 @@ export function FuelResultsPanel({ computed, baseline, current, flow, baselineFl
         {/* 結果の欄をスクロールさせないため、1行に1項目で詰める (表示域 1440×790 でも収まる高さ) */}
         <dl className="mt-0.5 flex flex-col border-t border-[#e5e5e7] pt-0.5 text-[11px] leading-[18px] text-[#3c3c43]">
           <div className="flex flex-wrap items-baseline justify-between gap-x-2" data-testid="fuel-break-even">
-            <dt title="売価で損益ゼロになる菌体1kgの原価の上限。マイナスなら、菌体をタダで手に入れても燃料化の工程だけで売価を超える">売価で成立する菌体の原価</dt>
+            <dt title={`売価で損益ゼロになる${u}1kgの原価の上限。マイナスなら、${u}をタダで手に入れても燃料化の工程だけで売価を超える`}>売価で成立する{u}の原価</dt>
             <dd className="text-right tabular-nums text-[#1d1d1f]">
               {current.breakEvenBiomassPerKg > 0 ? (
                 <>
@@ -289,14 +291,14 @@ export function FuelResultsPanel({ computed, baseline, current, flow, baselineFl
                   )}
                 </>
               ) : (
-                <span className="font-semibold text-[#be123c]">菌体がタダでも赤字（工程だけで {num(current.processPerLiter)} 円/L）</span>
+                <span className="font-semibold text-[#be123c]">{u}がタダでも赤字（工程だけで {num(current.processPerLiter)} 円/L）</span>
               )}
             </dd>
           </div>
           <div className="flex flex-wrap items-baseline justify-between gap-x-2">
-            <dt>燃料1Lに要る菌体</dt>
+            <dt>燃料1Lに要る{u}</dt>
             <dd className="tabular-nums text-[#1d1d1f]">
-              {num(current.yield.kgDcwPerLiter, 2)} kg
+              {num(current.yield.unitKgPerLiter, 2)} kg
               <span className="text-[10px] text-[#6e6e73]">・CAPEX {num(current.capexPerLiter)} 円/L・初期投資 {yen(current.capexInitial)}</span>
             </dd>
           </div>

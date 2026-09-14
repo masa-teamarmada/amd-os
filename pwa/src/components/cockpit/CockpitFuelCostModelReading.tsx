@@ -85,6 +85,8 @@ export function FuelReadingSections({ saved, working, computed, current }: Props
   const { model, assumptions, items, questions } = working;
   // CO2 と培養ロス補充の単価は、前提 (排ガス利用可能) とほかの行から出す
   const priceCtx: FuelPriceContext = { assumptions, items };
+  // 第1段で数える単位の呼び名 (脂質分泌株なら「脂肪酸」、そうでなければ「菌体」)
+  const unitLabel = current.yield.unitLabel;
   const tasks = working.tasks ?? [];
   const notesOf = (section: CostNoteSection) => (working.notes ?? []).filter((n) => n.section === section).sort((a, b) => a.sortOrder - b.sortOrder);
   const scenarios = computed.scenarios;
@@ -107,9 +109,9 @@ export function FuelReadingSections({ saved, working, computed, current }: Props
     {
       section: "物量と設備",
       rows: [
-        { label: "　燃料1Lに要る菌体（kg-DCW/L）", get: (s) => num(s.yield.kgDcwPerLiter, 2) },
-        { label: "　菌体1kgの原価（円/kg）", get: (s) => num(s.biomass.perKg) },
-        { label: "　年に要る菌体（t/年）", get: (s) => int(s.scale.biomassKgYear / 1000) },
+        { label: `　燃料1Lに要る${unitLabel}（kg/L）`, get: (s) => num(s.yield.unitKgPerLiter, 2) },
+        { label: `　${unitLabel}1kgの原価（円/kg）`, get: (s) => num(s.biomass.perKg) },
+        { label: `　年に要る${unitLabel}（t/年）`, get: (s) => int(s.scale.unitKgYear / 1000) },
         { label: `　${FUEL_CULTURE_LABEL}（系列）`, get: (s) => int(s.scale.cultureLines) },
         { label: `　${FUEL_PLANT_LABEL}（系列）`, get: (s) => num(s.scale.plantLines, 2) },
         { label: "　初期投資（培養設備＋燃料化設備）", get: (s) => yen(s.capexInitial) },
@@ -123,7 +125,7 @@ export function FuelReadingSections({ saved, working, computed, current }: Props
         { label: "　総コスト", get: (s) => yen(s.totalAnnual), strong: true },
         { label: "　営業利益（償却後）", get: (s) => yen(s.profitAnnual), danger: (s) => s.profitAnnual < 0 },
         { label: "　利益率", get: (s) => pct(s.marginRate), danger: (s) => s.marginRate < 0 },
-        { label: "　売価で成立する菌体の原価（円/kg 以下）", get: (s) => (s.breakEvenBiomassPerKg > 0 ? num(s.breakEvenBiomassPerKg) : "菌体がタダでも赤字"), danger: (s) => s.breakEvenBiomassPerKg <= 0 },
+        { label: `　売価で成立する${unitLabel}の原価（円/kg 以下）`, get: (s) => (s.breakEvenBiomassPerKg > 0 ? num(s.breakEvenBiomassPerKg) : `${unitLabel}がタダでも赤字`), danger: (s) => s.breakEvenBiomassPerKg <= 0 },
       ],
     },
   ];
@@ -253,7 +255,7 @@ export function FuelReadingSections({ saved, working, computed, current }: Props
             ))}
         </div>
         <h4 className="mt-4 text-[12px] font-semibold text-[#1d1d1f]">精度を下げている項目（金額順）</h4>
-        <p className="mt-1 text-[11px] text-[#6e6e73]">確度が仮説(H)・仮置き(C)のまま金額が大きい行。3ケースのうち大きい方の額。培養設備の行は菌体費に配った額。</p>
+        <p className="mt-1 text-[11px] text-[#6e6e73]">確度が仮説(H)・仮置き(C)のまま金額が大きい行。3ケースのうち大きい方の額。培養設備の行は第1段（菌体費）に配った額。</p>
         <div className="mt-2 -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
           <table className="w-full min-w-[560px] border-collapse text-[11px]">
             <thead>
@@ -405,7 +407,7 @@ export function FuelReadingSections({ saved, working, computed, current }: Props
         </div>
       </Card>
 
-      <Card title="費用明細" hint="明細の全件を、操作パネルと同じ CAPEX / OPEX の区分で並べる。培養設備の行は菌体1kgあたりと、選んだ収率での燃料1Lあたり。選んだFAME転換で発生しない行は薄く出し、金額を空欄にする。">
+      <Card title="費用明細" hint="明細の全件を、操作パネルと同じ CAPEX / OPEX の区分で並べる。培養設備の行は第1段の単位1kgあたりと、選んだ収率での燃料1Lあたり。選んだFAME転換で発生しない行は薄く出し、金額を空欄にする。">
         <div className="flex flex-col gap-3">
           {itemSections.map((section) => (
             <div key={section.key}>
@@ -427,8 +429,8 @@ export function FuelReadingSections({ saved, working, computed, current }: Props
                     {section.rows.map((i) => {
                       const applies = fuelRowApplies(i, current.conversion);
                       const isCulture = i.scenario === "中央培養";
-                      const perKg = isCulture ? fuelCultureItemPerKg(i, current.scale.cultureLineCapacityKgYear, priceCtx) : null;
-                      const perLiter = !applies ? null : isCulture ? (perKg ?? 0) * current.yield.kgDcwPerLiter : current.scale.annualLiters > 0 ? fuelItemAnnual(i, current.scale, priceCtx) / current.scale.annualLiters : 0;
+                      const perKg = isCulture ? fuelCultureItemPerKg(i, current.scale.cultureLineCapacityUnitYear, priceCtx, current.scale) : null;
+                      const perLiter = !applies ? null : isCulture ? (perKg ?? 0) * current.yield.unitKgPerLiter : current.scale.annualLiters > 0 ? fuelItemAnnual(i, current.scale, priceCtx) / current.scale.annualLiters : 0;
                       const shownPrice = fuelEffectiveUnitPrice(i, priceCtx);
                       const base = savedItem(i.costItemId);
                       const changed = !!base && (base.quantity !== i.quantity || base.unitPrice !== i.unitPrice || base.usefulLifeYears !== i.usefulLifeYears);
