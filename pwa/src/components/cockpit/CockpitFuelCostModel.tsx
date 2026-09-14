@@ -38,7 +38,7 @@ import { FuelControlsPanel } from "@/components/cockpit/CockpitFuelCostModelCont
 import { FuelResultsPanel, FuelResultsSummaryBar } from "@/components/cockpit/CockpitFuelCostModelResults";
 import { FuelReadingSections } from "@/components/cockpit/CockpitFuelCostModelReading";
 
-// PJコックピット「技術」タブの「コスト試算（燃料）」。
+// PJコックピット「事業計画」グループの「コスト試算（燃料）」タブ（コスト試算（廃液）の右隣。2026-09-14 に技術タブの中から移した）。
 // まさ 2026-09-14「OSの技術ページに、新たに『コスト試算（燃料）』を追加してほしい。
 // そんで廃液処理のコスト試算と同様にバイオディーゼル事業のコスト試算シートを作ってほしい」。
 //

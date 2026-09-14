@@ -54,7 +54,7 @@ export function invalidateProjectCostModel(projectId?: string): void {
   invalidateReferenceData(projectId ? key(projectId) : KEY_PREFIX);
 }
 
-// ---- 技術タブのコスト試算（燃料）(case_kind = biodiesel) ----
+// ---- 事業計画グループのコスト試算（燃料）タブ (case_kind = biodiesel) ----
 // 同じ API に ?kind=fuel を付けて読む。キャッシュのキーはコスト試算タブと分ける
 // (`project-cost-model:fuel:p21`。`invalidateProjectCostModel()` を引数なしで呼ぶと両方捨てる)。
 
@@ -68,7 +68,7 @@ async function requestFuel(projectId: string, fresh = false): Promise<CostModelR
   return { canEdit: !!payload.canEdit, bundle: payload.bundle ?? null };
 }
 
-/** 技術タブから呼ぶ。燃料の試算が無いPJは bundle が null で返り、タブを出さない。 */
+/** コックピット・ワークスペースと、コスト試算（燃料）タブから呼ぶ。燃料の試算が無いPJは bundle が null で返り、タブを出さない。 */
 export function loadProjectFuelCostModel(projectId: string, options?: { force?: boolean }) {
   return loadReferenceData(fuelKey(projectId), () => requestFuel(projectId, !!options?.force), options);
 }
@@ -77,7 +77,7 @@ export function peekProjectFuelCostModel(projectId: string): CostModelResponse |
   return peekReferenceData<CostModelResponse>(fuelKey(projectId));
 }
 
-/** 技術タブの見出しの hover で先読みする。 */
+/** コスト試算（燃料）タブの見出しの hover で先読みする。 */
 export function prefetchProjectFuelCostModel(projectId: string): void {
   prefetchReferenceData(fuelKey(projectId), () => requestFuel(projectId));
 }

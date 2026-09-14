@@ -90,6 +90,8 @@ import {
 } from "@/lib/sx-display-lanes";
 import { SxPartnerPipeline } from "./SxPartnerPipeline";
 import { CockpitCostModel } from "@/components/cockpit/CockpitCostModel";
+import { CockpitFuelCostModel } from "@/components/cockpit/CockpitFuelCostModel";
+import { loadProjectFuelCostModel, peekProjectFuelCostModel } from "@/lib/project-cost-model-client";
 import { WorkspaceDocumentRoom } from "@/components/workspace-documents/WorkspaceDocumentRoom";
 import { CockpitIpPortfolio } from "@/components/cockpit/CockpitIpPortfolio";
 import { CockpitTechnology } from "@/components/cockpit/CockpitTechnology";
@@ -336,7 +338,7 @@ const STAGE_LABEL: Record<StageKey, string> = Object.fromEntries(
 // (#weekly-change / #project-gantt / #partner-ledger / #issue-hypothesis / #input-readiness)
 // は他画面からのリンク互換のためhashとしてそのまま残す。
 // themes タブは bundle.themes.length > 0 のPJだけ動的に先頭に追加される。
-export type SxWeeklyControlView = "weekly" | "gantt" | "objective-structure" | "partners" | "issues" | "technology" | "business-plan" | "company" | "capital-policy" | "cost" | "ip" | "drive" | "themes";
+export type SxWeeklyControlView = "weekly" | "gantt" | "objective-structure" | "partners" | "issues" | "technology" | "business-plan" | "company" | "capital-policy" | "cost" | "cost-fuel" | "ip" | "drive" | "themes";
 const SX_WEEKLY_VIEW_STORAGE_KEY = "sx-weekly-control-view-v1";
 const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   weekly: "weekly-change",
@@ -349,6 +351,7 @@ const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   company: "company-overview",
   "capital-policy": "capital-policy",
   cost: "cost-model",
+  "cost-fuel": "cost-model-fuel",
   ip: "project-ip",
   drive: "project-drive",
   themes: "theme-progress",
@@ -365,7 +368,8 @@ type WorkspaceTabGroup = { key: WorkspaceGroupKey; label: string; children: read
 const PROJECT_WORKSPACE_GROUPS: readonly WorkspaceTabGroup[] = [
   { key: "execution", label: "実行", children: [{ key: "themes", label: "テーマ" }, { key: "weekly", label: "週次差分" }, { key: "gantt", label: "ガント" }, { key: "partners", label: "関係先" }, { key: "issues", label: "ゴールツリー" }] },
   { key: "planning", label: "計画・根拠", children: [{ key: "technology", label: "技術" }, { key: "business-plan", label: "事業計画" }] },
-  { key: "company", label: "経営・会社", children: [{ key: "company", label: "会社概要" }, { key: "capital-policy", label: "資本政策" }, { key: "cost", label: "コスト試算" }, { key: "ip", label: "知財" }] },
+  // コスト試算（燃料）は燃料の試算を持つPJだけに出し、そのときコスト試算は「コスト試算（廃液）」と呼ぶ（表示条件は workspaceGroups。コックピットと同じ）。
+  { key: "company", label: "経営・会社", children: [{ key: "company", label: "会社概要" }, { key: "capital-policy", label: "資本政策" }, { key: "cost", label: "コスト試算" }, { key: "cost-fuel", label: "コスト試算（燃料）" }, { key: "ip", label: "知財" }] },
   { key: "documents", label: "資料", children: [{ key: "drive", label: "ドライブ" }] },
 ];
 const EXTERNAL_WORKSPACE_TABS = new Set<SxWeeklyControlView>(["themes", "gantt", "partners", "drive"]);
@@ -376,6 +380,7 @@ function viewForHash(hash: string): SxWeeklyControlView | null {
   if (normalized === "objective-structure") return "gantt";
   if (normalized === "partner-ledger") return "partners";
   if (normalized === "cost-model") return "cost";
+  if (normalized === "cost-model-fuel") return "cost-fuel";
   if (normalized === "issue-hypothesis") return "issues";
   if (normalized === "project-ip") return "ip";
   if (normalized === "project-drive") return "drive";
@@ -4591,7 +4596,33 @@ export function SxWeeklyControlDashboard({
   const [openGroupKey, setOpenGroupKey] = useState<WorkspaceGroupKey | null>(null);
   const [desktopHoverEnabled, setDesktopHoverEnabled] = useState(false);
   const externalViewer = access.principal === "workspace_account";
-  const workspaceGroups = useMemo(() => PROJECT_WORKSPACE_GROUPS.map((group) => ({ ...group, children: group.children.filter((tab) => (tab.key !== "themes" || bundle.themes.length > 0) && (!externalViewer || EXTERNAL_WORKSPACE_TABS.has(tab.key))) })).filter((group) => group.children.length > 0), [bundle.themes.length, externalViewer]);
+  // コスト試算（燃料）を出すか。燃料の試算を持つPJだけで、そのときコスト試算は「コスト試算（廃液）」と呼ぶ（コックピットと同じ判定）。
+  // 外部の人にはどちらのコスト試算も出さないので読まない。
+  const workspaceProjectId = bundle.project.projectId;
+  const peekFuelCost = (projectId: string) => {
+    const hit = peekProjectFuelCostModel(projectId);
+    return hit === undefined ? undefined : !!hit.bundle;
+  };
+  const [fuelCostLoaded, setFuelCostLoaded] = useState<{ projectId: string; has: boolean | undefined }>(() => ({
+    projectId: workspaceProjectId,
+    has: peekFuelCost(workspaceProjectId),
+  }));
+  useEffect(() => {
+    if (externalViewer) return;
+    let cancelled = false;
+    loadProjectFuelCostModel(workspaceProjectId)
+      .then((res) => {
+        if (!cancelled) setFuelCostLoaded({ projectId: workspaceProjectId, has: !!res.bundle });
+      })
+      .catch(() => {
+        if (!cancelled) setFuelCostLoaded({ projectId: workspaceProjectId, has: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [externalViewer, workspaceProjectId]);
+  const hasFuelCost = (fuelCostLoaded.projectId === workspaceProjectId ? fuelCostLoaded.has : peekFuelCost(workspaceProjectId)) === true;
+  const workspaceGroups = useMemo(() => PROJECT_WORKSPACE_GROUPS.map((group) => ({ ...group, children: group.children.filter((tab) => (tab.key !== "themes" || bundle.themes.length > 0) && (tab.key !== "cost-fuel" || hasFuelCost) && (!externalViewer || EXTERNAL_WORKSPACE_TABS.has(tab.key))).map((tab) => (tab.key === "cost" && hasFuelCost ? { ...tab, label: "コスト試算（廃液）" } : tab)) })).filter((group) => group.children.length > 0), [bundle.themes.length, externalViewer, hasFuelCost]);
   const dynamicTabs = useMemo(() => workspaceGroups.flatMap((group) => group.children), [workspaceGroups]);
 
   // project-workspace.ts now builds a theme skeleton for every project with defined
@@ -4639,6 +4670,7 @@ export function SxWeeklyControlDashboard({
         value === "company" ||
         value === "capital-policy" ||
         value === "cost" ||
+        value === "cost-fuel" ||
         value === "ip" ||
         value === "drive" ||
         value === "themes"
@@ -5734,8 +5766,7 @@ export function SxWeeklyControlDashboard({
 
         {activeView === "technology" && (
           <section id="technology" className={styles.section} role="tabpanel" aria-label="技術">
-            {/* ワークスペースでは、技術タブの中のコスト試算（燃料）も保存させない（コスト試算タブと同じ）。試算はできる。 */}
-            <CockpitTechnology projectId={bundle.project.projectId} costModelEditable={false} />
+            <CockpitTechnology projectId={bundle.project.projectId} />
           </section>
         )}
         {activeView === "business-plan" && (
@@ -5766,8 +5797,14 @@ export function SxWeeklyControlDashboard({
         )}
 
         {activeView === "cost" && (
-          <section id="cost-model" className={styles.section} role="tabpanel" aria-label="コスト試算">
+          <section id="cost-model" className={styles.section} role="tabpanel" aria-label={hasFuelCost ? "コスト試算（廃液）" : "コスト試算"}>
             <CockpitCostModel projectId={bundle.project.projectId} allowEdit={false} />
+          </section>
+        )}
+        {activeView === "cost-fuel" && (
+          <section id="cost-model-fuel" className={styles.section} role="tabpanel" aria-label="コスト試算（燃料）">
+            {/* ワークスペースでは保存させない（コスト試算（廃液）と同じ）。試算はできる。 */}
+            <CockpitFuelCostModel projectId={bundle.project.projectId} allowEdit={false} />
           </section>
         )}
 

@@ -3363,7 +3363,7 @@ expectIncludes("src/lib/cockpit-tabs.ts", [
   'label: "PJ管理"',
   'label: "シーズリスト"',
   'label: "規程・内規"',
-  'children: ["score-detail", "technology", "business-plan", "cost-model", "ip", "capital-policy"]',
+  'children: ["score-detail", "technology", "business-plan", "cost-model", "cost-fuel", "ip", "capital-policy"]',
 ]);
 expectNotIncludes("src/lib/cockpit-tabs.ts", ['"themes"']);
 expectIncludes("src/components/cockpit/CockpitView.tsx", [

@@ -133,7 +133,7 @@ export function mapBundle(model: any, assumptions: any[], items: any[], question
 
 /**
  * どの試算を読むか。default = コスト試算タブ (排水処理など。case_kind が biodiesel 以外)、
- * fuel = 技術タブのコスト試算（燃料）(case_kind = biodiesel。migration 411)。
+ * fuel = 事業計画グループのコスト試算（燃料）タブ (case_kind = biodiesel。migration 411)。
  * 同じPJに両方が active で並ぶので、既定で燃料の試算を読まないようにする。
  */
 export type CostModelKind = "default" | "fuel";
@@ -181,7 +181,7 @@ export async function GET(req: NextRequest) {
   const fresh = req.nextUrl.searchParams.get("fresh") === "1";
   const headers = { "Cache-Control": fresh ? "no-store" : "private, max-age=60, stale-while-revalidate=300" };
 
-  // ?kind=fuel は技術タブのコスト試算（燃料）。無ければコスト試算タブの試算。
+  // ?kind=fuel はコスト試算（燃料）タブ。無ければコスト試算（廃液）タブの試算。
   const kind: CostModelKind = req.nextUrl.searchParams.get("kind") === "fuel" ? "fuel" : "default";
   const bundle = await loadCostModelBundle(projectId, kind);
   if (!bundle) {

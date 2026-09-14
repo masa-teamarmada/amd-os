@@ -35,8 +35,14 @@ import { prefetchGovernance } from "@/lib/governance-client";
 import type { CockpitSeasonFinance as CockpitSeasonFinanceData, MilestoneChangeHistory } from "@/lib/supabase-data";
 import type { ProjectContractTerms } from "@/lib/project-contract-terms";
 import { CockpitCostModel } from "@/components/cockpit/CockpitCostModel";
+import { CockpitFuelCostModel } from "@/components/cockpit/CockpitFuelCostModel";
 import { prefetchProjectOrg } from "@/lib/project-org-client";
-import { prefetchProjectCostModel, prefetchProjectFuelCostModel } from "@/lib/project-cost-model-client";
+import {
+  loadProjectFuelCostModel,
+  peekProjectFuelCostModel,
+  prefetchProjectCostModel,
+  prefetchProjectFuelCostModel,
+} from "@/lib/project-cost-model-client";
 import { prefetchProjectTech } from "@/lib/project-tech-client";
 import {
   DEFAULT_COCKPIT_TAB,
@@ -295,6 +301,7 @@ const TAB_BY_WORKSPACE_VIEW: Partial<Record<SxWeeklyControlView, CockpitTab>> = 
   partners: "partners",
   issues: "issues",
   cost: "cost-model",
+  "cost-fuel": "cost-fuel",
   ip: "ip",
   drive: "documents",
 };
@@ -350,6 +357,37 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
   useEffect(() => {
     if (resolvedTab === "company") setHasVisitedCompany(true);
   }, [resolvedTab]);
+
+  // コスト試算（燃料）のタブを出すか。燃料の試算 (project_cost_models.case_kind = 'biodiesel') を持つPJだけ。
+  // 持つPJでは、コスト試算タブを「コスト試算（廃液）」と呼び分け、その右隣に並べる
+  // (2026-09-14 まさ「事業計画グループ内に置いてほしかった。元々ある『コスト試算』は『コスト試算（廃液）』に変えて、それの右に並べて」)。
+  // 参照系のキャッシュ越しに読み、キャッシュ済みなら peek で即決まる。研究機関PJは事業計画グループが無いので読まない。
+  const peekFuelCost = (projectId: string) => {
+    const hit = peekProjectFuelCostModel(projectId);
+    return hit === undefined ? undefined : !!hit.bundle;
+  };
+  const [fuelCostLoaded, setFuelCostLoaded] = useState<{ projectId: string; has: boolean | undefined }>(() => ({
+    projectId: cockpit.project.projectId,
+    has: peekFuelCost(cockpit.project.projectId),
+  }));
+  useEffect(() => {
+    if (isInstitutionProject) return;
+    const projectId = cockpit.project.projectId;
+    let cancelled = false;
+    loadProjectFuelCostModel(projectId)
+      .then((res) => {
+        if (!cancelled) setFuelCostLoaded({ projectId, has: !!res.bundle });
+      })
+      .catch(() => {
+        if (!cancelled) setFuelCostLoaded({ projectId, has: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cockpit.project.projectId, isInstitutionProject]);
+  const hasFuelCostRaw =
+    fuelCostLoaded.projectId === cockpit.project.projectId ? fuelCostLoaded.has : peekFuelCost(cockpit.project.projectId);
+  const hasFuelCost = hasFuelCostRaw === true;
 
   function selectTab(tab: CockpitTab) {
     setLocalActiveTab(tab);
@@ -426,7 +464,8 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     "score-detail": "スコア詳細",
     technology: "技術",
     "business-plan": "事業計画",
-    "cost-model": "コスト試算",
+    "cost-model": hasFuelCost ? "コスト試算（廃液）" : "コスト試算",
+    "cost-fuel": "コスト試算（燃料）",
     ip: "知財",
     seeds: "シーズ一覧",
     regulations: "規程一覧",
@@ -439,6 +478,8 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     if (tab === "score-detail") return hasScoreDetailTab;
     if (tab === "seeds") return hasInstitutionSeedsTab;
     if (tab === "regulations") return hasInstitutionRegulationsTab;
+    // 読み込み中に ?tab=cost-fuel で開いたときは、同じグループの先頭へ落とさずに待つ (無ければ読み終えてから落ちる)。
+    if (tab === "cost-fuel") return hasFuelCost || (hasFuelCostRaw === undefined && resolvedTab === "cost-fuel");
     return true;
   };
   const visibleGroups = groups.map((group) => ({
@@ -457,12 +498,9 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     key,
     label: tabLabel[key] ?? key,
     onHover: key === "score-detail" ? () => prefetchProjectOrg(project.projectId)
-      : key === "technology" ? () => {
-          prefetchProjectTech(project.projectId);
-          // 技術タブの中のコスト試算（燃料）のタブを出すかも、同じ hover で先に決めておく。
-          prefetchProjectFuelCostModel(project.projectId);
-        }
+      : key === "technology" ? () => prefetchProjectTech(project.projectId)
       : key === "cost-model" ? () => prefetchProjectCostModel(project.projectId)
+      : key === "cost-fuel" ? () => prefetchProjectFuelCostModel(project.projectId)
       : key === "capital-policy" || key === "company" ? () => prefetchGovernance(project.projectId)
       : undefined,
   });
@@ -792,8 +830,16 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       {/* コスト試算タブ (2026-08-23 まさ依頼)。前提を1つ動かすと4シナリオが再計算される。
           正本は project_cost_* で、Google Sheets からDBへ移した。自前で fetch するので開いた時だけマウントする。 */}
       {activeTab === "cost-model" && (
-        <section role="tabpanel" aria-label="コスト試算" className="min-w-0">
+        <section role="tabpanel" aria-label={tabLabel["cost-model"]} className="min-w-0">
           <CockpitCostModel projectId={project.projectId} />
+        </section>
+      )}
+
+      {/* コスト試算（燃料）タブ (2026-09-14)。燃料の試算を持つPJだけ、コスト試算（廃液）の右隣に出す。
+          排水処理のコスト試算と同じシミュレーター。自前で fetch するので開いた時だけマウントする。 */}
+      {activeTab === "cost-fuel" && (
+        <section role="tabpanel" aria-label="コスト試算（燃料）" className="min-w-0">
+          <CockpitFuelCostModel projectId={project.projectId} />
         </section>
       )}
 

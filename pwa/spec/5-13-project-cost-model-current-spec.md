@@ -175,13 +175,15 @@ Google Sheets が正本のままでは「前提を1つ動かしたときにシ�
 
 全PJ常設。試算が未登録のPJでは、何を登録する面かを説明する空状態を出す。
 
+**燃料の試算（`case_kind = 'biodiesel'`）を持つPJでは、このタブを「コスト試算（廃液）」と呼び、右隣に「コスト試算（燃料）」のタブ（`?tab=cost-fuel`、ワークスペースは `#cost-model-fuel`）を並べる**（2026-09-14 まさ「元々ある『コスト試算』は『コスト試算（廃液）』に変えて、それの右に並べて」。仕様は [5-16](5-16-project-fuel-cost-model-current-spec.md)）。持たないPJは「コスト試算」のまま。呼び分けの判定は `CockpitView` / `SxWeeklyControlDashboard` が燃料の試算の有無で行う。
+
 ## データモデル
 
 migration: `pwa/scripts/migrations/320` `324` `326` `392` `394` `396` `398` `402` `404` `406`（seed は `322` `323` `325` `327` `328` `329` `393` `395` `397` `399` `400` `403` `405` `407` `409` `410`）
 
 | table | 役割 |
 |---|---|
-| `project_cost_models` | 1試算=1行。**`case_kind` / `case_label` でケースを必ず持つ**（`dye_degradation` / `metal_recovery` / `multi` / `other`。`biodiesel` は技術タブのコスト試算（燃料）が読む試算で、このタブは読まない。[5-16](5-16-project-fuel-cost-model-current-spec.md)、migration 411）。`system_scope_md` に想定系、`target_total_cost_per_m3` に成立ライン目標、`unit_basis_label` に単位（m³ 以外も可） |
+| `project_cost_models` | 1試算=1行。**`case_kind` / `case_label` でケースを必ず持つ**（`dye_degradation` / `metal_recovery` / `multi` / `other`。`biodiesel` は事業計画グループのコスト試算（燃料）タブが読む試算で、このタブは読まない。[5-16](5-16-project-fuel-cost-model-current-spec.md)、migration 411）。`system_scope_md` に想定系、`target_total_cost_per_m3` に成立ライン目標、`unit_basis_label` に単位（m³ 以外も可） |
 | `project_cost_assumptions` | 変数辞書。`role_key` を計算エンジンが参照する。**`strain` / `application` で効く株・用途を持つ**（null は共通）。`group_label` と `sort_order` は画面の区分（`COST_PARAM_GROUPS`）の名前と順にそろえる（画面の並びは `role_key` で決まる）。選択肢で持つ前提（`onsite_tank_bearer`）は `value_text` に値を置く |
 | `project_cost_items` | 費用明細。`price_rule` で変数への連動を表す。`is_breakdown` の行は親の小計に含むので金額を持たない。**`strain` / `application` で発生する株・用途を持つ**（null は共通）。**`bearer` で誰が持つかを持つ**（`sx` / `customer` / `site`。migration 402） |
 | `project_cost_tasks` | **作業リスト**（migration 394）。1行=1作業。年額 = 年間回数 ×（1回の工数 × 作業単価 ＋ 1回の経費）。作業単価は前提の共通の1つ（`labor_rate`）。`group_label` は**作業の流れの段**、`sort_order` が段と作業の順 |

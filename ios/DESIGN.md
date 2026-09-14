@@ -50,8 +50,8 @@ PWAの全route・重要UI・iOS画面の対応状況は `../macos/PARITY.md` を
 > 実装: `pwa/src/lib/project-cost-model.ts`（純関数）/ `pwa/src/lib/project-cost-model-draft.ts`（試算中の変更）/ `pwa/src/components/cockpit/CockpitCostModel*.tsx`。
 > 行ごとに `visibility`（`amd_internal` / `workspace_shared`）を持ち、外部公開する行を選べる。
 
-> **PWA専用画面（Native未移植）**: PJコックピット `?tab=technology&tech=cost-fuel`（技術タブの中のタブ）とPJワークスペース `#technology` の
-> 「コスト試算（燃料）」（2026-09-14追加、**燃料の試算 `case_kind = 'biodiesel'` を持つPJだけ**。いまは SX）。燃料（バイオディーゼル、FAME）を作って売る事業の燃料1Lあたりの総コストを、
+> **PWA専用画面（Native未移植）**: PJコックピット `?tab=cost-fuel`（事業計画グループ、「コスト試算（廃液）」の右隣）とPJワークスペース `#cost-model-fuel`（経営・会社）の
+> 「コスト試算（燃料）」（2026-09-14追加、同日に技術タブの中から事業計画グループへ移した。**燃料の試算 `case_kind = 'biodiesel'` を持つPJだけ**で、そのPJではコスト試算タブを「コスト試算（廃液）」と呼ぶ。いまは SX）。燃料（バイオディーゼル、FAME）を作って売る事業の燃料1Lあたりの総コストを、
 > 同じ `project_cost_*` の前提・明細・作業からクライアントで再計算する（FAME転換 外部に委託 / 自社で行う × 収率 低位 / 基準 / 改善 の6通り。第1段 菌体1kgの原価 → 第2段 菌体費 ＋ 脱水・油回収 ＋ FAMEにする ＋ 残渣の処理 ＋ 品質確認・出荷 ＋ 燃料化設備の償却）。
 > 形は「コスト試算」タブと同じ（左 操作パネル／右 結果の1枠、作業の流れと工数、事業と製造の条件 / CAPEX / OPEX、3桁カンマ、共通の作業単価、保存しない試算で admin だけ「この値を保存」、ワークスペースは保存なし）。
 > 実装: `pwa/src/lib/project-fuel-cost-model.ts`（純関数）/ `pwa/src/components/cockpit/CockpitFuelCostModel*.tsx` / `CockpitTechnology.tsx`。API は `/api/project-cost-model?kind=fuel`（`kind` なしは燃料の試算を読まない）。仕様 `../pwa/spec/5-16-project-fuel-cost-model-current-spec.md`。

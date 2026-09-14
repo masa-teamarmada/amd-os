@@ -1,6 +1,6 @@
 # コスト試算（燃料）現行仕様
 
-> **この章は何か**: PJコックピットの「技術」タブの中にある「コスト試算（燃料）」(2026-09-14 新設) の contract。
+> **この章は何か**: PJコックピットの「事業計画」グループにある「コスト試算（燃料）」タブ (2026-09-14 新設) の contract。
 > 燃料（バイオディーゼル、FAME）を作って売る事業の、燃料1Lあたりの総コストを試算するシミュレーター。
 > 排水処理の「コスト試算」タブ（[5-13](5-13-project-cost-model-current-spec.md)）と同じテーブル・同じ操作の形で作り、計算だけを燃料用に分けた。
 > **計算結果は保存しない。保存するのは前提・明細・作業だけで、数字は常に導出する。画面での書き換えも保存しない（試算）。**
@@ -26,13 +26,14 @@
 
 | 面 | 開き方 | 権限 |
 |---|---|---|
-| PJコックピット | `/project/{projectId}/cockpit?tab=technology&tech=cost-fuel`（事業計画 → 技術 → タブ「コスト試算（燃料）」） | ログイン済みメンバー。試算は誰でもできる。保存は admin |
-| PJワークスペース | `#technology` の同じタブ | 同上。**保存はできない**（`CockpitTechnology` に `costModelEditable={false}`）。試算はできる |
+| PJコックピット | `/project/{projectId}/cockpit?tab=cost-fuel`（事業計画 → タブ「コスト試算（燃料）」） | ログイン済みメンバー。試算は誰でもできる。保存は admin |
+| PJワークスペース | 経営・会社 → タブ「コスト試算（燃料）」（`#cost-model-fuel`） | 同上。**保存はできない**（`CockpitFuelCostModel` に `allowEdit={false}`）。試算はできる。外部の人（ワークスペースアカウント）にはコスト試算のタブ自体を出さない |
 
 - **燃料の試算（`project_cost_models.case_kind = 'biodiesel'` の active な行）を持つPJだけにタブを出す**。いまは SX (p21) だけ。
-- タブの並びは 全体像 → 技術区分 → **コスト試算（燃料）** → 未整理の断片。全体像にも、このタブを開くカードを出す。
-- 技術台帳と燃料の試算の有無を並べて読み、両方そろってから技術タブを描く（タブの並びが後から変わらないように）。キャッシュ済みなら即決まる。
-- 燃料の試算が無いPJで `tech=cost-fuel` を開いたときは全体像を出す。
+- **事業計画グループの並びは スコア詳細 → 技術 → 事業計画 → コスト試算（廃液）→ コスト試算（燃料）→ 知財 → 資本政策**（`cockpit-tabs.ts`）。燃料の試算を持つPJでは、排水処理のコスト試算タブ（[5-13](5-13-project-cost-model-current-spec.md)）を「コスト試算（廃液）」と呼び分ける。持たないPJは「コスト試算」のまま、燃料のタブも出さない。ワークスペースの経営・会社も同じ並び（コスト試算（廃液）の右隣）。
+- 2026-09-14 まさ「事業計画グループ内に置いてほしかった。元々ある『コスト試算』は『コスト試算（廃液）』に変えて、それの右に並べて」。同日の最初の版は技術タブの中のタブ（`?tech=cost-fuel`）に置いていたので、技術タブからは外した（二重に置かない）。
+- 燃料の試算の有無は `CockpitView`（ワークスペースは `SxWeeklyControlDashboard`）が参照系のキャッシュ越しに `loadProjectFuelCostModel` で読み、キャッシュ済みなら `peekProjectFuelCostModel` で即決まる。研究機関PJ（事業計画グループが無い）と外部の人には読まない。
+- 読み込み中に `?tab=cost-fuel` で開いたときは同じグループの先頭へ落とさずに待ち、燃料の試算が無いと分かったら先頭（スコア詳細）へ落とす。ワークスペースの `#cost-model-fuel` は、燃料の試算が無いPJでは「このPJには燃料のコスト試算がない」を出す。
 
 ## 何を計算するか
 
@@ -191,7 +192,8 @@ SX の基準の収率で処分に切り替えると、燃料1Lあたり約2,773�
 | `pwa/src/components/cockpit/CockpitFuelCostModelControls.tsx` | 操作パネル（作業の流れ・収率の表・前提・作業リスト・明細） |
 | `pwa/src/components/cockpit/CockpitFuelCostModelResults.tsx` | 結果パネルとスマホ幅の要約 |
 | `pwa/src/components/cockpit/CockpitFuelCostModelReading.tsx` | 読み物 |
-| `pwa/src/components/cockpit/CockpitTechnology.tsx` | タブ「コスト試算（燃料）」（`?tech=cost-fuel`）と全体像のカード |
+| `pwa/src/lib/cockpit-tabs.ts` / `pwa/src/components/cockpit/CockpitView.tsx` | 事業計画グループのタブ「コスト試算（燃料）」（`?tab=cost-fuel`、コスト試算（廃液）の右隣）と、燃料の試算の有無によるタブの表示・呼び分け |
+| `pwa/src/components/project-workspace/SxWeeklyControlDashboard.tsx` | ワークスペースの経営・会社のタブ「コスト試算（燃料）」（`#cost-model-fuel`、保存させない） |
 | `pwa/scripts/check_project_fuel_cost_model.mts` | 契約チェック（`npm run test:project-cost-model` が排水処理のチェックに続けて実行。`deploy.sh` が本番反映前に実行） |
 | `pwa/scripts/__fixtures__/sx_fuel_cost_model.json` | SX の燃料の試算（migration 412・413 と同じ生成定義から書き出した。413 適用後の状態） |
 
@@ -231,7 +233,7 @@ SX の基準の収率で処分に切り替えると、燃料1Lあたり約2,773�
 11. 計算に使う前提と明細は、すべて区分に置き場所がある
 12. 試算中の変更は保存値を書き換えず、残渣の行き先は `value_text`、patch は DB の列名
 13. **排水処理のコスト試算タブは燃料の試算を読まない**（`neq("case_kind", "biodiesel")`）、`kind=fuel` のときだけ読む、PATCH が `plant_line` を受け付ける、411 の制約
-14. 技術タブにタブ「コスト試算（燃料）」があり、燃料の試算があるPJだけに出る。アドレスに `cost-fuel` を残す。ワークスペースでは保存させない
+14. 「コスト試算（燃料）」は事業計画グループのコスト試算（廃液）の右隣（`cockpit-tabs.ts` の並び）で、燃料の試算があるPJだけに出し、そのときコスト試算を「コスト試算（廃液）」と呼ぶ。技術タブには置かない。ワークスペースも経営・会社のコスト試算（廃液）の右隣で保存させず、アドレスに `cost-model-fuel` を残す
 15. 画面の契約: 操作パネルと結果を1枠に2列、スマホ幅は要約を上に固定、保存は編集できる人だけ「この値を保存」から、切り替えは FAME転換と収率、数字の欄は3桁カンマの `NumberField`（`type="number"` を使わない）、作業の流れが操作パネルの先頭、区分と収率の表、6通りの棒・内訳の棒・売価で成立する菌体の原価・事業全体の年間、画面の文言に「中央培養」を出さない
 
 migration 411・412 は、本番DBで最後に例外を投げる DO ブロックで試し実行し、制約を通って取り消されることを確かめた（試算1件・明細51行・作業5行）。412 は、既定で燃料の試算を読まない API の配信が Ready になってから適用する（配信前に適用すると、コスト試算タブが燃料の試算を読む）。

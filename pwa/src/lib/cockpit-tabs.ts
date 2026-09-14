@@ -24,6 +24,8 @@ export const COCKPIT_TABS = [
   "technology",
   "business-plan",
   "cost-model",
+  // コスト試算（燃料）。燃料の試算 (project_cost_models.case_kind = 'biodiesel') を持つPJだけに出す (表示条件は CockpitView)。
+  "cost-fuel",
   "regulations",
   "seeds",
   "ip",
@@ -76,7 +78,9 @@ export const COCKPIT_GROUPS: {
     {
       key: "business-plan-group",
       label: "事業計画",
-      children: ["score-detail", "technology", "business-plan", "cost-model", "ip", "capital-policy"],
+      // コスト試算（燃料）はコスト試算の右隣（2026-09-14 まさ「事業計画グループ内に置いてほしかった。
+      // 元々ある『コスト試算』は『コスト試算（廃液）』に変えて、それの右に並べて」）。
+      children: ["score-detail", "technology", "business-plan", "cost-model", "cost-fuel", "ip", "capital-policy"],
     },
     { key: "documents-group", label: "ドライブ", children: ["documents"] },
     {
@@ -109,6 +113,7 @@ const BUSINESS_PLAN_TABS = new Set<CockpitTab>([
   "technology",
   "business-plan",
   "cost-model",
+  "cost-fuel",
   "ip",
   "capital-policy",
 ]);

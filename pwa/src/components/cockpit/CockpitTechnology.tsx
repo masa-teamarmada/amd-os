@@ -32,8 +32,6 @@ import {
   updateTechRow,
   type ProjectTechResponse,
 } from "@/lib/project-tech-client";
-import { loadProjectFuelCostModel, peekProjectFuelCostModel } from "@/lib/project-cost-model-client";
-import { CockpitFuelCostModel } from "@/components/cockpit/CockpitFuelCostModel";
 
 // PJコックピット「技術」タブ。全PJ共通の雛形 (2026-08-29 まさ依頼)。
 //
@@ -928,25 +926,15 @@ type TechGroup = {
   checks: number;
 };
 
-/**
- * 開いている表示。URL の ?tech= と対応する (全体像は付けない / トピックは tech_topic_id / 未整理の断片は fragments /
- * コスト試算（燃料）は cost-fuel)。
- */
-type TechView = { kind: "overview" } | { kind: "topic"; topicId: string } | { kind: "fragments" } | { kind: "fuelCost" };
+/** 開いている表示。URL の ?tech= と対応する (全体像は付けない / トピックは tech_topic_id / 未整理の断片は fragments)。 */
+type TechView = { kind: "overview" } | { kind: "topic"; topicId: string } | { kind: "fragments" };
 
 type PagerTarget = { topic: TechTopic; domain: string; crossesDomain: boolean };
 
 const TECH_VIEW_PARAM = "tech";
 const TECH_VIEW_FRAGMENTS = "fragments";
-const TECH_VIEW_FUEL_COST = "cost-fuel";
 const TECH_TAB_OVERVIEW = "overview";
 const TECH_TAB_FRAGMENTS = "fragments";
-/**
- * コスト試算（燃料）のタブ (2026-09-14 まさ依頼「OSの技術ページに、新たに『コスト試算（燃料）』を追加してほしい」)。
- * 燃料の試算 (project_cost_models.case_kind = 'biodiesel') を持つPJだけに出す。区分のタブの後ろ、未整理の断片の前。
- */
-const TECH_TAB_FUEL_COST = "cost-fuel";
-const TECH_TAB_FUEL_COST_LABEL = "コスト試算（燃料）";
 const TECH_DOMAIN_TAB_PREFIX = "domain:";
 const TECH_PANEL_ID = "tech-panel";
 const UNCATEGORIZED = "未分類";
@@ -954,14 +942,12 @@ const UNCATEGORIZED = "未分類";
 function parseTechView(value: string | null): TechView {
   if (!value) return { kind: "overview" };
   if (value === TECH_VIEW_FRAGMENTS) return { kind: "fragments" };
-  if (value === TECH_VIEW_FUEL_COST) return { kind: "fuelCost" };
   return { kind: "topic", topicId: value };
 }
 
 function techViewParam(view: TechView): string | null {
   if (view.kind === "topic") return view.topicId;
   if (view.kind === "fragments") return TECH_VIEW_FRAGMENTS;
-  if (view.kind === "fuelCost") return TECH_VIEW_FUEL_COST;
   return null;
 }
 
@@ -1001,17 +987,15 @@ function useKeepSelectedInView(ref: React.RefObject<HTMLElement | null>, selecte
   }, [ref, selectedKey]);
 }
 
-/** 説明帯の下端に並ぶタブ。全体像 → 区分 (トピックの sort_order 順) → コスト試算（燃料）(燃料の試算があるPJだけ) → 未整理の断片。 */
+/** 説明帯の下端に並ぶタブ。全体像 → 区分 (トピックの sort_order 順) → 未整理の断片。 */
 function TechDomainTabs({
   groups,
   fragmentsCount,
-  hasFuelCost,
   activeKey,
   onSelect,
 }: {
   groups: TechGroup[];
   fragmentsCount: number;
-  hasFuelCost: boolean;
   activeKey: string;
   onSelect: (key: string) => void;
 }) {
@@ -1020,7 +1004,6 @@ function TechDomainTabs({
   const items: { key: string; label: string; count: number | null }[] = [
     { key: TECH_TAB_OVERVIEW, label: "全体像", count: null },
     ...groups.map((g) => ({ key: `${TECH_DOMAIN_TAB_PREFIX}${g.domain}`, label: g.domain, count: g.topics.length })),
-    ...(hasFuelCost ? [{ key: TECH_TAB_FUEL_COST, label: TECH_TAB_FUEL_COST_LABEL, count: null }] : []),
     ...(fragmentsCount > 0 ? [{ key: TECH_TAB_FRAGMENTS, label: "未整理の断片", count: fragmentsCount }] : []),
   ];
   return (
@@ -1059,20 +1042,16 @@ function TechOverview({
   groups,
   entriesByTopic,
   fragmentsCount,
-  hasFuelCost,
   onOpenDomain,
   onOpenTopic,
   onOpenFragments,
-  onOpenFuelCost,
 }: {
   groups: TechGroup[];
   entriesByTopic: Map<string, TechEntry[]>;
   fragmentsCount: number;
-  hasFuelCost: boolean;
   onOpenDomain: (domain: string) => void;
   onOpenTopic: (topicId: string) => void;
   onOpenFragments: () => void;
-  onOpenFuelCost: () => void;
 }) {
   const totalTopics = groups.reduce((s, g) => s + g.topics.length, 0);
   const totalRows = groups.reduce((s, g) => s + g.rows, 0);
@@ -1127,19 +1106,6 @@ function TechOverview({
             </ul>
           </div>
         ))}
-        {hasFuelCost && (
-          <button
-            type="button"
-            onClick={onOpenFuelCost}
-            data-testid="tech-overview-fuel-cost"
-            className={`rounded-lg border border-[#d2d2d7] bg-white p-3 text-left hover:bg-[#fafafa] ${FOCUS_RING}`}
-          >
-            <span className="block text-[12px] font-semibold text-[#1d1d1f]">{TECH_TAB_FUEL_COST_LABEL}</span>
-            <span className="mt-1 block text-[11px] leading-5 text-[#86868b]">
-              燃料（バイオディーゼル）を作って売るときの、燃料1Lあたりの総コスト。前提を書き換えるとその場で再計算する。
-            </span>
-          </button>
-        )}
         {fragmentsCount > 0 && (
           <button
             type="button"
@@ -1295,11 +1261,9 @@ function TechTopicPager({
 
 interface Props {
   projectId: string;
-  /** コスト試算（燃料）の「この値を保存」を出すか。PJワークスペースでは false (排水処理のコスト試算タブと同じ)。 */
-  costModelEditable?: boolean;
 }
 
-export function CockpitTechnology({ projectId, costModelEditable = true }: Props) {
+export function CockpitTechnology({ projectId }: Props) {
   // 読み込み済みの PJ を state に持ち、PJ を切り替えた直後に前のPJのデータを出さない
   // (cockpit/page.tsx と同じ流儀)。キャッシュ済みなら peek で即描画する。
   const [loaded, setLoaded] = useState<{ projectId: string; data: ProjectTechResponse | null }>(() => ({
@@ -1325,28 +1289,6 @@ export function CockpitTechnology({ projectId, costModelEditable = true }: Props
   const [lastTopicByDomain, setLastTopicByDomain] = useState<Record<string, string>>({});
   const panelRef = useRef<HTMLDivElement>(null);
   const revealPanel = useRef(false);
-
-  // コスト試算（燃料）のタブを出すか。燃料の試算 (case_kind = biodiesel) を持つPJだけ。
-  // 技術台帳と並べて読み、両方そろってから描く (タブの並びが後から変わらないように)。キャッシュ済みなら peek で即決まる。
-  const peekFuel = () => {
-    const hit = peekProjectFuelCostModel(projectId);
-    return hit === undefined ? undefined : !!hit.bundle;
-  };
-  const [fuelLoaded, setFuelLoaded] = useState<{ projectId: string; has: boolean | undefined }>(() => ({ projectId, has: peekFuel() }));
-  useEffect(() => {
-    let cancelled = false;
-    loadProjectFuelCostModel(projectId)
-      .then((res) => {
-        if (!cancelled) setFuelLoaded({ projectId, has: !!res.bundle });
-      })
-      .catch(() => {
-        if (!cancelled) setFuelLoaded({ projectId, has: false });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [projectId]);
-  const hasFuelCostRaw = fuelLoaded.projectId === projectId ? fuelLoaded.has : peekFuel();
 
   const reload = useCallback(
     (force = false) =>
@@ -1460,7 +1402,6 @@ export function CockpitTechnology({ projectId, costModelEditable = true }: Props
     (key: string) => {
       if (key === TECH_TAB_OVERVIEW) selectView({ kind: "overview" });
       else if (key === TECH_TAB_FRAGMENTS) selectView({ kind: "fragments" });
-      else if (key === TECH_TAB_FUEL_COST) selectView({ kind: "fuelCost" });
       else openDomain(key.slice(TECH_DOMAIN_TAB_PREFIX.length));
     },
     [openDomain, selectView]
@@ -1474,7 +1415,7 @@ export function CockpitTechnology({ projectId, costModelEditable = true }: Props
     );
   }
 
-  if (!data || hasFuelCostRaw === undefined) {
+  if (!data) {
     return (
       <div className="space-y-3">
         {[0, 1, 2].map((i) => (
@@ -1487,23 +1428,17 @@ export function CockpitTechnology({ projectId, costModelEditable = true }: Props
   const countByKind = BLOCK_ORDER.map((k) => ({ kind: k, n: data.topics.filter((t) => t.block_kind === k).length }));
   const needsCheckTotal = countNeedsCheck(data.entries) + data.topics.filter((t) => t.needs_check).length;
 
-  const hasFuelCost = hasFuelCostRaw === true;
-  // URL のトピックが無い (削除した・別PJのリンク) とき、断片が0件のとき、燃料の試算が無いPJで cost-fuel を開いたときは全体像を出す。
+  // URL のトピックが無い (削除した・別PJのリンク) ときと、断片が0件のときは全体像を出す。
   const selectedTopic = view.kind === "topic" ? data.topics.find((t) => t.tech_topic_id === view.topicId) ?? null : null;
   const selectedGroup = selectedTopic ? groups.find((g) => g.domain === topicDomainOf(selectedTopic)) ?? null : null;
   const shownKind: TechView["kind"] =
-    view.kind === "topic" && selectedGroup ? "topic"
-    : view.kind === "fragments" && data.fragments.length > 0 ? "fragments"
-    : view.kind === "fuelCost" && hasFuelCost ? "fuelCost"
-    : "overview";
+    view.kind === "topic" && selectedGroup ? "topic" : view.kind === "fragments" && data.fragments.length > 0 ? "fragments" : "overview";
   const activeTabKey =
     shownKind === "topic" && selectedGroup
       ? `${TECH_DOMAIN_TAB_PREFIX}${selectedGroup.domain}`
       : shownKind === "fragments"
         ? TECH_TAB_FRAGMENTS
-        : shownKind === "fuelCost"
-          ? TECH_TAB_FUEL_COST
-          : TECH_TAB_OVERVIEW;
+        : TECH_TAB_OVERVIEW;
   const orderedTopics = groups.flatMap((g) => g.topics.map((topic) => ({ topic, domain: g.domain })));
   const selectedIndex = selectedTopic ? orderedTopics.findIndex((x) => x.topic.tech_topic_id === selectedTopic.tech_topic_id) : -1;
   const pagerTarget = (i: number): PagerTarget | null => {
@@ -1512,10 +1447,7 @@ export function CockpitTechnology({ projectId, costModelEditable = true }: Props
     return { topic: hit.topic, domain: hit.domain, crossesDomain: hit.domain !== selectedGroup.domain };
   };
   const panelLabel =
-    shownKind === "topic" && selectedGroup ? selectedGroup.domain
-    : shownKind === "fragments" ? "未整理の断片"
-    : shownKind === "fuelCost" ? TECH_TAB_FUEL_COST_LABEL
-    : "全体像";
+    shownKind === "topic" && selectedGroup ? selectedGroup.domain : shownKind === "fragments" ? "未整理の断片" : "全体像";
 
   return (
     <div className="space-y-4" data-testid="cockpit-technology-tab">
@@ -1566,12 +1498,12 @@ export function CockpitTechnology({ projectId, costModelEditable = true }: Props
             </div>
           )}
         </div>
-        {(data.topics.length > 0 || hasFuelCost) && (
-          <TechDomainTabs groups={groups} fragmentsCount={data.fragments.length} hasFuelCost={hasFuelCost} activeKey={activeTabKey} onSelect={openTab} />
+        {data.topics.length > 0 && (
+          <TechDomainTabs groups={groups} fragmentsCount={data.fragments.length} activeKey={activeTabKey} onSelect={openTab} />
         )}
       </section>
 
-      {data.topics.length === 0 && shownKind !== "fuelCost" ? (
+      {data.topics.length === 0 ? (
         <>
           {!adding && (
             <section className="rounded-xl border border-dashed border-[#d2d2d7] bg-white p-5">
@@ -1592,17 +1524,10 @@ export function CockpitTechnology({ projectId, costModelEditable = true }: Props
               groups={groups}
               entriesByTopic={entriesByTopic}
               fragmentsCount={data.fragments.length}
-              hasFuelCost={hasFuelCost}
               onOpenDomain={openDomain}
               onOpenTopic={openTopic}
               onOpenFragments={() => selectView({ kind: "fragments" })}
-              onOpenFuelCost={() => selectView({ kind: "fuelCost" })}
             />
-          )}
-          {shownKind === "fuelCost" && (
-            <div data-testid="tech-fuel-cost">
-              <CockpitFuelCostModel projectId={projectId} allowEdit={costModelEditable} />
-            </div>
           )}
           {shownKind === "fragments" && <FragmentTable fragments={data.fragments} />}
           {shownKind === "topic" && selectedTopic && selectedGroup && (

@@ -163,7 +163,7 @@ where s.project_id = 'p21' and s.source in ('gmeet_minutes','drive');
 
 - 実体: [`src/components/cockpit/CockpitTechnology.tsx`](../src/components/cockpit/CockpitTechnology.tsx) / 型とラベルは [`src/lib/project-tech.ts`](../src/lib/project-tech.ts)
 - タブ配線: `CockpitView.tsx` の `CockpitTab` union と `tabs` 配列 (= 正本)、URL同期は `cockpit/page.tsx` の `NON_DEFAULT_TABS`。URLは `?tab=technology`
-- 構成: 説明帯 (形式別の件数 + adminの「＋トピック追加」) の下端に**区分のタブ** (全体像 / 技術区分ごと / コスト試算（燃料）(燃料の試算があるPJだけ) / 未整理の断片)。区分のタブの中はトピックを1つずつ開く ((xl以上) 左にその区分のトピック一覧 ／ (xl未満) 上に横並び、下に前後のトピック)。開いている表示は `?tech=`。詳細は §5.1
+- 構成: 説明帯 (形式別の件数 + adminの「＋トピック追加」) の下端に**区分のタブ** (全体像 / 技術区分ごと / 未整理の断片)。区分のタブの中はトピックを1つずつ開く ((xl以上) 左にその区分のトピック一覧 ／ (xl未満) 上に横並び、下に前後のトピック)。開いている表示は `?tech=`。詳細は §5.1
 - **参照系**。クライアントは [`src/lib/project-tech-client.ts`](../src/lib/project-tech-client.ts) のキャッシュ層だけを通し、画面から素の fetch をしない
   (guard: `scripts/check_reference_data_cache_contract.mjs` の `REFERENCE_DATA_ENDPOINTS` に登録済み)。
   タブ見出しの hover で `prefetchProjectTech()` を呼び、押した瞬間に表が出ている状態にする
@@ -183,7 +183,7 @@ where s.project_id = 'p21' and s.source in ('gmeet_minutes','drive');
 
 | 部品 | 置き場所 | 中身 |
 |---|---|---|
-| 区分のタブ (`data-testid="tech-domain-tabs"`) | 説明帯の下端 | 全体像 → 技術区分 (トピックの sort_order 順、名前の横にトピック数) → コスト試算（燃料）(燃料の試算があるPJだけ、§5.2) → 未整理の断片 (件数)。狭い画面は横にスクロールし、選んだタブが見える位置まで横にだけ寄せる |
+| 区分のタブ (`data-testid="tech-domain-tabs"`) | 説明帯の下端 | 全体像 → 技術区分 (トピックの sort_order 順、名前の横にトピック数) → 未整理の断片 (件数)。狭い画面は横にスクロールし、選んだタブが見える位置まで横にだけ寄せる |
 | 全体像 (`data-testid="tech-overview"`) | 全体像のタブ | 区分ごとのカード。各トピックの形式・タイトル・行数・要確認件数。区分の名前を押すとその区分のタブ、タイトルを押すとそのトピックが開く。未整理の断片へのカードもここ |
 | トピック一覧 (`data-testid="tech-topic-list"`) | xl (1280px) 以上、区分のタブの左の列に固定 | 開いている区分のトピックを番号つきで並べ (「 — 」より後ろの補足は落とす)、開いているものを `aria-current="page"` で光らせる |
 | トピックの並び (`data-testid="tech-topic-chips"`) | xl 未満、トピックの上 | 同じ一覧を横並びの丸いボタンで出す。スマホは横にスクロール、sm 以上は折り返す。トピックが1件だけの区分では出さない |
@@ -192,7 +192,7 @@ where s.project_id = 'p21' and s.source in ('gmeet_minutes','drive');
 決めごと:
 
 - **1回に開くのは1トピック。** 選んでいないトピックは描画しない (mermaid 図は開いたときに描く)。全区分・全トピックを1枚で見るのは全体像のタブ。
-- 開いている表示は URL の `?tech=` に持つ。トピックは `tech_topic_id`、未整理の断片は `fragments`、コスト試算（燃料）は `cost-fuel`、全体像は付けない。書き戻しは `history.replaceState` (`router.replace` だと押すたびにサーバへ取りに行く。履歴も積まない。Next.js が `useSearchParams` に反映する)。再読み込み・共有したリンク・ほかのコックピットタブから戻ったときに同じトピックが開く (コックピットのタブ切り替えは `?tech=` を残す)。存在しないトピックを指していたら全体像を出す。
+- 開いている表示は URL の `?tech=` に持つ。トピックは `tech_topic_id`、未整理の断片は `fragments`、全体像は付けない。書き戻しは `history.replaceState` (`router.replace` だと押すたびにサーバへ取りに行く。履歴も積まない。Next.js が `useSearchParams` に反映する)。再読み込み・共有したリンク・ほかのコックピットタブから戻ったときに同じトピックが開く (コックピットのタブ切り替えは `?tech=` を残す)。存在しないトピックを指していたら全体像を出す。
 - 区分のタブを押すと、その区分で最後に開いていたトピック、無ければ先頭のトピックが開く (トピックから離れるときに覚える。画面を開き直すと忘れる)。
 - 表示を差し替えたとき、差し替えた場所の頭が画面より上に隠れていれば、区分のタブが見える位置まで一度に戻す (`scroll-margin-top` 64px、滑らせない)。見えているときは動かさない。**位置へスクロールして移動する形には戻さない。**
 - ＋トピック追加の直後は、足したトピックを開く (追加 API は id を返さないので、読み直した中から題名と区分が同じ最新のもの)。
@@ -203,15 +203,10 @@ where s.project_id = 'p21' and s.source in ('gmeet_minutes','drive');
 - 星取り表で `rating` が null のセルは記号を出さず、値だけを左寄せで出す (条文の要件を並べる表など)。「調べていない」は `rating = 'unknown'` を明示して入れる。null を「?」扱いしない。
 - 星取り表の最小幅は「比較軸の列 128px ＋ 相手の列の数 × 96px」(最小 520px、`MATRIX_AXIS_COL_PX` / `MATRIX_COL_PX`)。それより狭い枠では表の中で横にスクロールする (比較軸の列は固定のまま)。2026-09-14 に SX の競合比較 (相手8列) を入れたとき、固定の最小 520px のままだとスマホ幅で1列が 45〜77px に押しつぶされ、1行が最大 437px まで伸びた。1440px 幅では 8 列でも枠に収まる。
 
-### 5.2 コスト試算（燃料）のタブ (2026-09-14)
+### 5.2 コスト試算（燃料）は技術タブに置かない (2026-09-14)
 
-まさの依頼 (2026-09-14):「OSの技術ページに、新たに『コスト試算（燃料）』を追加してほしい。そんで廃液処理のコスト試算と同様にバイオディーゼル事業のコスト試算シートを作ってほしい」。
-
-- 区分のタブの後ろ・未整理の断片の前に「コスト試算（燃料）」を置く。中身は燃料（バイオディーゼル）の事業の燃料1Lあたりの総コストを試算するシミュレーター (`CockpitFuelCostModel`)。仕様の正本は [5-16](5-16-project-fuel-cost-model-current-spec.md)
-- **燃料の試算 (`project_cost_models.case_kind = 'biodiesel'` の active な行) を持つPJだけにタブを出す**。技術台帳と一緒に `loadProjectFuelCostModel` で有無を読み、両方そろってから技術タブを描く (タブの並びが後から変わらないように)。コックピットの「技術」の見出しの hover で両方を先読みする
-- 全体像のタブに、このタブを開くカード (`data-testid="tech-overview-fuel-cost"`) を出す
-- `?tech=cost-fuel` で開く。燃料の試算が無いPJでこの値を指していたら全体像を出す
-- 保存は admin だけ。PJワークスペースの技術タブでは `costModelEditable={false}` で保存させない (排水処理のコスト試算タブと同じ)
+- 2026-09-14 に「OSの技術ページに、新たに『コスト試算（燃料）』を追加してほしい」で技術タブの中のタブとして置いたが、同日にまさ「事業計画グループ内に置いてほしかった。元々ある『コスト試算』は『コスト試算（廃液）』に変えて、それの右に並べて」で、事業計画グループのタブ（`?tab=cost-fuel`）へ移した。仕様の正本は [5-16](5-16-project-fuel-cost-model-current-spec.md)
+- 技術タブには、燃料のタブ・全体像のカード・`?tech=cost-fuel` を置かない。`?tech=cost-fuel` の古いリンクは、存在しない表示として全体像を出す
 - 燃料の試算の数字 (売価・原価・収率など) は技術台帳のトピックに書き写さない。金額は試算が正本 (§3.5)
 
 
