@@ -26,12 +26,16 @@
 // 「工数単価は共通で１つのパラメータで入力するようにして」「前提となるパラメータについて、ページのあちこちに散らばってて、どこにあるか分からん。
 // CAPEXとOPEXに分けて、さらにそれぞれのサブグループに分けるなどして整理してほしい」
 // — 入力欄に3桁カンマ、開いたときは自然株、作業単価は共通の1つだけ、前提・作業・明細を「事業と処理の条件 / CAPEX / OPEX」の区分に置く。
+// 2026-09-14 まさ指摘⑨:「「槽　顧客の設備」ってのが最上段にある意味がわからん。特出しするものでもないと思うので削除して」
+// 「新設槽CAPEX（コンクリート地下タンク100m³）→これってオフサイトの場合のみ使うやつだよね？オンサイトを選んだときもグレーアウトしてないのでグレーアウトさせて」
+// — 上端に槽を出さず、槽は選べるときだけ名前に入れる。選んだ組み合わせで効かない前提を薄く出す（効くかは rolesInEffect。動かして確かめる）。
 //
 // 正本: pwa/spec/5-13-project-cost-model-current-spec.md
-// fixture: scripts/__fixtures__/sx_cost_model_two_stage.json（migration 407 適用後の SX データ）
+// fixture: scripts/__fixtures__/sx_cost_model_two_stage.json（migration 409 適用後の SX データ）
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {
+  CONDITIONAL_ROLE_KEYS,
   COST_PARAM_BLOCKS,
   COST_PARAM_GROUPS,
   COST_ROLE_KEYS,
@@ -50,8 +54,11 @@ import {
   paramGroupOfRole,
   resolveBearer,
   resolvePerformer,
+  rolesInEffect,
   rowAppliesTo,
+  scenarioLabelOf,
   taskAmount,
+  tankModesFor,
   type CostModelBundle,
 } from "../src/lib/project-cost-model.ts";
 import {
@@ -259,7 +266,7 @@ for (const strain of ["enhanced", "wild"] as const) {
   near(computeBiomassCost(over, "enhanced", "dye").perKg, 800, 1e-9, "上書き値 ÷ 販売率");
 }
 
-// 8. 仕様書の検証表と一致する（オンサイト・直接投入・顧客の槽）。2026-09-14 から処理の運転は顧客の作業、リアクターと槽は顧客が買い、
+// 8. 仕様書の検証表と一致する（オンサイト・直接投入。槽は顧客の設備）。2026-09-14 から処理の運転は顧客の作業、リアクターと槽は顧客が買い、
 //    色素分解の汚泥の処分は顧客がやる。色素分解の菌体使用回数は10回
 //    年間処理量は2,000万m³（売上100億円）。年に作る量から培養設備の系列数を出す
 near(computeBiomassCost(fixture, "enhanced", "dye").perKg, 120.1, 0.05, "強化株 菌体原価（色素分解で年に作る量）");
@@ -380,7 +387,13 @@ assert.ok(
   assert.match(route, /ITEM_FIELDS = new Set\(\[[^\]]*"bearer"/, "API が明細の誰が持つかを書き込める");
   assert.match(controls, /誰が持つか/, "明細で誰が持つかを変えられる");
   assert.match(controls, /TEXT_CHOICE_ROLES/, "槽を持つのはを選択肢で選べる");
-  assert.match(main, /顧客の設備/, "オンサイトの槽を顧客が持つときは、槽の切り替えの代わりに「顧客の設備」と出す");
+  // 2026-09-14 まさ指摘⑨: 上端に槽を出さない。槽の既設・新設は、オンサイトの槽を SX が持つときだけ CAPEX の「槽」で選ぶ
+  const header = main.slice(main.indexOf("{/* 切り替えと、保存していない変更 */}"), main.indexOf("{/* 操作パネル（左）と結果（右）"));
+  assert.ok(header.includes('label="株"') && header.includes('label="装置"'), "上端の切り替えの範囲を切り出せている");
+  assert.doesNotMatch(header, /label="槽"|槽の切り替え|顧客の設備|SX工場に新設/, "上端の切り替えに槽を出さない");
+  assert.match(main, /onSelectTankMode=\{\(tankMode\) => setView\(\{ tankMode \}\)\}/, "槽の既設・新設は操作パネルから切り替える");
+  assert.match(controls, /g\.key === "capex-tank" && location === "onsite" && selection\.onsiteTankBearer === "sx"/, "オンサイトの槽を SX が持つときだけ、CAPEX の槽で既設・新設を選ぶ");
+  assert.doesNotMatch(results, /槽は顧客の設備|槽はSX工場に新設/, "結果の見出しに、選べない槽を添えない");
   assert.match(read(files[3]), /誰が持つか/, "読み物の費用明細に誰が持つかの列");
   assert.match(read(files[3]), /SXの原価はオフサイトだけ（オンサイトは顧客）/, "精度を下げている項目で、オンサイトは顧客が持つ行にそう添える");
   // 2026-09-14 まさ指摘⑦
@@ -408,6 +421,11 @@ assert.ok(
   assert.match(read(files[3]), /COST_PARAM_BLOCKS\.map\(\(block\)/, "読み物の「すべての前提」も同じ区分");
   assert.match(read(files[3]), /paramGroupOfItem\(i\)\?\.key === g\.key/, "読み物の「費用明細」も同じ区分");
   assert.match(read(files[3]), /!i\.isBreakdown && !paramGroupOfItem\(i\)/, "読み物の「費用明細」は、区分に置かない参考の行も落とさない");
+  // 2026-09-14 まさ指摘⑨: 選んだ組み合わせで効かない前提は薄く出す
+  assert.match(controls, /rolesInEffect\(working, \{ strain, application, location, method, tankMode \}\)/, "操作パネルは選んだ組み合わせで効く前提を計算エンジンから引く");
+  assert.match(controls, /mutedNote=\{muted\(a\) \? mutedNote : null\}/, "効かない前提の行を薄く出し、理由を添える");
+  assert.match(controls, /Formula muted=\{!inEffect\.has\("new_tank_capex"\)\}/, "新設した槽の償却の割り算も、効かない組み合わせでは薄く出す");
+  assert.match(read(files[3]), /COST_ROLE_KEYS\.has\(a\.roleKey\) \|\| inEffect\.has\(a\.roleKey\)/, "読み物のすべての前提も、選んだ組み合わせで効かない行を薄く出す");
 }
 
 // 12. 金属回収の菌体使用回数は1回で固定。使い回せるのは色素分解だけ
@@ -731,6 +749,104 @@ assert.ok(
   assert.equal(caretAfterGrouping("2000", 1, "2,000"), 1, "先頭の数字の後ろ");
   assert.equal(caretAfterGrouping("20000", 3, "20,000"), 4, "カンマをまたいでも、カーソルの左の数字の数を保つ");
   assert.equal(caretAfterGrouping("1,00", 0, "100"), 0, "先頭");
+}
+
+// 19. 選んだ組み合わせで効く前提（まさ 2026-09-14「新設槽CAPEX…これってオフサイトの場合のみ使うやつだよね？オンサイトを選んだときもグレーアウトしてないのでグレーアウトさせて」）
+//     効かないとした前提を動かしても数字が変わらず、効くとした前提を動かすと数字が変わることを、全組み合わせで確かめる。
+//     あわせて、槽は選べるときだけ名前に入れる（「「槽　顧客の設備」ってのが最上段にある意味がわからん。特出しするものでもない」）
+{
+  const keyOf = (application: string, location: string, method: string, tankMode: string) =>
+    `${application}:${location === "offsite" ? "オフサイト-" : ""}${method}-${tankMode}`;
+  const signatureOf = (c: ReturnType<typeof computeCostModel>, key: string) => {
+    const s = c.scenarios.find((x) => x.key === key);
+    assert.ok(s, `scenario ${key}`);
+    return [s.totalPerUnit, s.siteTaskHours, ...s.breakdown.map((b) => b.perUnit)];
+  };
+  const differs = (a: number[], b: number[]) => a.some((v, i) => Math.abs(v - b[i]) > 1e-9);
+  const numericRoles = [...CONDITIONAL_ROLE_KEYS].filter((role) => role !== "onsite_tank_bearer");
+  for (const role of numericRoles) assert.ok(fixture.assumptions.some((a) => a.roleKey === role && typeof a.value === "number"), `SX に ${role} の前提がある`);
+  const sxTank = clone();
+  for (const a of sxTank.assumptions) if (a.roleKey === "onsite_tank_bearer") a.valueText = "sx";
+  // 作業の工数・誰がやるか・上書き値で効き方が変わる形も、同じように動かして確かめる
+  const hoursUnknown = clone();
+  for (const t of hoursUnknown.tasks) t.hoursPerOccurrence = null;
+  const runOnly = clone();
+  runOnly.tasks = runOnly.tasks.filter((t) => t.costTaskId === "ct_run_injection" || t.costTaskId === "ct_run_circulation");
+  const overriddenCost = clone();
+  for (const a of overriddenCost.assumptions) if (a.roleKey === "biomass_cost_per_kg_override") a.value = 1500;
+  const variants: Array<[string, CostModelBundle, "customer" | "sx"]> = [
+    ["顧客の槽", fixture, "customer"],
+    ["SXの槽", sxTank, "sx"],
+    ["工数がすべて空欄", hoursUnknown, "customer"],
+    ["作業は処理の運転だけ", runOnly, "customer"],
+    ["菌体の原価を上書き", overriddenCost, "customer"],
+  ];
+  let checked = 0;
+  for (const [variant, bundle, bearer] of variants) {
+    for (const strain of ["enhanced", "wild"] as const) {
+      const base = computeCostModel(bundle, { strain });
+      const moved = new Map(
+        numericRoles.map((role) => {
+          const b: CostModelBundle = JSON.parse(JSON.stringify(bundle));
+          for (const a of b.assumptions) if (a.roleKey === role && typeof a.value === "number") a.value = a.value * 3 + 1;
+          return [role, computeCostModel(b, { strain })] as const;
+        })
+      );
+      for (const application of ["dye", "metal"] as const) for (const location of ["onsite", "offsite"] as const) for (const method of METHODS) {
+        for (const tankMode of tankModesFor(location, bearer)) {
+          const key = keyOf(application, location, method, tankMode);
+          const roles = rolesInEffect(bundle, { strain, application, location, method, tankMode });
+          const before = signatureOf(base, key);
+          for (const role of numericRoles) {
+            const changed = differs(before, signatureOf(moved.get(role)!, key));
+            assert.equal(changed, roles.has(role), `${variant} ${strain} ${key}: ${role} は${roles.has(role) ? "効くはずが数字が動かない" : "効かないはずが数字が動く"}`);
+            checked++;
+          }
+          assert.equal(roles.has("onsite_tank_bearer"), location === "onsite", `${variant} ${key}: 槽を持つのはオンサイトだけに効く`);
+          for (const role of COST_ROLE_KEYS) if (!CONDITIONAL_ROLE_KEYS.has(role)) assert.ok(roles.has(role), `${key}: ${role} はどの組み合わせでも効く`);
+        }
+      }
+    }
+  }
+  assert.ok(checked >= 1000, `組み合わせ × 前提をひととおり動かした（${checked}）`);
+  const onsiteInjection = { strain: "wild", application: "dye", location: "onsite", method: "投入", tankMode: "既設" } as const;
+  const offsiteInjection = { strain: "wild", application: "dye", location: "offsite", method: "投入", tankMode: "新設" } as const;
+  assert.ok(!rolesInEffect(hoursUnknown, onsiteInjection).has("labor_rate"), "工数がすべて空欄なら、作業単価は効かない");
+  assert.ok(rolesInEffect(hoursUnknown, onsiteInjection).has("patrol_batches_per_delivery"), "工数が空欄でも、1回の経費がある作業の回数の前提は効く（移動の車両費）");
+  assert.ok(!rolesInEffect(runOnly, onsiteInjection).has("labor_rate"), "顧客がやる処理の運転の工数に、作業単価は効かない");
+  assert.ok(rolesInEffect(runOnly, offsiteInjection).has("labor_rate"), "オフサイトの処理の運転は SX がやるので、作業単価が効く");
+  // 槽を持つのはを変えると、オンサイトの槽の選択肢が変わる（オフサイトの数字は変わらない）
+  assert.deepEqual(tankModesFor("onsite", "customer"), ["既設"], "オンサイトの槽が顧客の設備なら既設の1通り");
+  assert.deepEqual(tankModesFor("onsite", "sx"), ["既設", "新設"], "オンサイトの槽を SX が持つなら既設と新設");
+  near(scenario(sxTank, "wild", "dye", "オフサイト-投入-新設").totalPerUnit, scenario(fixture, "wild", "dye", "オフサイト-投入-新設").totalPerUnit, 1e-9, "槽を持つのはオフサイトに効かない");
+  // 決まった組み合わせで、効く前提と効かない前提
+  const onsite = rolesInEffect(fixture, { strain: "wild", application: "dye", location: "onsite", method: "投入", tankMode: "既設" });
+  for (const role of ["new_tank_capex", "tank_life_years", "truck_capacity_m3", "module_unit_price", "module_durability_batches", "power_kw_circulation", "hrt_circulation", "spent_wet_factor", "sludge_disposal_price"]) {
+    assert.ok(!onsite.has(role), `オンサイト・直接投入（槽は顧客の設備）では ${role} を使わない`);
+  }
+  for (const role of ["labor_rate", "patrol_batches_per_delivery", "membrane_life_years", "power_unit_price", "power_kw_injection", "hrt_injection", "onsite_tank_bearer"]) {
+    assert.ok(onsite.has(role), `オンサイト・直接投入では ${role} を使う`);
+  }
+  const offsite = rolesInEffect(fixture, { strain: "wild", application: "dye", location: "offsite", method: "循環", tankMode: "新設" });
+  for (const role of ["new_tank_capex", "tank_life_years", "truck_capacity_m3", "module_unit_price", "module_durability_batches", "power_kw_circulation", "hrt_circulation", "spent_wet_factor", "sludge_disposal_price"]) {
+    assert.ok(offsite.has(role), `オフサイト・循環カートリッジでは ${role} を使う`);
+  }
+  for (const role of ["onsite_tank_bearer", "patrol_batches_per_delivery", "membrane_life_years", "power_kw_injection", "hrt_injection"]) {
+    assert.ok(!offsite.has(role), `オフサイト・循環カートリッジでは ${role} を使わない`);
+  }
+  // 菌体の製造原価を上書きすると、製造拠点の作業だけで効いていた前提は効かなくなる
+  const overridden = clone();
+  for (const a of overridden.assumptions) if (a.roleKey === "biomass_cost_per_kg_override") a.value = 1500;
+  overridden.tasks = overridden.tasks.filter((t) => t.scenario === "中央培養");
+  const centralOnly = clone();
+  centralOnly.tasks = centralOnly.tasks.filter((t) => t.scenario === "中央培養");
+  assert.ok(rolesInEffect(centralOnly, { strain: "enhanced", application: "dye", location: "onsite", method: "投入", tankMode: "既設" }).has("labor_rate"), "製造拠点の作業だけでも作業単価は効く（安全委員会の工数）");
+  assert.ok(!rolesInEffect(overridden, { strain: "enhanced", application: "dye", location: "onsite", method: "投入", tankMode: "既設" }).has("labor_rate"), "上書き値のときは製造拠点の作業の工数に作業単価が効かない");
+  // 呼び名: 槽は選べるときだけ
+  assert.equal(scenarioLabelOf("onsite", "投入", "既設", "customer"), "直接投入", "オンサイトの槽が顧客の設備なら、名前に槽を入れない");
+  assert.equal(scenarioLabelOf("offsite", "循環", "新設", "customer"), "循環カートリッジ", "オフサイトは名前に槽を入れない");
+  assert.equal(scenarioLabelOf("onsite", "投入", "新設", "sx"), "直接投入・新設槽", "オンサイトの槽を SX が持つときだけ、既設・新設を名前に入れる");
+  assert.equal(scenario(fixture, "wild", "dye", "投入-既設").label, "直接投入", "SX のシナリオ名に槽を入れない");
 }
 
 console.log("project-cost-model: OK");

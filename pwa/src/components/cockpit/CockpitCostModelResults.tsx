@@ -255,7 +255,8 @@ export function CostResultsPanel({
                 {groupStart && (
                   <p className={`text-[10px] font-semibold text-[#6e6e73] ${i === 0 ? "" : "mt-1 border-t border-[#e5e5e7] pt-1"}`}>
                     {LOCATION_SHORT_LABEL[slot.location]}
-                    <span className="font-normal">（{slot.location === "offsite" ? "SX工場まで運んで処理・槽はSX工場に新設" : computed.onsiteTankBearer === "customer" ? "顧客工場で処理・槽は顧客の設備" : `顧客工場で処理・槽は${slot.tankMode}`}）</span>
+                    {/* 槽は選べるとき（オンサイトの槽を SX が持つとき）だけ添える */}
+                    <span className="font-normal">（{slot.location === "offsite" ? "SX工場まで運んで処理" : computed.onsiteTankBearer === "customer" ? "顧客工場で処理" : `顧客工場で処理・槽は${slot.tankMode}`}）</span>
                   </p>
                 )}
                 <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-x-1.5 sm:grid-cols-[minmax(0,1fr)_70px]">

@@ -108,13 +108,16 @@ export function tankModesFor(location: CostLocation, onsiteTank: CostTankBearer 
   return onsiteTank === "customer" ? ["既設"] : ["既設", "新設"];
 }
 
-/** シナリオの短い呼び名 (方式は含めない)。例: 直接投入・既設槽 / 直接投入・顧客の槽 / 直接投入・SX工場 */
+/**
+ * シナリオの短い呼び名 (方式は含めない)。例: 直接投入 / 直接投入・新設槽
+ * 槽は、選べるとき (オンサイトの槽を SX が持つとき) だけ名前に入れる。オンサイトの槽が顧客の設備のときと、
+ * 常に SX工場に新設するオフサイトは、槽を名前に出さない (まさ 2026-09-14「特出しするものでもないと思うので削除して」)。
+ */
 export function scenarioLabelOf(location: CostLocation, method: CostMethod, tankMode: CostTankMode, onsiteTank: CostTankBearer = "sx"): string {
-  const tank = location === "offsite" ? "SX工場" : onsiteTank === "customer" ? "顧客の槽" : `${tankMode}槽`;
-  return `${METHOD_LABEL[method]}・${tank}`;
+  return location === "onsite" && onsiteTank === "sx" ? `${METHOD_LABEL[method]}・${tankMode}槽` : METHOD_LABEL[method];
 }
 
-/** シナリオの呼び名 (方式つき)。例: オンサイト・直接投入・顧客の槽 */
+/** シナリオの呼び名 (方式つき)。例: オンサイト・直接投入 / オンサイト・直接投入・新設槽 */
 export function scenarioFullLabelOf(location: CostLocation, method: CostMethod, tankMode: CostTankMode, onsiteTank: CostTankBearer = "sx"): string {
   return `${LOCATION_SHORT_LABEL[location]}・${scenarioLabelOf(location, method, tankMode, onsiteTank)}`;
 }
@@ -744,6 +747,75 @@ export const TEXT_CHOICE_ROLES: Record<string, Array<{ value: string; label: str
     { value: "sx", label: TANK_BEARER_LABEL.sx },
   ],
 };
+
+/** 明細の単価の連動のしかたが読む前提。 */
+const ROLES_BY_PRICE_RULE: Record<string, string[]> = {
+  module_swap: ["module_unit_price", "module_durability_batches"],
+  power_circulation: ["power_unit_price", "power_kw_circulation", "hrt_circulation"],
+  power_injection: ["power_unit_price", "power_kw_injection", "hrt_injection"],
+  spent_disposal: ["spent_wet_factor", "sludge_disposal_price"],
+};
+/** 作業の年間回数の決め方が読む前提 (年間バッチ数・系列数のように、どの組み合わせでも効く前提は除く)。 */
+const ROLES_BY_TASK_DRIVER: Partial<Record<CostTaskDriver, string[]>> = {
+  visit: ["patrol_batches_per_delivery"],
+  module_swap: ["module_durability_batches"],
+  membrane_swap: ["membrane_life_years"],
+  truck_trip: ["truck_capacity_m3"],
+};
+const NEW_TANK_ROLES = ["new_tank_capex", "tank_life_years"];
+
+/**
+ * 選んだ組み合わせによって、効いたり効かなかったりする前提。これ以外の計算用の前提 (COST_ROLE_KEYS) は、どの組み合わせでも効く。
+ * 画面は、選んだ組み合わせで効かない前提を薄く出す (まさ 2026-09-14「新設槽CAPEX（コンクリート地下タンク100m³）→これってオフサイトの場合のみ使うやつだよね？
+ * オンサイトを選んだときもグレーアウトしてないのでグレーアウトさせて」)。
+ */
+export const CONDITIONAL_ROLE_KEYS = new Set<string>([
+  ...Object.values(ROLES_BY_PRICE_RULE).flat(),
+  ...Object.values(ROLES_BY_TASK_DRIVER).flat(),
+  ...NEW_TANK_ROLES,
+  "onsite_tank_bearer",
+  "labor_rate",
+]);
+
+/** 前提が効くかを見る組み合わせ。 */
+export interface CostEffectSelection extends CostSelection {
+  location: CostLocation;
+  method: CostMethod;
+  tankMode: CostTankMode;
+}
+
+/**
+ * 選んだ組み合わせ (株・用途・方式・装置・槽) で、値を変えると SX の数字 (総コスト・内訳・作業工数) が動く計算用の前提の role_key。
+ * 効くかどうかは、その組み合わせで数える明細の単価の連動のしかた、作業の年間回数の決め方と工数、槽から決める。
+ * 数えるのは SX が持つ明細と SX がやる作業だけで、製造拠点の明細と作業は菌体の製造原価を上書きしていないときだけ。
+ * 契約チェックで、効かないとした前提を動かしても数字が変わらず、効くとした前提を動かすと数字が変わることを確かめている。
+ */
+export function rolesInEffect(bundle: CostInputs, view: CostEffectSelection): Set<string> {
+  const sel: CostSelection = { strain: view.strain, application: view.application };
+  const centralSel: CostSelection = { strain: view.strain, application: null };
+  const inEffect = new Set([...COST_ROLE_KEYS].filter((role) => !CONDITIONAL_ROLE_KEYS.has(role)));
+  const add = (roles: string[] | undefined) => roles?.forEach((role) => inEffect.add(role));
+  const overridden = typeof resolveAssumption(bundle.assumptions, "biomass_cost_per_kg_override", centralSel)?.value === "number";
+  const counted = (row: { scenario: CostScenarioScope; strain: CostStrain | null; application: CostApplication | null }) =>
+    row.scenario === "中央培養" ? !overridden && scopeApplies(row, centralSel) : rowAppliesTo(row, view.location, view.method, sel);
+
+  for (const i of bundle.items) {
+    if (!i.priceRule || i.isBreakdown || i.basis === "内訳" || i.costType === "参考" || i.quantity * i.annualFactor === 0) continue;
+    if (!counted(i) || (i.scenario !== "中央培養" && resolveBearer(i, view.location) !== "sx")) continue;
+    add(ROLES_BY_PRICE_RULE[i.priceRule]);
+  }
+  for (const t of bundle.tasks ?? []) {
+    if (!counted(t) || (t.scenario !== "中央培養" && resolvePerformer(t, view.location) !== "sx")) continue;
+    const hours = t.hoursPerOccurrence ?? 0;
+    if (hours > 0) inEffect.add("labor_rate");
+    if (hours > 0 || t.expensePerOccurrence > 0) add(ROLES_BY_TASK_DRIVER[t.countDriver]);
+  }
+  if (view.location === "onsite") inEffect.add("onsite_tank_bearer");
+  // 槽の償却が乗るのは、SX が槽を新設するとき (オフサイトは常に。オンサイトは槽を SX が持ち、新設を選んだとき)。
+  const tank = view.location === "offsite" ? "新設" : onsiteTankBearer(bundle.assumptions) === "customer" ? "既設" : view.tankMode;
+  if (tank === "新設") add(NEW_TANK_ROLES);
+  return inEffect;
+}
 
 /**
  * 前提・明細・作業を並べる区分。操作パネルと読み物で同じ並びにする。

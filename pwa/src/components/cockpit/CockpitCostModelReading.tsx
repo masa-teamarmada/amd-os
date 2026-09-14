@@ -16,6 +16,7 @@ import {
   ITEM_BEARER_SHORT_LABEL,
   resolveBearer,
   resolvePerformer,
+  rolesInEffect,
   annualAmount,
   biomassOf,
   centralItemPerKg,
@@ -224,6 +225,13 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
     { key: "reference", prefix: "", title: "参考（計算に入れない行）", rows: items.filter((i) => !i.isBreakdown && !paramGroupOfItem(i)) },
   ].filter((x) => x.rows.length > 0);
   const taskRate = assumptions.find((a) => a.roleKey === "labor_rate")?.value ?? 4000;
+  const inEffect = rolesInEffect(working, {
+    strain: selection.strain,
+    application: selection.application,
+    location: selection.location,
+    method: selection.method,
+    tankMode: selection.tankMode,
+  });
 
   const savedAssumption = (id: string) => saved.assumptions.find((a) => a.costAssumptionId === id);
   const savedTask = (id: string) => (saved.tasks ?? []).find((t) => t.costTaskId === id);
@@ -431,7 +439,7 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
         </Card>
       )}
 
-      <Card title="すべての前提" hint="計算に入っている変数の全件を、操作パネルと同じ「事業と処理の条件 / CAPEX / OPEX」の区分で並べる。確度と確認先つき。株・用途の印がある行は、その株・用途のときだけ効く。選んだ株・用途で効かない行は薄く出す。">
+      <Card title="すべての前提" hint="計算に入っている変数の全件を、操作パネルと同じ「事業と処理の条件 / CAPEX / OPEX」の区分で並べる。確度と確認先つき。株・用途の印がある行は、その株・用途のときだけ効く。選んだ組み合わせ（株・用途・方式・装置）で効かない行は薄く出す。">
         <div className="flex flex-col gap-4">
           {assumptionSections.map((section) => (
             <div key={section.key}>
@@ -463,7 +471,7 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
                         </thead>
                         <tbody className="tabular-nums">
                           {g.rows.map((a) => {
-                            const applies = scopeApplies(a, sel);
+                            const applies = scopeApplies(a, sel) && (a.roleKey === null || !COST_ROLE_KEYS.has(a.roleKey) || inEffect.has(a.roleKey));
                             const base = savedAssumption(a.costAssumptionId);
                             return (
                               <tr key={a.costAssumptionId} className={`border-b border-[#f6f6f7] align-top ${applies ? "" : "opacity-50"}`}>

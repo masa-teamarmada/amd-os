@@ -50,7 +50,9 @@ import { CostReadingSections } from "@/components/cockpit/CockpitCostModelReadin
 //   4. どのパラメータの確度が低いせいで精度が落ちているか
 //
 // シミュレーター型 (2026-09-13 まさFB):
-//   - 操作パネル (株・用途・方式・槽の切り替え＋前提・作業リスト・明細) と結果を同じ画面に並べる。
+//   - 操作パネル (株・用途・方式・装置の切り替え＋前提・作業リスト・明細) と結果を同じ画面に並べる。
+//     槽は上端に出さない (まさ 2026-09-14「「槽　顧客の設備」ってのが最上段にある意味がわからん。特出しするものでもないと思うので削除して」)。
+//     オンサイトの槽を SX が持つ形にしたときだけ、操作パネルの CAPEX「槽」で既設・新設を選ぶ。
 //     デスクトップ 1440×900 では、操作パネルの中だけがスクロールし、結果はスクロールせずに見える。
 //     スマホ幅では結果の要約を上に固定する
 //   - 未確定の数字はすべて画面で書き換えられる。書き換えはその場で再計算するだけで保存しない (試算)。
@@ -314,25 +316,6 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
               value={selection.method}
               onChange={(v) => setView({ method: v })}
             />
-            {selection.location === "offsite" || computed.onsiteTankBearer === "customer" ? (
-              <div className="flex min-w-0 items-center gap-1.5">
-                <span className="w-7 shrink-0 text-[11px] font-semibold text-[#3c3c43] xl:w-auto">槽</span>
-                <span
-                  title={selection.location === "offsite" ? undefined : "オンサイトの槽は顧客の設備。既設か新設かはSXの原価に効かない（前提「オンサイトの槽を持つのは」で変えられる）"}
-                  className="inline-flex min-h-[40px] items-center rounded-lg border border-[#d2d2d7] bg-[#f5f5f7] px-2.5 text-[12px] font-semibold text-[#6e6e73] xl:min-h-[30px]"
-                >
-                  {selection.location === "offsite" ? "SX工場に新設" : "顧客の設備"}
-                </span>
-              </div>
-            ) : (
-              <Segmented
-                label="槽"
-                ariaLabel="槽の切り替え"
-                options={(["既設", "新設"] as CostTankMode[]).map((t) => ({ value: t, label: t }))}
-                value={selection.tankMode}
-                onChange={(v) => setView({ tankMode: v })}
-              />
-            )}
             <p className="text-[10px] leading-4 text-[#6e6e73] sm:col-span-2 xl:basis-full" data-testid="cost-selection-note">
               {locations.length > 1 && <>{LOCATION_SHORT_LABEL[selection.location]}＝{LOCATION_DESCRIPTION[selection.location]}。</>}
               {METHOD_LABEL[selection.method]}＝{METHOD_DESCRIPTION[selection.method]}。
@@ -432,6 +415,7 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
               unit={unit}
               onChange={onChange}
               scrollable={paneHeight !== null}
+              onSelectTankMode={(tankMode) => setView({ tankMode })}
             />
           </div>
           <div className="order-1 min-h-0 border-b border-[#e5e5e7] p-3 xl:order-2 xl:overflow-y-auto xl:border-b-0">

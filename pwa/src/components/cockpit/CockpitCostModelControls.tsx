@@ -9,7 +9,9 @@ import {
   ITEM_BEARERS,
   ITEM_BEARER_LABEL,
   ITEM_BEARER_SHORT_LABEL,
+  LOCATION_SHORT_LABEL,
   METAL_SINGLE_USE_NOTE,
+  METHOD_LABEL,
   PRODUCTION_SITE_DESCRIPTION,
   PRODUCTION_SITE_LABEL,
   PRODUCTION_TASK_DRIVERS,
@@ -30,6 +32,7 @@ import {
   resolveAssumption,
   resolveBearer,
   resolvePerformer,
+  rolesInEffect,
   rowAppliesTo,
   taskAmount,
   type CostAssumption,
@@ -46,9 +49,10 @@ import {
   type CostTaskDriver,
   type CostTaskFlow,
   type CostTaskPerformer,
+  type CostTankMode,
 } from "@/lib/project-cost-model";
 import type { DraftEntity, DraftField, DraftValue } from "@/lib/project-cost-model-draft";
-import { ConfidenceTag, NumberField, ScopeTag, int, num, yen } from "@/components/cockpit/CockpitCostModelParts";
+import { ConfidenceTag, NumberField, ScopeTag, Segmented, int, num, yen } from "@/components/cockpit/CockpitCostModelParts";
 import { CostTaskFlowOverview, stepAnchorId } from "@/components/cockpit/CockpitCostModelFlow";
 import { findScenario, selectionLabel, type CostViewSelection } from "@/components/cockpit/CockpitCostModelResults";
 
@@ -57,6 +61,8 @@ import { findScenario, selectionLabel, type CostViewSelection } from "@/componen
 // 一番上に「作業の流れと工数」を置き、作業リストも同じ段の順に並べる (まさ 2026-09-13)。
 // 前提・作業・明細は「事業と処理の条件 / CAPEX / OPEX」の区分と、その中の小分け (COST_PARAM_GROUPS) に並べる
 // (まさ 2026-09-14「ページのあちこちに散らばってて、どこにあるか分からん。CAPEXとOPEXに分けて、さらにそれぞれのサブグループに分けるなどして整理してほしい」)。
+// 選んだ組み合わせで効かない前提は、明細や作業と同じく薄く出す (まさ 2026-09-14「オンサイトを選んだときもグレーアウトしてないのでグレーアウトさせて」)。
+// 槽の既設・新設は、オンサイトの槽を SX が持つときだけ CAPEX の「槽」で選ぶ (上端には出さない。まさ 2026-09-14「特出しするものでもない」)。
 
 export type CostChangeHandler = (entity: DraftEntity, id: string, field: DraftField, value: DraftValue) => void;
 
@@ -73,9 +79,11 @@ interface Props {
   onChange: CostChangeHandler;
   /** 操作パネル自体がスクロールする枠か (デスクトップ)。目次の移動先を枠の中にする。 */
   scrollable: boolean;
+  /** オンサイトの槽を SX が持つときの、既設・新設の切り替え。 */
+  onSelectTankMode: (tankMode: CostTankMode) => void;
 }
 
-export function CostControlsPanel({ saved, working, computed, selection, flow, unit, onChange, scrollable }: Props) {
+export function CostControlsPanel({ saved, working, computed, selection, flow, unit, onChange, scrollable, onSelectTankMode }: Props) {
   const paneRef = useRef<HTMLDivElement>(null);
   const [showAllRows, setShowAllRows] = useState(false);
   const derived = computed.derivedByApplication.find((d) => d.application === selection.application)?.derived ?? computed.derived;
@@ -103,6 +111,15 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
     );
     return { byGroup, unplaced };
   }, [working.assumptions, strain, application]);
+
+  // 選んだ組み合わせで値を変えても SX の数字が動かない前提 (オンサイトの新設槽の費用など) は薄く出す。
+  const { location, method, tankMode } = selection;
+  const inEffect = useMemo(
+    () => rolesInEffect(working, { strain, application, location, method, tankMode }),
+    [working, strain, application, location, method, tankMode]
+  );
+  const muted = (a: CostAssumption) => a.roleKey !== null && COST_ROLE_KEYS.has(a.roleKey) && !inEffect.has(a.roleKey);
+  const mutedNote = `選んだ組み合わせ（${LOCATION_SHORT_LABEL[location]}・${METHOD_LABEL[method]}）では計算に使わない`;
 
   const allItems = working.items.filter((i) => !i.isBreakdown && i.basis !== "内訳" && i.costType !== "参考");
   const itemsOfGroup = (key: string) => allItems.filter((i) => paramGroupOfItem(i)?.key === key);
@@ -172,7 +189,7 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
         const capex = resolveAssumption(working.assumptions, "new_tank_capex", { strain, application })?.value ?? 0;
         const life = resolveAssumption(working.assumptions, "tank_life_years", { strain, application })?.value ?? 0;
         return (
-          <Formula>
+          <Formula muted={!inEffect.has("new_tank_capex")}>
             新設した槽の償却 ＝ {yen(capex)} ÷ {num(life, 0)}年 ÷ 年間処理量 {int(derived.annualVolume)} {unit} ＝{" "}
             <span className="font-semibold tabular-nums">{num(safeRatio(safeRatio(capex, life), derived.annualVolume))} 円/{unit}</span>（SXが持つ槽だけ）
           </Formula>
@@ -219,9 +236,13 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
                 baseline={savedAssumption(a.costAssumptionId)}
                 baselineText={savedAssumptionText(a.costAssumptionId)}
                 onChange={onChange}
+                mutedNote={muted(a) ? mutedNote : null}
               />
             ))}
             {g.key === "cond-scale" && <TargetControl saved={saved} working={working} unit={unit} onChange={onChange} />}
+            {g.key === "capex-tank" && location === "onsite" && selection.onsiteTankBearer === "sx" && (
+              <TankModeControl value={tankMode} onChange={onSelectTankMode} />
+            )}
           </ul>
         )}
         {box}
@@ -305,10 +326,10 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
 
 const NAV_BUTTON = "min-h-[36px] shrink-0 rounded-md px-2 text-[11px] font-semibold text-[#3c3c43] hover:bg-[#e8f3fc] hover:text-[#0267b2] xl:min-h-[26px]";
 
-/** 前提の下に出す、いまの数字での割り算の箱。 */
-function Formula({ children, testId }: { children: ReactNode; testId?: string }) {
+/** 前提の下に出す、いまの数字での割り算の箱。選んだ組み合わせで効かない割り算は薄く出す。 */
+function Formula({ children, testId, muted = false }: { children: ReactNode; testId?: string; muted?: boolean }) {
   return (
-    <p className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 text-[11px] leading-5 text-[#3c3c43]" data-testid={testId}>
+    <p className={`mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 text-[11px] leading-5 text-[#3c3c43] ${muted ? "opacity-50" : ""}`} data-testid={testId}>
       {children}
     </p>
   );
@@ -360,17 +381,21 @@ function AssumptionControl({
   baseline,
   baselineText,
   onChange,
+  mutedNote,
 }: {
   assumption: CostAssumption;
   baseline: number | null;
   baselineText: string | null;
   onChange: CostChangeHandler;
+  /** 選んだ組み合わせで計算に使わないとき、その理由。薄く出して title に添える (書き換えはできる)。 */
+  mutedNote: string | null;
 }) {
   const choices = a.roleKey ? TEXT_CHOICE_ROLES[a.roleKey] : undefined;
+  const rowClass = `flex flex-col gap-1 py-1.5 xl:flex-row xl:items-center xl:gap-2 ${mutedNote ? "opacity-50" : ""}`;
   if (choices) {
     const current = a.valueText ?? choices[choices.length - 1].value;
     return (
-      <li className="flex flex-col gap-1 py-1.5 xl:flex-row xl:items-center xl:gap-2">
+      <li className={rowClass} title={mutedNote ?? undefined}>
         <div className="min-w-0 flex-1 text-[12px] leading-5 text-[#1d1d1f]">
           {a.label}
           <span className="ml-1 align-middle"><ConfidenceTag value={a.confidence} /></span>
@@ -398,7 +423,7 @@ function AssumptionControl({
   const isSalesRate = a.roleKey === "sales_rate";
   const set = (v: number | null) => onChange("assumption", a.costAssumptionId, "value", v);
   return (
-    <li className="flex flex-col gap-1 py-1.5 xl:flex-row xl:items-center xl:gap-2">
+    <li className={rowClass} title={mutedNote ?? undefined}>
       <div className="min-w-0 flex-1 text-[12px] leading-5 text-[#1d1d1f]">
         {a.label}
         <ScopeTag strain={a.strain} application={a.application} />
@@ -432,6 +457,24 @@ function AssumptionControl({
         />
         <span className="w-16 text-[11px] text-[#6e6e73]">{a.unit}</span>
       </div>
+    </li>
+  );
+}
+
+/** オンサイトの槽を SX が持つときだけ、既設か新設かを選ぶ (槽を顧客が持つとき・オフサイトは選ぶものが無いので出さない)。 */
+function TankModeControl({ value, onChange }: { value: CostTankMode; onChange: (tankMode: CostTankMode) => void }) {
+  return (
+    <li className="flex flex-col gap-1 py-1.5 xl:flex-row xl:items-center xl:gap-2">
+      <div className="min-w-0 flex-1 text-[12px] leading-5 text-[#1d1d1f]">
+        オンサイトの槽は既設か新設か
+        <span className="block text-[10px] leading-4 text-[#6e6e73]">既設はSXの負担0円、新設は新設槽CAPEX ÷ 償却年数</span>
+      </div>
+      <Segmented
+        ariaLabel="オンサイトの槽の既設・新設"
+        options={(["既設", "新設"] as CostTankMode[]).map((t) => ({ value: t, label: t }))}
+        value={value}
+        onChange={onChange}
+      />
     </li>
   );
 }
