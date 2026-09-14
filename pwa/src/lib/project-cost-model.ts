@@ -1098,7 +1098,8 @@ function priceRuleCalc(item: CostItem, assumptions: CostAssumption[], derived: C
   const batchVolume = roleValue(assumptions, "batch_volume", 100, sel);
   const price = effectiveUnitPrice(item, assumptions, derived, sel);
   const priceUnit = item.unitPriceUnit ?? "円";
-  const result = { value: price, unit: priceUnit, label: "単価" };
+  // 画面は「単価 ＝ …」と書き出すので、答えに「単価」の名前を付けない
+  const result = { value: price, unit: priceUnit };
   const power = (kwRole: string, kwFallback: number, hrtRole: string, hrtFallback: number): CalcSegment => ({
     continues: false,
     terms: [
