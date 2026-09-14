@@ -43,7 +43,8 @@ import {
   prefetchProjectCostModel,
   prefetchProjectFuelCostModel,
 } from "@/lib/project-cost-model-client";
-import { prefetchProjectTech } from "@/lib/project-tech-client";
+import { loadProjectTech, peekProjectTech, prefetchProjectTech } from "@/lib/project-tech-client";
+import { isCompetitionTopic } from "@/lib/project-tech";
 import {
   DEFAULT_COCKPIT_TAB,
   cockpitGroupForTab,
@@ -389,6 +390,36 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     fuelCostLoaded.projectId === cockpit.project.projectId ? fuelCostLoaded.has : peekFuelCost(cockpit.project.projectId);
   const hasFuelCost = hasFuelCostRaw === true;
 
+  // 競合比較のタブを出すか。技術台帳に区分「競合比較」のトピックを持つPJだけ
+  // (2026-09-14 まさ「この競合比較は、技術タブの中じゃなくて事業計画グループの直下に置いてほしい」)。
+  // 燃料と同じく参照系のキャッシュ越しに読む。技術タブと同じ束なので、ここで読めば技術タブも待たずに開く。
+  const peekCompetition = (projectId: string) => {
+    const hit = peekProjectTech(projectId);
+    return hit === undefined ? undefined : hit.topics.some(isCompetitionTopic);
+  };
+  const [competitionLoaded, setCompetitionLoaded] = useState<{ projectId: string; has: boolean | undefined }>(() => ({
+    projectId: cockpit.project.projectId,
+    has: peekCompetition(cockpit.project.projectId),
+  }));
+  useEffect(() => {
+    if (isInstitutionProject) return;
+    const projectId = cockpit.project.projectId;
+    let cancelled = false;
+    loadProjectTech(projectId)
+      .then((res) => {
+        if (!cancelled) setCompetitionLoaded({ projectId, has: res.topics.some(isCompetitionTopic) });
+      })
+      .catch(() => {
+        if (!cancelled) setCompetitionLoaded({ projectId, has: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cockpit.project.projectId, isInstitutionProject]);
+  const hasCompetitionRaw =
+    competitionLoaded.projectId === cockpit.project.projectId ? competitionLoaded.has : peekCompetition(cockpit.project.projectId);
+  const hasCompetition = hasCompetitionRaw === true;
+
   function selectTab(tab: CockpitTab) {
     setLocalActiveTab(tab);
     onTabChange?.(tab);
@@ -463,6 +494,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     tasks: "タスク",
     "score-detail": "スコア詳細",
     technology: "技術",
+    competition: "競合比較",
     "business-plan": "事業計画",
     "cost-model": hasFuelCost ? "コスト試算（廃液）" : "コスト試算",
     "cost-fuel": "コスト試算（燃料）",
@@ -480,6 +512,8 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     if (tab === "regulations") return hasInstitutionRegulationsTab;
     // 読み込み中に ?tab=cost-fuel で開いたときは、同じグループの先頭へ落とさずに待つ (無ければ読み終えてから落ちる)。
     if (tab === "cost-fuel") return hasFuelCost || (hasFuelCostRaw === undefined && resolvedTab === "cost-fuel");
+    // 競合比較も同じ。読み込み中に ?tab=competition で開いたときは待つ。
+    if (tab === "competition") return hasCompetition || (hasCompetitionRaw === undefined && resolvedTab === "competition");
     return true;
   };
   const visibleGroups = groups.map((group) => ({
@@ -498,7 +532,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     key,
     label: tabLabel[key] ?? key,
     onHover: key === "score-detail" ? () => prefetchProjectOrg(project.projectId)
-      : key === "technology" ? () => prefetchProjectTech(project.projectId)
+      : key === "technology" || key === "competition" ? () => prefetchProjectTech(project.projectId)
       : key === "cost-model" ? () => prefetchProjectCostModel(project.projectId)
       : key === "cost-fuel" ? () => prefetchProjectFuelCostModel(project.projectId)
       : key === "capital-policy" || key === "company" ? () => prefetchGovernance(project.projectId)
@@ -870,6 +904,14 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       {activeTab === "technology" && (
         <section role="tabpanel" aria-label="技術" className="min-w-0">
           <CockpitTechnology projectId={project.projectId} />
+        </section>
+      )}
+
+      {/* 競合比較タブ (2026-09-14 まさ依頼)。技術台帳の区分「競合比較」だけを、技術タブと同じ部品で出す。
+          提出用の星取り表が先頭に来るので、開いたらそのまま見せられる。自前で fetch するので開いた時だけマウントする。 */}
+      {activeTab === "competition" && (
+        <section role="tabpanel" aria-label="競合比較" className="min-w-0">
+          <CockpitTechnology projectId={project.projectId} mode="competition" />
         </section>
       )}
 

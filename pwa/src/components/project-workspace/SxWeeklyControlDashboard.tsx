@@ -92,6 +92,8 @@ import { SxPartnerPipeline } from "./SxPartnerPipeline";
 import { CockpitCostModel } from "@/components/cockpit/CockpitCostModel";
 import { CockpitFuelCostModel } from "@/components/cockpit/CockpitFuelCostModel";
 import { loadProjectFuelCostModel, peekProjectFuelCostModel } from "@/lib/project-cost-model-client";
+import { loadProjectTech, peekProjectTech } from "@/lib/project-tech-client";
+import { isCompetitionTopic } from "@/lib/project-tech";
 import { WorkspaceDocumentRoom } from "@/components/workspace-documents/WorkspaceDocumentRoom";
 import { CockpitIpPortfolio } from "@/components/cockpit/CockpitIpPortfolio";
 import { CockpitTechnology } from "@/components/cockpit/CockpitTechnology";
@@ -338,7 +340,7 @@ const STAGE_LABEL: Record<StageKey, string> = Object.fromEntries(
 // (#weekly-change / #project-gantt / #partner-ledger / #issue-hypothesis / #input-readiness)
 // は他画面からのリンク互換のためhashとしてそのまま残す。
 // themes タブは bundle.themes.length > 0 のPJだけ動的に先頭に追加される。
-export type SxWeeklyControlView = "weekly" | "gantt" | "objective-structure" | "partners" | "issues" | "technology" | "business-plan" | "company" | "capital-policy" | "cost" | "cost-fuel" | "ip" | "drive" | "themes";
+export type SxWeeklyControlView = "weekly" | "gantt" | "objective-structure" | "partners" | "issues" | "technology" | "competition" | "business-plan" | "company" | "capital-policy" | "cost" | "cost-fuel" | "ip" | "drive" | "themes";
 const SX_WEEKLY_VIEW_STORAGE_KEY = "sx-weekly-control-view-v1";
 const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   weekly: "weekly-change",
@@ -347,6 +349,7 @@ const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   partners: "partner-ledger",
   issues: "issue-hypothesis",
   technology: "technology",
+  competition: "competition",
   "business-plan": "business-plan",
   company: "company-overview",
   "capital-policy": "capital-policy",
@@ -367,7 +370,8 @@ type WorkspaceTab = { key: SxWeeklyControlView; label: string };
 type WorkspaceTabGroup = { key: WorkspaceGroupKey; label: string; children: readonly WorkspaceTab[] };
 const PROJECT_WORKSPACE_GROUPS: readonly WorkspaceTabGroup[] = [
   { key: "execution", label: "実行", children: [{ key: "themes", label: "テーマ" }, { key: "weekly", label: "週次差分" }, { key: "gantt", label: "ガント" }, { key: "partners", label: "関係先" }, { key: "issues", label: "ゴールツリー" }] },
-  { key: "planning", label: "計画・根拠", children: [{ key: "technology", label: "技術" }, { key: "business-plan", label: "事業計画" }] },
+  // 競合比較は区分「競合比較」の技術トピックを持つPJだけに出す（表示条件は workspaceGroups。コックピットと同じ）。
+  { key: "planning", label: "計画・根拠", children: [{ key: "technology", label: "技術" }, { key: "competition", label: "競合比較" }, { key: "business-plan", label: "事業計画" }] },
   // コスト試算（燃料）は燃料の試算を持つPJだけに出し、そのときコスト試算は「コスト試算（廃液）」と呼ぶ（表示条件は workspaceGroups。コックピットと同じ）。
   { key: "company", label: "経営・会社", children: [{ key: "company", label: "会社概要" }, { key: "capital-policy", label: "資本政策" }, { key: "cost", label: "コスト試算" }, { key: "cost-fuel", label: "コスト試算（燃料）" }, { key: "ip", label: "知財" }] },
   { key: "documents", label: "資料", children: [{ key: "drive", label: "ドライブ" }] },
@@ -385,6 +389,7 @@ function viewForHash(hash: string): SxWeeklyControlView | null {
   if (normalized === "project-ip") return "ip";
   if (normalized === "project-drive") return "drive";
   if (normalized === "technology") return "technology";
+  if (normalized === "competition") return "competition";
   if (normalized === "business-plan") return "business-plan";
   if (normalized === "company-overview") return "company";
   if (normalized === "capital-policy") return "capital-policy";
@@ -4622,7 +4627,31 @@ export function SxWeeklyControlDashboard({
     };
   }, [externalViewer, workspaceProjectId]);
   const hasFuelCost = (fuelCostLoaded.projectId === workspaceProjectId ? fuelCostLoaded.has : peekFuelCost(workspaceProjectId)) === true;
-  const workspaceGroups = useMemo(() => PROJECT_WORKSPACE_GROUPS.map((group) => ({ ...group, children: group.children.filter((tab) => (tab.key !== "themes" || bundle.themes.length > 0) && (tab.key !== "cost-fuel" || hasFuelCost) && (!externalViewer || EXTERNAL_WORKSPACE_TABS.has(tab.key))).map((tab) => (tab.key === "cost" && hasFuelCost ? { ...tab, label: "コスト試算（廃液）" } : tab)) })).filter((group) => group.children.length > 0), [bundle.themes.length, externalViewer, hasFuelCost]);
+  // 競合比較を出すか。区分「競合比較」の技術トピックを持つPJだけ（コックピットと同じ判定）。外部の人には技術も競合比較も出さないので読まない。
+  const peekCompetition = (projectId: string) => {
+    const hit = peekProjectTech(projectId);
+    return hit === undefined ? undefined : hit.topics.some(isCompetitionTopic);
+  };
+  const [competitionLoaded, setCompetitionLoaded] = useState<{ projectId: string; has: boolean | undefined }>(() => ({
+    projectId: workspaceProjectId,
+    has: peekCompetition(workspaceProjectId),
+  }));
+  useEffect(() => {
+    if (externalViewer) return;
+    let cancelled = false;
+    loadProjectTech(workspaceProjectId)
+      .then((res) => {
+        if (!cancelled) setCompetitionLoaded({ projectId: workspaceProjectId, has: res.topics.some(isCompetitionTopic) });
+      })
+      .catch(() => {
+        if (!cancelled) setCompetitionLoaded({ projectId: workspaceProjectId, has: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [externalViewer, workspaceProjectId]);
+  const hasCompetition = (competitionLoaded.projectId === workspaceProjectId ? competitionLoaded.has : peekCompetition(workspaceProjectId)) === true;
+  const workspaceGroups = useMemo(() => PROJECT_WORKSPACE_GROUPS.map((group) => ({ ...group, children: group.children.filter((tab) => (tab.key !== "themes" || bundle.themes.length > 0) && (tab.key !== "cost-fuel" || hasFuelCost) && (tab.key !== "competition" || hasCompetition) && (!externalViewer || EXTERNAL_WORKSPACE_TABS.has(tab.key))).map((tab) => (tab.key === "cost" && hasFuelCost ? { ...tab, label: "コスト試算（廃液）" } : tab)) })).filter((group) => group.children.length > 0), [bundle.themes.length, externalViewer, hasFuelCost, hasCompetition]);
   const dynamicTabs = useMemo(() => workspaceGroups.flatMap((group) => group.children), [workspaceGroups]);
 
   // project-workspace.ts now builds a theme skeleton for every project with defined
@@ -4666,6 +4695,7 @@ export function SxWeeklyControlDashboard({
         value === "partners" ||
         value === "issues" ||
         value === "technology" ||
+        value === "competition" ||
         value === "business-plan" ||
         value === "company" ||
         value === "capital-policy" ||
@@ -5767,6 +5797,11 @@ export function SxWeeklyControlDashboard({
         {activeView === "technology" && (
           <section id="technology" className={styles.section} role="tabpanel" aria-label="技術">
             <CockpitTechnology projectId={bundle.project.projectId} />
+          </section>
+        )}
+        {activeView === "competition" && (
+          <section id="competition" className={styles.section} role="tabpanel" aria-label="競合比較">
+            <CockpitTechnology projectId={bundle.project.projectId} mode="competition" />
           </section>
         )}
         {activeView === "business-plan" && (

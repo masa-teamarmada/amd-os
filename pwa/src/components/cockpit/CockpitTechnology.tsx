@@ -6,6 +6,7 @@ import { MarkdownView } from "@/components/cockpit/MarkdownView";
 import {
   BLOCK_KIND_HINT,
   BLOCK_KIND_LABEL,
+  COMPETITION_TECH_DOMAIN,
   CONFIDENCE_LABEL,
   CONFIDENTIALITY_LABEL,
   RATING_FULL_LABEL,
@@ -13,6 +14,7 @@ import {
   SOURCE_KIND_LABEL,
   countNeedsCheck,
   formatTechValue,
+  isCompetitionTopic,
   matrixColumns,
   matrixRows,
   type TechBlockKind,
@@ -44,6 +46,9 @@ import {
 // それはデータ (project_tech_topics.block_kind と tech_domain) が持つ。
 //
 // 正本は project_tech_* (migration 339)。仕様は pwa/spec/3-20-project-technology-current-spec.md。
+//
+// 同じ部品で事業計画グループの「競合比較」タブも描く (mode="competition")。区分「競合比較」のトピックだけを出し、
+// 技術タブ (mode="technology") からはその区分を外す (2026-09-14 まさ「技術タブの中じゃなくて事業計画グループの直下に」)。
 
 const BLOCK_ORDER: TechBlockKind[] = ["condition", "matrix", "record", "article"];
 
@@ -339,17 +344,20 @@ const INPUT = "rounded border border-[#d2d2d7] px-2 py-1 text-[12px] text-[#1d1d
 
 function TopicForm({
   initial,
+  defaultDomain,
   onSubmit,
   onCancel,
 }: {
   initial?: TechTopic;
+  /** 新しく足すときの技術区分。競合比較のタブから足すと区分「競合比較」になる。 */
+  defaultDomain?: string;
   onSubmit: (row: Record<string, unknown>) => Promise<void>;
   onCancel: () => void;
 }) {
   const [kind, setKind] = useState<TechBlockKind>(initial?.block_kind ?? "condition");
   const [title, setTitle] = useState(initial?.title ?? "");
   const [summary, setSummary] = useState(initial?.summary ?? "");
-  const [domain, setDomain] = useState(initial?.tech_domain ?? "");
+  const [domain, setDomain] = useState(initial?.tech_domain ?? defaultDomain ?? "");
   const [body, setBody] = useState(initial?.body_md ?? "");
   const [conf, setConf] = useState<TechConfidentiality>(initial?.confidentiality ?? "internal");
   const [sourceKind, setSourceKind] = useState<TechSourceKind>(initial?.source_kind ?? "manual");
@@ -932,6 +940,8 @@ type TechView = { kind: "overview" } | { kind: "topic"; topicId: string } | { ki
 type PagerTarget = { topic: TechTopic; domain: string; crossesDomain: boolean };
 
 const TECH_VIEW_PARAM = "tech";
+/** 競合比較のタブで開いているトピック。技術タブの ?tech= と分け、タブを行き来しても互いの開いている表示を壊さない。 */
+const COMPETITION_VIEW_PARAM = "competition";
 const TECH_VIEW_FRAGMENTS = "fragments";
 const TECH_TAB_OVERVIEW = "overview";
 const TECH_TAB_FRAGMENTS = "fragments";
@@ -1261,9 +1271,16 @@ function TechTopicPager({
 
 interface Props {
   projectId: string;
+  /**
+   * technology = 技術タブ (区分「競合比較」を除く) / competition = 事業計画グループの競合比較タブ (区分「競合比較」だけ)。
+   * 競合比較は区分が1つなので、区分のタブと全体像を出さず、先頭のトピックから開く。
+   */
+  mode?: "technology" | "competition";
 }
 
-export function CockpitTechnology({ projectId }: Props) {
+export function CockpitTechnology({ projectId, mode = "technology" }: Props) {
+  const competition = mode === "competition";
+  const viewParam = competition ? COMPETITION_VIEW_PARAM : TECH_VIEW_PARAM;
   // 読み込み済みの PJ を state に持ち、PJ を切り替えた直後に前のPJのデータを出さない
   // (cockpit/page.tsx と同じ流儀)。キャッシュ済みなら peek で即描画する。
   const [loaded, setLoaded] = useState<{ projectId: string; data: ProjectTechResponse | null }>(() => ({
@@ -1273,10 +1290,10 @@ export function CockpitTechnology({ projectId }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
-  // 開いている表示は URL (?tech=) から始め、押したら URL へ書き戻す。再読み込み・共有したリンク・
-  // ほかのコックピットタブから戻ったときに、同じトピックが開く。
+  // 開いている表示は URL (技術は ?tech=、競合比較は ?competition=) から始め、押したら URL へ書き戻す。
+  // 再読み込み・共有したリンク・ほかのコックピットタブから戻ったときに、同じトピックが開く。
   const searchParams = useSearchParams();
-  const urlView = searchParams.get(TECH_VIEW_PARAM);
+  const urlView = searchParams.get(viewParam);
   const [view, setView] = useState<TechView>(() => parseTechView(urlView));
   // 画面の外 (アプリ内のリンクなど) で ?tech= が変わったときだけ合わせる。自分で書き換えた直後は同じ値なので何もしない。
   // effect で合わせると描画が二度走るので、前回の値を持って描画中に合わせる。
@@ -1308,7 +1325,19 @@ export function CockpitTechnology({ projectId }: Props) {
     void reload();
   }, [projectId, reload]);
 
-  const data = loaded.projectId === projectId ? loaded.data : peekProjectTech(projectId) ?? null;
+  const rawData = loaded.projectId === projectId ? loaded.data : peekProjectTech(projectId) ?? null;
+  // 技術タブは区分「競合比較」を除き、競合比較のタブはその区分だけを出す。未整理の断片は技術タブだけ。
+  const data = useMemo<ProjectTechResponse | null>(() => {
+    if (!rawData) return null;
+    const topics = rawData.topics.filter((t) => isCompetitionTopic(t) === competition);
+    const ids = new Set(topics.map((t) => t.tech_topic_id));
+    return {
+      ...rawData,
+      topics,
+      entries: rawData.entries.filter((e) => ids.has(e.tech_topic_id)),
+      fragments: competition ? [] : rawData.fragments,
+    };
+  }, [rawData, competition]);
 
   // 区分の並びは五十音ではなく、その区分に入っているトピックの sort_order の小さい順。
   // 「培養 → 排水処理」のように、PJが読ませたい順を data 側で決められるようにする。
@@ -1368,11 +1397,11 @@ export function CockpitTechnology({ projectId }: Props) {
       // (Next.js は history.replaceState を useSearchParams に反映する)。
       const url = new URL(window.location.href);
       const value = techViewParam(next);
-      if (value) url.searchParams.set(TECH_VIEW_PARAM, value);
-      else url.searchParams.delete(TECH_VIEW_PARAM);
+      if (value) url.searchParams.set(viewParam, value);
+      else url.searchParams.delete(viewParam);
       window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
     },
-    [view, data]
+    [view, data, viewParam]
   );
 
   // 下の方を読んでいて別のトピックへ移ったら、タブと新しいトピックの頭が見える位置まで戻す。
@@ -1410,7 +1439,7 @@ export function CockpitTechnology({ projectId }: Props) {
   if (error) {
     return (
       <div className="rounded-xl border border-[#ffcdd2] bg-[#fff5f5] p-4 text-[12px] text-[#b71c1c]">
-        技術タブの読み込みに失敗した: {error}
+        {competition ? "競合比較" : "技術タブ"}の読み込みに失敗した: {error}
       </div>
     );
   }
@@ -1429,10 +1458,12 @@ export function CockpitTechnology({ projectId }: Props) {
   const needsCheckTotal = countNeedsCheck(data.entries) + data.topics.filter((t) => t.needs_check).length;
 
   // URL のトピックが無い (削除した・別PJのリンク) ときと、断片が0件のときは全体像を出す。
-  const selectedTopic = view.kind === "topic" ? data.topics.find((t) => t.tech_topic_id === view.topicId) ?? null : null;
+  // 競合比較は全体像を持たないので、先頭のトピック (提出用の星取り表を置く) を開く。
+  const urlTopic = view.kind === "topic" ? data.topics.find((t) => t.tech_topic_id === view.topicId) ?? null : null;
+  const selectedTopic = urlTopic ?? (competition ? groups[0]?.topics[0] ?? null : null);
   const selectedGroup = selectedTopic ? groups.find((g) => g.domain === topicDomainOf(selectedTopic)) ?? null : null;
   const shownKind: TechView["kind"] =
-    view.kind === "topic" && selectedGroup ? "topic" : view.kind === "fragments" && data.fragments.length > 0 ? "fragments" : "overview";
+    selectedTopic && selectedGroup ? "topic" : view.kind === "fragments" && data.fragments.length > 0 ? "fragments" : "overview";
   const activeTabKey =
     shownKind === "topic" && selectedGroup
       ? `${TECH_DOMAIN_TAB_PREFIX}${selectedGroup.domain}`
@@ -1450,16 +1481,23 @@ export function CockpitTechnology({ projectId }: Props) {
     shownKind === "topic" && selectedGroup ? selectedGroup.domain : shownKind === "fragments" ? "未整理の断片" : "全体像";
 
   return (
-    <div className="space-y-4" data-testid="cockpit-technology-tab">
+    <div className="space-y-4" data-testid={competition ? "cockpit-competition-tab" : "cockpit-technology-tab"}>
       <section className="overflow-hidden rounded-xl border border-[#e5e5e7] bg-white">
         <div className="p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="text-[13px] font-semibold text-[#1d1d1f]">技術</h3>
-              <p className="mt-1 text-[11px] leading-5 text-[#86868b]">
-                この技術が「どの範囲で成立するか」「何がどう違うか」「競合とどこで差がつくか」「今どこまで行っているか」を貯める場所。
-                数値は出典と確度を必ず添える。資料によって値が食い違うものは<span className="text-[#b71c1c]">⚠ 要確認</span>を付け、両方の値を出典つきで残す。
-              </p>
+              <h3 className="text-[13px] font-semibold text-[#1d1d1f]">{competition ? "競合比較" : "技術"}</h3>
+              {competition ? (
+                <p className="mt-1 text-[11px] leading-5 text-[#86868b]">
+                  競合や既存の方式と比べる場所。星取り表の記号の付け方は、それぞれの表の上に書いてある。
+                  バッジが<span className="font-medium text-[#1d1d1f]">「公開可」</span>のページは社外に出せる形、「社内限定」のページは社内で使う準備用。
+                </p>
+              ) : (
+                <p className="mt-1 text-[11px] leading-5 text-[#86868b]">
+                  この技術が「どの範囲で成立するか」「何がどう違うか」「今どこまで行っているか」を貯める場所。競合との比較は事業計画グループの「競合比較」タブに置く。
+                  数値は出典と確度を必ず添える。資料によって値が食い違うものは<span className="text-[#b71c1c]">⚠ 要確認</span>を付け、両方の値を出典つきで残す。
+                </p>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {countByKind.map(({ kind, n }) => (
@@ -1483,6 +1521,7 @@ export function CockpitTechnology({ projectId }: Props) {
           {adding && (
             <div className="mt-3">
               <TopicForm
+                defaultDomain={competition ? COMPETITION_TECH_DOMAIN : undefined}
                 onCancel={() => setAdding(false)}
                 onSubmit={async (row) => {
                   await createTechRow(projectId, "topic", row);
@@ -1498,7 +1537,7 @@ export function CockpitTechnology({ projectId }: Props) {
             </div>
           )}
         </div>
-        {data.topics.length > 0 && (
+        {data.topics.length > 0 && !competition && (
           <TechDomainTabs groups={groups} fragmentsCount={data.fragments.length} activeKey={activeTabKey} onSelect={openTab} />
         )}
       </section>
@@ -1507,15 +1546,19 @@ export function CockpitTechnology({ projectId }: Props) {
         <>
           {!adding && (
             <section className="rounded-xl border border-dashed border-[#d2d2d7] bg-white p-5">
-              <p className="text-[12px] font-medium text-[#1d1d1f]">このPJの技術トピックはまだ1件もない。</p>
+              <p className="text-[12px] font-medium text-[#1d1d1f]">
+                {competition ? "このPJの競合比較はまだ1件もない。" : "このPJの技術トピックはまだ1件もない。"}
+              </p>
               <p className="mt-2 text-[11px] leading-5 text-[#86868b]">
                 置ける形は4つ。
                 {BLOCK_ORDER.map((k) => ` ${BLOCK_KIND_LABEL[k]} = ${BLOCK_KIND_HINT[k]}。`).join("")}
-                下の「まだ整理していない技術の断片」に自動で拾った事実が並んでいるので、そこから写して作る。
+                {competition
+                  ? "「＋ トピック追加」で足すと、区分「競合比較」のトピックになる。"
+                  : "下の「まだ整理していない技術の断片」に自動で拾った事実が並んでいるので、そこから写して作る。"}
               </p>
             </section>
           )}
-          <FragmentTable fragments={data.fragments} />
+          {!competition && <FragmentTable fragments={data.fragments} />}
         </>
       ) : (
         <div ref={panelRef} id={TECH_PANEL_ID} role="tabpanel" aria-label={panelLabel} className="scroll-mt-16">

@@ -3205,7 +3205,8 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   "CockpitTechnology",
 ]);
 expectIncludes("src/components/cockpit/CockpitTechnology.tsx", [
-  'data-testid="cockpit-technology-tab"',
+  // 同じ部品で競合比較タブも描くので、testid は mode で切り替える (下の競合比較タブの約束を参照)。
+  '"cockpit-technology-tab"',
   // 2026-09-14 まさ依頼: 増えた技術タブの全体像と、各トピックへの行き来。消すと「何がどこにあるか分からない」に戻る。
   // 同日2回目「クリックするとただそこにスクロールしていくだけ。タブ分けした方が見やすい」で、区分のタブ + トピックを1つずつ開く形にした。
   'data-testid="tech-overview"',
@@ -3222,6 +3223,30 @@ expectIncludes("src/components/cockpit/CockpitTechnology.tsx", [
 // ?tab=technology も COCKPIT_TABS 由来の一覧で受け付ける (2026-08-29 に page.tsx の書き写しをやめた)。
 expectIncludes("src/lib/cockpit-tabs.ts", [
   '"technology"',
+  '"competition"',
+]);
+// 競合比較タブ (2026-09-14 まさ「この競合比較は、技術タブの中じゃなくて事業計画グループの直下に置いてほしい」)。
+// 技術台帳の区分「競合比較」だけを技術タブと同じ部品で出し、技術タブからはその区分を外す (二重に置かない)。
+// 区分「競合比較」のトピックを持つPJだけに出す。
+expectIncludes("src/lib/project-tech.ts", [
+  'export const COMPETITION_TECH_DOMAIN = "競合比較";',
+  "export function isCompetitionTopic(",
+]);
+expectIncludes("src/components/cockpit/CockpitTechnology.tsx", [
+  'data-testid={competition ? "cockpit-competition-tab" : "cockpit-technology-tab"}',
+  "isCompetitionTopic(t) === competition",
+  "COMPETITION_VIEW_PARAM",
+]);
+expectIncludes("src/components/cockpit/CockpitView.tsx", [
+  'competition: "競合比較"',
+  'if (tab === "competition") return hasCompetition ||',
+  'aria-label="競合比較"',
+  '<CockpitTechnology projectId={project.projectId} mode="competition" />',
+]);
+expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
+  '{ key: "technology", label: "技術" }, { key: "competition", label: "競合比較" }, { key: "business-plan", label: "事業計画" }',
+  'tab.key !== "competition" || hasCompetition',
+  '<CockpitTechnology projectId={bundle.project.projectId} mode="competition" />',
 ]);
 
 expectFileMissing("src/components/cockpit/CockpitGovernance.tsx");
@@ -3363,7 +3388,7 @@ expectIncludes("src/lib/cockpit-tabs.ts", [
   'label: "PJ管理"',
   'label: "シーズリスト"',
   'label: "規程・内規"',
-  'children: ["score-detail", "technology", "business-plan", "cost-model", "cost-fuel", "ip", "capital-policy"]',
+  'children: ["score-detail", "technology", "competition", "business-plan", "cost-model", "cost-fuel", "ip", "capital-policy"]',
 ]);
 expectNotIncludes("src/lib/cockpit-tabs.ts", ['"themes"']);
 expectIncludes("src/components/cockpit/CockpitView.tsx", [

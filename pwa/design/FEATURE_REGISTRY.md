@@ -887,10 +887,11 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - **参照系**。クライアントは `src/lib/project-tech-client.ts`（`reference-data-cache` 経由）だけを通し、画面から素の fetch をしない。タブ見出しの hover で `prefetchProjectTech()` を呼ぶ。`REFERENCE_DATA_ENDPOINTS` への登録を外さない。
 - **出典と確度は全行に持たせる**。値が無い行を空欄で放置せず「未測定」+ `unverified` を入れる。空欄のままだと、調べた結果なのか調べていないのかを読み手が区別できない。
 - タブ最下段の「まだ整理していない技術の断片」（`project_knowledge` の `tech` / `term` / `competitor`）を消さない。自動抽出が貯めた事実をPJ画面から読める唯一の導線で、これが無いと2,700件超が再びPJから見えなくなる。
+- **競合比較は事業計画グループの子タブ「競合比較」（`?tab=competition`、技術の右隣）に出し、技術タブには出さない**（2026-09-14 まさ「この競合比較は、技術タブの中じゃなくて事業計画グループの直下に置いてほしい」）。データは同じ技術台帳の区分 `tech_domain = '競合比較'` で、判定は `isCompetitionTopic()` だけ。画面は `CockpitTechnology` の `mode="competition"`（別コンポーネントを作らない）。区分「競合比較」のトピックを持つPJだけに出し、PJワークスペースも計画・根拠の技術の右隣（`#competition`）に出す。SX の先頭2枚（排水処理と金属回収の星取り表・燃料の比較表）は VC に出す文書（公開可）で、判断に使う不利な事実は社内限定のページに残す。
 
 回帰防止:
 
-- `npm run test:critical-ui` はコックピットの事業計画グループ内の技術（`technology: "技術"` / `aria-label="技術"` / `CockpitTechnology` 埋め込み）、`CockpitTechnology` の `data-testid="cockpit-technology-tab"` と4形式ブロック・`loadProjectTech` 参照、`cockpit-tabs.ts` の `"technology"` を検査する。
+- `npm run test:critical-ui` はコックピットの事業計画グループ内の技術（`technology: "技術"` / `aria-label="技術"` / `CockpitTechnology` 埋め込み）、`CockpitTechnology` の `"cockpit-technology-tab"`（競合比較のときは `"cockpit-competition-tab"`）と4形式ブロック・`loadProjectTech` 参照、`cockpit-tabs.ts` の `"technology"` / `"competition"` と事業計画グループの並び、競合比較タブの表示条件と `mode="competition"`（コックピット・ワークスペース）を検査する。
 - `npm run test:reference-data-cache` は `/api/project-tech` が `Cache-Control` を明示し、クライアント層以外から直接 fetch されていないことを検査する。
 
 ---

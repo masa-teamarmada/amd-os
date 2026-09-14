@@ -141,6 +141,17 @@ export const CONFIDENCE_LABEL: Record<TechConfidence, string> = {
   unverified: "未確認",
 };
 
+/**
+ * 競合比較のタブに出すトピックの区分 (tech_domain)。この区分のトピックは技術タブには出さず、
+ * 事業計画グループの「競合比較」タブに出す (2026-09-14 まさ「この競合比較は、技術タブの中じゃなくて
+ * 事業計画グループの直下に置いてほしい」)。データは同じ技術台帳で、形も4つのまま。
+ */
+export const COMPETITION_TECH_DOMAIN = "競合比較";
+
+export function isCompetitionTopic(topic: Pick<TechTopic, "tech_domain">): boolean {
+  return topic.tech_domain === COMPETITION_TECH_DOMAIN;
+}
+
 /** 数値の範囲・単数・文字列を1つの読み方に潰す。表とモーダルで同じ表示にするため唯一の実装にする。 */
 export function formatTechValue(entry: Pick<TechEntry, "value_min" | "value_max" | "value_text" | "unit">): string {
   const unit = entry.unit ? entry.unit : "";
