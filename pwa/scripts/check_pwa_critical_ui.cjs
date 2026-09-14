@@ -3224,6 +3224,7 @@ expectIncludes("src/components/cockpit/CockpitTechnology.tsx", [
 expectIncludes("src/lib/cockpit-tabs.ts", [
   '"technology"',
   '"competition"',
+  '"business-model"',
 ]);
 // 競合比較タブ (2026-09-14 まさ「この競合比較は、技術タブの中じゃなくて事業計画グループの直下に置いてほしい」)。
 // 技術台帳の区分「競合比較」だけを技術タブと同じ部品で出し、技術タブからはその区分を外す (二重に置かない)。
@@ -3233,9 +3234,11 @@ expectIncludes("src/lib/project-tech.ts", [
   "export function isCompetitionTopic(",
 ]);
 expectIncludes("src/components/cockpit/CockpitTechnology.tsx", [
-  'data-testid={competition ? "cockpit-competition-tab" : "cockpit-technology-tab"}',
-  "isCompetitionTopic(t) === competition",
+  'data-testid={competition ? "cockpit-competition-tab" : businessModel ? "cockpit-business-model-tab" : "cockpit-technology-tab"}',
+  // どのタブに出すかは区分で決め (techLedgerTabOf)、同じトピックを2つのタブに出さない。
+  "techLedgerTabOf(t) === mode",
   "COMPETITION_VIEW_PARAM",
+  "BUSINESS_MODEL_VIEW_PARAM",
 ]);
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   'competition: "競合比較"',
@@ -3244,9 +3247,29 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   '<CockpitTechnology projectId={project.projectId} mode="competition" />',
 ]);
 expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
-  '{ key: "technology", label: "技術" }, { key: "competition", label: "競合比較" }, { key: "business-plan", label: "事業計画" }',
+  '{ key: "technology", label: "技術" }, { key: "competition", label: "競合比較" }, { key: "business-model", label: "ビジネスモデル" }, { key: "business-plan", label: "事業計画" }',
   'tab.key !== "competition" || hasCompetition',
   '<CockpitTechnology projectId={bundle.project.projectId} mode="competition" />',
+]);
+// ビジネスモデルタブ (2026-09-14 まさ「そもそも本来はOSに置くべき資料だと思う。…事業計画グループの中に「ビジネスモデル」っていうタブを新たに追加して、その中に入れておくのはどう？」)。
+// 技術台帳の区分「ビジネスモデル」だけを技術タブと同じ部品で出し、技術タブ・競合比較からはその区分を外す。区分「ビジネスモデル」のトピックを持つPJだけに出す。
+expectIncludes("src/lib/project-tech.ts", [
+  'export const BUSINESS_MODEL_TECH_DOMAIN = "ビジネスモデル";',
+  "export function isBusinessModelTopic(",
+  "export function techLedgerTabOf(",
+  "export function ledgerTabsPresent(",
+]);
+expectIncludes("src/components/cockpit/CockpitView.tsx", [
+  '"business-model": "ビジネスモデル"',
+  'if (tab === "business-model") return hasBusinessModel ||',
+  'aria-label="ビジネスモデル"',
+  '<CockpitTechnology projectId={project.projectId} mode="business-model" />',
+  'key === "technology" || key === "competition" || key === "business-model" ? () => prefetchProjectTech(project.projectId)',
+]);
+expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
+  'tab.key !== "business-model" || hasBusinessModel',
+  '<CockpitTechnology projectId={bundle.project.projectId} mode="business-model" />',
+  'if (normalized === "business-model") return "business-model";',
 ]);
 // 社外に出す形の星取り表 (2026-09-14 まさ「PDFの比較表めっちゃよく出来てるから、この３つそのままOSにも入れておいてほしい」)。
 // presentation (migration 425) を持つ星取り表は、VC 提出用の PDF と同じ並び (見出し → 一文 → 説明 → 表 → 注記) で出す。
@@ -3400,7 +3423,7 @@ expectIncludes("src/lib/cockpit-tabs.ts", [
   'label: "PJ管理"',
   'label: "シーズリスト"',
   'label: "規程・内規"',
-  'children: ["score-detail", "technology", "competition", "business-plan", "cost-model", "cost-fuel", "ip", "capital-policy"]',
+  'children: ["score-detail", "technology", "competition", "business-model", "business-plan", "cost-model", "cost-fuel", "ip", "capital-policy"]',
 ]);
 expectNotIncludes("src/lib/cockpit-tabs.ts", ['"themes"']);
 expectIncludes("src/components/cockpit/CockpitView.tsx", [

@@ -203,6 +203,35 @@ export function isCompetitionTopic(topic: Pick<TechTopic, "tech_domain">): boole
   return topic.tech_domain === COMPETITION_TECH_DOMAIN;
 }
 
+/**
+ * ビジネスモデルのタブに出すトピックの区分 (tech_domain)。技術タブ・競合比較タブには出さず、
+ * 事業計画グループの「ビジネスモデル」タブに出す (2026-09-14 まさ「そもそも本来はOSに置くべき資料だと思う。
+ * 事業計画グループの中に「ビジネスモデル」っていうタブを新たに追加して、その中に入れておくのはどう？」)。
+ * 誰に何を売り、どこで稼ぐかと、その事業の形が成り立つかの検証を置く。データは同じ技術台帳で、形も4つのまま。
+ */
+export const BUSINESS_MODEL_TECH_DOMAIN = "ビジネスモデル";
+
+export function isBusinessModelTopic(topic: Pick<TechTopic, "tech_domain">): boolean {
+  return topic.tech_domain === BUSINESS_MODEL_TECH_DOMAIN;
+}
+
+/** 事業計画グループに出す技術台帳のタブのうち、トピックを持つもの。コックピットとワークスペースの表示条件に使う。 */
+export type TechLedgerPresence = { competition: boolean; businessModel: boolean };
+
+export function ledgerTabsPresent(topics: Pick<TechTopic, "tech_domain">[]): TechLedgerPresence {
+  return { competition: topics.some(isCompetitionTopic), businessModel: topics.some(isBusinessModelTopic) };
+}
+
+/** 技術台帳のトピックを出すタブ。技術タブ / 競合比較 / ビジネスモデル。 */
+export type TechLedgerTab = "technology" | "competition" | "business-model";
+
+/** トピックをどのタブに出すかは区分で決める。技術台帳の画面はこの1つで振り分け、同じトピックを2つのタブに出さない。 */
+export function techLedgerTabOf(topic: Pick<TechTopic, "tech_domain">): TechLedgerTab {
+  if (isCompetitionTopic(topic)) return "competition";
+  if (isBusinessModelTopic(topic)) return "business-model";
+  return "technology";
+}
+
 /** 数値の範囲・単数・文字列を1つの読み方に潰す。表とモーダルで同じ表示にするため唯一の実装にする。 */
 export function formatTechValue(entry: Pick<TechEntry, "value_min" | "value_max" | "value_text" | "unit">): string {
   const unit = entry.unit ? entry.unit : "";

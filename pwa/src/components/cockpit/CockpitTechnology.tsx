@@ -6,6 +6,7 @@ import { MarkdownView } from "@/components/cockpit/MarkdownView";
 import {
   BLOCK_KIND_HINT,
   BLOCK_KIND_LABEL,
+  BUSINESS_MODEL_TECH_DOMAIN,
   COMPETITION_TECH_DOMAIN,
   CONFIDENCE_LABEL,
   CONFIDENTIALITY_LABEL,
@@ -14,15 +15,16 @@ import {
   SOURCE_KIND_LABEL,
   countNeedsCheck,
   formatTechValue,
-  isCompetitionTopic,
   matrixColumns,
   matrixRows,
   readTechPresentation,
+  techLedgerTabOf,
   type TechBlockKind,
   type TechConfidence,
   type TechConfidentiality,
   type TechEntry,
   type TechKnowledgeFragment,
+  type TechLedgerTab,
   type TechPresentation,
   type TechRating,
   type TechSourceKind,
@@ -51,6 +53,8 @@ import {
 //
 // 同じ部品で事業計画グループの「競合比較」タブも描く (mode="competition")。区分「競合比較」のトピックだけを出し、
 // 技術タブ (mode="technology") からはその区分を外す (2026-09-14 まさ「技術タブの中じゃなくて事業計画グループの直下に」)。
+// 事業計画グループの「ビジネスモデル」タブも同じ部品 (mode="business-model")。区分「ビジネスモデル」のトピックだけを出す
+// (2026-09-14 まさ「事業計画グループの中に「ビジネスモデル」っていうタブを新たに追加して、その中に入れておくのはどう？」)。
 
 const BLOCK_ORDER: TechBlockKind[] = ["condition", "matrix", "record", "article"];
 
@@ -1142,6 +1146,8 @@ type PagerTarget = { topic: TechTopic; domain: string; crossesDomain: boolean };
 const TECH_VIEW_PARAM = "tech";
 /** 競合比較のタブで開いているトピック。技術タブの ?tech= と分け、タブを行き来しても互いの開いている表示を壊さない。 */
 const COMPETITION_VIEW_PARAM = "competition";
+/** ビジネスモデルのタブで開いているトピック。競合比較と同じく、ほかのタブの開いている表示と分ける。 */
+const BUSINESS_MODEL_VIEW_PARAM = "business-model";
 const TECH_VIEW_FRAGMENTS = "fragments";
 const TECH_TAB_OVERVIEW = "overview";
 const TECH_TAB_FRAGMENTS = "fragments";
@@ -1472,15 +1478,20 @@ function TechTopicPager({
 interface Props {
   projectId: string;
   /**
-   * technology = 技術タブ (区分「競合比較」を除く) / competition = 事業計画グループの競合比較タブ (区分「競合比較」だけ)。
-   * 競合比較は区分が1つなので、区分のタブと全体像を出さず、先頭のトピックから開く。
+   * technology = 技術タブ (区分「競合比較」「ビジネスモデル」を除く) / competition = 事業計画グループの競合比較タブ (区分「競合比較」だけ) /
+   * business-model = 事業計画グループのビジネスモデルタブ (区分「ビジネスモデル」だけ)。振り分けは techLedgerTabOf。
+   * 競合比較とビジネスモデルは区分が1つなので、区分のタブと全体像を出さず、先頭のトピックから開く。
    */
-  mode?: "technology" | "competition";
+  mode?: TechLedgerTab;
 }
 
 export function CockpitTechnology({ projectId, mode = "technology" }: Props) {
   const competition = mode === "competition";
-  const viewParam = competition ? COMPETITION_VIEW_PARAM : TECH_VIEW_PARAM;
+  const businessModel = mode === "business-model";
+  // 競合比較とビジネスモデルは区分が1つ。区分のタブ・全体像・未整理の断片を持たない。
+  const singleDomain = competition || businessModel;
+  const tabLabel = competition ? "競合比較" : businessModel ? "ビジネスモデル" : "技術";
+  const viewParam = competition ? COMPETITION_VIEW_PARAM : businessModel ? BUSINESS_MODEL_VIEW_PARAM : TECH_VIEW_PARAM;
   // 読み込み済みの PJ を state に持ち、PJ を切り替えた直後に前のPJのデータを出さない
   // (cockpit/page.tsx と同じ流儀)。キャッシュ済みなら peek で即描画する。
   const [loaded, setLoaded] = useState<{ projectId: string; data: ProjectTechResponse | null }>(() => ({
@@ -1490,7 +1501,7 @@ export function CockpitTechnology({ projectId, mode = "technology" }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
-  // 開いている表示は URL (技術は ?tech=、競合比較は ?competition=) から始め、押したら URL へ書き戻す。
+  // 開いている表示は URL (技術は ?tech=、競合比較は ?competition=、ビジネスモデルは ?business-model=) から始め、押したら URL へ書き戻す。
   // 再読み込み・共有したリンク・ほかのコックピットタブから戻ったときに、同じトピックが開く。
   const searchParams = useSearchParams();
   const urlView = searchParams.get(viewParam);
@@ -1526,18 +1537,18 @@ export function CockpitTechnology({ projectId, mode = "technology" }: Props) {
   }, [projectId, reload]);
 
   const rawData = loaded.projectId === projectId ? loaded.data : peekProjectTech(projectId) ?? null;
-  // 技術タブは区分「競合比較」を除き、競合比較のタブはその区分だけを出す。未整理の断片は技術タブだけ。
+  // 技術タブは区分「競合比較」「ビジネスモデル」を除き、それぞれのタブはその区分だけを出す。未整理の断片は技術タブだけ。
   const data = useMemo<ProjectTechResponse | null>(() => {
     if (!rawData) return null;
-    const topics = rawData.topics.filter((t) => isCompetitionTopic(t) === competition);
+    const topics = rawData.topics.filter((t) => techLedgerTabOf(t) === mode);
     const ids = new Set(topics.map((t) => t.tech_topic_id));
     return {
       ...rawData,
       topics,
       entries: rawData.entries.filter((e) => ids.has(e.tech_topic_id)),
-      fragments: competition ? [] : rawData.fragments,
+      fragments: singleDomain ? [] : rawData.fragments,
     };
-  }, [rawData, competition]);
+  }, [rawData, mode, singleDomain]);
 
   // 区分の並びは五十音ではなく、その区分に入っているトピックの sort_order の小さい順。
   // 「培養 → 排水処理」のように、PJが読ませたい順を data 側で決められるようにする。
@@ -1639,7 +1650,7 @@ export function CockpitTechnology({ projectId, mode = "technology" }: Props) {
   if (error) {
     return (
       <div className="rounded-xl border border-[#ffcdd2] bg-[#fff5f5] p-4 text-[12px] text-[#b71c1c]">
-        {competition ? "競合比較" : "技術タブ"}の読み込みに失敗した: {error}
+        {singleDomain ? tabLabel : "技術タブ"}の読み込みに失敗した: {error}
       </div>
     );
   }
@@ -1658,9 +1669,9 @@ export function CockpitTechnology({ projectId, mode = "technology" }: Props) {
   const needsCheckTotal = countNeedsCheck(data.entries) + data.topics.filter((t) => t.needs_check).length;
 
   // URL のトピックが無い (削除した・別PJのリンク) ときと、断片が0件のときは全体像を出す。
-  // 競合比較は全体像を持たないので、先頭のトピック (提出用の星取り表を置く) を開く。
+  // 競合比較とビジネスモデルは全体像を持たないので、先頭のトピック (提出用の星取り表・結論) を開く。
   const urlTopic = view.kind === "topic" ? data.topics.find((t) => t.tech_topic_id === view.topicId) ?? null : null;
-  const selectedTopic = urlTopic ?? (competition ? groups[0]?.topics[0] ?? null : null);
+  const selectedTopic = urlTopic ?? (singleDomain ? groups[0]?.topics[0] ?? null : null);
   const selectedGroup = selectedTopic ? groups.find((g) => g.domain === topicDomainOf(selectedTopic)) ?? null : null;
   const shownKind: TechView["kind"] =
     selectedTopic && selectedGroup ? "topic" : view.kind === "fragments" && data.fragments.length > 0 ? "fragments" : "overview";
@@ -1681,16 +1692,24 @@ export function CockpitTechnology({ projectId, mode = "technology" }: Props) {
     shownKind === "topic" && selectedGroup ? selectedGroup.domain : shownKind === "fragments" ? "未整理の断片" : "全体像";
 
   return (
-    <div className="space-y-4" data-testid={competition ? "cockpit-competition-tab" : "cockpit-technology-tab"}>
+    <div
+      className="space-y-4"
+      data-testid={competition ? "cockpit-competition-tab" : businessModel ? "cockpit-business-model-tab" : "cockpit-technology-tab"}
+    >
       <section className="overflow-hidden rounded-xl border border-[#e5e5e7] bg-white">
         <div className="p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="text-[13px] font-semibold text-[#1d1d1f]">{competition ? "競合比較" : "技術"}</h3>
+              <h3 className="text-[13px] font-semibold text-[#1d1d1f]">{tabLabel}</h3>
               {competition ? (
                 <p className="mt-1 text-[11px] leading-5 text-[#86868b]">
                   競合や既存の方式と比べる場所。社外に出す星取り表は VC 提出用の資料と同じ形で出し、記号の付け方は表の下の補足に書いてある。
                   バッジが<span className="font-medium text-[#1d1d1f]">「公開可」</span>のページは社外に出せる形、「社内限定」のページは社内で使う準備用。
+                </p>
+              ) : businessModel ? (
+                <p className="mt-1 text-[11px] leading-5 text-[#86868b]">
+                  誰に何を売り、どこで稼ぐかと、その事業の形が成り立つかを検証した結果を置く場所。原価と売価の数字はコスト試算のタブが正本で、ここには検証した時点の数字と出典を書く。
+                  まだ確かめていないことは<span className="text-[#b71c1c]">⚠ 要確認</span>を付け、誰に何を聞けば決まるかを添える。
                 </p>
               ) : (
                 <p className="mt-1 text-[11px] leading-5 text-[#86868b]">
@@ -1721,7 +1740,7 @@ export function CockpitTechnology({ projectId, mode = "technology" }: Props) {
           {adding && (
             <div className="mt-3">
               <TopicForm
-                defaultDomain={competition ? COMPETITION_TECH_DOMAIN : undefined}
+                defaultDomain={competition ? COMPETITION_TECH_DOMAIN : businessModel ? BUSINESS_MODEL_TECH_DOMAIN : undefined}
                 onCancel={() => setAdding(false)}
                 onSubmit={async (row) => {
                   await createTechRow(projectId, "topic", row);
@@ -1737,7 +1756,7 @@ export function CockpitTechnology({ projectId, mode = "technology" }: Props) {
             </div>
           )}
         </div>
-        {data.topics.length > 0 && !competition && (
+        {data.topics.length > 0 && !singleDomain && (
           <TechDomainTabs groups={groups} fragmentsCount={data.fragments.length} activeKey={activeTabKey} onSelect={openTab} />
         )}
       </section>
@@ -1747,18 +1766,18 @@ export function CockpitTechnology({ projectId, mode = "technology" }: Props) {
           {!adding && (
             <section className="rounded-xl border border-dashed border-[#d2d2d7] bg-white p-5">
               <p className="text-[12px] font-medium text-[#1d1d1f]">
-                {competition ? "このPJの競合比較はまだ1件もない。" : "このPJの技術トピックはまだ1件もない。"}
+                {singleDomain ? `このPJの${tabLabel}はまだ1件もない。` : "このPJの技術トピックはまだ1件もない。"}
               </p>
               <p className="mt-2 text-[11px] leading-5 text-[#86868b]">
                 置ける形は4つ。
                 {BLOCK_ORDER.map((k) => ` ${BLOCK_KIND_LABEL[k]} = ${BLOCK_KIND_HINT[k]}。`).join("")}
-                {competition
-                  ? "「＋ トピック追加」で足すと、区分「競合比較」のトピックになる。"
+                {singleDomain
+                  ? `「＋ トピック追加」で足すと、区分「${competition ? COMPETITION_TECH_DOMAIN : BUSINESS_MODEL_TECH_DOMAIN}」のトピックになる。`
                   : "下の「まだ整理していない技術の断片」に自動で拾った事実が並んでいるので、そこから写して作る。"}
               </p>
             </section>
           )}
-          {!competition && <FragmentTable fragments={data.fragments} />}
+          {!singleDomain && <FragmentTable fragments={data.fragments} />}
         </>
       ) : (
         <div ref={panelRef} id={TECH_PANEL_ID} role="tabpanel" aria-label={panelLabel} className="scroll-mt-16">

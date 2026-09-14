@@ -63,6 +63,12 @@ PWAの全route・重要UI・iOS画面の対応状況は `../macos/PARITY.md` を
 > 3枚は `project_tech_topics.presentation`（migration 425）を持ち、PDF と同じ並び（見出し → 表の上の一文 → 説明 → 表 → 注記）で出す。自社の列（SolvioraX）と強調する行に sky の色を付け、本文は表の下の「表の補足」。presentation の無い星取り表は従来どおり（2026-09-14 まさ「PDFの比較表…そのままOSにも入れておいてほしい」）。
 > 実装: `pwa/src/components/cockpit/CockpitTechnology.tsx`（`mode="competition"`）/ `pwa/src/lib/project-tech.ts`（`isCompetitionTopic`）。仕様 `../pwa/spec/3-20-project-technology-current-spec.md` §5.3。
 
+> **PWA専用画面（Native未移植）**: PJコックピット `?tab=business-model`（事業計画グループ、「競合比較」の右隣）とPJワークスペース `#business-model`（計画・根拠）の
+> 「ビジネスモデル」（2026-09-14追加。**技術台帳に区分 `tech_domain = 'ビジネスモデル'` のトピックを持つPJだけ**。いまは SOL）。
+> データは技術タブと同じ `/api/project-tech`（`project_tech_*`）で、区分「ビジネスモデル」だけを出し、技術タブと競合比較からはその区分を外す（振り分けは `techLedgerTabOf`）。形も技術タブと同じ4つで、区分のタブ・全体像・未整理の断片は出さず、開くと先頭のトピックを開く（`?business-model=`）。
+> SOL はオフサイトの廃液処理の検証（2026-09-14）を10トピック・社内限定で置く（評価・オンサイトとオフサイトの比較・事業の形の選択肢・量・値段・菌で処理できる濃さ・許可・競合・反社会的勢力・確認事項）。
+> 実装: `pwa/src/components/cockpit/CockpitTechnology.tsx`（`mode="business-model"`）/ `pwa/src/lib/project-tech.ts`（`isBusinessModelTopic` / `techLedgerTabOf` / `ledgerTabsPresent`）。仕様 `../pwa/spec/3-20-project-technology-current-spec.md` §5.5。
+
 > **PWA専用画面（Native未移植）**: PJコックピット `?tab=capital-policy` の「資本政策表」タブ
 > （2026-08-29追加、**全PJ常設**）。会社概要タブから独立させた資本構成の正本面で、ラウンドを列・株主を行に
 > 置き、1ラウンド = 新規割当分 / 発行済株数 / 払込金額 / 顕在株比率 / 新規発行SO / 発行済SO / 潜在込比率 と、

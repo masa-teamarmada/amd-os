@@ -44,7 +44,7 @@ import {
   prefetchProjectFuelCostModel,
 } from "@/lib/project-cost-model-client";
 import { loadProjectTech, peekProjectTech, prefetchProjectTech } from "@/lib/project-tech-client";
-import { isCompetitionTopic } from "@/lib/project-tech";
+import { ledgerTabsPresent, type TechLedgerPresence } from "@/lib/project-tech";
 import {
   DEFAULT_COCKPIT_TAB,
   cockpitGroupForTab,
@@ -390,16 +390,17 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     fuelCostLoaded.projectId === cockpit.project.projectId ? fuelCostLoaded.has : peekFuelCost(cockpit.project.projectId);
   const hasFuelCost = hasFuelCostRaw === true;
 
-  // 競合比較のタブを出すか。技術台帳に区分「競合比較」のトピックを持つPJだけ
-  // (2026-09-14 まさ「この競合比較は、技術タブの中じゃなくて事業計画グループの直下に置いてほしい」)。
+  // 競合比較とビジネスモデルのタブを出すか。技術台帳にその区分のトピックを持つPJだけ
+  // (2026-09-14 まさ「この競合比較は、技術タブの中じゃなくて事業計画グループの直下に置いてほしい」
+  //  「事業計画グループの中に「ビジネスモデル」っていうタブを新たに追加して、その中に入れておくのはどう？」)。
   // 燃料と同じく参照系のキャッシュ越しに読む。技術タブと同じ束なので、ここで読めば技術タブも待たずに開く。
-  const peekCompetition = (projectId: string) => {
+  const peekLedgerTabs = (projectId: string) => {
     const hit = peekProjectTech(projectId);
-    return hit === undefined ? undefined : hit.topics.some(isCompetitionTopic);
+    return hit === undefined ? undefined : ledgerTabsPresent(hit.topics);
   };
-  const [competitionLoaded, setCompetitionLoaded] = useState<{ projectId: string; has: boolean | undefined }>(() => ({
+  const [ledgerTabsLoaded, setLedgerTabsLoaded] = useState<{ projectId: string; has: TechLedgerPresence | undefined }>(() => ({
     projectId: cockpit.project.projectId,
-    has: peekCompetition(cockpit.project.projectId),
+    has: peekLedgerTabs(cockpit.project.projectId),
   }));
   useEffect(() => {
     if (isInstitutionProject) return;
@@ -407,18 +408,21 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     let cancelled = false;
     loadProjectTech(projectId)
       .then((res) => {
-        if (!cancelled) setCompetitionLoaded({ projectId, has: res.topics.some(isCompetitionTopic) });
+        if (!cancelled) setLedgerTabsLoaded({ projectId, has: ledgerTabsPresent(res.topics) });
       })
       .catch(() => {
-        if (!cancelled) setCompetitionLoaded({ projectId, has: false });
+        if (!cancelled) setLedgerTabsLoaded({ projectId, has: { competition: false, businessModel: false } });
       });
     return () => {
       cancelled = true;
     };
   }, [cockpit.project.projectId, isInstitutionProject]);
-  const hasCompetitionRaw =
-    competitionLoaded.projectId === cockpit.project.projectId ? competitionLoaded.has : peekCompetition(cockpit.project.projectId);
+  const ledgerTabs =
+    ledgerTabsLoaded.projectId === cockpit.project.projectId ? ledgerTabsLoaded.has : peekLedgerTabs(cockpit.project.projectId);
+  const hasCompetitionRaw = ledgerTabs?.competition;
   const hasCompetition = hasCompetitionRaw === true;
+  const hasBusinessModelRaw = ledgerTabs?.businessModel;
+  const hasBusinessModel = hasBusinessModelRaw === true;
 
   function selectTab(tab: CockpitTab) {
     setLocalActiveTab(tab);
@@ -495,6 +499,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     "score-detail": "スコア詳細",
     technology: "技術",
     competition: "競合比較",
+    "business-model": "ビジネスモデル",
     "business-plan": "事業計画",
     "cost-model": hasFuelCost ? "コスト試算（廃液）" : "コスト試算",
     "cost-fuel": "コスト試算（燃料）",
@@ -514,6 +519,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     if (tab === "cost-fuel") return hasFuelCost || (hasFuelCostRaw === undefined && resolvedTab === "cost-fuel");
     // 競合比較も同じ。読み込み中に ?tab=competition で開いたときは待つ。
     if (tab === "competition") return hasCompetition || (hasCompetitionRaw === undefined && resolvedTab === "competition");
+    if (tab === "business-model") return hasBusinessModel || (hasBusinessModelRaw === undefined && resolvedTab === "business-model");
     return true;
   };
   const visibleGroups = groups.map((group) => ({
@@ -532,7 +538,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     key,
     label: tabLabel[key] ?? key,
     onHover: key === "score-detail" ? () => prefetchProjectOrg(project.projectId)
-      : key === "technology" || key === "competition" ? () => prefetchProjectTech(project.projectId)
+      : key === "technology" || key === "competition" || key === "business-model" ? () => prefetchProjectTech(project.projectId)
       : key === "cost-model" ? () => prefetchProjectCostModel(project.projectId)
       : key === "cost-fuel" ? () => prefetchProjectFuelCostModel(project.projectId)
       : key === "capital-policy" || key === "company" ? () => prefetchGovernance(project.projectId)
@@ -912,6 +918,14 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       {activeTab === "competition" && (
         <section role="tabpanel" aria-label="競合比較" className="min-w-0">
           <CockpitTechnology projectId={project.projectId} mode="competition" />
+        </section>
+      )}
+
+      {/* ビジネスモデルタブ (2026-09-14 まさ依頼)。技術台帳の区分「ビジネスモデル」だけを、技術タブと同じ部品で出す。
+          事業の形と、それが成り立つかの検証を置く。自前で fetch するので開いた時だけマウントする。 */}
+      {activeTab === "business-model" && (
+        <section role="tabpanel" aria-label="ビジネスモデル" className="min-w-0">
+          <CockpitTechnology projectId={project.projectId} mode="business-model" />
         </section>
       )}
 

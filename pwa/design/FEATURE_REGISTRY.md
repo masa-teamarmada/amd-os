@@ -865,7 +865,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 - `SeedDetailModal` の接続PJリンクは `/project/{projectId}/cockpit` だけ。workspaceへの直リンクや「ワークスペース（コックピット）」の混同表記を置かない。
 - `CockpitHeader` の「共有ワークスペースへ」をworkspaceの内部入口とし、Seed詳細モーダルからworkspaceへ直接飛ばさない。
-- 全PJの `/project/{projectId}/workspace` は `SxWeeklyControlDashboard` を使う。AMD内部は`実行`（テーマ / 週次差分 / ガント / 関係先 / 論点・仮説）、`計画・根拠`（技術 / 事業計画）、`経営・会社`（会社概要 / 資本政策 / コスト試算 / 知財）、`資料`（ドライブ）の二段ナビを持つ。目的構造はガントへ統合する。`PJ概要`は社内コックピット専用とする。外部workspace accountはテーマ（存在時） / ガント / 関係先 / ドライブだけを読む。
+- 全PJの `/project/{projectId}/workspace` は `SxWeeklyControlDashboard` を使う。AMD内部は`実行`（テーマ / 週次差分 / ガント / 関係先 / 論点・仮説）、`計画・根拠`（技術 / 競合比較 / ビジネスモデル / 事業計画。競合比較とビジネスモデルは中身があるPJだけ）、`経営・会社`（会社概要 / 資本政策 / コスト試算 / 知財）、`資料`（ドライブ）の二段ナビを持つ。目的構造はガントへ統合する。`PJ概要`は社内コックピット専用とする。外部workspace accountはテーマ（存在時） / ガント / 関係先 / ドライブだけを読む。
 - `動向・会議`は経営会議を含むためPJワークスペースへ出さず、社内コックピットに残す。
 - `ドライブ` は `WorkspaceDocumentRoom(scopeKind='project', scopeId=当該PJ, surface='workspace')` を再利用する。資料の共有境界とアクセス権はPJごとのaccess bundleを維持する。
 - 仕様の共通化は画面操作に限定し、PJ固有の名称、管理柱・表示レーン、実データ、外部workspace accountの権限範囲を変更しない。DB上の柱を3レーンへ変換しない。
@@ -888,11 +888,12 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - **出典と確度は全行に持たせる**。値が無い行を空欄で放置せず「未測定」+ `unverified` を入れる。空欄のままだと、調べた結果なのか調べていないのかを読み手が区別できない。
 - タブ最下段の「まだ整理していない技術の断片」（`project_knowledge` の `tech` / `term` / `competitor`）を消さない。自動抽出が貯めた事実をPJ画面から読める唯一の導線で、これが無いと2,700件超が再びPJから見えなくなる。
 - **競合比較は事業計画グループの子タブ「競合比較」（`?tab=competition`、技術の右隣）に出し、技術タブには出さない**（2026-09-14 まさ「この競合比較は、技術タブの中じゃなくて事業計画グループの直下に置いてほしい」）。データは同じ技術台帳の区分 `tech_domain = '競合比較'` で、判定は `isCompetitionTopic()` だけ。画面は `CockpitTechnology` の `mode="competition"`（別コンポーネントを作らない）。区分「競合比較」のトピックを持つPJだけに出し、PJワークスペースも計画・根拠の技術の右隣（`#competition`）に出す。SX の先頭3枚（競合の会社との星取り表・既存の方式との星取り表・燃料の比較表）は VC に出す文書（公開可）で、判断に使う不利な事実は社内限定のページに残す。公開可のページには社内の言葉・要確認・社内の資料名を置かない（VC 提出用の PDF は同じデータから作るため）。公開可の星取り表の観点は SolvioraX の違いが出るものを選び、他社が先行する観点は社内限定の「負けるところ」に残す。1つの強みを2回数える合わせ技の行（「色と金属の両方」など）は作らず、同じ強みを持つ相手とは ◎ を並べる。「生きた細胞」の強調は「金属を細胞の中へ取り込む」に限る（生きた微生物を使う他社はある。2026-09-14 まさ「そういう視点で他の項目も再検討してほしい」）。
+- **ビジネスモデルは事業計画グループの子タブ「ビジネスモデル」（`?tab=business-model`、競合比較の右隣）に出し、技術タブと競合比較には出さない**（2026-09-14 まさ「そもそも本来はOSに置くべき資料だと思う。…事業計画グループの中に「ビジネスモデル」っていうタブを新たに追加して、その中に入れておくのはどう？」）。データは同じ技術台帳の区分 `tech_domain = 'ビジネスモデル'` で、判定は `isBusinessModelTopic()`。どのタブに出すかは `techLedgerTabOf()` だけで決め、`CockpitTechnology` の `mode="business-model"` で出す（別コンポーネントを作らない）。区分のトピックを持つPJだけに出し（`ledgerTabsPresent()`）、PJワークスペースも計画・根拠の競合比較の右隣（`#business-model`）。コスト試算の金額を書くときは時点と、正本がコスト試算であることを添える。
 - **社外に出す形の星取り表**（2026-09-14 まさ「PDFの比較表めっちゃよく出来てるから、この３つそのままOSにも入れておいてほしい」）。`project_tech_topics.presentation`（見出し・表の上の一文・説明・注記・自社の列・強調する行）を持つ星取り表は、`MatrixSheet` で VC 提出用の PDF と同じ並びに出し、本文は表の下に回す。presentation は `readTechPresentation()` だけで読み、PDF も同じ列から作る（画面と PDF の文を二重に持たない）。色は OS の決まり（sky と白・灰）で、PJ のブランドの色を画面に持ち込まない。presentation の無い星取り表の見た目は変えない。
 
 回帰防止:
 
-- `npm run test:critical-ui` はコックピットの事業計画グループ内の技術（`technology: "技術"` / `aria-label="技術"` / `CockpitTechnology` 埋め込み）、`CockpitTechnology` の `"cockpit-technology-tab"`（競合比較のときは `"cockpit-competition-tab"`）と4形式ブロック・`loadProjectTech` 参照、`cockpit-tabs.ts` の `"technology"` / `"competition"` と事業計画グループの並び、競合比較タブの表示条件と `mode="competition"`（コックピット・ワークスペース）、社外に出す形の星取り表（`readTechPresentation(`・`tech-matrix-sheet`・`tech-sheet-fields`）を検査する。
+- `npm run test:critical-ui` はコックピットの事業計画グループ内の技術（`technology: "技術"` / `aria-label="技術"` / `CockpitTechnology` 埋め込み）、`CockpitTechnology` の `"cockpit-technology-tab"`（競合比較のときは `"cockpit-competition-tab"`、ビジネスモデルのときは `"cockpit-business-model-tab"`）と4形式ブロック・`loadProjectTech` 参照、`cockpit-tabs.ts` の `"technology"` / `"competition"` / `"business-model"` と事業計画グループの並び、競合比較タブとビジネスモデルタブの表示条件と `mode="competition"` / `mode="business-model"`（コックピット・ワークスペース）、`techLedgerTabOf(t) === mode`、社外に出す形の星取り表（`readTechPresentation(`・`tech-matrix-sheet`・`tech-sheet-fields`）を検査する。
 - `npm run test:reference-data-cache` は `/api/project-tech` が `Cache-Control` を明示し、クライアント層以外から直接 fetch されていないことを検査する。
 
 ---

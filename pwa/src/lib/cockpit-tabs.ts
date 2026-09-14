@@ -24,6 +24,8 @@ export const COCKPIT_TABS = [
   "technology",
   // 競合比較。技術台帳の区分「競合比較」のトピックを持つPJだけに出す (表示条件は CockpitView)。
   "competition",
+  // ビジネスモデル。技術台帳の区分「ビジネスモデル」のトピックを持つPJだけに出す (表示条件は CockpitView)。
+  "business-model",
   "business-plan",
   "cost-model",
   // コスト試算（燃料）。燃料の試算 (project_cost_models.case_kind = 'biodiesel') を持つPJだけに出す (表示条件は CockpitView)。
@@ -83,7 +85,8 @@ export const COCKPIT_GROUPS: {
       // コスト試算（燃料）はコスト試算の右隣（2026-09-14 まさ「事業計画グループ内に置いてほしかった。
       // 元々ある『コスト試算』は『コスト試算（廃液）』に変えて、それの右に並べて」）。
       // 競合比較は技術の右隣（2026-09-14 まさ「この競合比較は、技術タブの中じゃなくて事業計画グループの直下に置いてほしい」）。
-      children: ["score-detail", "technology", "competition", "business-plan", "cost-model", "cost-fuel", "ip", "capital-policy"],
+      // ビジネスモデルは競合比較の右隣（2026-09-14 まさ「事業計画グループの中に「ビジネスモデル」っていうタブを新たに追加して」）。
+      children: ["score-detail", "technology", "competition", "business-model", "business-plan", "cost-model", "cost-fuel", "ip", "capital-policy"],
     },
     { key: "documents-group", label: "ドライブ", children: ["documents"] },
     {
@@ -115,6 +118,7 @@ const BUSINESS_PLAN_TABS = new Set<CockpitTab>([
   "score-detail",
   "technology",
   "competition",
+  "business-model",
   "business-plan",
   "cost-model",
   "cost-fuel",
