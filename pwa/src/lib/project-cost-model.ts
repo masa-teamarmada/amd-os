@@ -51,6 +51,8 @@
 // 前提・明細・作業は strain / application 列で「どの株・どの用途に効くか」を持つ。null は共通。
 // 同じ role_key が複数あるときは、株と用途の両方が一致する行 > 株だけ > 用途だけ > 共通 の順に採る。
 
+import { quantityPriceTerms, type CalcSegment, type ItemCalc } from "./cost-item-calc.ts";
+
 export type CostConfidence = "S" | "A" | "B" | "C" | "H";
 export type CostVisibility = "amd_internal" | "workspace_shared";
 export type CostMethod = "循環" | "投入";
@@ -1088,6 +1090,137 @@ export function centralItemPerKg(item: CostItem, assumptions: CostAssumption[], 
       return item.quantity * price * item.annualFactor;
     default:
       return 0;
+  }
+}
+
+/** 単価を前提から計算する行の、単価の出し方 (effectiveUnitPrice と同じ前提と既定値)。単価をそのまま使う行は null。 */
+function priceRuleCalc(item: CostItem, assumptions: CostAssumption[], derived: CostDerived, sel: CostSelection, unit: string): CalcSegment | null {
+  const batchVolume = roleValue(assumptions, "batch_volume", 100, sel);
+  const price = effectiveUnitPrice(item, assumptions, derived, sel);
+  const priceUnit = item.unitPriceUnit ?? "円";
+  const result = { value: price, unit: priceUnit, label: "単価" };
+  const power = (kwRole: string, kwFallback: number, hrtRole: string, hrtFallback: number): CalcSegment => ({
+    continues: false,
+    terms: [
+      { op: null, value: roleValue(assumptions, kwRole, kwFallback, sel), unit: "kW", label: "動力" },
+      { op: "×", value: roleValue(assumptions, hrtRole, hrtFallback, sel), unit: "時間", label: "反応時間" },
+      { op: "×", value: roleValue(assumptions, "power_unit_price", 27, sel), unit: "円/kWh", label: "電力単価" },
+      { op: "÷", value: batchVolume, unit, label: "1バッチの量" },
+    ],
+    result,
+  });
+  switch (item.priceRule) {
+    case "biomass":
+      return { continues: false, terms: [{ op: null, value: item.unitPrice, unit: priceUnit, label: "基準の単価" }, { op: "×", value: derived.biomassFactor, unit: "倍", label: "菌体の量の倍率" }], result };
+    case "broth":
+      return { continues: false, terms: [{ op: null, value: item.unitPrice, unit: priceUnit, label: "基準の単価" }, { op: "×", value: derived.brothFactor, unit: "倍", label: "培養液の量の倍率" }], result };
+    case "module_swap":
+      return {
+        continues: false,
+        terms: [
+          { op: null, value: roleValue(assumptions, "module_unit_price", 1_500_000, sel), unit: "円", label: "モジュール一式" },
+          { op: "÷", value: roleValue(assumptions, "module_durability_batches", 50, sel), unit: "バッチ", label: "耐用" },
+          { op: "÷", value: batchVolume, unit, label: "1バッチの量" },
+        ],
+        result,
+      };
+    case "power_circulation":
+      return power("power_kw_circulation", 1.5, "hrt_circulation", 4);
+    case "power_injection":
+      return power("power_kw_injection", 2.5, "hrt_injection", 4);
+    case "spent_disposal":
+      return {
+        continues: false,
+        terms: [
+          { op: null, value: roleValue(assumptions, "spent_wet_factor", 5, sel), unit: "倍", label: "脱水後の湿重量倍率" },
+          { op: "×", value: roleValue(assumptions, "sludge_disposal_price", 35, sel), unit: "円/kg", label: "汚泥の処分単価" },
+        ],
+        result,
+      };
+    default:
+      return null;
+  }
+}
+
+/**
+ * 明細1行の右端の額を、画面に出す式にする。数量 × 単価 は行の「〜あたり」の額で、そこから右端の単位へ直す。
+ * 菌体の製造拠点の行は 円/kg (centralItemPerKg と同じ値)。初期投資・年額は 1系列の1年あたり → ÷ 1系列が1年に作る菌体。
+ * それ以外の行は 円/処理量 (annualAmount ÷ 年間処理量 と同じ値)。菌体に比例する行は × 処理量1単位に使う菌体。
+ * 同じ値になることは契約チェック (check_project_fuel_cost_model.mts) で確かめる。年間処理量が0の行は null。
+ */
+export function costItemCalc(
+  item: CostItem,
+  assumptions: CostAssumption[],
+  derived: CostDerived,
+  sel: CostSelection,
+  central: { capacity: number; sel: CostSelection },
+  unit: string
+): ItemCalc | null {
+  if (item.isBreakdown || item.basis === "内訳") return null;
+  if (item.scenario === "中央培養") {
+    const centralDerived = deriveCostBasis(assumptions, central.sel);
+    const price = effectiveUnitPrice(item, assumptions, centralDerived, central.sel);
+    const priceCalc = priceRuleCalc(item, assumptions, centralDerived, central.sel, unit);
+    const head = quantityPriceTerms(item, price, priceCalc ? "単価（前提から計算）" : undefined);
+    const base = item.quantity * price * item.annualFactor;
+    const toPerKg = (annual: number): CalcSegment => ({
+      continues: true,
+      terms: [{ op: "÷", value: central.capacity, unit: "kg", label: "1系列が1年に作る菌体" }],
+      result: { value: safeDiv(annual, central.capacity), unit: "円/kg" },
+    });
+    switch (item.basis) {
+      case "初期投資配賦": {
+        const annual = safeDiv(base, item.usefulLifeYears ?? 0);
+        return {
+          price: priceCalc,
+          excluded: null,
+          segments: [{ continues: false, terms: [...head, { op: "÷", value: item.usefulLifeYears ?? 0, unit: "年", label: "耐用" }], result: { value: annual, unit: "円", label: "1系列の1年あたり" } }, toPerKg(annual)],
+        };
+      }
+      case "年額固定":
+        return { price: priceCalc, excluded: null, segments: [{ continues: false, terms: head, result: { value: base, unit: "円", label: "1系列の1年あたり" } }, toPerKg(base)] };
+      case "毎kg菌体比例":
+        return { price: priceCalc, excluded: null, segments: [{ continues: false, terms: head, result: { value: base, unit: "円/kg" } }] };
+      default:
+        return null;
+    }
+  }
+  if (derived.annualVolume <= 0) return null;
+  const price = effectiveUnitPrice(item, assumptions, derived, sel);
+  const priceCalc = priceRuleCalc(item, assumptions, derived, sel, unit);
+  const head = quantityPriceTerms(item, price, priceCalc ? "単価（前提から計算）" : undefined);
+  const base = item.quantity * price * item.annualFactor;
+  const perUnit = `円/${unit}`;
+  const toPerUnit = (annual: number): CalcSegment => ({
+    continues: true,
+    terms: [{ op: "÷", value: derived.annualVolume, unit, label: "顧客1社の年間処理量" }],
+    result: { value: annual / derived.annualVolume, unit: perUnit },
+  });
+  switch (item.basis) {
+    case "初期投資配賦": {
+      const annual = safeDiv(base, item.usefulLifeYears ?? 0);
+      return {
+        price: priceCalc,
+        excluded: null,
+        segments: [{ continues: false, terms: [...head, { op: "÷", value: item.usefulLifeYears ?? 0, unit: "年", label: "耐用" }], result: { value: annual, unit: "円", label: "1年あたり" } }, toPerUnit(annual)],
+      };
+    }
+    case "毎m³比例":
+      return { price: priceCalc, excluded: null, segments: [{ continues: false, terms: head, result: { value: base, unit: perUnit } }] };
+    case "バッチ連動":
+    case "年額固定":
+      return { price: priceCalc, excluded: null, segments: [{ continues: false, terms: head, result: { value: base, unit: "円", label: "1年あたり" } }, toPerUnit(base)] };
+    case "毎kg菌体比例":
+      return {
+        price: priceCalc,
+        excluded: null,
+        segments: [
+          { continues: false, terms: head, result: { value: base, unit: "円", label: "菌体1kgあたり" } },
+          { continues: true, terms: [{ op: "×", value: derived.biomassKgPerUnit, unit: "kg", label: `処理量1${unit}で使い切る菌体` }], result: { value: base * derived.biomassKgPerUnit, unit: perUnit } },
+        ],
+      };
+    default:
+      return null;
   }
 }
 

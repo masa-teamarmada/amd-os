@@ -22,6 +22,7 @@ import {
   fuelCultureItemPerKg,
   fuelDriverUsesCount,
   fuelItemAnnual,
+  fuelItemCalc,
   fuelItemLabel,
   fuelParamGroupOfItem,
   fuelParamGroupOfRole,
@@ -38,6 +39,7 @@ import type { DraftEntity, DraftField, DraftValue } from "@/lib/project-cost-mod
 import { ConfidenceTag, NumberField, Swatch, int, num, yen } from "@/components/cockpit/CockpitCostModelParts";
 import { FUEL_CATEGORY_COLOR, fuelSelectionLabel } from "@/components/cockpit/CockpitFuelCostModelResults";
 import { CostBreakdownGuide, flashElement, type BreakdownGuideDriver } from "@/components/cockpit/CockpitCostBreakdownGuide";
+import { ItemCalcLine, ItemNoteLine } from "@/components/cockpit/CockpitCostItemCalc";
 
 // コスト試算（燃料）の操作パネル。まだ確定できない数字を、すべてここで動かせるようにする。
 // 書き換えはその場で再計算するだけで保存しない。保存は上の「保存していない変更」から admin が行う。
@@ -742,7 +744,11 @@ function FuelTaskList({
   );
 }
 
-/** 区分の明細の行。数量・単価・耐用年数を動かす。 */
+/**
+ * 区分の明細の行。数量・単価・耐用年数を動かす。
+ * 数量 × 単価 は行の「〜あたり」の額なので、右端の円/Lまでの掛け算を行の下に「計算」として出し、数の出どころを「根拠」として出す
+ * (まさ 2026-09-14「そもそも「数量」「単価」って何？…これに数量をかけると右の「円/L」になる？ならないよね？」)。
+ */
 function FuelItemRows({
   saved,
   current,
@@ -757,11 +763,11 @@ function FuelItemRows({
   return (
     <div className="mt-1.5">
       <div className="hidden xl:grid xl:grid-cols-[minmax(0,1fr)_64px_128px_64px_60px] xl:gap-x-1.5 xl:border-b xl:border-[#e5e5e7] xl:pb-1 xl:text-[10px] xl:font-medium xl:text-[#6e6e73]">
-        <span>明細</span>
-        <span className="text-right">数量</span>
-        <span className="text-right">単価</span>
+        <span>明細（行の下に計算と根拠）</span>
+        <span className="text-right" title="行の「〜あたり」（1系列・菌体1kg・燃料1L など）に使う量。単位は行の下の計算に出す">数量</span>
+        <span className="text-right" title="数量の単位1つあたりの値段">単価</span>
         <span className="text-right">耐用年数</span>
-        <span className="text-right">円/L</span>
+        <span className="text-right" title="数量 × 単価 を燃料1Lあたりに直した額。掛け算は行の下の計算に出す">円/L</span>
       </div>
       <ul className="flex flex-col divide-y divide-[#f0f0f2]">
         {items.map((i) => {
@@ -785,8 +791,6 @@ function FuelItemRows({
                 <span className="ml-1 align-middle"><ConfidenceTag value={i.confidence} /></span>
                 <span className="block text-[10px] leading-4 text-[#6e6e73]">
                   {FUEL_SCOPE_LABEL[i.scenario as FuelScope] ?? i.scenario}・{FUEL_BASIS_LABEL[i.basis] ?? i.basis}
-                  {isCulture && <>・菌体1kgあたり {num(perKg, 2)} 円</>}
-                  <NoteToggle note={i.note} />
                 </span>
               </div>
               <Cell label={`数量（${i.quantityUnit ?? ""}）`}>
@@ -835,6 +839,10 @@ function FuelItemRows({
                   {right === null ? "—" : num(right, 2)}
                 </span>
               </Cell>
+              <div className="col-span-2 flex flex-col gap-0.5 xl:col-span-5">
+                {right !== null && <ItemCalcLine calc={fuelItemCalc(i, current)} />}
+                <ItemNoteLine note={i.note} />
+              </div>
             </li>
           );
         })}

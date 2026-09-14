@@ -37,6 +37,7 @@ import type {
   CostModelBundle,
   CostTask,
 } from "./project-cost-model.ts";
+import { quantityPriceTerms, type CalcSegment, type ItemCalc } from "./cost-item-calc.ts";
 
 /** 燃料の試算の case_kind。排水処理のタブはこの試算を読まない。 */
 export const FUEL_CASE_KIND = "biodiesel";
@@ -526,6 +527,80 @@ export function fuelCultureItemPerKg(item: CostItem, lineCapacityKgYear: number)
   }
 }
 
+/**
+ * 明細1行の右端の額 (円/L) を、画面に出す式にする。数量 × 単価 は行の「〜あたり」の額で、そこから燃料1Lあたりへ直す。
+ * 培養設備と燃料化設備の初期投資・年額は 1系列の1年あたり → ÷ 1系列が1年に作る(処理する)菌体 → × 燃料1Lに要る菌体。
+ * 系列の数は 年に要る菌体 ÷ 1系列 なので、fuelItemAnnual ÷ 年間の燃料の量 と同じ値になる (契約チェックで確かめる)。
+ * 右端に額を出さない行 (発生しない・内訳・参考) と、年間の燃料の量が0の燃料化の工場の行は null。
+ */
+export function fuelItemCalc(item: CostItem, scenario: FuelScenarioResult): ItemCalc | null {
+  if (item.isBreakdown || item.basis === "内訳" || item.costType === "参考") return null;
+  const s = scenario.scale;
+  const kgPerLiter = scenario.yield.kgDcwPerLiter;
+  const isCulture = item.scenario === "中央培養";
+  if (!isCulture && s.annualLiters <= 0) return null;
+  const base = item.quantity * item.unitPrice * item.annualFactor;
+  const head = quantityPriceTerms(item);
+  const lineCapacity = isCulture ? s.cultureLineCapacityKgYear : s.plantLineCapacityKgYear;
+  const lineLabel = isCulture ? "1系列が1年に作る菌体" : "1系列が1年に処理する菌体";
+  const toPerKg = (annual: number): CalcSegment => ({
+    continues: true,
+    terms: [{ op: "÷", value: lineCapacity, unit: "kg", label: lineLabel }],
+    result: { value: safeDiv(annual, lineCapacity), unit: "円", label: "菌体1kgあたり" },
+  });
+  const toPerLiter = (perKg: number): CalcSegment => ({
+    continues: true,
+    terms: [{ op: "×", value: kgPerLiter, unit: "kg", label: "燃料1Lに要る菌体" }],
+    result: { value: perKg * kgPerLiter, unit: "円/L" },
+  });
+  const excluded = isCulture && scenario.biomass.overridePerKg !== null ? "菌体の原価を上書きしているので、この行は燃料の原価に入らない" : null;
+  switch (item.basis) {
+    case "初期投資配賦": {
+      const annual = safeDiv(base, item.usefulLifeYears ?? 0);
+      return {
+        price: null,
+        excluded,
+        segments: [
+          { continues: false, terms: [...head, { op: "÷", value: item.usefulLifeYears ?? 0, unit: "年", label: "耐用" }], result: { value: annual, unit: "円", label: "1系列の1年あたり" } },
+          toPerKg(annual),
+          toPerLiter(safeDiv(annual, lineCapacity)),
+        ],
+      };
+    }
+    case "年額固定":
+      return {
+        price: null,
+        excluded,
+        segments: [
+          { continues: false, terms: head, result: { value: base, unit: "円", label: "1系列の1年あたり" } },
+          toPerKg(base),
+          toPerLiter(safeDiv(base, lineCapacity)),
+        ],
+      };
+    case "毎kg菌体比例":
+      return {
+        price: null,
+        excluded,
+        segments: [{ continues: false, terms: head, result: { value: base, unit: "円", label: "菌体1kgあたり" } }, toPerLiter(base)],
+      };
+    case "毎m³比例":
+      if (isCulture) return null;
+      return { price: null, excluded: null, segments: [{ continues: false, terms: head, result: { value: base, unit: "円/L" } }] };
+    case "バッチ連動":
+      if (isCulture) return null;
+      return {
+        price: null,
+        excluded: null,
+        segments: [
+          { continues: false, terms: head, result: { value: base, unit: "円", label: "品質確認1ロットあたり" } },
+          { continues: true, terms: [{ op: "÷", value: s.lotSizeLiters, unit: "L", label: "1ロットの燃料" }], result: { value: safeDiv(base, s.lotSizeLiters), unit: "円/L" } },
+        ],
+      };
+    default:
+      return null;
+  }
+}
+
 /** 第1段: 燃料のための菌体1kgの原価。年に要る菌体の量に合わせて培養設備を並べる。 */
 export function computeFuelBiomassCost(bundle: Pick<CostModelBundle, "assumptions" | "items" | "tasks">, scale: FuelScale): FuelBiomassCost {
   const { assumptions } = bundle;
@@ -683,17 +758,15 @@ const CONFIDENCE_ORDER: Array<CostConfidence | "未設定"> = ["S", "A", "B", "C
 
 /**
  * 明細の短い呼び名。CAPEX は中項目。
- * OPEX のうち培養設備の行 (排水処理の試算からコピーした行) は、小項目が具体名 (中項目は「原料」などの分類) なので長い方。
+ * OPEX のうち培養設備の行 (排水処理の試算からコピーした行) は、小項目が具体名 (中項目は「原料」「ユーティリティ」などの分類) なので小項目。
+ * 長い方を選ぶと「ユーティリティ」が CO2 と補給水の2行に並んで見分けられなかった (2026-09-14)。
  * 燃料化の工場の行は、中項目が具体名 (電力・抽出溶媒の補給など) で小項目が中身なので「中項目（小項目）」。
  */
 export function fuelItemLabel(item: { costType: string; scenario: string; groupLabel: string | null; midLabel: string | null; leafLabel: string | null }): string {
   const mid = item.midLabel?.trim() || "";
   const leaf = item.leafLabel?.trim() || "";
   if (item.costType === "CAPEX") return mid || leaf || item.groupLabel || "(名称なし)";
-  if (item.scenario === "中央培養") {
-    const specific = leaf.length >= mid.length ? leaf : mid;
-    return specific || item.groupLabel || "(名称なし)";
-  }
+  if (item.scenario === "中央培養") return leaf || mid || item.groupLabel || "(名称なし)";
   if (mid && leaf && mid !== leaf) return `${mid}（${leaf}）`;
   return mid || leaf || item.groupLabel || "(名称なし)";
 }

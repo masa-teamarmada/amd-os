@@ -24,7 +24,10 @@ import {
   computeFuelScenario,
   computeFuelTaskFlow,
   findFuelScenario,
+  fuelCultureItemPerKg,
   fuelItemAnnual,
+  fuelItemCalc,
+  fuelItemLabel,
   fuelParamGroupOfItem,
   fuelParamGroupOfRole,
   fuelResidueOf,
@@ -35,7 +38,17 @@ import {
   isFuelModel,
 } from "../src/lib/project-fuel-cost-model.ts";
 import { applyDraft, draftKey, draftToPatches, setDraftValue } from "../src/lib/project-cost-model-draft.ts";
-import { COST_PARAM_GROUPS, computeCostModel, type CostModelBundle } from "../src/lib/project-cost-model.ts";
+import {
+  COST_PARAM_GROUPS,
+  annualAmount,
+  biomassOf,
+  centralItemPerKg,
+  computeCostModel,
+  costItemCalc,
+  effectiveUnitPrice,
+  type CostModelBundle,
+} from "../src/lib/project-cost-model.ts";
+import { evaluateCalcSegment, evaluateItemCalc, type ItemCalc } from "../src/lib/cost-item-calc.ts";
 
 const root = new URL("..", import.meta.url);
 const read = (p: string) => fs.readFileSync(new URL(p, root), "utf8");
@@ -341,6 +354,105 @@ check("コスト試算（廃液・燃料）共通: 操作パネルの一番上�
   assert.ok(wwControls.indexOf("<CostBreakdownGuide") > 0 && wwControls.indexOf("<CostBreakdownGuide") < wwControls.indexOf('<section id="cm-flow"'), "廃液: 内訳が作業の流れより前");
   assert.match(wwControls, /jump\(`cm-g-\$\{groupKey\}`\)/);
   assert.match(wwControls, /onClick=\{\(\) => jump\("cm-breakdown"\)\}/, "廃液: 目次から内訳へ戻れる");
+});
+
+check("コスト試算（廃液・燃料）共通: 明細の行の下に、数量 × 単価 から右端の額までの計算の式と、数の根拠を出す。式の答えは右端の額と一致する", () => {
+  // まさ 2026-09-14「それぞれの項目が妥当なのかの確認をどうやってすればいいかが、これだと分からない。
+  // そもそも「数量」「単価」って何？単価の単位は/kg-DCWになっていて、これに数量をかけると右の「円/L」になる？ならないよね？」
+  // 式の各段の答えはその段を計算した値で、最後の答えは画面の右端に出している額（エンジンの値）。先頭は数量と単価
+  const walk = (calc: ItemCalc, msg: string): number => {
+    if (calc.price) near(evaluateCalcSegment(calc.price, null), calc.price.result.value, 1e-9, `${msg} 単価の出し方`);
+    let previous: number | null = null;
+    for (const segment of calc.segments) {
+      const v = evaluateCalcSegment(segment, previous);
+      near(v, segment.result.value, 1e-9, `${msg} 段の答え`);
+      previous = v;
+    }
+    assert.equal(calc.segments[0].continues, false, `${msg} 先頭の段は数量から始まる`);
+    return previous ?? 0;
+  };
+  const shown = (items: CostModelBundle["items"]) => items.filter((i) => !i.isBreakdown && i.basis !== "内訳" && i.costType !== "参考");
+
+  // 燃料: 右端の円/L は、培養設備の行は 菌体1kgあたり × 燃料1Lに要る菌体、それ以外は 年額 ÷ 年間の燃料の量
+  const fuel = computeFuelCostModel(fixture);
+  let fuelRows = 0;
+  for (const sc of fuel.scenarios) {
+    for (const i of shown(fixture.items).filter((x) => fuelRowApplies(x, sc.conversion))) {
+      const calc = fuelItemCalc(i, sc);
+      assert.ok(calc, `燃料 ${sc.key} ${i.costItemId} に式がある`);
+      assert.equal(calc.segments[0].terms[0].value, i.quantity, `燃料 ${i.costItemId} 先頭は数量`);
+      assert.equal(calc.segments[0].terms[1].value, i.unitPrice, `燃料 ${i.costItemId} 次は単価`);
+      const right = i.scenario === "中央培養" ? fuelCultureItemPerKg(i, sc.scale.cultureLineCapacityKgYear) * sc.yield.kgDcwPerLiter : fuelItemAnnual(i, sc.scale) / sc.scale.annualLiters;
+      near(walk(calc, `燃料 ${sc.key} ${i.costItemId}`), right, 1e-9, `燃料 ${sc.key} ${i.costItemId} 式の答え ＝ 右端の円/L`);
+      assert.equal(calc.excluded, null);
+      fuelRows += 1;
+    }
+  }
+  assert.ok(fuelRows >= 6 * 40, `燃料の式の行 ${fuelRows}`);
+  // 行の名前で見分けられる（培養設備の OPEX は小項目。「ユーティリティ」が CO2 と補給水の2行に並ばない）
+  const cultureOpex = shown(fixture.items).filter((i) => i.scenario === "中央培養" && i.costType === "OPEX").map((i) => fuelItemLabel(i));
+  assert.equal(new Set(cultureOpex).size, cultureOpex.length, `培養設備の OPEX の行の名前が重なる: ${cultureOpex.join("・")}`);
+  assert.ok(cultureOpex.includes("CO2") && cultureOpex.includes("補給水"));
+  // 例（基準・委託）: 培地主原料 1 kg-DCW × 9 円/kg-DCW ＝ 菌体1kgあたり 9円 → × 燃料1Lに要る菌体 ＝ 162.4円/L
+  const base = findFuelScenario(fuel, "outsourced", "base");
+  assert.ok(base);
+  const medium = fixture.items.find((x) => x.costItemId === "cif_culture_120");
+  assert.ok(medium);
+  const mc = fuelItemCalc(medium, base);
+  assert.ok(mc);
+  assert.deepEqual(mc.segments.map((s) => s.result.label ?? s.result.unit), ["菌体1kgあたり", "円/L"]);
+  near(evaluateItemCalc(mc), 9 * base.yield.kgDcwPerLiter, 1e-9, "培地主原料");
+  near(evaluateItemCalc(mc), 162.4, 1e-3, "培地主原料 円/L");
+  // 菌体の原価を上書きしているときは、培養設備の行は燃料の原価に入らないと式に書く
+  const overridden = computeFuelCostModel(setRole(clone(), "biomass_cost_per_kg_override", { value: 100 }));
+  const ob = findFuelScenario(overridden, "outsourced", "base");
+  assert.ok(ob);
+  assert.match(fuelItemCalc(medium, ob)?.excluded ?? "", /上書き/);
+
+  // 廃液: 右端の額は、菌体の製造拠点の行は 円/kg（centralItemPerKg）、それ以外は 年額 ÷ 顧客1社の年間処理量
+  const ww: CostModelBundle = JSON.parse(read("scripts/__fixtures__/sx_cost_model_two_stage.json"));
+  const unit = ww.model.unitBasisLabel ?? "m³";
+  let wwRows = 0;
+  let priced = 0;
+  for (const strain of ["enhanced", "wild"] as const) {
+    const cw = computeCostModel(ww, { strain });
+    for (const { application, derived } of cw.derivedByApplication) {
+      const sel = { strain, application };
+      const centralSel = { strain, application: null };
+      const capacity = biomassOf(cw, application).lineCapacityKgYear;
+      for (const i of shown(ww.items)) {
+        const calc = costItemCalc(i, ww.assumptions, derived, sel, { capacity, sel: centralSel }, unit);
+        const right = i.scenario === "中央培養" ? centralItemPerKg(i, ww.assumptions, capacity, centralSel) : annualAmount(i, ww.assumptions, derived, sel) / derived.annualVolume;
+        if (!calc) {
+          assert.equal(right, 0, `廃液 ${i.costItemId} 式が無い行は右端も0`);
+          continue;
+        }
+        near(walk(calc, `廃液 ${strain} ${application} ${i.costItemId}`), right, 1e-9, `廃液 ${strain} ${application} ${i.costItemId} 式の答え ＝ 右端の額`);
+        if (calc.price) {
+          priced += 1;
+          near(calc.price.result.value, effectiveUnitPrice(i, ww.assumptions, derived, sel), 1e-9, `廃液 ${i.costItemId} 前提から計算した単価`);
+        }
+        wwRows += 1;
+      }
+    }
+  }
+  assert.ok(wwRows > 100, `廃液の式の行 ${wwRows}`);
+  assert.ok(priced > 0, "前提から計算する単価の行にも単価の出し方がある");
+
+  // 画面: 両方の操作パネルの明細の行に、計算と根拠を出す。根拠は「説明」を押さなくても読める
+  const calcUi = read("src/components/cockpit/CockpitCostItemCalc.tsx");
+  assert.match(calcUi, /data-testid="cost-item-calc"/);
+  assert.match(calcUi, /data-testid="cost-item-note"/);
+  assert.match(calcUi, /line-clamp-2/, "長い根拠は2行で畳む");
+  const fuelControls = read("src/components/cockpit/CockpitFuelCostModelControls.tsx");
+  const fuelRowsSrc = fuelControls.slice(fuelControls.indexOf("function FuelItemRows("));
+  assert.match(fuelRowsSrc, /<ItemCalcLine calc=\{fuelItemCalc\(i, current\)\} \/>/);
+  assert.match(fuelRowsSrc, /<ItemNoteLine note=\{i\.note\} \/>/);
+  assert.ok(!/菌体1kgあたり \{num\(perKg/.test(fuelRowsSrc), "「菌体1kgあたり」を2回並べない");
+  const wwControls = read("src/components/cockpit/CockpitCostModelControls.tsx");
+  const wwRowsSrc = wwControls.slice(wwControls.indexOf("function ItemRows("));
+  assert.match(wwRowsSrc, /<ItemCalcLine calc=\{costItemCalc\(/);
+  assert.match(wwRowsSrc, /<ItemNoteLine note=\{i\.note\} \/>/);
 });
 
 console.log(`\n${passed} checks passed (project-fuel-cost-model)`);

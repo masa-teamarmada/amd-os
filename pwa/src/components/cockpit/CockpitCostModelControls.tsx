@@ -25,6 +25,7 @@ import {
   annualAmount,
   biomassOf,
   centralItemPerKg,
+  costItemCalc,
   costItemLabel,
   driverUsesCount,
   paramGroupOfItem,
@@ -56,6 +57,7 @@ import { CATEGORY_COLOR, ConfidenceTag, NumberField, ScopeTag, Segmented, int, n
 import { CostTaskFlowOverview, stepAnchorId } from "@/components/cockpit/CockpitCostModelFlow";
 import { findScenario, selectionLabel, type CostViewSelection } from "@/components/cockpit/CockpitCostModelResults";
 import { CostBreakdownGuide, flashElement, type BreakdownGuideDriver } from "@/components/cockpit/CockpitCostBreakdownGuide";
+import { ItemCalcLine, ItemNoteLine } from "@/components/cockpit/CockpitCostItemCalc";
 
 // コスト試算タブの操作パネル。まだ確定できない数字を、すべてここで動かせるようにする (まさ 2026-09-13)。
 // 書き換えはその場で再計算するだけで保存しない。保存は上の「保存していない変更」から admin が行う。
@@ -845,7 +847,11 @@ function itemApplies(item: CostItem, selection: CostViewSelection) {
   return rowAppliesTo(item, selection.location, selection.method, { strain: selection.strain, application: selection.application });
 }
 
-/** 区分の明細の行。数量・単価・耐用年数・誰が持つかを動かす。前提から計算する行は、同じ区分の前提で動かす。 */
+/**
+ * 区分の明細の行。数量・単価・耐用年数・誰が持つかを動かす。前提から計算する行は、同じ区分の前提で動かす。
+ * 数量 × 単価 は行の「〜あたり」の額なので、右端の額までの掛け算を行の下に「計算」として出し、数の出どころを「根拠」として出す
+ * (まさ 2026-09-14「そもそも「数量」「単価」って何？…これに数量をかけると右の「円/L」になる？ならないよね？」)。
+ */
 function ItemRows({
   saved,
   working,
@@ -871,11 +877,11 @@ function ItemRows({
   return (
     <div className="mt-1.5">
       <div className="hidden xl:grid xl:grid-cols-[minmax(0,1fr)_64px_128px_64px_56px] xl:gap-x-1.5 xl:border-b xl:border-[#e5e5e7] xl:pb-1 xl:text-[10px] xl:font-medium xl:text-[#6e6e73]">
-        <span>明細</span>
-        <span className="text-right">数量</span>
-        <span className="text-right">単価</span>
+        <span>明細（行の下に計算と根拠）</span>
+        <span className="text-right" title="行の「〜あたり」（1系列・菌体1kg・処理量1単位 など）に使う量。単位は行の下の計算に出す">数量</span>
+        <span className="text-right" title="数量の単位1つあたりの値段">単価</span>
         <span className="text-right">耐用年数</span>
-        <span className="text-right">円/{unit}</span>
+        <span className="text-right" title={`数量 × 単価 を右端の単位に直した額（菌体の製造拠点の行は円/kg）。掛け算は行の下の計算に出す`}>円/{unit}</span>
       </div>
       <ul className="flex flex-col divide-y divide-[#f0f0f2]">
         {items.map((i) => {
@@ -900,7 +906,6 @@ function ItemRows({
                 <span className="block text-[10px] leading-4 text-[#6e6e73]">
                   {SCENARIO_SCOPE_LABEL[i.scenario as CostScenarioScope]}・{i.basis}{i.groupLabel ? `・${i.groupLabel}` : ""}
                   {paidBy === "customer" && <span className="font-semibold text-[#3c3c43]">・顧客が持つ（SXの原価に入れない）</span>}
-                  <NoteToggle note={i.note} />
                 </span>
                 {!isCentral && (
                   <label className="mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[10px] text-[#6e6e73]">
@@ -975,6 +980,12 @@ function ItemRows({
                   {right !== null && isCentral && <span className="ml-0.5 hidden text-[9px] font-normal text-[#6e6e73] xl:inline">/kg</span>}
                 </span>
               </Cell>
+              <div className="col-span-2 flex flex-col gap-0.5 xl:col-span-5">
+                {right !== null && (
+                  <ItemCalcLine calc={costItemCalc(i, working.assumptions, derived, sel, { capacity: b.lineCapacityKgYear, sel: centralSel }, unit)} />
+                )}
+                <ItemNoteLine note={i.note} />
+              </div>
             </li>
           );
         })}
