@@ -98,6 +98,12 @@ const RATINGS: TechRating[] = ["excellent", "good", "fair", "poor", "na", "unkno
 /** 星取り表の最小幅 = 比較軸の列 + 相手の列の数 × 1列の幅 (最小520px)。スマホでは横スクロールになる。 */
 const MATRIX_AXIS_COL_PX = 128;
 const MATRIX_COL_PX = 96;
+/**
+ * 社外に出す形の星取り表は、PDF と同じく相手の列を一度に見せたいので列を細くする。
+ * 1440px 幅 (トピック一覧が左にある xl 以上) で 9列 (自社＋8社) が横スクロールなしに収まる幅 (112 + 9 × 84 = 868px)。
+ */
+const SHEET_AXIS_COL_PX = 112;
+const SHEET_COL_PX = 84;
 
 /** 空文字を null に落として、0 と未入力を区別する。 */
 function numOrNull(v: string): number | null {
@@ -297,7 +303,7 @@ function MatrixSheet({ entries, presentation }: { entries: TechEntry[]; presenta
   const selfCol = presentation.selfCol && cols.includes(presentation.selfCol) ? presentation.selfCol : null;
   const highlight = new Set(presentation.highlightRows);
   const cell = (row: string, col: string) => entries.find((e) => e.row_label === row && e.col_label === col);
-  const minWidth = Math.max(520, MATRIX_AXIS_COL_PX + cols.length * MATRIX_COL_PX);
+  const minWidth = Math.max(520, SHEET_AXIS_COL_PX + cols.length * SHEET_COL_PX);
   return (
     <div data-testid="tech-matrix-sheet" className="rounded-lg border border-[#e5e5e7] bg-white px-4 py-4">
       {presentation.heading && (
@@ -313,23 +319,24 @@ function MatrixSheet({ entries, presentation }: { entries: TechEntry[]; presenta
           <EmptyRows hint="比較軸 (行) と相手 (列) を決めて、1マスずつ足す" />
         </div>
       ) : (
-        <div className="mt-3 max-h-[80vh] overflow-auto">
+        // PDF と同じく表は1枚で全行を見せる (表の中で縦にスクロールさせない)。狭い画面だけ表の中で横にスクロールする。
+        <div className="mt-3 overflow-x-auto">
           <table className="w-full table-fixed border-collapse text-[12px]" style={{ minWidth }}>
             <colgroup>
-              <col style={{ width: MATRIX_AXIS_COL_PX }} />
+              <col style={{ width: SHEET_AXIS_COL_PX }} />
               {cols.map((c) => (
                 <col key={c} />
               ))}
             </colgroup>
             <thead>
               <tr>
-                <th className="sticky left-0 top-0 z-30 border border-[#e5e5e7] bg-[#f5f5f7] px-2 py-2 text-left text-[11px] font-medium text-[#6e6e73]">
+                <th className="sticky left-0 z-20 border border-[#e5e5e7] bg-[#f5f5f7] px-2 py-2 text-left text-[11px] font-medium text-[#6e6e73]">
                   比較軸
                 </th>
                 {cols.map((c) => (
                   <th
                     key={c}
-                    className={`sticky top-0 z-20 border px-1.5 py-2 text-center text-[12px] font-semibold leading-4 ${
+                    className={`border px-1 py-2 text-center text-[11.5px] font-semibold leading-4 ${
                       c === selfCol ? "border-[#027FDC] bg-[#027FDC] text-white" : "border-[#e5e5e7] bg-[#f5f5f7] text-[#1d1d1f]"
                     }`}
                   >
@@ -345,7 +352,7 @@ function MatrixSheet({ entries, presentation }: { entries: TechEntry[]; presenta
                   <tr key={r}>
                     <th
                       scope="row"
-                      className={`sticky left-0 z-10 border border-[#e5e5e7] px-2 py-2 text-left align-top text-[12px] font-semibold leading-5 text-[#1d1d1f] ${
+                      className={`sticky left-0 z-10 border border-[#e5e5e7] px-2 py-2 text-left align-top text-[11.5px] font-semibold leading-5 text-[#1d1d1f] ${
                         emphasized ? "bg-[#e8f3fc] shadow-[inset_4px_0_0_#027FDC]" : "bg-[#fafafa]"
                       }`}
                     >
@@ -368,15 +375,15 @@ function MatrixSheet({ entries, presentation }: { entries: TechEntry[]; presenta
                         <td
                           key={c}
                           title={tip}
-                          className={`border border-[#e5e5e7] px-1.5 py-2 align-top ${rating ? "text-center" : "text-left"} ${tone}`}
+                          className={`border border-[#e5e5e7] px-1 py-2 align-top ${rating ? "text-center" : "text-left"} ${tone}`}
                         >
                           {rating && (
-                            <div className={`text-[18px] font-bold leading-6 ${SHEET_RATING_STYLE[rating]}`}>{RATING_LABEL[rating]}</div>
+                            <div className={`text-[17px] font-bold leading-6 ${SHEET_RATING_STYLE[rating]}`}>{RATING_LABEL[rating]}</div>
                           )}
                           {(e.value_text || e.value_min !== null || e.value_max !== null) && (
-                            <div className="text-[12px] font-medium leading-4 text-[#1d1d1f]">{formatTechValue(e)}</div>
+                            <div className="text-[11.5px] font-medium leading-4 text-[#1d1d1f]">{formatTechValue(e)}</div>
                           )}
-                          {e.note && <div className="mt-1 text-[10.5px] leading-4 text-[#6e6e73]">{e.note}</div>}
+                          {e.note && <div className="mt-1 text-[10px] leading-[14px] text-[#6e6e73]">{e.note}</div>}
                           {e.needs_check && <CheckNote reason={e.check_reason} />}
                         </td>
                       );
