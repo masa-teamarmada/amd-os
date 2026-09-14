@@ -12,6 +12,7 @@ import {
   STRAIN_LABEL,
   scenarioFullLabelOf,
   type CostApplication,
+  type CostTankBearer,
   type CostBreakdownKey,
   type CostComputation,
   type CostLocation,
@@ -35,8 +36,10 @@ export interface CostViewSelection {
   location: CostLocation;
   /** 装置 (循環カートリッジ / 直接投入)。 */
   method: CostMethod;
-  /** 槽。オフサイトは常に新設。 */
+  /** 槽。オフサイトは常に新設。オンサイトの槽を顧客が持つときは既設 (SX の負担0) だけ。 */
   tankMode: CostTankMode;
+  /** オンサイトの槽を誰が持つか。 */
+  onsiteTankBearer: CostTankBearer;
 }
 
 export function findScenario(
@@ -54,7 +57,7 @@ export function selectionLabel(sel: CostViewSelection) {
   return [
     sel.strain ? STRAIN_LABEL[sel.strain] : null,
     sel.application ? APPLICATION_LABEL[sel.application] : null,
-    scenarioFullLabelOf(sel.location, sel.method, sel.tankMode),
+    scenarioFullLabelOf(sel.location, sel.method, sel.tankMode, sel.onsiteTankBearer),
   ]
     .filter(Boolean)
     .join("・");
@@ -242,7 +245,7 @@ export function CostResultsPanel({
                 {groupStart && (
                   <p className={`text-[10px] font-semibold text-[#6e6e73] ${i === 0 ? "" : "mt-1 border-t border-[#e5e5e7] pt-1"}`}>
                     {LOCATION_SHORT_LABEL[slot.location]}
-                    <span className="font-normal">（{slot.location === "offsite" ? "SX工場まで運んで処理・槽はSX工場に新設" : `顧客工場で処理・槽は${slot.tankMode}`}）</span>
+                    <span className="font-normal">（{slot.location === "offsite" ? "SX工場まで運んで処理・槽はSX工場に新設" : computed.onsiteTankBearer === "customer" ? "顧客工場で処理・槽は顧客の設備" : `顧客工場で処理・槽は${slot.tankMode}`}）</span>
                   </p>
                 )}
                 <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-x-1.5 sm:grid-cols-[minmax(0,1fr)_70px]">

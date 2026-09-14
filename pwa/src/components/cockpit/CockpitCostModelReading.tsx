@@ -10,6 +10,8 @@ import {
   STRAIN_LABEL,
   TASK_DRIVER_LABEL,
   TASK_PERFORMER_SHORT_LABEL,
+  ITEM_BEARER_SHORT_LABEL,
+  resolveBearer,
   resolvePerformer,
   annualAmount,
   centralItemPerKg,
@@ -150,6 +152,14 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
     }
     return [...seen.values()].sort((a, b) => b.perUnit - a.perUnit).slice(0, 10);
   })();
+  // 顧客工場では顧客が持つ（やる）行は、SXの金額がオフサイトの分だけなので、発生する場所にそう添える。
+  const sxOnlyOffsite = (id: string, scope: string) => {
+    if (scope === "オフサイト" || scope === "中央培養") return false;
+    const item = items.find((i) => i.costItemId === id);
+    if (item) return resolveBearer(item, "onsite") === "customer" && resolveBearer(item, "offsite") === "sx";
+    const task = tasks.find((t) => t.costTaskId === id);
+    return !!task && resolvePerformer(task, "onsite") === "customer" && resolvePerformer(task, "offsite") === "sx";
+  };
 
   const byAddressee = openQuestions.reduce<Record<string, typeof openQuestions>>((acc, q) => {
     (acc[q.addressee] ||= []).push(q);
@@ -194,7 +204,7 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
 
       <Card
         title={`${scenarios.length}シナリオの内訳（${[strainLabel, appLabel].filter(Boolean).join("・") || "全体"}）`}
-        hint={`CAPEXは償却後の年額換算。作業（人件費）はSXがやる作業だけを総コストに含む（顧客がやる作業は数えない）。単位は 円/${unit}（括弧内は 円/年）。`}
+        hint={`CAPEXは償却後の年額換算。明細はSXが持つものだけ、作業（人件費）はSXがやるものだけを総コストに含む（顧客が持つ設備・処分、顧客がやる作業は数えない）。単位は 円/${unit}（括弧内は 円/年）。`}
       >
         <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
           <table className="w-full min-w-[720px] border-collapse text-[12px]">
@@ -304,7 +314,10 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
               {uncertainAcrossMethods.map((u) => (
                 <tr key={u.costItemId} className="border-b border-[#f6f6f7]">
                   <td className="py-1.5 pr-2 text-[#1d1d1f]">{u.label}</td>
-                  <td className="px-2 py-1.5 text-[#6e6e73]">{scenarioLabel(u.scenario as CostScenarioScope) ?? u.scenario}</td>
+                  <td className="px-2 py-1.5 text-[#6e6e73]">
+                    {scenarioLabel(u.scenario as CostScenarioScope) ?? u.scenario}
+                    {sxOnlyOffsite(u.costItemId, u.scenario) && "・SXの原価はオフサイトだけ（オンサイトは顧客）"}
+                  </td>
                   <td className="px-2 py-1.5 text-right font-semibold text-[#1d1d1f]">{num(u.perUnit)}</td>
                   <td className="px-2 py-1.5"><ConfidenceTag value={u.confidence} /></td>
                   <td className="px-2 py-1.5 text-[#6e6e73]">{u.sourceKind}</td>
@@ -477,7 +490,7 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
 
       <Card
         title="費用明細"
-        hint={`計算に入っている全 ${items.filter((i) => !i.isBreakdown).length} 行。内訳行は親の小計に含まれるため金額を持たない。選んだ株・用途・方式で発生しない行は薄く出し、金額を空欄にする。`}
+        hint={`計算に入っている全 ${items.filter((i) => !i.isBreakdown).length} 行。内訳行は親の小計に含まれるため金額を持たない。選んだ株・用途・方式で発生しない行は薄く出し、金額を空欄にする。「誰が持つか」が顧客の行は、SXの原価に入れない（金額は「—」）。`}
       >
         <div className="flex flex-col gap-4">
           {(["中央培養", "共通", "現場共通", "循環", "投入", "オフサイト"] as const).map((g) => {
@@ -502,6 +515,7 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
                         <th className="py-1.5 pr-2 font-medium">項目</th>
                         <th className="px-2 py-1.5 font-medium">区分</th>
                         <th className="px-2 py-1.5 font-medium">発生ロジック</th>
+                        <th className="px-2 py-1.5 font-medium">誰が持つか</th>
                         <th className="px-2 py-1.5 text-right font-medium">単価</th>
                         <th className="px-2 py-1.5 text-right font-medium">耐用</th>
                         <th className="px-2 py-1.5 text-right font-medium">年額(円)</th>
@@ -513,10 +527,11 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
                       {rows.map((i) => {
                         const rowSel = isCentral ? centralSel : sel;
                         const applies = rowAppliesTo(i, selection.location, selection.method, sel);
-                        const annual = applies ? annualAmount(i, assumptions, derived, rowSel) : null;
-                        const right = !applies ? null : isCentral ? centralItemPerKg(i, assumptions, computed.biomass.capacityKgYear, rowSel) : (annual ?? 0) / (derived.annualVolume || 1);
+                        const paidBy = resolveBearer(i, selection.location);
+                        const annual = applies && paidBy === "sx" ? annualAmount(i, assumptions, derived, rowSel) : null;
+                        const right = !applies || paidBy === "customer" ? null : isCentral ? centralItemPerKg(i, assumptions, computed.biomass.capacityKgYear, rowSel) : (annual ?? 0) / (derived.annualVolume || 1);
                         const base = savedItem(i.costItemId);
-                        const changed = !!base && (base.unitPrice !== i.unitPrice || base.quantity !== i.quantity || base.usefulLifeYears !== i.usefulLifeYears);
+                        const changed = !!base && (base.unitPrice !== i.unitPrice || base.quantity !== i.quantity || base.usefulLifeYears !== i.usefulLifeYears || base.bearer !== i.bearer);
                         return (
                           <tr key={i.costItemId} className={`border-b border-[#f6f6f7] align-top ${applies ? "" : "opacity-50"}`}>
                             <td className="py-1.5 pr-2 text-[#1d1d1f]">
@@ -530,6 +545,10 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
                             <td className="px-2 py-1.5 text-[#6e6e73]">
                               {i.basis}
                               {i.priceRule && <span className="ml-1 rounded bg-[#e8f3fc] px-1 py-[1px] text-[9px] font-medium text-[#0267b2]">前提から計算</span>}
+                            </td>
+                            <td className="whitespace-nowrap px-2 py-1.5 text-[#1d1d1f]">
+                              {isCentral ? "SX" : ITEM_BEARER_SHORT_LABEL[i.bearer]}
+                              {!isCentral && i.bearer === "site" && <span className="text-[10px] text-[#6e6e73]">（いまは{paidBy === "customer" ? "顧客" : "SX"}）</span>}
                             </td>
                             <td className="whitespace-nowrap px-2 py-1.5 text-right text-[#3c3c43]">{i.priceRule ? "—" : i.unitPrice.toLocaleString("ja-JP")}</td>
                             <td className="px-2 py-1.5 text-right text-[#6e6e73]">{i.usefulLifeYears ? `${i.usefulLifeYears}年` : "—"}</td>

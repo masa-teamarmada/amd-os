@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-09-14 01:05 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-09-14 09:17 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -4240,6 +4240,7 @@ PRIMARY KEY: `cost_item_id`
 | 24 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
 | 25 | `strain` | `text` | NULL | `` |
 | 26 | `application` | `text` | NULL | `` |
+| 27 | `bearer` | `text` | NOT NULL | `'sx'::text` |
 
 ## project_cost_models
 
@@ -4271,7 +4272,7 @@ PRIMARY KEY: `cost_model_id`
 
 ## project_cost_notes
 
-行数 (概算): -1
+行数 (概算): 26
 PRIMARY KEY: `cost_note_id`
 
 | # | column | type | nullable | default |

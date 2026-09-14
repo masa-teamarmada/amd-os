@@ -83,6 +83,7 @@ export function mapBundle(model: any, assumptions: any[], items: any[], question
       sortOrder: i.sort_order ?? 0,
       strain: i.strain ?? null,
       application: i.application ?? null,
+      bearer: i.bearer === "customer" || i.bearer === "site" ? i.bearer : "sx",
     })),
     tasks: (tasks || []).map((t) => ({
       costTaskId: t.cost_task_id,
@@ -184,7 +185,7 @@ export async function GET(req: NextRequest) {
 const ASSUMPTION_FIELDS = new Set(["value", "value_text", "confidence", "source_kind", "owner", "note", "is_key", "visibility"]);
 const QUESTION_FIELDS = new Set(["status", "answer", "answered_on", "visibility", "impact_low", "impact_high"]);
 const NOTE_FIELDS = new Set(["title", "body_md", "source_url", "source_label", "visibility", "sort_order"]);
-const ITEM_FIELDS = new Set(["unit_price", "quantity", "useful_life_years", "confidence", "source_kind", "owner", "note", "visibility"]);
+const ITEM_FIELDS = new Set(["unit_price", "quantity", "useful_life_years", "bearer", "confidence", "source_kind", "owner", "note", "visibility"]);
 const TASK_FIELDS = new Set([
   "hours_per_occurrence", "count_driver", "count_per_year", "hourly_rate", "expense_per_occurrence", "performer",
   "confidence", "source_kind", "owner", "note", "visibility",
@@ -203,6 +204,8 @@ const NULLABLE_NUMERIC_FIELDS = new Set([
 ]);
 const TASK_DRIVERS = new Set(["fixed", "batch", "visit", "module_swap", "membrane_swap", "truck_trip"]);
 const TASK_PERFORMERS = new Set(["sx", "customer", "site"]);
+/** 明細の「誰が持つか」。値は作業の「誰がやるか」と同じ3つ。 */
+const ITEM_BEARERS = new Set(["sx", "customer", "site"]);
 
 /**
  * PATCH /api/project-cost-model
@@ -263,6 +266,9 @@ export async function PATCH(req: NextRequest) {
     }
     if (k === "performer" && !TASK_PERFORMERS.has(String(v))) {
       return NextResponse.json({ ok: false, error: "performer が不正" }, { status: 400 });
+    }
+    if (k === "bearer" && !ITEM_BEARERS.has(String(v))) {
+      return NextResponse.json({ ok: false, error: "bearer が不正" }, { status: 400 });
     }
     clean[k] = v;
   }

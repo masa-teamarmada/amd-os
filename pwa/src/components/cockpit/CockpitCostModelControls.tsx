@@ -3,6 +3,9 @@
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import {
   COST_ROLE_KEYS,
+  ITEM_BEARERS,
+  ITEM_BEARER_LABEL,
+  ITEM_BEARER_SHORT_LABEL,
   METAL_SINGLE_USE_NOTE,
   PRODUCTION_SITE_DESCRIPTION,
   PRODUCTION_SITE_LABEL,
@@ -12,16 +15,19 @@ import {
   TASK_PERFORMERS,
   TASK_PERFORMER_LABEL,
   TASK_PERFORMER_SHORT_LABEL,
+  TEXT_CHOICE_ROLES,
   annualAmount,
   centralItemPerKg,
   costItemLabel,
   resolveAssumption,
+  resolveBearer,
   resolvePerformer,
   rowAppliesTo,
   taskAmount,
   type CostAssumption,
   type CostComputation,
   type CostItem,
+  type CostItemBearer,
   type CostModelBundle,
   type CostScenarioScope,
   type CostSelection,
@@ -89,6 +95,7 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
   }, [working.assumptions, strain, application]);
 
   const savedAssumption = (id: string) => saved.assumptions.find((a) => a.costAssumptionId === id)?.value ?? null;
+  const savedAssumptionText = (id: string) => saved.assumptions.find((a) => a.costAssumptionId === id)?.valueText ?? null;
   const roles = (rows: CostAssumption[]) => new Set(rows.map((r) => r.roleKey));
 
   const renderGroup = (g: (typeof groups)[number]): Section => {
@@ -101,7 +108,13 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
           {(rs.has("culture_capacity_kg_year") || rs.has("sales_rate")) && <BiomassFormula computed={computed} />}
           <ul className="flex flex-col divide-y divide-[#f0f0f2]">
             {g.rows.map((a) => (
-              <AssumptionControl key={a.costAssumptionId} assumption={a} baseline={savedAssumption(a.costAssumptionId)} onChange={onChange} />
+              <AssumptionControl
+                key={a.costAssumptionId}
+                assumption={a}
+                baseline={savedAssumption(a.costAssumptionId)}
+                baselineText={savedAssumptionText(a.costAssumptionId)}
+                onChange={onChange}
+              />
             ))}
             {rs.has("sale_price") && (
               <TargetControl saved={saved} working={working} unit={unit} onChange={onChange} />
@@ -249,12 +262,42 @@ function NoteToggle({ note }: { note: string | null }) {
 function AssumptionControl({
   assumption: a,
   baseline,
+  baselineText,
   onChange,
 }: {
   assumption: CostAssumption;
   baseline: number | null;
+  baselineText: string | null;
   onChange: CostChangeHandler;
 }) {
+  const choices = a.roleKey ? TEXT_CHOICE_ROLES[a.roleKey] : undefined;
+  if (choices) {
+    const current = a.valueText ?? choices[choices.length - 1].value;
+    return (
+      <li className="flex flex-col gap-1 py-1.5 xl:flex-row xl:items-center xl:gap-2">
+        <div className="min-w-0 flex-1 text-[12px] leading-5 text-[#1d1d1f]">
+          {a.label}
+          <span className="ml-1 align-middle"><ConfidenceTag value={a.confidence} /></span>
+          <NoteToggle note={a.note} />
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+          <select
+            aria-label={a.label}
+            value={current}
+            onChange={(e) => onChange("assumption", a.costAssumptionId, "valueText", e.target.value)}
+            className={`min-h-[44px] rounded-md border px-2 text-[16px] text-[#1d1d1f] xl:h-7 xl:min-h-0 xl:text-[12px] ${
+              (baselineText ?? choices[choices.length - 1].value) !== current ? "border-[#027fdc] bg-[#e8f3fc]" : "border-[#d2d2d7] bg-white"
+            }`}
+          >
+            {choices.map((c) => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
+          </select>
+          <span className="w-16 text-[11px] text-[#6e6e73]" />
+        </div>
+      </li>
+    );
+  }
   const isOverride = a.roleKey === "biomass_cost_per_kg_override";
   const isSalesRate = a.roleKey === "sales_rate";
   const set = (v: number | null) => onChange("assumption", a.costAssumptionId, "value", v);
@@ -624,7 +667,7 @@ function ItemEditor({
   return (
     <div>
       <div className="mb-1.5 flex flex-wrap items-center gap-2 text-[11px] text-[#6e6e73]">
-        <span>数量・単価・耐用年数を動かせる。前提から計算する行（電力・モジュール交換費など）は前提の欄で動かす。</span>
+        <span>数量・単価・耐用年数・誰が持つかを動かせる。前提から計算する行（電力・モジュール交換費など）は前提の欄で動かす。「誰が持つか」が顧客の明細は、SXの原価に入れない（円/{unit}は「—」）。</span>
         <button
           type="button"
           onClick={() => setOnlyApplicable((v) => !v)}
@@ -648,7 +691,8 @@ function ItemEditor({
               {list.map((i) => {
                 const base = saved.items.find((x) => x.costItemId === i.costItemId);
                 const applies = itemApplies(i, selection);
-                const right = !applies
+                const paidBy = resolveBearer(i, selection.location);
+                const right = !applies || paidBy === "customer"
                   ? null
                   : isCentral
                     ? centralItemPerKg(i, working.assumptions, b.capacityKgYear, centralSel)
@@ -664,8 +708,28 @@ function ItemEditor({
                       <span className="ml-1 align-middle"><ConfidenceTag value={i.confidence} /></span>
                       <span className="block text-[10px] leading-4 text-[#6e6e73]">
                         {i.costType}・{i.basis}{i.groupLabel ? `・${i.groupLabel}` : ""}
+                        {paidBy === "customer" && <span className="font-semibold text-[#3c3c43]">・顧客が持つ（SXの原価に入れない）</span>}
                         <NoteToggle note={i.note} />
                       </span>
+                      {!isCentral && (
+                        <label className="mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[10px] text-[#6e6e73]">
+                          <span className="whitespace-nowrap">誰が持つか</span>
+                          <select
+                            aria-label={`${costItemLabel(i)} 誰が持つか`}
+                            value={i.bearer}
+                            title={ITEM_BEARER_LABEL[i.bearer]}
+                            onChange={(e) => onChange("item", i.costItemId, "bearer", e.target.value as CostItemBearer)}
+                            className={`min-h-[36px] max-w-full rounded-md border px-1 text-[16px] text-[#1d1d1f] xl:h-6 xl:min-h-0 xl:text-[11px] ${
+                              base && base.bearer !== i.bearer ? "border-[#027fdc] bg-[#e8f3fc]" : "border-[#d2d2d7] bg-white"
+                            }`}
+                          >
+                            {ITEM_BEARERS.map((bv) => (
+                              <option key={bv} value={bv}>{ITEM_BEARER_SHORT_LABEL[bv]}</option>
+                            ))}
+                          </select>
+                          {i.bearer === "site" && <span className="whitespace-nowrap">（オンサイトは顧客・オフサイトはSX）</span>}
+                        </label>
+                      )}
                     </div>
                     <Cell label="数量">
                       <NumberField

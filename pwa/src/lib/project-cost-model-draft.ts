@@ -6,18 +6,23 @@
 
 // 契約チェック (node で直接読む) からも使うので、相対パスで拡張子つきで読む。
 import {
+  ITEM_BEARER_SHORT_LABEL,
+  TANK_BEARER_LABEL,
   TASK_DRIVER_LABEL,
   TASK_PERFORMER_SHORT_LABEL,
   costItemLabel,
+  type CostItemBearer,
   type CostModelBundle,
+  type CostTankBearer,
   type CostTaskDriver,
   type CostTaskPerformer,
 } from "./project-cost-model.ts";
 
 export type DraftEntity = "assumption" | "item" | "task" | "model";
-export type DraftItemField = "unitPrice" | "quantity" | "usefulLifeYears";
+export type DraftAssumptionField = "value" | "valueText";
+export type DraftItemField = "unitPrice" | "quantity" | "usefulLifeYears" | "bearer";
 export type DraftTaskField = "hoursPerOccurrence" | "countDriver" | "countPerYear" | "hourlyRate" | "expensePerOccurrence" | "performer";
-export type DraftField = "value" | DraftItemField | DraftTaskField | "targetTotalCostPerUnit";
+export type DraftField = DraftAssumptionField | DraftItemField | DraftTaskField | "targetTotalCostPerUnit";
 export type DraftValue = number | string | null;
 
 /** key = `${entity}:${id}:${field}` */
@@ -44,8 +49,8 @@ export interface DraftChange {
 }
 
 const COLUMN: Record<DraftEntity, Partial<Record<DraftField, string>>> = {
-  assumption: { value: "value" },
-  item: { unitPrice: "unit_price", quantity: "quantity", usefulLifeYears: "useful_life_years" },
+  assumption: { value: "value", valueText: "value_text" },
+  item: { unitPrice: "unit_price", quantity: "quantity", usefulLifeYears: "useful_life_years", bearer: "bearer" },
   task: {
     hoursPerOccurrence: "hours_per_occurrence",
     countDriver: "count_driver",
@@ -59,9 +64,11 @@ const COLUMN: Record<DraftEntity, Partial<Record<DraftField, string>>> = {
 
 const FIELD_LABEL: Record<DraftField, string> = {
   value: "",
+  valueText: "",
   unitPrice: "単価",
   quantity: "数量",
   usefulLifeYears: "耐用年数",
+  bearer: "誰が持つか",
   hoursPerOccurrence: "1回の工数",
   countDriver: "年間回数の決め方",
   countPerYear: "年間回数",
@@ -95,7 +102,10 @@ export function isNullableField(entity: DraftEntity, field: DraftField): boolean
 
 /** 保存値。見つからなければ undefined。 */
 export function baselineValue(bundle: CostModelBundle, entity: DraftEntity, id: string, field: DraftField): DraftValue | undefined {
-  if (entity === "assumption") return bundle.assumptions.find((a) => a.costAssumptionId === id)?.value;
+  if (entity === "assumption") {
+    const a = bundle.assumptions.find((x) => x.costAssumptionId === id);
+    return a ? (a[field as DraftAssumptionField] as DraftValue) : undefined;
+  }
   if (entity === "item") {
     const item = bundle.items.find((i) => i.costItemId === id);
     return item ? (item[field as DraftItemField] as DraftValue) : undefined;
@@ -111,6 +121,8 @@ export function baselineValue(bundle: CostModelBundle, entity: DraftEntity, id: 
 export function isValidDraftValue(entity: DraftEntity, field: DraftField, value: DraftValue): boolean {
   if (field === "countDriver") return typeof value === "string" && value in TASK_DRIVER_LABEL;
   if (field === "performer") return typeof value === "string" && value in TASK_PERFORMER_SHORT_LABEL;
+  if (field === "bearer") return typeof value === "string" && value in ITEM_BEARER_SHORT_LABEL;
+  if (field === "valueText") return typeof value === "string" && value.trim() !== "";
   if (value === null) return isNullableField(entity, field);
   if (typeof value !== "number" || !Number.isFinite(value)) return false;
   return entity === "assumption" ? true : value >= 0;
@@ -165,7 +177,7 @@ export function applyDraft(bundle: CostModelBundle, draft: CostDraft): CostModel
 
 function unitOf(bundle: CostModelBundle, entity: DraftEntity, id: string, field: DraftField): string {
   const unit = bundle.model.unitBasisLabel || "m³";
-  if (entity === "assumption") return bundle.assumptions.find((a) => a.costAssumptionId === id)?.unit ?? "";
+  if (entity === "assumption") return field === "valueText" ? "" : bundle.assumptions.find((a) => a.costAssumptionId === id)?.unit ?? "";
   if (entity === "model") return `円/${unit}`;
   if (entity === "item") {
     const item = bundle.items.find((x) => x.costItemId === id);
@@ -218,6 +230,8 @@ export function formatDraftValue(field: DraftField, value: DraftValue): string {
   if (value === null) return "空欄";
   if (field === "countDriver") return TASK_DRIVER_LABEL[value as CostTaskDriver] ?? String(value);
   if (field === "performer") return TASK_PERFORMER_SHORT_LABEL[value as CostTaskPerformer] ?? String(value);
+  if (field === "bearer") return ITEM_BEARER_SHORT_LABEL[value as CostItemBearer] ?? String(value);
+  if (field === "valueText") return TANK_BEARER_LABEL[value as CostTankBearer] ?? String(value);
   if (typeof value === "number") return value.toLocaleString("ja-JP", { maximumFractionDigits: 6 });
   return String(value);
 }

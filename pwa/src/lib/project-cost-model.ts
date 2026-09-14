@@ -32,6 +32,12 @@
 // performer = site の作業は、オンサイトなら顧客、オフサイトなら SX がやる。
 // 顧客がやる作業は SX の原価にも作業時間にも数えない。顧客側の時間は SX の試算の対象外 (まさ 2026-09-14「知ったこっちゃなくない？SXのコストに含まれないじゃん」)。
 //
+// 明細には「誰が持つか」(bearer) を持たせる。値と意味は作業の「誰がやるか」と同じで、SX が持つ明細だけを SX の原価に入れる。
+// 顧客工場に置くリアクター (処理設備) は顧客が買う (まさ 2026-09-14「リアクターは顧客が買う前提だよ」)。
+// 顧客工場で出る使用済み菌体の汚泥の処分は顧客がやる (まさ 2026-09-14「これは顧客側がやることじゃないの？」)。
+// どちらも bearer = site (オンサイトは顧客、オフサイトは SX工場の設備・処分なので SX)。
+// オンサイトの槽を誰が持つかは前提 onsite_tank_bearer (value_text: customer / sx)。顧客が持つときは、槽の既設 / 新設は SX の原価に効かない。
+//
 // 金属回収は酸で菌体を溶かして金属を取り出すので、菌体使用回数は1回で固定する。使い回せるのは色素分解だけ (まさ 2026-09-13)。
 //
 // 前提・明細・作業は strain / application 列で「どの株・どの用途に効くか」を持つ。null は共通。
@@ -71,8 +77,8 @@ export const LOCATION_LABEL: Record<CostLocation, string> = {
   offsite: "オフサイト（SX工場まで運んで処理）",
 };
 export const LOCATION_DESCRIPTION: Record<CostLocation, string> = {
-  onsite: "顧客工場の槽の横に装置を置いて処理する。処理の運転は顧客がやり、SXは菌体の搬入・搬出や交換で巡回する",
-  offsite: "排液をタンクローリーでSX工場まで運び、SX工場に新設する槽で処理する。処理の運転はSXがやり、処理水はSX工場から流す",
+  onsite: "顧客工場の槽の横に、顧客が買ったリアクターを置いて処理する。運転と汚泥の処分は顧客がやり、SXは菌体の搬入・搬出や交換で巡回する",
+  offsite: "排液をタンクローリーでSX工場まで運び、SX工場に新設する槽で処理する。設備と運転と汚泥の処分はSXが持ち、処理水はSX工場から流す",
 };
 export const OFFSITE_DESCRIPTION = LOCATION_DESCRIPTION.offsite;
 export const METHODS: CostMethod[] = ["循環", "投入"];
@@ -84,19 +90,28 @@ export function scopesFor(location: CostLocation, method: CostMethod): CostScena
   return [method, "共通", location === "offsite" ? "オフサイト" : "現場共通"];
 }
 
-/** オフサイトは SX工場に槽を新設するので、槽の選択肢は新設だけ。 */
-export function tankModesFor(location: CostLocation): CostTankMode[] {
-  return location === "offsite" ? ["新設"] : ["既設", "新設"];
+/** オンサイトの槽を誰が持つか。 */
+export type CostTankBearer = "sx" | "customer";
+export const TANK_BEARER_LABEL: Record<CostTankBearer, string> = { customer: "顧客", sx: "SX" };
+
+/**
+ * 槽の選択肢。オフサイトは SX工場に槽を新設するので新設だけ。
+ * オンサイトの槽を顧客が持つときは、SX の原価に槽が乗らないので「既設」(SX の負担0) の1つだけにする。
+ */
+export function tankModesFor(location: CostLocation, onsiteTank: CostTankBearer = "sx"): CostTankMode[] {
+  if (location === "offsite") return ["新設"];
+  return onsiteTank === "customer" ? ["既設"] : ["既設", "新設"];
 }
 
-/** シナリオの短い呼び名 (方式は含めない)。例: 直接投入・既設槽 / 直接投入・SX工場 */
-export function scenarioLabelOf(location: CostLocation, method: CostMethod, tankMode: CostTankMode): string {
-  return `${METHOD_LABEL[method]}・${location === "offsite" ? "SX工場" : `${tankMode}槽`}`;
+/** シナリオの短い呼び名 (方式は含めない)。例: 直接投入・既設槽 / 直接投入・顧客の槽 / 直接投入・SX工場 */
+export function scenarioLabelOf(location: CostLocation, method: CostMethod, tankMode: CostTankMode, onsiteTank: CostTankBearer = "sx"): string {
+  const tank = location === "offsite" ? "SX工場" : onsiteTank === "customer" ? "顧客の槽" : `${tankMode}槽`;
+  return `${METHOD_LABEL[method]}・${tank}`;
 }
 
-/** シナリオの呼び名 (方式つき)。例: オンサイト・直接投入・既設槽 */
-export function scenarioFullLabelOf(location: CostLocation, method: CostMethod, tankMode: CostTankMode): string {
-  return `${LOCATION_SHORT_LABEL[location]}・${scenarioLabelOf(location, method, tankMode)}`;
+/** シナリオの呼び名 (方式つき)。例: オンサイト・直接投入・顧客の槽 */
+export function scenarioFullLabelOf(location: CostLocation, method: CostMethod, tankMode: CostTankMode, onsiteTank: CostTankBearer = "sx"): string {
+  return `${LOCATION_SHORT_LABEL[location]}・${scenarioLabelOf(location, method, tankMode, onsiteTank)}`;
 }
 
 /** 画面での呼び名。DB の値 '中央培養' はそのまま使い、表示だけ置き換える。 */
@@ -168,6 +183,8 @@ export interface CostItem {
   sortOrder: number;
   strain: CostStrain | null;
   application: CostApplication | null;
+  /** 誰が持つか。SX が持つ明細だけを SX の原価に入れる。 */
+  bearer: CostItemBearer;
 }
 
 /** 作業の年間回数の決め方。 */
@@ -193,12 +210,31 @@ export const TASK_PERFORMER_LABEL: Record<CostTaskPerformer, string> = {
 };
 export const TASK_PERFORMER_SHORT_LABEL: Record<CostTaskPerformer, string> = { sx: "SX", customer: "顧客", site: "場所による" };
 
+function resolveWho(value: CostTaskPerformer, scenario: CostScenarioScope, location: CostLocation): "sx" | "customer" {
+  if (scenario === "中央培養") return "sx";
+  if (value === "customer") return "customer";
+  if (value === "site") return location === "onsite" ? "customer" : "sx";
+  return "sx";
+}
+
 /** その方式で、作業を実際に誰がやるか。製造拠点の作業は常に SX。 */
 export function resolvePerformer(task: Pick<CostTask, "performer" | "scenario">, location: CostLocation): "sx" | "customer" {
-  if (task.scenario === "中央培養") return "sx";
-  if (task.performer === "customer") return "customer";
-  if (task.performer === "site") return location === "onsite" ? "customer" : "sx";
-  return "sx";
+  return resolveWho(task.performer, task.scenario, location);
+}
+
+/** 明細の費用を誰が持つか。値と意味は「誰がやるか」と同じ (site = オンサイトは顧客、オフサイトは SX)。 */
+export type CostItemBearer = CostTaskPerformer;
+export const ITEM_BEARERS: CostItemBearer[] = ["sx", "customer", "site"];
+export const ITEM_BEARER_LABEL: Record<CostItemBearer, string> = {
+  sx: "SX",
+  customer: "顧客",
+  site: "処理する場所の持ち主（オンサイトは顧客・オフサイトはSX）",
+};
+export const ITEM_BEARER_SHORT_LABEL: Record<CostItemBearer, string> = { sx: "SX", customer: "顧客", site: "場所による" };
+
+/** その方式で、明細の費用を実際に誰が持つか。菌体の製造拠点の明細は常に SX。 */
+export function resolveBearer(item: Pick<CostItem, "bearer" | "scenario">, location: CostLocation): "sx" | "customer" {
+  return resolveWho(item.bearer, item.scenario, location);
 }
 
 /** 「運ぶ」に数える作業 (菌体の巡回と、排液の輸送)。内訳ではほかの作業と分けて出す。 */
@@ -324,6 +360,7 @@ export const COST_ROLE_KEYS = new Set([
   "power_unit_price",
   "new_tank_capex",
   "tank_life_years",
+  "onsite_tank_bearer",
   "spent_wet_factor",
   "sludge_disposal_price",
   "truck_capacity_m3",
@@ -449,9 +486,9 @@ export const BREAKDOWN_HINT: Record<CostBreakdownKey, string> = {
   biomass: "第1段の菌体1kgの原価 × 使い切る菌体量",
   transport: "オンサイトは菌体の搬入・搬出と移動、オフサイトは排液の輸送。工数 × 作業単価 ＋ 経費",
   labor: "SXがやる、運ぶ以外の作業（オフサイトの処理の運転、設備の交換、閉鎖系の管理など）。工数 × 作業単価 ＋ 経費",
-  postProcess: "使用済み菌体の後処理。金属回収は酸処理、色素分解は汚泥としての処分",
+  postProcess: "SXが持つ使用済み菌体の後処理。金属回収は酸処理。色素分解の汚泥の処分は、オンサイトでは顧客が持つので入らない",
   consumables: "処理に使う消耗品・電力・分析と、オフサイトの放流費",
-  capex: "処理設備と槽の初期投資 ÷ 耐用年数",
+  capex: "SXが持つ処理設備と槽の初期投資 ÷ 耐用年数。オンサイトのリアクターと槽は顧客が買うので入らない",
 };
 export const BREAKDOWN_ORDER: CostBreakdownKey[] = ["biomass", "transport", "labor", "postProcess", "consumables", "capex"];
 
@@ -543,6 +580,8 @@ export interface CostComputation {
   applications: CostApplication[];
   /** データに現れる方式。オフサイトの明細・作業が1行も無い試算はオンサイトだけ。 */
   locations: CostLocation[];
+  /** オンサイトの槽を誰が持つか (前提 onsite_tank_bearer)。顧客のとき、オンサイトの槽は「既設」(SX の負担0) だけになる。 */
+  onsiteTankBearer: CostTankBearer;
   biomass: CostBiomassCost;
   biomassByStrain: CostBiomassCost[];
   scenarios: CostScenarioResult[];
@@ -644,6 +683,19 @@ export function rowAppliesTo(
 ): boolean {
   if (row.scenario === "中央培養") return scopeApplies(row, { strain: sel.strain, application: null });
   return scopesFor(location, method).includes(row.scenario) && scopeApplies(row, sel);
+}
+
+/** 画面で選択肢から選ぶ前提 (value_text に入れる)。 */
+export const TEXT_CHOICE_ROLES: Record<string, Array<{ value: string; label: string }>> = {
+  onsite_tank_bearer: [
+    { value: "customer", label: TANK_BEARER_LABEL.customer },
+    { value: "sx", label: TANK_BEARER_LABEL.sx },
+  ],
+};
+
+/** オンサイトの槽を誰が持つか。前提が無い試算は、これまでどおり SX。 */
+export function onsiteTankBearer(assumptions: CostAssumption[]): CostTankBearer {
+  return resolveAssumption(assumptions, "onsite_tank_bearer")?.valueText === "customer" ? "customer" : "sx";
 }
 
 /** 販売率 (0.01〜1)。前提が無ければ全量が売れる 1。 */
@@ -865,6 +917,7 @@ function taskAsItem(task: CostTask): CostItem {
     sortOrder: task.sortOrder,
     strain: task.strain,
     application: task.application,
+    bearer: "sx",
   };
 }
 
@@ -1004,6 +1057,7 @@ export function computeCostModel(
   const live = items.filter((i) => !i.isBreakdown && i.basis !== "内訳");
   const newTankCapex = roleValue(assumptions, "new_tank_capex", 18_000_000);
   const tankLife = roleValue(assumptions, "tank_life_years", 10);
+  const tankBearer = onsiteTankBearer(assumptions);
 
   const scenarios: CostScenarioResult[] = [];
   const derivedByApplication: CostComputation["derivedByApplication"] = [];
@@ -1047,7 +1101,8 @@ export function computeCostModel(
     for (const location of locations) for (const method of METHODS) {
       const scopes = scopesFor(location, method);
       const own = live.filter((i) => scopes.includes(i.scenario) && scopeApplies(i, sel));
-      const counted = own.filter((i) => i.costType !== "参考");
+      // SX の原価に入れるのは SX が持つ明細だけ。顧客が持つ明細 (オンサイトのリアクター・汚泥の処分など) は数えない。
+      const counted = own.filter((i) => i.costType !== "参考" && resolveBearer(i, location) === "sx");
       const applicableTasks = tasks.filter((t) => scopes.includes(t.scenario) && scopeApplies(t, sel));
       // SX の原価と作業時間に入れるのは SX がやる作業だけ。顧客がやる作業は数えない。
       const siteTaskAmounts = applicableTasks
@@ -1060,7 +1115,7 @@ export function computeCostModel(
       const siteOpexAnnual = siteItemOpexAnnual + siteTaskAnnual;
       const siteCapexAnnual = counted.filter((i) => i.costType === "CAPEX").reduce((s, i) => s + amount(i), 0);
       const siteCapexBase = items
-        .filter((i) => scopes.includes(i.scenario) && i.costType === "CAPEX" && !i.isBreakdown && scopeApplies(i, sel))
+        .filter((i) => scopes.includes(i.scenario) && i.costType === "CAPEX" && !i.isBreakdown && scopeApplies(i, sel) && resolveBearer(i, location) === "sx")
         .reduce((s, i) => s + i.quantity * i.unitPrice, 0);
       const siteStrainSpecificAnnual =
         counted.filter((i) => i.strain).reduce((s, i) => s + amount(i), 0) +
@@ -1092,7 +1147,7 @@ export function computeCostModel(
           : []),
       ];
 
-      for (const tankMode of tankModesFor(location)) {
+      for (const tankMode of tankModesFor(location, tankBearer)) {
         const tankAnnual = tankMode === "新設" ? safeDiv(newTankCapex, tankLife) : 0;
         const tankLabel = location === "offsite" ? "SX工場の槽（新設）" : "新設槽（コンクリート地下タンク）";
         const opexTotalAnnual = siteOpexAnnual + centralOpexAnnual;
@@ -1184,7 +1239,7 @@ export function computeCostModel(
           method,
           tankMode,
           location,
-          label: scenarioLabelOf(location, method, tankMode),
+          label: scenarioLabelOf(location, method, tankMode, tankBearer),
 
           siteItemOpexAnnual,
           siteItemOpexPerUnit: perUnit(siteItemOpexAnnual),
@@ -1244,6 +1299,7 @@ export function computeCostModel(
     strains,
     applications,
     locations,
+    onsiteTankBearer: tankBearer,
     biomass,
     biomassByStrain,
     scenarios,

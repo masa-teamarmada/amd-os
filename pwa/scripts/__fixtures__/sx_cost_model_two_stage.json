@@ -8,9 +8,9 @@
   "versionLabel": "260914版",
   "status": "active",
   "sourceUrl": "https://docs.google.com/spreadsheets/d/1ZGYjuQ-7grss83gVrVZ7jV7zd76AVuWDPqwi-JDjmVw/edit",
-  "sourceNote": "原典: Google Sheets SX_コスト試算_260820 (ちこ)。中島先生の設備・運用想定を反映した版。 2026-09-13 に二段階版へ組み替え（migration 393）。 同日、作業リストと販売率を足した（migration 394/395）。 同日、作業の流れの段、オフサイトの比較、金属回収の使用回数の固定を足した（migration 396/397）。 2026-09-14、方式と装置を分け、作業に誰がやるかを持たせた（migration 398/399）。 同日、顧客がやる作業の時間を画面と注記から外した（migration 400）。",
-  "summaryMd": "SXの排液処理を、**菌体の製造原価**と**用途別の処理原価**の二段階で試算する。\n\n**第1段 菌体の製造原価** — 株（強化株／自然株）ごとに、菌体の製造拠点で乾燥菌体1kgをつくる原価を出す。菌体の製造拠点は、顧客工場では培養せず、SX側の1拠点でまとめて菌体を育て、濃縮して各工場へ運ぶところ。同じ株なら用途では変わらない。強化株は閉鎖系の追加費用が乗る。生産した菌体のうち売れる割合（販売率）で割るので、売れ残りが出ると1kgあたりの原価は上がる。\n\n**第2段 用途別の処理原価** — 第1段の原価を一定として、色素分解と金属回収のそれぞれで排水1m³あたりの総コストを出す。用途で変わるのは、必要な菌体の量（対象物質の濃度 ÷ 取り込み効率 ÷ 菌体使用回数）と、使用済み菌体の後処理。菌体を使い回せるのは色素分解だけで、金属回収は酸で菌体を溶かして金属を取り出すので、使用回数は1回で固定する。\n\n**方式と装置を分けて並べる** — 方式は、顧客工場で処理するオンサイトと、排液をSX工場まで運んで処理するオフサイトの2つ。装置は、菌体を筒に閉じ込めて排液を通す循環カートリッジと、菌体を槽に入れて混ぜ膜でこし取る直接投入の2つで、どちらの方式でも選べる。\n\n**SXの原価に入れるのはSXがやる作業だけ** — 顧客工場での処理の運転は顧客がやる作業として、SXの原価にも作業時間にも入れない。オフサイトではSX工場でSXが運転するので、SXの原価に入る。\n\n操作パネルで株・用途・方式・装置・槽を切り替え、前提・作業リスト・明細の数字を書き換えると、結果がその場で再計算される。結果の欄には総コストの内訳を棒グラフで出し、操作パネルの一番上には作業の流れと段ごとの年間工数を出す。書き換えた数字は保存されない。正本へ書くのは、管理者が「この値を保存」を押したときだけ。\n\nちこ作成の260820版の明細を土台に、2026-09-13に二段階へ組み替えた。人件費・巡回サービス・閉鎖系の追加費用・色素用の後処理・色素の濃さを追加し、いずれも確度つきで置いている。同日、人件費を作業リスト（作業ごとの工数 × 作業単価）で持つ形に変え、販売率を足した。さらに同日、作業を流れの段に並べ直し、オフサイトの比較を足した。2026-09-14 に、方式（オンサイト / オフサイト）と装置（循環カートリッジ / 直接投入）を分け、作業ごとに誰がやるかを持たせた。",
-  "systemScopeMd": "**対象** — 工場排液を、生きたシアノバクテリア（藍藻）で処理する。用途は色素分解と金属回収の2つを並べる。\n\n**規模** — 顧客工場1拠点あたり 100 m³/日 × 300 日/年 ＝ 30,000 m³/年。1バッチ100 m³、反応時間（HRT）4時間のバッチ運転。\n\n**第1段：菌体は菌体の製造拠点で作る** — 顧客工場では培養せず、SX側の1拠点でまとめて菌体を育て、濃縮して各工場へ運ぶ。乾燥菌体1kgあたりの原価は、「(培養設備の償却年額 ＋ 年ごとの固定費 ＋ 製造拠点の作業) ÷ 年間生産能力 ＋ 菌体量に比例する費用」を販売率で割って出す。年間生産能力いっぱいに作り、そのうち販売率（既定100%）の分が売れる前提。売れ残りも作った分の費用はかかる。\n\n**第2段：方式と装置を分けて比較する**\n\n方式（どこで処理するか）\n- **オンサイト** — 顧客工場の槽の横に装置を置いて処理する。処理の運転は顧客がやる。SXは菌体の搬入・搬出や交換で巡回する。槽は顧客の既存調整タンクを流用するか（既設）、新設する\n- **オフサイト** — 排液をタンクローリーでSX工場まで運び、SX工場に新設する槽で処理する。処理の運転はSXがやり、処理水はSX工場から流す。顧客工場への巡回と、顧客工場内の区画・立入制限は発生しない。代わりに、排液の輸送・受け入れ・放流の費用が乗る\n\n装置（菌体と排液をどう触れさせるか。どちらの方式でも選べる）\n- **循環カートリッジ** — 菌体をカートリッジ内の保持モジュールに留め、排液を循環させて接触させる。モジュールは耐用バッチ数ごとに交換する\n- **直接投入** — 菌体を槽へ直接投入して撹拌し、反応後に UF/MF 膜で菌体を分離回収する。膜は約3年で交換する\n\n**槽** — オンサイトは既設／新設の2通り。顧客の既存調整タンクを流用できれば0円。新設ならコンクリート地下タンク100 m³で1,800万円（10年償却）。オフサイトは SX工場に同じ槽を新設する。用途ごとに、オンサイト4通り（装置2 × 槽2）とオフサイト2通り（装置2）の6シナリオになる。\n\n**オンサイトの設備は独立プラント新設ではなく増分アドオン** — 顧客の既存調整タンク・排水ライン・ユーティリティ・主処理設備を使い、密閉接触・循環、菌体捕捉、回収サービスを足す（2026-07-23 確定）。\n\n**収益モデル** — 処理費のみ。売価500円/m³。回収物（金属など）の売却収入はまだモデルに入れていない。\n\n**作業（人件費）** — 総コストに入れる（2026-09-13 まさ指示）。作業リストに、作業ごとの1回の工数・年間回数・作業単価・1回の経費を置き、年額 ＝ 年間回数 ×（工数 × 作業単価 ＋ 経費）で積む。作業ごとに誰がやるか（SX / 顧客 / 処理する場所の人）を持ち、**SXの原価に入れるのはSXがやる作業だけ**。処理の運転は中島先生の試算にある手動運用の作業時間で置き、オンサイトでは顧客の作業（SXの原価にも作業時間にも入れない）、オフサイトではSXの作業とする（2026-09-14 まさ）。菌体の搬入・搬出、移動、モジュール・膜の交換、閉鎖系の検査や安全委員会も同じリストに並べる。作業は流れの段（菌体をつくる → 菌体を運ぶ／排液を運ぶ → 排液を処理する → 設備を保つ → 使用済み菌体を後処理する → 閉鎖系を管理する）の順に並べ、段ごとの年間工数を出す。",
+  "sourceNote": "原典: Google Sheets SX_コスト試算_260820 (ちこ)。中島先生の設備・運用想定を反映した版。 2026-09-13 に二段階版へ組み替え（migration 393）。 同日、作業リストと販売率を足した（migration 394/395）。 同日、作業の流れの段、オフサイトの比較、金属回収の使用回数の固定を足した（migration 396/397）。 2026-09-14、方式と装置を分け、作業に誰がやるかを持たせた（migration 398/399）。 同日、顧客がやる作業の時間を画面と注記から外した（migration 400）。 同日、色素分解の菌体使用回数を10回にし、明細に誰が持つかを持たせ、顧客工場のリアクター・槽と汚泥の処分を顧客の持ち分にした（migration 402/403）。",
+  "summaryMd": "SXの排液処理を、**菌体の製造原価**と**用途別の処理原価**の二段階で試算する。\n\n**第1段 菌体の製造原価** — 株（強化株／自然株）ごとに、菌体の製造拠点で乾燥菌体1kgをつくる原価を出す。菌体の製造拠点は、顧客工場では培養せず、SX側の1拠点でまとめて菌体を育て、濃縮して各工場へ運ぶところ。同じ株なら用途では変わらない。強化株は閉鎖系の追加費用が乗る。生産した菌体のうち売れる割合（販売率）で割るので、売れ残りが出ると1kgあたりの原価は上がる。\n\n**第2段 用途別の処理原価** — 第1段の原価を一定として、色素分解と金属回収のそれぞれで排水1m³あたりの総コストを出す。用途で変わるのは、必要な菌体の量（対象物質の濃度 ÷ 取り込み効率 ÷ 菌体使用回数）と、使用済み菌体の後処理。菌体を使い回せるのは色素分解だけで、金属回収は酸で菌体を溶かして金属を取り出すので、使用回数は1回で固定する。色素分解は10回使い回す前提で置いている（2026-07の設備アドオン試算と同じ。杉浦先生に確認中）。\n\n**方式と装置を分けて並べる** — 方式は、顧客工場で処理するオンサイトと、排液をSX工場まで運んで処理するオフサイトの2つ。装置は、菌体を筒に閉じ込めて排液を通す循環カートリッジと、菌体を槽に入れて混ぜ膜でこし取る直接投入の2つで、どちらの方式でも選べる。\n\n**SXの原価に入れるのはSXがやる作業だけ** — 顧客工場での処理の運転は顧客がやる作業として、SXの原価にも作業時間にも入れない。オフサイトではSX工場でSXが運転するので、SXの原価に入る。\n\n**顧客工場の設備と汚泥の処分は顧客が持つ** — 顧客工場に置くリアクター（処理設備）と槽は顧客が買い、顧客工場で出る使用済み菌体の汚泥の処分も顧客がやる（2026-09-14 まさ）。どちらもSXの原価に入れない。明細ごとに誰が持つか（SX / 顧客 / 処理する場所の持ち主）を持ち、画面で変えられる。SX工場で処理するオフサイトでは、設備・槽・汚泥の処分はSXが持つ。\n\n操作パネルで株・用途・方式・装置・槽を切り替え、前提・作業リスト・明細の数字を書き換えると、結果がその場で再計算される。結果の欄には総コストの内訳を棒グラフで出し、操作パネルの一番上には作業の流れと段ごとの年間工数を出す。書き換えた数字は保存されない。正本へ書くのは、管理者が「この値を保存」を押したときだけ。\n\nちこ作成の260820版の明細を土台に、2026-09-13に二段階へ組み替えた。人件費・巡回サービス・閉鎖系の追加費用・色素用の後処理・色素の濃さを追加し、いずれも確度つきで置いている。同日、人件費を作業リスト（作業ごとの工数 × 作業単価）で持つ形に変え、販売率を足した。さらに同日、作業を流れの段に並べ直し、オフサイトの比較を足した。2026-09-14 に、方式（オンサイト / オフサイト）と装置（循環カートリッジ / 直接投入）を分け、作業ごとに誰がやるかを持たせた。同日、色素分解の菌体使用回数を10回にし、顧客工場のリアクター・槽と汚泥の処分を顧客が持つ形にした。",
+  "systemScopeMd": "**対象** — 工場排液を、生きたシアノバクテリア（藍藻）で処理する。用途は色素分解と金属回収の2つを並べる。\n\n**規模** — 顧客工場1拠点あたり 100 m³/日 × 300 日/年 ＝ 30,000 m³/年。1バッチ100 m³、反応時間（HRT）4時間のバッチ運転。\n\n**第1段：菌体は菌体の製造拠点で作る** — 顧客工場では培養せず、SX側の1拠点でまとめて菌体を育て、濃縮して各工場へ運ぶ。乾燥菌体1kgあたりの原価は、「(培養設備の償却年額 ＋ 年ごとの固定費 ＋ 製造拠点の作業) ÷ 年間生産能力 ＋ 菌体量に比例する費用」を販売率で割って出す。年間生産能力いっぱいに作り、そのうち販売率（既定100%）の分が売れる前提。売れ残りも作った分の費用はかかる。\n\n**第2段：方式と装置を分けて比較する**\n\n方式（どこで処理するか）\n- **オンサイト** — 顧客工場の槽の横に、顧客が買ったリアクター（装置）を置いて処理する。処理の運転と、使用済み菌体の汚泥の処分は顧客がやる。SXは菌体の搬入・搬出や交換で巡回する。槽は、既存調整タンクの流用でも新設でも顧客の設備\n- **オフサイト** — 排液をタンクローリーでSX工場まで運び、SX工場に新設する槽で処理する。処理の運転はSXがやり、処理水はSX工場から流す。顧客工場への巡回と、顧客工場内の区画・立入制限は発生しない。代わりに、排液の輸送・受け入れ・放流の費用が乗る。設備・槽・汚泥の処分はSXが持つ\n\n装置（菌体と排液をどう触れさせるか。どちらの方式でも選べる）\n- **循環カートリッジ** — 菌体をカートリッジ内の保持モジュールに留め、排液を循環させて接触させる。モジュールは耐用バッチ数ごとに交換する\n- **直接投入** — 菌体を槽へ直接投入して撹拌し、反応後に UF/MF 膜で菌体を分離回収する。膜は約3年で交換する\n\n**槽** — オンサイトの槽は顧客の設備（既存調整タンクの流用でも新設でも）で、SXの原価に入らない（2026-09-14 まさ）。オフサイトは SX工場にコンクリート地下タンク100 m³（1,800万円・10年償却）を新設する。用途ごとに、オンサイト2通り（装置2）とオフサイト2通り（装置2）の4シナリオになる。オンサイトの槽をSXが持つ形に変えると、既設（0円）／新設の2通りに戻る。\n\n**使用済み菌体の後処理** — 金属回収は、SXが使用済み菌体を引き取って酸で溶かし、金属を回収する（SXの原価）。色素分解は使用済み菌体を脱水汚泥として処分し、オンサイトでは顧客がやる（SXの原価に入れない）。\n\n**オンサイトの設備は独立プラント新設ではなく増分アドオン** — 顧客の既存調整タンク・排水ライン・ユーティリティ・主処理設備を使い、密閉接触・循環、菌体捕捉、回収サービスを足す（2026-07-23 確定）。このリアクターは顧客が買う（2026-09-14 まさ）。\n\n**収益モデル** — 処理費のみ。売価500円/m³。回収物（金属など）の売却収入はまだモデルに入れていない。\n\n**作業（人件費）** — 総コストに入れる（2026-09-13 まさ指示）。作業リストに、作業ごとの1回の工数・年間回数・作業単価・1回の経費を置き、年額 ＝ 年間回数 ×（工数 × 作業単価 ＋ 経費）で積む。作業ごとに誰がやるか（SX / 顧客 / 処理する場所の人）を持ち、**SXの原価に入れるのはSXがやる作業だけ**。処理の運転は中島先生の試算にある手動運用の作業時間で置き、オンサイトでは顧客の作業（SXの原価にも作業時間にも入れない）、オフサイトではSXの作業とする（2026-09-14 まさ）。菌体の搬入・搬出、移動、モジュール・膜の交換、閉鎖系の検査や安全委員会も同じリストに並べる。作業は流れの段（菌体をつくる → 菌体を運ぶ／排液を運ぶ → 排液を処理する → 設備を保つ → 使用済み菌体を後処理する → 閉鎖系を管理する）の順に並べ、段ごとの年間工数を出す。",
   "targetTotalCostPerUnit": 300.0,
   "targetMarginRate": null,
   "targetNote": "2026-07-24 SX定例で置いた総コスト目標。既存処理コスト500円/m³前後に対して300円/m³を狙う。売価500円のままなら利益率40%に相当する。",
@@ -167,7 +167,7 @@
    "costAssumptionId": "ca_reuse_count",
    "groupLabel": "対象物質と菌体の量",
    "label": "菌体使用回数（色素分解）",
-   "value": 1.0,
+   "value": 10.0,
    "valueText": null,
    "unit": "回",
    "confidence": "H",
@@ -175,7 +175,7 @@
    "owner": "杉浦先生",
    "isKey": true,
    "roleKey": "reuse_count",
-   "note": "★最大の感度。1＝再利用せず毎回新品。技術的事実ではない保守的仮定。まさの記憶では色素分解なら数十回使い回せる可能性があるが未確認（2026-08-23時点でうろ覚えと明言）。二段階版では菌体原価を1kgあたりで持つので、使用回数を上げると菌体費がそのまま回数分下がる。杉浦先生へ確認中。 使い回せるのは色素分解だけ。金属回収は酸で菌体を溶かして金属を取り出すので、使用回数は1回で固定している（2026-09-13 まさ）。",
+   "note": "★最大の感度。色素分解で菌体を何回使い回すか。10回で置いている（2026-09-14 まさ「もともと10回使える前提でしょ？」。2026-07の設備アドオン試算の前提＝培養液を10回使い回し、運転ロス2%）。技術的な確認はまだで、杉浦先生へ確認中。1回（使い捨て）にすると菌体費が10倍になる。二段階版では菌体原価を1kgあたりで持つので、使用回数を上げると菌体費がそのまま回数分下がる。 使い回せるのは色素分解だけ。金属回収は酸で菌体を溶かして金属を取り出すので、使用回数は1回で固定している（2026-09-13 まさ）。",
    "visibility": "amd_internal",
    "sortOrder": 25,
    "strain": null,
@@ -630,6 +630,24 @@
    "sortOrder": 75,
    "strain": null,
    "application": null
+  },
+  {
+   "costAssumptionId": "ca5_onsite_tank_bearer",
+   "groupLabel": "電力と槽",
+   "label": "オンサイトの槽を持つのは",
+   "value": null,
+   "valueText": "customer",
+   "unit": null,
+   "confidence": "S",
+   "sourceKind": null,
+   "owner": "AMD（内部）",
+   "isKey": false,
+   "roleKey": "onsite_tank_bearer",
+   "note": "顧客工場で使う槽（既存調整タンクの流用でも新設でも）は顧客の設備で、リアクターと同じく顧客が買う前提（2026-09-14 まさ「リアクターは顧客が買う前提だよ」）。顧客のときは、槽の既設・新設はSXの原価に効かない。SXが持つ形を見たいときはSXにすると、既設（0円）と新設（新設槽CAPEX ÷ 償却年数）を選べる。オフサイトの槽は、この前提によらずSX工場の設備としてSXが持つ。",
+   "visibility": "amd_internal",
+   "sortOrder": 80,
+   "strain": null,
+   "application": null
   }
  ],
  "items": [
@@ -656,7 +674,8 @@
    "visibility": "amd_internal",
    "sortOrder": 10,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_044",
@@ -681,7 +700,8 @@
    "visibility": "amd_internal",
    "sortOrder": 20,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_045",
@@ -706,7 +726,8 @@
    "visibility": "amd_internal",
    "sortOrder": 30,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_046",
@@ -731,7 +752,8 @@
    "visibility": "amd_internal",
    "sortOrder": 40,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_047",
@@ -756,7 +778,8 @@
    "visibility": "amd_internal",
    "sortOrder": 50,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_048",
@@ -781,7 +804,8 @@
    "visibility": "amd_internal",
    "sortOrder": 60,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_049",
@@ -806,7 +830,8 @@
    "visibility": "amd_internal",
    "sortOrder": 70,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_050",
@@ -831,7 +856,8 @@
    "visibility": "amd_internal",
    "sortOrder": 80,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_051",
@@ -856,7 +882,8 @@
    "visibility": "amd_internal",
    "sortOrder": 90,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_052",
@@ -881,7 +908,8 @@
    "visibility": "amd_internal",
    "sortOrder": 100,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_053",
@@ -906,7 +934,8 @@
    "visibility": "amd_internal",
    "sortOrder": 110,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_054",
@@ -931,7 +960,8 @@
    "visibility": "amd_internal",
    "sortOrder": 120,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_055",
@@ -956,7 +986,8 @@
    "visibility": "amd_internal",
    "sortOrder": 130,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_056",
@@ -981,7 +1012,8 @@
    "visibility": "amd_internal",
    "sortOrder": 140,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_057",
@@ -1006,7 +1038,8 @@
    "visibility": "amd_internal",
    "sortOrder": 150,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_058",
@@ -1031,7 +1064,8 @@
    "visibility": "amd_internal",
    "sortOrder": 160,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_059",
@@ -1056,7 +1090,8 @@
    "visibility": "amd_internal",
    "sortOrder": 170,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_060",
@@ -1081,7 +1116,8 @@
    "visibility": "amd_internal",
    "sortOrder": 180,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_061",
@@ -1106,7 +1142,8 @@
    "visibility": "amd_internal",
    "sortOrder": 190,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_062",
@@ -1131,7 +1168,8 @@
    "visibility": "amd_internal",
    "sortOrder": 200,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_063",
@@ -1156,7 +1194,8 @@
    "visibility": "amd_internal",
    "sortOrder": 210,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_064",
@@ -1181,7 +1220,8 @@
    "visibility": "amd_internal",
    "sortOrder": 220,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_065",
@@ -1206,7 +1246,8 @@
    "visibility": "amd_internal",
    "sortOrder": 230,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_066",
@@ -1231,7 +1272,8 @@
    "visibility": "amd_internal",
    "sortOrder": 240,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_067",
@@ -1256,7 +1298,8 @@
    "visibility": "amd_internal",
    "sortOrder": 250,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_068",
@@ -1281,7 +1324,8 @@
    "visibility": "amd_internal",
    "sortOrder": 260,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_069",
@@ -1306,7 +1350,8 @@
    "visibility": "amd_internal",
    "sortOrder": 270,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_070",
@@ -1331,7 +1376,8 @@
    "visibility": "amd_internal",
    "sortOrder": 280,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_071",
@@ -1356,7 +1402,8 @@
    "visibility": "amd_internal",
    "sortOrder": 290,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_072",
@@ -1381,7 +1428,8 @@
    "visibility": "amd_internal",
    "sortOrder": 300,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_073",
@@ -1406,7 +1454,8 @@
    "visibility": "amd_internal",
    "sortOrder": 310,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_074",
@@ -1431,7 +1480,8 @@
    "visibility": "amd_internal",
    "sortOrder": 320,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_075",
@@ -1456,7 +1506,8 @@
    "visibility": "amd_internal",
    "sortOrder": 330,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_076",
@@ -1481,7 +1532,8 @@
    "visibility": "amd_internal",
    "sortOrder": 340,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_077",
@@ -1506,7 +1558,8 @@
    "visibility": "amd_internal",
    "sortOrder": 350,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_078",
@@ -1531,7 +1584,8 @@
    "visibility": "amd_internal",
    "sortOrder": 360,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_079",
@@ -1556,7 +1610,8 @@
    "visibility": "amd_internal",
    "sortOrder": 370,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_080",
@@ -1581,7 +1636,8 @@
    "visibility": "amd_internal",
    "sortOrder": 380,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_081",
@@ -1606,7 +1662,8 @@
    "visibility": "amd_internal",
    "sortOrder": 390,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_082",
@@ -1631,7 +1688,8 @@
    "visibility": "amd_internal",
    "sortOrder": 400,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_083",
@@ -1656,7 +1714,8 @@
    "visibility": "amd_internal",
    "sortOrder": 410,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_084",
@@ -1681,7 +1740,8 @@
    "visibility": "amd_internal",
    "sortOrder": 420,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_085",
@@ -1706,7 +1766,8 @@
    "visibility": "amd_internal",
    "sortOrder": 430,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_086",
@@ -1731,7 +1792,8 @@
    "visibility": "amd_internal",
    "sortOrder": 440,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_087",
@@ -1756,7 +1818,8 @@
    "visibility": "amd_internal",
    "sortOrder": 450,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_088",
@@ -1781,7 +1844,8 @@
    "visibility": "amd_internal",
    "sortOrder": 460,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_089",
@@ -1806,7 +1870,8 @@
    "visibility": "amd_internal",
    "sortOrder": 470,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_090",
@@ -1831,7 +1896,8 @@
    "visibility": "amd_internal",
    "sortOrder": 480,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_091",
@@ -1856,7 +1922,8 @@
    "visibility": "amd_internal",
    "sortOrder": 490,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_092",
@@ -1881,7 +1948,8 @@
    "visibility": "amd_internal",
    "sortOrder": 500,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_093",
@@ -1906,7 +1974,8 @@
    "visibility": "amd_internal",
    "sortOrder": 510,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_094",
@@ -1931,7 +2000,8 @@
    "visibility": "amd_internal",
    "sortOrder": 520,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_095",
@@ -1956,7 +2026,8 @@
    "visibility": "amd_internal",
    "sortOrder": 530,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_096",
@@ -1981,7 +2052,8 @@
    "visibility": "amd_internal",
    "sortOrder": 540,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_097",
@@ -2006,7 +2078,8 @@
    "visibility": "amd_internal",
    "sortOrder": 550,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_098",
@@ -2031,7 +2104,8 @@
    "visibility": "amd_internal",
    "sortOrder": 560,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_099",
@@ -2056,7 +2130,8 @@
    "visibility": "amd_internal",
    "sortOrder": 570,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_100",
@@ -2081,7 +2156,8 @@
    "visibility": "amd_internal",
    "sortOrder": 580,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_101",
@@ -2106,7 +2182,8 @@
    "visibility": "amd_internal",
    "sortOrder": 590,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_102",
@@ -2131,7 +2208,8 @@
    "visibility": "amd_internal",
    "sortOrder": 600,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_103",
@@ -2156,7 +2234,8 @@
    "visibility": "amd_internal",
    "sortOrder": 610,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_104",
@@ -2181,7 +2260,8 @@
    "visibility": "amd_internal",
    "sortOrder": 620,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_105",
@@ -2206,7 +2286,8 @@
    "visibility": "amd_internal",
    "sortOrder": 630,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_106",
@@ -2231,7 +2312,8 @@
    "visibility": "amd_internal",
    "sortOrder": 640,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_107",
@@ -2256,7 +2338,8 @@
    "visibility": "amd_internal",
    "sortOrder": 650,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_108",
@@ -2281,7 +2364,8 @@
    "visibility": "amd_internal",
    "sortOrder": 660,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_109",
@@ -2306,7 +2390,8 @@
    "visibility": "amd_internal",
    "sortOrder": 670,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_110",
@@ -2331,7 +2416,8 @@
    "visibility": "amd_internal",
    "sortOrder": 680,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_111",
@@ -2356,7 +2442,8 @@
    "visibility": "amd_internal",
    "sortOrder": 690,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_112",
@@ -2381,7 +2468,8 @@
    "visibility": "amd_internal",
    "sortOrder": 700,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_113",
@@ -2406,7 +2494,8 @@
    "visibility": "amd_internal",
    "sortOrder": 710,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_114",
@@ -2431,7 +2520,8 @@
    "visibility": "amd_internal",
    "sortOrder": 720,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_115",
@@ -2456,7 +2546,8 @@
    "visibility": "amd_internal",
    "sortOrder": 730,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_116",
@@ -2481,7 +2572,8 @@
    "visibility": "amd_internal",
    "sortOrder": 740,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_117",
@@ -2506,7 +2598,8 @@
    "visibility": "amd_internal",
    "sortOrder": 750,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_118",
@@ -2531,7 +2624,8 @@
    "visibility": "amd_internal",
    "sortOrder": 760,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_119",
@@ -2556,7 +2650,8 @@
    "visibility": "amd_internal",
    "sortOrder": 770,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_120",
@@ -2581,7 +2676,8 @@
    "visibility": "amd_internal",
    "sortOrder": 780,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_121",
@@ -2606,7 +2702,8 @@
    "visibility": "amd_internal",
    "sortOrder": 790,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_122",
@@ -2631,7 +2728,8 @@
    "visibility": "amd_internal",
    "sortOrder": 800,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_123",
@@ -2656,7 +2754,8 @@
    "visibility": "amd_internal",
    "sortOrder": 810,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_124",
@@ -2681,7 +2780,8 @@
    "visibility": "amd_internal",
    "sortOrder": 820,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_125",
@@ -2706,7 +2806,8 @@
    "visibility": "amd_internal",
    "sortOrder": 830,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_126",
@@ -2731,7 +2832,8 @@
    "visibility": "amd_internal",
    "sortOrder": 840,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_127",
@@ -2756,7 +2858,8 @@
    "visibility": "amd_internal",
    "sortOrder": 850,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_128",
@@ -2781,7 +2884,8 @@
    "visibility": "amd_internal",
    "sortOrder": 860,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_129",
@@ -2806,7 +2910,8 @@
    "visibility": "amd_internal",
    "sortOrder": 870,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_130",
@@ -2831,7 +2936,8 @@
    "visibility": "amd_internal",
    "sortOrder": 880,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_131",
@@ -2856,7 +2962,8 @@
    "visibility": "amd_internal",
    "sortOrder": 890,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_132",
@@ -2881,7 +2988,8 @@
    "visibility": "amd_internal",
    "sortOrder": 900,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_133",
@@ -2906,7 +3014,8 @@
    "visibility": "amd_internal",
    "sortOrder": 910,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_134",
@@ -2931,7 +3040,8 @@
    "visibility": "amd_internal",
    "sortOrder": 920,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_135",
@@ -2956,7 +3066,8 @@
    "visibility": "amd_internal",
    "sortOrder": 930,
    "strain": null,
-   "application": "metal"
+   "application": "metal",
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_136",
@@ -2981,7 +3092,8 @@
    "visibility": "amd_internal",
    "sortOrder": 940,
    "strain": null,
-   "application": "metal"
+   "application": "metal",
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_137",
@@ -3006,7 +3118,8 @@
    "visibility": "amd_internal",
    "sortOrder": 950,
    "strain": null,
-   "application": "metal"
+   "application": "metal",
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_138",
@@ -3031,7 +3144,8 @@
    "visibility": "amd_internal",
    "sortOrder": 960,
    "strain": null,
-   "application": "metal"
+   "application": "metal",
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_139",
@@ -3056,7 +3170,8 @@
    "visibility": "amd_internal",
    "sortOrder": 970,
    "strain": null,
-   "application": "metal"
+   "application": "metal",
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_140",
@@ -3081,7 +3196,8 @@
    "visibility": "amd_internal",
    "sortOrder": 980,
    "strain": null,
-   "application": "metal"
+   "application": "metal",
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_141",
@@ -3106,7 +3222,8 @@
    "visibility": "amd_internal",
    "sortOrder": 990,
    "strain": null,
-   "application": "metal"
+   "application": "metal",
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_142",
@@ -3131,7 +3248,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1000,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci2_c_exhaust_filter",
@@ -3156,7 +3274,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1000,
    "strain": "enhanced",
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_143",
@@ -3181,7 +3300,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1010,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci2_c_waste_inactivation",
@@ -3206,7 +3326,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1010,
    "strain": "enhanced",
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_144",
@@ -3231,7 +3352,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1020,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci2_c_work_area",
@@ -3256,7 +3378,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1020,
    "strain": "enhanced",
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_145",
@@ -3281,7 +3404,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1030,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_146",
@@ -3306,7 +3430,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1040,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_147",
@@ -3331,7 +3456,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1050,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_148",
@@ -3356,7 +3482,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1060,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci2_c_waste_chem",
@@ -3381,7 +3508,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1060,
    "strain": "enhanced",
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_149",
@@ -3406,7 +3534,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1070,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_150",
@@ -3431,7 +3560,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1080,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_151",
@@ -3456,7 +3586,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1090,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_152",
@@ -3481,7 +3612,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1100,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci2_s_treated_water",
@@ -3506,7 +3638,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1100,
    "strain": "enhanced",
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_153",
@@ -3531,7 +3664,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1110,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci2_s_exhaust_filter",
@@ -3556,7 +3690,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1110,
    "strain": "enhanced",
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_154",
@@ -3581,7 +3716,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1120,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci2_s_work_area",
@@ -3606,7 +3742,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1120,
    "strain": "enhanced",
-   "application": null
+   "application": null,
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_155",
@@ -3631,7 +3768,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1130,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_156",
@@ -3656,7 +3794,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1140,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_157",
@@ -3681,7 +3820,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1150,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_158",
@@ -3706,7 +3846,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1160,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_160",
@@ -3731,7 +3872,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1180,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_161",
@@ -3756,7 +3898,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1190,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_162",
@@ -3781,7 +3924,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1200,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_163",
@@ -3806,7 +3950,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1210,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_164",
@@ -3831,7 +3976,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1220,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_165",
@@ -3856,7 +4002,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1230,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_166",
@@ -3881,7 +4028,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1240,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_167",
@@ -3906,7 +4054,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1250,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_168",
@@ -3931,7 +4080,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1260,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_169",
@@ -3956,7 +4106,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1270,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_170",
@@ -3981,7 +4132,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1280,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_171",
@@ -4006,7 +4158,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1290,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_172",
@@ -4031,7 +4184,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1300,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci2_dye_disposal",
@@ -4052,11 +4206,12 @@
    "confidence": "H",
    "sourceKind": "推定",
    "owner": "ダイキアクシス",
-   "note": "色素分解では酸で溶かさないため、菌体をそのまま汚泥として処分する想定。単価 = 脱水後の湿重量倍率 × 汚泥の処分単価。菌体使用回数が増えるほど処分量は減る。",
+   "note": "色素分解では酸で溶かさないため、菌体をそのまま汚泥として処分する想定。単価 = 脱水後の湿重量倍率 × 汚泥の処分単価。菌体使用回数が増えるほど処分量は減る。 2026-09-14 から、オンサイトでは顧客工場で出る汚泥として顧客が処分する（SXの原価に入れない。まさ「これは顧客側がやることじゃないの？」）。SX工場で処理するオフサイトでは、SX工場で出る汚泥としてSXが持つ。",
    "visibility": "amd_internal",
    "sortOrder": 1300,
    "strain": null,
-   "application": "dye"
+   "application": "dye",
+   "bearer": "site"
   },
   {
    "costItemId": "ci_260820_173",
@@ -4081,7 +4236,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1310,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci2_dye_analysis",
@@ -4106,7 +4262,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1310,
    "strain": null,
-   "application": "dye"
+   "application": "dye",
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_174",
@@ -4131,7 +4288,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1320,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci2_dye_wash",
@@ -4156,7 +4314,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1320,
    "strain": null,
-   "application": "dye"
+   "application": "dye",
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_175",
@@ -4181,7 +4340,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1330,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_176",
@@ -4206,7 +4366,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1340,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_177",
@@ -4231,7 +4392,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1350,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci_260820_178",
@@ -4256,7 +4418,8 @@
    "visibility": "amd_internal",
    "sortOrder": 1360,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci4_off_receiving",
@@ -4281,7 +4444,8 @@
    "visibility": "amd_internal",
    "sortOrder": 2000,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   },
   {
    "costItemId": "ci4_off_discharge",
@@ -4306,7 +4470,8 @@
    "visibility": "amd_internal",
    "sortOrder": 2010,
    "strain": null,
-   "application": null
+   "application": null,
+   "bearer": "sx"
   }
  ],
  "tasks": [
@@ -4428,7 +4593,7 @@
    "sortOrder": 40,
    "strain": null,
    "application": null,
-   "performer": "site"
+   "performer": "customer"
   },
   {
    "costTaskId": "ct_run_injection",
@@ -4547,8 +4712,8 @@
    "countDriver": "batch",
    "owner": "ダイキアクシス",
    "sortOrder": 61,
-   "note": "使用済み菌体を脱水し、汚泥として処分業者へ引き渡すまでの作業。工数は未確認で空欄。処分費は明細の「使用済み菌体の処分」に積んでいる。",
-   "performer": "sx"
+   "note": "使用済み菌体を脱水し、汚泥として処分業者へ引き渡すまでの作業。工数は未確認で空欄。処分費は明細の「使用済み菌体の処分」に積んでいる。 2026-09-14 から、オンサイトでは顧客工場で出る汚泥として顧客がやる。SX工場で処理するオフサイトではSXがやる。",
+   "performer": "site"
   },
   {
    "costTaskId": "ct_c_safety_committee",

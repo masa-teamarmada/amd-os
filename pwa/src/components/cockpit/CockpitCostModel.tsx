@@ -244,8 +244,10 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
     application: view.application && applications.includes(view.application) ? view.application : applications[0] ?? null,
     location,
     method: METHODS.includes(view.method) ? view.method : "投入",
-    // オフサイトは SX工場に槽を新設する。オンサイトへ戻したときは、前に選んでいた槽に戻る。
-    tankMode: location === "offsite" ? "新設" : view.tankMode,
+    // オフサイトは SX工場に槽を新設する。オンサイトの槽を顧客が持つときは、SX の原価に槽が乗らないので「既設」(SX の負担0) だけ。
+    // オンサイトで槽を SX が持つ形へ戻したときは、前に選んでいた槽に戻る。
+    tankMode: location === "offsite" ? "新設" : computed.onsiteTankBearer === "customer" ? "既設" : view.tankMode,
+    onsiteTankBearer: computed.onsiteTankBearer,
   };
   const hasMargin = model.targetMarginRate !== null && model.targetMarginRate > 0;
   const flowSel = { application: selection.application, location: selection.location, method: selection.method };
@@ -311,11 +313,14 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
               value={selection.method}
               onChange={(v) => setView({ method: v })}
             />
-            {selection.location === "offsite" ? (
+            {selection.location === "offsite" || computed.onsiteTankBearer === "customer" ? (
               <div className="flex min-w-0 items-center gap-1.5">
                 <span className="w-7 shrink-0 text-[11px] font-semibold text-[#3c3c43] xl:w-auto">槽</span>
-                <span className="inline-flex min-h-[40px] items-center rounded-lg border border-[#d2d2d7] bg-[#f5f5f7] px-2.5 text-[12px] font-semibold text-[#6e6e73] xl:min-h-[30px]">
-                  SX工場に新設
+                <span
+                  title={selection.location === "offsite" ? undefined : "オンサイトの槽は顧客の設備。既設か新設かはSXの原価に効かない（前提「オンサイトの槽を持つのは」で変えられる）"}
+                  className="inline-flex min-h-[40px] items-center rounded-lg border border-[#d2d2d7] bg-[#f5f5f7] px-2.5 text-[12px] font-semibold text-[#6e6e73] xl:min-h-[30px]"
+                >
+                  {selection.location === "offsite" ? "SX工場に新設" : "顧客の設備"}
                 </span>
               </div>
             ) : (

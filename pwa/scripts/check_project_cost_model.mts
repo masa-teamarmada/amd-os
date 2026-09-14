@@ -16,19 +16,25 @@
 // — 作業に誰がやるかを持たせ、SX がやる作業だけを SX の原価に入れる。
 // 2026-09-14 まさ指摘⑤: 顧客側に残る運転の時間は「知ったこっちゃなくない？SXのコストに含まれないじゃん」
 // — 顧客がやる作業の時間や円は、計算にも画面にも出さない。
+// 2026-09-14 まさ指摘⑥:「繰り返し使える色素分解の方が金属回収より高いのが変。もともと10回使える前提でしょ？」
+// 「リアクターは顧客が買う前提だよ」「汚泥の処理単価とかあるけど、これは顧客側がやることじゃないの？」
+// — 明細に誰が持つか (bearer) を持たせ、SX が持つ明細だけを SX の原価に入れる。オンサイトの槽を持つのは前提で持つ。
 //
 // 正本: pwa/spec/5-13-project-cost-model-current-spec.md
-// fixture: scripts/__fixtures__/sx_cost_model_two_stage.json（migration 399 適用後の SX データ）
+// fixture: scripts/__fixtures__/sx_cost_model_two_stage.json（migration 403 適用後の SX データ）
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {
+  ITEM_BEARERS,
   METHODS,
   TASK_DRIVERS,
   TASK_PERFORMERS,
+  TEXT_CHOICE_ROLES,
   computeBiomassCost,
   computeCostModel,
   computeTaskFlow,
   deriveCostBasis,
+  resolveBearer,
   resolvePerformer,
   rowAppliesTo,
   taskAmount,
@@ -63,6 +69,8 @@ const task = (bundle: CostModelBundle, id: string) => {
   const legacy = clone();
   for (const a of legacy.assumptions) if (a.roleKey === "uptake_alpha" && a.application === "metal" && a.strain === "wild") a.value = 0.05;
   legacy.tasks = []; // 人件費と巡回は旧版に無い（閉鎖系の作業は強化株のみで、自然株には元から乗らない）
+  for (const i of legacy.items) i.bearer = "sx"; // 旧版は設備も槽も SX の原価に入れていた
+  for (const a of legacy.assumptions) if (a.roleKey === "onsite_tank_bearer") a.valueText = "sx";
   for (const i of legacy.items) {
     if (i.costItemId === "ci_260820_133") i.unitPrice = 5;
     if (i.costItemId === "ci_260820_141") i.unitPrice = 4;
@@ -107,7 +115,8 @@ for (const strain of ["enhanced", "wild"] as const) {
   assert.ok(fixture.items.some((i) => i.application === "dye") && metalItems.size > 0, "用途別の行がある");
   const dye = scenario(fixture, "wild", "dye", "投入-既設");
   const metal = scenario(fixture, "wild", "metal", "投入-既設");
-  assert.ok(dye.postProcessPerUnit > 0 && metal.postProcessPerUnit > 0, "両用途に後処理がある");
+  // 色素分解の汚泥の処分は、オンサイトでは顧客が持つので SX工場で処理するオフサイトで見る
+  assert.ok(scenario(fixture, "wild", "dye", "オフサイト-投入-新設").postProcessPerUnit > 0 && metal.postProcessPerUnit > 0, "両用途に後処理がある");
   const dyeOnly = clone();
   dyeOnly.items = dyeOnly.items.filter((i) => !metalItems.has(i.costItemId));
   near(scenario(dyeOnly, "wild", "dye", "投入-既設").totalPerUnit, dye.totalPerUnit, 1e-9, "金属専用の行を消しても色素分解は変わらない");
@@ -125,10 +134,10 @@ for (const strain of ["enhanced", "wild"] as const) {
   const run = taskAmount(task(fixture, "ct_run_injection"), fixture.assumptions, derived, { strain: "enhanced", application: "dye" });
   near(run.annual, 7.5 * 4000 * 300, 1e-6, "処理の運転 = 工数 × 共通の作業単価 × 年間バッチ数");
   assert.equal(run.usesCommonRate, true, "作業単価が空欄なら共通の作業単価");
-  // 移動: 訪問回数 = 300 ÷ max(使用回数1, 1回の搬入でまかなう5) = 60、(2時間 × 4,000 + 車両費5,000) × 60
+  // 移動: 訪問回数 = 300 ÷ max(色素分解の使用回数10, 1回の搬入でまかなう5) = 30、(2時間 × 4,000 + 車両費5,000) × 30
   const travel = taskAmount(task(fixture, "ct_travel"), fixture.assumptions, derived, { strain: "enhanced", application: "dye" });
-  near(travel.occurrences, 60, 1e-9, "訪問回数");
-  near(travel.annual, 60 * (2 * 4000 + 5000), 1e-6, "移動 = 訪問回数 × (工数 × 単価 + 1回の経費)");
+  near(travel.occurrences, 30, 1e-9, "訪問回数");
+  near(travel.annual, 30 * (2 * 4000 + 5000), 1e-6, "移動 = 訪問回数 × (工数 × 単価 + 1回の経費)");
 
   // 工数を2倍にすると、その分だけ作業費が増える（SX が運転するオフサイトで見る）
   const moreHours = clone();
@@ -143,7 +152,7 @@ for (const strain of ["enhanced", "wild"] as const) {
   for (const a of ownRate.assumptions) if (a.roleKey === "labor_rate") a.value = 5000;
   const ownRun = taskAmount(task(ownRate, "ct_run_injection"), ownRate.assumptions, derived, { strain: "enhanced", application: "dye" });
   near(ownRun.annual, 7.5 * 6000 * 300, 1e-6, "行の作業単価が優先");
-  near(taskAmount(task(ownRate, "ct_delivery"), ownRate.assumptions, derived, { strain: "enhanced", application: "dye" }).annual, 60 * 1 * 5000, 1e-6, "単価が空欄の行は共通の作業単価に連動");
+  near(taskAmount(task(ownRate, "ct_delivery"), ownRate.assumptions, derived, { strain: "enhanced", application: "dye" }).annual, 30 * 1 * 5000, 1e-6, "単価が空欄の行は共通の作業単価に連動");
   // 工数が空欄（未確認）の行は0時間。経費だけが乗る
   const integrity = taskAmount(task(fixture, "ct_s_integrity_test"), fixture.assumptions, derived, { strain: "enhanced", application: "dye" });
   assert.equal(task(fixture, "ct_s_integrity_test").hoursPerOccurrence, null, "工数未確認の行は空欄");
@@ -186,13 +195,18 @@ for (const strain of ["enhanced", "wild"] as const) {
   near(computeBiomassCost(over, "enhanced").perKg, 800, 1e-9, "上書き値 ÷ 販売率");
 }
 
-// 8. 仕様書の検証表と一致する（オンサイト・直接投入・既設槽）。2026-09-14 から処理の運転（7.5時間×300バッチ＝300円/m³）は顧客の作業で含まない
+// 8. 仕様書の検証表と一致する（オンサイト・直接投入・顧客の槽）。2026-09-14 から処理の運転は顧客の作業、リアクターと槽は顧客が買い、
+//    色素分解の汚泥の処分は顧客がやる。色素分解の菌体使用回数は10回
 near(computeBiomassCost(fixture, "enhanced").perKg, 127.1, 0.05, "強化株 菌体原価");
 near(computeBiomassCost(fixture, "wild").perKg, 98.5, 0.05, "自然株 菌体原価");
-near(scenario(fixture, "enhanced", "dye", "投入-既設").totalPerUnit, 578.0, 0.05, "強化株 色素 オンサイト直接投入既設");
-near(scenario(fixture, "enhanced", "metal", "投入-既設").totalPerUnit, 415.0, 0.05, "強化株 金属 オンサイト直接投入既設");
-near(scenario(fixture, "wild", "dye", "投入-既設").totalPerUnit, 526.5, 0.05, "自然株 色素 オンサイト直接投入既設");
-near(scenario(fixture, "wild", "metal", "投入-既設").totalPerUnit, 408.1, 0.05, "自然株 金属 オンサイト直接投入既設");
+near(scenario(fixture, "enhanced", "dye", "投入-既設").totalPerUnit, 102.6, 0.05, "強化株 色素 オンサイト直接投入");
+near(scenario(fixture, "enhanced", "metal", "投入-既設").totalPerUnit, 297.0, 0.05, "強化株 金属 オンサイト直接投入");
+near(scenario(fixture, "wild", "dye", "投入-既設").totalPerUnit, 81.1, 0.05, "自然株 色素 オンサイト直接投入");
+near(scenario(fixture, "wild", "metal", "投入-既設").totalPerUnit, 291.5, 0.05, "自然株 金属 オンサイト直接投入");
+assert.ok(
+  scenario(fixture, "enhanced", "dye", "投入-既設").totalPerUnit < scenario(fixture, "enhanced", "metal", "投入-既設").totalPerUnit,
+  "使い回せる色素分解は、使い捨ての金属回収より安い（まさ 2026-09-14）"
+);
 
 // 9. 株・用途・作業を持たない試算（LiSTie の部分試算など）でも落ちない
 {
@@ -231,6 +245,12 @@ near(scenario(fixture, "wild", "metal", "投入-既設").totalPerUnit, 408.1, 0.
   const pf = setDraftValue({}, bundle, "task", "ct_run_injection", "performer", "sx");
   assert.deepEqual(draftToPatches(bundle, pf)[0].patch, { performer: "sx" }, "誰がやるかの patch は DB の列名");
   assert.equal(Object.keys(setDraftValue({}, bundle, "task", "ct_run_injection", "performer", "nobody")).length, 0, "誰がやるかは3つの値だけ");
+  // 明細の誰が持つかと、選択肢から選ぶ前提も下書きで変えられる
+  const bearerDraft = setDraftValue({}, bundle, "item", "ci_260820_092", "bearer", "sx");
+  assert.deepEqual(draftToPatches(bundle, bearerDraft)[0].patch, { bearer: "sx" }, "誰が持つかの patch は DB の列名");
+  assert.equal(Object.keys(setDraftValue({}, bundle, "item", "ci_260820_092", "bearer", "nobody")).length, 0, "誰が持つかは3つの値だけ");
+  const tankDraft = setDraftValue({}, bundle, "assumption", "ca5_onsite_tank_bearer", "valueText", "sx");
+  assert.deepEqual(draftToPatches(bundle, tankDraft)[0].patch, { value_text: "sx" }, "槽を持つのはの patch は value_text");
   // 読み直した保存値と同じになった下書きは落ちる
   const reloaded = applyDraft(bundle, { [draftKey("task", "ct_run_injection", "hoursPerOccurrence")]: 3 });
   assert.equal(Object.keys(pruneDraft(reloaded, draft)).length, 3, "保存済みの下書きは落ちる");
@@ -288,6 +308,13 @@ near(scenario(fixture, "wild", "metal", "投入-既設").totalPerUnit, 408.1, 0.
   const route = read("../src/app/api/project-cost-model/route.ts");
   for (const d of TASK_DRIVERS) assert.ok(route.includes(`"${d}"`), `API が回数の決め方 ${d} を受け付ける`);
   for (const pfv of TASK_PERFORMERS) assert.ok(route.includes(`"${pfv}"`), `API が誰がやるか ${pfv} を受け付ける`);
+  // 2026-09-14 まさ指摘⑥
+  assert.match(route, /ITEM_FIELDS = new Set\(\[[^\]]*"bearer"/, "API が明細の誰が持つかを書き込める");
+  assert.match(controls, /誰が持つか/, "明細で誰が持つかを変えられる");
+  assert.match(controls, /TEXT_CHOICE_ROLES/, "槽を持つのはを選択肢で選べる");
+  assert.match(main, /顧客の設備/, "オンサイトの槽を顧客が持つときは、槽の切り替えの代わりに「顧客の設備」と出す");
+  assert.match(read(files[3]), /誰が持つか/, "読み物の費用明細に誰が持つかの列");
+  assert.match(read(files[3]), /SXの原価はオフサイトだけ（オンサイトは顧客）/, "精度を下げている項目で、オンサイトは顧客が持つ行にそう添える");
 }
 
 // 12. 金属回収の菌体使用回数は1回で固定。使い回せるのは色素分解だけ
@@ -304,17 +331,19 @@ near(scenario(fixture, "wild", "metal", "投入-既設").totalPerUnit, 408.1, 0.
   assert.equal(derivedMetal.reuseCount, 1, "金属回収の使用回数は1");
   assert.equal(derivedMetal.reuseFixed, true, "金属回収は固定の印");
   assert.equal(deriveCostBasis(withRows.assumptions, { strain: "wild", application: "dye" }).reuseFixed, false, "色素分解は固定しない");
-  const dye10 = clone();
-  for (const a of dye10.assumptions) if (a.roleKey === "reuse_count" && a.application === "dye") a.value = 10;
-  near(scenario(dye10, "wild", "metal", "投入-既設").totalPerUnit, base.totalPerUnit, 1e-9, "色素分解の使用回数は金属回収に効かない");
-  assert.ok(scenario(dye10, "wild", "dye", "投入-既設").totalPerUnit < scenario(fixture, "wild", "dye", "投入-既設").totalPerUnit, "色素分解は使い回すと下がる");
+  const dye20 = clone();
+  for (const a of dye20.assumptions) if (a.roleKey === "reuse_count" && a.application === "dye") a.value = 20;
+  near(scenario(dye20, "wild", "metal", "投入-既設").totalPerUnit, base.totalPerUnit, 1e-9, "色素分解の使用回数は金属回収に効かない");
+  assert.ok(scenario(dye20, "wild", "dye", "投入-既設").totalPerUnit < scenario(fixture, "wild", "dye", "投入-既設").totalPerUnit, "色素分解は使い回すと下がる");
+  assert.equal(fixture.assumptions.find((a) => a.roleKey === "reuse_count" && a.application === "dye")?.value, 10, "色素分解の使用回数は10回（2026-07 の設備アドオン試算と同じ前提。まさ 2026-09-14）");
 }
 
 // 13. 方式（オンサイト / オフサイト）× 装置（循環カートリッジ / 直接投入）
 {
   const enh = computeCostModel(fixture, { strain: "enhanced" });
   assert.deepEqual(enh.locations, ["onsite", "offsite"], "方式はオンサイトとオフサイトの2つ");
-  assert.equal(enh.scenarios.length, 12, "2用途 × (オンサイト 装置2×槽2 ＋ オフサイト 装置2)");
+  assert.equal(enh.onsiteTankBearer, "customer", "オンサイトの槽は顧客が持つ");
+  assert.equal(enh.scenarios.length, 8, "2用途 × (オンサイト 装置2 ＋ オフサイト 装置2)。オンサイトの槽を顧客が持つので槽の2通りは無い");
   const sel = { strain: "enhanced" as const, application: "dye" as const };
   const off = scenario(fixture, "enhanced", "dye", "オフサイト-投入-新設");
   assert.equal(off.location, "offsite");
@@ -355,23 +384,24 @@ near(scenario(fixture, "wild", "metal", "投入-既設").totalPerUnit, 408.1, 0.
       for (const b of x.breakdown) near(b.parts.reduce((t, p) => t + p.perUnit, 0), b.perUnit, 1e-6, `${strain} ${x.key} ${b.key} の中身の合計`);
     }
   }
-  // 仕様書の表と一致する（オフサイトは SX が運転するので 2026-09-14 の前後で不変）
-  near(off.totalPerUnit, 3196.4, 0.05, "強化株 色素 オフサイト直接投入");
-  near(scenario(fixture, "enhanced", "dye", "オフサイト-循環-新設").totalPerUnit, 3361.9, 0.05, "強化株 色素 オフサイト循環");
+  // 仕様書の表と一致する（金属回収のオフサイトは、SX工場の設備・運転なので 2026-09-14 の前後で不変）
+  near(off.totalPerUnit, 2880.7, 0.05, "強化株 色素 オフサイト直接投入");
+  near(scenario(fixture, "enhanced", "dye", "オフサイト-循環-新設").totalPerUnit, 2816.2, 0.05, "強化株 色素 オフサイト循環（処理の運転は画面から顧客で保存）");
   near(scenario(fixture, "enhanced", "metal", "オフサイト-投入-新設").totalPerUnit, 3033.7, 0.05, "強化株 金属 オフサイト直接投入");
-  near(scenario(fixture, "wild", "dye", "オフサイト-投入-新設").totalPerUnit, 3146.5, 0.05, "自然株 色素 オフサイト直接投入");
+  near(scenario(fixture, "wild", "dye", "オフサイト-投入-新設").totalPerUnit, 2859.6, 0.05, "自然株 色素 オフサイト直接投入");
   near(scenario(fixture, "wild", "metal", "オフサイト-投入-新設").totalPerUnit, 3027.0, 0.05, "自然株 金属 オフサイト直接投入");
-  near(scenario(fixture, "enhanced", "dye", "循環-既設").totalPerUnit, 813.5, 0.05, "強化株 色素 オンサイト循環既設");
+  near(scenario(fixture, "enhanced", "dye", "循環-既設").totalPerUnit, 382.4, 0.05, "強化株 色素 オンサイト循環");
 }
 
 // 15. 誰がやるか: SX がやる作業だけを SX の原価に入れる。顧客工場での処理の運転は顧客（オンサイト）、SX（オフサイト）
 {
   const runs = fixture.tasks.filter((t) => t.costTaskId === "ct_run_circulation" || t.costTaskId === "ct_run_injection");
   assert.equal(runs.length, 2, "処理の運転の作業が2つある");
+  assert.equal(task(fixture, "ct_run_injection").performer, "site", "直接投入の処理の運転は処理する場所の人がやる");
   for (const t of runs) {
-    assert.equal(t.performer, "site", `${t.label} は処理する場所の人がやる`);
-    assert.equal(resolvePerformer(t, "onsite"), "customer", "オンサイトでは顧客");
-    assert.equal(resolvePerformer(t, "offsite"), "sx", "オフサイトでは SX");
+    assert.equal(resolvePerformer(t, "onsite"), "customer", `${t.label} はオンサイトでは顧客`);
+    assert.equal(resolvePerformer({ ...t, performer: "site" }, "offsite"), "sx", "場所によるはオフサイトでは SX");
+    assert.equal(resolvePerformer({ ...t, performer: "customer" }, "offsite"), "customer", "顧客はオフサイトでも顧客");
   }
   for (const t of fixture.tasks.filter((x) => x.scenario === "中央培養")) {
     assert.equal(resolvePerformer({ ...t, performer: "customer" }, "onsite"), "sx", "製造拠点の作業は常に SX");
@@ -387,8 +417,8 @@ near(scenario(fixture, "wild", "metal", "投入-既設").totalPerUnit, 408.1, 0.
   task(customerRuns, "ct_run_injection").performer = "customer";
   const offRun = scenario(fixture, "enhanced", "dye", "オフサイト-投入-新設");
   near(offRun.totalPerUnit - scenario(customerRuns, "enhanced", "dye", "オフサイト-投入-新設").totalPerUnit, (7.5 * 4000 * 300) / 30000, 1e-9, "顧客に任せるとオフサイトでも 300円/m³ 下がる");
-  // SX の作業工数（オンサイト直接投入）: 巡回 180 ＋ 膜交換 2.67 ＋ 閉鎖系の立入制限と教育 10（強化株）
-  near(on.siteTaskHours, 192.7, 0.05, "強化株 色素 オンサイト直接投入 SX の作業工数（年）");
+  // SX の作業工数（強化株・色素・オンサイト直接投入）: 巡回 90（訪問30回 × 3時間）＋ 膜交換 2.67 ＋ 閉鎖系の立入制限と教育 10
+  near(on.siteTaskHours, 102.7, 0.05, "強化株 色素 オンサイト直接投入 SX の作業工数（年）");
 }
 
 // 14. 作業の流れ: 段ごとの工数を足すと、方式の作業工数に一致する
@@ -399,7 +429,7 @@ near(scenario(fixture, "wild", "metal", "投入-既設").totalPerUnit, 408.1, 0.
       for (const location of ["onsite", "offsite"] as const) {
         for (const method of METHODS) {
           const flow = computeTaskFlow(fixture, c, { application, location, method });
-          const x = c.scenarios.find((y) => y.application === application && y.location === location && y.method === method && y.tankMode === "新設");
+          const x = c.scenarios.find((y) => y.application === application && y.location === location && y.method === method);
           assert.ok(x, `${strain} ${application} ${location} ${method}`);
           const label = `${strain} ${application} ${location} ${method}`;
           near(flow.siteHours, x.siteTaskHours, 1e-9, `${label} 流れの SX の工数 = 作業工数`);
@@ -435,8 +465,54 @@ near(scenario(fixture, "wild", "metal", "投入-既設").totalPerUnit, 408.1, 0.
   assert.equal(unknownFlow.unknownCount, onFlow.unknownCount, "顧客がやる作業の空欄は工数未確認に数えない");
   const wildFlow = computeTaskFlow(fixture, computeCostModel(fixture, { strain: "wild" }), { application: "dye", location: "onsite", method: "投入" });
   assert.ok(!wildFlow.steps.some((st) => st.label.startsWith("閉鎖系")), "自然株に閉鎖系の管理の段は出ない");
-  near(onFlow.siteHours, 192.7, 0.05, "強化株 色素 オンサイト直接投入 SX の作業工数（年）");
+  near(onFlow.siteHours, 102.7, 0.05, "強化株 色素 オンサイト直接投入 SX の作業工数（年）");
   near(computeTaskFlow(fixture, c, { application: "dye", location: "offsite", method: "投入" }).siteHours, 10052.7, 0.05, "強化株 色素 オフサイト直接投入 SX の作業工数（年）");
+}
+
+// 16. 誰が持つか: SX が持つ明細だけを SX の原価に入れる。顧客工場のリアクターと汚泥の処分は処理する場所の持ち主、オンサイトの槽は前提
+{
+  const onsiteScopes = new Set(["循環", "投入", "共通", "現場共通"]);
+  const reactor = fixture.items.filter((i) => i.costType === "CAPEX" && onsiteScopes.has(i.scenario));
+  assert.ok(reactor.length >= 20 && reactor.every((i) => i.bearer === "site"), "顧客工場に置くリアクター（オンサイトで効く CAPEX）は処理する場所の持ち主");
+  assert.equal(fixture.items.find((i) => i.costItemId === "ci2_dye_disposal")?.bearer, "site", "色素分解の汚泥の処分は処理する場所の持ち主");
+  assert.ok(fixture.items.filter((i) => i.scenario === "中央培養").every((i) => i.bearer === "sx"), "菌体の製造拠点の明細は SX");
+  assert.equal(task(fixture, "ct4_post_dye").performer, "site", "色素分解の脱水と処分の手配は処理する場所の人");
+  for (const b of ITEM_BEARERS) assert.ok(b in { sx: 1, customer: 1, site: 1 }, `誰が持つかの値 ${b}`);
+  const sample = reactor[0];
+  assert.equal(resolveBearer({ ...sample, bearer: "site" }, "onsite"), "customer", "場所によるはオンサイトで顧客");
+  assert.equal(resolveBearer({ ...sample, bearer: "site" }, "offsite"), "sx", "場所によるはオフサイトで SX");
+  assert.equal(resolveBearer({ ...sample, bearer: "customer" }, "offsite"), "customer", "顧客はどこでも顧客");
+  assert.equal(resolveBearer({ ...sample, scenario: "中央培養", bearer: "customer" }, "onsite"), "sx", "製造拠点の明細は常に SX");
+  assert.ok(TEXT_CHOICE_ROLES.onsite_tank_bearer?.some((c) => c.value === "customer"), "槽を持つのはを選択肢で持つ");
+
+  const on = scenario(fixture, "enhanced", "dye", "投入-既設");
+  const onMetal = scenario(fixture, "enhanced", "metal", "投入-既設");
+  near(on.breakdown.find((b) => b.key === "capex")!.perUnit, 0, 1e-9, "オンサイトはリアクターと槽の償却が SX の原価に乗らない");
+  near(on.breakdown.find((b) => b.key === "postProcess")!.perUnit, 0, 1e-9, "オンサイトの色素分解は汚泥の処分が SX の原価に乗らない");
+  assert.ok(onMetal.breakdown.find((b) => b.key === "postProcess")!.perUnit > 0, "金属回収の酸処理は SX が持つ");
+  const offDye = scenario(fixture, "enhanced", "dye", "オフサイト-投入-新設");
+  assert.ok(offDye.breakdown.find((b) => b.key === "capex")!.perUnit > 60, "オフサイトは SX工場の設備と槽の償却が乗る");
+  near(offDye.breakdown.find((b) => b.key === "postProcess")!.perUnit, 19.4, 0.05, "オフサイトの色素分解は SX工場で出る汚泥の処分が乗る");
+
+  // SX が設備・槽・処分を持つ形に戻すと、2026-09-14 の直前の数字（使用回数10回）に戻る
+  const sxOwns = clone();
+  for (const i of sxOwns.items) i.bearer = "sx";
+  for (const a of sxOwns.assumptions) if (a.roleKey === "onsite_tank_bearer") a.valueText = "sx";
+  near(scenario(sxOwns, "enhanced", "dye", "投入-既設").totalPerUnit, 240.0, 0.05, "SX が持つ形の色素分解");
+  near(scenario(sxOwns, "enhanced", "metal", "投入-既設").totalPerUnit, 415.0, 0.05, "SX が持つ形の金属回収");
+  const sxTank = computeCostModel(sxOwns, { strain: "enhanced" });
+  assert.equal(sxTank.scenarios.length, 12, "槽を SX が持つと、オンサイトは既設と新設の2通りに戻る");
+  near(scenario(sxOwns, "enhanced", "dye", "投入-新設").totalPerUnit - scenario(sxOwns, "enhanced", "dye", "投入-既設").totalPerUnit, 18_000_000 / 10 / 30000, 1e-9, "新設の槽は60円/m³");
+  // 1行だけ顧客に移すと、その行の額だけ下がる
+  const oneRow = clone();
+  const skid = oneRow.items.find((i) => i.costItemId === "ci_260820_092")!;
+  skid.bearer = "customer";
+  const offBefore = scenario(fixture, "enhanced", "dye", "オフサイト-投入-新設").totalPerUnit;
+  near(offBefore - scenario(oneRow, "enhanced", "dye", "オフサイト-投入-新設").totalPerUnit, 8_000_000 / 10 / 30000, 1e-9, "UF/MFスキッド恒久部を顧客に移すとオフサイトでも26.7円/m³下がる");
+  // 前提が無い試算は、これまでどおり槽も SX
+  const noTank = clone();
+  noTank.assumptions = noTank.assumptions.filter((a) => a.roleKey !== "onsite_tank_bearer");
+  assert.equal(computeCostModel(noTank, { strain: "enhanced" }).onsiteTankBearer, "sx", "槽を持つのはの前提が無い試算は SX");
 }
 
 console.log("project-cost-model: OK");
