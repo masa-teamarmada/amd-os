@@ -34,9 +34,11 @@
 // 2026-09-14 まさ回答⑪: お金も「100億円」の形ではなく、カンマ区切りの円に「カンマ区切りにそろえて」— 画面の金額も文章の金額も 10,000,000,000円 の形。
 // 2026-09-14 まさ⑫:「オフサイトは売価も処理量も別に分けて試算したい」「将来的にサイドビジネス的に、オフサイトもやれたらいいかな」
 // 「ペインがあれば割高でも成立するから」— オフサイトは売価と年間処理量を別の前提で持ち、年に作る量は両方を足して出す。
+// 2026-09-14 まさ⑬の続き「置いて」（オフサイトに、オンサイトと別の液の濃さを置くかへの返事）— オフサイトで引き取る液の濃さ
+// (offsite_target_concentration) を別に持ち、オフサイトの使い切る菌体量はその濃さで出す。年に作る量は方式ごとに掛けてから足す。
 //
 // 正本: pwa/spec/5-13-project-cost-model-current-spec.md
-// fixture: scripts/__fixtures__/sx_cost_model_two_stage.json（migration 426 適用後の SOL データ。426 で培養の原料を「使う量 × 買値」に組み直した）
+// fixture: scripts/__fixtures__/sx_cost_model_two_stage.json（migration 427 適用後の SOL データ。426 で培養の原料を「使う量 × 買値」に組み直し、427 でオフサイトで引き取る液の濃さを足した）
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {
@@ -55,6 +57,7 @@ import {
   computeCostModel,
   computeTaskFlow,
   deriveCostBasis,
+  derivedOf,
   paramGroupOfItem,
   paramGroupOfRole,
   resolveBearer,
@@ -168,7 +171,8 @@ for (const strain of ["enhanced", "wild"] as const) {
   const base = scenario(fixture, "enhanced", "dye", "投入-既設");
   const twice = scenario(doubled, "enhanced", "dye", "投入-既設");
   const bio = computeBiomassCost(fixture, "enhanced", "dye");
-  const sitePerUnit = bio.siteTasksAnnual / bio.businessVolume;
+  // 拠点に1つの作業は、年に作る量 (オンサイトとオフサイトを濃さごとに掛けて足した量) で割ってから、オンサイトで使い切る菌体量を掛けた分
+  const sitePerUnit = (bio.siteTasksAnnual / bio.capacityKgYear / bio.salesRate) * deriveCostBasis(fixture.assumptions, { strain: "enhanced", application: "dye" }).biomassKgPerUnit;
   assert.ok(sitePerUnit > 0, "強化株には拠点に1つの作業がある");
   near(twice.centralTotalPerUnit, (base.centralTotalPerUnit - sitePerUnit) / 2 + sitePerUnit, 1e-6, "強化株は、拠点に1つの作業を除いた菌体費が半分");
   near(twice.biomassKgPerUnit, base.biomassKgPerUnit / 2, 1e-9, "使用回数2倍で菌体量が半分");
@@ -517,11 +521,12 @@ assert.ok(
     }
   }
   // 仕様書の表と一致する（年間処理量2,000万m³で年に作る量から出した菌体原価）
-  near(off.totalPerUnit, 2903.8, 0.05, "強化株 色素 オフサイト直接投入");
-  near(scenario(fixture, "enhanced", "dye", "オフサイト-循環-新設").totalPerUnit, 3069.3, 0.05, "強化株 色素 オフサイト循環（処理の運転はオフサイトなら SX）");
-  near(scenario(fixture, "enhanced", "metal", "オフサイト-投入-新設").totalPerUnit, 3250.8, 0.05, "強化株 金属 オフサイト直接投入");
-  near(scenario(fixture, "wild", "dye", "オフサイト-投入-新設").totalPerUnit, 2883.4, 0.05, "自然株 色素 オフサイト直接投入");
-  near(scenario(fixture, "wild", "metal", "オフサイト-投入-新設").totalPerUnit, 3310.5, 0.05, "自然株 金属 オフサイト直接投入");
+  // オフサイトは引き取る液の濃さ（色素 1,000mg/L・金属 5,000ppm）で使い切る菌体量を出す（2026-09-14「置いて」）
+  near(off.totalPerUnit, 4007.6, 0.05, "強化株 色素 オフサイト直接投入");
+  near(scenario(fixture, "enhanced", "dye", "オフサイト-循環-新設").totalPerUnit, 4173.1, 0.05, "強化株 色素 オフサイト循環（処理の運転はオフサイトなら SX）");
+  near(scenario(fixture, "enhanced", "metal", "オフサイト-投入-新設").totalPerUnit, 43357.6, 0.05, "強化株 金属 オフサイト直接投入");
+  near(scenario(fixture, "wild", "dye", "オフサイト-投入-新設").totalPerUnit, 3941.7, 0.05, "自然株 色素 オフサイト直接投入");
+  near(scenario(fixture, "wild", "metal", "オフサイト-投入-新設").totalPerUnit, 51110.3, 0.05, "自然株 金属 オフサイト直接投入（売価 50,000円/m³ を超える）");
   near(scenario(fixture, "enhanced", "dye", "循環-既設").totalPerUnit, 60.8, 0.05, "強化株 色素 オンサイト循環（菌体保持モジュールの交換費は顧客）");
 }
 
@@ -624,7 +629,7 @@ assert.ok(
   assert.ok(onMetal.breakdown.find((b) => b.key === "postProcess")!.perUnit > 0, "金属回収の酸処理は SX が持つ");
   const offDye = scenario(fixture, "enhanced", "dye", "オフサイト-投入-新設");
   assert.ok(offDye.breakdown.find((b) => b.key === "capex")!.perUnit > 60, "オフサイトは SX工場の設備と槽の償却が乗る");
-  near(offDye.breakdown.find((b) => b.key === "postProcess")!.perUnit, 19.4, 0.05, "オフサイトの色素分解は SX工場で出る汚泥の処分が乗る");
+  near(offDye.breakdown.find((b) => b.key === "postProcess")!.perUnit, 388.9, 0.05, "オフサイトの色素分解は SX工場で出る汚泥の処分が乗る（オフサイトの濃さで使い切る菌体の分）");
 
   // SX が設備・槽・装置の費用・処分を持ち、顧客工場の処理設備の検査もする形に戻すと、その分だけ上がる（使用回数10回、年間処理量2,000万m³）
   const sxOwns = clone();
@@ -696,8 +701,9 @@ assert.ok(
     for (const application of ["dye", "metal"] as const) {
       const b = computeBiomassCost(fixture, strain, application);
       const d = deriveCostBasis(fixture.assumptions, { strain, application });
+      const dOff = deriveCostBasis(fixture.assumptions, { strain, application }, "offsite");
       assert.equal(b.fromVolume, true, `${strain} ${application} 年間処理量から出す`);
-      near(b.capacityKgYear, ((20_000_000 + offsiteVol) * d.biomassKgPerUnit) / b.salesRate, 1e-6, `${strain} ${application} 年に作る量 = 年間処理量（オンサイト ＋ オフサイト）× 使い切る菌体量 ÷ 販売率`);
+      near(b.capacityKgYear, (20_000_000 * d.biomassKgPerUnit + offsiteVol * dOff.biomassKgPerUnit) / b.salesRate, 1e-6, `${strain} ${application} 年に作る量 =（オンサイトの年間処理量 × オンサイトで使い切る菌体量 ＋ オフサイトの年間処理量 × オフサイトで使い切る菌体量）÷ 販売率`);
       near(b.productionLines, b.capacityKgYear / 33333, 1e-9, `${strain} ${application} 系列数 = 年に作る量 ÷ 1系列`);
       near(b.capexInitial, b.lineCapexInitial * b.productionLines, 1e-3, `${strain} ${application} 初期投資 = 1系列 × 系列数`);
       near(b.rows.find((r) => r.key === "capex")!.perKg * b.soldKgYear, b.capexAnnual, 1e-3, `${strain} ${application} 償却の年額（系列の数だけ）= 1kgあたり × 売る量`);
@@ -707,8 +713,9 @@ assert.ok(
   const dyeBio = computeBiomassCost(fixture, "enhanced", "dye");
   const metalBio = computeBiomassCost(fixture, "enhanced", "metal");
   assert.ok(metalBio.capacityKgYear > dyeBio.capacityKgYear * 9, "使い捨ての金属回収は、10回使い回す色素分解の9倍以上の菌体を作る");
-  near(dyeBio.capacityKgYear, 2_225_556, 1, "強化株 色素分解で年に作る量（オンサイト 20,000,000 ＋ オフサイト 30,000 m³）");
-  near(metalBio.productionLines, 629.9, 0.05, "強化株 金属回収の培養設備の系列数");
+  // 2026-09-14「置いて」: オフサイトは引き取る液の濃さ（色素 1,000mg/L・金属 5,000ppm）で使い切る菌体量を出す
+  near(dyeBio.capacityKgYear, 2_288_889, 1, "強化株 色素分解で年に作る量（オンサイト 20,000,000 m³ × 50mg/L ＋ オフサイト 30,000 m³ × 1,000mg/L）");
+  near(metalBio.productionLines, 723.3, 0.05, "強化株 金属回収の培養設備の系列数（オフサイト 30,000 m³ × 5,000ppm の分を足す）");
   // 系列ごとの作業は系列数に比例。拠点に1つの作業は変わらない
   const lineTasks = fixture.tasks.filter((t) => t.countDriver === "production_line").map((t) => t.costTaskId).sort();
   assert.deepEqual(lineTasks, ["ct4_culture_operation", "ct_c_filter_replace", "ct_c_integrity_test"], "培養設備の系列ごとの作業");
@@ -991,7 +998,8 @@ assert.ok(
   near(scenario(moreOffsite, "wild", "metal", "オフサイト-投入-新設").businessRevenueAnnual, 15_000_000_000, 1e-3, "オフサイトの量を10倍にするとオフサイトの売上も10倍");
   near(scenario(moreOffsite, "wild", "metal", "投入-既設").businessRevenueAnnual, 10_000_000_000, 1e-3, "オフサイトの量はオンサイトの売上に効かない");
   const wildDye = deriveCostBasis(fixture.assumptions, { strain: "wild", application: "dye" });
-  near(computeBiomassCost(moreOffsite, "wild", "dye").capacityKgYear - computeBiomassCost(fixture, "wild", "dye").capacityKgYear, 270_000 * wildDye.biomassKgPerUnit, 1e-6, "オフサイトの量を増やした分だけ年に作る量が増える（同じ製造拠点）");
+  const wildDyeOffsite = deriveCostBasis(fixture.assumptions, { strain: "wild", application: "dye" }, "offsite");
+  near(computeBiomassCost(moreOffsite, "wild", "dye").capacityKgYear - computeBiomassCost(fixture, "wild", "dye").capacityKgYear, 270_000 * wildDyeOffsite.biomassKgPerUnit, 1e-6, "オフサイトの量を増やした分だけ、オフサイトの濃さで使い切る菌体量ずつ年に作る量が増える（同じ製造拠点）");
   // 前提が無い試算は、オフサイトもオンサイトの売価と年間処理量で出す（これまでの形）
   const shared = clone();
   shared.assumptions = shared.assumptions.filter((a) => a.roleKey !== "offsite_sale_price" && a.roleKey !== "offsite_annual_volume");
@@ -1019,9 +1027,102 @@ assert.ok(
   assert.match(results, /data-testid=\{`cost-price-\$\{slot\.location\}`\}/, "売価を別に置くときは、方式の見出しにそれぞれの売価を出す");
   const controls = read("../src/components/cockpit/CockpitCostModelControls.tsx");
   assert.match(controls, /オフサイトの売上 ＝ 年間処理量/, "事業の規模と売価の割り算にオフサイトの売上を出す");
-  assert.match(controls, /オンサイトとオフサイトの年間処理量を足した量/, "年に作る量は両方の年間処理量から");
+  assert.match(controls, /オンサイトとオフサイトの年間処理量に、それぞれの濃さで使い切る菌体の量を掛けて足した量/, "年に作る量は両方の年間処理量から（方式ごとの濃さで掛けてから足す）");
   const reading = read("../src/components/cockpit/CockpitCostModelReading.tsx");
   assert.match(reading, /売価（売上）/, "シナリオの内訳の表に売価の行");
+}
+
+// 22. オフサイトで引き取る液の濃さ（まさ 2026-09-14「置いて」＝オフサイトに、オンサイトと別の液の濃さを置く）
+//     引き取る液は顧客工場の排水より濃い。オフサイトで使い切る菌体量はオフサイトの濃さで出し、オンサイトの物量は変えない
+{
+  const rowOf = (b: CostModelBundle, role: string, application: "dye" | "metal") =>
+    b.assumptions.find((a) => a.roleKey === role && a.application === application && a.strain === null);
+  const offDyeRow = rowOf(fixture, "offsite_target_concentration", "dye");
+  const offMetalRow = rowOf(fixture, "offsite_target_concentration", "metal");
+  assert.equal(offDyeRow?.value, 1_000, "色素分解のオフサイトの濃さ 1,000mg/L（仮置き）");
+  assert.equal(offMetalRow?.value, 5_000, "金属回収のオフサイトの濃さ 5,000ppm（仮置き）");
+  assert.equal(offDyeRow?.unit, rowOf(fixture, "target_concentration", "dye")?.unit, "オフサイトの濃さは、オンサイトの濃さと同じ単位（色素）");
+  assert.equal(offMetalRow?.unit, rowOf(fixture, "target_concentration", "metal")?.unit, "オフサイトの濃さは、オンサイトの濃さと同じ単位（金属）");
+  assert.equal(offDyeRow?.label, "対象物質の濃度（色素・オフサイト）", "オフサイトの濃さと呼ぶ（色素）");
+  assert.equal(offMetalRow?.label, "対象物質の濃度（金属・オフサイト）", "オフサイトの濃さと呼ぶ（金属）");
+  assert.ok(COST_ROLE_KEYS.has("offsite_target_concentration") && !CONDITIONAL_ROLE_KEYS.has("offsite_target_concentration"), "計算用の前提。年に作る量に効くので、どちらの方式でも薄くしない");
+  assert.equal(paramGroupOfRole("offsite_target_concentration")?.key, "cond-substance", "対象物質と菌体の量に置く");
+  assert.deepEqual(COST_PARAM_GROUPS.find((g) => g.key === "cond-substance")?.roles.slice(0, 2), ["target_concentration", "offsite_target_concentration"], "オンサイトの濃さのすぐ下に並べる");
+
+  for (const strain of ["enhanced", "wild"] as const) {
+    const c = computeCostModel(fixture, { strain });
+    for (const application of ["dye", "metal"] as const) {
+      const sel = { strain, application };
+      const on = deriveCostBasis(fixture.assumptions, sel, "onsite");
+      const offD = deriveCostBasis(fixture.assumptions, sel, "offsite");
+      const onsiteConc = rowOf(fixture, "target_concentration", application)?.value ?? 0;
+      const offsiteConc = application === "dye" ? 1_000 : 5_000;
+      assert.equal(on.location, "onsite");
+      assert.equal(offD.location, "offsite");
+      assert.ok(on.offsiteConcentrationSeparate && offD.offsiteConcentrationSeparate, `${strain} ${application} オフサイトの濃さを別に持つ`);
+      assert.equal(on.targetConcentration, onsiteConc, `${strain} ${application} オンサイトはオンサイトの濃さ`);
+      assert.equal(offD.targetConcentration, offsiteConc, `${strain} ${application} オフサイトはオフサイトの濃さ`);
+      near(offD.biomassKgPerUnit / on.biomassKgPerUnit, offsiteConc / onsiteConc, 1e-9, `${strain} ${application} 使い切る菌体量は濃さに比例する`);
+      for (const k of ["annualVolume", "annualBatches", "uptakeAlpha", "recoveryEta", "reuseCount"] as const) {
+        assert.equal(offD[k], on[k], `${strain} ${application} ${k} は方式で変わらない（変わるのは濃さだけ）`);
+      }
+      assert.equal(derivedOf(c, application, "offsite").targetConcentration, offsiteConc, `${strain} ${application} 画面はオフサイトを選ぶとオフサイトの濃さを引く`);
+      assert.equal(derivedOf(c, application, "onsite").targetConcentration, onsiteConc, `${strain} ${application} オンサイトを選ぶとオンサイトの濃さ`);
+      const b = computeBiomassCost(fixture, strain, application);
+      near(b.onsiteBiomassKgPerUnit, on.biomassKgPerUnit, 1e-12, "年に作る量の割り算に出すオンサイトの菌体量");
+      near(b.offsiteBiomassKgPerUnit, offD.biomassKgPerUnit, 1e-12, "年に作る量の割り算に出すオフサイトの菌体量");
+      // 菌体の原価は、菌体1kgの原価 × 選んだ方式で使い切る菌体量
+      for (const [key, d] of [["投入-既設", on], ["オフサイト-投入-新設", offD]] as const) {
+        const s = scenario(fixture, strain, application, key);
+        near(s.biomassKgPerUnit, d.biomassKgPerUnit, 1e-12, `${strain} ${application} ${key} 使い切る菌体量`);
+        near(s.breakdown.find((x) => x.key === "biomass")!.perUnit, b.perKg * d.biomassKgPerUnit, 1e-6, `${strain} ${application} ${key} 菌体の原価 = 1kgの原価 × 使い切る菌体量`);
+      }
+    }
+  }
+  // 1m³あたりで使い切る乾燥菌体（前提の説明に書いた数字）
+  near(deriveCostBasis(fixture.assumptions, { strain: "enhanced", application: "dye" }, "offsite").biomassKgPerUnit, 2.2, 0.05, "色素分解のオフサイトは1m³あたり約2.2kg");
+  near(deriveCostBasis(fixture.assumptions, { strain: "enhanced", application: "metal" }, "offsite").biomassKgPerUnit, 104.8, 0.05, "金属回収・強化株のオフサイトは1m³あたり約105kg");
+  near(deriveCostBasis(fixture.assumptions, { strain: "wild", application: "metal" }, "offsite").biomassKgPerUnit, 132.3, 0.05, "金属回収・自然株のオフサイトは1m³あたり約132kg");
+
+  // オフサイトの濃さを2倍にすると、オフサイトで使い切る菌体量も2倍。オンサイトの物量は変わらず、年に作る量はオフサイトの分だけ増える
+  const thicker = clone();
+  for (const a of thicker.assumptions) if (a.roleKey === "offsite_target_concentration") a.value = (a.value ?? 0) * 2;
+  for (const application of ["dye", "metal"] as const) {
+    const sel = { strain: "enhanced", application } as const;
+    const off0 = deriveCostBasis(fixture.assumptions, sel, "offsite");
+    near(deriveCostBasis(thicker.assumptions, sel, "offsite").biomassKgPerUnit, off0.biomassKgPerUnit * 2, 1e-9, `${application} オフサイトの濃さ2倍で、オフサイトの菌体量も2倍`);
+    near(deriveCostBasis(thicker.assumptions, sel, "onsite").biomassKgPerUnit, deriveCostBasis(fixture.assumptions, sel, "onsite").biomassKgPerUnit, 1e-12, `${application} オンサイトの菌体量は変わらない`);
+    const bio0 = computeBiomassCost(fixture, "enhanced", application);
+    near(computeBiomassCost(thicker, "enhanced", application).capacityKgYear - bio0.capacityKgYear, (30_000 * off0.biomassKgPerUnit) / bio0.salesRate, 1e-6, `${application} 年に作る量はオフサイトの増えた分だけ増える`);
+  }
+
+  // 前提が無い試算は、オフサイトもオンサイトの濃さで出す（これまでの形。オフサイトの濃さを置く前の数字に戻る）
+  const sameConc = clone();
+  sameConc.assumptions = sameConc.assumptions.filter((a) => a.roleKey !== "offsite_target_concentration");
+  for (const strain of ["enhanced", "wild"] as const) for (const application of ["dye", "metal"] as const) {
+    const sel = { strain, application };
+    const d = deriveCostBasis(sameConc.assumptions, sel, "offsite");
+    assert.equal(d.offsiteConcentrationSeparate, false, "オフサイトの濃さが無い");
+    near(d.biomassKgPerUnit, deriveCostBasis(sameConc.assumptions, sel, "onsite").biomassKgPerUnit, 1e-12, `${strain} ${application} オフサイトもオンサイトの濃さで出す`);
+  }
+  near(computeBiomassCost(sameConc, "enhanced", "dye").perKg, 334.3817, 0.0005, "オフサイトの濃さが無ければ、強化株 色素の菌体原価はこれまでの 334.38");
+  near(scenario(sameConc, "enhanced", "dye", "オフサイト-投入-新設").totalPerUnit, 2903.8, 0.05, "オフサイトの濃さが無ければ、強化株 色素 オフサイト直接投入はこれまでの 2,903.8");
+  near(scenario(sameConc, "enhanced", "metal", "オフサイト-投入-新設").totalPerUnit, 3250.8, 0.05, "オフサイトの濃さが無ければ、強化株 金属 オフサイト直接投入はこれまでの 3,250.8");
+  near(scenario(sameConc, "wild", "metal", "オフサイト-投入-新設").totalPerUnit, 3310.5, 0.05, "オフサイトの濃さが無ければ、自然株 金属 オフサイト直接投入はこれまでの 3,310.5");
+
+  // 画面: 操作パネル・結果・読み物は、選んだ方式の物量を引く。割り算に、どちらの濃さで出したかと、年に作る量の方式ごとの掛け算を出す
+  const read = (f: string) => fs.readFileSync(new URL(f, import.meta.url), "utf8");
+  const controls = read("../src/components/cockpit/CockpitCostModelControls.tsx");
+  const results = read("../src/components/cockpit/CockpitCostModelResults.tsx");
+  const reading = read("../src/components/cockpit/CockpitCostModelReading.tsx");
+  for (const [name, src] of [["操作パネル", controls], ["読み物", reading]] as const) {
+    assert.match(src, /derivedOf\(computed, selection\.application, selection\.location\)/, `${name}は選んだ方式の物量を引く`);
+    assert.doesNotMatch(src, /derivedByApplication\.find/, `${name}で用途だけから物量を引かない（オフサイトの濃さが抜ける）`);
+  }
+  assert.match(results, /derivedOf\(computed, app, selection\.location\)/, "結果は選んだ方式の物量を引く");
+  assert.doesNotMatch(results, /derivedByApplication\.find/, "結果で用途だけから物量を引かない");
+  assert.match(controls, /<Formula testId="cost-substance-formula">[\s\S]*?derived\.offsiteConcentrationSeparate[\s\S]*?オフサイトで引き取る液の濃さ/, "対象物質と菌体の量の割り算に、どちらの濃さで出したかを添える");
+  assert.match(controls, /data-testid="cost-production-formula"[\s\S]*?b\.onsiteBiomassKgPerUnit[\s\S]*?b\.offsiteBiomassKgPerUnit/, "年に作る量の割り算は、方式ごとに使い切る菌体の量を掛けて足す");
 }
 
 console.log("project-cost-model: OK");

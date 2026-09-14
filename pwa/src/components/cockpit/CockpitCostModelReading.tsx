@@ -19,6 +19,7 @@ import {
   rolesInEffect,
   annualAmount,
   biomassOf,
+  derivedOf,
   centralItemPerKg,
   costItemLabel,
   paramGroupOfItem,
@@ -148,7 +149,7 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
   const appLabel = selection.application ? APPLICATION_LABEL[selection.application] : "";
   const sel: CostSelection = { strain: selection.strain, application: selection.application };
   const centralSel: CostSelection = { strain: selection.strain, application: null };
-  const derived = computed.derivedByApplication.find((d) => d.application === selection.application)?.derived ?? computed.derived;
+  const derived = derivedOf(computed, selection.application, selection.location);
   const openQuestions = questions.filter((q) => q.status === "open");
 
   const uncertainAcrossMethods = (() => {

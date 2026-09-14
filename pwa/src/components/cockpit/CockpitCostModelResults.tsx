@@ -11,6 +11,7 @@ import {
   METHOD_LABEL,
   STRAIN_LABEL,
   biomassOf,
+  derivedOf,
   scenarioFullLabelOf,
   type CostApplication,
   type CostTankBearer,
@@ -169,7 +170,7 @@ export function CostResultsPanel({
   const current = findScenario(computed, app, selection.location, selection.method, selection.tankMode);
   const currentBase = findScenario(baseline, app, selection.location, selection.method, selection.tankMode);
   const other = otherStrain ? findScenario(otherStrain, app, selection.location, selection.method, selection.tankMode) : undefined;
-  const derived = computed.derivedByApplication.find((d) => d.application === app)?.derived ?? computed.derived;
+  const derived = derivedOf(computed, app, selection.location);
   const b = biomassOf(computed, app);
   const slots = scenarioSlots(computed, selection.tankMode);
   const hasOffsite = computed.locations.includes("offsite");

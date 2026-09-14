@@ -8,10 +8,13 @@
 //     生産1kgあたり = (培養設備の償却年額 + 年額固定費 + 製造拠点の作業) ÷ 年に作る量 + 菌体量に比例する費用
 //     売れた1kgあたり = 生産1kgあたり ÷ 販売率。上書き値 (biomass_cost_per_kg_override) があれば生産1kgあたりをそれに置き換える
 //     年に作る量は入力ではなく計算で出す (まさ 2026-09-14「年間の生産能力は入力値じゃなくて計算結果にしてほしい」)。
-//       年に作る量 = 年間処理量 (business_annual_volume ＋ offsite_annual_volume) × 使い切る菌体量 ÷ 販売率。用途ごとに、その用途だけで処理したときの量
+//       年に作る量 = (オンサイトの年間処理量 × オンサイトで使い切る菌体量 ＋ オフサイトの年間処理量 × オフサイトで使い切る菌体量) ÷ 販売率。
+//       用途ごとに、その用途だけで処理したときの量
 //       オフサイトは、売価 (offsite_sale_price) と年間処理量 (offsite_annual_volume) をオンサイトと別に持てる
 //       (まさ 2026-09-14「オフサイトは売価も処理量も別に分けて試算したい」「将来的にサイドビジネス的に、オフサイトもやれたらいいかな」)。
-//       同じ製造拠点で両方の菌体を作るので、年に作る量は両方の年間処理量を足して出す。前提が無い試算は、オフサイトもオンサイトの値を使う
+//       対象物質の濃さ (offsite_target_concentration) もオフサイトだけ別に持てる。引き取る液は排水より濃いので、
+//       使い切る菌体量はオフサイトの濃さで出す (まさ 2026-09-14「置いて」＝オフサイトに別の液の濃さを置く)。
+//       同じ製造拠点で両方の菌体を作るので、年に作る量は両方の量を足して出す。前提が無い試算は、オフサイトもオンサイトの値を使う
 //       製造拠点の明細は培養設備の1系列 (culture_line_capacity_kg_year で年に作れる量) として、年に作る量 ÷ 1系列の量 だけ並べる。
 //       設備の償却・年額固定費・系列ごとの作業 (count_driver = production_line) は系列の数だけ増え、拠点に1つの作業 (fixed) は増えない
 //     年間処理量の前提が無い試算は、これまでどおり年間生産能力 (culture_capacity_kg_year) をそのまま年に作る量として使う (系列は1つ)
@@ -361,6 +364,7 @@ export const COST_ROLE_KEYS = new Set([
   "operating_days",
   "utilization",
   "target_concentration",
+  "offsite_target_concentration",
   "k_ppm",
   "uptake_alpha",
   "recovery_eta",
@@ -407,7 +411,12 @@ export interface CostDerived {
   offsitePriceSeparate: boolean;
   annualBatches: number;
   annualVolume: number;
+  /** この物量を出した方式。対象物質の濃さだけが方式で変わる (オフサイトは offsite_target_concentration を別に持てる)。 */
+  location: CostLocation;
+  /** 使い切る菌体量の元にした対象物質の濃さ。オフサイトで別に持つときはオフサイトの濃さ。 */
   targetConcentration: number;
+  /** オフサイトの対象物質の濃さをオンサイトと別に持っているか。 */
+  offsiteConcentrationSeparate: boolean;
   uptakeAlpha: number;
   recoveryEta: number;
   requiredBiomassPerM3: number;
@@ -465,6 +474,10 @@ export interface CostBiomassCost {
   offsiteVolume: number;
   /** オフサイトの年間処理量をオンサイトと別に持っているか。持たない試算は、オフサイトの事業全体の年額もオンサイトの年間処理量で出す。 */
   offsiteVolumeSeparate: boolean;
+  /** オンサイトの処理1単位で使い切る菌体量 (kg-DCW)。年に作る量の割り算に出す。 */
+  onsiteBiomassKgPerUnit: number;
+  /** オフサイトの処理1単位で使い切る菌体量 (kg-DCW)。オフサイトの濃さを別に持たなければオンサイトと同じ。 */
+  offsiteBiomassKgPerUnit: number;
   /** 年に作る量 (kg-DCW/年)。CAPEX・年額固定費・作業はこの量で割って1kgあたりにする。 */
   capacityKgYear: number;
   /** 培養設備1系列で年に作れる量 (kg-DCW/年)。fromVolume でない試算は年に作る量と同じ。 */
@@ -650,7 +663,8 @@ export interface CostScenarioResult {
 export interface CostComputation {
   /** 選択中の株と、最初の用途で導いた物量。明細表の円/単位の分母に使う。 */
   derived: CostDerived;
-  derivedByApplication: Array<{ application: CostApplication | null; derived: CostDerived }>;
+  /** 用途ごとの物量。derived はオンサイト、offsiteDerived はオフサイト (対象物質の濃さだけが違う)。画面は derivedOf で引く。 */
+  derivedByApplication: Array<{ application: CostApplication | null; derived: CostDerived; offsiteDerived: CostDerived }>;
   strain: CostStrain | null;
   strains: CostStrain[];
   applications: CostApplication[];
@@ -670,6 +684,17 @@ export interface CostComputation {
 /** 用途ごとの第1段を引く。無ければ最初の用途の値。 */
 export function biomassOf(computed: Pick<CostComputation, "biomass" | "biomassByApplication">, application: CostApplication | null): CostBiomassCost {
   return computed.biomassByApplication.find((b) => b.application === application)?.biomass ?? computed.biomass;
+}
+
+/** 用途と方式の物量を引く。オフサイトは対象物質の濃さを別に持てるので、使い切る菌体量が方式で変わる。無ければ最初の用途の値。 */
+export function derivedOf(
+  computed: Pick<CostComputation, "derived" | "derivedByApplication">,
+  application: CostApplication | null,
+  location: CostLocation
+): CostDerived {
+  const hit = computed.derivedByApplication.find((d) => d.application === application) ?? computed.derivedByApplication[0];
+  if (!hit) return computed.derived;
+  return location === "offsite" ? hit.offsiteDerived : hit.derived;
 }
 
 /**
@@ -884,9 +909,9 @@ export const COST_PARAM_BLOCKS: CostParamBlock[] = [
 ];
 
 export const COST_PARAM_GROUPS: CostParamGroup[] = [
-  { key: "cond-scale", block: "conditions", title: "事業の規模と売価", hint: "オンサイトとオフサイトの年間処理量と売価から、売上・顧客の数が決まる。年に作る菌体の量は両方の年間処理量を足して出す", roles: ["business_annual_volume", "sale_price", "offsite_annual_volume", "offsite_sale_price"] },
+  { key: "cond-scale", block: "conditions", title: "事業の規模と売価", hint: "オンサイトとオフサイトの年間処理量と売価から、売上・顧客の数が決まる。年に作る菌体の量は、両方の年間処理量にそれぞれの濃さで使い切る菌体の量を掛けて足す", roles: ["business_annual_volume", "sale_price", "offsite_annual_volume", "offsite_sale_price"] },
   { key: "cond-site", block: "conditions", title: "顧客1社の処理", hint: "顧客1社あたりの年間処理量と年間バッチ数が決まる", roles: ["batch_volume", "operating_days", "utilization"] },
-  { key: "cond-substance", block: "conditions", title: "対象物質と菌体の量", hint: "排水1単位あたりに使い切る菌体の量が決まる", roles: ["target_concentration", "uptake_alpha", "recovery_eta", "reuse_count", "k_ppm"] },
+  { key: "cond-substance", block: "conditions", title: "対象物質と菌体の量", hint: "排水1単位あたりに使い切る菌体の量が決まる。オフサイトで引き取る液の濃さは別に置ける", roles: ["target_concentration", "offsite_target_concentration", "uptake_alpha", "recovery_eta", "reuse_count", "k_ppm"] },
   { key: "cond-biomass", block: "conditions", title: "菌体の製造量と原価", hint: "年に作る菌体の量と、菌体1kgの原価の割り算", roles: ["sales_rate", "biomass_cost_per_kg_override"] },
   { key: "capex-production", block: "capex", title: "菌体の製造拠点（培養設備）", hint: "培養設備1系列の明細と、1系列で年に作れる量。年に作る量に合わせて系列を並べる", roles: ["culture_line_capacity_kg_year", "culture_capacity_kg_year"] },
   { key: "capex-circulation", block: "capex", title: "処理設備：循環カートリッジ", hint: "顧客工場（オンサイト）では顧客が買い、SX工場（オフサイト）ではSXが持つ", roles: [] },
@@ -952,14 +977,25 @@ export function salesRateOf(assumptions: CostAssumption[], sel: CostSelection = 
   return Math.min(Math.max(pct, 1), 100) / 100;
 }
 
-export function deriveCostBasis(assumptions: CostAssumption[], sel: CostSelection = NO_SELECTION): CostDerived {
+/**
+ * 1単位の処理に使う物量。方式 (location) で変わるのは対象物質の濃さだけで、オフサイトは前提 offsite_target_concentration が
+ * あればそれを使う (引き取る液は顧客工場の排水より濃い。まさ 2026-09-14「置いて」)。無ければオンサイトの濃さ。
+ */
+export function deriveCostBasis(
+  assumptions: CostAssumption[],
+  sel: CostSelection = NO_SELECTION,
+  location: CostLocation = "onsite"
+): CostDerived {
   const batchVolume = roleValue(assumptions, "batch_volume", 100, sel);
   const operatingDays = roleValue(assumptions, "operating_days", 300, sel);
   const utilization = roleValue(assumptions, "utilization", 1, sel);
   const annualBatches = operatingDays * utilization;
   const annualVolume = batchVolume * annualBatches;
 
-  const concentration = roleValue(assumptions, "target_concentration", 50, sel);
+  const onsiteConcentration = roleValue(assumptions, "target_concentration", 50, sel);
+  const offsiteConcentration = resolveAssumption(assumptions, "offsite_target_concentration", sel)?.value;
+  const offsiteConcentrationSeparate = typeof offsiteConcentration === "number" && Number.isFinite(offsiteConcentration);
+  const concentration = location === "offsite" && offsiteConcentrationSeparate ? offsiteConcentration : onsiteConcentration;
   const kPpm = roleValue(assumptions, "k_ppm", 1, sel);
   const alpha = roleValue(assumptions, "uptake_alpha", 0.05, sel);
   const eta = roleValue(assumptions, "recovery_eta", 90, sel);
@@ -985,7 +1021,9 @@ export function deriveCostBasis(assumptions: CostAssumption[], sel: CostSelectio
     offsitePriceSeparate,
     annualBatches,
     annualVolume,
+    location,
     targetConcentration: concentration,
+    offsiteConcentrationSeparate,
     uptakeAlpha: alpha,
     recoveryEta: eta,
     requiredBiomassPerM3,
@@ -1308,8 +1346,10 @@ function taskAsItem(task: CostTask): CostItem {
 /** 第1段: 株ごとの菌体の製造原価 (円/kg-DCW)。用途には依存しない。 */
 /**
  * 年に作る量と培養設備の系列数。
- * 年間処理量 (business_annual_volume ＋ 別に持つときは offsite_annual_volume) があれば、年に作る量 = 年間処理量 × その用途で使い切る菌体量 ÷ 販売率 で計算し、
+ * 年間処理量 (business_annual_volume ＋ 別に持つときは offsite_annual_volume) があれば、
+ * 年に作る量 = (オンサイトの年間処理量 × オンサイトで使い切る菌体量 ＋ オフサイトの年間処理量 × オフサイトで使い切る菌体量) ÷ 販売率 で計算し、
  * 1系列の量 (culture_line_capacity_kg_year。無ければ culture_capacity_kg_year) で割った数だけ系列を並べる。
+ * オフサイトで使い切る菌体量は、オフサイトの濃さ (offsite_target_concentration) を別に持つときはその濃さで出す。
  * 無ければ、これまでどおり年間生産能力 (culture_capacity_kg_year) をそのまま年に作る量とし、系列は1つ。
  */
 export function productionScaleOf(
@@ -1323,6 +1363,10 @@ export function productionScaleOf(
   onsiteVolume: number;
   offsiteVolume: number;
   offsiteVolumeSeparate: boolean;
+  /** オンサイトの処理1単位で使い切る菌体量 (kg-DCW)。 */
+  onsiteBiomassKgPerUnit: number;
+  /** オフサイトの処理1単位で使い切る菌体量 (kg-DCW)。オフサイトの濃さを別に持たなければオンサイトと同じ。 */
+  offsiteBiomassKgPerUnit: number;
   capacityKgYear: number;
   lineCapacityKgYear: number;
   productionLines: number;
@@ -1335,19 +1379,24 @@ export function productionScaleOf(
   const offsiteVolume = offsiteVolumeSeparate ? Math.max(offsiteValue, 0) : 0;
   // オフサイトはオンサイトに足すサイドビジネスとして、同じ製造拠点で菌体を作る (まさ 2026-09-14)
   const volume = onsiteVolume + offsiteVolume;
+  const onsiteBiomassKgPerUnit = deriveCostBasis(assumptions, appSel, "onsite").biomassKgPerUnit;
+  const offsiteBiomassKgPerUnit = deriveCostBasis(assumptions, appSel, "offsite").biomassKgPerUnit;
   const legacyCapacity = roleValue(assumptions, "culture_capacity_kg_year", 0, sel);
   const lineCapacity = roleValue(assumptions, "culture_line_capacity_kg_year", legacyCapacity, sel);
   if (!(volume > 0)) {
     const capacity = legacyCapacity > 0 ? legacyCapacity : lineCapacity;
-    return { fromVolume: false, businessVolume: 0, onsiteVolume: 0, offsiteVolume: 0, offsiteVolumeSeparate, capacityKgYear: capacity, lineCapacityKgYear: capacity, productionLines: 1 };
+    return { fromVolume: false, businessVolume: 0, onsiteVolume: 0, offsiteVolume: 0, offsiteVolumeSeparate, onsiteBiomassKgPerUnit, offsiteBiomassKgPerUnit, capacityKgYear: capacity, lineCapacityKgYear: capacity, productionLines: 1 };
   }
-  const capacity = safeDiv(volume * deriveCostBasis(assumptions, appSel).biomassKgPerUnit, salesRate);
+  // 引き取る液の濃さが違うので、オンサイトとオフサイトは別々に菌体の量を掛けてから足す
+  const capacity = safeDiv(onsiteVolume * onsiteBiomassKgPerUnit + offsiteVolume * offsiteBiomassKgPerUnit, salesRate);
   return {
     fromVolume: true,
     businessVolume: volume,
     onsiteVolume,
     offsiteVolume,
     offsiteVolumeSeparate,
+    onsiteBiomassKgPerUnit,
+    offsiteBiomassKgPerUnit,
     capacityKgYear: capacity,
     lineCapacityKgYear: lineCapacity,
     productionLines: safeDiv(capacity, lineCapacity),
@@ -1433,6 +1482,8 @@ export function computeBiomassCost(
     onsiteVolume: scale.onsiteVolume,
     offsiteVolume: scale.offsiteVolume,
     offsiteVolumeSeparate: scale.offsiteVolumeSeparate,
+    onsiteBiomassKgPerUnit: scale.onsiteBiomassKgPerUnit,
+    offsiteBiomassKgPerUnit: scale.offsiteBiomassKgPerUnit,
     capacityKgYear: capacity,
     lineCapacityKgYear: scale.lineCapacityKgYear,
     productionLines: lines,
@@ -1529,42 +1580,46 @@ export function computeCostModel(
     const capexRow = biomass.rows.find((r) => r.key === "capex");
     const capexShare = biomass.overridePerKg !== null ? 0 : safeDiv(capexRow?.perKg ?? 0, biomass.perKg);
     // 製造拠点の系列ごとの作業は、この用途で年に作る量から出した系列数で数える。
-    const derived: CostDerived = { ...deriveCostBasis(assumptions, sel), productionLines: biomass.productionLines };
+    const onsiteDerived: CostDerived = { ...deriveCostBasis(assumptions, sel, "onsite"), productionLines: biomass.productionLines };
+    // オフサイトは対象物質の濃さを別に持てるので、使い切る菌体量 (と、それに比例する明細) が方式で変わる。
+    const offsiteDerived: CostDerived = { ...deriveCostBasis(assumptions, sel, "offsite"), productionLines: biomass.productionLines };
     const centralDerived: CostDerived = { ...deriveCostBasis(assumptions, centralSel), productionLines: biomass.productionLines };
-    derivedByApplication.push({ application, derived });
-    const volume = derived.annualVolume;
+    derivedByApplication.push({ application, derived: onsiteDerived, offsiteDerived });
+    const volume = onsiteDerived.annualVolume;
     const perUnit = (annual: number) => safeDiv(annual, volume);
-    const amount = (i: CostItem) => annualAmount(i, assumptions, derived, sel);
-    const taskAnnualOf = (t: CostTask) => taskAmount(t, assumptions, derived, sel);
-
-    const biomassAnnual = biomass.perKg * derived.biomassKgPerUnit * volume;
-    const centralCapexAnnual = biomassAnnual * capexShare;
-    const centralOpexAnnual = biomassAnnual - centralCapexAnnual;
-    const centralStrainSpecificAnnual = biomass.strainSpecificPerKg * derived.biomassKgPerUnit * volume;
-    const biomassParts = biomass.overridePerKg !== null
-      ? [{ label: "菌体の製造原価（上書き値）", perUnit: perUnit(biomassAnnual), groupKey: "cond-biomass" }]
-      : biomass.rows.map((r) => ({ label: BIOMASS_PART_LABEL[r.key], perUnit: r.perKg * derived.biomassKgPerUnit, groupKey: BIOMASS_PART_GROUP[r.key] }));
-
-    // 第1段の各行が、この用途で1単位あたりいくらを乗せているか。確度の帯グラフ用。
-    const centralContrib: Array<{ item: CostItem; annual: number }> = biomass.overridePerKg !== null
-      ? []
-      : [
-          ...live
-            .filter((i) => i.scenario === "中央培養" && i.costType !== "参考" && scopeApplies(i, centralSel))
-            .map((i) => ({
-              item: i,
-              annual: (centralItemPerKg(i, assumptions, biomass.lineCapacityKgYear, centralSel) / biomass.salesRate) * derived.biomassKgPerUnit * volume,
-            })),
-          ...tasks
-            .filter((t) => t.scenario === "中央培養" && scopeApplies(t, centralSel))
-            .map((t) => ({
-              item: taskAsItem(t),
-              annual: (safeDiv(taskAmount(t, assumptions, centralDerived, centralSel).annual, biomass.capacityKgYear) / biomass.salesRate) *
-                derived.biomassKgPerUnit * volume,
-            })),
-        ];
 
     for (const location of locations) for (const method of METHODS) {
+      const derived = location === "offsite" ? offsiteDerived : onsiteDerived;
+      const amount = (i: CostItem) => annualAmount(i, assumptions, derived, sel);
+      const taskAnnualOf = (t: CostTask) => taskAmount(t, assumptions, derived, sel);
+
+      const biomassAnnual = biomass.perKg * derived.biomassKgPerUnit * volume;
+      const centralCapexAnnual = biomassAnnual * capexShare;
+      const centralOpexAnnual = biomassAnnual - centralCapexAnnual;
+      const centralStrainSpecificAnnual = biomass.strainSpecificPerKg * derived.biomassKgPerUnit * volume;
+      const biomassParts = biomass.overridePerKg !== null
+        ? [{ label: "菌体の製造原価（上書き値）", perUnit: perUnit(biomassAnnual), groupKey: "cond-biomass" }]
+        : biomass.rows.map((r) => ({ label: BIOMASS_PART_LABEL[r.key], perUnit: r.perKg * derived.biomassKgPerUnit, groupKey: BIOMASS_PART_GROUP[r.key] }));
+
+      // 第1段の各行が、この用途・方式で1単位あたりいくらを乗せているか。確度の帯グラフ用。
+      const centralContrib: Array<{ item: CostItem; annual: number }> = biomass.overridePerKg !== null
+        ? []
+        : [
+            ...live
+              .filter((i) => i.scenario === "中央培養" && i.costType !== "参考" && scopeApplies(i, centralSel))
+              .map((i) => ({
+                item: i,
+                annual: (centralItemPerKg(i, assumptions, biomass.lineCapacityKgYear, centralSel) / biomass.salesRate) * derived.biomassKgPerUnit * volume,
+              })),
+            ...tasks
+              .filter((t) => t.scenario === "中央培養" && scopeApplies(t, centralSel))
+              .map((t) => ({
+                item: taskAsItem(t),
+                annual: (safeDiv(taskAmount(t, assumptions, centralDerived, centralSel).annual, biomass.capacityKgYear) / biomass.salesRate) *
+                  derived.biomassKgPerUnit * volume,
+              })),
+          ];
+
       const scopes = scopesFor(location, method);
       const own = live.filter((i) => scopes.includes(i.scenario) && scopeApplies(i, sel));
       // SX の原価に入れるのは SX が持つ明細だけ。顧客が持つ明細 (オンサイトのリアクター・汚泥の処分など) は数えない。
@@ -1841,7 +1896,8 @@ export function computeTaskFlow(
   const tasks = [...(bundle.tasks ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
   const sel: CostSelection = { strain: computed.strain, application: selection.application };
   const centralSel: CostSelection = { strain: computed.strain, application: null };
-  const derived = computed.derivedByApplication.find((d) => d.application === selection.application)?.derived ?? computed.derived;
+  // 製造拠点の作業を処理1単位に配る量は、選んだ方式で使い切る菌体量 (オフサイトは濃さを別に持てる)。
+  const derived = derivedOf(computed, selection.application, selection.location);
   const b = biomassOf(computed, selection.application);
   const centralDerived: CostDerived = { ...deriveCostBasis(bundle.assumptions, centralSel), productionLines: b.productionLines };
 

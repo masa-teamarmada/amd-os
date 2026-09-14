@@ -27,6 +27,7 @@ import {
   centralItemPerKg,
   costItemCalc,
   costItemLabel,
+  derivedOf,
   driverUsesCount,
   paramGroupOfItem,
   paramGroupOfRole,
@@ -39,7 +40,6 @@ import {
   type CostAssumption,
   type CostBiomassCost,
   type CostComputation,
-  type CostDerived,
   type CostItem,
   type CostItemBearer,
   type CostModelBundle,
@@ -91,7 +91,14 @@ interface Props {
 export function CostControlsPanel({ saved, working, computed, selection, flow, unit, onChange, scrollable, onSelectTankMode }: Props) {
   const paneRef = useRef<HTMLDivElement>(null);
   const [showAllRows, setShowAllRows] = useState(false);
-  const derived = computed.derivedByApplication.find((d) => d.application === selection.application)?.derived ?? computed.derived;
+  // 選んだ方式の物量。オフサイトは対象物質の濃さを別に持てるので、使い切る菌体の量が方式で変わる。
+  const derived = derivedOf(computed, selection.application, selection.location);
+  const concentrationUnit =
+    resolveAssumption(
+      working.assumptions,
+      selection.location === "offsite" && derived.offsiteConcentrationSeparate ? "offsite_target_concentration" : "target_concentration",
+      { strain: selection.strain, application: selection.application }
+    )?.unit ?? "";
   const scenario = findScenario(computed, selection.application, selection.location, selection.method, selection.tankMode);
   const biomass = biomassOf(computed, selection.application);
   const { strain, application } = selection;
@@ -168,7 +175,7 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
               </>
             )}
             <br />
-            {PRODUCTION_SITE_LABEL}で年に作る菌体は、{biomass.offsiteVolumeSeparate ? "オンサイトとオフサイトの年間処理量を足した量" : "この量"}から計算する（{selectionAppLabel(selection)}で{" "}
+            {PRODUCTION_SITE_LABEL}で年に作る菌体は、{biomass.offsiteVolumeSeparate ? "オンサイトとオフサイトの年間処理量に、それぞれの濃さで使い切る菌体の量を掛けて足した量" : "この量"}から計算する（{selectionAppLabel(selection)}で{" "}
             <span className="font-semibold tabular-nums">{int(biomass.capacityKgYear / 1000)} t/年</span>・培養設備 {num(biomass.productionLines, 1)} 系列）。
           </Formula>
         ) : null;
@@ -180,7 +187,15 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
         );
       case "cond-substance":
         return (
-          <Formula>
+          <Formula testId="cost-substance-formula">
+            {/* 選んだ方式の濃さで出す。オフサイトの濃さを別に置いているときは、どちらの濃さかを添える (まさ 2026-09-14「置いて」) */}
+            {derived.offsiteConcentrationSeparate && (
+              <>
+                {LOCATION_SHORT_LABEL[selection.location]}の濃さ{" "}
+                <span className="tabular-nums">{int(derived.targetConcentration)}{concentrationUnit}</span>
+                {selection.location === "offsite" ? "（オフサイトで引き取る液の濃さ）" : "（顧客工場の排水の濃さ）"}で、
+              </>
+            )}
             必要な菌体 {num(derived.biomassWithLossPerM3, 0)} g/{unit}（濃度 ÷ 取り込み効率 ÷ 回収率）÷ 使用回数 {num(derived.reuseCount, 0)}
             {derived.reuseFixed && <span className="text-[#6e6e73]">（{METAL_SINGLE_USE_NOTE}）</span>} ＝ 使い切る菌体{" "}
             <span className="font-semibold tabular-nums">{num(derived.biomassKgPerUnit, 3)} kg/{unit}</span>
@@ -188,7 +203,7 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
           </Formula>
         );
       case "cond-biomass":
-        return <BiomassFormula biomass={biomass} derived={derived} unit={unit} />;
+        return <BiomassFormula biomass={biomass} unit={unit} />;
       case "capex-production":
         return (
           <Formula>
@@ -575,7 +590,7 @@ const PRODUCTION_ONLY_DRIVERS = new Set<CostTaskDriver>(["production_line"]);
 const selectionAppLabel = (selection: CostViewSelection) => (selection.application ? APPLICATION_LABEL[selection.application] : "この試算");
 
 /** 第1段の割り算を、いまの数字で見せる。年に作る量は年間処理量から計算し、培養設備を系列の数だけ並べる。 */
-function BiomassFormula({ biomass: b, derived, unit }: { biomass: CostBiomassCost; derived: CostDerived; unit: string }) {
+function BiomassFormula({ biomass: b, unit }: { biomass: CostBiomassCost; unit: string }) {
   const r = b.salesRate;
   const row = (key: string) => b.rows.find((x) => x.key === key)?.perKg ?? 0;
   const life =
@@ -604,10 +619,11 @@ function BiomassFormula({ biomass: b, derived, unit }: { biomass: CostBiomassCos
         <span className="font-normal text-[#6e6e73]">（{PRODUCTION_SITE_LABEL}＝{PRODUCTION_SITE_DESCRIPTION}）</span>
       </p>
       {b.fromVolume && (
-        <p className="mt-0.5">
-          年に作る量 ＝ 年間処理量{" "}
-          {b.offsiteVolumeSeparate ? `（オンサイト ${int(b.onsiteVolume)} ＋ オフサイト ${int(b.offsiteVolume)}）` : int(b.businessVolume)} {unit} × 使い切る菌体{" "}
-          {num(derived.biomassKgPerUnit, 3)} kg/{unit}
+        <p className="mt-0.5" data-testid="cost-production-formula">
+          {/* オフサイトは引き取る液の濃さが違うので、方式ごとに使い切る菌体の量を掛けてから足す (まさ 2026-09-14「置いて」) */}
+          {b.offsiteVolumeSeparate
+            ? `年に作る量 ＝（オンサイト ${int(b.onsiteVolume)} ${unit} × 使い切る菌体 ${num(b.onsiteBiomassKgPerUnit, 3)} kg/${unit} ＋ オフサイト ${int(b.offsiteVolume)} ${unit} × 使い切る菌体 ${num(b.offsiteBiomassKgPerUnit, 3)} kg/${unit}）`
+            : `年に作る量 ＝ 年間処理量 ${int(b.businessVolume)} ${unit} × 使い切る菌体 ${num(b.onsiteBiomassKgPerUnit, 3)} kg/${unit}`}
           {r < 1 ? ` ÷ 販売率 ${num(r * 100, 0)}%` : ""} ＝ <span className="font-semibold tabular-nums">{int(b.capacityKgYear)} kg/年</span>
           <span className="text-[#6e6e73]">
             {" "}→ 培養設備1系列 {int(b.lineCapacityKgYear)} kg/年 で {num(b.productionLines, 1)} 系列。系列ごとの費用は1kgあたり変わらず、拠点に1つの作業だけが量で薄まる
@@ -654,7 +670,7 @@ function TaskList({
   onChange: CostChangeHandler;
 }) {
   const sel: CostSelection = { strain: selection.strain, application: selection.application };
-  const derived = computed.derivedByApplication.find((d) => d.application === selection.application)?.derived ?? computed.derived;
+  const derived = derivedOf(computed, selection.application, selection.location);
   // 製造拠点の作業は、拠点に1つの作業 (固定の回数) か培養設備の系列ごと (derived.productionLines を掛ける) で数える。
   const centralSel: CostSelection = { strain: selection.strain, application: null };
   const b = biomassOf(computed, selection.application);
@@ -871,7 +887,7 @@ function ItemRows({
 }) {
   const sel: CostSelection = { strain: selection.strain, application: selection.application };
   const centralSel: CostSelection = { strain: selection.strain, application: null };
-  const derived = computed.derivedByApplication.find((d) => d.application === selection.application)?.derived ?? computed.derived;
+  const derived = derivedOf(computed, selection.application, selection.location);
   const b = biomassOf(computed, selection.application);
 
   return (
