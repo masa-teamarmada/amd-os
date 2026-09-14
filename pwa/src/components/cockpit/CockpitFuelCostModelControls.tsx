@@ -37,11 +37,13 @@ import {
 import type { DraftEntity, DraftField, DraftValue } from "@/lib/project-cost-model-draft";
 import { ConfidenceTag, NumberField, Swatch, int, num, yen } from "@/components/cockpit/CockpitCostModelParts";
 import { FUEL_CATEGORY_COLOR, fuelSelectionLabel } from "@/components/cockpit/CockpitFuelCostModelResults";
+import { CostBreakdownGuide, flashElement, type BreakdownGuideDriver } from "@/components/cockpit/CockpitCostBreakdownGuide";
 
 // コスト試算（燃料）の操作パネル。まだ確定できない数字を、すべてここで動かせるようにする。
 // 書き換えはその場で再計算するだけで保存しない。保存は上の「保存していない変更」から admin が行う。
-// 一番上に「作業の流れと工数」、その下に「事業と製造の条件 / CAPEX / OPEX」の区分と小分けを並べる
+// 一番上に「総コストの内訳（大きい順）」、次に「作業の流れと工数」、その下に「事業と製造の条件 / CAPEX / OPEX」の区分と小分けを並べる
 // (排水処理のコスト試算の まさ 2026-09-14「CAPEXとOPEXに分けて、さらにそれぞれのサブグループに分けるなどして整理してほしい」)。
+// 内訳の区分の札を押すと、その額を乗せている小分けへ移る (まさ 2026-09-14「一番大きく占めているところが左カラムのどこにあるのか分かりにくい」)。
 
 export type FuelChangeHandler = (entity: DraftEntity, id: string, field: DraftField, value: DraftValue) => void;
 
@@ -57,6 +59,18 @@ interface Props {
 
 const NAV_BUTTON = "min-h-[36px] shrink-0 rounded-md px-2 text-[11px] font-semibold text-[#3c3c43] hover:bg-[#e8f3fc] hover:text-[#0267b2] xl:min-h-[26px]";
 const stepAnchorId = (label: string) => `fuel-step-${label}`;
+
+/**
+ * 内訳の区分の額を比例して動かす前提 (金額の行ではない)。燃料1Lに要る菌体の量に比例する区分は、収率の表を動かすと額が動く。
+ * 菌体費は、菌体の原価を上書きしても動く。
+ */
+const YIELD_DRIVER: BreakdownGuideDriver = { groupKey: "cond-yield", label: "収率（燃料1Lに要る菌体の量）" };
+const FUEL_BREAKDOWN_DRIVERS: Record<string, BreakdownGuideDriver[]> = {
+  biomass: [YIELD_DRIVER, { groupKey: "cond-biomass", label: "菌体の原価（上書き）" }],
+  recovery: [YIELD_DRIVER],
+  residue: [YIELD_DRIVER],
+  capex: [YIELD_DRIVER],
+};
 
 export function FuelControlsPanel({ saved, working, computed, current, flow, onChange, scrollable }: Props) {
   const paneRef = useRef<HTMLDivElement>(null);
@@ -91,6 +105,11 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
       target.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
+  const jumpToGroup = (groupKey: string) => {
+    jump(`fuel-g-${groupKey}`);
+    flashElement(`fuel-g-${groupKey}`);
+  };
+  const groupTitleOf = (key: string) => FUEL_PARAM_GROUPS.find((g) => g.key === key)?.title;
 
   const s = current.scale;
   const b = current.biomass;
@@ -202,6 +221,9 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
         aria-label="操作パネルの目次"
         className={`${scrollable ? "sticky top-0" : ""} z-10 flex flex-wrap items-center gap-x-0.5 gap-y-0 border-b border-[#e5e5e7] bg-white px-2 py-1`}
       >
+        <button type="button" onClick={() => jump("fuel-breakdown")} className={NAV_BUTTON}>
+          内訳
+        </button>
         {tasks.length > 0 && (
           <button type="button" onClick={() => jump("fuel-flow")} className={NAV_BUTTON}>
             作業の流れと工数
@@ -223,6 +245,22 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
         </button>
       </nav>
       <div className="flex flex-col gap-4 px-3 pb-6 pt-3">
+        <CostBreakdownGuide
+          id="fuel-breakdown"
+          testId="fuel-breakdown-guide"
+          slices={current.breakdown.map((x) => ({
+            key: x.key,
+            label: x.label,
+            color: FUEL_CATEGORY_COLOR[x.key],
+            amount: x.perLiter,
+            parts: x.parts.map((p) => ({ label: p.label, amount: p.perLiter, groupKey: p.groupKey })),
+          }))}
+          unit="L"
+          scenarioLabel={fuelSelectionLabel(current)}
+          groupTitle={groupTitleOf}
+          drivers={FUEL_BREAKDOWN_DRIVERS}
+          onJump={jumpToGroup}
+        />
         {tasks.length > 0 && (
           <section id="fuel-flow" aria-label="作業の流れと工数" className="scroll-mt-12">
             <h4 className="mb-1 text-[12px] font-semibold text-[#1d1d1f]">作業の流れと工数</h4>

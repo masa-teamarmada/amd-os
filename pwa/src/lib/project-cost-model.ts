@@ -549,6 +549,11 @@ export const BREAKDOWN_ORDER: CostBreakdownKey[] = ["biomass", "transport", "lab
 export interface CostBreakdownPart {
   label: string;
   perUnit: number;
+  /**
+   * この中身を動かす操作パネルの小分け (COST_PARAM_GROUPS の key)。操作パネルの一番上の内訳から、その小分けへ移るのに使う
+   * (まさ 2026-09-14「この棒グラフで一番大きく占めているところを減らしていかないといけないんだけど、その部分が左カラムのどこにあるのかが分かりにくい」)。
+   */
+  groupKey: string | null;
 }
 
 export interface CostBreakdownSlice {
@@ -1328,14 +1333,16 @@ function partLabelOfItem(item: Pick<CostItem, "costType" | "groupLabel" | "midLa
   return specific || item.groupLabel || "(名称なし)";
 }
 
-/** 同じ呼び名を足し合わせ、大きい順に並べる。0円の中身は出さない。 */
-function sumParts(entries: Array<{ label: string; perUnit: number }>): CostBreakdownPart[] {
-  const m = new Map<string, number>();
-  for (const e of entries) m.set(e.label, (m.get(e.label) ?? 0) + e.perUnit);
-  return [...m.entries()]
-    .map(([label, perUnit]) => ({ label, perUnit }))
-    .filter((p) => Math.abs(p.perUnit) > 1e-9)
-    .sort((a, b) => b.perUnit - a.perUnit);
+/** 同じ呼び名・同じ小分けを足し合わせ、大きい順に並べる。0円の中身は出さない。 */
+function sumParts(entries: CostBreakdownPart[]): CostBreakdownPart[] {
+  const m = new Map<string, CostBreakdownPart>();
+  for (const e of entries) {
+    const k = `${e.label} ${e.groupKey ?? ""}`;
+    const hit = m.get(k);
+    if (hit) hit.perUnit += e.perUnit;
+    else m.set(k, { ...e });
+  }
+  return [...m.values()].filter((p) => Math.abs(p.perUnit) > 1e-9).sort((a, b) => b.perUnit - a.perUnit);
 }
 
 const BIOMASS_PART_LABEL: Record<CostBiomassRowKey, string> = {
@@ -1343,6 +1350,13 @@ const BIOMASS_PART_LABEL: Record<CostBiomassRowKey, string> = {
   fixed: "年ごとの固定費",
   tasks: "製造拠点の作業",
   variable: "培地・CO2・濃縮など",
+};
+/** 第1段の行を動かす小分け。設備は CAPEX の製造拠点、原料と品質確認は OPEX の製造拠点、作業は人件費。 */
+const BIOMASS_PART_GROUP: Record<CostBiomassRowKey, string> = {
+  capex: "capex-production",
+  fixed: "opex-production",
+  tasks: "opex-labor",
+  variable: "opex-production",
 };
 
 export function computeCostModel(
@@ -1394,8 +1408,8 @@ export function computeCostModel(
     const centralOpexAnnual = biomassAnnual - centralCapexAnnual;
     const centralStrainSpecificAnnual = biomass.strainSpecificPerKg * derived.biomassKgPerUnit * volume;
     const biomassParts = biomass.overridePerKg !== null
-      ? [{ label: "菌体の製造原価（上書き値）", perUnit: perUnit(biomassAnnual) }]
-      : biomass.rows.map((r) => ({ label: BIOMASS_PART_LABEL[r.key], perUnit: r.perKg * derived.biomassKgPerUnit }));
+      ? [{ label: "菌体の製造原価（上書き値）", perUnit: perUnit(biomassAnnual), groupKey: "cond-biomass" }]
+      : biomass.rows.map((r) => ({ label: BIOMASS_PART_LABEL[r.key], perUnit: r.perKg * derived.biomassKgPerUnit, groupKey: BIOMASS_PART_GROUP[r.key] }));
 
     // 第1段の各行が、この用途で1単位あたりいくらを乗せているか。確度の帯グラフ用。
     const centralContrib: Array<{ item: CostItem; annual: number }> = biomass.overridePerKg !== null
@@ -1528,16 +1542,16 @@ export function computeCostModel(
         const parts: Record<CostBreakdownKey, CostBreakdownPart[]> = {
           biomass: sumParts(biomassParts),
           transport: sumParts(
-            siteTaskAmounts.filter((x) => isTransportTask(x.task)).map((x) => ({ label: x.task.label, perUnit: perUnit(x.amount.annual) }))
+            siteTaskAmounts.filter((x) => isTransportTask(x.task)).map((x) => ({ label: x.task.label, perUnit: perUnit(x.amount.annual), groupKey: "opex-labor" }))
           ),
           labor: sumParts(
-            siteTaskAmounts.filter((x) => !isTransportTask(x.task)).map((x) => ({ label: x.task.groupLabel ?? "作業", perUnit: perUnit(x.amount.annual) }))
+            siteTaskAmounts.filter((x) => !isTransportTask(x.task)).map((x) => ({ label: x.task.groupLabel ?? "作業", perUnit: perUnit(x.amount.annual), groupKey: "opex-labor" }))
           ),
-          postProcess: sumParts(postItems.map((i) => ({ label: partLabelOfItem(i), perUnit: perUnit(amount(i)) }))),
-          consumables: sumParts(consumableItems.map((i) => ({ label: partLabelOfItem(i), perUnit: perUnit(amount(i)) }))),
+          postProcess: sumParts(postItems.map((i) => ({ label: partLabelOfItem(i), perUnit: perUnit(amount(i)), groupKey: paramGroupOfItem(i)?.key ?? null }))),
+          consumables: sumParts(consumableItems.map((i) => ({ label: partLabelOfItem(i), perUnit: perUnit(amount(i)), groupKey: paramGroupOfItem(i)?.key ?? null }))),
           capex: sumParts([
-            ...capexItems.map((i) => ({ label: partLabelOfItem(i), perUnit: perUnit(amount(i)) })),
-            ...(tankAnnual > 0 ? [{ label: tankLabel, perUnit: perUnit(tankAnnual) }] : []),
+            ...capexItems.map((i) => ({ label: partLabelOfItem(i), perUnit: perUnit(amount(i)), groupKey: paramGroupOfItem(i)?.key ?? null })),
+            ...(tankAnnual > 0 ? [{ label: tankLabel, perUnit: perUnit(tankAnnual), groupKey: "capex-tank" }] : []),
           ]),
         };
         const slices: Record<CostBreakdownKey, number> = {

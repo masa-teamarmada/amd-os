@@ -35,7 +35,7 @@ import {
   isFuelModel,
 } from "../src/lib/project-fuel-cost-model.ts";
 import { applyDraft, draftKey, draftToPatches, setDraftValue } from "../src/lib/project-cost-model-draft.ts";
-import type { CostModelBundle } from "../src/lib/project-cost-model.ts";
+import { COST_PARAM_GROUPS, computeCostModel, type CostModelBundle } from "../src/lib/project-cost-model.ts";
 
 const root = new URL("..", import.meta.url);
 const read = (p: string) => fs.readFileSync(new URL(p, root), "utf8");
@@ -308,6 +308,39 @@ check("燃料のシミュレーターの画面の約束（排水処理のコス�
     assert.ok(!visible.some((line) => line.includes("中央培養")), `${name} に「中央培養」の文言`);
   }
   assert.match(reading, /id="fuel-guide"/);
+});
+
+check("コスト試算（廃液・燃料）共通: 操作パネルの一番上に総コストの内訳（大きい順）、札を押すとその額を乗せている小分けへ移る", () => {
+  // まさ 2026-09-14「右カラムに出てるこのサマリの内訳が、左カラムの一番上に出るようにしてほしい。
+  // この棒グラフで一番大きく占めているところを減らしていかないといけないんだけど、その部分が左カラムのどこにあるのかが、現状だとめちゃくちゃ分かりにくい」
+  // 計算: 内訳の中身はすべて操作パネルの小分けに結び付き、小分けごとに足すと区分の額になる
+  const fuelGroups = new Set(FUEL_PARAM_GROUPS.map((g) => g.key));
+  for (const s of computeFuelCostModel(fixture).scenarios) {
+    for (const b of s.breakdown) {
+      for (const p of b.parts) assert.ok(p.groupKey !== null && fuelGroups.has(p.groupKey), `燃料 ${s.key} ${b.key}「${p.label}」の小分け ${p.groupKey}`);
+      near(b.parts.reduce((t, p) => t + p.perLiter, 0), b.perLiter, 1e-9, `燃料 ${s.key} ${b.key} 小分けの合計`);
+    }
+  }
+  const wwFixture: CostModelBundle = JSON.parse(read("scripts/__fixtures__/sx_cost_model_two_stage.json"));
+  const wwGroups = new Set(COST_PARAM_GROUPS.map((g) => g.key));
+  for (const strain of ["enhanced", "wild"] as const) {
+    for (const s of computeCostModel(wwFixture, { strain }).scenarios) {
+      for (const b of s.breakdown) for (const p of b.parts) assert.ok(p.groupKey !== null && wwGroups.has(p.groupKey), `廃液 ${strain} ${s.key} ${b.key}「${p.label}」の小分け ${p.groupKey}`);
+    }
+  }
+  // 画面: 共通の部品を、両方の操作パネルの作業の流れより前（一番上）に置く。区分は額の大きい順、札は小分けごとに足して大きい順
+  const guide = read("src/components/cockpit/CockpitCostBreakdownGuide.tsx");
+  assert.match(guide, /\.sort\(\(a, b\) => b\.amount - a\.amount\)/, "区分を額の大きい順に並べる");
+  assert.match(guide, /export function breakdownGroupsOf/);
+  assert.match(guide, /onClick=\{\(\) => onJump\(g\.groupKey\)\}/, "札を押すと小分けへ移る");
+  const fuelControls = read("src/components/cockpit/CockpitFuelCostModelControls.tsx");
+  assert.ok(fuelControls.indexOf("<CostBreakdownGuide") > 0 && fuelControls.indexOf("<CostBreakdownGuide") < fuelControls.indexOf('<section id="fuel-flow"'), "燃料: 内訳が作業の流れより前");
+  assert.match(fuelControls, /jump\(`fuel-g-\$\{groupKey\}`\)/);
+  assert.match(fuelControls, /onClick=\{\(\) => jump\("fuel-breakdown"\)\}/, "燃料: 目次から内訳へ戻れる");
+  const wwControls = read("src/components/cockpit/CockpitCostModelControls.tsx");
+  assert.ok(wwControls.indexOf("<CostBreakdownGuide") > 0 && wwControls.indexOf("<CostBreakdownGuide") < wwControls.indexOf('<section id="cm-flow"'), "廃液: 内訳が作業の流れより前");
+  assert.match(wwControls, /jump\(`cm-g-\$\{groupKey\}`\)/);
+  assert.match(wwControls, /onClick=\{\(\) => jump\("cm-breakdown"\)\}/, "廃液: 目次から内訳へ戻れる");
 });
 
 console.log(`\n${passed} checks passed (project-fuel-cost-model)`);

@@ -52,13 +52,16 @@ import {
   type CostTankMode,
 } from "@/lib/project-cost-model";
 import type { DraftEntity, DraftField, DraftValue } from "@/lib/project-cost-model-draft";
-import { ConfidenceTag, NumberField, ScopeTag, Segmented, int, num, yen } from "@/components/cockpit/CockpitCostModelParts";
+import { CATEGORY_COLOR, ConfidenceTag, NumberField, ScopeTag, Segmented, int, num, yen } from "@/components/cockpit/CockpitCostModelParts";
 import { CostTaskFlowOverview, stepAnchorId } from "@/components/cockpit/CockpitCostModelFlow";
 import { findScenario, selectionLabel, type CostViewSelection } from "@/components/cockpit/CockpitCostModelResults";
+import { CostBreakdownGuide, flashElement, type BreakdownGuideDriver } from "@/components/cockpit/CockpitCostBreakdownGuide";
 
 // コスト試算タブの操作パネル。まだ確定できない数字を、すべてここで動かせるようにする (まさ 2026-09-13)。
 // 書き換えはその場で再計算するだけで保存しない。保存は上の「保存していない変更」から admin が行う。
-// 一番上に「作業の流れと工数」を置き、作業リストも同じ段の順に並べる (まさ 2026-09-13)。
+// 一番上に「総コストの内訳（大きい順）」を置き、区分の札を押すとその額を乗せている小分けへ移る
+// (まさ 2026-09-14「右カラムに出てるこのサマリの内訳が、左カラムの一番上に出るようにしてほしい。一番大きく占めているところが左カラムのどこにあるのか分かりにくい」)。
+// その次に「作業の流れと工数」を置き、作業リストも同じ段の順に並べる (まさ 2026-09-13)。
 // 前提・作業・明細は「事業と処理の条件 / CAPEX / OPEX」の区分と、その中の小分け (COST_PARAM_GROUPS) に並べる
 // (まさ 2026-09-14「ページのあちこちに散らばってて、どこにあるか分からん。CAPEXとOPEXに分けて、さらにそれぞれのサブグループに分けるなどして整理してほしい」)。
 // 選んだ組み合わせで効かない前提は、明細や作業と同じく薄く出す (まさ 2026-09-14「オンサイトを選んだときもグレーアウトしてないのでグレーアウトさせて」)。
@@ -139,6 +142,11 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
       target.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
+  const jumpToGroup = (groupKey: string) => {
+    jump(`cm-g-${groupKey}`);
+    flashElement(`cm-g-${groupKey}`);
+  };
+  const groupTitleOf = (key: string) => COST_PARAM_GROUPS.find((g) => g.key === key)?.title;
 
   /** 区分の下に出す、いまの数字での割り算。 */
   const derivedBox = (key: string): ReactNode => {
@@ -282,6 +290,11 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
         aria-label="操作パネルの目次"
         className={`${scrollable ? "sticky top-0" : ""} z-10 flex flex-wrap items-center gap-x-0.5 gap-y-0 border-b border-[#e5e5e7] bg-white px-2 py-1`}
       >
+        {scenario && (
+          <button type="button" onClick={() => jump("cm-breakdown")} className={NAV_BUTTON}>
+            内訳
+          </button>
+        )}
         {tasks.length > 0 && (
           <button type="button" onClick={() => jump("cm-flow")} className={NAV_BUTTON}>
             作業の流れと工数
@@ -303,6 +316,24 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
         </button>
       </nav>
       <div className="flex flex-col gap-4 px-3 pb-6 pt-3">
+        {scenario && (
+          <CostBreakdownGuide
+            id="cm-breakdown"
+            testId="cost-breakdown-guide"
+            slices={scenario.breakdown.map((x) => ({
+              key: x.key,
+              label: x.label,
+              color: CATEGORY_COLOR[x.key],
+              amount: x.perUnit,
+              parts: x.parts.map((p) => ({ label: p.label, amount: p.perUnit, groupKey: p.groupKey })),
+            }))}
+            unit={unit}
+            scenarioLabel={selectionLabel(selection)}
+            groupTitle={groupTitleOf}
+            drivers={COST_BREAKDOWN_DRIVERS}
+            onJump={jumpToGroup}
+          />
+        )}
         {tasks.length > 0 && (
           <section id="cm-flow" aria-label="作業の流れと工数" className="scroll-mt-12">
             <h4 className="mb-1 text-[12px] font-semibold text-[#1d1d1f]">作業の流れと工数</h4>
@@ -334,6 +365,18 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
 }
 
 const NAV_BUTTON = "min-h-[36px] shrink-0 rounded-md px-2 text-[11px] font-semibold text-[#3c3c43] hover:bg-[#e8f3fc] hover:text-[#0267b2] xl:min-h-[26px]";
+
+/**
+ * 内訳の区分の額を比例して動かす前提 (金額の行ではない)。菌体費は使い切る菌体の量と、菌体1kgの原価の割り算 (販売率・上書き) で動く。
+ * 運ぶは、運ぶ回数と台数を決める前提で動く (工数と経費は人件費の作業)。
+ */
+const COST_BREAKDOWN_DRIVERS: Record<string, BreakdownGuideDriver[]> = {
+  biomass: [
+    { groupKey: "cond-substance", label: "対象物質と菌体の量（使い切る菌体の量）" },
+    { groupKey: "cond-biomass", label: "菌体の製造量と原価（販売率・上書き）" },
+  ],
+  transport: [{ groupKey: "opex-transport", label: "運ぶ（回数と台数を決める前提）" }],
+};
 
 /** 前提の下に出す、いまの数字での割り算の箱。選んだ組み合わせで効かない割り算は薄く出す。 */
 function Formula({ children, testId, muted = false }: { children: ReactNode; testId?: string; muted?: boolean }) {

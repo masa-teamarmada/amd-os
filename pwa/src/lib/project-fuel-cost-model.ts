@@ -588,7 +588,20 @@ export function computeFuelBiomassCost(bundle: Pick<CostModelBundle, "assumption
 export interface FuelBreakdownPart {
   label: string;
   perLiter: number;
+  /**
+   * この中身を動かす操作パネルの小分け (FUEL_PARAM_GROUPS の key)。操作パネルの一番上の内訳から、その小分けへ移るのに使う
+   * (まさ 2026-09-14「この棒グラフで一番大きく占めているところを減らしていかないといけないんだけど、その部分が左カラムのどこにあるのかが分かりにくい」)。
+   */
+  groupKey: string | null;
 }
+
+/** 第1段の行を動かす小分け。設備は CAPEX の培養設備、原料と品質確認は OPEX の培養、作業は人件費。 */
+const FUEL_BIOMASS_PART_GROUP: Record<FuelBiomassRow["key"], string> = {
+  capex: "capex-culture",
+  fixed: "opex-culture",
+  tasks: "opex-labor",
+  variable: "opex-culture",
+};
 export interface FuelBreakdownSlice {
   key: FuelBreakdownKey;
   label: string;
@@ -685,13 +698,16 @@ export function fuelItemLabel(item: { costType: string; scenario: string; groupL
   return mid || leaf || item.groupLabel || "(名称なし)";
 }
 
+/** 同じ呼び名・同じ小分けを足し合わせ、大きい順に並べる。0円の中身は出さない。 */
 function sumParts(entries: FuelBreakdownPart[]): FuelBreakdownPart[] {
-  const m = new Map<string, number>();
-  for (const e of entries) m.set(e.label, (m.get(e.label) ?? 0) + e.perLiter);
-  return [...m.entries()]
-    .map(([label, perLiter]) => ({ label, perLiter }))
-    .filter((p) => Math.abs(p.perLiter) > 1e-9)
-    .sort((a, b) => b.perLiter - a.perLiter);
+  const m = new Map<string, FuelBreakdownPart>();
+  for (const e of entries) {
+    const k = `${e.label} ${e.groupKey ?? ""}`;
+    const hit = m.get(k);
+    if (hit) hit.perLiter += e.perLiter;
+    else m.set(k, { ...e });
+  }
+  return [...m.values()].filter((p) => Math.abs(p.perLiter) > 1e-9).sort((a, b) => b.perLiter - a.perLiter);
 }
 
 export function fuelScenarioLabelOf(conversion: FuelConversion, yieldCase: FuelYieldCase): string {
@@ -721,8 +737,8 @@ export function computeFuelScenario(
 
   const biomassPerLiter = biomass.perKg * y.kgDcwPerLiter;
   const biomassParts: FuelBreakdownPart[] = biomass.overridePerKg !== null
-    ? [{ label: "菌体の原価（上書き値）", perLiter: biomassPerLiter }]
-    : biomass.rows.map((r) => ({ label: r.label, perLiter: r.perKg * y.kgDcwPerLiter }));
+    ? [{ label: "菌体の原価（上書き値）", perLiter: biomassPerLiter, groupKey: "cond-biomass" }]
+    : biomass.rows.map((r) => ({ label: r.label, perLiter: r.perKg * y.kgDcwPerLiter, groupKey: FUEL_BIOMASS_PART_GROUP[r.key] }));
 
   const partsOf: Record<FuelBreakdownKey, FuelBreakdownPart[]> = {
     biomass: biomassParts,
@@ -732,12 +748,12 @@ export function computeFuelScenario(
     shipping: [],
     capex: [],
   };
-  for (const r of itemRows) partsOf[r.key].push({ label: fuelItemLabel(r.item), perLiter: perLiter(r.annual) });
-  for (const r of taskRows) partsOf[r.key].push({ label: r.task.label, perLiter: perLiter(r.amount.annual) });
+  for (const r of itemRows) partsOf[r.key].push({ label: fuelItemLabel(r.item), perLiter: perLiter(r.annual), groupKey: fuelParamGroupOfItem(r.item)?.key ?? null });
+  for (const r of taskRows) partsOf[r.key].push({ label: r.task.label, perLiter: perLiter(r.amount.annual), groupKey: "opex-labor" });
   // 残渣の処理は前提から計算する (明細の行は持たない)。処理する菌体の量に比例する。
   const residue = fuelResidueOf(assumptions);
   const residuePerLiter = residue.perKgDcw * y.kgDcwPerLiter;
-  partsOf.residue.push({ label: residue.label, perLiter: residuePerLiter });
+  partsOf.residue.push({ label: residue.label, perLiter: residuePerLiter, groupKey: "opex-residue" });
   const breakdown: FuelBreakdownSlice[] = FUEL_BREAKDOWN_ORDER.map((key) => {
     const parts = sumParts(partsOf[key]);
     const value = key === "biomass" ? biomassPerLiter : partsOf[key].reduce((s, p) => s + p.perLiter, 0);
