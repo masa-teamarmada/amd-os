@@ -5,6 +5,16 @@
 
 ---
 
+### [ops/deploy] 使い捨てcloneのoriginが共有checkoutを向き、本番反映を拒否した (2026-09-14)
+
+- **状態**: クローズ。
+- **症状**: 共有checkoutから作った使い捨てcloneで正規の配信手順を実行すると、push先がGitHubではなく共有checkoutそのものになり、チェックアウト中のmainを書き換えようとしてGitに拒否された。
+- **根本原因**: clone元がGitHubではなくローカル共有checkoutだったため、cloneの `origin` もローカルパスを継承した。共有checkoutは別作業の未反映変更を持っており、直接pushの対象にできない。
+- **対応内容**: GitHubの最新mainから新しい使い捨てcloneを作り、SOL移行差分だけを載せ替えてmainへpushした。本番 `v3.128.1` のSHAと画面表示を読戻しした。
+- **再発防止策**: 配信用clean cloneは必ずGitHubの `main` から作る。配信前に `git remote -v` と `git rev-list --left-right --count HEAD...origin/main` を確認し、ローカルパスのoriginを本番反映に使わない。
+
+---
+
 ### [automation/atlas] LLM停止を「成功」と返し、5分ごとに滞留outboxを再送し続けた (2026-09-04)
 
 - **状態**: 修正済み・自動実行は停止継続。既存62 fileは保留。

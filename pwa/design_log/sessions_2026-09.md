@@ -1,5 +1,13 @@
 # 2026-09 開発セッション
 
+## 2026-09-14 p21の現行略称をSOLへ移行
+
+- p21の現行表示名と別名をSOLへ切り替えた。内部ID `p21`、外部ブランド `SolvioraX`、既存URL・内部キーは互換性と履歴のため維持する。
+- migration 389で `projects` と `project_ventures` の表示を更新し、DB読戻しで `project_name=SOL`、`report_local_alias=SOL`、`short_label=SOL`、`master_md_slug=sol` を確認した。
+- カレンダー色4は2026-09-13までSX、9月14日以降SOLとして扱い、旧SX入力はSOLへ正規化する。PWAとカレンダー同期のEdge Functionを同じ変更で反映した。
+- 最新mainへ差分だけを載せ替え、commit `2822a117` をpush。本番 `v3.128.1` のbuild-info SHAと、p21コックピットのSOL表示を確認した。
+- 仕様は `spec/3-17`・`spec/3-3`、利用説明は `manual/3-2`、附則は `spec/6-1`・`manual/9-3` へ同期済み。
+
 ## 2026-09-09 VC投資履歴の分離と根拠付き候補収集
 
 - まさと設計を先に合意し、16列ある`/vcs`へ投資参加を足さず、同じVC台帳の別投影`/vcs/investments`を追加した。SUマスタ、資金調達ラウンド、参加VCの三層で正規化し、1行をVC参加1件にした。
