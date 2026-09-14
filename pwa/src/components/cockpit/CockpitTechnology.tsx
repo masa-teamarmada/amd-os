@@ -90,6 +90,9 @@ const SOURCE_KINDS: TechSourceKind[] = [
 ];
 const CONFIDENCES: TechConfidence[] = ["high", "medium", "low", "unverified"];
 const RATINGS: TechRating[] = ["excellent", "good", "fair", "poor", "na", "unknown"];
+/** 星取り表の最小幅 = 比較軸の列 + 相手の列の数 × 1列の幅 (最小520px)。スマホでは横スクロールになる。 */
+const MATRIX_AXIS_COL_PX = 128;
+const MATRIX_COL_PX = 96;
 
 /** 空文字を null に落として、0 と未入力を区別する。 */
 function numOrNull(v: string): number | null {
@@ -196,9 +199,11 @@ function MatrixBlock({ entries }: { entries: TechEntry[] }) {
     return <EmptyRows hint="比較軸 (行) と相手 (列) を決めて、1マスずつ足す" />;
   }
   const cell = (row: string, col: string) => entries.find((e) => e.row_label === row && e.col_label === col);
+  // 相手が多い表 (SXの競合比較は8列) をスマホ幅で押しつぶさないよう、列の数から表の最小幅を決めて横スクロールで読ませる。
+  const minWidth = Math.max(520, MATRIX_AXIS_COL_PX + cols.length * MATRIX_COL_PX);
   return (
     <div className="max-h-[70vh] overflow-auto">
-      <table className="w-auto min-w-[520px] max-w-full border-collapse text-[12px]">
+      <table className="w-auto max-w-full border-collapse text-[12px]" style={{ minWidth }}>
         <thead>
           <tr className="bg-[#f5f5f7] text-left text-[11px] text-[#6e6e73]">
             <th className="sticky left-0 top-0 z-30 border-b border-r border-[#e5e5e7] bg-[#f5f5f7] px-2 py-1.5 font-medium">
