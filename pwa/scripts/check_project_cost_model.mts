@@ -29,9 +29,11 @@
 // 2026-09-14 まさ指摘⑨:「「槽　顧客の設備」ってのが最上段にある意味がわからん。特出しするものでもないと思うので削除して」
 // 「新設槽CAPEX（コンクリート地下タンク100m³）→これってオフサイトの場合のみ使うやつだよね？オンサイトを選んだときもグレーアウトしてないのでグレーアウトさせて」
 // — 上端に槽を出さず、槽は選べるときだけ名前に入れる。選んだ組み合わせで効かない前提を薄く出す（効くかは rolesInEffect。動かして確かめる）。
+// 2026-09-14 まさ回答⑩: 汚泥の処分「オンサイトなら顧客」、循環カートリッジの処理の運転「オフサイトならSX」、
+// 顧客の装置の消耗品・電力・点検とモジュールの交換費「それ普通いれないでしょ」— 装置を動かす費用は処理する場所の持ち主（オンサイトは顧客）。
 //
 // 正本: pwa/spec/5-13-project-cost-model-current-spec.md
-// fixture: scripts/__fixtures__/sx_cost_model_two_stage.json（migration 409 適用後の SX データ）
+// fixture: scripts/__fixtures__/sx_cost_model_two_stage.json（migration 410 適用後の SX データ）
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {
@@ -267,15 +269,15 @@ for (const strain of ["enhanced", "wild"] as const) {
 }
 
 // 8. 仕様書の検証表と一致する（オンサイト・直接投入。槽は顧客の設備）。2026-09-14 から処理の運転は顧客の作業、リアクターと槽は顧客が買い、
-//    色素分解の汚泥の処分は顧客がやる。色素分解の菌体使用回数は10回
+//    色素分解の汚泥の処分と、装置を動かす消耗品・電力・点検・交換部品は顧客が持つ。色素分解の菌体使用回数は10回
 //    年間処理量は2,000万m³（売上100億円）。年に作る量から培養設備の系列数を出す
 near(computeBiomassCost(fixture, "enhanced", "dye").perKg, 120.1, 0.05, "強化株 菌体原価（色素分解で年に作る量）");
 near(computeBiomassCost(fixture, "enhanced", "metal").perKg, 120.0, 0.05, "強化株 菌体原価（金属回収で年に作る量）");
 near(computeBiomassCost(fixture, "wild", "dye").perKg, 98.5, 0.05, "自然株 菌体原価");
-near(scenario(fixture, "enhanced", "dye", "投入-既設").totalPerUnit, 101.8, 0.05, "強化株 色素 オンサイト直接投入");
-near(scenario(fixture, "enhanced", "metal", "投入-既設").totalPerUnit, 289.5, 0.05, "強化株 金属 オンサイト直接投入");
-near(scenario(fixture, "wild", "dye", "投入-既設").totalPerUnit, 81.1, 0.05, "自然株 色素 オンサイト直接投入");
-near(scenario(fixture, "wild", "metal", "投入-既設").totalPerUnit, 291.5, 0.05, "自然株 金属 オンサイト直接投入");
+near(scenario(fixture, "enhanced", "dye", "投入-既設").totalPerUnit, 34.1, 0.05, "強化株 色素 オンサイト直接投入");
+near(scenario(fixture, "enhanced", "metal", "投入-既設").totalPerUnit, 225.8, 0.05, "強化株 金属 オンサイト直接投入");
+near(scenario(fixture, "wild", "dye", "投入-既設").totalPerUnit, 30.4, 0.05, "自然株 色素 オンサイト直接投入");
+near(scenario(fixture, "wild", "metal", "投入-既設").totalPerUnit, 244.8, 0.05, "自然株 金属 オンサイト直接投入");
 assert.ok(
   scenario(fixture, "enhanced", "dye", "投入-既設").totalPerUnit < scenario(fixture, "enhanced", "metal", "投入-既設").totalPerUnit,
   "使い回せる色素分解は、使い捨ての金属回収より安い（まさ 2026-09-14）"
@@ -497,11 +499,11 @@ assert.ok(
   }
   // 仕様書の表と一致する（年間処理量2,000万m³で年に作る量から出した菌体原価）
   near(off.totalPerUnit, 2880.0, 0.05, "強化株 色素 オフサイト直接投入");
-  near(scenario(fixture, "enhanced", "dye", "オフサイト-循環-新設").totalPerUnit, 2815.4, 0.05, "強化株 色素 オフサイト循環（処理の運転は画面から顧客で保存）");
+  near(scenario(fixture, "enhanced", "dye", "オフサイト-循環-新設").totalPerUnit, 3045.4, 0.05, "強化株 色素 オフサイト循環（処理の運転はオフサイトなら SX）");
   near(scenario(fixture, "enhanced", "metal", "オフサイト-投入-新設").totalPerUnit, 3026.1, 0.05, "強化株 金属 オフサイト直接投入");
   near(scenario(fixture, "wild", "dye", "オフサイト-投入-新設").totalPerUnit, 2859.6, 0.05, "自然株 色素 オフサイト直接投入");
   near(scenario(fixture, "wild", "metal", "オフサイト-投入-新設").totalPerUnit, 3027.0, 0.05, "自然株 金属 オフサイト直接投入");
-  near(scenario(fixture, "enhanced", "dye", "循環-既設").totalPerUnit, 381.6, 0.05, "強化株 色素 オンサイト循環");
+  near(scenario(fixture, "enhanced", "dye", "循環-既設").totalPerUnit, 37.0, 0.05, "強化株 色素 オンサイト循環（菌体保持モジュールの交換費は顧客）");
 }
 
 // 15. 誰がやるか: SX がやる作業だけを SX の原価に入れる。顧客工場での処理の運転は顧客（オンサイト）、SX（オフサイト）
@@ -605,10 +607,11 @@ assert.ok(
   assert.ok(offDye.breakdown.find((b) => b.key === "capex")!.perUnit > 60, "オフサイトは SX工場の設備と槽の償却が乗る");
   near(offDye.breakdown.find((b) => b.key === "postProcess")!.perUnit, 19.4, 0.05, "オフサイトの色素分解は SX工場で出る汚泥の処分が乗る");
 
-  // SX が設備・槽・処分を持つ形に戻すと、その分だけ上がる（使用回数10回、年間処理量2,000万m³）
+  // SX が設備・槽・装置の費用・処分を持ち、顧客工場の処理設備の検査もする形に戻すと、その分だけ上がる（使用回数10回、年間処理量2,000万m³）
   const sxOwns = clone();
   for (const i of sxOwns.items) i.bearer = "sx";
   for (const a of sxOwns.assumptions) if (a.roleKey === "onsite_tank_bearer") a.valueText = "sx";
+  for (const t of sxOwns.tasks) if (t.costTaskId === "ct_s_integrity_test" || t.costTaskId === "ct_s_filter_replace") t.performer = "sx";
   near(scenario(sxOwns, "enhanced", "dye", "投入-既設").totalPerUnit, 239.2, 0.05, "SX が持つ形の色素分解");
   near(scenario(sxOwns, "enhanced", "metal", "投入-既設").totalPerUnit, 407.4, 0.05, "SX が持つ形の金属回収");
   near(scenario(capacityShape(sxOwns), "enhanced", "dye", "投入-既設").totalPerUnit, 240.0, 0.05, "年間生産能力を入力で持つ形では 2026-09-14 の直前の数字（240.0）");
@@ -621,6 +624,36 @@ assert.ok(
   skid.bearer = "customer";
   const offBefore = scenario(fixture, "enhanced", "dye", "オフサイト-投入-新設").totalPerUnit;
   near(offBefore - scenario(oneRow, "enhanced", "dye", "オフサイト-投入-新設").totalPerUnit, 8_000_000 / 10 / 30000, 1e-9, "UF/MFスキッド恒久部を顧客に移すとオフサイトでも26.7円/m³下がる");
+  // 2026-09-14 まさ回答: 顧客工場の装置を動かす消耗品・電力・点検・交換部品と、処理水の分析・薬剤は処理する場所の持ち主（「それ普通いれないでしょ」）。
+  // 菌体の補充分（反応）と菌体を運ぶ容器・金属回収の後処理は SX。汚泥の処分はオンサイトなら顧客（「オンサイトなら顧客」）
+  const itemOf = (b: CostModelBundle, id: string) => {
+    const it = b.items.find((x) => x.costItemId === id);
+    assert.ok(it, `item ${id}`);
+    return it;
+  };
+  const deviceOpex = fixture.items.filter((i) => (i.scenario === "循環" || i.scenario === "投入") && i.costType === "OPEX" && !i.isBreakdown);
+  assert.equal(deviceOpex.length, 31, "装置の OPEX は循環カートリッジ12行・直接投入19行");
+  for (const i of deviceOpex) {
+    const biomassSupply = (i.midLabel ?? "").startsWith("反応");
+    assert.equal(resolveBearer(i, "onsite"), biomassSupply ? "sx" : "customer", `${i.costItemId} はオンサイトで${biomassSupply ? " SX（菌体の補充）" : "顧客（装置を動かす費用）"}`);
+    assert.equal(resolveBearer(i, "offsite"), "sx", `${i.costItemId} はオフサイトで SX`);
+  }
+  assert.equal(itemOf(fixture, "ci_260820_149").priceRule, "module_swap", "菌体保持モジュール交換費の行");
+  assert.equal(resolveBearer(itemOf(fixture, "ci_260820_149"), "onsite"), "customer", "菌体保持モジュールの交換費はオンサイトなら顧客");
+  for (const id of ["ci2_dye_analysis", "ci2_s_treated_water"]) assert.equal(itemOf(fixture, id).bearer, "site", `${id} 処理水の分析・薬剤は処理する場所の持ち主`);
+  for (const id of ["ct_s_integrity_test", "ct_s_filter_replace"]) assert.equal(task(fixture, id).performer, "site", `${id} 顧客工場の処理設備の検査・フィルター交換は処理する場所の持ち主`);
+  for (const id of ["ci_260820_131", "ci_260820_132", "ci_260820_135", "ci_260820_140"]) assert.equal(itemOf(fixture, id).bearer, "sx", `${id} 菌体を運ぶ容器・金属回収の後処理は SX`);
+  assert.equal(resolveBearer(itemOf(fixture, "ci2_dye_disposal"), "onsite"), "customer", "汚泥の処分はオンサイトなら顧客");
+  for (const id of ["ct_module_swap", "ct_membrane_swap", "ct_s_training", "ct_delivery", "ct_travel"]) assert.equal(task(fixture, id).performer, "sx", `${id} 交換の作業・巡回・立入制限と教育訓練は SX`);
+  const onCons = on.breakdown.find((b) => b.key === "consumables")!;
+  near(onCons.perUnit, (9 + 4.5 + 2.7 + 2.7) * deriveCostBasis(fixture.assumptions, { strain: "enhanced", application: "dye" }).biomassKgPerUnit, 1e-6, "オンサイトの消耗品の区分に残るのは、菌体の補充分と菌体を運ぶ容器だけ");
+  // 循環カートリッジの処理の運転はオフサイトなら SX（「オフサイトならSX」）: 5.75時間 × 4,000円 × 300バッチ ÷ 30,000m³ = 230円/m³
+  assert.equal(task(fixture, "ct_run_circulation").performer, "site", "循環カートリッジの処理の運転は処理する場所の人");
+  const customerCirc = clone();
+  task(customerCirc, "ct_run_circulation").performer = "customer";
+  near(scenario(fixture, "enhanced", "dye", "オフサイト-循環-新設").totalPerUnit - scenario(customerCirc, "enhanced", "dye", "オフサイト-循環-新設").totalPerUnit, (5.75 * 4000 * 300) / 30000, 1e-9, "オフサイトの循環カートリッジは SX の運転の分が乗る");
+  near(scenario(fixture, "enhanced", "dye", "循環-既設").totalPerUnit, scenario(customerCirc, "enhanced", "dye", "循環-既設").totalPerUnit, 1e-9, "オンサイトの循環カートリッジの運転は顧客のまま");
+
   // 前提が無い試算は、これまでどおり槽も SX
   const noTank = clone();
   noTank.assumptions = noTank.assumptions.filter((a) => a.roleKey !== "onsite_tank_bearer");
@@ -681,7 +714,7 @@ assert.ok(
   near(capBio.capacityKgYear, 33333, 1e-9, "年間生産能力をそのまま年に作る量に");
   near(capBio.productionLines, 1, 1e-12, "系列は1つ");
   near(capBio.perKg, 127.1, 0.05, "これまでの形では 127.1円/kg");
-  near(scenario(capShape, "enhanced", "dye", "投入-既設").totalPerUnit, 102.6, 0.05, "これまでの形では 102.6円/m³");
+  near(scenario(capShape, "enhanced", "dye", "投入-既設").totalPerUnit, 34.9, 0.05, "年間生産能力を入力で持つ形では 34.9円/m³（装置を動かす費用は顧客の持ち分）");
   assert.equal(scenario(capShape, "enhanced", "dye", "投入-既設").businessVolume, 0, "年間処理量の前提が無い試算は事業全体の年額を出さない");
   // 1系列の前提が無く、年間生産能力だけを持つ試算に年間処理量を足すと、年間生産能力を1系列の量として使う
   const onlyCapacity = capacityShape(fixture);
@@ -821,14 +854,17 @@ assert.ok(
   near(scenario(sxTank, "wild", "dye", "オフサイト-投入-新設").totalPerUnit, scenario(fixture, "wild", "dye", "オフサイト-投入-新設").totalPerUnit, 1e-9, "槽を持つのはオフサイトに効かない");
   // 決まった組み合わせで、効く前提と効かない前提
   const onsite = rolesInEffect(fixture, { strain: "wild", application: "dye", location: "onsite", method: "投入", tankMode: "既設" });
-  for (const role of ["new_tank_capex", "tank_life_years", "truck_capacity_m3", "module_unit_price", "module_durability_batches", "power_kw_circulation", "hrt_circulation", "spent_wet_factor", "sludge_disposal_price"]) {
+  // オンサイトでは装置の電力・交換部品は顧客の持ち分なので、電力の前提は効かない（2026-09-14 まさ「それ普通いれないでしょ」）
+  for (const role of ["new_tank_capex", "tank_life_years", "truck_capacity_m3", "module_unit_price", "module_durability_batches", "power_kw_circulation", "hrt_circulation", "spent_wet_factor", "sludge_disposal_price", "power_unit_price", "power_kw_injection", "hrt_injection"]) {
     assert.ok(!onsite.has(role), `オンサイト・直接投入（槽は顧客の設備）では ${role} を使わない`);
   }
-  for (const role of ["labor_rate", "patrol_batches_per_delivery", "membrane_life_years", "power_unit_price", "power_kw_injection", "hrt_injection", "onsite_tank_bearer"]) {
+  for (const role of ["labor_rate", "patrol_batches_per_delivery", "membrane_life_years", "onsite_tank_bearer"]) {
     assert.ok(onsite.has(role), `オンサイト・直接投入では ${role} を使う`);
   }
+  const onsiteCirculation = rolesInEffect(fixture, { strain: "wild", application: "dye", location: "onsite", method: "循環", tankMode: "既設" });
+  assert.ok(!onsiteCirculation.has("module_unit_price") && onsiteCirculation.has("module_durability_batches"), "オンサイトの循環カートリッジは、モジュールの単価は顧客・交換の作業の回数は SX に効く");
   const offsite = rolesInEffect(fixture, { strain: "wild", application: "dye", location: "offsite", method: "循環", tankMode: "新設" });
-  for (const role of ["new_tank_capex", "tank_life_years", "truck_capacity_m3", "module_unit_price", "module_durability_batches", "power_kw_circulation", "hrt_circulation", "spent_wet_factor", "sludge_disposal_price"]) {
+  for (const role of ["new_tank_capex", "tank_life_years", "truck_capacity_m3", "module_unit_price", "module_durability_batches", "power_kw_circulation", "hrt_circulation", "spent_wet_factor", "sludge_disposal_price", "power_unit_price"]) {
     assert.ok(offsite.has(role), `オフサイト・循環カートリッジでは ${role} を使う`);
   }
   for (const role of ["onsite_tank_bearer", "patrol_batches_per_delivery", "membrane_life_years", "power_kw_injection", "hrt_injection"]) {

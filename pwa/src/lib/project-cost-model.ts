@@ -82,7 +82,7 @@ export const LOCATION_LABEL: Record<CostLocation, string> = {
   offsite: "オフサイト（SX工場まで運んで処理）",
 };
 export const LOCATION_DESCRIPTION: Record<CostLocation, string> = {
-  onsite: "顧客工場の槽の横に、顧客が買ったリアクターを置いて処理する。運転と汚泥の処分は顧客がやり、SXは菌体の搬入・搬出や交換で巡回する",
+  onsite: "顧客工場の槽の横に、顧客が買ったリアクターを置いて処理する。運転・汚泥の処分と、装置の消耗品・電力・点検は顧客が持ち、SXは菌体の搬入・搬出や交換で巡回する",
   offsite: "排液をタンクローリーでSX工場まで運び、SX工場に新設する槽で処理する。設備と運転と汚泥の処分はSXが持ち、処理水はSX工場から流す",
 };
 export const OFFSITE_DESCRIPTION = LOCATION_DESCRIPTION.offsite;
