@@ -5,6 +5,7 @@ import {
   APPLICATION_LABEL,
   CO2_FLUE_GAS_LABEL,
   WASTE_MEDIUM_LABEL,
+  WASTE_HEAT_LABEL,
   CONFIDENCE_LABEL,
   STRAIN_LABEL,
   type CostApplication,
@@ -173,6 +174,24 @@ export function WasteMediumSwitch({ on, baselineOn, reductionPct, onToggle }: { 
       label={WASTE_MEDIUM_LABEL}
       testId="waste-medium-switch"
       hint={on ? `ON：工場の排液を培地に使うので、買値が${num(reductionPct, 0)}%引き` : "OFF：試薬を買う"}
+    />
+  );
+}
+
+/**
+ * 加温の熱の明細の行に置く「排熱利用可能」のスイッチ。廃液と燃料のコスト試算で共通。
+ * まさ 2026-09-15「顧客の工場のCO2と排熱、排ガスをフル活用してやる方向」。
+ * SX の株は好熱性で45〜70℃で運転するので、工場の排熱（蒸気のドレン・冷却水・排ガスの熱）とちょうど温度帯が合う。
+ */
+export function WasteHeatSwitch({ on, baselineOn, onToggle }: { on: boolean; baselineOn: boolean; onToggle: (on: boolean) => void }) {
+  return (
+    <ItemInlineSwitch
+      on={on}
+      baselineOn={baselineOn}
+      onToggle={onToggle}
+      label={WASTE_HEAT_LABEL}
+      testId="waste-heat-switch"
+      hint={on ? "ON：工場の排熱を使うので、加温の熱は0円" : "OFF：熱を買う"}
     />
   );
 }

@@ -140,16 +140,16 @@ check("内訳は6区分で、足すと総コストに一致する。CAPEX と OP
 check("260914版の数字（外部に委託・自社で行う × 3ケース、円/L。413 でFAMEポテンシャルを置き直し、426 で培養の原料を「使う量 × 買値」に組み直し、430 で培養ロス補充の単価を原料の合計から出すようにした後。排ガス利用可能は OFF）", () => {
   const c = computeFuelCostModel(fixture);
   const expect: Record<string, number> = {
-    "outsourced:low": 11260.0, "outsourced:base": 6033.4, "outsourced:high": 4053.3,
-    "inhouse:low": 11258.5, "inhouse:base": 6007.5, "inhouse:high": 4018.1,
+    "outsourced:low": 29316.3, "outsourced:base": 15657.4, "outsourced:high": 10482.5,
+    "inhouse:low": 29314.8, "inhouse:base": 15631.5, "inhouse:high": 10447.4,
   };
   for (const [key, v] of Object.entries(expect)) {
     const s = c.scenarios.find((x) => x.key === key)!;
     assert.equal(Math.round(s.totalPerLiter * 10) / 10, v, key);
   }
   const base = findFuelScenario(c, "outsourced", "base")!;
-  assert.equal(Math.round(base.biomass.perKg * 100) / 100, 306.39, "菌体1kgの原価（排水処理の自然株 312.8円 − 保管・輸送設備 6.43円）");
-  assert.equal(Math.round(base.biomassPerLiter * 10) / 10, 5528.9, "菌体費");
+  assert.equal(Math.round(base.biomass.perKg * 100) / 100, 839.7, "菌体1kgの原価（排水処理の自然株 846.1円 − 保管・輸送設備 6.43円）");
+  assert.equal(Math.round(base.biomassPerLiter * 10) / 10, 15152.8, "菌体費");
   for (const s of c.scenarios) assert.ok(s.breakEvenBiomassPerKg < 0, `${s.key}: 菌体がタダでも燃料化の工程だけで売価を超える`);
   const high = findFuelScenario(c, "outsourced", "high")!;
   assert.equal(Math.round(high.breakEvenBiomassPerKg * 10) / 10, -13.3, "改善・委託の売価で成立する菌体の原価");
@@ -479,7 +479,7 @@ check("コスト試算（廃液・燃料）共通: 明細の行の下に、数�
   assert.match(wwRowsSrc, /<ItemNoteLine note=\{i\.note\} \/>/);
 });
 
-check("コスト試算（廃液・燃料）共通: 培養の原料10行は「使う量 × 買値」で、2つの試算で同じ値。培養ロス補充の単価は原料9行の合計", () => {
+check("コスト試算（廃液・燃料）共通: 培養の原料10行は「使う量 × 買値」で、2つの試算で同じ値。培養ロス補充の単価は原料の行の合計", () => {
   // まさ 2026-09-14「Aで」（培養の原料を使う量 × 買値に組み直す。量は菌体の成分と菌体の濃さから、買値は公開の相場から。廃液のタブの同じ行もそろえる）。migration 426
   const ww: CostModelBundle = JSON.parse(read("scripts/__fixtures__/sx_cost_model_two_stage.json"));
   const materials = ["120", "121", "122", "123", "124", "125", "126", "127", "128"];
@@ -501,16 +501,23 @@ check("コスト試算（廃液・燃料）共通: 培養の原料10行は「使
     assert.notEqual(i.quantityUnit, "kg-DCW", `${i.costItemId}「${i.leafLabel}」は量を持つ（「1 kg-DCW × 円/kg-DCW」の額の直置きに戻さない）`);
     assert.ok(!/円\/kg-DCW$/.test(i.unitPriceUnit ?? ""), `${i.costItemId} の買値は物の単位あたり`);
   }
-  // 430 から、培養ロス補充の単価は原料9行の菌体1kgあたりの合計を計算で出す（直に置いた261.6円は使わない）。CO2 の行は排ガス利用可能で0円にできる
-  const sum = fuelRows.slice(0, 9).reduce((t, i) => t + i.quantity * i.unitPrice, 0);
+  // 430 から、培養ロス補充の単価は培養の「毎kg菌体比例」の行の合計を計算で出す（直に置いた261.6円は使わない）。CO2 の行は排ガス利用可能で0円にできる
+  // 435 で加温の熱・培養の電力・培養液の入れ替えの3行が加わった（菌体を作り直すのにも熱と電力が要る）
+  const ADDED_2026_09_15 = ["heat", "power", "blowdown"];
+  const sumRows = [
+    ...fuelRows.slice(0, 9),
+    ...ADDED_2026_09_15.map((k) => fixture.items.find((i) => i.costItemId === `cif_culture_${k}`)!),
+  ];
+  for (const i of sumRows.slice(9)) assert.ok(i, "435 で足した培養の行");
+  const sum = sumRows.reduce((t, i) => t + i.quantity * i.unitPrice, 0);
   const loss = fuelRows[9];
   assert.equal(loss.priceRule, "culture_loss", "培養ロス補充は原料の合計から単価を出す");
   assert.equal(wwRows[9].priceRule, "culture_loss", "廃液の培養ロス補充も同じ");
   assert.deepEqual([fuelRows[3].priceRule, wwRows[3].priceRule], ["co2_supply", "co2_supply"], "CO2 の行は排ガス利用可能で切り替える");
-  near(fuelEffectiveUnitPrice(loss, { assumptions: fixture.assumptions, items: fixture.items }), sum, 1e-9, "燃料: 培養ロス補充の単価 ＝ 原料9行の菌体1kgあたりの合計");
+  near(fuelEffectiveUnitPrice(loss, { assumptions: fixture.assumptions, items: fixture.items }), sum, 1e-9, "燃料: 培養ロス補充の単価 ＝ 原料の行の菌体1kgあたりの合計");
   const wwCentral = { strain: "wild" as const, application: null };
   const wwDerived = computeCostModel(ww, { strain: "wild" }).derivedByApplication[0].derived;
-  near(effectiveUnitPrice(wwRows[9], ww.assumptions, wwDerived, wwCentral, ww.items), sum, 1e-9, "廃液: 培養ロス補充の単価 ＝ 原料9行の菌体1kgあたりの合計");
+  near(effectiveUnitPrice(wwRows[9], ww.assumptions, wwDerived, wwCentral, ww.items), sum, 1e-9, "廃液: 培養ロス補充の単価 ＝ 原料の行の菌体1kgあたりの合計");
   // 量の元: 炭素50%・CO2の固定80% → 2.29kg、窒素8% ÷ 硝酸ナトリウムの窒素16.48%、リン1% ÷ りん酸二アンモニウムのリン23.45%
   near(fuelRows[3].quantity, 2.29, 1e-9, "CO2");
   near(fuelRows[0].quantity, Math.round((0.08 / (14.007 / 84.995)) * 1e4) / 1e4, 1e-12, "窒素源");
@@ -543,18 +550,18 @@ check("排ガス利用可能: ON のとき CO2 の単価を0円にし、培養�
     near(s.totalPerLiter - t.totalPerLiter, drop * s.yield.unitKgPerLiter, 1e-6, `${s.key} 燃料1Lあたりは その額 × 燃料1Lに要る菌体 だけ下がる`);
   }
   const ob = findFuelScenario(onc, "outsourced", "base")!;
-  assert.equal(Math.round(ob.totalPerLiter * 10) / 10, 3863.9, "ON 基準・委託（2026-09-14）");
+  assert.equal(Math.round(ob.totalPerLiter * 10) / 10, 13487.9, "ON 基準・委託（2026-09-14）");
   assert.ok(onc.scenarios.every((s) => s.totalPerLiter > 200), "ON でも6通りすべて売価200円/Lを上回る");
   // 菌体の原価を上書きしていれば、切り替えても数字は変わらない
   const overridden = setRole(clone(), "biomass_cost_per_kg_override", { value: 100 });
   const overriddenOn = setRole(JSON.parse(JSON.stringify(overridden)), CO2_FLUE_GAS_ROLE, { valueText: "on" });
   near(findFuelScenario(computeFuelCostModel(overriddenOn), "outsourced", "base")!.totalPerLiter, findFuelScenario(computeFuelCostModel(overridden), "outsourced", "base")!.totalPerLiter, 1e-12, "上書き値のときは効かない");
-  // 式: ON のときは「液化炭酸ガスの買値 × 工場の排ガスを使うので 0」、培養ロス補充は原料9行の足し算
+  // 式: ON のときは「液化炭酸ガスの買値 × 工場の排ガスを使うので 0」、培養ロス補充は原料の行の足し算
   const onCalc = fuelItemCalc(co2, ob, onCtx);
   assert.deepEqual(onCalc?.price?.terms.map((t) => t.label), ["液化炭酸ガスの買値", "工場の排ガスを使うので"]);
   assert.equal(evaluateItemCalc(onCalc!), 0, "ON の CO2 は燃料1Lあたり0円");
   const lossCalc = fuelItemCalc(loss, ob, onCtx);
-  assert.equal(lossCalc?.price?.terms.length, 9, "培養ロス補充は原料9行を足す");
+  assert.equal(lossCalc?.price?.terms.length, 12, "培養ロス補充は原料の行を足す（2026-09-15 に加温・電力・排水の3行が加わって12行）");
   near(lossCalc!.price!.result.value, fuelEffectiveUnitPrice(loss, onCtx), 1e-9, "式の単価 ＝ 計算の単価");
   // 燃料の試算の読み物は、選択肢の前提の値を言葉で出す
   assert.equal(FUEL_TEXT_CHOICE_ROLES[CO2_FLUE_GAS_ROLE]?.find((c) => c.value === "on")?.label, "使える（CO2は0円）");
@@ -638,8 +645,8 @@ check("脂質分泌株: ON のとき第1段の単位が脂肪酸になり、菌�
 
   // 260914版の数字（432 適用後、排ガス利用可能は OFF）
   const table: Record<string, number> = {
-    "outsourced:low": 3968.7, "outsourced:base": 1289.7, "outsourced:high": 814.8,
-    "inhouse:low": 3933.8, "inhouse:base": 1251.8, "inhouse:high": 775.7,
+    "outsourced:low": 4617.4, "outsourced:base": 1598.3, "outsourced:high": 1055.1,
+    "inhouse:low": 4582.4, "inhouse:base": 1560.4, "inhouse:high": 1015.9,
   };
   for (const s of onc.scenarios) assert.equal(Math.round(s.totalPerLiter * 10) / 10, table[s.key], `分泌株 ${s.key}`);
   assert.ok(onc.scenarios.every((s) => s.totalPerLiter > 200), "分泌株でも6通りすべて売価200円/Lを上回る");
@@ -700,7 +707,7 @@ check("工場の排液を培地に使える: ON のとき培地の原料3行の�
   const off = findFuelScenario(computeFuelCostModel(fixture), "outsourced", "base")!;
   const onSc = findFuelScenario(computeFuelCostModel(on), "outsourced", "base")!;
   near(off.biomass.perKg - onSc.biomass.perKg, drop * (1 + loss.quantity), 1e-9, "菌体1kgの原価の下がり方");
-  assert.equal(Math.round(onSc.totalPerLiter * 10) / 10, 4190.1, "排液 ON 基準・委託（2026-09-15）");
+  assert.equal(Math.round(onSc.totalPerLiter * 10) / 10, 13814.1, "排液 ON 基準・委託（2026-09-15）");
   // 割合を0にすると効かない、100にすると買値が0
   const zero = setRole(JSON.parse(JSON.stringify(on)), WASTE_MEDIUM_REDUCTION_ROLE, { value: 0 });
   near(findFuelScenario(computeFuelCostModel(zero), "outsourced", "base")!.totalPerLiter, off.totalPerLiter, 1e-9, "割合0なら効かない");
@@ -708,7 +715,7 @@ check("工場の排液を培地に使える: ON のとき培地の原料3行の�
   assert.equal(fuelEffectiveUnitPrice(n, { assumptions: full.assumptions, items: full.items }), 0, "割合100なら買値0");
   // 排ガスと組み合わせる（まさの「工場をフル活用」）
   const both = setRole(JSON.parse(JSON.stringify(on)), CO2_FLUE_GAS_ROLE, { valueText: "on" });
-  assert.equal(Math.round(findFuelScenario(computeFuelCostModel(both), "outsourced", "base")!.totalPerLiter * 10) / 10, 2020.6, "排液＋排ガス 基準・委託");
+  assert.equal(Math.round(findFuelScenario(computeFuelCostModel(both), "outsourced", "base")!.totalPerLiter * 10) / 10, 11644.6, "排液＋排ガス 基準・委託");
   // 式: ON のときは「試薬を買う買値 × 工場の排液で80%減るので 0.2」
   const calc = fuelItemCalc(n, onSc, ctxOn);
   assert.deepEqual(calc?.price?.terms.map((t) => t.label), ["試薬を買う買値", "工場の排液で80%減るので"]);

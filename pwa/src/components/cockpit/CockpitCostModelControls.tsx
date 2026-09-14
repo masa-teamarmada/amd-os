@@ -33,6 +33,8 @@ import {
   driverUsesCount,
   flueGasOn,
   wasteMediumOn,
+  wasteHeatOn,
+  WASTE_HEAT_ROLE,
   WASTE_MEDIUM_REDUCTION_ROLE,
   WASTE_MEDIUM_ROLE,
   paramGroupOfItem,
@@ -59,7 +61,7 @@ import {
   type CostTankMode,
 } from "@/lib/project-cost-model";
 import type { DraftEntity, DraftField, DraftValue } from "@/lib/project-cost-model-draft";
-import { CATEGORY_COLOR, ConfidenceTag, FlueGasSwitch, NumberField, ScopeTag, Segmented, WasteMediumSwitch, int, num, yen } from "@/components/cockpit/CockpitCostModelParts";
+import { CATEGORY_COLOR, ConfidenceTag, FlueGasSwitch, NumberField, ScopeTag, Segmented, WasteHeatSwitch, WasteMediumSwitch, int, num, yen } from "@/components/cockpit/CockpitCostModelParts";
 import { CostTaskFlowOverview, stepAnchorId } from "@/components/cockpit/CockpitCostModelFlow";
 import { findScenario, selectionLabel, type CostViewSelection } from "@/components/cockpit/CockpitCostModelResults";
 import { CostBreakdownGuide, flashElement, type BreakdownGuideDriver } from "@/components/cockpit/CockpitCostBreakdownGuide";
@@ -904,6 +906,9 @@ function ItemRows({
   const wasteMedium = resolveAssumption(working.assumptions, WASTE_MEDIUM_ROLE, centralSel);
   const savedWasteMedium = wasteMedium ? saved.assumptions.find((a) => a.costAssumptionId === wasteMedium.costAssumptionId) : undefined;
   const mediumReduction = resolveAssumption(working.assumptions, WASTE_MEDIUM_REDUCTION_ROLE, centralSel)?.value ?? 0;
+  // 加温の熱の行に置く「排熱利用可能」のスイッチ
+  const wasteHeat = resolveAssumption(working.assumptions, WASTE_HEAT_ROLE, centralSel);
+  const savedWasteHeat = wasteHeat ? saved.assumptions.find((a) => a.costAssumptionId === wasteHeat.costAssumptionId) : undefined;
 
   return (
     <div className="mt-1.5">
@@ -927,6 +932,7 @@ function ItemRows({
               : derived.annualVolume > 0 ? annualAmount(i, working.assumptions, derived, sel, working.items) / derived.annualVolume : 0;
           const flueGasSwitch = i.priceRule === "co2_supply" && flueGas;
           const mediumSwitch = i.priceRule === "medium_supply" && wasteMedium;
+          const heatSwitch = i.priceRule === "heat_supply" && wasteHeat;
           const flueGasActive = !!flueGasSwitch && flueGasOn(flueGas);
           return (
             <li
@@ -965,6 +971,13 @@ function ItemRows({
                     on={flueGasActive}
                     baselineOn={flueGasOn(savedFlueGas)}
                     onToggle={(on) => onChange("assumption", flueGasSwitch.costAssumptionId, "valueText", on ? "on" : "off")}
+                  />
+                )}
+                {heatSwitch && (
+                  <WasteHeatSwitch
+                    on={wasteHeatOn(heatSwitch)}
+                    baselineOn={wasteHeatOn(savedWasteHeat)}
+                    onToggle={(on) => onChange("assumption", heatSwitch.costAssumptionId, "valueText", on ? "on" : "off")}
                   />
                 )}
                 {mediumSwitch && (

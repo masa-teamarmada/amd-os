@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, type ReactNode } from "react";
-import { CO2_FLUE_GAS_ROLE, ITEM_INLINE_ROLES, STRAIN_LABEL, WASTE_MEDIUM_REDUCTION_ROLE, WASTE_MEDIUM_ROLE, flueGasOn, wasteMediumOn, type CostAssumption, type CostItem, type CostModelBundle, type CostTask } from "@/lib/project-cost-model";
+import { CO2_FLUE_GAS_ROLE, ITEM_INLINE_ROLES, STRAIN_LABEL, WASTE_MEDIUM_REDUCTION_ROLE, WASTE_MEDIUM_ROLE, WASTE_HEAT_ROLE, flueGasOn, wasteMediumOn, wasteHeatOn, type CostAssumption, type CostItem, type CostModelBundle, type CostTask } from "@/lib/project-cost-model";
 import {
   FUEL_CULTURE_LABEL,
   FUEL_SECRETION_YIELD_ROLES,
@@ -42,7 +42,7 @@ import {
   type FuelTaskFlow,
 } from "@/lib/project-fuel-cost-model";
 import type { DraftEntity, DraftField, DraftValue } from "@/lib/project-cost-model-draft";
-import { ConfidenceTag, FlueGasSwitch, NumberField, Swatch, WasteMediumSwitch, int, num, yen } from "@/components/cockpit/CockpitCostModelParts";
+import { ConfidenceTag, FlueGasSwitch, NumberField, Swatch, WasteHeatSwitch, WasteMediumSwitch, int, num, yen } from "@/components/cockpit/CockpitCostModelParts";
 import { FUEL_CATEGORY_COLOR, fuelSelectionLabel } from "@/components/cockpit/CockpitFuelCostModelResults";
 import { CostBreakdownGuide, flashElement, type BreakdownGuideDriver } from "@/components/cockpit/CockpitCostBreakdownGuide";
 import { ItemCalcLine, ItemNoteLine } from "@/components/cockpit/CockpitCostItemCalc";
@@ -850,6 +850,9 @@ function FuelItemRows({
   const wasteMedium = fuelAssumptionOf(working.assumptions, WASTE_MEDIUM_ROLE);
   const savedWasteMedium = wasteMedium ? saved.assumptions.find((a) => a.costAssumptionId === wasteMedium.costAssumptionId) : undefined;
   const mediumReduction = fuelAssumptionOf(working.assumptions, WASTE_MEDIUM_REDUCTION_ROLE)?.value ?? 0;
+  // 加温の熱の行に置く「排熱利用可能」のスイッチ
+  const wasteHeat = fuelAssumptionOf(working.assumptions, WASTE_HEAT_ROLE);
+  const savedWasteHeat = wasteHeat ? saved.assumptions.find((a) => a.costAssumptionId === wasteHeat.costAssumptionId) : undefined;
   return (
     <div className="mt-1.5">
       <div className="hidden xl:grid xl:grid-cols-[minmax(0,1fr)_64px_128px_64px_60px] xl:gap-x-1.5 xl:border-b xl:border-[#e5e5e7] xl:pb-1 xl:text-[10px] xl:font-medium xl:text-[#6e6e73]">
@@ -872,6 +875,7 @@ function FuelItemRows({
               : current.scale.annualLiters > 0 ? fuelItemAnnual(i, current.scale, ctx) / current.scale.annualLiters : 0;
           const flueGasSwitch = i.priceRule === "co2_supply" && flueGas;
           const mediumSwitch = i.priceRule === "medium_supply" && wasteMedium;
+          const heatSwitch = i.priceRule === "heat_supply" && wasteHeat;
           return (
             <li
               key={i.costItemId}
@@ -889,6 +893,13 @@ function FuelItemRows({
                     on={flueGasOn(flueGasSwitch)}
                     baselineOn={flueGasOn(savedFlueGas)}
                     onToggle={(on) => onChange("assumption", flueGasSwitch.costAssumptionId, "valueText", on ? "on" : "off")}
+                  />
+                )}
+                {heatSwitch && (
+                  <WasteHeatSwitch
+                    on={wasteHeatOn(heatSwitch)}
+                    baselineOn={wasteHeatOn(savedWasteHeat)}
+                    onToggle={(on) => onChange("assumption", heatSwitch.costAssumptionId, "valueText", on ? "on" : "off")}
                   />
                 )}
                 {mediumSwitch && (

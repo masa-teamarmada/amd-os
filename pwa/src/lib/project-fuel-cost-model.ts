@@ -53,6 +53,10 @@ import {
   mediumPriceFactor,
   mediumSupplyCalc,
   wasteMediumOn,
+  wasteHeatOn,
+  heatSupplyCalc,
+  WASTE_HEAT_CHOICES,
+  WASTE_HEAT_ROLE,
   WASTE_MEDIUM_CHOICES,
   WASTE_MEDIUM_REDUCTION_ROLE,
   WASTE_MEDIUM_ROLE,
@@ -272,6 +276,7 @@ export const FUEL_TEXT_CHOICE_ROLES: Record<string, Array<{ value: string; label
   ],
   [CO2_FLUE_GAS_ROLE]: CO2_FLUE_GAS_CHOICES,
   [WASTE_MEDIUM_ROLE]: WASTE_MEDIUM_CHOICES,
+  [WASTE_HEAT_ROLE]: WASTE_HEAT_CHOICES,
   [LIPID_SECRETION_ROLE]: LIPID_SECRETION_CHOICES,
 };
 
@@ -299,6 +304,7 @@ export const FUEL_ROLE_KEYS = new Set<string>([
   WASTE_MEDIUM_REDUCTION_ROLE,
   WASTE_MEDIUM_ROLE,
   WASTE_MEDIUM_REDUCTION_ROLE,
+  WASTE_HEAT_ROLE,
   LIPID_SECRETION_ROLE,
   ...FUEL_SECRETION_YIELD_ROLES.flatMap((r) => [r, `${r}_low`, `${r}_high`]),
 ]);
@@ -340,7 +346,7 @@ export const FUEL_PARAM_GROUPS: FuelParamGroup[] = [
   { key: "capex-conversion", block: "capex", title: "燃料化設備：FAME転換（自社で行うときだけ）", hint: "FAMEへの転換と精製の設備。燃料化設備1系列あたり", roles: [] },
   { key: "capex-shipping", block: "capex", title: "燃料化設備：製品の貯蔵・出荷", hint: "FAMEの貯槽と出荷の設備。燃料化設備1系列あたり", roles: [] },
   { key: "opex-labor", block: "opex", title: "人件費（作業）", hint: "作業単価は共通の1つ。作業ごとに1回の工数・年間回数・1回の経費を入れる", roles: ["labor_rate"], tasks: true },
-  { key: "opex-culture", block: "opex", title: "培養の原料・品質確認", hint: "培地・CO2・濃縮など菌体1kgあたりの費用と、培養設備1系列あたりの品質確認。工場の排ガスを使えるかは CO2 の行、工場の排液を培地に使えるかは培地の原料の行で切り替える。脂質分泌株のときは、菌体1kgあたりの行に「入れ替える菌体の量」を掛けて脂肪酸1kgあたりに直す", roles: [CO2_FLUE_GAS_ROLE, WASTE_MEDIUM_ROLE, WASTE_MEDIUM_REDUCTION_ROLE, "cell_makeup_kg_per_unit"] },
+  { key: "opex-culture", block: "opex", title: "培養の原料・品質確認", hint: "培地・CO2・濃縮など菌体1kgあたりの費用と、培養設備1系列あたりの品質確認。工場の排ガスを使えるかは CO2 の行、工場の排液を培地に使えるかは培地の原料の行、工場の排熱を使えるかは加温の熱の行で切り替える。脂質分泌株のときは、菌体1kgあたりの行に「入れ替える菌体の量」を掛けて脂肪酸1kgあたりに直す", roles: [CO2_FLUE_GAS_ROLE, WASTE_MEDIUM_ROLE, WASTE_MEDIUM_REDUCTION_ROLE, WASTE_HEAT_ROLE, "cell_makeup_kg_per_unit"] },
   { key: "opex-recovery", block: "opex", title: "脱水・油回収の溶媒・電力・熱・保守", hint: "菌体1kgあたりの溶媒の補給・電力・熱・水と、燃料化設備1系列あたりの保守", roles: [] },
   { key: "opex-outsourced", block: "opex", title: "FAME転換の委託（委託するときだけ）", hint: "燃料1Lあたりの委託費と、委託先までの原料油の輸送", roles: [] },
   { key: "opex-inhouse", block: "opex", title: "FAME転換の薬品・電力（自社で行うときだけ）", hint: "燃料1Lあたりのメタノール・触媒・中和剤・吸着剤・電力・熱と、燃料化設備1系列あたりの保守", roles: [] },
@@ -727,6 +733,8 @@ export function fuelEffectiveUnitPrice(item: CostItem, ctx?: FuelPriceContext): 
   switch (item.priceRule) {
     case "co2_supply":
       return flueGasOn(fuelAssumptionOf(ctx.assumptions, CO2_FLUE_GAS_ROLE)) ? 0 : item.unitPrice;
+    case "heat_supply":
+      return wasteHeatOn(fuelAssumptionOf(ctx.assumptions, WASTE_HEAT_ROLE)) ? 0 : item.unitPrice;
     case "medium_supply":
       return item.unitPrice * mediumPriceFactor(
         wasteMediumOn(fuelAssumptionOf(ctx.assumptions, WASTE_MEDIUM_ROLE)),
@@ -749,6 +757,8 @@ function fuelPriceCalc(item: CostItem, ctx: FuelPriceContext): CalcSegment | nul
   switch (item.priceRule) {
     case "co2_supply":
       return co2SupplyCalc(item, flueGasOn(fuelAssumptionOf(ctx.assumptions, CO2_FLUE_GAS_ROLE)));
+    case "heat_supply":
+      return heatSupplyCalc(item, wasteHeatOn(fuelAssumptionOf(ctx.assumptions, WASTE_HEAT_ROLE)));
     case "medium_supply":
       return mediumSupplyCalc(
         item,
