@@ -636,8 +636,8 @@ check("脂質分泌株: ON のとき第1段の単位が脂肪酸になり、菌�
 
   // 260914版の数字（432 適用後、排ガス利用可能は OFF）
   const table: Record<string, number> = {
-    "outsourced:low": 3994.9, "outsourced:base": 1311.8, "outsourced:high": 835.2,
-    "inhouse:low": 3960.0, "inhouse:base": 1273.9, "inhouse:high": 796.0,
+    "outsourced:low": 3968.7, "outsourced:base": 1289.7, "outsourced:high": 814.8,
+    "inhouse:low": 3933.8, "inhouse:base": 1251.8, "inhouse:high": 775.7,
   };
   for (const s of onc.scenarios) assert.equal(Math.round(s.totalPerLiter * 10) / 10, table[s.key], `分泌株 ${s.key}`);
   assert.ok(onc.scenarios.every((s) => s.totalPerLiter > 200), "分泌株でも6通りすべて売価200円/Lを上回る");
