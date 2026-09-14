@@ -63,15 +63,17 @@ check("fixture は燃料の試算で、6通りを計算できる", () => {
   assert.equal(c.targetTotalPerLiter, 140);
 });
 
-check("収率はマテバラ推定（2026-09-07）の3ケースと一致する", () => {
-  // 精製FAME / 乾燥菌体1t: 低位 32.49 kg・基準 81.2763 kg・改善 182.49462 kg
-  near(fuelYieldOf(fixture.assumptions, "base").fameKgPerKgDcw * 1000, 81.2763, 1e-9, "基準");
-  near(fuelYieldOf(fixture.assumptions, "low").fameKgPerKgDcw * 1000, 32.49, 1e-9, "低位");
-  near(fuelYieldOf(fixture.assumptions, "high").fameKgPerKgDcw * 1000, 182.49462, 1e-9, "改善");
+check("収率の3ケース: FAMEポテンシャルは細胞の構造からの試算（4 / 6 / 8%）、回収率などはマテバラ推定（2026-09-07）", () => {
+  const fame = (role: string) => fixture.assumptions.find((a) => a.roleKey === role)?.value;
+  assert.deepEqual([fame("fame_potential_low"), fame("fame_potential"), fame("fame_potential_high")], [4, 6, 8], "FAMEポテンシャル 低位4・基準6・改善8");
+  // 精製FAME / 乾燥菌体1t: 低位 4%×90%×80%×95%×95% ・基準 6%×95%×90%×97%×98% ・改善 8%×98%×95%×99%×99%
+  near(fuelYieldOf(fixture.assumptions, "base").fameKgPerKgDcw * 1000, 48.76578, 1e-9, "基準");
+  near(fuelYieldOf(fixture.assumptions, "low").fameKgPerKgDcw * 1000, 25.992, 1e-9, "低位");
+  near(fuelYieldOf(fixture.assumptions, "high").fameKgPerKgDcw * 1000, 72.997848, 1e-9, "改善");
   // 燃料1Lに要る菌体 = 密度 ÷ FAME kg/kg
   const y = fuelYieldOf(fixture.assumptions, "base");
-  near(y.kgDcwPerLiter, 0.88 / 0.0812763, 1e-9, "kg/L");
-  near(y.litersPerKgDcw * 1000, 92.3594, 1e-4, "L/t");
+  near(y.kgDcwPerLiter, 0.88 / 0.04876578, 1e-9, "kg/L");
+  near(y.litersPerKgDcw * 1000, 55.41566, 1e-4, "L/t");
 });
 
 check("年に要る菌体の量と設備の系列数は、年間の燃料の量から計算する（入力ではない）", () => {
@@ -108,11 +110,11 @@ check("内訳は6区分で、足すと総コストに一致する。CAPEX と OP
   }
 });
 
-check("260914版の数字（外部に委託・自社で行う × 3ケース、円/L）", () => {
+check("260914版の数字（外部に委託・自社で行う × 3ケース、円/L。413 でFAMEポテンシャルを置き直した後）", () => {
   const c = computeFuelCostModel(fixture);
   const expect: Record<string, number> = {
-    "outsourced:low": 3216.5, "outsourced:base": 1326.8, "outsourced:high": 628.8,
-    "inhouse:low": 3204.6, "inhouse:base": 1289.8, "inhouse:high": 582.5,
+    "outsourced:low": 4003.6, "outsourced:base": 2165.8, "outsourced:high": 1469.5,
+    "inhouse:low": 4002.1, "inhouse:base": 2139.9, "inhouse:high": 1434.4,
   };
   for (const [key, v] of Object.entries(expect)) {
     const s = c.scenarios.find((x) => x.key === key)!;
@@ -120,16 +122,17 @@ check("260914版の数字（外部に委託・自社で行う × 3ケース、�
   }
   const base = findFuelScenario(c, "outsourced", "base")!;
   assert.equal(Math.round(base.biomass.perKg * 100) / 100, 92.06, "菌体1kgの原価（排水処理の自然株 98.5円 − 保管・輸送設備 6.43円）");
-  assert.equal(Math.round(base.biomassPerLiter * 10) / 10, 996.7, "菌体費");
-  assert.ok(base.breakEvenBiomassPerKg < 0, "基準の収率では菌体がタダでも赤字");
+  assert.equal(Math.round(base.biomassPerLiter * 10) / 10, 1661.2, "菌体費");
+  for (const s of c.scenarios) assert.ok(s.breakEvenBiomassPerKg < 0, `${s.key}: 菌体がタダでも燃料化の工程だけで売価を超える`);
   const high = findFuelScenario(c, "outsourced", "high")!;
-  assert.equal(Math.round(high.breakEvenBiomassPerKg * 10) / 10, 3.1, "改善・委託で売価で成立する菌体の原価");
+  assert.equal(Math.round(high.breakEvenBiomassPerKg * 10) / 10, -13.3, "改善・委託の売価で成立する菌体の原価");
   near(base.revenueAnnual, 10_000_000_000, 1e-12, "売上100億円");
 });
 
 check("FAMEポテンシャルを2倍にすると、菌体に比例する費用が半分になり、燃料1Lあたりの費用は変わらない", () => {
   const base = computeFuelScenario(fixture, "outsourced", "base");
-  const doubled = computeFuelScenario(setRole(clone(), "fame_potential", { value: 20 }), "outsourced", "base");
+  const baseFame = fixture.assumptions.find((a) => a.roleKey === "fame_potential")!.value!;
+  const doubled = computeFuelScenario(setRole(clone(), "fame_potential", { value: baseFame * 2 }), "outsourced", "base");
   near(doubled.yield.kgDcwPerLiter, base.yield.kgDcwPerLiter / 2, 1e-12, "1Lに要る菌体が半分");
   near(doubled.biomassPerLiter, base.biomassPerLiter / 2, 1e-9, "菌体費が半分");
   const sliceOf = (s: typeof base, key: string) => s.breakdown.find((b) => b.key === key)!.perLiter;
@@ -171,7 +174,7 @@ check("残渣の行き先: 発酵などは正味の費用、産業廃棄物は �
   const s = computeFuelScenario(disposed, "outsourced", "base");
   const base = computeFuelScenario(fixture, "outsourced", "base");
   near(s.totalPerLiter - base.totalPerLiter, r.perKgDcw * base.yield.kgDcwPerLiter, 1e-9, "処分に変えた差");
-  assert.equal(Math.round(s.totalPerLiter - base.totalPerLiter), 1664, "基準の収率で約1,660円/L 上がる");
+  assert.equal(Math.round(s.totalPerLiter - base.totalPerLiter), 2773, "基準の収率で約2,770円/L 上がる");
 });
 
 check("菌体の原価の上書き: 0 を入れると菌体費が0、売価で成立する菌体の原価は（売価 − 工程）÷ 1Lに要る菌体", () => {
@@ -216,10 +219,11 @@ check("前提・明細は区分に置かれる（事業と製造の条件 / CAPE
 
 check("試算中の変更は保存値を書き換えず、patch は DB の列名になる", () => {
   const a = fixture.assumptions.find((x) => x.roleKey === "fame_potential_high")!;
+  const saved = a.value;
   const draft = setDraftValue({}, fixture, "assumption", a.costAssumptionId, "value", 25);
   assert.equal(draft[draftKey("assumption", a.costAssumptionId, "value")], 25);
   const working = applyDraft(fixture, draft);
-  assert.equal(fixture.assumptions.find((x) => x.costAssumptionId === a.costAssumptionId)!.value, 20, "保存値は変わらない");
+  assert.equal(fixture.assumptions.find((x) => x.costAssumptionId === a.costAssumptionId)!.value, saved, "保存値は変わらない");
   assert.ok(computeFuelScenario(working, "outsourced", "high").totalPerLiter < computeFuelScenario(fixture, "outsourced", "high").totalPerLiter);
   const route = fixture.assumptions.find((x) => x.roleKey === "residue_route")!;
   const d2 = setDraftValue(draft, fixture, "assumption", route.costAssumptionId, "valueText", "disposal");
