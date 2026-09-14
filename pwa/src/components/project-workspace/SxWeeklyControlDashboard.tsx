@@ -5734,7 +5734,8 @@ export function SxWeeklyControlDashboard({
 
         {activeView === "technology" && (
           <section id="technology" className={styles.section} role="tabpanel" aria-label="技術">
-            <CockpitTechnology projectId={bundle.project.projectId} />
+            {/* ワークスペースでは、技術タブの中のコスト試算（燃料）も保存させない（コスト試算タブと同じ）。試算はできる。 */}
+            <CockpitTechnology projectId={bundle.project.projectId} costModelEditable={false} />
           </section>
         )}
         {activeView === "business-plan" && (

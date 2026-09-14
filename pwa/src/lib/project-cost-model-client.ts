@@ -54,6 +54,38 @@ export function invalidateProjectCostModel(projectId?: string): void {
   invalidateReferenceData(projectId ? key(projectId) : KEY_PREFIX);
 }
 
+// ---- 技術タブのコスト試算（燃料）(case_kind = biodiesel) ----
+// 同じ API に ?kind=fuel を付けて読む。キャッシュのキーはコスト試算タブと分ける
+// (`project-cost-model:fuel:p21`。`invalidateProjectCostModel()` を引数なしで呼ぶと両方捨てる)。
+
+const fuelKey = (projectId: string) => `${KEY_PREFIX}fuel:${projectId}`;
+
+async function requestFuel(projectId: string, fresh = false): Promise<CostModelResponse> {
+  const url = `/api/project-cost-model?projectId=${encodeURIComponent(projectId)}&kind=fuel${fresh ? "&fresh=1" : ""}`;
+  const res = await fetch(url, fresh ? { cache: "no-store" } : undefined);
+  const payload = (await res.json()) as { ok: boolean; canEdit?: boolean; bundle?: CostModelBundle | null; error?: string };
+  if (!res.ok || !payload.ok) throw new Error(payload.error || "コスト試算（燃料）の読み込みに失敗");
+  return { canEdit: !!payload.canEdit, bundle: payload.bundle ?? null };
+}
+
+/** 技術タブから呼ぶ。燃料の試算が無いPJは bundle が null で返り、タブを出さない。 */
+export function loadProjectFuelCostModel(projectId: string, options?: { force?: boolean }) {
+  return loadReferenceData(fuelKey(projectId), () => requestFuel(projectId, !!options?.force), options);
+}
+
+export function peekProjectFuelCostModel(projectId: string): CostModelResponse | undefined {
+  return peekReferenceData<CostModelResponse>(fuelKey(projectId));
+}
+
+/** 技術タブの見出しの hover で先読みする。 */
+export function prefetchProjectFuelCostModel(projectId: string): void {
+  prefetchReferenceData(fuelKey(projectId), () => requestFuel(projectId));
+}
+
+export function invalidateProjectFuelCostModel(projectId: string): void {
+  invalidateReferenceData(fuelKey(projectId));
+}
+
 export type CostPatchEntity = "assumption" | "item" | "task" | "model";
 
 export interface CostPatch {
@@ -83,5 +115,14 @@ export async function saveCostPatches(projectId: string, patches: CostPatch[]): 
     for (const p of patches) await sendPatch(p);
   } finally {
     invalidateProjectCostModel(projectId);
+  }
+}
+
+/** コスト試算（燃料）の書き換えを正本へ書く（admin だけ）。書き終えたら燃料の試算のキャッシュを捨てる。 */
+export async function saveFuelCostPatches(projectId: string, patches: CostPatch[]): Promise<void> {
+  try {
+    for (const p of patches) await sendPatch(p);
+  } finally {
+    invalidateProjectFuelCostModel(projectId);
   }
 }

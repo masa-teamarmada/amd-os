@@ -36,7 +36,7 @@ import type { CockpitSeasonFinance as CockpitSeasonFinanceData, MilestoneChangeH
 import type { ProjectContractTerms } from "@/lib/project-contract-terms";
 import { CockpitCostModel } from "@/components/cockpit/CockpitCostModel";
 import { prefetchProjectOrg } from "@/lib/project-org-client";
-import { prefetchProjectCostModel } from "@/lib/project-cost-model-client";
+import { prefetchProjectCostModel, prefetchProjectFuelCostModel } from "@/lib/project-cost-model-client";
 import { prefetchProjectTech } from "@/lib/project-tech-client";
 import {
   DEFAULT_COCKPIT_TAB,
@@ -457,7 +457,11 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     key,
     label: tabLabel[key] ?? key,
     onHover: key === "score-detail" ? () => prefetchProjectOrg(project.projectId)
-      : key === "technology" ? () => prefetchProjectTech(project.projectId)
+      : key === "technology" ? () => {
+          prefetchProjectTech(project.projectId);
+          // 技術タブの中のコスト試算（燃料）のタブを出すかも、同じ hover で先に決めておく。
+          prefetchProjectFuelCostModel(project.projectId);
+        }
       : key === "cost-model" ? () => prefetchProjectCostModel(project.projectId)
       : key === "capital-policy" || key === "company" ? () => prefetchGovernance(project.projectId)
       : undefined,

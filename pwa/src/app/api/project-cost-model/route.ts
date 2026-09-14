@@ -131,14 +131,22 @@ export function mapBundle(model: any, assumptions: any[], items: any[], question
   };
 }
 
+/**
+ * どの試算を読むか。default = コスト試算タブ (排水処理など。case_kind が biodiesel 以外)、
+ * fuel = 技術タブのコスト試算（燃料）(case_kind = biodiesel。migration 411)。
+ * 同じPJに両方が active で並ぶので、既定で燃料の試算を読まないようにする。
+ */
+export type CostModelKind = "default" | "fuel";
+
 /** service_role で1PJ分のコスト試算を読む。server component からも使う。 */
-export async function loadCostModelBundle(projectId: string): Promise<CostModelBundle | null> {
+export async function loadCostModelBundle(projectId: string, kind: CostModelKind = "default"): Promise<CostModelBundle | null> {
   const db = createAdminClient();
-  const { data: model } = await db
+  const base = db
     .from("project_cost_models")
     .select("*")
     .eq("project_id", projectId)
-    .eq("status", "active")
+    .eq("status", "active");
+  const { data: model } = await (kind === "fuel" ? base.eq("case_kind", "biodiesel") : base.neq("case_kind", "biodiesel"))
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -173,7 +181,9 @@ export async function GET(req: NextRequest) {
   const fresh = req.nextUrl.searchParams.get("fresh") === "1";
   const headers = { "Cache-Control": fresh ? "no-store" : "private, max-age=60, stale-while-revalidate=300" };
 
-  const bundle = await loadCostModelBundle(projectId);
+  // ?kind=fuel は技術タブのコスト試算（燃料）。無ければコスト試算タブの試算。
+  const kind: CostModelKind = req.nextUrl.searchParams.get("kind") === "fuel" ? "fuel" : "default";
+  const bundle = await loadCostModelBundle(projectId, kind);
   if (!bundle) {
     return NextResponse.json({ ok: true, canEdit: !!member?.is_admin, bundle: null }, { headers });
   }
@@ -202,7 +212,8 @@ const NULLABLE_NUMERIC_FIELDS = new Set([
   "value", "impact_low", "impact_high", "useful_life_years", "hours_per_occurrence", "count_per_year",
   "target_total_cost_per_m3", "target_margin_rate",
 ]);
-const TASK_DRIVERS = new Set(["fixed", "batch", "visit", "module_swap", "membrane_swap", "truck_trip", "production_line"]);
+// plant_line は燃料の試算の「燃料化設備の系列ごと」(migration 411)。
+const TASK_DRIVERS = new Set(["fixed", "batch", "visit", "module_swap", "membrane_swap", "truck_trip", "production_line", "plant_line"]);
 const TASK_PERFORMERS = new Set(["sx", "customer", "site"]);
 /** 明細の「誰が持つか」。値は作業の「誰がやるか」と同じ3つ。 */
 const ITEM_BEARERS = new Set(["sx", "customer", "site"]);

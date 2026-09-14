@@ -71,7 +71,7 @@
     "test:vc-investment-ledger": "node scripts/check_vc_investment_ledger_contract.mjs",
     "check:bzm30-sensitivity-base": "node scripts/check_bzm30_sensitivity_base.mjs",
     "test:project-profitability": "node --experimental-strip-types scripts/check_project_profitability.mts",
-    "test:project-cost-model": "node --experimental-strip-types scripts/check_project_cost_model.mts",
+    "test:project-cost-model": "node --experimental-strip-types scripts/check_project_cost_model.mts && node --experimental-strip-types scripts/check_project_fuel_cost_model.mts",
     "test:monthly-report-quality": "node scripts/test_monthly_report_quality.mjs",
     "test:monthly-report-history": "node --experimental-strip-types scripts/test_monthly_report_history.mts",
     "test:sx-management": "node --experimental-strip-types scripts/test_project_management_logic.mjs",

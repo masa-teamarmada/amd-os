@@ -181,7 +181,7 @@ migration: `pwa/scripts/migrations/320` `324` `326` `392` `394` `396` `398` `402
 
 | table | 役割 |
 |---|---|
-| `project_cost_models` | 1試算=1行。**`case_kind` / `case_label` でケースを必ず持つ**（`dye_degradation` / `metal_recovery` / `multi` / `other`）。`system_scope_md` に想定系、`target_total_cost_per_m3` に成立ライン目標、`unit_basis_label` に単位（m³ 以外も可） |
+| `project_cost_models` | 1試算=1行。**`case_kind` / `case_label` でケースを必ず持つ**（`dye_degradation` / `metal_recovery` / `multi` / `other`。`biodiesel` は技術タブのコスト試算（燃料）が読む試算で、このタブは読まない。[5-16](5-16-project-fuel-cost-model-current-spec.md)、migration 411）。`system_scope_md` に想定系、`target_total_cost_per_m3` に成立ライン目標、`unit_basis_label` に単位（m³ 以外も可） |
 | `project_cost_assumptions` | 変数辞書。`role_key` を計算エンジンが参照する。**`strain` / `application` で効く株・用途を持つ**（null は共通）。`group_label` と `sort_order` は画面の区分（`COST_PARAM_GROUPS`）の名前と順にそろえる（画面の並びは `role_key` で決まる）。選択肢で持つ前提（`onsite_tank_bearer`）は `value_text` に値を置く |
 | `project_cost_items` | 費用明細。`price_rule` で変数への連動を表す。`is_breakdown` の行は親の小計に含むので金額を持たない。**`strain` / `application` で発生する株・用途を持つ**（null は共通）。**`bearer` で誰が持つかを持つ**（`sx` / `customer` / `site`。migration 402） |
 | `project_cost_tasks` | **作業リスト**（migration 394）。1行=1作業。年額 = 年間回数 ×（1回の工数 × 作業単価 ＋ 1回の経費）。作業単価は前提の共通の1つ（`labor_rate`）。`group_label` は**作業の流れの段**、`sort_order` が段と作業の順 |
@@ -308,7 +308,7 @@ RLS は `project_ip_*` と同形（read=`amd_os_is_member()`、write=`is_admin()
 
 `/api/project-cost-model`（`runtime = "nodejs"`）
 
-- `GET ?projectId=` → `{ ok, canEdit, bundle }`。`bundle.tasks` に作業リストを含む。`Cache-Control: private, max-age=60, stale-while-revalidate=300`。**`&fresh=1` のときだけ `no-store`**（保存直後の読み直し用。spec 5-10）
+- `GET ?projectId=` → `{ ok, canEdit, bundle }`。**`case_kind <> 'biodiesel'` の active な最新1件**を読む（同じPJに燃料の試算が並んでも、このタブは燃料の試算を読まない）。`&kind=fuel` のときだけ燃料の試算を読む（5-16）。`bundle.tasks` に作業リストを含む。`Cache-Control: private, max-age=60, stale-while-revalidate=300`。**`&fresh=1` のときだけ `no-store`**（保存直後の読み直し用。spec 5-10）
 - `PATCH` → `{ entity: "assumption"|"item"|"task"|"model"|"question"|"note", id, patch }`。admin のみ。entity ごとに書き込み可能な列をホワイトリストで制限する
   - `assumption`: `value` / `value_text` / `confidence` / `source_kind` / `owner` / `note` / `is_key` / `visibility`
   - `item`: `unit_price` / `quantity` / `useful_life_years` / `bearer` / `confidence` / `source_kind` / `owner` / `note` / `visibility`（`bearer` は `sx` / `customer` / `site` だけ）
