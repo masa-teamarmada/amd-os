@@ -123,19 +123,19 @@ check("内訳は6区分で、足すと総コストに一致する。CAPEX と OP
   }
 });
 
-check("260914版の数字（外部に委託・自社で行う × 3ケース、円/L。413 でFAMEポテンシャルを置き直した後）", () => {
+check("260914版の数字（外部に委託・自社で行う × 3ケース、円/L。413 でFAMEポテンシャルを置き直し、426 で培養の原料を「使う量 × 買値」に組み直した後）", () => {
   const c = computeFuelCostModel(fixture);
   const expect: Record<string, number> = {
-    "outsourced:low": 4003.6, "outsourced:base": 2165.8, "outsourced:high": 1469.5,
-    "inhouse:low": 4002.1, "inhouse:base": 2139.9, "inhouse:high": 1434.4,
+    "outsourced:low": 11260.1, "outsourced:base": 6033.5, "outsourced:high": 4053.3,
+    "inhouse:low": 11258.6, "inhouse:base": 6007.6, "inhouse:high": 4018.2,
   };
   for (const [key, v] of Object.entries(expect)) {
     const s = c.scenarios.find((x) => x.key === key)!;
     assert.equal(Math.round(s.totalPerLiter * 10) / 10, v, key);
   }
   const base = findFuelScenario(c, "outsourced", "base")!;
-  assert.equal(Math.round(base.biomass.perKg * 100) / 100, 92.06, "菌体1kgの原価（排水処理の自然株 98.5円 − 保管・輸送設備 6.43円）");
-  assert.equal(Math.round(base.biomassPerLiter * 10) / 10, 1661.2, "菌体費");
+  assert.equal(Math.round(base.biomass.perKg * 100) / 100, 306.39, "菌体1kgの原価（排水処理の自然株 312.8円 − 保管・輸送設備 6.43円）");
+  assert.equal(Math.round(base.biomassPerLiter * 10) / 10, 5528.9, "菌体費");
   for (const s of c.scenarios) assert.ok(s.breakEvenBiomassPerKg < 0, `${s.key}: 菌体がタダでも燃料化の工程だけで売価を超える`);
   const high = findFuelScenario(c, "outsourced", "high")!;
   assert.equal(Math.round(high.breakEvenBiomassPerKg * 10) / 10, -13.3, "改善・委託の売価で成立する菌体の原価");
@@ -392,8 +392,8 @@ check("コスト試算（廃液・燃料）共通: 明細の行の下に、数�
   // 行の名前で見分けられる（培養設備の OPEX は小項目。「ユーティリティ」が CO2 と補給水の2行に並ばない）
   const cultureOpex = shown(fixture.items).filter((i) => i.scenario === "中央培養" && i.costType === "OPEX").map((i) => fuelItemLabel(i));
   assert.equal(new Set(cultureOpex).size, cultureOpex.length, `培養設備の OPEX の行の名前が重なる: ${cultureOpex.join("・")}`);
-  assert.ok(cultureOpex.includes("CO2") && cultureOpex.includes("補給水"));
-  // 例（基準・委託）: 培地主原料 1 kg-DCW × 9 円/kg-DCW ＝ 菌体1kgあたり 9円 → × 燃料1Lに要る菌体 ＝ 162.4円/L
+  assert.ok(cultureOpex.includes("CO2（液化炭酸ガス）") && cultureOpex.includes("補給水（上水）"));
+  // 例（基準・委託）: 窒素源 0.4854 kg/kg-DCW × 187 円/kg ＝ 菌体1kgあたり 90.77円 → × 燃料1Lに要る菌体 ＝ 1,638.0円/L（426 で「使う量 × 買値」に組み直した）
   const base = findFuelScenario(fuel, "outsourced", "base");
   assert.ok(base);
   const medium = fixture.items.find((x) => x.costItemId === "cif_culture_120");
@@ -401,8 +401,9 @@ check("コスト試算（廃液・燃料）共通: 明細の行の下に、数�
   const mc = fuelItemCalc(medium, base);
   assert.ok(mc);
   assert.deepEqual(mc.segments.map((s) => s.result.label ?? s.result.unit), ["菌体1kgあたり", "円/L"]);
-  near(evaluateItemCalc(mc), 9 * base.yield.kgDcwPerLiter, 1e-9, "培地主原料");
-  near(evaluateItemCalc(mc), 162.4, 1e-3, "培地主原料 円/L");
+  near(evaluateItemCalc(mc), 0.4854 * 187 * base.yield.kgDcwPerLiter, 1e-9, "窒素源");
+  near(evaluateItemCalc(mc), 1638.0, 1e-4, "窒素源 円/L");
+  assert.deepEqual([mc.segments[0].terms[0].unit, mc.segments[0].terms[1].unit], ["kg/kg-DCW", "円/kg"], "量と買値の単位で式が読める");
   // 菌体の原価を上書きしているときは、培養設備の行は燃料の原価に入らないと式に書く
   const overridden = computeFuelCostModel(setRole(clone(), "biomass_cost_per_kg_override", { value: 100 }));
   const ob = findFuelScenario(overridden, "outsourced", "base");
@@ -453,6 +454,37 @@ check("コスト試算（廃液・燃料）共通: 明細の行の下に、数�
   const wwRowsSrc = wwControls.slice(wwControls.indexOf("function ItemRows("));
   assert.match(wwRowsSrc, /<ItemCalcLine calc=\{costItemCalc\(/);
   assert.match(wwRowsSrc, /<ItemNoteLine note=\{i\.note\} \/>/);
+});
+
+check("コスト試算（廃液・燃料）共通: 培養の原料10行は「使う量 × 買値」で、2つの試算で同じ値。培養ロス補充の単価は原料9行の合計", () => {
+  // まさ 2026-09-14「Aで」（培養の原料を使う量 × 買値に組み直す。量は菌体の成分と菌体の濃さから、買値は公開の相場から。廃液のタブの同じ行もそろえる）。migration 426
+  const ww: CostModelBundle = JSON.parse(read("scripts/__fixtures__/sx_cost_model_two_stage.json"));
+  const materials = ["120", "121", "122", "123", "124", "125", "126", "127", "128"];
+  const rowsOf = (b: CostModelBundle, prefix: string) =>
+    [...materials, "134"].map((k) => {
+      const i = b.items.find((x) => x.costItemId === `${prefix}${k}`);
+      assert.ok(i, `${prefix}${k}`);
+      return i;
+    });
+  const fuelRows = rowsOf(fixture, "cif_culture_");
+  const wwRows = rowsOf(ww, "ci_260820_");
+  for (const [idx, f] of fuelRows.entries()) {
+    const w = wwRows[idx];
+    assert.equal(f.basis, "毎kg菌体比例", `${f.costItemId} は菌体1kgあたり`);
+    assert.deepEqual([w.leafLabel, w.quantity, w.quantityUnit, w.unitPrice, w.unitPriceUnit], [f.leafLabel, f.quantity, f.quantityUnit, f.unitPrice, f.unitPriceUnit], `${f.costItemId} と ${w.costItemId} は同じ値`);
+    assert.match(f.note ?? "", /確かめ方:/, `${f.costItemId} の説明に確かめ方`);
+  }
+  for (const i of fuelRows.slice(0, 9)) {
+    assert.notEqual(i.quantityUnit, "kg-DCW", `${i.costItemId}「${i.leafLabel}」は量を持つ（「1 kg-DCW × 円/kg-DCW」の額の直置きに戻さない）`);
+    assert.ok(!/円\/kg-DCW$/.test(i.unitPriceUnit ?? ""), `${i.costItemId} の買値は物の単位あたり`);
+  }
+  const sum = fuelRows.slice(0, 9).reduce((t, i) => t + i.quantity * i.unitPrice, 0);
+  const loss = fuelRows[9];
+  near(loss.unitPrice, Math.round(sum * 10) / 10, 1e-9, "培養ロス補充の単価 ＝ 原料9行の菌体1kgあたりの合計（原料の行を直したら、この行も直す）");
+  // 量の元: 炭素50%・CO2の固定80% → 2.29kg、窒素8% ÷ 硝酸ナトリウムの窒素16.48%、リン1% ÷ りん酸二アンモニウムのリン23.45%
+  near(fuelRows[3].quantity, 2.29, 1e-9, "CO2");
+  near(fuelRows[0].quantity, Math.round((0.08 / (14.007 / 84.995)) * 1e4) / 1e4, 1e-12, "窒素源");
+  near(fuelRows[1].quantity, Math.round((0.01 / (30.974 / 132.056)) * 1e4) / 1e4, 1e-12, "リン源");
 });
 
 console.log(`\n${passed} checks passed (project-fuel-cost-model)`);

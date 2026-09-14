@@ -36,7 +36,7 @@
 // 「ペインがあれば割高でも成立するから」— オフサイトは売価と年間処理量を別の前提で持ち、年に作る量は両方を足して出す。
 //
 // 正本: pwa/spec/5-13-project-cost-model-current-spec.md
-// fixture: scripts/__fixtures__/sx_cost_model_two_stage.json（migration 419 適用後の SX データ）
+// fixture: scripts/__fixtures__/sx_cost_model_two_stage.json（migration 426 適用後の SOL データ。426 で培養の原料を「使う量 × 買値」に組み直した）
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {
@@ -97,6 +97,20 @@ const capacityShape = (bundle: CostModelBundle): CostModelBundle => {
   for (const t of b.tasks ?? []) if (t.countDriver === "production_line") t.countDriver = "fixed";
   return b;
 };
+/** 426（2026-09-14）で「使う量 × 買値」に組み直す前の培養の原料（処理水1m³あたりの額を菌体1kgあたりに直した仮置き）へ戻す。旧版・これまでの形の数字の再現に使う。 */
+const LEGACY_CULTURE_PER_KG: Record<string, number> = {
+  ci_260820_120: 9, ci_260820_121: 10.8, ci_260820_122: 7.2, ci_260820_123: 4.5, ci_260820_124: 1.8,
+  ci_260820_125: 2.7, ci_260820_126: 4.5, ci_260820_127: 9, ci_260820_128: 5.4, ci_260820_134: 5.4,
+};
+const legacyCulture = (bundle: CostModelBundle): CostModelBundle => {
+  const b: CostModelBundle = JSON.parse(JSON.stringify(bundle));
+  for (const i of b.items) {
+    const perKg = LEGACY_CULTURE_PER_KG[i.costItemId];
+    if (perKg === undefined) continue;
+    Object.assign(i, { quantity: 1, quantityUnit: "kg-DCW", unitPrice: perKg, unitPriceUnit: "円/kg-DCW" });
+  }
+  return b;
+};
 const task = (bundle: CostModelBundle, id: string) => {
   const t = bundle.tasks.find((x) => x.costTaskId === id);
   assert.ok(t, `task ${id}`);
@@ -105,7 +119,7 @@ const task = (bundle: CostModelBundle, id: string) => {
 
 // 1. 旧版と同じ条件へ戻すと、260820版の検証値（原典スプレッドシート一致済み）に戻る
 {
-  const legacy = capacityShape(fixture); // 旧版は菌体の製造拠点の年間生産能力を入力として持っていた
+  const legacy = capacityShape(legacyCulture(fixture)); // 旧版は菌体の製造拠点の年間生産能力を入力として持ち、培養の原料は処理水1m³あたりの額だった
   for (const a of legacy.assumptions) if (a.roleKey === "uptake_alpha" && a.application === "metal" && a.strain === "wild") a.value = 0.05;
   legacy.tasks = []; // 人件費と巡回は旧版に無い（閉鎖系の作業は強化株のみで、自然株には元から乗らない）
   for (const i of legacy.items) i.bearer = "sx"; // 旧版は設備も槽も SX の原価に入れていた
@@ -275,14 +289,14 @@ for (const strain of ["enhanced", "wild"] as const) {
 
 // 8. 仕様書の検証表と一致する（オンサイト・直接投入。槽は顧客の設備）。2026-09-14 から処理の運転は顧客の作業、リアクターと槽は顧客が買い、
 //    色素分解の汚泥の処分と、装置を動かす消耗品・電力・点検・交換部品は顧客が持つ。色素分解の菌体使用回数は10回
-//    年間処理量は2,000万m³（売上100億円）。年に作る量から培養設備の系列数を出す
-near(computeBiomassCost(fixture, "enhanced", "dye").perKg, 120.1, 0.05, "強化株 菌体原価（色素分解で年に作る量）");
-near(computeBiomassCost(fixture, "enhanced", "metal").perKg, 120.0, 0.05, "強化株 菌体原価（金属回収で年に作る量）");
-near(computeBiomassCost(fixture, "wild", "dye").perKg, 98.5, 0.05, "自然株 菌体原価");
-near(scenario(fixture, "enhanced", "dye", "投入-既設").totalPerUnit, 34.1, 0.05, "強化株 色素 オンサイト直接投入");
-near(scenario(fixture, "enhanced", "metal", "投入-既設").totalPerUnit, 225.8, 0.05, "強化株 金属 オンサイト直接投入");
-near(scenario(fixture, "wild", "dye", "投入-既設").totalPerUnit, 30.4, 0.05, "自然株 色素 オンサイト直接投入");
-near(scenario(fixture, "wild", "metal", "投入-既設").totalPerUnit, 244.8, 0.05, "自然株 金属 オンサイト直接投入");
+//    年間処理量は2,000万m³（売上100億円）。年に作る量から培養設備の系列数を出す。2026-09-14（426）から、培養の原料は「使う量 × 買値」（まさ「Aで」）
+near(computeBiomassCost(fixture, "enhanced", "dye").perKg, 334.4, 0.05, "強化株 菌体原価（色素分解で年に作る量）");
+near(computeBiomassCost(fixture, "enhanced", "metal").perKg, 334.3, 0.05, "強化株 菌体原価（金属回収で年に作る量）");
+near(computeBiomassCost(fixture, "wild", "dye").perKg, 312.8, 0.05, "自然株 菌体原価");
+near(scenario(fixture, "enhanced", "dye", "投入-既設").totalPerUnit, 57.9, 0.05, "強化株 色素 オンサイト直接投入");
+near(scenario(fixture, "enhanced", "metal", "投入-既設").totalPerUnit, 450.5, 0.05, "強化株 金属 オンサイト直接投入");
+near(scenario(fixture, "wild", "dye", "投入-既設").totalPerUnit, 54.2, 0.05, "自然株 色素 オンサイト直接投入");
+near(scenario(fixture, "wild", "metal", "投入-既設").totalPerUnit, 528.3, 0.05, "自然株 金属 オンサイト直接投入");
 assert.ok(
   scenario(fixture, "enhanced", "dye", "投入-既設").totalPerUnit < scenario(fixture, "enhanced", "metal", "投入-既設").totalPerUnit,
   "使い回せる色素分解は、使い捨ての金属回収より安い（まさ 2026-09-14）"
@@ -503,12 +517,12 @@ assert.ok(
     }
   }
   // 仕様書の表と一致する（年間処理量2,000万m³で年に作る量から出した菌体原価）
-  near(off.totalPerUnit, 2880.0, 0.05, "強化株 色素 オフサイト直接投入");
-  near(scenario(fixture, "enhanced", "dye", "オフサイト-循環-新設").totalPerUnit, 3045.4, 0.05, "強化株 色素 オフサイト循環（処理の運転はオフサイトなら SX）");
-  near(scenario(fixture, "enhanced", "metal", "オフサイト-投入-新設").totalPerUnit, 3026.1, 0.05, "強化株 金属 オフサイト直接投入");
-  near(scenario(fixture, "wild", "dye", "オフサイト-投入-新設").totalPerUnit, 2859.6, 0.05, "自然株 色素 オフサイト直接投入");
-  near(scenario(fixture, "wild", "metal", "オフサイト-投入-新設").totalPerUnit, 3027.0, 0.05, "自然株 金属 オフサイト直接投入");
-  near(scenario(fixture, "enhanced", "dye", "循環-既設").totalPerUnit, 37.0, 0.05, "強化株 色素 オンサイト循環（菌体保持モジュールの交換費は顧客）");
+  near(off.totalPerUnit, 2903.8, 0.05, "強化株 色素 オフサイト直接投入");
+  near(scenario(fixture, "enhanced", "dye", "オフサイト-循環-新設").totalPerUnit, 3069.3, 0.05, "強化株 色素 オフサイト循環（処理の運転はオフサイトなら SX）");
+  near(scenario(fixture, "enhanced", "metal", "オフサイト-投入-新設").totalPerUnit, 3250.8, 0.05, "強化株 金属 オフサイト直接投入");
+  near(scenario(fixture, "wild", "dye", "オフサイト-投入-新設").totalPerUnit, 2883.4, 0.05, "自然株 色素 オフサイト直接投入");
+  near(scenario(fixture, "wild", "metal", "オフサイト-投入-新設").totalPerUnit, 3310.5, 0.05, "自然株 金属 オフサイト直接投入");
+  near(scenario(fixture, "enhanced", "dye", "循環-既設").totalPerUnit, 60.8, 0.05, "強化株 色素 オンサイト循環（菌体保持モジュールの交換費は顧客）");
 }
 
 // 15. 誰がやるか: SX がやる作業だけを SX の原価に入れる。顧客工場での処理の運転は顧客（オンサイト）、SX（オフサイト）
@@ -617,9 +631,9 @@ assert.ok(
   for (const i of sxOwns.items) i.bearer = "sx";
   for (const a of sxOwns.assumptions) if (a.roleKey === "onsite_tank_bearer") a.valueText = "sx";
   for (const t of sxOwns.tasks) if (t.costTaskId === "ct_s_integrity_test" || t.costTaskId === "ct_s_filter_replace") t.performer = "sx";
-  near(scenario(sxOwns, "enhanced", "dye", "投入-既設").totalPerUnit, 239.2, 0.05, "SX が持つ形の色素分解");
-  near(scenario(sxOwns, "enhanced", "metal", "投入-既設").totalPerUnit, 407.4, 0.05, "SX が持つ形の金属回収");
-  near(scenario(capacityShape(sxOwns), "enhanced", "dye", "投入-既設").totalPerUnit, 240.0, 0.05, "年間生産能力を入力で持つ形では 2026-09-14 の直前の数字（240.0）");
+  near(scenario(sxOwns, "enhanced", "dye", "投入-既設").totalPerUnit, 263.0, 0.05, "SX が持つ形の色素分解");
+  near(scenario(sxOwns, "enhanced", "metal", "投入-既設").totalPerUnit, 632.1, 0.05, "SX が持つ形の金属回収");
+  near(scenario(capacityShape(legacyCulture(sxOwns)), "enhanced", "dye", "投入-既設").totalPerUnit, 240.0, 0.05, "年間生産能力を入力で持つ形では 2026-09-14 の直前の数字（240.0）");
   const sxTank = computeCostModel(sxOwns, { strain: "enhanced" });
   assert.equal(sxTank.scenarios.length, 12, "槽を SX が持つと、オンサイトは既設と新設の2通りに戻る");
   near(scenario(sxOwns, "enhanced", "dye", "投入-新設").totalPerUnit - scenario(sxOwns, "enhanced", "dye", "投入-既設").totalPerUnit, 18_000_000 / 10 / 30000, 1e-9, "新設の槽は60円/m³");
@@ -715,7 +729,7 @@ assert.ok(
   near(scenario(doubleVol, "enhanced", "dye", "投入-既設").businessRevenueAnnual, 20_000_000_000, 1e-3, "年間処理量2倍で売上2倍");
   near(computeBiomassCost(doubleVol, "wild", "dye").perKg, computeBiomassCost(fixture, "wild", "dye").perKg, 1e-9, "拠点に1つの作業が無い自然株は、年間処理量で1kgあたりが変わらない");
   // 年間処理量の前提が無い試算は、これまでどおり年間生産能力をそのまま年に作る量として使う（系列は1つ）
-  const capShape = capacityShape(fixture);
+  const capShape = capacityShape(legacyCulture(fixture)); // これまでの形（培養の原料も 426 より前の額）
   const capBio = computeBiomassCost(capShape, "enhanced", "dye");
   assert.equal(capBio.fromVolume, false, "年間処理量が無ければ年間生産能力を使う");
   near(capBio.capacityKgYear, 33333, 1e-9, "年間生産能力をそのまま年に作る量に");
