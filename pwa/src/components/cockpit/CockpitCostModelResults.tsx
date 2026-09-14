@@ -414,10 +414,10 @@ export function CostResultsPanel({
               <dt>うち閉鎖系の追加</dt>
               <dd className="tabular-nums text-[#1d1d1f]">{current.strainSpecificPerUnit > 0 ? num(current.strainSpecificPerUnit) : "なし"}</dd>
             </div>
-            <div className="flex flex-wrap justify-between gap-x-2 sm:col-span-2">
-              <dt>1社の年間</dt>
-              <dd className="tabular-nums text-[#1d1d1f]">
-                {/* 金額はカンマ区切りの円で長いので、「売上 金額」の組ごとに折り返す */}
+            <div className="flex items-baseline justify-between gap-x-2 sm:col-span-2">
+              <dt className="shrink-0">1社の年間</dt>
+              {/* 金額はカンマ区切りの円で長いので、見出しと同じ行から「売上 金額」の組ごとに右寄せで折り返す */}
+              <dd className="flex min-w-0 flex-1 flex-wrap justify-end tabular-nums text-[#1d1d1f]">
                 <span className="whitespace-nowrap">売上 {yen(current.revenueAnnual)}・</span>
                 <span className="whitespace-nowrap">総コスト {yen(current.totalAnnual)}・</span>
                 <span className="whitespace-nowrap">
@@ -426,11 +426,11 @@ export function CostResultsPanel({
               </dd>
             </div>
             {current.businessVolume > 0 && (
-              <div className="flex flex-wrap justify-between gap-x-2 sm:col-span-2" data-testid="cost-business-annual">
-                <dt>
+              <div className="flex items-baseline justify-between gap-x-2 sm:col-span-2" data-testid="cost-business-annual">
+                <dt className="shrink-0">
                   事業全体の年間<span className="ml-1 text-[10px] text-[#6e6e73]">（約{int(current.customerCount)}社）</span>
                 </dt>
-                <dd className="tabular-nums text-[#1d1d1f]">
+                <dd className="flex min-w-0 flex-1 flex-wrap justify-end tabular-nums text-[#1d1d1f]">
                   <span className="whitespace-nowrap">売上 {yen(current.businessRevenueAnnual)}・</span>
                   <span className="whitespace-nowrap">総コスト {yen(current.businessTotalAnnual)}・</span>
                   <span className="whitespace-nowrap">
