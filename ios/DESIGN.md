@@ -59,7 +59,7 @@ PWAの全route・重要UI・iOS画面の対応状況は `../macos/PARITY.md` を
 > **PWA専用画面（Native未移植）**: PJコックピット `?tab=competition`（事業計画グループ、「技術」の右隣）とPJワークスペース `#competition`（計画・根拠）の
 > 「競合比較」（2026-09-14追加、同日に技術タブの区分から事業計画グループのタブへ移した。**技術台帳に区分 `tech_domain = '競合比較'` のトピックを持つPJだけ**。いまは SX）。
 > データは技術タブと同じ `/api/project-tech`（`project_tech_*`）で、区分「競合比較」だけを出し、技術タブからはその区分を外す。形も技術タブと同じ4つ（星取り表・成立条件・解説・到達実績）で、区分のタブ・全体像・未整理の断片は出さず、開くと先頭のトピックを開く（`?competition=`）。
-> SX は先頭の2枚（排水処理と金属回収の星取り表・燃料の比較表）が `confidentiality = 'public'`（社外に出す前提）。
+> SX は先頭の3枚（競合の会社との星取り表・既存の方式との星取り表・燃料の比較表）が `confidentiality = 'public'`（社外に出す前提。VC 提出用の PDF も同じデータから作る）。
 > 実装: `pwa/src/components/cockpit/CockpitTechnology.tsx`（`mode="competition"`）/ `pwa/src/lib/project-tech.ts`（`isCompetitionTopic`）。仕様 `../pwa/spec/3-20-project-technology-current-spec.md` §5.3。
 
 > **PWA専用画面（Native未移植）**: PJコックピット `?tab=capital-policy` の「資本政策表」タブ
