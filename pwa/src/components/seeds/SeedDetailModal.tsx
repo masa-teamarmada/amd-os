@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowUpRight, ExternalLink, Loader2 } from "lucide-react";
 import {
   fetchSeedDetail,
+  fetchSeedInstitutionOptions,
   insertSeed,
   updateSeed,
   deleteSeed,
@@ -32,6 +33,10 @@ import {
   SEED_COMPANY_FACT_RELEVANCE_LABEL,
   SEED_COMPANY_FACT_RELEVANCE_ORDER,
 } from "@/lib/seeds-data";
+import {
+  applySeedInstitutionSelection,
+  type SeedInstitutionOption,
+} from "@/lib/seed-institution-form";
 import type {
   Seed,
   SeedDetail,
@@ -94,6 +99,9 @@ export function SeedDetailModal({
 
   const [members, setMembers] = useState<MemberLite[]>([]);
   const [projects, setProjects] = useState<ProjectLite[]>([]);
+  const [institutions, setInstitutions] = useState<SeedInstitutionOption[]>([]);
+  const [institutionLoading, setInstitutionLoading] = useState(true);
+  const [institutionLoadError, setInstitutionLoadError] = useState<string | null>(null);
   const [deepDiveOpen, setDeepDiveOpen] = useState(false);
   const [activationOpen, setActivationOpen] = useState(false);
   const [activationBusy, setActivationBusy] = useState(false);
@@ -121,11 +129,19 @@ export function SeedDetailModal({
     });
   }, []);
 
+  // 機関カタログは参照系キャッシュ経由。失敗しても自由入力の候補登録は継続できる。
+  useEffect(() => {
+    fetchSeedInstitutionOptions()
+      .then(setInstitutions)
+      .catch(() => setInstitutionLoadError("機関一覧を読み込めないため、自由入力で登録できます"))
+      .finally(() => setInstitutionLoading(false));
+  }, []);
+
   // 詳細データ読み込み
   useEffect(() => {
     if (createMode) {
       setData(null);
-      setDraft({ status: "candidate", is_public: false });
+      setDraft({ status: "candidate", is_public: false, institution_id: null });
       setEditMode(true);
       setNotFound(false);
       return;
@@ -187,9 +203,10 @@ export function SeedDetailModal({
           return;
         }
         const res = await insertSeed({
+          ...draft,
           title: draft.title,
           org_name: draft.org_name,
-          ...draft,
+          institution_id: draft.institution_id ?? null,
         });
         if (!res.ok) {
           setError(res.error ?? "保存失敗");
@@ -393,7 +410,15 @@ export function SeedDetailModal({
 
             {/* 本文 */}
             {editMode ? (
-              <SeedEditForm draft={draft} setDraft={setDraft} members={members} projects={projects} />
+              <SeedEditForm
+                draft={draft}
+                setDraft={setDraft}
+                members={members}
+                projects={projects}
+                institutions={institutions}
+                institutionLoading={institutionLoading}
+                institutionLoadError={institutionLoadError}
+              />
             ) : (
               data && (
                 <SeedReadView
@@ -601,11 +626,17 @@ function SeedEditForm({
   setDraft,
   members,
   projects,
+  institutions,
+  institutionLoading,
+  institutionLoadError,
 }: {
   draft: Partial<Seed>;
   setDraft: (d: Partial<Seed>) => void;
   members: MemberLite[];
   projects: ProjectLite[];
+  institutions: SeedInstitutionOption[];
+  institutionLoading: boolean;
+  institutionLoadError: string | null;
 }) {
   const update = <K extends keyof Seed>(k: K, v: Seed[K] | null | undefined) => {
     setDraft({ ...draft, [k]: v as Seed[K] });
@@ -668,9 +699,43 @@ function SeedEditForm({
       {/* 機関・PI */}
       <div className="space-y-2">
         <h3 className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">機関 / 研究者</h3>
+        <Field label="研究機関カタログ">
+          <select
+            aria-label="研究機関カタログ"
+            className="w-full px-2 py-1.5 rounded border border-border bg-background text-xs"
+            value={draft.institution_id ?? ""}
+            onChange={(e) =>
+              setDraft(
+                applySeedInstitutionSelection(
+                  draft,
+                  institutions,
+                  e.target.value || null,
+                ) as Partial<Seed>,
+              )
+            }
+          >
+            <option value="">機関に紐付けない（自由入力）</option>
+            {draft.institution_id && !institutions.some((item) => item.institution_id === draft.institution_id) && (
+              <option value={draft.institution_id}>
+                {draft.org_name || draft.institution_id}（登録済み・一覧外）
+              </option>
+            )}
+            {institutions.map((institution) => (
+              <option key={institution.institution_id} value={institution.institution_id}>
+                {institution.name}{institution.region ? `（${institution.region}）` : ""}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+            {institutionLoading
+              ? "機関一覧を読み込み中…"
+              : institutionLoadError ?? "選択すると機関ID・名称・種別・地域を同時に保存。紐付けない候補は下の自由入力を使えます。"}
+          </p>
+        </Field>
         <Field label="機関名 *">
           <input
-            className="w-full px-2 py-1.5 rounded border border-border bg-background text-xs"
+            readOnly={Boolean(draft.institution_id)}
+            className={`w-full px-2 py-1.5 rounded border border-border bg-background text-xs ${draft.institution_id ? "bg-muted/50 text-muted-foreground" : ""}`}
             value={draft.org_name ?? ""}
             onChange={(e) => update("org_name", e.target.value)}
             placeholder="例: 愛媛大学"

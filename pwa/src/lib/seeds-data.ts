@@ -17,6 +17,10 @@ import type {
   SeedProjectLink,
 } from "@/types/seeds";
 import { SEED_INTERNAL_COMPARISON_COLUMNS, SEED_PUBLIC_VIEW_COLUMNS } from "@/types/seeds";
+import {
+  loadReferenceData,
+} from "@/lib/reference-data-cache";
+import type { SeedInstitutionOption } from "@/lib/seed-institution-form";
 export {
   SEED_COMMERCIALIZATION_TYPE_LABEL,
   SEED_COMMERCIALIZATION_TYPE_ORDER,
@@ -61,6 +65,21 @@ function getAuthClient() {
 // =====================================================================
 // 読み取り
 // =====================================================================
+
+const SEED_INSTITUTION_CATALOG_CACHE_KEY = "seeds:institution-catalog";
+
+/** シーズ編集で使う研究機関カタログ。低頻度の参照系なので共通キャッシュを通す。 */
+export function fetchSeedInstitutionOptions(): Promise<SeedInstitutionOption[]> {
+  return loadReferenceData(SEED_INSTITUTION_CATALOG_CACHE_KEY, async () => {
+    const { data, error } = await supabase
+      .from("institutions")
+      .select("institution_id,name,type,region")
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
+    if (error) throw new Error(`institution catalog lookup: ${error.message}`);
+    return (data ?? []) as SeedInstitutionOption[];
+  });
+}
 
 /** リスト画面: 集約済みカード一覧 */
 export async function fetchSeedList(): Promise<SeedListItem[]> {

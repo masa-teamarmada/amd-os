@@ -149,7 +149,7 @@ GlobalNav に **Seeds** を Venture Map と VC の間に追加 ([GlobalNav.tsx](
 - **フラット台帳**: 1シーズ=1行。研究機関・研究者・PJ有無を行グループやセクションにせず、通常カラムとして表示する
 - **PJ優先ソート**: `/seeds` (全機関横断、`scope="all"`) は `seed_projects` のPJ化済み (`active/ended/frozen`) → PJ化検討中 (`sales/draft`、または未紐付けの `contacted/discussing`) → PJなし・SPS評価済み (`latest_sps.status==="ready"`) → その他の4段階に固定し、各区分の中を列ソートする (`seedListPriority()`)。**例外: SPS(億円)列でソートしている間はこの4段固定を外し、リスト全体を中央値でフラットに並べる** (まさ裁定 2026-08-15「全然ソーティングされない」への対応。/seeds の既定ソートキーはSPS中央値のため、初期表示はフラット順になる)。ECRはこの優先度に関与させない。PJ cockpit / 研究機関 cockpit 内の比較表 (`scope!=="all"`) はPJ優先ソートをかけず列ソートのみ、かつSPS(億円)・根拠Lv列は出さない (`/seeds` 限定)
 - **フィルタ**: シーズ自体のstatus / 領域 / 担当 / フリーテキスト。AMD PJ状態とは混ぜない
-- **新規作成**: 右上「+ 新規シーズ」ボタン → `SeedDetailModal` を createMode で開く
+- **新規作成**: 右上「+ 新規シーズ」ボタン → `SeedDetailModal` を createMode で開く。編集フォームの「研究機関カタログ」は `institutions` の既存一覧から選択し、選択時は `institution_id` と機関名を保存し、`institutions.type` / `region` をシーズ側の `org_type` / `org_region` へ写す。選択を「機関に紐付けない（自由入力）」へ戻した候補は `institution_id=null` のまま機関名を自由入力できる。既存シーズの編集でも現在の機関紐付きを選択状態で表示し、変更または紐付け解除できる。機関選択中の機関名は読み取り専用とし、FKと表示名の不整合を防ぐ
 - **深掘り資料**: `deep_dive_material_url` には、AMDが確認済みの共有資料リンクだけを置く。資料本文、一次ソース本文、一次ソースの生URLは置かない。md はOS内Markdownモーダル (左メニューなし) で表示し、ヘッダーの補助リンクからDriveを開ける。
 
 ### `KuteSeedDetailModal` (外部共有用の読み取り専用モーダル)
