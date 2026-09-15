@@ -1,5 +1,7 @@
 # 附則（設計書変更履歴）
 
+| 2026-09-16 JST | SOL関係先台帳 | JMTCキャピタルのGP役割を訂正 | JMTCを単なる案件接続役としていた記述を、四国化成CVCの案件発掘・DD・投資判断・実行を担う運営会社（GP）へ訂正。個別案件の正式DD開始と、投資委員会・最終決裁手続は未確認のまま分離 | まさ・えいみ |
+
 | 2026-09-16 JST | SOL関係先台帳 | JMTC面談の現在地を登録 | `project_management_partners`へJMTCを追加し、投資接続の役割、9/14面談履歴、四国化成CVC・三菱マテリアルCVCへの展開結果を待つ作業項目を別レコードで保持。資料共有と正式な投資検討開始・出資判断・条件合意を混同しない | まさ・えいみ |
 
 | 2026-09-15 JST | 5-2 開発・本番反映 | Git deploy の dirty 誤表示を修正 | `/api/build-info` は Vercel の Git commit SHA がある現行 main deploy を `dirty=false` と判定する。CLI deploy 時代の `NEXT_PUBLIC_AMD_OS_DIRTY=true` が環境に残っていても、確定済みGit成果物を未コミット成果物と誤表示しない | v3.139.1 の本番readbackで mainと同一SHAなのに `dirty=true` が返り、反映証跡が矛盾していたため | まさ・えいみ |
