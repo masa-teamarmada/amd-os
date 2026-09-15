@@ -184,7 +184,8 @@ export type CostPriceRule =
   | "co2_supply"
   | "culture_loss"
   | "medium_supply"
-  | "heat_supply";
+  | "heat_supply"
+  | "recovery_capex";
 
 export interface CostItem {
   costItemId: string;
@@ -376,6 +377,7 @@ export const COST_ROLE_KEYS = new Set([
   "utilization",
   "target_concentration",
   "offsite_target_concentration",
+  "effluent_target_concentration",
   "k_ppm",
   "uptake_alpha",
   "recovery_eta",
@@ -385,6 +387,9 @@ export const COST_ROLE_KEYS = new Set([
   "offsite_annual_volume",
   "culture_capacity_kg_year",
   "culture_line_capacity_kg_year",
+  "recovery_facility_capex",
+  "recovery_facility_life_years",
+  "recovery_line_capacity_kg_year",
   "sales_rate",
   "biomass_cost_per_kg_override",
   "labor_rate",
@@ -432,12 +437,25 @@ export interface CostDerived {
   targetConcentration: number;
   /** オフサイトの対象物質の濃さをオンサイトと別に持っているか。 */
   offsiteConcentrationSeparate: boolean;
+  /** 目標放流水濃度 Cout (effluent_target_concentration。無ければ0で、全量を取り除く)。方式によらず同じ。 */
+  effluentConcentration: number;
+  /** 取り除く濃さ = max(流入の濃さ − 目標放流水濃度, 0)。 */
+  removedConcentration: number;
   uptakeAlpha: number;
+  /** 菌体回収率η (%)。処理のあと回収して、次のバッチへ回せる菌体の割合。 */
   recoveryEta: number;
+  /** 1バッチの処理に要る菌体量 (g/単位) = 取り除く濃さ × k_ppm ÷ 取り込み効率α。回収率では割らない (中島先生 2026-08-28)。 */
   requiredBiomassPerM3: number;
-  biomassWithLossPerM3: number;
+  /** 新しく入れる菌体の割合 = 新しく入れる菌体 ÷ 1バッチに要る菌体 (freshBiomassShare)。 */
+  freshShare: number;
+  /** 1バッチごとに新しく入れる菌体量 (g/単位)。回収できなかった分と、使用回数を使い切って入れ替える分の補充。 */
+  freshBiomassPerM3: number;
+  /** うち、回収できずに次のバッチへ回らない菌体 (g/単位)。 */
+  lostBiomassPerM3: number;
+  /** うち、使用回数を使い切って入れ替える菌体 (g/単位)。 */
+  retiredBiomassPerM3: number;
   requiredBrothPerM3: number;
-  /** 使用回数で割った後、1単位あたりに使い切る菌体量 (kg-DCW)。第1段の原価に掛ける量。 */
+  /** 1単位あたりに使い切る菌体量 (kg-DCW) = 新しく入れる菌体量 ÷ 1000。第1段の原価に掛ける量。 */
   biomassKgPerUnit: number;
   /** 年間に要る菌体量 (kg-DCW)。 */
   annualBiomassKg: number;
@@ -572,7 +590,7 @@ export const BREAKDOWN_HINT: Record<CostBreakdownKey, string> = {
   labor: "SXがやる、運ぶ以外の作業（オフサイトの処理の運転、設備の交換、閉鎖系の管理など）。工数 × 作業単価 ＋ 経費",
   postProcess: "SXが持つ使用済み菌体の後処理。金属回収は酸処理。色素分解の汚泥の処分は、オンサイトでは顧客が持つので入らない",
   consumables: "処理に使う消耗品・電力・分析と、オフサイトの放流費",
-  capex: "SXが持つ処理設備と槽の初期投資 ÷ 耐用年数。オンサイトのリアクターと槽は顧客が買うので入らない",
+  capex: "SXが持つ処理設備と槽、金属回収の中央回収設備の初期投資 ÷ 耐用年数。オンサイトのリアクターと槽は顧客が買うので入らない",
 };
 export const BREAKDOWN_ORDER: CostBreakdownKey[] = ["biomass", "transport", "labor", "postProcess", "consumables", "capex"];
 
@@ -901,6 +919,13 @@ export const TEXT_CHOICE_ROLES: Record<string, Array<{ value: string; label: str
   [WASTE_HEAT_ROLE]: WASTE_HEAT_CHOICES,
 };
 
+/**
+ * 金属回収の中央回収設備 (酸処理・中和・固液分離) の償却を、使用済み菌体1kgあたりにする前提。
+ * 中島先生 2026-08-28「金属回収設備CAPEXがない | 酸処理OPEXのみ | 酸処理・中和・分離には設備が必要 | 中央回収設備として別CAPEX化」。
+ * 単価 (円/kg-DCW) = 1系列の初期投資 ÷ 耐用年数 ÷ 1系列が1年に処理する使用済み菌体。系列は処理する量に合わせて並べる (培養設備と同じ)。
+ */
+export const RECOVERY_CAPEX_ROLES = ["recovery_facility_capex", "recovery_facility_life_years", "recovery_line_capacity_kg_year"];
+
 /** 明細の単価の連動のしかたが読む前提。 */
 const ROLES_BY_PRICE_RULE: Record<string, string[]> = {
   module_swap: ["module_unit_price", "module_durability_batches"],
@@ -910,6 +935,7 @@ const ROLES_BY_PRICE_RULE: Record<string, string[]> = {
   co2_supply: [CO2_FLUE_GAS_ROLE],
   medium_supply: [WASTE_MEDIUM_ROLE, WASTE_MEDIUM_REDUCTION_ROLE],
   heat_supply: [WASTE_HEAT_ROLE],
+  recovery_capex: RECOVERY_CAPEX_ROLES,
 };
 /** 作業の年間回数の決め方が読む前提 (年間バッチ数・系列数のように、どの組み合わせでも効く前提は除く)。 */
 const ROLES_BY_TASK_DRIVER: Partial<Record<CostTaskDriver, string[]>> = {
@@ -933,6 +959,8 @@ export const CONDITIONAL_ROLE_KEYS = new Set<string>([
   "labor_rate",
   "sale_price",
   "offsite_sale_price",
+  // 回収率は次のバッチへ回す量に使うので、使い回すとき (色素分解) だけ効く。金属回収は使用回数1回で固定なので効かない
+  "recovery_eta",
 ]);
 
 /** 前提が効くかを見る組み合わせ。 */
@@ -977,6 +1005,9 @@ export function rolesInEffect(bundle: CostInputs, view: CostEffectSelection): Se
     if (hours > 0 || t.expensePerOccurrence > 0) add(ROLES_BY_TASK_DRIVER[t.countDriver]);
   }
   if (view.location === "onsite") inEffect.add("onsite_tank_bearer");
+  // 回収率は、次のバッチへ回すとき (使用回数が1回より多い) だけ効く
+  const basis = deriveCostBasis(bundle.assumptions, sel, view.location);
+  if (basis.reuseCount > 1 && basis.requiredBiomassPerM3 > 0) inEffect.add("recovery_eta");
   // 売価は選んだ方式のものだけが効く。オフサイトの売価を別に持たない試算は、オフサイトもオンサイトの売価で出す
   const offsitePriceSeparate = typeof resolveAssumption(bundle.assumptions, "offsite_sale_price", sel)?.value === "number";
   inEffect.add(view.location === "offsite" && offsitePriceSeparate ? "offsite_sale_price" : "sale_price");
@@ -1020,9 +1051,10 @@ export const COST_PARAM_BLOCKS: CostParamBlock[] = [
 export const COST_PARAM_GROUPS: CostParamGroup[] = [
   { key: "cond-scale", block: "conditions", title: "事業の規模と売価", hint: "オンサイトとオフサイトの年間処理量と売価から、売上・顧客の数が決まる。年に作る菌体の量は、両方の年間処理量にそれぞれの濃さで使い切る菌体の量を掛けて足す", roles: ["business_annual_volume", "sale_price", "offsite_annual_volume", "offsite_sale_price"] },
   { key: "cond-site", block: "conditions", title: "顧客1社の処理", hint: "顧客1社あたりの年間処理量と年間バッチ数が決まる", roles: ["batch_volume", "operating_days", "utilization"] },
-  { key: "cond-substance", block: "conditions", title: "対象物質と菌体の量", hint: "排水1単位あたりに使い切る菌体の量が決まる。オフサイトで引き取る液の濃さは別に置ける", roles: ["target_concentration", "offsite_target_concentration", "uptake_alpha", "recovery_eta", "reuse_count", "k_ppm"] },
+  { key: "cond-substance", block: "conditions", title: "対象物質と菌体の量", hint: "流入の濃さと目標放流水濃度の差から1バッチに要る菌体の量が、回収率と使用回数から新しく入れる菌体の量が決まる。オフサイトで引き取る液の濃さは別に置ける", roles: ["target_concentration", "offsite_target_concentration", "effluent_target_concentration", "uptake_alpha", "recovery_eta", "reuse_count", "k_ppm"] },
   { key: "cond-biomass", block: "conditions", title: "菌体の製造量と原価", hint: "年に作る菌体の量と、菌体1kgの原価の割り算", roles: ["sales_rate", "biomass_cost_per_kg_override"] },
   { key: "capex-production", block: "capex", title: "菌体の製造拠点（培養設備）", hint: "培養設備1系列の明細と、1系列で年に作れる量。年に作る量に合わせて系列を並べる", roles: ["culture_line_capacity_kg_year", "culture_capacity_kg_year"] },
+  { key: "capex-recovery", block: "capex", title: "金属の回収設備（酸処理・中和・固液分離）", hint: "金属回収だけ。使用済み菌体を集めて酸で溶かし、金属を取り出す中央の設備。1系列の初期投資 ÷ 耐用年数 ÷ 1系列が1年に処理する使用済み菌体を、使い切る菌体1kgあたりに乗せる", roles: RECOVERY_CAPEX_ROLES },
   { key: "capex-circulation", block: "capex", title: "処理設備：循環カートリッジ", hint: "顧客工場（オンサイト）では顧客が買い、SX工場（オフサイト）ではSXが持つ", roles: [] },
   { key: "capex-injection", block: "capex", title: "処理設備：直接投入", hint: "顧客工場（オンサイト）では顧客が買い、SX工場（オフサイト）ではSXが持つ", roles: [] },
   { key: "capex-tank", block: "capex", title: "槽", hint: "オンサイトの槽は顧客の設備。オフサイトはSX工場に新設する", roles: ["onsite_tank_bearer", "new_tank_capex", "tank_life_years"] },
@@ -1056,6 +1088,7 @@ export function paramGroupOfItem(
   const closed = (item.groupLabel ?? "").startsWith("閉鎖系の追加");
   if (item.costType === "CAPEX") {
     if (closed) return group("capex-closed");
+    if (item.priceRule === "recovery_capex") return group("capex-recovery");
     if (item.scenario === "中央培養") return group("capex-production");
     if (item.scenario === "循環") return group("capex-circulation");
     if (item.scenario === "投入") return group("capex-injection");
@@ -1087,8 +1120,25 @@ export function salesRateOf(assumptions: CostAssumption[], sel: CostSelection = 
 }
 
 /**
+ * 1バッチに要る菌体のうち、新しく入れる菌体の割合 (菌体のバッチ間のマスバランス。中島先生 2026-08-28)。
+ * 回収率 η は「処理のあと回収して次のバッチへ回せる菌体の割合」、使用回数 N は「同じ菌体を何バッチ使ったら入れ替えるか」。
+ * 毎バッチ、前のバッチから回した菌体 (N回に達していないもの) に新しい菌体 F を足して、要る菌体 B にそろえる。
+ * 回した菌体は1回ごとに η 倍になるので B = F × (1 + η + … + η^(N−1)) で、F ÷ B = (1 − η) ÷ (1 − η^N)。
+ * η = 100% なら 1/N (使用回数で割るだけ)、N = 1 (使い捨て) なら η によらず 1。
+ * 新しく入れた菌体は、回収できずに失う (F × (1 − η^N)) か、N回使って入れ替える (F × η^N) かのどちらかで出ていく。
+ */
+export function freshBiomassShare(etaPct: number, uses: number): number {
+  const n = Math.max(Number.isFinite(uses) ? uses : 1, 1);
+  const eta = Math.min(Math.max(Number.isFinite(etaPct) ? etaPct / 100 : 0, 0), 1);
+  if (eta >= 1 - 1e-12) return 1 / n;
+  return (1 - eta) / (1 - Math.pow(eta, n));
+}
+
+/**
  * 1単位の処理に使う物量。方式 (location) で変わるのは対象物質の濃さだけで、オフサイトは前提 offsite_target_concentration が
  * あればそれを使う (引き取る液は顧客工場の排水より濃い。まさ 2026-09-14「置いて」)。無ければオンサイトの濃さ。
+ * 1バッチに要る菌体 = (流入の濃さ − 目標放流水濃度) × k_ppm ÷ 取り込み効率α、新しく入れる菌体 = それ × freshBiomassShare。
+ * 2026-09-15 までは「流入の濃さ全量 ÷ α ÷ 回収率 ÷ 使用回数」だった (中島先生 2026-08-28 の指摘で改めた。ちこさん 2026-09-15)。
  */
 export function deriveCostBasis(
   assumptions: CostAssumption[],
@@ -1105,6 +1155,9 @@ export function deriveCostBasis(
   const offsiteConcentration = resolveAssumption(assumptions, "offsite_target_concentration", sel)?.value;
   const offsiteConcentrationSeparate = typeof offsiteConcentration === "number" && Number.isFinite(offsiteConcentration);
   const concentration = location === "offsite" && offsiteConcentrationSeparate ? offsiteConcentration : onsiteConcentration;
+  // 目標放流水濃度 (中島先生 2026-08-28「(Cin−Cout)×水量に変更」)。前提が無い試算は0で、これまでどおり全量を取り除く。
+  const effluentConcentration = Math.max(roleValue(assumptions, "effluent_target_concentration", 0, sel), 0);
+  const removedConcentration = Math.max(concentration - effluentConcentration, 0);
   const kPpm = roleValue(assumptions, "k_ppm", 1, sel);
   const alpha = roleValue(assumptions, "uptake_alpha", 0.05, sel);
   const eta = roleValue(assumptions, "recovery_eta", 90, sel);
@@ -1113,10 +1166,13 @@ export function deriveCostBasis(
   const reuseFixed = sel.application === "metal";
   const reuseCount = reuseFixed ? 1 : Math.max(roleValue(assumptions, "reuse_count", 1, sel), 1);
 
-  const requiredBiomassPerM3 = safeDiv(concentration * kPpm, alpha);
-  const biomassWithLossPerM3 = safeDiv(requiredBiomassPerM3, eta / 100);
-  const requiredBrothPerM3 = safeDiv(biomassWithLossPerM3, cellDensity);
-  const biomassKgPerUnit = biomassWithLossPerM3 / reuseCount / 1000;
+  const requiredBiomassPerM3 = safeDiv(removedConcentration * kPpm, alpha);
+  const freshShare = freshBiomassShare(eta, reuseCount);
+  const freshBiomassPerM3 = requiredBiomassPerM3 * freshShare;
+  const retiredBiomassPerM3 = freshBiomassPerM3 * Math.pow(Math.min(Math.max(eta / 100, 0), 1), reuseCount);
+  const lostBiomassPerM3 = freshBiomassPerM3 - retiredBiomassPerM3;
+  const requiredBrothPerM3 = safeDiv(freshBiomassPerM3, cellDensity);
+  const biomassKgPerUnit = freshBiomassPerM3 / 1000;
 
   const perDelivery = Math.max(roleValue(assumptions, "patrol_batches_per_delivery", 5, sel), 1);
   const truckCapacity = roleValue(assumptions, "truck_capacity_m3", 10, sel);
@@ -1133,15 +1189,20 @@ export function deriveCostBasis(
     location,
     targetConcentration: concentration,
     offsiteConcentrationSeparate,
+    effluentConcentration,
+    removedConcentration,
     uptakeAlpha: alpha,
     recoveryEta: eta,
     requiredBiomassPerM3,
-    biomassWithLossPerM3,
+    freshShare,
+    freshBiomassPerM3,
+    lostBiomassPerM3,
+    retiredBiomassPerM3,
     requiredBrothPerM3,
     biomassKgPerUnit,
     annualBiomassKg: biomassKgPerUnit * annualVolume,
-    biomassFactor: safeDiv(biomassWithLossPerM3 / reuseCount, BASELINE_BIOMASS_G_PER_M3),
-    brothFactor: safeDiv(requiredBrothPerM3 / reuseCount, BASELINE_BROTH_L_PER_M3),
+    biomassFactor: safeDiv(freshBiomassPerM3, BASELINE_BIOMASS_G_PER_M3),
+    brothFactor: safeDiv(requiredBrothPerM3, BASELINE_BROTH_L_PER_M3),
     reuseCount,
     reuseFixed,
     visitsPerYear: safeDiv(annualBatches, Math.max(reuseCount, perDelivery)),
@@ -1206,6 +1267,12 @@ export function effectiveUnitPrice(
       // 乾燥菌体 1kg を処分するときの額 = 脱水後の湿重量倍率 × 汚泥の処分単価
       return (
         roleValue(assumptions, "spent_wet_factor", 5, sel) * roleValue(assumptions, "sludge_disposal_price", 35, sel)
+      );
+    case "recovery_capex":
+      // 使用済み菌体 1kg を処理するときの設備の償却 = 1系列の初期投資 ÷ 耐用年数 ÷ 1系列が1年に処理する使用済み菌体
+      return safeDiv(
+        safeDiv(roleValue(assumptions, "recovery_facility_capex", 0, sel), roleValue(assumptions, "recovery_facility_life_years", 10, sel)),
+        roleValue(assumptions, "recovery_line_capacity_kg_year", 0, sel)
       );
     default:
       return item.unitPrice;
@@ -1385,6 +1452,16 @@ function priceRuleCalc(item: CostItem, assumptions: CostAssumption[], derived: C
         terms: [
           { op: null, value: roleValue(assumptions, "spent_wet_factor", 5, sel), unit: "倍", label: "脱水後の湿重量倍率" },
           { op: "×", value: roleValue(assumptions, "sludge_disposal_price", 35, sel), unit: "円/kg", label: "汚泥の処分単価" },
+        ],
+        result,
+      };
+    case "recovery_capex":
+      return {
+        continues: false,
+        terms: [
+          { op: null, value: roleValue(assumptions, "recovery_facility_capex", 0, sel), unit: "円", label: "1系列の初期投資" },
+          { op: "÷", value: roleValue(assumptions, "recovery_facility_life_years", 10, sel), unit: "年", label: "耐用" },
+          { op: "÷", value: roleValue(assumptions, "recovery_line_capacity_kg_year", 0, sel), unit: "kg", label: "1系列が1年に処理する使用済み菌体" },
         ],
         result,
       };

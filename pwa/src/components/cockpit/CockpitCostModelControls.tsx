@@ -113,13 +113,13 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
   const tasks = working.tasks ?? [];
 
   // 前提は区分 (COST_PARAM_GROUPS) の role_key の順に、いまの株・用途で採られている行だけを並べる。
-  // 金属回収の菌体使用回数は1回で固定なので、前提があっても出さない。
+  // 金属回収の菌体使用回数は1回で固定なので、前提があっても出さない。回収率は次のバッチへ回す量に使うので、使い回さない金属回収では出さない。
   const assumptionRows = useMemo(() => {
     const sel: CostSelection = { strain, application };
     const byGroup = new Map<string, CostAssumption[]>();
     for (const g of COST_PARAM_GROUPS) {
       const rows = g.roles.flatMap((role) => {
-        if (role === "reuse_count" && application === "metal") return [];
+        if ((role === "reuse_count" || role === "recovery_eta") && application === "metal") return [];
         // 排ガス利用可能は CO2 の明細の行に出す (まさ 2026-09-14「CO2コストのところに設置してほしい」)
         if (ITEM_INLINE_ROLES.has(role)) return [];
         const a = resolveAssumption(working.assumptions, role, sel);
@@ -206,9 +206,21 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
                 {selection.location === "offsite" ? "（オフサイトで引き取る液の濃さ）" : "（顧客工場の排水の濃さ）"}で、
               </>
             )}
-            必要な菌体 {num(derived.biomassWithLossPerM3, 0)} g/{unit}（濃度 ÷ 取り込み効率 ÷ 回収率）÷ 使用回数 {num(derived.reuseCount, 0)}
-            {derived.reuseFixed && <span className="text-[#6e6e73]">（{METAL_SINGLE_USE_NOTE}）</span>} ＝ 使い切る菌体{" "}
-            <span className="font-semibold tabular-nums">{num(derived.biomassKgPerUnit, 3)} kg/{unit}</span>
+            {/* 取り除く量は流入の濃さと目標放流水濃度の差、回収率は次のバッチへ回す量に使う (中島先生 2026-08-28。ちこさん 2026-09-15) */}
+            1バッチに要る菌体 ＝（流入 {conc(derived.targetConcentration)} − 目標放流水濃度 {conc(derived.effluentConcentration)}）{concentrationUnit} ÷ 取り込み効率{" "}
+            {num(derived.uptakeAlpha, 3)} ＝ <span className="tabular-nums">{int(derived.requiredBiomassPerM3)} g/{unit}</span>。
+            {derived.reuseCount > 1 ? (
+              <>
+                毎バッチ新しく入れる菌体 ＝ この量 ×（1 − 回収率 {num(derived.recoveryEta, 0)}%）÷（1 − 回収率の{num(derived.reuseCount, 0)}乗）＝{" "}
+                <span className="tabular-nums">{int(derived.freshBiomassPerM3)} g/{unit}</span>
+                <span className="text-[#6e6e73]">
+                  （回収した菌体は次のバッチへ回し、{num(derived.reuseCount, 0)}回使ったら入れ替える。うち回収できずに失う {int(derived.lostBiomassPerM3)} g・入れ替える {int(derived.retiredBiomassPerM3)} g）
+                </span>
+              </>
+            ) : (
+              <span className="text-[#6e6e73]">毎バッチこの量を新しく入れる（{derived.reuseFixed ? METAL_SINGLE_USE_NOTE : "使用回数1回"}。回収率は効かない）</span>
+            )}
+            {" "}＝ 使い切る菌体 <span className="font-semibold tabular-nums">{num(derived.biomassKgPerUnit, 3)} kg/{unit}</span>
             {scenario && <>。菌体費は {num(biomass.perKg)} 円/kg × この量 ＝ <span className="font-semibold tabular-nums">{num(scenario.centralTotalPerUnit)} 円/{unit}</span></>}
           </Formula>
         );
@@ -229,6 +241,36 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
             。償却は菌体1kgあたり {num(biomass.rows.find((r) => r.key === "capex")?.perKg ?? 0)} 円として菌体費に入る
           </Formula>
         );
+      case "capex-recovery": {
+        // 金属回収の中央回収設備。系列は、この用途で1年に処理する使用済み菌体 (＝売れた菌体) に合わせて並べる。
+        // 前提は金属回収の行なので、色素分解を選んでいるときも金属回収の値で割り算を出す
+        const role = (r: string) => resolveAssumption(working.assumptions, r, { strain, application: "metal" })?.value ?? 0;
+        const capex = role("recovery_facility_capex");
+        const life = role("recovery_facility_life_years");
+        const lineKg = role("recovery_line_capacity_kg_year");
+        const perKg = safeRatio(safeRatio(capex, life), lineKg);
+        const spentKg = biomass.fromVolume ? biomass.soldKgYear : 0;
+        const lines = safeRatio(spentKg, lineKg);
+        return (
+          <Formula testId="cost-recovery-formula" muted={!inEffect.has("recovery_facility_capex")}>
+            償却 ＝ 1系列 {yen(capex)} ÷ {num(life, 0)}年 ÷ 1系列が1年に処理する使用済み菌体 {int(lineKg)} kg ＝{" "}
+            <span className="font-semibold tabular-nums">{num(perKg, 2)} 円/kg</span>
+            {application === "metal" ? (
+              <>
+                {" "}× 使い切る菌体 {num(derived.biomassKgPerUnit, 3)} kg/{unit} ＝{" "}
+                <span className="font-semibold tabular-nums">{num(perKg * derived.biomassKgPerUnit)} 円/{unit}</span>
+                {spentKg > 0 && (
+                  <span className="text-[#6e6e73]">
+                    。1年に処理する使用済み菌体 {int(spentKg)} kg → {num(lines, 1)} 系列・初期投資 {yen(capex * lines)}
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="text-[#6e6e73]">（金属回収だけに乗る。いまは{selectionAppLabel(selection)}を選んでいる）</span>
+            )}
+          </Formula>
+        );
+      }
       case "capex-tank": {
         const capex = resolveAssumption(working.assumptions, "new_tank_capex", { strain, application })?.value ?? 0;
         const life = resolveAssumption(working.assumptions, "tank_life_years", { strain, application })?.value ?? 0;
@@ -531,8 +573,9 @@ function AssumptionControl({
           min={isSalesRate ? 1 : undefined}
           max={isSalesRate ? 100 : undefined}
           placeholder={isOverride ? "空欄＝計算値" : undefined}
-          // 3桁カンマ入りの大きい数字（20,000,000 など）がスマホの16pxでも欄に収まる幅
-          widthClass="w-36 xl:w-24"
+          // 3桁カンマ入りの大きい数字（20,000,000 など）がスマホの16pxでも欄に収まる幅。
+          // 10桁以上（中央回収設備の初期投資 5,670,000,000 など）は、その幅では末尾が欠けるので広げる
+          widthClass={Math.abs(a.value ?? 0) >= 1e9 ? "w-44 xl:w-32" : "w-36 xl:w-24"}
         />
         <span className="w-16 text-[11px] text-[#6e6e73]">{a.unit}</span>
       </div>
@@ -595,6 +638,8 @@ function TargetControl({
 }
 
 const safeRatio = (a: number, b: number) => (b > 0 ? a / b : 0);
+/** 濃さの表示。整数はカンマ区切り、1未満の目標放流水濃度などは小数で出す。 */
+const conc = (v: number) => (Number.isInteger(v) ? int(v) : num(v, v < 1 ? 2 : 1));
 /** 菌体の製造拠点の作業にだけ使う回数の決め方。現場の作業の選択肢には出さない。 */
 const PRODUCTION_ONLY_DRIVERS = new Set<CostTaskDriver>(["production_line"]);
 const selectionAppLabel = (selection: CostViewSelection) => (selection.application ? APPLICATION_LABEL[selection.application] : "この試算");
