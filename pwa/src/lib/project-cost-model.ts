@@ -411,6 +411,7 @@ export const COST_ROLE_KEYS = new Set([
   "co2_flue_gas",
   "waste_medium",
   "waste_medium_reduction",
+  "waste_medium_growth_factor",
   "waste_heat",
 ]);
 
@@ -853,6 +854,19 @@ export function flueGasOn(assumption: Pick<CostAssumption, "valueText"> | null |
  */
 export const WASTE_MEDIUM_ROLE = "waste_medium";
 export const WASTE_MEDIUM_REDUCTION_ROLE = "waste_medium_reduction";
+/**
+ * 工場の排液で培養したときに増える速さの倍率 (前提 waste_medium_growth_factor、倍)。
+ * 排液を培地に使えるとき (waste_medium が on) だけ効き、培養設備1系列で年に作れる菌体の量にこの倍率を掛ける。
+ * 同じ設備で年に作れる量が増えるので、系列の数がその分だけ減り、設備の償却・年ごとの固定費・系列ごとの作業が1kgあたりで薄まる。
+ * 出どころ: 杉浦先生 2026-09-15 (BNV定例)「排液を入れると今まで見たことのない速度で細胞が増え始めた。1日でできるくらい、4倍くらい速い」。
+ * 実験室の観察で、大きな槽では光が律速になりそのまま4倍にはならない可能性がある (前提の説明に書く)。
+ */
+export const WASTE_MEDIUM_GROWTH_ROLE = "waste_medium_growth_factor";
+export function wasteMediumGrowthFactor(assumptions: CostAssumption[], sel?: CostSelection): number {
+  if (!wasteMediumOn(resolveAssumption(assumptions, WASTE_MEDIUM_ROLE, sel))) return 1;
+  const v = roleValue(assumptions, WASTE_MEDIUM_GROWTH_ROLE, 1, sel);
+  return Number.isFinite(v) && v > 0 ? v : 1;
+}
 export const WASTE_MEDIUM_LABEL = "工場の排液を培地に使える";
 export const WASTE_MEDIUM_CHOICES: Array<{ value: "off" | "on"; label: string }> = [
   { value: "off", label: "使えない（試薬を買う）" },
@@ -961,6 +975,8 @@ export const CONDITIONAL_ROLE_KEYS = new Set<string>([
   "offsite_sale_price",
   // 回収率は次のバッチへ回す量に使うので、使い回すとき (色素分解) だけ効く。金属回収は使用回数1回で固定なので効かない
   "recovery_eta",
+  // 排液で増える速さの倍率は、排液を培地に使うとき (waste_medium が on) だけ効く
+  WASTE_MEDIUM_GROWTH_ROLE,
 ]);
 
 /** 前提が効くかを見る組み合わせ。 */
@@ -1014,6 +1030,8 @@ export function rolesInEffect(bundle: CostInputs, view: CostEffectSelection): Se
   // 槽の償却が乗るのは、SX が槽を新設するとき (オフサイトは常に。オンサイトは槽を SX が持ち、新設を選んだとき)。
   const tank = view.location === "offsite" ? "新設" : onsiteTankBearer(bundle.assumptions) === "customer" ? "既設" : view.tankMode;
   if (tank === "新設") add(NEW_TANK_ROLES);
+  // 排液で増える速さの倍率は、排液を培地に使うときに培養設備の系列数を通して効く (菌体の原価を上書きしているときは効かない)
+  if (!overridden && wasteMediumOn(resolveAssumption(bundle.assumptions, WASTE_MEDIUM_ROLE, centralSel))) inEffect.add(WASTE_MEDIUM_GROWTH_ROLE);
   return inEffect;
 }
 
@@ -1063,7 +1081,7 @@ export const COST_PARAM_GROUPS: CostParamGroup[] = [
   { key: "capex-other", block: "capex", title: "その他の設備", hint: "上の区分に入らない設備", roles: [] },
   { key: "opex-labor", block: "opex", title: "人件費（作業）", hint: "作業単価は共通の1つ。作業ごとに1回の工数・年間回数・1回の経費を入れる", roles: ["labor_rate"], tasks: true },
   { key: "opex-transport", block: "opex", title: "運ぶ", hint: "菌体を運ぶ回数と排液を運ぶ台数を決める前提と、顧客工場への菌体の保管・梱包。移動と輸送の工数・経費は人件費の作業で動かす", roles: ["patrol_batches_per_delivery", "truck_capacity_m3"] },
-  { key: "opex-production", block: "opex", title: "菌体の製造拠点（原料・品質確認）", hint: "培地・CO2・濃縮など菌体1kgあたりの費用と、培養設備1系列あたりの品質確認。工場の排ガスを使えるかは CO2 の行、工場の排液を培地に使えるかは培地の原料の行、工場の排熱を使えるかは加温の熱の行で切り替える", roles: [CO2_FLUE_GAS_ROLE, WASTE_MEDIUM_ROLE, WASTE_MEDIUM_REDUCTION_ROLE, WASTE_HEAT_ROLE] },
+  { key: "opex-production", block: "opex", title: "菌体の製造拠点（原料・品質確認）", hint: "培地・CO2・濃縮など菌体1kgあたりの費用と、培養設備1系列あたりの品質確認。工場の排ガスを使えるかは CO2 の行、工場の排液を培地に使えるかは培地の原料の行、工場の排熱を使えるかは加温の熱の行で切り替える", roles: [CO2_FLUE_GAS_ROLE, WASTE_MEDIUM_ROLE, WASTE_MEDIUM_REDUCTION_ROLE, WASTE_MEDIUM_GROWTH_ROLE, WASTE_HEAT_ROLE] },
   { key: "opex-parts", block: "opex", title: "交換部品", hint: "循環カートリッジの菌体保持モジュールと、直接投入の膜の交換", roles: ["module_unit_price", "module_durability_batches", "membrane_life_years"] },
   { key: "opex-power", block: "opex", title: "電力", hint: "装置を動かす電力。動力 × 反応時間 × 電力単価 ÷ バッチ容量", roles: ["power_unit_price", "power_kw_circulation", "hrt_circulation", "power_kw_injection", "hrt_injection"] },
   { key: "opex-consumables", block: "opex", title: "消耗品・点検・分析", hint: "洗浄・監視・点検・分析・菌体の補充など", roles: [] },
@@ -1672,7 +1690,8 @@ export function productionScaleOf(
   const onsiteBiomassKgPerUnit = deriveCostBasis(assumptions, appSel, "onsite").biomassKgPerUnit;
   const offsiteBiomassKgPerUnit = deriveCostBasis(assumptions, appSel, "offsite").biomassKgPerUnit;
   const legacyCapacity = roleValue(assumptions, "culture_capacity_kg_year", 0, sel);
-  const lineCapacity = roleValue(assumptions, "culture_line_capacity_kg_year", legacyCapacity, sel);
+  // 排液を培地に使えるときは増える速さの倍率を掛ける (同じ設備で年に作れる量が増える)
+  const lineCapacity = roleValue(assumptions, "culture_line_capacity_kg_year", legacyCapacity, sel) * wasteMediumGrowthFactor(assumptions, sel);
   if (!(volume > 0)) {
     const capacity = legacyCapacity > 0 ? legacyCapacity : lineCapacity;
     return { fromVolume: false, businessVolume: 0, onsiteVolume: 0, offsiteVolume: 0, offsiteVolumeSeparate, onsiteBiomassKgPerUnit, offsiteBiomassKgPerUnit, capacityKgYear: capacity, lineCapacityKgYear: capacity, productionLines: 1 };

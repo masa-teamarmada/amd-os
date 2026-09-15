@@ -884,6 +884,24 @@
    "application": null
   },
   {
+   "costAssumptionId": "ca19_waste_medium_growth",
+   "groupLabel": "菌体の製造拠点（原料・品質確認）",
+   "label": "排液で増える速さの倍率",
+   "value": 4,
+   "valueText": null,
+   "unit": "倍",
+   "confidence": "H",
+   "sourceKind": "推定",
+   "owner": "杉浦先生",
+   "isKey": false,
+   "roleKey": "waste_medium_growth_factor",
+   "note": "工場の排液を培地に使えるときに、培養設備1系列で年に作れる菌体の量に掛ける倍率（排液で増える速さ）。同じ設備で年に作れる量が増えるので、系列の数がその分だけ減り、設備の償却・年ごとの固定費・系列ごとの作業が菌体1kgあたりで薄まる。出どころ: 杉浦先生 2026-09-15（Beyond Next Ventures 定例）「（燃料系の会社の）排液を入れると、今まで見たことのない速度で細胞が増え始めた。1日でできるくらい、4倍くらい速くなっていた」。排液の窒素酸化物・硫黄酸化物が栄養になり、排熱と排ガスももらえる工場での観察。確かめ方: 排液あり・なしで同じ光・温度・CO2 の培養を並べ、乾燥重量の増え方（g/L/日）の比を取る。実験室の小さい容器の値で、大きい槽では光が届く量が律速になり、そのまま4倍にはならない可能性がある（1系列の年間生産能力 33,333kg も見積のない仮置き）。スイッチ「工場の排液を培地に使える」が OFF のときは効かない。",
+   "visibility": "amd_internal",
+   "sortOrder": 322.5,
+   "strain": null,
+   "application": null
+  },
+  {
    "costAssumptionId": "ca15_waste_heat",
    "groupLabel": "菌体の製造拠点（原料・品質確認）",
    "label": "排熱利用可能",

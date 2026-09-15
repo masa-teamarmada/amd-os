@@ -58,6 +58,7 @@ import {
   WASTE_HEAT_CHOICES,
   WASTE_HEAT_ROLE,
   WASTE_MEDIUM_CHOICES,
+  WASTE_MEDIUM_GROWTH_ROLE,
   WASTE_MEDIUM_REDUCTION_ROLE,
   WASTE_MEDIUM_ROLE,
   priceLabelOf,
@@ -304,6 +305,7 @@ export const FUEL_ROLE_KEYS = new Set<string>([
   WASTE_MEDIUM_REDUCTION_ROLE,
   WASTE_MEDIUM_ROLE,
   WASTE_MEDIUM_REDUCTION_ROLE,
+  WASTE_MEDIUM_GROWTH_ROLE,
   WASTE_HEAT_ROLE,
   LIPID_SECRETION_ROLE,
   ...FUEL_SECRETION_YIELD_ROLES.flatMap((r) => [r, `${r}_low`, `${r}_high`]),
@@ -346,7 +348,7 @@ export const FUEL_PARAM_GROUPS: FuelParamGroup[] = [
   { key: "capex-conversion", block: "capex", title: "燃料化設備：FAME転換（自社で行うときだけ）", hint: "FAMEへの転換と精製の設備。燃料化設備1系列あたり", roles: [] },
   { key: "capex-shipping", block: "capex", title: "燃料化設備：製品の貯蔵・出荷", hint: "FAMEの貯槽と出荷の設備。燃料化設備1系列あたり", roles: [] },
   { key: "opex-labor", block: "opex", title: "人件費（作業）", hint: "作業単価は共通の1つ。作業ごとに1回の工数・年間回数・1回の経費を入れる", roles: ["labor_rate"], tasks: true },
-  { key: "opex-culture", block: "opex", title: "培養の原料・品質確認", hint: "培地・CO2・濃縮など菌体1kgあたりの費用と、培養設備1系列あたりの品質確認。工場の排ガスを使えるかは CO2 の行、工場の排液を培地に使えるかは培地の原料の行、工場の排熱を使えるかは加温の熱の行で切り替える。脂質分泌株のときは、菌体1kgあたりの行に「入れ替える菌体の量」を掛けて脂肪酸1kgあたりに直す", roles: [CO2_FLUE_GAS_ROLE, WASTE_MEDIUM_ROLE, WASTE_MEDIUM_REDUCTION_ROLE, WASTE_HEAT_ROLE, "cell_makeup_kg_per_unit"] },
+  { key: "opex-culture", block: "opex", title: "培養の原料・品質確認", hint: "培地・CO2・濃縮など菌体1kgあたりの費用と、培養設備1系列あたりの品質確認。工場の排ガスを使えるかは CO2 の行、工場の排液を培地に使えるかは培地の原料の行、工場の排熱を使えるかは加温の熱の行で切り替える。脂質分泌株のときは、菌体1kgあたりの行に「入れ替える菌体の量」を掛けて脂肪酸1kgあたりに直す", roles: [CO2_FLUE_GAS_ROLE, WASTE_MEDIUM_ROLE, WASTE_MEDIUM_REDUCTION_ROLE, WASTE_MEDIUM_GROWTH_ROLE, WASTE_HEAT_ROLE, "cell_makeup_kg_per_unit"] },
   { key: "opex-recovery", block: "opex", title: "脱水・油回収の溶媒・電力・熱・保守", hint: "菌体1kgあたりの溶媒の補給・電力・熱・水と、燃料化設備1系列あたりの保守", roles: [] },
   { key: "opex-outsourced", block: "opex", title: "FAME転換の委託（委託するときだけ）", hint: "燃料1Lあたりの委託費と、委託先までの原料油の輸送", roles: [] },
   { key: "opex-inhouse", block: "opex", title: "FAME転換の薬品・電力（自社で行うときだけ）", hint: "燃料1Lあたりのメタノール・触媒・中和剤・吸着剤・電力・熱と、燃料化設備1系列あたりの保守", roles: [] },
@@ -545,9 +547,14 @@ export function fuelScaleOf(assumptions: CostAssumption[], y: FuelYield): FuelSc
   const sel = fuelSelectionOf(assumptions);
   const annualLiters = Math.max(fuelRoleValue(assumptions, "business_annual_volume", 0), 0);
   const unitKgYear = annualLiters * y.unitKgPerLiter;
-  const cultureLineCapacityKgDcwYear = fuelRoleValue(assumptions, "culture_line_capacity_kg_year", 0);
+  // 排液を培地に使えるときは、増える速さの倍率 (前提 waste_medium_growth_factor) を1系列で年に作れる量と生産性に掛ける
+  // (杉浦先生 2026-09-15「排液を入れると4倍くらい速く増えた」。実験室の観察で、大きな槽では光が律速になる可能性がある)
+  const growthFactor = wasteMediumOn(fuelAssumptionOf(assumptions, WASTE_MEDIUM_ROLE))
+    ? (() => { const v = fuelRoleValue(assumptions, WASTE_MEDIUM_GROWTH_ROLE, 1); return Number.isFinite(v) && v > 0 ? v : 1; })()
+    : 1;
+  const cultureLineCapacityKgDcwYear = fuelRoleValue(assumptions, "culture_line_capacity_kg_year", 0) * growthFactor;
   const cultureOperatingDays = Math.max(fuelRoleValue(assumptions, "culture_operating_days", 0), 0);
-  const cultureBiomassProductivity = Math.max(fuelRoleValue(assumptions, "culture_biomass_productivity", 0), 0);
+  const cultureBiomassProductivity = Math.max(fuelRoleValue(assumptions, "culture_biomass_productivity", 0), 0) * growthFactor;
   // 1系列の培養液量 (m³): 年に作れる菌体 (kg) ÷ (生産性 g/L/日 × 稼働日数 日) … g/L/日 × 日 = g/L = kg/m³
   const cultureLineVolumeM3 = safeDiv(cultureLineCapacityKgDcwYear, cultureBiomassProductivity * cultureOperatingDays);
   // 分泌株のとき、1系列が1年に出す脂肪酸 (kg) = 培養液量 (m³ = 1,000L) × 分泌速度 (g/L/日) × 稼働日数 ÷ 1,000 (g→kg)

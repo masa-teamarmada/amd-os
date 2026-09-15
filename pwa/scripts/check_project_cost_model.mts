@@ -46,6 +46,7 @@ import fs from "node:fs";
 import {
   CO2_FLUE_GAS_ROLE,
   CONDITIONAL_ROLE_KEYS,
+  WASTE_MEDIUM_GROWTH_ROLE,
   COST_PARAM_BLOCKS,
   COST_PARAM_GROUPS,
   COST_ROLE_KEYS,
@@ -1396,6 +1397,23 @@ assert.ok(
   const migration437 = read("./migrations/437_sol_cost_model_biomass_mass_balance_cout_recovery_capex.sql");
   assert.match(migration437, /'medium_supply', 'heat_supply', 'recovery_capex'/, "制約に recovery_capex");
   assert.match(migration437, /set_config\('amd\.cost_change_reason'/, "書き換えの理由を変更の記録に渡す");
+}
+
+// 2026-09-15 まさ依頼（BNV定例の知見）: 排液で増える速さの倍率（waste_medium_growth_factor）は、排液を培地に使うときだけ培養設備の系列数を減らす（杉浦先生「4倍くらい速く増えた」）
+{
+  const g = fixture.assumptions.filter((a) => a.roleKey === WASTE_MEDIUM_GROWTH_ROLE);
+  assert.equal(g.length, 1, "倍率の前提は1行");
+  assert.equal(g[0].value, 4, "既定は4倍");
+  assert.ok(COST_ROLE_KEYS.has(WASTE_MEDIUM_GROWTH_ROLE) && CONDITIONAL_ROLE_KEYS.has(WASTE_MEDIUM_GROWTH_ROLE), "計算に使う前提で、効くかは切り替えで決まる");
+  assert.equal(paramGroupOfRole(WASTE_MEDIUM_GROWTH_ROLE)?.key, "opex-production", "置き場所は培地の原料の隣");
+  const set = (b: typeof fixture, role: string, patch: Record<string, unknown>) => { for (const a of b.assumptions) if (a.roleKey === role) Object.assign(a, patch); return b; };
+  const off = biomassOf(computeCostModel(fixture, { strain: "wild" }), "metal");
+  const on4 = biomassOf(computeCostModel(set(JSON.parse(JSON.stringify(fixture)), "waste_medium", { valueText: "on" }), { strain: "wild" }), "metal");
+  const on1 = biomassOf(computeCostModel(set(set(JSON.parse(JSON.stringify(fixture)), "waste_medium", { valueText: "on" }), WASTE_MEDIUM_GROWTH_ROLE, { value: 1 }), { strain: "wild" }), "metal");
+  near(off.lineCapacityKgYear, 33333, 1e-9, "OFF では倍率が効かない");
+  near(on4.lineCapacityKgYear, 33333 * 4, 1e-9, "ON では1系列で年に作れる量が4倍");
+  near(on4.productionLines * 4, on1.productionLines, 1e-9, "系列の数は1/4");
+  assert.ok(on4.perKg < on1.perKg, "設備の償却と固定費が薄まり、菌体1kgの原価が下がる");
 }
 
 console.log("project-cost-model: OK");
