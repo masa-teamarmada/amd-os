@@ -7,7 +7,7 @@
  *
  * 仕様は pwa/CLAUDE.md の「🔢 build version の bump up」セクションを参照。
  */
-export const BUILD_VERSION = "v3.139.1";
+export const BUILD_VERSION = "v3.139.2";
 
 export type PublicBuildInfo = {
   build_version: string;
@@ -30,7 +30,12 @@ const GIT_BRANCH =
   process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF ||
   "unknown";
 const DEPLOYED_AT = process.env.NEXT_PUBLIC_AMD_OS_DEPLOYED_AT || "unknown";
-const DIRTY = process.env.NEXT_PUBLIC_AMD_OS_DIRTY === "true";
+// main の Git deploy には確定済み commit SHA がある。CLI deploy 時代の公開環境変数に
+// dirty=true が残っていても、現行の Git deploy を未コミット成果物と誤表示しない。
+const HAS_GIT_DEPLOY_SHA = Boolean(
+  process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,
+);
+const DIRTY = process.env.NEXT_PUBLIC_AMD_OS_DIRTY === "true" && !HAS_GIT_DEPLOY_SHA;
 
 export function getPublicBuildInfo(): PublicBuildInfo {
   return {
