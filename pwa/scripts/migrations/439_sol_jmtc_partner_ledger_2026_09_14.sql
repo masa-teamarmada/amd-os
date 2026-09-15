@@ -26,7 +26,7 @@ INSERT INTO public.project_management_partners (
   74, 'partner', 'JMTC', '山地',
   'CVCへの案件共有結果が分かり、次の面談や追加資料の要否を判断できる',
   'month',
-  'JMTC（日本材料技研）の100%子会社JMTCキャピタルが、四国化成ホールディングスと四国化成CVC「SHIKOKUイノベーションファンド」を共同運営。JMTCキャピタルは三菱マテリアルCVCも運営しており、今回の面談相手は投資先候補へ案件をつなぐ位置づけ',
+  '四国化成との事業連携を検討する中で、四国化成CVC「SHIKOKUイノベーションファンド」と、その運営会社（GP）が浦田さんを通じてよく知っているJMTC（日本材料技研）の100%子会社JMTCキャピタルであることが分かり、JMTCへ問い合わせた。JMTCキャピタルは案件発掘、DD、投資判断・投資実行を担い、三菱マテリアルCVCも運営している',
   'waiting_partner', ARRAY['vc']::text[]
 )
 ON CONFLICT (project_id, slug) DO UPDATE SET
