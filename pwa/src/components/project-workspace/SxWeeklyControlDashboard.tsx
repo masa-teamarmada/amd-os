@@ -100,7 +100,7 @@ import { CockpitTechnology } from "@/components/cockpit/CockpitTechnology";
 import { CockpitBusinessPlan } from "@/components/cockpit/CockpitBusinessPlan";
 import { CockpitCapitalPolicy } from "@/components/cockpit/CockpitCapitalPolicy";
 import { CockpitCompanyOverview } from "@/components/cockpit/CockpitCompanyOverview";
-import { ProjectThemeRoutes } from "./ProjectThemeRoutes";
+import { CockpitProjectTasks } from "@/components/cockpit/CockpitProjectTasks";
 import styles from "./weekly-control.module.css";
 
 type StageKey = SxWeeklyIssueStage;
@@ -114,11 +114,6 @@ type WorkloadBucketKey =
   | "due_soon"
   | "due_unset"
   | "decision";
-// Explicit default-navigation allowlist for the theme hub (2026-09-01 UI completion phase — see
-// hasThemes below). ZMP (p19) is the only project this hub has been built and reviewed for so
-// far; adding a project here is a product decision, not something a data shape should imply.
-const THEME_HUB_DEFAULT_PROJECT_IDS = new Set<string>(["p19"]);
-
 export type EditorState =
   | {
       kind: "create_issue";
@@ -339,8 +334,7 @@ const STAGE_LABEL: Record<StageKey, string> = Object.fromEntries(
 // すべてのPJで、PJ資料室と同じ正本を開く「ドライブ」を加える。既存のアンカー名
 // (#weekly-change / #project-gantt / #partner-ledger / #issue-hypothesis / #input-readiness)
 // は他画面からのリンク互換のためhashとしてそのまま残す。
-// themes タブは bundle.themes.length > 0 のPJだけ動的に先頭に追加される。
-export type SxWeeklyControlView = "weekly" | "gantt" | "objective-structure" | "partners" | "issues" | "technology" | "competition" | "business-model" | "business-plan" | "company" | "capital-policy" | "cost" | "cost-fuel" | "ip" | "drive" | "themes";
+export type SxWeeklyControlView = "weekly" | "gantt" | "objective-structure" | "partners" | "issues" | "tasks" | "technology" | "competition" | "business-model" | "business-plan" | "company" | "capital-policy" | "cost" | "cost-fuel" | "ip" | "drive";
 const SX_WEEKLY_VIEW_STORAGE_KEY = "sx-weekly-control-view-v1";
 const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   weekly: "weekly-change",
@@ -348,6 +342,7 @@ const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   "objective-structure": "objective-structure",
   partners: "partner-ledger",
   issues: "issue-hypothesis",
+  tasks: "project-tasks",
   technology: "technology",
   competition: "competition",
   "business-model": "business-model",
@@ -358,7 +353,6 @@ const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   "cost-fuel": "cost-model-fuel",
   ip: "project-ip",
   drive: "project-drive",
-  themes: "theme-progress",
 };
 // projects.project_name が内部コード名で、利用者に見せる名前と違うPJだけをここへ置く。
 const WORKSPACE_TITLE_OVERRIDES: Record<string, string> = {
@@ -370,14 +364,14 @@ type WorkspaceGroupKey = "execution" | "planning" | "company" | "documents";
 type WorkspaceTab = { key: SxWeeklyControlView; label: string };
 type WorkspaceTabGroup = { key: WorkspaceGroupKey; label: string; children: readonly WorkspaceTab[] };
 const PROJECT_WORKSPACE_GROUPS: readonly WorkspaceTabGroup[] = [
-  { key: "execution", label: "実行", children: [{ key: "themes", label: "テーマ" }, { key: "weekly", label: "週次差分" }, { key: "gantt", label: "ガント" }, { key: "partners", label: "関係先" }, { key: "issues", label: "ゴールツリー" }] },
+  { key: "execution", label: "実行", children: [{ key: "issues", label: "ゴールツリー" }, { key: "tasks", label: "タスク" }, { key: "gantt", label: "ガント" }, { key: "weekly", label: "週次差分" }, { key: "partners", label: "関係先" }] },
   // 競合比較・ビジネスモデルは、その区分の技術トピックを持つPJだけに出す（表示条件は workspaceGroups。コックピットと同じ）。
   { key: "planning", label: "計画・根拠", children: [{ key: "technology", label: "技術" }, { key: "competition", label: "競合比較" }, { key: "business-model", label: "ビジネスモデル" }, { key: "business-plan", label: "事業計画" }] },
   // コスト試算（燃料）は燃料の試算を持つPJだけに出し、そのときコスト試算は「コスト試算（廃液）」と呼ぶ（表示条件は workspaceGroups。コックピットと同じ）。
   { key: "company", label: "経営・会社", children: [{ key: "company", label: "会社概要" }, { key: "capital-policy", label: "資本政策" }, { key: "cost", label: "コスト試算" }, { key: "cost-fuel", label: "コスト試算（燃料）" }, { key: "ip", label: "知財" }] },
   { key: "documents", label: "資料", children: [{ key: "drive", label: "ドライブ" }] },
 ];
-const EXTERNAL_WORKSPACE_TABS = new Set<SxWeeklyControlView>(["themes", "gantt", "partners", "drive"]);
+const EXTERNAL_WORKSPACE_TABS = new Set<SxWeeklyControlView>(["issues", "tasks", "gantt", "partners", "drive"]);
 function viewForHash(hash: string): SxWeeklyControlView | null {
   const normalized = hash.replace(/^#/, "");
   if (!normalized) return null;
@@ -387,6 +381,7 @@ function viewForHash(hash: string): SxWeeklyControlView | null {
   if (normalized === "cost-model") return "cost";
   if (normalized === "cost-model-fuel") return "cost-fuel";
   if (normalized === "issue-hypothesis") return "issues";
+  if (normalized === "project-tasks") return "tasks";
   if (normalized === "project-ip") return "ip";
   if (normalized === "project-drive") return "drive";
   if (normalized === "technology") return "technology";
@@ -395,7 +390,7 @@ function viewForHash(hash: string): SxWeeklyControlView | null {
   if (normalized === "business-plan") return "business-plan";
   if (normalized === "company-overview") return "company";
   if (normalized === "capital-policy") return "capital-policy";
-  if (normalized === "theme-progress") return "themes";
+  if (normalized === "theme-progress") return "issues";
   if (normalized === "weekly-change" || normalized === "input-readiness")
     return "weekly";
   return null;
@@ -4655,23 +4650,13 @@ export function SxWeeklyControlDashboard({
   const ledgerTabs = ledgerTabsLoaded.projectId === workspaceProjectId ? ledgerTabsLoaded.has : peekLedgerTabs(workspaceProjectId);
   const hasCompetition = ledgerTabs?.competition === true;
   const hasBusinessModel = ledgerTabs?.businessModel === true;
-  const workspaceGroups = useMemo(() => PROJECT_WORKSPACE_GROUPS.map((group) => ({ ...group, children: group.children.filter((tab) => (tab.key !== "themes" || bundle.themes.length > 0) && (tab.key !== "cost-fuel" || hasFuelCost) && (tab.key !== "competition" || hasCompetition) && (tab.key !== "business-model" || hasBusinessModel) && (!externalViewer || EXTERNAL_WORKSPACE_TABS.has(tab.key))).map((tab) => (tab.key === "cost" && hasFuelCost ? { ...tab, label: "コスト試算（廃液）" } : tab)) })).filter((group) => group.children.length > 0), [bundle.themes.length, externalViewer, hasFuelCost, hasCompetition, hasBusinessModel]);
+  const workspaceGroups = useMemo(() => PROJECT_WORKSPACE_GROUPS.map((group) => ({ ...group, children: group.children.filter((tab) => (tab.key !== "cost-fuel" || hasFuelCost) && (tab.key !== "competition" || hasCompetition) && (tab.key !== "business-model" || hasBusinessModel) && (!externalViewer || EXTERNAL_WORKSPACE_TABS.has(tab.key))).map((tab) => (tab.key === "cost" && hasFuelCost ? { ...tab, label: "コスト試算（廃液）" } : tab)) })).filter((group) => group.children.length > 0), [externalViewer, hasFuelCost, hasCompetition, hasBusinessModel]);
   const dynamicTabs = useMemo(() => workspaceGroups.flatMap((group) => group.children), [workspaceGroups]);
 
-  // project-workspace.ts now builds a theme skeleton for every project with defined
-  // project_management_tracks rows (migration 273 seeded that for p19/p21/p30 alike, and the
-  // theme hub needs an empty-but-present theme even with no current value plan). That used to be
-  // conflated with "should this PJ's dashboard default-land on the themes tab" by gating on
-  // theme.milestones.length > 0 (financial value-milestone bridges) — which broke the moment a
-  // value plan went away, since the whole point of the theme hub is to work on operational data
-  // alone. Root (UI completion phase): "ZMP must default to themes even without valuePlan;
-  // non-ZMP initial view stays unchanged." Default landing is therefore an explicit product
-  // decision (which project IDs get the operational hub as their home screen), independent of
-  // whatever financial data happens to exist right now — not something inferred from row counts.
-  const hasThemes = THEME_HUB_DEFAULT_PROJECT_IDS.has(bundle.project.projectId) && bundle.themes.length > 0;
-  const externalDefaultView: SxWeeklyControlView = bundle.themes.length > 0 ? "themes" : "gantt";
+  const isZmpWorkspace = bundle.project.projectId === "p19";
+  const externalDefaultView: SxWeeklyControlView = "issues";
   const [internalView, setActiveView] = useState<SxWeeklyControlView>(
-    () => (externalViewer ? externalDefaultView : hasThemes ? "themes" : "weekly"),
+    () => (externalViewer || isZmpWorkspace ? "issues" : "weekly"),
   );
   // 埋め込み時は外から渡された view が正。単体ページのときだけ hash / localStorage を見る。
   const activeView = embedded && view ? view : internalView;
@@ -4681,10 +4666,6 @@ export function SxWeeklyControlDashboard({
     if (fromHash) {
       if (externalViewer && !dynamicTabs.some((tab) => tab.key === fromHash)) {
         setActiveView(externalDefaultView);
-        return;
-      }
-      if (!externalViewer && fromHash === "themes" && !hasThemes) {
-        setActiveView("weekly");
         return;
       }
       setActiveView(fromHash);
@@ -4698,6 +4679,7 @@ export function SxWeeklyControlDashboard({
         value === "objective-structure" ||
         value === "partners" ||
         value === "issues" ||
+        value === "tasks" ||
         value === "technology" ||
         value === "competition" ||
         value === "business-model" ||
@@ -4707,8 +4689,7 @@ export function SxWeeklyControlDashboard({
         value === "cost" ||
         value === "cost-fuel" ||
         value === "ip" ||
-        value === "drive" ||
-        value === "themes"
+        value === "drive"
       );
     };
 
@@ -4717,17 +4698,17 @@ export function SxWeeklyControlDashboard({
       return;
     }
 
-    if (hasThemes) {
-      setActiveView("themes");
+    if (isZmpWorkspace) {
+      setActiveView("issues");
       return;
     }
 
-    if (isValidView(stored) && stored !== "themes") {
+    if (isValidView(stored)) {
       setActiveView(stored === "objective-structure" ? "gantt" : stored);
       return;
     }
     setActiveView("weekly");
-  }, [dynamicTabs, embedded, externalDefaultView, externalViewer, hasThemes]);
+  }, [dynamicTabs, embedded, externalDefaultView, externalViewer, isZmpWorkspace]);
 
   function selectView(next: SxWeeklyControlView) {
     const resolved = next === "objective-structure" ? "gantt" : next;
@@ -4756,16 +4737,6 @@ export function SxWeeklyControlDashboard({
   function selectWorkspaceGroup(groupKey: WorkspaceGroupKey) {
     const group = workspaceGroups.find((candidate) => candidate.key === groupKey);
     if (group?.children[0]) selectWorkspaceTab(group.children[0].key);
-  }
-
-  function openThemeControlView(view: "gantt" | "partners", themeKey: string) {
-    if (view === "gantt") {
-      selectView("gantt");
-    } else {
-      setPartnerTrackFilter(themeKey);
-      setPartnerClassification(null);
-      selectView(view);
-    }
   }
 
   const scopedPartners = useMemo(
@@ -5776,26 +5747,9 @@ export function SxWeeklyControlDashboard({
         </section>
         )}
 
-        {activeView === "themes" && (
-          <section
-            id="theme-progress"
-            className={`${styles.section} ${styles.themeHubSection}`}
-            role="tabpanel"
-            aria-label="テーマ"
-          >
-            <ProjectThemeRoutes
-              projectId={bundle.project.projectId}
-              themes={bundle.themes}
-              sxManagement={management}
-              allMeetings={bundle.allMeetings}
-              members={bundle.members}
-              canManage={access.scope === "portfolio" || access.isAdmin}
-              currentMemberId={access.memberId}
-              onOpenEditor={setEditor}
-              onManagementChange={setManagement}
-              onOpenIssueWorkbench={setSelectedIssueId}
-              onOpenControlView={openThemeControlView}
-            />
+        {activeView === "tasks" && (
+          <section id="project-tasks" role="tabpanel" aria-label="タスク">
+            <CockpitProjectTasks projectId={bundle.project.projectId} />
           </section>
         )}
 

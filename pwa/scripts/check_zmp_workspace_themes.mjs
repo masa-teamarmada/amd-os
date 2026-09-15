@@ -20,9 +20,11 @@ const migration = readRepo(
 const themeHubMigration = readRepo("ios/supabase/migrations/20260831120000_project_theme_hub.sql");
 const hydrogenLedgerMigration = readRepo("ios/supabase/migrations/20260901153000_zmp_hydrogen_management_ledger.sql");
 const objectiveBranchMigration = readRepo("ios/supabase/migrations/20260901223000_zmp_objective_branch_history.sql");
+const activeTreeMigration = readRepo("ios/supabase/migrations/20260916023000_zmp_active_goal_tree_correction.sql");
+const trademarkDedupeMigration = readRepo("ios/supabase/migrations/20260916024000_zmp_retire_duplicate_trademark_question.sql");
 const bundle = readPwa("src/lib/project-workspace.ts");
 const dashboard = readPwa("src/components/project-workspace/SxWeeklyControlDashboard.tsx");
-const unifiedTimeline = readPwa("src/components/project-workspace/SxUnifiedTimeline.tsx");
+const questionTree = readPwa("src/components/question-tree/QuestionTreeView.tsx");
 const themeRoutes = readPwa("src/components/project-workspace/ProjectThemeRoutes.tsx");
 const cockpitTabs = readPwa("src/lib/cockpit-tabs.ts");
 const partnerPipeline = readPwa("src/components/project-workspace/SxPartnerPipeline.tsx");
@@ -122,29 +124,26 @@ assert.match(bundle, /\.select\("milestone_key,ym,progress_pct,source,confirmed_
 assert.match(bundle, /themes: ProjectWorkspaceBundle\["themes"\]/);
 assert.doesNotMatch(bundle, /milestoneRows \?\? \[\]\)\.slice\(0, 8\)/, "9件目を落とさない");
 
-assert.match(dashboard, /themes: "theme-progress"/, "既存hash(#theme-progress)は互換のため維持する");
-assert.match(dashboard, /children: \[\{ key: "themes", label: "テーマ" \}/, "実行グループの先頭はテーマ");
-assert.match(dashboard, /externalViewer \? externalDefaultView : hasThemes \? "themes" : "weekly"/);
+assert.match(dashboard, /if \(normalized === "theme-progress"\) return "issues";/, "旧テーマhashはゴールツリーへ互換遷移する");
+assert.match(dashboard, /children: \[\{ key: "issues", label: "ゴールツリー" \}, \{ key: "tasks", label: "タスク" \}, \{ key: "gantt", label: "ガント" \}/, "実行グループはゴールツリー・タスク・ガントを先頭にする");
+assert.doesNotMatch(dashboard, /key: "themes", label: "テーマ"/, "旧テーマタブをナビゲーションに残さない");
+assert.doesNotMatch(dashboard, /<ProjectThemeRoutes/, "旧テーマ画面をワークスペースから描画しない");
+assert.match(dashboard, /<CockpitProjectTasks projectId=\{bundle\.project\.projectId\} \/>/, "タスク正本をワークスペースへ表示する");
+assert.match(questionTree, /mode === "gantt"[\s\S]*?looseActions\.filter\(\(action\) => action\.isProposed\)/, "未接続の承認済みタスクはゴールツリーへ混ぜない");
+assert.match(questionTree, /"紐づけ先を決めるTODO"/, "未承認の未接続TODOだけは紐づけレビューに残す");
 assert.ok(
   dashboard.indexOf("const fromHash = viewForHash") < dashboard.indexOf("window.localStorage.getItem"),
   "明示hashをlocalStorageより優先する",
 );
-assert.match(dashboard, /if \(hasThemes\) \{\s*setActiveView\("themes"\)/);
-// project-workspace.tsはproject_management_tracksが定義されている全PJ(p19/p21/p30)で
-// themes配列を常に組み立てる(価値計画の有無に依存しない)。UI完成フェーズのroot指摘
-// ("ZMP must default to themes even without valuePlan; non-ZMP initial view stays unchanged")
-// により、既定タブの判定を「価値MSが実在するか」(=価値計画に依存する暗黙の推測)から、
-// 明示的なプロジェクトID許可リストへ変更した。財務MSが0件でもZMPは既定でthemesへ着地し、
-// SX/EHMは許可リストに無いので常に週次差分のままになる。
 assert.match(
   dashboard,
-  /const THEME_HUB_DEFAULT_PROJECT_IDS = new Set<string>\(\["p19"\]\);/,
-  "テーマ既定ナビゲーションの許可リストはp19を明示的に含む",
+  /const isZmpWorkspace = bundle\.project\.projectId === "p19";/,
+  "ZMPワークスペースの既定表示を明示する",
 );
 assert.match(
   dashboard,
-  /const hasThemes = THEME_HUB_DEFAULT_PROJECT_IDS\.has\(bundle\.project\.projectId\) && bundle\.themes\.length > 0;/,
-  "既定タブの判定は許可リスト所属で行う(財務MSの有無に依存しない)",
+  /externalViewer \|\| isZmpWorkspace \? "issues" : "weekly"/,
+  "ZMPと外部ワークスペースはゴールツリーへ着地する",
 );
 
 // テーマ作業ハブの書き込みルート(root review 8件の指摘を反映済み)。
@@ -164,7 +163,7 @@ assert.match(sharedPage, /access\.principal === "workspace_account"[\s\S]*?<Shar
 assert.match(sharedPage, /<SxWeeklyControlDashboard bundle=\{bundle\} access=\{access\}/, "内部・外部とも同じPJワークスペースを読む");
 assert.doesNotMatch(sharedPage, /共有資料をひとつの場所で|PJの内部管理情報は表示しない/, "外部を資料室だけへ閉じる旧分岐を残さない");
 assert.match(sharedAccess, /memberId: null;[\s\S]*?canManage: false;/, "外部PJメンバーは閲覧専用のまま");
-assert.match(dashboard, /const EXTERNAL_WORKSPACE_TABS = new Set<SxWeeklyControlView>\(\["themes", "gantt", "partners", "drive"\]\)/, "外部PJメンバーの共有ナビはテーマ・ガント・関係先・資料へ限定する");
+assert.match(dashboard, /const EXTERNAL_WORKSPACE_TABS = new Set<SxWeeklyControlView>\(\["issues", "tasks", "gantt", "partners", "drive"\]\)/, "外部PJメンバーの共有ナビはゴールツリー・タスク・ガント・関係先・資料へ限定する");
 
 assert.match(themeRoutes, /routine_auto: "予定進行"/);
 assert.match(themeRoutes, /PM_LOCKED_SOURCES/);
@@ -194,19 +193,17 @@ for (const event of ["コンタクト", "MTG実施", "やりとり継続・返�
 assert.match(objectiveBranchMigration, /branch_count <> 3/, "シーズリスト作成からの3分岐をassertする");
 assert.match(objectiveBranchMigration, /linked_count <> 2/, "2アプローチを関係先へ接続する");
 
-// テーマは索引、目的構造はガントの同じ行・同じ時間軸へ統合する。
+assert.match(activeTreeMigration, /KR経営改革は追加契約成立時のみ再検討する/, "KRは追加契約成立時だけ再検討する完了済み判断へ集約する");
+assert.match(activeTreeMigration, /deleted_at = now\(\), deleted_by = 'ID001'/, "旧KR枝は復旧可能な論理削除にする");
+assert.match(activeTreeMigration, /action_id IN \([\s\S]*000000002223[\s\S]*000000002327/, "研修・リハーサルは問いとの接続を外す");
+assert.match(trademarkDedupeMigration, /canonical trademark question is not under OkuDoor system/, "商標論点の置換先を検査する");
+
+// 旧テーマデータは互換のため保持するが、現行ガントはゴールツリーと同じ正本を読む。
 assert.doesNotMatch(themeRoutes, /<ThemeHistory|import \{ ThemeHistory \}/, "テーマ面に重複する履歴台帳を残さない");
 assert.match(themeRoutes, /onOpenControlView\?\.\("gantt", selectedTheme\.themeKey\)/, "テーマから目的・全体ガントへ遷移する");
 assert.match(themeRoutes, /onOpenControlView\?\.\("partners", selectedTheme\.themeKey\)/, "テーマから関係先へ遷移する");
 assert.doesNotMatch(dashboard, /<SxObjectiveMap|"timeline" \| "objective"/, "独立した目的構造表示へ戻さない");
-assert.match(dashboard, /tasks=\{management\.tasks\}/, "standaloneを含む全タスクをガントへ渡す");
-assert.match(dashboard, /objectives=\{management\.objectives\}/, "ガントへ全目的を渡す");
-assert.match(unifiedTimeline, /目的 → 成立条件 → タスク/, "ガント左列で目的構造を読む");
-assert.match(unifiedTimeline, /data-gantt-objective-expand-toggle/, "成立条件を一括開閉できる");
-assert.match(unifiedTimeline, /data-gantt-task-detail-toggle/, "同じガントでタスクまで段階表示できる");
-assert.match(unifiedTimeline, /data-gantt-add-outcome/, "成立条件の追加入口をガントへ残す");
-assert.match(dashboard, /onEditOutcome=\{\(outcomeId\) => \{/, "成立条件の行クリックを既存editorへつなぐ");
-assert.match(unifiedTimeline, /beginTaskNestDrag/, "タスク階層変更の既存操作を維持する");
+assert.match(dashboard, /<QuestionTreeView[\s\S]*?mode="gantt"/, "ガントはゴールツリーと同じ問い・TODO正本を読む");
 assert.doesNotMatch(cockpitTabs, /children: \[[^\]]*"objective-structure"/, "コックピットに独立した目的構造タブを残さない");
 assert.match(cockpitTabs, /if \(tab === "objective-structure"\) return "gantt";/, "旧URLはガントへ互換遷移する");
 assert.match(partnerPipeline, /activeTrack\?: SxTrackKey \| null/, "関係先リストは同じ正本をテーマで絞れる");
@@ -252,11 +249,8 @@ assert.match(
 assert.match(themeRoutes, /onOpenIssueWorkbench\?\.\(i\.id\)/, "次の仕事サマリーの論点は既存workbenchを開く");
 assert.match(themeRoutes, /onOpenIssueWorkbench\?\.\(issue\.id\)/, "論点・判断グループの論点行は既存workbenchを開く");
 assert.match(themeRoutes, /onOpenIssueWorkbench\?: \(issueId: string\) => void;/, "onOpenIssueWorkbenchはprops契約に明示されている");
-assert.match(dashboard, /onOpenIssueWorkbench=\{setSelectedIssueId\}/, "issuesタブのIssueWorkbenchと同じselectedIssueId stateをそのまま渡す");
 assert.match(themeRoutes, /import type \{ EditorState \} from "\.\/SxWeeklyControlDashboard"/, "type-onlyインポートで循環importを避ける");
 assert.match(dashboard, /export type EditorState =/, "EditorStateをテーマ画面から再利用できるようexportする");
-assert.match(dashboard, /onOpenEditor=\{setEditor\}/, "テーマ画面からダッシュボードの既存エディタ状態を直接開ける");
-assert.match(dashboard, /onManagementChange=\{setManagement\}/, "テーマ画面の保存後にダッシュボード共有stateを更新する");
 
 // 会議・資料・予定成果物・作業間の関連はテーマ作業ハブ専用ルートへ書く(既存の /management とは別)。
 assert.match(themeRoutes, /resource: "meeting"/, "MTG作成/編集はテーマハブの meeting resource");
@@ -276,8 +270,8 @@ assert.match(bundle, /async function fetchAllRows/, "実レンジページング
 assert.match(bundle, /fetchAllRows\(\(from, to\) =>[\s\S]*?project_theme_profiles/, "project_theme_profilesはfetchAllRows経由");
 assert.match(bundle, /fetchAllRows\(\(from, to\) =>[\s\S]*?project_meeting_summaries/, "project_meeting_summariesはfetchAllRows経由(全MTG履歴)");
 
-// root review (UI completion phase, point 2): ZMPの既定ナビゲーションは価値計画の有無に
-// 依存しない明示許可リストへ移した(すでに上のhasThemesアサーションで確認済み)。
+// 旧テーマ既定ナビゲーションは退役済み。上で旧hashの互換遷移とZMPの
+// ゴールツリー既定表示を検査する。
 
 // root review (UI completion phase, point 3): client_token retry-safetyをtaskだけでなく
 // milestone/issue/hypothesis/decision/actionへ拡張。DBに新規列+partial unique indexが必要。

@@ -10,13 +10,15 @@
 - ガントと関係先はこの画面から手動修正でき、手動で確認・保存した現在値を正本とする。将来の自動抽出は既存値を直接上書きせず、差分候補として人の確認へ回す。
 - H1見出しは p21 だけ `SolvioraX PJワークスペース` に固定し、それ以外はPJ名を使う。p30は `愛媛大学 産学連携ポートフォリオ` の表示名へ上書きする。
 
-## 2026-09-09 現行ナビゲーション
+## 2026-09-16 現行ナビゲーション
 
-PJワークスペースはコックピットと同じく、上段の分類と選択中分類の子タブからなる二段ナビゲーションを使う。内部PJメンバーの分類は、`実行`（テーマ / 週次差分 / ガント / 関係先 / 論点・仮説）、`計画・根拠`（技術 / 事業計画）、`経営・会社`（会社概要 / 資本政策 / コスト試算 / 知財）、`資料`（ドライブ）である。テーマはデータがあるPJだけに出す。目的構造はガントの固定左列へ統合し、別タブ・別の計画・保存経路を作らない。
+PJワークスペースはコックピットと同じく、上段の分類と選択中分類の子タブからなる二段ナビゲーションを使う。内部PJメンバーの分類は、`実行`（ゴールツリー / タスク / ガント / 週次差分 / 関係先）、`計画・根拠`（技術 / 事業計画）、`経営・会社`（会社概要 / 資本政策 / コスト試算 / 知財）、`資料`（ドライブ）である。旧`テーマ`タブは表示しない。`#theme-progress` はゴールツリーへ互換遷移する。ZMPはゴールツリーを既定表示にする。
 
 PCでは分類へのhoverまたはkeyboard focusで子タブ一覧を直下に出し、タッチ端末では選択中分類の子タブ列を44px以上の操作領域で常時表示する。分類の先頭を押すと最初の子タブを開く。
 
-`PJ概要`と`動向・会議`はワークスペースに置かず、社内コックピットだけに残す。外部workspace accountはテーマ（存在時） / ガント / 関係先 / ドライブだけを読む。会社概要、資本政策、コスト試算、知財、技術、事業計画、週次介入、担当負荷も外部へ出さない。
+`PJ概要`と`動向・会議`はワークスペースに置かず、社内コックピットだけに残す。外部workspace accountはゴールツリー / タスク / ガント / 関係先 / ドライブだけを読む。会社概要、資本政策、コスト試算、知財、技術、事業計画、週次介入、担当負荷も外部へ出さない。
+
+ゴールツリーには、問いに直接効くTODOだけを表示する。承認済みでも問いに紐づかない単純な実行タスクはタスクタブとガントで確認し、ゴールツリー末尾へ混ぜない。未承認TODOだけは紐づけ先を決めるためゴールツリーに残す。
 
 ## 2026-09-09 現行ガント契約（下の旧工程表記より優先）
 
@@ -39,7 +41,7 @@ PCでは分類へのhoverまたはkeyboard focusで子タブ一覧を直下に�
 |---|---|
 | page | `src/app/(shared-workspace)/project/[projectId]/workspace/page.tsx` |
 | view | `SxWeeklyControlDashboard` |
-| auth | `resolveSharedWorkspaceAccess(projectId)`で当該PJ accessを確認する。内部memberと、個別PJアクセスを持つ外部workspace accountが同じdashboardへ進む。外部は管理台帳を読み取り専用とし、共同作業用のテーマ・ガント・関係先・共有資料だけをナビへ出す |
+| auth | `resolveSharedWorkspaceAccess(projectId)`で当該PJ accessを確認する。内部memberと、個別PJアクセスを持つ外部workspace accountが同じdashboardへ進む。外部は管理台帳を読み取り専用とし、共同作業用のゴールツリー・タスク・ガント・関係先・共有資料だけをナビへ出す |
 | PJ境界 | `getProjectWorkspaceBundle(projectId, access)` と `projectScopedPathAllowed()`。PJ限定ユーザーは所属PJだけ閲覧可 |
 | shell | 共有ワークスペースshell。月初合意overlayの対象外 |
 | write | portfolio/adminだけ。既存 `/api/project-workspace/[projectId]/management` を使い、clientからDBへ直接書かない |
@@ -56,7 +58,9 @@ AMD本体（`p00`）のコックピットは以前から`?tab=objective-structur
 
 outcome作成が成功したら、同じ操作の中でそのラインのphase MSを1件続けて作る。`SxUnifiedTimeline`は各タスクのmilestoneからoutcomeを解決するため、入れ物が無いタスクを任意の成立条件へ推測接続しない。phase MSの作成に失敗した場合はoutcomeが保存済みであることと作り直しを通知し、成功したようには見せない。
 
-## ZMPテーマ作業ハブ（p19、2026-08-26追加・2026-08-31拡張）
+## 退役したZMPテーマ作業ハブ（p19、互換データの履歴）
+
+> 2026-09-16に画面とナビゲーションから退役した。以下は既存データ・互換APIを壊さないための履歴で、現行の操作説明ではない。現行入口はゴールツリー / タスク / ガント。旧`#theme-progress`はゴールツリーへ解決する。
 
 ### テーマ索引・目的構造・経緯の正規化（2026-09-01）
 
@@ -70,7 +74,7 @@ outcome作成が成功したら、同じ操作の中でそのラインのphase M
 
 水素循環PJはmigration `20260901153000_zmp_hydrogen_management_ledger.sql`と`20260901223000_zmp_objective_branch_history.sql`で正規化する。最上位目的は`都内で水素をつくる・ためる・つかう`、成立条件は`水素供給元の確保 / 水素ステーション建設 / 助成金・整備資金の確保`。`水素供給元の確保→シーズリスト作成`から`東京理科大学・堂脇先生へのアプローチ / pHydrogenへのアプローチ / その他の供給候補を探索`へ3分岐する。堂脇先生は`コンタクト→MTG実施→やりとり継続・返答待ち→先方からレスなし・一旦停止`、pHydrogenは`waiting_internal`かつAMD側ボール。アプローチタスクはnullable `partner_id`で同PJの関係先正本へ接続する。ステーションの計画変更と助成金4対象はタスク、相手別の接点履歴は関係先台帳に置く。以前の水素7件の`project_theme_profiles.history_rows`は空にし、同じ事実を二重編集しない。日付、提出、受付、採否、合意、着工は確認できた状態だけを保存する。
 
-テーマ画面はPJワークスペースに集約する。社内コックピットにはテーマタブやテーマ用の`?tab=`導線を置かない。
+当時はテーマ画面をPJワークスペースに集約していた。2026-09-16以降、社内コックピットとPJワークスペースのどちらにもテーマタブを置かない。
 desktop幅901px以上ではテーマ区画の外側上余白を除き、テーマ状態・経緯のヘッダー操作を32pxにする。共通`.sx-management-workspace`の44px指定より局所規則を優先し、mobileの44px操作は変更しない。水素7行が外枠込み1440×900の初期画面に収まる密度を検証する。
 通常のワークスペース配色は`spec/2-7-ui-design-code-current-spec.md`に従い、操作・選択・現在地・focusはsky、白・slateを構造色とする。emeraldは完了・充足・確認済み成功だけに限定し、水素や環境領域の連想を画面主色へ使わない。
 
@@ -80,7 +84,7 @@ desktop幅901px以上ではテーマ区画の外側上余白を除き、テー�
 - p19の9本のvalue milestoneは`KR経営改革`（4件）/ `水素循環PJ`（2件）/ `OkuDoor運営`（2件）/ `OkuDoorシステム開発＆運用`（1件）の4テーマへ束ねる（`ios/supabase/migrations/20260831120000_project_theme_hub.sql`が既存3テーマから改名・分割）。MSは削除・複製せず、テーマ内の「成果目標」としてそのまま残す。
 - 所属正本は `project_management_tracks` と `project_management_track_value_milestones`。同一PJの1成果目標は1テーマだけに所属し、bridgeの`project_id`とvalue milestoneのplan cycleのPJ一致をDBで強制する。
 - テーマタブ（`#theme-progress`、表示名`テーマ`、`ProjectThemeRoutes.tsx`）は成果目標の閲覧だけでなく、運用タスク・運用マイルストーン（`project_management_milestones`、objective/outcomeが未構築でもtimeline_kind='milestone'の単一予定日として作成可）・論点/仮説/決定/アクション（既存の`IssueEditor`/`IssueWorkbench`をそのまま開く。コピーのフォームは作らない）・予定成果物（`project_theme_deliverables`、既存資料への後付けひもづけ可）・作業間の関連（`project_theme_work_links`、テーマ横断のcanonical global）を実際に作成・編集できるハブ。
-- 既定表示PJは明示許可リスト（`THEME_HUB_DEFAULT_PROJECT_IDS`、現状p19のみ）で判定する。価値計画（financial milestone）が0件でもp19はこのタブが既定になる。明示hashは初期表示より優先し、別PJで保存したlocalStorageはp19の初期表示を上書きしない。
+- 旧既定表示の許可リスト`THEME_HUB_DEFAULT_PROJECT_IDS`は撤去済み。ZMPの既定表示はゴールツリーで、旧テーマhashも同じ画面へ戻る。
 - 読み取り専用の閲覧者（`management.canManage`=false）は共有エディタ自身（IssueEditor）がfieldset disabled＋Save/削除ボタン非表示で読み取り専用になる。テーマハブ独自のMTG/予定成果物ダイアログも`readOnly` propで同様に振る舞う。
 - **テーマ画面からのMTG新規作成と編集は一時停止中**（`src/lib/theme-hub-rollout.ts`の`THEME_HUB_MEETING_WRITE_ENABLED=false`）。既存`project_meeting_summaries`の匿名読取りポリシー（`pms_read_anon`）を変更する承認がないため、API側も独立して拒否する。既存MTGの閲覧とテーマへの紐付け、紐付け解除は利用できる。PJ限定memberはワークスペース内で同じ記録を読む。フラグの解除には、まさの明示承認、対象ポリシーの修正、権限別の検証がすべて必要。承認だけでは解除しない。
 - テーマの進捗率を平均してPJ進捗に見せない。各成果目標について累積進捗、目標月、更新時刻、sourceを個別表示する。`routine_auto`は人が確定した実績ではなく`予定進行`として破線表示し、PM locked sourceだけを`確定進捗`とする。

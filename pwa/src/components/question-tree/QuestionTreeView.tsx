@@ -970,10 +970,7 @@ export function QuestionTreeView({
   const orderedLooseActions =
     mode === "gantt"
       ? looseActions.filter((action) => !action.isProposed)
-      : [
-          ...looseActions.filter((action) => action.isProposed),
-          ...looseActions.filter((action) => !action.isProposed),
-        ];
+      : looseActions.filter((action) => action.isProposed);
 
   /** 根からこの問いまでの道。モーダルで文脈を見失わないために出す。 */
   const ancestorsOf = (node: QuestionNode): QuestionNode[] => {
@@ -2365,7 +2362,7 @@ export function QuestionTreeView({
         {orderedLooseActions.length > 0 && (
           <section className={styles.section}>
             <div className={styles.sectionHead}>
-              <h2>論点に紐づいていないTODO</h2>
+              <h2>{mode === "gantt" ? "論点に紐づいていないTODO" : "紐づけ先を決めるTODO"}</h2>
               <span>
                 {orderedLooseActions.length}件
                 {mode !== "gantt" && looseUnapprovedCount > 0
