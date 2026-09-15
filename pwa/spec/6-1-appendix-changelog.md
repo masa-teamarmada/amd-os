@@ -1,5 +1,7 @@
 # 附則（設計書変更履歴）
 
+| 2026-09-16 JST | SOL関係先台帳 | JMTC面談の現在地を登録 | `project_management_partners`へJMTCを追加し、投資接続の役割、9/14面談履歴、四国化成CVC・三菱マテリアルCVCへの展開結果を待つ作業項目を別レコードで保持。資料共有と正式な投資検討開始・出資判断・条件合意を混同しない | まさ・えいみ |
+
 | 2026-09-15 JST | 5-2 開発・本番反映 | Git deploy の dirty 誤表示を修正 | `/api/build-info` は Vercel の Git commit SHA がある現行 main deploy を `dirty=false` と判定する。CLI deploy 時代の `NEXT_PUBLIC_AMD_OS_DIRTY=true` が環境に残っていても、確定済みGit成果物を未コミット成果物と誤表示しない | v3.139.1 の本番readbackで mainと同一SHAなのに `dirty=true` が返り、反映証跡が矛盾していたため | まさ・えいみ |
 
 | 2026-09-15 JST | 3-20 研究シーズリスト | 機関選択の構造バグ修正 | `SeedDetailModal` の新規・既存編集フォームに `institutions` カタログ選択を追加。選択時は `institution_id` と機関名を同時に保存し、機関種別・地域もシーズ側の語彙へ整合させる。紐付けなしを選んだ場合は従来どおり自由入力で登録でき、既存IDが一覧から欠ける場合も登録済み表示を維持する。低頻度の機関マスタは共通参照キャッシュを通し、選択・解除・未知IDを回帰検査で固定 | 新規登録時に機関IDを選べず、既存シーズの institution_id も編集画面で確認・変更できなかったため | まさ・えいみ |
