@@ -130,7 +130,7 @@ function fmtDate(value: string | null): string {
 function needsAttention(node: QuestionNode): boolean {
   return (
     node.status === "open" &&
-    (node.state === "decidable" || node.state === "stalled" || node.state === "dead_branch" || node.isOverdue)
+    (node.state === "decidable" || node.state === "blocked" || node.state === "dead_branch" || node.isOverdue)
   );
 }
 
@@ -2247,16 +2247,16 @@ export function QuestionTreeView({
               論点<b>{counts.questions}</b>
             </span>
             <span className={styles.stat}>
-              未閉じ<b>{counts.open}</b>
+              未完了<b>{counts.open}</b>
             </span>
             <span className={styles.stat} data-tone="action">
-              判断できる<b>{counts.decidable}</b>
+              判断待ち<b>{counts.decidable}</b>
             </span>
             <span className={styles.stat} data-tone="warn">
-              手が止まっている<b>{counts.stalled}</b>
+              対応待ち<b>{counts.blocked}</b>
             </span>
             <span className={styles.stat} data-tone="bad">
-              枝が死んだ<b>{counts.deadBranch}</b>
+              要見直し<b>{counts.deadBranch}</b>
             </span>
             <span className={styles.stat} data-tone={counts.overdue > 0 ? "bad" : undefined}>
               期限超過<b>{counts.overdue}</b>
@@ -2278,7 +2278,7 @@ export function QuestionTreeView({
               未アサイン<b>{counts.unassignedActions}</b>
             </button>
             <span className={styles.stat}>
-              答えが出た<b>{counts.answered}</b>
+              完了<b>{counts.answered}</b>
             </span>
           </div>
         </header>

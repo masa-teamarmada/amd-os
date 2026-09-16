@@ -2,6 +2,7 @@ import "server-only";
 import type { ProjectGanttRoadmap } from "@/lib/project-gantt-roadmap";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveQuestionState } from "@/lib/question-tree-state";
 import { QUESTION_KIND_LABEL } from "@/lib/question-tree-types";
 import type {
   AcceptState,
@@ -16,7 +17,6 @@ import type {
   OriginKind,
   QuestionKind,
   QuestionNode,
-  QuestionState,
   QuestionStatus,
   QuestionTreeBundle,
 } from "@/lib/question-tree-types";
@@ -187,45 +187,6 @@ function mapFinding(row: RawRow, questionIds: string[]): FindingNode {
   };
 }
 
-/**
- * 問いの状態を決める。子から先に確定している必要があるため、ツリーを下から上へ辿る。
- *
- * spec 3-21「判定」（2026-09-12 改定）:
- *   判断できる … children_logic='all' なら子が全部片付き、'any' なら1件以上 answered。
- *                 加えて直下の measure がすべて完了
- *   手が止まっている … 未閉じで、子もTODOも無い
- *   枝が死んだ   … 'all' で子が1件でも捨てられた、または 'any' で子が全滅
- *
- * 「どれか1つでよいか」は親が持つ（children_logic）。子が仮説かどうか（question_kind）
- * とは別の軸（まさ確定 2026-09-12「仮説はそれぞれ検証されるべき。一方で、どれか１つが
- * 完了すればOKっていう論点もある」）。
- */
-function resolveState(node: QuestionNode): QuestionState {
-  if (node.status === "answered") return "answered";
-  if (node.status === "dropped") return "dropped";
-
-  const children = node.children.filter((child) => !child.isProposed);
-  const anyOf = node.childrenLogic === "any";
-
-  if (children.length > 0) {
-    const allDropped = children.every((child) => child.status === "dropped");
-    const someDropped = children.some((child) => child.status === "dropped");
-    if (anyOf ? allDropped : someDropped) return "dead_branch";
-  }
-
-  if (children.length === 0 && node.actions.length === 0) return "stalled";
-
-  const childrenSettled = anyOf
-    ? children.length === 0 || children.some((child) => child.status === "answered")
-    : children.every((child) => child.status === "answered" || child.status === "dropped");
-  const measuresDone = node.actions
-    .filter((action) => action.actionKind === "measure" && !action.isProposed)
-    .every((action) => !isActionOpen(action));
-
-  if (childrenSettled && measuresDone) return "decidable";
-  return "in_progress";
-}
-
 /** 子から順に導出値を埋める。戻り値は自分自身。 */
 function decorate(
   node: QuestionNode,
@@ -236,7 +197,7 @@ function decorate(
   node.depth = depth;
   for (const child of node.children) decorate(child, today, depth + 1, ownerQuestionOfAction);
 
-  node.state = resolveState(node);
+  node.state = resolveQuestionState(node);
 
   const openActions = node.actions.filter(isActionOpen);
   node.openMeasureCount = openActions.filter((action) => action.actionKind === "measure").length;
@@ -791,7 +752,8 @@ export async function getQuestionTreeBundle(
     answered: liveQuestions.filter((question) => question.status === "answered").length,
     dropped: liveQuestions.filter((question) => question.status === "dropped").length,
     decidable: liveQuestions.filter((question) => question.state === "decidable").length,
-    stalled: liveQuestions.filter((question) => question.state === "stalled").length,
+    underReview: liveQuestions.filter((question) => question.state === "under_review").length,
+    blocked: liveQuestions.filter((question) => question.state === "blocked").length,
     deadBranch: liveQuestions.filter((question) => question.state === "dead_branch").length,
     overdue: liveQuestions.filter((question) => question.isOverdue).length,
     actions: liveActions.length,
