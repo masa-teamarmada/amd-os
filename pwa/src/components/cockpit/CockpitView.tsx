@@ -546,9 +546,11 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
   });
   const childTabItems: { key: CockpitTab; label: string; onHover?: () => void }[] = childTabs.map(tabItem);
   const groupTabItems = (group: typeof visibleGroups[number]) => group.children.map(tabItem);
-  // 分類の数だけ横に並べる。研究機関PJは5つ (進捗管理・シーズリスト・規程内規・ドライブ・PJ管理)。
-  const groupGridClass = visibleGroups.length >= 5
-    ? "grid-cols-3 sm:grid-cols-5"
+  // 分類の数だけ横に並べる。会社情報はPJ管理から独立させ、研究機関PJは6分類になる。
+  const groupGridClass = visibleGroups.length >= 6
+    ? "grid-cols-3 sm:grid-cols-6"
+    : visibleGroups.length >= 5
+      ? "grid-cols-3 sm:grid-cols-5"
     : visibleGroups.length === 4
       ? "grid-cols-2 sm:grid-cols-4"
       : "grid-cols-3";
@@ -1022,7 +1024,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
           hidden={activeTab !== "company"}
           className={activeTab === "company" ? "min-w-0" : "hidden"}
         >
-          <CockpitCompanyOverview projectId={project.projectId} projectName={project.projectName} />
+          <CockpitCompanyOverview projectId={project.projectId} projectName={project.projectName} surface="cockpit" />
         </section>
       )}
 

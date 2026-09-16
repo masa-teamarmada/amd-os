@@ -359,7 +359,7 @@ const WORKSPACE_TITLE_OVERRIDES: Record<string, string> = {
   p30: "愛媛大学 産学連携ポートフォリオ",
 };
 
-type WorkspaceGroupKey = "progress-group" | "business-plan-group" | "project-management-group" | "documents-group";
+type WorkspaceGroupKey = "progress-group" | "business-plan-group" | "documents-group" | "company-information-group";
 type WorkspaceTab = { key: SxWeeklyControlView; label: string };
 type WorkspaceTabGroup = { key: WorkspaceGroupKey; label: string; children: readonly WorkspaceTab[] };
 const PROJECT_WORKSPACE_GROUPS: readonly WorkspaceTabGroup[] = [
@@ -368,13 +368,14 @@ const PROJECT_WORKSPACE_GROUPS: readonly WorkspaceTabGroup[] = [
   // 根拠を見つけ、AMDメンバーへ補完を依頼できるよう、各タブ自身の空状態を表示する。
   { key: "business-plan-group", label: COCKPIT_GROUP_LABELS.businessPlan, children: [{ key: "technology", label: "技術" }, { key: "competition", label: "競合比較" }, { key: "business-model", label: "ビジネスモデル" }, { key: "business-plan", label: "事業計画" }, { key: "cost", label: "コスト試算" }, { key: "cost-fuel", label: "コスト試算（燃料）" }, { key: "ip", label: "知財" }, { key: "capital-policy", label: "資本政策" }] },
   // コスト試算（燃料）は燃料の試算を持つPJだけに出し、そのときコスト試算は「コスト試算（廃液）」と呼ぶ（表示条件は workspaceGroups。コックピットと同じ）。
-  { key: "project-management-group", label: COCKPIT_GROUP_LABELS.projectManagement, children: [{ key: "company", label: "会社概要" }] },
   { key: "documents-group", label: COCKPIT_GROUP_LABELS.documents, children: [{ key: "drive", label: "ドライブ" }] },
+  // PJ管理はAMD内部で定義・運用するPJ概要だけの分類。共有面の会社概要は独立した会社情報へ置く。
+  { key: "company-information-group", label: COCKPIT_GROUP_LABELS.companyInformation, children: [{ key: "company", label: "会社概要" }] },
 ];
 const EXTERNAL_WORKSPACE_TABS = new Set<SxWeeklyControlView>([
   "issues", "tasks", "gantt", "partners", "drive",
   "technology", "competition", "business-model", "business-plan",
-  "cost", "cost-fuel", "ip", "capital-policy",
+  "cost", "cost-fuel", "ip", "capital-policy", "company",
 ]);
 function viewForHash(hash: string): SxWeeklyControlView | null {
   const normalized = hash.replace(/^#/, "");
@@ -5752,7 +5753,7 @@ export function SxWeeklyControlDashboard({
         )}
         {activeView === "company" && (
           <section id="company-overview" className={styles.section} role="tabpanel" aria-label="会社概要">
-            <CockpitCompanyOverview projectId={bundle.project.projectId} projectName={bundle.project.projectName} />
+            <CockpitCompanyOverview projectId={bundle.project.projectId} projectName={bundle.project.projectName} surface="workspace" readOnly={externalViewer} />
           </section>
         )}
         {activeView === "capital-policy" && (

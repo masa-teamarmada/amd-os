@@ -17,11 +17,11 @@ assert.ok(
 
 assert.deepEqual(
   COCKPIT_GROUPS.normal.map((group) => group.label),
-  ["進捗管理", "事業計画", "ドライブ", "PJ管理"],
+  ["進捗管理", "事業計画", "ドライブ", "PJ管理", "会社情報"],
 );
 assert.deepEqual(
   COCKPIT_GROUPS.institution.map((group) => group.label),
-  ["進捗管理", "シーズリスト", "規程・内規", "ドライブ", "PJ管理"],
+  ["進捗管理", "シーズリスト", "規程・内規", "ドライブ", "PJ管理", "会社情報"],
 );
 
 for (const [kind, groups] of Object.entries(COCKPIT_GROUPS)) {
@@ -38,6 +38,7 @@ assert.equal(cockpitGroupForTab("objective-structure", false).label, "進捗管�
 assert.equal(cockpitGroupForTab("objective-structure", true).label, "進捗管理");
 assert.equal(cockpitGroupForTab("capital-policy", false).label, "事業計画");
 assert.equal(cockpitGroupForTab("overview", false).label, "PJ管理");
+assert.equal(cockpitGroupForTab("company", false).label, "会社情報");
 assert.equal(cockpitGroupForTab("seeds", true).label, "シーズリスト");
 // ドライブは PJ管理 の中ではなく分類そのもの (2026-09-02 まさ依頼)
 assert.equal(cockpitGroupForTab("documents", false).label, "ドライブ");

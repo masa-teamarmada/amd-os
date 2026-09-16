@@ -6,7 +6,8 @@ import { hasSharedWorkspaceProjectReadAccess } from "@/lib/shared-workspace-proj
 export const runtime = "nodejs";
 
 // 会社概要は、まさ確定仕様によりログイン済み AMD メンバー全員が全 PJ を閲覧・編集できる。
-// 共有ワークスペースには資本政策だけを読み取り専用で返す。service role はサーバーでの一括取得にのみ使い、
+// 共有ワークスペースには会社基本情報と資本政策だけを読み取り専用で返す。キラー要素はこのAPIの
+// 対象外で、共有面からはカタログ自体をマウントしない。service role はサーバーでの一括取得にのみ使い、
 // 外部経路は当該PJのactive membershipを再確認してから通す。書込みは requireMember のまま。
 
 const ENTITY_CONFIG: Record<string, { table: string; fields: string[]; audited?: boolean }> = {
@@ -41,6 +42,13 @@ const PROFILE_FIELDS = [
   "fiscal_year_end_month", "public_notice_method", "invoice_registration_number", "source_ref",
   "source_verified_on", "notes",
 ];
+// 会社概要として外部PJメンバーへ出す登記・定款由来の項目だけ。内部メモ・作成者情報は含めない。
+const SHARED_WORKSPACE_PROFILE_FIELDS = [
+  "id", "project_id", "legal_status", "legal_name", "legal_name_en", "corporate_number", "entity_type",
+  "incorporated_on", "head_office", "business_purpose", "representative_name", "capital_yen",
+  "authorized_shares", "registered_issued_shares", "board_structure", "has_board", "has_auditor",
+  "fiscal_year_end_month", "public_notice_method", "invoice_registration_number", "source_ref", "source_verified_on",
+].join(",");
 const TRANSACTION_FIELDS = ["project_id", "round_id", "effective_on", "transaction_type", "description", "status", "source_ref", "notes"];
 const ENTRY_FIELDS = ["holder_type", "holder_name", "security_class", "outstanding_delta", "diluted_delta", "paid_in_yen_delta"];
 const OPEN_ACTION_STATUSES = ["open", "in_progress"];
@@ -67,15 +75,16 @@ export async function GET(req: NextRequest) {
   if (!auth.ok && !sharedWorkspaceRead) return auth.errorResponse;
 
   const db = createAdminClient();
+  const noSharedWorkspaceRows = Promise.resolve({ data: [], error: null });
   const [profileRes, shareholdersRes, transactionsRes, convertiblesRes, financialsRes, roundsRes, meetingsRes, actionsRes] = await Promise.all([
-    db.from("project_company_profiles").select("*").eq("project_id", projectId).maybeSingle(),
+    db.from("project_company_profiles").select(sharedWorkspaceRead ? SHARED_WORKSPACE_PROFILE_FIELDS : "*").eq("project_id", projectId).maybeSingle(),
     db.from("project_shareholders").select("*").eq("project_id", projectId).order("holder_type", { ascending: true }),
     db.from("project_equity_transactions").select("*, project_equity_entries(*)").eq("project_id", projectId).order("effective_on", { ascending: true }).order("created_at", { ascending: true }),
     db.from("project_convertible_instruments").select("*").eq("project_id", projectId).order("issued_on", { ascending: false, nullsFirst: false }),
-    db.from("project_financial_periods").select("*").eq("project_id", projectId).order("fiscal_year", { ascending: false }),
+    sharedWorkspaceRead ? noSharedWorkspaceRows : db.from("project_financial_periods").select("*").eq("project_id", projectId).order("fiscal_year", { ascending: false }),
     db.from("project_valuation_rounds").select("*").eq("project_id", projectId).order("round_date", { ascending: false, nullsFirst: false }),
-    db.from("project_shareholder_meetings").select("*").eq("project_id", projectId).order("meeting_date", { ascending: false, nullsFirst: false }),
-    db.from("action_items").select("*").eq("project_id", projectId).eq("review_status", "confirmed").in("status", OPEN_ACTION_STATUSES).neq("source", "meeting_summary").order("due_at", { ascending: true, nullsFirst: false }),
+    sharedWorkspaceRead ? noSharedWorkspaceRows : db.from("project_shareholder_meetings").select("*").eq("project_id", projectId).order("meeting_date", { ascending: false, nullsFirst: false }),
+    sharedWorkspaceRead ? noSharedWorkspaceRows : db.from("action_items").select("*").eq("project_id", projectId).eq("review_status", "confirmed").in("status", OPEN_ACTION_STATUSES).neq("source", "meeting_summary").order("due_at", { ascending: true, nullsFirst: false }),
   ]);
 
   const error = [profileRes, shareholdersRes, transactionsRes, convertiblesRes, financialsRes, roundsRes, meetingsRes, actionsRes]
@@ -83,17 +92,17 @@ export async function GET(req: NextRequest) {
     .find(Boolean);
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
 
-  const capitalPolicyOnly = sharedWorkspaceRead;
+  const sharedWorkspaceLimitedRead = sharedWorkspaceRead;
   return NextResponse.json({
     ok: true,
-    profile: capitalPolicyOnly ? null : profileRes.data ?? null,
+    profile: profileRes.data ?? null,
     shareholders: shareholdersRes.data ?? [],
     transactions: transactionsRes.data ?? [],
     convertibles: convertiblesRes.data ?? [],
-    financialPeriods: capitalPolicyOnly ? [] : financialsRes.data ?? [],
+    financialPeriods: sharedWorkspaceLimitedRead ? [] : financialsRes.data ?? [],
     rounds: roundsRes.data ?? [],
-    meetings: capitalPolicyOnly ? [] : meetingsRes.data ?? [],
-    actionItems: capitalPolicyOnly ? [] : actionsRes.data ?? [],
+    meetings: sharedWorkspaceLimitedRead ? [] : meetingsRes.data ?? [],
+    actionItems: sharedWorkspaceLimitedRead ? [] : actionsRes.data ?? [],
   });
 }
 

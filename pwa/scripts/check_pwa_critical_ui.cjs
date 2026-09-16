@@ -3319,6 +3319,7 @@ expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
 expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
   'data-testid="company-overview-tab"',
   "CockpitKillerFactorCatalog",
+  'surface === "cockpit" && <CockpitKillerFactorCatalog',
   "buildCapTableSnapshots",
   "capTableTieOut",
   "convertibleScenario",
@@ -3449,6 +3450,9 @@ expectIncludes("src/lib/cockpit-tabs.ts", [
   'progress: "進捗管理"',
   'businessPlan: "事業計画"',
   'projectManagement: "PJ管理"',
+  'companyInformation: "会社情報"',
+  'children: ["overview"]',
+  'key: "company-information-group"',
   'seeds: "シーズリスト"',
   'regulations: "規程・内規"',
   'children: ["score-detail", "technology", "competition", "business-model", "business-plan", "cost-model", "cost-fuel", "ip", "capital-policy"]',

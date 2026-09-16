@@ -58,6 +58,7 @@ export type CockpitGroupKey =
   | "business-plan-group"
   | "documents-group"
   | "project-management-group"
+  | "company-information-group"
   | "seeds-group"
   | "regulations-group";
 
@@ -73,6 +74,7 @@ export const COCKPIT_GROUP_LABELS = {
   businessPlan: "事業計画",
   documents: "ドライブ",
   projectManagement: "PJ管理",
+  companyInformation: "会社情報",
   seeds: "シーズリスト",
   regulations: "規程・内規",
 } as const;
@@ -102,8 +104,9 @@ export const COCKPIT_GROUPS: {
     {
       key: "project-management-group",
       label: COCKPIT_GROUP_LABELS.projectManagement,
-      children: ["overview", "company"],
+      children: ["overview"],
     },
+    { key: "company-information-group", label: COCKPIT_GROUP_LABELS.companyInformation, children: ["company"] },
   ],
   institution: [
     {
@@ -118,8 +121,9 @@ export const COCKPIT_GROUPS: {
     {
       key: "project-management-group",
       label: COCKPIT_GROUP_LABELS.projectManagement,
-      children: ["overview", "company"],
+      children: ["overview"],
     },
+    { key: "company-information-group", label: COCKPIT_GROUP_LABELS.companyInformation, children: ["company"] },
   ],
 };
 

@@ -10,6 +10,8 @@ const read = (relativePath) => readFileSync(path.join(srcDir, relativePath), "ut
 const workspacePage = read("src/app/(shared-workspace)/project/[projectId]/workspace/page.tsx");
 const legacyWeeklyPage = read("src/app/(app)/project/[projectId]/weekly-control/page.tsx");
 const sxWorkspaceDashboard = read("src/components/project-workspace/SxWeeklyControlDashboard.tsx");
+const companyOverview = read("src/components/cockpit/CockpitCompanyOverview.tsx");
+const governanceRoute = read("src/app/api/governance/route.ts");
 const sharedWorkspaceAccess = read("src/lib/project-shared-workspace-access.ts");
 const sharedWorkspaceReadAccess = read("src/lib/shared-workspace-project-read-access.ts");
 
@@ -39,8 +41,9 @@ assert.doesNotMatch(sxWorkspaceDashboard, /supportsDrive/);
 assert.match(sxWorkspaceDashboard, /PROJECT_WORKSPACE_GROUPS/);
 assert.match(sxWorkspaceDashboard, /label: COCKPIT_GROUP_LABELS\.progress/);
 assert.match(sxWorkspaceDashboard, /label: COCKPIT_GROUP_LABELS\.businessPlan/);
-assert.match(sxWorkspaceDashboard, /label: COCKPIT_GROUP_LABELS\.projectManagement/);
 assert.match(sxWorkspaceDashboard, /label: COCKPIT_GROUP_LABELS\.documents/);
+assert.match(sxWorkspaceDashboard, /label: COCKPIT_GROUP_LABELS\.companyInformation/);
+assert.doesNotMatch(sxWorkspaceDashboard, /\{ key: "project-management-group",/, "PJ管理はコックピット内部だけに置く");
 assert.doesNotMatch(sxWorkspaceDashboard, /label: "実行"|label: "計画・根拠"|label: "経営・会社"|label: "資料"/);
 assert.doesNotMatch(sxWorkspaceDashboard, /key: "objective-structure", label: "目的構造"/);
 assert.match(sxWorkspaceDashboard, /normalized === "objective-structure"\) return "gantt"/);
@@ -53,10 +56,18 @@ assert.match(sxWorkspaceDashboard, /access\.principal === "workspace_account"/);
 assert.match(sxWorkspaceDashboard, /EXTERNAL_WORKSPACE_TABS/);
 const externalAllowlist = sxWorkspaceDashboard.match(/const EXTERNAL_WORKSPACE_TABS = new Set<SxWeeklyControlView>\(\[([\s\S]*?)\]\);/);
 assert.ok(externalAllowlist, "external workspace tab allowlist must exist");
-for (const tab of ["technology", "competition", "business-model", "business-plan", "cost", "cost-fuel", "ip", "capital-policy"]) {
+for (const tab of ["technology", "competition", "business-model", "business-plan", "cost", "cost-fuel", "ip", "capital-policy", "company"]) {
   assert.match(externalAllowlist[1], new RegExp(`"${tab}"`), `external workspace must expose ${tab}`);
 }
-assert.doesNotMatch(externalAllowlist[1], /"overview"|"company"/, "PJ概要と会社概要は cockpit-only");
+assert.doesNotMatch(externalAllowlist[1], /"overview"/, "PJ概要は cockpit-only");
+assert.match(sxWorkspaceDashboard, /surface="workspace" readOnly=\{externalViewer\}/, "workspace company overview must be read-only for external PJ members");
+assert.doesNotMatch(sxWorkspaceDashboard, /CockpitKillerFactorCatalog/, "workspace must not mount the killer-factor catalog");
+assert.match(companyOverview, /surface === "cockpit" && <CockpitKillerFactorCatalog/, "killer-factor catalog must be cockpit-only");
+assert.match(governanceRoute, /profile: profileRes\.data \?\? null/, "workspace company overview must receive the company profile");
+assert.match(governanceRoute, /const SHARED_WORKSPACE_PROFILE_FIELDS/, "workspace company profile needs an explicit safe-field allowlist");
+assert.match(governanceRoute, /select\(sharedWorkspaceRead \? SHARED_WORKSPACE_PROFILE_FIELDS : "\*"\)/, "workspace company profile must not use the internal full-record query");
+assert.match(governanceRoute, /sharedWorkspaceRead \? noSharedWorkspaceRows : db\.from\("project_financial_periods"\)/, "workspace must not fetch annual financial records");
+assert.match(governanceRoute, /共有面からはカタログ自体をマウントしない/, "governance route must document the killer-factor boundary");
 assert.match(sxWorkspaceDashboard, /\(externalViewer \|\| isZmpWorkspace \? "issues" : "weekly"\)/);
 assert.doesNotMatch(sxWorkspaceDashboard, /"themes"/, "retired theme tab must not return");
 assert.match(

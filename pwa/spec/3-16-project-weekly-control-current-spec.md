@@ -12,11 +12,11 @@
 
 ## 2026-09-16 現行ナビゲーション
 
-PJワークスペースはコックピットと同じく、上段の分類と選択中分類の子タブからなる二段ナビゲーションを使う。表示名の正本は `cockpit-tabs.ts` の `COCKPIT_GROUP_LABELS` で、`進捗管理`（ゴールツリー / タスク / ガント / 週次差分 / 関係先）、`事業計画`（技術 / 競合比較 / ビジネスモデル / 事業計画 / コスト試算 / コスト試算（燃料） / 知財 / 資本政策）、`ドライブ`、`PJ管理`（会社概要）へ揃える。旧`テーマ`タブは表示しない。`#theme-progress` はゴールツリーへ互換遷移する。ZMPはゴールツリーを既定表示にする。
+PJワークスペースはコックピットと同じく、上段の分類と選択中分類の子タブからなる二段ナビゲーションを使う。表示名の正本は `cockpit-tabs.ts` の `COCKPIT_GROUP_LABELS` で、`進捗管理`（ゴールツリー / タスク / ガント / 週次差分 / 関係先）、`事業計画`（技術 / 競合比較 / ビジネスモデル / 事業計画 / コスト試算 / コスト試算（燃料） / 知財 / 資本政策）、`ドライブ`、`会社情報`（会社概要）へ揃える。`PJ管理`はAMD内部で定義する`PJ概要`だけのコックピット分類であり、ワークスペースには置かない。旧`テーマ`タブは表示しない。`#theme-progress` はゴールツリーへ互換遷移する。ZMPはゴールツリーを既定表示にする。
 
 PCでは分類へのhoverまたはkeyboard focusで子タブ一覧を直下に出し、タッチ端末では選択中分類の子タブ列を44px以上の操作領域で常時表示する。分類の先頭を押すと最初の子タブを開く。
 
-コックピットはAMDメンバー限定、ワークスペースは当該PJのメンバー限定（AMD外のPJメンバーを含む）という利用者区分とURLは変えない。`PJ概要`、`会社概要`、`動向・会議`、`Slack`、`スコア詳細`、週次介入、担当負荷はコックピットだけに残す。外部workspace accountには、既存のゴールツリー / タスク / ガント / 関係先 / ドライブに加え、`事業計画`の技術 / 競合比較 / ビジネスモデル / 事業計画 / コスト試算 / コスト試算（燃料） / 知財 / 資本政策を読み取り専用で出す。技術・競合比較・ビジネスモデル・事業計画・コスト試算・知財・資本政策は未登録でも空状態の入口を残し、コスト試算（燃料）だけは燃料試算を持つPJに出す。
+コックピットはAMDメンバー限定、ワークスペースは当該PJのメンバー限定（AMD外のPJメンバーを含む）という利用者区分とURLは変えない。`PJ概要`、`動向・会議`、`Slack`、`スコア詳細`、週次介入、担当負荷はコックピットだけに残す。会社概要はワークスペースの`会社情報`で読む。外部workspace accountには、既存のゴールツリー / タスク / ガント / 関係先 / ドライブに加え、会社基本情報と資本政策、`事業計画`の技術 / 競合比較 / ビジネスモデル / 事業計画 / コスト試算 / コスト試算（燃料） / 知財 / 資本政策を読み取り専用で出す。会社概要内のキラー要素カタログはコックピットだけでマウントし、ワークスペースでは取得も描画もしない。技術・競合比較・ビジネスモデル・事業計画・コスト試算・知財・資本政策は未登録でも空状態の入口を残し、コスト試算（燃料）だけは燃料試算を持つPJに出す。
 
 ゴールツリーには、問いに直接効くTODOだけを表示する。承認済みでも問いに紐づかない単純な実行タスクはタスクタブとガントで確認し、ゴールツリー末尾へ混ぜない。未承認TODOだけは紐づけ先を決めるためゴールツリーに残す。
 
@@ -41,7 +41,7 @@ PCでは分類へのhoverまたはkeyboard focusで子タブ一覧を直下に�
 |---|---|
 | page | `src/app/(shared-workspace)/project/[projectId]/workspace/page.tsx` |
 | view | `SxWeeklyControlDashboard` |
-| auth | `resolveSharedWorkspaceAccess(projectId)`で当該PJ accessを確認する。AMD memberと、個別PJアクセスを持つ外部workspace accountが同じdashboardへ進む。外部は読み取り専用で、共同作業用のゴールツリー・タスク・ガント・関係先・共有資料に加え、事業計画の技術 / 競合比較 / ビジネスモデル / 事業計画 / コスト試算 / コスト試算（燃料） / 知財 / 資本政策をナビへ出す |
+| auth | `resolveSharedWorkspaceAccess(projectId)`で当該PJ accessを確認する。AMD memberと、個別PJアクセスを持つ外部workspace accountが同じdashboardへ進む。外部は読み取り専用で、共同作業用のゴールツリー・タスク・ガント・関係先・共有資料、会社基本情報・資本政策、事業計画の技術 / 競合比較 / ビジネスモデル / 事業計画 / コスト試算 / コスト試算（燃料） / 知財 / 資本政策をナビへ出す。キラー要素カタログはAMDメンバーであってもワークスペース面へ出さない |
 | PJ境界 | `getProjectWorkspaceBundle(projectId, access)` と `projectScopedPathAllowed()`。PJ限定ユーザーは所属PJだけ閲覧可 |
 | shell | 共有ワークスペースshell。月初合意overlayの対象外 |
 | write | portfolio/adminだけ。既存 `/api/project-workspace/[projectId]/management` を使い、clientからDBへ直接書かない |
@@ -512,7 +512,7 @@ v3.63.1 の再指摘対応: (10) 名前・バーのボタンはワークスペ�
 - **担当プルダウンの候補から状態記述を落とす**（`SxPartnerPipeline` の `ROSTER_STATUS_PHRASE_RE = /(待ち|未確認|要確認|未定)/` を `isSelectableRosterName` に追加）。「紹介接続待ち」「先方回答待ち」「担当者未確認」は人名ではないので候補に載せない。**すでに保存済みの値は選択中として先頭に残る**ので、表示が消えるわけではない（まさ 2026-08-07「Bで。」＝ 自動除外案の承認）。
 ## 2026-08-20 仕様追補: 全PJ共通のSXワークスペース面
 
-- `/project/[projectId]/workspace` は、p21で先行実装した `SxWeeklyControlDashboard` を全PJへ適用する共通の操作面とする。タブの正本は `PROJECT_WORKSPACE_GROUPS` で、コックピットと同じ`進捗管理 / 事業計画 / ドライブ / PJ管理`の二段ナビへ分類する。PCはhover/focusで子一覧、touchは常設子列を使う。`知財` は `CockpitIpPortfolio` をそのまま置く (仕様は [`3-19`](/spec/3-19-project-ip-current-spec))。外部アカウントは明示的なPJ membershipに絞り、共有対象の事業計画タブを読み取り表示する。
+- `/project/[projectId]/workspace` は、p21で先行実装した `SxWeeklyControlDashboard` を全PJへ適用する共通の操作面とする。タブの正本は `PROJECT_WORKSPACE_GROUPS` で、コックピットと共通の`進捗管理 / 事業計画 / ドライブ / 会社情報`の二段ナビへ分類する。`PJ管理`はPJ概要だけのコックピット分類である。PCはhover/focusで子一覧、touchは常設子列を使う。`知財` は `CockpitIpPortfolio` をそのまま置く (仕様は [`3-19`](/spec/3-19-project-ip-current-spec))。外部アカウントは明示的なPJ membershipに絞り、会社基本情報・資本政策と共有対象の事業計画タブを読み取り表示する。キラー要素カタログは共有面にマウントしない。
 - `ドライブ` は `WorkspaceDocumentRoom` を `scopeKind="project"`、`scopeId={bundle.project.projectId}`、`surface="workspace"`、`presentation="modal"` で開く。PJごとに別資料室、別テーブル、別一覧を作らない。
 - 共通化の対象はタブ、配置、操作、資料室の仕様であり、`project_name`、管理柱・表示レーン、実データ、`externalWorkspaceRoleCapabilityLabel` と共有PJアクセスによる絞り込みはbundle/accessの正本を使う。PJ固有の柱を3レーンへ統合するDB変更はしない。
 - 導線は Seed詳細モーダル → `/project/{projectId}/cockpit` → `/project/{projectId}/workspace` の一方向とする。Seed詳細モーダルからworkspaceへ直接リンクしない。

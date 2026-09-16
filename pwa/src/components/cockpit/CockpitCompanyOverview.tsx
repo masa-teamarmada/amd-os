@@ -83,7 +83,19 @@ function sourceHref(attachment: { url?: string; webViewLink?: string; web_view_l
   return attachment.url || attachment.webViewLink || attachment.web_view_link || "";
 }
 
-export function CockpitCompanyOverview({ projectId, projectName }: { projectId: string; projectName: string }) {
+type CompanyOverviewSurface = "cockpit" | "workspace";
+
+export function CockpitCompanyOverview({
+  projectId,
+  projectName,
+  surface,
+  readOnly = false,
+}: {
+  projectId: string;
+  projectName: string;
+  surface: CompanyOverviewSurface;
+  readOnly?: boolean;
+}) {
   const [data, setData] = useState<CompanyOverviewData>(() => peekGovernance(projectId) ?? EMPTY_DATA);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -230,7 +242,7 @@ export function CockpitCompanyOverview({ projectId, projectName }: { projectId: 
       <div className="flex flex-wrap items-start gap-3 rounded-2xl border border-slate-200 bg-slate-950 px-4 py-4 text-white sm:px-5">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2"><Building2 className="size-4 text-slate-300" /><h1 className="text-base font-semibold tracking-tight">{data.profile?.legal_name || projectName}</h1></div>
-          <p className="mt-1 text-xs leading-5 text-slate-300">会社情報・資本政策・機関決定・決算を、全メンバーで更新するPJ正本</p>
+          <p className="mt-1 text-xs leading-5 text-slate-300">会社情報・資本政策・機関決定・決算のPJ正本</p>
         </div>
         <div className="flex flex-wrap gap-2" data-html2canvas-ignore="true">
           <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" onClick={() => downloadCompanyOverviewXlsx(projectName, data)}><FileSpreadsheet />会社概要Excel</Button>
@@ -250,7 +262,7 @@ export function CockpitCompanyOverview({ projectId, projectName }: { projectId: 
           <div className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center justify-between text-[11px] text-slate-500"><span>直近企業価値</span><Landmark className="size-4" /></div><div className="mt-2 text-xl font-semibold tabular-nums text-slate-950">{formatYen(selectedEquityValue)}</div><p className="mt-2 truncate text-[11px] text-slate-500">{latestRound?.round_name || "ラウンド未入力"}</p></div>
         </div>
 
-        <Section title="基本情報" description="登記・定款・最新の確認資料に基づく会社の現在値" action={<Button variant="outline" className="h-11" onClick={() => setDialog("profile")}><Pencil />編集</Button>}>
+        <Section title="基本情報" description="登記・定款・最新の確認資料に基づく会社の現在値" action={readOnly ? undefined : <Button variant="outline" className="h-11" onClick={() => setDialog("profile")}><Pencil />編集</Button>}>
           <div className="grid sm:grid-cols-2">
             <InfoCell label="法人状態 / 法人形態" value={`${LEGAL_STATUS.find((option) => option.value === data.profile?.legal_status)?.label || "設立前"} / ${data.profile?.entity_type || "未入力"}`} />
             <InfoCell label="法人番号" value={compactCorporateNumber(data.profile?.corporate_number)} />
@@ -267,17 +279,17 @@ export function CockpitCompanyOverview({ projectId, projectName }: { projectId: 
           </div>
         </Section>
 
-        <CockpitKillerFactorCatalog projectId={projectId} />
+        {surface === "cockpit" && <CockpitKillerFactorCatalog projectId={projectId} />}
 
 
 
 
         <div className="grid gap-4 xl:grid-cols-2">
-          <Section title="総会・取締役会" description="決議、AMD対応、関連資料を開催履歴と一緒に保存" action={<Button variant="outline" className="h-11" onClick={() => setDialog("meeting")}><Plus />開催情報</Button>}>
+          <Section title="総会・取締役会" description="決議、AMD対応、関連資料を開催履歴と一緒に保存" action={readOnly ? undefined : <Button variant="outline" className="h-11" onClick={() => setDialog("meeting")}><Plus />開催情報</Button>}>
             {data.meetings.length === 0 ? <EmptyState>総会・取締役会の開催情報はまだないよ。</EmptyState> : <div className="divide-y divide-slate-100">{data.meetings.map((meeting) => <div key={meeting.id} className="px-4 py-4 sm:px-5"><div className="flex flex-wrap items-center gap-2"><span className="text-xs font-semibold tabular-nums text-slate-900">{formatDate(meeting.meeting_date)}</span><span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] text-slate-600">{meetingLabel(meeting.meeting_type)}</span>{meeting.amd_response && <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] text-emerald-700">AMD: {meeting.amd_response}</span>}</div>{meeting.agenda_summary && <p className="mt-2 text-xs leading-5 text-slate-600">{meeting.agenda_summary}</p>}{meeting.resolutions_json?.length ? <ul className="mt-2 list-disc space-y-1 pl-4 text-[11px] text-slate-500">{meeting.resolutions_json.map((resolution, index) => <li key={index}>{resolution.title}</li>)}</ul> : null}{meeting.attachments_json?.length ? <div className="mt-3 flex flex-wrap gap-2">{meeting.attachments_json.map((attachment, index) => sourceHref(attachment) ? <a key={index} href={sourceHref(attachment)} target="_blank" rel="noopener noreferrer" className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] text-slate-700 hover:bg-slate-50 hover:underline">資料: {attachment.name || index + 1}</a> : null)}</div> : null}</div>)}</div>}
           </Section>
 
-          <Section title="年度決算" description="月次の経営PLとは分け、確定・申告した年度数値を保存" action={<Button variant="outline" className="h-11" onClick={() => setDialog("financial")}><Plus />決算</Button>}>
+          <Section title="年度決算" description="月次の経営PLとは分け、確定・申告した年度数値を保存" action={readOnly ? undefined : <Button variant="outline" className="h-11" onClick={() => setDialog("financial")}><Plus />決算</Button>}>
             {data.financialPeriods.length === 0 ? <EmptyState>年度決算はまだ入力されていないよ。</EmptyState> : <div className="overflow-x-auto"><table className="w-full min-w-[620px] text-xs"><thead className="bg-slate-50 text-[11px] text-slate-500"><tr><th className="px-4 py-3 text-left font-medium">年度</th><th className="px-3 py-3 text-left font-medium">状態</th><th className="px-3 py-3 text-right font-medium">売上高</th><th className="px-3 py-3 text-right font-medium">営業利益</th><th className="px-3 py-3 text-right font-medium">純利益</th><th className="px-4 py-3 text-right font-medium">純資産</th></tr></thead><tbody className="divide-y divide-slate-100">{data.financialPeriods.map((period) => <tr key={period.id}><td className="px-4 py-3 font-semibold tabular-nums text-slate-900">{period.fiscal_year}</td><td className="px-3 py-3 text-slate-600">{statusLabel(period.statement_status)}</td><td className="px-3 py-3 text-right tabular-nums">{formatYen(period.revenue_yen)}</td><td className={`px-3 py-3 text-right tabular-nums ${Number(period.operating_income_yen) < 0 ? "text-rose-600" : ""}`}>{formatYen(period.operating_income_yen)}</td><td className={`px-3 py-3 text-right tabular-nums ${Number(period.net_income_yen) < 0 ? "text-rose-600" : ""}`}>{formatYen(period.net_income_yen)}</td><td className="px-4 py-3 text-right tabular-nums">{formatYen(period.net_assets_yen)}</td></tr>)}</tbody></table></div>}
           </Section>
         </div>

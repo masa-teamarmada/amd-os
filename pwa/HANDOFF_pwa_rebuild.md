@@ -1,14 +1,14 @@
 # HANDOFF - AMD OS PWA
 
 - 更新: 2026-09-16 JST
-- セッション: PJ共有ワークスペースの表示境界・事業計画タブの是正
+- セッション: PJ共有ワークスペースの会社情報・PJ管理境界の是正
 - 作業種別: development
 
 ## 最新セッションの到達点
 
 - コックピットはAMDメンバー限定、`/project/[projectId]/workspace`はAMD外を含む当該PJメンバー限定のまま。URL、利用者区分、`resolveSharedWorkspaceAccess`の判定は変えていない。
-- ワークスペースの分類名はコックピットと同じ `進捗管理 / 事業計画 / ドライブ / PJ管理` を `COCKPIT_GROUP_LABELS` から参照する。外部PJメンバーは既存の進捗管理・ドライブに加え、事業計画の技術 / 競合比較 / ビジネスモデル / 事業計画 / コスト試算 / コスト試算（燃料） / 知財 / 資本政策を読む。技術・競合比較・ビジネスモデル・事業計画・コスト試算・知財・資本政策は未登録でも空状態の入口を残し、燃料試算だけはデータがあるPJに出す。
-- `project-tech` / `project-cost-model` / `project-ip` / `governance` のGETは当該PJのactive workspace membershipを再確認して共有の読み取りだけを許可する。POST/PATCH/DELETEと編集ボタンはAMD側の既存権限のまま。PJ概要・会社概要・動向・会議・Slack・スコア詳細・週次介入・担当負荷はコックピットだけに残す。
+- コックピットの`PJ管理`はAMD内部で定義する`PJ概要`だけを持つ。会社概要は両面共通の`会社情報`へ独立させ、ワークスペースの分類は `進捗管理 / 事業計画 / ドライブ / 会社情報` を `COCKPIT_GROUP_LABELS` から参照する。外部PJメンバーは既存の進捗管理・ドライブ・会社基本情報・資本政策に加え、事業計画の技術 / 競合比較 / ビジネスモデル / 事業計画 / コスト試算 / コスト試算（燃料） / 知財を読む。技術・競合比較・ビジネスモデル・事業計画・コスト試算・知財・資本政策は未登録でも空状態の入口を残し、燃料試算だけはデータがあるPJに出す。
+- `project-tech` / `project-cost-model` / `project-ip` / `governance` のGETは当該PJのactive workspace membershipを再確認して共有の読み取りだけを許可する。会社概要の外部読み取りには会社基本情報を含めるが、キラー要素カタログはワークスペースでマウントも取得もせず、`killer-factors` APIはAMD memberのまま閉じる。POST/PATCH/DELETEと編集ボタンはAMD側の既存権限のまま。PJ概要・動向・会議・Slack・スコア詳細・週次介入・担当負荷はコックピットだけに残す。
 - 正本: `pwa/spec/2-1-pwa-runtime-routes.md`、`pwa/spec/3-16-project-weekly-control-current-spec.md`、`pwa/manual/2-3-pj-cockpit.md`。DB migrationはない。
 
 ## 反映・検証
