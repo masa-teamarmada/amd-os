@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireMember } from "@/lib/supabase/api-auth";
+import { hasSharedWorkspaceProjectReadAccess } from "@/lib/shared-workspace-project-read-access";
 
 export const runtime = "nodejs";
 
 // 会社概要は、まさ確定仕様によりログイン済み AMD メンバー全員が全 PJ を閲覧・編集できる。
-// service role はサーバーでの一括取得にのみ使い、API 冒頭の requireMember を必須にする。
+// 共有ワークスペースには資本政策だけを読み取り専用で返す。service role はサーバーでの一括取得にのみ使い、
+// 外部経路は当該PJのactive membershipを再確認してから通す。書込みは requireMember のまま。
 
 const ENTITY_CONFIG: Record<string, { table: string; fields: string[]; audited?: boolean }> = {
   shareholder: {
@@ -57,11 +59,12 @@ function emailOf(auth: { user: { email: string } }) {
 
 /** GET /api/governance?projectId=p09 → 会社概要タブの全データ */
 export async function GET(req: NextRequest) {
-  const auth = await requireMember();
-  if (!auth.ok) return auth.errorResponse;
-
   const projectId = req.nextUrl.searchParams.get("projectId");
   if (!projectId) return badRequest("projectId required");
+
+  const auth = await requireMember();
+  const sharedWorkspaceRead = !auth.ok && await hasSharedWorkspaceProjectReadAccess(projectId);
+  if (!auth.ok && !sharedWorkspaceRead) return auth.errorResponse;
 
   const db = createAdminClient();
   const [profileRes, shareholdersRes, transactionsRes, convertiblesRes, financialsRes, roundsRes, meetingsRes, actionsRes] = await Promise.all([
@@ -80,16 +83,17 @@ export async function GET(req: NextRequest) {
     .find(Boolean);
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
 
+  const capitalPolicyOnly = sharedWorkspaceRead;
   return NextResponse.json({
     ok: true,
-    profile: profileRes.data ?? null,
+    profile: capitalPolicyOnly ? null : profileRes.data ?? null,
     shareholders: shareholdersRes.data ?? [],
     transactions: transactionsRes.data ?? [],
     convertibles: convertiblesRes.data ?? [],
-    financialPeriods: financialsRes.data ?? [],
+    financialPeriods: capitalPolicyOnly ? [] : financialsRes.data ?? [],
     rounds: roundsRes.data ?? [],
-    meetings: meetingsRes.data ?? [],
-    actionItems: actionsRes.data ?? [],
+    meetings: capitalPolicyOnly ? [] : meetingsRes.data ?? [],
+    actionItems: capitalPolicyOnly ? [] : actionsRes.data ?? [],
   });
 }
 

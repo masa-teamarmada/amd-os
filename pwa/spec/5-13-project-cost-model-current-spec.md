@@ -406,7 +406,7 @@ migration: `pwa/scripts/migrations/320` `324` `326` `392` `394` `396` `398` `402
 
 全テーブルに行単位の `visibility`（`amd_internal` / `workspace_shared`）。既定は内部。
 RLS は `project_ip_*` と同形（read=`amd_os_is_member()`、write=`is_admin()`、`service_role` 全権）。
-外部 `workspace_account` はこのポリシーに一致しない。外部へ見せる面は server component が service_role で読み、`workspace_shared` の行だけを返す設計にする（`toSharedBundle`。現時点で外部アカウントは未発行）。
+外部 `workspace_account` はRLSに一致しないため、`GET /api/project-cost-model` が active な `project_access_memberships` を当該PJで再確認してから service_role で読む。2026-09-16の表示方針では、PJメンバーにコスト試算全体を見せるため行の `visibility` で再フィルタしない。`visibility` は社内の明細整理の属性として残し、外部経路に書込み権限は付けない。
 
 ## 計算エンジン
 

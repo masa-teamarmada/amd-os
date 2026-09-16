@@ -92,8 +92,6 @@ import { SxPartnerPipeline } from "./SxPartnerPipeline";
 import { CockpitCostModel } from "@/components/cockpit/CockpitCostModel";
 import { CockpitFuelCostModel } from "@/components/cockpit/CockpitFuelCostModel";
 import { loadProjectFuelCostModel, peekProjectFuelCostModel } from "@/lib/project-cost-model-client";
-import { loadProjectTech, peekProjectTech } from "@/lib/project-tech-client";
-import { ledgerTabsPresent, type TechLedgerPresence } from "@/lib/project-tech";
 import { WorkspaceDocumentRoom } from "@/components/workspace-documents/WorkspaceDocumentRoom";
 import { CockpitIpPortfolio } from "@/components/cockpit/CockpitIpPortfolio";
 import { CockpitTechnology } from "@/components/cockpit/CockpitTechnology";
@@ -101,6 +99,7 @@ import { CockpitBusinessPlan } from "@/components/cockpit/CockpitBusinessPlan";
 import { CockpitCapitalPolicy } from "@/components/cockpit/CockpitCapitalPolicy";
 import { CockpitCompanyOverview } from "@/components/cockpit/CockpitCompanyOverview";
 import { CockpitProjectTasks } from "@/components/cockpit/CockpitProjectTasks";
+import { COCKPIT_GROUP_LABELS } from "@/lib/cockpit-tabs";
 import styles from "./weekly-control.module.css";
 
 type StageKey = SxWeeklyIssueStage;
@@ -360,18 +359,23 @@ const WORKSPACE_TITLE_OVERRIDES: Record<string, string> = {
   p30: "愛媛大学 産学連携ポートフォリオ",
 };
 
-type WorkspaceGroupKey = "execution" | "planning" | "company" | "documents";
+type WorkspaceGroupKey = "progress-group" | "business-plan-group" | "project-management-group" | "documents-group";
 type WorkspaceTab = { key: SxWeeklyControlView; label: string };
 type WorkspaceTabGroup = { key: WorkspaceGroupKey; label: string; children: readonly WorkspaceTab[] };
 const PROJECT_WORKSPACE_GROUPS: readonly WorkspaceTabGroup[] = [
-  { key: "execution", label: "実行", children: [{ key: "issues", label: "ゴールツリー" }, { key: "tasks", label: "タスク" }, { key: "gantt", label: "ガント" }, { key: "weekly", label: "週次差分" }, { key: "partners", label: "関係先" }] },
-  // 競合比較・ビジネスモデルは、その区分の技術トピックを持つPJだけに出す（表示条件は workspaceGroups。コックピットと同じ）。
-  { key: "planning", label: "計画・根拠", children: [{ key: "technology", label: "技術" }, { key: "competition", label: "競合比較" }, { key: "business-model", label: "ビジネスモデル" }, { key: "business-plan", label: "事業計画" }] },
+  { key: "progress-group", label: COCKPIT_GROUP_LABELS.progress, children: [{ key: "issues", label: "ゴールツリー" }, { key: "tasks", label: "タスク" }, { key: "gantt", label: "ガント" }, { key: "weekly", label: "週次差分" }, { key: "partners", label: "関係先" }] },
+  // 事業計画の共有対象は、データが未登録でも入口を消さない。PJメンバーが不足している
+  // 根拠を見つけ、AMDメンバーへ補完を依頼できるよう、各タブ自身の空状態を表示する。
+  { key: "business-plan-group", label: COCKPIT_GROUP_LABELS.businessPlan, children: [{ key: "technology", label: "技術" }, { key: "competition", label: "競合比較" }, { key: "business-model", label: "ビジネスモデル" }, { key: "business-plan", label: "事業計画" }, { key: "cost", label: "コスト試算" }, { key: "cost-fuel", label: "コスト試算（燃料）" }, { key: "ip", label: "知財" }, { key: "capital-policy", label: "資本政策" }] },
   // コスト試算（燃料）は燃料の試算を持つPJだけに出し、そのときコスト試算は「コスト試算（廃液）」と呼ぶ（表示条件は workspaceGroups。コックピットと同じ）。
-  { key: "company", label: "経営・会社", children: [{ key: "company", label: "会社概要" }, { key: "capital-policy", label: "資本政策" }, { key: "cost", label: "コスト試算" }, { key: "cost-fuel", label: "コスト試算（燃料）" }, { key: "ip", label: "知財" }] },
-  { key: "documents", label: "資料", children: [{ key: "drive", label: "ドライブ" }] },
+  { key: "project-management-group", label: COCKPIT_GROUP_LABELS.projectManagement, children: [{ key: "company", label: "会社概要" }] },
+  { key: "documents-group", label: COCKPIT_GROUP_LABELS.documents, children: [{ key: "drive", label: "ドライブ" }] },
 ];
-const EXTERNAL_WORKSPACE_TABS = new Set<SxWeeklyControlView>(["issues", "tasks", "gantt", "partners", "drive"]);
+const EXTERNAL_WORKSPACE_TABS = new Set<SxWeeklyControlView>([
+  "issues", "tasks", "gantt", "partners", "drive",
+  "technology", "competition", "business-model", "business-plan",
+  "cost", "cost-fuel", "ip", "capital-policy",
+]);
 function viewForHash(hash: string): SxWeeklyControlView | null {
   const normalized = hash.replace(/^#/, "");
   if (!normalized) return null;
@@ -4599,7 +4603,6 @@ export function SxWeeklyControlDashboard({
   const [desktopHoverEnabled, setDesktopHoverEnabled] = useState(false);
   const externalViewer = access.principal === "workspace_account";
   // コスト試算（燃料）を出すか。燃料の試算を持つPJだけで、そのときコスト試算は「コスト試算（廃液）」と呼ぶ（コックピットと同じ判定）。
-  // 外部の人にはどちらのコスト試算も出さないので読まない。
   const workspaceProjectId = bundle.project.projectId;
   const peekFuelCost = (projectId: string) => {
     const hit = peekProjectFuelCostModel(projectId);
@@ -4610,7 +4613,6 @@ export function SxWeeklyControlDashboard({
     has: peekFuelCost(workspaceProjectId),
   }));
   useEffect(() => {
-    if (externalViewer) return;
     let cancelled = false;
     loadProjectFuelCostModel(workspaceProjectId)
       .then((res) => {
@@ -4622,35 +4624,10 @@ export function SxWeeklyControlDashboard({
     return () => {
       cancelled = true;
     };
-  }, [externalViewer, workspaceProjectId]);
+  }, [workspaceProjectId]);
   const hasFuelCost = (fuelCostLoaded.projectId === workspaceProjectId ? fuelCostLoaded.has : peekFuelCost(workspaceProjectId)) === true;
-  // 競合比較・ビジネスモデルを出すか。その区分の技術トピックを持つPJだけ（コックピットと同じ判定）。外部の人には技術も競合比較も出さないので読まない。
-  const peekLedgerTabs = (projectId: string) => {
-    const hit = peekProjectTech(projectId);
-    return hit === undefined ? undefined : ledgerTabsPresent(hit.topics);
-  };
-  const [ledgerTabsLoaded, setLedgerTabsLoaded] = useState<{ projectId: string; has: TechLedgerPresence | undefined }>(() => ({
-    projectId: workspaceProjectId,
-    has: peekLedgerTabs(workspaceProjectId),
-  }));
-  useEffect(() => {
-    if (externalViewer) return;
-    let cancelled = false;
-    loadProjectTech(workspaceProjectId)
-      .then((res) => {
-        if (!cancelled) setLedgerTabsLoaded({ projectId: workspaceProjectId, has: ledgerTabsPresent(res.topics) });
-      })
-      .catch(() => {
-        if (!cancelled) setLedgerTabsLoaded({ projectId: workspaceProjectId, has: { competition: false, businessModel: false } });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [externalViewer, workspaceProjectId]);
-  const ledgerTabs = ledgerTabsLoaded.projectId === workspaceProjectId ? ledgerTabsLoaded.has : peekLedgerTabs(workspaceProjectId);
-  const hasCompetition = ledgerTabs?.competition === true;
-  const hasBusinessModel = ledgerTabs?.businessModel === true;
-  const workspaceGroups = useMemo(() => PROJECT_WORKSPACE_GROUPS.map((group) => ({ ...group, children: group.children.filter((tab) => (tab.key !== "cost-fuel" || hasFuelCost) && (tab.key !== "competition" || hasCompetition) && (tab.key !== "business-model" || hasBusinessModel) && (!externalViewer || EXTERNAL_WORKSPACE_TABS.has(tab.key))).map((tab) => (tab.key === "cost" && hasFuelCost ? { ...tab, label: "コスト試算（廃液）" } : tab)) })).filter((group) => group.children.length > 0), [externalViewer, hasFuelCost, hasCompetition, hasBusinessModel]);
+  // 事業計画の基本タブは空状態も含めて常設し、燃料試算だけはデータの有無で出し分ける。
+  const workspaceGroups = useMemo(() => PROJECT_WORKSPACE_GROUPS.map((group) => ({ ...group, children: group.children.filter((tab) => (tab.key !== "cost-fuel" || hasFuelCost) && (!externalViewer || EXTERNAL_WORKSPACE_TABS.has(tab.key))).map((tab) => (tab.key === "cost" && hasFuelCost ? { ...tab, label: "コスト試算（廃液）" } : tab)) })).filter((group) => group.children.length > 0), [externalViewer, hasFuelCost]);
   const dynamicTabs = useMemo(() => workspaceGroups.flatMap((group) => group.children), [workspaceGroups]);
 
   const isZmpWorkspace = bundle.project.projectId === "p19";
@@ -5780,7 +5757,7 @@ export function SxWeeklyControlDashboard({
         )}
         {activeView === "capital-policy" && (
           <section id="capital-policy" className={styles.section} role="tabpanel" aria-label="資本政策">
-            <CockpitCapitalPolicy projectId={bundle.project.projectId} />
+            <CockpitCapitalPolicy projectId={bundle.project.projectId} readOnly={externalViewer} />
           </section>
         )}
 

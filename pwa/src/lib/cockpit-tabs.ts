@@ -67,6 +67,16 @@ export type CockpitGroup = {
   children: readonly CockpitTab[];
 };
 
+/** コックピットとPJワークスペースで共通に使う、利用者向けのグループ名。 */
+export const COCKPIT_GROUP_LABELS = {
+  progress: "進捗管理",
+  businessPlan: "事業計画",
+  documents: "ドライブ",
+  projectManagement: "PJ管理",
+  seeds: "シーズリスト",
+  regulations: "規程・内規",
+} as const;
+
 /** 通常PJと研究機関PJで共有する、画面の分類正本。 */
 export const COCKPIT_GROUPS: {
   normal: readonly CockpitGroup[];
@@ -75,39 +85,39 @@ export const COCKPIT_GROUPS: {
   normal: [
     {
       key: "progress-group",
-      label: "進捗管理",
+      label: COCKPIT_GROUP_LABELS.progress,
       // ゴールツリー → タスク → ガント → 残りは元の順（2026-09-13 まさ）
       children: ["issues", "tasks", "gantt", "progress", "meetings", "slack", "weekly", "partners"],
     },
     {
       key: "business-plan-group",
-      label: "事業計画",
+      label: COCKPIT_GROUP_LABELS.businessPlan,
       // コスト試算（燃料）はコスト試算の右隣（2026-09-14 まさ「事業計画グループ内に置いてほしかった。
       // 元々ある『コスト試算』は『コスト試算（廃液）』に変えて、それの右に並べて」）。
       // 競合比較は技術の右隣（2026-09-14 まさ「この競合比較は、技術タブの中じゃなくて事業計画グループの直下に置いてほしい」）。
       // ビジネスモデルは競合比較の右隣（2026-09-14 まさ「事業計画グループの中に「ビジネスモデル」っていうタブを新たに追加して」）。
       children: ["score-detail", "technology", "competition", "business-model", "business-plan", "cost-model", "cost-fuel", "ip", "capital-policy"],
     },
-    { key: "documents-group", label: "ドライブ", children: ["documents"] },
+    { key: "documents-group", label: COCKPIT_GROUP_LABELS.documents, children: ["documents"] },
     {
       key: "project-management-group",
-      label: "PJ管理",
+      label: COCKPIT_GROUP_LABELS.projectManagement,
       children: ["overview", "company"],
     },
   ],
   institution: [
     {
       key: "progress-group",
-      label: "進捗管理",
+      label: COCKPIT_GROUP_LABELS.progress,
       // ゴールツリー → タスク → ガント → 残りは元の順（2026-09-13 まさ）
       children: ["issues", "tasks", "gantt", "progress", "meetings", "slack", "weekly", "partners"],
     },
-    { key: "seeds-group", label: "シーズリスト", children: ["seeds"] },
-    { key: "regulations-group", label: "規程・内規", children: ["regulations"] },
-    { key: "documents-group", label: "ドライブ", children: ["documents"] },
+    { key: "seeds-group", label: COCKPIT_GROUP_LABELS.seeds, children: ["seeds"] },
+    { key: "regulations-group", label: COCKPIT_GROUP_LABELS.regulations, children: ["regulations"] },
+    { key: "documents-group", label: COCKPIT_GROUP_LABELS.documents, children: ["documents"] },
     {
       key: "project-management-group",
-      label: "PJ管理",
+      label: COCKPIT_GROUP_LABELS.projectManagement,
       children: ["overview", "company"],
     },
   ],

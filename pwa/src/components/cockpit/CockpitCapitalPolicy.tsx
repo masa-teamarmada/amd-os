@@ -51,7 +51,7 @@ const HOLDER_TYPES = Object.entries(HOLDER_LABELS).map(([value, label]) => ({ va
 const TRANSACTION_TYPES = ["incorporation", "opening_balance", "new_issue", "transfer", "stock_option_grant", "stock_option_exercise", "in_kind_contribution", "cancellation", "correction"]
   .map((value) => ({ value, label: TRANSACTION_LABELS[value] }));
 
-export function CockpitCapitalPolicy({ projectId }: { projectId: string }) {
+export function CockpitCapitalPolicy({ projectId, readOnly = false }: { projectId: string; readOnly?: boolean }) {
   const [data, setData] = useState<CompanyOverviewData>(() => peekGovernance(projectId) ?? EMPTY_DATA);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -163,9 +163,9 @@ export function CockpitCapitalPolicy({ projectId }: { projectId: string }) {
         action={
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" className="h-11" onClick={() => void load()} disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : <RefreshCw />}更新</Button>
-            <Button variant="outline" className="h-11" onClick={() => setDialog("equity")}><Plus />株式イベント</Button>
-            <Button variant="outline" className="h-11" onClick={() => setDialog("round")}><Plus />ラウンド</Button>
-            <Button variant="outline" className="h-11" onClick={() => setDialog("convertible")}><Plus />転換前証券</Button>
+            {!readOnly && <Button variant="outline" className="h-11" onClick={() => setDialog("equity")}><Plus />株式イベント</Button>}
+            {!readOnly && <Button variant="outline" className="h-11" onClick={() => setDialog("round")}><Plus />ラウンド</Button>}
+            {!readOnly && <Button variant="outline" className="h-11" onClick={() => setDialog("convertible")}><Plus />転換前証券</Button>}
           </div>
         }
       >
@@ -221,7 +221,7 @@ export function CockpitCapitalPolicy({ projectId }: { projectId: string }) {
             </div>}
       </Section>
 
-      <Dialog open={dialog === "equity"} onOpenChange={(open) => !open && setDialog(null)}><DialogContent className="max-h-[90vh] overflow-y-auto sm:!max-w-2xl"><form onSubmit={(event) => void saveEquity(event)}><DialogHeader><DialogTitle>株式イベントを追加</DialogTitle><DialogDescription>確定イベントだけが資本政策表の列になるよ。譲渡は譲渡元と譲渡先を同時に記録する。</DialogDescription></DialogHeader><div className="my-5 grid gap-4 sm:grid-cols-2">
+      {!readOnly && <Dialog open={dialog === "equity"} onOpenChange={(open) => !open && setDialog(null)}><DialogContent className="max-h-[90vh] overflow-y-auto sm:!max-w-2xl"><form onSubmit={(event) => void saveEquity(event)}><DialogHeader><DialogTitle>株式イベントを追加</DialogTitle><DialogDescription>確定イベントだけが資本政策表の列になるよ。譲渡は譲渡元と譲渡先を同時に記録する。</DialogDescription></DialogHeader><div className="my-5 grid gap-4 sm:grid-cols-2">
         <Field label="イベント"><NativeSelect name="transaction_type" defaultValue="new_issue" options={TRANSACTION_TYPES} /></Field>
         <Field label="状態"><NativeSelect name="status" defaultValue="confirmed" options={[{ value: "planned", label: "計画" }, { value: "confirmed", label: "確定" }]} /></Field>
         <Field label="効力日" name="effective_on" hint="YYYY-MM-DD"><Input id="effective_on" name="effective_on" required defaultValue={new Date().toISOString().slice(0, 10)} className="h-11" /></Field>
@@ -235,17 +235,17 @@ export function CockpitCapitalPolicy({ projectId }: { projectId: string }) {
         <Field label="説明" name="description"><Input id="description" name="description" placeholder="Seed増資、創業時発行など" className="h-11" /></Field>
         <Field label="確認元" name="source_ref"><Input id="source_ref" name="source_ref" placeholder="株主名簿 / 払込証明 / 契約" className="h-11" /></Field>
         <div className="sm:col-span-2"><Field label="メモ" name="notes"><Textarea id="notes" name="notes" /></Field></div>
-      </div><DialogFooter><Button type="button" variant="outline" className="h-11" onClick={() => setDialog(null)}>閉じる</Button><Button type="submit" className="h-11" disabled={saving}>{saving && <Loader2 className="animate-spin" />}追加</Button></DialogFooter></form></DialogContent></Dialog>
+      </div><DialogFooter><Button type="button" variant="outline" className="h-11" onClick={() => setDialog(null)}>閉じる</Button><Button type="submit" className="h-11" disabled={saving}>{saving && <Loader2 className="animate-spin" />}追加</Button></DialogFooter></form></DialogContent></Dialog>}
 
-      <Dialog open={dialog === "round"} onOpenChange={(open) => !open && setDialog(null)}><DialogContent className="max-h-[90vh] overflow-y-auto sm:!max-w-2xl"><form onSubmit={(event) => void saveRound(event)}><DialogHeader><DialogTitle>調達ラウンドを追加</DialogTitle><DialogDescription>株式イベントとラウンド情報を分けることで、持株計算とバリュエーションを混同しない。</DialogDescription></DialogHeader><div className="my-5 grid gap-4 sm:grid-cols-2">
+      {!readOnly && <Dialog open={dialog === "round"} onOpenChange={(open) => !open && setDialog(null)}><DialogContent className="max-h-[90vh] overflow-y-auto sm:!max-w-2xl"><form onSubmit={(event) => void saveRound(event)}><DialogHeader><DialogTitle>調達ラウンドを追加</DialogTitle><DialogDescription>株式イベントとラウンド情報を分けることで、持株計算とバリュエーションを混同しない。</DialogDescription></DialogHeader><div className="my-5 grid gap-4 sm:grid-cols-2">
         <Field label="ラウンド名" name="round_name"><Input id="round_name" name="round_name" placeholder="Seed" required className="h-11" /></Field><Field label="実施日" name="round_date"><Input id="round_date" name="round_date" placeholder="2026-07-16" className="h-11" /></Field>
         <Field label="pre-money（円）" name="pre_money_yen"><Input id="pre_money_yen" name="pre_money_yen" inputMode="numeric" className="h-11" /></Field><Field label="post-money（円）" name="post_money_yen"><Input id="post_money_yen" name="post_money_yen" inputMode="numeric" className="h-11" /></Field>
         <Field label="調達額（円）" name="raised_yen"><Input id="raised_yen" name="raised_yen" inputMode="numeric" className="h-11" /></Field><Field label="1株単価（円）" name="price_per_share_yen"><Input id="price_per_share_yen" name="price_per_share_yen" inputMode="decimal" className="h-11" /></Field>
         <Field label="リード投資家" name="lead_investor"><Input id="lead_investor" name="lead_investor" className="h-11" /></Field><Field label="確認元" name="source_ref"><Input id="source_ref" name="source_ref" className="h-11" /></Field>
         <div className="sm:col-span-2"><Field label="メモ" name="notes"><Textarea id="notes" name="notes" /></Field></div>
-      </div><DialogFooter><Button type="button" variant="outline" className="h-11" onClick={() => setDialog(null)}>閉じる</Button><Button type="submit" className="h-11" disabled={saving}>{saving && <Loader2 className="animate-spin" />}追加</Button></DialogFooter></form></DialogContent></Dialog>
+      </div><DialogFooter><Button type="button" variant="outline" className="h-11" onClick={() => setDialog(null)}>閉じる</Button><Button type="submit" className="h-11" disabled={saving}>{saving && <Loader2 className="animate-spin" />}追加</Button></DialogFooter></form></DialogContent></Dialog>}
 
-      <Dialog open={dialog === "convertible"} onOpenChange={(open) => !open && setDialog(null)}><DialogContent className="max-h-[90vh] overflow-y-auto sm:!max-w-2xl"><form onSubmit={(event) => void saveConvertible(event)}><DialogHeader><DialogTitle>転換前証券を追加</DialogTitle><DialogDescription>現在の持株比率には入れず、転換見込シナリオとして別表示するよ。</DialogDescription></DialogHeader><div className="my-5 grid gap-4 sm:grid-cols-2">
+      {!readOnly && <Dialog open={dialog === "convertible"} onOpenChange={(open) => !open && setDialog(null)}><DialogContent className="max-h-[90vh] overflow-y-auto sm:!max-w-2xl"><form onSubmit={(event) => void saveConvertible(event)}><DialogHeader><DialogTitle>転換前証券を追加</DialogTitle><DialogDescription>現在の持株比率には入れず、転換見込シナリオとして別表示するよ。</DialogDescription></DialogHeader><div className="my-5 grid gap-4 sm:grid-cols-2">
         <Field label="保有者" name="holder_name"><Input id="holder_name" name="holder_name" required className="h-11" /></Field><Field label="証券"><NativeSelect name="instrument_type" defaultValue="J-KISS" options={[{ value: "J-KISS", label: "J-KISS" }, { value: "SAFE", label: "SAFE" }, { value: "CB", label: "転換社債" }, { value: "other", label: "その他" }]} /></Field>
         <Field label="発行日" name="issued_on"><Input id="issued_on" name="issued_on" placeholder="2026-07-16" className="h-11" /></Field><Field label="状態"><NativeSelect name="status" defaultValue="outstanding" options={[{ value: "outstanding", label: "転換前" }, { value: "converted", label: "転換済み" }, { value: "repaid", label: "償還済み" }, { value: "cancelled", label: "取消" }]} /></Field>
         <Field label="元本（円）" name="principal_yen"><Input id="principal_yen" name="principal_yen" inputMode="numeric" className="h-11" /></Field><Field label="評価上限（円）" name="valuation_cap_yen"><Input id="valuation_cap_yen" name="valuation_cap_yen" inputMode="numeric" className="h-11" /></Field>
@@ -254,7 +254,7 @@ export function CockpitCapitalPolicy({ projectId }: { projectId: string }) {
         <div className="sm:col-span-2"><Field label="転換条件" name="conversion_trigger"><Input id="conversion_trigger" name="conversion_trigger" placeholder="適格資金調達 1.2億円以上" className="h-11" /></Field></div>
         <div className="sm:col-span-2"><Field label="確認元" name="source_ref"><Input id="source_ref" name="source_ref" className="h-11" /></Field></div>
         <div className="sm:col-span-2"><Field label="メモ" name="notes"><Textarea id="notes" name="notes" /></Field></div>
-      </div><DialogFooter><Button type="button" variant="outline" className="h-11" onClick={() => setDialog(null)}>閉じる</Button><Button type="submit" className="h-11" disabled={saving}>{saving && <Loader2 className="animate-spin" />}追加</Button></DialogFooter></form></DialogContent></Dialog>
+      </div><DialogFooter><Button type="button" variant="outline" className="h-11" onClick={() => setDialog(null)}>閉じる</Button><Button type="submit" className="h-11" disabled={saving}>{saving && <Loader2 className="animate-spin" />}追加</Button></DialogFooter></form></DialogContent></Dialog>}
     </div>
   );
 }

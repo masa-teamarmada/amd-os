@@ -220,7 +220,7 @@ where s.project_id = 'p21' and s.source in ('gmeet_minutes','drive');
 - 画面は `CockpitTechnology` を `mode="competition"` で使う。区分のタブ・全体像・未整理の断片は出さず、開くと先頭のトピック (社外に出す星取り表) が開く。トピックの一覧・並び・前後のトピックは技術タブと同じ。開いているトピックは `?competition=` に持つ (技術タブの `?tech=` と分け、タブを行き来しても互いの開いている表示を壊さない)。「＋ トピック追加」の区分の初期値は `競合比較`
 - 技術タブ (`mode="technology"`) は区分「競合比較」「ビジネスモデル」のトピックと行を外して数える (形式別の件数・要確認・全体像・区分のタブ)
 - **表示条件**: 区分「競合比較」のトピックを持つPJだけ。`CockpitView` が参照系のキャッシュ越しに技術台帳を読んで決める (`loadProjectTech` / `peekProjectTech`。技術タブと同じ束なので、ここで読むと技術タブも待たずに開く)。研究機関PJは読まない。読み込み中に `?tab=competition` で開いたときは、同じグループの先頭へ落とさずに待つ。見出しの hover で `prefetchProjectTech()`
-- PJワークスペース: `計画・根拠` の技術の右隣に「競合比較」(`#competition`)。表示条件はコックピットと同じ。外部の人 (ワークスペースアカウント) には出さない (技術と同じ)
+- PJワークスペース: `事業計画` の技術の右隣に「競合比較」(`#competition`)。コックピットと異なり、未登録でも空状態の入口を残す。当該PJのワークスペースメンバーへ読み取り表示する
 - 回帰防止: `check_pwa_critical_ui.cjs` (事業計画グループの並び、`techLedgerTabOf(t) === mode`、`mode="competition"`、表示条件、ワークスペースの並び) と、`check_project_fuel_cost_model.mts` の事業計画グループの並び
 
 
@@ -254,7 +254,7 @@ where s.project_id = 'p21' and s.source in ('gmeet_minutes','drive');
 - **データは技術台帳のまま。** 区分 (`tech_domain`) が `ビジネスモデル` (`BUSINESS_MODEL_TECH_DOMAIN`) のトピックだけを出す。判定は `isBusinessModelTopic()`。どのタブに出すかは `techLedgerTabOf()` (`technology` / `competition` / `business-model`) が唯一の実装で、`CockpitTechnology` は `techLedgerTabOf(t) === mode` で絞る (同じトピックを2つのタブに出さない)
 - 画面は `CockpitTechnology` を `mode="business-model"` で使う (`data-testid="cockpit-business-model-tab"`)。競合比較と同じく、区分のタブ・全体像・未整理の断片は出さず、開くと先頭のトピックを開く。開いているトピックは `?business-model=` (`BUSINESS_MODEL_VIEW_PARAM`)。「＋ トピック追加」の区分の初期値は `ビジネスモデル`。説明帯は「誰に何を売り、どこで稼ぐかと、その事業の形が成り立つかを検証した結果を置く場所。原価と売価の数字はコスト試算のタブが正本で、ここには検証した時点の数字と出典を書く」
 - **表示条件**: 区分「ビジネスモデル」のトピックを持つPJだけ。競合比較と同じ読み方で、`CockpitView` とワークスペースは `ledgerTabsPresent()` (`{ competition, businessModel }`) で両方の有無を1回の読み込みで決める。研究機関PJは読まない。読み込み中に `?tab=business-model` で開いたときは待つ。見出しの hover で `prefetchProjectTech()`
-- PJワークスペース: `計画・根拠` の競合比較の右隣に「ビジネスモデル」(`#business-model`)。外部の人 (ワークスペースアカウント) には出さない
+- PJワークスペース: `事業計画` の競合比較の右隣に「ビジネスモデル」(`#business-model`)。コックピットと異なり、未登録でも空状態の入口を残す。当該PJのワークスペースメンバーへ読み取り表示する
 - **金額は書き写さない (§3.5)。** コスト試算の総コスト・利益率を本文に載せるときは時点を書き、正本がコスト試算であることを添える
 - 回帰防止: `check_pwa_critical_ui.cjs` (事業計画グループの並び、`techLedgerTabOf(t) === mode`、`BUSINESS_MODEL_VIEW_PARAM`、`isBusinessModelTopic` / `techLedgerTabOf` / `ledgerTabsPresent` の export、`mode="business-model"`、表示条件と hover の先読み、ワークスペースの並びと `#business-model`) と、`check_project_fuel_cost_model.mts` の事業計画グループの並び
 

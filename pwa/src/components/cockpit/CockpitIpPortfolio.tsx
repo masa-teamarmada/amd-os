@@ -6,7 +6,8 @@
  * スコープは AMD 自社知財だけでなく、その技術領域の IP 全体マップ (before zero の定石):
  * 自社 / 大学基本特許 / 共同出願 / 他社の障害特許 / ウォッチ を同じ台帳に載せる。
  * 構成: サマリ帯 → ⏰期限 → 🗺️特許マップ → 立場別テーブル → 詳細モーダル。
- * read = ログイン済みメンバー、write = admin (API 側で判定し canEdit で返る)。
+ * read = AMDメンバーまたは当該PJの共有ワークスペースメンバー、write = admin
+ * (API 側で判定し canEdit で返る)。
  * API: /api/project-ip / migration: scripts/migrations/308_project_ip_ledger.sql
  */
 

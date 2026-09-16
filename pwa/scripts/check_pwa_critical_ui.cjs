@@ -3252,7 +3252,8 @@ expectIncludes("src/lib/cockpit-tabs.ts", [
 ]);
 // 競合比較タブ (2026-09-14 まさ「この競合比較は、技術タブの中じゃなくて事業計画グループの直下に置いてほしい」)。
 // 技術台帳の区分「競合比較」だけを技術タブと同じ部品で出し、技術タブからはその区分を外す (二重に置かない)。
-// 区分「競合比較」のトピックを持つPJだけに出す。
+// コックピットは区分「競合比較」のトピックを持つPJだけに出す。
+// PJワークスペースは、PJメンバーが不足に気付けるよう空状態の入口も常に出す。
 expectIncludes("src/lib/project-tech.ts", [
   'export const COMPETITION_TECH_DOMAIN = "競合比較";',
   "export function isCompetitionTopic(",
@@ -3271,8 +3272,7 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   '<CockpitTechnology projectId={project.projectId} mode="competition" />',
 ]);
 expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
-  '{ key: "technology", label: "技術" }, { key: "competition", label: "競合比較" }, { key: "business-model", label: "ビジネスモデル" }, { key: "business-plan", label: "事業計画" }',
-  'tab.key !== "competition" || hasCompetition',
+  '{ key: "technology", label: "技術" }, { key: "competition", label: "競合比較" }, { key: "business-model", label: "ビジネスモデル" }, { key: "business-plan", label: "事業計画" }, { key: "cost", label: "コスト試算" }',
   '<CockpitTechnology projectId={bundle.project.projectId} mode="competition" />',
 ]);
 // ビジネスモデルタブ (2026-09-14 まさ「そもそも本来はOSに置くべき資料だと思う。…事業計画グループの中に「ビジネスモデル」っていうタブを新たに追加して、その中に入れておくのはどう？」)。
@@ -3291,9 +3291,12 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   'key === "technology" || key === "competition" || key === "business-model" ? () => prefetchProjectTech(project.projectId)',
 ]);
 expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
-  'tab.key !== "business-model" || hasBusinessModel',
   '<CockpitTechnology projectId={bundle.project.projectId} mode="business-model" />',
   'if (normalized === "business-model") return "business-model";',
+]);
+expectNotIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
+  'tab.key !== "competition" || hasCompetition',
+  'tab.key !== "business-model" || hasBusinessModel',
 ]);
 // 社外に出す形の星取り表 (2026-09-14 まさ「PDFの比較表めっちゃよく出来てるから、この３つそのままOSにも入れておいてほしい」)。
 // presentation (migration 425) を持つ星取り表は、VC 提出用の PDF と同じ並び (見出し → 一文 → 説明 → 表 → 注記) で出す。
@@ -3442,11 +3445,12 @@ expectIncludes("src/lib/cockpit-tabs.ts", [
   '"capital-policy"',
   "export type CockpitTab = (typeof COCKPIT_TABS)[number];",
   "export const NON_DEFAULT_COCKPIT_TABS",
-  'label: "進捗管理"',
-  'label: "事業計画"',
-  'label: "PJ管理"',
-  'label: "シーズリスト"',
-  'label: "規程・内規"',
+  "export const COCKPIT_GROUP_LABELS",
+  'progress: "進捗管理"',
+  'businessPlan: "事業計画"',
+  'projectManagement: "PJ管理"',
+  'seeds: "シーズリスト"',
+  'regulations: "規程・内規"',
   'children: ["score-detail", "technology", "competition", "business-model", "business-plan", "cost-model", "cost-fuel", "ip", "capital-policy"]',
 ]);
 expectNotIncludes("src/lib/cockpit-tabs.ts", ['"themes"']);

@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth, requireAdmin } from "@/lib/supabase/api-auth";
+import { hasSharedWorkspaceProjectReadAccess } from "@/lib/shared-workspace-project-read-access";
 
 export const runtime = "nodejs";
 
 // PJコックピット「技術」タブの API (project_tech_topics / project_tech_entries)。
 // 4形式 (成立条件 / 解説 / 星取り表 / 到達実績) を同じ2テーブルで持ち、PJごとに実装を分けない。
-// read = ログイン済みメンバー、write = admin。
+// read = ログイン済みAMDメンバー、または当該PJの共有ワークスペースメンバー。write = admin。
 // migration: scripts/migrations/339_project_tech_ledger.sql / 設計: pwa/spec/3-20-project-technology-current-spec.md
 //
 // 参照系なので Cache-Control を明示し、クライアントは src/lib/project-tech-client.ts のキャッシュ層だけを通す
@@ -44,33 +45,37 @@ function parseEntity(v: string | null | undefined): Entity | null {
  * トピックと中身を1往復で返す (タブが開いた瞬間に全ブロックを描くため)。
  */
 export async function GET(req: NextRequest) {
-  const auth = await requireAuth();
-  if (!auth.ok) return auth.errorResponse;
-
   const projectId = req.nextUrl.searchParams.get("projectId");
   if (!projectId) return NextResponse.json({ ok: false, error: "projectId required" }, { status: 400 });
 
-  const { data: member } = await auth.supabase
-    .from("members")
-    .select("is_admin")
-    .eq("email", auth.user.email.toLowerCase())
-    .maybeSingle();
+  const auth = await requireAuth();
+  const sharedWorkspaceRead = !auth.ok && await hasSharedWorkspaceProjectReadAccess(projectId);
+  if (!auth.ok && !sharedWorkspaceRead) return auth.errorResponse;
+
+  const member = auth.ok
+    ? await auth.supabase
+      .from("members")
+      .select("is_admin")
+      .eq("email", auth.user.email.toLowerCase())
+      .maybeSingle()
+    : { data: null };
+  const db = auth.ok ? auth.supabase : createAdminClient();
 
   const [topicsRes, entriesRes, fragmentsRes] = await Promise.all([
-    auth.supabase
+    db
       .from("project_tech_topics")
       .select("*")
       .eq("project_id", projectId)
       .neq("status", "archived")
       .order("sort_order", { ascending: true })
       .order("updated_at", { ascending: false }),
-    auth.supabase
+    db
       .from("project_tech_entries")
       .select("*")
       .eq("project_id", projectId)
       .order("sort_order", { ascending: true })
       .order("row_label", { ascending: true }),
-    auth.supabase
+    db
       .from("project_knowledge")
       .select("id, category, entity_name, fact_text, confidence, source, updated_at")
       .eq("project_id", projectId)
@@ -86,7 +91,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(
     {
       ok: true,
-      canEdit: Boolean(member?.is_admin),
+      canEdit: Boolean(member.data?.is_admin),
       topics: topicsRes.data ?? [],
       entries: entriesRes.data ?? [],
       fragments: fragmentsRes.data ?? [],

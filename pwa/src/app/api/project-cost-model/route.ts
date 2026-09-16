@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth, requireAdmin } from "@/lib/supabase/api-auth";
+import { hasSharedWorkspaceProjectReadAccess } from "@/lib/shared-workspace-project-read-access";
 import type { CostModelBundle } from "@/lib/project-cost-model";
 
 export const runtime = "nodejs";
 
 // PJコックピット / PJワークスペース「コスト試算」タブの API。
-// read = ログイン済みメンバー、write = admin。
+// read = ログイン済みAMDメンバー、または当該PJの共有ワークスペースメンバー。write = admin。
 // migration: scripts/migrations/320_project_cost_model.sql / 392 (株・用途の列と二段階計算) / 394 (作業リスト) / 396 (オフサイトの範囲と輸送の回数) / 398 (作業を誰がやるか)
 // 計算そのものは src/lib/project-cost-model.ts (純関数)。ここは入出力だけ。
 
@@ -164,17 +165,20 @@ export async function loadCostModelBundle(projectId: string, kind: CostModelKind
 
 /** GET /api/project-cost-model?projectId=p21 */
 export async function GET(req: NextRequest) {
-  const auth = await requireAuth();
-  if (!auth.ok) return auth.errorResponse;
-
   const projectId = req.nextUrl.searchParams.get("projectId");
   if (!projectId) return NextResponse.json({ ok: false, error: "projectId required" }, { status: 400 });
 
-  const { data: member } = await auth.supabase
-    .from("members")
-    .select("is_admin")
-    .eq("email", auth.user.email.toLowerCase())
-    .maybeSingle();
+  const auth = await requireAuth();
+  const sharedWorkspaceRead = !auth.ok && await hasSharedWorkspaceProjectReadAccess(projectId);
+  if (!auth.ok && !sharedWorkspaceRead) return auth.errorResponse;
+
+  const member = auth.ok
+    ? await auth.supabase
+      .from("members")
+      .select("is_admin")
+      .eq("email", auth.user.email.toLowerCase())
+      .maybeSingle()
+    : { data: null };
 
   // 参照系。前提と明細はMTG前後にadminがまとめて直すだけなので、短時間の再利用を許す。
   // 書き込み側は project-cost-model-client 側でキャッシュを捨て、保存直後の読み直しだけ ?fresh=1 で HTTP キャッシュを通さない (spec 5-10)。
@@ -185,10 +189,10 @@ export async function GET(req: NextRequest) {
   const kind: CostModelKind = req.nextUrl.searchParams.get("kind") === "fuel" ? "fuel" : "default";
   const bundle = await loadCostModelBundle(projectId, kind);
   if (!bundle) {
-    return NextResponse.json({ ok: true, canEdit: !!member?.is_admin, bundle: null }, { headers });
+    return NextResponse.json({ ok: true, canEdit: !!member.data?.is_admin, bundle: null }, { headers });
   }
 
-  return NextResponse.json({ ok: true, canEdit: !!member?.is_admin, bundle }, { headers });
+  return NextResponse.json({ ok: true, canEdit: !!member.data?.is_admin, bundle }, { headers });
 }
 
 const ASSUMPTION_FIELDS = new Set(["value", "value_text", "confidence", "source_kind", "owner", "note", "is_key", "visibility"]);

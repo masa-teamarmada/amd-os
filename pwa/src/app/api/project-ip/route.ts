@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth, requireAdmin } from "@/lib/supabase/api-auth";
+import { hasSharedWorkspaceProjectReadAccess } from "@/lib/shared-workspace-project-read-access";
 
 export const runtime = "nodejs";
 
 // PJコックピット「知財」タブの API (project_ip_assets / _deadlines / _rights / _events)。
 // スコープは AMD 自社知財だけでなく、その技術領域の IP 全体マップ (before zero の定石):
 //   own(自社) / university(大学基本特許) / joint(共同出願) / blocking(他社の障害特許) / watch(監視対象)
-// read = ログイン済みメンバー、write = admin。
+// read = ログイン済みAMDメンバー、または当該PJの共有ワークスペースメンバー。write = admin。
 // migration: scripts/migrations/308_project_ip_ledger.sql / 設計: pwa/spec/3-19-project-ip-current-spec.md
 
 type Entity = "asset" | "deadline" | "right" | "event";
@@ -42,31 +43,35 @@ function parseEntity(v: string | null | undefined): Entity | null {
  * 4 テーブルを 1 往復で返す (タブ表示 + 特許マップが同じデータを使うため)。
  */
 export async function GET(req: NextRequest) {
-  const auth = await requireAuth();
-  if (!auth.ok) return auth.errorResponse;
-
   const projectId = req.nextUrl.searchParams.get("projectId");
   if (!projectId) return NextResponse.json({ ok: false, error: "projectId required" }, { status: 400 });
 
-  const { data: member } = await auth.supabase
-    .from("members")
-    .select("is_admin")
-    .eq("email", auth.user.email.toLowerCase())
-    .maybeSingle();
+  const auth = await requireAuth();
+  const sharedWorkspaceRead = !auth.ok && await hasSharedWorkspaceProjectReadAccess(projectId);
+  if (!auth.ok && !sharedWorkspaceRead) return auth.errorResponse;
+
+  const member = auth.ok
+    ? await auth.supabase
+      .from("members")
+      .select("is_admin")
+      .eq("email", auth.user.email.toLowerCase())
+      .maybeSingle()
+    : { data: null };
+  const db = auth.ok ? auth.supabase : createAdminClient();
 
   const [assetsRes, deadlinesRes, eventsRes] = await Promise.all([
-    auth.supabase
+    db
       .from("project_ip_assets")
       .select("*")
       .eq("project_id", projectId)
       .order("importance", { ascending: false })
       .order("application_date", { ascending: false, nullsFirst: false }),
-    auth.supabase
+    db
       .from("project_ip_deadlines")
       .select("*")
       .eq("project_id", projectId)
       .order("due_on", { ascending: true }),
-    auth.supabase
+    db
       .from("project_ip_events")
       .select("*")
       .eq("project_id", projectId)
@@ -79,7 +84,7 @@ export async function GET(req: NextRequest) {
   const assetIds = (assetsRes.data ?? []).map((a: { ip_asset_id: string }) => a.ip_asset_id);
   let rights: unknown[] = [];
   if (assetIds.length > 0) {
-    const rightsRes = await auth.supabase
+    const rightsRes = await db
       .from("project_ip_rights")
       .select("*")
       .in("ip_asset_id", assetIds);
@@ -89,7 +94,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    canEdit: Boolean(member?.is_admin),
+    canEdit: Boolean(member.data?.is_admin),
     assets: assetsRes.data ?? [],
     deadlines: deadlinesRes.data ?? [],
     events: eventsRes.data ?? [],

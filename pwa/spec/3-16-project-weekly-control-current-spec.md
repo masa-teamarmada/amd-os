@@ -12,11 +12,11 @@
 
 ## 2026-09-16 現行ナビゲーション
 
-PJワークスペースはコックピットと同じく、上段の分類と選択中分類の子タブからなる二段ナビゲーションを使う。内部PJメンバーの分類は、`実行`（ゴールツリー / タスク / ガント / 週次差分 / 関係先）、`計画・根拠`（技術 / 事業計画）、`経営・会社`（会社概要 / 資本政策 / コスト試算 / 知財）、`資料`（ドライブ）である。旧`テーマ`タブは表示しない。`#theme-progress` はゴールツリーへ互換遷移する。ZMPはゴールツリーを既定表示にする。
+PJワークスペースはコックピットと同じく、上段の分類と選択中分類の子タブからなる二段ナビゲーションを使う。表示名の正本は `cockpit-tabs.ts` の `COCKPIT_GROUP_LABELS` で、`進捗管理`（ゴールツリー / タスク / ガント / 週次差分 / 関係先）、`事業計画`（技術 / 競合比較 / ビジネスモデル / 事業計画 / コスト試算 / コスト試算（燃料） / 知財 / 資本政策）、`ドライブ`、`PJ管理`（会社概要）へ揃える。旧`テーマ`タブは表示しない。`#theme-progress` はゴールツリーへ互換遷移する。ZMPはゴールツリーを既定表示にする。
 
 PCでは分類へのhoverまたはkeyboard focusで子タブ一覧を直下に出し、タッチ端末では選択中分類の子タブ列を44px以上の操作領域で常時表示する。分類の先頭を押すと最初の子タブを開く。
 
-`PJ概要`と`動向・会議`はワークスペースに置かず、社内コックピットだけに残す。外部workspace accountはゴールツリー / タスク / ガント / 関係先 / ドライブだけを読む。会社概要、資本政策、コスト試算、知財、技術、事業計画、週次介入、担当負荷も外部へ出さない。
+コックピットはAMDメンバー限定、ワークスペースは当該PJのメンバー限定（AMD外のPJメンバーを含む）という利用者区分とURLは変えない。`PJ概要`、`会社概要`、`動向・会議`、`Slack`、`スコア詳細`、週次介入、担当負荷はコックピットだけに残す。外部workspace accountには、既存のゴールツリー / タスク / ガント / 関係先 / ドライブに加え、`事業計画`の技術 / 競合比較 / ビジネスモデル / 事業計画 / コスト試算 / コスト試算（燃料） / 知財 / 資本政策を読み取り専用で出す。技術・競合比較・ビジネスモデル・事業計画・コスト試算・知財・資本政策は未登録でも空状態の入口を残し、コスト試算（燃料）だけは燃料試算を持つPJに出す。
 
 ゴールツリーには、問いに直接効くTODOだけを表示する。承認済みでも問いに紐づかない単純な実行タスクはタスクタブとガントで確認し、ゴールツリー末尾へ混ぜない。未承認TODOだけは紐づけ先を決めるためゴールツリーに残す。
 
@@ -41,7 +41,7 @@ PCでは分類へのhoverまたはkeyboard focusで子タブ一覧を直下に�
 |---|---|
 | page | `src/app/(shared-workspace)/project/[projectId]/workspace/page.tsx` |
 | view | `SxWeeklyControlDashboard` |
-| auth | `resolveSharedWorkspaceAccess(projectId)`で当該PJ accessを確認する。内部memberと、個別PJアクセスを持つ外部workspace accountが同じdashboardへ進む。外部は管理台帳を読み取り専用とし、共同作業用のゴールツリー・タスク・ガント・関係先・共有資料だけをナビへ出す |
+| auth | `resolveSharedWorkspaceAccess(projectId)`で当該PJ accessを確認する。AMD memberと、個別PJアクセスを持つ外部workspace accountが同じdashboardへ進む。外部は読み取り専用で、共同作業用のゴールツリー・タスク・ガント・関係先・共有資料に加え、事業計画の技術 / 競合比較 / ビジネスモデル / 事業計画 / コスト試算 / コスト試算（燃料） / 知財 / 資本政策をナビへ出す |
 | PJ境界 | `getProjectWorkspaceBundle(projectId, access)` と `projectScopedPathAllowed()`。PJ限定ユーザーは所属PJだけ閲覧可 |
 | shell | 共有ワークスペースshell。月初合意overlayの対象外 |
 | write | portfolio/adminだけ。既存 `/api/project-workspace/[projectId]/management` を使い、clientからDBへ直接書かない |
@@ -105,7 +105,7 @@ desktop幅901px以上ではテーマ区画の外側上余白を除き、テー�
 | 運用記録 | タスク、運用MS、論点、仮説、議論、判断、行動は既存の`/management` routeと共有エディタを再利用する。新規登録時に選択中の`track`を渡す。タスクはMS未所属、運用MSはobjective/outcome両方未所属でも登録でき、既存の親子整合性検査は維持する |
 
 変更はsame-origin確認、内部認証、対象PJアクセス、portfolio/adminの管理権限をすべて満たしてから行う。
-テーマへの所属はアクセス権の付与にならない。外部アカウントは`project_access_memberships`で個別付与されたPJだけを読み、AMD内部の週次介入・担当負荷・コスト・知財・内部資料は開放しない。
+テーマへの所属はアクセス権の付与にならない。外部アカウントは`project_access_memberships`で個別付与されたPJだけを読む。AMD内部の週次介入・担当負荷・内部資料は開放せず、技術・競合比較・ビジネスモデル・事業計画・両コスト試算・知財・資本政策は読み取り表示する。
 新設5テーブルはPJ境界のRLSと整合性制約を持ち、参照先の存在と同一PJ所属を保存時にも検査する。
 更新時は`expected_version`を必須とし、MTG本文の更新経路だけは既存の`expected_updated_at`を使う。
 競合は409で返し、古い画面から無条件で上書きしない。
@@ -512,7 +512,7 @@ v3.63.1 の再指摘対応: (10) 名前・バーのボタンはワークスペ�
 - **担当プルダウンの候補から状態記述を落とす**（`SxPartnerPipeline` の `ROSTER_STATUS_PHRASE_RE = /(待ち|未確認|要確認|未定)/` を `isSelectableRosterName` に追加）。「紹介接続待ち」「先方回答待ち」「担当者未確認」は人名ではないので候補に載せない。**すでに保存済みの値は選択中として先頭に残る**ので、表示が消えるわけではない（まさ 2026-08-07「Bで。」＝ 自動除外案の承認）。
 ## 2026-08-20 仕様追補: 全PJ共通のSXワークスペース面
 
-- `/project/[projectId]/workspace` は、p21で先行実装した `SxWeeklyControlDashboard` を全PJへ適用する共通の操作面とする。タブの正本は `PROJECT_WORKSPACE_GROUPS` で、`実行 / 計画・根拠 / 経営・会社 / 資料`の二段ナビへ分類する。PCはhover/focusで子一覧、touchは常設子列を使う。`知財` は `CockpitIpPortfolio` をそのまま置く (仕様は [`3-19`](/spec/3-19-project-ip-current-spec))。外部アカウントは共同実行のallowlistだけへ絞る。
+- `/project/[projectId]/workspace` は、p21で先行実装した `SxWeeklyControlDashboard` を全PJへ適用する共通の操作面とする。タブの正本は `PROJECT_WORKSPACE_GROUPS` で、コックピットと同じ`進捗管理 / 事業計画 / ドライブ / PJ管理`の二段ナビへ分類する。PCはhover/focusで子一覧、touchは常設子列を使う。`知財` は `CockpitIpPortfolio` をそのまま置く (仕様は [`3-19`](/spec/3-19-project-ip-current-spec))。外部アカウントは明示的なPJ membershipに絞り、共有対象の事業計画タブを読み取り表示する。
 - `ドライブ` は `WorkspaceDocumentRoom` を `scopeKind="project"`、`scopeId={bundle.project.projectId}`、`surface="workspace"`、`presentation="modal"` で開く。PJごとに別資料室、別テーブル、別一覧を作らない。
 - 共通化の対象はタブ、配置、操作、資料室の仕様であり、`project_name`、管理柱・表示レーン、実データ、`externalWorkspaceRoleCapabilityLabel` と共有PJアクセスによる絞り込みはbundle/accessの正本を使う。PJ固有の柱を3レーンへ統合するDB変更はしない。
 - 導線は Seed詳細モーダル → `/project/{projectId}/cockpit` → `/project/{projectId}/workspace` の一方向とする。Seed詳細モーダルからworkspaceへ直接リンクしない。
