@@ -72,3 +72,10 @@
 - OSマニュアル同期: 仕様3-21、操作2-9、両履歴、FEATURE_REGISTRY、DESIGN、設計ログ、DB schema。モデル/通知/自動化の変更なし。
 - 反映はmainへ1回のdeploy.sh。ロールバックはUI/API変更をrevert＋版更新、追加DB列は互換のため残す。共有元checkoutの既存dirty/ahead/behindは保全。
 - 本番向けbuild・TypeScript成功、工程/実route検査成功。検証専用ページ・認証例外は削除済み、開発サーバ停止済み。Chromeの画面幅指定解除済み。本番反映後にlive版とログイン済み画面を確認する。
+
+### タスク作成・紐づけの本番確認完了
+- 機能commit `11db2794eb3092a741a737346340d30cb122aac8`、v3.140.9。deploy.shの必須検査全通過、2分39秒でlive SHA一致。
+- ログイン済みSOL本番で13工程/13追加ボタン、新規入力画面、既存選択（承認済み1件、初期体制整備の所属表示）、未選択時の保存抑止を確認。保存せずキャンセル。名前列420px、ページ横あふれ0をreadback。
+- 通常の画面操作で行った新規/移動/解除の完走検証は画面内アダプタ、本番DBの書込み仕様検査はrollback内。本番画面への実タスク投入は行っていない。
+- 共有元は22:49確認時点で3 ahead / 215 behind、dirtyあり。未push3件はcherry判定すべて「+」（4edc01d2 / 315a81af / d4d254a7）。別作業のため保全。本番反映と共有元checkoutの同期は別状態。
+- 終了前に他作業 `cbc56159`（workspace planning tabs）をcloneへff済み。今回機能はその祖先としてmainに保持。Chromeの本番ガントを保存先として残し、検証タブは閉じた。IABのnative日付pickerクラッシュタブはURLポリシーで閉じる操作も拒否され、自動クリーンアップに委ねる。
