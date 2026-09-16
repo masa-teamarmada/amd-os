@@ -129,7 +129,7 @@ pwa/
 | `/business-cards` | 名刺管理。スマホ撮影 / 写真選択した画像を private Storage へ保存し、DB管理 prompt `business_card.ocr` でGemini OCRする。OCR結果は `needs_review` に止め、人が氏名・所属・連絡先・1件以上のPJを確認した時だけ `confirmed` にする。確定時に `project_knowledge(category='people', source='business_card', status='active')` へ氏名・所属・役職・会った日・短いメモだけ同期し、email / phone / address / 画像 / raw OCR は複製しない |
 | `/reimburse` | 立替精算 |
 | `/admin/settings` | Operations Settings。admin限定で Raw Data / L2 Data / Cron Control を一覧化する。停止中cronはここに旧頻度・入力・出力・停止理由を表示する。`/settings` は一般ユーザー誤操作防止のため削除 |
-| `/admin/change-history` | OS全体のデータ変更履歴。admin限定で、実行者・日時・対象行・追加/変更/削除・変更前後を新しい順に表示する。DB triggerを正本とし、秘密値は伏せる。安全条件を満たす行には「この変更を戻す」を表示し、現在値が履歴の変更後と一致するときだけ逆操作する。戻し操作も元履歴へのリンク付きで記録し、秘密値・巨大値・主キーなし・戻し済み行は対象外 |
+| `/admin/change-history` | OS全体のデータ変更履歴。admin限定で、実行者・日時・PJ/対象・人が読める変更要約を密な台帳で表示する。同一transaction等の安全な連続行は件数にまとめ、詳細展開で元の各履歴・変更前後・「この変更を戻す」を確認する。DB triggerを正本とし、秘密値は伏せる。現在値が履歴の変更後と一致するときだけ逆操作し、戻し操作も元履歴へのリンク付きで記録する。`project_management_field_audit`の二重監査行は生ログに残すが台帳表示から除外する |
 | `/atlas` | シグナル & ストーリー一覧 |
 | `/atlas/inbox` | 未確認シグナル (政策/ニュース フィルタ + 一括 Accept) |
 | `/atlas/inbox/submit` | 手動投入 (auto-tag 付) |

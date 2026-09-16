@@ -72,7 +72,7 @@
 | `/admin/japanese-culture-map` | 日本文化マップ。`jp_culture_items` の active 行を、admin layout gate 内でマインドマップ / 日本地図として読む。旧 `/japanese-culture-map` はこの route へ redirect |
 | `/admin/management-knowledge` | 経営ノウハウ。事業化ルート、座組、価格、資金、法務論点などの再利用カードを保存する admin-only 台帳 |
 | `/admin/private-wiki` | 裏wiki。人物単位の趣味・関係性メモを PJ 別に保存する admin-only 台帳 |
-| `/admin/change-history` | OS全体のデータ変更履歴。実行者、日時、対象行、追加/変更/削除、変更前後をadminだけが一覧確認する。安全条件を満たす行は現在値の一致を確認して戻せる |
+| `/admin/change-history` | OS全体のデータ変更履歴。adminだけが実行者・日時・PJ/対象・人が読める変更要約を密な台帳で確認する。同一transaction等の安全な連続行は件数にまとめ、詳細で元の各履歴と変更前後・戻す操作を確認できる |
 | `/notifications` | L2 candidate / feedback の採否 |
 | `/proactive` | admin 限定の先手 TODO リスト。`proactive_todos` の open / blocked / done / dismissed を期限順に確認し、完了・ブロック・関係ないの3ボタンで処理する |
 | `/management-score` | AMD Management Score |
@@ -99,7 +99,7 @@ MTG新規作成と編集は安全側のフラグで一時停止している。
 - `POST/PATCH/PUT /api/workspace-documents/**` のcookie認証付き変更は `Origin`、`Sec-Fetch-Site`、`Referer` の順でsame-originを確認し、確認材料が無いrequestも403で閉じる。GETはこのmutation guardの対象外だが、資料単位の認可を毎回行う。
 - `/api/admin/private-wiki` は `requireAdmin()` + `service_role` で `private_wiki_entries` を list/create/update/archive する。browser client から直接書かせない。
 - `/api/admin/management-knowledge` は `requireAdmin()` + `service_role` で `management_knowledge_entries` を list/create/update/archive する。browser client から直接書かせない。source_excerpt は短い根拠だけで、メール全文・議事録全文・資料全文を保存しない。
-- `/api/admin/change-history` は `requireAdmin()` で `amd_os_data_change_history` を新しい順に80件ずつ読む。履歴はDB triggerが同一transactionで作り、画面routeから履歴行を作らない。秘密列は伏せ、大きい値は省略し、履歴table自体はappend-onlyとする。`POST {action:"undo",historyId}` はadmin専用の `amd_os_undo_data_change` RPCへ渡し、主キーあり・秘密/巨大値なし・現在値が変更後と一致する場合だけ逆操作する。競合・戻し済み・対象外は変更せず理由を返し、逆操作は元履歴へのリンク付きで新たな履歴になる。
+- `/api/admin/change-history` は `requireAdmin()` で `amd_os_data_change_history` を新しい順に最大1000件ずつ読む（`project_management_field_audit` の二重監査行は表示対象から除外）。広い取得単位は、1行ごとに別transactionとなる同じ自動処理をページ境界で細切れにしないため。PJ IDと現存するPJタスク・PJアクションの対象名を台帳から解決して要約の文脈に渡す。UIは同一transactionの連続行に加え、同じ実行者のservice roleが同じtableへ1秒以内に続けた行を表示上の自動batchへ集約するが、undoは元の履歴行ごとに判定する。履歴はDB triggerが作り、画面routeから履歴行を作らない。秘密列は伏せ、大きい値は省略し、履歴table自体はappend-onlyとする。`POST {action:"undo",historyId}` はadmin専用の `amd_os_undo_data_change` RPCへ渡し、主キーあり・秘密/巨大値なし・現在値が変更後と一致する場合だけ逆操作する。競合・戻し済み・対象外は変更せず理由を返し、逆操作は元履歴へのリンク付きで新たな履歴になる。
 - `/api/admin/workspace-access` の `action=access_request_decision` は `requireAdmin()` + `service_role` で、未許可アカウントのアクセス要求を承認/拒否する。研究機関workspaceが一意な要求だけを`readonly`/`invited`で直接許可し、PJ/対象未特定は権限範囲の手動選択へ止める。停止済みaccount/grantは自動復活しない。
 - `/tasks` 画面は廃止済み。`/api/tasks` は cockpit legacy kanban / H-1 互換のため残し、DB write は `service_role` 経由で、DELETE ではなく `active=false` を使う。通知 link は対象 PJ cockpit へ向ける。
 - `/api/task-calendar/register-tasks` は H-1 が抽出した次アクションを `tasks` に自動登録し、担当者本人にだけ Slack DM nudge を送る。`CRON_SECRET` / `WORKFLOW_SECRET` または admin auth でのみ実行し、admin review queue は作らない。

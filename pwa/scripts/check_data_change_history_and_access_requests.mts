@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { workspaceAccessRequestTarget } from "../src/lib/workspace-access-request-core.ts";
+import { groupHistoryRows, summaryForRow } from "../src/lib/change-history-presentation.ts";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const pwaRoot = path.resolve(scriptDir, "..");
@@ -37,6 +38,32 @@ assert.deepEqual(workspaceAccessRequestTarget("/project/p21/workspace"), {
 });
 assert.equal(workspaceAccessRequestTarget("/workspaces").targetKind, "unspecified");
 
+const presentationRow = (id: string, transaction_id: number, record_pk: Record<string, unknown> = { task_id: id }) => ({
+  id, occurred_at: "2026-09-17T00:00:00.000Z", table_name: "project_management_tasks", operation: "update" as const,
+  record_pk, actor_id: "member-1", actor_label: "まさ", actor_source: "user", changed_fields: ["status"],
+  before_values: { project_id: "p19", status: "tentative" }, after_values: { project_id: "p19", status: "confirmed" },
+  undo_supported: true, undo_block_reason: null, undo_of_history_id: null, undone_by_history_id: null, undone_at: null, transaction_id,
+});
+assert.match(summaryForRow(presentationRow("task-1", 10)), /p19.*状態: 仮 → 確定/, "履歴要約を人が読める値へ変換する");
+const batch = groupHistoryRows([presentationRow("task-1", 10), { ...presentationRow("task-2", 10), after_values: { project_id: "p20", status: "confirmed" }, before_values: { project_id: "p20", status: "tentative" } }]);
+assert.equal(batch.length, 2, "異なるPJ対象は同一transactionでも混ぜない");
+const sameProjectBatch = groupHistoryRows([presentationRow("task-1", 10), presentationRow("task-2", 10)]);
+assert.equal(sameProjectBatch.length, 1, "同一PJ・transactionの本体行はbatch表示にまとめる");
+assert.match(sameProjectBatch[0].summary, /2件変更/, "batch件数を要約へ出す");
+assert.equal(groupHistoryRows([presentationRow("task-1", 10), presentationRow("task-1b", 11)]).length, 2, "異なるtransactionは混ぜない");
+assert.equal(groupHistoryRows([presentationRow("task-1", 10), { ...presentationRow("task-2", 10), operation: "insert" }]).length, 2, "異なる操作は混ぜない");
+const automaticBatch = groupHistoryRows([
+  { ...presentationRow("auto-1", 21), actor_label: "OS自動処理", actor_source: "service_role", occurred_at: "2026-09-17T00:00:01.100Z" },
+  { ...presentationRow("auto-2", 22), actor_label: "OS自動処理", actor_source: "service_role", occurred_at: "2026-09-17T00:00:00.600Z", operation: "insert" as const },
+]);
+assert.equal(automaticBatch.length, 1, "連続するOS自動処理はtransactionをまたいでも1操作へ集約する");
+assert.match(automaticBatch[0].summary, /一括処理（追加1・変更1）/, "自動batchの追加・変更内訳を出す");
+assert.equal(groupHistoryRows([
+  { ...presentationRow("auto-1", 21), actor_label: "OS自動処理", actor_source: "service_role", occurred_at: "2026-09-17T00:00:03.000Z" },
+  { ...presentationRow("auto-2", 22), actor_label: "OS自動処理", actor_source: "service_role", occurred_at: "2026-09-17T00:00:00.000Z" },
+]).length, 2, "時間が離れた自動処理は混ぜない");
+assert.match(summaryForRow({ ...presentationRow("task-1", 12), operation: "insert", after_values: { project_id: "p19", title: "新しいタスク" } }), /PJタスク「新しいタスク」を追加/, "追加対象の識別名を要約する");
+
 assert.match(migration, /CREATE TABLE IF NOT EXISTS public\.amd_os_data_change_history/, "全体変更履歴tableを作る");
 assert.match(migration, /AFTER INSERT OR UPDATE OR DELETE/, "insert update deleteをDB triggerで記録する");
 assert.match(migration, /v_before_raw -> key\) IS DISTINCT FROM \(v_after_raw -> key/, "updateは実差分だけを記録する");
@@ -61,6 +88,9 @@ assert.match(migration, /amd_os\.undo_of_history_id/, "戻し操作を元履歴�
 assert.match(migration, /自動採番IDを安全に復元できないため戻せない/, "identity always行の削除は安全側で戻さない");
 assert.match(historyApi, /export async function POST/, "変更履歴APIから戻し操作を受ける");
 assert.match(historyApi, /action !== "undo"/, "戻し操作を明示actionに限定する");
+assert.match(historyApi, /neq\("table_name", "project_management_field_audit"\)/, "二重監査行で本体履歴のページを埋めない");
+assert.match(historyApi, /PAGE_SIZE = 1000/, "同じ自動処理を狭いraw pageで分断しない");
+assert.match(historyApi, /from\("projects"\)/, "PJの表示名を台帳へ解決する");
 
 assert.match(migration, /CREATE TABLE IF NOT EXISTS public\.workspace_access_requests/, "アクセス要求tableを作る");
 assert.match(migration, /workspace_claim_access_request_notification/, "Slack通知をatomic claimする");
@@ -81,7 +111,11 @@ assert.match(slackInteractive, /actor\?\.memberId !== "ID001"/, "Slack決定を�
 
 assert.match(historyApi, /requireAdmin\(\)/, "変更履歴APIをadmin認証する");
 assert.match(historyApi, /amd_os_data_change_history/, "変更履歴APIは全体監査正本を読む");
-assert.match(historyUi, /変更前後のセット/, "画面で履歴の意味を明示する");
+assert.match(historyUi, /元の差分/, "画面で履歴の意味を明示する");
+assert.match(historyUi, /groupHistoryRows/, "履歴を安全な単位へ集約する");
+assert.match(historyUi, /詳細を展開/, "生IDと全差分を詳細へ折りたたむ");
+assert.match(historyUi, /aria-expanded/, "詳細の開閉状態をアクセシブルに管理する");
+assert.match(historyUi, /このページ.*操作.*対象/, "件数を人向けの文言で表示する");
 assert.match(historyUi, /row\.before_values\[field\]/, "変更前を表示する");
 assert.match(historyUi, /row\.after_values\[field\]/, "変更後を表示する");
 assert.match(historyUi, /この変更を戻す/, "履歴行から戻し操作を実行できる");
