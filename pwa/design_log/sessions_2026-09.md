@@ -1400,3 +1400,11 @@ NOx の根拠は揃っていた: 台帳「反応性窒素 **◎ 利用して増�
 - `POST` に統一し、承認は単独タスクを残し、却下は論理削除する既存契約へ接続した。DB migrationなし。
 - PWAの会話調終助詞を対象ソースから除去し、critical UI検査へ禁止語の走査を追加した。採否のmethod・route・文言の契約検査 `test:question-tree-task-review` を追加。
 - commit `3df5371a`、production `v3.140.7`。deploy wrapperの全ゲートと本番タスクタブの表示を確認。実データの却下操作は行っていない。
+
+## 2026-09-16 ゴールツリーTODOを論点間で移動
+
+- SOLの「愛媛大学名義の基本合意書のベース作成と学内承認確認」など、TODOがゴールツリーに表示されていても別の論点へ動かせなかった。原因は、TODOを固定する仕様ではなく、論点の親子移動しか実装されておらずTODOと論点の多対多リンクを替える経路が無かったこと。
+- 最上位TODOの左つまみを論点行へ落とす操作を追加した。1リンクは移し替え、複数リンクは `移し替える` / `両方に残す` を選ぶ。未承認TODOは提案先だけを替え、子TODOは親子の意味を守るため親TODOを移す。
+- DB関数 `move_project_action_question_link` をmigration `20260916070000_move_goal_tree_actions.sql` として本番適用。同一PJ・最上位TODO・承認済みかつ開いた論点に制限し、TODOの親子・日程・担当・前後関係は保持する。
+- `test:question-tree-action-move` を追加し、deploy gateへ組み込んだ。`test:issue-reorder`、`tsc`、ESLint、build、deploy wrapperを通過。本番 `v3.140.4` で対象TODOの操作つまみをデスクトップ・390px幅で確認。実データは動かしていない。
+- commit `bf0a34c3`。
