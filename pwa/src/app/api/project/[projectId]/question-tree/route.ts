@@ -297,6 +297,31 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ bundle }, { headers: NO_STORE });
     }
 
+    // TODOの移動は、親子・日程・担当・前後関係ではなく、問いへつなぐ線だけを替える。
+    // 複数の問いへ答えるTODOは、画面で「移し替え」か「両方に残す」かを明示的に選ぶ。
+    if (body.resource === "action_move") {
+      const fields = isRecord(body.fields) ? body.fields : {};
+      const actionId = typeof fields.id === "string" ? fields.id : "";
+      const targetQuestionId = typeof fields.question_id === "string" ? fields.question_id : "";
+      const mode = fields.mode === "replace" || fields.mode === "add" ? fields.mode : null;
+      if (!actionId) throw new Error("動かすTODOが分からないよ");
+      if (!targetQuestionId) throw new Error("移し先の論点が分からないよ");
+      if (!mode) throw new Error("TODOの移し方が不正だよ");
+
+      const db = createAdminClient();
+      const { error } = await db.rpc("move_project_action_question_link", {
+        p_project_id: projectId,
+        p_action_id: actionId,
+        p_target_question_id: targetQuestionId,
+        p_mode: mode,
+        p_changed_by: context.access.memberId ?? "",
+      });
+      if (error) throw new Error(error.message);
+
+      const bundle = await getQuestionTreeBundle(projectId, true);
+      return NextResponse.json({ bundle }, { headers: NO_STORE });
+    }
+
     // つくよみが拾ったものを人が確定する。承認で初めてツリーへ線が入り、
     // 却下は論理削除にして、同じものを次の巡回で拾い直させない（spec 3-21）。
     /**
