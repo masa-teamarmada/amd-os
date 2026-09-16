@@ -1,5 +1,11 @@
 # HANDOFF
 
+## 2026-09-16 ZMPワークスペース運用整理
+
+- 最新のZMP引継ぎは [HANDOFF_ZMP_WORKSPACE_2026-09-16.md](HANDOFF_ZMP_WORKSPACE_2026-09-16.md)。
+- ゴールツリー、タスク、ガントの役割分離、旧「テーマ」タブ廃止、KR経営改革の条件付き終端を本番反映済み。
+- 次セッションは上記ファイルと [SESSION_MIGRATION_PROMPT.md](SESSION_MIGRATION_PROMPT.md) から再開する。
+
 ## 2026-09-14 p21 略称移行
 
 - p21の現行略称は **SOL**。表示名・ローカル別名・PJナビゲーション・カレンダー色4・現行資料名をSOLへ切り替える。
