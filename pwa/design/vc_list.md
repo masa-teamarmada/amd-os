@@ -19,6 +19,7 @@
 - **CRUD**: つくよみ chat 経由がベース、`/vcs/[id]/edit` 手入力は補完
 - **初期投入**: `POST /api/admin/seed-vcs` で Claude + web_search に国内ディープテック VC を一括生成させて upsert。再実行可
 - **海外 VC**: 当面スコープ外 (国内のみ)
+- **案件からの新規VC/CVC**: 会議・メール・資料で未登録のVC/CVCが出たら、確認済みの範囲で同じ作業単位に `vcs` の本体、該当する全PJの `project_vc_relations` を追加する。PJ関係先台帳を使うPJでは、同じ相手を `classifications=['vc']` と `role_kind='shareholder_investor'` にも登録する。名称、接点、チケット目安、案件別の投資見込み額、正式な投資検討・出資判断は別項目で、根拠のない値は未確認のままにする。抽出結果だけで正本を自動更新しない。
 
 ## スキーマ概要
 
