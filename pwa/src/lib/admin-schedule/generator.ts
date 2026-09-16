@@ -381,6 +381,7 @@ function findObligation(obligations: RawRow[], words: string[], dueOn: string | 
 function lifecycleForSource(row: RawRow, dueOn: string | null, dueYm: string | null): LifecycleStatus {
   if (row.status === "cancelled") return "cancelled";
   if (row.status === "paid") return "completed";
+  if (row.status === "needs_review") return "needs_source";
   if (!dueOn && !dueYm) return "needs_source";
   return "open";
 }

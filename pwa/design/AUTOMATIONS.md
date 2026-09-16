@@ -68,7 +68,7 @@
 | 毎月1日7:00 請求の自動確定 | `/api/cron/contract-billing-auto-confirm` | 稼働 |
 | 毎週木曜10:00 週次の会計照合 | `/api/cron/freee-accounting-weekly` | 稼働 |
 | 毎朝9:05 会社の運営事実を更新 | `/api/cron/company-operating-facts` | 停止中（9/4 0:34〜） |
-| 毎朝9:35 会社スケジュールを更新 | `/api/cron/company-schedule` | 停止中 |
+| 毎朝9:35 会社スケジュールを更新 | `/api/cron/company-schedule` | 稼働中 |
 | 毎朝9:15 要対応候補を抽出 | `/api/cron/proactive-todo-extract` | 停止中 |
 | 毎日2:30 MS進捗を更新 | `/api/cron/ms-schedule-progress` | 停止中 |
 | 毎日4:00 PJ事実の同期 | `/api/cron/sync-pj-facts` | 停止中 |

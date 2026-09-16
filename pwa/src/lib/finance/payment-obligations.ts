@@ -265,11 +265,19 @@ export function shouldSendNudgeOnStage(stage: string): boolean {
  * ここに該当するものは、通知の既定停止に関わらず必ず送る。放置すると加算税と延滞税になる。
  */
 export function isUnsettledStatutoryPayment(
-  obligation: Pick<CompanyPaymentObligation, "source_kind" | "category" | "due_date" | "status">,
+  obligation: Pick<CompanyPaymentObligation, "source_kind" | "category" | "due_date" | "status" | "amount_status" | "payload">,
   today: string
 ): boolean {
   if (obligation.source_kind !== "statutory_rule") return false;
   if (obligation.category !== "tax" && obligation.category !== "social_insurance") return false;
-  if (obligation.status === "paid" || obligation.status === "cancelled") return false;
+  if (obligation.status === "paid" || obligation.status === "cancelled" || obligation.status === "needs_review") return false;
+  // 見積額・金額未確認・同額出金ありは「照合待ち」であり、未納が確定した状態ではない。
+  // 管理者全員への強制督促は、確定額かつ支払証跡が見つかっていない行だけに絞る。
+  if (obligation.amount_status !== "exact") return false;
+  const rawSearch = obligation.payload?.settlementSearch;
+  const search = rawSearch && typeof rawSearch === "object" && !Array.isArray(rawSearch)
+    ? rawSearch as Record<string, unknown>
+    : {};
+  if (Number(search.exactAmountCandidateCount ?? 0) > 0) return false;
   return Boolean(obligation.due_date && obligation.due_date < today);
 }

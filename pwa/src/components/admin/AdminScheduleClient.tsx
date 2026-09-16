@@ -149,6 +149,12 @@ function isStatutoryPaymentOccurrence(item: ScheduleViewOccurrence): boolean {
     && (item.category === "tax" || item.category === "labor");
 }
 
+function isConfirmedUnsettledOccurrence(item: ScheduleViewOccurrence): boolean {
+  if (!isStatutoryPaymentOccurrence(item) || item.computed_status !== "overdue") return false;
+  if (item.amount_status !== "exact") return false;
+  return (settlementSearchOf(item)?.exactAmountCandidateCount ?? 0) === 0;
+}
+
 function overdueDaysOf(item: ScheduleViewOccurrence, today: string): number | null {
   if (!item.due_on) return null;
   return Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${item.due_on}T00:00:00Z`)) / 86400000);
@@ -160,7 +166,7 @@ function overdueDaysOf(item: ScheduleViewOccurrence, today: string): number | nu
  */
 function OverdueStatutoryAlert({ items, today }: { items: ScheduleViewOccurrence[]; today: string }) {
   const overdue = items
-    .filter((item) => isStatutoryPaymentOccurrence(item) && item.computed_status === "overdue")
+    .filter(isConfirmedUnsettledOccurrence)
     .sort((a, b) => (a.due_on ?? "").localeCompare(b.due_on ?? ""));
   if (overdue.length === 0) return null;
   // 届いた賦課決定通知を、元の未納の隣に置く。見込みより実額のほうが強い根拠になる。
@@ -172,7 +178,6 @@ function OverdueStatutoryAlert({ items, today }: { items: ScheduleViewOccurrence
   }
   const principalYen = overdue.reduce((sum, item) => sum + (item.amount_yen ?? 0), 0);
   const penaltyYen = overdue.reduce((sum, item) => sum + (penaltyEstimateOf(item)?.totalYen ?? 0), 0);
-  const unknownAmountCount = overdue.filter((item) => item.amount_status === "unknown").length;
   return (
     <section role="alert" data-testid="overdue-statutory-alert" className="border border-rose-300 bg-rose-50 p-4 text-rose-950">
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
@@ -186,7 +191,6 @@ function OverdueStatutoryAlert({ items, today }: { items: ScheduleViewOccurrence
         へ登録すると、この見込みに代わって期日つきで並ぶ。納付だけを期限順に見るなら
         <Link href="/admin/payments" className="mx-1 font-semibold underline underline-offset-2">納付ページ</Link>
         へ。
-        {unknownAmountCount > 0 && ` 金額を取得できていない行が${unknownAmountCount}件ある。`}
       </p>
       <ul className="mt-3 divide-y divide-rose-200 border-t border-rose-200">
         {overdue.map((item) => {

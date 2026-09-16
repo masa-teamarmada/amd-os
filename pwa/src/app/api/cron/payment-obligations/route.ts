@@ -19,6 +19,7 @@ import {
   addMonthsToStatutoryYm,
   buildAmdStatutoryPaymentDrafts,
   buildStatutoryPenaltyEstimates,
+  reconcileUnambiguousStatutoryPayments,
   type StatutoryPayrollMonth,
   type StatutoryPaymentEvidence,
   type StatutoryTaxForecast,
@@ -172,11 +173,11 @@ async function fetchFreeeWalletEvidence(startYm: string, endYm: string): Promise
       const data = await freeeApi("GET", `/api/1/wallet_txns?${params.toString()}`) as { wallet_txns?: FreeeWalletTxn[] };
       const page = data.wallet_txns ?? [];
       for (const row of page) {
-        if (!row.id || !row.date || row.walletable_type !== "bank_account") continue;
+        if (!row.id || !row.date || !["bank_account", "credit_card"].includes(String(row.walletable_type ?? ""))) continue;
         const description = String(row.description ?? "");
         const kind = /シヤカイホケン|社会保険/.test(description)
           ? "social_insurance"
-          : /ロウドウホケン|労働保険/.test(description)
+          : /ロウドウホケン|労働保険|ロウドウキヨク|労働局|コウセイロウドウシヨウ|厚生労働省/.test(description)
             ? "labor_insurance"
             : /ゼイムシヨ|税務署/.test(description)
               ? "tax_office"
@@ -256,7 +257,7 @@ async function fetchFreeeStatutoryInputs(today: string): Promise<{
     }
   }
 
-  const paymentEvidence = await fetchFreeeWalletEvidence(`${currentYear - 1}07`, today.slice(0, 7).replace("-", ""));
+  const paymentEvidence = await fetchFreeeWalletEvidence(`${currentYear - 1}01`, today.slice(0, 7).replace("-", ""));
   const payrollMonths = [...payrollByYm.values()]
     .map((row) => ({
       ...row,
@@ -326,7 +327,7 @@ async function generatedFromStatutoryRules(
     sourceError = errorMessage(error).slice(0, 300);
   }
 
-  const drafts = buildAmdStatutoryPaymentDrafts({
+  const initialDrafts = buildAmdStatutoryPaymentDrafts({
     today,
     horizonMonths: 18,
     fiscalYearStartMonth: numeric(params.fiscalYearStartMonth) || 1,
@@ -347,6 +348,7 @@ async function generatedFromStatutoryRules(
     .filter((row) => row.status !== "cancelled")
     .map((row) => String((row.payload as Record<string, unknown> | null)?.penaltyForSourceKey ?? ""))
     .filter(Boolean);
+  const drafts = reconcileUnambiguousStatutoryPayments(initialDrafts, today, settledParentKeys);
   const penaltyEstimates = buildStatutoryPenaltyEstimates(drafts, today, settledParentKeys);
   const penaltyByParent = new Map(penaltyEstimates.map((row) => [row.parentSourceKey, row]));
 

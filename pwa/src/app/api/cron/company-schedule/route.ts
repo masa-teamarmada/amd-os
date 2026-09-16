@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
         headers: { "x-admin-schedule-sync-secret": process.env.CRON_SECRET ?? "" },
       })
     : null;
-  const notifications = generation.ok
+  const notifications = generation.ok && request.nextUrl.searchParams.get("notify") !== "0"
     ? await sendScheduleNotificationsWhenEnabled(() => sendScheduleNotifications(db))
     : null;
   const calendarSyncOk = !calendarSync || (!calendarSync.error && calendarSync.data?.ok === true);

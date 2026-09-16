@@ -29,6 +29,10 @@
       "schedule": "30 0 * * *"
     },
     {
+      "path": "/api/cron/company-schedule",
+      "schedule": "35 0 * * *"
+    },
+    {
       "path": "/api/cron/payout-reward-cache-refresh",
       "schedule": "5 18 * * *"
     },

@@ -240,6 +240,7 @@ assert.doesNotMatch(generator, /\.gte\("ym", from\.slice\(0, 7\)\)/);
 assert.match(generator, /\.in\("category", \["tax", "social_insurance"\]\)/);
 assert.match(generator, /counterparty: text\(row\.counterparty\)/);
 assert.match(generator, /obligationStatus: text\(row\.status\)/);
+assert.match(generator, /if \(row\.status === "needs_review"\) return "needs_source"/);
 assert.match(generator, /\.eq\("relationship_scope", "amd_contract"\)\.eq\("registry_status", "accepted"\)/);
 assert.match(generator, /contracts\.filter\(isAcceptedAmdContract\)/);
 assert.match(generator, /generateContracts\(contracts, projects, projectMembers, members, from, to\)/);
@@ -263,6 +264,10 @@ assert.match(generator, /status: "reviewed"/);
 assert.match(generator, /本文hash自動監視は別writer/);
 assert.match(generator, /local rule bundle hash/);
 assert.match(generator, /obligations\.filter\(isEligibleTaxSocialObligation\)/);
+assert.match(ui, /function isConfirmedUnsettledOccurrence/);
+assert.match(ui, /item\.amount_status !== "exact"/);
+assert.match(ui, /exactAmountCandidateCount \?\? 0/);
+assert.match(cronRoute, /searchParams\.get\("notify"\) !== "0"/);
 
 // --- parent-linked internal prep milestones: event-kind-specific titles/leadDays, not a generic -10 offset ---
 assert.match(generator, /function addInternalPrepMilestones/);

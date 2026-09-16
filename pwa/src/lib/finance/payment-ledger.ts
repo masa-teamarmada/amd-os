@@ -144,11 +144,16 @@ function stateFor(obligation: CompanyPaymentObligation, today: string): { state:
   if (obligation.status === "paid") return { state: "paid", overdueDays: null };
   const dueDate = obligation.due_date_precision === "day" ? obligation.due_date : null;
   if (!dueDate) return { state: "needs_review", overdueDays: null };
-  const diff = daysBetween(today, dueDate);
-  if (diff < 0) return { state: "overdue", overdueDays: -diff };
-  if (obligation.status === "needs_review" || obligation.amount_status === "unknown") {
+  const settlement = parseSettlement(obligation.payload?.settlementSearch);
+  if (
+    obligation.status === "needs_review"
+    || obligation.amount_status !== "exact"
+    || (settlement?.exactAmountCandidateCount ?? 0) > 0
+  ) {
     return { state: "needs_review", overdueDays: null };
   }
+  const diff = daysBetween(today, dueDate);
+  if (diff < 0) return { state: "overdue", overdueDays: -diff };
   if (diff === 0) return { state: "due_today", overdueDays: null };
   if (diff <= 14) return { state: "due_soon", overdueDays: null };
   return { state: "upcoming", overdueDays: null };

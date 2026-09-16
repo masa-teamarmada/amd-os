@@ -13,6 +13,7 @@ import {
   buildStatutoryPenaltyEstimates,
   delinquencyEstimateYen,
   nextStatutoryBusinessDay,
+  reconcileUnambiguousStatutoryPayments,
   statutoryEndOfMonthDueDate,
   withholdingUnderpaymentPenaltyYen,
 } from "../src/lib/finance/statutory-payment-rules.ts";
@@ -119,6 +120,65 @@ assert.equal(statutory.some((row) => row.sourceKey === "statutory:corporate-tax:
 assert.equal(statutory.find((row) => row.sourceKey === "statutory:consumption-tax:final:202601")?.dueDate, "2027-03-01");
 assert.equal(statutory.find((row) => row.sourceKey === "statutory:consumption-tax:interim:202701")?.amountYen, 1047258);
 assert.equal(statutory.find((row) => row.sourceKey === "statutory:social-insurance:202605")?.status, "needs_review");
+
+assert.ok(withholdingH1);
+assert.ok(consumptionInterim);
+const taxCandidate = {
+  kind: "tax_office" as const,
+  from: "2026-06-25",
+  to: "2026-08-14",
+  matched: false,
+  candidateCount: 1,
+  exactAmountCandidateCount: 0,
+  candidates: [{ date: "2026-07-17", amountYen: 533112, sourceRef: "freee:wallet_txn:withholding", description: "ゼイムシヨ", freeeStatus: 2 }],
+};
+const withholdingMismatch = {
+  ...withholdingH1,
+  amountYen: 325500,
+  amountStatus: "exact" as const,
+  status: "open" as const,
+  payload: { ...withholdingH1.payload, settlementSearch: taxCandidate },
+};
+const [reconciledWithholding] = reconcileUnambiguousStatutoryPayments(
+  [withholdingMismatch],
+  "2026-09-17",
+  [withholdingMismatch.sourceKey],
+);
+assert.equal(reconciledWithholding.status, "paid", "加算税通知が親へ紐づく一意の税務署出金は実額で消し込む");
+assert.equal(reconciledWithholding.amountYen, 533112);
+assert.equal(reconciledWithholding.paidAmountYen, 533112);
+assert.equal(reconciledWithholding.payload.reconciliationStrategy, "penalty_notice_linked_outflow");
+
+const consumptionCandidate = {
+  ...consumptionInterim,
+  payload: {
+    ...consumptionInterim.payload,
+    settlementSearch: {
+      kind: "tax_office" as const,
+      from: "2026-08-16",
+      to: "2026-10-05",
+      matched: false,
+      candidateCount: 1,
+      exactAmountCandidateCount: 0,
+      candidates: [{ date: "2026-08-31", amountYen: 811600, sourceRef: "freee:wallet_txn:consumption", description: "ゼイムシヨ", freeeStatus: 1 }],
+    },
+  },
+};
+const [reconciledConsumption] = reconcileUnambiguousStatutoryPayments([consumptionCandidate], "2026-09-17");
+assert.equal(reconciledConsumption.status, "paid", "見積額と違っても一意の税務署出金は実額で消し込む");
+assert.equal(reconciledConsumption.amountYen, 811600);
+assert.equal(reconciledConsumption.payload.expectedAmountBeforeSettlementYen, 405200);
+assert.equal(reconciledConsumption.payload.reconciliationStrategy, "unique_counterparty_outflow");
+
+const sharedCandidate = {
+  ...consumptionCandidate,
+  sourceKey: "statutory:consumption-tax:shared",
+};
+const ambiguous = reconcileUnambiguousStatutoryPayments([consumptionCandidate, sharedCandidate], "2026-09-17");
+assert.ok(ambiguous.every((row) => row.status !== "paid"), "同じ出金を複数の義務が奪い合うときは自動消込しない");
+const exactBlocker = { ...sharedCandidate, amountStatus: "exact" as const };
+const blockedByExactDraft = reconcileUnambiguousStatutoryPayments([consumptionCandidate, exactBlocker], "2026-09-17");
+assert.ok(blockedByExactDraft.every((row) => row.status !== "paid"), "自動消込対象外の確定額行と候補が重なる場合も割当を推測しない");
 const shiftedSettlement = buildAmdStatutoryPaymentDrafts({
   today: "2026-07-16",
   horizonMonths: 18,
@@ -326,22 +386,33 @@ assert.equal(shouldSendNudgeOnStage("7-days-before"), true, "期限前の段階�
 assert.equal(shouldSendNudgeOnStage("needs-review"), true);
 
 // 納期限を過ぎた法定納付だけが、通知の既定停止を越えて送られる。
-const overdueTax = { source_kind: "statutory_rule", category: "tax", due_date: "2026-07-10", status: "open" } as never;
+const overdueTax = { source_kind: "statutory_rule", category: "tax", due_date: "2026-07-10", status: "open", amount_status: "exact", payload: {} } as never;
 assert.equal(isUnsettledStatutoryPayment(overdueTax, "2026-09-03"), true);
 assert.equal(isUnsettledStatutoryPayment(overdueTax, "2026-07-01"), false, "期限内は対象外");
 assert.equal(
-  isUnsettledStatutoryPayment({ source_kind: "statutory_rule", category: "tax", due_date: "2026-07-10", status: "paid" } as never, "2026-09-03"),
+  isUnsettledStatutoryPayment({ source_kind: "statutory_rule", category: "tax", due_date: "2026-07-10", status: "paid", amount_status: "exact", payload: {} } as never, "2026-09-03"),
   false,
   "納付済みは対象外",
 );
 assert.equal(
-  isUnsettledStatutoryPayment({ source_kind: "gmail", category: "tax", due_date: "2026-07-10", status: "open" } as never, "2026-09-03"),
+  isUnsettledStatutoryPayment({ source_kind: "gmail", category: "tax", due_date: "2026-07-10", status: "open", amount_status: "exact", payload: {} } as never, "2026-09-03"),
   false,
   "メール由来の候補は法定納付として督促しない",
 );
 assert.equal(
-  isUnsettledStatutoryPayment({ source_kind: "statutory_rule", category: "social_insurance", due_date: "2026-08-31", status: "needs_review" } as never, "2026-09-03"),
-  true,
+  isUnsettledStatutoryPayment({ source_kind: "statutory_rule", category: "social_insurance", due_date: "2026-08-31", status: "needs_review", amount_status: "exact", payload: {} } as never, "2026-09-03"),
+  false,
+  "要確認は未納確定として強制督促しない",
+);
+assert.equal(
+  isUnsettledStatutoryPayment({ source_kind: "statutory_rule", category: "tax", due_date: "2026-08-31", status: "open", amount_status: "estimated", payload: {} } as never, "2026-09-03"),
+  false,
+  "見積額は未納確定として強制督促しない",
+);
+assert.equal(
+  isUnsettledStatutoryPayment({ source_kind: "statutory_rule", category: "social_insurance", due_date: "2026-08-31", status: "open", amount_status: "exact", payload: { settlementSearch: { exactAmountCandidateCount: 1 } } } as never, "2026-09-03"),
+  false,
+  "同額出金がある行は月割当の照合待ちとして強制督促しない",
 );
 
 // ── 納付ページの読み取りモデル ────────────────────────────
@@ -380,9 +451,11 @@ const ledger = buildPaymentLedger([
   ledgerObligation({ id: "e", source_key: "cancelled", title: "取消済み", status: "cancelled" }),
   ledgerObligation({ id: "f", source_key: "other", title: "カード請求", category: "card_payment" }),
   ledgerObligation({ id: "g", source_key: "no-date", title: "期限未確定", due_date: null, due_date_precision: "unknown", expected_payment_ym: null }),
+  ledgerObligation({ id: "h", source_key: "estimated-overdue", title: "見積額の期限経過", amount_status: "estimated", status: "needs_review" }),
+  ledgerObligation({ id: "i", source_key: "candidate-overdue", title: "同額出金あり", payload: { settlementSearch: { kind: "social_insurance", from: "2026-06-01", to: "2026-09-30", matched: false, exactAmountCandidateCount: 1, candidates: [] } } }),
 ], "2026-09-03");
 
-assert.equal(ledger.rows.length, 5, "税・社会保険だけを対象にし、取消は落とす");
+assert.equal(ledger.rows.length, 7, "税・社会保険だけを対象にし、取消は落とす");
 const ledgerById = new Map(ledger.rows.map((row) => [row.id, row]));
 assert.equal(ledgerById.get("a")?.state, "overdue");
 assert.equal(ledgerById.get("a")?.overdueDays, 55);
@@ -392,9 +465,11 @@ assert.equal(ledgerById.get("b")?.isPenalty, true);
 assert.equal(ledgerById.get("c")?.state, "paid");
 assert.equal(ledgerById.get("d")?.state, "upcoming");
 assert.equal(ledgerById.get("g")?.state, "needs_review", "期限を作れない行も落とさない");
+assert.equal(ledgerById.get("h")?.state, "needs_review", "見積額は期限を過ぎても未納確定にしない");
+assert.equal(ledgerById.get("i")?.state, "needs_review", "同額出金がある行は月割当の照合待ちにする");
 assert.equal(ledger.rows.at(-1)?.id, "g", "期限が無い行は最後に置く");
-assert.equal(ledger.summary.overdueCount, 2, "期限超過と要確認を未決として数える");
-assert.equal(ledger.summary.overdueYen, 325500 + 100000);
+assert.equal(ledger.summary.overdueCount, 4, "期限超過と要確認を未決として数える");
+assert.equal(ledger.summary.overdueYen, 325500 + 300000);
 assert.equal(ledger.summary.upcomingYen, 26500 + 70000);
 assert.equal(ledger.summary.paidYen, 334818);
 assert.equal(ledger.summary.penaltyEstimateYen, 1300);

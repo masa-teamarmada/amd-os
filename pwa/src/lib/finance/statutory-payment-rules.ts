@@ -131,7 +131,9 @@ function amountStatus(amount: number | null, exact: boolean): PaymentObligationA
 }
 
 function withinHorizon(date: string, today: string, horizonYm: string): boolean {
-  const oldCutoff = addDays(today, -62);
+  // 未消込の法定納付を62日で生成対象から落とすと、元行だけが古い状態のまま残り、
+  // 後から届いたfreee明細で二度と照合できない。少なくとも前年初まで再生成する。
+  const oldCutoff = `${Number(today.slice(0, 4)) - 1}-01-01`;
   return date >= oldCutoff && ymFromDate(date) <= horizonYm;
 }
 
@@ -164,6 +166,109 @@ export type SettlementSearch = {
   exactAmountCandidateCount: number;
   candidates: Array<{ date: string; amountYen: number; sourceRef: string; description: string | null; freeeStatus: number | null }>;
 };
+
+type SettlementCandidate = SettlementSearch["candidates"][number];
+
+function settlementSearchFromPayload(payload: Record<string, unknown>): SettlementSearch | null {
+  const raw = payload.settlementSearch;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const value = raw as Record<string, unknown>;
+  const candidates = Array.isArray(value.candidates)
+    ? value.candidates.flatMap((candidate) => {
+        if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return [];
+        const row = candidate as Record<string, unknown>;
+        const amountYen = Number(row.amountYen);
+        if (!row.sourceRef || !row.date || !Number.isFinite(amountYen) || amountYen <= 0) return [];
+        return [{
+          date: String(row.date),
+          amountYen: Math.round(amountYen),
+          sourceRef: String(row.sourceRef),
+          description: row.description == null ? null : String(row.description),
+          freeeStatus: row.freeeStatus == null || !Number.isFinite(Number(row.freeeStatus)) ? null : Number(row.freeeStatus),
+        } satisfies SettlementCandidate];
+      })
+    : [];
+  return {
+    kind: value.kind as SettlementSearch["kind"],
+    from: String(value.from ?? ""),
+    to: String(value.to ?? ""),
+    matched: value.matched === true,
+    candidateCount: Number(value.candidateCount ?? candidates.length),
+    exactAmountCandidateCount: Number(value.exactAmountCandidateCount ?? 0),
+    candidates,
+  };
+}
+
+/**
+ * 見積額と実際の納付額が違っても、同じ支払先・照合窓に候補が1件だけなら実額で消し込む。
+ * ただし候補を複数の義務が奪い合う場合や、確定額に根拠なく金額差がある場合は自動確定しない。
+ * 確定額の例外は、実際の加算税通知が親へ紐づいており、元本の支払事実が裏付けられる場合だけ。
+ */
+export function reconcileUnambiguousStatutoryPayments(
+  drafts: readonly StatutoryPaymentDraft[],
+  today: string,
+  penaltyParentSourceKeys: readonly string[] = []
+): StatutoryPaymentDraft[] {
+  const penaltyParents = new Set(penaltyParentSourceKeys);
+  const usedEvidenceRefs = new Set(
+    drafts
+      .filter((draft) => draft.status === "paid")
+      .map((draft) => String(draft.payload.paidEvidenceRef ?? ""))
+      .filter(Boolean)
+  );
+  const ownersByEvidence = new Map<string, number>();
+  for (const draft of drafts) {
+    if (draft.status === "paid" || draft.status === "cancelled") continue;
+    const refs = new Set(
+      (settlementSearchFromPayload(draft.payload)?.candidates ?? [])
+        .map((candidate) => candidate.sourceRef)
+        .filter((sourceRef) => !usedEvidenceRefs.has(sourceRef))
+    );
+    for (const sourceRef of refs) ownersByEvidence.set(sourceRef, (ownersByEvidence.get(sourceRef) ?? 0) + 1);
+  }
+  const eligible = drafts.flatMap((draft) => {
+    if (draft.status === "paid" || draft.status === "cancelled" || draft.dueDate > today) return [];
+    const strategy = draft.amountStatus === "estimated"
+      ? "unique_counterparty_outflow" as const
+      : penaltyParents.has(draft.sourceKey)
+        ? "penalty_notice_linked_outflow" as const
+        : null;
+    if (!strategy) return [];
+    const search = settlementSearchFromPayload(draft.payload);
+    const candidates = (search?.candidates ?? []).filter((candidate) => !usedEvidenceRefs.has(candidate.sourceRef));
+    return search && candidates.length === 1 ? [{ draft, search, candidate: candidates[0], strategy }] : [];
+  });
+  const settlementBySourceKey = new Map(
+    eligible
+      .filter((row) => ownersByEvidence.get(row.candidate.sourceRef) === 1)
+      .map((row) => [row.draft.sourceKey, row] as const)
+  );
+  return drafts.map((draft) => {
+    const settlement = settlementBySourceKey.get(draft.sourceKey);
+    if (!settlement) return draft;
+    const { candidate, search, strategy } = settlement;
+    return {
+      ...draft,
+      amountYen: candidate.amountYen,
+      amountStatus: "exact",
+      status: "paid",
+      paidAt: `${candidate.date}T00:00:00+09:00`,
+      paidAmountYen: candidate.amountYen,
+      payload: {
+        ...draft.payload,
+        expectedAmountBeforeSettlementYen: draft.amountYen,
+        amountStatusBeforeSettlement: draft.amountStatus,
+        paidEvidenceRef: candidate.sourceRef,
+        reconciliationStrategy: strategy,
+        settlementSearch: {
+          ...search,
+          matched: true,
+          matchedEvidenceRef: candidate.sourceRef,
+        },
+      },
+    };
+  });
+}
 
 function settlementSearch(
   evidence: StatutoryPaymentEvidence[],
@@ -282,7 +387,7 @@ function socialInsuranceDrafts(input: BuildStatutoryPaymentsInput, horizonYm: st
   if (fallback == null) return [];
 
   const currentYm = ymFromDate(input.today);
-  const firstYm = `${input.today.slice(0, 4)}01`;
+  const firstYm = `${Number(input.today.slice(0, 4)) - 1}01`;
   const sourceEndYm = addMonthsToStatutoryYm(horizonYm, -1);
   const sourceMonths: string[] = [];
   for (let ym = firstYm; ym <= sourceEndYm; ym = addMonthsToStatutoryYm(ym, 1)) sourceMonths.push(ym);
@@ -394,7 +499,7 @@ function laborInsuranceDrafts(input: BuildStatutoryPaymentsInput, horizonYm: str
     .filter((row) => row.kind === "labor_insurance" && row.date.slice(0, 4) < String(currentYear))
     .sort((a, b) => b.date.localeCompare(a.date))[0] ?? null;
   const drafts: StatutoryPaymentDraft[] = [];
-  for (let year = currentYear; year <= currentYear + 1; year += 1) {
+  for (let year = currentYear - 1; year <= currentYear + 1; year += 1) {
     const dueDate = nextStatutoryBusinessDay(`${year}-07-10`);
     if (!withinHorizon(dueDate, input.today, horizonYm)) continue;
     const paid = input.paymentEvidence
@@ -446,7 +551,7 @@ function taxDrafts(input: BuildStatutoryPaymentsInput, horizonYm: string): Statu
   const startMonth = Math.max(1, Math.min(12, Math.round(input.fiscalYearStartMonth || 1)));
   const drafts: StatutoryPaymentDraft[] = [];
 
-  for (let startYear = currentYear; startYear <= currentYear + 1; startYear += 1) {
+  for (let startYear = currentYear - 1; startYear <= currentYear + 1; startYear += 1) {
     const fiscalStartYm = `${startYear}${String(startMonth).padStart(2, "0")}`;
     const interimBaseYm = addMonthsToStatutoryYm(fiscalStartYm, 7);
     const finalBaseYm = addMonthsToStatutoryYm(fiscalStartYm, 13);

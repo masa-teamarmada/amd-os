@@ -1934,7 +1934,8 @@ expectIncludes("src/lib/reward-summary.ts", [
 ]);
 
 // 2026-09-04: 事故調査中に全cronを止めたが、まさ確定「支払・経理まわりは止めるわけにはいかない」で
-// 支払・経理の9本だけ戻した。残り8本は調査が終わるまで止めたまま (一覧は下の expectNotIncludes)。
+// 支払・経理のcronに加え、支払義務を管理画面へ反映する会社スケジュール生成を戻した。
+// 残り7本は調査が終わるまで止めたまま (一覧は下の expectNotIncludes)。
 // 戻すときはここの allowlist と vercel.json を同じ commit で更新する。
 expectIncludes("vercel.json", ["regions", "hnd1", "ignoreCommand", '"crons"',
   "/api/cron/freee-payment-sync",
@@ -1945,6 +1946,8 @@ expectIncludes("vercel.json", ["regions", "hnd1", "ignoreCommand", '"crons"',
   "20 0 * * *",
   "/api/cron/payment-confirm-nudges",
   "30 0 * * *",
+  "/api/cron/company-schedule",
+  "35 0 * * *",
   "/api/cron/payout-reward-cache-refresh",
   "5 18 * * *",
   "/api/cron/payout-notice-prebuild",
@@ -1958,7 +1961,6 @@ expectIncludes("vercel.json", ["regions", "hnd1", "ignoreCommand", '"crons"',
 ]);
 expectNotIncludes("vercel.json", [
   "/api/cron/company-operating-facts",
-  "/api/cron/company-schedule",
   "/api/cron/ms-schedule-progress",
   "/api/cron/papers-quarterly-ingest",
   "/api/cron/sync-pj-facts",
