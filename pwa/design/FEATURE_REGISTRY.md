@@ -918,3 +918,5 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 導線: p21 cockpit `?tab=gantt` / workspace `#project-gantt`。4区分13工程、詳細開閉、法人設立・プレシードの月目安。
 - 実装: `MeetingRoadmap.tsx` / `QuestionTreeView.tsx` / `project-gantt-roadmap.ts`。DB: `project_gantt_roadmaps`。既存 `question-tree` API束とキャッシュ・詳細・保存を共有。
 - 防波堤: `test:project-gantt-roadmap`。元の論点ツリー不変、承認済みだけを重複なく投影、未分類の根を保持。
+
+- 2026-09-16 SOLガント修正: 展開行はMS・タスクのみ。論点は分類経路に限定。親期間は子の最小開始〜最大終了を再帰集計。子の全件未設定なら親も未設定、子のない資料工程は計画期間を維持。PWA対象、他クライアントとDBは変更なし。正本 `pwa/spec/3-21-question-tree-current-spec.md`。

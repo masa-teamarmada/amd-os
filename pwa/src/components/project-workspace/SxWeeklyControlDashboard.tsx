@@ -5632,7 +5632,7 @@ export function SxWeeklyControlDashboard({
             <div>
               <h2>ガント</h2>
               <p>
-                {bundle.project.projectId === "p21" ? "定例資料の工程・期間を一覧。工程を開くと、関連する論点とTODOを同じ時間軸で確認できる" : "左が到達点→MS→論点→TODOのツリー、右がTODOの日程。日程の決まっていないTODOは下でまとめて決める"}
+                {bundle.project.projectId === "p21" ? "定例資料の工程を一覧。工程を開くとMS・タスクを確認。子タスクの最初の開始日〜最後の終了日を親の期間として表示" : "左が到達点→MS→論点→TODOのツリー、右がTODOの日程。日程の決まっていないTODOは下でまとめて決める"}
               </p>
             </div>
             <div className={styles.planViewControls}>

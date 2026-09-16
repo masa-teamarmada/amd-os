@@ -1,4 +1,5 @@
 "use client";
+import { projectRoadmapWork, type RoadmapWorkItem } from "@/lib/project-gantt-roadmap";
 
 import { MeetingRoadmap } from "./MeetingRoadmap";
 import { GripVertical } from "lucide-react";
@@ -382,11 +383,24 @@ export function QuestionTreeView({
     [bundle],
   );
 
+  const roadmapWork = useMemo(() => bundle?.roadmap ? projectRoadmapWork(roots, bundle.roadmap) : null, [roots, bundle?.roadmap]);
+
+  const roadmapParents = useMemo(() => {
+    const map = new Map<string, RoadmapWorkItem>();
+    const visit = (item: RoadmapWorkItem) => {
+      if (item.children.length) map.set(item.id, item);
+      item.children.forEach(visit);
+    };
+    roadmapWork?.phases.forEach(phase => phase.items.forEach(visit));
+    roadmapWork?.ungrouped.forEach(visit);
+    return map;
+  }, [roadmapWork]);
+
   const ganttDomain = useMemo(
-    () => (bundle?.roadmap && mode === "gantt"
-      ? { start: bundle.roadmap.start, end: bundle.roadmap.end, totalDays: diffDays(bundle.roadmap.start, bundle.roadmap.end) + 1 }
+    () => (roadmapWork && mode === "gantt"
+      ? { start: roadmapWork.start, end: roadmapWork.end, totalDays: diffDays(roadmapWork.start, roadmapWork.end) + 1 }
       : bundle ? buildGanttDomain(ganttActions, bundle.asOf) : null),
-    [bundle, ganttActions, mode],
+    [bundle, ganttActions, mode, roadmapWork],
   );
 
   const monthTicks = useMemo(() => (ganttDomain ? buildMonthTicks(ganttDomain) : []), [ganttDomain]);
@@ -1377,6 +1391,7 @@ export function QuestionTreeView({
   };
 
   const renderActionDetailBody = (action: ActionNode) => {
+    const summary = mode === "gantt" ? roadmapParents.get(action.id) : undefined;
     const owners = action.questionIds
       .map((id) => questionById.get(id))
       .filter((item): item is QuestionNode => Boolean(item));
@@ -1397,8 +1412,10 @@ export function QuestionTreeView({
           ])}
           {/* 相手側の人や役割名（こたさん、研究側）はここに残す。AMD側の担当は下の欄で選ぶ。 */}
           {renderInline("action", action.id, "担当メモ", "owner_label", action.ownerLabel, action.ownerLabel)}
+          {summary ? <p>子タスクから集計：{summary.range ? `${fmtDate(summary.range.start)} 〜 ${fmtDate(summary.range.end)}` : "日程未設定"}。日程は子タスクで変更。</p> : <>
           {renderInline("action", action.id, "期限", "planned_end", action.plannedEnd, action.plannedEnd ? fmtDate(action.plannedEnd) : "期限なし", "date")}
           {renderInline("action", action.id, "着手予定", "planned_start", action.plannedStart, action.plannedStart ? fmtDate(action.plannedStart) : "—", "date")}
+          </>}
           {renderInline("action", action.id, "完了日", "actual_end", action.actualEnd, action.actualEnd ? fmtDate(action.actualEnd) : "—", "date")}
           {/* 見積ptはMS・月次タブで決めて並べる。ここには出さない（外部も開く面） */}
           {action.actionKind === "measure" && (
@@ -2335,7 +2352,7 @@ export function QuestionTreeView({
               axisRef={axisRef} bodyRef={ganttBodyRef}
               dependencyLayer={<svg className={styles.depLayer}>{depPaths.map((segment) => <path key={segment.key} d={segment.path} />)}</svg>}
               onExpand={() => setOpenIds(new Set(bundle.allQuestions.filter((question) => !question.isProposed).map((question) => question.id)))}
-              renderQuestion={(question) => renderNode(question)} />
+              renderActionLane={renderActionLane} onSelect={select} />
           ) : roots.length === 0 ? (
             <p className={styles.emptyState}>まだ登録されていない。</p>
           ) : mode === "gantt" ? (

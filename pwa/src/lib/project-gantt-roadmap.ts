@@ -53,3 +53,68 @@ export function groupRoadmapQuestions(roots: QuestionNode[], roadmap: ProjectGan
   }
   return { byPhase, ungrouped };
 }
+
+export type WorkRange = { start: string; end: string };
+export type RoadmapWorkItem = {
+  id: string; kind: "task" | "milestone"; title: string;
+  range: WorkRange | null; children: RoadmapWorkItem[];
+  action?: import("./question-tree-types").ActionNode;
+};
+export function spanWork(items: RoadmapWorkItem[]): WorkRange | null {
+  const ranges = items.flatMap(item => item.range ? [item.range] : []);
+  return ranges.length ? {
+    start: ranges.reduce((a, b) => a < b.start ? a : b.start, ranges[0].start),
+    end: ranges.reduce((a, b) => a > b.end ? a : b.end, ranges[0].end),
+  } : null;
+}
+/** Questions route work, but are never timeline rows or date sources.
+ * Parents use children exclusively; only leaves keep their own planned dates. */
+export function projectRoadmapWork(roots: QuestionNode[], roadmap: ProjectGanttRoadmap) {
+  const grouped = groupRoadmapQuestions(roots, roadmap);
+  const seen = new Set<string>();
+  const eligibleActions = new Set<string>();
+  const collectAction = (action: import("./question-tree-types").ActionNode) => {
+    if (action.isProposed || eligibleActions.has(action.id)) return;
+    eligibleActions.add(action.id);
+    action.children.forEach(collectAction);
+  };
+  const collectQuestion = (node: QuestionNode) => {
+    node.actions.forEach(collectAction);
+    node.children.forEach(collectQuestion);
+  };
+  [...grouped.byPhase.values(), grouped.ungrouped].flat().forEach(collectQuestion);
+  const actionItem = (action: import("./question-tree-types").ActionNode): RoadmapWorkItem[] => {
+    if (action.isProposed || seen.has(action.id)) return [];
+    seen.add(action.id);
+    const children = action.children.flatMap(actionItem);
+    const range = action.children.some(child => !child.isProposed) ? spanWork(children) : action.plannedEnd
+      ? {start: action.plannedStart ?? action.plannedEnd, end: action.plannedEnd} : null;
+    return [{id: action.id, title: action.title, kind: "task", range, children, action}];
+  };
+  const questionItems = (node: QuestionNode): RoadmapWorkItem[] => {
+    const children = [...node.children.flatMap(questionItems), ...node.actions.filter(a => !a.parentId || !eligibleActions.has(a.parentId)).flatMap(actionItem)];
+    if (node.questionKind !== "milestone") return children;
+    return [{id: node.id, title: node.title, kind: "milestone", children,
+      range: children.length ? spanWork(children) : node.dueDate ? {start: node.dueDate, end: node.dueDate} : null}];
+  };
+  const phases = roadmap.phases.map(phase => {
+    const items = (grouped.byPhase.get(phase.id) ?? []).flatMap(questionItems);
+    return {...phase, items, range: items.length ? spanWork(items) : {start: phase.start, end: phase.end}};
+  });
+  // Keep the slide's shared lanes until edited children make their ranges overlap.
+  const placed: typeof phases = [];
+  for (const phase of phases) {
+    while (placed.some(other => other.group === phase.group && other.row === phase.row &&
+      (!other.range || !phase.range || (other.range.start <= phase.range.end && phase.range.start <= other.range.end)))) phase.row++;
+    placed.push(phase);
+  }
+  const ungrouped = grouped.ungrouped.flatMap(questionItems);
+  const ranges = [...phases.flatMap(p => p.range ? [p.range] : []), ...ungrouped.flatMap(i => i.range ? [i.range] : [])];
+  const min = ranges.reduce((a, b) => a < b.start ? a : b.start, roadmap.start);
+  const max = ranges.reduce((a, b) => a > b.end ? a : b.end, roadmap.end);
+  const startMonth = Math.floor((Number(min.slice(5, 7)) - 1) / 3) * 3 + 1;
+  const endMonth = Math.floor((Number(max.slice(5, 7)) - 1) / 3) * 3 + 3;
+  const start = `${min.slice(0, 4)}-${String(startMonth).padStart(2, "0")}-01`;
+  const end = new Date(Date.UTC(Number(max.slice(0, 4)), endMonth, 0)).toISOString().slice(0, 10);
+  return {phases, ungrouped, start, end};
+}

@@ -53,3 +53,18 @@
 
 .roadmap .bar { min-height: 0; min-width: 0; }
 .roadmap .toolbar button { min-height: 32px; }
+.workRow { display: grid; grid-template-columns: var(--gantt-lead) minmax(0, 1fr); border-bottom: 1px solid #e6ebe7; min-height: 56px; }
+.workLead { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #fafcfb; min-width: 0; }
+.workLead small { font-size: 10px; color: #61746a; flex-shrink: 0; }
+.roadmap .workTitle { border: 0; background: transparent; text-align: left; padding: 4px 0; font-size: 12px; line-height: 1.5; color: #25362e; min-width: 0; overflow-wrap: anywhere; }
+.roadmap .workToggle { flex-shrink: 0; min-width: 28px; min-height: 32px; border: 1px solid #d2dcd6; background: white; color: #334c3f; border-radius: 4px; }
+.roadmap .workBar { position: absolute; top: 18px; height: 20px; min-height: 0; min-width: 0; padding: 0; background: #668252; border: 0; border-radius: 3px; color: #0876a5; }
+.workBar[data-summary="true"] { background: #a7b99b; border-bottom: 3px solid #59724a; }
+.noDate { display: block; padding: 18px 12px; color: #748279; font-size: 11px; }
+.roadmap .unscheduledPhase { position: relative; margin: 8px; padding: 8px 12px; background: #fff; border: 1px dashed #8eaa9b; border-radius: 4px; color: #425448; font-size: 12px; }
+.unscheduledPhase small { margin-left: 8px; }
+
+.roadmap .bar[data-narrow="true"] { min-width: 6px; padding: 0; border-radius: 2px; }
+.bar[data-narrow="true"] span { position: absolute; right: 12px; white-space: nowrap; color: #344c40; background: #f3f6f4ed; padding: 4px 6px; border-radius: 3px; }
+.bar[data-narrow="true"] small { position: absolute; left: 8px; color: #344c40; }
+.workRow [data-bar="true"] { top: 18px; height: 20px; }
