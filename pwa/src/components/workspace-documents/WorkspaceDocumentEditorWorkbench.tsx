@@ -195,7 +195,7 @@ export function WorkspaceDocumentEditorWorkbench({ documentId, displayName, back
   async function submitHtmlSource(expectedSha256: string | null) {
     if (overlay !== "source") return;
     if (!expectedSha256) {
-      setError("編集前の内容を確認できていないよ。いったん閉じて開き直してね。");
+      setError("編集前の内容を確認できていないよ。いったん閉じて開き直してください。");
       return;
     }
     setBusy(true);
@@ -328,7 +328,7 @@ export function WorkspaceDocumentEditorWorkbench({ documentId, displayName, back
    */
   async function restoreRevision(revisionNo: number) {
     if (!revisionsCurrentSha256) {
-      setError("いまの内容を確認できていないよ。版履歴を開き直してね。");
+      setError("いまの内容を確認できていないよ。版履歴を開き直してください。");
       return;
     }
     setBusy(true);
@@ -355,7 +355,7 @@ export function WorkspaceDocumentEditorWorkbench({ documentId, displayName, back
           typeof payload.currentSha256 === "string" ? payload.currentSha256 : null,
         );
         throw new Error(
-          payload.error || "別のセッションがこの資料を更新しているよ。もう一度試してね。",
+          payload.error || "別のセッションがこの資料を更新しているよ。もう一度試してください。",
         );
       }
       if (!response.ok || !payload.ok) {

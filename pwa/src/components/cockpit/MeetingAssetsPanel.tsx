@@ -187,7 +187,7 @@ export function MeetingAssetsPanel({ meeting, onMeetingUpdated }: Props) {
     try {
       if (!navigator.clipboard || typeof navigator.clipboard.read !== "function") {
         dropzoneRef.current?.focus();
-        setNote("この枠にフォーカスして Cmd+V してね");
+        setNote("この枠にフォーカスして Cmd+V してください");
         return;
       }
       const items = await navigator.clipboard.read();

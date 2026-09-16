@@ -1036,7 +1036,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                 `元情報:\n${sourceSummary}`,
                 "通知の種類:\nD-7 Textbook Insights。AMD OS内の記録から、BZM / Before Zero 実践テキストに残せそうな学びを候補化した通知。",
                 `追記先:\n${appendTarget}`,
-                `BZMに追記される内容:\n${bodyText || "追記候補本文が空。判断せず、コメントで再抽出を依頼してね。"}`,
+                `BZMに追記される内容:\n${bodyText || "追記候補本文が空。判断せず、コメントで再抽出を依頼してください。"}`,
                 `判断の目安:\n${textbookDecisionGuide(String(r.insight_type ?? ""), Number(r.priority ?? 0), practiceKind, sourceTables)}`,
                 "押すと起きること:\n「BZM追記を承認」を押すと、この候補が承認済みになる。Web本番からBZM本文を直接書き換えず、後続のローカル反映処理が承認済み候補だけをBZMのmdへ追記する。「BZMには入れない」を押すと候補を不採用にする。",
                 `AMDプロトコルとの関係:\n${textbookProtocolRelationship(sourceTables, practiceKind)}`,
@@ -1366,7 +1366,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
         && isImportantEvidenceCoverageGap(i.data as Notification)
         && objectValue(created.applyResult).applied !== true
       ) {
-        alert("保存に失敗したため、候補は未対応のまま残した。もう一度試すか、コメントで再確認を依頼してね。");
+        alert("保存に失敗したため、候補は未対応のまま残した。もう一度試すか、コメントで再確認を依頼してください。");
         return;
       }
       // 楽観的反映
@@ -1743,7 +1743,7 @@ function DetailSection({ detail, title = "抽出された内容" }: { detail: De
   }
   const rows = detail.rows ?? [];
   if (rows.length === 0) {
-    return <div className="text-xs text-muted-foreground italic">この通知に紐づく詳細行は表示できませんでした。通知本文と確認先を見て判断してね。</div>;
+    return <div className="text-xs text-muted-foreground italic">この通知に紐づく詳細行は表示できませんでした。通知本文と確認先を見て判断してください。</div>;
   }
   return (
     <div className="space-y-2 bg-muted/30 rounded p-2">
@@ -2324,7 +2324,7 @@ function coverageGapQuestionSubject(n: Notification): string {
 
 function coverageGapQuestionSummary(n: Notification): string {
   if (isGovernanceCoverageGap(n)) {
-    return "この候補は、メールや資料から見つけた開催情報の下書き。採用するまで会社概要の開催履歴には追加されない。追加先と追加する情報を確認してから判断してね。";
+    return "この候補は、メールや資料から見つけた開催情報の下書き。採用するまで会社概要の開催履歴には追加されない。追加先と追加する情報を確認してから判断してください。";
   }
   if (isImportantEvidenceCoverageGap(n)) {
     return "資料・メール・会議・Slack・Notionから抜き出した重要な事実の候補。下の値、根拠、期間、重複数を確認して、AMD OSの重要情報として保存するか判断する。";
@@ -2718,7 +2718,7 @@ function notificationFallbackRows(n: Notification): NonNullable<DetailRow["rows"
       heading: `${l2KindLabel(n.l2_kind)} [通知本文]`,
       body: [
         n.summary || "(summaryなし)",
-        "この通知種別は、対応する正本行の詳細表示がまだ個別実装されていないか、通知作成後に候補行が移動/統合されている可能性がある。通知本文と下の確認先を見て判断してね。",
+        "この通知種別は、対応する正本行の詳細表示がまだ個別実装されていないか、通知作成後に候補行が移動/統合されている可能性がある。通知本文と下の確認先を見て判断してください。",
       ].join("\n"),
       sub: [n.scope_key ? `scope=${n.scope_key}` : "", ...metaBits].filter(Boolean).join(" · ") || undefined,
     },

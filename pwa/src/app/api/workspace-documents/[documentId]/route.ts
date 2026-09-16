@@ -51,12 +51,12 @@ export async function PATCH(
   { params }: { params: Promise<{ documentId: string }> },
 ) {
   if (!isSameOriginWorkspaceMutation(request)) {
-    return json({ ok: false, error: "この操作元は確認できないよ。画面を再読み込みしてね。" }, 403);
+    return json({ ok: false, error: "この操作元は確認できないよ。画面を再読み込みしてください。" }, 403);
   }
 
   const { documentId } = await params;
   const body = await readBody(request);
-  if (!body || typeof body.action !== "string") return json({ ok: false, error: "操作内容が不正だよ。" }, 400);
+  if (!body || typeof body.action !== "string") return json({ ok: false, error: "操作内容が不正です。" }, 400);
 
   const db = createAdminClient();
   const { data, error } = await db
@@ -184,13 +184,13 @@ export async function PATCH(
 
   if (!access.canManage) return json({ ok: false, error: "この資料は整理できないよ。" }, 403);
 
-  if (body.action !== "organize") return json({ ok: false, error: "操作内容が不正だよ。" }, 400);
+  if (body.action !== "organize") return json({ ok: false, error: "操作内容が不正です。" }, 400);
 
   const displayName = normalizeDocumentName(body.displayName);
   const folderPath = normalizeDocumentFolderPath(body.folderPath);
   let visibility = normalizeDocumentVisibility(body.visibility, row.visibility);
   if (!displayName || folderPath == null || !visibility) {
-    return json({ ok: false, error: "資料名・移動先・共有範囲を確認してね。" }, 400);
+    return json({ ok: false, error: "資料名・移動先・共有範囲を確認してください。" }, 400);
   }
   if (access.principal === "workspace_account") visibility = "workspace_shared";
   // externalアカウントは常にworkspace_sharedへ固定されるため、この時点でvisibilityが
@@ -220,7 +220,7 @@ export async function PATCH(
       if (!cascadeVisibility) {
         return json({
           ok: false,
-          error: "外部共有中の資料が入ってるため、先に中身の共有範囲を変えてね。",
+          error: "外部共有中の資料が入ってるため、先に中身の共有範囲を変えてください。",
           code: "shared_descendants",
           affected: cascadeAffected,
         }, 409);

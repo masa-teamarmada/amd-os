@@ -108,7 +108,7 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
   if (state.status === "error") {
     return (
       <section className="dashboard-desk-section px-3 py-3 text-[13px] text-[var(--desk-muted)]">
-        PJポートフォリオを読み込めなかった。再読み込みしてね。
+        PJポートフォリオを読み込めなかった。再読み込みしてください。
       </section>
     );
   }

@@ -158,7 +158,7 @@ async function handleReimbursement(
   }
   const reimbursementId = String(parsed.reimbursementId ?? "").trim();
   if (!reimbursementId) {
-    await replyInThread(client, channel, threadTs, "⚠️ 立替IDが取れなかった。OSから承認してね");
+    await replyInThread(client, channel, threadTs, "⚠️ 立替IDが取れなかった。OSから承認してください");
     return;
   }
 

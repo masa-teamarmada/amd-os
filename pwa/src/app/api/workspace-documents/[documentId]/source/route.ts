@@ -57,7 +57,7 @@ export async function PUT(
   { params }: { params: Promise<{ documentId: string }> },
 ) {
   if (!isSameOriginWorkspaceMutation(request)) {
-    return json({ ok: false, error: "この操作元を確認できないよ。画面を再読み込みしてね。" }, 403);
+    return json({ ok: false, error: "この操作元を確認できないよ。画面を再読み込みしてください。" }, 403);
   }
 
   const { documentId } = await params;
@@ -68,18 +68,18 @@ export async function PUT(
     | { source?: unknown; expectedSha256?: unknown; note?: unknown; mode?: unknown }
     | null;
   if (!body || typeof body !== "object") {
-    return json({ ok: false, error: "保存の形式が古いよ。画面を再読み込みしてね。" }, 400);
+    return json({ ok: false, error: "保存の形式が古いよ。画面を再読み込みしてください。" }, 400);
   }
   const normalized = normalizeWorkspaceDocumentHtmlSource(body.source);
   if (!normalized) {
-    return json({ ok: false, error: "HTML編集は空欄にできず、本文は5MBまでだよ。" }, 400);
+    return json({ ok: false, error: "HTML編集は空欄にできず、本文は5MBまでです。" }, 400);
   }
   // deck = 直接操作エディタ。フレームは資料のscriptとDOCTYPEを持たないので、
   // 受け取ったHTMLをそのまま現物にすると資料のJSが消える。保存本文は現物から組み直す。
   const deckMode = body.mode === "deck";
   // 楽観ロックのキーはクライアント任せにしない。GETで渡した形式のsha256でなければ受け付けない。
   if (!isWorkspaceDocumentSha256(body.expectedSha256)) {
-    return json({ ok: false, error: "編集前の版を確認できないよ。画面を再読み込みしてね。" }, 400);
+    return json({ ok: false, error: "編集前の版を確認できないよ。画面を再読み込みしてください。" }, 400);
   }
 
   const replaced = await replaceWorkspaceHtmlSource({

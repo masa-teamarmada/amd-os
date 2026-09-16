@@ -629,7 +629,7 @@ function AmountChangeReasonEditor({
 
   const save = async () => {
     if (!canSave) {
-      setMessage("理由は8文字以上で入力してね。");
+      setMessage("理由は8文字以上で入力してください。");
       return;
     }
     setSaving(true);
@@ -715,7 +715,7 @@ function AmountChangeReasonEditor({
             ? "保存すると、OSの説明の上にこの補足が出る。"
             : requirement.autoExplained
               ? "書かなくていい。書くなら8文字以上。"
-              : "理由は8文字以上で入力してね。"}
+              : "理由は8文字以上で入力してください。"}
         </p>
         <button
           type="button"

@@ -203,19 +203,19 @@ function fail(path: string, message: string): never {
 }
 
 function readRecord(value: unknown, path: string): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) fail(path, "オブジェクトが必要だよ。");
+  if (!value || typeof value !== "object" || Array.isArray(value)) fail(path, "オブジェクトが必要です。");
   return value as Record<string, unknown>;
 }
 
 function readArray(value: unknown, path: string, max: number): unknown[] {
-  if (!Array.isArray(value)) fail(path, "配列が必要だよ。");
+  if (!Array.isArray(value)) fail(path, "配列が必要です。");
   if (value.length > max) fail(path, `多すぎるよ (${max}件まで)。`);
   return value;
 }
 
 /** 表示文字列の共通検査。制御文字は表示・PDF化・PPTX化のどこかで必ず化けるので通さない。 */
 function readText(value: unknown, path: string, max: number): string {
-  if (typeof value !== "string") fail(path, "文字列が必要だよ。");
+  if (typeof value !== "string") fail(path, "文字列が必要です。");
   if (CONTROL_CHARACTERS.test(value)) fail(path, "使えない制御文字が入っているよ。");
   if (value.length > max) fail(path, `長すぎるよ (${max}文字まで)。`);
   return value;
@@ -241,19 +241,19 @@ function readEnum<T extends string>(
 ): T {
   if (value == null || value === "") {
     if (fallback !== undefined) return fallback;
-    fail(path, "指定が必要だよ。");
+    fail(path, "指定が必要です。");
   }
   if (typeof value !== "string" || !allowed.includes(value as T)) {
-    fail(path, `${allowed.join(" / ")} のどれかにしてね。`);
+    fail(path, `${allowed.join(" / ")} のどれかにしてください。`);
   }
   return value as T;
 }
 
 function readInt(value: unknown, path: string, min: number, max: number, fallback: number): number {
   if (value == null || value === "") return fallback;
-  if (typeof value !== "number" || !Number.isFinite(value)) fail(path, "数値が必要だよ。");
+  if (typeof value !== "number" || !Number.isFinite(value)) fail(path, "数値が必要です。");
   const rounded = Math.round(value);
-  if (rounded < min || rounded > max) fail(path, `${min}〜${max}の範囲にしてね。`);
+  if (rounded < min || rounded > max) fail(path, `${min}〜${max}の範囲にしてください。`);
   return rounded;
 }
 
@@ -267,7 +267,7 @@ function readHref(value: unknown, path: string): string {
   if (lowered.startsWith("http://") || lowered.startsWith("https://") || lowered.startsWith("mailto:")) {
     return raw;
   }
-  fail(path, "リンクは http / https / mailto だけだよ。");
+  fail(path, "リンクは http / https / mailto だけです。");
 }
 
 // ---------------------------------------------------------------------------
@@ -431,7 +431,7 @@ function claimId(rawId: unknown, fallback: string, path: string, usedIds: Set<st
   let id = fallback;
   if (rawId != null && rawId !== "") {
     if (typeof rawId !== "string" || !ID_PATTERN.test(rawId)) {
-      fail(path, "idは英数字と - _ の40文字までだよ。");
+      fail(path, "idは英数字と - _ の40文字までです。");
     }
     if (usedIds.has(rawId)) fail(path, "同じidが2つあるよ。");
     id = rawId;
@@ -448,7 +448,7 @@ function normalizeBlock(value: unknown, path: string, context: BlockContext, fal
   const record = readRecord(value, path);
   const type = readText(record.type, `${path}.type`, 40);
   const spec = WORKSPACE_DECK_BLOCK_SPECS[type];
-  if (!spec) fail(`${path}.type`, `知らないブロック「${type}」だよ。`);
+  if (!spec) fail(`${path}.type`, `知らないブロック「${type}」です。`);
   if (spec.fixedOnly && context.slideMode !== "fixed16x9") {
     fail(`${path}.type`, `${spec.label}は固定16:9のスライドでだけ置けるよ。`);
   }
@@ -474,7 +474,7 @@ function normalizeBlock(value: unknown, path: string, context: BlockContext, fal
     }
     case "bullets": {
       const items = readArray(slots.items, `${path}.slots.items`, WORKSPACE_DECK_LIMITS.bulletItems);
-      if (!items.length) fail(`${path}.slots.items`, "1行以上入れてね。");
+      if (!items.length) fail(`${path}.slots.items`, "1行以上入れてください。");
       return {
         ...base,
         type: "bullets",
@@ -536,7 +536,7 @@ function normalizeBlock(value: unknown, path: string, context: BlockContext, fal
       };
       const title = readOptionalText(slots.title, `${path}.slots.title`, WORKSPACE_DECK_LIMITS.title);
       if (title) callout.slots.title = title;
-      if (!callout.slots.body.length && !title) fail(`${path}.slots.body`, "本文を入れてね。");
+      if (!callout.slots.body.length && !title) fail(`${path}.slots.body`, "本文を入れてください。");
       return callout;
     }
     case "image": {
@@ -554,7 +554,7 @@ function normalizeBlock(value: unknown, path: string, context: BlockContext, fal
     }
     case "kpiRow": {
       const items = readArray(slots.items, `${path}.slots.items`, WORKSPACE_DECK_LIMITS.kpiItems);
-      if (!items.length) fail(`${path}.slots.items`, "1つ以上入れてね。");
+      if (!items.length) fail(`${path}.slots.items`, "1つ以上入れてください。");
       return {
         ...base,
         type: "kpiRow",
@@ -625,7 +625,7 @@ function normalizeTokens(value: unknown, path: string): WorkspaceDeckTokens {
     if (raw == null || raw === "") continue;
     const color = readText(raw, `${path}.${key}`, 7).trim().toLowerCase();
     // 色は #rrggbb だけ。CSSへそのまま入れるので、任意の文字列を通すと宣言を割られる。
-    if (!HEX_COLOR_PATTERN.test(color)) fail(`${path}.${key}`, "色は #rrggbb 形式で書いてね。");
+    if (!HEX_COLOR_PATTERN.test(color)) fail(`${path}.${key}`, "色は #rrggbb 形式で書いてください。");
     tokens[key] = color;
   }
   return tokens;
@@ -646,7 +646,7 @@ export function normalizeWorkspaceDeck(value: unknown, updatedAtFallback?: strin
       WORKSPACE_DOCUMENT_DECK_SCHEMA_VERSION,
     );
     if (schemaVersion !== WORKSPACE_DOCUMENT_DECK_SCHEMA_VERSION) {
-      fail("deck.schemaVersion", `このOSが読めるのはschema v${WORKSPACE_DOCUMENT_DECK_SCHEMA_VERSION}だけだよ。`);
+      fail("deck.schemaVersion", `このOSが読めるのはschema v${WORKSPACE_DOCUMENT_DECK_SCHEMA_VERSION}だけです。`);
     }
 
     const meta = readRecord(record.meta, "deck.meta");
@@ -700,7 +700,7 @@ export function normalizeWorkspaceDeck(value: unknown, updatedAtFallback?: strin
 
     const byteLength = workspaceDeckByteLength(deck);
     if (byteLength > WORKSPACE_DOCUMENT_DECK_MODEL_MAX_BYTES) {
-      fail("deck", `モデルが大きすぎるよ (${Math.round(WORKSPACE_DOCUMENT_DECK_MODEL_MAX_BYTES / 1024 / 1024)}MBまで)。画像はアセットで持ってね。`);
+      fail("deck", `モデルが大きすぎるよ (${Math.round(WORKSPACE_DOCUMENT_DECK_MODEL_MAX_BYTES / 1024 / 1024)}MBまで)。画像はアセットで持ってください。`);
     }
     return { ok: true, deck };
   } catch (error) {

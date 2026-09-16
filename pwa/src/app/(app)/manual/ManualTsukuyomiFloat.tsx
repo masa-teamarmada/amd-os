@@ -48,7 +48,7 @@ export function ManualTsukuyomiFloat({ currentSlug }: ManualTsukuyomiFloatProps)
     {
       role: "assistant",
       content:
-        "OSマニュアルの中から探して答えるよ。むずい言葉はかみ砕くから、画面名・テーブル名・運用ルールをそのまま聞いてね。",
+        "OSマニュアルの中から探して答えるよ。むずい言葉はかみ砕くから、画面名・テーブル名・運用ルールをそのまま聞いてください。",
     },
   ]);
   const scrollRef = useRef<HTMLDivElement | null>(null);

@@ -913,11 +913,11 @@ export function QuestionTreeView({
         return false;
       }
       if (action.parentId) {
-        setError("子TODOは親TODOを移してね");
+        setError("子TODOは親TODOを移してください");
         return false;
       }
       if (action.isProposed && mode === "add") {
-        setError("未承認のTODOは、紐づけ先を1つだけ選んでね");
+        setError("未承認のTODOは、紐づけ先を1つだけ選んでください");
         return false;
       }
       const saved = await send("POST", {

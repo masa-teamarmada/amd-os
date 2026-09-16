@@ -84,7 +84,7 @@ export async function PUT(
   { params }: { params: Promise<{ documentId: string }> },
 ) {
   if (!isSameOriginWorkspaceMutation(request)) {
-    return json({ ok: false, error: "この操作元を確認できないよ。画面を再読み込みしてね。" }, 403);
+    return json({ ok: false, error: "この操作元を確認できないよ。画面を再読み込みしてください。" }, 403);
   }
 
   const { documentId } = await params;
@@ -95,13 +95,13 @@ export async function PUT(
     | { deck?: unknown; expectedSha256?: unknown; note?: unknown }
     | null;
   if (!body || typeof body !== "object") {
-    return json({ ok: false, error: "保存の形式が古いよ。画面を再読み込みしてね。" }, 400);
+    return json({ ok: false, error: "保存の形式が古いよ。画面を再読み込みしてください。" }, 400);
   }
 
   // 楽観ロックのキーをクライアント任せにしない。GETで渡した形式でなければ受け付けない。
   const hasExpected = body.expectedSha256 != null && body.expectedSha256 !== "";
   if (hasExpected && !isWorkspaceDocumentSha256(body.expectedSha256)) {
-    return json({ ok: false, error: "編集前の版を確認できないよ。画面を再読み込みしてね。" }, 400);
+    return json({ ok: false, error: "編集前の版を確認できないよ。画面を再読み込みしてください。" }, 400);
   }
 
   const validation = normalizeWorkspaceDeck(body.deck, new Date().toISOString());

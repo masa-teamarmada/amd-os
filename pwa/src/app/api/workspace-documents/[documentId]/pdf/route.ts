@@ -77,7 +77,7 @@ export async function GET(
     pdf = await renderWorkspaceDocumentHtmlToPdf(loaded.text);
   } catch (conversionError) {
     console.error("[workspace-documents] pdf conversion failed:", conversionError);
-    return json({ ok: false, error: "PDFを生成できなかったよ。時間をおいてもう一度試してね。" }, 502);
+    return json({ ok: false, error: "PDFを生成できなかったよ。時間をおいてもう一度試してください。" }, 502);
   }
   const maxOutputMb = Math.round(WORKSPACE_DOCUMENT_HTML_PDF_MAX_OUTPUT_BYTES / (1024 * 1024));
   if (pdf.byteLength > WORKSPACE_DOCUMENT_HTML_PDF_MAX_OUTPUT_BYTES) {
@@ -96,7 +96,7 @@ export async function GET(
     });
   if (uploadError) {
     console.error("[workspace-documents] pdf cache upload failed:", uploadError.message);
-    return json({ ok: false, error: "PDFを保存できなかったよ。時間をおいてもう一度試してね。" }, 500);
+    return json({ ok: false, error: "PDFを保存できなかったよ。時間をおいてもう一度試してください。" }, 500);
   }
 
   const downloadName = workspaceDocumentPdfDownloadName(row.display_name);

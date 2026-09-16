@@ -132,9 +132,9 @@ export default function LoginPage() {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
         <div className="w-full max-w-sm space-y-4 text-center">
-          <h1 className="text-lg font-semibold">メールを確認してね</h1>
+          <h1 className="text-lg font-semibold">メールを確認してください</h1>
           <p className="text-sm text-muted-foreground">
-            登録済みのメールアドレスなら、ログインリンクを送ったよ。届いていない場合は、入力したアドレスか迷惑メールフォルダを確認してね。
+            登録済みのメールアドレスなら、ログインリンクを送ったよ。届いていない場合は、入力したアドレスか迷惑メールフォルダを確認してください。
           </p>
         </div>
       </div>
@@ -169,12 +169,12 @@ export default function LoginPage() {
         )}
         {error === "member_not_registered" && (
           <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-left text-xs text-amber-800">
-            このGoogleアカウントはまだAMD OSに登録されてないよ。PJ管理者に招待を頼んでね。
+            このGoogleアカウントはまだAMD OSに登録されてないよ。PJ管理者に招待を頼んでください。
           </div>
         )}
         {error === "project_membership_required" && (
           <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-left text-xs text-amber-800">
-            PJ限定アカウントに有効なPJ参加設定がないよ。管理者側の設定を確認してね。
+            PJ限定アカウントに有効なPJ参加設定がないよ。管理者側の設定を確認してください。
           </div>
         )}
         {(error === "workspace_account_not_found"
@@ -183,7 +183,7 @@ export default function LoginPage() {
           || error === "workspace_account_conflict"
           || error === "workspace_auth_failed") && (
           <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-left text-xs text-amber-800">
-            このメールでのログインを完了できなかったよ。招待メールのリンクか、担当者からの案内を確認してね。
+            このメールでのログインを完了できなかったよ。招待メールのリンクか、担当者からの案内を確認してください。
           </div>
         )}
 

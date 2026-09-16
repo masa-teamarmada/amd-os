@@ -472,7 +472,7 @@ function MilestoneCreatePanel({ projectId, canManage, pillarDefaults }: {
           onSubmit={async (values) => {
             const track = String(values.track || "business_development") as keyof typeof pillarDefaults;
             const parents = pillarDefaults[track];
-            if (!parents) { setError("この柱の親となる成果目標が未登録だよ。先にワークスペースで成果目標を作ってね。"); return; }
+            if (!parents) { setError("この柱の親となる成果目標が未登録です。先にワークスペースで成果目標を作ってください。"); return; }
             const title = String(values.title || "工程");
             const ok = await submit({ method: "POST", resource: "milestone", fields: { ...values, objective_id: parents.objectiveId, outcome_id: parents.outcomeId, slug: slugify(title) } });
             if (ok) setOpen(false);

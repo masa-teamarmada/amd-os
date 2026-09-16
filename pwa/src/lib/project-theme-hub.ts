@@ -19,9 +19,9 @@ function isUniqueViolation(error: PgError | null | undefined): boolean {
 }
 
 function text(value: unknown, field: string, max = 1000): string {
-  if (typeof value !== "string") throw new ThemeHubError(`${field}は文字列で入力してね`);
+  if (typeof value !== "string") throw new ThemeHubError(`${field}は文字列で入力してください`);
   const normalized = value.trim();
-  if (!normalized) throw new ThemeHubError(`${field}を入力してね`);
+  if (!normalized) throw new ThemeHubError(`${field}を入力してください`);
   if (normalized.length > max) throw new ThemeHubError(`${field}が長すぎるよ`);
   return normalized;
 }
@@ -37,29 +37,29 @@ function optionalText(value: unknown, field: string, max = 4000): string | null 
 function optionalDate(value: unknown, field: string): string | null {
   if (value === null || value === undefined || value === "") return null;
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    throw new ThemeHubError(`${field}はYYYY-MM-DDの実在する日付で入力してね`);
+    throw new ThemeHubError(`${field}はYYYY-MM-DDの実在する日付で入力してください`);
   }
   const parsed = new Date(`${value}T00:00:00Z`);
   if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
-    throw new ThemeHubError(`${field}はYYYY-MM-DDの実在する日付で入力してね`);
+    throw new ThemeHubError(`${field}はYYYY-MM-DDの実在する日付で入力してください`);
   }
   return value;
 }
 
 function requiredDate(value: unknown, field: string): string {
   const date = optionalDate(value, field);
-  if (!date) throw new ThemeHubError(`${field}を入力してね`);
+  if (!date) throw new ThemeHubError(`${field}を入力してください`);
   return date;
 }
 
 function requiredVersion(value: unknown): number {
-  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) throw new ThemeHubError("expected_versionが必要だよ");
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) throw new ThemeHubError("expected_versionが必要です");
   return value;
 }
 
 function requiredTimestamp(value: unknown, field: string): string {
   if (typeof value !== "string" || !value || Number.isNaN(new Date(value).getTime())) {
-    throw new ThemeHubError(`${field}が必要だよ`);
+    throw new ThemeHubError(`${field}が必要です`);
   }
   return value;
 }
@@ -68,7 +68,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
 
 function optionalUuid(value: unknown, field: string): string | null {
   if (value === null || value === undefined || value === "") return null;
-  if (typeof value !== "string" || !UUID_RE.test(value)) throw new ThemeHubError(`${field}の形式が不正だよ`);
+  if (typeof value !== "string" || !UUID_RE.test(value)) throw new ThemeHubError(`${field}の形式が不正です`);
   return value;
 }
 
@@ -79,7 +79,7 @@ function optionalUuid(value: unknown, field: string): string | null {
 // client must generate one token up front and resend the SAME one on every retry of the same
 // logical action. A missing/invalid token is therefore a 400, not a silently-tolerated gap.
 function requiredUuid(value: unknown, field = "client_token"): string {
-  if (typeof value !== "string" || !UUID_RE.test(value)) throw new ThemeHubError(`${field}(冪等キー)が必要だよ`);
+  if (typeof value !== "string" || !UUID_RE.test(value)) throw new ThemeHubError(`${field}(冪等キー)が必要です`);
   return value;
 }
 
@@ -173,7 +173,7 @@ export async function upsertThemeProfile(
   if ("historyRows" in fields) {
     let rows;
     try { rows = parseThemeHistory(fields.historyRows); }
-    catch (error) { throw new ThemeHubError(error instanceof Error ? error.message : "経緯の形式が不正だよ"); }
+    catch (error) { throw new ThemeHubError(error instanceof Error ? error.message : "経緯の形式が不正です"); }
     // A source must already belong to this theme. Saving a summary never grants access or
     // silently changes membership; the existing MTG/document linking controls own that action.
     await Promise.all((["meeting", "document"] as const).map(async kind => {
@@ -186,7 +186,7 @@ export async function upsertThemeProfile(
         .in(idColumn, ids).is("deleted_at", null);
       if (error) throw new ThemeHubError("元記録の確認に失敗したよ", 500);
       const found = new Set((data ?? []).map(row => String((row as unknown as Record<string, unknown>)[idColumn])));
-      if (ids.some(id => !found.has(id))) throw new ThemeHubError("元記録を先にこのテーマへひもづけてね", 400);
+      if (ids.some(id => !found.has(id))) throw new ThemeHubError("元記録を先にこのテーマへひもづけてください", 400);
     }));
     patch.history_rows = rows;
   }
@@ -367,7 +367,7 @@ export async function unlinkMeeting(db: Db, projectId: string, trackKey: string,
 
 export async function linkExistingDocument(db: Db, projectId: string, trackKey: string, documentId: unknown, memberId: string) {
   const id = optionalUuid(documentId, "document_id");
-  if (!id) throw new ThemeHubError("document_idを入力してね");
+  if (!id) throw new ThemeHubError("document_idを入力してください");
   const { data: doc, error: docError } = await db
     .from("workspace_documents")
     .select("document_id,upload_status")
@@ -376,7 +376,7 @@ export async function linkExistingDocument(db: Db, projectId: string, trackKey: 
     .maybeSingle();
   if (docError) throw new ThemeHubError(`書類の確認に失敗したよ: ${docError.message}`, 500);
   if (!doc) throw new ThemeHubError("この書類はこのPJで見つからないよ", 404);
-  if (doc.upload_status !== "active") throw new ThemeHubError("この書類は現在利用できない状態だよ", 409);
+  if (doc.upload_status !== "active") throw new ThemeHubError("この書類は現在利用できない状態です", 409);
 
   await restoreOrInsertLink(
     db,
@@ -456,7 +456,7 @@ export async function createDeliverable(
     .eq("project_id", projectId).eq("track_key", trackKey).eq("client_token", clientToken)
     .maybeSingle();
   if (currentError || !current) throw new ThemeHubError("予定成果物を作成できなかったよ", 500);
-  if (current.deleted_at != null) throw new ThemeHubError("この予定成果物は削除済みだよ。新しい内容として作り直してね", 409);
+  if (current.deleted_at != null) throw new ThemeHubError("この予定成果物は削除済みです。新しい内容として作り直してください", 409);
   return String(current.id);
 }
 
@@ -479,7 +479,7 @@ export async function updateDeliverable(
   if ("ownerMemberId" in fields) patch.owner_member_id = fields.ownerMemberId ? text(fields.ownerMemberId, "owner_member_id", 80) : null;
   if ("dueOn" in fields) patch.due_on = optionalDate(fields.dueOn, "due_on");
   if ("status" in fields) {
-    if (typeof fields.status !== "string" || !DELIVERABLE_STATUSES.includes(fields.status)) throw new ThemeHubError("statusが不正だよ");
+    if (typeof fields.status !== "string" || !DELIVERABLE_STATUSES.includes(fields.status)) throw new ThemeHubError("statusが不正です");
     patch.status = fields.status;
   }
   if ("linkedDocumentId" in fields) patch.linked_document_id = optionalUuid(fields.linkedDocumentId, "linked_document_id");
@@ -587,9 +587,9 @@ export async function createWorkLink(
 ): Promise<string> {
   const fromKind = text(fields.fromKind, "from_kind", 40) as LinkKind;
   const toKind = text(fields.toKind, "to_kind", 40) as LinkKind;
-  if (!LINK_KINDS.includes(fromKind) || !LINK_KINDS.includes(toKind)) throw new ThemeHubError("関連の種類が不正だよ");
+  if (!LINK_KINDS.includes(fromKind) || !LINK_KINDS.includes(toKind)) throw new ThemeHubError("関連の種類が不正です");
   if (CANONICAL_FK_PAIRS.has(`${fromKind}:${toKind}`)) {
-    throw new ThemeHubError("この組み合わせは既存の管理画面(課題・タスク・マイルストーン)の接続を使ってね");
+    throw new ThemeHubError("この組み合わせは既存の管理画面(課題・タスク・マイルストーン)の接続を使ってください");
   }
   // 1024, not 80 (root review, UI completion phase, point 8): "meeting" is a LinkKind and its id
   // is the same free-text natural key as linkExistingMeeting's meetingId above (up to 190 chars
@@ -599,7 +599,7 @@ export async function createWorkLink(
   const toId = text(fields.toId, "to_id", 1024);
   if (fromKind === toKind && fromId === toId) throw new ThemeHubError("同じ項目同士は接続できないよ");
   const relation = fields.relation ? text(fields.relation, "relation", 40) : "relates_to";
-  if (!LINK_RELATIONS.includes(relation)) throw new ThemeHubError("relationが不正だよ");
+  if (!LINK_RELATIONS.includes(relation)) throw new ThemeHubError("relationが不正です");
   const clientToken = requiredUuid(fields.clientToken);
 
   // Defense in depth ahead of the DB trigger (project_theme_work_links_guard): same checks, a
@@ -608,9 +608,9 @@ export async function createWorkLink(
     resolveLinkEndpointProject(db, fromKind, fromId),
     resolveLinkEndpointProject(db, toKind, toId),
   ]);
-  if (!fromProject) throw new ThemeHubError(`${fromKind}が見つからないか非アクティブだよ`, 404);
-  if (!toProject) throw new ThemeHubError(`${toKind}が見つからないか非アクティブだよ`, 404);
-  if (fromProject !== projectId || toProject !== projectId) throw new ThemeHubError("関連先はこのPJの範囲内にしてね", 403);
+  if (!fromProject) throw new ThemeHubError(`${fromKind}が見つからないか非アクティブです`, 404);
+  if (!toProject) throw new ThemeHubError(`${toKind}が見つからないか非アクティブです`, 404);
+  if (fromProject !== projectId || toProject !== projectId) throw new ThemeHubError("関連先はこのPJの範囲内にしてください", 403);
 
   // client_token dedupe first (pure retry of the same request). root review (release checkpoint,
   // point 7): a retry of the same token whose row was deliberately soft-deleted since must not
@@ -623,7 +623,7 @@ export async function createWorkLink(
     .eq("project_id", projectId).eq("track_key", trackKey).eq("client_token", clientToken)
     .maybeSingle();
   if (byTokenError) throw new ThemeHubError(`関連の確認に失敗したよ: ${byTokenError.message}`, 500);
-  if (byToken?.deleted_at != null) throw new ThemeHubError("この関連は削除済みだよ。もう一度作り直してね", 409);
+  if (byToken?.deleted_at != null) throw new ThemeHubError("この関連は削除済みです。もう一度作り直してください", 409);
   if (byToken) return String(byToken.id);
 
   const { data, error } = await db

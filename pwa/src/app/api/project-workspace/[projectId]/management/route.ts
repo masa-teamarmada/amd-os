@@ -215,13 +215,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function parseResource(value: unknown): Resource {
   if (typeof value === "string" && value in RESOURCE_TABLES) return value as Resource;
-  throw new Error("対象の種類が不正だよ");
+  throw new Error("対象の種類が不正です");
 }
 
 function text(value: unknown, field: string, max = 1000) {
-  if (typeof value !== "string") throw new Error(`${field}は文字列で入力してね`);
+  if (typeof value !== "string") throw new Error(`${field}は文字列で入力してください`);
   const normalized = value.trim();
-  if (!normalized) throw new Error(`${field}を入力してね`);
+  if (!normalized) throw new Error(`${field}を入力してください`);
   if (normalized.length > max) throw new Error(`${field}が長すぎるよ`);
   return normalized;
 }
@@ -232,7 +232,7 @@ function optionalText(value: unknown, field: string, max = 1000) {
 }
 
 function enumValue(value: unknown, field: string, allowed: string[]) {
-  if (typeof value !== "string" || !allowed.includes(value)) throw new Error(`${field}が不正だよ`);
+  if (typeof value !== "string" || !allowed.includes(value)) throw new Error(`${field}が不正です`);
   return value;
 }
 
@@ -245,7 +245,7 @@ const DISPLAY_LANE_KEYS = [
 
 function displayLaneKeysValue(value: unknown, field: string) {
   if (value == null) return null;
-  if (!Array.isArray(value)) throw new Error(`${field}が不正だよ`);
+  if (!Array.isArray(value)) throw new Error(`${field}が不正です`);
   const keys = Array.from(
     new Set(value.map((entry) => enumValue(entry, field, DISPLAY_LANE_KEYS))),
   );
@@ -254,7 +254,7 @@ function displayLaneKeysValue(value: unknown, field: string) {
 
 function dateValue(value: unknown, field: string) {
   if (value === null || value === "") return null;
-  if (typeof value !== "string" || !isStrictCalendarDate(value)) throw new Error(`${field}はYYYY-MM-DDの実在する日付で入力してね`);
+  if (typeof value !== "string" || !isStrictCalendarDate(value)) throw new Error(`${field}はYYYY-MM-DDの実在する日付で入力してください`);
   return value;
 }
 
@@ -271,7 +271,7 @@ function dateValue(value: unknown, field: string) {
 // deleted_at/deleted_by, never planned_start/planned_end/version-guarded fields). Every other
 // resource's PATCH neither requires nor reads this field at all, deleting/restoring or not.
 function requiredExpectedVersion(value: unknown): number {
-  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) throw new Error("expected_versionが必要だよ");
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) throw new Error("expected_versionが必要です");
   return value;
 }
 
@@ -280,7 +280,7 @@ function requiredExpectedVersion(value: unknown): number {
 // existing row) value so a PATCH that only touches one of the two fields is still checked.
 function assertDatePrecisionConsistency(dateValueMerged: unknown, precisionMerged: unknown, dateLabel: string, precisionLabel: string) {
   if (precisionMerged === "unknown" && dateValueMerged != null) throw new Error(`${precisionLabel}が未確認のときは${dateLabel}を入力できないよ`);
-  if (precisionMerged !== "unknown" && dateValueMerged == null) throw new Error(`${precisionLabel}がday/monthのときは${dateLabel}を入力してね`);
+  if (precisionMerged !== "unknown" && dateValueMerged == null) throw new Error(`${precisionLabel}がday/monthのときは${dateLabel}を入力してください`);
 }
 
 // migration 192 CHECK contract: status=completed requires completion_criteria/
@@ -295,27 +295,27 @@ function assertWorkItemCompletionRequirements(
 ) {
   if (statusMerged !== "completed") return;
   if (merged.completionCriteria == null || merged.completionEvidence == null || merged.completedOn == null) {
-    throw new Error("保有事項を完了にするには完了条件・完了証跡・完了日が必要だよ");
+    throw new Error("保有事項を完了にするには完了条件・完了証跡・完了日が必要です");
   }
   if (itemKindMerged === "deliverable" && (merged.acceptedBy == null || merged.acceptedOn == null)) {
-    throw new Error("成果物を完了にするには受入担当・受入日が必要だよ");
+    throw new Error("成果物を完了にするには受入担当・受入日が必要です");
   }
 }
 
 function numericValue(value: unknown, field: string, { min = -Infinity, max = Infinity } = {}) {
   if (value === null || value === "") return null;
   const number = typeof value === "number" ? value : Number(value);
-  if (!Number.isFinite(number) || number < min || number > max) throw new Error(`${field}が不正だよ`);
+  if (!Number.isFinite(number) || number < min || number > max) throw new Error(`${field}が不正です`);
   return Math.round(number * 100) / 100;
 }
 
 function booleanValue(value: unknown, field: string) {
-  if (typeof value !== "boolean") throw new Error(`${field}は真偽値で入力してね`);
+  if (typeof value !== "boolean") throw new Error(`${field}は真偽値で入力してください`);
   return value;
 }
 
 function patchFor(resource: Resource, raw: unknown, projectTracks: string[]): Record<string, unknown> {
-  if (!isRecord(raw)) throw new Error("更新内容が空だよ");
+  if (!isRecord(raw)) throw new Error("更新内容が空です");
   const patch: Record<string, unknown> = {};
   const takeText = (input: string, output = input, max = 1000) => { if (input in raw) patch[output] = text(raw[input], input, max); };
   const takeOptionalText = (input: string, output = input, max = 1000) => { if (input in raw) patch[output] = optionalText(raw[input], input, max); };
@@ -431,7 +431,7 @@ function patchFor(resource: Resource, raw: unknown, projectTracks: string[]): Re
   }
   if (resource === "commitment") {
     takeText("title", "title", 180); takeText("commitment_text", "commitment_text", 1000); takeEnum("commitment_kind", ["counterparty_promise", "sx_followup"]); takeEnum("status", COMMITMENT_STATUSES); takeDate("promised_on"); takeDate("due_date"); takeDate("completed_on"); takeText("owner_label", "owner_label", 120); takeOptionalText("counterparty_owner", "counterparty_owner", 120); takeOptionalText("sx_owner", "sx_owner", 120); takeOptionalText("evidence", "evidence", 1200); takeDate("next_review_on"); takeEnum("confidence", CONFIDENCES);
-    if (patch.commitment_kind === "counterparty_promise" && (!patch.counterparty_owner || !patch.promised_on || !patch.evidence)) throw new Error("相手の約束には相手担当・約束日・一次根拠が必要だよ");
+    if (patch.commitment_kind === "counterparty_promise" && (!patch.counterparty_owner || !patch.promised_on || !patch.evidence)) throw new Error("相手の約束には相手担当・約束日・一次根拠が必要です");
   }
   if (resource === "dependency") {
     takeEnum("dependency_type", ["finish_to_start", "start_to_start", "finish_to_finish"]); takeBoolean("required"); takeNumber("lag_days", { min: 0 }); takeOptionalText("note", "note", 1000);
@@ -483,7 +483,7 @@ function safeDeletePatch(memberId: string) {
 }
 
 function createFor(resource: Resource, raw: unknown, projectId: string, memberId: string, today: string, projectTracks: string[]): Record<string, unknown> {
-  if (!isRecord(raw)) throw new Error("追加内容が空だよ");
+  if (!isRecord(raw)) throw new Error("追加内容が空です");
   const source = { source_kind: "manual", source_ref: "PWA共有管理画面" };
   const requiredText = (key: string, max = 1000) => text(raw[key], key, max);
   const optionalTextValue = (key: string, max = 1000) => raw[key] == null || raw[key] === "" ? null : text(raw[key], key, max);
@@ -501,7 +501,7 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
     ? null
     : /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(raw.client_token))
       ? String(raw.client_token)
-      : (() => { throw new Error("client_tokenの形式が不正だよ"); })();
+      : (() => { throw new Error("client_tokenの形式が不正です"); })();
   const requiredId = (key: string) => text(raw[key], key, 80);
   const common = (withSource = true) => withSource ? source : {};
 
@@ -523,7 +523,7 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
       !isBlockingMilestoneSlug(projectId, slug) &&
       !isValidPointMilestoneRange({ plannedStart, plannedEnd })
     ) {
-      throw new Error("このMSは単一の予定日として扱うため、開始日と完了日は同じにしてね");
+      throw new Error("このMSは単一の予定日として扱うため、開始日と完了日は同じにしてください");
     }
     const title = requiredText("title", 180);
     const pointMs = timelineKind === "milestone";
@@ -533,7 +533,7 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
     // project_management_milestones_objective_outcome_paired enforces this pairing too.
     const objectiveId = optionalId("objective_id");
     const outcomeId = optionalId("outcome_id");
-    if ((objectiveId == null) !== (outcomeId == null)) throw new Error("設立目標と成果はどちらも指定するか、どちらも空にしてね");
+    if ((objectiveId == null) !== (outcomeId == null)) throw new Error("設立目標と成果はどちらも指定するか、どちらも空にしてください");
     return {
       ...common(),
       project_id: projectId,
@@ -581,7 +581,7 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
     const thresholdRule = requiredEnum("threshold_rule", ["gte", "lte", "between"], "gte");
     const threshold = optionalNumber("threshold");
     const thresholdUpper = optionalNumber("threshold_upper");
-    if (thresholdRule === "between" && (threshold == null || thresholdUpper == null || threshold > thresholdUpper)) throw new Error("範囲内ルールは下限と上限を入力し、下限を上限以下にしてね");
+    if (thresholdRule === "between" && (threshold == null || thresholdUpper == null || threshold > thresholdUpper)) throw new Error("範囲内ルールは下限と上限を入力し、下限を上限以下にしてください");
     return { ...common(), project_id: projectId, outcome_id: requiredId("outcome_id"), track: requiredEnum("track", projectTracks), slug: requiredText("slug", 120), title: requiredText("title", 180), metric_kind: requiredText("metric_kind", 120), baseline: optionalNumber("baseline"), target: optionalNumber("target"), actual: optionalNumber("actual"), unit: requiredText("unit", 60), threshold, measurement_date: optionalDate("measurement_date"), frequency: requiredText("frequency", 60), source_label: requiredText("source_label", 240), threshold_rule: thresholdRule, threshold_upper: thresholdUpper, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), last_verified_at: today, created_by: memberId, updated_by: memberId };
   }
   if (resource === "issue") return { ...common(), project_id: projectId, milestone_id: optionalId("milestone_id"), outcome_id: optionalId("outcome_id"), slug: requiredText("slug", 120), client_token: optionalClientToken(), track: requiredEnum("track", projectTracks, projectTracks[0]), title: requiredText("title", 180), background: optionalTextValue("background", 4000), knowledge_type: requiredEnum("knowledge_type", ISSUE_KINDS, "fact"), status: requiredEnum("status", ISSUE_STATUSES, "open"), owner_label: optionalTextValue("owner_label", 120) || "未確認", due_date: optionalDate("due_date"), last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), created_by: memberId, updated_by: memberId };
@@ -591,12 +591,12 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
   if (resource === "decision") {
     const issueId = optionalId("issue_id");
     const hypothesisId = optionalId("hypothesis_id");
-    if (!issueId && !hypothesisId) throw new Error("意思決定には論点または仮説をつないでね");
+    if (!issueId && !hypothesisId) throw new Error("意思決定には論点または仮説をつないでください");
     const status = raw.status == null ? "pending" : raw.status === "open" ? "pending" : requiredEnum("status", DECISION_STATES);
     const decisionText = optionalTextValue("decision_text", 1200);
     const decidedBy = optionalTextValue("decided_by", 120);
     const decidedOn = optionalDate("decided_on");
-    if (status === "decided" && (!decisionText || !decidedBy || !decidedOn)) throw new Error("決定済みにするには決定内容・決定者・決定日が必要だよ");
+    if (status === "decided" && (!decisionText || !decidedBy || !decidedOn)) throw new Error("決定済みにするには決定内容・決定者・決定日が必要です");
     return { ...common(), project_id: projectId, issue_id: issueId, hypothesis_id: hypothesisId, client_token: optionalClientToken(), title: requiredText("title", 180), context: requiredText("context", 1200), decision_state: status, rationale: requiredText("rationale", 1200), decision_text: decisionText, decided_by: decidedBy, decided_on: decidedOn, owner_label: requiredText("owner_label", 120), due_date: optionalDate("due_date"), is_this_week: raw.is_this_week == null ? false : booleanValue(raw.is_this_week, "is_this_week"), sort_order: optionalNumber("sort_order", { min: 0 }) || 0, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), last_verified_at: today };
   }
   if (resource === "action") return { ...common(), project_id: projectId, decision_id: requiredId("decision_id"), client_token: optionalClientToken(), title: requiredText("title", 240), owner_label: requiredText("owner_label", 120), due_date: optionalDate("due_date"), completion_criteria: requiredText("completion_criteria", 1200), next_review_on: optionalDate("next_review_on"), status: requiredEnum("status", ACTION_STATUSES, "open"), completion_note: optionalTextValue("completion_note", 1200), completed_at: optionalDate("completed_at"), last_verified_at: today };
@@ -658,8 +658,8 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
     const dueDate = optionalDate("due_date");
     const nextReviewOn = optionalDate("next_review_on");
     const evidence = optionalTextValue("evidence", 1200);
-    if (kind === "counterparty_promise" && (!counterpartyOwner || !promisedOn || !evidence)) throw new Error("相手の約束には相手担当・約束日・一次根拠が必要だよ");
-    if (kind === "sx_followup" && (!sxOwner || !dueDate || !nextReviewOn)) throw new Error("SOL側の次アクションにはSOL担当・期限・次回確認が必要だよ");
+    if (kind === "counterparty_promise" && (!counterpartyOwner || !promisedOn || !evidence)) throw new Error("相手の約束には相手担当・約束日・一次根拠が必要です");
+    if (kind === "sx_followup" && (!sxOwner || !dueDate || !nextReviewOn)) throw new Error("SOL側の次アクションにはSOL担当・期限・次回確認が必要です");
     return { ...common(), project_id: projectId, partner_id: requiredId("partner_id"), title: requiredText("title", 180), commitment_text: requiredText("commitment_text", 1000), commitment_kind: kind, status: requiredEnum("status", COMMITMENT_STATUSES, "open"), promised_on: promisedOn, due_date: dueDate, completed_on: optionalDate("completed_on"), owner_label: requiredText("owner_label", 120), counterparty_owner: counterpartyOwner, sx_owner: sxOwner, evidence, next_review_on: nextReviewOn, last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
   }
   if (resource === "dependency") return { project_id: projectId, predecessor_milestone_id: requiredId("predecessor_milestone_id"), successor_milestone_id: requiredId("successor_milestone_id"), dependency_type: requiredEnum("dependency_type", ["finish_to_start", "start_to_start", "finish_to_finish"], "finish_to_start"), required: raw.required == null ? true : booleanValue(raw.required, "required"), lag_days: optionalNumber("lag_days", { min: 0 }) || 0, note: optionalTextValue("note", 1000), created_by: memberId };
@@ -702,7 +702,7 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
     // readable error instead of a raw constraint-violation message.
     const milestoneId = optionalId("milestone_id");
     const track = raw.track == null || raw.track === "" ? null : requiredEnum("track", projectTracks);
-    if (!milestoneId && !track) throw new Error("運用マイルストーンが無いタスクにはテーマ(track)が必要だよ");
+    if (!milestoneId && !track) throw new Error("運用マイルストーンが無いタスクにはテーマ(track)が必要です");
     // client_token: the gantt's existing milestone-bound task creation never sends one (this
     // route serves both callers), so it stays optional here rather than a hard requirement like
     // project-theme-hub.ts's own resources — but a *provided* token is validated as a real UUID
@@ -712,15 +712,15 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
       ? null
       : /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(raw.client_token))
         ? String(raw.client_token)
-        : (() => { throw new Error("client_tokenの形式が不正だよ"); })();
+        : (() => { throw new Error("client_tokenの形式が不正です"); })();
     return { ...common(), project_id: projectId, milestone_id: milestoneId, parent_task_id: optionalId("parent_task_id"), partner_id: optionalId("partner_id"), track, client_token: clientToken, title: requiredText("title", 180), description: optionalTextValue("description", 1600), status: requiredEnum("status", TASK_STATUSES, "unassessed"), planned_start: plannedStart, planned_end: plannedEnd, forecast_end: optionalDate("forecast_end"), actual_end: optionalDate("actual_end"), progress_pct: optionalNumber("progress_pct", { min: 0, max: 100 }) || 0, date_certainty: requiredEnum("date_certainty", ["confirmed", "provisional"], "provisional"), owner_member_id: optionalId("owner_member_id"), owner_label: requiredText("owner_label", 120), goal: optionalTextValue("goal", 1200), next_deliverable: optionalTextValue("next_deliverable", 500), blocker: optionalTextValue("blocker", 500), completion_criteria: optionalTextValue("completion_criteria", 1200), forecast_change_reason: optionalTextValue("forecast_change_reason", 500), sort_order: optionalNumber("sort_order", { min: 0 }) || 0, last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), created_by: memberId, updated_by: memberId };
   }
-  throw new Error("追加できる種類が不正だよ");
+  throw new Error("追加できる種類が不正です");
 }
 
 async function getWorkspaceContext(projectId: string) {
   const access = await getCurrentMemberAccess();
-  if (!access) return { response: NextResponse.json({ error: "ログインが必要だよ" }, { status: 401 }) };
+  if (!access) return { response: NextResponse.json({ error: "ログインが必要です" }, { status: 401 }) };
   if (!canAccessWorkspaceProject(access, projectId)) return { response: NextResponse.json({ error: "このPJの共有情報には入れないよ" }, { status: 404 }) };
   return { access };
 }
@@ -784,13 +784,13 @@ async function assertTaskPlacement(db: ReturnType<typeof createAdminClient>, pro
     .is("deleted_at", null)
     .maybeSingle();
   if (error) throw new Error(`親タスクの配置確認に失敗したよ: ${error.message}`);
-  if (!data) throw new Error("親タスクは同じタスク群から選んでね");
+  if (!data) throw new Error("親タスクは同じタスク群から選んでください");
   const parentMilestoneId = (data as { milestone_id: string | null }).milestone_id;
   // Standalone (milestone-less) tasks can only nest under another standalone task — the DB
   // trigger (project_management_task_guard) separately enforces that both then share the same
   // track (theme). A milestone-bound task keeps the original exact-match requirement.
   if (milestoneId ? String(parentMilestoneId) !== milestoneId : parentMilestoneId != null) {
-    throw new Error("親タスクは同じタスク群から選んでね");
+    throw new Error("親タスクは同じタスク群から選んでください");
   }
 }
 
@@ -809,7 +809,7 @@ async function assertMilestoneParentIntegrity(
   track: string,
 ) {
   if (objectiveId == null && outcomeId == null) return;
-  if (objectiveId == null || outcomeId == null) throw new Error("設立目標と成果はどちらも指定するか、どちらも空にしてね");
+  if (objectiveId == null || outcomeId == null) throw new Error("設立目標と成果はどちらも指定するか、どちらも空にしてください");
   const { data, error } = await db
     .from("project_management_outcomes")
     .select("objective_id,track")
@@ -818,7 +818,7 @@ async function assertMilestoneParentIntegrity(
     .is("deleted_at", null)
     .maybeSingle();
   if (error) throw new Error(`成果の確認に失敗したよ: ${error.message}`);
-  if (!data) throw new Error("outcome_idはこのPJの有効な成果につないでね");
+  if (!data) throw new Error("outcome_idはこのPJの有効な成果につないでください");
   const row = data as { objective_id: string; track: string };
   if (String(row.objective_id) !== objectiveId) throw new Error("接続する成果は選択した設立目標に属していないよ");
   if (String(row.track) !== track) throw new Error("接続する成果の柱とMSの柱が一致していないよ");
@@ -830,7 +830,7 @@ async function assertParentsInProject(db: ReturnType<typeof createAdminClient>, 
     if (id == null || id === "") continue;
     const { data, error } = await db.from(table).select("id").eq("id", String(id)).eq("project_id", projectId).is("deleted_at", null).maybeSingle();
     if (error) throw new Error(`親情報の確認に失敗したよ: ${error.message}`);
-    if (!data) throw new Error(`${field}はこのPJの有効な共有情報につないでね`);
+    if (!data) throw new Error(`${field}はこのPJの有効な共有情報につないでください`);
   }
 }
 
@@ -875,10 +875,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if ("response" in context) return context.response;
   try {
     const body: unknown = await request.json();
-    if (!isRecord(body)) throw new Error("追加内容が不正だよ");
+    if (!isRecord(body)) throw new Error("追加内容が不正です");
     if (body.resource === "issue_discussion") {
       const fields = body.fields ?? body.payload;
-      if (!isRecord(fields)) throw new Error("議論の進捗が空だよ");
+      if (!isRecord(fields)) throw new Error("議論の進捗が空です");
       const issueId = text(fields.issue_id, "issue_id", 80);
       const summary = text(fields.summary, "summary", 1600);
       const discussedOn = dateValue(fields.discussed_on ?? todayJst(), "discussed_on");
@@ -892,7 +892,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         ? null
         : /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(fields.id))
           ? String(fields.id)
-          : (() => { throw new Error("idの形式が不正だよ"); })();
+          : (() => { throw new Error("idの形式が不正です"); })();
       const db = createAdminClient();
       const { data: issue, error: issueError } = await db
         .from("project_management_issues")
@@ -1079,12 +1079,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if ("response" in context) return context.response;
   try {
     const body: unknown = await request.json();
-    if (!isRecord(body)) throw new Error("更新内容が不正だよ");
+    if (!isRecord(body)) throw new Error("更新内容が不正です");
     if (body.action === "reorder_tasks") {
       if (!Array.isArray(body.items) || body.items.length < 2 || body.items.length > 500)
-        throw new Error("並び替えるタスクが不正だよ");
+        throw new Error("並び替えるタスクが不正です");
       const items = body.items.map((item) => {
-        if (!isRecord(item)) throw new Error("並び替えるタスクが不正だよ");
+        if (!isRecord(item)) throw new Error("並び替えるタスクが不正です");
         return {
           id: text(item.id, "id", 80),
           expected_version: requiredExpectedVersion(item.expected_version),
@@ -1114,9 +1114,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     // 役に立たないため。並び順だけを動かす操作なので、内容の取り違えも起きない。
     if (body.action === "reorder_issues") {
       if (!Array.isArray(body.items) || body.items.length < 2 || body.items.length > 500)
-        throw new Error("並び替える論点が不正だよ");
+        throw new Error("並び替える論点が不正です");
       const items = body.items.map((item) => {
-        if (!isRecord(item)) throw new Error("並び替える論点が不正だよ");
+        if (!isRecord(item)) throw new Error("並び替える論点が不正です");
         return {
           id: text(item.id, "id", 80),
           sort_order: numericValue(item.sort_order, "sort_order", { min: 0 }),
@@ -1149,7 +1149,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (restoring && !meta.softDelete) throw new Error("この共有情報は復元に対応していないよ");
     const patch: Record<string, unknown> = deleting ? safeDeletePatch(context.access.memberId) : restoring ? { deleted_at: null, deleted_by: null } : patchFor(resource, body.patch, await getProjectTrackKeysCached(projectId));
     if (resource === "milestone" && !deleting && "status" in patch && !("status_source" in patch)) patch.status_source = "manual";
-    if (resource === "milestone" && patch.status_source === "override" && (!patch.status_override_reason || !patch.status_override_expires_on || !patch.status_override_approved_by)) throw new Error("状態の上書きには理由・期限・承認者が必要だよ");
+    if (resource === "milestone" && patch.status_source === "override" && (!patch.status_override_reason || !patch.status_override_expires_on || !patch.status_override_approved_by)) throw new Error("状態の上書きには理由・期限・承認者が必要です");
     if (meta.hasLastVerified && !deleting && !restoring) patch.last_verified_at = todayJst();
     // source_kind/source_ref: an ordinary edit always stamps manual provenance here (see
     // safeDeletePatch comment above — soft-delete/restore never reach this branch, so they leave
@@ -1172,31 +1172,31 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (resource === "milestone" && deleting) {
       const { data: attachedTasks, error: attachedError } = await db.from(RESOURCE_TABLES.task).select("id").eq("project_id", projectId).eq("milestone_id", id).is("deleted_at", null).limit(1);
       if (attachedError) throw new Error(`MS配下のタスク確認に失敗したよ: ${attachedError.message}`);
-      if (attachedTasks && attachedTasks.length > 0) throw new Error("このMSに紐づくタスクがあるから削除できないよ。先にタスクを別のMSへ移すか削除してね");
+      if (attachedTasks && attachedTasks.length > 0) throw new Error("このMSに紐づくタスクがあるから削除できないよ。先にタスクを別のMSへ移すか削除してください");
     }
     if (resource === "kpi" && !deleting && !restoring) {
       const mergedRule = typeof patch.threshold_rule === "string" ? patch.threshold_rule : String(beforeRecord.threshold_rule || "gte");
       const mergedThreshold = patch.threshold !== undefined ? patch.threshold : beforeRecord.threshold;
       const mergedUpper = patch.threshold_upper !== undefined ? patch.threshold_upper : beforeRecord.threshold_upper;
-      if (mergedRule === "between" && (mergedThreshold == null || mergedUpper == null || Number(mergedThreshold) > Number(mergedUpper))) throw new Error("範囲内ルールは下限と上限を入力し、下限を上限以下にしてね");
+      if (mergedRule === "between" && (mergedThreshold == null || mergedUpper == null || Number(mergedThreshold) > Number(mergedUpper))) throw new Error("範囲内ルールは下限と上限を入力し、下限を上限以下にしてください");
     }
     if (resource === "decision" && !deleting && !restoring) {
       const mergedState = typeof patch.decision_state === "string" ? patch.decision_state : String(beforeRecord.decision_state || "pending");
       const mergedDecisionText = patch.decision_text !== undefined ? patch.decision_text : beforeRecord.decision_text;
       const mergedDecidedBy = patch.decided_by !== undefined ? patch.decided_by : beforeRecord.decided_by;
       const mergedDecidedOn = patch.decided_on !== undefined ? patch.decided_on : beforeRecord.decided_on;
-      if (mergedState === "decided" && (!mergedDecisionText || !mergedDecidedBy || !mergedDecidedOn)) throw new Error("決定済みにするには決定内容・決定者・決定日が必要だよ");
+      if (mergedState === "decided" && (!mergedDecisionText || !mergedDecidedBy || !mergedDecidedOn)) throw new Error("決定済みにするには決定内容・決定者・決定日が必要です");
     }
     if (resource === "commitment" && !deleting && !restoring) {
       const mergedKind = typeof patch.commitment_kind === "string" ? patch.commitment_kind : String(beforeRecord.commitment_kind || "sx_followup");
       const mergedCounterparty = patch.counterparty_owner !== undefined ? patch.counterparty_owner : beforeRecord.counterparty_owner;
       const mergedPromisedOn = patch.promised_on !== undefined ? patch.promised_on : beforeRecord.promised_on;
       const mergedEvidence = patch.evidence !== undefined ? patch.evidence : beforeRecord.evidence;
-      if (mergedKind === "counterparty_promise" && (!mergedCounterparty || !mergedPromisedOn || !mergedEvidence)) throw new Error("相手の約束には相手担当・約束日・一次根拠が必要だよ");
+      if (mergedKind === "counterparty_promise" && (!mergedCounterparty || !mergedPromisedOn || !mergedEvidence)) throw new Error("相手の約束には相手担当・約束日・一次根拠が必要です");
       const mergedSxOwner = patch.sx_owner !== undefined ? patch.sx_owner : beforeRecord.sx_owner;
       const mergedDueDate = patch.due_date !== undefined ? patch.due_date : beforeRecord.due_date;
       const mergedNextReviewOn = patch.next_review_on !== undefined ? patch.next_review_on : beforeRecord.next_review_on;
-      if (mergedKind === "sx_followup" && (!mergedSxOwner || !mergedDueDate || !mergedNextReviewOn)) throw new Error("SOL側の次アクションにはSOL担当・期限・次回確認が必要だよ");
+      if (mergedKind === "sx_followup" && (!mergedSxOwner || !mergedDueDate || !mergedNextReviewOn)) throw new Error("SOL側の次アクションにはSOL担当・期限・次回確認が必要です");
     }
     if (resource === "partner" && !deleting && !restoring) {
       const mergedDueDate = patch.due_date !== undefined ? patch.due_date : beforeRecord.due_date;
@@ -1242,7 +1242,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           patch.planned_start as string | null | undefined,
           patch.planned_end as string | null | undefined,
         );
-        if (!normalized) throw new Error("このMSは単一の予定日として扱うため、開始日と完了日は同じにしてね");
+        if (!normalized) throw new Error("このMSは単一の予定日として扱うため、開始日と完了日は同じにしてください");
         patch.planned_start = normalized.plannedStart;
         patch.planned_end = normalized.plannedEnd;
       }
@@ -1270,7 +1270,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       const mergedTrack = patch.track !== undefined
         ? (patch.track ? String(patch.track) : null)
         : (beforeRecord.track ? String(beforeRecord.track) : null);
-      if (!mergedMilestoneId && !mergedTrack) throw new Error("運用マイルストーンが無いタスクにはテーマ(track)が必要だよ");
+      if (!mergedMilestoneId && !mergedTrack) throw new Error("運用マイルストーンが無いタスクにはテーマ(track)が必要です");
       const mergedParentTaskId = patch.parent_task_id !== undefined ? patch.parent_task_id ? String(patch.parent_task_id) : null : beforeRecord.parent_task_id ? String(beforeRecord.parent_task_id) : null;
       await assertTaskPlacement(db, projectId, mergedMilestoneId, mergedParentTaskId);
       await assertNoTaskCycle(db, projectId, id, mergedParentTaskId);
@@ -1317,7 +1317,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       const rollbackNote = rollbackError
         ? `（更新の補償復元にも失敗: ${rollbackError.message}）`
         : hasVersionColumn && (!rollbackData || rollbackData.length === 0)
-          ? "（この内容は既に別の変更で上書きされていたため、補償復元は安全に実行できなかったよ。最新の状態を確認してね）"
+          ? "（この内容は既に別の変更で上書きされていたため、補償復元は安全に実行できなかったよ。最新の状態を確認してください）"
           : "（更新内容は補償復元したよ）";
       throw new Error(`更新履歴の記録に失敗したよ: ${historyError.message}${rollbackNote}`);
     }

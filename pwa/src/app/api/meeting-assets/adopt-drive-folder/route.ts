@@ -77,7 +77,7 @@ async function authorize(req: NextRequest): Promise<{ ok: true; createdBy: strin
  */
 async function findMeetingFolders(projectDriveFolderId: string, datePrefix: string) {
   const auth = await getGoogleAuthAsync();
-  if (!auth) throw new Error("Google Drive credential が未設定だよ");
+  if (!auth) throw new Error("Google Drive credential が未設定です");
   const drive = google.drive({ version: "v3", auth });
 
   const res = await drive.files.list({
@@ -96,7 +96,7 @@ async function findMeetingFolders(projectDriveFolderId: string, datePrefix: stri
 
 async function listFolderFiles(folderId: string): Promise<AdoptCandidate[]> {
   const auth = await getGoogleAuthAsync();
-  if (!auth) throw new Error("Google Drive credential が未設定だよ");
+  if (!auth) throw new Error("Google Drive credential が未設定です");
   const drive = google.drive({ version: "v3", auth });
 
   const out: AdoptCandidate[] = [];
@@ -166,7 +166,7 @@ export async function POST(req: NextRequest) {
   }
   const projectDriveFolderId = text(project?.drive_folder_id, 220);
   if (!projectDriveFolderId) {
-    return NextResponse.json({ ok: false, error: "このPJに Drive folder id が未設定だよ" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "このPJに Drive folder id が未設定です" }, { status: 400 });
   }
 
   const datePrefix = yyMMdd(String(meeting.meeting_date || ""));
@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
   try {
     if (explicitFolderId) {
       const auth = await getGoogleAuthAsync();
-      if (!auth) throw new Error("Google Drive credential が未設定だよ");
+      if (!auth) throw new Error("Google Drive credential が未設定です");
       const drive = google.drive({ version: "v3", auth });
       const got = await drive.files.get({
         fileId: explicitFolderId,

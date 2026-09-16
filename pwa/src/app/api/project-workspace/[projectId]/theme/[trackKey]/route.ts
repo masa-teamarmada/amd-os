@@ -38,10 +38,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 async function getThemeHubWriteContext(request: NextRequest, projectId: string) {
   if (!isSameOriginWorkspaceMutation(request)) {
-    return { response: NextResponse.json({ error: "不正なリクエスト元だよ" }, { status: 403 }) };
+    return { response: NextResponse.json({ error: "不正なリクエスト元です" }, { status: 403 }) };
   }
   const access = await getCurrentMemberAccess();
-  if (!access) return { response: NextResponse.json({ error: "ログインが必要だよ" }, { status: 401 }) };
+  if (!access) return { response: NextResponse.json({ error: "ログインが必要です" }, { status: 401 }) };
   if (!canAccessWorkspaceProject(access, projectId)) {
     return { response: NextResponse.json({ error: "このPJの共有情報には入れないよ" }, { status: 404 }) };
   }
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   try {
     await assertValidTrack(db, projectId, trackKey);
     const body: unknown = await request.json();
-    if (!isRecord(body)) throw new ThemeHubError("入力内容が不正だよ");
+    if (!isRecord(body)) throw new ThemeHubError("入力内容が不正です");
     const fields = isRecord(body.fields) ? body.fields : {};
 
     switch (body.resource) {
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         return NextResponse.json({ ok: true, id }, { status: 201, headers: { "Cache-Control": "no-store" } });
       }
       default:
-        throw new ThemeHubError("対象の種類が不正だよ");
+        throw new ThemeHubError("対象の種類が不正です");
     }
   } catch (error) {
     if (error instanceof ThemeHubError) return NextResponse.json({ error: error.message }, { status: error.status });
@@ -129,7 +129,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   try {
     await assertValidTrack(db, projectId, trackKey);
     const body: unknown = await request.json();
-    if (!isRecord(body)) throw new ThemeHubError("入力内容が不正だよ");
+    if (!isRecord(body)) throw new ThemeHubError("入力内容が不正です");
     const fields = isRecord(body.fields) ? body.fields : {};
     const deleting = body.delete === true;
 
@@ -148,7 +148,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
       case "meeting": {
         const meetingId = typeof body.id === "string" ? body.id : "";
-        if (!meetingId) throw new ThemeHubError("idが不正だよ");
+        if (!meetingId) throw new ThemeHubError("idが不正です");
         if (deleting) {
           // Theme-unlink stays allowed — it removes this theme's association, it does not write
           // new content into project_meeting_summaries.
@@ -167,14 +167,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
       case "document": {
         const documentId = typeof body.id === "string" ? body.id : "";
-        if (!documentId) throw new ThemeHubError("idが不正だよ");
+        if (!documentId) throw new ThemeHubError("idが不正です");
         if (!deleting) throw new ThemeHubError("書類はリンクの作成/解除のみ対応しているよ");
         await unlinkDocument(db, projectId, trackKey, documentId, memberId, body.expected_version);
         return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
       }
       case "deliverable": {
         const id = typeof body.id === "string" ? body.id : "";
-        if (!id) throw new ThemeHubError("idが不正だよ");
+        if (!id) throw new ThemeHubError("idが不正です");
         if (deleting) {
           await deleteDeliverable(db, projectId, trackKey, id, memberId, body.expected_version);
         } else {
@@ -191,13 +191,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
       case "work_link": {
         const id = typeof body.id === "string" ? body.id : "";
-        if (!id) throw new ThemeHubError("idが不正だよ");
+        if (!id) throw new ThemeHubError("idが不正です");
         if (!deleting) throw new ThemeHubError("関連は作成/解除のみ対応しているよ");
         await deleteWorkLink(db, projectId, trackKey, id, memberId, body.expected_version);
         return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
       }
       default:
-        throw new ThemeHubError("対象の種類が不正だよ");
+        throw new ThemeHubError("対象の種類が不正です");
     }
   } catch (error) {
     if (error instanceof ThemeHubError) return NextResponse.json({ error: error.message }, { status: error.status });

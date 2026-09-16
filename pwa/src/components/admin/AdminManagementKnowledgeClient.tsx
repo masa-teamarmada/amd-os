@@ -316,7 +316,7 @@ export function AdminManagementKnowledgeClient({ initialEntries, projects, initi
   const saveForm = async () => {
     if (!editing) return;
     if (!editing.title.trim() || !editing.summary.trim()) {
-      setHint("タイトルと要約は必須だよ");
+      setHint("タイトルと要約は必須です");
       return;
     }
     setSaving(true);

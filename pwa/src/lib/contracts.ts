@@ -828,7 +828,7 @@ export function buildContractNudgeCandidate(row: {
     dryRunMessage: [
       `契約nudge: ${projectName} / ${row.contract_title}`,
       `相手先: ${counterpartyName}`,
-      `押印版が未保存のまま ${staleDays}日 経過しています。最新版/押印版の保存状況を確認してね。`,
+      `押印版が未保存のまま ${staleDays}日 経過しています。最新版/押印版の保存状況を確認してください。`,
     ].join("\n"),
     blocker,
   };

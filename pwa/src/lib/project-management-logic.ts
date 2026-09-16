@@ -301,15 +301,15 @@ export function computeManagementJudgment(input: JudgmentLogicInput): JudgmentLo
   else if (requiredIncomplete || input.criticalUnknownCount > 0 || input.staleCount > 0) key = "unassessed";
   else if (input.dueSoonCount > 0 || input.atRiskCount > 0) key = "attention";
 
-  if (input.overdueCount > 0) reasons.push(`期限超過 ${input.overdueCount}件。予定と予測の差分を確認してね`);
-  if (input.blockedCount > 0) reasons.push(`依存関係で停止しているゲート ${input.blockedCount}件。前提を解消してね`);
-  if (input.thresholdFailureCount > 0) reasons.push(`重要KPIが閾値外 ${input.thresholdFailureCount}件。実績と判定条件を確認してね`);
+  if (input.overdueCount > 0) reasons.push(`期限超過 ${input.overdueCount}件。予定と予測の差分を確認してください`);
+  if (input.blockedCount > 0) reasons.push(`依存関係で停止しているゲート ${input.blockedCount}件。前提を解消してください`);
+  if (input.thresholdFailureCount > 0) reasons.push(`重要KPIが閾値外 ${input.thresholdFailureCount}件。実績と判定条件を確認してください`);
   if (input.criticalUnknownCount > 0) reasons.push(`重要な未確認 ${input.criticalUnknownCount}件。根拠・測定値・完了条件が不足しているよ`);
   if (input.gateFailures.length > 0) reasons.push(`決定的ゲート未達 ${input.gateFailures.length}件。手入力の状態では順調にできないよ`);
-  if (input.staleCount > 0) reasons.push(`14日超の更新切れ ${input.staleCount}件。事実を再確認してね`);
-  if (requiredIncomplete) reasons.push(`必須項目の充足率が${completenessPct}%。担当・確度・証跡を補ってね`);
-  if (input.dueSoonCount > 0) reasons.push(`7日以内の期限 ${input.dueSoonCount}件。今週の判断と接続してね`);
-  if (input.atRiskCount > 0) reasons.push(`遅れ懸念のゲート ${input.atRiskCount}件。予測変更理由を確認してね`);
+  if (input.staleCount > 0) reasons.push(`14日超の更新切れ ${input.staleCount}件。事実を再確認してください`);
+  if (requiredIncomplete) reasons.push(`必須項目の充足率が${completenessPct}%。担当・確度・証跡を補ってください`);
+  if (input.dueSoonCount > 0) reasons.push(`7日以内の期限 ${input.dueSoonCount}件。今週の判断と接続してください`);
+  if (input.atRiskCount > 0) reasons.push(`遅れ懸念のゲート ${input.atRiskCount}件。予測変更理由を確認してください`);
   if (reasons.length === 0) reasons.push("期限・阻害・担当・確度・証跡を確認済み。現時点では大きな差分はないよ");
   return { key, reasons: reasons.slice(0, 3), completenessPct };
 }

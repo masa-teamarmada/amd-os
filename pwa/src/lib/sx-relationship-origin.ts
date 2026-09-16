@@ -8,7 +8,7 @@ export function assertSafeRelationshipOrigin(
   if (value == null) return;
   const candidate = String(value);
   if (/[\r\n]/.test(candidate)) {
-    throw new Error(`${label}は1行の短い要約で入力してね`);
+    throw new Error(`${label}は1行の短い要約で入力してください`);
   }
   if (RELATIONSHIP_ORIGIN_CONTACT_PATTERN.test(candidate)) {
     throw new Error(

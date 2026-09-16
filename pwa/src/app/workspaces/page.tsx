@@ -119,7 +119,7 @@ export default async function WorkspacesPage() {
           {projectLoad.status === "error" ? (
             <div role="alert" className="rounded-lg border border-[#d4a7a0] bg-[#fff4f2] px-4 py-4 text-sm text-[#7f2f27]">
               <p className="font-semibold">プロジェクト一覧を読み込めなかったよ。</p>
-              <p className="mt-1 text-xs">参加状況が0件になったわけではないよ。時間を置いて再読み込みしてね。</p>
+              <p className="mt-1 text-xs">参加状況が0件になったわけではないよ。時間を置いて再読み込みしてください。</p>
             </div>
           ) : projectLoad.projects.length === 0 ? (
             <p className="text-sm text-[#5c584d]">参加中のプロジェクトはありません。</p>

@@ -55,7 +55,7 @@ export function PaymentConfirmClient({ token }: { token: string }) {
     setError(null);
     setDone(null);
     try {
-      if (!Number.isFinite(amountNumber) || amountNumber <= 0) throw new Error("入金額を入れてね");
+      if (!Number.isFinite(amountNumber) || amountNumber <= 0) throw new Error("入金額を入れてください");
       const res = await fetch("/api/admin/payment-confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -72,7 +72,7 @@ export function PaymentConfirmClient({ token }: { token: string }) {
   }
 
   if (!token) {
-    return <Message title="リンクが足りない" body="Slackのボタンからもう一度開いてね。" tone="error" />;
+    return <Message title="リンクが足りない" body="Slackのボタンからもう一度開いてください。" tone="error" />;
   }
   if (!meta) {
     return <Message title="確認中" body="入金確認リンクを確認してる..." tone="muted" />;

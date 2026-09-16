@@ -174,7 +174,7 @@ export function AdminFinanceClient({ recurringItems, receiptEvents, officerReser
 
   const createItem = async () => {
     if (!draft.display_name.trim() && !draft.vendor_name.trim()) {
-      setHint("名前か支払先を入れてね");
+      setHint("名前か支払先を入れてください");
       return;
     }
     setCreating(true);

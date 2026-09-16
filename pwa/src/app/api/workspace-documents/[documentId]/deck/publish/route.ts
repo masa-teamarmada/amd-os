@@ -30,7 +30,7 @@ export async function POST(
   { params }: { params: Promise<{ documentId: string }> },
 ) {
   if (!isSameOriginWorkspaceMutation(request)) {
-    return json({ ok: false, error: "この操作元を確認できないよ。画面を再読み込みしてね。" }, 403);
+    return json({ ok: false, error: "この操作元を確認できないよ。画面を再読み込みしてください。" }, 403);
   }
 
   const { documentId } = await params;
@@ -39,7 +39,7 @@ export async function POST(
 
   const body = (await request.json().catch(() => null)) as { expectedSha256?: unknown } | null;
   if (!body || !isWorkspaceDocumentSha256(body.expectedSha256)) {
-    return json({ ok: false, error: "公開するデッキの版を確認できないよ。画面を再読み込みしてね。" }, 400);
+    return json({ ok: false, error: "公開するデッキの版を確認できないよ。画面を再読み込みしてください。" }, 400);
   }
 
   let deckRow;
@@ -54,7 +54,7 @@ export async function POST(
       ok: false,
       conflict: true,
       currentSha256: deckRow.model_sha256,
-      error: "別のセッションがこのデッキを更新しているよ。最新を読み込んでから公開してね。",
+      error: "別のセッションがこのデッキを更新しているよ。最新を読み込んでから公開してください。",
     }, 409);
   }
 
@@ -63,7 +63,7 @@ export async function POST(
     console.error("[workspace-documents] publish blocked by invalid deck:", documentId, validation.path);
     return json({
       ok: false,
-      error: `保存されているデッキを読めなかったよ (${validation.path})。版履歴から戻してね。`,
+      error: `保存されているデッキを読めなかったよ (${validation.path})。版履歴から戻してください。`,
     }, 409);
   }
 

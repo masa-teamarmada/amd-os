@@ -631,7 +631,7 @@ export function BzmTheoryMapView({
         body: { nodeId: dragged.id, positionX: dragged.x, positionY: dragged.y },
       });
       if (!result.ok) {
-        announce("error", "ノードの位置を保存できなかった。もう一度動かしてね。");
+        announce("error", "ノードの位置を保存できなかった。もう一度動かしてください。");
         return;
       }
       const updated = parseTheoryMapNodeDto(result.payload.node);
@@ -910,7 +910,7 @@ export function BzmTheoryMapView({
       if (connectingFromId === node.id) {
         announce(
           "error",
-          "同じノード同士は接続できないよ。別のノードを選んでね。",
+          "同じノード同士は接続できないよ。別のノードを選んでください。",
         );
         return;
       }

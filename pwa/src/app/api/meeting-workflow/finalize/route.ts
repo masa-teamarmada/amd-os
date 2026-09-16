@@ -393,7 +393,7 @@ async function sendFacilitatorNudge(args: {
     const text = [
       `*明日のMTG資料チェック*`,
       `${args.title}`,
-      `未完了の準備が残ってたら、MTGカードで資料を仕上げてね。`,
+      `未完了の準備が残ってたら、MTGカードで資料を仕上げてください。`,
       `<${link}|MTGカードを開く>`,
     ].join("\n");
     const postAt = Math.floor(new Date(args.nextStart).getTime() / 1000) - 24 * 60 * 60;

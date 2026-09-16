@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
   const db = createAdminClient();
   const { data: existing } = await db.from("members").select("member_id").ilike("email", email).maybeSingle();
   if (existing) {
-    return NextResponse.json({ ok: false, error: "このメールアドレスは登録済みだよ" }, { status: 409 });
+    return NextResponse.json({ ok: false, error: "このメールアドレスは登録済みです" }, { status: 409 });
   }
 
   const { data: memberIds, error: idError } = await db.from("members").select("member_id").like("member_id", "ID%").limit(2000);

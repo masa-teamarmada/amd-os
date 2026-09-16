@@ -553,7 +553,7 @@ export function AdminScheduleClient({ initialData }: Props) {
 
       <div className="border border-dashed border-border bg-muted/20 p-4 text-sm">
         <p className="font-semibold">正本を直す場所</p>
-        <p className="mt-1 leading-6 text-muted-foreground">日付・金額・担当者の誤りは、契約・債務・報告書・action item側を修正してから再生成してね。PJ別の請求書発行・入金確認はここには載せない。</p>
+        <p className="mt-1 leading-6 text-muted-foreground">日付・金額・担当者の誤りは、契約・債務・報告書・action item側を修正してから再生成してください。PJ別の請求書発行・入金確認はここには載せない。</p>
       </div>
 
       {selected && <DetailDrawer item={selected} onClose={() => setSelectedId(null)} actionBusy={actionBusy} actionReason={actionReason} evidenceRef={evidenceRef} onReasonChange={setActionReason} onEvidenceChange={setEvidenceRef} onAction={recordAction} />}

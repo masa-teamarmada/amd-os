@@ -53,7 +53,7 @@ export function useManagementMutation(projectId: string) {
         const latest = await fetch(`/api/project-workspace/${encodeURIComponent(projectId)}/management`, {
           headers: { "Cache-Control": "no-store" },
         });
-        if (!latest.ok) throw new Error("他の人が先に更新したよ。最新内容を取得できなかったから、画面を再読み込みしてね");
+        if (!latest.ok) throw new Error("他の人が先に更新したよ。最新内容を取得できなかったから、画面を再読み込みしてください");
         await latest.json();
         window.dispatchEvent(new CustomEvent("amd-management-conflict", {
           detail: "他の人が先に更新したため、最新内容に更新して編集を閉じたよ",

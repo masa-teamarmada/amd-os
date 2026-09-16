@@ -1251,13 +1251,13 @@ export function SxUnifiedTimeline({
       startY: sourcePoint.y,
     });
     setDependencyPreview(null);
-    showGanttNotice("接続先のタスクかMSを選んでね。Escで中止できるよ");
+    showGanttNotice("接続先のタスクかMSを選んでください。Escで中止できるよ");
   }
 
   async function connectScheduleDependency(target: ScheduleDependencyTarget) {
     const source = dependencySource;
     if (!source || !projectId) {
-      showGanttNotice("先にタスクかMSの右端を選んでね");
+      showGanttNotice("先にタスクかMSの右端を選んでください");
       return;
     }
     // A pointer gesture is over once it reaches a target. If validation rejects that target,
@@ -1372,7 +1372,7 @@ export function SxUnifiedTimeline({
         caught instanceof Error ? caught.message : "依存線を保存できなかったよ";
       await bestEffortRefetchManagement(
         `${message}。最新の状態に更新したよ`,
-        `${message}。画面を再読み込みしてね`,
+        `${message}。画面を再読み込みしてください`,
       );
     }
   }
@@ -1420,7 +1420,7 @@ export function SxUnifiedTimeline({
       if (onManagementOptimistic) {
         await bestEffortRefetchManagement(
           `${message}。最新の状態に戻したよ`,
-          `${message}。画面を再読み込みしてね`,
+          `${message}。画面を再読み込みしてください`,
         );
         return;
       }
@@ -1523,12 +1523,12 @@ export function SxUnifiedTimeline({
           // destination; this is also the pointer fallback when the target starts off-screen.
           setDependencySource({ ...dependencySource, pointerId: null });
           showGanttNotice(
-            "起点を選んだよ。接続先のタスクかMSを選んでね。Escで中止できるよ",
+            "起点を選んです。接続先のタスクかMSを選んでください。Escで中止できるよ",
           );
         } else {
           setDependencySource(null);
           showGanttNotice(
-            "接続先のタスクかMSで離すか、起点と終点を順にクリックしてね",
+            "接続先のタスクかMSで離すか、起点と終点を順にクリックしてください",
           );
         }
       }
@@ -2393,7 +2393,7 @@ export function SxUnifiedTimeline({
         setTaskNestDragBoth(null);
         await bestEffortRefetchManagement(
           "他の人がこのタスクを先に更新したよ。最新の状態に更新したよ",
-          "他の人がこのタスクを先に更新したみたい。画面を再読み込みしてね",
+          "他の人がこのタスクを先に更新したみたい。画面を再読み込みしてください",
         );
         return;
       }
@@ -2415,7 +2415,7 @@ export function SxUnifiedTimeline({
           : "タスクの並び順を保存できなかったよ";
       await bestEffortRefetchManagement(
         `${message}。最新の状態に更新したよ`,
-        `${message}。保存できたか確認できなかったよ。画面を再読み込みしてね`,
+        `${message}。保存できたか確認できなかったよ。画面を再読み込みしてください`,
       );
     }
   }
@@ -2494,7 +2494,7 @@ export function SxUnifiedTimeline({
         setTaskNestDragBoth(null);
         await bestEffortRefetchManagement(
           "他の人がこのタスクを先に更新したよ。最新の状態に更新したよ",
-          "他の人がこのタスクを先に更新したみたい。画面を再読み込みしてね",
+          "他の人がこのタスクを先に更新したみたい。画面を再読み込みしてください",
         );
         return;
       }
@@ -2517,7 +2517,7 @@ export function SxUnifiedTimeline({
         caught instanceof Error ? caught.message : "タスク階層を保存できなかったよ";
       await bestEffortRefetchManagement(
         `${message}。最新の状態に更新したよ`,
-        `${message}。保存できたか確認できなかったよ。画面を再読み込みしてね`,
+        `${message}。保存できたか確認できなかったよ。画面を再読み込みしてください`,
       );
     }
   }
@@ -2611,7 +2611,7 @@ export function SxUnifiedTimeline({
         setDragBoth(null);
         await bestEffortRefetchManagement(
           "他の人がこの内容を先に更新したよ。最新の内容に更新したよ",
-          "他の人がこの内容を先に更新したみたい。最新の状態を確認できなかったから、画面を再読み込みしてね",
+          "他の人がこの内容を先に更新したみたい。最新の状態を確認できなかったから、画面を再読み込みしてください",
         );
         return;
       }
@@ -2624,7 +2624,7 @@ export function SxUnifiedTimeline({
       const message = caught instanceof Error ? caught.message : "保存できなかったよ";
       await bestEffortRefetchManagement(
         `${message}。最新の状態に更新したよ`,
-        `${message}。保存できたか確認できなかったよ。画面を再読み込みしてね`,
+        `${message}。保存できたか確認できなかったよ。画面を再読み込みしてください`,
       );
     } finally {
       commitStartedPointerIdRef.current = null;

@@ -4291,7 +4291,7 @@ function PartnerInlineRow({
                 onFinish={onFinishInlineEdit}
                 onSave={async (values) => {
                   const title = values.title.trim();
-                  if (!title) throw new Error("次にやることを入力してね");
+                  if (!title) throw new Error("次にやることを入力してください");
                   if (target.resource === "partner_work_item") {
                     await patchIfChanged(
                       "partner_work_item",
@@ -4983,7 +4983,7 @@ export function SxPartnerPipeline({
           // The notice below leaves no ambiguity when reconciliation also failed.
         }
         onSyncNotice?.(
-          `${message}。同期状況を確認できないから、画面を再読み込みしてね`,
+          `${message}。同期状況を確認できないから、画面を再読み込みしてください`,
         );
       }
     })();

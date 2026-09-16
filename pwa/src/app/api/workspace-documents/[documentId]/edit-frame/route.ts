@@ -29,7 +29,7 @@ export async function GET(
   const { documentId } = await params;
   const token = new URL(request.url).searchParams.get("token") ?? "";
   if (!/^[0-9a-f]{32}$/.test(token)) {
-    return json({ ok: false, error: "編集フレームのtokenが不正だよ。" }, 400);
+    return json({ ok: false, error: "編集フレームのtokenが不正です。" }, 400);
   }
 
   const loaded = await loadEditableWorkspaceHtmlDocument(documentId);
@@ -37,7 +37,7 @@ export async function GET(
   const { db, row, access, storageBucket, storagePath } = loaded;
 
   if (row.file_size_bytes > WORKSPACE_DOCUMENT_HTML_PREVIEW_MAX_BYTES) {
-    return json({ ok: false, error: "HTMLプレビューは5MBまでだよ。" }, 413);
+    return json({ ok: false, error: "HTMLプレビューは5MBまでです。" }, 413);
   }
 
   const download = await db.storage.from(storageBucket).download(storagePath);

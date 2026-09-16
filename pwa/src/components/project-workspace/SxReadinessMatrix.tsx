@@ -123,7 +123,7 @@ export function SxReadinessMatrix({ management }: { management: SxManagementBund
             {PARTNER_STAGE_ORDER.map((stage) => <li key={stage} className="rounded-full border border-[#c5bba5] bg-[#f2eee0] px-2 py-1">{PARTNER_STAGE_LABEL[stage]}</li>)}
           </ol>
           <div className="mt-3 space-y-2">
-            {partners.length === 0 && <p className="rounded-lg border border-dashed border-[#ada18a] p-3 text-[11px] text-[#5f5a4d]">協力機関はまだ未確認だよ。</p>}
+            {partners.length === 0 && <p className="rounded-lg border border-dashed border-[#ada18a] p-3 text-[11px] text-[#5f5a4d]">協力機関はまだ未確認です。</p>}
             {partners.map((partner) => {
               const display = sxPartnerDisplay(partner);
               return (
@@ -139,7 +139,7 @@ export function SxReadinessMatrix({ management }: { management: SxManagementBund
         <div>
           <h3 className="text-xs font-semibold text-[#24231f]">必須役割の充足</h3>
           <div className="mt-2 space-y-2">
-            {roles.filter((role) => role.required).length === 0 && <p className="rounded-lg border border-dashed border-[#ada18a] p-3 text-[11px] text-[#5f5a4d]">必須役割はまだ未確認だよ。</p>}
+            {roles.filter((role) => role.required).length === 0 && <p className="rounded-lg border border-dashed border-[#ada18a] p-3 text-[11px] text-[#5f5a4d]">必須役割はまだ未確認です。</p>}
             {roles.filter((role) => role.required).map((role) => (
               <div key={role.id} className="flex items-center justify-between gap-2 rounded-lg border border-[#9d8daa] bg-[#e9e2ee] px-3 py-2 text-[11px]">
                 <div className="min-w-0"><p className="truncate font-semibold text-[#5f4a66]">{role.roleName}</p><p className="text-[10px] text-[#76637b]">{role.candidate || "候補未確認"} / 期限 {sxFormatDate(role.dueDate)}</p></div>

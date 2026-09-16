@@ -136,7 +136,7 @@ export async function replaceWorkspaceHtmlSource(
       status: 409,
       conflict: true,
       currentSha256,
-      error: "別のセッションがこの資料を更新しているよ。最新を読み込んでから保存してね。",
+      error: "別のセッションがこの資料を更新しているよ。最新を読み込んでから保存してください。",
     };
   }
 
@@ -145,7 +145,7 @@ export async function replaceWorkspaceHtmlSource(
   const sourceBytes = Buffer.from(finalSource, "utf8");
   // 組み立て直しで本文は伸びる (退避したscriptが戻る)。受信時の検査は上限を保証しない。
   if (sourceBytes.byteLength > WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES) {
-    return { ok: false, status: 413, error: "保存できるHTMLは5MBまでだよ。" };
+    return { ok: false, status: 413, error: "保存できるHTMLは5MBまでです。" };
   }
 
   const nextSha256 = workspaceDocumentContentSha256(finalSource);

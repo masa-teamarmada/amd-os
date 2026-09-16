@@ -303,7 +303,7 @@ export function AdminTsukuyomiClient({ projects, contexts, learnings }: Props) {
               value={manualText}
               onChange={(e) => setManualText(e.target.value)}
               rows={4}
-              placeholder="ここにそのまま投稿したい文章を書いてね（@here/@channelは自動で暴発防止される）"
+              placeholder="ここにそのまま投稿したい文章を書いてください（@here/@channelは自動で暴発防止される）"
               className="w-full border border-border rounded px-2 py-1.5 text-[12px] bg-background resize-y"
             />
             <button
@@ -498,7 +498,7 @@ export function AdminTsukuyomiClient({ projects, contexts, learnings }: Props) {
                 onChange={(e) => setNewCtx((v) => ({ ...v, system_prompt: e.target.value }))}
                 rows={5}
                 className="w-full border border-border rounded px-2 py-1.5 text-[12px] bg-background font-mono resize-y"
-                placeholder="ここに人格や運用ルールを書いてね"
+                placeholder="ここに人格や運用ルールを書いてください"
               />
             </div>
             <div className="flex gap-2">

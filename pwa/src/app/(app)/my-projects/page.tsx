@@ -38,7 +38,7 @@ export default async function MyProjectsPage() {
         ) : (
           <div className="rounded-xl border border-dashed border-[#c7bfaf] bg-[#fffdf7]/70 px-6 py-12 text-center">
             <p className="text-sm font-medium text-[#24231f]">参加PJがまだ設定されてないよ</p>
-            <p className="mt-2 text-xs text-[#69665d]">PJ管理者にメンバー設定を確認してもらってね。</p>
+            <p className="mt-2 text-xs text-[#69665d]">PJ管理者にメンバー設定を確認してもらってください。</p>
           </div>
         )}
       </div>

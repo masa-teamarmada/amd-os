@@ -106,9 +106,9 @@ export function CockpitCapitalPolicy({ projectId }: { projectId: string }) {
     const toHolder = String(form.get("to_holder") || "").trim();
     const fromHolder = String(form.get("from_holder") || "").trim();
     const securityClass = String(form.get("security_class") || "普通株式").trim();
-    if (!shares || shares < 0) { setError("株式数は0より大きい数で入力してね"); return; }
-    if (transactionType === "transfer" && (!fromHolder || !toHolder)) { setError("譲渡元と譲渡先を入力してね"); return; }
-    if (transactionType !== "transfer" && !toHolder) { setError("株主・付与先を入力してね"); return; }
+    if (!shares || shares < 0) { setError("株式数は0より大きい数で入力してください"); return; }
+    if (transactionType === "transfer" && (!fromHolder || !toHolder)) { setError("譲渡元と譲渡先を入力してください"); return; }
+    if (transactionType !== "transfer" && !toHolder) { setError("株主・付与先を入力してください"); return; }
 
     const entry = (holderName: string, outstanding: number, diluted: number, paidInYen = 0, klass = securityClass) => ({ holder_type: holderType, holder_name: holderName, security_class: klass, outstanding_delta: outstanding, diluted_delta: diluted, paid_in_yen_delta: paidInYen });
     let entries;

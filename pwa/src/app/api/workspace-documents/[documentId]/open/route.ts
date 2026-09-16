@@ -41,7 +41,7 @@ export async function GET(
   if (!access || (row.visibility === "amd_internal" && !access.canReadInternal)) {
     return json({ ok: false, error: "Not found" }, 404);
   }
-  if (row.entry_kind === "folder") return json({ ok: false, error: "フォルダは一覧から開いてね。" }, 400);
+  if (row.entry_kind === "folder") return json({ ok: false, error: "フォルダは一覧から開いてください。" }, 400);
 
   const download = new URL(request.url).searchParams.get("download") !== "0";
   if (!download && isWorkspaceDocumentHtml(row.mime_type, row.display_name)) {

@@ -476,7 +476,7 @@ export function CockpitBusinessPlan({ projectId, projectName, showSxDetail = fal
   if (!showSxDetail && !showTimeLedger) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white px-5 py-8 text-center text-sm leading-6 text-slate-500">
-        このPJの事業計画はまだ登録されていないよ。株主構成と資本政策は「資本政策表」タブで見てね。
+        このPJの事業計画はまだ登録されていないよ。株主構成と資本政策は「資本政策表」タブで見てください。
       </div>
     );
   }

@@ -61,7 +61,7 @@ export function ThemeHistory({ rows, canManage, sources, onSave, onRefresh }: {
       <h4>これまでの流れ</h4>
       {canManage && <Button size="sm" variant="outline" disabled={rows.length >= 40} onClick={() => edit()}>経緯を追加</Button>}
     </div>
-    {!rows.length ? <p className={styles.empty}>経緯はまだ整理されていないよ。連携先・応募・計画変更など、追いたい対象ごとにまとめてね。</p> :
+    {!rows.length ? <p className={styles.empty}>経緯はまだ整理されていないよ。連携先・応募・計画変更など、追いたい対象ごとにまとめてください。</p> :
       <table className={styles.table}>
         <thead><tr><th scope="col">対象・記録時点</th>{COLUMNS.map(([key, label]) => <th key={key} scope="col">{label}</th>)}</tr></thead>
         <tbody>{rows.map(row => <tr key={row.id}>
@@ -84,7 +84,7 @@ export function ThemeHistory({ rows, canManage, sources, onSave, onRefresh }: {
       </table>}
     {canManage && editing && <Dialog open onOpenChange={open => !open && close()}>
       <DialogContent className={styles.dialog}>
-        <DialogHeader><DialogTitle>経緯を編集</DialogTitle><DialogDescription>当初から今までの変化をまとめる。未確認の結果は未確認のまま残してね。</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>経緯を編集</DialogTitle><DialogDescription>当初から今までの変化をまとめる。未確認の結果は未確認のまま残してください。</DialogDescription></DialogHeader>
         <form id="theme-history-form" className={styles.form} onSubmit={event => { event.preventDefault(); void save(); }}>
           <label className={styles.topic}>対象<Input autoFocus required maxLength={100} value={editing.topic} disabled={saving || saved} onChange={event => setEditing({ ...editing, topic: event.target.value })} /></label>
           <label>記録時点<Input type="date" value={editing.asOf ?? ""} disabled={saving || saved} onChange={event => setEditing({ ...editing, asOf: event.target.value || null })} /></label>
@@ -100,7 +100,7 @@ export function ThemeHistory({ rows, canManage, sources, onSave, onRefresh }: {
                 const selected = editing.sources.some(s => s.kind === source.kind && s.id === source.id);
                 return <label key={`${source.kind}:${source.id}`}><input type="checkbox" checked={selected} disabled={!selected && editing.sources.length >= 12} onChange={() => setEditing({ ...editing, sources: selected ? editing.sources.filter(s => s.kind !== source.kind || s.id !== source.id) : [...editing.sources, { kind: source.kind, id: source.id }] })} />{source.label}</label>;
               })}
-              {!visibleSources.length && <p className={styles.empty}>対象なし。元記録は先にこのテーマへひもづけてね。</p>}
+              {!visibleSources.length && <p className={styles.empty}>対象なし。元記録は先にこのテーマへひもづけてください。</p>}
               {editing.sources.filter(source => !sourceMap.has(`${source.kind}:${source.id}`)).map(source => <label key={`${source.kind}:${source.id}`}><input type="checkbox" checked onChange={() => setEditing({ ...editing, sources: editing.sources.filter(s => s.kind !== source.kind || s.id !== source.id) })} />未接続・閲覧不可の元記録（外すにはチェック解除）</label>)}
             </div>
           </fieldset>

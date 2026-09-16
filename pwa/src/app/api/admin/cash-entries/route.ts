@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
   }
   if (!body.accountId || !/^\d{4}-\d{2}-\d{2}$/.test(String(body.entryDate ?? ""))) {
     return NextResponse.json(
-      { ok: false, error: "口座と日付は必ず入れてね" },
+      { ok: false, error: "口座と日付は必ず入れてください" },
       { status: 400, headers: NO_STORE },
     );
   }

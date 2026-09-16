@@ -44,14 +44,14 @@ export async function POST(req: NextRequest) {
   }
   if (!body.loanId || !/^\d{4}-\d{2}-\d{2}$/.test(String(body.eventDate ?? "")) || !KINDS.has(String(body.kind))) {
     return NextResponse.json(
-      { ok: false, error: "借入先・日付・種類 (借入 / 返済) は必ず入れてね" },
+      { ok: false, error: "借入先・日付・種類 (借入 / 返済) は必ず入れてください" },
       { status: 400, headers: NO_STORE },
     );
   }
 
   const amount = int(body.amount);
   if (amount <= 0) {
-    return NextResponse.json({ ok: false, error: "金額は1円以上で入れてね" }, { status: 400, headers: NO_STORE });
+    return NextResponse.json({ ok: false, error: "金額は1円以上で入れてください" }, { status: 400, headers: NO_STORE });
   }
 
   // 返済で内訳を入れなかったときは、全額を元金として扱う。
