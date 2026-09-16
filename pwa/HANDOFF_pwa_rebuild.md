@@ -1,72 +1,40 @@
 # HANDOFF - AMD OS PWA
 
-- 更新: 2026-09-11 JST
-- セッション: 問いの木・つくよみ書き漏らし検出
+- 更新: 2026-09-16 JST
+- セッション: 単独タスクの採否復旧とPWA画面文言の是正
 - 作業種別: development
-
-## 2026-09-16 ゴールツリーの状態判定（PWA → iOS / macOS / Android）
-
-- 子要素の有無による停滞判定を廃止。承認済みTODO・子の状態から導出。画面の状態は検討中 / 進行中 / 対応待ち / 判断待ち / 要見直し / 完了 / 中止。
-- 正本: `spec/3-21-question-tree-current-spec.md`。導出関数: `src/lib/question-tree-state.ts`。DB変更なし。ネイティブ側は未移植。
-- 状態名・集計・警告色・展開対象を同時変更。未承認要素は判定対象外。workと子TODOの未完了を判断待ちへ誤判定しない。
-
-| 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
-|---|---|---|---|
-| 状態判定・名称 | spec/3-21、ios/DESIGN.md | manual/2-9 | 同期済み |
-| 全体計画の判定参照 | spec/3-22 | manual/2-9 | 同期済み |
-| 理論・数式 | 変更なし | 対象外 | 変更なし |
 
 ## 最新セッションの到達点
 
-- 毎日04:35 JST、前日以降の開催済み議事録と論点・仮説タブの問い・やることを意味で照合し、書き漏らしだけをPJあたり最大5件提案するCodex automationとSKILLを追加した。
-- 抽出はDBへ書かず、専用outboxへJSONを置くだけ。非LLM LaunchAgentが5分ごとに `review_state='proposed'` として取り込み、人が「木に入れる」を押すまで親へつながない。
-- outboxの重複排除を、部分unique indexへのPostgREST `on_conflict` 依存から、accepted / proposed / 却下済みの `client_token` 先読みへ変更した。同じJSON内の重複も除く。
-- 親候補・理由なし、1PJ 6件以上、空outboxは生成・取り込みの両段で止める。
-
-- `/vcs/investments`と`/hud/vcs/investments`を追加。VC一覧・投資履歴・ニュース受信箱は共通タブで往復する。
-- `startup_companies`、`startup_funding_rounds`、`vc_investments`参加層を本番へ適用。旧投資データは要確認のまま保全した。
-- AMD PJ接点ありVCを軽量モデル`gemini-3.5-flash-lite`で10社まで収集。本文照合を通過した10件だけcandidateで表示し、誤候補はdismissedへ隔離。confirmedは0件。
-- 根拠URLは公開アドレスだけを手動redirectで取得し、トップページ、SU/VC不一致、投資取引でない要約を拒否。本文に無い日付・金額は未確認へ戻す。
-
-- `/project/{projectId}/workspace` を、上段の分類と子タブからなる二段ナビへ変更した。
-  - `実行`: テーマ（あるPJだけ）/ 週次差分 / ガント / 関係先 / 論点・仮説
-  - `計画・根拠`: 技術 / 事業計画
-  - `経営・会社`: 会社概要 / 資本政策 / コスト試算 / 知財
-  - `資料`: ドライブ
-- `PJ概要`はワークスペースへ置かず、社内コックピット専用に戻した。workspaceのcomponent、hash、保存済み表示状態からも外したため、古い`#project-overview`は通常の初期表示へ戻る。
-- PCは分類のhover/focusで子タブをフロート表示し、touch端末は選択中分類の子タブ列を常時表示する。子タブの操作領域は44px以上。
-- 外部workspace accountはテーマ（存在時）/ ガント / 関係先 / ドライブだけ。`動向・会議`は経営会議を含むためワークスペースへ出さず、会社・資本・コスト・知財・週次介入も出さない。
-- 目的構造は独立タブを廃止し、ガント左列の再帰タスク階層へ統合した。旧URLはガントへ着地する。
-- p21は旧ガントをsoft-deleteで保全し、`NewCo設立`以下4パッケージ・12子タスクの17件へ再編した。JSON退避も共有ドライブへ保存済み。
+- コックピットのタスクタブで、論点・仮説に紐づかない「承認待ちのタスク」を却下すると、誤った `PATCH` が送られ `操作対象の種類が不正です` と出ていた。
+- 採否APIの契約どおり `POST { resource: "proposal_bulk", decision, ids }` に統一した。承認は単独タスクのまま残り、却下は論理削除する。実データを消さないため、本番で却下操作そのものは実行していない。
+- 画面の会話調の終助詞をPWA全体から除去し、`だよ` / `してね` / `てね` / `でね` を検出するcritical UI検査を追加した。新しい採否経路は `test:question-tree-task-review` で固定した。
+- 正本: `pwa/spec/3-21-question-tree-current-spec.md`。利用説明: `pwa/manual/2-9-question-tree.md`。APIやDBの新設・migrationはない。
 
 ## 反映・検証
 
-- 製品変更は `5004fa84`（二段ナビ）に続く2026-09-06の`PJ概要`撤回を含む。handoffと仕様は同じ変更単位で更新済み。
-- `PJ概要`撤回を含む製品buildのproduction確認は`v3.100.25`、`/api/build-info`の`git_sha`が`70e396d4b1b5acb65943d39f9d590eaba155852a`と一致。その後の`9eede0bf`はhandoffの本番確認記録だけを更新したcommitで、製品変更は含まない。
-- 実行済み: `npm run test:project-workspace-route`、`npm run test:critical-ui`、`npx tsc --noEmit`、`npm run build`、`git diff --check`。
-- 本番でSolvioraXのワークスペースを開き、古い`#project-overview`が週次差分へ戻ること、`計画・根拠`が技術 / 事業計画だけであることを確認済み。route contractはPJ概要componentの非mountと外部allowlist外の拒否を確認済み。
+- commit: `3df5371a949d5c27eb03594ab640651872054432`（`main`へpush済み）。
+- production: `v3.140.7`、`/api/build-info` の `git_sha=3df5371a949d5c27eb03594ab640651872054432` を確認済み。
+- 実行済み: `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` の全ゲート、`git diff --check`、本番タスクタブで更新後の案内文と採否ボタンを確認。
+- `npm run lint` は今回と無関係な既存違反310件で失敗。今回の変更に対するdeploy gateは通過している。
 
 ## Repo状態
 
-- branch: `main`。`origin/main` と一致（ahead 0 / behind 0）。今回作成したbranch / worktree: なし。
-- 実装・仕様・マニュアル・履歴はcommit・push済み。main pushによるproduction buildもReady。
-- このcheckoutには別作業の未commit変更が残る。BZM原稿/監査資料群、ならびにAtlas・L2関連のPWA仕様/手引き群で、今回の変更ではない。削除・stash・reset・巻き込みcommitをしない。
-- quarantine owner: それぞれの作業を開始した共有checkoutの担当者。次に触る担当者は、作業開始前に`git status --short`と差分を読み、対象単位でcommitする。未分類のまま本セッションが処分できる状態ではない。
+- canonical `origin/main`: `3df5371a`。作業用の使い捨てcloneは `main...origin/main` でclean。
+- 正規checkout `/Users/masa/projects/AMD/amd-os` は `d4d254a7`、`origin/main`よりahead 3 / behind 204、他セッション由来の29パスがdirty。今回の作業では変更していない。reset、stash、削除、stageはしない。
 
 ## 未解決
 
-- 問いの書き漏らし検出そのものに残作業なし。プロマネ設計案3-22の受託・催促・検収・報酬接続は、到達状態と遅れの骨格をまさと決めるまで未承認・未実装。
-- リポ全体のarchive/closeoutは、上記の別作業dirtyを担当者がcommitまたは明示的に処分するまで不可。
+- 却下ボタンの実データ操作は未検証。必要になったときは、削除対象と復元方法を控えたうえで、まさが指定した候補だけを操作する。
+- PWA全体のlint 310件は別件。修正時は別タスクとして違反の発生源を分類する。
 
 ## 次の最初の行動
 
-まさの次の指示を待つ。ワークスペースを続けるなら、先に `pwa/spec/3-16-project-weekly-control-current-spec.md` と `pwa/manual/2-3-pj-cockpit.md` を読み、外部allowlistを広げずに扱う。
+タスクの採否を続ける場合は、`pwa/spec/3-21-question-tree-current-spec.md` と `pwa/manual/2-9-question-tree.md` を全文読んでから、候補と既存タスクを混同せずに扱う。
 
 ## 参照先
 
-- 現行仕様: `pwa/spec/3-16-project-weekly-control-current-spec.md`、`pwa/spec/2-1-pwa-runtime-routes.md`
-- OSマニュアル: `pwa/manual/2-3-pj-cockpit.md`
-- 存在契約: `pwa/design/FEATURE_REGISTRY.md`
 - 実装履歴: `pwa/design_log/sessions_2026-09.md`
-- 仕様履歴: `pwa/spec/6-1-appendix-changelog.md`、`pwa/manual/9-3-appendix-changelog.md`
 - バグ・教訓: `pwa/BUGS.md`
+- 現行仕様: `pwa/spec/3-21-question-tree-current-spec.md`
+- OSマニュアル: `pwa/manual/2-9-question-tree.md`
