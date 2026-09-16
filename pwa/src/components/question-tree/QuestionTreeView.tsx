@@ -781,8 +781,15 @@ export function QuestionTreeView({
   // 「親を変える場合は別の親のところにドラッグアンドドロップすればいい」）。
   // ボタンを増やさず、1つの操作で並び替えと付け替えの両方をやる。
   const [dragId, setDragId] = useState<string | null>(null);
+  const [dragKind, setDragKind] = useState<"question" | "action" | null>(null);
   const [dropHint, setDropHint] = useState<{ id: string; position: DropPosition } | null>(null);
-  const dragStateRef = useRef<{ id: string; startX: number; startY: number; dragging: boolean } | null>(null);
+  const dragStateRef = useRef<{
+    id: string;
+    kind: "question" | "action";
+    startX: number;
+    startY: number;
+    dragging: boolean;
+  } | null>(null);
   const dropHintRef = useRef<{ id: string; position: DropPosition } | null>(null);
   const ghostRef = useRef<HTMLElement | null>(null);
   const pointerRef = useRef<{ x: number; y: number } | null>(null);
@@ -802,6 +809,7 @@ export function QuestionTreeView({
     dragStateRef.current = null;
     dropHintRef.current = null;
     setDragId(null);
+    setDragKind(null);
     setDropHint(null);
   }, []);
 
@@ -814,8 +822,11 @@ export function QuestionTreeView({
       .find((node): node is HTMLElement => node instanceof HTMLElement && Boolean(node.dataset.questionRow));
     if (!row) return null;
     const id = row.dataset.questionRow as string;
-    if (id === state.id) return null;
+    if (state.kind === "question" && id === state.id) return null;
     const rect = row.getBoundingClientRect();
+    // TODO は兄弟の並びではなく「どの問いへ答えるか」を動かす。上下の縁という
+    // 意味が無いので、どこへ落としても対象の問いそのものを示す。
+    if (state.kind === "action") return { id, position: "inside" as const };
     const ratio = (y - rect.top) / Math.max(rect.height, 1);
     const position: DropPosition = ratio < 0.3 ? "before" : ratio > 0.7 ? "after" : "inside";
     return { id, position };
@@ -862,6 +873,59 @@ export function QuestionTreeView({
     [send],
   );
 
+  /**
+   * TODOの移動は、親子・日程・担当・前後関係を変えず、問いとの線だけを替える。
+   * 複数の問いへ線があるTODOは、黙って他方の線を切らずに選ばせる。
+   */
+  const [actionMoveChoice, setActionMoveChoice] = useState<{
+    actionId: string;
+    targetQuestionId: string;
+  } | null>(null);
+
+  const applyActionMove = useCallback(
+    async (actionId: string, targetQuestionId: string, mode: "replace" | "add") => {
+      const action = (bundleRef.current?.allActions ?? []).find((item) => item.id === actionId);
+      const target = (bundleRef.current?.allQuestions ?? []).find((item) => item.id === targetQuestionId);
+      if (!action || !target) return false;
+      if (target.status !== "open") {
+        setError("閉じた論点へはTODOを移せないよ");
+        return false;
+      }
+      if (action.questionIds.includes(targetQuestionId)) {
+        setError("このTODOは、すでにその論点に紐づいているよ");
+        return false;
+      }
+      if (action.parentId) {
+        setError("子TODOは親TODOを移してね");
+        return false;
+      }
+      if (action.isProposed && mode === "add") {
+        setError("未承認のTODOは、紐づけ先を1つだけ選んでね");
+        return false;
+      }
+      const saved = await send("POST", {
+        resource: "action_move",
+        fields: { id: actionId, question_id: targetQuestionId, mode },
+      });
+      if (saved) setOpenIds((current) => new Set([...current, targetQuestionId]));
+      return saved;
+    },
+    [send],
+  );
+
+  const beginActionMove = useCallback(
+    (actionId: string, targetQuestionId: string) => {
+      const action = (bundleRef.current?.allActions ?? []).find((item) => item.id === actionId);
+      if (!action) return;
+      if (action.questionIds.length > 1 && !action.isProposed) {
+        setActionMoveChoice({ actionId, targetQuestionId });
+        return;
+      }
+      void applyActionMove(actionId, targetQuestionId, "replace");
+    },
+    [applyActionMove],
+  );
+
   useEffect(() => {
     if (!dragId) return;
 
@@ -888,7 +952,11 @@ export function QuestionTreeView({
       pointerRef.current = { x: event.clientX, y: event.clientY };
       if (!state.dragging) {
         if (Math.hypot(event.clientX - state.startX, event.clientY - state.startY) < DRAG_THRESHOLD_PX) return;
-        const row = document.querySelector<HTMLElement>(`[data-question-row="${state.id}"]`);
+        const row = document.querySelector<HTMLElement>(
+          state.kind === "question"
+            ? `[data-question-row="${state.id}"]`
+            : `[data-action-row="${state.id}"]`,
+        );
         if (!row) return;
         state.dragging = true;
         ghostRef.current = createDragGhost(row);
@@ -908,7 +976,10 @@ export function QuestionTreeView({
       const dragging = Boolean(state?.dragging);
       const movedId = state?.id ?? null;
       teardownDrag();
-      if (dragging && movedId && target) void applyMove(movedId, target);
+      if (dragging && movedId && target) {
+        if (state?.kind === "action") beginActionMove(movedId, target.id);
+        else void applyMove(movedId, target);
+      }
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
@@ -929,7 +1000,7 @@ export function QuestionTreeView({
         autoScrollRef.current = 0;
       }
     };
-  }, [dragId, applyMove, resolveDrop, teardownDrag]);
+  }, [dragId, applyMove, beginActionMove, resolveDrop, teardownDrag]);
 
   const actionById = useMemo(
     () => new Map((bundle?.allActions ?? []).map((action) => [action.id, action])),
@@ -939,14 +1010,16 @@ export function QuestionTreeView({
   const selectedAction = selected?.kind === "action" ? actionById.get(selected.id) ?? null : null;
   const openPanel = selectedNode ?? selectedAction;
   const panelRef = useRef<HTMLElement | null>(null);
+  const actionMoveChoiceRef = useRef<HTMLElement | null>(null);
+  const closeActionMoveChoice = useCallback(() => setActionMoveChoice(null), []);
 
   // 背面のスクロールとfocusを止める。詳細は行の下へ展開せず、必ずこのモーダルで開く
   // （まさ 2026-09-10「トグルで開くんじゃなくてモーダルにしてくれた方が分かりやすい」）。
   useModalContainment({
-    dialogRef: panelRef,
-    initialFocusRef: panelRef,
-    onClose: closeDetail,
-    active: Boolean(openPanel),
+    dialogRef: actionMoveChoice ? actionMoveChoiceRef : panelRef,
+    initialFocusRef: actionMoveChoice ? actionMoveChoiceRef : panelRef,
+    onClose: actionMoveChoice ? closeActionMoveChoice : closeDetail,
+    active: Boolean(openPanel || actionMoveChoice),
   });
 
   // 以降は bundle が確定してから。hooks はすべてこの上で呼び終えている。
@@ -967,6 +1040,10 @@ export function QuestionTreeView({
   }
 
   const { counts, canManage, members } = bundle;
+  const actionMoveChoiceAction = actionMoveChoice ? actionById.get(actionMoveChoice.actionId) ?? null : null;
+  const actionMoveChoiceTarget = actionMoveChoice
+    ? questionById.get(actionMoveChoice.targetQuestionId) ?? null
+    : null;
 
   /** 根からこの問いまでの道。モーダルで文脈を見失わないために出す。 */
   const ancestorsOf = (node: QuestionNode): QuestionNode[] => {
@@ -1899,11 +1976,38 @@ export function QuestionTreeView({
           data-proposed={action.isProposed ? "true" : undefined}
           data-unassigned={action.isUnassigned ? "true" : undefined}
           data-open={selected?.kind === "action" && selected.id === action.id ? "true" : undefined}
+          data-dragging={dragKind === "action" && dragId === action.id ? "true" : undefined}
           role="presentation"
           onClick={openRowFrom("action", action.id)}
         >
           <div className={styles.rowLead}>
-            {canManage && <span className={styles.gripSpacer} aria-hidden="true" />}
+            {canManage && action.parentId === null ? (
+              <span
+                className={styles.grip}
+                role="button"
+                tabIndex={-1}
+                aria-label={`${action.title} を掴んで論点へ移す`}
+                onPointerDown={(event) => {
+                  if (event.button !== 0) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  dragStateRef.current = {
+                    id: action.id,
+                    kind: "action",
+                    startX: event.clientX,
+                    startY: event.clientY,
+                    dragging: false,
+                  };
+                  pointerRef.current = { x: event.clientX, y: event.clientY };
+                  setDragId(action.id);
+                  setDragKind("action");
+                }}
+              >
+                <GripVertical width={12} height={12} aria-hidden="true" />
+              </span>
+            ) : (
+              canManage && <span className={styles.gripSpacer} aria-hidden="true" />
+            )}
             {renderRail(
               lines,
               isLast,
@@ -1996,7 +2100,7 @@ export function QuestionTreeView({
           data-flag={!node.isProposed && needsAttention(node) ? node.state : undefined}
           data-overdue={node.isOverdue ? "true" : undefined}
           data-dragging={dragId === node.id ? "true" : undefined}
-          data-drop={dropHint?.id === node.id ? dropHint.position : undefined}
+          data-drop={dropHint?.id === node.id ? (dragKind === "action" ? "action" : dropHint.position) : undefined}
           role="presentation"
           onClick={openRowFrom("question", node.id)}
         >
@@ -2013,12 +2117,14 @@ export function QuestionTreeView({
                   event.stopPropagation();
                   dragStateRef.current = {
                     id: node.id,
+                    kind: "question",
                     startX: event.clientX,
                     startY: event.clientY,
                     dragging: false,
                   };
                   pointerRef.current = { x: event.clientX, y: event.clientY };
                   setDragId(node.id);
+                  setDragKind("question");
                 }}
               >
                 <GripVertical width={12} height={12} aria-hidden="true" />
@@ -2405,6 +2511,74 @@ export function QuestionTreeView({
                 </button>
               </header>
               {selectedNode ? renderDetailBody(selectedNode) : selectedAction ? renderActionDetailBody(selectedAction) : null}
+            </section>
+          </div>,
+          document.body,
+        )}
+
+      {actionMoveChoice &&
+        actionMoveChoiceAction &&
+        actionMoveChoiceTarget &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className={styles.backdrop}
+            role="presentation"
+            data-modal-layer="question-tree-action-move"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) closeActionMoveChoice();
+            }}
+          >
+            <section
+              ref={actionMoveChoiceRef}
+              tabIndex={-1}
+              role="dialog"
+              aria-modal="true"
+              aria-label="TODOの移し方を選ぶ"
+              className={styles.moveDialog}
+            >
+              <div className={styles.moveDialogHead}>
+                <div>
+                  <p>TODOの移し方</p>
+                  <h3>{actionMoveChoiceAction.title}</h3>
+                </div>
+                <button type="button" className={styles.panelClose} onClick={closeActionMoveChoice} aria-label="閉じる">
+                  ×
+                </button>
+              </div>
+              <p className={styles.moveDialogCopy}>
+                「{actionMoveChoiceTarget.title}」へ移す。このTODOは、いま{actionMoveChoiceAction.questionIds.length}つの論点に紐づいているよ。
+              </p>
+              <div className={styles.moveDialogActions}>
+                <button
+                  type="button"
+                  className={styles.btn}
+                  data-variant="primary"
+                  disabled={busy}
+                  onClick={() => {
+                    void applyActionMove(actionMoveChoice.actionId, actionMoveChoice.targetQuestionId, "replace").then((saved) => {
+                      if (saved) closeActionMoveChoice();
+                    });
+                  }}
+                >
+                  移し替える
+                </button>
+                <button
+                  type="button"
+                  className={styles.btn}
+                  disabled={busy}
+                  onClick={() => {
+                    void applyActionMove(actionMoveChoice.actionId, actionMoveChoice.targetQuestionId, "add").then((saved) => {
+                      if (saved) closeActionMoveChoice();
+                    });
+                  }}
+                >
+                  両方に残す
+                </button>
+                <button type="button" className={styles.btn} disabled={busy} onClick={closeActionMoveChoice}>
+                  やめる
+                </button>
+              </div>
             </section>
           </div>,
           document.body,

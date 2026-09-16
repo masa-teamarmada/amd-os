@@ -52,6 +52,7 @@
     "test:seed-list-display": "node scripts/check_seed_list_display_contract.mjs",
     "test:seed-institution-selector": "node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_seed_institution_selector.mts",
     "test:issue-reorder": "node scripts/check_issue_reorder_contract.mjs && node scripts/test_sx_weekly_control.mjs",
+    "test:question-tree-action-move": "node scripts/check_question_tree_action_move_contract.mjs",
     "test:question-tree-outbox": "node scripts/check_question_tree_outbox_contract.mjs",
     "test:kute-regulations-contract": "node scripts/check_kute_regulations_contract.cjs",
     "test:kute-seeds-tab-contract": "node scripts/check_kute_seeds_tab_contract.cjs",
