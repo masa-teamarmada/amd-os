@@ -4119,7 +4119,7 @@ expectIncludes("src/components/question-tree/question-tree.module.css", [
   // 押せることに気づけなかった (まさ 2026-09-10「まだ編集できないよ」)。
   "cursor: text;",
   '.row[data-flag="decidable"]',
-  '.row[data-flag="stalled"]',
+  '.row[data-flag="blocked"]',
   '.row[data-flag="dead_branch"]',
 ]);
 expectIncludes("src/components/project-workspace/weekly-control.module.css", [

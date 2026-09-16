@@ -49,8 +49,10 @@ export const CHILDREN_LOGIC_LABEL: Record<ChildrenLogic, string> = {
 export type QuestionState =
   /** 子とTODOが片付き、人が答えを書けば閉じる */
   | "decidable"
-  /** 未閉じなのに子もTODOも無い。前に進む手が無い */
-  | "stalled"
+  /** 未完了。実行中・対応待ち・判断待ちの根拠はまだない */
+  | "under_review"
+  /** 承認済みTODOに阻害、または必要な子に対応待ちがある */
+  | "blocked"
   /** 代替が全滅、または必須の枝が捨てられた。親の答えが出せない */
   | "dead_branch"
   /** 手が動いている */
@@ -59,21 +61,22 @@ export type QuestionState =
   | "dropped";
 
 export const QUESTION_STATE_LABEL: Record<QuestionState, string> = {
-  decidable: "判断できる",
-  stalled: "手が止まっている",
-  dead_branch: "枝が死んだ",
+  decidable: "判断待ち",
+  under_review: "検討中",
+  blocked: "対応待ち",
+  dead_branch: "要見直し",
   in_progress: "進行中",
-  answered: "答えが出た",
-  dropped: "追わない",
+  answered: "完了",
+  dropped: "中止",
 };
 
 export const ACTION_STATUS_LABEL: Record<ActionStatus, string> = {
   unassessed: "進捗未登録",
   not_started: "未着手",
   running: "実行中",
-  blocked: "止まっている",
+  blocked: "対応待ち",
   done: "完了",
-  dropped: "やめた",
+  dropped: "中止",
 };
 
 export const FINDING_KIND_LABEL: Record<FindingKind, string> = {
@@ -266,7 +269,8 @@ export type QuestionTreeBundle = {
     answered: number;
     dropped: number;
     decidable: number;
-    stalled: number;
+    underReview: number;
+    blocked: number;
     deadBranch: number;
     overdue: number;
     actions: number;
