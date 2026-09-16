@@ -1718,7 +1718,7 @@ function editorDefinition(
           required: true,
           options: [
             { value: "counterparty_promise", label: "相手の約束" },
-            { value: "sx_followup", label: "SX側の次アクション" },
+            { value: "sx_followup", label: "SOL側の次アクション" },
           ],
         },
         {

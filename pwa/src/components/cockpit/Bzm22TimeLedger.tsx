@@ -736,7 +736,7 @@ export function Bzm22TimeLedger({
         "会社設立",
         sxIncorporationYm,
         "commercial",
-        "SXの会社設立予定月。設立前PJ活動とNewCoの会計主体をこの月で分ける。",
+        "SOLの会社設立予定月。設立前PJ活動とNewCoの会計主体をこの月で分ける。",
       ),
     ];
     if (sxFirstFundingTarget) {

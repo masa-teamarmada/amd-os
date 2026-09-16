@@ -140,7 +140,7 @@ export function scenarioFullLabelOf(location: CostLocation, method: CostMethod, 
 /** 画面での呼び名。DB の値 '中央培養' はそのまま使い、表示だけ置き換える。 */
 export const PRODUCTION_SITE_LABEL = "菌体の製造拠点";
 export const PRODUCTION_SITE_DESCRIPTION =
-  "顧客工場では培養せず、SX側の1拠点でまとめて菌体を育て、濃縮して各工場へ運ぶところ。";
+  "顧客工場では培養せず、SOL側の1拠点でまとめて菌体を育て、濃縮して各工場へ運ぶところ。";
 export const SCENARIO_SCOPE_LABEL: Record<CostScenarioScope, string> = {
   中央培養: PRODUCTION_SITE_LABEL,
   共通: "処理（方式・装置によらない）",

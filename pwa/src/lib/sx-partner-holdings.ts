@@ -165,7 +165,7 @@ function commitmentToHoldingItem(commitment: SxPartnerCommitment): SxHoldingItem
   return {
     id: commitment.id, partnerId: commitment.partnerId,
     side: commitment.commitmentKind === "counterparty_promise" ? "partner" : "sx",
-    itemKindLabel: commitment.commitmentKind === "counterparty_promise" ? "相手の約束" : "SX側の次アクション",
+    itemKindLabel: commitment.commitmentKind === "counterparty_promise" ? "相手の約束" : "SOL側の次アクション",
     title: commitment.title, detail: commitment.commitmentText, status: commitment.status, dueDate: commitment.dueDate,
     dueDatePrecision: commitment.dueDate ? "day" : "unknown",
     ownerLabel: commitment.commitmentKind === "counterparty_promise" ? commitment.counterpartyOwner : commitment.sxOwner,

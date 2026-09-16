@@ -4180,7 +4180,7 @@ function PartnerInlineRow({
                       data-partner-sx-ball={partner.id}
                       className="mt-px shrink-0 rounded-full border border-amber-300 bg-amber-50 px-2 py-px text-[10px] font-semibold leading-4 text-amber-800"
                     >
-                      SX側保有
+                      SOL側保有
                     </span>
                   )}
                 </span>

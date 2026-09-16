@@ -659,7 +659,7 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
     const nextReviewOn = optionalDate("next_review_on");
     const evidence = optionalTextValue("evidence", 1200);
     if (kind === "counterparty_promise" && (!counterpartyOwner || !promisedOn || !evidence)) throw new Error("相手の約束には相手担当・約束日・一次根拠が必要だよ");
-    if (kind === "sx_followup" && (!sxOwner || !dueDate || !nextReviewOn)) throw new Error("SX側の次アクションにはSX担当・期限・次回確認が必要だよ");
+    if (kind === "sx_followup" && (!sxOwner || !dueDate || !nextReviewOn)) throw new Error("SOL側の次アクションにはSOL担当・期限・次回確認が必要だよ");
     return { ...common(), project_id: projectId, partner_id: requiredId("partner_id"), title: requiredText("title", 180), commitment_text: requiredText("commitment_text", 1000), commitment_kind: kind, status: requiredEnum("status", COMMITMENT_STATUSES, "open"), promised_on: promisedOn, due_date: dueDate, completed_on: optionalDate("completed_on"), owner_label: requiredText("owner_label", 120), counterparty_owner: counterpartyOwner, sx_owner: sxOwner, evidence, next_review_on: nextReviewOn, last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
   }
   if (resource === "dependency") return { project_id: projectId, predecessor_milestone_id: requiredId("predecessor_milestone_id"), successor_milestone_id: requiredId("successor_milestone_id"), dependency_type: requiredEnum("dependency_type", ["finish_to_start", "start_to_start", "finish_to_finish"], "finish_to_start"), required: raw.required == null ? true : booleanValue(raw.required, "required"), lag_days: optionalNumber("lag_days", { min: 0 }) || 0, note: optionalTextValue("note", 1000), created_by: memberId };
@@ -1196,7 +1196,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       const mergedSxOwner = patch.sx_owner !== undefined ? patch.sx_owner : beforeRecord.sx_owner;
       const mergedDueDate = patch.due_date !== undefined ? patch.due_date : beforeRecord.due_date;
       const mergedNextReviewOn = patch.next_review_on !== undefined ? patch.next_review_on : beforeRecord.next_review_on;
-      if (mergedKind === "sx_followup" && (!mergedSxOwner || !mergedDueDate || !mergedNextReviewOn)) throw new Error("SX側の次アクションにはSX担当・期限・次回確認が必要だよ");
+      if (mergedKind === "sx_followup" && (!mergedSxOwner || !mergedDueDate || !mergedNextReviewOn)) throw new Error("SOL側の次アクションにはSOL担当・期限・次回確認が必要だよ");
     }
     if (resource === "partner" && !deleting && !restoring) {
       const mergedDueDate = patch.due_date !== undefined ? patch.due_date : beforeRecord.due_date;

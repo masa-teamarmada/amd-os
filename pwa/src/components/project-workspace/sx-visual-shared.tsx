@@ -187,7 +187,7 @@ export function SxTickMark({ tone = "#1d1d1f", className = "" }: { tone?: string
 }
 
 const BALL_SIDE_LABEL: Record<SxBallSide, string> = {
-  sx: "SX側",
+  sx: "SOL側",
   partner: "相手側",
   shared: "双方",
   none: "該当なし",
