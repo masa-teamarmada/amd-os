@@ -26,6 +26,8 @@
 - 旧水素系の未承認候補15件は判断待ちとして残っている。根拠なく一括削除しない。
 - ZMPディレクトリはgit管理外。運用判断の正本は`ZMP_WORKSPACE_OPERATING_DECISIONS.md`。
 - AMD OSの正規checkoutは別セッション由来のdirtyとlocal commitを持つ。`git add .`、reset、rebase、stashを使わず、作業前に`git fetch`して現在のahead/behindと所有者を再確認する。
+- p21の共有ワークスペースは、コックピット（AMDメンバー限定）と混ぜない。当該PJメンバー向けの共有面であり、`進捗管理 / 事業計画 / ドライブ / 会社情報`だけを表示する。`PJ管理`はコックピット側の内部分類で、PJ概要だけを置く。
+- p21の共有面では、技術・競合比較・ビジネスモデル・事業計画・コスト試算（該当PJのみ燃料を含む）・知財・資本政策を読む。会社概要は共有する一方、キラー要素カタログは描画も取得もしない。外部PJメンバーの会社情報・事業計画は読み取り専用。これは2026-09-16にログイン済み本番Chromeで確認済みで、実装commit `f2ec7bf8` は現行`origin/main`の祖先。
 
 ## 次のタスク
 
@@ -42,3 +44,4 @@
 - 画面変更はmanual/spec/changelogと`ios/DESIGN.md`を同じ変更で更新し、`test:zmp-workspace-themes`、`test:critical-ui`、型検査、build、デスクトップとスマホ幅の本番確認を行う。
 - 正規checkoutの別作業dirtyを戻さない。対象ファイルだけを明示stageするか、origin/main起点の使い捨てclean cloneを使う。closeoutでは一時cloneを削除し、mainとorigin/mainの同期を確認する。
 - Slack、Messenger、メールへの返信や通知は依頼がない限り行わない。今回は情報の確認とOS反映だけが対象。
+- 共有ワークスペースへPJ管理やキラー要素カタログを戻さない。コックピット=AMDメンバー限定、ワークスペース=当該PJメンバー限定という入口・権限境界は変えない。
