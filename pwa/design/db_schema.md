@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-09-16 15:45 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-09-16 22:39 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -4016,6 +4016,8 @@ PRIMARY KEY: `id`
 | 42 | `reviewed_by` | `text` | NULL | `` |
 | 43 | `review_result` | `text` | NULL | `` |
 | 44 | `urgent` | `bool` | NOT NULL | `false` |
+| 45 | `gantt_phase_id` | `text` | NULL | `` |
+| 46 | `gantt_phase_override` | `bool` | NOT NULL | `false` |
 
 ## project_bzm_2_2_acquisitions
 
@@ -5483,7 +5485,7 @@ PRIMARY KEY: `id`
 
 ## project_management_partners
 
-行数 (概算): 78
+行数 (概算): 88
 PRIMARY KEY: `id`
 UNIQUE: `(project_id,slug)` (constraint: `project_management_partners_project_id_slug_key`)
 
@@ -7359,7 +7361,7 @@ PRIMARY KEY: `id`
 
 ## sps_reassessment_source_events
 
-行数 (概算): 604
+行数 (概算): 707
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |

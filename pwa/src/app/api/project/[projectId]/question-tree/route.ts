@@ -54,7 +54,7 @@ const EDITABLE: Record<Resource, string[]> = {
   ],
   action: [
     "parent_id", "title", "detail", "action_kind", "status", "owner_label",
-    "planned_start", "planned_end", "actual_end", "date_certainty", "progress_pct",
+    "gantt_phase_id", "planned_start", "planned_end", "actual_end", "date_certainty", "progress_pct",
     "blocker", "done_criteria", "done_evidence", "target", "actual", "unit",
     "origin_question_id", "sort_order",
     // 見積ptはアサインのときにPMが付ける。確定ptは検収（Phase 2）で入る。
@@ -217,6 +217,13 @@ function assertGoalTreePlacement(
 }
 
 function assertActionRules(fields: Record<string, unknown>, existing?: Record<string, unknown>) {
+  if (Object.hasOwn(fields, "gantt_phase_id")) fields.gantt_phase_override = true;
+  // Validate new/edited dates without blocking placement of legacy undated tasks.
+  if (Object.hasOwn(fields, "planned_start") || Object.hasOwn(fields, "planned_end")) {
+    const start = Object.hasOwn(fields, "planned_start") ? fields.planned_start : existing?.planned_start;
+    const end = Object.hasOwn(fields, "planned_end") ? fields.planned_end : existing?.planned_end;
+    if (start && end && String(start) > String(end)) throw new Error("終了日は開始日以降を指定");
+  }
   const status = (fields.status ?? existing?.status) as string | undefined;
   if (status === "done") {
     const actualEnd = (fields.actual_end ?? existing?.actual_end) as string | null | undefined;

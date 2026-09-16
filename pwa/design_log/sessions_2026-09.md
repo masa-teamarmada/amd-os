@@ -1408,3 +1408,8 @@ NOx の根拠は揃っていた: 台帳「反応性窒素 **◎ 利用して増�
 - DB関数 `move_project_action_question_link` をmigration `20260916070000_move_goal_tree_actions.sql` として本番適用。同一PJ・最上位TODO・承認済みかつ開いた論点に制限し、TODOの親子・日程・担当・前後関係は保持する。
 - `test:question-tree-action-move` を追加し、deploy gateへ組み込んだ。`test:issue-reorder`、`tsc`、ESLint、build、deploy wrapperを通過。本番 `v3.140.4` で対象TODOの操作つまみをデスクトップ・390px幅で確認。実データは動かしていない。
 - commit `bf0a34c3`。
+
+
+### 2026-09-16 SOLガント：工程へのタスク追加
+
+各工程の「＋ タスク追加」から新規作成・既存選択・移動・解除。正本はproject_actionsのgantt_phase_id/gantt_phase_override、通常APIの認可・承認境界・bundleキャッシュ共有。新規は1回の保存、既存はタスク本体と論点関連を維持。親日程は子から再集計。詳細はpwa/spec/3-21-question-tree-current-spec.md、操作はpwa/manual/2-9-question-tree.md。共通DBのmigration 20260916210000適用済み。ネイティブ側の入力UIは対象外。

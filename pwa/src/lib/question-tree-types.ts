@@ -95,6 +95,9 @@ export type ActionOwner = {
 };
 
 export type ActionNode = {
+  /** Explicit gantt placement; absent/false preserves goal-tree inference. */
+  ganttPhaseId?: string | null;
+  ganttPhaseOverride?: boolean;
   id: string;
   projectId: string;
   parentId: string | null;

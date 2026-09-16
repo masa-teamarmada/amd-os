@@ -137,6 +137,8 @@ function mapAction(
     ownerLabel: str(row, "owner_label", "担当未確認"),
     plannedStart: nullableStr(row, "planned_start"),
     plannedEnd,
+    ganttPhaseId: nullableStr(row, "gantt_phase_id"),
+    ganttPhaseOverride: row.gantt_phase_override === true,
     actualEnd: nullableStr(row, "actual_end"),
     dateCertainty: row.date_certainty === "confirmed" ? "confirmed" : "provisional",
     progressPct: num(row, "progress_pct"),
@@ -488,7 +490,7 @@ export async function getQuestionTreeBundle(
       ).order("sort_order"),
       live(
         "project_actions",
-        "id,project_id,parent_id,title,detail,action_kind,status,owner_label,planned_start,planned_end,actual_end,date_certainty,progress_pct,blocker,done_criteria,done_evidence,target,actual,unit,origin_kind,origin_ref,origin_question_id,sort_order,last_verified_at,review_state,proposed_question_id,proposal_reason,created_at,estimated_pt,accepted_pt,accept_state,accepted_at,accepted_by,reviewed_at,reviewed_by,review_result,urgent,created_by",
+        "id,project_id,parent_id,title,detail,action_kind,status,owner_label,gantt_phase_id,gantt_phase_override,planned_start,planned_end,actual_end,date_certainty,progress_pct,blocker,done_criteria,done_evidence,target,actual,unit,origin_kind,origin_ref,origin_question_id,sort_order,last_verified_at,review_state,proposed_question_id,proposal_reason,created_at,estimated_pt,accepted_pt,accept_state,accepted_at,accepted_by,reviewed_at,reviewed_by,review_result,urgent,created_by",
       ).order("sort_order"),
       live(
         "project_findings",

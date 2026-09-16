@@ -1,4 +1,4 @@
-import type { QuestionNode } from "./question-tree-types";
+import type { ActionNode, QuestionNode } from "./question-tree-types";
 
 export type GanttRoadmapPhase = {
   id: string;
@@ -69,9 +69,31 @@ export function spanWork(items: RoadmapWorkItem[]): WorkRange | null {
 }
 /** Questions route work, but are never timeline rows or date sources.
  * Parents use children exclusively; only leaves keep their own planned dates. */
-export function projectRoadmapWork(roots: QuestionNode[], roadmap: ProjectGanttRoadmap) {
+export function projectRoadmapWork(roots: QuestionNode[], roadmap: ProjectGanttRoadmap, allActions: ActionNode[] = []) {
   const grouped = groupRoadmapQuestions(roots, roadmap);
   const seen = new Set<string>();
+  // Resolve the nearest explicit task placement before rendering any question branch.
+  // This also allows standalone tasks and makes detachment survive later tree refreshes.
+  const actions = new Map<string, ActionNode>();
+  const collect = (action: ActionNode) => {
+    if (actions.has(action.id)) return;
+    actions.set(action.id, action);
+    action.children.forEach(collect);
+  };
+  allActions.forEach(collect);
+  const collectTree = (node: QuestionNode) => { node.actions.forEach(collect); node.children.forEach(collectTree); };
+  roots.forEach(collectTree);
+  const placement = new Map<string, string | null>();
+  const visited = new Set<string>();
+  const place = (action: ActionNode, inherited: string | null | undefined, blocked = false) => {
+    if (visited.has(action.id)) return;
+    visited.add(action.id);
+    const owner = blocked || action.isProposed ? null : action.ganttPhaseOverride ? action.ganttPhaseId ?? null : inherited;
+    if (owner !== undefined) placement.set(action.id, owner);
+    action.children.forEach(child => place(child, owner, blocked || action.isProposed));
+  };
+  [...actions.values()].filter(a => !a.parentId || !actions.has(a.parentId)).forEach(a => place(a, undefined));
+  [...actions.values()].forEach(a => place(a, undefined));
   const eligibleActions = new Set<string>();
   const collectAction = (action: import("./question-tree-types").ActionNode) => {
     if (action.isProposed || eligibleActions.has(action.id)) return;
@@ -83,22 +105,27 @@ export function projectRoadmapWork(roots: QuestionNode[], roadmap: ProjectGanttR
     node.children.forEach(collectQuestion);
   };
   [...grouped.byPhase.values(), grouped.ungrouped].flat().forEach(collectQuestion);
-  const actionItem = (action: import("./question-tree-types").ActionNode): RoadmapWorkItem[] => {
-    if (action.isProposed || seen.has(action.id)) return [];
+  const actionItem = (action: ActionNode, owner?: string): RoadmapWorkItem[] => {
+    if (action.isProposed || seen.has(action.id) || (placement.has(action.id) && placement.get(action.id) !== owner)) return [];
     seen.add(action.id);
-    const children = action.children.flatMap(actionItem);
+    const children = action.children.flatMap(child => actionItem(child, owner));
     const range = action.children.some(child => !child.isProposed) ? spanWork(children) : action.plannedEnd
       ? {start: action.plannedStart ?? action.plannedEnd, end: action.plannedEnd} : null;
     return [{id: action.id, title: action.title, kind: "task", range, children, action}];
   };
   const questionItems = (node: QuestionNode): RoadmapWorkItem[] => {
-    const children = [...node.children.flatMap(questionItems), ...node.actions.filter(a => !a.parentId || !eligibleActions.has(a.parentId)).flatMap(actionItem)];
+    const children = [...node.children.flatMap(questionItems), ...node.actions.filter(a => !a.parentId || !eligibleActions.has(a.parentId)).flatMap(a => actionItem(a))];
     if (node.questionKind !== "milestone") return children;
     return [{id: node.id, title: node.title, kind: "milestone", children,
       range: children.length ? spanWork(children) : node.dueDate ? {start: node.dueDate, end: node.dueDate} : null}];
   };
   const phases = roadmap.phases.map(phase => {
     const items = (grouped.byPhase.get(phase.id) ?? []).flatMap(questionItems);
+    for (const action of actions.values()) {
+      if (placement.get(action.id) === phase.id && (!action.parentId || placement.get(action.parentId) !== phase.id)) {
+        items.push(...actionItem(action, phase.id));
+      }
+    }
     return {...phase, items, range: items.length ? spanWork(items) : {start: phase.start, end: phase.end}};
   });
   // Keep the slide's shared lanes until edited children make their ranges overlap.

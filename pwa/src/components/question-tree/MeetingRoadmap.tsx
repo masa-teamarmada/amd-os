@@ -5,11 +5,15 @@ import { projectRoadmapWork, type RoadmapWorkItem, type ProjectGanttRoadmap, typ
 import type { ActionNode, QuestionNode } from "@/lib/question-tree-types";
 import { diffDays } from "@/lib/sx-gantt-drag";
 import styles from "./meeting-roadmap.module.css";
+import { RoadmapTaskEditor, type RoadmapTaskMutation } from "./RoadmapTaskEditor";
 import treeStyles from "./question-tree.module.css";
 
-export function MeetingRoadmap({ roadmap, roots, asOf, renderActionLane, onSelect, axisRef, bodyRef, onExpand, dependencyLayer }: {
+export function MeetingRoadmap({ roadmap, roots, actions, canManage, onSave, asOf, renderActionLane, onSelect, axisRef, bodyRef, onExpand, dependencyLayer }: {
   roadmap: ProjectGanttRoadmap;
   roots: QuestionNode[];
+  actions: ActionNode[];
+  canManage: boolean;
+  onSave: RoadmapTaskMutation;
   asOf: string;
   renderActionLane: (action: ActionNode) => ReactNode;
   onSelect: (kind: "action" | "question", id: string) => void;
@@ -19,7 +23,8 @@ export function MeetingRoadmap({ roadmap, roots, asOf, renderActionLane, onSelec
   dependencyLayer: ReactNode;
 }) {
   const [expanded, setExpanded] = useState(new Set<string>());
-  const work = useMemo(() => projectRoadmapWork(roots, roadmap), [roots, roadmap]);
+  const [editingPhase, setEditingPhase] = useState<string | null>(null);
+  const work = useMemo(() => projectRoadmapWork(roots, roadmap, actions), [roots, roadmap, actions]);
   const days = diffDays(work.start, work.end) + 1;
   const pct = (date: string) => diffDays(work.start, date) / days * 100;
   const width = (start: string, end: string) => (diffDays(start, end) + 1) / days * 100;
@@ -101,6 +106,7 @@ export function MeetingRoadmap({ roadmap, roots, asOf, renderActionLane, onSelec
                     <button type="button" className={styles.title} onClick={() => toggle(phase.id)} aria-expanded={expanded.has(phase.id)}>{phase.title}</button>
                     <span className={styles.meta}>{dateLabel(phase.range)}{!phase.items.length ? " · 計画" : ""}</span>
                   </div>
+                  {canManage && <button type="button" className={`${treeStyles.btn} ${styles.addTask}`} aria-label={`${phase.title}にタスク追加`} onClick={() => setEditingPhase(phase.id)}>＋ タスク追加</button>}
                 </div>
                 <div className={styles.phaseTimeline}>
                   {!phase.items.length && phase.extensionEnd && <span className={styles.extension} title={`資料の延長範囲：${phase.extensionEnd}`} style={{left: `${pct(phase.start)}%`, width: `${width(phase.start, phase.extensionEnd)}%`}} />}
@@ -119,6 +125,12 @@ export function MeetingRoadmap({ roadmap, roots, asOf, renderActionLane, onSelec
         </div>
       </div>
     </div>
+    {editingPhase && <RoadmapTaskEditor phase={roadmap.phases.find(p => p.id === editingPhase)!} roadmap={roadmap} actions={actions} phaseItems={work.phases}
+      onClose={() => setEditingPhase(null)} onSave={async (method, body) => {
+        await onSave(method, body);
+        setExpanded(previous => new Set([...previous, editingPhase]));
+        onExpand();
+      }} />}
     <details className={styles.notes}><summary>計画の補足</summary>{roadmap.notes.map(note => <p key={note}>{note}</p>)}<p>{roadmap.sourceLabel}。子がある工程は子の日程から集計。子のない工程と破線は資料の計画。日程未設定の子は期間に含まない。</p></details>
   </div>;
 }

@@ -373,17 +373,14 @@ export function QuestionTreeView({
     return map;
   }, [roots]);
 
-  // ガントはゴールツリーの工程だけを読む面。論点に紐づかない単独タスクは
-  // タスクタブだけで扱い、期間が入っていても横軸や日程未設定へ混ぜない。
-  const ganttActions = useMemo(
-    () =>
-      (bundle?.allActions ?? []).filter(
-        (action) => !action.isProposed && action.questionIds.length > 0,
-      ),
-    [bundle],
-  );
-
-  const roadmapWork = useMemo(() => bundle?.roadmap ? projectRoadmapWork(roots, bundle.roadmap) : null, [roots, bundle?.roadmap]);
+  const roadmapWork = useMemo(() => bundle?.roadmap ? projectRoadmapWork(roots, bundle.roadmap, bundle.allActions) : null, [roots, bundle?.roadmap, bundle?.allActions]);
+  const ganttActions = useMemo(() => {
+    if (roadmapWork) {
+      const collect = (item: RoadmapWorkItem): ActionNode[] => [...(item.action ? [item.action] : []), ...item.children.flatMap(collect)];
+      return [...roadmapWork.phases.flatMap(p => p.items), ...roadmapWork.ungrouped].flatMap(collect);
+    }
+    return (bundle?.allActions ?? []).filter(action => !action.isProposed && action.questionIds.length > 0);
+  }, [bundle?.allActions, roadmapWork]);
 
   const roadmapParents = useMemo(() => {
     const map = new Map<string, RoadmapWorkItem>();
@@ -2348,7 +2345,11 @@ export function QuestionTreeView({
             </div>
           )}
           {mode === "gantt" && bundle.roadmap ? (
-            <MeetingRoadmap roadmap={bundle.roadmap} roots={roots} asOf={bundle.asOf}
+            <MeetingRoadmap roadmap={bundle.roadmap} roots={roots} actions={bundle.allActions} canManage={bundle.canManage} asOf={bundle.asOf}
+              onSave={async (method, body) => {
+                const payload = await mutateQuestionTree(projectId, method, body);
+                if (payload.bundle) setBundle(payload.bundle);
+              }}
               axisRef={axisRef} bodyRef={ganttBodyRef}
               dependencyLayer={<svg className={styles.depLayer}>{depPaths.map((segment) => <path key={segment.key} d={segment.path} />)}</svg>}
               onExpand={() => setOpenIds(new Set(bundle.allQuestions.filter((question) => !question.isProposed).map((question) => question.id)))}
