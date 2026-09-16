@@ -371,9 +371,19 @@ export function QuestionTreeView({
     return map;
   }, [roots]);
 
-  const ganttDomain = useMemo(
-    () => (bundle ? buildGanttDomain(bundle.allActions, bundle.asOf) : null),
+  // ガントはゴールツリーの工程だけを読む面。論点に紐づかない単独タスクは
+  // タスクタブだけで扱い、期間が入っていても横軸や日程未設定へ混ぜない。
+  const ganttActions = useMemo(
+    () =>
+      (bundle?.allActions ?? []).filter(
+        (action) => !action.isProposed && action.questionIds.length > 0,
+      ),
     [bundle],
+  );
+
+  const ganttDomain = useMemo(
+    () => (bundle ? buildGanttDomain(ganttActions, bundle.asOf) : null),
+    [bundle, ganttActions],
   );
 
   const monthTicks = useMemo(() => (ganttDomain ? buildMonthTicks(ganttDomain) : []), [ganttDomain]);
@@ -381,17 +391,15 @@ export function QuestionTreeView({
   /**
    * まだバーを引けないTODO。会議で出たまま日程が決まっていないもので、
    * ここがアサインの作業面になる（3-22 §4）。終わった仕事は並べない。
-   */
+  */
   const undatedActions = useMemo(() => {
-    if (!bundle) return [];
-    return bundle.allActions.filter(
+    return ganttActions.filter(
       (action) =>
-        !action.isProposed &&
         !barRangeOf(action) &&
         action.status !== "done" &&
         action.status !== "dropped",
     );
-  }, [bundle]);
+  }, [ganttActions]);
 
   /**
    * 問いの行に出す、配下TODOの広がり。到達点やMSが「いつ動いている枝なのか」を
@@ -958,19 +966,7 @@ export function QuestionTreeView({
     );
   }
 
-  const { counts, looseActions, canManage, members } = bundle;
-
-  // 未承認は論点もTODOもツリーの中で光らせて決める。上へ抜き出す一覧は置かない
-  // （まさ確定 2026-09-12「未承認リストが上にあるのもイケてない」）。
-  const looseUnapprovedCount = looseActions.filter((action) => action.isProposed).length;
-  /**
-   * 未承認を先頭へ。下へ埋もれると、承認すべきものに気づけない。
-   * ガントは確認するだけの面なので、未承認は出さない（まさ確定 2026-09-12）。
-   */
-  const orderedLooseActions =
-    mode === "gantt"
-      ? looseActions.filter((action) => !action.isProposed)
-      : looseActions.filter((action) => action.isProposed);
+  const { counts, canManage, members } = bundle;
 
   /** 根からこの問いまでの道。モーダルで文脈を見失わないために出す。 */
   const ancestorsOf = (node: QuestionNode): QuestionNode[] => {
@@ -984,22 +980,6 @@ export function QuestionTreeView({
     }
     return trail;
   };
-
-  const renderAction = (action: ActionNode) => (
-    <div className={styles.item} key={action.id}>
-      <span className={styles.itemKind} data-kind={action.actionKind}>
-        {action.actionKind === "measure" ? "確かめる" : "作業"}
-      </span>
-      <span className={styles.itemTitle} title={action.title}>
-        {action.title}
-      </span>
-      <span className={styles.meta}>{ownerText(action)}</span>
-      <span className={styles.meta} data-alert={action.isOverdue ? "true" : undefined}>
-        {fmtDate(action.plannedEnd)}
-      </span>
-      <span className={styles.meta}>{ACTION_STATUS_LABEL[action.status]}</span>
-    </div>
-  );
 
   /**
    * その場で直せる欄。値を押すと、その位置だけが入力欄へ変わる
@@ -1902,7 +1882,9 @@ export function QuestionTreeView({
     // ガントは日程のあるTODOだけを並べる面なので、子もそこで絞る。
     const childActions =
       mode === "gantt"
-        ? action.children.filter((child) => !child.isProposed && barRangeOf(child))
+        ? action.children.filter(
+            (child) => !child.isProposed && child.questionIds.length > 0 && barRangeOf(child),
+          )
         : action.children;
     const hasChildren = childActions.length > 0;
     const isOpen = openIds.has(action.id);
@@ -2359,33 +2341,6 @@ export function QuestionTreeView({
           </section>
         )}
 
-        {orderedLooseActions.length > 0 && (
-          <section className={styles.section}>
-            <div className={styles.sectionHead}>
-              <h2>{mode === "gantt" ? "論点に紐づいていないTODO" : "紐づけ先を決めるTODO"}</h2>
-              <span>
-                {orderedLooseActions.length}件
-                {mode !== "gantt" && looseUnapprovedCount > 0
-                  ? `（うち未承認 ${looseUnapprovedCount}）`
-                  : ""}
-              </span>
-            </div>
-            {mode === "gantt" ? (
-              <div className={styles.itemList} style={{ border: 0, borderRadius: 0 }}>
-                {orderedLooseActions.slice(0, 40).map(renderAction)}
-              </div>
-            ) : (
-              /* ツリーの行と同じ形で描く。未承認はここでも光り、その場で承認・却下できる
-                 （まさ確定 2026-09-12「ツリーの中に未承認として目立たせて表示して」）。
-                 件数で切らない。切ると未承認が黙って隠れる。 */
-              <div className={styles.tree}>
-                {orderedLooseActions.map((action, index) =>
-                  renderActionRow(action, [], index === orderedLooseActions.length - 1, 0),
-                )}
-              </div>
-            )}
-          </section>
-        )}
       </div>
 
       {openPanel &&

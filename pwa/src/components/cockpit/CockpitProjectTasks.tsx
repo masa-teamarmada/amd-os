@@ -144,7 +144,6 @@ export function CockpitProjectTasks({ projectId }: Props) {
   const [menuId, setMenuId] = useState<string | null>(null);
   const [editing, setEditing] = useState<ActionNode | null>(null);
   const [detail, setDetail] = useState<ActionNode | null>(null);
-  const [selectedProposals, setSelectedProposals] = useState<Set<string>>(new Set());
 
   // ---- 並べ替え（掴んだ瞬間から指に付いてくる自前ドラッグ） -------------------
   const [dragId, setDragId] = useState<string | null>(null);
@@ -316,24 +315,29 @@ export function CockpitProjectTasks({ projectId }: Props) {
     };
   }, [dragId, dragSlot, patch]);
 
-  /** 承認待ち。TODOの提案だけをここに出す（問いはゴールツリー側で見る）。 */
-  const proposals = useMemo(
-    () => (bundle?.proposals ?? []).filter((proposal) => proposal.kind === "action"),
+  /**
+   * 論点に紐づく提案はゴールツリーで確認する。紐づかない提案は単独タスクなので、
+   * このタブだけで採否を決める。未承認かどうかとツリーに置くべきかは別の軸。
+   */
+  const treeProposals = useMemo(
+    () => (bundle?.allActions ?? []).filter((action) => action.isProposed && action.questionIds.length > 0),
+    [bundle],
+  );
+  const standaloneProposals = useMemo(
+    () => (bundle?.allActions ?? []).filter((action) => action.isProposed && action.questionIds.length === 0),
     [bundle],
   );
 
-  const decideProposals = async (decision: "accept" | "reject") => {
-    if (selectedProposals.size === 0) return;
-    setBusyId("proposals");
+  const decideStandaloneProposal = async (id: string, decision: "accept" | "reject") => {
+    setBusyId(id);
     setError(null);
     try {
       const payload = await mutateQuestionTree(projectId, "PATCH", {
         resource: "proposal_bulk",
         decision,
-        ids: [...selectedProposals],
+        ids: [id],
       });
       if (payload.bundle) setBundle(payload.bundle);
-      setSelectedProposals(new Set());
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "確定できませんでした");
     } finally {
@@ -613,10 +617,48 @@ export function CockpitProjectTasks({ projectId }: Props) {
         <p className="rounded-lg bg-[#fee2e2] px-3 py-2 text-[11px] text-[#991b1b]">{error}</p>
       )}
 
-      {canManage && proposals.length > 0 && (
+      {canManage && treeProposals.length > 0 && (
         <p className="rounded-lg bg-[#fffbeb] px-3 py-2 text-[11px] text-[#92400e]">
-          未承認が {proposals.length} 件あります。ゴールツリーのタブで、光っている行から承認してください
+          ゴールツリーに紐づく未承認が {treeProposals.length} 件あります。ゴールツリーのタブで確認してください
         </p>
+      )}
+
+      {standaloneProposals.length > 0 && (
+        <section className="flex flex-col gap-2 rounded-xl border border-[#f5d88a] bg-[#fffdf5] p-3">
+          <div className="flex items-baseline gap-2">
+            <h3 className="text-[14px] font-bold text-[#1d1d1f]">承認待ちのタスク</h3>
+            <span className="text-[11px] text-[#86868b]">{standaloneProposals.length}件</span>
+          </div>
+          <p className="text-[11px] text-[#92400e]">論点や仮説には紐づけず、承認後もこのタスクタブだけで管理する。</p>
+          {standaloneProposals.map((action) => (
+            <div key={action.id} className="flex items-center gap-2 rounded-lg border border-[#f5d88a] bg-white px-3 py-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] text-[#1d1d1f]">{action.title}</p>
+                {action.detail && <p className="mt-0.5 line-clamp-2 text-[11px] text-[#86868b]">{action.detail}</p>}
+              </div>
+              {canManage && (
+                <div className="flex shrink-0 gap-1.5">
+                  <button
+                    type="button"
+                    className="rounded-md bg-[#027fdc] px-2.5 py-1.5 text-[11px] font-bold text-white disabled:opacity-40"
+                    disabled={busyId === action.id}
+                    onClick={() => void decideStandaloneProposal(action.id, "accept")}
+                  >
+                    承認
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-md border border-[#d2d2d7] px-2.5 py-1.5 text-[11px] font-bold text-[#515154] disabled:opacity-40"
+                    disabled={busyId === action.id}
+                    onClick={() => void decideStandaloneProposal(action.id, "reject")}
+                  >
+                    却下
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </section>
       )}
 
       <div className="relative flex flex-col" style={{ gap: ROW_GAP }}>
