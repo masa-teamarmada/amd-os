@@ -20,8 +20,8 @@
 
 ## Repo状態
 
-- canonical `origin/main`: `3df5371a`。作業用の使い捨てcloneは `main...origin/main` でclean。
-- 正規checkout `/Users/masa/projects/AMD/amd-os` は `d4d254a7`、`origin/main`よりahead 3 / behind 204、他セッション由来の29パスがdirty。今回の作業では変更していない。reset、stash、削除、stageはしない。
+- canonical `origin/main`: `142294f0`（単独タスク採否の製品変更 `3df5371a` を含む）。作業用の使い捨てcloneは `main...origin/main` でclean。
+- 正規checkout `/Users/masa/projects/AMD/amd-os` は `d4d254a7`、`origin/main`よりahead 3 / behind 210、他セッション由来の29パスがdirty。今回の作業では変更していない。reset、stash、削除、stageはしない。
 
 ## 未解決
 
