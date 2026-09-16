@@ -72,6 +72,7 @@
 | `/admin/japanese-culture-map` | 日本文化マップ。`jp_culture_items` の active 行を、admin layout gate 内でマインドマップ / 日本地図として読む。旧 `/japanese-culture-map` はこの route へ redirect |
 | `/admin/management-knowledge` | 経営ノウハウ。事業化ルート、座組、価格、資金、法務論点などの再利用カードを保存する admin-only 台帳 |
 | `/admin/private-wiki` | 裏wiki。人物単位の趣味・関係性メモを PJ 別に保存する admin-only 台帳 |
+| `/admin/change-history` | OS全体のデータ変更履歴。実行者、日時、対象行、追加/変更/削除、変更前後をadminだけが一覧確認する。安全条件を満たす行は現在値の一致を確認して戻せる |
 | `/notifications` | L2 candidate / feedback の採否 |
 | `/proactive` | admin 限定の先手 TODO リスト。`proactive_todos` の open / blocked / done / dismissed を期限順に確認し、完了・ブロック・関係ないの3ボタンで処理する |
 | `/management-score` | AMD Management Score |
@@ -98,6 +99,8 @@ MTG新規作成と編集は安全側のフラグで一時停止している。
 - `POST/PATCH/PUT /api/workspace-documents/**` のcookie認証付き変更は `Origin`、`Sec-Fetch-Site`、`Referer` の順でsame-originを確認し、確認材料が無いrequestも403で閉じる。GETはこのmutation guardの対象外だが、資料単位の認可を毎回行う。
 - `/api/admin/private-wiki` は `requireAdmin()` + `service_role` で `private_wiki_entries` を list/create/update/archive する。browser client から直接書かせない。
 - `/api/admin/management-knowledge` は `requireAdmin()` + `service_role` で `management_knowledge_entries` を list/create/update/archive する。browser client から直接書かせない。source_excerpt は短い根拠だけで、メール全文・議事録全文・資料全文を保存しない。
+- `/api/admin/change-history` は `requireAdmin()` で `amd_os_data_change_history` を新しい順に80件ずつ読む。履歴はDB triggerが同一transactionで作り、画面routeから履歴行を作らない。秘密列は伏せ、大きい値は省略し、履歴table自体はappend-onlyとする。`POST {action:"undo",historyId}` はadmin専用の `amd_os_undo_data_change` RPCへ渡し、主キーあり・秘密/巨大値なし・現在値が変更後と一致する場合だけ逆操作する。競合・戻し済み・対象外は変更せず理由を返し、逆操作は元履歴へのリンク付きで新たな履歴になる。
+- `/api/admin/workspace-access` の `action=access_request_decision` は `requireAdmin()` + `service_role` で、未許可アカウントのアクセス要求を承認/拒否する。研究機関workspaceが一意な要求だけを`readonly`/`invited`で直接許可し、PJ/対象未特定は権限範囲の手動選択へ止める。停止済みaccount/grantは自動復活しない。
 - `/tasks` 画面は廃止済み。`/api/tasks` は cockpit legacy kanban / H-1 互換のため残し、DB write は `service_role` 経由で、DELETE ではなく `active=false` を使う。通知 link は対象 PJ cockpit へ向ける。
 - `/api/task-calendar/register-tasks` は H-1 が抽出した次アクションを `tasks` に自動登録し、担当者本人にだけ Slack DM nudge を送る。`CRON_SECRET` / `WORKFLOW_SECRET` または admin auth でのみ実行し、admin review queue は作らない。
 - `/api/cron/governance-email-sweep` は D-14G の source sweep route。`CRON_SECRET` または admin auth でのみ実行し、`/admin/projects` の総会/役会フラグON PJに限定して Gmail を検索する。LLM定期cronではなく、source refs と `/api/governance/extract` への候補/確認済みhandoffを担う。
@@ -128,6 +131,7 @@ migration 212 / 213 / 216〜219 / 258 と対になる contract。212 / 213は202
 | 評価系列 | ECR は機関の縦並び (総合 + 8軸)、SPS はシーズごと。DTO 上も別プロパティで、合成スコア・相関・因果指標を作らない |
 | 資料共有 | `workspace_documents` とprivate Storage `workspace-files`が正本。機関資料とPJ資料をscopeで分離し、外部は `workspace_shared` だけを読む。追加権限がある現在folderの資料一覧全体（空状態を含む）が外部file uploadのdrop先で、資料室内のFinder / Explorer file drag/dropはcapture段階でブラウザ既定のopen/downloadを止める。実際のuploadは検索中でない現在folderの資料一覧だけから既存upload処理を通して行い、内部資料行をパンくずへ移動するdragとは分ける。旧Project Shareは移行readback後の2026-08-26に全廃し、旧入口・Vercel project・Blob store・共有パスワード方式を再利用しない。公開後revisionの上書き禁止は未実装で、全体収束仕様の残課題 |
 | audit | `workspace_access_audit_logs` にログイン要求・送信・成功・拒否・ログアウト・admin操作を記録する。258はaccount、機関grant、PJ grant、資料metadataのrow変更をDB triggerで同じtransactionに記録する。semantic audit insert失敗も成功扱いしない。メール本文、URL、トークン、未登録アドレス、Storage pathは残さない |
+| access request | 未登録または利用可能membershipが無いメールの要求は`workspace_access_requests`へ保存し、一般auditには未登録メールを残さない。まさ（ID001）へのSlack DMは同一要求30分に1回・全体20件/時でclaimし、許可/拒否ボタンはSlack署名検証後に処理する。Slackからの決定はまさ本人の`members.slack_id`一致だけ。許可後の追加メールは送らず、本人の次回ログイン操作で既存OTPを送る |
 | validation | `test:workspace-access-scope` / `test:workspace-access-session` / `test:workspace-email-start-contract` / `test:workspace-next-path` / `test:external-project-workspace` / `test:workspace-access-admin` / `test:workspace-rls-closure` / `test:workspace-documents-core` / `test:workspace-documents-contract` / `test:workspace-fact-origin-contract` / `test:workspace-security-migration-contract` / `test:workspace-capabilities` |
 
 ## Admin Private Wiki

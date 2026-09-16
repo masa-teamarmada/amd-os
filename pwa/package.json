@@ -158,6 +158,7 @@
     "test:workspace-access-scope": "node --experimental-strip-types scripts/check_workspace_access_scope.mts",
     "test:workspace-access-session": "node --experimental-strip-types scripts/check_workspace_access_session.mts",
     "test:workspace-email-start-contract": "node scripts/check_workspace_email_start_contract.mjs",
+    "test:data-change-history": "node --experimental-strip-types scripts/check_data_change_history_and_access_requests.mts",
     "test:workspace-next-path": "node --experimental-strip-types scripts/check_workspace_next_path.mts",
     "test:project-workspace-route": "node scripts/check_project_workspace_route_contract.mjs",
     "test:zmp-workspace-themes": "node scripts/check_zmp_workspace_themes.mjs",

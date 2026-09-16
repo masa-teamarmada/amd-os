@@ -1,5 +1,12 @@
 # iOS → Android ハンドオフ
 
+## 2026-09-16 OS全体の変更履歴・安全な戻し操作・外部アクセス要求
+
+- 共通DBへ`amd_os_data_change_history`を追加し、public schemaの現行336テーブルへinsert/update/delete監査triggerを展開した。実行者・日時・対象行・変更項目・変更前後を記録する。秘密値は伏せ、大きい値は省略し、OAuth token・OTP rate limit等の秘密/一時状態tableは対象外。導入前の履歴は遡及生成しない。
+- admin PWAの`/admin/change-history`で一覧・操作種別filter・検索・差分表示を行う。安全条件を満たす履歴だけ、現在値の一致を確認して追加/変更/削除を逆操作できる。戻し操作も元履歴へのlink付きで新しい履歴となる。秘密値・大きい値・主キーなし・競合・戻し済みは戻さない。
+- 未許可の外部メールがworkspace loginを求めた場合は`workspace_access_requests`へ記録し、まさ（ID001）へSlack DMする。研究機関workspaceが一意な要求だけ、DMまたは`/admin/access`から`readonly`・`invited`で許可できる。PJ個別権限は暗黙付与せず、停止済みaccount/grantは自動復活しない。許可後は本人がloginを再試行する。
+- Android/iOSのnative UIは今回変更なし。将来nativeへ変更履歴を出す場合も、DBを直接逆操作せずadmin API/RPCの競合確認を維持する。TestFlight更新なし。対応commitはこの文書と同一commit。
+
 ## 2026-09-16 ZMPワークスペースの実行導線（共通DB・PWA）
 
 - PWAのZMPワークスペースは旧「テーマ」タブを外し、ゴールツリー / タスク / ガントを実行の先頭に置く。旧`#theme-progress`はゴールツリーへ戻る。

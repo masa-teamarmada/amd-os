@@ -7,6 +7,7 @@ import {
   type ReimbursementDecisionAction,
 } from "@/lib/reimbursement-decision";
 import { confirmPaymentGroup, verifyPaymentConfirmationToken } from "@/lib/payment-confirmation";
+import { decideWorkspaceAccessRequest } from "@/lib/workspace-access-request-decision";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -32,6 +33,11 @@ const REIMBURSEMENT_ACTIONS = new Set<string>([
   "reimb_reject",
   "reimb_admin_approve",
   "reimb_admin_reject",
+]);
+
+const WORKSPACE_ACCESS_ACTIONS = new Set<string>([
+  "workspace_access_approve",
+  "workspace_access_reject",
 ]);
 
 const DECISION_LABELS: Record<string, string> = {
@@ -116,6 +122,34 @@ async function resolveEmail(
   } catch {
     return "";
   }
+}
+
+async function resolveMember(
+  db: ReturnType<typeof createAdminClient>,
+  client: WebClient | null,
+  slackUserId: string,
+): Promise<{ memberId: string; email: string } | null> {
+  if (!slackUserId) return null;
+  const { data } = await db
+    .from("members")
+    .select("member_id,email,status")
+    .eq("slack_id", slackUserId)
+    .eq("status", "active")
+    .maybeSingle();
+  if (data?.member_id) {
+    return { memberId: String(data.member_id), email: String(data.email ?? "").trim().toLowerCase() };
+  }
+  const email = await resolveEmail(db, client, slackUserId);
+  if (!email) return null;
+  const { data: byEmail } = await db
+    .from("members")
+    .select("member_id,email,status")
+    .eq("email", email)
+    .eq("status", "active")
+    .maybeSingle();
+  return byEmail?.member_id
+    ? { memberId: String(byEmail.member_id), email: String(byEmail.email ?? email).trim().toLowerCase() }
+    : null;
 }
 
 async function replyInThread(
@@ -226,6 +260,64 @@ async function handlePaymentConfirm(
   }
 }
 
+async function handleWorkspaceAccessDecision(
+  client: WebClient | null,
+  payload: SlackPayload,
+  actionId: string,
+  actionValue: string,
+) {
+  const channel = String(payload.channel?.id ?? "");
+  const threadTs = String(payload.message?.ts ?? "");
+  let parsed: { requestId?: string } = {};
+  try {
+    parsed = actionValue ? JSON.parse(actionValue) : {};
+  } catch {
+    parsed = {};
+  }
+  const requestId = String(parsed.requestId ?? "").trim();
+  if (!requestId) {
+    await replyInThread(client, channel, threadTs, "⚠️ アクセス要求IDが取れなかった。管理画面から確認して");
+    return;
+  }
+
+  const db = createAdminClient();
+  const actor = await resolveMember(db, client, String(payload.user?.id ?? ""));
+  // このDMの決定権は、通知先であるまさ本人だけに限定する。転送や共有画面から
+  // 別adminが押しても権限付与しない。
+  if (actor?.memberId !== "ID001") {
+    await replyInThread(client, channel, threadTs, "⚠️ このアクセス要求をSlackで決められるのは、まさのみ");
+    return;
+  }
+
+  const decision = actionId === "workspace_access_approve" ? "approved" : "rejected";
+  try {
+    const result = await decideWorkspaceAccessRequest(db, {
+      requestId,
+      decision,
+      actorMemberId: actor.memberId,
+      source: "slack",
+    });
+    if (result.alreadyDecided) {
+      const label = result.status === "approved" ? "許可済み" : "許可しないで確定済み";
+      await replyInThread(client, channel, threadTs, `ℹ️ この要求はすでに「${label}」（${result.email}）`);
+      return;
+    }
+    if (result.status === "approved") {
+      await replyInThread(
+        client,
+        channel,
+        threadTs,
+        `✅ 閲覧を許可した（${result.email} / ${result.workspaceName ?? result.workspaceSlug ?? "ワークスペース"}）\n本人がもう一度ログイン操作すると、ログインリンクが届くよ。`,
+      );
+    } else {
+      await replyInThread(client, channel, threadTs, `⛔ 許可しないで確定した（${result.email}）`);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await replyInThread(client, channel, threadTs, `⚠️ 決定を反映できなかった。管理画面で確認して\n${message.slice(0, 240)}`);
+  }
+}
+
 export async function POST(req: NextRequest) {
   const raw = await req.text();
   const signature = req.headers.get("x-slack-signature") || "";
@@ -268,6 +360,8 @@ export async function POST(req: NextRequest) {
     after(() => handleReimbursement(client, payload, actionId, actionValue));
   } else if (actionId === "payment_confirm_expected") {
     after(() => handlePaymentConfirm(client, payload, actionValue));
+  } else if (WORKSPACE_ACCESS_ACTIONS.has(actionId)) {
+    after(() => handleWorkspaceAccessDecision(client, payload, actionId, actionValue));
   }
 
   // 未知の action_id は黙って 200。リンクボタン等で毎回叩かれるため。

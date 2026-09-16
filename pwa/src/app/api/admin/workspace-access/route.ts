@@ -16,6 +16,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
 import { normalizeWorkspaceEmail } from "@/lib/workspace-email";
 import { recordWorkspaceAuditEvent } from "@/lib/workspace-access-audit";
+import {
+  decideWorkspaceAccessRequest,
+  type WorkspaceAccessRequestDecision,
+} from "@/lib/workspace-access-request-decision";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
@@ -38,6 +42,7 @@ const ACCOUNT_FIELDS = "id,email,display_name,status,last_login_at,created_at,up
 const INSTITUTION_WORKSPACE_FIELDS = "id,slug,name,status,is_publicly_listed";
 const INSTITUTION_MEMBERSHIP_FIELDS = "id,workspace_id,user_account_id,role,status,created_at,updated_at";
 const PROJECT_MEMBERSHIP_FIELDS = "id,project_id,user_account_id,role,status,created_at,updated_at";
+const ACCESS_REQUEST_FIELDS = "id,email_normalized,requested_path,target_kind,workspace_slug,project_id,status,request_count,first_requested_at,last_requested_at,decided_at,decided_by_member_id,decision_source,slack_notification_status";
 
 type Body = Record<string, unknown>;
 type Db = SupabaseClient;
@@ -148,16 +153,17 @@ export async function GET() {
 
   const db = createAdminClient();
 
-  const [accounts, workspaces, institutionMemberships, projects, projectMemberships] = await Promise.all([
+  const [accounts, workspaces, institutionMemberships, projects, projectMemberships, accessRequests] = await Promise.all([
     listAllRows(db, "workspace_user_accounts", ACCOUNT_FIELDS, "created_at", false),
     listAllRows(db, "institution_workspaces", INSTITUTION_WORKSPACE_FIELDS, "name"),
     listAllRows(db, "institution_workspace_memberships", INSTITUTION_MEMBERSHIP_FIELDS, "created_at", false),
     listAllRows(db, "projects", "project_id,project_name,status", "project_id"),
     listAllRows(db, "project_access_memberships", PROJECT_MEMBERSHIP_FIELDS, "created_at", false),
+    listAllRows(db, "workspace_access_requests", ACCESS_REQUEST_FIELDS, "last_requested_at", false),
   ]);
 
   const firstError =
-    accounts.error ?? workspaces.error ?? institutionMemberships.error ?? projects.error ?? projectMemberships.error;
+    accounts.error ?? workspaces.error ?? institutionMemberships.error ?? projects.error ?? projectMemberships.error ?? accessRequests.error;
   if (firstError) return failed("load_failed", firstError);
 
   return NextResponse.json({
@@ -167,6 +173,7 @@ export async function GET() {
     institutionMemberships: institutionMemberships.data ?? [],
     projects: projects.data ?? [],
     projectMemberships: projectMemberships.data ?? [],
+    accessRequests: accessRequests.data ?? [],
   });
 }
 
@@ -179,6 +186,10 @@ export async function POST(request: Request) {
   const body = await readBody(request);
   if (!body) return bad("invalid_json");
 
+  if (body.action === "access_request_decision") {
+    return decideAccessRequest(body, auth.user.email);
+  }
+
   const kind = pick(body.kind, MUTATION_KINDS);
   if (!kind) return bad("invalid_kind");
 
@@ -186,6 +197,41 @@ export async function POST(request: Request) {
   if (kind === "account") return createAccount(db, body);
   if (kind === "institution_membership") return createInstitutionMembership(db, body);
   return createProjectMembership(db, body, auth.user.email);
+}
+
+async function decideAccessRequest(body: Body, adminEmail: string) {
+  const requestId = text(body.requestId, 64);
+  const decision = body.decision === "approved" || body.decision === "rejected"
+    ? body.decision as WorkspaceAccessRequestDecision
+    : null;
+  if (!requestId || !decision) return bad("invalid_decision");
+
+  const db = createAdminClient();
+  const { data: actor, error: actorError } = await db
+    .from("members")
+    .select("member_id")
+    .match({ email: adminEmail.toLowerCase(), status: "active", is_admin: true })
+    .maybeSingle();
+  if (actorError || !actor?.member_id) return bad("admin_actor_missing", 403);
+
+  try {
+    const result = await decideWorkspaceAccessRequest(db, {
+      requestId,
+      decision,
+      actorMemberId: actor.member_id,
+      source: "admin_page",
+    });
+    return NextResponse.json({ ok: true, result });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const code = message.includes("explicit institution workspace")
+      ? "scope_required"
+      : message.includes("suspended") || message.includes("stopped")
+        ? "access_stopped"
+        : "decision_failed";
+    console.error("[admin/workspace-access] request decision failed:", message);
+    return NextResponse.json({ ok: false, error: code }, { status: 409 });
+  }
 }
 
 async function createAccount(db: Db, body: Body) {

@@ -112,6 +112,7 @@ export const SURFACE_CATALOG: readonly SurfaceDefinition[] = [
   { id: "admin-prompts", title: "LLM プロンプト", navLabel: "LLMプロンプト", primaryPath: "/admin/prompts", domain: "knowledge_documents", lens: "amd_operations", status: "canonical", exact: ["/admin/prompts"] },
   { id: "admin-payments", title: "納付", navLabel: "納付", primaryPath: "/admin/payments", domain: "company_operations", lens: "amd_operations", status: "canonical", exact: ["/admin/payments"] },
   { id: "admin-schedule", title: "管理カレンダー", navLabel: "管理カレンダー", primaryPath: "/admin/schedule", domain: "company_operations", lens: "amd_operations", status: "canonical", exact: ["/admin/schedule"] },
+  { id: "admin-change-history", title: "データ変更履歴", navLabel: "変更履歴", primaryPath: "/admin/change-history", domain: "platform", lens: "amd_operations", status: "canonical", exact: ["/admin/change-history"] },
   { id: "admin-settings", title: "Admin 設定", navLabel: "設定", primaryPath: "/admin/settings", domain: "platform", lens: "amd_operations", status: "canonical", exact: ["/admin/settings"] },
   { id: "admin-fallback", title: "Admin", domain: "company_operations", lens: "amd_operations", status: "transitional", prefixes: ["/admin"] },
 
@@ -125,7 +126,7 @@ export const ADMIN_SURFACE_GROUPS = [
   { label: "契約・お金", surfaceIds: ["admin-contracts", "admin-kiyo", "admin-cash", "admin-invoices", "admin-payouts", "admin-monthly-agreements", "admin-season-pl", "admin-finance", "admin-project-profitability"] },
   { label: "PJ・実行", surfaceIds: ["management-score", "admin-weekly", "admin-protocols", "admin-ms-overview", "admin-meeting-gaps", "admin-coverage", "admin-ip"] },
   { label: "知識・AI", surfaceIds: ["admin-japanese-culture", "admin-contexts", "admin-management-knowledge", "admin-private-wiki", "admin-tsukuyomi", "admin-prompts"] },
-  { label: "運用", surfaceIds: ["admin-settings"] },
+  { label: "運用", surfaceIds: ["admin-change-history", "admin-settings"] },
 ] as const;
 
 const surfaceById = new Map(SURFACE_CATALOG.map((surface) => [surface.id, surface]));

@@ -1514,3 +1514,9 @@ Closeout記録: `CLOSEOUT_SOL_GANTT_2026-09-16.md`。本番最新readback cbc561
 - **仕様同期**: `pwa/manual/2-3-pj-cockpit.md`、`pwa/spec/3-8`、`3-16`、`3-21`、manual/spec changelog、`ios/DESIGN.md`、PWA/Android向けhandoffを同じ変更で更新した。
 - **検証**: `test:zmp-workspace-themes`、`test:critical-ui`、`tsc --noEmit`、`npm run build`、配信スクリプトの全検査、`git diff --check`が成功。本番`v3.140.3`でゴールツリーに研修が出ない、タスクとガントには出る、KRの回答済み判断が出る、テーマタブが無いことを確認。デスクトップと390px相当のスマホ幅で横overflowなし。
 - **残る判断**: 旧水素系の未承認候補15件は今回の依頼外のため残した。承認または却下を個別に判断する。
+## 2026-09-16 OS全体の変更履歴・戻す操作・外部アクセス要求
+
+- public schemaの現行336 tableへDB triggerを付け、insert/update/deleteの実行者・日時・主キー・実差分を`amd_os_data_change_history`へ追記する。secret keyは再帰的に伏せ、大きい値は省略。OAuth token、OTP rate limit、アクセス要求tableは値複製の対象外。
+- `/admin/change-history`を追加。操作種別filter、表示中80件の検索、変更前後の展開、競合確認付きの「この変更を戻す」を実装。主キー・完全な安全payload・現在値一致が揃う場合だけ追加/変更/削除を逆操作し、戻し自体も元履歴へのlink付きで記録する。
+- 未許可emailのlogin要求を専用tableへ集約し、同一要求30分・全体20件/時を上限にまさ（ID001）へSlack DMする。研究機関scopeだけDMからreadonly/invitedで許可でき、PJ/対象未特定はadmin画面で範囲選択。停止済み権限は自動復活しない。
+- migration全文を本番transactionでrollback実行し、追加/変更/削除の逆操作smoke testに成功。`20260916223000`を本番適用し、migration台帳とtable/function/336 triggerをreadbackした。開発中の実Slack DMは送っていない。

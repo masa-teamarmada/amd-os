@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Building2, FolderKanban, Mail } from "lucide-react";
+import { Building2, FolderKanban, Mail, ShieldCheck } from "lucide-react";
 
 // Admin panel for external workspace access. Three independent grants, three sections:
 //   1. 外部メールアカウント        — who exists at all
@@ -35,12 +35,30 @@ type ProjectMembershipRow = {
   status: string;
 };
 
+type AccessRequestRow = {
+  id: string;
+  email_normalized: string;
+  requested_path: string;
+  target_kind: "institution" | "project" | "unspecified";
+  workspace_slug: string | null;
+  project_id: string | null;
+  status: "pending" | "approved" | "rejected" | "expired";
+  request_count: number;
+  first_requested_at: string;
+  last_requested_at: string;
+  decided_at: string | null;
+  decided_by_member_id: string | null;
+  decision_source: "slack" | "admin_page" | null;
+  slack_notification_status: string;
+};
+
 type AccessData = {
   accounts: AccountRow[];
   institutionWorkspaces: WorkspaceRow[];
   institutionMemberships: InstitutionMembershipRow[];
   projects: ProjectRow[];
   projectMemberships: ProjectMembershipRow[];
+  accessRequests: AccessRequestRow[];
 };
 
 const ACCOUNT_STATUS_LABELS: Record<string, string> = {
@@ -140,6 +158,7 @@ export function WorkspaceAccessAdminPanel() {
       institutionMemberships: payload.institutionMemberships ?? [],
       projects: payload.projects ?? [],
       projectMemberships: payload.projectMemberships ?? [],
+      accessRequests: payload.accessRequests ?? [],
     });
   }, []);
 
@@ -182,6 +201,38 @@ export function WorkspaceAccessAdminPanel() {
     return map;
   }, [data]);
 
+  const decideRequest = useCallback(
+    async (requestId: string, decision: "approved" | "rejected") => {
+      setBusy(true);
+      setMessage(null);
+      setErrorMessage(null);
+      try {
+        const response = await fetch("/api/admin/workspace-access", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "access_request_decision", requestId, decision }),
+        });
+        const payload = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!response.ok || !payload.ok) {
+          const label = payload.error === "scope_required"
+            ? "この要求は対象範囲が特定できない。下の台帳でアカウントと権限を個別に登録して"
+            : payload.error === "access_stopped"
+              ? "停止済みのアカウントまたは権限がある。下の台帳で状態を確認して"
+              : "アクセス要求の決定を反映できなかった";
+          setErrorMessage(label);
+          return;
+        }
+        setMessage(decision === "approved" ? "閲覧を許可した。本人がもう一度ログインするとリンクが届く。" : "許可しないで確定した。");
+        await load();
+      } catch {
+        setErrorMessage("通信に失敗した");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [load],
+  );
+
   const workspacesById = useMemo(() => {
     const map = new Map<string, WorkspaceRow>();
     for (const workspace of data?.institutionWorkspaces ?? []) map.set(workspace.id, workspace);
@@ -217,6 +268,8 @@ export function WorkspaceAccessAdminPanel() {
         </p>
       )}
 
+      <AccessRequestsSection requests={data.accessRequests} busy={busy} decide={decideRequest} />
+
       <AccountsSection accounts={data.accounts} busy={busy} mutate={mutate} />
 
       <InstitutionSection
@@ -242,6 +295,114 @@ export function WorkspaceAccessAdminPanel() {
         mutate={mutate}
       />
     </div>
+  );
+}
+
+function accessRequestTargetLabel(request: AccessRequestRow) {
+  if (request.target_kind === "institution" && request.workspace_slug) return `研究機関 / ${request.workspace_slug}`;
+  if (request.target_kind === "project" && request.project_id) return `PJ / ${request.project_id}`;
+  return "対象未特定";
+}
+
+function accessRequestDate(value: string) {
+  return new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function AccessRequestsSection({
+  requests,
+  busy,
+  decide,
+}: {
+  requests: AccessRequestRow[];
+  busy: boolean;
+  decide: (requestId: string, decision: "approved" | "rejected") => Promise<void>;
+}) {
+  const pending = requests.filter((request) => request.status === "pending");
+  const decided = requests.filter((request) => request.status !== "pending").slice(0, 8);
+
+  return (
+    <SectionShell
+      icon={<ShieldCheck className="h-4 w-4" aria-hidden="true" />}
+      title={`承認待ちのアクセス要求${pending.length ? ` ${pending.length}件` : ""}`}
+      description="許可されていないアカウントがログインを求めた記録。研究機関ワークスペースは閲覧のみで許可でき、停止済み権限は自動で復活しない。"
+    >
+      {pending.length === 0 ? (
+        <div className="rounded-md border border-dashed border-border px-3 py-5 text-center text-xs text-muted-foreground">
+          承認待ちはない
+        </div>
+      ) : (
+        <ul className="divide-y divide-border/70 border-y border-border/70">
+          {pending.map((request) => {
+            const canApprove = request.target_kind === "institution" && Boolean(request.workspace_slug);
+            return (
+              <li key={request.id} className="grid gap-3 py-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="break-all text-sm font-semibold text-foreground">{request.email_normalized}</span>
+                    <span className="rounded-sm bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">
+                      {accessRequestTargetLabel(request)}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                    <span>{accessRequestDate(request.last_requested_at)}</span>
+                    <span>{request.request_count}回目</span>
+                    <span>Slack: {request.slack_notification_status === "sent" ? "通知済み" : "記録済み"}</span>
+                  </div>
+                  {!canApprove && (
+                    <p className="mt-1 text-[11px] text-amber-800">対象範囲が一意でないため、下の台帳で権限を選んで登録</p>
+                  )}
+                </div>
+                <div className="flex gap-2 md:justify-end">
+                  {canApprove && (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void decide(request.id, "approved")}
+                      className="min-h-11 rounded-md bg-sky-700 px-3 text-xs font-semibold text-white transition-colors hover:bg-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:opacity-50 md:min-h-9"
+                    >
+                      閲覧を許可
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void decide(request.id, "rejected")}
+                    className="min-h-11 rounded-md border border-border bg-background px-3 text-xs font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 md:min-h-9"
+                  >
+                    許可しない
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {decided.length > 0 && (
+        <details className="mt-3 border-t border-border/70 pt-3">
+          <summary className="cursor-pointer text-xs font-medium text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            最近の決定 {decided.length}件
+          </summary>
+          <ul className="mt-2 divide-y divide-border/60 text-xs">
+            {decided.map((request) => (
+              <li key={request.id} className="grid gap-1 py-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                <span className="min-w-0 break-all text-foreground">{request.email_normalized}</span>
+                <span className={request.status === "approved" ? "text-emerald-700" : "text-rose-700"}>
+                  {request.status === "approved" ? "許可済み" : "許可しない"}
+                  {request.decided_at ? ` / ${accessRequestDate(request.decided_at)}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </SectionShell>
   );
 }
 
