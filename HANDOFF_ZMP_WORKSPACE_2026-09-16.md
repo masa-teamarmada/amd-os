@@ -16,7 +16,7 @@
 - canonical repo: `/Users/masa/projects/AMD/amd-os`
 - default branch: `main`
 - accepted implementation commit: `5c06cd743380f20e61b4c21ad4195da6c644a666`
-- production: `v3.140.3` / `5c06cd743380f20e61b4c21ad4195da6c644a666`
+- production readback at closeout: `v3.140.9` / `f2ec7bf8a5ac4669696cefb16c81479fa656b7da`。accepted implementation commit `5c06cd74`を祖先に含む。
 - URL: `https://amd-os-pwa.vercel.app/project/p19/workspace`
 - DB migrations: `20260916023000_zmp_active_goal_tree_correction.sql`、`20260916024000_zmp_retire_duplicate_trademark_question.sql`
 - migration historyを含む本番DB読み戻し済み。
@@ -50,4 +50,3 @@
 - 全画面索引: `ios/DESIGN.md`
 - 開発履歴: `pwa/design_log/sessions_2026-09.md`
 - ZMP運用判断: `/Users/masa/projects/AMD/ZMP/ZMP_WORKSPACE_OPERATING_DECISIONS.md`
-
