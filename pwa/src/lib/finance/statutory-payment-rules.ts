@@ -131,9 +131,9 @@ function amountStatus(amount: number | null, exact: boolean): PaymentObligationA
 }
 
 function withinHorizon(date: string, today: string, horizonYm: string): boolean {
-  // 未消込の法定納付を62日で生成対象から落とすと、元行だけが古い状態のまま残り、
-  // 後から届いたfreee明細で二度と照合できない。少なくとも前年初まで再生成する。
-  const oldCutoff = `${Number(today.slice(0, 4)) - 1}-01-01`;
+  // 62日では7月10日期限の行が9月中旬に照合対象から落ちる。120日あれば後日取得した
+  // freee明細を拾いつつ、現行運用開始前の古い給与期間を新規の滞納として逆生成しない。
+  const oldCutoff = addDays(today, -120);
   return date >= oldCutoff && ymFromDate(date) <= horizonYm;
 }
 
@@ -387,7 +387,7 @@ function socialInsuranceDrafts(input: BuildStatutoryPaymentsInput, horizonYm: st
   if (fallback == null) return [];
 
   const currentYm = ymFromDate(input.today);
-  const firstYm = `${Number(input.today.slice(0, 4)) - 1}01`;
+  const firstYm = `${input.today.slice(0, 4)}01`;
   const sourceEndYm = addMonthsToStatutoryYm(horizonYm, -1);
   const sourceMonths: string[] = [];
   for (let ym = firstYm; ym <= sourceEndYm; ym = addMonthsToStatutoryYm(ym, 1)) sourceMonths.push(ym);

@@ -106,6 +106,7 @@ const statutory = buildAmdStatutoryPaymentDrafts({
     { ym: "202703", consumptionTaxYen: 0, corporateTaxYen: 0 },
   ],
 });
+assert.equal(statutory.some((row) => row.sourceKey.includes(":2025")), false, "現行運用開始前の古い給与期間を滞納として逆生成しない");
 const withholdingH1 = statutory.find((row) => row.sourceKey === "statutory:withholding-income-tax:special:2026-h1");
 assert.equal(withholdingH1?.dueDate, "2026-07-10");
 assert.equal(withholdingH1?.amountYen, 322680);
