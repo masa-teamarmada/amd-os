@@ -18,7 +18,7 @@
 - canonical `origin/main` は単独タスク採否の製品変更 `3df5371a949d5c27eb03594ab640651872054432` を含む最新main。PWA本番は `v3.140.7`、`https://amd-os-pwa.vercel.app/api/build-info` で製品変更のSHAを確認済み。
 - タスクタブの「承認待ちのタスク」は `POST { resource: "proposal_bulk", decision, ids }` が正本。承認は単独タスクとして残り、却下は論理削除する。DB migrationはない。
 - PWAの `だよ` / `してね` / `てね` / `でね` はcritical UI検査で禁止済み。新規経路の契約検査は `npm run test:question-tree-task-review`、`npm run test:critical-ui` にも組み込み済み。
-- 正規checkout `/Users/masa/projects/AMD/amd-os` は他セッション作業を含め `d4d254a7`、`origin/main`よりahead 3 / behind 210、29パスdirty。今回の作業では触っていない。reset、stash、`git add .`、他人の変更のcommitをしない。実装が必要ならまず最新mainから使い捨てclean cloneを作る。
+- 正規checkout `/Users/masa/projects/AMD/amd-os` は他セッション作業を含め `d4d254a7`、29パスdirtyで、`origin/main`とのahead / behindも残っている。開始時に必ず `git fetch origin` と `git status -sb` で実数を確認する。今回の作業では触っていない。reset、stash、`git add .`、他人の変更のcommitをしない。実装が必要ならまず最新mainから使い捨てclean cloneを作る。
 
 ## 次に扱うときの注意
 

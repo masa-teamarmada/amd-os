@@ -21,7 +21,7 @@
 ## Repo状態
 
 - canonical `origin/main` は単独タスク採否の製品変更 `3df5371a` を含む最新main。作業用の使い捨てcloneは `main...origin/main` でclean。
-- 正規checkout `/Users/masa/projects/AMD/amd-os` は `d4d254a7`、`origin/main`よりahead 3 / behind 210、他セッション由来の29パスがdirty。今回の作業では変更していない。reset、stash、削除、stageはしない。
+- 正規checkout `/Users/masa/projects/AMD/amd-os` は `d4d254a7`、他セッション由来の29パスがdirtyで、`origin/main`とのahead / behindも残っている。開始時に必ず `git fetch origin` と `git status -sb` で実数を確認する。今回の作業では変更していない。reset、stash、削除、stageはしない。
 
 ## 未解決
 
