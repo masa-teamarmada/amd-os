@@ -31,3 +31,14 @@
 ## 未解決
 
 TODO移動に残作業はない。実データを動かす必要が出たときは、まさが対象と移動先を指定してから実行する。
+
+
+## SOLガント 引き継ぎ（2026-09-16）
+
+SOLのガントを引き継いで。作業分類は開発。読む順は① /Users/masa/projects/AGENTS.common.md ② /Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md ③ /Users/masa/projects/AMD/SOL/HANDOFF_GANTT.md ④ 最新origin/mainのHANDOFF_SOL_GANTT_2026-09-16.md → pwa/spec/3-21-question-tree-current-spec.md → pwa/manual/2-9-question-tree.md → pwa/BUGS.md → CLOSEOUT_SOL_GANTT_2026-09-16.md。
+
+正規repoは /Users/masa/projects/AMD/amd-os、検証用main cloneは /tmp/sol-gantt-20260916。機能11db2794はmainへpush済み。本番確認v3.140.9、終了時build-infoは後続cbc56159。共有元は3未pushコミット・29dirtyで復旧統合未完了。復旧patchの場所と全パス、隔離担当・判断条件はCLOSEOUT文書にある。共有元をreset/stash/一括pushしない。現在値はfetch/statusで確認する。
+
+依頼された機能は完了。ガントの各工程で「＋ タスク追加」→新規作成／既存から選択が使える。次は追加依頼があるときだけ実装し、既存のゴールツリー関係・親子・承認を維持する。共有元の整理は対象の統合判断を得てから差分単位で進める。工程を開いたらMSかタスク、親期間は子の最小〜最大。元のUIを守り、資料の見た目へ寄せない。資料画像は /Users/masa/projects/AMD/SOL/work/20260916_gantt_reference.png。
+
+migration 20260916160000 / 20260916210000は適用済み、再適用不要。検証は工程投影・実route・型検査・build、作成/紐付け/移動/解除と狭幅表示。今回の本番確認ではテストタスクを保存していない。実装者レビューと独立監査を混同しない。反映はrepoルートで AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh、公開build-infoとログイン画面でreadback。既存の別案件の引き継ぎ節を消さない。
