@@ -46,7 +46,7 @@ export async function GET(_req: Request, context: RouteContext) {
     }
     const authClient = await getGoogleAuthAsync();
     if (!authClient) {
-      return NextResponse.json({ ok: false, error: "Google Drive credential が未設定だよ" }, { status: 500 });
+      return NextResponse.json({ ok: false, error: "Google Drive credential が未設定です" }, { status: 500 });
     }
     const drive = google.drive({ version: "v3", auth: authClient });
     const fileId = driveFileId || String(asset.storage_path || "");

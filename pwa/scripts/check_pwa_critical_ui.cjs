@@ -75,6 +75,30 @@ function expectCountAtLeast(rel, needle, minimum) {
   }
 }
 
+/** 業務画面の表示文言を、会話調へ戻さない。 */
+function sourceFiles(dir) {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const target = path.join(dir, entry.name);
+    if (entry.isDirectory()) return sourceFiles(target);
+    return /\.tsx?$/.test(entry.name) ? [target] : [];
+  });
+}
+
+function expectNoCasualUiLanguage() {
+  const banned = ["だよ", "してね", "てね", "でね"];
+  const offenders = [];
+  for (const file of sourceFiles(path.join(root, "src"))) {
+    const text = fs.readFileSync(file, "utf8");
+    const found = banned.filter((word) => text.includes(word));
+    if (found.length > 0) offenders.push(`${path.relative(root, file)}: ${found.join(", ")}`);
+  }
+  if (offenders.length > 0) {
+    throw new Error(`会話調の表示文言が残っています: ${offenders.join("; ")}`);
+  }
+}
+
+expectNoCasualUiLanguage();
+
 expectIncludes("src/app/(app)/dashboard/page.tsx", [
   "ExtractionStatusCard",
   "FreeeConnectionStatusCard",
@@ -4025,7 +4049,7 @@ expectIncludes("src/app/api/project/[projectId]/question-tree/route.ts", [
   "getGoalTreeAssignmentView",
   '"action_bulk"',
   "apply_goal_tree_assignments",
-  "1回に渡せるのは200件までだよ",
+  "1回に渡せるのは200件までです",
 ]);
 expectIncludes("src/components/cockpit/CockpitProjectTasks.tsx", [
   // OSスイートの「やること」（orchestration-board の Todo）と同じ形を守る。

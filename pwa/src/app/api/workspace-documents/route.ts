@@ -73,7 +73,7 @@ async function readBody(request: Request): Promise<Body | null> {
 }
 
 function safeInsertError(error: { code?: string; message: string }) {
-  if (error.code === "23505") return json({ ok: false, error: "同じ場所に同名の資料があるよ。画面を更新して選び直してね。" }, 409);
+  if (error.code === "23505") return json({ ok: false, error: "同じ場所に同名の資料があるよ。画面を更新して選び直してください。" }, 409);
   console.error("[workspace-documents] insert failed:", error.message);
   return json({ ok: false, error: "資料を保存できなかったよ。" }, 500);
 }
@@ -87,7 +87,7 @@ function parseDocumentId(value: unknown): string | null {
 
 export async function GET(request: Request) {
   const scope = parseScope(request);
-  if (!scope) return json({ ok: false, error: "資料室の指定が不正だよ。" }, 400);
+  if (!scope) return json({ ok: false, error: "資料室の指定が不正です。" }, 400);
   const surface = parseSurface(request);
 
   const access = await resolveWorkspaceDocumentAccess(scope.kind, scope.id);
@@ -211,11 +211,11 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   if (!isSameOriginWorkspaceMutation(request)) {
-    return json({ ok: false, error: "この操作元は確認できないよ。画面を再読み込みしてね。" }, 403);
+    return json({ ok: false, error: "この操作元は確認できないよ。画面を再読み込みしてください。" }, 403);
   }
 
   const scope = parseScope(request);
-  if (!scope) return json({ ok: false, error: "資料室の指定が不正だよ。" }, 400);
+  if (!scope) return json({ ok: false, error: "資料室の指定が不正です。" }, 400);
 
   const access = await resolveWorkspaceDocumentAccess(scope.kind, scope.id);
   if (!access) return json({ ok: false, error: "Not found" }, 404);
@@ -229,7 +229,7 @@ export async function POST(request: Request) {
   const folderPath = normalizeDocumentFolderPath(body.folderPath);
   let visibility = normalizeDocumentVisibility(body.visibility);
   if (!action || !displayName || folderPath == null || !visibility) {
-    return json({ ok: false, error: "資料名・保存先・共有範囲を確認してね。" }, 400);
+    return json({ ok: false, error: "資料名・保存先・共有範囲を確認してください。" }, 400);
   }
   if (access.principal === "workspace_account") visibility = "workspace_shared";
 
@@ -278,7 +278,7 @@ export async function POST(request: Request) {
 
   if (action === "create_link") {
     const externalUrl = normalizeHttpUrl(body.externalUrl);
-    if (!externalUrl) return json({ ok: false, error: "http または https のURLを入れてね。" }, 400);
+    if (!externalUrl) return json({ ok: false, error: "http または https のURLを入れてください。" }, 400);
     const { data, error } = await db.from("workspace_documents").insert({
       ...owner,
       ...actor,
@@ -307,16 +307,16 @@ export async function POST(request: Request) {
     return json({ ok: true, document: publicWorkspaceDocument(created) }, 201);
   }
 
-  if (action !== "create_upload") return json({ ok: false, error: "操作が不正だよ。" }, 400);
+  if (action !== "create_upload") return json({ ok: false, error: "操作が不正です。" }, 400);
 
   const fileSizeBytes = Number(body.fileSizeBytes);
   if (!Number.isSafeInteger(fileSizeBytes) || fileSizeBytes <= 0 || fileSizeBytes > WORKSPACE_DOCUMENT_MAX_BYTES) {
-    return json({ ok: false, error: "ファイルは1件100MBまでだよ。" }, 400);
+    return json({ ok: false, error: "ファイルは1件100MBまでです。" }, 400);
   }
   const mimeType = text(body.mimeType, 240) ?? "application/octet-stream";
   const replaceDocumentId = body.replaceDocumentId == null ? null : parseDocumentId(body.replaceDocumentId);
   if (body.replaceDocumentId != null && !replaceDocumentId) {
-    return json({ ok: false, error: "置き換える資料の指定が不正だよ。" }, 400);
+    return json({ ok: false, error: "置き換える資料の指定が不正です。" }, 400);
   }
 
   if (replaceDocumentId) {
@@ -344,12 +344,12 @@ export async function POST(request: Request) {
       || !replacement.storage_bucket
       || !replacement.storage_path
     ) {
-      return json({ ok: false, error: "この資料は同名ファイルとして置き換えられないよ。画面を更新して選び直してね。" }, 409);
+      return json({ ok: false, error: "この資料は同名ファイルとして置き換えられないよ。画面を更新して選び直してください。" }, 409);
     }
 
     const conflict = await findActiveWorkspaceDocumentNameConflict(db, access, folderPath, displayName);
     if (!conflict || conflict.document_id !== replacement.document_id) {
-      return json({ ok: false, error: "同名の資料が変わったよ。画面を更新して選び直してね。" }, 409);
+      return json({ ok: false, error: "同名の資料が変わったよ。画面を更新して選び直してください。" }, 409);
     }
     const { data: signed, error: signedError } = await db.storage
       .from(replacement.storage_bucket)
@@ -371,7 +371,7 @@ export async function POST(request: Request) {
 
   const conflict = await findActiveWorkspaceDocumentNameConflict(db, access, folderPath, displayName);
   if (conflict) {
-    return json({ ok: false, error: "同じ場所に同名の資料があるよ。画面を更新して選び直してね。" }, 409);
+    return json({ ok: false, error: "同じ場所に同名の資料があるよ。画面を更新して選び直してください。" }, 409);
   }
 
   const documentId = randomUUID();

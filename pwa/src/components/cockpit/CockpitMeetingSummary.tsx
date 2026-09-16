@@ -582,7 +582,7 @@ function PrepWorkerCta({ meeting }: { meeting: ProjectMeetingSummary }) {
   }
 
   const sessionHint =
-    status === "ready" ? "codex で開いてね"
+    status === "ready" ? "codex で開いてください"
     : status === "preparing" ? "draft 生成中…"
     : status === "failed" ? "手動準備して"
     : null;

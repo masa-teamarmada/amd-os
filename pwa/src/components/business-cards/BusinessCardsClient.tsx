@@ -100,7 +100,7 @@ async function prepareBusinessCardImage(file: File): Promise<File> {
       );
     });
     if (blob.size > 4 * 1024 * 1024) {
-      throw new Error("画像を4MB以内にできなかったよ。少し離れて撮り直してね");
+      throw new Error("画像を4MB以内にできなかったよ。少し離れて撮り直してください");
     }
     const baseName = file.name.replace(/\.[^.]+$/, "") || "business-card";
     return new File([blob], `${baseName}.jpg`, { type: "image/jpeg" });
@@ -215,7 +215,7 @@ export function BusinessCardsClient() {
       }));
       setSelectedId(json.card.id);
       setDuplicateCount(Number(json.duplicateCount) || 0);
-      setNotice(json.warning ? "OCRできなかったので、見ながら入力してね" : "読み取ったよ。内容とPJを確認してね");
+      setNotice(json.warning ? "OCRできなかったので、見ながら入力してください" : "読み取ったよ。内容とPJを確認してください");
       window.setTimeout(() => mobileEditorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "名刺を登録できなかったよ");
@@ -439,7 +439,7 @@ export function BusinessCardsClient() {
                   <div className="px-5 py-14 text-center">
                     <UserRound className="mx-auto h-6 w-6 text-[var(--contact-quiet)]" />
                     <p className="mt-2 text-sm font-medium">該当する名刺はまだないよ</p>
-                    <p className="mt-1 text-xs text-[var(--contact-muted)]">上のカメラから最初の1枚を追加してね</p>
+                    <p className="mt-1 text-xs text-[var(--contact-muted)]">上のカメラから最初の1枚を追加してください</p>
                   </div>
                 )}
                 {visibleCards.map((card) => (
@@ -674,12 +674,12 @@ function CardEditor({
           <div className="mb-4 space-y-2">
             {card.ocrError && (
               <div className="rounded-lg bg-[var(--contact-amber-soft)] px-3 py-2 text-xs leading-5 text-[var(--contact-amber)]">
-                OCRできなかったよ。画像を見ながら氏名と所属を入れてね。
+                OCRできなかったよ。画像を見ながら氏名と所属を入れてください。
               </div>
             )}
             {duplicateCount > 0 && (
               <div className="rounded-lg bg-[var(--contact-amber-soft)] px-3 py-2 text-xs leading-5 text-[var(--contact-amber)]">
-                同じメールか電話の名刺が {duplicateCount} 件あるよ。重複じゃないか確認してね。
+                同じメールか電話の名刺が {duplicateCount} 件あるよ。重複じゃないか確認してください。
               </div>
             )}
           </div>

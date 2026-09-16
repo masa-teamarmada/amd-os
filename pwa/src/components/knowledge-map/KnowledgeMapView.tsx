@@ -549,7 +549,7 @@ export function KnowledgeMapView({ data, embedded = false }: { data: KnowledgeMa
                 </div>
               </div>
             ) : (
-              <div className="p-4 text-sm text-zinc-500">ノードを選んでね。</div>
+              <div className="p-4 text-sm text-zinc-500">ノードを選んでください。</div>
             )}
           </aside>
         </section>

@@ -187,7 +187,7 @@ export default function DashboardPage() {
               {projectLoadFailed ? (
                 <section className="dashboard-desk-section border-amber-300 bg-amber-50/80 px-4 py-5 text-sm text-amber-950">
                   <p className="font-semibold">PJ台帳を読み込めなかった</p>
-                  <p className="mt-1 text-amber-900">認証状態を更新するため、ページを再読み込みしてね。</p>
+                  <p className="mt-1 text-amber-900">認証状態を更新するため、ページを再読み込みしてください。</p>
                   <button
                     type="button"
                     onClick={() => window.location.reload()}

@@ -203,20 +203,20 @@ function extractAttachmentBytes(attachment: Attachment) {
   const dataUrl = requiredText(attachment.data_url, MAX_ATTACHMENT_BYTES * 2);
   if (dataUrl) {
     const match = dataUrl.match(/^data:([^;,]+)?(;base64)?,([\s\S]+)$/);
-    if (!match) throw new Error(`${name}: data_url の形式が不正だよ`);
+    if (!match) throw new Error(`${name}: data_url の形式が不正です`);
     if (match[1]) mimeType = match[1];
     const raw = match[3];
     const buffer = match[2]
       ? Buffer.from(raw.replace(/\s/g, ""), "base64")
       : Buffer.from(decodeURIComponent(raw), "utf8");
-    if (buffer.length > MAX_ATTACHMENT_BYTES) throw new Error(`${name}: 50MB 以内にしてね`);
+    if (buffer.length > MAX_ATTACHMENT_BYTES) throw new Error(`${name}: 50MB 以内にしてください`);
     return { buffer, mimeType };
   }
 
   const base64 = requiredText(attachment.content_base64 ?? attachment.base64, MAX_ATTACHMENT_BYTES * 2);
   if (!base64) return null;
   const buffer = Buffer.from(base64.replace(/-/g, "+").replace(/_/g, "/").replace(/\s/g, ""), "base64");
-  if (buffer.length > MAX_ATTACHMENT_BYTES) throw new Error(`${name}: 50MB 以内にしてね`);
+  if (buffer.length > MAX_ATTACHMENT_BYTES) throw new Error(`${name}: 50MB 以内にしてください`);
   return { buffer, mimeType };
 }
 
@@ -282,9 +282,9 @@ function googleDriveWriteError(error: unknown) {
     return "Google OAuth refresh token に Drive write scope が足りないよ。`https://www.googleapis.com/auth/drive` でrefresh tokenを再発行してVercel production envへ入れ直す必要がある";
   }
   if (/forbidden|permission|PERMISSION_DENIED|403/i.test(message) || status === 403) {
-    return "Google Drive のPJフォルダへの書き込み権限が足りないよ。OAuthユーザーまたはService Accountを当該PJフォルダに編集者として共有してね";
+    return "Google Drive のPJフォルダへの書き込み権限が足りないよ。OAuthユーザーまたはService Accountを当該PJフォルダに編集者として共有してください";
   }
-  if (/credential|auth|token/i.test(message)) return `Google Drive credential を確認してね: ${message}`;
+  if (/credential|auth|token/i.test(message)) return `Google Drive credential を確認してください: ${message}`;
   return message;
 }
 
@@ -298,13 +298,13 @@ async function getProjectDriveFolder(admin: AdminClient, projectId: string) {
   if (error) throw error;
   if (!data) return { ok: false as const, status: 404, error: "project not found" };
   const folderId = requiredText(data.drive_folder_id, 220);
-  if (!folderId) return { ok: false as const, status: 400, error: "このPJに Drive folder id が未設定だよ" };
+  if (!folderId) return { ok: false as const, status: 400, error: "このPJに Drive folder id が未設定です" };
   return { ok: true as const, folderId };
 }
 
 async function ensureGovernanceFolder(projectDriveFolderId: string, folderName: string) {
   const auth = await getGoogleAuthAsync();
-  if (!auth) throw new Error("Google Drive credential が未設定だよ");
+  if (!auth) throw new Error("Google Drive credential が未設定です");
 
   const drive = google.drive({ version: "v3", auth });
   const escapedName = driveQueryLiteral(folderName);
@@ -339,7 +339,7 @@ async function uploadDriveAttachment(params: {
   buffer: Buffer;
 }) {
   const auth = await getGoogleAuthAsync();
-  if (!auth) throw new Error("Google Drive credential が未設定だよ");
+  if (!auth) throw new Error("Google Drive credential が未設定です");
 
   const drive = google.drive({ version: "v3", auth });
   const escapedName = driveQueryLiteral(params.name || "governance-attachment");
@@ -367,7 +367,7 @@ async function uploadDriveAttachment(params: {
     supportsAllDrives: true,
   });
   if (!created.data.id || !created.data.webViewLink) {
-    throw new Error(`${params.name}: Drive upload response が不完全だよ`);
+    throw new Error(`${params.name}: Drive upload response が不完全です`);
   }
   return created.data;
 }

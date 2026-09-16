@@ -48,7 +48,7 @@ export async function extractBusinessCard(params: {
   mimeType: string;
 }): Promise<BusinessCardOcrResult> {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY が未設定だよ");
+  if (!apiKey) throw new Error("GEMINI_API_KEY が未設定です");
 
   const { data: prompt, error: promptError } = await params.admin
     .from("llm_prompts")
@@ -58,7 +58,7 @@ export async function extractBusinessCard(params: {
   if (promptError) throw promptError;
   if (!prompt?.is_active || !cleanText(prompt.body, 20000)) {
     throw new Error(
-      "名刺OCRプロンプトが無効だよ。/admin/prompts で business_card.ocr を確認してね",
+      "名刺OCRプロンプトが無効です。/admin/prompts で business_card.ocr を確認してください",
     );
   }
 

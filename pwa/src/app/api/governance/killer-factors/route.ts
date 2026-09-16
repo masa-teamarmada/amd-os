@@ -236,10 +236,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (!isKillerFactorStatusAllowed(operatingMode, status)) {
-      return badRequest("この方式では選べない状態だよ");
+      return badRequest("この方式では選べない状態です");
     }
     if (!isIsoDate(statusOn) || !evidenceNote || (targetOn && !isIsoDate(targetOn))) {
-      return badRequest("状態日 / 根拠メモ / 目標日を確認してね");
+      return badRequest("状態日 / 根拠メモ / 目標日を確認してください");
     }
 
     const now = new Date().toISOString();

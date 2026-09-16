@@ -111,7 +111,7 @@ export async function applyReimbursementDecision(
     ? await update.in("status", Array.from(PM_APPROVED_STATUSES)).select("reimbursement_id, status").maybeSingle()
     : await update.eq("status", currentStatus).select("reimbursement_id, status").maybeSingle();
   if (updateError) throw new ReimbursementDecisionError(updateError.message, 500);
-  if (!updated) throw new ReimbursementDecisionError("状態が先に変わったため反映しなかった。再読み込みしてね", 409);
+  if (!updated) throw new ReimbursementDecisionError("状態が先に変わったため反映しなかった。再読み込みしてください", 409);
 
   return {
     message: label,

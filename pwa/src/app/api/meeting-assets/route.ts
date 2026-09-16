@@ -94,7 +94,7 @@ function contentTypeFromName(name: string): string {
 function validateFile(file: File): { ok: true; mediaType: string } | { ok: false; error: string } {
   const mediaType = file.type || contentTypeFromName(file.name);
   if (file.size > MAX_ASSET_BYTES) {
-    return { ok: false, error: `${file.name}: 50MB 以内にしてね` };
+    return { ok: false, error: `${file.name}: 50MB 以内にしてください` };
   }
   return { ok: true, mediaType };
 }
@@ -144,10 +144,10 @@ function googleDriveWriteError(error: unknown) {
     return "Google OAuth refresh token に Drive write scope が足りないよ。`https://www.googleapis.com/auth/drive` でrefresh tokenを再発行してVercel production envへ入れ直す必要がある";
   }
   if (/forbidden|permission|PERMISSION_DENIED|403/i.test(message) || status === 403) {
-    return "Google Drive のPJフォルダへの書き込み権限が足りないよ。OAuthユーザーまたはService Accountを当該PJフォルダに編集者として共有してね";
+    return "Google Drive のPJフォルダへの書き込み権限が足りないよ。OAuthユーザーまたはService Accountを当該PJフォルダに編集者として共有してください";
   }
   if (/credential|auth|token/i.test(message)) {
-    return `Google Drive credential を確認してね: ${message}`;
+    return `Google Drive credential を確認してください: ${message}`;
   }
   return message;
 }
@@ -162,13 +162,13 @@ async function getProjectDriveFolder(admin: AdminClient, projectId: string) {
   if (error) throw error;
   if (!data) return { ok: false as const, status: 404, error: "project not found" };
   const folderId = requiredText(data.drive_folder_id, 220);
-  if (!folderId) return { ok: false as const, status: 400, error: "このPJに Drive folder id が未設定だよ" };
+  if (!folderId) return { ok: false as const, status: 400, error: "このPJに Drive folder id が未設定です" };
   return { ok: true as const, folderId };
 }
 
 async function ensureMeetingFolder(projectDriveFolderId: string, folderName: string) {
   const auth = await getGoogleAuthAsync();
-  if (!auth) throw new Error("Google Drive credential が未設定だよ");
+  if (!auth) throw new Error("Google Drive credential が未設定です");
 
   const drive = google.drive({ version: "v3", auth });
   const escapedName = driveQueryLiteral(folderName);
@@ -204,7 +204,7 @@ async function uploadDriveFile(params: {
   mimeType: string;
 }) {
   const auth = await getGoogleAuthAsync();
-  if (!auth) throw new Error("Google Drive credential が未設定だよ");
+  if (!auth) throw new Error("Google Drive credential が未設定です");
 
   const drive = google.drive({ version: "v3", auth });
   const buffer = Buffer.from(await params.file.arrayBuffer());
@@ -222,7 +222,7 @@ async function uploadDriveFile(params: {
   });
 
   if (!created.data.id || !created.data.webViewLink) {
-    throw new Error(`${params.file.name}: Drive upload response が不完全だよ`);
+    throw new Error(`${params.file.name}: Drive upload response が不完全です`);
   }
   return created.data;
 }

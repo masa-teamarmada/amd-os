@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
   const stance = textValue(body.stance, 30) as RecommendationStance;
   if (!topic || !recommendation || !STANCES.has(stance)) {
     return NextResponse.json(
-      { error: "論点・推奨・スタンスを確認してね" },
+      { error: "論点・推奨・スタンスを確認してください" },
       { status: 400 },
     );
   }

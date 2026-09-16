@@ -97,7 +97,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function asResource(value: unknown): Resource {
   if (typeof value === "string" && value in TABLE) return value as Resource;
-  throw new Error("扱えない種類だよ");
+  throw new Error("操作対象の種類が不正です");
 }
 
 function todayJst(): string {
@@ -106,7 +106,7 @@ function todayJst(): string {
 
 async function getWorkspaceContext(projectId: string) {
   const access = await getCurrentMemberAccess();
-  if (!access) return { response: NextResponse.json({ error: "ログインが必要だよ" }, { status: 401 }) };
+  if (!access) return { response: NextResponse.json({ error: "ログインが必要です" }, { status: 401 }) };
   if (!canAccessWorkspaceProject(access, projectId)) {
     return { response: NextResponse.json({ error: "このPJの共有情報には入れないよ" }, { status: 404 }) };
   }
@@ -137,7 +137,7 @@ function sanitize(resource: Resource, input: Record<string, unknown>): Record<st
     }
     if (key === "progress_pct") {
       const parsed = Number(value);
-      if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) throw new Error("進捗は0〜100だよ");
+      if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) throw new Error("進捗は0〜100です");
       out[key] = Math.round(parsed);
       continue;
     }
@@ -154,7 +154,7 @@ function sanitize(resource: Resource, input: Record<string, unknown>): Record<st
     }
     if (PT_FIELDS.has(key)) {
       const parsed = Number(value);
-      if (!Number.isFinite(parsed) || parsed < 0) throw new Error("ptは0以上の数で入れてね");
+      if (!Number.isFinite(parsed) || parsed < 0) throw new Error("ptは0以上の数で入れてください");
       if (parsed > 9999) throw new Error("ptが大きすぎるよ");
       out[key] = Math.round(parsed * 10) / 10;
       continue;
@@ -181,7 +181,7 @@ function assertQuestionRules(fields: Record<string, unknown>, existing?: Record<
   if (status === "dropped") {
     const reason = (fields.drop_reason ?? existing?.drop_reason) as string | null | undefined;
     if (!reason || String(reason).trim() === "") {
-      throw new Error("追わないと決めた理由を書いてね");
+      throw new Error("追わないと決めた理由を書いてください");
     }
   }
   /**
@@ -267,7 +267,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if ("response" in context) return context.response;
   try {
     const body: unknown = await request.json();
-    if (!isRecord(body)) throw new Error("追加内容が不正だよ");
+    if (!isRecord(body)) throw new Error("追加内容が不正です");
 
     // 掴んで動かす操作。兄弟の間へ落とせば並びが変わり、別の問いの上へ落とせば
     // その子になる。並び替えと親の付け替えを1回のDB関数でまとめて確定する。
@@ -281,7 +281,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const orderedIds = Array.isArray(fields.ordered_ids)
         ? fields.ordered_ids.filter((id): id is string => typeof id === "string" && id.length > 0)
         : [];
-      if (orderedIds.length === 0) throw new Error("並び順が空だよ");
+      if (orderedIds.length === 0) throw new Error("並び順が空です");
 
       const db = createAdminClient();
       const { error } = await db.rpc("reorder_project_questions", {
@@ -306,7 +306,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const mode = fields.mode === "replace" || fields.mode === "add" ? fields.mode : null;
       if (!actionId) throw new Error("動かすTODOが分からないよ");
       if (!targetQuestionId) throw new Error("移し先の論点が分からないよ");
-      if (!mode) throw new Error("TODOの移し方が不正だよ");
+      if (!mode) throw new Error("TODOの移し方が不正です");
 
       const db = createAdminClient();
       const { error } = await db.rpc("move_project_action_question_link", {
@@ -335,7 +335,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         : [];
       const accept = body.decision !== "reject";
       if (ids.length === 0) throw new Error("選ばれていないよ");
-      if (ids.length > 500) throw new Error("1回に確定できるのは500件までだよ");
+      if (ids.length > 500) throw new Error("1回に確定できるのは500件までです");
 
       const db = createAdminClient();
       const { data: rows, error: readError } = await db
@@ -394,7 +394,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const fields = isRecord(body.fields) ? body.fields : {};
       const kind = fields.kind;
       const id = typeof fields.id === "string" ? fields.id : "";
-      if (kind !== "question" && kind !== "action" && kind !== "finding") throw new Error("扱えない種類だよ");
+      if (kind !== "question" && kind !== "action" && kind !== "finding") throw new Error("操作対象の種類が不正です");
       if (!id) throw new Error("どれを確定するのか分からないよ");
 
       const table = kind === "question" ? "project_questions" : kind === "action" ? "project_actions" : "project_findings";
@@ -459,11 +459,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const resource = asResource(body.resource);
     const rawFields = body.fields ?? body.payload;
-    if (!isRecord(rawFields)) throw new Error("入力が空だよ");
+    if (!isRecord(rawFields)) throw new Error("入力が空です");
 
     const fields = sanitize(resource, rawFields);
     for (const key of REQUIRED_ON_CREATE[resource]) {
-      if (!fields[key]) throw new Error(`${key === "title" ? "見出し" : key === "summary" ? "分かったこと" : key} が空だよ`);
+      if (!fields[key]) throw new Error(`${key === "title" ? "見出し" : key === "summary" ? "分かったこと" : key} が空です`);
     }
     if (resource === "question") assertQuestionRules(fields);
     if (resource === "action") assertActionRules(fields);
@@ -512,7 +512,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if ("response" in context) return context.response;
   try {
     const body: unknown = await request.json();
-    if (!isRecord(body)) throw new Error("更新内容が不正だよ");
+    if (!isRecord(body)) throw new Error("更新内容が不正です");
 
     /**
      * 割り振りのまとめ書き込み（3-22 §4）。担当・期限・見積ptは、まさかPMが
@@ -528,7 +528,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       const ids = Array.isArray(body.ordered_ids)
         ? body.ordered_ids.filter((id): id is string => typeof id === "string" && id.length > 0)
         : [];
-      if (ids.length === 0) throw new Error("並び順が空だよ");
+      if (ids.length === 0) throw new Error("並び順が空です");
       const db = createAdminClient();
       const { error } = await db.rpc("reorder_project_actions", {
         p_project_id: projectId,
@@ -542,9 +542,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     if (body.resource === "action_bulk") {
       const items = Array.isArray(body.items) ? body.items : null;
-      if (!items) throw new Error("items を配列で渡してね");
-      if (items.length === 0) throw new Error("items が空だよ");
-      if (items.length > 200) throw new Error(`1回に渡せるのは200件までだよ（いまは${items.length}件）`);
+      if (!items) throw new Error("items を配列で渡してください");
+      if (items.length === 0) throw new Error("items が空です");
+      if (items.length > 200) throw new Error(`1回に渡せるのは200件までです（いまは${items.length}件）`);
       for (const item of items) {
         if (!isRecord(item) || typeof item.action_id !== "string" || !item.action_id) {
           throw new Error("どの項目にも action_id が要るよ");
@@ -564,14 +564,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     const resource = asResource(body.resource);
-    if (!SOFT_DELETABLE.includes(resource)) throw new Error("つなぎは付け外しで直してね");
+    if (!SOFT_DELETABLE.includes(resource)) throw new Error("つなぎは付け外しで直してください");
     const id = typeof body.id === "string" ? body.id : "";
     if (!id) throw new Error("どれを直すのか分からないよ");
     const rawFields = body.fields ?? body.payload;
-    if (!isRecord(rawFields)) throw new Error("変更が空だよ");
+    if (!isRecord(rawFields)) throw new Error("変更が空です");
 
     const fields = sanitize(resource, rawFields);
-    if (Object.keys(fields).length === 0) throw new Error("変更が空だよ");
+    if (Object.keys(fields).length === 0) throw new Error("変更が空です");
 
     const db = createAdminClient();
     const { data: existing, error: readError } = await db
@@ -625,7 +625,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   if ("response" in context) return context.response;
   try {
     const body: unknown = await request.json();
-    if (!isRecord(body)) throw new Error("削除内容が不正だよ");
+    if (!isRecord(body)) throw new Error("削除内容が不正です");
     const resource = asResource(body.resource);
     const db = createAdminClient();
 

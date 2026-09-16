@@ -1443,7 +1443,7 @@ function RewardTab({
       {unconfirmed.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 flex items-center gap-2">
           <span className="text-amber-600 text-[13px] font-medium">
-            🤖 つくよみ推定（未確認 {unconfirmed.length}件）各MSの右側で確認してね
+            🤖 つくよみ推定（未確認 {unconfirmed.length}件）各MSの右側で確認してください
           </span>
         </div>
       )}

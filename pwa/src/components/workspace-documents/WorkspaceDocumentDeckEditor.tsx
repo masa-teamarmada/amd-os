@@ -289,7 +289,7 @@ export function WorkspaceDocumentDeckEditor({
       const requestId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
       const timer = setTimeout(() => {
         pendingSerializeRef.current = null;
-        reject(new Error("編集内容を取り出せなかったよ。開き直してね。"));
+        reject(new Error("編集内容を取り出せなかったよ。開き直してください。"));
       }, 15000);
       pendingSerializeRef.current = { requestId, resolve, reject, timer };
       postToFrame({ type: "serialize", requestId });
@@ -307,14 +307,14 @@ export function WorkspaceDocumentDeckEditor({
   async function save() {
     if (saving || shaLoading) return;
     if (!sha256) {
-      setError("編集前の版を確認できていないよ。読み込み直してね。");
+      setError("編集前の版を確認できていないよ。読み込み直してください。");
       return;
     }
     setSaving(true);
     setError(null);
     try {
       const html = await requestSerialize();
-      if (!html.trim()) throw new Error("編集内容が空だよ。保存はしなかったよ。");
+      if (!html.trim()) throw new Error("編集内容が空です。保存はしなかったよ。");
       const response = await fetch(
         `/api/workspace-documents/${encodeURIComponent(documentId)}/source`,
         {
@@ -392,7 +392,7 @@ export function WorkspaceDocumentDeckEditor({
               <p className="font-semibold">別のセッションがこの資料を更新したよ。</p>
               <p className="mt-1">
                 見たまま編集では、上書き保存を選べないようにしてるよ。保存する本文は現物のスクリプトを戻して組み立てるから、
-                別のセッションがそこを変えていると、戻す位置がずれて資料が黙って壊れるの。読み込み直してからやり直してね。
+                別のセッションがそこを変えていると、戻す位置がずれて資料が黙って壊れるの。読み込み直してからやり直してください。
               </p>
               <Button
                 type="button"
@@ -415,7 +415,7 @@ export function WorkspaceDocumentDeckEditor({
             <div className="text-xs leading-5 text-slate-600">
               <p className="font-semibold text-slate-800">スライドの区切りはどれ？</p>
               <p className="mt-1">
-                資料ごとに作りが違うから、勝手に決めないよ。いちばん枚数が合っているものを選んでね。
+                資料ごとに作りが違うから、勝手に決めないよ。いちばん枚数が合っているものを選んでください。
               </p>
               {candidates.length === 0 ? (
                 <p className="mt-3 text-slate-500">

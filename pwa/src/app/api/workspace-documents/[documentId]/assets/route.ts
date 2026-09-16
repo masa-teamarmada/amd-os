@@ -66,7 +66,7 @@ export async function POST(
   { params }: { params: Promise<{ documentId: string }> },
 ) {
   if (!isSameOriginWorkspaceMutation(request)) {
-    return json({ ok: false, error: "この操作元を確認できないよ。画面を再読み込みしてね。" }, 403);
+    return json({ ok: false, error: "この操作元を確認できないよ。画面を再読み込みしてください。" }, 403);
   }
 
   const { documentId } = await params;
@@ -75,7 +75,7 @@ export async function POST(
 
   const declaredLength = Number(request.headers.get("content-length") || 0);
   if (declaredLength > WORKSPACE_DOCUMENT_ASSET_MAX_BYTES) {
-    return json({ ok: false, error: "画像は10MBまでだよ。" }, 413);
+    return json({ ok: false, error: "画像は10MBまでです。" }, 413);
   }
 
   let bytes: Buffer;

@@ -88,11 +88,11 @@ function sourceLinksBlock(docs: ManualSearchDocument[]) {
 
 function applyTsukuyomiVoice(reply: string) {
   return reply
-    .replace(/ご確認ください/g, "見てね")
-    .replace(/ご参照ください/g, "見てね")
-    .replace(/確認してください/g, "見てね")
-    .replace(/参照してください/g, "見てね")
-    .replace(/してください/g, "してね");
+    .replace(/ご確認ください/g, "見てください")
+    .replace(/ご参照ください/g, "見てください")
+    .replace(/確認してください/g, "見てください")
+    .replace(/参照してください/g, "見てください")
+    .replace(/してください/g, "してください");
 }
 
 export async function POST(req: Request) {

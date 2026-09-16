@@ -79,7 +79,7 @@ export async function POST(
   { params }: { params: Promise<{ documentId: string; revisionNo: string }> },
 ) {
   if (!isSameOriginWorkspaceMutation(request)) {
-    return json({ ok: false, error: "この操作元を確認できないよ。画面を再読み込みしてね。" }, 403);
+    return json({ ok: false, error: "この操作元を確認できないよ。画面を再読み込みしてください。" }, 403);
   }
 
   const { documentId, revisionNo: revisionNoParam } = await params;
@@ -91,7 +91,7 @@ export async function POST(
 
   const body = (await request.json().catch(() => null)) as { expectedSha256?: unknown } | null;
   if (!body || !isWorkspaceDocumentSha256(body.expectedSha256)) {
-    return json({ ok: false, error: "復元前の版を確認できないよ。画面を再読み込みしてね。" }, 400);
+    return json({ ok: false, error: "復元前の版を確認できないよ。画面を再読み込みしてください。" }, 400);
   }
 
   const { db } = loaded;
@@ -109,7 +109,7 @@ export async function POST(
   if (revision.kind === "deck_model") {
     return json({
       ok: false,
-      error: "これはデッキの版だよ。編集画面でデッキとして戻してね。",
+      error: "これはデッキの版です。編集画面でデッキとして戻してください。",
       kind: revision.kind,
     }, 400);
   }

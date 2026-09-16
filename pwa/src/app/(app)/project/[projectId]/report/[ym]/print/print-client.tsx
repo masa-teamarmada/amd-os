@@ -1315,8 +1315,8 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
       setNotice(data.isSubmission
         ? "提出版を保存した。この表示のままPDFとして保存できる。"
         : hasFinal
-          ? "下書きに保存した。確定版を更新するなら「確定版に反映」を押してね。"
-          : "下書きに保存した。内容を確定するなら「確定版に反映」を押してね。");
+          ? "下書きに保存した。確定版を更新するなら「確定版に反映」を押してください。"
+          : "下書きに保存した。内容を確定するなら「確定版に反映」を押してください。");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "保存に失敗しました");
     } finally {

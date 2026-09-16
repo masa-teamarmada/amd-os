@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
     const state = textValue(body.state, 30) as RegulationState;
     if (!institutionId || !regulationTypeId || !CELL_STATES.has(state))
       return NextResponse.json(
-        { error: "機関・規程種別・状態を確認してね" },
+        { error: "機関・規程種別・状態を確認してください" },
         { status: 400 },
       );
     let regulationId = textValue(body.regulationId, 150) || null;
@@ -208,7 +208,7 @@ export async function POST(request: NextRequest) {
       (externalUrl && !externalUrl.startsWith("https://"))
     )
       return NextResponse.json(
-        { error: "版名・状態・httpsリンクを確認してね" },
+        { error: "版名・状態・httpsリンクを確認してください" },
         { status: 400 },
       );
     const { error } = await auth.supabase

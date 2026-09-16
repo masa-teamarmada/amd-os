@@ -17,27 +17,27 @@ function record(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 function bounded(value: unknown, label: string, max: number): string {
-  if (typeof value !== "string" || value.trim().length > max) throw new Error(`${label}は${max}文字以内で入力してね`);
+  if (typeof value !== "string" || value.trim().length > max) throw new Error(`${label}は${max}文字以内で入力してください`);
   return value.trim();
 }
 
 export function parseThemeHistory(value: unknown): ThemeHistoryRow[] {
-  if (!Array.isArray(value) || value.length > 40) throw new Error("経緯は40行以内で入力してね");
-  if (new TextEncoder().encode(JSON.stringify(value)).length > 190000) throw new Error("経緯の文章量が多すぎるよ。元記録への参照を使って要約してね");
+  if (!Array.isArray(value) || value.length > 40) throw new Error("経緯は40行以内で入力してください");
+  if (new TextEncoder().encode(JSON.stringify(value)).length > 190000) throw new Error("経緯の文章量が多すぎるよ。元記録への参照を使って要約してください");
   const ids = new Set<string>();
   return value.map((item) => {
     if (!record(item) || typeof item.id !== "string" || !UUID.test(item.id) || ids.has(item.id)) throw new Error("経緯の行IDが不正または重複しているよ");
     ids.add(item.id);
     const topic = bounded(item.topic, "対象", 100);
-    if (!topic) throw new Error("対象を入力してね");
+    if (!topic) throw new Error("対象を入力してください");
     const asOf = item.asOf;
-    if (asOf !== null && (typeof asOf !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(asOf) || Number.isNaN(Date.parse(asOf)) || new Date(asOf).toISOString().slice(0, 10) !== asOf)) throw new Error("記録時点は実在する日付で入力してね");
-    if (!Array.isArray(item.sources) || item.sources.length > 12) throw new Error("元記録は1行につき12件までだよ");
+    if (asOf !== null && (typeof asOf !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(asOf) || Number.isNaN(Date.parse(asOf)) || new Date(asOf).toISOString().slice(0, 10) !== asOf)) throw new Error("記録時点は実在する日付で入力してください");
+    if (!Array.isArray(item.sources) || item.sources.length > 12) throw new Error("元記録は1行につき12件までです");
     const sourceIds = new Set<string>();
     const sources = item.sources.map((source): ThemeHistorySource => {
-      if (!record(source) || !["meeting", "document"].includes(String(source.kind))) throw new Error("元記録の種類が不正だよ");
+      if (!record(source) || !["meeting", "document"].includes(String(source.kind))) throw new Error("元記録の種類が不正です");
       const id = bounded(source.id, "元記録ID", 1024);
-      if (!id || (source.kind === "document" && !UUID.test(id))) throw new Error("元記録IDが不正だよ");
+      if (!id || (source.kind === "document" && !UUID.test(id))) throw new Error("元記録IDが不正です");
       const key = `${source.kind}:${id}`;
       if (sourceIds.has(key)) throw new Error("元記録が重複しているよ");
       sourceIds.add(key);

@@ -563,7 +563,7 @@ export function AdminInvoiceIssueQueue({ cycles, targetYm, viewerIsAdmin, viewer
 
         {!activeProject ? (
           <div className="border border-border bg-background px-4 py-10 text-center text-sm text-muted-foreground">
-            左のPJ一覧から選択してね。
+            左のPJ一覧から選択してください。
           </div>
         ) : (
           <>
@@ -940,7 +940,7 @@ function InvoiceDetailDialog({
   async function saveFreeePartner() {
     const nextValue = freeePartnerDraft.trim();
     if (!nextValue) {
-      setSettingsMessage("freee取引先を選んでね");
+      setSettingsMessage("freee取引先を選んでください");
       return;
     }
     setSettingsSaving(true);

@@ -611,7 +611,7 @@ export function SxObjectiveMap({
           parent.id,
         ))
     ) {
-      setMoveMessage("同じタスク群の、自分の子孫ではないタスクへ接続してね");
+      setMoveMessage("同じタスク群の、自分の子孫ではないタスクへ接続してください");
       return;
     }
     setMovingTaskId(task.id);

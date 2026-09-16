@@ -280,7 +280,7 @@ export function AdminPrivateWikiClient({ initialEntries, projects, initialError 
   const saveForm = async () => {
     if (!editing) return;
     if (!editing.personName.trim() || !editing.memoBody.trim()) {
-      setHint("人物名と本文メモは必須だよ");
+      setHint("人物名と本文メモは必須です");
       return;
     }
     setSaving(true);

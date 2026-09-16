@@ -2715,7 +2715,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
               {memberRows.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
-                    この支払月のメンバー支払予定はまだ出ていない。対象cycleがあるのに空なら、報酬キャッシュ再計算を実行してね。
+                    この支払月のメンバー支払予定はまだ出ていない。対象cycleがあるのに空なら、報酬キャッシュ再計算を実行してください。
                   </td>
                 </tr>
               ) : (

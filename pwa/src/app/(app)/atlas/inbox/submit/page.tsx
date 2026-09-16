@@ -74,7 +74,7 @@ export default function AtlasSubmitPage() {
 
   const handleAutoTag = async () => {
     if (!form.title.trim() || !form.content.trim()) {
-      setError("タイトルと内容を先に入れてね");
+      setError("タイトルと内容を先に入れてください");
       return;
     }
     setError("");

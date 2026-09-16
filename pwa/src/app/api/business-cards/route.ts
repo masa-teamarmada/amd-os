@@ -117,20 +117,20 @@ export async function POST(request: Request) {
     const file = form?.get("file");
     if (!(file instanceof File)) {
       return NextResponse.json(
-        { ok: false, error: "名刺画像を選んでね" },
+        { ok: false, error: "名刺画像を選んでください" },
         { status: 400 },
       );
     }
     const extension = CONTENT_TYPES[file.type];
     if (!extension) {
       return NextResponse.json(
-        { ok: false, error: "JPEG / PNG / WebP の画像を使ってね" },
+        { ok: false, error: "JPEG / PNG / WebP の画像を使ってください" },
         { status: 400 },
       );
     }
     if (file.size <= 0 || file.size > MAX_FILE_BYTES) {
       return NextResponse.json(
-        { ok: false, error: "画像は4MB以内にしてね" },
+        { ok: false, error: "画像は4MB以内にしてください" },
         { status: 400 },
       );
     }

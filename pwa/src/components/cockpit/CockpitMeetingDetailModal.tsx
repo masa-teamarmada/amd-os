@@ -824,7 +824,7 @@ function PrepWorkerSection({ meeting }: { meeting: ProjectMeetingSummary }) {
   };
 
   const codexHint =
-    status === "ready" ? "codex desktop で開いてね、待機してるよ"
+    status === "ready" ? "codex desktop で開いてください、待機してるよ"
     : status === "preparing" ? "session 立ち上げ済み、draft 生成中…"
     : status === "failed" ? "session 起動失敗、手動準備して"
     : null;
@@ -874,7 +874,7 @@ function PrepWorkerSection({ meeting }: { meeting: ProjectMeetingSummary }) {
       )}
       {!draft && status !== "ready" && (
         <p className="text-[11px] text-emerald-800">
-          まだ draft 生成中だよ。session 立ち上がったら codex で開いて対話で詰められるよ。
+          まだ draft 生成中です。session 立ち上がったら codex で開いて対話で詰められるよ。
         </p>
       )}
     </section>

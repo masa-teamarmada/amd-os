@@ -42,7 +42,7 @@ export async function POST(
   try {
     body = await request.json() as EffortBody;
   } catch {
-    return NextResponse.json({ ok: false, error: "入力形式が不正だよ" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "入力形式が不正です" }, { status: 400 });
   }
 
   const memberId = typeof body.memberId === "string" ? body.memberId.trim() : "";
@@ -57,20 +57,20 @@ export async function POST(
   const managementTracks = ["business_development", "technology_development", "funding", "organizational_building"];
 
   if (!memberId || !/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
-    return NextResponse.json({ ok: false, error: "メンバーと週を確認してね" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "メンバーと週を確認してください" }, { status: 400 });
   }
   const weekDate = new Date(`${weekStart}T00:00:00.000Z`);
   if (Number.isNaN(weekDate.getTime()) || weekDate.getUTCDay() !== 1) {
-    return NextResponse.json({ ok: false, error: "週の開始日は月曜日を選んでね" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "週の開始日は月曜日を選んでください" }, { status: 400 });
   }
   if (!EFFORT_CATEGORIES.some((item) => item.key === category)) {
-    return NextResponse.json({ ok: false, error: "活動区分を確認してね" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "活動区分を確認してください" }, { status: 400 });
   }
   if (plannedHours === null || actualHours === null) {
-    return NextResponse.json({ ok: false, error: "時間は0〜168時間で入力してね" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "時間は0〜168時間で入力してください" }, { status: 400 });
   }
   if (managementTrack && !managementTracks.includes(managementTrack)) {
-    return NextResponse.json({ ok: false, error: "経営の柱を確認してね" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "経営の柱を確認してください" }, { status: 400 });
   }
   if (access.scope === "project" && memberId !== access.memberId) {
     return NextResponse.json({ ok: false, error: "PJメンバーは自分の時間だけ更新できるよ" }, { status: 403 });
@@ -99,10 +99,10 @@ export async function POST(
       .is("deleted_at", null)
       .maybeSingle();
     if (milestoneError) return NextResponse.json({ ok: false, error: milestoneError.message }, { status: 500 });
-    if (!milestone) return NextResponse.json({ ok: false, error: "このPJのマイルストーンを選んでね" }, { status: 400 });
+    if (!milestone) return NextResponse.json({ ok: false, error: "このPJのマイルストーンを選んでください" }, { status: 400 });
     const milestoneTrack = String(milestone.track);
     if (managementTrack && milestoneTrack !== managementTrack) {
-      return NextResponse.json({ ok: false, error: "柱とマイルストーンの組み合わせを確認してね" }, { status: 400 });
+      return NextResponse.json({ ok: false, error: "柱とマイルストーンの組み合わせを確認してください" }, { status: 400 });
     }
     managementTrack = milestoneTrack;
   }

@@ -445,9 +445,9 @@ export function computeNextRoundScenario(
   const p = finiteNumber(input.preMoneyYen);
   const r = finiteNumber(input.raiseYen);
   const q = finiteNumber(input.targetPoolRate);
-  if (p <= 0) return { valid: false, error: "pre-money は0より大きい額を入力してね" };
-  if (r < 0) return { valid: false, error: "調達額は0以上で入力してね" };
-  if (q < 0 || q > 0.5) return { valid: false, error: "追加SOプールの目標比率は0%〜50%で入力してね" };
+  if (p <= 0) return { valid: false, error: "pre-money は0より大きい額を入力してください" };
+  if (r < 0) return { valid: false, error: "調達額は0以上で入力してください" };
+  if (q < 0 || q > 0.5) return { valid: false, error: "追加SOプールの目標比率は0%〜50%で入力してください" };
 
   const convertibleRows = input.includeConvertibles ? outstandingConvertiblesFor(convertibles) : [];
   const convertibleShares = convertibleRows.reduce((sum, instrument) => sum + finiteNumber(instrument.estimated_conversion_shares), 0);
@@ -558,8 +558,8 @@ export function minimumPreMoneyForTarget(
   input: NextRoundInputs,
   targetMinPct: number,
 ): { valid: boolean; preMoneyYen?: number; error?: string } {
-  if (!input.protectHolderName) return { valid: false, error: "保護対象の株主を選んでね" };
-  if (!(targetMinPct > 0) || targetMinPct >= 100) return { valid: false, error: "維持したい比率は0%より大きく100%未満で入力してね" };
+  if (!input.protectHolderName) return { valid: false, error: "保護対象の株主を選んでください" };
+  if (!(targetMinPct > 0) || targetMinPct >= 100) return { valid: false, error: "維持したい比率は0%より大きく100%未満で入力してください" };
 
   const protectHolderName = input.protectHolderName;
   const holderExists = snapshot.rows.some((row) => row.holderName === protectHolderName)

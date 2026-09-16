@@ -67,7 +67,7 @@ export async function GET(
     return json({ ok: false, error: "HTML資料ではないよ。" }, 400);
   }
   if (row.file_size_bytes > WORKSPACE_DOCUMENT_HTML_PREVIEW_MAX_BYTES) {
-    return json({ ok: false, error: "HTMLプレビューは5MBまでだよ。" }, 413);
+    return json({ ok: false, error: "HTMLプレビューは5MBまでです。" }, 413);
   }
 
   const loaded = await loadWorkspaceDocumentText(db, row, WORKSPACE_DOCUMENT_HTML_PREVIEW_MAX_BYTES);

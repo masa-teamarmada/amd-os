@@ -333,7 +333,7 @@ function resolveActionInfo(item: AppNotification, primaryReauthUrl?: string): Ac
 
   if (contract && contract.actionOwner === "none") {
     return {
-      actionRequired: contract.actionRequired || "対応不要。実行結果の報告だよ。",
+      actionRequired: contract.actionRequired || "対応不要。実行結果の報告です。",
       actionLabel: contract.actionLabel,
       actionUrl: contract.actionUrl,
       completionCondition: contract.completionCondition || "対応不要。",

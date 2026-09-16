@@ -27,7 +27,7 @@ export function ProjectMemberAccountForm() {
       });
       const payload = await response.json().catch(() => ({})) as { ok?: boolean; error?: string; member?: { member_id?: string } };
       if (!response.ok || !payload.ok) throw new Error(payload.error || `登録に失敗 (${response.status})`);
-      setMessage(`${payload.member?.member_id || "新規メンバー"} をPJ限定アカウントとして登録したよ。次にPJへ追加してね。`);
+      setMessage(`${payload.member?.member_id || "新規メンバー"} をPJ限定アカウントとして登録したよ。次にPJへ追加してください。`);
       setCreated(true);
       setCodeName("");
       setMemberName("");

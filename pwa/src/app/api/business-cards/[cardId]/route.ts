@@ -47,10 +47,10 @@ export async function PATCH(
         ).slice(0, 40)
       : [];
     if (!fullName) {
-      return NextResponse.json({ ok: false, error: "氏名を確認してね" }, { status: 400 });
+      return NextResponse.json({ ok: false, error: "氏名を確認してください" }, { status: 400 });
     }
     if (projectIds.length === 0) {
-      return NextResponse.json({ ok: false, error: "紐づけるPJを1つ以上選んでね" }, { status: 400 });
+      return NextResponse.json({ ok: false, error: "紐づけるPJを1つ以上選んでください" }, { status: 400 });
     }
 
     const { data: current, error: currentError } = await admin

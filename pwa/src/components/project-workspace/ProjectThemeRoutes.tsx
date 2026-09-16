@@ -494,7 +494,7 @@ function MeetingFormDialog({
 
   async function submit() {
     if (!title.trim() || !meetingDate) {
-      setError("タイトルと日付は必須だよ");
+      setError("タイトルと日付は必須です");
       return;
     }
     setSaving(true);
@@ -842,7 +842,7 @@ function DeliverableFormDialog({
 
   async function submit() {
     if (!title.trim()) {
-      setError("タイトルは必須だよ");
+      setError("タイトルは必須です");
       return;
     }
     setSaving(true);
@@ -1126,11 +1126,11 @@ function CreateWorkLinkDialog({
 
   async function submit() {
     if (!fromId || !toId) {
-      setError("両方選んでね");
+      setError("両方選んでください");
       return;
     }
     if (rejectedPair) {
-      setError("この組み合わせは既存の管理画面(課題・タスク・マイルストーン)の接続を使ってね");
+      setError("この組み合わせは既存の管理画面(課題・タスク・マイルストーン)の接続を使ってください");
       return;
     }
     setSaving(true);
@@ -1157,7 +1157,7 @@ function CreateWorkLinkDialog({
         <div className={`${styles.formGrid} ${styles.scrollDialogBody}`}>
           {error && <div className={styles.formError} role="alert">{error}</div>}
           {!error && rejectedPair && (
-            <div className={styles.formError} role="alert">この組み合わせは既存の管理画面(課題・タスク・マイルストーン)の接続を使ってね</div>
+            <div className={styles.formError} role="alert">この組み合わせは既存の管理画面(課題・タスク・マイルストーン)の接続を使ってください</div>
           )}
           <div className={styles.dialogFieldRow}>
             <div className={styles.formField}>
@@ -1169,7 +1169,7 @@ function CreateWorkLinkDialog({
             <div className={styles.formField}>
               <label className={styles.formLabel} htmlFor="link-from-id">起点</label>
               <select id="link-from-id" className={styles.formSelect} value={fromId} onChange={(e) => setFromId(e.target.value)} disabled={saving}>
-                <option value="">選んでね</option>
+                <option value="">選んでください</option>
                 {fromOptions.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
               </select>
             </div>
@@ -1184,7 +1184,7 @@ function CreateWorkLinkDialog({
             <div className={styles.formField}>
               <label className={styles.formLabel} htmlFor="link-to-id">先</label>
               <select id="link-to-id" className={styles.formSelect} value={toId} onChange={(e) => setToId(e.target.value)} disabled={saving}>
-                <option value="">選んでね</option>
+                <option value="">選んでください</option>
                 {toOptions.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
               </select>
             </div>
@@ -1332,7 +1332,7 @@ export function ProjectThemeRoutes({
         setNotice(typeof json.error === "string" ? json.error : "最新の内容を読み込めなかったよ");
       }
     } catch {
-      setNotice("最新の内容を読み込めなかったよ。画面を再読み込みしてね");
+      setNotice("最新の内容を読み込めなかったよ。画面を再読み込みしてください");
     } finally {
       refreshingRef.current = false;
     }
@@ -1349,7 +1349,7 @@ export function ProjectThemeRoutes({
       <section className={styles.container}>
         <header className={styles.pageHeader}>
           <h2 className={styles.pageTitle}>テーマ</h2>
-          <p className={styles.pageDescription}>テーマが未設定だよ</p>
+          <p className={styles.pageDescription}>テーマが未設定です</p>
         </header>
       </section>
     );

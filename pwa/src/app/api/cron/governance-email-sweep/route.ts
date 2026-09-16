@@ -376,7 +376,7 @@ export async function GET(req: NextRequest) {
   const maxAttachmentsPerMessage = Math.min(20, Math.max(0, Number(req.nextUrl.searchParams.get("maxAttachmentsPerMessage") || 10)));
 
   const auth = await getGoogleAuthAsync();
-  if (!auth) return NextResponse.json({ ok: false, error: "Google Gmail credential が未設定だよ" }, { status: 500 });
+  if (!auth) return NextResponse.json({ ok: false, error: "Google Gmail credential が未設定です" }, { status: 500 });
 
   const db = createAdminClient();
   let projectsQuery = db

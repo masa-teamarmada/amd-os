@@ -368,7 +368,7 @@ function Overview({ onSelect }: { onSelect: (item: MaterialDetail, tab?: Workspa
             <span className="border border-[#d5b49f] bg-[#f8e9df] px-2.5 py-1.5 font-mono text-xs font-semibold text-[#7d351f]">偏り 5段階</span>
           </div>
           <p className="mt-3 max-w-5xl text-xs leading-5 text-[#686962]">
-            不足だけでなく、供給過剰や価格乱高下も「需給の崩れ」に含める。5点は偏りが大きく、1点は小さいという初期評価だよ。
+            不足だけでなく、供給過剰や価格乱高下も「需給の崩れ」に含める。5点は偏りが大きく、1点は小さいという初期評価です。
             おおむね均衡している材料は除き、同点なら供給不安、次に需要の評価が高い順に並べている。
           </p>
         </div>
@@ -1006,7 +1006,7 @@ function CompareTray({ items, onRemove, onOpen }: { items: MaterialDetail[]; onR
 
 function CompareView({ items, onRemove }: { items: MaterialDetail[]; onRemove: (id: string) => void }) {
   if (items.length < 2) {
-    return <section className="border border-dashed border-[#a9a195] bg-[#fbf8f2] px-5 py-16 text-center"><Scale className="mx-auto h-8 w-8 text-[#9a7048]" /><h2 className="mt-4 text-xl font-semibold">2件以上を比較に追加してね。</h2><p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#686b66]">元素、鉱物、樹脂をまたいで最大4件。各材料の詳細にある「比較に追加」から選べる。</p></section>;
+    return <section className="border border-dashed border-[#a9a195] bg-[#fbf8f2] px-5 py-16 text-center"><Scale className="mx-auto h-8 w-8 text-[#9a7048]" /><h2 className="mt-4 text-xl font-semibold">2件以上を比較に追加してください。</h2><p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#686b66]">元素、鉱物、樹脂をまたいで最大4件。各材料の詳細にある「比較に追加」から選べる。</p></section>;
   }
   const rankedItems = [...items].sort(compareMaterialTotalScore);
   const rows: Array<{ label: string; render: (item: MaterialDetail) => React.ReactNode }> = [

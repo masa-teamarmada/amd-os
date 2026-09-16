@@ -133,7 +133,7 @@ export function VcInvestmentLedger() {
   if (error) {
     return (
       <div className="rounded-lg border border-rose-400/35 bg-rose-400/8 px-4 py-6 text-sm text-rose-100">
-        投資履歴を読み込めなかった。データ構造の反映状態を確認してね。
+        投資履歴を読み込めなかった。データ構造の反映状態を確認してください。
         <div className="mt-2 text-xs text-rose-200/70">{error}</div>
       </div>
     );

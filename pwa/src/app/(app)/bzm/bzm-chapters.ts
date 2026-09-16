@@ -713,7 +713,7 @@ export function getBzmChapter(slug: string) {
  * 旧 slug → 新 slug のリダイレクト表。
  *
  * 2026-08-22、SPS現行正本3本のファイル名から世代名 2-0 を外した
- * （まさ「2.0だよね？古いのでは？」という誤解を生んだため。承認 model/APPROVALS.md #2026-08-22-2）。
+ * （まさ「2.0ですね？古いのでは？」という誤解を生んだため。承認 model/APPROVALS.md #2026-08-22-2）。
  * SPS_2_0_PREREGISTRATION_*.md や BZM_2_0_*.md などの凍結記録には旧ファイル名のリンクが
  * 当時の記録のまま残っているので、書き換えずにこの表で /bzm・/model の両方から生かす。
  */

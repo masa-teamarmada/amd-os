@@ -46,17 +46,17 @@ export async function POST(req: NextRequest) {
   const invoiceSubject = body.invoiceSubject;
   const allLinesJson = body.allLinesJson;
   if (!projectId || projectId.length > 120 || !isYm(ym) || typeof invoiceSubject !== "string" || invoiceSubject.length > 500 || typeof allLinesJson !== "string") {
-    return NextResponse.json({ ok: false, error: "projectId / ym / invoiceSubject / allLinesJson を確認してね" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "projectId / ym / invoiceSubject / allLinesJson を確認してください" }, { status: 400 });
   }
 
   let lines: unknown;
   try {
     lines = JSON.parse(allLinesJson);
   } catch {
-    return NextResponse.json({ ok: false, error: "allLinesJson はJSON配列で送ってね" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "allLinesJson はJSON配列で送ってください" }, { status: 400 });
   }
   if (!validateLines(lines)) {
-    return NextResponse.json({ ok: false, error: "請求明細の形式を確認してね" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "請求明細の形式を確認してください" }, { status: 400 });
   }
 
   const normalizedLinesJson = JSON.stringify(lines);

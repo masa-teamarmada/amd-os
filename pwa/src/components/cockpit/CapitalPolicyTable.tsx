@@ -172,7 +172,7 @@ export function CapitalRoundsTable({ data, showLedgerHint = false }: { data: Com
       </table>
       {showLedgerHint && (
         <p className="border-t border-slate-100 px-4 py-3 text-[11px] leading-5 text-slate-500">
-          株主別の内訳を出すには、株式イベント（設立・新株発行・譲渡など）の登録が必要だよ。登録すると、この上にラウンド別の資本政策表が出る。
+          株主別の内訳を出すには、株式イベント（設立・新株発行・譲渡など）の登録が必要です。登録すると、この上にラウンド別の資本政策表が出る。
         </p>
       )}
     </div>

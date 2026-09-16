@@ -56,7 +56,7 @@ export default async function AdminKiyoPage({
       <header className="mb-2">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">きよ</h1>
         <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">
-          月次経理の処理をここで完了する。立替精算、請求書、メンバー支払を作業順に進めてね。
+          月次経理の処理をここで完了する。立替精算、請求書、メンバー支払を作業順に進めてください。
         </p>
       </header>
 

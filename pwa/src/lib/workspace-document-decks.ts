@@ -177,7 +177,7 @@ export async function saveWorkspaceDeckModel(
       status: 409,
       conflict: true,
       currentSha256: null,
-      error: "このデッキは別のセッションで消えているよ。画面を再読み込みしてね。",
+      error: "このデッキは別のセッションで消えているよ。画面を再読み込みしてください。",
     };
   }
   if (current && current.model_sha256 !== expectedSha256) {
@@ -186,7 +186,7 @@ export async function saveWorkspaceDeckModel(
       status: 409,
       conflict: true,
       currentSha256: current.model_sha256,
-      error: "別のセッションがこのデッキを更新しているよ。最新を読み込んでから保存してね。",
+      error: "別のセッションがこのデッキを更新しているよ。最新を読み込んでから保存してください。",
     };
   }
 
@@ -307,9 +307,9 @@ export async function createWorkspaceDeckAsset(input: {
 }): Promise<CreateWorkspaceDeckAssetResult> {
   const { db, row, access, storageBucket, storagePath, bytes } = input;
 
-  if (!bytes.byteLength) return { ok: false, status: 400, error: "画像が空だよ。" };
+  if (!bytes.byteLength) return { ok: false, status: 400, error: "画像が空です。" };
   if (bytes.byteLength > WORKSPACE_DOCUMENT_ASSET_MAX_BYTES) {
-    return { ok: false, status: 413, error: "画像は10MBまでだよ。" };
+    return { ok: false, status: 413, error: "画像は10MBまでです。" };
   }
 
   const probe: WorkspaceDeckImageProbe | null = probeWorkspaceDeckImage(bytes);
@@ -320,7 +320,7 @@ export async function createWorkspaceDeckAsset(input: {
     return {
       ok: false,
       status: 400,
-      error: `画像の長辺は${WORKSPACE_DOCUMENT_ASSET_MAX_EDGE_PX}pxまでだよ。小さくしてから入れてね。`,
+      error: `画像の長辺は${WORKSPACE_DOCUMENT_ASSET_MAX_EDGE_PX}pxまでです。小さくしてから入れてください。`,
     };
   }
 
@@ -448,7 +448,7 @@ export async function publishWorkspaceDeck(input: {
     return {
       ok: false,
       status: 409,
-      error: "デッキが参照している画像を読み込めなかったよ。画像を置き直してね。",
+      error: "デッキが参照している画像を読み込めなかったよ。画像を置き直してください。",
       missingAssets: missing,
     };
   }
@@ -459,7 +459,7 @@ export async function publishWorkspaceDeck(input: {
     return {
       ok: false,
       status: 413,
-      error: "公開HTMLが5MBを超えるよ。画像を減らすか小さくしてね。",
+      error: "公開HTMLが5MBを超えるよ。画像を減らすか小さくしてください。",
     };
   }
 
@@ -502,7 +502,7 @@ export async function publishWorkspaceDeck(input: {
     console.error("[workspace-document-decks] publish flag update failed:", updateError.message);
     // HTMLは差し替わっている。ここで500を返すと利用者は「公開できなかった」と読むので、
     // 未公開扱いのまま成功を返さない。次のpublishでやり直せる。
-    return { ok: false, status: 500, error: "公開はできたけど、公開済みの印を付けられなかったよ。もう一度publishしてね。" };
+    return { ok: false, status: 500, error: "公開はできたけど、公開済みの印を付けられなかったよ。もう一度publishしてください。" };
   }
 
   return {

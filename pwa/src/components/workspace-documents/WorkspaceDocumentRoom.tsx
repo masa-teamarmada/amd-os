@@ -855,8 +855,8 @@ export function WorkspaceDocumentRoom({
     const existing = current.conflict === "queued" ? null : current.conflict;
     if (choice === "replace" && (!existing || existing.entryKind !== "file")) {
       setError(existing
-        ? "同名のリンクやフォルダは、ファイルで置き換えられないよ。両方残すか中止してね。"
-        : "同時に追加する資料どうしは置き換えられないよ。両方残すか中止してね。");
+        ? "同名のリンクやフォルダは、ファイルで置き換えられないよ。両方残すか中止してください。"
+        : "同時に追加する資料どうしは置き換えられないよ。両方残すか中止してください。");
       return;
     }
 
@@ -1366,14 +1366,14 @@ export function WorkspaceDocumentRoom({
               >
                 <Folder className="h-8 w-8 text-slate-400" aria-hidden />
                 <p className="mt-3 text-sm font-semibold">
-                  {query ? "該当する資料はないよ" : "この場所はまだ空だよ"}
+                  {query ? "該当する資料はないよ" : "この場所はまだ空です"}
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
                   {permissions?.canUpload && !query
                     ? busy
                       ? "資料を保存中"
-                      : "ファイルをこの一覧へドロップするか、上の「追加」から選んでね。"
-                    : "別の場所か検索条件を確認してね。"}
+                      : "ファイルをこの一覧へドロップするか、上の「追加」から選んでください。"
+                    : "別の場所か検索条件を確認してください。"}
                 </p>
               </div>
             ) : (
@@ -1563,8 +1563,8 @@ export function WorkspaceDocumentRoom({
             <DialogDescription className="break-words leading-6">
               <span className="font-semibold text-slate-800">{activeUploadConflict?.file.name}</span>
               {conflictDocument
-                ? ` は、この場所にある${conflictDocument.entryKind === "file" ? "ファイル" : conflictDocument.entryKind === "link" ? "リンク" : "フォルダ"}と同じ名前だよ。`
-                : " は、同時に追加する資料と同じ名前だよ。"}
+                ? ` は、この場所にある${conflictDocument.entryKind === "file" ? "ファイル" : conflictDocument.entryKind === "link" ? "リンク" : "フォルダ"}と同じ名前です。`
+                : " は、同時に追加する資料と同じ名前です。"}
             </DialogDescription>
           </DialogHeader>
           <div className="my-5 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">

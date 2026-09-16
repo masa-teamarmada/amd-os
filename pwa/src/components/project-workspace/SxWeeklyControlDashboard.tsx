@@ -1100,7 +1100,7 @@ function editorDefinition(
           type: "textarea",
           required: true,
           span: true,
-          help: "何がそろえばこのラインが終わったと言えるか。分からない部分は「未確認」と書いて、埋まった時点で直してね。",
+          help: "何がそろえばこのラインが終わったと言えるか。分からない部分は「未確認」と書いて、埋まった時点で直してください。",
         },
         ...trackField,
         { key: "owner_label", label: "担当", required: true },
@@ -1139,7 +1139,7 @@ function editorDefinition(
             type: "lanes",
             required: true,
             span: true,
-            help: "このMSをゲートとして出すグループ。複数のグループにまたがるMSは、またがる分だけ選んでね。",
+            help: "このMSをゲートとして出すグループ。複数のグループにまたがるMSは、またがる分だけ選んでください。",
           },
         ];
     return {
@@ -1244,8 +1244,8 @@ function editorDefinition(
             "business-paid-poc-oral-agreement",
             "funding-investment-oral-agreement",
           ].includes(editor.milestone.slug)
-            ? "完了にするには、先方（または投資家）・合意内容・確認日・根拠を1行ずつ記録してね。例：先方：○○社"
-            : "完了にする場合は、第三者が確認できる根拠を記録してね。",
+            ? "完了にするには、先方（または投資家）・合意内容・確認日・根拠を1行ずつ記録してください。例：先方：○○社"
+            : "完了にする場合は、第三者が確認できる根拠を記録してください。",
         },
         {
           key: "criticality",
@@ -1312,7 +1312,7 @@ function editorDefinition(
                 required: true,
                 span: true,
                 options: [
-                  { value: "", label: "MSを選んでね" },
+                  { value: "", label: "MSを選んでください" },
                   ...management.milestones
                     .filter(
                       (milestone) =>
@@ -1750,7 +1750,7 @@ function editorDefinition(
         {
           key: "counterparty_owner",
           label: "相手担当",
-          help: "相手の約束には相手担当・約束日・一次根拠が必要だよ。",
+          help: "相手の約束には相手担当・約束日・一次根拠が必要です。",
         },
         { key: "sx_owner", label: "SX担当" },
         { key: "promised_on", label: "約束日", type: "date" },
@@ -1779,7 +1779,7 @@ function editorDefinition(
           type: "select",
           span: true,
           options: [
-            { value: "", label: "論点を選んでね" },
+            { value: "", label: "論点を選んでください" },
             ...management.issues
               .filter((issue) => issue.status !== "closed")
               .map((issue) => ({
@@ -2562,7 +2562,7 @@ function IssueEditor({
       minimalCreateField &&
       !fieldValue(values, minimalCreateField.key).trim()
     ) {
-      setError(`${minimalCreateField.label}を一文だけ入れてね`);
+      setError(`${minimalCreateField.label}を一文だけ入れてください`);
       focusField(minimalCreateField.key);
       return;
     }
@@ -2573,7 +2573,7 @@ function IssueEditor({
           ? { key: "statement", label: "仮説" }
           : null;
       if (missing) {
-        setError(`${missing.label}を入れてね`);
+        setError(`${missing.label}を入れてください`);
         focusField(missing.key);
         return;
       }
@@ -2582,7 +2582,7 @@ function IssueEditor({
       (field) => field.required && !fieldValue(values, field.key).trim(),
     );
     if (missingRequired) {
-      setError(`${missingRequired.label}を入力してね`);
+      setError(`${missingRequired.label}を入力してください`);
       focusField(missingRequired.key);
       return;
     }
@@ -2593,7 +2593,7 @@ function IssueEditor({
         !values.decided_by?.trim() ||
         !values.decided_on)
     ) {
-      setError("決定済みにするには、決定内容・決定者・決定日を入れてね");
+      setError("決定済みにするには、決定内容・決定者・決定日を入れてください");
       focusField("decision_text");
       return;
     }
@@ -2602,7 +2602,7 @@ function IssueEditor({
       values.status === "completed" &&
       (!values.completion_note?.trim() || !values.completed_at)
     ) {
-      setError("完了にするには、完了メモと完了日を入れてね");
+      setError("完了にするには、完了メモと完了日を入れてください");
       focusField("completion_note");
       return;
     }
@@ -2615,7 +2615,7 @@ function IssueEditor({
         ))
     ) {
       if (!values.actual_end || !values.completion_evidence?.trim()) {
-        setError("完了にするには、実績完了日と完了証跡を入れてね");
+        setError("完了にするには、実績完了日と完了証跡を入れてください");
         focusField("actual_end");
         return;
       }
@@ -2626,7 +2626,7 @@ function IssueEditor({
         )
       ) {
         setError(
-          "口頭合意の確認には、先方（または投資家）・合意内容・確認日・根拠を「項目：内容」で1行ずつ入れてね",
+          "口頭合意の確認には、先方（または投資家）・合意内容・確認日・根拠を「項目：内容」で1行ずつ入れてください",
         );
         focusField("completion_evidence");
         return;
@@ -2650,7 +2650,7 @@ function IssueEditor({
       !editor.hubOrigin &&
       !selectedMilestoneLanes.length
     ) {
-      setError("配置するグループを選んでね");
+      setError("配置するグループを選んでください");
       focusField(`display_lane_keys:${laneFold.order[0] ?? ""}`);
       return;
     }
@@ -2686,14 +2686,14 @@ function IssueEditor({
         !selectedParentTask ||
         selectedParentTask.milestoneId !== (selectedTaskMilestone?.id ?? null)
       ) {
-        setError("親タスクは同じタスク群から選んでね");
+        setError("親タスクは同じタスク群から選んでください");
         focusField("parent_task_id");
         return;
       }
     }
     if (editor.kind === "create_outcome" && !management.objective) {
       setError(
-        "先に最上位の目的を登録してね。業務ラインは目的の下にぶら下がるよ",
+        "先に最上位の目的を登録してください。業務ラインは目的の下にぶら下がるよ",
       );
       return;
     }
@@ -2901,7 +2901,7 @@ function IssueEditor({
           } catch {
             // The notification below makes the unresolved state explicit.
           }
-          onSyncFailed?.(`${message}。同期状況を確認できないから、画面を再読み込みしてね`);
+          onSyncFailed?.(`${message}。同期状況を確認できないから、画面を再読み込みしてください`);
         }
       })();
       return;
@@ -2968,7 +2968,7 @@ function IssueEditor({
           }
           onRolledBack?.(temporaryId);
           onSyncFailed?.(
-            `${message}。追加を取り消したよ。もう一度試してね`,
+            `${message}。追加を取り消したよ。もう一度試してください`,
           );
         }
       })();
@@ -2993,12 +2993,12 @@ function IssueEditor({
         if (latest.ok && latestBody) {
           onSaved(
             latestBody as SxManagementBundle,
-            "他の人がこの内容を先に更新したよ。最新の内容に更新したから、もう一度確認してね",
+            "他の人がこの内容を先に更新したよ。最新の内容に更新したから、もう一度確認してください",
           );
           return;
         }
         throw new Error(
-          "他の人がこの内容を先に更新したよ。画面を再読み込みしてね",
+          "他の人がこの内容を先に更新したよ。画面を再読み込みしてください",
         );
       }
       if (!response.ok)
@@ -3043,7 +3043,7 @@ function IssueEditor({
           onSaved(
             (phaseBody.bundle as SxManagementBundle) ||
               (body.bundle as SxManagementBundle),
-            "業務ラインは保存したけど、タスクを置く入れ物を作れなかったよ。もう一度開いて保存し直してね",
+            "業務ラインは保存したけど、タスクを置く入れ物を作れなかったよ。もう一度開いて保存し直してください",
           );
           return;
         }
@@ -3779,7 +3779,7 @@ function IssueWorkbench({
                     event.preventDefault();
                     const summary = discussionDraft.trim();
                     if (!summary) {
-                      setDiscussionError("今回の議論を一文だけ入れてね");
+                      setDiscussionError("今回の議論を一文だけ入れてください");
                       return;
                     }
                     setDiscussionSaving(true);
@@ -3811,7 +3811,7 @@ function IssueWorkbench({
                     event.preventDefault();
                     const statement = hypothesisDraft.trim();
                     if (!statement) {
-                      setHypothesisError("生まれた仮説を一文だけ入れてね");
+                      setHypothesisError("生まれた仮説を一文だけ入れてください");
                       return;
                     }
                     setHypothesisSaving(true);
@@ -5124,7 +5124,7 @@ export function SxWeeklyControlDashboard({
         // 下の通知で未解決の状態を明示する。
       }
       setManagement(before);
-      showNotice(`${message}。画面を再読み込みしてね`);
+      showNotice(`${message}。画面を再読み込みしてください`);
     }
   }
 
@@ -5161,7 +5161,7 @@ export function SxWeeklyControlDashboard({
         // 下の通知で未解決の状態を明示する。
       }
       setManagement(before);
-      showNotice(`${message}。画面を再読み込みしてね`);
+      showNotice(`${message}。画面を再読み込みしてください`);
     }
   }
 
