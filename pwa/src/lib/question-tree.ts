@@ -1,4 +1,5 @@
 import "server-only";
+import type { ProjectGanttRoadmap } from "@/lib/project-gantt-roadmap";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { QUESTION_KIND_LABEL } from "@/lib/question-tree-types";
@@ -518,7 +519,7 @@ export async function getQuestionTreeBundle(
   const plain = (table: string, select: string) =>
     db.from(table).select(select).eq("project_id", projectId);
 
-  const [questionRes, actionRes, findingRes, qaRes, qfRes, depRes, ownerRes, qmRes, memberRes] =
+  const [questionRes, actionRes, findingRes, qaRes, qfRes, depRes, ownerRes, qmRes, memberRes, roadmapRes] =
     await Promise.all([
       live(
         "project_questions",
@@ -539,7 +540,10 @@ export async function getQuestionTreeBundle(
       plain("project_question_milestones", "question_id,milestone_id"),
       // 担当に選べる人。名簿のとおり在籍者を出し、こちらで人を選り分けない
       db.from("members").select("member_id,code_name").eq("status", "active").order("member_id"),
+      db.from("project_gantt_roadmaps").select("definition").eq("project_id", projectId).maybeSingle(),
     ]);
+
+  if (roadmapRes.error) throw new Error("工程計画を読み込めませんでした");
 
   const allQuestionRows = (questionRes.data || []) as unknown as RawRow[];
   const allActionRows = (actionRes.data || []) as unknown as RawRow[];
@@ -826,6 +830,7 @@ export async function getQuestionTreeBundle(
   return {
     projectId,
     asOf: today,
+    roadmap: (roadmapRes.data?.definition as ProjectGanttRoadmap | undefined) ?? null,
     roots,
     proposals,
     looseActions,

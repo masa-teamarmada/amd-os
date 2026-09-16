@@ -912,3 +912,9 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 回帰防止:
 
 - `npm run test:critical-ui` はコックピットの事業計画グループ内の知財（`ip: "知財"` / `aria-label="知財"` / `CockpitIpPortfolio` 埋め込み）、`CockpitIpPortfolio` の `data-testid="cockpit-ip-tab"` と `PatentMap` / `/api/project-ip` 参照、`PatentMap` の `data-testid="cockpit-ip-patent-map"` を検査する。
+
+
+### SOL 定例工程ガント（2026-09-16）
+- 導線: p21 cockpit `?tab=gantt` / workspace `#project-gantt`。4区分13工程、詳細開閉、法人設立・プレシードの月目安。
+- 実装: `MeetingRoadmap.tsx` / `QuestionTreeView.tsx` / `project-gantt-roadmap.ts`。DB: `project_gantt_roadmaps`。既存 `question-tree` API束とキャッシュ・詳細・保存を共有。
+- 防波堤: `test:project-gantt-roadmap`。元の論点ツリー不変、承認済みだけを重複なく投影、未分類の根を保持。

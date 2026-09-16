@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { groupRoadmapQuestions, type ProjectGanttRoadmap } from '../src/lib/project-gantt-roadmap.ts';
+import type { QuestionNode } from '../src/lib/question-tree-types.ts';
+const sql = readFileSync('../ios/supabase/migrations/20260916160000_sol_meeting_gantt_roadmap.sql', 'utf8');
+const roadmap = JSON.parse(sql.split('$roadmap$')[1]) as ProjectGanttRoadmap;
+assert.equal(roadmap.phases.length, 13);
+assert.deepEqual(roadmap.groups.map(g => g.title), ['経営企画／事業開発','技術開発','組織開発','資金調達']);
+assert.deepEqual(roadmap.markers.map(m => m.date.slice(0,7)), ['2027-04','2027-05']);
+for (const phase of roadmap.phases) {
+ assert.ok(phase.start <= phase.end);
+ assert.ok(!phase.extensionEnd || phase.end < phase.extensionEnd);
+ assert.ok(roadmap.groups.some(g => g.id === phase.group));
+}
+const node = (id: string, children: QuestionNode[] = [], proposed = false) => ({id,children,isProposed:proposed,actions:[]} as unknown as QuestionNode);
+const top = roadmap.phases.find(p => p.id === 'team')!.questionIds[0];
+const cost = roadmap.phases.find(p => p.id === 'cost')!.questionIds[0];
+const strategy = roadmap.phases.find(p => p.id === 'strategy')!.questionIds[0];
+const tree = [node(top,[node(strategy,[node(cost,[node('cost-child')]),node('strategy-child'),node('proposal',[],true)])]),node('new-unmapped-root')];
+const before = JSON.stringify(tree);
+const result = groupRoadmapQuestions(tree, roadmap);
+const flatten = (nodes: QuestionNode[]): string[] => nodes.flatMap(n => [n.id,...flatten(n.children)]);
+assert.deepEqual(flatten(result.byPhase.get('team')!), [top]);
+assert.deepEqual(flatten(result.byPhase.get('strategy')!), [strategy,'strategy-child']);
+assert.deepEqual(flatten(result.byPhase.get('cost')!), [cost,'cost-child']);
+assert.deepEqual(flatten(result.ungrouped), ['new-unmapped-root']);
+const ids = [...result.byPhase.values(), result.ungrouped].flatMap(flatten);
+assert.equal(ids.length, new Set(ids).size, 'no duplicate questions across phases');
+assert.ok(!ids.includes('proposal'), 'unaccepted questions stay out of gantt');
+assert.equal(JSON.stringify(tree), before, 'canonical hierarchy must not mutate');
+console.log('PASS: 13 phases, 4 lanes, 2 milestones, inherited grouping, unique coverage, proposal isolation, immutable source');

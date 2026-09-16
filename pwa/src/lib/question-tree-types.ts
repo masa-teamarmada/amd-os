@@ -1,3 +1,5 @@
+import type { ProjectGanttRoadmap } from "./project-gantt-roadmap";
+
 /**
  * ゴールツリーの型。正本は pwa/spec/3-21-question-tree-current-spec.md と
  * pwa/spec/3-22-goal-tree-plan.md（到達点・MS・ptの型）。
@@ -243,6 +245,8 @@ export type QuestionNode = {
 };
 
 export type QuestionTreeBundle = {
+  /** Meeting-plan overview; actual work remains in this same goal-tree bundle. */
+  roadmap?: ProjectGanttRoadmap | null;
   projectId: string;
   asOf: string;
   roots: QuestionNode[];

@@ -1,5 +1,6 @@
 "use client";
 
+import { MeetingRoadmap } from "./MeetingRoadmap";
 import { GripVertical } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -382,8 +383,10 @@ export function QuestionTreeView({
   );
 
   const ganttDomain = useMemo(
-    () => (bundle ? buildGanttDomain(ganttActions, bundle.asOf) : null),
-    [bundle, ganttActions],
+    () => (bundle?.roadmap && mode === "gantt"
+      ? { start: bundle.roadmap.start, end: bundle.roadmap.end, totalDays: diffDays(bundle.roadmap.start, bundle.roadmap.end) + 1 }
+      : bundle ? buildGanttDomain(ganttActions, bundle.asOf) : null),
+    [bundle, ganttActions, mode],
   );
 
   const monthTicks = useMemo(() => (ganttDomain ? buildMonthTicks(ganttDomain) : []), [ganttDomain]);
@@ -2327,7 +2330,13 @@ export function QuestionTreeView({
               )}
             </div>
           )}
-          {roots.length === 0 ? (
+          {mode === "gantt" && bundle.roadmap ? (
+            <MeetingRoadmap roadmap={bundle.roadmap} roots={roots} asOf={bundle.asOf}
+              axisRef={axisRef} bodyRef={ganttBodyRef}
+              dependencyLayer={<svg className={styles.depLayer}>{depPaths.map((segment) => <path key={segment.key} d={segment.path} />)}</svg>}
+              onExpand={() => setOpenIds(new Set(bundle.allQuestions.filter((question) => !question.isProposed).map((question) => question.id)))}
+              renderQuestion={(question) => renderNode(question)} />
+          ) : roots.length === 0 ? (
             <p className={styles.emptyState}>まだ登録されていない。</p>
           ) : mode === "gantt" ? (
             <div className={styles.gantt}>
