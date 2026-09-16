@@ -314,7 +314,7 @@ export function AdminChangeHistoryClient() {
         </div>
       </header>
 
-      <div className="sticky top-0 z-10 -mx-6 border-b border-border/70 bg-background/95 px-6 py-3 backdrop-blur">
+      <div className="sticky top-0 z-10 mx-0 border-b border-border/70 bg-background/95 px-0 py-3 backdrop-blur sm:-mx-6 sm:px-6">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap gap-1" role="group" aria-label="操作の絞り込み">
             {(["", "insert", "update", "delete"] as const).map((value) => (
