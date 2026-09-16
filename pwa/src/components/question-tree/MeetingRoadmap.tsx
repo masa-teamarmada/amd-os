@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, useState, type ReactNode, type RefObject } from "react";
-import { projectRoadmapWork, type RoadmapWorkItem, type ProjectGanttRoadmap } from "@/lib/project-gantt-roadmap";
+import { projectRoadmapWork, type RoadmapWorkItem, type ProjectGanttRoadmap, type WorkRange } from "@/lib/project-gantt-roadmap";
 import type { ActionNode, QuestionNode } from "@/lib/question-tree-types";
 import { diffDays } from "@/lib/sx-gantt-drag";
 import styles from "./meeting-roadmap.module.css";
@@ -19,100 +19,106 @@ export function MeetingRoadmap({ roadmap, roots, asOf, renderActionLane, onSelec
   dependencyLayer: ReactNode;
 }) {
   const [expanded, setExpanded] = useState(new Set<string>());
-  const grouped = useMemo(() => projectRoadmapWork(roots, roadmap), [roots, roadmap]);
-  const days = diffDays(grouped.start, grouped.end) + 1;
-  const pct = (date: string) => diffDays(grouped.start, date) / days * 100;
+  const work = useMemo(() => projectRoadmapWork(roots, roadmap), [roots, roadmap]);
+  const days = diffDays(work.start, work.end) + 1;
+  const pct = (date: string) => diffDays(work.start, date) / days * 100;
   const width = (start: string, end: string) => (diffDays(start, end) + 1) / days * 100;
-  const quarters: { start: string; end: string; year: number; label: string }[] = [];
-  for (let year = Number(grouped.start.slice(0, 4)); year <= Number(grouped.end.slice(0, 4)); year++) {
-    for (let month = 1; month <= 12; month += 3) {
+  const months: { start: string; end: string; label: string }[] = [];
+  for (let year = Number(work.start.slice(0, 4)); year <= Number(work.end.slice(0, 4)); year++) {
+    for (let month = 1; month <= 12; month++) {
       const start = `${year}-${String(month).padStart(2, "0")}-01`;
-      const end = new Date(Date.UTC(year, month + 2, 0)).toISOString().slice(0, 10);
-      if (end < grouped.start || start > grouped.end) continue;
-      quarters.push({ start, end, year, label: `${month}–${month + 2}月` });
+      const end = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+      if (end < work.start || start > work.end) continue;
+      months.push({ start, end, label: `${month}月` });
     }
   }
   const toggle = (id: string) => {
-    setExpanded((previous) => {
+    setExpanded(previous => {
       const next = new Set(previous);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
     onExpand();
   };
-  const grid = () => quarters.map((quarter) => <span key={quarter.start} className={styles.gridLine} style={{ left: `${pct(quarter.start)}%` }} />);
-  const renderWork = (item: RoadmapWorkItem, depth = 0): ReactNode => <Fragment key={`${item.kind}-${item.id}`}>
-    <div className={styles.workRow} data-work-kind={item.kind} data-work-id={item.id} data-start={item.range?.start} data-end={item.range?.end}>
-      <div className={styles.workLead} style={{paddingLeft: 16 + depth * 16}}>
-        {item.children.length > 0 && <button type="button" className={styles.workToggle} aria-label={`${item.title}の子タスク`} aria-expanded={expanded.has(item.id)} onClick={() => toggle(item.id)}>{expanded.has(item.id) ? "−" : "+"}</button>}
-        <button type="button" className={styles.workTitle} onClick={() => onSelect(item.kind === "task" ? "action" : "question", item.id)}>{item.title}</button>
-        <small>{item.kind === "milestone" ? "MS" : "タスク"}</small>
+  const dateLabel = (range: WorkRange | null) => range
+    ? `${range.start.slice(2)}${range.start === range.end ? "" : ` 〜 ${range.end.slice(2)}`}`
+    : "日程未設定";
+  const grid = () => months.map(month => <span key={month.start} className={styles.gridLine} style={{ left: `${pct(month.start)}%` }} />);
+  const summaryBar = (range: WorkRange | null, title: string, activate: () => void, milestone = false) => (
+    <div className={`${treeStyles.lane} ${styles.timeline}`}>
+      {grid()}
+      {range ? <button type="button" className={milestone ? styles.milestone : styles.summaryBar}
+        aria-label={`${title}：${dateLabel(range)}`} title={`${title}：${dateLabel(range)}`}
+        onClick={activate} style={{ left: `${pct(range.start)}%`, width: milestone ? undefined : `${Math.max(width(range.start, range.end), .6)}%` }}>
+        {milestone ? "◆" : null}
+      </button> : <span className={styles.noDate}>日程未設定</span>}
+    </div>
+  );
+  const renderWork = (item: RoadmapWorkItem, depth = 1): ReactNode => <Fragment key={`${item.kind}-${item.id}`}>
+    <div className={styles.row} data-work-kind={item.kind} data-work-id={item.id} data-start={item.range?.start} data-end={item.range?.end}>
+      <div className={styles.lead} style={{ paddingLeft: 12 + Math.min(depth, 4) * 16 }}>
+        {item.children.length > 0 ? <button type="button" className={styles.toggle} aria-label={`${item.title}の子タスク`} aria-expanded={expanded.has(item.id)} onClick={() => toggle(item.id)}>{expanded.has(item.id) ? "▾" : "▸"}</button> : <span className={styles.toggleSpace} />}
+        <div className={styles.label}>
+          <button type="button" className={styles.title} onClick={() => onSelect(item.kind === "task" ? "action" : "question", item.id)}>{item.title}</button>
+          <span className={styles.meta}>{item.kind === "milestone" ? "MS" : "タスク"} · {dateLabel(item.range)}</span>
+        </div>
       </div>
-      {item.action && !item.children.length && item.range ? renderActionLane(item.action) : <div className={styles.lane}>
-        {grid()}
-        {item.range ? <button type="button" className={styles.workBar} aria-label={`${item.title}：${item.range.start}〜${item.range.end}`} data-summary={item.children.length > 0 ? "true" : undefined} title={`${item.range.start}〜${item.range.end}`} style={{left: `${pct(item.range.start)}%`, width: `${Math.max(width(item.range.start, item.range.end), .6)}%`}} onClick={() => onSelect(item.kind === "task" ? "action" : "question", item.id)}>{item.kind === "milestone" && !item.children.length ? "◆" : ""}</button> : <span className={styles.noDate}>日程未設定</span>}
-      </div>}
+      {item.action && !item.children.length && item.range
+        ? <div className={styles.actionTimeline}>{grid()}{renderActionLane(item.action)}</div>
+        : summaryBar(item.range, item.title, () => onSelect(item.kind === "task" ? "action" : "question", item.id), item.kind === "milestone" && !item.children.length)}
     </div>
     {expanded.has(item.id) && item.children.map(child => renderWork(child, depth + 1))}
   </Fragment>;
-  return (
-    <div className={styles.roadmap} data-testid="meeting-roadmap" data-expanded={expanded.size > 0 ? "true" : undefined}>
-      <div className={styles.toolbar}>
-        <span>定例資料の全体計画 <small>工程を押すとMS・タスクを展開</small></span>
-        <button type="button" onClick={() => { setExpanded(new Set()); onExpand(); }}>詳細を折り畳む</button>
-      </div>
-      <div className={styles.scroll}>
-        <div className={styles.chart}>
-          <div className={styles.header}>
-            <div className={styles.corner}>工程／担当</div>
-            <div className={styles.axis} ref={axisRef}>
-              {quarters.map((quarter) => <div key={quarter.start} className={styles.quarter} style={{ left: `${pct(quarter.start)}%`, width: `${width(quarter.start, quarter.end)}%` }}><b>{quarter.year}</b><span>{quarter.label}</span></div>)}
-            </div>
-          </div>
-          <div className={styles.body} ref={bodyRef}>
-            <div className={styles.guideLayer} aria-hidden="true"><div /><div className={`${styles.guideLane} ${treeStyles.ganttOverlayLane}`}>
-              {asOf >= grouped.start && asOf <= grouped.end && <span className={styles.today} style={{ left: `${pct(asOf)}%` }}><b>今日</b></span>}
-              {roadmap.markers.map((marker) => <span key={marker.id} className={styles.markerLine} style={{ left: `${pct(marker.date)}%` }} />)}
-              {dependencyLayer}
-            </div></div>
-            {roadmap.groups.map((group) => {
-              const phases = grouped.phases.filter((phase) => phase.group === group.id);
-              const rows = [...new Set(phases.map((phase) => phase.row))].sort((a, b) => a - b);
-              return <section key={group.id} className={styles.group} data-roadmap-group={group.id}>
-                {rows.map((row, index) => <Fragment key={row}>
-                  <div className={styles.planRow} data-tech={group.id === "technology" ? "true" : undefined}>
-                    <div className={styles.groupLabel}>{index === 0 && <><strong>{group.title}</strong><small>{group.owner}</small></>}</div>
-                    <div className={styles.lane}>
-                      {grid()}
-                      {phases.filter((phase) => phase.row === row).map((phase) => {
-                        return <Fragment key={phase.id}>
-                          {!phase.items.length && phase.extensionEnd && <span className={styles.extension} data-extension={phase.id} style={{ left: `${pct(phase.start)}%`, width: `${width(phase.start, phase.extensionEnd)}%` }} />}
-                          <button type="button" className={phase.range ? styles.bar : styles.unscheduledPhase} data-roadmap-phase={phase.id} data-narrow={phase.range && width(phase.range.start, phase.range.end) < 12 ? "true" : undefined} aria-expanded={expanded.has(phase.id)} aria-label={`${phase.title}の詳細`} data-start={phase.range?.start} data-end={phase.range?.end} title={phase.range ? `${phase.title}：${phase.range.start}〜${phase.range.end}${phase.items.length ? "（子の日程から集計）" : "（定例資料の計画）"}` : `${phase.title}：子の日程未設定`} onClick={() => toggle(phase.id)} style={phase.range ? { left: `${pct(phase.range.start)}%`, width: `${width(phase.range.start, phase.range.end)}%` } : undefined}>
-                            <span>{phase.id === "strategy" ? <>事業計画・資本政策<br />知財戦略策定</> : phase.title}</span><small>{!phase.range && "日程未設定 "}{expanded.has(phase.id) ? "−" : "+"}</small>
-                          </button>
-                        </Fragment>;
-                      })}
-                    </div>
-                  </div>
-                  {phases.filter((phase) => phase.row === row && expanded.has(phase.id)).map((phase) => <div key={phase.id} className={styles.detail} data-phase-detail={phase.id}>
-                    <div className={styles.detailTitle}>{phase.title}<span>MS・タスク</span></div>
-                    {phase.items.length > 0
-                      ? <div className={treeStyles.tree} data-mode="gantt">{phase.items.map(item => renderWork(item))}</div>
-                      : <p className={styles.empty}>子のMS・タスクは未登録。この工程の期間は定例資料の計画。</p>}
-                  </div>)}
-                </Fragment>)}
-              </section>;
+  return <div className={styles.roadmap} data-testid="meeting-roadmap">
+    <div className={styles.toolbar}>
+      <span>工程・MS・タスク</span>
+      <button type="button" className={treeStyles.btn} onClick={() => { setExpanded(new Set()); onExpand(); }}>詳細を折り畳む</button>
+    </div>
+    <p className={styles.scrollHint}>日程は左右にスクロール</p>
+    <div className={styles.scroll} role="region" aria-label="工程ガント（横スクロール）" tabIndex={0}>
+      <div className={styles.chart}>
+        <div className={styles.header}>
+          <div className={styles.headLead}>名前・日程</div>
+          <div className={styles.axis} ref={axisRef}>
+            {[...new Set(months.map(month => month.start.slice(0, 4)))].map(year => {
+              const first = months.find(month => month.start.startsWith(year))!;
+              return <span key={year} className={styles.year} style={{left: `${pct(first.start)}%`}}>{year}年</span>;
             })}
-            <div className={styles.milestones}><div>節目 <small>月の目安</small></div><div className={styles.milestoneLane}>
-              {roadmap.markers.map((marker) => <div key={marker.id} className={styles.marker} data-roadmap-marker={marker.id} style={{ left: `${pct(marker.date)}%` }}><b>◆</b><span>{marker.date.slice(2, 7).replace("-", "/")}<br />{marker.title}</span></div>)}
-            </div></div>
-          </div>
+            {months.map(month => <span key={month.start} className={`${treeStyles.monthTick} ${styles.month}`} style={{left: `${pct(month.start)}%`, width: `${width(month.start, month.end)}%`}}>{month.label}</span>)}</div>
+        </div>
+        <div className={styles.body} ref={bodyRef}>
+          <div className={styles.overlay} aria-hidden="true"><div /><div className={treeStyles.ganttOverlayLane}>
+            {asOf >= work.start && asOf <= work.end && <span className={treeStyles.todayLine} style={{left: `${pct(asOf)}%`}} />}
+            {dependencyLayer}
+          </div></div>
+          {roadmap.groups.map(group => <section key={group.id} data-roadmap-group={group.id}>
+            <div className={styles.groupHeading}><strong>{group.title}</strong><span>{group.owner}</span></div>
+            {work.phases.filter(phase => phase.group === group.id).map(phase => <Fragment key={phase.id}>
+              <div className={styles.row} data-phase-row={phase.id}>
+                <div className={styles.lead}>
+                  <button type="button" className={styles.toggle} aria-label={`${phase.title}の詳細`} aria-expanded={expanded.has(phase.id)} data-roadmap-phase={phase.id} data-start={phase.range?.start} data-end={phase.range?.end} onClick={() => toggle(phase.id)}>{expanded.has(phase.id) ? "▾" : "▸"}</button>
+                  <div className={styles.label}>
+                    <button type="button" className={styles.title} onClick={() => toggle(phase.id)} aria-expanded={expanded.has(phase.id)}>{phase.title}</button>
+                    <span className={styles.meta}>{dateLabel(phase.range)}{!phase.items.length ? " · 計画" : ""}</span>
+                  </div>
+                </div>
+                <div className={styles.phaseTimeline}>
+                  {!phase.items.length && phase.extensionEnd && <span className={styles.extension} title={`資料の延長範囲：${phase.extensionEnd}`} style={{left: `${pct(phase.start)}%`, width: `${width(phase.start, phase.extensionEnd)}%`}} />}
+                  {summaryBar(phase.range, phase.title, () => toggle(phase.id))}
+                </div>
+              </div>
+              {expanded.has(phase.id) && <div data-phase-detail={phase.id}>{phase.items.length ? phase.items.map(item => renderWork(item)) : <p className={styles.empty}>子のMS・タスクは未登録</p>}</div>}
+            </Fragment>)}
+          </section>)}
+          {work.ungrouped.length > 0 && <section><div className={styles.groupHeading}><strong>工程未分類</strong></div>{work.ungrouped.map(item => renderWork(item))}</section>}
+          <div className={styles.groupHeading}><strong>節目</strong><span>資料の月精度</span></div>
+          {roadmap.markers.map(marker => <div className={styles.row} key={marker.id} data-roadmap-marker={marker.id}>
+            <div className={styles.lead}><span className={styles.toggleSpace} /><div className={styles.label}><span>{marker.title}</span><span className={styles.meta}>{marker.date.slice(0, 7)}</span></div></div>
+            <div className={`${treeStyles.lane} ${styles.timeline}`}>{grid()}<span className={styles.marker} style={{left: `${pct(marker.date)}%`}}>◆</span></div>
+          </div>)}
         </div>
       </div>
-      <div className={styles.notes}>{roadmap.notes.map((note) => <span key={note}>{note}</span>)}</div>
-      <p className={styles.source}>{roadmap.sourceLabel} · 子がある工程は子の日程から集計。子のない工程と破線は資料の計画（月内の端点は概算）。日程未設定の子は期間に含まない。</p>
-      {grouped.ungrouped.length > 0 && <details className={styles.unmapped}><summary>工程への紐づけ前のMS・タスク {grouped.ungrouped.length}件</summary><div className={treeStyles.tree} data-mode="gantt">{grouped.ungrouped.map(item => renderWork(item))}</div></details>}
     </div>
-  );
+    <details className={styles.notes}><summary>計画の補足</summary>{roadmap.notes.map(note => <p key={note}>{note}</p>)}<p>{roadmap.sourceLabel}。子がある工程は子の日程から集計。子のない工程と破線は資料の計画。日程未設定の子は期間に含まない。</p></details>
+  </div>;
 }
