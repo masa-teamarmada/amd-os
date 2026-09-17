@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { AdminProjectMembersModal } from "./AdminProjectMembersModal";
 import { EmailsEditModal } from "./EmailsEditModal";
 import { FreeePartnerPicker } from "./FreeePartnerPicker";
@@ -392,14 +392,50 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
   const [weeklyReportColumnWidth, setWeeklyReportColumnWidth] = useState(WEEKLY_REPORT_COLUMN_DEFAULT_WIDTH);
 
   useEffect(() => {
-    const stored = Number(window.localStorage.getItem(WEEKLY_REPORT_COLUMN_WIDTH_STORAGE_KEY));
-    if (Number.isFinite(stored)) setWeeklyReportColumnWidth(weeklyReportColumnWidthInRange(stored));
+    try {
+      const stored = Number(window.localStorage.getItem(WEEKLY_REPORT_COLUMN_WIDTH_STORAGE_KEY));
+      if (Number.isFinite(stored)) setWeeklyReportColumnWidth(weeklyReportColumnWidthInRange(stored));
+    } catch {
+      // 保存値を読めなくても既定幅で描画を続ける。
+    }
   }, []);
 
   const updateWeeklyReportColumnWidth = (nextWidth: number) => {
     const width = weeklyReportColumnWidthInRange(nextWidth);
     setWeeklyReportColumnWidth(width);
-    window.localStorage.setItem(WEEKLY_REPORT_COLUMN_WIDTH_STORAGE_KEY, String(width));
+  };
+
+  const commitWeeklyReportColumnWidth = () => {
+    setWeeklyReportColumnWidth((previous) => {
+      const width = weeklyReportColumnWidthInRange(previous);
+      try {
+        window.localStorage.setItem(WEEKLY_REPORT_COLUMN_WIDTH_STORAGE_KEY, String(width));
+      } catch {
+        // 保存できなくても表示中の幅は維持する。
+      }
+      return width;
+    });
+  };
+
+  const resizeWeeklyReportColumn = (event: ReactPointerEvent<HTMLSpanElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const startX = event.clientX;
+    const startWidth = weeklyReportColumnWidth;
+    const move = (moveEvent: PointerEvent) => {
+      updateWeeklyReportColumnWidth(Math.round(startWidth + moveEvent.clientX - startX));
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      document.body.style.removeProperty("cursor");
+      document.body.style.removeProperty("user-select");
+      commitWeeklyReportColumnWidth();
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    document.body.style.setProperty("cursor", "col-resize");
+    document.body.style.setProperty("user-select", "none");
   };
 
   const filtered = useMemo(() => {
@@ -794,44 +830,6 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
         >
           リセット
         </button>
-        <div className="ml-auto flex items-center gap-1 rounded border border-border bg-background px-1.5 py-1 text-[11px] text-muted-foreground">
-          <span className="whitespace-nowrap">週次レポート列</span>
-          <button
-            type="button"
-            onClick={() => updateWeeklyReportColumnWidth(weeklyReportColumnWidth - 24)}
-            disabled={weeklyReportColumnWidth <= WEEKLY_REPORT_COLUMN_MIN_WIDTH}
-            aria-label="週次レポート列を狭くする"
-            className="h-6 min-w-6 rounded border border-border px-1 text-[14px] leading-none hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            −
-          </button>
-          <input
-            type="range"
-            min={WEEKLY_REPORT_COLUMN_MIN_WIDTH}
-            max={WEEKLY_REPORT_COLUMN_MAX_WIDTH}
-            step={8}
-            value={weeklyReportColumnWidth}
-            onChange={(e) => updateWeeklyReportColumnWidth(Number(e.target.value))}
-            aria-label="週次レポート列の幅"
-            className="h-2 w-20 accent-foreground"
-          />
-          <button
-            type="button"
-            onClick={() => updateWeeklyReportColumnWidth(WEEKLY_REPORT_COLUMN_DEFAULT_WIDTH)}
-            className="h-6 rounded border border-border px-1.5 text-[10px] hover:bg-muted"
-          >
-            標準
-          </button>
-          <button
-            type="button"
-            onClick={() => updateWeeklyReportColumnWidth(weeklyReportColumnWidth + 24)}
-            disabled={weeklyReportColumnWidth >= WEEKLY_REPORT_COLUMN_MAX_WIDTH}
-            aria-label="週次レポート列を広くする"
-            className="h-6 min-w-6 rounded border border-border px-1 text-[14px] leading-none hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            ＋
-          </button>
-        </div>
         <span className="text-[12px] text-muted-foreground">{filtered.length} 件</span>
       </div>
 
@@ -872,11 +870,22 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
               <th className="text-left px-3 py-2 font-medium w-36">freee取引先</th>
               <th className="text-left px-3 py-2 font-medium w-32">Slack CH</th>
               <th
-                className="text-left px-3 py-2 font-medium"
+                className="relative text-left px-3 py-2 font-medium"
                 style={{ width: weeklyReportColumnWidth, minWidth: weeklyReportColumnWidth }}
-                title="実投稿の観測状態と、PJごとの配信設定を分けて表示します。"
+                title="実投稿の観測状態と、PJごとの配信設定を分けて表示します。見出し右端を左右へドラッグすると列幅を変えられます。"
               >
                 <span className="whitespace-nowrap">週次レポート</span>
+                <span
+                  role="separator"
+                  aria-orientation="vertical"
+                  aria-label="週次レポートの列幅を変える"
+                  data-weekly-report-column-resize
+                  draggable={false}
+                  onDragStart={(event) => event.preventDefault()}
+                  className="absolute -right-1 top-0 h-full w-2 cursor-col-resize touch-none bg-transparent hover:bg-[#94a3b8]"
+                  title="左右にドラッグで列幅を変えられます"
+                  onPointerDown={resizeWeeklyReportColumn}
+                />
               </th>
               <th className="text-left px-3 py-2 font-medium w-40" title="会議資料・提出物の保存先。生データ抽出元とは別管理。">Drive保存先</th>
               <th className="text-left px-3 py-2 font-medium w-52" title="追加の読み取り専用Drive生データ抽出root。カンマまたは改行で複数登録。">Drive生データ抽出元</th>

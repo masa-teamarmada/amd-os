@@ -89,11 +89,11 @@ SKILL 正本は `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (
 - admin画面は `source_cache(source='slack')` の証跡から、直近10日以内の週次レポートを検出したPJを「実投稿: 配信中」と表示する。検出対象は本文に週次・今週とレポート・報告の組を持つ投稿であり、PJ名・チャンネル名の固定リストは使わない。
 - Slack取込の証跡はあるが直近の週次レポートを検出できないときは「実投稿: 直近未検出」、証跡がないときは「実投稿: 未判定」と表示する。どちらも停止とは断定しない。
 - daily Slack取込は `project_slack_sources` と `projects.slack_channel_id` のどちらかを持つ全PJを対象にし、週次レポートを観測できるようbot投稿も保存する。
-- つくよみ名義の既存投稿入口 `gas/115_SlackNotify.js` は、本文に`つくよみレポート`を含む投稿の直前に、宛先チャンネルからPJを逆引きしてこの設定キーをreadbackする。`true`以外・PJ未解決・設定read失敗は送信せず`skipped`で終える。本文が該当しないSlack通知には影響しない。
+- 週次レポートの正規入口はPWAの `GET /api/automation/weekly-slack-report` と `POST /api/automation/weekly-slack-report`。GETはLLM実行前の許可PJ一覧、または`projectId`ごとの根拠束を返す。POSTは本文と`projectId`だけを受け、PWAが投稿直前に設定と宛先をreadbackしてSlack APIへ直接送る。宛先チャンネルはGETで外へ渡さない。
 - 停止後10日間は取り込済みの投稿が残りうるため、設定が停止で直近証跡がある行は「実投稿: 前回あり」と表示する。これは停止前の履歴であり、配信中とは表示しない。
 - 送信を許可できるのは、`projects.slack_channel_id` があり、`slack_channel_not_required=false` のPJだけ。
-- 送信元を新設・接続する場合も、レポート生成と Slack 投稿の直前にPJ行・設定キー・宛先チャンネルをreadbackし、設定値が `true` 以外なら本文を生成せず外部送信もしない。
-- `true` は送信を許可するだけで、停止している旧 sender や scheduler を起動しない。送信処理の新設・再開は、対象・頻度・送信先・rollback を別途確認する。
+- Codexの定期処理はGETの許可対象だけをLLMへ渡す。個別根拠のGETと本文POSTも同じ設定を読み直すため、途中で停止へ変わったPJは生成も投稿もしない。PWAの送信入口はLLMプロバイダのキーを持たない。
+- `true` は送信を許可するだけで、停止している旧GAS senderやschedulerを起動しない。旧 `gas-external-research` のGemini週次トリガーは停止し、PWA経路以外を正規送信元にしない。
 
 ## Control layer: 採否通知と先手TODO
 

@@ -22,6 +22,11 @@ export type WeeklySlackReportDeliveryObservation = {
   latestSlackAt: string | null;
 };
 
+export type WeeklySlackReportDeliveryDecision = {
+  allowed: boolean;
+  reason: "weekly_report_disabled" | "weekly_report_channel_not_required" | "weekly_report_channel_missing" | "weekly_report_enabled";
+};
+
 const WEEKLY_REPORT_OBSERVATION_WINDOW_DAYS = 10;
 
 function parseEvidenceDate(value: string | null | undefined): Date | null {
@@ -99,7 +104,23 @@ export function canDeliverWeeklySlackReport(
   project: WeeklySlackReportProject,
   enabled: boolean,
 ): boolean {
-  return enabled
-    && Boolean(project.slack_channel_id?.trim())
-    && !project.slack_channel_not_required;
+  return weeklySlackReportDeliveryDecision(project, enabled).allowed;
+}
+
+/**
+ * 週次レポートを生成・送信してよいかの唯一の判定。
+ * 対象取得時とSlack投稿の直前に同じ関数を使い、設定変更との競合を防ぐ。
+ */
+export function weeklySlackReportDeliveryDecision(
+  project: WeeklySlackReportProject,
+  enabled: boolean,
+): WeeklySlackReportDeliveryDecision {
+  if (!enabled) return { allowed: false, reason: "weekly_report_disabled" };
+  if (project.slack_channel_not_required) {
+    return { allowed: false, reason: "weekly_report_channel_not_required" };
+  }
+  if (!project.slack_channel_id?.trim()) {
+    return { allowed: false, reason: "weekly_report_channel_missing" };
+  }
+  return { allowed: true, reason: "weekly_report_enabled" };
 }
