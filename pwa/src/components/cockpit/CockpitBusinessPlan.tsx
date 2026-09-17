@@ -27,6 +27,7 @@ import {
 import { downloadSxBusinessPlanPhaseMatrixXlsx } from "@/lib/sx-business-plan-xlsx";
 import { Bzm22TimeLedgerSection } from "./Bzm22TimeLedgerSection";
 import { CockpitPlMonthlySection } from "./CockpitPlMonthlySection";
+import CapitalPlanWorkspace from "./CapitalPlanWorkspace";
 
 interface CockpitBusinessPlanProps {
   projectId: string;
@@ -468,19 +469,10 @@ function AnnualProjectionTable() {
 
 /**
  * 事業計画タブ。
- * 2026-08-29 まさ「SXは事業計画タブに資本政策表を作っちゃってるから、これを削除しておいてほしい」で、
- * ここにあった資本政策プラン台帳 (`CapitalPlanWorkspace`) の掲載をやめた。
- * 資本構成は資本政策表タブ (`?tab=capital-policy`) を唯一の入口にする。
+ * 事業計画の見通しに合わせて更新する資本政策プラン台帳を置く。
+ * 過去ラウンドの事実を記録する資本政策表は、会社情報の独立タブに分ける。
  */
 export function CockpitBusinessPlan({ projectId, projectName, showSxDetail = false, showTimeLedger = false }: CockpitBusinessPlanProps) {
-  if (!showSxDetail && !showTimeLedger) {
-    return (
-      <div className="rounded-2xl border border-slate-200 bg-white px-5 py-8 text-center text-sm leading-6 text-slate-500">
-        このPJの事業計画はまだ登録されていないよ。株主構成と資本政策は「資本政策表」タブで見てください。
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-5">
       {showSxDetail && <PhaseMatrix projectName={projectName} />}
@@ -491,6 +483,8 @@ export function CockpitBusinessPlan({ projectId, projectName, showSxDetail = fal
       {showTimeLedger && <CockpitPlMonthlySection projectId={projectId} />}
 
       {showSxDetail && <AnnualProjectionTable />}
+
+      <CapitalPlanWorkspace projectId={projectId} projectName={projectName} />
     </div>
   );
 }

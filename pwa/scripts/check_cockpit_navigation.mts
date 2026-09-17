@@ -36,9 +36,10 @@ for (const [kind, groups] of Object.entries(COCKPIT_GROUPS)) {
 assert.equal(cockpitGroupForTab("gantt", false).label, "進捗管理");
 assert.equal(cockpitGroupForTab("objective-structure", false).label, "進捗管理");
 assert.equal(cockpitGroupForTab("objective-structure", true).label, "進捗管理");
-assert.equal(cockpitGroupForTab("capital-policy", false).label, "事業計画");
+assert.equal(cockpitGroupForTab("capital-policy", false).label, "会社情報");
 assert.equal(cockpitGroupForTab("overview", false).label, "PJ管理");
 assert.equal(cockpitGroupForTab("project-contracts", false).label, "PJ管理");
+assert.equal(cockpitGroupForTab("project-finance", false).label, "PJ管理");
 assert.equal(cockpitGroupForTab("company", false).label, "会社情報");
 assert.equal(cockpitGroupForTab("activity", false).label, "会社情報");
 assert.equal(cockpitGroupForTab("seeds", true).label, "シーズリスト");
@@ -60,12 +61,13 @@ for (const kind of ["normal", "institution"] as const) {
 }
 assert.equal(DEFAULT_COCKPIT_TAB, "issues");
 
-assert.equal(resolveCockpitTab("capital-policy", true), DEFAULT_COCKPIT_TAB);
+assert.equal(resolveCockpitTab("capital-policy", true), "capital-policy");
 assert.equal(resolveCockpitTab("business-plan", true), DEFAULT_COCKPIT_TAB);
 assert.equal(resolveCockpitTab("seeds", false), DEFAULT_COCKPIT_TAB);
 assert.equal(resolveCockpitTab("regulations", false), DEFAULT_COCKPIT_TAB);
 assert.equal(resolveCockpitTab("overview", true), "overview");
 assert.equal(resolveCockpitTab("project-contracts", true), "project-contracts");
+assert.equal(resolveCockpitTab("project-finance", true), "project-finance");
 assert.equal(resolveCockpitTab("activity", true), "activity");
 assert.equal(resolveCockpitTab("objective-structure", false), "gantt");
 assert.equal(resolveCockpitTab("objective-structure", true), "gantt");

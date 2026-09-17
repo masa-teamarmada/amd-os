@@ -11,7 +11,7 @@ export type ProjectCurrentContract = {
   expirationDate?: string | null;
   renewalType?: string | null;
   renewalNoticeDate?: string | null;
-  /** 契約書そのものへのリンク (Drive の webViewLink)。契約・収支の契約カードから開く。 */
+  /** 契約書そのものへのリンク (Drive の webViewLink)。契約の契約カードから開く。 */
   documentUrl?: string | null;
   terms?: ProjectContractTerms | null;
 };

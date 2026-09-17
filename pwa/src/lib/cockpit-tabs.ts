@@ -36,6 +36,7 @@ export const COCKPIT_TABS = [
   "documents",
   "overview",
   "project-contracts",
+  "project-finance",
   "capital-policy",
   "company",
   "activity",
@@ -100,15 +101,15 @@ export const COCKPIT_GROUPS: {
       // 元々ある『コスト試算』は『コスト試算（廃液）』に変えて、それの右に並べて」）。
       // 競合比較は技術の右隣（2026-09-14 まさ「この競合比較は、技術タブの中じゃなくて事業計画グループの直下に置いてほしい」）。
       // ビジネスモデルは競合比較の右隣（2026-09-14 まさ「事業計画グループの中に「ビジネスモデル」っていうタブを新たに追加して」）。
-      children: ["score-detail", "technology", "competition", "business-model", "business-plan", "cost-model", "cost-fuel", "ip", "capital-policy"],
+      children: ["score-detail", "technology", "competition", "business-model", "business-plan", "cost-model", "cost-fuel", "ip"],
     },
     { key: "documents-group", label: COCKPIT_GROUP_LABELS.documents, children: ["documents"] },
     {
       key: "project-management-group",
       label: COCKPIT_GROUP_LABELS.projectManagement,
-      children: ["overview", "project-contracts"],
+      children: ["overview", "project-contracts", "project-finance"],
     },
-    { key: "company-information-group", label: COCKPIT_GROUP_LABELS.companyInformation, children: ["company", "activity"] },
+    { key: "company-information-group", label: COCKPIT_GROUP_LABELS.companyInformation, children: ["company", "capital-policy", "activity"] },
   ],
   institution: [
     {
@@ -123,9 +124,9 @@ export const COCKPIT_GROUPS: {
     {
       key: "project-management-group",
       label: COCKPIT_GROUP_LABELS.projectManagement,
-      children: ["overview", "project-contracts"],
+      children: ["overview", "project-contracts", "project-finance"],
     },
-    { key: "company-information-group", label: COCKPIT_GROUP_LABELS.companyInformation, children: ["company", "activity"] },
+    { key: "company-information-group", label: COCKPIT_GROUP_LABELS.companyInformation, children: ["company", "capital-policy", "activity"] },
   ],
 };
 
@@ -139,7 +140,6 @@ const BUSINESS_PLAN_TABS = new Set<CockpitTab>([
   "cost-model",
   "cost-fuel",
   "ip",
-  "capital-policy",
 ]);
 
 /** URLに残っている旧フラットタブを、現在のPJ分類に合わせて解決する。 */

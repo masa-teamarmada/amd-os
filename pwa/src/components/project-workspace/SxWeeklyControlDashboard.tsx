@@ -366,11 +366,11 @@ const PROJECT_WORKSPACE_GROUPS: readonly WorkspaceTabGroup[] = [
   { key: "progress-group", label: COCKPIT_GROUP_LABELS.progress, children: [{ key: "issues", label: "ゴールツリー" }, { key: "tasks", label: "タスク" }, { key: "gantt", label: "ガント" }, { key: "weekly", label: "週次差分" }, { key: "partners", label: "関係先" }] },
   // 事業計画の共有対象は、データが未登録でも入口を消さない。PJメンバーが不足している
   // 根拠を見つけ、AMDメンバーへ補完を依頼できるよう、各タブ自身の空状態を表示する。
-  { key: "business-plan-group", label: COCKPIT_GROUP_LABELS.businessPlan, children: [{ key: "technology", label: "技術" }, { key: "competition", label: "競合比較" }, { key: "business-model", label: "ビジネスモデル" }, { key: "business-plan", label: "事業計画" }, { key: "cost", label: "コスト試算" }, { key: "cost-fuel", label: "コスト試算（燃料）" }, { key: "ip", label: "知財" }, { key: "capital-policy", label: "資本政策" }] },
+  { key: "business-plan-group", label: COCKPIT_GROUP_LABELS.businessPlan, children: [{ key: "technology", label: "技術" }, { key: "competition", label: "競合比較" }, { key: "business-model", label: "ビジネスモデル" }, { key: "business-plan", label: "事業計画" }, { key: "cost", label: "コスト試算" }, { key: "cost-fuel", label: "コスト試算（燃料）" }, { key: "ip", label: "知財" }] },
   // コスト試算（燃料）は燃料の試算を持つPJだけに出し、そのときコスト試算は「コスト試算（廃液）」と呼ぶ（表示条件は workspaceGroups。コックピットと同じ）。
   { key: "documents-group", label: COCKPIT_GROUP_LABELS.documents, children: [{ key: "drive", label: "ドライブ" }] },
   // PJ管理はAMD内部で定義・運用するPJ概要だけの分類。共有面の会社概要は独立した会社情報へ置く。
-  { key: "company-information-group", label: COCKPIT_GROUP_LABELS.companyInformation, children: [{ key: "company", label: "会社概要" }] },
+  { key: "company-information-group", label: COCKPIT_GROUP_LABELS.companyInformation, children: [{ key: "company", label: "会社概要" }, { key: "capital-policy", label: "資本政策表" }] },
 ];
 const EXTERNAL_WORKSPACE_TABS = new Set<SxWeeklyControlView>([
   "issues", "tasks", "gantt", "partners", "drive",
@@ -5768,7 +5768,7 @@ export function SxWeeklyControlDashboard({
           </section>
         )}
         {activeView === "capital-policy" && (
-          <section id="capital-policy" className={styles.section} role="tabpanel" aria-label="資本政策">
+          <section id="capital-policy" className={styles.section} role="tabpanel" aria-label="資本政策表">
             <CockpitCapitalPolicy projectId={bundle.project.projectId} readOnly={externalViewer} />
           </section>
         )}

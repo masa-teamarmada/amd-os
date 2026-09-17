@@ -28,10 +28,9 @@ import {
 } from "@/components/cockpit/company-overview-ui";
 
 /**
- * 資本政策表タブ (`?tab=capital-policy`)。
- * 2026-08-29 まさ「資本政策表は会社概要から独立させて、新タブにしてほしい。会社概要タブの
- * コンテンツが増えすぎて見にくいので」で会社概要タブから切り出した。
- * 会社概要は登記・総会・決算などの会社そのものの記録、こちらは資本構成の記録に分ける。
+ * 会社情報の「資本政策表」タブ (`?tab=capital-policy`)。
+ * 過去ラウンドの確定事実を記録する。事業計画に連動して更新する見通しは、事業計画タブの
+ * `CapitalPlanWorkspace` に分ける。
  */
 
 type DialogKind = "equity" | "round" | "convertible" | null;
@@ -122,7 +121,7 @@ export function CockpitCapitalPolicy({ projectId, readOnly = false }: { projectI
 
     await save("株式イベント", () => post("equity_transaction", {
       project_id: projectId, round_id: roundId === "none" ? null : roundId, effective_on: form.get("effective_on"), transaction_type: transactionType,
-      description: textOrNull(form.get("description")), status: form.get("status"), source_ref: textOrNull(form.get("source_ref")),
+      description: textOrNull(form.get("description")), status: "confirmed", source_ref: textOrNull(form.get("source_ref")),
       notes: textOrNull(form.get("notes")), entries,
     }));
   }
@@ -159,7 +158,7 @@ export function CockpitCapitalPolicy({ projectId, readOnly = false }: { projectI
 
       <Section
         title="資本政策表"
-        description="ラウンドを列・株主を行に置いた正式な資本政策表。株数、持株比率、発行価額、時価総額の推移をそのまま追える。表になるのは確定済みの株式イベントで、計画ラウンドはラウンド一覧に並ぶ"
+        description="過去ラウンドの確定事実を、ラウンドを列・株主を行にして記録する。株数、持株比率、発行価額、時価総額の推移をそのまま追える。これからの見通しは事業計画の資本政策プランで更新する"
         action={
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" className="h-11" onClick={() => void load()} disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : <RefreshCw />}更新</Button>
@@ -223,7 +222,6 @@ export function CockpitCapitalPolicy({ projectId, readOnly = false }: { projectI
 
       {!readOnly && <Dialog open={dialog === "equity"} onOpenChange={(open) => !open && setDialog(null)}><DialogContent className="max-h-[90vh] overflow-y-auto sm:!max-w-2xl"><form onSubmit={(event) => void saveEquity(event)}><DialogHeader><DialogTitle>株式イベントを追加</DialogTitle><DialogDescription>確定イベントだけが資本政策表の列になるよ。譲渡は譲渡元と譲渡先を同時に記録する。</DialogDescription></DialogHeader><div className="my-5 grid gap-4 sm:grid-cols-2">
         <Field label="イベント"><NativeSelect name="transaction_type" defaultValue="new_issue" options={TRANSACTION_TYPES} /></Field>
-        <Field label="状態"><NativeSelect name="status" defaultValue="confirmed" options={[{ value: "planned", label: "計画" }, { value: "confirmed", label: "確定" }]} /></Field>
         <Field label="効力日" name="effective_on" hint="YYYY-MM-DD"><Input id="effective_on" name="effective_on" required defaultValue={new Date().toISOString().slice(0, 10)} className="h-11" /></Field>
         <Field label="株主区分"><NativeSelect name="holder_type" defaultValue="founder" options={HOLDER_TYPES} /></Field>
         <Field label="関連ラウンド" hint="任意。発行価額・pre/postはここで紐付けたラウンドの登録値を使う"><NativeSelect name="round_id" defaultValue="none" options={[{ value: "none", label: "なし" }, ...data.rounds.map((round) => ({ value: round.id, label: round.round_name || formatDate(round.round_date || round.round_ym) }))]} /></Field>

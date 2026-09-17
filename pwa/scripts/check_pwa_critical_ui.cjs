@@ -621,7 +621,7 @@ expectIncludes("src/components/contracts/ContractsClient.tsx", [
   "sourceRef: latestSelectedDocument?.web_view_link || textTerm(existingTerms.sourceRef)",
 ]);
 
-// 契約上の実行条件はコックピット最上段から「契約・収支」タブへ置く。
+// 契約上の実行条件はコックピット最上段から「契約」タブへ置く。
 // 最上段のヘッダには「今どのPJを見ているか」だけを残す。
 expectIncludes("src/components/cockpit/CockpitProjectOverview.tsx", [
   "契約上の実行条件",
@@ -646,23 +646,26 @@ expectNotIncludes("src/components/cockpit/CockpitHeader.tsx", [
   "currentContracts",
 ]);
 
-// PJの姿、契約・収支、活動実績を分ける。コックピット上段に残すのは CockpitHeader だけ。
+// PJの姿、契約、収支、活動実績を分ける。コックピット上段に残すのは CockpitHeader だけ。
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   'CockpitProjectOverview',
   'overview: "PJ概要"',
-  '"project-contracts": "契約・収支"',
+  '"project-contracts": "契約"',
+  '"project-finance": "収支"',
   'activity: "活動実績"',
   'aria-label="PJ概要"',
-  'aria-label="契約・収支"',
+  'aria-label="契約"',
+  'aria-label="収支"',
   'aria-label="活動実績"',
   '<CockpitGrants projectId={project.projectId} />',
   '<Bzm22AcquisitionLedger projectId={project.projectId} />',
   '<CockpitAmdContributions projectId={project.projectId} />',
 ]);
 expectPattern("src/components/cockpit/CockpitView.tsx", [
-  // PJ概要タブはPJの姿だけ、契約条件は契約・収支タブに置く
+  // PJ概要、契約、収支の判断材料を混ぜない
   /aria-label="PJ概要"[\s\S]{0,600}<CockpitVentureStatus/,
-  /aria-label="契約・収支"[\s\S]{0,400}<CockpitProjectOverview/,
+  /aria-label="契約"[\s\S]{0,400}<CockpitProjectOverview/,
+  /aria-label="収支"[\s\S]{0,300}<CockpitSeasonBudget/,
   /aria-label="活動実績"[\s\S]{0,600}<CockpitGrants/,
 ]);
 expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
@@ -717,7 +720,8 @@ expectIncludes("src/lib/cockpit-tabs.ts", [
 // PJ管理と会社情報は、それぞれの中身を子タブとして明示する。
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   "shouldShowChildNavigation",
-  '"project-contracts": "契約・収支"',
+  '"project-contracts": "契約"',
+  '"project-finance": "収支"',
   'activity: "活動実績"',
 ]);
 
@@ -3468,18 +3472,13 @@ expectIncludes("src/components/cockpit/company-overview-ui.tsx", [
   "flex w-full flex-wrap gap-2 sm:w-auto sm:shrink-0",
 ]);
 
-// 保存型複数ラウンド資本政策 (2026-07-17): 旧cap-table-history-matrix / next-round-simulator /
-// CapitalPolicyWorkspace (CockpitCompanyOverview.tsx埋め込み) は CapitalPlanWorkspace/CapitalPlanMatrix
-// への移行済み。結線と、旧UIが復活しないことを保証する。
-// 2026-08-21: a92d4510「事業計画タブを全PJへ」で結線元が CockpitCompanyOverview.tsx から
-// CockpitBusinessPlan.tsx へ移った。anchor を現在の結線元へ張り替える (導線自体は健在)。
-// 2026-08-29: まさ「SXは事業計画タブに資本政策表を作っちゃってるから、これを削除しておいてほしい」で
-// 事業計画タブからの結線を外した。資本構成の入口は資本政策表タブ (CockpitCapitalPolicy) 一本にする。
-// CapitalPlanWorkspace / CapitalPlanMatrix / capital-plan-xlsx.ts と API 自体はいつでも戻せるよう残して
-// あるので、下の内部 anchor の検査もそのまま残す。事業計画タブへ黙って復活しないことだけを保証する。
-expectNotIncludes("src/components/cockpit/CockpitBusinessPlan.tsx", [
+// 将来の資本政策プランは事業計画、過去ラウンドの確定事実は会社情報の資本政策表へ分ける。
+expectIncludes("src/components/cockpit/CockpitBusinessPlan.tsx", [
   'import CapitalPlanWorkspace from "./CapitalPlanWorkspace";',
   "<CapitalPlanWorkspace",
+]);
+expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
+  '{ key: "company-information-group", label: COCKPIT_GROUP_LABELS.companyInformation, children: [{ key: "company", label: "会社概要" }, { key: "capital-policy", label: "資本政策表" }] }',
 ]);
 
 // タブ名の二重管理禁止 (2026-08-29): 資本政策表タブを足したとき、URLの `?tab=` 許可リストを
@@ -3495,12 +3494,12 @@ expectIncludes("src/lib/cockpit-tabs.ts", [
   'businessPlan: "事業計画"',
   'projectManagement: "PJ管理"',
   'companyInformation: "会社情報"',
-  'children: ["overview", "project-contracts"]',
-  'children: ["company", "activity"]',
+  'children: ["overview", "project-contracts", "project-finance"]',
+  'children: ["company", "capital-policy", "activity"]',
   'key: "company-information-group"',
   'seeds: "シーズリスト"',
   'regulations: "規程・内規"',
-  'children: ["score-detail", "technology", "competition", "business-model", "business-plan", "cost-model", "cost-fuel", "ip", "capital-policy"]',
+  'children: ["score-detail", "technology", "competition", "business-model", "business-plan", "cost-model", "cost-fuel", "ip"]',
 ]);
 expectNotIncludes("src/lib/cockpit-tabs.ts", ['"themes"']);
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
@@ -3539,7 +3538,7 @@ expectNotIncludes("src/app/(app)/project/[projectId]/cockpit/page.tsx", [
 // 縦積み100%グラフ / ラウンド一覧 / 株式イベント追加導線を保護する。
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   'import { CockpitCapitalPolicy } from "./CockpitCapitalPolicy";',
-  '"capital-policy": "資本政策"',
+  '"capital-policy": "資本政策表"',
   "<CockpitCapitalPolicy",
 ]);
 expectIncludes("src/components/cockpit/CockpitCapitalPolicy.tsx", [
@@ -3769,7 +3768,7 @@ expectIncludes("../gas/064_PayoutFreeeNotice.js", [
   "noteText",
 ]);
 
-// PJコックピットの「PJ概要」タブに、シーズンの予算配分と消化を出す (まさ依頼 2026-08-28)。
+// PJコックピットの「収支」タブに、シーズンの予算配分と消化を出す。
 // 数字は /admin/season-pl と同じ computeSeasonPl から読み、この画面で別計算しない。
 expectIncludes("src/components/cockpit/CockpitSeasonBudget.tsx", [
   "cockpit-season-budget",
@@ -3778,8 +3777,8 @@ expectIncludes("src/components/cockpit/CockpitSeasonBudget.tsx", [
   "メンバー原資",
   "未消化",
 ]);
-expectIncludes("src/components/cockpit/CockpitProjectOverview.tsx", [
-  "<CockpitSeasonBudget projectId={projectId} />",
+expectIncludes("src/components/cockpit/CockpitView.tsx", [
+  '<CockpitSeasonBudget projectId={project.projectId} />',
 ]);
 expectIncludes("src/app/api/project/[projectId]/season-budget/route.ts", [
   "computeForPlanCycle",

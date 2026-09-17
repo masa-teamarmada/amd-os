@@ -25,6 +25,7 @@ import { CockpitFreezeBackfill } from "./CockpitFreezeBackfill";
 import { CockpitAmdScoreDetailTab } from "./CockpitAmdScoreDetailTab";
 import { CockpitCompanyOverview } from "./CockpitCompanyOverview";
 import { CockpitProjectOverview } from "./CockpitProjectOverview";
+import { CockpitSeasonBudget } from "./CockpitSeasonBudget";
 import { CockpitProjectControl } from "./CockpitProjectControl";
 import { CockpitProjectTasks } from "./CockpitProjectTasks";
 import type { SxWeeklyControlView } from "@/components/project-workspace/SxWeeklyControlDashboard";
@@ -508,8 +509,9 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     regulations: "規程一覧",
     documents: "ドライブ",
     overview: "PJ概要",
-    "project-contracts": "契約・収支",
-    "capital-policy": "資本政策",
+    "project-contracts": "契約",
+    "project-finance": "収支",
+    "capital-policy": "資本政策表",
     company: "会社概要",
     activity: "活動実績",
   };
@@ -990,7 +992,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
             - SU 系 PJ は CockpitVentureStatus の見出し・レーン・担当・事業概要
               (XRL進捗は 2026-08-28 まさ指摘でスコア詳細タブへ)
             - ecosystem PJ は AMD Score 対象外なので出さない
-          契約とシーズン収支は「契約・収支」タブへ分ける。 */}
+          契約とシーズン収支は別タブへ分ける。 */}
       {activeTab === "overview" && (
         <section role="tabpanel" aria-label="PJ概要" className="flex min-w-0 flex-col gap-3">
           {project.projectId === "p00" ? (
@@ -1007,8 +1009,14 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       )}
 
       {activeTab === "project-contracts" && (
-        <section role="tabpanel" aria-label="契約・収支" className="min-w-0">
+        <section role="tabpanel" aria-label="契約" className="min-w-0">
           <CockpitProjectOverview project={project} />
+        </section>
+      )}
+
+      {activeTab === "project-finance" && (
+        <section role="tabpanel" aria-label="収支" className="min-w-0">
+          <CockpitSeasonBudget projectId={project.projectId} />
         </section>
       )}
 
