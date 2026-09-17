@@ -44,7 +44,9 @@ export interface SxAnnualProjection {
   subsidyCashReceiptYen: number;
 }
 
-export const SX_INCORPORATION_DATE = "2027-02-01";
+// 会社設立日（2026-09-17 まさ「設立は20270401」）。事業計画タブは active 資本政策の設立イベントを優先し、無いときにこの値を使う。
+// 月次試算表は FY2027 を 2027-04 から計上し、ゴールツリーの「NewCo設立」の期限も 2027-04-01。
+export const SX_INCORPORATION_DATE = "2027-04-01";
 export const SX_INCORPORATION_YM = SX_INCORPORATION_DATE.slice(0, 7);
 
 export const SX_BUSINESS_PLAN_PHASES: SxBusinessPlanPhase[] = [
@@ -440,7 +442,7 @@ export const SX_CAPITAL_PLAN_EVENTS: CapitalEvent[] = [
       { id: "sx-inc-sugiura", holderId: "sx-sugiura", shareClass: "common", shares: input(21_600) },
       { id: "sx-inc-amd", holderId: "sx-amd", shareClass: "common", shares: input(5_400) },
     ],
-    note: "設立予定は2027年2月。設立前DD完了を必須ゲートとする。中島先生は含めない。設立時持分の暫定原案。",
+    note: "設立予定は2027年4月1日。設立前DD完了を必須ゲートとする。中島先生は含めない。設立時持分の暫定原案。",
   },
   {
     id: "sx-option-pool",

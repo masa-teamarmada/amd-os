@@ -36,7 +36,8 @@ assert.ok(
 
 const incorporation = SX_CAPITAL_PLAN_DOCUMENT.events.find((event) => event.id === "sx-incorporation");
 assert.ok(incorporation, "設立イベント");
-assert.equal(incorporation.date, SX_INCORPORATION_DATE, "SX設立は2027年2月");
+assert.equal(SX_INCORPORATION_DATE, "2027-04-01", "SX設立は2027年4月1日（2026-09-17 まさ「設立は20270401」）");
+assert.equal(incorporation.date, SX_INCORPORATION_DATE, "資本政策の設立イベントは設立日");
 assert.match(incorporation.note ?? "", /設立前DD完了を必須ゲート/, "会社設立より前にDDを完了する");
 const founderShares = Object.fromEntries(
   incorporation.allocations.map((allocation) => [allocation.holderId, allocation.shares.value]),
