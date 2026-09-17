@@ -36,7 +36,7 @@ import type { ActionNode, QuestionNode, QuestionTreeBundle } from "@/lib/questio
  */
 
 type Props = { projectId: string };
-type TaskLane = "now" | "week" | "unassigned" | "later";
+type TaskLane = "now" | "week" | "unassigned" | "hold" | "later";
 type TaskScope = "focus" | TaskLane | "all";
 
 const ROW_GAP = 8;
@@ -135,7 +135,8 @@ function addDays(value: string, days: number): string {
   return date.toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
 }
 
-function taskLane(action: ActionNode, asOf: string): TaskLane {
+function taskLane(action: ActionNode, asOf: string, heldActionIds: Set<string>): TaskLane {
+  if (heldActionIds.has(action.id)) return "hold";
   if (action.urgent || action.isOverdue || action.status === "blocked") return "now";
   if (action.plannedEnd && action.plannedEnd <= addDays(asOf, 7)) return "week";
   if (action.isUnassigned) return "unassigned";
@@ -230,24 +231,46 @@ export function CockpitProjectTasks({ projectId }: Props) {
       .sort((a, b) => (b.actualEnd ?? "").localeCompare(a.actualEnd ?? ""));
   }, [bundle]);
 
+  const heldBy = useMemo(() => {
+    const openById = new Map(liveOpen.map((action) => [action.id, action]));
+    const result = new Map<string, string[]>();
+    for (const dependency of bundle?.dependencies ?? []) {
+      const predecessor = openById.get(dependency.predecessorActionId);
+      if (!predecessor || !openById.has(dependency.successorActionId)) continue;
+      const titles = result.get(dependency.successorActionId) ?? [];
+      if (!titles.includes(predecessor.title)) titles.push(predecessor.title);
+      result.set(dependency.successorActionId, titles);
+    }
+    return result;
+  }, [bundle?.dependencies, liveOpen]);
+
+  const heldActionIds = useMemo(() => new Set(heldBy.keys()), [heldBy]);
+
   const lanes = useMemo(() => {
-    const grouped: Record<TaskLane, ActionNode[]> = { now: [], week: [], unassigned: [], later: [] };
+    const grouped: Record<TaskLane, ActionNode[]> = {
+      now: [],
+      week: [],
+      unassigned: [],
+      hold: [],
+      later: [],
+    };
     const asOf = bundle?.asOf ?? new Date().toISOString().slice(0, 10);
-    for (const action of liveOpen) grouped[taskLane(action, asOf)].push(action);
+    for (const action of liveOpen) grouped[taskLane(action, asOf, heldActionIds)].push(action);
     return grouped;
-  }, [bundle?.asOf, liveOpen]);
+  }, [bundle?.asOf, heldActionIds, liveOpen]);
 
   const visibleSections = useMemo(() => {
     const definitions: Array<{ key: TaskLane; title: string; note: string }> = [
       { key: "now", title: "いま動かす", note: "期限超過・停止・緊急" },
       { key: "week", title: "7日以内", note: "今週から来週の期限" },
       { key: "unassigned", title: "割り当てる", note: "担当または期限が未設定" },
+      { key: "hold", title: "保留", note: "前提の判断待ち" },
       { key: "later", title: "その先", note: "期限まで8日以上・期限なし" },
     ];
     if (taskScope === "all") {
       return [{ key: "later" as const, title: "すべて", note: "手動の並び順", actions: liveOpen }];
     }
-    const keys: TaskLane[] = taskScope === "focus" ? ["now", "week", "unassigned"] : [taskScope];
+    const keys: TaskLane[] = taskScope === "focus" ? ["now", "week", "unassigned", "hold"] : [taskScope];
     return definitions
       .filter((item) => keys.includes(item.key))
       .map((item) => ({ ...item, actions: lanes[item.key] }));
@@ -431,7 +454,9 @@ export function CockpitProjectTasks({ projectId }: Props) {
     const milestone = milestoneOf.get(action.id) ?? null;
     const isDone = action.status === "done";
     const isDragging = dragId === action.id;
-    const urgent = action.urgent && !isDone;
+    const holdReasons = heldBy.get(action.id) ?? [];
+    const isHeld = holdReasons.length > 0 && !isDone;
+    const urgent = action.urgent && !isDone && !isHeld;
     const owner =
       action.owners.length > 0
         ? action.owners.map((o) => o.displayName).join("・")
@@ -443,7 +468,11 @@ export function CockpitProjectTasks({ projectId }: Props) {
           if (element) heightsRef.current.set(action.id, element.offsetHeight);
         }}
         className={`relative flex cursor-pointer items-start gap-3 rounded-xl border px-[14px] py-3 ${
-          urgent ? "border-[#fdba74] bg-[#fff7ed]" : "border-[#e5e5e7] bg-white"
+          isHeld
+            ? "border-[#e7cf8d] bg-[#fffdf5]"
+            : urgent
+              ? "border-[#fdba74] bg-[#fff7ed]"
+              : "border-[#e5e5e7] bg-white"
         } ${isDone ? "opacity-60" : ""} ${isDragging ? "z-10 border-[#027fdc] shadow-lg" : ""} hover:border-[#7cbceb]`}
         role="button"
         tabIndex={0}
@@ -488,6 +517,11 @@ export function CockpitProjectTasks({ projectId }: Props) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-x-[6px] gap-y-1">
             {urgent && <span className="text-[13px] leading-none text-[#ea580c]">🔥</span>}
+            {isHeld && (
+              <span className="rounded-full border border-[#e7cf8d] bg-[#fff8df] px-2 py-0.5 text-[10px] font-bold text-[#7a5a00]">
+                判断待ちで保留
+              </span>
+            )}
             <span
               className={`text-[13px] ${isDone ? "text-[#86868b] line-through" : "text-[#1d1d1f]"}`}
             >
@@ -496,6 +530,11 @@ export function CockpitProjectTasks({ projectId }: Props) {
           </div>
           {action.detail && (
             <p className="mt-[3px] line-clamp-2 text-[11px] text-[#86868b]">{action.detail}</p>
+          )}
+          {isHeld && (
+            <p className="mt-[3px] text-[11px] font-medium text-[#7a5a00]">
+              前提: {holdReasons.slice(0, 2).join("・")}
+            </p>
           )}
           <div className="mt-[5px] flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[#86868b]">
             {milestone ? (
@@ -641,11 +680,12 @@ export function CockpitProjectTasks({ projectId }: Props) {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="タスクの優先区分">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5" aria-label="タスクの優先区分">
         {([
           ["now", "いま動かす", lanes.now.length, "border-[#f59e0b] bg-[#fffbeb] text-[#92400e]"],
           ["week", "7日以内", lanes.week.length, "border-[#93c5fd] bg-[#eff6ff] text-[#1d4ed8]"],
           ["unassigned", "未設定", lanes.unassigned.length, "border-[#d8b4fe] bg-[#faf5ff] text-[#7e22ce]"],
+          ["hold", "保留", lanes.hold.length, "border-[#e7cf8d] bg-[#fffdf5] text-[#7a5a00]"],
           ["later", "その先", lanes.later.length, "border-[#d2d2d7] bg-white text-[#515154]"],
         ] as const).map(([key, label, count, tone]) => (
           <button

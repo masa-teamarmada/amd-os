@@ -2,6 +2,7 @@ import "server-only";
 import type { ProjectGanttRoadmap } from "@/lib/project-gantt-roadmap";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isActionAssignmentMissing } from "@/lib/question-tree-assignment";
 import { resolveQuestionState } from "@/lib/question-tree-state";
 import { QUESTION_KIND_LABEL } from "@/lib/question-tree-types";
 import type {
@@ -125,6 +126,7 @@ function mapAction(
 ): ActionNode {
   const status = (row.status as ActionStatus) || "unassessed";
   const plannedEnd = nullableStr(row, "planned_end");
+  const ownerLabel = str(row, "owner_label", "担当未確認");
   const today = todayIso();
   return {
     id: str(row, "id"),
@@ -134,7 +136,7 @@ function mapAction(
     detail: nullableStr(row, "detail"),
     actionKind: row.action_kind === "measure" ? "measure" : "work",
     status,
-    ownerLabel: str(row, "owner_label", "担当未確認"),
+    ownerLabel,
     plannedStart: nullableStr(row, "planned_start"),
     plannedEnd,
     ganttPhaseId: nullableStr(row, "gantt_phase_id"),
@@ -162,10 +164,11 @@ function mapAction(
     acceptedPt: includePoints ? nullableNum(row, "accepted_pt") : null,
     acceptState: asAcceptState(row.accept_state),
     owners,
-    // 会議中はタイトルだけで足せる（3-22 §4）。担当か期限のどちらかが空なら、
-    // まだアサインが済んでいない。終わった仕事は対象にしない。
+    // 外部担当者は members に存在しないため、旧 owner_label も有効な担当表示として読む。
+    // 欠測語だけの担当か期限のどちらかが空なら、まだアサインが済んでいない。
     isUnassigned:
-      ACTION_OPEN_STATUSES.includes(status) && (owners.length === 0 || !plannedEnd),
+      ACTION_OPEN_STATUSES.includes(status) &&
+      isActionAssignmentMissing(owners, ownerLabel, plannedEnd),
     urgent: row.urgent === true,
     isProposed,
     createdAt: nullableStr(row, "created_at"),

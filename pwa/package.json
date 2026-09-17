@@ -164,7 +164,7 @@
     "test:project-workspace-route": "node scripts/check_project_workspace_route_contract.mjs",
     "test:zmp-workspace-themes": "node scripts/check_zmp_workspace_themes.mjs",
     "test:zmp-legacy-task-guard": "node scripts/check_zmp_legacy_task_guard.mjs",
-    "test:zmp-task-focus": "node scripts/check_zmp_task_focus.mjs",
+    "test:zmp-task-focus": "node --experimental-strip-types scripts/check_zmp_task_focus.mjs",
     "test:h1-automation-safety": "node scripts/check_h1_automation_safety.mjs",
     "test:sx-shared-control-migration": "node scripts/check_sx_shared_control_migration_contract.mjs",
     "test:shared-project-control-core": "node --experimental-strip-types scripts/check_shared_project_control_core.mts",

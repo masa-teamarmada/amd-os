@@ -144,8 +144,10 @@ ZMP（p19）は2026-09-17に旧`project_management_tasks`との二重台帳を�
 
 | 状態 | 条件 |
 |---|---|
-| 未アサイン | 未完了で、担当（`project_action_owners`）が空か、期限（`planned_end`）が空。会議中にタイトルだけで足したまま、まだ割り振られていない |
+| 未アサイン | 未完了で、有効な担当または期限（`planned_end`）が空。有効な担当は`project_action_owners`のメンバー、または画面に表示する`owner_label`の実名・役割名。外部担当者はメンバー台帳へ存在しないため、`owner_label`が`担当未確認`、`担当確定待ち`など欠測語だけの場合に限って担当なしと判定する |
 | 受託待ち / 検収待ち | Phase 2。`accept_state` と検収の記録から導く |
+
+TODO間の`finish_to_start`依存で、前提TODOが未完了の後続TODOは実行上の保留として扱う。保存状態へ新しい値は足さず、タスク一覧が`project_action_dependencies`と前提TODOの未完了状態から`保留`を導出する。前提が完了または中止になると通常の期限・担当区分へ戻る。
 
 「配りすぎ」「回収候補」は Phase 1（MSのptと配下の見積ptを突き合わせる）。
 
