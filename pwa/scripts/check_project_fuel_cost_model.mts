@@ -281,7 +281,7 @@ check("「コスト試算（燃料）」は事業計画グループのコスト�
   // 2026-09-14 まさ「事業計画グループ内に置いてほしかった。元々ある『コスト試算』は『コスト試算（廃液）』に変えて、それの右に並べて」
   const tabs = read("src/lib/cockpit-tabs.ts");
   // 2026-09-14 同日に、技術の右隣へ競合比較が入り（まさ「事業計画グループの直下に置いてほしい」）、その右隣へビジネスモデルが入った。
-  assert.match(tabs, /children: \["score-detail", "technology", "competition", "business-model", "business-plan", "cost-model", "cost-fuel", "ip", "capital-policy"\]/, "コスト試算の右隣");
+  assert.match(tabs, /children: \["score-detail", "technology", "competition", "business-model", "business-plan", "cost-model", "cost-fuel", "ip"\]/, "コスト試算の右隣");
   const view = read("src/components/cockpit/CockpitView.tsx");
   assert.match(view, /"cost-model": hasFuelCost \? "コスト試算（廃液）" : "コスト試算"/, "燃料の試算を持つPJだけ（廃液）と呼び分ける");
   assert.match(view, /"cost-fuel": "コスト試算（燃料）"/);
