@@ -82,6 +82,14 @@ Media Mentions は D-11 として runner 未実装。Finance Ops Evidence / free
 
 SKILL 正本は `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 群) / `amd-os-l2-monthend-evidence/SKILL.md` (M 群) / `amd-os-l2-weekly-vc-funding-signals/SKILL.md` (W 群) と、各 L2 の個別 `amd-os-l<N>-*/SKILL.md` (= 束ね SKILL が参照する詳細手順)。L2 の品質改善は、PWA route / GAS function ではなく SKILL と outbox/applier contract を更新する。
 
+## CTB / SE 週次 Slack レポートの停止ゲート
+
+CTB (`p06`) と SE (`p10`) へのつくよみ週次レポートは、外部送信とは独立した設定ゲートを持つ。正本は `settings` の `weekly_slack_report.ctb.enabled` / `weekly_slack_report.se.enabled` とし、admin 専用の `/admin/settings` と `PATCH /api/admin/weekly-slack-reports` だけが更新する。
+
+- 既定と設定欠落は `false`（停止）。停止時は本文の生成も Slack 投稿も行わない。
+- 将来送信処理を再導入する場合は、レポート生成と Slack 投稿の直前にこの設定を readback し、`true` 以外なら外部送信しない。
+- `true` は送信を許可するだけで、停止している旧 sender や scheduler を起動しない。送信処理の新設・再開は、対象・頻度・送信先・rollback を別途確認する。
+
 ## Control layer: 採否通知と先手TODO
 
 旧 `proactive_outbox` + 司令塔通知は廃止のまま。2026-08-12以降、同じ automation id `amd-os-proactive-heartbeat` は、L2 candidateを正本採否カードへ仕上げる最終レビューownerとして使う。別automationは作らない。元証跡から汎用 `proactive_todos` / `app_notifications` を作る経路は停止する。

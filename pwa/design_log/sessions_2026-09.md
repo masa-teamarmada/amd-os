@@ -1549,3 +1549,10 @@ Closeout記録: `CLOSEOUT_SOL_GANTT_2026-09-16.md`。本番最新readback cbc561
 - **途中で見つけた不具合**: 当初の対象者lookupが `member_id` にUUIDの `record_pk` を渡しており、本番相当データで名前解決できなかった。live data simulationで発見し、正本キー `members.id` へ修正。UUIDを表示名へ足し戻すfallbackも、利用者価値がなくノイズになるため削除した。
 - **検証**: `test:data-change-history`、型検査、対象eslint、critical UI検査、deploy wrapperの全検査が成功。実コンポーネントを1440x900と390x844で確認し、desktop行高51.5px、mobile操作ボタン44px、横overflowなし。
 - **反映**: `9c836b46` / `v3.141.5` をproductionへ反映。認証済みChromeで `メンバー「山地 正洋（まさ / ID001）」の最終ログインを11回更新：2026/09/17 00:26:28 → 2026/09/17 08:43:56`、UTC表記なし、行高52.2pxをreadbackした。DB migrationと外部送信はない。
+
+## 2026-09-17 CTB / SE 週次 Slack レポートの停止設定
+
+- CTB (`p06`) と SE (`p10`) の週次つくよみレポートを、`settings` のPJ別キーで明示的に停止した。両方の値は `false` をreadback済み。
+- `/admin/settings` の最上段に「週次 Slack レポート」を置き、CTB / SEごとに配信中・停止中を表示して切り替えられる。操作はadmin限定APIを通り、設定欠落も停止として扱う。
+- 送信処理は現行PWAに存在しない。配信中への変更は送信を許可するだけで、旧senderやschedulerを自動起動しない。送信処理を再導入する時は、生成・投稿の直前にこの設定をreadbackする。
+- 検証: `test:weekly-slack-report-settings`、`test:critical-ui`、`npm run build`、`git diff --check`。build version は `v3.142.1`。

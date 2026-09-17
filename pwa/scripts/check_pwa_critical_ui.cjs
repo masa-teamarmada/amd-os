@@ -99,6 +99,24 @@ function expectNoCasualUiLanguage() {
 
 expectNoCasualUiLanguage();
 
+expectIncludes("src/app/(app)/admin/settings/page.tsx", [
+  "WeeklySlackReportSettingsClient",
+  "weeklySlackReportStatuses",
+]);
+expectIncludes("src/components/admin/WeeklySlackReportSettingsClient.tsx", [
+  "週次 Slack レポート",
+  "CTB と SE",
+  'role="switch"',
+  "レポートを生成・送信しない",
+  "/api/admin/weekly-slack-reports",
+]);
+expectIncludes("src/app/api/admin/weekly-slack-reports/route.ts", [
+  "requireAdmin",
+  'weeklySlackReportSettingKey("ctb")',
+  'weeklySlackReportSettingKey("se")',
+  "typeof payload.enabled !== \"boolean\"",
+]);
+
 expectIncludes("src/app/(app)/dashboard/page.tsx", [
   "ExtractionStatusCard",
   "FreeeConnectionStatusCard",

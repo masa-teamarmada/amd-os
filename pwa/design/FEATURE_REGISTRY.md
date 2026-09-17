@@ -15,6 +15,23 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - `npm run test:critical-ui` は、この登録簿と実装内の重要 anchor を検査する。
 - 重要 UI を置き換える場合は、旧 anchor を消す前に新 UI の anchor と仕様を登録する。
 
+## 週次 Slack レポートの送信停止（2026-09-17）
+
+目的: CTB と SE のつくよみ週次レポートを、外部投稿の再開事故なくPJごとに止め、必要なときだけadminが許可できるようにする。
+
+必須機能:
+
+- `/admin/settings` に CTB / SE の「週次 Slack レポート」を並べ、各PJの現在状態を `配信中` / `停止中` の文字でも示す。
+- `settings.weekly_slack_report.ctb.enabled` と `settings.weekly_slack_report.se.enabled` が正本。設定が無い、または値が `true` 以外なら停止として扱う。
+- 切替は `PATCH /api/admin/weekly-slack-reports` の `requireAdmin()` 経由だけ。ブラウザから `settings` を直接更新しない。
+- 停止時はレポートを生成・送信しない。将来 sender を再導入する場合も、生成と Slack 投稿の直前に同じ設定を読んで停止を優先する。
+- `true` は送信を許可するだけで、旧 sender / scheduler を自動起動しない。
+
+回帰防止:
+
+- `npm run test:weekly-slack-report-settings` が設定欠落時の停止・CTB/SE key・値の厳密判定を確認する。
+- `npm run test:critical-ui` が管理画面、状態スイッチ、admin API の重要 anchor を確認する。
+
 ## 全画面surface catalog
 
 目的: 新画面を追加するたびに独立したtitle、ナビ、writer、状態を増やさず、役割別の見え方と業務正本を分ける。
