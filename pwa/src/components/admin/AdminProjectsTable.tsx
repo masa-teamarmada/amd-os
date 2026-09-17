@@ -26,7 +26,7 @@ export interface ProjectRow {
   slack_channel_id: string | null;
   /** trueならSlackを使わない意図的な未設定。 */
   slack_channel_not_required: boolean;
-  /** PJ単位の週次Slackレポートの配信許可。新規PJを含め既定は停止。 */
+  /** PJ単位の週次Slackレポートの実効配信許可。新規PJを含め既定は停止。 */
   weekly_slack_report_enabled: boolean;
   /** Slack生データから判定した実投稿の観測状態。設定とは独立。 */
   weekly_slack_report_delivery_observation: {
@@ -609,7 +609,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
         throw new Error(body.error || "保存できませんでした");
       }
       setProjects((prev) => prev.map((x) => x.id === p.id ? { ...x, weekly_slack_report_enabled: body.enabled! } : x));
-      setHint(`${p.project_name} の週次レポート設定を${body.enabled ? "配信許可" : "停止"}にしました。実投稿の検出状態は再読込時に更新されます`);
+      setHint(`${p.project_name} の週次レポートを${body.enabled ? "配信許可" : "停止"}にしました。次回の投稿時に反映されます`);
       setTimeout(() => setHint(""), 2500);
     } catch (error) {
       setHint(`週次レポート設定 保存エラー: ${error instanceof Error ? error.message : String(error)}`);
@@ -1671,17 +1671,17 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                       const canConfigure = Boolean(p.slack_channel_id) && !p.slack_channel_not_required;
                       const observation = p.weekly_slack_report_delivery_observation;
                       const observationLabel = observation.state === "delivering"
-                        ? "実投稿: 配信中"
+                        ? canDeliver ? "実投稿: 配信中" : "実投稿: 前回あり"
                         : observation.state === "not_detected"
                           ? "実投稿: 直近未検出"
                           : "実投稿: 未判定";
                       const observationStyle = observation.state === "delivering"
-                        ? "bg-emerald-100 text-emerald-800"
+                        ? canDeliver ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-700"
                         : observation.state === "not_detected"
                           ? "bg-amber-100 text-amber-900"
                           : "bg-muted text-muted-foreground";
                       const observationNote = observation.state === "delivering"
-                        ? `直近の週次投稿: ${weeklyReportObservationTime(observation.latestReportAt)}`
+                        ? `${canDeliver ? "直近の週次投稿" : "停止前の最終投稿"}: ${weeklyReportObservationTime(observation.latestReportAt)}`
                         : observation.state === "not_detected"
                           ? `Slack取込の直近投稿: ${weeklyReportObservationTime(observation.latestSlackAt)}`
                           : "Slack取込の証跡なし";
@@ -1698,7 +1698,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                           <p className="text-[9px] leading-tight text-muted-foreground">
                             {observationNote}
                           </p>
-                          <label className="flex w-fit items-center gap-1 text-[10px] text-muted-foreground" title="この設定は現在の実投稿にはまだ反映されません。送信元を接続した後の配信許可として記録します。">
+                          <label className="flex w-fit items-center gap-1 text-[10px] text-muted-foreground" title="つくよみレポートの投稿直前に、このPJの設定を確認します。">
                             <input
                               type="checkbox"
                               checked={p.weekly_slack_report_enabled}
@@ -1706,10 +1706,10 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                               onChange={(e) => saveWeeklySlackReportEnabled(p, e.target.checked)}
                               className="h-3 w-3 rounded border-border"
                             />
-                            配信設定を許可
+                            週次配信を許可
                           </label>
                           <p className="text-[9px] leading-tight text-muted-foreground">
-                            送信制御: 未接続。この値だけでは今ある週次投稿を止めません。
+                            送信制御: 投稿直前に適用。
                             {!canConfigure ? " チャンネル未設定" : ""}
                           </p>
                         </div>

@@ -84,14 +84,15 @@ SKILL 正本は `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (
 
 ## PJ別週次 Slack レポート設定・実投稿観測・送信元接続
 
-週次 Slack レポートの設定は例外的な全体設定ではなく、すべてのPJに共通する `settings.weekly_slack_report.{project_id}.enabled` で管理する。adminは `/admin/projects` のPJ台帳で、各PJの `Slack CH` と並べて更新する。PJ行を固定で列挙せず、新規PJを含め設定が無い場合は `false`（停止）。ただし、設定値と実際のSlack投稿は別状態であり、送信元がこのキーをreadbackしていない間は設定値を投稿の停止状態として扱わない。
+週次 Slack レポートの設定は例外的な全体設定ではなく、すべてのPJに共通する `settings.weekly_slack_report.{project_id}.enabled` で管理する。adminは `/admin/projects` のPJ台帳で、各PJの `Slack CH` と並べて更新する。PJ行を固定で列挙せず、新規PJを含め設定が無い場合は `false`（停止）。
 
 - admin画面は `source_cache(source='slack')` の証跡から、直近10日以内の週次レポートを検出したPJを「実投稿: 配信中」と表示する。検出対象は本文に週次・今週とレポート・報告の組を持つ投稿であり、PJ名・チャンネル名の固定リストは使わない。
 - Slack取込の証跡はあるが直近の週次レポートを検出できないときは「実投稿: 直近未検出」、証跡がないときは「実投稿: 未判定」と表示する。どちらも停止とは断定しない。
 - daily Slack取込は `project_slack_sources` と `projects.slack_channel_id` のどちらかを持つ全PJを対象にし、週次レポートを観測できるようbot投稿も保存する。
-- `settings` を読まない既存送信元がある間、設定が `false` でも投稿が止まったとは断定しない。送信制御の接続状態は実投稿観測と分けて表示する。
+- つくよみ名義の既存投稿入口 `gas/115_SlackNotify.js` は、本文に`つくよみレポート`を含む投稿の直前に、宛先チャンネルからPJを逆引きしてこの設定キーをreadbackする。`true`以外・PJ未解決・設定read失敗は送信せず`skipped`で終える。本文が該当しないSlack通知には影響しない。
+- 停止後10日間は取り込済みの投稿が残りうるため、設定が停止で直近証跡がある行は「実投稿: 前回あり」と表示する。これは停止前の履歴であり、配信中とは表示しない。
 - 送信を許可できるのは、`projects.slack_channel_id` があり、`slack_channel_not_required=false` のPJだけ。
-- 送信元を新設・接続する場合は、レポート生成と Slack 投稿の直前にPJ行・設定キー・宛先チャンネルをreadbackし、設定値が `true` 以外なら本文を生成せず外部送信もしない。
+- 送信元を新設・接続する場合も、レポート生成と Slack 投稿の直前にPJ行・設定キー・宛先チャンネルをreadbackし、設定値が `true` 以外なら本文を生成せず外部送信もしない。
 - `true` は送信を許可するだけで、停止している旧 sender や scheduler を起動しない。送信処理の新設・再開は、対象・頻度・送信先・rollback を別途確認する。
 
 ## Control layer: 採否通知と先手TODO

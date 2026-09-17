@@ -220,6 +220,61 @@ function slackNotifyPostInvoicePdfUploaded(arg){
 // =========================
 // Core
 // =========================
+
+/**
+ * 週次つくよみレポートだけは、投稿直前にPJ台帳の配信設定を読む。
+ *
+ * 送信側のscheduled taskはPJ名の固定リストを持たない。宛先Slackチャンネルから
+ * `projects` を逆引きし、`settings.weekly_slack_report.{project_id}.enabled`
+ * が明示的に true のときだけ通す。設定なしは停止扱いにするので、新しいPJを
+ * 台帳へ追加しただけで外部チャンネルへ投稿することはない。
+ */
+function slackNotifyWeeklyReportGate_(channelId, text){
+  const body = String(text || "");
+  if (!/つくよみレポート/u.test(body)) return { allow:true, reason:"not_weekly_report" };
+
+  const channel = String(channelId || "").trim();
+  if (!channel) return { allow:false, reason:"weekly_report_channel_missing" };
+  if (typeof supa_select !== "function") {
+    return { allow:false, reason:"weekly_report_settings_reader_missing" };
+  }
+
+  try {
+    const projects = supa_select("projects", {
+      select:"project_id,slack_channel_not_required",
+      filter:"slack_channel_id=eq." + encodeURIComponent(channel),
+      limit:2
+    });
+    if (!projects || !projects.ok || !Array.isArray(projects.rows) || projects.rows.length !== 1) {
+      return { allow:false, reason:"weekly_report_project_unresolved" };
+    }
+
+    const project = projects.rows[0] || {};
+    const projectId = String(project.project_id || "").trim();
+    if (!projectId || project.slack_channel_not_required === true) {
+      return { allow:false, reason:"weekly_report_project_not_configurable", projectId:projectId };
+    }
+
+    const settingKey = "weekly_slack_report." + projectId + ".enabled";
+    const settings = supa_select("settings", {
+      select:"value",
+      filter:"key=eq." + encodeURIComponent(settingKey),
+      limit:1
+    });
+    const value = settings && settings.ok && Array.isArray(settings.rows) && settings.rows[0]
+      ? String(settings.rows[0].value || "").trim()
+      : "";
+    return {
+      allow:value === "true",
+      reason:value === "true" ? "weekly_report_enabled" : "weekly_report_disabled",
+      projectId:projectId
+    };
+  }catch(e){
+    // 配信停止を選んだPJで、設定取得エラーをすり抜けて投稿しないため fail closed。
+    return { allow:false, reason:"weekly_report_settings_read_failed" };
+  }
+}
+
 function slackNotifyPostToChannel_(channelId, arg){
   const token = slackNotifyGetBotToken_();
   if (!token) return { ok:false, message:"SLACK_BOT_TOKEN missing" };
@@ -231,6 +286,16 @@ function slackNotifyPostToChannel_(channelId, arg){
 
   const text = String(obj.text || "").trim();
   const blocks = Array.isArray(obj.blocks) ? obj.blocks : null;
+
+  const weeklyGate = slackNotifyWeeklyReportGate_(channelId, text);
+  if (!weeklyGate.allow) {
+    return {
+      ok:true,
+      skipped:true,
+      reason:weeklyGate.reason,
+      projectId:weeklyGate.projectId || ""
+    };
+  }
 
   const payload = {
     channel: String(channelId || "").trim(),
