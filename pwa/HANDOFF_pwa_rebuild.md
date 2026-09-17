@@ -1,45 +1,53 @@
 # HANDOFF - AMD OS PWA
 
-- 更新: 2026-09-16 JST
-- セッション: OS全体の変更履歴・安全な戻し操作・外部アクセス要求
-- 作業種別: development
+- 更新: 2026-09-17 JST
+- セッション: 納付済み誤警告の是正と不納付加算税の現金仕訳
+- 作業種別: mixed（PWA開発 + 本番の支払義務/freee会計反映）
 
 ## 最新セッションの到達点
 
-- `amd_os_data_change_history`とpublic schemaの336監査triggerを本番適用済み。`/admin/change-history`は実行者・日時・対象行・変更前後を新しい順に表示し、追加/変更/削除で絞り込む。秘密値は伏せ、大きい値は省略、履歴は追記専用。記録は2026-09-16以降で、過去分は遡及生成しない。
-- 安全な履歴だけ「この変更を戻す」を表示する。現在値が当該履歴の変更後と一致する場合だけ同一transactionで逆操作し、戻し操作も元履歴へのlink付きで履歴に残す。秘密値・大きい値・主キーなし・競合・戻し済みは対象外。
-- 未許可の外部メールのlogin要求を`workspace_access_requests`へ記録し、まさ（ID001）へSlack DMする。研究機関workspaceが一意な要求はDMまたは`/admin/access`から`readonly`・`invited`で許可/拒否できる。PJ/対象未特定は管理画面で権限範囲を選び、停止済みaccount/grantは自動復活しない。開発中の実Slack通知は送っていない。
-- migration `20260916223000`は本番適用・migration台帳repair・readback済み。正本は`pwa/spec/2-1-pwa-runtime-routes.md`、`pwa/manual/2-6-admin-ops.md`、`pwa/design/SPEC_pwa.md`、`ios/DESIGN.md`。
+- `/admin/payments` と `/admin/schedule` の赤い期限超過は、確定額・支払証跡なし・同額候補なしの法定納付だけに限定した。見積額、金額未取得、`needs_review`、同額出金の月割当待ちは「要確認」であり、未納と断定しない。
+- freeeの同じ納付先・照合期間に未使用の出金候補が1件だけなら、見積額を実額へ置き換えて納付済みにする。確定額との差異は、加算税等の実通知が親へ紐づく場合だけ許す。同じ候補を複数月が参照するときは自動消込しない。
+- 過去の法定納付は納期限後120日まで再生成する。現行運用前の古い給与期間を、現在の給与仕訳から新しい滞納として逆生成しない。
+- Vercelの会社スケジュール定期実行を毎日09:35 JSTへ復旧した。支払義務の更新を同日中に予定へ反映する。
+- 本番の赤い期限超過は0件・0円。源泉所得税1-6月分は2026-07-17の533,112円、消費税中間納付は2026-08-31の811,600円で納付済みに更新済み。
+- 不納付加算税26,500円は、まさの現金納付証言を根拠に2026-09-30付で納付済み。freeeへ `租税公課 / 現金`、税区分対象外、未決済残高0円で登録した（取引ID `3784543055`）。OSの支払義務と予定も完了、freee証跡を紐付け済み。
+
+## 本番の要確認
+
+- 労働保険料（2026年度）29,056円: 見積額、支払候補なし、`needs_review`。未納とは断定していない。
+- 社会保険料（2026年7月分）304,119円: 同額出金はあるが6月分と候補が重なるため、`needs_review`。月割当の確認が必要。
+- 社会保険料（2026年8月分）304,119円: 9/30期限の見積額、`needs_review`。
+- freee OAuthアプリは参照可能だが、`POST /api/1/deals` は403で拒否された。今回の現金仕訳は、まさがログインしたfreee画面から登録し、登録後にAPIで取引ID・金額・残額を読み返した。
 
 ## 反映・検証
 
-- DB: migration全文を本番transaction内でrollback検証し、追加/変更/削除の3種類を実際に戻すsmoke test成功後、本番適用。table/function/336 trigger/必須列をreadback済み。
-- PWA: `test:data-change-history`、workspace access系回帰、`test:critical-ui`、`test:surface-catalog-contract`、`npx tsc --noEmit`が成功。通常`next build`はNext 16.3.0の既存依存解決（`@vercel/turbopack/postcss`）で失敗し、今回の型・契約検査は成功。deploy wrapperでproduction buildを再確認する。
-- commit / production: この文書と同一commitを`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`で反映し、`/api/build-info`の`git_sha`を照合する。
-
-## 関連する直前の状態
-
-- PJ共有ワークスペースは会社情報とPJ管理の境界を是正済み。会社基本情報・資本政策は共有するが、キラー要素カタログはAMD member限定で、外部ワークスペースでは取得も描画もしない。
-- ゴールツリーのTODO移動（`bf0a34c`）は、最上位TODOを承認済みで開いている論点へ移す機能。TODOの親子・日程・担当・前後関係は変えず、論点との線だけを移す。複数論点に付くTODOは`移し替える`/`両方に残す`を選ぶ。実データは動かしていない。
-- 単独TODOの採否復旧（`3df5371a`）は、`POST { resource: "proposal_bulk", decision, ids }` が正本。承認は単独タスクを残し、却下は論理削除する。実データの却下操作は未実行。
+- 実装commit: `0d87857c`、境界修正commit: `5109fbd9`。いずれもmainへpush済み。
+- 2026-09-17 closeout時のproduction: `v3.141.5` / `48fe73adfb4b524bf95c958c344ef4aae2c26990` / branch `main` / dirty=false。
+- 実装時の検証: `npm run test:payment-obligations`、`npm run test:admin-schedule`、`npm run test:critical-ui`、`npx tsc --noEmit`、eslint、`npm run build`、本番画面readback。
+- 今回の現金仕訳readback: 取引日・決済日2026-09-30、支出26,500円、租税公課、現金、対象外、残額0円。OS行は`paid`、予定は`completed`。
 
 ## Repo状態
 
-- canonical `origin/main` は新しい作業の直前に `git fetch origin main` で確認し、その上へrebaseしてから1回だけdeployする。
-- 正規checkout `/Users/masa/projects/AMD/amd-os` は他セッション由来のdirtyと分岐を持つ。開始時に `git status -sb` で実数を確認する。reset、stash、削除、`git add .`、他人の変更のcommitをしない。
+- canonical branch: `main`。今回の引き継ぎ文書は最新`origin/main`の使い捨てclean cloneで更新・pushする。
+- 正規checkout `/Users/masa/projects/AMD/amd-os` は別作業の29ファイルがdirtyで、local mainが3 ahead / 229 behind。未pushは `4edc01d2` / `315a81af` / `d4d254a7`。今回の作業では削除・stash・reset・commitへ巻き込んでいない。
+- 今回作成したbranch / git worktree: なし。作業用cloneはcloseout後に削除する。
 
 ## 未解決
 
-- service role経由の既存処理でactor header/行の帰属列が無い変更は、個人名ではなく`OS自動処理`と表示する。既存writerへactorを足す場合は別変更として行う。
-- 新しいpublic tableを追加するmigrationは末尾で`amd_os_refresh_data_change_history_triggers()`を呼び、監査対象へ加える。
+- 今回の誤警告修正と不納付加算税の仕訳に残作業なし。
+- 上記3件の`needs_review`は未納確定ではない。追加で追う場合は、freeeの元帳・納付書・対象月の対応を確認してから正本を更新する。
+- リポ全体のarchiveは、正規checkoutの別作業dirtyと未push3件の所有者が確定し、origin/mainへ統合または明示処分されるまで不可。
 
 ## 次の最初の行動
 
-新しいpublic tableを追加するときは監査trigger refreshを同じmigrationに含める。戻す経路を増やす場合も`amd_os_undo_data_change`を迂回してbrowserから直接DBを逆操作しない。
+まさの次の指示を待つ。納付照合を続ける場合は、社会保険料7月分の304,119円候補が6月分の出金と重なる理由をfreee元帳で確認し、推測で納付済みにしない。
 
 ## 参照先
 
+- 利用・運用: `pwa/manual/6-9-company-payment-obligations-spec.md`
+- 納付画面仕様: `pwa/spec/5-15-payment-ledger-current-spec.md`
+- 運営カレンダー仕様: `pwa/spec/5-9-admin-operating-calendar-current-spec.md`
+- freee照合境界: `pwa/manual/6-10-freee-accounting-reconciliation-spec.md`
 - 実装履歴: `pwa/design_log/sessions_2026-09.md`
 - バグ・教訓: `pwa/BUGS.md`
-- 現行仕様: `pwa/spec/2-1-pwa-runtime-routes.md` / `pwa/spec/3-16-project-weekly-control-current-spec.md`
-- OSマニュアル: `pwa/manual/2-3-pj-cockpit.md`

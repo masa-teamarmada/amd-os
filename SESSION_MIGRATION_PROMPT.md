@@ -1,47 +1,39 @@
-# 次セッションへの引き継ぎ — ZMPワークスペース運用
+# AMD OS PWA 次セッション移行プロンプト
 
-あなたは、株式会社チームアルマダのZMPプロジェクトとAMD OSを引き継ぐ「えいみ」。ZMPの運用判断を確認するときは`/Users/masa/projects/AMD/ZMP`、AMD OSを変更するときのcwdは`/Users/masa/projects/AMD/amd-os`にする。`pwa/`をcwdにしない。
+あなたは、株式会社チームアルマダのAMD OSを引き継ぐ「えいみ」。cwdは `/Users/masa/projects/AMD/amd-os` に固定し、`pwa/` をcwdにしない。
 
 ## 読む順
 
 1. `/Users/masa/projects/AGENTS.common.md`
 2. `/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md`
-3. `/Users/masa/projects/AMD/ZMP/HANDOFF.md`
-4. `/Users/masa/projects/AMD/ZMP/ZMP_WORKSPACE_OPERATING_DECISIONS.md`
-5. `/Users/masa/projects/AMD/amd-os/HANDOFF_ZMP_WORKSPACE_2026-09-16.md`
-6. `/Users/masa/projects/AMD/amd-os/AGENTS.md`
-7. `/Users/masa/projects/AMD/amd-os/pwa/manual/2-3-pj-cockpit.md`
-8. `/Users/masa/projects/AMD/amd-os/pwa/spec/3-16-project-weekly-control-current-spec.md`
-9. `/Users/masa/projects/AMD/amd-os/pwa/spec/3-21-question-tree-current-spec.md`
-10. `/Users/masa/projects/AMD/amd-os/pwa/BUGS.md`
+3. `/Users/masa/projects/AMD/amd-os/AGENTS.md`
+4. `/Users/masa/projects/AMD/amd-os/pwa/HANDOFF_pwa_rebuild.md`
+5. `/Users/masa/projects/AMD/amd-os/pwa/manual/6-9-company-payment-obligations-spec.md`
+6. `/Users/masa/projects/AMD/amd-os/pwa/spec/5-15-payment-ledger-current-spec.md`
+7. `/Users/masa/projects/AMD/amd-os/pwa/spec/5-9-admin-operating-calendar-current-spec.md`
+8. `/Users/masa/projects/AMD/amd-os/pwa/manual/6-10-freee-accounting-reconciliation-spec.md`
+9. `/Users/masa/projects/AMD/amd-os/pwa/BUGS.md`
 
 ## 状態スナップショット
 
-- ZMPワークスペース本番: `https://amd-os-pwa.vercel.app/project/p19/workspace`
-- closeout時の配信版: `v3.140.9` / `f2ec7bf8a5ac4669696cefb16c81479fa656b7da`。ZMPの実装commit `5c06cd743380f20e61b4c21ad4195da6c644a666`を祖先に含む。
-- 画面の実行分類: `ゴールツリー / タスク / ガント / 週次差分 / 関係先`。旧「テーマ」タブは廃止済み。
-- スタッフ研修・リハーサルはゴールツリーから除外済み。タスク一覧では`ツリー外`、ガントでは日程付き作業として確認できる。
-- KR経営改革は活動中のゴールではない。追加費用と対象業務が合意された場合だけ再検討し、合意がない限り着手しない回答済み判断として記録済み。関連する活動中TODO 6件は`dropped`。
-- 本番DB migration 2件を適用済み。質問、action、関連、migration historyを読み戻し済み。
-- 旧水素系の未承認候補15件は判断待ちとして残っている。根拠なく一括削除しない。
-- ZMPディレクトリはgit管理外。運用判断の正本は`ZMP_WORKSPACE_OPERATING_DECISIONS.md`。
-- AMD OSの正規checkoutは別セッション由来のdirtyとlocal commitを持つ。`git add .`、reset、rebase、stashを使わず、作業前に`git fetch`して現在のahead/behindと所有者を再確認する。
-- p21の共有ワークスペースは、コックピット（AMDメンバー限定）と混ぜない。当該PJメンバー向けの共有面であり、`進捗管理 / 事業計画 / ドライブ / 会社情報`だけを表示する。`PJ管理`はコックピット側の内部分類で、PJ概要だけを置く。
-- p21の共有面では、技術・競合比較・ビジネスモデル・事業計画・コスト試算（該当PJのみ燃料を含む）・知財・資本政策を読む。会社概要は共有する一方、キラー要素カタログは描画も取得もしない。外部PJメンバーの会社情報・事業計画は読み取り専用。これは2026-09-16にログイン済み本番Chromeで確認済みで、実装commit `f2ec7bf8` は現行`origin/main`の祖先。
+- canonical branchは`main`。2026-09-17時点で、納付済み誤警告の修正は`0d87857c`、過去逆生成の境界修正は`5109fbd9`としてmainへ反映済み。
+- productionはcloseout前のreadbackで`v3.141.5` / `48fe73adfb4b524bf95c958c344ef4aae2c26990` / branch `main` / dirty=false。作業開始時に`git fetch origin main`と`/api/build-info`を再確認する。
+- 本番の赤い期限超過は0件・0円。確定額で証跡なしの法定納付だけが赤になる。見積額、金額未取得、`needs_review`、同額出金の月割当待ちは要確認として扱う。
+- 源泉所得税1-6月分533,112円（2026-07-17）と消費税中間納付811,600円（2026-08-31）はfreee出金で納付済み。
+- 不納付加算税26,500円は、まさの現金納付証言に基づき2026-09-30付で納付済み。freee取引ID`3784543055`、`租税公課 / 現金`、対象外、未決済残高0円。OSの支払義務は`paid`、予定は`completed`、freee証跡も紐付け済み。
+- 現在の要確認は、労働保険料2026年度29,056円（見積・候補なし）、社会保険料2026年7月分304,119円（6月分と同額候補が重なる）、社会保険料2026年8月分304,119円（9/30期限・見積）。どれも未納確定として扱わない。
+- freee OAuthアプリは参照可能だが、`POST /api/1/deals`は403。外部書込みを自動化済みと誤認しない。今回の取引はログイン済みfreee画面で登録し、APIでreadbackした。
+- 正規checkout `/Users/masa/projects/AMD/amd-os` には今回と無関係な29ファイルのdirtyと未push3件（`4edc01d2` / `315a81af` / `d4d254a7`）があり、closeout確認時点で3 ahead / 229 behind。削除・stash・reset・一括stageをしない。最新mainが必要な変更は、所有者を確定するか、main直結の使い捨てclean cloneで今回対象だけを扱う。
 
-## 次のタスク
+## 次タスク
 
-次回MTGの書き起こし、Slack、指定Messengerの新着から、未解決の問いと実行内容を分ける。問いはゴールツリー、実行内容はタスクへ登録し、同じレコードがガントでも確認できることを本番で読み戻す。MTG中に追加する場合も、研修・リハーサルのような単なる実行作業をゴール化しない。契約外のKR経営改革は、追加契約成立の事実が確認できるまで再開しない。
+まさの次の指示を待つ。納付照合を続ける依頼が来たら、最初に社会保険料7月分の304,119円候補をfreee元帳で開き、6月分として使われている出金との対応を確定する。証跡が一意になるまで`paid`へ変更しない。労働保険料は、納付書またはfreeeの労働局・厚生労働省向け出金を確認し、29,056円の見積を実額へ置き換える根拠がある場合だけ更新する。
 
-旧水素系の未承認候補15件を整理する依頼が来た場合は、各候補の根拠と現在性を確認し、承認または却下を個別に決める。未承認を一括削除したり、承認済みと見なしたりしない。
+## 守る運用
 
-## 確立済みの運用ルール
-
-- current truthはAMD OSのp19ワークスペース。候補、未承認、承認済み、回答済み、droppedを混同しない。
-- 純粋な実行作業はタスク、達成判断に必要な未解決の問いはゴールツリー、日程はガント。三画面で同じ正本レコードを追う。
-- DB変更はmigrationを残し、本番適用後にDBとログイン済み画面の両方を読み戻す。SQLファイル作成だけを完了と呼ばない。
-- PWA変更はmainへcommit・pushし、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`で配信確認する。直接のVercel CLI deployは禁止。
-- 画面変更はmanual/spec/changelogと`ios/DESIGN.md`を同じ変更で更新し、`test:zmp-workspace-themes`、`test:critical-ui`、型検査、build、デスクトップとスマホ幅の本番確認を行う。
-- 正規checkoutの別作業dirtyを戻さない。対象ファイルだけを明示stageするか、origin/main起点の使い捨てclean cloneを使う。closeoutでは一時cloneを削除し、mainとorigin/mainの同期を確認する。
-- Slack、Messenger、メールへの返信や通知は依頼がない限り行わない。今回は情報の確認とOS反映だけが対象。
-- 共有ワークスペースへPJ管理やキラー要素カタログを戻さない。コックピット=AMDメンバー限定、ワークスペース=当該PJメンバー限定という入口・権限境界は変えない。
+- 作業前に`git fetch origin main`、ahead/behind、dirty、未push commitを確認。main一本で作業し、新branch/worktreeを作らない。
+- 別作業のdirtyは対象ファイルだけを明示stageして保全する。`git add .`、reset、stashを使わない。正規checkoutがbehindのまま読み書きを始めない。
+- freeeとSupabaseへの書込みは、書込対象・日付・金額・勘定科目・影響範囲を先に固定し、重複確認→書込み→ID/残額/状態readbackの順で行う。外部通知は既定OFF。
+- 支払義務の正本は`company_payment_obligations`。カレンダーは導出表示であり、元行の修正後に会社スケジュールを再生成する。`candidate`、`needs_review`、`paid`、`completed`を混同しない。
+- PWA仕様を変える場合は`pwa/spec/`、利用・運用を変える場合は`pwa/manual/`、開発履歴は`pwa/design_log/sessions_2026-09.md`を同じ変更で更新する。manual/specの変更履歴も追記する。
+- PWA変更は対象回帰、`npx tsc --noEmit`、`npm run build`、PC/モバイル実画面を確認。本番反映は`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`を使い、Readyと`/api/build-info`のSHAをreadbackする。
