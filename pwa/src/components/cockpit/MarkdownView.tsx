@@ -7,6 +7,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { LinkedMemberText } from "@/components/members/LinkedMemberText";
 import { MermaidDiagram } from "@/components/cockpit/MermaidDiagram";
+import { PictogramDiagram } from "@/components/cockpit/PictogramDiagram";
 
 interface Props {
   source: string;
@@ -165,15 +166,18 @@ export function MarkdownView({ source, tone = "light", linkMode = "default", mem
           },
 
           // ===== Code =====
-          // ```mermaid は図として描く。それ以外はコードのまま。
+          // ```mermaid と ```pictogram（ビジネスモデルのピクト図）は図として描く。それ以外はコードのまま。
           code: ({ className, children }) => {
             if (typeof className === "string" && className.includes("language-mermaid")) {
               return <MermaidDiagram code={plainText(children)} tone={tone} />;
             }
+            if (typeof className === "string" && className.includes("language-pictogram")) {
+              return <PictogramDiagram code={plainText(children)} tone={tone} />;
+            }
             return <code className={codeClass}>{children}</code>;
           },
           pre: ({ children }) => {
-            if (containsMermaid(children)) return <>{children}</>;
+            if (containsDiagram(children)) return <>{children}</>;
             return (
               <pre className={`my-2 overflow-x-auto rounded p-3 text-[11px] font-mono ${isHud ? "bg-slate-900/70 text-cyan-50" : "bg-[#f5f5f7] text-[#1d1d1f]"}`}>{children}</pre>
             );
@@ -313,13 +317,13 @@ function plainText(node: ReactNode): string {
   return "";
 }
 
-/** <pre> の中身が mermaid の図かどうか。図なら <pre> の枠を外して図だけ出す */
-function containsMermaid(node: ReactNode): boolean {
+/** <pre> の中身が図 (mermaid・pictogram) かどうか。図なら <pre> の枠を外して図だけ出す */
+function containsDiagram(node: ReactNode): boolean {
   let found = false;
   Children.forEach(node, (child) => {
     const element = child as { props?: { className?: unknown } };
     const className = element?.props?.className;
-    if (typeof className === "string" && className.includes("language-mermaid")) found = true;
+    if (typeof className === "string" && /language-(?:mermaid|pictogram)\b/.test(className)) found = true;
   });
   return found;
 }

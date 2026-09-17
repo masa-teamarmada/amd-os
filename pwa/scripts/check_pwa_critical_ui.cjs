@@ -3322,6 +3322,22 @@ expectNotIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx
   'tab.key !== "competition" || hasCompetition',
   'tab.key !== "business-model" || hasBusinessModel',
 ]);
+// ビジネスモデルのピクト図 (2026-09-17 まさ「ビジネスモデルは、ちゃんとピクト図にしてほしい。カネとモノの流れを示す矢印はそれぞれ別の色にして、カネのところはお金っぽいアイコンを添えて」)。
+// 本文のコードブロック pictogram を MarkdownView → PictogramDiagram で描く。配線を外すと SOL のビジネスモデルの先頭が JSON の文字列に戻る。
+// 定義の検査・配置・SOL の図の重なりは scripts/check_pictogram.mts が見る。
+expectIncludes("src/components/cockpit/MarkdownView.tsx", [
+  'import { PictogramDiagram } from "@/components/cockpit/PictogramDiagram";',
+  'className.includes("language-pictogram")',
+  "<PictogramDiagram code={plainText(children)} tone={tone} />",
+  "if (containsDiagram(children)) return <>{children}</>;",
+]);
+expectIncludes("src/components/cockpit/PictogramDiagram.tsx", [
+  'data-testid="pictogram-diagram"',
+  'data-testid="pictogram-flow-list"',
+  "[contain:inline-size]",
+  "JapaneseYen",
+  "layoutPictogram(parsed.pictogram)",
+]);
 // 社外に出す形の星取り表 (2026-09-14 まさ「PDFの比較表めっちゃよく出来てるから、この３つそのままOSにも入れておいてほしい」)。
 // presentation (migration 425) を持つ星取り表は、VC 提出用の PDF と同じ並び (見出し → 一文 → 説明 → 表 → 注記) で出す。
 // 消すと PDF と画面の見せ方がずれる。presentation の jsonb は readTechPresentation() だけで読む。
