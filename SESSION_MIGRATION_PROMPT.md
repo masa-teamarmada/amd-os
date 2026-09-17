@@ -1,4 +1,4 @@
-# 次セッションへの引き継ぎ — AMD OS変更履歴・外部アクセス承認
+# 次セッションへの引き継ぎ — 事業計画・試算表・資本政策表のタブ整理
 
 あなたは株式会社チームアルマダのAMD OSを引き継ぐ「えいみ」。cwdは `/Users/masa/projects/AMD/amd-os` にし、`pwa/`をcwdにしない。正規checkoutには別作業のdirtyと未push commitがあるため、所有者と意図を確認せず変更、reset、stash、rebase、削除、`git add .`をしない。
 
@@ -6,48 +6,39 @@
 
 1. `/Users/masa/projects/AGENTS.common.md`
 2. `/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md`
-3. `/Users/masa/projects/AMD/amd-os/pwa/HANDOFF_pwa_rebuild.md`
-4. `/Users/masa/projects/AMD/amd-os/AGENTS.md`
-5. `/Users/masa/projects/AMD/amd-os/pwa/AGENTS.md`
-6. `/Users/masa/projects/AMD/amd-os/pwa/manual/1-1-intro.md`
-7. `/Users/masa/projects/AMD/amd-os/pwa/spec/1-3-reconstruction-coverage-audit.md`
-8. `/Users/masa/projects/AMD/amd-os/pwa/manual/2-6-admin-ops.md`
-9. `/Users/masa/projects/AMD/amd-os/pwa/spec/2-1-pwa-runtime-routes.md`
-10. `/Users/masa/projects/AMD/amd-os/pwa/spec/2-2-pwa-surface-inventory-current-spec.md`
-11. `/Users/masa/projects/AMD/amd-os/pwa/spec/2-7-ui-design-code-current-spec.md`
-12. `/Users/masa/projects/AMD/amd-os/pwa/design/SPEC_pwa.md`
-13. `/Users/masa/projects/AMD/amd-os/pwa/BUGS.md`
-14. `/Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-09.md`
+3. `/Users/masa/projects/AMD/amd-os/AGENTS.md`
+4. `/Users/masa/projects/AMD/amd-os/pwa/HANDOFF_pwa_rebuild.md`
+5. `/Users/masa/projects/AMD/amd-os/pwa/manual/1-1-intro.md`
+6. `/Users/masa/projects/AMD/amd-os/pwa/spec/1-3-reconstruction-coverage-audit.md`
+7. `/Users/masa/projects/AMD/amd-os/pwa/manual/2-3-pj-cockpit.md`
+8. `/Users/masa/projects/AMD/amd-os/pwa/spec/3-8-cockpit-current-spec.md`
+9. `/Users/masa/projects/AMD/amd-os/pwa/spec/3-16-project-weekly-control-current-spec.md`
+10. `/Users/masa/projects/AMD/amd-os/pwa/BUGS.md`
+11. `/Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-09.md`
 
 ## 状態スナップショット
 
-- productionは `https://amd-os-pwa.vercel.app`、配信版は `v3.141.5` / `48fe73adfb4b524bf95c958c344ef4aae2c26990`。変更履歴のproduct commit `9c836b46d9aa0294c47c8f4d41822c887a858f70`を祖先に含み、closeout文書commitはその後にmainへ積まれている。
-- `/admin/change-history` はOS全体の監査履歴を、実行者、JST日時、対象、項目、変更前後の組で表示する。秘密値は伏せ、大きい値は省略し、履歴自体は追記専用。
-- メンバー履歴は `members.id` を対象行IDとして解決し、`member_name`、`code_name`、`member_id` で誰の変更かを表示する。メールアドレスは使わない。
-- 日付時刻はすべて `Asia/Tokyo`。UTC offsetや`Z`を画面へ出さず、同一秒内の差だけミリ秒を表示する。
-- 同一自動処理内の同一メンバーの最終ログイン連続更新は一件に集約する。本番では11件が `2026/09/17 00:26:28 → 2026/09/17 08:43:56` として表示された。
-- 安全な変更だけ「戻す」を表示し、現在値が履歴の変更後と一致する場合だけ同一transactionで逆操作する。戻し自体も履歴に残す。
-- 未許可外部メールのlogin要求は `workspace_access_requests` へ集約し、まさ（ID001）へSlack DMする。範囲が一意ならDMから、未特定なら `/admin/access` で範囲を選んで許可または拒否する。
-- 正規checkoutはcloseout確認時に別作業由来のdirty 29 pathと未push 3 commitがあり、`ahead 3 / behind 229`。この状態を今回の作業と混ぜない。
+- コックピットはAMDメンバー限定、共有ワークスペースは当該PJメンバー限定（AMD外を含む）。この権限境界・入口・導線を変更してはいない。
+- 機能commitは `584e1f59b02c2968c89535ac14df5d0abd3924ad`。コックピットと共有ワークスペースの事業計画グループに、`事業計画`、`試算表`、`資本政策表`の独立タブがある。
+- `試算表`は事業計画の月次・年次試算。`資本政策表`は将来計画に応じて更新する資本政策。会社情報側は過去ラウンドの事実を記録する`資金調達履歴`であり、用途を混ぜない。
+- この機能はproduction `v3.143.2`で外部Chromeを使ってreadback済み。以後のmain更新で表示版が進んでいる可能性があるため、変更時は `/api/build-info` と認証済み画面を再確認する。
+- 正規checkoutには別作業由来のdirty 29 pathと未push 3 commitがある。安全に同期できない場合は最新`origin/main`からclean cloneを作り、対象差分だけを扱う。
 
 ## 次のタスク
 
-今回の依頼範囲に未解決はない。まさの次の依頼から開始する。変更履歴を触る場合は、raw IDやraw timestampをそのまま並べず、利用者が一行で対象・項目・変更前後を把握できる表示を先に決める。
+今回の依頼範囲に未解決はない。まさの次の依頼から開始する。
 
 ## 確立済みの運用ルール
 
-- SupabaseがDBの正本。新しいpublic tableには監査trigger refreshを同じmigrationで含め、本番適用後にschema、migration history、実データを読み戻す。
-- actor情報がないservice-role更新は個人名を推測せず `OS自動処理` と表示する。
-- 監査画面の日時はJST専用formatterを通す。raw ISO、UTC offset、`Z`を利用者向け表示へ混ぜない。
-- UIは情報密度を落とさず、desktopと390px幅で行高、折返し、操作領域、横overflowを実コンポーネントで測る。
-- 画面や運用を変えたらmanual/spec/changelog、必要な`ios/DESIGN.md`、設計ログ、BUGSを同じ変更で同期する。
-- PWA変更はmainへ一度にまとめ、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`で反映し、`/api/build-info`のSHA/version/`dirty:false`と認証済み実画面を読む。Vercel CLIの直接deployは禁止。
-- 正規checkoutの別作業dirtyを戻さない。安全に同期できなければ最新`origin/main`のclean cloneで対象差分だけを扱う。
-- Slack、メール、DBの実データ操作は依頼範囲だけ。外部通知の実送信テストは明示許可なしに行わない。
+- タブ整理では、最初に計画として更新する情報か、会社の過去事実か、共有PJメンバーへ出すべき情報かを区別する。権限モデルを変えて解決しない。
+- 共有面から除外する内部情報は、表示だけでなくコンポーネントをマウントせず取得もしない。今回のタブは共有対象として確定済み。
+- PWA変更はmainへまとめてpushし、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`で反映する。直接のVercel CLI deployは禁止。
+- 完了判定はpushではなく、`/api/build-info`のSHA/version/`dirty:false`と、認証済み外部Chromeの実画面readback。
+- 画面・操作・仕様を変更したらmanual/spec/changelog、必要な`ios/DESIGN.md`、設計ログ、BUGSを同じ変更で同期する。
+- 正規checkoutの別作業を戻さない。一時cloneと検証serverはcloseoutで片付ける。
 
 ## 完了条件
 
-- コード、仕様、操作マニュアル、変更履歴、BUGSの対象差分が一致する。
-- 対象テスト、型検査、lint、critical UI検査、desktop/mobileの画面確認が成功する。
-- mainへpush済みで、本番SHA/versionと認証済み画面を読み戻す。
-- 一時cloneや検証serverを片付け、正規checkoutに別作業の変更を持ち込まない。
+- コード、仕様、操作マニュアル、変更履歴、必要なBUGSが一致する。
+- 対象テスト、型検査、build、critical UI検査、desktopと390px幅の実画面確認が成功する。
+- mainへpush済みで、本番SHA/versionと認証済み外部Chromeの画面を読み戻す。

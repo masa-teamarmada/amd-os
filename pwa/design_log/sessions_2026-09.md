@@ -1595,3 +1595,10 @@ Closeout記録: `CLOSEOUT_SOL_GANTT_2026-09-16.md`。本番最新readback cbc561
 - 現行の週次投稿は、つくよみ名義で `gas/115_SlackNotify.js` の共通投稿入口を通ることを、Slack証跡と実行経路から確認した。本文に `つくよみレポート` を含む投稿だけ、投稿直前に宛先チャンネルから `projects` を逆引きし、`settings.weekly_slack_report.{project_id}.enabled` を読み直す。
 - `true` 以外、PJ未解決、設定取得エラーはいずれも `skipped` として投稿しない。ほかのSlack通知には影響しない。PJ名・チャンネル名の固定リストは持たないため、新規PJも台帳の設定行だけで同じ制御に入る。
 - 台帳のチェックは次回以降の実効許可を表す。停止後も10日以内の既存証跡が残る行は「実投稿: 前回あり」とし、チェックオフの状態を「配信中」と矛盾して表示しない。
+
+## 2026-09-17 コックピット／共有ワークスペースの資本政策表と試算表を独立
+
+- 事業計画グループを、更新される`事業計画`、月次・年次の`試算表`、将来計画として更新する`資本政策表`に分離した。会社情報側の過去ラウンド記録は`資金調達履歴`へ改名し、計画と履歴を混在させない。
+- コックピットはAMDメンバー限定、共有ワークスペースは当該PJメンバー限定のまま維持し、共有対象として確定したタブだけを両面へ同じ名前・順序で表示した。
+- `CockpitFinancialProjection.tsx`と`CockpitCapitalPlan.tsx`を追加し、既存の事業計画コンポーネントから内容を分離。仕様は`manual/2-3`、`spec/3-8`、`spec/3-16`と両changelogを同期した。
+- `584e1f59`をmainへ反映。build、navigation・BZM・critical UI検査、deploy wrapperが成功し、production `v3.143.2`で外部Chromeのdesktop/mobile両方から各タブをreadbackした。
