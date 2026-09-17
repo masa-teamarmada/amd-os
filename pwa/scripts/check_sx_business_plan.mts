@@ -38,6 +38,8 @@ const incorporation = SX_CAPITAL_PLAN_DOCUMENT.events.find((event) => event.id =
 assert.ok(incorporation, "設立イベント");
 assert.equal(SX_INCORPORATION_DATE, "2027-04-01", "SX設立は2027年4月1日（2026-09-17 まさ「設立は20270401」）");
 assert.equal(incorporation.date, SX_INCORPORATION_DATE, "資本政策の設立イベントは設立日");
+// 設立月の文言が設立日とずれない（2026-09-17、フェーズ0の出口条件に「2027年2月の会社設立」が残っていた）
+assert.doesNotMatch(JSON.stringify(SX_BUSINESS_PLAN_PHASES), /2027年0?2月|2027-02/, "事業計画の文言に旧い設立月を残さない");
 assert.match(incorporation.note ?? "", /設立前DD完了を必須ゲート/, "会社設立より前にDDを完了する");
 const founderShares = Object.fromEntries(
   incorporation.allocations.map((allocation) => [allocation.holderId, allocation.shares.value]),

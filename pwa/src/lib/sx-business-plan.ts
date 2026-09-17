@@ -75,7 +75,7 @@ export const SX_BUSINESS_PLAN_PHASES: SxBusinessPlanPhase[] = [
       organization: {
         costYen: 5_000_000,
         activities: ["設立前DDの技術・法務・財務・知財論点を完了", "NewCo設立とCEO候補の役割確定", "大学・発明者・SX間の知財境界を整理"],
-        exitGate: "設立前DDを完了し、2027年2月の会社設立へ移れる",
+        exitGate: "設立前DDを完了し、2027年4月1日の会社設立へ移れる",
         xrlKeys: ["hrl"],
       },
       funding: {
