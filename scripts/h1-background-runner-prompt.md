@@ -2,7 +2,7 @@ AMD OS の H-1 Meeting Flow をバックグラウンドで実行する。
 
 このrunは `H1_BACKGROUND_RUNNER=1` の非可視バックグラウンドrunで、Codex Desktopのtaskやthreadを作らない。`CODEX_THREAD_ID` を参照・保存せず、threadの作成、検索、送信、改名、pin、archive、watchdog呼び出しを一切行わない。
 
-作業ディレクトリは `/Users/masa/projects/AMD/amd-os-automation-sessions`、AMD OS repoは `/Users/masa/projects/AMD/amd-os`。最初に `/Users/masa/.codex/automations/amd-os-l6-meeting-flow/memory.md` を読む。
+作業ディレクトリは `/Users/masa/projects/AMD/amd-os-automation-sessions`、AMD OS repoはrunner末尾で指定された実行用repo。最初に `/Users/masa/.codex/automations/amd-os-l6-meeting-flow/memory.md` を読む。
 
 候補gateは固定スクリプトが先に終えている。prompt末尾で渡されるgate JSONだけを読む。`calendar.status` が `connector_required` のときだけ、Google Calendar connectorで now-4h から now+24h を**一度だけ**取得してheld/upcoming候補を補完する。held/recovery/upcomingが0件でも、`candidates.notion_metadata.scan_required=true`ならNotion議事録DBのメタデータ空欄scanを実行してからno-opを判定する。会議候補が0件ならNotion本文、Gmail、Drive、Slack本文は読まない。Calendar候補とNotion空欄候補の両方が0件なら、対象なしのsanitized reportとautomation memoryだけを確定して終了する。**変化がない場合はOS通知を作らない。**
 
@@ -21,6 +21,12 @@ Notionメタデータ空欄scan:
 - `checked` / `prepared` / `applied` / `readback_verified` / `skipped_*` / `failed`を別々に集計する。候補0件は正常no-op。上限超過は次回runへ持ち越し、全件処理と報告しない。
 - scanとreadbackが終わった後、gate JSONの`state_file`へ`version / next_cursor / cycle / last_run_id / last_scanned / last_blank_candidates / reached_eof`だけを一時file→renameで保存する。page ID、title、本文、URL、個人情報はstateへ保存しない。処理失敗時はcursorを進めない。
 
+PWA呼び出しの安全境界:
+- Authorizationにworkflow secretを使う全PWAリクエストへ、必ず `x-amd-automation-run-id: $H1_BACKGROUND_RUN_ID` を付ける。1runのPWA呼び出しは全route合計12回、本文合計2MiBまで。
+- 各PWA操作は1回だけ。network、408、425、429、5xx、`automation_budget_*`、`disabled` のいずれかを受けたら、そのrunの残りのPWA呼び出しを止める。再試行しない。
+- `task-calendar/register-tasks` は `send_slack=false` 固定。Slack、メール、外部参加者への通知・送信は行わない。
+- runner全体は15分上限。上限内に完了できない候補は、処理済みと未処理をsanitized reportへ分けて次回へ持ち越す。
+
 責務境界:
 - H-1は開催済みサマリ、recent none recovery、近傍のnew/変更済みupcoming cardと、独立したNotion議事録メタデータ空欄補完だけを扱う。
 - visible prep thread、会議ごとのclaim、Notion AI Meeting Notes context挿入、えいみBot nudgeは `w-prep-launch` の専任。H-1はprep threadを作らず、DMも送らない。
@@ -32,4 +38,4 @@ Notionメタデータ空欄scan:
 - OS通知を作るのは次だけ: 人の判断が必要 (`review_required`)、必要な処理が止まった (`blocked`)。会議記録・予定カード・ノーションひも付けを新規保存または更新しただけ (`updated`) は、まさの判断や操作が不要なのでOS通知を作らない。既存カードの確認だけ、候補なし、変更なしも同様にOS通知を作らない。`updated` を含むどの結果でも、sanitized reportとautomation memoryへは必ず保存する。通知する時だけ `cd /Users/masa/projects/AMD/amd-os/pwa && npm run notify:h1-report -- --outcome "<review_required|blocked>" --run-key "$H1_BACKGROUND_RUN_ID" --body-file <sanitized_report_file>` を使う。`--outcome updated` を呼んでも `notify_h1_report.mjs` はOS通知を書かず成功終了する（誤った呼び出しでも失敗扱いにしない実装ガード）。
 - `--outcome review_required` と `--outcome blocked` はどちらも `--action-required "<まさが取る具体的な行動>"` `--action-url "<直接開くURL>"` `--completion-condition "<何が起きたら完了か>"` の3つが必須。`--action-label` は任意。3つを埋められない状態はOS通知にせず、reportとautomation memoryへ記録して次回runで再試行する。
 - reportを保存し、OS通知が必要な場合はその成功後に、`/Users/masa/.codex/automations/amd-os-l6-meeting-flow/run_state/background_completed/$H1_BACKGROUND_RUN_ID.json` に `state='reported'` と `reported_at_jst` だけを保存する。これはrunner完了証跡であり、thread idやthread操作は含めない。
-- 正常処理を固定時間で打ち切らない。失敗時は原因をautomation memoryへ残す。
+- 失敗時は原因をautomation memoryへ残す。runnerの15分上限を越えて再試行・探索を続けない。

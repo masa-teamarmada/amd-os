@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { enforceAutomationRouteBudget } from "@/lib/automation-route-budget";
 import { createClient } from "@/lib/supabase/server";
 import {
   buildTaskCalendarSchedulePlans,
@@ -102,6 +103,8 @@ function normalizeExistingEvent(value: unknown): TaskCalendarExistingEvent | nul
 export async function POST(req: NextRequest) {
   const authz = await authorize(req);
   if (!authz.ok) return authz.res;
+  const budgetResponse = await enforceAutomationRouteBudget(req, "task-calendar/schedule-plan");
+  if (budgetResponse) return budgetResponse;
 
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   if (body.dry_run === false || body.execute === true) {

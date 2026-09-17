@@ -11,6 +11,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { enforceAutomationRouteBudget } from "@/lib/automation-route-budget";
 import { WebClient } from "@slack/web-api";
 import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -571,6 +572,8 @@ function extractMeetingCandidates(row: MeetingRow, nextInput: NextMeetingInput):
 export async function POST(req: NextRequest) {
   const authz = await authorize(req);
   if (!authz.ok) return authz.res;
+  const budgetResponse = await enforceAutomationRouteBudget(req, "meeting-workflow/finalize");
+  if (budgetResponse) return budgetResponse;
 
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const meetingId = typeof body.meeting_id === "string" ? body.meeting_id.trim() : "";

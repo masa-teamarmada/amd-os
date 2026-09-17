@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { enforceAutomationRouteBudget } from "@/lib/automation-route-budget";
 import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -452,6 +453,8 @@ async function authorize(req: NextRequest): Promise<{ ok: true; createdBy: strin
 export async function POST(req: NextRequest) {
   const authz = await authorize(req);
   if (!authz.ok) return authz.res;
+  const budgetResponse = await enforceAutomationRouteBudget(req, "meeting-prep/calendar-sync");
+  if (budgetResponse) return budgetResponse;
 
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const rawEvents = Array.isArray(body.events)

@@ -8,6 +8,7 @@
 
 import { WebClient } from "@slack/web-api";
 import { NextRequest, NextResponse } from "next/server";
+import { enforceAutomationRouteBudget } from "@/lib/automation-route-budget";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -74,10 +75,15 @@ async function sendOwnerSlackNudge(slackUserId: string, text: string) {
 export async function POST(req: NextRequest) {
   const authz = await authorize(req);
   if (!authz.ok) return authz.res;
+  const budgetResponse = await enforceAutomationRouteBudget(req, "task-calendar/register-tasks");
+  if (budgetResponse) return budgetResponse;
 
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const dryRun = body.dry_run === true;
   const sendSlack = body.send_slack === true;
+  if (authz.actor === "workflow:h1_meeting_flow" && sendSlack) {
+    return NextResponse.json({ ok: false, error: "automation_notification_disabled" }, { status: 409 });
+  }
   const renotifyExisting = body.renotify_existing === true;
   const sessionId = cleanText(body.agent_session_id, 160);
   const sessionUrl = cleanText(body.agent_session_url, 1000);

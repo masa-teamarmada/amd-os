@@ -2,6 +2,14 @@
 
 > **この章は何か**: MTGサマリだけでなく、予定MTGカード、Drive資料同期、TODO→cockpit、Calendar作業枠、資料draft、Gmail draft まで含む L2H-1 meeting flow の現行仕様。詳細運用は `/manual/8-3-l2-extraction-routines-spec` にも残す。
 
+## H-1の実行予算と停止契約（2026-09-17）
+
+- workflow secretでPWAを呼ぶH-1は、全リクエストに`x-amd-automation-run-id`を付ける。PWAはDBの原子的claimで、route別の日次回数・本文量と、run全体12回・2MiBを同時に検査する。
+- 本文上限はrouteごとに32〜256KiB。上限超過、run id欠損、予算超過、claim不能は処理前に拒否する。予算台帳にはroute、回数、bytesだけを保存し、会議本文や秘密値を保存しない。
+- 同一runnerの多重起動はlockで拒否する。30分を超えたstale lockだけを退避して復旧する。runnerは15分で終了し、連続失敗後は15分→1時間→6時間の指数待機へ入る。
+- network、408、425、429、5xx、disabled、予算拒否を受けたrunは、そのrunの残りのPWA呼び出しを止める。H-1はSlack DM・メール・外部通知を送らない。
+- repo外の緊急停止ファイルは最優先で、通常runを通信前に止める。復旧はDB migration、本番PWA、安全な実行用repo、LaunchAgent、production readbackの順に確認してから行う。
+
 ## 現行 writer
 
 | 項目 | 値 |

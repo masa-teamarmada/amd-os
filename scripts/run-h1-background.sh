@@ -5,7 +5,7 @@ export PATH="/Users/masa/.local/node-current/bin:/opt/homebrew/bin:/usr/local/bi
 export CODEX_HOME="/Users/masa/.codex"
 export H1_BACKGROUND_RUNNER=1
 
-REPO_DIR="/Users/masa/projects/AMD/amd-os"
+REPO_DIR="${AMD_OS_AUTOMATION_REPO_DIR:-/Users/masa/projects/AMD/amd-os}"
 AUTOMATION_DIR="${CODEX_HOME}/automations/amd-os-l6-meeting-flow"
 PROMPT_FILE="${REPO_DIR}/scripts/h1-background-runner-prompt.md"
 LOG_DIR="${AUTOMATION_DIR}/logs"
@@ -13,8 +13,33 @@ DIAGNOSTIC_DIR="${AUTOMATION_DIR}/diagnostics"
 MODE="${1:-}"
 WORK_DIR="${AUTOMATION_DIR}/background-work"
 NOTION_METADATA_STATE_FILE="${AUTOMATION_DIR}/run_state/notion_metadata_scan.json"
+SAFETY_STATE_FILE="${AUTOMATION_DIR}/run_state/runner_safety.json"
+LOCK_DIR="${AUTOMATION_DIR}/run_state/background.lock"
+EMERGENCY_STOP_FILE="${CODEX_HOME}/automations/amd-os-vercel-emergency-stop"
 
 mkdir -p "${LOG_DIR}" "${DIAGNOSTIC_DIR}" "${AUTOMATION_DIR}/runner-output" "${WORK_DIR}"
+
+if [[ "${MODE}" != "--probe" && -f "${EMERGENCY_STOP_FILE}" ]]; then
+  print -- "[$(date '+%F %T %Z')] h1 emergency stop active"
+  exit 75
+fi
+
+if ! mkdir "${LOCK_DIR}" 2>/dev/null; then
+  lock_mtime=$(stat -f %m "${LOCK_DIR}" 2>/dev/null || print 0)
+  now_epoch=$(date +%s)
+  if (( now_epoch - lock_mtime > 1800 )); then
+    mv "${LOCK_DIR}" "${LOCK_DIR}.stale.$(date '+%Y%m%dT%H%M%S')"
+    mkdir "${LOCK_DIR}"
+  else
+    print -- "[$(date '+%F %T %Z')] h1 runner already active"
+    exit 75
+  fi
+fi
+
+if [[ "${MODE}" != "--probe" ]] && ! node "${REPO_DIR}/pwa/scripts/h1_runner_safety.mjs" check "${SAFETY_STATE_FILE}"; then
+  rmdir "${LOCK_DIR}" 2>/dev/null || true
+  exit 75
+fi
 
 if [[ "${MODE}" != "--force" && "${MODE}" != "--probe" ]]; then
   weekday="${H1_NOW_WEEKDAY_JST:-$(TZ=Asia/Tokyo date +%u)}"
@@ -29,7 +54,7 @@ gate_file="${AUTOMATION_DIR}/runner-output/${timestamp}-h1-gate.json"
 completion_marker="${AUTOMATION_DIR}/run_state/background_completed/${timestamp}.json"
 transcript_file=$(mktemp "${TMPDIR:-/tmp}/amd-os-h1-${timestamp}.XXXXXX")
 last_message_file=$(mktemp "${TMPDIR:-/tmp}/amd-os-h1-last-${timestamp}.XXXXXX")
-trap 'rm -f "${transcript_file}" "${last_message_file}"' EXIT
+trap 'rm -f "${transcript_file}" "${last_message_file}"; rmdir "${LOCK_DIR}" 2>/dev/null || true' EXIT
 
 if [[ "${MODE}" == "--probe" ]]; then
   prompt='これは非可視バックグラウンドrunnerの疎通確認。外部サービス、DB、ファイルを変更せず、本文を読まず、BACKGROUNDRUNNER_PROBE_OK だけを返して終了する。'
@@ -51,12 +76,13 @@ else
     exit "${gate_status}"
   fi
   prompt=$(<"${PROMPT_FILE}")
-  prompt="${prompt}\n\n固定候補gateは完了済み。候補一覧と独立したNotionメタデータ空欄scan契約は ${gate_file} にある。Calendarの再取得はcalendar.status=connector_requiredの場合だけ、DB候補の再検索、repo全体検索、即席スクリプト作成は行わず、この一覧とNotion scan契約だけを起点に処理する。"
+  prompt="${prompt}\n\nこのrunで参照するAMD OS repoは ${REPO_DIR}。固定候補gateは完了済み。候補一覧と独立したNotionメタデータ空欄scan契約は ${gate_file} にある。Calendarの再取得はcalendar.status=connector_requiredの場合だけ、DB候補の再検索、repo全体検索、即席スクリプト作成は行わず、この一覧とNotion scan契約だけを起点に処理する。"
 fi
 
 {
   print -- "[$(date '+%F %T %Z')] h1 background runner start mode=${MODE:-scheduled}"
-  if H1_BACKGROUND_RUN_ID="${timestamp}" codex exec --ephemeral -m gpt-5.5 -C "${WORK_DIR}" --skip-git-repo-check -s danger-full-access -o "${last_message_file}" "${prompt}" >"${transcript_file}" 2>&1; then
+  if H1_BACKGROUND_RUN_ID="${timestamp}" node "${REPO_DIR}/pwa/scripts/run_bounded_command.mjs" --timeout-seconds 900 -- codex exec --ephemeral -m gpt-5.5 -C "${WORK_DIR}" --skip-git-repo-check -s danger-full-access -o "${last_message_file}" "${prompt}" >"${transcript_file}" 2>&1; then
+    [[ "${MODE}" == "--probe" ]] || node "${REPO_DIR}/pwa/scripts/h1_runner_safety.mjs" success "${SAFETY_STATE_FILE}"
     print -- "[$(date '+%F %T %Z')] h1 background runner done"
   else
     exit_code=$?
@@ -64,6 +90,7 @@ fi
       print -- "[$(date '+%F %T %Z')] h1 background runner completed before nonzero exit=${exit_code}"
       exit 0
     fi
+    [[ "${MODE}" == "--probe" ]] || node "${REPO_DIR}/pwa/scripts/h1_runner_safety.mjs" failure "${SAFETY_STATE_FILE}"
     # Keep only bounded runner diagnostics. The full transcript is deliberately
     # discarded because connector results can contain meeting content and PII.
     diagnostic_file="${DIAGNOSTIC_DIR}/${timestamp}-runner-failure.txt"

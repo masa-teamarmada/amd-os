@@ -377,6 +377,9 @@ const EXTERNAL_WORKSPACE_TABS = new Set<SxWeeklyControlView>([
   "technology", "competition", "business-model", "business-plan",
   "cost", "cost-fuel", "ip", "capital-policy", "company",
 ]);
+const ZMP_WORKSPACE_TABS = new Set<SxWeeklyControlView>([
+  "issues", "tasks", "gantt", "weekly", "partners", "drive", "company",
+]);
 function viewForHash(hash: string): SxWeeklyControlView | null {
   const normalized = hash.replace(/^#/, "");
   if (!normalized) return null;
@@ -4627,14 +4630,22 @@ export function SxWeeklyControlDashboard({
     };
   }, [workspaceProjectId]);
   const hasFuelCost = (fuelCostLoaded.projectId === workspaceProjectId ? fuelCostLoaded.has : peekFuelCost(workspaceProjectId)) === true;
-  // 事業計画の基本タブは空状態も含めて常設し、燃料試算だけはデータの有無で出し分ける。
-  const workspaceGroups = useMemo(() => PROJECT_WORKSPACE_GROUPS.map((group) => ({ ...group, children: group.children.filter((tab) => (tab.key !== "cost-fuel" || hasFuelCost) && (!externalViewer || EXTERNAL_WORKSPACE_TABS.has(tab.key))).map((tab) => (tab.key === "cost" && hasFuelCost ? { ...tab, label: "コスト試算（廃液）" } : tab)) })).filter((group) => group.children.length > 0), [externalViewer, hasFuelCost]);
+  const isZmpWorkspace = bundle.project.projectId === "p19";
+  // ZMPは現行根拠がそろった面だけを通常導線に出す。旧データや空状態の事業計画群は
+  // 消さずに深いURL互換を保ち、再整備後にこの集合へ戻す。
+  const workspaceGroups = useMemo(() => PROJECT_WORKSPACE_GROUPS.map((group) => ({
+    ...group,
+    children: group.children
+      .filter((tab) => (tab.key !== "cost-fuel" || hasFuelCost)
+        && (!externalViewer || EXTERNAL_WORKSPACE_TABS.has(tab.key))
+        && (!isZmpWorkspace || ZMP_WORKSPACE_TABS.has(tab.key)))
+      .map((tab) => (tab.key === "cost" && hasFuelCost ? { ...tab, label: "コスト試算（廃液）" } : tab)),
+  })).filter((group) => group.children.length > 0), [externalViewer, hasFuelCost, isZmpWorkspace]);
   const dynamicTabs = useMemo(() => workspaceGroups.flatMap((group) => group.children), [workspaceGroups]);
 
-  const isZmpWorkspace = bundle.project.projectId === "p19";
   const externalDefaultView: SxWeeklyControlView = "issues";
   const [internalView, setActiveView] = useState<SxWeeklyControlView>(
-    () => (externalViewer || isZmpWorkspace ? "issues" : "weekly"),
+    () => (externalViewer ? "issues" : isZmpWorkspace ? "tasks" : "weekly"),
   );
   // 埋め込み時は外から渡された view が正。単体ページのときだけ hash / localStorage を見る。
   const activeView = embedded && view ? view : internalView;
@@ -4677,7 +4688,7 @@ export function SxWeeklyControlDashboard({
     }
 
     if (isZmpWorkspace) {
-      setActiveView("issues");
+      setActiveView("tasks");
       return;
     }
 

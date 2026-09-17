@@ -207,9 +207,11 @@ H-1は、終了済みMTGの議事録抽出とは別に、今日0:00 JSTから60�
 
 PJに `drive_folder_id` がある場合、automation側でDrive root直下と会議日/title token に合う1階層サブフォルダを探し、Docs / Slides / Sheets / PDF / Office files の metadata を `drive_files` として渡す。PWA route はDriveを直接読まず、渡された metadata を `narrative_md` の `関連Drive資料` に載せる。Drive資料は補助根拠であり、資料に書かれているだけで当日決定事項とは扱わない。
 
-### H-1 タスク化と担当者 nudge
+### H-1 タスク化（通知なし）
 
-MTGカード / 議事録 / Gmail TODO / Slack TODO から次アクションが出たら、H-1 は `POST /api/task-calendar/register-tasks` で `tasks` に自動登録し、担当者本人へ Slack DM nudge を送る。admin が全件 review する `/admin/calendar-review` は使わない。Calendar 作業枠候補が必要な場合だけ `/api/task-calendar/schedule-plan` の dry-run で `calendar_writes` を作るが、PWA route は Calendar / Gmail / 外部招待を実writeしない。
+MTGカード / 議事録 / Gmail TODO / Slack TODO から次アクションが出たら、H-1 は `POST /api/task-calendar/register-tasks` へ`send_slack=false`で渡して `tasks` に登録する。H-1はSlack DM、メール、外部通知を送らない。Calendar 作業枠候補が必要な場合だけ `/api/task-calendar/schedule-plan` の dry-runで計画を作るが、PWA routeはCalendar / Gmail / 外部招待を実writeしない。
+
+自動化のPWA呼び出しは、1回ごとの識別子、route別の日次上限、1run全体12回・本文2MiB、15分の実行上限、多重起動防止、連続失敗時の指数待機を通る。失敗時に同じrunで再試行を重ねず、残りは次回へ持ち越す。
 
 ### H-1 Notion 文字起こし導線
 

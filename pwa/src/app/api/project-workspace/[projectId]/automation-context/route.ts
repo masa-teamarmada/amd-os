@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { enforceAutomationRouteBudget } from "@/lib/automation-route-budget";
 import { loadSxWorkspaceOperatingContext } from "@/lib/sx-workspace-operating-context-server";
 import { createClient } from "@/lib/supabase/server";
 
@@ -32,6 +33,8 @@ export async function GET(
   if (!(await authorized(request))) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
+  const budgetResponse = await enforceAutomationRouteBudget(request, "project-workspace/automation-context");
+  if (budgetResponse) return budgetResponse;
   const { projectId } = await params;
   if (projectId !== "p21") {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });

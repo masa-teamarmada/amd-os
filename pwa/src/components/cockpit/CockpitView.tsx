@@ -522,10 +522,15 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     if (tab === "business-model") return hasBusinessModel || (hasBusinessModelRaw === undefined && resolvedTab === "business-model");
     return true;
   };
-  const visibleGroups = groups.map((group) => ({
-    ...group,
-    children: group.children.filter(availableTab),
-  })).filter((group) => group.children.length > 0);
+  const visibleGroups = groups
+    // p19 ZMPは、現行根拠が未整備の事業計画群を通常導線から外す。
+    // データとURL互換は残し、最新化の受入後に再表示する。
+    .filter((group) => project.projectId !== "p19" || group.key !== "business-plan-group")
+    .map((group) => ({
+      ...group,
+      children: group.children.filter(availableTab),
+    }))
+    .filter((group) => group.children.length > 0);
   const requestedGroup = cockpitGroupForTab(resolvedTab, isInstitutionProject);
   const activeGroupWithAvailableChildren = visibleGroups.find((group) => group.key === requestedGroup.key) ?? visibleGroups[0];
   // URLが現在のPJでは非表示になるタブを指していても、空画面にせず同じグループの先頭へ落とす。

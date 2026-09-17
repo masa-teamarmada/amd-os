@@ -36,6 +36,8 @@ import type { ActionNode, QuestionNode, QuestionTreeBundle } from "@/lib/questio
  */
 
 type Props = { projectId: string };
+type TaskLane = "now" | "week" | "unassigned" | "later";
+type TaskScope = "focus" | TaskLane | "all";
 
 const ROW_GAP = 8;
 
@@ -127,6 +129,32 @@ function fmtDate(value: string | null): string {
   return value.slice(2).replace(/-/g, "/");
 }
 
+function addDays(value: string, days: number): string {
+  const date = new Date(`${value}T00:00:00+09:00`);
+  date.setDate(date.getDate() + days);
+  return date.toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+}
+
+function taskLane(action: ActionNode, asOf: string): TaskLane {
+  if (action.urgent || action.isOverdue || action.status === "blocked") return "now";
+  if (action.plannedEnd && action.plannedEnd <= addDays(asOf, 7)) return "week";
+  if (action.isUnassigned) return "unassigned";
+  return "later";
+}
+
+function freshnessText(action: ActionNode): string {
+  const source =
+    action.originKind === "meeting"
+      ? "議事録から"
+      : action.originKind === "automation"
+        ? "つくよみから"
+        : action.originKind === "migrated"
+          ? "旧管理表から"
+          : "画面入力";
+  const verified = action.lastVerifiedAt?.slice(5, 10).replace("-", "/");
+  return verified ? `${source}・確認 ${verified}` : source;
+}
+
 /** 並べ替えの位置。まだ位置を持たない行は作成が新しいほど上（OSスイートと同じ）。 */
 function orderKey(action: ActionNode): number {
   return action.sortOrder;
@@ -144,6 +172,7 @@ export function CockpitProjectTasks({ projectId }: Props) {
   const [menuId, setMenuId] = useState<string | null>(null);
   const [editing, setEditing] = useState<ActionNode | null>(null);
   const [detail, setDetail] = useState<ActionNode | null>(null);
+  const [taskScope, setTaskScope] = useState<TaskScope>(() => projectId === "p19" ? "focus" : "all");
 
   // ---- 並べ替え（掴んだ瞬間から指に付いてくる自前ドラッグ） -------------------
   const [dragId, setDragId] = useState<string | null>(null);
@@ -201,8 +230,31 @@ export function CockpitProjectTasks({ projectId }: Props) {
       .sort((a, b) => (b.actualEnd ?? "").localeCompare(a.actualEnd ?? ""));
   }, [bundle]);
 
+  const lanes = useMemo(() => {
+    const grouped: Record<TaskLane, ActionNode[]> = { now: [], week: [], unassigned: [], later: [] };
+    const asOf = bundle?.asOf ?? new Date().toISOString().slice(0, 10);
+    for (const action of liveOpen) grouped[taskLane(action, asOf)].push(action);
+    return grouped;
+  }, [bundle?.asOf, liveOpen]);
+
+  const visibleSections = useMemo(() => {
+    const definitions: Array<{ key: TaskLane; title: string; note: string }> = [
+      { key: "now", title: "いま動かす", note: "期限超過・停止・緊急" },
+      { key: "week", title: "7日以内", note: "今週から来週の期限" },
+      { key: "unassigned", title: "割り当てる", note: "担当または期限が未設定" },
+      { key: "later", title: "その先", note: "期限まで8日以上・期限なし" },
+    ];
+    if (taskScope === "all") {
+      return [{ key: "later" as const, title: "すべて", note: "手動の並び順", actions: liveOpen }];
+    }
+    const keys: TaskLane[] = taskScope === "focus" ? ["now", "week", "unassigned"] : [taskScope];
+    return definitions
+      .filter((item) => keys.includes(item.key))
+      .map((item) => ({ ...item, actions: lanes[item.key] }));
+  }, [lanes, liveOpen, taskScope]);
+
   // ドラッグ中は掴んだ瞬間の並びのまま描く。
-  const open = dragId ? frozenRef.current : liveOpen;
+  const open = dragId ? frozenRef.current : taskScope === "all" ? liveOpen : [];
   const canManage = bundle?.canManage ?? false;
 
   const patch = useCallback(
@@ -463,6 +515,7 @@ export function CockpitProjectTasks({ projectId }: Props) {
                     {fmtDate(action.plannedEnd)}
                   </span>
                 )}
+            <span title={originText(action)}>{freshnessText(action)}</span>
           </div>
         </div>
 
@@ -471,7 +524,7 @@ export function CockpitProjectTasks({ projectId }: Props) {
             <button
               type="button"
               aria-label={`${action.title} の操作`}
-              className="h-[26px] w-[30px] text-[15px] font-bold text-[#86868b] hover:text-[#1d1d1f]"
+              className="-my-2 grid h-11 w-11 place-items-center text-[15px] font-bold text-[#86868b] hover:text-[#1d1d1f] focus-visible:rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#027fdc]"
               onClick={() => setMenuId(menuId === action.id ? null : action.id)}
             >
               …
@@ -570,10 +623,42 @@ export function CockpitProjectTasks({ projectId }: Props) {
   }
 
   return (
-    <section className="mx-auto flex w-full max-w-[860px] flex-col gap-4">
-      <div className="flex items-baseline gap-3">
-        <h2 className="text-[19px] font-bold text-[#1d1d1f]">タスク</h2>
-        <span className="text-[12px] font-medium text-[#86868b]">未完了 {liveOpen.length}</span>
+    <section className="mx-auto flex w-full max-w-[1040px] flex-col gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <div className="flex items-baseline gap-3">
+            <h2 className="text-[19px] font-bold text-[#1d1d1f]">タスク</h2>
+            <span className="text-[12px] font-medium text-[#86868b]">未完了 {liveOpen.length}</span>
+          </div>
+          <p className="mt-1 text-[11px] text-[#6e6e73]">更新基準 {bundle.asOf.replace(/-/g, "/")}・今日動かす順に整理</p>
+        </div>
+        <button
+          type="button"
+          className="min-h-11 rounded-lg border border-[#d2d2d7] bg-white px-3 text-[12px] font-bold text-[#3c3c43] hover:border-[#7cbceb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#027fdc]"
+          onClick={() => setTaskScope(taskScope === "all" ? "focus" : "all")}
+        >
+          {taskScope === "all" ? "優先順へ戻る" : `すべて見る ${liveOpen.length}`}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="タスクの優先区分">
+        {([
+          ["now", "いま動かす", lanes.now.length, "border-[#f59e0b] bg-[#fffbeb] text-[#92400e]"],
+          ["week", "7日以内", lanes.week.length, "border-[#93c5fd] bg-[#eff6ff] text-[#1d4ed8]"],
+          ["unassigned", "未設定", lanes.unassigned.length, "border-[#d8b4fe] bg-[#faf5ff] text-[#7e22ce]"],
+          ["later", "その先", lanes.later.length, "border-[#d2d2d7] bg-white text-[#515154]"],
+        ] as const).map(([key, label, count, tone]) => (
+          <button
+            key={key}
+            type="button"
+            aria-pressed={taskScope === key}
+            className={`min-h-11 rounded-xl border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#027fdc] ${tone} ${taskScope === key ? "ring-2 ring-current ring-offset-1" : ""}`}
+            onClick={() => setTaskScope(taskScope === key ? "focus" : key)}
+          >
+            <span className="block text-[11px] font-bold">{label}</span>
+            <span className="mt-0.5 block text-[18px] font-bold leading-none">{count}</span>
+          </button>
+        ))}
       </div>
 
       {canManage && (
@@ -661,25 +746,32 @@ export function CockpitProjectTasks({ projectId }: Props) {
         </section>
       )}
 
-      <div className="relative flex flex-col" style={{ gap: ROW_GAP }}>
-        {open.length === 0 ? (
-          <p className="py-3 text-[12px] text-[#86868b]">未完了はありません</p>
-        ) : (
-          open.map((action, index) => card(action, index, true))
-        )}
-        {/* 入る場所。レイアウトに影響させないよう重ねて描く */}
-        {dragId && dragSlot !== null && (
-          <span
-            className="pointer-events-none absolute left-0 right-0 z-20 h-[3px] rounded-full bg-[#027fdc]"
-            style={{
-              top:
-                dragSlot >= open.length
-                  ? slotY(open.length, open) - ROW_GAP
-                  : slotY(dragSlot, open) - ROW_GAP / 2,
-            }}
-          />
-        )}
-      </div>
+      {visibleSections.map((section) => (
+        <section key={`${taskScope}-${section.key}`} className="flex flex-col gap-2" aria-label={section.title}>
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <h3 className="text-[14px] font-bold text-[#1d1d1f]">{section.title}</h3>
+            <span className="text-[11px] text-[#86868b]">{section.actions.length}件</span>
+            <span className="text-[10px] text-[#86868b]">{section.note}</span>
+          </div>
+          <div className="relative flex flex-col" style={{ gap: ROW_GAP }}>
+            {section.actions.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-[#d2d2d7] bg-[#fafafa] px-3 py-4 text-[12px] text-[#86868b]">該当するタスクはありません</p>
+            ) : (
+              section.actions.map((action, index) => card(action, index, taskScope === "all"))
+            )}
+            {taskScope === "all" && dragId && dragSlot !== null && (
+              <span
+                className="pointer-events-none absolute left-0 right-0 z-20 h-[3px] rounded-full bg-[#027fdc]"
+                style={{
+                  top: dragSlot >= open.length
+                    ? slotY(open.length, open) - ROW_GAP
+                    : slotY(dragSlot, open) - ROW_GAP / 2,
+                }}
+              />
+            )}
+          </div>
+        </section>
+      ))}
 
       {done.length > 0 && (
         <div className="flex flex-col gap-2">

@@ -15,6 +15,7 @@
 
 import { google } from "googleapis";
 import { NextRequest, NextResponse } from "next/server";
+import { enforceAutomationRouteBudget } from "@/lib/automation-route-budget";
 import { getGoogleAuthAsync } from "@/lib/sources/google";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -129,6 +130,8 @@ async function listFolderFiles(folderId: string): Promise<AdoptCandidate[]> {
 export async function POST(req: NextRequest) {
   const authz = await authorize(req);
   if (!authz.ok) return authz.res;
+  const budgetResponse = await enforceAutomationRouteBudget(req, "meeting-assets/adopt-drive-folder");
+  if (budgetResponse) return budgetResponse;
 
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const meetingId = text(body.meeting_id, 300);

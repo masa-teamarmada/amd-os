@@ -35,7 +35,7 @@ H-1は「毎時すべての知識を読み直す」仕事ではない。開始�
 - **H-1 reviewer hook**: 開催済みMTGを保存した後、別automation `amd-os-l6-meeting-reviewer` を走らせる。raw Notion/Gmail/Drive/Slack/Calendar と保存済みH-1要約を比べ、CEO/代表/VC/地元勢/PoC/PRなど重大な経営判断が薄く丸まった疑いがあれば `l2_coverage_gaps` + `l2_notifications(l2_kind='coverage_gap')` に出す。reviewer は H-1 row を自動上書きしない。
 - **直近予定カード**: H-1 は毎時動くため、毎回60日先まで見ない。終了済みMTGの議事録抽出と、現在時刻の前後24時間にあるnew/変更済みの確定Calendar予定カードだけを扱う。future cardの広い照合・visible prep thread起動・prep ready判定は W-Prep の責務であり、H-1は実行しない。
 - **MTGカード→Calendar一次防御**: MTGカード/議事録側に日時・場所・対面/オンライン・持参物・返信/宿題があるのに Calendar event が無い/薄いケースは、`POST /api/meeting-calendar/upsert-plan` の dry-run で upsert payload と duplicate match を作る。PWA route は Calendar を書かない。実writeに進む場合は別途 reviewed write bundle が必要。payload は `sendUpdates=none`、外部 attendees は空、metadata は `extendedProperties.private` に寄せる。
-- **TODO→tasks + owner nudge**: MTGから生まれた担当タスク / OS task / Gmail TODO / Slack TODO は、まず `POST /api/task-calendar/register-tasks` で `tasks` に自動登録し、担当者本人だけへ Slack DM nudge する。admin review queue は作らない。作業枠が必要な場合だけ `POST /api/task-calendar/schedule-plan` の dry-run で、担当メンバー + まさ の共通空き枠に `+<PJコード> <task>` 枠を作る候補にする。PWA route は Calendar を書かない。外部招待/メール送信はしない。
+- **TODO→tasks（通知なし）**: MTGから生まれた担当タスク / OS task / Gmail TODO / Slack TODO は、`POST /api/task-calendar/register-tasks` へ `send_slack=false` を渡して `tasks` に登録する。H-1はSlack DM、メール、外部通知を送らない。作業枠が必要な場合だけ `POST /api/task-calendar/schedule-plan` の dry-runで候補にする。PWA route はCalendarを書かない。
 - **次MTGカードの境界**: 議事録内に日時まで明確な次MTGがある場合だけ、PWA `POST /api/meeting-workflow/finalize` 経由で `source_kinds='upcoming'` を作る。`6月3週目以降` のような日程未確定候補は自動で確定予定にしない。必要なものは `upcoming_tentative` として「日程調整中MTG」に残す。
 - **Notion 議事録メタデータは MMO 側で埋める**: Calendar event から Notion 議事録ページを見つけたら、MMO automation は可能な範囲で Notion page の `eventId` / 相当プロパティに Calendar event id を追記し、空の `PJ` relation と member relation (`NOTION_MINUTES_MEMBER_PROP`。現行DBでは `メンバー` / `参加メンバー` 相当) も補完する。これは次回以降の冪等性、PJ別抽出、参加者文脈のためで、PWA/GAS 側ではなく L6 writer 側の責務。
 - **Notion relation 補完は空欄/追加だけ**: 既存の `PJ` relation を別PJへ上書きしない。参加メンバー relation は既存値を消さず、Calendar attendees / organizer と AMD members を高信頼に照合できた member だけ union 追加する。PJ不一致、候補複数、Notion member page 未解決、外部参加者だけの場合は patch せず `review_required` / `notion_relation_backfill_skipped_*` に残す。
@@ -68,7 +68,14 @@ H-1 は毎時起動する。sanitized reportとautomation memoryは毎回残す�
 - 通知の `kind` は `h1_report`、`source` は `h1_meeting_flow`、`link` は `/notifications`。raw議事録本文、Notion本文、個人情報、secret、Drive URL、Calendar URL、会議参加URLを本文に含めると helper が失敗するので、必ず報告文を作ってから渡す。
 - OS通知が必要な結果で送信に失敗した場合は成功扱いにしない。失敗理由を最終報告とautomation memoryに残す。対象なし・変更なしで通知しないことは失敗ではない。
 
-Codex 側の日次集約は H-1本体から分離し、**毎時45分の H-1 reviewer だけが担当する**。毎時runの並行実行は仕様として維持し、前runを待つ・実行ロックを取る・別runを理由にskipすることは禁止する。
+Codex 側の日次集約は H-1本体から分離し、**毎時45分の H-1 reviewer だけが担当する**。同じrunnerの多重起動は禁止し、30分未満の既存lockがあるrunは通信せず終了する。30分超のlockは退避して復旧する。本体とreviewerは別lockなので互いを止めない。
+
+## PWA呼び出し予算（2026-09-17）
+
+- workflow secretを使う全PWAリクエストへ `x-amd-automation-run-id: $H1_BACKGROUND_RUN_ID` を付ける。ヘッダーが無い自動化リクエストはPWAが拒否する。
+- 1runの全route合計は12回・本文2MiBまで。route別の日次回数・本文量もPWAがDBで原子的に制限する。
+- 1操作1回。network、408、425、429、5xx、`automation_budget_*`、`disabled` を受けたら、そのrunの残りのPWA呼び出しを止め、runnerの指数待機へ委ねる。
+- runner全体は15分上限。時間内に終わらない候補は未処理として次回へ持ち越す。
 
 `H1_BACKGROUND_RUNNER=1` の場合は、Codex Desktop の可視taskを作らないバックグラウンドrunである。この場合は `CODEX_THREAD_ID` を前提にせず、threadの作成・検索・送信・改名・pin・archiveを一切行わない。sanitized reportとautomation memoryを確定し、上の条件に当てはまる時だけOS通知を作る。reportを保存し、通知が必要ならその成功後に `H1_BACKGROUND_RUN_ID` を使い、`/Users/masa/.codex/automations/amd-os-l6-meeting-flow/run_state/background_completed/$H1_BACKGROUND_RUN_ID.json` に `state='reported'` と `reported_at_jst` だけを保存する。これはthread markerではなくrunner完了証跡であり、watchdogは呼ばない。
 
@@ -220,6 +227,7 @@ Phase A: Calendar events 取得 → filter → PJ 判定 (= GAS 153 移植)
    ```bash
    curl -s -X POST "$APP_BASE_URL/api/meeting-prep/calendar-sync" \
      -H "Authorization: Bearer $WORKFLOW_SECRET" \
+     -H "x-amd-automation-run-id: $H1_BACKGROUND_RUN_ID" \
      -H "Content-Type: application/json" \
      --data '{"events":[{"calendar_event_id":"<event.id>","recurring_event_id":"<event.recurringEventId if any>","title":"<event.summary>","start":"<event.start>","end":"<event.end>","url":"<event.url>","description":"<event.description>","location":"<event.location>","drive_files":[{"title":"<file.title>","url":"<file.url>","mime_type":"<file.mime_type>","modified_time":"<file.modified_time>","snippet":"<short snippet>"}]}]}'
    ```
@@ -726,6 +734,7 @@ D-1 で開催済み row を保存したら、**同じ run で必ず**この rout
 ```bash
 curl -s -X POST "$APP_BASE_URL/api/meeting-assets/adopt-drive-folder" \
   -H "Authorization: Bearer $WORKFLOW_SECRET" \
+  -H "x-amd-automation-run-id: $H1_BACKGROUND_RUN_ID" \
   -H "Content-Type: application/json" \
   --data '{"meeting_id":"<event.id>","dry_run":false}'
 ```
@@ -772,6 +781,7 @@ curl -s -X POST "$SUPABASE_URL/rest/v1/meeting_notifications?on_conflict=meeting
 ```bash
 curl -s -X POST "$APP_BASE_URL/api/meeting-workflow/finalize" \
   -H "Authorization: Bearer $WORKFLOW_SECRET" \
+  -H "x-amd-automation-run-id: $H1_BACKGROUND_RUN_ID" \
   -H "Content-Type: application/json" \
   --data '{"meeting_id":"<event.id>"}'
 ```
