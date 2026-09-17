@@ -82,12 +82,12 @@ Media Mentions は D-11 として runner 未実装。Finance Ops Evidence / free
 
 SKILL 正本は `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 群) / `amd-os-l2-monthend-evidence/SKILL.md` (M 群) / `amd-os-l2-weekly-vc-funding-signals/SKILL.md` (W 群) と、各 L2 の個別 `amd-os-l<N>-*/SKILL.md` (= 束ね SKILL が参照する詳細手順)。L2 の品質改善は、PWA route / GAS function ではなく SKILL と outbox/applier contract を更新する。
 
-## CTB / SE 週次 Slack レポートの停止ゲート
+## PJ別週次 Slack レポートの停止ゲート
 
-CTB (`p06`) と SE (`p10`) へのつくよみ週次レポートは、外部送信とは独立した設定ゲートを持つ。正本は `settings` の `weekly_slack_report.ctb.enabled` / `weekly_slack_report.se.enabled` とし、admin 専用の `/admin/settings` と `PATCH /api/admin/weekly-slack-reports` だけが更新する。
+週次 Slack レポートの可否は例外的な全体設定ではなく、すべてのPJに共通する `settings.weekly_slack_report.{project_id}.enabled` で管理する。adminは `/admin/projects` のPJ台帳で、各PJの `Slack CH` と並べて更新する。PJ行を固定で列挙せず、新規PJを含め設定が無い場合は `false`（停止）。
 
-- 既定と設定欠落は `false`（停止）。停止時は本文の生成も Slack 投稿も行わない。
-- 将来送信処理を再導入する場合は、レポート生成と Slack 投稿の直前にこの設定を readback し、`true` 以外なら外部送信しない。
+- 停止時は本文の生成も Slack 投稿も行わない。送信を許可できるのは、`projects.slack_channel_id` があり、`slack_channel_not_required=false` のPJだけ。
+- 将来送信処理を再導入する場合は、レポート生成と Slack 投稿の直前にPJ行・設定キー・宛先チャンネルをreadbackし、設定値が `true` 以外なら外部送信しない。
 - `true` は送信を許可するだけで、停止している旧 sender や scheduler を起動しない。送信処理の新設・再開は、対象・頻度・送信先・rollback を別途確認する。
 
 ## Control layer: 採否通知と先手TODO

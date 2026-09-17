@@ -99,22 +99,15 @@ function expectNoCasualUiLanguage() {
 
 expectNoCasualUiLanguage();
 
-expectIncludes("src/app/(app)/admin/settings/page.tsx", [
-  "WeeklySlackReportSettingsClient",
-  "weeklySlackReportStatuses",
+expectIncludes("src/components/admin/AdminProjectsTable.tsx", [
+  "weekly_slack_report_enabled",
+  "週次レポート",
+  "チャンネル未設定",
+  "saveWeeklySlackReportEnabled",
 ]);
-expectIncludes("src/components/admin/WeeklySlackReportSettingsClient.tsx", [
-  "週次 Slack レポート",
-  "CTB と SE",
-  'role="switch"',
-  "レポートを生成・送信しない",
-  "/api/admin/weekly-slack-reports",
-]);
-expectIncludes("src/app/api/admin/weekly-slack-reports/route.ts", [
-  "requireAdmin",
-  'weeklySlackReportSettingKey("ctb")',
-  'weeklySlackReportSettingKey("se")',
-  "typeof payload.enabled !== \"boolean\"",
+expectIncludes("src/app/api/admin/projects/[id]/weekly-slack-report/route.ts", [
+  "enabled must be boolean",
+  "Slack channel is required before enabling weekly Slack report",
 ]);
 
 expectIncludes("src/app/(app)/dashboard/page.tsx", [

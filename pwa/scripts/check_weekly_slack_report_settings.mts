@@ -1,23 +1,35 @@
 import assert from "node:assert/strict";
 import {
-  isWeeklySlackReportProjectId,
+  canDeliverWeeklySlackReport,
+  weeklySlackReportEnabled,
   weeklySlackReportSettingKey,
-  weeklySlackReportStatuses,
-} from "../src/lib/weekly-slack-report-settings.ts";
+} from "../src/lib/weekly-slack-report.ts";
 
-assert.equal(isWeeklySlackReportProjectId("ctb"), true);
-assert.equal(isWeeklySlackReportProjectId("se"), true);
-assert.equal(isWeeklySlackReportProjectId("p06"), false);
-assert.equal(weeklySlackReportSettingKey("ctb"), "weekly_slack_report.ctb.enabled");
+assert.equal(weeklySlackReportSettingKey("p42"), "weekly_slack_report.p42.enabled");
+assert.equal(weeklySlackReportEnabled("p42", []), false);
+assert.equal(weeklySlackReportEnabled("p42", [
+  { key: "weekly_slack_report.p42.enabled", value: "true" },
+]), true);
 
-const defaults = weeklySlackReportStatuses([]);
-assert.deepEqual(defaults.map((report) => [report.id, report.enabled]), [["ctb", false], ["se", false]]);
+const project = {
+  project_id: "p42",
+  slack_channel_id: "C123",
+  slack_channel_not_required: false,
+};
 
-const configured = weeklySlackReportStatuses([
-  { key: "weekly_slack_report.ctb.enabled", value: "true", updated_at: "2026-09-17T00:00:00.000Z" },
-  { key: "weekly_slack_report.se.enabled", value: "TRUE" },
-]);
-assert.equal(configured[0].enabled, true);
-assert.equal(configured[1].enabled, false);
+assert.equal(canDeliverWeeklySlackReport(project, false), false);
+assert.equal(canDeliverWeeklySlackReport(project, true), true);
 
-console.log("weekly Slack report settings: ok");
+assert.equal(canDeliverWeeklySlackReport({
+  project_id: "p42",
+  slack_channel_id: null,
+  slack_channel_not_required: false,
+}, true), false);
+
+assert.equal(canDeliverWeeklySlackReport({
+  project_id: "p42",
+  slack_channel_id: "C123",
+  slack_channel_not_required: true,
+}, true), false);
+
+console.log("weekly Slack report gate: ok");

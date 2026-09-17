@@ -1,6 +1,6 @@
 # 附則（設計書変更履歴）
 
-| 2026-09-17 JST | 5-3 automation責務 / admin settings | 追加 | build v3.142.1。CTB (`p06`) と SE (`p10`) のつくよみ週次 Slack レポートに、`settings` のPJ別 allow gate と admin専用切替を追加。設定欠落も停止とし、`true` は旧senderを勝手に起動せず送信を許可するだけにした | 外部投稿の停止と再開を、実行系の状態と混同せず管理者が読める正本へ分離するため | まさ・えいみ |
+| 2026-09-17 JST | 5-3 automation責務 / PJ台帳 | 修正 | build v3.142.2。週次 Slack レポートの配信許可を固定PJキーから `settings.weekly_slack_report.{project_id}.enabled` へ移動し、`/admin/projects` の全PJ行に表示。新規PJは設定なし＝停止で始め、Slackチャンネルが無いPJは許可できない。`true` は旧senderを勝手に起動せず送信を許可するだけにした | PJの固定列挙をなくし、PJ台帳と外部送信の宛先設定を同じ管理面へ揃えるため | まさ・えいみ |
 
 ### 2026-09-17 — ZMP実行面とH-1安全復旧
 

@@ -7,6 +7,7 @@ import { FreeePartnerPicker } from "./FreeePartnerPicker";
 import { LaneBadges, LaneEditor } from "@/components/lanes/LaneBadges";
 import type { LaneWeight } from "@/lib/aspi-lanes";
 import { DEFAULT_PAYMENT_DUE_RULE, PAYMENT_DUE_RULE_OPTIONS, paymentDueRuleLabel } from "@/lib/payment-rules";
+import { canDeliverWeeklySlackReport } from "@/lib/weekly-slack-report";
 
 // 2026-05-11: browser auth client 直接 supabase.from("projects").update は
 // RLS で UPDATE が anon / authenticated を弾く回帰が再発したため、
@@ -25,6 +26,8 @@ export interface ProjectRow {
   slack_channel_id: string | null;
   /** trueならSlackを使わない意図的な未設定。 */
   slack_channel_not_required: boolean;
+  /** PJ単位の週次Slackレポートの配信許可。新規PJを含め既定は停止。 */
+  weekly_slack_report_enabled: boolean;
   /** 資料保存先。抽出rootとは別管理する。 */
   drive_folder_id: string | null;
   /** 追加の読み取り専用Drive生データ抽出root。 */
@@ -549,6 +552,31 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
     setSaving(null);
   };
 
+  const saveWeeklySlackReportEnabled = async (p: ProjectRow, checked: boolean) => {
+    if (checked && (!p.slack_channel_id || p.slack_channel_not_required)) {
+      setHint(`${p.project_name} はSlackチャンネルを設定してから配信を許可できます`);
+      return;
+    }
+    setSaving(p.id);
+    try {
+      const response = await fetch(`/api/admin/projects/${p.id}/weekly-slack-report`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: checked }),
+      });
+      const body = await response.json().catch(() => ({})) as { ok?: boolean; enabled?: boolean; error?: string };
+      if (!response.ok || !body.ok || typeof body.enabled !== "boolean") {
+        throw new Error(body.error || "保存できませんでした");
+      }
+      setProjects((prev) => prev.map((x) => x.id === p.id ? { ...x, weekly_slack_report_enabled: body.enabled! } : x));
+      setHint(`${p.project_name} の週次Slackレポートを${body.enabled ? "配信許可" : "停止"}にしました`);
+      setTimeout(() => setHint(""), 2500);
+    } catch (error) {
+      setHint(`週次レポート設定 保存エラー: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    setSaving(null);
+  };
+
   const saveCell = async (p: ProjectRow, field: string) => {
     setSaving(p.id);
     // field ごとに patch を組む。null/empty 扱いを丁寧に。
@@ -765,6 +793,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
               <th className="text-left px-3 py-2 font-medium w-52">ニュースサーチクエリ</th>
               <th className="text-left px-3 py-2 font-medium w-36">freee取引先</th>
               <th className="text-left px-3 py-2 font-medium w-32">Slack CH</th>
+              <th className="text-left px-3 py-2 font-medium w-32" title="週次Slackレポートの配信許可。チャンネル未設定のPJは配信できません。">週次レポート</th>
               <th className="text-left px-3 py-2 font-medium w-40" title="会議資料・提出物の保存先。生データ抽出元とは別管理。">Drive保存先</th>
               <th className="text-left px-3 py-2 font-medium w-52" title="追加の読み取り専用Drive生データ抽出root。カンマまたは改行で複数登録。">Drive生データ抽出元</th>
             </tr>
@@ -1546,6 +1575,32 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                         </label>
                       </div>
                     )}
+                  </td>
+
+                  {/* weekly_slack_report_enabled */}
+                  <td className="px-3 py-2">
+                    {(() => {
+                      const canDeliver = canDeliverWeeklySlackReport(p, p.weekly_slack_report_enabled);
+                      const canConfigure = Boolean(p.slack_channel_id) && !p.slack_channel_not_required;
+                      return (
+                        <div className="space-y-1">
+                          <span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold ${canDeliver ? "bg-emerald-100 text-emerald-800" : "bg-muted text-muted-foreground"}`}>
+                            {canDeliver ? "配信許可" : "停止中"}
+                          </span>
+                          <label className="flex w-fit items-center gap-1 text-[10px] text-muted-foreground">
+                            <input
+                              type="checkbox"
+                              checked={p.weekly_slack_report_enabled}
+                              disabled={saving === p.id || !canConfigure}
+                              onChange={(e) => saveWeeklySlackReportEnabled(p, e.target.checked)}
+                              className="h-3 w-3 rounded border-border"
+                            />
+                            配信する
+                          </label>
+                          {!canConfigure ? <p className="text-[9px] leading-tight text-muted-foreground">チャンネル未設定</p> : null}
+                        </div>
+                      );
+                    })()}
                   </td>
 
                   {/* drive_folder_id */}

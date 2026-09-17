@@ -4,6 +4,7 @@ export const metadata: Metadata = { title: { absolute: "Admin PJ - AMD OS" } };
 import { createClient } from "@/lib/supabase/server";
 import { AdminProjectsTable, type ProjectRow } from "@/components/admin/AdminProjectsTable";
 import type { LaneWeight } from "@/lib/aspi-lanes";
+import { weeklySlackReportEnabled } from "@/lib/weekly-slack-report";
 
 export default async function AdminProjectsPage() {
   const supabase = await createClient();
@@ -12,6 +13,11 @@ export default async function AdminProjectsPage() {
     .select("*")
     .order("status")
     .order("project_name");
+
+  const { data: weeklySlackReportSettings } = await supabase
+    .from("settings")
+    .select("key,value")
+    .like("key", "weekly_slack_report.%.enabled");
 
   // ASPI 8 domain lanes (project_ventures.lanes) を別 query で取って Map で merge。
   // SU 化されてない PJ (project_ventures に行がない) は has_venture_row=false。
@@ -80,6 +86,7 @@ export default async function AdminProjectsPage() {
 	      project_category: p.project_category ?? "dtsu",
 	      slack_channel_id: p.slack_channel_id ?? null,
       slack_channel_not_required: !!p.slack_channel_not_required,
+      weekly_slack_report_enabled: weeklySlackReportEnabled(p.project_id, weeklySlackReportSettings ?? []),
       drive_folder_id: p.drive_folder_id ?? null,
       drive_source_folder_ids: Array.isArray(p.drive_source_folder_ids) ? p.drive_source_folder_ids : [],
       freee_partner_id: p.freee_partner_id ?? null,
@@ -124,7 +131,7 @@ export default async function AdminProjectsPage() {
         <span className="text-sm text-muted-foreground">DB_Projects — {projects.length} 件</span>
       </div>
       <p className="text-xs text-muted-foreground mb-3">
-        PJ情報の一覧。編集ボタンで請求先・Slack・Drive・メール・PL/PM/クローザー・ステータス・支払期日等を変更できます。
+        PJ情報の一覧。請求先・Slack・週次レポート配信・Drive・メール・PL/PM/クローザー・ステータス・支払期日等を変更できます。
       </p>
       <AdminProjectsTable projects={projects} />
     </div>

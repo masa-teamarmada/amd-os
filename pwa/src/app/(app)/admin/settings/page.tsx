@@ -3,8 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { AdminSettingsClient } from "@/components/admin/AdminSettingsClient";
 import { OperationsSettingsClient } from "@/components/settings/OperationsSettingsClient";
 import { cronOperations, l2Datasets, rawDataSources } from "@/lib/operations-catalog";
-import { WeeklySlackReportSettingsClient } from "@/components/admin/WeeklySlackReportSettingsClient";
-import { weeklySlackReportStatuses } from "@/lib/weekly-slack-report-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -34,9 +32,6 @@ export default async function AdminSettingsPage() {
         <div className="flex items-baseline gap-3 mb-4">
           <h1 className="text-lg font-semibold">Operations Settings</h1>
           <span className="text-sm text-muted-foreground">Raw / L2 / Cron Control</span>
-        </div>
-        <div className="mb-5">
-          <WeeklySlackReportSettingsClient initialReports={weeklySlackReportStatuses(data ?? [])} />
         </div>
         <OperationsSettingsClient
           rawDataSources={rawDataSources}

@@ -9,21 +9,18 @@ URL: `/admin/settings`
 | ブロック | 内容 |
 |---|---|
 | Operations Settings | Raw Data、L2 Data、Cron Control |
-| 週次 Slack レポート | CTB / SE へのつくよみ週次レポートをPJ単位で配信・停止 |
 | DB Settings | `settings` table の key/value |
 
 admin 以外は `notFound()` で見えない。
 
-## CTB / SE 週次 Slack レポート
+## PJごとの週次 Slack レポート
 
-CTB と SE へのつくよみ週次レポートは、`/admin/settings` の「週次 Slack レポート」でPJごとに切り替える。`停止中`はレポートを生成・送信しない状態で、設定行が無い場合も安全側に倒して停止として扱う。
+週次 Slack レポートの配信可否は、`/admin/projects` のPJ台帳で管理する。`Slack CH` の右にある「週次レポート」列がすべてのPJに表示されるため、新規PJも追加時から設定対象になる。
 
-| PJ | 設定 key | 停止時 | 配信中の意味 |
-|---|---|---|---|
-| CTB (`p06`) | `weekly_slack_report.ctb.enabled` | `false`。生成・送信しない | 週次送信の対象として許可する |
-| SE (`p10`) | `weekly_slack_report.se.enabled` | `false`。生成・送信しない | 週次送信の対象として許可する |
-
-設定の読取り・書込みは admin 専用の `/api/admin/weekly-slack-reports` に限定する。再開する送信処理は、レポート生成と Slack 投稿の直前にこの設定を読み、`true` 以外なら外部送信しない。切替は送信を許可・停止するためのものなので、停止している旧送信処理を勝手に起動しない。
+- 正本は `settings.weekly_slack_report.{project_id}.enabled`。PJ行を固定で列挙せず、新規PJを含め、設定行が無い場合は `false`（停止）。
+- Slackチャンネルが設定済みのPJだけ、「配信する」を選べる。`チャンネルなし`またはチャンネル未設定のPJは配信許可にできない。
+- 保存はadmin専用のPJ台帳更新経路を通す。停止時はレポートを生成・送信しない。
+- 将来の送信処理は、本文生成とSlack投稿の直前に同じPJ列と宛先チャンネルを読み直す。`true` は送信を許可するだけで、停止している送信処理を勝手に起動しない。
 
 ## Raw Data
 
