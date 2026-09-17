@@ -2240,13 +2240,13 @@ expectIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   "formatBzm22RegisteredValue",
   'data-testid="bzm22-registered-value"',
 ]);
-// イベントと月次試算表 / 年度別の事業・資金推移は 2026-08-21 に事業計画タブへ移設した。
+// イベントと月次試算表 / 年度別の事業・資金推移は、試算表の独立タブへ置く。
 expectIncludes("src/components/cockpit/Bzm22TimeLedgerSection.tsx", [
   "Bzm22TimeLedger",
   "loadBzm22Pilot",
   'data-testid="bzm22-time-ledger-section"',
 ]);
-expectIncludes("src/components/cockpit/CockpitBusinessPlan.tsx", [
+expectIncludes("src/components/cockpit/CockpitFinancialProjection.tsx", [
   "Bzm22TimeLedgerSection",
   "CockpitPlMonthlySection",
   "showTimeLedger",
@@ -2265,7 +2265,7 @@ expectIncludes("src/components/cockpit/pl-monthly-client.ts", [
   "invalidatePlMonthlyCache",
 ]);
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
-  "showTimeLedger={hasScoreDetailTab}",
+  '<CockpitFinancialProjection projectId={project.projectId} showSxDetail={hasSxBusinessPlanDetail} showTimeLedger={hasScoreDetailTab}',
 ]);
 expectNotIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   "BZM 2.2 暫定主表示",
@@ -3302,7 +3302,7 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   '<CockpitTechnology projectId={project.projectId} mode="competition" />',
 ]);
 expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
-  '{ key: "technology", label: "技術" }, { key: "competition", label: "競合比較" }, { key: "business-model", label: "ビジネスモデル" }, { key: "business-plan", label: "事業計画" }, { key: "cost", label: "コスト試算" }',
+  '{ key: "technology", label: "技術" }, { key: "competition", label: "競合比較" }, { key: "business-model", label: "ビジネスモデル" }, { key: "business-plan", label: "事業計画" }, { key: "financial-projection", label: "試算表" }, { key: "capital-plan", label: "資本政策表" }, { key: "cost", label: "コスト試算" }',
   '<CockpitTechnology projectId={bundle.project.projectId} mode="competition" />',
 ]);
 // ビジネスモデルタブ (2026-09-14 まさ「そもそも本来はOSに置くべき資料だと思う。…事業計画グループの中に「ビジネスモデル」っていうタブを新たに追加して、その中に入れておくのはどう？」)。
@@ -3472,13 +3472,13 @@ expectIncludes("src/components/cockpit/company-overview-ui.tsx", [
   "flex w-full flex-wrap gap-2 sm:w-auto sm:shrink-0",
 ]);
 
-// 将来の資本政策プランは事業計画、過去ラウンドの確定事実は会社情報の資本政策表へ分ける。
-expectIncludes("src/components/cockpit/CockpitBusinessPlan.tsx", [
+// 将来の資本政策表は事業計画、過去ラウンドの確定事実は会社情報の資金調達履歴へ分ける。
+expectIncludes("src/components/cockpit/CockpitCapitalPlan.tsx", [
   'import CapitalPlanWorkspace from "./CapitalPlanWorkspace";',
   "<CapitalPlanWorkspace",
 ]);
 expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
-  '{ key: "company-information-group", label: COCKPIT_GROUP_LABELS.companyInformation, children: [{ key: "company", label: "会社概要" }, { key: "capital-policy", label: "資本政策表" }] }',
+  '{ key: "company-information-group", label: COCKPIT_GROUP_LABELS.companyInformation, children: [{ key: "company", label: "会社概要" }, { key: "capital-policy", label: "資金調達履歴" }] }',
 ]);
 
 // タブ名の二重管理禁止 (2026-08-29): 資本政策表タブを足したとき、URLの `?tab=` 許可リストを
@@ -3499,7 +3499,7 @@ expectIncludes("src/lib/cockpit-tabs.ts", [
   'key: "company-information-group"',
   'seeds: "シーズリスト"',
   'regulations: "規程・内規"',
-  'children: ["score-detail", "technology", "competition", "business-model", "business-plan", "cost-model", "cost-fuel", "ip"]',
+  'children: ["score-detail", "technology", "competition", "business-model", "business-plan", "financial-projection", "capital-plan", "cost-model", "cost-fuel", "ip"]',
 ]);
 expectNotIncludes("src/lib/cockpit-tabs.ts", ['"themes"']);
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
@@ -3534,11 +3534,11 @@ expectNotIncludes("src/app/(app)/project/[projectId]/cockpit/page.tsx", [
   '"business-plan", "cost-model"',
 ]);
 
-// 資本政策表タブ (2026-08-29): 会社概要から独立させた資本政策表の結線と、
+// 資金調達履歴タブ: 会社概要から独立した確定履歴の結線と、
 // 縦積み100%グラフ / ラウンド一覧 / 株式イベント追加導線を保護する。
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   'import { CockpitCapitalPolicy } from "./CockpitCapitalPolicy";',
-  '"capital-policy": "資本政策表"',
+  '"capital-policy": "資金調達履歴"',
   "<CockpitCapitalPolicy",
 ]);
 expectIncludes("src/components/cockpit/CockpitCapitalPolicy.tsx", [
@@ -3589,10 +3589,15 @@ expectNotIncludes("src/components/cockpit/CapitalPlanMatrix.tsx", [
   "overflow-auto",
 ]);
 
-// SX事業計画（2026-07-28）: SIP準拠GRL、百万円PL、助成金の会計/資金繰り分離と、初期閉じの手動シナリオを保護する。
+// SX試算表: SIP準拠GRL、百万円PL、助成金の会計/資金繰り分離と、初期閉じの手動シナリオを保護する。
 expectIncludes("src/components/cockpit/CockpitBusinessPlan.tsx", [
   "GRL：SIP準拠のガバナンス成熟度（1〜8）",
   "内閣府SIPの定義",
+  "downloadSxBusinessPlanPhaseMatrixXlsx",
+  "Excel出力",
+  'data-testid="sx-phase-matrix-xlsx-export"',
+]);
+expectIncludes("src/components/cockpit/CockpitBusinessPlan.tsx", [
   "単位：百万円",
   "役員報酬",
   "売上原価",
@@ -3606,9 +3611,6 @@ expectIncludes("src/components/cockpit/CockpitBusinessPlan.tsx", [
   "自社工場の段階投資",
   "IPOの時期と調達額",
   "初期値に戻す",
-  "downloadSxBusinessPlanPhaseMatrixXlsx",
-  "Excel出力",
-  'data-testid="sx-phase-matrix-xlsx-export"',
 ]);
 expectIncludes("src/lib/sx-business-plan-xlsx.ts", [
   "createSxBusinessPlanPhaseMatrixXlsx",

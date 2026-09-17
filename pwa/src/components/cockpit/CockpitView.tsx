@@ -30,6 +30,8 @@ import { CockpitProjectControl } from "./CockpitProjectControl";
 import { CockpitProjectTasks } from "./CockpitProjectTasks";
 import type { SxWeeklyControlView } from "@/components/project-workspace/SxWeeklyControlDashboard";
 import { CockpitBusinessPlan } from "./CockpitBusinessPlan";
+import { CockpitFinancialProjection } from "./CockpitFinancialProjection";
+import { CockpitCapitalPlan } from "./CockpitCapitalPlan";
 import { CockpitCapitalPolicy } from "./CockpitCapitalPolicy";
 import type { CockpitTab } from "@/lib/cockpit-tabs";
 import { prefetchGovernance } from "@/lib/governance-client";
@@ -502,6 +504,8 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     competition: "競合比較",
     "business-model": "ビジネスモデル",
     "business-plan": "事業計画",
+    "financial-projection": "試算表",
+    "capital-plan": "資本政策表",
     "cost-model": hasFuelCost ? "コスト試算（廃液）" : "コスト試算",
     "cost-fuel": "コスト試算（燃料）",
     ip: "知財",
@@ -511,7 +515,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     overview: "PJ概要",
     "project-contracts": "契約",
     "project-finance": "収支",
-    "capital-policy": "資本政策表",
+    "capital-policy": "資金調達履歴",
     company: "会社概要",
     activity: "活動実績",
   };
@@ -872,10 +876,21 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
         </section>
       )}
 
-      {/* 事業計画タブ。CapitalPlanWorkspace が自前で fetch するので、開いた時だけマウントする。 */}
       {activeTab === "business-plan" && (
         <section role="tabpanel" aria-label="事業計画" className="min-w-0">
-          <CockpitBusinessPlan projectId={project.projectId} projectName={project.projectName} showSxDetail={hasSxBusinessPlanDetail} showTimeLedger={hasScoreDetailTab} />
+          <CockpitBusinessPlan projectId={project.projectId} projectName={project.projectName} showSxDetail={hasSxBusinessPlanDetail} />
+        </section>
+      )}
+
+      {activeTab === "financial-projection" && (
+        <section role="tabpanel" aria-label="試算表" className="min-w-0">
+          <CockpitFinancialProjection projectId={project.projectId} showSxDetail={hasSxBusinessPlanDetail} showTimeLedger={hasScoreDetailTab} />
+        </section>
+      )}
+
+      {activeTab === "capital-plan" && (
+        <section role="tabpanel" aria-label="資本政策表" className="min-w-0">
+          <CockpitCapitalPlan projectId={project.projectId} projectName={project.projectName} />
         </section>
       )}
 
@@ -1021,7 +1036,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       )}
 
       {activeTab === "capital-policy" && (
-        <section role="tabpanel" aria-label="資本政策表" className="min-w-0">
+        <section role="tabpanel" aria-label="資金調達履歴" className="min-w-0">
           <CockpitCapitalPolicy projectId={project.projectId} />
         </section>
       )}

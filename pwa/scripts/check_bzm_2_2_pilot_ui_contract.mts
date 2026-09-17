@@ -33,7 +33,7 @@ const componentPath = path.join(root, "src/components/cockpit/Bzm22ProvisionalOb
 const displayValuePath = path.join(root, "src/lib/bzm-2-2-display-value.ts");
 const timeLedgerPath = path.join(root, "src/components/cockpit/Bzm22TimeLedger.tsx");
 const timeLedgerSectionPath = path.join(root, "src/components/cockpit/Bzm22TimeLedgerSection.tsx");
-const businessPlanPath = path.join(root, "src/components/cockpit/CockpitBusinessPlan.tsx");
+const financialProjectionPath = path.join(root, "src/components/cockpit/CockpitFinancialProjection.tsx");
 const sxMonthlyBackfillPath = path.join(root, "scripts/backfill_sx_phase_monthly_pl.mts");
 const scoreDetailPath = path.join(root, "src/components/cockpit/CockpitAmdScoreDetailTab.tsx");
 const cockpitSummaryPath = path.join(root, "src/components/cockpit/Bzm22CockpitSummary.tsx");
@@ -531,17 +531,17 @@ requireIncludes(componentSource, [
   "時期だけを変更・保存なし",
 ], "BZM 2.2 observatory UI");
 
-// 2026-08-21: 月次試算表と年度別推移はスコア詳細タブから事業計画タブへ移した。
+// 月次試算表と年度別推移はスコア詳細タブから、試算表の独立タブへ移した。
 requireIncludes(requireText(timeLedgerSectionPath), [
   "Bzm22TimeLedger",
   "loadBzm22Pilot",
   'data-testid="bzm22-time-ledger-section"',
   "Bzm22PilotNotFoundError",
 ], "BZM 2.2 time ledger section");
-requireIncludes(requireText(businessPlanPath), [
+requireIncludes(requireText(financialProjectionPath), [
   "Bzm22TimeLedgerSection",
   "showTimeLedger",
-], "BZM 2.2 time ledger host = business plan tab");
+], "BZM 2.2 time ledger host = financial projection tab");
 
 const timeLedgerSource = requireText(timeLedgerPath);
 requireIncludes(timeLedgerSource, [

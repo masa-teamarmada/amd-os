@@ -25,17 +25,12 @@ import {
   type SxXrlTarget,
 } from "@/lib/sx-business-plan";
 import { downloadSxBusinessPlanPhaseMatrixXlsx } from "@/lib/sx-business-plan-xlsx";
-import { Bzm22TimeLedgerSection } from "./Bzm22TimeLedgerSection";
-import { CockpitPlMonthlySection } from "./CockpitPlMonthlySection";
-import CapitalPlanWorkspace from "./CapitalPlanWorkspace";
 
 interface CockpitBusinessPlanProps {
   projectId: string;
   projectName: string;
-  /** SX (p21) 固有のフェーズ表・年次試算表を出すか。他PJは資本政策プランだけを表示する。 */
+  /** SX (p21) 固有のフェーズ表を出すか。 */
   showSxDetail?: boolean;
-  /** BZM 2.2 pilot がある PJ で、イベントと月次試算表・年度別の事業・資金推移を出すか。 */
-  showTimeLedger?: boolean;
 }
 
 interface LaneMeta {
@@ -325,7 +320,7 @@ const WORKFORCE_PARAMETER_ROWS: AnnualParameterRow[] = [
   { key: "employeeAnnualConsumablesPerPersonYen", label: "社員の消耗品費／人" },
 ];
 
-function AnnualProjectionTable() {
+export function AnnualProjectionTable() {
   const [parameters, setParameters] = useState<SxAnnualProjectionParameters>(() => createSxAnnualProjectionParameters());
   const projection = sxAnnualProjectionWithCash(parameters);
   const hasParameterChanges = JSON.stringify(parameters) !== JSON.stringify(createSxAnnualProjectionParameters());
@@ -468,23 +463,13 @@ function AnnualProjectionTable() {
 }
 
 /**
- * 事業計画タブ。
- * 事業計画の見通しに合わせて更新する資本政策プラン台帳を置く。
- * 過去ラウンドの事実を記録する資本政策表は、会社情報の独立タブに分ける。
+ * 事業計画タブは、フェーズごとの事業・技術・組織の計画を読む。
+ * 試算表と資本政策表は、更新の目的が異なるため独立タブに分ける。
  */
-export function CockpitBusinessPlan({ projectId, projectName, showSxDetail = false, showTimeLedger = false }: CockpitBusinessPlanProps) {
+export function CockpitBusinessPlan({ projectName, showSxDetail = false }: CockpitBusinessPlanProps) {
   return (
     <div className="space-y-5">
       {showSxDetail && <PhaseMatrix projectName={projectName} />}
-
-      {showTimeLedger && <Bzm22TimeLedgerSection projectId={projectId} />}
-
-      {/* 暫定試算が無いPJ向けの月次試算表。暫定試算があるPJでは自分から何も描かない。 */}
-      {showTimeLedger && <CockpitPlMonthlySection projectId={projectId} />}
-
-      {showSxDetail && <AnnualProjectionTable />}
-
-      <CapitalPlanWorkspace projectId={projectId} projectName={projectName} />
     </div>
   );
 }

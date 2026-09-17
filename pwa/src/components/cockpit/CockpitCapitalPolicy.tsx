@@ -28,7 +28,7 @@ import {
 } from "@/components/cockpit/company-overview-ui";
 
 /**
- * 会社情報の「資本政策表」タブ (`?tab=capital-policy`)。
+ * 会社情報の「資金調達履歴」タブ (`?tab=capital-policy`)。
  * 過去ラウンドの確定事実を記録する。事業計画に連動して更新する見通しは、事業計画タブの
  * `CapitalPlanWorkspace` に分ける。
  */
@@ -64,7 +64,7 @@ export function CockpitCapitalPolicy({ projectId, readOnly = false }: { projectI
     try {
       setData(await loadGovernance(projectId));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "資本政策を読み込めなかったよ");
+      setError(cause instanceof Error ? cause.message : "資金調達履歴を読み込めなかったよ");
     } finally {
       setLoading(false);
     }
@@ -157,8 +157,8 @@ export function CockpitCapitalPolicy({ projectId, readOnly = false }: { projectI
       {notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"><Check className="size-4" />{notice}</div>}
 
       <Section
-        title="資本政策表"
-        description="過去ラウンドの確定事実を、ラウンドを列・株主を行にして記録する。株数、持株比率、発行価額、時価総額の推移をそのまま追える。これからの見通しは事業計画の資本政策プランで更新する"
+        title="資金調達履歴"
+        description="過去ラウンドの確定事実を、ラウンドを列・株主を行にして記録する。株数、持株比率、発行価額、時価総額の推移をそのまま追える。これからの見通しは事業計画の資本政策表で更新する"
         action={
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" className="h-11" onClick={() => void load()} disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : <RefreshCw />}更新</Button>
@@ -169,7 +169,7 @@ export function CockpitCapitalPolicy({ projectId, readOnly = false }: { projectI
         }
       >
         {!hasEquityLedger && data.rounds.length === 0 && data.convertibles.length === 0
-          ? <EmptyState>{loading ? "読み込み中…" : "株式イベントや調達ラウンドを追加すると、ラウンド別の資本政策表になるよ。"}</EmptyState>
+          ? <EmptyState>{loading ? "読み込み中…" : "株式イベントや調達ラウンドを追加すると、ラウンド別の資金調達履歴になるよ。"}</EmptyState>
           : <div className="divide-y divide-slate-100">
               <CapitalPolicyTable data={data} />
               {data.rounds.length > 0 && (
@@ -220,7 +220,7 @@ export function CockpitCapitalPolicy({ projectId, readOnly = false }: { projectI
             </div>}
       </Section>
 
-      {!readOnly && <Dialog open={dialog === "equity"} onOpenChange={(open) => !open && setDialog(null)}><DialogContent className="max-h-[90vh] overflow-y-auto sm:!max-w-2xl"><form onSubmit={(event) => void saveEquity(event)}><DialogHeader><DialogTitle>株式イベントを追加</DialogTitle><DialogDescription>確定イベントだけが資本政策表の列になるよ。譲渡は譲渡元と譲渡先を同時に記録する。</DialogDescription></DialogHeader><div className="my-5 grid gap-4 sm:grid-cols-2">
+      {!readOnly && <Dialog open={dialog === "equity"} onOpenChange={(open) => !open && setDialog(null)}><DialogContent className="max-h-[90vh] overflow-y-auto sm:!max-w-2xl"><form onSubmit={(event) => void saveEquity(event)}><DialogHeader><DialogTitle>株式イベントを追加</DialogTitle><DialogDescription>確定イベントだけが資金調達履歴の列になるよ。譲渡は譲渡元と譲渡先を同時に記録する。</DialogDescription></DialogHeader><div className="my-5 grid gap-4 sm:grid-cols-2">
         <Field label="イベント"><NativeSelect name="transaction_type" defaultValue="new_issue" options={TRANSACTION_TYPES} /></Field>
         <Field label="効力日" name="effective_on" hint="YYYY-MM-DD"><Input id="effective_on" name="effective_on" required defaultValue={new Date().toISOString().slice(0, 10)} className="h-11" /></Field>
         <Field label="株主区分"><NativeSelect name="holder_type" defaultValue="founder" options={HOLDER_TYPES} /></Field>

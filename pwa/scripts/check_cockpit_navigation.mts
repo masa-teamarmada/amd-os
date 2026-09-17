@@ -37,6 +37,8 @@ assert.equal(cockpitGroupForTab("gantt", false).label, "進捗管理");
 assert.equal(cockpitGroupForTab("objective-structure", false).label, "進捗管理");
 assert.equal(cockpitGroupForTab("objective-structure", true).label, "進捗管理");
 assert.equal(cockpitGroupForTab("capital-policy", false).label, "会社情報");
+assert.equal(cockpitGroupForTab("financial-projection", false).label, "事業計画");
+assert.equal(cockpitGroupForTab("capital-plan", false).label, "事業計画");
 assert.equal(cockpitGroupForTab("overview", false).label, "PJ管理");
 assert.equal(cockpitGroupForTab("project-contracts", false).label, "PJ管理");
 assert.equal(cockpitGroupForTab("project-finance", false).label, "PJ管理");
@@ -62,6 +64,7 @@ for (const kind of ["normal", "institution"] as const) {
 assert.equal(DEFAULT_COCKPIT_TAB, "issues");
 
 assert.equal(resolveCockpitTab("capital-policy", true), "capital-policy");
+assert.equal(resolveCockpitTab("capital-plan", true), DEFAULT_COCKPIT_TAB);
 assert.equal(resolveCockpitTab("business-plan", true), DEFAULT_COCKPIT_TAB);
 assert.equal(resolveCockpitTab("seeds", false), DEFAULT_COCKPIT_TAB);
 assert.equal(resolveCockpitTab("regulations", false), DEFAULT_COCKPIT_TAB);

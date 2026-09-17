@@ -948,3 +948,7 @@ ZMP(p19)の既定表示をタスクへ変更し、未完了を「いま動かす
 ### 2026-09-17 — PJ台帳の週次Slack設定を実送信へ接続
 
 `/admin/projects`のPJ行にある週次配信チェックを、つくよみレポートの投稿直前の送信ゲートへ接続した。宛先チャンネルからPJ台帳を逆引きし、`settings.weekly_slack_report.{project_id}.enabled`が`true`のときだけ投稿する。停止後もSlack取込に残る過去10日間の証跡は「実投稿: 前回あり」として、現在の「配信中」と混同しない。PJ名・チャンネル名の固定リストを設けず、新しいPJも台帳行と同じ設定で扱う。
+
+### 2026-09-17 — 事業計画・試算表・資本政策表の役割を分離
+
+`CockpitBusinessPlan`から月次・年次の試算と将来資本政策の編集面を切り出した。`CockpitFinancialProjection`が月次P/L、BZM時間軸、SX年次試算を、`CockpitCapitalPlan`が`CapitalPlanWorkspace`を担う。確定済みの株式イベント・調達ラウンド・転換前証券は会社情報の`資金調達履歴`（既存URL `?tab=capital-policy`）に残す。コックピットとPJワークスペースは同じ分類・同じ表示名を使い、外部PJメンバーは既存どおり読み取り専用である。
