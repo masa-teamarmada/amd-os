@@ -15,7 +15,7 @@
 
 ## 反映・検証
 
-- production: `v3.141.5` / `9c836b46d9aa0294c47c8f4d41822c887a858f70` / `https://amd-os-pwa.vercel.app`。
+- production: `v3.141.5` / `48fe73adfb4b524bf95c958c344ef4aae2c26990` / `https://amd-os-pwa.vercel.app`。変更履歴の実装commit `9c836b46d9aa0294c47c8f4d41822c887a858f70`を祖先に含む。
 - 認証済み本番 Chrome で `メンバー「山地 正洋（まさ / ID001）」の最終ログインを11回更新：2026/09/17 00:26:28 → 2026/09/17 08:43:56` を確認。UTC表記なし、行高52.2px、横overflowなし。
 - 実コンポーネントを 1440x900 と 390x844 で確認。desktop行高51.5px、mobile操作ボタン44px、横overflowなし。
 - `npm run test:data-change-history`、`npx tsc --noEmit`、対象eslint、`npm run test:critical-ui`、deploy wrapperの全検査、`git diff --check`が成功。
@@ -23,7 +23,7 @@
 
 ## Repo状態
 
-- product code と production は `9c836b46` で一致。closeout文書commitはその後のmainへ積むため、product commitはcurrent mainの祖先になる。
+- productionは `48fe73ad`、変更履歴のproduct commitはその祖先の `9c836b46`。closeout文書commitはその後のmainへ積まれている。
 - 正規checkout `/Users/masa/projects/AMD/amd-os` は別作業由来のdirty 29 pathと未push 3 commitを持ち、closeout確認時は `ahead 3 / behind 229`。reset、stash、rebase、削除、`git add .`をしない。
 - 正規checkoutを安全に同期できない間の次の実装は、最新 `origin/main` からclean cloneを作る。
 

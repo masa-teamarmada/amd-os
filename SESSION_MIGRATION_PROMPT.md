@@ -21,7 +21,7 @@
 
 ## 状態スナップショット
 
-- productionは `https://amd-os-pwa.vercel.app`、配信版は `v3.141.5` / `9c836b46d9aa0294c47c8f4d41822c887a858f70`。closeout文書commitはこのproduct commitの後にmainへ積まれている。
+- productionは `https://amd-os-pwa.vercel.app`、配信版は `v3.141.5` / `48fe73adfb4b524bf95c958c344ef4aae2c26990`。変更履歴のproduct commit `9c836b46d9aa0294c47c8f4d41822c887a858f70`を祖先に含み、closeout文書commitはその後にmainへ積まれている。
 - `/admin/change-history` はOS全体の監査履歴を、実行者、JST日時、対象、項目、変更前後の組で表示する。秘密値は伏せ、大きい値は省略し、履歴自体は追記専用。
 - メンバー履歴は `members.id` を対象行IDとして解決し、`member_name`、`code_name`、`member_id` で誰の変更かを表示する。メールアドレスは使わない。
 - 日付時刻はすべて `Asia/Tokyo`。UTC offsetや`Z`を画面へ出さず、同一秒内の差だけミリ秒を表示する。
