@@ -94,7 +94,7 @@ JST「起業後支援の手引き」は外部制度欄に置く。PSI事務局�
 
 ## Initial Modal Rules
 
-ZMP（p19）の旧テーマ作業面は2026-09-16にナビゲーションから外した。`project_management_*`の既存データと互換APIは保持するが、現行の実行入口はゴールツリー / タスク / ガントである。コックピットへのアクセス権は拡大しない（詳細は3-16）。
+ZMP（p19）の旧テーマ作業面は2026-09-16にナビゲーションから外した。`project_management_*`の既存データと互換APIは履歴参照のため保持するが、ZMPのタスク正本は`project_actions`である。2026-09-17以降、`project_management_tasks`のp19行はDB triggerで追加・更新・物理削除を拒否し、二重台帳を作らない。現行の実行入口はゴールツリー / タスク / ガントである。コックピットへのアクセス権は拡大しない（詳細は3-16）。
 
 KUTE限定の完了表示（2026-08-31）: `projectId=p25 && entity=task && state=complete` の期間バーを `#047857` で全幅塗りつぶし、desktop/mobileとも「完了」を緑のbadgeで示す。`status=completed` の判定を使用し、保存済み進捗率が0でも完了の表示を優先する。他PJ、MSマーカー、未確認タスクの表示は不変。2026-09-01の今期タスク再編では、成果物または開催後記録を確認できたR01/R02/R03/R08/S01/K01/K02/K03/K04だけを `status=completed`、`progress_pct=100`、`actual_end`ありで登録した。文書作成完了を大学の決裁・施行へ、調査完了を実証受注・事業化成功へ拡張しない。回帰チェック: `node scripts/check_kute_gantt_completion.cjs` と `node scripts/check_kute_seeds_tab_contract.cjs`。
 

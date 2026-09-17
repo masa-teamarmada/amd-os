@@ -88,6 +88,8 @@
 
 担当は `project_action_owners`（TODO × メンバー、多対多、`share` は NULL で均等）で持つ。既存の `owner_label` は、名簿にいない人（相手側の担当者、「研究側」のような役割名）を書く欄として残す。3-22 §7「届け先は `members` にいる人だけ」に合わせ、名簿にいない人は担当にしない。
 
+ZMP（p19）は2026-09-17に旧`project_management_tasks`との二重台帳を停止した。旧行は履歴として読み取れるが、追加・更新・物理削除はDB triggerが拒否する。MTG由来のTODOも、承認後は`project_actions`へ入り、`project_question_actions`で問いへ接続し、AMDメンバーの担当は`project_action_owners`へ保存する。
+
 `measure` は問いに答えを出すための行為で、`work` は答えが出た後に実行する作業。この区別が「枝が宙に浮いている」判定に効く。
 
 ### 分かったこと（`project_findings`）
