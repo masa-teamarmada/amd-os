@@ -88,6 +88,30 @@ export async function GET(request: Request) {
   }
 
   const entityMetadata = new Map<string, { label: string; projectId: string | null }>();
+  const memberMetadata = new Map<string, { label: string }>();
+  const memberRecordIds = historyRows
+    .filter((row) => row.table_name === "members")
+    .map((row) => row.record_pk?.id)
+    .filter((value): value is string => Boolean(value));
+  if (memberRecordIds.length > 0) {
+    const { data: members, error: membersError } = await db
+      .from("members")
+      .select("id,member_id,member_name,code_name")
+      .in("id", [...new Set(memberRecordIds)]);
+    if (membersError) {
+      console.error("[admin/change-history] member labels load failed:", membersError.message);
+    } else {
+      for (const member of (members ?? []) as Array<{ id: string; member_id: string; member_name: string | null; code_name: string | null }>) {
+        const memberName = member.member_name?.trim();
+        const codeName = member.code_name?.trim();
+        const subject = memberName && codeName && memberName !== codeName
+          ? `${memberName}（${codeName} / ${member.member_id}）`
+          : `${memberName || codeName || "氏名未登録"}（${member.member_id}）`;
+        memberMetadata.set(member.id, { label: subject });
+        memberMetadata.set(member.member_id, { label: subject });
+      }
+    }
+  }
   const taskIds = historyRows
     .filter((row) => row.table_name === "project_management_tasks")
     .map((row) => row.record_pk?.id)
@@ -143,10 +167,15 @@ export async function GET(request: Request) {
       const projectId = [row.record_pk, row.before_values, row.after_values]
         .map((value) => value?.project_id)
         .find((value): value is string => typeof value === "string") ?? entity?.projectId;
+      const memberId = row.table_name === "members"
+        ? [row.record_pk?.id, row.record_pk?.member_id, row.before_values?.member_id, row.after_values?.member_id]
+          .find((value): value is string => typeof value === "string" && value.length > 0)
+        : null;
+      const memberLabel = memberId ? memberMetadata.get(memberId)?.label : null;
       return {
         ...row,
         project_label: projectId ? projectLabels.get(projectId) ?? null : null,
-        entity_label: entity?.label ?? null,
+        entity_label: memberLabel ?? entity?.label ?? null,
         undone_by_history_id: undoneByHistoryId.get(row.id)?.id ?? null,
         undone_at: undoneByHistoryId.get(row.id)?.occurred_at ?? null,
       };

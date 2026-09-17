@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { workspaceAccessRequestTarget } from "../src/lib/workspace-access-request-core.ts";
-import { groupHistoryRows, summaryForRow } from "../src/lib/change-history-presentation.ts";
+import { displayFieldValue, formatAuditDateTime, groupHistoryRows, summaryForRow } from "../src/lib/change-history-presentation.ts";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const pwaRoot = path.resolve(scriptDir, "..");
@@ -54,15 +54,47 @@ assert.equal(groupHistoryRows([presentationRow("task-1", 10), presentationRow("t
 assert.equal(groupHistoryRows([presentationRow("task-1", 10), { ...presentationRow("task-2", 10), operation: "insert" }]).length, 2, "異なる操作は混ぜない");
 const automaticBatch = groupHistoryRows([
   { ...presentationRow("auto-1", 21), actor_label: "OS自動処理", actor_source: "service_role", occurred_at: "2026-09-17T00:00:01.100Z" },
-  { ...presentationRow("auto-2", 22), actor_label: "OS自動処理", actor_source: "service_role", occurred_at: "2026-09-17T00:00:00.600Z", operation: "insert" as const },
+  { ...presentationRow("auto-2", 22), actor_label: "OS自動処理", actor_source: "service_role", occurred_at: "2026-09-17T00:00:00.600Z" },
 ]);
 assert.equal(automaticBatch.length, 1, "連続するOS自動処理はtransactionをまたいでも1操作へ集約する");
-assert.match(automaticBatch[0].summary, /一括処理（追加1・変更1）/, "自動batchの追加・変更内訳を出す");
+assert.match(automaticBatch[0].summary, /2件変更/, "自動batchの件数を出す");
+assert.equal(groupHistoryRows([
+  { ...presentationRow("auto-update", 21), actor_label: "OS自動処理", actor_source: "service_role", occurred_at: "2026-09-17T00:00:01.100Z" },
+  { ...presentationRow("auto-insert", 22), actor_label: "OS自動処理", actor_source: "service_role", occurred_at: "2026-09-17T00:00:00.600Z", operation: "insert" as const },
+]).length, 2, "連続していても異なる操作は同じ自動処理へ混ぜない");
 assert.equal(groupHistoryRows([
   { ...presentationRow("auto-1", 21), actor_label: "OS自動処理", actor_source: "service_role", occurred_at: "2026-09-17T00:00:03.000Z" },
   { ...presentationRow("auto-2", 22), actor_label: "OS自動処理", actor_source: "service_role", occurred_at: "2026-09-17T00:00:00.000Z" },
 ]).length, 2, "時間が離れた自動処理は混ぜない");
 assert.match(summaryForRow({ ...presentationRow("task-1", 12), operation: "insert", after_values: { project_id: "p19", title: "新しいタスク" } }), /PJタスク「新しいタスク」を追加/, "追加対象の識別名を要約する");
+
+const memberRow = (id: string, occurred_at: string, before: string, after: string) => ({
+  ...presentationRow(id, 30, { member_id: id }),
+  table_name: "members",
+  entity_label: "まさ（ID001）",
+  occurred_at,
+  changed_fields: ["last_login_at"],
+  before_values: { member_id: id, member_name: "まさ", code_name: "masa", last_login_at: before },
+  after_values: { member_id: id, member_name: "まさ", code_name: "masa", last_login_at: after },
+});
+const memberBefore = "2026-09-16T23:43:55.307Z";
+const memberAfter = "2026-09-16T23:43:55.443Z";
+assert.equal(formatAuditDateTime(memberBefore, { includeMilliseconds: true }), "2026/09/17 08:43:55.307", "監査日時をJSTへ変換する");
+assert.equal(displayFieldValue("last_login_at", memberBefore, { compareWith: memberAfter }), "2026/09/17 08:43:55.307", "最終ログイン差分はミリ秒までJST表示する");
+assert.equal(displayFieldValue("due_on", "2026-09-17"), "2026/09/17", "日付だけの監査値を日本時間の日付として表示する");
+assert.equal(displayFieldValue("last_login_at", memberBefore, { compareWith: "2026-09-16T23:43:56.443Z" }), "2026/09/17 08:43:55", "秒が異なる日時には不要なミリ秒を付けない");
+assert.doesNotMatch(displayFieldValue("last_login_at", memberBefore, { compareWith: memberAfter }), /(?:Z|[+-]00:00)/, "表示値へUTC表記を残さない");
+assert.match(summaryForRow(memberRow("ID001", "2026-09-17T00:00:00.300Z", memberBefore, memberAfter)), /まさ（ID001）.*最終ログイン.*2026\/09\/17 08:43:55\.307 → 2026\/09\/17 08:43:55\.443/, "メンバーの最終ログイン変更を人物・JST差分で要約する");
+const memberBatch = groupHistoryRows([
+  memberRow("ID001", "2026-09-17T00:00:00.500Z", memberAfter, "2026-09-16T23:43:55.680Z"),
+  memberRow("ID001", "2026-09-17T00:00:00.400Z", memberBefore, memberAfter),
+]);
+assert.equal(memberBatch.length, 1, "同一メンバーの最終ログイン更新を一つへ集約する");
+assert.match(memberBatch[0].summary, /まさ（ID001）.*最終ログインを2回更新.*2026\/09\/17 08:43:55\.307 → 2026\/09\/17 08:43:55\.680/, "集約要約に人物・項目・件数・実効差分を出す");
+assert.equal(groupHistoryRows([
+  memberRow("ID001", "2026-09-17T00:00:00.500Z", memberBefore, memberAfter),
+  memberRow("ID002", "2026-09-17T00:00:00.400Z", memberBefore, memberAfter),
+]).length, 2, "別メンバーの最終ログイン更新を同じ集約へ混ぜない");
 
 assert.match(migration, /CREATE TABLE IF NOT EXISTS public\.amd_os_data_change_history/, "全体変更履歴tableを作る");
 assert.match(migration, /AFTER INSERT OR UPDATE OR DELETE/, "insert update deleteをDB triggerで記録する");
@@ -91,6 +123,9 @@ assert.match(historyApi, /action !== "undo"/, "戻し操作を明示actionに限
 assert.match(historyApi, /neq\("table_name", "project_management_field_audit"\)/, "二重監査行で本体履歴のページを埋めない");
 assert.match(historyApi, /PAGE_SIZE = 1000/, "同じ自動処理を狭いraw pageで分断しない");
 assert.match(historyApi, /from\("projects"\)/, "PJの表示名を台帳へ解決する");
+assert.match(historyApi, /from\("members"\)/, "メンバーの表示名を台帳から解決する");
+assert.match(historyApi, /select\("id,member_id,member_name,code_name"\)/, "メンバー表示名の解決でemailを取得しない");
+assert.match(historyApi, /\.in\("id",/, "履歴のrecord_pkに保存されたメンバーUUIDから表示名を解決する");
 
 assert.match(migration, /CREATE TABLE IF NOT EXISTS public\.workspace_access_requests/, "アクセス要求tableを作る");
 assert.match(migration, /workspace_claim_access_request_notification/, "Slack通知をatomic claimする");
@@ -118,6 +153,7 @@ assert.match(historyUi, /aria-expanded/, "詳細の開閉状態をアクセシ�
 assert.match(historyUi, /このページ.*操作.*対象/, "件数を人向けの文言で表示する");
 assert.match(historyUi, /row\.before_values\[field\]/, "変更前を表示する");
 assert.match(historyUi, /row\.after_values\[field\]/, "変更後を表示する");
+assert.match(historyUi, /compareWith: row\.after_values\[field\]/, "変更前後の日時表示に比較対象を渡す");
 assert.match(historyUi, /この変更を戻す/, "履歴行から戻し操作を実行できる");
 assert.match(historyUi, /現在値が履歴の変更後と一致する場合だけ/, "戻し操作の確認で安全条件を明示する");
 assert.match(historyUi, /戻し済み/, "戻し済み履歴を表示する");

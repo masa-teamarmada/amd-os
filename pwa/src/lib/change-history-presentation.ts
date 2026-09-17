@@ -22,6 +22,10 @@ export type ChangeHistoryRow = {
   entity_label?: string | null;
 };
 
+export type DisplayFieldValueOptions = {
+  compareWith?: unknown;
+};
+
 export type ChangeHistoryGroup = {
   id: string;
   rows: ChangeHistoryRow[];
@@ -165,6 +169,70 @@ export function displayValue(value: unknown, maxLength = 80): string {
   }
 }
 
+const JST_DATE_TIME_FORMATTER = new Intl.DateTimeFormat("ja-JP", {
+  timeZone: "Asia/Tokyo",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+
+const JST_DATE_FORMATTER = new Intl.DateTimeFormat("ja-JP", {
+  timeZone: "Asia/Tokyo",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+function isDateOnlyValue(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function isDateField(field: string, value: unknown) {
+  if (typeof value !== "string") return false;
+  const normalized = field.toLowerCase();
+  return /(^|_)(at|on|date)$/.test(normalized) || /t\d{2}:\d{2}/i.test(value);
+}
+
+function parsedDate(value: unknown) {
+  if (typeof value !== "string" || isDateOnlyValue(value)) return null;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? new Date(timestamp) : null;
+}
+
+function needsMilliseconds(value: unknown, compareWith: unknown) {
+  const current = parsedDate(value);
+  const other = parsedDate(compareWith);
+  if (!current || !other) return false;
+  return Math.floor(current.getTime() / 1000) === Math.floor(other.getTime() / 1000)
+    && current.getMilliseconds() !== other.getMilliseconds();
+}
+
+/** 監査画面の日時は、入力値のoffsetにかかわらず日本時間だけで読む。 */
+export function formatAuditDateTime(value: unknown, options: { includeSeconds?: boolean; includeMilliseconds?: boolean } = {}) {
+  if (typeof value !== "string") return null;
+  if (isDateOnlyValue(value)) {
+    const date = new Date(`${value}T00:00:00+09:00`);
+    return Number.isFinite(date.getTime()) ? JST_DATE_FORMATTER.format(date) : null;
+  }
+  const date = parsedDate(value);
+  if (!date) return null;
+  const includeSeconds = options.includeSeconds ?? true;
+  const base = includeSeconds
+    ? JST_DATE_TIME_FORMATTER.format(date)
+    : new Intl.DateTimeFormat("ja-JP", {
+      timeZone: "Asia/Tokyo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date);
+  return options.includeMilliseconds ? `${base}.${String(date.getMilliseconds()).padStart(3, "0")}` : base;
+}
+
 function values(row: ChangeHistoryRow) {
   return row.operation === "delete" ? row.before_values : row.after_values;
 }
@@ -195,12 +263,61 @@ function changedFields(row: ChangeHistoryRow) {
   return Object.keys(values(row)).filter((key) => !["created_at", "updated_at"].includes(key));
 }
 
-export function displayFieldValue(field: string, value: unknown) {
+export function displayFieldValue(field: string, value: unknown, options: DisplayFieldValueOptions = {}) {
+  if (isDateField(field, value)) {
+    const renderedDate = formatAuditDateTime(value, {
+      includeMilliseconds: needsMilliseconds(value, options.compareWith),
+    });
+    if (renderedDate) return renderedDate;
+  }
   const rendered = displayValue(value);
   return field === "progress_pct" && value !== null && value !== undefined ? `${rendered}%` : rendered;
 }
 
+function memberId(row: ChangeHistoryRow) {
+  const value = values(row);
+  const id = row.record_pk.member_id ?? value.member_id ?? row.record_pk.id ?? value.id;
+  return typeof id === "string" && id.trim() ? id.trim() : null;
+}
+
+function isMemberLastLoginRow(row: ChangeHistoryRow) {
+  return row.table_name === "members"
+    && row.operation === "update"
+    && row.changed_fields.length === 1
+    && row.changed_fields[0] === "last_login_at";
+}
+
+function isMembersRow(row: ChangeHistoryRow) {
+  return row.table_name === "members";
+}
+
+function memberSubject(row: ChangeHistoryRow) {
+  const value = values(row);
+  const label = row.entity_label || value.member_name || value.code_name;
+  const id = memberId(row);
+  const renderedLabel = label ? displayValue(label, 60) : null;
+  if (renderedLabel) return renderedLabel;
+  const humanReadableId = id && !/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(id) ? displayValue(id, 32) : null;
+  return humanReadableId ? `メンバー（${humanReadableId}）` : "メンバー（氏名未登録）";
+}
+
+function memberLastLoginSummary(rows: ChangeHistoryRow[]) {
+  const ordered = rows
+    .map((row, index) => ({ row, index }))
+    .sort((left, right) => occurredAtMs(left.row) - occurredAtMs(right.row) || left.index - right.index)
+    .map(({ row }) => row);
+  const first = ordered[0];
+  const last = ordered[ordered.length - 1];
+  const before = first.before_values.last_login_at;
+  const after = last.after_values.last_login_at;
+  const beforeText = displayFieldValue("last_login_at", before, { compareWith: after });
+  const afterText = displayFieldValue("last_login_at", after, { compareWith: before });
+  const count = rows.length;
+  return `メンバー「${memberSubject(first)}」の最終ログインを${count}回更新：${beforeText} → ${afterText}`;
+}
+
 function batchSummary(rows: ChangeHistoryRow[]) {
+  if (rows.length > 0 && rows.every(isMemberLastLoginRow)) return memberLastLoginSummary(rows);
   const first = rows[0];
   const projectKeys = new Set(rows.map(projectKey));
   const value = values(first);
@@ -229,6 +346,11 @@ function occurredAtMs(row: ChangeHistoryRow) {
 }
 
 export function summaryForRow(row: ChangeHistoryRow) {
+  if (isMemberLastLoginRow(row)) {
+    const before = row.before_values.last_login_at;
+    const after = row.after_values.last_login_at;
+    return `メンバー「${memberSubject(row)}」の最終ログイン：${displayFieldValue("last_login_at", before, { compareWith: after })} → ${displayFieldValue("last_login_at", after, { compareWith: before })}`;
+  }
   const value = values(row);
   const project = row.project_label || value.project_id || row.record_pk.project_id;
   const prefix = project ? `${String(project)} ` : "";
@@ -257,12 +379,17 @@ export function groupHistoryRows(rows: ChangeHistoryRow[]): ChangeHistoryGroup[]
   const groups: ChangeHistoryGroup[] = [];
   for (const row of rows) {
     const previous = groups[groups.length - 1];
+    const previousMemberId = previous ? memberId(previous.rows[0]) : null;
+    const currentMemberId = isMembersRow(row) ? memberId(row) : null;
+    const sameMember = previous && isMembersRow(previous.rows[0]) && currentMemberId !== null
+      && previousMemberId === currentMemberId;
     const sameTransaction = previous
       && previous.transaction_id === row.transaction_id
       && previous.actor_label === row.actor_label
       && previous.table_name === row.table_name
       && previous.rows[0].operation === row.operation
-      && projectKey(previous.rows[0]) === projectKey(row);
+      && projectKey(previous.rows[0]) === projectKey(row)
+      && (!isMembersRow(previous.rows[0]) || sameMember);
     const previousRow = previous?.rows[previous.rows.length - 1];
     // service_roleのバッチは1行ずつ別transactionになる処理がある。
     // 表示上だけ、同じ実行者・tableで連続した処理をまとめる。戻し操作は詳細内で1件ずつ行う。
@@ -272,7 +399,14 @@ export function groupHistoryRows(rows: ChangeHistoryRow[]): ChangeHistoryGroup[]
       && row.actor_source === "service_role"
       && previous.actor_label === row.actor_label
       && previous.table_name === row.table_name
-      && Math.abs(occurredAtMs(previousRow) - occurredAtMs(row)) <= AUTOMATIC_BATCH_MAX_GAP_MS;
+      && previous.rows[0].operation === row.operation
+      && projectKey(previous.rows[0]) === projectKey(row)
+      && Math.abs(occurredAtMs(previousRow) - occurredAtMs(row)) <= AUTOMATIC_BATCH_MAX_GAP_MS
+      && (!isMembersRow(previousRow)
+        || (isMemberLastLoginRow(previousRow)
+          && isMemberLastLoginRow(row)
+          && memberId(previousRow) !== null
+          && memberId(previousRow) === memberId(row)));
     if (sameTransaction || sameAutomaticBatch) {
       previous.rows.push(row);
       previous.last_occurred_at = row.occurred_at;

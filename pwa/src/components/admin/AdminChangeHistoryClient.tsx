@@ -21,6 +21,7 @@ import {
   searchableText,
   summaryForRow,
   tableLabel,
+  formatAuditDateTime,
 } from "@/lib/change-history-presentation";
 
 type Operation = ChangeHistoryOperation;
@@ -48,15 +49,7 @@ const OPERATION_TONE: Record<Operation, string> = {
 };
 
 function formatDate(value: string, withSeconds = false) {
-  return new Intl.DateTimeFormat("ja-JP", {
-    timeZone: "Asia/Tokyo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    ...(withSeconds ? { second: "2-digit" } : {}),
-  }).format(new Date(value));
+  return formatAuditDateTime(value, { includeSeconds: withSeconds }) ?? "日時未確認";
 }
 
 function DiffValues({ row }: { row: HistoryRow }) {
@@ -88,13 +81,13 @@ function DiffValues({ row }: { row: HistoryRow }) {
             ) : (
               <>
                 <span className="min-w-0 break-words text-muted-foreground">
-                  {displayFieldValue(field, row.before_values[field])}
+                  {displayFieldValue(field, row.before_values[field], { compareWith: row.after_values[field] })}
                 </span>
                 <span className="text-center text-sky-600" aria-hidden="true">
                   →
                 </span>
                 <span className="min-w-0 break-words font-medium text-foreground">
-                  {displayFieldValue(field, row.after_values[field])}
+                  {displayFieldValue(field, row.after_values[field], { compareWith: row.before_values[field] })}
                 </span>
               </>
             )}
@@ -171,7 +164,7 @@ function HistoryGroup({
   const detailsLabel = group.rows.length === 1 ? "詳細を展開" : `${group.rows.length}件の詳細を展開`;
 
   return (
-    <li className="min-w-0 py-2.5">
+    <li className="min-w-0 py-1.5">
       <div className="grid min-w-0 gap-1.5 lg:grid-cols-[150px_minmax(0,1fr)_auto] lg:items-start lg:gap-4">
         <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
           <Clock3 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -181,18 +174,18 @@ function HistoryGroup({
           </div>
         </div>
         <div className="min-w-0">
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <div className="flex min-w-0 flex-nowrap items-start gap-1.5">
             {operations.map((item) => (
-              <span key={item} className={`rounded-sm border px-1.5 py-0.5 text-[10px] font-semibold ${OPERATION_TONE[item]}`}>
+              <span key={item} className={`shrink-0 rounded-sm border px-1.5 py-0.5 text-[10px] font-semibold ${OPERATION_TONE[item]}`}>
                 {OPERATION_LABEL[item]}
               </span>
             ))}
             {group.rows.length > 1 && (
-              <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+              <span className="shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
                 {group.rows.length}件
               </span>
             )}
-            <span className="min-w-0 break-words text-sm leading-5 text-foreground">{group.summary}</span>
+            <span className="min-w-0 break-words text-xs leading-4 text-foreground">{group.summary}</span>
           </div>
           <p className="mt-0.5 min-w-0 break-words text-[11px] text-muted-foreground">
             {group.target} · {tableLabel(group.table_name)}
@@ -320,7 +313,7 @@ export function AdminChangeHistoryClient() {
           </div>
         </div>
         <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">
-          誰が、いつ、どのPJの何をどう変えたかを、変更要約で確認する。元の差分と戻す操作は詳細に保管している。
+          誰が、いつ、どのPJの何をどう変えたかを、変更要約で確認する。日時はすべて日本時間。元の差分と戻す操作は詳細に保管している。
         </p>
       </header>
 
