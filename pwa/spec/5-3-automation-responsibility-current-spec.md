@@ -82,11 +82,14 @@ Media Mentions は D-11 として runner 未実装。Finance Ops Evidence / free
 
 SKILL 正本は `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 群) / `amd-os-l2-monthend-evidence/SKILL.md` (M 群) / `amd-os-l2-weekly-vc-funding-signals/SKILL.md` (W 群) と、各 L2 の個別 `amd-os-l<N>-*/SKILL.md` (= 束ね SKILL が参照する詳細手順)。L2 の品質改善は、PWA route / GAS function ではなく SKILL と outbox/applier contract を更新する。
 
-## PJ別週次 Slack レポート設定と送信元接続
+## PJ別週次 Slack レポート設定・実投稿観測・送信元接続
 
 週次 Slack レポートの設定は例外的な全体設定ではなく、すべてのPJに共通する `settings.weekly_slack_report.{project_id}.enabled` で管理する。adminは `/admin/projects` のPJ台帳で、各PJの `Slack CH` と並べて更新する。PJ行を固定で列挙せず、新規PJを含め設定が無い場合は `false`（停止）。ただし、設定値と実際のSlack投稿は別状態であり、送信元がこのキーをreadbackしていない間は設定値を投稿の停止状態として扱わない。
 
-- `settings` を読まない既存送信元がある場合、admin画面は「実投稿: 送信元が未接続」と明示する。設定が `false` でも投稿が止まったとは断定しない。
+- admin画面は `source_cache(source='slack')` の証跡から、直近10日以内の週次レポートを検出したPJを「実投稿: 配信中」と表示する。検出対象は本文に週次・今週とレポート・報告の組を持つ投稿であり、PJ名・チャンネル名の固定リストは使わない。
+- Slack取込の証跡はあるが直近の週次レポートを検出できないときは「実投稿: 直近未検出」、証跡がないときは「実投稿: 未判定」と表示する。どちらも停止とは断定しない。
+- daily Slack取込は `project_slack_sources` と `projects.slack_channel_id` のどちらかを持つ全PJを対象にし、週次レポートを観測できるようbot投稿も保存する。
+- `settings` を読まない既存送信元がある間、設定が `false` でも投稿が止まったとは断定しない。送信制御の接続状態は実投稿観測と分けて表示する。
 - 送信を許可できるのは、`projects.slack_channel_id` があり、`slack_channel_not_required=false` のPJだけ。
 - 送信元を新設・接続する場合は、レポート生成と Slack 投稿の直前にPJ行・設定キー・宛先チャンネルをreadbackし、設定値が `true` 以外なら本文を生成せず外部送信もしない。
 - `true` は送信を許可するだけで、停止している旧 sender や scheduler を起動しない。送信処理の新設・再開は、対象・頻度・送信先・rollback を別途確認する。

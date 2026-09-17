@@ -28,6 +28,12 @@ export interface ProjectRow {
   slack_channel_not_required: boolean;
   /** PJ単位の週次Slackレポートの配信許可。新規PJを含め既定は停止。 */
   weekly_slack_report_enabled: boolean;
+  /** Slack生データから判定した実投稿の観測状態。設定とは独立。 */
+  weekly_slack_report_delivery_observation: {
+    state: "delivering" | "not_detected" | "unknown";
+    latestReportAt: string | null;
+    latestSlackAt: string | null;
+  };
   /** 資料保存先。抽出rootとは別管理する。 */
   drive_folder_id: string | null;
   /** 追加の読み取り専用Drive生データ抽出root。 */
@@ -120,6 +126,19 @@ const WEEKLY_REPORT_COLUMN_MAX_WIDTH = 520;
 
 function weeklyReportColumnWidthInRange(value: number) {
   return Math.min(WEEKLY_REPORT_COLUMN_MAX_WIDTH, Math.max(WEEKLY_REPORT_COLUMN_MIN_WIDTH, value));
+}
+
+function weeklyReportObservationTime(value: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
 
 const PROJECT_CATEGORY_OPTIONS: Array<{ value: ProjectCategory; label: string; note: string }> = [
@@ -590,7 +609,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
         throw new Error(body.error || "保存できませんでした");
       }
       setProjects((prev) => prev.map((x) => x.id === p.id ? { ...x, weekly_slack_report_enabled: body.enabled! } : x));
-      setHint(`${p.project_name} の週次レポート設定を${body.enabled ? "配信許可" : "停止"}にしました（実投稿の送信元は未接続です）`);
+      setHint(`${p.project_name} の週次レポート設定を${body.enabled ? "配信許可" : "停止"}にしました。実投稿の検出状態は再読込時に更新されます`);
       setTimeout(() => setHint(""), 2500);
     } catch (error) {
       setHint(`週次レポート設定 保存エラー: ${error instanceof Error ? error.message : String(error)}`);
@@ -855,7 +874,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
               <th
                 className="text-left px-3 py-2 font-medium"
                 style={{ width: weeklyReportColumnWidth, minWidth: weeklyReportColumnWidth }}
-                title="実際の送信元とは未接続です。ここではPJごとの配信設定だけを記録します。"
+                title="実投稿の観測状態と、PJごとの配信設定を分けて表示します。"
               >
                 <span className="whitespace-nowrap">週次レポート</span>
               </th>
@@ -1650,13 +1669,34 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                     {(() => {
                       const canDeliver = canDeliverWeeklySlackReport(p, p.weekly_slack_report_enabled);
                       const canConfigure = Boolean(p.slack_channel_id) && !p.slack_channel_not_required;
+                      const observation = p.weekly_slack_report_delivery_observation;
+                      const observationLabel = observation.state === "delivering"
+                        ? "実投稿: 配信中"
+                        : observation.state === "not_detected"
+                          ? "実投稿: 直近未検出"
+                          : "実投稿: 未判定";
+                      const observationStyle = observation.state === "delivering"
+                        ? "bg-emerald-100 text-emerald-800"
+                        : observation.state === "not_detected"
+                          ? "bg-amber-100 text-amber-900"
+                          : "bg-muted text-muted-foreground";
+                      const observationNote = observation.state === "delivering"
+                        ? `直近の週次投稿: ${weeklyReportObservationTime(observation.latestReportAt)}`
+                        : observation.state === "not_detected"
+                          ? `Slack取込の直近投稿: ${weeklyReportObservationTime(observation.latestSlackAt)}`
+                          : "Slack取込の証跡なし";
                       return (
                         <div className="min-w-[210px] space-y-1.5">
-                          <span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold ${canDeliver ? "bg-emerald-100 text-emerald-800" : "bg-muted text-muted-foreground"}`}>
-                            {canDeliver ? "設定: 配信を許可" : "設定: 停止"}
-                          </span>
-                          <p className="text-[10px] font-medium leading-tight text-amber-800">
-                            実投稿: 送信元が未接続
+                          <div className="flex flex-wrap items-center gap-1">
+                            <span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold ${observationStyle}`}>
+                              {observationLabel}
+                            </span>
+                            <span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold ${canDeliver ? "bg-emerald-100 text-emerald-800" : "bg-muted text-muted-foreground"}`}>
+                              設定: {canDeliver ? "配信を許可" : "停止"}
+                            </span>
+                          </div>
+                          <p className="text-[9px] leading-tight text-muted-foreground">
+                            {observationNote}
                           </p>
                           <label className="flex w-fit items-center gap-1 text-[10px] text-muted-foreground" title="この設定は現在の実投稿にはまだ反映されません。送信元を接続した後の配信許可として記録します。">
                             <input
@@ -1669,7 +1709,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                             配信設定を許可
                           </label>
                           <p className="text-[9px] leading-tight text-muted-foreground">
-                            この値だけでは今ある週次投稿を止めません。
+                            送信制御: 未接続。この値だけでは今ある週次投稿を止めません。
                             {!canConfigure ? " チャンネル未設定" : ""}
                           </p>
                         </div>

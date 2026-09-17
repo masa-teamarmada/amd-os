@@ -196,17 +196,29 @@ export async function collectProjectSlackSources(
   return base;
 }
 
-/** enabled な取り込み対象を持つPJ。行が無いPJは対象にしない。 */
+/**
+ * Slack取込対象は、明示的な `project_slack_sources` に加えて、PJ台帳でSlackチャンネルを
+ * 持つ全PJ。後者を含めることで、新規PJも個別のコード追加なしに観測対象へ入る。
+ */
 export async function listSlackSourceProjects(supabase: AdminClient): Promise<string[]> {
-  const { data, error } = await supabase
+  const { data: configuredSources, error: configuredSourcesError } = await supabase
     .from("project_slack_sources")
     .select("project_id")
     .eq("enabled", true);
-  if (error) throw new Error(error.message);
+  if (configuredSourcesError) throw new Error(configuredSourcesError.message);
+  const { data: projects, error: projectsError } = await supabase
+    .from("projects")
+    .select("project_id, slack_channel_id, slack_channel_not_required");
+  if (projectsError) throw new Error(projectsError.message);
   const ids = new Set<string>();
-  for (const row of data || []) {
+  for (const row of configuredSources || []) {
     const id = String(row.project_id || "").trim();
     if (id) ids.add(id);
+  }
+  for (const project of projects || []) {
+    const id = String(project.project_id || "").trim();
+    const channelId = String(project.slack_channel_id || "").trim();
+    if (id && channelId && !project.slack_channel_not_required) ids.add(id);
   }
   return Array.from(ids).sort();
 }

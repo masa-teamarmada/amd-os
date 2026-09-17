@@ -4,7 +4,11 @@ export const metadata: Metadata = { title: { absolute: "Admin PJ - AMD OS" } };
 import { createClient } from "@/lib/supabase/server";
 import { AdminProjectsTable, type ProjectRow } from "@/components/admin/AdminProjectsTable";
 import type { LaneWeight } from "@/lib/aspi-lanes";
-import { weeklySlackReportEnabled } from "@/lib/weekly-slack-report";
+import {
+  observeWeeklySlackReportDelivery,
+  weeklySlackReportEnabled,
+  type WeeklySlackReportSlackEvidence,
+} from "@/lib/weekly-slack-report";
 
 export default async function AdminProjectsPage() {
   const supabase = await createClient();
@@ -14,10 +18,31 @@ export default async function AdminProjectsPage() {
     .order("status")
     .order("project_name");
 
-  const { data: weeklySlackReportSettings } = await supabase
-    .from("settings")
-    .select("key,value")
-    .like("key", "weekly_slack_report.%.enabled");
+  const projectIds = (pjData ?? []).map((project) => project.project_id as string);
+  const [weeklySlackReportSettingsResult, slackEvidenceResult] = await Promise.all([
+    supabase
+      .from("settings")
+      .select("key,value")
+      .like("key", "weekly_slack_report.%.enabled"),
+    projectIds.length > 0
+      ? supabase
+        .from("source_cache")
+        .select("project_id,item_date,collected_at,content_text,metadata_json")
+        .eq("source", "slack")
+        .in("project_id", projectIds)
+        .order("item_date", { ascending: false })
+        .limit(5000)
+      : Promise.resolve({ data: [] as Array<{ project_id: string }>, error: null }),
+  ]);
+  const weeklySlackReportSettings = weeklySlackReportSettingsResult.data;
+  const slackEvidenceByPj = new Map<string, WeeklySlackReportSlackEvidence[]>();
+  for (const row of (slackEvidenceResult.data ?? []) as Array<WeeklySlackReportSlackEvidence & { project_id: string }>) {
+    const projectId = String(row.project_id || "");
+    if (!projectId) continue;
+    const rows = slackEvidenceByPj.get(projectId) ?? [];
+    rows.push(row);
+    slackEvidenceByPj.set(projectId, rows);
+  }
 
   // ASPI 8 domain lanes (project_ventures.lanes) を別 query で取って Map で merge。
   // SU 化されてない PJ (project_ventures に行がない) は has_venture_row=false。
@@ -87,6 +112,7 @@ export default async function AdminProjectsPage() {
 	      slack_channel_id: p.slack_channel_id ?? null,
       slack_channel_not_required: !!p.slack_channel_not_required,
       weekly_slack_report_enabled: weeklySlackReportEnabled(p.project_id, weeklySlackReportSettings ?? []),
+      weekly_slack_report_delivery_observation: observeWeeklySlackReportDelivery(slackEvidenceByPj.get(p.project_id) ?? []),
       drive_folder_id: p.drive_folder_id ?? null,
       drive_source_folder_ids: Array.isArray(p.drive_source_folder_ids) ? p.drive_source_folder_ids : [],
       freee_partner_id: p.freee_partner_id ?? null,

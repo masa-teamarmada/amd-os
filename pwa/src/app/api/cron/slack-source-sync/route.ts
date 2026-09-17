@@ -1,7 +1,7 @@
 /**
  * GET /api/cron/slack-source-sync
  *
- * daily。`project_slack_sources` に取り込み対象を持つ全PJについて、
+ * daily。`project_slack_sources` またはPJ台帳のSlackチャンネルを持つ全PJについて、
  * 当月分のSlack会話を `source_cache(source='slack')` へ upsert する。
  *
  * daily にしている理由は、PJコックピットが古い会話を出さないため。
@@ -103,7 +103,9 @@ export async function GET(req: NextRequest) {
             ym,
             save,
             maxMessages,
-            includeBots: false,
+            // 週次レポートのようなbot投稿も、実投稿の観測証跡として保存する。
+            // システムメッセージは collectSlackSourceRows 側で引き続き除外される。
+            includeBots: true,
           });
         } catch (projectFailure) {
           const message = projectFailure instanceof Error ? projectFailure.message : String(projectFailure);

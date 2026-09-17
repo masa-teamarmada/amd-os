@@ -9,6 +9,77 @@ export type WeeklySlackReportSettingRow = {
   value?: unknown;
 };
 
+export type WeeklySlackReportSlackEvidence = {
+  item_date?: string | null;
+  collected_at?: string | null;
+  content_text?: string | null;
+  metadata_json?: unknown;
+};
+
+export type WeeklySlackReportDeliveryObservation = {
+  state: "delivering" | "not_detected" | "unknown";
+  latestReportAt: string | null;
+  latestSlackAt: string | null;
+};
+
+const WEEKLY_REPORT_OBSERVATION_WINDOW_DAYS = 10;
+
+function parseEvidenceDate(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function textFromEvidence(evidence: WeeklySlackReportSlackEvidence): string {
+  const metadata = evidence.metadata_json && typeof evidence.metadata_json === "object"
+    ? evidence.metadata_json as Record<string, unknown>
+    : {};
+  return [
+    evidence.content_text,
+    typeof metadata.text_full === "string" ? metadata.text_full : "",
+    typeof metadata.text_preview === "string" ? metadata.text_preview : "",
+  ].join("\n");
+}
+
+/**
+ * PJ名やチャンネル名に依存せず、Slack本文に週次レポートとして明示された投稿だけを証跡にする。
+ * ここで扱うのは「実投稿を観測できたか」であり、配信設定や送信元の接続状態ではない。
+ */
+export function isWeeklySlackReportEvidence(evidence: WeeklySlackReportSlackEvidence): boolean {
+  const text = textFromEvidence(evidence);
+  return /(?:週次|今週).{0,24}(?:レポート|報告)|(?:レポート|報告).{0,24}(?:週次|今週)/u.test(text);
+}
+
+/**
+ * 週次投稿は通常7日間隔なので、直近10日以内に証跡があれば「配信中」と表示する。
+ * それより古い・証跡がない場合は、停止と断定せず検出状況だけを返す。
+ */
+export function observeWeeklySlackReportDelivery(
+  evidenceRows: readonly WeeklySlackReportSlackEvidence[],
+  now = new Date(),
+): WeeklySlackReportDeliveryObservation {
+  const latestSlackDate = evidenceRows
+    .map((row) => parseEvidenceDate(row.item_date))
+    .filter((date): date is Date => date !== null)
+    .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
+  const latestReportDate = evidenceRows
+    .filter(isWeeklySlackReportEvidence)
+    .map((row) => parseEvidenceDate(row.item_date))
+    .filter((date): date is Date => date !== null)
+    .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
+  const cutoff = new Date(now.getTime() - WEEKLY_REPORT_OBSERVATION_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+
+  return {
+    state: latestReportDate && latestReportDate >= cutoff
+      ? "delivering"
+      : latestSlackDate
+        ? "not_detected"
+        : "unknown",
+    latestReportAt: latestReportDate?.toISOString() ?? null,
+    latestSlackAt: latestSlackDate?.toISOString() ?? null,
+  };
+}
+
 export function weeklySlackReportSettingKey(projectId: string): string {
   return `weekly_slack_report.${projectId}.enabled`;
 }
