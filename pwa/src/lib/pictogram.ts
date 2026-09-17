@@ -151,6 +151,10 @@ export function parsePictogram(source: string): PictogramParse {
 
 export const PICTOGRAM_WIDTH = 1000;
 export const PICTOGRAM_HEIGHT = 680;
+/** 枠が図より狭いとき、この縮尺まで図を縮めて全体を見せる。これより狭い枠は、この縮尺のまま枠の中で横に動かす。 */
+export const PICTOGRAM_MIN_SCALE = 0.7;
+/** これより狭い枠（スマホ）は縮めずに実寸で横に動かし、図の下に流れの一覧を出す。 */
+export const PICTOGRAM_FIT_MIN_WIDTH = 640;
 export const PICTOGRAM_CARD_W = 148;
 export const PICTOGRAM_SELF_CARD_W = 168;
 export const PICTOGRAM_CARD_H = 108;
@@ -501,6 +505,16 @@ export function layoutPictogram(p: Pictogram): PictogramLayout {
   // 書いた順に並べ直す（読み上げと検査の順をそろえる）
   flows.sort((f1, f2) => p.flows.indexOf(f1.flow) - p.flows.indexOf(f2.flow));
   return { width, height, nodes: [...placed.values()], flows, laneCrossings };
+}
+
+/**
+ * 枠の幅に合わせた図の縮尺。ノートPCでは図の枠が 800px 前後になり、実寸のままだと右の列（顧客）が枠の外に出るため、
+ * 全体が一目で見えるよう縮める（2026-09-17 本番確認で判明）。小数第3位で切り捨て、縮めた図が枠を 1px も超えないようにする。
+ */
+export function pictogramFitScale(available: number | null, width: number = PICTOGRAM_WIDTH): number {
+  if (available === null || !Number.isFinite(available) || available >= width) return 1;
+  if (available < PICTOGRAM_FIT_MIN_WIDTH) return 1;
+  return Math.max(PICTOGRAM_MIN_SCALE, Math.floor((available / width) * 1000) / 1000);
 }
 
 /** 画面の読み上げ・狭い画面の一覧・契約チェック用に、流れを1行の文にする。 */

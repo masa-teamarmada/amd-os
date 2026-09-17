@@ -3339,6 +3339,8 @@ expectIncludes("src/components/cockpit/PictogramDiagram.tsx", [
   "[contain:inline-size]",
   "JapaneseYen",
   "layoutPictogram(parsed.pictogram)",
+  // ノートPCの枠 (約800px) では図を縮めて全体を見せる (2026-09-17 本番確認で、実寸のままだと右の列が枠の外に出た)
+  "pictogramFitScale(avail, layout.width)",
 ]);
 // 社外に出す形の星取り表 (2026-09-14 まさ「PDFの比較表めっちゃよく出来てるから、この３つそのままOSにも入れておいてほしい」)。
 // presentation (migration 425) を持つ星取り表は、VC 提出用の PDF と同じ並び (見出し → 一文 → 説明 → 表 → 注記) で出す。

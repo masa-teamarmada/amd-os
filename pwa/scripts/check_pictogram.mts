@@ -7,11 +7,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   PICTOGRAM_HEIGHT,
+  PICTOGRAM_MIN_SCALE,
   PICTOGRAM_WIDTH,
   describePictogramFlow,
   estimateLabelBox,
   layoutPictogram,
   parsePictogram,
+  pictogramFitScale,
   rectsOverlap,
   segmentHitsRect,
 } from "../src/lib/pictogram.ts";
@@ -111,6 +113,21 @@ parseNg(
   assert.ok(!segmentHitsRect(0, 0, 10, 0, { x: 4, y: 1, w: 2, h: 2 }));
 }
 
+// ---- 枠の幅に合わせた縮尺: ノートPC (枠 約800px) では全体が収まる。スマホは実寸で横に動かす
+{
+  assert.equal(pictogramFitScale(null), 1, "測る前は実寸");
+  assert.equal(pictogramFitScale(1099), 1, "枠が広ければ実寸");
+  assert.equal(pictogramFitScale(953), 0.953);
+  const laptop = pictogramFitScale(792);
+  assert.ok(laptop < 1 && PICTOGRAM_WIDTH * laptop <= 792, "ノートPCの枠 (792px) に図の幅が収まる");
+  assert.equal(pictogramFitScale(660), PICTOGRAM_MIN_SCALE, "縮めすぎない");
+  assert.equal(pictogramFitScale(343), 1, "スマホは縮めずに横に動かす");
+  for (const w of [640, 700, 777.7, 800, 999]) {
+    const s = pictogramFitScale(w);
+    assert.ok(PICTOGRAM_WIDTH * s <= Math.max(w, PICTOGRAM_WIDTH * PICTOGRAM_MIN_SCALE), `縮めた図が枠 ${w}px を超えない`);
+  }
+}
+
 // ---- SOL の本番の図: migration の本文から ```pictogram を取り出して並べる
 {
   const migrations = fs.readdirSync(path.join(pwaDir, "scripts/migrations")).filter((f) => /_sol_business_model_pictogram\.sql$/.test(f));
@@ -156,6 +173,9 @@ parseNg(
     'money: "#eb6834"',
     "strokeDasharray={f.flow.planned",
     "ピクト図の定義を読めない",
+    "pictogramFitScale(avail, layout.width)",
+    'data-testid="pictogram-size-toggle"',
+    "new ResizeObserver(update)",
   ]) {
     assert.ok(view.includes(anchor), `PictogramDiagram.tsx に ${anchor} がない`);
   }
