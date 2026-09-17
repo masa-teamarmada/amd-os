@@ -714,6 +714,12 @@ expectIncludes("src/app/(shared-workspace)/project/[projectId]/workspace/page.ts
 expectIncludes("src/lib/cockpit-tabs.ts", [
   '"overview"',
 ]);
+// PJ管理と会社情報は、子が1件でも現在地として子タブを出す。
+expectIncludes("src/components/cockpit/CockpitView.tsx", [
+  "shouldShowChildNavigation",
+  '"project-management-group"',
+  '"company-information-group"',
+]);
 
 expectIncludes("src/lib/contracts-ledger.ts", [
   "contractIdentityTitle",

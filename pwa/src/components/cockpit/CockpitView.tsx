@@ -551,6 +551,11 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
   });
   const childTabItems: { key: CockpitTab; label: string; onHover?: () => void }[] = childTabs.map(tabItem);
   const groupTabItems = (group: typeof visibleGroups[number]) => group.children.map(tabItem);
+  // PJ管理と会社情報は、内容を表す唯一の子タブも現在地として常に読めるようにする。
+  // ドライブのような独立タブまで同じ名前を重ねず、分類と中身を分ける必要がある2分類に絞る。
+  const shouldShowChildNavigation = childTabItems.length > 1
+    || activeGroupWithAvailableChildren?.key === "project-management-group"
+    || activeGroupWithAvailableChildren?.key === "company-information-group";
   // 分類の数だけ横に並べる。会社情報はPJ管理から独立させ、研究機関PJは6分類になる。
   const groupGridClass = visibleGroups.length >= 6
     ? "grid-cols-3 sm:grid-cols-6"
@@ -713,7 +718,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
               );
             })}
           </nav>
-          {childTabItems.length > 1 && (
+          {shouldShowChildNavigation && (
             <nav
               className="flex gap-1 overflow-x-auto rounded-lg border border-[#d6d6da] bg-white p-1"
               aria-label={`${activeGroupWithAvailableChildren?.label ?? "コックピット"}の表示切り替え`}
