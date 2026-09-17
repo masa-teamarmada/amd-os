@@ -1,5 +1,7 @@
 # 附則（設計書変更履歴）
 
+| 2026-09-17 JST | 5-3 automation責務 / PJ台帳 | 修正 | build v3.142.3。PJ別週次Slackレポートの設定値と実際の投稿状態を分離。現行送信元が `settings.weekly_slack_report.{project_id}.enabled` をreadbackしていない間、adminは設定の停止を実投稿の停止として表示せず「実投稿: 送信元が未接続」と明示する。週次レポート列は240〜520pxで調整・ブラウザ保存でき、横スクロールで読める幅を維持する | 未接続の設定を実送信の停止状態として誤表示せず、PJ台帳の操作列を読める幅にするため | まさ・えいみ |
+
 | 2026-09-17 JST | 5-3 automation責務 / PJ台帳 | 修正 | build v3.142.2。週次 Slack レポートの配信許可を固定PJキーから `settings.weekly_slack_report.{project_id}.enabled` へ移動し、`/admin/projects` の全PJ行に表示。新規PJは設定なし＝停止で始め、Slackチャンネルが無いPJは許可できない。`true` は旧senderを勝手に起動せず送信を許可するだけにした | PJの固定列挙をなくし、PJ台帳と外部送信の宛先設定を同じ管理面へ揃えるため | まさ・えいみ |
 
 ### 2026-09-17 — ZMP実行面とH-1安全復旧

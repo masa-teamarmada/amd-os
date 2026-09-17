@@ -104,6 +104,9 @@ expectIncludes("src/components/admin/AdminProjectsTable.tsx", [
   "週次レポート",
   "チャンネル未設定",
   "saveWeeklySlackReportEnabled",
+  "WEEKLY_REPORT_COLUMN_WIDTH_STORAGE_KEY",
+  "週次レポート列",
+  "実投稿: 送信元が未接続",
 ]);
 expectIncludes("src/app/api/admin/projects/[id]/weekly-slack-report/route.ts", [
   "enabled must be boolean",

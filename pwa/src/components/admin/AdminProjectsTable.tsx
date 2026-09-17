@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AdminProjectMembersModal } from "./AdminProjectMembersModal";
 import { EmailsEditModal } from "./EmailsEditModal";
 import { FreeePartnerPicker } from "./FreeePartnerPicker";
@@ -112,6 +112,15 @@ const FEE_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
 ];
 
 type ProjectCategory = "dtsu" | "ecosystem" | "advisor" | "new_business";
+
+const WEEKLY_REPORT_COLUMN_WIDTH_STORAGE_KEY = "amd-os.admin-projects.weekly-report-column-width";
+const WEEKLY_REPORT_COLUMN_DEFAULT_WIDTH = 280;
+const WEEKLY_REPORT_COLUMN_MIN_WIDTH = 240;
+const WEEKLY_REPORT_COLUMN_MAX_WIDTH = 520;
+
+function weeklyReportColumnWidthInRange(value: number) {
+  return Math.min(WEEKLY_REPORT_COLUMN_MAX_WIDTH, Math.max(WEEKLY_REPORT_COLUMN_MIN_WIDTH, value));
+}
 
 const PROJECT_CATEGORY_OPTIONS: Array<{ value: ProjectCategory; label: string; note: string }> = [
   { value: "dtsu", label: "DTSU", note: "学術発SU伴走" },
@@ -361,6 +370,18 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
   // #16 まさ 2026-05-24: report_emails 編集モーダル state
   const [emailsModal, setEmailsModal] = useState<{ rowId: string; projectId: string; projectName: string; emails: string[] } | null>(null);
   const [emailsSaving, setEmailsSaving] = useState(false);
+  const [weeklyReportColumnWidth, setWeeklyReportColumnWidth] = useState(WEEKLY_REPORT_COLUMN_DEFAULT_WIDTH);
+
+  useEffect(() => {
+    const stored = Number(window.localStorage.getItem(WEEKLY_REPORT_COLUMN_WIDTH_STORAGE_KEY));
+    if (Number.isFinite(stored)) setWeeklyReportColumnWidth(weeklyReportColumnWidthInRange(stored));
+  }, []);
+
+  const updateWeeklyReportColumnWidth = (nextWidth: number) => {
+    const width = weeklyReportColumnWidthInRange(nextWidth);
+    setWeeklyReportColumnWidth(width);
+    window.localStorage.setItem(WEEKLY_REPORT_COLUMN_WIDTH_STORAGE_KEY, String(width));
+  };
 
   const filtered = useMemo(() => {
     return projects.filter((p) => {
@@ -569,7 +590,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
         throw new Error(body.error || "保存できませんでした");
       }
       setProjects((prev) => prev.map((x) => x.id === p.id ? { ...x, weekly_slack_report_enabled: body.enabled! } : x));
-      setHint(`${p.project_name} の週次Slackレポートを${body.enabled ? "配信許可" : "停止"}にしました`);
+      setHint(`${p.project_name} の週次レポート設定を${body.enabled ? "配信許可" : "停止"}にしました（実投稿の送信元は未接続です）`);
       setTimeout(() => setHint(""), 2500);
     } catch (error) {
       setHint(`週次レポート設定 保存エラー: ${error instanceof Error ? error.message : String(error)}`);
@@ -754,7 +775,45 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
         >
           リセット
         </button>
-        <span className="text-[12px] text-muted-foreground ml-auto">{filtered.length} 件</span>
+        <div className="ml-auto flex items-center gap-1 rounded border border-border bg-background px-1.5 py-1 text-[11px] text-muted-foreground">
+          <span className="whitespace-nowrap">週次レポート列</span>
+          <button
+            type="button"
+            onClick={() => updateWeeklyReportColumnWidth(weeklyReportColumnWidth - 24)}
+            disabled={weeklyReportColumnWidth <= WEEKLY_REPORT_COLUMN_MIN_WIDTH}
+            aria-label="週次レポート列を狭くする"
+            className="h-6 min-w-6 rounded border border-border px-1 text-[14px] leading-none hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            −
+          </button>
+          <input
+            type="range"
+            min={WEEKLY_REPORT_COLUMN_MIN_WIDTH}
+            max={WEEKLY_REPORT_COLUMN_MAX_WIDTH}
+            step={8}
+            value={weeklyReportColumnWidth}
+            onChange={(e) => updateWeeklyReportColumnWidth(Number(e.target.value))}
+            aria-label="週次レポート列の幅"
+            className="h-2 w-20 accent-foreground"
+          />
+          <button
+            type="button"
+            onClick={() => updateWeeklyReportColumnWidth(WEEKLY_REPORT_COLUMN_DEFAULT_WIDTH)}
+            className="h-6 rounded border border-border px-1.5 text-[10px] hover:bg-muted"
+          >
+            標準
+          </button>
+          <button
+            type="button"
+            onClick={() => updateWeeklyReportColumnWidth(weeklyReportColumnWidth + 24)}
+            disabled={weeklyReportColumnWidth >= WEEKLY_REPORT_COLUMN_MAX_WIDTH}
+            aria-label="週次レポート列を広くする"
+            className="h-6 min-w-6 rounded border border-border px-1 text-[14px] leading-none hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            ＋
+          </button>
+        </div>
+        <span className="text-[12px] text-muted-foreground">{filtered.length} 件</span>
       </div>
 
       {hint && (
@@ -763,7 +822,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
 
       {/* Table */}
       <div className="max-h-[calc(100vh-9rem)] overflow-auto border border-border rounded-lg">
-        <table className="text-[12px] border-collapse" style={{ minWidth: "2840px" }}>
+        <table className="text-[12px] border-collapse" style={{ minWidth: `${2712 + weeklyReportColumnWidth}px` }}>
           <thead className="sticky top-0 z-30">
             <tr className="bg-muted text-muted-foreground">
               <th className="text-left px-3 py-2 font-medium sticky left-0 z-40 bg-muted w-14">PJID</th>
@@ -793,7 +852,13 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
               <th className="text-left px-3 py-2 font-medium w-52">ニュースサーチクエリ</th>
               <th className="text-left px-3 py-2 font-medium w-36">freee取引先</th>
               <th className="text-left px-3 py-2 font-medium w-32">Slack CH</th>
-              <th className="text-left px-3 py-2 font-medium w-32" title="週次Slackレポートの配信許可。チャンネル未設定のPJは配信できません。">週次レポート</th>
+              <th
+                className="text-left px-3 py-2 font-medium"
+                style={{ width: weeklyReportColumnWidth, minWidth: weeklyReportColumnWidth }}
+                title="実際の送信元とは未接続です。ここではPJごとの配信設定だけを記録します。"
+              >
+                <span className="whitespace-nowrap">週次レポート</span>
+              </th>
               <th className="text-left px-3 py-2 font-medium w-40" title="会議資料・提出物の保存先。生データ抽出元とは別管理。">Drive保存先</th>
               <th className="text-left px-3 py-2 font-medium w-52" title="追加の読み取り専用Drive生データ抽出root。カンマまたは改行で複数登録。">Drive生データ抽出元</th>
             </tr>
@@ -1578,16 +1643,22 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                   </td>
 
                   {/* weekly_slack_report_enabled */}
-                  <td className="px-3 py-2">
+                  <td
+                    className="px-3 py-2 align-top"
+                    style={{ width: weeklyReportColumnWidth, minWidth: weeklyReportColumnWidth }}
+                  >
                     {(() => {
                       const canDeliver = canDeliverWeeklySlackReport(p, p.weekly_slack_report_enabled);
                       const canConfigure = Boolean(p.slack_channel_id) && !p.slack_channel_not_required;
                       return (
-                        <div className="space-y-1">
+                        <div className="min-w-[210px] space-y-1.5">
                           <span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold ${canDeliver ? "bg-emerald-100 text-emerald-800" : "bg-muted text-muted-foreground"}`}>
-                            {canDeliver ? "配信許可" : "停止中"}
+                            {canDeliver ? "設定: 配信を許可" : "設定: 停止"}
                           </span>
-                          <label className="flex w-fit items-center gap-1 text-[10px] text-muted-foreground">
+                          <p className="text-[10px] font-medium leading-tight text-amber-800">
+                            実投稿: 送信元が未接続
+                          </p>
+                          <label className="flex w-fit items-center gap-1 text-[10px] text-muted-foreground" title="この設定は現在の実投稿にはまだ反映されません。送信元を接続した後の配信許可として記録します。">
                             <input
                               type="checkbox"
                               checked={p.weekly_slack_report_enabled}
@@ -1595,9 +1666,12 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                               onChange={(e) => saveWeeklySlackReportEnabled(p, e.target.checked)}
                               className="h-3 w-3 rounded border-border"
                             />
-                            配信する
+                            配信設定を許可
                           </label>
-                          {!canConfigure ? <p className="text-[9px] leading-tight text-muted-foreground">チャンネル未設定</p> : null}
+                          <p className="text-[9px] leading-tight text-muted-foreground">
+                            この値だけでは今ある週次投稿を止めません。
+                            {!canConfigure ? " チャンネル未設定" : ""}
+                          </p>
                         </div>
                       );
                     })()}

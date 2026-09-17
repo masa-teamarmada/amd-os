@@ -82,12 +82,13 @@ Media Mentions は D-11 として runner 未実装。Finance Ops Evidence / free
 
 SKILL 正本は `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 群) / `amd-os-l2-monthend-evidence/SKILL.md` (M 群) / `amd-os-l2-weekly-vc-funding-signals/SKILL.md` (W 群) と、各 L2 の個別 `amd-os-l<N>-*/SKILL.md` (= 束ね SKILL が参照する詳細手順)。L2 の品質改善は、PWA route / GAS function ではなく SKILL と outbox/applier contract を更新する。
 
-## PJ別週次 Slack レポートの停止ゲート
+## PJ別週次 Slack レポート設定と送信元接続
 
-週次 Slack レポートの可否は例外的な全体設定ではなく、すべてのPJに共通する `settings.weekly_slack_report.{project_id}.enabled` で管理する。adminは `/admin/projects` のPJ台帳で、各PJの `Slack CH` と並べて更新する。PJ行を固定で列挙せず、新規PJを含め設定が無い場合は `false`（停止）。
+週次 Slack レポートの設定は例外的な全体設定ではなく、すべてのPJに共通する `settings.weekly_slack_report.{project_id}.enabled` で管理する。adminは `/admin/projects` のPJ台帳で、各PJの `Slack CH` と並べて更新する。PJ行を固定で列挙せず、新規PJを含め設定が無い場合は `false`（停止）。ただし、設定値と実際のSlack投稿は別状態であり、送信元がこのキーをreadbackしていない間は設定値を投稿の停止状態として扱わない。
 
-- 停止時は本文の生成も Slack 投稿も行わない。送信を許可できるのは、`projects.slack_channel_id` があり、`slack_channel_not_required=false` のPJだけ。
-- 将来送信処理を再導入する場合は、レポート生成と Slack 投稿の直前にPJ行・設定キー・宛先チャンネルをreadbackし、設定値が `true` 以外なら外部送信しない。
+- `settings` を読まない既存送信元がある場合、admin画面は「実投稿: 送信元が未接続」と明示する。設定が `false` でも投稿が止まったとは断定しない。
+- 送信を許可できるのは、`projects.slack_channel_id` があり、`slack_channel_not_required=false` のPJだけ。
+- 送信元を新設・接続する場合は、レポート生成と Slack 投稿の直前にPJ行・設定キー・宛先チャンネルをreadbackし、設定値が `true` 以外なら本文を生成せず外部送信もしない。
 - `true` は送信を許可するだけで、停止している旧 sender や scheduler を起動しない。送信処理の新設・再開は、対象・頻度・送信先・rollback を別途確認する。
 
 ## Control layer: 採否通知と先手TODO
