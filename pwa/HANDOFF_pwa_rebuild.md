@@ -1,53 +1,46 @@
 # HANDOFF - AMD OS PWA
 
 - 更新: 2026-09-17 JST
-- セッション: 納付済み誤警告の是正と不納付加算税の現金仕訳
-- 作業種別: mixed（PWA開発 + 本番の支払義務/freee会計反映）
+- セッション: OS全体の変更履歴、外部アクセス承認、undo、監査台帳の可読性修正
+- 作業種別: development
 
 ## 最新セッションの到達点
 
-- `/admin/payments` と `/admin/schedule` の赤い期限超過は、確定額・支払証跡なし・同額候補なしの法定納付だけに限定した。見積額、金額未取得、`needs_review`、同額出金の月割当待ちは「要確認」であり、未納と断定しない。
-- freeeの同じ納付先・照合期間に未使用の出金候補が1件だけなら、見積額を実額へ置き換えて納付済みにする。確定額との差異は、加算税等の実通知が親へ紐づく場合だけ許す。同じ候補を複数月が参照するときは自動消込しない。
-- 過去の法定納付は納期限後120日まで再生成する。現行運用前の古い給与期間を、現在の給与仕訳から新しい滞納として逆生成しない。
-- Vercelの会社スケジュール定期実行を毎日09:35 JSTへ復旧した。支払義務の更新を同日中に予定へ反映する。
-- 本番の赤い期限超過は0件・0円。源泉所得税1-6月分は2026-07-17の533,112円、消費税中間納付は2026-08-31の811,600円で納付済みに更新済み。
-- 不納付加算税26,500円は、まさの現金納付証言を根拠に2026-09-30付で納付済み。freeeへ `租税公課 / 現金`、税区分対象外、未決済残高0円で登録した（取引ID `3784543055`）。OSの支払義務と予定も完了、freee証跡を紐付け済み。
-
-## 本番の要確認
-
-- 労働保険料（2026年度）29,056円: 見積額、支払候補なし、`needs_review`。未納とは断定していない。
-- 社会保険料（2026年7月分）304,119円: 同額出金はあるが6月分と候補が重なるため、`needs_review`。月割当の確認が必要。
-- 社会保険料（2026年8月分）304,119円: 9/30期限の見積額、`needs_review`。
-- freee OAuthアプリは参照可能だが、`POST /api/1/deals` は403で拒否された。今回の現金仕訳は、まさがログインしたfreee画面から登録し、登録後にAPIで取引ID・金額・残額を読み返した。
+- `amd_os_data_change_history` と public schema の監査 trigger、競合確認付き undo、未許可外部アカウントのアクセス要求とまさへの Slack DM は本番稼働中。
+- `/admin/change-history` は raw payload の羅列ではなく、対象・項目・変更前後を一行で把握できる高密度の監査台帳へ変更した。
+- メンバー台帳の履歴は `members.id` を解決し、`member_name`、`code_name`、`member_id` で対象者を表示する。メールアドレスは表示しない。
+- 監査画面の日付時刻はすべて `Asia/Tokyo` で表示する。同一秒内の差だけミリ秒を残し、UTC offset や `Z` は画面へ出さない。
+- 同一の自動処理で連続した同一メンバーの最終ログイン更新は一件へ集約し、最初の値から最後の値への変更として表示する。
+- 現行仕様は `pwa/spec/2-1-pwa-runtime-routes.md`、`pwa/spec/2-2-pwa-surface-inventory-current-spec.md`、`pwa/design/SPEC_pwa.md`、操作は `pwa/manual/2-6-admin-ops.md`、共通UI原則は `pwa/spec/2-7-ui-design-code-current-spec.md`。
 
 ## 反映・検証
 
-- 実装commit: `0d87857c`、境界修正commit: `5109fbd9`。いずれもmainへpush済み。
-- 2026-09-17 closeout時のproduction: `v3.141.5` / `48fe73adfb4b524bf95c958c344ef4aae2c26990` / branch `main` / dirty=false。
-- 実装時の検証: `npm run test:payment-obligations`、`npm run test:admin-schedule`、`npm run test:critical-ui`、`npx tsc --noEmit`、eslint、`npm run build`、本番画面readback。
-- 今回の現金仕訳readback: 取引日・決済日2026-09-30、支出26,500円、租税公課、現金、対象外、残額0円。OS行は`paid`、予定は`completed`。
+- production: `v3.141.5` / `9c836b46d9aa0294c47c8f4d41822c887a858f70` / `https://amd-os-pwa.vercel.app`。
+- 認証済み本番 Chrome で `メンバー「山地 正洋（まさ / ID001）」の最終ログインを11回更新：2026/09/17 00:26:28 → 2026/09/17 08:43:56` を確認。UTC表記なし、行高52.2px、横overflowなし。
+- 実コンポーネントを 1440x900 と 390x844 で確認。desktop行高51.5px、mobile操作ボタン44px、横overflowなし。
+- `npm run test:data-change-history`、`npx tsc --noEmit`、対象eslint、`npm run test:critical-ui`、deploy wrapperの全検査、`git diff --check`が成功。
+- 今回の可読性修正にDB migration、環境変数、外部送信の変更はない。
 
 ## Repo状態
 
-- canonical branch: `main`。今回の引き継ぎ文書は最新`origin/main`の使い捨てclean cloneで更新・pushする。
-- 正規checkout `/Users/masa/projects/AMD/amd-os` は別作業の29ファイルがdirtyで、local mainが3 ahead / 229 behind。未pushは `4edc01d2` / `315a81af` / `d4d254a7`。今回の作業では削除・stash・reset・commitへ巻き込んでいない。
-- 今回作成したbranch / git worktree: なし。作業用cloneはcloseout後に削除する。
+- product code と production は `9c836b46` で一致。closeout文書commitはその後のmainへ積むため、product commitはcurrent mainの祖先になる。
+- 正規checkout `/Users/masa/projects/AMD/amd-os` は別作業由来のdirty 29 pathと未push 3 commitを持ち、closeout確認時は `ahead 3 / behind 229`。reset、stash、rebase、削除、`git add .`をしない。
+- 正規checkoutを安全に同期できない間の次の実装は、最新 `origin/main` からclean cloneを作る。
 
 ## 未解決
 
-- 今回の誤警告修正と不納付加算税の仕訳に残作業なし。
-- 上記3件の`needs_review`は未納確定ではない。追加で追う場合は、freeeの元帳・納付書・対象月の対応を確認してから正本を更新する。
-- リポ全体のarchiveは、正規checkoutの別作業dirtyと未push3件の所有者が確定し、origin/mainへ統合または明示処分されるまで不可。
+- 今回の依頼範囲に未解決はない。
+- actor headerや行の帰属列がない既存service-role処理は、個人名を推測せず `OS自動処理` と表示する。
+- 新しいpublic tableを追加するmigrationは末尾で `amd_os_refresh_data_change_history_triggers()` を呼ぶ。
 
 ## 次の最初の行動
 
-まさの次の指示を待つ。納付照合を続ける場合は、社会保険料7月分の304,119円候補が6月分の出金と重なる理由をfreee元帳で確認し、推測で納付済みにしない。
+次の依頼から開始する。変更履歴をさらに改善するときは、raw履歴と対象tableの正本を確認し、利用者が一行で読める「対象・項目・変更前後」を先に設計してから表示を足す。
 
 ## 参照先
 
-- 利用・運用: `pwa/manual/6-9-company-payment-obligations-spec.md`
-- 納付画面仕様: `pwa/spec/5-15-payment-ledger-current-spec.md`
-- 運営カレンダー仕様: `pwa/spec/5-9-admin-operating-calendar-current-spec.md`
-- freee照合境界: `pwa/manual/6-10-freee-accounting-reconciliation-spec.md`
 - 実装履歴: `pwa/design_log/sessions_2026-09.md`
 - バグ・教訓: `pwa/BUGS.md`
+- 現行仕様: `pwa/spec/2-1-pwa-runtime-routes.md` / `pwa/spec/2-2-pwa-surface-inventory-current-spec.md` / `pwa/design/SPEC_pwa.md`
+- OSマニュアル: `pwa/manual/2-6-admin-ops.md`
+- UI原則: `pwa/spec/2-7-ui-design-code-current-spec.md`

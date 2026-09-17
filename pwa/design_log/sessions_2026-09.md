@@ -1538,3 +1538,14 @@ Closeout記録: `CLOSEOUT_SOL_GANTT_2026-09-16.md`。本番最新readback cbc561
 - 不納付加算税26,500円は、まさの現金納付証言を根拠に9/30付で処理した。freeeへ`租税公課 / 現金`、税区分対象外、未決済残高0円で登録（取引ID`3784543055`）。OSの支払義務を`paid`、予定を`completed`にし、freee証跡を紐付けた。
 - freee OAuthアプリは参照できるが、`POST /api/1/deals`は403。今回の書込みはログイン済みfreee画面で行い、登録後にAPIで取引日・金額・勘定科目・決済口座・残額をreadbackした。
 - 実装commit `0d87857c`、過去境界修正`5109fbd9`。productionはcloseout時`v3.141.5` / `48fe73ad`。正本は`manual/6-9`、`spec/5-15`、`spec/5-9`、freee照合境界は`manual/6-10`。
+
+## 2026-09-17 変更履歴の対象者・日本時間・情報密度を修正
+
+- **利用者指摘**: raw table名・UUID・payloadが中心で何を変えたか分からず、同種の自動更新が何十件も並び、行幅も広すぎた。メンバーの最終ログイン履歴では対象者が欠け、変更前後にUTCのISO文字列が露出していた。
+- **表示設計**: 一覧を対象・項目・変更前後が一行で読める監査台帳へ変更し、詳細は必要なときだけ開く。操作ボタンを含む行高を約52pxへ抑え、desktop/mobileとも横overflowを出さない。
+- **対象者の解決**: `record_pk`の値を`members.id`へ照合し、`member_name`、`code_name`、`member_id`から `山地 正洋（まさ / ID001）` の形で表示する。メールアドレスは監査一覧の表示名に使わない。
+- **時刻**: 監査日時と日付型の変更前後を`Asia/Tokyo`へ統一した。UTC offsetや`Z`は表示せず、同一秒内の変更だけ差を判別できるようミリ秒を残す。日付だけの値は日付のまま扱う。
+- **集約**: 同じ自動処理、同じtable、同じ対象、同じfieldの連続更新だけをまとめ、最初の値から最後の値への変更と回数を表示する。異なる対象や人の操作は混ぜない。
+- **途中で見つけた不具合**: 当初の対象者lookupが `member_id` にUUIDの `record_pk` を渡しており、本番相当データで名前解決できなかった。live data simulationで発見し、正本キー `members.id` へ修正。UUIDを表示名へ足し戻すfallbackも、利用者価値がなくノイズになるため削除した。
+- **検証**: `test:data-change-history`、型検査、対象eslint、critical UI検査、deploy wrapperの全検査が成功。実コンポーネントを1440x900と390x844で確認し、desktop行高51.5px、mobile操作ボタン44px、横overflowなし。
+- **反映**: `9c836b46` / `v3.141.5` をproductionへ反映。認証済みChromeで `メンバー「山地 正洋（まさ / ID001）」の最終ログインを11回更新：2026/09/17 00:26:28 → 2026/09/17 08:43:56`、UTC表記なし、行高52.2pxをreadbackした。DB migrationと外部送信はない。

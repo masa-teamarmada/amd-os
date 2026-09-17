@@ -1,39 +1,53 @@
-# AMD OS PWA 次セッション移行プロンプト
+# 次セッションへの引き継ぎ — AMD OS変更履歴・外部アクセス承認
 
-あなたは、株式会社チームアルマダのAMD OSを引き継ぐ「えいみ」。cwdは `/Users/masa/projects/AMD/amd-os` に固定し、`pwa/` をcwdにしない。
+あなたは株式会社チームアルマダのAMD OSを引き継ぐ「えいみ」。cwdは `/Users/masa/projects/AMD/amd-os` にし、`pwa/`をcwdにしない。正規checkoutには別作業のdirtyと未push commitがあるため、所有者と意図を確認せず変更、reset、stash、rebase、削除、`git add .`をしない。
 
 ## 読む順
 
 1. `/Users/masa/projects/AGENTS.common.md`
 2. `/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md`
-3. `/Users/masa/projects/AMD/amd-os/AGENTS.md`
-4. `/Users/masa/projects/AMD/amd-os/pwa/HANDOFF_pwa_rebuild.md`
-5. `/Users/masa/projects/AMD/amd-os/pwa/manual/6-9-company-payment-obligations-spec.md`
-6. `/Users/masa/projects/AMD/amd-os/pwa/spec/5-15-payment-ledger-current-spec.md`
-7. `/Users/masa/projects/AMD/amd-os/pwa/spec/5-9-admin-operating-calendar-current-spec.md`
-8. `/Users/masa/projects/AMD/amd-os/pwa/manual/6-10-freee-accounting-reconciliation-spec.md`
-9. `/Users/masa/projects/AMD/amd-os/pwa/BUGS.md`
+3. `/Users/masa/projects/AMD/amd-os/pwa/HANDOFF_pwa_rebuild.md`
+4. `/Users/masa/projects/AMD/amd-os/AGENTS.md`
+5. `/Users/masa/projects/AMD/amd-os/pwa/AGENTS.md`
+6. `/Users/masa/projects/AMD/amd-os/pwa/manual/1-1-intro.md`
+7. `/Users/masa/projects/AMD/amd-os/pwa/spec/1-3-reconstruction-coverage-audit.md`
+8. `/Users/masa/projects/AMD/amd-os/pwa/manual/2-6-admin-ops.md`
+9. `/Users/masa/projects/AMD/amd-os/pwa/spec/2-1-pwa-runtime-routes.md`
+10. `/Users/masa/projects/AMD/amd-os/pwa/spec/2-2-pwa-surface-inventory-current-spec.md`
+11. `/Users/masa/projects/AMD/amd-os/pwa/spec/2-7-ui-design-code-current-spec.md`
+12. `/Users/masa/projects/AMD/amd-os/pwa/design/SPEC_pwa.md`
+13. `/Users/masa/projects/AMD/amd-os/pwa/BUGS.md`
+14. `/Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-09.md`
 
 ## 状態スナップショット
 
-- canonical branchは`main`。2026-09-17時点で、納付済み誤警告の修正は`0d87857c`、過去逆生成の境界修正は`5109fbd9`としてmainへ反映済み。
-- productionはcloseout前のreadbackで`v3.141.5` / `48fe73adfb4b524bf95c958c344ef4aae2c26990` / branch `main` / dirty=false。作業開始時に`git fetch origin main`と`/api/build-info`を再確認する。
-- 本番の赤い期限超過は0件・0円。確定額で証跡なしの法定納付だけが赤になる。見積額、金額未取得、`needs_review`、同額出金の月割当待ちは要確認として扱う。
-- 源泉所得税1-6月分533,112円（2026-07-17）と消費税中間納付811,600円（2026-08-31）はfreee出金で納付済み。
-- 不納付加算税26,500円は、まさの現金納付証言に基づき2026-09-30付で納付済み。freee取引ID`3784543055`、`租税公課 / 現金`、対象外、未決済残高0円。OSの支払義務は`paid`、予定は`completed`、freee証跡も紐付け済み。
-- 現在の要確認は、労働保険料2026年度29,056円（見積・候補なし）、社会保険料2026年7月分304,119円（6月分と同額候補が重なる）、社会保険料2026年8月分304,119円（9/30期限・見積）。どれも未納確定として扱わない。
-- freee OAuthアプリは参照可能だが、`POST /api/1/deals`は403。外部書込みを自動化済みと誤認しない。今回の取引はログイン済みfreee画面で登録し、APIでreadbackした。
-- 正規checkout `/Users/masa/projects/AMD/amd-os` には今回と無関係な29ファイルのdirtyと未push3件（`4edc01d2` / `315a81af` / `d4d254a7`）があり、closeout確認時点で3 ahead / 229 behind。削除・stash・reset・一括stageをしない。最新mainが必要な変更は、所有者を確定するか、main直結の使い捨てclean cloneで今回対象だけを扱う。
+- productionは `https://amd-os-pwa.vercel.app`、配信版は `v3.141.5` / `9c836b46d9aa0294c47c8f4d41822c887a858f70`。closeout文書commitはこのproduct commitの後にmainへ積まれている。
+- `/admin/change-history` はOS全体の監査履歴を、実行者、JST日時、対象、項目、変更前後の組で表示する。秘密値は伏せ、大きい値は省略し、履歴自体は追記専用。
+- メンバー履歴は `members.id` を対象行IDとして解決し、`member_name`、`code_name`、`member_id` で誰の変更かを表示する。メールアドレスは使わない。
+- 日付時刻はすべて `Asia/Tokyo`。UTC offsetや`Z`を画面へ出さず、同一秒内の差だけミリ秒を表示する。
+- 同一自動処理内の同一メンバーの最終ログイン連続更新は一件に集約する。本番では11件が `2026/09/17 00:26:28 → 2026/09/17 08:43:56` として表示された。
+- 安全な変更だけ「戻す」を表示し、現在値が履歴の変更後と一致する場合だけ同一transactionで逆操作する。戻し自体も履歴に残す。
+- 未許可外部メールのlogin要求は `workspace_access_requests` へ集約し、まさ（ID001）へSlack DMする。範囲が一意ならDMから、未特定なら `/admin/access` で範囲を選んで許可または拒否する。
+- 正規checkoutはcloseout確認時に別作業由来のdirty 29 pathと未push 3 commitがあり、`ahead 3 / behind 229`。この状態を今回の作業と混ぜない。
 
-## 次タスク
+## 次のタスク
 
-まさの次の指示を待つ。納付照合を続ける依頼が来たら、最初に社会保険料7月分の304,119円候補をfreee元帳で開き、6月分として使われている出金との対応を確定する。証跡が一意になるまで`paid`へ変更しない。労働保険料は、納付書またはfreeeの労働局・厚生労働省向け出金を確認し、29,056円の見積を実額へ置き換える根拠がある場合だけ更新する。
+今回の依頼範囲に未解決はない。まさの次の依頼から開始する。変更履歴を触る場合は、raw IDやraw timestampをそのまま並べず、利用者が一行で対象・項目・変更前後を把握できる表示を先に決める。
 
-## 守る運用
+## 確立済みの運用ルール
 
-- 作業前に`git fetch origin main`、ahead/behind、dirty、未push commitを確認。main一本で作業し、新branch/worktreeを作らない。
-- 別作業のdirtyは対象ファイルだけを明示stageして保全する。`git add .`、reset、stashを使わない。正規checkoutがbehindのまま読み書きを始めない。
-- freeeとSupabaseへの書込みは、書込対象・日付・金額・勘定科目・影響範囲を先に固定し、重複確認→書込み→ID/残額/状態readbackの順で行う。外部通知は既定OFF。
-- 支払義務の正本は`company_payment_obligations`。カレンダーは導出表示であり、元行の修正後に会社スケジュールを再生成する。`candidate`、`needs_review`、`paid`、`completed`を混同しない。
-- PWA仕様を変える場合は`pwa/spec/`、利用・運用を変える場合は`pwa/manual/`、開発履歴は`pwa/design_log/sessions_2026-09.md`を同じ変更で更新する。manual/specの変更履歴も追記する。
-- PWA変更は対象回帰、`npx tsc --noEmit`、`npm run build`、PC/モバイル実画面を確認。本番反映は`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`を使い、Readyと`/api/build-info`のSHAをreadbackする。
+- SupabaseがDBの正本。新しいpublic tableには監査trigger refreshを同じmigrationで含め、本番適用後にschema、migration history、実データを読み戻す。
+- actor情報がないservice-role更新は個人名を推測せず `OS自動処理` と表示する。
+- 監査画面の日時はJST専用formatterを通す。raw ISO、UTC offset、`Z`を利用者向け表示へ混ぜない。
+- UIは情報密度を落とさず、desktopと390px幅で行高、折返し、操作領域、横overflowを実コンポーネントで測る。
+- 画面や運用を変えたらmanual/spec/changelog、必要な`ios/DESIGN.md`、設計ログ、BUGSを同じ変更で同期する。
+- PWA変更はmainへ一度にまとめ、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`で反映し、`/api/build-info`のSHA/version/`dirty:false`と認証済み実画面を読む。Vercel CLIの直接deployは禁止。
+- 正規checkoutの別作業dirtyを戻さない。安全に同期できなければ最新`origin/main`のclean cloneで対象差分だけを扱う。
+- Slack、メール、DBの実データ操作は依頼範囲だけ。外部通知の実送信テストは明示許可なしに行わない。
+
+## 完了条件
+
+- コード、仕様、操作マニュアル、変更履歴、BUGSの対象差分が一致する。
+- 対象テスト、型検査、lint、critical UI検査、desktop/mobileの画面確認が成功する。
+- mainへpush済みで、本番SHA/versionと認証済み画面を読み戻す。
+- 一時cloneや検証serverを片付け、正規checkoutに別作業の変更を持ち込まない。
