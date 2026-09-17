@@ -350,7 +350,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     if (resolvedTab === "seeds") setHasVisitedSeeds(true);
   }, [resolvedTab]);
 
-  // 会社タブも同じ扱いにする（2026-09-12）。hidden で常時マウントしていたため、
+  // 会社概要タブも同じ扱いにする（2026-09-12）。hidden で常時マウントしていたため、
   // どのタブを開いていても中の KillerFactorCatalog が governance と
   // governance/killer-factors を読んでいた。本番実測で合計2.0秒、
   // ゴールツリーを見ているだけのときにも必ず払っていた。
@@ -508,8 +508,10 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     regulations: "規程一覧",
     documents: "ドライブ",
     overview: "PJ概要",
+    "project-contracts": "契約・収支",
     "capital-policy": "資本政策",
     company: "会社概要",
+    activity: "活動実績",
   };
   const availableTab = (tab: CockpitTab) => {
     if (tab === "score-detail") return hasScoreDetailTab;
@@ -551,11 +553,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
   });
   const childTabItems: { key: CockpitTab; label: string; onHover?: () => void }[] = childTabs.map(tabItem);
   const groupTabItems = (group: typeof visibleGroups[number]) => group.children.map(tabItem);
-  // PJ管理と会社情報は、内容を表す唯一の子タブも現在地として常に読めるようにする。
-  // ドライブのような独立タブまで同じ名前を重ねず、分類と中身を分ける必要がある2分類に絞る。
-  const shouldShowChildNavigation = childTabItems.length > 1
-    || activeGroupWithAvailableChildren?.key === "project-management-group"
-    || activeGroupWithAvailableChildren?.key === "company-information-group";
+  const shouldShowChildNavigation = childTabItems.length > 1;
   // 分類の数だけ横に並べる。会社情報はPJ管理から独立させ、研究機関PJは6分類になる。
   const groupGridClass = visibleGroups.length >= 6
     ? "grid-cols-3 sm:grid-cols-6"
@@ -987,12 +985,12 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
         </section>
       )}
 
-      {/* PJ概要タブ (2026-08-28 まさ依頼)。このPJがどういうものかを1枚で読む面。
+      {/* PJ概要タブ (2026-08-28 まさ依頼)。このPJがどういうものかを読む面。
             - p00 (= AMD 会社全体) は AMD Management Score の時系列折れ線 + 最新値カード
             - SU 系 PJ は CockpitVentureStatus の見出し・レーン・担当・事業概要
               (XRL進捗は 2026-08-28 まさ指摘でスコア詳細タブへ)
             - ecosystem PJ は AMD Score 対象外なので出さない
-          その下に契約上の実行条件。どちらも開いた時だけマウントする。 */}
+          契約とシーズン収支は「契約・収支」タブへ分ける。 */}
       {activeTab === "overview" && (
         <section role="tabpanel" aria-label="PJ概要" className="flex min-w-0 flex-col gap-3">
           {project.projectId === "p00" ? (
@@ -1005,18 +1003,12 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
               sections="identity"
             />
           ) : null}
+        </section>
+      )}
+
+      {activeTab === "project-contracts" && (
+        <section role="tabpanel" aria-label="契約・収支" className="min-w-0">
           <CockpitProjectOverview project={project} />
-          <section aria-labelledby="cockpit-activity-results-title" className="flex min-w-0 flex-col gap-3">
-            <div className="flex items-center gap-3 px-1 pt-1">
-              <h2 id="cockpit-activity-results-title" className="shrink-0 text-sm font-semibold text-slate-900">
-                活動・実績
-              </h2>
-              <span className="h-px flex-1 bg-slate-200" aria-hidden="true" />
-            </div>
-            <CockpitGrants projectId={project.projectId} />
-            {hasScoreDetailTab && <Bzm22AcquisitionLedger projectId={project.projectId} />}
-            <CockpitAmdContributions projectId={project.projectId} />
-          </section>
         </section>
       )}
 
@@ -1035,6 +1027,14 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
           className={activeTab === "company" ? "min-w-0" : "hidden"}
         >
           <CockpitCompanyOverview projectId={project.projectId} projectName={project.projectName} surface="cockpit" />
+        </section>
+      )}
+
+      {activeTab === "activity" && (
+        <section role="tabpanel" aria-label="活動実績" className="flex min-w-0 flex-col gap-3">
+          <CockpitGrants projectId={project.projectId} />
+          {hasScoreDetailTab && <Bzm22AcquisitionLedger projectId={project.projectId} />}
+          <CockpitAmdContributions projectId={project.projectId} />
         </section>
       )}
 

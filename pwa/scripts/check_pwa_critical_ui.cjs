@@ -616,7 +616,7 @@ expectIncludes("src/components/contracts/ContractsClient.tsx", [
   "sourceRef: latestSelectedDocument?.web_view_link || textTerm(existingTerms.sourceRef)",
 ]);
 
-// 契約上の実行条件は 2026-08-28 にコックピット最上段から「PJ概要」タブへ移した。
+// 契約上の実行条件はコックピット最上段から「契約・収支」タブへ置く。
 // 最上段のヘッダには「今どのPJを見ているか」だけを残す。
 expectIncludes("src/components/cockpit/CockpitProjectOverview.tsx", [
   "契約上の実行条件",
@@ -641,22 +641,24 @@ expectNotIncludes("src/components/cockpit/CockpitHeader.tsx", [
   "currentContracts",
 ]);
 
-// 「PJ概要」タブ本体。2026-08-28 まさ「さっき貼ったオブジェクト全部移動して」で、
-// PJの見出し・レーン・担当・事業概要・XRL進捗 (CockpitVentureStatus) と契約上の実行条件を
-// このタブへまとめた。コックピット上段に残すのは CockpitHeader だけ。
+// PJの姿、契約・収支、活動実績を分ける。コックピット上段に残すのは CockpitHeader だけ。
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   'CockpitProjectOverview',
   'overview: "PJ概要"',
+  '"project-contracts": "契約・収支"',
+  'activity: "活動実績"',
   'aria-label="PJ概要"',
-  '活動・実績',
+  'aria-label="契約・収支"',
+  'aria-label="活動実績"',
   '<CockpitGrants projectId={project.projectId} />',
   '<Bzm22AcquisitionLedger projectId={project.projectId} />',
   '<CockpitAmdContributions projectId={project.projectId} />',
 ]);
 expectPattern("src/components/cockpit/CockpitView.tsx", [
-  // PJ概要タブの中に PJ の姿 (or p00 の Management Score) と契約条件が並ぶ
+  // PJ概要タブはPJの姿だけ、契約条件は契約・収支タブに置く
   /aria-label="PJ概要"[\s\S]{0,600}<CockpitVentureStatus/,
-  /aria-label="PJ概要"[\s\S]{0,900}<CockpitProjectOverview/,
+  /aria-label="契約・収支"[\s\S]{0,400}<CockpitProjectOverview/,
+  /aria-label="活動実績"[\s\S]{0,600}<CockpitGrants/,
 ]);
 expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
   // 進捗管理・スコア詳細の上へ Hero を戻さない (タブより上は CockpitHeader だけ)
@@ -707,11 +709,11 @@ expectIncludes("src/app/(shared-workspace)/project/[projectId]/workspace/page.ts
 expectIncludes("src/lib/cockpit-tabs.ts", [
   '"overview"',
 ]);
-// PJ管理と会社情報は、子が1件でも現在地として子タブを出す。
+// PJ管理と会社情報は、それぞれの中身を子タブとして明示する。
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   "shouldShowChildNavigation",
-  '"project-management-group"',
-  '"company-information-group"',
+  '"project-contracts": "契約・収支"',
+  'activity: "活動実績"',
 ]);
 
 expectIncludes("src/lib/contracts-ledger.ts", [
@@ -2037,7 +2039,7 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   "CockpitMsChangeHistory",
   "msChangeHistory",
   // 全体幅は維持し、MS・月次は状態badgeがあるときだけ右列を足す。
-  // 経営ハイライトとMTGは「動向・会議」、活動・実績はPJ概要へ分離済み。
+  // 経営ハイライトとMTGは「動向・会議」、活動・実績は会社情報へ分離済み。
   "max-w-[1600px]",
   "lg:grid-cols-[minmax(0,1fr)_300px]",
   "lg:sticky lg:top-12",
@@ -3470,7 +3472,8 @@ expectIncludes("src/lib/cockpit-tabs.ts", [
   'businessPlan: "事業計画"',
   'projectManagement: "PJ管理"',
   'companyInformation: "会社情報"',
-  'children: ["overview"]',
+  'children: ["overview", "project-contracts"]',
+  'children: ["company", "activity"]',
   'key: "company-information-group"',
   'seeds: "シーズリスト"',
   'regulations: "規程・内規"',

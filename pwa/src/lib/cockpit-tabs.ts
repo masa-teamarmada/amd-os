@@ -35,8 +35,10 @@ export const COCKPIT_TABS = [
   "ip",
   "documents",
   "overview",
+  "project-contracts",
   "capital-policy",
   "company",
+  "activity",
 ] as const;
 
 export type CockpitTab = (typeof COCKPIT_TABS)[number];
@@ -104,9 +106,9 @@ export const COCKPIT_GROUPS: {
     {
       key: "project-management-group",
       label: COCKPIT_GROUP_LABELS.projectManagement,
-      children: ["overview"],
+      children: ["overview", "project-contracts"],
     },
-    { key: "company-information-group", label: COCKPIT_GROUP_LABELS.companyInformation, children: ["company"] },
+    { key: "company-information-group", label: COCKPIT_GROUP_LABELS.companyInformation, children: ["company", "activity"] },
   ],
   institution: [
     {
@@ -121,9 +123,9 @@ export const COCKPIT_GROUPS: {
     {
       key: "project-management-group",
       label: COCKPIT_GROUP_LABELS.projectManagement,
-      children: ["overview"],
+      children: ["overview", "project-contracts"],
     },
-    { key: "company-information-group", label: COCKPIT_GROUP_LABELS.companyInformation, children: ["company"] },
+    { key: "company-information-group", label: COCKPIT_GROUP_LABELS.companyInformation, children: ["company", "activity"] },
   ],
 };
 

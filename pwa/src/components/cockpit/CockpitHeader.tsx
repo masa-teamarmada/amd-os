@@ -4,7 +4,7 @@
  * PJコックピット最上段の見出し。
  *
  * ここに置くのは、どのタブを開いていても目に入っていてほしい「今どのPJを見ているか」だけ。
- * 契約まわりの前提は 2026-08-28 まさ依頼で「PJ概要」タブ (`CockpitProjectOverview`) へ移した。
+ * 契約まわりの前提は 2026-09-17 まさ依頼で「契約・収支」タブ (`CockpitProjectOverview`) へ置く。
  */
 
 import Link from "next/link";

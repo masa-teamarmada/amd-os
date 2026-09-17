@@ -38,7 +38,9 @@ assert.equal(cockpitGroupForTab("objective-structure", false).label, "進捗管�
 assert.equal(cockpitGroupForTab("objective-structure", true).label, "進捗管理");
 assert.equal(cockpitGroupForTab("capital-policy", false).label, "事業計画");
 assert.equal(cockpitGroupForTab("overview", false).label, "PJ管理");
+assert.equal(cockpitGroupForTab("project-contracts", false).label, "PJ管理");
 assert.equal(cockpitGroupForTab("company", false).label, "会社情報");
+assert.equal(cockpitGroupForTab("activity", false).label, "会社情報");
 assert.equal(cockpitGroupForTab("seeds", true).label, "シーズリスト");
 // ドライブは PJ管理 の中ではなく分類そのもの (2026-09-02 まさ依頼)
 assert.equal(cockpitGroupForTab("documents", false).label, "ドライブ");
@@ -63,6 +65,8 @@ assert.equal(resolveCockpitTab("business-plan", true), DEFAULT_COCKPIT_TAB);
 assert.equal(resolveCockpitTab("seeds", false), DEFAULT_COCKPIT_TAB);
 assert.equal(resolveCockpitTab("regulations", false), DEFAULT_COCKPIT_TAB);
 assert.equal(resolveCockpitTab("overview", true), "overview");
+assert.equal(resolveCockpitTab("project-contracts", true), "project-contracts");
+assert.equal(resolveCockpitTab("activity", true), "activity");
 assert.equal(resolveCockpitTab("objective-structure", false), "gantt");
 assert.equal(resolveCockpitTab("objective-structure", true), "gantt");
 
