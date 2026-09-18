@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import {
   APPLICATION_LABEL,
   CO2_FLUE_GAS_ROLE,
+  REACTOR_BEARER_ROLE,
   LOCATION_DESCRIPTION,
   LOCATION_SHORT_LABEL,
   METHODS,
@@ -43,7 +44,7 @@ import {
   peekProjectCostModel,
   saveCostPatches,
 } from "@/lib/project-cost-model-client";
-import { FactoryUtilitySwitches, Segmented, num } from "@/components/cockpit/CockpitCostModelParts";
+import { FactoryUtilitySwitches, ReactorBearerSwitch, Segmented, num } from "@/components/cockpit/CockpitCostModelParts";
 import { CostControlsPanel } from "@/components/cockpit/CockpitCostModelControls";
 import { CostResultsPanel, CostResultsSummaryBar, type CostViewSelection } from "@/components/cockpit/CockpitCostModelResults";
 import { CostReadingSections } from "@/components/cockpit/CockpitCostModelReading";
@@ -279,6 +280,8 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
       onToggle: (next: boolean) => onChange("assumption", a.costAssumptionId, "valueText", next ? "on" : "off"),
     }];
   });
+  // 枠の上端に置く「リアクター」の切り替え1つ（まさ 2026-09-17「リアクター全体で１つのスイッチでオンオフ切り替えができれば十分」）
+  const reactorAssumption = resolveAssumption(working.assumptions, REACTOR_BEARER_ROLE);
   const hasMargin = model.targetMarginRate !== null && model.targetMarginRate > 0;
   const flowSel = { application: selection.application, location: selection.location, method: selection.method };
   const flow = computeTaskFlow(working, computed, flowSel);
@@ -343,16 +346,35 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
               value={selection.method}
               onChange={(v) => setView({ method: v })}
             />
+            {reactorAssumption && (
+              <ReactorBearerSwitch
+                on={computed.reactorCustomerBorne}
+                baselineOn={baseline.reactorCustomerBorne}
+                disabled={selection.location === "offsite"}
+                onToggle={(next) => onChange("assumption", reactorAssumption.costAssumptionId, "valueText", next ? "on" : "off")}
+              />
+            )}
             <FactoryUtilitySwitches items={factoryUtilities} />
             <p className="text-[10px] leading-4 text-[#6e6e73] sm:col-span-2 xl:basis-full" data-testid="cost-selection-note">
               {locations.length > 1 && <>{LOCATION_SHORT_LABEL[selection.location]}＝{LOCATION_DESCRIPTION[selection.location]}。</>}
               {METHOD_LABEL[selection.method]}＝{METHOD_DESCRIPTION[selection.method]}。
+              {reactorAssumption && (
+                <>
+                  リアクター＝
+                  {selection.location === "offsite"
+                    ? "SX工場の設備（SXが持つ）"
+                    : computed.reactorCustomerBorne
+                      ? "顧客負担（SXの原価に入れず、結果の欄に別に出す）"
+                      : "SX負担（SXの原価に入れる）"}
+                  。
+                </>
+              )}
               {factoryUtilities.length > 0 && (
                 <>
                   工場から＝
                   {factoryUtilities.some((u) => u.on)
-                    ? `${factoryUtilities.filter((u) => u.on).map((u) => u.label).join("・")}をもらう前提（培養の拠点を工場の隣に置く）`
-                    : "何ももらわない（すべて買う）"}
+                    ? `${factoryUtilities.filter((u) => u.on).map((u) => u.label).join("・")}を培養に使う前提（培養の拠点を工場の隣に置く）`
+                    : "培養に何も使わない（すべて買う）"}
                   。
                 </>
               )}

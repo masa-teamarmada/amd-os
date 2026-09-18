@@ -4,6 +4,7 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   APPLICATION_LABEL,
   CO2_FLUE_GAS_LABEL,
+  REACTOR_BEARER_LABEL,
   WASTE_MEDIUM_LABEL,
   WASTE_HEAT_LABEL,
   CONFIDENCE_LABEL,
@@ -227,6 +228,45 @@ export function FactoryUtilitySwitches({ items }: { items: Array<{ key: string; 
             </button>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 枠の上端に置く「リアクター」の切り替え1つ。顧客工場（オンサイト）のリアクターを顧客が持つか SX が持つか。
+ * まさ 2026-09-17「リアクター全体で１つのスイッチでオンオフ切り替えができれば十分」。
+ * ON（顧客負担）のとき、リアクターの額は SX の原価に入れず、結果の欄に別に出す。OFF で SX の原価に入る。
+ * オフサイトは SX工場のリアクターなので押せない。
+ */
+export function ReactorBearerSwitch({ on, baselineOn, disabled, onToggle }: { on: boolean; baselineOn: boolean; disabled: boolean; onToggle: (on: boolean) => void }) {
+  const changed = on !== baselineOn;
+  return (
+    <div className="flex min-w-0 items-center gap-1.5" data-testid="reactor-bearer-switch">
+      <span className="w-[4.5rem] shrink-0 text-[11px] font-semibold text-[#3c3c43] xl:w-auto" title="顧客工場に置くリアクター（処理設備と、その消耗品・点検・電力・運転）を誰が持つか">
+        リアクター
+      </span>
+      <div className="inline-flex min-w-0 flex-1 rounded-lg border border-[#d2d2d7] bg-white p-0.5 xl:flex-none">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={on}
+          aria-label={REACTOR_BEARER_LABEL}
+          disabled={disabled}
+          title={
+            disabled
+              ? "SX工場（オフサイト）のリアクターはSXが持つ"
+              : on
+                ? "ON：顧客が持つ（SXの原価に入れず、結果の欄に別に出す）"
+                : "OFF：SXが持つ（SXの原価に入れる）"
+          }
+          onClick={() => onToggle(!on)}
+          className={`min-h-[40px] flex-1 whitespace-nowrap rounded-md px-2 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7cbceb] disabled:cursor-not-allowed disabled:opacity-40 xl:min-h-[30px] xl:flex-none ${
+            on && !disabled ? "bg-[#027fdc] text-white" : "text-[#3c3c43] enabled:hover:bg-[#e8f3fc]"
+          } ${changed ? "ring-2 ring-[#7cbceb] ring-offset-1" : ""}`}
+        >
+          顧客負担
+        </button>
       </div>
     </div>
   );

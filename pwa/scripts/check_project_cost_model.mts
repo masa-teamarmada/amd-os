@@ -52,6 +52,7 @@ import {
   COST_ROLE_KEYS,
   ITEM_BEARERS,
   ITEM_INLINE_ROLES,
+  REACTOR_BEARER_ROLE,
   METHODS,
   PRODUCTION_TASK_DRIVERS,
   RECOVERY_CAPEX_ROLES,
@@ -578,7 +579,7 @@ assert.ok(
 {
   const runs = fixture.tasks.filter((t) => t.costTaskId === "ct_run_circulation" || t.costTaskId === "ct_run_injection");
   assert.equal(runs.length, 2, "処理の運転の作業が2つある");
-  assert.equal(task(fixture, "ct_run_injection").performer, "site", "直接投入の処理の運転は処理する場所の人がやる");
+  assert.equal(task(fixture, "ct_run_injection").performer, "reactor", "直接投入の処理の運転はリアクターの持ち主がやる");
   for (const t of runs) {
     assert.equal(resolvePerformer(t, "onsite"), "customer", `${t.label} はオンサイトでは顧客`);
     assert.equal(resolvePerformer({ ...t, performer: "site" }, "offsite"), "sx", "場所によるはオフサイトでは SX");
@@ -652,22 +653,28 @@ assert.ok(
 
 // 16. 誰が持つか: SX が持つ明細だけを SX の原価に入れる。顧客工場のリアクターと汚泥の処分は処理する場所の持ち主、オンサイトの槽は前提
 {
-  const onsiteScopes = new Set(["循環", "投入", "共通", "現場共通"]);
   // 金属回収の中央回収設備（437）は顧客工場に置かない SX の設備なので、リアクターに数えない
-  const reactor = fixture.items.filter((i) => i.costType === "CAPEX" && onsiteScopes.has(i.scenario) && i.priceRule !== "recovery_capex");
-  assert.ok(reactor.length >= 20 && reactor.every((i) => i.bearer === "site"), "顧客工場に置くリアクター（オンサイトで効く CAPEX）は処理する場所の持ち主");
+  const reactor = fixture.items.filter((i) => i.costType === "CAPEX" && (i.scenario === "循環" || i.scenario === "投入") && i.priceRule !== "recovery_capex");
+  assert.ok(reactor.length >= 20 && reactor.every((i) => i.bearer === "reactor"), "顧客工場に置くリアクター（循環カートリッジ・直接投入の CAPEX）は持ち主がリアクター");
+  const siteCapex = fixture.items.filter((i) => i.costType === "CAPEX" && (i.scenario === "共通" || i.scenario === "現場共通") && i.priceRule !== "recovery_capex");
+  assert.ok(siteCapex.length > 0 && siteCapex.every((i) => i.bearer === "site"), "閉鎖系の区画など、リアクター以外の現場の CAPEX は処理する場所の持ち主");
   const recoveryRows = fixture.items.filter((i) => i.priceRule === "recovery_capex");
   assert.equal(recoveryRows.length, 1, "金属回収の中央回収設備は1行");
   for (const loc of ["onsite", "offsite"] as const) assert.equal(resolveBearer(recoveryRows[0], loc), "sx", `中央回収設備は${loc === "onsite" ? "オンサイト" : "オフサイト"}でも SX`);
   assert.equal(fixture.items.find((i) => i.costItemId === "ci2_dye_disposal")?.bearer, "site", "色素分解の汚泥の処分は処理する場所の持ち主");
   assert.ok(fixture.items.filter((i) => i.scenario === "中央培養").every((i) => i.bearer === "sx"), "菌体の製造拠点の明細は SX");
   assert.equal(task(fixture, "ct4_post_dye").performer, "site", "色素分解の脱水と処分の手配は処理する場所の人");
-  for (const b of ITEM_BEARERS) assert.ok(b in { sx: 1, customer: 1, site: 1 }, `誰が持つかの値 ${b}`);
+  for (const b of ITEM_BEARERS) assert.ok(b in { sx: 1, customer: 1, site: 1, reactor: 1 }, `誰が持つかの値 ${b}`);
   const sample = reactor[0];
   assert.equal(resolveBearer({ ...sample, bearer: "site" }, "onsite"), "customer", "場所によるはオンサイトで顧客");
   assert.equal(resolveBearer({ ...sample, bearer: "site" }, "offsite"), "sx", "場所によるはオフサイトで SX");
   assert.equal(resolveBearer({ ...sample, bearer: "customer" }, "offsite"), "customer", "顧客はどこでも顧客");
   assert.equal(resolveBearer({ ...sample, scenario: "中央培養", bearer: "customer" }, "onsite"), "sx", "製造拠点の明細は常に SX");
+  // リアクターの持ち主は、オンサイトだけスイッチで動く（まさ 2026-09-17「リアクター全体で１つのスイッチでオンオフ切り替えができれば十分」）
+  assert.equal(resolveBearer({ ...sample, bearer: "reactor" }, "onsite", true), "customer", "リアクターは顧客負担 ON のオンサイトで顧客");
+  assert.equal(resolveBearer({ ...sample, bearer: "reactor" }, "onsite", false), "sx", "リアクターは顧客負担 OFF のオンサイトで SX");
+  for (const v of [true, false]) assert.equal(resolveBearer({ ...sample, bearer: "reactor" }, "offsite", v), "sx", "リアクターはオフサイトでは切り替えによらず SX");
+  assert.equal(resolveBearer({ ...sample, bearer: "reactor" }, "onsite"), "customer", "切り替えを省くと顧客（これまでの形）");
   assert.ok(TEXT_CHOICE_ROLES.onsite_tank_bearer?.some((c) => c.value === "customer"), "槽を持つのはを選択肢で持つ");
 
   const on = scenario(fixture, "enhanced", "dye", "投入-既設");
@@ -723,7 +730,7 @@ assert.ok(
   // 菌体の補充分（ロス補充・性能低下）は 437 から0円（回収率と使用回数のマスバランスで菌体費に入る）
   near(onCons.perUnit, (0 + 0 + 2.7 + 2.7) * deriveCostBasis(fixture.assumptions, { strain: "enhanced", application: "dye" }).biomassKgPerUnit, 1e-6, "オンサイトの消耗品の区分に残るのは、菌体を運ぶ容器だけ");
   // 循環カートリッジの処理の運転はオフサイトなら SX（「オフサイトならSX」）: 5.75時間 × 4,000円 × 300バッチ ÷ 30,000m³ = 230円/m³
-  assert.equal(task(fixture, "ct_run_circulation").performer, "site", "循環カートリッジの処理の運転は処理する場所の人");
+  assert.equal(task(fixture, "ct_run_circulation").performer, "reactor", "循環カートリッジの処理の運転はリアクターの持ち主");
   const customerCirc = clone();
   task(customerCirc, "ct_run_circulation").performer = "customer";
   near(scenario(fixture, "enhanced", "dye", "オフサイト-循環-新設").totalPerUnit - scenario(customerCirc, "enhanced", "dye", "オフサイト-循環-新設").totalPerUnit, (5.75 * 4000 * 300) / 30000, 1e-9, "オフサイトの循環カートリッジは SX の運転の分が乗る");
@@ -872,7 +879,11 @@ assert.ok(
   const signatureOf = (c: ReturnType<typeof computeCostModel>, key: string) => {
     const s = c.scenarios.find((x) => x.key === key);
     assert.ok(s, `scenario ${key}`);
-    return [s.totalPerUnit, s.siteTaskHours, s.salePricePerUnit, s.businessRevenueAnnual, s.gapToAllowedPerUnit, ...s.breakdown.map((b) => b.perUnit)];
+    // 顧客が持つリアクターも画面に出る数字なので、効く・効かないの判定に入れる（まさ 2026-09-17「別で出しておいて」）
+    return [
+      s.totalPerUnit, s.siteTaskHours, s.salePricePerUnit, s.businessRevenueAnnual, s.gapToAllowedPerUnit,
+      s.reactorCustomerPerUnit, s.customerOutlayPerUnit, ...s.breakdown.map((b) => b.perUnit),
+    ];
   };
   const differs = (a: number[], b: number[]) => a.some((v, i) => Math.abs(v - b[i]) > 1e-9);
   // 選択肢から選ぶ前提（槽を持つのは・排ガス利用可能）は数字を3倍にして動かせないので、下で別に切り替えて確かめる
@@ -909,6 +920,10 @@ assert.ok(
       const flueOn: CostModelBundle = JSON.parse(JSON.stringify(bundle));
       for (const a of flueOn.assumptions) if (a.roleKey === CO2_FLUE_GAS_ROLE) a.valueText = "on";
       const flueMoved = computeCostModel(flueOn, { strain });
+      // リアクターは顧客負担も SX 負担へ切り替えて動かす（選択肢の前提）
+      const reactorSx: CostModelBundle = JSON.parse(JSON.stringify(bundle));
+      for (const a of reactorSx.assumptions) if (a.roleKey === REACTOR_BEARER_ROLE) a.valueText = "off";
+      const reactorMoved = computeCostModel(reactorSx, { strain });
       for (const application of ["dye", "metal"] as const) for (const location of ["onsite", "offsite"] as const) for (const method of METHODS) {
         for (const tankMode of tankModesFor(location, bearer)) {
           const key = keyOf(application, location, method, tankMode);
@@ -920,6 +935,12 @@ assert.ok(
             checked++;
           }
           assert.equal(roles.has("onsite_tank_bearer"), location === "onsite", `${variant} ${key}: 槽を持つのはオンサイトだけに効く`);
+          assert.equal(roles.has(REACTOR_BEARER_ROLE), location === "onsite", `${variant} ${key}: リアクターを誰が持つかはオンサイトだけに効く`);
+          assert.equal(
+            differs(before, signatureOf(reactorMoved, key)),
+            roles.has(REACTOR_BEARER_ROLE),
+            `${variant} ${strain} ${key}: リアクターは顧客負担は${roles.has(REACTOR_BEARER_ROLE) ? "効くはずが数字が動かない" : "効かないはずが数字が動く"}`
+          );
           assert.equal(
             differs(before, signatureOf(flueMoved, key)),
             roles.has(CO2_FLUE_GAS_ROLE),
@@ -936,7 +957,8 @@ assert.ok(
   const offsiteInjection = { strain: "wild", application: "dye", location: "offsite", method: "投入", tankMode: "新設" } as const;
   assert.ok(!rolesInEffect(hoursUnknown, onsiteInjection).has("labor_rate"), "工数がすべて空欄なら、作業単価は効かない");
   assert.ok(rolesInEffect(hoursUnknown, onsiteInjection).has("patrol_batches_per_delivery"), "工数が空欄でも、1回の経費がある作業の回数の前提は効く（移動の車両費）");
-  assert.ok(!rolesInEffect(runOnly, onsiteInjection).has("labor_rate"), "顧客がやる処理の運転の工数に、作業単価は効かない");
+  // 顧客が持つリアクターの額にも運転の手間を入れるので、作業単価はオンサイトでも効く（まさ 2026-09-17「別で出しておいて」）
+  assert.ok(rolesInEffect(runOnly, onsiteInjection).has("labor_rate"), "顧客が持つリアクターの運転の工数にも作業単価が効く");
   assert.ok(rolesInEffect(runOnly, offsiteInjection).has("labor_rate"), "オフサイトの処理の運転は SX がやるので、作業単価が効く");
   // 槽を持つのはを変えると、オンサイトの槽の選択肢が変わる（オフサイトの数字は変わらない）
   assert.deepEqual(tankModesFor("onsite", "customer"), ["既設"], "オンサイトの槽が顧客の設備なら既設の1通り");
@@ -944,20 +966,21 @@ assert.ok(
   near(scenario(sxTank, "wild", "dye", "オフサイト-投入-新設").totalPerUnit, scenario(fixture, "wild", "dye", "オフサイト-投入-新設").totalPerUnit, 1e-9, "槽を持つのはオフサイトに効かない");
   // 決まった組み合わせで、効く前提と効かない前提
   const onsite = rolesInEffect(fixture, { strain: "wild", application: "dye", location: "onsite", method: "投入", tankMode: "既設" });
-  // オンサイトでは装置の電力・交換部品は顧客の持ち分なので、電力の前提は効かない（2026-09-14 まさ「それ普通いれないでしょ」）
-  for (const role of ["new_tank_capex", "tank_life_years", "truck_capacity_m3", "module_unit_price", "module_durability_batches", "power_kw_circulation", "hrt_circulation", "spent_wet_factor", "sludge_disposal_price", "power_unit_price", "power_kw_injection", "hrt_injection"]) {
+  // オンサイトの装置の電力・交換部品は顧客の持ち分だが、顧客が持つリアクターの額に出るので効く（まさ 2026-09-17「別で出しておいて」）。
+  // 槽・汚泥の処分・排液を運ぶ台数は、顧客が持つリアクターにも SX の原価にも出ないので効かない。
+  for (const role of ["new_tank_capex", "tank_life_years", "truck_capacity_m3", "spent_wet_factor", "sludge_disposal_price", "module_unit_price", "module_durability_batches", "power_kw_circulation", "hrt_circulation"]) {
     assert.ok(!onsite.has(role), `オンサイト・直接投入（槽は顧客の設備）では ${role} を使わない`);
   }
-  for (const role of ["labor_rate", "patrol_batches_per_delivery", "membrane_life_years", "onsite_tank_bearer"]) {
+  for (const role of ["labor_rate", "patrol_batches_per_delivery", "membrane_life_years", "onsite_tank_bearer", REACTOR_BEARER_ROLE, "power_unit_price", "power_kw_injection", "hrt_injection"]) {
     assert.ok(onsite.has(role), `オンサイト・直接投入では ${role} を使う`);
   }
   const onsiteCirculation = rolesInEffect(fixture, { strain: "wild", application: "dye", location: "onsite", method: "循環", tankMode: "既設" });
-  assert.ok(!onsiteCirculation.has("module_unit_price") && onsiteCirculation.has("module_durability_batches"), "オンサイトの循環カートリッジは、モジュールの単価は顧客・交換の作業の回数は SX に効く");
+  assert.ok(onsiteCirculation.has("module_unit_price") && onsiteCirculation.has("module_durability_batches"), "オンサイトの循環カートリッジは、モジュールの単価も交換の作業の回数も効く（単価は顧客が持つリアクターの額に出る）");
   const offsite = rolesInEffect(fixture, { strain: "wild", application: "dye", location: "offsite", method: "循環", tankMode: "新設" });
   for (const role of ["new_tank_capex", "tank_life_years", "truck_capacity_m3", "module_unit_price", "module_durability_batches", "power_kw_circulation", "hrt_circulation", "spent_wet_factor", "sludge_disposal_price", "power_unit_price"]) {
     assert.ok(offsite.has(role), `オフサイト・循環カートリッジでは ${role} を使う`);
   }
-  for (const role of ["onsite_tank_bearer", "patrol_batches_per_delivery", "membrane_life_years", "power_kw_injection", "hrt_injection"]) {
+  for (const role of ["onsite_tank_bearer", REACTOR_BEARER_ROLE, "patrol_batches_per_delivery", "membrane_life_years", "power_kw_injection", "hrt_injection"]) {
     assert.ok(!offsite.has(role), `オフサイト・循環カートリッジでは ${role} を使わない`);
   }
   // 菌体の製造原価を上書きすると、製造拠点の作業だけで効いていた前提は効かなくなる
@@ -1414,6 +1437,60 @@ assert.ok(
   near(on4.lineCapacityKgYear, 33333 * 4, 1e-9, "ON では1系列で年に作れる量が4倍");
   near(on4.productionLines * 4, on1.productionLines, 1e-9, "系列の数は1/4");
   assert.ok(on4.perKg < on1.perKg, "設備の償却と固定費が薄まり、菌体1kgの原価が下がる");
+}
+
+// 2026-09-17 まさ依頼: リアクター（処理設備）を誰が持つかを切り替え1つにまとめ、顧客が持つ額を SX の原価とは別に出す
+// 「別で出しておいて。ただし、そこの項目すべてについて「顧客負担」をオンにしておいて。リアクター全体で１つのスイッチでオンオフ切り替えができれば十分」
+// 「これを計算しておきたいのは、廃液回収事業も検討してるから」
+{
+  const a = fixture.assumptions.filter((x) => x.roleKey === REACTOR_BEARER_ROLE);
+  assert.equal(a.length, 1, "リアクターを誰が持つかの前提は1行");
+  assert.equal(a[0].valueText, "on", "既定は顧客負担");
+  assert.ok(COST_ROLE_KEYS.has(REACTOR_BEARER_ROLE) && CONDITIONAL_ROLE_KEYS.has(REACTOR_BEARER_ROLE), "計算に使う前提で、オンサイトだけに効く");
+  assert.equal(paramGroupOfRole(REACTOR_BEARER_ROLE)?.key, "capex-reactor", "置き場所は CAPEX のリアクター");
+  assert.deepEqual(TEXT_CHOICE_ROLES[REACTOR_BEARER_ROLE]?.map((c) => c.value), ["on", "off"], "選択肢は 顧客負担 / SX負担");
+  assert.ok(!ITEM_INLINE_ROLES.has(REACTOR_BEARER_ROLE), "明細の行ではなく、枠の上端と前提の一覧に出す");
+
+  // リアクターの行: 循環カートリッジ・直接投入の明細と、処理の運転
+  const items = fixture.items.filter((i) => i.bearer === "reactor");
+  const tasks = fixture.tasks.filter((t) => t.performer === "reactor");
+  assert.equal(items.length, 82, "リアクターの明細は82行（循環カートリッジ34・直接投入48）");
+  assert.equal(tasks.length, 2, "リアクターの作業は処理の運転2件");
+  assert.ok(items.every((i) => i.scenario === "循環" || i.scenario === "投入"), "リアクターの明細は循環カートリッジと直接投入だけ");
+  assert.ok(tasks.every((t) => t.scenario === "循環" || t.scenario === "投入"), "リアクターの作業は循環カートリッジと直接投入だけ");
+  assert.ok(fixture.items.some((i) => i.bearer === "site") && fixture.tasks.some((t) => t.performer === "site"), "汚泥の処分・処理水の分析などは「場所による」のまま");
+
+  const sxOwn: CostModelBundle = JSON.parse(JSON.stringify(fixture));
+  for (const x of sxOwn.assumptions) if (x.roleKey === REACTOR_BEARER_ROLE) x.valueText = "off";
+  for (const app of ["dye", "metal"] as const) for (const method of METHODS) {
+    const key = `${app}:${method}-既設`;
+    const on = scenario(fixture, "wild", app, key.slice(key.indexOf(":") + 1));
+    const off = scenario(sxOwn, "wild", app, key.slice(key.indexOf(":") + 1));
+    assert.ok(on.reactorCustomerPerUnit > 0, `${key}: 顧客負担では顧客が持つリアクターの額が出る`);
+    near(off.reactorCustomerPerUnit, 0, 1e-9, `${key}: SX負担では顧客が持つリアクターは0`);
+    // SX が持つ形にすると、顧客が持っていた額がそのまま SX の原価に乗る
+    near(off.totalPerUnit - on.totalPerUnit, on.reactorCustomerPerUnit, 1e-6, `${key}: 切り替えで動く額は、顧客が持つリアクターと同じ`);
+    near(on.customerOutlayPerUnit, on.salePricePerUnit + on.reactorCustomerPerUnit, 1e-9, `${key}: 顧客の支払いは 売価 + リアクター`);
+    // オフサイトは切り替えによらず SX
+    const offsiteOn = scenario(fixture, "wild", app, `オフサイト-${method}-新設`);
+    const offsiteOff = scenario(sxOwn, "wild", app, `オフサイト-${method}-新設`);
+    near(offsiteOn.totalPerUnit, offsiteOff.totalPerUnit, 1e-9, `${key}: オフサイトは切り替えで動かない`);
+    near(offsiteOn.reactorCustomerPerUnit, 0, 1e-9, `${key}: オフサイトに顧客が持つリアクターは無い`);
+  }
+  // 自然株・オンサイト・槽は既設の数字（447）
+  near(scenario(fixture, "wild", "dye", "投入-既設").reactorCustomerPerUnit, 463.3, 0.05, "色素分解・直接投入の顧客が持つリアクター");
+  near(scenario(fixture, "wild", "dye", "循環-既設").reactorCustomerPerUnit, 626.0, 0.05, "色素分解・循環カートリッジの顧客が持つリアクター");
+  near(scenario(fixture, "wild", "dye", "投入-既設").customerOutlayPerUnit, 963.3, 0.05, "色素分解・直接投入の顧客の支払い（売価500円＋リアクター）");
+  near(scenario(sxOwn, "wild", "dye", "投入-既設").totalPerUnit, 598.3, 0.05, "SX がリアクターを持つ形の色素分解・直接投入");
+  near(scenario(sxOwn, "wild", "metal", "投入-既設").totalPerUnit, 1376.5, 0.05, "SX がリアクターを持つ形の金属回収・直接投入");
+  // 画面: 枠の上端の切り替えと、結果の欄の「顧客が持つリアクター」
+  const src = (f: string) => fs.readFileSync(new URL(f, import.meta.url), "utf8");
+  const mainSrc = src("../src/components/cockpit/CockpitCostModel.tsx");
+  const resultsSrc = src("../src/components/cockpit/CockpitCostModelResults.tsx");
+  assert.match(mainSrc, /<ReactorBearerSwitch/, "枠の上端にリアクターの切り替えを置く");
+  assert.match(mainSrc, /リアクター＝/, "切り替えの下の一文にリアクターを誰が持つかを出す");
+  assert.match(resultsSrc, /data-testid="cost-reactor-customer"/, "結果の欄に顧客が持つリアクターを出す");
+  assert.match(resultsSrc, /customerOutlayPerUnit/, "結果の欄に顧客の支払いを出す");
 }
 
 console.log("project-cost-model: OK");

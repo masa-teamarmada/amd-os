@@ -46,7 +46,12 @@
 // 明細には「誰が持つか」(bearer) を持たせる。値と意味は作業の「誰がやるか」と同じで、SX が持つ明細だけを SX の原価に入れる。
 // 顧客工場に置くリアクター (処理設備) は顧客が買う (まさ 2026-09-14「リアクターは顧客が買う前提です」)。
 // 顧客工場で出る使用済み菌体の汚泥の処分は顧客がやる (まさ 2026-09-14「これは顧客側がやることじゃないの？」)。
-// どちらも bearer = site (オンサイトは顧客、オフサイトは SX工場の設備・処分なので SX)。
+// 汚泥の処分は bearer = site (オンサイトは顧客、オフサイトは SX工場の処分なので SX)。
+// リアクター (循環カートリッジ・直接投入の処理設備と、その消耗品・点検・電力、処理の運転) は bearer / performer = reactor。
+// オンサイトでは前提 reactor_customer_borne のスイッチ1つで、顧客が持つか SX が持つかを切り替える (既定は顧客)。
+// 顧客が持つときも額は計算し、SX の原価とは別に reactorCustomerPerUnit へ合計する
+// (まさ 2026-09-17「別で出しておいて」「リアクター全体で１つのスイッチでオンオフ切り替えができれば十分」「廃液回収事業も検討してるから」)。
+// オフサイトのリアクターは SX工場の設備なので、スイッチによらず SX が持つ。
 // オンサイトの槽を誰が持つかは前提 onsite_tank_bearer (value_text: customer / sx)。顧客が持つときは、槽の既設 / 新設は SX の原価に効かない。
 //
 // 金属回収は酸で菌体を溶かして金属を取り出すので、菌体使用回数は1回で固定する。使い回せるのは色素分解だけ (まさ 2026-09-13)。
@@ -235,41 +240,58 @@ export function driverUsesCount(driver: CostTaskDriver): boolean {
   return driver === "fixed" || driver === "production_line";
 }
 
-/** 作業を誰がやるか。sx = SX / customer = 顧客 / site = 処理する場所の人 (オンサイトは顧客、オフサイトは SX)。 */
-export type CostTaskPerformer = "sx" | "customer" | "site";
-export const TASK_PERFORMERS: CostTaskPerformer[] = ["sx", "customer", "site"];
+/**
+ * 作業を誰がやるか。sx = SX / customer = 顧客 / site = 処理する場所の人 (オンサイトは顧客、オフサイトは SX) /
+ * reactor = リアクターの持ち主 (オンサイトは前提 reactor_customer_borne のスイッチで顧客か SX、オフサイトは SX)。
+ */
+export type CostTaskPerformer = "sx" | "customer" | "site" | "reactor";
+export const TASK_PERFORMERS: CostTaskPerformer[] = ["sx", "customer", "site", "reactor"];
 export const TASK_PERFORMER_LABEL: Record<CostTaskPerformer, string> = {
   sx: "SX",
   customer: "顧客",
   site: "処理する場所の人（オンサイトは顧客・オフサイトはSX）",
+  reactor: "リアクターの持ち主（オンサイトは「リアクターは顧客負担」の切り替えで決まる・オフサイトはSX）",
 };
-export const TASK_PERFORMER_SHORT_LABEL: Record<CostTaskPerformer, string> = { sx: "SX", customer: "顧客", site: "場所による" };
+export const TASK_PERFORMER_SHORT_LABEL: Record<CostTaskPerformer, string> = { sx: "SX", customer: "顧客", site: "場所による", reactor: "リアクター" };
 
-function resolveWho(value: CostTaskPerformer, scenario: CostScenarioScope, location: CostLocation): "sx" | "customer" {
+function resolveWho(value: CostTaskPerformer, scenario: CostScenarioScope, location: CostLocation, reactorCustomer: boolean): "sx" | "customer" {
   if (scenario === "中央培養") return "sx";
   if (value === "customer") return "customer";
   if (value === "site") return location === "onsite" ? "customer" : "sx";
+  if (value === "reactor") return location === "onsite" && reactorCustomer ? "customer" : "sx";
   return "sx";
 }
 
-/** その方式で、作業を実際に誰がやるか。製造拠点の作業は常に SX。 */
-export function resolvePerformer(task: Pick<CostTask, "performer" | "scenario">, location: CostLocation): "sx" | "customer" {
-  return resolveWho(task.performer, task.scenario, location);
+/**
+ * その方式で、作業を実際に誰がやるか。製造拠点の作業は常に SX。
+ * reactorCustomer はスイッチ「リアクターは顧客負担」(reactorCustomerBorne)。省くと顧客 (既定)。
+ */
+export function resolvePerformer(task: Pick<CostTask, "performer" | "scenario">, location: CostLocation, reactorCustomer = true): "sx" | "customer" {
+  return resolveWho(task.performer, task.scenario, location, reactorCustomer);
 }
 
-/** 明細の費用を誰が持つか。値と意味は「誰がやるか」と同じ (site = オンサイトは顧客、オフサイトは SX)。 */
+/** 明細の費用を誰が持つか。値と意味は「誰がやるか」と同じ (site = オンサイトは顧客・オフサイトは SX、reactor = リアクターの持ち主)。 */
 export type CostItemBearer = CostTaskPerformer;
-export const ITEM_BEARERS: CostItemBearer[] = ["sx", "customer", "site"];
+export const ITEM_BEARERS: CostItemBearer[] = ["sx", "customer", "site", "reactor"];
 export const ITEM_BEARER_LABEL: Record<CostItemBearer, string> = {
   sx: "SX",
   customer: "顧客",
   site: "処理する場所の持ち主（オンサイトは顧客・オフサイトはSX）",
+  reactor: "リアクターの持ち主（オンサイトは「リアクターは顧客負担」の切り替えで決まる・オフサイトはSX）",
 };
-export const ITEM_BEARER_SHORT_LABEL: Record<CostItemBearer, string> = { sx: "SX", customer: "顧客", site: "場所による" };
+export const ITEM_BEARER_SHORT_LABEL: Record<CostItemBearer, string> = { sx: "SX", customer: "顧客", site: "場所による", reactor: "リアクター" };
 
-/** その方式で、明細の費用を実際に誰が持つか。菌体の製造拠点の明細は常に SX。 */
-export function resolveBearer(item: Pick<CostItem, "bearer" | "scenario">, location: CostLocation): "sx" | "customer" {
-  return resolveWho(item.bearer, item.scenario, location);
+/**
+ * その方式で、明細の費用を実際に誰が持つか。菌体の製造拠点の明細は常に SX。
+ * reactorCustomer はスイッチ「リアクターは顧客負担」(reactorCustomerBorne)。省くと顧客 (既定)。
+ */
+export function resolveBearer(item: Pick<CostItem, "bearer" | "scenario">, location: CostLocation, reactorCustomer = true): "sx" | "customer" {
+  return resolveWho(item.bearer, item.scenario, location, reactorCustomer);
+}
+
+/** リアクターの行か (持ち主の区分が reactor の明細・作業)。顧客が持つときも額は計算し、SX の原価とは別に出す。 */
+export function isReactorRow(row: { bearer: CostItemBearer } | { performer: CostTaskPerformer }): boolean {
+  return ("bearer" in row ? row.bearer : row.performer) === "reactor";
 }
 
 /** 「運ぶ」に数える作業 (菌体の巡回と、排液の輸送)。内訳ではほかの作業と分けて出す。 */
@@ -405,6 +427,7 @@ export const COST_ROLE_KEYS = new Set([
   "new_tank_capex",
   "tank_life_years",
   "onsite_tank_bearer",
+  "reactor_customer_borne",
   "spent_wet_factor",
   "sludge_disposal_price",
   "truck_capacity_m3",
@@ -687,6 +710,21 @@ export interface CostScenarioResult {
   strainSpecificPerUnit: number;
   /** 使用済み菌体の後処理 (酸処理・処分など)。総コストに含む。 */
   postProcessPerUnit: number;
+
+  /**
+   * 顧客が持つリアクターの年額 (顧客1社分)。持ち主の区分が reactor の明細と作業のうち、この方式で顧客が持つもの。
+   * SX の原価 (totalAnnual) には入らない。「リアクターは顧客負担」が SX 負担のとき・オフサイトのときは0 (その額は SX の原価に入る)。
+   * 作業 (処理の運転) は SX と同じ作業単価で数える。
+   */
+  reactorCustomerAnnual: number;
+  reactorCustomerPerUnit: number;
+  /** うち設備の償却 (CAPEX の年額換算)。 */
+  reactorCustomerCapexPerUnit: number;
+  /** 顧客が持つリアクターの初期投資 (顧客1社分、償却前)。 */
+  reactorCustomerCapexTotal: number;
+  /** 顧客の支払い = 売価 + 顧客が持つリアクター (円/単位)。汚泥の処分・処理水の分析など、顧客が持つそのほかの費用は入らない。 */
+  customerOutlayPerUnit: number;
+
   /** 総コストの内訳。足すと totalPerUnit になる。 */
   breakdown: CostBreakdownSlice[];
 
@@ -706,6 +744,8 @@ export interface CostComputation {
   locations: CostLocation[];
   /** オンサイトの槽を誰が持つか (前提 onsite_tank_bearer)。顧客のとき、オンサイトの槽は「既設」(SX の負担0) だけになる。 */
   onsiteTankBearer: CostTankBearer;
+  /** オンサイトのリアクターを顧客が持つか (前提 reactor_customer_borne。無ければ顧客)。 */
+  reactorCustomerBorne: boolean;
   /** 選択中の株と、最初の用途の第1段。用途ごとの値は biomassByApplication (biomassOf で引く)。 */
   biomass: CostBiomassCost;
   /** 選択中の株の、用途ごとの第1段。年に作る量が用途ごとに違うので、1kgあたりの原価も用途ごとに出す。 */
@@ -901,6 +941,24 @@ export function wasteHeatOn(assumption: Pick<CostAssumption, "valueText"> | null
 export const ITEM_INLINE_ROLES = new Set<string>([CO2_FLUE_GAS_ROLE, WASTE_MEDIUM_ROLE, WASTE_HEAT_ROLE]);
 
 /**
+ * 顧客工場 (オンサイト) のリアクターを、顧客が持つか SX が持つか。前提 reactor_customer_borne の value_text が off なら SX (無い・on は顧客)。
+ * まさ 2026-09-17「別で出しておいて。ただし、そこの項目すべてについて「顧客負担」をオンにしておいて。
+ * リアクター全体で１つのスイッチでオンオフ切り替えができれば十分」「これを計算しておきたいのは、廃液回収事業も検討してるから」。
+ * 効くのは持ち主の区分が reactor の明細と作業 (循環カートリッジ・直接投入の処理設備、その消耗品・点検・電力、処理の運転)。
+ * 顧客が持つとき、額は SX の原価に入れず、シナリオの reactorCustomerPerUnit に別に合計する。SX が持つとき、SX の原価に入る。
+ * オフサイト (SX工場) のリアクターは、スイッチによらず SX が持つ。
+ */
+export const REACTOR_BEARER_ROLE = "reactor_customer_borne";
+export const REACTOR_BEARER_LABEL = "リアクターは顧客負担";
+export const REACTOR_BEARER_CHOICES: Array<{ value: "on" | "off"; label: string }> = [
+  { value: "on", label: "顧客負担（SXの原価に入れず、別に出す）" },
+  { value: "off", label: "SX負担（SXの原価に入れる）" },
+];
+export function reactorCustomerBorne(assumptions: CostAssumption[]): boolean {
+  return resolveAssumption(assumptions, REACTOR_BEARER_ROLE)?.valueText !== "off";
+}
+
+/**
  * 培養ロス補充 (単価の連動のしかた culture_loss) の単価の元にする行: 同じ群・同じ効く範囲の、菌体1kgあたりの原料の行。
  * 作り直す割合は数量に持ち、単価はこの行の菌体1kgあたりの額の合計にする。原料の行を書き換える・CO2 を排ガスにすると一緒に動く。
  */
@@ -931,6 +989,7 @@ export const TEXT_CHOICE_ROLES: Record<string, Array<{ value: string; label: str
   [CO2_FLUE_GAS_ROLE]: CO2_FLUE_GAS_CHOICES,
   [WASTE_MEDIUM_ROLE]: WASTE_MEDIUM_CHOICES,
   [WASTE_HEAT_ROLE]: WASTE_HEAT_CHOICES,
+  [REACTOR_BEARER_ROLE]: REACTOR_BEARER_CHOICES,
 };
 
 /**
@@ -970,6 +1029,8 @@ export const CONDITIONAL_ROLE_KEYS = new Set<string>([
   ...Object.values(ROLES_BY_TASK_DRIVER).flat(),
   ...NEW_TANK_ROLES,
   "onsite_tank_bearer",
+  // リアクターを誰が持つかは、オンサイトだけに効く (オフサイトは SX工場の設備)
+  REACTOR_BEARER_ROLE,
   "labor_rate",
   "sale_price",
   "offsite_sale_price",
@@ -1000,10 +1061,16 @@ export function rolesInEffect(bundle: CostInputs, view: CostEffectSelection): Se
   const overridden = typeof resolveAssumption(bundle.assumptions, "biomass_cost_per_kg_override", centralSel)?.value === "number";
   const counted = (row: { scenario: CostScenarioScope; strain: CostStrain | null; application: CostApplication | null }) =>
     row.scenario === "中央培養" ? !overridden && scopeApplies(row, centralSel) : rowAppliesTo(row, view.location, view.method, sel);
+  const reactorCustomer = reactorCustomerBorne(bundle.assumptions);
+  // 数字に出る行: 製造拠点の行、SX が持つ (やる) 行、リアクターの行。リアクターは顧客が持つときも額を別に出すので、その単価・回数の前提は効く。
+  const shown = (row: { scenario: CostScenarioScope }, who: "sx" | "customer", reactor: boolean) => row.scenario === "中央培養" || who === "sx" || reactor;
+  let reactorRows = false;
 
   for (const i of bundle.items) {
-    if (!i.priceRule || i.isBreakdown || i.basis === "内訳" || i.costType === "参考" || i.quantity * i.annualFactor === 0) continue;
-    if (!counted(i) || (i.scenario !== "中央培養" && resolveBearer(i, view.location) !== "sx")) continue;
+    if (i.isBreakdown || i.basis === "内訳" || i.costType === "参考" || i.quantity * i.annualFactor === 0) continue;
+    if (!counted(i) || !shown(i, resolveBearer(i, view.location, reactorCustomer), isReactorRow(i))) continue;
+    if (isReactorRow(i)) reactorRows = true;
+    if (!i.priceRule) continue;
     // 液化炭酸ガスの買値が0円なら、排ガスを使えるかを切り替えても数字は動かない
     if (i.priceRule === "co2_supply" && i.unitPrice === 0) continue;
     if (i.priceRule === "heat_supply" && i.unitPrice === 0) continue;
@@ -1015,12 +1082,17 @@ export function rolesInEffect(bundle: CostInputs, view: CostEffectSelection): Se
     add(ROLES_BY_PRICE_RULE[i.priceRule]);
   }
   for (const t of bundle.tasks ?? []) {
-    if (!counted(t) || (t.scenario !== "中央培養" && resolvePerformer(t, view.location) !== "sx")) continue;
+    if (!counted(t) || !shown(t, resolvePerformer(t, view.location, reactorCustomer), isReactorRow(t))) continue;
     const hours = t.hoursPerOccurrence ?? 0;
     if (hours > 0) inEffect.add("labor_rate");
-    if (hours > 0 || t.expensePerOccurrence > 0) add(ROLES_BY_TASK_DRIVER[t.countDriver]);
+    if (hours > 0 || t.expensePerOccurrence > 0) {
+      add(ROLES_BY_TASK_DRIVER[t.countDriver]);
+      if (isReactorRow(t)) reactorRows = true;
+    }
   }
   if (view.location === "onsite") inEffect.add("onsite_tank_bearer");
+  // リアクターを誰が持つかは、オンサイトでリアクターの行に額があるときだけ効く (SX の原価と顧客が持つ額の間で動く)
+  if (view.location === "onsite" && reactorRows) inEffect.add(REACTOR_BEARER_ROLE);
   // 回収率は、次のバッチへ回すとき (使用回数が1回より多い) だけ効く
   const basis = deriveCostBasis(bundle.assumptions, sel, view.location);
   if (basis.reuseCount > 1 && basis.requiredBiomassPerM3 > 0) inEffect.add("recovery_eta");
@@ -1073,8 +1145,9 @@ export const COST_PARAM_GROUPS: CostParamGroup[] = [
   { key: "cond-biomass", block: "conditions", title: "菌体の製造量と原価", hint: "年に作る菌体の量と、菌体1kgの原価の割り算", roles: ["sales_rate", "biomass_cost_per_kg_override"] },
   { key: "capex-production", block: "capex", title: "菌体の製造拠点（培養設備）", hint: "培養設備1系列の明細と、1系列で年に作れる量。年に作る量に合わせて系列を並べる", roles: ["culture_line_capacity_kg_year", "culture_capacity_kg_year"] },
   { key: "capex-recovery", block: "capex", title: "金属の回収設備（酸処理・中和・固液分離）", hint: "金属回収だけ。使用済み菌体を集めて酸で溶かし、金属を取り出す中央の設備。1系列の初期投資 ÷ 耐用年数 ÷ 1系列が1年に処理する使用済み菌体を、使い切る菌体1kgあたりに乗せる", roles: RECOVERY_CAPEX_ROLES },
-  { key: "capex-circulation", block: "capex", title: "処理設備：循環カートリッジ", hint: "顧客工場（オンサイト）では顧客が買い、SX工場（オフサイト）ではSXが持つ", roles: [] },
-  { key: "capex-injection", block: "capex", title: "処理設備：直接投入", hint: "顧客工場（オンサイト）では顧客が買い、SX工場（オフサイト）ではSXが持つ", roles: [] },
+  { key: "capex-reactor", block: "capex", title: "リアクター（処理設備）を誰が持つか", hint: "顧客工場（オンサイト）のリアクターの設備・消耗品・点検・電力・運転を、切り替え1つで顧客かSXに寄せる。顧客が持つときも額は別に出す。SX工場（オフサイト）ではSXが持つ", roles: [REACTOR_BEARER_ROLE] },
+  { key: "capex-circulation", block: "capex", title: "処理設備：循環カートリッジ", hint: "顧客工場（オンサイト）では「リアクターは顧客負担」の切り替えで顧客かSXが持ち、SX工場（オフサイト）ではSXが持つ", roles: [] },
+  { key: "capex-injection", block: "capex", title: "処理設備：直接投入", hint: "顧客工場（オンサイト）では「リアクターは顧客負担」の切り替えで顧客かSXが持ち、SX工場（オフサイト）ではSXが持つ", roles: [] },
   { key: "capex-tank", block: "capex", title: "槽", hint: "オンサイトの槽は顧客の設備。オフサイトはSX工場に新設する", roles: ["onsite_tank_bearer", "new_tank_capex", "tank_life_years"] },
   { key: "capex-offsite", block: "capex", title: "排液の受け入れ設備（オフサイト）", hint: "オフサイトだけ。SX工場で排液を受け入れる設備", roles: [] },
   { key: "capex-closed", block: "capex", title: "閉鎖系の追加（強化株のみ）", hint: "強化株のときだけ乗る設備", roles: [] },
@@ -1879,6 +1952,7 @@ export function computeCostModel(
   const newTankCapex = roleValue(assumptions, "new_tank_capex", 18_000_000);
   const tankLife = roleValue(assumptions, "tank_life_years", 10);
   const tankBearer = onsiteTankBearer(assumptions);
+  const reactorCustomer = reactorCustomerBorne(assumptions);
 
   const scenarios: CostScenarioResult[] = [];
   const derivedByApplication: CostComputation["derivedByApplication"] = [];
@@ -1931,13 +2005,28 @@ export function computeCostModel(
 
       const scopes = scopesFor(location, method);
       const own = live.filter((i) => scopes.includes(i.scenario) && scopeApplies(i, sel));
-      // SX の原価に入れるのは SX が持つ明細だけ。顧客が持つ明細 (オンサイトのリアクター・汚泥の処分など) は数えない。
-      const counted = own.filter((i) => i.costType !== "参考" && resolveBearer(i, location) === "sx");
+      // SX の原価に入れるのは SX が持つ明細だけ。顧客が持つ明細 (オンサイトの汚泥の処分、顧客が持つときのリアクターなど) は数えない。
+      const counted = own.filter((i) => i.costType !== "参考" && resolveBearer(i, location, reactorCustomer) === "sx");
       const applicableTasks = tasks.filter((t) => scopes.includes(t.scenario) && scopeApplies(t, sel));
       // SX の原価と作業時間に入れるのは SX がやる作業だけ。顧客がやる作業は数えない。
       const siteTaskAmounts = applicableTasks
-        .filter((t) => resolvePerformer(t, location) === "sx")
+        .filter((t) => resolvePerformer(t, location, reactorCustomer) === "sx")
         .map((t) => ({ task: t, amount: taskAnnualOf(t) }));
+      // 顧客が持つリアクター: SX の原価に入れず、別に合計する (まさ 2026-09-17「別で出しておいて」)
+      const reactorCustomerItems = own.filter(
+        (i) => i.costType !== "参考" && isReactorRow(i) && resolveBearer(i, location, reactorCustomer) === "customer"
+      );
+      const reactorCustomerTasks = applicableTasks.filter((t) => isReactorRow(t) && resolvePerformer(t, location, reactorCustomer) === "customer");
+      const reactorCustomerCapexAnnual = reactorCustomerItems.filter((i) => i.costType === "CAPEX").reduce((s, i) => s + amount(i), 0);
+      const reactorCustomerAnnual =
+        reactorCustomerItems.reduce((s, i) => s + amount(i), 0) + reactorCustomerTasks.reduce((s, t) => s + taskAnnualOf(t).annual, 0);
+      const reactorCustomerCapexTotal = items
+        .filter(
+          (i) =>
+            scopes.includes(i.scenario) && i.costType === "CAPEX" && !i.isBreakdown && scopeApplies(i, sel) &&
+            isReactorRow(i) && resolveBearer(i, location, reactorCustomer) === "customer"
+        )
+        .reduce((s, i) => s + i.quantity * i.unitPrice, 0);
       const siteItemOpexAnnual = counted.filter((i) => i.costType === "OPEX").reduce((s, i) => s + amount(i), 0);
       const siteTaskAnnual = siteTaskAmounts.reduce((s, x) => s + x.amount.annual, 0);
       const siteTaskHours = siteTaskAmounts.reduce((s, x) => s + x.amount.annualHours, 0);
@@ -1945,7 +2034,7 @@ export function computeCostModel(
       const siteOpexAnnual = siteItemOpexAnnual + siteTaskAnnual;
       const siteCapexAnnual = counted.filter((i) => i.costType === "CAPEX").reduce((s, i) => s + amount(i), 0);
       const siteCapexBase = items
-        .filter((i) => scopes.includes(i.scenario) && i.costType === "CAPEX" && !i.isBreakdown && scopeApplies(i, sel) && resolveBearer(i, location) === "sx")
+        .filter((i) => scopes.includes(i.scenario) && i.costType === "CAPEX" && !i.isBreakdown && scopeApplies(i, sel) && resolveBearer(i, location, reactorCustomer) === "sx")
         .reduce((s, i) => s + i.quantity * i.unitPrice, 0);
       const siteStrainSpecificAnnual =
         counted.filter((i) => i.strain).reduce((s, i) => s + amount(i), 0) +
@@ -2125,6 +2214,13 @@ export function computeCostModel(
 
           strainSpecificPerUnit: perUnit(siteStrainSpecificAnnual + centralStrainSpecificAnnual),
           postProcessPerUnit: perUnit(postAnnual),
+
+          reactorCustomerAnnual,
+          reactorCustomerPerUnit: perUnit(reactorCustomerAnnual),
+          reactorCustomerCapexPerUnit: perUnit(reactorCustomerCapexAnnual),
+          reactorCustomerCapexTotal,
+          customerOutlayPerUnit: price + perUnit(reactorCustomerAnnual),
+
           breakdown: BREAKDOWN_ORDER.map((key) => ({ key, label: BREAKDOWN_LABEL[key], perUnit: slices[key], parts: parts[key] })),
 
           confidenceBreakdown,
@@ -2142,6 +2238,7 @@ export function computeCostModel(
     applications,
     locations,
     onsiteTankBearer: tankBearer,
+    reactorCustomerBorne: reactorCustomer,
     biomass: biomassByApplication[0].biomass,
     biomassByApplication,
     biomassByStrain,
@@ -2214,7 +2311,7 @@ export function computeTaskFlow(
   for (const task of tasks) {
     if (!rowAppliesTo(task, selection.location, selection.method, sel)) continue;
     const isProduction = task.scenario === "中央培養";
-    const performer = resolvePerformer(task, selection.location);
+    const performer = resolvePerformer(task, selection.location, computed.reactorCustomerBorne);
     const amount = taskAmount(task, bundle.assumptions, isProduction ? centralDerived : derived, isProduction ? centralSel : sel);
     const perUnit = isProduction
       ? b.overridePerKg !== null ? 0 : (safeDiv(amount.annual, b.capacityKgYear) / b.salesRate) * derived.biomassKgPerUnit

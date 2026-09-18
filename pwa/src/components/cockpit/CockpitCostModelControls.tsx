@@ -39,6 +39,7 @@ import {
   WASTE_MEDIUM_ROLE,
   paramGroupOfItem,
   paramGroupOfRole,
+  isReactorRow,
   resolveAssumption,
   resolveBearer,
   resolvePerformer,
@@ -735,7 +736,9 @@ function TaskList({
   const groups = [...new Set(tasks.map((t) => t.groupLabel ?? "作業"))];
 
   const perUnitOf = (t: CostTask) => {
-    if (!taskApplies(t, selection) || resolvePerformer(t, selection.location) === "customer") return null;
+    if (!taskApplies(t, selection)) return null;
+    // 顧客がやる作業は出さない。リアクターの運転は顧客がやるときも、顧客が持つリアクターの額に入るので出す (灰色)。
+    if (resolvePerformer(t, selection.location, computed.reactorCustomerBorne) === "customer" && !isReactorRow(t)) return null;
     if (t.scenario === "中央培養") {
       const annual = taskAmount(t, working.assumptions, derived, centralSel).annual;
       return b.capacityKgYear > 0 ? (annual / b.capacityKgYear / b.salesRate) * derived.biomassKgPerUnit : 0;
@@ -784,7 +787,8 @@ function TaskList({
                 const amt = taskAmount(t, working.assumptions, derived, t.scenario === "中央培養" ? centralSel : sel);
                 const perUnit = perUnitOf(t);
                 const isCentral = t.scenario === "中央培養";
-                const doneBy = resolvePerformer(t, selection.location);
+                const doneBy = resolvePerformer(t, selection.location, computed.reactorCustomerBorne);
+                const reactor = isReactorRow(t) && !isCentral;
                 return (
                   <li
                     key={t.costTaskId}
@@ -796,7 +800,11 @@ function TaskList({
                       <span className="ml-1 align-middle"><ConfidenceTag value={t.confidence} /></span>
                       <span className="block text-[10px] leading-4 text-[#6e6e73]">
                         {SCENARIO_SCOPE_LABEL[t.scenario as CostScenarioScope]}
-                        {doneBy === "customer" ? (
+                        {doneBy === "customer" && reactor ? (
+                          <span className="font-semibold text-[#3c3c43]">
+                            ・リアクターの運転を顧客がやる（SXの原価に入れず、顧客が持つリアクターの額に入れる）・年 {yen(amt.annual)}
+                          </span>
+                        ) : doneBy === "customer" ? (
                           <span className="font-semibold text-[#3c3c43]">・顧客がやる（SXの原価に入れない）</span>
                         ) : (
                           <>
@@ -824,6 +832,7 @@ function TaskList({
                             ))}
                           </select>
                           {t.performer === "site" && <span className="whitespace-nowrap">（オンサイトは顧客・オフサイトはSX）</span>}
+                          {t.performer === "reactor" && <span>（オンサイトは「リアクターは顧客負担」の切り替えで決まる・オフサイトはSX）</span>}
                         </label>
                       )}
                     </div>
@@ -892,7 +901,10 @@ function TaskList({
                       />
                     </Cell>
                     <Cell label={`円/${unit}`}>
-                      <span className="min-h-[44px] w-full text-right text-[13px] font-semibold leading-[44px] tabular-nums text-[#1d1d1f] xl:min-h-0 xl:text-[11px] xl:font-normal xl:leading-normal">
+                      <span
+                        className={`min-h-[44px] w-full text-right text-[13px] font-semibold leading-[44px] tabular-nums xl:min-h-0 xl:text-[11px] xl:font-normal xl:leading-normal ${doneBy === "customer" ? "text-[#86868b]" : "text-[#1d1d1f]"}`}
+                        title={doneBy === "customer" && perUnit !== null ? "顧客が持つリアクターの額（SXの原価には入れない）" : undefined}
+                      >
                         {perUnit === null ? "—" : num(perUnit)}
                       </span>
                     </Cell>
@@ -969,8 +981,10 @@ function ItemRows({
           const base = saved.items.find((x) => x.costItemId === i.costItemId);
           const applies = itemApplies(i, selection);
           const isCentral = i.scenario === "中央培養";
-          const paidBy = resolveBearer(i, selection.location);
-          const right = !applies || paidBy === "customer"
+          const paidBy = resolveBearer(i, selection.location, computed.reactorCustomerBorne);
+          const reactor = isReactorRow(i) && !isCentral;
+          // 顧客が持つ行は額を出さない。リアクターの行は顧客が持つときも、顧客が持つリアクターの額に入るので出す (灰色)。
+          const right = !applies || (paidBy === "customer" && !reactor)
             ? null
             : isCentral
               ? centralItemPerKg(i, working.assumptions, b.lineCapacityKgYear, centralSel, working.items)
@@ -990,7 +1004,9 @@ function ItemRows({
                 <span className="ml-1 align-middle"><ConfidenceTag value={i.confidence} /></span>
                 <span className="block text-[10px] leading-4 text-[#6e6e73]">
                   {SCENARIO_SCOPE_LABEL[i.scenario as CostScenarioScope]}・{i.basis}{i.groupLabel ? `・${i.groupLabel}` : ""}
-                  {paidBy === "customer" && <span className="font-semibold text-[#3c3c43]">・顧客が持つ（SXの原価に入れない）</span>}
+                  {paidBy === "customer" && reactor && <span className="font-semibold text-[#3c3c43]">・リアクター。顧客が持つ（SXの原価に入れず、別に出す）</span>}
+                  {paidBy === "customer" && !reactor && <span className="font-semibold text-[#3c3c43]">・顧客が持つ（SXの原価に入れない）</span>}
+                  {paidBy === "sx" && reactor && selection.location === "onsite" && <span className="font-semibold text-[#3c3c43]">・リアクター。SXが持つ</span>}
                 </span>
                 {!isCentral && (
                   <label className="mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[10px] text-[#6e6e73]">
@@ -1009,6 +1025,7 @@ function ItemRows({
                       ))}
                     </select>
                     {i.bearer === "site" && <span className="whitespace-nowrap">（オンサイトは顧客・オフサイトはSX）</span>}
+                    {i.bearer === "reactor" && <span>（オンサイトは「リアクターは顧客負担」の切り替えで決まる・オフサイトはSX）</span>}
                   </label>
                 )}
                 {flueGasSwitch && (
@@ -1084,7 +1101,10 @@ function ItemRows({
                 )}
               </Cell>
               <Cell label={isCentral ? "円/kg" : `円/${unit}`}>
-                <span className="min-h-[44px] w-full text-right text-[13px] font-semibold leading-[44px] tabular-nums text-[#1d1d1f] xl:min-h-0 xl:text-[11px] xl:font-normal xl:leading-normal">
+                <span
+                  className={`min-h-[44px] w-full text-right text-[13px] font-semibold leading-[44px] tabular-nums xl:min-h-0 xl:text-[11px] xl:font-normal xl:leading-normal ${paidBy === "customer" ? "text-[#86868b]" : "text-[#1d1d1f]"}`}
+                  title={paidBy === "customer" && right !== null ? "顧客が持つリアクターの額（SXの原価には入れない）" : undefined}
+                >
                   {right === null ? "—" : num(right, 2)}
                   {right !== null && isCentral && <span className="ml-0.5 hidden text-[9px] font-normal text-[#6e6e73] xl:inline">/kg</span>}
                 </span>

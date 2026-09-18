@@ -354,6 +354,29 @@ export function CostResultsPanel({
               </span>
             )}
           </div>
+          {/* 顧客工場のリアクター（まさ 2026-09-17「別で出しておいて」）。顧客が持つときは SX の原価の外に出す */}
+          {current.location === "onsite" && (current.reactorCustomerPerUnit > 0 || !computed.reactorCustomerBorne) && (
+            <p className="mt-0.5 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-[11px] leading-[18px] text-[#3c3c43]" data-testid="cost-reactor-customer">
+              {computed.reactorCustomerBorne ? (
+                <>
+                  <span>
+                    顧客が持つリアクター{" "}
+                    <span className="font-semibold tabular-nums text-[#1d1d1f]">{num(current.reactorCustomerPerUnit)}</span>
+                    <span className="text-[#6e6e73]"> 円/{unit}</span>
+                    {currentBase && <Delta value={current.reactorCustomerPerUnit - currentBase.reactorCustomerPerUnit} className="ml-1 text-[10px]" />}
+                    <span className="text-[10px] text-[#6e6e73]">（SXの原価の外。設備の初期投資 {yen(current.reactorCustomerCapexTotal)}）</span>
+                  </span>
+                  <span>
+                    顧客の支払い（売価＋リアクター）{" "}
+                    <span className="font-semibold tabular-nums text-[#1d1d1f]">{num(current.customerOutlayPerUnit)}</span>
+                    <span className="text-[#6e6e73]"> 円/{unit}</span>
+                  </span>
+                </>
+              ) : (
+                <span>リアクターはSXが持つ（設備・消耗品・点検・電力・運転は上の総コストに入っている）</span>
+              )}
+            </p>
+          )}
 
           <ul className="mt-0.5 flex flex-col" aria-label="内訳の棒グラフ">
             {BREAKDOWN_ORDER.map((key) => {

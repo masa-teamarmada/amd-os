@@ -84,7 +84,7 @@ export function mapBundle(model: any, assumptions: any[], items: any[], question
       sortOrder: i.sort_order ?? 0,
       strain: i.strain ?? null,
       application: i.application ?? null,
-      bearer: i.bearer === "customer" || i.bearer === "site" ? i.bearer : "sx",
+      bearer: i.bearer === "customer" || i.bearer === "site" || i.bearer === "reactor" ? i.bearer : "sx",
     })),
     tasks: (tasks || []).map((t) => ({
       costTaskId: t.cost_task_id,
@@ -95,7 +95,7 @@ export function mapBundle(model: any, assumptions: any[], items: any[], question
       countDriver: t.count_driver,
       countPerYear: NUM_OR_NULL(t.count_per_year),
       expensePerOccurrence: NUM(t.expense_per_occurrence),
-      performer: t.performer === "customer" || t.performer === "site" ? t.performer : "sx",
+      performer: t.performer === "customer" || t.performer === "site" || t.performer === "reactor" ? t.performer : "sx",
       confidence: t.confidence ?? null,
       sourceKind: t.source_kind ?? null,
       owner: t.owner ?? null,
@@ -218,9 +218,9 @@ const NULLABLE_NUMERIC_FIELDS = new Set([
 ]);
 // plant_line は燃料の試算の「燃料化設備の系列ごと」(migration 411)。
 const TASK_DRIVERS = new Set(["fixed", "batch", "visit", "module_swap", "membrane_swap", "truck_trip", "production_line", "plant_line"]);
-const TASK_PERFORMERS = new Set(["sx", "customer", "site"]);
+const TASK_PERFORMERS = new Set(["sx", "customer", "site", "reactor"]);
 /** 明細の「誰が持つか」。値は作業の「誰がやるか」と同じ3つ。 */
-const ITEM_BEARERS = new Set(["sx", "customer", "site"]);
+const ITEM_BEARERS = new Set(["sx", "customer", "site", "reactor"]);
 
 /**
  * PATCH /api/project-cost-model

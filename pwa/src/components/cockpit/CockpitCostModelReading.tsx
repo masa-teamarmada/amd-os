@@ -15,6 +15,7 @@ import {
   TASK_PERFORMER_SHORT_LABEL,
   TEXT_CHOICE_ROLES,
   ITEM_BEARER_SHORT_LABEL,
+  isReactorRow,
   resolveBearer,
   resolvePerformer,
   rolesInEffect,
@@ -166,12 +167,13 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
     return [...seen.values()].sort((a, b) => b.perUnit - a.perUnit).slice(0, 10);
   })();
   // 顧客工場では顧客が持つ（やる）行は、SXの金額がオフサイトの分だけなので、発生する場所にそう添える。
+  const reactorCustomer = computed.reactorCustomerBorne;
   const sxOnlyOffsite = (id: string, scope: string) => {
     if (scope === "オフサイト" || scope === "中央培養") return false;
     const item = items.find((i) => i.costItemId === id);
-    if (item) return resolveBearer(item, "onsite") === "customer" && resolveBearer(item, "offsite") === "sx";
+    if (item) return resolveBearer(item, "onsite", reactorCustomer) === "customer" && resolveBearer(item, "offsite", reactorCustomer) === "sx";
     const task = tasks.find((t) => t.costTaskId === id);
-    return !!task && resolvePerformer(task, "onsite") === "customer" && resolvePerformer(task, "offsite") === "sx";
+    return !!task && resolvePerformer(task, "onsite", reactorCustomer) === "customer" && resolvePerformer(task, "offsite", reactorCustomer) === "sx";
   };
 
   const byAddressee = openQuestions.reduce<Record<string, typeof openQuestions>>((acc, q) => {
@@ -544,7 +546,9 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
                       <td className="px-2 py-1.5 text-[#6e6e73]">{scenarioLabel(t.scenario)}</td>
                       <td className="whitespace-nowrap px-2 py-1.5 text-[#1d1d1f]">
                         {isCentral ? "SX" : TASK_PERFORMER_SHORT_LABEL[t.performer]}
-                        {!isCentral && t.performer === "site" && <span className="text-[10px] text-[#6e6e73]">（いまは{resolvePerformer(t, selection.location) === "customer" ? "顧客" : "SX"}）</span>}
+                        {!isCentral && (t.performer === "site" || t.performer === "reactor") && (
+                          <span className="text-[10px] text-[#6e6e73]">（いまは{resolvePerformer(t, selection.location, reactorCustomer) === "customer" ? "顧客" : "SX"}）</span>
+                        )}
                       </td>
                       <td className="whitespace-nowrap px-2 py-1.5 text-right text-[#1d1d1f]">{t.hoursPerOccurrence === null ? "未確認" : `${num(t.hoursPerOccurrence, t.hoursPerOccurrence % 1 === 0 ? 0 : 2)}時間`}</td>
                       <td className="whitespace-nowrap px-2 py-1.5 text-[#1d1d1f]">
@@ -554,7 +558,11 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
                       </td>
                       <td className="whitespace-nowrap px-2 py-1.5 text-right text-[#1d1d1f]">{int(t.expensePerOccurrence)}円</td>
                       <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold text-[#1d1d1f]">
-                        {!isCentral && resolvePerformer(t, selection.location) === "customer" ? <span className="font-normal text-[#6e6e73]">—</span> : int(amt.annual)}
+                        {!isCentral && resolvePerformer(t, selection.location, reactorCustomer) === "customer"
+                          ? isReactorRow(t)
+                            ? <span className="font-normal text-[#86868b]" title="顧客が持つリアクターの額（SXの原価には入れない）">{int(amt.annual)}</span>
+                            : <span className="font-normal text-[#6e6e73]">—</span>
+                          : int(amt.annual)}
                       </td>
                       <td className="py-1.5 pl-2">
                         <div className="flex items-center gap-1.5">
@@ -619,9 +627,11 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
                         const isCentral = i.scenario === "中央培養";
                         const rowSel = isCentral ? centralSel : sel;
                         const applies = rowAppliesTo(i, selection.location, selection.method, sel);
-                        const paidBy = resolveBearer(i, selection.location);
-                        const annual = applies && paidBy === "sx" ? annualAmount(i, assumptions, derived, rowSel, items) : null;
-                        const right = !applies || paidBy === "customer" ? null : isCentral ? centralItemPerKg(i, assumptions, biomassOf(computed, selection.application).lineCapacityKgYear, rowSel, items) : (annual ?? 0) / (derived.annualVolume || 1);
+                        const paidBy = resolveBearer(i, selection.location, reactorCustomer);
+                        // リアクターの行は顧客が持つときも、顧客が持つリアクターの額に入るので出す (灰色)
+                        const shownRow = paidBy === "sx" || (isReactorRow(i) && !isCentral);
+                        const annual = applies && shownRow ? annualAmount(i, assumptions, derived, rowSel, items) : null;
+                        const right = !applies || !shownRow ? null : isCentral ? centralItemPerKg(i, assumptions, biomassOf(computed, selection.application).lineCapacityKgYear, rowSel, items) : (annual ?? 0) / (derived.annualVolume || 1);
                         const flueGasActive = i.priceRule === "co2_supply" && flueGasOn(resolveAssumption(assumptions, CO2_FLUE_GAS_ROLE, rowSel));
                         const base = savedItem(i.costItemId);
                         const changed = !!base && (base.unitPrice !== i.unitPrice || base.quantity !== i.quantity || base.usefulLifeYears !== i.usefulLifeYears || base.bearer !== i.bearer);
@@ -644,7 +654,7 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
                             </td>
                             <td className="px-2 py-1.5 text-[#1d1d1f]">
                               {isCentral ? "SX" : ITEM_BEARER_SHORT_LABEL[i.bearer]}
-                              {!isCentral && i.bearer === "site" && <span className="text-[10px] text-[#6e6e73]">（いまは{paidBy === "customer" ? "顧客" : "SX"}）</span>}
+                              {!isCentral && (i.bearer === "site" || i.bearer === "reactor") && <span className="text-[10px] text-[#6e6e73]">（いまは{paidBy === "customer" ? "顧客" : "SX"}）</span>}
                             </td>
                             <td className="whitespace-nowrap px-2 py-1.5 text-right text-[#3c3c43]">
                               {i.priceRule === "co2_supply"
@@ -654,8 +664,8 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
                                 : i.priceRule ? "—" : i.unitPrice.toLocaleString("ja-JP")}
                             </td>
                             <td className="px-2 py-1.5 text-right text-[#6e6e73]">{i.usefulLifeYears ? `${i.usefulLifeYears}年` : "—"}</td>
-                            <td className="whitespace-nowrap px-2 py-1.5 text-right text-[#1d1d1f]">{annual === null ? "—" : int(annual)}</td>
-                            <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold text-[#1d1d1f]">{right === null ? "—" : num(right, 2)}</td>
+                            <td className={`whitespace-nowrap px-2 py-1.5 text-right ${paidBy === "customer" ? "text-[#86868b]" : "text-[#1d1d1f]"}`}>{annual === null ? "—" : int(annual)}</td>
+                            <td className={`whitespace-nowrap px-2 py-1.5 text-right font-semibold ${paidBy === "customer" ? "text-[#86868b]" : "text-[#1d1d1f]"}`}>{right === null ? "—" : num(right, 2)}</td>
                             <td className="py-1.5 pl-2">
                               <div className="flex items-center gap-1.5">
                                 <ConfidenceTag value={i.confidence} />

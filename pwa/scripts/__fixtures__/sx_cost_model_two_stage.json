@@ -452,6 +452,24 @@
    "application": null
   },
   {
+   "costAssumptionId": "ca20_reactor_customer_borne",
+   "groupLabel": "リアクター（処理設備）",
+   "label": "リアクターは顧客負担",
+   "value": null,
+   "valueText": "on",
+   "unit": null,
+   "confidence": "S",
+   "sourceKind": null,
+   "owner": "AMD（内部）",
+   "isKey": false,
+   "roleKey": "reactor_customer_borne",
+   "note": "顧客工場（オンサイト）のリアクターを、顧客が持つか SX が持つか。on（既定）は顧客が持ち、SX の原価に入れず、結果の欄に「顧客が持つリアクター」として別に出す。off は SX が持ち、SX の原価に入る（まさ 2026-09-17「別で出しておいて。ただし、そこの項目すべてについて「顧客負担」をオンにしておいて。リアクター全体で１つのスイッチでオンオフ切り替えができれば十分」「これを計算しておきたいのは、廃液回収事業も検討してるから」）。効くのは持ち主の区分が「リアクター」の明細と作業: 循環カートリッジ・直接投入の処理設備（CAPEX）、その消耗品・洗浄・監視・点検・交換部品・電力（OPEX）、処理の運転（作業。SX と同じ作業単価で数える）。顧客工場のリアクターは顧客が買う前提（2026-09-14 まさ「リアクターは顧客が買う前提だよ」）なので既定は on。SX工場（オフサイト）のリアクターは、この前提によらず SX が持つので、切り替えても数字は動かない。汚泥の処分・処理水の分析・閉鎖系の区画など、リアクター以外で顧客が持つ行は、この切り替えに入らない。顧客が持つリアクターの額に入れる運転の手間は、SX の作業単価で数えた見積で、顧客の実際の人件費とは違う。",
+   "visibility": "amd_internal",
+   "sortOrder": 225,
+   "strain": null,
+   "application": null
+  },
+  {
    "costAssumptionId": "ca_labor_rate",
    "groupLabel": "人件費（作業）",
    "label": "作業単価（共通）",
@@ -841,7 +859,7 @@
    "owner": "AMD（内部）",
    "isKey": true,
    "roleKey": "co2_flue_gas",
-   "note": "培養の CO2 を、工場の排ガスでまかなえるか。スイッチは OPEX「菌体の製造拠点（原料・品質確認）」の CO2 の行にある（2026-09-14 まさ「「排ガス利用可能」のスイッチをCO2コストのところに設置してほしい。それがONのときはCO2コストがゼロになるようにして」）。ON にすると CO2 の単価を0円として計算する（量と液化炭酸ガスの買値は行に残る）。培養ロス補充は原料の合計に作り直す割合を掛けるので、一緒に下がる。既定は OFF（液化炭酸ガスを買う）。0円は、排ガスをタダでそのまま吹き込めるときの効果で、次は入っていない: 排ガスを送る送風機と配管、燃やすものによってはすすや硫黄分を取り除く設備、培養の拠点を排ガスの出る工場の隣に置くしばり、排ガスの CO2 は濃さが数%〜2割ほどなので吹き込む量と電気代が増え、吸わせきれる割合（いまは80%）も下がりやすいこと。出どころ: ちこさんの試算シートの 2026-07-16版は、CO2 を「CO2/ガス・補助剤　処理水1m³あたり10円」とし、根拠に「排ガス利用等も想定した最小構成。詳細仕様未確定。」と書いていた（排ガスを使う前提の額）。 **排ガスの窒素酸化物（NOx）について**（2026-09-15 に足した。まさ 2026-09-15「NOxが栄養源になった、という話は過去に出てきてたように記憶してる。糖は元々餌にはならないって杉浦先生は断言してたよ」）: 排ガスの NOx は培養液で亜硝酸・硝酸になり、菌体が窒素源として取り込む。SX 側の記録でも「反応性窒素 ◎ 利用して増殖」（2026-01-16 杉浦先生ヒアリング）、「硝酸・亜硝酸を短時間で取り込む」（2026-09-02 定例）、日本食研の面談で「重金属、色素、窒素酸化物、硫黄酸化物などを吸収・分解する」と説明している。先生の資料（SX_事業概要 v1.0、2026-03-31）も「N源（≈2 ppm; **亜硝酸でも良い**）」と書いている。文献でも、一酸化窒素は水に溶けにくいのに細胞へ直接拡散して取り込まれ、硝酸塩より優先して使われるという報告がある（Nagase ら 1998・2001、緑藻 Dunaliella tertiolecta。除去率 最大96%）。**ただし量が構造的に足りない。** 排ガスの CO2 と NOx はどちらも同じ燃焼から出るので比が決まっていて、CO2 は NOx の約250〜2,000倍（木質バイオマス発電の実測 CO2 15〜18% / NOx 180〜350ppm で約600倍。フジタ技術研究報告 60号 2024）。いっぽう菌体が要る炭素と窒素の比は約7.3。だから炭素をちょうどまかなう量の排ガスを吹き込んでも、一緒に入る窒素は**必要量の0.4〜3%**（実測に近い例で約1.2%）にしかならない。窒素源の買値はほぼ丸ごと残るので、この試算では NOx による窒素の値引きを入れていない。毒にもならない: 25ppm では正常に増え、300ppm でも死なない（ユーグレナの実証、フジタ 2024。同報告は「NOx の影響を明確に確認できなかった」と結論）。硫黄酸化物は50ppm超で pH を下げて増殖を止めるが、アルカリ側に保てば緩む。好熱性シアノバクテリアで排ガスの NOx を窒素源にした報告は見つかっていない。",
+   "note": "培養の CO2 を、工場の排ガスでまかなえるか。スイッチは OPEX「菌体の製造拠点（原料・品質確認）」の CO2 の行にある（2026-09-14 まさ「「排ガス利用可能」のスイッチをCO2コストのところに設置してほしい。それがONのときはCO2コストがゼロになるようにして」）。ON にすると CO2 の単価を0円として計算する（量と液化炭酸ガスの買値は行に残る）。培養ロス補充は原料の合計に作り直す割合を掛けるので、一緒に下がる。既定は OFF（液化炭酸ガスを買う）。0円は、排ガスをタダでそのまま吹き込めるときの効果で、次は入っていない: 排ガスを送る送風機と配管、燃やすものによってはすすや硫黄分を取り除く設備、培養の拠点を排ガスの出る工場の隣に置くしばり、排ガスの CO2 は濃さが数%〜2割ほどなので吹き込む量と電気代が増え、吸わせきれる割合（いまは80%）も下がりやすいこと。出どころ: ちこさんの試算シートの 2026-07-16版は、CO2 を「CO2/ガス・補助剤　処理水1m³あたり10円」とし、根拠に「排ガス利用等も想定した最小構成。詳細仕様未確定。」と書いていた（排ガスを使う前提の額）。 **排ガスの窒素酸化物（NOx）について**（2026-09-15）: 排ガスの NOx は培養液で亜硝酸・硝酸になり、菌体が窒素源として取り込む。SX 側の記録でも「反応性窒素 ◎ 利用して増殖」（2026-01-16 杉浦先生ヒアリング）、「硝酸・亜硝酸を短時間で取り込む」（2026-09-02 定例）、日本食研の面談で「重金属、色素、窒素酸化物、硫黄酸化物などを吸収・分解する」と説明している。先生の資料（SX_事業概要 v1.0、2026-03-31）も「N源（≈2 ppm; **亜硝酸でも良い**）」と書いている。文献でも、一酸化窒素は水に溶けにくいのに細胞へ直接拡散して取り込まれ、硝酸塩より優先して使われるという報告がある（Nagase ら 1998・2001、緑藻 Dunaliella tertiolecta。除去率 最大96%）。**ただし量が構造的に足りない。** 排ガスの CO2 と NOx はどちらも同じ燃焼から出るので比が決まっていて、CO2 は NOx の約250〜2,000倍（木質バイオマス発電の実測 CO2 15〜18% / NOx 180〜350ppm で約600倍。フジタ技術研究報告 60号 2024）。いっぽう菌体が要る炭素と窒素の比は約7.3。だから炭素をちょうどまかなう量の排ガスを吹き込んでも、一緒に入る窒素は**必要量の0.4〜3%**（実測に近い例で約1.2%）にしかならない。窒素源の買値はほぼ丸ごと残るので、この試算では NOx による窒素の値引きを入れていない。毒にもならない: 25ppm では正常に増え、300ppm でも死なない（ユーグレナの実証、フジタ 2024。同報告は「NOx の影響を明確に確認できなかった」と結論）。硫黄酸化物は50ppm超で pH を下げて増殖を止めるが、アルカリ側に保てば緩む。好熱性シアノバクテリアで排ガスの NOx を窒素源にした報告は見つかっていない。 排液に溶けた窒素酸化物・硫黄酸化物は、排液の栄養としてスイッチ「工場の排液を培地に使える」の側で数える（杉浦先生 2026-09-15 の BNV 定例「排液の窒素酸化物・硫黄酸化物を栄養にしている」）。ここは気体の話。",
    "visibility": "amd_internal",
    "sortOrder": 320,
    "strain": null,
@@ -859,7 +877,7 @@
    "owner": "AMD（内部）",
    "isKey": true,
    "roleKey": "waste_medium",
-   "note": "培養の培地を、工場の排液でまかなえるか。スイッチは培地の原料（窒素源・リン源・カリウムなど）の3行にある（まさ 2026-09-15「その結果次第では、燃料事業は、顧客の工場のCO2と排熱、排ガスをフル活用してやる方向も見えてくる」）。ON にすると、その3行の買値を「減る割合」だけ引いた額で計算する（量と試薬の買値は行に残る）。培養ロス補充は原料の合計から出すので一緒に下がる。既定は OFF（試薬を買う）。**使える排液の条件**（2026-09-15 に「色」の置き方を直した。まさ 2026-09-15「色がついてなきゃいけない理由がわからん」）: 排液は培養液そのものではなく、培地の栄養として入れる。要る窒素の量は決まっているので、排液が濃いほど少しで足り、その分だけ薄めて使う。**色も薄めた倍率のぶんだけ薄まる**（吸光度は濃さに比例する＝ランベルト・ベールの法則。3倍に薄めれば色も3分の1）。だから条件は「色が付いていない」ではなく、次の順で見る。①**窒素が濃いか**。菌体1kgに窒素80g、培養液は約200Lなので、培養液の窒素は約400mg/L要る。排液の窒素が X mg/L なら、薄める倍率は X÷400 倍。**窒素が400mg/Lに届かない排液は薄める余地が無く、色がそのまま残る**（味噌の排液は全窒素150mg/L・全リン60mg/L で該当。香川県「小規模事業場等排水処理対策検討ガイドブック〜食料品製造業〜」2023年5月）。1系列（年33,333kg-DCW＝1日111kg）に要る排液は、窒素1,200mg/Lなら1日7.4m³、400mg/Lなら1日22.2m³。②**薄めたあとに残る色で光が通るか**。培養液は菌体自身でもう濁っているので、見るのはその上乗せ分。実例: 佐賀市下水浄化センターの実証（国交省 B-DASH、東芝・ユーグレナ社・佐賀市、2016年4月〜）は、下水汚泥の脱水分離液を**3倍に薄めて**窒素・リン源にし、上水・試薬と同等の生産性を確認した（0.54 g/L/7日）。メタン発酵の消化液でも2〜7倍の希釈でクロレラを培養した実験がある（大林組技術研究所報 78号、2014）。SX でも「排液を培地代わりにし、CO2 6.5%の排ガスを吹き込む」で倍加時間 約6時間（従来の4.8倍）を出している（2026-01-20 定例、杉浦先生が予備的な実験と明言）。③菌体に毒になる金属や薬剤が入っていない（光合成阻害型の農薬は構造的に処理できない）。金属を含む排水を燃料用の菌体に使うと、菌体に金属が入り、それは金属回収の事業の方の話になる。④塩分・油分（醤油の排液は塩が濃い。数値は未確認）。⑤年間を通して量と質が安定している。⑥培養の拠点をその工場の隣に置ける。排ガス（CO2）と同じ工場でまかなうなら、①〜⑥と排ガスの条件を同時に満たす工場を探すことになるが、**排液・排ガス・排熱の3つを出す工場自体はどこにでもある**（ボイラーを持って製造していれば出る）。**まだ入っていない**: 薄める水の量と費用、業種ごとの色度の実測値。出どころ: ちこさんの試算シートの 2026-07-30版は、前提の欄に「培地原料低減率 80%（排液利用で大幅低減）」と書き、培地主原料の行のメモに「排液利用で大幅低減｜培養液量連動」と書いていた（培養を顧客工場で行う形）。その版の額はすべて出所「仮置き」で、80%の根拠は書かれていない。",
+   "note": "培養の培地を、工場の排液でまかなえるか。スイッチは培地の原料（窒素源・リン源・カリウムなど）の3行にある（まさ 2026-09-15「その結果次第では、燃料事業は、顧客の工場のCO2と排熱、排ガスをフル活用してやる方向も見えてくる」）。ON にすると、その3行の買値を「減る割合」だけ引いた額で計算する（量と試薬の買値は行に残る）。培養ロス補充は原料の合計から出すので一緒に下がる。既定は OFF（試薬を買う）。**これは培養の拠点の話で、リアクター（処理）とは関係ない**（まさ 2026-09-17「排液排ガス排熱の３つのスイッチは、培養にしか関係しない。この３つを使って培養すれば培養コストが大幅に下がる」）。処理の側は、排液を分解するためにリアクターへ入れるだけで、培地は使わず、光も要らない（菌体は直前まで光の下にいるので、リアクターの中でしばらく暗くてもエネルギーは足りる。先生の資料 SX_事業概要 v1.0 も「2段階目の廃液処理の際は水のみ必要」）。**使える排液の条件**: ①窒素・リン・硫黄などの栄養が入っている（食品工場・醸造・畜産・下水の処理水、窒素酸化物・硫黄酸化物を含む排液など。杉浦先生 2026-09-15 の BNV 定例「排液の窒素酸化物・硫黄酸化物を栄養にしている」）、②光合成を止める農薬・薬剤や、菌体に毒になる濃さの金属が入っていない（金属を含む排液を燃料用の菌体に使うと、菌体に金属が入り、それは金属回収の事業の方の話になる）、③年間を通して量と質が安定している、④培養の拠点をその工場の隣に置ける。量の見当: 菌体1kgに窒素80gが要るので、排液の窒素が1,200mg/Lなら菌体1kgあたり約67L、400mg/Lなら約200Lの排液にあたる。排ガス（CO2）・排熱と同じ工場でまかなうなら、その条件も同時に満たす工場を探す。排液・排ガス・排熱の3つを出す工場自体は多い（ボイラーを持って製造していれば出る）。**まだ入っていない**: 排液を運ぶ・ためる設備と、業種ごとの栄養の濃さの実測値。出どころ: ちこさんの試算シートの 2026-07-30版は、前提の欄に「培地原料低減率 80%（排液利用で大幅低減）」と書き、培地主原料の行のメモに「排液利用で大幅低減｜培養液量連動」と書いていた（培養を顧客工場で行う形）。その版の額はすべて出所「仮置き」で、80%の根拠は書かれていない。",
    "visibility": "amd_internal",
    "sortOrder": 321,
    "strain": null,
@@ -1517,7 +1535,7 @@
    "sortOrder": 230,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_066",
@@ -1543,7 +1561,7 @@
    "sortOrder": 240,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_067",
@@ -1569,7 +1587,7 @@
    "sortOrder": 250,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_068",
@@ -1595,7 +1613,7 @@
    "sortOrder": 260,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_069",
@@ -1621,7 +1639,7 @@
    "sortOrder": 270,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_070",
@@ -1647,7 +1665,7 @@
    "sortOrder": 280,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_071",
@@ -1673,7 +1691,7 @@
    "sortOrder": 290,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_072",
@@ -1699,7 +1717,7 @@
    "sortOrder": 300,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_073",
@@ -1725,7 +1743,7 @@
    "sortOrder": 310,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_074",
@@ -1751,7 +1769,7 @@
    "sortOrder": 320,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_075",
@@ -1777,7 +1795,7 @@
    "sortOrder": 330,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_076",
@@ -1803,7 +1821,7 @@
    "sortOrder": 340,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_077",
@@ -1829,7 +1847,7 @@
    "sortOrder": 350,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_078",
@@ -1855,7 +1873,7 @@
    "sortOrder": 360,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_079",
@@ -1881,7 +1899,7 @@
    "sortOrder": 370,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_080",
@@ -1907,7 +1925,7 @@
    "sortOrder": 380,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_081",
@@ -1933,7 +1951,7 @@
    "sortOrder": 390,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_082",
@@ -1959,7 +1977,7 @@
    "sortOrder": 400,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_083",
@@ -1985,7 +2003,7 @@
    "sortOrder": 410,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_084",
@@ -2011,7 +2029,7 @@
    "sortOrder": 420,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_085",
@@ -2037,7 +2055,7 @@
    "sortOrder": 430,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_086",
@@ -2063,7 +2081,7 @@
    "sortOrder": 440,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_087",
@@ -2089,7 +2107,7 @@
    "sortOrder": 450,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_088",
@@ -2115,7 +2133,7 @@
    "sortOrder": 460,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_089",
@@ -2141,7 +2159,7 @@
    "sortOrder": 470,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_090",
@@ -2167,7 +2185,7 @@
    "sortOrder": 480,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_091",
@@ -2193,7 +2211,7 @@
    "sortOrder": 490,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_092",
@@ -2219,7 +2237,7 @@
    "sortOrder": 500,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_093",
@@ -2245,7 +2263,7 @@
    "sortOrder": 510,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_094",
@@ -2271,7 +2289,7 @@
    "sortOrder": 520,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_095",
@@ -2297,7 +2315,7 @@
    "sortOrder": 530,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_096",
@@ -2323,7 +2341,7 @@
    "sortOrder": 540,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_097",
@@ -2349,7 +2367,7 @@
    "sortOrder": 550,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_098",
@@ -2375,7 +2393,7 @@
    "sortOrder": 560,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_099",
@@ -2401,7 +2419,7 @@
    "sortOrder": 570,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_100",
@@ -2427,7 +2445,7 @@
    "sortOrder": 580,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_101",
@@ -2453,7 +2471,7 @@
    "sortOrder": 590,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_102",
@@ -2479,7 +2497,7 @@
    "sortOrder": 600,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_103",
@@ -2505,7 +2523,7 @@
    "sortOrder": 610,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_104",
@@ -2531,7 +2549,7 @@
    "sortOrder": 620,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_105",
@@ -2557,7 +2575,7 @@
    "sortOrder": 630,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_106",
@@ -2583,7 +2601,7 @@
    "sortOrder": 640,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_107",
@@ -2609,7 +2627,7 @@
    "sortOrder": 650,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_108",
@@ -2635,7 +2653,7 @@
    "sortOrder": 660,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_109",
@@ -2661,7 +2679,7 @@
    "sortOrder": 670,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_110",
@@ -2687,7 +2705,7 @@
    "sortOrder": 680,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_111",
@@ -2713,7 +2731,7 @@
    "sortOrder": 690,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_112",
@@ -2739,7 +2757,7 @@
    "sortOrder": 700,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_113",
@@ -2765,7 +2783,7 @@
    "sortOrder": 710,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_114",
@@ -2791,7 +2809,7 @@
    "sortOrder": 720,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_115",
@@ -2817,7 +2835,7 @@
    "sortOrder": 730,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_116",
@@ -2843,7 +2861,7 @@
    "sortOrder": 740,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_117",
@@ -2869,7 +2887,7 @@
    "sortOrder": 750,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_118",
@@ -2895,7 +2913,7 @@
    "sortOrder": 760,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_119",
@@ -2921,7 +2939,7 @@
    "sortOrder": 770,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_120",
@@ -2942,7 +2960,7 @@
    "confidence": "B",
    "sourceKind": "推定",
    "owner": "杉浦先生（培地の組成）",
-   "note": "量: 菌体の乾燥重量の8%が窒素（2026-09-07 の工程とマテバラ推定の設計仮定。Synechocystis の測定では11.3%）→ 窒素0.08kg ÷ 硝酸ナトリウムの窒素の割合16.5% ＝ 0.4854kg。培地に入れた窒素はすべて菌体が吸う（培養液を使い回す前提。マテバラ推定と同じ。閉鎖型の培養で吸う割合を20%と置く試算もあり（米国PNNL 2018）、その場合は5倍）。買値: 硝酸ナトリウムの財務省貿易統計の輸入単価（chematels.com の集計、2026年） 187円/kg。届け先までの運賃は含まない。確かめ方: 杉浦先生の培地の窒素源と濃さ（培養液1Lに何g）を聞き、菌体1kgあたりの量と比べる。尿素（窒素46.6%、輸入単価の2026年平均 約107円/kg）が使えるなら菌体1kgあたり約18円に下がる。リン源のりん酸二アンモニウムからも窒素が約9g入るが、ここから差し引いていない。工場の排液を培地に使えるなら、この行の「工場の排液を培地に使える」を ON にすると、買値がその割合だけ引かれる（買値の欄はそのまま残る。使えるかは色ではなく排液の窒素の濃さで決まる。スイッチの説明を見る）。コスト試算（燃料）の培養設備の同じ行と同じ値（2026-09-14 にそろえた）。片方を直しても、もう片方は変わらない。前の額（2026-09-14 に「使う量 × 買値」へ組み直す前）: 菌体1kgあたり9円で、量と買値の内訳は無かった。ちこさんの試算シート（2026-07-30版〜2026-08-20版）の「培地主原料　処理水1m³あたり10円」（出所「仮置き」）を、処理水1m³に使う乾燥菌体1.111kgで割った額。7/30版のメモは「排液利用で大幅低減｜培養液量連動」で、前提の欄に「培地原料低減率 80%（排液利用で大幅低減）」があった（培養を顧客工場で行い、工場の排液を培地に使う形）。7/16版では「培養原料・添加成分　処理水1m³あたり70円」（目標総原価300円から配分した仮置き）の中にあった。版ごとの流れは版の履歴「培養の原料の前の額は、どこから来たか」。",
+   "note": "量: 菌体の乾燥重量の8%が窒素（2026-09-07 の工程とマテバラ推定の設計仮定。Synechocystis の測定では11.3%）→ 窒素0.08kg ÷ 硝酸ナトリウムの窒素の割合16.5% ＝ 0.4854kg。培地に入れた窒素はすべて菌体が吸う（培養液を使い回す前提。マテバラ推定と同じ。閉鎖型の培養で吸う割合を20%と置く試算もあり（米国PNNL 2018）、その場合は5倍）。買値: 硝酸ナトリウムの財務省貿易統計の輸入単価（chematels.com の集計、2026年） 187円/kg。届け先までの運賃は含まない。確かめ方: 杉浦先生の培地の窒素源と濃さ（培養液1Lに何g）を聞き、菌体1kgあたりの量と比べる。尿素（窒素46.6%、輸入単価の2026年平均 約107円/kg）が使えるなら菌体1kgあたり約18円に下がる。リン源のりん酸二アンモニウムからも窒素が約9g入るが、ここから差し引いていない。工場の排液を培地に使えるなら、この行の「工場の排液を培地に使える」を ON にすると、買値がその割合だけ引かれる（買値の欄はそのまま残る。培養の拠点の話で、リアクターとは関係ない）。コスト試算（燃料）の培養設備の同じ行と同じ値（2026-09-14 にそろえた）。片方を直しても、もう片方は変わらない。前の額（2026-09-14 に「使う量 × 買値」へ組み直す前）: 菌体1kgあたり9円で、量と買値の内訳は無かった。ちこさんの試算シート（2026-07-30版〜2026-08-20版）の「培地主原料　処理水1m³あたり10円」（出所「仮置き」）を、処理水1m³に使う乾燥菌体1.111kgで割った額。7/30版のメモは「排液利用で大幅低減｜培養液量連動」で、前提の欄に「培地原料低減率 80%（排液利用で大幅低減）」があった（培養を顧客工場で行い、工場の排液を培地に使う形）。7/16版では「培養原料・添加成分　処理水1m³あたり70円」（目標総原価300円から配分した仮置き）の中にあった。版ごとの流れは版の履歴「培養の原料の前の額は、どこから来たか」。",
    "visibility": "amd_internal",
    "sortOrder": 780,
    "strain": null,
@@ -2968,7 +2986,7 @@
    "confidence": "B",
    "sourceKind": "推定",
    "owner": "杉浦先生（培地の組成）",
-   "note": "量: 菌体の乾燥重量の1%がリン（2026-09-07 の工程とマテバラ推定の設計仮定。微細藻類で0.3〜1.2%）→ リン0.01kg ÷ りん酸二アンモニウムのリンの割合23.5% ＝ 0.0426kg。入れたリンはすべて菌体が吸う（使い回す前提）。買値: りん酸二アンモニウムの財務省貿易統計の輸入単価（chematels.com の集計、2026年） 161円/kg。確かめ方: 杉浦先生の培地のリン源と濃さを聞いて比べる。BG-11（シアノバクテリアの標準の培地）のリン酸カリウムのままでは、菌体の濃さ5g/Lに足りない（約0.7g/L分）。工場の排液を培地に使えるなら、この行の「工場の排液を培地に使える」を ON にすると、買値がその割合だけ引かれる（買値の欄はそのまま残る。使えるかは色ではなく排液の窒素の濃さで決まる。スイッチの説明を見る）。コスト試算（燃料）の培養設備の同じ行と同じ値（2026-09-14 にそろえた）。片方を直しても、もう片方は変わらない。前の額（2026-09-14 に「使う量 × 買値」へ組み直す前）: 菌体1kgあたり10.8円で、量と買値の内訳は無かった。ちこさんの試算シート（2026-07-30版〜2026-08-20版）の「栄養塩　処理水1m³あたり12円」（出所「仮置き」）を、処理水1m³に使う乾燥菌体1.111kgで割った額。7/16版では「培養原料・添加成分　処理水1m³あたり70円」（目標総原価300円から配分した仮置き）の中にあった。7/30版で分けた額の決め方はシートに書かれていない。版ごとの流れは版の履歴「培養の原料の前の額は、どこから来たか」。",
+   "note": "量: 菌体の乾燥重量の1%がリン（2026-09-07 の工程とマテバラ推定の設計仮定。微細藻類で0.3〜1.2%）→ リン0.01kg ÷ りん酸二アンモニウムのリンの割合23.5% ＝ 0.0426kg。入れたリンはすべて菌体が吸う（使い回す前提）。買値: りん酸二アンモニウムの財務省貿易統計の輸入単価（chematels.com の集計、2026年） 161円/kg。確かめ方: 杉浦先生の培地のリン源と濃さを聞いて比べる。BG-11（シアノバクテリアの標準の培地）のリン酸カリウムのままでは、菌体の濃さ5g/Lに足りない（約0.7g/L分）。工場の排液を培地に使えるなら、この行の「工場の排液を培地に使える」を ON にすると、買値がその割合だけ引かれる（買値の欄はそのまま残る。培養の拠点の話で、リアクターとは関係ない）。コスト試算（燃料）の培養設備の同じ行と同じ値（2026-09-14 にそろえた）。片方を直しても、もう片方は変わらない。前の額（2026-09-14 に「使う量 × 買値」へ組み直す前）: 菌体1kgあたり10.8円で、量と買値の内訳は無かった。ちこさんの試算シート（2026-07-30版〜2026-08-20版）の「栄養塩　処理水1m³あたり12円」（出所「仮置き」）を、処理水1m³に使う乾燥菌体1.111kgで割った額。7/16版では「培養原料・添加成分　処理水1m³あたり70円」（目標総原価300円から配分した仮置き）の中にあった。7/30版で分けた額の決め方はシートに書かれていない。版ごとの流れは版の履歴「培養の原料の前の額は、どこから来たか」。",
    "visibility": "amd_internal",
    "sortOrder": 790,
    "strain": null,
@@ -2994,7 +3012,7 @@
    "confidence": "C",
    "sourceKind": "推定",
    "owner": "杉浦先生（培地の組成）",
-   "note": "量: 菌体の乾燥重量のカリウム1.6%・マグネシウム0.3%・鉄0.1%（スピルリナの成分の総説）から、塩化カリウム0.0305kg・硫酸マグネシウム7水塩0.0304kg・キレート鉄13% 0.0077kg、微量金属の塩（ホウ酸・塩化マンガン・硫酸亜鉛など）をBG-11の鉄との割合で0.0054kg、合わせて0.074kg。買値は重さで割り戻した平均 324円/kg: 塩化カリウム 77円/kg（財務省貿易統計の輸入単価（chematels.com の集計、2026年））、硫酸マグネシウム 162円/kg（肥料・工業用25kg、通販 2026-09）、キレート鉄 1,468円/kg（25kg、通販 2026-09）、微量金属の塩 1,000円/kg（買値を調べていない仮置き）。菌体1kgあたりの額の半分近くがキレート鉄。確かめ方: 杉浦先生の培地の組成を聞き、成分ごとの量と比べる。工場の排液を培地に使えるなら、この行の「工場の排液を培地に使える」を ON にすると、買値がその割合だけ引かれる（買値の欄はそのまま残る。使えるかは色ではなく排液の窒素の濃さで決まる。スイッチの説明を見る）。コスト試算（燃料）の培養設備の同じ行と同じ値（2026-09-14 にそろえた）。片方を直しても、もう片方は変わらない。前の額（2026-09-14 に「使う量 × 買値」へ組み直す前）: 菌体1kgあたり7.2円で、量と買値の内訳は無かった。ちこさんの試算シート（2026-07-30版〜2026-08-20版）の「微量元素・添加剤　処理水1m³あたり8円」（出所「仮置き」）を、処理水1m³に使う乾燥菌体1.111kgで割った額。7/16版では「培養原料・添加成分　処理水1m³あたり70円」（目標総原価300円から配分した仮置き）の中にあった。7/30版で分けた額の決め方はシートに書かれていない。版ごとの流れは版の履歴「培養の原料の前の額は、どこから来たか」。",
+   "note": "量: 菌体の乾燥重量のカリウム1.6%・マグネシウム0.3%・鉄0.1%（スピルリナの成分の総説）から、塩化カリウム0.0305kg・硫酸マグネシウム7水塩0.0304kg・キレート鉄13% 0.0077kg、微量金属の塩（ホウ酸・塩化マンガン・硫酸亜鉛など）をBG-11の鉄との割合で0.0054kg、合わせて0.074kg。買値は重さで割り戻した平均 324円/kg: 塩化カリウム 77円/kg（財務省貿易統計の輸入単価（chematels.com の集計、2026年））、硫酸マグネシウム 162円/kg（肥料・工業用25kg、通販 2026-09）、キレート鉄 1,468円/kg（25kg、通販 2026-09）、微量金属の塩 1,000円/kg（買値を調べていない仮置き）。菌体1kgあたりの額の半分近くがキレート鉄。確かめ方: 杉浦先生の培地の組成を聞き、成分ごとの量と比べる。工場の排液を培地に使えるなら、この行の「工場の排液を培地に使える」を ON にすると、買値がその割合だけ引かれる（買値の欄はそのまま残る。培養の拠点の話で、リアクターとは関係ない）。コスト試算（燃料）の培養設備の同じ行と同じ値（2026-09-14 にそろえた）。片方を直しても、もう片方は変わらない。前の額（2026-09-14 に「使う量 × 買値」へ組み直す前）: 菌体1kgあたり7.2円で、量と買値の内訳は無かった。ちこさんの試算シート（2026-07-30版〜2026-08-20版）の「微量元素・添加剤　処理水1m³あたり8円」（出所「仮置き」）を、処理水1m³に使う乾燥菌体1.111kgで割った額。7/16版では「培養原料・添加成分　処理水1m³あたり70円」（目標総原価300円から配分した仮置き）の中にあった。7/30版で分けた額の決め方はシートに書かれていない。版ごとの流れは版の履歴「培養の原料の前の額は、どこから来たか」。",
    "visibility": "amd_internal",
    "sortOrder": 800,
    "strain": null,
@@ -3649,7 +3667,7 @@
    "sortOrder": 1020,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci2_c_work_area",
@@ -3701,7 +3719,7 @@
    "sortOrder": 1030,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_146",
@@ -3727,7 +3745,7 @@
    "sortOrder": 1040,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_147",
@@ -3753,7 +3771,7 @@
    "sortOrder": 1050,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_148",
@@ -3779,7 +3797,7 @@
    "sortOrder": 1060,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci2_c_waste_chem",
@@ -3831,7 +3849,7 @@
    "sortOrder": 1070,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_150",
@@ -4065,7 +4083,7 @@
    "sortOrder": 1130,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_156",
@@ -4091,7 +4109,7 @@
    "sortOrder": 1140,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_157",
@@ -4117,7 +4135,7 @@
    "sortOrder": 1150,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_158",
@@ -4143,7 +4161,7 @@
    "sortOrder": 1160,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_160",
@@ -4221,7 +4239,7 @@
    "sortOrder": 1200,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_163",
@@ -4247,7 +4265,7 @@
    "sortOrder": 1210,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_164",
@@ -4273,7 +4291,7 @@
    "sortOrder": 1220,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_165",
@@ -4299,7 +4317,7 @@
    "sortOrder": 1230,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_166",
@@ -4325,7 +4343,7 @@
    "sortOrder": 1240,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_167",
@@ -4351,7 +4369,7 @@
    "sortOrder": 1250,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_168",
@@ -4377,7 +4395,7 @@
    "sortOrder": 1260,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_169",
@@ -4403,7 +4421,7 @@
    "sortOrder": 1270,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_170",
@@ -4429,7 +4447,7 @@
    "sortOrder": 1280,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_171",
@@ -4455,7 +4473,7 @@
    "sortOrder": 1290,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_172",
@@ -4481,7 +4499,7 @@
    "sortOrder": 1300,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci2_dye_disposal",
@@ -4533,7 +4551,7 @@
    "sortOrder": 1310,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci2_dye_analysis",
@@ -4585,7 +4603,7 @@
    "sortOrder": 1320,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci2_dye_wash",
@@ -4637,7 +4655,7 @@
    "sortOrder": 1330,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_176",
@@ -4663,7 +4681,7 @@
    "sortOrder": 1340,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_177",
@@ -4689,7 +4707,7 @@
    "sortOrder": 1350,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci_260820_178",
@@ -4715,7 +4733,7 @@
    "sortOrder": 1360,
    "strain": null,
    "application": null,
-   "bearer": "site"
+   "bearer": "reactor"
   },
   {
    "costItemId": "ci4_off_receiving",
@@ -4987,7 +5005,7 @@
    "sortOrder": 40,
    "strain": null,
    "application": null,
-   "performer": "site"
+   "performer": "reactor"
   },
   {
    "costTaskId": "ct_run_injection",
@@ -5006,7 +5024,7 @@
    "sortOrder": 41,
    "strain": null,
    "application": null,
-   "performer": "site"
+   "performer": "reactor"
   },
   {
    "strain": null,
