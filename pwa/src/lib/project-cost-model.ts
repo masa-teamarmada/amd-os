@@ -1399,6 +1399,15 @@ export function annualAmount(
   }
 }
 
+/**
+ * 作る量に比例する設備か (CAPEX で、菌体1kgあたりの量で持つ行)。LED の照明器具のように、作る菌体が増えるとその分だけ要る設備。
+ * 1kgあたりの年額は「数量 × 単価 ÷ 耐用年数」、初期投資は「数量 × 単価 × 年に作る量」。系列の大きさ (排液で増える速さの倍率など) では薄まらない。
+ * まさ 2026-09-22「光はLEDで当ててるよ。どのくらいの光量を当てたらいいのかは先生も知らない。なので推定して入れてほしい」。
+ */
+export function isScaledCapex(item: Pick<CostItem, "costType" | "basis">): boolean {
+  return item.costType === "CAPEX" && item.basis === "毎kg菌体比例";
+}
+
 /** 製造拠点の1行が、生産1kgあたりに乗せる額 (販売率で割る前)。明細表の円/kg列にも使う。培養ロス補充の単価を出すため明細の束を渡す。 */
 export function centralItemPerKg(item: CostItem, assumptions: CostAssumption[], capacity: number, sel: CostSelection, items?: CostItem[]): number {
   if (item.isBreakdown || item.basis === "内訳") return 0;
@@ -1410,7 +1419,8 @@ export function centralItemPerKg(item: CostItem, assumptions: CostAssumption[], 
     case "年額固定":
       return safeDiv(item.quantity * price * item.annualFactor, capacity);
     case "毎kg菌体比例":
-      return item.quantity * price * item.annualFactor;
+      // 作る量に比例する設備は、耐用年数で割って1年あたりにする
+      return isScaledCapex(item) ? safeDiv(item.quantity * price * item.annualFactor, item.usefulLifeYears ?? 0) : item.quantity * price * item.annualFactor;
     default:
       return 0;
   }
@@ -1600,6 +1610,13 @@ export function costItemCalc(
       case "年額固定":
         return { price: priceCalc, excluded: null, segments: [{ continues: false, terms: head, result: { value: base, unit: "円", label: "1系列の1年あたり" } }, toPerKg(base)] };
       case "毎kg菌体比例":
+        if (isScaledCapex(item)) {
+          return {
+            price: priceCalc,
+            excluded: null,
+            segments: [{ continues: false, terms: [...head, { op: "÷", value: item.usefulLifeYears ?? 0, unit: "年", label: "耐用" }], result: { value: safeDiv(base, item.usefulLifeYears ?? 0), unit: "円/kg" } }],
+          };
+        }
         return { price: priceCalc, excluded: null, segments: [{ continues: false, terms: head, result: { value: base, unit: "円/kg" } }] };
       default:
         return null;
@@ -1822,12 +1839,18 @@ export function computeBiomassCost(
   for (const i of central) {
     // 明細は培養設備1系列ぶん。系列の数だけ並べるので、1kgあたりは「1系列の年額 ÷ 1系列の量」になる。
     const perKg = centralItemPerKg(i, assumptions, scale.lineCapacityKgYear, sel, items);
-    const row = rowOf(i.basis === "初期投資配賦" ? "capex" : i.basis === "年額固定" ? "fixed" : "variable");
+    const scaled = isScaledCapex(i);
+    const row = rowOf(i.basis === "初期投資配賦" || scaled ? "capex" : i.basis === "年額固定" ? "fixed" : "variable");
     row.perKg += perKg;
     if (i.strain) row.strainSpecificPerKg += perKg;
     if (i.basis === "初期投資配賦") {
       capexAnnual += safeDiv(i.quantity * i.unitPrice * i.annualFactor, i.usefulLifeYears ?? 0) * lines;
       lineCapexInitial += i.quantity * i.unitPrice;
+      if (i.usefulLifeYears && i.quantity * i.unitPrice > 0) lives.push(i.usefulLifeYears);
+    } else if (scaled) {
+      // 作る量に比例する設備: 1系列ぶんの初期投資は「1kgあたりの量 × 単価 × 1系列が1年に作る量」
+      capexAnnual += perKg * scale.lineCapacityKgYear * lines;
+      lineCapexInitial += i.quantity * i.unitPrice * scale.lineCapacityKgYear;
       if (i.usefulLifeYears && i.quantity * i.unitPrice > 0) lives.push(i.usefulLifeYears);
     }
     else if (i.basis === "年額固定") fixedOpexAnnual += i.quantity * i.unitPrice * i.annualFactor * lines;

@@ -40,6 +40,7 @@ import {
   paramGroupOfItem,
   paramGroupOfRole,
   isReactorRow,
+  isScaledCapex,
   resolveAssumption,
   resolveBearer,
   resolvePerformer,
@@ -1085,7 +1086,7 @@ function ItemRows({
                 )}
               </Cell>
               <Cell label="耐用年数">
-                {i.basis === "初期投資配賦" ? (
+                {i.basis === "初期投資配賦" || isScaledCapex(i) ? (
                   <NumberField
                     ariaLabel={`${costItemLabel(i)} 耐用年数`}
                     value={i.usefulLifeYears}

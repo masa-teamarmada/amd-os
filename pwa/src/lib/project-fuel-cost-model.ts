@@ -62,6 +62,7 @@ import {
   WASTE_MEDIUM_REDUCTION_ROLE,
   WASTE_MEDIUM_ROLE,
   priceLabelOf,
+  isScaledCapex,
   scopeApplies,
   type CostApplication,
   type CostAssumption,
@@ -803,7 +804,8 @@ export function fuelCultureItemPerKg(
     case "年額固定":
       return safeDiv(base, lineCapacityKgYear);
     case "毎kg菌体比例":
-      return base;
+      // 作る量に比例する設備 (LED の照明器具など) は、耐用年数で割って1年あたりにする
+      return isScaledCapex(item) ? safeDiv(base, item.usefulLifeYears ?? 0) : base;
     default:
       return 0;
   }
@@ -868,6 +870,17 @@ export function fuelItemCalc(item: CostItem, scenario: FuelScenarioResult, ctx?:
         ],
       };
     case "毎kg菌体比例":
+      if (isScaledCapex(item)) {
+        const perKg = safeDiv(base, item.usefulLifeYears ?? 0);
+        return {
+          price,
+          excluded,
+          segments: [
+            { continues: false, terms: [...head, { op: "÷", value: item.usefulLifeYears ?? 0, unit: "年", label: "耐用" }], result: { value: perKg, unit: "円", label: `${unitLabel}1kgあたり` } },
+            toPerLiter(perKg),
+          ],
+        };
+      }
       return {
         price,
         excluded,
@@ -918,6 +931,11 @@ export function computeFuelBiomassCost(bundle: Pick<CostModelBundle, "assumption
     if (i.basis === "初期投資配賦") {
       rowOf("capex").perKg += perKg;
       lineCapexInitial += i.quantity * i.unitPrice;
+      if (i.usefulLifeYears && i.quantity * i.unitPrice > 0) lives.push(i.usefulLifeYears);
+    } else if (isScaledCapex(i)) {
+      // 作る量に比例する設備: 1系列ぶんの初期投資は「1kgあたりの量 × 単価 × 1系列が1年に作る(出す)量」
+      rowOf("capex").perKg += perKg;
+      lineCapexInitial += i.quantity * i.unitPrice * fuelUnitFactorOf(i, scale) * lineCap;
       if (i.usefulLifeYears && i.quantity * i.unitPrice > 0) lives.push(i.usefulLifeYears);
     } else if (i.basis === "年額固定") rowOf("fixed").perKg += perKg;
     else if (i.basis === "毎kg菌体比例") {

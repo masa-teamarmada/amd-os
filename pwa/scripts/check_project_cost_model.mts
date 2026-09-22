@@ -52,6 +52,7 @@ import {
   COST_ROLE_KEYS,
   ITEM_BEARERS,
   ITEM_INLINE_ROLES,
+  isScaledCapex,
   REACTOR_BEARER_ROLE,
   METHODS,
   PRODUCTION_TASK_DRIVERS,
@@ -60,6 +61,7 @@ import {
   TASK_PERFORMERS,
   TEXT_CHOICE_ROLES,
   biomassOf,
+  centralItemPerKg,
   computeBiomassCost,
   computeCostModel,
   computeTaskFlow,
@@ -118,9 +120,11 @@ const LEGACY_CULTURE_PER_KG: Record<string, number> = {
 };
 /** 2026-09-15 に足した培養の加温・電力・排水（旧版には無い行）。旧版の再現では外す。 */
 const CULTURE_ADDED_2026_09_15 = new Set(["ci2_c_heat", "ci2_c_power", "ci2_c_blowdown", "ci2_c_heat_capex"]);
+/** 2026-09-22 に足した LED の照明（旧版には無い行）。旧版の再現では外す。 */
+const CULTURE_ADDED_2026_09_22 = new Set(["ci2_c_led_power", "ci2_c_led_capex"]);
 const legacyCulture = (bundle: CostModelBundle): CostModelBundle => {
   const b: CostModelBundle = JSON.parse(JSON.stringify(bundle));
-  b.items = b.items.filter((i) => !CULTURE_ADDED_2026_09_15.has(i.costItemId));
+  b.items = b.items.filter((i) => !CULTURE_ADDED_2026_09_15.has(i.costItemId) && !CULTURE_ADDED_2026_09_22.has(i.costItemId));
   for (const i of b.items) {
     const perKg = LEGACY_CULTURE_PER_KG[i.costItemId];
     if (perKg === undefined) continue;
@@ -337,13 +341,13 @@ for (const strain of ["enhanced", "wild"] as const) {
 //    色素分解の汚泥の処分と、装置を動かす消耗品・電力・点検・交換部品は顧客が持つ。色素分解の菌体使用回数は10回
 //    年間処理量は2,000万m³（売上100億円）。年に作る量から培養設備の系列数を出す。2026-09-14（426）から、培養の原料は「使う量 × 買値」（まさ「Aで」）
 //    2026-09-15（437）から、菌体の量は目標放流水濃度を引いたマスバランス、金属回収には中央回収設備の償却が乗る（ちこさん・中島先生のレビュー）
-near(computeBiomassCost(fixture, "enhanced", "dye").perKg, 867.7, 0.05, "強化株 菌体原価（色素分解で年に作る量）");
-near(computeBiomassCost(fixture, "enhanced", "metal").perKg, 867.6, 0.05, "強化株 菌体原価（金属回収で年に作る量）");
-near(computeBiomassCost(fixture, "wild", "dye").perKg, 846.1, 0.05, "自然株 菌体原価");
-near(scenario(fixture, "enhanced", "dye", "投入-既設").totalPerUnit, 139.3, 0.05, "強化株 色素 オンサイト直接投入（437 の前は 117.2）");
-near(scenario(fixture, "enhanced", "metal", "投入-既設").totalPerUnit, 749.2, 0.05, "強化株 金属 オンサイト直接投入（437 の前は 1,009.5）");
-near(scenario(fixture, "wild", "dye", "投入-既設").totalPerUnit, 135.0, 0.05, "自然株 色素 オンサイト直接投入（437 の前は 113.5）");
-near(scenario(fixture, "wild", "metal", "投入-既設").totalPerUnit, 913.2, 0.05, "自然株 金属 オンサイト直接投入（437 の前は 1,233.8）");
+near(computeBiomassCost(fixture, "enhanced", "dye").perKg, 3542.5, 0.05, "強化株 菌体原価（色素分解で年に作る量。449 の LED の前は 867.7）");
+near(computeBiomassCost(fixture, "enhanced", "metal").perKg, 3542.4, 0.05, "強化株 菌体原価（金属回収で年に作る量。449 の LED の前は 867.6）");
+near(computeBiomassCost(fixture, "wild", "dye").perKg, 3521.0, 0.05, "自然株 菌体原価（449 の LED の前は 846.1）");
+near(scenario(fixture, "enhanced", "dye", "投入-既設").totalPerUnit, 508.9, 0.05, "強化株 色素 オンサイト直接投入（437 の前は 117.2。449 の LED の前は 139.3）");
+near(scenario(fixture, "enhanced", "metal", "投入-既設").totalPerUnit, 2767.9, 0.05, "強化株 金属 オンサイト直接投入（437 の前は 1,009.5。449 の LED の前は 749.2）");
+near(scenario(fixture, "wild", "dye", "投入-既設").totalPerUnit, 504.6, 0.05, "自然株 色素 オンサイト直接投入（437 の前は 113.5。449 の LED の前は 135.0）");
+near(scenario(fixture, "wild", "metal", "投入-既設").totalPerUnit, 3460.6, 0.05, "自然株 金属 オンサイト直接投入（437 の前は 1,233.8。449 の LED の前は 913.2）");
 assert.ok(
   scenario(fixture, "enhanced", "dye", "投入-既設").totalPerUnit < scenario(fixture, "enhanced", "metal", "投入-既設").totalPerUnit,
   "使い回せる色素分解は、使い捨ての金属回収より安い（まさ 2026-09-14）"
@@ -567,12 +571,12 @@ assert.ok(
   // オフサイトは引き取る液の濃さ（色素 1,000mg/L・金属 5,000ppm）で使い切る菌体量を出す（2026-09-14「置いて」）
   // 430 から培養ロス補充の単価は原料の行の合計を丸めずに使う（261.6 → 261.5504円）ので、金属回収のオフサイトは 0.3〜0.4円下がった
   // 437 から菌体の量は目標放流水濃度を引いたマスバランス（色素分解は上がり、金属回収は下がる）。金属回収には中央回収設備の償却が乗る
-  near(off.totalPerUnit, 6031.4, 0.05, "強化株 色素 オフサイト直接投入（437 の前は 5,192.8）");
-  near(scenario(fixture, "enhanced", "dye", "オフサイト-循環-新設").totalPerUnit, 6196.9, 0.05, "強化株 色素 オフサイト循環（処理の運転はオフサイトなら SX。437 の前は 5,358.3）");
-  near(scenario(fixture, "enhanced", "metal", "オフサイト-投入-新設").totalPerUnit, 90844.2, 0.05, "強化株 金属 オフサイト直接投入（437 の前は 99,260.8）");
-  near(scenario(fixture, "wild", "dye", "オフサイト-投入-新設").totalPerUnit, 5947.6, 0.05, "自然株 色素 オフサイト直接投入（437 の前は 5,126.9）");
-  near(scenario(fixture, "wild", "metal", "オフサイト-投入-新設").totalPerUnit, 111322.5, 0.05, "自然株 金属 オフサイト直接投入（売価 50,000円/m³ を超える。437 の前は 121,654.7）");
-  near(scenario(fixture, "enhanced", "dye", "循環-既設").totalPerUnit, 142.2, 0.05, "強化株 色素 オンサイト循環（菌体保持モジュールの交換費は顧客。437 の前は 120.0）");
+  near(off.totalPerUnit, 14203.8, 0.05, "強化株 色素 オフサイト直接投入（437 の前は 5,192.8。449 の LED の前は 6,031.4）");
+  near(scenario(fixture, "enhanced", "dye", "オフサイト-循環-新設").totalPerUnit, 14369.3, 0.05, "強化株 色素 オフサイト循環（処理の運転はオフサイトなら SX。437 の前は 5,358.3。449 の LED の前は 6,196.9）");
+  near(scenario(fixture, "enhanced", "metal", "オフサイト-投入-新設").totalPerUnit, 342681.0, 0.05, "強化株 金属 オフサイト直接投入（437 の前は 99,260.8。449 の LED の前は 90,844.2）");
+  near(scenario(fixture, "wild", "dye", "オフサイト-投入-新設").totalPerUnit, 14120.0, 0.05, "自然株 色素 オフサイト直接投入（437 の前は 5,126.9。449 の LED の前は 5,947.6）");
+  near(scenario(fixture, "wild", "metal", "オフサイト-投入-新設").totalPerUnit, 429116.6, 0.05, "自然株 金属 オフサイト直接投入（売価 50,000円/m³ を超える。437 の前は 121,654.7。449 の LED の前は 111,322.5）");
+  near(scenario(fixture, "enhanced", "dye", "循環-既設").totalPerUnit, 511.8, 0.05, "強化株 色素 オンサイト循環（菌体保持モジュールの交換費は顧客。437 の前は 120.0。449 の LED の前は 142.2）");
 }
 
 // 15. 誰がやるか: SX がやる作業だけを SX の原価に入れる。顧客工場での処理の運転は顧客（オンサイト）、SX（オフサイト）
@@ -693,8 +697,8 @@ assert.ok(
   for (const i of sxOwns.items) i.bearer = "sx";
   for (const a of sxOwns.assumptions) if (a.roleKey === "onsite_tank_bearer") a.valueText = "sx";
   for (const t of sxOwns.tasks) if (t.costTaskId === "ct_s_integrity_test" || t.costTaskId === "ct_s_filter_replace") t.performer = "sx";
-  near(scenario(sxOwns, "enhanced", "dye", "投入-既設").totalPerUnit, 349.2, 0.05, "SX が持つ形の色素分解（437 の前は 322.3）");
-  near(scenario(sxOwns, "enhanced", "metal", "投入-既設").totalPerUnit, 930.8, 0.05, "SX が持つ形の金属回収（437 の前は 1,191.1）");
+  near(scenario(sxOwns, "enhanced", "dye", "投入-既設").totalPerUnit, 718.8, 0.05, "SX が持つ形の色素分解（437 の前は 322.3。449 の LED の前は 349.2）");
+  near(scenario(sxOwns, "enhanced", "metal", "投入-既設").totalPerUnit, 2949.5, 0.05, "SX が持つ形の金属回収（437 の前は 1,191.1。449 の LED の前は 930.8）");
   near(scenario(capacityShape(legacyCulture(sxOwns)), "enhanced", "dye", "投入-既設").totalPerUnit, 246.8, 0.05, "年間生産能力を入力で持つ形では 246.8（2026-09-14 の直前は 240.0。437 の菌体のマスバランスで上がった）");
   const sxTank = computeCostModel(sxOwns, { strain: "enhanced" });
   assert.equal(sxTank.scenarios.length, 12, "槽を SX が持つと、オンサイトは既設と新設の2通りに戻る");
@@ -1194,10 +1198,10 @@ assert.ok(
     near(d.biomassKgPerUnit, deriveCostBasis(sameConc.assumptions, sel, "onsite").biomassKgPerUnit, 1e-12, `${strain} ${application} オフサイトもオンサイトの濃さで出す`);
   }
   // 430 から培養ロス補充の単価は原料の合計を丸めずに使う（261.6 → 261.5504円）ので、菌体原価は 334.3817 → 334.3792
-  near(computeBiomassCost(sameConc, "enhanced", "dye").perKg, 867.6767, 0.0005, "オフサイトの濃さが無ければ、強化株 色素の菌体原価（437 の前は 867.6978）");
-  near(scenario(sameConc, "enhanced", "dye", "オフサイト-投入-新設").totalPerUnit, 2989.7, 0.05, "オフサイトの濃さが無ければ、強化株 色素 オフサイト直接投入は 2,989.7（437 の前は 2,963.0）");
-  near(scenario(sameConc, "enhanced", "metal", "オフサイト-投入-新設").totalPerUnit, 3551.1, 0.05, "オフサイトの濃さが無ければ、強化株 金属 オフサイト直接投入は 3,551.1（437 の前は 3,809.8）");
-  near(scenario(sameConc, "wild", "metal", "オフサイト-投入-新設").totalPerUnit, 3697.4, 0.05, "オフサイトの濃さが無ければ、自然株 金属 オフサイト直接投入は 3,697.4（437 の前は 4,015.9）");
+  near(computeBiomassCost(sameConc, "enhanced", "dye").perKg, 3542.4970, 0.0005, "オフサイトの濃さが無ければ、強化株 色素の菌体原価（437 の前は 867.6978。449 の LED の前は 867.6767）");
+  near(scenario(sameConc, "enhanced", "dye", "オフサイト-投入-新設").totalPerUnit, 3359.4, 0.05, "オフサイトの濃さが無ければ、強化株 色素 オフサイト直接投入は 2,989.7（437 の前は 2,963.0。449 の LED の前は 2,989.7）");
+  near(scenario(sameConc, "enhanced", "metal", "オフサイト-投入-新設").totalPerUnit, 5569.8, 0.05, "オフサイトの濃さが無ければ、強化株 金属 オフサイト直接投入は 3,551.1（437 の前は 3,809.8。449 の LED の前は 3,551.1）");
+  near(scenario(sameConc, "wild", "metal", "オフサイト-投入-新設").totalPerUnit, 6244.8, 0.05, "オフサイトの濃さが無ければ、自然株 金属 オフサイト直接投入は 3,697.4（437 の前は 4,015.9。449 の LED の前は 3,697.4）");
 
   // 画面: 操作パネル・結果・読み物は、選んだ方式の物量を引く。割り算に、どちらの濃さで出したかと、年に作る量の方式ごとの掛け算を出す
   const read = (f: string) => fs.readFileSync(new URL(f, import.meta.url), "utf8");
@@ -1247,11 +1251,11 @@ assert.ok(
     }
   }
   // 自然株の数字（2026-09-14、仕様書の表）
-  near(scenario(fixture, "wild", "metal", "投入-既設").totalPerUnit, 913.2, 0.05, "OFF 自然株 金属回収 オンサイト・直接投入（437 の前は 1,233.8）");
-  near(scenario(on, "wild", "metal", "投入-既設").totalPerUnit, 798.7, 0.05, "ON 自然株 金属回収 オンサイト・直接投入（437 の前は 1,074.7）");
-  near(scenario(on, "wild", "dye", "投入-既設").totalPerUnit, 118.4, 0.05, "ON 自然株 色素分解 オンサイト・直接投入（437 の前は 100.1）");
-  near(scenario(on, "wild", "metal", "オフサイト-投入-新設").totalPerUnit, 97038.6, 0.05, "ON 自然株 金属回収 オフサイト・直接投入（437 の前は 105,752.0）");
-  near(computeBiomassCost(on, "wild", "metal").perKg, 725.9, 0.05, "ON 自然株 菌体1kgの原価");
+  near(scenario(fixture, "wild", "metal", "投入-既設").totalPerUnit, 3460.6, 0.05, "OFF 自然株 金属回収 オンサイト・直接投入（437 の前は 1,233.8。449 の LED の前は 913.2）");
+  near(scenario(on, "wild", "metal", "投入-既設").totalPerUnit, 3346.1, 0.05, "ON 自然株 金属回収 オンサイト・直接投入（437 の前は 1,074.7。449 の LED の前は 798.7）");
+  near(scenario(on, "wild", "dye", "投入-既設").totalPerUnit, 488.0, 0.05, "ON 自然株 色素分解 オンサイト・直接投入（437 の前は 100.1。449 の LED の前は 118.4）");
+  near(scenario(on, "wild", "metal", "オフサイト-投入-新設").totalPerUnit, 414832.7, 0.05, "ON 自然株 金属回収 オフサイト・直接投入（437 の前は 105,752.0。449 の LED の前は 97,038.6）");
+  near(computeBiomassCost(on, "wild", "metal").perKg, 3400.7, 0.05, "ON 自然株 菌体1kgの原価（449 の LED の前は 725.9）");
   // 式: ON のときは「液化炭酸ガスの買値 × 工場の排ガスを使うので 0」、OFF は入力の買値のまま。培養ロス補充は原料の行の足し算（12行）
   const sel = { strain: "wild" as const, application: null };
   const d = deriveCostBasis(fixture.assumptions, sel);
@@ -1263,7 +1267,7 @@ assert.ok(
   assert.equal(costItemCalc(co2, fixture.assumptions, d, sel, { capacity: cap, sel }, "m³", fixture.items)?.price, null, "OFF の CO2 は単価の出し方を出さない");
   const lossCalc = costItemCalc(loss, fixture.assumptions, d, sel, { capacity: cap, sel }, "m³", fixture.items);
   assert.ok(lossCalc?.price, "培養ロス補充に単価の出し方がある");
-  assert.equal(lossCalc.price.terms.length, 12, "原料の行を足す（2026-09-15 に加温・電力・排水の3行が加わって12行）");
+  assert.equal(lossCalc.price.terms.length, 13, "原料の行を足す（2026-09-15 に加温・電力・排水の3行、2026-09-22 に LED の電力が加わって13行。作り直す培養にも光が要る）");
   assert.ok(lossCalc.price.terms.slice(1).every((t) => t.op === "+"), "足し算で出す");
   // 明細の束を渡さないときは入力の単価（旧形式の明細・ほかの試算でも壊れない）
   assert.equal(effectiveUnitPrice(loss, fixture.assumptions, d, sel), 261.6, "束が無ければ培養ロス補充は入力の単価");
@@ -1481,8 +1485,8 @@ assert.ok(
   near(scenario(fixture, "wild", "dye", "投入-既設").reactorCustomerPerUnit, 463.3, 0.05, "色素分解・直接投入の顧客が持つリアクター");
   near(scenario(fixture, "wild", "dye", "循環-既設").reactorCustomerPerUnit, 626.0, 0.05, "色素分解・循環カートリッジの顧客が持つリアクター");
   near(scenario(fixture, "wild", "dye", "投入-既設").customerOutlayPerUnit, 963.3, 0.05, "色素分解・直接投入の顧客の支払い（売価500円＋リアクター）");
-  near(scenario(sxOwn, "wild", "dye", "投入-既設").totalPerUnit, 598.3, 0.05, "SX がリアクターを持つ形の色素分解・直接投入");
-  near(scenario(sxOwn, "wild", "metal", "投入-既設").totalPerUnit, 1376.5, 0.05, "SX がリアクターを持つ形の金属回収・直接投入");
+  near(scenario(sxOwn, "wild", "dye", "投入-既設").totalPerUnit, 967.9, 0.05, "SX がリアクターを持つ形の色素分解・直接投入（449 の LED の前は 598.3）");
+  near(scenario(sxOwn, "wild", "metal", "投入-既設").totalPerUnit, 3924.0, 0.05, "SX がリアクターを持つ形の金属回収・直接投入（449 の LED の前は 1,376.5）");
   // 画面: 枠の上端の切り替えと、結果の欄の「顧客が持つリアクター」
   const src = (f: string) => fs.readFileSync(new URL(f, import.meta.url), "utf8");
   const mainSrc = src("../src/components/cockpit/CockpitCostModel.tsx");
@@ -1491,6 +1495,45 @@ assert.ok(
   assert.match(mainSrc, /リアクター＝/, "切り替えの下の一文にリアクターを誰が持つかを出す");
   assert.match(resultsSrc, /data-testid="cost-reactor-customer"/, "結果の欄に顧客が持つリアクターを出す");
   assert.match(resultsSrc, /customerOutlayPerUnit/, "結果の欄に顧客の支払いを出す");
+}
+
+// 2026-09-22 まさ依頼: 培養に LED の照明を入れる（「光はLEDで当ててるよ。どのくらいの光量を当てたらいいのかは先生も知らない。なので推定して入れてほしい」）
+// 器具は作る量に比例する設備（CAPEX・毎kg菌体比例）。耐用年数で割って1年あたりにし、初期投資にも入れ、系列の大きさでは薄まらない
+{
+  const power = fixture.items.find((i) => i.costItemId === "ci2_c_led_power")!;
+  const capex = fixture.items.find((i) => i.costItemId === "ci2_c_led_capex")!;
+  assert.ok(power && capex, "LED の電力と器具の行がある");
+  assert.equal(power.basis, "毎kg菌体比例", "電力は菌体1kgあたり");
+  assert.ok(isScaledCapex(capex) && !isScaledCapex(power), "器具は作る量に比例する設備、電力はそうではない");
+  near(power.quantity, 108.9, 1e-9, "電力 = 1,000g ÷ 収率1.0 ÷ 吸われる割合0.85 ÷ 3.0μmol/J（kWh/kg-DCW）");
+  near(capex.quantity, 15.1, 1e-9, "器具 = 108.9kWh ÷ 7,200時間（W/(kg-DCW/年)）");
+  // 1kgあたりの年額 = 数量 × 単価 ÷ 耐用年数
+  near(centralItemPerKg(capex, fixture.assumptions, 33333, { strain: "wild", application: null }, fixture.items), 15.1 * 315 / 7, 1e-9, "器具は耐用年数で割る");
+  // 燃料の試算も同じ行と同じ値
+  const fuelFx = JSON.parse(fs.readFileSync(new URL("./__fixtures__/sx_fuel_cost_model.json", import.meta.url), "utf8")) as CostModelBundle;
+  for (const [ww, fu] of [["ci2_c_led_power", "cif_culture_led_power"], ["ci2_c_led_capex", "cif_culture_led_capex"]] as const) {
+    const a = fixture.items.find((i) => i.costItemId === ww)!, b = fuelFx.items.find((i) => i.costItemId === fu)!;
+    assert.deepEqual([b.quantity, b.unitPrice, b.usefulLifeYears, b.costType, b.basis], [a.quantity, a.unitPrice, a.usefulLifeYears, a.costType, a.basis], `${fu} は廃液の ${ww} と同じ値`);
+  }
+  // 器具は初期投資に入る（年に作る量 × 数量 × 単価）
+  const withLed = biomassOf(computeCostModel(fixture, { strain: "wild" }), "dye");
+  const noLedBundle: CostModelBundle = { ...fixture, items: fixture.items.filter((i) => i.costItemId !== "ci2_c_led_capex") };
+  const noLed = biomassOf(computeCostModel(noLedBundle, { strain: "wild" }), "dye");
+  near(withLed.capexInitial - noLed.capexInitial, withLed.capacityKgYear * 15.1 * 315, 1, "器具の初期投資は 年に作る量 × 15.1W × 315円");
+  near((withLed.rows.find((r) => r.key === "capex")!.perKg - noLed.rows.find((r) => r.key === "capex")!.perKg) * withLed.salesRate, 15.1 * 315 / 7, 1e-6, "器具は「培養設備の償却」に入る");
+  // 排液で増える速さの倍率で系列が減っても、器具の1kgあたりは薄まらない（速く増やすにはその分の光が要る）
+  const fast = JSON.parse(JSON.stringify(fixture)) as CostModelBundle;
+  for (const a of fast.assumptions) if (a.roleKey === "waste_medium") a.valueText = "on";
+  const fastNoLed: CostModelBundle = { ...fast, items: fast.items.filter((i) => i.costItemId !== "ci2_c_led_capex") };
+  const dFast = biomassOf(computeCostModel(fast, { strain: "wild" }), "dye").rows.find((r) => r.key === "capex")!.perKg
+    - biomassOf(computeCostModel(fastNoLed, { strain: "wild" }), "dye").rows.find((r) => r.key === "capex")!.perKg;
+  near(dFast * biomassOf(computeCostModel(fast, { strain: "wild" }), "dye").salesRate, 15.1 * 315 / 7, 1e-6, "倍率4でも器具の1kgあたりは同じ");
+  // 数字（449、自然株・オンサイト・槽は既設）
+  near(scenario(fixture, "wild", "dye", "投入-既設").totalPerUnit, 504.6, 0.05, "色素分解・直接投入（LED の前は 135.0）");
+  const on3 = JSON.parse(JSON.stringify(fixture)) as CostModelBundle;
+  for (const a of on3.assumptions) if (["co2_flue_gas", "waste_medium", "waste_heat"].includes(a.roleKey ?? "")) a.valueText = "on";
+  near(scenario(on3, "wild", "dye", "投入-既設").totalPerUnit, 402.5, 0.05, "工場から3つを使うと色素分解・直接投入は売価500円の内（LED の前は 32.9）");
+  near(scenario(on3, "wild", "metal", "投入-既設").totalPerUnit, 2757.0, 0.05, "金属回収は工場から3つを使っても売価の5倍以上（LED の前は 209.5）");
 }
 
 console.log("project-cost-model: OK");

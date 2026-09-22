@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, type ReactNode } from "react";
-import { CO2_FLUE_GAS_ROLE, ITEM_INLINE_ROLES, STRAIN_LABEL, WASTE_MEDIUM_REDUCTION_ROLE, WASTE_MEDIUM_ROLE, WASTE_HEAT_ROLE, flueGasOn, wasteMediumOn, wasteHeatOn, type CostAssumption, type CostItem, type CostModelBundle, type CostTask } from "@/lib/project-cost-model";
+import { CO2_FLUE_GAS_ROLE, ITEM_INLINE_ROLES, STRAIN_LABEL, isScaledCapex, WASTE_MEDIUM_REDUCTION_ROLE, WASTE_MEDIUM_ROLE, WASTE_HEAT_ROLE, flueGasOn, wasteMediumOn, wasteHeatOn, type CostAssumption, type CostItem, type CostModelBundle, type CostTask } from "@/lib/project-cost-model";
 import {
   FUEL_CULTURE_LABEL,
   FUEL_SECRETION_YIELD_ROLES,
@@ -943,7 +943,7 @@ function FuelItemRows({
                 )}
               </Cell>
               <Cell label="耐用年数">
-                {i.basis === "初期投資配賦" ? (
+                {i.basis === "初期投資配賦" || isScaledCapex(i) ? (
                   <NumberField
                     ariaLabel={`${fuelItemLabel(i)} 耐用年数`}
                     value={i.usefulLifeYears}
