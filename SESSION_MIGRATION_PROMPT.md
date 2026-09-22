@@ -1,44 +1,38 @@
-# 次セッションへの引き継ぎ — 事業計画・試算表・資本政策表のタブ整理
+# AMD OS 次セッション移行プロンプト — Gmail請求と会社費用の照合
 
-あなたは株式会社チームアルマダのAMD OSを引き継ぐ「えいみ」。cwdは `/Users/masa/projects/AMD/amd-os` にし、`pwa/`をcwdにしない。正規checkoutには別作業のdirtyと未push commitがあるため、所有者と意図を確認せず変更、reset、stash、rebase、削除、`git add .`をしない。
+あなたは、株式会社チームアルマダのAMD OSを引き継ぐ「えいみ」。cwdは`/Users/masa/projects/AMD/amd-os`に固定し、`pwa/`をcwdにしない。
 
 ## 読む順
 
 1. `/Users/masa/projects/AGENTS.common.md`
 2. `/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md`
 3. `/Users/masa/projects/AMD/amd-os/AGENTS.md`
-4. `/Users/masa/projects/AMD/amd-os/pwa/HANDOFF_pwa_rebuild.md`
-5. `/Users/masa/projects/AMD/amd-os/pwa/manual/1-1-intro.md`
-6. `/Users/masa/projects/AMD/amd-os/pwa/spec/1-3-reconstruction-coverage-audit.md`
-7. `/Users/masa/projects/AMD/amd-os/pwa/manual/2-3-pj-cockpit.md`
-8. `/Users/masa/projects/AMD/amd-os/pwa/spec/3-8-cockpit-current-spec.md`
-9. `/Users/masa/projects/AMD/amd-os/pwa/spec/3-16-project-weekly-control-current-spec.md`
-10. `/Users/masa/projects/AMD/amd-os/pwa/BUGS.md`
-11. `/Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-09.md`
+4. `/Users/masa/projects/AMD/amd-os/HANDOFF.md`
+5. `/Users/masa/projects/AMD/amd-os/pwa/spec/5-15-payment-ledger-current-spec.md`
+6. `/Users/masa/projects/AMD/amd-os/pwa/manual/6-4-finance-payment-confirm-spec.md`
+7. `/Users/masa/projects/AMD/amd-os/pwa/manual/6-9-company-payment-obligations-spec.md`
+8. `/Users/masa/projects/AMD/amd-os/pwa/manual/6-10-freee-accounting-reconciliation-spec.md`
+9. `/Users/masa/projects/AMD/amd-os/pwa/BUGS.md`
 
 ## 状態スナップショット
 
-- コックピットはAMDメンバー限定、共有ワークスペースは当該PJメンバー限定（AMD外を含む）。この権限境界・入口・導線を変更してはいない。
-- 機能commitは `584e1f59b02c2968c89535ac14df5d0abd3924ad`。コックピットと共有ワークスペースの事業計画グループに、`事業計画`、`試算表`、`資本政策表`の独立タブがある。
-- `試算表`は事業計画の月次・年次試算。`資本政策表`は将来計画に応じて更新する資本政策。会社情報側は過去ラウンドの事実を記録する`資金調達履歴`であり、用途を混ぜない。
-- この機能はproduction `v3.143.2`で外部Chromeを使ってreadback済み。以後のmain更新で表示版が進んでいる可能性があるため、変更時は `/api/build-info` と認証済み画面を再確認する。
-- 正規checkoutには別作業由来のdirty 29 pathと未push 3 commitがある。安全に同期できない場合は最新`origin/main`からclean cloneを作り、対象差分だけを扱う。
+- Slackの継続費は、2026-09-17のプラン更新メールの実額を根拠に月額13,860円へ更新済み。根拠メールは既読で`00_money&shopping`ラベルへ仕訳済み。Slackの領収書実績を新規作成したわけではない。
+- Gmail由来の支払候補はOS内にあるが、候補・支払実績・会計実績は別状態。`open`は未レビュー候補であり、未払い・費用計上済み・領収書取得済みを示さない。
+- 要確認はGoogle Cloud請求書（金額未取得）、freeeカード9月請求194,097円、Amex精算301,750円、PayPay銀行引落216,946円および1,200円。カード請求・口座引落を単独費用として採用すると二重計上のおそれがある。
+- Gmail連携の完全再走査は未完了。今回の候補監査は2026-09-22にOSが取得済みのGmail候補が対象。
+- 共有checkoutは別作業が混在し、2026-09-23確認時点で`d4d254a7`、ahead 3 / behind 264、追跡済み29ファイルと未追跡4ファイルがdirtyだった。作業開始時に`git fetch origin main`し、最新`origin/main`からのclean cloneで扱う。共有checkoutでreset、stash、まとめてstageしない。branchやworktreeを新規作成しない。
 
-## 次のタスク
+## 次タスク
 
-今回の依頼範囲に未解決はない。まさの次の依頼から開始する。
+まずGoogle Cloud請求書を読み取り専用で開き、請求額・対象期間・ベンダー・支払状態を原本から確定する。次にAmexとPayPayの候補を、Freeeの個別取引と一対一で照合する。freeeカード請求は、明細にある個別経費との重複を先に除外する。
 
-## 確立済みの運用ルール
+各メールについて、ベンダー、金額、頻度、対象期間、支払日、元メールへの参照、既存の継続費・領収書実績・会計実績の対応を読み戻し、結果を`登録済み`、`候補のみ`、`未登録`、`確認不能`のいずれかで整理する。根拠不足なら`確認不能`に留める。
 
-- タブ整理では、最初に計画として更新する情報か、会社の過去事実か、共有PJメンバーへ出すべき情報かを区別する。権限モデルを変えて解決しない。
-- 共有面から除外する内部情報は、表示だけでなくコンポーネントをマウントせず取得もしない。今回のタブは共有対象として確定済み。
-- PWA変更はmainへまとめてpushし、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`で反映する。直接のVercel CLI deployは禁止。
-- 完了判定はpushではなく、`/api/build-info`のSHA/version/`dirty:false`と、認証済み外部Chromeの実画面readback。
-- 画面・操作・仕様を変更したらmanual/spec/changelog、必要な`ios/DESIGN.md`、設計ログ、BUGSを同じ変更で同期する。
-- 正規checkoutの別作業を戻さない。一時cloneと検証serverはcloseoutで片付ける。
+まさが明示的に登録を頼むまで、`company_finance_receipt_events`、`company_actual_monthly`、継続費、支払候補の採否を更新しない。Gmailでは送信・削除をしない。メールの既読化やラベル変更も、個別に頼まれた対象だけに限る。
 
-## 完了条件
+## 守る運用
 
-- コード、仕様、操作マニュアル、変更履歴、必要なBUGSが一致する。
-- 対象テスト、型検査、build、critical UI検査、desktopと390px幅の実画面確認が成功する。
-- mainへpush済みで、本番SHA/versionと認証済み外部Chromeの画面を読み戻す。
+- `company_finance_recurring_items`は継続費、`company_finance_receipt_events`は領収書実績、`company_actual_monthly`は会計実績、`company_payment_obligations`は支払候補。それぞれを同じ状態として扱わない。
+- 初回照合は読み取り専用。外部通知は行わず、接続エラーを候補ゼロと読まない。
+- 変更が必要になったら、対象メールと対象レコードを一対一で示し、更新後にライブDBを読み戻す。候補生成や照合結果を実績登録済みと呼ばない。
+- コード・スキーマ・画面を変えない照合だけなら、テスト・ビルド・本番配信は不要。変更した場合はAMD OSの設計・マニュアル同期、対象検証、main反映、配信版の確認まで進める。
