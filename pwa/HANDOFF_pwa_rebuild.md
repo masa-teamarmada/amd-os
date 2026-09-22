@@ -1,41 +1,36 @@
 # HANDOFF - AMD OS PWA
 
-- 更新: 2026-09-17 JST
-- セッション: コックピット／共有ワークスペースの事業計画タブ整理
+- 更新: 2026-09-23 JST
+- セッション: SX（p21）の成果物ptを月初合意・検収・報酬へ接続
 - 作業種別: development
 
 ## 最新セッションの到達点
 
-- コックピット（AMDメンバー限定）と共有ワークスペース（当該PJメンバー限定、AMD外を含む）の権限・入口は変更していない。
-- 両画面の「事業計画」グループで、`事業計画`、`試算表`、`資本政策表`を独立タブにした。`試算表`は月次・年次の事業計画試算、`資本政策表`は将来計画として随時更新するもの。
-- 「会社情報」側にある過去ラウンドの事実記録は、旧`資本政策表`から`資金調達履歴`へ改名した。計画側の資本政策表とは別物として維持する。
-- コードは `584e1f59 feat(pwa): separate projections and capital plan tabs`。後続mainへ祖先として取り込まれている。
-- 変更箇所は `CockpitBusinessPlan.tsx`、新設の `CockpitFinancialProjection.tsx` と `CockpitCapitalPlan.tsx`、および共有ワークスペースのタブ定義。仕様・操作マニュアル・変更履歴も同期済み。
+- 2026年10月以降のSXでは、新しく始まる成果物MSを月割りで先払いせず、完了証跡つきTODOの検収ptを担当者へ配分する仕組みを追加した。定常MS、他PJ、2026年9月以前は従来の計算を保つ。
+- 月初合意には担当成果物、見積pt、検収済みpt、支払枠前の見込み額を別々に表示する。未検収の期限到来タスクは翌月の見込みへ持ち越し、月中の検収だけで再合意にしない。
+- 検収台帳は担当者別ptの不変スナップショット。PM/PLが自分の担当でない完了済みTODOを検収し、同一MSの並行検収でもpt上限を超えない。SXの8・9月支払保護が無い間はDBが検収を拒否する。
+- 実装は `eb2c809a`（main）。正本は `pwa/spec/3-10`、`3-14`、`3-21`、`3-22`、操作は `pwa/manual/2-9` と `7-1`。開発経過は `pwa/design_log/sessions_2026-09.md`。
 
 ## 反映・検証
 
-- この機能の本番readback時は `v3.143.2` / `584e1f59b02c2968c89535ac14df5d0abd3924ad` / `dirty:false`。
-- 認証済み外部Chromeで、p21のコックピットと共有ワークスペースに同じ事業計画グループが表示されること、`資本政策表`・`試算表`・`資金調達履歴`の各コンテンツを確認した。
-- 390x844でも共有ワークスペースの資本政策表を確認し、ナビゲーションの横あふれなし。外部ブラウザ確認を必ず使う。
-- `npm run build`、`check_cockpit_navigation.mts`、`check_bzm_2_2_pilot_ui_contract.mts`、`check_pwa_critical_ui.cjs`、deploy wrapper検査が成功している。
-
-## Repo状態
-
-- closeout文書はこの後のmainへ積む。先に `git fetch origin` して、feature commitが`origin/main`の祖先であることを確認する。
-- 正規checkout `/Users/masa/projects/AMD/amd-os` は別作業由来のdirty 29 pathと未push 3 commitを持つ。今回の作業と混ぜず、reset、stash、rebase、削除、`git add .`をしない。
-- 今回のclean clone `/tmp/amie-capital-tabs.WdtGsf` はcloseoutで削除する。別workerのworktreeには触らない。
+- `ios/supabase/migrations/20260923001000_sx_task_pt_acceptance_ledger.sql` を `pwa/scripts/apply_ddl.py` から本番DBへ適用。2テーブル・検収RPC・不変トリガをDBでreadback済み。Supabase CLIの `db push --dry-run` は既存のmigration履歴差で停止したため、履歴の一括repairはしていない。
+- ローカルの成果物ptテスト、月初合意差分テスト、TypeScript、PWA本番ビルド、`deploy.sh --dry-run` の全ゲートを通過。
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` でmainへpush。productionは `v3.145.1` / `eb2c809a32e7d4f0916cbcef4671d6b8f32b8ac2` でReadyを確認。
+- 認証済み画面の視覚確認は未確認。ブラウザ連携がエラーになり、Chromeの画面操作も他の利用と競合したため、配信版のreadbackと区別する。
 
 ## 未解決
 
-- 今回の依頼範囲に未解決はない。次の依頼から開始する。
+- SXの8月・9月billing cycleに `reward_paid_at` / `payout_notice_uploaded_at` / `payment_confirmed_at` が無い。支払通知書を保護するまで、現行13MSの凍結・10月開始の5MS・担当/期限/見積ptの本番入力はしない。通知発行・送付は別の金銭実務なので、まさの明示指示なしに実行しない。
+- 10月の `member_monthly_work_agreements` は未作成。かる・ちこ・まさの実タスク割当、本人画面のreadback、3か月試行の月次承認運用は未完了。個別TODOの検収権限はPM/PLであり、きよとまさの月次二者承認を追加したとは扱わない。
+- CLIのmigration履歴差は未解決。repo管理のSQL実体と本番適用済みDDLはあるが、履歴repairを推測で行わない。
 
 ## 次の最初の行動
 
-事業計画のタブを変更する依頼では、先に「計画として更新する情報」と「会社の過去事実」のどちらかを確認する。共有面へ出す情報とAMD内部限定情報の境界を、権限モデルを変えずに判定する。
+SXの8・9月の支払通知・保護状態を正規の支払画面とDBで再確認する。保護済みになってから、`3-22` §8.1 の旧MS凍結案を保存前支払検算で選び、まさ/PMと10月の成果物・担当・期限・見積ptを1件ずつ決めてOSへ入力する。月初合意を3人の画面で確認し、未検収0pt→検収pt→報酬キャッシュまで突き合わせる。
 
-## 参照先
+## Repo状態と参照
 
-- 操作: `pwa/manual/2-3-pj-cockpit.md`
-- 現行仕様: `pwa/spec/3-8-cockpit-current-spec.md` / `pwa/spec/3-16-project-weekly-control-current-spec.md`
-- 変更履歴: `pwa/design_log/sessions_2026-09.md`
-- バグ・教訓: `pwa/BUGS.md`
+- 配信作業はGitHubのmainから作った使い捨てclean cloneで実行。正規checkout `/Users/masa/projects/AMD/amd-os` は最終fetch時に ahead 3 / behind 263、他作業のdirtyあり。未push 3 commitとdirtyには触っていない。正規checkoutの同期は未完了。
+- 仕様: `pwa/spec/3-22-goal-tree-plan.md` / `pwa/spec/3-14-monthly-work-agreement-current-spec.md` / `pwa/spec/3-21-question-tree-current-spec.md`
+- 操作: `pwa/manual/2-9-question-tree.md` / `pwa/manual/7-1-reward-calc-spec.md`
+- 事故・運用: `pwa/BUGS.md` / `pwa/spec/5-2-development-operations-current-spec.md`

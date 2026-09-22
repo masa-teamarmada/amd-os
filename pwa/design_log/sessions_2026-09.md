@@ -1662,3 +1662,11 @@ Closeout記録: `CLOSEOUT_SOL_GANTT_2026-09-16.md`。本番最新readback cbc561
 - **本番確認**（外部 Chrome、v3.144.0、`3c0ba49`）: 上端に「リアクター [顧客負担]」が出て、既定で 135.0円/m³ の下に
   「顧客が持つリアクター 463.3円/m³（SXの原価の外。設備の初期投資 25,650,000円）」「顧客の支払い（売価＋リアクター）963.3円/m³」。
   切ると 598.3円/m³ になり「リアクターはSXが持つ（…上の総コストに入っている）」に変わる
+
+## 2026-09-23 — SXの成果物pt試行を月初合意・検収・報酬へ接続
+
+- まさの判断は「MS×月割りshareから、成果物TODOの完了・検収ptで報酬を決める」方向で既に確定。方式の再確認は不要。SX（p21）の2026年10月以降だけを試行対象とし、現行13MSと2026年9月以前は動かさない。
+- `project_action_pt_reviews` / `project_action_pt_review_allocations`、`accept_sx_task_pt`をmigration `20260923001000`で追加。証跡、PM/PL、自己検収禁止、単一MS、担当配分、MS上限、8・9月支払保護をDB内の1取引で検査。不変トリガを付け、後のツリー付け替えや担当変更で過去ptが変わらないようにした。SQLは本番DBで `BEGIN ... ROLLBACK` 検証後、`pwa/scripts/apply_ddl.py`で適用し、2テーブル・関数・トリガをreadbackした。`supabase db push --dry-run`は既存の履歴差で停止し、一括repairはしていない。
+- 報酬計算はSXの新成果物MSだけ月割りを止め、検収台帳の月次ptを担当者へ直配分。既存のpt単価・cap・carryは維持。月初合意は期限到来の未検収TODOを持ち越し、成果物別の見込みpt/検収pt/支払枠前の見込み額を分けて表示する。完了時の証跡とPM/PLの検収入力をコックピットに追加。月中検収による再合意は要求しない。
+- `test:task-point-ledger`、`test:task-point-reward`、`test:monthly-agreement-diff`、TypeScript、本番ビルド、`deploy.sh --dry-run`を通過。新しいroute importに合わせて既存のガントroute契約テストのモックを更新し、critical UIガードにSX専用の報酬計算版を追加。変更は `eb2c809a`、production `v3.145.1` / `eb2c809a32e7d4f0916cbcef4671d6b8f32b8ac2` でReady。認証済み画面の視覚確認はブラウザ操作の競合と連携エラーにより未確認。
+- 10月の本番実データは未投入。8・9月の支払通知保護が無いため、旧MS凍結・5本の新MS・かる/ちこ/まさの成果物割当を保留。支払通知の発行・送付はこの開発の一部として勝手に行わない。二者による月次承認は未実装で、PM/PLの個別TODO検収と混同しない。
