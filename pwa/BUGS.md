@@ -5,6 +5,16 @@
 
 ---
 
+### [migrations] 同じ日に別の作業と migration 番号 447 がぶつかった (2026-09-17)
+
+- **状態**: クローズ（こちらを 448 に改名、`3c0ba49`。仕様に残った 447 の参照は `f67d661d` で 448 に直した）。
+- **症状**: SOL のリアクターの切り替えを `447_sol_cost_model_reactor_bearer_switch.sql` として本番に当てたあと、push 直前の fetch で、別の作業も同じ日に `447_sol_business_model_offsite_numbers_2026_09_17.sql` を main に入れて本番に当てていたと分かった。
+- **根本原因**: 番号は着手時の `ls pwa/scripts/migrations | tail` で決めたが、作業が長く、そのあいだに別の作業が同じ番号を取った。DB に migration 番号の台帳が無いので、本番に当てるときは衝突に気づかない。
+- **対応内容**: こちらのファイルを 448 に改名し、中の番号と例外の文言も 448 に直して rebase した（DB に当てた中身は同じ）。仕様 5-13・3-20・6-1 に残った「migration 447」は次の変更（449）で直した。
+- **再発防止策**: migration の番号は、**本番に当てる直前に** `git fetch` して `git ls-tree --name-only origin/main pwa/scripts/migrations/ | tail` で最新を確かめてから決める（着手時に決めない）。push 直前の fetch で `HEAD..origin/main` に migrations の新しいファイルが無いかも見る。
+
+---
+
 ### [PWA/admin/change-history] メンバー変更の対象者が分からずUTC生値が表示された (2026-09-17)
 
 - **状態**: クローズ（`9c836b46`、production `v3.141.5`）。
