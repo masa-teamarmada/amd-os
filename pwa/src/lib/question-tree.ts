@@ -417,6 +417,7 @@ export async function getGoalTreePointsView(projectId: string) {
         status: action.status,
         estimatedPt: action.estimatedPt,
         acceptedPt: action.acceptedPt,
+        doneEvidence: action.doneEvidence,
         plannedStart: action.plannedStart,
         plannedEnd: action.plannedEnd,
         isOverdue: action.isOverdue,

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { loadGoalTreePoints, peekGoalTreePoints } from "@/lib/question-tree-client";
+import { loadGoalTreePoints, mutateQuestionTree, peekGoalTreePoints } from "@/lib/question-tree-client";
 
 /**
  * TODOごとのptを、MSごとに並べて比べる面。正本は spec 3-21 と 3-22 §5。
@@ -22,6 +22,7 @@ type Row = {
   status: string;
   estimatedPt: number | null;
   acceptedPt: number | null;
+  doneEvidence: string | null;
   plannedEnd: string | null;
   isOverdue: boolean;
   isUnassigned: boolean;
@@ -40,6 +41,8 @@ type Group = {
   items: Row[];
 };
 type View = {
+  asOf: string;
+  canReviewTaskPt?: boolean;
   groups: Group[];
   loose: Row[];
   totals: {
@@ -74,6 +77,9 @@ export function CockpitGoalTreePoints({ projectId }: { projectId: string }) {
   const [view, setView] = useState<View | null>(() => peekGoalTreePoints<View>(projectId) ?? null);
   const [error, setError] = useState<string | null>(null);
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [reviewPt, setReviewPt] = useState("");
+  const [reviewBusy, setReviewBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -97,7 +103,7 @@ export function CockpitGoalTreePoints({ projectId }: { projectId: string }) {
     void load();
   }, [load]);
 
-  if (error) {
+  if (error && !view) {
     return (
       <section className="bg-white rounded-xl border border-[#e5e5e7] px-4 py-3">
         <p className="text-[12px] text-[#86868b]">TODOのptを読み込めなかったよ（{error}）</p>
@@ -117,12 +123,33 @@ export function CockpitGoalTreePoints({ projectId }: { projectId: string }) {
 
   const scale = Math.max(view.totals.maxPt, 1);
 
+  const submitReview = async (row: Row) => {
+    const value = Number(reviewPt);
+    if (!Number.isFinite(value) || value < 0 || Math.round(value * 10) / 10 !== value) {
+      setError("確定ptは0以上・小数1桁で入力");
+      return;
+    }
+    setReviewBusy(true);
+    setError(null);
+    try {
+      const result = await mutateQuestionTree(projectId, "PATCH", {
+        resource: "action_pt_review", action_id: row.id, accepted_pt: value,
+      });
+      setReviewingId(null);
+      setReviewPt("");
+      await load();
+      if (result.rewardSyncError) setError(`検収は記録したよ。報酬の再計算だけ要確認: ${result.rewardSyncError}`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "検収できなかったよ");
+    } finally {
+      setReviewBusy(false);
+    }
+  };
+
   const renderRow = (row: Row) => (
-    <div
-      key={row.id}
-      className="grid grid-cols-[minmax(0,1fr)_96px_120px_88px_84px] items-center gap-2 px-3 py-[3px] border-t border-[#f0f0f2] text-[12px]"
-    >
-      <span className="min-w-0 truncate text-[#1d1d1f]" title={row.title}>
+    <div key={row.id} className="border-t border-[#f0f0f2] px-3 py-2 text-[12px]">
+      <div className="grid grid-cols-2 items-center gap-x-3 gap-y-1 lg:grid-cols-[minmax(0,1fr)_96px_120px_88px_84px] lg:gap-2">
+      <span className="col-span-2 min-w-0 break-words font-medium text-[#1d1d1f] lg:col-span-1 lg:truncate" title={row.title}>
         {row.title}
         {row.isUnassigned && (
           <span className="ml-1 text-[10px] text-[#86868b]">未アサイン</span>
@@ -142,16 +169,41 @@ export function CockpitGoalTreePoints({ projectId }: { projectId: string }) {
           {ptText(row.estimatedPt)}
         </b>
       </span>
-      <span className="truncate text-[#3c3c43]">{ownerText(row)}</span>
+      <span className="min-w-0 truncate text-[#3c3c43]">{ownerText(row)}</span>
       <span className={`tabular-nums ${row.isOverdue ? "text-[#dc2626]" : "text-[#86868b]"}`}>
         {row.plannedEnd ? row.plannedEnd.slice(2).replace(/-/g, "-") : "期限なし"}
       </span>
       <span className="text-[#86868b]">{STATUS_LABEL[row.status] ?? row.status}</span>
+      </div>
+      {projectId === "p21" && (
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pl-1 text-[11px] text-[#6e6e73]">
+          <span>見積 {ptText(row.estimatedPt)}pt</span>
+          <span className={row.acceptedPt != null ? "font-semibold text-emerald-800" : ""}>
+            検収 {row.acceptedPt == null ? "待ち" : `${ptText(row.acceptedPt)}pt`}
+          </span>
+          {row.status === "done" && row.doneEvidence && <span className="max-w-full truncate" title={row.doneEvidence}>証跡: {row.doneEvidence}</span>}
+          {view.canReviewTaskPt && view.asOf >= "2026-10-01" && row.status === "done" && row.acceptedPt == null && row.doneEvidence && (
+            <button type="button" className="min-h-11 rounded border border-sky-200 bg-sky-50 px-3 font-semibold text-sky-800 hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500" onClick={() => { setReviewingId(row.id); setReviewPt(String(row.estimatedPt ?? 0)); }}>
+              検収する
+            </button>
+          )}
+        </div>
+      )}
+      {reviewingId === row.id && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-2 py-2 text-[11px]">
+          <label htmlFor={`accepted-pt-${row.id}`} className="font-semibold text-sky-950">確定pt</label>
+          <input id={`accepted-pt-${row.id}`} type="number" min="0" step="0.1" value={reviewPt} onChange={(event) => setReviewPt(event.target.value)} className="min-h-11 w-20 rounded border border-sky-300 bg-white px-2 py-1 text-right tabular-nums" />
+          <span className="text-sky-900">検収すると担当者の報酬ptに入る</span>
+          <button type="button" disabled={reviewBusy} className="min-h-11 rounded bg-sky-700 px-3 py-1 font-semibold text-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500" onClick={() => void submitReview(row)}>{reviewBusy ? "記録中…" : "確定"}</button>
+          <button type="button" disabled={reviewBusy} className="min-h-11 rounded px-3 py-1 text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500" onClick={() => setReviewingId(null)}>やめる</button>
+        </div>
+      )}
     </div>
   );
 
   return (
     <section className="bg-white rounded-xl border border-[#e5e5e7]">
+      {error && <p role="alert" className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-[12px] text-amber-900">{error}</p>}
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3 border-b border-[#e5e5e7]">
         <h3 className="text-[13px] font-bold text-[#1d1d1f]">TODOのpt</h3>
         <p className="text-[11px] text-[#86868b]">

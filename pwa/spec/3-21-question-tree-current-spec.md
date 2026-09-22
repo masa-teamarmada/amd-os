@@ -84,7 +84,7 @@
 | `sort_order` / `last_verified_at` / 監査列 | |
 | `estimated_pt` / `accepted_pt` | 見積ptと確定pt。小数1桁、0以上。0 は「やるが報酬には乗らない」（2026-09-11 追加、[3-22](3-22-goal-tree-plan.md) §6 原則6・原則10） |
 | `accept_state` | `unassigned` / `assigned` / `accepted` / `negotiating`。担当が付くと `assigned` へ、全員外れると `unassigned` へ戻る（DBのtrigger）。受託の動き自体は Phase 2 |
-| `accepted_at` / `accepted_by` / `reviewed_at` / `reviewed_by` / `review_result` | 受託と検収の記録。Phase 2 で使う |
+| `accepted_at` / `accepted_by` / `reviewed_at` / `reviewed_by` / `review_result` | 受託と検収の記録。SXの202610以降は `reviewed_*` / `review_result` をDB関数による検収時に確定する。受託UIは別段階 |
 
 担当は `project_action_owners`（TODO × メンバー、多対多、`share` は NULL で均等）で持つ。既存の `owner_label` は、名簿にいない人（相手側の担当者、「研究側」のような役割名）を書く欄として残す。3-22 §7「届け先は `members` にいる人だけ」に合わせ、名簿にいない人は担当にしない。
 
@@ -230,6 +230,10 @@ TODO間の`finish_to_start`依存で、前提TODOが未完了の後続TODOは実
 
 - 2026-09-16以降、問いに紐づかないTODOは、承認前・承認後を問わずゴールツリーとガントに出さない。純粋な実行タスクはタスクタブだけで扱う。未承認の単独タスクは、タスクタブの「承認待ちのタスク」で採否を決める。採否の操作は `POST { resource: "proposal_bulk", decision, ids }` とし、承認は単独タスクのまま残し、却下は論理削除する。未承認かどうかと、ツリーに置くべきかは別の軸として扱う。
 - **ptを並べて比べる面は、コックピットの「MS・月次」タブ**（内部だけが開く）。`GET ?view=points` を読み、MSごとにまとめて同じMSの中はptの大きい順に並べる。棒でPJ内の相対的な重さを見せ、MS単位とPJ全体の合計・pt未入力の件数を出す。MSの下にないTODOは最後にまとめ、ptを配る前にツリーで置き場所を決めさせる。ひとつのTODOが複数の問いに効くときは、ツリーを上から歩いて最初に出会った枝でだけ数える（同じptを二重に積まない）。
+
+### SXの成果物pt検収（202610稼働分から）
+
+SX（p21）ではタスクタブの完了時に証跡を必須にする。PM/PLは内部の「MS・月次」のpt一覧で見積pt・確定pt・証跡を一行で確認し、`PATCH { resource: "action_pt_review", action_id, accepted_pt }` で検収する。自分が担当したTODOは自分で検収できない。通常の `PATCH action` から `accepted_pt` は書けない。DB関数 `accept_sx_task_pt` が成果物のMS対応（1本）、担当割合、MS残pt、完了証跡を確認し、`project_action_pt_reviews`・`project_action_pt_review_allocations`・`milestone_monthly_progress.source='todo_acceptance'`・TODO検収列を同一取引で確定する。報酬計算は不変の検収台帳を読むため、あとからツリーや担当を変更しても過去月の支払が動かない。202609以前と他PJは従来経路。
 - **子を持つ問いはタイトルを太字にする。** 枝の分かれ目を字面で分からせる。
 - 行の高さは詰める。1行あたりの上下余白は2px。
 

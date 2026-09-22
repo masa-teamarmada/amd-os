@@ -96,7 +96,7 @@ export async function mutateQuestionTree(
   projectId: string,
   method: "POST" | "PATCH" | "DELETE",
   body: Record<string, unknown>,
-): Promise<{ id?: string | null; bundle?: QuestionTreeBundle; applied?: unknown }> {
+): Promise<{ id?: string | null; bundle?: QuestionTreeBundle; applied?: unknown; rewardSyncError?: string | null }> {
   const response = await fetch(`/api/project/${projectId}/question-tree`, {
     method,
     headers: {
@@ -111,6 +111,7 @@ export async function mutateQuestionTree(
     id?: string | null;
     bundle?: QuestionTreeBundle;
     applied?: unknown;
+    rewardSyncError?: string | null;
     error?: string;
   };
   if (!response.ok) throw new Error(payload?.error || "保存できなかったよ");

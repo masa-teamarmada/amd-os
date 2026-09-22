@@ -18,6 +18,7 @@ export const PM_LOCKED_PROGRESS_SOURCES = new Set([
   "pm_rejected",
   "criteria_toggle",
   "tsukuyomi_revision",
+  "todo_acceptance",
 ]);
 
 export function isYm(value: unknown): value is string {

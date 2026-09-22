@@ -11,18 +11,29 @@ import {
   monthlyFixedClientAmount,
 } from "@/lib/contract-money";
 import { capExtraPointBasisForMilestone, regularPointBasisForCycle, roundPt } from "@/lib/season-point-basis";
+import {
+  isTaskPointPilot,
+  loadTaskPointLedger,
+  markNewTaskMilestones,
+  TASK_POINT_PILOT_START_YM,
+  type TaskPointLedger,
+} from "@/lib/task-point-ledger";
 
 type SupabaseLike = SupabaseClient;
 
 const ACTIVE_PLAN_STATUSES = ["active", "confirmed", "fixed", "draft"];
 const REWARD_SUMMARY_VERSION = "server_v5_planned_share_cap_carry_no_final_topup";
+const SX_TASK_REWARD_SUMMARY_VERSION = "server_v6_sx_task_acceptance_cap_carry";
+function rewardSummaryVersion(projectId: string, ym: string): string {
+  return isTaskPointPilot(projectId, ym) ? SX_TASK_REWARD_SUMMARY_VERSION : REWARD_SUMMARY_VERSION;
+}
 // 2026-07 以降がポイント制の対象。旧制度で合意済みの月を新制度差額として精算しない。
 const POINT_REWARD_TRANSITION_YM = "202607";
 const CAP_EXTRA_MILESTONE_TAGS = new Set(["cap_extra", "extra_contract", "contract_extra", "cap_outside", "uncapped"]);
 
 type RewardPool = "regular" | "cap_extra";
-type ContributionShareSource = "planned";
-type ContributionAllocationStatus = "planned";
+type ContributionShareSource = "planned" | "task_acceptance";
+type ContributionAllocationStatus = "planned" | "accepted";
 
 export interface RewardBreakdown {
   msKey: string;
@@ -480,15 +491,31 @@ function buildPayableCumMap(
   progress: ProgressRow[],
   milestones: MilestoneRow[],
   planCycle: PlanCycleRow | null,
-  ym: string
+  ym: string,
+  taskLedger?: TaskPointLedger,
 ): Map<string, number> {
   const map = new Map<string, number>();
+  // 9月末を固定基準にする。既存の確定・支払済みptを10月から再配分しない。
+  const prePilot = taskLedger && ym >= TASK_POINT_PILOT_START_YM
+    ? buildPayableCumMap(progress, milestones, planCycle, prevYmStr(TASK_POINT_PILOT_START_YM))
+    : null;
   const cyclePeriod = {
     period_start_ym: planCycle?.period_start_ym ?? null,
     period_end_ym: planCycle?.period_end_ym ?? null,
   };
   for (const ms of milestones) {
     const points = effectiveMilestonePoints(ms);
+    if (taskLedger?.taskBasedMilestoneIds.has(ms.milestone_id) && ym >= TASK_POINT_PILOT_START_YM) {
+      const baseline = prePilot?.get(ms.milestone_id) ?? 0;
+      const accepted = taskLedger.accepted
+        .filter((line) => line.milestoneId === ms.milestone_id && line.ym >= TASK_POINT_PILOT_START_YM && line.ym <= ym)
+        .reduce((sum, line) => sum + line.points, 0);
+      if (baseline + accepted > points + 0.01) {
+        throw new Error(`MS ${ms.milestone_id}: 検収ptがMSの残ptを超えているよ`);
+      }
+      map.set(ms.milestone_id, Math.round((baseline + accepted) * 100) / 100);
+      continue;
+    }
     const { startYm, endYm } = milestonePeriod(
       { period_start_ym: ms.period_start_ym ?? null, target_ym: ms.target_ym ?? null },
       cyclePeriod
@@ -1296,6 +1323,7 @@ export function buildRewardSummaryUncapped({
   planCycle,
   project,
   extraPoolBudgetYen,
+  taskLedger,
 }: {
   ym: string;
   milestones: MilestoneRow[];
@@ -1308,12 +1336,13 @@ export function buildRewardSummaryUncapped({
   project: ProjectRow | null;
   /** 別財布 (cap_extra) プールの総原資。extra pt単価の独立導出に使う (deriveRewardUnits 参照)。 */
   extraPoolBudgetYen?: number;
+  taskLedger?: TaskPointLedger;
 }): RewardSummary | null {
-  if (milestones.length === 0 || responsibilities.length === 0) return null;
+  if (milestones.length === 0 || (responsibilities.length === 0 && !taskLedger?.accepted.length)) return null;
 
   const prevYm = prevYmStr(ym);
-  const prevConsumedMap = buildPayableCumMap(progress, milestones, planCycle, prevYm);
-  const currConsumedMap = buildPayableCumMap(progress, milestones, planCycle, ym);
+  const prevConsumedMap = buildPayableCumMap(progress, milestones, planCycle, prevYm, taskLedger);
+  const currConsumedMap = buildPayableCumMap(progress, milestones, planCycle, ym, taskLedger);
   const msById = new Map(milestones.map((ms) => [ms.milestone_id, ms]));
   const { regularPtUnit, extraPtUnit, hasCapExtra } = deriveRewardUnits({ milestones, billing, planCycle, project, extraPoolBudgetYen });
   const memberPt = new Map<string, { total: number; regular: number; extra: number; regularBasePay: number; extraBasePay: number }>();
@@ -1326,6 +1355,43 @@ export function buildRewardSummaryUncapped({
     if (msConsumedPt <= 0) continue;
     const pool: RewardPool = isCapExtraMilestone(ms) ? "cap_extra" : "regular";
     const ptUnit = pool === "cap_extra" ? extraPtUnit : regularPtUnit;
+
+    if (taskLedger?.taskBasedMilestoneIds.has(ms.milestone_id) && ym >= TASK_POINT_PILOT_START_YM) {
+      const lines = taskLedger.accepted.filter((line) => line.milestoneId === ms.milestone_id && line.ym === ym);
+      const credited = Math.round(lines.reduce((sum, line) => sum + line.points, 0) * 100) / 100;
+      if (Math.abs(credited - msConsumedPt) > 0.01) {
+        throw new Error(`MS ${ms.milestone_id}: 検収ptと支払ptが一致しないよ`);
+      }
+      for (const line of lines) {
+        const earnedPt = line.points;
+        const payYen = Math.round(earnedPt * ptUnit);
+        const current = memberPt.get(line.memberId) || { total: 0, regular: 0, extra: 0, regularBasePay: 0, extraBasePay: 0 };
+        current.total += earnedPt;
+        if (pool === "cap_extra") {
+          current.extra += earnedPt;
+          current.extraBasePay += payYen;
+        } else {
+          current.regular += earnedPt;
+          current.regularBasePay += payYen;
+        }
+        memberPt.set(line.memberId, current);
+        const list = memberBreakdown.get(line.memberId) || [];
+        list.push({
+          msKey: ms.milestone_id,
+          title: `${msById.get(ms.milestone_id)?.title || ms.milestone_id} / ${line.title}`,
+          msConsumedPt,
+          share: msConsumedPt > 0 ? earnedPt / msConsumedPt : 0,
+          shareSource: "task_acceptance",
+          allocationStatus: "accepted",
+          earnedPt,
+          pool,
+          ptUnit,
+          payYen,
+        });
+        memberBreakdown.set(line.memberId, list);
+      }
+      continue;
+    }
 
     const resps = resolveContributionShares({
       ym,
@@ -1416,6 +1482,7 @@ export function buildRewardSummary({
   planCycle,
   project,
   liabilityOffsetsByYm,
+  taskLedger,
 }: {
   ym: string;
   milestones: MilestoneRow[];
@@ -1430,6 +1497,7 @@ export function buildRewardSummary({
   planCycle: PlanCycleRow | null;
   project: ProjectRow | null;
   liabilityOffsetsByYm?: RewardLiabilityOffsetsByYm;
+  taskLedger?: TaskPointLedger;
 }): RewardSummary | null {
   const regularCarryStock = new Map<string, number>();
   const extraCarryStock = new Map<string, number>();
@@ -1479,6 +1547,7 @@ export function buildRewardSummary({
       planCycle,
       project,
       extraPoolBudgetYen,
+      taskLedger,
     }) ||
       buildCarryOnlyReward(memberMap, regularCarryStock, extraCarryStock, unitsForMonth.regularPtUnit, unitsForMonth.extraPtUnit) ||
       buildLiabilityOnlyReward(memberMap, liabilityOnlyMemberIds, unitsForMonth.regularPtUnit, unitsForMonth.extraPtUnit);
@@ -1523,7 +1592,7 @@ export function buildRewardSummary({
   return {
     ...result,
     meta: {
-      version: REWARD_SUMMARY_VERSION,
+      version: rewardSummaryVersion(billing.project_id, ym),
       source: "supabase_reward_summary",
       generatedAt: new Date().toISOString(),
       projectId: billing.project_id,
@@ -1608,7 +1677,7 @@ function emptyRewardSummaryForCycle(
     externalRegularPayoutCapYen: 0,
     externalExtraPayoutCapYen: 0,
     meta: {
-      version: REWARD_SUMMARY_VERSION,
+      version: rewardSummaryVersion(projectId, ym),
       source: "supabase_reward_summary",
       generatedAt: new Date().toISOString(),
       projectId,
@@ -1729,6 +1798,12 @@ async function computeRewardSummaryForCycle(
       .map((row) => row.member_id)
   );
 
+  let taskLedger: TaskPointLedger | undefined;
+  if (isTaskPointPilot(projectId, ym) && !options.scenario) {
+    taskLedger = await loadTaskPointLedger(db, projectId, new Set(milestoneIds));
+    markNewTaskMilestones(taskLedger, milestones);
+  }
+
   // 支払対象の分類根拠は exclude_from_payout_notice (支払うべきか否か)。is_officer は使わない —
   // 役員かどうかは支払分類と無関係 (まさ確定 2026-07-29)。exclude=true のメンバーも支払対象メンバーと
   // 同じ 65% cap 按分に参加させ、割当額は現金支払 0 の非現金内部配賦 (companyReserveYen 等) として残す。
@@ -1755,6 +1830,7 @@ async function computeRewardSummaryForCycle(
         ? undefined
         : await loadRewardLiabilityOffsetsByYm(db, projectId, planCycle.plan_cycle_id, planCycle.period_start_ym, ym)
     ),
+    taskLedger,
     planCycle,
     project,
   });

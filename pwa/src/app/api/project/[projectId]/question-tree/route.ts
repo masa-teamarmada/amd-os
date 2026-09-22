@@ -7,6 +7,7 @@ import {
   getQuestionTreeBundle,
 } from "@/lib/question-tree";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { syncRewardSummaryForCycle } from "@/lib/reward-summary";
 
 /**
  * ゴールツリーの読み書き。正本は pwa/spec/3-21-question-tree-current-spec.md と
@@ -59,7 +60,7 @@ const EDITABLE: Record<Resource, string[]> = {
     "origin_question_id", "sort_order",
     // 見積ptはアサインのときにPMが付ける。確定ptは検収（Phase 2）で入る。
     // accept_state は担当の付け外しに連動するので画面から直接は書かない。
-    "estimated_pt", "accepted_pt",
+    "estimated_pt",
     // タスクタブの緊急フラグ（OSスイートの やること と同じ）
     "urgent",
   ],
@@ -89,7 +90,7 @@ const REQUIRED_ON_CREATE: Record<Resource, string[]> = {
 const SOFT_DELETABLE: Resource[] = ["question", "action", "finding"];
 
 /** pt は小数1桁。負は入れない（3-22 §6 原則6）。 */
-const PT_FIELDS = new Set(["estimated_pt", "accepted_pt"]);
+const PT_FIELDS = new Set(["estimated_pt"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -127,6 +128,9 @@ async function getManagerContext(projectId: string) {
  * 空文字は NULL にする（「未入力」と「空文字」を別物にしない）。
  */
 function sanitize(resource: Resource, input: Record<string, unknown>): Record<string, unknown> {
+  if (resource === "action" && Object.hasOwn(input, "accepted_pt")) {
+    throw new Error("確定ptは検収で入力");
+  }
   const allowed = EDITABLE[resource];
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(input)) {
@@ -216,7 +220,7 @@ function assertGoalTreePlacement(
   }
 }
 
-function assertActionRules(fields: Record<string, unknown>, existing?: Record<string, unknown>) {
+function assertActionRules(fields: Record<string, unknown>, existing?: Record<string, unknown>, projectId?: string) {
   if (Object.hasOwn(fields, "gantt_phase_id")) fields.gantt_phase_override = true;
   // Validate new/edited dates without blocking placement of legacy undated tasks.
   if (Object.hasOwn(fields, "planned_start") || Object.hasOwn(fields, "planned_end")) {
@@ -228,6 +232,9 @@ function assertActionRules(fields: Record<string, unknown>, existing?: Record<st
   if (status === "done") {
     const actualEnd = (fields.actual_end ?? existing?.actual_end) as string | null | undefined;
     if (!actualEnd) throw new Error("完了にするには完了日が要るよ");
+    if (projectId === "p21" && existing?.status !== "done" && !String(fields.done_evidence ?? existing?.done_evidence ?? "").trim()) {
+      throw new Error("SXのTODOを完了するには証跡のリンクか一文が要るよ");
+    }
   }
 }
 
@@ -255,7 +262,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         return NextResponse.json({ error: "共有情報の更新権限がないよ" }, { status: 403 });
       }
       const view = await getGoalTreePointsView(projectId);
-      return NextResponse.json(view, { headers: READ_CACHE });
+      let canReviewTaskPt = false;
+      if (projectId === "p21") {
+        const { data: role, error: roleError } = await createAdminClient()
+          .from("project_members")
+          .select("is_pm,is_pl")
+          .eq("project_id", projectId)
+          .eq("member_id", context.access.memberId)
+          .eq("is_active", true)
+          .maybeSingle();
+        if (roleError) throw roleError;
+        canReviewTaskPt = Boolean(role?.is_pm || role?.is_pl);
+      }
+      return NextResponse.json({ ...view, canReviewTaskPt }, { headers: READ_CACHE });
     }
 
     const bundle = await getQuestionTreeBundle(projectId, canManage);
@@ -473,7 +492,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (!fields[key]) throw new Error(`${key === "title" ? "見出し" : key === "summary" ? "分かったこと" : key} が空です`);
     }
     if (resource === "question") assertQuestionRules(fields);
-    if (resource === "action") assertActionRules(fields);
+    if (resource === "action") assertActionRules(fields, undefined, projectId);
 
     const db = createAdminClient();
     if (resource === "question") assertGoalTreePlacement(fields);
@@ -520,6 +539,33 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   try {
     const body: unknown = await request.json();
     if (!isRecord(body)) throw new Error("更新内容が不正です");
+
+    if (body.resource === "action_pt_review") {
+      if (projectId !== "p21") throw new Error("タスクpt検収はSXの試行のみ");
+      const actionId = typeof body.action_id === "string" ? body.action_id : "";
+      const acceptedPt = Number(body.accepted_pt);
+      if (!actionId || !Number.isFinite(acceptedPt) || acceptedPt < 0 || Math.round(acceptedPt * 10) / 10 !== acceptedPt) {
+        throw new Error("TODOと確定pt（小数1桁）の指定が必要");
+      }
+      const db = createAdminClient();
+      const { data: reviewId, error } = await db.rpc("accept_sx_task_pt", {
+        p_project_id: projectId,
+        p_action_id: actionId,
+        p_accepted_pt: acceptedPt,
+        p_reviewed_by: context.access.memberId,
+      });
+      if (error) throw new Error(error.message);
+      const ym = todayJst().slice(0, 7).replace("-", "");
+      let rewardSyncError: string | null = null;
+      try {
+        const sync = await syncRewardSummaryForCycle(db, projectId, ym);
+        if (!sync.ok) rewardSyncError = sync.skippedReason ?? "報酬再計算を確認できなかったよ";
+      } catch (syncError) {
+        rewardSyncError = syncError instanceof Error ? syncError.message : "報酬再計算に失敗したよ";
+      }
+      const bundle = await getQuestionTreeBundle(projectId, true);
+      return NextResponse.json({ reviewId, bundle, rewardSyncError }, { headers: NO_STORE });
+    }
 
     /**
      * 割り振りのまとめ書き込み（3-22 §4）。担当・期限・見積ptは、まさかPMが
@@ -590,9 +636,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       .maybeSingle();
     if (readError) throw new Error(readError.message);
     if (!existing) throw new Error("元の項目を見つけられなかったよ");
+    if (resource === "action" && (existing as Record<string, unknown>).review_result === "accepted"
+      && fields.status && fields.status !== "done") {
+      throw new Error("検収済みTODOは未完了へ戻せないよ");
+    }
 
     if (resource === "question") assertQuestionRules(fields, existing as Record<string, unknown>);
-    if (resource === "action") assertActionRules(fields, existing as Record<string, unknown>);
+    if (resource === "action") assertActionRules(fields, existing as Record<string, unknown>, projectId);
     if (resource === "question") {
       assertGoalTreePlacement(fields, existing as Record<string, unknown>);
     }
@@ -650,6 +700,12 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     } else {
       const id = typeof body.id === "string" ? body.id : "";
       if (!id) throw new Error("どれを消すのか分からないよ");
+      if (resource === "action") {
+        const { data: reviewedAction, error: reviewedError } = await db.from("project_actions")
+          .select("review_result").eq("id", id).eq("project_id", projectId).maybeSingle();
+        if (reviewedError) throw reviewedError;
+        if (reviewedAction?.review_result === "accepted") throw new Error("検収済みTODOは削除できないよ");
+      }
       const { error } = await db
         .from(TABLE[resource])
         .update({

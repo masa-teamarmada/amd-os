@@ -591,4 +591,20 @@ console.log("expected-reward change explanation: ok");
   assert.ok(joined.includes("あなたへの未払いではありません"), "未払い債務ではないと書く");
 }
 
+// 25. SXのタスクptは検収で見込みと実支払が変わっても再合意にならない。
+{
+  const taskPointPlan = {
+    forecastPt: 1.5, forecastYen: 70526, acceptedPt: 0,
+    tasks: [{ actionId: "a1", title: "成果物A", milestoneId: "ms1", points: 1.5,
+      state: "pending" as const, plannedYm: "202610" }],
+  };
+  const prev = snapshot([project({ projectId: "p21", taskPointPlan })]);
+  const cur = snapshot([project({ projectId: "p21", expectedRewardYen: 40000,
+    payoutSchedule: [payoutEntry({ totalPayYen: 40000 })],
+    taskPointPlan: { ...taskPointPlan, forecastPt: 1.2, forecastYen: 56420,
+      acceptedPt: 1.2, tasks: [{ ...taskPointPlan.tasks[0], points: 1.2, state: "accepted", plannedYm: null }] },
+  })]);
+  assert.equal(diffMonthlyAgreementTerms(prev, cur).count, 0, "検収実績だけで再合意を要求しない");
+}
+
 console.log("agreement terms diff: ok");

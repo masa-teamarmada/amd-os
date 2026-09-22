@@ -33,6 +33,8 @@ import {
   monthlyAgreementTerms,
   projectIdsWithExpectedRewardChange,
 } from "@/lib/monthly-work-agreement-diff";
+import { isTaskPointPilot, loadTaskPointLedger, markNewTaskMilestones, type TaskPointLedger } from "@/lib/task-point-ledger";
+import { regularPointBasisForCycle } from "@/lib/season-point-basis";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -1039,6 +1041,21 @@ export async function buildMonthlyWorkAgreementBundle(
     list.push(ms);
     milestonesByPlan.set(ms.plan_cycle_id as string, list);
   }
+  const taskLedgersByProject = new Map<string, TaskPointLedger>();
+  for (const projectId of projectIds) {
+    if (!isTaskPointPilot(projectId, ym)) continue;
+    const projectPlans = plansByProject.get(projectId) ?? [];
+    const activePlan = projectPlans.find((p) => String(p.status) === "fixed" && ym >= String(p.period_start_ym) && ym <= String(p.period_end_ym))
+      ?? projectPlans.find((p) => ym >= String(p.period_start_ym) && ym <= String(p.period_end_ym));
+    const ids = new Set(
+      milestones.filter((ms) => ms.plan_cycle_id === activePlan?.plan_cycle_id)
+        .map((ms) => String(ms.milestone_id)),
+    );
+    const ledger = await loadTaskPointLedger(supabase, projectId, ids);
+    markNewTaskMilestones(ledger, milestones.filter((ms) => ms.plan_cycle_id === activePlan?.plan_cycle_id)
+      .map((ms) => ({ milestone_id: String(ms.milestone_id), period_start_ym: ms.period_start_ym as string | null, tag: ms.tag as string | null })));
+    taskLedgersByProject.set(projectId, ledger);
+  }
   const activeMemberIdsByProject = new Map<string, Set<string>>();
   const projectMembershipByKey = new Map<string, JsonRecord>();
   for (const row of (projectActiveMembersRes.data ?? []) as Array<JsonRecord>) {
@@ -1117,6 +1134,35 @@ export async function buildMonthlyWorkAgreementBundle(
         projectPlans.find((p) => ym >= String(p.period_start_ym) && ym <= String(p.period_end_ym)) ??
         projectPlans[0];
       const planMilestones = plan ? milestonesByPlan.get(plan.plan_cycle_id as string) ?? [] : [];
+      const taskLedger = taskLedgersByProject.get(projectId);
+      const reviewedActionIds = new Set(taskLedger?.accepted.map((line) => line.actionId) ?? []);
+      const pendingTaskLines = (taskLedger?.estimated ?? []).filter((line) => line.memberId === params.memberId && line.ym <= ym && !reviewedActionIds.has(line.actionId));
+      const acceptedTaskLines = (taskLedger?.accepted ?? []).filter((line) => line.memberId === params.memberId && line.ym === ym);
+      const taskForecastPt = Math.round([...pendingTaskLines, ...acceptedTaskLines].reduce((sum, line) => sum + line.points, 0) * 100) / 100;
+      const taskAcceptedPt = Math.round(acceptedTaskLines.reduce((sum, line) => sum + line.points, 0) * 100) / 100;
+      const regularPointBasis = regularPointBasisForCycle({
+        period_start_ym: String(plan?.period_start_ym ?? ""),
+        period_end_ym: String(plan?.period_end_ym ?? ""),
+      });
+      const planBudgetYen = toNumber(plan?.budget_yen);
+      const taskPtUnit = planBudgetYen != null && regularPointBasis > 0
+        ? Math.round(planBudgetYen / regularPointBasis)
+        : null;
+      const taskPointPlan = taskLedger ? {
+        forecastPt: taskForecastPt,
+        forecastYen: taskPtUnit == null ? null : Math.round(taskForecastPt * taskPtUnit),
+        acceptedPt: taskAcceptedPt,
+        tasks: [
+          ...pendingTaskLines.map((line) => ({
+            actionId: line.actionId, title: line.title, milestoneId: line.milestoneId,
+            points: line.points, state: "pending" as const, plannedYm: line.ym,
+          })),
+          ...acceptedTaskLines.map((line) => ({
+            actionId: line.actionId, title: line.title, milestoneId: line.milestoneId,
+            points: line.points, state: "accepted" as const, plannedYm: null,
+          })),
+        ],
+      } : undefined;
       const agreementBudgetYen = monthlyAgreementBudgetYen({ cycle, project, plan });
       const activeProjectMemberIds = activeMemberIdsByProject.get(projectId) ?? new Set<string>([params.memberId]);
       const monthlyConsumedByMs = new Map<string, { progressPct: number | null; monthlyProgressPct: number | null; consumedPt: number }>();
@@ -1124,6 +1170,12 @@ export async function buildMonthlyWorkAgreementBundle(
 
       for (const ms of planMilestones) {
         const milestoneId = ms.milestone_id as string;
+        if (taskLedger?.taskBasedMilestoneIds.has(milestoneId)) {
+          // 検収対象MSは月割りの見込みを報酬内訳へ混ぜない。
+          monthlyConsumedByMs.set(milestoneId, { progressPct: 0, monthlyProgressPct: 0, consumedPt: 0 });
+          normalizedSharesByMs.set(milestoneId, new Map());
+          continue;
+        }
         const points = toNumber(ms.points) ?? 0;
         const progressRows = progressByMs.get(milestoneId) ?? [];
         const progressPct = effectiveCumPctForYm({ ms, plan, rows: progressRows, ym });
@@ -1215,14 +1267,14 @@ export async function buildMonthlyWorkAgreementBundle(
         (grossDueYen ?? 0) > 0 ||
         payoutSchedule.length > 0;
 
-      if (!hasDisplayableReward && roleMilestones.length === 0) return null;
+      if (!hasDisplayableReward && roleMilestones.length === 0 && !taskPointPlan?.tasks.length) return null;
 
       const reviewReasons: string[] = [];
       if (!cycle) reviewReasons.push("billing_cycles が未作成");
       if (agreementBudgetYen == null) reviewReasons.push("月初合意用の月次予算が未設定");
       if (!hasRewardSummary) reviewReasons.push("支払説明が未生成");
       if (plan == null) reviewReasons.push("value plan が未設定");
-      if (roleMilestones.length === 0 && plan) reviewReasons.push("当月の担当MS/shareが未設定");
+      if (roleMilestones.length === 0 && !taskPointPlan?.tasks.length && plan) reviewReasons.push("当月の担当MS/shareが未設定");
 
       const conditionState: MonthlyWorkAgreementProject["conditionState"] =
         reviewReasons.length > 0 || roleMilestones.some((ms) => ms.state === "review_required")
@@ -1251,6 +1303,7 @@ export async function buildMonthlyWorkAgreementBundle(
         conditions: [],
         reviewReasons,
         milestones: sortedMilestones,
+        taskPointPlan,
         payoutSchedule,
         routineExpectations: routineExpectations(membership),
         seasonStartYm: cleanYm(plan?.period_start_ym),

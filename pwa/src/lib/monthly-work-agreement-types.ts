@@ -163,6 +163,20 @@ export interface MonthlyWorkAgreementProject {
   conditions: string[];
   reviewReasons: string[];
   milestones: MonthlyWorkAgreementMilestone[];
+  /** SXのタスクpt試行。月初の見込みと検収実績は確定支払額と区別する。 */
+  taskPointPlan?: {
+    forecastPt: number;
+    forecastYen: number | null;
+    acceptedPt: number;
+    tasks: Array<{
+      actionId: string;
+      title: string;
+      milestoneId: string;
+      points: number;
+      state: "pending" | "accepted";
+      plannedYm: string | null;
+    }>;
+  };
   payoutSchedule: MonthlyWorkAgreementPayoutScheduleEntry[];
   routineExpectations: string[];
   /** このPJのシーズン (plan cycle) の期間 */

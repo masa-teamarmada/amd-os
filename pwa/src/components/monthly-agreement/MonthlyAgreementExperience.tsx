@@ -1214,7 +1214,7 @@ function ProjectAgreementBlock({
             あなたが担当する仕事
           </h4>
         </div>
-        {project.milestones.length === 0 ? (
+        {project.milestones.length === 0 && !project.taskPointPlan?.tasks.length ? (
           <p className="mt-2 text-[14px] text-amber-700">担当内容が未登録です</p>
         ) : (
           <ul className="mt-2 space-y-1">
@@ -1234,6 +1234,25 @@ function ProjectAgreementBlock({
             ))}
           </ul>
         )}
+        {project.taskPointPlan && (
+          <div className="mt-2 rounded-md border border-sky-200 bg-sky-50/60 px-2.5 py-2" data-testid="monthly-agreement-task-points">
+            <p className="text-[11px] font-semibold text-sky-900">成果物ごとの担当・pt</p>
+            {project.taskPointPlan.tasks.length === 0 ? (
+              <p className="mt-1 text-[12px] text-amber-800">この月の成果物はまだ割り振られていないよ</p>
+            ) : (
+              <ul className="mt-1 divide-y divide-sky-100">
+                {project.taskPointPlan.tasks.map((task) => (
+                  <li key={task.actionId} className="flex min-w-0 items-start justify-between gap-2 py-1 text-[12px]">
+                    <span className="min-w-0 break-words text-[#1d1d1f]">{task.title}</span>
+                    <span className={`shrink-0 tabular-nums ${task.state === "accepted" ? "text-emerald-800" : "text-sky-800"}`}>
+                      {formatPt(task.points)}・{task.state === "accepted" ? "検収済み" : "見込み"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
         {project.routineExpectations.length > 0 && (
           <p className="mt-2 text-[13px] leading-[20px] text-[#6e6e73]">
             定常業務: {project.routineExpectations.join(" / ")}
@@ -1245,7 +1264,7 @@ function ProjectAgreementBlock({
         <div className="flex items-center gap-2">
           <SectionNumberBadge number="02" />
           <h4 className={`${compact ? "text-[13px] sm:text-[14px]" : "text-[16px] sm:text-[18px]"} font-semibold text-[#1d1d1f]`}>
-            その対価としてあなたが受け取る額
+            {project.taskPointPlan ? "報酬の見込みと確定額" : "その対価としてあなたが受け取る額"}
           </h4>
         </div>
         <div className={`mt-2 rounded-lg border border-[#dbeafe] bg-sky-50 ${compact ? "px-3 py-2" : "px-4 py-3"}`}>
@@ -1253,13 +1272,20 @@ function ProjectAgreementBlock({
             data-testid="monthly-agreement-check-reward"
             className={`${compact ? "text-[20px] sm:text-[22px]" : "text-[26px] sm:text-[28px]"} font-bold tabular-nums text-sky-950`}
           >
-            {formatYen(project.expectedRewardYen)}
+            {formatYen(project.taskPointPlan ? project.taskPointPlan.forecastYen : project.expectedRewardYen)}
           </p>
-          <p className={`${compact ? "mt-0.5 text-[11px] leading-4" : "mt-1 text-[13px] leading-[20px]"} text-sky-900`}>
-            今月の担当分から発生する額は {formatYen(selfAccrualYen)}
-            {carryInYen > 0 ? `、これまで支払いを待ってもらっている分の返済を含みます` : ""}
-            {stockYen > 0 ? `。今月末に残る未払い分は ${formatYen(stockYen)}` : ""}
-          </p>
+          {project.taskPointPlan ? (
+            <p className={`${compact ? "mt-0.5 text-[11px] leading-4" : "mt-1 text-[13px] leading-[20px]"} text-sky-900`}>
+              タスク分の見込み（{formatPt(project.taskPointPlan.forecastPt)}、支払枠前）。検収したptで実績が決まり、未完了は翌月へ持ち越す。実際の支払額は上限と未払残を反映して確定する。
+              {project.taskPointPlan.acceptedPt > 0 ? ` 今月の検収済みは${formatPt(project.taskPointPlan.acceptedPt)}。` : ""}
+            </p>
+          ) : (
+            <p className={`${compact ? "mt-0.5 text-[11px] leading-4" : "mt-1 text-[13px] leading-[20px]"} text-sky-900`}>
+              今月の担当分から発生する額は {formatYen(selfAccrualYen)}
+              {carryInYen > 0 ? `、これまで支払いを待ってもらっている分の返済を含みます` : ""}
+              {stockYen > 0 ? `。今月末に残る未払い分は ${formatYen(stockYen)}` : ""}
+            </p>
+          )}
           {payoutExcluded && (
             <p
               data-testid="monthly-agreement-payout-excluded-note"

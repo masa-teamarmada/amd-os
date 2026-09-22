@@ -173,6 +173,8 @@ export function CockpitProjectTasks({ projectId }: Props) {
   const [menuId, setMenuId] = useState<string | null>(null);
   const [editing, setEditing] = useState<ActionNode | null>(null);
   const [detail, setDetail] = useState<ActionNode | null>(null);
+  const [completing, setCompleting] = useState<ActionNode | null>(null);
+  const [completionEvidence, setCompletionEvidence] = useState("");
   const [taskScope, setTaskScope] = useState<TaskScope>(() => projectId === "p19" ? "focus" : "all");
 
   // ---- 並べ替え（掴んだ瞬間から指に付いてくる自前ドラッグ） -------------------
@@ -291,8 +293,10 @@ export function CockpitProjectTasks({ projectId }: Props) {
           fields,
         });
         if (payload.bundle) setBundle(payload.bundle);
+        return true;
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : "保存できませんでした");
+        return false;
       } finally {
         setBusyId(null);
       }
@@ -300,14 +304,14 @@ export function CockpitProjectTasks({ projectId }: Props) {
     [projectId],
   );
 
-  const heightOf = (action: ActionNode) => heightsRef.current.get(action.id) ?? 64;
-  const slotY = (index: number, order: ActionNode[]) => {
+  const heightOf = useCallback((action: ActionNode) => heightsRef.current.get(action.id) ?? 64, []);
+  const slotY = useCallback((index: number, order: ActionNode[]) => {
     let y = 0;
     for (let i = 0; i < Math.max(0, Math.min(index, order.length)); i += 1) {
       y += heightOf(order[i]) + ROW_GAP;
     }
     return y;
-  };
+  }, [heightOf]);
 
   // ドラッグ中の pointer は window で受ける。カード自身が動くので、
   // カードの上でイベントを取ると基準がずれる。
@@ -388,7 +392,7 @@ export function CockpitProjectTasks({ projectId }: Props) {
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
     };
-  }, [dragId, dragSlot, patch]);
+  }, [dragId, dragSlot, heightOf, patch, projectId, slotY]);
 
   /**
    * 論点に紐づく提案はゴールツリーで確認する。紐づかない提案は単独タスクなので、
@@ -420,13 +424,19 @@ export function CockpitProjectTasks({ projectId }: Props) {
     }
   };
 
-  const toggleDone = (action: ActionNode) =>
-    patch(
+  const toggleDone = (action: ActionNode) => {
+    if (projectId === "p21" && action.status !== "done") {
+      setCompleting(action);
+      setCompletionEvidence(action.doneEvidence ?? "");
+      return;
+    }
+    void patch(
       action.id,
       action.status === "done"
         ? { status: "not_started", actual_end: null }
         : { status: "done", actual_end: new Date().toISOString().slice(0, 10) },
     );
+  };
 
   const addTask = async () => {
     const title = draft.trim();
@@ -502,7 +512,7 @@ export function CockpitProjectTasks({ projectId }: Props) {
               ? "border-[#027fdc] bg-[#027fdc] text-white"
               : "border-[#c9c9d1] text-transparent hover:border-[#027fdc]"
           }`}
-          onClick={() => void toggleDone(action)}
+          onClick={() => toggleDone(action)}
         >
           ✓
         </button>
@@ -859,6 +869,28 @@ export function CockpitProjectTasks({ projectId }: Props) {
             setEditing(null);
           }}
         />
+      )}
+      {completing && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/30 px-4" onClick={() => setCompleting(null)}>
+          <div role="dialog" aria-modal="true" aria-labelledby="sx-complete-title" className="w-full max-w-[460px] rounded-xl bg-white p-5 shadow-xl" onClick={(event) => event.stopPropagation()}>
+            <h3 id="sx-complete-title" className="text-[15px] font-bold text-[#1d1d1f]">完了の証跡を残す</h3>
+            <p className="mt-1 text-[12px] text-[#6e6e73]">{completing.title}</p>
+            <label className="mt-3 block text-[12px] font-semibold text-[#3c3c43]" htmlFor="sx-completion-evidence">成果物のリンク、または完了内容を一文で</label>
+            <textarea id="sx-completion-evidence" value={completionEvidence} onChange={(event) => setCompletionEvidence(event.target.value)} className="mt-1 min-h-24 w-full rounded-lg border border-[#d2d2d7] px-3 py-2 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#027fdc]" />
+            <p className="mt-1 text-[11px] text-[#6e6e73]">完了後、PMかPLが検収して確定ptを付ける。</p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" className="min-h-11 rounded-lg px-3 py-2 text-[12px] text-[#3c3c43] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#027fdc]" onClick={() => setCompleting(null)}>やめる</button>
+              <button type="button" disabled={!completionEvidence.trim() || busyId === completing.id} className="min-h-11 rounded-lg bg-[#027fdc] px-4 py-2 text-[12px] font-bold text-white disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#027fdc]" onClick={() => {
+                const action = completing;
+                void patch(action.id, {
+                  status: "done",
+                  actual_end: new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" }),
+                  done_evidence: completionEvidence.trim(),
+                }).then((saved) => { if (saved) setCompleting(null); });
+              }}>完了にする</button>
+            </div>
+          </div>
+        </div>
       )}
     </section>
   );

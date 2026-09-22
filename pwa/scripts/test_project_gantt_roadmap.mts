@@ -130,6 +130,7 @@ vm.runInNewContext(ts.transpileModule(routeSource,{compilerOptions:{module:ts.Mo
     if(name==='next/server')return {NextResponse:{json:(body:unknown,options?:{status?:number})=>({status:options?.status??200,body})}};
     if(name==='@/lib/project-workspace')return {getCurrentMemberAccess:async()=>access,canAccessWorkspaceProject:()=>allowed};
     if(name==='@/lib/question-tree')return {getQuestionTreeBundle:async()=>bundleReadback};
+    if(name==='@/lib/reward-summary')return {syncRewardSummaryForCycle:async()=>({ok:true})};
     if(name==='@/lib/supabase/admin')return {createAdminClient:()=>adapter};
     throw new Error(name);
   },

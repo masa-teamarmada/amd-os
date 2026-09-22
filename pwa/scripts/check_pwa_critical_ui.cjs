@@ -1749,6 +1749,9 @@ expectIncludes("src/lib/poc-data.ts", [
 
 expectIncludes("src/lib/reward-summary.ts", [
   "server_v5_planned_share_cap_carry_no_final_topup",
+  "server_v6_sx_task_acceptance_cap_carry",
+  "loadTaskPointLedger",
+  "taskBasedMilestoneIds",
   "regularUnusedCapCarryOutYen",
   "extraUnusedCapCarryOutYen",
   "effectiveRegularCapBudgetYen",
@@ -1953,6 +1956,7 @@ expectIncludes("src/app/api/cron/payout-reward-cache-refresh/route.ts", [
 
 expectIncludes("src/lib/reward-summary.ts", [
   "server_v5_planned_share_cap_carry_no_final_topup",
+  "server_v6_sx_task_acceptance_cap_carry",
   "plannedShare",
   "shareSource",
   "CAP_EXTRA_MILESTONE_TAGS",

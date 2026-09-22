@@ -44,6 +44,7 @@
 | `pm_rejected` | `/api/progress/confirm` (却下) | ✅ | まさの却下 (値ごと確定) |
 | `criteria_toggle` | 成功条件トグル | ✅ | サブ項目達成トグル由来 |
 | `tsukuyomi_revision` | revision confirm (モーダル PATCH / 通知 yes) | ✅ | つくよみ提案をまさが承認した値 |
+| `todo_acceptance` | SXの成果物pt検収（202610〜） | ✅ | タスクの確定pt累計 ÷ 対応MSのpt。検収と同じDB取引で書く。月割り下限は報酬計算に適用しない |
 | (廃止) `tsukuyomi_estimate` / `l2_routine` | 旧 LLM 直接書き込み | ✗ | **新規に書かれることはない**。残存行は `routine_auto` 上書きで自然修復される |
 
 - PM locked = ✅ の行は自動処理 (デフォルト按分 / LLM) が**絶対に上書きしない**。

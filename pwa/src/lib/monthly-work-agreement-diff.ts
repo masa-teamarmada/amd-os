@@ -684,6 +684,7 @@ export type MonthlyAgreementTermsProject = {
   isPm: boolean;
   isPl: boolean;
   payYen: number | null;
+  rewardBasis?: "task_acceptance";
   routineExpectations: string[];
   milestones: Array<{
     milestoneId: string;
@@ -714,7 +715,10 @@ export function monthlyAgreementTerms(snapshot: MonthlyWorkAgreementSnapshot): M
         roleLabel: project.roleLabel ?? null,
         isPm: Boolean(project.isPm),
         isPl: Boolean(project.isPl),
-        payYen: agreedPayYen(project),
+        // SX試行では月初に固定額を約束しない。受託・検収で変わる見込み額を
+        // hashに入れると、タスクが終わるたびに再合意となり支払が止まる。
+        payYen: project.taskPointPlan ? null : agreedPayYen(project),
+        ...(project.taskPointPlan ? { rewardBasis: "task_acceptance" as const } : {}),
         routineExpectations: [...(project.routineExpectations ?? [])].sort(),
         milestones: [...(project.milestones ?? [])]
           .sort((a, b) => a.milestoneId.localeCompare(b.milestoneId))
