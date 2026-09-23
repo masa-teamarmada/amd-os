@@ -1,5 +1,9 @@
 # iOS → Android ハンドオフ
 
+## 2026-09-23 l2m共有ボス用の独立したDB領域
+
+OSスイートのSupabase内に、別アプリ `l2m` だけが利用する共有ボス予定の表・関数・通知ジョブを追加した。AMD OSのiOS / Android画面・認証契約は変更していないため、AMD OS Androidへの移植作業はない。ボス画面の正本は `/Users/masa/projects/l2m/BOSS_APP_DESIGN.md`。仮ユーザーで参加申請、管理者承認、承認前の遮断、承認後の予定・履歴取得を確認済み。実機通知は未確認。
+
 ## 2026-09-16 OS全体の変更履歴・安全な戻し操作・外部アクセス要求
 
 - 共通DBへ`amd_os_data_change_history`を追加し、public schemaの現行336テーブルへinsert/update/delete監査triggerを展開した。実行者・日時・対象行・変更項目・変更前後を記録する。秘密値は伏せ、大きい値は省略し、OAuth token・OTP rate limit等の秘密/一時状態tableは対象外。導入前の履歴は遡及生成しない。
