@@ -196,6 +196,44 @@ OS 上で足した行が正しい位置に入るようにするため、日付�
 スプレッドシート側に入っている未来日の行は「予定」なので消さない。実績が freee から届いたら、
 対応する予定行をきよが消す運用にする。画面の「出どころ」列で `freee` / `手入力` / 無印（スプシ）が分かる。
 
+## 月末の口座残高の取り込み（毎日・2026-09-10 追加）
+
+`GET /api/cron/freee-cash-balance-sync`。毎日 09:15 JST（`vercel.json` の `15 0 * * *`）。
+`CRON_SECRET` または admin セッションで叩ける。既定で**直近4か月ぶん**を書き直す
+（freee は後から明細が増えるので、当月だけ更新すると前月の残高が古いまま残る）。
+`?from=YYYYMM&to=YYYYMM&historyFrom=YYYYMM` で過去分の埋め戻しにも使える。読み取りだけ。
+
+書き先は `company_actual_monthly`（`scope=company` / `category=cash_balance` /
+`account_name=freee口座残高合計`）で、`company_budget_actual_monthly` ビュー経由で
+経営スコアと `/api/finance/live-cash-balances` が読む。
+
+**上の取引明細の取り込みとは別物**。明細は「現金と融資」の台帳（`cash_ledger_entries`）へ、
+残高は月末のスナップショットへ入る。**2026-09-10 まで、残高のほうは定時実行が無かった**：
+経営スコアの取り込み（`raw-data.ts` の `syncFreeeCashBalances`）が走ったときだけ更新され、
+最後に走った9月頭の値（freee の最新明細が 8/25）で止まっていた。9月の残高が8月と
+1円も同じになり、えいみOSスイートの「AMD + 個人残高」が稼ぐペースを実態より
+悪く読んでいた（月▲525,563円 → 正しくは ▲65,993円）。
+
+### 同じ外部サービスでも、種類ごとに最終更新を確かめる
+
+止まりに気づくための確認:
+
+```sql
+select source, max(entry_date), max(created_at) from cash_ledger_entries group by source;
+select ym, actual_amount_yen from company_actual_monthly
+ where scope='company' and category='cash_balance' order by ym desc limit 6;
+```
+
+明細は 9/7 まで最新なのに残高だけ 8/25 で止まっている、という形で分かる。
+
+### えいみOSスイートが読む残高（`/api/finance/live-cash-balances`）
+
+月次予算シミュレーションの行に実績残高を重ねて返す。**2026-09-10 修正**: 予算の開始月
+（`params.startYm`＝202601）より前は、freee 由来の実績が DB にあっても行を作っていなかった。
+えいみOSスイートは「直近12か月の実績ペース」を出すのに予算範囲外の実績も要るため、
+実績だけの行を前に足す（その範囲では `budgetCashBalance` と `runwayMonths` は `null`）。
+2024年1月〜の残高は上の cron を `from=202401` で手実行して埋め戻し済み。
+
 ### freee 側の銀行連携が切れていると、新しい取引は入らない
 
 2026-09-05 に実機で確認した freee 側の口座の状態:
