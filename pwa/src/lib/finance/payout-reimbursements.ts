@@ -101,8 +101,26 @@ export function reimbursementApprovalCutoffIso(paymentYm: string): string {
 export function reimbursementLabel(row: PayableReimbursement): string {
   const date = row.date ? `${row.date.slice(5, 7)}/${row.date.slice(8, 10)}` : "";
   const project = row.projectName || row.projectId || "";
-  const detail = (row.description || row.category || "立替精算").replace(/\s+/g, " ").slice(0, 40);
-  return [`立替精算`, project, date, detail].filter(Boolean).join(" ");
+  const detail = (row.description || row.category || "立替精算").replace(/\s+/g, " ").trim();
+  const prefix = [`立替精算`, project, date].filter(Boolean).join(" ") + " ";
+  const width = (value: string) => Array.from(value).reduce(
+    (sum, char) => sum + (/^[\x00-\x7f]$/.test(char) ? 0.5 : 1), 0,
+  );
+  // GAS のPDF明細は摘要欄が1行固定。長い申請理由は申請台帳に残し、PDFには
+  // 品目が識別できる短い摘要を渡して金額列へのはみ出しを防ぐ。
+  let concise = detail;
+  if (width(prefix + concise) > 28) {
+    const title = detail.replace(/[（(][^（）()]*[）)]\s*$/, "").trim();
+    if (title !== detail && width(title) >= 8) concise = title;
+  }
+  const label = prefix + concise;
+  if (width(label) <= 28) return label;
+  let shortened = "";
+  for (const char of label) {
+    if (width(shortened + char + "…") > 28) break;
+    shortened += char;
+  }
+  return shortened.trimEnd() + "…";
 }
 
 /**

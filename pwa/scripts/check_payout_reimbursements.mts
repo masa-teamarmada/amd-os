@@ -14,6 +14,7 @@
 
 import {
   reimbursementApprovalCutoffIso,
+  reimbursementLabel,
   reimbursementTotalYen,
   sameReimbursementIds,
   selectPayableReimbursements,
@@ -117,6 +118,15 @@ check("8月の印だけが残り通知書が無い立替2件を9月へ載せる"
 check("8月の通知書に残る立替は9月へ二重計上しない", !(sepOrphan.get("ID009") ?? []).some((row) => row.reimbursementId === "r5"));
 check("立替額が同じでも明細IDが変われば再生成する", !sameReimbursementIds(["r1"], ["r2"]));
 check("立替明細IDの順序だけの差は再生成しない", sameReimbursementIds(["r2", "r1"], ["r1", "r2"]));
+check(
+  "長い申請理由がPDF明細からはみ出さず品目は残る",
+  reimbursementLabel({
+    reimbursementId: "r1", memberId: "ID003", projectId: "p21", projectName: "SX",
+    date: "2026-07-09", category: null,
+    description: "ビザスクインタビュー4本（うまくできていないようなので再申請）",
+    amountYen: 66_000, approvedAt: "2026-08-07T08:41:55.965Z",
+  }) === "立替精算 SX 07/09 ビザスクインタビュー4本",
+);
 
 const zero = selectPayableReimbursements(
   [{ reimbursement_id: "r7", amount: 0, status: "approved", created_by: "taku@team-armada.jp", admin_approved_at: "2026-08-01T00:00:00.000Z", billed_ym: null }],

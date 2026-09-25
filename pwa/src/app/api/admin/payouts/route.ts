@@ -44,7 +44,7 @@ const YM_RE = /^[0-9]{6}$/;
 // 一括PDF生成時の並列度。GAS payoutCreatePwaNoticePdf のスループットに配慮して 3 で固定。
 // 上げすぎると Apps Script 側の同時実行制限 (project あたり 30) や freee 連携待ちで詰まる。
 const BULK_NOTICE_CONCURRENCY = 3;
-const PAYOUT_NOTICE_PDF_TEMPLATE_UPDATED_AT = "2026-09-25T11:38:50.000Z";
+const PAYOUT_NOTICE_PDF_TEMPLATE_UPDATED_AT = "2026-09-25T12:19:35.000Z";
 
 type BillingCycleRow = {
   project_id: string;
