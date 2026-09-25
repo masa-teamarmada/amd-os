@@ -20,6 +20,8 @@ iOS は Supabase backend を PWA と共有する。PWA にしかない管理・�
 
 GAS は旧 OS の多くを持つが、current PWA では主に外部サービス連携・PDF生成・一部 legacy UI/bridge を担う。
 
+支払通知書のGAS依存を外す準備として、PWAに同じ金額契約とA4レイアウトのPDF描画・Drive保存処理を追加した。2026-09-25時点では切替前で、正式PDFの生成とメール送付は現行GAS経路のまま。切替には保存先Driveへの書込み権限の実確認、既存PDFとの比較、`keiri@team-armada.jp` 送信権限の新しい認証、二重送信を防ぐ記録を要する。9月通知書の送付経路を切り替える前に、これらを別々に読戻す。
+
 | GAS file / function group | current role |
 |---|---|
 | `001_Router.js` | WebApp `doGet` / mode routing。payment confirm / invoice PDF upload / cancel など legacy pages |
