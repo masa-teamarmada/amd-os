@@ -14,6 +14,7 @@
     "test:member-payout-matching": "node --experimental-strip-types scripts/check_member_payout_matching.mts",
     "test:payout-reimbursements": "node --experimental-strip-types scripts/check_payout_reimbursements.mts",
     "test:payout-notice-native-pdf": "node --experimental-strip-types scripts/check_payout_notice_native_pdf.mts",
+    "test:payout-notice-native-mail": "node --experimental-strip-types scripts/check_payout_notice_native_mail.mts",
     "test:payout-source-span": "node --experimental-strip-types scripts/check_payout_source_span.mts",
     "test:payment-month-usage": "node --experimental-strip-types scripts/check_payment_month_usage.mts",
     "test:governance-candidate-gate": "node --experimental-strip-types scripts/check_governance_candidate_gate.mts",

@@ -22,6 +22,8 @@ GAS は旧 OS の多くを持つが、current PWA では主に外部サービス
 
 支払通知書のGAS依存を外す準備として、PWAに同じ金額契約とA4レイアウトのPDF描画・Drive保存処理を追加した。2026-09-25時点では切替前で、正式PDFの生成とメール送付は現行GAS経路のまま。切替には保存先Driveへの書込み権限の実確認、既存PDFとの比較、`keiri@team-armada.jp` 送信権限の新しい認証、二重送信を防ぐ記録を要する。9月通知書の送付経路を切り替える前に、これらを別々に読戻す。
 
+経理アドレス送付の候補は専用の `PAYOUT_NOTICE_GMAIL_REFRESH_TOKEN` を要求し、Gmailの送信エイリアス確認、保存済みPDFの読戻しとファイル名・サイズ照合を終えてから添付メールを作る。既存のGoogle認証はDriveとGmail読取用であり、送信用権限を推測して流用しない。送付結果が不明な場合の再送を止める永続的な記録が未接続のため、候補関数は本番の送付操作から呼ばない。
+
 | GAS file / function group | current role |
 |---|---|
 | `001_Router.js` | WebApp `doGet` / mode routing。payment confirm / invoice PDF upload / cancel など legacy pages |
