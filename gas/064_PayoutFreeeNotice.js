@@ -401,10 +401,15 @@ function payoutBuildNoticePdfBlob_(p){
   for (let i = 0; i < maxLines; i++){
     const r = startRow + 1 + i;
     const d = allDetails[i] || { desc:"", yen:0 };
+    const desc = String(d.desc || "");
+    // 摘要が長い立替明細も、PDFで金額列に隠れず最後まで読めるようにする。
+    // A:F の表示幅に合わせ、全角を1・半角を約0.5文字として必要な行高を確保する。
+    const displayWidth = Array.from(desc).reduce((width, char) => width + (/^[\x00-\x7f]$/.test(char) ? 0.5 : 1), 0);
+    const detailLines = Math.max(1, Math.ceil(displayWidth / 28));
 
-    sh.setRowHeight(r, 30);
+    sh.setRowHeight(r, Math.max(30, detailLines * 26 + 4));
     sh.getRange(`A${r}:L${r}`).setBackground(i === 0 ? "#ffffff" : PALE);
-    sh.getRange(`A${r}:F${r}`).merge().setValue(d.desc || "").setHorizontalAlignment("left");
+    sh.getRange(`A${r}:F${r}`).merge().setValue(desc).setWrap(true).setHorizontalAlignment("left");
     sh.getRange(`G${r}:H${r}`).merge().setValue(d.desc ? 1 : "").setHorizontalAlignment("right");
     sh.getRange(`I${r}:J${r}`).merge().setValue(d.yen ? fmtNum(d.yen) : "").setHorizontalAlignment("right");
     sh.getRange(`K${r}:L${r}`).merge().setValue(d.yen ? fmtYen(d.yen) : "").setFontWeight(d.yen ? "bold" : "normal").setHorizontalAlignment("right");
