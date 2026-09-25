@@ -8,7 +8,8 @@
  * 立替は実費の精算なので、報酬とは扱いが違う。
  *   - 消費税を上乗せしない (申請額がそのまま支払額)
  *   - 報酬の月次支払上限 (65% cap) では削らない。原資が違うため
- *   - 一度どこかの支払通知書へ乗せたら `reimbursements.billed_ym` に支払月を書き、二度と拾わない
+ *   - 採用済みかは現存する `payout_notices.reimbursement_ids` で判定する。
+ *     `reimbursements.billed_ym` は取引先への請求月で、メンバー支払月ではない
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -25,7 +26,6 @@ export type PayableReimbursement = {
   description: string | null;
   amountYen: number;
   approvedAt: string | null;
-  billedYm: string | null;
 };
 
 export type ReimbursementsByMember = Map<string, PayableReimbursement[]>;
@@ -41,7 +41,14 @@ export type ReimbursementRow = {
   status?: string | null;
   created_by?: string | null;
   admin_approved_at?: string | null;
+  /** 取引先への請求月。支払通知書の採否には使わない */
   billed_ym?: string | null;
+};
+
+export type ReimbursementNoticeRow = {
+  member_id: string;
+  ym: string;
+  reimbursement_ids: string[] | null;
 };
 
 type MemberEmailRow = {
@@ -101,8 +108,8 @@ export function reimbursementLabel(row: PayableReimbursement): string {
 /**
  * 取得済みの行から、その支払月に載せる立替を選ぶ純粋関数。
  *
- * 対象は「admin 承認済み」かつ「まだどの支払月にも乗っていない (`billed_ym` が空)」もので、
- * 承認がその支払月の月末までに済んでいるもの。すでにこの支払月へ乗せたものは、
+ * 対象は「admin 承認済み」かつ「現存する別月の通知書に採用されていない」もので、
+ * 承認が締切までに済んでいるもの。すでにこの支払月へ乗せたものは、
  * 再発行しても同じ内容になるよう対象に含める。
  * 取り違えると二重払い・払い漏れに直結するので、規則はここに閉じて検査できるようにする
  * (`scripts/check_payout_reimbursements.mts`)。
@@ -110,25 +117,43 @@ export function reimbursementLabel(row: PayableReimbursement): string {
 export function selectPayableReimbursements(
   rows: ReimbursementRow[],
   memberByEmail: Map<string, string>,
-  paymentYm: string
+  paymentYm: string,
+  notices: ReimbursementNoticeRow[]
 ): ReimbursementsByMember {
   const cutoff = reimbursementApprovalCutoffIso(paymentYm);
   const byMember: ReimbursementsByMember = new Map();
+  const noticeByReimbursementId = new Map<string, { memberId: string; ym: string }>();
+  for (const notice of notices) {
+    if (!Array.isArray(notice.reimbursement_ids)) {
+      if (notice.reimbursement_ids != null) throw new Error("支払通知書の立替明細IDが配列ではありません");
+      continue;
+    }
+    for (const id of notice.reimbursement_ids ?? []) {
+      const existing = noticeByReimbursementId.get(id);
+      if (existing && (existing.ym !== notice.ym || existing.memberId !== notice.member_id)) {
+        throw new Error(`立替 ${id} が複数の支払通知書に含まれています`);
+      }
+      noticeByReimbursementId.set(id, { memberId: notice.member_id, ym: notice.ym });
+    }
+  }
 
   for (const row of rows) {
     if (String(row.status ?? "") !== PAYABLE_STATUS) continue;
 
-    const billedYm = String(row.billed_ym ?? "").trim();
-    // 別の支払月へ載せ済みのものは二度と拾わない。同じ支払月のものは再発行で同じ内容にするため残す
-    if (billedYm && billedYm !== paymentYm) continue;
+    const notice = noticeByReimbursementId.get(row.reimbursement_id);
+    // 別月の現存する通知書に載せ済みなら再採用しない。通知書が削除されたら再び候補へ戻る
+    if (notice && notice.ym !== paymentYm) continue;
 
     const approvedAt = String(row.admin_approved_at ?? "").trim();
     if (!approvedAt) continue;
-    if (!billedYm && approvedAt > cutoff) continue;
+    if (!notice && approvedAt > cutoff) continue;
 
     const email = String(row.created_by ?? "").trim().toLowerCase();
     const memberId = memberByEmail.get(email);
     if (!memberId) continue;
+    if (notice && notice.memberId !== memberId) {
+      throw new Error(`立替 ${row.reimbursement_id} の申請者と支払通知書の宛先が一致しません`);
+    }
 
     const amountYen = numberValue(row.amount);
     if (amountYen <= 0) continue;
@@ -143,7 +168,6 @@ export function selectPayableReimbursements(
       description: row.description ?? null,
       amountYen,
       approvedAt: approvedAt || null,
-      billedYm: billedYm || null,
     };
     byMember.set(memberId, [...(byMember.get(memberId) ?? []), entry]);
   }
@@ -162,17 +186,45 @@ export async function loadPayableReimbursements(
   db: SupabaseLike,
   paymentYm: string
 ): Promise<ReimbursementsByMember> {
-  const [membersRes, reimbursementsRes] = await Promise.all([
+  const loadApprovedRows = async (): Promise<ReimbursementRow[]> => {
+    const result: ReimbursementRow[] = [];
+    const pageSize = 1000;
+    for (let offset = 0; ; offset += pageSize) {
+      const { data, error } = await db
+        .from("reimbursements")
+        .select("reimbursement_id, project_id, project_name, date, category, description, amount, status, created_by, admin_approved_at")
+        .eq("status", PAYABLE_STATUS)
+        .order("reimbursement_id", { ascending: true })
+        .range(offset, offset + pageSize - 1);
+      if (error) throw error;
+      const page = (data ?? []) as ReimbursementRow[];
+      result.push(...page);
+      if (page.length < pageSize) return result;
+    }
+  };
+  const loadNotices = async (): Promise<ReimbursementNoticeRow[]> => {
+    const result: ReimbursementNoticeRow[] = [];
+    const pageSize = 1000;
+    for (let offset = 0; ; offset += pageSize) {
+      const { data, error } = await db
+        .from("payout_notices")
+        .select("member_id, ym, reimbursement_ids")
+        .not("reimbursement_ids", "is", null)
+        .order("ym", { ascending: true })
+        .order("member_id", { ascending: true })
+        .range(offset, offset + pageSize - 1);
+      if (error) throw error;
+      const page = (data ?? []) as ReimbursementNoticeRow[];
+      result.push(...page);
+      if (page.length < pageSize) return result;
+    }
+  };
+  const [membersRes, rows, notices] = await Promise.all([
     db.from("members").select("member_id, email"),
-    db
-      .from("reimbursements")
-      .select(
-        "reimbursement_id, project_id, project_name, date, category, description, amount, status, created_by, admin_approved_at, billed_ym"
-      )
-      .eq("status", PAYABLE_STATUS),
+    loadApprovedRows(),
+    loadNotices(),
   ]);
   if (membersRes.error) throw membersRes.error;
-  if (reimbursementsRes.error) throw reimbursementsRes.error;
 
   const memberByEmail = new Map<string, string>();
   for (const member of (membersRes.data ?? []) as MemberEmailRow[]) {
@@ -181,9 +233,10 @@ export async function loadPayableReimbursements(
   }
 
   return selectPayableReimbursements(
-    (reimbursementsRes.data ?? []) as ReimbursementRow[],
+    rows,
     memberByEmail,
-    paymentYm
+    paymentYm,
+    notices
   );
 }
 
@@ -191,19 +244,8 @@ export function reimbursementTotalYen(rows: PayableReimbursement[] | undefined):
   return (rows ?? []).reduce((sum, row) => sum + row.amountYen, 0);
 }
 
-/** 支払通知書へ乗せた立替に支払月を刻む。ここが二重払いの防波堤 */
-export async function markReimbursementsBilled(
-  db: SupabaseLike,
-  reimbursementIds: string[],
-  paymentYm: string
-): Promise<{ marked: number }> {
-  if (reimbursementIds.length === 0) return { marked: 0 };
-  const { data, error } = await db
-    .from("reimbursements")
-    .update({ billed_ym: paymentYm })
-    .in("reimbursement_id", reimbursementIds)
-    .is("billed_ym", null)
-    .select("reimbursement_id");
-  if (error) throw error;
-  return { marked: data?.length ?? 0 };
+export function sameReimbursementIds(actual: string[] | null | undefined, expected: string[]): boolean {
+  const left = Array.isArray(actual) ? [...actual].sort() : [];
+  const right = [...expected].sort();
+  return left.length === right.length && left.every((id, index) => id === right[index]);
 }

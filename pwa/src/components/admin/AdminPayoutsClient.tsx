@@ -214,7 +214,6 @@ export type PayableReimbursementRow = {
   description: string | null;
   amountYen: number;
   approvedAt: string | null;
-  billedYm: string | null;
 };
 
 export type PayoutData = {

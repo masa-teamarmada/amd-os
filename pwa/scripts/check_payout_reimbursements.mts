@@ -6,15 +6,18 @@
  *
  * ここで守るのは金額事故に直結する規則。
  *   - admin 承認済みだけを載せる (PM承認どまり・却下は載せない)
- *   - 別の支払月へ載せ済み (billed_ym) のものは二度と拾わない = 二重払いを防ぐ
- *   - 同じ支払月へ載せ済みのものは、再発行しても同じ内容になるよう拾い直す
- *   - 支払月の月末までに承認されたものだけを載せる
+ *   - 現存する別月の通知書に載せ済みのものは二度と拾わない
+ *   - 通知書を削除したら候補へ戻り、旧 `billed_ym` (取引先請求月) では止めない
+ *   - 同じ支払月へ載せ済みのものは、再発行しても同じ内容にする
+ *   - 支払月の締切までに承認されたものだけを載せる
  */
 
 import {
   reimbursementApprovalCutoffIso,
   reimbursementTotalYen,
+  sameReimbursementIds,
   selectPayableReimbursements,
+  type ReimbursementNoticeRow,
   type ReimbursementRow,
 } from "../src/lib/finance/payout-reimbursements.ts";
 
@@ -40,7 +43,7 @@ const rows: ReimbursementRow[] = [
     status: "approved",
     created_by: "taku@team-armada.jp",
     admin_approved_at: "2026-08-07T08:41:55.965Z",
-    billed_ym: null,
+    billed_ym: "202608", // 旧実装が残した印。現存する8月通知書はない
   },
   {
     reimbursement_id: "r2",
@@ -51,7 +54,7 @@ const rows: ReimbursementRow[] = [
     status: "approved",
     created_by: "taku@team-armada.jp",
     admin_approved_at: "2026-08-07T08:41:57.542Z",
-    billed_ym: null,
+    billed_ym: "202608",
   },
   {
     reimbursement_id: "r3",
@@ -91,30 +94,43 @@ const rows: ReimbursementRow[] = [
   },
 ];
 
-const aug = selectPayableReimbursements(rows, memberByEmail, "202608");
+const notices: ReimbursementNoticeRow[] = [
+  { member_id: "ID003", ym: "202606", reimbursement_ids: ["r4"] },
+  { member_id: "ID009", ym: "202608", reimbursement_ids: ["r5"] },
+];
+
+const aug = selectPayableReimbursements(rows, memberByEmail, "202608", notices);
 check("8月支払分に承認済み2件が乗る", reimbursementTotalYen(aug.get("ID003")) === 82_500, reimbursementTotalYen(aug.get("ID003")));
 check("PM承認どまりは乗せない", !(aug.get("ID003") ?? []).some((row) => row.reimbursementId === "r3"));
 check("却下は乗せない", !(aug.get("ID009") ?? []).some((row) => row.reimbursementId === "r6"));
 check("別の支払月へ載せ済みは乗せない", !(aug.get("ID003") ?? []).some((row) => row.reimbursementId === "r4"));
 check("別メンバーの分は混ざらない", reimbursementTotalYen(aug.get("ID009")) === 990, reimbursementTotalYen(aug.get("ID009")));
 
-const jul = selectPayableReimbursements(rows, memberByEmail, "202607");
+const jul = selectPayableReimbursements(rows, memberByEmail, "202607", notices);
 check("承認が支払月の月末より後なら、その月には乗せない", (jul.get("ID003") ?? []).length === 0, jul.get("ID003"));
 
-const jun = selectPayableReimbursements(rows, memberByEmail, "202606");
+const jun = selectPayableReimbursements(rows, memberByEmail, "202606", notices);
 check("同じ支払月へ載せ済みのものは再発行のために拾い直す", (jun.get("ID003") ?? []).some((row) => row.reimbursementId === "r4"), jun.get("ID003"));
+
+const sepOrphan = selectPayableReimbursements(rows, memberByEmail, "202609", notices);
+check("8月の印だけが残り通知書が無い立替2件を9月へ載せる", reimbursementTotalYen(sepOrphan.get("ID003")) === 82_500);
+check("8月の通知書に残る立替は9月へ二重計上しない", !(sepOrphan.get("ID009") ?? []).some((row) => row.reimbursementId === "r5"));
+check("立替額が同じでも明細IDが変われば再生成する", !sameReimbursementIds(["r1"], ["r2"]));
+check("立替明細IDの順序だけの差は再生成しない", sameReimbursementIds(["r2", "r1"], ["r1", "r2"]));
 
 const zero = selectPayableReimbursements(
   [{ reimbursement_id: "r7", amount: 0, status: "approved", created_by: "taku@team-armada.jp", admin_approved_at: "2026-08-01T00:00:00.000Z", billed_ym: null }],
   memberByEmail,
-  "202608"
+  "202608",
+  notices
 );
 check("0円の申請は乗せない", (zero.get("ID003") ?? []).length === 0);
 
 const unknownMember = selectPayableReimbursements(
   [{ reimbursement_id: "r8", amount: 1_000, status: "approved", created_by: "someone@example.com", admin_approved_at: "2026-08-01T00:00:00.000Z", billed_ym: null }],
   memberByEmail,
-  "202608"
+  "202608",
+  notices
 );
 check("メンバー台帳に無い申請者は乗せない", unknownMember.size === 0);
 
@@ -151,11 +167,11 @@ const lateRows: ReimbursementRow[] = [
     billed_ym: null,
   },
 ];
-const sep = selectPayableReimbursements(lateRows, memberByEmail, "202609");
+const sep = selectPayableReimbursements(lateRows, memberByEmail, "202609", notices);
 check("締切に間に合った立替は当月の支払へ乗る", (sep.get("ID003") ?? []).some((row) => row.reimbursementId === "intime1"), sep.get("ID003"));
 check("締切を過ぎた立替は当月へ乗せない", !(sep.get("ID003") ?? []).some((row) => row.reimbursementId === "late1"), sep.get("ID003"));
 
-const oct = selectPayableReimbursements(lateRows, memberByEmail, "202610");
+const oct = selectPayableReimbursements(lateRows, memberByEmail, "202610", notices);
 check("締切を過ぎた立替は次の回へ回る", (oct.get("ID003") ?? []).some((row) => row.reimbursementId === "late1"), oct.get("ID003"));
 
 if (failures > 0) {

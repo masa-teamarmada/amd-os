@@ -277,17 +277,18 @@ sequenceDiagram
 
 **承認済みの立替精算は、報酬と合算して同じ支払通知書で払う。** マニュアル 2-2 章は以前からそう書いていたが、GAS から PWA へ移したときに支払側の実装が落ちていて、承認済みの立替がどの支払月にも乗らないまま溜まっていた。
 
-- 対象: `reimbursements.status='approved'` (admin 承認済み) かつ `billed_ym` が空、**承認が支払日の前月末までに済んでいるもの**。PM 承認どまり・却下・0円は乗せない
+- 対象: `reimbursements.status='approved'` (admin 承認済み) かつ**現存する別月の支払通知書に採用されていないもの**で、承認が支払月の前月末までに済んでいるもの。PM 承認どまり・却下・0円は乗せない
 - 締切は報酬と同じ (支払は毎月7日、前月末が締切)。締切を過ぎた承認は次の回へ回る。実装は `reimbursementApprovalCutoffIso()`。適用開始は 2026年9月支払分から (それ以前は従来どおり支払月の月末まで。遡って当てると画面に出ている金額が黙って動くため)
 - 申請者とメンバーの対応は `reimbursements.created_by` (メールアドレス) と `members.email` で取る
 - 立替は **実費** として扱う。消費税を上乗せせず、報酬の月次支払上限 (65% cap) でも削らない (原資が違うため)
 - 支払通知書PDF (`gas/064_PayoutFreeeNotice.js`) は、明細に立替の行を出し、右下の内訳を `小計（税抜）` / `消費税（10%）` / `立替精算（実費）` / `合計（税込）` の4段にする。「お支払金額」は報酬の税込額 + 立替の実費
-- 通知書を発行した時点で `reimbursements.billed_ym` にその支払月を刻む。ここが二重払いの防波堤で、以後その立替は他の月に拾われない
-- `payout_notices.reimbursement_yen` / `reimbursement_ids` に合算した内容を残す。`total_yen` は従来どおり報酬の税抜額
+- `payout_notices.reimbursement_yen` / `reimbursement_ids` に合算した内容を残す。現存する通知書の `reimbursement_ids` が採用済みの正本で、別月への二重計上を防ぐ。通知書が削除されたら立替は再び候補に戻る。`total_yen` は従来どおり報酬の税抜額
+- 金額が同じでも採用する立替の明細IDが変わればPDFを再生成する。送付確認時にも最新の立替額と明細IDを照合し、古いPDFの送付を止める
+- `reimbursements.billed_ym` は取引先への**請求月**の帰属であり、メンバーへの支払月判定や支払済み印に使わない。旧支払処理が書いた値も既存データにあるため、PDF生成時はこの列を読まず、書き換えない
 - 立替の額が変われば通知書は再生成対象になる (`shouldRegenerateNotice` が `reimbursement_yen` の差分も見る)
 - PDF テンプレート (GAS) が旧版のままだと、画面には立替が出ているのに PDF の合計だけ立替抜けになる。これを避けるため、立替を送ったのに GAS が `reimbursementYen` を返さない場合は発行を失敗させる
 
-報酬が 0 円で立替だけの月も、その立替のために支払通知書を出す。
+報酬が 0 円で立替だけの月も、その立替のために支払通知書を出す。先回り生成の対象者と孤立通知書の判定にも立替額を含める。
 
 回帰検査は `npm run test:payout-reimbursements` (`scripts/check_payout_reimbursements.mts`)。deploy 前の rollback guard に入れてある。
 
@@ -411,7 +412,7 @@ GAS rv2 の最終計算結果を per-PJ × per-ym × per-member で保存する 
 | 宛先 | `members.contractor_name` (= 未設定時は `member_name` / `code_name`) + `members.member_address` + `members.invoice_registration_number`。PDF上の表示ラベルは `登録番号` |
 | 発行者 | AMDの会社名 / 住所 / インボイス登録番号 (`T7021001064067`、Script Properties で上書き可)。ロゴ画像・会社名・住所・`登録番号` は右端に揃える |
 | 明細表 | 青ヘッダで、 PJ 別の base_pay / bonus / total |
-| 明細の稼働月 | **本契約 (regular) の繰越の鎖を遡った範囲で書く** (`src/lib/payout-source-span.ts`)。当月だけを「6月稼働分」と書かない。繰越があると、その支払には過去月の未払い分も乗るため。範囲の先頭は本契約の繰越が 0 になる月まで遡って決め、plan cycle をまたぐ手前で止める。例: かる 2026年8月支払 = 「4〜6月稼働分」(2026-08-28 まさ指摘「正しくは4月から6月の3ヶ月分が今回支払われる」) |
+| 明細の稼働月 | **本契約 (regular) の繰越の鎖を遡った発生期間で書く** (`src/lib/payout-source-span.ts`)。範囲の先頭は本契約の繰越が 0 になる月まで遡って決め、plan cycle をまたぐ手前で止める。未払い残がある複数月の範囲は「4〜6月発生分の一部」のように書き、3か月分の全額支払と誤読させない。範囲は発生期間であり、発生月ごとの厳密な充当額は報酬計算に保存していない |
 | 別財布 (cap_extra) は範囲に入れない | 支払条件が本契約と別だから (ZMP の OkuDoor 開発は完了月に一括。まさ確定 2026-08-28「別勘定の方はまだ支払わない。10月にシステム納品し終わってから一気に支払う。本契約の方だけで範囲を出して」)。混在値の `carryInYen` / `grossDueYen` / `stockYen` を使うと、本契約を毎月満額払っている ZMP のメンバーでも別財布の積立だけで「5〜7月稼働分」と書いてしまう。`regularPoolAmounts()` で本契約プールだけを取る。検査は `npm run test:payout-source-span` |
 | 備考 | `noteText` が空なら備考欄ごと描画しない (まさ確定 2026-08-28) |
 | 税内訳 | `小計（税抜）` = admin/payouts の支払額、`消費税（10%）` = 税抜額 × 10%、`合計（税込）` = 小計 + 消費税 |
@@ -449,7 +450,7 @@ admin/payouts 支払額 (= 税抜) 731,740円
 - vercel cron で **毎日 02:00 JST (= `0 17 * * *` UTC)** に起動
 - 対象: 当月 + 翌月の 2 支払 ym
 - PDF生成前に `savePayoutDataSnapshot` で `monthly_reward_payout` と `payout_notices.total_yen` を最新計算額へ同期し、明示操作では同期後に DB を再読込して `members.contractor_name` / `member_address` / `invoice_registration_number` の最新値を使う
-- 各 ym で、 `exclude_from_payout_notice=false` かつ `is_officer=false` で支払額 > 0 のメンバー、または既存の未送付 `payout_notices` があるメンバーを対象に並列生成 (= concurrency 3)
+- 各 ym で、 `exclude_from_payout_notice=false` かつ `is_officer=false` で報酬または承認済み立替の支払額 > 0 のメンバー、または既存の未送付 `payout_notices` があるメンバーを対象に並列生成 (= concurrency 3)
 - `sent_at` が立っている通知書は履歴として保護し、cron / 一括発行 / `force=true` でも `pdf_url` / `total_yen` / `last_generated_at` を上書きしない
 - 最新支払計算に対応する明細が無い未送付 `payout_notices` は孤立レコードとして削除し、古いPDFリンクを active な通知書として残さない
 - 月初合意支払 gate に blocker があるメンバーは PDF 生成せず、`agreement_gate` failure として結果に出す

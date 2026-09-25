@@ -12,6 +12,7 @@ import assert from "node:assert/strict";
 import {
   regularPoolAmounts,
   resolvePayoutSourceSpan,
+  payoutSourceDescription,
   ymSpanLabel,
   type RegularPoolAmounts,
 } from "../src/lib/payout-source-span.ts";
@@ -33,6 +34,7 @@ function span(rows: Record<string, RegularPoolAmounts>, sourceYm: string, floorY
   assert.equal(result.startYm, "202607");
   assert.equal(result.endYm, "202607");
   assert.equal(ymSpanLabel(result.startYm, result.endYm), "7月稼働分");
+  assert.equal(payoutSourceDescription(result), "7月稼働分");
 }
 
 // 2. 本契約に繰越があれば、繰越が 0 になる月まで遡る
@@ -49,6 +51,7 @@ function span(rows: Record<string, RegularPoolAmounts>, sourceYm: string, floorY
   assert.equal(ymSpanLabel(result.startYm, result.endYm), "4〜6月稼働分");
   assert.equal(result.grossDueYen, 601349);
   assert.equal(result.stockYen, 455774);
+  assert.equal(payoutSourceDescription(result), "4〜6月発生分の一部");
 }
 
 // 3. plan cycle の開始月より前へは遡らない (繰越の鎖はサイクルをまたがない)

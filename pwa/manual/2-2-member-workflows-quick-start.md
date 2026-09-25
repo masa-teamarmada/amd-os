@@ -164,7 +164,7 @@ iOS Swift版では下部の `登録` タブを開き、`立替申請` カード�
 |---|---|
 | `/mypage` に自分が出ない | `members` テーブルに email 登録あるか、 `google_calendar_status='connected'` か |
 | 当月の報酬額が出ない | `billing_cycles.member_allocations_json` に当該 ym 行があるか、 `rv2_calcRewardSummary` 実行済か |
-| 立替が承認されたのに当月支払に乗らない | `reimbursements.billed_ym` set されているか、 該当 ym の `billing_cycles` が `status` 進んでいるか |
+| 立替が承認されたのに当月支払に乗らない | admin承認日時がその支払月の締切以前か、現存する別月の `payout_notices.reimbursement_ids` に採用済みかを確認する。`reimbursements.billed_ym` は取引先請求月で、メンバー支払月ではない |
 | 月次確認 TODO が出ない | 仕様どおり。OS上の月次確認 TODO は廃止済み |
 | 修正依頼カードが消えない | `l2_feedbacks.status` が `active` のまま、 confirm/reject すると `resolved` になる |
 

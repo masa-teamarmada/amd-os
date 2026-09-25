@@ -17,9 +17,9 @@ import {
 import { syncRewardSummariesForBillingCycles } from "@/lib/reward-summary";
 import {
   loadPayableReimbursements,
-  markReimbursementsBilled,
   reimbursementLabel,
   reimbursementTotalYen,
+  sameReimbursementIds,
   type PayableReimbursement,
 } from "@/lib/finance/payout-reimbursements";
 import type { ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
@@ -31,8 +31,8 @@ import {
 import {
   regularPoolAmounts,
   resolvePayoutSourceSpan,
+  payoutSourceDescription,
   ymShortLabel,
-  ymSpanLabel,
   type PayoutSourceSpan,
   type RegularPoolAmounts,
 } from "@/lib/payout-source-span";
@@ -44,7 +44,7 @@ const YM_RE = /^[0-9]{6}$/;
 // 一括PDF生成時の並列度。GAS payoutCreatePwaNoticePdf のスループットに配慮して 3 で固定。
 // 上げすぎると Apps Script 側の同時実行制限 (project あたり 30) や freee 連携待ちで詰まる。
 const BULK_NOTICE_CONCURRENCY = 3;
-const PAYOUT_NOTICE_PDF_TEMPLATE_UPDATED_AT = "2026-08-28T09:50:00.000Z";
+const PAYOUT_NOTICE_PDF_TEMPLATE_UPDATED_AT = "2026-09-25T11:38:50.000Z";
 
 type BillingCycleRow = {
   project_id: string;
@@ -221,6 +221,7 @@ type PayoutNoticeRow = {
   pdf_url?: string | null;
   total_yen?: number | string | null;
   reimbursement_yen?: number | string | null;
+  reimbursement_ids?: string[] | null;
   last_generated_at?: string | null;
 };
 
@@ -636,7 +637,8 @@ async function callGasSendNoticeMail(payload: {
 function validatePreparedNoticeForMail(
   notice: PayoutNoticeRow | null | undefined,
   member: MemberRow,
-  expectedTotalYen: number | null
+  expectedTotalYen: number | null,
+  expectedReimbursements: PayableReimbursement[]
 ): {
   ok: boolean;
   status: number;
@@ -659,6 +661,12 @@ function validatePreparedNoticeForMail(
   }
   if (expectedTotalYen != null && yenValue(notice.total_yen) !== Math.round(expectedTotalYen)) {
     return { ok: false, status: 409, error: "支払額がPDF生成後に変わっています。先に支払通知書発行で正式PDFを作り直してください。" };
+  }
+  if (
+    yenValue(notice.reimbursement_yen) !== reimbursementTotalYen(expectedReimbursements) ||
+    !sameReimbursementIds(notice.reimbursement_ids, expectedReimbursements.map((row) => row.reimbursementId))
+  ) {
+    return { ok: false, status: 409, error: "立替精算がPDF生成後に変わっています。先に支払通知書発行で正式PDFを作り直してください。" };
   }
   if (noticeSourceProfileIsStale(notice, member.updated_at)) {
     return { ok: false, status: 409, error: "メンバー台帳がPDF生成後に更新されています。先に支払通知書発行で正式PDFを作り直してください。" };
@@ -898,6 +906,7 @@ export function shouldRegenerateNotice(
     force?: boolean;
     sourceUpdatedAt?: string | null;
     expectedReimbursementYen?: number;
+    expectedReimbursementIds?: string[];
   } = {}
 ): { regenerate: boolean; reason: GenerateNoticeResult["reason"] } {
   if (existing && !options.previewOnly && textValue(existing.sent_at)) {
@@ -914,6 +923,12 @@ export function shouldRegenerateNotice(
   if (
     options.expectedReimbursementYen !== undefined &&
     yenValue(existing.reimbursement_yen) !== Math.round(options.expectedReimbursementYen)
+  ) {
+    return { regenerate: true, reason: "total_yen_changed" };
+  }
+  if (
+    options.expectedReimbursementIds !== undefined &&
+    !sameReimbursementIds(existing.reimbursement_ids, options.expectedReimbursementIds)
   ) {
     return { regenerate: true, reason: "total_yen_changed" };
   }
@@ -972,7 +987,7 @@ export async function generateNoticePdfForMember(
     if (!span) return { ...entry, source_span: null as PayoutSourceSpan | null };
     return {
       ...entry,
-      description: `${entry.project_name} ${ymSpanLabel(span.startYm, span.endYm)}`,
+      description: `${entry.project_name} ${payoutSourceDescription(span)}`,
       source_span: span,
     };
   });
@@ -986,7 +1001,7 @@ export async function generateNoticePdfForMember(
 
   const { data: existingRaw, error: existingError } = await db
     .from("payout_notices")
-    .select("member_id, ym, sent_at, notice_no, pdf_url, total_yen, last_generated_at, reimbursement_yen")
+    .select("member_id, ym, sent_at, notice_no, pdf_url, total_yen, last_generated_at, reimbursement_yen, reimbursement_ids")
     .eq("member_id", memberId)
     .eq("ym", ym)
     .maybeSingle();
@@ -1005,6 +1020,7 @@ export async function generateNoticePdfForMember(
     force,
     sourceUpdatedAt: member.updated_at,
     expectedReimbursementYen: reimbursementYen,
+    expectedReimbursementIds: reimbursements.map((row) => row.reimbursementId),
   });
   if (!decision.regenerate && existing) {
     return {
@@ -1144,15 +1160,6 @@ export async function generateNoticePdfForMember(
         error: upsertError.message,
       };
     }
-  }
-
-  if (!previewOnly && reimbursements.length > 0) {
-    // 通知書へ乗せた立替に支払月を刻む。ここを通さないと翌月も同じ立替を拾って二重払いになる
-    await markReimbursementsBilled(
-      db,
-      reimbursements.map((row) => row.reimbursementId),
-      ym
-    );
   }
 
   return {
@@ -1506,6 +1513,9 @@ export function payoutNoticeTargetMemberIds(data: TargetData, onlyMemberIds: str
     if (excludedMemberIds.has(entry.member_id)) continue;
     if (entry.total_pay > 0) targetMemberIds.add(entry.member_id);
   }
+  for (const [memberId, rows] of Object.entries(data.reimbursements ?? {})) {
+    if (!excludedMemberIds.has(memberId) && reimbursementTotalYen(rows) > 0) targetMemberIds.add(memberId);
+  }
   for (const notice of (data.notices ?? []) as PayoutNoticeRow[]) {
     const memberId = textValue(notice.member_id);
     if (!memberId || excludedMemberIds.has(memberId)) continue;
@@ -1646,6 +1656,11 @@ export async function savePayoutDataSnapshot(
   }
 
   const activeNoticeMemberIds = new Set(notices.map((notice) => notice.member_id));
+  for (const [memberId, rows] of Object.entries(before.reimbursements ?? {})) {
+    if (!payoutExcludedMemberIds.includes(memberId) && reimbursementTotalYen(rows) > 0) {
+      activeNoticeMemberIds.add(memberId);
+    }
+  }
   const staleNoticeRowsToDelete = ((before.notices ?? []) as PayoutNoticeRow[])
     .filter((notice) => {
       if (textValue(notice.sent_at)) return false;
@@ -1761,7 +1776,7 @@ export async function PATCH(req: NextRequest) {
           .maybeSingle(),
         db
           .from("payout_notices")
-          .select("member_id, ym, sent_at, notice_no, pdf_url, total_yen, last_generated_at")
+          .select("member_id, ym, sent_at, notice_no, pdf_url, total_yen, last_generated_at, reimbursement_yen, reimbursement_ids")
           .eq("member_id", memberId)
           .eq("ym", ym)
           .maybeSingle(),
@@ -1806,7 +1821,12 @@ export async function PATCH(req: NextRequest) {
           { status: 409 }
         );
       }
-      const preparedNotice = validatePreparedNoticeForMail(latestNotice, latestMember, expectedTotalYen);
+      const preparedNotice = validatePreparedNoticeForMail(
+        latestNotice,
+        latestMember,
+        expectedTotalYen,
+        (targetData.reimbursements ?? {})[memberId] ?? []
+      );
 
       if (body.action === "preview_notice_email") {
         if (!preparedNotice.ok) {

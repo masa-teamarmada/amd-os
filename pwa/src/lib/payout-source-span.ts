@@ -129,3 +129,10 @@ export function ymSpanLabel(startYm: string, endYm: string): string {
   if (startYear === endYear) return `${startMonth}〜${endMonth}月稼働分`;
   return `${startYear}年${startMonth}月〜${endYear}年${endMonth}月稼働分`;
 }
+
+/** 通知書の明細では、繰越プールの対象期間と今回の一部支払を区別する。 */
+export function payoutSourceDescription(span: PayoutSourceSpan): string {
+  if (span.startYm === span.endYm) return ymShortLabel(span.endYm);
+  const period = ymSpanLabel(span.startYm, span.endYm).replace(/稼働分$/, "発生分");
+  return span.stockYen > 0 ? `${period}の一部` : period;
+}
