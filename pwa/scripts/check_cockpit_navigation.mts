@@ -40,6 +40,10 @@ assert.equal(cockpitGroupForTab("capital-policy", false).label, "会社情報");
 assert.equal(cockpitGroupForTab("financial-projection", false).label, "事業計画");
 assert.equal(cockpitGroupForTab("capital-plan", false).label, "事業計画");
 assert.equal(cockpitGroupForTab("overview", false).label, "PJ管理");
+for (const institution of [false, true]) {
+  assert.equal(cockpitGroupForTab("monthly-reports", institution).label, "PJ管理");
+  assert.equal(resolveCockpitTab("monthly-reports", institution), "monthly-reports");
+}
 assert.equal(cockpitGroupForTab("project-contracts", false).label, "PJ管理");
 assert.equal(cockpitGroupForTab("project-finance", false).label, "PJ管理");
 assert.equal(cockpitGroupForTab("company", false).label, "会社情報");

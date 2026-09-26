@@ -3499,7 +3499,7 @@ expectIncludes("src/lib/cockpit-tabs.ts", [
   'businessPlan: "事業計画"',
   'projectManagement: "PJ管理"',
   'companyInformation: "会社情報"',
-  'children: ["overview", "project-contracts", "project-finance"]',
+  'children: ["overview", "project-contracts", "project-finance", "monthly-reports"]',
   'children: ["company", "capital-policy", "activity"]',
   'key: "company-information-group"',
   'seeds: "シーズリスト"',
@@ -4493,3 +4493,8 @@ expectIncludes("src/app/(app)/model/formula-canon.ts", [
 ]);
 expectIncludes("next.config.ts", ['"/model/page"']);
 expectIncludes("scripts/deploy.sh", ["npm run test:model-formula-canon"]);
+
+// Monthly reports remain authenticated and embeddable only inside AMD OS.
+expectIncludes("src/app/api/project/monthly-reports/route.ts", ["requireAdmin()", "auth.errorResponse", '"Cache-Control": "private, max-age=30"']);
+expectIncludes("src/components/cockpit/CockpitMonthlyReports.tsx", ['aria-label="月次報告書"', 'template=${template}', '<iframe', '未生成です']);
+expectIncludes("next.config.ts", ['source: "/project/:projectId/report/:ym/print"', 'headers: monthlyReportSecurityHeaders', 'value: "SAMEORIGIN"', '"frame-ancestors \'self\'"']);

@@ -39,6 +39,7 @@ export const COCKPIT_TABS = [
   "overview",
   "project-contracts",
   "project-finance",
+  "monthly-reports",
   "capital-policy",
   "company",
   "activity",
@@ -109,7 +110,7 @@ export const COCKPIT_GROUPS: {
     {
       key: "project-management-group",
       label: COCKPIT_GROUP_LABELS.projectManagement,
-      children: ["overview", "project-contracts", "project-finance"],
+      children: ["overview", "project-contracts", "project-finance", "monthly-reports"],
     },
     { key: "company-information-group", label: COCKPIT_GROUP_LABELS.companyInformation, children: ["company", "capital-policy", "activity"] },
   ],
@@ -126,7 +127,7 @@ export const COCKPIT_GROUPS: {
     {
       key: "project-management-group",
       label: COCKPIT_GROUP_LABELS.projectManagement,
-      children: ["overview", "project-contracts", "project-finance"],
+      children: ["overview", "project-contracts", "project-finance", "monthly-reports"],
     },
     { key: "company-information-group", label: COCKPIT_GROUP_LABELS.companyInformation, children: ["company", "capital-policy", "activity"] },
   ],

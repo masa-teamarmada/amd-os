@@ -71,6 +71,13 @@ const securityHeaders = [
   },
 ];
 
+// The authenticated monthly report can be embedded only by this OS.
+const monthlyReportSecurityHeaders = securityHeaders.map((header) =>
+  header.key === "X-Frame-Options" ? { ...header, value: "SAMEORIGIN" }
+  : header.key === "Content-Security-Policy" ? { ...header, value: header.value.replace("frame-ancestors 'none'", "frame-ancestors 'self'") }
+  : header,
+);
+
 const embedSecurityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-XSS-Protection", value: "1; mode=block" },
@@ -172,6 +179,10 @@ const nextConfig: NextConfig = {
       {
         source: "/:path((?!hud/dashboard/embed|business-cards|native/business-cards).*)",
         headers: securityHeaders,
+      },
+      {
+        source: "/project/:projectId/report/:ym/print",
+        headers: monthlyReportSecurityHeaders,
       },
       {
         source: "/business-cards",

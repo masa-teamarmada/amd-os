@@ -1,6 +1,13 @@
 #!/usr/bin/env node
 
 import assert from "node:assert/strict";
+import { resolveMonthlyReportReference } from "./monthly-report-reference.mjs";
+const referenceInput = { projectId: "p25", referenceYm: "2026-08", databaseBody: "old DB copy", item: { reference_project_id: "p25", reference_ym: "2026-08", reference_body_md: "actual submitted copy" } };
+assert.equal(resolveMonthlyReportReference(referenceInput), "old DB copy");
+const driveReference = { ...referenceInput, item: { ...referenceInput.item, reference_source: "submitted_drive", reference_source_url: "https://drive.google.com/file/d/approved-submission/view" } };
+assert.equal(resolveMonthlyReportReference(driveReference), "actual submitted copy");
+assert.throws(() => resolveMonthlyReportReference({ ...driveReference, item: { ...driveReference.item, reference_project_id: "p21" } }));
+assert.throws(() => resolveMonthlyReportReference({ ...driveReference, item: { ...driveReference.item, reference_source_url: "https://untrusted.example/file" } }));
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";

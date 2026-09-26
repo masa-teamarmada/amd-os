@@ -33,6 +33,12 @@ const BASELINE_PATH = path.join(scriptDir, "reference_data_cache_baseline.json")
 /** 参照系として確定済みのエンドポイント。新しい参照系データを足したらここへ登録する。 */
 const REFERENCE_DATA_ENDPOINTS = [
   {
+    endpoint: "/api/project/monthly-reports",
+    label: "月次報告書の保存済み月一覧",
+    routeFile: "src/app/api/project/monthly-reports/route.ts",
+    clientModule: "src/lib/monthly-reports-client.ts",
+  },
+  {
     // 2026-09-11: タブを行き来するたびに往復していた（本番実測 500〜700ms）。
     // 木は編集する面だが、書き込みAPIが最新の束を返すので、保存のたびに
     // キャッシュをその戻り値で置き換える形で参照系の3層へ載せた（spec 5-10）。

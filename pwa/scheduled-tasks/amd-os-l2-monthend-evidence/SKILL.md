@@ -115,3 +115,7 @@ errors: <短い理由。raw本文や秘密情報は含めない>
 - 非Fableモデル、CLI、従量課金API、subagent、workflowへ処理を逃がす。
 - Supabase connector、SQL、RESTで直接 writeする。
 - D系、W-1、H-1、deploy、git push、DDL、migration、ローカルautomation変更をこのroutineで行う。
+
+### 2026-09-26 保存環境の事前検査
+
+生成前に、承認済み保存helperで使うSupabase URL・保存認証、証跡API認証が実行環境に設定されていることを値を表示せず検査する。欠けていれば設定不備として失敗を報告し、outboxだけを保存完了に数えない。旧ローカル`amd-os-l2m1-monthly-report`（28〜31日03時）は無効化し、25日のクラウドroutineへ一本化する。

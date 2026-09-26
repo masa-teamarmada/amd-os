@@ -8,6 +8,7 @@
  * hosts, so automations can fetch live evidence before creating review rows.
  */
 import fs from "node:fs";
+import { resolveMonthlyReportReference } from "./monthly-report-reference.mjs";
 import https from "node:https";
 import dns from "node:dns";
 import path from "node:path";
@@ -2533,17 +2534,7 @@ async function upsertMonthlyReportsExternal(items) {
       );
       referenceBody = referenceRows?.[0]?.body_md || "";
     }
-    if (!String(referenceBody || "").trim()) {
-      const suppliedReference = item.reference_body_md ?? item.referenceBodyMd ?? "";
-      if (String(suppliedReference || "").trim()) {
-        const suppliedProjectId = item.reference_project_id ?? item.referenceProjectId;
-        const suppliedYm = item.reference_ym ?? item.referenceYm;
-        if (suppliedProjectId !== projectId || suppliedYm !== referenceYm) {
-          throw new Error(`monthlyReportsExternal reference must be the same project's previous month: expected ${projectId}/${referenceYm}`);
-        }
-        referenceBody = suppliedReference;
-      }
-    }
+    referenceBody = resolveMonthlyReportReference({ projectId, referenceYm, databaseBody: referenceBody, item });
     const validation = validateExternalMonthlyReportContent(bodyMd, referenceBody, {
       formatSeedApproved: item.format_seed_approved === true || item.formatSeedApproved === true,
     });

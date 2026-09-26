@@ -17,6 +17,7 @@ import { InstitutionRegulationsPanel } from "@/components/institutions/Instituti
 import { ProjectInstitutionSeeds } from "./CockpitKuteSeeds";
 import { CockpitSeasonFinance } from "./CockpitSeasonFinance";
 import { CockpitMsChangeHistory } from "./CockpitMsChangeHistory";
+import { CockpitMonthlyReports, prefetchMonthlyReports } from "./CockpitMonthlyReports";
 import { CockpitMonthlyList } from "./CockpitMonthlyList";
 import { CockpitMonthlyModal } from "./CockpitMonthlyModal";
 import { CockpitMeetingSummary } from "./CockpitMeetingSummary";
@@ -513,6 +514,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     regulations: "規程一覧",
     documents: "ドライブ",
     overview: "PJ概要",
+    "monthly-reports": "月次報告書",
     "project-contracts": "契約",
     "project-finance": "収支",
     "capital-policy": "資金調達履歴",
@@ -554,6 +556,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       : key === "technology" || key === "competition" || key === "business-model" ? () => prefetchProjectTech(project.projectId)
       : key === "cost-model" ? () => prefetchProjectCostModel(project.projectId)
       : key === "cost-fuel" ? () => prefetchProjectFuelCostModel(project.projectId)
+      : key === "monthly-reports" ? () => prefetchMonthlyReports(project.projectId)
       : key === "capital-policy" || key === "company" ? () => prefetchGovernance(project.projectId)
       : undefined,
   });
@@ -1008,6 +1011,10 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
               (XRL進捗は 2026-08-28 まさ指摘でスコア詳細タブへ)
             - ecosystem PJ は AMD Score 対象外なので出さない
           契約とシーズン収支は別タブへ分ける。 */}
+      {activeTab === "monthly-reports" && (
+        <CockpitMonthlyReports key={project.projectId} projectId={project.projectId} currentYm={currentYm} />
+      )}
+
       {activeTab === "overview" && (
         <section role="tabpanel" aria-label="PJ概要" className="flex min-w-0 flex-col gap-3">
           {project.projectId === "p00" ? (

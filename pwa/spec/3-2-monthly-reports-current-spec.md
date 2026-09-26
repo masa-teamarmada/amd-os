@@ -237,12 +237,12 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 
 ### 対外提出版のフォーマット (PJ別・前月実提出版準拠)
 
-- 正本: `monthly_reports_external` にある**同じ `project_id` の直前月 `body_md`**。DBにない場合だけ、同じPJの承認済みDrive提出物を使う。他PJの提出版は参照しない
+- 正本: `monthly_reports_external` にある**同じ `project_id` の直前月 `body_md`**。DBにない場合、またはDBが提出後の修正を含まない場合は、同じPJの承認済みDrive実提出物を出典つきで使う。他PJの提出版は参照しない
 - 固定構造: H1、主要H2の名称・数・順序、表の数・順序・所属章・列名、冒頭項目表の行ラベル、`業務項目` 表の固定行ラベル、末尾定型文
 - 当月可変: 日付、対象期間、本文、値セル、打合せ・成果物・予定の明細。H3と通常明細行は当月実績に応じて増減できる
 - 品質ゲート: `validate-monthly-report-external` が候補と直前月参照を比較し、`ok=true` かつ `formatMatch=true` のときだけ保存できる。共通の基礎下限はH2 2章以上、Markdown表1点以上、本文3000文字以上、末尾「以上のとおり報告する。」
 - 初回・変更: 直前月版がない初回は人がformat seedを承認する。契約変更等による構造変更も人の明示承認が必要。定期routineは `format_seed_approved` と `force` を使わない
-- KUTEの9章はKUTE自身の前月書式としてのみ継承する。SX/CXへ共通適用しない
+- KUTEは9/6確定の6章構成をKUTE自身の前月書式としてのみ継承する。SX/CXへ共通適用しない
 - 章間へMarkdown水平線 (`---` / `***` / `___`) を入れない。Fableの生成規範、保存helper、手動保存route、印刷rendererの4境界で除去または非表示にする
 - 提出版のH2は `Hiragino Sans` / `Hiragino Kaku Gothic ProN` / `Yu Gothic` / `Meiryo` の順で描画し、丸数字を含む章見出しを直前月実提出版と同じ日本語フォントへ合わせる
 - 文体: である体、儀礼挨拶なし、締め「以上のとおり報告する。」
@@ -274,3 +274,14 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 | `none` | p06 CTB | routine 対象外 |
 
 scope は `/admin/projects` の「月報 scope」列でまさが編集可能。
+
+
+### 2026-09-26 月次報告書の一覧
+
+`GET /api/project/monthly-reports?projectId=`は既存の印刷ページと同じ管理者権限を検証し、管理者だけへ月・社内版状態・提出版有無・更新時刻を返す。本文や他PJ情報は返さない。通常PJ・研究機関PJの「PJ管理 → 月次報告書」で帳票を埋め込み表示し、未保存の版を未生成として区別する。一覧は利用者別のprivate cacheとクライアント30秒cache、タブhover/focus先読みを使う。生成・保存・確定はこの一覧から実行しない。
+
+### 2026-09-26 実提出版とDB参照の差異
+
+DBの前月版が提出後の修正を含まない場合、同じPJ・直前月の実提出Drive原本を取得し、`reference_source="submitted_drive"`、`reference_source_url`、`reference_project_id`、`reference_ym`、`reference_body_md`を明示する。保存helperもvalidatorと同じ原本を参照し、DBの旧構造で判定し直さない。本文の品質検査・書式比較は省略せず、他PJや別月を拒否する。KUTEは9/6確定の6章構成を継承し、第三領域、その他活動、予定専用章を復活させない。
+
+印刷ページのframe制約はこのrouteだけ`SAMEORIGIN`・`frame-ancestors self`にし、認証済みOSからの埋め込みを許可する。管理者認証は維持し、他サイトからの埋め込みは許可しない。

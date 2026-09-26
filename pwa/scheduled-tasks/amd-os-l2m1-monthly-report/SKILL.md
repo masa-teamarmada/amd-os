@@ -56,7 +56,7 @@ outboxを作っただけ、validatorを呼んでいない、保存後に再読�
 
 各PJについて、当月の既存社内版・提出版と、次の証跡を読む。
 
-`internal_and_external` は、当月本文を書く前に**同じPJの直前月の実提出版**を1件取得する。第一候補は `monthly_reports_external(project_id=<same>, ym=<previous YYYY-MM>)`、そこになければそのPJの承認済みDrive提出物を使う。他PJの提出版、とくにKUTEの章立てを共通テンプレートとして流用しない。直前月版を取得できない初回月は自動生成・自動保存せず、`format_seed_required` として人の承認へ回す。
+`internal_and_external` は、当月本文を書く前に**同じPJの直前月の実提出版**を1件取得する。第一候補は `monthly_reports_external(project_id=<same>, ym=<previous YYYY-MM>)`、そこにない場合、または提出後の修正を含まない場合は、そのPJの承認済みDrive実提出物を出典つきで使う。他PJの提出版、とくにKUTEの章立てを共通テンプレートとして流用しない。直前月版を取得できない初回月は自動生成・自動保存せず、`format_seed_required` として人の承認へ回す。
 
 - `project_meeting_summaries`
 - `project_strategy_signals`
@@ -268,3 +268,7 @@ node pwa/scripts/ms_progress_review_tool.mjs upsert-monthly-reports-external --f
 - outbox作成だけでDB反映済みと報告する。
 - Supabase connector、SQL、RESTで直接writeする。
 - 非Fableモデル、CLI、従量課金API、subagent、workflowを使う。
+
+### 2026-09-26 実提出版とDB参照の差異
+
+DBの前月版が提出後の修正を含まない場合、同じPJ・直前月の実提出Drive原本を取得し、`reference_source="submitted_drive"`、`reference_source_url`、`reference_project_id`、`reference_ym`、`reference_body_md`を明示する。保存helperもvalidatorと同じ原本を参照し、DBの旧構造で判定し直さない。本文の品質検査・書式比較は省略せず、他PJや別月を拒否する。KUTEは9/6確定の6章構成を継承し、第三領域、その他活動、予定専用章を復活させない。
