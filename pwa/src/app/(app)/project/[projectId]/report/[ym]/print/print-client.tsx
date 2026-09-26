@@ -23,8 +23,8 @@
  * Team ARMADA ブランド (Work Sans / Noto Sans JP / JetBrains Mono / dark #0a1628)。
  * @page は名前付き規則を使わず、既定の @page 1本を isSubmission で丸ごと
  * 差し替える (社内版 = A4 / margin 14mm・フッター・ページ番号あり。
- * 提出版 = 上部margin 13mmのみ・フッターとページ番号なし。本文側へ14mmの
- * 紙面余白を持たせる)。CSS の named-page 機能 (@page 識別子 + page プロパティ)
+ * 提出版 = PJごとの実提出書式。KUTE/SOLは前月PDFの余白・書体・表幅を継承し、
+ * CXは既存の提出ビューを維持する)。CSS の named-page 機能 (@page 識別子 + page プロパティ)
  * を本文要素にだけ適用すると、本文の外側 (print-root 等) は社内版の既定
  * @page のままになり、末尾に社内版ヘッダー・フッターだけの余分なページが
  * 出る事故があったため、この機能は使わない。
@@ -32,6 +32,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import reportLayouts from "@/lib/monthly-report-layouts.json";
 import { MonthlyReportHistoryPanel } from "./monthly-report-history-panel";
 
 // ─── 型定義 ───────────────────────────────────────────────────────────────
@@ -387,11 +390,13 @@ function InlineMarkdownReview({
   editMode,
   onChange,
   monthlyDeliverables,
+  submissionLayout = false,
 }: {
   text: string;
   editMode: boolean;
   onChange: (next: string) => void;
   monthlyDeliverables?: AssetRow[];
+  submissionLayout?: boolean;
 }) {
   const [editingPiece, setEditingPiece] = useState<MarkdownPiece | null>(null);
   const [draft, setDraft] = useState("");
@@ -411,10 +416,12 @@ function InlineMarkdownReview({
   };
 
   if (!text) return null;
+  let tableIndex = 0;
   return (
-    <div className={`md-body ${editMode ? "md-body-editing" : ""}`}>
+    <div className={`${submissionLayout ? "submission-pieces" : "md-body"} ${editMode ? "md-body-editing" : ""}`}>
       {pieces.map((piece) => {
         const isEditing = editingPiece?.id === piece.id;
+        const reportTableIndex = piece.label === "表" ? ++tableIndex : undefined;
         return (
           <section
             key={piece.id}
@@ -447,7 +454,7 @@ function InlineMarkdownReview({
             ) : (
               <>
                 {editMode && <span className="report-edit-affordance">この箇所を編集</span>}
-                <MarkdownBlock text={piece.text} monthlyDeliverables={monthlyDeliverables} />
+                {submissionLayout ? <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ table: ({ children }) => <table data-report-table={reportTableIndex} data-report-columns={splitMarkdownTableRow(piece.text.split("\n")[0]).length}>{children}</table> }}>{stripInternalJargon(piece.text)}</ReactMarkdown> : <MarkdownBlock text={piece.text} monthlyDeliverables={monthlyDeliverables} />}
               </>
             )}
           </section>
@@ -486,32 +493,37 @@ function sourceWithReportHeading(source: string, body: string, isSubmission: boo
   return isSubmission ? `# 月次業務報告書\n\n${normalizedBody}` : normalizedBody;
 }
 
-function SubmissionReport({
+export function SubmissionReport({
   reportBody,
   editMode,
   onBodyChange,
   headerLabel,
   monthlyDeliverables,
+  projectId,
 }: {
   reportBody: string;
   editMode: boolean;
   onBodyChange: (next: string) => void;
   headerLabel: string;
   monthlyDeliverables: AssetRow[];
+  projectId: string;
 }) {
-
+  const candidateLayout = reportLayouts[projectId as keyof typeof reportLayouts];
+  const layout = candidateLayout?.renderer === "markdown" ? candidateLayout : undefined;
   return (
-    <main className="submission-sheet">
-      <div className="submission-screen-header" aria-hidden="true">
+    <main className="submission-sheet" data-layout={layout?.id}>
+      <div className={layout ? "submission-document" : undefined}>
+      {!layout && <div className="submission-screen-header" aria-hidden="true">
         <span>{headerLabel}</span>
         <span>取扱注意 / Confidential</span>
-      </div>
-      <h1 className="submission-title">月次業務報告書</h1>
+      </div>}
+      <h1 className={layout ? undefined : "submission-title"}>月次業務報告書</h1>
       {reportBody ? (
-        <InlineMarkdownReview key={editMode ? "editing" : "review"} text={reportBody} editMode={editMode} onChange={onBodyChange} monthlyDeliverables={monthlyDeliverables} />
+        <InlineMarkdownReview key={editMode ? "editing" : "review"} text={reportBody} editMode={editMode} onChange={onBodyChange} monthlyDeliverables={monthlyDeliverables} submissionLayout={Boolean(layout)} />
       ) : (
         <div className="empty">提出用の月次業務報告書本文は未生成です。</div>
       )}
+      </div>
     </main>
   );
 }
@@ -1347,7 +1359,17 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
     }
   }, [data.project.projectId, data.ym]);
 
-  const pageRule = data.isSubmission
+  const candidateLayout = reportLayouts[data.project.projectId as keyof typeof reportLayouts];
+  const submissionLayout = candidateLayout?.renderer === "markdown" ? candidateLayout : undefined;
+  const submissionLayoutCss = submissionLayout ? `
+    .submission-sheet[data-layout] { padding: ${submissionLayout.screenPadding}; }
+    .submission-sheet[data-layout] .submission-pieces, .submission-sheet[data-layout] .report-editable-block { display: contents; }
+    ${submissionLayout.css.replaceAll("$DOC", `.submission-sheet[data-layout="${submissionLayout.id}"] .submission-document`)}
+    @media print { .submission-sheet[data-layout] { padding: 0; margin: 0; width: auto; min-height: 0; box-shadow: none; } }
+  ` : "";
+  const pageRule = data.isSubmission && submissionLayout
+    ? `@page { ${submissionLayout.page} @top-left { content: none; } @top-right { content: none; } @bottom-left { content: none; } @bottom-center { content: none; } @bottom-right { content: none; } }`
+    : data.isSubmission
     ? `
         @page {
           size: A4 portrait; margin: 13mm 0 0 0;
@@ -1752,6 +1774,7 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
         }
       `}</style>
 
+      <style dangerouslySetInnerHTML={{ __html: submissionLayoutCss }} />
       <div className={`print-root ${data.isSubmission ? "submission-flow" : ""}`}>
         <div className="toolbar no-print">
           <span className="toolbar-title">MONTHLY REPORT — {data.isSubmission ? "SUBMISSION" : "INTERNAL"}</span>
@@ -1800,7 +1823,7 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
         )}
 
         {previewData.isSubmission ? (
-          <SubmissionReport reportBody={reportBody} editMode={editMode} onBodyChange={setReportBody} headerLabel={headerLabel} monthlyDeliverables={data.attachments.monthlyDeliverables} />
+          <SubmissionReport reportBody={reportBody} editMode={editMode} onBodyChange={setReportBody} headerLabel={headerLabel} monthlyDeliverables={data.attachments.monthlyDeliverables} projectId={data.project.projectId} />
         ) : (
           <>
             <CoverPage data={previewData} />

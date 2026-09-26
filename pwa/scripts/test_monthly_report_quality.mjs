@@ -183,14 +183,14 @@ assert.match(printClient, /\.submission-sheet \.md-body h2/, "提出版の章見
 assert.match(printClient, /function isStandaloneHorizontalRule/, "提出版表示は既存本文のMarkdown水平線を描画しない");
 assert.doesNotMatch(printClient, /@page submission/, "named @page規則を作らず、既定@page 1本をisSubmissionで切り替える");
 assert.doesNotMatch(printClient, /page:\s*submission/, "page:submissionのCSSプロパティを本文外要素にも残さない (社内版の既定@pageに取り残され、末尾に空白ページが出る事故があった)");
-assert.match(printClient, /data\.isSubmission\s*\n\s*\?\s*`\s*\n\s*@page \{\s*\n\s*size: A4 portrait; margin: 13mm 0 0 0;/, "提出版は既定@pageの余白を上部の共通ヘッダー分だけへ切り替える");
+assert.match(printClient, /data\.isSubmission && submissionLayout/, "提出版は前月実提出のPJ固有書式があればその余白・ヘッダーを優先する");
 assert.match(printClient, /<style dangerouslySetInnerHTML=\{\{ __html: pageRule \}\} \/>/, "条件分岐した@page規則をstyled-jsxの補間で失わず、通常のstyle要素として出力する");
 assert.match(printClient, /@top-left \{[\s\S]*?content: "\$\{headerLabel\}"/, "提出版の左ヘッダーに提出先と対象月を出す");
 assert.match(printClient, /@top-right \{[\s\S]*?content: "取扱注意 \/ Confidential"/, "提出版の右ヘッダーに取扱区分を出す");
 assert.match(printClient, /@bottom-left \{ content: none; \}\s*\n\s*@bottom-center \{ content: none; \}\s*\n\s*@bottom-right \{ content: none; \}/, "提出版の既定@pageはフッターとページ番号を出さない");
 assert.match(printClient, /:\s*`\s*\n\s*@page \{\s*\n\s*size: A4 portrait; margin: 14mm 14mm 18mm 14mm;[\s\S]*?counter\(page\) " \/ " counter\(pages\)/, "社内版の既定@pageは従来のフッター・ページ番号を維持する");
 assert.match(printClient, /\.submission-flow \{ min-height: auto; \}/, "提出版の親要素はnamed pageを持たず、既定@pageの切り替えだけに依存する");
-assert.match(printClient, /<SubmissionReport reportBody=\{reportBody\}[\s\S]*headerLabel=\{headerLabel\}/, "提出版の画面プレビューにも共通ヘッダーを渡す");
+assert.match(printClient, /<SubmissionReport reportBody=\{reportBody\}[\s\S]*projectId=\{data.project.projectId\}/, "提出版の画面プレビューにもPJ固有書式の識別子を渡す");
 assert.match(printClient, /document\.title = ""[\s\S]*beforeprint/, "印刷開始時はAMD OSのページタイトルをブラウザヘッダーへ渡さない");
 assert.match(printClient, /font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo"/, "提出版の丸数字を6月実提出版と同じ日本語フォントで描画する");
 assert.match(printRoute, /は\|が\|を\|も\|へ\|の\|から\|より/, "提出版氏名置換は所有の助詞「の」も扱う");

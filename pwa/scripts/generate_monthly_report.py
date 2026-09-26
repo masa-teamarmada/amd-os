@@ -12,6 +12,8 @@ Chrome headless を使う。ページ内で明示的な改頁 CSS ( page-break-b
       --markdown <external markdown path or -> --output-dir <local out dir>
 """
 import argparse
+import json
+import re
 import shutil
 import subprocess
 import sys
@@ -47,7 +49,38 @@ def find_chrome() -> str:
     raise RuntimeError("Chrome/Chromium headless バイナリが見つかりません")
 
 
-def markdown_to_html(markdown_path: Optional[Path], html_path: Path, markdown_text: Optional[str] = None) -> None:
+def markdown_to_html(markdown_path: Optional[Path], html_path: Path, markdown_text: Optional[str] = None, project_id: Optional[str] = None) -> None:
+    layouts = json.loads((Path(__file__).resolve().parents[1] / "src/lib/monthly-report-layouts.json").read_text())
+    layout = layouts.get(project_id)
+    if layout:
+        source_text = markdown_text if markdown_text is not None else markdown_path.read_text(encoding="utf-8")
+        fragment = subprocess.check_output(["pandoc", "-f", "markdown", "-t", "html", "--wrap=none"], input=source_text, text=True)
+        if project_id == "p25" or layout.get("renderer") == "legacy":
+            fragment = re.sub(r"<colgroup>.*?</colgroup>\s*", "", fragment, flags=re.S)
+        table_index = 0
+        def annotate_table(match):
+            nonlocal table_index
+            table_index += 1
+            table = match.group(0)
+            head = re.search(r"<thead>(.*?)</thead>", table, re.S)
+            columns = len(re.findall(r"<th(?:\s|>)", head[1])) if head else 0
+            return table.replace("<table", f'<table data-report-table="{table_index}" data-report-columns="{columns}"', 1)
+        fragment = re.sub(r"<table.*?</table>", annotate_table, fragment, flags=re.S)
+        css = layout["css"].replace("$DOC", ".submission-document")
+        page = layout["page"]
+        if layout.get("renderer") == "legacy":
+            recipient = re.search(r"^\|\s*提出先\s*\|\s*(.*?)\s*\|", source_text, re.M)
+            month = re.search(r"^\|\s*作成日\s*\|\s*(\d{4}年\d{1,2}月)", source_text, re.M)
+            label = (recipient[1].replace(" 御中", "") if recipient else "") + " / 月次報告 " + (month[1] if month else "")
+            page += '@top-left { content: ' + json.dumps(label, ensure_ascii=False) + '; padding-left:14mm; font-family: sans-serif; font-size:8pt; color:#475569; } @top-right { content:"取扱注意 / Confidential"; padding-right:14mm; font-size:8pt; color:#b91c1c; }'
+            title = re.search(r"<h1.*?</h1>", fragment, re.S)
+            heading = title[0].replace("<h1", '<h1 class="submission-title"', 1) if title else ""
+            fragment = fragment.replace(title[0], "", 1) if title else fragment
+            fragment = re.sub(r"<table(.*?)>(.*?)</table>", r'<div class="md-table-wrap"><table class="md-table"\1>\2</table></div>', fragment, flags=re.S)
+            fragment = re.sub(r'(<h[2-6]\b.*?</h[2-6]>|<p\b.*?</p>|<div class="md-table-wrap">.*?</div>|<ul\b.*?</ul>|<ol\b.*?</ol>)', r'<section class="report-editable-block"><div class="md-body">\1</div></section>', fragment, flags=re.S)
+            fragment = heading + '<div class="md-body">' + fragment + '</div>'
+        html_path.write_text('<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;background:white;}@page{' + page + '}' + css + '</style></head><body><article class="submission-document">' + fragment + '</article></body></html>', encoding="utf-8")
+        return
     source = "-" if markdown_text is not None else str(markdown_path)
     subprocess.run(
         ["pandoc", source, "-f", "markdown", "-t", "html", "-o", str(html_path), "--standalone"],
@@ -99,7 +132,7 @@ def main():
     html_path = output_dir / f"{base_name}.html"
     pdf_path = output_dir / f"{base_name}.pdf"
 
-    markdown_to_html(markdown_path, html_path, markdown_text)
+    markdown_to_html(markdown_path, html_path, markdown_text, args.project_id)
     chrome_bin = find_chrome()
     html_to_pdf(chrome_bin, html_path, pdf_path)
 
