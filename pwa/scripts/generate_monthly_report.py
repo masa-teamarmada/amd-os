@@ -72,7 +72,7 @@ def markdown_to_html(markdown_path: Optional[Path], html_path: Path, markdown_te
             recipient = re.search(r"^\|\s*提出先\s*\|\s*(.*?)\s*\|", source_text, re.M)
             month = re.search(r"^\|\s*作成日\s*\|\s*(\d{4}年\d{1,2}月)", source_text, re.M)
             label = (recipient[1].replace(" 御中", "") if recipient else "") + " / 月次報告 " + (month[1] if month else "")
-            page += '@top-left { content: ' + json.dumps(label, ensure_ascii=False) + '; padding-left:14mm; font-family: sans-serif; font-size:8pt; color:#475569; } @top-right { content:"取扱注意 / Confidential"; padding-right:14mm; font-size:8pt; color:#b91c1c; }'
+            page += '@top-left { content: ' + json.dumps(label, ensure_ascii=False) + '; padding-left:14mm; text-align:left; font-family:"Noto Sans JP",sans-serif; font-size:8pt; color:#475569; vertical-align:middle; } @top-right { content:"取扱注意 / Confidential"; padding-right:14mm; text-align:right; font-family:"Work Sans",sans-serif; font-size:8pt; color:#b91c1c; letter-spacing:0.1em; vertical-align:middle; }'
             title = re.search(r"<h1.*?</h1>", fragment, re.S)
             heading = title[0].replace("<h1", '<h1 class="submission-title"', 1) if title else ""
             fragment = fragment.replace(title[0], "", 1) if title else fragment

@@ -184,6 +184,10 @@ assert.match(printClient, /function isStandaloneHorizontalRule/, "提出版表�
 assert.doesNotMatch(printClient, /@page submission/, "named @page規則を作らず、既定@page 1本をisSubmissionで切り替える");
 assert.doesNotMatch(printClient, /page:\s*submission/, "page:submissionのCSSプロパティを本文外要素にも残さない (社内版の既定@pageに取り残され、末尾に空白ページが出る事故があった)");
 assert.match(printClient, /data\.isSubmission && submissionLayout/, "提出版は前月実提出のPJ固有書式があればその余白・ヘッダーを優先する");
+const reportLayouts = JSON.parse(readFileSync(new URL("../src/lib/monthly-report-layouts.json", import.meta.url), "utf8"));
+assert.equal(reportLayouts.p21.renderer, "legacy", "SOLは愛媛大学への8月実送付添付と同じOS提出ビューを使う");
+assert.match(reportLayouts.p21.reference, /1a05810815d1fd13/, "SOLの校正元はDrive別組版ではなく実送付添付を識別する");
+assert.match(printClient, /layout \? <div className="submission-document">\{document\}<\/div> : document/, "従来提出ビューは改頁で本文がクリップされる余分な包みを追加しない");
 assert.match(printClient, /<style dangerouslySetInnerHTML=\{\{ __html: pageRule \}\} \/>/, "条件分岐した@page規則をstyled-jsxの補間で失わず、通常のstyle要素として出力する");
 assert.match(printClient, /@top-left \{[\s\S]*?content: "\$\{headerLabel\}"/, "提出版の左ヘッダーに提出先と対象月を出す");
 assert.match(printClient, /@top-right \{[\s\S]*?content: "取扱注意 \/ Confidential"/, "提出版の右ヘッダーに取扱区分を出す");

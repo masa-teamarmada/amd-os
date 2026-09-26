@@ -510,9 +510,8 @@ export function SubmissionReport({
 }) {
   const candidateLayout = reportLayouts[projectId as keyof typeof reportLayouts];
   const layout = candidateLayout?.renderer === "markdown" ? candidateLayout : undefined;
-  return (
-    <main className="submission-sheet" data-layout={layout?.id}>
-      <div className={layout ? "submission-document" : undefined}>
+  const document = (
+    <>
       {!layout && <div className="submission-screen-header" aria-hidden="true">
         <span>{headerLabel}</span>
         <span>取扱注意 / Confidential</span>
@@ -523,7 +522,11 @@ export function SubmissionReport({
       ) : (
         <div className="empty">提出用の月次業務報告書本文は未生成です。</div>
       )}
-      </div>
+    </>
+  );
+  return (
+    <main className="submission-sheet" data-layout={layout?.id}>
+      {layout ? <div className="submission-document">{document}</div> : document}
     </main>
   );
 }

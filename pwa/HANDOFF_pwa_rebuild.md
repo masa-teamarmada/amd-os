@@ -58,3 +58,9 @@ SXの8・9月の支払通知・保護状態を正規の支払画面とDBで再�
 - 仕様: `pwa/spec/3-22-goal-tree-plan.md` / `pwa/spec/3-14-monthly-work-agreement-current-spec.md` / `pwa/spec/3-21-question-tree-current-spec.md`
 - 操作: `pwa/manual/2-9-question-tree.md` / `pwa/manual/7-1-reward-calc-spec.md`
 - 事故・運用: `pwa/BUGS.md` / `pwa/spec/5-2-development-operations-current-spec.md`
+
+### 2026-09-26 実送付添付による月次書式の訂正
+
+SOLの8月実提出はGmail message `1a05810815d1fd13` の3ページ添付。Driveの6ページ別組版との校正結果だけで提出書式一致と判定してはいけない。SOLは既存OSの提出ビューを復元。CXのGmail message `1a066ad161464b16` は日付・時間・従事内容の1枚であり、OS章立て版と別様式。ユーザーの基準選択を待ち、未確認の従事時間を推計しない。ZMPの8月実提出月報は未確認。
+
+従来提出ビューは `submission-sheet` 直下の章要素を維持する。改頁する本文を余分なdivで包むと、Chromeの `box-decoration-break:clone` と組み合わさって後続ページの本文がクリップされる。実際のPDF全ページを確認し、抽出文字だけで合格にしない。

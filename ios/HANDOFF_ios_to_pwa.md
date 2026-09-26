@@ -279,3 +279,6 @@ PWAの通常PJ・研究機関PJに「PJ管理 → 月次報告書」を追加。
 - 2026-09-26: 月次提出版のhelper品質ゲートで予定専用章を拒否。ZMPの既存monthly_report_scope設定を提出版対象へ変更。DB schema / iOS・macOS画面の変更なし。
 
 - 2026-09-26: PWAのKUTE/SOL提出版は前月実提出CSSへ復元。ネイティブ画面に変更なし。書式はpwa/src/lib/monthly-report-layouts.jsonを参照し、共通ヘッダーを強制しない。
+# 2026-09-26 PWA月次提出版の実送付書式確認
+
+SOLの提出版は、8/31愛媛大学へ実送付した3ページPDFを基準に従来のOS印刷ビューへ戻した。KUTEは実送付添付とDrive原本の同一性を確認。共有DBの9月SOL PDFリンクは、実送付書式で再生成したPDFへ更新。DBスキーマ・iOS/macOSコードは変更していない。CXのNIMS実送付従事時間表とOS章立て版は別様式で、基準選択を待つ。ネイティブで同じ共有PDFリンクを使う場合も、候補PDFと実送付版を区別する。
