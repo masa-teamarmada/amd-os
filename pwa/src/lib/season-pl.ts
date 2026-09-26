@@ -24,6 +24,7 @@ import {
   type RewardSummary,
 } from "@/lib/reward-summary";
 import { contractBackedClientAmount } from "@/lib/contract-money";
+import type { ProjectParticipationRow } from "@/lib/project-participation";
 import {
   capExtraPointBasisForMilestone,
   regularPointBasisForCycle,
@@ -335,6 +336,7 @@ function buildMonthlySummaries({
   progress,
   responsibilities,
   activeMemberIds,
+  projectMembers,
   companyReserveMemberIds,
   payoutExcludedMemberIds,
   memberMap,
@@ -346,6 +348,7 @@ function buildMonthlySummaries({
   progress: ProgressInput[];
   responsibilities: ResponsibilityInput[];
   activeMemberIds: Set<string>;
+  projectMembers?: ProjectParticipationRow[];
   companyReserveMemberIds: Set<string>;
   payoutExcludedMemberIds: Set<string>;
   memberMap: Record<string, string>;
@@ -364,6 +367,7 @@ function buildMonthlySummaries({
       progress: progress as Parameters<typeof buildRewardSummary>[0]["progress"],
       responsibilities: responsibilities as Parameters<typeof buildRewardSummary>[0]["responsibilities"],
       activeMemberIds,
+      projectMembers,
       companyReserveMemberIds,
       payoutExcludedMemberIds,
       memberMap,
@@ -389,6 +393,7 @@ export function computeSeasonPl({
   responsibilities,
   members,
   activeMemberIds,
+  projectMembers,
 }: {
   planCycle: PlanCycleInput;
   project: ProjectInput | null;
@@ -399,6 +404,7 @@ export function computeSeasonPl({
   members: MemberInput[];
   /** project_members.is_active=true のメンバー集合。未指定なら全員 active 扱い */
   activeMemberIds?: Set<string>;
+  projectMembers?: ProjectParticipationRow[];
 }): SeasonPl {
   const billingsByYm = new Map<string, BillingInput>(billings.map((row) => [row.ym, row]));
   const cycleMonths = cycleMonthsRange(planCycle);
@@ -473,6 +479,7 @@ export function computeSeasonPl({
     progress,
     responsibilities,
     activeMemberIds: effectiveActiveMemberIds,
+    projectMembers,
     companyReserveMemberIds,
     payoutExcludedMemberIds,
     memberMap,

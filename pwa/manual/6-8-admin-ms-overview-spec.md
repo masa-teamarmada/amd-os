@@ -4,6 +4,8 @@
 
 シーズン予実表 (`/admin/season-pl`) が「請求・原資・支払いが閉じているか」の **安全網** なのに対し、こちらは MS 設計そのものの **歪み検知**。実消化 (`milestone_monthly_progress`) と支払確定額は読まず、`plannedShare` ベースの pt 配分と設計額の目安を並べる。
 
+2026-09-26以降、担当pt・メンバー合計は参画期間を反映する。MSを月割りし、各月の参画担当者だけでshareを正規化した設計ptを合計する。担当share自体は過去の分も含む元の設定であり、編集欄には参画終了月を併記する。終了月をまたぐMSの担当ptは、単純な「MS全体pt×share」とは一致しない。実績・確定支払額ではない点は変わらない。
+
 ---
 
 ## 開く場面
@@ -187,7 +189,7 @@ memberDesignYen[m] = Σ over MS of (effectivePoints × share[m] × designUnitYen
 
 再計算結果は ① メトリクスカード 4 枚 (合計pt / 本契約pt / 別財布pt / PJ予算残または不足額) ② 各 MS の pt 比と設計額 ③ 担当 share 行の **担当pt** (`effectivePoints × share`) と **担当設計額** ④ メンバー別 pt 配分バーと設計額 ⑤ ヘッダの pt 表示 にリアルタイムで反映する。
 
-月次 override (`milestone_monthly_contribution_allocations.actual_share`) は読まない (= MS 設計を見る画面なので plannedShare × MS.points だけで計算)。
+月次 override (`milestone_monthly_contribution_allocations.actual_share`) は読まない。設計上の月割りptと参画期間内のplannedShareを使う。
 
 ### 保存導線
 

@@ -23,7 +23,7 @@ import type {
   MsOverviewResponsibility,
   ProjectHealthState,
 } from "@/lib/admin/ms-overview-types";
-import { isCapExtraTag as isCapExtraTagShared } from "@/lib/admin/ms-overview-calc";
+import { isCapExtraTag as isCapExtraTagShared, plannedMemberPointsForMilestone } from "@/lib/admin/ms-overview-calc";
 import { capExtraPointBasisForMilestone, regularPointBasisForCycle, roundPt } from "@/lib/season-point-basis";
 
 export const runtime = "nodejs";
@@ -178,7 +178,7 @@ async function buildOverviewForPlanCycle(
         .eq("is_active", true)
         .order("sort_order"),
       db.from("members").select(MEMBER_SELECT),
-      db.from("project_members").select("member_id, is_active").eq("project_id", projectId),
+      db.from("project_members").select("member_id, is_active, join_ym, leave_ym").eq("project_id", projectId),
       db
         .from("billing_cycles")
         .select(BILLING_SELECT)
@@ -249,6 +249,8 @@ async function buildOverviewForPlanCycle(
     .map((memberId) => ({
       memberId,
       codeName: codeNameByMember.get(memberId) || memberId,
+      joinYm: projectMembersRes.data?.find(row => row.member_id === memberId)?.join_ym ?? null,
+      leaveYm: projectMembersRes.data?.find(row => row.member_id === memberId)?.leave_ym ?? null,
     }))
     .sort((a, b) => a.codeName.localeCompare(b.codeName, "ja"));
 
@@ -308,11 +310,12 @@ async function buildOverviewForPlanCycle(
     const isExtra = isCapExtraTag(ms.tag);
     const designUnitYen = isExtra ? extraDesignUnitYen : regularDesignUnitYen;
     const resps = respByMs.get(ms.milestone_id) ?? [];
+    const memberPoints = plannedMemberPointsForMilestone(msRows.find(row => row.milestoneId === ms.milestone_id)!, projectMembers);
     for (const r of resps) {
       if (!activeMemberIds.has(r.member_id)) continue;
       const share = numberValue(r.share);
       if (share <= 0) continue;
-      const earnedPt = points * share;
+      const earnedPt = memberPoints.get(r.member_id) ?? 0;
       const a = acc.get(r.member_id) ?? { regularPt: 0, extraPt: 0, regularDesignYen: 0, extraDesignYen: 0 };
       if (isExtra) {
         a.extraPt += earnedPt;

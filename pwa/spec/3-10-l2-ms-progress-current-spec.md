@@ -8,6 +8,12 @@
 
 ## 基本契約 (まさ確定 2026-06-12)
 
+### 2026-09-26 追補: 参画期間と報酬
+
+`reward-summary.ts` は従来MSの担当集合を稼働月ごとに `project-participation.ts` で解決する。`is_active !== false`、`join_ym <= ym <= leave_ym`（null端は無制限）を満たす担当者で既存shareを正規化する。月別計算、将来原価、シーズン予実で同じ参画行を渡す。未払繰越の対象集合には終了者を残す。検収済み成果物の固定配分台帳は書き換えない。
+
+SOL（p21）の202610停止は `scripts/apply_sol_participation_stop_202610.mts` の限定保守経路で適用する。既定は読取検算、`--apply` は配信SHA一致・過去月の計算一致・停止後ptゼロを要求し、対象2人の終了月と定例MSの期間分割だけを更新する。変更履歴は `milestone_change_events` に記録し、報酬キャッシュ更新は202610以降だけ。9月以前の全billing行・進捗行・share原本・契約予算を保持する。定例の新行は `tag=routine` とし、成果物検収方式へ混入させない。
+
 1. **デフォルト月割り (アンカー方式)**: N か月で完了する計画の MS は 1 か月あたり 100/N % の累積進捗がデフォルトで自動的に入る。**その月より前に PM 確定行 (アンカー) があれば、按分の起点はアンカー値**: `デフォルト(m) = min(100, アンカー% + (100/N) × アンカーからの経過月数)`。例: 3か月MSで 202605 確定 15% なら 202606 デフォルト = 15 + 33.3 = 48.3%。アンカーが無い MS は従来按分 (最終月 100%)。計画開始前のアンカーは `period_start_ym` の直前月に丸め、開始月が一気に 100% へ飛ばないようにする。計算正本は `pwa/src/lib/ms-schedule-shared.ts` の `anchoredExpectedCumPctForYm` (アンカー無し時は `expectedCumPctForYm` に一致)。
 2. **AI は提案のみ**: LLM 推定は `milestone_monthly_progress` を直接書かない。デフォルトとの乖離が ±10pt 以上のときだけ `ms_progress_revisions` (status='pending') に提案を積み、`l2_notifications` (l2_kind='ms_progress_revision') で通知する。
 3. **まさが認めない限りデフォルト通り**: revision が confirm されるまで、表示も報酬計算もデフォルト月割り値が有効。
