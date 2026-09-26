@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { activeProjectMemberIdsForYm, type ProjectParticipationRow } from "@/lib/project-participation";
 import {
   PM_LOCKED_PROGRESS_SOURCES,
   effectiveCumPctForYm,
@@ -1318,6 +1319,7 @@ export function buildRewardSummaryUncapped({
   progress,
   responsibilities,
   activeMemberIds,
+  projectMembers,
   memberMap,
   billing,
   planCycle,
@@ -1330,6 +1332,7 @@ export function buildRewardSummaryUncapped({
   progress: ProgressRow[];
   responsibilities: ResponsibilityRow[];
   activeMemberIds?: Set<string>;
+  projectMembers?: ProjectParticipationRow[];
   memberMap: Record<string, string>;
   billing: BillingRow;
   planCycle: PlanCycleRow | null;
@@ -1397,7 +1400,7 @@ export function buildRewardSummaryUncapped({
       ym,
       milestoneId: ms.milestone_id,
       responsibilities,
-      activeMemberIds,
+      activeMemberIds: projectMembers ? activeProjectMemberIdsForYm(projectMembers, ym) : activeMemberIds,
     }).filter((resp) => resp.share > 0);
     for (const resp of resps) {
       const earnedPt = Math.round(msConsumedPt * resp.share * 100) / 100;
@@ -1474,6 +1477,7 @@ export function buildRewardSummary({
   progress,
   responsibilities,
   activeMemberIds,
+  projectMembers,
   companyReserveMemberIds,
   payoutExcludedMemberIds,
   memberMap,
@@ -1489,6 +1493,7 @@ export function buildRewardSummary({
   progress: ProgressRow[];
   responsibilities: ResponsibilityRow[];
   activeMemberIds?: Set<string>;
+  projectMembers?: ProjectParticipationRow[];
   companyReserveMemberIds?: Set<string>;
   payoutExcludedMemberIds?: Set<string>;
   memberMap: Record<string, string>;
@@ -1542,6 +1547,7 @@ export function buildRewardSummary({
       progress,
       responsibilities,
       activeMemberIds,
+      projectMembers,
       memberMap,
       billing: billingForMonth,
       planCycle,
@@ -1772,7 +1778,7 @@ async function computeRewardSummaryForCycle(
       .order("ym", { ascending: true }),
     db
       .from("project_members")
-      .select("member_id, is_active")
+      .select("member_id, is_active, join_ym, leave_ym")
       .eq("project_id", projectId),
   ]);
   if (progressRes.error) throw progressRes.error;
@@ -1821,6 +1827,7 @@ async function computeRewardSummaryForCycle(
     progress: (progressRes.data ?? []) as ProgressRow[],
     responsibilities,
     activeMemberIds,
+    projectMembers: (projectMembersRes.data ?? []) as ProjectParticipationRow[],
     companyReserveMemberIds,
     memberMap,
     billing,
@@ -1979,7 +1986,7 @@ export async function computeForwardUncappedMemberCosts(
       .order("ym", { ascending: true }),
     db
       .from("project_members")
-      .select("member_id, is_active")
+      .select("member_id, is_active, join_ym, leave_ym")
       .eq("project_id", projectId),
   ]);
   if (progressRes.error) throw progressRes.error;
@@ -2012,6 +2019,7 @@ export async function computeForwardUncappedMemberCosts(
       progress,
       responsibilities,
       activeMemberIds,
+      projectMembers: (projectMembersRes.data ?? []) as ProjectParticipationRow[],
       memberMap,
       billing,
       planCycle,
@@ -2177,7 +2185,7 @@ export async function computeForwardCappedMemberCosts(
       .order("ym", { ascending: true }),
     db
       .from("project_members")
-      .select("member_id, is_active")
+      .select("member_id, is_active, join_ym, leave_ym")
       .eq("project_id", projectId),
   ]);
   if (progressRes.error) throw progressRes.error;
@@ -2223,6 +2231,7 @@ export async function computeForwardCappedMemberCosts(
       progress,
       responsibilities,
       activeMemberIds,
+      projectMembers: (projectMembersRes.data ?? []) as ProjectParticipationRow[],
       companyReserveMemberIds,
       memberMap,
       billing,

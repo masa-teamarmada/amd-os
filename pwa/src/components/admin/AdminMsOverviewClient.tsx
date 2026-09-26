@@ -11,6 +11,7 @@ import {
   effectiveEditableMilestonePoints,
   isCapExtraTag,
   recomputeMsOverview,
+  plannedMemberPointsForMilestone,
   sliderRange,
   toEditableMilestones,
   type EditableMilestoneInput,
@@ -419,7 +420,7 @@ function MsEditorRow({
               {projectMembers.map((member) => {
                 const resp = responsibilityByMember.get(member.memberId);
                 const sharePct = Math.round((resp?.share ?? 0) * 1000) / 10;
-                const memberPt = Math.round(displayPoints * (resp?.share ?? 0) * 100) / 100;
+                const memberPt = Math.round((plannedMemberPointsForMilestone(current, projectMembers).get(member.memberId) ?? 0) * 100) / 100;
                 const memberDesignYen = designAmountForEditableRow(
                   current,
                   memberPt,
@@ -435,7 +436,7 @@ function MsEditorRow({
                     key={member.memberId}
                     className="grid grid-cols-[88px_64px_76px_92px_112px_minmax(180px,360px)] items-center gap-1.5 border-t border-border/50 px-1 py-1.5"
                   >
-                    <span className="truncate text-[12px]" title={member.codeName}>{member.codeName}</span>
+                    <span className="truncate text-[12px]" title={member.codeName}>{member.codeName}{member.leaveYm && <span className="block text-[10px] text-muted-foreground">〜{fmtYm(member.leaveYm)}</span>}</span>
                     <input
                       type="number"
                       min={0}
@@ -461,7 +462,7 @@ function MsEditorRow({
                         "rounded bg-muted/35 px-2 py-1 text-right text-[12px] tabular-nums " +
                         (memberPt > 0 ? "text-foreground" : "text-muted-foreground")
                       }
-                      title={`${member.codeName}: ${fmtPt(displayPoints)}pt × ${fmtShare(resp?.share ?? 0)}`}
+                      title={`${member.codeName}: 参画期間内の設計配分 ${fmtPt(memberPt)}pt`}
                       aria-label={`${member.codeName} 担当pt`}
                     >
                       {fmtPt(memberPt)}pt
@@ -1112,6 +1113,7 @@ function BudgetImpactCell({
 
 function AllMsPointSliders({
   rows,
+  projectMembers,
   pointSummary,
   pointRange,
   regularPointBasis,
@@ -1124,6 +1126,7 @@ function AllMsPointSliders({
   onRemove,
 }: {
   rows: EditableMilestoneInput[];
+  projectMembers: MsOverviewPlanCycle["projectMembers"];
   pointSummary: PointSummary;
   pointRange: ReturnType<typeof sliderRange>;
   regularPointBasis: number;
@@ -1284,7 +1287,7 @@ function AllMsPointSliders({
                   ) : (
                     <div className="flex flex-wrap gap-1">
                       {effortRows.slice(0, 3).map((resp) => {
-                        const memberPt = Math.round(displayPoints * resp.share * 100) / 100;
+                        const memberPt = Math.round((plannedMemberPointsForMilestone(row, projectMembers).get(resp.memberId) ?? 0) * 100) / 100;
                         const memberDesignYen = designAmountForEditableRow(
                           row,
                           memberPt,
@@ -1407,6 +1410,7 @@ function PlanCycleBlock({
   // ---- リアルタイム再計算 -------------------------------------------------
   const recomputed = useMemo(() => {
     return recomputeMsOverview({
+      projectMembers: cycle.projectMembers,
       regularPointBasis: cycle.regularPoints,
       regularDesignBudgetYen: cycle.budgetYen,
       regularDesignUnitYen: cycle.regularDesignUnitYen,
@@ -1416,6 +1420,7 @@ function PlanCycleBlock({
     });
   }, [
     activeEditing,
+    cycle.projectMembers,
     cycle.budgetYen,
     cycle.extraDesignBudgetYen,
     cycle.extraDesignUnitYen,
@@ -1813,6 +1818,7 @@ function PlanCycleBlock({
                     />
                     <AllMsPointSliders
                       rows={activeEditing}
+                      projectMembers={cycle.projectMembers}
                       pointSummary={pointSummary}
                       pointRange={pointSliderRange}
                       regularPointBasis={displayRegularPoints}

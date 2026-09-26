@@ -14,6 +14,8 @@ export type MsOverviewResponsibility = {
 export type MsOverviewProjectMember = {
   memberId: string;
   codeName: string;
+  joinYm?: string | null;
+  leaveYm?: string | null;
 };
 
 export type MsOverviewMilestone = {

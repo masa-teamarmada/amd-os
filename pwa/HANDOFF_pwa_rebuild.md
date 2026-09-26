@@ -1,5 +1,14 @@
 # HANDOFF - AMD OS PWA
 
+## 2026-09-26 — SOLの10月以降業務停止・pt配分
+
+- まさが前日にSOL Slackでかる・ちこへ停止を伝えたとの明示指示。新規委託業務は作らず、年明けの自動復帰も設定しない。
+- PWA v3.145.9は参画終了月を報酬計算・将来原価・シーズン予実・MS設計ptへ接続する。2人は `is_active=true` を保持して `leave_ym=202609`。定例会は旧行4〜9月3.5pt・かる、新行10〜3月3.5pt・まさ。コスト試算/DDの将来shareは参画期間でまさへ正規化。総MS107pt、予算分母120pt、契約予算は変更しない。
+- 実データ適用は `pwa/scripts/apply_sol_participation_stop_202610.mts`。既定は読取検算。`--apply` は `SOL_PT_EXPECTED_SHA` と本番配信SHAの一致が必須。既適用/部分適用時は再実行せず、`milestone_change_events.metadata_json.operation=sol_participation_stop_202610` の `state` と実データを照合する。
+- 9月以前のbilling全行と進捗行は非変更。10月以降の報酬だけ再計算し、停止後新規ptゼロ・過去繰越の支払継続・保存値一致を検査する。通知・契約合意・振込は行わない。
+- 他プラットフォーム: DB列追加なし。iOS/macOS/Androidの独自計算・終了月表示は未移植。共有正本は `ios/DESIGN.md`、`manual/7-1`、`manual/6-8`、`spec/3-10`。BZM/modelの理論・パラメータは変更なし、同期対象外。manual/spec附則は同時更新。
+- 作業は最新origin/mainからの一時clean clone。元checkoutの未push3件・dirty変更は触らない。
+
 - 最終更新: 2026-09-25 JST
 
 ## 2026-09-25 追記 — 支払通知書の立替採用

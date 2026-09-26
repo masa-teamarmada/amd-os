@@ -1363,7 +1363,7 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
   const submissionLayout = candidateLayout?.renderer === "markdown" ? candidateLayout : undefined;
   const submissionLayoutCss = submissionLayout ? `
     .submission-sheet[data-layout] { padding: ${submissionLayout.screenPadding}; }
-    .submission-sheet[data-layout] .submission-pieces, .submission-sheet[data-layout] .report-editable-block { display: contents; }
+    .submission-sheet[data-layout] .submission-pieces, .submission-sheet[data-layout] .report-editable-block:not(.is-editable) { display: contents; }
     ${submissionLayout.css.replaceAll("$DOC", `.submission-sheet[data-layout="${submissionLayout.id}"] .submission-document`)}
     @media print { .submission-sheet[data-layout] { padding: 0; margin: 0; width: auto; min-height: 0; box-shadow: none; } }
   ` : "";

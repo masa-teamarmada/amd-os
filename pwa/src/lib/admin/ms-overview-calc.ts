@@ -11,14 +11,14 @@
  * 正本式:
  *   regularPts   = シーズン期間の月数 × 10pt
  *   extraPts     = Σ(cap_extra MS の points)
- *   memberPt[m]  = Σ over MS of (MS.points × share[m])
+ *   memberPt[m]  = Σ over MS・月 of (月割りpt × 参画期間内のshare[m])
  *   designYen    = 原資 × pt比。表示用に丸めた 1pt 単価から逆算しない。
  *
- * 月按分は無視 (= MS 設計レビュー画面なので plannedShare × points だけで十分)。
+ * 参画開始・終了月を含め、担当期間外を除いた設計配分を表示する。
  * `milestone_monthly_contribution_allocations.actual_share` は読まない (= 実消化を見ない)。
  */
 
-import type { MsOverviewMemberPointTotal, MsOverviewMilestone, MsOverviewPlanCycle } from "./ms-overview-types";
+import type { MsOverviewMemberPointTotal, MsOverviewMilestone, MsOverviewPlanCycle, MsOverviewProjectMember } from "./ms-overview-types";
 import { capExtraPointBasisForMilestone, roundPt } from "@/lib/season-point-basis";
 
 // season-pl.ts の CAP_EXTRA_MILESTONE_TAGS と完全一致させる。
@@ -58,6 +58,7 @@ export type EditableMilestoneInput = {
 };
 
 export type RecomputeInput = {
+  projectMembers?: MsOverviewProjectMember[];
   /** 本契約 pt 分母 = シーズン期間の月数 × 10pt */
   regularPointBasis: number;
   /** 本契約の設計原資。 */
@@ -108,6 +109,35 @@ export function effectiveEditableMilestonePoints(ms: EffectiveMilestonePointsInp
   return roundPt(Math.max(0, safeNumber(ms.points)));
 }
 
+/** 設計上の月割りptを、その月に参画している担当者へ配分する。実績・支払額は扱わない。 */
+export function plannedMemberPointsForMilestone(
+  ms: Pick<EditableMilestoneInput, "points" | "isCapExtra" | "periodStartYm" | "targetYm" | "responsibilities">,
+  members?: MsOverviewProjectMember[],
+): Map<string, number> {
+  const points = effectiveEditableMilestonePoints(ms);
+  const result = new Map<string, number>();
+  const monthIndex = (ym: string) => Number(ym.slice(0, 4)) * 12 + Number(ym.slice(4)) - 1;
+  const start = ms.periodStartYm && /^\d{6}$/.test(ms.periodStartYm) ? monthIndex(ms.periodStartYm) : null;
+  const end = ms.targetYm && /^\d{6}$/.test(ms.targetYm) ? monthIndex(ms.targetYm) : null;
+  const byId = new Map(members?.map(m => [m.memberId, m]));
+  const count = start !== null && end !== null && end >= start ? end - start + 1 : 1;
+  for (let i = 0; i < count; i++) {
+    const month = start === null ? null : start + i;
+    const ym = month === null ? null : `${Math.floor(month / 12)}${String(month % 12 + 1).padStart(2, "0")}`;
+    const positive = ms.responsibilities.filter(r => r.share > 0);
+    const active = positive.filter(r => {
+      const member = byId.get(r.memberId);
+      return !ym || !member || ((!member.joinYm || ym >= member.joinYm) && (!member.leaveYm || ym <= member.leaveYm));
+    });
+    const total = active.reduce((sum, r) => sum + r.share, 0);
+    for (const r of active) {
+      const share = active.length !== positive.length && total > 0 ? r.share / total : r.share;
+      result.set(r.memberId, (result.get(r.memberId) ?? 0) + points / count * share);
+    }
+  }
+  return result;
+}
+
 /**
  * MS Overview のリアルタイム計算。
  * editable に渡す points は「編集中の最新値」。memberPointTotals 並びは route の
@@ -134,12 +164,12 @@ export function recomputeMsOverview(input: RecomputeInput): RecomputeResult {
   const acc = new Map<string, Acc>();
 
   for (const ms of input.milestones) {
-    const points = effectiveEditableMilestonePoints(ms);
     const designUnitYen = ms.isCapExtra ? extraDesignUnitYen : regularDesignUnitYen;
+    const memberPoints = plannedMemberPointsForMilestone(ms, input.projectMembers);
     for (const r of ms.responsibilities) {
       const share = safeNumber(r.share);
       if (share <= 0) continue;
-      const earnedPt = points * share;
+      const earnedPt = memberPoints.get(r.memberId) ?? 0;
       if (earnedPt <= 0) continue;
       const a = acc.get(r.memberId) ?? {
         regularPt: 0,

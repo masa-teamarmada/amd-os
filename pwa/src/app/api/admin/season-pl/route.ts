@@ -72,7 +72,7 @@ export async function computeForPlanCycle(db: SupabaseClient, planCycle: PlanCyc
       .eq("is_active", true)
       .order("sort_order"),
     db.from("members").select(MEMBER_SELECT),
-    db.from("project_members").select("member_id, is_active").eq("project_id", projectId),
+    db.from("project_members").select("member_id, is_active, join_ym, leave_ym").eq("project_id", projectId),
   ]);
   if (projectRes.error) throw projectRes.error;
   if (billingRes.error) throw billingRes.error;
@@ -122,6 +122,7 @@ export async function computeForPlanCycle(db: SupabaseClient, planCycle: PlanCyc
     responsibilities: (responsibilitiesRes.data ?? []) as ResponsibilityRow[],
     members,
     activeMemberIds,
+    projectMembers: projectMembersRes.data ?? [],
   });
 }
 
