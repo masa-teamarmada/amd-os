@@ -285,3 +285,9 @@ scope は `/admin/projects` の「月報 scope」列でまさが編集可能。
 DBの前月版が提出後の修正を含まない場合、同じPJ・直前月の実提出Drive原本を取得し、`reference_source="submitted_drive"`、`reference_source_url`、`reference_project_id`、`reference_ym`、`reference_body_md`を明示する。保存helperもvalidatorと同じ原本を参照し、DBの旧構造で判定し直さない。本文の品質検査・書式比較は省略せず、他PJや別月を拒否する。KUTEは9/6確定の6章構成を継承し、第三領域、その他活動、予定専用章を復活させない。
 
 印刷ページのframe制約はこのrouteだけ`SAMEORIGIN`・`frame-ancestors self`にし、認証済みOSからの埋め込みを許可する。管理者認証は維持し、他サイトからの埋め込みは許可しない。
+
+### 2026-09-26 提出版の実績範囲と生成対象
+
+提出版には当月の実施・確認済みの判断・現在の状態を記載し、予定専用章は設けない。前月原本に「来月以降の予定」「来月の予定」「今後の予定」「次月の予定」がある場合、その章の見出しと所属表だけを比較対象から除外する。残る見出し・表・固定行・末尾定型文の一致は引き続き必須。前月原本自体は改変しない。
+
+ZMP（p19）もSOL・CX・KUTEと同じく `monthly_report_scope=internal_and_external` を対象設定とする。設定変更は非LLM helper `update-projects` の許可フィールドで行い、値は既存の3種類のみ許可する。初回の提出版書式は人が承認したseedを使う。DBスキーマとネイティブ画面は変更しない。

@@ -63,7 +63,7 @@ function externalReport({ short = false } = {}) {
     "6. 体制および打合せ実施記録",
     "7. 主要成果物",
     "8. その他活動",
-    "9. 来月以降の予定",
+    "9. 継続協議事項",
   ];
   const paragraph = short ? "実施内容を整理した。" : "当月の証跡を業務領域ごとに統合し、経緯、実施内容、判断、未確定事項、次の工程が連続して理解できる報告文として整理した。".repeat(8);
   return [
@@ -113,7 +113,7 @@ function sxReport(month) {
     `## 主な対外連携の方針整理\n\n${prose}`,
     `## 主要な打合せ実施記録\n\n| 日時 | 打合せ名 | 形式 |\n|---|---|---|\n| ${monthLabel}10日 | 定例打合せ | オンライン |`,
     `## 主要成果物\n\n| 提示・共有日 | 成果物名 |\n|---|---|\n| ${monthLabel}20日 | 当月資料 |`,
-    `## 来月以降の予定\n\n| 項目 | ${closingDate} |\n|---|---|\n| 継続業務 | ${prose} |\n\n${prose}`,
+    `## 継続協議事項\n\n| 項目 | ${closingDate} |\n|---|---|\n| 継続業務 | ${prose} |\n\n${prose}`,
     "以上のとおり報告する。",
   ].join("\n\n");
 }
@@ -134,6 +134,12 @@ assert.equal(validateExternal(externalReport(), { formatSeedApproved: true }).ok
 assert.equal(validateExternal(externalReport({ short: true }), { formatSeedApproved: true }).ok, false, "短い要約だけの提出版は落ちる");
 assert.equal(validateExternal(externalReport()).ok, false, "直前月referenceもseed承認もない提出版は落ちる");
 
+const legacyWithPlans = sxReport(6).replace("## 継続協議事項", "## 来月以降の予定");
+const withoutPlans = sxReport(7).replace(/## 継続協議事項[\s\S]*?(?=以上のとおり報告する。)/, "");
+assert.equal(validateExternal(withoutPlans, { reference: legacyWithPlans }).ok, true, "旧提出版の予定専用章だけを除外しても残る書式は継承できる");
+assert.equal(validateExternal(legacyWithPlans, { formatSeedApproved: true }).ok, false, "提出版の予定専用章はseed承認があっても拒否する");
+const damagedWithoutPlans = withoutPlans.replace("## ①技術経営", "## 別領域");
+assert.equal(validateExternal(damagedWithoutPlans, { reference: legacyWithPlans }).ok, false, "予定章の除外は他の書式変更を許可しない");
 const sxJuneReference = sxReport(6);
 const sxJulySameFormat = validateExternal(sxReport(7), { reference: sxJuneReference });
 assert.equal(sxJulySameFormat.ok, true, `SXは日付と当月内容を更新しても6月の構造を継承すれば通る: ${JSON.stringify(sxJulySameFormat)}`);

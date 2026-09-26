@@ -2294,6 +2294,10 @@ function normalizeH2(text) {
   return normalized;
 }
 
+function isFutureOnlyReportHeading(heading) {
+  return /^(?:来月(?:以降)?|今後|次月)の予定$/.test(String(heading || ""));
+}
+
 function extractReportH1(content) {
   const m = /^[\t ]*#[\t ]+([^\n]+)$/mu.exec(content || "");
   return m ? normalizeStructureText(m[1]) : "";
@@ -2383,13 +2387,13 @@ function compareExternalReportStructure(candidateContent, referenceContent) {
   const candHeadings = extractReportH2Headings(candidateContent);
   const refHeadings = extractReportH2Headings(referenceContent);
   const candSeq = candHeadings.map((h) => h.normalized);
-  const refSeq = refHeadings.map((h) => h.normalized);
+  const refSeq = refHeadings.filter((h) => !isFutureOnlyReportHeading(h.normalized)).map((h) => h.normalized);
   if (!sameSequence(candSeq, refSeq)) {
     diffs.push(`主要見出し(H2)の構成・順序が前月提出版と異なります: [${candSeq.join(" / ")}] != [${refSeq.join(" / ")}]`);
   }
 
   const candTables = assignTableSections(extractMarkdownTables(candidateContent), candHeadings);
-  const refTables = assignTableSections(extractMarkdownTables(referenceContent), refHeadings);
+  const refTables = assignTableSections(extractMarkdownTables(referenceContent), refHeadings).filter((table) => !isFutureOnlyReportHeading(table.section));
   if (candTables.length !== refTables.length) {
     diffs.push(`表の数が前月提出版と異なります (${candTables.length}表 != ${refTables.length}表)`);
   }
@@ -2455,6 +2459,9 @@ function validateExternalMonthlyReportContent(content, referenceBody, { formatSe
     errors.push("先頭見出し「# 月次業務報告書」がありません");
   }
   const h2Count = (content.match(/^##\s+/gm) || []).length;
+  if (extractReportH2Headings(content).some((heading) => isFutureOnlyReportHeading(heading.normalized))) {
+    errors.push("提出版に予定専用の章を設けないでください。当月の実施・判断・現在の状態だけを記載してください");
+  }
   const hasReference = typeof referenceBody === "string" && referenceBody.trim().length > 0;
   if (!hasReference && !formatSeedApproved) {
     errors.push("直前月の提出版フォーマットがありません。初回は人が承認したseedを登録してください");
@@ -2569,6 +2576,7 @@ async function upsertMonthlyReportsExternal(items) {
 }
 
 const PROJECT_PATCH_ALLOWLIST = new Set([
+  "monthly_report_scope",
   "report_emails",
   "slack_channel_id",
   "drive_folder_id",
@@ -2590,10 +2598,13 @@ async function updateProjectPatches(items) {
       if (!PROJECT_PATCH_ALLOWLIST.has(key)) {
         throw new Error(`projectPatches field not allowlisted: ${key}`);
       }
+      if (key === "monthly_report_scope" && !["none", "internal_only", "internal_and_external"].includes(value)) {
+        throw new Error("monthly_report_scope must be none, internal_only, or internal_and_external");
+      }
       body[key] = value;
     }
     if (!Object.keys(body).length) throw new Error(`projectPatches empty patch: ${JSON.stringify(item)}`);
-    const updated = await requestJson(rest("projects", `project_id=eq.${enc(projectId)}&select=project_id,project_name,report_emails,slack_channel_id,drive_folder_id,start_ym,end_ym,fee_type,fee_amount,status`), {
+    const updated = await requestJson(rest("projects", `project_id=eq.${enc(projectId)}&select=project_id,project_name,monthly_report_scope,report_emails,slack_channel_id,drive_folder_id,start_ym,end_ym,fee_type,fee_amount,status`), {
       method: "PATCH",
       headers: restHeaders({ prefer: "return=representation" }),
       body,
