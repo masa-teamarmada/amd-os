@@ -26,6 +26,7 @@ export interface CapitalPlanMatrixProps {
   onChangeCalculationBasis: (eventId: string, basis: CalculationBasis) => void;
   onAddHolder: (name?: string) => void;
   onAddEvent: () => void;
+  onRenameHolder: (holderId: string, name: string) => void;
 }
 
 const HOLDER_PALETTE = [
@@ -159,7 +160,9 @@ function holderSharesActionable(event: CapitalEvent): boolean {
 const inputBaseClass =
   'w-full min-h-[44px] md:min-h-[36px] bg-transparent px-1.5 py-1 text-right text-[13px] tabular-nums text-slate-900 dark:text-slate-100 border focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-500 dark:focus-visible:ring-indigo-400';
 
-const inputBorderFilledClass = 'border-transparent hover:border-slate-300 dark:hover:border-slate-700';
+/** 書き換えられる欄は値が入っていても枠を常に出し、「自動」の計算値と見た目で分ける。 */
+const inputBorderFilledClass =
+  'border-slate-300 bg-white hover:border-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:hover:border-slate-500';
 
 /** Subtle but persistent (not hover-only) border/background inviting entry into an empty cell. */
 const inputBorderEmptyClass =
@@ -384,38 +387,28 @@ function OutputCell({
       aria-label={`${label}（${sourceAriaWord(editable)}）`}
     >
       <div className="flex flex-col items-end gap-0.5">
-        <div className="flex flex-wrap items-center justify-end gap-1">
-          <span
-            className={`shrink-0 rounded px-1 py-0.5 text-[10px] font-medium ${
-              isOverridden
-                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300'
-                : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-            }`}
-          >
-            {sourceBadgeText(editable)}
-          </span>
-          <span className="whitespace-normal break-words text-right">{value != null ? formatter(value) : '—'}</span>
-        </div>
-        {onOverride && overrideNote && (
-          <span
-            className="block w-full max-w-full whitespace-normal break-words text-right text-[11px] leading-tight text-slate-500 dark:text-slate-400"
-            title={overrideNote}
-            aria-hidden="true"
-          >
-            {overrideNote}
-          </span>
-        )}
-        {(onOverride || (isOverridden && onClearOverride)) && (
-          <div className="flex items-center gap-1">
+        {/* 目印（自動/上書き）と ✎ を一組にし、値はその右へ。列幅に収まらない大きな額だけ次の行へ回る。 */}
+        <div className="flex flex-wrap items-center justify-end gap-x-1">
+          <span className="flex shrink-0 items-center gap-0.5">
+            <span
+              className={`shrink-0 rounded px-1 py-0.5 text-[10px] font-medium ${
+                isOverridden
+                  ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300'
+                  : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+              }`}
+            >
+              {sourceBadgeText(editable)}
+            </span>
             {onOverride && (
               <button
                 type="button"
                 aria-label={overrideAriaLabel}
+                title={overrideNote ?? '上書き'}
                 onClick={() => {
                   setDraft(value != null ? formatNumberForDisplay(value) : '');
                   setEditing(true);
                 }}
-                className="flex min-h-[44px] md:min-h-[36px] min-w-[44px] md:min-w-[36px] items-center justify-center text-[11px] text-slate-400 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-500 dark:hover:text-slate-300 dark:focus-visible:ring-indigo-400"
+                className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center text-[11px] text-slate-400 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-500 md:min-h-[22px] md:min-w-[18px] dark:hover:text-slate-300 dark:focus-visible:ring-indigo-400"
               >
                 ✎
               </button>
@@ -425,15 +418,65 @@ function OutputCell({
                 type="button"
                 aria-label={`${label} の上書きを解除`}
                 onClick={onClearOverride}
-                className="flex min-h-[44px] md:min-h-[36px] min-w-[44px] md:min-w-[36px] items-center justify-center text-[11px] text-slate-400 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-500 dark:hover:text-slate-300 dark:focus-visible:ring-indigo-400"
+                className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center text-[11px] text-slate-400 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-500 md:min-h-[22px] md:min-w-[18px] dark:hover:text-slate-300 dark:focus-visible:ring-indigo-400"
               >
                 ✕
               </button>
             )}
-          </div>
+          </span>
+          <span className="whitespace-nowrap text-right">{value != null ? formatter(value) : '—'}</span>
+        </div>
+        {onOverride && overrideNote && (
+          <span
+            className="block w-full max-w-full whitespace-normal break-words text-right text-[10px] leading-tight text-slate-400 dark:text-slate-500"
+            title={overrideNote}
+            aria-hidden="true"
+          >
+            {overrideNote}
+          </span>
         )}
       </div>
     </td>
+  );
+}
+
+/**
+ * 株主名をその場で書き換える欄。Enter か欄の外を押すと確定し、Escape で元の名前に戻す。
+ * 空にした場合は保存せず元の名前へ戻す（名前のない株主を作らない）。
+ */
+function HolderNameInput({ name, onCommit }: { name: string; onCommit: (next: string) => void }) {
+  const [draft, setDraft] = useState(name);
+  const [lastKnownName, setLastKnownName] = useState(name);
+
+  if (name !== lastKnownName) {
+    setLastKnownName(name);
+    setDraft(name);
+  }
+
+  function commit() {
+    const trimmed = draft.trim();
+    if (!trimmed) {
+      setDraft(name);
+      return;
+    }
+    setDraft(trimmed);
+    if (trimmed !== name) onCommit(trimmed);
+  }
+
+  return (
+    <input
+      type="text"
+      value={draft}
+      title={draft}
+      aria-label={`株主名 ${name}`}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') commit();
+        else if (e.key === 'Escape') setDraft(name);
+      }}
+      className="min-h-[44px] w-full min-w-0 border border-slate-300 bg-white px-1.5 py-0.5 text-[12px] font-semibold text-slate-900 hover:border-slate-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-500 md:min-h-[30px] dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus-visible:ring-indigo-400"
+    />
   );
 }
 
@@ -533,6 +576,7 @@ export function CapitalPlanMatrix({
   onChangeCalculationBasis,
   onAddHolder,
   onAddEvent,
+  onRenameHolder,
 }: CapitalPlanMatrixProps) {
   const legendId = useId();
   const sortedEvents = useMemo(() => [...events].sort((a, b) => a.order - b.order), [events]);
@@ -596,7 +640,7 @@ export function CapitalPlanMatrix({
       </div>
 
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-y border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
-        <p>株主別の詳細は初期表示で折り畳み。FD比率を比較してから、必要な株主だけ開く。</p>
+        <p>枠のある欄は書き換えられる（株主名・出資額・評価額など）。「自動」は他の欄から計算した値。株数の内訳は株主名の左の＋で開く。</p>
         <button type="button" onClick={toggleAllHolders} className="rounded-md border border-indigo-200 bg-white px-2 py-1 font-semibold text-indigo-700 hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
           {allHoldersExpanded ? "全株主を閉じる" : "全株主を展開"}
         </button>
@@ -605,10 +649,10 @@ export function CapitalPlanMatrix({
       <div className="w-full overflow-x-auto border border-slate-200 dark:border-slate-800">
         <table
           className="border-collapse text-[13px]"
-          style={{ tableLayout: 'fixed', width: 152 + sortedEvents.length * 144 }}
+          style={{ tableLayout: 'fixed', width: 224 + sortedEvents.length * 144 }}
         >
           <colgroup>
-            <col style={{ width: 152 }} />
+            <col style={{ width: 224 }} />
             {sortedEvents.map((event) => (
               <col key={event.id} style={{ width: 144 }} />
             ))}
@@ -914,16 +958,49 @@ export function CapitalPlanMatrix({
               )}
             </tr>
 
-            {plan.holders.map((holder) => {
+            <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/40">
+              <th scope="colgroup" colSpan={sortedEvents.length + 1} className="px-1.5 py-1.5 text-left text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                <span className="sticky left-1.5">株主別の出資額とFD比率</span>
+              </th>
+            </tr>
+            {plan.holders.map((holder, holderIndex) => {
               const expanded = expandedHolderIds.has(holder.id);
+              const subLabelClass = 'sticky left-0 z-10 bg-white py-1 pl-8 pr-1.5 text-left text-[11px] text-slate-500 dark:bg-slate-950 dark:text-slate-400';
+              const detailLabelClass = 'sticky left-0 z-10 bg-slate-50 py-1 pl-8 pr-1.5 text-left text-[11px] text-slate-600 dark:bg-slate-900 dark:text-slate-400';
               return (
                 <Fragment key={holder.id}>
-                  <tr className="border-t-2 border-slate-200 dark:border-slate-800">
+                  <tr data-holder-row="amount" className="border-t-2 border-slate-200 dark:border-slate-800">
                     <th scope="row" className="sticky left-0 z-10 bg-white px-1.5 py-1 text-left text-[11px] text-slate-700 dark:bg-slate-950 dark:text-slate-300">
-                      <button type="button" aria-expanded={expanded} onClick={() => toggleHolder(holder.id)} className="flex w-full items-center gap-1.5 truncate text-left font-semibold hover:text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
-                        <span aria-hidden="true" className="text-indigo-600">{expanded ? "−" : "+"}</span>
-                        <span className="truncate">{holder.name}｜FD比率</span>
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          aria-expanded={expanded}
+                          aria-label={`${holder.name} の株数の内訳を${expanded ? '閉じる' : '開く'}`}
+                          onClick={() => toggleHolder(holder.id)}
+                          className="flex min-h-[44px] w-5 shrink-0 items-center justify-center font-semibold text-indigo-600 hover:text-indigo-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 md:min-h-[30px]"
+                        >
+                          <span aria-hidden="true">{expanded ? '−' : '+'}</span>
+                        </button>
+                        <span aria-hidden="true" className="inline-block h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ backgroundColor: holderColor(holderIndex) }} />
+                        <HolderNameInput name={holder.name} onCommit={(name) => onRenameHolder(holder.id, name)} />
+                        <span className="shrink-0 text-[10px] text-slate-500 dark:text-slate-400">
+                          <span className="sr-only">{holder.name}｜</span>出資額
+                        </span>
+                      </div>
+                    </th>
+                    {sortedEvents.map((event) => {
+                      const label = `出資額 ${event.label} ${holder.name}`;
+                      // 設立・SOプール・株式分割などお金の動かないイベントと、出資しないSOプール枠は、出資額を出さない（¥0 と誤読させない）。
+                      if (!AMOUNT_BEARING_TYPES.has(event.type) || holder.kind === 'esop_pool') return <DashCell key={event.id} label={label} />;
+                      const agg = aggregateHolderAllocations(event, holder.id);
+                      const actionable = holderAmountActionable(event);
+                      if (agg.count === 0) return actionable ? <td key={event.id}><NumberCell value={undefined} ariaLabel={label} placeholder="—" onCommit={(n) => onEditHolderAmount(event.id, holder.id, n)} /></td> : <DashCell key={event.id} label={label} />;
+                      return actionable ? <td key={event.id}><NumberCell value={agg.amount} ariaLabel={label} onCommit={(n) => onEditHolderAmount(event.id, holder.id, n)} onClear={() => onEditHolderAmount(event.id, holder.id, 0)} /></td> : <OutputCell key={event.id} value={agg.amount} label={label} formatter={fmtYen} />;
+                    })}
+                  </tr>
+                  <tr data-holder-row="fd-ratio" className="border-b border-slate-100 dark:border-slate-900">
+                    <th scope="row" className={subLabelClass}>
+                      <span className="sr-only">{holder.name}｜</span>FD比率
                     </th>
                     {sortedEvents.map((event) => {
                       const label = `完全希薄化後比率(%) ${event.label} ${holder.name}`;
@@ -938,18 +1015,8 @@ export function CapitalPlanMatrix({
                     })}
                   </tr>
                   {expanded && <>
-                    <tr className="border-b border-slate-100 dark:border-slate-900">
-                      <th scope="row" className="sticky left-0 z-10 bg-slate-50 px-1.5 py-1 text-left text-[11px] text-slate-600 dark:bg-slate-900 dark:text-slate-400">{holder.name}｜金額</th>
-                      {sortedEvents.map((event) => {
-                        const agg = aggregateHolderAllocations(event, holder.id);
-                        const actionable = holderAmountActionable(event);
-                        const label = `金額 ${event.label} ${holder.name}`;
-                        if (agg.count === 0) return actionable ? <td key={event.id}><NumberCell value={undefined} ariaLabel={label} onCommit={(n) => onEditHolderAmount(event.id, holder.id, n)} /></td> : <DashCell key={event.id} label={label} />;
-                        return actionable ? <td key={event.id}><NumberCell value={agg.amount} ariaLabel={label} onCommit={(n) => onEditHolderAmount(event.id, holder.id, n)} onClear={() => onEditHolderAmount(event.id, holder.id, 0)} /></td> : <OutputCell key={event.id} value={agg.amount} label={label} formatter={fmtYen} />;
-                      })}
-                    </tr>
-                    <tr className="border-b border-slate-100 dark:border-slate-900">
-                      <th scope="row" className="sticky left-0 z-10 bg-slate-50 px-1.5 py-1 text-left text-[11px] text-slate-600 dark:bg-slate-900 dark:text-slate-400">{holder.name}｜株数</th>
+                    <tr data-holder-row="shares" className="border-b border-slate-100 dark:border-slate-900">
+                      <th scope="row" className={detailLabelClass}><span className="sr-only">{holder.name}｜</span>株数</th>
                       {sortedEvents.map((event) => {
                         const agg = aggregateHolderAllocations(event, holder.id);
                         const actionable = holderSharesActionable(event);
@@ -958,16 +1025,16 @@ export function CapitalPlanMatrix({
                         return actionable ? <td key={event.id}><NumberCell value={agg.shares} ariaLabel={label} onCommit={(n) => onEditHolderEventShares(event.id, holder.id, n)} onClear={() => onEditHolderEventShares(event.id, holder.id, 0)} /></td> : <OutputCell key={event.id} value={agg.shares} label={label} formatter={fmtInt} />;
                       })}
                     </tr>
-                    <tr className="border-b border-slate-100 dark:border-slate-900">
-                      <th scope="row" className="sticky left-0 z-10 bg-slate-50 px-1.5 py-1 text-left text-[11px] text-slate-600 dark:bg-slate-900 dark:text-slate-400">{holder.name}｜発行済株式数</th>
+                    <tr data-holder-row="issued-shares" className="border-b border-slate-100 dark:border-slate-900">
+                      <th scope="row" className={detailLabelClass}><span className="sr-only">{holder.name}｜</span>発行済株式数</th>
                       {sortedEvents.map((event) => {
                         const standing = snapshotByEventId.get(event.id)?.holders.find((h) => h.holderId === holder.id);
                         const label = `発行済株式数 ${event.label} ${holder.name}`;
                         return standing ? <OutputCell key={event.id} value={standing.issuedShares} label={label} formatter={fmtInt} /> : <DashCell key={event.id} label={label} />;
                       })}
                     </tr>
-                    <tr className="border-b border-slate-200 dark:border-slate-800">
-                      <th scope="row" className="sticky left-0 z-10 bg-slate-50 px-1.5 py-1 text-left text-[11px] text-slate-600 dark:bg-slate-900 dark:text-slate-400">{holder.name}｜完全希薄化後株式数</th>
+                    <tr data-holder-row="fully-diluted-shares" className="border-b border-slate-200 dark:border-slate-800">
+                      <th scope="row" className={detailLabelClass}><span className="sr-only">{holder.name}｜</span>完全希薄化後株式数</th>
                       {sortedEvents.map((event) => {
                         const standing = snapshotByEventId.get(event.id)?.holders.find((h) => h.holderId === holder.id);
                         const label = `完全希薄化後株式数 ${event.label} ${holder.name}`;

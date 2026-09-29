@@ -1467,7 +1467,7 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="amd-dense-ui flex flex-col gap-4">
       {error && (
         <div role="alert" className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
           {error}
@@ -1705,6 +1705,7 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
             onChangeCalculationBasis={changeCalculationBasis}
             onAddHolder={addHolder}
             onAddEvent={addEvent}
+            onRenameHolder={(holderId, name) => updateHolder(holderId, { name })}
           />
 
           {/* Selected event editor */}

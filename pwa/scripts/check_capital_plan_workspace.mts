@@ -625,29 +625,36 @@ expectIncludes(["function addHolder(name?: string) {", "onAddHolder={addHolder}"
   assert.match(decl, /convertible_issue/, "convertible_issue must remain amount-bearing (it can accept an issuance amount in holder amount rows)");
 }
 
-// 32. Holder rows are grouped contiguously per holder. FD% is always the compact summary row;
-// amount, event shares, post-issued and post-FD rows appear only after that holder is expanded.
-// Totals render once after every holder block (not interleaved between row kinds).
+// 32. Holder rows are grouped contiguously per holder. The always-visible pair is the amount row
+// (editable holder name + 出資額) followed by the FD% row; event shares, post-issued and post-FD rows
+// appear only after that holder is expanded. Totals render once after every holder block (not
+// interleaved between row kinds). 2026-09-30: 出資額 moved out of the collapsed detail so the
+// amount each holder invests per round is editable without opening anything.
 {
-  const holderMapMatches = [...matrixSrc.matchAll(/plan\.holders\.map\(\(holder\) => \{/g)];
-  assert.equal(holderMapMatches.length, 1, `expected exactly one plan.holders.map((holder) => { ... }) call building the contiguous per-holder row block, found ${holderMapMatches.length}`);
+  const holderMapMatches = [...matrixSrc.matchAll(/plan\.holders\.map\(\(holder, holderIndex\) => \{/g)];
+  assert.equal(holderMapMatches.length, 1, `expected exactly one plan.holders.map((holder, holderIndex) => { ... }) call building the contiguous per-holder row block, found ${holderMapMatches.length}`);
   const mapIdx = holderMapMatches[0].index!;
   const nextTopLevelIdx = matrixSrc.indexOf("発行済株式数合計", mapIdx);
   assert.ok(nextTopLevelIdx > mapIdx, "totals rows must come after the per-holder block");
   const block = matrixSrc.slice(mapIdx, nextTopLevelIdx);
   assert.match(block, /<Fragment key=\{holder\.id\}>/, "each holder's summary/detail rows must share one Fragment keyed by holder.id");
   assert.match(block, /aria-expanded=\{expanded\}/, "holder summary must expose its expand/collapse state");
-  const amountIdx = block.indexOf("｜金額");
-  const sharesIdx = block.indexOf("｜株数");
-  const issuedIdx = block.indexOf("｜発行済株式数");
-  const fdIdx = block.indexOf("｜完全希薄化後株式数");
-  const pctIdx = block.indexOf("｜FD比率");
+  const amountIdx = block.indexOf('data-holder-row="amount"');
+  const nameIdx = block.indexOf("<HolderNameInput");
+  const pctIdx = block.indexOf('data-holder-row="fd-ratio"');
+  const expandedIdx = block.indexOf("{expanded && <>");
+  const sharesIdx = block.indexOf('data-holder-row="shares"');
+  const issuedIdx = block.indexOf('data-holder-row="issued-shares"');
+  const fdIdx = block.indexOf('data-holder-row="fully-diluted-shares"');
   assert.ok(
-    pctIdx >= 0 && pctIdx < amountIdx && amountIdx < sharesIdx && sharesIdx < issuedIdx && issuedIdx < fdIdx,
-    "per-holder rows must appear in order: FD% summary, amount, shares, post-issued, post-FD",
+    amountIdx >= 0 && amountIdx < nameIdx && nameIdx < pctIdx && pctIdx < expandedIdx && expandedIdx < sharesIdx && sharesIdx < issuedIdx && issuedIdx < fdIdx,
+    "per-holder rows must appear in order: amount (with editable name), FD% (both always visible), then expanded shares, post-issued, post-FD",
   );
-  // totals must not be interleaved: no per-holder row label may reappear after the totals rows.
-  assert.doesNotMatch(matrixSrc.slice(nextTopLevelIdx), /｜金額/, "totals must render after all per-holder blocks, not have holder rows interleaved after them");
+  const amountRow = block.slice(amountIdx, pctIdx);
+  assert.match(amountRow, /holderAmountActionable\(event\)/, "the always-visible amount row must gate editability on holderAmountActionable");
+  assert.match(amountRow, /onEditHolderAmount\(event\.id, holder\.id, n\)/, "the always-visible amount row must write through onEditHolderAmount");
+  // totals must not be interleaved: no per-holder row may reappear after the totals rows.
+  assert.doesNotMatch(matrixSrc.slice(nextTopLevelIdx), /data-holder-row=/, "totals must render after all per-holder blocks, not have holder rows interleaved after them");
 }
 
 // 33. The event header row is sticky at the top of the scroll container (readable scroll sense
@@ -772,13 +779,13 @@ expectMatrixIncludes([
 // 40. Post-issued and post-FD (fully diluted) per-holder output rows exist in the matrix, rendered
 // via OutputCell (never a plain editable cell) from the per-event RoundSnapshot.
 {
-  const issuedIdx = matrixSrc.indexOf("｜発行済株式数");
+  const issuedIdx = matrixSrc.indexOf('data-holder-row="issued-shares"');
   assert.ok(issuedIdx >= 0, "post-issued row label not found");
   const issuedBlock = matrixSrc.slice(issuedIdx, issuedIdx + 700);
   assert.match(issuedBlock, /standing\.issuedShares/, "post-issued row must read standing.issuedShares from the snapshot");
   assert.match(issuedBlock, /<OutputCell key=\{event\.id\} value=\{standing\.issuedShares\}/, "post-issued row must render via OutputCell, not an editable input");
 
-  const fdIdx = matrixSrc.indexOf("｜完全希薄化後株式数");
+  const fdIdx = matrixSrc.indexOf('data-holder-row="fully-diluted-shares"');
   assert.ok(fdIdx >= 0, "post-FD row label not found");
   const fdBlock = matrixSrc.slice(fdIdx, fdIdx + 700);
   assert.match(fdBlock, /standing\.fullyDilutedShares/, "post-FD row must read standing.fullyDilutedShares from the snapshot");
@@ -788,7 +795,7 @@ expectMatrixIncludes([
 // 41. FD% cell is editable only under the ownership_target basis (the only mode where the engine
 // solves shares FROM a target ratio); every other basis renders it as a read-only OutputCell.
 {
-  const pctIdx = matrixSrc.indexOf("｜FD比率");
+  const pctIdx = matrixSrc.indexOf('data-holder-row="fd-ratio"');
   assert.ok(pctIdx >= 0, "FD% row label not found");
   const block = matrixSrc.slice(pctIdx, pctIdx + 2200);
   assert.match(block, /event\.calculationBasis === 'ownership_target'/, "FD% row must gate the editable branch on calculationBasis === 'ownership_target'");
@@ -850,7 +857,7 @@ expectMatrixIncludes([
 // one width per event column.
 expectMatrixIncludes([
   'className="w-full overflow-x-auto border border-slate-200 dark:border-slate-800"',
-  "style={{ tableLayout: 'fixed', width: 152 + sortedEvents.length * 144 }}",
+  "style={{ tableLayout: 'fixed', width: 224 + sortedEvents.length * 144 }}",
   "全株主を展開",
 ]);
 assert.doesNotMatch(matrixSrc, /max-h-\[70vh\]|overflow-auto/, "CapitalPlanMatrix must not create an internal vertical scroll container");
@@ -1163,3 +1170,22 @@ expectNotIncludes(["protectHolder", "protectedHolder", "ProtectHolder", "守り�
 }
 
 console.log("check_capital_plan_workspace.mts: all checks passed");
+
+// 57. 2026-09-30 まさ確定: 株主名・出資額・各ラウンドの評価額を表の上で直接書き換えられる。
+// 株主名は行見出しのその場入力で、空欄では保存しない。書ける欄は値が入っていても枠を常に出し、
+// 「自動」の計算値と見分けられるようにする（枠が hover でしか出ないと、書ける欄が文字に見える）。
+{
+  const fnStart = matrixSrc.indexOf("function HolderNameInput(");
+  assert.ok(fnStart >= 0, "HolderNameInput not found");
+  const fnBody = matrixSrc.slice(fnStart, matrixSrc.indexOf("\nfunction ", fnStart + 10));
+  assert.match(fnBody, /if \(!trimmed\) \{\s*setDraft\(name\);\s*return;/, "HolderNameInput must refuse to save an empty name and restore the previous one");
+  assert.match(fnBody, /if \(trimmed !== name\) onCommit\(trimmed\);/, "HolderNameInput must commit only a changed, trimmed name");
+  assert.match(fnBody, /aria-label=\{`株主名 \$\{name\}`\}/, "HolderNameInput must carry a Japanese aria-label naming the holder");
+  assert.match(matrixSrc, /onRenameHolder: \(holderId: string, name: string\) => void;/, "CapitalPlanMatrix must require an onRenameHolder callback");
+  assert.match(matrixSrc, /<HolderNameInput name=\{holder\.name\} onCommit=\{\(name\) => onRenameHolder\(holder\.id, name\)\} \/>/, "the holder row header must render the inline name editor");
+  assert.match(src, /onRenameHolder=\{\(holderId, name\) => updateHolder\(holderId, \{ name \}\)\}/, "CapitalPlanWorkspace must save inline renames through updateHolder (autosaved with the plan)");
+  const borderIdx = matrixSrc.indexOf("const inputBorderFilledClass =");
+  const borderDecl = matrixSrc.slice(borderIdx, matrixSrc.indexOf(";", borderIdx));
+  assert.doesNotMatch(borderDecl, /border-transparent/, "filled driver inputs must keep a visible border instead of looking like static text");
+  assert.match(src, /className="amd-dense-ui flex flex-col gap-4"/, "the capital plan root must opt out of the workspace-wide 44px override so it renders at the cockpit's size");
+}
