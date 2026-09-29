@@ -506,37 +506,24 @@ function MonthCellFrame({ month, children = null, className = "" }: { month: Bzm
 
 function AnnualFinanceChart({ rows, showPreincorporationSpend = false }: { rows: readonly AnnualFinanceSummaryRow[]; showPreincorporationSpend?: boolean }) {
   if (rows.length === 0) return null;
-  const plMaxMagnitude = Math.max(
-    1,
-    ...rows.flatMap((row) => [
-      row.revenueYen,
-      row.cogsYen + row.personnelYen + row.rdYen + row.marketingYen + row.otherOpexYen,
-      Math.abs(row.operatingProfitYen),
-    ]),
-  );
-  const cashMaxMagnitude = Math.max(
-    1,
-    ...rows.flatMap((row) => [
-      Math.abs(row.netCashFlowYen ?? 0),
-      row.equityFundingYen ?? 0,
-      row.grantReceiptYen ?? 0,
-      ...(showPreincorporationSpend ? [row.preincorporationSpendYen] : []),
-    ]),
-  );
-  const percentage = (value: number, maximum: number) =>
-    value === 0 ? "0%" : `${Math.max(3, Math.min(100, (Math.abs(value) / maximum) * 100))}%`;
-  const expenseSegments = [
-    ["売上原価", "#7898a5", "cogsYen"],
-    ["人件費", "#557582", "personnelYen"],
-    ["研究開発費", "#2f766b", "rdYen"],
-    ["マーケ費", "#8b7045", "marketingYen"],
-    ["その他販管費", "#9aa9ad", "otherOpexYen"],
-  ] as const;
+  const expenseTotal = (row: AnnualFinanceSummaryRow) => row.cogsYen + row.personnelYen + row.rdYen + row.marketingYen + row.otherOpexYen;
+  // 売上・費用の棒と年次純C/Fの折れ線を同じ目盛り（百万円）で重ねる。C/Fがマイナスの年は0の線より下へ伸ばす。
+  const scaleTop = Math.max(1, ...rows.flatMap((row) => [row.revenueYen, expenseTotal(row), row.netCashFlowYen ?? 0]));
+  const scaleBottom = Math.min(0, ...rows.map((row) => row.netCashFlowYen ?? 0));
+  const scaleSpan = scaleTop - scaleBottom;
+  const zeroTop = (scaleTop / scaleSpan) * 100;
+  const barHeight = (value: number) => value <= 0 ? "0%" : `${Math.max(2, (value / scaleTop) * 100)}%`;
+  const cashPoints = rows.flatMap((row, index) => row.netCashFlowYen === null ? [] : [{
+    fiscalYear: row.fiscalYear,
+    value: row.netCashFlowYen,
+    x: ((index + 0.5) / rows.length) * 100,
+    y: ((scaleTop - row.netCashFlowYen) / scaleSpan) * 100,
+  }]);
   const hasCashFlow = rows.some((row) => row.netCashFlowYen !== null);
   const columnStyle = { gridTemplateColumns: `repeat(${rows.length}, minmax(0, 1fr))` };
   const annualTableRows: Array<{ label: string; values: (row: AnnualFinanceSummaryRow) => number; emphasis?: boolean; tone?: string }> = [
     { label: "売上", values: (row) => row.revenueYen, emphasis: true },
-    { label: "費用計", values: (row) => row.cogsYen + row.personnelYen + row.rdYen + row.marketingYen + row.otherOpexYen, emphasis: true },
+    { label: "費用計", values: expenseTotal, emphasis: true },
     { label: "売上原価", values: (row) => row.cogsYen },
     { label: "人件費", values: (row) => row.personnelYen },
     { label: "研究開発費", values: (row) => row.rdYen },
@@ -557,50 +544,47 @@ function AnnualFinanceChart({ rows, showPreincorporationSpend = false }: { rows:
       <div className="mb-3 flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
         <div>
           <h4 id="bzm22-annual-finance-chart-title" className="text-[13px] font-semibold tracking-tight text-[#173f51]">年度別の事業・資金推移</h4>
-          <p className="text-[10px] leading-4 text-slate-600">4月始まり。横に連なるFY列で、事業の伸びと資金の必要量を読む。</p>
+          <p className="text-[10px] leading-4 text-slate-600">4月始まり。売上と費用を横並びの棒、年次純C/Fを折れ線で同じ目盛りに重ねる。調達は売上に含めない。</p>
         </div>
         <span className="text-[10px] font-semibold text-slate-600">単位：百万円</span>
       </div>
       <div className="mb-3 flex flex-wrap gap-x-3 gap-y-1 text-[9px] text-slate-600">
         <span className="inline-flex items-center gap-1"><i aria-hidden="true" className="h-2 w-2 bg-[#2f6f87]" />売上</span>
-        {expenseSegments.map(([label, color]) => <span key={label} className="inline-flex items-center gap-1"><i aria-hidden="true" className="h-2 w-2" style={{ backgroundColor: color }} />{label}</span>)}
-        <span className="inline-flex items-center gap-1"><i aria-hidden="true" className="h-2 w-2 bg-[#173f51]" />営業利益</span>
+        <span className="inline-flex items-center gap-1"><i aria-hidden="true" className="h-2 w-2 bg-[#9aa9ad]" />費用</span>
+        {hasCashFlow ? <span className="inline-flex items-center gap-1"><i aria-hidden="true" className="h-0.5 w-3 bg-[#b98025]" />年次純C/F（調達・助成金を含む）</span> : null}
       </div>
       <div className="overflow-hidden border border-[#cbd9de] bg-white">
         <div className="grid border-b border-[#cbd9de] bg-[#edf3f5]" style={columnStyle}>
           {rows.map((row) => <div key={row.fiscalYear} className="min-w-0 border-r border-[#cbd9de] px-1 py-1.5 text-center last:border-r-0"><div className="font-mono text-[11px] font-semibold tabular-nums text-[#173f51]">FY{row.fiscalYear}</div><div className="mt-0.5 text-[8px] text-slate-500">{row.fiscalYear}.04–{row.fiscalYear + 1}.03</div></div>)}
         </div>
-        <div className="border-b border-[#d8e2e5] px-2 pt-2"><div className="text-[10px] font-semibold text-[#173f51]">事業構造 <span className="ml-1 font-normal text-slate-500">同一尺度</span></div></div>
-        <div className="grid h-28 items-stretch px-1 pt-2" style={columnStyle}>
-          {rows.map((row) => {
-            const expenses = row.cogsYen + row.personnelYen + row.rdYen + row.marketingYen + row.otherOpexYen;
-            return <div key={row.fiscalYear} className="relative min-w-0 border-r border-dashed border-slate-200 px-1 last:border-r-0">
-              <div className="absolute inset-x-1 bottom-1/2 top-2 flex items-end justify-center"><div className="w-4 min-w-2 bg-[#2f6f87]" style={{ height: percentage(row.revenueYen, plMaxMagnitude) }} title={`FY${row.fiscalYear} 売上 ${formatMillionFromYen(row.revenueYen)}百万円`} /></div>
-              <div className="absolute inset-x-1 bottom-2 top-1/2 flex flex-col-reverse items-center justify-start"><div className="flex w-4 min-w-2 flex-col-reverse" style={{ height: percentage(expenses, plMaxMagnitude) }} title={`FY${row.fiscalYear} 費用 ${formatMillionFromYen(expenses)}百万円`}>{expenseSegments.map(([, color, key]) => row[key] > 0 ? <div key={key} style={{ height: `${(row[key] / Math.max(expenses, 1)) * 100}%`, backgroundColor: color }} /> : null)}</div></div>
-              <div aria-hidden="true" className="absolute inset-x-1 top-1/2 border-t border-slate-300" />
-              <div className={`absolute left-1/2 w-4 -translate-x-1/2 ${row.operatingProfitYen < 0 ? "bottom-1/2 bg-rose-500/80" : "top-1/2 bg-[#173f51]/80"}`} style={{ height: percentage(row.operatingProfitYen, plMaxMagnitude) }} title={`FY${row.fiscalYear} 営業利益 ${formatMillionFromYen(row.operatingProfitYen)}百万円`} />
-            </div>;
-          })}
+        <div data-testid="bzm22-annual-finance-plot" className="relative my-3 h-44">
+          <div aria-hidden="true" className="absolute inset-x-0 border-t border-slate-400" style={{ top: `${zeroTop}%` }} />
+          <div aria-hidden="true" className="pointer-events-none absolute left-0.5 top-0 z-10 -translate-y-1/2 bg-white/80 px-0.5 font-mono text-[8px] leading-3 text-slate-500">{formatMillionFromYen(scaleTop)}</div>
+          <div aria-hidden="true" className="pointer-events-none absolute left-0.5 z-10 -translate-y-1/2 bg-white/80 px-0.5 font-mono text-[8px] leading-3 text-slate-500" style={{ top: `${zeroTop}%` }}>0</div>
+          {zeroTop < 88 ? <div aria-hidden="true" className="pointer-events-none absolute bottom-0 left-0.5 z-10 translate-y-1/2 bg-white/80 px-0.5 font-mono text-[8px] leading-3 text-slate-500">{formatMillionFromYen(scaleBottom)}</div> : null}
+          <div className="absolute inset-0 grid" style={columnStyle}>
+            {rows.map((row) => {
+              const expenses = expenseTotal(row);
+              return <div key={row.fiscalYear} className="relative min-w-0 border-r border-dashed border-slate-200 last:border-r-0">
+                <div className="absolute inset-x-0 flex items-end justify-center gap-0.5" style={{ top: 0, height: `${zeroTop}%` }}>
+                  <div className="w-3 bg-[#2f6f87] sm:w-4" style={{ height: barHeight(row.revenueYen) }} title={`FY${row.fiscalYear} 売上 ${formatMillionFromYen(row.revenueYen)}百万円`} />
+                  <div className="w-3 bg-[#9aa9ad] sm:w-4" style={{ height: barHeight(expenses) }} title={`FY${row.fiscalYear} 費用 ${formatMillionFromYen(expenses)}百万円`} />
+                </div>
+              </div>;
+            })}
+          </div>
+          {cashPoints.length > 0 ? <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <polyline points={cashPoints.map((point) => `${point.x},${point.y}`).join(" ")} fill="none" stroke="#b98025" strokeWidth={2} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+          </svg> : null}
+          {cashPoints.map((point) => <div key={point.fiscalYear} className={`absolute z-10 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#b98025] ${point.value < 0 ? "bg-white" : "bg-[#b98025]"}`} style={{ left: `${point.x}%`, top: `${point.y}%` }} title={`FY${point.fiscalYear} 年次純C/F ${formatMillionFromYen(point.value)}百万円`} />)}
         </div>
-        <div className="grid border-t border-[#d8e2e5] bg-slate-50" style={columnStyle}>{rows.map((row) => <div key={row.fiscalYear} className="min-w-0 border-r border-[#d8e2e5] px-1 py-1.5 text-center last:border-r-0"><div className={`font-mono text-[10px] font-semibold tabular-nums ${row.operatingProfitYen < 0 ? "text-rose-700" : "text-[#173f51]"}`}>{formatMillionFromYen(row.operatingProfitYen)}</div><div className="mt-0.5 text-[8px] text-slate-500">営業利益</div></div>)}</div>
-        {(hasCashFlow || showPreincorporationSpend) && <>
-          <div className="border-y border-[#d8e2e5] bg-[#fbfcfc] px-2 py-2"><div className="text-[10px] font-semibold text-[#173f51]">資金レール <span className="ml-1 font-normal text-slate-500">P/Lとは別尺度・調達は売上に含めない</span></div></div>
-          <div className="grid h-20 px-1 pt-2" style={columnStyle}>{rows.map((row) => <div key={row.fiscalYear} className="relative min-w-0 border-r border-dashed border-slate-200 px-1 last:border-r-0">
-            <div aria-hidden="true" className="absolute inset-x-1 top-1/2 border-t border-slate-300" />
-            {row.equityFundingYen ? <div className="absolute bottom-1/2 left-[16%] w-4 bg-[#b98025]" style={{ height: percentage(row.equityFundingYen, cashMaxMagnitude) }} title={`FY${row.fiscalYear} 株式調達 ${formatMillionFromYen(row.equityFundingYen)}百万円`} /> : null}
-            {row.grantReceiptYen ? <div className="absolute bottom-1/2 left-[38%] w-4 bg-[#5d8a7b]" style={{ height: percentage(row.grantReceiptYen, cashMaxMagnitude) }} title={`FY${row.fiscalYear} 助成金等入金 ${formatMillionFromYen(row.grantReceiptYen)}百万円`} /> : null}
-            {row.netCashFlowYen !== null ? <div className={`absolute left-[60%] w-4 ${row.netCashFlowYen < 0 ? "bottom-1/2 bg-rose-500" : "top-1/2 bg-[#2f766b]"}`} style={{ height: percentage(row.netCashFlowYen, cashMaxMagnitude) }} title={`FY${row.fiscalYear} 年次純C/F ${formatMillionFromYen(row.netCashFlowYen)}百万円`} /> : null}
-            {showPreincorporationSpend && row.preincorporationSpendYen > 0 ? <div className="absolute bottom-1 left-[82%] w-4 bg-amber-500" style={{ height: percentage(row.preincorporationSpendYen, cashMaxMagnitude) }} title={`FY${row.fiscalYear} 設立前PJ支出 ${formatMillionFromYen(row.preincorporationSpendYen)}百万円`} /> : null}
-          </div>)}</div>
-          <div className="grid bg-slate-50" style={columnStyle}>{rows.map((row) => <div key={row.fiscalYear} className="min-w-0 border-r border-[#d8e2e5] px-1 py-1.5 text-center last:border-r-0"><div className={`font-mono text-[10px] tabular-nums ${row.netCashFlowYen !== null && row.netCashFlowYen < 0 ? "text-rose-700" : "text-[#2f766b]"}`}>{formatMillionFromYen(row.netCashFlowYen ?? 0)}</div><div className="mt-0.5 text-[8px] text-slate-500">年次純C/F</div></div>)}</div>
-          <div className="border-t border-[#d8e2e5] px-2 py-2 text-[8px] leading-3 text-slate-600"><span className="mr-3 inline-flex items-center gap-1"><i className="h-2 w-2 bg-[#b98025]" />株式調達</span><span className="mr-3 inline-flex items-center gap-1"><i className="h-2 w-2 bg-[#5d8a7b]" />助成金等入金</span><span className="mr-3 inline-flex items-center gap-1"><i className="h-2 w-2 bg-[#2f766b]" />正：年次純C/F</span><span className="mr-3 inline-flex items-center gap-1"><i className="h-2 w-2 bg-rose-500" />負：年次純C/F</span>{showPreincorporationSpend ? <span className="inline-flex items-center gap-1 text-amber-800"><i className="h-2 w-2 bg-amber-500" />設立前PJ支出（NewCo P/L外）</span> : null}</div>
-        </>}
+        <div className="grid border-t border-[#d8e2e5] bg-slate-50" style={columnStyle}>{rows.map((row) => <div key={row.fiscalYear} className="min-w-0 border-r border-[#d8e2e5] px-1 py-1.5 text-center last:border-r-0"><div className={`font-mono text-[10px] font-semibold tabular-nums ${row.operatingProfitYen < 0 ? "text-rose-700" : "text-[#173f51]"}`}>{formatMillionFromYen(row.operatingProfitYen)}</div><div className="mt-0.5 text-[8px] text-slate-500">営業利益</div>{row.netCashFlowYen !== null ? <><div className={`mt-1 font-mono text-[10px] tabular-nums ${row.netCashFlowYen < 0 ? "text-rose-700" : "text-[#9a6a1d]"}`}>{formatMillionFromYen(row.netCashFlowYen)}</div><div className="mt-0.5 text-[8px] text-slate-500">年次純C/F</div></> : null}</div>)}</div>
       </div>
       <div className="mt-3 overflow-x-auto border border-[#cbd9de] bg-white">
         <table className="w-full min-w-[680px] border-collapse text-[10px] tabular-nums">
           <caption className="border-b border-[#cbd9de] bg-[#edf3f5] px-2 py-2 text-left text-[11px] font-semibold text-[#173f51]">年度別数値 <span className="ml-1 font-normal text-slate-500">単位：百万円</span></caption>
           <thead><tr className="border-b border-[#d8e2e5] text-slate-500"><th scope="col" className="w-44 px-2 py-1.5 text-left font-medium">項目</th>{rows.map((row) => <th key={row.fiscalYear} scope="col" className="border-l border-[#e2eaed] px-1.5 py-1.5 text-right font-medium">FY{row.fiscalYear}</th>)}</tr></thead>
-          <tbody>{annualTableRows.map((tableRow) => <tr key={tableRow.label} className={`border-b border-[#edf1f2] last:border-b-0 ${tableRow.emphasis ? "bg-slate-50 font-semibold" : ""}`}><th scope="row" className={`px-2 py-1.5 text-left font-medium ${tableRow.tone === "preincorporation" ? "text-amber-800" : "text-slate-700"}`}>{tableRow.label}</th>{rows.map((row) => { const value = tableRow.values(row); return <td key={row.fiscalYear} className={`border-l border-[#edf1f2] px-1.5 py-1.5 text-right ${value < 0 ? "text-rose-700" : tableRow.tone === "cash" ? "text-[#2f766b]" : tableRow.tone === "funding" ? "text-[#9a6a1d]" : "text-slate-800"}`}>{formatMillionFromYen(value)}</td>; })}</tr>)}</tbody>
+          <tbody>{annualTableRows.map((tableRow) => <tr key={tableRow.label} className={`border-b border-[#edf1f2] last:border-b-0 ${tableRow.emphasis ? "bg-slate-50 font-semibold" : ""}`}><th scope="row" className={`px-2 py-1.5 text-left font-medium ${tableRow.tone === "preincorporation" ? "text-amber-800" : "text-slate-700"}`}>{tableRow.label}</th>{rows.map((row) => { const value = tableRow.values(row); return <td key={row.fiscalYear} className={`border-l border-[#edf1f2] px-1.5 py-1.5 text-right ${value < 0 ? "text-rose-700" : tableRow.tone === "cash" ? "text-[#9a6a1d]" : tableRow.tone === "funding" ? "text-[#9a6a1d]" : "text-slate-800"}`}>{formatMillionFromYen(value)}</td>; })}</tr>)}</tbody>
         </table>
       </div>
       </div>

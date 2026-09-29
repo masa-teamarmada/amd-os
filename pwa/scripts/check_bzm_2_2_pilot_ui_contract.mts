@@ -583,8 +583,10 @@ requireIncludes(timeLedgerSource, [
   "年度別の事業・資金推移",
   "fiscalYearFromYm",
   "AnnualFinanceChart",
-  "資金レール",
+  'data-testid="bzm22-annual-finance-plot"',
+  "売上と費用を横並びの棒、年次純C/Fを折れ線で同じ目盛りに重ねる。",
   "調達は売上に含めない",
+  "<polyline",
   "年度別数値",
   "max-w-6xl",
   "設立前PJ支出",
@@ -619,6 +621,11 @@ for (const forbidden of ["Bzm22ProvisionalObservatory", "BZM 2.2 暫定パイロ
   if (scoreDetailSource.includes(forbidden)) {
     throw new Error(`score detail tab must not bring BZM 2.2 back: ${forbidden}`);
   }
+}
+// 2026-09-30 まさ確定: 年次集計は売上と費用を横並びの棒、年次純C/Fを同じ目盛りの折れ線で重ねる。
+// 正負で別系列に割ったC/F棒や、P/Lと別尺度の「資金レール」へ戻さない。
+for (const forbidden of ["資金レール", "正：年次純C/F", "負：年次純C/F", "cashMaxMagnitude"]) {
+  if (timeLedgerSource.includes(forbidden)) throw new Error(`annual finance chart must not split cash flow into signed bars: ${forbidden}`);
 }
 if (timeLedgerSource.includes('`${value < 0 ? "-" : ""}¥${rounded.toLocaleString("ja-JP")}M`')) {
   throw new Error("BZM 2.2 monthly ledger must put the million-yen unit outside data cells");
