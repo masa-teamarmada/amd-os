@@ -284,6 +284,17 @@ body:has(.amd-workspace-page-skin) {
   min-width: 0;
 }
 
+/* 月次試算表の◇と出来事の札、資本政策表の編集欄は、コックピットと同じ寸法で描く。
+   44px を強制すると 14px の◇が 44px に膨らみ、札も月の目盛りを覆う (2026-09-30)。 */
+.sx-management-workspace .amd-dense-ui button,
+.sx-management-workspace .amd-dense-ui input,
+.sx-management-workspace .amd-dense-ui select {
+  /* 上の 44px 強制は層の外にあり Tailwind の min-h-* より強い。revert-layer で部品自身の
+     寸法指定（スマホ 44px・PC 36px など）へ戻す。 */
+  min-height: revert-layer;
+  min-width: revert-layer;
+}
+
 /* ガントの依存線ポート (+) は 44px 幅を取るとバーから離れて見えるため例外。
    高さは 44px を保つのでタッチターゲットは縦方向で確保される。 */
 .sx-management-workspace button.sx-gantt-dependency-port {

@@ -75,7 +75,7 @@ outcome作成が成功したら、同じ操作の中でそのラインのphase M
 水素循環PJはmigration `20260901153000_zmp_hydrogen_management_ledger.sql`と`20260901223000_zmp_objective_branch_history.sql`で正規化する。最上位目的は`都内で水素をつくる・ためる・つかう`、成立条件は`水素供給元の確保 / 水素ステーション建設 / 助成金・整備資金の確保`。`水素供給元の確保→シーズリスト作成`から`東京理科大学・堂脇先生へのアプローチ / pHydrogenへのアプローチ / その他の供給候補を探索`へ3分岐する。堂脇先生は`コンタクト→MTG実施→やりとり継続・返答待ち→先方からレスなし・一旦停止`、pHydrogenは`waiting_internal`かつAMD側ボール。アプローチタスクはnullable `partner_id`で同PJの関係先正本へ接続する。ステーションの計画変更と助成金4対象はタスク、相手別の接点履歴は関係先台帳に置く。以前の水素7件の`project_theme_profiles.history_rows`は空にし、同じ事実を二重編集しない。日付、提出、受付、採否、合意、着工は確認できた状態だけを保存する。
 
 当時はテーマ画面をPJワークスペースに集約していた。2026-09-16以降、社内コックピットとPJワークスペースのどちらにもテーマタブを置かない。
-desktop幅901px以上ではテーマ区画の外側上余白を除き、テーマ状態・経緯のヘッダー操作を32pxにする。共通`.sx-management-workspace`の44px指定より局所規則を優先し、mobileの44px操作は変更しない。水素7行が外枠込み1440×900の初期画面に収まる密度を検証する。
+desktop幅901px以上ではテーマ区画の外側上余白を除き、テーマ状態・経緯のヘッダー操作を32pxにする。共通`.sx-management-workspace`の44px指定より局所規則を優先し、mobileの44px操作は変更しない。試算表タブの月次試算表（`Bzm22TimeLedger`）と資本政策表タブ（`CapitalPlanWorkspace`）は根要素に`amd-dense-ui`を付け、`globals.css`の`.sx-management-workspace .amd-dense-ui`が`min-height`/`min-width`を`revert-layer`へ戻す。これで部品自身のTailwind寸法（資本政策表はmobile 44px・desktop 36px）がコックピットと同じに効き、時間軸の◇（14px）と出来事の札（23px）は44pxへ膨らまない（2026-09-30）。水素7行が外枠込み1440×900の初期画面に収まる密度を検証する。
 通常のワークスペース配色は`spec/2-7-ui-design-code-current-spec.md`に従い、操作・選択・現在地・focusはsky、白・slateを構造色とする。emeraldは完了・充足・確認済み成功だけに限定し、水素や環境領域の連想を画面主色へ使わない。
 
 共有ワークスペースの外枠はコックピットの通常業務画面を基準にする。方眼背景は使わず、薄いskyからslateへ移るpage面、skyの識別帯を持つ白いheader、AMD Blueの選択下線を持つ高密度tab、白い1枚panelへ揃える。各tabの見出しはAMD Blueの左railで現在地を示し、ガントの目的行・成立条件行・タスク行をskyの濃淡と字下げで区別する。完了はemerald、当方action待ち・注意はamber、停止・中立はslateとし、色だけに頼らず既存文言を併記する。コックピット埋込時は外枠headerとpage panelを重ねず、構造・状態色だけを同じcomponentから共有する。この視覚変更はアクセス範囲を変えず、外部を含む当該PJメンバーが従来どおり同じ共有ワークスペースを読む。

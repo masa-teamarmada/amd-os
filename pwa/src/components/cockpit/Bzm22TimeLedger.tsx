@@ -1001,7 +1001,7 @@ export function Bzm22TimeLedger({
 
   return (
     <TooltipProvider delay={100}>
-    <section data-testid="bzm22-time-ledger" data-density="compact-ledger" className="border-b border-[#b9cbd1] bg-white">
+    <section data-testid="bzm22-time-ledger" data-density="compact-ledger" className="amd-dense-ui border-b border-[#b9cbd1] bg-white">
       <header className="flex flex-wrap items-center justify-between gap-1 border-b border-slate-200 px-2 py-1.5">
         <div>
           <h3 className="text-[13px] font-semibold text-[#173f51]">イベントと月次試算表</h3>
