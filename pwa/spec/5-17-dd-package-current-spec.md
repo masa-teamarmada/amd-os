@@ -1,6 +1,6 @@
 # DDパッケージ仕様（投資家・金融機関向けの開示面）
 
-> **この章は何か**: 投資家・金融機関が、共有対象に指定されたページ・資料だけを閲覧する「DDパッケージ」の確定仕様。入れる領域と操作の分け方、公開版の作り方、画面、権限の検証、残課題を定める。初版は SOL（p21）で 2026-09-30 に実装した（migration 455・456）。
+> **この章は何か**: 投資家・金融機関が、共有対象に指定されたページ・資料だけを閲覧する「DDパッケージ」の確定仕様。入れる領域と操作の分け方、中身の出し方、画面、正式版（PDF）の出力、権限の検証、残課題を定める。初版は SOL（p21）で 2026-09-30 に実装した（migration 455〜458）。
 
 ## 1. 3つの領域
 
@@ -10,11 +10,11 @@ AMD OS の PJ 情報は、アクセスできる人と中身で3つの領域に�
 |---|---|---|---|
 | コックピット `/project/[id]/cockpit` | AMD メンバー | `members`・`project_members`（Supabase の社内ログイン） | 経営管理・内部判断・交渉情報 |
 | ワークスペース `/project/[id]/workspace` | 招待した研究者・事業化メンバー | `project_access_memberships`（外部アカウント）/ PJ限定メンバー | 共同作業に要る情報 |
-| DD `/dd/[slug]` | 招待した投資家・金融機関 | `dd_package_grants`（外部アカウント） | 共有対象に指定した項目の公開版だけ |
+| DD `/dd/[slug]` | 招待した投資家・金融機関 | `dd_package_grants`（外部アカウント） | 共有対象に指定した項目の、いまの内容 |
 
-- **入れる領域と、できる操作を別に持つ。** 領域は付与の表（どの表に行があるか）で決まり、操作は DD の付与行の `capabilities`（`dd.view` 閲覧 / `dd.download` 添付のダウンロード）で決まる。`dd.view` は必須。
+- **入れる領域と、できる操作を別に持つ。** 領域は付与の表（どの表に行があるか）で決まり、操作は DD の付与行の `capabilities`（`dd.view` 閲覧 / `dd.download` 資料のダウンロード）で決まる。`dd.view` は必須。
 - DD の付与はワークスペース・コックピットへ入る根拠にならない。ワークスペースの所属（`readonly` を含む）も DD へ入る根拠にならない。`workspace-access-scope-core.ts` の範囲判定は DD の付与を数えない。
-- AMD の admin（`members.is_admin` かつ portfolio）は、未公開を含むすべてのパッケージを「管理者プレビュー」として開ける。admin 以外の内部メンバーと PJ限定メンバーは DD を開けない。
+- AMD の admin（`members.is_admin` かつ portfolio）は、未公開を含むすべてのパッケージと、非公開の項目を「管理者プレビュー」として開ける。admin 以外の内部メンバーと PJ限定メンバーは DD を開けない。
 - ログインの仕組みは外部ワークスペースと同じ（メールリンク → 署名 cookie `amd_os_workspace_session`、`pwa/design/institution_seed_project_model.md` §6.4）。
 
 ## 2. 認証とログイン
@@ -22,98 +22,91 @@ AMD OS の PJ 情報は、アクセスできる人と中身で3つの領域に�
 | 段階 | DD のための動作 |
 |---|---|
 | `POST /api/auth/email-start` | ワークスペースの所属が無くても、公開中（`open`）パッケージへの有効な DD 付与（招待済み・有効、期限内、`dd.view` あり）があればログインリンクを送る（`hasLoginEligibleDdGrant`）。未公開・受付終了のパッケージへの付与だけではリンクを送らない |
-| ログインリンクの方式 | **PKCE**（`@/lib/supabase/server` の SSR クライアント、コード検証値は cookie）。2026-09-30 まで supabase-js 既定の implicit で送っており、戻り先 URL のフラグメントにアクセストークンが付くため `/auth/callback` が完了せず、トークンが本人のアドレス欄に残っていた（外部アカウント12件は全員未ログインで実害なし）。リンクはログイン画面を開いたのと同じブラウザで開く |
+| ログインリンクの方式 | **PKCE**（`@/lib/supabase/server` の SSR クライアント、コード検証値は cookie）。リンクはログイン画面を開いたのと同じブラウザで開く |
 | `GET /auth/callback`（`login_scope=workspace`） | 招待済みの DD 付与を `active` にする（失敗したら閉じる）。ワークスペースの範囲と DD の範囲を両方引き直し、どちらかがあればログインを通す。DD だけの人は、戻り先の指定が `/` か `/workspaces` なら `/dd` へ送る |
-| 関所 `src/lib/supabase/middleware.ts` | 外部アカウントの署名 cookie を認証として通すのは、ワークスペースの面と DD の面（`isDdViewerPath`: `/dd`、`/dd/[slug]`、`/dd/[slug]/items/[itemId]`、`/dd/[slug]/items/[itemId]/file`）だけ。コックピット・管理画面・DD の管理画面は社内ログインへ戻す |
+| 関所 `src/lib/supabase/middleware.ts` | 外部アカウントの署名 cookie を認証として通すのは、ワークスペースの面と DD の閲覧の面（`isDdViewerPath`: `/dd`、`/dd/[slug]`、`/dd/[slug]/items/[itemId]`、`/dd/[slug]/items/[itemId]/file`）だけ。コックピット・管理画面・正式版の印刷画面（`/dd/[slug]/print`）は社内ログインへ戻す |
 | `/workspaces`・`/` | DD だけの人は `/workspaces` から `/dd` へ案内し、`/` には「閲覧できるDD資料へ」を出す。両方を持つ人は `/workspaces` に DD の一覧も出す |
 
 停止・失効は cookie の期限（30日）を待たず次のリクエストで効く。判定は `buildDdViewerScope`（`src/lib/dd-package-core.ts`）の純関数で固定し、アカウントが `active` で Supabase の認証と紐付き cookie のメールと一致すること、付与が `active` で期限内で `dd.view` を持つこと、パッケージが `open` であることをすべて満たす付与だけを数える。
 
-## 3. データ（migration 455）
+## 3. データ（migration 455〜458）
 
 | 表 | 役割 |
 |---|---|
 | `dd_packages` | パッケージ。`status`: `draft`（未公開・管理者だけ）/ `open`（付与された人だけ閲覧）/ `closed`（誰も閲覧できない）。`slug` は URL、`notice_text` は冒頭の注意書き |
 | `dd_package_grants` | 閲覧権限。外部アカウント × パッケージ。`status`: invited / active / suspended / revoked、`capabilities`、`expires_at`、`organization_name`（投資家・金融機関名）。同じ人への2つ目の付与は作れず、停止・失効は作成で復活しない |
-| `dd_package_items` | 掲載項目（内部の選択）。区分 `section_key`、種類 `item_kind`、元データ `source_key`、作り方の選択 `source_options`、表題・一行説明・未確認事項・根拠資料。`published_publication_id` が外部に見せる版で、NULL なら非公開。新しい項目は NULL で作る |
-| `dd_item_publications` | 公開版。追記のみ（更新・削除は trigger で拒否、service_role からの直接 INSERT も権限で拒否）。`payload`（許可した項目だけの表示用データ）、`source_refs`（元データの表・ID・版・更新日時・内容の sha256）、`source_as_of`、`unverified_notes`、`evidence_item_ids`、添付の実体（private Storage `dd-publication-files`、内容の sha256 で置き場を決める）、`content_hash`、`revision`、公開した admin、確認メモ |
+| `dd_package_items` | 掲載項目。区分 `section_key`、種類 `item_kind`、元データ `source_key`、表示の選択 `source_options`（自動の未確認事項を加えるか）、表題・一行説明・未確認事項・根拠資料。**`is_published` が外部に見せるかの切り替え**（公開した日時と admin を `published_at` / `published_by_member_id` に残す）。新しい項目は `false`（非公開）で作り、外した項目（archived）は公開できない（DB の制約） |
+| `dd_item_publications` | 初版（2026-09-30 の最初の反映）で使った、公開時点の内容の記録。追記のみで、新しい行は作らない（記録として残す） |
 
 - 4表とも RLS 有効、anon と一般 authenticated の直接権限なし、admin は SELECT だけ。書込みは service_role のサーバ経路。
 - 行の変更は `workspace_record_security_row_mutation()` で同じ transaction の `workspace_access_audit_logs` に入り、OS 全体の変更履歴（`amd_os_data_change_history`）にも入る。物理削除はしない。
-- 公開版は DB 関数 `dd_publish_item()`（service_role だけが実行）だけが作る。admin の実行者を確認し、項目を行ロックし、根拠資料を同じパッケージの有効な資料項目に絞り、`content_hash` を DB が計算する。現在の公開版と内容が同じなら新しい版を作らない。
-- DB 側の約束は `scripts/dd_package_db_readback.sql` で本番 DB 上を確かめる（最後に必ず ROLLBACK、16項目）。
+- private Storage `dd-publication-files` は、Google ドライブの資料を投資家へ渡すための写しの置き場（`cache/<package>/<document>/<ドライブの md5>`。同じ版なら使い回す）。
+- DB 側の約束は `scripts/dd_package_db_readback.sql` で本番 DB 上を確かめる（最後に必ず ROLLBACK）。
 
-## 4. 公開版の作り方
+## 4. 中身の出し方（ワークスペースの最新をそのまま見せる）
 
-1. admin が元データから項目を追加する（未公開）。
-2. 「下書きを見る」で、いまの元データで作った公開版を投資家向けと同じ部品で確認する（保存しない、添付は開かない）。
-3. 「公開」で、サーバが元データを読み直して payload を作り、添付は公開時点の実体を複製してから `dd_publish_item()` を呼ぶ。**画面から送られた中身は公開しない。**
-4. 元データがその後変わっても、公開版は変わらない。管理画面は `source_refs` を今の元データと比べて「公開後に更新あり」を出し、admin が「更新して公開」を押したときだけ次の版になる。
-5. 「取り下げ」は外部に見せる版を無くすだけで、公開版の記録は残す。取り下げた後に古い版へ戻して見せることはない（外部へは版の一覧を返さない）。
+2026-09-30 まさ「これは正式な提出版ではなく、あくまでワークスペースの最新版を見てもらいたいだけなので、中身を変えたらちゃんと変わるようにしてほしい」「コックピット、ワークスペース、DDパッケのどこから見ても同じ内容が見えるようにしてほしい」。
 
-### 元データごとに写すもの（許可リスト、`src/lib/dd-payload.ts`）
+1. admin が元データから項目を追加する（非公開）。
+2. 「見る」で、投資家と同じ画面をそのまま確認する（非公開の項目も管理者プレビューで開ける）。
+3. 「公開する」で `is_published` を `true` にする。**公開中の項目は、閲覧のたびにサーバが元データの最新を読み、ワークスペースと同じ部品で描く。** 元データを直すと、次の閲覧から DD の表示も変わる。
+4. 「公開をやめる」で `false` に戻す。次のリクエストから外部に見えない。
+5. 正式に提出する版は、その時点の内容を PDF に出力して残す（§6）。
 
-| 種類 | 元データ | 写すもの | 写さないもの |
+### 種類ごとの部品と中身（`src/components/dd/DdLiveBodies.tsx`、`src/lib/dd-payload.ts`）
+
+| 種類 | 元データ | 描く部品（ワークスペースと同じ） | 部品が表示しないので送らないもの |
 |---|---|---|---|
-| 資料 | 資料室（`workspace_documents`）のファイル、または Google ドライブのファイルへのリンク | 公開時点のファイルの複製、ファイル名・形式・サイズ | 資料室の保存先・フォルダ・共有範囲。Google ドキュメント等は書き出してから置く |
-| 技術台帳のページ | `project_tech_topics` + `project_tech_entries` | 題・本文・表の行（値・条件・時点・確度・出典の種類）・社外向けの見せ方。行の備考は「公開可」のページだけ | ページの要約（DD の画面に出さない）、出典の社内参照（`source_ref` / `source_url`）、作成者・更新者、別ページの行、社内・要秘匿のページの行の備考（社内メモが混ざりやすい） |
-| 資金計画 | `project_monthly_cashflow.planning_details_json` | `resolveFundingPlan` で整合を検査した計画（表示部品 `CockpitFundingPlan` がそのまま描く） | 旧PL/CF の参考計画、元の試算表の hash、月の行に入っている summary の写し（表示部品は月の scenarios しか読まない） |
-| 資本政策 | `project_capital_plans`（作業中の案・改定番号）または `project_capital_plan_versions`（凍結済みの提出版） | ラウンド名・種類・時期・状態・新規調達・プレマネー・転換上限・割引・完全希薄化後の株式数と持株比率、株主名と区分。載せるラウンドを「このラウンドまで」で選べる。転換型の資金調達（J-KISS等）の株式数は、キャップで転換したと仮定した試算である旨を未確認事項に自動で入れる | ラウンド・配分・株主のメモ、株を持たない株主 |
-| 採算（コスト試算） | `project_cost_models` 系（燃料の試算は未対応） | 計算エンジン `computeCostModel` を株ごとに回した、方式ごとの1単位あたりの総コスト・売価・差・6区分の内訳（方式名は処理場所つき。例: オンサイト・直接投入）、菌体1kgあたりの原価、想定している系の説明文、主要な前提（`isKey`）、試算の注意書き（caveat） | 試算の要約（DD の画面に出さない）、明細・単価・作業の行、出典・担当・メモ、回答済みの確認事項 |
+| 資料 | 資料室（`workspace_documents`）のファイル、または Google ドライブのファイルへのリンク | ファイル名・形式・サイズと「開く／ダウンロード」。中身は資料室の最新の実体 | 資料室の保存先・フォルダ・共有範囲 |
+| 技術台帳のページ | `project_tech_topics` + `project_tech_entries` の1ページ | `TopicCard`（技術・競合比較・ビジネスモデルのタブと同じ。`canEdit=false`） | 作成者・更新者、別ページの行 |
+| 資金計画 | `project_monthly_cashflow.planning_details_json` | `CockpitFundingPlan`（試算表タブと同じ） | 月の行に重複して入っている summary の写し |
+| 資本政策 | `project_capital_plans`（作業中の案の最新）または `project_capital_plan_versions`（凍結済みの提出版） | `CapitalPlanMatrix`（資本政策表タブと同じ表を、同じ計算エンジンで。`readOnly`） | 株主・ラウンド・配分・値のメモ（`note`） |
+| 採算（コスト試算） | `project_cost_models` 系。指定した試算の種類（廃液 / 燃料）について、そのタブと同じ「いまの試算」 | `CockpitCostModel` / `CockpitFuelCostModel`（`allowEdit=false`。明細・単価・確認事項までワークスペースと同じ） | なし |
 
-### 載せる範囲（項目の中の節・行）
-
-元データの本文や表には、社内の人名・発言・交渉上の考えが混ざることがある。項目ごとに「載せる範囲」を選び、選ばなかった節・行は **payload に入れない**（下書きにも公開版にも入らず、ブラウザへも送らない）。
-
-| 種類 | 選べる単位（key） | 常に載せるもの |
-|---|---|---|
-| 技術台帳のページ | 本文の節（本文で一番上の階層の見出しごと。下位の見出しは親の節に含める。見出しより前は「冒頭」。key は見出しの文言の hash）、表の行（星取り表は観点の行ごと、ほかは1行ごと。key は行の識別子） | 題・社外向けの見せ方 |
-| 採算（コスト試算） | 想定している系の説明文、主要な前提の表、注意書き1件ずつ（key は注意書きの識別子） | 方式ごとの総コスト・内訳の表、菌体1kgあたりの原価 |
-| 資金計画 | 採択・不採択時の調達方針の段落、STS対象経費・支払時期・未確定条件の段落（key は段落の文の hash）、採用資料の名前、設備・初期費用の備考 | 月次の表・グラフ・ケース・費用の表・シードの条件 |
-
-- 選んだ結果は `dd_package_items.source_options.includedParts`（key の配列）。無ければ元データの節・行をすべて載せる。配列があれば、その key の節・行だけを載せるので、**あとから元データに増えた節・行や、書き換わった段落・見出しは、管理者が選ぶまで載らない**。
-- 公開版は公開時点の範囲で固定する。範囲を変えても、「更新して公開」を押すまで外部には前の公開版が見える。
-- 管理 API は既知の形の key だけを受け付け（`isDdPartKey`）、範囲を選べる種類（技術台帳・採算・資金計画）の項目だけに保存する。資料は1ファイル丸ごと、資本政策は「このラウンドまで」で選ぶ。
-- 未確認事項の自動分は、選んだ範囲から拾う（外した行の要確認は入らない）。
-- 本文の中の1文だけを外すことはできない。社内向けに書いた本文を外部に見せる形に直すときは、技術台帳に「公開可」のページを別に作るか、元データの側を直す。
-
+- 投資家は汎用の API（`/api/project-cost-model` など）を叩けない。サーバが「DDで公開中の範囲」だけを読んで画面へ渡し、コスト試算はその値を手元のキャッシュへ置いてから部品を描く（`primeProjectCostModel`）。部品は見るだけで、編集・保存・追加の操作を出さない。
 - 技術台帳の「要秘匿」のページは、管理画面で「開示してよいと確認した」を付けたときだけ追加できる。「社内」の項目・資料室で社内限定の資料には注意を出す。
-- 採算の「公開後に元データが変わった」の判定には、前提・明細・作業・試算本体に加えて、注意書きと確認事項の変化も含める。
-- **未確認事項** = 管理者が書いた分 + 元データから自動で拾った分（技術台帳の要確認と理由、資金計画の未確定の条件、資本政策の未定ラウンドと「作業中の案を固定」の旨、採算の未解決の確認事項）。自動分は項目ごとに外せる。
-- **根拠資料** = 同じパッケージの資料項目。公開時に固定し、閲覧時は「いま公開中」の資料だけをリンクする。
-- 金額の表記は、表と図が百万円、本文と強調表示が億円・万円（資金計画の表示部品と資本政策の表）。
+- **未確認事項** = 管理者が書いた分 + 元データから自動で拾った分（技術台帳の要確認と理由、資金計画の未確定の条件、資本政策の未定ラウンドと作業中の案である旨・転換型の株式数が試算である旨、採算の未解決の確認事項）。閲覧のたびに元データから拾い直す。自動分は項目ごとに外せる。
+- **根拠資料** = 同じパッケージの資料項目のうち、いま公開中のもの。
 
 ## 5. 画面
 
 | route | 誰 | 中身 |
 |---|---|---|
+| コックピット・ワークスペースの「DDパッケージ」タブ（`/project/[id]/cockpit?tab=dd`、ワークスペースの `#dd-package`） | admin（portfolio）。DDパッケージを持つPJだけに出る | 管理。パッケージの設定と状態、区分ごとの掲載項目（公開の状態・元データの更新・見る・公開する／公開をやめる・編集〈表題・区分・一行説明・未確認事項・根拠資料〉・外す）、元データから追加、閲覧権限（招待・停止・再開・失効・ダウンロード許可・期限）、PDFの出力の記録、閲覧記録。「投資家の見え方」「PDFを出力」への入口。外部の参加者には出さない |
 | `/dd` | 外部アカウント / admin | 閲覧できるパッケージが1つならそのトップへ、複数なら一覧。admin には全パッケージのプレビューと管理への入口 |
-| `/dd/[slug]` | 付与のある外部アカウント / admin | DDトップ。先頭に公開中の項目数・最終更新・未確認事項・添付の数、その下に7区分（事業概要／技術・製品／顧客・市場／採算・数値計画／資本政策／知財・契約・体制／証憑一覧）をすべて同じ表の形で出す。各行は第N版・公開日・元データの基準日・未確認事項の件数 |
-| `/dd/[slug]/items/[itemId]` | 同上 | 項目1件。公開版・公開日・元データの基準日・元データの種類、本文、根拠資料、未確認事項 |
-| `/dd/[slug]/items/[itemId]/file` | 同上 | 添付。HTML はスクリプト・外部通信・フォーム送信を止めたサンドボックスで返し（`next.config.ts` の `ddPublicationFileSecurityHeaders` が全体の CSP を上書きする）、PDF・画像は60秒の署名URLへ送る。`?download=1` は `dd.download` を持つ人だけ |
-| `/project/[projectId]/dd` | admin（portfolio） | 管理画面。パッケージの設定と状態、区分ごとの掲載項目（公開版・元データの変化・下書き・公開・取り下げ・編集〈表題・区分・未確認事項・根拠資料・載せる範囲・ラウンド〉・外す）、元データから追加、閲覧権限（招待・停止・再開・失効・ダウンロード許可・期限）、閲覧記録 |
-| `/project/[projectId]/dd/preview/[itemId]` | admin（portfolio） | 下書きのプレビュー（選んだ範囲で作る。外した節・行の件数を先頭に出す） |
-| `/admin/access` の「DD閲覧権限」 | admin | 全パッケージの付与の一覧（読むだけ）。付与・停止・失効は各パッケージの管理画面で行う |
+| `/dd/[slug]` | 付与のある外部アカウント / admin | DDトップ。先頭に公開中の項目数・元データの最終更新・未確認事項・資料の数、その下に7区分（事業概要／技術・製品／顧客・市場／採算・数値計画／資本政策／知財・契約・体制／証憑一覧）をすべて同じ表の形で出す。各行は種類・元データの更新・未確認事項の件数 |
+| `/dd/[slug]/items/[itemId]` | 同上（非公開の項目は admin だけ） | 項目1件。区分・公開の状態・元データの更新・元データの種類、本文（§4の部品）、根拠資料、未確認事項 |
+| `/dd/[slug]/items/[itemId]/file` | 同上 | 資料の最新の実体。HTML はスクリプト・外部通信・フォーム送信を止めたサンドボックスで返し（`next.config.ts` の `ddPublicationFileSecurityHeaders` が全体の CSP を上書きする）、それ以外は60秒の署名URLへ送る。`?download=1` は `dd.download` を持つ人だけ |
+| `/dd/[slug]/print` | admin | 正式版（PDF）の印刷画面（§6） |
+| `/admin/access` の「DD閲覧権限」 | admin | 全パッケージの付与の一覧（読むだけ）。付与・停止・失効は各PJの「DDパッケージ」タブで行う |
+| `/project/[projectId]/dd`、`/project/[projectId]/dd/preview/[itemId]` | admin | 旧URL。「DDパッケージ」タブ・項目の画面へ送る |
 
-- 管理者メニューの「組織・権限」に「DDパッケージ」（`/dd`）を置く。
-- 閲覧者の面は社内の枠（AppShell）を使わず、タイトルに PJ 名・パッケージ名を出さない（権限の確認より先に描かれるため）。権限が無い・未公開・取り下げ・別パッケージはすべて「見つからない」で閉じ、存在を区別させない。
-- 閲覧者の面はサーバコンポーネントで描き、閲覧者へ返すのは公開版の列 `DD_PUBLICATION_VIEW_FIELDS` だけ（添付の保存先・確認メモ・公開した admin・元データの内部参照・content hash は返さない）。内部の値をブラウザへ送ってから隠す方式は使わない。
-- DD には検索の入口を置かない。版の一覧も閲覧者へは返さない。
+- タブを出すかは `GET /api/dd/summary`（admin 限定、参照系: サーバのスナップショット5分 + HTTP キャッシュ + クライアント層 `src/lib/dd-client.ts`）で決める。管理の中身は `GET /api/admin/dd`（可変系、毎回読む）。
+- 閲覧者の面は社内の枠（AppShell）を使わず、タイトルに PJ 名・パッケージ名を出さない（権限の確認より先に描かれるため）。権限が無い・非公開・外した・別パッケージはすべて「見つからない」で閉じ、存在を区別させない。
+- DD には検索の入口を置かない。
 
-## 6. 閲覧記録
+## 6. 正式版（PDF）の出力
 
-外部アカウントのトップ閲覧・項目閲覧・添付の表示・ダウンロードを `workspace_access_audit_logs` に `dd_package_viewed` / `dd_item_viewed` / `dd_file_opened` / `dd_file_downloaded` で残す（detail はパッケージ・付与・項目・公開版の ID と版番号だけ）。管理者プレビューは記録しない。admin の操作は `admin_dd_mutation` と行変更の監査に残る。管理画面の「閲覧記録」にそのパッケージの直近200件を出す（同じPJの別パッケージの記録は混ぜない）。
+2026-09-30 まさ「とある時点のバージョンを正式版として提出しなきゃいけないので、PDFとして出力できる機能もつけておけばいい」。
 
-## 7. 権限の検証
+- 管理の「PDFを出力」（またはプレビューの上端）から `/dd/[slug]/print` を開く。公開中の項目を、いまの元データで、§4と同じ部品で1つの文書に並べる（表紙に表題・注意書き・出力日時・項目数・目次）。印刷の設定は A4 横、項目ごとに改ページ。
+- 「PDFに保存（印刷）」を押すと、サーバが公開中の項目と、それぞれの元データの更新日時を読み直して、出力の記録（`workspace_access_audit_logs` の `dd_package_exported`。detail はパッケージの id・項目数・項目の id と元データの更新日時だけ）を残してから、ブラウザの印刷画面を開く。印刷先で「PDFに保存」を選ぶ。
+- 出力した PDF の置き場は、提出物として Google ドライブの該当PJフォルダ（`YYMMDD_件名/`）。
+- 管理の「PDFの出力の記録」に、日時・出力した人・項目数を出す。
+
+## 7. 閲覧記録
+
+外部アカウントのトップ閲覧・項目閲覧・資料の表示・ダウンロードを `workspace_access_audit_logs` に `dd_package_viewed` / `dd_item_viewed` / `dd_file_opened` / `dd_file_downloaded` で残す（detail はパッケージ・付与・項目の ID だけ）。管理者プレビューは記録しない。admin の操作は `admin_dd_mutation` と行変更の監査に残る。管理の「閲覧記録」にそのパッケージの直近200件を出す（同じPJの別パッケージの記録は混ぜない）。
+
+## 8. 権限の検証
 
 | 検査 | 内容 |
 |---|---|
-| `npm run test:dd-package`（deploy 前ゲート） | 純関数（閲覧範囲・ログイン可否・関所の path・直列化）、公開版の許可リスト（社内の値に目印を仕込み、公開版に残らないこと）、載せる範囲（外した節・行・段落が payload と自動の未確認事項に残らないこと、全部選ぶと未選択と同じ公開版になること、本文の節分けがコードブロックの中の見出しで切れず、つなげると元に戻ること、不正な key を通さないこと）、コードの契約（領域の分離、データを読む前の権限確認、閲覧者へ返す列、公開は DB 関数だけ、管理 API の requireAdmin と同一サイト確認、停止・失効の非復活、関所・ログイン・受け口の閉鎖、migration の権限） |
-| `scripts/dd_package_db_readback.sql` | 本番 DB 上で ROLLBACK 付きに16項目（新しい項目は未公開、PJ不一致の拒否、根拠資料の絞り込み、admin 以外の公開拒否、版番号、同じ内容で版を増やさない、公開版の更新・削除の拒否、物理削除の拒否、公開中のまま外せない、他項目の版を指せない、取り下げで記録が残る、付与の操作の制約、重複付与の拒否、ワークスペース所属を作らない、同一 transaction の監査） |
-| 実リクエストの確認（2026-09-30、ローカルの本番ビルド + 本番 DB） | 確認用パッケージ `dd-verification`（公開しない。確認後に受付終了）と確認用の外部アカウント（`@example.invalid`、停止済み）で、ログインなしの拒否、DD だけの人のトップ・項目・添付、未公開・存在しない・別パッケージの項目、ワークスペース・コックピット・管理画面・資料室・内部 API・つくよみへの直接アクセスの拒否、公開前の修正が外へ出ないこと、ダウンロード権限の付与と取り外し、停止・失効・期限切れ・受付終了・未公開に戻す・アカウント停止が同じログイン状態のまま次のリクエストで効くこと、取り下げ、閲覧記録を確かめた |
-| 載せる範囲の確認（2026-09-30、本番データを読み取りのみ） | SOL の下書き10件で、範囲の候補の数、全部選ぶと未選択と同じ payload になること、各グループの1件を外すとその中身が payload から消えることを確かめた（資金計画は、月の行に入っていた summary の写しからも消えることをここで見つけて直した） |
+| `npm run test:dd-package`（deploy 前ゲート） | 純関数（閲覧範囲・ログイン可否・関所の path・直列化）、表示データ（部品が表示する値は削らず、作成者・メモ・重複した summary に仕込んだ目印が残らないこと、未確認事項の自動抽出）、コードの契約（領域の分離、データを読む前の権限確認、閲覧者には公開中の項目だけ、非公開は管理者だけ、固定した版の仕組みを使わない、投資家の画面が汎用の API を叩かない、部品は見るだけ、印刷画面は管理者だけ、出力の記録はサーバが読み直す、管理 API の requireAdmin と同一サイト確認、停止・失効の非復活、関所・ログイン・受け口の閉鎖、migration） |
+| `scripts/dd_package_db_readback.sql` | 本番 DB 上で ROLLBACK 付き（新しい項目は非公開、PJ不一致の拒否、外した項目は公開できない、公開の日時の必須、公開の切り替え、物理削除の拒否、付与の操作の制約、重複付与の拒否、ワークスペース所属を作らない、同一 transaction の監査） |
+| 実リクエストの確認（2026-09-30、ローカルの本番ビルド + 本番 DB、33項目） | 確認用パッケージ `dd-verification`（公開しない。確認のあとで受付終了）と確認用の外部アカウント（`@example.invalid`、確認のあとで停止）で、ログインなしの拒否、DD だけの人のトップ・項目（ワークスペースと同じ部品で描かれる）・資料（サンドボックス・キャッシュ禁止・ダウンロード権限）、非公開の項目・付与の無いパッケージ・印刷画面の拒否、コックピット・ワークスペース・旧管理画面・コスト試算・技術台帳・資本政策・DD管理・DDの有無の API への直接アクセスの拒否、公開をやめると次の閲覧から消え・公開し直すと戻ること、付与の停止・受付終了が同じログイン状態のまま次のリクエストで効くことを確かめた |
 
-## 8. 同時に閉じた経路（2026-09-30）
+## 9. 同時に閉じた経路（2026-09-30）
 
 DD の「内部の値を外へ出さない」を満たすために、既存の次の経路を閉じた。
 
@@ -121,23 +114,24 @@ DD の「内部の値を外へ出さない」を満たすために、既存の�
 - `GET /api/project-tech` / `project-cost-model` / `project-ip` は `requireAuth()`（Supabase にログインしているだけ）で通っていた。`requireMember()` または当該PJのワークスペース権限（DB 再確認）に絞った。
 - 外部向けメールログインを PKCE にした（§2）。
 
-## 9. 残課題
+## 10. 残課題
 
-- **ログインなしで読める表**: 公開用の鍵だけで、`project_monthly_cashflow`（SOL の資金計画を含む）、`project_pl_monthly`、`project_knowledge`、`monthly_reports`、`company_budget_monthly`、`member_activities`、`tsukuyomi_chat_logs`、`llm_prompts` など多数の表が読める（`{public}` に `USING (true)` の読み取り方針が125件）。DD の公開版は保護されているが、元データそのものが外から読めるため、**DD を投資家へ開く前に閉じる**。ログインなしで動く画面（HUD の埋め込み等）が依存している可能性があり、影響を洗ってから閉じる（まさの判断待ち）。
+- **ログインなしで読める表**: 公開用の鍵だけで、`project_monthly_cashflow`（SOL の資金計画を含む）、`project_pl_monthly`、`project_knowledge`、`monthly_reports`、`company_budget_monthly`、`member_activities`、`tsukuyomi_chat_logs`、`llm_prompts` など多数の表が読める（`{public}` に `USING (true)` の読み取り方針が125件）。ワークスペースの試算表タブの資金計画も、ブラウザからこの表を直接読んでいる（DD はサーバで読む）。**DD を投資家へ開く前に閉じる**。ログインなしで動く画面（HUD の埋め込み等）が依存している可能性があり、影響を洗ってから閉じる（まさの判断待ち）。
 - `requireAuth()` だけで通る受け口がほかにも残る（`funding-stats`、`progress/unconfirmed`、`atlas/*`、`business-cards/*` など）。外部アカウントの Supabase ユーザーでも通り得るので、上と合わせて点検する。
-- 既存の資料室の HTML プレビュー（`/api/workspace-documents/[id]/render`）も、route の付けたサンドボックスの CSP が全体の CSP に上書きされている（DD の添付表示と同じ仕組み。DD 側は `next.config.ts` で上書きし直した）。資料室側を直すと、スクリプトや外部の画像に頼る既存の HTML の表示が変わるので、まさの確認を取ってから直す。
-- 検査 `test:workspace-documents-contract` と `test:workspace-fact-origin-contract` は、DD 実装前の main でも落ちている（deploy 前ゲートの外）。
-- 将来拡張（初回は作らない）: 投資家ごとの追加開示（パッケージを分けるか、項目の audience を持たせる）、質問対応、添付の PDF 化、知財台帳・契約・体制・燃料の試算の写し方、DD 全体の PDF 出力。
+- 既存の資料室の HTML プレビュー（`/api/workspace-documents/[id]/render`）も、route の付けたサンドボックスの CSP が全体の CSP に上書きされている（DD の資料表示と同じ仕組み。DD 側は `next.config.ts` で上書きし直した）。資料室側を直すと、スクリプトや外部の画像に頼る既存の HTML の表示が変わるので、まさの確認を取ってから直す。
+- ワークスペースの資本政策表タブは、読み取りの API が AMD メンバー限定のため、外部の参加者には表示されない（DD はサーバで読むので投資家には見える）。
+- 検査 `test:workspace-documents-contract`・`test:workspace-fact-origin-contract`・`check_project_workspace_route_contract.mjs`（資金調達履歴タブの名前が古い）・`check_zmp_workspace_themes.mjs` は、この変更の前の main でも落ちている（deploy 前ゲートの外）。
+- 将来拡張（初回は作らない）: 投資家ごとの追加開示（パッケージを分けるか、項目の audience を持たせる）、質問対応、知財・会社概要・事業計画のタブを項目として載せること、PDF をサーバで作って保存すること。
 
-## 10. SOL（p21）の状態
+## 11. SOL（p21）の状態
 
 - パッケージ `sol`（SolvioraX DD資料）は `draft`（未公開・管理者だけがプレビューできる）。閲覧権限は0件。投資家への招待・付与はしていない。
-- 掲載項目は、DD初版（Drive `p21_sol/260930_DD資料パッケージ`）の構成を参考に、現在の SOL のコックピット・ワークスペースの元データから下書きとして選んである（どれも未公開）。公開はまさが下書きを確認してから行う。
+- 掲載項目は、DD初版（Drive `p21_sol/260930_DD資料パッケージ`）の構成を参考に、現在の SOL のコックピット・ワークスペースの元データから選んである（10件、どれも非公開）。公開はまさが中身を確認してから行う。
 
 ## 確認した current truth
 
-- `pwa/src/lib/dd-package-core.ts` / `dd-access.ts` / `dd-payload.ts` / `dd-sources.ts` / `dd-package-server.ts` / `dd-format.ts`
-- `pwa/src/app/dd/**`、`pwa/src/app/(app)/project/[projectId]/dd/**`、`pwa/src/app/api/admin/dd/route.ts`
-- `pwa/src/components/dd/**`、`pwa/src/components/cockpit/tech-blocks.tsx`、`pwa/src/components/admin/DdGrantLedger.tsx`
-- `pwa/scripts/migrations/455_dd_packages.sql`・`456_sol_dd_initial_selection.sql`、`pwa/scripts/dd_package_db_readback.sql`
+- `pwa/src/lib/dd-package-core.ts` / `dd-access.ts` / `dd-payload.ts` / `dd-sources.ts` / `dd-package-server.ts` / `dd-package-summary.ts` / `dd-client.ts` / `dd-format.ts`
+- `pwa/src/app/dd/**`、`pwa/src/app/(app)/project/[projectId]/dd/**`、`pwa/src/app/api/admin/dd/route.ts`、`pwa/src/app/api/dd/summary/route.ts`
+- `pwa/src/components/dd/**`、`pwa/src/components/cockpit/CockpitTechnology.tsx`（`TopicCard`）、`CapitalPlanMatrix.tsx`（`readOnly`）、`CockpitView.tsx`、`pwa/src/components/project-workspace/SxWeeklyControlDashboard.tsx`、`pwa/src/lib/cockpit-tabs.ts`、`pwa/src/components/admin/DdGrantLedger.tsx`
+- `pwa/scripts/migrations/455_dd_packages.sql`〜`458_dd_drop_fixed_publications.sql`、`pwa/scripts/dd_package_db_readback.sql`
 - `pwa/scripts/check_dd_package_core.mts` / `check_dd_payload.mts` / `check_dd_package_contract.mjs`

@@ -3,11 +3,14 @@
 // 守ること（scripts/check_dd_package_contract.mjs で検査する）:
 //   1. すべての操作は requireAdmin() と同一サイト確認のあとに、service_role（createAdminClient）で読み書きする。
 //   2. action を明示させる。何でも受け付ける upsert の経路は作らない。
-//   3. 公開は publishDdItem() だけ。画面から送られた payload は受け取らず、元データから作り直す。
+//   3. 公開は「公開中にする／やめる」の切り替え（setDdItemPublished）だけ。画面から中身（payload）は受け取らない。
+//      中身は閲覧のたびに元データの最新から作る（2026-09-30 まさ「中身を変えたらちゃんと変わるように」）。
 //   4. 付与の作成で、停止・失効した付与を復活させない。戻すのは update_grant の明示の status 変更だけ。
 //   5. DD の付与はワークスペースの所属（project_access_memberships 等）を作らない。
 //   6. 要秘匿（confidential）の技術台帳ページは、acknowledgeConfidential=true の明示なしに追加しない。
-//   7. 載せる範囲（includedParts）は既知の形の key だけを受け付け、範囲を選べる種類（技術台帳・採算・資金計画）だけに保存する。
+//   7. 正式版（PDF）の出力の記録（record_export）は、サーバが公開中の項目と元データの更新日時を読み直して残す
+//      （画面から送られた一覧は使わない）。
+//   8. GET は管理画面（コックピット・ワークスペースの「DDパッケージ」タブ）の読み取り。可変系なので毎回読む（no-store）。
 
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -16,9 +19,6 @@ import { isSameOriginWorkspaceMutation } from "@/lib/workspace-mutation-origin";
 import { recordWorkspaceAuditEvent } from "@/lib/workspace-access-audit";
 import { normalizeWorkspaceEmail } from "@/lib/workspace-email";
 import {
-  DD_PART_ITEM_KINDS,
-  DD_PART_MAX,
-  isDdPartKey,
   isDdSectionKey,
   isUuid,
   normalizeDdCapabilities,
@@ -28,7 +28,15 @@ import {
 } from "@/lib/dd-package-core";
 import { isDdItemKind } from "@/lib/dd-payload";
 import { DdSourceError, isSourceKeyForKind, listDdSourceCandidates } from "@/lib/dd-sources";
-import { loadDdItem, publishDdItem, withdrawDdItem } from "@/lib/dd-package-server";
+import {
+  loadDdAdminState,
+  loadDdItem,
+  loadDdPackageRow,
+  loadDdPublishedLive,
+  recordDdPackageExport,
+  setDdItemPublished,
+} from "@/lib/dd-package-server";
+import { invalidateDdPackageSummaryCache } from "@/lib/dd-package-summary";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -91,6 +99,20 @@ async function audit(projectId: string | null, detail: Record<string, string | n
   });
 }
 
+/** GET /api/admin/dd?projectId=p21 … 管理画面の中身（パッケージ・掲載項目・閲覧権限・閲覧記録・PDF出力の記録・追加できる元データ）。 */
+export async function GET(request: Request) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.errorResponse;
+  const projectId = new URL(request.url).searchParams.get("projectId")?.trim() ?? "";
+  if (!projectId || projectId.length > 160) return bad("invalid_project");
+  try {
+    const [state, candidates] = await Promise.all([loadDdAdminState(projectId), listDdSourceCandidates(projectId)]);
+    return ok({ state, candidates: state ? candidates : [] });
+  } catch (error) {
+    return failed("load_failed", error);
+  }
+}
+
 export async function POST(request: Request) {
   const auth = await requireAdmin();
   if (!auth.ok) return auth.errorResponse;
@@ -121,6 +143,8 @@ export async function POST(request: Request) {
         return await createGrant(body, actor);
       case "update_grant":
         return await updateGrant(body, actor);
+      case "record_export":
+        return await recordExport(body, auth.user.email);
       default:
         return bad("unknown_action");
     }
@@ -195,20 +219,9 @@ function normalizeSourceOptions(raw: unknown): Record<string, unknown> | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const input = raw as Record<string, unknown>;
   const options: Record<string, unknown> = {};
-  if (has(input, "lastEventId")) {
-    const value = input.lastEventId;
-    if (value !== null && (typeof value !== "string" || value.length > 120)) return null;
-    options.lastEventId = value;
-  }
   if (has(input, "autoUnverified")) {
     if (typeof input.autoUnverified !== "boolean") return null;
     options.autoUnverified = input.autoUnverified;
-  }
-  if (has(input, "includedParts")) {
-    // null は「元データの節・行をすべて載せる」に戻す。配列は、その key の節・行だけを載せる。
-    const value = input.includedParts;
-    if (value !== null && (!Array.isArray(value) || value.length > DD_PART_MAX || !value.every(isDdPartKey))) return null;
-    options.includedParts = value === null ? null : Array.from(new Set(value as string[]));
   }
   return options;
 }
@@ -239,10 +252,7 @@ async function updateItem(body: Body, actor: string) {
   if (has(body, "sourceOptions")) {
     const options = normalizeSourceOptions(body.sourceOptions);
     if (!options) return bad("invalid_source_options");
-    if (has(options, "includedParts") && !DD_PART_ITEM_KINDS.includes(item.item_kind)) return bad("parts_not_supported");
-    const merged: Record<string, unknown> = { ...(item.source_options ?? {}), ...options };
-    if (merged.includedParts === null) delete merged.includedParts;
-    patch.source_options = merged;
+    patch.source_options = { ...(item.source_options ?? {}), ...options };
   }
   if (has(body, "evidenceItemIds")) {
     const raw = Array.isArray(body.evidenceItemIds) ? body.evidenceItemIds : null;
@@ -274,15 +284,10 @@ async function publishItem(body: Body, actor: string) {
   if (!itemId || !isUuid(itemId)) return bad("invalid_item");
   const item = await loadDdItem(itemId);
   if (!item) return bad("item_not_found", 404);
-  const result = await publishDdItem({ itemId, actorMemberId: actor, note: text(body.note, 1000) });
-  await audit(item.project_id, {
-    action: "publish_item",
-    item_id: item.id,
-    publication_id: result.publicationId,
-    revision: result.revision,
-    unchanged: result.unchanged,
-  });
-  return ok(result);
+  if (item.status !== "active") return bad("item_archived", 409);
+  await setDdItemPublished(item.id, true, actor);
+  await audit(item.project_id, { action: "publish_item", item_id: item.id });
+  return ok();
 }
 
 async function withdrawItem(body: Body, actor: string) {
@@ -290,9 +295,23 @@ async function withdrawItem(body: Body, actor: string) {
   if (!itemId || !isUuid(itemId)) return bad("invalid_item");
   const item = await loadDdItem(itemId);
   if (!item) return bad("item_not_found", 404);
-  await withdrawDdItem(item.id, actor);
+  await setDdItemPublished(item.id, false, actor);
   await audit(item.project_id, { action: "withdraw_item", item_id: item.id });
   return ok();
+}
+
+async function recordExport(body: Body, actorEmail: string) {
+  const packageId = text(body.packageId, 64);
+  if (!packageId || !isUuid(packageId)) return bad("invalid_package");
+  const pkg = await loadDdPackageRow(packageId);
+  if (!pkg) return bad("package_not_found", 404);
+  const loaded = await loadDdPublishedLive(pkg.id);
+  await recordDdPackageExport({
+    pkg,
+    actorEmail,
+    items: loaded.map(({ row, meta }) => ({ itemId: row.id, sourceAsOf: meta.sourceAsOf })),
+  });
+  return ok({ itemCount: loaded.length });
 }
 
 async function setItemStatus(body: Body, actor: string, status: "active" | "archived") {
@@ -302,8 +321,8 @@ async function setItemStatus(body: Body, actor: string, status: "active" | "arch
   if (!item) return bad("item_not_found", 404);
   const db = createAdminClient();
   const patch: Record<string, unknown> = { status, updated_by_member_id: actor };
-  // 外す項目は、先に外部へ見せる版を無くす（DB の制約でも保証している）。
-  if (status === "archived") patch.published_publication_id = null;
+  // 外す項目は、先に公開をやめる（DB の制約でも保証している）。戻しても非公開のまま。
+  if (status === "archived") patch.is_published = false;
   const { error } = await db.from("dd_package_items").update(patch).eq("id", item.id);
   if (error) throw new Error(error.message);
   await audit(item.project_id, { action: status === "archived" ? "archive_item" : "restore_item", item_id: item.id });
@@ -329,6 +348,7 @@ async function updatePackage(body: Body, actor: string) {
   const db = createAdminClient();
   const { error } = await db.from("dd_packages").update(patch).eq("id", pkg.id);
   if (error) throw new Error(error.message);
+  invalidateDdPackageSummaryCache();
   await audit(pkg.project_id, {
     action: "update_package",
     package_id: pkg.id,

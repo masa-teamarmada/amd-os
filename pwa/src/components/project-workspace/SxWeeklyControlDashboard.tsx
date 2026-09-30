@@ -102,6 +102,8 @@ import { CockpitCapitalPolicy } from "@/components/cockpit/CockpitCapitalPolicy"
 import { CockpitCompanyOverview } from "@/components/cockpit/CockpitCompanyOverview";
 import { CockpitProjectTasks } from "@/components/cockpit/CockpitProjectTasks";
 import { COCKPIT_GROUP_LABELS } from "@/lib/cockpit-tabs";
+import { DdProjectTab } from "@/components/dd/DdProjectTab";
+import { loadProjectDdSummary, peekProjectDdSummary } from "@/lib/dd-client";
 import styles from "./weekly-control.module.css";
 
 type StageKey = SxWeeklyIssueStage;
@@ -335,7 +337,7 @@ const STAGE_LABEL: Record<StageKey, string> = Object.fromEntries(
 // すべてのPJで、PJ資料室と同じ正本を開く「ドライブ」を加える。既存のアンカー名
 // (#weekly-change / #project-gantt / #partner-ledger / #issue-hypothesis / #input-readiness)
 // は他画面からのリンク互換のためhashとしてそのまま残す。
-export type SxWeeklyControlView = "weekly" | "gantt" | "objective-structure" | "partners" | "issues" | "tasks" | "technology" | "competition" | "business-model" | "business-plan" | "financial-projection" | "capital-plan" | "company" | "capital-policy" | "cost" | "cost-fuel" | "ip" | "drive";
+export type SxWeeklyControlView = "weekly" | "gantt" | "objective-structure" | "partners" | "issues" | "tasks" | "technology" | "competition" | "business-model" | "business-plan" | "financial-projection" | "capital-plan" | "company" | "capital-policy" | "cost" | "cost-fuel" | "ip" | "drive" | "dd";
 const SX_WEEKLY_VIEW_STORAGE_KEY = "sx-weekly-control-view-v1";
 const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   weekly: "weekly-change",
@@ -356,6 +358,7 @@ const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   "cost-fuel": "cost-model-fuel",
   ip: "project-ip",
   drive: "project-drive",
+  dd: "dd-package",
 };
 // projects.project_name が内部コード名で、利用者に見せる名前と違うPJだけをここへ置く。
 const WORKSPACE_TITLE_OVERRIDES: Record<string, string> = {
@@ -363,7 +366,7 @@ const WORKSPACE_TITLE_OVERRIDES: Record<string, string> = {
   p30: "愛媛大学 産学連携ポートフォリオ",
 };
 
-type WorkspaceGroupKey = "progress-group" | "business-plan-group" | "documents-group" | "company-information-group";
+type WorkspaceGroupKey = "progress-group" | "business-plan-group" | "documents-group" | "company-information-group" | "dd-group";
 type WorkspaceTab = { key: SxWeeklyControlView; label: string };
 type WorkspaceTabGroup = { key: WorkspaceGroupKey; label: string; children: readonly WorkspaceTab[] };
 const PROJECT_WORKSPACE_GROUPS: readonly WorkspaceTabGroup[] = [
@@ -375,6 +378,9 @@ const PROJECT_WORKSPACE_GROUPS: readonly WorkspaceTabGroup[] = [
   { key: "documents-group", label: COCKPIT_GROUP_LABELS.documents, children: [{ key: "drive", label: "ドライブ" }] },
   // PJ管理はAMD内部で定義・運用するPJ概要だけの分類。共有面の会社概要は独立した会社情報へ置く。
   { key: "company-information-group", label: COCKPIT_GROUP_LABELS.companyInformation, children: [{ key: "company", label: "会社概要" }, { key: "capital-policy", label: "資金調達履歴" }] },
+  // DDパッケージ（2026-09-30 まさ「ワークスペースに左メニューってなくない？」）。DDパッケージを持つPJで、AMD admin にだけ出す
+  // （表示条件は workspaceGroups）。外部の参加者には出さない（EXTERNAL_WORKSPACE_TABS に入れない）。
+  { key: "dd-group", label: COCKPIT_GROUP_LABELS.dd, children: [{ key: "dd", label: "DDパッケージ" }] },
 ];
 const EXTERNAL_WORKSPACE_TABS = new Set<SxWeeklyControlView>([
   "issues", "tasks", "gantt", "partners", "drive",
@@ -404,6 +410,7 @@ function viewForHash(hash: string): SxWeeklyControlView | null {
   if (normalized === "capital-plan") return "capital-plan";
   if (normalized === "company-overview") return "company";
   if (normalized === "capital-policy") return "capital-policy";
+  if (normalized === "dd-package") return "dd";
   if (normalized === "theme-progress") return "issues";
   if (normalized === "weekly-change" || normalized === "input-readiness")
     return "weekly";
@@ -4642,16 +4649,42 @@ export function SxWeeklyControlDashboard({
   }, [workspaceProjectId]);
   const hasFuelCost = (fuelCostLoaded.projectId === workspaceProjectId ? fuelCostLoaded.has : peekFuelCost(workspaceProjectId)) === true;
   const isZmpWorkspace = bundle.project.projectId === "p19";
+  // DDパッケージのタブ。AMD admin（portfolio）のときだけ、そのPJにDDパッケージがあるかを参照系のキャッシュ越しに確かめる。
+  const ddEligible = !externalViewer && access.isAdmin && access.scope === "portfolio";
+  const peekDd = (projectId: string) => {
+    const hit = peekProjectDdSummary(projectId);
+    return hit === undefined ? undefined : hit !== null;
+  };
+  const [ddLoaded, setDdLoaded] = useState<{ projectId: string; has: boolean | undefined }>(() => ({
+    projectId: workspaceProjectId,
+    has: ddEligible ? peekDd(workspaceProjectId) : false,
+  }));
+  useEffect(() => {
+    if (!ddEligible) return;
+    let cancelled = false;
+    loadProjectDdSummary(workspaceProjectId)
+      .then((summary) => {
+        if (!cancelled) setDdLoaded({ projectId: workspaceProjectId, has: summary !== null });
+      })
+      .catch(() => {
+        if (!cancelled) setDdLoaded({ projectId: workspaceProjectId, has: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ddEligible, workspaceProjectId]);
+  const hasDd = ddEligible && (ddLoaded.projectId === workspaceProjectId ? ddLoaded.has : peekDd(workspaceProjectId)) === true;
   // ZMPは現行根拠がそろった面だけを通常導線に出す。旧データや空状態の事業計画群は
   // 消さずに深いURL互換を保ち、再整備後にこの集合へ戻す。
   const workspaceGroups = useMemo(() => PROJECT_WORKSPACE_GROUPS.map((group) => ({
     ...group,
     children: group.children
       .filter((tab) => (tab.key !== "cost-fuel" || hasFuelCost)
+        && (tab.key !== "dd" || hasDd)
         && (!externalViewer || EXTERNAL_WORKSPACE_TABS.has(tab.key))
         && (!isZmpWorkspace || ZMP_WORKSPACE_TABS.has(tab.key)))
       .map((tab) => (tab.key === "cost" && hasFuelCost ? { ...tab, label: "コスト試算（廃液）" } : tab)),
-  })).filter((group) => group.children.length > 0), [externalViewer, hasFuelCost, isZmpWorkspace]);
+  })).filter((group) => group.children.length > 0), [externalViewer, hasFuelCost, hasDd, isZmpWorkspace]);
   const dynamicTabs = useMemo(() => workspaceGroups.flatMap((group) => group.children), [workspaceGroups]);
 
   const externalDefaultView: SxWeeklyControlView = "issues";
@@ -4691,7 +4724,8 @@ export function SxWeeklyControlDashboard({
         value === "cost" ||
         value === "cost-fuel" ||
         value === "ip" ||
-        value === "drive"
+        value === "drive" ||
+        value === "dd"
       );
     };
 
@@ -5816,6 +5850,12 @@ export function SxWeeklyControlDashboard({
           <section id="cost-model-fuel" className={styles.section} role="tabpanel" aria-label="コスト試算（燃料）">
             {/* ワークスペースでは保存させない（コスト試算（廃液）と同じ）。試算はできる。 */}
             <CockpitFuelCostModel projectId={bundle.project.projectId} allowEdit={false} />
+          </section>
+        )}
+
+        {activeView === "dd" && hasDd && (
+          <section id="dd-package" className={styles.section} role="tabpanel" aria-label="DDパッケージ">
+            <DdProjectTab projectId={bundle.project.projectId} />
           </section>
         )}
 

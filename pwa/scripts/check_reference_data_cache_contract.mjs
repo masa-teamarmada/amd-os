@@ -143,6 +143,13 @@ const REFERENCE_DATA_ENDPOINTS = [
     routeFile: "src/app/api/slack/messages/route.ts",
     clientModule: "src/lib/slack/slack-messages-client.ts",
   },
+  {
+    // 2026-09-30: コックピットとワークスペースのタブ列が「DDパッケージ」を出すかを決めるのに使う。
+    endpoint: "/api/dd/summary",
+    label: "PJのDDパッケージの有無 (DDパッケージタブの表示条件)",
+    routeFile: "src/app/api/dd/summary/route.ts",
+    clientModule: "src/lib/dd-client.ts",
+  },
 ];
 
 // ---------------------------------------------------------------------------

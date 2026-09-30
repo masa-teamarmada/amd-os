@@ -24,12 +24,13 @@ export type WorkspaceAuditEvent = {
     | "workspace_document_upload_completed"
     | "workspace_document_opened"
     | "workspace_document_mutated"
-    // DDパッケージ（投資家・金融機関向け）。外部アカウントの閲覧・添付の表示/ダウンロードと、admin の操作。
-    // detailにはpackage / grant / item / publication のidと版番号・操作名だけを入れ、ファイル名・URL・本文は記録しない。
+    // DDパッケージ（投資家・金融機関向け）。外部アカウントの閲覧・添付の表示/ダウンロード、admin の操作と正式版（PDF）の出力。
+    // detailにはpackage / grant / item のidと操作名・元データの更新日時だけを入れ、ファイル名・URL・本文は記録しない。
     | "dd_package_viewed"
     | "dd_item_viewed"
     | "dd_file_opened"
     | "dd_file_downloaded"
+    | "dd_package_exported"
     | "admin_dd_mutation";
   userAccountId?: string | null;
   /** Only set this when the account is already a known, registered account. */

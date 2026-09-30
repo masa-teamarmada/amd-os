@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Fragment, createContext, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   editableValue,
   overrideValue,
@@ -27,7 +27,18 @@ export interface CapitalPlanMatrixProps {
   onAddHolder: (name?: string) => void;
   onAddEvent: () => void;
   onRenameHolder: (holderId: string, name: string) => void;
+  /**
+   * true のとき見るだけ（DDパッケージの閲覧画面）。値はワークスペースと同じものを出し、入力欄・上書き・追加の操作を出さない。
+   * 株主の内訳の開閉と、ラウンドの選択（表示の強調だけ）は残す。
+   */
+  readOnly?: boolean;
 }
+
+/** 見るだけの表示か。セルの部品が読む（props を全セルへ配らずに済ませる）。 */
+const MatrixReadOnly = createContext(false);
+
+const readOnlyValueClass =
+  'block w-full px-1.5 py-1 text-right text-[13px] tabular-nums text-slate-900 dark:text-slate-100';
 
 const HOLDER_PALETTE = [
   '#0072B2',
@@ -193,6 +204,7 @@ function NumberCell({
   ariaLabel: string;
   placeholder?: string;
 }) {
+  const readOnly = useContext(MatrixReadOnly);
   const [draft, setDraft] = useState(() => (value != null ? formatNumberForDisplay(value) : ''));
   const [lastKnownValue, setLastKnownValue] = useState(value);
   const isEmpty = draft.trim() === '';
@@ -200,6 +212,14 @@ function NumberCell({
   if (value !== lastKnownValue) {
     setLastKnownValue(value);
     setDraft(value != null ? formatNumberForDisplay(value) : '');
+  }
+
+  if (readOnly) {
+    return (
+      <span aria-label={ariaLabel} className={readOnlyValueClass}>
+        {value != null ? formatNumberForDisplay(value) : '—'}
+      </span>
+    );
   }
 
   function commitDraft(raw: string) {
@@ -330,6 +350,7 @@ function OutputCell({
   onClearOverride?: () => void;
   overrideNote?: string;
 }) {
+  const readOnly = useContext(MatrixReadOnly);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const isOverridden = editable?.source === 'override';
@@ -399,7 +420,7 @@ function OutputCell({
             >
               {sourceBadgeText(editable)}
             </span>
-            {onOverride && (
+            {onOverride && !readOnly && (
               <button
                 type="button"
                 aria-label={overrideAriaLabel}
@@ -413,7 +434,7 @@ function OutputCell({
                 ✎
               </button>
             )}
-            {isOverridden && onClearOverride && (
+            {isOverridden && onClearOverride && !readOnly && (
               <button
                 type="button"
                 aria-label={`${label} の上書きを解除`}
@@ -426,7 +447,7 @@ function OutputCell({
           </span>
           <span className="whitespace-nowrap text-right">{value != null ? formatter(value) : '—'}</span>
         </div>
-        {onOverride && overrideNote && (
+        {onOverride && overrideNote && !readOnly && (
           <span
             className="block w-full max-w-full whitespace-normal break-words text-right text-[10px] leading-tight text-slate-400 dark:text-slate-500"
             title={overrideNote}
@@ -445,12 +466,21 @@ function OutputCell({
  * 空にした場合は保存せず元の名前へ戻す（名前のない株主を作らない）。
  */
 function HolderNameInput({ name, onCommit }: { name: string; onCommit: (next: string) => void }) {
+  const readOnly = useContext(MatrixReadOnly);
   const [draft, setDraft] = useState(name);
   const [lastKnownName, setLastKnownName] = useState(name);
 
   if (name !== lastKnownName) {
     setLastKnownName(name);
     setDraft(name);
+  }
+
+  if (readOnly) {
+    return (
+      <span title={name} className="min-w-0 flex-1 truncate px-1.5 py-0.5 text-[12px] font-semibold text-slate-900 dark:text-slate-100">
+        {name}
+      </span>
+    );
   }
 
   function commit() {
@@ -577,6 +607,7 @@ export function CapitalPlanMatrix({
   onAddHolder,
   onAddEvent,
   onRenameHolder,
+  readOnly = false,
 }: CapitalPlanMatrixProps) {
   const legendId = useId();
   const sortedEvents = useMemo(() => [...events].sort((a, b) => a.order - b.order), [events]);
@@ -614,7 +645,7 @@ export function CapitalPlanMatrix({
   if (sortedEvents.length === 0) {
     return (
       <div className="w-full" data-testid="capital-plan-matrix">
-        <AddHolderAndEventBar onAddHolder={onAddHolder} onAddEvent={onAddEvent} />
+        {!readOnly && <AddHolderAndEventBar onAddHolder={onAddHolder} onAddEvent={onAddEvent} />}
         <div className="rounded-none border border-slate-200 dark:border-slate-800 p-4 text-sm text-slate-500 dark:text-slate-400">
           資本イベントがまだ登録されていません。
         </div>
@@ -623,8 +654,9 @@ export function CapitalPlanMatrix({
   }
 
   return (
+    <MatrixReadOnly.Provider value={readOnly}>
     <div className="w-full" data-testid="capital-plan-matrix">
-      <AddHolderAndEventBar onAddHolder={onAddHolder} onAddEvent={onAddEvent} />
+      {!readOnly && <AddHolderAndEventBar onAddHolder={onAddHolder} onAddEvent={onAddEvent} />}
 
       <div id={legendId} className="mb-2 flex flex-wrap gap-x-3 gap-y-1 px-1 text-[11px] text-slate-600 dark:text-slate-400">
         {plan.holders.map((holder, idx) => (
@@ -640,7 +672,7 @@ export function CapitalPlanMatrix({
       </div>
 
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-y border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
-        <p>枠のある欄は書き換えられる（株主名・出資額・評価額など）。「自動」は他の欄から計算した値。株数の内訳は株主名の左の＋で開く。</p>
+        <p>{readOnly ? "「自動」は他の欄から計算した値。株数の内訳は株主名の左の＋で開く。" : "枠のある欄は書き換えられる（株主名・出資額・評価額など）。「自動」は他の欄から計算した値。株数の内訳は株主名の左の＋で開く。"}</p>
         <button type="button" onClick={toggleAllHolders} className="rounded-md border border-indigo-200 bg-white px-2 py-1 font-semibold text-indigo-700 hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
           {allHoldersExpanded ? "全株主を閉じる" : "全株主を展開"}
         </button>
@@ -720,6 +752,13 @@ export function CapitalPlanMatrix({
                 // let a user pick an option the engine forbids for this event type.
                 const relevant = FINANCING_TYPES.has(event.type) && event.type !== 'convertible_conversion';
                 if (!relevant) return <DashCell key={event.id} label={`${event.label} 算定方式`} />;
+                if (readOnly) {
+                  return (
+                    <td key={event.id} className="px-1.5 py-1 text-[12px] text-slate-700 dark:text-slate-300">
+                      {CALC_BASIS_OPTIONS.find((opt) => opt.value === (event.calculationBasis ?? 'manual'))?.label ?? '手動'}
+                    </td>
+                  );
+                }
                 return (
                   <td key={event.id} className="px-1.5 py-1">
                     <select
@@ -1076,6 +1115,7 @@ export function CapitalPlanMatrix({
         </table>
       </div>
     </div>
+    </MatrixReadOnly.Provider>
   );
 }
 

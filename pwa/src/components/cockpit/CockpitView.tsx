@@ -30,6 +30,8 @@ import { CockpitSeasonBudget } from "./CockpitSeasonBudget";
 import { CockpitProjectControl } from "./CockpitProjectControl";
 import { CockpitProjectTasks } from "./CockpitProjectTasks";
 import type { SxWeeklyControlView } from "@/components/project-workspace/SxWeeklyControlDashboard";
+import { DdProjectTab } from "@/components/dd/DdProjectTab";
+import { loadProjectDdSummary, peekProjectDdSummary } from "@/lib/dd-client";
 import { CockpitBusinessPlan } from "./CockpitBusinessPlan";
 import { CockpitFinancialProjection } from "./CockpitFinancialProjection";
 import { CockpitCapitalPlan } from "./CockpitCapitalPlan";
@@ -394,6 +396,34 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     fuelCostLoaded.projectId === cockpit.project.projectId ? fuelCostLoaded.has : peekFuelCost(cockpit.project.projectId);
   const hasFuelCost = hasFuelCostRaw === true;
 
+  // DDパッケージのタブを出すか。DDパッケージを持つPJで、AMD admin のときだけ（admin 以外は問い合わせが 403 で「無い」になる）。
+  // 2026-09-30 まさ「ワークスペースに左メニューってなくない？」: DDの管理はコックピットとワークスペースのタブから開く。
+  const peekDd = (projectId: string) => {
+    const hit = peekProjectDdSummary(projectId);
+    return hit === undefined ? undefined : hit !== null;
+  };
+  const [ddLoaded, setDdLoaded] = useState<{ projectId: string; has: boolean | undefined }>(() => ({
+    projectId: cockpit.project.projectId,
+    has: peekDd(cockpit.project.projectId),
+  }));
+  useEffect(() => {
+    if (isInstitutionProject) return;
+    const projectId = cockpit.project.projectId;
+    let cancelled = false;
+    loadProjectDdSummary(projectId)
+      .then((summary) => {
+        if (!cancelled) setDdLoaded({ projectId, has: summary !== null });
+      })
+      .catch(() => {
+        if (!cancelled) setDdLoaded({ projectId, has: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cockpit.project.projectId, isInstitutionProject]);
+  const hasDdRaw = ddLoaded.projectId === cockpit.project.projectId ? ddLoaded.has : peekDd(cockpit.project.projectId);
+  const hasDd = hasDdRaw === true;
+
   // 競合比較とビジネスモデルのタブを出すか。技術台帳にその区分のトピックを持つPJだけ
   // (2026-09-14 まさ「この競合比較は、技術タブの中じゃなくて事業計画グループの直下に置いてほしい」
   //  「事業計画グループの中に「ビジネスモデル」っていうタブを新たに追加して、その中に入れておくのはどう？」)。
@@ -520,6 +550,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     "capital-policy": "資金調達履歴",
     company: "会社概要",
     activity: "活動実績",
+    dd: "DDパッケージ",
   };
   const availableTab = (tab: CockpitTab) => {
     if (tab === "score-detail") return hasScoreDetailTab;
@@ -530,6 +561,8 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     // 競合比較も同じ。読み込み中に ?tab=competition で開いたときは待つ。
     if (tab === "competition") return hasCompetition || (hasCompetitionRaw === undefined && resolvedTab === "competition");
     if (tab === "business-model") return hasBusinessModel || (hasBusinessModelRaw === undefined && resolvedTab === "business-model");
+    // DDパッケージも同じ。読み込み中に ?tab=dd で開いたときは待つ。
+    if (tab === "dd") return !isInstitutionProject && (hasDd || (hasDdRaw === undefined && resolvedTab === "dd"));
     return true;
   };
   const visibleGroups = groups
@@ -1057,6 +1090,12 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
           className={activeTab === "company" ? "min-w-0" : "hidden"}
         >
           <CockpitCompanyOverview projectId={project.projectId} projectName={project.projectName} surface="cockpit" />
+        </section>
+      )}
+
+      {activeTab === "dd" && (
+        <section role="tabpanel" aria-label="DDパッケージ" className="min-w-0">
+          <DdProjectTab projectId={project.projectId} />
         </section>
       )}
 

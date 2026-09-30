@@ -115,7 +115,7 @@ institutions ──< institution_projects >── projects
 | `/workspace/[slug]` | 外部アカウント | 研究機関ワークスペース本体。対象機関のPJ、シーズ一覧、ECRを読み取り専用で表示する |
 | `/project/[projectId]/workspace` | 内部メンバー または 外部アカウント | 同じURLの二面構成。内部メンバーには詳細バンドル、外部アカウントにはPJ名と共有資料室への入口だけを返す。内部の進捗・関係先・論点を出す外部DTOは未接続 |
 | `/admin/access` | 内部admin | 外部アクセス権限の台帳。誰がどの機関ワークスペース・どのPJに入れるかをここだけで決める。DD閲覧権限は下に一覧だけを出し、付与・停止は各DDパッケージの管理画面で行う |
-| `/dd/[slug]` | 外部アカウント（DD閲覧権限） | 投資家・金融機関向けのDDパッケージ。共有対象に指定した項目の公開版だけ。§6.8 |
+| `/dd/[slug]` | 外部アカウント（DD閲覧権限） | 投資家・金融機関向けのDDパッケージ。共有対象に指定して公開中にした項目の、いまの内容だけ。§6.8 |
 
 ### 6.2 認可の3要素
 
@@ -199,11 +199,11 @@ EHM OS設計たたき台（2026-08-13 まさ承認）の論点11-A。機関側�
 
 ### 6.8 DDパッケージ（投資家・金融機関）
 
-2026-09-30 にSOL（p21）で追加した第3の領域。確定仕様は `pwa/spec/5-17-dd-package-current-spec.md`、データは migration 455（SOLの初期選択は456）。
+2026-09-30 にSOL（p21）で追加した第3の領域。確定仕様は `pwa/spec/5-17-dd-package-current-spec.md`、データは migration 455（SOLの初期選択は456、公開の切り替えは457・458）。
 
 - 領域はコックピット（社内）・ワークスペース（共同作業者）・DD（投資家・金融機関）の3つ。DDへ入れる根拠は `dd_package_grants` だけで、`project_access_memberships` や機関所属とは独立。DDの付与はワークスペースへ入る根拠にならず、その逆もない。
 - できる操作は付与行の `capabilities`（`dd.view` / `dd.download`）で別に持つ。
-- 外部に見えるのは、admin が「公開」した時点の元データから作る公開版（追記のみ）だけ。新しい項目・資料は公開するまで非公開。元データの編集中の値は流れない。
+- 外部に見えるのは、admin が「公開する」にした項目だけ。中身は閲覧のたびに元データの最新を、ワークスペースと同じ部品で描く（2026-09-30 まさ「ワークスペースの最新版を見てもらいたいだけ」「どこから見ても同じ内容」）。新しい項目・資料は公開するまで非公開。正式に提出する版は、その時点の内容を PDF に出力して残す。
 - ログインは本節§6.4の外部アカウントと同じ（DDの付与だけでもリンクを送る。DDだけの人は `/dd` へ案内）。停止・失効・期限切れ・受付終了は次のリクエストで効く。
 
 ## 7. 検証
@@ -211,7 +211,7 @@ EHM OS設計たたき台（2026-08-13 まさ承認）の論点11-A。機関側�
 - migration 207は機関46件・大学/国研シーズ141件・確定4PJ、migration 209は対象seed PJ 19件・二重分類0件・SX未設立/SPS ready・description全NULLをassertする。
 - `npm run test:institution-seed-project-domains` でテーブル分離、19PJ移行、固定対応の不在、フラット全件表示、ECR/SPS非合算を検査する。
 - `npm run test:kute-seeds-scope` と `npm run test:institution-soil-seeds` で表示スコープと評価系列を検査する。
-- §6の外部アクセスは契約テストで検査する。`test:workspace-access-scope`（所属・失効・機関からPJへの暗黙付与なし）、`test:workspace-access-session`（署名cookieの検証）、`test:workspace-email-start-contract`（登録有無を漏らさない応答とOTP claim）、`test:workspace-next-path`（遷移先の絞り込み）、`test:external-project-workspace`（外部DTOが内部バンドルへ広がらないこと）、`test:workspace-access-admin`（admin API の権限、自動復活禁止、完全pagination）、`test:workspace-rls-closure`（migration 213の閉鎖範囲）、`test:workspace-documents-core`（path/URL/storage key・HTML本文byte・Finder連番）、`test:workspace-documents-contract`（資料単位の再認可、明示置き換えだけのStorage上書き、同名raceの非上書き、HTML本文の署名URL非返却、capabilityでのHTML編集・archive、非破壊archive）、`test:workspace-fact-origin-contract`（未登録と0、取得失敗と0件、same-origin）、`test:workspace-security-migration-contract`（atomic rate limit、transactional audit、資料owner RESTRICT）、`test:workspace-capabilities`（role bundle）で検査する。DDパッケージは `test:dd-package`（閲覧範囲・公開版の許可リスト・コードの契約）と `scripts/dd_package_db_readback.sql`（本番DB上のROLLBACK付き検査）で検査する。
+- §6の外部アクセスは契約テストで検査する。`test:workspace-access-scope`（所属・失効・機関からPJへの暗黙付与なし）、`test:workspace-access-session`（署名cookieの検証）、`test:workspace-email-start-contract`（登録有無を漏らさない応答とOTP claim）、`test:workspace-next-path`（遷移先の絞り込み）、`test:external-project-workspace`（外部DTOが内部バンドルへ広がらないこと）、`test:workspace-access-admin`（admin API の権限、自動復活禁止、完全pagination）、`test:workspace-rls-closure`（migration 213の閉鎖範囲）、`test:workspace-documents-core`（path/URL/storage key・HTML本文byte・Finder連番）、`test:workspace-documents-contract`（資料単位の再認可、明示置き換えだけのStorage上書き、同名raceの非上書き、HTML本文の署名URL非返却、capabilityでのHTML編集・archive、非破壊archive）、`test:workspace-fact-origin-contract`（未登録と0、取得失敗と0件、same-origin）、`test:workspace-security-migration-contract`（atomic rate limit、transactional audit、資料owner RESTRICT）、`test:workspace-capabilities`（role bundle）で検査する。DDパッケージは `test:dd-package`（閲覧範囲・表示データ・コードの契約）と `scripts/dd_package_db_readback.sql`（本番DB上のROLLBACK付き検査）で検査する。
 - PWAは型検査・本番build・desktop/mobile実画面、macOSはXcode buildで確認する。
 
 ## 8. ロールバック

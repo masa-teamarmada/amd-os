@@ -4,8 +4,10 @@
 // 守ること（pwa/spec/5-17-dd-package-current-spec.md）:
 //   - DDへ入れる根拠は dd_package_grants だけ。ワークスペースの所属表を読まない・作らない。
 //   - 閲覧者の面（/dd/**）は、データを読む前に毎回 DB を引き直した権限を確かめ、権限が無ければ「見つからない」で閉じる。
-//   - 閲覧者へ返す列に、添付の保存先・確認メモ・公開した人・元データの内部参照を入れない。
-//   - 公開版は DB 関数 dd_publish_item だけが作る。画面から送られた payload を公開しない。
+//   - 閲覧者には「公開中（is_published）で有効な項目」だけを返す。未公開の項目は管理者のプレビューだけ。
+//   - 中身は閲覧のたびに元データの最新から作り、ワークスペースと同じ部品で描く。固定した版（dd_item_publications）は使わない。
+//   - 投資家の画面は汎用の API（コスト試算など）を叩かない。サーバが渡した値を手元に置いて部品を描く。
+//   - 正式版（PDF）の印刷画面は管理者だけ。出力の記録はサーバが公開中の項目を読み直して残す。
 //   - 管理 API は requireAdmin と同一サイト確認のあとで動き、停止・失効を作成で復活させない。
 //   - 外部アカウントの署名 cookie を認証として通すのは、ワークスペースの面と DD の面だけ。
 
@@ -54,14 +56,20 @@ for (const file of viewerFiles) {
   }
   const accessIndex = source.indexOf("resolveDdPackageAccess(");
   const loadIndex = Math.min(
-    ...["loadDdPackageView(", "loadDdPublishedItem(", "loadDdPublicationFile("]
+    ...["loadDdPackageView(", "loadDdItemView(", "loadDdItem(", "loadDdPackageRow(", "loadDdPublishedLive(", "deliverDdDocument("]
       .map((call) => source.indexOf(call))
       .filter((index) => index >= 0),
   );
   assert.ok(accessIndex >= 0, `${relative} は resolveDdPackageAccess で権限を確かめる`);
   assert.ok(accessIndex < loadIndex, `${relative} はデータを読む前に権限を確かめる`);
-  assert.match(source, /if \(!access\) (?:notFound\(\)|return notFound\(\))/, `${relative} は権限が無ければ見つからないで閉じる`);
+  assert.match(
+    source,
+    /if \(!access(?: \|\| access\.principal !== "internal_admin")?\) (?:notFound\(\)|return notFound\(\))/,
+    `${relative} は権限が無ければ見つからないで閉じる`,
+  );
 }
+const printPage = read("src/app/dd/[slug]/print/page.tsx");
+assert.match(printPage, /if \(!access \|\| access\.principal !== "internal_admin"\) notFound\(\);/, "正式版（PDF）の印刷画面は管理者だけ");
 const layout = read("src/app/dd/layout.tsx");
 assert.ok(!/from\("dd_packages"\)|projectName|project_name/.test(layout), "DD の枠のタイトルにパッケージ名・PJ名を出さない");
 
@@ -69,7 +77,9 @@ const fileRoute = read("src/app/dd/[slug]/items/[itemId]/file/route.ts");
 assert.match(fileRoute, /hasDdCapability\(access, "dd\.download"\)/, "ダウンロードは dd.download を持つ人だけ");
 assert.match(fileRoute, /sandbox/, "HTML はサンドボックスで返す");
 assert.match(fileRoute, /no-store/, "添付の応答をキャッシュさせない");
-assert.match(fileRoute, /createSignedUrl\(file\.storagePath, 60\)/, "署名URLは60秒");
+assert.match(fileRoute, /if \(!item\.is_published && access\.principal !== "internal_admin"\) return notFound\(\);/, "閲覧者には公開中の資料だけを渡す");
+const sources = read("src/lib/dd-sources.ts");
+assert.ok((sources.match(/createSignedUrl\([^)]*, 60, signOptions\)/g) ?? []).length >= 3, "資料の署名URLは60秒");
 
 const nextConfig = read("next.config.ts");
 assert.match(nextConfig, /source: "\/dd\/:slug\/items\/:itemId\/file",\s*\n\s*headers: ddPublicationFileSecurityHeaders/, "DD の添付表示には全体の CSP を上書きするサンドボックスを当てる");
@@ -78,18 +88,27 @@ assert.ok(
   "サンドボックスの設定は全体の設定より後に置く（後の設定が上書きする）",
 );
 
-// --- 閲覧者へ返す列 -----------------------------------------------------------
+// --- 閲覧者へ返す項目と中身 -------------------------------------------------------
 const server = read("src/lib/dd-package-server.ts");
-const viewFields = server.match(/DD_PUBLICATION_VIEW_FIELDS =\s*\n?\s*"([^"]+)"/);
-assert.ok(viewFields, "閲覧者へ返す列を1か所で定義する");
-for (const hidden of ["file_storage_path", "note", "published_by_member_id", "source_refs", "content_hash"]) {
-  assert.ok(!viewFields[1].split(",").includes(hidden), `閲覧者へ ${hidden} を返さない`);
-}
-assert.match(server, /\.eq\("status", "active"\)\s*\n\s*\.not\("published_publication_id", "is", null\)/, "公開版のある有効な項目だけを返す");
-assert.match(server, /publication\.item_id !== row\.id \|\| publication\.package_id !== packageId/, "公開版が同じ項目・同じパッケージのものか確かめる");
-assert.match(server, /rpc\("dd_publish_item"/, "公開は DB 関数 dd_publish_item だけ");
-assert.match(server, /buildDdPublicationDraft\(/, "公開版は元データから作り直す");
+assert.match(server, /\.eq\("package_id", packageId\)\.eq\("status", "active"\)/, "有効な項目だけを読む");
+assert.match(server, /if \(!options\.includeUnpublished\) query = query\.eq\("is_published", true\);/, "閲覧者には公開中の項目だけを返す");
+assert.match(server, /loadActiveItems\(packageId, \{ includeUnpublished: false \}\)/, "DDトップと正式版の出力は公開中の項目だけ");
+assert.match(server, /if \(!row\.is_published && access\.principal !== "internal_admin"\) return null;/, "未公開の項目は管理者のプレビューだけ");
+assert.match(server, /row\.package_id !== access\.packageId/, "別パッケージの項目は開かない");
+assert.match(server, /loadDdItemLive\(/, "中身は閲覧のたびに元データの最新から作る");
 assert.match(server, /if \(access\.principal !== "workspace_account"\) return;/, "管理者プレビューは閲覧記録に入れない");
+for (const [file, source] of [["dd-package-server.ts", server], ["dd-sources.ts", sources]]) {
+  assert.ok(!/dd_item_publications|dd_publish_item|published_publication_id/.test(code(source)), `${file} は固定した版の仕組みを使わない`);
+}
+for (const shape of ["shapeDdTechTopic(", "shapeDdFundingPlan(", "shapeDdCapitalPolicy(", "shapeDdCostModel(", "shapeDdDocument("]) {
+  assert.ok(sources.includes(shape), `中身は ${shape} を通して作る（部品が表示しない社内の値を外す）`);
+}
+const liveBodies = read("src/components/dd/DdLiveBodies.tsx");
+assert.ok(!/fetch\(/.test(code(liveBodies)), "DDの中身の部品は汎用の API を叩かない（サーバが渡した値を使う）");
+assert.match(liveBodies, /primeProjectCostModel\(|primeProjectFuelCostModel\(/, "コスト試算はサーバが渡した試算を手元に置いてから描く");
+assert.match(liveBodies, /canEdit=\{false\}/, "技術台帳のページは見るだけで描く");
+assert.match(liveBodies, /allowEdit=\{false\}/, "コスト試算は見るだけで描く");
+assert.match(liveBodies, /\breadOnly\b/, "資本政策表は見るだけで描く");
 
 // --- 管理 API ---------------------------------------------------------------
 const adminApi = read("src/app/api/admin/dd/route.ts");
@@ -101,10 +120,14 @@ assert.ok(!/body\.payload|p_payload|["']payload["']/.test(code(adminApi)), "画�
 assert.match(adminApi, /grant_already_exists/, "既存の付与（停止・失効を含む）を作成で復活させない");
 assert.match(adminApi, /confidential_requires_acknowledgement/, "要秘匿の項目は明示の確認なしに追加しない");
 assert.ok(!/project_access_memberships|institution_workspace_memberships/.test(code(adminApi)), "DD の付与でワークスペースの所属を作らない");
-assert.match(adminApi, /value\.every\(isDdPartKey\)/, "載せる範囲は既知の形の key だけを受け付ける");
-assert.match(adminApi, /DD_PART_ITEM_KINDS\.includes\(item\.item_kind\)/, "載せる範囲は、範囲を選べる種類の項目だけに保存する");
-const sources = read("src/lib/dd-sources.ts");
-assert.match(sources, /const included = readDdIncludedParts\(input\.sourceOptions\);/, "下書き・公開版は、選ばれた範囲で元データから作る");
+const getBody = adminApi.slice(adminApi.indexOf("export async function GET"), adminApi.indexOf("export async function POST"));
+assert.ok(getBody.indexOf("requireAdmin()") >= 0 && getBody.indexOf("requireAdmin()") < getBody.indexOf("loadDdAdminState("), "管理画面の読み取りも requireAdmin を最初に呼ぶ");
+assert.match(adminApi, /setDdItemPublished\(item\.id, true, actor\)/, "公開は公開中の切り替えだけ");
+assert.match(adminApi, /const loaded = await loadDdPublishedLive\(pkg\.id\);/, "出力の記録はサーバが公開中の項目を読み直して残す");
+assert.ok(!/dd_item_publications|dd_publish_item|published_publication_id/.test(code(adminApi)), "管理 API は固定した版の仕組みを使わない");
+const summaryApi = read("src/app/api/dd/summary/route.ts");
+assert.match(summaryApi, /const auth = await requireAdmin\(\);/, "DDパッケージの有無は AMD admin だけに返す");
+assert.match(summaryApi, /Cache-Control/, "DDパッケージの有無は参照系（HTTP キャッシュを明示）");
 
 // --- 関所・ログイン ------------------------------------------------------------
 const middleware = read("src/lib/supabase/middleware.ts");
@@ -131,6 +154,13 @@ for (const route of ["src/app/api/project-tech/route.ts", "src/app/api/project-c
 }
 
 // --- migration ------------------------------------------------------------------
+const live = read("scripts/migrations/457_dd_live_items.sql");
+assert.match(live, /ADD COLUMN IF NOT EXISTS is_published BOOLEAN NOT NULL DEFAULT FALSE/, "新しい項目は非公開で作る");
+assert.match(live, /CHECK \(status = 'active' OR NOT is_published\)/, "外した項目は公開できない");
+assert.match(live, /RAISE EXCEPTION 'sol の DD パッケージに閲覧権限がある/, "migration で閲覧権限を作らない（SOL は付与0件のまま）");
+const drop = read("scripts/migrations/458_dd_drop_fixed_publications.sql");
+assert.match(drop, /DROP FUNCTION IF EXISTS public\.dd_publish_item\(/, "固定した版を作る関数を外す");
+assert.match(drop, /DROP COLUMN IF EXISTS published_publication_id/, "固定した版への参照を外す");
 const migration = read("scripts/migrations/455_dd_packages.sql");
 assert.match(migration, /REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON TABLE public\.dd_item_publications FROM service_role/, "公開版は DB 関数以外から書けない");
 assert.match(migration, /CREATE TRIGGER workspace_reject_update BEFORE UPDATE ON public\.dd_item_publications/, "公開版は書き換えできない");

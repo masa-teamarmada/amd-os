@@ -1,37 +1,34 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import {
   DD_CAPABILITY_LABEL,
   DD_GRANT_STATUS_LABEL,
   DD_ITEM_KIND_LABEL,
   DD_PACKAGE_STATUS_LABEL,
-  DD_PART_ITEM_KINDS,
   DD_SECTIONS,
   normalizeDdUnverifiedNotes,
   type DdGrantStatus,
   type DdItemKind,
   type DdPackageStatus,
-  type DdPart,
   type DdSectionKey,
 } from "@/lib/dd-package-core";
 import type { DdAdminItem, DdAdminState } from "@/lib/dd-package-server";
 import type { DdSourceCandidate } from "@/lib/dd-sources";
 import { formatDdDate } from "@/lib/dd-format";
 
-// DDパッケージの管理画面（AMD admin 限定）。
-// 読み取りはサーバコンポーネントが行い、この部品は操作（POST /api/admin/dd）だけを送る。送った直後に router.refresh() で読み直す。
-// 公開・取り下げ・状態変更・付与の停止/失効は確認を挟む。投資家への招待メールは送らない（この画面にも送信機能は無い）。
+// DDパッケージの管理（AMD admin 限定）。コックピットとワークスペースの「DDパッケージ」タブの中に出す。
+// 読み取りは DdProjectTab（GET /api/admin/dd）が行い、この部品は操作（POST /api/admin/dd）だけを送る。送った直後に onChanged() で読み直す。
+// 項目は「公開する／公開をやめる」の切り替えだけ。公開中の項目は、元データの最新がそのまま投資家に見える（固定した版は作らない）。
+// 公開の切り替え・状態変更・付与の停止/失効は確認を挟む。投資家への招待メールは送らない（この画面にも送信機能は無い）。
 
-type Props = { state: DdAdminState; candidates: DdSourceCandidate[]; projectId: string };
+type Props = { state: DdAdminState; candidates: DdSourceCandidate[]; onChanged: () => void };
 
 const EVENT_LABEL: Record<string, string> = {
   dd_package_viewed: "トップを閲覧",
   dd_item_viewed: "項目を閲覧",
-  dd_file_opened: "添付を表示",
-  dd_file_downloaded: "添付をダウンロード",
+  dd_file_opened: "資料を表示",
+  dd_file_downloaded: "資料をダウンロード",
 };
 
 async function postAction(body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; [key: string]: unknown }> {
@@ -40,7 +37,7 @@ async function postAction(body: Record<string, unknown>): Promise<{ ok: boolean;
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  const json = (await response.json().catch(() => ({ ok: false, error: `HTTP ${response.status}` }))) as {
+  const json = (await response.json().catch(() => ({ ok: false, error: "invalid_response" }))) as {
     ok: boolean;
     error?: string;
   };
@@ -54,8 +51,7 @@ const ERROR_TEXT: Record<string, string> = {
   unknown_account: "このメールアドレスの外部アカウントがない。「アカウントも作る」にチェックする",
   account_suspended: "このアカウントは停止中。外部アクセス台帳で解除してから付与する",
   evidence_must_be_documents_in_same_package: "根拠資料には、このパッケージの資料項目だけを選べる",
-  parts_not_supported: "この種類の項目では、載せる範囲を選べない",
-  invalid_source_options: "載せる範囲などの指定が読めない。画面を開き直してから選び直す",
+  item_archived: "外した項目は公開できない。「戻す」で戻してから公開する",
   same_origin_required: "画面を開き直してから操作する",
 };
 
@@ -64,8 +60,7 @@ function errorText(error: string | undefined) {
   return ERROR_TEXT[error] ?? error;
 }
 
-export function DdAdminPanel({ state, candidates, projectId }: Props) {
-  const router = useRouter();
+export function DdAdminPanel({ state, candidates, onChanged }: Props) {
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -76,7 +71,7 @@ export function DdAdminPanel({ state, candidates, projectId }: Props) {
       const result = await postAction(body);
       if (result.ok) {
         setMessage({ tone: "ok", text: success });
-        router.refresh();
+        onChanged();
       } else {
         setMessage({ tone: "error", text: errorText(result.error) });
       }
@@ -85,11 +80,10 @@ export function DdAdminPanel({ state, candidates, projectId }: Props) {
 
   const activeItems = state.items.filter((item) => item.status === "active");
   const archivedItems = state.items.filter((item) => item.status === "archived");
-  const publishedCount = activeItems.filter((item) => item.published_publication_id).length;
-  const changedCount = activeItems.filter((item) => item.sourceChanged).length;
+  const publishedCount = activeItems.filter((item) => item.is_published).length;
   const documentItems = activeItems.filter((item) => item.item_kind === "document");
   const addedKeys = useMemo(() => new Set(state.items.map((item) => `${item.item_kind}|${item.source_key}`)), [state.items]);
-  const previewHref = `/dd/${encodeURIComponent(state.package.slug)}`;
+  const topHref = `/dd/${encodeURIComponent(state.package.slug)}`;
 
   return (
     <div className="space-y-6 text-[#1d1d1f]">
@@ -97,12 +91,18 @@ export function DdAdminPanel({ state, candidates, projectId }: Props) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-[11px] font-semibold text-[#6e6e73]">DDパッケージ（投資家・金融機関向けの開示面）</p>
-            <h1 className="text-[18px] font-semibold">{state.package.title}</h1>
+            <h2 className="text-[18px] font-semibold">{state.package.title}</h2>
+            <p className="mt-0.5 text-[12px] text-[#6e6e73]">
+              公開中の項目は、ワークスペースの最新の内容がそのまま投資家に見える。正式に提出する版は「PDFを出力」で残す。
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link href={previewHref} target="_blank" className="inline-flex min-h-9 items-center rounded-md border border-[#027FDC] bg-[#027FDC] px-3 text-[12.5px] font-semibold text-white hover:bg-[#0267b2]">
-              投資家の見え方をプレビュー
-            </Link>
+            <a href={topHref} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center rounded-md border border-[#d2d2d7] bg-white px-3 text-[12.5px] font-semibold hover:bg-[#f5f5f7]">
+              投資家の見え方
+            </a>
+            <a href={`${topHref}/print`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center rounded-md border border-[#027FDC] bg-[#027FDC] px-3 text-[12.5px] font-semibold text-white hover:bg-[#0267b2]">
+              PDFを出力
+            </a>
           </div>
         </div>
         <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-[#e5e5e7] bg-[#e5e5e7] text-[12px] md:grid-cols-5">
@@ -112,11 +112,7 @@ export function DdAdminPanel({ state, candidates, projectId }: Props) {
           </div>
           <div className="bg-white px-3 py-2">
             <dt className="text-[#6e6e73]">掲載項目</dt>
-            <dd className="mt-0.5 font-semibold tabular-nums">{activeItems.length}件（公開版あり {publishedCount}件）</dd>
-          </div>
-          <div className="bg-white px-3 py-2">
-            <dt className="text-[#6e6e73]">公開後に元データが変わった項目</dt>
-            <dd className={`mt-0.5 font-semibold tabular-nums ${changedCount > 0 ? "text-[#a15c00]" : ""}`}>{changedCount}件</dd>
+            <dd className="mt-0.5 font-semibold tabular-nums">{activeItems.length}件（公開中 {publishedCount}件）</dd>
           </div>
           <div className="bg-white px-3 py-2">
             <dt className="text-[#6e6e73]">閲覧権限</dt>
@@ -127,6 +123,12 @@ export function DdAdminPanel({ state, candidates, projectId }: Props) {
           <div className="bg-white px-3 py-2">
             <dt className="text-[#6e6e73]">閲覧記録（直近）</dt>
             <dd className="mt-0.5 font-semibold tabular-nums">{state.events.length}件</dd>
+          </div>
+          <div className="bg-white px-3 py-2">
+            <dt className="text-[#6e6e73]">PDFの出力</dt>
+            <dd className="mt-0.5 font-semibold tabular-nums">
+              {state.exports.length}回{state.exports[0] ? `（最後 ${formatDdDate(state.exports[0].createdAt)}）` : ""}
+            </dd>
           </div>
         </dl>
         {message && (
@@ -140,29 +142,29 @@ export function DdAdminPanel({ state, candidates, projectId }: Props) {
 
       <section className="space-y-2">
         <div className="flex items-baseline justify-between gap-2 border-b border-[#1d1d1f] pb-1">
-          <h2 className="text-[15px] font-semibold">掲載項目</h2>
-          <span className="text-[11px] text-[#6e6e73]">外部に見えるのは「公開版」の列に版がある項目だけ。新しく足した項目は公開するまで見えない。</span>
+          <h3 className="text-[15px] font-semibold">掲載項目</h3>
+          <span className="text-[11px] text-[#6e6e73]">外部に見えるのは「公開中」の項目だけ。新しく足した項目は「公開する」を押すまで見えない。</span>
         </div>
         {DD_SECTIONS.map((section) => {
           const rows = activeItems.filter((item) => item.section_key === section.key).sort((a, b) => a.sort_order - b.sort_order);
           return (
             <div key={section.key} className="pt-2">
-              <h3 className="text-[13px] font-semibold">
+              <h4 className="text-[13px] font-semibold">
                 {section.label}
                 <span className="ml-2 text-[11px] font-normal text-[#6e6e73]">{section.description}</span>
-              </h3>
+              </h4>
               {rows.length === 0 ? (
                 <p className="py-1.5 text-[12px] text-[#6e6e73]">まだ項目がない。下の「元データから追加」で足す。</p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="mt-1 w-full min-w-[880px] border-collapse text-[12.5px]">
+                  <table className="mt-1 w-full min-w-[820px] border-collapse text-[12.5px]">
                     <thead>
                       <tr className="text-left text-[11px] text-[#6e6e73]">
                         <th className="px-2 py-1 font-medium">項目</th>
                         <th className="w-[120px] px-2 py-1 font-medium">種類</th>
-                        <th className="w-[150px] px-2 py-1 font-medium">公開版</th>
-                        <th className="w-[140px] px-2 py-1 font-medium">元データ</th>
-                        <th className="w-[300px] px-2 py-1 font-medium">操作</th>
+                        <th className="w-[150px] px-2 py-1 font-medium">公開</th>
+                        <th className="w-[130px] px-2 py-1 font-medium">元データの更新</th>
+                        <th className="w-[260px] px-2 py-1 font-medium">操作</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -170,7 +172,7 @@ export function DdAdminPanel({ state, candidates, projectId }: Props) {
                         <ItemRow
                           key={item.id}
                           item={item}
-                          projectId={projectId}
+                          topHref={topHref}
                           pending={pending}
                           run={run}
                           editing={editingId === item.id}
@@ -192,7 +194,7 @@ export function DdAdminPanel({ state, candidates, projectId }: Props) {
               {archivedItems.map((item) => (
                 <li key={item.id} className="flex items-center justify-between gap-2 py-1.5">
                   <span>{item.title}（{DD_ITEM_KIND_LABEL[item.item_kind]}）</span>
-                  <button type="button" disabled={pending} onClick={() => run({ action: "restore_item", itemId: item.id }, "項目を戻した（未公開のまま）")} className="rounded border border-[#d2d2d7] px-2 py-1 hover:bg-[#f5f5f7]">
+                  <button type="button" disabled={pending} onClick={() => run({ action: "restore_item", itemId: item.id }, "項目を戻した（非公開のまま）")} className="rounded border border-[#d2d2d7] px-2 py-1 hover:bg-[#f5f5f7]">
                     戻す
                   </button>
                 </li>
@@ -208,7 +210,35 @@ export function DdAdminPanel({ state, candidates, projectId }: Props) {
 
       <section className="space-y-2">
         <div className="border-b border-[#1d1d1f] pb-1">
-          <h2 className="text-[15px] font-semibold">閲覧記録</h2>
+          <h3 className="text-[15px] font-semibold">PDFの出力の記録</h3>
+        </div>
+        {state.exports.length === 0 ? (
+          <p className="text-[12px] text-[#6e6e73]">まだ出力していない。「PDFを出力」から印刷画面で「PDFに保存」を選ぶと、ここに記録が残る。</p>
+        ) : (
+          <table className="w-full border-collapse text-[12px]">
+            <thead>
+              <tr className="text-left text-[11px] text-[#6e6e73]">
+                <th className="px-2 py-1 font-medium">日時</th>
+                <th className="px-2 py-1 font-medium">出力した人</th>
+                <th className="px-2 py-1 font-medium">項目数</th>
+              </tr>
+            </thead>
+            <tbody>
+              {state.exports.map((row) => (
+                <tr key={row.id} className="border-t border-[#f0f0f2]">
+                  <td className="whitespace-nowrap px-2 py-1">{new Date(row.createdAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}</td>
+                  <td className="px-2 py-1">{row.email ?? "—"}</td>
+                  <td className="px-2 py-1 tabular-nums">{row.itemCount}件</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section className="space-y-2">
+        <div className="border-b border-[#1d1d1f] pb-1">
+          <h3 className="text-[15px] font-semibold">閲覧記録</h3>
         </div>
         {state.events.length === 0 ? (
           <p className="text-[12px] text-[#6e6e73]">外部アカウントの閲覧記録はまだない（管理者のプレビューは記録しない）。</p>
@@ -231,7 +261,6 @@ export function DdAdminPanel({ state, candidates, projectId }: Props) {
                     <td className="px-2 py-1">{EVENT_LABEL[event.eventType] ?? event.eventType}</td>
                     <td className="px-2 py-1">
                       {event.itemId ? (state.items.find((item) => item.id === event.itemId)?.title ?? "（削除済み）") : "—"}
-                      {event.revision ? ` 第${event.revision}版` : ""}
                     </td>
                   </tr>
                 ))}
@@ -254,14 +283,14 @@ function PackageSettings({ state, pending, run }: { state: DdAdminState; pending
     {
       status: "open",
       label: "公開を始める",
-      confirm: "付与された外部の人が、公開版のある項目を閲覧できるようになる。招待メールは送られない。公開を始める？",
+      confirm: "付与された外部の人が、公開中の項目を閲覧できるようになる（中身はワークスペースの最新）。招待メールは送られない。公開を始める？",
     },
     { status: "closed", label: "受付を終了する", confirm: "付与があっても誰も閲覧できなくなる。受付を終了する？" },
   ];
   return (
     <section className="space-y-2">
       <div className="border-b border-[#1d1d1f] pb-1">
-        <h2 className="text-[15px] font-semibold">パッケージの設定</h2>
+        <h3 className="text-[15px] font-semibold">パッケージの設定</h3>
       </div>
       <div className="grid gap-3 md:grid-cols-[1fr_1fr]">
         <label className="flex flex-col gap-1 text-[12px]">
@@ -303,7 +332,7 @@ function PackageSettings({ state, pending, run }: { state: DdAdminState; pending
 
 function ItemRow({
   item,
-  projectId,
+  topHref,
   pending,
   run,
   editing,
@@ -311,80 +340,66 @@ function ItemRow({
   documentItems,
 }: {
   item: DdAdminItem;
-  projectId: string;
+  topHref: string;
   pending: boolean;
   run: RunAction;
   editing: boolean;
   onToggleEdit: () => void;
   documentItems: DdAdminItem[];
 }) {
-  const current = item.publications.find((publication) => publication.id === item.published_publication_id) ?? null;
-  const latest = item.publications[0] ?? null;
   return (
     <>
       <tr className="border-t border-[#f0f0f2] align-top">
         <td className="px-2 py-2">
           <span className="font-semibold">{item.title}</span>
           {item.summary && <p className="mt-0.5 line-clamp-2 text-[11.5px] text-[#6e6e73]">{item.summary}</p>}
+          {item.sourceError && <p className="mt-0.5 text-[11.5px] text-[#b71c1c]">元データを読めない：{item.sourceError}</p>}
         </td>
         <td className="px-2 py-2 text-[#424245]">{DD_ITEM_KIND_LABEL[item.item_kind]}</td>
         <td className="px-2 py-2">
-          {current ? (
-            <span>
-              第{current.revision}版
-              <span className="block text-[11px] text-[#6e6e73]">{formatDdDate(current.publishedAt)} 公開</span>
+          {item.is_published ? (
+            <span className="font-semibold text-[#0267b2]">
+              公開中
+              <span className="block text-[11px] font-normal text-[#6e6e73]">{formatDdDate(item.published_at)}から</span>
             </span>
           ) : (
-            <span className="text-[#6e6e73]">
-              未公開{latest ? `（取り下げ中・最終 第${latest.revision}版）` : ""}
-            </span>
+            <span className="text-[#6e6e73]">非公開</span>
           )}
         </td>
-        <td className="px-2 py-2 text-[12px]">
-          {item.sourceError ? (
-            <span className="text-[#b71c1c]">{item.sourceError}</span>
-          ) : item.sourceChanged ? (
-            <span className="font-semibold text-[#a15c00]">公開後に更新あり</span>
-          ) : current ? (
-            <span className="text-[#6e6e73]">公開版と同じ</span>
-          ) : (
-            <span className="text-[#6e6e73]">—</span>
-          )}
-        </td>
+        <td className="px-2 py-2 text-[12px] text-[#424245]">{formatDdDate(item.sourceAsOf)}</td>
         <td className="px-2 py-2">
           <div className="flex flex-wrap gap-1.5">
-            <Link
-              href={`/project/${encodeURIComponent(projectId)}/dd/preview/${item.id}`}
+            <a
+              href={`${topHref}/items/${item.id}`}
               target="_blank"
+              rel="noopener noreferrer"
               className="rounded border border-[#d2d2d7] px-2 py-1 text-[12px] hover:bg-[#f5f5f7]"
             >
-              下書きを見る
-            </Link>
-            <button
-              type="button"
-              disabled={pending || Boolean(item.sourceError)}
-              onClick={() => {
-                const note = window.prompt(
-                  current
-                    ? "いまの元データで新しい公開版を作る。確認した内容のメモ（社内用・投資家には見えない）"
-                    : "この項目を公開する。確認した内容のメモ（社内用・投資家には見えない）",
-                  "",
-                );
-                if (note === null) return;
-                run({ action: "publish_item", itemId: item.id, note }, current ? "新しい公開版を作った（内容が同じなら版は増えない）" : "公開した");
-              }}
-              className="rounded border border-[#027FDC] bg-[#027FDC] px-2 py-1 text-[12px] font-semibold text-white hover:bg-[#0267b2] disabled:opacity-50"
-            >
-              {current ? "更新して公開" : "公開"}
-            </button>
-            {current && (
+              見る
+            </a>
+            {item.is_published ? (
               <button
                 type="button"
                 disabled={pending}
-                onClick={() => run({ action: "withdraw_item", itemId: item.id }, "取り下げた（公開版の記録は残る）", "外部から見えなくなる。取り下げる？")}
+                onClick={() => run({ action: "withdraw_item", itemId: item.id }, "公開をやめた（外部から見えなくなった）", "この項目を外部から見えなくする。公開をやめる？")}
                 className="rounded border border-[#d2d2d7] px-2 py-1 text-[12px] hover:bg-[#f5f5f7]"
               >
-                取り下げ
+                公開をやめる
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={pending || Boolean(item.sourceError)}
+                onClick={() =>
+                  run(
+                    { action: "publish_item", itemId: item.id },
+                    "公開した（元データの最新がそのまま見える）",
+                    "この項目を公開する。付与された投資家には、ワークスペースの最新の内容がそのまま見える。公開する？",
+                  )
+                }
+                className="rounded border border-[#027FDC] bg-[#027FDC] px-2 py-1 text-[12px] font-semibold text-white hover:bg-[#0267b2] disabled:opacity-50"
+              >
+                公開する
               </button>
             )}
             <button type="button" onClick={onToggleEdit} className="rounded border border-[#d2d2d7] px-2 py-1 text-[12px] hover:bg-[#f5f5f7]">
@@ -411,17 +426,7 @@ function ItemEditor({ item, pending, run, documentItems }: { item: DdAdminItem; 
   const [notes, setNotes] = useState(normalizeDdUnverifiedNotes(item.unverified_notes).join("\n"));
   const [evidence, setEvidence] = useState<string[]>(item.evidence_item_ids ?? []);
   const [autoUnverified, setAutoUnverified] = useState(item.source_options?.autoUnverified !== false);
-  const [lastEventId, setLastEventId] = useState<string>(typeof item.source_options?.lastEventId === "string" ? item.source_options.lastEventId : "");
   const [sortOrder, setSortOrder] = useState(String(item.sort_order));
-  const supportsParts = DD_PART_ITEM_KINDS.includes(item.item_kind) && item.partChoices.length > 0;
-  const savedParts = Array.isArray(item.source_options?.includedParts)
-    ? (item.source_options.includedParts as unknown[]).filter((key): key is string => typeof key === "string")
-    : null;
-  // 範囲を一度も保存していない項目は、元データの節・行をすべて載せる状態（全部にチェック）から始める。
-  const [includedParts, setIncludedParts] = useState<Set<string>>(
-    () => new Set(savedParts ?? item.partChoices.map((part) => part.key)),
-  );
-  const [partsTouched, setPartsTouched] = useState(false);
 
   return (
     <div className="grid gap-3 text-[12px] lg:grid-cols-2">
@@ -445,18 +450,18 @@ function ItemEditor({ item, pending, run, documentItems }: { item: DdAdminItem; 
         <input value={summary} onChange={(event) => setSummary(event.target.value)} className="min-h-9 rounded border border-[#d2d2d7] px-2 text-[13px]" />
       </label>
       <label className="flex flex-col gap-1">
-        <span className="text-[#6e6e73]">未確認事項（1行に1件。公開時に固定される）</span>
+        <span className="text-[#6e6e73]">未確認事項（1行に1件）</span>
         <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={5} className="rounded border border-[#d2d2d7] px-2 py-1" />
         <span className="flex items-center gap-1.5">
           <input id={`auto-${item.id}`} type="checkbox" checked={autoUnverified} onChange={(event) => setAutoUnverified(event.target.checked)} />
           <label htmlFor={`auto-${item.id}`}>元データの要確認・未定を自動で加える</label>
         </span>
-        {autoUnverified && item.draftAutoUnverified.length > 0 && (
+        {autoUnverified && item.autoUnverified.length > 0 && (
           <ul className="mt-1 list-disc pl-5 text-[11.5px] text-[#475569]">
-            {item.draftAutoUnverified.slice(0, 12).map((note) => (
+            {item.autoUnverified.slice(0, 12).map((note) => (
               <li key={note}>{note}</li>
             ))}
-            {item.draftAutoUnverified.length > 12 && <li>ほか{item.draftAutoUnverified.length - 12}件</li>}
+            {item.autoUnverified.length > 12 && <li>ほか{item.autoUnverified.length - 12}件</li>}
           </ul>
         )}
       </label>
@@ -478,34 +483,15 @@ function ItemEditor({ item, pending, run, documentItems }: { item: DdAdminItem; 
                     }
                   />
                   <span>{doc.title}</span>
-                  {!doc.published_publication_id && <span className="text-[11px] text-[#6e6e73]">（未公開）</span>}
+                  {!doc.is_published && <span className="text-[11px] text-[#6e6e73]">（非公開）</span>}
                 </label>
               ))
           )}
         </div>
-        {supportsParts && (
-          <PartPicker
-            itemId={item.id}
-            parts={item.partChoices}
-            included={includedParts}
-            savedAsAll={savedParts === null}
-            onChange={(next) => {
-              setIncludedParts(next);
-              setPartsTouched(true);
-            }}
-          />
-        )}
-        {item.item_kind === "capital_policy" && item.capitalEvents.length > 0 && (
-          <label className="mt-2 flex flex-col gap-1">
-            <span className="text-[#6e6e73]">載せるラウンド（このラウンドまで）</span>
-            <select value={lastEventId} onChange={(event) => setLastEventId(event.target.value)} className="min-h-9 rounded border border-[#d2d2d7] px-2">
-              <option value="">すべてのラウンド</option>
-              {item.capitalEvents.map((event) => (
-                <option key={event.id} value={event.id}>{event.label}まで</option>
-              ))}
-            </select>
-          </label>
-        )}
+        <p className="mt-2 text-[11.5px] leading-5 text-[#6e6e73]">
+          中身は元データ（ワークスペースの{DD_ITEM_KIND_LABEL[item.item_kind]}）の最新をそのまま表示する。DDの側で中身は変えられない。
+          直すときは元データの側を直す。
+        </p>
       </div>
       <div className="flex flex-wrap gap-2 lg:col-span-2">
         <button
@@ -522,14 +508,9 @@ function ItemEditor({ item, pending, run, documentItems }: { item: DdAdminItem; 
                 sortOrder: Number.parseInt(sortOrder, 10) || 0,
                 unverifiedNotes: notes,
                 evidenceItemIds: evidence,
-                sourceOptions: {
-                  autoUnverified,
-                  ...(item.item_kind === "capital_policy" ? { lastEventId: lastEventId || null } : {}),
-                  // 範囲に触ったときだけ送る（表題だけ直したときに、全部載せの状態を固定の選択へ変えない）。
-                  ...(supportsParts && partsTouched ? { includedParts: Array.from(includedParts) } : {}),
-                },
+                sourceOptions: { autoUnverified },
               },
-              "保存した（公開版を変えるには「更新して公開」を押す）",
+              "保存した",
             )
           }
           className="rounded-md border border-[#027FDC] bg-[#027FDC] px-3 py-1.5 font-semibold text-white hover:bg-[#0267b2]"
@@ -539,89 +520,12 @@ function ItemEditor({ item, pending, run, documentItems }: { item: DdAdminItem; 
         <button
           type="button"
           disabled={pending}
-          onClick={() => run({ action: "archive_item", itemId: item.id }, "項目を外した（公開版の記録は残る）", "この項目をDDから外す。外部からも見えなくなる。外す？")}
+          onClick={() => run({ action: "archive_item", itemId: item.id }, "項目を外した（外部からも見えなくなった）", "この項目をDDから外す。外部からも見えなくなる。外す？")}
           className="rounded-md border border-[#f5c2c2] px-3 py-1.5 text-[#b71c1c] hover:bg-[#fff5f5]"
         >
           DDから外す
         </button>
       </div>
-    </div>
-  );
-}
-
-/** 載せる範囲（本文の節・表の行・注意書き・段落）を選ぶ。チェックを外した部分は、下書きにも公開版にも入らない。 */
-function PartPicker({
-  itemId,
-  parts,
-  included,
-  savedAsAll,
-  onChange,
-}: {
-  itemId: string;
-  parts: DdPart[];
-  included: Set<string>;
-  savedAsAll: boolean;
-  onChange: (next: Set<string>) => void;
-}) {
-  const groups = useMemo(() => {
-    const map = new Map<string, DdPart[]>();
-    for (const part of parts) {
-      const list = map.get(part.group) ?? [];
-      list.push(part);
-      map.set(part.group, list);
-    }
-    return Array.from(map.entries());
-  }, [parts]);
-  const checkedCount = parts.filter((part) => included.has(part.key)).length;
-
-  const setGroup = (groupParts: DdPart[], checked: boolean) => {
-    const next = new Set(included);
-    for (const part of groupParts) {
-      if (checked) next.add(part.key);
-      else next.delete(part.key);
-    }
-    onChange(next);
-  };
-
-  return (
-    <div className="mt-2 flex flex-col gap-1">
-      <span className="text-[#6e6e73]">
-        載せる範囲（{checkedCount}/{parts.length}）。外した節・行は、下書きにも公開版にも入らない
-      </span>
-      <div className="max-h-72 overflow-auto rounded border border-[#d2d2d7] bg-white px-2 py-1">
-        {groups.map(([group, groupParts]) => (
-          <fieldset key={group} className="border-t border-[#f0f0f2] py-1 first:border-t-0">
-            <legend className="flex w-full items-center gap-2 py-0.5 text-[11.5px] font-semibold text-[#424245]">
-              <span className="flex-1">{group}</span>
-              <button type="button" onClick={() => setGroup(groupParts, true)} className="font-normal text-[#027FDC] hover:underline">すべて選ぶ</button>
-              <button type="button" onClick={() => setGroup(groupParts, false)} className="font-normal text-[#027FDC] hover:underline">すべて外す</button>
-            </legend>
-            {groupParts.map((part) => (
-              <label key={part.key} htmlFor={`part-${itemId}-${part.key}`} className="flex items-start gap-1.5 py-0.5">
-                <input
-                  id={`part-${itemId}-${part.key}`}
-                  type="checkbox"
-                  className="mt-0.5"
-                  checked={included.has(part.key)}
-                  onChange={(event) => {
-                    const next = new Set(included);
-                    if (event.target.checked) next.add(part.key);
-                    else next.delete(part.key);
-                    onChange(next);
-                  }}
-                />
-                <span>{part.label}</span>
-              </label>
-            ))}
-          </fieldset>
-        ))}
-      </div>
-      <span className="text-[11px] leading-4 text-[#6e6e73]">
-        {savedAsAll
-          ? "いまは元データの節・行をすべて載せる状態。範囲を保存すると、あとから元データに増えた節・行は、ここで選ぶまで載らない。"
-          : "範囲を保存済み。あとから元データに増えた節・行や、書き換わった段落は、ここで選ぶまで載らない。"}
-        範囲を変えても、公開し直すまで外部には前の公開版が見える。
-      </span>
     </div>
   );
 }
@@ -660,7 +564,7 @@ function AddItemForm({
     <section className="space-y-2">
       <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[#1d1d1f] pb-1">
         <h2 className="text-[15px] font-semibold">元データから追加</h2>
-        <span className="text-[11px] text-[#6e6e73]">追加しただけでは外部に見えない。追加した項目を「公開」すると、その時点の内容が公開版として固定される。</span>
+        <span className="text-[11px] text-[#6e6e73]">追加しただけでは外部に見えない。「公開する」にした項目は、元データの最新がそのまま見える。</span>
       </div>
       <div className="flex flex-wrap gap-2 text-[12px]">
         <select value={kind} onChange={(event) => setKind(event.target.value as DdItemKind | "all")} className="min-h-9 rounded border border-[#d2d2d7] px-2">
@@ -738,7 +642,7 @@ function AddItemForm({
                                 sectionKey: section,
                                 acknowledgeConfidential: needsAck ? Boolean(ackByKey[key]) : undefined,
                               },
-                              `「${candidate.title}」を追加した（未公開）`,
+                              `「${candidate.title}」を追加した（非公開）`,
                             )
                           }
                           className="rounded border border-[#d2d2d7] px-2 py-1 hover:bg-[#f5f5f7] disabled:opacity-50"

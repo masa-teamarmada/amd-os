@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-09-30 16:36 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-09-30 19:12 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -654,7 +654,7 @@ PRIMARY KEY: `id`
 
 ## boss_notification_jobs
 
-行数 (概算): 2,817
+行数 (概算): 2,863
 PRIMARY KEY: `id`
 UNIQUE: `(event_id)` (constraint: `boss_notification_jobs_event_id_key`)
 UNIQUE: `(server_boss_id,schedule_revision,lead_minutes)` (constraint: `boss_notification_jobs_server_boss_id_schedule_revision_lea_key`)
@@ -2012,7 +2012,7 @@ UNIQUE: `(package_id,user_account_id)` (constraint: `dd_package_grants_package_i
 
 ## dd_package_items
 
-行数 (概算): -1
+行数 (概算): 14
 PRIMARY KEY: `id`
 UNIQUE: `(id,package_id)` (constraint: `dd_package_items_id_package_id_key`)
 UNIQUE: `(package_id,item_kind,source_key)` (constraint: `dd_package_items_package_id_item_kind_source_key_key`)
@@ -2037,6 +2037,9 @@ UNIQUE: `(package_id,item_kind,source_key)` (constraint: `dd_package_items_packa
 | 16 | `updated_by_member_id` | `text` | NULL | `` |
 | 17 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 18 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 19 | `is_published` | `bool` | NOT NULL | `false` |
+| 20 | `published_at` | `timestamptz` | NULL | `` |
+| 21 | `published_by_member_id` | `text` | NULL | `` |
 
 ## dd_packages
 
@@ -5384,7 +5387,7 @@ PRIMARY KEY: `id`
 
 ## project_management_field_audit
 
-行数 (概算): 48,879
+行数 (概算): 50,636
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -5905,7 +5908,7 @@ PRIMARY KEY: `id`
 
 ## project_management_partners
 
-行数 (概算): 88
+行数 (概算): 127
 PRIMARY KEY: `id`
 UNIQUE: `(project_id,slug)` (constraint: `project_management_partners_project_id_slug_key`)
 
@@ -8401,7 +8404,7 @@ UNIQUE: `(game_server_id,user_id,endpoint_hash)` (constraint: `web_push_subscrip
 
 ## workspace_access_audit_logs
 
-行数 (概算): 689
+行数 (概算): 810
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |

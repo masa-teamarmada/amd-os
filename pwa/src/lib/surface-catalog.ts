@@ -44,7 +44,8 @@ export const SURFACE_CATALOG: readonly SurfaceDefinition[] = [
   { id: "shared-project-files", title: "PJ 資料室", domain: "knowledge_documents", lens: "shared_project", status: "canonical", patterns: [/^\/project\/[^/]+\/workspace\/files\/?$/] },
   { id: "shared-project", title: "PJ ワークスペース", domain: "project_execution", lens: "shared_project", status: "canonical", patterns: [/^\/project\/[^/]+\/workspace\/?$/] },
   { id: "weekly-control", title: "PJ ワークスペース", domain: "project_execution", lens: "shared_project", status: "deprecated", patterns: [/^\/project\/[^/]+\/weekly-control\/?$/] },
-  { id: "project-dd-admin", title: "DDパッケージ管理", domain: "organization_access", lens: "amd_internal_project", status: "canonical", patterns: [/^\/project\/[^/]+\/dd(?:\/preview\/[^/]+)?\/?$/] },
+  // 旧URL。DDの管理はコックピット・ワークスペースの「DDパッケージ」タブへ移した（2026-09-30）。開くとタブ・項目の画面へ送る。
+  { id: "project-dd-admin", title: "DDパッケージ管理（旧URL）", domain: "organization_access", lens: "amd_internal_project", status: "deprecated", patterns: [/^\/project\/[^/]+\/dd(?:\/preview\/[^/]+)?\/?$/] },
   { id: "project-navigation", title: "PJ管制ダッシュボード", domain: "project_execution", lens: "amd_internal_project", status: "transitional", patterns: [/^\/project\/[^/]+\/navigation\/?$/] },
   { id: "project-cockpit", title: "PJ コックピット", domain: "project_execution", lens: "amd_internal_project", status: "canonical", prefixes: ["/project/", "/projects/"] },
   { id: "my-projects", title: "参加PJ", primaryPath: "/my-projects", domain: "project_execution", lens: "amd_internal_project", status: "projection", exact: ["/my-projects"] },

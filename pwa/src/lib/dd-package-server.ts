@@ -7,22 +7,17 @@ import {
   isDdSectionKey,
   normalizeDdCapabilities,
   type DdCapability,
-  type DdPart,
   type DdGrantStatus,
   type DdPackageStatus,
   type DdSectionKey,
   type DdViewerAccess,
 } from "@/lib/dd-package-core";
-import { isDdItemKind, type DdItemKind, type DdSourceRef } from "@/lib/dd-payload";
-import {
-  DD_PUBLICATION_BUCKET,
-  buildDdPublicationDraft,
-  ddPublicationFilePath,
-  mergeDdUnverifiedNotes,
-} from "@/lib/dd-sources";
+import { isDdItemKind, type DdItemKind } from "@/lib/dd-payload";
+import { loadDdItemLive, mergeDdUnverifiedNotes, type DdItemLive } from "@/lib/dd-sources";
 
-// DD の公開版・掲載項目・閲覧権限の読み書き（service_role）。
-// 閲覧者向けの読み取りは「公開版があり、項目が有効」なものだけを返す。未公開の項目・内部の選択・版履歴は返さない。
+// DD の掲載項目・公開の切り替え・閲覧権限の読み書き（service_role）。
+// 公開中（is_published）の項目は、閲覧のたびに元データの最新をワークスペースと同じ形で返す（公開した時点で固定しない）。
+// 閲覧者に返すのは「公開中で、有効な項目」だけ。未公開の項目は管理者のプレビューにだけ返す。
 
 export type DdPackageRow = {
   id: string;
@@ -48,52 +43,16 @@ export type DdItemRow = {
   evidence_item_ids: string[];
   sort_order: number;
   status: "active" | "archived";
-  published_publication_id: string | null;
+  is_published: boolean;
+  published_at: string | null;
+  published_by_member_id: string | null;
   created_at: string;
   updated_at: string;
 };
 
-/** 閲覧者に返してよい公開版の列だけ。確認メモ・公開した人・元データの内部参照・添付の保存先は含めない。 */
-export type DdPublicationRow = {
-  id: string;
-  item_id: string;
-  package_id: string;
-  revision: number;
-  item_kind: DdItemKind;
-  section_key: DdSectionKey;
-  title: string;
-  summary: string | null;
-  payload: Record<string, unknown>;
-  source_as_of: string | null;
-  unverified_notes: string[];
-  evidence_item_ids: string[];
-  file_name: string | null;
-  file_mime_type: string | null;
-  file_size_bytes: number | null;
-  published_at: string;
-};
-
 const PACKAGE_FIELDS = "id,project_id,slug,title,notice_text,status,updated_at";
 const ITEM_FIELDS =
-  "id,package_id,project_id,section_key,item_kind,source_key,source_options,title,summary,unverified_notes,evidence_item_ids,sort_order,status,published_publication_id,created_at,updated_at";
-/** 閲覧者に返す公開版の列。DdPublicationRow と同じ集合で、社内向けの列は select しない。 */
-export const DD_PUBLICATION_VIEW_FIELDS =
-  "id,item_id,package_id,revision,item_kind,section_key,title,summary,payload,source_as_of,unverified_notes,evidence_item_ids,file_name,file_mime_type,file_size_bytes,published_at";
-
-// --- 閲覧者向け（公開版だけ） -------------------------------------------------------
-
-export type DdPublishedItem = {
-  itemId: string;
-  sectionKey: DdSectionKey;
-  sortOrder: number;
-  publication: DdPublicationRow;
-};
-
-export type DdPackageView = {
-  package: DdPackageRow;
-  sections: Array<{ key: DdSectionKey; label: string; description: string; items: DdPublishedItem[] }>;
-  lastPublishedAt: string | null;
-};
+  "id,package_id,project_id,section_key,item_kind,source_key,source_options,title,summary,unverified_notes,evidence_item_ids,sort_order,status,is_published,published_at,published_by_member_id,created_at,updated_at";
 
 async function loadPackage(packageId: string): Promise<DdPackageRow | null> {
   const db = createAdminClient();
@@ -102,40 +61,105 @@ async function loadPackage(packageId: string): Promise<DdPackageRow | null> {
   return data ?? null;
 }
 
-/** 公開中の項目と、その公開版。外部に見せてよいのはこの関数の戻り値だけ。 */
-export async function loadDdPublishedItems(packageId: string): Promise<DdPublishedItem[]> {
+export async function loadDdItem(itemId: string): Promise<DdItemRow | null> {
   const db = createAdminClient();
-  const { data: items, error } = await db
-    .from("dd_package_items")
-    .select("id,section_key,sort_order,status,published_publication_id")
-    .eq("package_id", packageId)
-    .eq("status", "active")
-    .not("published_publication_id", "is", null);
-  if (error) throw new Error(`dd published items: ${error.message}`);
-  const rows = (items ?? []) as Array<{ id: string; section_key: string; sort_order: number; published_publication_id: string }>;
-  if (rows.length === 0) return [];
-  const { data: publications, error: publicationError } = await db
-    .from("dd_item_publications")
-    .select(DD_PUBLICATION_VIEW_FIELDS)
-    .in("id", rows.map((row) => row.published_publication_id));
-  if (publicationError) throw new Error(`dd publications: ${publicationError.message}`);
-  const byId = new Map(((publications ?? []) as unknown as DdPublicationRow[]).map((row) => [row.id, row]));
-  return rows
-    .map((row) => {
-      const publication = byId.get(row.published_publication_id);
-      // 指している公開版が同じ項目・同じパッケージのものか、二重に確かめる（FK でも保証している）。
-      if (!publication || publication.item_id !== row.id || publication.package_id !== packageId) return null;
-      if (!isDdSectionKey(row.section_key)) return null;
-      return { itemId: row.id, sectionKey: row.section_key, sortOrder: row.sort_order, publication };
-    })
-    .filter((item): item is DdPublishedItem => item !== null)
-    .sort((a, b) => a.sortOrder - b.sortOrder || a.publication.title.localeCompare(b.publication.title, "ja"));
+  const { data, error } = await db.from("dd_package_items").select(ITEM_FIELDS).eq("id", itemId).maybeSingle();
+  if (error) throw new Error(`dd item load: ${error.message}`);
+  const row = data as unknown as DdItemRow | null;
+  if (!row || !isDdItemKind(row.item_kind) || !isDdSectionKey(row.section_key)) return null;
+  return row;
 }
 
+async function loadActiveItems(packageId: string, options: { includeUnpublished: boolean }): Promise<DdItemRow[]> {
+  const db = createAdminClient();
+  let query = db.from("dd_package_items").select(ITEM_FIELDS).eq("package_id", packageId).eq("status", "active");
+  if (!options.includeUnpublished) query = query.eq("is_published", true);
+  const { data, error } = await query.order("sort_order");
+  if (error) throw new Error(`dd items: ${error.message}`);
+  return ((data ?? []) as unknown as DdItemRow[]).filter((row) => isDdItemKind(row.item_kind) && isDdSectionKey(row.section_key));
+}
+
+function includeAutoUnverified(row: DdItemRow): boolean {
+  return row.source_options?.autoUnverified !== false;
+}
+
+type ItemLiveMeta = { sourceAsOf: string | null; unverifiedNotes: string[]; autoUnverified: string[]; error: string | null };
+
+async function liveMeta(row: DdItemRow): Promise<{ live: DdItemLive | null; meta: ItemLiveMeta }> {
+  try {
+    const live = await loadDdItemLive({ projectId: row.project_id, itemKind: row.item_kind, sourceKey: row.source_key });
+    return {
+      live,
+      meta: {
+        sourceAsOf: live.sourceAsOf,
+        unverifiedNotes: mergeDdUnverifiedNotes(row.unverified_notes, live.autoUnverified, includeAutoUnverified(row)),
+        autoUnverified: live.autoUnverified,
+        error: null,
+      },
+    };
+  } catch (error) {
+    return {
+      live: null,
+      meta: {
+        sourceAsOf: null,
+        unverifiedNotes: mergeDdUnverifiedNotes(row.unverified_notes, [], false),
+        autoUnverified: [],
+        error: error instanceof Error ? error.message : String(error),
+      },
+    };
+  }
+}
+
+// --- 閲覧者向け ---------------------------------------------------------------------
+
+export type DdViewItem = {
+  itemId: string;
+  sectionKey: DdSectionKey;
+  sortOrder: number;
+  itemKind: DdItemKind;
+  title: string;
+  summary: string | null;
+  sourceAsOf: string | null;
+  unverifiedNotes: string[];
+  /** 元データを読めなかった（削除・移動など）。閲覧者には「いまは表示できない」と出す。 */
+  unavailable: boolean;
+};
+
+export type DdPackageView = {
+  package: DdPackageRow;
+  sections: Array<{ key: DdSectionKey; label: string; description: string; items: DdViewItem[] }>;
+  /** 公開中の項目の元データのうち、いちばん新しい更新日時。 */
+  lastUpdatedAt: string | null;
+};
+
+/** 公開中の項目を、いまの元データ（更新日時・未確認事項・中身）と一緒に返す。DDトップと正式版（PDF）の出力で使う。 */
+export async function loadDdPublishedLive(packageId: string): Promise<Array<{ row: DdItemRow; live: DdItemLive | null; meta: ItemLiveMeta }>> {
+  const rows = await loadActiveItems(packageId, { includeUnpublished: false });
+  const loaded = await Promise.all(rows.map((row) => liveMeta(row)));
+  return rows
+    .map((row, index) => ({ row, live: loaded[index].live, meta: loaded[index].meta }))
+    .sort((a, b) =>
+      ddSectionOrder(a.row.section_key) - ddSectionOrder(b.row.section_key)
+      || a.row.sort_order - b.row.sort_order
+      || a.row.title.localeCompare(b.row.title, "ja"));
+}
+
+/** DDトップ。公開中の項目だけを、いまの元データの更新日時と未確認事項つきで返す（管理者のプレビューでも同じ）。 */
 export async function loadDdPackageView(access: DdViewerAccess): Promise<DdPackageView | null> {
   const pkg = await loadPackage(access.packageId);
   if (!pkg) return null;
-  const items = await loadDdPublishedItems(pkg.id);
+  const loaded = await loadDdPublishedLive(pkg.id);
+  const items: DdViewItem[] = loaded.map(({ row, meta }) => ({
+    itemId: row.id,
+    sectionKey: row.section_key,
+    sortOrder: row.sort_order,
+    itemKind: row.item_kind,
+    title: row.title,
+    summary: row.summary,
+    sourceAsOf: meta.sourceAsOf,
+    unverifiedNotes: meta.unverifiedNotes,
+    unavailable: meta.error !== null,
+  }));
   return {
     package: pkg,
     sections: DD_SECTIONS.map((section) => ({
@@ -144,56 +168,52 @@ export async function loadDdPackageView(access: DdViewerAccess): Promise<DdPacka
       description: section.description,
       items: items.filter((item) => item.sectionKey === section.key),
     })),
-    lastPublishedAt: items.reduce<string | null>(
-      (latest, item) => (!latest || item.publication.published_at > latest ? item.publication.published_at : latest),
+    lastUpdatedAt: items.reduce<string | null>(
+      (latest, item) => (item.sourceAsOf && (!latest || item.sourceAsOf > latest) ? item.sourceAsOf : latest),
       null,
     ),
   };
 }
 
-export type DdEvidenceLink = { itemId: string; title: string; fileName: string | null; revision: number };
-
-/** 公開中の項目1件。根拠資料は「いま公開中の資料項目」だけを返す（取り下げた資料へのリンクは出さない）。 */
-export async function loadDdPublishedItem(
-  packageId: string,
-  itemId: string,
-): Promise<{ item: DdPublishedItem; evidence: DdEvidenceLink[] } | null> {
-  const items = await loadDdPublishedItems(packageId);
-  const item = items.find((candidate) => candidate.itemId === itemId);
-  if (!item) return null;
-  const evidence = item.publication.evidence_item_ids
-    .map((evidenceId) => items.find((candidate) => candidate.itemId === evidenceId))
-    .filter((candidate): candidate is DdPublishedItem => Boolean(candidate && candidate.publication.item_kind === "document"))
-    .map((candidate) => ({
-      itemId: candidate.itemId,
-      title: candidate.publication.title,
-      fileName: candidate.publication.file_name,
-      revision: candidate.publication.revision,
-    }));
-  return { item, evidence };
+export async function loadDdPackageRow(packageId: string): Promise<DdPackageRow | null> {
+  return loadPackage(packageId);
 }
 
-/** 添付の保存先だけを読む（配信 route 専用。閲覧 DTO には含めない）。 */
-export async function loadDdPublicationFile(publicationId: string): Promise<{
-  storagePath: string;
-  fileName: string;
-  mimeType: string;
-  sizeBytes: number;
-} | null> {
+export type DdEvidenceLink = { itemId: string; title: string };
+
+export type DdItemView = {
+  item: DdItemRow;
+  live: DdItemLive | null;
+  liveError: string | null;
+  unverifiedNotes: string[];
+  evidence: DdEvidenceLink[];
+};
+
+/**
+ * 項目1件の、いまの中身。閲覧者には公開中の有効な項目だけ、管理者のプレビューには未公開の項目も返す。
+ * 別パッケージ・外した項目・（閲覧者にとっての）未公開は null（呼び出し側は「見つからない」で閉じる）。
+ * 根拠資料は、いま公開中の資料項目だけを返す。
+ */
+export async function loadDdItemView(access: DdViewerAccess, itemId: string): Promise<DdItemView | null> {
+  const row = await loadDdItem(itemId);
+  if (!row || row.package_id !== access.packageId || row.status !== "active") return null;
+  if (!row.is_published && access.principal !== "internal_admin") return null;
   const db = createAdminClient();
-  const { data, error } = await db
-    .from("dd_item_publications")
-    .select("file_storage_path,file_name,file_mime_type,file_size_bytes")
-    .eq("id", publicationId)
-    .maybeSingle();
-  if (error) throw new Error(`dd publication file: ${error.message}`);
-  if (!data?.file_storage_path || !data.file_name || !data.file_mime_type) return null;
-  return {
-    storagePath: String(data.file_storage_path),
-    fileName: String(data.file_name),
-    mimeType: String(data.file_mime_type),
-    sizeBytes: Number(data.file_size_bytes ?? 0),
-  };
+  const [{ live, meta }, evidenceRows] = await Promise.all([
+    liveMeta(row),
+    row.evidence_item_ids.length > 0
+      ? db.from("dd_package_items").select("id,title,item_kind,status,is_published,package_id").in("id", row.evidence_item_ids)
+      : Promise.resolve({ data: [] as Array<Record<string, unknown>>, error: null }),
+  ]);
+  if (evidenceRows.error) throw new Error(`dd evidence: ${evidenceRows.error.message}`);
+  const evidence = ((evidenceRows.data ?? []) as Array<Record<string, unknown>>)
+    .filter((candidate) =>
+      candidate.package_id === access.packageId
+      && candidate.item_kind === "document"
+      && candidate.status === "active"
+      && candidate.is_published === true)
+    .map((candidate) => ({ itemId: String(candidate.id), title: String(candidate.title) }));
+  return { item: row, live, liveError: meta.error, unverifiedNotes: meta.unverifiedNotes, evidence };
 }
 
 export type DdAccessEvent = "dd_package_viewed" | "dd_item_viewed" | "dd_file_opened" | "dd_file_downloaded";
@@ -202,7 +222,7 @@ export type DdAccessEvent = "dd_package_viewed" | "dd_item_viewed" | "dd_file_op
 export async function recordDdAccessEvent(
   access: DdViewerAccess,
   eventType: DdAccessEvent,
-  detail: { itemId?: string; publicationId?: string; revision?: number } = {},
+  detail: { itemId?: string } = {},
 ): Promise<void> {
   if (access.principal !== "workspace_account") return;
   await recordWorkspaceAuditEvent(createAdminClient(), {
@@ -214,8 +234,28 @@ export async function recordDdAccessEvent(
       package_id: access.packageId,
       grant_id: access.grantId,
       item_id: detail.itemId ?? null,
-      publication_id: detail.publicationId ?? null,
-      revision: detail.revision ?? null,
+    },
+  });
+}
+
+// --- 正式版（PDF）の出力 -----------------------------------------------------------
+
+export type DdExportItem = { itemId: string; sourceAsOf: string | null };
+
+/** 正式版（PDF）の出力を記録する。どの項目を、いつの元データで出したかを残す（題名・ファイル名・本文は記録しない）。 */
+export async function recordDdPackageExport(input: {
+  pkg: DdPackageRow;
+  actorEmail: string;
+  items: DdExportItem[];
+}): Promise<void> {
+  await recordWorkspaceAuditEvent(createAdminClient(), {
+    eventType: "dd_package_exported",
+    email: input.actorEmail,
+    projectId: input.pkg.project_id,
+    detail: {
+      package_id: input.pkg.id,
+      item_count: input.items.length,
+      items: JSON.stringify(input.items.map((item) => ({ i: item.itemId, a: item.sourceAsOf }))),
     },
   });
 }
@@ -237,40 +277,22 @@ export type DdAdminGrant = {
   lastLoginAt: string | null;
 };
 
-export type DdAdminPublication = {
-  id: string;
-  revision: number;
-  publishedAt: string;
-  publishedByMemberId: string;
+export type DdAdminItem = DdItemRow & {
   sourceAsOf: string | null;
-  sourceRefs: DdSourceRef[];
-  contentHash: string;
-  note: string | null;
-  unverifiedCount: number;
+  sourceError: string | null;
+  autoUnverified: string[];
 };
 
-export type DdAdminItem = DdItemRow & {
-  publications: DdAdminPublication[];
-  sourceChanged: boolean | null;
-  sourceError: string | null;
-  draftAutoUnverified: string[];
-  capitalEvents: Array<{ id: string; label: string }>;
-  /** 載せる範囲の候補（本文の節・表の行など）。選んだ結果は source_options.includedParts。 */
-  partChoices: DdPart[];
-};
+export type DdAdminEvent = { id: string; eventType: string; email: string | null; createdAt: string; itemId: string | null };
+export type DdAdminExport = { id: string; email: string | null; createdAt: string; itemCount: number };
 
 export type DdAdminState = {
   package: DdPackageRow;
   items: DdAdminItem[];
   grants: DdAdminGrant[];
-  events: Array<{ id: string; eventType: string; email: string | null; createdAt: string; itemId: string | null; revision: number | null }>;
+  events: DdAdminEvent[];
+  exports: DdAdminExport[];
 };
-
-function sameSourceRefs(a: DdSourceRef[], b: DdSourceRef[]): boolean {
-  const key = (refs: DdSourceRef[]) =>
-    JSON.stringify(refs.map((ref) => [ref.table, ref.id, ref.version ?? null, ref.sha256 ?? null, ref.updatedAt ?? null]));
-  return key(a) === key(b);
-}
 
 export async function loadDdAdminState(projectId: string): Promise<DdAdminState | null> {
   const db = createAdminClient();
@@ -284,13 +306,8 @@ export async function loadDdAdminState(projectId: string): Promise<DdAdminState 
   if (packageError) throw new Error(`dd admin package: ${packageError.message}`);
   if (!pkg) return null;
 
-  const [itemsRes, publicationsRes, grantsRes, eventsRes] = await Promise.all([
+  const [itemsRes, grantsRes, eventsRes] = await Promise.all([
     db.from("dd_package_items").select(ITEM_FIELDS).eq("package_id", pkg.id).order("sort_order"),
-    db
-      .from("dd_item_publications")
-      .select("id,item_id,revision,published_at,published_by_member_id,source_as_of,source_refs,content_hash,note,unverified_notes")
-      .eq("package_id", pkg.id)
-      .order("revision", { ascending: false }),
     db
       .from("dd_package_grants")
       .select("id,user_account_id,status,capabilities,organization_name,note,expires_at,created_at,updated_at")
@@ -302,11 +319,11 @@ export async function loadDdAdminState(projectId: string): Promise<DdAdminState 
       .eq("project_id", projectId)
       // 同じPJに別のパッケージ（動作確認用など）があっても混ぜないよう、パッケージで絞る。
       .eq("detail->>package_id", pkg.id)
-      .in("event_type", ["dd_package_viewed", "dd_item_viewed", "dd_file_opened", "dd_file_downloaded"])
+      .in("event_type", ["dd_package_viewed", "dd_item_viewed", "dd_file_opened", "dd_file_downloaded", "dd_package_exported"])
       .order("created_at", { ascending: false })
       .limit(200),
   ]);
-  for (const result of [itemsRes, publicationsRes, grantsRes, eventsRes]) {
+  for (const result of [itemsRes, grantsRes, eventsRes]) {
     if (result.error) throw new Error(`dd admin state: ${result.error.message}`);
   }
 
@@ -318,59 +335,16 @@ export async function loadDdAdminState(projectId: string): Promise<DdAdminState 
   if (accounts.error) throw new Error(`dd admin accounts: ${accounts.error.message}`);
   const accountById = new Map(((accounts.data ?? []) as Array<Record<string, unknown>>).map((row) => [String(row.id), row]));
 
-  const publicationsByItem = new Map<string, DdAdminPublication[]>();
-  for (const row of (publicationsRes.data ?? []) as Array<Record<string, unknown>>) {
-    const list = publicationsByItem.get(String(row.item_id)) ?? [];
-    list.push({
-      id: String(row.id),
-      revision: Number(row.revision),
-      publishedAt: String(row.published_at),
-      publishedByMemberId: String(row.published_by_member_id),
-      sourceAsOf: (row.source_as_of as string) ?? null,
-      sourceRefs: (row.source_refs as DdSourceRef[]) ?? [],
-      contentHash: String(row.content_hash),
-      note: (row.note as string) ?? null,
-      unverifiedCount: Array.isArray(row.unverified_notes) ? row.unverified_notes.length : 0,
-    });
-    publicationsByItem.set(String(row.item_id), list);
-  }
-
-  const itemRows = (itemsRes.data ?? []) as unknown as DdItemRow[];
+  const itemRows = ((itemsRes.data ?? []) as unknown as DdItemRow[]).filter((row) => isDdItemKind(row.item_kind) && isDdSectionKey(row.section_key));
   const items: DdAdminItem[] = await Promise.all(
     itemRows.map(async (item) => {
-      const publications = publicationsByItem.get(item.id) ?? [];
-      const current = publications.find((publication) => publication.id === item.published_publication_id) ?? null;
-      if (item.status !== "active") {
-        return { ...item, publications, sourceChanged: null, sourceError: null, draftAutoUnverified: [], capitalEvents: [], partChoices: [] };
-      }
-      try {
-        const draft = await buildDdPublicationDraft(
-          { projectId, itemKind: item.item_kind, sourceKey: item.source_key, sourceOptions: item.source_options ?? {} },
-          { withFile: false },
-        );
-        return {
-          ...item,
-          publications,
-          sourceChanged: current ? !sameSourceRefs(current.sourceRefs, draft.sourceRefs) : null,
-          sourceError: null,
-          draftAutoUnverified: draft.autoUnverified,
-          capitalEvents: draft.optionChoices?.capitalEvents ?? [],
-          partChoices: draft.optionChoices?.parts ?? [],
-        };
-      } catch (error) {
-        return {
-          ...item,
-          publications,
-          sourceChanged: null,
-          sourceError: error instanceof Error ? error.message : String(error),
-          draftAutoUnverified: [],
-          capitalEvents: [],
-          partChoices: [],
-        };
-      }
+      if (item.status !== "active") return { ...item, sourceAsOf: null, sourceError: null, autoUnverified: [] };
+      const { meta } = await liveMeta(item);
+      return { ...item, sourceAsOf: meta.sourceAsOf, sourceError: meta.error, autoUnverified: meta.autoUnverified };
     }),
   );
 
+  const eventRows = (eventsRes.data ?? []) as Array<Record<string, unknown>>;
   return {
     package: pkg,
     items,
@@ -391,90 +365,44 @@ export async function loadDdAdminState(projectId: string): Promise<DdAdminState 
         lastLoginAt: (account?.last_login_at as string) ?? null,
       };
     }),
-    events: ((eventsRes.data ?? []) as Array<Record<string, unknown>>).map((row) => {
-      const detail = (row.detail ?? {}) as Record<string, unknown>;
-      return {
-        id: String(row.id),
-        eventType: String(row.event_type),
-        email: (row.email as string) ?? null,
-        createdAt: String(row.created_at),
-        itemId: typeof detail.item_id === "string" ? detail.item_id : null,
-        revision: typeof detail.revision === "number" ? detail.revision : null,
-      };
-    }),
+    events: eventRows
+      .filter((row) => row.event_type !== "dd_package_exported")
+      .map((row) => {
+        const detail = (row.detail ?? {}) as Record<string, unknown>;
+        return {
+          id: String(row.id),
+          eventType: String(row.event_type),
+          email: (row.email as string) ?? null,
+          createdAt: String(row.created_at),
+          itemId: typeof detail.item_id === "string" ? detail.item_id : null,
+        };
+      }),
+    exports: eventRows
+      .filter((row) => row.event_type === "dd_package_exported")
+      .map((row) => {
+        const detail = (row.detail ?? {}) as Record<string, unknown>;
+        return {
+          id: String(row.id),
+          email: (row.email as string) ?? null,
+          createdAt: String(row.created_at),
+          itemCount: typeof detail.item_count === "number" ? detail.item_count : 0,
+        };
+      }),
   };
 }
 
-export async function loadDdItem(itemId: string): Promise<DdItemRow | null> {
-  const db = createAdminClient();
-  const { data, error } = await db.from("dd_package_items").select(ITEM_FIELDS).eq("id", itemId).maybeSingle();
-  if (error) throw new Error(`dd item load: ${error.message}`);
-  const row = data as unknown as DdItemRow | null;
-  if (!row || !isDdItemKind(row.item_kind)) return null;
-  return row;
-}
-
-/**
- * 公開する。元データから下書きを作り直し（画面から送られた中身は使わない）、添付は内容の sha256 の置き場へ複製してから、
- * DB 関数 dd_publish_item が版番号と content hash を決めて1版を追記する。
- */
-export async function publishDdItem(input: {
-  itemId: string;
-  actorMemberId: string;
-  note: string | null;
-}): Promise<{ publicationId: string; revision: number; unchanged: boolean }> {
-  const item = await loadDdItem(input.itemId);
-  if (!item || item.status !== "active") throw new Error("dd_item_not_found");
-  const draft = await buildDdPublicationDraft(
-    { projectId: item.project_id, itemKind: item.item_kind, sourceKey: item.source_key, sourceOptions: item.source_options ?? {} },
-    { withFile: true },
-  );
-  const includeAuto = item.source_options?.autoUnverified !== false;
-  const unverified = mergeDdUnverifiedNotes(item.unverified_notes, draft.autoUnverified, includeAuto);
-
-  const db = createAdminClient();
-  let file: Record<string, unknown> | null = null;
-  if (draft.file) {
-    const storagePath = ddPublicationFilePath(item.package_id, item.id, draft.file.sha256);
-    const { error: uploadError } = await db.storage
-      .from(DD_PUBLICATION_BUCKET)
-      .upload(storagePath, draft.file.bytes, { contentType: draft.file.mimeType, upsert: false });
-    // 同じ内容をすでに置いてある（再公開）場合は、その実体をそのまま使う。
-    if (uploadError && !/exists|duplicate/i.test(uploadError.message)) {
-      throw new Error(`dd publication upload: ${uploadError.message}`);
-    }
-    file = {
-      storagePath,
-      name: draft.file.name,
-      mimeType: draft.file.mimeType,
-      sizeBytes: String(draft.file.bytes.byteLength),
-      sha256: draft.file.sha256,
-    };
-  }
-
-  const { data, error } = await db.rpc("dd_publish_item", {
-    p_item_id: item.id,
-    p_actor_member_id: input.actorMemberId,
-    p_payload: draft.payload,
-    p_source_refs: draft.sourceRefs,
-    p_source_as_of: draft.sourceAsOf,
-    p_unverified_notes: unverified,
-    p_file: file,
-    p_note: input.note,
-  });
-  if (error) throw new Error(`dd publish: ${error.message}`);
-  const result = data as { publicationId: string; revision: number; unchanged: boolean };
-  return { publicationId: result.publicationId, revision: result.revision, unchanged: result.unchanged };
-}
-
-/** 取り下げる。外部に見せる版を無くすだけで、公開版の記録は消さない（追記のみ）。 */
-export async function withdrawDdItem(itemId: string, actorMemberId: string): Promise<void> {
+/** 公開する／公開をやめる。公開中の項目は、閲覧のたびに元データの最新を見せる。外した項目は公開できない（DB の制約）。 */
+export async function setDdItemPublished(itemId: string, published: boolean, actorMemberId: string): Promise<void> {
   const db = createAdminClient();
   const { error } = await db
     .from("dd_package_items")
-    .update({ published_publication_id: null, updated_by_member_id: actorMemberId })
+    .update(
+      published
+        ? { is_published: true, published_at: new Date().toISOString(), published_by_member_id: actorMemberId, updated_by_member_id: actorMemberId }
+        : { is_published: false, updated_by_member_id: actorMemberId },
+    )
     .eq("id", itemId);
-  if (error) throw new Error(`dd withdraw: ${error.message}`);
+  if (error) throw new Error(`dd publish toggle: ${error.message}`);
 }
 
 export function ddSectionOrder(key: DdSectionKey): number {

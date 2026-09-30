@@ -14,6 +14,7 @@ import {
   loadReferenceData,
   peekReferenceData,
   prefetchReferenceData,
+  primeReferenceData,
   invalidateReferenceData,
 } from "@/lib/reference-data-cache";
 import type { CostModelBundle } from "@/lib/project-cost-model";
@@ -49,6 +50,14 @@ export function prefetchProjectCostModel(projectId: string): void {
   prefetchReferenceData(key(projectId), () => request(projectId));
 }
 
+/**
+ * サーバで読んだ試算をそのまま手元に置く（DDパッケージの閲覧画面）。投資家は API を叩けないので、
+ * サーバが渡した「ワークスペースと同じ試算」を置いてから CockpitCostModel を描く。
+ */
+export function primeProjectCostModel(projectId: string, value: CostModelResponse): void {
+  primeReferenceData(key(projectId), value);
+}
+
 /** 前提・明細を書き換えた直後に呼ぶ。 */
 export function invalidateProjectCostModel(projectId?: string): void {
   invalidateReferenceData(projectId ? key(projectId) : KEY_PREFIX);
@@ -80,6 +89,11 @@ export function peekProjectFuelCostModel(projectId: string): CostModelResponse |
 /** コスト試算（燃料）タブの見出しの hover で先読みする。 */
 export function prefetchProjectFuelCostModel(projectId: string): void {
   prefetchReferenceData(fuelKey(projectId), () => requestFuel(projectId));
+}
+
+/** primeProjectCostModel の燃料版（DDパッケージの閲覧画面）。 */
+export function primeProjectFuelCostModel(projectId: string, value: CostModelResponse): void {
+  primeReferenceData(fuelKey(projectId), value);
 }
 
 export function invalidateProjectFuelCostModel(projectId: string): void {

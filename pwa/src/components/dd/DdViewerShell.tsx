@@ -3,7 +3,8 @@ import type { ReactNode } from "react";
 import { DD_PACKAGE_STATUS_LABEL, type DdViewerAccess } from "@/lib/dd-package-core";
 
 // DD（投資家・金融機関向け）画面の共通の枠。社内のナビゲーション・PJ一覧・通知は出さない。
-// 管理者プレビューのときだけ、上端に「投資家に見えるのは公開版だけ」と管理画面への戻り先を出す。
+// 管理者プレビューのときだけ、上端に「投資家に見えるのは公開中の項目だけ」と、管理（コックピットのDDパッケージタブ）・
+// 正式版（PDF）の出力への導線を出す。
 
 export function DdViewerShell({
   access,
@@ -20,14 +21,22 @@ export function DdViewerShell({
           <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2">
             <span>
               <strong className="font-semibold">管理者プレビュー</strong>
-              ：投資家に見えるのは、公開版がある項目だけ。パッケージの状態は「{DD_PACKAGE_STATUS_LABEL[access.packageStatus]}」。
+              ：投資家に見えるのは「公開中」の項目だけ（中身はワークスペースの最新）。パッケージの状態は「{DD_PACKAGE_STATUS_LABEL[access.packageStatus]}」。
             </span>
-            <Link
-              href={`/project/${encodeURIComponent(access.projectId)}/dd`}
-              className="rounded border border-[#e7c27a] bg-white px-2 py-1 font-semibold text-[#7a4b00] hover:bg-[#fff3d6]"
-            >
-              DDの管理画面へ
-            </Link>
+            <span className="flex flex-wrap gap-1.5">
+              <Link
+                href={`/dd/${encodeURIComponent(access.slug)}/print`}
+                className="rounded border border-[#e7c27a] bg-white px-2 py-1 font-semibold text-[#7a4b00] hover:bg-[#fff3d6]"
+              >
+                PDFを出力
+              </Link>
+              <Link
+                href={`/project/${encodeURIComponent(access.projectId)}/cockpit?tab=dd`}
+                className="rounded border border-[#e7c27a] bg-white px-2 py-1 font-semibold text-[#7a4b00] hover:bg-[#fff3d6]"
+              >
+                DDの管理へ
+              </Link>
+            </span>
           </div>
         </div>
       )}

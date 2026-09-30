@@ -17,7 +17,8 @@ assert.ok(
 
 assert.deepEqual(
   COCKPIT_GROUPS.normal.map((group) => group.label),
-  ["進捗管理", "事業計画", "ドライブ", "PJ管理", "会社情報"],
+  // DDパッケージは、DDパッケージを持つPJだけに出る（表示条件は CockpitView）。
+  ["進捗管理", "事業計画", "ドライブ", "PJ管理", "会社情報", "DDパッケージ"],
 );
 assert.deepEqual(
   COCKPIT_GROUPS.institution.map((group) => group.label),
@@ -53,6 +54,7 @@ assert.equal(cockpitGroupForTab("seeds", true).label, "シーズリスト");
 assert.equal(cockpitGroupForTab("documents", false).label, "ドライブ");
 assert.equal(cockpitGroupForTab("documents", true).label, "ドライブ");
 assert.equal(cockpitGroupForTab("regulations", true).label, "規程・内規");
+assert.equal(cockpitGroupForTab("dd", false).label, "DDパッケージ");
 
 // 進捗管理はゴールツリー → タスク → ガント → 残りは元の順。既定タブはその一番左
 // （2026-09-13 まさ「進捗グループを使うときは最初に論点タブを開くので、一番左を論点、
@@ -70,6 +72,8 @@ assert.equal(DEFAULT_COCKPIT_TAB, "issues");
 assert.equal(resolveCockpitTab("capital-policy", true), "capital-policy");
 assert.equal(resolveCockpitTab("capital-plan", true), DEFAULT_COCKPIT_TAB);
 assert.equal(resolveCockpitTab("business-plan", true), DEFAULT_COCKPIT_TAB);
+assert.equal(resolveCockpitTab("dd", true), DEFAULT_COCKPIT_TAB, "研究機関PJにはDDパッケージのタブを出さない");
+assert.equal(resolveCockpitTab("dd", false), "dd");
 assert.equal(resolveCockpitTab("seeds", false), DEFAULT_COCKPIT_TAB);
 assert.equal(resolveCockpitTab("regulations", false), DEFAULT_COCKPIT_TAB);
 assert.equal(resolveCockpitTab("overview", true), "overview");

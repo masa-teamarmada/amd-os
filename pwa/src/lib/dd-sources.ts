@@ -1,40 +1,40 @@
 import "server-only";
 
 import { Buffer } from "node:buffer";
-import { createHash } from "node:crypto";
 import { google } from "googleapis";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { canonicalJson, normalizeDdUnverifiedNotes, readDdIncludedParts, type DdPart } from "@/lib/dd-package-core";
+import { normalizeDdUnverifiedNotes } from "@/lib/dd-package-core";
 import {
   ddCapitalPolicyUnverified,
   ddCostModelUnverified,
   ddFundingPlanUnverified,
   ddTechTopicUnverified,
-  listDdCostModelParts,
-  listDdFundingPlanParts,
-  listDdTechTopicParts,
-  projectDdCapitalPolicy,
-  projectDdCostModel,
-  projectDdDocument,
-  projectDdFundingPlan,
-  projectDdTechTopic,
+  shapeDdCapitalPolicy,
+  shapeDdCostModel,
+  shapeDdDocument,
+  shapeDdFundingPlan,
+  shapeDdTechTopic,
   type DdItemKind,
-  type DdSourceRef,
+  type DdLiveData,
 } from "@/lib/dd-payload";
 import { resolveFundingPlan, type FundingPlanningDetails } from "@/lib/project-funding-plan";
 import type { TechEntry, TechTopic } from "@/lib/project-tech";
 import type { CapitalEvent, CapitalPlan, Holder } from "@/lib/capital-plan";
-import { mapBundle } from "@/app/api/project-cost-model/route";
+import { loadCostModelBundle } from "@/app/api/project-cost-model/route";
 import { getGoogleAuthAsync } from "@/lib/sources/google";
-import { workspaceDocumentDriveFileId } from "@/lib/workspace-document-text";
+import { loadWorkspaceDocumentText, workspaceDocumentDriveFileId } from "@/lib/workspace-document-text";
 import { WORKSPACE_DOCUMENT_FIELDS, type WorkspaceDocumentRow } from "@/lib/workspace-documents-server";
 
-// DDに載せられる元データの一覧と、公開版の下書き（payload / 元データの参照 / 自動の未確認事項 / 添付の実体）を作る。
-// 呼び出せるのは AMD admin の管理画面と公開 API だけ（呼び出し側で requireAdmin 済み）。外部アカウントの経路からは呼ばない。
+// DDに載せられる元データの一覧と、DDの項目の中身（閲覧のたびに元データの最新から作る）。
+// 呼び出し側で権限を確かめてから使う（管理画面・管理 API は requireAdmin、閲覧画面は resolveDdPackageAccess と公開中の確認）。
 
-/** 公開版に複製する添付の上限。Storage の bucket 上限（100MB）と同じ。 */
+/** 添付として開ける大きさの上限。Storage の bucket 上限（100MB）と同じ。 */
 export const DD_FILE_MAX_BYTES = 100 * 1024 * 1024;
+/** HTML の資料をその場で表示する上限（資料室のプレビューと同じ）。 */
+export const DD_HTML_INLINE_MAX_BYTES = 5 * 1024 * 1024;
+/** Google ドライブの資料を投資家へ渡すための写しの置き場（private）。ドライブの版ごとに置くので同じ実体を二重に置かない。 */
+export const DD_FILE_CACHE_BUCKET = "dd-publication-files";
 
 export type DdSourceCandidate = {
   itemKind: DdItemKind;
@@ -54,17 +54,15 @@ type ItemSourceInput = {
   projectId: string;
   itemKind: DdItemKind;
   sourceKey: string;
-  sourceOptions: Record<string, unknown>;
 };
 
-export type DdPublicationDraft = {
-  payload: Record<string, unknown>;
-  sourceRefs: DdSourceRef[];
+/** DDの項目1件の、いまの中身。 */
+export type DdItemLive = {
+  data: DdLiveData;
+  /** 元データの更新日時（画面の「元データの更新」）。 */
   sourceAsOf: string | null;
+  /** 元データの要確認・未定から自動で拾った未確認事項。 */
   autoUnverified: string[];
-  file: { bytes: Buffer; name: string; mimeType: string; sha256: string } | null;
-  /** 管理画面の選択肢（資本政策のラウンド一覧、載せる範囲の候補）。公開版には入らない。 */
-  optionChoices?: { capitalEvents?: Array<{ id: string; label: string }>; parts?: DdPart[] };
 };
 
 export class DdSourceError extends Error {
@@ -73,10 +71,6 @@ export class DdSourceError extends Error {
     super(message);
     this.code = code;
   }
-}
-
-function sha256Hex(value: string | Buffer): string {
-  return createHash("sha256").update(value).digest("hex");
 }
 
 function splitSourceKey(sourceKey: string): { prefix: string; id: string } {
@@ -168,7 +162,7 @@ export async function listDdSourceCandidates(projectId: string): Promise<DdSourc
       ? workspaceDocumentDriveFileId({ source_ref: (row.source_ref as string) ?? null, external_url: (row.external_url as string) ?? null })
       : null;
     const blockedReason = entryKind === "link" && !driveId
-      ? "Googleドライブ以外のリンクは実体を固定できないため追加できない"
+      ? "Googleドライブ以外のリンクは、投資家が開けないため追加できない"
       : entryKind === "link" && GOOGLE_NATIVE_MIME.test(mime)
         ? "Googleドキュメント・スプレッドシートは、PDF等に書き出して資料室へ置いてから追加する"
         : null;
@@ -210,7 +204,7 @@ export async function listDdSourceCandidates(projectId: string): Promise<DdSourc
       itemKind: "funding_plan",
       sourceKey: `project_funding_plan:${projectId}`,
       title: "シードからシリーズAまでの資金計画",
-      detail: "試算表 / 月次の入出金と残高・4ケース",
+      detail: "試算表タブの資金計画 / 月次の入出金と残高・4ケース",
       updatedAt: null,
       caution: null,
       blockedReason: null,
@@ -222,9 +216,9 @@ export async function listDdSourceCandidates(projectId: string): Promise<DdSourc
       itemKind: "capital_policy",
       sourceKey: `project_capital_plan:${row.id}`,
       title: String(row.name),
-      detail: `資本政策表 / 作業中の案（第${row.revision}版）`,
+      detail: "資本政策表タブ / 作業中の案（最新を表示する）",
       updatedAt: (row.updated_at as string) ?? null,
-      caution: "作業中の案。公開すると、その時点の版を固定して見せる",
+      caution: "作業中の案。資本政策表を直すと、DDの表示もそのまま変わる",
       blockedReason: null,
     });
   }
@@ -233,7 +227,7 @@ export async function listDdSourceCandidates(projectId: string): Promise<DdSourc
       itemKind: "capital_policy",
       sourceKey: `project_capital_plan_version:${row.id}`,
       title: `資本政策（提出版 v${row.version}）`,
-      detail: "資本政策表 / 凍結済みの提出版",
+      detail: "資本政策表タブ / 凍結済みの提出版",
       updatedAt: (row.published_at as string) ?? null,
       caution: null,
       blockedReason: null,
@@ -246,17 +240,17 @@ export async function listDdSourceCandidates(projectId: string): Promise<DdSourc
       itemKind: "cost_model",
       sourceKey: `project_cost_model:${row.cost_model_id}`,
       title: String(row.title),
-      detail: `コスト試算${row.version_label ? ` / ${row.version_label}` : ""}`,
+      detail: `${fuel ? "コスト試算（燃料）タブ" : "コスト試算タブ"}${row.version_label ? ` / ${row.version_label}` : ""}（タブと同じ最新の試算を表示する）`,
       updatedAt: (row.updated_at as string) ?? null,
-      caution: null,
-      blockedReason: fuel ? "燃料の試算は計算の形が違うため、まだDDに対応していない" : null,
+      caution: "明細・単価・確認事項まで、ワークスペースのコスト試算と同じ中身が見える",
+      blockedReason: null,
     });
   }
 
   return candidates;
 }
 
-// --- 公開版の下書き --------------------------------------------------------------
+// --- 項目の中身（最新） -----------------------------------------------------------
 
 async function loadDocumentRow(db: SupabaseClient, projectId: string, documentId: string): Promise<WorkspaceDocumentRow> {
   const { data, error } = await db
@@ -275,40 +269,6 @@ async function loadDocumentRow(db: SupabaseClient, projectId: string, documentId
   return row;
 }
 
-async function downloadDocumentBytes(
-  db: SupabaseClient,
-  row: WorkspaceDocumentRow,
-): Promise<{ bytes: Buffer; name: string; mimeType: string }> {
-  if (row.entry_kind === "file") {
-    if (!row.storage_bucket || !row.storage_path) throw new DdSourceError("source_unavailable", "資料の保存先を確認できない");
-    if (row.file_size_bytes > DD_FILE_MAX_BYTES) throw new DdSourceError("file_too_large", "100MBを超える資料は載せられない");
-    const { data, error } = await db.storage.from(row.storage_bucket).download(row.storage_path);
-    if (error || !data) throw new DdSourceError("source_unavailable", "資料の実体を読み込めない");
-    const bytes = Buffer.from(await data.arrayBuffer());
-    return { bytes, name: row.display_name, mimeType: row.mime_type };
-  }
-
-  const fileId = workspaceDocumentDriveFileId(row);
-  if (!fileId) throw new DdSourceError("unsupported_source", "Googleドライブ以外のリンクは実体を固定できない");
-  const auth = await getGoogleAuthAsync();
-  if (!auth) throw new DdSourceError("source_unavailable", "Googleドライブへ接続できない");
-  const drive = google.drive({ version: "v3", auth });
-  const metadata = await drive.files.get({ fileId, fields: "id,name,mimeType,size", supportsAllDrives: true });
-  const mimeType = metadata.data.mimeType ?? row.mime_type;
-  if (GOOGLE_NATIVE_MIME.test(mimeType)) {
-    throw new DdSourceError("unsupported_source", "Googleドキュメント・スプレッドシートは、PDF等に書き出して資料室へ置いてから追加する");
-  }
-  if (Number(metadata.data.size || 0) > DD_FILE_MAX_BYTES) throw new DdSourceError("file_too_large", "100MBを超える資料は載せられない");
-  const media = await drive.files.get({ fileId, alt: "media", supportsAllDrives: true }, { responseType: "arraybuffer" });
-  const bytes = Buffer.from(media.data as ArrayBuffer);
-  if (bytes.byteLength > DD_FILE_MAX_BYTES) throw new DdSourceError("file_too_large", "100MBを超える資料は載せられない");
-  return { bytes, name: row.display_name || metadata.data.name || "資料", mimeType };
-}
-
-function capitalEventChoices(plan: CapitalPlan): Array<{ id: string; label: string }> {
-  return [...plan.events].sort((a, b) => a.order - b.order).map((event) => ({ id: event.id, label: event.label }));
-}
-
 function toCapitalPlan(row: { id: string; name: string; document_json: unknown }): CapitalPlan {
   const doc = row.document_json && typeof row.document_json === "object" && !Array.isArray(row.document_json)
     ? (row.document_json as Record<string, unknown>)
@@ -322,47 +282,22 @@ function toCapitalPlan(row: { id: string; name: string; document_json: unknown }
 }
 
 /**
- * 公開版の下書きを作る。withFile=false のときは添付の実体を読まない（管理画面の「元データが公開後に変わったか」の判定用）。
- * 添付の変化は、資料室の content_sha256 / 更新日時 / サイズで判定する。
+ * DDの項目1件の、いまの中身を元データから作る。公開した時点で固定しない（閲覧のたびに最新）。
+ * 中身はワークスペースの同じタブと同じ（部品が表示しない社内の値だけは dd-payload の shape* が外す）。
  */
-export async function buildDdPublicationDraft(
-  input: ItemSourceInput,
-  options: { withFile: boolean } = { withFile: true },
-): Promise<DdPublicationDraft> {
+export async function loadDdItemLive(input: ItemSourceInput): Promise<DdItemLive> {
   const db = createAdminClient();
   const { prefix, id } = splitSourceKey(input.sourceKey);
-  // 載せる範囲（管理者が選んだ節・行）。未選択なら null で、元データの節・行をすべて写す。
-  const included = readDdIncludedParts(input.sourceOptions);
   if (!isSourceKeyForKind(input.itemKind, input.sourceKey)) {
     throw new DdSourceError("invalid_source_key", "元データの種類と指定が合わない");
   }
 
   if (input.itemKind === "document") {
     const row = await loadDocumentRow(db, input.projectId, id);
-    const sourceRef: DdSourceRef = {
-      table: "workspace_documents",
-      id: row.document_id,
-      updatedAt: row.updated_at,
-      sha256: row.content_sha256,
-      version: `${row.entry_kind}:${row.file_size_bytes}`,
-    };
-    if (!options.withFile) {
-      return {
-        payload: projectDdDocument({ fileName: row.display_name, mimeType: row.mime_type, sizeBytes: row.file_size_bytes }),
-        sourceRefs: [sourceRef],
-        sourceAsOf: row.updated_at,
-        autoUnverified: [],
-        file: null,
-      };
-    }
-    const downloaded = await downloadDocumentBytes(db, row);
-    const sha256 = sha256Hex(downloaded.bytes);
     return {
-      payload: projectDdDocument({ fileName: downloaded.name, mimeType: downloaded.mimeType, sizeBytes: downloaded.bytes.byteLength }),
-      sourceRefs: [{ ...sourceRef, sha256 }],
+      data: shapeDdDocument({ fileName: row.display_name, mimeType: row.mime_type, sizeBytes: row.file_size_bytes }),
       sourceAsOf: row.updated_at,
       autoUnverified: [],
-      file: { bytes: downloaded.bytes, name: downloaded.name, mimeType: downloaded.mimeType, sha256 },
     };
   }
 
@@ -376,19 +311,11 @@ export async function buildDdPublicationDraft(
     const topicRow = topic as TechTopic | null;
     if (!topicRow || topicRow.status === "archived") throw new DdSourceError("source_not_found", "技術台帳のページが見つからない");
     const entryRows = (entries ?? []) as TechEntry[];
-    const payload = projectDdTechTopic(topicRow, entryRows, included);
+    const data = shapeDdTechTopic(input.projectId, topicRow, entryRows);
     return {
-      payload,
-      sourceRefs: [{
-        table: "project_tech_topics",
-        id: topicRow.tech_topic_id,
-        updatedAt: maxIso([topicRow.updated_at, ...entryRows.map((entry) => entry.updated_at)]),
-        sha256: sha256Hex(canonicalJson({ topic: topicRow, entries: entryRows })),
-      }],
+      data,
       sourceAsOf: maxIso([topicRow.updated_at, ...entryRows.map((entry) => entry.updated_at)]),
-      autoUnverified: ddTechTopicUnverified(payload),
-      file: null,
-      optionChoices: { parts: listDdTechTopicParts(topicRow, entryRows) },
+      autoUnverified: ddTechTopicUnverified(data),
     };
   }
 
@@ -409,26 +336,16 @@ export async function buildDdPublicationDraft(
     }
     const plan = resolveFundingPlan(rows);
     if (!plan) throw new DdSourceError("source_not_found", "資金計画が登録されていない");
+    const data = shapeDdFundingPlan(plan);
     const used = rows.filter((row) => plan.months.some((month) => month.ym === row.ym));
-    const payload = projectDdFundingPlan(plan, included);
     return {
-      payload,
-      sourceRefs: [{
-        table: "project_monthly_cashflow",
-        id: `${input.projectId}:${plan.summary.startYm}..${plan.summary.endYm}`,
-        version: plan.summary.version,
-        updatedAt: maxIso(used.map((row) => row.updated_at)),
-        sha256: sha256Hex(canonicalJson(used.map((row) => ({ ym: row.ym, planning_details_json: row.planning_details_json })))),
-      }],
-      sourceAsOf: plan.summary.asOf,
-      autoUnverified: ddFundingPlanUnverified(payload),
-      file: null,
-      optionChoices: { parts: listDdFundingPlanParts(plan) },
+      data,
+      sourceAsOf: maxIso(used.map((row) => row.updated_at)) ?? plan.summary.asOf,
+      autoUnverified: ddFundingPlanUnverified(data),
     };
   }
 
   if (input.itemKind === "capital_policy") {
-    const lastEventId = typeof input.sourceOptions.lastEventId === "string" ? input.sourceOptions.lastEventId : null;
     if (prefix === "project_capital_plan") {
       const { data, error } = await db
         .from("project_capital_plans")
@@ -439,26 +356,8 @@ export async function buildDdPublicationDraft(
       if (!data || data.project_id !== input.projectId || data.status !== "active") {
         throw new DdSourceError("source_not_found", "資本政策の作業中の案が見つからない");
       }
-      const plan = toCapitalPlan(data);
-      const payload = projectDdCapitalPolicy(
-        plan,
-        { basis: "working", planRevision: Number(data.revision), frozenVersion: null },
-        { lastEventId },
-      );
-      return {
-        payload,
-        sourceRefs: [{
-          table: "project_capital_plans",
-          id: String(data.id),
-          version: Number(data.revision),
-          updatedAt: String(data.updated_at),
-          sha256: sha256Hex(canonicalJson(data.document_json)),
-        }],
-        sourceAsOf: String(data.updated_at),
-        autoUnverified: ddCapitalPolicyUnverified(payload),
-        file: null,
-        optionChoices: { capitalEvents: capitalEventChoices(plan) },
-      };
+      const live = shapeDdCapitalPolicy(toCapitalPlan(data), { basis: "working", planRevision: Number(data.revision), frozenVersion: null });
+      return { data: live, sourceAsOf: String(data.updated_at), autoUnverified: ddCapitalPolicyUnverified(live) };
     }
     const { data, error } = await db
       .from("project_capital_plan_versions")
@@ -468,83 +367,100 @@ export async function buildDdPublicationDraft(
     if (error) throw new Error(`dd capital plan version lookup: ${error.message}`);
     if (!data || data.project_id !== input.projectId) throw new DdSourceError("source_not_found", "資本政策の提出版が見つからない");
     const { data: planRow } = await db.from("project_capital_plans").select("name").eq("id", data.plan_id).maybeSingle();
-    const frozenPlan = toCapitalPlan({ id: String(data.plan_id), name: String(planRow?.name ?? "資本政策"), document_json: data.document_json });
-    const payload = projectDdCapitalPolicy(
-      frozenPlan,
+    const live = shapeDdCapitalPolicy(
+      toCapitalPlan({ id: String(data.plan_id), name: String(planRow?.name ?? "資本政策"), document_json: data.document_json }),
       { basis: "frozen", planRevision: Number(data.source_revision), frozenVersion: Number(data.version) },
-      { lastEventId },
     );
-    return {
-      payload,
-      sourceRefs: [{
-        table: "project_capital_plan_versions",
-        id: String(data.id),
-        version: Number(data.version),
-        updatedAt: String(data.published_at),
-        sha256: sha256Hex(canonicalJson(data.document_json)),
-      }],
-      sourceAsOf: String(data.published_at),
-      autoUnverified: ddCapitalPolicyUnverified(payload),
-      file: null,
-      optionChoices: { capitalEvents: capitalEventChoices(frozenPlan) },
-    };
+    return { data: live, sourceAsOf: String(data.published_at), autoUnverified: ddCapitalPolicyUnverified(live) };
   }
 
-  // cost_model
+  // cost_model: 指定した試算の種類（廃液 / 燃料）について、ワークスペースのコスト試算タブと同じ「いまの試算」を出す。
   const { data: model, error: modelError } = await db
     .from("project_cost_models")
-    .select("*")
+    .select("cost_model_id,project_id,case_kind")
     .eq("cost_model_id", id)
     .eq("project_id", input.projectId)
     .maybeSingle();
   if (modelError) throw new Error(`dd cost model lookup: ${modelError.message}`);
-  if (!model || model.status !== "active") throw new DdSourceError("source_not_found", "コスト試算が見つからない");
-  if (model.case_kind === "biodiesel") throw new DdSourceError("unsupported_source", "燃料の試算はまだDDに対応していない");
-  const [a, i, q, n, t] = await Promise.all([
-    db.from("project_cost_assumptions").select("*").eq("cost_model_id", id).order("sort_order"),
-    db.from("project_cost_items").select("*").eq("cost_model_id", id).order("sort_order"),
-    db.from("project_cost_questions").select("*").eq("cost_model_id", id).order("sort_order"),
-    db.from("project_cost_notes").select("*").eq("cost_model_id", id).order("sort_order"),
-    db.from("project_cost_tasks").select("*").eq("cost_model_id", id).order("sort_order"),
-  ]);
-  for (const result of [a, i, q, n, t]) {
-    if (result.error) throw new Error(`dd cost model rows: ${result.error.message}`);
-  }
-  const bundle = mapBundle(model, a.data ?? [], i.data ?? [], q.data ?? [], n.data ?? [], t.data ?? []);
-  const payload = projectDdCostModel(bundle, included);
+  if (!model) throw new DdSourceError("source_not_found", "コスト試算が見つからない");
+  const costKind = model.case_kind === "biodiesel" ? "fuel" : "default";
+  const bundle = await loadCostModelBundle(input.projectId, costKind);
+  if (!bundle) throw new DdSourceError("source_not_found", "コスト試算が登録されていない");
   return {
-    payload,
-    sourceRefs: [{
-      table: "project_cost_models",
-      id,
-      version: bundle.model.versionLabel,
-      updatedAt: maxIso([
-        model.updated_at as string,
-        ...((a.data ?? []) as Array<{ updated_at?: string }>).map((row) => row.updated_at),
-        ...((i.data ?? []) as Array<{ updated_at?: string }>).map((row) => row.updated_at),
-        ...((t.data ?? []) as Array<{ updated_at?: string }>).map((row) => row.updated_at),
-        ...((n.data ?? []) as Array<{ updated_at?: string }>).map((row) => row.updated_at),
-        ...((q.data ?? []) as Array<{ updated_at?: string }>).map((row) => row.updated_at),
-      ]),
-      // 注意書き（notes）と確認事項（questions）も公開版・未確認事項に入るので、変化の判定に含める。
-      sha256: sha256Hex(canonicalJson({ assumptions: a.data, items: i.data, tasks: t.data, notes: n.data, questions: q.data, model })),
-    }],
+    data: shapeDdCostModel(input.projectId, costKind, bundle),
     sourceAsOf: bundle.model.updatedAt,
     autoUnverified: ddCostModelUnverified(bundle),
-    file: null,
-    optionChoices: { parts: listDdCostModelParts(bundle) },
   };
 }
 
-/** 公開する未確認事項 = 管理者が書いた分 + 元データから自動で拾った分（autoUnverified=false の項目は管理者の分だけ）。 */
+/** 表示する未確認事項 = 管理者が書いた分 + 元データから自動で拾った分（autoUnverified=false の項目は管理者の分だけ）。 */
 export function mergeDdUnverifiedNotes(adminNotes: unknown, autoNotes: string[], includeAuto: boolean): string[] {
   const merged = [...normalizeDdUnverifiedNotes(adminNotes), ...(includeAuto ? normalizeDdUnverifiedNotes(autoNotes) : [])];
   return Array.from(new Set(merged)).slice(0, 60);
 }
 
-/** 公開版の添付の置き場。内容の sha256 で決めるので、同じ実体を二重に置かない。 */
-export function ddPublicationFilePath(packageId: string, itemId: string, sha256: string): string {
-  return `${packageId}/${itemId}/${sha256}`;
-}
+// --- 資料の実体（最新）を渡す ---------------------------------------------------------
 
-export const DD_PUBLICATION_BUCKET = "dd-publication-files";
+export type DdDocumentDelivery =
+  | { mode: "html"; html: string; fileName: string }
+  | { mode: "signed_url"; url: string; fileName: string; mimeType: string }
+  | { mode: "error"; status: number; message: string };
+
+/**
+ * 資料の最新の実体を渡す。HTML は本文をその場で返し（呼び出し側がサンドボックスの CSP を付ける）、
+ * それ以外は60秒の署名URL。Google ドライブの資料は、投資家がドライブを開けないので、
+ * ドライブの版（md5）ごとの置き場へ写してから署名URLを出す（同じ版なら写しを使い回す）。
+ */
+export async function deliverDdDocument(input: {
+  projectId: string;
+  sourceKey: string;
+  packageId: string;
+  download: boolean;
+}): Promise<DdDocumentDelivery> {
+  const db = createAdminClient();
+  const { id } = splitSourceKey(input.sourceKey);
+  const row = await loadDocumentRow(db, input.projectId, id);
+  const isHtml = shapeDdDocument({ fileName: row.display_name, mimeType: row.mime_type, sizeBytes: row.file_size_bytes }).preview === "html";
+
+  if (isHtml && !input.download) {
+    const loaded = await loadWorkspaceDocumentText(db, row, DD_HTML_INLINE_MAX_BYTES);
+    if (!loaded.ok) return { mode: "error", status: loaded.status, message: loaded.error };
+    return { mode: "html", html: loaded.text, fileName: row.display_name };
+  }
+
+  const signOptions = input.download ? { download: row.display_name } : undefined;
+  if (row.entry_kind === "file") {
+    if (!row.storage_bucket || !row.storage_path) return { mode: "error", status: 500, message: "資料の保存先を確認できない" };
+    const { data, error } = await db.storage.from(row.storage_bucket).createSignedUrl(row.storage_path, 60, signOptions);
+    if (error || !data?.signedUrl) return { mode: "error", status: 500, message: "資料を開けない" };
+    return { mode: "signed_url", url: data.signedUrl, fileName: row.display_name, mimeType: row.mime_type };
+  }
+
+  const fileId = workspaceDocumentDriveFileId(row);
+  if (!fileId) return { mode: "error", status: 400, message: "Googleドライブ以外のリンクは開けない" };
+  const auth = await getGoogleAuthAsync();
+  if (!auth) return { mode: "error", status: 500, message: "Googleドライブへ接続できない" };
+  const drive = google.drive({ version: "v3", auth });
+  const metadata = await drive.files.get({ fileId, fields: "id,name,mimeType,size,md5Checksum,modifiedTime", supportsAllDrives: true });
+  const mimeType = metadata.data.mimeType ?? row.mime_type;
+  if (GOOGLE_NATIVE_MIME.test(mimeType)) return { mode: "error", status: 400, message: "Googleドキュメント等は、PDF等に書き出して資料室へ置く" };
+  if (Number(metadata.data.size || 0) > DD_FILE_MAX_BYTES) return { mode: "error", status: 413, message: "100MBを超える資料は開けない" };
+
+  // 同じ版（ドライブの md5）の写しがあれば使い回す。無ければ実体を読んで写す。
+  const versionTag = (metadata.data.md5Checksum ?? metadata.data.modifiedTime ?? "latest").replace(/[^A-Za-z0-9._-]/g, "_");
+  const copyPath = `cache/${input.packageId}/${row.document_id}/${versionTag}`;
+  const existing = await db.storage.from(DD_FILE_CACHE_BUCKET).createSignedUrl(copyPath, 60, signOptions);
+  if (!existing.error && existing.data?.signedUrl) {
+    return { mode: "signed_url", url: existing.data.signedUrl, fileName: row.display_name, mimeType };
+  }
+  const media = await drive.files.get({ fileId, alt: "media", supportsAllDrives: true }, { responseType: "arraybuffer" });
+  const bytes = Buffer.from(media.data as ArrayBuffer);
+  if (bytes.byteLength > DD_FILE_MAX_BYTES) return { mode: "error", status: 413, message: "100MBを超える資料は開けない" };
+  const upload = await db.storage.from(DD_FILE_CACHE_BUCKET).upload(copyPath, bytes, { contentType: mimeType, upsert: false });
+  if (upload.error && !/exists|duplicate/i.test(upload.error.message)) {
+    return { mode: "error", status: 500, message: "資料の写しを置けない" };
+  }
+  const signed = await db.storage.from(DD_FILE_CACHE_BUCKET).createSignedUrl(copyPath, 60, signOptions);
+  if (signed.error || !signed.data?.signedUrl) return { mode: "error", status: 500, message: "資料を開けない" };
+  return { mode: "signed_url", url: signed.data.signedUrl, fileName: row.display_name, mimeType };
+}

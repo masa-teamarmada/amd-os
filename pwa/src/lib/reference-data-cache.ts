@@ -82,6 +82,17 @@ export function prefetchReferenceData<T>(
   void loadReferenceData(key, loader, options).catch(() => {});
 }
 
+/**
+ * サーバで読んだ値を、そのまま手元のキャッシュへ置く（ブラウザでだけ呼ぶ）。
+ * DDの閲覧画面は、サーバが「DDで公開中の範囲」だけを読んで渡し、ここへ置いてから
+ * ワークスペースと同じ部品を描く。部品は peek で同じ値を受け取るので、汎用の API を叩かない。
+ */
+export function primeReferenceData<T>(key: string, value: T): void {
+  if (typeof window === "undefined") return;
+  store.set(key, { value, storedAt: Date.now() });
+  inflight.delete(key);
+}
+
 /** 前方一致でキャッシュを捨てる。引数なしで全部。保存処理の直後に呼ぶ。 */
 export function invalidateReferenceData(keyPrefix?: string): void {
   if (!keyPrefix) {

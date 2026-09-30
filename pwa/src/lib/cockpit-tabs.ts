@@ -43,6 +43,8 @@ export const COCKPIT_TABS = [
   "capital-policy",
   "company",
   "activity",
+  // DDパッケージ（投資家・金融機関向けの開示面の管理と、投資家と同じ見え方の確認）。DDパッケージを持つPJだけに出す (表示条件は CockpitView)。
+  "dd",
 ] as const;
 
 export type CockpitTab = (typeof COCKPIT_TABS)[number];
@@ -65,6 +67,7 @@ export type CockpitGroupKey =
   | "documents-group"
   | "project-management-group"
   | "company-information-group"
+  | "dd-group"
   | "seeds-group"
   | "regulations-group";
 
@@ -81,6 +84,7 @@ export const COCKPIT_GROUP_LABELS = {
   documents: "ドライブ",
   projectManagement: "PJ管理",
   companyInformation: "会社情報",
+  dd: "DDパッケージ",
   seeds: "シーズリスト",
   regulations: "規程・内規",
 } as const;
@@ -113,6 +117,8 @@ export const COCKPIT_GROUPS: {
       children: ["overview", "project-contracts", "project-finance", "monthly-reports"],
     },
     { key: "company-information-group", label: COCKPIT_GROUP_LABELS.companyInformation, children: ["company", "capital-policy", "activity"] },
+    // DDパッケージ（2026-09-30 まさ「ワークスペースに左メニューってなくない？」）。ワークスペースと同じ場所から開く。
+    { key: "dd-group", label: COCKPIT_GROUP_LABELS.dd, children: ["dd"] },
   ],
   institution: [
     {
@@ -155,6 +161,7 @@ export function resolveCockpitTab(
   // 目的構造はガントの左側タスク階層へ統合。共有済みの旧URLはガントへ着地させる。
   if (tab === "objective-structure") return "gantt";
   if (isInstitutionProject && BUSINESS_PLAN_TABS.has(tab)) return DEFAULT_COCKPIT_TAB;
+  if (isInstitutionProject && tab === "dd") return DEFAULT_COCKPIT_TAB;
   if (!isInstitutionProject && INSTITUTION_ONLY_TABS.has(tab)) return DEFAULT_COCKPIT_TAB;
   return tab;
 }
