@@ -96,6 +96,19 @@
 
 ---
 
+### [cockpit] 資本政策表タブを押しても開かなかった (2026-08-29)
+
+- **状態**: クローズ（`98882afe`）。
+- **症状**: 新設した「資本政策表」タブを押しても画面が変わらず、進捗管理タブのままだった。エラーも出ない。まさ「資本政策表のタブを押しても開かないかも」。
+- **根本原因**: コックピットのタブは `?tab=` に載せてURLから復元する作りで、受け付けるタブ名の一覧を `cockpit/page.tsx` に**手で書き写した配列**として持っていた。`CockpitTab` 型へ `capital-policy` を足しても、この配列へ足さないと「知らないタブ」と判定されて既定タブへ正規化される。型と配列の二重管理で、型だけ直して配列を忘れた。押すとURLは変わるので、画面側からは押せていないようにしか見えない。
+- **対応内容**: `src/lib/cockpit-tabs.ts` を新設し、`COCKPIT_TABS` / `CockpitTab` / `NON_DEFAULT_COCKPIT_TABS` を1本へ集約した。型は配列から導出する（`(typeof COCKPIT_TABS)[number]`）ので、配列へ足せば型もURL許可リストも同時に増える。`CockpitView` は再エクスポートだけ、`page.tsx` は `NON_DEFAULT_COCKPIT_TABS` をそのまま使う。
+- **再発防止策**:
+  - `check_pwa_critical_ui.cjs` で、(1) 正本 `cockpit-tabs.ts` にタブ名があること (2) `page.tsx` が書き写しではなく正本を参照していること を検査する。個別タブ（overview / documents / ip / technology）の anchor も `page.tsx` から正本側へ張り替えた。
+  - **タブ一覧を `"use client"` のモジュールへ置かない。** client module の export は server component から読むと proxy になり、配列として扱えない。最初 `CockpitView.tsx` に置いたところ、server component から読んだ確認用ページが `COCKPIT_TABS.filter is not a function` で落ちた。`"use client"` を持たない素のモジュールへ移した。
+  - タブ追加は「型に足した」で完了と呼ばず、**実際に押してURLと表示が変わること**を確認する。
+
+---
+
 ### [docs/nextjs-scaffold] `pwa/AGENTS.md` が永久に dirty で、別セッションの deploy を止め続けていた (2026-08-29)
 
 - **状態**: クローズ (2026-08-29 — commit `fbdf8ce2` で AMD の注記を自動生成ブロックの外へ出した)
