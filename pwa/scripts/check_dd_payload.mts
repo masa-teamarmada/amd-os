@@ -82,6 +82,9 @@ const entry = (overrides: Partial<TechEntry>): TechEntry => ({
   assert.equal(payload.entries.length, 2, "別のページの行は写さない");
   assert.ok(payload.entries.every((row) => row.source_ref === null && row.source_url === null && row.created_by === null));
   assert.equal(payload.topic.presentation?.heading, "見出し");
+  assert.ok(payload.entries.some((row) => row.note === "注記"), "公開可のページは行の備考を写す");
+  const internalPayload = projectDdTechTopic({ ...topic, confidentiality: "internal" }, [entry({ note: "CANARY_INTERNAL_ROW_NOTE" })]);
+  assertNoCanary(internalPayload, "社内のページの行の備考");
   const notes = ddTechTopicUnverified(payload);
   assert.deepEqual(notes, ["このページ全体：実測がない", "金属（SolvioraX）：文献値のみ"]);
 }
@@ -153,6 +156,7 @@ const plan: CapitalPlan = {
   const notes = ddCapitalPolicyUnverified(payload);
   assert.ok(notes.some((note) => note.includes("作業中の案（第8版）")));
   assert.ok(notes.includes("シリーズA：調達額・評価額・投資家配分は未定"));
+  assert.ok(notes.some((note) => note.startsWith("シード（J-KISS）：株式数・持株比率は、転換上限")), "転換型の株式数は仮の試算だと示す");
   const cut = projectDdCapitalPolicy(plan, { basis: "working", planRevision: 8, frozenVersion: null }, { lastEventId: "seed" });
   assert.deepEqual(cut.events.map((event) => event.id), ["inc", "seed"], "選んだラウンドまでに絞る");
   assert.deepEqual(cut.standings.map((standing) => standing.eventId), ["inc", "seed"]);
@@ -205,6 +209,7 @@ const bundle: CostModelBundle = {
   for (const strain of payload.strains) {
     for (const scenario of strain.scenarios) {
       assert.equal(scenario.breakdown.length, 6, "内訳は6区分の集計だけ（明細の行は写さない）");
+      assert.match(scenario.label, /^(オンサイト|オフサイト)・/, "方式名に処理場所を付ける（同じ方式名が並ばないように）");
     }
   }
 }

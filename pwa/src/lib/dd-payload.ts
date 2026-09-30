@@ -28,6 +28,7 @@ import {
   computeCostModel,
   listApplications,
   listStrains,
+  scenarioFullLabelOf,
   type CostModelBundle,
 } from "@/lib/project-cost-model";
 
@@ -96,6 +97,9 @@ export type DdTechTopicPayload = {
 };
 
 export function projectDdTechTopic(topic: TechTopic, entries: TechEntry[]): DdTechTopicPayload {
+  // 行の備考（note）は社内メモが混ざりやすい（例: 「外部へ公開するときは〜をぼかす」）。
+  // 社外向けに作った「公開可」のページだけ写し、社内・要秘匿のページでは写さない。
+  const keepNotes = topic.confidentiality === "public";
   const own = entries
     .filter((entry) => entry.tech_topic_id === topic.tech_topic_id)
     .sort((a, b) => a.sort_order - b.sort_order || a.row_label.localeCompare(b.row_label, "ja"));
@@ -138,7 +142,7 @@ export function projectDdTechTopic(topic: TechTopic, entries: TechEntry[]): DdTe
       source_kind: entry.source_kind as TechSourceKind,
       source_ref: null,
       source_url: null,
-      note: entry.note,
+      note: keepNotes ? entry.note : null,
       needs_check: entry.needs_check,
       check_reason: entry.check_reason,
       sort_order: index,
@@ -313,8 +317,13 @@ export function ddCapitalPolicyUnverified(payload: DdCapitalPolicyPayload): stri
     if (!FINANCING_TYPES.has(event.type)) continue;
     if (event.allocationCount === 0) {
       notes.push(`${event.label}：調達額・評価額・投資家配分は未定`);
-    } else if (event.status === "planned") {
+      continue;
+    }
+    if (event.status === "planned") {
       notes.push(`${event.label}：計画値（未実行）`);
+    }
+    if (event.type === "convertible_issue") {
+      notes.push(`${event.label}：株式数・持株比率は、転換上限（キャップ）で転換したと仮定した試算で、実際に発行する株式数ではない`);
     }
   }
   return notes;
@@ -384,7 +393,8 @@ export function projectDdCostModel(bundle: CostModelBundle): DdCostModelPayload 
           perKg: biomassOf(computed, application).perKg,
         })),
         scenarios: computed.scenarios.map((scenario) => ({
-          label: scenario.label,
+          // オンサイトとオフサイトで同じ方式名が並ぶので、処理場所つきの名前にする（例: オンサイト・直接投入）。
+          label: scenarioFullLabelOf(scenario.location, scenario.method, scenario.tankMode, computed.onsiteTankBearer),
           applicationLabel: scenario.applicationLabel,
           totalPerUnit: scenario.totalPerUnit,
           salePricePerUnit: scenario.salePricePerUnit,

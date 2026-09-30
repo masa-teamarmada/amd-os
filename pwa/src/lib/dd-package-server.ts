@@ -297,6 +297,8 @@ export async function loadDdAdminState(projectId: string): Promise<DdAdminState 
       .from("workspace_access_audit_logs")
       .select("id,event_type,email,created_at,detail")
       .eq("project_id", projectId)
+      // 同じPJに別のパッケージ（動作確認用など）があっても混ぜないよう、パッケージで絞る。
+      .eq("detail->>package_id", pkg.id)
       .in("event_type", ["dd_package_viewed", "dd_item_viewed", "dd_file_opened", "dd_file_downloaded"])
       .order("created_at", { ascending: false })
       .limit(200),
