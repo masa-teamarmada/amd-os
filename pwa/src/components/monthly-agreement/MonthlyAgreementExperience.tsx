@@ -1560,7 +1560,7 @@ function seasonMonths(project: MonthlyWorkAgreementProject): string[] {
  * 同じ月軸に棒とMSの期間を並べる。まさ 2026-08-29「各MSがどの期間に割り当てられているかも
  * 矢印とかで表示してあげると、ああこのMSが始まるからここから報酬が高くなるんだ、とかも分かりやすい」。
  */
-function SeasonRewardTrend({ project, ym, compact = false }: { project: MonthlyWorkAgreementProject; ym: string; compact?: boolean }) {
+export function SeasonRewardTrend({ project, ym, compact = false }: { project: MonthlyWorkAgreementProject; ym: string; compact?: boolean }) {
   const months = seasonMonths(project);
   if (months.length === 0) return null;
 
@@ -1572,6 +1572,8 @@ function SeasonRewardTrend({ project, ym, compact = false }: { project: MonthlyW
       payYen: entry?.totalPayYen ?? 0,
       accrualYen: entry?.basePayYen ?? 0,
       stockYen: entry?.stockYen ?? 0,
+      carryInYen: entry?.carryInYen ?? 0,
+      paymentYm: entry?.paymentYm ?? null,
       isCurrent: month === ym,
       isPast: month < ym,
       isPaid: Boolean(entry?.isActualPaid),
@@ -1580,6 +1582,7 @@ function SeasonRewardTrend({ project, ym, compact = false }: { project: MonthlyW
   });
   const maxYen = Math.max(1, ...cells.map((cell) => cell.payYen));
   const seasonTotalYen = cells.reduce((sum, cell) => sum + cell.payYen, 0);
+  const accrualTotalYen = cells.reduce((sum, cell) => sum + cell.accrualYen, 0);
   const paidTotalYen = cells.filter((cell) => cell.isPaid).reduce((sum, cell) => sum + cell.payYen, 0);
   const remainingYen = Math.max(0, seasonTotalYen - paidTotalYen);
 
@@ -1602,8 +1605,8 @@ function SeasonRewardTrend({ project, ym, compact = false }: { project: MonthlyW
     .sort((a, b) => a.from - b.from || a.to - b.to);
 
   const gridTemplate = {
-    gridTemplateColumns: `128px repeat(${months.length}, minmax(66px, 1fr))`,
-    minWidth: `${128 + months.length * 66}px`,
+    gridTemplateColumns: `128px repeat(${months.length}, minmax(88px, 1fr))`,
+    minWidth: `${128 + months.length * 88}px`,
   };
 
   return (
@@ -1615,35 +1618,42 @@ function SeasonRewardTrend({ project, ym, compact = false }: { project: MonthlyW
         </h4>
       </div>
       <p className={`${compact ? "mt-1 text-[11px] leading-4" : "mt-2 text-[13px] leading-[20px]"} text-[#6e6e73]`}>
-        {formatYm(months[0])}から{formatYm(months[months.length - 1])}まで、あなたがこのプロジェクトで月ごとにいくら受け取るかです。下の帯は、担当しているMSがどの期間に割り当たっているかを同じ月の並びで示しています。MSが始まる月から受け取る額が増えます。
+        {formatYm(months[0])}から{formatYm(months[months.length - 1])}までの報酬です。「発生した報酬」はその月の仕事で計上された額、「支払配分額」は前月からの繰越も含めて支払に回る額です。横軸は計算対象月で、実際の振込月とは異なります。
       </p>
 
       <div className="mt-2 flex flex-wrap items-baseline gap-x-5 gap-y-1 text-[13px] text-[#3c3c43]">
         <span>
-          シーズン合計{" "}
+          発生報酬の合計{" "}
+          <span className="text-[16px] font-semibold tabular-nums text-[#1d1d1f]">{formatYen(accrualTotalYen)}</span>
+        </span>
+        <span>
+          支払配分の合計{" "}
           <span className="text-[16px] font-semibold tabular-nums text-[#1d1d1f]">{formatYen(seasonTotalYen)}</span>
         </span>
         <span>
-          受け取り済み{" "}
+          支払確認済み{" "}
           <span className="font-semibold tabular-nums text-emerald-700">{formatYen(paidTotalYen)}</span>
         </span>
         <span>
-          これから{" "}
+          支払照合前・予定分{" "}
           <span className="font-semibold tabular-nums text-[#1d1d1f]">{formatYen(remainingYen)}</span>
         </span>
       </div>
 
       <div
         data-testid="monthly-agreement-season-trend"
-        className="mt-2 w-full max-w-full overflow-x-auto rounded-md border border-[#e5e5e7]"
+        role="region"
+        aria-label="月別の報酬発生・支払配分・繰越・振込予定月"
+        tabIndex={0}
+        className="mt-2 w-full max-w-full overflow-x-auto rounded-md border border-[#e5e5e7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#007aff]"
       >
         <div className="min-w-fit">
           {/* 金額を固定の行にして、その下に同じ基準の高さで棒を置く。
               金額を棒の先端に付けると、額の小さい月で棒がつぶれて比較できなくなる */}
           <div className="grid border-b border-[#f0f0f2]" style={gridTemplate}>
             <div className="sticky left-0 z-10 row-span-2 border-r border-[#e5e5e7] bg-white px-3 py-2">
-              <p className="text-[12px] font-semibold text-[#6e6e73]">受け取る額</p>
-              <p className="mt-0.5 text-[12px] leading-[16px] text-[#86868b]">税抜・稼働した月ごと</p>
+              <p className="text-[12px] font-semibold text-[#6e6e73]">支払配分額</p>
+              <p className="mt-0.5 text-[12px] leading-[16px] text-[#6e6e73]">税抜・繰越分を含む</p>
             </div>
             {cells.map((cell) => (
               <div
@@ -1656,13 +1666,13 @@ function SeasonRewardTrend({ project, ym, compact = false }: { project: MonthlyW
                       : "text-[#c7c7cc]"
                 }`}
               >
-                {cell.payYen > 0 ? formatYen(cell.payYen) : "—"}
+                {cell.hasEntry ? formatYen(cell.payYen) : "—"}
               </div>
             ))}
             {cells.map((cell) => (
               <div
                 key={`bar-${cell.ym}`}
-                title={`${formatYm(cell.ym)}: 受け取る額 ${formatYen(cell.payYen)} / 発生する額 ${formatYen(cell.accrualYen)}${cell.stockYen > 0 ? ` / 月末に残る未払い ${formatYen(cell.stockYen)}` : ""}`}
+                title={`${formatYm(cell.ym)}: 支払配分額 ${formatYen(cell.payYen)} / 発生した報酬 ${formatYen(cell.accrualYen)} / 翌月へ繰越 ${formatYen(cell.stockYen)}`}
                 className={`flex h-[88px] items-end px-1 pb-1 ${cell.isCurrent ? "bg-sky-50" : ""}`}
               >
                 <div
@@ -1678,7 +1688,7 @@ function SeasonRewardTrend({ project, ym, compact = false }: { project: MonthlyW
           {/* 月ラベル。当月を強調する */}
           <div className="grid border-b border-[#e5e5e7] bg-[#f5f5f7]" style={gridTemplate}>
             <div className="sticky left-0 z-10 border-r border-[#e5e5e7] bg-[#f5f5f7] px-3 py-1.5 text-[12px] font-semibold text-[#6e6e73]">
-              月
+              計算対象月
             </div>
             {cells.map((cell, index) => (
               <div
@@ -1688,6 +1698,34 @@ function SeasonRewardTrend({ project, ym, compact = false }: { project: MonthlyW
                 }`}
               >
                 {axisMonthLabel(cell.ym, index === 0 ? null : cells[index - 1].ym)}
+              </div>
+            ))}
+          </div>
+
+          {/* 金額はホバーに隠さず、タッチ操作でも同じ月の列で読み比べられる。 */}
+          {([
+            { key: "accrualYen", label: "発生した報酬", hint: "その月の仕事の分" },
+            { key: "carryInYen", label: "前月から繰越", hint: "以前の月の報酬" },
+            { key: "stockYen", label: "翌月へ繰越", hint: "まだ支払に回らない額" },
+          ] as const).map((row) => (
+            <div key={row.key} data-testid={`season-reward-${row.key}`} className="grid border-b border-[#e5e5e7]" style={gridTemplate}>
+              <div className="sticky left-0 z-10 border-r border-[#e5e5e7] bg-white px-3 py-2">
+                <p className="text-[12px] font-semibold text-[#1d1d1f]">{row.label}</p>
+                <p className="mt-1 text-[11px] leading-4 text-[#6e6e73]">{row.hint}</p>
+              </div>
+              {cells.map((cell) => (
+                <div key={cell.ym} className={`flex items-center justify-center px-1 py-2 text-[12px] tabular-nums ${row.key === "accrualYen" ? "font-semibold text-[#1d1d1f]" : "text-[#6e6e73]"} ${cell.isCurrent ? "bg-sky-50" : ""}`}>
+                  {cell.hasEntry ? formatYen(cell[row.key]) : "—"}
+                </div>
+              ))}
+            </div>
+          ))}
+          <div data-testid="season-reward-payment-month" className="grid border-b border-[#e5e5e7]" style={gridTemplate}>
+            <div className="sticky left-0 z-10 border-r border-[#e5e5e7] bg-white px-3 py-2 text-[12px] font-semibold text-[#1d1d1f]">振込予定月</div>
+            {cells.map((cell) => (
+              <div key={cell.ym} className={`px-1 py-2 text-center text-[12px] tabular-nums text-[#3c3c43] ${cell.isCurrent ? "bg-sky-50" : ""}`}>
+                {cell.payYen > 0 && cell.paymentYm ? `${cell.paymentYm.slice(2, 4)}/${Number(cell.paymentYm.slice(4, 6))}` : "—"}
+                {cell.payYen > 0 && <span className="mt-1 block text-[11px] text-[#6e6e73]">{cell.isPaid ? "支払確認済み" : "照合前・予定"}</span>}
               </div>
             ))}
           </div>
@@ -1733,7 +1771,10 @@ function SeasonRewardTrend({ project, ym, compact = false }: { project: MonthlyW
       </div>
 
       <p className="mt-2 text-[12px] leading-[18px] text-[#6e6e73]">
-        緑は受け取り済み、濃い青は今月、薄い青はこれから受け取る分です。金額は税抜で、実際の振込はこれに消費税を足した額になります。
+        発生した報酬は、支払配分額が0円の月も計上されます。前月からの繰越と今月の発生額のうち、支払に回らない分を翌月へ繰り越します。繰越残額は月ごとの残高なので、足し合わせません。
+      </p>
+      <p className="mt-1 text-[12px] leading-[18px] text-[#6e6e73]">
+        金額は税抜・現時点の計算で、将来分は見込みです。緑は支払確認済み、濃い青は選択中の月です。振込予定月は支払条件に基づく予定で、入金実績日ではありません。下の帯はMS全体の計画期間で、本人の稼働・参画期間とは異なる場合があります。「—」は記録または支払予定がない欄です。狭い画面では表を横にスクロールできます。
       </p>
     </div>
   );

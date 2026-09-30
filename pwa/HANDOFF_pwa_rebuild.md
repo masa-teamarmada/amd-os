@@ -1,5 +1,15 @@
 # HANDOFF - AMD OS PWA
 
+## 2026-09-30 — シーズン報酬の発生額と支払配分
+
+- `MonthlyAgreementExperience.SeasonRewardTrend` に発生報酬・前月繰越・翌月繰越・振込予定月を常時表示。sourceYmの棒は「支払配分額」。計算・API・DB・合意hash・支払予定は変更しない。
+- SOLの報酬減額案はまさが不採用と決定。現行額を維持する。100円単位の切捨てで残る51円等の精算変更は未実施。
+- iOS/macOS/Androidへの共有事項: 同等表示を移植する場合も発生額と支払配分、計算対象月と振込月を分ける。共有スキーマ変更なし。
+- 検査: `node scripts/check_season_reward_trend.cjs`。`--serve` は認証不要の固定サンプルだけをlocalhost:4319に表示し、本番データを読み書きしない。
+- 正本: spec/3-14、manual/2-2。理論・計算は変更なしのためBZMは対象外。
+- 検証: 実部品の描画テスト、TypeScript、ESLint、critical-ui、合意差分、支払丸めテストを通過。Chromeで通常幅と390px幅の固定サンプルを確認。視覚レビューは8/10、横スクロールは表内のみ。
+- 共有checkoutは着手時ahead 3 / behind 300（origin/main b9e6300）。既存35パスと未push3件は別作業として保持し、本変更はGitHub mainからのclean cloneで分離。共有checkoutの統合は元作業の担当が内容確認後に行う。今回の変更を一括commitに混ぜない。
+
 ## 2026-09-26 — SOLの10月以降業務停止・pt配分
 
 - まさが前日にSOL Slackでかる・ちこへ停止を伝えたとの明示指示。新規委託業務は作らず、年明けの自動復帰も設定しない。

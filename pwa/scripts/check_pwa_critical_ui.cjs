@@ -3024,7 +3024,12 @@ expectIncludes(
     "今月発生する額",
     "上の内容を確認したうえで、このプロジェクトの内容に合意してください。合意が終わるまで、このプロジェクトの今月分の支払いには進めません。",
     "このシーズンの報酬の見通し",
-    "MSが始まる月から受け取る額が増えます",
+    "発生した報酬",
+    "支払配分額",
+    "前月から繰越",
+    "翌月へ繰越",
+    "振込予定月",
+    "season-reward-payment-month",
     "monthly-agreement-season-trend",
     "monthly-agreement-section-number-04",
     "確認して合意",
@@ -4502,6 +4507,7 @@ expectIncludes("next.config.ts", ['"/model/page"']);
 expectIncludes("scripts/deploy.sh", ["npm run test:model-formula-canon"]);
 
 // Monthly reports remain authenticated and embeddable only inside AMD OS.
+require("./check_season_reward_trend.cjs");
 expectIncludes("src/app/api/project/monthly-reports/route.ts", ["requireAdmin()", "auth.errorResponse", '"Cache-Control": "private, max-age=30"']);
 expectIncludes("src/components/cockpit/CockpitMonthlyReports.tsx", ['aria-label="月次報告書"', 'template=${template}', '<iframe', '未生成です']);
 expectIncludes("next.config.ts", ['source: "/project/:projectId/report/:ym/print"', 'headers: monthlyReportSecurityHeaders', 'value: "SAMEORIGIN"', '"frame-ancestors \'self\'"']);
