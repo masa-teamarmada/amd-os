@@ -5,12 +5,15 @@ import { createHash } from "node:crypto";
 import { google } from "googleapis";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { canonicalJson, normalizeDdUnverifiedNotes } from "@/lib/dd-package-core";
+import { canonicalJson, normalizeDdUnverifiedNotes, readDdIncludedParts, type DdPart } from "@/lib/dd-package-core";
 import {
   ddCapitalPolicyUnverified,
   ddCostModelUnverified,
   ddFundingPlanUnverified,
   ddTechTopicUnverified,
+  listDdCostModelParts,
+  listDdFundingPlanParts,
+  listDdTechTopicParts,
   projectDdCapitalPolicy,
   projectDdCostModel,
   projectDdDocument,
@@ -60,8 +63,8 @@ export type DdPublicationDraft = {
   sourceAsOf: string | null;
   autoUnverified: string[];
   file: { bytes: Buffer; name: string; mimeType: string; sha256: string } | null;
-  /** 管理画面の選択肢（資本政策のラウンド一覧など）。公開版には入らない。 */
-  optionChoices?: { capitalEvents?: Array<{ id: string; label: string }> };
+  /** 管理画面の選択肢（資本政策のラウンド一覧、載せる範囲の候補）。公開版には入らない。 */
+  optionChoices?: { capitalEvents?: Array<{ id: string; label: string }>; parts?: DdPart[] };
 };
 
 export class DdSourceError extends Error {
@@ -328,6 +331,8 @@ export async function buildDdPublicationDraft(
 ): Promise<DdPublicationDraft> {
   const db = createAdminClient();
   const { prefix, id } = splitSourceKey(input.sourceKey);
+  // 載せる範囲（管理者が選んだ節・行）。未選択なら null で、元データの節・行をすべて写す。
+  const included = readDdIncludedParts(input.sourceOptions);
   if (!isSourceKeyForKind(input.itemKind, input.sourceKey)) {
     throw new DdSourceError("invalid_source_key", "元データの種類と指定が合わない");
   }
@@ -371,7 +376,7 @@ export async function buildDdPublicationDraft(
     const topicRow = topic as TechTopic | null;
     if (!topicRow || topicRow.status === "archived") throw new DdSourceError("source_not_found", "技術台帳のページが見つからない");
     const entryRows = (entries ?? []) as TechEntry[];
-    const payload = projectDdTechTopic(topicRow, entryRows);
+    const payload = projectDdTechTopic(topicRow, entryRows, included);
     return {
       payload,
       sourceRefs: [{
@@ -383,6 +388,7 @@ export async function buildDdPublicationDraft(
       sourceAsOf: maxIso([topicRow.updated_at, ...entryRows.map((entry) => entry.updated_at)]),
       autoUnverified: ddTechTopicUnverified(payload),
       file: null,
+      optionChoices: { parts: listDdTechTopicParts(topicRow, entryRows) },
     };
   }
 
@@ -404,7 +410,7 @@ export async function buildDdPublicationDraft(
     const plan = resolveFundingPlan(rows);
     if (!plan) throw new DdSourceError("source_not_found", "資金計画が登録されていない");
     const used = rows.filter((row) => plan.months.some((month) => month.ym === row.ym));
-    const payload = projectDdFundingPlan(plan);
+    const payload = projectDdFundingPlan(plan, included);
     return {
       payload,
       sourceRefs: [{
@@ -417,6 +423,7 @@ export async function buildDdPublicationDraft(
       sourceAsOf: plan.summary.asOf,
       autoUnverified: ddFundingPlanUnverified(payload),
       file: null,
+      optionChoices: { parts: listDdFundingPlanParts(plan) },
     };
   }
 
@@ -504,7 +511,7 @@ export async function buildDdPublicationDraft(
     if (result.error) throw new Error(`dd cost model rows: ${result.error.message}`);
   }
   const bundle = mapBundle(model, a.data ?? [], i.data ?? [], q.data ?? [], n.data ?? [], t.data ?? []);
-  const payload = projectDdCostModel(bundle);
+  const payload = projectDdCostModel(bundle, included);
   return {
     payload,
     sourceRefs: [{
@@ -516,12 +523,16 @@ export async function buildDdPublicationDraft(
         ...((a.data ?? []) as Array<{ updated_at?: string }>).map((row) => row.updated_at),
         ...((i.data ?? []) as Array<{ updated_at?: string }>).map((row) => row.updated_at),
         ...((t.data ?? []) as Array<{ updated_at?: string }>).map((row) => row.updated_at),
+        ...((n.data ?? []) as Array<{ updated_at?: string }>).map((row) => row.updated_at),
+        ...((q.data ?? []) as Array<{ updated_at?: string }>).map((row) => row.updated_at),
       ]),
-      sha256: sha256Hex(canonicalJson({ assumptions: a.data, items: i.data, tasks: t.data, model })),
+      // 注意書き（notes）と確認事項（questions）も公開版・未確認事項に入るので、変化の判定に含める。
+      sha256: sha256Hex(canonicalJson({ assumptions: a.data, items: i.data, tasks: t.data, notes: n.data, questions: q.data, model })),
     }],
     sourceAsOf: bundle.model.updatedAt,
     autoUnverified: ddCostModelUnverified(bundle),
     file: null,
+    optionChoices: { parts: listDdCostModelParts(bundle) },
   };
 }
 

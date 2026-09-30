@@ -6,8 +6,10 @@
 //   - 社内の出典メモ（source_ref / source_url）、作成者、内部メモ（資本政策のラウンドのメモ等）は写さない。
 //   - コスト試算は明細・単価を写さず、計算結果の集計値だけを写す。
 //   - 未確認事項は、元データの「要確認」「未定」「未解決の確認事項」から自動で拾い、管理者が書いた分と合わせる。
+//   - 載せる範囲（includedParts）が選ばれていれば、選ばれた節・行・注意書き・段落だけを写す。選ばれなかった部分は
+//     payload に入れない（ブラウザへ送ってから隠さない）。範囲が未選択（null）なら、元データの節・行をすべて写す。
 
-import { canonicalJson } from "@/lib/dd-package-core";
+import { canonicalJson, ddShortHash, type DdPart } from "@/lib/dd-package-core";
 import type { TechBlockKind, TechConfidence, TechEntry, TechRating, TechSourceKind, TechTopic } from "@/lib/project-tech";
 import { readTechPresentation } from "@/lib/project-tech";
 import type { FundingPlan } from "@/lib/project-funding-plan";
@@ -34,7 +36,6 @@ import {
 
 // 種類の定義は画面側からも読むので、軽い dd-package-core に置いてここから再公開する。
 export { DD_ITEM_KINDS, DD_ITEM_KIND_LABEL, isDdItemKind, type DdItemKind } from "@/lib/dd-package-core";
-import type { DdItemKind } from "@/lib/dd-package-core";
 
 /** 公開版がどの元データのどの版から作られたか。版を持たない元データは更新日時と内容の hash で追う。 */
 export type DdSourceRef = {
@@ -44,6 +45,113 @@ export type DdSourceRef = {
   updatedAt?: string | null;
   sha256?: string | null;
 };
+
+// --- 載せる範囲 ---------------------------------------------------------------------
+
+type IncludedParts = ReadonlySet<string> | null;
+
+function isIncluded(included: IncludedParts, key: string): boolean {
+  return included === null || included.has(key);
+}
+
+/** 同じ内容の段落・見出しが並んでも key が重ならないよう、2つ目以降に -2, -3 … を付ける。 */
+function uniqueKeys(baseKeys: string[]): string[] {
+  const seen = new Map<string, number>();
+  return baseKeys.map((key) => {
+    const count = (seen.get(key) ?? 0) + 1;
+    seen.set(key, count);
+    return count === 1 ? key : `${key}-${count}`;
+  });
+}
+
+function shortLabel(text: string, max = 48): string {
+  // 見出し・段落の太字記号とコード記号だけを落とす（行の名前の _ や | はそのまま残す）。
+  const flat = text.replace(/\s+/g, " ").replace(/\*\*|`/g, "").trim();
+  return flat.length > max ? `${flat.slice(0, max)}…` : flat;
+}
+
+export type DdMarkdownSection = {
+  /** body:lead（最初の見出しより前）または body:<見出しの hash>。空白だけの冒頭は null（常に残す）。 */
+  key: string | null;
+  label: string;
+  /** 元の本文の切り出し（見出しの行を含む）。全節をつなげると元の本文に戻る。 */
+  text: string;
+};
+
+/**
+ * 本文（Markdown）を見出しで節に分ける。本文で一番上の階層の見出しだけで切り、下位の見出しは親の節に含める
+ * （親を外したのに子の節だけ残ることが無いように）。コードブロックの中の # は見出しとみなさない。
+ */
+export function splitDdMarkdownSections(markdown: string): DdMarkdownSection[] {
+  const lines = markdown.match(/[^\n]*\n|[^\n]+$/g) ?? [];
+  type Line = { raw: string; level: number | null; heading: string | null };
+  const parsed: Line[] = [];
+  let fence: { char: string; length: number } | null = null;
+  for (const raw of lines) {
+    const line = raw.replace(/\r?\n$/, "");
+    if (fence) {
+      if (new RegExp(`^\\s{0,3}\\${fence.char}{${fence.length},}\\s*$`).test(line)) fence = null;
+      parsed.push({ raw, level: null, heading: null });
+      continue;
+    }
+    const open = /^\s{0,3}(`{3,}|~{3,})/.exec(line);
+    if (open) {
+      fence = { char: open[1][0], length: open[1].length };
+      parsed.push({ raw, level: null, heading: null });
+      continue;
+    }
+    const heading = /^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line);
+    parsed.push(heading ? { raw, level: heading[1].length, heading: heading[2].trim() } : { raw, level: null, heading: null });
+  }
+  const topLevel = parsed.reduce<number | null>(
+    (min, line) => (line.level !== null && (min === null || line.level < min) ? line.level : min),
+    null,
+  );
+
+  const sections: Array<{ heading: string | null; text: string }> = [{ heading: null, text: "" }];
+  for (const line of parsed) {
+    if (topLevel !== null && line.level === topLevel) {
+      sections.push({ heading: line.heading, text: line.raw });
+    } else {
+      sections[sections.length - 1].text += line.raw;
+    }
+  }
+  const headingKeys = uniqueKeys(
+    sections.filter((section) => section.heading !== null).map((section) => `body:${ddShortHash(section.heading as string)}`),
+  );
+  let headingIndex = 0;
+  return sections
+    .map((section, index) => {
+      if (section.heading !== null) {
+        return { key: headingKeys[headingIndex++], label: shortLabel(section.heading, 60), text: section.text };
+      }
+      if (index === 0 && section.text.trim().length === 0) return { key: null, label: "", text: section.text };
+      return {
+        key: "body:lead",
+        label: topLevel === null ? "本文" : "冒頭（最初の見出しより前）",
+        text: section.text,
+      };
+    })
+    .filter((section) => section.text.length > 0);
+}
+
+/** 本文のうち、選ばれた節だけをつなげる。すべて選ばれていれば元の本文と同じ文字列に戻る。 */
+function pickMarkdownSections(markdown: string | null, included: IncludedParts): string | null {
+  if (markdown === null) return null;
+  if (included === null) return markdown;
+  const picked = splitDdMarkdownSections(markdown)
+    .filter((section) => section.key === null || included.has(section.key))
+    .map((section) => section.text)
+    .join("");
+  return picked.trim().length > 0 ? picked : null;
+}
+
+function markdownParts(markdown: string | null, group: string): DdPart[] {
+  if (!markdown || markdown.trim().length === 0) return [];
+  return splitDdMarkdownSections(markdown)
+    .filter((section): section is DdMarkdownSection & { key: string } => section.key !== null)
+    .map((section) => ({ key: section.key, label: section.label, group }));
+}
 
 // --- 資料 -------------------------------------------------------------------------
 
@@ -96,20 +204,44 @@ export type DdTechTopicPayload = {
   entries: DdTechEntry[];
 };
 
-export function projectDdTechTopic(topic: TechTopic, entries: TechEntry[]): DdTechTopicPayload {
+function ownEntries(topic: TechTopic, entries: TechEntry[]): TechEntry[] {
+  return entries
+    .filter((entry) => entry.tech_topic_id === topic.tech_topic_id)
+    .sort((a, b) => a.sort_order - b.sort_order || a.row_label.localeCompare(b.row_label, "ja"));
+}
+
+/** 表の行の key。星取り表（matrix）は観点の行ごと（その行の全列）、ほかの表は1行ごと。 */
+function techEntryPartKey(topic: TechTopic, entry: TechEntry): string {
+  return topic.block_kind === "matrix" ? `row:${ddShortHash(entry.row_label)}` : `entry:${entry.tech_entry_id}`;
+}
+
+/** 技術台帳のページで選べる範囲: 本文の節と、表の行。 */
+export function listDdTechTopicParts(topic: TechTopic, entries: TechEntry[]): DdPart[] {
+  const parts = markdownParts(topic.body_md, topic.block_kind === "matrix" ? "表の補足" : "本文");
+  const seen = new Set<string>();
+  for (const entry of ownEntries(topic, entries)) {
+    const key = techEntryPartKey(topic, entry);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const label = topic.block_kind === "matrix" || !entry.col_label ? entry.row_label : `${entry.row_label}（${entry.col_label}）`;
+    parts.push({ key, label: shortLabel(label, 60), group: "表の行" });
+  }
+  return parts;
+}
+
+export function projectDdTechTopic(topic: TechTopic, entries: TechEntry[], included: IncludedParts = null): DdTechTopicPayload {
   // 行の備考（note）は社内メモが混ざりやすい（例: 「外部へ公開するときは〜をぼかす」）。
   // 社外向けに作った「公開可」のページだけ写し、社内・要秘匿のページでは写さない。
   const keepNotes = topic.confidentiality === "public";
-  const own = entries
-    .filter((entry) => entry.tech_topic_id === topic.tech_topic_id)
-    .sort((a, b) => a.sort_order - b.sort_order || a.row_label.localeCompare(b.row_label, "ja"));
+  const own = ownEntries(topic, entries).filter((entry) => isIncluded(included, techEntryPartKey(topic, entry)));
   const presentation = readTechPresentation(topic.presentation) ? (topic.presentation as Record<string, unknown>) : null;
   return {
     kind: "tech_topic",
     topic: {
       title: topic.title,
-      summary: topic.summary,
-      bodyMd: topic.body_md,
+      // ページの要約は DD の画面に出さない（項目の一行説明は管理者が別に書く）ので写さない。
+      summary: null,
+      bodyMd: pickMarkdownSections(topic.body_md, included),
       blockKind: topic.block_kind,
       techDomain: topic.tech_domain,
       presentation: presentation
@@ -175,9 +307,48 @@ export type DdFundingPlanPayload = {
   plan: FundingPlan;
 };
 
-export function projectDdFundingPlan(plan: FundingPlan): DdFundingPlanPayload {
+function paragraphKeys(prefix: "policy" | "assumption", paragraphs: string[]): string[] {
+  return uniqueKeys(paragraphs.map((text) => `${prefix}:${ddShortHash(text)}`));
+}
+
+/** 資金計画で選べる範囲: 調達方針と前提の段落、採用資料の名前、設備予算の備考。月次の表・グラフ・費用の表は常に載せる。 */
+export function listDdFundingPlanParts(plan: FundingPlan): DdPart[] {
+  const summary = plan.summary;
+  const policyKeys = paragraphKeys("policy", summary.bridgePolicy);
+  const assumptionKeys = paragraphKeys("assumption", summary.assumptions);
+  return [
+    ...summary.bridgePolicy.map((text, index) => ({ key: policyKeys[index], label: shortLabel(text), group: "採択・不採択時の調達方針" })),
+    ...summary.assumptions.map((text, index) => ({
+      key: assumptionKeys[index],
+      label: shortLabel(text),
+      group: "STS対象経費・支払時期・未確定条件",
+    })),
+    ...(summary.source.adoptedMaterial ? [{ key: "source", label: `採用資料の名前（${shortLabel(summary.source.adoptedMaterial)}）`, group: "その他" }] : []),
+    ...(summary.equipment.some((row) => row.note)
+      ? [{ key: "equipmentNotes", label: "設備・初期費用の備考（表の項目名にマウスを重ねると出る）", group: "その他" }]
+      : []),
+  ];
+}
+
+export function projectDdFundingPlan(plan: FundingPlan, included: IncludedParts = null): DdFundingPlanPayload {
   // 表示部品 CockpitFundingPlan が読む形そのまま。月次の値は resolveFundingPlan で整合を検査済みのものだけを受け取る。
-  return { kind: "funding_plan", plan: JSON.parse(JSON.stringify(plan)) as FundingPlan };
+  const copy = JSON.parse(JSON.stringify(plan)) as FundingPlan;
+  const summary = copy.summary;
+  const policyKeys = paragraphKeys("policy", summary.bridgePolicy);
+  const assumptionKeys = paragraphKeys("assumption", summary.assumptions);
+  summary.bridgePolicy = summary.bridgePolicy.filter((_, index) => isIncluded(included, policyKeys[index]));
+  summary.assumptions = summary.assumptions.filter((_, index) => isIncluded(included, assumptionKeys[index]));
+  if (!isIncluded(included, "source")) summary.source = { ...summary.source, adoptedMaterial: "" };
+  if (!isIncluded(included, "equipmentNotes")) summary.equipment = summary.equipment.map((row) => ({ ...row, note: "" }));
+  // 元の試算表の hash は画面に出さず、公開版の元データ参照（source_refs）で追えるので写さない。
+  summary.source = { ...summary.source, workbookSha256: "" };
+  // 月の行（初月）にも同じ summary の全文が入っている。表示部品は月の scenarios しか読まないので、月の summary は写さない
+  // （外した段落が、月の行の側からブラウザへ届かないように）。
+  copy.months = copy.months.map((month) => ({
+    ...month,
+    planning_details_json: { ...month.planning_details_json, summary: null },
+  }));
+  return { kind: "funding_plan", plan: copy };
 }
 
 export function ddFundingPlanUnverified(payload: DdFundingPlanPayload): string[] {
@@ -365,11 +536,26 @@ function formatAssumptionValue(input: { value: number | null; valueText: string 
   return input.unit ? `${number} ${input.unit}` : number;
 }
 
+function caveatNotes(bundle: CostModelBundle) {
+  return bundle.notes.filter((note) => note.section === "caveat").sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+/** 採算で選べる範囲: 想定している系の説明文、主要な前提の表、注意書き1件ずつ。方式ごとの総コストの表は常に載せる。 */
+export function listDdCostModelParts(bundle: CostModelBundle): DdPart[] {
+  return [
+    ...(bundle.model.systemScopeMd?.trim() ? [{ key: "scope", label: "想定している系（説明文）", group: "説明と前提" }] : []),
+    ...(bundle.assumptions.some((assumption) => assumption.isKey)
+      ? [{ key: "assumptions", label: "主要な前提の表", group: "説明と前提" }]
+      : []),
+    ...caveatNotes(bundle).map((note) => ({ key: `caveat:${note.costNoteId}`, label: shortLabel(note.title, 60), group: "試算の注意書き" })),
+  ];
+}
+
 /**
  * 採算の公開版。既存の計算エンジン computeCostModel を株ごとに回し、方式ごとの1単位あたりの総コスト・売価・内訳と、
  * 菌体1kgあたりの原価だけを写す。明細・単価・作業の行、出典・担当・メモは写さない。
  */
-export function projectDdCostModel(bundle: CostModelBundle): DdCostModelPayload {
+export function projectDdCostModel(bundle: CostModelBundle, included: IncludedParts = null): DdCostModelPayload {
   const strains = listStrains(bundle);
   const applications = listApplications(bundle);
   const strainList = strains.length > 0 ? strains : [null];
@@ -380,8 +566,9 @@ export function projectDdCostModel(bundle: CostModelBundle): DdCostModelPayload 
       caseLabel: bundle.model.caseLabel,
       versionLabel: bundle.model.versionLabel,
       unitBasisLabel: bundle.model.unitBasisLabel,
-      summaryMd: bundle.model.summaryMd,
-      systemScopeMd: bundle.model.systemScopeMd,
+      // 試算の要約は DD の画面に出さない（冒頭の説明は画面側で固定文を出す）ので写さない。
+      summaryMd: null,
+      systemScopeMd: isIncluded(included, "scope") ? bundle.model.systemScopeMd : null,
     },
     strains: strainList.map((strain) => {
       const computed = computeCostModel(bundle, { strain });
@@ -407,18 +594,19 @@ export function projectDdCostModel(bundle: CostModelBundle): DdCostModelPayload 
         })),
       };
     }),
-    keyAssumptions: bundle.assumptions
-      .filter((assumption) => assumption.isKey)
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-      .map((assumption) => ({
-        groupLabel: assumption.groupLabel,
-        label: assumption.label,
-        value: formatAssumptionValue(assumption),
-        confidence: assumption.confidence,
-      })),
-    caveats: bundle.notes
-      .filter((note) => note.section === "caveat")
-      .sort((a, b) => a.sortOrder - b.sortOrder)
+    keyAssumptions: isIncluded(included, "assumptions")
+      ? bundle.assumptions
+          .filter((assumption) => assumption.isKey)
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map((assumption) => ({
+            groupLabel: assumption.groupLabel,
+            label: assumption.label,
+            value: formatAssumptionValue(assumption),
+            confidence: assumption.confidence,
+          }))
+      : [],
+    caveats: caveatNotes(bundle)
+      .filter((note) => isIncluded(included, `caveat:${note.costNoteId}`))
       .map((note) => ({ title: note.title, bodyMd: note.bodyMd })),
   };
 }

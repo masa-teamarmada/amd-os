@@ -7,6 +7,7 @@ import {
   isDdSectionKey,
   normalizeDdCapabilities,
   type DdCapability,
+  type DdPart,
   type DdGrantStatus,
   type DdPackageStatus,
   type DdSectionKey,
@@ -254,6 +255,8 @@ export type DdAdminItem = DdItemRow & {
   sourceError: string | null;
   draftAutoUnverified: string[];
   capitalEvents: Array<{ id: string; label: string }>;
+  /** 載せる範囲の候補（本文の節・表の行など）。選んだ結果は source_options.includedParts。 */
+  partChoices: DdPart[];
 };
 
 export type DdAdminState = {
@@ -338,7 +341,7 @@ export async function loadDdAdminState(projectId: string): Promise<DdAdminState 
       const publications = publicationsByItem.get(item.id) ?? [];
       const current = publications.find((publication) => publication.id === item.published_publication_id) ?? null;
       if (item.status !== "active") {
-        return { ...item, publications, sourceChanged: null, sourceError: null, draftAutoUnverified: [], capitalEvents: [] };
+        return { ...item, publications, sourceChanged: null, sourceError: null, draftAutoUnverified: [], capitalEvents: [], partChoices: [] };
       }
       try {
         const draft = await buildDdPublicationDraft(
@@ -352,6 +355,7 @@ export async function loadDdAdminState(projectId: string): Promise<DdAdminState 
           sourceError: null,
           draftAutoUnverified: draft.autoUnverified,
           capitalEvents: draft.optionChoices?.capitalEvents ?? [],
+          partChoices: draft.optionChoices?.parts ?? [],
         };
       } catch (error) {
         return {
@@ -361,6 +365,7 @@ export async function loadDdAdminState(projectId: string): Promise<DdAdminState 
           sourceError: error instanceof Error ? error.message : String(error),
           draftAutoUnverified: [],
           capitalEvents: [],
+          partChoices: [],
         };
       }
     }),

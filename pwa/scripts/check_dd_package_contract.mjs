@@ -101,6 +101,10 @@ assert.ok(!/body\.payload|p_payload|["']payload["']/.test(code(adminApi)), "画�
 assert.match(adminApi, /grant_already_exists/, "既存の付与（停止・失効を含む）を作成で復活させない");
 assert.match(adminApi, /confidential_requires_acknowledgement/, "要秘匿の項目は明示の確認なしに追加しない");
 assert.ok(!/project_access_memberships|institution_workspace_memberships/.test(code(adminApi)), "DD の付与でワークスペースの所属を作らない");
+assert.match(adminApi, /value\.every\(isDdPartKey\)/, "載せる範囲は既知の形の key だけを受け付ける");
+assert.match(adminApi, /DD_PART_ITEM_KINDS\.includes\(item\.item_kind\)/, "載せる範囲は、範囲を選べる種類の項目だけに保存する");
+const sources = read("src/lib/dd-sources.ts");
+assert.match(sources, /const included = readDdIncludedParts\(input\.sourceOptions\);/, "下書き・公開版は、選ばれた範囲で元データから作る");
 
 // --- 関所・ログイン ------------------------------------------------------------
 const middleware = read("src/lib/supabase/middleware.ts");

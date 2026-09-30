@@ -7,6 +7,7 @@
 //   4. 付与の作成で、停止・失効した付与を復活させない。戻すのは update_grant の明示の status 変更だけ。
 //   5. DD の付与はワークスペースの所属（project_access_memberships 等）を作らない。
 //   6. 要秘匿（confidential）の技術台帳ページは、acknowledgeConfidential=true の明示なしに追加しない。
+//   7. 載せる範囲（includedParts）は既知の形の key だけを受け付け、範囲を選べる種類（技術台帳・採算・資金計画）だけに保存する。
 
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -15,6 +16,9 @@ import { isSameOriginWorkspaceMutation } from "@/lib/workspace-mutation-origin";
 import { recordWorkspaceAuditEvent } from "@/lib/workspace-access-audit";
 import { normalizeWorkspaceEmail } from "@/lib/workspace-email";
 import {
+  DD_PART_ITEM_KINDS,
+  DD_PART_MAX,
+  isDdPartKey,
   isDdSectionKey,
   isUuid,
   normalizeDdCapabilities,
@@ -200,6 +204,12 @@ function normalizeSourceOptions(raw: unknown): Record<string, unknown> | null {
     if (typeof input.autoUnverified !== "boolean") return null;
     options.autoUnverified = input.autoUnverified;
   }
+  if (has(input, "includedParts")) {
+    // null は「元データの節・行をすべて載せる」に戻す。配列は、その key の節・行だけを載せる。
+    const value = input.includedParts;
+    if (value !== null && (!Array.isArray(value) || value.length > DD_PART_MAX || !value.every(isDdPartKey))) return null;
+    options.includedParts = value === null ? null : Array.from(new Set(value as string[]));
+  }
   return options;
 }
 
@@ -229,7 +239,10 @@ async function updateItem(body: Body, actor: string) {
   if (has(body, "sourceOptions")) {
     const options = normalizeSourceOptions(body.sourceOptions);
     if (!options) return bad("invalid_source_options");
-    patch.source_options = { ...(item.source_options ?? {}), ...options };
+    if (has(options, "includedParts") && !DD_PART_ITEM_KINDS.includes(item.item_kind)) return bad("parts_not_supported");
+    const merged: Record<string, unknown> = { ...(item.source_options ?? {}), ...options };
+    if (merged.includedParts === null) delete merged.includedParts;
+    patch.source_options = merged;
   }
   if (has(body, "evidenceItemIds")) {
     const raw = Array.isArray(body.evidenceItemIds) ? body.evidenceItemIds : null;

@@ -7,14 +7,28 @@ import {
   ddCapitalPolicyUnverified,
   ddCostModelUnverified,
   ddTechTopicUnverified,
+  listDdCostModelParts,
+  listDdFundingPlanParts,
+  listDdTechTopicParts,
   projectDdCapitalPolicy,
   projectDdCostModel,
   projectDdDocument,
+  projectDdFundingPlan,
   projectDdTechTopic,
+  splitDdMarkdownSections,
 } from "@/lib/dd-payload";
+import { isDdPartKey, readDdIncludedParts } from "@/lib/dd-package-core";
 import type { TechEntry, TechTopic } from "@/lib/project-tech";
 import type { CapitalPlan } from "@/lib/capital-plan";
 import type { CostModelBundle } from "@/lib/project-cost-model";
+import type { FundingPlan } from "@/lib/project-funding-plan";
+
+/** 選べる範囲の key をすべて選んだときは、範囲を選ばない（null）ときと同じ公開版になる。 */
+function allKeys(parts: Array<{ key: string }>): Set<string> {
+  for (const part of parts) assert.ok(isDdPartKey(part.key), `載せる範囲の key の形が検査を通らない: ${part.key}`);
+  assert.equal(new Set(parts.map((part) => part.key)).size, parts.length, "載せる範囲の key が重なっている");
+  return new Set(parts.map((part) => part.key));
+}
 
 function assertNoCanary(value: unknown, label: string) {
   const json = JSON.stringify(value);
@@ -87,6 +101,72 @@ const entry = (overrides: Partial<TechEntry>): TechEntry => ({
   assertNoCanary(internalPayload, "社内のページの行の備考");
   const notes = ddTechTopicUnverified(payload);
   assert.deepEqual(notes, ["このページ全体：実測がない", "金属（SolvioraX）：文献値のみ"]);
+  assert.equal(payload.topic.summary, null, "ページの要約は画面に出さないので写さない");
+
+  // 載せる範囲: 星取り表は観点の行ごとに選ぶ。外した行は、備考・要確認ごと payload に入らない。
+  const matrixEntries = [entry({}), entry({ row_label: "CANARY_EXCLUDED_ROW", needs_check: true, check_reason: "CANARY_EXCLUDED_REASON" })];
+  const parts = listDdTechTopicParts(topic, matrixEntries);
+  assert.deepEqual(parts.map((part) => part.group), ["表の補足", "表の行", "表の行"]);
+  const keep = new Set(parts.filter((part) => part.label !== "CANARY_EXCLUDED_ROW").map((part) => part.key));
+  const picked = projectDdTechTopic(topic, matrixEntries, keep);
+  assertNoCanary(picked, "外した行");
+  assertNoCanary(ddTechTopicUnverified(picked), "外した行の要確認");
+  assert.deepEqual(picked.entries.map((row) => row.row_label), ["色"]);
+  assert.deepEqual(projectDdTechTopic(topic, matrixEntries, allKeys(parts)), projectDdTechTopic(topic, matrixEntries), "全部選ぶと未選択と同じ");
+  assert.equal(projectDdTechTopic(topic, matrixEntries, new Set()).entries.length, 0, "空の選択は何も載せない");
+  assert.equal(projectDdTechTopic(topic, matrixEntries, new Set()).topic.bodyMd, null);
+}
+
+// --- 本文の節 -------------------------------------------------------------------
+{
+  const body = [
+    "**一言でいうと** — 冒頭の段落。",
+    "",
+    "### 事業全体の流れ",
+    "",
+    "```pictogram",
+    "### コードブロックの中の見出しは切らない",
+    "```",
+    "",
+    "#### 下位の見出しは親の節に含める",
+    "本文。",
+    "",
+    "### 成り立つための条件",
+    "",
+    "CANARY_INTERNAL_SECTION",
+    "",
+  ].join("\n");
+  const sections = splitDdMarkdownSections(body);
+  assert.deepEqual(sections.map((section) => section.label), ["冒頭（最初の見出しより前）", "事業全体の流れ", "成り立つための条件"]);
+  assert.equal(sections.map((section) => section.text).join(""), body, "節をつなげると元の本文に戻る");
+  assert.ok(sections[1].text.includes("コードブロックの中の見出しは切らない") && sections[1].text.includes("下位の見出し"));
+  assert.deepEqual(splitDdMarkdownSections("見出しのない本文").map((section) => section.label), ["本文"]);
+
+  const article: TechTopic = { ...topic, block_kind: "article", confidentiality: "internal", body_md: body, presentation: null };
+  const parts = listDdTechTopicParts(article, []);
+  assert.deepEqual(parts.map((part) => part.group), ["本文", "本文", "本文"]);
+  const withoutConditions = new Set(parts.filter((part) => part.label !== "成り立つための条件").map((part) => part.key));
+  const picked = projectDdTechTopic(article, [], withoutConditions);
+  assertNoCanary(picked, "外した本文の節");
+  assert.ok(picked.topic.bodyMd?.includes("### 事業全体の流れ") && picked.topic.bodyMd.includes("冒頭の段落"));
+  assert.equal(projectDdTechTopic(article, [], allKeys(parts)).topic.bodyMd, body);
+  // 見出しの文言が変わった節は別の key になり、選び直すまで載らない。
+  const renamed = projectDdTechTopic({ ...article, body_md: body.replace("### 事業全体の流れ", "### 事業の流れ（改）") }, [], withoutConditions);
+  assert.ok(!renamed.topic.bodyMd?.includes("事業の流れ（改）"), "書き換わった節は選び直すまで載らない");
+
+  // 表の1行ずつ選ぶ種類（record）は、行の識別子で選ぶ。
+  const record: TechTopic = { ...topic, block_kind: "record", body_md: null, presentation: null };
+  const rows = [entry({ tech_entry_id: "pte_a", row_label: "装置" }), entry({ tech_entry_id: "pte_b", row_label: "CANARY_RECORD_ROW" })];
+  assert.deepEqual(listDdTechTopicParts(record, rows).map((part) => part.key).sort(), ["entry:pte_a", "entry:pte_b"]);
+  assertNoCanary(projectDdTechTopic(record, rows, new Set(["entry:pte_a"])), "外した記録の行");
+}
+
+// --- 載せる範囲の読み取り --------------------------------------------------------------
+assert.equal(readDdIncludedParts({}), null, "範囲が未選択なら null（すべて載せる）");
+assert.equal(readDdIncludedParts({ includedParts: "scope" }), null);
+assert.deepEqual([...(readDdIncludedParts({ includedParts: ["scope", "<script>", 3, "caveat:cn_1"] }) ?? [])], ["scope", "caveat:cn_1"], "既知の形の key だけを読む");
+for (const bad of ["", "body:", "body:xyz", "entry:", "entry:a b", "caveat:../x", "policy:123", "scopes", "row:ABCDEF12"]) {
+  assert.equal(isDdPartKey(bad), false, `不正な key を通さない: ${bad}`);
 }
 
 // --- 資料 -------------------------------------------------------------------
@@ -212,6 +292,73 @@ const bundle: CostModelBundle = {
       assert.match(scenario.label, /^(オンサイト|オフサイト)・/, "方式名に処理場所を付ける（同じ方式名が並ばないように）");
     }
   }
+  assert.equal(payload.model.summaryMd, null, "試算の要約は画面に出さないので写さない");
+
+  // 載せる範囲: 説明文・主要な前提・注意書き1件ずつを外せる。方式ごとの総コストの表は常に載せる。
+  const scoped: CostModelBundle = {
+    ...bundle,
+    model: { ...bundle.model, systemScopeMd: "CANARY_SCOPE_TEXT" },
+    notes: [...bundle.notes, { costNoteId: "n3", section: "caveat", title: "CANARY_EXCLUDED_CAVEAT", bodyMd: "CANARY_EXCLUDED_BODY", sourceUrl: null, sourceLabel: null, visibility: "amd_internal", sortOrder: 3 }],
+  };
+  const parts = listDdCostModelParts(scoped);
+  assert.deepEqual(parts.map((part) => part.key), ["scope", "assumptions", "caveat:n1", "caveat:n3"]);
+  const picked = projectDdCostModel(scoped, new Set(["assumptions", "caveat:n1"]));
+  assertNoCanary(picked, "外した説明文・注意書き");
+  assert.deepEqual(picked.caveats.map((row) => row.title), ["量産の値下がりは入れていない"]);
+  assert.equal(picked.keyAssumptions.length, 1);
+  assert.ok(picked.strains.length > 0 && picked.strains.every((strain) => strain.scenarios.length > 0), "総コストの表は範囲によらず載せる");
+  assert.equal(projectDdCostModel(scoped, new Set(["scope"])).keyAssumptions.length, 0, "主要な前提を外せる");
+  assert.deepEqual(projectDdCostModel(scoped, allKeys(parts)), projectDdCostModel(scoped), "全部選ぶと未選択と同じ");
+}
+
+// --- 資金計画 -------------------------------------------------------------------
+{
+  const plan = {
+    summary: {
+      version: "v1",
+      asOf: "2026-09-30",
+      startYm: "2027-04",
+      endYm: "2027-04",
+      nextRoundYm: "2028-07",
+      nextRoundAmountYen: null,
+      seedAmountYen: 100000000,
+      postMoneyCapYen: 500000000,
+      discount: 0.2,
+      conversionTriggerYen: 100000000,
+      reserveYen: 0,
+      improvementTargetYen: 10000000,
+      bridgeEnvelopeYen: 50000000,
+      loanFacilityTargetYen: 30000000,
+      assumptions: ["2027年4月1日設立・シード1億円入金を目標とする。", "CANARY_EXCLUDED_ASSUMPTION"],
+      bridgePolicy: ["不採択時は採否判明時に再計画する。", "CANARY_DILUTION_STANCE"],
+      cases: [{ key: "adopted", description: "基本ケース" }],
+      monthlyCosts: [{ label: "大学共同研究費", amountYen: 830000, status: "今回指定" }],
+      equipment: [{ label: "有償PoC装置 1号機", amountYen: 6600000, orderYm: "2027-10", deliveryYm: "2027-12", note: "CANARY_EQUIPMENT_NOTE" }],
+      source: { workbookSha256: "CANARY_WORKBOOK_HASH", adoptedMaterial: "CANARY_BANK_REQUEST_DOC", cutoff: "2028年6月までを今回改定。" },
+    },
+    // 初月の行には summary の全文がもう1つ入っている（元データの形そのまま）。
+    months: [{ ym: "2027-04", planning_details_json: { version: "v1", scenarios: [], summary: { bridgePolicy: ["CANARY_MONTH_SUMMARY_COPY"] } } }],
+  } as unknown as FundingPlan;
+  const parts = listDdFundingPlanParts(plan);
+  assert.deepEqual(parts.map((part) => part.group), [
+    "採択・不採択時の調達方針",
+    "採択・不採択時の調達方針",
+    "STS対象経費・支払時期・未確定条件",
+    "STS対象経費・支払時期・未確定条件",
+    "その他",
+    "その他",
+  ]);
+  const keep = new Set(parts.filter((part) => !part.label.includes("CANARY") && part.key !== "source" && part.key !== "equipmentNotes").map((part) => part.key));
+  const picked = projectDdFundingPlan(plan, keep);
+  assertNoCanary(picked, "外した方針・前提・採用資料・備考");
+  assert.deepEqual(picked.plan.summary.bridgePolicy, ["不採択時は採否判明時に再計画する。"]);
+  assert.equal(picked.plan.summary.source.cutoff, "2028年6月までを今回改定。", "改定範囲の説明は残す");
+  const all = projectDdFundingPlan(plan, allKeys(parts));
+  assert.deepEqual(all, projectDdFundingPlan(plan), "全部選ぶと未選択と同じ");
+  assert.equal(all.plan.summary.source.workbookSha256, "", "元の試算表の hash は写さない");
+  assert.equal(plan.summary.bridgePolicy.length, 2, "元データ（入力）を書き換えない");
+  assert.equal(picked.plan.months[0].planning_details_json.summary, null, "月の行に入っている summary の写しは写さない");
+  assert.ok(plan.months[0].planning_details_json.summary !== null, "元データの月の行を書き換えない");
 }
 
 console.log("dd payload allowlist: ok");

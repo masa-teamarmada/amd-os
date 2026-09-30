@@ -271,6 +271,47 @@ export function normalizeDdUnverifiedNotes(raw: unknown): string[] {
     .slice(0, 30);
 }
 
+// --- 載せる範囲（項目の中の節・行） -------------------------------------------------------
+
+/**
+ * 項目の中で、載せる・外すを選べる単位（本文の節、表の行、注意書き、方針の段落など）。
+ * key は元データの識別子か、内容から決める短い hash。内容が変わった節・段落は別の key になり、選び直すまで載らない。
+ */
+export type DdPart = { key: string; label: string; group: string };
+
+/** 載せる範囲を選べる種類。資料は1ファイル丸ごと、資本政策は「どのラウンドまで」で選ぶ。 */
+export const DD_PART_ITEM_KINDS: readonly DdItemKind[] = ["tech_topic", "cost_model", "funding_plan"];
+
+const DD_PART_KEY_PATTERN =
+  /^(?:body:(?:lead|[0-9a-f]{8}(?:-\d{1,3})?)|row:[0-9a-f]{8}(?:-\d{1,3})?|entry:[A-Za-z0-9_-]{1,100}|scope|assumptions|caveat:[A-Za-z0-9_-]{1,100}|policy:[0-9a-f]{8}(?:-\d{1,3})?|assumption:[0-9a-f]{8}(?:-\d{1,3})?|source|equipmentNotes)$/;
+
+export function isDdPartKey(value: unknown): value is string {
+  return typeof value === "string" && DD_PART_KEY_PATTERN.test(value);
+}
+
+/** 1つの項目で選べる範囲の上限（技術台帳の大きな表でも収まる数）。 */
+export const DD_PART_MAX = 1000;
+
+/**
+ * source_options.includedParts を読む。配列が無ければ null（元データの節・行をすべて載せる）。
+ * 配列があれば、その key の節・行だけを載せる（あとから元データに増えた節・行は、選ぶまで載らない）。
+ */
+export function readDdIncludedParts(sourceOptions: Record<string, unknown> | null | undefined): ReadonlySet<string> | null {
+  const raw = sourceOptions?.includedParts;
+  if (!Array.isArray(raw)) return null;
+  return new Set(raw.filter(isDdPartKey));
+}
+
+/** 内容から短い key を作る（FNV-1a 32bit）。暗号用途ではなく、同じ文なら同じ key になることだけを使う。 */
+export function ddShortHash(text: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, "0");
+}
+
 const DD_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export function isDdSlug(value: unknown): value is string {

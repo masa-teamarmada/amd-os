@@ -8,11 +8,13 @@ import {
   DD_GRANT_STATUS_LABEL,
   DD_ITEM_KIND_LABEL,
   DD_PACKAGE_STATUS_LABEL,
+  DD_PART_ITEM_KINDS,
   DD_SECTIONS,
   normalizeDdUnverifiedNotes,
   type DdGrantStatus,
   type DdItemKind,
   type DdPackageStatus,
+  type DdPart,
   type DdSectionKey,
 } from "@/lib/dd-package-core";
 import type { DdAdminItem, DdAdminState } from "@/lib/dd-package-server";
@@ -52,6 +54,8 @@ const ERROR_TEXT: Record<string, string> = {
   unknown_account: "このメールアドレスの外部アカウントがない。「アカウントも作る」にチェックする",
   account_suspended: "このアカウントは停止中。外部アクセス台帳で解除してから付与する",
   evidence_must_be_documents_in_same_package: "根拠資料には、このパッケージの資料項目だけを選べる",
+  parts_not_supported: "この種類の項目では、載せる範囲を選べない",
+  invalid_source_options: "載せる範囲などの指定が読めない。画面を開き直してから選び直す",
   same_origin_required: "画面を開き直してから操作する",
 };
 
@@ -409,6 +413,15 @@ function ItemEditor({ item, pending, run, documentItems }: { item: DdAdminItem; 
   const [autoUnverified, setAutoUnverified] = useState(item.source_options?.autoUnverified !== false);
   const [lastEventId, setLastEventId] = useState<string>(typeof item.source_options?.lastEventId === "string" ? item.source_options.lastEventId : "");
   const [sortOrder, setSortOrder] = useState(String(item.sort_order));
+  const supportsParts = DD_PART_ITEM_KINDS.includes(item.item_kind) && item.partChoices.length > 0;
+  const savedParts = Array.isArray(item.source_options?.includedParts)
+    ? (item.source_options.includedParts as unknown[]).filter((key): key is string => typeof key === "string")
+    : null;
+  // 範囲を一度も保存していない項目は、元データの節・行をすべて載せる状態（全部にチェック）から始める。
+  const [includedParts, setIncludedParts] = useState<Set<string>>(
+    () => new Set(savedParts ?? item.partChoices.map((part) => part.key)),
+  );
+  const [partsTouched, setPartsTouched] = useState(false);
 
   return (
     <div className="grid gap-3 text-[12px] lg:grid-cols-2">
@@ -470,6 +483,18 @@ function ItemEditor({ item, pending, run, documentItems }: { item: DdAdminItem; 
               ))
           )}
         </div>
+        {supportsParts && (
+          <PartPicker
+            itemId={item.id}
+            parts={item.partChoices}
+            included={includedParts}
+            savedAsAll={savedParts === null}
+            onChange={(next) => {
+              setIncludedParts(next);
+              setPartsTouched(true);
+            }}
+          />
+        )}
         {item.item_kind === "capital_policy" && item.capitalEvents.length > 0 && (
           <label className="mt-2 flex flex-col gap-1">
             <span className="text-[#6e6e73]">載せるラウンド（このラウンドまで）</span>
@@ -497,7 +522,12 @@ function ItemEditor({ item, pending, run, documentItems }: { item: DdAdminItem; 
                 sortOrder: Number.parseInt(sortOrder, 10) || 0,
                 unverifiedNotes: notes,
                 evidenceItemIds: evidence,
-                sourceOptions: { autoUnverified, ...(item.item_kind === "capital_policy" ? { lastEventId: lastEventId || null } : {}) },
+                sourceOptions: {
+                  autoUnverified,
+                  ...(item.item_kind === "capital_policy" ? { lastEventId: lastEventId || null } : {}),
+                  // 範囲に触ったときだけ送る（表題だけ直したときに、全部載せの状態を固定の選択へ変えない）。
+                  ...(supportsParts && partsTouched ? { includedParts: Array.from(includedParts) } : {}),
+                },
               },
               "保存した（公開版を変えるには「更新して公開」を押す）",
             )
@@ -515,6 +545,83 @@ function ItemEditor({ item, pending, run, documentItems }: { item: DdAdminItem; 
           DDから外す
         </button>
       </div>
+    </div>
+  );
+}
+
+/** 載せる範囲（本文の節・表の行・注意書き・段落）を選ぶ。チェックを外した部分は、下書きにも公開版にも入らない。 */
+function PartPicker({
+  itemId,
+  parts,
+  included,
+  savedAsAll,
+  onChange,
+}: {
+  itemId: string;
+  parts: DdPart[];
+  included: Set<string>;
+  savedAsAll: boolean;
+  onChange: (next: Set<string>) => void;
+}) {
+  const groups = useMemo(() => {
+    const map = new Map<string, DdPart[]>();
+    for (const part of parts) {
+      const list = map.get(part.group) ?? [];
+      list.push(part);
+      map.set(part.group, list);
+    }
+    return Array.from(map.entries());
+  }, [parts]);
+  const checkedCount = parts.filter((part) => included.has(part.key)).length;
+
+  const setGroup = (groupParts: DdPart[], checked: boolean) => {
+    const next = new Set(included);
+    for (const part of groupParts) {
+      if (checked) next.add(part.key);
+      else next.delete(part.key);
+    }
+    onChange(next);
+  };
+
+  return (
+    <div className="mt-2 flex flex-col gap-1">
+      <span className="text-[#6e6e73]">
+        載せる範囲（{checkedCount}/{parts.length}）。外した節・行は、下書きにも公開版にも入らない
+      </span>
+      <div className="max-h-72 overflow-auto rounded border border-[#d2d2d7] bg-white px-2 py-1">
+        {groups.map(([group, groupParts]) => (
+          <fieldset key={group} className="border-t border-[#f0f0f2] py-1 first:border-t-0">
+            <legend className="flex w-full items-center gap-2 py-0.5 text-[11.5px] font-semibold text-[#424245]">
+              <span className="flex-1">{group}</span>
+              <button type="button" onClick={() => setGroup(groupParts, true)} className="font-normal text-[#027FDC] hover:underline">すべて選ぶ</button>
+              <button type="button" onClick={() => setGroup(groupParts, false)} className="font-normal text-[#027FDC] hover:underline">すべて外す</button>
+            </legend>
+            {groupParts.map((part) => (
+              <label key={part.key} htmlFor={`part-${itemId}-${part.key}`} className="flex items-start gap-1.5 py-0.5">
+                <input
+                  id={`part-${itemId}-${part.key}`}
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={included.has(part.key)}
+                  onChange={(event) => {
+                    const next = new Set(included);
+                    if (event.target.checked) next.add(part.key);
+                    else next.delete(part.key);
+                    onChange(next);
+                  }}
+                />
+                <span>{part.label}</span>
+              </label>
+            ))}
+          </fieldset>
+        ))}
+      </div>
+      <span className="text-[11px] leading-4 text-[#6e6e73]">
+        {savedAsAll
+          ? "いまは元データの節・行をすべて載せる状態。範囲を保存すると、あとから元データに増えた節・行は、ここで選ぶまで載らない。"
+          : "範囲を保存済み。あとから元データに増えた節・行や、書き換わった段落は、ここで選ぶまで載らない。"}
+        範囲を変えても、公開し直すまで外部には前の公開版が見える。
+      </span>
     </div>
   );
 }
