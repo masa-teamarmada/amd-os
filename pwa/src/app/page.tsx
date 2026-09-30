@@ -1,15 +1,17 @@
 import Link from "next/link";
 import { getCurrentMemberAccess, memberHome } from "@/lib/project-workspace";
 import { resolveWorkspaceAccess } from "@/lib/workspace-access-resolver";
+import { resolveDdViewerScope } from "@/lib/dd-access";
 import { getPublicInstitutionWorkspaces } from "@/lib/public-workspace-data";
 import { INSTITUTION_TYPE_LABEL } from "@/lib/ers";
 
 export default async function Home() {
   // `/` は認証状態にかかわらず全員が通るポータル。ログイン済みでも
   // 自動転送せず、本人がここから社内OS / 所属workspaceを選ぶ。
-  const [memberAccess, workspaceAccess, workspaces] = await Promise.all([
+  const [memberAccess, workspaceAccess, ddScope, workspaces] = await Promise.all([
     getCurrentMemberAccess(),
     resolveWorkspaceAccess(),
+    resolveDdViewerScope(),
     getPublicInstitutionWorkspaces(),
   ]);
 
@@ -31,6 +33,11 @@ export default async function Home() {
             {workspaceAccess && (
               <Link href="/workspaces" className="text-sm font-medium text-[#4338ca] underline-offset-4 hover:underline">
                 利用中のワークスペースへ
+              </Link>
+            )}
+            {!workspaceAccess && ddScope && (
+              <Link href="/dd" className="text-sm font-medium text-[#4338ca] underline-offset-4 hover:underline">
+                閲覧できるDD資料へ
               </Link>
             )}
           </div>

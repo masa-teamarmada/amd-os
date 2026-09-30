@@ -3357,8 +3357,13 @@ expectIncludes("src/components/cockpit/PictogramDiagram.tsx", [
 expectIncludes("src/lib/project-tech.ts", [
   "export function readTechPresentation(",
 ]);
-expectIncludes("src/components/cockpit/CockpitTechnology.tsx", [
+// 表示ブロック（成立条件・星取り表・到達実績）は、DDの公開版でも同じ見た目で描くため tech-blocks.tsx へ切り出した（2026-09-30）。
+expectIncludes("src/components/cockpit/tech-blocks.tsx", [
   'data-testid="tech-matrix-sheet"',
+  "export function MatrixSheet(",
+]);
+expectIncludes("src/components/cockpit/CockpitTechnology.tsx", [
+  'from "@/components/cockpit/tech-blocks"',
   'data-testid="tech-sheet-fields"',
   'const presentation = topic.block_kind === "matrix" ? readTechPresentation(topic.presentation) : null;',
   "<MatrixSheet entries={entries} presentation={presentation} />",

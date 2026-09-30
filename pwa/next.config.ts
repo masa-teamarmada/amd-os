@@ -125,6 +125,19 @@ const businessCardSecurityHeaders = [
   },
 ];
 
+// DDの添付（公開時点で固定したHTML）を表示する route は、全体の CSP（inline script を許す）ではなく、
+// スクリプト・外部通信・フォーム送信を止めるサンドボックスで返す。route が付けたヘッダーは全体の設定に上書きされるため、
+// ここで同じ path に後から当てて上書きする（Next.js は同じキーを後の設定で上書きする。2026-09-30 ローカル実測で確認）。
+const ddPublicationFileSecurityHeaders = [
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
+  { key: "Referrer-Policy", value: "no-referrer" },
+  {
+    key: "Content-Security-Policy",
+    value: "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; img-src data:; style-src 'unsafe-inline'; font-src data:; sandbox",
+  },
+];
+
 const nextConfig: NextConfig = {
   env: buildStampEnv,
   // 2026-05-12 まさ要望「雛形そのまま」で /api/admin/pj-introduction-html が
@@ -203,6 +216,10 @@ const nextConfig: NextConfig = {
       {
         source: "/hud/dashboard/embed",
         headers: embedSecurityHeaders,
+      },
+      {
+        source: "/dd/:slug/items/:itemId/file",
+        headers: ddPublicationFileSecurityHeaders,
       },
     ];
   },

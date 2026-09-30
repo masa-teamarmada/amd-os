@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-09-16 23:19 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-09-30 16:36 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -11,7 +11,7 @@
 
 ## 索引
 
-[`action_items`](#action-items) / [`amd_deck_comments`](#amd-deck-comments) / [`amd_deck_participants`](#amd-deck-participants) / [`amd_deck_reactions`](#amd-deck-reactions) / [`amd_management_score_evidence`](#amd-management-score-evidence) / [`amd_management_score_raw_signals`](#amd-management-score-raw-signals) / [`amd_management_score_snapshots`](#amd-management-score-snapshots) / [`amd_management_score_source_runs`](#amd-management-score-source-runs) / [`amd_os_data_change_history`](#amd-os-data-change-history) / [`amd_score_alpha`](#amd-score-alpha) / [`amd_score_alpha_proposals`](#amd-score-alpha-proposals) / [`amd_score_inputs`](#amd-score-inputs) / [`amd_score_revisions`](#amd-score-revisions) / [`app_notifications`](#app-notifications) / [`atlas_decisions`](#atlas-decisions) / [`atlas_divergences`](#atlas-divergences) / [`atlas_edges`](#atlas-edges) / [`atlas_nodes`](#atlas-nodes) / [`atlas_observations`](#atlas-observations) / [`atlas_reports`](#atlas-reports) / [`atlas_signals`](#atlas-signals) / [`atlas_stories`](#atlas-stories) / [`atlas_story_merges`](#atlas-story-merges) / [`atlas_story_themes`](#atlas-story-themes) / [`atlas_themes`](#atlas-themes) / [`billing_cycles`](#billing-cycles) / [`billing_log`](#billing-log) / [`business_card_project_links`](#business-card-project-links) / [`business_cards`](#business-cards) / [`bzm_2_1_action_evaluations`](#bzm-2-1-action-evaluations) / [`bzm_2_1_actions`](#bzm-2-1-actions) / [`bzm_2_1_cashflow_events`](#bzm-2-1-cashflow-events) / [`bzm_2_1_decision_states`](#bzm-2-1-decision-states) / [`bzm_2_1_input_observations`](#bzm-2-1-input-observations) / [`bzm_2_1_interventions`](#bzm-2-1-interventions) / [`bzm_2_1_model_revisions`](#bzm-2-1-model-revisions) / [`bzm_2_1_policy_evaluations`](#bzm-2-1-policy-evaluations) / [`bzm_2_1_transitions`](#bzm-2-1-transitions) / [`bzm_2_model_revisions`](#bzm-2-model-revisions) / [`bzm_2_parameter_observations`](#bzm-2-parameter-observations) / [`bzm_theory_edges`](#bzm-theory-edges) / [`bzm_theory_node_memos`](#bzm-theory-node-memos) / [`bzm_theory_nodes`](#bzm-theory-nodes) / [`calendar_feed_events`](#calendar-feed-events) / [`calendar_feed_sources`](#calendar-feed-sources) / [`cash_accounts`](#cash-accounts) / [`cash_ledger_entries`](#cash-ledger-entries) / [`company_actual_monthly`](#company-actual-monthly) / [`company_budget_actual_monthly`](#company-budget-actual-monthly) / [`company_budget_inputs`](#company-budget-inputs) / [`company_budget_monthly`](#company-budget-monthly) / [`company_budget_simulation_runs`](#company-budget-simulation-runs) / [`company_budget_variance_notes`](#company-budget-variance-notes) / [`company_finance_receipt_events`](#company-finance-receipt-events) / [`company_finance_recurring_items`](#company-finance-recurring-items) / [`company_history_events`](#company-history-events) / [`company_longrange_targets`](#company-longrange-targets) / [`company_management_signal_reviews`](#company-management-signal-reviews) / [`company_operating_facts`](#company-operating-facts) / [`company_payment_obligation_notifications`](#company-payment-obligation-notifications) / [`company_payment_obligations`](#company-payment-obligations) / [`company_profile_entries`](#company-profile-entries) / [`company_schedule_actions`](#company-schedule-actions) / [`company_schedule_notifications`](#company-schedule-notifications) / [`company_schedule_occurrences`](#company-schedule-occurrences) / [`company_schedule_rule_checks`](#company-schedule-rule-checks) / [`contract_documents`](#contract-documents) / [`contract_nudges`](#contract-nudges) / [`contract_signals`](#contract-signals) / [`contract_terms`](#contract-terms) / [`contracts`](#contracts) / [`eimi_slack_usage_log`](#eimi-slack-usage-log) / [`ewir_rename_backup_20260912`](#ewir-rename-backup-20260912) / [`ewir_rename_targets_20260912`](#ewir-rename-targets-20260912) / [`freee_oauth_tokens`](#freee-oauth-tokens) / [`freee_reconciliation_actions`](#freee-reconciliation-actions) / [`freee_reconciliation_findings`](#freee-reconciliation-findings) / [`freee_reconciliation_runs`](#freee-reconciliation-runs) / [`freeze_period_backfills`](#freeze-period-backfills) / [`guardrail_cards`](#guardrail-cards) / [`guardrail_feedbacks`](#guardrail-feedbacks) / [`guardrail_matches`](#guardrail-matches) / [`guardrail_tag_definitions`](#guardrail-tag-definitions) / [`institution_assessments`](#institution-assessments) / [`institution_capability_axes`](#institution-capability-axes) / [`institution_capability_criteria`](#institution-capability-criteria) / [`institution_policy_assessments`](#institution-policy-assessments) / [`institution_policy_items`](#institution-policy-items) / [`institution_policy_recommendations`](#institution-policy-recommendations) / [`institution_projects`](#institution-projects) / [`institution_regulation_cells`](#institution-regulation-cells) / [`institution_regulation_types`](#institution-regulation-types) / [`institution_regulation_versions`](#institution-regulation-versions) / [`institution_regulations`](#institution-regulations) / [`institution_workspace_memberships`](#institution-workspace-memberships) / [`institution_workspace_project_scopes`](#institution-workspace-project-scopes) / [`institution_workspace_seed_scopes`](#institution-workspace-seed-scopes) / [`institution_workspaces`](#institution-workspaces) / [`institutions`](#institutions) / [`issues`](#issues) / [`jp_culture_items`](#jp-culture-items) / [`killer_factor_catalog`](#killer-factor-catalog) / [`knowledge_sessions`](#knowledge-sessions) / [`l2_coverage_gaps`](#l2-coverage-gaps) / [`l2_extract_state`](#l2-extract-state) / [`l2_feedbacks`](#l2-feedbacks) / [`l2_notifications`](#l2-notifications) / [`lane_suggestions`](#lane-suggestions) / [`legacy_reward_payout_amount_override_events`](#legacy-reward-payout-amount-override-events) / [`llm_model_config`](#llm-model-config) / [`llm_prompt_revisions`](#llm-prompt-revisions) / [`llm_prompts`](#llm-prompts) / [`loan_events`](#loan-events) / [`loans`](#loans) / [`macro_index_log`](#macro-index-log) / [`macro_lane_weights`](#macro-lane-weights) / [`management_knowledge_entries`](#management-knowledge-entries) / [`media_assets`](#media-assets) / [`meeting_action_items`](#meeting-action-items) / [`meeting_assets`](#meeting-assets) / [`meeting_minutes_backfill_ledger`](#meeting-minutes-backfill-ledger) / [`meeting_notifications`](#meeting-notifications) / [`member_activities`](#member-activities) / [`member_app_notifications`](#member-app-notifications) / [`member_bank_transfer_aliases`](#member-bank-transfer-aliases) / [`member_google_oauth_tokens`](#member-google-oauth-tokens) / [`member_knowledge`](#member-knowledge) / [`member_microsoft_oauth_tokens`](#member-microsoft-oauth-tokens) / [`member_monthly_work_agreement_amount_change_reasons`](#member-monthly-work-agreement-amount-change-reasons) / [`member_monthly_work_agreement_payout_overrides`](#member-monthly-work-agreement-payout-overrides) / [`member_monthly_work_agreement_requests`](#member-monthly-work-agreement-requests) / [`member_monthly_work_agreements`](#member-monthly-work-agreements) / [`member_ms_activities`](#member-ms-activities) / [`member_payout_settlements`](#member-payout-settlements) / [`member_profiles`](#member-profiles) / [`member_weekly_tasks`](#member-weekly-tasks) / [`members`](#members) / [`michinori_app_config`](#michinori-app-config) / [`michinori_friendships`](#michinori-friendships) / [`michinori_leaderboard_entries`](#michinori-leaderboard-entries) / [`michinori_profiles`](#michinori-profiles) / [`microsoft_oauth_states`](#microsoft-oauth-states) / [`milestone_change_events`](#milestone-change-events) / [`milestone_monthly_contribution_allocations`](#milestone-monthly-contribution-allocations) / [`milestone_monthly_progress`](#milestone-monthly-progress) / [`milestone_responsibility`](#milestone-responsibility) / [`milestone_sub_items`](#milestone-sub-items) / [`monthly_report_edit_history`](#monthly-report-edit-history) / [`monthly_report_revision_messages`](#monthly-report-revision-messages) / [`monthly_report_revisions`](#monthly-report-revisions) / [`monthly_reports`](#monthly-reports) / [`monthly_reports_external`](#monthly-reports-external) / [`monthly_reward_payout`](#monthly-reward-payout) / [`ms_progress_proposals`](#ms-progress-proposals) / [`ms_progress_revisions`](#ms-progress-revisions) / [`ms_proposal_messages`](#ms-proposal-messages) / [`ms_revision_messages`](#ms-revision-messages) / [`narrative_feedbacks`](#narrative-feedbacks) / [`navigator_history`](#navigator-history) / [`navigator_items`](#navigator-items) / [`observation_log`](#observation-log) / [`papers_log`](#papers-log) / [`payout_agreement`](#payout-agreement) / [`payout_notices`](#payout-notices) / [`poc_companies`](#poc-companies) / [`poc_matches`](#poc-matches) / [`private_wiki_entries`](#private-wiki-entries) / [`proactive_loop_events`](#proactive-loop-events) / [`proactive_loops`](#proactive-loops) / [`proactive_outbox`](#proactive-outbox) / [`proactive_todos`](#proactive-todos) / [`progress_estimate_state`](#progress-estimate-state) / [`project_access_memberships`](#project-access-memberships) / [`project_action_dependencies`](#project-action-dependencies) / [`project_action_owners`](#project-action-owners) / [`project_actions`](#project-actions) / [`project_bzm_2_2_acquisitions`](#project-bzm-2-2-acquisitions) / [`project_capital_plan_versions`](#project-capital-plan-versions) / [`project_capital_plans`](#project-capital-plans) / [`project_commander_threads`](#project-commander-threads) / [`project_company_profiles`](#project-company-profiles) / [`project_config`](#project-config) / [`project_convertible_instruments`](#project-convertible-instruments) / [`project_cost_assumptions`](#project-cost-assumptions) / [`project_cost_change_log`](#project-cost-change-log) / [`project_cost_items`](#project-cost-items) / [`project_cost_models`](#project-cost-models) / [`project_cost_notes`](#project-cost-notes) / [`project_cost_questions`](#project-cost-questions) / [`project_cost_tasks`](#project-cost-tasks) / [`project_documents`](#project-documents) / [`project_equity_entries`](#project-equity-entries) / [`project_equity_transactions`](#project-equity-transactions) / [`project_events`](#project-events) / [`project_financial_periods`](#project-financial-periods) / [`project_findings`](#project-findings) / [`project_founding_members`](#project-founding-members) / [`project_freeze_periods`](#project-freeze-periods) / [`project_gantt_roadmaps`](#project-gantt-roadmaps) / [`project_graduation_signals`](#project-graduation-signals) / [`project_grants`](#project-grants) / [`project_important_documents`](#project-important-documents) / [`project_important_evidence`](#project-important-evidence) / [`project_ip_assets`](#project-ip-assets) / [`project_ip_deadlines`](#project-ip-deadlines) / [`project_ip_events`](#project-ip-events) / [`project_ip_rights`](#project-ip-rights) / [`project_killer_factor_states`](#project-killer-factor-states) / [`project_knowledge`](#project-knowledge) / [`project_management_action_items`](#project-management-action-items) / [`project_management_capacity`](#project-management-capacity) / [`project_management_decisions`](#project-management-decisions) / [`project_management_evidence`](#project-management-evidence) / [`project_management_field_audit`](#project-management-field-audit) / [`project_management_funding_snapshots`](#project-management-funding-snapshots) / [`project_management_hypotheses`](#project-management-hypotheses) / [`project_management_issue_discussions`](#project-management-issue-discussions) / [`project_management_issues`](#project-management-issues) / [`project_management_kpis`](#project-management-kpis) / [`project_management_milestone_dependencies`](#project-management-milestone-dependencies) / [`project_management_milestone_issue_links`](#project-management-milestone-issue-links) / [`project_management_milestone_kpis`](#project-management-milestone-kpis) / [`project_management_milestone_partner_links`](#project-management-milestone-partner-links) / [`project_management_milestones`](#project-management-milestones) / [`project_management_objectives`](#project-management-objectives) / [`project_management_organization_roles`](#project-management-organization-roles) / [`project_management_outcomes`](#project-management-outcomes) / [`project_management_partner_commitments`](#project-management-partner-commitments) / [`project_management_partner_interactions`](#project-management-partner-interactions) / [`project_management_partner_roles`](#project-management-partner-roles) / [`project_management_partner_samples`](#project-management-partner-samples) / [`project_management_partner_tracks`](#project-management-partner-tracks) / [`project_management_partner_work_items`](#project-management-partner-work-items) / [`project_management_partners`](#project-management-partners) / [`project_management_raci`](#project-management-raci) / [`project_management_schedule_dependencies`](#project-management-schedule-dependencies) / [`project_management_tasks`](#project-management-tasks) / [`project_management_technical_tests`](#project-management-technical-tests) / [`project_management_track_value_milestones`](#project-management-track-value-milestones) / [`project_management_tracks`](#project-management-tracks) / [`project_management_update_history`](#project-management-update-history) / [`project_management_validation_runs`](#project-management-validation-runs) / [`project_media_mentions`](#project-media-mentions) / [`project_meeting_summaries`](#project-meeting-summaries) / [`project_members`](#project-members) / [`project_monthly_cashflow`](#project-monthly-cashflow) / [`project_monthly_notes`](#project-monthly-notes) / [`project_org_observations`](#project-org-observations) / [`project_organization_parties`](#project-organization-parties) / [`project_partners`](#project-partners) / [`project_pl_hearings`](#project-pl-hearings) / [`project_pl_monthly`](#project-pl-monthly) / [`project_principal_grants`](#project-principal-grants) / [`project_publication_audiences`](#project-publication-audiences) / [`project_publication_items`](#project-publication-items) / [`project_publication_revisions`](#project-publication-revisions) / [`project_question_actions`](#project-question-actions) / [`project_question_findings`](#project-question-findings) / [`project_question_milestones`](#project-question-milestones) / [`project_questions`](#project-questions) / [`project_registry_diffs`](#project-registry-diffs) / [`project_shareholder_meetings`](#project-shareholder-meetings) / [`project_shareholders`](#project-shareholders) / [`project_slack_sources`](#project-slack-sources) / [`project_strategy_signals`](#project-strategy-signals) / [`project_tech_entries`](#project-tech-entries) / [`project_tech_topics`](#project-tech-topics) / [`project_theme_deliverables`](#project-theme-deliverables) / [`project_theme_documents`](#project-theme-documents) / [`project_theme_meetings`](#project-theme-meetings) / [`project_theme_profiles`](#project-theme-profiles) / [`project_theme_work_links`](#project-theme-work-links) / [`project_valuation_rounds`](#project-valuation-rounds) / [`project_vc_relations`](#project-vc-relations) / [`project_venture_members`](#project-venture-members) / [`project_ventures`](#project-ventures) / [`project_weekly_effort_entries`](#project-weekly-effort-entries) / [`project_xrl_evidence`](#project-xrl-evidence) / [`project_xrl_log`](#project-xrl-log) / [`projects`](#projects) / [`protocol_examples`](#protocol-examples) / [`protocol_result_observations`](#protocol-result-observations) / [`protocols`](#protocols) / [`reimbursements`](#reimbursements) / [`reward_member_liability_offsets`](#reward-member-liability-offsets) / [`seed_bzm30_inputs`](#seed-bzm30-inputs) / [`seed_bzm30_scores`](#seed-bzm30-scores) / [`seed_bzm30_sensitivity`](#seed-bzm30-sensitivity) / [`seed_company_facts`](#seed-company-facts) / [`seed_contact_log`](#seed-contact-log) / [`seed_funding`](#seed-funding) / [`seed_news`](#seed-news) / [`seed_projects`](#seed-projects) / [`seed_screening_bands`](#seed-screening-bands) / [`seed_sps_assessments`](#seed-sps-assessments) / [`seed_status_transitions`](#seed-status-transitions) / [`seed_value_ceilings`](#seed-value-ceilings) / [`seeds`](#seeds) / [`settings`](#settings) / [`source_cache`](#source-cache) / [`sps_initial_assessment_candidates`](#sps-initial-assessment-candidates) / [`sps_legacy_archives`](#sps-legacy-archives) / [`sps_model_versions`](#sps-model-versions) / [`sps_primary_model_registry`](#sps-primary-model-registry) / [`sps_reassessment_candidates`](#sps-reassessment-candidates) / [`sps_reassessment_source_events`](#sps-reassessment-source-events) / [`startup_companies`](#startup-companies) / [`startup_funding_rounds`](#startup-funding-rounds) / [`tally_project_syncs`](#tally-project-syncs) / [`tally_weekly_effort_entries`](#tally-weekly-effort-entries) / [`tasks`](#tasks) / [`textbook_insight_candidates`](#textbook-insight-candidates) / [`triple_helix_loading`](#triple-helix-loading) / [`triple_helix_state_log`](#triple-helix-state-log) / [`tsukuyomi_chat_logs`](#tsukuyomi-chat-logs) / [`tsukuyomi_context`](#tsukuyomi-context) / [`tsukuyomi_learnings`](#tsukuyomi-learnings) / [`tsukuyomi_learnings_status`](#tsukuyomi-learnings-status) / [`tsukuyomi_memory`](#tsukuyomi-memory) / [`tsukuyomi_nudge_queue`](#tsukuyomi-nudge-queue) / [`tsukuyomi_sessions`](#tsukuyomi-sessions) / [`tsukuyomi_usage_log`](#tsukuyomi-usage-log) / [`value_milestones`](#value-milestones) / [`value_plan_cycles`](#value-plan-cycles) / [`vc_contacts`](#vc-contacts) / [`vc_funds`](#vc-funds) / [`vc_investments`](#vc-investments) / [`vc_news`](#vc-news) / [`vcs`](#vcs) / [`workspace_access_audit_logs`](#workspace-access-audit-logs) / [`workspace_access_requests`](#workspace-access-requests) / [`workspace_control_audit_logs`](#workspace-control-audit-logs) / [`workspace_document_assets`](#workspace-document-assets) / [`workspace_document_decks`](#workspace-document-decks) / [`workspace_document_revisions`](#workspace-document-revisions) / [`workspace_documents`](#workspace-documents) / [`workspace_email_otp_rate_limits`](#workspace-email-otp-rate-limits) / [`workspace_organization_memberships`](#workspace-organization-memberships) / [`workspace_organizations`](#workspace-organizations) / [`workspace_principals`](#workspace-principals) / [`workspace_user_accounts`](#workspace-user-accounts) / [`workspace_work_case_deadlines`](#workspace-work-case-deadlines) / [`workspace_work_cases`](#workspace-work-cases) / [`xrl_feedbacks`](#xrl-feedbacks)
+[`action_items`](#action-items) / [`amd_deck_comments`](#amd-deck-comments) / [`amd_deck_participants`](#amd-deck-participants) / [`amd_deck_reactions`](#amd-deck-reactions) / [`amd_management_score_evidence`](#amd-management-score-evidence) / [`amd_management_score_raw_signals`](#amd-management-score-raw-signals) / [`amd_management_score_snapshots`](#amd-management-score-snapshots) / [`amd_management_score_source_runs`](#amd-management-score-source-runs) / [`amd_os_data_change_history`](#amd-os-data-change-history) / [`amd_score_alpha`](#amd-score-alpha) / [`amd_score_alpha_proposals`](#amd-score-alpha-proposals) / [`amd_score_inputs`](#amd-score-inputs) / [`amd_score_revisions`](#amd-score-revisions) / [`app_notifications`](#app-notifications) / [`atlas_decisions`](#atlas-decisions) / [`atlas_divergences`](#atlas-divergences) / [`atlas_edges`](#atlas-edges) / [`atlas_nodes`](#atlas-nodes) / [`atlas_observations`](#atlas-observations) / [`atlas_reports`](#atlas-reports) / [`atlas_signals`](#atlas-signals) / [`atlas_stories`](#atlas-stories) / [`atlas_story_merges`](#atlas-story-merges) / [`atlas_story_themes`](#atlas-story-themes) / [`atlas_themes`](#atlas-themes) / [`automation_route_budget_usage`](#automation-route-budget-usage) / [`billing_cycles`](#billing-cycles) / [`billing_log`](#billing-log) / [`boss_baseline_occurrences`](#boss-baseline-occurrences) / [`boss_catalog`](#boss-catalog) / [`boss_notification_jobs`](#boss-notification-jobs) / [`boss_report_occurrences`](#boss-report-occurrences) / [`boss_reports`](#boss-reports) / [`boss_schedules`](#boss-schedules) / [`business_card_project_links`](#business-card-project-links) / [`business_cards`](#business-cards) / [`bzm_2_1_action_evaluations`](#bzm-2-1-action-evaluations) / [`bzm_2_1_actions`](#bzm-2-1-actions) / [`bzm_2_1_cashflow_events`](#bzm-2-1-cashflow-events) / [`bzm_2_1_decision_states`](#bzm-2-1-decision-states) / [`bzm_2_1_input_observations`](#bzm-2-1-input-observations) / [`bzm_2_1_interventions`](#bzm-2-1-interventions) / [`bzm_2_1_model_revisions`](#bzm-2-1-model-revisions) / [`bzm_2_1_policy_evaluations`](#bzm-2-1-policy-evaluations) / [`bzm_2_1_transitions`](#bzm-2-1-transitions) / [`bzm_2_model_revisions`](#bzm-2-model-revisions) / [`bzm_2_parameter_observations`](#bzm-2-parameter-observations) / [`bzm_theory_edges`](#bzm-theory-edges) / [`bzm_theory_node_memos`](#bzm-theory-node-memos) / [`bzm_theory_nodes`](#bzm-theory-nodes) / [`calendar_feed_events`](#calendar-feed-events) / [`calendar_feed_sources`](#calendar-feed-sources) / [`cash_accounts`](#cash-accounts) / [`cash_ledger_entries`](#cash-ledger-entries) / [`company_actual_monthly`](#company-actual-monthly) / [`company_budget_actual_monthly`](#company-budget-actual-monthly) / [`company_budget_inputs`](#company-budget-inputs) / [`company_budget_monthly`](#company-budget-monthly) / [`company_budget_simulation_runs`](#company-budget-simulation-runs) / [`company_budget_variance_notes`](#company-budget-variance-notes) / [`company_finance_receipt_events`](#company-finance-receipt-events) / [`company_finance_recurring_items`](#company-finance-recurring-items) / [`company_history_events`](#company-history-events) / [`company_longrange_targets`](#company-longrange-targets) / [`company_management_signal_reviews`](#company-management-signal-reviews) / [`company_operating_facts`](#company-operating-facts) / [`company_payment_obligation_notifications`](#company-payment-obligation-notifications) / [`company_payment_obligations`](#company-payment-obligations) / [`company_profile_entries`](#company-profile-entries) / [`company_schedule_actions`](#company-schedule-actions) / [`company_schedule_notifications`](#company-schedule-notifications) / [`company_schedule_occurrences`](#company-schedule-occurrences) / [`company_schedule_rule_checks`](#company-schedule-rule-checks) / [`contract_documents`](#contract-documents) / [`contract_nudges`](#contract-nudges) / [`contract_signals`](#contract-signals) / [`contract_terms`](#contract-terms) / [`contracts`](#contracts) / [`dd_item_publications`](#dd-item-publications) / [`dd_package_grants`](#dd-package-grants) / [`dd_package_items`](#dd-package-items) / [`dd_packages`](#dd-packages) / [`discord_sources`](#discord-sources) / [`eimi_slack_usage_log`](#eimi-slack-usage-log) / [`ewir_rename_backup_20260912`](#ewir-rename-backup-20260912) / [`ewir_rename_targets_20260912`](#ewir-rename-targets-20260912) / [`freee_oauth_tokens`](#freee-oauth-tokens) / [`freee_reconciliation_actions`](#freee-reconciliation-actions) / [`freee_reconciliation_findings`](#freee-reconciliation-findings) / [`freee_reconciliation_runs`](#freee-reconciliation-runs) / [`freeze_period_backfills`](#freeze-period-backfills) / [`game_servers`](#game-servers) / [`guardrail_cards`](#guardrail-cards) / [`guardrail_feedbacks`](#guardrail-feedbacks) / [`guardrail_matches`](#guardrail-matches) / [`guardrail_tag_definitions`](#guardrail-tag-definitions) / [`institution_assessments`](#institution-assessments) / [`institution_capability_axes`](#institution-capability-axes) / [`institution_capability_criteria`](#institution-capability-criteria) / [`institution_policy_assessments`](#institution-policy-assessments) / [`institution_policy_items`](#institution-policy-items) / [`institution_policy_recommendations`](#institution-policy-recommendations) / [`institution_projects`](#institution-projects) / [`institution_regulation_cells`](#institution-regulation-cells) / [`institution_regulation_types`](#institution-regulation-types) / [`institution_regulation_versions`](#institution-regulation-versions) / [`institution_regulations`](#institution-regulations) / [`institution_workspace_memberships`](#institution-workspace-memberships) / [`institution_workspace_project_scopes`](#institution-workspace-project-scopes) / [`institution_workspace_seed_scopes`](#institution-workspace-seed-scopes) / [`institution_workspaces`](#institution-workspaces) / [`institutions`](#institutions) / [`issues`](#issues) / [`jp_culture_items`](#jp-culture-items) / [`killer_factor_catalog`](#killer-factor-catalog) / [`knowledge_sessions`](#knowledge-sessions) / [`l2_coverage_gaps`](#l2-coverage-gaps) / [`l2_extract_state`](#l2-extract-state) / [`l2_feedbacks`](#l2-feedbacks) / [`l2_notifications`](#l2-notifications) / [`l2m_boss_auth_attempts`](#l2m-boss-auth-attempts) / [`l2m_boss_pin_accounts`](#l2m-boss-pin-accounts) / [`lane_suggestions`](#lane-suggestions) / [`legacy_reward_payout_amount_override_events`](#legacy-reward-payout-amount-override-events) / [`llm_model_config`](#llm-model-config) / [`llm_prompt_revisions`](#llm-prompt-revisions) / [`llm_prompts`](#llm-prompts) / [`loan_events`](#loan-events) / [`loans`](#loans) / [`macro_index_log`](#macro-index-log) / [`macro_lane_weights`](#macro-lane-weights) / [`management_knowledge_entries`](#management-knowledge-entries) / [`media_assets`](#media-assets) / [`meeting_action_items`](#meeting-action-items) / [`meeting_assets`](#meeting-assets) / [`meeting_minutes_backfill_ledger`](#meeting-minutes-backfill-ledger) / [`meeting_notifications`](#meeting-notifications) / [`member_activities`](#member-activities) / [`member_app_notifications`](#member-app-notifications) / [`member_bank_transfer_aliases`](#member-bank-transfer-aliases) / [`member_boss_notification_settings`](#member-boss-notification-settings) / [`member_boss_preferences`](#member-boss-preferences) / [`member_boss_server_visibility`](#member-boss-server-visibility) / [`member_google_oauth_tokens`](#member-google-oauth-tokens) / [`member_knowledge`](#member-knowledge) / [`member_microsoft_oauth_tokens`](#member-microsoft-oauth-tokens) / [`member_monthly_work_agreement_amount_change_reasons`](#member-monthly-work-agreement-amount-change-reasons) / [`member_monthly_work_agreement_payout_overrides`](#member-monthly-work-agreement-payout-overrides) / [`member_monthly_work_agreement_requests`](#member-monthly-work-agreement-requests) / [`member_monthly_work_agreements`](#member-monthly-work-agreements) / [`member_ms_activities`](#member-ms-activities) / [`member_notification_preferences`](#member-notification-preferences) / [`member_payout_settlements`](#member-payout-settlements) / [`member_profiles`](#member-profiles) / [`member_weekly_tasks`](#member-weekly-tasks) / [`members`](#members) / [`michinori_app_config`](#michinori-app-config) / [`michinori_friendships`](#michinori-friendships) / [`michinori_leaderboard_entries`](#michinori-leaderboard-entries) / [`michinori_profiles`](#michinori-profiles) / [`microsoft_oauth_states`](#microsoft-oauth-states) / [`milestone_change_events`](#milestone-change-events) / [`milestone_monthly_contribution_allocations`](#milestone-monthly-contribution-allocations) / [`milestone_monthly_progress`](#milestone-monthly-progress) / [`milestone_responsibility`](#milestone-responsibility) / [`milestone_sub_items`](#milestone-sub-items) / [`monthly_report_edit_history`](#monthly-report-edit-history) / [`monthly_report_revision_messages`](#monthly-report-revision-messages) / [`monthly_report_revisions`](#monthly-report-revisions) / [`monthly_reports`](#monthly-reports) / [`monthly_reports_external`](#monthly-reports-external) / [`monthly_reward_payout`](#monthly-reward-payout) / [`ms_progress_proposals`](#ms-progress-proposals) / [`ms_progress_revisions`](#ms-progress-revisions) / [`ms_proposal_messages`](#ms-proposal-messages) / [`ms_revision_messages`](#ms-revision-messages) / [`narrative_feedbacks`](#narrative-feedbacks) / [`navigator_history`](#navigator-history) / [`navigator_items`](#navigator-items) / [`notification_deliveries`](#notification-deliveries) / [`observation_log`](#observation-log) / [`papers_log`](#papers-log) / [`payout_agreement`](#payout-agreement) / [`payout_notices`](#payout-notices) / [`poc_companies`](#poc-companies) / [`poc_matches`](#poc-matches) / [`private_wiki_entries`](#private-wiki-entries) / [`proactive_loop_events`](#proactive-loop-events) / [`proactive_loops`](#proactive-loops) / [`proactive_outbox`](#proactive-outbox) / [`proactive_todos`](#proactive-todos) / [`progress_estimate_state`](#progress-estimate-state) / [`project_access_memberships`](#project-access-memberships) / [`project_action_dependencies`](#project-action-dependencies) / [`project_action_owners`](#project-action-owners) / [`project_action_pt_review_allocations`](#project-action-pt-review-allocations) / [`project_action_pt_reviews`](#project-action-pt-reviews) / [`project_actions`](#project-actions) / [`project_bzm_2_2_acquisitions`](#project-bzm-2-2-acquisitions) / [`project_capital_plan_versions`](#project-capital-plan-versions) / [`project_capital_plans`](#project-capital-plans) / [`project_commander_threads`](#project-commander-threads) / [`project_company_profiles`](#project-company-profiles) / [`project_config`](#project-config) / [`project_convertible_instruments`](#project-convertible-instruments) / [`project_cost_assumptions`](#project-cost-assumptions) / [`project_cost_change_log`](#project-cost-change-log) / [`project_cost_items`](#project-cost-items) / [`project_cost_models`](#project-cost-models) / [`project_cost_notes`](#project-cost-notes) / [`project_cost_questions`](#project-cost-questions) / [`project_cost_tasks`](#project-cost-tasks) / [`project_documents`](#project-documents) / [`project_equity_entries`](#project-equity-entries) / [`project_equity_transactions`](#project-equity-transactions) / [`project_events`](#project-events) / [`project_financial_periods`](#project-financial-periods) / [`project_findings`](#project-findings) / [`project_founding_members`](#project-founding-members) / [`project_freeze_periods`](#project-freeze-periods) / [`project_gantt_roadmaps`](#project-gantt-roadmaps) / [`project_graduation_signals`](#project-graduation-signals) / [`project_grants`](#project-grants) / [`project_important_documents`](#project-important-documents) / [`project_important_evidence`](#project-important-evidence) / [`project_ip_assets`](#project-ip-assets) / [`project_ip_deadlines`](#project-ip-deadlines) / [`project_ip_events`](#project-ip-events) / [`project_ip_rights`](#project-ip-rights) / [`project_killer_factor_states`](#project-killer-factor-states) / [`project_knowledge`](#project-knowledge) / [`project_management_action_items`](#project-management-action-items) / [`project_management_capacity`](#project-management-capacity) / [`project_management_decisions`](#project-management-decisions) / [`project_management_evidence`](#project-management-evidence) / [`project_management_field_audit`](#project-management-field-audit) / [`project_management_funding_snapshots`](#project-management-funding-snapshots) / [`project_management_hypotheses`](#project-management-hypotheses) / [`project_management_issue_discussions`](#project-management-issue-discussions) / [`project_management_issues`](#project-management-issues) / [`project_management_kpis`](#project-management-kpis) / [`project_management_milestone_dependencies`](#project-management-milestone-dependencies) / [`project_management_milestone_issue_links`](#project-management-milestone-issue-links) / [`project_management_milestone_kpis`](#project-management-milestone-kpis) / [`project_management_milestone_partner_links`](#project-management-milestone-partner-links) / [`project_management_milestones`](#project-management-milestones) / [`project_management_objectives`](#project-management-objectives) / [`project_management_organization_roles`](#project-management-organization-roles) / [`project_management_outcomes`](#project-management-outcomes) / [`project_management_partner_commitments`](#project-management-partner-commitments) / [`project_management_partner_interactions`](#project-management-partner-interactions) / [`project_management_partner_roles`](#project-management-partner-roles) / [`project_management_partner_samples`](#project-management-partner-samples) / [`project_management_partner_tracks`](#project-management-partner-tracks) / [`project_management_partner_work_items`](#project-management-partner-work-items) / [`project_management_partners`](#project-management-partners) / [`project_management_raci`](#project-management-raci) / [`project_management_schedule_dependencies`](#project-management-schedule-dependencies) / [`project_management_tasks`](#project-management-tasks) / [`project_management_technical_tests`](#project-management-technical-tests) / [`project_management_track_value_milestones`](#project-management-track-value-milestones) / [`project_management_tracks`](#project-management-tracks) / [`project_management_update_history`](#project-management-update-history) / [`project_management_validation_runs`](#project-management-validation-runs) / [`project_media_mentions`](#project-media-mentions) / [`project_meeting_summaries`](#project-meeting-summaries) / [`project_members`](#project-members) / [`project_monthly_cashflow`](#project-monthly-cashflow) / [`project_monthly_notes`](#project-monthly-notes) / [`project_org_observations`](#project-org-observations) / [`project_organization_parties`](#project-organization-parties) / [`project_partners`](#project-partners) / [`project_pl_hearings`](#project-pl-hearings) / [`project_pl_monthly`](#project-pl-monthly) / [`project_principal_grants`](#project-principal-grants) / [`project_publication_audiences`](#project-publication-audiences) / [`project_publication_items`](#project-publication-items) / [`project_publication_revisions`](#project-publication-revisions) / [`project_question_actions`](#project-question-actions) / [`project_question_findings`](#project-question-findings) / [`project_question_milestones`](#project-question-milestones) / [`project_questions`](#project-questions) / [`project_registry_diffs`](#project-registry-diffs) / [`project_shareholder_meetings`](#project-shareholder-meetings) / [`project_shareholders`](#project-shareholders) / [`project_slack_sources`](#project-slack-sources) / [`project_strategy_signals`](#project-strategy-signals) / [`project_tech_entries`](#project-tech-entries) / [`project_tech_topics`](#project-tech-topics) / [`project_theme_deliverables`](#project-theme-deliverables) / [`project_theme_documents`](#project-theme-documents) / [`project_theme_meetings`](#project-theme-meetings) / [`project_theme_profiles`](#project-theme-profiles) / [`project_theme_work_links`](#project-theme-work-links) / [`project_valuation_rounds`](#project-valuation-rounds) / [`project_vc_relations`](#project-vc-relations) / [`project_venture_members`](#project-venture-members) / [`project_ventures`](#project-ventures) / [`project_weekly_effort_entries`](#project-weekly-effort-entries) / [`project_xrl_evidence`](#project-xrl-evidence) / [`project_xrl_log`](#project-xrl-log) / [`projects`](#projects) / [`protocol_examples`](#protocol-examples) / [`protocol_result_observations`](#protocol-result-observations) / [`protocols`](#protocols) / [`push_devices`](#push-devices) / [`reimbursements`](#reimbursements) / [`reward_member_liability_offsets`](#reward-member-liability-offsets) / [`seed_bzm30_inputs`](#seed-bzm30-inputs) / [`seed_bzm30_scores`](#seed-bzm30-scores) / [`seed_bzm30_sensitivity`](#seed-bzm30-sensitivity) / [`seed_company_facts`](#seed-company-facts) / [`seed_contact_log`](#seed-contact-log) / [`seed_funding`](#seed-funding) / [`seed_news`](#seed-news) / [`seed_projects`](#seed-projects) / [`seed_screening_bands`](#seed-screening-bands) / [`seed_sps_assessments`](#seed-sps-assessments) / [`seed_status_transitions`](#seed-status-transitions) / [`seed_value_ceilings`](#seed-value-ceilings) / [`seeds`](#seeds) / [`server_bosses`](#server-bosses) / [`server_invites`](#server-invites) / [`server_memberships`](#server-memberships) / [`settings`](#settings) / [`source_cache`](#source-cache) / [`sps_initial_assessment_candidates`](#sps-initial-assessment-candidates) / [`sps_legacy_archives`](#sps-legacy-archives) / [`sps_model_versions`](#sps-model-versions) / [`sps_primary_model_registry`](#sps-primary-model-registry) / [`sps_reassessment_candidates`](#sps-reassessment-candidates) / [`sps_reassessment_source_events`](#sps-reassessment-source-events) / [`startup_companies`](#startup-companies) / [`startup_funding_rounds`](#startup-funding-rounds) / [`tally_project_syncs`](#tally-project-syncs) / [`tally_weekly_effort_entries`](#tally-weekly-effort-entries) / [`tasks`](#tasks) / [`textbook_insight_candidates`](#textbook-insight-candidates) / [`triple_helix_loading`](#triple-helix-loading) / [`triple_helix_state_log`](#triple-helix-state-log) / [`tsukuyomi_chat_logs`](#tsukuyomi-chat-logs) / [`tsukuyomi_context`](#tsukuyomi-context) / [`tsukuyomi_learnings`](#tsukuyomi-learnings) / [`tsukuyomi_learnings_status`](#tsukuyomi-learnings-status) / [`tsukuyomi_memory`](#tsukuyomi-memory) / [`tsukuyomi_nudge_queue`](#tsukuyomi-nudge-queue) / [`tsukuyomi_sessions`](#tsukuyomi-sessions) / [`tsukuyomi_usage_log`](#tsukuyomi-usage-log) / [`value_milestones`](#value-milestones) / [`value_plan_cycles`](#value-plan-cycles) / [`vc_contacts`](#vc-contacts) / [`vc_funds`](#vc-funds) / [`vc_investments`](#vc-investments) / [`vc_news`](#vc-news) / [`vcs`](#vcs) / [`web_push_subscriptions`](#web-push-subscriptions) / [`workspace_access_audit_logs`](#workspace-access-audit-logs) / [`workspace_access_requests`](#workspace-access-requests) / [`workspace_control_audit_logs`](#workspace-control-audit-logs) / [`workspace_document_assets`](#workspace-document-assets) / [`workspace_document_decks`](#workspace-document-decks) / [`workspace_document_revisions`](#workspace-document-revisions) / [`workspace_documents`](#workspace-documents) / [`workspace_email_otp_rate_limits`](#workspace-email-otp-rate-limits) / [`workspace_organization_memberships`](#workspace-organization-memberships) / [`workspace_organizations`](#workspace-organizations) / [`workspace_principals`](#workspace-principals) / [`workspace_user_accounts`](#workspace-user-accounts) / [`workspace_work_case_deadlines`](#workspace-work-case-deadlines) / [`workspace_work_cases`](#workspace-work-cases) / [`xrl_feedbacks`](#xrl-feedbacks)
 
 ---
 
@@ -188,7 +188,7 @@ PRIMARY KEY: `id`
 
 ## amd_os_data_change_history
 
-行数 (概算): -1
+行数 (概算): 193,993
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -538,6 +538,21 @@ UNIQUE: `(name)` (constraint: `atlas_themes_name_key`)
 | 7 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 8 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
 
+## automation_route_budget_usage
+
+行数 (概算): 53
+PRIMARY KEY: `scope_kind, scope_key, route_key`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `scope_kind` | `text` | NOT NULL | `` |
+| 2 | `scope_key` | `text` | NOT NULL | `` |
+| 3 | `route_key` | `text` | NOT NULL | `` |
+| 4 | `request_count` | `int4` | NOT NULL | `0` |
+| 5 | `body_bytes` | `int8` | NOT NULL | `0` |
+| 6 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 7 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
 ## billing_cycles
 
 行数 (概算): 210
@@ -605,6 +620,116 @@ PRIMARY KEY: `id`
 | 5 | `actor` | `text` | NULL | `` |
 | 6 | `detail` | `jsonb` | NULL | `` |
 | 7 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## boss_baseline_occurrences
+
+行数 (概算): 107
+PRIMARY KEY: `id`
+UNIQUE: `(revision)` (constraint: `boss_baseline_occurrences_revision_key`)
+UNIQUE: `(server_boss_id,baseline_at,spawn_at)` (constraint: `boss_baseline_occurrences_server_boss_id_baseline_at_spawn__key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `server_boss_id` | `uuid` | NOT NULL | `` |
+| 3 | `baseline_at` | `timestamptz` | NOT NULL | `` |
+| 4 | `spawn_at` | `timestamptz` | NOT NULL | `` |
+| 5 | `revision` | `int8` | NOT NULL | `` |
+
+## boss_catalog
+
+行数 (概算): 57
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `text` | NOT NULL | `` |
+| 2 | `display_name` | `text` | NOT NULL | `` |
+| 3 | `short_name` | `text` | NOT NULL | `` |
+| 4 | `default_respawn_seconds` | `int4` | NOT NULL | `` |
+| 5 | `default_cycle_verified` | `bool` | NOT NULL | `false` |
+| 6 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 7 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 8 | `default_initial_spawn_delay_hours` | `int4` | NULL | `` |
+
+## boss_notification_jobs
+
+行数 (概算): 2,817
+PRIMARY KEY: `id`
+UNIQUE: `(event_id)` (constraint: `boss_notification_jobs_event_id_key`)
+UNIQUE: `(server_boss_id,schedule_revision,lead_minutes)` (constraint: `boss_notification_jobs_server_boss_id_schedule_revision_lea_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `game_server_id` | `uuid` | NOT NULL | `` |
+| 3 | `server_boss_id` | `uuid` | NOT NULL | `` |
+| 4 | `schedule_revision` | `int8` | NOT NULL | `` |
+| 5 | `lead_minutes` | `int2` | NOT NULL | `` |
+| 6 | `scheduled_for` | `timestamptz` | NOT NULL | `` |
+| 7 | `event_id` | `text` | NOT NULL | `` |
+| 8 | `status` | `text` | NOT NULL | `'pending'::text` |
+| 9 | `attempt_count` | `int4` | NOT NULL | `0` |
+| 10 | `claimed_at` | `timestamptz` | NULL | `` |
+| 11 | `completed_at` | `timestamptz` | NULL | `` |
+| 12 | `last_error_code` | `text` | NULL | `` |
+| 13 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 14 | `baseline_occurrence_id` | `uuid` | NULL | `` |
+| 15 | `report_occurrence_id` | `uuid` | NULL | `` |
+
+## boss_report_occurrences
+
+行数 (概算): 1,110
+PRIMARY KEY: `id`
+UNIQUE: `(revision)` (constraint: `boss_report_occurrences_revision_key`)
+UNIQUE: `(server_boss_id,accepted_report_id,spawn_at)` (constraint: `boss_report_occurrences_server_boss_id_accepted_report_id_s_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `server_boss_id` | `uuid` | NOT NULL | `` |
+| 3 | `accepted_report_id` | `uuid` | NOT NULL | `` |
+| 4 | `spawn_at` | `timestamptz` | NOT NULL | `` |
+| 5 | `revision` | `int8` | NOT NULL | `` |
+
+## boss_reports
+
+行数 (概算): 193
+PRIMARY KEY: `id`
+UNIQUE: `(game_server_id,input_source,source_dedupe_key)` (constraint: `boss_reports_game_server_id_input_source_source_dedupe_key_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `game_server_id` | `uuid` | NOT NULL | `` |
+| 3 | `server_boss_id` | `uuid` | NOT NULL | `` |
+| 4 | `killed_at` | `timestamptz` | NOT NULL | `` |
+| 5 | `received_at` | `timestamptz` | NOT NULL | `now()` |
+| 6 | `submitted_by` | `uuid` | NULL | `` |
+| 7 | `input_source` | `l2m_boss_report_source` | NOT NULL | `` |
+| 8 | `source_dedupe_key` | `text` | NOT NULL | `` |
+| 9 | `status` | `l2m_boss_report_status` | NOT NULL | `'pending'::l2m_boss_report_status` |
+| 10 | `resolved_by` | `uuid` | NULL | `` |
+| 11 | `resolved_at` | `timestamptz` | NULL | `` |
+| 12 | `resolution_code` | `text` | NULL | `` |
+| 13 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 14 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 15 | `input_method` | `text` | NULL | `` |
+
+## boss_schedules
+
+行数 (概算): 49
+PRIMARY KEY: `server_boss_id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `server_boss_id` | `uuid` | NOT NULL | `` |
+| 2 | `game_server_id` | `uuid` | NOT NULL | `` |
+| 3 | `accepted_report_id` | `uuid` | NOT NULL | `` |
+| 4 | `next_spawn_at` | `timestamptz` | NOT NULL | `` |
+| 5 | `missed_cycles` | `int4` | NOT NULL | `0` |
+| 6 | `revision` | `int8` | NOT NULL | `1` |
+| 7 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
 
 ## business_card_project_links
 
@@ -1489,7 +1614,7 @@ UNIQUE: `(obligation_id,recipient_slack_id,schedule_key,stage)` (constraint: `co
 
 ## company_payment_obligations
 
-行数 (概算): 352
+行数 (概算): 370
 PRIMARY KEY: `id`
 UNIQUE: `(source_key)` (constraint: `company_payment_obligations_source_key_key`)
 
@@ -1591,7 +1716,7 @@ UNIQUE: `(occurrence_id,recipient_slack_id,schedule_key,stage)` (constraint: `co
 
 ## company_schedule_occurrences
 
-行数 (概算): 2,365
+行数 (概算): 2,846
 PRIMARY KEY: `occurrence_id`
 UNIQUE: `(occurrence_key,source_hash)` (constraint: `company_schedule_occurrences_source_uniq`)
 
@@ -1830,6 +1955,126 @@ PRIMARY KEY: `contract_id`
 | 45 | `party_confirmed_by` | `text` | NULL | `` |
 | 46 | `operational_terms_json` | `jsonb` | NOT NULL | `'{}'::jsonb` |
 
+## dd_item_publications
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(id,item_id)` (constraint: `dd_item_publications_id_item_id_key`)
+UNIQUE: `(item_id,revision)` (constraint: `dd_item_publications_item_id_revision_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `item_id` | `uuid` | NOT NULL | `` |
+| 3 | `package_id` | `uuid` | NOT NULL | `` |
+| 4 | `project_id` | `text` | NOT NULL | `` |
+| 5 | `revision` | `int4` | NOT NULL | `` |
+| 6 | `item_kind` | `text` | NOT NULL | `` |
+| 7 | `section_key` | `text` | NOT NULL | `` |
+| 8 | `title` | `text` | NOT NULL | `` |
+| 9 | `summary` | `text` | NULL | `` |
+| 10 | `payload` | `jsonb` | NOT NULL | `` |
+| 11 | `source_refs` | `jsonb` | NOT NULL | `` |
+| 12 | `source_as_of` | `timestamptz` | NULL | `` |
+| 13 | `unverified_notes` | `jsonb` | NOT NULL | `'[]'::jsonb` |
+| 14 | `evidence_item_ids` | `_uuid` | NOT NULL | `'{}'::uuid[]` |
+| 15 | `file_storage_path` | `text` | NULL | `` |
+| 16 | `file_name` | `text` | NULL | `` |
+| 17 | `file_mime_type` | `text` | NULL | `` |
+| 18 | `file_size_bytes` | `int8` | NULL | `` |
+| 19 | `file_sha256` | `text` | NULL | `` |
+| 20 | `content_hash` | `text` | NOT NULL | `` |
+| 21 | `note` | `text` | NULL | `` |
+| 22 | `published_by_member_id` | `text` | NOT NULL | `` |
+| 23 | `published_at` | `timestamptz` | NOT NULL | `now()` |
+
+## dd_package_grants
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(package_id,user_account_id)` (constraint: `dd_package_grants_package_id_user_account_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `package_id` | `uuid` | NOT NULL | `` |
+| 3 | `project_id` | `text` | NOT NULL | `` |
+| 4 | `user_account_id` | `uuid` | NOT NULL | `` |
+| 5 | `status` | `text` | NOT NULL | `'invited'::text` |
+| 6 | `capabilities` | `_text` | NOT NULL | `ARRAY['dd.view'::text]` |
+| 7 | `organization_name` | `text` | NULL | `` |
+| 8 | `note` | `text` | NULL | `` |
+| 9 | `expires_at` | `timestamptz` | NULL | `` |
+| 10 | `granted_by_member_id` | `text` | NULL | `` |
+| 11 | `updated_by_member_id` | `text` | NULL | `` |
+| 12 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 13 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## dd_package_items
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(id,package_id)` (constraint: `dd_package_items_id_package_id_key`)
+UNIQUE: `(package_id,item_kind,source_key)` (constraint: `dd_package_items_package_id_item_kind_source_key_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `package_id` | `uuid` | NOT NULL | `` |
+| 3 | `project_id` | `text` | NOT NULL | `` |
+| 4 | `section_key` | `text` | NOT NULL | `` |
+| 5 | `item_kind` | `text` | NOT NULL | `` |
+| 6 | `source_key` | `text` | NOT NULL | `` |
+| 7 | `source_options` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 8 | `title` | `text` | NOT NULL | `` |
+| 9 | `summary` | `text` | NULL | `` |
+| 10 | `unverified_notes` | `jsonb` | NOT NULL | `'[]'::jsonb` |
+| 11 | `evidence_item_ids` | `_uuid` | NOT NULL | `'{}'::uuid[]` |
+| 12 | `sort_order` | `int4` | NOT NULL | `0` |
+| 13 | `status` | `text` | NOT NULL | `'active'::text` |
+| 14 | `published_publication_id` | `uuid` | NULL | `` |
+| 15 | `created_by_member_id` | `text` | NULL | `` |
+| 16 | `updated_by_member_id` | `text` | NULL | `` |
+| 17 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 18 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## dd_packages
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(id,project_id)` (constraint: `dd_packages_id_project_id_key`)
+UNIQUE: `(slug)` (constraint: `dd_packages_slug_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `slug` | `text` | NOT NULL | `` |
+| 4 | `title` | `text` | NOT NULL | `` |
+| 5 | `notice_text` | `text` | NULL | `` |
+| 6 | `status` | `text` | NOT NULL | `'draft'::text` |
+| 7 | `created_by_member_id` | `text` | NULL | `` |
+| 8 | `updated_by_member_id` | `text` | NULL | `` |
+| 9 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 10 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## discord_sources
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(game_server_id,channel_id_hash)` (constraint: `discord_sources_game_server_id_channel_id_hash_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `game_server_id` | `uuid` | NOT NULL | `` |
+| 3 | `guild_id_hash` | `bytea` | NOT NULL | `` |
+| 4 | `channel_id_hash` | `bytea` | NOT NULL | `` |
+| 5 | `is_enabled` | `bool` | NOT NULL | `false` |
+| 6 | `last_processed_at` | `timestamptz` | NULL | `` |
+| 7 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 8 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
 ## eimi_slack_usage_log
 
 行数 (概算): -1
@@ -1916,7 +2161,7 @@ UNIQUE: `(idempotency_key)` (constraint: `freee_reconciliation_actions_idempoten
 
 ## freee_reconciliation_findings
 
-行数 (概算): 551
+行数 (概算): 667
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -1993,6 +2238,28 @@ UNIQUE: `(project_id,freeze_from_ym,restart_ym)` (constraint: `freeze_period_bac
 | 7 | `source_meta` | `jsonb` | NULL | `` |
 | 8 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 9 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## game_servers
+
+行数 (概算): 27
+PRIMARY KEY: `id`
+UNIQUE: `(official_server_id)` (constraint: `game_servers_official_server_id_key`)
+UNIQUE: `(slug)` (constraint: `game_servers_slug_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `slug` | `text` | NOT NULL | `` |
+| 3 | `display_name` | `text` | NOT NULL | `` |
+| 4 | `time_zone` | `text` | NOT NULL | `'Asia/Tokyo'::text` |
+| 5 | `is_active` | `bool` | NOT NULL | `true` |
+| 6 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 7 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 8 | `revision` | `int8` | NOT NULL | `0` |
+| 9 | `maintenance_ended_at` | `timestamptz` | NULL | `` |
+| 10 | `server_reset_at` | `timestamptz` | NULL | `` |
+| 11 | `world_name` | `text` | NULL | `` |
+| 12 | `official_server_id` | `int4` | NULL | `` |
 
 ## guardrail_cards
 
@@ -2554,6 +2821,29 @@ UNIQUE: `(l2_kind,target_id,scope_key)` (constraint: `l2n_unique`)
 | 24 | `attention_reviewed_at` | `timestamptz` | NULL | `` |
 | 25 | `attention_reviewed_by` | `text` | NULL | `` |
 
+## l2m_boss_auth_attempts
+
+行数 (概算): 16
+PRIMARY KEY: `attempt_key`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `attempt_key` | `text` | NOT NULL | `` |
+| 2 | `window_start` | `timestamptz` | NOT NULL | `now()` |
+| 3 | `attempts` | `int4` | NOT NULL | `0` |
+
+## l2m_boss_pin_accounts
+
+行数 (概算): -1
+PRIMARY KEY: `user_id`
+UNIQUE: `(username)` (constraint: `l2m_boss_pin_accounts_username_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `user_id` | `uuid` | NOT NULL | `` |
+| 2 | `username` | `text` | NOT NULL | `` |
+| 3 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
 ## lane_suggestions
 
 行数 (概算): -1
@@ -2853,7 +3143,7 @@ UNIQUE: `(storage_path)` (constraint: `meeting_assets_storage_path_key`)
 
 ## meeting_minutes_backfill_ledger
 
-行数 (概算): 65
+行数 (概算): 88
 PRIMARY KEY: `calendar_event_id`
 
 | # | column | type | nullable | default |
@@ -2950,6 +3240,48 @@ PRIMARY KEY: `alias`
 | 3 | `raw_text` | `text` | NULL | `` |
 | 4 | `learned_from` | `text` | NULL | `` |
 | 5 | `learned_at` | `timestamptz` | NOT NULL | `now()` |
+
+## member_boss_notification_settings
+
+行数 (概算): -1
+PRIMARY KEY: `user_id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `user_id` | `uuid` | NOT NULL | `` |
+| 2 | `notifications_enabled` | `bool` | NOT NULL | `true` |
+| 3 | `three_minutes_enabled` | `bool` | NOT NULL | `true` |
+| 4 | `one_minute_enabled` | `bool` | NOT NULL | `true` |
+| 5 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## member_boss_preferences
+
+行数 (概算): 1,406
+PRIMARY KEY: `id`
+UNIQUE: `(game_server_id,user_id,server_boss_id)` (constraint: `member_boss_preferences_game_server_id_user_id_server_boss__key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `game_server_id` | `uuid` | NOT NULL | `` |
+| 3 | `user_id` | `uuid` | NOT NULL | `` |
+| 4 | `server_boss_id` | `uuid` | NOT NULL | `` |
+| 5 | `notify_enabled` | `bool` | NOT NULL | `true` |
+| 6 | `personal_spawn_probability` | `numeric` | NULL | `` |
+| 7 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 8 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## member_boss_server_visibility
+
+行数 (概算): 78
+PRIMARY KEY: `game_server_id, user_id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `game_server_id` | `uuid` | NOT NULL | `` |
+| 2 | `user_id` | `uuid` | NOT NULL | `` |
+| 3 | `is_selected` | `bool` | NOT NULL | `false` |
+| 4 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
 
 ## member_google_oauth_tokens
 
@@ -3105,6 +3437,21 @@ UNIQUE: `(member_id,milestone_id,ym)` (constraint: `member_ms_activities_member_
 | 6 | `source_note` | `text` | NULL | `` |
 | 7 | `generated_at` | `timestamptz` | NULL | `now()` |
 | 8 | `learned_addendum` | `text` | NULL | `` |
+
+## member_notification_preferences
+
+行数 (概算): 78
+PRIMARY KEY: `game_server_id, user_id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `game_server_id` | `uuid` | NOT NULL | `` |
+| 2 | `user_id` | `uuid` | NOT NULL | `` |
+| 3 | `notifications_enabled` | `bool` | NOT NULL | `true` |
+| 4 | `three_minutes_enabled` | `bool` | NOT NULL | `true` |
+| 5 | `one_minute_enabled` | `bool` | NOT NULL | `true` |
+| 6 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 7 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
 
 ## member_payout_settlements
 
@@ -3467,7 +3814,7 @@ PRIMARY KEY: `id`
 
 ## monthly_reports
 
-行数 (概算): 106
+行数 (概算): 116
 PRIMARY KEY: `id`
 UNIQUE: `(project_id,ym)` (constraint: `monthly_reports_project_id_ym_key`)
 UNIQUE: `(report_id)` (constraint: `monthly_reports_report_id_key`)
@@ -3495,7 +3842,7 @@ UNIQUE: `(report_id)` (constraint: `monthly_reports_report_id_key`)
 
 ## monthly_reports_external
 
-行数 (概算): -1
+行数 (概算): 10
 PRIMARY KEY: `id`
 UNIQUE: `(project_id,ym)` (constraint: `monthly_reports_external_project_ym_unique`)
 
@@ -3649,6 +3996,23 @@ UNIQUE: `(item_id)` (constraint: `navigator_items_item_id_key`)
 | 6 | `tags` | `text` | NULL | `` |
 | 7 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 8 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## notification_deliveries
+
+行数 (概算): 52
+PRIMARY KEY: `id`
+UNIQUE: `(job_id,subscription_id,attempt_number)` (constraint: `notification_deliveries_job_id_subscription_id_attempt_numb_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `job_id` | `uuid` | NOT NULL | `` |
+| 3 | `subscription_id` | `uuid` | NOT NULL | `` |
+| 4 | `attempt_number` | `int4` | NOT NULL | `` |
+| 5 | `outcome` | `text` | NOT NULL | `` |
+| 6 | `response_status` | `int4` | NULL | `` |
+| 7 | `error_code` | `text` | NULL | `` |
+| 8 | `attempted_at` | `timestamptz` | NOT NULL | `now()` |
 
 ## observation_log
 
@@ -3991,9 +4355,38 @@ UNIQUE: `(action_id,member_id)` (constraint: `project_action_owners_pair_unique`
 | 6 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 7 | `created_by` | `text` | NULL | `` |
 
+## project_action_pt_review_allocations
+
+行数 (概算): -1
+PRIMARY KEY: `review_id, member_id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `review_id` | `uuid` | NOT NULL | `` |
+| 2 | `member_id` | `text` | NOT NULL | `` |
+| 3 | `earned_pt` | `numeric` | NOT NULL | `` |
+
+## project_action_pt_reviews
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(action_id)` (constraint: `project_action_pt_reviews_action_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `action_id` | `uuid` | NOT NULL | `` |
+| 4 | `milestone_id` | `text` | NOT NULL | `` |
+| 5 | `title_snapshot` | `text` | NOT NULL | `` |
+| 6 | `accepted_pt` | `numeric` | NOT NULL | `` |
+| 7 | `ym` | `text` | NOT NULL | `` |
+| 8 | `reviewed_at` | `timestamptz` | NOT NULL | `now()` |
+| 9 | `reviewed_by` | `text` | NOT NULL | `` |
+
 ## project_actions
 
-行数 (概算): 443
+行数 (概算): 480
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -4237,7 +4630,7 @@ PRIMARY KEY: `cost_assumption_id`
 
 ## project_cost_change_log
 
-行数 (概算): 130
+行数 (概算): 224
 PRIMARY KEY: `change_id`
 
 | # | column | type | nullable | default |
@@ -4502,7 +4895,7 @@ UNIQUE: `(project_id,fiscal_year)` (constraint: `project_financial_periods_proje
 
 ## project_findings
 
-行数 (概算): 11
+行数 (概算): 52
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -4638,6 +5031,7 @@ PRIMARY KEY: `id`
 | 19 | `amd_contribution_status` | `text` | NOT NULL | `'unreviewed'::text` |
 | 20 | `amd_contributed_yen` | `int8` | NULL | `` |
 | 21 | `amd_contribution_note` | `text` | NULL | `` |
+| 22 | `attachments_json` | `jsonb` | NOT NULL | `'[]'::jsonb` |
 
 ## project_important_documents
 
@@ -4990,7 +5384,7 @@ PRIMARY KEY: `id`
 
 ## project_management_field_audit
 
-行数 (概算): 43,551
+行数 (概算): 48,879
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -5618,7 +6012,7 @@ PRIMARY KEY: `id`
 
 ## project_management_tasks
 
-行数 (概算): 262
+行数 (概算): 297
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -5800,7 +6194,7 @@ PRIMARY KEY: `id`
 
 ## project_meeting_summaries
 
-行数 (概算): 560
+行数 (概算): 582
 PRIMARY KEY: `meeting_id`
 UNIQUE: `(project_id,meeting_id)` (constraint: `project_meeting_summaries_project_meeting_uq`)
 
@@ -5897,6 +6291,7 @@ UNIQUE: `(project_id,ym)` (constraint: `project_monthly_cashflow_project_id_ym_k
 | 21 | `investing_cash_flow_yen` | `int8` | NULL | `` |
 | 22 | `equity_funding_yen` | `int8` | NULL | `` |
 | 23 | `grant_receipt_yen` | `int8` | NULL | `` |
+| 24 | `planning_details_json` | `jsonb` | NULL | `` |
 
 ## project_monthly_notes
 
@@ -6304,7 +6699,7 @@ PRIMARY KEY: `signal_id`
 
 ## project_tech_entries
 
-行数 (概算): 734
+行数 (概算): 1,188
 PRIMARY KEY: `tech_entry_id`
 
 | # | column | type | nullable | default |
@@ -6336,7 +6731,7 @@ PRIMARY KEY: `tech_entry_id`
 
 ## project_tech_topics
 
-行数 (概算): 73
+行数 (概算): 94
 PRIMARY KEY: `tech_topic_id`
 
 | # | column | type | nullable | default |
@@ -6757,6 +7152,27 @@ UNIQUE: `(protocol_id)` (constraint: `protocols_protocol_id_key`)
 | 11 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
 | 12 | `is_universal` | `bool` | NOT NULL | `true` |
 | 13 | `kind` | `text` | NOT NULL | `'pattern'::text` |
+
+## push_devices
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(installation_id)` (constraint: `push_devices_installation_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `game_server_id` | `uuid` | NOT NULL | `` |
+| 3 | `user_id` | `uuid` | NOT NULL | `` |
+| 4 | `token_ciphertext` | `bytea` | NOT NULL | `` |
+| 5 | `notification_preferences` | `jsonb` | NOT NULL | `'{"one_minute": true, "three_minutes": true}'::jsonb` |
+| 6 | `last_seen_at` | `timestamptz` | NOT NULL | `now()` |
+| 7 | `revoked_at` | `timestamptz` | NULL | `` |
+| 8 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 9 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 10 | `installation_id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 11 | `app_kind` | `l2m_boss_app_kind` | NOT NULL | `` |
+| 12 | `platform` | `l2m_boss_platform` | NOT NULL | `` |
 
 ## reimbursements
 
@@ -7204,6 +7620,66 @@ PRIMARY KEY: `id`
 | 56 | `management_team_note` | `text` | NULL | `` |
 | 57 | `referral_note` | `text` | NULL | `` |
 
+## server_bosses
+
+行数 (概算): 1,539
+PRIMARY KEY: `id`
+UNIQUE: `(game_server_id,boss_id)` (constraint: `server_bosses_game_server_id_boss_id_key`)
+UNIQUE: `(id,game_server_id)` (constraint: `server_bosses_id_game_server_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `game_server_id` | `uuid` | NOT NULL | `` |
+| 3 | `boss_id` | `text` | NOT NULL | `` |
+| 4 | `respawn_seconds` | `int4` | NOT NULL | `` |
+| 5 | `cycle_verified` | `bool` | NOT NULL | `false` |
+| 6 | `is_enabled` | `bool` | NOT NULL | `true` |
+| 7 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 8 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 9 | `boss_kind` | `l2m_boss_kind` | NOT NULL | `'blue'::l2m_boss_kind` |
+| 10 | `initial_spawn_delay_hours` | `int4` | NOT NULL | `0` |
+| 11 | `reset_baseline_enabled` | `bool` | NOT NULL | `false` |
+| 12 | `report_revision` | `int8` | NOT NULL | `0` |
+
+## server_invites
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(token_hash)` (constraint: `server_invites_token_hash_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `game_server_id` | `uuid` | NOT NULL | `` |
+| 3 | `token_hash` | `bytea` | NOT NULL | `` |
+| 4 | `requested_role` | `l2m_boss_member_role` | NOT NULL | `'member'::l2m_boss_member_role` |
+| 5 | `expires_at` | `timestamptz` | NOT NULL | `` |
+| 6 | `max_uses` | `int4` | NOT NULL | `1` |
+| 7 | `used_count` | `int4` | NOT NULL | `0` |
+| 8 | `issued_by` | `uuid` | NOT NULL | `` |
+| 9 | `revoked_at` | `timestamptz` | NULL | `` |
+| 10 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## server_memberships
+
+行数 (概算): 81
+PRIMARY KEY: `id`
+UNIQUE: `(game_server_id,user_id)` (constraint: `server_memberships_game_server_id_user_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `game_server_id` | `uuid` | NOT NULL | `` |
+| 3 | `user_id` | `uuid` | NOT NULL | `` |
+| 4 | `role` | `l2m_boss_member_role` | NOT NULL | `'member'::l2m_boss_member_role` |
+| 5 | `status` | `l2m_boss_membership_status` | NOT NULL | `'pending'::l2m_boss_membership_status` |
+| 6 | `discord_user_hash` | `bytea` | NULL | `` |
+| 7 | `approved_at` | `timestamptz` | NULL | `` |
+| 8 | `revoked_at` | `timestamptz` | NULL | `` |
+| 9 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 10 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
 ## settings
 
 行数 (概算): -1
@@ -7220,7 +7696,7 @@ UNIQUE: `(key)` (constraint: `settings_key_key`)
 
 ## source_cache
 
-行数 (概算): 4,406
+行数 (概算): 4,493
 PRIMARY KEY: `id`
 UNIQUE: `(cache_id)` (constraint: `source_cache_cache_id_key`)
 UNIQUE: `(project_id,source,item_id)` (constraint: `source_cache_project_id_source_item_id_key`)
@@ -7387,7 +7863,7 @@ PRIMARY KEY: `id`
 
 ## sps_reassessment_source_events
 
-行数 (概算): 707
+行数 (概算): 860
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -7464,7 +7940,7 @@ PRIMARY KEY: `project_id, member_id`
 
 ## tally_weekly_effort_entries
 
-行数 (概算): 180
+行数 (概算): 195
 PRIMARY KEY: `project_id, member_id, week_start`
 
 | # | column | type | nullable | default |
@@ -7901,9 +8377,31 @@ UNIQUE: `(slug)` (constraint: `vcs_slug_key`)
 | 22 | `investment_history_model` | `text` | NULL | `` |
 | 23 | `investment_history_candidate_count` | `int4` | NOT NULL | `0` |
 
+## web_push_subscriptions
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(game_server_id,user_id,endpoint_hash)` (constraint: `web_push_subscriptions_game_server_id_user_id_endpoint_hash_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `game_server_id` | `uuid` | NOT NULL | `` |
+| 3 | `user_id` | `uuid` | NOT NULL | `` |
+| 4 | `installation_id` | `uuid` | NOT NULL | `` |
+| 5 | `endpoint_hash` | `text` | NOT NULL | `` |
+| 6 | `subscription_ciphertext` | `text` | NOT NULL | `` |
+| 7 | `three_minutes_enabled` | `bool` | NOT NULL | `true` |
+| 8 | `one_minute_enabled` | `bool` | NOT NULL | `true` |
+| 9 | `last_seen_at` | `timestamptz` | NOT NULL | `now()` |
+| 10 | `revoked_at` | `timestamptz` | NULL | `` |
+| 11 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 12 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 13 | `last_test_at` | `timestamptz` | NULL | `` |
+
 ## workspace_access_audit_logs
 
-行数 (概算): 579
+行数 (概算): 689
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |

@@ -79,7 +79,7 @@ export default function LoginPage() {
   const emailForm = (
     <form onSubmit={handleEmailSubmit} className="space-y-3 text-left">
       <label htmlFor="workspace-email" className="block text-xs font-medium text-muted-foreground">
-        研究機関・PJ関係者向けメールアドレス
+        研究機関・PJ関係者・DD資料の閲覧者向けメールアドレス
       </label>
       <input
         id="workspace-email"
@@ -98,6 +98,9 @@ export default function LoginPage() {
       >
         {emailSubmitting ? "送信中…" : "ログインリンクを送る"}
       </button>
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
+        届いたリンクは、この画面を開いているのと同じブラウザで開いてください。別の端末やブラウザで開くとログインできません。
+      </p>
     </form>
   );
 
@@ -134,7 +137,7 @@ export default function LoginPage() {
         <div className="w-full max-w-sm space-y-4 text-center">
           <h1 className="text-lg font-semibold">メールを確認してください</h1>
           <p className="text-sm text-muted-foreground">
-            登録済みのメールアドレスなら、ログインリンクを送ったよ。届いていない場合は、入力したアドレスか迷惑メールフォルダを確認してください。
+            登録済みのメールアドレスなら、ログインリンクを送ったよ。リンクはこのブラウザで開いてください。届いていない場合は、入力したアドレスか迷惑メールフォルダを確認してください。
           </p>
         </div>
       </div>

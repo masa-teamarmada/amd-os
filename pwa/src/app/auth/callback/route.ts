@@ -16,6 +16,7 @@ import {
   WORKSPACE_SESSION_MAX_AGE,
 } from "@/lib/workspace-access-session";
 import { resolveWorkspaceAccessForAccount } from "@/lib/workspace-access-resolver";
+import { resolveDdViewerScopeForAccount } from "@/lib/dd-access";
 import { recordWorkspaceAuditEvent } from "@/lib/workspace-access-audit";
 
 const ALLOWED_DOMAIN = "team-armada.jp";
@@ -198,9 +199,30 @@ async function handleWorkspaceLoginCallback(
     return NextResponse.redirect(`${origin}/auth/login?error=workspace_activation_failed`);
   }
 
-  const scopeSummary = await resolveWorkspaceAccessForAccount(account.id, account.email_normalized);
-  const hasActiveScope = !!scopeSummary
+  // DD の閲覧権限（dd_package_grants）の招待も、このログインで active 化する。ワークスペースの所属とは別の付与。
+  const { error: ddActivateError } = await service
+    .from("dd_package_grants")
+    .update({ status: "active" })
+    .eq("user_account_id", account.id)
+    .eq("status", "invited");
+  if (ddActivateError) {
+    await supabase.auth.signOut({ scope: "local" });
+    await recordWorkspaceAuditEvent(service, {
+      eventType: "callback_login_denied",
+      userAccountId: account.id,
+      email: account.email_normalized,
+      detail: { reason: "dd_grant_activation_failed" },
+    });
+    return NextResponse.redirect(`${origin}/auth/login?error=workspace_activation_failed`);
+  }
+
+  const [scopeSummary, ddScope] = await Promise.all([
+    resolveWorkspaceAccessForAccount(account.id, account.email_normalized),
+    resolveDdViewerScopeForAccount(account.id, account.email_normalized),
+  ]);
+  const hasWorkspaceScope = !!scopeSummary
     && (scopeSummary.projects.length > 0 || scopeSummary.institutionWorkspaces.length > 0);
+  const hasActiveScope = hasWorkspaceScope || !!ddScope;
 
   if (!hasActiveScope) {
     await supabase.auth.signOut({ scope: "local" });
@@ -230,7 +252,11 @@ async function handleWorkspaceLoginCallback(
     detail: {},
   });
 
-  const response = NextResponse.redirect(`${origin}${sanitizeNextPath(next)}`);
+  // DD だけを許可された人（投資家・金融機関）は、戻り先の指定が無ければ DD の入口へ案内する。
+  // ワークスペースの入口（/workspaces）へ送っても、DD の付与はワークスペースの根拠にならないため入れない。
+  const safeNext = sanitizeNextPath(next);
+  const landing = !hasWorkspaceScope && ddScope && (safeNext === "/" || safeNext === "/workspaces") ? "/dd" : safeNext;
+  const response = NextResponse.redirect(`${origin}${landing}`);
   for (const name of supabaseCookieNames) {
     response.cookies.set(name, "", { path: "/", maxAge: 0 });
   }

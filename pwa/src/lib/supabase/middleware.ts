@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
+import { isDdViewerPath } from "@/lib/dd-package-core";
 
 const LAST_LOGIN_TOUCH_COOKIE = "amd_os_last_login_touch";
 const PROJECT_WORKSPACE_SESSION_COOKIE = "amd_os_project_session";
@@ -14,7 +15,8 @@ function getServiceClient() {
 }
 
 // amd_os_workspace_session (workspace_account principal) may only stand in for a normal
-// authenticated session on the shared-workspace surface — never on internal member routes.
+// authenticated session on the shared-workspace surface and the DD surface — never on internal
+// member routes. Each page still DB-revalidates its own grant (workspace membership or DD grant).
 // Legacy amd_os_project_session gating is untouched below.
 const PROJECT_WORKSPACE_PATH_PATTERN = /^\/project\/[^/]+\/workspace(?:\/files)?\/?$/;
 
@@ -22,6 +24,7 @@ function isWorkspaceSessionAllowedPath(pathname: string) {
   if (pathname === "/workspaces") return true;
   if (pathname === "/workspace" || pathname.startsWith("/workspace/")) return true;
   if (PROJECT_WORKSPACE_PATH_PATTERN.test(pathname)) return true;
+  if (isDdViewerPath(pathname)) return true;
   return false;
 }
 

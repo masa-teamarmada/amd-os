@@ -44,10 +44,12 @@ export const SURFACE_CATALOG: readonly SurfaceDefinition[] = [
   { id: "shared-project-files", title: "PJ 資料室", domain: "knowledge_documents", lens: "shared_project", status: "canonical", patterns: [/^\/project\/[^/]+\/workspace\/files\/?$/] },
   { id: "shared-project", title: "PJ ワークスペース", domain: "project_execution", lens: "shared_project", status: "canonical", patterns: [/^\/project\/[^/]+\/workspace\/?$/] },
   { id: "weekly-control", title: "PJ ワークスペース", domain: "project_execution", lens: "shared_project", status: "deprecated", patterns: [/^\/project\/[^/]+\/weekly-control\/?$/] },
+  { id: "project-dd-admin", title: "DDパッケージ管理", domain: "organization_access", lens: "amd_internal_project", status: "canonical", patterns: [/^\/project\/[^/]+\/dd(?:\/preview\/[^/]+)?\/?$/] },
   { id: "project-navigation", title: "PJ管制ダッシュボード", domain: "project_execution", lens: "amd_internal_project", status: "transitional", patterns: [/^\/project\/[^/]+\/navigation\/?$/] },
   { id: "project-cockpit", title: "PJ コックピット", domain: "project_execution", lens: "amd_internal_project", status: "canonical", prefixes: ["/project/", "/projects/"] },
   { id: "my-projects", title: "参加PJ", primaryPath: "/my-projects", domain: "project_execution", lens: "amd_internal_project", status: "projection", exact: ["/my-projects"] },
   { id: "external-workspaces", title: "ワークスペース", primaryPath: "/workspaces", domain: "organization_access", lens: "external_workspace", status: "canonical", exact: ["/workspaces"] },
+  { id: "dd-packages", title: "DD資料", navLabel: "DDパッケージ", primaryPath: "/dd", domain: "organization_access", lens: "external_workspace", status: "canonical", exact: ["/dd"], prefixes: ["/dd/"] },
   { id: "institution-workspace", title: "研究機関ワークスペース", domain: "organization_access", lens: "external_workspace", status: "canonical", prefixes: ["/workspace/"] },
   { id: "login", title: "ログイン", domain: "organization_access", lens: "external_workspace", status: "canonical", prefixes: ["/auth/login"] },
   { id: "notifications", title: "通知", navLabel: "通知", primaryPath: "/notifications", domain: "decision_review", lens: "amd_operations", status: "transitional", exact: ["/notifications"] },
@@ -122,7 +124,7 @@ export const SURFACE_CATALOG: readonly SurfaceDefinition[] = [
 
 export const ADMIN_SURFACE_GROUPS = [
   { label: "納税・カレンダー", surfaceIds: ["admin-payments", "admin-schedule"] },
-  { label: "組織・権限", surfaceIds: ["admin-projects", "admin-members", "admin-access", "admin-company", "admin-governance"] },
+  { label: "組織・権限", surfaceIds: ["admin-projects", "admin-members", "admin-access", "dd-packages", "admin-company", "admin-governance"] },
   { label: "契約・お金", surfaceIds: ["admin-contracts", "admin-kiyo", "admin-cash", "admin-invoices", "admin-payouts", "admin-monthly-agreements", "admin-season-pl", "admin-finance", "admin-project-profitability"] },
   { label: "PJ・実行", surfaceIds: ["management-score", "admin-weekly", "admin-protocols", "admin-ms-overview", "admin-meeting-gaps", "admin-coverage", "admin-ip"] },
   { label: "知識・AI", surfaceIds: ["admin-japanese-culture", "admin-contexts", "admin-management-knowledge", "admin-private-wiki", "admin-tsukuyomi", "admin-prompts"] },

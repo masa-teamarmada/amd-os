@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { resolveWorkspaceAccess } from "@/lib/workspace-access-resolver";
+import { resolveDdViewerScope } from "@/lib/dd-access";
 import { externalWorkspaceRoleCapabilityLabel } from "@/lib/workspace-capabilities";
 
 // External access hub for workspace_account principals. Institution membership never
@@ -64,8 +65,10 @@ async function getAuthorizedProjects(
 
 export default async function WorkspacesPage() {
   // DB-revalidated every request — a stale/tampered cookie must never grant access.
-  const scopeSummary = await resolveWorkspaceAccess();
+  const [scopeSummary, ddScope] = await Promise.all([resolveWorkspaceAccess(), resolveDdViewerScope()]);
   if (!scopeSummary) {
+    // DDの閲覧権限だけを持つ人はワークスペースへは入れない。DDの入口へ案内する。
+    if (ddScope) redirect("/dd");
     redirect(`/auth/login?next=${encodeURIComponent("/workspaces")}&audience=institution`);
   }
 
@@ -111,6 +114,27 @@ export default async function WorkspacesPage() {
             </ul>
           )}
         </section>
+
+        {ddScope && (
+          <section aria-labelledby="dd-packages-heading" className="space-y-4">
+            <h2 id="dd-packages-heading" className="text-sm font-semibold text-[#4338ca]">
+              DD資料
+            </h2>
+            <ul className="divide-y divide-[#e4ddcd] rounded-lg border border-[#e4ddcd] bg-white">
+              {ddScope.packages.map((pkg) => (
+                <li key={pkg.packageId}>
+                  <Link
+                    href={`/dd/${encodeURIComponent(pkg.slug)}`}
+                    className="flex min-h-11 items-center justify-between gap-3 px-4 py-3 text-sm transition-colors hover:bg-[#f4f1e7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#4338ca]"
+                  >
+                    <span className="font-medium">{pkg.title}</span>
+                    <span className="text-xs text-[#8a8574]">公開版の閲覧{pkg.capabilities.includes("dd.download") ? "・添付のダウンロード" : ""}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         <section aria-labelledby="projects-heading" className="space-y-4">
           <h2 id="projects-heading" className="text-sm font-semibold text-[#4338ca]">

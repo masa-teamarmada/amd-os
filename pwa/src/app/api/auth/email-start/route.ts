@@ -1,8 +1,11 @@
 import { after, NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { createClient as createPkceAuthClient } from "@/lib/supabase/server";
 import { normalizeWorkspaceEmail } from "@/lib/workspace-email";
 import { sanitizeNextPath } from "@/lib/workspace-next-path";
 import { hasAnyUsableMembership } from "@/lib/workspace-access-scope-core";
+import { hasLoginEligibleDdGrant } from "@/lib/dd-package-core";
+import { loadDdGrantsForLogin } from "@/lib/dd-access";
 import { recordWorkspaceAuditEvent } from "@/lib/workspace-access-audit";
 import { workspaceAccessRequestTarget } from "@/lib/workspace-access-request-core";
 import { notifyWorkspaceAccessRequest } from "@/lib/workspace-access-request-notify";
@@ -20,11 +23,12 @@ function getServiceClient() {
   return createServiceClient(url, serviceKey);
 }
 
-function getAnonAuthClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) throw new Error("Supabase anon env vars are required");
-  return createServiceClient(url, anonKey);
+// ログインリンクは PKCE（コード交換）方式で送る。supabase-js の既定（implicit）はリンクの戻り先 URL の
+// フラグメントへアクセストークンを付けるため、/auth/callback が code を受け取れずログインが完了しない上に、
+// 本人のブラウザのアドレス欄へ Supabase の認証済みセッションが残る（2026-09-30 DD 実装時に確認）。
+// SSR のサーバクライアントは flowType=pkce で、コード検証値を HTTP cookie に置く。リンクは同じブラウザで開く。
+async function getPkceAuthClient() {
+  return createPkceAuthClient();
 }
 
 async function registerAccessRequest(
@@ -98,7 +102,7 @@ export async function POST(request: Request) {
       return NextResponse.json(GENERIC_RESPONSE, { status: 200 });
     }
 
-    const [{ data: institutionMemberships }, { data: projectMemberships }] = await Promise.all([
+    const [{ data: institutionMemberships }, { data: projectMemberships }, ddGrants] = await Promise.all([
       service
         .from("institution_workspace_memberships")
         .select("status")
@@ -107,9 +111,13 @@ export async function POST(request: Request) {
         .from("project_access_memberships")
         .select("status")
         .eq("user_account_id", account.id),
+      loadDdGrantsForLogin(account.id),
     ]);
 
-    const usable = hasAnyUsableMembership(institutionMemberships ?? [], projectMemberships ?? []);
+    // DDの閲覧権限だけを持つ人（投資家・金融機関）も、公開中のパッケージへの有効な付与があればリンクを送る。
+    // DDの付与はワークスペースの所属として数えない（入れる領域は別）。
+    const usable = hasAnyUsableMembership(institutionMemberships ?? [], projectMemberships ?? [])
+      || hasLoginEligibleDdGrant(ddGrants);
 
     await recordWorkspaceAuditEvent(service, {
       eventType: "email_start_requested",
@@ -134,7 +142,7 @@ export async function POST(request: Request) {
       return NextResponse.json(GENERIC_RESPONSE, { status: 200 });
     }
 
-    const authClient = getAnonAuthClient();
+    const authClient = await getPkceAuthClient();
     const { error: otpError } = await authClient.auth.signInWithOtp({
       email: account.email_normalized,
       options: {

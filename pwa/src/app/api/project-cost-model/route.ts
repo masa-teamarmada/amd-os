@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAuth, requireAdmin } from "@/lib/supabase/api-auth";
+import { requireAdmin, requireMember } from "@/lib/supabase/api-auth";
 import { hasSharedWorkspaceProjectReadAccess } from "@/lib/shared-workspace-project-read-access";
 import type { CostModelBundle } from "@/lib/project-cost-model";
 
@@ -168,7 +168,9 @@ export async function GET(req: NextRequest) {
   const projectId = req.nextUrl.searchParams.get("projectId");
   if (!projectId) return NextResponse.json({ ok: false, error: "projectId required" }, { status: 400 });
 
-  const auth = await requireAuth();
+  // 読み取りは AMD メンバー、または当該PJのワークスペース権限（DB再確認）がある外部アカウントだけ。
+  // Supabase にログインしているだけの利用者（メンバー登録の無いアカウント）は通さない（2026-09-30）。
+  const auth = await requireMember();
   const sharedWorkspaceRead = !auth.ok && await hasSharedWorkspaceProjectReadAccess(projectId);
   if (!auth.ok && !sharedWorkspaceRead) return auth.errorResponse;
 

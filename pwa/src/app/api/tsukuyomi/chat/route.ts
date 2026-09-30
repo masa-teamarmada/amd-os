@@ -17,6 +17,7 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireMember } from "@/lib/supabase/api-auth";
 import { fetchCurrentSpsProjectAssessments } from "@/lib/seed-screening-bands";
 import type { CurrentSpsProjectAssessment } from "@/lib/current-sps-model";
 import { getLevelInfo, type XrlAxisKey } from "@/lib/xrl-level-definitions";
@@ -1064,6 +1065,12 @@ async function executeTool(
 }
 
 export async function POST(req: Request) {
+  // AMDメンバーのログインを必須にする。以前はログインの有無を名前の表示にしか使っておらず、
+  // 未ログインでも project_id を指定するとPJコックピットの内部 context を読み込めた（2026-09-30 DD 実装時に確認）。
+  // PWA は cookie、macOS アプリは同じ Supabase の Bearer で送るので、どちらも requireMember で通る。
+  const memberAuth = await requireMember();
+  if (!memberAuth.ok) return memberAuth.errorResponse;
+
   let body: {
     session_id?: string;
     page_path?: string | null;
