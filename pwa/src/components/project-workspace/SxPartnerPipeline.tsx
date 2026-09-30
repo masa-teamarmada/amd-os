@@ -3808,6 +3808,14 @@ function PartnerRowCell({
   );
 }
 
+/**
+ * 当方がボールを持つ先に出す札。SX（p21）は会社名の「SOL」を使い、ほかのPJは「当方」とする
+ * (2026-09-30 LiSTieの関係先に「SOL側保有」と出ていた)。
+ */
+function ownSideBallLabel(projectId: string): string {
+  return projectId === "p21" ? "SOL側保有" : "当方保有";
+}
+
 function PartnerInlineRow({
   partner,
   columnOrder,
@@ -3824,6 +3832,7 @@ function PartnerInlineRow({
   onPatch,
   onCreateSample,
   onCreateInteraction,
+  ownSideBallLabel,
 }: {
   partner: SxManagementPartner;
   columnOrder: readonly PartnerLedgerColumnKey[];
@@ -3840,6 +3849,8 @@ function PartnerInlineRow({
   onPatch: (request: PartnerInlinePatch) => Promise<void>;
   onCreateSample: (partnerId: string, label: string) => Promise<void>;
   onCreateInteraction?: (partnerId: string) => void;
+  /** 当方がボールを持つ先に出す札の文言 (ownSideBallLabel())。 */
+  ownSideBallLabel: string;
 }) {
   const display = sxPartnerDisplay(partner);
   const steps = buildPartnerProgressSteps(partner);
@@ -4180,7 +4191,7 @@ function PartnerInlineRow({
                       data-partner-sx-ball={partner.id}
                       className="mt-px shrink-0 rounded-full border border-amber-300 bg-amber-50 px-2 py-px text-[10px] font-semibold leading-4 text-amber-800"
                     >
-                      SOL側保有
+                      {ownSideBallLabel}
                     </span>
                   )}
                 </span>
@@ -4904,8 +4915,13 @@ export function SxPartnerPipeline({
     useState<SxPartnerRoleKind | null>(null);
   // 既定はPoC候補先タブ。担当・区分・段階・管制の各絞り込み帯は 2026-08-08 に削除 (まさ)。
   // 並び順は優先度順固定 (上から順にアタックすれば良い並び、2026-08-06 まさ指示)。
+  // PoC候補先が1件も無いPJは全関係先から始める (2026-09-30、週次管制の分類タブと同じ決め方)。
   const [internalClassification, setInternalClassification] =
-    useState<SxPartnerClassification | null>("poc_candidate");
+    useState<SxPartnerClassification | null>(() =>
+      management.partners.some((partner) => partner.classifications.includes("poc_candidate"))
+        ? "poc_candidate"
+        : null,
+    );
   const classificationControlled = controlledClassification !== undefined;
   const activeClassification = classificationControlled
     ? controlledClassification
@@ -5075,6 +5091,7 @@ export function SxPartnerPipeline({
   const roleCounts = sxPrimaryRoleKindCounts(trackScopedPartners);
 
   const rowProps = {
+    ownSideBallLabel: ownSideBallLabel(projectId),
     columnOrder: order,
     milestoneTitleById,
     milestoneSlugById,
@@ -5319,6 +5336,7 @@ function PartnerRow({
   onPatch,
   onCreateSample,
   onCreateInteraction,
+  ownSideBallLabel,
 }: {
   partner: SxManagementPartner;
   columnOrder: readonly PartnerLedgerColumnKey[];
@@ -5335,6 +5353,7 @@ function PartnerRow({
   onPatch: (request: PartnerInlinePatch) => Promise<void>;
   onCreateSample: (partnerId: string, label: string) => Promise<void>;
   onCreateInteraction?: (partnerId: string) => void;
+  ownSideBallLabel: string;
 }) {
   const expanded = expandedId === partner.id;
   return (
@@ -5354,6 +5373,7 @@ function PartnerRow({
       onPatch={onPatch}
       onCreateSample={onCreateSample}
       onCreateInteraction={onCreateInteraction}
+      ownSideBallLabel={ownSideBallLabel}
     />
   );
 }

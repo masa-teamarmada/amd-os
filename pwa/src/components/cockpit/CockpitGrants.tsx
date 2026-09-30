@@ -7,15 +7,22 @@
  * (まさ依頼 2026-06-17)。cap table と違い機密度が低く、ログイン済みメンバーに見せる。
  * AMD全体の累計獲得額はダッシュボード側 (営業アピール) に出す。
  * API: /api/grants (read=requireAuth, write=admin)。設計: pwa/design/governance_action_items.md
+ *
+ * 2026-09-17 (まさ「PDFも助成金リストとOSドライブの両方に置いておいてほしい」):
+ * 各行に添付資料 (attachments_json) と備考 (notes) を出す。備考は1行目を常に見せ、2行目以降は「詳細」で開く。
+ * 添付の実体は資料室 (workspace_documents) にあり、開き方は資料室と同じ /api/workspace-documents/[id]/open に任せる。
  */
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+type GrantAttachment = { document_id?: string | null; url?: string | null; name?: string | null };
+
 type Grant = {
   id: string; grant_name: string; agency: string | null; grant_type: string | null;
   amount_yen: number | null; disbursed_yen: number | null; status: string;
   is_current: boolean | null; adopted_date: string | null; period_start_ym: string | null; period_end_ym: string | null; notes: string | null;
+  attachments_json?: GrantAttachment[] | null;
 };
 
 const STATUS_LABEL: Record<string, { txt: string; cls: string }> = {
@@ -34,24 +41,76 @@ function yen(n: number | null | undefined) {
   return `${n.toLocaleString()}円`;
 }
 
+/** "202604" → { year: 2026, month: 4 }。それ以外の書き方は null (元の文字をそのまま出す)。 */
+function parseYm(value: string | null) {
+  const m = value?.trim().match(/^(\d{4})-?(\d{2})$/);
+  if (!m) return null;
+  const month = Number(m[2]);
+  if (month < 1 || month > 12) return null;
+  return { year: Number(m[1]), month };
+}
+
+/** 期間を「2026年4月〜2027年9月（18か月）」の形にする。月数は開始月と終了月の両方を含めて数える。 */
+function periodLabel(start: string | null, end: string | null) {
+  const s = parseYm(start);
+  const e = parseYm(end);
+  const text = (raw: string | null, ym: ReturnType<typeof parseYm>) => (ym ? `${ym.year}年${ym.month}月` : raw?.trim() || "");
+  const range = [text(start, s), text(end, e)].filter(Boolean).join("〜");
+  if (!range) return "";
+  if (s && e) {
+    const months = (e.year - s.year) * 12 + (e.month - s.month) + 1;
+    if (months > 0) return `${range}（${months}か月）`;
+  }
+  if (end && !start) return `〜${range}`;
+  if (start && !end) return `${range}〜`;
+  return range;
+}
+
+/** 添付の開き先。資料室の資料は資料室と同じ経路で開く (PDFはそのまま表示、マークダウンは読む画面へ)。 */
+function attachmentHref(a: GrantAttachment) {
+  if (a.document_id) return `/api/workspace-documents/${encodeURIComponent(a.document_id)}/open?download=0`;
+  if (a.url && /^https?:\/\//.test(a.url)) return a.url;
+  return null;
+}
+
+function GrantNotes({ notes }: { notes: string }) {
+  const lines = notes.split("\n").map((line) => line.trim()).filter(Boolean);
+  if (lines.length === 0) return null;
+  const [head, ...rest] = lines;
+  return (
+    <div className="basis-full text-[10px] leading-4 text-muted-foreground">
+      <p>{head}</p>
+      {rest.length > 0 && (
+        <details className="mt-0.5">
+          <summary className="w-fit cursor-pointer select-none text-[10px] text-foreground/70 hover:underline">詳細</summary>
+          <div className="mt-1 space-y-1 rounded border border-border bg-muted/20 px-2 py-1.5">
+            {rest.map((line, i) => <p key={i}>{line}</p>)}
+          </div>
+        </details>
+      )}
+    </div>
+  );
+}
+
 export function CockpitGrants({ projectId }: { projectId: string }) {
-  const [grants, setGrants] = useState<Grant[] | null>(null);
-  const [loading, setLoading] = useState(true);
+  // 読み込んだ結果をPJと組で持ち、いま開いているPJの結果が届くまでを「読み込み中」とする
+  // (effect の中で読み込み中フラグを立て直さない)。
+  const [loaded, setLoaded] = useState<{ projectId: string; grants: Grant[] } | null>(null);
 
   useEffect(() => {
     let live = true;
-    setLoading(true);
     fetch(`/api/grants?projectId=${encodeURIComponent(projectId)}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (live && j?.ok) setGrants(j.grants); })
-      .catch(() => {})
-      .finally(() => { if (live) setLoading(false); });
+      .then((j) => { if (live) setLoaded({ projectId, grants: j?.ok ? j.grants : [] }); })
+      .catch(() => { if (live) setLoaded({ projectId, grants: [] }); });
     return () => { live = false; };
   }, [projectId]);
 
   if (projectId === "p00") return null;
 
-  const list = grants ?? [];
+  const current = loaded && loaded.projectId === projectId ? loaded : null;
+  const loading = current === null;
+  const list = current?.grants ?? [];
   // アピール対象 (採択/受給中/完了) の累計額をこのPJ分だけ出す
   const securedTotal = list
     .filter((g) => ["adopted", "active", "completed"].includes(g.status))
@@ -84,15 +143,33 @@ export function CockpitGrants({ projectId }: { projectId: string }) {
         <div className="divide-y divide-border text-[11px]">
           {list.map((g) => {
             const st = STATUS_LABEL[g.status] || { txt: g.status, cls: "border-border bg-muted/40 text-muted-foreground" };
-            const period = [g.period_start_ym, g.period_end_ym].filter(Boolean).join("〜");
+            const period = periodLabel(g.period_start_ym, g.period_end_ym);
+            const attachments = (Array.isArray(g.attachments_json) ? g.attachments_json : [])
+              .map((a) => ({ name: a?.name?.trim() || "添付資料", href: a ? attachmentHref(a) : null }))
+              .filter((a): a is { name: string; href: string } => Boolean(a.href));
             return (
-              <div key={g.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 px-3 py-2">
+              <div key={g.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2">
                 <span className={`rounded border px-1.5 py-0.5 text-[10px] ${st.cls}`}>{st.txt}</span>
                 <span className="font-medium">{g.grant_name}</span>
                 {g.agency && <span className="text-muted-foreground">{g.agency}</span>}
                 {g.grant_type && <span className="rounded border border-border bg-muted/30 px-1 py-0 text-[9px] text-muted-foreground">{g.grant_type}</span>}
                 {g.amount_yen != null && <span className="tabular-nums">{yen(g.amount_yen)}</span>}
                 {period && <span className="text-[10px] text-muted-foreground">{period}</span>}
+                {g.adopted_date && <span className="text-[10px] text-muted-foreground">採択 {g.adopted_date}</span>}
+                {attachments.length > 0 && (
+                  <span className="flex flex-wrap items-center gap-1">
+                    {attachments.map((a, i) => (
+                      <a
+                        key={`${a.href}-${i}`}
+                        href={a.href}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[10px] text-sky-800 hover:underline"
+                      >📎 {a.name}</a>
+                    ))}
+                  </span>
+                )}
+                {g.notes && <GrantNotes notes={g.notes} />}
               </div>
             );
           })}

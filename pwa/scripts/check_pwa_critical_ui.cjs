@@ -4002,7 +4002,9 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "interaction-${latestInteraction.id}",
   "work-${item.id}",
   'aria-modal="true"',
-  'useState<SxPartnerClassification | null>("poc_candidate")',
+  // 2026-09-30: PoC候補先が1件でもあるPJ（SX）は従来どおりPoC候補先が既定。0件のPJ（LiSTie）は全関係先から。
+  'management.partners.some((partner) => partner.classifications.includes("poc_candidate"))',
+  '? "poc_candidate"',
   "showRoleFilter={!comparisonOnly}",
   "comparisonPartners.map",
   "sxIsVcPartner",

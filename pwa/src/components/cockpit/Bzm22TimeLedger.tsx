@@ -187,6 +187,23 @@ const LST_CASH_ROWS: Array<{
   { key: "bank_borrowing_balance_yen", label: "借入残高" },
 ];
 
+/**
+ * 取締役会資料の資金繰りの見出しに添える期間。`source_status` から「実績」「見込」の範囲を作る
+ * (2026-09-30: 固定文字列「2026/4–7実績・8–3見込」のままだと、毎月の資料の更新で実際の範囲とずれる)。
+ */
+function lstCashflowRangeLabel(rows: ProjectMonthlyCashflow[]): string {
+  const fmt = (ym: string) => {
+    const [year, month] = ym.split("-");
+    return `${year}/${Number(month)}`;
+  };
+  const actual = rows.filter((row) => row.source_status === "actual").map((row) => row.ym).sort();
+  const forecast = rows.filter((row) => row.source_status !== "actual").map((row) => row.ym).sort();
+  const parts: string[] = [];
+  if (actual.length > 0) parts.push(`${fmt(actual[0])}–${fmt(actual[actual.length - 1])}実績`);
+  if (forecast.length > 0) parts.push(`${fmt(forecast[0])}–${fmt(forecast[forecast.length - 1])}見込`);
+  return parts.join("・");
+}
+
 function emptyPlRow(projectId: string, ym: string): ProjectPlMonthly {
   return {
     id: `__virtual__${ym}`,
@@ -1191,7 +1208,7 @@ export function Bzm22TimeLedger({
           {pilot.projectId === "p07" && monthlyCashflows.length > 0 ? (
             <>
               <div className="contents">
-                <div className="sticky left-0 z-30 border-b border-r border-slate-300 bg-[#365865] px-2 py-0.5 text-[10px] font-semibold leading-4 text-white">取締役会資料 C/F・資金繰り <span className="text-[8px] font-normal">2026/4–7実績・8–3見込</span></div>
+                <div className="sticky left-0 z-30 border-b border-r border-slate-300 bg-[#365865] px-2 py-0.5 text-[10px] font-semibold leading-4 text-white">取締役会資料 C/F・資金繰り <span className="text-[8px] font-normal">{lstCashflowRangeLabel(monthlyCashflows)}</span></div>
                 {axis.map((month) => <MonthCellFrame key={`lst-cf-section-${month.ym}`} month={month} className="bg-[#365865]" />)}
               </div>
               {LST_CASH_ROWS.map((metric) => (
