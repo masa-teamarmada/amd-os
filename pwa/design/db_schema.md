@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-09-30 19:12 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-09-30 19:20 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -2032,7 +2032,6 @@ UNIQUE: `(package_id,item_kind,source_key)` (constraint: `dd_package_items_packa
 | 11 | `evidence_item_ids` | `_uuid` | NOT NULL | `'{}'::uuid[]` |
 | 12 | `sort_order` | `int4` | NOT NULL | `0` |
 | 13 | `status` | `text` | NOT NULL | `'active'::text` |
-| 14 | `published_publication_id` | `uuid` | NULL | `` |
 | 15 | `created_by_member_id` | `text` | NULL | `` |
 | 16 | `updated_by_member_id` | `text` | NULL | `` |
 | 17 | `created_at` | `timestamptz` | NOT NULL | `now()` |
@@ -4898,7 +4897,7 @@ UNIQUE: `(project_id,fiscal_year)` (constraint: `project_financial_periods_proje
 
 ## project_findings
 
-行数 (概算): 52
+行数 (概算): 81
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -5123,7 +5122,7 @@ UNIQUE: `(source_hash)` (constraint: `project_important_evidence_source_hash_uni
 
 ## project_ip_assets
 
-行数 (概算): 13
+行数 (概算): 45
 PRIMARY KEY: `ip_asset_id`
 
 | # | column | type | nullable | default |
@@ -5218,7 +5217,7 @@ PRIMARY KEY: `ip_event_id`
 
 ## project_ip_rights
 
-行数 (概算): -1
+行数 (概算): 32
 PRIMARY KEY: `ip_right_id`
 
 | # | column | type | nullable | default |
