@@ -77,7 +77,8 @@ const XRL_LABELS: Record<keyof SxXrlTarget, string> = {
   hrl: "HRL",
 };
 
-function formatOku(yen: number) {
+function formatOku(yen: number | null) {
+  if (yen === null) return "再精査中";
   if (Math.abs(yen) >= 100_000_000) {
     const value = yen / 100_000_000;
     return `${Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1)}億円`;
@@ -112,6 +113,7 @@ function PhaseMatrix({ projectName }: Pick<CockpitBusinessPlanProps, "projectNam
     <SectionShell>
       <div className="border-b border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">
         <h2 className="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">フェーズマトリクス</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">シード〜2028年6月の支払予算・調達方針は2026年9月30日改定。詳細は「試算表」。4レーン別の費用配賦とシリーズA以降の予算は再精査中。長期の事業・工場拡張は仮説として扱う。</p>
       </div>
 
       <div className="overflow-x-auto" data-testid="sx-business-plan-phase-matrix">
@@ -137,7 +139,7 @@ function PhaseMatrix({ projectName }: Pick<CockpitBusinessPlanProps, "projectNam
                   <div className="mt-3 flex items-center justify-between gap-2">
                     <XrlStrip target={phase.targetXrl} />
                   </div>
-                  <div className="mt-2 text-[10px] font-normal text-slate-400">固定費バーン上限 {formatOku(phase.maxFixedBurnMonthlyYen)}/月</div>
+                  <div className="mt-2 text-[10px] font-normal text-slate-400">{phase.burnLabel ?? "固定費バーン上限"} {formatOku(phase.maxFixedBurnMonthlyYen)}/月</div>
                 </th>
               ))}
             </tr>

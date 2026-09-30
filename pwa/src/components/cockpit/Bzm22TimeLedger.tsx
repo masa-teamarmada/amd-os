@@ -923,7 +923,7 @@ export function Bzm22TimeLedger({
       return [[`${metricKey}:${ym}`, {
         id: `phase-start-${phase.id}`,
         title: `${phase.label} 開始`,
-        detail: `${phase.period}。フェーズ予算 ${formatMillionFromYen(phase.budgetYen)}、開始時の資金計画は${phase.openingRound}。${metricKey === "preincorporation_spend" ? "会社設立前はNewCoの営業損失にせず、PJ支出として表示する。" : "月次P/Lは一次月別内訳がない範囲を推定配賦している。"}`,
+        detail: `${phase.period}。フェーズ予算 ${phase.budgetYen === null ? "再精査中" : formatMillionFromYen(phase.budgetYen)}、開始時の資金計画は${phase.openingRound}。${metricKey === "preincorporation_spend" ? "会社設立前はNewCoの営業損失にせず、PJ支出として表示する。" : "月次P/Lは一次月別内訳がない範囲を推定配賦している。"}`,
         evidenceState: "plan",
       }]];
     }),

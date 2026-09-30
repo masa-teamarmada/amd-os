@@ -11,7 +11,7 @@ export interface SxXrlTarget {
 }
 
 export interface SxPhaseLanePlan {
-  costYen: number;
+  costYen: number | null;
   activities: string[];
   exitGate: string;
   xrlKeys: Array<keyof SxXrlTarget>;
@@ -22,7 +22,8 @@ export interface SxBusinessPlanPhase {
   label: string;
   period: string;
   openingRound: string;
-  budgetYen: number;
+  budgetYen: number | null;
+  burnLabel?: string;
   fundingSource: string;
   maxFixedBurnMonthlyYen: number;
   targetXrl: SxXrlTarget;
@@ -80,44 +81,45 @@ export const SX_BUSINESS_PLAN_PHASES: SxBusinessPlanPhase[] = [
       },
       funding: {
         costYen: 5_000_000,
-        activities: ["Seed投資委員会資料と18か月資金使途を作成", "パートナーズファンドをリード候補に条件調整", "いよぎんキャピタル・DAVPの参加条件を整理"],
-        exitGate: "Seed 1.5億円の投資条件と次回調達条件が合意可能",
+        activities: ["シードJ-KISSと15か月の資金使途を準備", "設立前に進められるDD・投資委員会の範囲を確認", "必要DD資料と投資家別の条件を協議"],
+        exitGate: "シード1億円・キャップ5億円・ディスカウント20％の条件を協議できる",
         xrlKeys: ["brl"],
       },
     },
   },
   {
     id: "seed",
-    label: "Phase 1｜Seed → Series A",
-    period: "2027.04–2028.09",
-    openingRound: "Seed 1.5億円",
-    budgetYen: 150_000_000,
-    fundingSource: "PF 0.75億円 / いよぎん 0.40億円 / DAVP 0.35億円",
-    maxFixedBurnMonthlyYen: 5_000_000,
+    label: "Phase 1｜シード → シリーズA",
+    period: "2027.04–2028.06",
+    openingRound: "シード1億円（J-KISS）",
+    budgetYen: 126_088_080,
+    fundingSource: "シード1億円＋STS・つなぎ融資。支払予算約1億2,609万円、純改善目標1,000万円は未計上。投資家配分は未定。",
+    maxFixedBurnMonthlyYen: 4_358_782,
+    burnLabel: "通常支出月平均（税込）",
     targetXrl: { trl: 6, brl: 5, grl: 3, srl: 5, hrl: 5 },
     lanes: {
       business: {
-        costYen: 20_000_000,
-        activities: ["顧客拠点で有償PoCを2–3件実施", "包装単位・納品頻度・顧客側運転手順と既存制度への適合要件を商品仕様化", "単価、粗利、継続条件を顧客別に検証"],
-        exitGate: "有償PoC2件以上と年間契約へ進む顧客1社",
+        costYen: null,
+        activities: ["顧客拠点で有償PoCを3件実施", "包装単位・納品頻度・顧客側運転手順と既存制度への適合要件を商品仕様化", "単価、粗利、継続条件を顧客別に検証"],
+        exitGate: "有償PoC3件と年間契約へ進む顧客1社",
         xrlKeys: ["brl", "grl", "srl"],
       },
       technology: {
-        costYen: 80_000_000,
+        costYen: null,
         activities: ["自社内の小規模培養・包装パイロット設備を構築", "輸送後の活性・保存期限・ロット品質基準を確立", "顧客設備での再現運転とユニットエコノミクスを証明"],
         exitGate: "3ロット連続合格、輸送後性能合格、顧客現場で再現",
         xrlKeys: ["trl", "srl"],
       },
       organization: {
-        costYen: 30_000_000,
-        activities: ["培養プロセス責任者・フィールド担当を採用", "品質記録、出荷判定、顧客障害対応の標準手順を導入", "取締役会・月次資金管理を開始"],
-        exitGate: "CEOを含む5–7名で培養・出荷・現場対応を回せる",
+        costYen: null,
+        activities: ["製品開発担当を確保し、必要な役割を段階的に補う", "品質記録、出荷判定、顧客障害対応の標準手順を導入", "取締役会・月次資金管理を開始"],
+        exitGate: "CEO・開発担当・大学・委託先で培養・出荷・現場対応の役割が埋まる",
         xrlKeys: ["hrl"],
       },
       funding: {
-        costYen: 20_000_000,
-        activities: ["SeedをクローズしSOプール10%を確保", "固定費バーン月500万円以下を維持", "2028年上期からSeries A DDを開始"],
-        exitGate: "最低6か月の現預金を残してSeries Aの条件合意",
+        costYen: null,
+        activities: ["シードJ-KISSをクローズしSTS申請とつなぎ融資を協議", "2028年6月末現金約359万円に対して純改善1,000万円を目指す", "2028年7月のシリーズA払込に向けDD・条件交渉を前倒し"],
+        exitGate: "有償PoC3件の検証とシリーズA入金。不採択時は2028年1月までのブリッジ払込を目標",
         xrlKeys: ["brl", "hrl"],
       },
     },
@@ -125,33 +127,33 @@ export const SX_BUSINESS_PLAN_PHASES: SxBusinessPlanPhase[] = [
   {
     id: "series-a",
     label: "Phase 2｜Series A → Series B",
-    period: "2028.10–2031.03",
-    openingRound: "Series A 6億円",
-    budgetYen: 600_000_000,
-    fundingSource: "想定 pre 25億円 / post 31億円",
+    period: "2028.07–2031.03",
+    openingRound: "シリーズA（調達額再精査）",
+    budgetYen: null,
+    fundingSource: "調達額・評価額・費用配賦は再精査。以降の事業・工場拡張は長期仮説。",
     maxFixedBurnMonthlyYen: 12_000_000,
     targetXrl: { trl: 7, brl: 7, grl: 5, srl: 7, hrl: 7 },
     lanes: {
       business: {
-        costYen: 120_000_000,
+        costYen: null,
         activities: ["複数顧客との年間供給契約へ移行", "導入設計・運転支援・定期供給を標準商品化", "顧客別採算と回収期間を共通指標で管理"],
         exitGate: "継続顧客3社以上、売上7億円規模、変動粗利黒字",
         xrlKeys: ["brl", "srl"],
       },
       technology: {
-        costYen: 330_000_000,
+        costYen: null,
         activities: ["自社量産実証工場を取得・整備", "培養能力をSeed比10倍へ拡張し包装工程を半自動化", "出荷品質・顧客取扱い・トレーサビリティの標準運用を顧客現場で試行"],
         exitGate: "量産実証工場で6か月連続の供給・品質・原価目標を達成",
         xrlKeys: ["trl", "grl"],
       },
       organization: {
-        costYen: 100_000_000,
+        costYen: null,
         activities: ["工場長、品質保証、営業責任者を採用", "製造・営業・管理の部門別予算と権限を設定", "安全衛生・教育・BCPを運用"],
         exitGate: "15–20名体制でCEO不在でも日次操業が継続",
         xrlKeys: ["hrl"],
       },
       funding: {
-        costYen: 50_000_000,
+        costYen: null,
         activities: ["設備投資を能力増強ゲートごとに分割承認", "借入・補助金を株式資金と併用", "Series Bで本格工場投資を開けるDDパックを整備"],
         exitGate: "工場投資前後の原価実績と需要予約でSeries Bを説明",
         xrlKeys: ["brl"],
@@ -407,118 +409,337 @@ export function sxAnnualProjectionWithCash(parameters: SxAnnualProjectionParamet
   });
 }
 
-export function sxPhaseBudgetVariance(phase: SxBusinessPlanPhase): number {
-  return Object.values(phase.lanes).reduce((sum, lane) => sum + lane.costYen, 0) - phase.budgetYen;
+export function sxPhaseBudgetVariance(phase: SxBusinessPlanPhase): number | null {
+  if (phase.budgetYen === null || Object.values(phase.lanes).some(lane => lane.costYen === null)) return null;
+  return Object.values(phase.lanes).reduce((sum, lane) => sum + (lane.costYen ?? 0), 0) - phase.budgetYen;
 }
 
-const input = (value: number) => ({ value, source: "input" as const });
-const calculated = () => ({ value: 0, source: "calculated" as const });
-
+// Default draft mirrors the adopted SOL working plan; unknown Series A terms remain incomplete.
 export const SX_CAPITAL_PLAN_HOLDERS: Holder[] = [
-  { id: "sx-ceo", name: "CEO", kind: "founder" },
-  { id: "sx-sugiura", name: "杉浦先生", kind: "founder" },
-  { id: "sx-amd", name: "まさ／AMD", kind: "founder" },
-  { id: "sx-esop", name: "SOプール", kind: "esop_pool" },
-  { id: "sx-partners-fund", name: "パートナーズファンド", kind: "investor" },
-  { id: "sx-iyogin", name: "いよぎんキャピタル", kind: "investor" },
-  { id: "sx-davp", name: "ダイキアクシスベンチャーパートナーズ", kind: "investor" },
-  { id: "sx-series-a", name: "Series A投資家", kind: "investor" },
-  { id: "sx-series-b", name: "Series B投資家", kind: "investor" },
-  { id: "sx-series-c", name: "Series C投資家", kind: "investor" },
-  { id: "sx-public", name: "公開市場", kind: "other" },
+  {
+    "id": "sx-ceo",
+    "kind": "founder",
+    "name": "CEO"
+  },
+  {
+    "id": "sx-sugiura",
+    "kind": "founder",
+    "name": "杉浦先生"
+  },
+  {
+    "id": "sx-amd",
+    "kind": "founder",
+    "name": "経営陣"
+  },
+  {
+    "id": "sx-esop",
+    "kind": "esop_pool",
+    "name": "SOプール"
+  },
+  {
+    "id": "sx-partners-fund",
+    "kind": "investor",
+    "name": "シードA"
+  },
+  {
+    "id": "sx-iyogin",
+    "kind": "investor",
+    "name": "シードB"
+  },
+  {
+    "id": "sx-davp",
+    "kind": "investor",
+    "name": "シードC"
+  },
+  {
+    "id": "sx-series-a",
+    "kind": "investor",
+    "name": "Series A投資家"
+  },
+  {
+    "id": "sx-series-b",
+    "kind": "investor",
+    "name": "Series B投資家"
+  },
+  {
+    "id": "sx-series-c",
+    "kind": "investor",
+    "name": "Series C投資家"
+  },
+  {
+    "id": "sx-public",
+    "kind": "other",
+    "name": "公開市場"
+  },
+  {
+    "id": "sol-seed-unallocated",
+    "name": "シード投資家（配分未定）",
+    "kind": "investor",
+    "note": "出資総額1億円。各投資家への割当・出資額は未定。"
+  }
 ];
 
 export const SX_CAPITAL_PLAN_EVENTS: CapitalEvent[] = [
   {
-    id: "sx-incorporation",
-    type: "incorporation",
-    label: "設立",
-    order: 1,
-    date: SX_INCORPORATION_DATE,
-    status: "planned",
-    calculationBasis: "manual",
-    allocations: [
-      { id: "sx-inc-ceo", holderId: "sx-ceo", shareClass: "common", shares: input(81_000) },
-      { id: "sx-inc-sugiura", holderId: "sx-sugiura", shareClass: "common", shares: input(21_600) },
-      { id: "sx-inc-amd", holderId: "sx-amd", shareClass: "common", shares: input(5_400) },
+    "id": "sx-incorporation",
+    "date": "2027-04-01",
+    "note": "中島先生は含めない。設立時持分の暫定原案。",
+    "type": "incorporation",
+    "label": "設立",
+    "order": 1,
+    "status": "planned",
+    "newShares": {
+      "value": 108000,
+      "source": "calculated"
+    },
+    "allocations": [
+      {
+        "id": "sx-inc-ceo",
+        "shares": {
+          "value": 81000,
+          "source": "input"
+        },
+        "holderId": "sx-ceo",
+        "shareClass": "common"
+      },
+      {
+        "id": "sx-inc-sugiura",
+        "shares": {
+          "value": 21600,
+          "source": "input"
+        },
+        "holderId": "sx-sugiura",
+        "shareClass": "common"
+      },
+      {
+        "id": "sx-inc-amd",
+        "shares": {
+          "value": 5400,
+          "source": "input"
+        },
+        "holderId": "sx-amd",
+        "shareClass": "common"
+      }
     ],
-    note: "設立予定は2027年4月1日。設立前DD完了を必須ゲートとする。中島先生は含めない。設立時持分の暫定原案。",
+    "calculationBasis": "manual"
   },
   {
-    id: "sx-option-pool",
-    type: "option_pool",
-    label: "Seed前SOプール",
-    order: 2,
-    date: "2027-04-01",
-    status: "planned",
-    calculationBasis: "manual",
-    poolSize: input(12_000),
-    allocations: [{ id: "sx-so-allocation", holderId: "sx-esop", shareClass: "option", shares: input(12_000) }],
-    note: "Seed直前の完全希薄化後株式数に対して10%。",
-  },
-  {
-    id: "sx-seed",
-    type: "equity_issue",
-    label: "Seed",
-    order: 3,
-    date: "2027-04-01",
-    status: "planned",
-    calculationBasis: "valuation_and_investment",
-    preMoneyValuation: input(600_000_000),
-    allocations: [
-      { id: "sx-seed-pf", holderId: "sx-partners-fund", shareClass: "preferred", shares: calculated(), amount: input(75_000_000), pricePerShare: calculated() },
-      { id: "sx-seed-iyogin", holderId: "sx-iyogin", shareClass: "preferred", shares: calculated(), amount: input(40_000_000), pricePerShare: calculated() },
-      { id: "sx-seed-davp", holderId: "sx-davp", shareClass: "preferred", shares: calculated(), amount: input(35_000_000), pricePerShare: calculated() },
+    "id": "sx-option-pool",
+    "date": "2027-04-01",
+    "note": "既存の仮定を継続。J-KISS発行前の完全希薄化後株式数に対して10％。",
+    "type": "option_pool",
+    "label": "シード前SOプール",
+    "order": 2,
+    "status": "planned",
+    "poolSize": {
+      "value": 12000,
+      "source": "input"
+    },
+    "allocations": [
+      {
+        "id": "sx-so-allocation",
+        "shares": {
+          "value": 12000,
+          "source": "input"
+        },
+        "holderId": "sx-esop",
+        "shareClass": "option"
+      }
     ],
-    note: "パートナーズファンドをリード候補とする暫定原案。",
+    "calculationBasis": "manual"
   },
   {
-    id: "sx-series-a-event",
-    type: "equity_issue",
-    label: "Series A",
-    order: 4,
-    date: "2028-10-01",
-    status: "planned",
-    calculationBasis: "valuation_and_investment",
-    preMoneyValuation: input(2_500_000_000),
-    allocations: [{ id: "sx-a-allocation", holderId: "sx-series-a", shareClass: "preferred", shares: calculated(), amount: input(600_000_000), pricePerShare: calculated() }],
+    "id": "sx-seed",
+    "type": "convertible_issue",
+    "label": "シード（J-KISS）",
+    "date": "2027-04-01",
+    "order": 3,
+    "status": "planned",
+    "calculationBasis": "manual",
+    "conversionCap": {
+      "value": 500000000,
+      "source": "input"
+    },
+    "conversionDiscount": {
+      "value": 0.2,
+      "source": "input"
+    },
+    "allocations": [
+      {
+        "id": "sol-seed-jkiss-allocation",
+        "holderId": "sol-seed-unallocated",
+        "shareClass": "convertible",
+        "shares": {
+          "value": 30000,
+          "source": "input",
+          "note": "既存FD12万株、キャップ適用・追加転換証券なしの場合の転換想定株数。新株予約権の個数や確定株数ではない。"
+        },
+        "amount": {
+          "value": 100000000,
+          "source": "input"
+        }
+      }
+    ],
+    "note": "2026-09-30計画改定。J-KISS 2.0／総額1億円／ポストマネー・キャップ5億円／ディスカウント20％。投資家別の金額・配分は未定。2028年7月のシリーズAで新規株式調達1億円以上を転換条件とする案。FDはキャップ適用時の20％を示す仮の転換株数。発行済株式へは計上しない。キャップは今回の確定評価額ではない。シード・ブリッジ累計25％以内を目標とし、STS不採択時は約5,000万円の枠から必要額・条件を再精査する。設立前のDD・投資委員会の可否と必要資料を確認する。"
   },
   {
-    id: "sx-series-b-event",
-    type: "equity_issue",
-    label: "Series B",
-    order: 5,
-    date: "2031-04-01",
-    status: "planned",
-    calculationBasis: "valuation_and_investment",
-    preMoneyValuation: input(6_000_000_000),
-    allocations: [{ id: "sx-b-allocation", holderId: "sx-series-b", shareClass: "preferred", shares: calculated(), amount: input(1_500_000_000), pricePerShare: calculated() }],
+    "id": "sx-series-a-event",
+    "date": "2028-07-01",
+    "type": "equity_issue",
+    "label": "シリーズA（金額再精査）",
+    "order": 4,
+    "status": "planned",
+    "allocations": [],
+    "calculationBasis": "manual",
+    "note": "2028年7月の払込を目標に前倒し。新規調達額・評価額・投資家配分は未定。旧資本政策6億円と旧数値計画3億円の不一致を解消するため、必要額を再精査する。1億円以上はJ-KISS転換条件の案で、シリーズAの調達目標額ではない。J-KISS転換は条件確定後に消込・株式発行を計上する。後続の持分比率はシリーズAの希薄化を含まない暫定参考。"
   },
   {
-    id: "sx-series-c-event",
-    type: "equity_issue",
-    label: "Series C",
-    order: 6,
-    date: "2033-04-01",
-    status: "planned",
-    calculationBasis: "valuation_and_investment",
-    preMoneyValuation: input(15_000_000_000),
-    allocations: [{ id: "sx-c-allocation", holderId: "sx-series-c", shareClass: "preferred", shares: calculated(), amount: input(2_000_000_000), pricePerShare: calculated() }],
+    "id": "sx-series-b-event",
+    "date": "2031-04-01",
+    "type": "equity_issue",
+    "label": "Series B",
+    "order": 5,
+    "status": "planned",
+    "newShares": {
+      "value": 46500,
+      "source": "calculated"
+    },
+    "allocations": [
+      {
+        "id": "sx-b-allocation",
+        "amount": {
+          "value": 1500000000,
+          "source": "input"
+        },
+        "shares": {
+          "value": 46500,
+          "source": "calculated"
+        },
+        "holderId": "sx-series-b",
+        "shareClass": "preferred",
+        "pricePerShare": {
+          "value": 32258.064516129034,
+          "source": "calculated"
+        }
+      }
+    ],
+    "primaryRaise": {
+      "value": 1500000000,
+      "source": "calculated"
+    },
+    "pricePerShare": {
+      "value": 32258.064516129034,
+      "source": "calculated"
+    },
+    "calculationBasis": "valuation_and_investment",
+    "preMoneyValuation": {
+      "value": 6000000000,
+      "source": "input"
+    },
+    "postMoneyValuation": {
+      "value": 7500000000,
+      "source": "calculated"
+    },
+    "note": "シリーズA以降の金額・評価額・時期は既存の長期仮説を保持した参考値。今回未精査。シリーズAの調達・転換条件決定後に再計算する。"
   },
   {
-    id: "sx-ipo-event",
-    type: "ipo",
-    label: "IPO",
-    order: 7,
-    date: "2035-04-01",
-    status: "planned",
-    calculationBasis: "valuation_and_investment",
-    preMoneyValuation: input(90_000_000_000),
-    allocations: [{ id: "sx-ipo-allocation", holderId: "sx-public", shareClass: "common", shares: calculated(), amount: input(10_000_000_000), pricePerShare: calculated() }],
+    "id": "sx-series-c-event",
+    "date": "2033-04-01",
+    "type": "equity_issue",
+    "label": "Series C",
+    "order": 6,
+    "status": "planned",
+    "newShares": {
+      "value": 31000,
+      "source": "calculated"
+    },
+    "allocations": [
+      {
+        "id": "sx-c-allocation",
+        "amount": {
+          "value": 2000000000,
+          "source": "input"
+        },
+        "shares": {
+          "value": 31000,
+          "source": "calculated"
+        },
+        "holderId": "sx-series-c",
+        "shareClass": "preferred",
+        "pricePerShare": {
+          "value": 64516.12903225807,
+          "source": "calculated"
+        }
+      }
+    ],
+    "primaryRaise": {
+      "value": 2000000000,
+      "source": "calculated"
+    },
+    "pricePerShare": {
+      "value": 64516.12903225807,
+      "source": "calculated"
+    },
+    "calculationBasis": "valuation_and_investment",
+    "preMoneyValuation": {
+      "value": 15000000000,
+      "source": "input"
+    },
+    "postMoneyValuation": {
+      "value": 17000000000,
+      "source": "calculated"
+    },
+    "note": "シリーズA以降の金額・評価額・時期は既存の長期仮説を保持した参考値。今回未精査。シリーズAの調達・転換条件決定後に再計算する。"
   },
+  {
+    "id": "sx-ipo-event",
+    "date": "2035-04-01",
+    "type": "ipo",
+    "label": "IPO",
+    "order": 7,
+    "status": "planned",
+    "newShares": {
+      "value": 29278,
+      "source": "calculated"
+    },
+    "allocations": [
+      {
+        "id": "sx-ipo-allocation",
+        "amount": {
+          "value": 10000000000,
+          "source": "input"
+        },
+        "shares": {
+          "value": 29278,
+          "source": "calculated"
+        },
+        "holderId": "sx-public",
+        "shareClass": "common",
+        "pricePerShare": {
+          "value": 341555.9772296015,
+          "source": "calculated"
+        }
+      }
+    ],
+    "primaryRaise": {
+      "value": 10000000000,
+      "source": "calculated"
+    },
+    "pricePerShare": {
+      "value": 341555.9772296015,
+      "source": "calculated"
+    },
+    "calculationBasis": "valuation_and_investment",
+    "preMoneyValuation": {
+      "value": 90000000000,
+      "source": "input"
+    },
+    "postMoneyValuation": {
+      "value": 100000000000,
+      "source": "calculated"
+    },
+    "note": "シリーズA以降の金額・評価額・時期は既存の長期仮説を保持した参考値。今回未精査。シリーズAの調達・転換条件決定後に再計算する。"
+  }
 ];
 
-export const SX_CAPITAL_PLAN_DOCUMENT = {
-  holders: SX_CAPITAL_PLAN_HOLDERS,
-  events: SX_CAPITAL_PLAN_EVENTS,
-};
+export const SX_CAPITAL_PLAN_DOCUMENT = {holders: SX_CAPITAL_PLAN_HOLDERS, events: SX_CAPITAL_PLAN_EVENTS};

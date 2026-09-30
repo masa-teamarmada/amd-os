@@ -77,7 +77,7 @@ function xrlText(target: SxXrlTarget, keys: Array<keyof SxXrlTarget> = ["trl", "
 function laneCell(phase: SxBusinessPlanPhase, laneKey: SxBusinessPlanLane) {
   const lane = phase.lanes[laneKey];
   return [
-    `費用：${lane.costYen.toLocaleString("ja-JP")}円`,
+    `費用：${lane.costYen === null ? "再精査中" : lane.costYen.toLocaleString("ja-JP") + "円"}`,
     "活動：",
     ...lane.activities.map((activity) => `・${activity}`),
     `出口条件：${lane.exitGate}`,
@@ -91,11 +91,11 @@ function phaseMatrixSheet(phases: readonly SxBusinessPlanPhase[]): Sheet {
     [c("フェーズマトリクス", 1), ...phases.map(() => c("", 1))],
     [c("開発レーン", 2), ...phaseColumns],
     [c("期間", 3), ...phases.map((phase) => c(phase.period, 4))],
-    [c("フェーズ予算（円）", 3), ...phases.map((phase) => c(phase.budgetYen, 5))],
+    [c("フェーズ予算（円）", 3), ...phases.map((phase) => c(phase.budgetYen ?? "再精査中", 5))],
     [c("調達ラウンド", 3), ...phases.map((phase) => c(phase.openingRound, 4))],
     [c("資金源", 3), ...phases.map((phase) => c(phase.fundingSource, 4))],
     [c("到達XRL", 3), ...phases.map((phase) => c(xrlText(phase.targetXrl), 4))],
-    [c("固定費バーン上限（月額・円）", 3), ...phases.map((phase) => c(phase.maxFixedBurnMonthlyYen, 5))],
+    [c("固定費バーン上限（月額・円）", 3), ...phases.map((phase) => c(phase.burnLabel ? `${phase.burnLabel} ${phase.maxFixedBurnMonthlyYen.toLocaleString("ja-JP")}円` : phase.maxFixedBurnMonthlyYen, 5))],
     ...LANE_ORDER.map((laneKey) => [c(LANE_LABELS[laneKey], 6), ...phases.map((phase) => c(laneCell(phase, laneKey), 7))]),
   ];
   return {

@@ -545,3 +545,5 @@ XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → 手動 `/v
 |---|---|
 | 2026-05-23 | 初版。戦略再構築セッションで「コックピットにも MVV を書いておかないと」とまさ確定。CockpitP00MVVSection 仕様を新設 |
 | 2026-07-20 | KUTE (p25) 連携シーズ一覧セクションを追加。`CockpitKuteSeeds.tsx` / `KuteSeedDetailModal.tsx` / `kute-seeds-scoring.ts`。詳細は [`seeds.md`](seeds.md) 参照 |
+
+2026-09-30: SOL資金計画は `spec/3-8-cockpit-current-spec.md` の「SOLの資金計画」を正本とする。数値計画先頭に15か月・4ケースの支払予算を表示。旧長期PL/CFは参考として折り畳む。資本政策working plan・フェーズ表のシードJ-KISSと2028年7月シリーズAを同期。
