@@ -824,6 +824,12 @@ function deriveEvent(event: CapitalEvent, preRoundFd: number, preRoundHoldings: 
       return derived;
     }
 
+    if (event.type === 'convertible_issue') {
+      // Issuing J-KISS/SAFE brings cash in while shares stay unissued.
+      // The cap is a conversion term, not this event's post-money valuation.
+      return { ...event, primaryRaise: materializeOutputField(event.primaryRaise, manualPrimaryRaise(event)) };
+    }
+
     if (event.type === 'convertible_conversion') {
       return {
         ...event,
@@ -843,7 +849,7 @@ function deriveEvent(event: CapitalEvent, preRoundFd: number, preRoundHoldings: 
     }
 
     // option_pool (driven by poolSize, not issued newShares), secondary,
-    // share_split, convertible_issue: left as authored.
+    // share_split: left as authored.
     return event;
   }
 

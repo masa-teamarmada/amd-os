@@ -30,6 +30,9 @@ const duplicated=structuredClone(blocks[3]);duplicated[4].planning_details_json.
 assert.throws(()=>resolveFundingPlan(duplicated),/ケース数/);
 const cap=deriveCapitalPlan({id:'sol',name:'SOL',...blocks[2]});
 const seed=cap.events.find((e:any)=>e.id==='sx-seed')!;
+assert.equal(seed.primaryRaise?.value,100_000_000);
+assert.equal(seed.newShares,undefined,'J-KISS cash must not create issued shares');
+assert.equal(seed.postMoneyValuation,undefined,'Cap is not current post-money valuation');
 assert.equal(seed.type,'convertible_issue');assert.equal(seed.conversionCap?.value,500_000_000);assert.equal(seed.conversionDiscount?.value,.2);
 assert.equal(seed.allocations.reduce((a:any,r:any)=>a+r.amount.value,0),100_000_000);
 assert.equal(seed.allocations.reduce((a:any,r:any)=>a+r.shares.value,0)/(120_000+30_000),.2);

@@ -54,7 +54,7 @@ const PRICE_TYPES = new Set(['equity_issue', 'convertible_conversion', 'ipo', 's
 const NEW_SHARES_TYPES = new Set(['incorporation', 'equity_issue', 'convertible_conversion', 'ipo']);
 // convertible_conversion never contributes new cash: converting an existing instrument
 // isn't a primary raise, so it is deliberately excluded from this set (unlike FINANCING_TYPES).
-const PRIMARY_RAISE_TYPES = new Set(['equity_issue', 'ipo']);
+const PRIMARY_RAISE_TYPES = new Set(['equity_issue', 'ipo', 'convertible_issue']);
 const AMOUNT_BEARING_TYPES = new Set(['equity_issue', 'ipo', 'secondary', 'convertible_issue']);
 
 const STATUS_LABEL: Record<string, string> = {

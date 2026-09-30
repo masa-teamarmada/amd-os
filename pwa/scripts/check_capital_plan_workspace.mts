@@ -618,6 +618,7 @@ expectIncludes(["function addHolder(name?: string) {", "onAddHolder={addHolder}"
   assert.doesNotMatch(decl, /convertible_conversion/, "PRIMARY_RAISE_TYPES must exclude convertible_conversion (converting an existing instrument is not a new cash raise)");
   assert.match(decl, /equity_issue/, "PRIMARY_RAISE_TYPES must still include equity_issue");
   assert.match(decl, /ipo/, "PRIMARY_RAISE_TYPES must still include ipo");
+  assert.match(decl, /convertible_issue/, "J-KISS issuance has a primary cash amount");
 }
 {
   const declIdx = matrixSrc.indexOf("const AMOUNT_BEARING_TYPES = new Set(");

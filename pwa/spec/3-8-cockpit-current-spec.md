@@ -509,3 +509,5 @@ PJ管理に「月次報告書」（`?tab=monthly-reports`）を常設する。�
 - 資本政策はactive working planをrevisionガード付きで改定。既存株主名・設立配分・SOを保持し、シード投資家は配分未定の一括枠。転換想定3万株はキャップ適用時のFD20％の仮試算（実際の新株予約権数ではない）。シリーズAは割当未定で `empty_equity_issue` により提出版freeze不可。後続B/C/IPOは長期仮説の参考値。確定版・実績cap tableは不変。
 - 事業計画フェーズの期間・資金源・PoC3件も同期する。シード支払予算は126,088,080円、4開発レーン配賦はnull、A予算はnullとし、未定を0円にしない。通常支出月平均4,358,782円は固定費上限と区別する。
 - DDL `ios/supabase/migrations/20260930040000_monthly_funding_plan_details.sql`、データ `pwa/scripts/migrations/410_sol_current_funding_plan_20260930.sql`。後者はレビュー時revision/document/対象15行を検査した単一transactionで、再実行をガードする。`check_sol_funding_plan.mts` が4ケースと資本条件・旧PL/CF保持を検査する。追加通知・権限変更・外部送信はない。
+
+2026-09-30 v3.145.14: `deriveEvent` はmanualの `convertible_issue` にも割当額合計から `primaryRaise` を導出し、資本政策表の新規資金行へ表示する。`newShares` とpost評価額を新しく導出しない。`convertible_conversion` の新規資金0円は維持する。
