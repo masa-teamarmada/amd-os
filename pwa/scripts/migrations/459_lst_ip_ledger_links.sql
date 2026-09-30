@@ -13,10 +13,10 @@ BEGIN
   IF EXISTS (SELECT 1 FROM project_tech_entries WHERE tech_entry_id IN ('pte_lst_ip_01','pte_lst_ip_02','pte_lst_ip_03','pte_lst_ip_04','pte_lst_ip_05')
              AND updated_at > TIMESTAMPTZ '2026-09-30 07:08:07+00')
      OR EXISTS (SELECT 1 FROM project_tech_topics WHERE tech_topic_id = 'ptt_lst_patents' AND updated_at > TIMESTAMPTZ '2026-09-30 07:08:07+00') THEN
-    RAISE EXCEPTION '457: 技術タブの特許の行が 453 の後に書き換えられている。読み直してから作り直す';
+    RAISE EXCEPTION '459: 技術タブの特許の行が 453 の後に書き換えられている。読み直してから作り直す';
   END IF;
   IF (SELECT count(*) FROM project_ip_assets WHERE project_id = 'p07') <> 28 THEN
-    RAISE EXCEPTION '457: 知財タブの台帳が28件ではない（seed_project_ip_p07_lst.py を先に流す）';
+    RAISE EXCEPTION '459: 知財タブの台帳が28件ではない（seed_project_ip_p07_lst.py を先に流す）';
   END IF;
 END $$;
 
@@ -91,7 +91,7 @@ BEGIN
   IF (SELECT count(*) FROM project_questions WHERE project_id = 'p07' AND id::text LIKE '07000000-2026-4930-8000-%') <> 39
      OR (SELECT count(*) FROM project_findings WHERE project_id = 'p07' AND id::text LIKE '07000000-2026-4930-8000-%') <> 55
      OR (SELECT count(*) FROM project_actions WHERE project_id = 'p07' AND id::text LIKE '07000000-2026-4930-8000-%') <> 24 THEN
-    RAISE EXCEPTION '457: ゴールツリーの件数が想定と違う';
+    RAISE EXCEPTION '459: ゴールツリーの件数が想定と違う';
   END IF;
 END $$;
 
