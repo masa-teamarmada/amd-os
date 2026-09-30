@@ -2821,3 +2821,112 @@ CryoX スモールスタート月150万・SX 試算表月703万）。
 デプロイ枠は当日 100/100 に達しており、`check_deploy_quota.mjs` が90超で push を止める。
 override せず枠が空くのを待って 12:20 に反映した（最初「3時30分に空く」と見立てたが、枠は1件ずつしか
 戻らず安全弁の90を下回るのが昼だったため約8時間ずれた）。
+
+---
+
+## 2026-08-29 PJコックピットに技術タブを新設し、SXとCXの技術情報を生データから入れた
+
+> この節は技術タブの**初版**の記録。当日の作業を後から書き起こしたもので、
+> 記録が抜けていた期間に後続セッションが区分タブ化・競合比較・コスト試算（燃料）まで
+> 発展させている。現行仕様は `pwa/spec/3-20-project-technology-current-spec.md` を見る。
+
+まさの依頼:「各シーズPJのコックピットに技術タブを追加してほしい。とにかく技術に関する情報を
+どんどん貯めていく想定。SXだったらシアノが何度から何度の温度帯で使えるのか、どの元素は取り込めるのか。
+CXだったら磁気冷凍と気体冷凍の違いの説明とか、kiutraとかの競合との差が分かる星取り表。
+なのでPJごとに必要なフォーマットは異なってくる」。
+
+### 設計の中心 — PJごとに実装を分けない
+
+「PJごとにフォーマットが違う」は正しいが、まさが挙げた例を並べると**形は4種類しかない**。
+
+| block_kind | 置くもの | SX | CX |
+|---|---|---|---|
+| `condition` | 使える範囲。項目 × 下限/上限/単位/条件 | 培養温度・pH・滞留時間 | REBCO細線の磁場性能・到達温度 |
+| `article` | 原理や用語の解説（`topics.body_md`） | 高熱性シアノでの排水処理 | 磁気冷凍と希釈冷凍機の違い |
+| `matrix` | 比較軸 × 相手。◎○△× + 実数値 | 既存の物理化学処理との比較 | kiutra / LEMON / Bluefors |
+| `record` | 今どこまで行っているか。日付つき | 装置・TRL・排水サンプル | TESエッチング内製化・TRL |
+
+PJごとに変わるのは並べるトピックと項目名だけなので、テーブルもコンポーネントも共通にした。
+**p25専用の規程・内規タブと同じ形にすると、PJが増えるたびに実装が増える**ので禁止事項として
+`FEATURE_REGISTRY.md` にも書いた。
+
+### 作ったもの
+
+- migration `339_project_tech_ledger.sql` — `project_tech_topics` / `project_tech_entries` の2テーブル（3ポリシーRLS）。
+  成立条件・星取り表・到達実績を同じ `entries` で持ち、形式ごとに別テーブルを作らない
+- migration `343_project_tech_needs_check.sql` — `needs_check` / `check_reason`（後述）
+- `/api/project-tech` — read はメンバー、write は admin。3クエリ並列で1往復、`Cache-Control` 明示
+- `src/lib/project-tech.ts` — 型・ラベル・`formatTechValue()`・`matrixColumns/Rows()`
+- `src/lib/project-tech-client.ts` — `reference-data-cache` 経由。`REFERENCE_DATA_ENDPOINTS` へ登録済み
+- `src/components/cockpit/CockpitTechnology.tsx`
+- `CockpitView.tsx` のタブ配線（`?tab=technology`、hover で先読み）
+- 正本: `spec/3-20-project-technology-current-spec.md`（新規）、`manual/2-3-pj-cockpit.md` の技術タブ節、
+  `design/FEATURE_REGISTRY.md`、`scripts/check_pwa_critical_ui.cjs` の回帰検査
+
+タブが15枚になった時点で、**等分グリッドだと「論点・仮説」「コスト試算」がラベルの途中で折り返した**。
+`flex flex-wrap` + `flex-1` + `whitespace-nowrap` へ変えて1行に収めた。
+
+### 値をどこから取るか — ここで2回間違えた
+
+初版（migration 340）は `project_knowledge` の断片だけを見て作り、**SXの培養条件を9項目すべて
+「未測定」、処理単価を2,500〜3,000円/m³（3月の古い事業計画値）**として入れた。まさの指摘:
+
+> これまでのMTGで何度も杉浦先生言ってるよ。だからnotionの「文字起こし」を見てと言ったの。
+> あとSXの処理単価、めちゃくちゃ高くない？ こないだちこちゃんが作ったコスト試算表見てないの？
+
+実測値は `source_cache` にあった。見る順を spec 3-20 §3.5 に恒久ルールとして書いた。
+
+| 順 | 場所 | 取れるもの |
+|---|---|---|
+| 1 | `source_cache` の `gmeet_minutes` | MTG文字起こし全文。研究者本人が数値を言っている一次情報（最長3万字超） |
+| 2 | `source_cache` の `drive` | 試算表・報告書のテキスト |
+| 3 | `project_cost_*` | 単価・原価・前提。**金額は必ずここを正本にする** |
+| 4 | `project_meeting_summaries.narrative_md` | 要約。数値は落ちていることが多い |
+| 5 | `project_knowledge` | 断片。入口には使えるが、これだけで表を埋めない |
+
+`source_cache` は本文検索が効く:
+
+```sql
+select s.item_date::date, left(s.title,40), m[1]
+from source_cache s, lateral regexp_matches(s.content_text, '(.{0,200}℃.{0,200})', 'g') m
+where s.project_id='p21' and s.source in ('gmeet_minutes','drive');
+```
+
+入れ直した結果（migration 341/342、345〜350）:
+
+- **SX** 129行。培養温度45〜70℃ / pH 7.5程度 / 二酸化炭素 0.03〜10% / 赤650nm・青440〜457nm
+  （2025-11-05 杉浦先生の文字起こし）。取り込み効率・除去速度・滞留時間（単体30分・混在24時間）。
+  対象物質を◎○△—の4段階で16行。使えなくなる条件13行（海水で細胞が死ぬ＝実験で確認、
+  光合成阻害型の農薬は構造的に不可、重金属回収とバイオ燃料生産は同時にできない）。
+  取り込みの選好5行、排液から取れる有価物11行、単価と原価の推移8行
+- **CX** 45行。到達温度 100mK（FY2025見込み）/ 20mK（次段階）/ 原理限界10mK、
+  kiutraの40台・40機関、LEMONの目標値、希釈冷凍機のヘリウム3補給による停止時間
+
+**星取り表には自社に不利な事実も入れる。** CXでは「産総研G-QuATは希釈冷凍機の振動・熱の染み出しを
+大きな課題と認識していない」「大規模化の主流は1台への量子ビット集約」を注記に置いた。
+訴求軸への反証を消すと、星取り表が営業資料になって判断に使えなくなる。
+
+### 要確認（migration 343 / 344）
+
+まさ確定:「そういう食い違いも、両方の情報とも記しておいたうえで、要確認って書いておいてほしい」。
+
+資料間で値が違うとき、**新しいほうを採って古いほうを消さない**。両方を別の行として残し、
+`needs_check` を立てて `check_reason` に「何を、誰に、いつ確かめるか」を書く。
+画面は行頭に `⚠`・薄い琥珀の背景・赤字の理由、見出しと画面上部に件数バッジ。
+`confidence = 'unverified'` の行は 344 で機械的に立てた。投入時点で SX 59件 / CX 12件。
+
+主な食い違い: 取り込み効率 30 vs 50 mg/g-DCW（必要菌体量が1.7倍変わる）、
+売上単価 500 / 600 / 1,000 円/m³、量子コンピュータの適用温度 20mK vs 数K。
+
+### 単位
+
+まさ確定: 単位は記号で書き、**「立方メートル」と綴らない**（`m³` `円/m³` `m³/h`）。spec 3-20 §3.6。
+
+### 検証
+
+`npx tsc --noEmit` / `npx eslint` / `npm run test:critical-ui` / `npm run test:reference-data-cache` を
+通し、ローカル（desktop 1440、認証cookie注入）と本番の両方で実画面を確認した。
+本番で「⚠ 要確認 62」のバッジと新トピックの表示まで確認済み。
+
+この日はVercelのデプロイキューが20分以上詰まっており、push から反映まで待たされた
+（別セッションが同日にデプロイ枠のアラートを入れている）。
