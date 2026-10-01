@@ -1,5 +1,7 @@
 # 附則（設計書変更履歴）
 
+| 2026-10-02 JST | 3-14 / reward-summary | 変更 | SOLのみ100円切上げと任意JSON加算項目を追加。元本cap・繰越・加算の恒等式、保護付き適用スクリプト、実部品表示検査を追加。共有DB列変更なし | 端数別払いを解消し既発行額を保護 | まさ・えいみ |
+
 | 2026-09-30 JST | 3-14 月初合意 | 修正 | SeasonRewardTrendでbasePayYen・carryInYen・stockYen・paymentYmを常時表示。sourceYmの支払配分と振込月を区別し、金額計算・合意hashは維持。実部品の描画テストを追加 | 発生報酬がホバー内に隠れ、繰越支払が稼働月の報酬と誤読されていたため | まさ・えいみ |
 
 | 2026-09-30 JST | 5-17 DDパッケージ・2-1 route・institution_seed_project_model §6.8 | 変更 | v3.147.0 / migration 457・458。まさ「これは正式な提出版ではなく、あくまでワークスペースの最新版を見てもらいたいだけなので、中身を変えたらちゃんと変わるようにしてほしい」「コックピット、ワークスペース、DDパッケのどこから見ても同じ内容が見えるようにしてほしい」「とある時点のバージョンを正式版として提出しなきゃいけないので、PDFとして出力できる機能」「ワークスペースに左メニューってなくない？」を受けて、DDの項目を公開の切り替え（`dd_package_items.is_published`）だけにし、公開中の項目は閲覧のたびに元データの最新をワークスペースと同じ部品（技術台帳の `TopicCard`、`CockpitFundingPlan`、読み取り専用の `CapitalPlanMatrix`、`CockpitCostModel` / `CockpitFuelCostModel`）で描く形に変えた。投資家は汎用の API を叩かず、サーバが公開中の範囲だけを読んで渡す（コスト試算は手元のキャッシュへ置いてから描く）。公開時点で固定した版（`dd_item_publications`・`dd_publish_item()`）、公開版の許可リストの写し、v3.146.2 の「載せる範囲」を外した（`dd_item_publications` は記録として残す）。資料は資料室の最新の実体を渡す（ドライブの資料は版ごとの写し）。正式版は `/dd/[slug]/print`（admin）で PDF に出力し、`dd_package_exported` に出力の記録を残す。管理はコックピット・ワークスペースの「DDパッケージ」タブ（admin、DDパッケージを持つPJだけ。表示条件は `GET /api/dd/summary`）へ移し、`/project/[id]/dd` は旧URLとしてタブへ送る。ローカルの本番ビルド + 本番DBで、DDだけの外部アカウントとして33項目を確かめた。 |

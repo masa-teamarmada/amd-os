@@ -18,7 +18,9 @@
  */
 
 import {
+  applyRewardCapsForMonth,
   buildRewardSummary,
+  isRewardPayoutRoundUpYm,
   REWARD_PAYOUT_ROUNDING_START_YM,
   REWARD_PAYOUT_ROUNDING_UNIT_YEN,
 } from "../src/lib/reward-summary.ts";
@@ -192,6 +194,46 @@ if (process.env.PEEK === "1") {
     })));
   }
 }
+
+// SOLだけ切上げ（2026-10-01）。上の旧方式検査は他PJの非変更を保証する。
+check("SOL 202609から切上げ", isRewardPayoutRoundUpYm("p21", "202609"));
+check("SOL発行済み期間は非変更", !isRewardPayoutRoundUpYm("p21", "202608"));
+check("他PJへ拡張しない", !isRewardPayoutRoundUpYm("pTEST", "202609"));
+const roundUp = (amounts: number[], cap: number, ym = "202609", reserve = new Set<string>(), extra = false) =>
+  applyRewardCapsForMonth({ members: amounts.map((basePay, i) => ({ memberId: `ID_${i}`, earnedPt: 1,
+    basePay, regularBasePay: extra ? 0 : basePay, extraBasePay: extra ? basePay : 0,
+    totalPay: basePay, bonusPt: 0, breakdown: [] })) },
+  { totalCapYen: cap, regularCapYen: extra ? 0 : cap, extraCapYen: extra ? cap : 0 }, new Map(), new Map(), {},
+  { sourceYm: ym, cycleFinalYm: "202703", roundPayoutUp: true, companyReserveMemberIds: reserve });
+for (const ym of ["202609", "202701", "202703"]) {
+  for (const extra of [false, true]) {
+    for (const amount of [0, 1, 51, 99, 100, 101, 4651, 4700]) {
+      const result = roundUp([amount], 10000, ym, new Set(), extra);
+      const m = result.members[0];
+      check(`切上げ清算 ${ym} ${extra} ${amount}`, (m?.totalPay || 0) === Math.ceil(amount / 100) * 100, m);
+      check("清算後の端数残ゼロ", (m?.stockYen || 0) === 0, m);
+      check("切上げ加算の恒等式", amount + (m?.roundingTopUpYen || 0) === (m?.totalPay || 0), m);
+      check("加算の集計", result.roundingTopUpYen === (m?.roundingTopUpYen || 0), result.roundingTopUpYen);
+    }
+  }
+}
+const zeroCap = roundUp([4651], 0).members[0];
+check("支払枠0では払わず元本繰越", zeroCap.totalPay === 0 && zeroCap.stockYen === 4651 && zeroCap.roundingTopUpYen === 0, zeroCap);
+const partial = roundUp([4651], 4001).members[0];
+check("不足元本と切上げ加算を分離", partial.totalPay === 4100 && partial.stockYen === 650 && partial.roundingTopUpYen === 99, partial);
+const multiple = roundUp([5001, 5002, 5003], 10001, "202609", new Set(["ID_1"]));
+check("期末不足の自動補填はしない", (multiple.finalCapTopUpYen || 0) === 0);
+check("元の支払枠と加算を照合", multiple.totalPaySum! + multiple.companyReserveYen! === 10001 + multiple.roundingTopUpYen!, multiple);
+for (const m of multiple.members) {
+  check("元本+加算=支払+未払", m.grossDueYen! + (m.roundingTopUpYen || 0) === m.totalPay + (m.companyReserveYen || 0) + m.stockYen!, m);
+  check("現金だけ100円単位", m.payoutExcluded || m.totalPay % 100 === 0, m);
+  check("加算は最大99円/財布", (m.roundingTopUpYen || 0) >= 0 && (m.roundingTopUpYen || 0) <= 99, m);
+}
+const solBillings = billingsFor("202612", ROOMY_CAP);
+const sol = buildRewardSummary({ ym: "202612", milestones: MILESTONES, progress: [], responsibilities: RESPONSIBILITIES,
+  memberMap: MEMBER_MAP, billing: { ...solBillings.get("202612")!, project_id: "p21" }, billingsByYm: solBillings,
+  planCycle: PLAN_CYCLE, project: { ...PROJECT, project_id: "p21" } });
+check("本体からSOL切上げへ接続", sol?.members.every(m => m.totalPay % 100 === 0 && m.stockYen === 0 && (m.roundingTopUpYen || 0) > 0) === true, sol);
 
 if (failures > 0) {
   console.error(`\nreward payout rounding: ${failures} 件失敗`);

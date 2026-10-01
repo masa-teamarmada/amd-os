@@ -3818,7 +3818,9 @@ expectIncludes("src/lib/reward-summary.ts", [
   "export const REWARD_PAYOUT_ROUNDING_UNIT_YEN = 100;",
   'export const REWARD_PAYOUT_ROUNDING_START_YM = "202609";',
   "export function isRewardPayoutRoundingYm(",
-  "const roundPayoutThisYm = isRewardPayoutRoundingYm(sourceYm) && !isCycleFinalYm;",
+  "const roundPayoutThisYm = isRewardPayoutRoundingYm(sourceYm) && (options.roundPayoutUp || !isCycleFinalYm);",
+  "export function isRewardPayoutRoundUpYm(",
+  'return projectId === "p21" && isRewardPayoutRoundingYm(ym);',
   "shouldRoundPayout",
 ]);
 // 管理側は月初合意ページから、メンバー×PJ ごとに本人が見ている画面を開ける。

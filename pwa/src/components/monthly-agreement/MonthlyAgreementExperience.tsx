@@ -1573,6 +1573,7 @@ export function SeasonRewardTrend({ project, ym, compact = false }: { project: M
       accrualYen: entry?.basePayYen ?? 0,
       stockYen: entry?.stockYen ?? 0,
       carryInYen: entry?.carryInYen ?? 0,
+      roundingTopUpYen: entry?.roundingTopUpYen ?? 0,
       paymentYm: entry?.paymentYm ?? null,
       isCurrent: month === ym,
       isPast: month < ym,
@@ -1583,6 +1584,7 @@ export function SeasonRewardTrend({ project, ym, compact = false }: { project: M
   const maxYen = Math.max(1, ...cells.map((cell) => cell.payYen));
   const seasonTotalYen = cells.reduce((sum, cell) => sum + cell.payYen, 0);
   const accrualTotalYen = cells.reduce((sum, cell) => sum + cell.accrualYen, 0);
+  const roundingTotalYen = cells.reduce((sum, cell) => sum + cell.roundingTopUpYen, 0);
   const paidTotalYen = cells.filter((cell) => cell.isPaid).reduce((sum, cell) => sum + cell.payYen, 0);
   const remainingYen = Math.max(0, seasonTotalYen - paidTotalYen);
 
@@ -1706,8 +1708,9 @@ export function SeasonRewardTrend({ project, ym, compact = false }: { project: M
           {([
             { key: "accrualYen", label: "発生した報酬", hint: "その月の仕事の分" },
             { key: "carryInYen", label: "前月から繰越", hint: "以前の月の報酬" },
+            { key: "roundingTopUpYen", label: "切り上げ加算", hint: "100円単位への加算" },
             { key: "stockYen", label: "翌月へ繰越", hint: "まだ支払に回らない額" },
-          ] as const).map((row) => (
+          ] as const).filter((row) => row.key !== "roundingTopUpYen" || roundingTotalYen > 0).map((row) => (
             <div key={row.key} data-testid={`season-reward-${row.key}`} className="grid border-b border-[#e5e5e7]" style={gridTemplate}>
               <div className="sticky left-0 z-10 border-r border-[#e5e5e7] bg-white px-3 py-2">
                 <p className="text-[12px] font-semibold text-[#1d1d1f]">{row.label}</p>
@@ -1774,6 +1777,7 @@ export function SeasonRewardTrend({ project, ym, compact = false }: { project: M
         発生した報酬は、支払配分額が0円の月も計上されます。前月からの繰越と今月の発生額のうち、支払に回らない分を翌月へ繰り越します。繰越残額は月ごとの残高なので、足し合わせません。
       </p>
       <p className="mt-1 text-[12px] leading-[18px] text-[#6e6e73]">
+        {roundingTotalYen > 0 && <>支払配分額には100円単位への切り上げ加算（合計{formatYen(roundingTotalYen)}）を含みます。加算分は翌月の報酬から差し引きません。 </>}
         金額は税抜・現時点の計算で、将来分は見込みです。緑は支払確認済み、濃い青は選択中の月です。振込予定月は支払条件に基づく予定で、入金実績日ではありません。下の帯はMS全体の計画期間で、本人の稼働・参画期間とは異なる場合があります。「—」は記録または支払予定がない欄です。狭い画面では表を横にスクロールできます。
       </p>
     </div>

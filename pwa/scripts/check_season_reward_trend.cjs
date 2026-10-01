@@ -37,11 +37,23 @@ assert.equal(JSON.stringify(project),before,'Rendering must not mutate reward da
 assert.ok(render({...project,payoutSchedule:project.payoutSchedule.slice(1)}).includes('—'));
 assert.ok(render({...project,payoutSchedule:[{...project.payoutSchedule[2],isActualPaid:true}]}).includes('bg-emerald-500'));
 assert.equal(render({...project,seasonStartYm:null,seasonEndYm:null,payoutSchedule:[]}), '');
+const ceilPay = [0,0,87185,87378,87727,92300,80000,67200,49500,4700,0,0];
+const topUp = [0,0,0,0,0,70,72,35,33,39,0,0];
+let roundedStock = 0;
+const rounded = {...project, payoutSchedule: project.payoutSchedule.map((entry, i) => {
+  const carryInYen = roundedStock;
+  roundedStock += accrual[i] + topUp[i] - ceilPay[i];
+  return {...entry, totalPayYen:ceilPay[i], carryInYen, stockYen:roundedStock, roundingTopUpYen:topUp[i]};
+})};
+const roundedHtml = render(rounded);
+for(const text of ['切り上げ加算','¥249','¥4,700','¥555,990','翌月の報酬から差し引きません']) assert.ok(roundedHtml.includes(text),text);
+assert.ok(!html.includes('切り上げ加算'),'旧方式に加算欄を出さない');
+assert.equal(roundedStock, 0);
 console.log('PASS season reward accrual / payout / carry / payment month / missing / paid / no mutation');
 if(process.argv.includes('--serve')) (async()=>{
   const {compile}=require('@tailwindcss/node');
   const compiler=await compile('@import "tailwindcss";', {base:path.resolve(__dirname,'..'),onDependency:()=>{}});
   const css=compiler.build(source.match(/[^\s<>"'`{}]+/g)||[]);
-  const document=`<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>報酬表示・検証用</title><style>${css}body{font-family:Arial,"Hiragino Sans",sans-serif;padding:16px}main{max-width:1280px;margin:auto}</style><main><p>検証用データ・本番の支払情報は変更しません</p>${html}</main></html>`;
+  const document=`<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>報酬表示・検証用</title><style>${css}body{font-family:Arial,"Hiragino Sans",sans-serif;padding:16px}main{max-width:1280px;margin:auto}</style><main><p>検証用データ・本番の支払情報は変更しません</p>${roundedHtml}</main></html>`;
   require('node:http').createServer((req,res)=>{res.setHeader('Content-Type','text/html; charset=utf-8');res.end(document)}).listen(4319,'127.0.0.1',()=>console.log('Fixture http://127.0.0.1:4319'));
 })();

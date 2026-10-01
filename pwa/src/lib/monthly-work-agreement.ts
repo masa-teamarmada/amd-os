@@ -359,8 +359,11 @@ function payoutScheduleEntryFromCycle(
   const isActualPaid = Boolean(snapshotTotalPayYen != null && rewardCycleHasVerifiedPaidEvidence(cycle));
   const isUnverifiedPaid = Boolean(cycle.reward_paid_at && !isActualPaid);
   const totalPayYen = snapshotTotalPayYen ?? cachedTotalPayYen;
+  const roundingTopUpYen = snapshotTotalPayYen == null || snapshotTotalPayYen === cachedTotalPayYen
+    ? yenFromRecord(rewardMember, ["roundingTopUpYen"]) ?? 0
+    : 0;
   const totalPayTaxIncludedYen = taxIncludedYen(totalPayYen);
-  const stockYen = snapshotTotalPayYen == null ? cachedStockYen : Math.max(0, grossDueYen - totalPayYen);
+  const stockYen = snapshotTotalPayYen == null ? cachedStockYen : Math.max(0, grossDueYen + roundingTopUpYen - totalPayYen);
   if (basePayYen <= 0 && carryInYen <= 0 && grossDueYen <= 0 && totalPayYen <= 0 && stockYen <= 0) return null;
   const sourceYm = cleanYm(cycle.ym) ?? currentYm;
   const amountSource: MonthlyWorkAgreementPayoutScheduleEntry["amountSource"] =
@@ -375,6 +378,7 @@ function payoutScheduleEntryFromCycle(
             : "reward_cache";
   return {
     sourceYm,
+    roundingTopUpYen,
     paymentYm: effectiveRewardPaymentYmForCycle(cycle, project, sourceYm),
     status: typeof cycle.status === "string" ? cycle.status : null,
     basePayYen,

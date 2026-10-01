@@ -4,6 +4,16 @@
 
 ## Current Truth
 
+### SOLの端数処理と月別表示（2026-10-02）
+
+- `reward-summary.ts:isRewardPayoutRoundUpYm(projectId, ym)` はp21かつ202609以降だけtrue。他PJと202608以前の計算は変更しない。
+- `allocateCap` は元本のcap按分を1円単位で完了し、現金配分だけ100円単位へ切上げ。非現金配賦は丸めない。次のメンバーに使う `remainingCap` は切上げ前の配分を引く。通常枠・別財布ごとに `roundingTopUpYen=paid-allocated` を記録し、元本は `stock=grossDue-allocated` で保存する。加算による翌月相殺・負の繰越は作らない。0円capは元本全額繰越、最終月でも不足元本の自動上乗せは禁止。
+- RewardMember/RewardSummaryに任意JSON項目 `roundingTopUpYen` / `regularRoundingTopUpYen` / `extraRoundingTopUpYen` を追加。`totalPay`、`regularPaidYen`、`extraPaidYen`、`totalPaySum` は加算込みの現金支払額。`basePay`、pt、元本cap、非現金配賦の理論は変更しない。DB列追加なし。
+- `MonthlyWorkAgreementPayoutScheduleEntry.roundingTopUpYen` を読み取り表示へ投影。保存済み支払額がキャッシュと一致する場合も加算を含む恒等式で残高を計算する。不一致ならキャッシュ由来の加算を保存支払へ流用しない。terms hashへ追加しない。
+- `SeasonRewardTrend` は加算のあるシーズンだけ「切り上げ加算」の1行を既存月軸へ追加し、説明文へ合計を表示。発生報酬とは別。スマホは既存の表内横スクロール・固定行見出しを維持。
+- 適用スクリプト `scripts/apply_sol_payout_round_up_20261001.mts` は既定でGETのみ。202609〜202703の7行に限定し、既発行通知、保存済み支払、保護印があれば停止。pt/発生額の不変・過去月支払不変・清算後ゼロ・恒等式を検証し、本番SHA一致後に変更前後をbilling_logへ保存、updated_at比較つき限定更新、再読込検証を行う。通知・再発行・振込は行わない。
+- 回帰検査: `test:reward-payout-rounding`（通常/別財布/0円/100円境界/最終月/他PJ不変）、`check_season_reward_trend.cjs`（実部品の加算表示・旧方式非表示）。BZM/modelは支払実務の端数処理のため変更対象外。
+
 | item | contract |
 |---|---|
 | member route | `/monthly-agreement?ym=YYYYMM` |

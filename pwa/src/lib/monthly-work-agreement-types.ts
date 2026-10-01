@@ -27,6 +27,7 @@ export interface MonthlyWorkAgreementMilestone {
 }
 
 export interface MonthlyWorkAgreementPayoutScheduleEntry {
+  roundingTopUpYen?: number;
   sourceYm: string;
   paymentYm: string;
   status: string | null;

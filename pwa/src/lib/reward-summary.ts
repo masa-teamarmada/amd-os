@@ -26,6 +26,7 @@ const ACTIVE_PLAN_STATUSES = ["active", "confirmed", "fixed", "draft"];
 const REWARD_SUMMARY_VERSION = "server_v5_planned_share_cap_carry_no_final_topup";
 const SX_TASK_REWARD_SUMMARY_VERSION = "server_v6_sx_task_acceptance_cap_carry";
 function rewardSummaryVersion(projectId: string, ym: string): string {
+  if (isRewardPayoutRoundUpYm(projectId, ym)) return "server_v7_sol_payout_round_up";
   return isTaskPointPilot(projectId, ym) ? SX_TASK_REWARD_SUMMARY_VERSION : REWARD_SUMMARY_VERSION;
 }
 // 2026-07 以降がポイント制の対象。旧制度で合意済みの月を新制度差額として精算しない。
@@ -53,6 +54,10 @@ export interface RewardBreakdown {
 }
 
 export interface RewardMember {
+  /** 100円単位の切り上げ加算。獲得報酬や翌月債務から控除しない。 */
+  roundingTopUpYen?: number;
+  regularRoundingTopUpYen?: number;
+  extraRoundingTopUpYen?: number;
   memberId: string;
   memberName?: string;
   earnedPt: number;
@@ -93,6 +98,9 @@ export interface RewardMember {
 }
 
 export interface RewardSummary {
+  roundingTopUpYen?: number;
+  regularRoundingTopUpYen?: number;
+  extraRoundingTopUpYen?: number;
   ptUnit?: number;
   totalPaySum?: number;
   totalGrossDueYen?: number;
@@ -839,6 +847,7 @@ type CapAllocationInput = {
 };
 
 type CapAllocation = {
+  roundingTopUpYen?: number;
   basePay: number;
   carryInYen: number;
   grossDueYen: number;
@@ -847,7 +856,7 @@ type CapAllocation = {
 };
 
 /**
- * 現金支払額の丸め単位 (円)。100円未満は切り捨てる。
+ * 現金支払額の丸め単位 (円)。SOLは2026-10-01の決定で切上げ（下記判定）。他PJは従来の切捨て。
  *
  * まさ確定 2026-08-28「報酬額が1円単位になっていて細かすぎる。9,009円とかになっていて、
  * お互いに面倒になってる。100円未満は切り捨てにしようよ」。
@@ -871,6 +880,11 @@ export function isRewardPayoutRoundingYm(ym: string): boolean {
   return /^\d{6}$/.test(ym) && ym >= REWARD_PAYOUT_ROUNDING_START_YM;
 }
 
+/** 2026-10-01 まさ確定。今回の変更対象はSOL。既発行分（202608以前）は維持する。 */
+export function isRewardPayoutRoundUpYm(projectId: string, ym: string): boolean {
+  return projectId === "p21" && isRewardPayoutRoundingYm(ym);
+}
+
 function floorToPayoutUnit(yen: number): number {
   if (yen <= 0) return 0;
   return Math.floor(yen / REWARD_PAYOUT_ROUNDING_UNIT_YEN) * REWARD_PAYOUT_ROUNDING_UNIT_YEN;
@@ -886,10 +900,24 @@ function allocateCap(
      * 切り捨てた端数は `stockYen` に残り、翌月の carryIn として戻る。
      */
     shouldRoundPayout?: (memberId: string) => boolean;
+    roundUp?: boolean;
   }
 ): Map<string, CapAllocation> {
   const roundPayout = (memberId: string, yen: number) =>
-    options.shouldRoundPayout?.(memberId) ? floorToPayoutUnit(yen) : yen;
+    options.shouldRoundPayout?.(memberId)
+      ? options.roundUp
+        ? Math.ceil(yen / REWARD_PAYOUT_ROUNDING_UNIT_YEN) * REWARD_PAYOUT_ROUNDING_UNIT_YEN
+        : floorToPayoutUnit(yen)
+      : yen;
+  // 切上げ分は会社負担の加算。元のcap配分・非現金配賦・翌月元本を減らさない。
+  const allocation = (item: { basePay: number; carryInYen: number; grossDueYen: number }, rawPaidYen: number, paidYen: number): CapAllocation => ({
+    basePay: item.basePay,
+    carryInYen: item.carryInYen,
+    grossDueYen: item.grossDueYen,
+    paidYen,
+    stockYen: Math.max(0, item.grossDueYen - (options.roundUp ? rawPaidYen : paidYen)),
+    ...(options.roundUp ? { roundingTopUpYen: paidYen - rawPaidYen } : {}),
+  });
   const items = inputs
     .map((item) => ({
       memberId: item.memberId,
@@ -909,13 +937,7 @@ function allocateCap(
       const paidYen = options.payAllWhenCapMissing
         ? roundPayout(item.memberId, item.grossDueYen)
         : 0;
-      map.set(item.memberId, {
-        basePay: item.basePay,
-        carryInYen: item.carryInYen,
-        grossDueYen: item.grossDueYen,
-        paidYen,
-        stockYen: Math.max(0, item.grossDueYen - paidYen),
-      });
+      map.set(item.memberId, allocation(item, options.payAllWhenCapMissing ? item.grossDueYen : 0, paidYen));
     }
     return map;
   }
@@ -923,13 +945,7 @@ function allocateCap(
   if (totalGrossDue <= cap) {
     for (const item of items) {
       const paidYen = roundPayout(item.memberId, item.grossDueYen);
-      map.set(item.memberId, {
-        basePay: item.basePay,
-        carryInYen: item.carryInYen,
-        grossDueYen: item.grossDueYen,
-        paidYen,
-        stockYen: Math.max(0, item.grossDueYen - paidYen),
-      });
+      map.set(item.memberId, allocation(item, item.grossDueYen, paidYen));
     }
     return map;
   }
@@ -940,17 +956,11 @@ function allocateCap(
     const isLast = index === items.length - 1;
     const proportional = remainingGross > 0 ? Math.round((remainingCap * item.grossDueYen) / remainingGross) : 0;
     const rawPaidYen = Math.min(item.grossDueYen, Math.max(0, isLast ? remainingCap : proportional));
-    // 切り捨てた端数の cap は使わずに残す。翌月の未使用cap繰越と stock 返済で回収する
+    // SOLの切上げ加算はcap元本と別。他PJは従来どおり切捨て後の支払額を差し引く。
     const paidYen = roundPayout(item.memberId, rawPaidYen);
-    remainingCap -= paidYen;
+    remainingCap -= options.roundUp ? rawPaidYen : paidYen;
     remainingGross -= item.grossDueYen;
-    map.set(item.memberId, {
-      basePay: item.basePay,
-      carryInYen: item.carryInYen,
-      grossDueYen: item.grossDueYen,
-      paidYen,
-      stockYen: Math.max(0, item.grossDueYen - paidYen),
-    });
+    map.set(item.memberId, allocation(item, rawPaidYen, paidYen));
   });
   return map;
 }
@@ -994,6 +1004,8 @@ export function applyRewardCapsForMonth(
     sourceYm?: string;
     /** plan cycle の最終月。この月だけ切り捨てを外し、未払残 0 で閉じられるようにする */
     cycleFinalYm?: string | null;
+    /** SOLの100円切上げ。元本配分とは別の会社負担加算として記録する。 */
+    roundPayoutUp?: boolean;
   } = {}
 ): RewardSummary {
   const companyReserveMemberIds = options.companyReserveMemberIds ?? new Set<string>();
@@ -1084,11 +1096,12 @@ export function applyRewardCapsForMonth(
   const extraFinalCapTopUpYen = 0;
 
   // 現金支払は100円単位へ切り捨てる (202609 稼働分〜)。端数は stock に残して翌月へ回す。
-  // plan cycle の最終月だけ切り捨てを外す。シーズン終了時に支払対象メンバーの未払残を
+  // 他PJは最終月だけ切捨てを外す。SOLの切上げは最終月にも適用する。
+  // シーズン終了時に支払対象メンバーの未払残を
   // 0 で閉じる要件 (まさ確定 2026-07-03) を、端数で崩さないため。
   const sourceYm = options.sourceYm ?? "";
   const isCycleFinalYm = Boolean(options.cycleFinalYm) && options.cycleFinalYm === sourceYm;
-  const roundPayoutThisYm = isRewardPayoutRoundingYm(sourceYm) && !isCycleFinalYm;
+  const roundPayoutThisYm = isRewardPayoutRoundingYm(sourceYm) && (options.roundPayoutUp || !isCycleFinalYm);
   // 支払対象外メンバーの配賦は現金として出ていかないので丸めない
   const shouldRoundPayout = (memberId: string) =>
     roundPayoutThisYm && !companyReserveMemberIds.has(memberId);
@@ -1096,14 +1109,16 @@ export function applyRewardCapsForMonth(
   const regularAllocations = allocateCap(regularInputs, effectiveRegularCapYen, {
     payAllWhenCapMissing: false,
     shouldRoundPayout,
+    roundUp: options.roundPayoutUp,
   });
   const extraAllocations = allocateCap(extraInputs, effectiveExtraCapYen, {
     payAllWhenCapMissing: false,
     shouldRoundPayout,
+    roundUp: options.roundPayoutUp,
   });
 
   const paidMembers = Array.from(memberIds)
-    .map((memberId) => {
+    .map((memberId): RewardMember => {
       const member = memberById.get(memberId);
       const baseInfo = baseByMember.get(memberId) ?? {
         regularBasePay: 0,
@@ -1225,7 +1240,7 @@ export function applyRewardCapsForMonth(
         totalPay,
         carryInYen,
         grossDueYen,
-        cappedFrom: grossDueYen > totalPay ? grossDueYen : undefined,
+        cappedFrom: stockYen > 0 ? grossDueYen : undefined,
         deferredYen: stockYen,
         stockYen,
         regularBasePay: regular.basePay,
@@ -1238,6 +1253,11 @@ export function applyRewardCapsForMonth(
         extraStockYen: extra.stockYen,
         regularCarryInYen: regular.carryInYen,
         extraCarryInYen: extra.carryInYen,
+        ...(options.roundPayoutUp ? {
+          roundingTopUpYen: (regular.roundingTopUpYen || 0) + (extra.roundingTopUpYen || 0),
+          regularRoundingTopUpYen: regular.roundingTopUpYen || 0,
+          extraRoundingTopUpYen: extra.roundingTopUpYen || 0,
+        } : {}),
         ...liabilityFields,
       };
     })
@@ -1310,6 +1330,11 @@ export function applyRewardCapsForMonth(
     extraTotalGrossDueYen,
     regularCarryOverYen,
     extraCarryOverYen,
+    ...(options.roundPayoutUp ? {
+      roundingTopUpYen: paidMembers.reduce((sum, member) => sum + (member.roundingTopUpYen || 0), 0),
+      regularRoundingTopUpYen: paidMembers.reduce((sum, member) => sum + (member.regularRoundingTopUpYen || 0), 0),
+      extraRoundingTopUpYen: paidMembers.reduce((sum, member) => sum + (member.extraRoundingTopUpYen || 0), 0),
+    } : {}),
   };
 }
 
@@ -1572,6 +1597,7 @@ export function buildRewardSummary({
       extraLiabilityOffsetsByMember: extraLiabilityOffsets,
       sourceYm: month,
       cycleFinalYm: planCycle?.period_end_ym ?? null,
+      roundPayoutUp: isRewardPayoutRoundUpYm(billing.project_id, month),
     });
     regularUnusedCapCarryYen = Math.max(0, Math.round(capped.regularUnusedCapCarryOutYen ?? 0));
     extraUnusedCapCarryYen = baseCaps.extraCapYen == null

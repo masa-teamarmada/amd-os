@@ -1,5 +1,7 @@
 # DESIGN.md — AMD OS 全画面設計の正本
 
+2026-10-02: SOLの202609以降の未発行報酬を100円切上げへ変更。PWAのシーズン月別表に「切り上げ加算」を表示。共有報酬JSONの `totalPay` は加算込み、`roundingTopUpYen` は会社負担加算、`stockYen` は元本未払。獲得ptと発生報酬は維持。iOS/macOS/Androidの独自計算・加算表示は未移植。DB列追加なし。詳細は `pwa/spec/3-14` と `pwa/manual/7-1`。
+
 2026-09-30: PWAに投資家・金融機関向けの「DDパッケージ」を追加した（同日、公開した項目はワークスペースの最新をそのまま見せる形に変え、管理はコックピット・ワークスペースの「DDパッケージ」タブへ移した。正式版は PDF で出力する）。外部の閲覧者の面 `/dd`・`/dd/[slug]`・`/dd/[slug]/items/[itemId]`（添付 `/file`）と、AMD admin 用の管理画面 `/project/[projectId]/dd`・下書きプレビュー `/project/[projectId]/dd/preview/[itemId]`、admin メニュー「組織・権限」→「DDパッケージ」、`/admin/access` の DD 閲覧権限の一覧。権限は新しい表 `dd_package_grants`（ワークスペースの所属とは独立）、外部に見えるのは追記のみの公開版 `dd_item_publications` だけ（`pwa/spec/5-17-dd-package-current-spec.md`）。Swift版（iOS/macOS）は外部アカウントの表・ログイン処理を使っておらず影響なし。ネイティブ画面は未移植（投資家向けの面はブラウザで開く前提）。
 
 2026-09-23: 同じSupabaseプロジェクト内に、別アプリ `l2m` の共有ボス予定用の独立した表・関数・通知ジョブを追加した。AMD OSの画面・認証・既存データ契約には接続しない。`l2m` のユーザー名、4桁認証、承認済みメンバーだけが読める予定、記録者名つき討伐履歴は `l2m` リポジトリの `BOSS_APP_DESIGN.md` が仕様の正本。DB実体の履歴はこのリポジトリの `ios/supabase/migrations/` に置く。
