@@ -21,6 +21,7 @@ import {
   applyRewardCapsForMonth,
   buildRewardSummary,
   isRewardPayoutRoundUpYm,
+  isSmallBalanceSettlementYm,
   REWARD_PAYOUT_ROUNDING_START_YM,
   REWARD_PAYOUT_ROUNDING_UNIT_YEN,
 } from "../src/lib/reward-summary.ts";
@@ -234,6 +235,37 @@ const sol = buildRewardSummary({ ym: "202612", milestones: MILESTONES, progress:
   memberMap: MEMBER_MAP, billing: { ...solBillings.get("202612")!, project_id: "p21" }, billingsByYm: solBillings,
   planCycle: PLAN_CYCLE, project: { ...PROJECT, project_id: "p21" } });
 check("本体からSOL切上げへ接続", sol?.members.every(m => m.totalPay % 100 === 0 && m.stockYen === 0 && (m.roundingTopUpYen || 0) > 0) === true, sol);
+
+// capで少額の支払だけを翌月へ残さず、当月の支払にまとめる。
+check("SOL202610から少額清算", isSmallBalanceSettlementYm("p21", "202610"));
+check("9月以前を変えない", !isSmallBalanceSettlementYm("p21", "202609"));
+check("他PJへ勝手に拡張しない", !isSmallBalanceSettlementYm("pTEST", "202610"));
+function settle(regular: number, extra: number, regularCap: number, extraCap: number, roundPayoutUp = true, reserve = false) {
+  return applyRewardCapsForMonth({ members: [{ memberId: "A", earnedPt: 1, basePay: regular + extra,
+    regularBasePay: regular, extraBasePay: extra, totalPay: regular + extra, bonusPt: 0, breakdown: [] }] },
+    { totalCapYen: regularCap + extraCap, regularCapYen: regularCap, extraCapYen: extraCap }, new Map(), new Map(), {},
+    { sourceYm: "202612", settleSmallBalance: true, roundPayoutUp, companyReserveMemberIds: new Set(reserve ? ["A"] : []) });
+}
+for (const residual of [1, 99, 100, 4651, 10000, 10001]) {
+  const r = settle(50000 + residual, 0, 50000, 0);
+  const m = r.members[0];
+  check(`少額残高の境界 ${residual}`, residual <= 10000
+    ? m.stockYen === 0 && m.totalPay === Math.ceil((50000 + residual) / 100) * 100 && m.smallBalanceSettlementYen === residual
+    : m.stockYen === residual && m.totalPay === 50000 && m.smallBalanceSettlementYen === 0, m);
+  check("少額清算の恒等式", m.grossDueYen! + (m.roundingTopUpYen || 0) === m.totalPay + m.stockYen!, m);
+  check("少額清算でもcap正本は変更しない", r.capBudgetYen === 50000 && r.finalCapTopUpYen === 0, r);
+}
+check("通常と別財布の合算で判定", settle(25000, 25000, 19000, 19000).members[0].stockYen === 12000);
+check("二財布の合計1万円は清算", settle(25000, 25000, 20000, 20000).members[0].stockYen === 0);
+check("支払ゼロから新しい振込を作らない", settle(5000, 0, 0, 0).members[0].totalPay === 0);
+check("別財布の積立を解除しない", settle(50000, 5000, 50000, 0).members[0].stockYen === 5000);
+check("非現金配賦を前倒ししない", settle(55000, 0, 50000, 0, true, true).members[0].stockYen === 5000);
+check("丸め端数だけでは前倒ししない", settle(50051, 0, 60000, 0, false).members[0].stockYen === 51);
+check("切捨てPJも清算時に債務を残さない", settle(55051, 0, 50000, 0, false).members[0].totalPay === 55051);
+const together = applyRewardCapsForMonth({ members: [55000, 100000].map((basePay, i) => ({ memberId: `M${i}`, earnedPt: 1,
+  basePay, totalPay: basePay, bonusPt: 0, breakdown: [] })) }, { totalCapYen: 140000, regularCapYen: 140000, extraCapYen: 0 },
+  new Map(), new Map(), {}, { sourceYm: "202612", roundPayoutUp: true, settleSmallBalance: true });
+check("複数メンバーの清算で取り合わない", together.members.every(m => m.stockYen === 0) && together.totalPaySum === 155000, together);
 
 if (failures > 0) {
   console.error(`\nreward payout rounding: ${failures} 件失敗`);

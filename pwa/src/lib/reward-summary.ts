@@ -26,6 +26,7 @@ const ACTIVE_PLAN_STATUSES = ["active", "confirmed", "fixed", "draft"];
 const REWARD_SUMMARY_VERSION = "server_v5_planned_share_cap_carry_no_final_topup";
 const SX_TASK_REWARD_SUMMARY_VERSION = "server_v6_sx_task_acceptance_cap_carry";
 function rewardSummaryVersion(projectId: string, ym: string): string {
+  if (isSmallBalanceSettlementYm(projectId, ym)) return "server_v8_small_balance_settlement";
   if (isRewardPayoutRoundUpYm(projectId, ym)) return "server_v7_sol_payout_round_up";
   return isTaskPointPilot(projectId, ym) ? SX_TASK_REWARD_SUMMARY_VERSION : REWARD_SUMMARY_VERSION;
 }
@@ -54,6 +55,8 @@ export interface RewardBreakdown {
 }
 
 export interface RewardMember {
+  /** capで翌月へ残る1万円以下の元本を、当月へまとめた額（報酬の増額ではない）。 */
+  smallBalanceSettlementYen?: number;
   /** 100円単位の切り上げ加算。獲得報酬や翌月債務から控除しない。 */
   roundingTopUpYen?: number;
   regularRoundingTopUpYen?: number;
@@ -98,6 +101,7 @@ export interface RewardMember {
 }
 
 export interface RewardSummary {
+  smallBalanceSettlementYen?: number;
   roundingTopUpYen?: number;
   regularRoundingTopUpYen?: number;
   extraRoundingTopUpYen?: number;
@@ -885,6 +889,11 @@ export function isRewardPayoutRoundUpYm(projectId: string, ym: string): boolean 
   return projectId === "p21" && isRewardPayoutRoundingYm(ym);
 }
 
+/** 2026-10-02決定。SOLの未確定分から少額残高を当月にまとめる。 */
+export function isSmallBalanceSettlementYm(projectId: string, ym: string): boolean {
+  return projectId === "p21" && /^\d{6}$/.test(ym) && ym >= "202610";
+}
+
 function floorToPayoutUnit(yen: number): number {
   if (yen <= 0) return 0;
   return Math.floor(yen / REWARD_PAYOUT_ROUNDING_UNIT_YEN) * REWARD_PAYOUT_ROUNDING_UNIT_YEN;
@@ -1006,6 +1015,8 @@ export function applyRewardCapsForMonth(
     cycleFinalYm?: string | null;
     /** SOLの100円切上げ。元本配分とは別の会社負担加算として記録する。 */
     roundPayoutUp?: boolean;
+    /** 通常・別財布を合算した少額残高を、当月の支払へまとめる。 */
+    settleSmallBalance?: boolean;
   } = {}
 ): RewardSummary {
   const companyReserveMemberIds = options.companyReserveMemberIds ?? new Set<string>();
@@ -1116,6 +1127,33 @@ export function applyRewardCapsForMonth(
     shouldRoundPayout,
     roundUp: options.roundPayoutUp,
   });
+
+  const smallSettlements = new Map<string, number>();
+  if (options.settleSmallBalance) {
+    for (const memberId of memberIds) {
+      if (companyReserveMemberIds.has(memberId) || payoutExcludedMemberIds.has(memberId)) continue;
+      const regular = regularAllocations.get(memberId) ?? emptyAllocation();
+      const extra = extraAllocations.get(memberId) ?? emptyAllocation();
+      const residual = regular.stockYen + extra.stockYen;
+      // 支払ゼロ月に新しい振込を作らず、別財布の支払枠ゼロ（積立）も崩さない。
+      if (residual <= 0 || residual > 10_000 || regular.paidYen + extra.paidYen <= 0) continue;
+      if ((regular.stockYen > 0 && effectiveRegularCapYen <= 0) || (extra.stockYen > 0 && effectiveExtraCapYen <= 0)) continue;
+      // 丸めだけで生じた端数は対象外。元本へのcap制限がある場合だけ清算する。
+      const capLimited = (regular.stockYen > 0 && regularGrossBeforeCap > effectiveRegularCapYen)
+        || (extra.stockYen > 0 && extraGrossBeforeCap > effectiveExtraCapYen);
+      if (!capLimited) continue;
+      smallSettlements.set(memberId, residual);
+      for (const allocation of [regular, extra]) {
+        if (allocation.stockYen <= 0) continue;
+        // 清算時は未払を残さない。SOLは100円切上げ、他PJは元本を1円単位で清算。
+        allocation.paidYen = options.roundPayoutUp && shouldRoundPayout(memberId)
+          ? Math.ceil(allocation.grossDueYen / REWARD_PAYOUT_ROUNDING_UNIT_YEN) * REWARD_PAYOUT_ROUNDING_UNIT_YEN
+          : allocation.grossDueYen;
+        if (options.roundPayoutUp) allocation.roundingTopUpYen = allocation.paidYen - allocation.grossDueYen;
+        allocation.stockYen = 0;
+      }
+    }
+  }
 
   const paidMembers = Array.from(memberIds)
     .map((memberId): RewardMember => {
@@ -1241,6 +1279,7 @@ export function applyRewardCapsForMonth(
         carryInYen,
         grossDueYen,
         cappedFrom: stockYen > 0 ? grossDueYen : undefined,
+        ...(options.settleSmallBalance ? { smallBalanceSettlementYen: smallSettlements.get(memberId) || 0 } : {}),
         deferredYen: stockYen,
         stockYen,
         regularBasePay: regular.basePay,
@@ -1300,6 +1339,7 @@ export function applyRewardCapsForMonth(
     ...reward,
     members: paidMembers,
     totalPaySum: totalPay,
+    ...(options.settleSmallBalance ? { smallBalanceSettlementYen: [...smallSettlements.values()].reduce((sum, yen) => sum + yen, 0) } : {}),
     totalGrossDueYen: totalGrossDue,
     capBudgetYen: baseTotalCapYen,
     effectiveCapBudgetYen: effectiveTotalCapYen,
@@ -1598,6 +1638,7 @@ export function buildRewardSummary({
       sourceYm: month,
       cycleFinalYm: planCycle?.period_end_ym ?? null,
       roundPayoutUp: isRewardPayoutRoundUpYm(billing.project_id, month),
+      settleSmallBalance: isSmallBalanceSettlementYm(billing.project_id, month),
     });
     regularUnusedCapCarryYen = Math.max(0, Math.round(capped.regularUnusedCapCarryOutYen ?? 0));
     extraUnusedCapCarryYen = baseCaps.extraCapYen == null

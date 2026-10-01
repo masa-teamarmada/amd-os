@@ -4,6 +4,14 @@
 
 ## Current Truth
 
+### キャップ由来の少額残高の当月清算（2026-10-02）
+
+- `isSmallBalanceSettlementYm` はp21の202610以降。`applyRewardCapsForMonth.settleSmallBalance` に接続し、通常の按分を全員分完了してから各現金メンバーの通常/別財布stock合計を判定する。`0 < stock合計 <= 10000`、既存現金支払が正、stockを持つ各財布の実効capが正、少なくとも一財布で需要がcap超過、の全条件を満たすと当月へ全残高を合算する。
+- `smallBalanceSettlementYen` はメンバー/summaryの任意JSON項目。前倒しした元本で、追加報酬や端数加算とは別。通常のcap・非現金配賦・他メンバーの配分を減らさず、stockを0にして翌月の二重払いを防ぐ。SOLは各財布のgrossDueを100円切上げしてpaidと加算を再計算し、`grossDue + roundingTopUp = paid + stock` を守る。一般関数の切上げなしモードは清算元本を1円単位で払い切るが、他PJへの有効化は未実施。
+- capゼロ・別財布積立・非現金メンバー・支払対象外・丸め端数だけ・残高10001円以上は非対象。最終月の不足全額を補填する既存禁止は維持し、本節の1万円以下だけを支払時期の例外として扱う。`finalCapTopUpYen` は0。理論/予算/バッファを変更しないためBZM/modelは対象外。
+- `scripts/apply_sol_small_balance_20261002.mts` で202610〜202703の6行を検算。既定GETのみ。通知/保存済み支払/保護月の拒否、配信SHA一致、before/after監査記録、更新時刻比較、再読込照合は前回端数適用と同じ。通知・合意・振込は行わない。
+- 回帰検査: `test:reward-payout-rounding` の1/99/100/4651/10000/10001円境界、二財布合算、0円cap、積立、非現金、端数だけ、複数人清算。UIは既存の発生/配分/繰越/振込予定月へ変更後の値を表示し、意味を混在させない。
+
 ### SOLの端数処理と月別表示（2026-10-02）
 
 - `reward-summary.ts:isRewardPayoutRoundUpYm(projectId, ym)` はp21かつ202609以降だけtrue。他PJと202608以前の計算は変更しない。
