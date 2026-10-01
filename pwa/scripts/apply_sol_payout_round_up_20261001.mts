@@ -2,12 +2,15 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
+import { isDeepStrictEqual } from "node:util";
 import nextEnv from "@next/env";
 import { createClient } from "@supabase/supabase-js";
 import { calculateRewardSummaryForCycle, isRewardCycleProtected } from "../src/lib/reward-summary.ts";
 
 nextEnv.loadEnvConfig(process.cwd());
 const apply = process.argv.includes("--apply");
+const verifyOnly = process.argv.includes("--verify-only");
+assert.ok(!(apply && verifyOnly), "applyとverify-onlyは同時指定しない");
 const nativeFetch = fetch;
 const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
   global: { fetch: (input, init) => {
@@ -28,7 +31,8 @@ assert.ok(targets.every(c => !isRewardCycleProtected(c)), "保護月あり。既
 assert.ok(payouts.every(p => p.ym < fromYm), "対象期間に保存済み支払明細あり");
 // SOLは稼働月+3か月払い。202609稼働分は202612支払。未来PDFを自動再発行しない。
 assert.ok(notices.every(n => n.ym < "202612"), "対象期間に発行済み通知書あり");
-const stable = (s: any) => s && { ...s, meta: s.meta && { ...s.meta, generatedAt: "" } };
+// JSON保存時にundefinedは省略され、jsonbのキー順も変わる。金額差と混同しない。
+const stable = (s: any) => s && JSON.parse(JSON.stringify({ ...s, meta: s.meta && { ...s.meta, generatedAt: "" } }));
 const cache = new Map<string, Promise<any>>();
 const readDb: any = { from(table: string) {
   let q: any = db.from(table); const chain: any[] = []; const wrapper: any = {};
@@ -72,6 +76,13 @@ console.log(JSON.stringify({ mode: apply ? "apply" : "dry-run", project,
     members: after.members.filter((m: any) => ids.includes(m.memberId)).map((m: any) => ({ id: m.memberId,
       before: cycle.reward_summary_json?.members?.find((b: any) => b.memberId === m.memberId)?.totalPay || 0,
       pay: m.totalPay, carry: m.stockYen, topUp: m.roundingTopUpYen })) })) }, null, 2));
+if (verifyOnly) {
+  for (const { cycle, after } of previews) assert.ok(isDeepStrictEqual(stable(cycle.reward_summary_json), stable(after)), `${cycle.ym}: 保存済み計算との不一致`);
+  assert.deepEqual(await read(cyclesQuery()), cycles, "検証中の変更なし");
+  assert.deepEqual(await read(noticesQuery()), notices, "通知書の保持");
+  assert.deepEqual(await read(payoutsQuery()), payouts, "保存済み支払明細の保持");
+  console.log(JSON.stringify({ verified: true, readOnly: true, rows: previews.length }));
+}
 if (!apply) process.exit(0);
 assert.ok(process.env.SOL_ROUND_UP_EXPECTED_SHA, "本番SHAの指定が必要");
 assert.equal(execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(), process.env.SOL_ROUND_UP_EXPECTED_SHA);
@@ -85,7 +96,7 @@ assert.deepEqual(await read(noticesQuery()), notices);
 assert.deepEqual(await read(payoutsQuery()), payouts);
 const revision = randomUUID();
 for (const { cycle, after } of previews) {
-  if (JSON.stringify(stable(cycle.reward_summary_json)) === JSON.stringify(stable(after))) continue;
+  if (isDeepStrictEqual(stable(cycle.reward_summary_json), stable(after))) continue;
   await read(db.from("billing_log").insert({ project_id: project, ym: cycle.ym, action: "sol_payout_round_up_prepared",
     actor: "えいみ", detail: { revision, authorization: "2026-10-01 まさ依頼: SOL未発行報酬を100円単位に切上げ",
       buildSha: build.git_sha, before: cycle.reward_summary_json, after } }));
@@ -97,7 +108,7 @@ for (const { cycle, after } of previews) {
 }
 const afterCycles = await read(cyclesQuery());
 assert.deepEqual(afterCycles.filter(c => c.ym < fromYm || c.ym > endYm), cycles.filter(c => c.ym < fromYm || c.ym > endYm));
-for (const { cycle, after } of previews) assert.deepEqual(stable(afterCycles.find(c => c.ym === cycle.ym).reward_summary_json), stable(after));
+for (const { cycle, after } of previews) assert.ok(isDeepStrictEqual(stable(afterCycles.find(c => c.ym === cycle.ym).reward_summary_json), stable(after)), `${cycle.ym}: 保存後照合の不一致`);
 assert.deepEqual(await read(noticesQuery()), notices, "通知書の保持");
 assert.deepEqual(await read(payoutsQuery()), payouts, "保存済み支払明細の保持");
 await read(db.from("billing_log").insert({ project_id: project, ym: fromYm, action: "sol_payout_round_up_verified",
