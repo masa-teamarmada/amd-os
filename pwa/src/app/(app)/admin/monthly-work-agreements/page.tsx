@@ -392,6 +392,8 @@ function AdminMonthlyWorkAgreementsContent() {
                     </div>
                     {row.revisionRequests.length > 0 && (
                       <RevisionRequestsPanel
+                        senderLabel={`${row.member.codeName}（${row.member.memberId}）`}
+                        projectNames={Object.fromEntries(row.projects.map((project) => [project.projectId, project.projectName]))}
                         requests={row.revisionRequests}
                         onUpdated={handleRevisionRequestUpdated}
                       />
@@ -458,9 +460,14 @@ function SummaryCard({
  * 支払業務が止まって復旧できなかった (2026-08-28 修正)。
  */
 function RevisionRequestsPanel({
+  senderLabel,
+  projectNames,
   requests,
   onUpdated,
 }: {
+  /** 要望を送ったメンバー。カード単体で誰からの要望か読めるように各カードに出す */
+  senderLabel: string;
+  projectNames: Record<string, string>;
   requests: MonthlyWorkAgreementRevisionRequest[];
   onUpdated: (updated: MonthlyWorkAgreementRevisionRequest) => void;
 }) {
@@ -478,10 +485,22 @@ function RevisionRequestsPanel({
         </p>
         <div className="mt-2 grid gap-2">
           {openRequests.map((request) => (
-            <RevisionRequestCard key={request.id} request={request} onUpdated={onUpdated} />
+            <RevisionRequestCard
+              key={request.id}
+              senderLabel={senderLabel}
+              projectLabel={request.projectId ? `${projectNames[request.projectId] ?? request.projectId}（${request.projectId}）` : "全体"}
+              request={request}
+              onUpdated={onUpdated}
+            />
           ))}
           {closedRequests.map((request) => (
-            <RevisionRequestCard key={request.id} request={request} onUpdated={onUpdated} />
+            <RevisionRequestCard
+              key={request.id}
+              senderLabel={senderLabel}
+              projectLabel={request.projectId ? `${projectNames[request.projectId] ?? request.projectId}（${request.projectId}）` : "全体"}
+              request={request}
+              onUpdated={onUpdated}
+            />
           ))}
         </div>
       </div>
@@ -490,9 +509,13 @@ function RevisionRequestsPanel({
 }
 
 function RevisionRequestCard({
+  senderLabel,
+  projectLabel,
   request,
   onUpdated,
 }: {
+  senderLabel: string;
+  projectLabel: string;
   request: MonthlyWorkAgreementRevisionRequest;
   onUpdated: (updated: MonthlyWorkAgreementRevisionRequest) => void;
 }) {
@@ -541,8 +564,9 @@ function RevisionRequestCard({
         >
           {isOpen ? "未対応" : request.status === "rejected" ? "対応しない" : "対応済み"}
         </span>
+        <span className="font-semibold text-foreground">{senderLabel}さんから</span>
         <span className="font-semibold text-foreground">{requestTypeLabel(request.requestType)}</span>
-        <span className="text-muted-foreground">{request.projectId ?? "全体"}</span>
+        <span className="text-muted-foreground">{projectLabel}</span>
         <span className="text-muted-foreground">{formatDateTime(request.createdAt)}</span>
         {!isOpen && request.resolvedAt && (
           <span className="text-muted-foreground">
