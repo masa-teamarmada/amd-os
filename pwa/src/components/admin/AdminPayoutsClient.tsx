@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { CockpitMonthlyModal } from "@/components/cockpit/CockpitMonthlyModal";
 import { MemberPayoutBreakdownModal } from "@/components/admin/MemberPayoutBreakdownModal";
 import { fetchCockpitFromSupabase, type CockpitData } from "@/lib/supabase-data";
@@ -288,6 +288,8 @@ type PayoutAgreementGateRow = {
   currentHash: string | null;
   requestId: string | null;
   requestCreatedAt: string | null;
+  requestType?: string | null;
+  requestBody?: string | null;
 };
 
 type AgreementOverrideConfirmState = {
@@ -587,6 +589,20 @@ const PAYOUT_AGREEMENT_STATUS_CLASS: Record<PayoutAgreementGateStatus, string> =
   revision_requested: "border-rose-200 bg-rose-50 text-rose-700",
   admin_override: "border-sky-200 bg-sky-50 text-sky-800",
 };
+
+const REVISION_REQUEST_TYPE_LABEL: Record<string, string> = {
+  scope_or_goal: "担当内容",
+  reward: "予定額",
+  other: "その他",
+};
+
+function fmtRequestedAt(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime())
+    ? iso
+    : date.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
 
 function fmtYm(ym: string) {
   return ym && ym.length === 6 ? `${ym.slice(0, 4)}/${ym.slice(4)}` : ym;
@@ -3130,7 +3146,8 @@ function PayoutAgreementGatePanel({
             </thead>
             <tbody className="divide-y divide-border/60">
               {shownRows.slice(0, 12).map((row) => (
-                <tr key={row.key}>
+                <Fragment key={row.key}>
+                <tr>
                   <td className="px-2 py-1.5">
                     <div className="font-medium">{row.memberName}</div>
                     <div className="font-mono text-[10px] text-muted-foreground">{row.memberId}</div>
@@ -3151,6 +3168,33 @@ function PayoutAgreementGatePanel({
                     <div className="text-[10px] text-muted-foreground">税込 {fmtTaxIncludedYen(row.totalPay)}</div>
                   </td>
                 </tr>
+                {/* 修正要望は件数ではなく本文をその場で読ませる。対応 (閉じる) は月初合意の管理画面で行う */}
+                {row.status === "revision_requested" && row.requestBody != null && (
+                  <tr data-testid="payout-gate-revision-request" className="bg-rose-50/50">
+                    <td colSpan={6} className="px-2 pb-2.5 pt-0">
+                      <div className="rounded-md border border-rose-200 bg-background px-2.5 py-2">
+                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[11px]">
+                          <span className="font-semibold text-rose-900">
+                            {row.memberName}さんからの修正要望（{REVISION_REQUEST_TYPE_LABEL[row.requestType ?? ""] ?? row.requestType ?? "その他"}）
+                          </span>
+                          {row.requestCreatedAt && (
+                            <span className="text-muted-foreground">{fmtRequestedAt(row.requestCreatedAt)} 受付</span>
+                          )}
+                          <Link
+                            href={`/admin/monthly-work-agreements?ym=${encodeURIComponent(row.sourceYm)}&q=${encodeURIComponent(row.memberId)}`}
+                            className="ml-auto font-semibold text-rose-800 underline"
+                          >
+                            月初合意の管理画面で対応する
+                          </Link>
+                        </div>
+                        <p className="mt-1 whitespace-pre-wrap text-[12px] leading-relaxed text-foreground">
+                          {row.requestBody.trim() || "（本文なし）"}
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
             </tbody>
           </table>

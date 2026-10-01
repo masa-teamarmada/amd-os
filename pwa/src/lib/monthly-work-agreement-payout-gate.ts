@@ -75,6 +75,10 @@ export type PayoutAgreementGateRow = {
   currentHash: string | null;
   requestId: string | null;
   requestCreatedAt: string | null;
+  /** open な修正要望の種類 (scope_or_goal / reward / other)。支払ゲート上で要望の中身を読ませるために持つ */
+  requestType: string | null;
+  /** open な修正要望の本文。メンバーが書いたまま */
+  requestBody: string | null;
 };
 
 export type PayoutAgreementGateSummary = {
@@ -212,6 +216,8 @@ export async function buildPayoutAgreementGateSummary(
       currentHash: null,
       requestId: null,
       requestCreatedAt: null,
+      requestType: null,
+      requestBody: null,
     };
 
     if (isMonthlyWorkAgreementPayoutGateMigrationYm(entry.ym)) {
@@ -277,6 +283,8 @@ export async function buildPayoutAgreementGateSummary(
       currentHash: projectAgreement?.currentHash ?? bundle.currentHash,
       requestId: request?.id ?? null,
       requestCreatedAt: request?.createdAt ?? null,
+      requestType: request?.requestType ?? null,
+      requestBody: request?.body ?? null,
     };
 
     if (request) {
@@ -284,7 +292,7 @@ export async function buildPayoutAgreementGateSummary(
         ...agreementBase,
         required: true,
         status: "revision_requested",
-        reason: request.projectId ? "このPJに open 修正要望がある" : "メンバー全体の open 修正要望がある",
+        reason: request.projectId ? "このPJに未対応の修正要望がある" : "メンバー全体に未対応の修正要望がある",
       });
       continue;
     }

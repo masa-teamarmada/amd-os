@@ -98,7 +98,8 @@ function AdminMonthlyWorkAgreementsContent() {
   const [data, setData] = useState<AdminMonthlyWorkAgreementResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
+  // 支払ゲートの「対応する」から来たときは、そのメンバーだけに絞った状態で開く
+  const [query, setQuery] = useState(searchParams.get("q") ?? "");
   const ymOptions = useMemo(() => selectableYms(currentYmJst()), []);
 
   const load = useCallback(async () => {

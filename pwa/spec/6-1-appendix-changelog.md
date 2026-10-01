@@ -1,5 +1,7 @@
 # 附則（設計書変更履歴）
 
+| 2026-10-02 JST | 3-14 Payout Gate / 6-5 | 修正 | v3.147.6。gate 行に open 要望の `requestType` / `requestBody` を追加し、`/admin/payouts` の gate パネルに本文を表示。`/admin/monthly-work-agreements` は `?q=` を検索初期値にする。理由文の `open` を「未対応の」へ。gate 判定・hash・金額は不変 | 支払ゲートから要望の中身が読めなかったため | まさ・えいみ |
+
 | 2026-10-02 JST | 3-14 / reward-summary | 変更 | SOLのみ100円切上げと任意JSON加算項目を追加。元本cap・繰越・加算の恒等式、保護付き適用スクリプト、実部品表示検査を追加。共有DB列変更なし | 端数別払いを解消し既発行額を保護 | まさ・えいみ |
 
 | 2026-09-30 JST | 3-14 月初合意 | 修正 | SeasonRewardTrendでbasePayYen・carryInYen・stockYen・paymentYmを常時表示。sourceYmの支払配分と振込月を区別し、金額計算・合意hashは維持。実部品の描画テストを追加 | 発生報酬がホバー内に隠れ、繰越支払が稼働月の報酬と誤読されていたため | まさ・えいみ |

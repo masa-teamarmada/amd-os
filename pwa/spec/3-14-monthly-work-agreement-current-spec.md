@@ -108,6 +108,8 @@ gate が読む合意状態は稼働月で変わる。**202609 稼働分からは
 
 gate は `/admin/payouts` の server action で実行する。UI の警告だけにはしない。
 
+`revision_requested` の行は、open 要望の `requestId` / `requestType` / `requestBody` / `requestCreatedAt` を持つ。`/admin/payouts` の gate パネルは行の直下に要望の種類・受付日時・本文を表示し、`/admin/monthly-work-agreements?ym=<source_ym>&q=<member_id>` への導線を置く。要望を閉じる操作は管理一覧側に一本化する。
+
 - `POST /api/admin/payouts` (`支払データ同期`) は blocker 付き member の支払行だけ同期対象から外し、残りを保存する。既存の `payout_notices` 行も消さない
 - `PATCH /api/admin/payouts` の `issue_notice_pdf` / `preview_notice_pdf` は対象 member 自身が blocker のときだけ 409
 - `PATCH /api/admin/payouts` の `bulk_issue_notice_pdf` / `bulk_preview_notice_pdf` は blocker 付き member を対象から外し、`agreement_gate` の skip として返す。全員 blocker のときだけ 409
@@ -350,6 +352,7 @@ API route は logged-in user を `members.email` で解決する。本人以外�
 - 各行から `/monthly-agreement?memberId=...&ym=...` と `/mypage?memberId=...` へ遷移できる。
 - 各行のPJ別バッジは `/monthly-agreement?ym=...&memberId=...&projectId=...` へのリンクにする。押すと**そのメンバーがそのPJで実際に見ている画面**をそのまま開く。管理側に実画面を確認する手段が無いと、未合意の原因を追えない (まさ 2026-08-29「実際の画面を確認するすべがない」)。
 - 対象月は URL の `?ym=` を初期値にする。月初合意ページから戻ったときに同じ月を開けるようにする。
+- 検索欄は URL の `?q=` を初期値にする。支払ゲートの `月初合意の管理画面で対応する` から、修正要望を出したメンバーだけに絞った状態で開くため。
 
 ## Failure Mode
 
