@@ -59,7 +59,7 @@ function targetPaymentYms(baseYm: string, lookaheadMonths: number, includePrevio
 
 async function refreshPayoutRewardCache(paymentYms: string[], cycleYms: string[] = paymentYms) {
   const db = createAdminClient();
-  const cycleSelect = "project_id, ym, status, budget_yen, invoice_ym, invoice_issued_at, invoice_sent_at, reward_summary_json";
+  const cycleSelect = "project_id, ym, status, budget_yen, invoice_ym, invoice_issued_at, invoice_sent_at, reward_summary_json, reward_paid_at, payout_notice_uploaded_at, payment_confirmed_at";
   const sourceYms = [...new Set(paymentYms.flatMap((ym) => candidateSourceYmsForPaymentYm(ym)))];
   const targetCycleYms = [...new Set(cycleYms)];
 

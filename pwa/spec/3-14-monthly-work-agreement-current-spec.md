@@ -4,23 +4,17 @@
 
 ## Current Truth
 
-### キャップ由来の少額残高の当月清算（2026-10-02）
+### 全PJ共通の支払丸め・少額清算（2026-10-02）
 
-- `isSmallBalanceSettlementYm` はp21の202610以降。`applyRewardCapsForMonth.settleSmallBalance` に接続し、通常の按分を全員分完了してから各現金メンバーの通常/別財布stock合計を判定する。`0 < stock合計 <= 10000`、既存現金支払が正、stockを持つ各財布の実効capが正、少なくとも一財布で需要がcap超過、の全条件を満たすと当月へ全残高を合算する。
-- `smallBalanceSettlementYen` はメンバー/summaryの任意JSON項目。前倒しした元本で、追加報酬や端数加算とは別。通常のcap・非現金配賦・他メンバーの配分を減らさず、stockを0にして翌月の二重払いを防ぐ。SOLは各財布のgrossDueを100円切上げしてpaidと加算を再計算し、`grossDue + roundingTopUp = paid + stock` を守る。一般関数の切上げなしモードは清算元本を1円単位で払い切るが、他PJへの有効化は未実施。
-- capゼロ・別財布積立・非現金メンバー・支払対象外・丸め端数だけ・残高10001円以上は非対象。最終月の不足全額を補填する既存禁止は維持し、本節の1万円以下だけを支払時期の例外として扱う。`finalCapTopUpYen` は0。理論/予算/バッファを変更しないためBZM/modelは対象外。
-- `scripts/apply_sol_small_balance_20261002.mts` で202610〜202703の6行を検算。既定GETのみ。通知/保存済み支払/保護月の拒否、配信SHA一致、before/after監査記録、更新時刻比較、再読込照合は前回端数適用と同じ。通知・合意・振込は行わない。
-- 回帰検査: `test:reward-payout-rounding` の1/99/100/4651/10000/10001円境界、二財布合算、0円cap、積立、非現金、端数だけ、複数人清算。UIは既存の発生/配分/繰越/振込予定月へ変更後の値を表示し、意味を混在させない。
-
-### SOLの端数処理と月別表示（2026-10-02）
-
-- `reward-summary.ts:isRewardPayoutRoundUpYm(projectId, ym)` はp21かつ202609以降だけtrue。他PJと202608以前の計算は変更しない。
-- `allocateCap` は元本のcap按分を1円単位で完了し、現金配分だけ100円単位へ切上げ。非現金配賦は丸めない。次のメンバーに使う `remainingCap` は切上げ前の配分を引く。通常枠・別財布ごとに `roundingTopUpYen=paid-allocated` を記録し、元本は `stock=grossDue-allocated` で保存する。加算による翌月相殺・負の繰越は作らない。0円capは元本全額繰越、最終月でも不足元本の自動上乗せは禁止。
-- RewardMember/RewardSummaryに任意JSON項目 `roundingTopUpYen` / `regularRoundingTopUpYen` / `extraRoundingTopUpYen` を追加。`totalPay`、`regularPaidYen`、`extraPaidYen`、`totalPaySum` は加算込みの現金支払額。`basePay`、pt、元本cap、非現金配賦の理論は変更しない。DB列追加なし。
-- `MonthlyWorkAgreementPayoutScheduleEntry.roundingTopUpYen` を読み取り表示へ投影。保存済み支払額がキャッシュと一致する場合も加算を含む恒等式で残高を計算する。不一致ならキャッシュ由来の加算を保存支払へ流用しない。terms hashへ追加しない。
-- `SeasonRewardTrend` は加算のあるシーズンだけ「切り上げ加算」の1行を既存月軸へ追加し、説明文へ合計を表示。発生報酬とは別。スマホは既存の表内横スクロール・固定行見出しを維持。
-- 適用スクリプト `scripts/apply_sol_payout_round_up_20261001.mts` は既定でGETのみ。202609〜202703の7行に限定し、既発行通知、保存済み支払、保護印があれば停止。pt/発生額の不変・過去月支払不変・清算後ゼロ・恒等式を検証し、本番SHA一致後に変更前後をbilling_logへ保存、updated_at比較つき限定更新、再読込検証を行う。通知・再発行・振込は行わない。
-- 回帰検査: `test:reward-payout-rounding`（通常/別財布/0円/100円境界/最終月/他PJ不変）、`check_season_reward_trend.cjs`（実部品の加算表示・旧方式非表示）。BZM/modelは支払実務の端数処理のため変更対象外。
+- 支払規則をPJ識別子で分岐しない。202609以降の未確定月は全PJで100円切上げ、202610以降はcap由来の税抜1万円以下の残高を当月の正の支払へ合算する。同じ条件なら全PJで同じ結果になる。
+- 切上げ加算は会社負担。元本cap按分を1円単位で計算後、各現金財布の支払を100円へ切上げ、`roundingTopUpYen=paid-allocated` とする。非現金配賦は丸めず、加算分を翌月から取り戻さない。
+- 少額清算は通常/別財布のstock合計が0円超1万円以下、当月現金支払が正、残高を持つ各財布のcapが正、少なくとも一財布がcapで制限される場合に限る。全員の通常按分後に適用し、他メンバーを減額しない。合算後の各財布grossDueを切上げ、stockを0にする。積立/非現金/支払対象外/丸めだけの端数は除外。
+- 任意JSON項目 `smallBalanceSettlementYen` は前倒し元本、`roundingTopUpYen` と通常/別財布別の同項目は会社負担の加算。`grossDue + roundingTopUp = paid + stock` を守る。pt、発生報酬、契約予算、バッファを変更しない。`finalCapTopUpYen=0` を維持し、最終月の不足全額補填とは分ける。
+- 確定額保護はcycleのreward_paid_at/payout_notice_uploaded_at/payment_confirmed_atに加え、monthly_reward_payoutの保存済み行、対象メンバー/支払月の正式通知書を照合する。1件でも該当する月はsnapshotを保持。通知書はPJ支払条件で計算した支払月と照合し、通知内の他PJを誤って書き換えないよう月全体を保護する。
+- 将来月を計算するときも、保護された過去月のsnapshotにある未払残高・未使用枠・相殺繰越を起点にする。保護snapshot欠落は停止し、再計算で埋めない。保存直前にも保護状態を再取得し、更新時刻比較と保護列条件を付けて競合時は停止。
+- 毎日03:05 JSTの既存payout-reward-cache-refreshが全PJの当月から11か月先と前月の対象を選び、共通syncRewardSummaryForCycleを呼ぶ。保護列も取得する。将来月にも同じ規則が適用され、PJ別手作業は不要。初回の一括反映/照合も `scripts/refresh_common_payout_policy.mts` から同じ関数を呼び、別計算を持たない。既定GETのみ、--applyは本番SHA一致後、--verify-onlyは保存値照合のみ。監査はbilling_log。通知・振込・合意書更新は行わない。
+- 月別画面は既存の発生報酬/支払配分/繰越/振込予定月と切上げ加算の表示を使う。保存支払がcacheと不一致ならcacheの加算を流用しない。terms hashに加算を含めない。
+- 検査: 全PJ同条件同結果、1/99/100/4651/10000/10001円、二財布、0円cap、非現金、保護snapshot不変、保護残高の翌月引継ぎ、通知/支払明細不変、保存値照合。BZM/modelは支払実務の丸め・支払時期のみで変更しない。
 
 | item | contract |
 |---|---|

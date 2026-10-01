@@ -128,8 +128,8 @@ check("202609 の支払額は100円単位 (2人目)", isRounded(septemberB?.tota
 
 // --- 3. 切り捨てた端数は消えず翌月へ繰り越す ---
 check(
-  "切り捨てた端数は stockYen に残る",
-  septemberA != null && septemberA.totalPay + (septemberA.stockYen ?? 0) === septemberA.grossDueYen,
+  "切上げ加算を含む債務恒等式",
+  septemberA != null && septemberA.totalPay + (septemberA.stockYen ?? 0) === septemberA.grossDueYen! + (septemberA.roundingTopUpYen || 0),
   {
     totalPay: septemberA?.totalPay,
     stockYen: septemberA?.stockYen,
@@ -137,15 +137,15 @@ check(
   },
 );
 check(
-  "端数の繰越は100円未満",
-  septemberA != null && (septemberA.stockYen ?? 0) < REWARD_PAYOUT_ROUNDING_UNIT_YEN,
+  "端数は繰越しない",
+  septemberA != null && (septemberA.stockYen ?? 0) === 0,
   { stockYen: septemberA?.stockYen },
 );
 const october = summaryFor("202610", ROOMY_CAP);
 const octoberA = memberOf(october, "ID_A");
 check(
-  "翌月は前月の端数が carryIn として戻る",
-  octoberA != null && (octoberA.carryInYen ?? 0) > 0,
+  "翌月に端数を戻さない",
+  octoberA != null && (octoberA.carryInYen ?? 0) === 0,
   { carryInYen: octoberA?.carryInYen },
 );
 check("翌月の支払額も100円単位", isRounded(octoberA?.totalPay), { totalPay: octoberA?.totalPay });
@@ -168,12 +168,12 @@ check("cap不足の按分でも100円単位", isRounded(tightA?.totalPay), { tot
 check("cap不足の按分でも100円単位 (2人目)", isRounded(tightB?.totalPay), { totalPay: tightB?.totalPay });
 check(
   "cap不足でも払わなかった分は全額 stock へ回る",
-  tightA != null && tightA.totalPay + (tightA.stockYen ?? 0) === tightA.grossDueYen,
+  tightA != null && tightA.totalPay + (tightA.stockYen ?? 0) === tightA.grossDueYen! + (tightA.roundingTopUpYen || 0),
   { totalPay: tightA?.totalPay, stockYen: tightA?.stockYen, grossDueYen: tightA?.grossDueYen },
 );
 check(
-  "cap不足の月の支払合計は cap を超えない",
-  (tightA?.totalPay ?? 0) + (tightB?.totalPay ?? 0) <= 20_000,
+  "cap不足の月の支払は元本capと切上げ加算の合計",
+  (tightA?.totalPay ?? 0) + (tightB?.totalPay ?? 0) === 20_000 + (tightSeptember?.roundingTopUpYen || 0),
   { total: (tightA?.totalPay ?? 0) + (tightB?.totalPay ?? 0) },
 );
 
@@ -199,7 +199,7 @@ if (process.env.PEEK === "1") {
 // SOLだけ切上げ（2026-10-01）。上の旧方式検査は他PJの非変更を保証する。
 check("SOL 202609から切上げ", isRewardPayoutRoundUpYm("p21", "202609"));
 check("SOL発行済み期間は非変更", !isRewardPayoutRoundUpYm("p21", "202608"));
-check("他PJへ拡張しない", !isRewardPayoutRoundUpYm("pTEST", "202609"));
+check("全PJ共通で切上げ", isRewardPayoutRoundUpYm("pTEST", "202609"));
 const roundUp = (amounts: number[], cap: number, ym = "202609", reserve = new Set<string>(), extra = false) =>
   applyRewardCapsForMonth({ members: amounts.map((basePay, i) => ({ memberId: `ID_${i}`, earnedPt: 1,
     basePay, regularBasePay: extra ? 0 : basePay, extraBasePay: extra ? basePay : 0,
@@ -239,7 +239,7 @@ check("本体からSOL切上げへ接続", sol?.members.every(m => m.totalPay % 
 // capで少額の支払だけを翌月へ残さず、当月の支払にまとめる。
 check("SOL202610から少額清算", isSmallBalanceSettlementYm("p21", "202610"));
 check("9月以前を変えない", !isSmallBalanceSettlementYm("p21", "202609"));
-check("他PJへ勝手に拡張しない", !isSmallBalanceSettlementYm("pTEST", "202610"));
+check("全PJ共通で少額清算", isSmallBalanceSettlementYm("pTEST", "202610"));
 function settle(regular: number, extra: number, regularCap: number, extraCap: number, roundPayoutUp = true, reserve = false) {
   return applyRewardCapsForMonth({ members: [{ memberId: "A", earnedPt: 1, basePay: regular + extra,
     regularBasePay: regular, extraBasePay: extra, totalPay: regular + extra, bonusPt: 0, breakdown: [] }] },
@@ -266,6 +266,25 @@ const together = applyRewardCapsForMonth({ members: [55000, 100000].map((basePay
   basePay, totalPay: basePay, bonusPt: 0, breakdown: [] })) }, { totalCapYen: 140000, regularCapYen: 140000, extraCapYen: 0 },
   new Map(), new Map(), {}, { sourceYm: "202612", roundPayoutUp: true, settleSmallBalance: true });
 check("複数メンバーの清算で取り合わない", together.members.every(m => m.stockYen === 0) && together.totalPaySum === 155000, together);
+
+// PJ識別子が異なっても計算結果が同じ。将来月も同じ本体関数で自動計算される。
+const commonSummary = (projectId: string, ym: string, locked = false) => {
+  const billings = billingsFor(ym, 20000);
+  for (const row of billings.values()) row.project_id = projectId;
+  const saved = { members: [{ memberId: "ID_A", earnedPt: 1, bonusPt: 0, basePay: 9999, totalPay: 1234,
+    stockYen: 8765, regularStockYen: 8765, extraStockYen: 0, breakdown: [] }] };
+  if (locked) Object.assign(billings.get("202609")!, { payout_locked: true, reward_summary_json: saved });
+  return buildRewardSummary({ ym, milestones: MILESTONES, progress: [], responsibilities: RESPONSIBILITIES,
+    memberMap: MEMBER_MAP, billing: billings.get(ym)!, billingsByYm: billings,
+    planCycle: { ...PLAN_CYCLE, project_id: projectId }, project: { ...PROJECT, project_id: projectId } });
+};
+for (const ym of ["202609", "202610", "202611", "202612"]) {
+  check(`全PJ同条件同結果 ${ym}`, JSON.stringify(commonSummary("p21", ym)?.members) === JSON.stringify(commonSummary("pOTHER", ym)?.members));
+}
+const lockedMonth = commonSummary("pOTHER", "202609", true);
+check("保存済み支払は切り上げない", lockedMonth?.members[0].totalPay === 1234);
+const afterLocked = commonSummary("pOTHER", "202610", true);
+check("翌月は保護snapshotの残高を引継ぐ", afterLocked?.members.find(m => m.memberId === "ID_A")?.carryInYen === 8765);
 
 if (failures > 0) {
   console.error(`\nreward payout rounding: ${failures} 件失敗`);

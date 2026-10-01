@@ -3820,7 +3820,9 @@ expectIncludes("src/lib/reward-summary.ts", [
   "export function isRewardPayoutRoundingYm(",
   "const roundPayoutThisYm = isRewardPayoutRoundingYm(sourceYm) && (options.roundPayoutUp || !isCycleFinalYm);",
   "export function isRewardPayoutRoundUpYm(",
-  'return projectId === "p21" && isRewardPayoutRoundingYm(ym);',
+  'return isRewardPayoutRoundingYm(ym);',
+  'await lockRecordedPayoutCycles(db, project, [billing]);',
+  'skippedReason: "payout_protected"',
   "shouldRoundPayout",
 ]);
 // 管理側は月初合意ページから、メンバー×PJ ごとに本人が見ている画面を開ける。

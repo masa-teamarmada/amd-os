@@ -16,7 +16,8 @@ const planCycle = { plan_cycle_id: "test", project_id: "p21", status: "active", 
 const milestones = [{ milestone_id: "dd", title: "DD", points: 6, tag: "normal", goal_level: "season",
   period_start_ym: "202608", target_ym: "202610" }];
 const responsibilities = members.map((m, i) => ({ milestone_id: "dd", member_id: m.member_id, share: i === 0 ? 0.2 : 0.4 }));
-const billingsByYm = new Map(["202608", "202609", "202610"].map(ym => [ym, { project_id: "p21", ym, budget_yen: 10000 }]));
+// 少額清算の閾値より大きい未払を残し、参画終了で債務が消えないことを検査する。
+const billingsByYm = new Map(["202608", "202609", "202610"].map(ym => [ym, { project_id: "p21", ym, budget_yen: 5000 }]));
 function summary(ym: string, dated: boolean) {
   return buildRewardSummary({ ym, milestones, responsibilities, progress: [],
     activeMemberIds: new Set(members.map(m => m.member_id)), projectMembers: dated ? members : undefined,

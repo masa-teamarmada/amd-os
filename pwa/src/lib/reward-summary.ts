@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { memberPayoutYmForCycle } from "@/lib/payment-groups";
 import { activeProjectMemberIdsForYm, type ProjectParticipationRow } from "@/lib/project-participation";
 import {
   PM_LOCKED_PROGRESS_SOURCES,
@@ -26,8 +27,8 @@ const ACTIVE_PLAN_STATUSES = ["active", "confirmed", "fixed", "draft"];
 const REWARD_SUMMARY_VERSION = "server_v5_planned_share_cap_carry_no_final_topup";
 const SX_TASK_REWARD_SUMMARY_VERSION = "server_v6_sx_task_acceptance_cap_carry";
 function rewardSummaryVersion(projectId: string, ym: string): string {
-  if (isSmallBalanceSettlementYm(projectId, ym)) return "server_v8_small_balance_settlement";
-  if (isRewardPayoutRoundUpYm(projectId, ym)) return "server_v7_sol_payout_round_up";
+  if (isSmallBalanceSettlementYm(projectId, ym)) return "server_v9_common_payout_policy";
+  if (isRewardPayoutRoundUpYm(projectId, ym)) return "server_v9_common_payout_policy";
   return isTaskPointPilot(projectId, ym) ? SX_TASK_REWARD_SUMMARY_VERSION : REWARD_SUMMARY_VERSION;
 }
 // 2026-07 以降がポイント制の対象。旧制度で合意済みの月を新制度差額として精算しない。
@@ -151,6 +152,7 @@ export interface RewardSummary {
 }
 
 type BillingRow = {
+  updated_at?: string | null;
   project_id: string;
   ym: string;
   status?: string | null;
@@ -169,9 +171,16 @@ type BillingRow = {
   reward_paid_at?: string | null;
   payout_notice_uploaded_at?: string | null;
   payment_confirmed_at?: string | null;
+  payout_locked?: boolean;
+  invoice_ym?: string | null;
+  invoice_sent_at?: string | null;
+  invoice_issued_at?: string | null;
 };
 
 type ProjectRow = {
+  payment_due_rule?: string | null;
+  payment_due_day?: number | null;
+  invoice_send_deadline_rule?: string | null;
   project_id: string;
   fee_type?: string | null;
   fee_amount?: number | string | null;
@@ -256,6 +265,7 @@ type RewardComputeResult = RewardSyncResult & {
 };
 
 export type RewardCycleProtectionRow = {
+  payout_locked?: boolean;
   reward_paid_at?: string | null;
   payout_notice_uploaded_at?: string | null;
   payment_confirmed_at?: string | null;
@@ -280,7 +290,39 @@ export type RewardLiabilityOffsetRow = {
 export type RewardLiabilityOffsetsByYm = Map<string, RewardLiabilityOffsetRow[]>;
 
 export function isRewardCycleProtected(cycle: RewardCycleProtectionRow): boolean {
-  return Boolean(cycle.reward_paid_at || cycle.payout_notice_uploaded_at || cycle.payment_confirmed_at);
+  return Boolean(cycle.payout_locked || cycle.reward_paid_at || cycle.payout_notice_uploaded_at || cycle.payment_confirmed_at);
+}
+
+const REWARD_CYCLE_SELECT = "project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, extra_budget_yen, reward_summary_json, reward_paid_at, payout_notice_uploaded_at, payment_confirmed_at, invoice_ym, invoice_sent_at, invoice_issued_at, updated_at";
+
+/** 保存済み支払、発行済み通知も保護する。cycleの印だけには依存しない。 */
+async function lockRecordedPayoutCycles(db: SupabaseLike, project: ProjectRow | null, cycles: BillingRow[]) {
+  if (!cycles.length) return;
+  const yms = cycles.map(c => c.ym);
+  const projectId = cycles[0].project_id;
+  const pageAll = async (query: () => { range(from: number, to: number): PromiseLike<{ data: Record<string, unknown>[] | null; error: unknown }> }) => {
+    const rows: Record<string, unknown>[] = [];
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await query().range(offset, offset + 499);
+      if (error) throw error;
+      rows.push(...(data || []));
+      if ((data || []).length < 500) return rows;
+    }
+  };
+  const payouts = await pageAll(() => db.from("monthly_reward_payout").select("ym, member_id").eq("project_id", projectId).in("ym", yms).order("ym").order("member_id"));
+  const payoutYms = new Set(payouts.map(p => String(p.ym)));
+  const memberIds = [...new Set(cycles.flatMap(c => ((c.reward_summary_json as RewardSummary | null)?.members || []).map(m => m.memberId)))];
+  const paymentYm = (c: BillingRow) => memberPayoutYmForCycle({ ...c, invoice_ym: c.invoice_ym ?? null }, {
+    payment_due_rule: project?.payment_due_rule ?? null, payment_due_day: project?.payment_due_day ?? null,
+    invoice_send_deadline_rule: project?.invoice_send_deadline_rule ?? null,
+  });
+  const notices = memberIds.length ? await pageAll(() => db.from("payout_notices").select("ym, member_id, notice_no, pdf_url, sent_at")
+    .in("member_id", memberIds).in("ym", [...new Set(cycles.map(paymentYm))]).order("ym").order("member_id")) : [];
+  for (const c of cycles) {
+    const ids = new Set(((c.reward_summary_json as RewardSummary | null)?.members || []).map(m => m.memberId));
+    c.payout_locked = payoutYms.has(c.ym) || notices.some(n => String(n.ym) === paymentYm(c) && ids.has(String(n.member_id))
+      && Boolean(n.sent_at || n.pdf_url || (n.notice_no && !String(n.notice_no).startsWith("PREVIEW-"))));
+  }
 }
 
 function numberValue(value: unknown): number {
@@ -860,7 +902,7 @@ type CapAllocation = {
 };
 
 /**
- * 現金支払額の丸め単位 (円)。SOLは2026-10-01の決定で切上げ（下記判定）。他PJは従来の切捨て。
+ * 現金支払額の丸め単位 (円)。全PJ共通で切上げ。確定済みの保存値は保護する。
  *
  * まさ確定 2026-08-28「報酬額が1円単位になっていて細かすぎる。9,009円とかになっていて、
  * お互いに面倒になってる。100円未満は切り捨てにしようよ」。
@@ -884,14 +926,14 @@ export function isRewardPayoutRoundingYm(ym: string): boolean {
   return /^\d{6}$/.test(ym) && ym >= REWARD_PAYOUT_ROUNDING_START_YM;
 }
 
-/** 2026-10-01 まさ確定。今回の変更対象はSOL。既発行分（202608以前）は維持する。 */
-export function isRewardPayoutRoundUpYm(projectId: string, ym: string): boolean {
-  return projectId === "p21" && isRewardPayoutRoundingYm(ym);
+/** 全PJ共通の支払丸め。確定済みの月は保存済みsnapshotで保護する。 */
+export function isRewardPayoutRoundUpYm(_projectId: string, ym: string): boolean {
+  return isRewardPayoutRoundingYm(ym);
 }
 
-/** 2026-10-02決定。SOLの未確定分から少額残高を当月にまとめる。 */
-export function isSmallBalanceSettlementYm(projectId: string, ym: string): boolean {
-  return projectId === "p21" && /^\d{6}$/.test(ym) && ym >= "202610";
+/** 全PJ共通。PJ識別子では分岐しない。 */
+export function isSmallBalanceSettlementYm(_projectId: string, ym: string): boolean {
+  return /^\d{6}$/.test(ym) && ym >= "202610";
 }
 
 function floorToPayoutUnit(yen: number): number {
@@ -965,7 +1007,7 @@ function allocateCap(
     const isLast = index === items.length - 1;
     const proportional = remainingGross > 0 ? Math.round((remainingCap * item.grossDueYen) / remainingGross) : 0;
     const rawPaidYen = Math.min(item.grossDueYen, Math.max(0, isLast ? remainingCap : proportional));
-    // SOLの切上げ加算はcap元本と別。他PJは従来どおり切捨て後の支払額を差し引く。
+    // 切上げ加算はcap元本と別。旧方式を指定した単体計算のみ切捨て後の支払額を引く。
     const paidYen = roundPayout(item.memberId, rawPaidYen);
     remainingCap -= options.roundUp ? rawPaidYen : paidYen;
     remainingGross -= item.grossDueYen;
@@ -1013,7 +1055,7 @@ export function applyRewardCapsForMonth(
     sourceYm?: string;
     /** plan cycle の最終月。この月だけ切り捨てを外し、未払残 0 で閉じられるようにする */
     cycleFinalYm?: string | null;
-    /** SOLの100円切上げ。元本配分とは別の会社負担加算として記録する。 */
+    /** 共通の100円切上げ。元本配分とは別の会社負担加算として記録する。 */
     roundPayoutUp?: boolean;
     /** 通常・別財布を合算した少額残高を、当月の支払へまとめる。 */
     settleSmallBalance?: boolean;
@@ -1107,7 +1149,7 @@ export function applyRewardCapsForMonth(
   const extraFinalCapTopUpYen = 0;
 
   // 現金支払は100円単位へ切り捨てる (202609 稼働分〜)。端数は stock に残して翌月へ回す。
-  // 他PJは最終月だけ切捨てを外す。SOLの切上げは最終月にも適用する。
+  // 共通の切上げは最終月にも適用。旧方式の単体計算は最終月だけ切捨てを外す。
   // シーズン終了時に支払対象メンバーの未払残を
   // 0 で閉じる要件 (まさ確定 2026-07-03) を、端数で崩さないため。
   const sourceYm = options.sourceYm ?? "";
@@ -1145,7 +1187,7 @@ export function applyRewardCapsForMonth(
       smallSettlements.set(memberId, residual);
       for (const allocation of [regular, extra]) {
         if (allocation.stockYen <= 0) continue;
-        // 清算時は未払を残さない。SOLは100円切上げ、他PJは元本を1円単位で清算。
+        // 清算時は未払を残さない。共通処理は100円切上げ、旧方式の単体計算は1円単位。
         allocation.paidYen = options.roundPayoutUp && shouldRoundPayout(memberId)
           ? Math.ceil(allocation.grossDueYen / REWARD_PAYOUT_ROUNDING_UNIT_YEN) * REWARD_PAYOUT_ROUNDING_UNIT_YEN
           : allocation.grossDueYen;
@@ -1582,6 +1624,22 @@ export function buildRewardSummary({
 
   for (const month of monthRangeUntil(planCycle, ym)) {
     const billingForMonth = billingsByYm?.get(month) ?? billing;
+    if (isRewardCycleProtected(billingForMonth)) {
+      const saved = billingForMonth.reward_summary_json as RewardSummary | null;
+      if (!saved || !Array.isArray(saved.members)) throw new Error(`${billing.project_id}:${month}: protected reward snapshot missing`);
+      regularCarryStock.clear(); extraCarryStock.clear(); regularRecoupCarry.clear(); extraRecoupCarry.clear();
+      for (const member of saved.members) {
+        const extra = member.extraStockYen || 0;
+        regularCarryStock.set(member.memberId, member.regularStockYen ?? Math.max(0, (member.stockYen || 0) - extra));
+        extraCarryStock.set(member.memberId, extra);
+        regularRecoupCarry.set(member.memberId, member.regularLiabilityRecoupCarryYen || 0);
+        extraRecoupCarry.set(member.memberId, member.extraLiabilityRecoupCarryYen || 0);
+      }
+      regularUnusedCapCarryYen = saved.regularUnusedCapCarryOutYen || 0;
+      extraUnusedCapCarryYen = saved.extraUnusedCapCarryOutYen || 0;
+      if (month === ym) return saved;
+      continue;
+    }
     const unitsForMonth = deriveRewardUnits({ milestones, billing: billingForMonth, planCycle, project, extraPoolBudgetYen });
     const baseCaps = deriveMonthlyRewardCaps({ billing: billingForMonth, planCycle, project, hasCapExtra: unitsForMonth.hasCapExtra });
     const caps: MonthlyRewardCaps = {
@@ -1703,12 +1761,18 @@ async function persistRewardSummaryForCycle({
     updatePayload.budget_yen = persistedBudgetYen;
   }
 
-  const { error } = await db
+  let update = db
     .from("billing_cycles")
     .update(updatePayload)
     .eq("project_id", projectId)
-    .eq("ym", ym);
+    .eq("ym", ym)
+    .is("reward_paid_at", null)
+    .is("payout_notice_uploaded_at", null)
+    .is("payment_confirmed_at", null);
+  update = billing.updated_at ? update.eq("updated_at", billing.updated_at) : update.is("updated_at", null);
+  const { data, error } = await update.select("ym");
   if (error) throw error;
+  if (data?.length !== 1) throw new Error(`${projectId}:${ym}: reward write conflict or protection changed`);
 }
 
 function emptyRewardSummaryForCycle(
@@ -1773,13 +1837,13 @@ async function computeRewardSummaryForCycle(
   const [billingRes, projectRes, planCyclesRes, membersRes] = await Promise.all([
     db
       .from("billing_cycles")
-      .select("project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, extra_budget_yen, reward_summary_json")
+      .select(REWARD_CYCLE_SELECT)
       .eq("project_id", projectId)
       .eq("ym", ym)
       .maybeSingle(),
     db
       .from("projects")
-      .select("project_id, fee_type, fee_amount, start_ym, end_ym")
+      .select("project_id, fee_type, fee_amount, start_ym, end_ym, payment_due_rule, payment_due_day, invoice_send_deadline_rule")
       .eq("project_id", projectId)
       .maybeSingle(),
     db
@@ -1801,6 +1865,12 @@ async function computeRewardSummaryForCycle(
     return { ok: false, projectId, ym, rewardSummary: null, skippedReason: "billing_cycle_not_found", billing: null, project: null };
   }
   const project = (projectRes.data ?? null) as ProjectRow | null;
+  await lockRecordedPayoutCycles(db, project, [billing]);
+  if (isRewardCycleProtected(billing)) {
+    const saved = billing.reward_summary_json as RewardSummary | null;
+    if (!saved || !Array.isArray(saved.members)) throw new Error(`${projectId}:${ym}: protected reward snapshot missing`);
+    return { ok: true, projectId, ym, rewardSummary: saved, skippedReason: "payout_protected", billing, project };
+  }
   const planCycleBase = choosePlanCycle((planCyclesRes.data ?? []) as PlanCycleRow[], ym);
   const planCycle = planCycleBase && options.scenario?.planCycleId === planCycleBase.plan_cycle_id
     ? { ...planCycleBase, total_points: options.scenario.totalPoints ?? planCycleBase.total_points }
@@ -1838,7 +1908,7 @@ async function computeRewardSummaryForCycle(
       .order("ym", { ascending: true }),
     db
       .from("billing_cycles")
-      .select("project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, extra_budget_yen, reward_summary_json")
+      .select(REWARD_CYCLE_SELECT)
       .eq("project_id", projectId)
       .gte("ym", planCycle.period_start_ym)
       .lte("ym", planCycle.period_end_ym)
@@ -1851,6 +1921,7 @@ async function computeRewardSummaryForCycle(
   if (progressRes.error) throw progressRes.error;
   if (billingRangeRes.error) throw billingRangeRes.error;
   if (projectMembersRes.error) throw projectMembersRes.error;
+  await lockRecordedPayoutCycles(db, project, (billingRangeRes.data || []) as BillingRow[]);
 
   let responsibilities: ResponsibilityRow[];
   if (options.scenario?.planCycleId === planCycle.plan_cycle_id) {
@@ -1946,7 +2017,13 @@ export async function syncRewardSummaryForCycle(
   ym: string
 ): Promise<RewardSyncResult> {
   const result = await computeRewardSummaryForCycle(db, projectId, ym, { includeLiabilityOffsets: true });
-  if (result.billing) {
+  if (result.billing && !isRewardCycleProtected(result.billing)) {
+    // 計算中に確定された月も上書きしない。
+    const fresh = await db.from("billing_cycles").select(REWARD_CYCLE_SELECT).eq("project_id", projectId).eq("ym", ym).maybeSingle();
+    if (fresh.error) throw fresh.error;
+    if (!fresh.data) throw new Error(`${projectId}:${ym}: cycle disappeared`);
+    await lockRecordedPayoutCycles(db, result.project, [fresh.data as BillingRow]);
+    if (isRewardCycleProtected(fresh.data)) return { ...toPublicRewardSyncResult(result), rewardSummary: fresh.data.reward_summary_json, skippedReason: "payout_protected" };
     await persistRewardSummaryForCycle({
       db,
       projectId,
