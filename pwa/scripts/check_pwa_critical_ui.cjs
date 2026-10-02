@@ -3780,6 +3780,8 @@ expectIncludes("src/lib/payout-source-span.ts", [
   "export function regularPoolAmounts(",
   "export function resolvePayoutSourceSpan(",
   "別財布 (cap_extra) は含まない",
+  // 明細は繰越の範囲全体ではなく今回の支払が当たる月で書く (まさ指摘 2026-10-02: ちこの9月支払)
+  "function allocatePaidMonths(",
 ]);
 expectIncludes("../gas/064_PayoutFreeeNotice.js", [
   "noteText",

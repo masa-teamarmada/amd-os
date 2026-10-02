@@ -51,7 +51,55 @@ function span(rows: Record<string, RegularPoolAmounts>, sourceYm: string, floorY
   assert.equal(ymSpanLabel(result.startYm, result.endYm), "4〜6月稼働分");
   assert.equal(result.grossDueYen, 601349);
   assert.equal(result.stockYen, 455774);
-  assert.equal(payoutSourceDescription(result), "4〜6月発生分の一部");
+  // 145,575円は4月の発生分 (200,293円) にも届かない。範囲全体の「4〜6月」と書かない
+  assert.equal(payoutSourceDescription(result), "4月発生分の一部");
+}
+
+// 2b. ちこの SX (まさ指摘 2026-10-02)。4〜5月は支払0円、6月に 87,185円、7月に 87,378円
+{
+  const rows = {
+    "202604": { carryIn: 0, grossDue: 119893, stock: 119893 },
+    "202605": { carryIn: 119893, grossDue: 239786, stock: 239786 },
+    "202606": { carryIn: 239786, grossDue: 360149, stock: 272964 },
+    "202607": { carryIn: 272964, grossDue: 346311, stock: 258933 },
+    "202608": { carryIn: 258933, grossDue: 333220, stock: 245493 },
+  };
+  const june = span(rows, "202606");
+  assert.equal(june.startYm, "202604");
+  assert.deepEqual(june.paidMonths, [{ ym: "202604", paidYen: 87185, startedBefore: false, completed: false }]);
+  assert.equal(payoutSourceDescription(june), "4月発生分の一部");
+
+  // 4月の残り 32,708円 + 5月の 54,670円
+  const july = span(rows, "202607");
+  assert.deepEqual(july.paidMonths, [
+    { ym: "202604", paidYen: 32708, startedBefore: true, completed: true },
+    { ym: "202605", paidYen: 54670, startedBefore: false, completed: false },
+  ]);
+  assert.equal(payoutSourceDescription(july), "4〜5月発生分（4月の残りと5月の一部）");
+
+  const august = span(rows, "202608");
+  // これまでの支払 174,563円で4月を払い終え5月の途中。5月の残り 65,223円 + 6月の 22,504円
+  assert.equal(payoutSourceDescription(august), "5〜6月発生分（5月の残りと6月の一部）");
+}
+
+// 2c. 前回の続きから払い終える月は「の残り」、払い終えて次の月の途中までなら範囲で書く
+{
+  const rows = {
+    "202604": { carryIn: 0, grossDue: 100000, stock: 60000 },
+    "202605": { carryIn: 60000, grossDue: 160000, stock: 100000 },
+  };
+  assert.equal(payoutSourceDescription(span(rows, "202605")), "4月発生分の残り");
+  const rows2 = {
+    "202604": { carryIn: 0, grossDue: 100000, stock: 60000 },
+    "202605": { carryIn: 60000, grossDue: 160000, stock: 0 },
+  };
+  assert.equal(payoutSourceDescription(span(rows2, "202605")), "4〜5月発生分（4月の残り）");
+  // 年またぎは年を付ける
+  const rows3 = {
+    "202512": { carryIn: 0, grossDue: 100000, stock: 100000 },
+    "202601": { carryIn: 100000, grossDue: 200000, stock: 50000 },
+  };
+  assert.equal(payoutSourceDescription(span(rows3, "202601")), "2025年12月〜2026年1月発生分（2026年1月の一部）");
 }
 
 // 3. plan cycle の開始月より前へは遡らない (繰越の鎖はサイクルをまたがない)

@@ -10,6 +10,11 @@
  * 未払いと混ぜない。混ぜると、本契約を毎月満額払っていても別財布の積立だけで
  * 「5〜7月稼働分・残りは翌月以降お支払いします」と書いてしまう (まさ指摘 2026-08-28: ZMP)。
  *
+ * 明細に書くのは、繰越の範囲全体ではなく**今回の支払が当たる月**。範囲全体を書くと
+ * 「4〜6月稼働分 87,185円」になり、4月の発生分にも届かない額が3か月分の支払に見える
+ * (まさ指摘 2026-10-02: ちこの 2026年9月支払)。当て方は /admin/payouts の内訳モーダルと同じ
+ * 「古い稼働月の発生分から順に払う」仮定で、「4月発生分の一部」「4〜5月発生分（4月の残りと5月の一部）」と書く。
+ *
  * 検査: npm run test:payout-source-span
  */
 
@@ -55,6 +60,19 @@ export type PayoutSourceSpan = {
   grossDueYen: number;
   /** 今回払ったあとに残る本契約の未払い。別財布は含まない */
   stockYen: number;
+  /** 今回の本契約の支払が当たる稼働月 (古い月から順に払う仮定)。支払が 0 なら空 */
+  paidMonths: PaidMonth[];
+};
+
+/** 今回の支払のうち、ある稼働月の発生分に当たる部分 */
+export type PaidMonth = {
+  ym: string;
+  /** その月の発生分のうち今回払う額 */
+  paidYen: number;
+  /** その月の発生分の一部を、前回までにすでに払っている */
+  startedBefore: boolean;
+  /** 今回の支払で、その月の発生分を払い終える */
+  completed: boolean;
 };
 
 /**
@@ -98,7 +116,7 @@ export function resolvePayoutSourceSpan(
 ): PayoutSourceSpan {
   const current = byYm.get(sourceYm);
   if (!current) {
-    return { startYm: sourceYm, endYm: sourceYm, grossDueYen: 0, stockYen: 0 };
+    return { startYm: sourceYm, endYm: sourceYm, grossDueYen: 0, stockYen: 0, paidMonths: [] };
   }
 
   let startYm = sourceYm;
@@ -113,7 +131,48 @@ export function resolvePayoutSourceSpan(
     startYm = previousYm;
   }
 
-  return { startYm, endYm: sourceYm, grossDueYen: current.grossDue, stockYen: current.stock };
+  return {
+    startYm,
+    endYm: sourceYm,
+    grossDueYen: current.grossDue,
+    stockYen: current.stock,
+    paidMonths: allocatePaidMonths(byYm, startYm, sourceYm),
+  };
+}
+
+/**
+ * 今回の支払を、範囲内の稼働月の発生分へ古い月から順に当てる。
+ *
+ * 前回までに払った額は「範囲内の前月までの発生合計 − 今月の繰越入」で求める。月ごとの支払額を
+ * 足し上げるより、控除 (`reward_member_liability_offsets`) や端数で繰越がずれても今月の繰越と食い違わない。
+ */
+function allocatePaidMonths(byYm: Map<string, RegularPoolAmounts>, startYm: string, endYm: string): PaidMonth[] {
+  const accruals: Array<{ ym: string; yen: number }> = [];
+  for (let ym = startYm, guard = 0; ym <= endYm && guard < 60; ym = addMonths(ym, 1), guard += 1) {
+    const row = byYm.get(ym);
+    accruals.push({ ym, yen: row ? Math.max(0, row.grossDue - row.carryIn) : 0 });
+  }
+  const current = byYm.get(endYm);
+  if (!current) return [];
+  const paid = Math.max(0, current.grossDue - current.stock);
+  if (paid <= 0) return [];
+
+  const accruedBefore = accruals.slice(0, -1).reduce((sum, row) => sum + row.yen, 0);
+  let cursor = Math.max(0, accruedBefore - current.carryIn);
+  const payEnd = cursor + paid;
+  const result: PaidMonth[] = [];
+  let monthStart = 0;
+  for (const row of accruals) {
+    const monthEnd = monthStart + row.yen;
+    if (row.yen > 0 && cursor < monthEnd && payEnd > monthStart) {
+      const from = Math.max(cursor, monthStart);
+      const to = Math.min(payEnd, monthEnd);
+      result.push({ ym: row.ym, paidYen: to - from, startedBefore: from > monthStart, completed: to >= monthEnd });
+      cursor = to;
+    }
+    monthStart = monthEnd;
+  }
+  return result;
 }
 
 export function ymShortLabel(ym: string): string {
@@ -130,9 +189,28 @@ export function ymSpanLabel(startYm: string, endYm: string): string {
   return `${startYear}年${startMonth}月〜${endYear}年${endMonth}月稼働分`;
 }
 
-/** 通知書の明細では、繰越プールの対象期間と今回の一部支払を区別する。 */
+function monthLabel(ym: string, withYear: boolean): string {
+  return withYear ? `${ym.slice(0, 4)}年${Number(ym.slice(4, 6))}月` : `${Number(ym.slice(4, 6))}月`;
+}
+
+/**
+ * 通知書の明細に書く稼働月。今回の支払が当たる月だけを書き、途中までしか払わない月は
+ * 「の一部」、前回の続きから払い終える月は「の残り」と添える。
+ */
 export function payoutSourceDescription(span: PayoutSourceSpan): string {
-  if (span.startYm === span.endYm) return ymShortLabel(span.endYm);
-  const period = ymSpanLabel(span.startYm, span.endYm).replace(/稼働分$/, "発生分");
-  return span.stockYen > 0 ? `${period}の一部` : period;
+  const months = span.paidMonths ?? [];
+  if (months.length === 0) return ymSpanLabel(span.startYm, span.endYm);
+  const first = months[0];
+  const last = months[months.length - 1];
+  if (months.length === 1) {
+    if (first.ym === span.endYm && !first.startedBefore && first.completed) return ymShortLabel(first.ym);
+    const suffix = !first.completed ? "の一部" : first.startedBefore ? "の残り" : "";
+    return `${monthLabel(first.ym, false)}発生分${suffix}`;
+  }
+  const withYear = first.ym.slice(0, 4) !== last.ym.slice(0, 4);
+  const period = ymSpanLabel(first.ym, last.ym).replace(/稼働分$/, "発生分");
+  const notes: string[] = [];
+  if (first.startedBefore) notes.push(`${monthLabel(first.ym, withYear)}の残り`);
+  if (!last.completed) notes.push(`${monthLabel(last.ym, withYear)}の一部`);
+  return notes.length > 0 ? `${period}（${notes.join("と")}）` : period;
 }
