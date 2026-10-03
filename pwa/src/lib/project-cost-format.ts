@@ -151,10 +151,12 @@ export function costFormatBreakdown(result: ItemsResult, groups: CostFormatInput
   });
 }
 
-export type CostFormatStatus = { label: "赤字" | "上限超" | "目標超" | "目標内" | "黒字"; tone: "bad" | "warn" | "ok" };
+export type CostFormatStatus = { label: "赤字" | "上限超" | "目標超" | "目標内" | "黒字" | "売価未登録"; tone: "bad" | "warn" | "ok" | "none" };
 
 /** 総コストが売価・目標のどこにあるか。色だけで伝えず、必ず言葉を添える（SX の試算と同じ決まり）。 */
 export function costFormatStatus(total: number, price: number, target: number | null, marginRate: number | null): CostFormatStatus {
+  // 売価も目標も無い試算（部分試算など）は、黒字・赤字を言わない。
+  if (!(price > 0) && target === null) return { label: "売価未登録", tone: "none" };
   const allowed = marginRate !== null && marginRate > 0 ? price * (1 - marginRate) : price;
   if (price > 0 && total > allowed) return { label: marginRate !== null && marginRate > 0 ? "上限超" : "赤字", tone: "bad" };
   if (target !== null && total > target) return { label: "目標超", tone: "warn" };

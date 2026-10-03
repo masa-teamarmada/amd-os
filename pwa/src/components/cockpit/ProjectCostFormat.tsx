@@ -179,7 +179,7 @@ export function ProjectCostFormat({ projectId, allowEdit = true }: Props) {
   const marginRate = model.targetMarginRate;
   const status = costFormatStatus(result.totalPerUnit, result.salePrice, target, marginRate);
   const rows = costFormatBreakdown(result, groups);
-  const caseLabel = current ? `${caseOptionLabel(current, unit)}/年${current.label ? `（${current.label}）` : ""}` : `${int(volume)}${unit}/年`;
+  const caseLabel = current ? `${caseOptionLabel(current, unit)}/年${current.label ? `（${current.label}）` : ""}` : volume > 0 ? `${int(volume)}${unit}/年` : "年間の量は未登録";
 
   return (
     <div className="flex flex-col gap-3" data-testid="project-cost-format">
@@ -194,7 +194,7 @@ export function ProjectCostFormat({ projectId, allowEdit = true }: Props) {
           <p className="flex flex-wrap items-baseline gap-x-1.5">
             <span className="text-[16px] font-semibold tabular-nums text-[#1d1d1f]">{amount(result.totalPerUnit)}</span>
             <span className="text-[11px] text-[#6e6e73]">円/{unit}</span>
-            <span className={`text-[11px] font-semibold ${status.tone === "bad" ? "text-[#be123c]" : status.tone === "warn" ? "text-[#b45309]" : "text-[#1d1d1f]"}`}>{status.label}</span>
+            <span className={`text-[11px] font-semibold ${status.tone === "bad" ? "text-[#be123c]" : status.tone === "warn" ? "text-[#b45309]" : status.tone === "none" ? "text-[#6e6e73]" : "text-[#1d1d1f]"}`}>{status.label}</span>
             <Delta value={result.totalPerUnit - baseline.totalPerUnit} digits={Math.abs(result.totalPerUnit) >= 1000 ? 0 : 1} className="text-[11px]" />
           </p>
           <div className="mt-1 flex h-1.5 w-full overflow-hidden rounded-full bg-[#f0f0f2]" aria-hidden="true">
@@ -224,7 +224,9 @@ export function ProjectCostFormat({ projectId, allowEdit = true }: Props) {
             )}
             <p className="text-[10px] leading-4 text-[#6e6e73]" data-testid="cost-format-selection-note">
               {model.caseLabel ? `${model.caseLabel}。` : ""}
-              {caseLabel}で割った1{unit}あたりの原価。1{unit}あたりの明細に、年額の費用・設備の償却・作業の年額を年間の量で割って足す。
+              {volume > 0
+                ? `${caseLabel}で割った1${unit}あたりの原価。1${unit}あたりの明細に、年額の費用・設備の償却・作業の年額を年間の量で割って足す。`
+                : `1${unit}あたりの明細だけの試算（年間の量が未登録のため、年額の費用・設備の償却・作業は1${unit}あたりに割っていない）。`}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-1.5 xl:shrink-0 xl:flex-nowrap xl:self-start">

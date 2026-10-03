@@ -41,7 +41,7 @@ export function caseOptionLabel(c: ItemsVolumeCase, unit: string) {
 
 const NAV_BUTTON =
   "min-h-[36px] shrink-0 rounded-md px-2 text-[11px] font-semibold text-[#3c3c43] hover:bg-[#e8f3fc] hover:text-[#0267b2] xl:min-h-[26px]";
-const STATUS_CLASS = { bad: "text-[#be123c]", warn: "text-[#b45309]", ok: "text-[#1d1d1f]" } as const;
+const STATUS_CLASS = { bad: "text-[#be123c]", warn: "text-[#b45309]", ok: "text-[#1d1d1f]", none: "text-[#6e6e73]" } as const;
 
 function Formula({ children, testId }: { children: ReactNode; testId?: string }) {
   return (
@@ -149,8 +149,10 @@ export function CostFormatSummary({
         </span>
       ) : targetNote ? (
         <span>{targetNote}</span>
-      ) : (
+      ) : result.salePrice > 0 ? (
         <span className="text-[#3c3c43]">売価（ここを超えると赤字）</span>
+      ) : (
+        <span className="text-[#86868b]">未登録</span>
       ),
     capex: <span className="tabular-nums">{yen(result.capexInitial)}</span>,
     opex: (
@@ -276,7 +278,7 @@ export function CostFormatResults({
 
       <section aria-label={COST_CHARTS.breakdown.title} data-testid="cost-format-breakdown">
         <h4 className="text-[11px] font-semibold text-[#3c3c43]">
-          {COST_CHARTS.breakdown.title}（{caseOptionLabel(cases.find((c) => c.key === currentKey) ?? { key: "", volume: result.volume, label: "" }, unit)}/年・円/{unit}）
+          {COST_CHARTS.breakdown.title}（{result.volume > 0 ? `${caseOptionLabel(cases.find((c) => c.key === currentKey) ?? { key: "", volume: result.volume, label: "" }, unit)}/年・` : ""}円/{unit}）
           <span className="ml-1 font-normal text-[#6e6e73]">行を押すと中身が開く</span>
         </h4>
         <ul aria-label="内訳の棒グラフ" className="mt-1 flex flex-col">
@@ -332,11 +334,15 @@ export function CostFormatResults({
         <dl className="mt-2 flex flex-col gap-1 text-[11px] text-[#3c3c43]">
           <div className="flex flex-wrap justify-between gap-x-2" data-testid="cost-format-annual">
             <dt className="shrink-0">事業全体の年間</dt>
-            <dd className="flex min-w-0 flex-1 flex-wrap justify-end gap-x-2 tabular-nums">
-              <span className="whitespace-nowrap">売上 {yen(result.revenueAnnual)}</span>
-              <span className="whitespace-nowrap">総コスト {yen(result.totalAnnual)}</span>
-              <span className={`whitespace-nowrap ${result.profitAnnual < 0 ? "text-[#be123c]" : ""}`}>利益 {yen(result.profitAnnual)}</span>
-            </dd>
+            {result.volume > 0 ? (
+              <dd className="flex min-w-0 flex-1 flex-wrap justify-end gap-x-2 tabular-nums">
+                <span className="whitespace-nowrap">売上 {yen(result.revenueAnnual)}</span>
+                <span className="whitespace-nowrap">総コスト {yen(result.totalAnnual)}</span>
+                <span className={`whitespace-nowrap ${result.profitAnnual < 0 ? "text-[#be123c]" : ""}`}>利益 {yen(result.profitAnnual)}</span>
+              </dd>
+            ) : (
+              <dd className="text-[#86868b]">年間の量が未登録</dd>
+            )}
           </div>
         </dl>
       </section>

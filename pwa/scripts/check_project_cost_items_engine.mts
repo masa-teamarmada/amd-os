@@ -109,6 +109,7 @@ check("成立ラインの判定は言葉で返す", () => {
   assert.deepEqual(costFormatStatus(100, 120, 90, null), { label: "目標超", tone: "warn" });
   assert.deepEqual(costFormatStatus(80, 120, 90, null), { label: "目標内", tone: "ok" });
   assert.deepEqual(costFormatStatus(100, 120, null, 0.3), { label: "上限超", tone: "bad" });
+  assert.deepEqual(costFormatStatus(317.8, 0, null, null), { label: "売価未登録", tone: "none" }, "売価も目標も無い部分試算は黒字・赤字を言わない");
 });
 
 check("画面は定義の区画をすべて描き、入口はデータの形で画面を選ぶ", () => {
