@@ -7,6 +7,7 @@ import {
   ConditionBlock,
   MatrixBlock,
   MatrixSheet,
+  QaBlock,
   RATINGS,
   RecordBlock,
   SourceCell,
@@ -18,6 +19,7 @@ import {
   COMPETITION_TECH_DOMAIN,
   CONFIDENCE_LABEL,
   CONFIDENTIALITY_LABEL,
+  QA_IMPORTANCE_RATINGS,
   RATING_FULL_LABEL,
   SOURCE_KIND_LABEL,
   countNeedsCheck,
@@ -48,7 +50,7 @@ import {
 //   SX なら「シアノがどの温度帯・pH で使えるか、どの元素を取り込めるか」、
 //   CX なら「磁気冷凍と気体冷凍の違い、今どこまで冷やせるか、kiutra との星取り表」。
 //
-// PJごとにフォーマットは違うが、形は4種類しかない (成立条件 / 解説 / 星取り表 / 到達実績)。
+// PJごとにフォーマットは違うが、形は5種類しかない (成立条件 / 解説 / 星取り表 / 到達実績 / QA集)。
 // PJ専用のコンポーネントは作らない。PJごとに違うのは並べるトピックと項目名だけで、
 // それはデータ (project_tech_topics.block_kind と tech_domain) が持つ。
 //
@@ -59,7 +61,7 @@ import {
 // 事業計画グループの「ビジネスモデル」タブも同じ部品 (mode="business-model")。区分「ビジネスモデル」のトピックだけを出す
 // (2026-09-14 まさ「事業計画グループの中に「ビジネスモデル」っていうタブを新たに追加して、その中に入れておくのはどう？」)。
 
-const BLOCK_ORDER: TechBlockKind[] = ["condition", "matrix", "record", "article"];
+const BLOCK_ORDER: TechBlockKind[] = ["condition", "matrix", "record", "qa", "article"];
 
 const CONFIDENTIALITY_STYLE: Record<TechConfidentiality, string> = {
   public: "bg-[#e8f5e9] text-[#1b5e20] border-[#a5d6a7]",
@@ -73,7 +75,7 @@ const FRAGMENT_CATEGORY_LABEL: Record<string, string> = {
   competitor: "競合",
 };
 
-const BLOCK_KINDS: TechBlockKind[] = ["condition", "article", "matrix", "record"];
+const BLOCK_KINDS: TechBlockKind[] = ["condition", "article", "matrix", "record", "qa"];
 const CONFIDENTIALITIES: TechConfidentiality[] = ["public", "internal", "confidential"];
 const SOURCE_KINDS: TechSourceKind[] = [
   "manual",
@@ -328,7 +330,8 @@ function EntryForm({
   const [vmax, setVmax] = useState(initial?.value_max !== null && initial?.value_max !== undefined ? String(initial.value_max) : "");
   const [vtext, setVtext] = useState(initial?.value_text ?? "");
   const [unit, setUnit] = useState(initial?.unit ?? "");
-  const [rating, setRating] = useState<TechRating>(initial?.rating ?? "unknown");
+  // QA集は重要度の選択肢が★〜★★★だけなので、新規は★から始める (未設定の "unknown" のまま保存しない)。
+  const [rating, setRating] = useState<TechRating>(initial?.rating ?? (kind === "qa" ? "fair" : "unknown"));
   const [cond, setCond] = useState(initial?.condition_text ?? "");
   const [observed, setObserved] = useState(initial?.observed_on ?? "");
   const [confidence, setConfidence] = useState<TechConfidence>(initial?.confidence ?? "medium");
@@ -342,7 +345,8 @@ function EntryForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const rowLabelName = kind === "matrix" ? "比較軸" : kind === "record" ? "測る対象" : "項目";
+  const rowLabelName = kind === "matrix" ? "比較軸" : kind === "record" ? "測る対象" : kind === "qa" ? "質問" : "項目";
+  const isQa = kind === "qa";
 
   async function submit() {
     if (!rowLabel.trim()) {
@@ -360,10 +364,10 @@ function EntryForm({
         row_label: rowLabel.trim(),
         col_label: kind === "matrix" ? colLabel.trim() : null,
         value_min: numOrNull(vmin),
-        value_max: numOrNull(vmax),
+        value_max: isQa ? null : numOrNull(vmax),
         value_text: textOrNull(vtext),
-        unit: textOrNull(unit),
-        rating: kind === "matrix" ? rating : null,
+        unit: isQa ? null : textOrNull(unit),
+        rating: kind === "matrix" || isQa ? rating : null,
         condition_text: textOrNull(cond),
         observed_on: textOrNull(observed),
         confidence,
@@ -386,8 +390,29 @@ function EntryForm({
     <div className="space-y-2 rounded-lg border border-[#d2d2d7] bg-[#fafafa] p-3">
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
         <Field label={rowLabelName}>
-          <input className={INPUT} value={rowLabel} onChange={(e) => setRowLabel(e.target.value)} placeholder={kind === "condition" ? "培養温度" : "到達温度"} />
+          <input
+            className={INPUT}
+            value={rowLabel}
+            onChange={(e) => setRowLabel(e.target.value)}
+            placeholder={kind === "condition" ? "培養温度" : isQa ? "工場の規模で使えるのか" : "到達温度"}
+          />
         </Field>
+        {isQa && (
+          <Field label="聞かれた回数">
+            <input className={INPUT} value={vmin} onChange={(e) => setVmin(e.target.value)} inputMode="numeric" placeholder="2" />
+          </Field>
+        )}
+        {isQa && (
+          <Field label="重要度（よく聞かれそうか）">
+            <select className={INPUT} value={rating} onChange={(e) => setRating(e.target.value as TechRating)}>
+              {QA_IMPORTANCE_RATINGS.map((r) => (
+                <option key={r} value={r}>
+                  {r === "excellent" ? "★★★" : r === "good" ? "★★" : "★"}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
         {kind === "matrix" && (
           <Field label="比較相手 (列)">
             <input className={INPUT} value={colLabel} onChange={(e) => setColLabel(e.target.value)} placeholder="自社 / kiutra" />
@@ -408,6 +433,11 @@ function EntryForm({
           <input className={INPUT} value={order} onChange={(e) => setOrder(e.target.value)} inputMode="numeric" />
         </Field>
       </div>
+      {isQa ? (
+        <Field label="答え">
+          <textarea className={INPUT} rows={4} value={vtext} onChange={(e) => setVtext(e.target.value)} />
+        </Field>
+      ) : (
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Field label="下限 (数値)">
           <input className={INPUT} value={vmin} onChange={(e) => setVmin(e.target.value)} inputMode="decimal" />
@@ -422,11 +452,17 @@ function EntryForm({
           <input className={INPUT} value={vtext} onChange={(e) => setVtext(e.target.value)} placeholder="Cd, Zn, Cu / 未測定" />
         </Field>
       </div>
+      )}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        <Field label="条件 (この条件下で成り立つ)">
-          <input className={INPUT} value={cond} onChange={(e) => setCond(e.target.value)} placeholder="培養槽内 / 定格運転時" />
+        <Field label={isQa ? "聞かれた相手・場面" : "条件 (この条件下で成り立つ)"}>
+          <input
+            className={INPUT}
+            value={cond}
+            onChange={(e) => setCond(e.target.value)}
+            placeholder={isQa ? "伊予銀行・住友金属鉱山（2026-10）" : "培養槽内 / 定格運転時"}
+          />
         </Field>
-        <Field label="時点・測定日">
+        <Field label={isQa ? "最後に聞かれた日" : "時点・測定日"}>
           <input className={INPUT} type="date" value={observed} onChange={(e) => setObserved(e.target.value)} />
         </Field>
         <Field label="確度">
@@ -597,6 +633,7 @@ export function TopicCard({
               {topic.block_kind === "condition" && <ConditionBlock entries={entries} />}
               {topic.block_kind === "matrix" && <MatrixBlock entries={entries} />}
               {topic.block_kind === "record" && <RecordBlock entries={entries} />}
+              {topic.block_kind === "qa" && <QaBlock entries={entries} />}
             </div>
           )}
         </>

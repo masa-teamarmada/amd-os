@@ -1,8 +1,8 @@
 /**
  * 技術台帳 (project_tech_*) の共通型とラベル。
  *
- * PJコックピット「技術」タブの置き場所。PJごとにフォーマットは違うが、形は4種類しかない:
- *   condition = 成立条件 / article = 解説 / matrix = 星取り表 / record = 到達実績
+ * PJコックピット「技術」タブの置き場所。PJごとにフォーマットは違うが、形は5種類しかない:
+ *   condition = 成立条件 / article = 解説 / matrix = 星取り表 / record = 到達実績 / qa = QA集
  * PJごとに違うのは並べるトピックと項目名だけなので、PJ専用コンポーネントは作らない。
  *
  * migration: scripts/migrations/339_project_tech_ledger.sql
@@ -10,7 +10,7 @@
  * 仕様: pwa/spec/3-20-project-technology-current-spec.md
  */
 
-export type TechBlockKind = "condition" | "article" | "matrix" | "record";
+export type TechBlockKind = "condition" | "article" | "matrix" | "record" | "qa";
 export type TechConfidentiality = "public" | "internal" | "confidential";
 export type TechSourceKind =
   | "manual"
@@ -141,6 +141,7 @@ export const BLOCK_KIND_LABEL: Record<TechBlockKind, string> = {
   article: "解説",
   matrix: "星取り表",
   record: "到達実績",
+  qa: "QA集",
 };
 
 /** 一覧に出す、その形式が何を書く場所かの説明 (空状態と追加フォームで使う)。 */
@@ -149,6 +150,7 @@ export const BLOCK_KIND_HINT: Record<TechBlockKind, string> = {
   article: "原理や用語の説明文。図と数式も置ける",
   matrix: "比較軸 × 相手。◎○△× と実数値、根拠を1マスずつ",
   record: "今どこまで行っているか。同じ項目を並べると推移になる",
+  qa: "聞かれた質問と答え。聞かれた回数の多い順、同じ回数なら重要度（★）の高い順に並ぶ",
 };
 
 export const CONFIDENTIALITY_LABEL: Record<TechConfidentiality, string> = {
@@ -270,6 +272,50 @@ export function matrixRows(entries: TechEntry[]): string[] {
   }
   return rows;
 }
+
+/*
+ * QA集 (block_kind = 'qa')。2026-10-03 まさ「DDパッケージのところにQA集を新たに作ってほしい」
+ * 「質問された回数の多いものから順にソーティングされるようにして。回数が同じ場合には、より頻繁に質問されそうかどうかを
+ * えいみが判断して、重要度で★、★★、★★★の3段階でソーティングしてほしい」。
+ * 1行 = 1つの質問。列の使い方は spec 3-20 §3:
+ *   row_label = 質問 / value_text = 答え / value_min = 聞かれた回数 / rating = 重要度 (excellent ★★★ / good ★★ / fair ★)
+ *   condition_text = 聞かれた相手・場面 / observed_on = 最後に聞かれた日 / confidence = 答えの確かさ
+ * 並びは画面で毎回計算する。回数を足せば並びが変わるので、sort_order で手で並べ直さない。
+ */
+
+/** 重要度の★の数。excellent = 3 / good = 2 / fair = 1。それ以外 (未設定を含む) は 0。 */
+export function qaImportance(entry: Pick<TechEntry, "rating">): number {
+  if (entry.rating === "excellent") return 3;
+  if (entry.rating === "good") return 2;
+  if (entry.rating === "fair") return 1;
+  return 0;
+}
+
+/** 重要度の表示。★の数だけ並べる (0 は「—」)。 */
+export function qaStars(entry: Pick<TechEntry, "rating">): string {
+  const n = qaImportance(entry);
+  return n > 0 ? "★".repeat(n) : "—";
+}
+
+/** 聞かれた回数。value_min に置く。空なら 0 回として扱う。 */
+export function qaAskedCount(entry: Pick<TechEntry, "value_min">): number {
+  const n = entry.value_min;
+  return typeof n === "number" && Number.isFinite(n) ? n : 0;
+}
+
+/** QA集の並び。聞かれた回数の多い順 → 重要度の高い順 → sort_order → 質問の文字順。元の配列は変えない。 */
+export function sortQaEntries<T extends Pick<TechEntry, "value_min" | "rating" | "sort_order" | "row_label">>(entries: T[]): T[] {
+  return [...entries].sort(
+    (a, b) =>
+      qaAskedCount(b) - qaAskedCount(a) ||
+      qaImportance(b) - qaImportance(a) ||
+      a.sort_order - b.sort_order ||
+      a.row_label.localeCompare(b.row_label, "ja"),
+  );
+}
+
+/** QA集の重要度の選択肢 (入力フォーム用)。 */
+export const QA_IMPORTANCE_RATINGS: TechRating[] = ["excellent", "good", "fair"];
 
 /** 要確認の行数。トピック見出しと画面上部の集計に出す。 */
 export function countNeedsCheck(entries: TechEntry[]): number {

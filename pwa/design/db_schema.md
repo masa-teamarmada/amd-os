@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-09-30 19:20 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-10-03 10:49 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -188,7 +188,7 @@ PRIMARY KEY: `id`
 
 ## amd_os_data_change_history
 
-行数 (概算): 193,993
+行数 (概算): 213,636
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -540,7 +540,7 @@ UNIQUE: `(name)` (constraint: `atlas_themes_name_key`)
 
 ## automation_route_budget_usage
 
-行数 (概算): 53
+行数 (概算): 81
 PRIMARY KEY: `scope_kind, scope_key, route_key`
 
 | # | column | type | nullable | default |
@@ -608,7 +608,7 @@ UNIQUE: `(project_id,ym)` (constraint: `billing_cycles_project_ym_unique`)
 
 ## billing_log
 
-行数 (概算): 52
+行数 (概算): 154
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -623,7 +623,7 @@ PRIMARY KEY: `id`
 
 ## boss_baseline_occurrences
 
-行数 (概算): 107
+行数 (概算): 169
 PRIMARY KEY: `id`
 UNIQUE: `(revision)` (constraint: `boss_baseline_occurrences_revision_key`)
 UNIQUE: `(server_boss_id,baseline_at,spawn_at)` (constraint: `boss_baseline_occurrences_server_boss_id_baseline_at_spawn__key`)
@@ -654,7 +654,7 @@ PRIMARY KEY: `id`
 
 ## boss_notification_jobs
 
-行数 (概算): 2,863
+行数 (概算): 3,825
 PRIMARY KEY: `id`
 UNIQUE: `(event_id)` (constraint: `boss_notification_jobs_event_id_key`)
 UNIQUE: `(server_boss_id,schedule_revision,lead_minutes)` (constraint: `boss_notification_jobs_server_boss_id_schedule_revision_lea_key`)
@@ -679,7 +679,7 @@ UNIQUE: `(server_boss_id,schedule_revision,lead_minutes)` (constraint: `boss_not
 
 ## boss_report_occurrences
 
-行数 (概算): 1,110
+行数 (概算): 1,661
 PRIMARY KEY: `id`
 UNIQUE: `(revision)` (constraint: `boss_report_occurrences_revision_key`)
 UNIQUE: `(server_boss_id,accepted_report_id,spawn_at)` (constraint: `boss_report_occurrences_server_boss_id_accepted_report_id_s_key`)
@@ -1275,7 +1275,7 @@ PRIMARY KEY: `account_id`
 
 ## cash_ledger_entries
 
-行数 (概算): 915
+行数 (概算): 942
 PRIMARY KEY: `id`
 UNIQUE: `(account_id,source,source_row)` (constraint: `cash_ledger_entries_source_row_uniq`)
 
@@ -1301,7 +1301,7 @@ UNIQUE: `(account_id,source,source_row)` (constraint: `cash_ledger_entries_sourc
 
 ## company_actual_monthly
 
-行数 (概算): 311
+行数 (概算): 315
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -1614,7 +1614,7 @@ UNIQUE: `(obligation_id,recipient_slack_id,schedule_key,stage)` (constraint: `co
 
 ## company_payment_obligations
 
-行数 (概算): 370
+行数 (概算): 389
 PRIMARY KEY: `id`
 UNIQUE: `(source_key)` (constraint: `company_payment_obligations_source_key_key`)
 
@@ -1716,7 +1716,7 @@ UNIQUE: `(occurrence_id,recipient_slack_id,schedule_key,stage)` (constraint: `co
 
 ## company_schedule_occurrences
 
-行数 (概算): 2,846
+行数 (概算): 2,906
 PRIMARY KEY: `occurrence_id`
 UNIQUE: `(occurrence_key,source_hash)` (constraint: `company_schedule_occurrences_source_uniq`)
 
@@ -3145,7 +3145,7 @@ UNIQUE: `(storage_path)` (constraint: `meeting_assets_storage_path_key`)
 
 ## meeting_minutes_backfill_ledger
 
-行数 (概算): 88
+行数 (概算): 96
 PRIMARY KEY: `calendar_event_id`
 
 | # | column | type | nullable | default |
@@ -3403,7 +3403,7 @@ PRIMARY KEY: `id`
 
 ## member_monthly_work_agreements
 
-行数 (概算): 28
+行数 (概算): 42
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -3457,7 +3457,7 @@ PRIMARY KEY: `game_server_id, user_id`
 
 ## member_payout_settlements
 
-行数 (概算): 149
+行数 (概算): 155
 PRIMARY KEY: `id`
 UNIQUE: `(source,source_id)` (constraint: `member_payout_settlements_source_source_id_key`)
 
@@ -4066,7 +4066,7 @@ UNIQUE: `(project_id,member_id)` (constraint: `payout_agreement_project_id_membe
 
 ## payout_notices
 
-行数 (概算): 28
+行数 (概算): 31
 PRIMARY KEY: `member_id, ym`
 
 | # | column | type | nullable | default |
@@ -5777,7 +5777,7 @@ PRIMARY KEY: `id`
 
 ## project_management_partner_interactions
 
-行数 (概算): 53
+行数 (概算): 99
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -5907,7 +5907,7 @@ PRIMARY KEY: `id`
 
 ## project_management_partners
 
-行数 (概算): 127
+行数 (概算): 140
 PRIMARY KEY: `id`
 UNIQUE: `(project_id,slug)` (constraint: `project_management_partners_project_id_slug_key`)
 
@@ -7698,7 +7698,7 @@ UNIQUE: `(key)` (constraint: `settings_key_key`)
 
 ## source_cache
 
-行数 (概算): 4,493
+行数 (概算): 4,508
 PRIMARY KEY: `id`
 UNIQUE: `(cache_id)` (constraint: `source_cache_cache_id_key`)
 UNIQUE: `(project_id,source,item_id)` (constraint: `source_cache_project_id_source_item_id_key`)
@@ -7865,7 +7865,7 @@ PRIMARY KEY: `id`
 
 ## sps_reassessment_source_events
 
-行数 (概算): 860
+行数 (概算): 937
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -7942,7 +7942,7 @@ PRIMARY KEY: `project_id, member_id`
 
 ## tally_weekly_effort_entries
 
-行数 (概算): 195
+行数 (概算): 199
 PRIMARY KEY: `project_id, member_id, week_start`
 
 | # | column | type | nullable | default |

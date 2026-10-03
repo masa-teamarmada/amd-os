@@ -11,6 +11,10 @@ import {
   formatTechValue,
   matrixColumns,
   matrixRows,
+  qaAskedCount,
+  qaImportance,
+  qaStars,
+  sortQaEntries,
   type TechConfidence,
   type TechEntry,
   type TechPresentation,
@@ -367,6 +371,50 @@ export function RecordBlock({ entries }: { entries: TechEntry[] }) {
           })}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/**
+ * QA集 — 聞かれた質問と答え。並びは画面で毎回計算する (聞かれた回数の多い順 → 重要度★の高い順)。
+ * 答えは長文になるので表にせず、1問ずつ縦に積む (スマホ幅でも横スクロールにしない)。
+ */
+export function QaBlock({ entries }: { entries: TechEntry[] }) {
+  if (entries.length === 0) return <EmptyRows hint="質問・答え・聞かれた回数・重要度（★）・聞かれた相手を1行ずつ足す" />;
+  const sorted = sortQaEntries(entries);
+  return (
+    <div>
+      <p className="mb-2 text-[11px] text-[#86868b]">
+        聞かれた回数の多い順。同じ回数なら重要度（★★★ ほどよく聞かれそうなもの）の高い順。
+      </p>
+      <ol className="divide-y divide-[#f0f0f2] rounded-lg border border-[#e5e5e7]">
+        {sorted.map((e, i) => (
+          <li key={e.tech_entry_id} className={`px-3 py-2.5 ${e.needs_check ? "bg-[#fffaf0]" : ""}`}>
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <span className="text-[11px] tabular-nums text-[#86868b]">Q{i + 1}</span>
+              <span className="text-[12px] font-semibold tracking-wider text-[#0267b2]" aria-label={`重要度 ${qaImportance(e)}`}>
+                {qaStars(e)}
+              </span>
+              <span className="rounded border border-[#d2d2d7] bg-[#f5f5f7] px-1.5 text-[11px] tabular-nums text-[#6e6e73]">
+                聞かれた回数 {qaAskedCount(e)}回
+              </span>
+            </div>
+            <p className="mt-1 text-[13px] font-semibold leading-5 text-[#1d1d1f]">
+              {e.needs_check && <span className="mr-1 text-[#b71c1c]">⚠</span>}
+              {e.row_label}
+            </p>
+            <p className="mt-1 whitespace-pre-line text-[12px] leading-5 text-[#1d1d1f]">{e.value_text || "（答えは未記入）"}</p>
+            {e.note && <p className="mt-1 text-[11px] leading-4 text-[#6e6e73]">{e.note}</p>}
+            {e.needs_check && <CheckNote reason={e.check_reason} />}
+            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] leading-4 text-[#86868b]">
+              {e.condition_text && <span>聞かれた相手: {e.condition_text}</span>}
+              {e.observed_on && <span>最後に聞かれた日: {e.observed_on}</span>}
+              <span className={CONFIDENCE_STYLE[e.confidence]}>{CONFIDENCE_LABEL[e.confidence]}</span>
+              <SourceCell sourceKind={e.source_kind} sourceRef={e.source_ref} sourceUrl={e.source_url} />
+            </div>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }
