@@ -134,3 +134,96 @@ export const FINANCE_ANNUAL_ROWS = [
 
 /** 金額の単位。表の外に一度だけ書き、セルには単位を付けない。 */
 export const FINANCE_UNIT_LABEL = "単位：百万円";
+
+// ---------------------------------------------------------------------------------------------
+// コスト試算タブ（原価計算）の標準フォーマット
+//
+// 2026-10-03 まさ確定「原価計算は、フォーマットは共通させることを前提にcxのもちゃんと入れて」。
+// どのPJのコスト試算も、同じ区画・同じ内訳の行・同じグラフで描く。計算のしかた（エンジン）だけはデータの形
+// （project_cost_models.case_kind と明細・作業の有無）で選び、結果をこの標準の形へ流し込む（src/lib/project-cost-format.ts）。
+// 画面は src/components/cockpit/ProjectCostFormat.tsx、入口は CockpitCostTab.tsx。
+// SX の廃液・燃料の試算は、標準の画面へ移すまでの間だけ、それぞれの画面で描く（spec 3-23 §7「統一の残り」）。
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * コスト試算タブの区画。画面はこの順に描く。デスクトップでは「前提と作業」と「結果」を左右に並べ、
+ * 数字を動かしたときの変化をスクロールせずに見られるようにする（2026-09-13 まさ確定の操作の形を全PJに広げる）。
+ */
+export const COST_FORMAT_SECTIONS = [
+  { key: "selection", label: "試算とケース" },
+  { key: "summary", label: "要約" },
+  { key: "inputs", label: "前提と作業" },
+  { key: "results", label: "ケースの比較と原価の内訳" },
+  { key: "about", label: "この試算について" },
+  { key: "cases", label: "ケースごとの内訳" },
+  { key: "confidence", label: "この数字の確からしさ" },
+  { key: "questions", label: "確認事項と出典" },
+  { key: "lines", label: "前提・作業・費用明細" },
+  { key: "history", label: "版の履歴と、この試算が答えていないこと" },
+] as const;
+
+export type CostFormatSectionKey = (typeof COST_FORMAT_SECTIONS)[number]["key"];
+
+/** 要約の欄。金額は「円/単位」。単位（m³・L・台・kg など）はデータが持つ。 */
+export const COST_SUMMARY_ITEMS = [
+  { key: "total", label: "1単位あたりの総コスト" },
+  { key: "price", label: "売価" },
+  { key: "profit", label: "1単位あたりの利益（利益率）" },
+  { key: "target", label: "成立ライン（総コスト目標）" },
+  { key: "capex", label: "初期投資（CAPEX）" },
+  { key: "opex", label: "毎年の費用（OPEX）" },
+  { key: "volume", label: "年間の量" },
+  { key: "hours", label: "作業工数（年）" },
+] as const;
+
+export type CostSummaryItemKey = (typeof COST_SUMMARY_ITEMS)[number]["key"];
+
+/**
+ * 原価の内訳の行（全PJ共通）。積み上げ棒もこの順・この色で描く。並びと色は SX の試算で色覚の見分けを
+ * 検査済みの順をそのまま使う。PJごとの工程の呼び名（菌体費・FAMEにする・部材費など）は、行の「中身」としてデータが持つ。
+ */
+export const COST_BREAKDOWN_ROWS = [
+  { key: "materials", label: "原料・部材", shortLabel: "原料", color: "#2a78d6", hint: "製品や処理に使う原料・部材。自社でつくる中間品（菌体など）は、その原価を量で掛けて入れる" },
+  { key: "logistics", label: "運ぶ（物流）", shortLabel: "運ぶ", color: "#eb6834", hint: "巡回・輸送・出荷など、ものを運ぶ作業と経費" },
+  { key: "labor", label: "作業（運転・保守・管理）", shortLabel: "作業", color: "#4a3aa7", hint: "運ぶ以外の作業。工数 × 作業単価 ＋ 1回の経費" },
+  { key: "post", label: "後処理・外注", shortLabel: "後処理", color: "#e87ba4", hint: "使い終わったものの処理と、外部に委託する工程" },
+  { key: "supplies", label: "消耗品・電力・施設", shortLabel: "消耗品など", color: "#eda100", hint: "消耗品・交換部品・電力・熱・分析と、工場の賃料・光熱費" },
+  { key: "equipment", label: "設備の償却", shortLabel: "償却", color: "#16a3b8", hint: "設備の初期投資 ÷ 耐用年数を、年間の量で割った額" },
+  { key: "other", label: "その他", shortLabel: "その他", color: "#8e8e93", hint: "上の行に入らない費用" },
+] as const;
+
+export type CostBreakdownRowKey = (typeof COST_BREAKDOWN_ROWS)[number]["key"];
+
+/** グラフ。どちらも金額は「円/単位」で、売価は破線、総コスト目標は点線で重ねる。 */
+export const COST_CHARTS = {
+  comparison: {
+    title: "ケースの比較",
+    bars: "breakdownRows",
+    lines: [
+      { key: "price", label: "売価", style: "dashed" },
+      { key: "target", label: "総コスト目標", style: "dotted" },
+    ],
+  },
+  breakdown: {
+    title: "原価の内訳",
+    bars: "breakdownRows",
+  },
+} as const;
+
+/** 前提と作業の並べ方。前提・明細・作業を、条件・CAPEX・OPEX の3つに分け、その中を小分けにする（2026-09-14 まさ確定）。 */
+export const COST_INPUT_BLOCKS = [
+  { key: "conditions", label: "条件（量と売価）" },
+  { key: "capex", label: "CAPEX（初期投資）" },
+  { key: "opex", label: "OPEX（毎年の費用）" },
+] as const;
+
+export type CostInputBlockKey = (typeof COST_INPUT_BLOCKS)[number]["key"];
+
+/** 確度の段階（project_cost_* の confidence）。S が一番確かで、H は仮説。 */
+export const COST_CONFIDENCE_GRADES = [
+  { key: "S", label: "S 確定" },
+  { key: "A", label: "A 概算" },
+  { key: "B", label: "B 見積前" },
+  { key: "C", label: "C 仮置き" },
+  { key: "H", label: "H 仮説" },
+] as const;

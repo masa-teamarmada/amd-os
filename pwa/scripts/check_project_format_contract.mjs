@@ -18,6 +18,9 @@
 //    （"p21" のような文字列）と PJ専用の表示フラグは、project_format_baseline.json の既存分だけ許す。
 //    増えたら失敗。減ったら baseline も同じ数へ下げる（下げ忘れると、また増やせてしまうので失敗にする）。
 // 3. 試算表タブは標準フォーマット（ProjectFinanceFormat）だけを描く。消したPJ専用の部品を戻さない。
+// 4. コスト試算タブ（2026-10-03 まさ「原価計算は、フォーマットは共通させることを前提にcxのもちゃんと入れて」）は、
+//    入口（CockpitCostTab）がデータの形だけで画面を選び、標準フォーマット（ProjectCostFormat）は定義の区画を描く。
+//    SX の廃液・燃料の画面は、標準フォーマットへ移すまでの間だけ残す（spec 3-23 §7「統一の残り」）。
 
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
@@ -69,6 +72,8 @@ const SCOPE_DIRS = [
 const SCOPE_FILES = [
   "src/lib/project-formats.ts",
   "src/lib/project-finance-format.ts",
+  "src/lib/project-cost-format.ts",
+  "src/lib/project-cost-items-engine.ts",
 ];
 const PATTERNS = [
   { label: "PJ番号の名指し", regex: /["'`]p\d{2}["'`]/g },
@@ -138,6 +143,31 @@ for (const removed of [
 ]) {
   if (existsSync(path.join(pwaDir, removed))) errors.push(`${removed} は標準フォーマットへ統合して消した部品。戻さない（spec 3-23）。`);
 }
+// --- 4. コスト試算タブ ------------------------------------------------------------
+const costTab = read("src/components/cockpit/CockpitCostTab.tsx");
+if (!costTab.includes("costFormatEngineOf(bundle)")) {
+  errors.push("コスト試算タブの入口（CockpitCostTab.tsx）は、データの形（costFormatEngineOf）だけで画面を選ぶ");
+}
+const costView = read("src/components/cockpit/ProjectCostFormat.tsx") + read("src/components/cockpit/ProjectCostFormatSections.tsx");
+for (const key of ["selection", "summary", "inputs", "results", "about", "cases", "confidence", "questions", "lines", "history"]) {
+  if (!new RegExp(`data-cost-section="${key}"|section="${key}"`).test(costView)) {
+    errors.push(`ProjectCostFormat は COST_FORMAT_SECTIONS の区画「${key}」を描く（定義の外で区画を足さない・消さない）`);
+  }
+}
+if (!costView.includes("COST_SUMMARY_ITEMS.map(") || !costView.includes("COST_INPUT_BLOCKS.map(")) {
+  errors.push("ProjectCostFormat は要約の欄（COST_SUMMARY_ITEMS）と前提の並べ方（COST_INPUT_BLOCKS）を定義の順に描く");
+}
+for (const [file, mount] of [
+  ["src/components/cockpit/CockpitView.tsx", "<CockpitCostTab "],
+  ["src/components/project-workspace/SxWeeklyControlDashboard.tsx", "<CockpitCostTab "],
+  ["src/components/dd/DdLiveBodies.tsx", "<CockpitCostTab "],
+]) {
+  const source = read(file);
+  if (!source.includes(mount) || /<CockpitCostModel\b/.test(source)) {
+    errors.push(`${file}: コスト試算タブは入口（CockpitCostTab）を通して描く。廃液の画面（CockpitCostModel）を直に描かない`);
+  }
+}
+
 const ddBodies = read("src/components/dd/DdLiveBodies.tsx");
 if (!ddBodies.includes("<FinanceFormatView")) {
   errors.push("DDの資金計画は、ワークスペースの試算表と同じ標準フォーマット（FinanceFormatView）で描く");
@@ -149,4 +179,4 @@ if (errors.length > 0) {
   process.exit(1);
 }
 const named = Object.values(counts).reduce((sum, count) => sum + count, 0);
-console.log(`標準フォーマット契約 OK（定義は承認済みの版・PJ番号の名指し ${named} 件は baseline 内・試算表は標準フォーマットのみ）`);
+console.log(`標準フォーマット契約 OK（定義は承認済みの版・PJ番号の名指し ${named} 件は baseline 内・試算表は標準フォーマットのみ・コスト試算は入口がデータの形で選ぶ）`);

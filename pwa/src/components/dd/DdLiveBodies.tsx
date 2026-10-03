@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { TopicCard } from "@/components/cockpit/CockpitTechnology";
-import { CockpitCostModel } from "@/components/cockpit/CockpitCostModel";
+import { CockpitCostTab } from "@/components/cockpit/CockpitCostTab";
 import { CockpitFuelCostModel } from "@/components/cockpit/CockpitFuelCostModel";
 import { FinanceFormatView } from "@/components/cockpit/ProjectFinanceFormat";
 import { financeDatasetFromFundingPlan } from "@/lib/project-finance-format";
@@ -78,7 +78,7 @@ export function DdCapitalPolicyLive({ data }: { data: DdLiveCapitalPolicy }) {
 }
 
 /**
- * 採算（コスト試算）。ワークスペースのコスト試算タブと同じ CockpitCostModel / CockpitFuelCostModel（allowEdit=false）。
+ * 採算（コスト試算）。ワークスペースのコスト試算タブと同じ CockpitCostTab（データの形で標準フォーマットか廃液の画面を選ぶ） / CockpitFuelCostModel（allowEdit=false）。
  * 投資家はコスト試算の API を叩けないので、サーバが渡した試算を手元のキャッシュへ置いてから描く。
  * 置くのはブラウザに来てから（サーバの描画では骨組みだけを出し、描画のずれを起こさない）。
  */
@@ -97,5 +97,5 @@ export function DdCostModelLive({ data }: { data: DdLiveCostModel }) {
   }
   return data.costKind === "fuel"
     ? <CockpitFuelCostModel projectId={data.projectId} allowEdit={false} />
-    : <CockpitCostModel projectId={data.projectId} allowEdit={false} />;
+    : <CockpitCostTab projectId={data.projectId} allowEdit={false} />;
 }

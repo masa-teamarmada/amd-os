@@ -89,7 +89,7 @@ import {
   type SxLaneFold,
 } from "@/lib/sx-display-lanes";
 import { SxPartnerPipeline } from "./SxPartnerPipeline";
-import { CockpitCostModel } from "@/components/cockpit/CockpitCostModel";
+import { CockpitCostTab } from "@/components/cockpit/CockpitCostTab";
 import { CockpitFuelCostModel } from "@/components/cockpit/CockpitFuelCostModel";
 import { loadProjectFuelCostModel, peekProjectFuelCostModel } from "@/lib/project-cost-model-client";
 import { WorkspaceDocumentRoom } from "@/components/workspace-documents/WorkspaceDocumentRoom";
@@ -5843,7 +5843,7 @@ export function SxWeeklyControlDashboard({
 
         {activeView === "cost" && (
           <section id="cost-model" className={styles.section} role="tabpanel" aria-label={hasFuelCost ? "コスト試算（廃液）" : "コスト試算"}>
-            <CockpitCostModel projectId={bundle.project.projectId} allowEdit={false} />
+            <CockpitCostTab projectId={bundle.project.projectId} allowEdit={false} />
           </section>
         )}
         {activeView === "cost-fuel" && (

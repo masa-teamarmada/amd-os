@@ -40,7 +40,7 @@ import type { CockpitTab } from "@/lib/cockpit-tabs";
 import { prefetchGovernance } from "@/lib/governance-client";
 import type { CockpitSeasonFinance as CockpitSeasonFinanceData, MilestoneChangeHistory } from "@/lib/supabase-data";
 import type { ProjectContractTerms } from "@/lib/project-contract-terms";
-import { CockpitCostModel } from "@/components/cockpit/CockpitCostModel";
+import { CockpitCostTab } from "@/components/cockpit/CockpitCostTab";
 import { CockpitFuelCostModel } from "@/components/cockpit/CockpitFuelCostModel";
 import { prefetchProjectOrg } from "@/lib/project-org-client";
 import {
@@ -934,7 +934,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
           正本は project_cost_* で、Google Sheets からDBへ移した。自前で fetch するので開いた時だけマウントする。 */}
       {activeTab === "cost-model" && (
         <section role="tabpanel" aria-label={tabLabel["cost-model"]} className="min-w-0">
-          <CockpitCostModel projectId={project.projectId} />
+          <CockpitCostTab projectId={project.projectId} />
         </section>
       )}
 

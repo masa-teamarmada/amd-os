@@ -85,6 +85,7 @@ export function mapBundle(model: any, assumptions: any[], items: any[], question
       strain: i.strain ?? null,
       application: i.application ?? null,
       bearer: i.bearer === "customer" || i.bearer === "site" || i.bearer === "reactor" ? i.bearer : "sx",
+      formatRow: i.format_row ?? null,
     })),
     tasks: (tasks || []).map((t) => ({
       costTaskId: t.cost_task_id,
@@ -104,6 +105,7 @@ export function mapBundle(model: any, assumptions: any[], items: any[], question
       sortOrder: t.sort_order ?? 0,
       strain: t.strain ?? null,
       application: t.application ?? null,
+      formatRow: t.format_row ?? null,
     })),
     questions: (questions || []).map((q) => ({
       costQuestionId: q.cost_question_id,

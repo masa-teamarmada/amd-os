@@ -218,6 +218,11 @@ export interface CostItem {
   application: CostApplication | null;
   /** 誰が持つか。SX が持つ明細だけを SX の原価に入れる。 */
   bearer: CostItemBearer;
+  /**
+   * 標準フォーマットの原価の内訳の行（COST_BREAKDOWN_ROWS の key）。汎用の計算（project-cost-items-engine.ts）が読む。
+   * 空なら種類から決める（CAPEX は設備の償却、作業は作業、そのほかはその他）。SX の試算は使わない。
+   */
+  formatRow?: string | null;
 }
 
 /** 作業の年間回数の決め方。 */
@@ -323,6 +328,8 @@ export interface CostTask {
   sortOrder: number;
   strain: CostStrain | null;
   application: CostApplication | null;
+  /** 標準フォーマットの原価の内訳の行（COST_BREAKDOWN_ROWS の key）。空なら「作業」。SX の試算は使わない。 */
+  formatRow?: string | null;
 }
 
 export interface CostQuestion {
