@@ -173,11 +173,6 @@
     "src/components/cockpit/Bzm22CockpitSummary.tsx": [
       "/api/project/:p/bzm-2-2-pilot"
     ],
-    "src/components/cockpit/Bzm22TimeLedger.tsx": [
-      "/api/governance/capital-plans",
-      "/api/grants",
-      "/api/project/:p/sx-funding-timing"
-    ],
     "src/components/cockpit/CapitalPlanWorkspace.tsx": [
       "/api/governance/capital-plans"
     ],

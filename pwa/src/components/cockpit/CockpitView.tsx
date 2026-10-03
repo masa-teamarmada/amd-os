@@ -920,7 +920,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
 
       {activeTab === "financial-projection" && (
         <section role="tabpanel" aria-label="試算表" className="min-w-0">
-          <CockpitFinancialProjection projectId={project.projectId} showSxDetail={hasSxBusinessPlanDetail} showTimeLedger={hasScoreDetailTab} />
+          <CockpitFinancialProjection projectId={project.projectId} />
         </section>
       )}
 

@@ -2245,32 +2245,27 @@ expectIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   "formatBzm22RegisteredValue",
   'data-testid="bzm22-registered-value"',
 ]);
-// イベントと月次試算表 / 年度別の事業・資金推移は、試算表の独立タブへ置く。
-expectIncludes("src/components/cockpit/Bzm22TimeLedgerSection.tsx", [
-  "Bzm22TimeLedger",
-  "loadBzm22Pilot",
-  'data-testid="bzm22-time-ledger-section"',
-]);
+// 試算表タブは全PJで標準フォーマット（ProjectFinanceFormat）だけを描く（2026-10-03 まさ確定、spec 3-23）。
+// PJ専用の表・グラフ（旧 CockpitFundingPlan / Bzm22TimeLedger / CockpitPlMonthlySection）へ戻さない。
 expectIncludes("src/components/cockpit/CockpitFinancialProjection.tsx", [
-  "Bzm22TimeLedgerSection",
-  "CockpitPlMonthlySection",
-  "showTimeLedger",
+  'import { ProjectFinanceFormat } from "./ProjectFinanceFormat";',
+  "<ProjectFinanceFormat key={projectId} projectId={projectId} />",
 ]);
-// 暫定試算が無いPJ (SE / ZMP / RTM / SMILE 等) でも事業計画タブに月次試算表を出す
-// (2026-09-09)。暫定試算があるPJでは Bzm22TimeLedgerSection 側が出すので二重に描かない。
-expectIncludes("src/components/cockpit/CockpitPlMonthlySection.tsx", [
-  'data-testid="cockpit-pl-monthly-section"',
-  "loadPlMonthly",
-  "loadBzm22Pilot",
-  "coveredByTimeLedger",
-  "単位：万円",
+expectNotIncludes("src/components/cockpit/CockpitFinancialProjection.tsx", [
+  "showSxDetail",
+  "showTimeLedger",
+  "CockpitFundingPlan",
+  "AnnualProjectionTable",
 ]);
 expectIncludes("src/components/cockpit/pl-monthly-client.ts", [
   "@/lib/reference-data-cache",
   "invalidatePlMonthlyCache",
 ]);
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
-  '<CockpitFinancialProjection projectId={project.projectId} showSxDetail={hasSxBusinessPlanDetail} showTimeLedger={hasScoreDetailTab}',
+  "<CockpitFinancialProjection projectId={project.projectId} />",
+]);
+expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
+  "<CockpitFinancialProjection projectId={bundle.project.projectId} />",
 ]);
 expectNotIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   "BZM 2.2 暫定主表示",
@@ -2300,14 +2295,26 @@ expectNotIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   "ブラウザ内シミュレーター。この画面内の変更は保存されない",
   "計算式を構成する26項目。選択中ケースの値を一つの表で確認する",
 ]);
-expectIncludes("src/components/cockpit/Bzm22TimeLedger.tsx", [
-  "設立前PJ支出 / NewCo P/L",
-  "SX_PREINCORPORATION_SPEND_ROW",
-  'data-accounting-scope={notApplicableBeforeIncorporation ? "not-applicable-before-incorporation" : undefined}',
-  "CXはNewCo単体の試算表。設立前のAMD/NIMS PJ費用を会社のP/Lへ持ち込まない。",
-  "CX NewCoは${CX_INCORPORATION_YM}設立。設立前のPJ費用はこの試算表へ入力しない。",
+// 設立前の支出は会社のP/L・資金繰りへ入れず「設立前PJ支出」へまとめる。どのPJでも同じ規則（spec 3-23）。
+expectIncludes("src/components/cockpit/ProjectFinanceFormat.tsx", [
+  'data-testid="project-finance-format"',
+  "FINANCE_FORMAT_SECTIONS.map(",
   "draftBeforeIncorporation",
   'draftBeforeIncorporation ? "設立前PJ支出" : "月次試算"',
+  "const MONTH_WIDTH = 76",
+  "const TIMELINE_HEIGHT = 101",
+  'data-testid="finance-format-monthly-scroll"',
+  'data-testid="finance-format-edit-dialog"',
+  "upsertPlMonthly",
+  "invalidatePlMonthlyCache",
+  "CockpitPlHearingModal",
+  "BZM経済CF",
+  "amd-dense-ui",
+]);
+expectIncludes("src/lib/project-finance-format.ts", [
+  "preincorporationSpend: pl && beforeIncorporation ? plExpense(pl) : null",
+  "設立前の支出は会社の資金繰りに入れない",
+  "計画を持たないPJの実績P/Lから資金繰りを作り出さない",
 ]);
 expectIncludes("scripts/backfill_sx_phase_monthly_pl.mts", [
   "設立前PJ支出でありNewCoのP/L・営業損失ではない",
@@ -2354,22 +2361,6 @@ expectNotIncludes("src/components/hud/HudCockpitVentureStatus.tsx", [
   "CockpitPlMonthlyModal",
   "📊 試算表",
   "setPlOpen",
-]);
-expectIncludes("src/components/cockpit/Bzm22TimeLedger.tsx", [
-  'data-testid="bzm22-time-ledger"',
-  'data-testid="bzm22-shared-month-scroll"',
-  "イベントと月次試算",
-  "事業価値の時間軸",
-  "月次試算表",
-  "BZM経済CF",
-  'data-testid="bzm22-monthly-edit-dialog"',
-  'data-testid="sx-first-funding-target"',
-  "const MONTH_WIDTH = 76",
-  "const TIMELINE_HEIGHT = 101",
-  "buildBzm22SharedMonthAxis",
-  "fetchPlMonthly",
-  "upsertPlMonthly",
-  "CockpitPlHearingModal",
 ]);
 expectIncludes("src/lib/bzm-2-2-pilot-ui.server.ts", [
   "PILOT_LOADERS",

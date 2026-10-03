@@ -31,8 +31,10 @@ const sxFundingTimingApiPath = path.join(root, "src/app/api/project/[projectId]/
 const loaderPath = path.join(root, "src/lib/bzm-2-2-pilot-ui.server.ts");
 const componentPath = path.join(root, "src/components/cockpit/Bzm22ProvisionalObservatory.tsx");
 const displayValuePath = path.join(root, "src/lib/bzm-2-2-display-value.ts");
-const timeLedgerPath = path.join(root, "src/components/cockpit/Bzm22TimeLedger.tsx");
-const timeLedgerSectionPath = path.join(root, "src/components/cockpit/Bzm22TimeLedgerSection.tsx");
+// 2026-10-03: 試算表は全PJ共通の標準フォーマット（ProjectFinanceFormat）へ統合した（spec 3-23）。
+const timeLedgerPath = path.join(root, "src/components/cockpit/ProjectFinanceFormat.tsx");
+const financeFormatsPath = path.join(root, "src/lib/project-formats.ts");
+const financeDataPath = path.join(root, "src/lib/project-finance-format.ts");
 const financialProjectionPath = path.join(root, "src/components/cockpit/CockpitFinancialProjection.tsx");
 const sxMonthlyBackfillPath = path.join(root, "scripts/backfill_sx_phase_monthly_pl.mts");
 const scoreDetailPath = path.join(root, "src/components/cockpit/CockpitAmdScoreDetailTab.tsx");
@@ -531,78 +533,66 @@ requireIncludes(componentSource, [
   "時期だけを変更・保存なし",
 ], "BZM 2.2 observatory UI");
 
-// 月次試算表と年度別推移はスコア詳細タブから、試算表の独立タブへ移した。
-requireIncludes(requireText(timeLedgerSectionPath), [
-  "Bzm22TimeLedger",
-  "loadBzm22Pilot",
-  'data-testid="bzm22-time-ledger-section"',
-  "Bzm22PilotNotFoundError",
-], "BZM 2.2 time ledger section");
+// 月次試算表と年度別推移は、試算表タブの標準フォーマットの一部として全PJ共通で描く（2026-10-03 まさ確定）。
+// BZM 2.2 の時間軸・ゲート・経済CFは、試算があるPJでだけ値が入る（区画・行そのものは全PJに出す）。
 requireIncludes(requireText(financialProjectionPath), [
-  "Bzm22TimeLedgerSection",
-  "showTimeLedger",
-], "BZM 2.2 time ledger host = financial projection tab");
+  "ProjectFinanceFormat",
+], "financial projection tab = standard format only");
 
 const timeLedgerSource = requireText(timeLedgerPath);
 requireIncludes(timeLedgerSource, [
-  'data-testid="bzm22-time-ledger"',
-  'data-density="compact-ledger"',
-  'data-testid="bzm22-finance-comment"',
-  'data-testid="bzm22-shared-month-scroll"',
-  "buildBzm22SharedMonthAxis",
-  "イベントと月次試算",
-  "事業価値の時間軸",
-  "月次試算表",
-  "単位：百万円",
+  'data-testid="project-finance-format"',
+  "FINANCE_FORMAT_SECTIONS.map(",
+  'data-testid="finance-cell-note"',
+  'data-testid="finance-format-monthly-scroll"',
+  'data-testid="finance-format-timeline"',
+  'data-testid="finance-format-monthly-cash-chart"',
+  'data-testid="finance-format-annual-chart"',
+  'data-testid="finance-format-annual-plot"',
+  'data-testid="finance-format-annual-table"',
+  'data-testid="finance-format-edit-dialog"',
+  "loadBzm22Pilot",
+  "calculationTrace.inputs.gates",
+  "monthlyEconomicCFMillionJpy",
   "計上主体",
   "設立前PJ",
-  "設立前PJ支出 / NewCo P/L",
-  "SX_PREINCORPORATION_SPEND_ROW",
-  'const CX_INCORPORATION_YM = "2026-11"',
-  'data-accounting-scope={notApplicableBeforeIncorporation ? "not-applicable-before-incorporation" : undefined}',
-  "CXはNewCo単体の試算表。設立前のAMD/NIMS PJ費用を会社のP/Lへ持ち込まない。",
-  "CX NewCoの営業C/FはNewCo P/Lから読む。BZM入力は別行の経済CFに残し、二重計上しない。",
   "draftBeforeIncorporation",
   'draftBeforeIncorporation ? "設立前PJ支出" : "月次試算"',
-  "NewCo C/F・資金繰り",
-  "設立前DD完了期限",
-  "C/F・資金繰り",
-  "設備投資",
-  "株式調達",
-  "融資実行",
-  "助成金等入金",
-  "月次純C/F",
-  "月末資金残高",
   "BZM経済CF",
-  "イベント、P/L、C/Fを同じ月列で読む。◆は変動理由。",
-  "buildSxMonthlyFinanceComments",
-  "sx-funding-timing",
   "TooltipContent",
-  'data-testid="bzm22-monthly-edit-dialog"',
-  'data-testid="bzm22-annual-finance-chart"',
-  "年度別の事業・資金推移",
-  "fiscalYearFromYm",
-  "AnnualFinanceChart",
-  'data-testid="bzm22-annual-finance-plot"',
   "売上と費用を横並びの棒、年次純C/Fを折れ線で同じ目盛りに重ねる。",
   "調達は売上に含めない",
   "<polyline",
-  "年度別数値",
-  "max-w-6xl",
-  "設立前PJ支出",
-  'data-testid="sx-first-funding-target"',
-  'data-testid="sx-first-capital-plan-event"',
-  "grid-cols-2 gap-px",
   "const MONTH_WIDTH = 76",
   "const TIMELINE_HEIGHT = 101",
-  "fetchPlMonthly",
   "upsertPlMonthly",
   "deletePlMonthly",
   "CockpitPlHearingModal",
-  "gateMonths",
-  "[--bzm-ledger-label-width:108px]",
-  "sm:[--bzm-ledger-label-width:172px]",
-], "BZM 2.2 shared event/monthly ledger");
+  "[--finance-label-width:112px]",
+  "sm:[--finance-label-width:172px]",
+], "standard finance format: shared event/monthly ledger");
+requireIncludes(requireText(financeFormatsPath), [
+  "年度別の事業・資金推移",
+  "年度別数値",
+  "月次試算表",
+  "時間軸",
+  "設立前PJ支出",
+  "設備投資",
+  "株式調達",
+  "融資実行",
+  "融資返済",
+  "助成金等入金",
+  "月次純C/F",
+  "月末資金",
+  "単位：百万円",
+], "standard finance format: rows and sections");
+requireIncludes(requireText(financeDataPath), [
+  "設立前DD完了期限",
+  "readCapitalPlanFinanceInputs",
+  "buildPlanFinanceDatasets",
+  "buildRegisteredFinanceDataset",
+  "fiscalYearOf",
+], "standard finance format: data mapping");
 const sxMonthlyBackfillSource = requireText(sxMonthlyBackfillPath);
 requireIncludes(sxMonthlyBackfillSource, [
   "設立前PJ支出でありNewCoのP/L・営業損失ではない",

@@ -87,7 +87,7 @@ export function ddTechTopicUnverified(data: DdLiveTechTopic): string[] {
 
 // --- 資金計画 -------------------------------------------------------------------
 
-/** ワークスペースの試算表タブと同じ資金計画（CockpitFundingPlan が読む形）。 */
+/** ワークスペースの試算表タブと同じ資金計画（標準フォーマットの計画として描く形）。 */
 export type DdLiveFundingPlan = {
   kind: "funding_plan";
   plan: FundingPlan;

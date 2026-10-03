@@ -4,7 +4,8 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 import { TopicCard } from "@/components/cockpit/CockpitTechnology";
 import { CockpitCostModel } from "@/components/cockpit/CockpitCostModel";
 import { CockpitFuelCostModel } from "@/components/cockpit/CockpitFuelCostModel";
-import { CockpitFundingPlan } from "@/components/cockpit/CockpitFundingPlan";
+import { FinanceFormatView } from "@/components/cockpit/ProjectFinanceFormat";
+import { financeDatasetFromFundingPlan } from "@/lib/project-finance-format";
 import { CapitalPlanMatrix } from "@/components/cockpit/CapitalPlanMatrix";
 import { recalculateCapTable, safeDeriveCapitalPlan } from "@/lib/capital-plan";
 import { primeProjectCostModel, primeProjectFuelCostModel } from "@/lib/project-cost-model-client";
@@ -21,9 +22,22 @@ export function DdTechTopicLive({ data }: { data: DdLiveTechTopic }) {
   return <TopicCard topic={data.topic} entries={data.entries} canEdit={false} projectId={data.projectId} onChanged={noop} />;
 }
 
-/** 資金計画。ワークスペースの試算表タブと同じ CockpitFundingPlan。 */
+/** 資金計画。ワークスペースの試算表タブと同じ標準フォーマット（FinanceFormatView）を、公開中の計画だけで見るだけで描く。 */
 export function DdFundingPlanLive({ data }: { data: DdLiveFundingPlan }) {
-  return <CockpitFundingPlan plan={data.plan} />;
+  const datasets = useMemo(() => [financeDatasetFromFundingPlan(data.plan)], [data.plan]);
+  return (
+    <FinanceFormatView
+      projectId=""
+      datasets={datasets}
+      timelineItems={[]}
+      pilot={null}
+      incorporationYm={null}
+      fundingEvents={[]}
+      grants={[]}
+      plRows={[]}
+      readOnly
+    />
+  );
 }
 
 /** 資本政策。ワークスペースの資本政策表タブと同じ表（CapitalPlanMatrix）を、同じ計算エンジンで見るだけで描く。 */

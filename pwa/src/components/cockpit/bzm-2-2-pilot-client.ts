@@ -4,7 +4,7 @@ import type { Bzm22PilotApiPayload, Bzm22PilotProject } from "@/lib/bzm-2-2-pilo
 
 /**
  * BZM 2.2 pilot payload のブラウザ内キャッシュ。
- * スコア詳細タブ (`Bzm22ProvisionalObservatory`) と事業計画タブ (`Bzm22TimeLedgerSection`) が
+ * スコア詳細タブ (`Bzm22ProvisionalObservatory`) と試算表タブ (`ProjectFinanceFormat`) が
  * 同じ PJ を続けて開いたときに、同じ payload を二重に取りに行かないため共有する。
  */
 const PILOT_CACHE = new Map<string, Bzm22PilotProject>();
