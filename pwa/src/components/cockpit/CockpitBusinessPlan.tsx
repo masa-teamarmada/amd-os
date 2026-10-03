@@ -132,7 +132,7 @@ function PhaseMatrix({ projectName, plan }: { projectName: string; plan: Project
       </div>
 
       <div className="overflow-x-auto" data-testid="business-plan-phase-matrix" data-phase-count={phases.length}>
-        <table className={`w-full border-separate border-spacing-0 text-left ${empty ? "min-w-[640px]" : "min-w-[1500px]"}`}>
+        <table className={`w-full border-separate border-spacing-0 text-left ${empty ? "" : "min-w-[1500px]"}`}>
           <thead>
             <tr>
               <th className="sticky left-0 top-0 z-30 w-[156px] border-b border-r border-slate-200 bg-slate-950 px-4 py-4 align-bottom text-white">
@@ -170,7 +170,7 @@ function PhaseMatrix({ projectName, plan }: { projectName: string; plan: Project
         <p className="text-[11px] leading-5 text-slate-500">{plan?.sourceNote ? `出典: ${plan.sourceNote}` : ""}</p>
         <button
           type="button"
-          className="inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 sm:min-h-10 transition hover:border-indigo-300 hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
           onClick={() => downloadBusinessPlanPhaseMatrixXlsx(projectName, phases)}
           disabled={empty}
           data-testid="phase-matrix-xlsx-export"
