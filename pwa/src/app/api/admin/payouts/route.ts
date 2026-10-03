@@ -32,6 +32,7 @@ import {
   regularPoolAmounts,
   resolvePayoutSourceSpan,
   payoutLineDescription,
+  payoutRemainingText,
   payoutTargetText,
   ymPeriodLabel,
   type PayoutSourceSpan,
@@ -45,8 +46,8 @@ const YM_RE = /^[0-9]{6}$/;
 // 一括PDF生成時の並列度。GAS payoutCreatePwaNoticePdf のスループットに配慮して 3 で固定。
 // 上げすぎると Apps Script 側の同時実行制限 (project あたり 30) や freee 連携待ちで詰まる。
 const BULK_NOTICE_CONCURRENCY = 3;
-// 2026-10-03: 摘要を支払月表記 + 2行目に対象の稼働月へ変更 (GAS @1504)。未送付PDFを作り直させる
-const PAYOUT_NOTICE_PDF_TEMPLATE_UPDATED_AT = "2026-10-03T04:14:50.000Z";
+// 2026-10-03: 摘要を支払月表記 + 2行目に対象の稼働月 + 3行目に未払い残高 (GAS @1505)。未送付PDFを作り直させる
+const PAYOUT_NOTICE_PDF_TEMPLATE_UPDATED_AT = "2026-10-03T04:27:47.000Z";
 
 type BillingCycleRow = {
   project_id: string;
@@ -984,7 +985,7 @@ export async function generateNoticePdfForMember(
     db,
     baseEntries.map((entry) => ({ projectId: entry.project_id, sourceYm: entry.ym, memberId })),
   );
-  // 摘要は支払月で書き、2行目に今回の支払が当たる稼働月を添える (まさ確定 2026-10-03)
+  // 摘要は支払月で書き、2行目に今回の支払が当たる稼働月、3行目に未払い残高を添える (まさ確定 2026-10-03)
   const entries = baseEntries.map((entry) => {
     const span = sourceSpans.get(`${entry.project_id}:${entry.ym}:${memberId}`);
     const description = payoutLineDescription(entry.project_name, ym);
@@ -993,10 +994,17 @@ export async function generateNoticePdfForMember(
         ...entry,
         description,
         target_text: `対象：${ymPeriodLabel(entry.ym, entry.ym)}の稼働`,
+        remaining_text: "",
         source_span: null as PayoutSourceSpan | null,
       };
     }
-    return { ...entry, description, target_text: payoutTargetText(span), source_span: span };
+    return {
+      ...entry,
+      description,
+      target_text: payoutTargetText(span),
+      remaining_text: payoutRemainingText(span),
+      source_span: span,
+    };
   });
   const totalYen = entries.reduce((sum, entry) => sum + entry.total_pay, 0);
   // 立替精算は実費 (税込)。報酬が 0 円でも立替だけで通知書を出す月がある
@@ -1105,6 +1113,8 @@ export async function generateNoticePdfForMember(
         description: entry.description,
         /** 摘要の2行目。GAS 064 が摘要セル内で改行して描く */
         targetText: entry.target_text,
+        /** 摘要の3行目 (未払い残高)。残りが無い月は空 */
+        remainingText: entry.remaining_text,
         earnedPt: entry.earned_pt,
         basePay: entry.base_pay,
         bonusPt: entry.bonus_pt,

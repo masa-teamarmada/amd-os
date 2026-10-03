@@ -210,6 +210,17 @@ export function payoutTargetText(span: PayoutSourceSpan): string {
   return `対象：${ymPeriodLabel(first, last)}の稼働`;
 }
 
+/**
+ * 摘要の3行目。今回払ったあとに残る本契約の未払い。「対象：2026年4月の稼働」だけだと
+ * 4月の稼働の報酬が今回の額で全部に見えるため、残りがあることを書き添える (まさ確定 2026-10-03)。
+ * 残りが無ければ空文字 (3行目を出さない)。
+ */
+export function payoutRemainingText(span: PayoutSourceSpan): string {
+  const stock = Math.round(span.stockYen ?? 0);
+  if (stock <= 0) return "";
+  return `未払い残高 ${stock.toLocaleString("ja-JP")}円（税抜、翌月以降にお支払いします）`;
+}
+
 /** 年つきの月の範囲。「2026年4月」「2026年4〜5月」「2025年12月〜2026年1月」 */
 export function ymPeriodLabel(startYm: string, endYm: string): string {
   if (!YM_RE.test(startYm) || !YM_RE.test(endYm)) return endYm;

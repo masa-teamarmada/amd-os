@@ -3784,13 +3784,16 @@ expectIncludes("src/lib/payout-source-span.ts", [
   "function allocatePaidMonths(",
   "export function payoutLineDescription(",
   "export function payoutTargetText(",
+  "export function payoutRemainingText(",
 ]);
 expectIncludes("src/app/api/admin/payouts/route.ts", [
   "targetText: entry.target_text,",
+  "remainingText: entry.remaining_text,",
 ]);
 expectIncludes("../gas/064_PayoutFreeeNotice.js", [
   "noteText",
   "PAYOUT_NOTICE_DESC_LINE_BREAK_",
+  "item.remainingText",
 ]);
 
 // PJコックピットの「収支」タブに、シーズンの予算配分と消化を出す。

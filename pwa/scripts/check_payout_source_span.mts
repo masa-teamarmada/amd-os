@@ -13,6 +13,7 @@ import {
   regularPoolAmounts,
   resolvePayoutSourceSpan,
   payoutLineDescription,
+  payoutRemainingText,
   payoutTargetText,
   ymPeriodLabel,
   ymSpanLabel,
@@ -37,6 +38,7 @@ function span(rows: Record<string, RegularPoolAmounts>, sourceYm: string, floorY
   assert.equal(result.endYm, "202607");
   assert.equal(ymSpanLabel(result.startYm, result.endYm), "7月稼働分");
   assert.equal(payoutTargetText(result), "対象：2026年7月の稼働");
+  assert.equal(payoutRemainingText(result), "", "未払いが無い月は3行目を出さない");
 }
 
 // 2. 本契約に繰越があれば、繰越が 0 になる月まで遡る
@@ -70,6 +72,8 @@ function span(rows: Record<string, RegularPoolAmounts>, sourceYm: string, floorY
   assert.equal(june.startYm, "202604");
   assert.deepEqual(june.paidMonths, [{ ym: "202604", paidYen: 87185, startedBefore: false, completed: false }]);
   assert.equal(payoutTargetText(june), "対象：2026年4月の稼働");
+  // 稼働月だけだと4月の報酬が87,185円で全部に見えるので、未払い残高を添える (まさ確定 2026-10-03)
+  assert.equal(payoutRemainingText(june), "未払い残高 272,964円（税抜、翌月以降にお支払いします）");
 
   // 4月の残り 32,708円 + 5月の 54,670円
   const july = span(rows, "202607");

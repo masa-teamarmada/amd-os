@@ -158,9 +158,12 @@ function payoutPwaNoticeBreakdownText_(breakdown, fallbackText){
     return breakdown.map(function(item){
       item = item || {};
       let desc = String(item.description || item.projectName || item.projectId || "業務委託料").trim();
-      // 摘要の2行目 (対象の稼働月)。breakdownText は改行で行を分けるため、セル内改行は U+2028 で運び描画時に戻す
-      const targetText = String(item.targetText || "").trim();
-      if (targetText) desc += PAYOUT_NOTICE_DESC_LINE_BREAK_ + targetText;
+      // 摘要の2行目 (対象の稼働月) と3行目 (未払い残高)。breakdownText は改行で行を分けるため、
+      // セル内改行は U+2028 で運び描画時に戻す
+      [item.targetText, item.remainingText].forEach(function(extra){
+        const text = String(extra || "").trim();
+        if (text) desc += PAYOUT_NOTICE_DESC_LINE_BREAK_ + text;
+      });
       const yen = Math.round(Number(item.totalYen || item.yen || item.amountYen || 0));
       return desc + "\t" + (isFinite(yen) ? yen.toLocaleString("ja-JP") + "円" : "0円");
     }).join("\n");
