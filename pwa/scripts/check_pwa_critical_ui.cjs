@@ -3744,6 +3744,10 @@ for (const file of [
 }
 expectIncludes("src/components/nav/GlobalNav.tsx", ['label: "書斎"', 'href: "/bzm/read"']);
 expectIncludes("src/lib/surface-catalog.ts", ['id: "bzm-reader"']);
+// /bzm の章ページに原稿の HTML コメント（執筆メモ）を出さない。BzmMarkdown は生の HTML を描かず文字として出すため（2026-10-03）
+expectIncludes("src/app/(app)/bzm/bzm-data.ts", ["export function stripHtmlComments", "return stripHtmlComments(source);"]);
+// BZM 3.0 教科書を /bzm の左ナビ最上位の部に置く
+expectIncludes("src/app/(app)/bzm/bzm-chapters.ts", ['key: "bzm-3-0-textbook"', '"bzm-3-0-textbook-appendix"']);
 expectIncludes("next.config.ts", [
   '"/bzm/read/[book]/[chapter]/page"',
   '"/api/bzm-reader/asset/[...path]/route"',

@@ -61,5 +61,17 @@ export function getBzmBookChapters(chapters: BzmChapterConfig[]) {
  * h1 はそのまま、各 md の `# §X.Y.Z タイトル` を尊重する。
  */
 export function normalizeBzmMarkdownSource(source: string, _chapter: BzmNumberedChapter) {
-  return source;
+  return stripHtmlComments(source);
+}
+
+/**
+ * 原稿の HTML コメント（執筆メモなど、著者向けの注記）を画面に出さない。
+ * BzmMarkdown は生の HTML を描かないため、コメントがそのまま文字として本文に出ていた（2026-10-03）。
+ * コードブロックの中は原稿の文字としてそのまま残す。
+ */
+export function stripHtmlComments(source: string) {
+  const parts = source.split(/(^```[^\n]*\n[\s\S]*?^```[ \t]*$)/m);
+  return parts
+    .map((part, i) => (i % 2 === 1 ? part : part.replace(/<!--[\s\S]*?-->\n?/g, "")))
+    .join("");
 }

@@ -46,6 +46,37 @@ export interface BzmNumberedChapter extends BzmChapterConfig {
 
 export const BZM_PARTS: BzmPartConfig[] = [
   // ============================================================
+  // BZM 3.0 教科書 (2026-10-03 全16本の初稿)
+  // — 現行モデル BZM 3.0 の定義・式・係数・測り方・限界を、教科書の順序で一冊にする。
+  //   制作正本は bzm/BZM_3_0_TEXTBOOK_PLAN.md。理論の正本は model/MODEL_VERSION_LEDGER.md で、
+  //   教科書はそれを写すだけで主張を足さない。書斎（/bzm/read）でもページ送りで読める。
+  // ============================================================
+  {
+    key: "bzm-3-0-textbook",
+    label: "BZM 3.0 教科書 — 産業創出価値のスコアリングモデル",
+    description:
+      "研究成果が世に出てから法人化に至る時間（Before Zero）で観測を始め、一件の案件が国内に立てる付加価値の純増の現在価値を、月ごとに進む観測状態と登録された計画の規則の上で計算するモデルの教科書。",
+    slugs: [
+      "bzm-3-0-textbook-introduction",
+      "bzm-3-0-textbook-industrial-value",
+      "bzm-3-0-textbook-observed-state",
+      "bzm-3-0-textbook-parameters",
+      "bzm-3-0-textbook-stage-gates",
+      "bzm-3-0-textbook-team-functions",
+      "bzm-3-0-textbook-funding-and-offers",
+      "bzm-3-0-textbook-transition-and-plan-rules",
+      "bzm-3-0-textbook-scenario-value",
+      "bzm-3-0-textbook-score-and-report",
+      "bzm-3-0-textbook-registry",
+      "bzm-3-0-textbook-coefficients",
+      "bzm-3-0-textbook-verification",
+      "bzm-3-0-textbook-foundations",
+      "bzm-3-0-textbook-limits",
+      "bzm-3-0-textbook-appendix",
+    ],
+  },
+
+  // ============================================================
   // BZM 2.2 戦略余力と推進力の動学 (2026-08-12 theory-open)
   // — 1.xから2.1までの層を残し、2.2で状態、行動別制約、支出による遷移、
   //   目標到達経路の頑健性を2.1の価値評価へ接続する。
@@ -322,6 +353,119 @@ export const BZM_PARTS: BzmPartConfig[] = [
 ];
 
 export const BZM_CHAPTERS: BzmChapterConfig[] = [
+  // --- BZM 3.0 教科書 (2026-10-03 全16本の初稿。textbook v0.1〜v0.2) ---
+  {
+    slug: "bzm-3-0-textbook-introduction",
+    title: "序 — 何を測り、なぜ作り直したか",
+    summary:
+      "三つの目的と十二の要件、採らない主張、確定している構造、旧版からの系譜と本書の読み方。",
+    status: "in-progress",
+  },
+  {
+    slug: "bzm-3-0-textbook-industrial-value",
+    title: "第1章 — 産業創出価値と最上段の式",
+    summary:
+      "スコアが数える量（国内付加価値の純増の現在価値）と、二段の平均からなる最上段の式。九つの価値実現経路と追加的貢献の換算。",
+    status: "in-progress",
+  },
+  {
+    slug: "bzm-3-0-textbook-observed-state",
+    title: "第2章 — 観測状態と資金の二勘定",
+    summary:
+      "月ごとに進む観測状態の九つの成分と、自由資金・使途制限資金の遷移式。資金切れの扱いが会社化の前後で分かれる理由。",
+    status: "in-progress",
+  },
+  {
+    slug: "bzm-3-0-textbook-parameters",
+    title: "第3章 — 案件パラメータと事前分布",
+    summary:
+      "直接は測れず期間中は変わらないと置く十一の成分と、評価日の証拠から置く事前分布、基本設定の既定。",
+    status: "in-progress",
+  },
+  {
+    slug: "bzm-3-0-textbook-stage-gates",
+    title: "第4章 — 標準ゲート表と前進の式",
+    summary:
+      "分野別の標準ゲート表、工程の型と規制属性、ゲートの前進確率と基準速度。",
+    status: "in-progress",
+  },
+  {
+    slug: "bzm-3-0-textbook-team-functions",
+    title: "第5章 — 担い手の八機能と充足係数",
+    summary:
+      "経営チームの機能を八つに分解し、空席を遅延として扱う充足係数と担い手乗数。",
+    status: "in-progress",
+  },
+  {
+    slug: "bzm-3-0-textbook-funding-and-offers",
+    title: "第6章 — 資金調達、実現の申し出、受託、権利の解決",
+    summary:
+      "公的資金の採択、民間調達、ライセンス・M&A・知財売却の申し出、受託、権利と承認の解決の過程と係数。",
+    status: "in-progress",
+  },
+  {
+    slug: "bzm-3-0-textbook-transition-and-plan-rules",
+    title: "第7章 — 一か月の遷移と計画の規則",
+    summary:
+      "一か月の遷移の順序と、観測できる出来事だけに条件づけた計画の規則、既定の規則と最適な規則の差。",
+    status: "in-progress",
+  },
+  {
+    slug: "bzm-3-0-textbook-scenario-value",
+    title: "第8章 — シナリオの価値、割引、継続価値、撤退の四経路",
+    summary:
+      "シナリオの価値の式、社会的割引率、評価期間と継続価値、自走が続かなくなったときの撤退の四経路。",
+    status: "in-progress",
+  },
+  {
+    slug: "bzm-3-0-textbook-score-and-report",
+    title: "第9章 — スコアの三つの数と報告様式",
+    summary:
+      "下側・中央・上側の三つの数、報告に出す経路の確率、到達曲線と導出量、旧版の帯との関係。",
+    status: "in-progress",
+  },
+  {
+    slug: "bzm-3-0-textbook-registry",
+    title: "第10章 — 観測を状態へ移す登録簿",
+    summary:
+      "出来事を一件一行で記録する登録簿の様式と二十四の種類、横串の規則、合成事例の記入例。",
+    status: "in-progress",
+  },
+  {
+    slug: "bzm-3-0-textbook-coefficients",
+    title: "第11章 — 係数を置く規約と初期値の総覧",
+    summary:
+      "速度の二段、根拠レベル、不確かさの持ち方、乗数の目盛りの規約と、全係数の初期値の総覧。",
+    status: "in-progress",
+  },
+  {
+    slug: "bzm-3-0-textbook-verification",
+    title: "第12章 — 検算、弾力性、較正計画",
+    summary:
+      "数値計算の誤差、縮退検査、合格の基準、弾力性、二重計上の検査、識別制約つきの較正計画と台帳。",
+    status: "in-progress",
+  },
+  {
+    slug: "bzm-3-0-textbook-foundations",
+    title: "第13章 — 巨人の肩 — 要件ごとの既存理論",
+    summary:
+      "十二の要件それぞれが借りている既存理論と文献、要件どうしの相関する組。",
+    status: "in-progress",
+  },
+  {
+    slug: "bzm-3-0-textbook-limits",
+    title: "第14章 — モデルが表現していないこと、近似、反証条件",
+    summary:
+      "表現していないこと、参照実装の近似、受けた批判と対応、反証条件と次の段。",
+    status: "in-progress",
+  },
+  {
+    slug: "bzm-3-0-textbook-appendix",
+    title: "付録 — 記号一覧、用語、参考文献",
+    summary:
+      "全章の記号と用語の一覧、参考文献。",
+    status: "in-progress",
+  },
   // --- BZM 1.x → 2.2 進化編 (2026-08-12 公開) ---
   {
     slug: "bzm-1-0-to-2-1-evolution-guide",
