@@ -10,10 +10,10 @@
  * 未払いと混ぜない。混ぜると、本契約を毎月満額払っていても別財布の積立だけで
  * 「5〜7月稼働分・残りは翌月以降お支払いします」と書いてしまう (まさ指摘 2026-08-28: ZMP)。
  *
- * 明細に書くのは、繰越の範囲全体ではなく**今回の支払が当たる月**。範囲全体を書くと
- * 「4〜6月稼働分 87,185円」になり、4月の発生分にも届かない額が3か月分の支払に見える
- * (まさ指摘 2026-10-02: ちこの 2026年9月支払)。当て方は /admin/payouts の内訳モーダルと同じ
- * 「古い稼働月の発生分から順に払う」仮定で、「4月発生分の一部」「4〜5月発生分（4月の残りと5月の一部）」と書く。
+ * 明細の摘要は「SOL 業務委託料（10月お支払分）」と支払月で書き、2行目に「対象：2026年4〜5月の稼働」と
+ * **今回の支払が当たる稼働月**を添える。繰越の範囲全体を書くと「4〜6月稼働分 87,185円」になり、
+ * 4月の発生分にも届かない額が3か月分の支払に見える (まさ指摘 2026-10-02: ちこの 2026年9月支払)。
+ * 当て方は /admin/payouts の内訳モーダルと同じ「古い稼働月の発生分から順に払う」仮定。
  *
  * 検査: npm run test:payout-source-span
  */
@@ -189,28 +189,33 @@ export function ymSpanLabel(startYm: string, endYm: string): string {
   return `${startYear}年${startMonth}月〜${endYear}年${endMonth}月稼働分`;
 }
 
-function monthLabel(ym: string, withYear: boolean): string {
-  return withYear ? `${ym.slice(0, 4)}年${Number(ym.slice(4, 6))}月` : `${Number(ym.slice(4, 6))}月`;
+/**
+ * 通知書の明細の摘要。稼働月ではなく**支払月**で書く (まさ確定 2026-10-03「◯月支払分、とかじゃダメなの？」)。
+ * 「4月発生分の一部」のような書き方は、未払いの積み上がりを知らない人には読めない。
+ */
+export function payoutLineDescription(projectName: string, paymentYm: string): string {
+  const month = YM_RE.test(paymentYm) ? `${Number(paymentYm.slice(4, 6))}月お支払分` : `${paymentYm}お支払分`;
+  return `${projectName} 業務委託料（${month}）`;
 }
 
 /**
- * 通知書の明細に書く稼働月。今回の支払が当たる月だけを書き、途中までしか払わない月は
- * 「の一部」、前回の続きから払い終える月は「の残り」と添える。
+ * 摘要の2行目に添える対象の稼働月。支払通知書を仕入明細書として使うには取引の期間が要るため、
+ * 支払月だけにせず、今回の支払が当たる稼働月 (古い月から順に払う仮定) を年つきで書く。
+ * 「の一部」「の残り」は付けない。
  */
-export function payoutSourceDescription(span: PayoutSourceSpan): string {
+export function payoutTargetText(span: PayoutSourceSpan): string {
   const months = span.paidMonths ?? [];
-  if (months.length === 0) return ymSpanLabel(span.startYm, span.endYm);
-  const first = months[0];
-  const last = months[months.length - 1];
-  if (months.length === 1) {
-    if (first.ym === span.endYm && !first.startedBefore && first.completed) return ymShortLabel(first.ym);
-    const suffix = !first.completed ? "の一部" : first.startedBefore ? "の残り" : "";
-    return `${monthLabel(first.ym, false)}発生分${suffix}`;
-  }
-  const withYear = first.ym.slice(0, 4) !== last.ym.slice(0, 4);
-  const period = ymSpanLabel(first.ym, last.ym).replace(/稼働分$/, "発生分");
-  const notes: string[] = [];
-  if (first.startedBefore) notes.push(`${monthLabel(first.ym, withYear)}の残り`);
-  if (!last.completed) notes.push(`${monthLabel(last.ym, withYear)}の一部`);
-  return notes.length > 0 ? `${period}（${notes.join("と")}）` : period;
+  const first = months.length > 0 ? months[0].ym : span.endYm;
+  const last = months.length > 0 ? months[months.length - 1].ym : span.endYm;
+  return `対象：${ymPeriodLabel(first, last)}の稼働`;
+}
+
+/** 年つきの月の範囲。「2026年4月」「2026年4〜5月」「2025年12月〜2026年1月」 */
+export function ymPeriodLabel(startYm: string, endYm: string): string {
+  if (!YM_RE.test(startYm) || !YM_RE.test(endYm)) return endYm;
+  const year = (ym: string) => ym.slice(0, 4);
+  const month = (ym: string) => Number(ym.slice(4, 6));
+  if (startYm === endYm) return `${year(endYm)}年${month(endYm)}月`;
+  if (year(startYm) === year(endYm)) return `${year(endYm)}年${month(startYm)}〜${month(endYm)}月`;
+  return `${year(startYm)}年${month(startYm)}月〜${year(endYm)}年${month(endYm)}月`;
 }

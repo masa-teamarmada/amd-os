@@ -3780,11 +3780,17 @@ expectIncludes("src/lib/payout-source-span.ts", [
   "export function regularPoolAmounts(",
   "export function resolvePayoutSourceSpan(",
   "別財布 (cap_extra) は含まない",
-  // 明細は繰越の範囲全体ではなく今回の支払が当たる月で書く (まさ指摘 2026-10-02: ちこの9月支払)
+  // 摘要は支払月で書き、2行目に今回の支払が当たる稼働月を添える (まさ確定 2026-10-03)
   "function allocatePaidMonths(",
+  "export function payoutLineDescription(",
+  "export function payoutTargetText(",
+]);
+expectIncludes("src/app/api/admin/payouts/route.ts", [
+  "targetText: entry.target_text,",
 ]);
 expectIncludes("../gas/064_PayoutFreeeNotice.js", [
   "noteText",
+  "PAYOUT_NOTICE_DESC_LINE_BREAK_",
 ]);
 
 // PJコックピットの「収支」タブに、シーズンの予算配分と消化を出す。

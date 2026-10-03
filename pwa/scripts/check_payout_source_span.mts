@@ -12,7 +12,9 @@ import assert from "node:assert/strict";
 import {
   regularPoolAmounts,
   resolvePayoutSourceSpan,
-  payoutSourceDescription,
+  payoutLineDescription,
+  payoutTargetText,
+  ymPeriodLabel,
   ymSpanLabel,
   type RegularPoolAmounts,
 } from "../src/lib/payout-source-span.ts";
@@ -34,7 +36,7 @@ function span(rows: Record<string, RegularPoolAmounts>, sourceYm: string, floorY
   assert.equal(result.startYm, "202607");
   assert.equal(result.endYm, "202607");
   assert.equal(ymSpanLabel(result.startYm, result.endYm), "7月稼働分");
-  assert.equal(payoutSourceDescription(result), "7月稼働分");
+  assert.equal(payoutTargetText(result), "対象：2026年7月の稼働");
 }
 
 // 2. 本契約に繰越があれば、繰越が 0 になる月まで遡る
@@ -52,7 +54,7 @@ function span(rows: Record<string, RegularPoolAmounts>, sourceYm: string, floorY
   assert.equal(result.grossDueYen, 601349);
   assert.equal(result.stockYen, 455774);
   // 145,575円は4月の発生分 (200,293円) にも届かない。範囲全体の「4〜6月」と書かない
-  assert.equal(payoutSourceDescription(result), "4月発生分の一部");
+  assert.equal(payoutTargetText(result), "対象：2026年4月の稼働");
 }
 
 // 2b. ちこの SX (まさ指摘 2026-10-02)。4〜5月は支払0円、6月に 87,185円、7月に 87,378円
@@ -67,7 +69,7 @@ function span(rows: Record<string, RegularPoolAmounts>, sourceYm: string, floorY
   const june = span(rows, "202606");
   assert.equal(june.startYm, "202604");
   assert.deepEqual(june.paidMonths, [{ ym: "202604", paidYen: 87185, startedBefore: false, completed: false }]);
-  assert.equal(payoutSourceDescription(june), "4月発生分の一部");
+  assert.equal(payoutTargetText(june), "対象：2026年4月の稼働");
 
   // 4月の残り 32,708円 + 5月の 54,670円
   const july = span(rows, "202607");
@@ -75,31 +77,31 @@ function span(rows: Record<string, RegularPoolAmounts>, sourceYm: string, floorY
     { ym: "202604", paidYen: 32708, startedBefore: true, completed: true },
     { ym: "202605", paidYen: 54670, startedBefore: false, completed: false },
   ]);
-  assert.equal(payoutSourceDescription(july), "4〜5月発生分（4月の残りと5月の一部）");
+  assert.equal(payoutTargetText(july), "対象：2026年4〜5月の稼働");
 
   const august = span(rows, "202608");
   // これまでの支払 174,563円で4月を払い終え5月の途中。5月の残り 65,223円 + 6月の 22,504円
-  assert.equal(payoutSourceDescription(august), "5〜6月発生分（5月の残りと6月の一部）");
+  assert.equal(payoutTargetText(august), "対象：2026年5〜6月の稼働");
 }
 
-// 2c. 前回の続きから払い終える月は「の残り」、払い終えて次の月の途中までなら範囲で書く
+// 2c. 前回の続きから払い終える月・次の月の途中まで払う月も、当たる月の範囲だけを書く
 {
   const rows = {
     "202604": { carryIn: 0, grossDue: 100000, stock: 60000 },
     "202605": { carryIn: 60000, grossDue: 160000, stock: 100000 },
   };
-  assert.equal(payoutSourceDescription(span(rows, "202605")), "4月発生分の残り");
+  assert.equal(payoutTargetText(span(rows, "202605")), "対象：2026年4月の稼働");
   const rows2 = {
     "202604": { carryIn: 0, grossDue: 100000, stock: 60000 },
     "202605": { carryIn: 60000, grossDue: 160000, stock: 0 },
   };
-  assert.equal(payoutSourceDescription(span(rows2, "202605")), "4〜5月発生分（4月の残り）");
+  assert.equal(payoutTargetText(span(rows2, "202605")), "対象：2026年4〜5月の稼働");
   // 年またぎは年を付ける
   const rows3 = {
     "202512": { carryIn: 0, grossDue: 100000, stock: 100000 },
     "202601": { carryIn: 100000, grossDue: 200000, stock: 50000 },
   };
-  assert.equal(payoutSourceDescription(span(rows3, "202601")), "2025年12月〜2026年1月発生分（2026年1月の一部）");
+  assert.equal(payoutTargetText(span(rows3, "202601")), "対象：2025年12月〜2026年1月の稼働");
 }
 
 // 3. plan cycle の開始月より前へは遡らない (繰越の鎖はサイクルをまたがない)
@@ -164,6 +166,12 @@ function span(rows: Record<string, RegularPoolAmounts>, sourceYm: string, floorY
 {
   const amounts = regularPoolAmounts({ carryInYen: 401056, grossDueYen: 601349, stockYen: 455774 });
   assert.deepEqual(amounts, { carryIn: 401056, grossDue: 601349, stock: 455774 });
+}
+
+// 8. 摘要は支払月で書く (まさ確定 2026-10-03)。「発生分の一部」のような書き方をしない
+{
+  assert.equal(payoutLineDescription("SOL", "202610"), "SOL 業務委託料（10月お支払分）");
+  assert.equal(ymPeriodLabel("202604", "202604"), "2026年4月");
 }
 
 console.log("payout source span: ok");

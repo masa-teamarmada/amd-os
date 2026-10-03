@@ -151,11 +151,16 @@ function payoutCreatePwaNoticePdf(payload){
   };
 }
 
+const PAYOUT_NOTICE_DESC_LINE_BREAK_ = "\u2028";
+
 function payoutPwaNoticeBreakdownText_(breakdown, fallbackText){
   if (Array.isArray(breakdown) && breakdown.length){
     return breakdown.map(function(item){
       item = item || {};
-      const desc = String(item.description || item.projectName || item.projectId || "業務委託料").trim();
+      let desc = String(item.description || item.projectName || item.projectId || "業務委託料").trim();
+      // 摘要の2行目 (対象の稼働月)。breakdownText は改行で行を分けるため、セル内改行は U+2028 で運び描画時に戻す
+      const targetText = String(item.targetText || "").trim();
+      if (targetText) desc += PAYOUT_NOTICE_DESC_LINE_BREAK_ + targetText;
       const yen = Math.round(Number(item.totalYen || item.yen || item.amountYen || 0));
       return desc + "\t" + (isFinite(yen) ? yen.toLocaleString("ja-JP") + "円" : "0円");
     }).join("\n");
@@ -401,11 +406,13 @@ function payoutBuildNoticePdfBlob_(p){
   for (let i = 0; i < maxLines; i++){
     const r = startRow + 1 + i;
     const d = allDetails[i] || { desc:"", yen:0 };
-    const desc = String(d.desc || "");
+    const desc = String(d.desc || "").split(PAYOUT_NOTICE_DESC_LINE_BREAK_).join("\n");
     // 摘要が長い立替明細も、PDFで金額列に隠れず最後まで読めるようにする。
-    // A:F の表示幅に合わせ、全角を1・半角を約0.5文字として必要な行高を確保する。
-    const displayWidth = Array.from(desc).reduce((width, char) => width + (/^[\x00-\x7f]$/.test(char) ? 0.5 : 1), 0);
-    const detailLines = Math.max(1, Math.ceil(displayWidth / 28));
+    // A:F の表示幅に合わせ、全角を1・半角を約0.5文字として必要な行高を確保する。セル内改行は行ごとに数える。
+    const detailLines = Math.max(1, desc.split("\n").reduce((count, line) => {
+      const displayWidth = Array.from(line).reduce((width, char) => width + (/^[\x00-\x7f]$/.test(char) ? 0.5 : 1), 0);
+      return count + Math.max(1, Math.ceil(displayWidth / 28));
+    }, 0));
 
     sh.setRowHeight(r, Math.max(30, detailLines * 26 + 4));
     sh.getRange(`A${r}:L${r}`).setBackground(i === 0 ? "#ffffff" : PALE);

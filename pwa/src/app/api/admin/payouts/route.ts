@@ -31,8 +31,9 @@ import {
 import {
   regularPoolAmounts,
   resolvePayoutSourceSpan,
-  payoutSourceDescription,
-  ymShortLabel,
+  payoutLineDescription,
+  payoutTargetText,
+  ymPeriodLabel,
   type PayoutSourceSpan,
   type RegularPoolAmounts,
 } from "@/lib/payout-source-span";
@@ -856,7 +857,7 @@ function expectedNoticeEntriesForMember(
       return {
         ...entry,
         project_name: name,
-        description: `${name} ${ymShortLabel(entry.ym)}`,
+        description: payoutLineDescription(name, data.ym),
       };
     });
 }
@@ -983,14 +984,19 @@ export async function generateNoticePdfForMember(
     db,
     baseEntries.map((entry) => ({ projectId: entry.project_id, sourceYm: entry.ym, memberId })),
   );
+  // 摘要は支払月で書き、2行目に今回の支払が当たる稼働月を添える (まさ確定 2026-10-03)
   const entries = baseEntries.map((entry) => {
     const span = sourceSpans.get(`${entry.project_id}:${entry.ym}:${memberId}`);
-    if (!span) return { ...entry, source_span: null as PayoutSourceSpan | null };
-    return {
-      ...entry,
-      description: `${entry.project_name} ${payoutSourceDescription(span)}`,
-      source_span: span,
-    };
+    const description = payoutLineDescription(entry.project_name, ym);
+    if (!span) {
+      return {
+        ...entry,
+        description,
+        target_text: `対象：${ymPeriodLabel(entry.ym, entry.ym)}の稼働`,
+        source_span: null as PayoutSourceSpan | null,
+      };
+    }
+    return { ...entry, description, target_text: payoutTargetText(span), source_span: span };
   });
   const totalYen = entries.reduce((sum, entry) => sum + entry.total_pay, 0);
   // 立替精算は実費 (税込)。報酬が 0 円でも立替だけで通知書を出す月がある
@@ -1097,6 +1103,8 @@ export async function generateNoticePdfForMember(
         /** 今回のお支払いのあとに残る未払い */
         carryOverYen: entry.source_span?.stockYen ?? 0,
         description: entry.description,
+        /** 摘要の2行目。GAS 064 が摘要セル内で改行して描く */
+        targetText: entry.target_text,
         earnedPt: entry.earned_pt,
         basePay: entry.base_pay,
         bonusPt: entry.bonus_pt,
