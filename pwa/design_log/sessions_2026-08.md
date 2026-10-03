@@ -3003,3 +3003,36 @@ where s.project_id='p21' and s.source in ('gmeet_minutes','drive');
 
 この日はVercelのデプロイキューが20分以上詰まっており、push から反映まで待たされた
 （別セッションが同日にデプロイ枠のアラートを入れている）。
+
+---
+
+## 2026-08-29 / CX の OISTピッチ資料をコックピットへ登録
+
+まさ依頼「あきの作ったプレゼン資料を、コックピットの資料室に入れておいて。あと、ここに書いてある
+技術情報を、コックピットの技術タブに入れておいてほしい」。対象は OIST Lifetime Startup Elevate 2026
+の書類審査用ピッチ資料（Google Slides、`OLSE_2026/08/27_v1`、31枚、あき作成）。
+
+commit `c548c5a5 Add CX OIST pitch deck to document room and technology tab`（push済み）
+
+- `351_seed_cx_oist_pitch_document.sql` — `workspace_documents` へ、p20の資料室にフォルダ「ピッチ資料」と
+  Slidesへのリンク行を登録。Drive上の実体なので `entry_kind='link'`、`visibility='amd_internal'`。
+  外部ワークスペースaccountへは出さない
+- `352_seed_project_tech_cx_pitch_deck.sql` — `project_tech_topics` / `project_tech_entries` へ、
+  資料内の技術情報を登録
+- `pwa/spec/3-20-project-technology-current-spec.md` — 技術タブ正本へ今回の登録内容を追記
+
+**本番反映を実測で確認**: p20の資料 2件 / 技術トピック 8件 / 技術項目 77件。
+
+### 記録だけのファイルでも `pwa/` 配下は反映が走る
+
+今回の3ファイルのうち、migration 2本は**アプリが一切読まない純粋な作業記録**で、反映は本来不要。
+しかし当時の `ignoreCommand` は `pwa/design_log` だけを除外していたため、中身に関わらずビルドが動いた。
+「pwaの下に置かなければいいのでは」というまさの指摘は migration については正しいが、
+`pwa/spec/*.md` は `/spec`（設計書ページ）が `process.cwd()/spec` から実行時に読むため、
+反映が走るのは正しい挙動で、外へ出すとページが壊れる。
+
+移設案は `pwa/scripts/migrations` に405ファイル・コード参照42か所（デプロイ前点検スクリプトを含む）・
+文書参照61か所があり、独立した作業が必要。**当時検討した「ignoreCommand の除外に1行足す」案は、
+その後の `235b333f` → `76cd42d6` の顛末（上記「PWA本番反映が丸1日止まっていた」）で
+危険と判明したため採用しない。** 現行の回避手段は commit 件名への `[skip ci]` 付与。
+ただしこの運用は `AGENTS.md` に未記載で、正本への追記可否はまさ判断待ち。
