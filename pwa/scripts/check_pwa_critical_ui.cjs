@@ -3687,6 +3687,39 @@ expectIncludes("src/app/(app)/layout.tsx", [
   "return <>{children}</>;",
 ]);
 
+// 書斎 `/bzm/read` (2026-10-03、設計正本 design/bzm_reader.md): 未投稿の論文と匿名化前の草稿を
+// 並べるため管理者だけが開ける。読書画面は外枠(AppShell)を外した全画面で、外す判定・管理者限定の
+// layout・左ナビの入口・本番同梱の指定・検査の登録のどれかが欠けると、画面が開けない、
+// 会員全員に見える、本番だけ原稿を読めない、のいずれかになる。
+// 外す判定は client の AppShell（usePathname）に置く。サーバの layout は画面遷移で再描画されず、
+// 棚から Link で読書画面へ移ったとき（と逆）に外枠の有無が古いままになるため。
+// 管理者の判定は layout・3つの page・generateMetadata のすべてから requireReaderAdmin で呼ぶ。
+expectIncludes("src/components/nav/AppShell.tsx", ["isBzmReaderRoute"]);
+expectNotIncludes("src/app/(app)/layout.tsx", ["isBzmReaderRoute"]);
+expectIncludes("src/lib/bzm-reader/require-reader-admin.ts", ["isAdmin", 'redirect("/dashboard")']);
+for (const file of [
+  "src/app/(app)/bzm/read/layout.tsx",
+  "src/app/(app)/bzm/read/page.tsx",
+  "src/app/(app)/bzm/read/[book]/page.tsx",
+  "src/app/(app)/bzm/read/[book]/[chapter]/page.tsx",
+]) {
+  expectIncludes(file, ["requireReaderAdmin()"]);
+}
+expectIncludes("src/components/nav/GlobalNav.tsx", ['label: "書斎"', 'href: "/bzm/read"']);
+expectIncludes("src/lib/surface-catalog.ts", ['id: "bzm-reader"']);
+expectIncludes("next.config.ts", [
+  '"/bzm/read/[book]/[chapter]/page"',
+  '"/api/bzm-reader/asset/[...path]/route"',
+  // 図(SVG)の CSP は全体の設定に上書きされるため、この path にだけ後から当てて上書きする。
+  'source: "/api/bzm-reader/asset/:path*"',
+  "bzmReaderAssetSecurityHeaders",
+]);
+expectIncludes("package.json", ["test:bzm-reader"]);
+expectIncludes("src/components/bzm-reader/ReaderView.tsx", [
+  'aria-label="目次"',
+  'aria-label="文字の設定"',
+]);
+
 // 通知 action contract (2026-07-24): 開催履歴候補は、採用前には正本を増やさず、
 // 追加先・追加内容・外部操作を伴わない結果を明示してから同一feedback APIで反映する。
 expectIncludes("src/app/api/governance/extract/route.ts", [

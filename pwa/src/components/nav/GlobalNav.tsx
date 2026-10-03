@@ -24,6 +24,7 @@ import {
   GraduationCap,
   Handshake,
   LayoutDashboard,
+  Library,
   Map,
   Network,
   ScrollText,
@@ -69,6 +70,8 @@ type NavGroup = {
 function isActivePath(pathname: string, item: NavItem) {
   if (item.exact) return pathname === item.href;
   if (item.href === "/dashboard") return pathname === "/dashboard";
+  // 書斎 (/bzm/read) は教科書 (/bzm) の配下の URL だが別の項目。両方が強調されないようにする
+  if (item.href === "/bzm" && (pathname === "/bzm/read" || pathname.startsWith("/bzm/read/"))) return false;
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
@@ -300,6 +303,7 @@ export function GlobalNav({
         items: [
           { label: "モデル", href: "/model", icon: FunctionSquare, adminOnly: true },
           { label: "教科書", href: "/bzm", icon: BookMarked },
+          { label: "書斎", href: "/bzm/read", icon: Library, adminOnly: true },
           { label: "マニュアル", href: "/manual", icon: BookOpen },
           // 会社の記録 (メンバー / 沿革 / メディア掲載 / 写真) の全件面。
           // ホームには直近だけを出し、全部見るときはここへ来る。

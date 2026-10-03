@@ -1,5 +1,7 @@
 # DESIGN.md — AMD OS 全画面設計の正本
 
+2026-10-03: PWAに書斎 `/bzm/read` を追加。管理者限定で、執筆途中の本と論文6冊を1ページずつめくって読む（棚、続きから開く、外枠なしの読書画面、目次・しおり・文字の設定、端末ごとの読書位置）。iOS の `TextbookReaderView`（縦書き）とは別に、PWA は横書きのページ送り。iOS/macOS/Android のネイティブ画面は未移植。詳細は `../pwa/design/bzm_reader.md`
+
 2026-10-02: SOLの202609以降の未発行報酬を100円切上げへ変更。PWAのシーズン月別表に「切り上げ加算」を表示。共有報酬JSONの `totalPay` は加算込み、`roundingTopUpYen` は会社負担加算、`stockYen` は元本未払。獲得ptと発生報酬は維持。iOS/macOS/Androidの独自計算・加算表示は未移植。DB列追加なし。詳細は `pwa/spec/3-14` と `pwa/manual/7-1`。
 
 2026-09-30: PWAに投資家・金融機関向けの「DDパッケージ」を追加した（同日、公開した項目はワークスペースの最新をそのまま見せる形に変え、管理はコックピット・ワークスペースの「DDパッケージ」タブへ移した。正式版は PDF で出力する）。外部の閲覧者の面 `/dd`・`/dd/[slug]`・`/dd/[slug]/items/[itemId]`（添付 `/file`）と、AMD admin 用の管理画面 `/project/[projectId]/dd`・下書きプレビュー `/project/[projectId]/dd/preview/[itemId]`、admin メニュー「組織・権限」→「DDパッケージ」、`/admin/access` の DD 閲覧権限の一覧。権限は新しい表 `dd_package_grants`（ワークスペースの所属とは独立）、外部に見えるのは追記のみの公開版 `dd_item_publications` だけ（`pwa/spec/5-17-dd-package-current-spec.md`）。Swift版（iOS/macOS）は外部アカウントの表・ログイン処理を使っておらず影響なし。ネイティブ画面は未移植（投資家向けの面はブラウザで開く前提）。
@@ -23,7 +25,7 @@
 > - えいみ（Win側 Android担当）が「これ知らない画面なんだけど…」となったら必ずここを参照する
 > - えいみがここを見て知らない画面があるならアラート → 即同期する
 >
-> 最終更新: 2026-09-30 (PWA DDパッケージ)
+> 最終更新: 2026-10-03 (PWA 書斎 /bzm/read)
 
 ---
 

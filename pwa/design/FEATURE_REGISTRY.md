@@ -182,6 +182,35 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - ノード削除を物理DELETEへ戻さない。`archived_at` によるrecoverable soft-deleteを維持し、確認画面 (ノード名・接続件数・メモ件数・影響説明) を経ずに即時削除するUIを作らない。
 - 常設の選択ノード台帳 (右側読み取りウィンドウ、固定幅予約列、カバレッジ欠落警告、常設メモ一覧、常設接続ノード一覧、行内エッジ削除ボタン) を復活させない (2026-08-02 撤去)。ノードの読み書きはマップ内編集オーバーレイと選択ノード操作帯 (編集・メモを追加・Cmd/Ctrl接続) に一本化し、地図はマップ/一覧いずれの表示でも右の固定幅予約列を持たない。
 
+## /bzm/read — 書斎（2026-10-03、build v3.150.0）
+
+目的: 執筆途中の本と論文を、Kindle のように1ページずつめくって通読する。原稿の正本は従来どおりリポジトリ直下の `bzm/*.md` で、書斎は読むだけで原稿を書き換えない。詳細は設計正本 [`bzm_reader.md`](bzm_reader.md) と `/spec/5-18-bzm-reader-current-spec`。
+
+必須機能:
+
+- 公開範囲: 管理者（`members.is_admin`）だけ。管理者の判定は `src/lib/bzm-reader/require-reader-admin.ts` の `requireReaderAdmin()`（`getCurrentMemberAccess` の `isAdmin`。管理者でなければ `/dashboard`、会員でなければ `/auth/login` へ戻す）で、`read/layout.tsx`、3つの page、章ページの `generateMetadata` のすべてから呼ぶ（layout は画面遷移で再描画されず、他の segment を止めないため、layout だけに置かない）。棚に未投稿の論文と匿名化前の草稿が並ぶため、`/bzm`（会員全員が読める）とは別に絞る。`/bzm/public` の公開例外に入れない。
+- 棚（`/bzm/read`）: `src/lib/bzm-reader/library.ts` に固定で持つ6冊（BZM 3.0教科書、ディープテック起業の経営学、BZM 2.2教科書、BZM 批判的基礎講座、第1論文、第1論文 補足資料）を、この順で本ごとのカードに出す。カードは書けた章の数（「N章中M章を執筆済み」）、総文字数、通読の目安時間、この端末での読書位置（「前回: 章の題・本全体 N%」と進み具合の細い帯）を持つ。BZM 3.0教科書の色帯は `#0366b8`（白文字との比 4.5:1 以上）。主ボタンは、この端末に位置があれば「続きから読む」（その章へ直接）、無ければ「最初から読む」（最初の書けている章へ直接）。「章を選ぶ」で章の一覧を開き、未執筆の章には「未執筆」の札を付けて押せなくする。原稿の並びはファイル名の規則から自動で拾わない（台帳 md と草稿メモが混ざるため）。
+- 続きから開く（`/bzm/read/[book]`）: この端末に残った読書位置の章へ移る。無ければ最初の書けている章。棚の主ボタンは章へ直接リンクするので、通常はこの入口を通らない（URL を直接開いたときの入口）。書けた章が1つも無い本は「執筆済みの章なし」と「書斎へ戻る」を出す。
+- 読書画面（`/bzm/read/[book]/[chapter]`）: 外枠（AppShell）を外した全画面。外す判定は `src/components/nav/AppShell.tsx` の `isBzmReaderRoute`（`usePathname` と `/bzm/read/<本>`・`/bzm/read/<本>/<章>` に合う正規表現。棚は含めない）で、画面内リンクで移っても外枠が外れる（サーバの layout はソフトナビゲーションで再描画されないため、判定をクライアントに置く。`(app)/layout.tsx` には置かない）。1ページずつのページ表示（既定）と縦に流すスクロール表示、広い画面での見開き。右・左 3 割の押下、スワイプ、矢印キー、PageUp/PageDown、ホイール・トラックパッド（ページ表示）でめくり、中央の押下と Escape で上下の帯を出し入れする。章の端でさらにめくると前後の書けている章へ移る。本の最初・最後でさらにめくると、画面下に「本の最初」「本の最後」を短く出す。帯のボタンをポインタで押したあとも、続けて Space などでめくれる。
+- 未執筆の章（`/bzm/read/<本>/<未執筆の章>` を直接開いたとき）: 「この章は未執筆」と、「最初の書けている章へ」「書斎へ戻る」を出す。読書画面は出さない。
+- 読書画面のボタン: 「書斎へ戻る」「目次」「しおり」「文字の設定」。押せる大きさは 44px 以上。パネル（目次・しおり・文字の設定）の閉じるボタンも 44px で、名前は「閉じる」。目次は未執筆の章を灰色で出して押せなくする。高さ 500px 未満の画面（スマホの横向きなど）は、本文の上下の余白を詰める。
+- 文字の設定: 文字の大きさ・行間・余白・書体・背景（白 / セピア / 黒）・表示（ページ / スクロール）・見開き・執筆メモの出し分け。設定は全書籍で共通。
+- 位置の記憶: 読書位置・しおり・設定は端末ごとの `localStorage` に残し、端末をまたいで同期しない（同期には DB の表が要る。まさの判断待ち）。読書位置はブロック番号とブロック内の位置（`fraction`）で持ち、長いブロックの途中のページにも戻る。スクロール表示の復元は、上端のブロックの判定と戻す位置を同じ許容値で決め、1つ前のブロックへずれない。しおりは、しおりのブロックがいまの画面に含まれ、`fraction` が最も近いもので「挟んでいる」と判定する。背景色だけは Cookie（`amd-os.bzm-reader.theme`）にも書き、再読み込みの最初の描画から正しい背景で出す（白い光りの防止）。`localStorage` と Cookie が使えなくても画面は動く。
+- 文字数: 目安。空白・改行・見出しの `#`・表の区切り行を除き、リンクは表示文字だけ、図は1字、数式は1件1字で数える。進み具合（％）と通読の目安時間はこの文字数から出す。
+- 原稿の前処理: 先頭の YAML、HTML コメント（執筆メモ）、見出し属性、論文の引用番号と文献一覧、図のパス、章間リンク、callout を、描画の前に純関数で整える。同じ文字の見出しは2件目以降に `{#id-2}` を付け、目次の id と描画の id を一致させる。論文を章に割った本では、`load.ts` が文献一覧の章から番号→書誌を作り、他の章の引用を `/bzm/read/<book>/references#ref-N "書誌"` の番号ごとのリンクに書き換える（押すと文献一覧の章のその文献のページが開く）。数式は先に退避して KaTeX で組む（規則は `protect-math.ts`。インラインは既存の `BzmMarkdown` と同じで、改行は可、空行はまたがない、`\$` は数式にしない）。
+- 表: 列が5つ以上は横スクロールの囲み（セルの最小幅 6em）、4つ以下は囲みなしで本文の幅に収め、段をまたいで割れる。罫線の色は `--bzr-table-line`、図の背面は `--bzr-figure-bg`（黒の背景だけ白地）。
+- 図の API: `GET /api/bzm-reader/asset/[...path]` は管理者だけ。`bzm/` の外へ出るパス（`..`、絶対パス）と、png / jpg / jpeg / svg / webp / gif 以外を拒む。全体の CSP に上書きされないよう、`next.config.ts` の `headers()` がこの path 専用のヘッダ（`nosniff`、`X-Frame-Options: SAMEORIGIN`、`Referrer-Policy: no-referrer`、`Content-Security-Policy: default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox`）を当てる。
+- 本番で原稿を読むための同梱とヘッダ: `next.config.ts` の `outputFileTracingIncludes` に書斎の3ページと図の API を足す（動的な fs 読みは自動追跡に乗らず、本番だけ ENOENT になる前例がある）。図の API の専用ヘッダも `next.config.ts`（`bzmReaderAssetSecurityHeaders`）に置く。
+- 左ナビ「資料」の「教科書」の直後に管理者だけの「書斎」。`surface-catalog.ts` に `bzm-reader`（`prefixes: ["/bzm/read"]`）を `bzm` より前に置く。
+
+回帰防止:
+
+- `npm run test:bzm-reader`（`scripts/check_bzm_reader.mts`、deploy 前ゲート）が前処理の各規則、見出しの連番、論文の引用の書き換え、数式の退避、文字数の数え方、棚の本と章の重複なし、Book A の章が `BZM_PARTS` と一致すること、未執筆の章の返し方、`ReaderMarkdown` を描いたときの目次と見出しの id の一致、表の囲みの種類、端末内保存を検査する。
+- `npm run test:critical-ui` が、管理者の判定（`require-reader-admin.ts` の `isAdmin` と `redirect("/dashboard")`、layout と3つの page の `requireReaderAdmin()`）、外枠を外す判定 `isBzmReaderRoute` が `AppShell.tsx` にあり `(app)/layout.tsx` に無いこと、左ナビの「書斎」、`surface-catalog` の `bzm-reader`、同梱指定、図の API の専用ヘッダ、`test:bzm-reader` の登録、読書画面の「目次」「文字の設定」ボタンを確認する。
+- 書斎を会員全員に広げる、読書位置をサーバへ送る、原稿を書斎から書き換える、図の API で `bzm/` の外を配る変更は、設計正本・`/spec/5-18`・この節を同時に更新し、まさの判断を得てから行う。
+- 画面の文言に会話調の語尾（「だよ」「してね」など）を入れない。`check_pwa_critical_ui.cjs` が `src/` 全体で止める。
+- iOS / macOS / Android のネイティブ画面は未移植（`macos/PARITY.md`、`ios/DESIGN.md`）。iOS の `TextbookReaderView`（縦書き）とは別の画面である。
+
 ## /knowledge-map
 
 目的: 元素・鉱物・鉱石・樹脂・高分子を「材料 → 供給 → 用途 → AMDとの接点」で横断し、高校生でも世界の材料事情・研究テーマ・事業機会・供給リスクを数分で比較できる AMD Materials workspace として使う。従来の L2 / manual / spec / BZM ノウハウ地図も `材料マップ` tab に残す。

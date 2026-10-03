@@ -17,6 +17,7 @@
 | admin knowledge | `/admin/japanese-culture-map` | `jp_culture_items` active 行をマインドマップ / 日本地図で読む admin-only 文化知識ビュー。旧 `/japanese-culture-map` は redirect | `admin/japanese-culture-map/page.tsx`, `jp-culture.ts` |
 | docs | `/manual`, `/spec`, `/bzm` | manual / design spec / textbook を OS 画面で表示 | `manual/*`, `spec/*`, `bzm/*` |
 | docs | `/bzm/map` | 理論マップ (論証台帳)。DBだけを正本に0件から本人が育てる。admin は空白クリックでノード作成、通常クリックで編集、通常ドラッグで配置変更、Cmd/Ctrl二点クリックで接続、線クリックで解除する。全panelはノードを覆わないマップ作業区画。旧Markdownは履歴資産で自動表示しない。真理マップではなく件数・接続数は真偽・確信度を表さない | `bzm/map/page.tsx`, `BzmTheoryMapView.tsx`, `BzmTheoryComposerDialog.tsx`, `lib/bzm-theory-store.ts`, `/api/bzm/theory-map` |
+| docs | `/bzm/read`, `/bzm/read/[book]`, `/bzm/read/[book]/[chapter]` | 書斎。管理者限定で、執筆途中の本と論文6冊を Kindle のようにページ送りで通読する。棚（通常の AppShell）、続きから開く、読書画面（外枠なしの全画面。外す判定はクライアントの `AppShell` の `isBzmReaderRoute`。目次・しおり・文字の設定、端末ごとの読書位置、未執筆の章の案内）の3画面。原稿は `bzm/*.md` を読むだけで書き換えない | `(app)/bzm/read/**`, `components/bzm-reader/*`, `lib/bzm-reader/*`, `components/nav/AppShell.tsx`（外枠の判定） |
 | knowledge | `/knowledge-map` | AMD Materials。高校生が辞書なしで読める日本語を原則に、全118元素を淡黄→深紅の熱色、日本語主用途、軸から独立した供給`警戒` / `危機`で俯瞰する。評価済み元素は、要点の小窓で用途・供給警報・直近公表相場・5年推移・産出国円グラフを表示し、詳細操作で同じ小窓を拡張して埋蔵・需給 / 循環・代替 / AMD接点 / 出典を追加する。4評価軸の合計（20点満点）を総合値とし、周期表以外の一覧・比較は高得点順。全材料横断の需給の崩れランキングは専用の偏りの強さ（5点満点）で並べ、不足側、供給過剰側、価格乱高下を区別し、原因、供給が詰まる工程、評価時点、確からしさを示す。全体タブの3入口はカード全面で操作する。樹脂の詳細は原料と重合・重縮合・硬化等の製造方法を追加表示する。代表鉱物・鉱石、代表樹脂・高分子、2〜4件比較、従来のL2力学地図も統合する。初期評価と未評価を分け、原文全文、画面内Q&A、DB書き込み、生成AI呼び出しは持たない | `knowledge-map/page.tsx`, `MaterialsKnowledgeView.tsx`, `KnowledgeMapView.tsx`, `materials-data.ts` |
 | contacts | `/business-cards` | スマホ撮影 / 写真選択、OCR確認、複数PJ紐付け、名刺検索。確定時だけ D-3 PJナレッジへ人物情報を同期する | `business-cards/page.tsx`, `BusinessCardsClient.tsx` |
 | contacts native | `/native/business-cards` | iOSの名刺タブが認証cookieつきWKWebViewで開く、GlobalNavなしのnative shell | `native/business-cards/page.tsx`, `ios/.../BusinessCardsView.swift` |
@@ -42,6 +43,7 @@
 | Seeds / VC | `/api/cron/seeds-ingest`, `/api/cron/vc-*`, admin seed/vc helpers | seeds / vcs / investments | TODO spec |
 | ECR | `/api/institutions/assess` | `institution_assessments` upsert | `/spec/4-3-ers-current-spec` |
 | BZM theory | `/api/bzm/theory-map` | member read、admin の `bzm_theory_nodes` / `bzm_theory_edges` / `bzm_theory_node_memos` 明示保存 | `/spec/2-6-bzm-theory-map-current-spec` |
+| BZM reader | `/api/bzm-reader/asset/[...path]` | admin のみ。`bzm/` 内の図（png / jpg / jpeg / svg / webp / gif）の read-only 配信。`next.config.ts` の専用ヘッダ（`nosniff`、`SAMEORIGIN`、`no-referrer`、スクリプトを止める CSP と `sandbox`）つき。DB 書込みなし | `/spec/5-18-bzm-reader-current-spec` |
 | business cards | `/api/business-cards`, `/api/business-cards/[cardId]`, `/api/business-cards/[cardId]/image` | private画像保存、Gemini OCR、確認済み名刺 / PJ紐付け / `project_knowledge` 同期 | `/spec/2-5-business-cards-current-spec` |
 | cron | `/api/cron/*` | Vercel cron or on-demand batch | `/spec/5-3-automation-responsibility-current-spec` |
 
@@ -71,6 +73,7 @@
 - route 追加・metadata 更新: `npx tsc --noEmit`
 - surface catalogとadmin分類: `npm run test:surface-catalog-contract`
 - 理論マップ: `npm run test:bzm-theory-graph` と `npm run test:bzm-theory-editor`
+- 書斎: `npm run test:bzm-reader`（deploy 前ゲート）
 - production build: `npm run build`
 - production deploy: `bash pwa/scripts/deploy.sh`
 - auth protected route smoke: unauthenticated access should redirect to `/auth/login?next=...`

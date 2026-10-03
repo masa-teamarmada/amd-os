@@ -138,6 +138,19 @@ const ddPublicationFileSecurityHeaders = [
   },
 ];
 
+// 書斎の図（/api/bzm-reader/asset/...）を配る route も同じ事情。SVG は route が付けた CSP が全体の設定に
+// 上書きされると、直接開いたときに全体の CSP（inline script を許す）で動き、中のスクリプトが同一オリジンで走る。
+// ここで同じ path に後から当てて上書きし、スクリプト・外部通信・フォーム送信を止める。
+const bzmReaderAssetSecurityHeaders = [
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
+  { key: "Referrer-Policy", value: "no-referrer" },
+  {
+    key: "Content-Security-Policy",
+    value: "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox",
+  },
+];
+
 const nextConfig: NextConfig = {
   env: buildStampEnv,
   // 2026-05-12 まさ要望「雛形そのまま」で /api/admin/pj-introduction-html が
@@ -171,6 +184,20 @@ const nextConfig: NextConfig = {
     "/model/page": ["../model/**/*.md", "../model/**/*.json", "../bzm/**/*.md"],
     // モデルページは正本 bzm md から式と記号を実行時に抽出するので bzm も要る。
     "/model/formulas/page": ["../model/**/*.md", "../model/**/*.json", "../bzm/**/*.md"],
+    // 書斎 (/bzm/read) は bzm/*.md を実行時に fs 読みする (admin 限定 layout で動的レンダリング)。
+    // 動的な fs 読みは nft の自動トレースに乗らず、本番だけ ENOENT になるため明示 bundle する。
+    // 図は asset route が bzm/ 配下から拡張子限定で配るので、図の6拡張子も同梱する。
+    "/bzm/read/page": ["../bzm/**/*.md"],
+    "/bzm/read/[book]/page": ["../bzm/**/*.md"],
+    "/bzm/read/[book]/[chapter]/page": ["../bzm/**/*.md"],
+    "/api/bzm-reader/asset/[...path]/route": [
+      "../bzm/**/*.png",
+      "../bzm/**/*.jpg",
+      "../bzm/**/*.jpeg",
+      "../bzm/**/*.svg",
+      "../bzm/**/*.webp",
+      "../bzm/**/*.gif",
+    ],
     "/api/macos/document/route": [
       "./manual/**/*.md",
       "./spec/**/*.md",
@@ -220,6 +247,10 @@ const nextConfig: NextConfig = {
       {
         source: "/dd/:slug/items/:itemId/file",
         headers: ddPublicationFileSecurityHeaders,
+      },
+      {
+        source: "/api/bzm-reader/asset/:path*",
+        headers: bzmReaderAssetSecurityHeaders,
       },
     ];
   },

@@ -114,6 +114,7 @@ export const SPEC_SECTIONS: SpecSectionConfig[] = [
       "5-8-l1-l3-codex-migration-current-spec",
       "5-11-model-canon-page-current-spec",
       "5-17-dd-package-current-spec",
+      "5-18-bzm-reader-current-spec",
     ],
   },
   {
@@ -178,6 +179,7 @@ export const SPEC_CHAPTERS: SpecChapterConfig[] = [
   { slug: "5-7-task-management-current-spec", title: "Task Data / API 互換仕様", summary: "廃止済み /tasks 画面と、H-1 / cockpit 互換のため残す tasks table / API の境界。" },
   { slug: "5-8-l1-l3-codex-migration-current-spec", title: "L1-L3 Codex移植仕様", summary: "Claude routines停止前提で、L1/L2/L3抽出をCodex側へ移す inventory、優先順位、approval bundle、RED運用の current truth。" },
   { slug: "5-17-dd-package-current-spec", title: "DDパッケージ仕様", summary: "投資家・金融機関向けの開示面。コックピット・ワークスペースと分けた第3の領域、入れる領域と操作（閲覧・ダウンロード）の分離、追記のみの公開版、元データごとの許可リスト、招待・停止・失効、権限の検証と残課題。" },
+  { slug: "5-18-bzm-reader-current-spec", title: "書斎仕様", summary: "執筆途中の本と論文を1ページずつめくって読む /bzm/read の仕様。管理者限定、棚の6冊、原稿の前処理、外枠なしの読書画面、端末ごとの読書位置、図の配信 API、本番への同梱、検査と残課題。" },
   { slug: "5-11-model-canon-page-current-spec", title: "モデル正本ページ仕様", summary: "/model と /model/formulas（BZM 2.2 の現行の式）の仕様。式をコードへ書き写さず正本 md から取り出す契約、ずれ検知、参照系キャッシュ、見出しアンカー。" },
   { slug: "6-1-appendix-changelog", title: "附則（設計書変更履歴）", summary: "/spec の追加・変更・削除を append-only で記録する変更履歴。" },
 ];

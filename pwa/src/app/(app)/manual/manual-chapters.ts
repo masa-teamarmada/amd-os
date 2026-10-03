@@ -83,6 +83,7 @@ export const MANUAL_SECTIONS: ManualSectionConfig[] = [
       "2-6-admin-ops",
       "2-8-business-cards",
       "2-9-question-tree",
+      "2-10-bzm-reader",
     ],
   },
   {
@@ -181,6 +182,7 @@ export const MANUAL_CHAPTERS: ManualChapterConfig[] = [
   { slug: "2-7-task-management", title: "タスク管理（廃止済み）", summary: "/tasks 画面と agent helper は廃止済み。tasks table / API は H-1 と cockpit 互換のため残す。", topics: ["system"], tables: ["tasks"] },
   { slug: "2-8-business-cards", title: "名刺をPJの関係資産にする", summary: "スマホ撮影、OCR確認、複数PJ紐づけ、人物knowledge反映の使い方。", topics: ["start", "knowledge"], screens: ["/business-cards"], tables: ["business_cards", "business_card_project_links", "project_knowledge"] },
   { slug: "2-9-question-tree", title: "ゴールツリーの使い方", summary: "到達点からMS・論点・仮説・TODOへ分解して進める画面。未承認の承認、どれか1つで解ける論点の指定、対応待ち・要見直しの論点の確認、閉じ方。", topics: ["question", "decision", "planning"], screens: ["/project/{projectId}/workspace"] },
+  { slug: "2-10-bzm-reader", title: "書斎で草稿を通読する", summary: "管理者が、執筆途中の本と論文をKindleのように1ページずつめくって読む画面。開き方、めくり方、目次としおり、文字の設定、位置の記憶が端末ごとであること、未執筆の章の見え方、まだできないこと。", topics: ["start"], screens: ["/bzm/read", "/bzm/read/{book}/{chapter}"] },
 
   { slug: "3-1-system-architecture", title: "全体設計", summary: "画面、データ、書き込み経路、設計 md 索引まで含む OS の地図。", topics: ["system-dev", "developer"], screens: ["/manual"], tables: ["projects", "members", "billing_cycles"] },
   { slug: "3-2-data-and-extraction", title: "データと抽出", summary: "5 生データ、M/W/D/H L2、抽出 pipeline、復旧状況の開発者向け正本。", topics: ["system-dev", "knowledge-dev"], tables: ["source_cache", "project_meeting_summaries", "project_strategy_signals"] },
@@ -230,7 +232,7 @@ export const MANUAL_TOPIC_NODES: ManualTopicNodeConfig[] = [
     description: "初めて開く人が、OS の目的と日常画面を掴む入口。",
     icon: "book",
     color: "blue",
-    chapterSlugs: ["1-1-intro", "2-1-member-quick-start", "2-2-member-workflows-quick-start", "2-3-pj-cockpit", "2-4-amd-cockpit", "2-8-business-cards", "2-9-question-tree"],
+    chapterSlugs: ["1-1-intro", "2-1-member-quick-start", "2-2-member-workflows-quick-start", "2-3-pj-cockpit", "2-4-amd-cockpit", "2-8-business-cards", "2-9-question-tree", "2-10-bzm-reader"],
     relatedTopicKeys: ["cockpit", "monthly", "discovery"],
   },
   {

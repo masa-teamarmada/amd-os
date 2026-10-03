@@ -145,6 +145,7 @@
     "test:bzm-2-observatory": "node --experimental-strip-types scripts/test_bzm_2_observatory.mts",
     "test:bzm-2-1-policy-model": "node --experimental-strip-types scripts/test_bzm_2_1_policy_model.mts",
     "test:bzm-2-1-dynamic-policy": "node --experimental-strip-types scripts/test_bzm_2_1_dynamic_policy.mts",
+    "test:bzm-reader": "node --experimental-strip-types scripts/check_bzm_reader.mts",
     "build:sps-2-1-estimated": "node --experimental-strip-types scripts/build_sps_2_1_estimated_v0_1.mts",
     "check:sps-2-1-estimated": "node --experimental-strip-types scripts/build_sps_2_1_estimated_v0_1.mts --check",
     "check:team-function-contract": "node scripts/check_team_function_contract.mjs",

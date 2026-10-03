@@ -1,0 +1,343 @@
+/*
+ * 書斎（/bzm/read）の本文の組版と色。設計正本は pwa/design/bzm_reader.md §5・§6.7。
+ *
+ * - 色は .bzr-root[data-theme] の変数だけで決める。.bzr-root 自体は ReaderView が描く。
+ * - 大きさ・行間・書体・ページの高さは ReaderView が .bzr-root の style に置く
+ *   --bzr-font-size / --bzr-line-height / --bzr-font-family / --bzr-page-height を読む。
+ * - Tailwind の preflight が見出し・リスト・太字・余白を初期化するため、本文側で明示し直している。
+ */
+
+/* ---- 色（§6.7） ---- */
+.bzr-root,
+.bzr-root[data-theme="white"] {
+  --bzr-bg: #ffffff;
+  --bzr-fg: #1d1d1f;
+  --bzr-muted: #6e6e73;
+  --bzr-rule: #e5e5ea;
+  --bzr-accent: #027fdc;
+  --bzr-table-head: #f2f4f8;
+  /* 表の罫線。本文の罫線（--bzr-rule）より濃くして、行と列の区切りを追えるようにする */
+  --bzr-table-line: #c7c7cc;
+  /* 透過 PNG の図を黒背景でも読めるよう、黒のときだけ白地を敷く */
+  --bzr-figure-bg: transparent;
+}
+
+.bzr-root[data-theme="sepia"] {
+  --bzr-bg: #f6efe2;
+  --bzr-fg: #3b2f22;
+  --bzr-muted: #7a6a55;
+  --bzr-rule: #e3d6bf;
+  --bzr-accent: #8a5a1c;
+  --bzr-table-head: #efe4cf;
+  --bzr-table-line: #cdbb98;
+  --bzr-figure-bg: transparent;
+}
+
+.bzr-root[data-theme="black"] {
+  --bzr-bg: #121212;
+  --bzr-fg: #e6e6e6;
+  --bzr-muted: #9a9a9a;
+  --bzr-rule: #2c2c2e;
+  --bzr-accent: #5eb1ff;
+  --bzr-table-head: #1f1f22;
+  --bzr-table-line: #48484a;
+  --bzr-figure-bg: #ffffff;
+}
+
+/* ---- 本文 ---- */
+.bzr-content {
+  font-size: var(--bzr-font-size, 17px);
+  line-height: var(--bzr-line-height, 1.8);
+  font-family: var(
+    --bzr-font-family,
+    "Yu Gothic", "游ゴシック体", "YuGothic", "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif
+  );
+  color: var(--bzr-fg);
+  font-kerning: normal;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* 和文: 禁則を厳しめにし、長い英数字の列は行末で折る */
+.bzr-content[lang="ja"] {
+  line-break: strict;
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+
+/* 英文: ハイフネーションと両端そろえ */
+.bzr-content[lang="en"] {
+  hyphens: auto;
+  text-align: justify;
+  overflow-wrap: break-word;
+}
+
+.bzr-content p {
+  margin: 0 0 0.9em;
+  text-indent: 0;
+  orphans: 2;
+  widows: 2;
+}
+
+.bzr-content strong {
+  font-weight: 700;
+}
+
+.bzr-content em {
+  font-style: italic;
+}
+
+/* ---- 見出し（本文の 1.15〜1.6 倍。直後で段が割れないようにする） ---- */
+.bzr-content h1,
+.bzr-content h2,
+.bzr-content h3,
+.bzr-content h4,
+.bzr-content h5,
+.bzr-content h6 {
+  margin: 1.4em 0 0.6em;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: left;
+  hyphens: manual;
+  break-inside: avoid;
+  break-after: avoid;
+}
+
+.bzr-content h1 {
+  margin: 0 0 1em;
+  font-size: 1.6em;
+  line-height: 1.35;
+}
+
+.bzr-content h2 {
+  font-size: 1.35em;
+}
+
+.bzr-content h3 {
+  font-size: 1.2em;
+}
+
+.bzr-content h4 {
+  font-size: 1.15em;
+}
+
+.bzr-content h5,
+.bzr-content h6 {
+  font-size: 1em;
+}
+
+/* ---- リスト・引用・罫線 ---- */
+.bzr-content ul,
+.bzr-content ol {
+  margin: 0 0 0.9em;
+  padding-left: 1.6em;
+}
+
+.bzr-content ul {
+  list-style: disc;
+}
+
+.bzr-content ol {
+  list-style: decimal;
+}
+
+.bzr-content li {
+  margin: 0.25em 0;
+}
+
+.bzr-content li > ul,
+.bzr-content li > ol {
+  margin: 0.25em 0 0;
+}
+
+.bzr-content li > p {
+  margin-bottom: 0.4em;
+}
+
+.bzr-content ul.contains-task-list {
+  list-style: none;
+  padding-left: 0.2em;
+}
+
+.bzr-content blockquote {
+  margin: 0 0 0.9em;
+  padding: 0.1em 0 0.1em 1em;
+  border-left: 3px solid color-mix(in srgb, var(--bzr-muted) 55%, transparent);
+}
+
+.bzr-content blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.bzr-content hr {
+  height: 0;
+  margin: 1.6em 0;
+  border: 0;
+  border-top: 1px solid var(--bzr-rule);
+}
+
+/* ---- リンク・引用番号 ---- */
+.bzr-content a {
+  color: var(--bzr-accent);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.bzr-content .bzr-cite {
+  margin-left: 0.1em;
+  font-size: 0.75em;
+  line-height: 0;
+}
+
+.bzr-content .bzr-cite a {
+  text-decoration: none;
+}
+
+.bzr-content .bzr-refdef {
+  font-weight: 600;
+}
+
+/* ---- コード ---- */
+.bzr-content code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, "Hiragino Kaku Gothic ProN", monospace;
+  font-size: 0.88em;
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  background: var(--bzr-table-head);
+  overflow-wrap: anywhere;
+  hyphens: manual;
+}
+
+.bzr-content pre {
+  margin: 0 0 0.9em;
+  padding: 0.8em 1em;
+  border-radius: 6px;
+  background: var(--bzr-table-head);
+  font-size: 0.85em;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.bzr-content pre code {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  font-size: 1em;
+}
+
+/* ---- 横にはみ出す囲み（列の多い表・表示数式）。ReaderView は、実際にはみ出している囲みの上でだけ横の動きをめくりに使わない ---- */
+.bzr-hscroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/*
+ * ページ表示（段組み）では、overflow を持つ要素は段をまたいで割れない。
+ * 1ページより高い囲みは、ページに収まる高さで止めて、その中を縦にもスクロールさせる。
+ * 列が 4 つ以下の表は囲みに overflow を付けないので、この規則の対象外で、段をまたいで割れる。
+ */
+.bzr-root[data-layout="page"] .bzr-hscroll {
+  max-height: calc(var(--bzr-page-height, 80vh) - 3em);
+}
+
+/* ---- 表 ---- */
+.bzr-content .bzr-table {
+  margin: 0 0 1em;
+  font-size: 0.85em;
+  line-height: 1.6;
+  text-align: left;
+}
+
+.bzr-content .bzr-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.bzr-content .bzr-table th,
+.bzr-content .bzr-table td {
+  padding: 0.4em 0.65em;
+  border: 1px solid var(--bzr-table-line);
+  vertical-align: top;
+  hyphens: manual;
+}
+
+/* 列が 4 つ以下: 本文の幅に収める。長い語は列の中で折り、横スクロールにはしない */
+.bzr-content .bzr-table--fit th,
+.bzr-content .bzr-table--fit td {
+  overflow-wrap: anywhere;
+}
+
+/* 列が 5 つ以上: セルの最小幅を 6em にして、列が 1 文字幅へ潰れる前に囲みの横スクロールへ回す */
+.bzr-content .bzr-table--wide th,
+.bzr-content .bzr-table--wide td {
+  min-width: 6em;
+  overflow-wrap: normal;
+}
+
+.bzr-content .bzr-table th {
+  background: var(--bzr-table-head);
+  font-weight: 700;
+}
+
+/* 段をまたぐ表で、段の切れ目に見出し行が取り残されない・行の途中で切れない */
+.bzr-content .bzr-table--fit tr {
+  break-inside: avoid;
+}
+
+.bzr-content .bzr-table--fit thead {
+  break-after: avoid;
+}
+
+/* ---- 数式 ---- */
+.bzr-content .katex {
+  color: inherit;
+  font-size: 1.1em;
+}
+
+.bzr-content .bzr-math-inline {
+  hyphens: manual;
+}
+
+.bzr-content .bzr-math-block {
+  margin: 0.6em 0 0.9em;
+  text-align: center;
+  break-inside: avoid;
+}
+
+.bzr-content .bzr-math-block .katex-display {
+  margin: 0.4em 0;
+}
+
+/* ---- 図・キャプション ---- */
+.bzr-content img {
+  max-width: 100%;
+  height: auto;
+}
+
+.bzr-content .bzr-figure {
+  margin: 1.2em 0 0.6em;
+  text-align: center;
+  break-inside: avoid;
+  break-after: avoid;
+}
+
+.bzr-content .bzr-figure img {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  max-height: calc(var(--bzr-page-height, 80vh) - 4em);
+  object-fit: contain;
+  background: var(--bzr-figure-bg);
+  border-radius: 4px;
+}
+
+.bzr-content .bzr-caption {
+  font-size: 0.85em;
+  line-height: 1.7;
+  color: var(--bzr-muted);
+}
+
+.bzr-content[lang="en"] .bzr-caption {
+  text-align: left;
+}
