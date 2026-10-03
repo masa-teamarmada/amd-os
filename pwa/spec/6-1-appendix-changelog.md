@@ -1,5 +1,7 @@
 # 附則（設計書変更履歴）
 
+| 2026-10-03 JST | 5-2 開発運用 | 追加 | v3.149.1。「作業フォルダの追従 (root-checkout-sync)」節を新設。`scripts/root-checkout-sync.py` は作業フォルダの書きかけを HEAD・作業フォルダ・origin/main の3者で仕分け、origin/main に中身がある書きかけと未push commit だけを片付けて追従する。両側で変わった書きかけは72時間以上動いていなければ隔離対象 (既定は報告だけ)。定期実行用の `scripts/launchagents/jp.teamarmada.amd-os-root-sync.plist` を同梱。自動実行の導入はまさ判断待ち | 作業フォルダが311件遅れ、古い版の書きかけ35件が数週間残っていた。まさ「こういうことが起きないような仕組みを作ってほしい」 | まさ・えいみ |
+
 | 2026-10-03 JST | 3-23 PJタイプ別の標準フォーマット（新設）/ 3-8 試算表 / DD | 新設・変更 | build v3.149.0。試算表タブを全PJ共通の標準フォーマット `ProjectFinanceFormat` に統合。区画・行・グラフの定義を `src/lib/project-formats.ts` に置き、`scripts/project_format_lock.json` の sha256 で鍵をかけた。PJごとの違いは `src/lib/project-finance-format.ts` がデータの形だけで標準の行へ流し込む（SOLの資金計画JSON・LiSTieの取締役会資料の列・登録済みの月次試算）。PJ専用の部品 `CockpitFundingPlan`・`Bzm22TimeLedger`・`Bzm22TimeLedgerSection`・`CockpitPlMonthlySection` を削除し、DDの資金計画も同じ部品で描く。会社の設立月は `project_ventures.founded_at` を正本にした（CXは画面内の固定値 2026-11 ではなく登録値 2027-01）。`npm run test:project-format` を本番反映の前に必ず走らせ、定義の無承認の変更と、PJ番号の名指しの新規追加（既存26件はラチェット）を止める | まさ「すべてのPJについて、同じフォーマットで表示する設計にして。勝手にそれを書き換えないように制限をかけてほしい。新たなデータが入るときには、新たなグラフを入れるんじゃなくて、フォーマットで生成されているグラフにその数値データを入れる形にしてほしい」 | まさ・えいみ |
 
 | 2026-10-03 JST | 6-5 支払通知書の明細 | 変更 | v3.148.4 / GAS @1505。摘要の3行目に「未払い残高 272,964円（税抜、翌月以降にお支払いします）」を添える（本契約の未払いがある行だけ）。書式更新日時を上げ未送付PDFを作り直し対象にした | まさ「『2026年4月の稼働』って書いたら、4月稼働分は87,185円しかもらえないのか？ってならない？」 | まさ・えいみ |

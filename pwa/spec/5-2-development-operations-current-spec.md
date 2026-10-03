@@ -118,6 +118,38 @@ scripts/worker-freshness-check.sh
 
 期待値は `main`、dirty 0、ahead/behind `0 0`、registered worktree 1、local branch `main` だけ。Codex が「ブランチを切り替えるには変更をコミットしてください」と表示した場合はキャンセルし、`コミットしてブランチを切り替える` を押さない。差分を archive して帰属を確認し、価値ある変更だけ main へ畳んでから branch / worktree を消す。
 
+## 作業フォルダの追従 (root-checkout-sync)
+
+共有の作業フォルダ `/Users/masa/projects/AMD/amd-os` を `origin/main` へ追従させる道具は `scripts/root-checkout-sync.py`。
+2026-10-03 に作業フォルダが 311 件遅れ、別セッションの書きかけ 35 件と未push commit 3 件が数週間残っていた。書きかけの一部は古い版のファイルで、commit すると後の作業 (事業計画タブの月次試算表など) を消す状態だった。
+
+```bash
+/usr/bin/python3 scripts/root-checkout-sync.py              # 追従 (既定は隔離せず報告だけ)
+/usr/bin/python3 scripts/root-checkout-sync.py --format json # 仕分け結果を全件出す
+/usr/bin/python3 scripts/root-checkout-sync.py --quarantine on
+```
+
+`git fetch` のあと、書きかけを1件ずつ HEAD・作業フォルダ・`origin/main` の3者で比べて仕分ける。
+
+| 仕分け | 条件 | 扱い |
+|---|---|---|
+| `upstream_same` | 作業フォルダの中身が `origin/main` と同じ | 控えを取って HEAD へ戻し、追従で `origin/main` の版になる |
+| `upstream_contains` | 書きかけの差分を `origin/main` へ 3-way で重ねた結果が `origin/main` と同じ | 同上 |
+| `local_only` | `origin/main` 側がそのファイルを変えていない | 触らない。追従後も書きかけとして残る |
+| `blocking` | 両側が変えていて、書きかけが `origin/main` に無い | 追従を止める。隔離の対象 |
+
+未push commit は、`git merge-tree --write-tree origin/main HEAD` の木が `origin/main` と一致するか、`git cherry` が全件 patch 等価なら「中身が含まれる」として `git reset --keep origin/main` で畳む。含まれない場合は追従を止める。
+
+- 追従は `git merge --ff-only` (未push commit なし) か `git reset --keep` (中身が含まれる未push commit あり)。どちらも作業フォルダの書きかけを上書きしない。
+- `blocking` の書きかけか、中身が含まれない未push commit があり、書きかけ・commit のいちばん新しい更新が72時間未満なら「作業中」として何もしない。
+- 72時間以上動いていなければ隔離の対象。`--quarantine dry-run` (既定) は報告だけ、`--quarantine on` は控えを取ってから HEAD へ戻して追従する。
+- 控えは `/Users/masa/projects/AMD/amd-os-root-dirty/<日時>/`。`dirty.patch` (同期前の書きかけ全体)、`files/` (戻したファイルの写し)、未push commit の `unpushed.bundle` と `unpushed-patches/`、`README.md` (仕分け結果)。
+- 同期するのは正規の作業フォルダだけ。automation runtime など別の checkout は報告だけ。
+- main 以外を開いている、`index.lock` がある、merge・rebase・cherry-pick の途中なら見送る。同時実行は `.git/amd-os-root-sync.lock` で1本に絞る。
+- 記録は `~/Library/Logs/amd-os-root-sync.log`、最後の結果は `/Users/masa/projects/AMD/amd-os-root-dirty/last_status.json`。
+
+現在は手動実行。セッション開始時の自動実行 (`.claude/hooks/git_dirty_guard.sh`) と、30分ごとの定期実行 (`scripts/launchagents/jp.teamarmada.amd-os-root-sync.plist`) の導入、`--quarantine on` への切り替えはまさの判断待ち (2026-10-03)。
+
 ## Supabase DDL
 
 | 項目 | 契約 |
