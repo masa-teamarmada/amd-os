@@ -12,6 +12,7 @@
 | 本番 | `https://amd-os-pwa.vercel.app` |
 | Vercel project | `amd-os-pwa` / scope `armada0130` |
 | Backend | Supabase `nbnhrhybjslbawdukvvk` + AMD OS GAS bridge |
+| インストール版の表示 | `public/manifest.json` の `display_override: ["tabbed", "standalone"]`。Chrome のタブ付きアプリ窓で開く。Mac / Windows / Linux の Chrome では実験機能 `DesktopPWAsTabStrip`（ChromeOS 以外は標準 off）のため、`chrome://flags/#enable-desktop-pwas-tab-strip` を有効にした端末だけタブ列が出る。無効な端末は `standalone` の1画面窓になる。画面側のコードは表示形式（`display-mode`）で分岐しない |
 
 ## ディレクトリ契約
 
