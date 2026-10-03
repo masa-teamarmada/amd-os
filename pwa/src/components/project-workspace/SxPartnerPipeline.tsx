@@ -3809,12 +3809,10 @@ function PartnerRowCell({
 }
 
 /**
- * 当方がボールを持つ先に出す札。SX（p21）は会社名の「SOL」を使い、ほかのPJは「当方」とする
- * (2026-09-30 LiSTieの関係先に「SOL側保有」と出ていた)。
+ * 当方がボールを持つ先に出す札。全PJ「当方保有」。PJ名で書き分けない
+ * (2026-09-30 LiSTieの関係先に「SOL側保有」と出ていた。2026-10-03 まさ「全部統一してないとだめ」、spec 3-23)。
  */
-function ownSideBallLabel(projectId: string): string {
-  return projectId === "p21" ? "SOL側保有" : "当方保有";
-}
+const OWN_SIDE_BALL_LABEL = "当方保有";
 
 function PartnerInlineRow({
   partner,
@@ -5091,7 +5089,7 @@ export function SxPartnerPipeline({
   const roleCounts = sxPrimaryRoleKindCounts(trackScopedPartners);
 
   const rowProps = {
-    ownSideBallLabel: ownSideBallLabel(projectId),
+    ownSideBallLabel: OWN_SIDE_BALL_LABEL,
     columnOrder: order,
     milestoneTitleById,
     milestoneSlugById,

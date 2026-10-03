@@ -186,8 +186,9 @@ export function SxTickMark({ tone = "#1d1d1f", className = "" }: { tone?: string
   return <span className={`inline-block h-3.5 w-[2px] shrink-0 ${className}`} style={{ background: tone }} aria-hidden="true" />;
 }
 
+// 当方（PJの会社の側）の呼び名は全PJ「当方」。PJ名を入れない（spec 3-23）。
 const BALL_SIDE_LABEL: Record<SxBallSide, string> = {
-  sx: "SOL側",
+  sx: "当方",
   partner: "相手側",
   shared: "双方",
   none: "該当なし",

@@ -43,6 +43,10 @@ type Group = {
 type View = {
   asOf: string;
   canReviewTaskPt?: boolean;
+  /** タスクpt検収の試行に入っているPJか（APIが返す）。 */
+  taskPointReview?: boolean;
+  /** 試行の開始月以降で、検収を受け付けているか（APIが返す）。 */
+  taskPointReviewOpen?: boolean;
   groups: Group[];
   loose: Row[];
   totals: {
@@ -175,20 +179,19 @@ export function CockpitGoalTreePoints({ projectId }: { projectId: string }) {
       </span>
       <span className="text-[#86868b]">{STATUS_LABEL[row.status] ?? row.status}</span>
       </div>
-      {projectId === "p21" && (
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pl-1 text-[11px] text-[#6e6e73]">
+      {/* 見積・検収・証跡の行は全PJに出す。検収はタスクpt検収の試行に入っているPJだけ（APIの答えで決める）。 */}
+      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pl-1 text-[11px] text-[#6e6e73]">
           <span>見積 {ptText(row.estimatedPt)}pt</span>
           <span className={row.acceptedPt != null ? "font-semibold text-emerald-800" : ""}>
-            検収 {row.acceptedPt == null ? "待ち" : `${ptText(row.acceptedPt)}pt`}
+            検収 {!view.taskPointReview ? "対象外" : row.acceptedPt == null ? "待ち" : `${ptText(row.acceptedPt)}pt`}
           </span>
           {row.status === "done" && row.doneEvidence && <span className="max-w-full truncate" title={row.doneEvidence}>証跡: {row.doneEvidence}</span>}
-          {view.canReviewTaskPt && view.asOf >= "2026-10-01" && row.status === "done" && row.acceptedPt == null && row.doneEvidence && (
+          {view.canReviewTaskPt && view.taskPointReviewOpen && row.status === "done" && row.acceptedPt == null && row.doneEvidence && (
             <button type="button" className="min-h-11 rounded border border-sky-200 bg-sky-50 px-3 font-semibold text-sky-800 hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500" onClick={() => { setReviewingId(row.id); setReviewPt(String(row.estimatedPt ?? 0)); }}>
               検収する
             </button>
           )}
-        </div>
-      )}
+      </div>
       {reviewingId === row.id && (
         <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-2 py-2 text-[11px]">
           <label htmlFor={`accepted-pt-${row.id}`} className="font-semibold text-sky-950">確定pt</label>

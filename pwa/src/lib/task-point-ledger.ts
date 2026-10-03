@@ -48,6 +48,14 @@ export function isTaskPointPilot(projectId: string, ym: string): boolean {
   return projectId === TASK_POINT_PILOT_PROJECT_ID && ym >= TASK_POINT_PILOT_START_YM;
 }
 
+/**
+ * タスクpt検収の試行に入っているPJか（月を問わない）。完了に証跡を求めるかどうか、検収の行に何を出すかを決める。
+ * 画面はPJ番号で分けず、APIが返すこの答えで描く（spec 3-23）。
+ */
+export function isTaskPointReviewProject(projectId: string): boolean {
+  return projectId === TASK_POINT_PILOT_PROJECT_ID;
+}
+
 /** 新MSは対応線が未設定でも月割りで先払いしない。 */
 export function markNewTaskMilestones(
   ledger: TaskPointLedger,

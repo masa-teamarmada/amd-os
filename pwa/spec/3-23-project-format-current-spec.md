@@ -1,6 +1,6 @@
 # 3-23 PJタイプ別の標準フォーマット（現行仕様）
 
-最終更新: 2026-10-03（§7 コスト試算タブを追加）
+最終更新: 2026-10-03（§2 タブの並び・§8 事業計画タブを追加し、中身の有無で出るタブをやめた）
 
 ## 1. 目的と決定
 
@@ -13,17 +13,60 @@
 - 新しい種類の数字が来たら、標準の行・グラフのどこへ入るかを決めて、データとして流し込む。区画やグラフを足さない。
 - フォーマットの定義は鍵付き。まさの明示の承認なしに変えない。
 
-## 2. PJタイプ
+同日、まさ確定（顧問PJの扱いの確認への答えと、統一の範囲）。
 
-`projects.project_category` から決める。正本は `src/lib/project-formats.ts` の `PROJECT_FORMAT_TYPES`。
+> １．おけ ２．てゆーか全部統一してないとだめ。OSの大原則。あと中身があるときだけ出るタブってなに？上記の通り、すべてのフォーマットが同じ状態で表示されてないとだめ。
 
-| PJタイプ | `project_category` | 試算表タブ |
+- 統一はタブの並びにも及ぶ。同じタイプのPJは、同じタブを、データの有無にかかわらず全部持つ。中身が無いタブは、タブの中で「未登録」と出す。
+- 見る人で出し分けてよいのは、役割で決まるもの（DDパッケージ＝AMDの管理者、PJワークスペースの外部の参加者）だけ。
+
+## 2. PJタイプとタブの並び
+
+`projects.project_category` から決める。正本は `src/lib/project-formats.ts` の `PROJECT_FORMAT_TYPES`・`projectFormatTypeOf`。
+
+| PJタイプ | `project_category` | 事業計画グループ |
 |---|---|---|
 | 大学発SU | `dtsu`、`advisor` | あり |
 | 新規事業 | `new_business` | あり |
-| 研究機関エコシステム | `ecosystem` | なし（事業計画グループを持たない） |
+| 研究機関エコシステム | `ecosystem` | なし（シーズリスト・規程・内規を持つ） |
+| AMD本体 | （PJ `p00`。会社そのものの面） | あり（AMD Score の内訳は持たない） |
 
-顧問PJ（`advisor`）は会社の試算表を読むので、大学発SUと同じ形にする。
+- 顧問PJ（`advisor`）は会社の試算表を読むので、大学発SUと同じ形にする（2026-10-03 まさ「おけ」）。
+- AMD本体は支援先の事業ではなく株式会社チームアルマダ自身の面なので、4つ目の形として定義に置く。どのPJがAMD本体かは定義の中の `AMD_COMPANY_PROJECT_ID` だけが持つ。PJ概要は会社の経営スコア（Management Score）を出す。
+
+### 2.1 コックピットのタブ（`COCKPIT_TAB_FORMATS`）
+
+| グループ | 大学発SU・新規事業 | AMD本体 | 研究機関エコシステム |
+|---|---|---|---|
+| 進捗管理 | ゴールツリー・タスク・ガント・進捗・MTG・Slack・週次差分・関係先 | 同左 | 同左 |
+| 事業計画 | AMD Score の内訳・技術・競合比較・ビジネスモデル・事業計画・試算表・資本政策表・コスト試算・知財 | AMD Score の内訳を除いて同左 | （なし） |
+| シーズリスト・規程・内規 | （なし） | （なし） | シーズ一覧・規程一覧 |
+| ドライブ | 資料室 | 同左 | 同左 |
+| PJ管理 | PJ概要・契約・収支・月次報告書 | 同左 | 同左 |
+| 会社情報 | 会社概要・資金調達履歴・活動 | 同左 | 同左 |
+| DDパッケージ | DDパッケージ（AMDの管理者だけ） | 同左 | （なし） |
+
+### 2.2 PJワークスペースのタブ（`WORKSPACE_TAB_FORMATS`）
+
+| グループ | 大学発SU・新規事業・AMD本体 | 研究機関エコシステム |
+|---|---|---|
+| 進捗管理 | ゴールツリー・タスク・ガント・週次差分・関係先 | 同左 |
+| 事業計画 | 技術・競合比較・ビジネスモデル・事業計画・試算表・資本政策表・コスト試算・知財 | （なし） |
+| ドライブ | ドライブ | 同左 |
+| 会社情報 | 会社概要・資金調達履歴 | 同左 |
+| DDパッケージ | DDパッケージ（AMDの管理者だけ） | （なし） |
+
+外部の参加者（`workspace_account`）には、この並びのうち外部に見せるタブ（`EXTERNAL_WORKSPACE_TABS`）だけを出す。
+
+### 2.3 タブの決まり
+
+- タブは、データの有無にかかわらず全部出す。技術台帳に「競合比較」「ビジネスモデル」の区分が無いPJ、燃料の試算が無いPJ、DDパッケージが無いPJでも、タブは出し、中で「未登録」と出す。
+- 見る人の役割で出し分けるのは `ROLE_RESTRICTED_TABS`（DDパッケージ＝AMDの管理者）だけ。PJ番号では出し分けない。
+- 開いたときのタブは全PJ同じ（`DEFAULT_TABS`）。コックピットはゴールツリー、ワークスペースは週次差分（外部の参加者はゴールツリー）。
+- そのPJタイプの並びに無いタブをアドレスで開いたときは、既定のタブへ読み替える（`resolveCockpitTabForType`、ワークスペースは `resolveView`）。旧アドレスの別名: `?tab=objective-structure` → ガント、`?tab=cost-fuel`・`#cost-model-fuel` → コスト試算タブ（燃料の試算を先に選ぶ）。
+- 研究機関との結び付き（`institution_projects`）は、シーズ一覧・規程一覧の中身を読むのにだけ使う。結び付きの無い研究機関PJは、タブの中で「未登録」と出す。
+- PJワークスペースの題名は全PJ「{表示名} PJワークスペース」。表示名は `projects.display_name`（migration 467。無ければ `project_name`）。
+- 呼び名も全PJ同じ。PJの会社の側は「当方」（「当方保有」「当方の次アクション」）、ガントの到達点は「到達目標」。
 
 ## 3. 試算表タブの標準フォーマット
 
@@ -81,28 +124,23 @@
 `npm run test:project-format`（`scripts/check_project_format_contract.mjs`）が、本番反映（`scripts/deploy.sh`）の前に必ず走る。
 
 1. **定義の鍵**：`src/lib/project-formats.ts` の sha256 が `scripts/project_format_lock.json` と一致しなければ止める。定義を変えてよいのは、まさが明示で承認したときだけ。承認を得たら approvals の末尾に「日付・まさ・承認の言葉・変えた内容」を足してから sha256 を更新する。
-2. **PJ番号の名指しのラチェット**：コックピット・PJワークスペース・DDの部品（`src/components/cockpit`・`src/components/project-workspace`・`src/components/dd`・`src/app/(app)/project`・`src/app/workspace`）と、フォーマットの定義・変換のファイルで、PJ番号の文字列（`"p21"` など）とPJ専用の表示フラグを数える。`scripts/project_format_baseline.json` の既存分だけ許し、増えたら止める。減ったら許容数も下げさせる。
+2. **PJ番号の名指しのラチェット**：コックピット・PJワークスペース・DDの部品（`src/components/cockpit`・`src/components/project-workspace`・`src/components/dd`・`src/app/(app)/project`・`src/app/workspace`）と、フォーマットの定義・変換・タブ・事業計画・ワークスペースのデータのファイルで、PJ番号の文字列（`"p21"` など）・PJ番号を鍵にした表（`p21: …`）・PJ名との比較（`=== "LiSTie …"`・`startsWith("KUTE…")` など）・PJ専用の表示フラグ（`showSxDetail`・`isZmp…`・`WORKSPACE_TITLE_OVERRIDES`・`SX_BUSINESS_PLAN_PHASES` など）を数える。`scripts/project_format_baseline.json` の既存分だけ許し、増えたら止める。減ったら許容数も下げさせる。2026-10-03 の全タブ統一で 0 件になった。定義の中の `AMD_COMPANY_PROJECT_ID` の宣言だけは数えない（鍵の対象）。
 3. **試算表は標準フォーマットだけ**：試算表タブは `ProjectFinanceFormat` だけを読み込む。統合して消した部品（`CockpitFundingPlan`・`Bzm22TimeLedger`・`Bzm22TimeLedgerSection`・`CockpitPlMonthlySection`）を戻さない。DDの資金計画も同じ部品で描く。
-4. **コスト試算タブは入口がデータの形で選ぶ**（§7）：入口 `CockpitCostTab` は `costFormatEngineOf(bundle)` だけで画面を選ぶ。標準フォーマット `ProjectCostFormat` は §7 の区画をすべて描き、要約の欄と前提の並べ方は定義の順に描く。コックピット・PJワークスペース・DD はどれも入口を通し、廃液の画面（`CockpitCostModel`）を直に描かない。計算の答えと式の一致は `npm run test:project-cost-model`（`scripts/check_project_cost_items_engine.mts`）が確かめる。
+4. **コスト試算タブは入口がデータの形で選ぶ**（§7）：入口 `CockpitCostTab` は `costFormatEngineOf(bundle)` だけで画面を選ぶ。標準フォーマット `ProjectCostFormat` は §7 の区画をすべて描き、要約の欄と前提の並べ方は定義の順に描く。コックピット・PJワークスペース・DD はどれも入口を通し、廃液の画面（`CockpitCostModel`）を直に描かない。燃料の試算もタブを足さず、入口の中の切り替えで読む。計算の答えと式の一致は `npm run test:project-cost-model`（`scripts/check_project_cost_items_engine.mts`）が確かめる。
+5. **タブはPJタイプの定義からだけ作る**（§2）：`CockpitView` は `cockpitGroupsForType(formatType)`・`resolveCockpitTabForType`、ワークスペースは `WORKSPACE_TAB_FORMATS` からタブを作る。中身の有無でタブを出し分ける書き方（`hasCompetition`・`hasBusinessModel`・`hasFuelCost`・`hasDd`・`hasInstitutionSeedsTab`・`ledgerTabsPresent`）を戻さない。役割で出し分けるタブは DDパッケージだけ。ワークスペースの題名は表示名から作る。
+6. **事業計画タブはデータから**（§8）：`CockpitBusinessPlan` は `project_business_plans` を読み、`BUSINESS_PLAN_FORMAT` のレーンの順に描く。PJの定数（`sx-business-plan`）を画面に持ち込まない。
 
 ## 6. 統一の残り
 
-2026-10-03 時点で名指しが残る部品（`scripts/project_format_baseline.json`、計26件）。試算表以外のタブの統一で減らす。
+2026-10-03 の全タブ統一で、PJの画面の部品の名指しは 0 件になった（`scripts/project_format_baseline.json` の許容は空）。次は、PJの画面（コックピット・ワークスペース・DD）の外か、表示ではない規則として残しているもの。全PJに同じ扱いを広げるかは、まさの判断で決める。
 
-| 部品 | 件数 | 内容 |
+| 場所 | 内容 | 扱い |
 |---|---|---|
-| `CockpitView.tsx` | 7 | SOLだけ事業計画タブにフェーズ表を出す判定、AMD自身（p00）のスコア詳細の扱い、ZMPの事業計画グループを一時的に隠す設定 |
-| `CockpitBusinessPlan.tsx` | 3 | SOL専用のフェーズ表を出すフラグ |
-| `SxWeeklyControlDashboard.tsx` | 4 | ZMP専用の表示切り替え、SOL専用の説明文、SOLのフェーズ表 |
-| `SxUnifiedTimeline.tsx` | 4 | KUTE（p25）とZMP（p19）の時間軸の表示切り替え |
-| `SxPartnerPipeline.tsx` | 1 | SOLだけの「ボール保有」の呼び名 |
-| `CockpitProjectTasks.tsx` | 2 | ZMPのタスクの初期表示、SOLのタスク完了時の処理 |
-| `CockpitGoalTreePoints.tsx` | 1 | SOL専用の表示 |
-| `CockpitGrants.tsx` | 1 | AMD自身（p00）で助成金の区画を出さない |
-| `cockpit/page.tsx` | 1 | ZMPの既定タブ |
-| `workspace/[slug]/page.tsx` | 2 | 愛媛大学（p30）とSOLの入口の扱い |
-
-中身がある時だけ出るタブ（競合比較・ビジネスモデル・コスト試算（燃料）・DDパッケージ）も、PJタイプごとに常設するかを決めて定義へ移す。
+| `src/lib/task-point-ledger.ts` | タスクpt検収の試行（SOL、2026年10月から） | 報酬の規則。画面は全PJ同じ形で、API が「試行の対象か」を返し、対象外のPJは「検収 対象外」と出す |
+| `src/app/api/project-workspace/[projectId]/management/route.ts` | SOLの設立前提の2つのMSを、点のMSの決まりから外す | データの整合の規則（migration 220 の DB の制約と同じ） |
+| `src/app/api/meeting-workflow/finalize/route.ts`・`automation-context/route.ts` | 会議の取り込みで、SOLだけワークスペースの文脈を足す | 自動処理。全PJに広げると取り込みの費用が増えるため、広げるかはまさの判断 |
+| `src/components/hud/*` | HUD（見せ方の実験の面）の見本の数字（AAA の見本・SOL・CTB・CX） | PJの画面の外。消すか全PJ同じ作りにするかはまさの判断 |
+| `src/lib/sx-display-lanes.ts` | 4つの柱（事業・技術・資金・組織）を持つPJは、ガントのレーンを3本に畳む | データの形で決まる規則。今の画面（ゴールツリーのガント）は使っていない |
 
 コスト試算タブは §7 の標準フォーマットを決めた（2026-10-03）。SX の2つの試算（廃液 `CockpitCostModel`・燃料 `CockpitFuelCostModel`）は、切り替え（株・用途・方式・装置、FAME転換・収率）と式の説明が多いため、標準の画面へ移すのは次の段。移すときは、それぞれの内訳の区分を §7 の行へ次のとおり流し込み、区分の呼び名（菌体費・FAMEにする など）は行の中身として残す。
 
@@ -150,7 +188,7 @@
 
 | データの形 | 計算 | 画面 |
 |---|---|---|
-| `biodiesel` | 燃料の計算（`project-fuel-cost-model.ts`） | コスト試算（燃料）タブ（標準の画面への移行は §6） |
+| `biodiesel` | 燃料の計算（`project-fuel-cost-model.ts`） | コスト試算タブの中の切り替え（燃料の画面。標準の画面への移行は §6） |
 | `multi`・`dye_degradation`・`metal_recovery` | 廃液処理の二段階の計算（`project-cost-model.ts`） | 廃液の画面（標準の画面への移行は §6） |
 | `other`（明細か作業がある） | 汎用の計算（`project-cost-items-engine.ts`） | 標準フォーマット |
 | 試算が未登録 | — | 標準フォーマット（「未登録」） |
@@ -167,3 +205,18 @@
 
 - CX（migration 463・465）: 製品①（TES用連続断熱消磁冷凍機・4段構成）の1台あたり。部材費・組立の作業（1台500時間）・組立工場の賃料と光熱費（月25万円）・生産設備の償却。12台/年で 28,981,105円/台（成果物3 事業計画書の2031年の売上原価 ÷ 12台と同じ）。比べる量は2・12・70台/年
 - LiSTie（migration 466）: 取締役会資料の膜＋電力の部分試算（5Aケース、膜 265.3・電力 52.5 円/kg）。目標の 3 USD/kg は全工程の総コストで範囲が違うため、総コスト目標の欄には言葉で出す
+
+## 8. 事業計画タブの標準フォーマット
+
+2026-10-03 まさ確定（§1 の2つ目の言葉）。それまで事業計画タブはSOLだけにフェーズ表を出し、ほかのPJでは中身が空だった。
+
+- 全PJで同じ「フェーズマトリクス」を描く。定義は `src/lib/project-formats.ts` の `BUSINESS_PLAN_FORMAT`（§5 の鍵の対象）。
+  - 区画: フェーズマトリクス
+  - 行（レーン）: 事業開発・技術開発・組織開発・資金調達
+  - XRL: TRL・BRL・GRL・SRL・HRL（GRL は内閣府SIP準拠のガバナンス成熟度）
+- 列はフェーズ。フェーズごとに、期間・フェーズ予算・調達ラウンド・資金源・到達XRL・月あたりのバーンを見出しに、レーンごとに費用・活動・次フェーズへの出口条件・到達XRLを描く。Excel出力は同じ形（`src/lib/project-business-plan-xlsx.ts`）。
+- 中身は `project_business_plans`（migration 467、1PJ1行）。`phases_json` はフェーズの配列で、画面は `normalizeBusinessPlanPhases`（`src/lib/project-business-plan.ts`）で形を確かめてから描く。表の上の一文は `matrix_note`、出典は `source_note`。
+- 行が無いPJは、表の枠（4レーン）と見出しを同じ形で出し、「未登録」と書く。Excel出力は押せない。
+- 読み込みは参照系（spec 5-10）: `/api/project-business-plan`（サーバのプロセス内5分・`Cache-Control: private, max-age=60, stale-while-revalidate=600`）→ `src/lib/project-business-plan-client.ts`（タブの上にカーソルが乗ったら先読み）。読めるのはAMDメンバーと、そのPJのワークスペースの参加者。
+- 登録している中身（2026-10-03）: SOL（p21）の2026-09-30 改定版（5フェーズ）。これまで画面のコード（`src/lib/sx-business-plan.ts` の `SX_BUSINESS_PLAN_PHASES`）に書いていたものをそのまま移した。コードの定数は、SOLの資金計画の検算スクリプトの元データとしてだけ残す。
+- SOLだけにあった「年次試算表と、前提を手で動かして試す欄」（`AnnualProjectionTable`）は、年度別の数字が試算表タブの標準フォーマット（§3 の年度別の区画）へ移ったため外した。

@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { isKuteCompletedTask, KUTE_COMPLETED_BADGE, KUTE_COMPLETED_COLOR } from "@/lib/kute-gantt-completion";
+import { isCompletedTaskRow, COMPLETED_TASK_BADGE, COMPLETED_TASK_COLOR } from "@/lib/kute-gantt-completion";
 import {
   ChevronsDownUp,
   ChevronsUpDown,
@@ -266,12 +266,11 @@ function dateToPct(
 function classifyTask(task: SxTask, asOf: string): DisplayRow["state"] {
   if (task.status === "completed") return "complete";
   if (task.status === "blocked") return "blocked";
-  // Imported KUTE roadmap dates are month-level plans, not verified overdue work.
+  // 仮の日付（provisional）で、まだ状況を確かめていない（unassessed）作業は、期限切れではなく未確認として出す。
+  // 全PJ同じ規則（2026-10-03 まさ「全部統一してないとだめ」、spec 3-23）。月単位の計画を取り込んだ作業もこれに当たる。
   if (
-    task.projectId === "p25" &&
     task.status === "unassessed" &&
-    task.dateCertainty === "provisional" &&
-    task.sourceRef?.startsWith("KUTE年度内ロードマップ /")
+    task.dateCertainty === "provisional"
   ) return "unassessed";
   if (task.plannedEnd && task.plannedEnd < asOf) return "overdue";
   if (task.status === "not_started") return "not_started";
@@ -474,7 +473,6 @@ const DRAG_HIT_HEIGHT = 44;
 const DRAG_HIT_TOP = (ROW_H - DRAG_HIT_HEIGHT) / 2;
 
 function RowBar({
-  projectId,
   row,
   accent,
   selected,
@@ -496,7 +494,6 @@ function RowBar({
   onKeyboardStartDependency,
   onCompleteDependency,
 }: {
-  projectId?: string | null;
   row: DisplayRow;
   accent: string;
   selected: boolean;
@@ -525,7 +522,7 @@ function RowBar({
   const plannedEnd = row.plannedEndPct;
   const hasBar = plannedEnd != null;
   const provisional = row.dateCertainty === "provisional";
-  const completed = isKuteCompletedTask(projectId, row);
+  const completed = isCompletedTaskRow(row);
   const counts = sxGateRequirementCounts(row.requirements);
   // Any timelineKind==="milestone" row renders as a diamond, not a bar — rendering must read
   // this column, never infer from slug. The 2 founding-prerequisite gates keep their
@@ -642,8 +639,8 @@ function RowBar({
             height: TASK_BAR_HEIGHT_PX,
             left: barGeometry!.left,
             width: barGeometry!.width,
-            borderColor: completed ? KUTE_COMPLETED_COLOR : `${accent}99`,
-            background: completed ? KUTE_COMPLETED_COLOR : `${accent}${provisional ? "24" : "3d"}`,
+            borderColor: completed ? COMPLETED_TASK_COLOR : `${accent}99`,
+            background: completed ? COMPLETED_TASK_COLOR : `${accent}${provisional ? "24" : "3d"}`,
           }}
         >
           {!completed && row.progressRegistered && row.progressPct > 0 && (
@@ -1012,9 +1009,10 @@ export function SxUnifiedTimeline({
   // old flat list and hides the management structure below the fold, so its first view is the
   // objective/outcome overview. The same control remains available to every project and reveals
   // the full editable task plan without leaving the gantt.
-  const [showTaskDetails, setShowTaskDetails] = useState(() => projectId !== "p19");
+  // 開いたときの表示は全PJ同じ（spec 3-23）。
+  const [showTaskDetails, setShowTaskDetails] = useState(true);
   const [expandedObjectives, setExpandedObjectives] = useState<Set<string>>(
-    () => new Set(projectId === "p19" ? [] : objectives.map((objective) => objective.id)),
+    () => new Set(objectives.map((objective) => objective.id)),
   );
   const toggleObjectiveExpanded = (objectiveId: string) => {
     setExpandedObjectives((previous) => {
@@ -3078,7 +3076,7 @@ export function SxUnifiedTimeline({
                             {row.title}
                           </b>
                           <i className="border border-[#cbd5e1] px-1 text-[8px] not-italic text-[#3c3c43]">タスク</i>
-                          <i className={`border px-1 text-[8px] not-italic ${isKuteCompletedTask(projectId, row) ? KUTE_COMPLETED_BADGE : "border-[#cbd5e1] text-[#3c3c43]"}`}>
+                          <i className={`border px-1 text-[8px] not-italic ${isCompletedTaskRow(row) ? COMPLETED_TASK_BADGE : "border-[#cbd5e1] text-[#3c3c43]"}`}>
                             {ROW_STATE_TEXT[row.state]}
                           </i>
                         </span>
@@ -3223,7 +3221,8 @@ export function SxUnifiedTimeline({
                   style={{ left: timelinePctCss(timeline.objectivePct), top: MONTH_YEAR_ROW_H }}
                 >
                   <Flag className="h-3 w-3" />
-                  {projectId === "p25" ? `年度末 ${timeline.objectiveDate?.slice(0, 7)}（目途）` : <>設立 {sxFormatDate(timeline.objectiveDate)}</>}
+                  {/* 到達点の呼び名は全PJ同じ。設立・年度末などPJで書き分けない（spec 3-23）。 */}
+                  到達目標 {sxFormatDate(timeline.objectiveDate)}
                 </span>
               )}
             </div>
@@ -3403,7 +3402,7 @@ export function SxUnifiedTimeline({
                             )}
                           </span>
                           <span className="mt-0.5 flex items-center gap-2 overflow-hidden whitespace-nowrap text-[10px] text-[#3c3c43]">
-                            <em className={`not-italic ${isKuteCompletedTask(projectId, row) ? `border px-1 ${KUTE_COMPLETED_BADGE}` : ""}`}>
+                            <em className={`not-italic ${isCompletedTaskRow(row) ? `border px-1 ${COMPLETED_TASK_BADGE}` : ""}`}>
                               {ROW_STATE_TEXT[row.state]}
                             </em>
                             <span>{row.ownerLabel}</span>
@@ -3798,7 +3797,6 @@ export function SxUnifiedTimeline({
                           style={{ height: ROW_H }}
                         >
                           <RowBar
-                            projectId={projectId}
                             row={displayRow}
                             accent={lane.accent}
                             selected={

@@ -242,7 +242,7 @@ function TopicForm({
               <input className={INPUT} value={sheetHeading} onChange={(e) => setSheetHeading(e.target.value)} placeholder="競合の会社との比較" />
             </Field>
             <Field label="自社として色を付ける列 (列の名前)">
-              <input className={INPUT} value={sheetSelfCol} onChange={(e) => setSheetSelfCol(e.target.value)} placeholder="SolvioraX" />
+              <input className={INPUT} value={sheetSelfCol} onChange={(e) => setSheetSelfCol(e.target.value)} placeholder="表の列名（例: 自社の会社名）" />
             </Field>
           </div>
           <Field label="表の上の一文">

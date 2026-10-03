@@ -390,8 +390,9 @@ export interface SxEcdInterventionRow {
   dueDatePrecision?: SxEcdDatePrecision;
 }
 
+// 当方（PJの会社の側）の呼び名は全PJ「当方」。PJ名を入れない（spec 3-23）。
 const BALL_SIDE_LABEL: Record<SxEcdBallSide, string> = {
-  sx: "SOL側",
+  sx: "当方",
   partner: "相手側",
   shared: "双方",
   none: "該当なし",
@@ -644,7 +645,7 @@ export function deriveSxInterventionQueue(params: {
     const partner = partnerById.get(item.partnerId);
     const milestone = milestoneById.get(item.relatedMilestoneId);
     const sideLabel: Record<SxEcdActorSide, string> = {
-      sx: "SOL側",
+      sx: "当方",
       partner: "相手側",
       shared: "双方",
       unknown: "未確認",

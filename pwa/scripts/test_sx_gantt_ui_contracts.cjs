@@ -166,7 +166,7 @@ assertIncludes(timelineFile, timeline, [
   'laneOutcomes.some((outcome) => outcome.objectiveId === objective.id)',
   'kind: "structure"',
   'row: taskDisplayRow(task, depth, children.length > 0, timeline, asOf)',
-  'const [showTaskDetails, setShowTaskDetails] = useState(() => projectId !== "p19");',
+  'const [showTaskDetails, setShowTaskDetails] = useState(true);',
   'const [expandedObjectives, setExpandedObjectives] = useState<Set<string>>(',
   'if (!expandedObjectives.has(objective.id)) continue;',
   'if (showTaskDetails) appendTaskTree(root, bucket[laneKey], 0);',

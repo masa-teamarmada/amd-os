@@ -41,23 +41,18 @@ import { prefetchGovernance } from "@/lib/governance-client";
 import type { CockpitSeasonFinance as CockpitSeasonFinanceData, MilestoneChangeHistory } from "@/lib/supabase-data";
 import type { ProjectContractTerms } from "@/lib/project-contract-terms";
 import { CockpitCostTab } from "@/components/cockpit/CockpitCostTab";
-import { CockpitFuelCostModel } from "@/components/cockpit/CockpitFuelCostModel";
 import { prefetchProjectOrg } from "@/lib/project-org-client";
-import {
-  loadProjectFuelCostModel,
-  peekProjectFuelCostModel,
-  prefetchProjectCostModel,
-  prefetchProjectFuelCostModel,
-} from "@/lib/project-cost-model-client";
-import { loadProjectTech, peekProjectTech, prefetchProjectTech } from "@/lib/project-tech-client";
-import { ledgerTabsPresent, type TechLedgerPresence } from "@/lib/project-tech";
+import { prefetchProjectCostModel, prefetchProjectFuelCostModel } from "@/lib/project-cost-model-client";
+import { prefetchProjectTech } from "@/lib/project-tech-client";
+import { prefetchProjectBusinessPlan } from "@/lib/project-business-plan-client";
 import {
   DEFAULT_COCKPIT_TAB,
-  cockpitGroupForTab,
-  cockpitGroupsForProject,
-  resolveCockpitTab,
+  cockpitGroupForTabInType,
+  cockpitGroupsForType,
+  resolveCockpitTabForType,
   type CockpitGroupKey,
 } from "@/lib/cockpit-tabs";
+import { projectFormatTypeOf, ROLE_RESTRICTED_TABS } from "@/lib/project-formats";
 import { fetchInstitutionIdForProject } from "@/lib/seeds-data";
 
 interface PlanCycleShape {
@@ -343,8 +338,10 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     media.addEventListener?.("change", update);
     return () => media.removeEventListener?.("change", update);
   }, []);
-  const isInstitutionProject = resolvedInstitutionId != null;
-  const resolvedTab = resolveCockpitTab(requestedTab, isInstitutionProject);
+  // タブの並びはPJタイプごとの標準フォーマット（src/lib/project-formats.ts、鍵付き）で決める。
+  // データの有無やPJ番号では出し分けない（2026-10-03 まさ「全部統一してないとだめ。OSの大原則」）。
+  const formatType = projectFormatTypeOf({ projectId: cockpit.project.projectId, projectCategory: cockpit.project.projectCategory });
+  const resolvedTab = resolveCockpitTabForType(requestedTab, formatType);
   const [modalYm, setModalYm] = useState<string | null>(initialModalYm || null);
   const [modalInitialTab, setModalInitialTab] = useState<MonthlyModalTab | undefined>(undefined);
   const [pastExpanded, setPastExpanded] = useState(false);
@@ -365,98 +362,29 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     if (resolvedTab === "company") setHasVisitedCompany(true);
   }, [resolvedTab]);
 
-  // コスト試算（燃料）のタブを出すか。燃料の試算 (project_cost_models.case_kind = 'biodiesel') を持つPJだけ。
-  // 持つPJでは、コスト試算タブを「コスト試算（廃液）」と呼び分け、その右隣に並べる
-  // (2026-09-14 まさ「事業計画グループ内に置いてほしかった。元々ある『コスト試算』は『コスト試算（廃液）』に変えて、それの右に並べて」)。
-  // 参照系のキャッシュ越しに読み、キャッシュ済みなら peek で即決まる。研究機関PJは事業計画グループが無いので読まない。
-  const peekFuelCost = (projectId: string) => {
-    const hit = peekProjectFuelCostModel(projectId);
-    return hit === undefined ? undefined : !!hit.bundle;
-  };
-  const [fuelCostLoaded, setFuelCostLoaded] = useState<{ projectId: string; has: boolean | undefined }>(() => ({
+  // DDパッケージのタブは、見る人がAMDの管理者なら全PJで出す（パッケージが無いPJは空の状態を出す）。
+  // パッケージの有無では出し分けない（2026-10-03 まさ「全部統一してないとだめ」）。管理者かどうかは参照系のキャッシュ越しに確かめる。
+  const peekDdManage = (projectId: string) => peekProjectDdSummary(projectId)?.canManage;
+  const [ddLoaded, setDdLoaded] = useState<{ projectId: string; canManage: boolean | undefined }>(() => ({
     projectId: cockpit.project.projectId,
-    has: peekFuelCost(cockpit.project.projectId),
+    canManage: peekDdManage(cockpit.project.projectId),
   }));
   useEffect(() => {
-    if (isInstitutionProject) return;
-    const projectId = cockpit.project.projectId;
-    let cancelled = false;
-    loadProjectFuelCostModel(projectId)
-      .then((res) => {
-        if (!cancelled) setFuelCostLoaded({ projectId, has: !!res.bundle });
-      })
-      .catch(() => {
-        if (!cancelled) setFuelCostLoaded({ projectId, has: false });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [cockpit.project.projectId, isInstitutionProject]);
-  const hasFuelCostRaw =
-    fuelCostLoaded.projectId === cockpit.project.projectId ? fuelCostLoaded.has : peekFuelCost(cockpit.project.projectId);
-  const hasFuelCost = hasFuelCostRaw === true;
-
-  // DDパッケージのタブを出すか。DDパッケージを持つPJで、AMD admin のときだけ（admin 以外は問い合わせが 403 で「無い」になる）。
-  // 2026-09-30 まさ「ワークスペースに左メニューってなくない？」: DDの管理はコックピットとワークスペースのタブから開く。
-  const peekDd = (projectId: string) => {
-    const hit = peekProjectDdSummary(projectId);
-    return hit === undefined ? undefined : hit !== null;
-  };
-  const [ddLoaded, setDdLoaded] = useState<{ projectId: string; has: boolean | undefined }>(() => ({
-    projectId: cockpit.project.projectId,
-    has: peekDd(cockpit.project.projectId),
-  }));
-  useEffect(() => {
-    if (isInstitutionProject) return;
     const projectId = cockpit.project.projectId;
     let cancelled = false;
     loadProjectDdSummary(projectId)
       .then((summary) => {
-        if (!cancelled) setDdLoaded({ projectId, has: summary !== null });
+        if (!cancelled) setDdLoaded({ projectId, canManage: summary.canManage });
       })
       .catch(() => {
-        if (!cancelled) setDdLoaded({ projectId, has: false });
+        if (!cancelled) setDdLoaded({ projectId, canManage: false });
       });
     return () => {
       cancelled = true;
     };
-  }, [cockpit.project.projectId, isInstitutionProject]);
-  const hasDdRaw = ddLoaded.projectId === cockpit.project.projectId ? ddLoaded.has : peekDd(cockpit.project.projectId);
-  const hasDd = hasDdRaw === true;
-
-  // 競合比較とビジネスモデルのタブを出すか。技術台帳にその区分のトピックを持つPJだけ
-  // (2026-09-14 まさ「この競合比較は、技術タブの中じゃなくて事業計画グループの直下に置いてほしい」
-  //  「事業計画グループの中に「ビジネスモデル」っていうタブを新たに追加して、その中に入れておくのはどう？」)。
-  // 燃料と同じく参照系のキャッシュ越しに読む。技術タブと同じ束なので、ここで読めば技術タブも待たずに開く。
-  const peekLedgerTabs = (projectId: string) => {
-    const hit = peekProjectTech(projectId);
-    return hit === undefined ? undefined : ledgerTabsPresent(hit.topics);
-  };
-  const [ledgerTabsLoaded, setLedgerTabsLoaded] = useState<{ projectId: string; has: TechLedgerPresence | undefined }>(() => ({
-    projectId: cockpit.project.projectId,
-    has: peekLedgerTabs(cockpit.project.projectId),
-  }));
-  useEffect(() => {
-    if (isInstitutionProject) return;
-    const projectId = cockpit.project.projectId;
-    let cancelled = false;
-    loadProjectTech(projectId)
-      .then((res) => {
-        if (!cancelled) setLedgerTabsLoaded({ projectId, has: ledgerTabsPresent(res.topics) });
-      })
-      .catch(() => {
-        if (!cancelled) setLedgerTabsLoaded({ projectId, has: { competition: false, businessModel: false } });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [cockpit.project.projectId, isInstitutionProject]);
-  const ledgerTabs =
-    ledgerTabsLoaded.projectId === cockpit.project.projectId ? ledgerTabsLoaded.has : peekLedgerTabs(cockpit.project.projectId);
-  const hasCompetitionRaw = ledgerTabs?.competition;
-  const hasCompetition = hasCompetitionRaw === true;
-  const hasBusinessModelRaw = ledgerTabs?.businessModel;
-  const hasBusinessModel = hasBusinessModelRaw === true;
+  }, [cockpit.project.projectId]);
+  const canManageDdRaw = ddLoaded.projectId === cockpit.project.projectId ? ddLoaded.canManage : peekDdManage(cockpit.project.projectId);
+  const canManageDd = canManageDdRaw === true;
 
   function selectTab(tab: CockpitTab) {
     setLocalActiveTab(tab);
@@ -475,11 +403,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
 
   const { project, currentYm, billingCycles, planCycle, milestones, progress, reports, members, subItems, responsibilities, memberMap, pastPlanCycles, msActivities, memberActivities, seasonFinance, msChangeHistory, strategySignals } = cockpit;
   const usesMsProgress = usesMsProgressCategory(project.projectCategory);
-  // 通常PJの事業計画グループは常設。研究機関PJはシーズリスト・規程内規へ置き換える。
-  // フェーズ表と年次試算表はSX (p21) 固有データなので、SXのときだけ足す。
-  const hasSxBusinessPlanDetail = project.projectId === "p21";
-  const hasInstitutionRegulationsTab = isInstitutionProject && Boolean(resolvedInstitutionId);
-  const hasInstitutionSeedsTab = isInstitutionProject && Boolean(resolvedInstitutionId);
+  // 事業計画グループ・シーズリスト・規程内規のどれを出すかは、PJタイプの標準フォーマットで決まる（下の groups）。
 
   const currentProgress = mergeProgress(progress, progressPatches);
   const patchedPastPlanCycles = (pastPlanCycles || []).map((bundle) => ({
@@ -516,11 +440,13 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
   const modalMsActivities = !usesMsProgress || isReportOnlyMonth ? [] : (modalBundle?.msActivities || msActivities || []);
   const modalMemberActivities = isReportOnlyMonth ? [] : (modalBundle?.memberActivities || memberActivities || []);
   const showLiveOperations = isLiveOperationalProject(project, currentYm);
-  const showAmdScore = (project.projectCategory || "dtsu") !== "ecosystem";
-  const hasScoreDetailTab = project.projectId !== "p00" && showAmdScore;
+  // AMD Score は大学発SUと新規事業のPJに付ける（研究機関エコシステムとAMD本体は対象外）。
+  const showAmdScore = formatType === "su" || formatType === "new_business";
 
-  // グループと所属タブは cockpit-tabs.ts が正本。ここでは表示条件とラベルだけを足す。
-  const groups = cockpitGroupsForProject(isInstitutionProject);
+  // グループと所属タブはPJタイプの標準フォーマット（src/lib/project-formats.ts、鍵付き）が正本。
+  // ここではラベルと、見る人の役割による出し分け（DDパッケージ＝AMDの管理者）だけを足す。
+  const groups = cockpitGroupsForType(formatType);
+  const hasScoreDetailTab = groups.some((group) => group.children.includes("score-detail"));
   const tabLabel: Partial<Record<CockpitTab, string>> = {
     progress: "MS・月次",
     meetings: "動向・会議",
@@ -537,8 +463,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     "business-plan": "事業計画",
     "financial-projection": "試算表",
     "capital-plan": "資本政策表",
-    "cost-model": hasFuelCost ? "コスト試算（廃液）" : "コスト試算",
-    "cost-fuel": "コスト試算（燃料）",
+    "cost-model": "コスト試算",
     ip: "知財",
     seeds: "シーズ一覧",
     regulations: "規程一覧",
@@ -553,28 +478,17 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     dd: "DDパッケージ",
   };
   const availableTab = (tab: CockpitTab) => {
-    if (tab === "score-detail") return hasScoreDetailTab;
-    if (tab === "seeds") return hasInstitutionSeedsTab;
-    if (tab === "regulations") return hasInstitutionRegulationsTab;
-    // 読み込み中に ?tab=cost-fuel で開いたときは、同じグループの先頭へ落とさずに待つ (無ければ読み終えてから落ちる)。
-    if (tab === "cost-fuel") return hasFuelCost || (hasFuelCostRaw === undefined && resolvedTab === "cost-fuel");
-    // 競合比較も同じ。読み込み中に ?tab=competition で開いたときは待つ。
-    if (tab === "competition") return hasCompetition || (hasCompetitionRaw === undefined && resolvedTab === "competition");
-    if (tab === "business-model") return hasBusinessModel || (hasBusinessModelRaw === undefined && resolvedTab === "business-model");
-    // DDパッケージも同じ。読み込み中に ?tab=dd で開いたときは待つ。
-    if (tab === "dd") return !isInstitutionProject && (hasDd || (hasDdRaw === undefined && resolvedTab === "dd"));
+    // 見る人の役割で出し分けるタブだけを絞る。読み込み中に ?tab=dd で開いたときは、先頭へ落とさずに待つ。
+    if (ROLE_RESTRICTED_TABS[tab] === "amd_admin") return canManageDd || (canManageDdRaw === undefined && resolvedTab === tab);
     return true;
   };
   const visibleGroups = groups
-    // p19 ZMPは、現行根拠が未整備の事業計画群を通常導線から外す。
-    // データとURL互換は残し、最新化の受入後に再表示する。
-    .filter((group) => project.projectId !== "p19" || group.key !== "business-plan-group")
     .map((group) => ({
       ...group,
       children: group.children.filter(availableTab),
     }))
     .filter((group) => group.children.length > 0);
-  const requestedGroup = cockpitGroupForTab(resolvedTab, isInstitutionProject);
+  const requestedGroup = cockpitGroupForTabInType(resolvedTab, formatType);
   const activeGroupWithAvailableChildren = visibleGroups.find((group) => group.key === requestedGroup.key) ?? visibleGroups[0];
   // URLが現在のPJでは非表示になるタブを指していても、空画面にせず同じグループの先頭へ落とす。
   const activeTab = activeGroupWithAvailableChildren?.children.includes(resolvedTab)
@@ -587,8 +501,8 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     label: tabLabel[key] ?? key,
     onHover: key === "score-detail" ? () => prefetchProjectOrg(project.projectId)
       : key === "technology" || key === "competition" || key === "business-model" ? () => prefetchProjectTech(project.projectId)
-      : key === "cost-model" ? () => prefetchProjectCostModel(project.projectId)
-      : key === "cost-fuel" ? () => prefetchProjectFuelCostModel(project.projectId)
+      : key === "business-plan" ? () => prefetchProjectBusinessPlan(project.projectId)
+      : key === "cost-model" ? () => { prefetchProjectCostModel(project.projectId); prefetchProjectFuelCostModel(project.projectId); }
       : key === "monthly-reports" ? () => prefetchMonthlyReports(project.projectId)
       : key === "capital-policy" || key === "company" ? () => prefetchGovernance(project.projectId)
       : undefined,
@@ -666,7 +580,8 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
   return (
     <div
       className={`max-w-[1600px] mx-auto flex flex-col ${activeTab === "score-detail" ? "px-2 py-2 gap-2" : "px-4 py-3 gap-3"}`}
-      data-cockpit-project-kind={isInstitutionProject ? "institution" : "standard"}
+      data-cockpit-project-kind={formatType === "ecosystem" ? "institution" : "standard"}
+      data-project-format-type={formatType}
     >
       {/* [A] Project Header (full width) */}
       <CockpitHeader project={project} members={members} />
@@ -914,7 +829,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
 
       {activeTab === "business-plan" && (
         <section role="tabpanel" aria-label="事業計画" className="min-w-0">
-          <CockpitBusinessPlan projectId={project.projectId} projectName={project.projectName} showSxDetail={hasSxBusinessPlanDetail} />
+          <CockpitBusinessPlan projectId={project.projectId} projectName={project.projectName} />
         </section>
       )}
 
@@ -930,41 +845,42 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
         </section>
       )}
 
-      {/* コスト試算タブ (2026-08-23 まさ依頼)。前提を1つ動かすと4シナリオが再計算される。
-          正本は project_cost_* で、Google Sheets からDBへ移した。自前で fetch するので開いた時だけマウントする。 */}
+      {/* コスト試算タブ。全PJ常設で、データにある試算（処理原価・燃料・部分試算）をタブの中で切り替える
+          （2026-10-03 まさ「全部統一してないとだめ」。旧 ?tab=cost-fuel はこのタブの燃料の試算を開く）。
+          正本は project_cost_*。自前で fetch するので開いた時だけマウントする。 */}
       {activeTab === "cost-model" && (
         <section role="tabpanel" aria-label={tabLabel["cost-model"]} className="min-w-0">
-          <CockpitCostTab projectId={project.projectId} />
+          <CockpitCostTab projectId={project.projectId} initialRenderer={requestedTab === "cost-fuel" ? "fuel" : undefined} />
         </section>
       )}
 
-      {/* コスト試算（燃料）タブ (2026-09-14)。燃料の試算を持つPJだけ、コスト試算（廃液）の右隣に出す。
-          排水処理のコスト試算と同じシミュレーター。自前で fetch するので開いた時だけマウントする。 */}
-      {activeTab === "cost-fuel" && (
-        <section role="tabpanel" aria-label="コスト試算（燃料）" className="min-w-0">
-          <CockpitFuelCostModel projectId={project.projectId} />
+      {activeTab === "regulations" && (
+        <section role="tabpanel" aria-label="規程・内規" className="min-w-0">
+          {/* 研究機関との結び付き（institution_projects）を読むあいだは骨組みを出す。結び付きが無いPJは未登録と出す。 */}
+          {resolvedInstitutionId === undefined ? (
+            <div className="h-40 animate-pulse rounded-xl bg-[#f5f5f7]" aria-busy="true" />
+          ) : resolvedInstitutionId ? (
+            <InstitutionRegulationsPanel institutionId={resolvedInstitutionId} />
+          ) : (
+            <p className="rounded-xl border border-[#e5e5e7] bg-white px-4 py-6 text-[13px] text-[#6e6e73]">このPJは研究機関と結び付いていないため、規程・内規は未登録。</p>
+          )}
         </section>
       )}
 
-      {hasInstitutionRegulationsTab && resolvedInstitutionId && (
-        <section
-          role="tabpanel"
-          aria-label="規程・内規"
-          hidden={activeTab !== "regulations"}
-          className={activeTab === "regulations" ? "min-w-0" : "hidden"}
-        >
-          <InstitutionRegulationsPanel institutionId={resolvedInstitutionId} />
-        </section>
-      )}
-
-      {hasInstitutionSeedsTab && hasVisitedSeeds && resolvedInstitutionId && (
+      {(activeTab === "seeds" || hasVisitedSeeds) && (
         <section
           role="tabpanel"
           aria-label="シーズ一覧"
           hidden={activeTab !== "seeds"}
           className={activeTab === "seeds" ? "min-w-0" : "hidden"}
         >
-          <ProjectInstitutionSeeds projectId={project.projectId} />
+          {resolvedInstitutionId === undefined ? (
+            <div className="h-40 animate-pulse rounded-xl bg-[#f5f5f7]" aria-busy="true" />
+          ) : resolvedInstitutionId ? (
+            <ProjectInstitutionSeeds projectId={project.projectId} />
+          ) : (
+            <p className="rounded-xl border border-[#e5e5e7] bg-white px-4 py-6 text-[13px] text-[#6e6e73]">このPJは研究機関と結び付いていないため、シーズ一覧は未登録。</p>
+          )}
         </section>
       )}
 
@@ -1050,7 +966,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
 
       {activeTab === "overview" && (
         <section role="tabpanel" aria-label="PJ概要" className="flex min-w-0 flex-col gap-3">
-          {project.projectId === "p00" ? (
+          {formatType === "amd" ? (
             <CockpitManagementScoreHero />
           ) : showAmdScore ? (
             <CockpitVentureStatus
@@ -1059,7 +975,9 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
               onOpenScoreDetail={() => selectTab("score-detail")}
               sections="identity"
             />
-          ) : null}
+          ) : (
+            <p className="rounded-xl border border-[#e5e5e7] bg-white px-4 py-6 text-[13px] leading-6 text-[#6e6e73]">研究機関エコシステムのPJは AMD Score の対象外。契約の条件は「契約」、シーズン予算と消化は「収支」で見る。</p>
+          )}
         </section>
       )}
 

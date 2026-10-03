@@ -6,10 +6,8 @@ import { CockpitView } from "@/components/cockpit/CockpitView";
 import {
   DEFAULT_COCKPIT_TAB,
   NON_DEFAULT_COCKPIT_TABS,
-  resolveCockpitTab,
   type CockpitTab,
 } from "@/lib/cockpit-tabs";
-import { fetchInstitutionIdForProject } from "@/lib/seeds-data";
 import { fetchCockpitFromSupabase, type CockpitData } from "@/lib/supabase-data";
 
 // "progress" は既定タブなので ?tab= を付けない。それ以外は URL に残して共有・再読込で復元する。
@@ -23,7 +21,6 @@ function isNonDefaultTab(value: string | null): value is Exclude<CockpitTab, "pr
 
 interface CockpitLoadState {
   projectId: string;
-  institutionId: string | null;
   cockpit: CockpitData | null;
   error: string | null;
 }
@@ -37,7 +34,6 @@ export default function CockpitPage() {
 
   const [loadState, setLoadState] = useState<CockpitLoadState>(() => ({
     projectId,
-    institutionId: null,
     cockpit: null,
     error: null,
   }));
@@ -45,19 +41,15 @@ export default function CockpitPage() {
   useEffect(() => {
     let cancelled = false;
 
-    Promise.all([
-      fetchCockpitFromSupabase(projectId),
-      fetchInstitutionIdForProject(projectId),
-    ])
-      .then(([data, institutionId]) => {
+    fetchCockpitFromSupabase(projectId)
+      .then((data) => {
         if (cancelled) return;
-        setLoadState({ projectId, institutionId, cockpit: data, error: null });
+        setLoadState({ projectId, cockpit: data, error: null });
       })
       .catch((err) => {
         if (cancelled) return;
         setLoadState({
           projectId,
-          institutionId: null,
           cockpit: null,
           error: err instanceof Error ? err.message : "データ取得に失敗",
         });
@@ -100,14 +92,10 @@ export default function CockpitPage() {
   const ymParam = searchParams.get("ym");
   const meetingParam = searchParams.get("meeting");
   const tabParam = searchParams.get("tab");
-  const rawTab: CockpitTab = isNonDefaultTab(tabParam)
-    ? tabParam
-    : projectId === "p19"
-      ? "tasks"
-      : DEFAULT_COCKPIT_TAB;
-  // 研究機関PJの事業計画系タブ、通常PJの研究機関専用タブは進捗管理へ正規化する。
-  // 判定は p25 のようなPJ IDではなく institution_projects の実リンクを使う。
-  const activeTab = resolveCockpitTab(rawTab, loadState.institutionId !== null);
+  // 開いたときのタブは全PJ同じ（spec 3-23）。PJ番号で既定タブを変えない。
+  // そのPJタイプのフォーマットに無いタブ（研究機関PJの事業計画系タブなど）は、CockpitView が
+  // PJタイプ（projects.project_category）で既定タブへ読み替える。研究機関との結び付きはタブの中身にだけ使う。
+  const activeTab: CockpitTab = isNonDefaultTab(tabParam) ? tabParam : DEFAULT_COCKPIT_TAB;
   // ?meeting= がある場合は MTG詳細モーダルを優先し、月次モーダルとの二重起動を避ける。
 
   function handleTabChange(tab: CockpitTab) {

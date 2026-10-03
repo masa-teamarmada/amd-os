@@ -278,27 +278,34 @@ check("排水処理のコスト試算タブは燃料の試算を読まず、?kin
   assert.match(migration, /'plant_line'/);
 });
 
-check("「コスト試算（燃料）」は事業計画グループのコスト試算（廃液）の右隣で、燃料の試算があるPJだけに出る", () => {
+check("コスト試算は全PJ常設の1タブで、燃料の試算はタブの中の切り替えで読む", () => {
   // 2026-09-14 まさ「事業計画グループ内に置いてほしかった。元々ある『コスト試算』は『コスト試算（廃液）』に変えて、それの右に並べて」
+  // → 2026-10-03 まさ「全部統一してないとだめ。OSの大原則。あと中身があるときだけ出るタブってなに？」で、
+  //   試算ごとのタブをやめ、全PJ常設の「コスト試算」タブの中で、データにある試算を切り替える形にした（spec 3-23）。
+  const formats = read("src/lib/project-formats.ts");
+  assert.match(formats, /"capital-plan", "cost-model", "ip"/, "コックピットのコスト試算は資本政策表の右隣の1タブ");
+  assert.match(formats, /"capital-plan", "cost", "ip"/, "ワークスペースも1タブ");
   const tabs = read("src/lib/cockpit-tabs.ts");
-  // 2026-09-14 同日に、技術の右隣へ競合比較が入り（まさ「事業計画グループの直下に置いてほしい」）、その右隣へビジネスモデルが入った。
-  assert.match(tabs, /"capital-plan", "cost-model", "cost-fuel", "ip"/, "コスト試算の右隣");
+  assert.match(tabs, /"cost-fuel": "cost-model"/, "旧 ?tab=cost-fuel はコスト試算タブを開く");
   const view = read("src/components/cockpit/CockpitView.tsx");
-  assert.match(view, /"cost-model": hasFuelCost \? "コスト試算（廃液）" : "コスト試算"/, "燃料の試算を持つPJだけ（廃液）と呼び分ける");
-  assert.match(view, /"cost-fuel": "コスト試算（燃料）"/);
-  assert.match(view, /if \(tab === "cost-fuel"\) return hasFuelCost \|\|/, "燃料の試算が無いPJには出さない");
-  assert.match(view, /loadProjectFuelCostModel\(projectId\)/);
-  assert.match(view, /activeTab === "cost-fuel" && \(\s*<section role="tabpanel" aria-label="コスト試算（燃料）"[\s\S]*?<CockpitFuelCostModel projectId=\{project\.projectId\} \/>/);
+  assert.ok(!/hasFuelCost/.test(view), "燃料の試算の有無でタブを出し分けない");
+  assert.match(view, /<CockpitCostTab projectId=\{project\.projectId\} initialRenderer=\{requestedTab === "cost-fuel" \? "fuel" : undefined\} \/>/);
+  const costTab = read("src/components/cockpit/CockpitCostTab.tsx");
+  assert.match(costTab, /loadProjectFuelCostModel\(projectId\)/);
+  assert.match(costTab, /<CockpitFuelCostModel projectId=\{projectId\} allowEdit=\{allowEdit\} \/>/);
+  assert.match(costTab, /data-testid="cockpit-cost-model-switch"/);
+  assert.match(costTab, /if \(fuelBundle\) options\.push/, "燃料の試算は、あるPJだけ切り替えの選択肢に足す（タブは足さない）");
+  // 試算が無いPJでもタブは出して、標準フォーマットが「未登録」と出す
+  assert.match(read("src/components/cockpit/ProjectCostFormat.tsx"), /このPJのコスト試算は未登録/);
   // 技術タブからは外した（置き場所の間違い。二重に置かない）
   const tech = read("src/components/cockpit/CockpitTechnology.tsx");
   assert.ok(!/CockpitFuelCostModel|コスト試算（燃料）|cost-fuel/.test(tech), "技術タブにコスト試算（燃料）を置かない");
-  // ワークスペースも、経営・会社のコスト試算（廃液）の右隣。保存させない
+  // ワークスペースも同じ1タブ。保存させない。旧アドレス #cost-model-fuel は燃料の試算を選んだ状態で開く
   const workspace = read("src/components/project-workspace/SxWeeklyControlDashboard.tsx");
-  assert.match(workspace, /\{ key: "cost", label: "コスト試算" \}, \{ key: "cost-fuel", label: "コスト試算（燃料）" \}/);
-  assert.match(workspace, /tab\.key !== "cost-fuel" \|\| hasFuelCost/);
-  assert.match(workspace, /tab\.key === "cost" && hasFuelCost \? \{ \.\.\.tab, label: "コスト試算（廃液）" \}/);
-  assert.match(workspace, /<CockpitFuelCostModel projectId=\{bundle\.project\.projectId\} allowEdit=\{false\} \/>/, "ワークスペースでは保存させない");
-  assert.match(workspace, /"cost-fuel": "cost-model-fuel"/, "開いているタブをアドレスに残す");
+  assert.ok(!/hasFuelCost/.test(workspace), "燃料の試算の有無でタブを出し分けない");
+  assert.match(workspace, /<CockpitCostTab projectId=\{bundle\.project\.projectId\} allowEdit=\{false\}/, "ワークスペースでは保存させない");
+  assert.match(workspace, /if \(normalized === "cost-model-fuel"\) return "cost-fuel";/);
+  assert.match(workspace, /if \(candidate === "cost-fuel"\) setCostInitialRenderer\("fuel"\);/);
 });
 
 check("燃料のシミュレーターの画面の約束（排水処理のコスト試算タブと同じ形）", () => {

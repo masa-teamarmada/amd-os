@@ -174,7 +174,8 @@ expectIncludes(
     // は関係先編集の全項目ではなく次にやること・当方担当・期限・期限精度・保有側・現在の担当
     // だけのtargeted editor（fieldKeys）を開く。開く前にplan/detail editorを閉じ、モーダルは
     // 常に1つだけにする。
-    "SolvioraX PJワークスペース",
+    // 題名は全PJ「{表示名} PJワークスペース」（2026-10-03 spec 3-23）。SolvioraX は projects.display_name のデータ。
+    "`${bundle.project.displayName ?? bundle.project.projectName} PJワークスペース`",
     "PARTNER_NEXT_ACTION_FIELD_KEYS",
     "edit_commitment",
     'resource: "commitment"',
@@ -1272,7 +1273,8 @@ expectIncludes("../ios/supabase/migrations/20260901190000_bwe_management_tracks.
 expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "sx-unified-timeline",
   "今日",
-  "設立 {sxFormatDate(timeline.objectiveDate)}",
+  // 到達点の呼び名は全PJ同じ（設立・年度末などPJで書き分けない。spec 3-23）。
+  "到達目標 {sxFormatDate(timeline.objectiveDate)}",
   "MSとタスクの縦一覧",
   "RowBar",
   // 2026-08-07: 時間軸の縮尺スライダー導入で固定幅クラスをやめ、基準幅×倍率の
@@ -2487,10 +2489,14 @@ expectIncludes("src/components/cockpit/CockpitVentureStatus.tsx", [
   "min-w-[600px] xl:min-w-0",
 ]);
 
-// p00 (= AMD 会社全体) は Management Score Hero に切り替わる
+// AMD本体（会社全体）は Management Score Hero に切り替わる。どのPJがAMD本体かは鍵付きのフォーマット定義だけが持つ。
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   "CockpitManagementScoreHero",
-  'project.projectId === "p00"',
+  'formatType === "amd" ? (',
+]);
+expectIncludes("src/lib/project-formats.ts", [
+  'export const AMD_COMPANY_PROJECT_ID = "p00";',
+  'if (project.projectId === AMD_COMPANY_PROJECT_ID) return "amd";',
 ]);
 expectIncludes("src/components/cockpit/CockpitManagementScoreHero.tsx", [
   "amd_management_score_snapshots",
@@ -3298,12 +3304,28 @@ expectIncludes("src/components/cockpit/CockpitTechnology.tsx", [
 ]);
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   'competition: "競合比較"',
-  'if (tab === "competition") return hasCompetition ||',
   'aria-label="競合比較"',
   '<CockpitTechnology projectId={project.projectId} mode="competition" />',
 ]);
+// タブの並びはPJタイプごとの標準フォーマット（鍵付き）が正本。中身の有無やPJ番号でタブを出し分けない（spec 3-23）。
+expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
+  "hasCompetition",
+  "hasBusinessModel",
+  "hasFuelCost",
+  "ledgerTabsPresent(",
+]);
+expectIncludes("src/lib/project-formats.ts", [
+  '{ group: "business-plan-group", tabs: ["technology", "competition", "business-model", "business-plan", "financial-projection", "capital-plan", "cost", "ip"] },',
+]);
 expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
-  '{ key: "technology", label: "技術" }, { key: "competition", label: "競合比較" }, { key: "business-model", label: "ビジネスモデル" }, { key: "business-plan", label: "事業計画" }, { key: "financial-projection", label: "試算表" }, { key: "capital-plan", label: "資本政策表" }, { key: "cost", label: "コスト試算" }',
+  'technology: "技術",',
+  'competition: "競合比較",',
+  '"business-model": "ビジネスモデル",',
+  '"business-plan": "事業計画",',
+  '"financial-projection": "試算表",',
+  '"capital-plan": "資本政策表",',
+  'cost: "コスト試算",',
+  "WORKSPACE_TAB_FORMATS[type]",
   '<CockpitTechnology projectId={bundle.project.projectId} mode="competition" />',
 ]);
 // ビジネスモデルタブ (2026-09-14 まさ「そもそも本来はOSに置くべき資料だと思う。…事業計画グループの中に「ビジネスモデル」っていうタブを新たに追加して、その中に入れておくのはどう？」)。
@@ -3316,7 +3338,6 @@ expectIncludes("src/lib/project-tech.ts", [
 ]);
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   '"business-model": "ビジネスモデル"',
-  'if (tab === "business-model") return hasBusinessModel ||',
   'aria-label="ビジネスモデル"',
   '<CockpitTechnology projectId={project.projectId} mode="business-model" />',
   'key === "technology" || key === "competition" || key === "business-model" ? () => prefetchProjectTech(project.projectId)',
@@ -3483,8 +3504,13 @@ expectIncludes("src/components/cockpit/CockpitCapitalPlan.tsx", [
   'import CapitalPlanWorkspace from "./CapitalPlanWorkspace";',
   "<CapitalPlanWorkspace",
 ]);
+expectIncludes("src/lib/project-formats.ts", [
+  '{ group: "company-information-group", tabs: ["company", "capital-policy"] },',
+]);
 expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
-  '{ key: "company-information-group", label: COCKPIT_GROUP_LABELS.companyInformation, children: [{ key: "company", label: "会社概要" }, { key: "capital-policy", label: "資金調達履歴" }] }',
+  '"company-information-group": COCKPIT_GROUP_LABELS.companyInformation,',
+  'company: "会社概要",',
+  '"capital-policy": "資金調達履歴",',
 ]);
 
 // タブ名の二重管理禁止 (2026-08-29): 資本政策表タブを足したとき、URLの `?tab=` 許可リストを
@@ -3500,18 +3526,22 @@ expectIncludes("src/lib/cockpit-tabs.ts", [
   'businessPlan: "事業計画"',
   'projectManagement: "PJ管理"',
   'companyInformation: "会社情報"',
-  'children: ["overview", "project-contracts", "project-finance", "monthly-reports"]',
-  'children: ["company", "capital-policy", "activity"]',
-  'key: "company-information-group"',
   'seeds: "シーズリスト"',
   'regulations: "規程・内規"',
-  'children: ["score-detail", "technology", "competition", "business-model", "business-plan", "financial-projection", "capital-plan", "cost-model", "cost-fuel", "ip"]',
+  "export function cockpitGroupsForType(",
+  "COCKPIT_TAB_FORMATS[type]",
+]);
+expectIncludes("src/lib/project-formats.ts", [
+  '{ group: "project-management-group", tabs: ["overview", "project-contracts", "project-finance", "monthly-reports"] },',
+  '{ group: "company-information-group", tabs: ["company", "capital-policy", "activity"] },',
+  '{ group: "business-plan-group", tabs: ["score-detail", "technology", "competition", "business-model", "business-plan", "financial-projection", "capital-plan", "cost-model", "ip"] },',
 ]);
 expectNotIncludes("src/lib/cockpit-tabs.ts", ['"themes"']);
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   'data-testid="cockpit-group-navigation"',
   'data-testid="cockpit-child-navigation"',
-  'data-cockpit-project-kind={isInstitutionProject ? "institution" : "standard"}',
+  'data-cockpit-project-kind={formatType === "ecosystem" ? "institution" : "standard"}',
+  "data-project-format-type={formatType}",
   'childTabItems.length > 1',
   'grid-cols-2 sm:grid-cols-4',
   'aria-controls={desktopHoverEnabled && groupItems.length > 1 ? `cockpit-group-menu-${group.key}` : undefined}',
@@ -3519,7 +3549,8 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   'matchMedia("(hover: hover) and (pointer: fine)")',
 ]);
 expectIncludes("src/lib/cockpit-tabs.ts", [
-  'if (tab === "objective-structure") return "gantt";',
+  '"objective-structure": "gantt",',
+  '"cost-fuel": "cost-model",',
 ]);
 expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
   'data-plan-display-mode="timeline"',
@@ -3595,35 +3626,41 @@ expectNotIncludes("src/components/cockpit/CapitalPlanMatrix.tsx", [
   "overflow-auto",
 ]);
 
-// SX試算表: SIP準拠GRL、百万円PL、助成金の会計/資金繰り分離と、初期閉じの手動シナリオを保護する。
+// 事業計画タブ: 全PJで同じフェーズマトリクス（4レーン・XRL・出口条件・Excel出力）を描き、中身は
+// project_business_plans から読む（2026-10-03 まさ「全部統一してないとだめ。OSの大原則」、spec 3-23）。
+// PJ番号で出し分けない。中身が未登録のPJでも、表の枠と見出しを同じ形で出す。
 expectIncludes("src/components/cockpit/CockpitBusinessPlan.tsx", [
   "GRL：SIP準拠のガバナンス成熟度（1〜8）",
   "内閣府SIPの定義",
-  "downloadSxBusinessPlanPhaseMatrixXlsx",
+  "downloadBusinessPlanPhaseMatrixXlsx",
   "Excel出力",
-  'data-testid="sx-phase-matrix-xlsx-export"',
+  'data-testid="phase-matrix-xlsx-export"',
+  'data-testid="business-plan-phase-matrix"',
+  "loadProjectBusinessPlan(projectId)",
+  "peekProjectBusinessPlan(projectId)",
+  "BUSINESS_PLAN_FORMAT.lanes.map",
+  "このPJのフェーズ計画は未登録。",
+  "<PhaseMatrixSkeleton />",
 ]);
-expectIncludes("src/components/cockpit/CockpitBusinessPlan.tsx", [
-  "単位：百万円",
-  "役員報酬",
-  "売上原価",
-  "助成金収入（特別利益）",
-  "圧縮損（特別損失）",
-  "助成金入金（資金繰り）",
-  'data-testid="sx-annual-parameters"',
-  "前提パラメータ",
-  "役員の旅費／人",
-  "社員の消耗品費／人",
-  "自社工場の段階投資",
-  "IPOの時期と調達額",
-  "初期値に戻す",
+expectNotIncludes("src/components/cockpit/CockpitBusinessPlan.tsx", [
+  "SX_BUSINESS_PLAN_PHASES",
+  "sx-business-plan",
+  "showSxDetail",
+  "AnnualProjectionTable",
 ]);
-expectIncludes("src/lib/sx-business-plan-xlsx.ts", [
-  "createSxBusinessPlanPhaseMatrixXlsx",
-  "downloadSxBusinessPlanPhaseMatrixXlsx",
+expectIncludes("src/lib/project-business-plan-xlsx.ts", [
+  "createBusinessPlanPhaseMatrixXlsx",
+  "downloadBusinessPlanPhaseMatrixXlsx",
   'xSplit="1" ySplit="2"',
   "neutralizeFormulaTrigger",
   "フェーズマトリクス",
+]);
+expectFileMissing("src/lib/sx-business-plan-xlsx.ts");
+expectIncludes("src/app/api/project-business-plan/route.ts", [
+  "await requireMember()",
+  "hasSharedWorkspaceProjectReadAccess(projectId)",
+  "project_business_plans",
+  "Cache-Control",
 ]);
 expectNotIncludes("src/components/cockpit/CockpitBusinessPlan.tsx", [
   'data-testid="sx-annual-parameters" open',

@@ -255,6 +255,8 @@ export type QuestionTreeBundle = {
   roadmap?: ProjectGanttRoadmap | null;
   projectId: string;
   asOf: string;
+  /** タスクpt検収の試行に入っているPJか。true なら完了に証跡（リンクか一文）が要る。 */
+  requiresDoneEvidence?: boolean;
   roots: QuestionNode[];
   /** ツリーに属さないTODO。問いに紐づかない実行だけの作業 */
   looseActions: ActionNode[];

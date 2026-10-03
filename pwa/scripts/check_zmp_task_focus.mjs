@@ -22,14 +22,17 @@ assert.match(tasks, /plannedEnd <= addDays\(asOf, 7\)/);
 assert.match(tasks, /前提の判断待ち/);
 assert.match(tasks, /判断待ちで保留/);
 assert.match(tasks, /sm:grid-cols-5/);
-assert.match(tasks, /projectId === "p19" \? "focus" : "all"/);
+// 開いたときの絞り込みは全PJ同じ「全部」。PJ番号で既定を変えない（2026-10-03 まさ「全部統一してないとだめ。OSの大原則」、spec 3-23）。
+// 「今やる」に絞る表示は全PJで切り替えられる。
+assert.match(tasks, /useState<TaskScope>\("all"\)/);
+assert.doesNotMatch(tasks, /projectId === "p\d+"/);
 assert.match(tasks, /更新基準/);
 assert.match(tasks, /freshnessText\(action\)/);
 assert.match(tasks, /taskScope === "all"/);
-assert.match(workspace, /const ZMP_WORKSPACE_TABS/);
-assert.match(workspace, /isZmpWorkspace \? "tasks" : "weekly"/);
-assert.match(cockpit, /project\.projectId !== "p19" \|\| group\.key !== "business-plan-group"/);
-assert.match(page, /projectId === "p19"[\s\S]*\? "tasks"/);
+// ZMP（新規事業）も新規事業タイプの標準のタブ・既定のタブで開く。事業計画グループを隠さない。
+assert.doesNotMatch(workspace, /ZMP_WORKSPACE_TABS|isZmpWorkspace/);
+assert.doesNotMatch(cockpit, /"p19"/);
+assert.doesNotMatch(page, /"p19"/);
 assert.match(tree, /isActionAssignmentMissing\(owners, ownerLabel, plannedEnd\)/);
 assert.equal(hasEffectiveActionOwner([], "まさ"), true);
 assert.equal(hasEffectiveActionOwner([], "こたさん・早田さん"), true);

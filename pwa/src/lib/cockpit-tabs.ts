@@ -9,7 +9,12 @@
  * 入れ忘れ、タブを押しても既定タブ (進捗管理) へ戻される不具合を出した。二重管理をやめる。
  * `"use client"` を持たない素のモジュールに置くのは、server component から読んでも
  * 実体の配列が返るようにするため (client module の export は境界を越えると proxy になる)。
+ *
+ * 2026-10-03: どのタブを出すかはPJタイプごとの標準フォーマット（src/lib/project-formats.ts、鍵付き）が正本。
+ * ここはタブの名前の一覧と、旧URLの読み替えだけを持つ。
  */
+import { COCKPIT_TAB_FORMATS, DEFAULT_TABS, type ProjectFormatType } from "./project-formats.ts";
+
 export const COCKPIT_TABS = [
   "progress",
   "weekly",
@@ -43,18 +48,18 @@ export const COCKPIT_TABS = [
   "capital-policy",
   "company",
   "activity",
-  // DDパッケージ（投資家・金融機関向けの開示面の管理と、投資家と同じ見え方の確認）。DDパッケージを持つPJだけに出す (表示条件は CockpitView)。
+  // DDパッケージ（投資家・金融機関向けの開示面の管理と、投資家と同じ見え方の確認）。AMDの管理者だけに出す（PJでは出し分けない）。
   "dd",
 ] as const;
 
 export type CockpitTab = (typeof COCKPIT_TABS)[number];
 
 /**
- * 既定タブ。URL に `?tab=` を付けないのはこれだけ。
+ * 既定タブ。URL に `?tab=` を付けないのはこれだけ。全PJ同じ（src/lib/project-formats.ts の DEFAULT_TABS）。
  * ゴールツリー（2026-09-13 まさ「進捗グループを使うときは最初に論点タブを開く」）。
  * 進捗管理グループの一番左と揃える。揃えないと、PJを開いた瞬間に左から4番目が選ばれた状態になる。
  */
-export const DEFAULT_COCKPIT_TAB: CockpitTab = "issues";
+export const DEFAULT_COCKPIT_TAB: CockpitTab = DEFAULT_TABS.cockpit;
 
 /** `?tab=` に載せる (= 既定でない) タブ名の一覧。 */
 export const NON_DEFAULT_COCKPIT_TABS: readonly string[] = COCKPIT_TABS.filter(
@@ -89,91 +94,45 @@ export const COCKPIT_GROUP_LABELS = {
   regulations: "規程・内規",
 } as const;
 
-/** 通常PJと研究機関PJで共有する、画面の分類正本。 */
-export const COCKPIT_GROUPS: {
-  normal: readonly CockpitGroup[];
-  institution: readonly CockpitGroup[];
-} = {
-  normal: [
-    {
-      key: "progress-group",
-      label: COCKPIT_GROUP_LABELS.progress,
-      // ゴールツリー → タスク → ガント → 残りは元の順（2026-09-13 まさ）
-      children: ["issues", "tasks", "gantt", "progress", "meetings", "slack", "weekly", "partners"],
-    },
-    {
-      key: "business-plan-group",
-      label: COCKPIT_GROUP_LABELS.businessPlan,
-      // コスト試算（燃料）はコスト試算の右隣（2026-09-14 まさ「事業計画グループ内に置いてほしかった。
-      // 元々ある『コスト試算』は『コスト試算（廃液）』に変えて、それの右に並べて」）。
-      // 競合比較は技術の右隣（2026-09-14 まさ「この競合比較は、技術タブの中じゃなくて事業計画グループの直下に置いてほしい」）。
-      // ビジネスモデルは競合比較の右隣（2026-09-14 まさ「事業計画グループの中に「ビジネスモデル」っていうタブを新たに追加して」）。
-      children: ["score-detail", "technology", "competition", "business-model", "business-plan", "financial-projection", "capital-plan", "cost-model", "cost-fuel", "ip"],
-    },
-    { key: "documents-group", label: COCKPIT_GROUP_LABELS.documents, children: ["documents"] },
-    {
-      key: "project-management-group",
-      label: COCKPIT_GROUP_LABELS.projectManagement,
-      children: ["overview", "project-contracts", "project-finance", "monthly-reports"],
-    },
-    { key: "company-information-group", label: COCKPIT_GROUP_LABELS.companyInformation, children: ["company", "capital-policy", "activity"] },
-    // DDパッケージ（2026-09-30 まさ「ワークスペースに左メニューってなくない？」）。ワークスペースと同じ場所から開く。
-    { key: "dd-group", label: COCKPIT_GROUP_LABELS.dd, children: ["dd"] },
-  ],
-  institution: [
-    {
-      key: "progress-group",
-      label: COCKPIT_GROUP_LABELS.progress,
-      // ゴールツリー → タスク → ガント → 残りは元の順（2026-09-13 まさ）
-      children: ["issues", "tasks", "gantt", "progress", "meetings", "slack", "weekly", "partners"],
-    },
-    { key: "seeds-group", label: COCKPIT_GROUP_LABELS.seeds, children: ["seeds"] },
-    { key: "regulations-group", label: COCKPIT_GROUP_LABELS.regulations, children: ["regulations"] },
-    { key: "documents-group", label: COCKPIT_GROUP_LABELS.documents, children: ["documents"] },
-    {
-      key: "project-management-group",
-      label: COCKPIT_GROUP_LABELS.projectManagement,
-      children: ["overview", "project-contracts", "project-finance", "monthly-reports"],
-    },
-    { key: "company-information-group", label: COCKPIT_GROUP_LABELS.companyInformation, children: ["company", "capital-policy", "activity"] },
-  ],
+const GROUP_LABEL_BY_KEY: Record<CockpitGroupKey, string> = {
+  "progress-group": COCKPIT_GROUP_LABELS.progress,
+  "business-plan-group": COCKPIT_GROUP_LABELS.businessPlan,
+  "documents-group": COCKPIT_GROUP_LABELS.documents,
+  "project-management-group": COCKPIT_GROUP_LABELS.projectManagement,
+  "company-information-group": COCKPIT_GROUP_LABELS.companyInformation,
+  "dd-group": COCKPIT_GROUP_LABELS.dd,
+  "seeds-group": COCKPIT_GROUP_LABELS.seeds,
+  "regulations-group": COCKPIT_GROUP_LABELS.regulations,
 };
 
-const INSTITUTION_ONLY_TABS = new Set<CockpitTab>(["seeds", "regulations"]);
-const BUSINESS_PLAN_TABS = new Set<CockpitTab>([
-  "score-detail",
-  "technology",
-  "competition",
-  "business-model",
-  "business-plan",
-  "financial-projection",
-  "capital-plan",
-  "cost-model",
-  "cost-fuel",
-  "ip",
-]);
-
-/** URLに残っている旧フラットタブを、現在のPJ分類に合わせて解決する。 */
-export function resolveCockpitTab(
-  tab: CockpitTab,
-  isInstitutionProject: boolean,
-): CockpitTab {
-  // 目的構造はガントの左側タスク階層へ統合。共有済みの旧URLはガントへ着地させる。
-  if (tab === "objective-structure") return "gantt";
-  if (isInstitutionProject && BUSINESS_PLAN_TABS.has(tab)) return DEFAULT_COCKPIT_TAB;
-  if (isInstitutionProject && tab === "dd") return DEFAULT_COCKPIT_TAB;
-  if (!isInstitutionProject && INSTITUTION_ONLY_TABS.has(tab)) return DEFAULT_COCKPIT_TAB;
-  return tab;
+/**
+ * PJタイプごとのタブの並び。正本は src/lib/project-formats.ts の COCKPIT_TAB_FORMATS（鍵付き）。
+ * データの有無ではタブを出し分けない（2026-10-03 まさ「全部統一してないとだめ。OSの大原則」）。
+ */
+export function cockpitGroupsForType(type: ProjectFormatType): readonly CockpitGroup[] {
+  return COCKPIT_TAB_FORMATS[type].map((group) => ({
+    key: group.group as CockpitGroupKey,
+    label: GROUP_LABEL_BY_KEY[group.group as CockpitGroupKey],
+    children: group.tabs as readonly CockpitTab[],
+  }));
 }
 
-export function cockpitGroupsForProject(isInstitutionProject: boolean): readonly CockpitGroup[] {
-  return isInstitutionProject ? COCKPIT_GROUPS.institution : COCKPIT_GROUPS.normal;
+/** 旧URLのタブ名。今のタブへ読み替える（共有済みのリンクを壊さない）。 */
+const TAB_ALIASES: Partial<Record<CockpitTab, CockpitTab>> = {
+  // 目的構造はガントの左側タスク階層へ統合。
+  "objective-structure": "gantt",
+  // コスト試算（燃料）は「コスト試算」タブの中の切り替えへ統合（2026-10-03）。
+  "cost-fuel": "cost-model",
+};
+
+/** URLのタブを、このPJタイプの形にあるタブへ解決する。形に無いタブは既定タブへ落とす。 */
+export function resolveCockpitTabForType(tab: CockpitTab, type: ProjectFormatType): CockpitTab {
+  const aliased = TAB_ALIASES[tab] ?? tab;
+  return COCKPIT_TAB_FORMATS[type].some((group) => group.tabs.includes(aliased)) ? aliased : DEFAULT_COCKPIT_TAB;
 }
 
-export function cockpitGroupForTab(
-  tab: CockpitTab,
-  isInstitutionProject: boolean,
-): CockpitGroup {
-  const groups = cockpitGroupsForProject(isInstitutionProject);
-  return groups.find((group) => group.children.includes(tab)) ?? groups[0];
+export function cockpitGroupForTabInType(tab: CockpitTab, type: ProjectFormatType): CockpitGroup {
+  const groups = cockpitGroupsForType(type);
+  const aliased = TAB_ALIASES[tab] ?? tab;
+  return groups.find((group) => group.children.includes(aliased)) ?? groups[0];
 }

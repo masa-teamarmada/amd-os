@@ -125,10 +125,12 @@ check("画面は定義の区画をすべて描き、入口はデータの形で�
   const tab = read("src/components/cockpit/CockpitCostTab.tsx");
   assert.match(tab, /costFormatEngineOf\(bundle\)/, "入口はデータの形で選ぶ");
   assert.doesNotMatch(tab, /["'`]p\d{2}["'`]/, "入口でPJ番号を名指ししない");
+  // 燃料の試算もこの入口の中の切り替えで読む（2026-10-03 まさ「全部統一してないとだめ」）。入口に渡す追加の指定
+  // （旧アドレスから燃料を先に選ぶ・DDでは燃料を別の区画で出す）は許す。
   for (const [file, mount] of [
-    ["src/components/cockpit/CockpitView.tsx", "<CockpitCostTab projectId={project.projectId} />"],
-    ["src/components/project-workspace/SxWeeklyControlDashboard.tsx", "<CockpitCostTab projectId={bundle.project.projectId} allowEdit={false} />"],
-    ["src/components/dd/DdLiveBodies.tsx", "<CockpitCostTab projectId={data.projectId} allowEdit={false} />"],
+    ["src/components/cockpit/CockpitView.tsx", "<CockpitCostTab projectId={project.projectId}"],
+    ["src/components/project-workspace/SxWeeklyControlDashboard.tsx", "<CockpitCostTab projectId={bundle.project.projectId} allowEdit={false}"],
+    ["src/components/dd/DdLiveBodies.tsx", "<CockpitCostTab projectId={data.projectId} allowEdit={false}"],
   ] as const) {
     assert.ok(read(file).includes(mount), `${file} はコスト試算タブを CockpitCostTab で描く`);
     assert.doesNotMatch(read(file), /<CockpitCostModel\b/, `${file} は廃液の画面を直に描かない（入口を通す）`);

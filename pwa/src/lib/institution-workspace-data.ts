@@ -55,6 +55,8 @@ export type InstitutionWorkspaceData = {
     sharedSurface: "summary" | "workspace";
     projectName: string;
     status: string;
+    /** 研究機関との結び付き（institution_projects）があるPJか。カードの札をPJ番号ではなくこの答えで出す。 */
+    isInstitutionProject: boolean;
     engagementScope: string | null;
     targetUnit: string | null;
     ecosystemGoal: string | null;
@@ -329,6 +331,7 @@ export async function getInstitutionWorkspaceData(
         sharedSurface: scope.shared_surface,
         projectName: project.project_name,
         status: project.status,
+        isInstitutionProject: institutionProject !== null,
         engagementScope: institutionProject?.engagement_scope ?? null,
         targetUnit: institutionProject?.target_unit ?? null,
         ecosystemGoal: institutionProject?.ecosystem_goal ?? null,

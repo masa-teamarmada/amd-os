@@ -10,18 +10,25 @@ const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 const tabs = read("src/lib/cockpit-tabs.ts");
 if (!tabs.includes('"seeds",')) throw new Error("COCKPIT_TABS must list seeds (共通URL一覧)");
 
+// タブの並びはPJタイプ（projects.project_category = ecosystem）で決める。研究機関との結び付き
+// （institution_projects）は、シーズ一覧・規程の中身を読むのにだけ使う（2026-10-03 まさ「全部統一してないとだめ」、spec 3-23）。
 const page = read("src/app/(app)/project/[projectId]/cockpit/page.tsx");
-if (!page.includes("resolveCockpitTab") || !page.includes("fetchInstitutionIdForProject"))
-  throw new Error("cockpit page.tsx must resolve seeds by actual institution linkage");
+if (page.includes("resolveCockpitTab(") || page.includes("fetchInstitutionIdForProject"))
+  throw new Error("cockpit page.tsx must not decide tabs by institution linkage; CockpitView resolves by PJ type");
+
+const formats = read("src/lib/project-formats.ts");
+if (!formats.includes('{ group: "seeds-group", tabs: ["seeds"] },'))
+  throw new Error("ecosystem format must keep the seeds group");
 
 const cockpit = read("src/components/cockpit/CockpitView.tsx");
 for (const anchor of [
-  "hasInstitutionSeedsTab",
+  "resolveCockpitTabForType(requestedTab, formatType)",
   'seeds: "シーズ一覧"',
   'aria-label="シーズ一覧"',
   'hidden={activeTab !== "seeds"}',
   "hasVisitedSeeds",
-  "hasInstitutionSeedsTab && hasVisitedSeeds",
+  'resolvedInstitutionId === undefined ? (',
+  "このPJは研究機関と結び付いていないため、シーズ一覧は未登録。",
 ])
   if (!cockpit.includes(anchor)) throw new Error(`CockpitView missing ${anchor}`);
 
@@ -31,7 +38,7 @@ if (!cockpit.includes("<CockpitProjectControl") || !cockpit.includes("view={work
 
 if (cockpit.includes("CockpitKuteAnnualRoadmap") || fs.existsSync(path.join(root, "src/components/cockpit/CockpitKuteAnnualRoadmap.tsx")))
   throw new Error("standalone roadmap must be retired; its data belongs to the existing gantt");
-if (!/hasInstitutionSeedsTab && hasVisitedSeeds[\s\S]*?hidden=\{activeTab !== "seeds"\}[\s\S]*?<ProjectInstitutionSeeds/.test(cockpit))
+if (!/\(activeTab === "seeds" \|\| hasVisitedSeeds\)[\s\S]*?hidden=\{activeTab !== "seeds"\}[\s\S]*?<ProjectInstitutionSeeds/.test(cockpit))
   throw new Error("institution seeds must remain mounted in their own hidden panel after the first visit");
 
 const migration = read("../ios/supabase/migrations/20260901184500_kute_fy2026_task_rebuild.sql");
@@ -66,6 +73,8 @@ const timelineSource = read("src/components/project-workspace/SxUnifiedTimeline.
 const classifyBody = timelineSource.match(/function classifyTask\([^\n]+\)\s*:\s*DisplayRow\["state"\]\s*\{([\s\S]*?)\n\}/)?.[1];
 if (!classifyBody) throw new Error("classifyTask contract unavailable");
 const classify = vm.runInNewContext(`(task, asOf) => {${classifyBody}}`);
+// 仮の日付（provisional）で状況を確かめていない（unassessed）作業は、期限切れではなく未確認。
+// 2026-10-03 まさ「全部統一してないとだめ。OSの大原則」で、KUTE の取り込みだけの規則から全PJ同じ規則にした（spec 3-23）。
 const imported = {projectId:"p25",status:"unassessed",plannedEnd:"2026-06-30",dateCertainty:"provisional",sourceRef:"KUTE年度内ロードマップ / regulation-202606",progressPct:0};
 for (const [task, expectedState] of [
   [imported, "unassessed"],
@@ -73,9 +82,11 @@ for (const [task, expectedState] of [
   [{...imported,status:"blocked"}, "blocked"],
   [{...imported,status:"on_track"}, "overdue"],
   [{...imported,dateCertainty:"confirmed"}, "overdue"],
-  [{...imported,projectId:"p21"}, "overdue"],
-  [{...imported,sourceRef:"PWA共有管理画面"}, "overdue"],
-]) if (classify(task, "2026-08-31") !== expectedState) throw new Error("KUTE month-plan status boundary failed");
-if (!timelineSource.includes('projectId === "p25" ? `年度末 ${timeline.objectiveDate?.slice(0, 7)}（目途）`'))
-  throw new Error("KUTE fiscal objective must not be labeled company founding or a confirmed day");
-console.log("KUTE provisional month-plan status and fiscal objective labels OK");
+  [{...imported,projectId:"p21"}, "unassessed"],
+  [{...imported,sourceRef:"PWA共有管理画面"}, "unassessed"],
+]) if (classify(task, "2026-08-31") !== expectedState) throw new Error("provisional month-plan status boundary failed");
+if (/projectId === "p\d+"/.test(timelineSource))
+  throw new Error("timeline must not branch on PJ numbers (spec 3-23)");
+if (!timelineSource.includes("到達目標 {sxFormatDate(timeline.objectiveDate)}"))
+  throw new Error("objective marker label must be the same for every PJ");
+console.log("Provisional month-plan status and uniform objective label OK");

@@ -30,9 +30,6 @@ const SEED_STATUS_LABEL: Record<string, string> = {
   spun_off: "事業化進行",
 };
 
-const EHIME_UNIVERSITY_PROJECT_ID = "p30";
-const EHIME_UNIVERSITY_SCOPE_LABELS = ["研究機関PJ", "愛媛大全体"];
-
 type SeedProjectBadge = { label: string };
 
 function formatSpsYen(value: number | null) {
@@ -47,18 +44,26 @@ function seedProjectBadges(
   const lifecycle = projectStatusLifecycle(project.status);
   if (lifecycle === "realized") badges.push({ label: "AMD PJ化済み" });
   else if (lifecycle === "considering") badges.push({ label: "PJ化検討中" });
-  if (project.projectId === "p21" || project.commercializationStage === "pre_incorporation") {
+  if (project.commercializationStage === "pre_incorporation") {
     badges.push({ label: "会社未設立" });
   }
   return badges;
 }
 
+// 研究機関PJのカードは、どの研究機関でも同じ札（研究機関PJ・関わる範囲）とエコシステムの目標を出す。
+// 中身は institution_projects のデータから出し、PJ番号で書き分けない（2026-10-03 まさ「全部統一してないとだめ」、spec 3-23）。
+function institutionScopeLabel(project: InstitutionWorkspaceData["projects"][number]): string | null {
+  if (project.engagementScope === "university_wide") return "全学";
+  return project.targetUnit ?? null;
+}
+
 function ProjectCardMeta({ project }: { project: InstitutionWorkspaceData["projects"][number] }) {
-  if (project.projectId === EHIME_UNIVERSITY_PROJECT_ID) {
+  if (project.isInstitutionProject) {
+    const labels = ["研究機関PJ", institutionScopeLabel(project)].filter((label): label is string => Boolean(label));
     return (
       <span className="flex flex-col items-end gap-1 text-right">
         <span className="flex flex-wrap justify-end gap-1">
-          {EHIME_UNIVERSITY_SCOPE_LABELS.map((label) => (
+          {labels.map((label) => (
             <span
               key={label}
               className="rounded-full border border-[#e4ddcd] bg-[#f4f1e7] px-2 py-0.5 text-[10px] font-semibold text-[#5c584d]"

@@ -175,7 +175,8 @@ export function CockpitProjectTasks({ projectId }: Props) {
   const [detail, setDetail] = useState<ActionNode | null>(null);
   const [completing, setCompleting] = useState<ActionNode | null>(null);
   const [completionEvidence, setCompletionEvidence] = useState("");
-  const [taskScope, setTaskScope] = useState<TaskScope>(() => projectId === "p19" ? "focus" : "all");
+  // 開いたときの絞り込みは全PJ同じ（spec 3-23）。
+  const [taskScope, setTaskScope] = useState<TaskScope>("all");
 
   // ---- 並べ替え（掴んだ瞬間から指に付いてくる自前ドラッグ） -------------------
   const [dragId, setDragId] = useState<string | null>(null);
@@ -425,7 +426,8 @@ export function CockpitProjectTasks({ projectId }: Props) {
   };
 
   const toggleDone = (action: ActionNode) => {
-    if (projectId === "p21" && action.status !== "done") {
+    // 完了に証跡が要るPJ（タスクpt検収の試行）かどうかは、APIが返す答えで決める。PJ番号では分けない。
+    if (bundle?.requiresDoneEvidence && action.status !== "done") {
       setCompleting(action);
       setCompletionEvidence(action.doneEvidence ?? "");
       return;

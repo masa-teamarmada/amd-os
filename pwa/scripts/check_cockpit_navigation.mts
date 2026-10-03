@@ -1,87 +1,101 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {
-  COCKPIT_GROUPS,
   COCKPIT_TABS,
   DEFAULT_COCKPIT_TAB,
-  cockpitGroupForTab,
-  resolveCockpitTab,
+  cockpitGroupForTabInType,
+  cockpitGroupsForType,
+  resolveCockpitTabForType,
 } from "../src/lib/cockpit-tabs.ts";
+import { PROJECT_FORMAT_TYPES, projectFormatTypeOf } from "../src/lib/project-formats.ts";
+
+// タブの並びはPJタイプ（大学発SU・新規事業・研究機関エコシステム・AMD本体）ごとに1つ。
+// 同じタイプのPJは、データの有無にかかわらず同じタブを持つ（2026-10-03 まさ「全部統一してないとだめ。OSの大原則」、spec 3-23）。
+const TYPES = PROJECT_FORMAT_TYPES.map((entry) => entry.type);
+assert.deepEqual(TYPES, ["su", "new_business", "ecosystem", "amd"]);
 
 assert.ok(!COCKPIT_TABS.includes("themes" as never), "themes must stay out of the PJ cockpit");
 assert.ok(COCKPIT_TABS.includes("objective-structure"), "legacy objective URL must remain parseable");
-assert.ok(
-  !COCKPIT_GROUPS.normal.some((group) => group.children.includes("objective-structure")),
-  "objective structure must no longer be a visible cockpit tab",
-);
+assert.ok(COCKPIT_TABS.includes("cost-fuel"), "legacy fuel cost URL must remain parseable");
+for (const type of TYPES) {
+  const children = cockpitGroupsForType(type).flatMap((group) => group.children);
+  assert.ok(!children.includes("objective-structure"), `${type}: objective structure must no longer be a visible cockpit tab`);
+  assert.ok(!children.includes("cost-fuel"), `${type}: fuel cost lives inside the cost tab, not as its own tab`);
+  assert.equal(new Set(children).size, children.length, `${type} cockpit tabs must belong to only one group`);
+}
 
+const STANDARD_GROUPS = ["進捗管理", "事業計画", "ドライブ", "PJ管理", "会社情報", "DDパッケージ"];
+for (const type of ["su", "new_business", "amd"] as const) {
+  // DDパッケージのタブは、AMDの管理者が見るときだけ出る（表示条件は CockpitView の役割の判定）。PJでは出し分けない。
+  assert.deepEqual(cockpitGroupsForType(type).map((group) => group.label), STANDARD_GROUPS, `${type} groups`);
+}
 assert.deepEqual(
-  COCKPIT_GROUPS.normal.map((group) => group.label),
-  // DDパッケージは、DDパッケージを持つPJだけに出る（表示条件は CockpitView）。
-  ["進捗管理", "事業計画", "ドライブ", "PJ管理", "会社情報", "DDパッケージ"],
-);
-assert.deepEqual(
-  COCKPIT_GROUPS.institution.map((group) => group.label),
+  cockpitGroupsForType("ecosystem").map((group) => group.label),
   ["進捗管理", "シーズリスト", "規程・内規", "ドライブ", "PJ管理", "会社情報"],
 );
+// 事業計画グループの中身は大学発SU・新規事業で同じ。AMD本体は AMD Score の内訳だけを持たない。
+const businessPlan = (type: "su" | "new_business" | "amd") =>
+  cockpitGroupsForType(type).find((group) => group.key === "business-plan-group")?.children;
+assert.deepEqual(businessPlan("su"), ["score-detail", "technology", "competition", "business-model", "business-plan", "financial-projection", "capital-plan", "cost-model", "ip"]);
+assert.deepEqual(businessPlan("new_business"), businessPlan("su"));
+assert.deepEqual(businessPlan("amd"), businessPlan("su")!.filter((tab) => tab !== "score-detail"));
 
-for (const [kind, groups] of Object.entries(COCKPIT_GROUPS)) {
-  const children = groups.flatMap((group) => group.children);
-  assert.equal(
-    new Set(children).size,
-    children.length,
-    `${kind} cockpit tabs must belong to only one group`,
-  );
-}
+// PJタイプは projects.project_category で決まる。顧問PJは大学発SUと同じ形（2026-10-03 まさ「おけ」）。
+assert.equal(projectFormatTypeOf({ projectId: "pX", projectCategory: "dtsu" }), "su");
+assert.equal(projectFormatTypeOf({ projectId: "pX", projectCategory: "advisor" }), "su");
+assert.equal(projectFormatTypeOf({ projectId: "pX", projectCategory: "new_business" }), "new_business");
+assert.equal(projectFormatTypeOf({ projectId: "pX", projectCategory: "ecosystem" }), "ecosystem");
+assert.equal(projectFormatTypeOf({ projectId: "pX", projectCategory: null }), "su");
 
-assert.equal(cockpitGroupForTab("gantt", false).label, "進捗管理");
-assert.equal(cockpitGroupForTab("objective-structure", false).label, "進捗管理");
-assert.equal(cockpitGroupForTab("objective-structure", true).label, "進捗管理");
-assert.equal(cockpitGroupForTab("capital-policy", false).label, "会社情報");
-assert.equal(cockpitGroupForTab("financial-projection", false).label, "事業計画");
-assert.equal(cockpitGroupForTab("capital-plan", false).label, "事業計画");
-assert.equal(cockpitGroupForTab("overview", false).label, "PJ管理");
-for (const institution of [false, true]) {
-  assert.equal(cockpitGroupForTab("monthly-reports", institution).label, "PJ管理");
-  assert.equal(resolveCockpitTab("monthly-reports", institution), "monthly-reports");
+for (const type of ["su", "ecosystem"] as const) {
+  assert.equal(cockpitGroupForTabInType("gantt", type).label, "進捗管理");
+  assert.equal(cockpitGroupForTabInType("objective-structure", type).label, "進捗管理");
+  assert.equal(cockpitGroupForTabInType("monthly-reports", type).label, "PJ管理");
+  assert.equal(resolveCockpitTabForType("monthly-reports", type), "monthly-reports");
+  // ドライブは PJ管理 の中ではなく分類そのもの (2026-09-02 まさ依頼)
+  assert.equal(cockpitGroupForTabInType("documents", type).label, "ドライブ");
 }
-assert.equal(cockpitGroupForTab("project-contracts", false).label, "PJ管理");
-assert.equal(cockpitGroupForTab("project-finance", false).label, "PJ管理");
-assert.equal(cockpitGroupForTab("company", false).label, "会社情報");
-assert.equal(cockpitGroupForTab("activity", false).label, "会社情報");
-assert.equal(cockpitGroupForTab("seeds", true).label, "シーズリスト");
-// ドライブは PJ管理 の中ではなく分類そのもの (2026-09-02 まさ依頼)
-assert.equal(cockpitGroupForTab("documents", false).label, "ドライブ");
-assert.equal(cockpitGroupForTab("documents", true).label, "ドライブ");
-assert.equal(cockpitGroupForTab("regulations", true).label, "規程・内規");
-assert.equal(cockpitGroupForTab("dd", false).label, "DDパッケージ");
+assert.equal(cockpitGroupForTabInType("capital-policy", "su").label, "会社情報");
+assert.equal(cockpitGroupForTabInType("financial-projection", "su").label, "事業計画");
+assert.equal(cockpitGroupForTabInType("capital-plan", "su").label, "事業計画");
+assert.equal(cockpitGroupForTabInType("cost-fuel", "su").label, "事業計画");
+assert.equal(cockpitGroupForTabInType("overview", "su").label, "PJ管理");
+assert.equal(cockpitGroupForTabInType("project-contracts", "su").label, "PJ管理");
+assert.equal(cockpitGroupForTabInType("project-finance", "su").label, "PJ管理");
+assert.equal(cockpitGroupForTabInType("company", "su").label, "会社情報");
+assert.equal(cockpitGroupForTabInType("activity", "su").label, "会社情報");
+assert.equal(cockpitGroupForTabInType("seeds", "ecosystem").label, "シーズリスト");
+assert.equal(cockpitGroupForTabInType("regulations", "ecosystem").label, "規程・内規");
+assert.equal(cockpitGroupForTabInType("dd", "su").label, "DDパッケージ");
 
 // 進捗管理はゴールツリー → タスク → ガント → 残りは元の順。既定タブはその一番左
 // （2026-09-13 まさ「進捗グループを使うときは最初に論点タブを開くので、一番左を論点、
-//  次にタスク、次にガント、あとはそのままの順番に」）。
-for (const kind of ["normal", "institution"] as const) {
-  const progress = COCKPIT_GROUPS[kind].find((group) => group.key === "progress-group");
+//  次にタスク、次にガント、あとはそのままの順番に」）。開いたときのタブは全PJ同じ。
+for (const type of TYPES) {
+  const progress = cockpitGroupsForType(type).find((group) => group.key === "progress-group");
   assert.deepEqual(
     progress?.children,
     ["issues", "tasks", "gantt", "progress", "meetings", "slack", "weekly", "partners"],
-    `${kind} progress group order`,
+    `${type} progress group order`,
   );
 }
 assert.equal(DEFAULT_COCKPIT_TAB, "issues");
 
-assert.equal(resolveCockpitTab("capital-policy", true), "capital-policy");
-assert.equal(resolveCockpitTab("capital-plan", true), DEFAULT_COCKPIT_TAB);
-assert.equal(resolveCockpitTab("business-plan", true), DEFAULT_COCKPIT_TAB);
-assert.equal(resolveCockpitTab("dd", true), DEFAULT_COCKPIT_TAB, "研究機関PJにはDDパッケージのタブを出さない");
-assert.equal(resolveCockpitTab("dd", false), "dd");
-assert.equal(resolveCockpitTab("seeds", false), DEFAULT_COCKPIT_TAB);
-assert.equal(resolveCockpitTab("regulations", false), DEFAULT_COCKPIT_TAB);
-assert.equal(resolveCockpitTab("overview", true), "overview");
-assert.equal(resolveCockpitTab("project-contracts", true), "project-contracts");
-assert.equal(resolveCockpitTab("project-finance", true), "project-finance");
-assert.equal(resolveCockpitTab("activity", true), "activity");
-assert.equal(resolveCockpitTab("objective-structure", false), "gantt");
-assert.equal(resolveCockpitTab("objective-structure", true), "gantt");
+assert.equal(resolveCockpitTabForType("capital-policy", "ecosystem"), "capital-policy");
+assert.equal(resolveCockpitTabForType("capital-plan", "ecosystem"), DEFAULT_COCKPIT_TAB);
+assert.equal(resolveCockpitTabForType("business-plan", "ecosystem"), DEFAULT_COCKPIT_TAB);
+assert.equal(resolveCockpitTabForType("dd", "ecosystem"), DEFAULT_COCKPIT_TAB, "研究機関PJにはDDパッケージのタブを出さない");
+assert.equal(resolveCockpitTabForType("dd", "su"), "dd");
+assert.equal(resolveCockpitTabForType("seeds", "su"), DEFAULT_COCKPIT_TAB);
+assert.equal(resolveCockpitTabForType("regulations", "su"), DEFAULT_COCKPIT_TAB);
+assert.equal(resolveCockpitTabForType("score-detail", "amd"), DEFAULT_COCKPIT_TAB, "AMD本体は AMD Score の内訳を持たない");
+assert.equal(resolveCockpitTabForType("overview", "ecosystem"), "overview");
+assert.equal(resolveCockpitTabForType("project-contracts", "ecosystem"), "project-contracts");
+assert.equal(resolveCockpitTabForType("project-finance", "ecosystem"), "project-finance");
+assert.equal(resolveCockpitTabForType("activity", "ecosystem"), "activity");
+assert.equal(resolveCockpitTabForType("objective-structure", "su"), "gantt");
+assert.equal(resolveCockpitTabForType("objective-structure", "ecosystem"), "gantt");
+assert.equal(resolveCockpitTabForType("cost-fuel", "su"), "cost-model", "旧 ?tab=cost-fuel はコスト試算タブを開く");
 
 const cockpitViewSource = fs.readFileSync(
   new URL("../src/components/cockpit/CockpitView.tsx", import.meta.url),
@@ -92,6 +106,7 @@ assert.match(cockpitViewSource, /min-h-11 sm:min-h-8/, "mobile child touch targe
 assert.match(cockpitViewSource, /min-h-11 sm:min-h-7/, "mobile float target with compact desktop height");
 assert.doesNotMatch(cockpitViewSource, /className={`min-h-12 w-full/, "legacy oversized group height must not return");
 assert.doesNotMatch(cockpitViewSource, /className={`flex min-h-11 w-full cursor-pointer items-center/, "legacy oversized float height must not return");
+assert.match(cockpitViewSource, /const groups = cockpitGroupsForType\(formatType\);/, "groups come from the PJ type format");
 
 const kuteSeedsSource = fs.readFileSync(
   new URL("../src/components/cockpit/CockpitKuteSeeds.tsx", import.meta.url),

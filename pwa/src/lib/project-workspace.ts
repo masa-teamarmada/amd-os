@@ -44,6 +44,10 @@ export type ProjectWorkspaceBundle = {
     projectName: string;
     clientName: string | null;
     status: string;
+    /** PJタイプを決める分類（spec 3-23）。 */
+    projectCategory: string | null;
+    /** 利用者に見せる名前。無ければ projectName を使う。 */
+    displayName: string | null;
   };
   currentWeekStart: string;
   currentMonth: string;
@@ -327,7 +331,7 @@ const getWorkspaceIdentityCached = unstable_cache(
     const db = createAdminClient();
     const [{ data: project, error: projectError }, { data: membershipRows, error: memberError }] =
       await Promise.all([
-        db.from("projects").select("project_id,project_name,client_name,status").eq("project_id", projectId).maybeSingle(),
+        db.from("projects").select("project_id,project_name,client_name,status,project_category,display_name").eq("project_id", projectId).maybeSingle(),
         db.from("project_members").select("member_id,role_label,is_pm,is_pl,is_closer").eq("project_id", projectId).eq("is_active", true),
       ]);
     if (projectError) throw new Error(`project workspace project: ${projectError.message}`);
@@ -872,6 +876,8 @@ export async function getProjectWorkspaceBundle(
       projectName: String(project.project_name),
       clientName: project.client_name ? String(project.client_name) : null,
       status: String(project.status),
+      projectCategory: project.project_category ? String(project.project_category) : null,
+      displayName: project.display_name ? String(project.display_name) : null,
     },
     currentWeekStart,
     currentMonth,

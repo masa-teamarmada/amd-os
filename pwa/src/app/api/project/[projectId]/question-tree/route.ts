@@ -7,6 +7,7 @@ import {
   getQuestionTreeBundle,
 } from "@/lib/question-tree";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isTaskPointPilot, isTaskPointReviewProject } from "@/lib/task-point-ledger";
 import { syncRewardSummaryForCycle } from "@/lib/reward-summary";
 
 /**
@@ -232,8 +233,8 @@ function assertActionRules(fields: Record<string, unknown>, existing?: Record<st
   if (status === "done") {
     const actualEnd = (fields.actual_end ?? existing?.actual_end) as string | null | undefined;
     if (!actualEnd) throw new Error("完了にするには完了日が要るよ");
-    if (projectId === "p21" && existing?.status !== "done" && !String(fields.done_evidence ?? existing?.done_evidence ?? "").trim()) {
-      throw new Error("SXのTODOを完了するには証跡のリンクか一文が要るよ");
+    if (projectId && isTaskPointReviewProject(projectId) && existing?.status !== "done" && !String(fields.done_evidence ?? existing?.done_evidence ?? "").trim()) {
+      throw new Error("このPJのTODOを完了するには証跡のリンクか一文が要るよ");
     }
   }
 }
@@ -263,7 +264,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       }
       const view = await getGoalTreePointsView(projectId);
       let canReviewTaskPt = false;
-      if (projectId === "p21") {
+      // 検収の行は全PJに出す。検収できるのは試行に入っているPJの、その月以降・PM/PLだけ。
+      const taskPointReview = isTaskPointReviewProject(projectId);
+      const taskPointReviewOpen = isTaskPointPilot(projectId, view.asOf.slice(0, 7).replace("-", ""));
+      if (taskPointReview) {
         const { data: role, error: roleError } = await createAdminClient()
           .from("project_members")
           .select("is_pm,is_pl")
@@ -274,11 +278,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         if (roleError) throw roleError;
         canReviewTaskPt = Boolean(role?.is_pm || role?.is_pl);
       }
-      return NextResponse.json({ ...view, canReviewTaskPt }, { headers: READ_CACHE });
+      return NextResponse.json({ ...view, canReviewTaskPt, taskPointReview, taskPointReviewOpen }, { headers: READ_CACHE });
     }
 
     const bundle = await getQuestionTreeBundle(projectId, canManage);
-    return NextResponse.json(bundle, { headers: READ_CACHE });
+    return NextResponse.json({ ...bundle, requiresDoneEvidence: isTaskPointReviewProject(projectId) }, { headers: READ_CACHE });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "ゴールツリーを取得できなかったよ" },
@@ -541,7 +545,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (!isRecord(body)) throw new Error("更新内容が不正です");
 
     if (body.resource === "action_pt_review") {
-      if (projectId !== "p21") throw new Error("タスクpt検収はSXの試行のみ");
+      if (!isTaskPointReviewProject(projectId)) throw new Error("このPJはタスクpt検収の試行に入っていない");
       const actionId = typeof body.action_id === "string" ? body.action_id : "";
       const acceptedPt = Number(body.accepted_pt);
       if (!actionId || !Number.isFinite(acceptedPt) || acceptedPt < 0 || Math.round(acceptedPt * 10) / 10 !== acceptedPt) {

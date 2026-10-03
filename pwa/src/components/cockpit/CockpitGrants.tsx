@@ -15,6 +15,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { projectFormatTypeOf } from "@/lib/project-formats";
 
 type GrantAttachment = { document_id?: string | null; url?: string | null; name?: string | null };
 
@@ -106,7 +107,8 @@ export function CockpitGrants({ projectId }: { projectId: string }) {
     return () => { live = false; };
   }, [projectId]);
 
-  if (projectId === "p00") return null;
+  // AMD本体（PJタイプではなく会社の経営面）の形には助成金の区画が無い（spec 3-23）。PJ番号では分けない。
+  if (projectFormatTypeOf({ projectId }) === "amd") return null;
 
   const current = loaded && loaded.projectId === projectId ? loaded : null;
   const loading = current === null;

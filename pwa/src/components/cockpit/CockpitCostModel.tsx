@@ -239,11 +239,11 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
     return <EmptyState canEdit={canEdit} />;
   }
 
-  // LiSTie は、現時点で全工程の原価式ではなく取締役会資料にある
-  // 「膜＋電力」の部分試算だけが根拠付きで存在する。SX の4シナリオ式を
-  // 流用すると総原価のように誤読されるため、専用の表示に分ける。
-  if (bundle.model.caseKind === "other" && bundle.model.caseLabel === "LiSTie 膜＋電力 部分試算") {
-    return <LiSTiePartialCostModel bundle={bundle} />;
+  // 試算の種類が「その他」（全工程の原価式ではない部分試算）は、処理原価の4シナリオ式を流用すると
+  // 総原価のように誤読されるため、全PJ共通の「部分試算（前提の一覧）」の形で描く。
+  // PJ名や試算名では分けない（2026-10-03 まさ「全部統一してないとだめ」、spec 3-23）。
+  if (bundle.model.caseKind === "other") {
+    return <PartialCostModel bundle={bundle} />;
   }
 
   const { model } = working;
@@ -502,52 +502,51 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
   );
 }
 
-function LiSTiePartialCostModel({ bundle }: { bundle: CostModelBundle }) {
-  const byRole = new Map(bundle.assumptions.map((a) => [a.roleKey, a]));
-  const value = (roleKey: string) => byRole.get(roleKey)?.value ?? 0;
-  const target = byRole.get("target_total_cost_usd_per_kg")?.valueText ?? "3 USD/kg 以下";
-
+/**
+ * 部分試算（前提の一覧）。全工程の原価式を持たない古い試算を、前提の区分ごとに数字と根拠で並べる。
+ * どのPJでも同じ形。中身（区分・項目・値・単位・確度・出典・注記）はすべて project_cost_assumptions から出す。
+ * 明細か作業を持つ試算は、標準フォーマット（ProjectCostFormat）で描く（入口は CockpitCostTab）。
+ */
+function PartialCostModel({ bundle }: { bundle: CostModelBundle }) {
+  const groups = new Map<string, CostModelBundle["assumptions"]>();
+  for (const assumption of [...bundle.assumptions].sort((left, right) => left.sortOrder - right.sortOrder)) {
+    const key = assumption.groupLabel || "前提";
+    groups.set(key, [...(groups.get(key) ?? []), assumption]);
+  }
+  const valueText = (assumption: CostModelBundle["assumptions"][number]) => {
+    if (assumption.value === null || assumption.value === undefined) return assumption.valueText ?? "未登録";
+    return `${num(assumption.value)}${assumption.unit ? ` ${assumption.unit}` : ""}`;
+  };
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3" data-testid="cost-model-partial">
       <section className="rounded-xl border border-[#e5e5e7] bg-white p-4 sm:p-5">
         <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center rounded-full bg-[#1d1d1f] px-2.5 py-1 text-[11px] font-semibold text-white">部分試算</span>
           <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[#1d1d1f]">{bundle.model.title}</h2>
         </div>
-        <p className="mt-3 whitespace-pre-wrap text-[12px] leading-6 text-[#3c3c43]">{bundle.model.summaryMd}</p>
-        {bundle.model.sourceNote && <p className="mt-2 text-[11px] text-[#6e6e73]">{bundle.model.sourceNote}</p>}
+        {bundle.model.summaryMd ? <p className="mt-3 whitespace-pre-wrap text-[12px] leading-6 text-[#3c3c43]">{bundle.model.summaryMd}</p> : null}
+        {bundle.model.sourceNote ? <p className="mt-2 text-[11px] text-[#6e6e73]">{bundle.model.sourceNote}</p> : null}
+        <p className="mt-2 text-[11px] leading-5 text-[#6e6e73]">全工程の総原価ではない。下の数字は、根拠のある範囲の前提だけを区分ごとに並べたもの。</p>
       </section>
-
-      <section className="rounded-xl border border-[#f0c36d] bg-[#fffaf0] p-4 sm:p-5">
-        <h3 className="text-[13px] font-semibold text-[#1d1d1f]">事業としての総コスト目標</h3>
-        <p className="mt-1 text-[24px] font-semibold tabular-nums text-[#1d1d1f]">{target}</p>
-        <p className="mt-1 text-[11px] leading-5 text-[#6e6e73]">この目標は全工程の総コスト。下の円/kg試算は膜＋電力だけで、為替換算や全体原価との比較はまだしていない。</p>
-      </section>
-
-      <section className="rounded-xl border border-[#e5e5e7] bg-white p-4 sm:p-5">
-        <h3 className="text-[13px] font-semibold text-[#1d1d1f]">5Aケースの膜＋電力コスト</h3>
-        <div className="mt-3 grid gap-2 sm:grid-cols-3">
-          <Metric label="膜＋電力" value={`${num(value("partial_cost_5a_total"))} 円/kg`} note="全工程の総原価ではない" />
-          <Metric label="うち膜" value={`${num(value("partial_cost_5a_membrane"))} 円/kg`} />
-          <Metric label="うち電力" value={`${num(value("partial_cost_5a_power"))} 円/kg`} />
-        </div>
-      </section>
-
-      <section className="rounded-xl border border-[#e5e5e7] bg-white p-4 sm:p-5">
-        <h3 className="text-[13px] font-semibold text-[#1d1d1f]">膜寿命の感度</h3>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <Metric label="膜寿命2年の場合" value={`${num(value("partial_cost_membrane_life_2y"))} 円/kg`} note="膜＋電力の部分試算" />
-          <Metric label="5Aケースからの低下" value={`${num(value("partial_cost_membrane_life_2y_reduction"))}%`} note="膜寿命の改善が優先論点" />
-        </div>
-      </section>
-
-      <section className="rounded-xl border border-[#e5e5e7] bg-white p-4 sm:p-5">
-        <h3 className="text-[13px] font-semibold text-[#1d1d1f]">膜単価の前提</h3>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <Metric label="従来前提" value={`${num(value("membrane_price_old"), 0)} 千円/m²`} />
-          <Metric label="2028年目安" value={`${num(value("membrane_price_2028"), 0)} 千円/m²`} note="資料中の提示値。見積確定値ではない" />
-        </div>
-      </section>
+      {groups.size === 0 ? (
+        <section className="rounded-xl border border-dashed border-[#d2d2d7] bg-white p-4 text-[12px] text-[#6e6e73]">前提は未登録。</section>
+      ) : (
+        [...groups.entries()].map(([group, assumptions]) => (
+          <section key={group} className="rounded-xl border border-[#e5e5e7] bg-white p-4 sm:p-5">
+            <h3 className="text-[13px] font-semibold text-[#1d1d1f]">{group}</h3>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              {assumptions.map((assumption) => (
+                <Metric
+                  key={assumption.costAssumptionId}
+                  label={assumption.label}
+                  value={valueText(assumption)}
+                  note={[assumption.confidence ? `確度${assumption.confidence}` : null, assumption.sourceKind, assumption.note].filter(Boolean).join("・") || undefined}
+                />
+              ))}
+            </div>
+          </section>
+        ))
+      )}
     </div>
   );
 }
@@ -573,7 +572,7 @@ function EmptyState({ canEdit }: { canEdit: boolean }) {
       </p>
       <p className="mt-2 text-[11px] leading-5 text-[#6e6e73]">
         {canEdit
-          ? "登録するときは SOL (p21) の構成を雛形にする。変数に role_key を振ると計算エンジンが読む。"
+          ? "登録するときは、既にある試算の構成を雛形にする。変数に role_key を振ると計算エンジンが読む。"
           : "登録の依頼は AMD 側の管理者へ。"}
       </p>
     </div>

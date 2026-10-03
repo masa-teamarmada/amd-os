@@ -97,5 +97,5 @@ export function DdCostModelLive({ data }: { data: DdLiveCostModel }) {
   }
   return data.costKind === "fuel"
     ? <CockpitFuelCostModel projectId={data.projectId} allowEdit={false} />
-    : <CockpitCostTab projectId={data.projectId} allowEdit={false} />;
+    : <CockpitCostTab projectId={data.projectId} allowEdit={false} includeFuel={false} />;
 }

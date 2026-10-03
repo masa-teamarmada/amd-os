@@ -5,31 +5,119 @@
  * 勝手にそれを書き換えないように制限をかけてほしい。新たなデータが入るときには、新たなグラフを
  * 入れるんじゃなくて、フォーマットで生成されているグラフにその数値データを入れる形にしてほしい」。
  *
- * - 画面はこの定義の順に区画を描く。PJ番号で表示を分けない。PJごとの違いはデータだけで出す。
+ * 2026-10-03 まさ確定「全部統一してないとだめ。OSの大原則。あと中身があるときだけ出るタブってなに？
+ * すべてのフォーマットが同じ状態で表示されてないとだめ」。
+ *
+ * - 画面はこの定義の順にタブと区画を描く。PJ番号で表示を分けない。PJごとの違いはデータだけで出す。
+ * - タブは、データの有無にかかわらず全部出す。中身が無いタブは、タブの中で「未登録」と出す。
  * - 新しい種類の数字が来たら、下の行・グラフのどれに入るかを決めてデータ側で渡す。区画やグラフを足さない。
- * - **このファイルは鍵付き**。中身を変えると `project-format.lock.json` の sha256 と合わなくなり、
+ * - **このファイルは鍵付き**。中身を変えると `scripts/project_format_lock.json` の sha256 と合わなくなり、
  *   `npm run test:project-format`（本番反映の前に必ず走る）が止める。変えてよいのは、まさが明示で
  *   承認したときだけ。承認の言葉を lock の approvals に足してから sha256 を更新する。
  */
 
-/** PJタイプ。`projects.project_category` から決める（顧問PJは会社の試算表なので大学発SUと同じ形）。 */
-export type ProjectFormatType = "su" | "new_business" | "ecosystem";
+/**
+ * PJタイプ。`projects.project_category` から決める（顧問PJは会社の試算表なので大学発SUと同じ形）。
+ * AMD本体（株式会社チームアルマダ自身のPJ）は、PJタイプではなく会社の経営面なので別の形を持つ。
+ * 2026-10-03 まさ確定「全部統一してないとだめ。OSの大原則」。同じタイプのPJは、同じタブ・同じ区画で描く。
+ */
+export type ProjectFormatType = "su" | "new_business" | "ecosystem" | "amd";
+
+/** AMD本体を表すPJ。PJ番号を名指ししてよいのは、この定義（鍵付き）の中だけ。 */
+export const AMD_COMPANY_PROJECT_ID = "p00";
 
 export const PROJECT_FORMAT_TYPES: ReadonlyArray<{
   type: ProjectFormatType;
   label: string;
   categories: readonly string[];
-  hasFinanceTab: boolean;
 }> = [
-  { type: "su", label: "大学発SU", categories: ["dtsu", "advisor"], hasFinanceTab: true },
-  { type: "new_business", label: "新規事業", categories: ["new_business"], hasFinanceTab: true },
-  { type: "ecosystem", label: "研究機関エコシステム", categories: ["ecosystem"], hasFinanceTab: false },
+  { type: "su", label: "大学発SU", categories: ["dtsu", "advisor"] },
+  { type: "new_business", label: "新規事業", categories: ["new_business"] },
+  { type: "ecosystem", label: "研究機関エコシステム", categories: ["ecosystem"] },
+  { type: "amd", label: "AMD本体", categories: [] },
 ];
 
-export function projectFormatTypeOf(projectCategory: string | null | undefined): ProjectFormatType {
-  const category = projectCategory || "dtsu";
+export function projectFormatTypeOf(project: { projectId: string; projectCategory?: string | null }): ProjectFormatType {
+  if (project.projectId === AMD_COMPANY_PROJECT_ID) return "amd";
+  const category = project.projectCategory || "dtsu";
   return PROJECT_FORMAT_TYPES.find((entry) => entry.categories.includes(category))?.type ?? "su";
 }
+
+/**
+ * コックピットのタブ。タイプごとに、データの有無にかかわらず全タブを出す（中身が無いタブは空の状態を出す）。
+ * 見る人の役割で出し分けるのは ROLE_RESTRICTED_TABS だけ。PJで出し分けない。
+ */
+const COCKPIT_STANDARD_TABS = [
+  { group: "progress-group", tabs: ["issues", "tasks", "gantt", "progress", "meetings", "slack", "weekly", "partners"] },
+  { group: "business-plan-group", tabs: ["score-detail", "technology", "competition", "business-model", "business-plan", "financial-projection", "capital-plan", "cost-model", "ip"] },
+  { group: "documents-group", tabs: ["documents"] },
+  { group: "project-management-group", tabs: ["overview", "project-contracts", "project-finance", "monthly-reports"] },
+  { group: "company-information-group", tabs: ["company", "capital-policy", "activity"] },
+  { group: "dd-group", tabs: ["dd"] },
+] as const;
+
+export const COCKPIT_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ group: string; tabs: readonly string[] }>> = {
+  su: COCKPIT_STANDARD_TABS,
+  new_business: COCKPIT_STANDARD_TABS,
+  // AMD本体はスコアを付けない（AMD Score は支援先の事業の評価）。
+  amd: COCKPIT_STANDARD_TABS.map((group) => ({ group: group.group, tabs: group.tabs.filter((tab) => tab !== "score-detail") })),
+  ecosystem: [
+    { group: "progress-group", tabs: ["issues", "tasks", "gantt", "progress", "meetings", "slack", "weekly", "partners"] },
+    { group: "seeds-group", tabs: ["seeds"] },
+    { group: "regulations-group", tabs: ["regulations"] },
+    { group: "documents-group", tabs: ["documents"] },
+    { group: "project-management-group", tabs: ["overview", "project-contracts", "project-finance", "monthly-reports"] },
+    { group: "company-information-group", tabs: ["company", "capital-policy", "activity"] },
+  ],
+};
+
+/** PJワークスペース（PJメンバーと共有する面）のタブ。コックピットと同じく、タイプごとに全タブを出す。 */
+const WORKSPACE_STANDARD_TABS = [
+  { group: "progress-group", tabs: ["issues", "tasks", "gantt", "weekly", "partners"] },
+  { group: "business-plan-group", tabs: ["technology", "competition", "business-model", "business-plan", "financial-projection", "capital-plan", "cost", "ip"] },
+  { group: "documents-group", tabs: ["drive"] },
+  { group: "company-information-group", tabs: ["company", "capital-policy"] },
+  { group: "dd-group", tabs: ["dd"] },
+] as const;
+
+export const WORKSPACE_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ group: string; tabs: readonly string[] }>> = {
+  su: WORKSPACE_STANDARD_TABS,
+  new_business: WORKSPACE_STANDARD_TABS,
+  amd: WORKSPACE_STANDARD_TABS,
+  ecosystem: [
+    { group: "progress-group", tabs: ["issues", "tasks", "gantt", "weekly", "partners"] },
+    { group: "documents-group", tabs: ["drive"] },
+    { group: "company-information-group", tabs: ["company", "capital-policy"] },
+  ],
+};
+
+/** 見る人の役割で出し分けるタブ。DDパッケージの管理はAMDの管理者だけ（PJでは出し分けない）。 */
+export const ROLE_RESTRICTED_TABS: Readonly<Record<string, "amd_admin">> = { dd: "amd_admin" };
+
+/** 開いたときのタブ。全PJ同じ。 */
+export const DEFAULT_TABS = {
+  cockpit: "issues",
+  workspaceInternal: "weekly",
+  workspaceExternal: "issues",
+} as const;
+
+/** 事業計画タブ。全PJで同じ「フェーズマトリクス」を描き、中身は project_business_plans のデータから出す。 */
+export const BUSINESS_PLAN_FORMAT = {
+  sections: [{ key: "phase-matrix", label: "フェーズマトリクス" }],
+  lanes: [
+    { key: "business", label: "事業開発" },
+    { key: "technology", label: "技術開発" },
+    { key: "organization", label: "組織開発" },
+    { key: "funding", label: "資金調達" },
+  ],
+  xrl: [
+    { key: "trl", label: "TRL" },
+    { key: "brl", label: "BRL" },
+    { key: "grl", label: "GRL" },
+    { key: "srl", label: "SRL" },
+    { key: "hrl", label: "HRL" },
+  ],
+} as const;
 
 /** 試算表タブの区画。画面はこの順に、データの有無にかかわらず全区画を描く（無いところは「未登録」）。 */
 export const FINANCE_FORMAT_SECTIONS = [
