@@ -240,13 +240,16 @@ export function CostFormatResults({
                     aria-pressed={active}
                     onClick={() => onSelectCase(c.key)}
                     title={[`${caseOptionLabel(c, unit)}/年 総コスト ${amount(r.totalPerUnit)} 円/${unit}`, ...caseRows.filter((x) => x.amount > 0).map((x) => `${x.label} ${amount(x.amount)}`)].join("\n")}
-                    className={`grid w-full grid-cols-[96px_minmax(0,1fr)_112px] items-center gap-2 rounded-md px-1.5 py-1 text-left ${active ? "bg-[#e8f3fc]" : "hover:bg-[#f5f5f7]"}`}
+                    className={`grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 rounded-md px-1.5 py-1 text-left sm:grid-cols-[96px_minmax(0,1fr)_112px] ${active ? "bg-[#e8f3fc]" : "hover:bg-[#f5f5f7]"}`}
                   >
                     <span className="min-w-0">
                       <span className="block text-[12px] font-semibold tabular-nums text-[#1d1d1f]">{caseOptionLabel(c, unit)}/年</span>
                       {c.label && <span className="block truncate text-[10px] text-[#6e6e73]">{c.label}</span>}
                     </span>
-                    <StackedBar rows={caseRows} scaleMax={scaleMax} price={r.salePrice} target={target} />
+                    {/* スマホ幅では棒を2行目に全幅で出す（列が狭いと棒の幅が0になる） */}
+                    <span className="order-3 col-span-2 sm:order-none sm:col-span-1">
+                      <StackedBar rows={caseRows} scaleMax={scaleMax} price={r.salePrice} target={target} />
+                    </span>
                     <span className="text-right">
                       <span className="block text-[12px] font-semibold tabular-nums text-[#1d1d1f]">{amount(r.totalPerUnit)}</span>
                       <span className={`block text-[10px] font-semibold ${STATUS_CLASS[status.tone]}`}>{status.label}</span>
@@ -408,8 +411,8 @@ function ItemRows({ items, saved, lines, unit, onChange }: { items: CostItem[]; 
         const capex = i.costType === "CAPEX";
         return (
           <div key={i.costItemId} className="border-b border-[#f0f0f2] py-1.5 last:border-b-0">
-            <div className="grid grid-cols-2 items-center gap-x-2 gap-y-1 xl:grid-cols-[minmax(0,1fr)_64px_128px_64px_88px]">
-              <span className="col-span-2 flex min-w-0 flex-wrap items-center gap-1 text-[12px] text-[#1d1d1f] xl:col-span-1">
+            <div className="grid grid-cols-1 items-center gap-x-2 gap-y-1 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_64px_128px_64px_88px]">
+              <span className="flex min-w-0 flex-wrap items-center gap-1 text-[12px] text-[#1d1d1f] sm:col-span-2 xl:col-span-1">
                 {label}
                 <ConfidenceTag value={i.confidence} />
                 <span className="basis-full text-[10px] text-[#6e6e73]">
@@ -466,8 +469,8 @@ function TaskRows({ tasks, saved, lines, unit, onChange }: { tasks: CostTask[]; 
         const line = lines.find((l) => l.entity === "task" && l.id === t.costTaskId);
         return (
           <div key={t.costTaskId} className="border-b border-[#f0f0f2] py-1.5 last:border-b-0">
-            <div className="grid grid-cols-2 items-center gap-x-2 gap-y-1 xl:grid-cols-[minmax(0,1fr)_78px_110px_92px_88px]">
-              <span className="col-span-2 flex min-w-0 flex-wrap items-center gap-1 text-[12px] text-[#1d1d1f] xl:col-span-1">
+            <div className="grid grid-cols-1 items-center gap-x-2 gap-y-1 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_78px_110px_92px_88px]">
+              <span className="flex min-w-0 flex-wrap items-center gap-1 text-[12px] text-[#1d1d1f] sm:col-span-2 xl:col-span-1">
                 {t.label}
                 <ConfidenceTag value={t.confidence} />
                 {line && <span className="basis-full text-[10px] text-[#6e6e73]">年 {yen(line.annual)}（{int(line.hours)}時間）</span>}
@@ -590,6 +593,7 @@ export function CostFormatControls({
           slices={breakdown.map((r) => ({ key: r.key, label: r.label, color: r.color, amount: r.amount, parts: r.parts.map((p) => ({ label: p.label, amount: p.amount, groupKey: p.groupKey })) }))}
           groupTitle={(key) => groups.find((g) => g.key === key)?.title}
           onJump={jumpToGroup}
+          formatAmount={amount}
         />
         {tasks.length > 0 && (
           <section id="cf-flow" aria-label="作業と工数" className="scroll-mt-12 rounded-lg border border-[#e5e5e7] px-2.5 py-2" data-testid="cost-format-flow">
@@ -600,14 +604,14 @@ export function CostFormatControls({
             </p>
             <ol aria-label="作業の流れ" className="mt-1 flex flex-col gap-0.5">
               {taskLines.map((l, i) => (
-                <li key={l.id} className="flex items-baseline justify-between gap-2 text-[11px]">
-                  <span className="min-w-0">
+                <li key={l.id} className="flex flex-wrap items-baseline justify-between gap-x-2 text-[11px]">
+                  <span className="min-w-[8em] flex-1">
                     {i + 1}. {l.label}
                     <span className="ml-1 text-[#6e6e73]">
                       {int(l.occurrences)}回 × {num(l.hours / Math.max(l.occurrences, 1), 1)}時間
                     </span>
                   </span>
-                  <span className="shrink-0 tabular-nums text-[#1d1d1f]">
+                  <span className="ml-auto shrink-0 tabular-nums text-[#1d1d1f]">
                     {int(l.hours)}時間・{amount(l.perUnit)} 円
                   </span>
                 </li>

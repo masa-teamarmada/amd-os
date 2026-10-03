@@ -43,6 +43,8 @@ interface Props {
   /** 目次から移るときの移り先。 */
   id: string;
   testId: string;
+  /** 額の書き方。既定は小数1桁（円/m³・円/L の小さい額）。1台あたりのような大きい額は整数で渡す。 */
+  formatAmount?: (v: number) => string;
 }
 
 const CHIP =
@@ -60,7 +62,7 @@ export function breakdownGroupsOf(parts: BreakdownGuidePart[]): Array<{ groupKey
     .sort((a, b) => b.amount - a.amount);
 }
 
-export function CostBreakdownGuide({ slices, unit, scenarioLabel, groupTitle, drivers, onJump, id, testId }: Props) {
+export function CostBreakdownGuide({ slices, unit, scenarioLabel, groupTitle, drivers, onJump, id, testId, formatAmount = (v) => num(v) }: Props) {
   const total = slices.reduce((s, x) => s + x.amount, 0);
   const shown = slices.filter((x) => Math.abs(x.amount) > 1e-9).sort((a, b) => b.amount - a.amount);
   const barSlices = slices.filter((x) => x.amount > 0);
@@ -70,7 +72,7 @@ export function CostBreakdownGuide({ slices, unit, scenarioLabel, groupTitle, dr
       <div className="flex flex-wrap items-baseline justify-between gap-x-2">
         <h4 className="text-[13px] font-semibold text-[#1d1d1f]">総コストの内訳（大きい順）</h4>
         <span className="text-[11px] text-[#3c3c43]">
-          {scenarioLabel}・<span className="font-semibold tabular-nums">{num(total)} 円/{unit}</span>
+          {scenarioLabel}・<span className="font-semibold tabular-nums">{formatAmount(total)} 円/{unit}</span>
         </span>
       </div>
       <p className="text-[10px] leading-4 text-[#6e6e73]">区分の下の札を押すと、その額を動かす前提と明細へ移る。札の数字は、その小分けの行が乗せている1{unit}あたりの額</p>
@@ -87,20 +89,23 @@ export function CostBreakdownGuide({ slices, unit, scenarioLabel, groupTitle, dr
           const extra = (drivers?.[x.key] ?? []).filter((d) => !groups.some((g) => g.groupKey === d.groupKey));
           return (
             <li key={x.key} className="py-1.5" data-breakdown-key={x.key}>
-              <div className="flex items-baseline gap-2">
+              {/* 狭い幅では額と割合を次の行の右へ送る（区分名を1文字ずつ折り返さない） */}
+              <div className="flex flex-wrap items-baseline gap-x-2">
                 <Swatch color={x.color} className="translate-y-[1px]" />
-                <span className="min-w-0 flex-1 text-[12px] font-semibold text-[#1d1d1f]">{x.label}</span>
-                <span className="shrink-0 text-[12px] font-semibold tabular-nums text-[#1d1d1f]">
-                  {num(x.amount)} 円/{unit}
+                <span className="min-w-[6em] flex-1 text-[12px] font-semibold text-[#1d1d1f]">{x.label}</span>
+                <span className="ml-auto flex shrink-0 items-baseline gap-2">
+                  <span className="text-[12px] font-semibold tabular-nums text-[#1d1d1f]">
+                    {formatAmount(x.amount)} 円/{unit}
+                  </span>
+                  <span className="w-12 text-right text-[11px] tabular-nums text-[#6e6e73]">{total > 0 ? pct(x.amount / total) : "—"}</span>
                 </span>
-                <span className="w-12 shrink-0 text-right text-[11px] tabular-nums text-[#6e6e73]">{total > 0 ? pct(x.amount / total) : "—"}</span>
               </div>
               {(groups.length > 0 || extra.length > 0) && (
                 <div className="mt-1 flex flex-wrap gap-1 pl-[16px]" aria-label={`${x.label}を動かす場所`}>
                   {groups.map((g) => (
                     <button key={g.groupKey} type="button" onClick={() => onJump(g.groupKey)} className={CHIP}>
                       {groupTitle(g.groupKey) ?? g.groupKey}
-                      <span className="ml-1 tabular-nums text-[#6e6e73]">{num(g.amount)}</span>
+                      <span className="ml-1 tabular-nums text-[#6e6e73]">{formatAmount(g.amount)}</span>
                     </button>
                   ))}
                   {extra.map((d) => (
