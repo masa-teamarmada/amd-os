@@ -1,9 +1,17 @@
 "use client";
 
-import { useCallback } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Minus, Plus, Trash2, X } from "lucide-react";
+import { ChevronDown, Minus, Plus, Trash2, X } from "lucide-react";
 import {
   Sheet,
   SheetClose,
@@ -13,10 +21,12 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { FOCUS_INTENT_MS, HOVER_INTENT_MS, prefetchChapterFull } from "./chapter-prefetch";
 import {
   READER_FONT_SIZES,
   READER_LINE_HEIGHTS,
   readerChapterHref,
+  readerHeadingHref,
   type ReaderBookInfo,
   type ReaderBookmark,
   type ReaderFontFamily,
@@ -37,6 +47,8 @@ export interface ReaderPanelsProps {
   book: ReaderBookInfo;
   chapterIndex: number;
   headings: ReaderHeading[];
+  /** 本の全章の見出し（章の slug → 見出し。書けている章だけ）。別の章の見出しも画面遷移なしに開く */
+  bookHeadings: Record<string, ReaderHeading[]>;
   bookmarks: ReaderBookmark[];
   /** 見出しの画面へ移る（パネルも閉じる） */
   onJumpHeading: (id: string) => void;
@@ -53,6 +65,10 @@ export interface ReaderPanelsProps {
   spreadNeedsTocClosed?: boolean;
   /** いま読んでいるページに当たる見出しの id（目次で強調する） */
   activeHeadingId?: string | null;
+  /** 別の章の題か見出しを押して、まだ届いていない章の slug。目次では、その章を「開いている章」として出す */
+  openingSlug?: string | null;
+  /** 別の章の題か見出しを押した（画面遷移が始まる）。呼び出し側が「開いています」の表示を出す */
+  onOpenChapter?: (slug: string) => void;
 }
 
 const SHEET_WIDTH = "data-[side=left]:w-[88%] data-[side=right]:w-[88%]";
@@ -92,7 +108,10 @@ export interface ReaderTocContentProps {
   onTabChange: (tab: ReaderTocTab) => void;
   book: ReaderBookInfo;
   chapterIndex: number;
+  /** いまの章の見出し */
   headings: ReaderHeading[];
+  /** 本の全章の見出し（章の slug → 見出し。書けている章だけ）。別の章の見出しも、画面遷移なしに開く */
+  bookHeadings: Record<string, ReaderHeading[]>;
   bookmarks: ReaderBookmark[];
   onJumpHeading: (id: string) => void;
   onJumpChapterStart: () => void;
@@ -100,8 +119,38 @@ export interface ReaderTocContentProps {
   onRemoveBookmark: (id: string) => void;
   /** いま読んでいるページに当たる見出しの id（強調する）。無ければ強調しない */
   activeHeadingId?: string | null;
+  /** 別の章の題か見出しを押して、まだ届いていない章の slug。その章を「開いている章」として出す */
+  openingSlug?: string | null;
+  /** 別の章の題か見出しを押した（画面遷移が始まる）。呼び出し側が「開いています」の表示を出す */
+  onOpenChapter?: (slug: string) => void;
   /** panel: 開いたときにいまの章へ寄せる。column: 呼び出し側（列）が寄せる */
   variant: "panel" | "column";
+}
+
+/** 章の見出しを開閉する矢印（右端）。押せる大きさは 44px。読み上げの名前に章の題を入れる */
+function TocToggle({
+  title,
+  open,
+  controlsId,
+  onToggle,
+}: {
+  title: string;
+  open: boolean;
+  controlsId: string;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="bzr-toc-toggle"
+      aria-expanded={open}
+      aria-controls={open ? controlsId : undefined}
+      aria-label={`「${title}」の見出しを${open ? "閉じる" : "開く"}`}
+      onClick={onToggle}
+    >
+      <ChevronDown aria-hidden="true" />
+    </button>
+  );
 }
 
 export function ReaderTocContent({
@@ -110,25 +159,80 @@ export function ReaderTocContent({
   book,
   chapterIndex,
   headings,
+  bookHeadings,
   bookmarks,
   onJumpHeading,
   onJumpChapterStart,
   onJumpBookmark,
   onRemoveBookmark,
   activeHeadingId = null,
+  openingSlug = null,
+  onOpenChapter,
   variant,
 }: ReaderTocContentProps) {
   const router = useRouter();
-  const prefetch = useCallback(
-    (slug: string) => {
-      try {
-        router.prefetch(readerChapterHref(book.id, slug));
-      } catch {
-        // 先読みの失敗は無視する
+  const subListId = useId();
+  const currentSlug = book.chapters[chapterIndex]?.slug ?? null;
+  // いまの章と同じ章は「開いています」にしない（押した章がいまの章になっていれば、もう届いている）
+  const opening = openingSlug !== null && openingSlug !== currentSlug ? openingSlug : null;
+
+  // 章ごとの見出しの開閉。矢印で開閉した章だけを持ち、持っていない章は、いまの章だけが開いている。
+  // 別の章を押した直後は、その章を開いて見せ、いまの章は閉じる（届いて章が替わると、画面ごと作り直されて初めに戻る）
+  const [toggled, setToggled] = useState<Record<string, boolean>>({});
+  const isOpen = (slug: string): boolean => {
+    if (slug === opening) return true;
+    const override = toggled[slug];
+    if (override !== undefined) return override;
+    return opening === null && slug === currentSlug;
+  };
+
+  // 章の完全な先読み。ポインタが乗ったとき・フォーカスが来たとき・触り始めたときに始める。
+  // 目次を上から下へなぞるだけで全章を取りに行かないよう、ポインタとフォーカスは少し待ち、離れたら取り消す
+  const intentTimer = useRef<number | null>(null);
+  const cancelIntent = useCallback(() => {
+    if (intentTimer.current !== null) {
+      window.clearTimeout(intentTimer.current);
+      intentTimer.current = null;
+    }
+  }, []);
+  const startIntent = useCallback(
+    (slug: string, delayMs: number) => {
+      cancelIntent();
+      const href = readerChapterHref(book.id, slug);
+      if (delayMs <= 0) {
+        prefetchChapterFull(router, href);
+        return;
       }
+      intentTimer.current = window.setTimeout(() => {
+        intentTimer.current = null;
+        prefetchChapterFull(router, href);
+      }, delayMs);
     },
-    [router, book.id],
+    [router, book.id, cancelIntent],
   );
+  useEffect(() => cancelIntent, [cancelIntent]);
+  const intentProps = (slug: string) => ({
+    onPointerEnter: (e: ReactPointerEvent<HTMLElement>) =>
+      startIntent(slug, e.pointerType === "touch" ? 0 : HOVER_INTENT_MS),
+    onPointerLeave: cancelIntent,
+    onPointerDown: () => startIntent(slug, 0),
+    onFocus: () => startIntent(slug, FOCUS_INTENT_MS),
+    onBlur: cancelIntent,
+  });
+
+  // 別の章の題か見出しを押したとき、その章を「開いています」にする。新しいタブへ開く操作では、この画面は動かない
+  const openClick = (slug: string) => (e: ReactMouseEvent<HTMLAnchorElement>) => {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    onOpenChapter?.(slug);
+  };
+
+  const toggleChapter = (slug: string) => {
+    const open = isOpen(slug);
+    setToggled((prev) => ({ ...prev, [slug]: !open }));
+    // 開いたら、次は見出しを押す。いまのうちに章を先読みしておく
+    if (!open && slug !== currentSlug) startIntent(slug, 0);
+  };
+
   // パネルを開いたとき、いまの章が見える位置へ寄せる
   const currentRef = useCallback(
     (el: HTMLElement | null) => {
@@ -169,19 +273,31 @@ export function ReaderTocContent({
         {tab === "toc" ? (
           <ol className="bzr-toc">
             {book.chapters.map((chapter, index) => {
+              const subId = `${subListId}-${index}`;
               if (index === chapterIndex) {
+                const expanded = headings.length > 0 && isOpen(chapter.slug);
                 return (
                   <li key={chapter.slug} aria-current="location">
-                    <button
-                      type="button"
-                      ref={currentRef}
-                      className="bzr-toc-item is-current"
-                      onClick={onJumpChapterStart}
-                    >
-                      {chapter.title}
-                    </button>
-                    {headings.length > 0 ? (
-                      <ul className="bzr-toc-sub">
+                    <div className={cn("bzr-toc-row", opening === null && "is-current")}>
+                      <button
+                        type="button"
+                        ref={currentRef}
+                        className={cn("bzr-toc-item", opening === null && "is-current")}
+                        onClick={onJumpChapterStart}
+                      >
+                        {chapter.title}
+                      </button>
+                      {headings.length > 0 ? (
+                        <TocToggle
+                          title={chapter.title}
+                          open={expanded}
+                          controlsId={subId}
+                          onToggle={() => toggleChapter(chapter.slug)}
+                        />
+                      ) : null}
+                    </div>
+                    {expanded ? (
+                      <ul className="bzr-toc-sub" id={subId}>
                         {headings.map((h, i) => {
                           const active = activeHeadingId !== null && h.id === activeHeadingId;
                           return (
@@ -212,17 +328,52 @@ export function ReaderTocContent({
                   </li>
                 );
               }
+              const list = bookHeadings[chapter.slug] ?? [];
+              const isOpening = chapter.slug === opening;
+              const expanded = list.length > 0 && isOpen(chapter.slug);
               return (
                 <li key={chapter.slug}>
-                  <Link
-                    href={readerChapterHref(book.id, chapter.slug)}
-                    prefetch={false}
-                    className="bzr-toc-item"
-                    onPointerEnter={() => prefetch(chapter.slug)}
-                    onFocus={() => prefetch(chapter.slug)}
-                  >
-                    {chapter.title}
-                  </Link>
+                  <div className={cn("bzr-toc-row", isOpening && "is-opening")} {...intentProps(chapter.slug)}>
+                    <Link
+                      href={readerChapterHref(book.id, chapter.slug)}
+                      prefetch={false}
+                      className={cn("bzr-toc-item", isOpening && "is-opening")}
+                      aria-busy={isOpening || undefined}
+                      onClick={openClick(chapter.slug)}
+                    >
+                      <span className="bzr-toc-title">{chapter.title}</span>
+                      {isOpening ? (
+                        <span className="bzr-toc-opening" role="status">
+                          開いています…
+                        </span>
+                      ) : null}
+                    </Link>
+                    {list.length > 0 ? (
+                      <TocToggle
+                        title={chapter.title}
+                        open={expanded}
+                        controlsId={subId}
+                        onToggle={() => toggleChapter(chapter.slug)}
+                      />
+                    ) : null}
+                  </div>
+                  {expanded ? (
+                    <ul className="bzr-toc-sub" id={subId}>
+                      {list.map((h, i) => (
+                        <li key={`${h.id}-${i}`} data-level={h.level}>
+                          <Link
+                            href={readerHeadingHref(book.id, chapter.slug, h.id)}
+                            prefetch={false}
+                            className="bzr-toc-sub-item"
+                            onClick={openClick(chapter.slug)}
+                            {...intentProps(chapter.slug)}
+                          >
+                            {h.text}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </li>
               );
             })}
@@ -273,12 +424,15 @@ function TocPanel(props: ReaderPanelsProps) {
         book={book}
         chapterIndex={props.chapterIndex}
         headings={props.headings}
+        bookHeadings={props.bookHeadings}
         bookmarks={props.bookmarks}
         onJumpHeading={props.onJumpHeading}
         onJumpChapterStart={props.onJumpChapterStart}
         onJumpBookmark={props.onJumpBookmark}
         onRemoveBookmark={props.onRemoveBookmark}
         activeHeadingId={props.activeHeadingId}
+        openingSlug={props.openingSlug}
+        onOpenChapter={props.onOpenChapter}
         variant="panel"
       />
     </>

@@ -7,14 +7,18 @@
  * - Tailwind の preflight が見出し・リスト・太字・余白を初期化するため、本文側で明示し直している。
  */
 
-/* ---- 色（§6.7） ---- */
+/*
+ * ---- 色（§6.7） ----
+ * 文字に使う色（fg・muted・accent）は、どのテーマも背景との比が 4.5:1 以上（検査 check_bzm_reader.mts が読む）。
+ * 白の accent は、AMD OS の --amd-action-strong と同じ #0267b2（白との比 5.86:1）。#027fdc は 4.14:1 で足りない。
+ */
 .bzr-root,
 .bzr-root[data-theme="white"] {
   --bzr-bg: #ffffff;
   --bzr-fg: #1d1d1f;
   --bzr-muted: #6e6e73;
   --bzr-rule: #e5e5ea;
-  --bzr-accent: #027fdc;
+  --bzr-accent: #0267b2;
   --bzr-table-head: #f2f4f8;
   /* 表の罫線。本文の罫線（--bzr-rule）より濃くして、行と列の区切りを追えるようにする */
   --bzr-table-line: #c7c7cc;
@@ -86,7 +90,7 @@
   font-style: italic;
 }
 
-/* ---- 見出し（本文の 1.15〜1.6 倍。直後で段が割れないようにする） ---- */
+/* ---- 見出し（章の扉は本文の約 1.75 倍、節は 1.4 倍、項は 1.15 倍。直後で段が割れないようにする） ---- */
 .bzr-content h1,
 .bzr-content h2,
 .bzr-content h3,
@@ -108,21 +112,88 @@
   line-height: 1.35;
 }
 
+/*
+ * 節（h2）: 大きく、上に広い余白を取り、題の下に細い罫線を引く。
+ * 罫線を下に引くのは、段（ページ）の先頭に来たとき、上の余白は切り落とされるので、上に引くと罫線だけがページの端に残るため。
+ */
 .bzr-content h2 {
-  font-size: 1.35em;
+  margin: 2.6em 0 0.9em;
+  padding-bottom: 0.4em;
+  border-bottom: 1px solid var(--bzr-table-line);
+  font-size: 1.4em;
+  line-height: 1.4;
+  text-wrap: balance;
+  word-break: auto-phrase;
 }
 
+/* 項（h3）: 節より小さく、罫線は付けない。太字と余白で節と見分ける */
 .bzr-content h3 {
-  font-size: 1.2em;
+  margin: 1.9em 0 0.6em;
+  font-size: 1.15em;
+  line-height: 1.45;
+  text-wrap: balance;
+  word-break: auto-phrase;
 }
 
 .bzr-content h4 {
-  font-size: 1.15em;
+  margin: 1.5em 0 0.5em;
+  font-size: 1.05em;
 }
 
 .bzr-content h5,
 .bzr-content h6 {
   font-size: 1em;
+}
+
+/* 節・項の番号（`1.1`、`A.2`、`0.1.1`）。ReaderMarkdown が番号で始まる見出しの番号だけを包む */
+.bzr-content .bzr-sec-num {
+  color: var(--bzr-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * 章の扉。h1 が 序章・第N章・付録 で始まるとき ReaderMarkdown が作る。
+ * 小さな色つきのラベル（第1章）、その下に大きな題（本文の 1.75 倍）、下に罫線と広い余白。
+ */
+.bzr-content h1.bzr-door {
+  margin: 2.4em 0 2.2em;
+  padding-bottom: 1.1em;
+  border-bottom: 1px solid var(--bzr-table-line);
+  font-size: 1em;
+  line-height: 1.4;
+}
+
+.bzr-content .bzr-door-label {
+  display: block;
+  margin-bottom: 0.6em;
+  font-size: 0.8em;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  line-height: 1.4;
+  color: var(--bzr-accent);
+}
+
+.bzr-content .bzr-door-title {
+  display: block;
+  font-size: 1.75em;
+  font-weight: 700;
+  line-height: 1.35;
+  /* 題が折れるとき、行の長さをそろえ（1 字だけ残さない）、日本語は文節で折る（auto-phrase は対応するブラウザだけ） */
+  text-wrap: balance;
+  word-break: auto-phrase;
+}
+
+/*
+ * ページ表示では、扉のある章の最初の節（最初の h2）を新しいページから始める。
+ * 章の最初のページには、扉（題、導入の段落、本章の到達目標）だけが載る。見開きでは、扉が左のページ、最初の節が右のページになる。
+ * 縦スクロール表示（data-layout="scroll"）では区切らない。
+ * 強制の改ページの直後は、上の余白が切り落とされない（段の先頭に余白が残る）ので、上の余白は 0 にする。
+ * 扉の無い章（論文・補足資料・講座）は、これまでどおり続けて流す。
+ */
+.bzr-root[data-layout="page"] .bzr-content:has(> h1.bzr-door) > h2:first-of-type {
+  -webkit-column-break-before: always;
+  break-before: column;
+  margin-top: 0;
 }
 
 /* ---- リスト・引用・罫線 ---- */

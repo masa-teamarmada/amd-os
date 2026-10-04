@@ -3835,6 +3835,69 @@ expectIncludes("src/components/bzm-reader/ReaderView.tsx", [
 ]);
 expectIncludes("src/components/bzm-reader/ReaderTocColumn.tsx", ['data-bzr-toc-col="true"', "ReaderTocContent"]);
 expectIncludes("src/components/bzm-reader/reader-shell.css", [".bzr-toc-col {", "--bzr-toc-w", ".bzr-gutter::after"]);
+// 書斎の目次（2026-10-04、設計 §6.4）: 章の題を押して新しい章のサーバ描画が届くまで 3〜4 秒待っていた。
+// (1) 本の全章の見出しを最初から持ち（bookHeadings）、各章の行の右端の矢印（aria-expanded、44px）で、画面遷移なしに見出しを開閉する。
+// (2) 別の章の題か見出しを押したら、その章を目次で即座に「開いている章」にして「開いています…」を出し、画面の最上部に進行の帯を出して本文を薄くする。
+//     届いた（章が替わった）ことは effect の中の setState ではなく、描画の中で前の章と比べて解く。
+// (3) 章の先読みは完全な先読み（PrefetchKind.FULL。既定の auto は、loading.js の無い動的なページでは実質なにも運ばない）。
+//     ポインタ・フォーカス・タッチの意図で始め、今の章の最初の割り付けが済んでブラウザが空いたら前後の章を先読みする（データセーバーでは自動の先読みをしない）。
+//     めくって移る URL（?at=start / ?at=end）と同じ URL を先読みする（先読みの鍵は pathname と search）。
+expectIncludes("src/lib/bzm-reader/load.ts", ["bookHeadings: loaded.headingsBySlug"]);
+expectIncludes("src/lib/bzm-reader/types.ts", ["bookHeadings: Record<string, ReaderHeading[]>;", "export function readerHeadingHref("]);
+expectIncludes("src/app/(app)/bzm/read/[book]/[chapter]/page.tsx", ["bookHeadings"]);
+expectIncludes("src/components/bzm-reader/ReaderPanels.tsx", [
+  'className="bzr-toc-toggle"',
+  "aria-expanded={open}",
+  "の見出しを${open ? \"閉じる\" : \"開く\"}",
+  "readerHeadingHref(book.id, chapter.slug, h.id)",
+  "bookHeadings[chapter.slug]",
+  "開いています…",
+  "onPointerEnter",
+  "onPointerDown",
+  "onFocus",
+  "prefetchChapterFull(router, href)",
+]);
+expectNotIncludes("src/components/bzm-reader/ReaderPanels.tsx", ["router.prefetch(readerChapterHref("]);
+expectIncludes("src/components/bzm-reader/chapter-prefetch.ts", [
+  'import { PrefetchKind } from "next/dist/client/components/router-reducer/router-reducer-types";',
+  "router.prefetch(href, { kind: PrefetchKind.FULL })",
+  "requestIdleCallback",
+  "IDLE_FALLBACK_MS = 1500",
+  "saveData === true",
+  "export function useIdlePrefetch(",
+]);
+expectIncludes("src/components/bzm-reader/ReaderView.tsx", [
+  "useIdlePrefetch(router, nextHref, measured, nearEnd)",
+  "useIdlePrefetch(router, prevHref, measured, nearStart)",
+  'readerChapterHref(book.id, nextSlug, "start")',
+  'readerChapterHref(book.id, prevSlug, "end")',
+  "setOpeningSlug(null)",
+  "data-opening",
+  'className="bzr-progress"',
+]);
+// 解除を effect の中の setState にしない（描画の中で前の章と比べる）
+expectNotIncludes("src/components/bzm-reader/ReaderView.tsx", ["useEffect(() => {\n    setOpeningSlug"]);
+expectIncludes("src/components/bzm-reader/reader-shell.css", [".bzr-toc-toggle {", ".bzr-toc-row.is-opening", ".bzr-progress {", '.bzr-root[data-opening="true"] .bzr-viewport']);
+// 章と節の区切り（2026-10-04、設計 §5）: 章の扉（ラベルと大きな題）、節番号の色分け、ページ表示では扉のある章の最初の節（最初の h2）を新しいページから始める。
+// 縦スクロール表示では区切らない（data-layout="page" の中だけ）。文字の色は reader.css の変数が 4.5:1 以上（check_bzm_reader.mts が読む）。
+expectIncludes("src/components/bzm-reader/ReaderMarkdown.tsx", [
+  "splitChapterHeading",
+  "splitSectionNumber",
+  'className="bzr-door"',
+  'className="bzr-door-label"',
+  'className="bzr-sec-num"',
+]);
+expectIncludes("src/components/bzm-reader/reader.css", [
+  ".bzr-content h1.bzr-door {",
+  ".bzr-content .bzr-door-label {",
+  ".bzr-content .bzr-sec-num {",
+  '.bzr-root[data-layout="page"] .bzr-content:has(> h1.bzr-door) > h2:first-of-type {',
+  "-webkit-column-break-before: always;",
+  "break-before: column;",
+]);
+expectPattern("src/components/bzm-reader/reader.css", [
+  /\[data-layout="page"\] \.bzr-content:has\(> h1\.bzr-door\) > h2:first-of-type \{[^}]*break-before: column;[^}]*\}/,
+]);
 
 // 通知 action contract (2026-07-24): 開催履歴候補は、採用前には正本を増やさず、
 // 追加先・追加内容・外部操作を伴わない結果を明示してから同一feedback APIで反映する。

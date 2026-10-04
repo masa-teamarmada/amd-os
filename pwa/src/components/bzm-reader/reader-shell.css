@@ -9,6 +9,9 @@
  *   JS 側の readerTocWidth（useReaderPagination.ts）と同じ値にすること。
  * - ビューポートの大きさは CSS だけで決め、JS（useReaderPagination）がその実寸を測って多段組みの
  *   幅と高さを整数に固定する。ここで変えるときは、測る側（getBoundingClientRect）と食い違わないこと。
+ * - 目次の章の行は「題（章へのリンク）＋見出しを開閉する矢印」の1行（.bzr-toc-row）。いまの章と、押して届くのを
+ *   待っている章（.is-opening）は行ぜんたいを強調する。待っているあいだは、画面の最上部に細い進行の帯
+ *   （.bzr-progress）を出し、本文を少し薄くする（.bzr-root[data-opening]）。
  */
 
 /* ---------------------------------- 外枠 ---------------------------------- */
@@ -499,9 +502,80 @@
   background: var(--muted);
 }
 
-.bzr-toc-item.is-current {
+/* 章の行: 題（押すとその章へ）と、その章の見出しを開閉する矢印（右端）を1行に並べる */
+.bzr-toc-row {
+  display: flex;
+  align-items: center;
+  border-radius: 8px;
+}
+
+.bzr-toc-row > .bzr-toc-item {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+
+/* いまの章と、押して届くのを待っている章は、行ぜんたい（題と矢印）を強調する */
+.bzr-toc-row.is-current,
+.bzr-toc-row.is-opening {
   background: var(--accent);
+}
+
+.bzr-toc-item.is-current {
+  background: transparent;
   font-weight: 700;
+}
+
+.bzr-toc-item.is-opening {
+  font-weight: 700;
+}
+
+/* 押して届くのを待っている章の題の横に出す小さな表示 */
+.bzr-toc-opening {
+  flex: none;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--foreground);
+  white-space: nowrap;
+}
+
+/* 見出しを開閉する矢印。見た目は小さな矢印で、押せる範囲は 44px 四方 */
+.bzr-toc-toggle {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+
+.bzr-toc-toggle:hover,
+.bzr-toc-toggle:focus-visible {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.bzr-toc-toggle svg {
+  width: 18px;
+  height: 18px;
+  transition: transform 0.15s ease;
+}
+
+.bzr-toc-toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bzr-toc-toggle svg {
+    transition: none;
+  }
 }
 
 .bzr-toc-item.is-disabled {
@@ -541,6 +615,7 @@
   font-size: 13px;
   line-height: 1.45;
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
 }
 
@@ -811,6 +886,7 @@
 .bzr-tab:focus-visible,
 .bzr-icon-btn:focus-visible,
 .bzr-toc-item:focus-visible,
+.bzr-toc-toggle:focus-visible,
 .bzr-toc-sub-item:focus-visible,
 .bzr-bookmark-main:focus-visible {
   outline: 2px solid var(--ring);
@@ -904,6 +980,8 @@
 
 .bzr-toc-col .bzr-toc-item:hover,
 .bzr-toc-col .bzr-toc-item:focus-visible,
+.bzr-toc-col .bzr-toc-toggle:hover,
+.bzr-toc-col .bzr-toc-toggle:focus-visible,
 .bzr-toc-col .bzr-toc-sub-item:hover,
 .bzr-toc-col .bzr-toc-sub-item:focus-visible,
 .bzr-toc-col .bzr-bookmark-main:hover,
@@ -911,8 +989,27 @@
   background: color-mix(in srgb, var(--bzr-fg) 8%, transparent);
 }
 
-.bzr-toc-col .bzr-toc-item.is-current {
+/* 行ぜんたいの強調。文字は本文の色のままにする（青い文字を青い下地に載せると、セピアで 4.5:1 を切る） */
+.bzr-toc-col .bzr-toc-row.is-current,
+.bzr-toc-col .bzr-toc-row.is-opening {
   background: color-mix(in srgb, var(--bzr-accent) 14%, transparent);
+}
+
+.bzr-toc-col .bzr-toc-item.is-current {
+  background: transparent;
+}
+
+.bzr-toc-col .bzr-toc-opening {
+  color: var(--bzr-fg);
+}
+
+.bzr-toc-col .bzr-toc-toggle {
+  color: var(--bzr-muted);
+}
+
+.bzr-toc-col .bzr-toc-toggle:hover,
+.bzr-toc-col .bzr-toc-toggle:focus-visible {
+  color: var(--bzr-fg);
 }
 
 .bzr-toc-col .bzr-toc-item.is-disabled {
@@ -956,6 +1053,7 @@
 .bzr-toc-col .bzr-tab:focus-visible,
 .bzr-toc-col .bzr-icon-btn:focus-visible,
 .bzr-toc-col .bzr-toc-item:focus-visible,
+.bzr-toc-col .bzr-toc-toggle:focus-visible,
 .bzr-toc-col .bzr-toc-sub-item:focus-visible,
 .bzr-toc-col .bzr-bookmark-main:focus-visible {
   outline: 2px solid var(--bzr-accent);
@@ -974,4 +1072,59 @@
   background: color-mix(in srgb, var(--bzr-accent) 12%, transparent);
   color: var(--bzr-fg);
   box-shadow: inset 3px 0 0 var(--bzr-accent);
+}
+
+/* ------------------- 章を開いています（目次で別の章を押したあと） ------------------- */
+
+/*
+ * 目次で別の章を押してから、その章が届くまでの間だけ、画面の最上部に細い進行の帯を出し、本文を少し薄くする。
+ * 帯は上下の帯（z-index 5）より上に置き、帯を隠していても見える。章が届くと画面ごと作り直されて消える。
+ */
+.bzr-progress {
+  position: absolute;
+  top: env(safe-area-inset-top, 0px);
+  left: 0;
+  right: 0;
+  z-index: 7;
+  height: 3px;
+  overflow: hidden;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--bzr-accent) 22%, transparent);
+}
+
+.bzr-progress::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 38%;
+  background: var(--bzr-accent);
+  animation: bzr-progress-slide 1.1s ease-in-out infinite;
+}
+
+@keyframes bzr-progress-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(265%);
+  }
+}
+
+.bzr-root[data-opening="true"] .bzr-viewport {
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bzr-progress::before {
+    width: 100%;
+    opacity: 0.55;
+    animation: none;
+  }
+
+  .bzr-root[data-opening="true"] .bzr-viewport {
+    transition: none;
+  }
 }

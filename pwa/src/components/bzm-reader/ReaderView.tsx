@@ -37,6 +37,7 @@ import {
 import { bookProgressFraction, remainingMinutes } from "@/lib/bzm-reader/progress";
 import { ReaderPanels, type ReaderPanelKind, type ReaderTocTab } from "./ReaderPanels";
 import { ReaderTocColumn } from "./ReaderTocColumn";
+import { useIdlePrefetch } from "./chapter-prefetch";
 import {
   activeHeadingId as pickActiveHeadingId,
   readerColumnGap,
@@ -260,15 +261,41 @@ export interface ReaderViewProps {
 
 /**
  * 読書画面。章が変わったら作り直す（位置の復元と測定を章ごとにやり直すため）。
+ *
+ * 目次で別の章の題や見出しを押してから、その章が届くまでの間だけ、押した章の slug（openingSlug）を持つ。
+ * 作り直される内側ではなく、章をまたいで残るこの外側が持つので、届いたこと（章が替わったこと）は
+ * effect の中で setState せず、前の章と描画の中で比べて解く（React の「props が変わったときに state を調整する」書き方）。
  */
 export function ReaderView(props: ReaderViewProps) {
   const { content } = props;
-  return <ReaderViewInner key={`${content.book.id}/${content.chapter.slug}`} {...props} />;
+  const chapterKey = `${content.book.id}/${content.chapter.slug}`;
+  const [openingSlug, setOpeningSlug] = useState<string | null>(null);
+  const [prevChapterKey, setPrevChapterKey] = useState(chapterKey);
+  if (prevChapterKey !== chapterKey) {
+    setPrevChapterKey(chapterKey);
+    setOpeningSlug(null);
+  }
+  return (
+    <ReaderViewInner
+      key={chapterKey}
+      {...props}
+      // いまの章を押しても「開いています」にはしない
+      openingSlug={openingSlug !== content.chapter.slug ? openingSlug : null}
+      onOpenChapter={setOpeningSlug}
+    />
+  );
 }
 
-function ReaderViewInner({ content, initialTheme, children }: ReaderViewProps) {
+interface ReaderViewInnerProps extends ReaderViewProps {
+  /** 目次で押して、まだ届いていない章の slug。目次と本文に「開いています」を出す */
+  openingSlug: string | null;
+  /** 目次で別の章の題か見出しを押した */
+  onOpenChapter: (slug: string) => void;
+}
+
+function ReaderViewInner({ content, initialTheme, children, openingSlug, onOpenChapter }: ReaderViewInnerProps) {
   const router = useRouter();
-  const { book, chapter, chapterIndex, headings, notes } = content;
+  const { book, chapter, chapterIndex, headings, bookHeadings, notes } = content;
   const lang = book.lang;
 
   const serverSettings = useMemo<ReaderSettings>(
@@ -412,15 +439,15 @@ function ReaderViewInner({ content, initialTheme, children }: ReaderViewProps) {
     [book.chapters, chapterIndex],
   );
 
-  // 開いたら次の章を先読みする
-  useEffect(() => {
-    if (!nextSlug) return;
-    try {
-      router.prefetch(readerChapterHref(book.id, nextSlug));
-    } catch {
-      // 先読みの失敗は無視する
-    }
-  }, [router, book.id, nextSlug]);
+  // 次の章と前の章を、完全に先読みする。めくって移るときの URL（?at=start / ?at=end つき）と同じ URL を先読みする。
+  // 最初の割り付けが済み、ブラウザが空いたときに始める（データセーバーの端末では何もしない）。
+  // 先読みは 5 分で古くなるので、章の終わり近く（始まり近く）まで来たら、その側をもう一度先読みして取り直す
+  const nextHref = nextSlug ? readerChapterHref(book.id, nextSlug, "start") : null;
+  const prevHref = prevSlug ? readerChapterHref(book.id, prevSlug, "end") : null;
+  const nearEnd = measured && view.screen >= view.count - 2;
+  const nearStart = measured && view.screen <= 1;
+  useIdlePrefetch(router, nextHref, measured, nearEnd);
+  useIdlePrefetch(router, prevHref, measured, nearStart);
 
   const goChapter = useCallback(
     (dir: "next" | "prev") => {
@@ -839,6 +866,7 @@ function ReaderViewInner({ content, initialTheme, children }: ReaderViewProps) {
 
   const nextChapter = nextSlug ? book.chapters.find((c) => c.slug === nextSlug) : undefined;
   const prevChapter = prevSlug ? book.chapters.find((c) => c.slug === prevSlug) : undefined;
+  const openingChapter = openingSlug ? book.chapters.find((c) => c.slug === openingSlug) : undefined;
 
   return (
     <div
@@ -847,9 +875,14 @@ function ReaderViewInner({ content, initialTheme, children }: ReaderViewProps) {
       data-layout={settings.layout}
       data-toc={tocShown ? "open" : undefined}
       data-ready={ready ? "true" : undefined}
+      data-opening={openingSlug ? "true" : undefined}
       lang={lang}
       style={rootStyle}
     >
+      {/* 目次で別の章を押してから届くまで、画面の最上部に細い進行の帯を出す（本文も少し薄くする） */}
+      {openingChapter ? (
+        <div className="bzr-progress" role="progressbar" aria-label={`「${openingChapter.title}」を開いています`} />
+      ) : null}
       {/* 帯は本文より前の順に置く（Tab で本文のリンクより先に届く）。見た目の位置は CSS で決める */}
       <header
         className="bzr-bar bzr-bar-top"
@@ -905,12 +938,15 @@ function ReaderViewInner({ content, initialTheme, children }: ReaderViewProps) {
           book={book}
           chapterIndex={chapterIndex}
           headings={headings}
+          bookHeadings={bookHeadings}
           bookmarks={bookmarks}
           onJumpHeading={columnJumpHeading}
           onJumpChapterStart={columnJumpChapterStart}
           onJumpBookmark={jumpBookmark}
           onRemoveBookmark={removeBookmark}
           activeHeadingId={activeHeadingId}
+          openingSlug={openingSlug}
+          onOpenChapter={onOpenChapter}
           onCollapse={collapseToc}
           onClick={blurAfterPointer}
         />
@@ -986,6 +1022,7 @@ function ReaderViewInner({ content, initialTheme, children }: ReaderViewProps) {
         book={book}
         chapterIndex={chapterIndex}
         headings={headings}
+        bookHeadings={bookHeadings}
         bookmarks={bookmarks}
         onJumpHeading={jumpHeading}
         onJumpChapterStart={jumpChapterStart}
@@ -996,6 +1033,8 @@ function ReaderViewInner({ content, initialTheme, children }: ReaderViewProps) {
         canSpread={wide}
         spreadNeedsTocClosed={tocShown && !wide && viewportWidth >= SPREAD_MIN_WIDTH}
         activeHeadingId={activeHeadingId}
+        openingSlug={openingSlug}
+        onOpenChapter={onOpenChapter}
       />
     </div>
   );

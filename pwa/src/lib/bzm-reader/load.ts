@@ -38,6 +38,8 @@ interface LoadedChapterBody {
 interface LoadedBook {
   info: ReaderBookInfo;
   bodies: Map<string, LoadedChapterBody>;
+  /** 書けている章の見出しを、章の slug で引けるようにまとめたもの（目次が全章分を持つため。本ごとに一度だけ組む） */
+  headingsBySlug: Record<string, ReaderHeading[]>;
 }
 
 const cache = new Map<string, { value: LoadedBook; storedAt: number }>();
@@ -137,7 +139,10 @@ function loadBook(manifest: ReaderBookManifest): LoadedBook {
     totalChars: chapters.reduce((sum, chapter) => sum + chapter.charCount, 0),
   };
 
-  const value: LoadedBook = { info, bodies };
+  const headingsBySlug: Record<string, ReaderHeading[]> = {};
+  for (const [slug, body] of bodies) headingsBySlug[slug] = body.headings;
+
+  const value: LoadedBook = { info, bodies, headingsBySlug };
   cache.set(manifest.id, { value, storedAt: Date.now() });
   return value;
 }
@@ -155,6 +160,7 @@ export function getReaderBook(bookId: string): ReaderBookInfo | null {
 /**
  * 前処理済みの章。本か章が manifest に無いときだけ null。
  * 章が manifest にあり原稿が無い（未執筆）ときは、exists=false、markdown=""、headings=[]、notes=[] で返す。
+ * bookHeadings は本の全章の見出し（書けている章だけ）。どの章でも同じ内容で、未執筆の章を返すときも付く。
  */
 export function getReaderChapterContent(bookId: string, chapterSlug: string): ReaderChapterContent | null {
   const manifest = READER_LIBRARY.find((book) => book.id === bookId);
@@ -170,6 +176,7 @@ export function getReaderChapterContent(bookId: string, chapterSlug: string): Re
     chapter,
     markdown: body?.markdown ?? "",
     headings: body?.headings ?? [],
+    bookHeadings: loaded.headingsBySlug,
     notes: body?.notes ?? [],
   };
 }

@@ -5,6 +5,7 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Element as HastElement, Root as HastRoot } from "hast";
 import { headingAnchorId } from "@/lib/heading-anchor";
+import { splitChapterHeading, splitSectionNumber } from "@/lib/bzm-reader/heading-parts";
 import { MARK_FULL_RE, MARK_RE, protectMath, type MathItem } from "@/lib/bzm-reader/protect-math";
 import type { ReaderLang } from "@/lib/bzm-reader/types";
 import "./reader.css";
@@ -19,6 +20,11 @@ import "./reader.css";
  * 見出し id の平文規則（前処理側の extractReaderHeadings と一致させる）:
  *   子要素の文字列を連結し、インライン数式は原稿に書かれた形（`$...$` / `\(...\)`）へ戻し、
  *   `*` と `\`` を除き、末尾の `{#id}` を除いて trim した文字列に headingAnchorId を当てる。`{#id}` があればそれが id。
+ *
+ * 章と節の区切り（設計正本 §5）: h1 が「序章」「第N章」「付録」（古い形の `BZM x.y教科書 ` と ` — ` も可）で始まるときは、
+ * ラベル（`.bzr-door-label`）と題（`.bzr-door-title`）に分けた章の扉（`h1.bzr-door`）にする。h2・h3 が `1.1` `A.2` `0.1.1` のような
+ * 番号で始まるときは、番号を `.bzr-sec-num` に分ける。分け方は `@/lib/bzm-reader/heading-parts` の純関数。
+ * 見出しの id と、目次の見出しの文字（原稿の文字そのもの）は、分けても変わらない。
  */
 
 function renderKatex(tex: string, display: boolean): string {
@@ -79,6 +85,20 @@ function tableColumnCount(node: HastElement | undefined): number {
   return row.children.filter((c) => c.type === "element" && (c.tagName === "th" || c.tagName === "td")).length;
 }
 
+/**
+ * 見出しの子要素の先頭が文字列のときだけ、その文字列を切り出して残りと分ける。
+ * 先頭が強調や数式の要素のときは null（分けずにそのまま描く）。
+ * gap は、先頭の文字列の末尾の空白。分けた題は trim されるが、あとに数式やコードが続くとき（`式 $x$`）は
+ * その空白に意味があるので、題と残りの間に戻す。
+ */
+function leadingText(children: ReactNode): { text: string; gap: string; rest: ReactNode[] } | null {
+  const arr = Array.isArray(children) ? children : [children];
+  const first = arr[0];
+  if (typeof first !== "string") return null;
+  const rest = Children.toArray(arr.slice(1));
+  return { text: first, gap: rest.length > 0 && /\s$/.test(first) ? " " : "", rest };
+}
+
 const HEADING_ID_RE = /\s*\{#([a-zA-Z0-9_-]+)\}\s*$/;
 const CAPTION_RE = /^(?:Figure|Table)\s+\d+[a-z]?\b|^[図表]\s*\d+[.．:：　 ]/;
 
@@ -117,6 +137,35 @@ function createComponents(maths: MathItem[]): Components {
     const H: NonNullable<Components[typeof Tag]> = (props) => {
       const { children } = props;
       const { id, children: cleaned } = headingParts(children);
+      const lead = Tag === "h1" || Tag === "h2" || Tag === "h3" ? leadingText(cleaned) : null;
+      if (lead && Tag === "h1") {
+        // 章の扉。ラベルと題の間の空白は、見出しの文字として読み上げに残す（ブロックの間なので見た目には出ない）
+        const door = splitChapterHeading(lead.text);
+        if (door) {
+          return (
+            <h1 id={id} className="bzr-door" {...blockAttr(props)}>
+              <span className="bzr-door-label">{door.label}</span>{" "}
+              <span className="bzr-door-title">
+                {door.title}
+                {lead.gap}
+                {lead.rest}
+              </span>
+            </h1>
+          );
+        }
+      }
+      if (lead && (Tag === "h2" || Tag === "h3")) {
+        const section = splitSectionNumber(lead.text);
+        if (section) {
+          return (
+            <Tag id={id} {...blockAttr(props)}>
+              <span className="bzr-sec-num">{section.number}</span> {section.title}
+              {lead.gap}
+              {lead.rest}
+            </Tag>
+          );
+        }
+      }
       return (
         <Tag id={id} {...blockAttr(props)}>
           {cleaned}

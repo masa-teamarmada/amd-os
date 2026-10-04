@@ -13,6 +13,7 @@ import { readerChapterHref, type ReaderTheme } from "@/lib/bzm-reader/types";
  * 外枠（左ナビ・常駐 UI）は AppShell が usePathname で外す（isBzmReaderRoute）。
  * Markdown はサーバで HTML にし、ReaderView（ブラウザ部品）には children で渡す。
  * 背景色は Cookie（storage.ts が設定の保存時に書く）をサーバで読み、最初の描画から正しい色で出す。
+ * 目次が別の章の見出しも画面遷移なしに開けるよう、本の全章の見出し（bookHeadings）を ReaderView へ渡す。
  */
 
 type Params = Promise<{ book: string; chapter: string }>;
@@ -38,7 +39,7 @@ export default async function BzmReaderChapterPage({ params }: { params: Params 
   const content = getReaderChapterContent(decodeURIComponent(rawBook), decodeURIComponent(rawChapter));
   if (!content) notFound();
 
-  const { book, chapterIndex, chapter, headings, notes, markdown } = content;
+  const { book, chapterIndex, chapter, headings, bookHeadings, notes, markdown } = content;
 
   if (!chapter.exists) {
     const firstSlug = getFirstWrittenChapterSlug(book);
@@ -72,7 +73,7 @@ export default async function BzmReaderChapterPage({ params }: { params: Params 
   const initialTheme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
 
   return (
-    <ReaderView content={{ book, chapterIndex, chapter, headings, notes }} initialTheme={initialTheme}>
+    <ReaderView content={{ book, chapterIndex, chapter, headings, bookHeadings, notes }} initialTheme={initialTheme}>
       <ReaderMarkdown markdown={markdown} lang={book.lang} />
     </ReaderView>
   );

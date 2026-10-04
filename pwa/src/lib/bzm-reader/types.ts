@@ -91,6 +91,12 @@ export interface ReaderChapterContent {
   /** 描画用に前処理した Markdown（YAML・HTML コメントを除き、図と章間リンクを書き換え済み。論文の引用は文献一覧の章へのリンク） */
   markdown: string;
   headings: ReaderHeading[];
+  /**
+   * 本の全章の見出し（章の slug → その章の見出し）。書けている章だけが入る（未執筆の章のキーは無い）。
+   * 目次で、別の章の見出しも画面遷移なしに開くため、どの章のページにも全章分を載せる（本 1 冊で数百件）。
+   * 自分の章の分は `headings` と同じ。
+   */
+  bookHeadings: Record<string, ReaderHeading[]>;
   /** 本文から外した HTML コメント（執筆メモなど）。前後の空白を落とした中身 */
   notes: string[];
 }
@@ -167,6 +173,14 @@ export const READER_STORAGE_KEYS = {
 export function readerChapterHref(bookId: string, chapterSlug: string, at?: "start" | "end"): string {
   const base = `/bzm/read/${encodeURIComponent(bookId)}/${encodeURIComponent(chapterSlug)}`;
   return at ? `${base}?at=${at}` : base;
+}
+
+/**
+ * 章の中の見出しへの URL。読書画面は URL の `#見出しid` を拾い、その見出しのあるページから開く。
+ * 先読みの対象は `#` を含まない `readerChapterHref`（Next.js の先読みの鍵は pathname と search で、`#` は含まない）。
+ */
+export function readerHeadingHref(bookId: string, chapterSlug: string, headingId: string): string {
+  return `${readerChapterHref(bookId, chapterSlug)}#${encodeURIComponent(headingId)}`;
 }
 
 /** 原稿内の図を配る API の URL（`bzm/` からの相対パス） */

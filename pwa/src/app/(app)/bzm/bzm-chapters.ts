@@ -356,14 +356,14 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   // --- BZM 3.0 教科書 (2026-10-03 全16本の初稿。textbook v0.1〜v0.2) ---
   {
     slug: "bzm-3-0-textbook-introduction",
-    title: "序 — このモデルは何を測るのか",
+    title: "序章　このモデルは何を測るのか",
     summary:
       "三つの目的と十二の要件、採らない主張、モデルの骨組み、本書の読み方。",
     status: "in-progress",
   },
   {
     slug: "bzm-3-0-textbook-industrial-value",
-    title: "第1章 — 産業創出価値と最上段の式",
+    title: "第1章　産業創出価値と最上段の式",
     summary:
       "スコアが数える量（国内付加価値の純増の現在価値）と、二段の平均からなる最上段の式。九つの価値実現経路と追加的貢献の換算。",
     status: "in-progress",

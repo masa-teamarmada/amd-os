@@ -9,8 +9,8 @@ import type { ReaderBookManifest, ReaderChapterManifest } from "./types.ts";
 
 /** BZM 3.0 教科書。題は BZM_3_0_TEXTBOOK_PLAN.md §1 の 16 本。未執筆の章は plannedTitle で目次に出す */
 const BZM30_CHAPTERS: Array<{ name: string; plannedTitle: string }> = [
-  { name: "introduction", plannedTitle: "序 — このモデルは何を測るのか" },
-  { name: "industrial-value", plannedTitle: "第1章 — 産業創出価値と最上段の式" },
+  { name: "introduction", plannedTitle: "序章　このモデルは何を測るのか" },
+  { name: "industrial-value", plannedTitle: "第1章　産業創出価値と最上段の式" },
   { name: "observed-state", plannedTitle: "第2章 — 観測状態と資金の二勘定" },
   { name: "parameters", plannedTitle: "第3章 — 案件パラメータと事前分布" },
   { name: "stage-gates", plannedTitle: "第4章 — 標準ゲート表と前進の式" },

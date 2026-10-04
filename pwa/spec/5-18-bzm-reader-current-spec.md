@@ -1,6 +1,6 @@
 # 書斎仕様（執筆途中の本と論文を読む画面）
 
-> **この章は何か**: 執筆途中の本と論文を、Kindle のように1ページずつめくって通読する画面 `/bzm/read`（書斎）の確定仕様。公開範囲、画面と URL、別のアドレスの専用アプリとしてのインストールとアドレスの振り分け、棚に並べる6冊、原稿の前処理、描画、読書画面の操作（左の目次の列、見開きの間隔を含む）、位置の記憶、図の配信と専用ヘッダ、本番への同梱、検査、残課題を定める。2026-10-03 に新設し、同日の点検後の修正を反映した（build v3.150.0）。2026-10-04 に AMD OS とは別の専用アプリにし、読書画面の左に目次の列を常設して、見開きの左右のページの間を広げた（build v3.153.0）。同日午後、書斎を別のアドレス `https://bookshelf-armada.vercel.app` で開く方式にし、アドレスの振り分けを middleware に置いた（build v3.154.0）。設計の詳細と数値は `pwa/design/bzm_reader.md` を正本とし、この章はその確定した要点を `/spec` から読めるようにしたもの。
+> **この章は何か**: 執筆途中の本と論文を、Kindle のように1ページずつめくって通読する画面 `/bzm/read`（書斎）の確定仕様。公開範囲、画面と URL、別のアドレスの専用アプリとしてのインストールとアドレスの振り分け、棚に並べる6冊、原稿の前処理、描画、読書画面の操作（左の目次の列、見開きの間隔を含む）、位置の記憶、図の配信と専用ヘッダ、本番への同梱、検査、残課題を定める。2026-10-03 に新設し、同日の点検後の修正を反映した（build v3.150.0）。2026-10-04 に AMD OS とは別の専用アプリにし、読書画面の左に目次の列を常設して、見開きの左右のページの間を広げた（build v3.153.0）。同日午後、書斎を別のアドレス `https://bookshelf-armada.vercel.app` で開く方式にし、アドレスの振り分けを middleware に置いた（build v3.154.0）。同日、目次が全章の見出しを最初から持ち、章ごとの矢印で画面遷移なしに開閉できるようにして、別の章を押したあとの待ちを縮めた（完全な先読み）。あわせて、章の扉と節の番号、扉のある章の最初の節を新しいページから始める区切りを加えた。設計の詳細と数値は `pwa/design/bzm_reader.md` を正本とし、この章はその確定した要点を `/spec` から読めるようにしたもの。
 
 ## 1. 位置づけ
 
@@ -110,9 +110,11 @@
 - 数式は Markdown の解析の前に退避し、描画のときに KaTeX へ戻す。解析に通すと `_` や `*` が強調として壊れるため。退避の規則は `protect-math.ts` にあり、文字数の数え方も同じ規則を使う。
 - インライン数式の規則は既存の `BzmMarkdown` と同じ。`$` と `$` の間に `$` を含まない。改行は許し、空行（段落の切れ目）はまたがない。開きと閉じの直前直後の空白や数字は問わない。`\$` は文字としての `$` で数式にしない。インラインコードの中の `$` も数式にしない。金額の `$` は `\$` と書く。
 - 見出し h1〜h4 に id を振り、本文の直下のブロックに `data-bzr-block`（番号）を振る。番号は読書位置の復元に使う。
+- 章の扉（2026-10-04）: h1 の文字が「序章」「第N章」「付録」で始まるとき（古い形の `BZM x.y教科書 ` の接頭辞と ` — ` の区切り、古い形の序 `序 — 題` も許す）は、ラベル（「第1章」。本文の 0.8 倍、太字、`--bzr-accent` の色）と題（本文の 1.75 倍、太字）を別の行に分けた `h1.bzr-door` にし、下に罫線と広めの余白を置く。id は h1 に付けたまま変わらない。分けられない h1（論文の `Abstract`、補足資料の `SM-A. …`、`序論`、`第2章の補足`）は、これまでどおり描く。
+- 節・項の番号（2026-10-04）: h2・h3 の文字が `1.1`、`1.1.1`、`0.1.1`、`A.2`（古い形の節 `1.` も）のような番号で始まり、直後に空白が続くとき、番号だけを `--bzr-accent` の色で分ける。`1.5倍の根拠` や番号の無い見出しは分けない。h2 は本文の 1.4 倍・上の余白が広く・題の下に細い罫線、h3 は 1.15 倍で罫線なし。目次の項目の文字は、番号を含む見出しの文字そのまま。分け方は純関数（`heading-parts.ts` の `splitChapterHeading`・`splitSectionNumber`）。
 - 表は列の数（最初の行のセル数）で2種類にする。5列以上は横スクロールの囲み（`bzr-hscroll bzr-table--wide`、セルの最小幅 6em）。4列以下は囲みなし（`bzr-table--fit`）で本文の幅に収め、長い語は列の中で折り、段をまたいで割れる（行の途中と見出し行の直後では割れない）。表示数式は、はみ出すときだけ横に動く囲み（`bzr-hscroll`）に入れる。
 - 引用リンク（href が `#ref-N` で終わるもの）は上付きの `[N]` にし、title の書誌があれば付ける。`#refdef-N` は飛び先の目印（`id="ref-N"`）にする。
-- 色は `--bzr-*` の変数で決める。表の罫線は `--bzr-table-line`（本文の罫線より濃い）、図の背面は `--bzr-figure-bg`（黒の背景のときだけ白地）。
+- 色は `--bzr-*` の変数で決める。表の罫線は `--bzr-table-line`（本文の罫線より濃い。章の扉と節の罫線にも使う）、図の背面は `--bzr-figure-bg`（黒の背景のときだけ白地）。文字に使う色（fg・muted・accent）は、白・セピア・黒のどれも背景との比が 4.5:1 以上（白の accent は `#0267b2`、白との比 5.86:1。検査が確かめる）。
 - 色と大きさは CSS 変数で決め、部品の中に色を直書きしない。クラス名は `bzr-` で始める。
 - 英語の本は外側に `lang="en"`、和文は `lang="ja"`。英文は自動の単語分割（`hyphens: auto`）を使う。
 
@@ -124,6 +126,7 @@
 - 本文の段を2つ置ける広い画面（目安 1100px 以上）で「見開き」が入なら、2段を1画面に並べて2ページずつめくる。この幅は「本文の領域の幅」で見る。左の目次の列（§7.3）を出しているときは、画面の幅からその列の幅を引いた値で判定する（列のぶん本文が 1100px を切れば1ページになる）。
 - 見開きの左右のページの間（段の間）は、本文の領域の幅の 7% か 72px の大きいほう（上限 120px）。1ページ表示は 48px のまま。間の真ん中には、本のノドのように細い縦の罫線を引く（`.bzr-gutter`。スクロールするビューポートの外に置いて動かさない）。めくり幅は「1画面の幅 + 段の間」。
 - 文字の大きさ・行間・余白・書体・画面の大きさが変わったら、ページを割り直し、読んでいた本文ブロックが入るページへ戻る。図の読み込みと書体の準備が済んだときも割り直す。段数（1ページと2ページ）が変わる割り直し（目次の列の開閉で本文の領域が狭まったときなど）は、段数の記録つきで、ブロック番号と `fraction` から戻る。
+- 扉のある章の最初の節は、新しいページから始める（2026-10-04）。ページ表示では、扉（`h1.bzr-door`）のある章の最初の h2 に `break-before: column`（と `-webkit-column-break-before: always`）を当て、章の最初のページには扉（題、導入の段落、本章の到達目標）だけを載せる。見開きでは、扉が左のページ、最初の節が右のページ。縦スクロール表示では区切らない。扉の無い章（論文・補足資料・講座）は続けて流す。割り付けは変えておらず、実原稿の章で、ページ数がめくった数と一致し、空の画面が無いことを確かめた。
 - 数式と図は段の途中で割らない。図は1ページの高さに収まるよう縮める。4列以下の表は段をまたいで割れる。5列以上の表と表示数式は横スクロールの囲みに入れ、ページ表示ではその高さを「ページの高さ − 3em」までに止めて、中を縦にもスクロールさせる。
 - スクロール表示では、縦に流して読み、位置はスクロール量で持つ。
 
@@ -156,11 +159,13 @@
   - 項目を押したときの動きはパネルと同じ（見出しのページへ、別の章へ）。列は出したままなので、見出しを押しても上下の帯は隠さない。
   - 列は本文の領域の外にあるため、列の中の押下・ホイールでは本文をめくらない。キーも、Escape 以外は列の中では本文をめくらない。ポインタで押したボタンはフォーカスを外し、直後の矢印キーで本文をめくれる。画面を押したときの左右 3 割の判定は、列を除いた本文の領域の幅で見る。
   - 画面が 1100px 未満のときは、目次のボタンで横からパネルを出す（下の「目次」と同じ中身）。
-- 目次: 本の章の一覧（いまの章を強調、未執筆の章は灰色で押せない）と、いまの章の見出し（h2・h3）。押すとその見出しのページへ飛ぶ。
+- 目次: 本の章の一覧（いまの章を強調、未執筆の章は灰色で押せない）と、各章の見出し（h2・h3）。いまの章の見出しは、押すとそのページへ飛ぶ。
+  - 全章の見出しと開閉（2026-10-04）: 章のページが本の全章の見出し（`bookHeadings`。書けている章だけ。本 1 冊で数百件、JSON 約 18KB）を返し、目次が最初から持つ。各章の行の右端に、見出しを開閉する矢印（`aria-expanded`、読み上げの名前は「『章の題』の見出しを開く」「…を閉じる」、押せる範囲は 44×44px）があり、押すと画面遷移なしにその章の見出しを開閉する。いまの章は最初から開いている。別の章の見出しは `Link` で、押すとその章の該当見出しのページから開く（`readerChapterHref(本, 章)` + `#` + 見出しの id。読書画面が `#` を拾い、使ったら URL から外す）。
+  - 別の章を押した直後（2026-10-04）: 別の章の題か見出しを押したら、新しい章が届くまでのあいだ、目次ではその章を「開いている章」として見出しつきで強調し、題の横に「開いています…」を出す（いまの章は閉じる）。本文には、画面の最上部の細い進行の帯と、本文を少し薄くする表示（濃さ 6 割）を出す。届いた（`chapter.slug` が変わった）ら消す。状態は `ReaderView` の外側が `openingSlug` として持ち、届いたことは、effect の中の setState ではなく、描画の中で前の章のキーと比べて解く。
 - しおり: この本で挟んだ一覧（章の題、本文の冒頭 40 字、挟んだ日）。押すとその位置へ、外す操作もここ。
 - パネルは閉じるボタン、Escape、背景の押下で閉じ、`document.body` 直下に出す（親の `overflow` に切られないように）。閉じるボタンは 44px 四方で、読み上げの名前は「閉じる」。
 - 高さ 500px 未満の画面（スマホの横向きなど）は、本文の上下の余白を詰める。帯は出したときだけ本文に重なる。
-- 目次の章は、ポインタを載せたときとフォーカスしたときに先読みする。いまの章を開いたら次の章も先読みする。
+- 先読み（2026-10-04）: 章のページは動的で `loading.js` が無く、既定の先読み（auto）は実質なにも運ばない。そこで、章のページ全体を先に取る完全な先読み（`router.prefetch(href, { kind: PrefetchKind.FULL })`、部品は `chapter-prefetch.ts`）を使う。目次の章の行と見出しの行に、ポインタが乗ったとき（80ms 待つ。離れたら取り消す）、フォーカスが来たとき（120ms 待つ）、触り始めたときに、その章を先読みする。矢印で見出しを開いたときも、その章を先読みする。いまの章の最初の割り付けが済み、ブラウザが空いたとき（`requestIdleCallback`、無ければ 1500ms 後）に、次の章（`?at=start`）と前の章（`?at=end`）を先読みする（先読みの鍵は pathname と search で `#` を含まないため、めくって移るときの URL と同じ URL を先読みする）。`navigator.connection.saveData` が真の端末では、自動の先読みをしない。持ち時間は Next.js の `staleTimes.static`（既定 5 分、`next.config.ts` に上書きなし。同梱文書 `staleTimes.md`）。5 分を過ぎた分は、章の終わり近く（最後の 2 画面）で次の章を、始まり近く（最初の 2 画面）で前の章を、取り直す。
 
 ### 7.4 文字の設定
 
@@ -195,7 +200,7 @@
 
 ## 8. 検査に載せる純関数の置き場
 
-検査 `check_bzm_reader.mts` は `node --experimental-strip-types` で走るため、検査から読む `library.ts`・`preprocess.ts`・`protect-math.ts`・`progress.ts`・`storage.ts`・`hosts.ts` は `@/` を使わず、拡張子 `.ts` 付きの相対 import だけにする。
+検査 `check_bzm_reader.mts` は `node --experimental-strip-types` で走るため、検査から読む `library.ts`・`preprocess.ts`・`protect-math.ts`・`progress.ts`・`storage.ts`・`hosts.ts`・`heading-parts.ts` は `@/` を使わず、拡張子 `.ts` 付きの相対 import だけにする。
 
 ## 9. 図を配る API（`GET /api/bzm-reader/asset/[...path]`）と専用ヘッダ
 
@@ -223,8 +228,8 @@
 
 | 検査 | 内容 |
 |---|---|
-| `npm run test:bzm-reader`（deploy 前ゲート） | 前処理の各規則の入出力、見出しの連番、論文の引用の書き換え、数式の退避（実原稿の全章で数式の外に `$` が残らない）、文字数の数え方、棚の本と章の重複なし、Book A の章が `BZM_PARTS` と一致、未執筆の章の返し方、`ReaderMarkdown` を描いたときの目次と見出しの id の一致、表の囲みの種類、進み具合、端末内保存、書斎のアドレスの振り分け（`readerHostRedirect`。書斎のアドレスの `/` が棚へ、書斎の画面・図の API・ログインはそのまま、それ以外と `/bzm/readme` は AMD OS のアドレスへ。大文字・ポート付きの Host。AMD OS のアドレスは `/bzm/read` 配下だけを書斎のアドレスへ。プレビューと手元の開発は振り分けない） |
-| `npm run test:critical-ui` | 管理者の判定（`require-reader-admin.ts` の `isAdmin` と `redirect("/dashboard")`、layout と3つの page の `requireReaderAdmin()`）、外枠を外す判定 `isBzmReaderRoute` が `AppShell.tsx` にあり `(app)/layout.tsx` に無いこと、`BZM_READER_ROUTE` が棚を含む3画面に合う正規表現であること、左ナビ（`GlobalNav.tsx`）に `"/bzm/read"` が無いこと、専用アプリの部品（`manifest-shosai.json` の `start_url`（`/bzm/read`）・`scope`（`/`）・`display`、`middleware.ts` の `manifest-shosai\\.json` の除外、`read/layout.tsx` の `manifest: "/manifest-shosai.json"`）、アドレスの振り分け（`middleware.ts` が `readerHostRedirect(request.nextUrl` を呼び `NextResponse.redirect(hostRedirect, 307)` で送ること、`hosts.ts` の `SHOSAI_HOST` と `AMD_OS_HOST`）、`surface-catalog` の `bzm-reader`、同梱指定、図の API の専用ヘッダ、`test:bzm-reader` の登録、読書画面の「目次」「文字の設定」ボタン、左の目次の列（`ReaderTocColumn` と `data-bzr-toc-col`、`toc-open` の保存キー、`reader-shell.css` の `.bzr-toc-col {`・`--bzr-toc-w`・`.bzr-gutter::after`） |
+| `npm run test:bzm-reader`（deploy 前ゲート） | 前処理の各規則の入出力、見出しの連番、章の扉と節番号の分け方と描画（新旧の形、該当しない文字、`{#id}`、題の途中の数式、BZM 3.0教科書の全章が扉になること、見出しの id が目次と一致）、目次が持つ全章の見出し（`bookHeadings` が書けている全章を持ち、各章の `headings` と一致）、文字の色と背景の比（3つのテーマで 4.5:1 以上）、論文の引用の書き換え、数式の退避（実原稿の全章で数式の外に `$` が残らない）、文字数の数え方、棚の本と章の重複なし、Book A の章が `BZM_PARTS` と一致、未執筆の章の返し方、`ReaderMarkdown` を描いたときの目次と見出しの id の一致、表の囲みの種類、進み具合、端末内保存、書斎のアドレスの振り分け（`readerHostRedirect`。書斎のアドレスの `/` が棚へ、書斎の画面・図の API・ログインはそのまま、それ以外と `/bzm/readme` は AMD OS のアドレスへ。大文字・ポート付きの Host。AMD OS のアドレスは `/bzm/read` 配下だけを書斎のアドレスへ。プレビューと手元の開発は振り分けない） |
+| `npm run test:critical-ui` | 管理者の判定（`require-reader-admin.ts` の `isAdmin` と `redirect("/dashboard")`、layout と3つの page の `requireReaderAdmin()`）、外枠を外す判定 `isBzmReaderRoute` が `AppShell.tsx` にあり `(app)/layout.tsx` に無いこと、`BZM_READER_ROUTE` が棚を含む3画面に合う正規表現であること、左ナビ（`GlobalNav.tsx`）に `"/bzm/read"` が無いこと、専用アプリの部品（`manifest-shosai.json` の `start_url`（`/bzm/read`）・`scope`（`/`）・`display`、`middleware.ts` の `manifest-shosai\\.json` の除外、`read/layout.tsx` の `manifest: "/manifest-shosai.json"`）、アドレスの振り分け（`middleware.ts` が `readerHostRedirect(request.nextUrl` を呼び `NextResponse.redirect(hostRedirect, 307)` で送ること、`hosts.ts` の `SHOSAI_HOST` と `AMD_OS_HOST`）、`surface-catalog` の `bzm-reader`、同梱指定、図の API の専用ヘッダ、`test:bzm-reader` の登録、読書画面の「目次」「文字の設定」ボタン、左の目次の列（`ReaderTocColumn` と `data-bzr-toc-col`、`toc-open` の保存キー、`reader-shell.css` の `.bzr-toc-col {`・`--bzr-toc-w`・`.bzr-gutter::after`）、目次の開閉の矢印（`aria-expanded`）と全章の見出し（`bookHeadings`）、完全な先読み（`PrefetchKind.FULL` の呼び出し、`requestIdleCallback`、`saveData`、前後の章の URL）、押した直後の表示（描画の中で解く `setOpeningSlug(null)`、`data-opening`、進行の帯）、章と節の区切り（扉の `bzr-door`、節番号の `bzr-sec-num`、`reader.css` の扉のある章の最初の h2 の改ページ `break-before: column;` と `-webkit-column-break-before: always;`） |
 | `npx tsc --noEmit` | 共有型と各担当の部品の整合 |
 
 ## 12. 残課題
@@ -239,8 +244,8 @@
 ## 確認した current truth
 
 - `pwa/design/bzm_reader.md`（設計正本）
-- `pwa/src/lib/bzm-reader/types.ts` / `library.ts` / `preprocess.ts` / `protect-math.ts` / `progress.ts` / `storage.ts` / `load.ts` / `require-reader-admin.ts` / `hosts.ts`
-- `pwa/src/components/bzm-reader/ReaderMarkdown.tsx` / `ReaderView.tsx` / `ReaderPanels.tsx` / `ReaderTocColumn.tsx` / `useReaderPagination.ts` / `reader.css` / `reader-shell.css`
+- `pwa/src/lib/bzm-reader/types.ts` / `library.ts` / `preprocess.ts` / `protect-math.ts` / `heading-parts.ts` / `progress.ts` / `storage.ts` / `load.ts` / `require-reader-admin.ts` / `hosts.ts`
+- `pwa/src/components/bzm-reader/ReaderMarkdown.tsx` / `ReaderView.tsx` / `ReaderPanels.tsx` / `ReaderTocColumn.tsx` / `chapter-prefetch.ts` / `useReaderPagination.ts` / `reader.css` / `reader-shell.css`
 - `pwa/src/app/(app)/bzm/read/**`（`layout.tsx` の manifest 差し替え、`page.tsx` の棚の外枠なしの表示）、`pwa/src/app/api/bzm-reader/asset/[...path]/route.ts`
 - `pwa/public/manifest-shosai.json`、`pwa/src/middleware.ts`（アドレスの振り分け、matcher の除外）、`pwa/src/app/auth/login/page.tsx` と `pwa/src/app/auth/callback/route.ts`（開いているアドレスへ戻るログイン）
 - `pwa/src/components/nav/AppShell.tsx`（`isBzmReaderRoute`、`BZM_READER_ROUTE`）、`pwa/src/lib/surface-catalog.ts`、`pwa/src/components/nav/GlobalNav.tsx`（書斎の項目なし）、`pwa/next.config.ts`（同梱指定と図の専用ヘッダ）

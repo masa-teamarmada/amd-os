@@ -3,6 +3,7 @@
 // load.ts（`@/` 別名を使う）は、register_ts_aliases.mjs で別名を解く登録をしてから読み込む。
 // ReaderMarkdown.tsx（JSX と css の import を含む）は、typescript で変換した写しを
 // node_modules/.cache の下に作って読み込み、react-dom/server で描く。
+// 章の扉と節番号の分け方（heading-parts.ts）、目次が持つ全章の見出し（bookHeadings）、文字の色の比も確かめる。
 // Run: npm run test:bzm-reader
 
 import assert from "node:assert/strict";
@@ -23,6 +24,7 @@ import {
   rewriteReferenceCitations,
   splitByH1,
 } from "../src/lib/bzm-reader/preprocess.ts";
+import { splitChapterHeading, splitSectionNumber } from "../src/lib/bzm-reader/heading-parts.ts";
 import { protectMath } from "../src/lib/bzm-reader/protect-math.ts";
 import { AMD_OS_HOST, SHOSAI_HOST, isShosaiHost, readerHostRedirect } from "../src/lib/bzm-reader/hosts.ts";
 import { bookProgressFraction, remainingMinutes } from "../src/lib/bzm-reader/progress.ts";
@@ -34,7 +36,12 @@ import {
   saveReaderPosition,
   saveReaderSettings,
 } from "../src/lib/bzm-reader/storage.ts";
-import { DEFAULT_READER_SETTINGS, readerAssetHref, readerChapterHref } from "../src/lib/bzm-reader/types.ts";
+import {
+  DEFAULT_READER_SETTINGS,
+  readerAssetHref,
+  readerChapterHref,
+  readerHeadingHref,
+} from "../src/lib/bzm-reader/types.ts";
 
 const opts = { file: "book-a-ch-1.md", bookId: "book-a", bookChapterSlugs: ["book-a-ch-1", "book-a-ch-2"] };
 const run = (source: string, over: Partial<typeof opts> = {}) => preprocessReaderMarkdown(source, { ...opts, ...over });
@@ -220,6 +227,72 @@ const soft = (cond: boolean, message: string) => {
   assert.equal(countReaderChars("`$x$` と $y$"), 7, "インラインコードの中の $ は数式にしない（コードは記号ごと数える）");
 }
 
+// 章の扉（ラベルと題）の分け方。新しい形（全角の空白）、古い形（BZM x.y教科書 の接頭辞と ` — `）、該当しない文字
+{
+  const door = (text: string) => splitChapterHeading(text);
+  // 新しい形（BZM_3_0_TEXTBOOK_PLAN.md §2.1a）
+  assert.deepEqual(door("第1章　産業創出価値と最上段の式"), { label: "第1章", title: "産業創出価値と最上段の式" });
+  assert.deepEqual(door("序章　このモデルは何を測るのか"), { label: "序章", title: "このモデルは何を測るのか" });
+  assert.deepEqual(door("付録　記号、用語、参考文献"), { label: "付録", title: "記号、用語、参考文献" });
+  assert.deepEqual(door("第14章　モデルが表現していないこと、近似、反証条件"), {
+    label: "第14章",
+    title: "モデルが表現していないこと、近似、反証条件",
+  });
+  // 古い形（書き直していない章）
+  assert.deepEqual(door("BZM 3.0教科書 第2章 — 観測状態と資金の二勘定"), { label: "第2章", title: "観測状態と資金の二勘定" });
+  assert.deepEqual(door("BZM 3.0教科書 序 — このモデルは何を測るのか"), { label: "序", title: "このモデルは何を測るのか" });
+  assert.deepEqual(door("BZM 3.0教科書 付録 — 記号一覧、用語、参考文献"), { label: "付録", title: "記号一覧、用語、参考文献" });
+  assert.deepEqual(door("第13章 巨人の肩 — 要件ごとの既存理論"), { label: "第13章", title: "巨人の肩 — 要件ごとの既存理論" }, "題の中のダッシュは触らない");
+  // Book A（ラベルのあとが普通の空白）
+  assert.deepEqual(door("第5章 生存の静学 — 生存条件式と創業者機能 F_founder-CES"), {
+    label: "第5章",
+    title: "生存の静学 — 生存条件式と創業者機能 F_founder-CES",
+  });
+  assert.deepEqual(door("第１章　全角の数字"), { label: "第１章", title: "全角の数字" });
+  assert.deepEqual(door("  第3章   前後の空白  "), { label: "第3章", title: "前後の空白" });
+  // 該当しない文字は null（分けずにそのまま描く）
+  for (const text of [
+    "序論 はじめに",
+    "序・凡例・記号一覧",
+    "第2章の補足",
+    "第3章",
+    "第3章　",
+    "Abstract",
+    "1. Introduction",
+    "SM-A. Notation and complete model equations",
+    "読書案内と索引",
+    "BZM 2.2教科書 I — 八層の状態と行動の制約",
+    "BZM批判的基礎講座",
+    "",
+  ]) {
+    assert.equal(door(text), null, JSON.stringify(text));
+  }
+}
+
+// 節・項の番号の分け方。`1.1` `1.1.1` `A.2` `0.1.1`、古い形の `1.`、番号でない文字
+{
+  const num = (text: string) => splitSectionNumber(text);
+  assert.deepEqual(num("1.1 産業創出価値とは何か"), { number: "1.1", title: "産業創出価値とは何か" });
+  assert.deepEqual(num("1.1.1 国内で数える理由"), { number: "1.1.1", title: "国内で数える理由" });
+  assert.deepEqual(num("0.1 はじめに"), { number: "0.1", title: "はじめに" });
+  assert.deepEqual(num("0.1.1 序章の項"), { number: "0.1.1", title: "序章の項" });
+  assert.deepEqual(num("A.2 記号の定義"), { number: "A.2", title: "記号の定義" });
+  assert.deepEqual(num("A.1.2 付録の項"), { number: "A.1.2", title: "付録の項" });
+  assert.deepEqual(num("10.12.3 桁の多い番号"), { number: "10.12.3", title: "桁の多い番号" });
+  assert.deepEqual(num("1.1　全角の空白"), { number: "1.1", title: "全角の空白" });
+  assert.deepEqual(num("1.1. 末尾にドット"), { number: "1.1.", title: "末尾にドット" });
+  // 古い形（書き直していない章）。節は `1.`、項は番号なし
+  assert.deepEqual(num("1. スコアが答える問い"), { number: "1.", title: "スコアが答える問い" });
+  assert.deepEqual(num("2.1 The measurement problem"), { number: "2.1", title: "The measurement problem" });
+  // 番号ではない文字は null
+  for (const text of ["内側の平均", "1.5倍の根拠", "2024年の動向", "3D 設計", "1.1", "1.1  ", "A. Smith の議論", "§1.1 節", ""]) {
+    assert.equal(num(text), null, JSON.stringify(text));
+  }
+  // 見出しの href（別の章の見出しへ移る URL）。先読みの鍵（# を含まない URL）とは別
+  assert.equal(readerHeadingHref("bzm30-textbook", "bzm-3-0-textbook-parameters", "h-0639ddce"), "/bzm/read/bzm30-textbook/bzm-3-0-textbook-parameters#h-0639ddce");
+  assert.equal(readerHeadingHref("p1-paper", "a b", "x y"), "/bzm/read/p1-paper/a%20b#x%20y");
+}
+
 // 同じ平文の見出しは 2 件目以降に連番つきの明示 id を付け、目次の id と一致させる（取り決め B）
 {
   const r = run("# Top\n\n## 討議課題\n\n### 討議課題\n\n## 討議課題\n\n## 討議課題 ##\n\n#### 解答\n\n#### 解答");
@@ -364,7 +437,7 @@ function strayDollars(text: string): number {
   const bzm30 = READER_LIBRARY[0];
   assert.equal(bzm30.chapters.length, 16);
   assert.equal(bzm30.chapters[0].slug, "bzm-3-0-textbook-introduction");
-  assert.equal(bzm30.chapters[0].plannedTitle, "序 — このモデルは何を測るのか");
+  assert.equal(bzm30.chapters[0].plannedTitle, "序章　このモデルは何を測るのか");
   assert.equal(bzm30.chapters[3].plannedTitle, "第3章 — 案件パラメータと事前分布");
   assert.equal(bzm30.chapters[15].plannedTitle, "付録 — 記号一覧、用語、参考文献");
 
@@ -628,6 +701,45 @@ function strayDollars(text: string): number {
   }
   console.log(`  未執筆の章: ${unwritten} 件が exists=false で返る`);
 
+  // 目次が持つ全章の見出し（bookHeadings）: 書けている章をすべて持ち、未執筆の章は持たない。
+  // 各章の見出しは、その章を単独で読んだときの headings と一致する。どの章（未執筆の章を含む）にも同じ内容が付く
+  {
+    let chaptersChecked = 0;
+    let headingsTotal = 0;
+    for (const manifest of READER_LIBRARY) {
+      const book = getReaderBook(manifest.id);
+      assert.ok(book, manifest.id);
+      const written = book.chapters.filter((c) => c.exists).map((c) => c.slug);
+      assert.ok(written.length > 0, `${manifest.id}: 書けている章が無い`);
+      const first = getReaderChapterContent(manifest.id, written[0]);
+      assert.ok(first, manifest.id);
+      assert.deepEqual(
+        Object.keys(first.bookHeadings).sort(),
+        [...written].sort(),
+        `${manifest.id}: bookHeadings のキーが書けている章と一致しない`,
+      );
+      for (const chapter of book.chapters) {
+        const content = getReaderChapterContent(manifest.id, chapter.slug);
+        assert.ok(content, `${manifest.id}/${chapter.slug}`);
+        assert.deepEqual(content.bookHeadings, first.bookHeadings, `${manifest.id}/${chapter.slug}: 章ごとに bookHeadings が違う`);
+        if (!chapter.exists) {
+          assert.equal(chapter.slug in content.bookHeadings, false, `${manifest.id}/${chapter.slug}: 未執筆の章が bookHeadings にある`);
+          continue;
+        }
+        assert.deepEqual(
+          first.bookHeadings[chapter.slug],
+          content.headings,
+          `${manifest.id}/${chapter.slug}: bookHeadings の見出しが、その章の headings と違う`,
+        );
+        chaptersChecked += 1;
+        headingsTotal += content.headings.length;
+      }
+    }
+    soft(chaptersChecked >= 40, `bookHeadings を突き合わせた章が少ない: ${chaptersChecked}`);
+    soft(headingsTotal >= 800, `bookHeadings を突き合わせた見出しが少ない: ${headingsTotal}`);
+    console.log(`  bookHeadings: ${chaptersChecked} 章、見出し ${headingsTotal} 件が、各章の headings と一致`);
+  }
+
   // 取り決め C: 論文の引用は、文献一覧の章へ飛ぶリンクに書き換わり、書誌が title に入る
   const paper = getReaderBook("p1-paper");
   assert.ok(paper);
@@ -723,6 +835,91 @@ function strayDollars(text: string): number {
       assert.ok(box === "bzr-hscroll bzr-table bzr-table--wide" || box === "bzr-table bzr-table--fit", box);
     }
   }
+
+  // 章の扉と節番号の描画。新しい形（`第1章　題`、`## 1.1 題`）と古い形（`BZM 3.0教科書 第2章 — 題`、`## 1. 題`、番号なしの項）
+  {
+    const idOf = (html: string, tag: string, nth = 0) => [...html.matchAll(new RegExp(`<${tag} id="([^"]+)"`, "g"))][nth]?.[1];
+    const newForm = "# 第1章　産業創出価値と最上段の式\n\n導入の段落。\n\n## 1.1 産業創出価値とは何か\n\n### 1.1.1 国内で数える理由\n\n## 本章のまとめ\n\n### 項";
+    const html = render(newForm);
+    assert.ok(
+      html.includes(
+        `<h1 id="${headingAnchorId("第1章　産業創出価値と最上段の式")}" class="bzr-door" data-bzr-block="0"><span class="bzr-door-label">第1章</span> <span class="bzr-door-title">産業創出価値と最上段の式</span></h1>`,
+      ),
+      html,
+    );
+    assert.ok(html.includes('<span class="bzr-sec-num">1.1</span> 産業創出価値とは何か</h2>'), html);
+    assert.ok(html.includes('<span class="bzr-sec-num">1.1.1</span> 国内で数える理由</h3>'), html);
+    assert.ok(/<h2 id="[^"]+" data-bzr-block="\d+">本章のまとめ<\/h2>/.test(html), "番号の無い節は分けない");
+    assert.ok(/<h3 id="[^"]+" data-bzr-block="\d+">項<\/h3>/.test(html), "番号の無い項は分けない");
+    // 見出しの id と、目次の見出しの文字は、分ける前の原稿の文字から作る（分けても変わらない）
+    const toc = extractReaderHeadings(newForm, headingAnchorId);
+    assert.deepEqual(
+      toc.map((h) => h.text),
+      ["1.1 産業創出価値とは何か", "1.1.1 国内で数える理由", "本章のまとめ", "項"],
+    );
+    assert.deepEqual(
+      [...html.matchAll(/<h([23]) id="([^"]+)"/g)].map((m) => m[2]),
+      toc.map((h) => h.id),
+      "番号を分けても、目次の id と描画の id が一致する",
+    );
+    // 読み上げ用の文字は、ラベルと題の間に空白が残る
+    const plain = html.replace(/<[^>]+>/g, "");
+    assert.ok(plain.includes("第1章 産業創出価値と最上段の式"), plain);
+
+    // 古い形
+    const oldForm = "# BZM 3.0教科書 第2章 — 観測状態と資金の二勘定\n\n導入。\n\n## 1. 題\n\n### 番号の無い項";
+    const oldHtml = render(oldForm);
+    assert.ok(
+      oldHtml.includes('class="bzr-door" data-bzr-block="0"><span class="bzr-door-label">第2章</span> <span class="bzr-door-title">観測状態と資金の二勘定</span></h1>'),
+      oldHtml,
+    );
+    assert.ok(oldHtml.includes('<span class="bzr-sec-num">1.</span> 題</h2>'), oldHtml);
+    assert.ok(/<h3 id="[^"]+" data-bzr-block="\d+">番号の無い項<\/h3>/.test(oldHtml));
+    assert.ok(render("# BZM 3.0教科書 序 — このモデルは何を測るのか").includes('<span class="bzr-door-label">序</span>'));
+    assert.ok(render("# 序章　このモデルは何を測るのか").includes('<span class="bzr-door-label">序章</span>'));
+    assert.ok(render("# 付録　記号、用語、参考文献").includes('<span class="bzr-door-label">付録</span>'));
+    assert.ok(render("## A.2 記号の定義").includes('<span class="bzr-sec-num">A.2</span> 記号の定義'));
+    assert.ok(render("### 0.1.1 序章の項").includes('<span class="bzr-sec-num">0.1.1</span> 序章の項'));
+
+    // 扉にしない h1（論文・補足資料・講座の題、ラベルの後に区切りが無い文字）と、番号にしない h2
+    for (const md of ["# Abstract", "# 1. Introduction", "# SM-A. Notation", "# 序論 はじめに", "# 第2章の補足", "# 第3章"]) {
+      assert.ok(!render(md).includes("bzr-door"), md);
+    }
+    assert.ok(!render("## 1.5倍の根拠").includes("bzr-sec-num"));
+    assert.ok(!render("## 2024年の動向").includes("bzr-sec-num"));
+    assert.ok(render("## 2.1 The measurement problem", "en").includes('<span class="bzr-sec-num">2.1</span> The measurement problem'));
+
+    // `{#id}` つきの章の題は、id をそのまま使い、題から外す
+    assert.ok(render("# 第1章　題 {#ch-1}").includes('<h1 id="ch-1" class="bzr-door"'));
+    assert.ok(render("# 第1章　題 {#ch-1}").includes('<span class="bzr-door-title">題</span>'));
+    assert.equal(idOf(render("## 1.1 題 {#sec-1}"), "h2"), "sec-1");
+
+    // 題の途中に数式やコードがあっても崩れない。先頭が数式やコードの見出しは分けない
+    const mixed = render("# 第1章　式 $x_t$ と `code` の題\n\n## 1.1 式 $y_t$ の節\n\n## `code` の節\n\n# 第2章　`code`");
+    assert.ok(mixed.includes('<span class="bzr-door-label">第1章</span>'), mixed);
+    assert.ok(mixed.includes('<span class="bzr-door-title">式 <span class="bzr-math-inline">'), mixed);
+    assert.ok(mixed.includes('<span class="bzr-sec-num">1.1</span> 式 <span class="bzr-math-inline">'), mixed);
+    assert.ok(!mixed.includes("katex-error") && !mixed.includes("⟦bzr-math"), mixed);
+    assert.equal((mixed.match(/bzr-door-label/g) ?? []).length, 1, "ラベルだけで題が文字列に無い h1 は扉にしない");
+
+    // 実原稿: BZM 3.0教科書の書けている章は、新旧どちらの形でも扉になる（書き直しの途中で扉が欠けない）
+    const bzm30 = getReaderBook("bzm30-textbook");
+    assert.ok(bzm30);
+    let textbookDoors = 0;
+    for (const chapter of bzm30.chapters) {
+      if (!chapter.exists) continue;
+      const content = getReaderChapterContent("bzm30-textbook", chapter.slug);
+      assert.ok(content);
+      const chapterHtml = render(content.markdown);
+      const door = /<h1 id="[^"]+" class="bzr-door" data-bzr-block="\d+"><span class="bzr-door-label">([^<]+)<\/span> <span class="bzr-door-title">([^<]+)/.exec(chapterHtml);
+      assert.ok(door, `${chapter.slug}: 章の扉になっていない`);
+      assert.match(door[1], /^(序章|序|第\d+章|付録)$/, `${chapter.slug}: ラベル ${door[1]}`);
+      assert.ok(!door[2].startsWith("BZM") && !door[2].startsWith("—") && door[2].trim() === door[2], `${chapter.slug}: 題 ${door[2]}`);
+      textbookDoors += 1;
+    }
+    soft(textbookDoors >= 15, `扉になった教科書の章が少ない: ${textbookDoors}`);
+    console.log(`  章の扉: BZM 3.0教科書 ${textbookDoors} 章が扉になる`);
+  }
 }
 
 // 書斎のアドレスの振り分け（hosts.ts）
@@ -755,6 +952,48 @@ function strayDollars(text: string): number {
   assert.equal(isShosaiHost(AMD_OS_HOST), false);
   assert.equal(isShosaiHost(null), false);
   console.log("  書斎のアドレスの振り分け: ok");
+}
+
+// ---------------------------------------------------------------------------
+// 文字の色と背景の比（白・セピア・黒）。reader.css の変数を読み、文字に使う色（本文 fg、補助 muted、
+// 章のラベルと節番号 accent）が、どのテーマも背景との比 4.5:1 以上（WCAG 2.x AA の通常の文字）であること。
+// 目次で強調した行（accent を 14% 混ぜた下地）の上の本文の色も同じ基準で確かめる。
+// ---------------------------------------------------------------------------
+{
+  const css = fs.readFileSync(path.resolve(process.cwd(), "src/components/bzm-reader/reader.css"), "utf8");
+  type Rgb = [number, number, number];
+  const toRgb = (hex: string): Rgb => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) as Rgb;
+  const channel = (c: number) => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  };
+  const luminance = ([r, g, b]: Rgb) => 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+  const contrast = (a: Rgb, b: Rgb) => {
+    const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+  const mix = (fg: Rgb, bg: Rgb, ratio: number): Rgb => fg.map((c, i) => Math.round(c * ratio + bg[i] * (1 - ratio))) as Rgb;
+
+  const ratios: string[] = [];
+  for (const name of ["white", "sepia", "black"] as const) {
+    const block = new RegExp(String.raw`\.bzr-root\[data-theme="${name}"\]\s*\{([^}]*)\}`).exec(css);
+    assert.ok(block, `${name}: reader.css にテーマの変数の塊が無い`);
+    const variable = (key: string): Rgb => {
+      const m = new RegExp(String.raw`--bzr-${key}:\s*(#[0-9a-fA-F]{6})\s*;`).exec(block[1]);
+      assert.ok(m, `${name}: --bzr-${key} が無い`);
+      return toRgb(m[1]);
+    };
+    const bg = variable("bg");
+    for (const key of ["fg", "muted", "accent"]) {
+      const ratio = contrast(variable(key), bg);
+      assert.ok(ratio >= 4.5, `${name}: --bzr-${key} と背景の比が 4.5:1 に足りない (${ratio.toFixed(2)})`);
+      ratios.push(`${name}/${key} ${ratio.toFixed(2)}`);
+    }
+    const tint = mix(variable("accent"), bg, 0.14);
+    const onTint = contrast(variable("fg"), tint);
+    assert.ok(onTint >= 4.5, `${name}: 強調した行の下地と本文の色の比が 4.5:1 に足りない (${onTint.toFixed(2)})`);
+  }
+  console.log(`  文字の色と背景の比（4.5:1 以上）: ${ratios.join("、")}`);
 }
 
 console.log("check_bzm_reader: ok");
