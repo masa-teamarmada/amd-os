@@ -26,8 +26,14 @@ export async function renderMonthlyReportPdf(html: string, executablePath?: stri
       document.body.replaceChildren(report);
     });
     await page.addStyleTag({ content: "* { box-sizing: border-box; }" + await monthlyReportPdfFontCss() });
-    await page.evaluate(async () => { await document.fonts.ready; });
     await page.emulateMediaType("print");
+    await page.evaluate(async () => {
+      const sample = document.querySelector(".print-root")?.textContent || "月次報告書";
+      const regular = await document.fonts.load('400 12px "Noto Sans JP"', sample);
+      const bold = await document.fonts.load('700 12px "Noto Sans JP"', sample);
+      await document.fonts.ready;
+      if (!regular.length || !bold.length) throw new Error("日本語フォントを読み込めませんでした。");
+    });
     return Buffer.from(await page.pdf({ format: "A4", preferCSSPageSize: true, printBackground: true, timeout: 25_000 }));
   } finally { await browser.close(); }
 }

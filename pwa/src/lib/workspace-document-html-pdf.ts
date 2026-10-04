@@ -164,7 +164,9 @@ async function loadPdfFontCss() {
 
 export async function monthlyReportPdfFontCss() {
   fontCssPromise ??= loadPdfFontCss();
-  return `${(await fontCssPromise).replaceAll("Noto Sans JP Variable", "Noto Sans JP")}\nbody { font-family: 'Noto Sans JP', sans-serif; }`;
+  // Report layouts may name desktop-only Japanese fonts. Linux has none of
+  // them, so the PDF renderer must use the bundled font for every text node.
+  return `${(await fontCssPromise).replaceAll("Noto Sans JP Variable", "Noto Sans JP")}\nbody, body * { font-family: 'Noto Sans JP', sans-serif !important; }`;
 }
 
 async function pdfFontCss(html: string) {

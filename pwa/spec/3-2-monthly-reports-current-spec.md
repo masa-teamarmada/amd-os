@@ -311,3 +311,5 @@ ZMP（p19）もSOL・CX・KUTEと同じく `monthly_report_scope=internal_and_ex
 本文は既存atomic RPCで保存し、PDF結果をpdf:{ok,message}として別に返す。保存本文と生成直前・生成後・登録前の本文一致を確認し、OS bytesのSHA256・Drive size/md5を読み戻す。PDF失敗でも本文保存を取り消さず、画面は失敗理由を示し、同じ保存ボタンでPOST /api/monthly-report/pdfを再実行する（本文・編集履歴を重複保存しない）。PDF保存recordは既存本文一致条件で更新する。手動提出版編集の書式比較元は現行の承認済み本文、未作成月のみ直前月本文とする。帳票本文やPDFの章構造をUI都合で変更しない。
 
 PDF保存記録の更新は `monthly_report_pdf_record` RPC（正本migration: `ios/supabase/migrations/20261004172000_monthly_report_pdf_record.sql`）へ全文・PJ・月・版・Drive IDをPOST bodyで渡す。SQL内で本文一致を条件にPDF参照だけを更新し、既存本文保存RPCと同じadvisory lockを使う。admin/service_roleに限定し、本文・編集履歴には書き込まない。長い日本語本文をPostgRESTのURL filterへ入れない。
+
+PDF描画はサーバーに存在しないHiragino/Meiryo等の指定を同梱Noto Sans JPへ置換し、400/700のfont faceを実本文の文字列で明示loadしてから出力する。フォントが読めない場合はPDFを保存しない。画面の組版指定は維持する。

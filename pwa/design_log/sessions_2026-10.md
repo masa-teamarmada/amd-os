@@ -137,3 +137,5 @@ M	pwa/src/lib/build-info.ts
 - 既存未追跡SESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdは本件の成果物ではなく保持。branch/worktreeは作成なし。秘密値・raw会話の恒久保存なし。
 
 - 本番v3.159.3では提出版PDFのOS Storage・共有Drive保存と読戻しは成功、最後の保存記録の本文URL filterが失敗。長い日本語本文をPOST RPCへ移し、本文保存と同じadvisory lock下でPDF参照だけ条件更新する `monthly_report_pdf_record` をSupabaseへ適用。schemaの正本はios/supabase migration、本文・履歴に影響なし。v3.159.4でクライアント側の呼出を反映して再検収する。
+
+- 実Vercel PDFの画像検収で、desktop専用のHiragino/Meiryo指定がLinuxのOpenSansへfallbackし日本語字形が消えることを検出。PDF描画時だけ全textへ同梱Noto Sans JPを適用し、本文の全文字でfont faceを明示load、読込み失敗なら保存前に停止する。Macの描画成功だけでは合格にしない。v3.159.5で本番PDFを再生成し画像検収する。

@@ -189,3 +189,5 @@ SOLの8月実提出はGmail message `1a05810815d1fd13` の3ページ添付。Dri
 月/社内版・提出版を共通プルダウン化し、紙面の編集/保存と同一列へ集約。ヘッダーの最終更新表示を履歴ダイアログ内へ、入口を紙面末尾へ移動。PDF専用ボタンを削除。保存済み印刷HTMLを既存Chromium環境でPDF化し、private StorageのOSドライブと既存共有Driveへ配置。配置失敗は本文保存結果と分け、同じ保存ボタンでPDFのみ再試行。既存PDFのDrive ID・場所・権限を保持。ネイティブUIは未移植。正本spec/3-2、manual/4-8、各附則、ios/DESIGNへ同期。理論・schema変更なし。
 
 本番PDF配置検収で、長い本文のPostgREST URL照合による保存記録エラーを検出。`monthly_report_pdf_record` RPCをSupabaseへ適用し、全文をPOST bodyで照合する方式へ修正。PDF bytesの両ドライブ保存は先に成功しており、本文の変更なしで再試行する。
+
+v3.159.5はLinux PDFの日本語font欠落も修正。PDF描画時だけNoto Sans JPを強制し、本文全文字で400/700のfont読込みを待つ。文字が読める本番紙面を確認してからPDF保存完了を報告する。
