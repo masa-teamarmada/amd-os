@@ -28,6 +28,8 @@ import {
 } from "@/lib/company-overview";
 import { downloadCompanyOverviewXlsx } from "@/lib/company-overview-xlsx";
 import { CockpitKillerFactorCatalog } from "@/components/cockpit/CockpitKillerFactorCatalog";
+import type { BusinessSummaryResponse } from "@/lib/project-overview";
+import { CompanyBusinessSummarySection } from "@/components/cockpit/CompanyBusinessSummarySection";
 import { loadGovernance, peekGovernance, saveGovernanceEntity } from "@/lib/governance-client";
 import {
   EmptyState,
@@ -91,6 +93,7 @@ export function CockpitCompanyOverview({
   surface,
   readOnly = false,
   initialData,
+  initialBusinessSummary,
   canDownload = true,
 }: {
   projectId: string;
@@ -98,6 +101,7 @@ export function CockpitCompanyOverview({
   surface: CompanyOverviewSurface;
   readOnly?: boolean;
   initialData?: CompanyOverviewData;
+  initialBusinessSummary?: BusinessSummaryResponse;
   canDownload?: boolean;
 }) {
   const [data, setData] = useState<CompanyOverviewData>(() => initialData ?? peekGovernance(projectId) ?? EMPTY_DATA);
@@ -265,6 +269,8 @@ export function CockpitCompanyOverview({
           <div className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center justify-between text-[11px] text-slate-500"><span>完全希薄化後</span><WalletCards className="size-4" /></div><div className="mt-2 text-xl font-semibold tabular-nums text-slate-950">{formatNumber(latestSnapshot?.dilutedShares, 2)}<span className="ml-1 text-xs font-normal text-slate-400">株</span></div><p className="mt-2 text-[11px] text-slate-500">転換見込を含む参考値 {formatNumber(conversion.proFormaDilutedShares, 2)}株</p></div>
           <div className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center justify-between text-[11px] text-slate-500"><span>直近企業価値</span><Landmark className="size-4" /></div><div className="mt-2 text-xl font-semibold tabular-nums text-slate-950">{formatYen(selectedEquityValue)}</div><p className="mt-2 truncate text-[11px] text-slate-500">{latestRound?.round_name || "ラウンド未入力"}</p></div>
         </div>
+
+        <CompanyBusinessSummarySection projectId={projectId} readOnly={readOnly} initialData={initialBusinessSummary} />
 
         <Section title="基本情報" description="登記・定款・最新の確認資料に基づく会社の現在値" action={readOnly ? undefined : <Button variant="outline" className="h-11" onClick={() => setDialog("profile")}><Pencil />編集</Button>}>
           <div className="grid sm:grid-cols-2">

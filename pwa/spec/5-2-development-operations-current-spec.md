@@ -148,7 +148,7 @@ scripts/worker-freshness-check.sh
 - main 以外を開いている、`index.lock` がある、merge・rebase・cherry-pick の途中なら見送る。同時実行は `.git/amd-os-root-sync.lock` で1本に絞る。
 - 記録は `~/Library/Logs/amd-os-root-sync.log`、最後の結果は `/Users/masa/projects/AMD/amd-os-root-dirty/last_status.json`。
 
-現在は手動実行。セッション開始時の自動実行 (`.claude/hooks/git_dirty_guard.sh`) と、30分ごとの定期実行 (`scripts/launchagents/jp.teamarmada.amd-os-root-sync.plist`) の導入、`--quarantine on` への切り替えはまさの判断待ち (2026-10-03)。
+Claude Code のセッション開始時に `.claude/hooks/git_dirty_guard.sh` が `--quarantine on` で実行し、結果をセッション冒頭の表示に載せる (2026-10-04 まさ確定)。`.claude/` は git 管理外のため、このフックはまさの Mac の作業フォルダにだけある。30分ごとの定期実行用 `scripts/launchagents/jp.teamarmada.amd-os-root-sync.plist` は読み込んでいない。
 
 ## Supabase DDL
 

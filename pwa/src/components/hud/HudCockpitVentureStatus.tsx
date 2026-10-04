@@ -42,7 +42,6 @@ import { CockpitNarrativeModal } from "../cockpit/CockpitNarrativeModal";
 import { CockpitMembersModal } from "../cockpit/CockpitMembersModal";
 // 2026-05-11 まさ指摘 1 番: 旧 CockpitFoundingMembersModal を CockpitMembersModal に統合済、import 削除
 import { CockpitPartnersModal } from "../cockpit/CockpitPartnersModal";
-import { CockpitDescriptionDetailModal } from "../cockpit/CockpitDescriptionDetailModal";
 import { CockpitAmdScoreBreakdownModal } from "../cockpit/CockpitAmdScoreBreakdownModal";
 import { CockpitXrlDetailModal } from "../cockpit/CockpitXrlDetailModal";
 import { CurrentSpsAssessmentCard } from "@/components/sps/CurrentSpsAssessmentCard";
@@ -134,7 +133,7 @@ function dateToYearDecimal(iso: string): number {
 // Component
 // ============================================================
 
-type MetaFocus = "outcome" | "founded_at" | "origin_pi" | "origin_org" | "lane" | "description";
+type MetaFocus = "outcome" | "founded_at" | "origin_pi" | "origin_org" | "lane";
 
 interface RoleMembers {
   pls: string[];
@@ -157,7 +156,6 @@ export function HudCockpitVentureStatus({ projectId, projectName }: { projectId:
   const [membersOpen, setMembersOpen] = useState(false);
   // 2026-05-11 まさ指摘 1 番: foundingMembersOpen state を削除 (= CockpitMembersModal に統合)
   const [partnersOpen, setPartnersOpen] = useState(false);
-  const [descOpen, setDescOpen] = useState(false);
   const [scoreBreakdownOpen, setScoreBreakdownOpen] = useState(false);
   const [pendingXrl, setPendingXrl] = useState<ProjectXrlRow | null>(null);
   const [xrlDetailTarget, setXrlDetailTarget] = useState<{ row: ProjectXrlRow; axis: "TRL" | "BRL" | "GRL" | "SRL" | "HRL" } | null>(null);
@@ -462,16 +460,10 @@ export function HudCockpitVentureStatus({ projectId, projectName }: { projectId:
         </div>
       )}
 
-      <button
-        onClick={() => setDescOpen(true)}
-        className="relative block w-full px-4 pt-3 text-left text-[12px] text-cyan-50/78 hover:underline decoration-dotted"
-        title="事業詳細を表示・編集 (つくよみがマージ)"
-      >
-        {venture.short_description || <span className="text-cyan-100/45">事業概要を入力…</span>}
-        {venture.long_description && (
-          <span className="ml-1 text-[10px] text-cyan-100/45">[詳細あり]</span>
-        )}
-      </button>
+      {/* 事業の一言は読むだけ。直すのは会社情報 > 会社概要「事業の概要」から管理者だけ（2026-10-04 まさ確定、migration 468） */}
+      <p className="relative block w-full px-4 pt-3 text-left text-[12px] text-cyan-50/78">
+        {venture.short_description || <span className="text-cyan-100/45">事業の一言は未登録</span>}
+      </p>
 
       {currentSps ? <div className="relative mx-2 mt-3 text-slate-900"><CurrentSpsAssessmentCard assessment={currentSps} compact /></div> : null}
 
@@ -901,18 +893,6 @@ export function HudCockpitVentureStatus({ projectId, projectName }: { projectId:
 
       {partnersOpen && (
         <CockpitPartnersModal projectId={projectId} onClose={() => setPartnersOpen(false)} />
-      )}
-
-      {descOpen && venture && (
-        <CockpitDescriptionDetailModal
-          projectId={projectId}
-          shortDescription={venture.short_description}
-          longDescription={venture.long_description}
-          onClose={() => setDescOpen(false)}
-          onSaved={async () => {
-            await reload();
-          }}
-        />
       )}
 
       {scoreBreakdownOpen && (

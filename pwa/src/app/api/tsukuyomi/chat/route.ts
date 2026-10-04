@@ -7,7 +7,7 @@
  * 動作:
  *   - project_id があれば: project_ventures + xrl + events + members + partners + 既存 PL を context に含める
  *   - Sonnet が必要に応じて tool を呼ぶ:
- *       * update_short_long_description: short_description / long_description を更新
+ *       * 事業の一言（short_description / long_description）は書き換えない。直すのは会社概要から管理者だけ（2026-10-04 まさ確定、migration 468）
  *       * invalidate_narrative: narrative_invalidated_at を立てる (= 沿革を次の cron で再生成)
  *       * record_xrl_feedback: TRL/BRL/HRL の修正依頼を xrl_feedbacks に記録 (cron / 個別 API で再評価)
  *   - 全会話 + applied actions は tsukuyomi_chat_logs に保存
@@ -186,19 +186,6 @@ async function loadProjectContext(
 }
 
 const TOOLS: Anthropic.Messages.Tool[] = [
-  {
-    name: "update_short_long_description",
-    description: "PJ の事業概要 (short_description = 1 行サマリ / long_description = 詳細) を更新する。どちらか片方だけでも OK。",
-    input_schema: {
-      type: "object",
-      properties: {
-        short: { type: "string", description: "更新後の short_description (省略可)" },
-        long: { type: "string", description: "更新後の long_description (省略可)" },
-        reason: { type: "string", description: "なぜこう直したか、まさへの 1 行報告" },
-      },
-      required: ["reason"],
-    },
-  },
   {
     name: "invalidate_narrative",
     description: "沿革を「再生成すべき」とマークする (次の 03:45 cron で再生成)。情報が古いと感じたら呼ぶ。",
@@ -847,16 +834,6 @@ async function executeTool(
   if (vcRes) return vcRes;
 
   if (!projectId) return { ok: false, summary: "PJ コックピット外なので適用できない" };
-
-  if (name === "update_short_long_description") {
-    const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
-    if (typeof input.short === "string") update.short_description = input.short;
-    if (typeof input.long === "string") update.long_description = input.long;
-    update.narrative_invalidated_at = new Date().toISOString();
-    const { error } = await supabase.from("project_ventures").update(update).eq("project_id", projectId);
-    if (error) return { ok: false, summary: `update 失敗: ${error.message}` };
-    return { ok: true, summary: typeof input.reason === "string" ? input.reason : "概要を更新" };
-  }
 
   if (name === "invalidate_narrative") {
     const { error } = await supabase

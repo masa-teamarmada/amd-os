@@ -7,12 +7,14 @@ import type { Grant } from "@/components/cockpit/CockpitGrants";
 import type { Bzm22AcquisitionApiPayload } from "./bzm-2-2-acquisitions";
 import type { AmdContributionsPayload } from "./amd-contributions";
 
+import type { BusinessSummaryResponse } from "./project-overview";
+
 type Identity = { kind: "project_page"; projectId: string; projectName: string };
 export type DdLiveProjectPage = Identity & (
   | { page: "gantt"; tree: QuestionTreeBundle }
   | { page: "partners"; management: SxManagementBundle }
   | { page: "business-plan"; plan: ProjectBusinessPlan | null }
   | { page: "ip"; portfolio: IpPortfolioBundle }
-  | { page: "company" | "capital-policy"; governance: CompanyOverviewData }
+  | { page: "company" | "capital-policy"; governance: CompanyOverviewData; businessSummary?: BusinessSummaryResponse }
   | { page: "activity"; grants: Grant[]; acquisitions: Bzm22AcquisitionApiPayload; contributions: AmdContributionsPayload; showAcquisitions: boolean }
 );

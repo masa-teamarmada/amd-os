@@ -107,6 +107,8 @@ echo "Running critical UI / spec rollback guard ..."
 (cd "$REPO_ROOT/pwa" && npm run test:reference-data-cache)
 # PJタイプ別の標準フォーマット（鍵付きの定義・PJ番号の名指しのラチェット）。spec 3-23。
 (cd "$REPO_ROOT/pwa" && npm run test:project-format)
+# PJ概要の9項目と、事業の一言の入口（会社概要だけ）。spec 3-23 §9。
+(cd "$REPO_ROOT/pwa" && npm run test:project-overview)
 (cd "$REPO_ROOT/pwa" && npm run test:bzm-reader)
 (cd "$REPO_ROOT/pwa" && npm run test:llm-spend-gate)
 (cd "$REPO_ROOT/pwa" && npm run test:meeting-backfill-ledger)

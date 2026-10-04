@@ -328,3 +328,53 @@ export const COST_CONFIDENCE_GRADES = [
   { key: "C", label: "C 仮置き" },
   { key: "H", label: "H 仮説" },
 ] as const;
+
+// ---------------------------------------------------------------------------------------------
+// PJ概要タブ（PJ管理）の標準フォーマット
+//
+// 2026-10-04 まさ確定「1で進めて」（PJ概要に載せる項目の案: PJの定義5項目・今の状態4項目）。
+// 前段の指摘「これは会社の概要じゃなくてPJの概要なわけだから、もっとPJとしての情報が必要なのでは？」
+// 「そもそも概要って、PJ作ったときに作ったら、それ以降書き換えることはないのでは？」。
+// - PJの定義は、PJを作るときに決めて、めったに変えない。直せるのは管理者だけ。
+// - 今の状態は、ほかのタブ（ゴールツリー・契約・収支・動向）のデータから自動で出す。このタブでは書かない。
+// - 事業の一言（何をする事業か）は会社の話なので、会社情報 > 会社概要の「事業の概要」に置く。
+// 画面は src/components/cockpit/ProjectOverviewFormat.tsx。AMD本体の PJ概要は会社の経営スコアのまま。
+// ---------------------------------------------------------------------------------------------
+
+/** PJ概要の2つのまとまり。画面はこの順に描く。 */
+export const PROJECT_OVERVIEW_GROUPS = [
+  { key: "definition", label: "PJの定義", hint: "PJを作るときに決めて、めったに変えない。直せるのは管理者だけ" },
+  { key: "status", label: "今の状態", hint: "ほかのタブのデータから自動で出す。ここでは書かない" },
+] as const;
+
+export type ProjectOverviewGroupKey = (typeof PROJECT_OVERVIEW_GROUPS)[number]["key"];
+
+/** PJ概要の項目（9つ）。画面はこの順に、データの有無にかかわらず全項目を描く（無いところは「未登録」）。 */
+export const PROJECT_OVERVIEW_SECTIONS = [
+  { key: "purpose", group: "definition", label: "PJの目的", hint: "何ができたらこのPJは成功か。ゴールツリーのいちばん上（到達点）" },
+  { key: "counterpart", group: "definition", label: "相手", hint: "契約先、出身の研究機関と研究者、元になる技術" },
+  { key: "involvement", group: "definition", label: "AMDの関わり方", hint: "自分たちで会社を創る・受託・顧問 など" },
+  { key: "revenue", group: "definition", label: "AMDの稼ぎ方", hint: "受託料・株式・設立後の委託料 など。金額と時期は契約・収支・資本政策から出す" },
+  { key: "team", group: "definition", label: "期間と体制", hint: "AMDが関わる期間、AMD側の担当、先方の窓口" },
+  { key: "stage", group: "status", label: "今の段階と次の節目", hint: "段階と設立、ゴールツリーの次のMS" },
+  { key: "contract", group: "status", label: "契約と収支", hint: "「契約」と「収支」のタブの要約" },
+  { key: "open", group: "status", label: "まだ決まっていないこと", hint: "開いている論点と、承認待ちの数" },
+  { key: "signals", group: "status", label: "最近の重要な動き", hint: "「動向・会議」で確かめた重要な動き" },
+] as const;
+
+export type ProjectOverviewSectionKey = (typeof PROJECT_OVERVIEW_SECTIONS)[number]["key"];
+
+/**
+ * AMDの稼ぎ方の種類（project_definitions.revenue_streams の kind）。
+ * DB の CHECK（migration 468 の project_revenue_streams_valid）と同じ並び。
+ */
+export const AMD_REVENUE_KINDS = [
+  { key: "contract_fee", label: "業務委託料" },
+  { key: "advisory_fee", label: "顧問料" },
+  { key: "success_fee", label: "成功報酬" },
+  { key: "os_fee", label: "AMD OSの利用料" },
+  { key: "equity", label: "株式" },
+  { key: "other", label: "その他" },
+] as const;
+
+export type AmdRevenueKindKey = (typeof AMD_REVENUE_KINDS)[number]["key"];

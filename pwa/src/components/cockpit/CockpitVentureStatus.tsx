@@ -36,7 +36,6 @@ import { CockpitNarrativeModal } from "./CockpitNarrativeModal";
 import { CockpitMembersModal } from "./CockpitMembersModal";
 // 2026-05-11 まさ指摘 1 番: 旧 CockpitFoundingMembersModal を CockpitMembersModal に統合済、import 削除
 import { CockpitPartnersModal } from "./CockpitPartnersModal";
-import { CockpitDescriptionDetailModal } from "./CockpitDescriptionDetailModal";
 import { CockpitAmdScoreBreakdownModal } from "./CockpitAmdScoreBreakdownModal";
 import { CockpitXrlDetailModal } from "./CockpitXrlDetailModal";
 import { loadCurrentSpsAssessment } from "@/lib/current-sps-client";
@@ -134,7 +133,7 @@ function formatRoundedNumber(value: number | null | undefined) {
 // Component
 // ============================================================
 
-type MetaFocus = "outcome" | "founded_at" | "origin_pi" | "origin_org" | "lane" | "description";
+type MetaFocus = "outcome" | "founded_at" | "origin_pi" | "origin_org" | "lane";
 
 interface RoleMembers {
   pls: string[];
@@ -174,7 +173,6 @@ export function CockpitVentureStatus({
   const [membersOpen, setMembersOpen] = useState(false);
   // 2026-05-11 まさ指摘 1 番: foundingMembersOpen state を削除 (= CockpitMembersModal に統合)
   const [partnersOpen, setPartnersOpen] = useState(false);
-  const [descOpen, setDescOpen] = useState(false);
   const [scoreBreakdownOpen, setScoreBreakdownOpen] = useState(false);
   const [pendingXrl, setPendingXrl] = useState<ProjectXrlRow | null>(null);
   const [xrlDetailTarget, setXrlDetailTarget] = useState<{ row: ProjectXrlRow; axis: "TRL" | "BRL" | "GRL" | "SRL" | "HRL" } | null>(null);
@@ -551,18 +549,8 @@ export function CockpitVentureStatus({
         </div>
       )}
 
-      {showIdentity && (
-      <button
-        onClick={() => setDescOpen(true)}
-        className={`block w-full text-left text-[12px] text-slate-700 hover:underline decoration-dotted ${compact ? "px-3 pt-1" : "px-4 pt-3"}`}
-        title="事業詳細を表示・編集 (つくよみがマージ)"
-      >
-        {venture.short_description || <span className="text-muted-foreground">事業概要を入力…</span>}
-        {venture.long_description && (
-          <span className="ml-1 text-[10px] text-muted-foreground">[詳細あり]</span>
-        )}
-      </button>
-      )}
+      {/* 事業の一言は 2026-10-04 まさ確定で会社情報 > 会社概要「事業の概要」へ移した（正本 project_business_summaries、管理者だけ）。
+          つくよみの追記マージの入口もあわせて外した。PJ概要タブは ProjectOverviewFormat（spec 3-23 §9）。 */}
 
       {/* 現行SPS｜産業創出価値のカードは 2026-08-28 まさ依頼で「スコア詳細」タブの最上段へ移した
           (`CockpitAmdScoreDetailTab`)。ここでは未評価バッジの判定にだけ使う。 */}
@@ -1038,18 +1026,6 @@ export function CockpitVentureStatus({
 
       {partnersOpen && (
         <CockpitPartnersModal projectId={projectId} onClose={() => setPartnersOpen(false)} />
-      )}
-
-      {descOpen && venture && (
-        <CockpitDescriptionDetailModal
-          projectId={projectId}
-          shortDescription={venture.short_description}
-          longDescription={venture.long_description}
-          onClose={() => setDescOpen(false)}
-          onSaved={async () => {
-            await reload();
-          }}
-        />
       )}
 
       {scoreBreakdownOpen && (

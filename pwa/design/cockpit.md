@@ -177,7 +177,7 @@ MSは報酬配分の最小単位でもある。`milestone_responsibility.share` 
 │  - [📜 沿革] [👥 メンバー] [🧑‍🤝‍🧑 関連メンバー] [🤝 事業会社] [📊 試算表] │
 │  - AMD score chip (クリックで CockpitAmdScoreBreakdownModal)│
 │                                                              │
-│ short_description (クリックで CockpitDescriptionDetailModal)│
+│ （事業の一言は会社概要へ移した 2026-10-04）       │
 │                                                              │
 │ Chart 1: AMD スコア折れ線                                   │
 │  - 横軸 = データ実 min/max ± 6%                            │
@@ -210,7 +210,7 @@ MSは報酬配分の最小単位でもある。`milestone_responsibility.share` 
 | Bzm22TimeLedger                  | 事業計画「イベントと月次試算」(2026-08-21 スコア詳細から移設) | BZM 2.2の一本の月軸にイベントとproject_pl_monthly縦横表を揃え、直接入力する |
 | CockpitPlMonthlySection          | 事業計画「月次試算表」(2026-09-09 追加、暫定試算なしPJ) | project_pl_monthlyを4月始まり年度＋月別で読む。出所は実績/推定/見込のバッジ。表示のみ |
 | CockpitPlHearingModal            | イベントと月次試算内「つくよみと試算を作る」 | Sonnet が質問→回答→月次 PL 36ヶ月生成 → upsert                    |
-| CockpitDescriptionDetailModal    | short_description タップ                 | long_description 編集 + 自由文追記 + Sonnet マージ                   |
+| （CockpitDescriptionDetailModal） | 2026-10-04 に外した                      | 事業の一言は会社情報 > 会社概要「事業の概要」で管理者が直す（spec 3-23 §9） |
 | CockpitNarrativeModal            | 📜 沿革                                  | リスト形式 (年月+一行+詳細)、行 ✏ で修正依頼                          |
 | CockpitNarrativeFeedbackModal    | 沿革モーダル内 ✏                         | フィードバック → 即時 Gemini 再生成 + Sonnet lesson 抽出             |
 | CockpitXrlDetailModal            | XRL ドットタップ (axis 別)               | 軸個別の値・評価理由 (`source_note` の JSON) 表示 + Gemini 修正依頼  |
@@ -253,7 +253,7 @@ migrations: `pwa/scripts/migrations/008_project_ventures.sql` 〜 `012_xrl_feedb
 | Path                                                        | 用途                                               |
 |-------------------------------------------------------------|----------------------------------------------------|
 | `/api/project-events/parse`                                 | event 自由文 → Gemini で kind 別 schema に構造化   |
-| `/api/project-ventures/[id]/description-merge`              | Sonnet (system: つくよみ) が概要に追記をマージ。`web_search` tool 利用可 |
+| （`/api/project-ventures/[id]/description-merge`）           | 2026-10-04 に外した。事業の一言の正本は `project_business_summaries`（`/api/project/[projectId]/business-summary`、管理者だけ） |
 | `/api/project-ventures/[id]/narrative-regen`                | 沿革を 1 PJ だけ即時再生成 (cron と同じ lib)       |
 | `/api/project-ventures/[id]/xrl-revise`                     | Gemini が axis 別 reason 込みで XRL を再評価       |
 | `/api/project-ventures/[id]/pl-hearing/turn`                | Sonnet と試算表ヒアリング 1 ターン                 |

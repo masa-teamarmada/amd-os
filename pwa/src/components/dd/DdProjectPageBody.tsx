@@ -17,7 +17,7 @@ export function DdProjectPageBody({data,canDownload=false}:{data:DdLiveProjectPa
     case "partners": return <SxPartnerPipeline management={data.management} projectId={data.projectId} onManagementChange={noop} />;
     case "business-plan": return <CockpitBusinessPlan projectId={data.projectId} projectName={data.projectName} initialPlan={data.plan} canDownload={canDownload} />;
     case "ip": return <CockpitIpPortfolio projectId={data.projectId} initialData={data.portfolio} />;
-    case "company": return <CockpitCompanyOverview projectId={data.projectId} projectName={data.projectName} surface="workspace" readOnly initialData={data.governance} canDownload={canDownload} />;
+    case "company": return <CockpitCompanyOverview projectId={data.projectId} projectName={data.projectName} surface="workspace" readOnly initialData={data.governance} initialBusinessSummary={data.businessSummary} canDownload={canDownload} />;
     case "capital-policy": return <CockpitCapitalPolicy projectId={data.projectId} readOnly initialData={data.governance} />;
     case "activity": return <div className="space-y-3"><CockpitGrants projectId={data.projectId} initialGrants={data.grants} disableAttachments />{data.showAcquisitions&&<Bzm22AcquisitionLedger projectId={data.projectId} initialPayload={data.acquisitions} />}<CockpitAmdContributions projectId={data.projectId} initialPayload={data.contributions} /></div>;
   }

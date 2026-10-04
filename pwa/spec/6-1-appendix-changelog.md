@@ -1,5 +1,10 @@
 # 附則（設計書変更履歴）
 
+| 2026-10-04 JST | 3-23・3-24・5-17・2-1 | 変更 | v3.155.1。ワークスペースに動向・会議／Slack、DDにガント／関係先／事業計画／知財／会社概要／資金調達履歴／沿革を追加。共通名を沿革へ変更。PJ所属での読み取りとページ単位のDD公開を実装。migration 469本番適用済み。PJ概要更新で会社概要へ移った事業の概要もDDへ取得済みデータとして渡す。BZM/model理論変更なし | まさの追加指定 | まさ・えいみ |
+
+| 2026-10-04 JST | 3-23 §9・3-8・5-10（設計書 `cockpit.md`） | 変更 | v3.155.0。PJ概要タブを全PJ共通の9項目に作り直した（`ProjectOverviewFormat`、定義は `PROJECT_OVERVIEW_GROUPS`・`PROJECT_OVERVIEW_SECTIONS`・`AMD_REVENUE_KINDS`、鍵の承認を追加）。PJの定義（目的＝ゴールツリーの到達点・相手・AMDの関わり方・AMDの稼ぎ方・期間と体制）は管理者だけが直し（正本 `project_definitions`、`/api/project/[projectId]/overview`）、今の状態（段階と次の節目・契約と収支・まだ決まっていないこと・最近の重要な動き）はゴールツリー・契約・収支・重要な動きから出す。事業の一言は会社情報 > 会社概要「事業の概要」へ移し（正本 `project_business_summaries`、`/api/project/[projectId]/business-summary`、管理者だけ）、`project_ventures.short_description` / `long_description` はトリガーで写す控えにして直の書き換えを DB で止めた。つくよみの追記マージ（`description-merge`・`CockpitDescriptionDetailModal`）とチャットの道具 `update_short_long_description` を外した。migration 468 で13PJの一言を写し、12PJの文から出資・調達・採択・予定・進み具合を外し、CX の沿革から出資の見通しと未来の設立予定を外した。検査 `test:project-overview` を deploy に追加 | まさ「PJの概要にそもそも出資とかテンポラリーな情報が入ってるのがおかしい」「そもそも概要って、PJ作ったときに作ったら、それ以降書き換えることはないのでは？」「これは会社の概要じゃなくてPJの概要なわけだから、もっとPJとしての情報が必要なのでは？」→「1で進めて」 |
+| 2026-10-04 JST | 5-2 開発運用 | 変更 | v3.154.4。セッション開始時の `git_dirty_guard.sh` が `root-checkout-sync.py --quarantine on` を実行し、作業フォルダを origin/main へ追従させる。72時間以上放置された最新版とぶつかる書きかけは控えを取って隔離。定期実行は導入しない | まさ「１と３やってほしい」 | まさ・えいみ |
+
 | 2026-10-04 JST | 5-18 書斎・2-1 route（/bzm/read） | 変更 | v3.154.3。棚のカードから「章を選ぶ」（章の一覧）を外し、位置があるときだけ2つ目のボタン「最初から読む」（最初の書けている章の先頭、`?at=start`）を出す。書斎アプリのアイコンを、本が枠いっぱいになるよう切り抜き直した | まさ「目次も設置したのに『章を選ぶ』は要らなくない？いるとしたら『続きから読む』じゃね？」「アイコンが小さすぎる。もっと枠いっぱいに拡大して」 | まさ・えいみ |
 | 2026-10-04 JST | 5-18 書斎 | 変更 | v3.154.2。書斎アプリのアイコンを、まさ提供の本の絵（`public/icons/shosai-*`）に替えた。manifest-shosai.json の icons、書斎の layout とログイン画面の layout の `icons`（favicon・apple-touch-icon） | まさ「アイコンは添付画像にして」 | まさ・えいみ |
 | 2026-10-04 JST | 3-23・3-24・5-17 | v3.154.2。DD_TAB_FORMATと共通ページ名を正本化し、techLedgerTabOfと元データ種別でDDの公開項目を共通ページへ振り分ける。閲覧は本文を直接表示、プレビュー帯・概要一覧・一覧タブを削除。旧項目URLも同じ構造。PJタイプ別◯表を定義から生成し/specに追加。DB・認可・公開設定・BZM/model変更なし。まさの明示指示をフォーマット承認台帳に記録。 |
