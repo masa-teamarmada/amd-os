@@ -1,5 +1,6 @@
 # 附則（設計書変更履歴）
 
+| 2026-10-04 JST | 5-18 書斎（原稿） | 変更 | v3.156.1。BZM 3.0教科書16本の冒頭の状態ブロックを本文から外し、原稿管理の HTML コメントへ移した（書斎は執筆メモの設定を入れたときだけ章末に出す）。コードの変更なし | まさ「本の本文に『状態：textbook v0.1』とか入ってたらダメ」 | まさ・えいみ |
 | 2026-10-04 JST | 2-2 surface inventory / 2-1 / 1-4 / 3-3 / 3-8 / 3-23 / 5-7 / 5-17 / design（SPEC_pwa・FEATURE_REGISTRY・README・atlas・amd_score・cyber_hud_design_code・cyber_dashboard_content_design ほか） | 削除 | build v3.156.0。HUD（`/hud/*`・`/hud/dashboard/embed`・`components/hud/*`・`public/hud/*`・`design/HUD_CLIENT_MIGRATION.md`・`design/hud_visual_language.md`・`design/assets/hud_*`）を削除。共有部品の HUD 用の分岐（`MarkdownView`・`MermaidDiagram`・`PictogramDiagram` の `tone`、`MilestoneGanttChart` の `variant`）、`AppShell`・`middleware`・`surface-catalog`・シーズ/VC の `/hud` 分岐、HUD 専用の書体（Rajdhani）と `.amd-hud-page-skin` などの CSS を外した。`/api/hud/dashboard` は Mac アプリ（現行SPS・経営スコアの推移・PJ一覧）が読むため残す。マニュアル 5-2 章は `5-2-venture-map-spec` に改名。`test:critical-ui` に、HUD の画面・部品・書体・CSS・分岐を戻さない検査を足した | まさ「HUDなんてもう使わないから廃止されてるはず。残骸があるなら消して」 | まさ・えいみ |
 | 2026-10-04 JST | 3-23・3-24・5-17・2-1 | 変更 | v3.155.3。ワークスペースに動向・会議／Slack、DDにガント／関係先／事業計画／知財／会社概要／資金調達履歴／沿革を追加。共通名を沿革へ変更。PJ所属での読み取りとページ単位のDD公開を実装。migration 469本番適用済み。PJ概要更新で会社概要へ移った事業の概要もDDへ取得済みデータとして渡す。BZM/model理論変更なし | まさの追加指定 | まさ・えいみ |
 
