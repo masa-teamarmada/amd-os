@@ -26,7 +26,7 @@ function expectNotIncludes(needles: string[]) {
 
 // 1. companyOverviewData prop is actually received and used for preset creation
 expectIncludes([
-  "projectId, projectName, companyOverviewData }: CapitalPlanWorkspaceProps",
+  "projectId, projectName, companyOverviewData, initialData, readOnly = false }: CapitalPlanWorkspaceProps",
   "createCapitalPlanDocumentFromCompanyOverview",
   "createStandardIpoCapitalPlanDocument",
 ]);
