@@ -382,7 +382,8 @@ assert.match(generator, /417AC0000000086_20260624_508AC0000000046/);
 assert.match(generator, /SHAREHOLDER_MEETING_AS_OF = "2026-08-19"/);
 assert.match(generator, /generateShareholderMeeting\(facts, shareholderMeetings, ownerMemberId, from, to\)/);
 assert.match(generator, /db\.from\("project_shareholder_meetings"\)/);
-assert.match(generator, /\.eq\("project_id", "p00"\)/);
+// 会社そのもの（AMD）は PJ 番号の直書きではなく定義 AMD_COMPANY_PROJECT_ID で指す（2026-10-04、spec 3-23 §6）。
+assert.match(generator, /\.eq\("project_id", AMD_COMPANY_PROJECT_ID\)/);
 assert.match(generator, /\.in\("meeting_type", CANONICAL_SHAREHOLDER_MEETING_TYPES\)/);
 
 const emptyFacts = new Map<string, OperatingFact>();

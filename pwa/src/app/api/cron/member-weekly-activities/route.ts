@@ -26,6 +26,7 @@ import {
 } from "@/lib/member-weekly-calendar-duration";
 import { syncMemberWeeklyEffortEntries } from "@/lib/member-weekly-effort-sync";
 import { slackActorId, driveActorEmails } from "@/lib/member-weekly-source-attribution";
+import { AMD_COMPANY_PROJECT_ID } from "@/lib/project-formats";
 
 export const runtime = "nodejs";
 
@@ -372,13 +373,17 @@ function isInternalEmail(email: string) {
   return email.toLowerCase().endsWith("@team-armada.jp");
 }
 
+/**
+ * AMDの中の2人以上でのやり取りで、どのPJにも当たらなかったもの（PJの別名は台帳から matchProject が先に拾う）。
+ * 作業の言葉があれば会社（AMD）の活動として数える。PJ番号ごとの言葉の表は持たない
+ * （2026-10-04 まさ「特定のPJだけの特例を入れたらシステムにならない」）。
+ */
 function internalCollaborationFallbackProjectId(input: { text: string; emails: string[] }) {
   const internalCount = new Set(input.emails.filter(isInternalEmail)).size;
   if (internalCount < 2) return null;
   const text = input.text.toLowerCase();
-  if (/okudoor|oku\s*door|zema/.test(text)) return "p19";
-  if (/okudoor|oku\s*door|システム|開発|実装|作業|レビュー|打ち合わせ|mtg|meeting|相談|オンライン/.test(text)) {
-    return "p00";
+  if (/システム|開発|実装|作業|レビュー|打ち合わせ|mtg|meeting|相談|オンライン/.test(text)) {
+    return AMD_COMPANY_PROJECT_ID;
   }
   return null;
 }

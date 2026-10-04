@@ -1,5 +1,5 @@
 /**
- * GET /api/admin/sx-partner-sheet-export?spreadsheetId=...&projectId=p21&tab=...&audience=external&dryRun=1
+ * GET /api/admin/sx-partner-sheet-export?spreadsheetId=...&projectId=<PJ番号>&excludeSlugs=<外す関係先のslug,…>&tab=...&audience=external&dryRun=1
  *   Authorization: Bearer $CRON_SECRET
  *
  * AMD OS の関係先リスト (project_management_partners) を Google スプレッドシートへ書き出す。
@@ -10,8 +10,11 @@
  * スプシでは絞り込みできるよう列へ展開する。
  *
  * audience:
- *   external (既定) — VC分類と excludeSlugs を除いた外部共有向け。
+ *   external (既定) — VC分類と excludeSlugs を除いた外部共有向け。excludeSlugs は必ず指定する（外さないなら空で指定）。
  *   internal        — OS と同じ全件。
+ *
+ * どのPJでも同じ。PJ番号や除外する関係先の既定値をコードに持たない（2026-10-04 まさ「特定のPJだけの特例を
+ * 入れたらシステムにならない」）。外部共有で除外を指定し忘れて関係先が出てしまうことを防ぐため、指定が無ければ止める。
  *
  * 必要 env: GOOGLE_OAUTH_* (Vercel production にセット済) + SUPABASE_SERVICE_ROLE_KEY
  */
@@ -37,8 +40,6 @@ import { nominalizeSxNextActionLabel } from "@/lib/sx-action-label";
 export const maxDuration = 60;
 
 /** 資金調達側・内部プレースホルダーなど、外部共有の関係先リストに載せない slug。 */
-const DEFAULT_EXCLUDE_SLUGS = ["smbc", "ewir-candidate-a"];
-
 const CONFIDENCE_LABEL: Record<string, string> = {
   high: "確認済み",
   medium: "推定",
@@ -166,11 +167,17 @@ export async function GET(req: NextRequest) {
   if (!spreadsheetId) {
     return NextResponse.json({ error: "spreadsheetId required" }, { status: 400 });
   }
-  const projectId = searchParams.get("projectId") || "p21";
+  const projectId = searchParams.get("projectId")?.trim() || "";
+  if (!projectId) {
+    return NextResponse.json({ error: "projectId required" }, { status: 400 });
+  }
   const tabTitle = searchParams.get("tab") || "関係先リスト（AMD OS 同期）";
   const audience = searchParams.get("audience") === "internal" ? "internal" : "external";
   const dryRun = searchParams.get("dryRun") === "1";
-  const excludeSlugs = (searchParams.get("excludeSlugs") ?? DEFAULT_EXCLUDE_SLUGS.join(","))
+  if (audience === "external" && searchParams.get("excludeSlugs") === null) {
+    return NextResponse.json({ error: "excludeSlugs required for external audience (空で指定すると除外なし)" }, { status: 400 });
+  }
+  const excludeSlugs = (searchParams.get("excludeSlugs") ?? "")
     .split(",")
     .map((slug) => slug.trim())
     .filter(Boolean);

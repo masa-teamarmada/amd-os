@@ -7,7 +7,7 @@ import {
   getQuestionTreeBundle,
 } from "@/lib/question-tree";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isTaskPointPilot, isTaskPointReviewProject } from "@/lib/task-point-ledger";
+import { isTaskPointReviewOpen, loadTaskPointReviewFromYm } from "@/lib/task-point-ledger";
 import { syncRewardSummaryForCycle } from "@/lib/reward-summary";
 
 /**
@@ -221,7 +221,7 @@ function assertGoalTreePlacement(
   }
 }
 
-function assertActionRules(fields: Record<string, unknown>, existing?: Record<string, unknown>, projectId?: string) {
+function assertActionRules(fields: Record<string, unknown>, existing: Record<string, unknown> | undefined, requiresDoneEvidence: boolean) {
   if (Object.hasOwn(fields, "gantt_phase_id")) fields.gantt_phase_override = true;
   // Validate new/edited dates without blocking placement of legacy undated tasks.
   if (Object.hasOwn(fields, "planned_start") || Object.hasOwn(fields, "planned_end")) {
@@ -233,7 +233,7 @@ function assertActionRules(fields: Record<string, unknown>, existing?: Record<st
   if (status === "done") {
     const actualEnd = (fields.actual_end ?? existing?.actual_end) as string | null | undefined;
     if (!actualEnd) throw new Error("完了にするには完了日が要るよ");
-    if (projectId && isTaskPointReviewProject(projectId) && existing?.status !== "done" && !String(fields.done_evidence ?? existing?.done_evidence ?? "").trim()) {
+    if (requiresDoneEvidence && existing?.status !== "done" && !String(fields.done_evidence ?? existing?.done_evidence ?? "").trim()) {
       throw new Error("このPJのTODOを完了するには証跡のリンクか一文が要るよ");
     }
   }
@@ -262,11 +262,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       if (!canManage) {
         return NextResponse.json({ error: "共有情報の更新権限がないよ" }, { status: 403 });
       }
-      const view = await getGoalTreePointsView(projectId);
+      const [view, taskPointFromYm] = await Promise.all([
+        getGoalTreePointsView(projectId),
+        loadTaskPointReviewFromYm(createAdminClient(), projectId),
+      ]);
       let canReviewTaskPt = false;
-      // 検収の行は全PJに出す。検収できるのは試行に入っているPJの、その月以降・PM/PLだけ。
-      const taskPointReview = isTaskPointReviewProject(projectId);
-      const taskPointReviewOpen = isTaskPointPilot(projectId, view.asOf.slice(0, 7).replace("-", ""));
+      // 検収の行は全PJに出す。検収できるのは、検収を始めたPJ（projects.task_point_review_from_ym）の、その月以降・PM/PLだけ。
+      const taskPointReview = taskPointFromYm !== null;
+      const taskPointReviewOpen = isTaskPointReviewOpen(taskPointFromYm, view.asOf.slice(0, 7).replace("-", ""));
       if (taskPointReview) {
         const { data: role, error: roleError } = await createAdminClient()
           .from("project_members")
@@ -281,8 +284,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ ...view, canReviewTaskPt, taskPointReview, taskPointReviewOpen }, { headers: READ_CACHE });
     }
 
-    const bundle = await getQuestionTreeBundle(projectId, canManage);
-    return NextResponse.json({ ...bundle, requiresDoneEvidence: isTaskPointReviewProject(projectId) }, { headers: READ_CACHE });
+    const [bundle, taskPointFromYm] = await Promise.all([
+      getQuestionTreeBundle(projectId, canManage),
+      loadTaskPointReviewFromYm(createAdminClient(), projectId),
+    ]);
+    return NextResponse.json({ ...bundle, requiresDoneEvidence: taskPointFromYm !== null }, { headers: READ_CACHE });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "ゴールツリーを取得できなかったよ" },
@@ -496,7 +502,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (!fields[key]) throw new Error(`${key === "title" ? "見出し" : key === "summary" ? "分かったこと" : key} が空です`);
     }
     if (resource === "question") assertQuestionRules(fields);
-    if (resource === "action") assertActionRules(fields, undefined, projectId);
+    if (resource === "action") {
+      assertActionRules(fields, undefined, (await loadTaskPointReviewFromYm(createAdminClient(), projectId)) !== null);
+    }
 
     const db = createAdminClient();
     if (resource === "question") assertGoalTreePlacement(fields);
@@ -545,14 +553,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (!isRecord(body)) throw new Error("更新内容が不正です");
 
     if (body.resource === "action_pt_review") {
-      if (!isTaskPointReviewProject(projectId)) throw new Error("このPJはタスクpt検収の試行に入っていない");
+      if ((await loadTaskPointReviewFromYm(createAdminClient(), projectId)) === null) {
+        throw new Error("このPJはタスクptの検収をまだ始めていないよ");
+      }
       const actionId = typeof body.action_id === "string" ? body.action_id : "";
       const acceptedPt = Number(body.accepted_pt);
       if (!actionId || !Number.isFinite(acceptedPt) || acceptedPt < 0 || Math.round(acceptedPt * 10) / 10 !== acceptedPt) {
         throw new Error("TODOと確定pt（小数1桁）の指定が必要");
       }
       const db = createAdminClient();
-      const { data: reviewId, error } = await db.rpc("accept_sx_task_pt", {
+      const { data: reviewId, error } = await db.rpc("accept_project_task_pt", {
         p_project_id: projectId,
         p_action_id: actionId,
         p_accepted_pt: acceptedPt,
@@ -646,7 +656,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     if (resource === "question") assertQuestionRules(fields, existing as Record<string, unknown>);
-    if (resource === "action") assertActionRules(fields, existing as Record<string, unknown>, projectId);
+    if (resource === "action") {
+      assertActionRules(fields, existing as Record<string, unknown>, (await loadTaskPointReviewFromYm(createAdminClient(), projectId)) !== null);
+    }
     if (resource === "question") {
       assertGoalTreePlacement(fields, existing as Record<string, unknown>);
     }

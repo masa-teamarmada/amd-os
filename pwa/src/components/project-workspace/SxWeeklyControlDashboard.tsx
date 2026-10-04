@@ -59,6 +59,9 @@ import {
 } from "@/lib/sx-project-owner-load";
 import {
   sxGateRequirementsBySuccessor,
+  asMilestoneGateKind,
+  MILESTONE_GATE_KIND_LABEL,
+  MILESTONE_GATE_KINDS,
   sxIsBlockingMilestone,
   sxOralAgreementEvidenceReady,
   type SxGateRequirement,
@@ -516,7 +519,7 @@ function trackMeta(tracks: SxManagementBundle["tracks"], track: string) {
   );
 }
 
-/** 柱→ガント表示レーンのラベル。折り畳みルール（p21は3レーン、他PJは柱1本=レーン1本）は
+/** 柱→ガント表示レーンのラベル。折り畳みルール（標準の4つの柱を持つPJは3レーン、それ以外は柱1本=レーン1本）は
  * src/lib/sx-display-lanes.ts に1本化されている。 */
 function ganttLaneLabelForTrack(laneFold: SxLaneFold, track: string | null | undefined) {
   return laneFold.labelFor(laneFold.laneKeyForTrack(track));
@@ -556,10 +559,7 @@ function ganttLaneKeyForMilestone(
   laneFold: SxLaneFold,
   milestone: SxManagementMilestone,
 ): SxDisplayLaneKey {
-  return (
-    laneFold.blockingMilestoneLane(milestone.slug) ??
-    laneFold.laneKeyForTrack(milestone.track)
-  );
+  return laneFold.laneKeyForTrack(milestone.track);
 }
 
 /** A task retains a hidden legacy milestone FK only for database compatibility. The control
@@ -639,11 +639,11 @@ function fieldValue(record: Record<string, unknown>, key: string) {
   return value == null ? "" : String(value);
 }
 
-/** A generic point-MS (timelineKind='milestone', not one of the 2 NewCo founding-prerequisite
- * gates) is a single day, not a range — every editing surface (root editor, PlanInspector's fixed
- * facts cell, mobile, keyboard) shows one "予定日" field for it instead of 計画開始/計画完了, and
- * saves that single value into both planned_start/planned_end. The 2 NewCo gates keep the normal
- * 2-field 計画期間, matching the DB point-MS CHECK exception. */
+/** A generic point-MS (timelineKind='milestone' without a prerequisite gate_kind) is a single day,
+ * not a range — every editing surface (root editor, PlanInspector's fixed facts cell, mobile,
+ * keyboard) shows one "予定日" field for it instead of 計画開始/計画完了, and saves that single
+ * value into both planned_start/planned_end. Prerequisite gates (any project) keep the normal
+ * 2-field 計画期間, matching the DB point-MS CHECK exception (migration 475). */
 function isGenericPointMilestone(milestone: SxManagementMilestone): boolean {
   return milestone.timelineKind === "milestone" && !sxIsBlockingMilestone(milestone);
 }
@@ -700,6 +700,7 @@ function editorInitialValues(
       max_issue: editor.milestone.maxIssue,
       completion_criteria: editor.milestone.completionCriteria,
       completion_evidence: editor.milestone.completionEvidence || "",
+      gate_kind: editor.milestone.gateKind ?? "",
       criticality: editor.milestone.criticality,
       confidence: editor.milestone.confidence,
     };
@@ -1287,12 +1288,19 @@ function editorDefinition(
           label: "完了証跡",
           type: "textarea",
           span: true,
-          help: [
-            "business-paid-poc-oral-agreement",
-            "funding-investment-oral-agreement",
-          ].includes(editor.milestone.slug)
+          help: editor.milestone.gateKind === "oral_agreement"
             ? "完了にするには、先方（または投資家）・合意内容・確認日・根拠を1行ずつ記録してください。例：先方：○○社"
             : "完了にする場合は、第三者が確認できる根拠を記録してください。",
+        },
+        {
+          key: "gate_kind",
+          label: "MSの種類",
+          type: "select",
+          options: [
+            { value: "", label: "普通のMS（予定日1日）" },
+            ...MILESTONE_GATE_KINDS.map((kind) => ({ value: kind, label: MILESTONE_GATE_KIND_LABEL[kind] })),
+          ],
+          help: "前提条件にすると、後に続くMSの前提として扱い、確認する期間（開始日〜完了日）を持てる。種類を変えたら、保存して開き直すと日付の欄が切り替わるよ。",
         },
         {
           key: "criticality",
@@ -2415,7 +2423,7 @@ function IssueEditor({
   // 20260901120000).
   const [clientToken] = useState(() => crypto.randomUUID());
   const definition = editorDefinition(editor, management);
-  // 表示レーンの折り畳みルール（p21は3レーン、他PJは柱1本=レーン1本）。MS/タスク作成の
+  // 表示レーンの折り畳みルール（標準の4つの柱を持つPJは3レーン、それ以外は柱1本=レーン1本）。MS/タスク作成の
   // グループ選択と、レーン→保存用トラックの変換に使う。
   const laneFold = useMemo(
     () => buildSxLaneFold(management.tracks),
@@ -2668,7 +2676,7 @@ function IssueEditor({
       }
       if (
         !sxOralAgreementEvidenceReady(
-          editor.milestone.slug,
+          asMilestoneGateKind(values.gate_kind ?? editor.milestone.gateKind),
           values.completion_evidence,
         )
       ) {
@@ -2808,8 +2816,8 @@ function IssueEditor({
       fields.outcome_id = selectedMilestoneOutcome?.id || "";
       // The selected outcome is the authoritative parent. Deriving the exact DB track from it
       // keeps the form's visible taxonomy at the project's approved Gantt lanes (see
-      // src/lib/sx-display-lanes.ts — p21 folds funding/organizational_building into one lane;
-      // other projects use one lane per track) while satisfying the DB invariant
+      // src/lib/sx-display-lanes.ts — the standard 4 tracks fold funding/organizational_building
+      // into one lane; other track sets use one lane per track) while satisfying the DB invariant
       // milestone.track === outcome.track. Standalone (no outcome yet, theme hub only): fall back
       // to the editor's own explicit track (migration 20260901093000 — objective_id/outcome_id
       // both stay "" -> null server-side, never a fabricated parent).
@@ -4813,7 +4821,7 @@ export function SxWeeklyControlDashboard({
   const enteredMembers = bundle.members.filter(
     (member) => member.plannedHours > 0 || member.actualHours > 0,
   ).length;
-  // 表示レーンの折り畳みルール（p21は3レーン、他PJは柱1本=レーン1本）。PlanInspectorの
+  // 表示レーンの折り畳みルール（標準の4つの柱を持つPJは3レーン、それ以外は柱1本=レーン1本）。PlanInspectorの
   // パンくずレーン表示に使う。
   const laneFold = useMemo(
     () => buildSxLaneFold(management.tracks),

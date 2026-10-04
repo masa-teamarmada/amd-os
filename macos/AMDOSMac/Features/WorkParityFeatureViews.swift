@@ -3885,7 +3885,7 @@ private final class AMDOSParityCockpitStore: ObservableObject {
             self.ventureEvents = try await ventureEventRows
             self.ventureXRL = try await xrlRows
             self.freezeBackfills = try await freezeBackfillRows
-            if project.projectId == "p00" {
+            if project.projectId == amdOSCompanyProjectID {
                 self.managementScoreSnapshots = try await managementScoreRows
             } else {
                 self.managementScoreSnapshots = []
@@ -4444,7 +4444,7 @@ struct AMDOSParityProjectCockpitView: View {
     private func cockpitTabs(project: AMDOSParityCockpitProject) -> some View {
         Picker("コックピット", selection: $activeTab) {
             Text("進捗管理").tag("progress")
-            if project.projectId != "p00" && project.projectCategory != "ecosystem" {
+            if project.projectId != amdOSCompanyProjectID && project.projectCategory != "ecosystem" {
                 Text("スコア詳細").tag("score-detail")
             }
             Text("会社概要").tag("company")
@@ -4456,11 +4456,8 @@ struct AMDOSParityProjectCockpitView: View {
     private func progressTab(project: AMDOSParityCockpitProject) -> some View {
         let currentPct = projectProgress(for: selectedYm)
         VStack(alignment: .leading, spacing: 14) {
-            if project.projectId == "p00" {
+            if project.projectId == amdOSCompanyProjectID {
                 AMDOSParityCockpitManagementScoreHero(snapshots: store.managementScoreSnapshots)
-            }
-            if project.projectId == "p25" {
-                AMDOSParityCockpitKuteAnnualRoadmap(currentYm: amdOSCockpitCurrentYm())
             }
             if let freezeFromYm = project.freezeFromYm,
                let restartExpectedYm = project.restartExpectedYm,
@@ -5655,120 +5652,15 @@ private struct AMDOSParityCockpitManagementScoreHero: View {
     }
 }
 
+/// 会社そのもの（AMD）を表すPJ番号。PWA の `AMD_COMPANY_PROJECT_ID`（pwa/src/lib/project-formats.ts）と同じ値。
+/// 個別のPJを名指しする分岐は置かない（2026-10-04 まさ「特定のPJだけの特例を入れたらシステムにならない」）。
+let amdOSCompanyProjectID = "p00"
+
 private extension AMDOSParityCockpitManagementScoreSnapshot {
     static let empty = AMDOSParityCockpitManagementScoreSnapshot(
         id: "empty", ym: "", totalScore: nil, initiativeScore: nil, financeScore: nil,
         retentionScore: nil, pipelineScore: nil, directionScore: nil
     )
-}
-
-private struct AMDOSParityCockpitKuteRoadmapItem: Identifiable {
-    let id: String
-    let lane: String
-    let period: String
-    let startYm: String
-    let endYm: String
-    let title: String
-    let purpose: String
-    let outputs: [String]
-}
-
-/// PWA `CockpitKuteAnnualRoadmap` の固定ロードマップを同じ内容で表示する。
-/// ここはPJデータの代替ではなく、PWAに同梱されたp25専用の合意済み年度計画。
-private struct AMDOSParityCockpitKuteAnnualRoadmap: View {
-    let currentYm: String
-
-    private let items: [AMDOSParityCockpitKuteRoadmapItem] = [
-        .init(id: "regulation-202606", lane: "regulation", period: "2026-06", startYm: "202606", endYm: "202606", title: "認定規程の着地", purpose: "6/22教授総会で通せる状態にする", outputs: ["認定規程修正案", "委員会規程", "支援細則", "想定問答"]),
-        .init(id: "regulation-202607", lane: "regulation", period: "2026-07", startYm: "202607", endYm: "202607", title: "7規程の全体設計", purpose: "認定制度と残り6規程の接続を整理する", outputs: ["規程マップ", "既存規程突合表", "他大学比較", "優先順位"]),
-        .init(id: "regulation-202608", lane: "regulation", period: "2026-08", startYm: "202608", endYm: "202608", title: "残り6規程の素案化", purpose: "既存改訂・新規作成の条文たたきを作る", outputs: ["兼業", "新株予約権", "共有機器", "知財", "共同研究", "利益相反"]),
-        .init(id: "regulation-202609-202611", lane: "regulation", period: "2026-09〜11", startYm: "202609", endYm: "202611", title: "学内議論・修正", purpose: "教授総会・関係部署・法務論点を反映する", outputs: ["修正版", "論点管理表", "学内説明資料", "施行準備メモ"]),
-        .init(id: "regulation-202612-202701", lane: "regulation", period: "2026-12〜2027-01", startYm: "202612", endYm: "202701", title: "規程整備完了", purpose: "条文だけでなく、運用に必要な付属物まで揃える", outputs: ["施行版", "様式", "運用フロー", "FAQ"]),
-        .init(id: "seed-202606-202703", lane: "seed", period: "2026-06〜2027-03", startYm: "202606", endYm: "202703", title: "シーズ発掘・after GTIE", purpose: "規程整備と並行して支援実務の型を作る", outputs: ["桑折先生パイロット", "ヒアリング設計", "連携先マップ", "資金循環モデル"]),
-    ]
-
-    private var normalizedYm: String { currentYm.count == 6 ? currentYm : "202606" }
-    private var fiscalProgress: Double {
-        func index(_ ym: String) -> Int {
-            Int(ym.prefix(4))! * 12 + Int(ym.suffix(2))!
-        }
-        let start = index("202606")
-        let end = index("202703")
-        return max(0, min(1, Double(index(normalizedYm) - start + 1) / Double(end - start + 1)))
-    }
-
-    var body: some View {
-        AMDOSSectionCard("年度内ロードマップ", systemImage: "map") {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("KUTE annual roadmap").font(.caption.monospaced()).foregroundStyle(AMDOSDesign.muted)
-                    Text("2027年3月までに、規程整備、桑折先生パイロット、外部連携、資金循環モデルまでを同じ横軸で追う。")
-                        .font(.caption)
-                        .foregroundStyle(AMDOSDesign.muted)
-                }
-                Spacer()
-                AMDOSStatusBadge(text: "現在地 \(amdOSCockpitYmLabel(normalizedYm))", tint: AMDOSDesign.blue)
-                AMDOSStatusBadge(text: "2027/03 型化", tint: AMDOSDesign.success)
-            }
-            ProgressView(value: fiscalProgress)
-            HStack { Text("2026.06"); Spacer(); Text("2027.03") }
-                .font(.caption2.monospaced())
-                .foregroundStyle(AMDOSDesign.muted)
-
-            Text("制度整備レーン").font(.caption.weight(.semibold))
-            ForEach(items.filter { $0.lane == "regulation" }) { item in
-                AMDOSParityCockpitKuteRoadmapRow(item: item, currentYm: normalizedYm)
-            }
-            Text("シーズ発掘 / after GTIE レーン").font(.caption.weight(.semibold))
-            ForEach(items.filter { $0.lane == "seed" }) { item in
-                AMDOSParityCockpitKuteRoadmapRow(item: item, currentYm: normalizedYm)
-            }
-            Text("after GTIEの具体論点は先に固定しすぎず、規程整備とシーズ発掘の進捗を見て具体化する。")
-                .font(.caption2)
-                .foregroundStyle(AMDOSDesign.muted)
-            Text("根拠: 6/11キックオフ資料 · 合意業務: 規程策定 / シーズ掘り起こし / 自治体等とのファンド形成")
-                .font(.caption2)
-                .foregroundStyle(AMDOSDesign.muted)
-        }
-    }
-}
-
-private struct AMDOSParityCockpitKuteRoadmapRow: View {
-    let item: AMDOSParityCockpitKuteRoadmapItem
-    let currentYm: String
-
-    private var state: String {
-        if currentYm > item.endYm { return "完了" }
-        if currentYm < item.startYm { return "次" }
-        return "進行中"
-    }
-    private var tint: Color {
-        switch state {
-        case "完了": return AMDOSDesign.success
-        case "進行中": return AMDOSDesign.blue
-        default: return AMDOSDesign.muted
-        }
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(item.period).font(.caption.monospaced()).foregroundStyle(AMDOSDesign.muted)
-                Text(item.title).font(.subheadline.weight(.semibold))
-                Spacer()
-                AMDOSStatusBadge(text: state, tint: tint)
-            }
-            Text(item.purpose).font(.caption).foregroundStyle(AMDOSDesign.muted)
-            HStack(spacing: 5) {
-                ForEach(item.outputs, id: \.self) { output in
-                    AMDOSStatusBadge(text: output, tint: AMDOSDesign.muted)
-                }
-            }
-        }
-        .padding(9)
-        .background(tint.opacity(0.07))
-        .clipShape(RoundedRectangle(cornerRadius: 9))
-    }
 }
 
 private struct AMDOSParityCockpitFreezeBackfillCard: View {
@@ -11272,7 +11164,7 @@ struct AMDOSParityDashboardView: View {
 
     private var projects: [AMDOSHUDProject] {
         (store.hud?.projects ?? [])
-            .filter { $0.projectId != "p00" && $0.projectCategory != "institution" }
+            .filter { $0.projectId != amdOSCompanyProjectID && $0.projectCategory != "institution" }
             .sorted { lhs, rhs in
                 let lm = store.isMyProject(lhs.projectId) ? 0 : 1
                 let rm = store.isMyProject(rhs.projectId) ? 0 : 1

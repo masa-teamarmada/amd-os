@@ -27,7 +27,6 @@ const artifactPath = path.join(root, "..", "bzm/pilot/bzm-2-2-all-pj-provisional
 const generatedDirectory = path.join(root, "src/generated/bzm-2-2-pilot");
 const manifestPath = path.join(generatedDirectory, "manifest.json");
 const apiPath = path.join(root, "src/app/api/project/[projectId]/bzm-2-2-pilot/route.ts");
-const sxFundingTimingApiPath = path.join(root, "src/app/api/project/[projectId]/sx-funding-timing/route.ts");
 const loaderPath = path.join(root, "src/lib/bzm-2-2-pilot-ui.server.ts");
 const componentPath = path.join(root, "src/components/cockpit/Bzm22ProvisionalObservatory.tsx");
 const displayValuePath = path.join(root, "src/lib/bzm-2-2-display-value.ts");
@@ -36,7 +35,6 @@ const timeLedgerPath = path.join(root, "src/components/cockpit/ProjectFinanceFor
 const financeFormatsPath = path.join(root, "src/lib/project-formats.ts");
 const financeDataPath = path.join(root, "src/lib/project-finance-format.ts");
 const financialProjectionPath = path.join(root, "src/components/cockpit/CockpitFinancialProjection.tsx");
-const sxMonthlyBackfillPath = path.join(root, "scripts/backfill_sx_phase_monthly_pl.mts");
 const scoreDetailPath = path.join(root, "src/components/cockpit/CockpitAmdScoreDetailTab.tsx");
 const cockpitSummaryPath = path.join(root, "src/components/cockpit/Bzm22CockpitSummary.tsx");
 const cockpitVenturePath = path.join(root, "src/components/cockpit/CockpitVentureStatus.tsx");
@@ -142,7 +140,8 @@ for (const row of manifest.projects) {
       unit: parameter.unit,
     })).join("\n");
     requireIncludes(sxBaseValues, [
-      "PSI GAPファンド Step 2採択：¥78M・2026-01〜2027-03・確度100%",
+      // 助成金の名前をPJ番号で差し替えない（2026-10-04 まさ「特定のPJだけの特例を入れたらシステムにならない」）。
+      "使途制限付き助成金・研究費：¥78M・2026-01〜2027-03・確度100%",
       "VC DD：¥100M・2027-02・確度45%",
       "共同開発：¥50M・2027-08・確度50%",
       "期首自由資金 ¥0M",
@@ -467,14 +466,6 @@ requireIncludes(loaderSource, [
   "parameter",
 ], "BZM 2.2 server-only loader");
 
-const sxFundingTimingApiSource = requireText(sxFundingTimingApiPath);
-requireIncludes(sxFundingTimingApiSource, [
-  "requireMember()",
-  'from("project_meeting_summaries")',
-  'projectId !== "p21"',
-  "extractSxFirstFundingTarget",
-  '"Cache-Control": "private, no-store, max-age=0"',
-], "SX funding timing evidence API");
 
 const componentSource = requireText(componentPath);
 const scoreDetailSource = requireText(scoreDetailPath);
@@ -592,11 +583,6 @@ requireIncludes(requireText(financeDataPath), [
   "buildRegisteredFinanceDataset",
   "fiscalYearOf",
 ], "standard finance format: data mapping");
-const sxMonthlyBackfillSource = requireText(sxMonthlyBackfillPath);
-requireIncludes(sxMonthlyBackfillSource, [
-  "設立前PJ支出でありNewCoのP/L・営業損失ではない",
-  "設立前PJ支出の会計主体注記が欠けている",
-], "SX monthly PL accounting-entity notes");
 requireIncludes(componentSource, ['data-density="compact-score"'], "BZM 2.2 compact score density");
 // 2026-08-27 まさ「古いモデルの試算結果は、混乱の元になるのですべて削除してほしい」で
 // スコア詳細タブから BZM 2.2 暫定パイロットを外した。残るのは現行SPSカードと BZM 3.0 パネル。

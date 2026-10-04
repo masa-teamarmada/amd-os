@@ -9,26 +9,35 @@ export type SxGateRequirement = {
   state: "met" | "unmet" | "unconfirmed";
 };
 
-export const SX_BLOCKING_MILESTONE_SLUGS = [
-  "business-paid-poc-oral-agreement",
-  "funding-investment-oral-agreement",
-] as const;
+/**
+ * 前提条件のMSの種類（project_management_milestones.gate_kind）。どのPJのMSにも付けられる。
+ * oral_agreement は「口頭合意を確認する」MSで、後に続くMSの前提になり、確認する期間（開始日〜完了日）を持てる。
+ * PJ番号や slug では決めない（2026-10-04 まさ「特定のPJだけの特例を入れたらシステムにならない」、spec 3-23 §6）。
+ */
+export const MILESTONE_GATE_KINDS = ["oral_agreement"] as const;
+export type MilestoneGateKind = (typeof MILESTONE_GATE_KINDS)[number];
 
-const BLOCKING_MILESTONE_SLUG_SET = new Set<string>(
-  SX_BLOCKING_MILESTONE_SLUGS,
-);
+export const MILESTONE_GATE_KIND_LABEL: Record<MilestoneGateKind, string> = {
+  oral_agreement: "前提条件（口頭合意の確認）",
+};
+
+export function asMilestoneGateKind(value: unknown): MilestoneGateKind | null {
+  return (MILESTONE_GATE_KINDS as readonly string[]).includes(String(value))
+    ? (value as MilestoneGateKind)
+    : null;
+}
 
 export function sxIsBlockingMilestone(
-  milestone: Pick<SxManagementMilestone, "slug">,
+  milestone: Pick<SxManagementMilestone, "gateKind">,
 ) {
-  return BLOCKING_MILESTONE_SLUG_SET.has(milestone.slug);
+  return milestone.gateKind != null;
 }
 
 export function sxOralAgreementEvidenceReady(
-  slug: string,
+  gateKind: MilestoneGateKind | null,
   evidence: string | null | undefined,
 ) {
-  if (!BLOCKING_MILESTONE_SLUG_SET.has(slug)) return Boolean(evidence?.trim());
+  if (gateKind !== "oral_agreement") return Boolean(evidence?.trim());
   const lines = (evidence || "")
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -49,7 +58,7 @@ export function sxGateRequirementState(
   if (milestone.manualStatus === "unassessed") return "unconfirmed";
   if (milestone.manualStatus !== "completed") return "unmet";
   const evidenceReady = sxOralAgreementEvidenceReady(
-    milestone.slug,
+    milestone.gateKind,
     milestone.completionEvidence,
   );
   if (!evidenceReady) return "unconfirmed";

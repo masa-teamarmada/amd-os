@@ -36,24 +36,38 @@ export type TaskPointLine = {
 };
 
 export type TaskPointLedger = {
+  /** このPJがタスクptの検収を始めた月（projects.task_point_review_from_ym）。 */
+  fromYm: string;
   taskBasedMilestoneIds: Set<string>;
   estimated: TaskPointLine[];
   accepted: TaskPointLine[];
 };
 
-export const TASK_POINT_PILOT_PROJECT_ID = "p21";
-export const TASK_POINT_PILOT_START_YM = "202610";
-
-export function isTaskPointPilot(projectId: string, ym: string): boolean {
-  return projectId === TASK_POINT_PILOT_PROJECT_ID && ym >= TASK_POINT_PILOT_START_YM;
+/**
+ * タスクptの検収を始めた月は、PJごとの設定 `projects.task_point_review_from_ym`（YYYYMM）で決める。
+ * 空のPJは検収しない（MSの月割りのまま）。PJ番号では分けない
+ * （2026-10-04 まさ「特定のPJだけの特例を入れたらシステムにならない」、spec 3-23 §6）。
+ * 完了に証跡を求めるかどうか、検収の行に何を出すかも、画面はAPIが返すこの答えで描く。
+ */
+export async function loadTaskPointReviewFromYm(db: SupabaseClient, projectId: string): Promise<string | null> {
+  const { data, error } = await db
+    .from("projects")
+    .select("task_point_review_from_ym")
+    .eq("project_id", projectId)
+    .maybeSingle();
+  if (error) throw error;
+  return taskPointReviewFromYmOf(data);
 }
 
-/**
- * タスクpt検収の試行に入っているPJか（月を問わない）。完了に証跡を求めるかどうか、検収の行に何を出すかを決める。
- * 画面はPJ番号で分けず、APIが返すこの答えで描く（spec 3-23）。
- */
-export function isTaskPointReviewProject(projectId: string): boolean {
-  return projectId === TASK_POINT_PILOT_PROJECT_ID;
+/** projects の行から検収を始めた月を取り出す。形が崩れていれば検収しない扱いにする。 */
+export function taskPointReviewFromYmOf(row: { task_point_review_from_ym?: unknown } | null | undefined): string | null {
+  const value = row?.task_point_review_from_ym;
+  return typeof value === "string" && /^\d{6}$/.test(value) ? value : null;
+}
+
+/** その月にタスクptの検収を受け付けているか（検収を始めた月以降）。 */
+export function isTaskPointReviewOpen(fromYm: string | null | undefined, ym: string): boolean {
+  return Boolean(fromYm) && ym >= String(fromYm);
 }
 
 /** 新MSは対応線が未設定でも月割りで先払いしない。 */
@@ -62,7 +76,7 @@ export function markNewTaskMilestones(
   milestones: Array<{ milestone_id: string; period_start_ym?: string | null; tag?: string | null }>,
 ): void {
   for (const ms of milestones) {
-    if ((ms.period_start_ym ?? "") >= TASK_POINT_PILOT_START_YM
+    if ((ms.period_start_ym ?? "") >= ledger.fromYm
       && String(ms.tag ?? "").toLowerCase() !== "routine") {
       ledger.taskBasedMilestoneIds.add(ms.milestone_id);
     }
@@ -104,6 +118,7 @@ function distributedPoints(points: number, shares: Array<{ memberId: string; sha
 }
 
 export function buildTaskPointLedger({
+  fromYm,
   actions,
   owners,
   questions,
@@ -113,6 +128,7 @@ export function buildTaskPointLedger({
   reviewAllocations = [],
   activeMilestoneIds,
 }: {
+  fromYm: string;
   actions: TaskPointAction[];
   owners: TaskPointOwner[];
   questions: TaskPointQuestion[];
@@ -208,13 +224,14 @@ export function buildTaskPointLedger({
       throw new Error(`TODO ${action.id}: 確定ptがあるのに検収台帳に無いよ`);
     }
   }
-  return { taskBasedMilestoneIds, estimated, accepted };
+  return { fromYm, taskBasedMilestoneIds, estimated, accepted };
 }
 
 export async function loadTaskPointLedger(
   db: SupabaseClient,
   projectId: string,
   activeMilestoneIds: Set<string>,
+  fromYm: string,
 ): Promise<TaskPointLedger> {
   const [actionsRes, ownersRes, questionsRes, linksRes, mappingsRes, reviewsRes] = await Promise.all([
     db.from("project_actions")
@@ -241,6 +258,7 @@ export async function loadTaskPointLedger(
     : { data: [], error: null };
   if (allocationsRes.error) throw allocationsRes.error;
   return buildTaskPointLedger({
+    fromYm,
     actions: (actionsRes.data ?? []) as TaskPointAction[],
     owners: (ownersRes.data ?? []) as TaskPointOwner[],
     questions: (questionsRes.data ?? []) as TaskPointQuestion[],

@@ -36,6 +36,7 @@ import {
   isScheduleActionItem,
 } from "./predicates.ts";
 import { deadlineForReportYm, planMonthlyReportSchedule, reportRule } from "./report-plan.ts";
+import { AMD_COMPANY_PROJECT_ID } from "../project-formats.ts";
 export {
   isAcceptedAmdContract,
   isContractSigningExpected,
@@ -267,7 +268,7 @@ export async function syncCompanyOperatingFacts(db: ScheduleDb): Promise<{
 
   const members = (membersRes.data ?? []) as RawRow[];
   const entries = (entriesRes.data ?? []) as RawRow[];
-  const companyProfile = (companyProfilesRes.data ?? []).find((row: RawRow) => ["amd", "AMD", "p00"].includes(String(row.project_id))) as RawRow | undefined;
+  const companyProfile = (companyProfilesRes.data ?? []).find((row: RawRow) => ["amd", "AMD", AMD_COMPANY_PROJECT_ID].includes(String(row.project_id))) as RawRow | undefined;
   const entryByKey = new Map(entries.map((entry) => [String(entry.entry_key), entry]));
   const profileValue = (key: string): { value: unknown; sourceRef: string; confidence: number } | null => {
     const entry = entryByKey.get(key) || entryByKey.get(`operating_fact:${key}`);
@@ -1551,7 +1552,7 @@ export async function generateSchedule(db: ScheduleDb, options: ScheduleGenerati
     db.from("monthly_reports").select("*").gte("ym", fromYm).lte("ym", toYm).limit(20000),
     db.from("action_items").select("*").eq("review_status", "confirmed").in("status", ACTIVE_ACTION_STATUSES).not("due_at", "is", null).limit(10000),
     db.from("members").select("*").eq("status", "active").limit(1000),
-    db.from("project_shareholder_meetings").select("*").eq("project_id", "p00").in("meeting_type", CANONICAL_SHAREHOLDER_MEETING_TYPES).limit(200),
+    db.from("project_shareholder_meetings").select("*").eq("project_id", AMD_COMPANY_PROJECT_ID).in("meeting_type", CANONICAL_SHAREHOLDER_MEETING_TYPES).limit(200),
   ]);
   const results = [
     ["company_operating_facts", factsResult],

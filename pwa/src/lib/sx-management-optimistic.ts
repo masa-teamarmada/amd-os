@@ -239,6 +239,7 @@ function optimisticMilestone(
     title: "",
     gate: "",
     timelineKind: "milestone",
+    gateKind: null,
     displayLaneKeys: [],
     version: 1,
     status: "not_started",

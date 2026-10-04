@@ -132,8 +132,8 @@ vm.runInNewContext(ts.transpileModule(routeSource,{compilerOptions:{module:ts.Mo
     if(name==='@/lib/question-tree')return {getQuestionTreeBundle:async()=>bundleReadback};
     if(name==='@/lib/reward-summary')return {syncRewardSummaryForCycle:async()=>({ok:true})};
     if(name==='@/lib/supabase/admin')return {createAdminClient:()=>adapter};
-    // タスクpt検収の試行（報酬の規則）。試行の対象かどうかは task-point-ledger だけが持つ（spec 3-23）。
-    if(name==='@/lib/task-point-ledger')return {isTaskPointReviewProject:(id:string)=>id==='p21',isTaskPointPilot:(id:string,ym:string)=>id==='p21'&&ym>='202610'};
+    // タスクptの検収を始めた月は PJ の設定（projects.task_point_review_from_ym）。ここでは検収を始めたPJとして読む（spec 3-23）。
+    if(name==='@/lib/task-point-ledger')return {loadTaskPointReviewFromYm:async()=>'202610',isTaskPointReviewOpen:(from:string|null,ym:string)=>Boolean(from)&&ym>=String(from)};
     throw new Error(name);
   },
 });

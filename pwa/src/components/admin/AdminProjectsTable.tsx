@@ -67,6 +67,8 @@ export interface ProjectRow {
   closers: string[];
   pls: string[];
   news_search_query: string | null;
+  /** つくよみの外部リサーチ（平日09:00）で探すテーマ。空のPJは対象外（migration 476）。 */
+  external_research_topics: string | null;
   /** project_ventures 行がある SU 系 PJ。false の PJ は lanes 編集不可。 */
   has_venture_row: boolean;
   /** ASPI 8 domain weighted lanes (project_ventures.lanes 由来)。未設定 or SU 未化 PJ は null。 */
@@ -369,6 +371,7 @@ type EditVals = {
   freeze_from_ym: string;
   restart_expected_ym: string;
   news_search_query: string;
+  external_research_topics: string;
   monthly_report_scope: string;
   report_local_alias: string;
   /** カンマ区切り文字列で編集し、保存時に string[] に変換 */
@@ -502,6 +505,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
       freeze_from_ym: p.freeze_from_ym ?? "",
       restart_expected_ym: p.restart_expected_ym ?? "",
       news_search_query: p.news_search_query ?? "",
+      external_research_topics: p.external_research_topics ?? "",
       monthly_report_scope: p.monthly_report_scope || "none",
       report_local_alias: p.report_local_alias ?? "",
       report_extra_allow_terms: (p.report_extra_allow_terms || []).join(", "),
@@ -747,6 +751,9 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
       case "news_search_query":
         patch.news_search_query = (editVals.news_search_query as string)?.trim() || null;
         break;
+      case "external_research_topics":
+        patch.external_research_topics = (editVals.external_research_topics as string)?.trim() || null;
+        break;
       case "monthly_report_scope": {
         const v = (editVals.monthly_report_scope as string) || "none";
         patch.monthly_report_scope = (v === "internal_only" || v === "internal_and_external") ? v : "none";
@@ -867,6 +874,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
               <th className="text-left px-3 py-2 font-medium w-20">終了ym</th>
               <th className="text-left px-3 py-2 font-medium w-32">停止 / 再開予定</th>
               <th className="text-left px-3 py-2 font-medium w-52">ニュースサーチクエリ</th>
+              <th className="text-left px-3 py-2 font-medium w-60" title="つくよみの外部リサーチ（平日09:00）で、このPJについて探すテーマ。空のPJは対象外">外部リサーチのテーマ</th>
               <th className="text-left px-3 py-2 font-medium w-36">freee取引先</th>
               <th className="text-left px-3 py-2 font-medium w-32">Slack CH</th>
               <th
@@ -1622,6 +1630,24 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                       <span className="font-mono text-[11px] text-sky-700">{p.news_search_query}</span>
                     ) : (
                       <span className="text-muted-foreground text-[11px]">— サーチ対象外</span>
+                    )}
+                  </td>
+
+                  {/* external_research_topics */}
+                  <td className={cellCls("external_research_topics")} onClick={enterCell("external_research_topics")}>
+                    {isEditingField(p, "external_research_topics") ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <input type="text" value={editVals.external_research_topics as string} autoFocus
+                          placeholder="例: 磁気冷凍、データセンター冷却"
+                          onChange={(e) => setEditVals((v) => ({ ...v, external_research_topics: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === "Enter") saveCell(p, "external_research_topics"); if (e.key === "Escape") cancelEdit(); }}
+                          className="border border-border rounded px-1.5 py-0.5 text-[12px] w-56 bg-background" />
+                        {cellActions("external_research_topics")}
+                      </div>
+                    ) : p.external_research_topics ? (
+                      <span className="text-[11px] text-[#1d1d1f]">{p.external_research_topics}</span>
+                    ) : (
+                      <span className="text-muted-foreground text-[11px]">— 対象外</span>
                     )}
                   </td>
 

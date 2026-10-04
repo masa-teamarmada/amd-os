@@ -78,29 +78,6 @@ const monthlyReportSecurityHeaders = securityHeaders.map((header) =>
   : header,
 );
 
-const embedSecurityHeaders = [
-  { key: "X-Content-Type-Options", value: "nosniff" },
-  { key: "X-XSS-Protection", value: "1; mode=block" },
-  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-  {
-    key: "Strict-Transport-Security",
-    value: "max-age=63072000; includeSubDomains; preload",
-  },
-  {
-    key: "Content-Security-Policy",
-    value: [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: https:",
-      "font-src 'self'",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://script.google.com https://accounts.google.com",
-      "frame-ancestors 'self' http://127.0.0.1:8766 http://localhost:8766",
-    ].join("; "),
-  },
-];
-
 const businessCardSecurityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
@@ -214,10 +191,16 @@ const nextConfig: NextConfig = {
       "./node_modules/@sparticuz/chromium/bin/**",
     ],
   },
+  async redirects() {
+    return [
+      // 公開の会議資料の置き場を /shared/<PJ>/ にそろえた（2026-10-04）。前に渡したリンクも開けるようにする。
+      { source: "/kute/:path*", destination: "/shared/kute/:path*", permanent: true },
+    ];
+  },
   async headers() {
     return [
       {
-        source: "/:path((?!hud/dashboard/embed|business-cards|native/business-cards).*)",
+        source: "/:path((?!business-cards|native/business-cards).*)",
         headers: securityHeaders,
       },
       {
@@ -239,10 +222,6 @@ const nextConfig: NextConfig = {
       {
         source: "/native/business-cards/:path*",
         headers: businessCardSecurityHeaders,
-      },
-      {
-        source: "/hud/dashboard/embed",
-        headers: embedSecurityHeaders,
       },
       {
         source: "/dd/:slug/items/:itemId/file",

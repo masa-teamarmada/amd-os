@@ -112,7 +112,9 @@ assert.deepEqual(Object.keys(decision).sort(), [
 const route = readFileSync(resolve(root, "src/app/api/project-workspace/[projectId]/automation-context/route.ts"), "utf8");
 const server = readFileSync(resolve(root, "src/lib/sx-workspace-operating-context-server.ts"), "utf8");
 const strategyUi = readFileSync(resolve(root, "src/components/cockpit/CockpitStrategySignals.tsx"), "utf8");
-assert.match(route, /projectId !== "p21"/);
+// 全PJ共通（2026-10-04 まさ「使える機能なら全PJに適用して」）。PJ番号で分けず、台帳にあるPJだけ返す。
+assert.doesNotMatch(route, /"p\d{2}"/, "PJ番号で分けない");
+assert.match(route, /from\("projects"\)/, "台帳にあるPJだけ返す");
 assert.match(route, /WORKFLOW_SECRET \|\| process\.env\.CRON_SECRET/);
 assert.doesNotMatch(server, /\.limit\(/, "取得件数を固定上限で切らない");
 assert.match(strategyUi, /kind === "project_management_update"/);

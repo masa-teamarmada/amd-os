@@ -14,10 +14,10 @@ import {
 } from "@/lib/contract-money";
 import { capExtraPointBasisForMilestone, regularPointBasisForCycle, roundPt } from "@/lib/season-point-basis";
 import {
-  isTaskPointPilot,
+  isTaskPointReviewOpen,
   loadTaskPointLedger,
   markNewTaskMilestones,
-  TASK_POINT_PILOT_START_YM,
+  taskPointReviewFromYmOf,
   type TaskPointLedger,
 } from "@/lib/task-point-ledger";
 
@@ -25,11 +25,11 @@ type SupabaseLike = SupabaseClient;
 
 const ACTIVE_PLAN_STATUSES = ["active", "confirmed", "fixed", "draft"];
 const REWARD_SUMMARY_VERSION = "server_v5_planned_share_cap_carry_no_final_topup";
-const SX_TASK_REWARD_SUMMARY_VERSION = "server_v6_sx_task_acceptance_cap_carry";
+// タスクptの検収（2026-10 から）を含む月は、全PJ共通の支払の決まり（v9）に入っている。
 function rewardSummaryVersion(projectId: string, ym: string): string {
   if (isSmallBalanceSettlementYm(projectId, ym)) return "server_v9_common_payout_policy";
   if (isRewardPayoutRoundUpYm(projectId, ym)) return "server_v9_common_payout_policy";
-  return isTaskPointPilot(projectId, ym) ? SX_TASK_REWARD_SUMMARY_VERSION : REWARD_SUMMARY_VERSION;
+  return REWARD_SUMMARY_VERSION;
 }
 // 2026-07 以降がポイント制の対象。旧制度で合意済みの月を新制度差額として精算しない。
 const POINT_REWARD_TRANSITION_YM = "202607";
@@ -550,9 +550,9 @@ function buildPayableCumMap(
   taskLedger?: TaskPointLedger,
 ): Map<string, number> {
   const map = new Map<string, number>();
-  // 9月末を固定基準にする。既存の確定・支払済みptを10月から再配分しない。
-  const prePilot = taskLedger && ym >= TASK_POINT_PILOT_START_YM
-    ? buildPayableCumMap(progress, milestones, planCycle, prevYmStr(TASK_POINT_PILOT_START_YM))
+  // 検収を始めた月の前月末を固定基準にする。既存の確定・支払済みptを検収の開始後に再配分しない。
+  const prePilot = taskLedger && ym >= taskLedger.fromYm
+    ? buildPayableCumMap(progress, milestones, planCycle, prevYmStr(taskLedger.fromYm))
     : null;
   const cyclePeriod = {
     period_start_ym: planCycle?.period_start_ym ?? null,
@@ -560,10 +560,10 @@ function buildPayableCumMap(
   };
   for (const ms of milestones) {
     const points = effectiveMilestonePoints(ms);
-    if (taskLedger?.taskBasedMilestoneIds.has(ms.milestone_id) && ym >= TASK_POINT_PILOT_START_YM) {
+    if (taskLedger?.taskBasedMilestoneIds.has(ms.milestone_id) && ym >= taskLedger.fromYm) {
       const baseline = prePilot?.get(ms.milestone_id) ?? 0;
       const accepted = taskLedger.accepted
-        .filter((line) => line.milestoneId === ms.milestone_id && line.ym >= TASK_POINT_PILOT_START_YM && line.ym <= ym)
+        .filter((line) => line.milestoneId === ms.milestone_id && line.ym >= taskLedger.fromYm && line.ym <= ym)
         .reduce((sum, line) => sum + line.points, 0);
       if (baseline + accepted > points + 0.01) {
         throw new Error(`MS ${ms.milestone_id}: 検収ptがMSの残ptを超えているよ`);
@@ -1466,7 +1466,7 @@ export function buildRewardSummaryUncapped({
     const pool: RewardPool = isCapExtraMilestone(ms) ? "cap_extra" : "regular";
     const ptUnit = pool === "cap_extra" ? extraPtUnit : regularPtUnit;
 
-    if (taskLedger?.taskBasedMilestoneIds.has(ms.milestone_id) && ym >= TASK_POINT_PILOT_START_YM) {
+    if (taskLedger?.taskBasedMilestoneIds.has(ms.milestone_id) && ym >= taskLedger.fromYm) {
       const lines = taskLedger.accepted.filter((line) => line.milestoneId === ms.milestone_id && line.ym === ym);
       const credited = Math.round(lines.reduce((sum, line) => sum + line.points, 0) * 100) / 100;
       if (Math.abs(credited - msConsumedPt) > 0.01) {
@@ -1843,7 +1843,7 @@ async function computeRewardSummaryForCycle(
       .maybeSingle(),
     db
       .from("projects")
-      .select("project_id, fee_type, fee_amount, start_ym, end_ym, payment_due_rule, payment_due_day, invoice_send_deadline_rule")
+      .select("project_id, fee_type, fee_amount, start_ym, end_ym, payment_due_rule, payment_due_day, invoice_send_deadline_rule, task_point_review_from_ym")
       .eq("project_id", projectId)
       .maybeSingle(),
     db
@@ -1943,8 +1943,10 @@ async function computeRewardSummaryForCycle(
   );
 
   let taskLedger: TaskPointLedger | undefined;
-  if (isTaskPointPilot(projectId, ym) && !options.scenario) {
-    taskLedger = await loadTaskPointLedger(db, projectId, new Set(milestoneIds));
+  // タスクptの検収を始めたPJ（projects.task_point_review_from_ym）だけ、その月以降は検収ptで払う。
+  const taskPointFromYm = taskPointReviewFromYmOf(projectRes.data as { task_point_review_from_ym?: unknown } | null);
+  if (taskPointFromYm && isTaskPointReviewOpen(taskPointFromYm, ym) && !options.scenario) {
+    taskLedger = await loadTaskPointLedger(db, projectId, new Set(milestoneIds), taskPointFromYm);
     markNewTaskMilestones(taskLedger, milestones);
   }
 

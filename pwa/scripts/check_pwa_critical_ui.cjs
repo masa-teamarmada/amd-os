@@ -119,7 +119,7 @@ expectIncludes("src/app/api/admin/projects/[id]/weekly-slack-report/route.ts", [
 expectIncludes("src/app/(app)/dashboard/page.tsx", [
   "ExtractionStatusCard",
   "FreeeConnectionStatusCard",
-  'project.projectId !== "p00"',
+  "project.projectId !== AMD_COMPANY_PROJECT_ID",
   "projectLoadFailed",
   "PJ台帳を読み込めなかった",
 ]);
@@ -1245,9 +1245,11 @@ expectNotIncludes(
   ],
 );
 // 2026-08-13 新設: ガントのレーン折り畳みの正本。柱はPJごとにDB (project_management_tracks)
-// で定義するが、p21だけは従来の3レーン折り畳みを1文字も変えずに再現しなければならない。
+// で定義する。標準の4つの柱（事業・技術・資金・体制）を持つPJは、どのPJも同じ3レーンに畳む。
+// 2026-10-04: PJ番号の名前（P21_*）と、前提条件のMSを slug でレーンへ寄せる分岐をやめた（spec 3-23 §6）。
 expectIncludes("src/lib/sx-display-lanes.ts", [
   "buildSxLaneFold",
+  "isStandardFold",
   "business_development",
   "technology_development",
   "organizational_building",
@@ -1295,8 +1297,8 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "前提",
   // 2026-08-13: 柱(track)をPJ属性へ一般化した (migration 273)。レーン折り畳みの
   // 定数・関数はこのファイルから src/lib/sx-display-lanes.ts へ移し、そちらを唯一の正本にした。
-  // p21の契約 (事業開発／技術開発／組織開発の3レーン、資金調達は組織開発へ統合、
-  // 設立条件2MSの強制配置) は sx-display-lanes.ts 側のアンカーで担保する。
+  // 標準の4つの柱の3レーン（事業開発／技術開発／組織開発、資金調達は組織開発へ統合）は
+  // sx-display-lanes.ts 側のアンカーで担保する。前提条件のMSも自分の柱のレーンに出る。
   "buildSxLaneFold",
   "laneFold",
   "milestoneAnchorRow",
@@ -1445,7 +1447,9 @@ expectIncludes("manual/3-3-notifications-and-tsukuyomi.md", [
   "平日09:00 JST",
   "過去72時間",
   "過去24時間",
-  "BWEは終了PJ",
+  // 対象は PJ の設定「外部リサーチのテーマ」（projects.external_research_topics）。PJの表を章に持たない（2026-10-04、spec 3-23 §6）。
+  "外部リサーチのテーマ",
+  "PJの状態（終了など）だけでは外さない",
   "過去の未判断・採用・見送り・保管済みの全履歴",
   "経営ハイライト → 採用リサーチ",
   "いつもと違うとき",
@@ -1751,13 +1755,19 @@ expectIncludes("src/lib/poc-data.ts", [
 
 expectIncludes("src/lib/reward-summary.ts", [
   "server_v5_planned_share_cap_carry_no_final_topup",
-  "server_v6_sx_task_acceptance_cap_carry",
   "loadTaskPointLedger",
+  // タスクptの検収を始めた月は PJ の設定（projects.task_point_review_from_ym）。PJ番号で決めない（2026-10-04、spec 3-23 §6）。
+  "task_point_review_from_ym",
+  "taskLedger.fromYm",
   "taskBasedMilestoneIds",
   "regularUnusedCapCarryOutYen",
   "extraUnusedCapCarryOutYen",
   "effectiveRegularCapBudgetYen",
 ]);
+
+for (const rel of ["src/lib/task-point-ledger.ts", "src/lib/reward-summary.ts", "src/lib/monthly-work-agreement.ts", "src/app/api/project/[projectId]/question-tree/route.ts"]) {
+  expectNotIncludes(rel, ["isTaskPointPilot", "isTaskPointReviewProject", "TASK_POINT_PILOT_PROJECT_ID", "accept_sx_task_pt"]);
+}
 
 expectIncludes("src/app/api/admin/ms-overview/[planCycleId]/route.ts", [
   "seasonEndShortageYen",
@@ -1958,7 +1968,6 @@ expectIncludes("src/app/api/cron/payout-reward-cache-refresh/route.ts", [
 
 expectIncludes("src/lib/reward-summary.ts", [
   "server_v5_planned_share_cap_carry_no_final_topup",
-  "server_v6_sx_task_acceptance_cap_carry",
   "plannedShare",
   "shareSource",
   "CAP_EXTRA_MILESTONE_TAGS",
@@ -2320,10 +2329,19 @@ expectIncludes("src/lib/project-finance-format.ts", [
   "設立前の支出は会社の資金繰りに入れない",
   "計画を持たないPJの実績P/Lから資金繰りを作り出さない",
 ]);
-expectIncludes("scripts/backfill_sx_phase_monthly_pl.mts", [
-  "設立前PJ支出でありNewCoのP/L・営業損失ではない",
-  "設立前PJ支出の会計主体注記が欠けている",
-]);
+// SOL の事業計画・資金計画の数字をコードに持っていた部品（と、それで一度だけ流し込んだ道具）は 2026-10-04 に消した。
+// 数字は project_business_plans・試算表のデータが正本。PJ専用の定数をコードへ戻さない（まさ「特定のPJだけの特例を入れたらシステムにならない」）。
+for (const rel of [
+  "src/lib/sx-business-plan.ts",
+  "src/lib/sx-monthly-finance-plan.ts",
+  "src/lib/sx-funding-timing.ts",
+  "src/app/api/project/[projectId]/sx-funding-timing/route.ts",
+  "src/app/api/admin/import-contacts-from-sheet/route.ts",
+  "src/components/cockpit/CockpitKuteRegulations.tsx",
+  "scripts/backfill_sx_phase_monthly_pl.mts",
+]) {
+  expectFileMissing(rel);
+}
 expectIncludes("src/components/cockpit/Bzm22CockpitSummary.tsx", [
   'data-testid="cockpit-bzm22-primary"',
   'data-testid="cockpit-bzm22-value-rail"',
@@ -2648,6 +2666,10 @@ expectIncludes("src/app/api/meeting-prep/calendar-sync/route.ts", [
   "upcoming:",
   "source_kinds",
   "preserve_manual_body",
+  // PJの別名はコードの表ではなく別名の台帳（project_knowledge の alias）から読む（2026-10-04、spec 3-23 §6）。
+  "loadProjectAliases",
+]);
+expectNotIncludes("src/app/api/meeting-prep/calendar-sync/route.ts", [
   "PROJECT_MATCH_ALIASES_BY_ID",
   "ZeMA",
   "SolvioraX",

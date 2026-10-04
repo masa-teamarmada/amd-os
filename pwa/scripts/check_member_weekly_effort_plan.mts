@@ -34,11 +34,12 @@ import {
   assert.equal(classifyWorkCategory("応用研究ディスカッション"), "applied");
   assert.equal(classifyWorkCategory("基礎研究の実験"), "basic");
   assert.equal(classifyWorkCategory("定例1on1"), "coordination");
-  // SX が絡んでも具体語 (応用/開発) があればそちらを優先する
-  assert.equal(classifyWorkCategory("SX 技術開発ミーティング"), "development");
-  assert.equal(classifyWorkCategory("SX 応用研究レビュー"), "applied");
-  // "🛠 SX" 単独 (応用/開発/基礎の具体語なし) は su
-  assert.equal(classifyWorkCategory("🛠 SX"), "su");
+  // PJ名が絡んでも具体語 (応用/開発) があればそちらを優先する
+  assert.equal(classifyWorkCategory("SOL 技術開発ミーティング"), "development");
+  assert.equal(classifyWorkCategory("SOL 応用研究レビュー"), "applied");
+  // PJ名だけの予定は、どのPJでも具体語が無いので coordination（PJ名で分けない）
+  assert.equal(classifyWorkCategory("🛠 SOL"), "coordination");
+  assert.equal(classifyWorkCategory("🛠 SX"), "coordination");
 }
 
 // track: technology_development > funding > organizational_building > business_development > null

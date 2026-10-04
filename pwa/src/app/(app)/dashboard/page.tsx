@@ -25,6 +25,7 @@ import { FundingStatsCard } from "@/components/dashboard/FundingStatsCard";
 import { ProactiveTodoBadge } from "@/components/proactive-todo/ProactiveTodoBadge";
 import { ExtractionStatusCard } from "@/components/dashboard/ExtractionStatusCard";
 import { FreeeConnectionStatusCard } from "@/components/dashboard/FreeeConnectionStatusCard";
+import { AMD_COMPANY_PROJECT_ID } from "@/lib/project-formats";
 
 const MyPageContent = dynamic(
   () => import("@/app/(app)/mypage/page").then((mod) => mod.MyPageContent),
@@ -155,7 +156,7 @@ export default function DashboardPage() {
     );
   }, [projects]);
   const dashboardProjects = useMemo(
-    () => projects.filter((project) => project.projectId !== "p00"),
+    () => projects.filter((project) => project.projectId !== AMD_COMPANY_PROJECT_ID),
     [projects],
   );
 

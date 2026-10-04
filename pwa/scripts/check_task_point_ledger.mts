@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { buildTaskPointLedger, markNewTaskMilestones } from "../src/lib/task-point-ledger.ts";
 
 const base = {
+  fromYm: "202610",
   actions: [{
     id: "a1", parent_id: null, origin_question_id: "q-child", title: "成果物A",
     status: "running", review_state: "accepted", planned_end: "2026-10-20",

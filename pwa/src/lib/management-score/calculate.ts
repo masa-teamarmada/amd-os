@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { AMD_COMPANY_PROJECT_ID } from "@/lib/project-formats";
 
 type Axis = "initiative" | "finance" | "retention" | "pipeline" | "direction";
 type InitiativeModifierZone = "healthy" | "critical" | "unconfirmed";
@@ -191,7 +192,7 @@ function isRetentionProgressSignalEligible(row: RawSignal): boolean {
   if (!isPmLockedProgressSource(source)) return false;
   if (payload.management_score_progress_eligible === false) return false;
   if (String(payload.progress_source_quality || "") && payload.progress_source_quality !== "pm_locked") return false;
-  if (projectId.toLowerCase() === "p00" || milestoneKey.startsWith("MS-p00-")) return false;
+  if (projectId.toLowerCase() === AMD_COMPANY_PROJECT_ID || milestoneKey.startsWith(`MS-${AMD_COMPANY_PROJECT_ID}-`)) return false;
   if (points != null && points <= 0) return false;
   if (payload.milestone_is_active === false) return false;
   if (INTERNAL_PROGRESS_TITLE_PATTERNS.some((pattern) => pattern.test(title))) return false;

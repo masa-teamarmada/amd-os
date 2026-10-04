@@ -24,6 +24,7 @@ import {
   PM_LOCKED_PROGRESS_SOURCES,
   type ProgressAnchor,
 } from "@/lib/ms-schedule-shared";
+import { AMD_COMPANY_PROJECT_ID } from "@/lib/project-formats";
 
 export const dynamic = "force-dynamic";
 
@@ -2013,7 +2014,7 @@ function filterVitalConfirmedSignals(signals: DialogueConfirmedSignal[], targetY
   const start = monthStartJstInstant(targetYm);
   const end = monthStartJstInstant(nextYm(targetYm));
   return signals.filter((signal) => {
-    if (signal.project_id !== "p00") return false;
+    if (signal.project_id !== AMD_COMPANY_PROJECT_ID) return false;
     if (!signalTypeToVitalAxis(signal.signal_type)) return false;
     if (signal.ym !== targetYm) return false;
     const signalDateYm = dateStringToYm(signal.signal_date);

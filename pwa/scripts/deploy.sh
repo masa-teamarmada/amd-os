@@ -17,6 +17,7 @@
 #   2. critical UI / spec rollback guard (test:critical-ui)
 #   2-b. 参照系データのキャッシュ契約 (test:reference-data-cache)
 #   2-b'. PJタイプ別の標準フォーマット契約 (test:project-format。定義の鍵とPJ番号の名指しのラチェット)
+#   2-b''. 特定のPJだけの処理を戻さない (test:no-project-special-cases。コード・自動処理の指示書・Mac/iPhone アプリ)
 #   2-b2. 書斎 /bzm/read の前処理・棚・進み具合 (test:bzm-reader)
 #   2-c. /model/formulas の正本ポインタ (test:model-formula-canon)
 #   3. rollback guard (deploy-version-guard.cjs)
@@ -107,6 +108,8 @@ echo "Running critical UI / spec rollback guard ..."
 (cd "$REPO_ROOT/pwa" && npm run test:reference-data-cache)
 # PJタイプ別の標準フォーマット（鍵付きの定義・PJ番号の名指しのラチェット）。spec 3-23。
 (cd "$REPO_ROOT/pwa" && npm run test:project-format)
+# 特定のPJだけの処理を戻さない（2026-10-04 まさ「特定のPJだけの特例を入れたらシステムにならない」、spec 3-23 §6）
+(cd "$REPO_ROOT/pwa" && npm run test:no-project-special-cases)
 # PJ概要の9項目と、事業の一言の入口（会社概要だけ）。spec 3-23 §9。
 (cd "$REPO_ROOT/pwa" && npm run test:project-overview)
 (cd "$REPO_ROOT/pwa" && npm run test:bzm-reader)

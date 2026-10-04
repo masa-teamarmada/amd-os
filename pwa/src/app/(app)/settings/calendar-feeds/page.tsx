@@ -63,7 +63,7 @@ export default function CalendarFeedsPage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
 
-  const [projectId, setProjectId] = useState("p30");
+  const [projectId, setProjectId] = useState("");
   const [ownerLabel, setOwnerLabel] = useState("");
   const [feedUrl, setFeedUrl] = useState("");
   const [visibility, setVisibility] = useState("title_location");
@@ -186,7 +186,7 @@ export default function CalendarFeedsPage() {
               value={projectId}
               onChange={(event) => setProjectId(event.target.value)}
               className="mt-1 w-full rounded-md border border-border px-3 py-2"
-              placeholder="p30"
+              placeholder="PJ番号（例: p07）"
             />
           </label>
           <label className="text-sm">

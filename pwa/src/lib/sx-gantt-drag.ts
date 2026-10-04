@@ -153,7 +153,7 @@ export function isValidPlannedRange(range: SxGanttDateRange): boolean {
 
 /** True when a milestone's planned_start/planned_end satisfy the generic point-MS invariant:
  * both null together, or equal (a single day). The 2 NewCo founding-prerequisite gates are exempt
- * from this — callers must check that separately (sxIsBlockingMilestone / SX_BLOCKING_MILESTONE_SLUGS)
+ * from this — callers must check that separately (sxIsBlockingMilestone — the milestone's gate_kind)
  * before applying it. */
 export function isValidPointMilestoneRange(range: SxGanttDateRange): boolean {
   if (range.plannedStart == null && range.plannedEnd == null) return true;

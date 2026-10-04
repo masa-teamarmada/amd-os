@@ -10,22 +10,15 @@ import {
   isValidPointMilestoneRange,
   normalizePointMilestonePatch,
 } from "@/lib/sx-gantt-drag";
-import { SX_BLOCKING_MILESTONE_SLUGS } from "@/lib/sx-gate-requirements";
+import { MILESTONE_GATE_KINDS } from "@/lib/sx-gate-requirements";
 
-// The 2 NewCo founding-prerequisite gates (and their exemption from the generic point-MS
-// invariant) only exist in the SX project. SX_BLOCKING_MILESTONE_SLUGS is a readonly
-// literal-union tuple (`as const`); .includes() on it only accepts that literal union, not an
-// arbitrary string read from a DB row/request body — this wrapper widens the check for those call
-// sites without loosening the exported constant's type. Scoping to project_id='p21' too (not just
-// the slug) means a same-named slug accidentally created in a different project never gets this
-// exemption — mirrors migration 220's point-MS CHECK constraint, which scopes the same way.
-const SX_BLOCKING_MILESTONE_PROJECT_ID = "p21";
-
-function isBlockingMilestoneSlug(projectId: string, slug: string): boolean {
-  return (
-    projectId === SX_BLOCKING_MILESTONE_PROJECT_ID &&
-    (SX_BLOCKING_MILESTONE_SLUGS as readonly string[]).includes(slug)
-  );
+// 前提条件のMS（gate_kind が入っているMS）は、点のMSの決まり（開始日＝完了日）から外れ、確認する
+// 期間を持てる。どのPJでも同じ（DB の project_management_milestones_point_ms_check と同じ条件、
+// migration 475。2026-10-04 まさ「特定のPJだけの特例を入れたらシステムにならない」）。
+function gateKindValue(raw: unknown): string | null {
+  if (raw == null || raw === "") return null;
+  if (!(MILESTONE_GATE_KINDS as readonly string[]).includes(String(raw))) throw new Error("MSの種類が不正です");
+  return String(raw);
 }
 
 type Resource =
@@ -346,6 +339,7 @@ function patchFor(resource: Resource, raw: unknown, projectTracks: string[]): Re
     if ("status_source" in raw) patch.status_source = enumValue(raw.status_source, "status_source", ["derived", "manual", "override"]);
     takeOptionalText("status_override_reason", "status_override_reason", 500); takeDate("status_override_expires_on"); takeOptionalText("status_override_approved_by", "status_override_approved_by", 120);
     if ("display_lane_keys" in raw) patch.display_lane_keys = displayLaneKeysValue(raw.display_lane_keys, "display_lane_keys");
+    if ("gate_kind" in raw) patch.gate_kind = gateKindValue(raw.gate_kind);
   }
   if (resource === "kpi") {
     takeText("title", "title", 180); takeText("metric_kind", "metric_kind", 120); takeNumber("baseline"); takeNumber("target"); takeNumber("actual"); takeText("unit", "unit", 60); takeNumber("threshold"); takeEnum("threshold_rule", ["gte", "lte", "between"]); takeNumber("threshold_upper"); takeDate("measurement_date"); takeText("frequency", "frequency", 60); takeText("source_label", "source_label", 240); takeEnum("confidence", CONFIDENCES);
@@ -515,12 +509,13 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
     // data, but it is not a user-facing management concept any more.
     const timelineKind = requiredEnum("timeline_kind", ["phase", "milestone"], "phase");
     const slug = requiredText("slug", 120);
-    // Generic point-MS invariant: any timeline_kind='milestone' row other than the 2 NewCo
-    // founding-prerequisite gates must have planned_start/planned_end null together or equal —
-    // mirrors the DB CHECK (migration 220).
+    const gateKind = gateKindValue(raw.gate_kind);
+    // Generic point-MS invariant: any timeline_kind='milestone' row that is not a prerequisite
+    // gate (gate_kind) must have planned_start/planned_end null together or equal — mirrors the
+    // DB CHECK (migration 475).
     if (
       timelineKind === "milestone" &&
-      !isBlockingMilestoneSlug(projectId, slug) &&
+      gateKind == null &&
       !isValidPointMilestoneRange({ plannedStart, plannedEnd })
     ) {
       throw new Error("このMSは単一の予定日として扱うため、開始日と完了日は同じにしてください");
@@ -543,6 +538,7 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
       client_token: optionalClientToken(),
       track: requiredEnum("track", projectTracks),
       title,
+      gate_kind: gateKind,
       display_lane_keys: displayLaneKeysValue(raw.display_lane_keys, "display_lane_keys"),
       // gate/next_deliverable are legacy NOT NULL columns. A point MS can start with these
       // explicitly unknown and be refined later.
@@ -1229,22 +1225,23 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       const mergedOutcomeId = mergedOutcomeRaw == null ? null : String(mergedOutcomeRaw);
       const mergedTrack = String(patch.track !== undefined ? patch.track : beforeRecord.track);
       await assertMilestoneParentIntegrity(db, projectId, mergedObjectiveId, mergedOutcomeId, mergedTrack);
-      // Generic point-MS invariant (the 2 NewCo founding-prerequisite gates are exempt): PATCHing
+      // Generic point-MS invariant (prerequisite gates with gate_kind are exempt): PATCHing
       // only one of planned_start/planned_end moves both together; supplying both with different
       // values is a rejection, not a pick-one.
       const mergedTimelineKind = String(patch.timeline_kind !== undefined ? patch.timeline_kind : beforeRecord.timeline_kind || "phase");
-      if (
-        mergedTimelineKind === "milestone" &&
-        !isBlockingMilestoneSlug(projectId, String(beforeRecord.slug)) &&
-        ("planned_start" in patch || "planned_end" in patch)
-      ) {
-        const normalized = normalizePointMilestonePatch(
-          patch.planned_start as string | null | undefined,
-          patch.planned_end as string | null | undefined,
-        );
-        if (!normalized) throw new Error("このMSは単一の予定日として扱うため、開始日と完了日は同じにしてください");
-        patch.planned_start = normalized.plannedStart;
-        patch.planned_end = normalized.plannedEnd;
+      const mergedGateKind = "gate_kind" in patch ? patch.gate_kind : beforeRecord.gate_kind;
+      if (mergedTimelineKind === "milestone" && mergedGateKind == null) {
+        if ("planned_start" in patch || "planned_end" in patch) {
+          const normalized = normalizePointMilestonePatch(
+            patch.planned_start as string | null | undefined,
+            patch.planned_end as string | null | undefined,
+          );
+          if (!normalized) throw new Error("このMSは単一の予定日として扱うため、開始日と完了日は同じにしてください");
+          patch.planned_start = normalized.plannedStart;
+          patch.planned_end = normalized.plannedEnd;
+        } else if ("gate_kind" in patch && String(beforeRecord.planned_start ?? "") !== String(beforeRecord.planned_end ?? "")) {
+          throw new Error("普通のMSに戻すときは、開始日と完了日を同じ日にしてください");
+        }
       }
     }
     let expectedVersion: number | null = null;

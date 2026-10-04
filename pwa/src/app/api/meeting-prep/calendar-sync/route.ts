@@ -13,17 +13,15 @@ import { enforceAutomationRouteBudget } from "@/lib/automation-route-budget";
 import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { loadProjectAliases } from "@/lib/project-aliases-server";
 
 type ProjectRow = {
   project_id: string;
   project_name: string | null;
   client_name: string | null;
   status: string | null;
-};
-
-const PROJECT_MATCH_ALIASES_BY_ID: Record<string, string[]> = {
-  p19: ["ZeMA", "葛飾水素循環"],
-  p21: ["SolvioraX"],
+  /** PJの別名の台帳（project_knowledge の alias）。PJ番号ごとの表はコードに持たない。 */
+  aliases: string[];
 };
 
 type ExistingPrepRow = {
@@ -197,7 +195,10 @@ function aliasesForProject(project: ProjectRow): Array<{ value: string; score: n
   add(project.project_name, 100);
   add(project.client_name, 92);
   add(project.project_id, 80);
-  for (const alias of PROJECT_MATCH_ALIASES_BY_ID[project.project_id] ?? []) add(alias, 96);
+  // 別名は3文字以上か日本語のものだけ使う（"SX" のような短い英字は別の語に紛れる）。
+  for (const alias of project.aliases) {
+    if (alias.length >= 3 || /[^\x00-\x7F]/.test(alias)) add(alias, 96);
+  }
   return aliases;
 }
 
@@ -478,9 +479,15 @@ export async function POST(req: NextRequest) {
     .select("project_id,project_name,client_name,status")
     .in("status", ["active", "sales"]);
   if (projectIds.length > 0) projectQuery = projectQuery.in("project_id", projectIds);
-  const { data: projectsData, error: projectError } = await projectQuery;
+  const [{ data: projectsData, error: projectError }, aliasesByProject] = await Promise.all([
+    projectQuery,
+    loadProjectAliases(admin),
+  ]);
   if (projectError) return NextResponse.json({ error: projectError.message }, { status: 500 });
-  const projects = (projectsData ?? []) as ProjectRow[];
+  const projects: ProjectRow[] = ((projectsData ?? []) as Array<Omit<ProjectRow, "aliases">>).map((project) => ({
+    ...project,
+    aliases: aliasesByProject.get(project.project_id) ?? [],
+  }));
 
   const results: Array<Record<string, unknown> | null> = new Array(rawEvents.length).fill(null);
   const matchedEvents: MatchedCalendarEvent[] = [];

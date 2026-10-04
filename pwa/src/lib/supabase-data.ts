@@ -1972,11 +1972,6 @@ export function buildCockpitSeasonFinance({
   };
 }
 
-function normalizeDashboardProjectName(projectId: string, displayName: string) {
-  if (projectId === "p24" || displayName.includes("チャレナジー")) return "Challenergy";
-  return displayName;
-}
-
 /**
  * Dashboard: プロジェクト一覧
  */
@@ -2034,7 +2029,7 @@ export async function fetchProjectsFromSupabase(readClient: SupabaseClient = sup
   return (data || []).map((r) => ({
     projectId: r.project_id,
     projectName: r.project_name,
-    displayName: normalizeDashboardProjectName(r.project_id, r.project_name),
+    displayName: r.project_name,
     shortLabel: ventureMap.get(r.project_id)?.shortLabel || r.project_name,
     roleLine: roleLineMap.get(r.project_id) || "PL -- / PM -- / Closer --",
     clientName: r.client_name || "",

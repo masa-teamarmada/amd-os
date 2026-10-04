@@ -5,7 +5,6 @@
     { "file": "src/app/api/admin/collect-vc-investment-history/route.ts", "provider": "gemini", "reason": "2026-09-09 まさ承認。AMD PJ 接点ありVCの投資履歴を軽量モデルで手動候補収集。自動scheduleなし、candidate保存のみ" },
     { "file": "src/app/api/admin/enrich-vcs/route.ts", "provider": "anthropic", "reason": "既存 (2026-09-04 基準線)。管理画面のVC情報補完ボタン" },
     { "file": "src/app/api/admin/extract-amd-pj-investments/route.ts", "provider": "anthropic", "reason": "既存 (2026-09-04 基準線)。管理画面の投資情報抽出ボタン" },
-    { "file": "src/app/api/admin/import-contacts-from-sheet/route.ts", "provider": "anthropic", "reason": "既存 (2026-09-04 基準線)。管理画面の連絡先取り込みボタン" },
     { "file": "src/app/api/admin/pj-introduction-html/route.ts", "provider": "anthropic", "reason": "既存 (2026-09-04 基準線)。PJ紹介HTML生成ボタン" },
     { "file": "src/app/api/admin/seed-vcs/route.ts", "provider": "anthropic", "reason": "既存 (2026-09-04 基準線)。管理画面のVC初期投入ボタン" },
     { "file": "src/app/api/dialogue-meeting/narrate/route.ts", "provider": "anthropic", "reason": "既存 (2026-09-04 基準線)。対話MTGの語り生成 (画面操作起点)" },

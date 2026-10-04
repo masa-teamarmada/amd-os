@@ -33,7 +33,7 @@ import {
   monthlyAgreementTerms,
   projectIdsWithExpectedRewardChange,
 } from "@/lib/monthly-work-agreement-diff";
-import { isTaskPointPilot, loadTaskPointLedger, markNewTaskMilestones, type TaskPointLedger } from "@/lib/task-point-ledger";
+import { isTaskPointReviewOpen, loadTaskPointLedger, markNewTaskMilestones, taskPointReviewFromYmOf, type TaskPointLedger } from "@/lib/task-point-ledger";
 import { regularPointBasisForCycle } from "@/lib/season-point-basis";
 
 type JsonRecord = Record<string, unknown>;
@@ -879,7 +879,7 @@ export async function buildMonthlyWorkAgreementBundle(
     projectIds.length
       ? supabase
           .from("projects")
-          .select("project_id, project_name, status, start_ym, end_ym, freeze_from_ym, restart_expected_ym, project_type, project_category, fee_type, fee_amount, payment_due_rule, payment_due_day, invoice_send_deadline_rule")
+          .select("project_id, project_name, status, start_ym, end_ym, freeze_from_ym, restart_expected_ym, project_type, project_category, fee_type, fee_amount, payment_due_rule, payment_due_day, invoice_send_deadline_rule, task_point_review_from_ym")
           .in("project_id", projectIds)
       : Promise.resolve({ data: [], error: null }),
     projectIds.length
@@ -1046,8 +1046,14 @@ export async function buildMonthlyWorkAgreementBundle(
     milestonesByPlan.set(ms.plan_cycle_id as string, list);
   }
   const taskLedgersByProject = new Map<string, TaskPointLedger>();
+  const taskPointFromYmByProject = new Map(
+    ((projectsRes.data ?? []) as Array<JsonRecord>)
+      .map((row) => [String(row.project_id), taskPointReviewFromYmOf(row)] as const),
+  );
   for (const projectId of projectIds) {
-    if (!isTaskPointPilot(projectId, ym)) continue;
+    // タスクptの検収を始めたPJ（projects.task_point_review_from_ym）だけ、その月以降は検収ptで見込む。
+    const taskPointFromYm = taskPointFromYmByProject.get(projectId) ?? null;
+    if (!taskPointFromYm || !isTaskPointReviewOpen(taskPointFromYm, ym)) continue;
     const projectPlans = plansByProject.get(projectId) ?? [];
     const activePlan = projectPlans.find((p) => String(p.status) === "fixed" && ym >= String(p.period_start_ym) && ym <= String(p.period_end_ym))
       ?? projectPlans.find((p) => ym >= String(p.period_start_ym) && ym <= String(p.period_end_ym));
@@ -1055,7 +1061,7 @@ export async function buildMonthlyWorkAgreementBundle(
       milestones.filter((ms) => ms.plan_cycle_id === activePlan?.plan_cycle_id)
         .map((ms) => String(ms.milestone_id)),
     );
-    const ledger = await loadTaskPointLedger(supabase, projectId, ids);
+    const ledger = await loadTaskPointLedger(supabase, projectId, ids, taskPointFromYm);
     markNewTaskMilestones(ledger, milestones.filter((ms) => ms.plan_cycle_id === activePlan?.plan_cycle_id)
       .map((ms) => ({ milestone_id: String(ms.milestone_id), period_start_ym: ms.period_start_ym as string | null, tag: ms.tag as string | null })));
     taskLedgersByProject.set(projectId, ledger);

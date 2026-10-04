@@ -17,6 +17,7 @@ import {
   type MilestoneDerivedResult,
   type ManagementDerivedStatus,
 } from "./project-management-logic";
+import { asMilestoneGateKind, type MilestoneGateKind } from "./sx-gate-requirements";
 
 export const SX_TRACKS = [
   { key: "business_development", label: "事業開発", shortLabel: "事業", accent: "#315f7d" },
@@ -183,9 +184,11 @@ export type SxManagementMilestone = {
   title: string;
   gate: string;
   /** phase = gantt bar (工程追加); milestone = gantt diamond (MSを置く). Rendering must read
-   * this, not infer from slug — the two founding-prerequisite gates keep separate slug-specific
-   * gate semantics (sx-gate-requirements.ts) on top of being timelineKind==="milestone". */
+   * this, not infer from slug. */
   timelineKind: SxTimelineKind;
+  /** 前提条件のMSの種類（gate_kind）。null は普通のMS（一点の予定日）。oral_agreement は口頭合意の
+   * 確認で、後に続くMSの前提になり、確認する期間を持てる（sx-gate-requirements.ts）。 */
+  gateKind: MilestoneGateKind | null;
   /** ガントで表示するグループ（レーン）。空なら track から導出する既定挙動。複数指定すると
    * 1件のMSが複数グループにゲートとして現れる。 */
   displayLaneKeys: string[];
@@ -1244,7 +1247,7 @@ function makeMilestone(row: RawRow, derived: MilestoneDerivedResult, dependencyR
   const forecastEnd = nullableString(row, "forecast_end");
   return {
     id: stringValue(row, "id"), slug: stringValue(row, "slug"), track: asTrack(row.track), objectiveId: nullableString(row, "objective_id"), outcomeId: nullableString(row, "outcome_id"), title: stringValue(row, "title"), gate: stringValue(row, "gate"),
-    timelineKind: asTimelineKind(row.timeline_kind), displayLaneKeys: Array.isArray(row.display_lane_keys) ? (row.display_lane_keys as unknown[]).map((value) => String(value)) : [], version: numberValue(row, "version", 1),
+    timelineKind: asTimelineKind(row.timeline_kind), gateKind: asMilestoneGateKind(row.gate_kind), displayLaneKeys: Array.isArray(row.display_lane_keys) ? (row.display_lane_keys as unknown[]).map((value) => String(value)) : [], version: numberValue(row, "version", 1),
     status: derived.status, manualStatus: asStatus(row.status), derivedStatus: derived.status, statusReason: derived.reasonCodes.length ? derived.reasonCodes.join(" / ") : "必要項目を確認済み", reasonCodes: derived.reasonCodes,
     plannedStart: nullableString(row, "planned_start"), plannedEnd, forecastEnd, actualEnd: nullableString(row, "actual_end"), deltaDays: deltaDays(plannedEnd, forecastEnd), progressPct: Math.max(0, Math.min(100, numberValue(row, "progress_pct"))), dateCertainty: row.date_certainty === "confirmed" ? "confirmed" : "provisional", ownerMemberId: nullableString(row, "owner_member_id"), ownerLabel: stringValue(row, "owner_label", "担当未確認"), nextDeliverable: stringValue(row, "next_deliverable", "次の成果未確認"), maxIssue: stringValue(row, "max_issue", "最大論点未確認"), completionCriteria: stringValue(row, "completion_criteria", "完了条件未確認"), completionEvidence: nullableString(row, "completion_evidence"), criticality: (row.criticality as SxManagementMilestone["criticality"]) || "high", baselinePlanVersion: stringValue(row, "baseline_plan_version"), forecastChangeReason: nullableString(row, "forecast_change_reason"), statusSource: (row.status_source as SxManagementMilestone["statusSource"]) || "derived", statusOverrideReason: nullableString(row, "status_override_reason"), statusOverrideExpiresOn: nullableString(row, "status_override_expires_on"), statusOverrideApprovedBy: nullableString(row, "status_override_approved_by"), lastVerifiedAt: stringValue(row, "last_verified_at"), confidence: asConfidence(row.confidence), sourceKind: asSourceKind(row.source_kind), sourceRef: nullableString(row, "source_ref"),
     dependencySlugs: dependencyRows.map((dependency) => dependency.predecessorSlug === stringValue(row, "slug") ? dependency.successorSlug : dependency.predecessorSlug), predecessorIds: dependencyRows.filter((dependency) => dependency.successorMilestoneId === stringValue(row, "id")).map((dependency) => dependency.predecessorMilestoneId), successorIds: dependencyRows.filter((dependency) => dependency.predecessorMilestoneId === stringValue(row, "id")).map((dependency) => dependency.successorMilestoneId), relatedIssueSlugs: issueSlugs, relatedPartnerSlugs: partnerSlugs, linkedKpiIds, isStale: derived.stale, isOverdue: derived.overdue, isBlocked: derived.blocked,
@@ -1321,7 +1324,7 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
   const results = await Promise.all([
     live("project_management_objectives", "id,project_id,slug,title,definition_of_done,target_date,date_certainty,status,last_verified_at,confidence,source_kind,source_ref").order("slug"),
     live("project_management_outcomes", "id,project_id,objective_id,slug,track,title,definition_of_done,owner_label,status,last_verified_at,confidence,source_kind,source_ref").order("track"),
-    live("project_management_milestones", "id,project_id,objective_id,outcome_id,slug,track,title,gate,timeline_kind,display_lane_keys,version,status,planned_start,planned_end,forecast_end,actual_end,progress_pct,date_certainty,owner_member_id,owner_label,next_deliverable,max_issue,completion_criteria,completion_evidence,criticality,baseline_plan_version,forecast_change_reason,status_source,status_reason,status_override_reason,status_override_expires_on,status_override_approved_by,last_verified_at,confidence,source_kind,source_ref,sort_order").order("sort_order"),
+    live("project_management_milestones", "id,project_id,objective_id,outcome_id,slug,track,title,gate,timeline_kind,gate_kind,display_lane_keys,version,status,planned_start,planned_end,forecast_end,actual_end,progress_pct,date_certainty,owner_member_id,owner_label,next_deliverable,max_issue,completion_criteria,completion_evidence,criticality,baseline_plan_version,forecast_change_reason,status_source,status_reason,status_override_reason,status_override_expires_on,status_override_approved_by,last_verified_at,confidence,source_kind,source_ref,sort_order").order("sort_order"),
     live("project_management_kpis", "id,project_id,outcome_id,track,slug,title,metric_kind,baseline,target,actual,unit,threshold,threshold_rule,threshold_upper,measurement_date,frequency,source_label,confidence,last_verified_at,source_kind,source_ref").order("track"),
     plain("project_management_milestone_kpis", "project_id,milestone_id,kpi_id"),
     live("project_management_tasks", "id,project_id,milestone_id,parent_task_id,partner_id,track,title,description,status,planned_start,planned_end,forecast_end,actual_end,progress_pct,date_certainty,owner_member_id,owner_label,goal,next_deliverable,blocker,completion_criteria,forecast_change_reason,sort_order,last_verified_at,confidence,source_kind,source_ref,created_by,updated_by,version").order("sort_order"),

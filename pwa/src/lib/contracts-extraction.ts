@@ -247,7 +247,23 @@ export async function collectContractSignalSources(
     };
   });
 
-  const sources = [...sourceCacheEvidence, ...meetingEvidence];
+  // 相手先の候補に使う、PJの取引先名（全PJ同じ。特定の相手先の名前をコードに持たない）。
+  const sourceProjectIds = Array.from(new Set([...sourceCacheEvidence, ...meetingEvidence].map((item) => item.projectId)));
+  const clientNameByProject = new Map<string, string | null>();
+  if (sourceProjectIds.length > 0) {
+    const { data: projectRows, error: projectError } = await db
+      .from("projects")
+      .select("project_id,client_name")
+      .in("project_id", sourceProjectIds);
+    if (projectError) throw new Error(`projects: ${projectError.message}`);
+    for (const row of (projectRows ?? []) as Array<{ project_id: string; client_name: string | null }>) {
+      clientNameByProject.set(String(row.project_id), row.client_name ?? null);
+    }
+  }
+  const sources = [...sourceCacheEvidence, ...meetingEvidence].map((item) => ({
+    ...item,
+    projectClientName: clientNameByProject.get(item.projectId) ?? null,
+  }));
   const candidates = buildContractSignalCandidates(sources).slice(0, limit);
   const termCandidates = buildContractTermCandidates(sources).slice(0, limit);
 

@@ -194,9 +194,7 @@ function formatFundingItem(item: Record<string, unknown>, context: Bzm22DisplayV
   const amount = typeof item.amount === "number" ? formatMillionJpy(item.amount) : "金額未登録";
   const timing = typeof item.timing === "string" ? item.timing.replace("..", "〜") : "時期未登録";
   const probability = typeof item.probability === "number" ? `確度${formatRate(item.probability)}` : "確度未登録";
-  const stageLabel = context.projectId === "p21" && stage === "restricted_award" && item.amount === 78
-    ? "PSI GAPファンド Step 2採択"
-    : stage === "restricted_award"
+  const stageLabel = stage === "restricted_award"
       ? "使途制限付き助成金・研究費"
       : stage === "vc_dd"
         ? "VC DD"

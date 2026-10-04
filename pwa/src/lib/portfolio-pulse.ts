@@ -20,6 +20,7 @@ import {
 import { seedListPriority, seedProjectLifecycle } from "@/lib/kute-seeds-scoring";
 import type { DashProject } from "@/lib/supabase-data";
 import type { SeedPublicView, SeedScreeningBandSummary } from "@/types/seeds";
+import { AMD_COMPANY_PROJECT_ID } from "@/lib/project-formats";
 
 export type PortfolioPulseData = {
   institutionBundle: ErsBundle;
@@ -178,7 +179,7 @@ export function buildPortfolioPulseModel(data: PortfolioPulseData): PortfolioPul
   }
 
   const projectRows = projects
-    .filter((project) => project.projectId !== "p00")
+    .filter((project) => project.projectId !== AMD_COMPANY_PROJECT_ID)
     .map((project): ProjectRow => {
       const origins = originByProject.get(project.projectId) ?? [];
       return {

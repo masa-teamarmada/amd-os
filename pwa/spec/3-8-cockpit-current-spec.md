@@ -104,11 +104,11 @@ JST「起業後支援の手引き」は外部制度欄に置く。PSI事務局�
 
 ## Initial Modal Rules
 
-ZMP（p19）の旧テーマ作業面は2026-09-16にナビゲーションから外した。`project_management_*`の既存データと互換APIは履歴参照のため保持するが、ZMPのタスク正本は`project_actions`である。2026-09-17以降、`project_management_tasks`のp19行はDB triggerで追加・更新・物理削除を拒否し、二重台帳を作らない。現行の実行入口はゴールツリー / タスク / ガントである。コックピットへのアクセス権は拡大しない（詳細は3-16）。
+旧テーマ作業面は2026-09-16にナビゲーションから外した。`project_management_*`の既存データと互換APIは履歴参照のため保持する。タスクの正本を`project_actions`へ移し終えたPJ（`projects.legacy_task_ledger_read_only` が true。ZMP は2026-09-17から）は、`project_management_tasks`への追加・更新・物理削除をDB trigger（全PJ共通）で拒否し、二重台帳を作らない。現行の実行入口はゴールツリー / タスク / ガントである。コックピットへのアクセス権は拡大しない（詳細は3-16）。
 
-KUTE限定の完了表示（2026-08-31）: `projectId=p25 && entity=task && state=complete` の期間バーを `#047857` で全幅塗りつぶし、desktop/mobileとも「完了」を緑のbadgeで示す。`status=completed` の判定を使用し、保存済み進捗率が0でも完了の表示を優先する。他PJ、MSマーカー、未確認タスクの表示は不変。2026-09-01の今期タスク再編では、成果物または開催後記録を確認できたR01/R02/R03/R08/S01/K01/K02/K03/K04だけを `status=completed`、`progress_pct=100`、`actual_end`ありで登録した。文書作成完了を大学の決裁・施行へ、調査完了を実証受注・事業化成功へ拡張しない。回帰チェック: `node scripts/check_kute_gantt_completion.cjs` と `node scripts/check_kute_seeds_tab_contract.cjs`。
+完了した作業の表示（全PJ共通。2026-08-31 に KUTE で始め、2026-10-03 に全PJへ）: `entity=task && state=complete` の期間バーを `#047857` で全幅塗りつぶし、desktop/mobileとも「完了」を緑のbadgeで示す（`src/lib/kute-gantt-completion.ts`）。`status=completed` の判定を使用し、保存済み進捗率が0でも完了の表示を優先する。MSマーカー、未確認タスクの表示は不変。回帰チェック: `node scripts/check_kute_gantt_completion.cjs`。
 
-KUTE (`p25`) の `?tab=seeds` は専用「シーズ」タブを復元する。許可リストは `src/lib/cockpit-tabs.ts` の `COCKPIT_TABS` と共有し、他PJの同queryは既定タブ（`DEFAULT_COCKPIT_TAB`、2026-09-13 からゴールツリー）へフォールバックする。KUTEの比較表は初回訪問後hidden保持で再取得と絞り込みリセットを防ぐ。他研究機関の進捗管理内の比較表は変更しない。横展開はKUTEでの設計合意後に行う（2026-08-31）。
+研究機関タイプ（`ecosystem`）のPJは、どのPJも「シーズリスト」グループの `?tab=seeds` を持つ（タブはPJタイプの定義 `COCKPIT_TAB_FORMATS` からだけ作る。spec 3-23）。ほかのタイプのPJの同queryは既定タブへフォールバックする。比較表は初回訪問後hidden保持で再取得と絞り込みリセットを防ぐ。
 
 KUTEガントの年度末マーカーは「年度末 YYYY-MM（目途）」で、会社の「設立」や確定日と表示しない。旧ロードマップ由来 (`source_ref` が `KUTE年度内ロードマップ /` で始まる) の6件は履歴としてsoft-deleteし、2026-09-01の再編行は `KUTE FY2026 task review / <ID>` を出典にする。日程根拠がない行は `planned_start/planned_end=NULL` とし、表示用の仮日程を捏造しない。時間軸は6区分の非表示phaseコンテナで2026-05〜2027-04を確保する。DBの `progress_pct` はNOT NULLのため未完了行は0を保存するが、進捗未登録と0%確定を同一視しない。
 
@@ -137,7 +137,7 @@ KUTEガントの年度末マーカーは「年度末 YYYY-MM（目途）」で�
 | AMD / Management score hero | `CockpitManagementScoreHero` | AMD Score / Management Score derived data |
 | navigation | `CockpitView`, `src/lib/cockpit-tabs.ts` | 通常PJは `進捗管理 / 事業計画 / ドライブ / PJ管理 / 会社情報` の5グループ、研究機関PJは `進捗管理 / シーズリスト / 規程・内規 / ドライブ / PJ管理 / 会社情報` の6グループ。`PJ管理`は`PJ概要 / 契約 / 収支`、`会社情報`は`会社概要 / 資本政策表 / 沿革`を持つ。事業計画は将来の資本政策プラン、会社情報の資本政策表は過去ラウンドの確定事実を扱う。PCの親グループはhover/focus時に子一覧を直下へフロートし、タッチではホバーを模倣せず子列を常時表示する。下段は選択中グループの子が複数ある場合だけ表示し、狭幅では子タブだけを横スクロールする。所属とURL正規化は `cockpit-tabs.ts` を正本にする |
 | score detail tab | `CockpitAmdScoreDetailTab`, `CurrentSpsAssessmentCard`, `Bzm30ScorePanel` | 正規URLは `/project/[projectId]/cockpit?tab=score-detail`。2026-08-27 (まさ「古いモデルの試算結果は、混乱の元になるのですべて削除してほしい」) に、BZM 2.2 暫定パイロット (`Bzm22ProvisionalObservatory`)、旧SPS帯の内訳、最下部の `現行SPS / BZM 2.1` `BZM 2.0` `旧SPS履歴 / Legacy AMD` アーカイブトグルをこのタブから外した。現在この面にあるのは上から2つだけ。(1) `CurrentSpsAssessmentCard` — 2026-08-28 まさ依頼でコックピット上部 hero から移した「現行SPS｜産業創出価値」の評価カード。`band` を渡さない呼び方に固定し、評価済みか / SPS帯 / 根拠レベル / 評価日 / 対応シーズ / 版と評価ID だけを出す (帯の定義式・算出過程・q要因は 8-27 に外した「古いモデルの試算結果」なので戻さない)。読み取りは `src/lib/current-sps-client.ts` の参照系キャッシュ経由で固定し、`/api/project/[projectId]/sps-current` の素の fetch へ戻さない (guard: `scripts/check_pwa_critical_ui.cjs` / `scripts/check_reference_data_cache_contract.mjs`)。(2) `Bzm30ScorePanel` — シーズ詳細と同じパネル。同じPJをPJ側から見てもシーズ側から見ても同じ数字・同じ根拠が出る。`seed_projects` にシーズが紐づいていないPJでは、空にせず何を登録すれば算出できるかを出す。`Bzm22TimeLedger` (イベントと月次試算表・年度別の事業・資金推移) は 2026-08-21 (v3.88.3) に事業計画タブへ移設済み。コックピット上部とHUDには独立した試算表ボタンを置かない。旧 `/venture-map/amd-score/[projectId]` はこのタブへredirectする（`p99`デモを除く） |
-| business plan tab | `CockpitBusinessPlan`, `src/lib/sx-business-plan.ts`, `src/lib/sx-business-plan-xlsx.ts` | 全PJ常設。SX (`p21`) だけは4開発レーン×5フェーズの表を表示する。 |
+| business plan tab | `CockpitBusinessPlan`, `src/lib/project-business-plan.ts`, `/api/project-business-plan` | 全PJ常設。全PJ同じフェーズマトリクス（4レーン×フェーズ）を `project_business_plans` から描く（spec 3-23 §8）。PJの数字をコードに持たない（SOL の事業計画の定数ファイルは 2026-10-04 に削除）。 |
 | financial projection tab (試算表) | `CockpitFinancialProjection` → `ProjectFinanceFormat` | 全PJ常設。PJタイプ別の標準フォーマット（[spec 3-23](3-23-project-format-current-spec.md)）だけを描く。計画とケース・要約・時間軸・月次試算表・月次の資金推移・年度別の事業・資金推移・年度別数値・前提と注記を、全PJ同じ順・同じ行で出す。 |
 | capital plan tab (資本政策表) | `CockpitCapitalPlan`, `CapitalPlanWorkspace`, `src/lib/capital-plan.ts`, `/api/governance/capital-plans` | 事業計画の改定に連動して、これからの資本政策を更新する独立タブ。 |
 | goals compact | `CockpitGoalsCompact` | value plan / MS。`MilestoneGanttChart` の各MS行に pt / tag / 担当 / 進捗とあわせて `設計額` を表示し、バー上の担当者 chip には担当設計額も併記する。通常MSは plan cycle 予算、`cap_extra` は同期間の別財布予算から按分し、支払確定額としては扱わない |
@@ -164,7 +164,7 @@ KUTEガントの年度末マーカーは「年度末 YYYY-MM（目途）」で�
 
 ### SX business plan: GRL・資本政策・年次試算（2026-07-28）
 
-- `SX_BUSINESS_PLAN_PHASES[].targetXrl.grl` は内閣府SIPの **Governance Readiness Level** を表す。社会実装に必要な制度・規制・標準・ガイドラインの成熟度であり、値域は `1..8`。SXのフェーズ到達値は Phase 0 / Seed / A / B / C-IPO で `1 / 3 / 5 / 6 / 8`。採用、役割分担、社内統制はGRLでなくHRLへ置く。
+- （履歴。数字は 2026-10-03 から `project_business_plans` のデータ、定数ファイルは 2026-10-04 に削除）`SX_BUSINESS_PLAN_PHASES[].targetXrl.grl` は内閣府SIPの **Governance Readiness Level** を表す。社会実装に必要な制度・規制・標準・ガイドラインの成熟度であり、値域は `1..8`。SXのフェーズ到達値は Phase 0 / Seed / A / B / C-IPO で `1 / 3 / 5 / 6 / 8`。採用、役割分担、社内統制はGRLでなくHRLへ置く。
 - `CapitalPlanMatrix` は縦方向にcontainer scrollを作らず `overflow-x-auto` のみを持つ。ラウンドの行（算定方式〜転換ディスカウント）の下に「株主別の出資額とFD比率」の区画を置き、各株主は常に2行を表示する。1行目は色見本・株主名の入力欄（`HolderNameInput`。Enterか欄の外で確定、Escapeで元に戻す、空欄は保存しない）・各ラウンドの出資額、2行目はFD比率。出資額は`holderAmountActionable`がtrueのラウンドで直接入力でき、`onEditHolderAmount`から保存する。設立・SOプール・株式分割などお金の動かないイベントと、`esop_pool`の株主は「—」とする。株主名の左の実button（`aria-expanded`）で株数・発行済株式数・完全希薄化後株式数を展開し、全株主の一括展開/折り畳みも提供する。行見出し列は224px。書き換えられる欄は値が入っていても枠線と白地を常に出し、「自動」の計算値と見分ける（2026-09-30）。
 - `CapitalPlanMatrix` の金額・株数などの数値は表示時に3桁ごとのカンマで区切る。自動算出を含む金額セルは省略記号で値を隠さず、列幅とセル内折り返しで全額を読めるようにする。FD比率の縦積み棒と凡例は、識別しやすいカテゴリ配色、凡例swatchの外周、隣接segmentの細い境界線を使う。色は株主を見分けるためだけのもので、成功・警告・エラーなどの状態意味を持たない（2026-07-31）。
 - 年次試算はすべて百万円の整数・3桁区切りで表示する。`sxAnnualProjectionWithCash()` は売上原価と役員報酬/給与・賞与/研究開発費/その他販管費から営業利益を導出し、助成金収入（特別利益）と圧縮損（特別損失）から税引前利益（簡易）を導出する。資金繰りの助成金入金は別フィールドで、期末現預金には加えるが、圧縮損とは相殺しない。税金・借入・運転資金増減は未反映。

@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { addMonths as addFinanceMonths, syncFreeeCashBalances } from "@/lib/finance/freee-cash-balances";
 import { LIVE_MONTHLY_PL_VERSION, refreshLiveMonthlyPlBudget } from "@/lib/finance/live-monthly-pl-budget";
 import { getPrimaryProjectAlias } from "@/lib/project-labels";
+import { AMD_COMPANY_PROJECT_ID } from "@/lib/project-formats";
 
 type Axis = "initiative" | "finance" | "retention" | "pipeline" | "direction";
 type RunStatus = "running" | "success" | "partial" | "failed";
@@ -200,7 +201,7 @@ function isCompanyScoreStrategySignal(row: { project_id?: unknown; signal_scope?
   }
   if (row.applies_to_company_score === false) return false;
   // migration 118 backfill完了までは p00 暫定guardを fallback として残す。
-  return String(row.project_id || "") === "p00";
+  return String(row.project_id || "") === AMD_COMPANY_PROJECT_ID;
 }
 
 function pipelineProbability(row: { pipeline_probability?: unknown; confidence?: unknown }): number {
@@ -276,7 +277,7 @@ export function isManagementScoreRetentionProgressEligible(
   if (!isPmLockedProgressSource(source)) {
     return { eligible: false, reason: source === "routine_auto" ? "routine_auto の機械按分MS" : "PM locked ではないMS進捗" };
   }
-  if (projectId.toLowerCase() === "p00" || milestoneKey.startsWith("MS-p00-")) {
+  if (projectId.toLowerCase() === AMD_COMPANY_PROJECT_ID || milestoneKey.startsWith(`MS-${AMD_COMPANY_PROJECT_ID}-`)) {
     return { eligible: false, reason: "p00 / AMD内部運用MS" };
   }
   if (points <= 0) {
@@ -897,7 +898,7 @@ async function collectInternalSignals(supabase: SupabaseClient, ym: string): Pro
   }
 
   for (const row of knowledge) {
-    if (String(row.project_id || "") !== "p00") continue;
+    if (String(row.project_id || "") !== AMD_COMPANY_PROJECT_ID) continue;
     const text = `${row.category || ""} ${row.entity_name || ""} ${row.fact_text || ""}`;
     const axis: Axis = textIncludesAny(text, ["紹介", "新規", "相談", "案件", "候補", "提案"]) ? "pipeline" : "retention";
     signals.push(signal({

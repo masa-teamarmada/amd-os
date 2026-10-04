@@ -17,6 +17,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type Anthropic from "@anthropic-ai/sdk";
+import { AMD_COMPANY_PROJECT_ID } from "@/lib/project-formats";
 
 interface SignalResult {
   signal_1_talker: number;
@@ -463,7 +464,7 @@ export async function runGraduationDetection(
       .map((v) => String(v.project_id)),
   );
   const targets = ((activeProjects ?? []) as Array<{ project_id: string; project_name: string }>)
-    .filter((p) => !graduatedPjs.has(String(p.project_id)) && p.project_id !== "p00");
+    .filter((p) => !graduatedPjs.has(String(p.project_id)) && p.project_id !== AMD_COMPANY_PROJECT_ID);
 
   const llmEnabled = !!(anthropic && (talkerPrompt || reportPrompt));
   const amdMemberIds = await fetchAmdMemberIds(supabase);

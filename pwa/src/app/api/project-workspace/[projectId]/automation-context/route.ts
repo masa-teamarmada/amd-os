@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { enforceAutomationRouteBudget } from "@/lib/automation-route-budget";
 import { loadSxWorkspaceOperatingContext } from "@/lib/sx-workspace-operating-context-server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -36,7 +37,19 @@ export async function GET(
   const budgetResponse = await enforceAutomationRouteBudget(request, "project-workspace/automation-context");
   if (budgetResponse) return budgetResponse;
   const { projectId } = await params;
-  if (projectId !== "p21") {
+  // 全PJ同じ（PJ番号で分けない。2026-10-04 まさ「使える機能なら全PJに適用して」）。台帳にあるPJだけ返す。
+  if (!/^[A-Za-z0-9_-]{1,80}$/.test(projectId)) {
+    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  }
+  const { data: project, error: projectError } = await createAdminClient()
+    .from("projects")
+    .select("project_id")
+    .eq("project_id", projectId)
+    .maybeSingle();
+  if (projectError) {
+    return NextResponse.json({ ok: false, error: projectError.message }, { status: 500 });
+  }
+  if (!project) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
   const sinceRaw = request.nextUrl.searchParams.get("since");

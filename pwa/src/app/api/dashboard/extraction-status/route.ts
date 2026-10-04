@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
+import { AMD_COMPANY_PROJECT_ID } from "@/lib/project-formats";
 
 export const runtime = "nodejs";
 
@@ -95,7 +96,7 @@ export async function GET() {
         "project_id,project_name,status,monthly_report_scope,report_emails,slack_channel_id,slack_channel_not_required,drive_folder_id",
       )
       .eq("status", "active")
-      .neq("project_id", "p00"),
+      .neq("project_id", AMD_COMPANY_PROJECT_ID),
     db
       .from("app_notifications")
       .select("title,body,link,meta,source,updated_at")

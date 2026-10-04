@@ -58,14 +58,14 @@ Phase A: 5 生データ + OS snapshot 収集
 - `amd_score_inputs?project_id=eq.<projectId>&order=evaluated_at.desc&limit=3` (= 直近 AMD Score)
 - p00 のみ追加: `amd_management_score_snapshots` 直近 3 ヶ月 + `amd_management_score_evidence` 直近 1 ヶ月
 
-### A-1b: SOLワークスペースの完了事実 (`p21`だけ)
+### A-1b: PJの記録の完了事実（全PJ共通）
 
-- `GET $APP_BASE_URL/api/project-workspace/p21/automation-context?since=<前回成功日>&until=<JST今日>` を `Authorization: Bearer $WORKFLOW_SECRET`（未設定時は`$CRON_SECRET`）で読む。
+- `GET $APP_BASE_URL/api/project-workspace/<projectId>/automation-context?since=<前回成功日>&until=<JST今日>` を `Authorization: Bearer $WORKFLOW_SECRET`（未設定時は`$CRON_SECRET`）で読む。
 - `changes[]`は件数で切らず全件確認する。ただしLLMレビュー対象はまず`strategyEvidence.eligible=true`だけに絞る。
 - これはワークスペース保存時のLLM呼び出しではない。日次D-6の追加sourceである。
 - `meetingEvidence`だけの通常変更や進行中TODOを経営ハイライトへ昇格させない。
 - 採用する場合は受け取った`sourceRef`を改変せず`source_refs_json`へ入れ、`update_id`で既存signalと重複排除する。
-- routeが取れない場合は5生データのレビューを続け、p21だけ`workspace_context_unavailable`をrun summaryへ残す。内部値を推測で補わない。
+- routeが取れない場合は5生データのレビューを続け、そのPJの`workspace_context_unavailable`をrun summaryへ残す。内部値を推測で補わない。
 
 ### A-2: 5 生データ補強 (= 必要に応じて MCP 直叩き)
 - Gmail / Notion / Calendar / Slack / Drive で当月の関連 events / messages。Driveは`drive_folder_id`と`drive_source_folder_ids[]`の重複排除済みrootを読む。追加rootは保存先へ使わない。

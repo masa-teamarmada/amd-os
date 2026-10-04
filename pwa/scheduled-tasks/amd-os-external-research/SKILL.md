@@ -28,19 +28,15 @@ description: つくよみの平日外部リサーチを、SlackではなくAMD O
 
 ## 対象PJ
 
-旧 `gas-external-research` の対象を、現行DBで確認済みのproject_idへ対応させる。実行時も `projects` で存在を確認し、名称を推測しない。
+対象は、PJの設定 `projects.external_research_topics`（毎朝探すテーマ）が入っているPJ全部。PJ番号の表をこの指示書に持たない（2026-10-04 まさ「特定のPJだけの特例を入れたらシステムにならない」。migration 476 で指示書の表から移した）。テーマは管理画面「PJ一覧」の「外部リサーチのテーマ」で書き換える。
 
-| project_id | code | 主な検索対象 |
-|---|---|---|
-| `p00` | AMD | ディープテック支援、大学発事業化、GAPファンド、START/NEDO/SBIR |
-| `p10` | SE | マイクロ波ワイヤレス給電、インフラ防災・自立型センシング |
-| `p11` | BWE | 濃度差発電、塩分濃度差発電、関係組織の動き |
-| `p06` | CTB | 虚血性脳卒中、ラジカル捕捉、創薬公募・関係組織 |
-| `p19` | ZMP | 水素特殊車両・水素ステーション、道路保守DX、東京都/葛飾区GX |
-| `p20` | CX | 磁気冷凍、データセンター冷却、量子・極低温冷却、NIMS関連 |
-| `p21` | SOL | シアノバクテリア、重金属/染色排水処理、愛媛大学関連 |
+```bash
+curl -s "$SUPABASE_URL/rest/v1/projects?external_research_topics=not.is.null&select=project_id,project_name,client_name,status,external_research_topics,news_search_query&order=project_id.asc" \
+  -H "apikey: $SRK" -H "Authorization: Bearer $SRK"
+```
 
-`p11` は終了PJだが、旧リサーチlaneの継続対象として明示的に含める。statusだけで自動除外しない。
+- 探すテーマは `external_research_topics` に書かれた語だけを使う。`news_search_query` は検索語の補助に使ってよい。名称やテーマを推測で足さない。
+- PJの状態（終了など）だけで除外しない。テーマが入っていれば対象にする。
 
 ## 検索窓と採用条件
 

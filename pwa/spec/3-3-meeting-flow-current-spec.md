@@ -47,9 +47,9 @@ LaunchAgentは毎時15分に起動し、`scripts/run-h1-background.sh` が `Asia
 | Drive | Docs / Slides / Sheets / PDF / Office metadata |
 | Slack | thread / file / nudge context |
 | PWA | `meeting_assets` 添付、過去 meeting summaries、monthly reports、MS context |
-| SX workspace (`p21`) | 前回開催済みMTG日から今回MTG日までの `project_management_update_history`。`/api/project-workspace/p21/automation-context` の安全な投影だけを読む |
+| PJの記録の更新（全PJ） | 前回開催済みMTG日から今回MTG日までの `project_management_update_history`。`/api/project-workspace/<projectId>/automation-context` の安全な投影だけを読む（2026-10-04 から全PJ。spec 3-23 §6） |
 
-SX workspaceの変更は議事録の文脈であり、会議sourceではない。H-1は全変更を件数上限で切らず照合するが、ワークスペース側に記録があるだけで`決まったこと`へ昇格させない。Notion / Gmail / Slack等の今回会議sourceと一致した内容だけを会議での合意として書く。別のmeeting用台帳へコピーせず、同じ`entity_type + entity_id`を参照する。
+PJの記録の更新は議事録の文脈であり、会議sourceではない。H-1は全変更を件数上限で切らず照合するが、記録があるだけで`決まったこと`へ昇格させない。Notion / Gmail / Slack等の今回会議sourceと一致した内容だけを会議での合意として書く。別のmeeting用台帳へコピーせず、同じ`entity_type + entity_id`を参照する。
 
 ## Calendar PJ 判定
 
@@ -63,7 +63,7 @@ Calendar event の PJ 判定は、色→PJ判定を第一軸にする。
 
 現行の明示ルール:
 
-- SX (`project_id=p21`) は title alias `SolvioraX` で解決する。
+- PJの別名は別名の台帳（`project_knowledge` の `category='alias'`、例: SOL の `SolvioraX`、ZMP の `ZeMA`・`葛飾水素循環`・`OkuDoor`、VasculaX の `VSX`）から解決する。コードにPJ番号ごとの別名表を持たない（spec 3-23 §6）。
 - `CFG_ColorPJHistory` で `2025-06-01` 以降の `colorId=4` は SX として解決する。`SolvioraX経営会議` の recurring instance を unmapped として skip しない。
 
 ## 予定MTGカード同期
@@ -77,7 +77,7 @@ Calendar event の PJ 判定は、色→PJ判定を第一軸にする。
 - Drive資料は automation 側が metadata として渡す。PWA route は Drive を直接読まない。
 - Drive資料だけを根拠に `decided` へ「決定済み」と書かない。
 - 予定MTG詳細では `risks` を UI 上「必ず確認すること」として表示・編集する。既存データは破壊削除せず、旧「気をつけたい読み違い」相当の値もこの section の確認事項として扱う。
-- ZMP (`project_id=p19`) のCalendar予定は、タイトル上の事業名 alias `ZeMA` / `葛飾水素循環` でも `calendar-sync` が p19 に解決する。
+- `calendar-sync` は、PJ名・取引先名・PJ番号に加えて別名の台帳の別名（3文字以上か日本語のもの）でもPJへ解決する。
 
 ## Calendar dry-run planners
 

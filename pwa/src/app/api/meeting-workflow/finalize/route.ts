@@ -184,13 +184,13 @@ async function loadOsContext(admin: AdminClient, meeting: MeetingRow): Promise<O
   const prevMeetings = (prevRes.data ?? []) as Array<Record<string, unknown>>;
   const upcomingMeetings = (upcomingRes.data ?? []) as Array<Record<string, unknown>>;
   const milestoneTitles = milestoneRows.map((m) => String(m.title || "")).filter(Boolean);
-  const sxWorkspaceContext = meeting.project_id === "p21"
-    ? await loadSxWorkspaceOperatingContext({
-        projectId: meeting.project_id,
-        since: prevMeetings[0]?.meeting_date ? String(prevMeetings[0].meeting_date).slice(0, 10) : null,
-        until: meeting.meeting_date.slice(0, 10),
-      }).catch(() => null)
-    : null;
+  // 前回の会議から今回までに、OS上でこのPJの記録がどう更新されたか。全PJ同じ（PJ番号で分けない。
+  // 2026-10-04 まさ「使える機能なら全PJに適用して」）。会議での決定とは限らないので文脈にだけ使う。
+  const projectRecordChanges = await loadSxWorkspaceOperatingContext({
+    projectId: meeting.project_id,
+    since: prevMeetings[0]?.meeting_date ? String(prevMeetings[0].meeting_date).slice(0, 10) : null,
+    until: meeting.meeting_date.slice(0, 10),
+  }).catch(() => null);
 
   const text = [
     "## OSが見ている文脈",
@@ -218,11 +218,12 @@ async function loadOsContext(admin: AdminClient, meeting: MeetingRow): Promise<O
     upcomingMeetings.length
       ? upcomingMeetings.map((m) => `- ${String(m.meeting_date || "")} ${String(m.title || "MTG")}: ${truncateText(m.summary_short || m.narrative_md || "", 180)}`).join("\n")
       : "- 既存の次MTG準備カードなし",
-    ...(meeting.project_id === "p21" ? [
-      "",
-      "### SOLワークスペースの変更（会議文脈。会議での決定とは限らない）",
-      sxWorkspaceContext?.changes.length
-        ? sxWorkspaceContext.changes.map((change) => {
+    "",
+    "### このPJの記録の更新（前回の会議から今回まで。会議での決定とは限らない）",
+    !projectRecordChanges
+      ? "- 記録の更新を読めなかった（会議の内容だけで判断する）"
+      : projectRecordChanges.changes.length
+        ? projectRecordChanges.changes.map((change) => {
             const status = change.fromStatus || change.toStatus
               ? ` / ${change.fromStatus || "未設定"}→${change.toStatus || "未設定"}`
               : "";
@@ -230,7 +231,6 @@ async function loadOsContext(admin: AdminClient, meeting: MeetingRow): Promise<O
             return `- ${change.changedOn} ${change.entityType}: ${change.summary}${status}${current}`;
           }).join("\n")
         : "- 対象期間の変更なし",
-    ] : []),
   ].join("\n");
 
   return { text, milestoneTitles };

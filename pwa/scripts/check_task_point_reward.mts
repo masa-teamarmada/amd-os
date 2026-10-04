@@ -19,7 +19,9 @@ const responsibilities = [
 const billingsByYm = new Map(["202609", "202610", "202611"].map((ym) => [ym, {
   project_id: "p21", ym, budget_yen: 20000,
 }]));
+// 検収を始めた月は PJ の設定（projects.task_point_review_from_ym）。ここでは 2026年10月から始めたPJとして読む。
 const taskLedger: TaskPointLedger = {
+  fromYm: "202610",
   taskBasedMilestoneIds: new Set(["ms-task"]), estimated: [], accepted: [
     { actionId: "a1", title: "検収した成果物", milestoneId: "ms-task",
       memberId: "karu", ym: "202611", points: 1.5, basis: "accepted" },

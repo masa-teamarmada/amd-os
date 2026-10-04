@@ -213,8 +213,8 @@ type LaneMeta = {
   maxIssue: string;
 };
 
-// Display-lane derivation (SxDisplayLaneKey, buildSxLaneFold, the p21 3-lane fold vs. generic
-// 1-lane-per-track behavior) lives in src/lib/sx-display-lanes.ts, shared with
+// Display-lane derivation (SxDisplayLaneKey, buildSxLaneFold, the standard 4-track 3-lane fold vs.
+// generic 1-lane-per-track behavior) lives in src/lib/sx-display-lanes.ts, shared with
 // SxWeeklyControlDashboard.tsx's track filter/MS-form lane pickers so both surfaces agree on the
 // same lane set per project (2026-08-13 柱の汎用化). Re-exported here for existing importers of
 // this module (`type { SxDisplayLaneKey } from "./SxUnifiedTimeline"`).
@@ -942,7 +942,7 @@ export function SxUnifiedTimeline({
   timeline: SxEcdUnifiedTimeline;
   asOf: string;
   /** Drives display-lane derivation (grouping/order/labels). Pass `management.tracks` (DB-backed,
-   * per-project). p21 keeps its historical 3-lane fold; any other track set gets one lane per
+   * per-project). The standard 4 tracks fold into 3 lanes; any other track set gets one lane per
    * track. Omit only for callers with no lane-bearing rows (falls back to no lanes). */
   tracks?: SxUnifiedTimelineTrackDef[];
   /** Enables gantt-direct-edit writes (drag move/resize) — this component owns its own PATCH
@@ -1633,13 +1633,9 @@ export function SxUnifiedTimeline({
 
     const laneForTask = (task: GanttTask): SxDisplayLaneKey => {
       const backing = task.milestoneId ? milestoneById.get(task.milestoneId) : null;
-      // A task keeps its own workstream even when it contributes to a blocking MS whose diamond
-      // spans another lane. Only the MS marker is forced to the blocking-milestone lane.
+      // A task keeps its own workstream; otherwise it follows its backing MS's track (prerequisite
+      // gates included — their lane is their own track, never a slug-specific override).
       if (task.track) return laneFold.laneKeyForTrack(task.track);
-      if (backing && sxIsBlockingMilestone(backing)) {
-        const forced = laneFold.blockingMilestoneLane(backing.slug);
-        if (forced) return forced;
-      }
       return laneFold.laneKeyForTrack(backing?.track);
     };
     const rootTasks = tasks
@@ -1775,26 +1771,23 @@ export function SxUnifiedTimeline({
       );
       const laneKeys: SxDisplayLaneKey[] = chosenLanes.length
         ? chosenLanes
-        : [
-            (sxIsBlockingMilestone(milestone) && laneFold.blockingMilestoneLane(milestone.slug)) ||
-              laneFold.laneKeyForTrack(milestone.track),
-          ];
+        : [laneFold.laneKeyForTrack(milestone.track)];
       for (const laneKey of laneKeys)
         if (milestoneBucket[laneKey]) milestoneBucket[laneKey].push(milestoneAnchorRow(milestone, timeline));
     }
 
     const laneByKey = new Map(timeline.lanes.map((lane) => [lane.key, lane]));
-    // p21's "organization" lane merges two raw tracks (funding + organizational_building), so its
-    // accent/maxIssue are combined here. Every other project's lane key IS its track key, so this
-    // is a direct lookup — no merging.
+    // The standard fold's "organization" lane merges two raw tracks (funding +
+    // organizational_building), so its accent/maxIssue are combined here. Any other track set's lane
+    // key IS its track key, so this is a direct lookup — no merging.
     const accentFor = (key: SxDisplayLaneKey) =>
-      laneFold.isP21Fold && key === "organization"
+      laneFold.isStandardFold && key === "organization"
         ? (laneByKey.get("organizational_building")?.accent ??
           laneByKey.get("funding")?.accent ??
           "#86868b")
         : (laneByKey.get(key)?.accent ?? "#86868b");
     const maxIssueFor = (key: SxDisplayLaneKey) =>
-      laneFold.isP21Fold && key === "organization"
+      laneFold.isStandardFold && key === "organization"
         ? [
             laneByKey.get("organizational_building")?.maxIssue,
             laneByKey.get("funding")?.maxIssue,
@@ -1832,7 +1825,7 @@ export function SxUnifiedTimeline({
       (lane) => lane.planRows.length > 0 || lane.milestones.length > 0,
     );
     if (populated.length === 0) return lanes;
-    if (laneFold.isP21Fold && populated.length === 1) {
+    if (laneFold.isStandardFold && populated.length === 1) {
       return populated.map((lane) => ({
         ...lane,
         lane: { ...lane.lane, label: "タスク構造", shortLabel: "タスク" },
@@ -2206,10 +2199,6 @@ export function SxUnifiedTimeline({
   function laneKeyForTask(task: GanttTask): SxDisplayLaneKey {
     const backing = task.milestoneId ? milestoneById.get(task.milestoneId) : null;
     if (task.track) return laneFold.laneKeyForTrack(task.track);
-    if (backing && sxIsBlockingMilestone(backing)) {
-      const forced = laneFold.blockingMilestoneLane(backing.slug);
-      if (forced) return forced;
-    }
     return laneFold.laneKeyForTrack(backing?.track);
   }
 
@@ -2685,11 +2674,11 @@ export function SxUnifiedTimeline({
     const laneOutcomes = outcomes.filter(
       (item) => laneFold.laneKeyForTrack(item.track) === laneKey,
     );
-    // Only preselect a parent when this visible lane maps to exactly one outcome. p21's 組織開発
+    // Only preselect a parent when this visible lane maps to exactly one outcome. The standard fold's 組織開発
     // lane folds both funding and organizational_building outcomes together; silently choosing
     // one would create a plausible-looking but semantically wrong MS. In that ambiguous case the
     // form opens with no outcome selected and makes the user choose the exact parent before Save
-    // is enabled. (Non-p21 lanes map 1:1 to a track, so this ambiguity only arises there if a
+    // is enabled. (Other lanes map 1:1 to a track, so this ambiguity only arises there if a
     // single track legitimately has multiple outcomes.)
     const singleOutcome = laneOutcomes.length === 1 ? laneOutcomes[0] : null;
     const track = singleOutcome?.track ?? null;

@@ -63,7 +63,8 @@ export type MemberWeeklyEffortPlan = {
 const CALENDAR_EVIDENCE_SOURCE_KINDS = new Set(["calendar", "meeting_summary"]);
 
 const SU_FUNDING_WORDS = ["資金", "投資家", "VC", "BNV", "SMBC"];
-const SU_BIZ_WORDS = ["営業", "事業化", "顧客", "PoC", "SX"];
+// PJ名・PJ略称は入れない（どのPJの予定も同じ言葉で分ける。2026-10-04 まさ「特定のPJだけの特例を入れたらシステムにならない」）。
+const SU_BIZ_WORDS = ["営業", "事業化", "顧客", "PoC"];
 const DEVELOPMENT_WORDS = ["開発", "実装", "試作", "設計", "技術"];
 const APPLIED_WORDS = ["応用"];
 const BASIC_WORDS = ["基礎", "研究", "実験"];
@@ -75,7 +76,7 @@ function matchesAny(text: string, words: string[]): boolean {
 
 /**
  * カテゴリ分類。具体語優先: 応用 > 開発/実装/試作/設計/技術 > 基礎/研究/実験 > 資金/事業化等SU > coordination。
- * "SX 技術開発" は development、"SX 応用研究" は applied、"🛠 SX" 単独は su になる。
+ * "SOL 技術開発" は development、"SOL 応用研究" は applied、PJ名だけの予定（"🛠 SOL"）はどのPJでも coordination。
  */
 export function classifyWorkCategory(text: string): EffortWorkCategory {
   if (matchesAny(text, APPLIED_WORDS)) return "applied";

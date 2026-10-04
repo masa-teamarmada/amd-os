@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-10-04 16:10 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-10-04 19:05 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -188,7 +188,7 @@ PRIMARY KEY: `id`
 
 ## amd_os_data_change_history
 
-行数 (概算): 235,577
+行数 (概算): 259,309
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -654,7 +654,7 @@ PRIMARY KEY: `id`
 
 ## boss_notification_jobs
 
-行数 (概算): 4,273
+行数 (概算): 4,485
 PRIMARY KEY: `id`
 UNIQUE: `(event_id)` (constraint: `boss_notification_jobs_event_id_key`)
 UNIQUE: `(server_boss_id,schedule_revision,lead_minutes)` (constraint: `boss_notification_jobs_server_boss_id_schedule_revision_lea_key`)
@@ -718,7 +718,7 @@ UNIQUE: `(game_server_id,input_source,source_dedupe_key)` (constraint: `boss_rep
 
 ## boss_schedules
 
-行数 (概算): 49
+行数 (概算): 54
 PRIMARY KEY: `server_boss_id`
 
 | # | column | type | nullable | default |
@@ -3442,7 +3442,7 @@ UNIQUE: `(member_id,milestone_id,ym)` (constraint: `member_ms_activities_member_
 
 ## member_notification_preferences
 
-行数 (概算): 78
+行数 (概算): 130
 PRIMARY KEY: `game_server_id, user_id`
 
 | # | column | type | nullable | default |
@@ -4746,7 +4746,7 @@ PRIMARY KEY: `cost_model_id`
 
 ## project_cost_notes
 
-行数 (概算): 58
+行数 (概算): 74
 PRIMARY KEY: `cost_note_id`
 
 | # | column | type | nullable | default |
@@ -5703,6 +5703,7 @@ UNIQUE: `(project_id,slug)` (constraint: `project_management_milestones_project_
 | 42 | `timeline_kind` | `text` | NOT NULL | `'phase'::text` |
 | 43 | `display_lane_keys` | `_text` | NULL | `` |
 | 44 | `client_token` | `uuid` | NULL | `` |
+| 45 | `gate_kind` | `text` | NULL | `` |
 
 ## project_management_objectives
 
@@ -7137,6 +7138,9 @@ UNIQUE: `(project_id)` (constraint: `projects_project_id_key`)
 | 37 | `drive_source_folder_ids` | `_text` | NOT NULL | `ARRAY[]::text[]` |
 | 38 | `fee_payee` | `text` | NOT NULL | `'company'::text` |
 | 39 | `display_name` | `text` | NULL | `` |
+| 40 | `task_point_review_from_ym` | `text` | NULL | `` |
+| 41 | `legacy_task_ledger_read_only` | `bool` | NOT NULL | `false` |
+| 42 | `external_research_topics` | `text` | NULL | `` |
 
 ## protocol_examples
 
@@ -7408,7 +7412,7 @@ UNIQUE: `(seed_id,model_version,approval_ref,param,point_index)` (constraint: `s
 
 ## seed_company_facts
 
-行数 (概算): -1
+行数 (概算): 119
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -7617,7 +7621,7 @@ UNIQUE: `(seed_id,use_case)` (constraint: `seed_value_ceilings_seed_id_use_case_
 
 ## seeds
 
-行数 (概算): 749
+行数 (概算): 815
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -7715,7 +7719,7 @@ UNIQUE: `(token_hash)` (constraint: `server_invites_token_hash_key`)
 
 ## server_memberships
 
-行数 (概算): 81
+行数 (概算): 159
 PRIMARY KEY: `id`
 UNIQUE: `(game_server_id,user_id)` (constraint: `server_memberships_game_server_id_user_id_key`)
 
@@ -7992,7 +7996,7 @@ PRIMARY KEY: `project_id, member_id`
 
 ## tally_weekly_effort_entries
 
-行数 (概算): 201
+行数 (概算): 204
 PRIMARY KEY: `project_id, member_id, week_start`
 
 | # | column | type | nullable | default |

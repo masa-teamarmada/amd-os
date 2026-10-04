@@ -39,6 +39,8 @@ export type ContractSourceEvidence = {
   sourceUrl: string | null;
   itemDate: string | null;
   metadata?: Record<string, unknown> | null;
+  /** そのPJの取引先名（projects.client_name）。本文に出てくれば相手先の候補にする（全PJ同じ）。 */
+  projectClientName?: string | null;
 };
 
 export type ContractSignalCandidate = {
@@ -476,9 +478,30 @@ function extractPeriod(text: string) {
   return { start: null, end: null };
 }
 
-function inferCounterparty(text: string) {
-  if (/NIMS|物質・材料研究機構/.test(text)) return "国立研究開発法人物質・材料研究機構（NIMS）";
-  return findLabeledText(text, ["発注者", "発行元", "委託者", "甲", "相手先"], 120);
+/** 取引先名から、本文で探す呼び名を作る（法人の種類を外した名前・かっこの中の略称）。 */
+function clientNameNeedles(clientName: string): string[] {
+  const normalized = clientName.normalize("NFKC").trim();
+  const inParens = Array.from(normalized.matchAll(/[（(]([^）)]+)[）)]/g)).map((match) => match[1]);
+  const withoutParens = normalized.replace(/[（(][^）)]*[）)]/g, "");
+  const stripKind = (value: string) => value
+    .replace(/^(株式会社|合同会社|国立研究開発法人|国立大学法人|学校法人|一般社団法人|一般財団法人|公益社団法人|公益財団法人)/, "")
+    .replace(/(株式会社|合同会社)$/, "")
+    .trim();
+  return Array.from(new Set([normalized, withoutParens, ...inParens].map(stripKind)))
+    .filter((needle) => needle.length >= 3 || /[^\x00-\x7F]{2,}/.test(needle));
+}
+
+/**
+ * 契約の相手先。書類の「発注者」などの欄を先に読み、無ければそのPJの取引先名が本文に出ているかで決める。
+ * 特定の相手先の名前をコードに持たない（2026-10-04 まさ「特定のPJだけの特例を入れたらシステムにならない」）。
+ */
+function inferCounterparty(text: string, projectClientName?: string | null) {
+  const labeled = findLabeledText(text, ["発注者", "発行元", "委託者", "甲", "相手先"], 120);
+  if (labeled) return labeled;
+  const clientName = projectClientName?.trim();
+  if (!clientName) return null;
+  const haystack = text.normalize("NFKC");
+  return clientNameNeedles(clientName).some((needle) => haystack.includes(needle)) ? clientName : null;
 }
 
 function buildBillingDistributionJson(params: {
@@ -637,7 +660,7 @@ export function buildContractTermCandidate(evidence: ContractSourceEvidence): Co
   const expenseReimbursement = extractExpenseReimbursement(combined);
   const operationalClauses = extractOperationalClauses(combined);
   const contractTitle = findLabeledText(combined, ["調達件名", "契約件名", "件名"], 180);
-  const counterpartyName = inferCounterparty(combined);
+  const counterpartyName = inferCounterparty(combined, evidence.projectClientName);
   const hasFinancialOrPeriodTerm = Boolean(
     contractNo
       || quoteNo

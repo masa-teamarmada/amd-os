@@ -9,6 +9,7 @@ const milestones = [
   {
     id: "paid-poc",
     slug: "business-paid-poc-oral-agreement",
+    gateKind: "oral_agreement",
     manualStatus: "completed",
     completionEvidence:
       "先方：PoC候補A\n合意内容：有償PoC 1件\n確認日：2026-08-01\n根拠：面談メモ",
@@ -16,18 +17,21 @@ const milestones = [
   {
     id: "investment",
     slug: "funding-investment-oral-agreement",
+    gateKind: "oral_agreement",
     manualStatus: "completed",
     completionEvidence: "口頭合意あり",
   },
   {
     id: "optional",
     slug: "optional",
+    gateKind: null,
     manualStatus: "completed",
     completionEvidence: "記録あり",
   },
   {
     id: "newco",
     slug: "newco",
+    gateKind: null,
     manualStatus: "unassessed",
     completionEvidence: null,
   },
@@ -67,7 +71,7 @@ const requirements =
 assert.equal(
   requirements.length,
   2,
-  "only the two explicit blocking milestones should become requirements",
+  "only the milestones with a prerequisite gate_kind should become requirements (any project, never by slug)",
 );
 assert.equal(
   requirements.find((item) => item.milestone.id === "paid-poc")?.state,
@@ -98,5 +102,13 @@ assert.equal(
 );
 const optional = milestones.find((milestone) => milestone.id === "optional");
 assert.equal(sxGateRequirementState(optional), "met");
+
+// 同じ slug でも gate_kind が無ければ前提条件にならない（PJ番号・slug では決めない）。
+const sameSlugWithoutGate = { ...milestones[0], id: "other-project", gateKind: null };
+assert.equal(
+  (sxGateRequirementsBySuccessor([sameSlugWithoutGate, milestones[3]], [{ id: "d9", predecessorMilestoneId: "other-project", successorMilestoneId: "newco", required: true }]).get("newco") || []).length,
+  0,
+  "a milestone without gate_kind must not become a prerequisite even when its slug matches",
+);
 
 console.log("sx gate requirement tests passed");

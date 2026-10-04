@@ -24,6 +24,7 @@ import type {
   KiyoMoneyFlowMonthRow,
   KiyoMoneyFlowResult,
 } from "@/lib/finance/kiyo-money-flow-types";
+import { AMD_COMPANY_PROJECT_ID } from "@/lib/project-formats";
 
 export type * from "@/lib/finance/kiyo-money-flow-types";
 
@@ -104,7 +105,7 @@ async function resolveRange(
   const { data, error } = await db
     .from("value_plan_cycles")
     .select("period_start_ym, period_end_ym")
-    .eq("project_id", "p00")
+    .eq("project_id", AMD_COMPANY_PROJECT_ID)
     .eq("status", "active")
     .order("period_start_ym", { ascending: false })
     .limit(1);

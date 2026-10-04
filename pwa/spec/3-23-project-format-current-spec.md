@@ -135,16 +135,33 @@
 6. **事業計画タブはデータから**（§8）：`CockpitBusinessPlan` は `project_business_plans` を読み、`BUSINESS_PLAN_FORMAT` のレーンの順に描く。PJの定数（`sx-business-plan`）を画面に持ち込まない。
 7. **PJ概要は9項目、事業の一言の入口は会社概要だけ**（§9）：`npm run test:project-overview`（`scripts/check_project_overview_contract.mts`）が、`ProjectOverviewFormat` が定義の9項目を全部描くこと、コックピットの PJ概要がこの画面であること、`project_ventures.short_description` / `long_description` を書くコードが無いこと、PJの定義と事業の概要を書くのが管理者だけが通れる2つの API だけであること、報酬形態の種類が定義と DB の CHECK で同じであることを確かめる。DB でも、控えの2列を直に書き換えると止まる（トリガー `project_ventures_business_summary_guard`）。
 
-## 6. 統一の残り
+## 6. 特定のPJだけの処理を置かない
 
-2026-10-03 の全タブ統一で、PJの画面の部品の名指しは 0 件になった（`scripts/project_format_baseline.json` の許容は空）。次は、PJの画面（コックピット・ワークスペース・DD）の外か、表示ではない規則として残しているもの。全PJに同じ扱いを広げるかは、まさの判断で決める。
+2026-10-04 まさ確定。
 
-| 場所 | 内容 | 扱い |
+> どれか特定のPJだけの処理は実装しないで。使える機能なら全PJに適用して。OSはあくまでシステムとして開発してるので、特定のPJだけの特例を入れたらシステムにならない。
+
+画面だけでなく、計算・自動処理・DB の規則・Mac/iPhone アプリも、PJ番号やPJ名で分けない。PJごとに違ってよいのは「設定（データ）」だけで、設定は DB の列に置き、どのPJも同じ決まりで読む。設定が入っていないPJは、その機能を使っていないだけで、別の作りにはしない。
+
+| 機能 | PJごとの設定（正本） | 決まり |
 |---|---|---|
-| `src/lib/task-point-ledger.ts` | タスクpt検収の試行（SOL、2026年10月から） | 報酬の規則。画面は全PJ同じ形で、API が「試行の対象か」を返し、対象外のPJは「検収 対象外」と出す |
-| `src/app/api/project-workspace/[projectId]/management/route.ts` | SOLの設立前提の2つのMSを、点のMSの決まりから外す | データの整合の規則（migration 220 の DB の制約と同じ） |
-| `src/app/api/meeting-workflow/finalize/route.ts`・`automation-context/route.ts` | 会議の取り込みで、SOLだけワークスペースの文脈を足す | 自動処理。全PJに広げると取り込みの費用が増えるため、広げるかはまさの判断 |
-| `src/lib/sx-display-lanes.ts` | 4つの柱（事業・技術・資金・組織）を持つPJは、ガントのレーンを3本に畳む | データの形で決まる規則。今の画面（ゴールツリーのガント）は使っていない |
+| タスクptの検収 | `projects.task_point_review_from_ym`（検収を始めた月） | 入っているPJは、その月以降に始まるMSをゴールツリーのTODOの検収ptで払う。始める前の2か月の支払保護が済むまで検収できない。DB関数 `accept_project_task_pt`（呼べるのはサーバだけ）。SOL は 202610。ほかのPJで始めるかはまさが決める（報酬が変わるため） |
+| 旧タスク台帳の読み取り専用 | `projects.legacy_task_ledger_read_only` | true のPJは `project_management_tasks` への追加・更新・物理削除を DB（`guard_read_only_legacy_task_ledger`）が止める。ZMP は true |
+| 前提条件のMS（口頭合意の確認） | `project_management_milestones.gate_kind`（`oral_agreement`） | どのPJのMSにも付けられる（MSの編集の「MSの種類」）。後に続くMSの前提になり、確認する期間（開始日〜完了日）を持てる。完了の根拠に先方・合意内容・確認日・根拠の4行が要る |
+| PJの別名 | `project_knowledge` の `category='alias'`・`status='active'` | 会議の予定・活動・会議の取り込みでPJを決めるとき、PJ名・取引先名と並べて使う（`src/lib/project-aliases-server.ts`） |
+| 外部リサーチの対象 | `projects.external_research_topics`（毎朝探すテーマ） | 入っているPJを、つくよみの外部リサーチ（平日09:00）が調べる。管理画面「PJ一覧」で書く。PJの状態では除外しない |
+| 会議の取り込みの文脈 | なし（全PJ） | 前回の会議から今回までの、PJの記録の更新（`project_management_update_history`）を全PJで読む（`/api/meeting-workflow/finalize`、`/api/project-workspace/<PJ>/automation-context`、H-1・D-6 の指示書） |
+| 契約の相手先の候補 | `projects.client_name` | 書類の「発注者」などの欄が無いとき、そのPJの取引先名が本文に出ていれば相手先の候補にする |
+| ログインなしで開ける会議資料 | なし（置き場所の決まり） | `public/shared/<PJ>/…` に置いた資料だけ。旧 `/kute/…` は `/shared/kute/…` へ移す |
+| ガントのレーン | `project_management_tracks`（柱） | 柱の形だけで決める。標準の4つの柱（事業・技術・資金・体制）を持つPJは、どのPJも3レーン（資金調達は組織開発へ）。それ以外は柱1本＝レーン1本 |
+| 会社そのもの（AMD） | PJタイプ `amd`（`AMD_COMPANY_PROJECT_ID`） | 会社そのものの扱い（経営スコア・株主総会など）は、PJ番号の直書きではなくこの定義で指す |
+
+変更の制限: `npm run test:no-project-special-cases`（`scripts/check_no_project_special_cases.mjs`）が本番反映（`scripts/deploy.sh`）の前に必ず走り、`pwa/src` のコードに PJ番号の文字列・PJ番号を鍵にした表・PJ名との比較、自動処理の指示書に「特定のPJだけ」の手順、Mac/iPhone アプリに PJ番号との比較があれば止める。例外は「全PJに同じ形で持つ設定の表」だけで、検査の `ALLOWED` に理由つきで書く（いまは `AMD_COMPANY_PROJECT_ID` の定義・カレンダーの色とPJ略称の対応表・BZM 2.2 の生成物の目録の3件）。
+
+残っているもの（次の段）:
+
+- SOL の2つのコスト試算（廃液 `CockpitCostModel`・燃料 `CockpitFuelCostModel`）は、データの形（`costFormatEngineOf(bundle)`）で選ばれる SOL の試算専用の画面のまま。標準の画面（§7）へ移すのは次の段で、移すときの行の対応は下の表のとおり。
+- 月次報告書の提出版の書式（`src/lib/monthly-report-layouts.json`）は、PJごとの書式の表。全PJ同じ決まり（表に書式があるPJはその書式、無いPJは標準）で読む。
 
 コスト試算タブは §7 の標準フォーマットを決めた（2026-10-03）。SX の2つの試算（廃液 `CockpitCostModel`・燃料 `CockpitFuelCostModel`）は、切り替え（株・用途・方式・装置、FAME転換・収率）と式の説明が多いため、標準の画面へ移すのは次の段。移すときは、それぞれの内訳の区分を §7 の行へ次のとおり流し込み、区分の呼び名（菌体費・FAMEにする など）は行の中身として残す。
 

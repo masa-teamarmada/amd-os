@@ -137,6 +137,7 @@ export default async function AdminProjectsPage() {
       freeze_from_ym: p.freeze_from_ym ?? null,
       restart_expected_ym: p.restart_expected_ym ?? null,
       news_search_query: p.news_search_query ?? null,
+      external_research_topics: p.external_research_topics ?? null,
       pms: r.pms,
       closers: r.closers,
       pls: r.pls,

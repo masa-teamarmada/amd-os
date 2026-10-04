@@ -49,7 +49,9 @@ async function touchLastLogin(email: string) {
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
   const pathname = request.nextUrl.pathname;
-  const isPublicMeetingArtifact = pathname.startsWith("/kute/");
+  // ログインなしで開いてよい会議資料の置き場（public/shared/<PJ>/…）。どのPJも同じ置き場を使う
+  // （2026-10-04 まさ「特定のPJだけの特例を入れたらシステムにならない」。以前は KUTE の /kute/ だけ）。
+  const isPublicMeetingArtifact = pathname.startsWith("/shared/");
   // `/bzm/public/**` は公開原稿。通常の `/bzm/**` は引き続き会員限定にする。
   const isPublicBzmManuscript = pathname === "/bzm/public" || pathname.startsWith("/bzm/public/");
   const hasProjectWorkspaceSession = request.cookies.has(PROJECT_WORKSPACE_SESSION_COOKIE);
