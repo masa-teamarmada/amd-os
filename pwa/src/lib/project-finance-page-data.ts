@@ -32,4 +32,3 @@ export const FINANCE_CASHFLOW_COLUMNS = [
   "source_note",
   "planning_details_json",
 ].join(", ");
-

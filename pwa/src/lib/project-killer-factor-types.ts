@@ -15,4 +15,3 @@ export type KillerFactorItem = {
   recordedByLabel: string | null;
   recordedAt: string | null;
 };
-
