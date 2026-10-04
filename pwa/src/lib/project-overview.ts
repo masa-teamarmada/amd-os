@@ -222,17 +222,42 @@ export function overviewTeam(members: ProjectOverviewMember[]) {
 // 今の状態
 // ---------------------------------------------------------------------------------------------
 
-/** 6. 段階と設立。設立日は会社概要の登記を先に、無ければ Venture Map の設立年月（未来なら予定）。 */
+/**
+ * 6. 段階と設立。会社概要の法人状態を先に見る。設立前（pre_incorporation）なら、日付があっても「設立予定」。
+ * 日付は会社概要の設立日を先に、無ければ Venture Map の設立年月。会社概要が無いPJは、日付が今日以前なら設立済み、未来なら予定。
+ */
 export function overviewStage(overview: Pick<ProjectOverviewPayload, "venture" | "company" | "identity">, today: string) {
   const outcome = overview.venture?.outcomePattern ? VENTURE_OUTCOME_LABELS[overview.venture.outcomePattern] ?? overview.venture.outcomePattern : null;
   const status = PROJECT_STATUS_LABELS[overview.identity.status] ?? overview.identity.status;
+  const companyDate = overview.company?.incorporatedOn?.slice(0, 10) || null;
+  const ventureDate = overview.venture?.foundedAt?.slice(0, 10) || null;
+  const legalStatus = overview.company?.legalStatus ?? null;
   let founding: { kind: "founded" | "planned" | "none"; date: string | null };
-  if (overview.company?.incorporatedOn) founding = { kind: "founded", date: overview.company.incorporatedOn };
-  else if (overview.venture?.foundedAt) {
-    founding = { kind: overview.venture.foundedAt.slice(0, 10) <= today ? "founded" : "planned", date: overview.venture.foundedAt.slice(0, 10) };
-  } else if (overview.company?.legalStatus && overview.company.legalStatus !== "pre_incorporation") founding = { kind: "founded", date: null };
-  else founding = { kind: "none", date: null };
+  if (legalStatus && legalStatus !== "pre_incorporation") {
+    founding = { kind: "founded", date: companyDate ?? (ventureDate && ventureDate <= today ? ventureDate : null) };
+  } else {
+    const date = companyDate ?? ventureDate;
+    if (!date) founding = { kind: "none", date: null };
+    else if (legalStatus === "pre_incorporation" || date > today) founding = { kind: "planned", date };
+    else founding = { kind: "founded", date };
+  }
   return { outcome, status, founding };
+}
+
+/** 契約の状態。呼び名は契約管理の画面（ContractsClient の STATUS_LABEL）と同じ。 */
+export const CONTRACT_STATUS_LABELS: Record<string, string> = {
+  planned: "予定枠",
+  drafting: "作成中",
+  under_review: "レビュー中",
+  awaiting_signature: "押印待ち",
+  signed: "押印済み記録",
+  stalled: "停滞",
+  cancelled: "中止",
+};
+
+export function contractStatusLabel(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return CONTRACT_STATUS_LABELS[value] ?? value;
 }
 
 /** 6. 次の節目: 承認済みで開いているMSのうち、今日以降でいちばん近い期限のもの。期限切れも返す。 */

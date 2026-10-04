@@ -18,6 +18,7 @@ import {
   type ProjectCurrentContract,
 } from "@/lib/project-contract-terms";
 import { paymentDueRuleLabel } from "@/lib/payment-rules";
+import { contractStatusLabel } from "@/lib/project-overview";
 
 export interface CockpitOverviewProject {
   projectId: string;
@@ -190,7 +191,7 @@ function CurrentContractTerms({ contract, project }: { contract: ProjectCurrentC
         <h3 className="min-w-0 text-sm font-semibold text-[#1d1d1f]">{contract.title || "現行契約"}</h3>
         <span className="text-[11px] text-[#6e6e73]">{CONTRACT_TYPE_LABELS[contract.contractType || ""] || contract.contractType || "契約"}</span>
         <span className="text-[11px] text-[#6e6e73]">{contract.counterpartyName || "相手先未確認"}</span>
-        <span className="text-[11px] font-medium text-[#1d1d1f]">{joinKnown([textTerm(contract.status), textTerm(contract.signatureStatus)], "状態未確認")}</span>
+        <span className="text-[11px] font-medium text-[#1d1d1f]">{joinKnown([contractStatusLabel(textTerm(contract.status)), textTerm(contract.signatureStatus)], "状態未確認")}</span>
         {contract.documentUrl && (
           <a
             href={contract.documentUrl}

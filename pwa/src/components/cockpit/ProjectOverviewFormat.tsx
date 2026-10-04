@@ -33,6 +33,7 @@ import {
   AMD_ROLE_LABELS,
   PROJECT_CATEGORY_LABELS,
   VENTURE_LANE_LABELS,
+  contractStatusLabel,
   overviewNextMilestone,
   overviewOpenItems,
   overviewOrigin,
@@ -352,7 +353,7 @@ export function ProjectOverviewFormat({ project, onSelectTab }: Props) {
                         contract.effectiveDate || contract.expirationDate
                           ? `${dateLabel(contract.effectiveDate) || "未確認"}〜${dateLabel(contract.expirationDate)}`
                           : null,
-                        contract.status,
+                        contractStatusLabel(contract.status),
                       ]
                         .filter(Boolean)
                         .join("・")}

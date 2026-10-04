@@ -124,6 +124,18 @@ check("段階と設立は、会社概要の登記を先に、無ければ Ventur
   assert.equal(overviewStage(base, TODAY).status, "稼働中");
   assert.deepEqual(overviewStage({ ...base, company: { legalStatus: "incorporated", legalName: "株式会社X", incorporatedOn: "2024-04-01" } }, TODAY).founding, { kind: "founded", date: "2024-04-01" });
   assert.deepEqual(overviewStage({ ...base, venture: null, company: null }, TODAY).founding, { kind: "none", date: null });
+  // CX: 会社概要は設立前で、設立日の欄に計画の日付（2027-01-01）が入っている → 設立済みと言わない
+  assert.deepEqual(
+    overviewStage({ ...base, company: { legalStatus: "pre_incorporation", legalName: "仮", incorporatedOn: "2027-01-01" } }, TODAY).founding,
+    { kind: "planned", date: "2027-01-01" },
+  );
+  // 設立前のまま予定日を過ぎても、設立済みとは言わない（会社概要の法人状態が正）
+  assert.deepEqual(
+    overviewStage({ ...base, company: { legalStatus: "pre_incorporation", legalName: "仮", incorporatedOn: "2026-04-01" } }, TODAY).founding,
+    { kind: "planned", date: "2026-04-01" },
+  );
+  // 会社概要が無く、Venture Map の設立年月が過去なら設立済み
+  assert.deepEqual(overviewStage({ ...base, company: null, venture: { ...base.venture!, foundedAt: "2019-04-01" } }, TODAY).founding, { kind: "founded", date: "2019-04-01" });
 });
 
 check("AMDが関わる期間は、Venture Map の参画期間を先に、無ければ PJ の期間", () => {
