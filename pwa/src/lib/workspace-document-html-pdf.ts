@@ -162,6 +162,11 @@ async function loadPdfFontCss() {
   return css.replace(/url\(\.\/files\/([^)]*)\)/g, (_match, fileName) => `url(data:font/woff2;base64,${fonts.get(fileName)})`);
 }
 
+export async function monthlyReportPdfFontCss() {
+  fontCssPromise ??= loadPdfFontCss();
+  return `${(await fontCssPromise).replaceAll("Noto Sans JP Variable", "Noto Sans JP")}\nbody { font-family: 'Noto Sans JP', sans-serif; }`;
+}
+
 async function pdfFontCss(html: string) {
   fontCssPromise ??= loadPdfFontCss();
   const css = await fontCssPromise;

@@ -86,6 +86,7 @@
     "test:project-cost-model": "node --experimental-strip-types scripts/check_project_cost_model.mts && node --experimental-strip-types scripts/check_project_fuel_cost_model.mts && node --experimental-strip-types scripts/check_project_cost_items_engine.mts",
     "test:monthly-report-quality": "node scripts/test_monthly_report_quality.mjs",
     "test:monthly-report-history": "node --experimental-strip-types scripts/test_monthly_report_history.mts",
+    "test:monthly-report-pdf": "node --experimental-strip-types scripts/test_monthly_report_pdf.mts",
     "test:sx-management": "node --experimental-strip-types scripts/test_project_management_logic.mjs",
     "test:sx-workspace-operating-context": "node --experimental-strip-types scripts/test_sx_workspace_operating_context.mjs",
     "test:sx-management-optimistic": "node --experimental-strip-types scripts/test_sx_management_optimistic.mjs",

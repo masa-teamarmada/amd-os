@@ -7,6 +7,9 @@
  * 追記は RPC monthly_report_internal_save 内で1トランザクションにまとめる。
  */
 
+import { saveMonthlyReportPdf } from "@/lib/monthly-report-pdf";
+export const runtime = "nodejs";
+export const maxDuration = 60;
 import { NextResponse } from "next/server";
 import { validateInternalMonthlyReport } from "@/lib/monthly-report-quality";
 import { changedMonthlyReportSections } from "@/lib/monthly-report-history";
@@ -80,5 +83,6 @@ export async function POST(req: Request) {
   }
   const savedReport = data as { draft_content?: string | null } | null;
 
-  return NextResponse.json({ ok: true, content: savedReport?.draft_content ?? validation.normalized, changedSections });
+  const pdf = await saveMonthlyReportPdf(req, { projectId, ym, kind: "internal", version: "draft", expectedContent: savedReport?.draft_content ?? validation.normalized });
+  return NextResponse.json({ ok: true, pdf, content: savedReport?.draft_content ?? validation.normalized, changedSections });
 }

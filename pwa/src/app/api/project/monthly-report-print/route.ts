@@ -637,7 +637,7 @@ export async function GET(req: NextRequest) {
       ? {
           status: repRes.data.status || "pending",
           draftContent: repRes.data.draft_content || "",
-          finalContent: repRes.data.final_content || "",
+          finalContent: searchParams.get("version") === "draft" ? "" : repRes.data.final_content || "",
           generatedAt: repRes.data.generated_at,
           fixedAt: repRes.data.fixed_at,
           confirmedBy: repRes.data.confirmed_by || null,

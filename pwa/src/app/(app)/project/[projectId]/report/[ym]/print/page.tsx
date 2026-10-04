@@ -3,8 +3,7 @@
  *
  * クライアント提出用 月次レポート印刷ページ (A4 縦)。
  *
- * 使い方: ブラウザで開いて Cmd+P → 「PDFとして保存」(余白なし / 背景画像オン)。
- * Vercel serverless で Puppeteer を回さない方針 (Vercel bundle/timeout で詰む)。
+ * 保存時にこの紙面をサーバーでPDF化し、OSドライブと共有ドライブへ配置する。
  * HTML は OS マニュアル「pwa/spec/3-2-monthly-reports-current-spec.md」§印刷出力 を正本とする。
  */
 import { notFound } from "next/navigation";
@@ -14,17 +13,18 @@ import { MonthlyReportPrintClient } from "./print-client";
 
 interface Params {
   params: Promise<{ projectId: string; ym: string }>;
-  searchParams: Promise<{ template?: string }>;
+  searchParams: Promise<{ template?: string; embedded?: string; version?: string }>;
 }
 
-async function fetchPrintData(projectId: string, ym: string, template: string) {
+async function fetchPrintData(projectId: string, ym: string, template: string, version?: string) {
   const h = await headers();
   const proto = h.get("x-forwarded-proto") || "https";
   const host = h.get("host") || "amd-os-pwa.vercel.app";
   const cookie = h.get("cookie") || "";
+  const authorization = h.get("authorization");
   const res = await fetch(
-    `${proto}://${host}/api/project/monthly-report-print?projectId=${encodeURIComponent(projectId)}&ym=${encodeURIComponent(ym)}&template=${encodeURIComponent(template)}`,
-    { cache: "no-store", headers: { cookie } }
+    `${proto}://${host}/api/project/monthly-report-print?projectId=${encodeURIComponent(projectId)}&ym=${encodeURIComponent(ym)}&template=${encodeURIComponent(template)}${version === "draft" ? "&version=draft" : ""}`,
+    { cache: "no-store", headers: { cookie, ...(authorization ? { authorization } : {}) } }
   );
   if (!res.ok) return null;
   return res.json();
@@ -32,15 +32,15 @@ async function fetchPrintData(projectId: string, ym: string, template: string) {
 
 export default async function MonthlyReportPrintPage({ params, searchParams }: Params) {
   const { projectId, ym } = await params;
-  const { template: rawTemplate } = await searchParams;
+  const { template: rawTemplate, embedded, version } = await searchParams;
   const template = rawTemplate || "internal";
   const auth = await requireAdmin();
   if (!auth.ok) return <div className="p-8 text-sm">この月次報告書を表示する権限がありません。</div>;
 
   if (!/^\d{6}$/.test(ym)) notFound();
 
-  const data = await fetchPrintData(projectId, ym, template);
+  const data = await fetchPrintData(projectId, ym, template, version);
   if (!data?.ok) notFound();
 
-  return <MonthlyReportPrintClient data={data} />;
+  return <MonthlyReportPrintClient key={`${projectId}:${ym}:${template}:${version || "final"}`} data={data} embedded={embedded === "1"} />;
 }

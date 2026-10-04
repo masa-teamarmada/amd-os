@@ -173,24 +173,6 @@ export function MonthlyReportHistoryPanel({
   return (
     <>
       <div className="history-strip no-print" aria-live="polite">
-        <div className="history-strip-copy">
-          <span className="history-strip-label">最終更新</span>
-          {loading ? (
-            <span>履歴を確認中…</span>
-          ) : error ? (
-            <span className="history-strip-error">履歴を取得できませんでした</span>
-          ) : latest ? (
-            <span>
-              <strong>{latest.actorName}</strong>
-              <span className="history-strip-dot">·</span>
-              {formatHistoryTime(latest.createdAt)}
-              <span className="history-strip-dot">·</span>
-              {monthlyReportHistoryActionLabel(latest.action)}
-            </span>
-          ) : (
-            <span>記録はまだありません</span>
-          )}
-        </div>
         <button
           ref={triggerRef}
           type="button"
@@ -242,6 +224,25 @@ export function MonthlyReportHistoryPanel({
             </div>
 
             <div className="history-panel-body">
+                <div className="history-strip-copy">
+                  <span className="history-strip-label">最終更新</span>
+                  {loading ? (
+                    <span>履歴を確認中…</span>
+                  ) : error ? (
+                    <span className="history-strip-error">履歴を取得できませんでした</span>
+                  ) : latest ? (
+                    <span>
+                      <strong>{latest.actorName}</strong>
+                      <span className="history-strip-dot">·</span>
+                      {formatHistoryTime(latest.createdAt)}
+                      <span className="history-strip-dot">·</span>
+                      {monthlyReportHistoryActionLabel(latest.action)}
+                    </span>
+                  ) : (
+                    <span>記録はまだありません</span>
+                  )}
+                </div>
+
               {loading && <div className="history-state" role="status">編集履歴を読み込んでる…</div>}
               {!loading && error && (
                 <div className="history-state history-state-error" role="alert">
@@ -309,7 +310,7 @@ export function MonthlyReportHistoryPanel({
       )}
 
       <style jsx>{`
-        .history-strip { position: sticky; top: 56px; z-index: 9; display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 44px; padding: 6px 16px; border-bottom: 1px solid #cbd5e1; background: #fffdf7; color: #475569; box-sizing: border-box; font-size: 12px; box-shadow: 0 1px 4px rgba(15,23,42,.06); }
+        .history-strip { position: static; display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-height: 44px; padding: 6px 16px; border-bottom: 1px solid #cbd5e1; background: transparent; color: #475569; box-sizing: border-box; font-size: 12px; box-shadow: 0 1px 4px rgba(15,23,42,.06); }
         .history-strip-copy { display: flex; align-items: center; gap: 8px; min-width: 0; }
         .history-strip-label { flex: 0 0 auto; color: #0f172a; font-weight: 700; }
         .history-strip-dot { margin: 0 6px; color: #94a3b8; }

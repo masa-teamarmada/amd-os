@@ -1,4 +1,8 @@
 "use client";
+import { useRouter } from "next/navigation";
+import { ExternalLink, RefreshCw } from "lucide-react";
+import { MonthlyReportSelectors } from "@/components/cockpit/MonthlyReportSelectors";
+import { loadMonthlyReports } from "@/lib/monthly-reports-client";
 
 /**
  * 月次レポート印刷ビュー (A4 縦)。
@@ -1254,7 +1258,8 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 // ─── メインビュー ──────────────────────────────────────────────────────
-export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
+export function MonthlyReportPrintClient({ data, embedded = false }: { data: PrintData; embedded?: boolean }) {
+  const router = useRouter();
   const headerLabel = useMemo(() => {
     const client = data.project.clientName || "—";
     return `${client} / 月次報告 ${formatYm(data.ym)}`;
@@ -1267,11 +1272,13 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
   const [reportBody, setReportBody] = useState(() => reportBodyForPrint(data));
   const [savedBody, setSavedBody] = useState(() => reportBodyForPrint(data));
   const [editMode, setEditMode] = useState(false);
+  const [pdfVersion, setPdfVersion] = useState<"draft" | "final">("draft");
+  const [pdfFailed, setPdfFailed] = useState(false);
+  const [months, setMonths] = useState([data.ym]);
   const [saving, setSaving] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
-  const [hasFinal, setHasFinal] = useState(Boolean(data.report?.finalContent));
   const [historyRefreshToken, setHistoryRefreshToken] = useState(0);
   const fullSource = useMemo(
     () => sourceWithReportHeading(originalSource, reportBody, data.isSubmission),
@@ -1286,6 +1293,19 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
     monthlyNote: !data.isSubmission ? fullSource : data.monthlyNote,
   }), [data, fullSource]);
   const hasUnsavedChanges = reportBody !== savedBody;
+  useEffect(() => {
+    let active = true;
+    loadMonthlyReports(data.project.projectId).then((reports) => {
+      if (active) setMonths([...new Set([data.ym, new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit" }).format(new Date()).replace("-", ""), ...reports.map((report) => report.ym)])].sort().reverse());
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [data.project.projectId, data.ym]);
+  function switchReport(ym: string, template: "internal" | "submission") {
+    if (hasUnsavedChanges && !window.confirm("保存していない変更を破棄して切り替える？")) return;
+    if (embedded) window.parent.postMessage({ type: "monthly-report:select", ym, template }, window.location.origin);
+    else router.push(`/project/${encodeURIComponent(data.project.projectId)}/report/${ym}/print?template=${template}`);
+  }
+
 
   useEffect(() => {
     let titleBeforePrint = "";
@@ -1310,6 +1330,17 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
     setError("");
     setNotice("");
     try {
+      if (pdfFailed && !hasUnsavedChanges) {
+        const response = await fetch("/api/monthly-report/pdf", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId: data.project.projectId, ym: data.ym, kind: data.isSubmission ? "external" : "internal", version: pdfVersion, expectedContent: fullSource }),
+        });
+        const result = await response.json();
+        if (!response.ok || !result.ok) throw new Error(result.message || "PDFを保存できなかった。もう一度保存してください。");
+        setPdfFailed(false);
+        setNotice(result.message);
+        return;
+      }
       const endpoint = data.isSubmission
         ? "/api/monthly-report/external-manual-update"
         : "/api/monthly-report/manual-update";
@@ -1327,17 +1358,18 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
       setReportBody(normalizedBody);
       setSavedBody(normalizedBody);
       setHistoryRefreshToken((current) => current + 1);
-      setNotice(data.isSubmission
-        ? "提出版を保存した。この表示のままPDFとして保存できる。"
-        : hasFinal
-          ? "下書きに保存した。確定版を更新するなら「確定版に反映」を押してください。"
-          : "下書きに保存した。内容を確定するなら「確定版に反映」を押してください。");
+      setPdfVersion("draft");
+      setPdfFailed(result.pdf?.ok === false);
+      if (result.pdf?.ok === false) setError(result.pdf.message + " もう一度保存してください。");
+      else setNotice(data.isSubmission
+        ? "提出版とPDFをOSドライブ・共有ドライブへ保存した。"
+        : "下書きとPDFを保存した。確定版の更新は「確定版に反映」から行える。");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "保存に失敗しました");
     } finally {
       setSaving(false);
     }
-  }, [data.isSubmission, data.project.projectId, data.ym, fullSource, hasFinal]);
+  }, [data.isSubmission, data.project.projectId, data.ym, fullSource, pdfFailed, pdfVersion, hasUnsavedChanges]);
 
   const finalizeInternalReport = useCallback(async () => {
     if (!window.confirm("現在の下書きを社内版の確定版として置き換える？ この操作は提出用PDFには影響しない。")) return;
@@ -1352,9 +1384,12 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "確定版への反映に失敗しました");
-      setHasFinal(true);
+
       setHistoryRefreshToken((current) => current + 1);
-      setNotice("社内版の確定版に反映した。この表示のままPDFとして保存できる。");
+      setPdfVersion("final");
+      setPdfFailed(result.pdf?.ok === false);
+      if (result.pdf?.ok === false) setError(result.pdf.message + " もう一度保存してください。");
+      else setNotice("社内版の確定版とPDFをOSドライブ・共有ドライブへ保存した。");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "確定版への反映に失敗しました");
     } finally {
@@ -1404,7 +1439,7 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: pageRule }} />
-      <style jsx global>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @media print {
           .no-print { display: none !important; }
           .print-root { background: white !important; }
@@ -1418,15 +1453,17 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
         .submission-flow { min-height: auto; }
         .toolbar {
           position: sticky; top: 0; z-index: 10;
-          background: #0a1628; color: #f1f5f9;
-          padding: 10px 16px; display: flex; gap: 12px; align-items: center;
-          font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+          background: white; color: #0f172a; border-bottom: 1px solid #e2e8f0;
+          padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+          font-size: 13px;
         }
-        .toolbar-title { font-weight: 700; letter-spacing: 0.12em; font-family: 'Work Sans', sans-serif; white-space: nowrap; }
+        .toolbar-title { margin: 0 4px 0 0; font-size: 14px; font-weight: 700; white-space: nowrap; }
+        .toolbar-status { font-size: 12px; color: #64748b; }
+        .toolbar-link { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; color: #475569; text-decoration: none; border-radius: 4px; }
         .toolbar-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-left: auto; }
         .toolbar button {
           background: #f1f5f9; color: #0a1628; padding: 6px 14px;
-          border-radius: 4px; border: 0; font-weight: 600; cursor: pointer;
+          border-radius: 4px; border: 1px solid #cbd5e1; font-weight: 600; cursor: pointer;
           font-family: 'Work Sans', sans-serif; letter-spacing: 0.04em;
           min-height: 36px;
         }
@@ -1435,8 +1472,8 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
         .toolbar .toolbar-primary { background: #38bdf8; color: #082f49; }
         .toolbar .toolbar-editing { background: #fef3c7; color: #713f12; }
         .toolbar .hint { color: #94a3b8; }
-        .toolbar-notice { color: #bae6fd; font-size: 12px; }
-        .toolbar-error { color: #fecaca; font-size: 12px; }
+        .toolbar-notice { color: #475569; font-size: 12px; width: 100%; }
+        .toolbar-error { color: #b91c1c; font-size: 12px; width: 100%; }
         .report-review-note {
           width: min(210mm, calc(100% - 32px)); margin: 16px auto -8px; box-sizing: border-box;
           padding: 10px 14px; border-left: 3px solid #0369a1; background: #e0f2fe; color: #0c4a6e;
@@ -1496,7 +1533,7 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
         }
         @media screen and (max-width: 760px) {
           .toolbar { align-items: flex-start; flex-wrap: wrap; gap: 8px; padding: 8px 10px; }
-          .toolbar-title, .toolbar .hint { width: 100%; }
+          .toolbar-title { width: 100%; }
           .toolbar-actions { width: 100%; margin-left: 0; }
           .toolbar button { min-height: 44px; padding: 8px 10px; font-size: 12px; }
           .toolbar-notice, .toolbar-error { width: 100%; }
@@ -1775,13 +1812,14 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
           .cover-sheet { padding: 10mm 8mm; }
           .cover { height: auto; min-height: 250mm; }
         }
-      `}</style>
+      ` }} />
 
       <style dangerouslySetInnerHTML={{ __html: submissionLayoutCss }} />
       <div className={`print-root ${data.isSubmission ? "submission-flow" : ""}`}>
         <div className="toolbar no-print">
-          <span className="toolbar-title">MONTHLY REPORT — {data.isSubmission ? "SUBMISSION" : "INTERNAL"}</span>
-          <span className="hint">この紙面を見ながら直せる。保存後にそのままPDFとして保存。</span>
+          <h2 className="toolbar-title">月次報告書</h2>
+          <MonthlyReportSelectors months={months} ym={data.ym} template={data.isSubmission ? "submission" : "internal"} disabled={saving || finalizing} onChange={switchReport} />
+          <span className="toolbar-status">{hasUnsavedChanges ? "未保存" : "保存済み"}</span>
           <div className="toolbar-actions">
             <button
               type="button"
@@ -1790,7 +1828,7 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
             >
               {editMode ? "編集を終える" : "編集する"}
             </button>
-            <button type="button" onClick={saveReport} disabled={!hasUnsavedChanges || saving || finalizing}>
+            <button type="button" onClick={saveReport} disabled={(!hasUnsavedChanges && !pdfFailed) || saving || finalizing}>
               {saving ? "保存中…" : data.isSubmission ? "提出版を保存" : "下書きに保存"}
             </button>
             {!data.isSubmission && (
@@ -1802,20 +1840,18 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
                 {finalizing ? "反映中…" : "確定版に反映"}
               </button>
             )}
-            <button type="button" className="toolbar-primary" onClick={() => window.print()}>
-              PDFとして保存
-            </button>
+            {embedded && <a className="toolbar-link" href={`/project/${encodeURIComponent(data.project.projectId)}/report/${data.ym}/print?template=${data.isSubmission ? "submission" : "internal"}`} target="_blank" rel="noopener noreferrer" aria-label="別画面で開く" title="別画面で開く"><ExternalLink size={15} aria-hidden="true" /></a>}
+            <button type="button" disabled={saving || finalizing} onClick={() => {
+              if (hasUnsavedChanges && !window.confirm("保存していない変更を破棄して更新する？")) return;
+              if (embedded) window.parent.postMessage({ type: "monthly-report:refresh" }, window.location.origin);
+              else window.location.reload();
+            }} aria-label="報告書を更新" title="報告書を更新"><RefreshCw size={15} aria-hidden="true" /></button>
           </div>
           {notice && <span className="toolbar-notice" role="status">{notice}</span>}
           {error && <span className="toolbar-error" role="alert">{error}</span>}
         </div>
 
-        <MonthlyReportHistoryPanel
-          projectId={data.project.projectId}
-          ym={data.ym}
-          currentKind={data.isSubmission ? "external" : "internal"}
-          refreshToken={historyRefreshToken}
-        />
+
 
         {editMode && (
           <div className="report-review-note no-print">
@@ -1838,6 +1874,12 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
             <AppendixSection data={previewData} />
           </>
         )}
+        <MonthlyReportHistoryPanel
+          projectId={data.project.projectId}
+          ym={data.ym}
+          currentKind={data.isSubmission ? "external" : "internal"}
+          refreshToken={historyRefreshToken}
+        />
       </div>
     </>
   );

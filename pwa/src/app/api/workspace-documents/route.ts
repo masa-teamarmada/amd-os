@@ -140,7 +140,8 @@ export async function GET(request: Request) {
     }
   }
 
-  // 月次帳票はStorageへ複製せず、現在の正本を帳票routeから開く仮想entryとして
+  // 現在の月次帳票を帳票routeから開く仮想entryとして配置する。保存時のPDFは
+  // monthly_report_pdfのprivate Storage entryとして、この一覧へ別途含まれる。
   // AMD内部のPJドライブだけへ置く。外部workspace面には内部帳票を混ぜない。
   let monthlyReportEntries: Array<Record<string, unknown>> = [];
   const projectId = scope.kind === "project" ? access.projectId : null;

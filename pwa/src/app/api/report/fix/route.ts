@@ -8,6 +8,9 @@
  * 実行した admin の表示名を必ず残す。
  */
 
+import { saveMonthlyReportPdf } from "@/lib/monthly-report-pdf";
+export const runtime = "nodejs";
+export const maxDuration = 60;
 import { NextResponse } from "next/server";
 import { validateInternalMonthlyReport } from "@/lib/monthly-report-quality";
 import { changedMonthlyReportSections } from "@/lib/monthly-report-history";
@@ -93,8 +96,10 @@ export async function POST(req: Request) {
       .eq("project_id", projectId)
       .eq("ym", ym);
 
+    const pdf = await saveMonthlyReportPdf(req, { projectId, ym, kind: "internal", version: "final", expectedContent: validation.normalized });
     return NextResponse.json({
       success: true,
+      pdf,
       fixedAt: savedReport.fixed_at,
       confirmedBy: savedReport.confirmed_by,
     });

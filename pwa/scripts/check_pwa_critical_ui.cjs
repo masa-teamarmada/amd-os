@@ -534,8 +534,8 @@ expectIncludes(
   [
     "InlineMarkdownReview",
     "report-editable-block",
-    "社内版の確定版に反映した",
-    "PDFとして保存",
+    "社内版の確定版とPDFをOSドライブ・共有ドライブへ保存した",
+    "PDFをOSドライブ・共有ドライブへ保存",
   ],
 );
 

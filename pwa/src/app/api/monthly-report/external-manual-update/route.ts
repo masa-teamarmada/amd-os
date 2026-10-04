@@ -7,6 +7,9 @@
  * 提出版の正本は monthly_reports_external.body_md。社内版の手動編集とは
  * 保存先も品質ゲートも分け、保存後に提出版PDFへ同じ本文が反映される。
  */
+import { saveMonthlyReportPdf } from "@/lib/monthly-report-pdf";
+export const runtime = "nodejs";
+export const maxDuration = 60;
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/supabase/api-auth";
 import { changedMonthlyReportSections } from "@/lib/monthly-report-history";
@@ -294,7 +297,14 @@ export async function POST(req: NextRequest) {
     .eq("ym", previousYm)
     .maybeSingle();
   if (previousRes.error) return NextResponse.json({ error: previousRes.error.message }, { status: 500 });
-  const referenceBody = previousRes.data?.body_md || "";
+  const currentRes = await auth.supabase
+    .from("monthly_reports_external")
+    .select("body_md")
+    .eq("project_id", projectId)
+    .eq("ym", toExternalYm(ym))
+    .maybeSingle();
+  if (currentRes.error) return NextResponse.json({ error: currentRes.error.message }, { status: 500 });
+  const referenceBody = currentRes.data?.body_md || previousRes.data?.body_md || "";
   const validationErrors = validateSubmission(normalized, referenceBody, allowFormatChange);
   if (validationErrors.length > 0) {
     return NextResponse.json({ error: validationErrors.join("\n"), errors: validationErrors }, { status: 422 });
@@ -306,13 +316,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: errors.join("\n"), errors }, { status: 422 });
   }
 
-  const currentRes = await auth.supabase
-    .from("monthly_reports_external")
-    .select("body_md")
-    .eq("project_id", projectId)
-    .eq("ym", toExternalYm(ym))
-    .maybeSingle();
-  if (currentRes.error) return NextResponse.json({ error: currentRes.error.message }, { status: 500 });
   const changedSections = changedMonthlyReportSections(currentRes.data?.body_md, normalized);
 
   const memberRes = await auth.supabase
@@ -347,8 +350,10 @@ export async function POST(req: NextRequest) {
     jargon_check_status: string | null;
   };
 
+  const pdf = await saveMonthlyReportPdf(req, { projectId, ym, kind: "external", expectedContent: savedReport.body_md });
   return NextResponse.json({
     ok: true,
+    pdf,
     formatMatch: referenceBody ? compareSubmissionStructure(normalized, referenceBody).length === 0 : null,
     report: {
       bodyMd: savedReport.body_md,

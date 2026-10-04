@@ -698,8 +698,8 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 必須機能:
 
-- 印刷ツールバー: 固定 `.toolbar` (`編集する` / `下書きに保存` or `提出版を保存` / 社内版のみ `確定版に反映` / `PDFとして保存`) は維持し、PDF保存が主役の位置づけを変えない。
-- 最終更新帯: ツールバー直下に no-print の `MonthlyReportHistoryPanel` (`monthly-report-history-panel.tsx`) を常時表示し、更新者・日時・操作と「編集履歴を見る」ボタンを出す。保存・確定が成功するたびに `historyRefreshToken` を進めて即座に最新化する。
+- 印刷ツールバー: 月・版のプルダウンと編集・保存・社内版確定を同じ列へ集約する。PDF保存ボタンは置かず、保存APIがOSドライブと共有DriveへPDFを自動配置する。
+- 編集履歴: 報告書末尾に no-print の `MonthlyReportHistoryPanel` の入口を置く。最終更新者・日時・操作は履歴ダイアログ内に表示する。保存・確定が成功するたびに `historyRefreshToken` を進めて最新化する。
 - 履歴パネル: desktopは右側固定パネル、mobile (`max-width: 760px`) は下からのシート。社内版・提出版をタブで分け、時系列一覧 (更新者・日時・操作・自動生成か人による編集か・変更した章) を表示する。一覧は軽量 (`GET /api/monthly-report/history?projectId=&ym=`、本文全文を含まない) で、行を開いた時だけ `id` 指定の detail fetch (`&id=`) で変更前後の全文を取得し、行単位の正確な差分 (`diffMonthlyReportLines`) を表示する。復元操作は無い。Escapeで閉じ、閉じると開いたボタンへフォーカスを戻す。
 - 書き込み経路: `manual-update` (社内版下書き保存) / `report/fix` (確定) / `external-manual-update` (提出版保存) の3ルートは全て `requireAdmin` (admin-only)。本文保存 + `monthly_report_edit_history` への追記は RPC (`monthly_report_internal_save` / `monthly_report_external_save`) 内で1トランザクションにまとめ、一方だけ成功する状態を作らない。RPCを経由しない直接書込み (将来の routine / GAS / script) も AFTER トリガーが `automation` として最低限捕捉する。`report/fix` は確定者 (`confirmed_by`) を必ず保存する。
 - 版・発行履歴 (印刷PDF内、旧 改訂履歴): §07 添付資料・参照の末尾に、初版 (自動生成) / 確定 (`confirmed_by`) / 本書発行 の3節目だけを残す。個別の下書き保存・編集履歴はPDFへ出さない。
@@ -709,6 +709,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 - `npm run test:monthly-report-history` が、章内変更検出 (`changedMonthlyReportSections`)・行差分の可逆性 (`diffMonthlyReportLines`)・migration の RPC/トリガー/`confirmed_by`保存・3保存APIの `requireAdmin`+atomic RPC使用・履歴一覧が全文をselectしないこと・詳細取得が`id`指定時だけ全文を返すこと・履歴UIの`role="dialog"`/Escape/タブ分離・印刷物が「版・発行履歴」に改名済みであることを検査する。
 - `npm run test:monthly-report-quality` が、下書き保存はRPCの`draft_save`アクションを使うこと、RPC内で確定済みステータスを崩さないことを検査する。
+- `npm run test:monthly-report-pdf` は実Chromiumでstreamed SSR紙面、日本語font、script無効、外部asset遮断、紙面欠落時の拒否を検査する。
 
 ## /institutions/[institutionId]/cockpit
 
@@ -1001,3 +1002,8 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 ### 2026-09-16 SOLガント：工程へのタスク追加
 
 各工程の「＋ タスク追加」から新規作成・既存選択・移動・解除。正本はproject_actionsのgantt_phase_id/gantt_phase_override、通常APIの認可・承認境界・bundleキャッシュ共有。新規は1回の保存、既存はタスク本体と論点関連を維持。親日程は子から再集計。詳細はpwa/spec/3-21-question-tree-current-spec.md、操作はpwa/manual/2-9-question-tree.md。共通DBのmigration 20260916210000適用済み。ネイティブ側の入力UIは対象外。
+
+### 月次報告書の選択・保存（2026-10-05）
+
+- 月/版の共通プルダウン、紙面編集と本文保存、社内版の明示確定、末尾から開く編集履歴。PDF保存ボタンを置かず、保存/確定時にOS内部ドライブと共有Driveへ同じ帳票PDFを配置。失敗時は本文を保持しPDFのみ再試行。
+- UI: CockpitMonthlyReports、MonthlyReportSelectors、MonthlyReportPrintClient、MonthlyReportHistoryPanel。API: monthly-report/manual-update、external-manual-update、pdf、report/fix。DB:既存monthly_reports、monthly_reports_external、workspace_documents。回帰: test_monthly_report_history、check_pwa_critical_ui。正本spec/3-2、manual/4-8。

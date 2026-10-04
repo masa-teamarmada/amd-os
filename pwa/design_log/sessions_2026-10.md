@@ -127,3 +127,11 @@ M	pwa/src/lib/build-info.ts
 - 9月CX/KUTE提出版は対象期間とKUTE冒頭説明だけ9/30へ更新。置換を逆適用して修正前本文との完全一致を検証し、提出版validator両件ok/formatMatch=true。monthly_report_external_saveによる編集履歴とDB読戻しbody_matchesを確認。SOLは既に9/30、未変更。Drive PDF更新は未実施。
 - 原因: 8/29の25日発火化で対象期間まで25日に固定していた。解決: 生成日と暦月の対象期間を分離。未来予定の実績化は引き続き禁止。新規schema/env/route/モデル変更なし。
 - 引き継ぎはroot HANDOFF_monthly_report_period.mdとSESSION_MIGRATION_PROMPT.md。既存共通HANDOFFの他チャット差分は未変更。共有checkoutに残る22パスはactive「9月月報の記載を修正」由来とread_threadで確認。9/22の未追跡タスク移行案も保存維持。main整合・branch/worktree・配信を監査済み、共有checkout全体はarchive不可。会話の検討材料0件。
+
+## 2026-10-05 月次報告書の操作集約とPDF自動保存
+
+- 仕事種別: development。月・版のプルダウン、編集・保存を同一操作列に集約し、重複ヘッダー・PDF保存ボタンを撤去。履歴入口を本文末尾へ移動。PDFは認可済み保存APIから自動生成し、private OSドライブとPJ共有Driveへ保存・bytes読戻しする。既存PDFのID・場所・権限を維持。PDFだけの再試行は本文と履歴を追加保存しない。
+- 紙面検証でstyled-jsxのCSSがscript無効のSSR描画へ出ないことを検出し、紙面CSSをserver-rendered styleへ変更。Nextのhidden suspenseコンテナから紙面を取り出し、日本語fontを同梱。本文は変更しない。
+- 検証: 認証済みHTTPでp25/202609本文とcompact controls、未認証PDF APIの拒否を確認。実HTMLとCSSの静的描画は1440×900で操作列53px、390×844で142px、横overflowなし。PDFはA4全5頁を画像確認し、操作列・編集履歴の印刷混入なし。Chromeの拡張接続とローカルGoogleログインは利用できず、操作確認は静的描画とAPI検証で代替。本番Google連携の認証取得は既存read-only routeで確認。
+- deploy bundle: このUI・PDF保存・関連spec/manual/registryと回帰検査をmainへ保存し、正規deploy scriptでpush。本番build-info SHA一致、PDF保存API、OSドライブ一覧とStorage SHA、共有Drive size/md5を反映後に検収する。rollbackは本変更commitをrevertしてpatch versionを上げ、正規deployする。
+- 既存未追跡SESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdは本件の成果物ではなく保持。branch/worktreeは作成なし。秘密値・raw会話の恒久保存なし。
