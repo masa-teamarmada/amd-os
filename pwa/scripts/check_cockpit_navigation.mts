@@ -24,7 +24,7 @@ for (const type of TYPES) {
   assert.equal(new Set(children).size, children.length, `${type} cockpit tabs must belong to only one group`);
 }
 
-const STANDARD_GROUPS = ["進捗管理", "事業計画", "ドライブ", "PJ管理", "会社情報", "DDパッケージ"];
+const STANDARD_GROUPS = ["進捗管理", "事業計画", "ドライブ", "PJ管理", "会社情報"];
 for (const type of ["su", "new_business", "amd"] as const) {
   // DDパッケージのタブは、AMDの管理者が見るときだけ出る（表示条件は CockpitView の役割の判定）。PJでは出し分けない。
   assert.deepEqual(cockpitGroupsForType(type).map((group) => group.label), STANDARD_GROUPS, `${type} groups`);
@@ -66,7 +66,7 @@ assert.equal(cockpitGroupForTabInType("company", "su").label, "会社情報");
 assert.equal(cockpitGroupForTabInType("activity", "su").label, "会社情報");
 assert.equal(cockpitGroupForTabInType("seeds", "ecosystem").label, "シーズリスト");
 assert.equal(cockpitGroupForTabInType("regulations", "ecosystem").label, "規程・内規");
-assert.equal(cockpitGroupForTabInType("dd", "su").label, "DDパッケージ");
+assert.ok(TYPES.every((type) => !cockpitGroupsForType(type).some((group) => group.children.includes("dd"))), "DD is a parallel surface for all types");
 
 // 進捗管理はゴールツリー → タスク → ガント → 残りは元の順。既定タブはその一番左
 // （2026-09-13 まさ「進捗グループを使うときは最初に論点タブを開くので、一番左を論点、
@@ -85,7 +85,7 @@ assert.equal(resolveCockpitTabForType("capital-policy", "ecosystem"), "capital-p
 assert.equal(resolveCockpitTabForType("capital-plan", "ecosystem"), DEFAULT_COCKPIT_TAB);
 assert.equal(resolveCockpitTabForType("business-plan", "ecosystem"), DEFAULT_COCKPIT_TAB);
 assert.equal(resolveCockpitTabForType("dd", "ecosystem"), DEFAULT_COCKPIT_TAB, "研究機関PJにはDDパッケージのタブを出さない");
-assert.equal(resolveCockpitTabForType("dd", "su"), "dd");
+assert.equal(resolveCockpitTabForType("dd", "su"), DEFAULT_COCKPIT_TAB);
 assert.equal(resolveCockpitTabForType("seeds", "su"), DEFAULT_COCKPIT_TAB);
 assert.equal(resolveCockpitTabForType("regulations", "su"), DEFAULT_COCKPIT_TAB);
 assert.equal(resolveCockpitTabForType("score-detail", "amd"), DEFAULT_COCKPIT_TAB, "AMD本体は AMD Score の内訳を持たない");

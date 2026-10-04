@@ -5,8 +5,8 @@ import { DdAdminPanel } from "@/components/dd/DdAdminPanel";
 import type { DdAdminState } from "@/lib/dd-package-server";
 import type { DdSourceCandidate } from "@/lib/dd-sources";
 
-// コックピットとワークスペースの「DDパッケージ」タブ（AMD admin 限定）。
-// 2026-09-30 まさ「ワークスペースに左メニューってなくない？」: DDの管理はワークスペース（とコックピット）の中から開く。
+// 独立したDD領域の管理画面（AMD admin 限定）。
+// 2026-10-04: DD管理は独立したDD領域の中から開く。
 // 中身（掲載項目・公開の切り替え・閲覧権限・記録）は可変系なので、開くたびと操作のたびに読み直す（キャッシュしない）。
 
 type LoadState =

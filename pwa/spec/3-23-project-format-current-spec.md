@@ -18,7 +18,7 @@
 > １．おけ ２．てゆーか全部統一してないとだめ。OSの大原則。あと中身があるときだけ出るタブってなに？上記の通り、すべてのフォーマットが同じ状態で表示されてないとだめ。
 
 - 統一はタブの並びにも及ぶ。同じタイプのPJは、同じタブを、データの有無にかかわらず全部持つ。中身が無いタブは、タブの中で「未登録」と出す。
-- 見る人で出し分けてよいのは、役割で決まるもの（DDパッケージ＝AMDの管理者、PJワークスペースの外部の参加者）だけ。
+- 見る人で出し分けてよいのは、役割で決まるもの（各領域の入場権限、PJワークスペースの外部の参加者）だけ。
 
 ## 2. PJタイプとタブの並び
 
@@ -44,7 +44,6 @@
 | ドライブ | 資料室 | 同左 | 同左 |
 | PJ管理 | PJ概要・契約・収支・月次報告書 | 同左 | 同左 |
 | 会社情報 | 会社概要・資金調達履歴・活動 | 同左 | 同左 |
-| DDパッケージ | DDパッケージ（AMDの管理者だけ） | 同左 | （なし） |
 
 ### 2.2 PJワークスペースのタブ（`WORKSPACE_TAB_FORMATS`）
 
@@ -54,14 +53,13 @@
 | 事業計画 | 技術・競合比較・ビジネスモデル・事業計画・試算表・資本政策表・コスト試算・知財 | （なし） |
 | ドライブ | ドライブ | 同左 |
 | 会社情報 | 会社概要・資金調達履歴 | 同左 |
-| DDパッケージ | DDパッケージ（AMDの管理者だけ） | （なし） |
 
 外部の参加者（`workspace_account`）には、この並びのうち外部に見せるタブ（`EXTERNAL_WORKSPACE_TABS`）だけを出す。
 
 ### 2.3 タブの決まり
 
-- タブは、データの有無にかかわらず全部出す。技術台帳に「競合比較」「ビジネスモデル」の区分が無いPJ、燃料の試算が無いPJ、DDパッケージが無いPJでも、タブは出し、中で「未登録」と出す。
-- 見る人の役割で出し分けるのは `ROLE_RESTRICTED_TABS`（DDパッケージ＝AMDの管理者）だけ。PJ番号では出し分けない。
+- タブは、データの有無にかかわらず全部出す。技術台帳に「競合比較」「ビジネスモデル」の区分が無いPJ、燃料の試算が無いPJでも、タブは出し、中で「未登録」と出す。DDの独立した領域の入口も、管理者には未登録でも出す。
+- コックピット・ワークスペース・DDは並列の領域。各領域は見出し・領域の選択・分類・子タブ・本文の同じ構造を使う。DDは他領域の分類に含めず、独立した認可で入口を決める（2026-10-04 まさ確定）。
 - 開いたときのタブは全PJ同じ（`DEFAULT_TABS`）。コックピットはゴールツリー、ワークスペースは週次差分（外部の参加者はゴールツリー）。
 - そのPJタイプの並びに無いタブをアドレスで開いたときは、既定のタブへ読み替える（`resolveCockpitTabForType`、ワークスペースは `resolveView`）。旧アドレスの別名: `?tab=objective-structure` → ガント、`?tab=cost-fuel`・`#cost-model-fuel` → コスト試算タブ（燃料の試算を先に選ぶ）。
 - 研究機関との結び付き（`institution_projects`）は、シーズ一覧・規程一覧の中身を読むのにだけ使う。結び付きの無い研究機関PJは、タブの中で「未登録」と出す。
@@ -127,7 +125,7 @@
 2. **PJ番号の名指しのラチェット**：コックピット・PJワークスペース・DDの部品（`src/components/cockpit`・`src/components/project-workspace`・`src/components/dd`・`src/app/(app)/project`・`src/app/workspace`）と、フォーマットの定義・変換・タブ・事業計画・ワークスペースのデータのファイルで、PJ番号の文字列（`"p21"` など）・PJ番号を鍵にした表（`p21: …`）・PJ名との比較（`=== "LiSTie …"`・`startsWith("KUTE…")` など）・PJ専用の表示フラグ（`showSxDetail`・`isZmp…`・`WORKSPACE_TITLE_OVERRIDES`・`SX_BUSINESS_PLAN_PHASES` など）を数える。`scripts/project_format_baseline.json` の既存分だけ許し、増えたら止める。減ったら許容数も下げさせる。2026-10-03 の全タブ統一で 0 件になった。定義の中の `AMD_COMPANY_PROJECT_ID` の宣言だけは数えない（鍵の対象）。
 3. **試算表は標準フォーマットだけ**：試算表タブは `ProjectFinanceFormat` だけを読み込む。統合して消した部品（`CockpitFundingPlan`・`Bzm22TimeLedger`・`Bzm22TimeLedgerSection`・`CockpitPlMonthlySection`）を戻さない。DDの資金計画も同じ部品で描く。
 4. **コスト試算タブは入口がデータの形で選ぶ**（§7）：入口 `CockpitCostTab` は `costFormatEngineOf(bundle)` だけで画面を選ぶ。標準フォーマット `ProjectCostFormat` は §7 の区画をすべて描き、要約の欄と前提の並べ方は定義の順に描く。コックピット・PJワークスペース・DD はどれも入口を通し、廃液の画面（`CockpitCostModel`）を直に描かない。燃料の試算もタブを足さず、入口の中の切り替えで読む。計算の答えと式の一致は `npm run test:project-cost-model`（`scripts/check_project_cost_items_engine.mts`）が確かめる。
-5. **タブはPJタイプの定義からだけ作る**（§2）：`CockpitView` は `cockpitGroupsForType(formatType)`・`resolveCockpitTabForType`、ワークスペースは `WORKSPACE_TAB_FORMATS` からタブを作る。中身の有無でタブを出し分ける書き方（`hasCompetition`・`hasBusinessModel`・`hasFuelCost`・`hasDd`・`hasInstitutionSeedsTab`・`ledgerTabsPresent`）を戻さない。役割で出し分けるタブは DDパッケージだけ。ワークスペースの題名は表示名から作る。
+5. **タブはPJタイプの定義からだけ作る**（§2）：`CockpitView` は `cockpitGroupsForType(formatType)`・`resolveCockpitTabForType`、ワークスペースは `WORKSPACE_TAB_FORMATS` からタブを作る。中身の有無でタブを出し分ける書き方（`hasCompetition`・`hasBusinessModel`・`hasFuelCost`・`hasDd`・`hasInstitutionSeedsTab`・`ledgerTabsPresent`）を戻さない。DDはタブの外の領域選択に置き、独立した認可を使う。ワークスペースの題名は表示名から作る。
 6. **事業計画タブはデータから**（§8）：`CockpitBusinessPlan` は `project_business_plans` を読み、`BUSINESS_PLAN_FORMAT` のレーンの順に描く。PJの定数（`sx-business-plan`）を画面に持ち込まない。
 
 ## 6. 統一の残り

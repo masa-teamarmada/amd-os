@@ -101,7 +101,7 @@ import { CockpitCapitalPolicy } from "@/components/cockpit/CockpitCapitalPolicy"
 import { CockpitCompanyOverview } from "@/components/cockpit/CockpitCompanyOverview";
 import { CockpitProjectTasks } from "@/components/cockpit/CockpitProjectTasks";
 import { COCKPIT_GROUP_LABELS } from "@/lib/cockpit-tabs";
-import { DdProjectTab } from "@/components/dd/DdProjectTab";
+import { InternalProjectSurfaceNav, ProjectSurfaceNav } from "@/components/nav/ProjectSurfaceNav";
 import styles from "./weekly-control.module.css";
 
 type StageKey = SxWeeklyIssueStage;
@@ -4587,6 +4587,7 @@ export function SxWeeklyControlDashboard({
   view,
   embedded = false,
   onViewChange,
+  ddHref,
 }: {
   bundle: ProjectWorkspaceBundle;
   access: SxDashboardAccess;
@@ -4596,6 +4597,8 @@ export function SxWeeklyControlDashboard({
   embedded?: boolean;
   /** 画面内の導線 (「ガントで見る」等) が別タブへ飛ぶとき、外側のタブ列へ知らせる。 */
   onViewChange?: (view: SxWeeklyControlView) => void;
+  /** サーバで独立したDD付与を再確認した外部閲覧者の入口。 */
+  ddHref?: string;
 }) {
   const [management, setManagement] = useState(bundle.sxManagement);
   const [editor, setEditor] = useState<EditorState | null>(null);
@@ -4642,16 +4645,25 @@ export function SxWeeklyControlDashboard({
   const [openGroupKey, setOpenGroupKey] = useState<WorkspaceGroupKey | null>(null);
   const [desktopHoverEnabled, setDesktopHoverEnabled] = useState(false);
   const externalViewer = access.principal === "workspace_account";
+  useEffect(() => {
+    if (embedded) return;
+    const redirectLegacyDd = () => {
+      if (window.location.hash === "#dd-package") {
+        window.location.replace(ddHref ?? `/project/${encodeURIComponent(bundle.project.projectId)}/dd`);
+      }
+    };
+    redirectLegacyDd();
+    window.addEventListener("hashchange", redirectLegacyDd);
+    return () => window.removeEventListener("hashchange", redirectLegacyDd);
+  }, [embedded, bundle.project.projectId, ddHref]);
   // PJタイプ（大学発SU・新規事業・研究機関エコシステム・AMD本体）の標準フォーマットでタブを並べる。
   const formatType = projectFormatTypeOf({ projectId: bundle.project.projectId, projectCategory: bundle.project.projectCategory });
-  // DDパッケージのタブは、見る人がAMDの管理者（portfolio）なら全PJで出す。パッケージの有無では出し分けない。
-  const ddEligible = !externalViewer && access.isAdmin && access.scope === "portfolio";
+  // DDは分類の子タブに含めず、領域の選択で独立して開く。
   const workspaceGroups = useMemo(() => workspaceGroupsForType(formatType).map((group) => ({
     ...group,
     children: group.children
-      .filter((tab) => (tab.key !== "dd" || ddEligible)
-        && (!externalViewer || EXTERNAL_WORKSPACE_TABS.has(tab.key))),
-  })).filter((group) => group.children.length > 0), [externalViewer, ddEligible, formatType]);
+      .filter((tab) => !externalViewer || EXTERNAL_WORKSPACE_TABS.has(tab.key)),
+  })).filter((group) => group.children.length > 0), [externalViewer, formatType]);
   const dynamicTabs = useMemo(() => workspaceGroups.flatMap((group) => group.children), [workspaceGroups]);
 
   const externalDefaultView: SxWeeklyControlView = DEFAULT_TABS.workspaceExternal;
@@ -5423,6 +5435,11 @@ export function SxWeeklyControlDashboard({
               </div>
             )}
           </div>
+          {externalViewer ? (
+            <ProjectSurfaceNav projectId={bundle.project.projectId} current="workspace" canWorkspace ddHref={ddHref} />
+          ) : (
+            <InternalProjectSurfaceNav projectId={bundle.project.projectId} current="workspace" canCockpit={access.scope === "portfolio" || access.isAdmin} />
+          )}
           <nav className={styles.workspaceGroupNavigation} style={{ gridTemplateColumns: `repeat(${workspaceGroups.length}, minmax(0, 1fr))` }} aria-label="PJワークスペースの分類">
             {workspaceGroups.map((group) => {
               const selected = activeWorkspaceGroup?.key === group.key;
@@ -5808,12 +5825,6 @@ export function SxWeeklyControlDashboard({
           <section id="cost-model" className={styles.section} role="tabpanel" aria-label="コスト試算">
             {/* ワークスペースでは保存させない。試算の切り替えと前提の試し入力はできる。 */}
             <CockpitCostTab projectId={bundle.project.projectId} allowEdit={false} initialRenderer={activeView === "cost-fuel" ? "fuel" : costInitialRenderer} />
-          </section>
-        )}
-
-        {activeView === "dd" && ddEligible && (
-          <section id="dd-package" className={styles.section} role="tabpanel" aria-label="DDパッケージ">
-            <DdProjectTab projectId={bundle.project.projectId} />
           </section>
         )}
 

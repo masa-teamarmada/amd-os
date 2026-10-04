@@ -31,6 +31,10 @@ export default function CockpitPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const projectId = params.projectId as string;
+  const legacyDd = searchParams.get("tab") === "dd";
+  useEffect(() => {
+    if (legacyDd) router.replace(`/project/${encodeURIComponent(projectId)}/dd`);
+  }, [legacyDd, projectId, router]);
 
   const [loadState, setLoadState] = useState<CockpitLoadState>(() => ({
     projectId,
@@ -39,6 +43,7 @@ export default function CockpitPage() {
   }));
 
   useEffect(() => {
+    if (legacyDd) return;
     let cancelled = false;
 
     fetchCockpitFromSupabase(projectId)
@@ -58,14 +63,14 @@ export default function CockpitPage() {
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, legacyDd]);
 
   const isCurrentProject = loadState.projectId === projectId;
   const cockpit = isCurrentProject ? loadState.cockpit : null;
   const error = isCurrentProject ? loadState.error : null;
   const loading = !isCurrentProject || (!cockpit && !error);
 
-  if (loading) {
+  if (loading || legacyDd) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-2.75rem)]">
         <div className="text-center space-y-2">

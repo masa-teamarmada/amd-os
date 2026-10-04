@@ -392,7 +392,7 @@ expectIncludes(
     "notFound()",
     "SharedWorkspaceScopeRibbon",
     "externalWorkspaceRoleCapabilityLabel",
-    '<SxWeeklyControlDashboard bundle={bundle} access={access} />',
+  '<SxWeeklyControlDashboard bundle={bundle} access={access}',
   ],
 );
 

@@ -210,8 +210,8 @@ for (const [file, source] of [["src/components/cockpit/CockpitView.tsx", cockpit
   const flag = source.match(CONTENT_CONDITIONAL_TAB_FLAGS);
   if (flag) errors.push(`${file}: 中身の有無でタブを出し分けない（${flag[0]}）。タブは全部出し、中身が無いときはタブの中で「未登録」と出す（spec 3-23）。`);
 }
-if (!formatSource.includes('ROLE_RESTRICTED_TABS: Readonly<Record<string, "amd_admin">> = { dd: "amd_admin" }')) {
-  errors.push("見る人の役割で出し分けるタブは DDパッケージ（AMDの管理者）だけ。増やすときはまさの承認を得る");
+if (!formatSource.includes('ROLE_RESTRICTED_TABS: Readonly<Record<string, "amd_admin">> = {}')) {
+  errors.push("DDはコックピット・ワークスペースの子タブに置かず、独立した領域で権限を判定する");
 }
 if (!workspaceView.includes("bundle.project.displayName ?? bundle.project.projectName")) {
   errors.push("ワークスペースの題名は全PJ「{表示名} PJワークスペース」。表示名は projects.display_name（無ければ project_name）");

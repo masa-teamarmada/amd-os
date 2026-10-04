@@ -1,13 +1,15 @@
 import Link from "next/link";
+import { DdNavigation } from "./DdNavigation";
 import { DD_ITEM_KIND_LABEL } from "@/lib/dd-payload";
 import { formatDdDate } from "@/lib/dd-format";
 import type { DdPackageView } from "@/lib/dd-package-server";
 
 // DDトップ。先頭に全体の要約（公開中の項目数・元データの最終更新・未確認事項・資料の数）を置き、
-// その下に7区分をすべて同じ表の形で並べる（区分をタブで隠さない）。公開中でない項目は一切出さない。
+// その下に分類・子タブを並べ、選択中の区分を表示する。公開中でない項目は一切出さない。
 // 各項目は、ワークスペースの最新の内容をそのまま表示する（公開した時点で固定しない）。
 
-export function DdPackageTop({ view, slug }: { view: DdPackageView; slug: string }) {
+export function DdPackageTop({ view, slug, sectionKey }: { view: DdPackageView; slug: string; sectionKey?: string }) {
+  const selectedSection = view.sections.find((section) => section.key === sectionKey) ?? view.sections[0];
   const items = view.sections.flatMap((section) => section.items);
   const unverifiedTotal = items.reduce((sum, item) => sum + item.unverifiedNotes.length, 0);
   const fileCount = items.filter((item) => item.itemKind === "document").length;
@@ -42,20 +44,9 @@ export function DdPackageTop({ view, slug }: { view: DdPackageView; slug: string
         </p>
       </section>
 
-      <nav aria-label="区分" className="flex flex-wrap gap-1.5">
-        {view.sections.map((section) => (
-          <a
-            key={section.key}
-            href={`#section-${section.key}`}
-            className="rounded border border-[#d2d2d7] px-2.5 py-1 text-[12px] text-[#1d1d1f] hover:border-[#027FDC] hover:text-[#027FDC]"
-          >
-            {section.label}
-            <span className="ml-1 tabular-nums text-[#6e6e73]">{section.items.length}</span>
-          </a>
-        ))}
-      </nav>
+      <DdNavigation view={view} slug={slug} sectionKey={selectedSection.key} />
 
-      {view.sections.map((section) => (
+      {[selectedSection].map((section) => (
         <section key={section.key} id={`section-${section.key}`} className="scroll-mt-20">
           <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[#1d1d1f] pb-1.5">
             <h2 className="text-[15px] font-semibold text-[#1d1d1f]">{section.label}</h2>

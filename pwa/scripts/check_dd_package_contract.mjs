@@ -42,6 +42,26 @@ assert.match(access, /member\?\.isAdmin/, "内部メンバーは admin だけが
 const scopeCore = read("src/lib/workspace-access-scope-core.ts");
 assert.ok(!code(scopeCore).includes("dd_"), "ワークスペースの範囲判定に DD の付与を混ぜない");
 
+// DDは独立した領域。管理部品を社内・共同作業の子タブへ戻さない。
+for (const file of ["src/components/cockpit/CockpitView.tsx", "src/components/project-workspace/SxWeeklyControlDashboard.tsx"]) {
+  assert.doesNotMatch(code(read(file)), /DdProjectTab|DdAdminPanel/, `${file}: DD管理は独立した画面だけ`);
+  assert.match(code(read(file)), /ProjectSurfaceNav/, `${file}: 並列の領域選択を共用する`);
+}
+assert.doesNotMatch(code(read("src/lib/project-formats.ts")), /group: "dd-group"/, "DDを他領域の分類に含めない");
+const adminPage = read("src/app/(app)/project/[projectId]/dd/page.tsx");
+const adminGuardIndex = adminPage.indexOf("if (!member?.isAdmin");
+assert.ok(adminGuardIndex >= 0 && adminGuardIndex < adminPage.indexOf("getDdPackageSummary(projectId)"), "DD入口もデータを読む前に管理権限を確認する");
+assert.doesNotMatch(adminPage, /cockpit\?tab=dd/, "DD入口からコックピットへ戻さない");
+assert.match(adminPage, /<DdProjectTab/, "DD管理を独立したDD画面で開く");
+assert.match(read("src/app/(app)/project/[projectId]/cockpit/page.tsx"), /legacyDd.*?=/, "旧DD子タブのURLを受け付ける");
+const ddNavigation = read("src/components/dd/DdNavigation.tsx");
+assert.match(ddNavigation, /view\.sections\.map/, "DD分類は未登録でも常設する");
+assert.match(ddNavigation, /section\.items\.map/, "DD子タブは認可済みの掲載項目だけから作る");
+const sharedPage = read("src/app/(shared-workspace)/project/[projectId]/workspace/page.tsx");
+assert.match(sharedPage, /resolveDdViewerScope\(\)/, "共有画面のDD入口は独立したDD付与を再確認する");
+assert.match(sharedPage, /pkg\.projectId === projectId/, "DD入口は現在のPJに限定する");
+assert.match(read("src/components/dd/DdViewerShell.tsx"), /resolveSharedWorkspaceAccess\(access\.projectId\)/, "DD画面の共有入口も独立したPJ所属を再確認する");
+
 // --- 閲覧者の面 -------------------------------------------------------------
 const ddAppDir = path.join(root, "src/app/dd");
 const viewerFiles = walk(ddAppDir).filter((file) => /\.(tsx|ts)$/.test(file) && !file.endsWith("layout.tsx"));

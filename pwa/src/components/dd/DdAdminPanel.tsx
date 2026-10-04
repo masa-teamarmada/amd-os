@@ -17,7 +17,7 @@ import type { DdAdminItem, DdAdminState } from "@/lib/dd-package-server";
 import type { DdSourceCandidate } from "@/lib/dd-sources";
 import { formatDdDate } from "@/lib/dd-format";
 
-// DDパッケージの管理（AMD admin 限定）。コックピットとワークスペースの「DDパッケージ」タブの中に出す。
+// DDパッケージの管理（AMD admin 限定）。独立したDD領域の管理画面の中に出す。
 // 読み取りは DdProjectTab（GET /api/admin/dd）が行い、この部品は操作（POST /api/admin/dd）だけを送る。送った直後に onChanged() で読み直す。
 // 項目は「公開する／公開をやめる」の切り替えだけ。公開中の項目は、元データの最新がそのまま投資家に見える（固定した版は作らない）。
 // 公開の切り替え・状態変更・付与の停止/失効は確認を挟む。投資家への招待メールは送らない（この画面にも送信機能は無い）。

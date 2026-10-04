@@ -20,7 +20,7 @@ assert.match(workspacePage, /if \(!access\) notFound\(\)/);
 assert.match(workspacePage, /access\.principal === "workspace_account" && \(/);
 assert.match(workspacePage, /externalWorkspaceRoleCapabilityLabel\(access\.role\)/);
 assert.match(workspacePage, /getProjectWorkspaceBundle\(projectId, access\)/);
-assert.match(workspacePage, /<SxWeeklyControlDashboard bundle=\{bundle\} access=\{access\} \/>/);
+assert.match(workspacePage, /<SxWeeklyControlDashboard bundle=\{bundle\} access=\{access\}(?: ddHref=\{[^\n]+\})? \/>/);
 assert.match(workspacePage, /<SharedWorkspaceScopeRibbon[\s\S]*?principal="workspace_account"/);
 assert.doesNotMatch(workspacePage, /if \(access\.principal === "workspace_account"\) notFound\(\)/);
 assert.match(sharedWorkspaceAccess, /getCurrentMemberAccess/);

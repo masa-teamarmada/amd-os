@@ -30,8 +30,7 @@ import { CockpitSeasonBudget } from "./CockpitSeasonBudget";
 import { CockpitProjectControl } from "./CockpitProjectControl";
 import { CockpitProjectTasks } from "./CockpitProjectTasks";
 import type { SxWeeklyControlView } from "@/components/project-workspace/SxWeeklyControlDashboard";
-import { DdProjectTab } from "@/components/dd/DdProjectTab";
-import { loadProjectDdSummary, peekProjectDdSummary } from "@/lib/dd-client";
+import { InternalProjectSurfaceNav } from "@/components/nav/ProjectSurfaceNav";
 import { CockpitBusinessPlan } from "./CockpitBusinessPlan";
 import { CockpitFinancialProjection } from "./CockpitFinancialProjection";
 import { CockpitCapitalPlan } from "./CockpitCapitalPlan";
@@ -52,7 +51,7 @@ import {
   resolveCockpitTabForType,
   type CockpitGroupKey,
 } from "@/lib/cockpit-tabs";
-import { projectFormatTypeOf, ROLE_RESTRICTED_TABS } from "@/lib/project-formats";
+import { projectFormatTypeOf } from "@/lib/project-formats";
 import { fetchInstitutionIdForProject } from "@/lib/seeds-data";
 
 interface PlanCycleShape {
@@ -362,30 +361,6 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     if (resolvedTab === "company") setHasVisitedCompany(true);
   }, [resolvedTab]);
 
-  // DDパッケージのタブは、見る人がAMDの管理者なら全PJで出す（パッケージが無いPJは空の状態を出す）。
-  // パッケージの有無では出し分けない（2026-10-03 まさ「全部統一してないとだめ」）。管理者かどうかは参照系のキャッシュ越しに確かめる。
-  const peekDdManage = (projectId: string) => peekProjectDdSummary(projectId)?.canManage;
-  const [ddLoaded, setDdLoaded] = useState<{ projectId: string; canManage: boolean | undefined }>(() => ({
-    projectId: cockpit.project.projectId,
-    canManage: peekDdManage(cockpit.project.projectId),
-  }));
-  useEffect(() => {
-    const projectId = cockpit.project.projectId;
-    let cancelled = false;
-    loadProjectDdSummary(projectId)
-      .then((summary) => {
-        if (!cancelled) setDdLoaded({ projectId, canManage: summary.canManage });
-      })
-      .catch(() => {
-        if (!cancelled) setDdLoaded({ projectId, canManage: false });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [cockpit.project.projectId]);
-  const canManageDdRaw = ddLoaded.projectId === cockpit.project.projectId ? ddLoaded.canManage : peekDdManage(cockpit.project.projectId);
-  const canManageDd = canManageDdRaw === true;
-
   function selectTab(tab: CockpitTab) {
     setLocalActiveTab(tab);
     onTabChange?.(tab);
@@ -477,17 +452,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     activity: "活動実績",
     dd: "DDパッケージ",
   };
-  const availableTab = (tab: CockpitTab) => {
-    // 見る人の役割で出し分けるタブだけを絞る。読み込み中に ?tab=dd で開いたときは、先頭へ落とさずに待つ。
-    if (ROLE_RESTRICTED_TABS[tab] === "amd_admin") return canManageDd || (canManageDdRaw === undefined && resolvedTab === tab);
-    return true;
-  };
-  const visibleGroups = groups
-    .map((group) => ({
-      ...group,
-      children: group.children.filter(availableTab),
-    }))
-    .filter((group) => group.children.length > 0);
+  const visibleGroups = groups;
   const requestedGroup = cockpitGroupForTabInType(resolvedTab, formatType);
   const activeGroupWithAvailableChildren = visibleGroups.find((group) => group.key === requestedGroup.key) ?? visibleGroups[0];
   // URLが現在のPJでは非表示になるタブを指していても、空画面にせず同じグループの先頭へ落とす。
@@ -585,6 +550,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     >
       {/* [A] Project Header (full width) */}
       <CockpitHeader project={project} members={members} />
+      {!hideNavigation && <InternalProjectSurfaceNav projectId={project.projectId} current="cockpit" />}
 
       {/* 旧 [A2] Hero (PJの見出し・担当・事業概要・XRL進捗) は 2026-08-28 まさ依頼で
           「PJ概要」タブへ丸ごと移した。上段に残すのは CockpitHeader だけで、
@@ -1008,12 +974,6 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
           className={activeTab === "company" ? "min-w-0" : "hidden"}
         >
           <CockpitCompanyOverview projectId={project.projectId} projectName={project.projectName} surface="cockpit" />
-        </section>
-      )}
-
-      {activeTab === "dd" && (
-        <section role="tabpanel" aria-label="DDパッケージ" className="min-w-0">
-          <DdProjectTab projectId={project.projectId} />
         </section>
       )}
 

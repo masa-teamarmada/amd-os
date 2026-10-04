@@ -1,5 +1,8 @@
 # DESIGN.md — AMD OS 全画面設計の正本
 
+2026-10-04: PWAのコックピット・ワークスペース・DDパッケージを並列の領域へ修正。各画面の見出し下に共通の領域選択を置き、DDの分類・子タブ・本文は独立した `/dd/[slug]` で表示する。DD管理は `/project/[projectId]/dd?tab=manage`。旧 `cockpit?tab=dd` と workspace `#dd-package` は独立したDD入口へ送る。入場権限・公開範囲・共有DB・表示本文の部品は変更なし。iOS/macOS/AndroidのDD画面は未移植、ブラウザで開く前提（spec 5-17）。
+
+
 2026-10-03: PWAに書斎 `/bzm/read` を追加。管理者限定で、執筆途中の本と論文6冊を1ページずつめくって読む（棚、続きから開く、外枠なしの読書画面、目次・しおり・文字の設定、端末ごとの読書位置）。iOS の `TextbookReaderView`（縦書き）とは別に、PWA は横書きのページ送り。iOS/macOS/Android のネイティブ画面は未移植。詳細は `../pwa/design/bzm_reader.md`
 
 2026-10-02: SOLの202609以降の未発行報酬を100円切上げへ変更。PWAのシーズン月別表に「切り上げ加算」を表示。共有報酬JSONの `totalPay` は加算込み、`roundingTopUpYen` は会社負担加算、`stockYen` は元本未払。獲得ptと発生報酬は維持。iOS/macOS/Androidの独自計算・加算表示は未移植。DB列追加なし。詳細は `pwa/spec/3-14` と `pwa/manual/7-1`。

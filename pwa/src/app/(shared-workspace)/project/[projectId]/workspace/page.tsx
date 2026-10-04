@@ -4,6 +4,7 @@ import { getProjectWorkspaceBundle } from "@/lib/project-workspace";
 import { SharedWorkspaceScopeRibbon } from "@/components/project-workspace/SharedWorkspaceScopeRibbon";
 import { SxWeeklyControlDashboard } from "@/components/project-workspace/SxWeeklyControlDashboard";
 import { externalWorkspaceRoleCapabilityLabel } from "@/lib/workspace-capabilities";
+import { resolveDdViewerScope } from "@/lib/dd-access";
 
 export default async function SharedWorkspacePage({
   params,
@@ -20,6 +21,10 @@ export default async function SharedWorkspacePage({
   const bundle = await getProjectWorkspaceBundle(projectId, access);
   if (!bundle) notFound();
 
+  // PJ所属とDD付与は独立に確認する。両方を持つ人だけ並列の入口を出す。
+  const ddScope = access.principal === "workspace_account" ? await resolveDdViewerScope().catch(() => null) : null;
+  const ddPackage = ddScope?.packages.find((pkg) => pkg.projectId === projectId);
+
   return (
     <>
       {access.principal === "workspace_account" && (
@@ -30,7 +35,7 @@ export default async function SharedWorkspacePage({
           projectId={projectId}
         />
       )}
-      <SxWeeklyControlDashboard bundle={bundle} access={access} />
+      <SxWeeklyControlDashboard bundle={bundle} access={access} ddHref={ddPackage ? `/dd/${encodeURIComponent(ddPackage.slug)}` : undefined} />
     </>
   );
 }

@@ -48,7 +48,7 @@ export const COCKPIT_TABS = [
   "capital-policy",
   "company",
   "activity",
-  // DDパッケージ（投資家・金融機関向けの開示面の管理と、投資家と同じ見え方の確認）。AMDの管理者だけに出す（PJでは出し分けない）。
+  // 旧 ?tab=dd の互換解析専用。独立したDDへ送る。分類には含めない。
   "dd",
 ] as const;
 

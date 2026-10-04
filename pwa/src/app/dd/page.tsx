@@ -40,7 +40,7 @@ export default async function DdHomePage() {
                 <td className="px-2 py-2 text-[12px] text-[#424245]">{DD_PACKAGE_STATUS_LABEL[pkg.status]}</td>
                 <td className="px-2 py-2 text-[12px]">
                   <Link href={`/dd/${encodeURIComponent(pkg.slug)}`} className="mr-3 text-[#0267b2] hover:underline">プレビュー</Link>
-                  <Link href={`/project/${encodeURIComponent(pkg.project_id)}/cockpit?tab=dd`} className="text-[#0267b2] hover:underline">管理</Link>
+                  <Link href={`/project/${encodeURIComponent(pkg.project_id)}/dd?tab=manage`} className="text-[#0267b2] hover:underline">管理</Link>
                 </td>
               </tr>
             ))}

@@ -1,5 +1,19 @@
 # HANDOFF - AMD OS PWA
 
+## 2026-10-04 — コックピット・ワークスペース・DDの並列化
+
+- DDをコックピット・ワークスペースの分類から外し、共通の領域選択へ独立させた。DD閲覧は分類・子タブ・本文、管理は `/project/[id]/dd?tab=manage`。旧DD子タブURLは独立したDDへ送る。
+- DDの付与とPJ所属は独立のまま。公開設定・DB・APIの認可・PDF出力・表示本文の共通部品は変更なし。BZM/modelは理論変更なしのため同期対象外。Swift/AndroidのDD画面は未移植、ブラウザで開く前提。
+- 前セッション由来の未追跡 `SESSION_MIGRATION_PROMPT_task_based_pt_20260922.md` は別作業の引き継ぎ資料として維持し、今回のcommitに含めない。
+- 検査: TypeScript・新規DD/領域選択部品のESLint・critical-ui・DD権限/表示/分離・標準フォーマット・参照キャッシュ・workspace所属判定・3者表示モデルが成功。追加の旧 `test:project-workspace-route` は前から存在しない `PROJECT_WORKSPACE_GROUPS` を要求して失敗（現行は `WORKSPACE_TAB_FORMATS`）。CockpitView全体のESLintは既存の3つのeffect内setStateで失敗。対象外の既存実装は変更していない。
+
+| 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
+|---|---|---|---|
+| 3領域の並列の入口 | spec/3-8・3-16・3-23・5-17、ios/DESIGN | manual/2-3・2-6 | 同期済み |
+| DDの分類・子タブ・管理・旧URL | spec/5-17・2-1 | manual/2-6 | 同期済み |
+| BZM/model | 理論・計算の変更なし | 対象外 | 棚卸し済み |
+
+
 ## 2026-10-02 — 支払丸め・少額清算の全PJ共通化（以下のSOL限定記述を更新）
 
 - PJ識別子の条件を撤去。202609以降は共通100円切上げ、202610以降は共通1万円以下残高清算。同じ条件なら同じ結果になることを複数PJ・複数月で回帰検査。

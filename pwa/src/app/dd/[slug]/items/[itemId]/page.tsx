@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 import { resolveDdPackageAccess } from "@/lib/dd-access";
 import { hasDdCapability, isUuid } from "@/lib/dd-package-core";
-import { loadDdItemView, recordDdAccessEvent } from "@/lib/dd-package-server";
+import { loadDdItemView, loadDdPackageView, recordDdAccessEvent } from "@/lib/dd-package-server";
 import { DdViewerShell } from "@/components/dd/DdViewerShell";
+import { DdNavigation } from "@/components/dd/DdNavigation";
 import { DdItemDetail } from "@/components/dd/DdItemDetail";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,8 @@ export default async function DdItemPage({ params }: { params: Promise<{ slug: s
   const view = await loadDdItemView(access, itemId);
   if (!view) notFound();
   const { item } = view;
+  const packageView = await loadDdPackageView(access);
+  if (!packageView) notFound();
 
   await recordDdAccessEvent(access, "dd_item_viewed", { itemId });
 
@@ -27,6 +30,8 @@ export default async function DdItemPage({ params }: { params: Promise<{ slug: s
   const adminPreview = access.principal === "internal_admin";
   return (
     <DdViewerShell access={access}>
+      <DdNavigation view={packageView} slug={access.slug} sectionKey={item.section_key} itemId={itemId} />
+      <div className="mt-3">
       <DdItemDetail
         topHref={topHref}
         fileHref={item.item_kind === "document" ? `${topHref}/items/${itemId}/file` : null}
@@ -46,6 +51,7 @@ export default async function DdItemPage({ params }: { params: Promise<{ slug: s
           evidence: view.evidence.map((link) => ({ href: `${topHref}/items/${link.itemId}`, title: link.title })),
         }}
       />
+      </div>
     </DdViewerShell>
   );
 }

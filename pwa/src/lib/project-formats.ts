@@ -45,7 +45,7 @@ export function projectFormatTypeOf(project: { projectId: string; projectCategor
 
 /**
  * コックピットのタブ。タイプごとに、データの有無にかかわらず全タブを出す（中身が無いタブは空の状態を出す）。
- * 見る人の役割で出し分けるのは ROLE_RESTRICTED_TABS だけ。PJで出し分けない。
+ * DDは並列の独立した領域として入場権限を確認する。PJで出し分けない。
  */
 const COCKPIT_STANDARD_TABS = [
   { group: "progress-group", tabs: ["issues", "tasks", "gantt", "progress", "meetings", "slack", "weekly", "partners"] },
@@ -53,7 +53,6 @@ const COCKPIT_STANDARD_TABS = [
   { group: "documents-group", tabs: ["documents"] },
   { group: "project-management-group", tabs: ["overview", "project-contracts", "project-finance", "monthly-reports"] },
   { group: "company-information-group", tabs: ["company", "capital-policy", "activity"] },
-  { group: "dd-group", tabs: ["dd"] },
 ] as const;
 
 export const COCKPIT_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ group: string; tabs: readonly string[] }>> = {
@@ -77,7 +76,6 @@ const WORKSPACE_STANDARD_TABS = [
   { group: "business-plan-group", tabs: ["technology", "competition", "business-model", "business-plan", "financial-projection", "capital-plan", "cost", "ip"] },
   { group: "documents-group", tabs: ["drive"] },
   { group: "company-information-group", tabs: ["company", "capital-policy"] },
-  { group: "dd-group", tabs: ["dd"] },
 ] as const;
 
 export const WORKSPACE_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ group: string; tabs: readonly string[] }>> = {
@@ -91,8 +89,8 @@ export const WORKSPACE_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ gr
   ],
 };
 
-/** 見る人の役割で出し分けるタブ。DDパッケージの管理はAMDの管理者だけ（PJでは出し分けない）。 */
-export const ROLE_RESTRICTED_TABS: Readonly<Record<string, "amd_admin">> = { dd: "amd_admin" };
+/** タブ内の役割制限。DDは並列の領域として独立した権限で判定する。 */
+export const ROLE_RESTRICTED_TABS: Readonly<Record<string, "amd_admin">> = {};
 
 /** 開いたときのタブ。全PJ同じ。 */
 export const DEFAULT_TABS = {

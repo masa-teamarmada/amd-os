@@ -7,7 +7,6 @@
  * 契約まわりの前提は 2026-09-17 まさ依頼で「契約」タブ (`CockpitProjectOverview`) へ置く。
  */
 
-import Link from "next/link";
 
 const STATUS_COLORS: Record<string, string> = {
   active: "bg-emerald-500/10 text-emerald-700",
@@ -52,12 +51,6 @@ export function CockpitHeader({ project, members }: Props) {
         <span className={`rounded-full px-2 py-0.5 text-[11px] ${STATUS_COLORS[project.status] ?? "bg-muted text-muted-foreground"}`}>{project.status === "active" ? "Active" : project.status}</span>
         <span className={`rounded-full px-2 py-0.5 text-[11px] ${CATEGORY_COLORS[category] ?? CATEGORY_COLORS.dtsu}`}>{CATEGORY_LABELS[category] ?? "DTSU"}</span>
         <span className="text-[11px] text-[#6e6e73]">PJメンバー {members.length > 0 ? members.join(" / ") : "未設定"}</span>
-        <Link
-          href={`/project/${encodeURIComponent(project.projectId)}/workspace`}
-          className="min-h-8 rounded-md border border-[#c9bfd0] px-2.5 py-1 text-[11px] font-semibold text-[#5f4a66] hover:bg-[#f1edf3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5f4a66]"
-        >
-          共有ワークスペースへ
-        </Link>
       </div>
     </header>
   );
