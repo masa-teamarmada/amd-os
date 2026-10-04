@@ -5,6 +5,16 @@
 
 ---
 
+### [git/運用] 作業フォルダが311件遅れ、古い版の書きかけ35件が数週間残っていた (2026-10-03)
+
+- **状態**: クローズ（作業フォルダを origin/main へ追従、`7f4d6e5a` で残す価値のある記録2件を移設、`scripts/root-checkout-sync.py` を追加しセッション開始時に自動実行）。
+- **症状**: `/Users/masa/projects/AMD/amd-os` が origin/main から311件遅れ、未コミットの変更35件と未push commit 3件が9月上旬から残っていた。書きかけの一部は古い版のファイルで、commit すると事業計画タブの月次試算表の削除、BUILD_VERSION の巻き戻し (v3.100.33→v3.100.30)、9-09 の変更履歴行の消失を起こす状態だった。
+- **根本原因**: セッション開始時の `.claude/hooks/git_dirty_guard.sh` は書きかけを表示するだけで、「別worker由来=触らず帰属を明記」と案内していた。各セッションは書きかけを避けて clean clone で作業・push したため、作業フォルダを追従させる主体がいなかった。書きかけが origin/main の変更とぶつかり、ff-only も効かなくなっていた。
+- **対応内容**: 書きかけを HEAD・作業フォルダ・origin/main の3者で仕分け（最新版と同一9件、古い版の上書き約12件、9-04〜06 の Vercel 消費事故対応の書きかけ約12件、適用済み migration の書き換え1件、最新版に無い記録2件）。全件の控えを `/Users/masa/projects/AMD/amd-os-root-dirty-20261003/` に取り、まさの承認で追従。未push commit 3件は中身が origin/main に新しい形で入っていた。
+- **再発防止策**: `scripts/root-checkout-sync.py`（仕様 5-2「作業フォルダの追従」）をセッション開始時に `--quarantine on` で実行する。origin/main に中身がある書きかけと未push commit だけを片付けて追従し、最新版とぶつかる書きかけは72時間放置で控えを取って隔離する。作業フォルダが遅れていたら手で diff せず、まず `--format json` で仕分けを見る。
+
+---
+
 ### [migrations] migration 番号 457 が DD の作業とまたぶつかった（447 の再発） (2026-09-30)
 
 - **状態**: クローズ（LiSTie 側を 459 に改名、`8cf8a13`。DB に当てた中身は同じ）。

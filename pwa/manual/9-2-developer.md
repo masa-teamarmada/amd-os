@@ -39,6 +39,7 @@
 - 本番の出どころ確認は `/api/build-info`。`build_version` / `git_sha` / `git_branch` / `deployed_at` / `dirty` だけを返し、secret は出さない。
 - 自分が触っていない dirty file を commit に混ぜない。
 - Codex Desktop では、この repo を指定した Local 子タスク作成・UI の Handoff を使わない。アプリ側が作業開始前に `codex/*` branch を作ることがあるため。
+- 作業フォルダ `/Users/masa/projects/AMD/amd-os` は、Claude Code のセッション開始時に `scripts/root-checkout-sync.py` が origin/main へ自動で追従させる（2026-10-04〜）。作業中の書きかけには触らず、最新版とぶつかる書きかけが72時間以上放置されていれば控え（`/Users/masa/projects/AMD/amd-os-root-dirty/<日時>/`）を取って隔離する。詳細は spec 5-2「作業フォルダの追従」。
 - clone 後は `bash scripts/install-main-only-git-hook.sh` を実行する。新セッションは `main`、dirty 0、worktree 1、local branch `main` だけを確認して始める。
 - 「ブランチを切り替えるには変更をコミットしてください」と出たらキャンセルする。コミットして切り替えず、Git状態を監査して main を復旧する。
 
