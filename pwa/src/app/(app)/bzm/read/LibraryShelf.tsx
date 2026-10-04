@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import { bookProgressFraction } from "@/lib/bzm-reader/progress";
 import { loadReaderPosition } from "@/lib/bzm-reader/storage";
 import {
@@ -63,7 +63,6 @@ export function LibraryShelf({ books }: { books: ReaderBookInfo[] }) {
 
 function BookCard({ book, position }: { book: ReaderBookInfo; position: ReaderPosition | null }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const firstWritten = book.chapters.find((c) => c.exists);
   const hasWritten = book.writtenCount > 0 && firstWritten !== undefined;
 
@@ -75,6 +74,9 @@ function BookCard({ book, position }: { book: ReaderBookInfo; position: ReaderPo
   const primaryHref = firstWritten
     ? readerChapterHref(book.id, (lastChapter ?? firstWritten).slug)
     : null;
+  // 続きがあるときだけ、2つ目のボタン「最初から読む」を出す。最初の書けている章を、保存位置ではなく先頭のページから開く。
+  // 章を選ぶ一覧は置かない（読書画面の左の目次で章を選べる）
+  const restartHref = lastChapter && firstWritten ? readerChapterHref(book.id, firstWritten.slug, "start") : null;
   const progress =
     position && lastChapter ? bookProgressFraction(book, position.chapterSlug, position.fraction) : null;
 
@@ -142,51 +144,17 @@ function BookCard({ book, position }: { book: ReaderBookInfo; position: ReaderPo
               執筆前
             </span>
           )}
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            aria-expanded={open}
-            aria-controls={`bzr-chapters-${book.id}`}
-            className="inline-flex h-11 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            章を選ぶ
-          </button>
+          {restartHref ? (
+            <Link
+              href={restartHref}
+              onPointerEnter={() => prefetch(restartHref)}
+              onFocus={() => prefetch(restartHref)}
+              className="inline-flex h-11 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              最初から読む
+            </Link>
+          ) : null}
         </div>
-
-        {open ? (
-          <ol id={`bzr-chapters-${book.id}`} className="-mx-1 max-h-72 space-y-0.5 overflow-y-auto border-t border-border pt-2">
-            {book.chapters.map((chapter) => {
-              if (!chapter.exists) {
-                return (
-                  <li
-                    key={chapter.slug}
-                    className="flex min-h-11 items-center justify-between gap-2 rounded-md px-2 py-2 text-sm leading-snug text-muted-foreground"
-                    lang={book.lang}
-                  >
-                    <span>{chapter.title}</span>
-                    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-foreground/70">
-                      未執筆
-                    </span>
-                  </li>
-                );
-              }
-              const href = readerChapterHref(book.id, chapter.slug);
-              return (
-                <li key={chapter.slug}>
-                  <Link
-                    href={href}
-                    onPointerEnter={() => prefetch(href)}
-                    onFocus={() => prefetch(href)}
-                    lang={book.lang}
-                    className="flex min-h-11 items-center rounded-md px-2 py-2 text-sm leading-snug transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                  >
-                    {chapter.title}
-                  </Link>
-                </li>
-              );
-            })}
-          </ol>
-        ) : null}
       </div>
     </article>
   );
