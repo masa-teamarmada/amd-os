@@ -1,5 +1,6 @@
 # 附則（設計書変更履歴）
 
+| 2026-10-04 JST | 5-18 書斎 | 変更 | v3.154.2。書斎アプリのアイコンを、まさ提供の本の絵（`public/icons/shosai-*`）に替えた。manifest-shosai.json の icons、書斎の layout とログイン画面の layout の `icons`（favicon・apple-touch-icon） | まさ「アイコンは添付画像にして」 | まさ・えいみ |
 | 2026-10-04 JST | 3-23・3-24・5-17 | v3.154.2。DD_TAB_FORMATと共通ページ名を正本化し、techLedgerTabOfと元データ種別でDDの公開項目を共通ページへ振り分ける。閲覧は本文を直接表示、プレビュー帯・概要一覧・一覧タブを削除。旧項目URLも同じ構造。PJタイプ別◯表を定義から生成し/specに追加。DB・認可・公開設定・BZM/model変更なし。まさの明示指示をフォーマット承認台帳に記録。 |
 
 | 2026-10-04 JST | 5-18 書斎・2-1 route（/auth/login） | 変更 | v3.154.1。書斎のアドレスで開いたログイン画面を「書斎」として出す。`auth/login/layout.tsx` が Host ヘッダで判定し、題・manifest・`appleWebApp` を書斎のものにし、画面には見出し「書斎」と「AMDメンバーとしてログイン」だけを置く（`LoginAppContext`）。`hosts.ts` に `isShosaiHost`・`normalizeHost` | 本番確認で、書斎のアドレスの初回ログイン画面が「AMD OS」の見出しと、書斎に関係しない入口のままだった | まさ・えいみ |
