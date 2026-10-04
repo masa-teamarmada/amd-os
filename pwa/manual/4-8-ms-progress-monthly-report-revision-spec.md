@@ -336,3 +336,5 @@ PM routine step 行や `?step=` query からこのモーダルを開いてはい
 PDF参照の記録は本文一致条件付きの `monthly_report_pdf_record` RPCで更新する。長文本文はPOST bodyへ渡し、URL長制限でPDF保存だけが失敗する状態を防ぐ。失敗後の再試行でも本文と編集履歴を増やさない。
 
 サーバーPDFでは同梱日本語fontの読み込み完了を確認してから出力する。Macの日本語fontへのfallbackに依存せず、生成後のPDFを画像化して文字の欠落がないことを検収する。
+
+社内版PDFの表紙は、画面余白を印刷余白に重ねず1ページに収める。

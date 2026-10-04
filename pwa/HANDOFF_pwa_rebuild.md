@@ -191,3 +191,5 @@ SOLの8月実提出はGmail message `1a05810815d1fd13` の3ページ添付。Dri
 本番PDF配置検収で、長い本文のPostgREST URL照合による保存記録エラーを検出。`monthly_report_pdf_record` RPCをSupabaseへ適用し、全文をPOST bodyで照合する方式へ修正。PDF bytesの両ドライブ保存は先に成功しており、本文の変更なしで再試行する。
 
 v3.159.5はLinux PDFの日本語font欠落も修正。PDF描画時だけNoto Sans JPを強制し、本文全文字で400/700のfont読込みを待つ。文字が読める本番紙面を確認してからPDF保存完了を報告する。
+
+- v3.159.6: 社内版月報PDFの表紙paddingを印刷時だけ無効化。画面用余白が@page余白に重なることを防止。9月の両版PDFを再配置し、本番実PDF全ページで検収する。本文・編集履歴は変更しない。

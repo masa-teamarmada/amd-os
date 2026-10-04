@@ -313,3 +313,5 @@ ZMP（p19）もSOL・CX・KUTEと同じく `monthly_report_scope=internal_and_ex
 PDF保存記録の更新は `monthly_report_pdf_record` RPC（正本migration: `ios/supabase/migrations/20261004172000_monthly_report_pdf_record.sql`）へ全文・PJ・月・版・Drive IDをPOST bodyで渡す。SQL内で本文一致を条件にPDF参照だけを更新し、既存本文保存RPCと同じadvisory lockを使う。admin/service_roleに限定し、本文・編集履歴には書き込まない。長い日本語本文をPostgRESTのURL filterへ入れない。
 
 PDF描画はサーバーに存在しないHiragino/Meiryo等の指定を同梱Noto Sans JPへ置換し、400/700のfont faceを実本文の文字列で明示loadしてから出力する。フォントが読めない場合はPDFを保存しない。画面の組版指定は維持する。
+
+社内版の表紙は印刷時に画面用18mm paddingを無効化し、@pageの余白だけを使う。表紙本文・確定情報を同じページに収める。

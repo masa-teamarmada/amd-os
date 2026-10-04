@@ -1585,6 +1585,9 @@ export function MonthlyReportPrintClient({ data, embedded = false }: { data: Pri
         .status-meta { font-size: 9pt; color: #64748b; }
         .cover-meta { text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 9pt; color: #64748b; }
         .cover-pjcode { font-size: 16pt; color: #0a1628; font-weight: 700; margin-top: 2mm; }
+        @media print {
+          .cover-sheet.sheet { padding: 0; }
+        }
 
         /* ===== 各章共通 ===== */
         .section-head {
