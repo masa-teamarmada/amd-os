@@ -1,5 +1,7 @@
 # DDパッケージ仕様（投資家・金融機関向けの開示面）
 
+2026-10-04 追加指定: 固定ページを14ページへ拡張。ガント・関係先・事業計画・知財・会社概要・資金調達履歴・沿革は `project_page:<ページキー>` として既存の追加・公開・停止経路で選択する。migration 469 の種類／source_key制約を本番適用済み。既存の公開状態・付与の変更なし。
+
 > **この章は何か**: 投資家・金融機関が、共有対象に指定されたページ・資料だけを閲覧する「DDパッケージ」の確定仕様。入れる領域と操作の分け方、中身の出し方、画面、正式版（PDF）の出力、権限の検証、残課題を定める。初版は SOL（p21）で 2026-09-30 に実装した（migration 455〜458）。
 
 ## 1. 3つの領域
@@ -29,7 +31,7 @@ AMD OS の PJ 情報は、コックピット・ワークスペース・DDパッ�
 
 停止・失効は cookie の期限（30日）を待たず次のリクエストで効く。判定は `buildDdViewerScope`（`src/lib/dd-package-core.ts`）の純関数で固定し、アカウントが `active` で Supabase の認証と紐付き cookie のメールと一致すること、付与が `active` で期限内で `dd.view` を持つこと、パッケージが `open` であることをすべて満たす付与だけを数える。
 
-## 3. データ（migration 455〜458）
+## 3. データ（migration 455〜458・469）
 
 | 表 | 役割 |
 |---|---|
@@ -53,15 +55,24 @@ AMD OS の PJ 情報は、コックピット・ワークスペース・DDパッ�
 4. 「公開をやめる」で `false` に戻す。次のリクエストから外部に見えない。
 5. 正式に提出する版は、その時点の内容を PDF に出力して残す（§6）。
 
-### 種類ごとの部品と中身（`src/components/dd/DdLiveBodies.tsx`、`src/lib/dd-payload.ts`）
+### 種類ごとの部品と中身（`src/components/dd/DdItemDetail.tsx`・`DdProjectPageBody.tsx`、`src/lib/dd-payload.ts`）
 
 | 種類 | 元データ | 描く部品（ワークスペースと同じ） | 部品が表示しないので送らないもの |
 |---|---|---|---|
 | 資料 | 資料室（`workspace_documents`）のファイル、または Google ドライブのファイルへのリンク | ファイル名・形式・サイズと「開く／ダウンロード」。中身は資料室の最新の実体 | 資料室の保存先・フォルダ・共有範囲 |
 | 技術台帳のページ | `project_tech_topics` + `project_tech_entries` の1ページ | `TopicCard`（技術・競合比較・ビジネスモデルのタブと同じ。`canEdit=false`） | 作成者・更新者、別ページの行 |
-| 資金計画 | `project_monthly_cashflow.planning_details_json` | `CockpitFundingPlan`（試算表タブと同じ） | 月の行に重複して入っている summary の写し |
+| 資金計画 | `project_monthly_cashflow.planning_details_json` | `ProjectFinanceFormat`（試算表タブと同じ） | 月の行に重複して入っている summary の写し |
 | 資本政策 | `project_capital_plans`（作業中の案の最新）または `project_capital_plan_versions`（凍結済みの提出版） | `CapitalPlanMatrix`（資本政策表タブと同じ表を、同じ計算エンジンで。`readOnly`） | 株主・ラウンド・配分・値のメモ（`note`） |
-| 採算（コスト試算） | `project_cost_models` 系。指定した試算の種類（廃液 / 燃料）について、そのタブと同じ「いまの試算」 | `CockpitCostModel` / `CockpitFuelCostModel`（`allowEdit=false`。明細・単価・確認事項までワークスペースと同じ） | なし |
+| 採算（コスト試算） | `project_cost_models` 系。指定した試算の種類（廃液 / 燃料）について、そのタブと同じ「いまの試算」 | `CockpitCostTab` 経由の標準表示（`allowEdit=false`。明細・単価・確認事項までワークスペースと同じ） | なし |
+
+| ガント | 当該PJのゴールツリー・タスク・ロードマップ | `QuestionTreeView`（gantt、canManage=false、ptなし） | 他PJの情報・pt台帳 |
+| 関係先 | 当該PJの関係先・約束・作業項目・到達目標 | `SxPartnerPipeline`（canManage=false） | 非表示の内部判断・週次差分・監査・資金スナップショット |
+| 事業計画 | `project_business_plans` | `CockpitBusinessPlan`（同じフェーズマトリクス） | 作成者・更新者 |
+| 知財 | 当該PJの知財・権利・期限・経過 | `CockpitIpPortfolio`（canEdit=false） | 他PJの知財 |
+| 会社概要・資金調達履歴 | 当該PJの法人属性・株主・株式取引・転換証券・調達ラウンド | `CockpitCompanyOverview` / `CockpitCapitalPolicy`（readOnly） | 社内決算区画・会社会議・社内対応項目・監査の実行者 |
+| 沿革 | 助成金・獲得台帳・活動履歴 | `CockpitGrants` / `Bzm22AcquisitionLedger` / `CockpitAmdContributions` | 助成金の添付リンク |
+
+追加7ページはページ全体を共有する。候補の段階でページ全体が開示される旨を表示し、新規項目は非公開で登録する。サーバの `loadDdProjectPage` は、パッケージ入場認可と項目の公開判定を終えた経路からのみ呼び、共通部品へ取得済みデータを渡す。DD付与を汎用のPJ APIの権限に流用しない。Excel/PDF出力は `dd.download` のある人だけ。URLキーは従来どおり `activity`、表示名は沿革。
 
 - 投資家は汎用の API（`/api/project-cost-model` など）を叩けない。サーバが「DDで公開中の範囲」だけを読んで画面へ渡し、コスト試算はその値を手元のキャッシュへ置いてから部品を描く（`primeProjectCostModel`）。部品は見るだけで、編集・保存・追加の操作を出さない。
 - 技術台帳の「要秘匿」のページは、管理画面で「開示してよいと確認した」を付けたときだけ追加できる。「社内」の項目・資料室で社内限定の資料には注意を出す。

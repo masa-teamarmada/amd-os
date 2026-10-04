@@ -206,4 +206,5 @@ export function ddCostModelUnverified(bundle: CostModelBundle): string[] {
 
 // --- まとめ -------------------------------------------------------------------
 
-export type DdLiveData = DdLiveDocument | DdLiveTechTopic | DdLiveFundingPlan | DdLiveCapitalPolicy | DdLiveCostModel;
+import type { DdLiveProjectPage } from "./dd-project-page-types";
+export type DdLiveData = DdLiveProjectPage | DdLiveDocument | DdLiveTechTopic | DdLiveFundingPlan | DdLiveCapitalPolicy | DdLiveCostModel;

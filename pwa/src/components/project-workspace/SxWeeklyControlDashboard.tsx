@@ -99,6 +99,8 @@ import { CockpitFinancialProjection } from "@/components/cockpit/CockpitFinancia
 import { CockpitCapitalPlan } from "@/components/cockpit/CockpitCapitalPlan";
 import { CockpitCapitalPolicy } from "@/components/cockpit/CockpitCapitalPolicy";
 import { CockpitCompanyOverview } from "@/components/cockpit/CockpitCompanyOverview";
+import { WorkspaceMeetings } from "./WorkspaceMeetings";
+import { CockpitSlackMessages } from "@/components/cockpit/CockpitSlackMessages";
 import { CockpitProjectTasks } from "@/components/cockpit/CockpitProjectTasks";
 import { COCKPIT_GROUP_LABELS } from "@/lib/cockpit-tabs";
 import { InternalProjectSurfaceNav, ProjectSurfaceNav } from "@/components/nav/ProjectSurfaceNav";
@@ -335,9 +337,11 @@ const STAGE_LABEL: Record<StageKey, string> = Object.fromEntries(
 // すべてのPJで、PJ資料室と同じ正本を開く「ドライブ」を加える。既存のアンカー名
 // (#weekly-change / #project-gantt / #partner-ledger / #issue-hypothesis / #input-readiness)
 // は他画面からのリンク互換のためhashとしてそのまま残す。
-export type SxWeeklyControlView = "weekly" | "gantt" | "objective-structure" | "partners" | "issues" | "tasks" | "technology" | "competition" | "business-model" | "business-plan" | "financial-projection" | "capital-plan" | "company" | "capital-policy" | "cost" | "cost-fuel" | "ip" | "drive" | "dd";
+export type SxWeeklyControlView = "meetings" | "slack" | "weekly" | "gantt" | "objective-structure" | "partners" | "issues" | "tasks" | "technology" | "competition" | "business-model" | "business-plan" | "financial-projection" | "capital-plan" | "company" | "capital-policy" | "cost" | "cost-fuel" | "ip" | "drive" | "dd";
 const SX_WEEKLY_VIEW_STORAGE_KEY = "sx-weekly-control-view-v1";
 const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
+  meetings: "meetings",
+  slack: "slack",
   weekly: "weekly-change",
   gantt: "project-gantt",
   "objective-structure": "objective-structure",
@@ -371,6 +375,8 @@ const WORKSPACE_TAB_LABELS: Record<SxWeeklyControlView, string> = {
   tasks: "タスク",
   gantt: "ガント",
   "objective-structure": "ガント",
+  meetings: "動向・会議",
+  slack: "Slack",
   weekly: "週次差分",
   partners: "関係先",
   technology: "技術",
@@ -402,13 +408,15 @@ function workspaceGroupsForType(type: ProjectFormatType): readonly WorkspaceTabG
   }));
 }
 const EXTERNAL_WORKSPACE_TABS = new Set<SxWeeklyControlView>([
-  "issues", "tasks", "gantt", "partners", "drive",
+  "issues", "tasks", "gantt", "meetings", "slack", "partners", "drive",
   "technology", "competition", "business-model", "business-plan", "financial-projection", "capital-plan",
   "cost", "cost-fuel", "ip", "capital-policy", "company",
 ]);
 function viewForHash(hash: string): SxWeeklyControlView | null {
   const normalized = hash.replace(/^#/, "");
   if (!normalized) return null;
+  if (normalized === "meetings") return "meetings";
+  if (normalized === "slack") return "slack";
   if (normalized === "project-gantt") return "gantt";
   if (normalized === "objective-structure") return "gantt";
   if (normalized === "partner-ledger") return "partners";
@@ -4693,6 +4701,8 @@ export function SxWeeklyControlDashboard({
     const stored = window.localStorage.getItem(SX_WEEKLY_VIEW_STORAGE_KEY);
     const isValidView = (value: unknown): value is SxWeeklyControlView => {
       return (
+        value === "meetings" ||
+        value === "slack" ||
         value === "weekly" ||
         value === "gantt" ||
         value === "objective-structure" ||
@@ -5766,6 +5776,17 @@ export function SxWeeklyControlDashboard({
         {activeView === "tasks" && (
           <section id="project-tasks" role="tabpanel" aria-label="タスク">
             <CockpitProjectTasks projectId={bundle.project.projectId} />
+          </section>
+        )}
+
+        {activeView === "meetings" && (
+          <section id="meetings" role="tabpanel" aria-label="動向・会議">
+            <WorkspaceMeetings projectId={bundle.project.projectId} readOnly={externalViewer} />
+          </section>
+        )}
+        {activeView === "slack" && (
+          <section id="slack" role="tabpanel" aria-label="Slack">
+            <CockpitSlackMessages projectId={bundle.project.projectId} />
           </section>
         )}
 

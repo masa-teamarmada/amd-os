@@ -1,3 +1,4 @@
+import { DdProjectPageBody } from "./DdProjectPageBody";
 import Link from "next/link";
 import { ddSectionLabel, type DdSectionKey } from "@/lib/dd-package-core";
 import { DD_ITEM_KIND_LABEL, type DdItemKind, type DdLiveData } from "@/lib/dd-payload";
@@ -24,8 +25,9 @@ export type DdItemDetailData = {
   evidence: Array<{ href: string | null; title: string }>;
 };
 
-export function DdLiveBody({ live }: { live: DdLiveData }) {
+export function DdLiveBody({ live, canDownload = false }: { live: DdLiveData; canDownload?: boolean }) {
   switch (live.kind) {
+    case "project_page": return <DdProjectPageBody data={live} canDownload={canDownload} />;
     case "tech_topic":
       return <DdTechTopicLive data={live} />;
     case "funding_plan":

@@ -172,7 +172,7 @@ export async function loadDdPackageView(access: DdViewerAccess): Promise<DdPacka
   ]);
   const items: DdViewItem[] = loaded.map(({ row, meta, live }) => ({
     itemId: row.id,
-    pageKey: ddPageForItem(row.item_kind, live?.data ?? null),
+    pageKey: ddPageForItem(row.item_kind, live?.data ?? null, row.source_key),
     live: live?.data ?? null,
     sectionKey: row.section_key,
     sortOrder: row.sort_order,

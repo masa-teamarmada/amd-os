@@ -1722,9 +1722,10 @@ function dedupeWeakMeetingSummaries(items: ProjectMeetingSummary[]): ProjectMeet
  */
 export async function fetchProjectMeetingSummaries(
   projectId: string,
-  opts?: { sinceDate?: string; limit?: number }
+  opts?: { sinceDate?: string; limit?: number },
+  client: SupabaseClient = supabase
 ): Promise<ProjectMeetingSummary[]> {
-  let query = supabase
+  let query = client
     .from("project_meeting_summaries")
     .select("*")
     .eq("project_id", projectId)

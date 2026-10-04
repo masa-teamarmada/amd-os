@@ -19,7 +19,7 @@ import { projectFormatTypeOf } from "@/lib/project-formats";
 
 type GrantAttachment = { document_id?: string | null; url?: string | null; name?: string | null };
 
-type Grant = {
+export type Grant = {
   id: string; grant_name: string; agency: string | null; grant_type: string | null;
   amount_yen: number | null; disbursed_yen: number | null; status: string;
   is_current: boolean | null; adopted_date: string | null; period_start_ym: string | null; period_end_ym: string | null; notes: string | null;
@@ -93,19 +93,20 @@ function GrantNotes({ notes }: { notes: string }) {
   );
 }
 
-export function CockpitGrants({ projectId }: { projectId: string }) {
+export function CockpitGrants({ projectId, initialGrants, disableAttachments = false }: { projectId: string; initialGrants?: Grant[]; disableAttachments?: boolean }) {
   // 読み込んだ結果をPJと組で持ち、いま開いているPJの結果が届くまでを「読み込み中」とする
   // (effect の中で読み込み中フラグを立て直さない)。
-  const [loaded, setLoaded] = useState<{ projectId: string; grants: Grant[] } | null>(null);
+  const [loaded, setLoaded] = useState<{ projectId: string; grants: Grant[] } | null>(initialGrants ? {projectId, grants: initialGrants} : null);
 
   useEffect(() => {
+    if (initialGrants) return;
     let live = true;
     fetch(`/api/grants?projectId=${encodeURIComponent(projectId)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => { if (live) setLoaded({ projectId, grants: j?.ok ? j.grants : [] }); })
       .catch(() => { if (live) setLoaded({ projectId, grants: [] }); });
     return () => { live = false; };
-  }, [projectId]);
+  }, [projectId, initialGrants]);
 
   // AMD本体（PJタイプではなく会社の経営面）の形には助成金の区画が無い（spec 3-23）。PJ番号では分けない。
   if (projectFormatTypeOf({ projectId }) === "amd") return null;
@@ -146,7 +147,7 @@ export function CockpitGrants({ projectId }: { projectId: string }) {
           {list.map((g) => {
             const st = STATUS_LABEL[g.status] || { txt: g.status, cls: "border-border bg-muted/40 text-muted-foreground" };
             const period = periodLabel(g.period_start_ym, g.period_end_ym);
-            const attachments = (Array.isArray(g.attachments_json) ? g.attachments_json : [])
+            const attachments = (disableAttachments ? [] : g.attachments_json ?? [])
               .map((a) => ({ name: a?.name?.trim() || "添付資料", href: a ? attachmentHref(a) : null }))
               .filter((a): a is { name: string; href: string } => Boolean(a.href));
             return (

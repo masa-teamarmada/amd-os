@@ -36,6 +36,8 @@ import { downloadBusinessPlanPhaseMatrixXlsx } from "@/lib/project-business-plan
 interface CockpitBusinessPlanProps {
   projectId: string;
   projectName: string;
+  initialPlan?: ProjectBusinessPlan | null;
+  canDownload?: boolean;
 }
 
 const LANE_ICONS: Record<BusinessPlanLaneKey, LucideIcon> = {
@@ -117,7 +119,7 @@ function LaneCell({ phase, laneKey }: { phase: BusinessPlanPhase; laneKey: Busin
   );
 }
 
-function PhaseMatrix({ projectName, plan }: { projectName: string; plan: ProjectBusinessPlan | null }) {
+function PhaseMatrix({ projectName, plan, canDownload = true }: { projectName: string; plan: ProjectBusinessPlan | null; canDownload?: boolean }) {
   const phases = plan?.phases ?? [];
   const empty = phases.length === 0;
   return (
@@ -172,7 +174,7 @@ function PhaseMatrix({ projectName, plan }: { projectName: string; plan: Project
           type="button"
           className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 sm:min-h-10 transition hover:border-indigo-300 hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
           onClick={() => downloadBusinessPlanPhaseMatrixXlsx(projectName, phases)}
-          disabled={empty}
+          disabled={empty || !canDownload}
           data-testid="phase-matrix-xlsx-export"
         >
           <FileSpreadsheet className="size-3.5" /> Excel出力
@@ -207,11 +209,12 @@ interface PlanState {
   error: string | null;
 }
 
-export function CockpitBusinessPlan({ projectId, projectName }: CockpitBusinessPlanProps) {
-  const [state, setState] = useState<PlanState>(() => ({ projectId, plan: peekProjectBusinessPlan(projectId), error: null }));
-  const current: PlanState = state.projectId === projectId ? state : { projectId, plan: peekProjectBusinessPlan(projectId), error: null };
+export function CockpitBusinessPlan({ projectId, projectName, initialPlan, canDownload = true }: CockpitBusinessPlanProps) {
+  const [state, setState] = useState<PlanState>(() => ({ projectId, plan: initialPlan !== undefined ? initialPlan : peekProjectBusinessPlan(projectId), error: null }));
+  const current: PlanState = state.projectId === projectId ? state : { projectId, plan: initialPlan !== undefined ? initialPlan : peekProjectBusinessPlan(projectId), error: null };
 
   useEffect(() => {
+    if (initialPlan !== undefined) return;
     let cancelled = false;
     loadProjectBusinessPlan(projectId)
       .then((plan) => { if (!cancelled) setState({ projectId, plan, error: null }); })
@@ -219,14 +222,14 @@ export function CockpitBusinessPlan({ projectId, projectName }: CockpitBusinessP
         if (!cancelled) setState({ projectId, plan: null, error: error instanceof Error ? error.message : "事業計画を読み込めない" });
       });
     return () => { cancelled = true; };
-  }, [projectId]);
+  }, [projectId, initialPlan]);
 
   return (
     <div className="space-y-5" data-testid="cockpit-business-plan">
       {current.error ? (
         <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-[12px] text-rose-700">{current.error}。再読み込みして。</p>
       ) : null}
-      {current.plan === undefined ? <PhaseMatrixSkeleton /> : <PhaseMatrix projectName={projectName} plan={current.plan} />}
+      {current.plan === undefined ? <PhaseMatrixSkeleton /> : <PhaseMatrix projectName={projectName} plan={current.plan} canDownload={canDownload} />}
     </div>
   );
 }

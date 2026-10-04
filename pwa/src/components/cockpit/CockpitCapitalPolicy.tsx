@@ -50,9 +50,9 @@ const HOLDER_TYPES = Object.entries(HOLDER_LABELS).map(([value, label]) => ({ va
 const TRANSACTION_TYPES = ["incorporation", "opening_balance", "new_issue", "transfer", "stock_option_grant", "stock_option_exercise", "in_kind_contribution", "cancellation", "correction"]
   .map((value) => ({ value, label: TRANSACTION_LABELS[value] }));
 
-export function CockpitCapitalPolicy({ projectId, readOnly = false }: { projectId: string; readOnly?: boolean }) {
-  const [data, setData] = useState<CompanyOverviewData>(() => peekGovernance(projectId) ?? EMPTY_DATA);
-  const [loading, setLoading] = useState(true);
+export function CockpitCapitalPolicy({ projectId, readOnly = false, initialData }: { projectId: string; readOnly?: boolean; initialData?: CompanyOverviewData }) {
+  const [data, setData] = useState<CompanyOverviewData>(() => initialData ?? peekGovernance(projectId) ?? EMPTY_DATA);
+  const [loading, setLoading] = useState(initialData === undefined);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [dialog, setDialog] = useState<DialogKind>(null);
@@ -70,7 +70,7 @@ export function CockpitCapitalPolicy({ projectId, readOnly = false }: { projectI
     }
   }, [projectId]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { if (initialData === undefined) void load(); }, [load, initialData]);
 
   const hasEquityLedger = data.transactions.some((transaction) => transaction.status === "confirmed");
   const conversion = convertibleScenario(data);

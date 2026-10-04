@@ -1,5 +1,8 @@
 import "server-only";
 
+import { loadDdProjectPage } from "@/lib/dd-project-pages-server";
+import { DD_SHARED_PAGE_KEYS, isDdSharedPageKey } from "@/lib/dd-package-core";
+import { PROJECT_PAGE_LABELS } from "@/lib/project-formats";
 import { Buffer } from "node:buffer";
 import { google } from "googleapis";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -80,6 +83,7 @@ function splitSourceKey(sourceKey: string): { prefix: string; id: string } {
 }
 
 const SOURCE_PREFIX: Record<DdItemKind, string[]> = {
+  project_page: ["project_page"],
   document: ["workspace_document"],
   tech_topic: ["project_tech_topic"],
   funding_plan: ["project_funding_plan"],
@@ -90,7 +94,7 @@ const SOURCE_PREFIX: Record<DdItemKind, string[]> = {
 export function isSourceKeyForKind(itemKind: DdItemKind, sourceKey: string): boolean {
   try {
     const { prefix, id } = splitSourceKey(sourceKey);
-    return SOURCE_PREFIX[itemKind].includes(prefix) && id.length > 0 && id.length <= 200;
+    return (itemKind !== "project_page" || isDdSharedPageKey(id)) && SOURCE_PREFIX[itemKind].includes(prefix) && id.length > 0 && id.length <= 200;
   } catch {
     return false;
   }
@@ -247,6 +251,7 @@ export async function listDdSourceCandidates(projectId: string): Promise<DdSourc
     });
   }
 
+  candidates.push(...DD_SHARED_PAGE_KEYS.map(page=>({itemKind:"project_page" as const,sourceKey:`project_page:${page}`,title:PROJECT_PAGE_LABELS[page],detail:"他の領域と同じページ。公開中は元データの更新も反映する。",updatedAt:null,caution:"このページ全体が開示対象になる。内容を確認してから公開する。",blockedReason:null})));
   return candidates;
 }
 
@@ -290,6 +295,11 @@ export async function loadDdItemLive(input: ItemSourceInput): Promise<DdItemLive
   const { prefix, id } = splitSourceKey(input.sourceKey);
   if (!isSourceKeyForKind(input.itemKind, input.sourceKey)) {
     throw new DdSourceError("invalid_source_key", "元データの種類と指定が合わない");
+  }
+
+  if (input.itemKind === "project_page") {
+    const data = await loadDdProjectPage(input.projectId, id);
+    return {data,sourceAsOf:data.page === "business-plan" ? data.plan?.updatedAt ?? null : null,autoUnverified:[]};
   }
 
   if (input.itemKind === "document") {

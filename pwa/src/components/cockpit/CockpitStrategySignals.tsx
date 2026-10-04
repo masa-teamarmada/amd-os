@@ -209,7 +209,7 @@ function sourceSummary(refs: unknown[], projectId: string): SourceSummary[] {
     .filter((ref) => Boolean(ref.label));
 }
 
-export function CockpitStrategySignals({ signals, projectId }: { signals: ProjectStrategySignal[]; projectId: string }) {
+export function CockpitStrategySignals({ signals, projectId, readOnly = false }: { signals: ProjectStrategySignal[]; projectId: string; readOnly?: boolean }) {
   const internalSignals = signals.filter((signal) => {
     if (signal.originKind === "external_research") return false;
     if (signal.status === "rejected" || signal.status === "archived") return false;
@@ -235,6 +235,7 @@ export function CockpitStrategySignals({ signals, projectId }: { signals: Projec
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [feedbackTick, setFeedbackTick] = useState(0);
   useEffect(() => {
+    if (readOnly) return;
     let cancelled = false;
     fetch(`/api/notifications/feedback?l2_kind=project_strategy_signal&target_id=${encodeURIComponent(projectId)}&limit=300`)
       .then(async (r) => {
@@ -248,7 +249,7 @@ export function CockpitStrategySignals({ signals, projectId }: { signals: Projec
       })
       .catch((e) => { if (!cancelled) setFeedbackError(e instanceof Error ? e.message : "fetch error"); });
     return () => { cancelled = true; };
-  }, [projectId, feedbackTick]);
+  }, [projectId, feedbackTick, readOnly]);
 
   // signal 1 件あたりの scope_key 前方一致パターン:
   //   signal の scope_key は POST 側で `${signal.ym}:strategy:${(signal.sourceHash || "").slice(0, 12) || signal.signalId.slice(0, 12)}` と書かれる
@@ -347,6 +348,7 @@ export function CockpitStrategySignals({ signals, projectId }: { signals: Projec
             const meta = researchMeta ?? CATEGORY_META[cat];
             return (
               <StrategySignalRow
+                readOnly={readOnly}
                 key={signal.signalId}
                 signal={signal}
                 projectId={projectId}
@@ -392,6 +394,7 @@ type DialogMessage =
 type DialogStep = "input" | "loading" | "preview" | "addComment";
 
 function StrategySignalRow({
+  readOnly,
   signal,
   projectId,
   categoryBorder,
@@ -400,6 +403,7 @@ function StrategySignalRow({
   pastFeedbacks,
   onConfirmed,
 }: {
+  readOnly: boolean;
   signal: StrategySignalWithAiMeta;
   projectId: string;
   categoryBorder: string;
@@ -566,7 +570,7 @@ function StrategySignalRow({
             未確認
           </span>
         )}
-        <span className="ml-auto inline-flex items-center gap-0.5">
+        {!readOnly && <span className="ml-auto inline-flex items-center gap-0.5">
           <button
             type="button"
             onClick={() => setFeedbackOpen((v) => !v)}
@@ -576,7 +580,7 @@ function StrategySignalRow({
             ⚠️ つくよみに修正依頼
           </button>
           <Hint id="cockpit.strategy-signals.tsukuyomi-feedback" />
-        </span>
+        </span>}
       </div>
       {/* まさ #36 2026-05-25: 経営ハイライト カード内の code_name を自動でマイページリンク化 (LinkedMemberText)。
           手動投入された summary に「まさ／きよ／りり」等が含まれる場合、members.code_name と前方一致で <Link> に置き換わる。 */}

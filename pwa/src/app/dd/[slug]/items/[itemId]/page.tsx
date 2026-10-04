@@ -22,7 +22,7 @@ export default async function DdItemPage({ params }: { params: Promise<{ slug: s
   const { item } = view;
   await recordDdAccessEvent(access, "dd_item_viewed", { itemId });
   const selectedItem = {
-    itemId, pageKey: ddPageForItem(item.item_kind, view.live?.data ?? null), live: view.live?.data ?? null,
+    itemId, pageKey: ddPageForItem(item.item_kind, view.live?.data ?? null, item.source_key), live: view.live?.data ?? null,
     sectionKey: item.section_key, sortOrder: item.sort_order, itemKind: item.item_kind,
     title: item.title, summary: item.summary, sourceAsOf: view.live?.sourceAsOf ?? null,
     unverifiedNotes: view.unverifiedNotes, unavailable: !view.live,

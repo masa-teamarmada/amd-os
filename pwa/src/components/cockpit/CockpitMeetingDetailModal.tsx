@@ -13,6 +13,7 @@ import { MarkdownView } from "./MarkdownView";
 import { MeetingAssetsPanel } from "./MeetingAssetsPanel";
 
 interface Props {
+  readOnly?: boolean;
   meeting: ProjectMeetingSummary | null;
   prepMeeting?: ProjectMeetingSummary | null;
   open: boolean;
@@ -68,7 +69,7 @@ function notionTranscriptLink(meeting: ProjectMeetingSummary): { href: string; l
   return null;
 }
 
-export function CockpitMeetingDetailModal({ meeting, prepMeeting = null, open, onOpenChange, onMeetingUpdated }: Props) {
+export function CockpitMeetingDetailModal({ readOnly = false, meeting, prepMeeting = null, open, onOpenChange, onMeetingUpdated }: Props) {
   const meetingId = meeting?.meetingId ?? null;
   const [editing, setEditing] = useState(false);
   const [shareNote, setShareNote] = useState<string | null>(null);
@@ -196,7 +197,7 @@ export function CockpitMeetingDetailModal({ meeting, prepMeeting = null, open, o
                 {sourceLabel} で開く ↗
               </a>
             )}
-            <button
+            {!readOnly && <button
               type="button"
               onClick={() => setEditing((v) => !v)}
               className={editing
@@ -205,7 +206,7 @@ export function CockpitMeetingDetailModal({ meeting, prepMeeting = null, open, o
             >
               <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
               <span>{editing ? "編集を閉じる" : "表示内容を編集"}</span>
-            </button>
+            </button>}
             <div className="flex flex-wrap items-center gap-1.5 border-l border-[#e5e5e7] pl-2">
               <button
                 type="button"
@@ -261,10 +262,10 @@ export function CockpitMeetingDetailModal({ meeting, prepMeeting = null, open, o
           <RegularMeetingBody meeting={meeting} prepMeeting={prepMeeting} editing={editing} onMeetingUpdated={onMeetingUpdated} />
         )}
 
-        <MeetingAssetsPanel
+        {!readOnly && <MeetingAssetsPanel
           meeting={meeting}
           onMeetingUpdated={onMeetingUpdated}
-        />
+        />}
         {primaryPdfPart && <MeetingPdfDocument part={primaryPdfPart} exportRef={pdfExportRef} />}
       </DialogContent>
     </Dialog>
@@ -290,7 +291,10 @@ async function writeClipboardText(text: string) {
 
 function buildMeetingShareUrl(meeting: ProjectMeetingSummary): string {
   if (typeof window === "undefined") return `/project/${meeting.projectId}/cockpit?meeting=${encodeURIComponent(meeting.meetingId)}`;
-  const url = new URL(`/project/${meeting.projectId}/cockpit`, window.location.origin);
+  const workspace = `/project/${meeting.projectId}/workspace`;
+  const path = window.location.pathname === workspace ? workspace : `/project/${meeting.projectId}/cockpit`;
+  const url = new URL(path, window.location.origin);
+  if (path === workspace) url.hash = "meetings";
   url.searchParams.set("meeting", meeting.meetingId);
   return url.toString();
 }

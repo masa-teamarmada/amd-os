@@ -13,6 +13,7 @@
  * (guard: scripts/check_reference_data_cache_contract.mjs)。
  */
 import { NextRequest, NextResponse } from "next/server";
+import { hasSharedWorkspaceProjectReadAccess } from "@/lib/shared-workspace-project-read-access";
 import { requireMember } from "@/lib/supabase/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type {
@@ -71,7 +72,6 @@ function workspaceLabelFromPermalink(permalink: string | null): string {
 
 export async function GET(req: NextRequest) {
   const auth = await requireMember();
-  if (!auth.ok) return auth.errorResponse;
 
   const url = new URL(req.url);
   const projectId = url.searchParams.get("projectId")?.trim() || "";
@@ -81,6 +81,8 @@ export async function GET(req: NextRequest) {
       { status: 400, headers: { "Cache-Control": "no-store" } },
     );
   }
+
+  if (!auth.ok && !await hasSharedWorkspaceProjectReadAccess(projectId)) return auth.errorResponse;
 
   try {
     const supabase = createAdminClient();

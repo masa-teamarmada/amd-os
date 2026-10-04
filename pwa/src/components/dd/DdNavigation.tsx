@@ -7,10 +7,10 @@ import type { DdPageKey } from "@/lib/dd-pages";
 export function DdNavigation({ slug, pageKey }: { slug: string; pageKey: DdPageKey }) {
   const base = `/dd/${encodeURIComponent(slug)}`;
   const selectedGroup = DD_TAB_FORMAT.find((group) => (group.tabs as readonly string[]).includes(pageKey)) ?? DD_TAB_FORMAT[0];
-  const groupLabel = (key: string) => key === "business-plan-group" ? COCKPIT_GROUP_LABELS.businessPlan : COCKPIT_GROUP_LABELS.documents;
+  const groupLabel = (key: string) => ({ "progress-group": COCKPIT_GROUP_LABELS.progress, "business-plan-group": COCKPIT_GROUP_LABELS.businessPlan, "documents-group": COCKPIT_GROUP_LABELS.documents, "company-information-group": COCKPIT_GROUP_LABELS.companyInformation } as Record<string, string>)[key];
   return (
     <div className="space-y-2">
-      <nav aria-label="DDパッケージの分類" data-testid="dd-group-navigation" className="grid grid-cols-2 gap-1 rounded-xl border border-[#bfc0c7] bg-[#f5f5f7] p-1">
+      <nav aria-label="DDパッケージの分類" data-testid="dd-group-navigation" className="grid grid-cols-2 gap-1 sm:grid-cols-4 rounded-xl border border-[#bfc0c7] bg-[#f5f5f7] p-1">
         {DD_TAB_FORMAT.map((group) => (
           <Link key={group.group} href={`${base}?tab=${group.tabs[0]}`} aria-current={group.group === selectedGroup.group ? "page" : undefined}
             className={`flex min-h-11 items-center justify-center rounded-lg px-3 text-[13px] font-bold sm:min-h-9 ${group.group === selectedGroup.group ? "bg-white text-slate-950 shadow-[inset_0_-2px_0_#0f172a]" : "text-slate-500 hover:bg-white/80 hover:text-slate-900"}`}>

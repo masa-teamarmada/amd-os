@@ -1,5 +1,7 @@
 # PWA ランタイム / ルート仕様
 
+2026-10-04: `GET /api/project/[projectId]/workspace-meetings` は `resolveSharedWorkspaceAccess(projectId)` の毎回判定後に当該PJの会議／動向だけを返す（private/no-store）。`GET /api/slack/messages?projectId=...` も当該PJの共有所属の読み取りを許す。DD付与だけの人は両APIへ入れない。
+
 > **この章は何か**: AMD OS PWA の実行環境、主要 route、API / cron / auth の確定仕様。詳細な履歴や長い route 説明は `pwa/design/SPEC_pwa.md` にも残す。移行中は両方を更新する。
 
 ## 実行環境

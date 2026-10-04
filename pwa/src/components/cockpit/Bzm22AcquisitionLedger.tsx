@@ -146,12 +146,12 @@ function AcquisitionRow({ item }: { item: Bzm22Acquisition }) {
   );
 }
 
-export function Bzm22AcquisitionLedger({ projectId, active = true }: { projectId: string; active?: boolean }) {
-  const [payload, setPayload] = useState<Bzm22AcquisitionApiPayload | null>(() => CACHE.get(projectId) ?? null);
+export function Bzm22AcquisitionLedger({ projectId, active = true, initialPayload }: { projectId: string; active?: boolean; initialPayload?: Bzm22AcquisitionApiPayload }) {
+  const [payload, setPayload] = useState<Bzm22AcquisitionApiPayload | null>(() => initialPayload ?? CACHE.get(projectId) ?? null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active || initialPayload) return;
     let cancelled = false;
     const cached = CACHE.get(projectId);
     if (cached) {

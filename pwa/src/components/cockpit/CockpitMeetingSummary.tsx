@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { fetchProjectMeetingSummaries, type ProjectMeetingSummary } from "@/lib/supabase-data";
 import {
@@ -14,6 +14,8 @@ import { CockpitMeetingDetailModal } from "./CockpitMeetingDetailModal";
 
 interface Props {
   projectId: string;
+  sharedWorkspace?: boolean;
+  readOnly?: boolean;
 }
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
@@ -100,7 +102,7 @@ function groupByYm(items: ProjectMeetingSummary[]): MeetingGroup[] {
     .sort((a, b) => b.ym.localeCompare(a.ym));
 }
 
-export function CockpitMeetingSummary({ projectId }: Props) {
+export function CockpitMeetingSummary({ projectId, sharedWorkspace = false, readOnly = false }: Props) {
   const [recentItems, setRecentItems] = useState<ProjectMeetingSummary[]>([]);
   const [olderItems, setOlderItems] = useState<ProjectMeetingSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,6 +112,14 @@ export function CockpitMeetingSummary({ projectId }: Props) {
   const [olderLoaded, setOlderLoaded] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState<ProjectMeetingSummary | null>(null);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const loadMeetings = useCallback(async (id: string, options: {sinceDate?: string}) => {
+    if (!sharedWorkspace) return fetchProjectMeetingSummaries(id, options);
+    const response = await fetch(`/api/project/${encodeURIComponent(id)}/workspace-meetings${options.sinceDate ? `?since=${encodeURIComponent(options.sinceDate)}` : ""}`);
+    const json = await response.json();
+    if (!response.ok || !json.ok) throw new Error("会議を読み込めない");
+    return json.meetings as ProjectMeetingSummary[];
+  }, [sharedWorkspace]);
   const sinceDate = useMemo(() => todayMinus365IsoDate(), []);
   // /project/[id]/cockpit?meeting=<meeting_id> で開いた場合、対象 meeting の詳細モーダルを auto-open
   const searchParams = useSearchParams();
@@ -127,15 +137,16 @@ export function CockpitMeetingSummary({ projectId }: Props) {
 
   useEffect(() => {
     setLoading(true);
-    fetchProjectMeetingSummaries(projectId, { sinceDate })
+    loadMeetings(projectId, { sinceDate })
       .then(setRecentItems)
+      .catch(() => setLoadError("会議を読み込めない。再読み込みして。"))
       .finally(() => setLoading(false));
-  }, [projectId, sinceDate]);
+  }, [projectId, sinceDate, loadMeetings]);
 
   async function reloadRecentMeetings() {
     setRefreshing(true);
     try {
-      const next = await fetchProjectMeetingSummaries(projectId, { sinceDate });
+      const next = await loadMeetings(projectId, { sinceDate });
       setRecentItems(next);
       setOlderLoaded(false);
       setOlderItems([]);
@@ -145,6 +156,8 @@ export function CockpitMeetingSummary({ projectId }: Props) {
         const updated = next.find((item) => item.meetingId === selectedId);
         if (updated) setSelectedMeeting(updated);
       }
+    } catch {
+      setLoadError("会議を読み込めない。再読み込みして。");
     } finally {
       setRefreshing(false);
     }
@@ -164,7 +177,7 @@ export function CockpitMeetingSummary({ projectId }: Props) {
     // recent に無ければ older を読み込む
     if (!olderLoaded && !olderLoading) {
       setOlderLoading(true);
-      fetchProjectMeetingSummaries(projectId, {}).then((all) => {
+      loadMeetings(projectId, {}).then((all) => {
         setOlderItems(all.filter((i) => i.meetingDate < sinceDate));
         setOlderLoaded(true);
         setOlderLoading(false);
@@ -173,7 +186,7 @@ export function CockpitMeetingSummary({ projectId }: Props) {
           autoOpenedRef.current = deepLinkMeetingId;
           setSelectedMeeting(olderHit);
         }
-      });
+      }).catch(() => setLoadError("過去の会議を読み込めない。再読み込みして。")).finally(() => setOlderLoading(false));
     } else if (olderLoaded) {
       const olderHit = olderItems.find((m) => m.meetingId === deepLinkMeetingId);
       if (olderHit) {
@@ -181,7 +194,7 @@ export function CockpitMeetingSummary({ projectId }: Props) {
         setSelectedMeeting(olderHit);
       }
     }
-  }, [deepLinkMeetingId, loading, recentItems, olderItems, olderLoaded, olderLoading, projectId, sinceDate, selectedMeeting]);
+  }, [deepLinkMeetingId, loading, recentItems, olderItems, olderLoaded, olderLoading, projectId, sinceDate, selectedMeeting, loadMeetings]);
 
   function meetingUrl(meetingId: string): string {
     const params = new URLSearchParams(searchParams.toString());
@@ -220,11 +233,15 @@ export function CockpitMeetingSummary({ projectId }: Props) {
     }
     setOlderLoading(true);
     setShowOlder(true);
-    const all = await fetchProjectMeetingSummaries(projectId, {});
-    const older = all.filter((i) => i.meetingDate < sinceDate);
-    setOlderItems(older);
-    setOlderLoaded(true);
-    setOlderLoading(false);
+    try {
+      const all = await loadMeetings(projectId, {});
+      setOlderItems(all.filter((i) => i.meetingDate < sinceDate));
+      setOlderLoaded(true);
+    } catch {
+      setLoadError("過去の会議を読み込めない。再読み込みして。");
+    } finally {
+      setOlderLoading(false);
+    }
   }
 
   const today = useMemo(() => todayJstIsoDate(), []);
@@ -303,6 +320,7 @@ export function CockpitMeetingSummary({ projectId }: Props) {
         </div>
       </div>
 
+      {loadError && <p role="alert" className="p-3 text-sm text-red-700">{loadError}</p>}
       {loading ? (
         <p className="text-[12px] text-[#86868b]">読み込み中...</p>
       ) : plannedMeetingCount === 0 && pastRecentItems.length === 0 && !showOlder ? (
@@ -368,6 +386,7 @@ export function CockpitMeetingSummary({ projectId }: Props) {
       )}
 
       <CockpitMeetingDetailModal
+        readOnly={readOnly}
         meeting={selectedMeeting}
         prepMeeting={selectedPrepMeeting}
         open={selectedMeeting !== null}

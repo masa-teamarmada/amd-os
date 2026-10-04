@@ -63,9 +63,9 @@ export function ddSectionLabel(key: DdSectionKey): string {
   return DD_SECTIONS.find((section) => section.key === key)?.label ?? key;
 }
 
-export type DdItemKind = "document" | "tech_topic" | "funding_plan" | "capital_policy" | "cost_model";
+export type DdItemKind = "document" | "tech_topic" | "funding_plan" | "capital_policy" | "cost_model" | "project_page";
 
-export const DD_ITEM_KINDS: readonly DdItemKind[] = ["document", "tech_topic", "funding_plan", "capital_policy", "cost_model"];
+export const DD_ITEM_KINDS: readonly DdItemKind[] = ["document", "tech_topic", "funding_plan", "capital_policy", "cost_model", "project_page"];
 
 export const DD_ITEM_KIND_LABEL: Record<DdItemKind, string> = {
   document: "資料",
@@ -73,6 +73,7 @@ export const DD_ITEM_KIND_LABEL: Record<DdItemKind, string> = {
   funding_plan: "資金計画",
   capital_policy: "資本政策",
   cost_model: "採算（コスト試算）",
+  project_page: "PJのページ",
 };
 
 export function isDdItemKind(value: unknown): value is DdItemKind {
@@ -290,3 +291,8 @@ export function isDdViewerPath(pathname: string): boolean {
   if (pathname === "/dd") return true;
   return /^\/dd\/[^/]+(?:\/items\/[^/]+(?:\/file)?)?\/?$/.test(pathname);
 }
+
+/** 公開対象にできる追加の共通ページ。DB制約とも一致させる。 */
+export const DD_SHARED_PAGE_KEYS = ["gantt", "partners", "business-plan", "ip", "company", "capital-policy", "activity"] as const;
+export type DdSharedPageKey = (typeof DD_SHARED_PAGE_KEYS)[number];
+export function isDdSharedPageKey(value: string): value is DdSharedPageKey { return (DD_SHARED_PAGE_KEYS as readonly string[]).includes(value); }

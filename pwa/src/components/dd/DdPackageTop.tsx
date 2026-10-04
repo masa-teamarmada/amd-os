@@ -24,7 +24,7 @@ export function DdPackageTop({ view, slug, tab, sectionKey, canDownload = false,
           <div key={item.itemId} id={`dd-item-${item.itemId}`} className="min-w-0 scroll-mt-16">
             {!item.live ? <p className="rounded-xl border border-[#e5e5e7] bg-white p-4 text-[13px] text-[#6e6e73]">この内容はいま表示できない。</p>
               : item.live.kind === "document" ? <DdDocumentBody payload={item.live} fileHref={`/dd/${encodeURIComponent(slug)}/items/${item.itemId}/file`} canDownload={canDownload} previewNote="この画面からは開けない。" />
-              : <DdLiveBody live={item.live} />}
+              : <DdLiveBody live={item.live} canDownload={canDownload} />}
           </div>
         ))}
       </section>

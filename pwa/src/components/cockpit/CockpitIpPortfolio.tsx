@@ -22,7 +22,7 @@ import {
   type IpAsset, type IpDeadline, type IpEvent, type IpRelation, type IpRight,
 } from "@/lib/project-ip";
 
-type Bundle = {
+export type IpPortfolioBundle = {
   canEdit: boolean;
   assets: IpAsset[];
   deadlines: IpDeadline[];
@@ -87,9 +87,9 @@ function Chip({ meta }: { meta: { txt: string; cls: string } }) {
   return <span className={`rounded border px-1 py-0 text-[9px] ${meta.cls}`}>{meta.txt}</span>;
 }
 
-export function CockpitIpPortfolio({ projectId }: { projectId: string }) {
-  const [data, setData] = useState<Bundle | null>(null);
-  const [loading, setLoading] = useState(true);
+export function CockpitIpPortfolio({ projectId, initialData }: { projectId: string; initialData?: IpPortfolioBundle }) {
+  const [data, setData] = useState<IpPortfolioBundle | null>(initialData ?? null);
+  const [loading, setLoading] = useState(initialData === undefined);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState<IpAsset | "new" | null>(null);
@@ -109,7 +109,7 @@ export function CockpitIpPortfolio({ projectId }: { projectId: string }) {
     }
   }, [projectId]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { if (!initialData) void load(); }, [load, initialData]);
 
   const assets = data?.assets ?? [];
   const selected = useMemo(() => assets.find((a) => a.ip_asset_id === selectedId) ?? null, [assets, selectedId]);

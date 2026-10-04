@@ -449,7 +449,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     "project-finance": "収支",
     "capital-policy": "資金調達履歴",
     company: "会社概要",
-    activity: "活動実績",
+    activity: "沿革",
     dd: "DDパッケージ",
   };
   const visibleGroups = groups;
@@ -978,7 +978,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       )}
 
       {activeTab === "activity" && (
-        <section role="tabpanel" aria-label="活動実績" className="flex min-w-0 flex-col gap-3">
+        <section role="tabpanel" aria-label="沿革" className="flex min-w-0 flex-col gap-3">
           <CockpitGrants projectId={project.projectId} />
           {hasScoreDetailTab && <Bzm22AcquisitionLedger projectId={project.projectId} />}
           <CockpitAmdContributions projectId={project.projectId} />

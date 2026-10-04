@@ -555,6 +555,11 @@ function AddItemForm({
   const defaultSection = (candidate: DdSourceCandidate): DdSectionKey => {
     if (candidate.itemKind === "funding_plan" || candidate.itemKind === "cost_model") return "economics";
     if (candidate.itemKind === "capital_policy") return "capital";
+    if (candidate.itemKind === "project_page") {
+      if (candidate.sourceKey === "project_page:capital-policy") return "capital";
+      if (["project_page:company", "project_page:ip"].includes(candidate.sourceKey)) return "ip_contracts_team";
+      return "business";
+    }
     if (candidate.itemKind === "document") return "evidence";
     if (candidate.detail.includes("競合比較")) return "market";
     if (candidate.detail.includes("ビジネスモデル")) return "business";

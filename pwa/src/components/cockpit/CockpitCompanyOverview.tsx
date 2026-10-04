@@ -90,14 +90,18 @@ export function CockpitCompanyOverview({
   projectName,
   surface,
   readOnly = false,
+  initialData,
+  canDownload = true,
 }: {
   projectId: string;
   projectName: string;
   surface: CompanyOverviewSurface;
   readOnly?: boolean;
+  initialData?: CompanyOverviewData;
+  canDownload?: boolean;
 }) {
-  const [data, setData] = useState<CompanyOverviewData>(() => peekGovernance(projectId) ?? EMPTY_DATA);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<CompanyOverviewData>(() => initialData ?? peekGovernance(projectId) ?? EMPTY_DATA);
+  const [loading, setLoading] = useState(initialData === undefined);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [dialog, setDialog] = useState<DialogKind>(null);
@@ -118,7 +122,7 @@ export function CockpitCompanyOverview({
     }
   }, [projectId]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { if (initialData === undefined) void load(); }, [load, initialData]);
 
   const snapshots = useMemo(() => buildCapTableSnapshots(data), [data]);
   useEffect(() => {
@@ -245,8 +249,8 @@ export function CockpitCompanyOverview({
           <p className="mt-1 text-xs leading-5 text-slate-300">会社情報・資本政策・機関決定・決算のPJ正本</p>
         </div>
         <div className="flex flex-wrap gap-2" data-html2canvas-ignore="true">
-          <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" onClick={() => downloadCompanyOverviewXlsx(projectName, data)}><FileSpreadsheet />会社概要Excel</Button>
-          <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" onClick={() => void exportPdf()} disabled={exportingPdf}>{exportingPdf ? <Loader2 className="animate-spin" /> : <Download />}PDF</Button>
+          <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" disabled={!canDownload} onClick={() => downloadCompanyOverviewXlsx(projectName, data)}><FileSpreadsheet />会社概要Excel</Button>
+          <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" onClick={() => void exportPdf()} disabled={exportingPdf || !canDownload}>{exportingPdf ? <Loader2 className="animate-spin" /> : <Download />}PDF</Button>
           <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" onClick={() => void load()}><RefreshCw />更新</Button>
         </div>
       </div>

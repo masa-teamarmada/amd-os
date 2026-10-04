@@ -1,5 +1,6 @@
 // DD画面の表示用の小さな整形（純関数）。
 
+import { PROJECT_PAGE_LABELS } from "@/lib/project-formats";
 import type { DdLiveData } from "@/lib/dd-payload";
 
 /** 日付を日本時間の「2026年9月30日」で出す。読めない値は「—」。 */
@@ -27,6 +28,7 @@ export function formatDdBytes(bytes: number | null | undefined): string {
 /** 元データの説明（投資家向けの言葉）。社内の表名・IDは出さない。 */
 export function ddSourceDescription(data: DdLiveData): string {
   switch (data.kind) {
+    case "project_page": return `${PROJECT_PAGE_LABELS[data.page]}（最新）`;
     case "document":
       return "資料（資料室の最新のファイル）";
     case "tech_topic":

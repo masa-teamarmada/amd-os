@@ -72,7 +72,7 @@ export const COCKPIT_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ grou
 
 /** PJワークスペース（PJメンバーと共有する面）のタブ。コックピットと同じく、タイプごとに全タブを出す。 */
 const WORKSPACE_STANDARD_TABS = [
-  { group: "progress-group", tabs: ["issues", "tasks", "gantt", "weekly", "partners"] },
+  { group: "progress-group", tabs: ["issues", "tasks", "gantt", "meetings", "slack", "weekly", "partners"] },
   { group: "business-plan-group", tabs: ["technology", "competition", "business-model", "business-plan", "financial-projection", "capital-plan", "cost", "ip"] },
   { group: "documents-group", tabs: ["drive"] },
   { group: "company-information-group", tabs: ["company", "capital-policy"] },
@@ -83,7 +83,7 @@ export const WORKSPACE_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ gr
   new_business: WORKSPACE_STANDARD_TABS,
   amd: WORKSPACE_STANDARD_TABS,
   ecosystem: [
-    { group: "progress-group", tabs: ["issues", "tasks", "gantt", "weekly", "partners"] },
+    { group: "progress-group", tabs: ["issues", "tasks", "gantt", "meetings", "slack", "weekly", "partners"] },
     { group: "documents-group", tabs: ["drive"] },
     { group: "company-information-group", tabs: ["company", "capital-policy"] },
   ],
@@ -94,15 +94,17 @@ export const ROLE_RESTRICTED_TABS: Readonly<Record<string, "amd_admin">> = {};
 
 /** DDも同じページ分類を使う。ページ内では公開を許可された元データだけを表示する。 */
 export const DD_TAB_FORMAT = [
-  { group: "business-plan-group", tabs: ["technology", "competition", "business-model", "financial-projection", "capital-plan", "cost-model"] },
+  { group: "progress-group", tabs: ["gantt", "partners"] },
+  { group: "business-plan-group", tabs: ["technology", "competition", "business-model", "business-plan", "financial-projection", "capital-plan", "cost-model", "ip"] },
   { group: "documents-group", tabs: ["documents"] },
+  { group: "company-information-group", tabs: ["company", "capital-policy", "activity"] },
 ] as const;
 
 /** 3領域のページ名。ワークスペースの旧キー cost/drive は同じページへ対応する。 */
 export const PROJECT_PAGE_LABELS: Readonly<Record<string, string>> = {
   issues: "ゴールツリー", tasks: "タスク", gantt: "ガント", progress: "MS・月次", meetings: "動向・会議", slack: "Slack", weekly: "週次差分", partners: "関係先",
   "score-detail": "スコア詳細", technology: "技術", competition: "競合比較", "business-model": "ビジネスモデル", "business-plan": "事業計画", "financial-projection": "試算表", "capital-plan": "資本政策表", "cost-model": "コスト試算", cost: "コスト試算", ip: "知財",
-  documents: "ドライブ", drive: "ドライブ", overview: "PJ概要", "project-contracts": "契約", "project-finance": "収支", "monthly-reports": "月次報告書", company: "会社概要", "capital-policy": "資金調達履歴", activity: "活動実績", seeds: "シーズ一覧", regulations: "規程一覧",
+  documents: "ドライブ", drive: "ドライブ", overview: "PJ概要", "project-contracts": "契約", "project-finance": "収支", "monthly-reports": "月次報告書", company: "会社概要", "capital-policy": "資金調達履歴", activity: "沿革", seeds: "シーズ一覧", regulations: "規程一覧",
 };
 
 /** 開いたときのタブ。全PJ同じ。 */

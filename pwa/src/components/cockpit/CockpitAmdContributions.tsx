@@ -78,13 +78,14 @@ function MonthBlock({ ym, items }: { ym: string; items: AmdContributionItem[] })
   );
 }
 
-export function CockpitAmdContributions({ projectId }: { projectId: string }) {
+export function CockpitAmdContributions({ projectId, initialPayload }: { projectId: string; initialPayload?: AmdContributionsPayload }) {
   const [payload, setPayload] = useState<AmdContributionsPayload | null>(
-    () => peekAmdContributions(projectId) ?? null,
+    () => initialPayload ?? peekAmdContributions(projectId) ?? null,
   );
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (initialPayload) return;
     let cancelled = false;
     const cached = peekAmdContributions(projectId);
     setPayload(cached ?? null);
@@ -99,7 +100,7 @@ export function CockpitAmdContributions({ projectId }: { projectId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, initialPayload]);
 
   const grouped = new Map<string, AmdContributionItem[]>();
   for (const item of payload?.items ?? []) {

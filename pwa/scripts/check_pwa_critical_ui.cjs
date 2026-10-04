@@ -654,11 +654,11 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   'overview: "PJ概要"',
   '"project-contracts": "契約"',
   '"project-finance": "収支"',
-  'activity: "活動実績"',
+  'activity: "沿革"',
   'aria-label="PJ概要"',
   'aria-label="契約"',
   'aria-label="収支"',
-  'aria-label="活動実績"',
+  'aria-label="沿革"',
   '<CockpitGrants projectId={project.projectId} />',
   '<Bzm22AcquisitionLedger projectId={project.projectId} />',
   '<CockpitAmdContributions projectId={project.projectId} />',
@@ -668,7 +668,7 @@ expectPattern("src/components/cockpit/CockpitView.tsx", [
   /aria-label="PJ概要"[\s\S]{0,600}<CockpitVentureStatus/,
   /aria-label="契約"[\s\S]{0,400}<CockpitProjectOverview/,
   /aria-label="収支"[\s\S]{0,300}<CockpitSeasonBudget/,
-  /aria-label="活動実績"[\s\S]{0,600}<CockpitGrants/,
+  /aria-label="沿革"[\s\S]{0,600}<CockpitGrants/,
 ]);
 expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
   // 進捗管理・スコア詳細の上へ Hero を戻さない (タブより上は CockpitHeader だけ)
@@ -724,7 +724,7 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   "shouldShowChildNavigation",
   '"project-contracts": "契約"',
   '"project-finance": "収支"',
-  'activity: "活動実績"',
+  'activity: "沿革"',
 ]);
 
 expectIncludes("src/lib/contracts-ledger.ts", [

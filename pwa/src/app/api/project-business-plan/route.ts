@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { requireMember } from "@/lib/supabase/api-auth";
 import { hasSharedWorkspaceProjectReadAccess } from "@/lib/shared-workspace-project-read-access";
-import { normalizeBusinessPlanPhases, type ProjectBusinessPlan } from "@/lib/project-business-plan";
+import { type ProjectBusinessPlan } from "@/lib/project-business-plan";
+
+import { loadProjectBusinessPlan } from "@/lib/project-business-plan-server";
 
 export const runtime = "nodejs";
 
@@ -17,24 +18,6 @@ const HEADERS = { "Cache-Control": "private, max-age=60, stale-while-revalidate=
 
 function nowMs(): number {
   return new Date().getTime();
-}
-
-async function loadProjectBusinessPlan(projectId: string): Promise<ProjectBusinessPlan | null> {
-  const db = createAdminClient();
-  const { data, error } = await db
-    .from("project_business_plans")
-    .select("project_id, matrix_note, source_note, phases_json, updated_at")
-    .eq("project_id", projectId)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!data) return null;
-  return {
-    projectId: data.project_id as string,
-    matrixNote: (data.matrix_note as string | null) ?? null,
-    sourceNote: (data.source_note as string | null) ?? null,
-    phases: normalizeBusinessPlanPhases(data.phases_json),
-    updatedAt: (data.updated_at as string | null) ?? null,
-  };
 }
 
 /** GET /api/project-business-plan?projectId=p21 */
