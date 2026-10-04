@@ -30,7 +30,7 @@
 - 通知のserver-driven action card、完全な採否write、remote push。
 - MS詳細編集・月次・請求・財務・支払・契約・メンバー・裏wiki・経営ノウハウ・運営カレンダー・シーズン予実。
 - Atlas / Seeds / PoC / VC / Scholar / AMD Score の詳細UI。
-- 教科書のMac段組みリーダー、HUDの実データ計器、研究機関の詳細評価。
+- 教科書のMac段組みリーダー、研究機関の詳細評価。
 
 未実装を画面から削除せず、`PARITY.md`の状態を更新してから各機能を追加する。
 

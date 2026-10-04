@@ -168,22 +168,6 @@ struct AMDOSScreenView: View {
             case .adminSettings: AMDOSP1SettingsView()
             case .adminTsukuyomi: AMDOSP1TsukuyomiView()
             case .adminWeekly: AMDOSAdminWeeklyView(onOpenMypage: onOpenMemberMypage)
-            case .hudDashboard: AMDOSHUDDashboardView()
-            case .hudEmbedDashboard: AMDOSHUDEmbedDashboardView()
-            // HUD mirror routes re-export the PWA's full feature pages. Keep
-            // the native route aliases on the same SwiftUI implementation so
-            // their CRUD and workflow actions do not degrade into read-only HUD cards.
-            case .hudNotifications: AMDOSParityNotificationsView(initialNotificationID: nil, initialMeetingID: nil)
-            case .hudProjectCockpit: AMDOSParityProjectCockpitView(projectId: selectedProjectId, initialYM: routeQuery["ym"], initialTab: routeQuery["tab"], initialMeetingID: routeQuery["meeting"], initialDocumentID: routeQuery["document"], onOpenConfig: onOpenProjectConfig, onOpenGovernance: { onNavigate(.adminGovernance) })
-            case .hudAtlas: AMDOSParityAtlasHomeView(onNavigate: onNavigate)
-            case .hudSeeds:
-                AMDOSParitySeedsView(
-                    onSelectSeed: onSelectSeed,
-                    onOpenInbox: { onNavigate(.seedInbox) },
-                    onOpenMacrotrends: { onNavigate(.atlasMacrotrends) }
-                )
-            case .hudVcs: AMDOSParityVCListView(onSelectVC: onSelectVC)
-            case .hudAmdScoreRetrofit: AMDOSRetiredScoreRouteView()
             case .cyber3DLab: AMDOSCyber3DLabView()
             case .cyberGlassCube: AMDOSCyberGlassCubeView()
             case .cyberHudWall: AMDOSCyberHUDWallView()

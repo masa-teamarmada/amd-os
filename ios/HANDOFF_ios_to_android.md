@@ -1,5 +1,12 @@
 # iOS → Android ハンドオフ
 
+## 2026-10-04 HUD版コックピットの廃止
+
+- まさ「HUDなんてもう使わないから廃止されてるはず。残骸があるなら消して」。PWA の HUD（`/hud/*`）を削除したのに合わせ、iOS の設定タブ「ディスプレイ」→「HUD版コックピット」（`CockpitHUDView`）と、そこからだけ開いていた `ScoreDetailWebView`、HUD だけが使っていた `SupabaseService.fetchHudManagementSnapshots` / `fetchHudBillingCycles` / `fetchHudMonthlyReports` と行の型を削除した。
+- 設定タブは「アカウント」「アプリ情報」「支払情報」だけになる。PWA の WebView 用の認証 cookie（`hudWebAuthCookies`）は名刺画面が使うので残した（名前はそのまま）。
+- Android に HUD版コックピット相当の画面があれば、同じく入口ごと削除する。データモデル・DB は変更なし。`/api/hud/dashboard` は Mac アプリが読むので PWA に残っている。
+- iOS は Simulator 用の build と起動（ログイン画面まで）を確認済み。実機への入れ直しは、端末が Mac につながっていなかったため未。次の実機デプロイ / TestFlight で反映される。
+
 ## 2026-09-23 l2m共有ボス用の独立したDB領域
 
 OSスイートのSupabase内に、別アプリ `l2m` だけが利用する共有ボス予定の表・関数・通知ジョブを追加した。AMD OSのiOS / Android画面・認証契約は変更していないため、AMD OS Androidへの移植作業はない。ボス画面の正本は `/Users/masa/projects/l2m/BOSS_APP_DESIGN.md`。仮ユーザーで参加申請、管理者承認、承認前の遮断、承認後の予定・履歴取得を確認済み。実機通知は未確認。

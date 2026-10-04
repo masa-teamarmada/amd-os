@@ -2,7 +2,6 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var authService: AuthService
-    @State private var showHUDCockpit = false
     private var appVersionLabel: String {
         let info = Bundle.main.infoDictionary
         return info?["CFBundleShortVersionString"] as? String ?? "-"
@@ -11,35 +10,6 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section {
-                    Button {
-                        showHUDCockpit = true
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: "scope")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundStyle(AMD.blue)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("HUD版コックピット")
-                                    .font(.headline)
-                                    .foregroundStyle(AMD.text)
-                                Text("タクティカル表示に切り替え（デモ）")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption.weight(.bold))
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.vertical, 4)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                } header: {
-                    Text("ディスプレイ")
-                }
-
                 Section("アカウント") {
                     if let email = authService.userEmail {
                         LabeledContent("メール", value: email)
@@ -62,9 +32,6 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("設定")
-        }
-        .fullScreenCover(isPresented: $showHUDCockpit) {
-            CockpitHUDView()
         }
     }
 }

@@ -78,14 +78,6 @@ enum AMDOSParityCatalog {
         case .adminSettings: return "設定"
         case .adminTsukuyomi: return "つくよみ"
         case .adminWeekly: return "週次活動"
-        case .hudDashboard: return "HUDダッシュボード"
-        case .hudEmbedDashboard: return "HUD公開表示"
-        case .hudNotifications: return "HUD通知"
-        case .hudProjectCockpit: return "HUDコックピット"
-        case .hudAtlas: return "HUD Atlas"
-        case .hudSeeds: return "HUDシーズ"
-        case .hudVcs: return "HUD VC"
-        case .hudAmdScoreRetrofit: return "HUD Score再計算"
         case .cyber3DLab: return "3D Lab"
         case .cyberGlassCube: return "Glass Cube"
         case .cyberHudWall: return "HUD Wall"
@@ -107,7 +99,7 @@ enum AMDOSParityCatalog {
         case .today: return "rectangle.grid.2x2.fill"
         case .mypage: return "person.fill"
         case .projects, .myProjects, .projectWorkspace, .projectCockpit, .projectConfig, .projectReportPrint: return "rectangle.3.group.fill"
-        case .notifications, .hudNotifications: return "bell.fill"
+        case .notifications: return "bell.fill"
         case .reimbursements: return "receipt"
         case .businessCards, .nativeBusinessCards: return "person.text.rectangle"
         case .company: return "building.2.fill"
@@ -115,14 +107,14 @@ enum AMDOSParityCatalog {
         case .japaneseCultureMap: return "map.fill"
         case .knowledgeMap: return "circle.hexagongrid.fill"
         case .monthlyAgreement, .adminMonthlyAgreements: return "checkmark.seal.fill"
-        case .atlasHome, .atlasThemes, .atlasDecisions, .atlasDivergence, .atlasInbox, .atlasInboxSubmit, .atlasMacrotrends, .atlasMap, .hudAtlas: return "globe.americas.fill"
+        case .atlasHome, .atlasThemes, .atlasDecisions, .atlasDivergence, .atlasInbox, .atlasInboxSubmit, .atlasMacrotrends, .atlasMap: return "globe.americas.fill"
         case .materials: return "circle.hexagongrid.fill"
-        case .seeds, .seedDetail, .seedInbox, .hudSeeds: return "leaf.fill"
+        case .seeds, .seedDetail, .seedInbox: return "leaf.fill"
         case .poc: return "arrow.triangle.2.circlepath"
-        case .vcs, .vcDetail, .vcEdit, .vcInbox, .hudVcs: return "chart.line.uptrend.xyaxis"
+        case .vcs, .vcDetail, .vcEdit, .vcInbox: return "chart.line.uptrend.xyaxis"
         case .scholar: return "graduationcap.fill"
         case .institutions, .institutionDetail, .institutionCockpit, .institutionAssess: return "building.columns.fill"
-        case .ventureMap, .amdScore, .amdScoreDetail, .amdScoreRetrofit, .ventureCyberspace, .ventureOscillator, .ventureStateSpace, .ventureSuDetail, .ventureTimeline3D, .hudAmdScoreRetrofit: return "scope"
+        case .ventureMap, .amdScore, .amdScoreDetail, .amdScoreRetrofit, .ventureCyberspace, .ventureOscillator, .ventureStateSpace, .ventureSuDetail, .ventureTimeline3D: return "scope"
         case .managementScore: return "gauge.with.dots.needle.67percent"
         case .proactive: return "sparkles"
         case .adminHome: return "house.fill"
@@ -146,8 +138,6 @@ enum AMDOSParityCatalog {
         case .adminSettings: return "gearshape.fill"
         case .adminTsukuyomi: return "moon.stars.fill"
         case .adminWeekly: return "calendar.badge.clock"
-        case .hudDashboard, .hudEmbedDashboard: return "display"
-        case .hudProjectCockpit: return "rectangle.split.3x1.fill"
         case .cyber3DLab, .cyberGlassCube, .cyberHudWall: return "cube.transparent.fill"
         case .manual, .manualDetail: return "book.closed.fill"
         case .spec, .specDetail: return "doc.badge.gearshape"
@@ -175,7 +165,7 @@ enum AMDOSParityCatalog {
         case .admin:
             return isAdmin ? [.adminHome, .adminCompany, .adminContexts, .adminInvoices, .adminFinance, .adminPayouts, .adminContracts, .adminMembers, .adminGovernance, .adminCoverageGaps, .adminIP, .adminCultureMap, .adminMonthlyAgreements, .adminPrivateWiki, .adminManagementKnowledge, .adminProjects, .adminPrompts, .adminProtocols, .adminSchedule, .adminMsOverview, .adminSeasonPL, .adminSettings, .adminTsukuyomi, .adminWeekly] : []
         case .settings:
-            return [.hudDashboard, .hudNotifications, .hudProjectCockpit, .hudAtlas, .hudSeeds, .hudVcs, .hudAmdScoreRetrofit, .cyber3DLab, .cyberGlassCube, .cyberHudWall, .manual, .spec, .bzm, .bzmPublic, .account]
+            return [.cyber3DLab, .cyberGlassCube, .cyberHudWall, .manual, .spec, .bzm, .bzmPublic, .account]
         }
     }
 }

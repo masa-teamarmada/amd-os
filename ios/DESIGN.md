@@ -4,7 +4,7 @@
 
 2026-10-04: PWAのDD閲覧もPJ見出し・領域選択・分類・ページ・本文へ統一。管理者プレビュー帯・概要一覧・一覧タブを削除し、技術・競合比較・ビジネスモデル・試算表・資本政策表・コスト試算・ドライブの固定ページで、公開対象の元データを共通部品に直接表示する。管理・PDFは設定で扱う。3領域の表示ページ対照表は pwa/spec/3-24。DB・認可・公開範囲・BZM/model変更なし。iOS/macOS/AndroidのDD画面は未移植。
 
-2026-10-04: PWAホームのPJポートフォリオの研究機関PJ・シーズPJも、紐づくPJコックピットへ直接移動する。社内画面・共有ワークスペース・DDの上部にChrome型の戻る/進む矢印を追加し、ブラウザと同じ履歴を使う。DB・認可の変更なし。印刷・HUD・ネイティブ埋込み・専用の書斎画面は対象外。Swift/Androidの画面構造・履歴操作へは未移植（spec/2-1、manual/2-1）。
+2026-10-04: PWAホームのPJポートフォリオの研究機関PJ・シーズPJも、紐づくPJコックピットへ直接移動する。社内画面・共有ワークスペース・DDの上部にChrome型の戻る/進む矢印を追加し、ブラウザと同じ履歴を使う。DB・認可の変更なし。印刷・ネイティブ埋込み・専用の書斎画面は対象外。Swift/Androidの画面構造・履歴操作へは未移植（spec/2-1、manual/2-1）。
 
 2026-10-04: PWAのコックピット・ワークスペース・DDパッケージを並列の領域へ修正。各画面の見出し下に共通の領域選択を置き、DDの分類・子タブ・本文は独立した `/dd/[slug]` で表示する。DD管理は `/project/[projectId]/dd?tab=manage`。旧 `cockpit?tab=dd` と workspace `#dd-package` は独立したDD入口へ送る。入場権限・公開範囲・共有DB・表示本文の部品は変更なし。iOS/macOS/AndroidのDD画面は未移植、ブラウザで開く前提（spec 5-17）。
 
@@ -335,7 +335,6 @@ Google Calendar に月次MTG枠を作成、参加者に招待を飛ばす。`sch
 | `MilestoneManagementSheet` | mile追加・編集・削除 |
 | `MsProgressEditSheet` | 1mileの進捗を %  / ステータスで更新 |
 | `MsRevisionRequestSheet` / `RevisionThreadView` | 進捗修正リクエスト送受信 |
-| `CockpitHUDView` | **HUD版（デモ）**。設定タブから fullScreenCover で開く没入ダッシュボード |
 
 データ: `ms_definitions` / `ms_progress_*` / `ms_revisions` / `ms_proposal_*`
 
@@ -347,16 +346,7 @@ Google Calendar に月次MTG枠を作成、参加者に招待を飛ばす。`sch
   - 確定後、GAS 側で `billing_cycles.reward_summary_json`（メンバー獲得pt / 想定報酬）が計算される
   - 月次モーダルの「メンバー獲得pt / 想定報酬」とマイページの「今月想定」両方がここを起点に出る
 
-**HUD版コックピット（`CockpitHUDView`）— PWA Control Center のデモ表示レイヤ**:
-- 設定タブの「ディスプレイ」セクション → 「HUD版コックピット」から `fullScreenCover` で開く。サイバー / ネオン HUD テイスト（PWA `hud_visual_language.md` 準拠の cyan/navy）。右上 `×` で閉じる。
-- **PWA `/hud/dashboard` (HudControlCenterDashboard) と同じ構成・文言**。データは **Supabase 直読み**（API 不要・会場ネット非依存。`SupabaseService.fetchHudManagementSnapshots` / `fetchHudBillingCycles` / `fetchHudMonthlyReports` + `fetchActiveProjects`）:
-  - **AMD Management Score**: `amd_management_score_snapshots` 最新 ym。総合スコアの大リング（`>=75 GOOD` / `>=55 WATCH` / `<55 ALERT`）+ 5サブリング（先手力=initiative / 財務=finance / 継続=retention / 新規=pipeline / 方向=direction）+ 6ヶ月推移ライン + `LOW CONF`（confidence ≤ 0.6）
-  - **System Status**: Data Pipeline / Integration（BC 件数）/ Security / Backup
-  - **Project Signal Board**: active PJと現行SPSを`/api/hud/dashboard`から読む。現行版は`sps-ind-v1 / q-eval-v2 / rubric-v1.1 / p-ind-v1`だけで、欠測は「最新版未評価」。旧M/X/Fスコアや月次ルーティン進捗へfallbackしない。
-  - **Next Action Queue**: `billing_cycles` 未完了から自動生成（PWA `buildMonthlyRoutineActions` 相当）
-- **PJカードをタップ → cockpit のスコア詳細**（`ScoreDetailWebView`）。iOS が開く互換URL `/venture-map/amd-score/{projectId}` は PWA `/project/{projectId}/cockpit?tab=score-detail`（PRS/R_net/XRL/FRL/ALQ radar/CES・計算式・XRLチェックリスト）へ自動転送する。iOS の Supabase セッションを `@supabase/ssr` 互換 cookie に変換して注入し、auth 必須ページを認証付きで開く。
 - **スコア詳細タブの《組織》** (2026-08-28 新設、PWA): 産業創出価値のパネルの下に、経営チームの八機能の充足状態・人と組織の観測ログ・メンバー一覧を置く。機能の一覧はモデル正本から実行時に読み、充足は実働の記録だけで判定する（肩書では判定しない）。個人の評価を含むため member 限定で、外部の共有ワークスペースからは読めない。iOS が `ScoreDetailWebView` で開くのは同じページなので、ここも WebView に出る。正本は [`pwa/spec/4-9`](../pwa/spec/4-9-project-org-section-current-spec.md)。
-- ローディング / エラーも HUD テイスト（UPLINK スピナー・`DATA LINK FAILED` + RETRY）。**表示専用**。アニメは `TimelineView(.animation)`（スキャンライン・パルス）。**計器目盛は静止**（無意味な常時回転は禁止）。
 
 ---
 
@@ -504,7 +494,7 @@ admin がアクション必要なものを集約する。
 
 | 画面 | 役割 |
 |---|---|
-| `SettingsView` | バージョン情報、ログアウト、HUD版コックピット、教科書導線 |
+| `SettingsView` | バージョン情報、ログアウト、教科書導線 |
 | `PayoutInfoEditView` | 自分の住所・振込先を編集（支払通知書PDFに記載される） |
 | `TextbookReaderView` | 同梱した `pwa/bzm/*.md` を縦書きページリーダーで表示し、iOS Swift 版から Before Zero / BZM 教科書を読む |
 

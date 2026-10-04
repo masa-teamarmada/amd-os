@@ -55,7 +55,6 @@ private struct AMDOSManualLibraryChapter: Identifiable, Sendable {
 
 @MainActor
 private final class AMDOSReferenceStore: ObservableObject {
-    @Published var hud: AMDOSHUDResponse?
     @Published var document: AMDOSDocumentContentResponse?
     @Published var state: AMDOSFeatureLoadState = .idle
     @Published var askState: AMDOSFeatureLoadState = .idle
@@ -66,16 +65,6 @@ private final class AMDOSReferenceStore: ObservableObject {
             content: "OSマニュアルの中から探して答えるよ。画面名・テーブル名・運用ルールをそのまま聞いてね。"
         )
     ]
-
-    func loadHUD() async {
-        state = .loading
-        do {
-            hud = try await AMDOSRESTClient.shared.fetchPWA(AMDOSHUDResponse.self, path: "/api/hud/dashboard")
-            state = hud == nil ? .empty : .loaded
-        } catch {
-            state = .failed(error.localizedDescription)
-        }
-    }
 
     func loadDocument(kind: String, slug: String? = nil) async {
         state = .loading
@@ -164,6 +153,7 @@ private final class AMDOSReferenceStore: ObservableObject {
     }
 }
 
+// サイバー風の実験画面（3D Lab・Glass Cube・HUD Wall）が使う小さな部品。HUD（/hud）の画面は 2026-10-04 に廃止した。
 private func amdOSPercentage(_ value: Double?) -> String {
     guard let value else { return "—" }
     return String(format: "%.0f", value)
@@ -190,381 +180,10 @@ private struct AMDOSHUDSparkline: View {
     }
 }
 
-private struct AMDOSHUDScoreRing: View {
-    let value: Double?
-    let label: String
-    let tint: Color
-    var body: some View {
-        ZStack {
-            Circle().stroke(tint.opacity(0.16), lineWidth: 8)
-            Circle().trim(from: 0, to: CGFloat(min(max(value ?? 0, 0), 100) / 100)).stroke(tint, style: StrokeStyle(lineWidth: 8, lineCap: .round)).rotationEffect(.degrees(-90))
-            VStack(spacing: 2) { Text(amdOSPercentage(value)); Text(label).font(.caption2).foregroundStyle(AMDOSDesign.muted) }
-        }.frame(width: 92, height: 92)
-    }
-}
-
-struct AMDOSHUDDashboardView: View {
-    @StateObject private var store = AMDOSReferenceStore()
-    var body: some View {
-        AMDOSPageScaffold(eyebrow: "HUD DASHBOARD", title: "HUDダッシュボード", subtitle: "PWA /hud/dashboard のプロジェクト信号・請求進捗・Management Score") {
-            AMDOSStateNotice(state: store.state) { Task { await store.loadHUD() } }
-            if let hud = store.hud {
-                let latest = hud.managementScore
-                HStack(spacing: 14) {
-                    AMDOSMetricTile(label: "PJ", value: "\(hud.projects.count)", detail: hud.ym ?? "—")
-                    AMDOSMetricTile(label: "評価履歴", value: "\(hud.managementHistory.count)", detail: "月次スナップショット")
-                    AMDOSMetricTile(label: "現行SPS", value: "\(hud.currentSps?.filter { $0.status == "assessed" }.count ?? 0)", detail: "sps-ind-v1")
-                    AMDOSMetricTile(label: "請求", value: "\(hud.billingStatus.count)", detail: "現在月の状態")
-                }
-                AMDOSSectionCard("Management Score", systemImage: "gauge.with.dots.needle.67percent") {
-                    HStack(spacing: 24) {
-                        AMDOSHUDScoreRing(value: latest?.totalScore, label: "TOTAL", tint: AMDOSDesign.blue)
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(latest?.summary ?? "最新スナップショット").font(.headline)
-                            Text("\(latest?.ym ?? hud.ym ?? "—") · 信頼度 \(amdOSPercentage(latest?.confidence))").font(.caption).foregroundStyle(AMDOSDesign.muted)
-                            HStack(spacing: 12) {
-                                AMDOSMetricTile(label: "INIT", value: amdOSPercentage(latest?.initiativeScore), detail: "initiative")
-                                AMDOSMetricTile(label: "FIN", value: amdOSPercentage(latest?.financeScore), detail: "finance")
-                                AMDOSMetricTile(label: "DIR", value: amdOSPercentage(latest?.directionScore), detail: "direction")
-                            }
-                        }
-                    }
-                }
-                AMDOSSectionCard("プロジェクト現行SPS", systemImage: "scope") {
-                    ForEach(hud.projects) { project in
-                        let assessment = hud.currentSps?.first { $0.projectId == project.id }
-                        AMDOSCard {
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack { Text(project.projectName).font(.headline); Spacer(); AMDOSStatusBadge(text: project.status ?? "—") }
-                                Text([project.clientName, project.startYm.map { "開始 \($0)" }, project.endYm.map { "終了 \($0)" }].compactMap { $0 }.joined(separator: " · ")).font(.caption).foregroundStyle(AMDOSDesign.muted)
-                                HStack { AMDOSMetricTile(label: "現行SPS", value: assessment?.status == "assessed" ? bandText(assessment) : "最新版未評価", detail: assessment?.assessmentId ?? "none", tint: assessment?.status == "assessed" ? AMDOSDesign.success : AMDOSDesign.warning); AMDOSMetricTile(label: "根拠Lv", value: "Lv\(assessment?.evidenceLevel ?? 0)", detail: "産業創出価値") }
-                            }
-                        }
-                    }
-                }
-            }
-        }.task { await store.loadHUD() }
-    }
-}
-
-// MARK: - Public HUD embed
-
-/// PWA `/hud/dashboard/embed` と同じ、未ログインでもRLSが返せる範囲だけを読むDTO。
-/// 通常HUDの集約APIは管理スコアを含みBearer必須なので、公開routeから呼ばない。
-private struct AMDOSHUDEmbedProject: Decodable, Identifiable, Sendable {
-    let projectID: String
-    let projectName: String
-    let clientName: String?
-    let status: String?
-    let projectCategory: String?
-    let startYM: String?
-    let endYM: String?
-
-    enum CodingKeys: String, CodingKey {
-        case projectID = "project_id"
-        case projectName = "project_name"
-        case clientName = "client_name"
-        case status
-        case projectCategory = "project_category"
-        case startYM = "start_ym"
-        case endYM = "end_ym"
-    }
-
-    var id: String { projectID }
-}
-
-private struct AMDOSHUDEmbedBillingCycle: Decodable, Sendable {
-    let projectID: String
-    let ym: String
-    let status: String?
-    let budgetYen: Double?
-    let meetingStartAt: String?
-    let reportFixedAt: String?
-    let invoiceSentAt: String?
-    let paymentConfirmedAt: String?
-
-    enum CodingKeys: String, CodingKey {
-        case projectID = "project_id"
-        case ym, status
-        case budgetYen = "budget_yen"
-        case meetingStartAt = "meeting_start_at"
-        case reportFixedAt = "report_fixed_at"
-        case invoiceSentAt = "invoice_sent_at"
-        case paymentConfirmedAt = "payment_confirmed_at"
-    }
-}
-
-private struct AMDOSHUDEmbedReport: Decodable, Sendable {
-    let projectID: String
-    let status: String?
-    let fixedAt: String?
-    let finalContent: String?
-
-    enum CodingKeys: String, CodingKey {
-        case projectID = "project_id"
-        case status
-        case fixedAt = "fixed_at"
-        case finalContent = "final_content"
-    }
-}
-
-private struct AMDOSHUDEmbedBillingStatus: Sendable {
-    let ym: String
-    let status: String
-    let budgetYen: Double?
-    let meetingDone: Bool
-    let reportDone: Bool
-    let invoiceDone: Bool
-    let paymentDone: Bool
-}
-
-private func amdOSHUDEmbedCurrentYM() -> String {
-    let components = Calendar(identifier: .gregorian).dateComponents([.year, .month], from: Date())
-    return String(format: "%04d%02d", components.year ?? 0, components.month ?? 0)
-}
-
-@MainActor
-private final class AMDOSHUDEmbedStore: ObservableObject {
-    @Published private(set) var projects: [AMDOSHUDEmbedProject] = []
-    @Published private(set) var billingByProject: [String: AMDOSHUDEmbedBillingStatus] = [:]
-    @Published private(set) var ym = amdOSHUDEmbedCurrentYM()
-    @Published var state: AMDOSFeatureLoadState = .idle
-
-    func load() async {
-        state = .loading
-        let targetYM = amdOSHUDEmbedCurrentYM()
-        do {
-            async let projectsRequest = AMDOSRESTClient.shared.fetchTable(
-                AMDOSHUDEmbedProject.self,
-                table: "projects",
-                select: "project_id,project_name,client_name,status,project_category,start_ym,end_ym",
-                order: "project_name"
-            )
-            async let billingRequest = AMDOSRESTClient.shared.fetchTable(
-                AMDOSHUDEmbedBillingCycle.self,
-                table: "billing_cycles",
-                select: "project_id,ym,status,budget_yen,meeting_start_at,report_fixed_at,invoice_sent_at,payment_confirmed_at",
-                filters: ["ym": "eq.\(targetYM)"]
-            )
-            async let reportRequest = AMDOSRESTClient.shared.fetchTable(
-                AMDOSHUDEmbedReport.self,
-                table: "monthly_reports",
-                select: "project_id,status,fixed_at,final_content",
-                filters: ["ym": "eq.\(targetYM)"]
-            )
-
-            let loadedProjects = try await projectsRequest
-            let cycles = try await billingRequest
-            let reports = try await reportRequest
-            let fixedReports = Set(
-                reports
-                    .filter { report in
-                        report.fixedAt?.trimmedNonEmpty != nil
-                            || report.status?.lowercased() == "fixed"
-                            || report.finalContent?.trimmedNonEmpty != nil
-                    }
-                    .map(\.projectID)
-            )
-
-            var nextBilling: [String: AMDOSHUDEmbedBillingStatus] = [:]
-            for cycle in cycles {
-                nextBilling[cycle.projectID] = AMDOSHUDEmbedBillingStatus(
-                    ym: cycle.ym,
-                    status: cycle.status ?? "",
-                    budgetYen: cycle.budgetYen,
-                    meetingDone: cycle.meetingStartAt?.trimmedNonEmpty != nil,
-                    reportDone: cycle.reportFixedAt?.trimmedNonEmpty != nil || fixedReports.contains(cycle.projectID),
-                    invoiceDone: cycle.invoiceSentAt?.trimmedNonEmpty != nil,
-                    paymentDone: cycle.paymentConfirmedAt?.trimmedNonEmpty != nil
-                )
-            }
-
-            ym = targetYM
-            projects = loadedProjects
-            billingByProject = nextBilling
-            state = loadedProjects.isEmpty ? .empty : .loaded
-        } catch {
-            projects = []
-            billingByProject = [:]
-            state = .failed(error.localizedDescription)
-        }
-    }
-}
-
-/// 埋め込み用はPWAと同じ匿名RLS queryだけで構成する。通常HUDのBearer APIや
-/// Management Scoreは混ぜないため、公開routeから内部情報を増やさない。
-struct AMDOSHUDEmbedDashboardView: View {
-    @StateObject private var store = AMDOSHUDEmbedStore()
-
-    var body: some View {
-        AMDOSPageScaffold(
-            eyebrow: "HUD EMBED",
-            title: "AMD OS HUD",
-            subtitle: "公開埋め込み。PWAと同じRLSで読めるPJと今月の進捗だけを表示"
-        ) {
-            AMDOSStateNotice(state: store.state) { Task { await store.load() } }
-            if !store.projects.isEmpty {
-                HStack(spacing: 14) {
-                    AMDOSMetricTile(label: "PJ", value: "\(store.projects.count)", detail: store.ym)
-                    AMDOSMetricTile(label: "会議済", value: "\(store.billingByProject.values.filter(\.meetingDone).count)", detail: "今月")
-                    AMDOSMetricTile(label: "報告済", value: "\(store.billingByProject.values.filter(\.reportDone).count)", detail: "今月")
-                    AMDOSMetricTile(label: "入金済", value: "\(store.billingByProject.values.filter(\.paymentDone).count)", detail: "今月")
-                }
-                ForEach(store.projects) { project in
-                    let billing = store.billingByProject[project.projectID]
-                    AMDOSSectionCard(project.projectName, systemImage: "rectangle.3.group.fill") {
-                        HStack(alignment: .firstTextBaseline) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text([project.clientName, project.projectCategory, project.startYM.map { "開始 \($0)" }, project.endYM.map { "終了 \($0)" }].compactMap { $0?.trimmedNonEmpty }.joined(separator: " · "))
-                                    .font(.caption)
-                                    .foregroundStyle(AMDOSDesign.muted)
-                                if let billing, let budget = billing.budgetYen {
-                                    Text("今月予算 \(Int(budget).formatted())円")
-                                        .font(.caption)
-                                        .foregroundStyle(AMDOSDesign.muted)
-                                }
-                            }
-                            Spacer()
-                            AMDOSStatusBadge(text: project.status?.trimmedNonEmpty ?? "—")
-                        }
-                        if let billing {
-                            HStack(spacing: 14) {
-                                AMDOSHUDCheckRow(label: "会議", done: billing.meetingDone)
-                                AMDOSHUDCheckRow(label: "報告", done: billing.reportDone)
-                                AMDOSHUDCheckRow(label: "請求", done: billing.invoiceDone)
-                                AMDOSHUDCheckRow(label: "入金", done: billing.paymentDone)
-                            }
-                        } else {
-                            Text("\(store.ym)の請求サイクルはまだない").font(.caption).foregroundStyle(AMDOSDesign.muted)
-                        }
-                    }
-                }
-            }
-        }
-        .task { await store.load() }
-    }
-}
-
-struct AMDOSHUDNotificationsView: View {
-    @StateObject private var store = AMDOSReferenceStore()
-    @State private var onlyIncomplete = true
-    var body: some View {
-        AMDOSPageScaffold(eyebrow: "HUD NOTIFICATIONS", title: "HUD通知", subtitle: "PWA HUDの請求・報告・支払状態をプロジェクト別に確認") {
-            Toggle("未完了だけ", isOn: $onlyIncomplete)
-            AMDOSStateNotice(state: store.state) { Task { await store.loadHUD() } }
-            if let hud = store.hud {
-                ForEach(hud.projects) { project in
-                    let billing = hud.billingStatus[project.id]
-                    let incomplete = billing.map { !($0.meetingDone == true && $0.reportDone == true && $0.invoiceDone == true && $0.paymentDone == true) } ?? true
-                    if !onlyIncomplete || incomplete {
-                        AMDOSSectionCard(project.projectName, systemImage: "bell.badge") {
-                            HStack { AMDOSStatusBadge(text: project.status ?? "—"); Spacer(); Text(billing?.ym ?? hud.ym ?? "—").font(.caption).foregroundStyle(AMDOSDesign.muted) }
-                            AMDOSHUDCheckRow(label: "会議", done: billing?.meetingDone == true)
-                            AMDOSHUDCheckRow(label: "予算", done: billing?.budgetDone == true)
-                            AMDOSHUDCheckRow(label: "報告", done: billing?.reportDone == true)
-                            AMDOSHUDCheckRow(label: "請求", done: billing?.invoiceDone == true)
-                            AMDOSHUDCheckRow(label: "支払", done: billing?.paymentDone == true)
-                        }
-                    }
-                }
-            }
-        }.task { await store.loadHUD() }
-    }
-}
-
 private struct AMDOSHUDCheckRow: View {
     let label: String
     let done: Bool
     var body: some View { Label(label, systemImage: done ? "checkmark.circle.fill" : "exclamationmark.circle").foregroundStyle(done ? AMDOSDesign.success : AMDOSDesign.warning) }
-}
-
-struct AMDOSHUDProjectCockpitView: View {
-    let projectId: String?
-    @StateObject private var store = AMDOSReferenceStore()
-    @State private var selectedId = ""
-    var body: some View {
-        AMDOSPageScaffold(eyebrow: "HUD COCKPIT", title: "HUDコックピット", subtitle: "選択したPJだけのスコア履歴・M/X/F・月次状態を深掘り") {
-            AMDOSStateNotice(state: store.state) { Task { await store.loadHUD() } }
-            if let hud = store.hud {
-                Picker("PJ", selection: $selectedId) { ForEach(hud.projects) { Text($0.projectName).tag($0.id) } }
-                    .onChange(of: selectedId) { _, _ in }
-                if let project = hud.projects.first(where: { $0.id == selectedId }) ?? hud.projects.first {
-                    let signal = hud.signalMetrics[project.id]
-                    let billing = hud.billingStatus[project.id]
-                    AMDOSSectionCard(project.projectName, systemImage: "rectangle.split.3x1") {
-                        HStack { Text(project.clientName ?? "クライアント未登録"); Spacer(); AMDOSStatusBadge(text: project.status ?? "—") }
-                        HStack { AMDOSHUDScoreRing(value: signal?.m, label: "M", tint: AMDOSDesign.blue); AMDOSHUDScoreRing(value: signal?.x, label: "X", tint: AMDOSDesign.blueDark); AMDOSHUDScoreRing(value: signal?.f, label: "F", tint: AMDOSDesign.success) }
-                        Text("請求 \(billing?.invoiceYm ?? billing?.ym ?? hud.ym ?? "—") · \(billing?.status ?? "状態未取得")").font(.caption).foregroundStyle(AMDOSDesign.muted)
-                    }
-                    AMDOSSectionCard("スコア推移", systemImage: "chart.xyaxis.line") { AMDOSHUDSparkline(values: hud.scoreHistory[project.id] ?? [], tint: AMDOSDesign.blue); Text("\(hud.scoreHistory[project.id]?.count ?? 0)件の正本履歴").font(.caption).foregroundStyle(AMDOSDesign.muted) }
-                }
-            }
-        }.task { await store.loadHUD(); if let projectId { selectedId = projectId } }
-    }
-}
-
-struct AMDOSHUDAtlasView: View {
-    @StateObject private var store = AMDOSReferenceStore()
-    @State private var selectedMetric = "M"
-    var body: some View {
-        AMDOSPageScaffold(eyebrow: "HUD ATLAS", title: "HUD Atlas", subtitle: "PWA HUDから外部シグナルへ渡すM/X/Fレンズをプロジェクト横断で見る") {
-            Picker("レンズ", selection: $selectedMetric) { Text("Market / M").tag("M"); Text("Execution / X").tag("X"); Text("Fit / F").tag("F") }.pickerStyle(.segmented)
-            AMDOSStateNotice(state: store.state) { Task { await store.loadHUD() } }
-            if let hud = store.hud {
-                let keyPath: (AMDOSHUDSignalMetrics) -> Double = selectedMetric == "M" ? { $0.m } : selectedMetric == "X" ? { $0.x } : { $0.f }
-                ForEach(hud.projects.sorted { keyPath(hud.signalMetrics[$0.id] ?? AMDOSHUDSignalMetrics(m: 0, x: 0, f: 0)) > keyPath(hud.signalMetrics[$1.id] ?? AMDOSHUDSignalMetrics(m: 0, x: 0, f: 0)) }) { project in
-                    let value = keyPath(hud.signalMetrics[project.id] ?? AMDOSHUDSignalMetrics(m: 0, x: 0, f: 0))
-                    AMDOSSectionCard(project.projectName, systemImage: "globe.americas") {
-                        HStack { AMDOSHUDScoreRing(value: value, label: selectedMetric, tint: AMDOSDesign.blue); VStack(alignment: .leading) { Text(project.clientName ?? "クライアント未登録"); Text("正本の信号値をAtlasの観測レンズとして表示").font(.caption).foregroundStyle(AMDOSDesign.muted) } }
-                    }
-                }
-            }
-        }.task { await store.loadHUD() }
-    }
-}
-
-struct AMDOSHUDSeedsView: View {
-    @State private var rows: [AMDOSSeed] = []
-    @State private var query = ""
-    @State private var state: AMDOSFeatureLoadState = .idle
-    var body: some View {
-        AMDOSPageScaffold(eyebrow: "HUD SEEDS", title: "HUDシーズ", subtitle: "PWA seeds正本の探索状態・研究機関・評価をHUDから確認") {
-            TextField("シーズ名・機関・状態", text: $query).textFieldStyle(.roundedBorder)
-            AMDOSStateNotice(state: state) { load() }
-            ForEach(rows.filter { query.isEmpty || [$0.title, $0.orgName, $0.discoveryStatus, $0.status].compactMap { $0 }.joined().localizedCaseInsensitiveContains(query) }) { seed in
-                AMDOSSectionCard(seed.title, systemImage: "leaf") { Text([seed.orgName, seed.domainLane, seed.discoveryStatus].compactMap { $0 }.joined(separator: " · ")); AMDOSStatusBadge(text: seed.status); Text(seed.summary ?? "要約なし").font(.caption) }
-            }
-        }.task { load() }
-    }
-    private func load() { Task { state = .loading; do { rows = try await AMDOSRESTClient.shared.fetchTable(AMDOSSeed.self, table: "seeds", select: "id,title,org_name,researcher_name,lab_name,summary,domain_lane,status,discovery_status,amd_rating,trl,amd_owner_member_id,updated_at", order: "updated_at.desc", limit: 500); state = rows.isEmpty ? .empty : .loaded } catch { state = .failed(error.localizedDescription) } } }
-}
-
-struct AMDOSHUDVCsView: View {
-    @State private var rows: [AMDOSVC] = []
-    @State private var state: AMDOSFeatureLoadState = .idle
-    var body: some View {
-        AMDOSPageScaffold(eyebrow: "HUD VCS", title: "HUD VC", subtitle: "PWA vcs正本の投資段階・ファンド・連絡先をHUDレンズで確認") {
-            AMDOSStateNotice(state: state) { load() }
-            ForEach(rows) { vc in AMDOSSectionCard(vc.name, systemImage: "chart.line.uptrend.xyaxis") { Text([vc.type, vc.stageFocus?.joined(separator: ", ")].compactMap { $0 }.joined(separator: " · ")); Text(vc.thesis ?? "投資仮説なし"); Text("チケット \(vc.ticketMinJpy.map { String(Int($0)) } ?? "—") 〜 \(vc.ticketMaxJpy.map { String(Int($0)) } ?? "—")円").font(.caption).foregroundStyle(AMDOSDesign.muted); AMDOSStatusBadge(text: "rating \(vc.amdRating.map(String.init) ?? "—")") } }
-        }.task { load() }
-    }
-    private func load() { Task { state = .loading; do { rows = try await AMDOSRESTClient.shared.fetchTable(AMDOSVC.self, table: "vcs", select: "*", order: "updated_at.desc", limit: 500); state = rows.isEmpty ? .empty : .loaded } catch { state = .failed(error.localizedDescription) } } }
-}
-
-struct AMDOSHUDScoreRetrofitView: View {
-    @State private var rows: [AMDOSScoreInput] = []
-    @State private var state: AMDOSFeatureLoadState = .idle
-    @State private var message: String?
-    var body: some View {
-        AMDOSPageScaffold(eyebrow: "HUD SCORE RETROFIT", title: "HUD Score再計算", subtitle: "最新のAMD Score入力を確認してから、既存の認可済みrefresh処理を実行") {
-            AMDOSStateNotice(state: state) { load() }
-            Button("Score refreshを実行") { refresh() }.buttonStyle(.borderedProminent)
-            if let message { Text(message).foregroundStyle(AMDOSDesign.warning) }
-            ForEach(rows.prefix(50)) { row in AMDOSSectionCard(row.projectId, systemImage: "scope") { Text(row.evaluatedAt); Text("A \(amdOSPercentage(row.muA)) · I \(amdOSPercentage(row.muI)) · G \(amdOSPercentage(row.muG)) · TRL \(amdOSPercentage(row.trl))").font(.caption); Text(row.xrlNotes ?? row.frlNotes ?? "注記なし").font(.caption).foregroundStyle(AMDOSDesign.muted) } }
-        }.task { load() }
-    }
-    private func load() { Task { state = .loading; do { rows = try await AMDOSRESTClient.shared.fetchTable(AMDOSScoreInput.self, table: "amd_score_inputs", select: "id,project_id,evaluated_at,mu_a,mu_i,mu_g,trl,brl,grl,srl,hrl,frl,prs_potential,prs_r_net,xrl_notes,frl_notes", order: "evaluated_at.desc", limit: 200); state = rows.isEmpty ? .empty : .loaded } catch { state = .failed(error.localizedDescription) } } }
-    private func refresh() { Task { do { _ = try await AMDOSRESTClient.shared.sendPWA(path: "/api/cron/amd-score-l2-refresh", body: ["source": "macos-hud"]); message = "refreshを実行したよ"; load() } catch { message = error.localizedDescription } } }
 }
 
 @MainActor
@@ -964,12 +583,12 @@ private let amdOSManualTopics: [AMDOSManualTopic] = [
     .init(key: "cockpit", label: "PJを見る", description: "PJ状況・MS・XRL・卒業準備度を判断する。", chapterSlugs: ["2-3-pj-cockpit", "4-3-amd-score-spec", "4-8-ms-progress-monthly-report-revision-spec", "4-7-venture-status-narrative-pl-xrl-spec", "8-2-notification-review-and-strategy-signals-spec", "4-6-graduation-detection-spec"]),
     .init(key: "monthly", label: "月次オペ", description: "請求・入金・支払通知書・報酬の流れ。", chapterSlugs: ["2-6-admin-ops", "2-2-member-workflows-quick-start", "6-3-invoice-and-billing-routine-spec", "6-4-finance-payment-confirm-spec", "6-5-admin-payouts-reward-notice-spec", "6-6-member-billing-prompts-spec", "6-7-contracts-management-spec", "7-1-reward-calc-spec"]),
     .init(key: "decision", label: "経営判断", description: "Atlas・AMD Score・XRL・Management Scoreをつなげる。", chapterSlugs: ["4-1-atlas-protocol-score-macrotrend", "4-2-atlas-macrotrend-signal-spec", "4-3-amd-score-spec", "4-4-frl-related-members-score-spec", "4-5-management-score-and-finance-simulation-spec", "4-6-graduation-detection-spec", "4-7-venture-status-narrative-pl-xrl-spec", "4-9-institution-ers-spec", "8-2-notification-review-and-strategy-signals-spec"]),
-    .init(key: "discovery", label: "外部探索", description: "Atlas・Seeds・VC・Scholar・Venture Map。", chapterSlugs: ["2-5-research-assets-quick-start", "4-2-atlas-macrotrend-signal-spec", "5-1-research-assets-vc-seeds-scholar-spec", "5-2-hud-and-venture-map-spec", "4-9-institution-ers-spec"]),
+    .init(key: "discovery", label: "外部探索", description: "Atlas・Seeds・VC・Scholar・Venture Map。", chapterSlugs: ["2-5-research-assets-quick-start", "4-2-atlas-macrotrend-signal-spec", "5-1-research-assets-vc-seeds-scholar-spec", "5-2-venture-map-spec", "4-9-institution-ers-spec"]),
     .init(key: "knowledge", label: "知識・通知", description: "5生データ・L2・通知・つくよみ学習。", chapterSlugs: ["3-2-data-and-extraction", "3-3-notifications-and-tsukuyomi", "8-1-knowledge-admin-tsukuyomi-spec", "8-2-notification-review-and-strategy-signals-spec", "8-3-l2-extraction-routines-spec"]),
     .init(key: "admin", label: "Admin設定", description: "台帳・設定・請求・支払の運用。", chapterSlugs: ["2-6-admin-ops", "2-2-member-workflows-quick-start"]),
     .init(key: "system", label: "OSの構造", description: "画面・データ・通知・判断・月次の関係。", chapterSlugs: ["1-1-intro", "3-3-notifications-and-tsukuyomi", "4-1-atlas-protocol-score-macrotrend", "2-6-admin-ops", "6-2-admin-projects-members-ledger-spec"]),
     .init(key: "developer", label: "設計・開発", description: "全体設計・抽出routine・過去判断・開発手順。", chapterSlugs: ["3-1-system-architecture", "3-2-data-and-extraction", "4-2-atlas-macrotrend-signal-spec", "5-1-research-assets-vc-seeds-scholar-spec", "4-5-management-score-and-finance-simulation-spec", "4-6-graduation-detection-spec", "4-4-frl-related-members-score-spec", "4-8-ms-progress-monthly-report-revision-spec", "4-7-venture-status-narrative-pl-xrl-spec", "8-3-l2-extraction-routines-spec", "9-1-decisions-and-history", "9-2-developer"]),
-    .init(key: "system-dev", label: "内部構造", description: "画面・DB・cron・書き込み経路。", chapterSlugs: ["3-1-system-architecture", "3-2-data-and-extraction", "6-1-operations-settings-spec", "4-2-atlas-macrotrend-signal-spec", "5-1-research-assets-vc-seeds-scholar-spec", "5-2-hud-and-venture-map-spec", "9-1-decisions-and-history", "9-2-developer"]),
+    .init(key: "system-dev", label: "内部構造", description: "画面・DB・cron・書き込み経路。", chapterSlugs: ["3-1-system-architecture", "3-2-data-and-extraction", "6-1-operations-settings-spec", "4-2-atlas-macrotrend-signal-spec", "5-1-research-assets-vc-seeds-scholar-spec", "5-2-venture-map-spec", "9-1-decisions-and-history", "9-2-developer"]),
     .init(key: "knowledge-dev", label: "抽出・復旧", description: "L2抽出・automation・outbox/applier・復旧手順。", chapterSlugs: ["3-2-data-and-extraction", "8-3-l2-extraction-routines-spec", "3-3-notifications-and-tsukuyomi", "8-1-knowledge-admin-tsukuyomi-spec", "8-2-notification-review-and-strategy-signals-spec", "4-8-ms-progress-monthly-report-revision-spec"]),
     .init(key: "admin-dev", label: "運用内部", description: "Settings・Run Now・運用事故。", chapterSlugs: ["6-1-operations-settings-spec", "6-2-admin-projects-members-ledger-spec", "6-3-invoice-and-billing-routine-spec", "6-4-finance-payment-confirm-spec", "6-5-admin-payouts-reward-notice-spec", "6-6-member-billing-prompts-spec", "7-1-reward-calc-spec", "8-1-knowledge-admin-tsukuyomi-spec", "4-5-management-score-and-finance-simulation-spec", "9-1-decisions-and-history"])
 ]
@@ -989,7 +608,7 @@ private let amdOSManualSections: [AMDOSManualSection] = [
     .init(key: "usage", label: "まず使う人向け", description: "画面の見方、日常業務、admin運用をざっくり掴む章。", slugs: ["2-1-member-quick-start", "2-2-member-workflows-quick-start", "2-3-pj-cockpit", "2-4-amd-cockpit", "2-5-research-assets-quick-start", "2-6-admin-ops", "2-8-business-cards"]),
     .init(key: "architecture", label: "OS の基本構造", description: "画面、データ、L2、通知、正本反映ゲートの地図。", slugs: ["3-1-system-architecture", "3-2-data-and-extraction", "3-3-notifications-and-tsukuyomi"]),
     .init(key: "decision", label: "経営判断エンジン", description: "Atlas、AMD Protocol、AMD Score、XRL、Management Score、卒業検出など判断ロジックの章。", slugs: ["4-1-atlas-protocol-score-macrotrend", "4-2-atlas-macrotrend-signal-spec", "4-3-amd-score-spec", "4-4-frl-related-members-score-spec", "4-5-management-score-and-finance-simulation-spec", "4-6-graduation-detection-spec", "4-7-venture-status-narrative-pl-xrl-spec", "4-8-ms-progress-monthly-report-revision-spec", "4-9-institution-ers-spec"]),
-    .init(key: "assets", label: "外部探索・事業アセット", description: "Seeds、VC、Scholar、Venture Map、HUD など外部探索と事業化アセットの章。", slugs: ["5-1-research-assets-vc-seeds-scholar-spec", "5-2-hud-and-venture-map-spec"]),
+    .init(key: "assets", label: "外部探索・事業アセット", description: "Seeds、VC、Scholar、Venture Map など外部探索と事業化アセットの章。", slugs: ["5-1-research-assets-vc-seeds-scholar-spec", "5-2-venture-map-spec"]),
     .init(key: "admin-finance", label: "Admin / Finance / 月次オペ", description: "設定、台帳、請求、入金確認、支払通知書、メンバー向け運用の仕様。", slugs: ["6-1-operations-settings-spec", "6-2-admin-projects-members-ledger-spec", "6-3-invoice-and-billing-routine-spec", "6-4-finance-payment-confirm-spec", "6-5-admin-payouts-reward-notice-spec", "6-6-member-billing-prompts-spec", "6-7-contracts-management-spec", "6-8-admin-ms-overview-spec"]),
     .init(key: "reward-contract", label: "報酬・契約", description: "メンバー報酬がどう決まるか (= 計算ロジック正本)。", slugs: ["7-1-reward-calc-spec"]),
     .init(key: "knowledge-automation", label: "Knowledge / Automation", description: "Knowledge Admin、つくよみ、通知レビュー、経営ハイライト、L2 抽出 routine の仕様。", slugs: ["8-1-knowledge-admin-tsukuyomi-spec", "8-2-notification-review-and-strategy-signals-spec", "8-3-l2-extraction-routines-spec"]),

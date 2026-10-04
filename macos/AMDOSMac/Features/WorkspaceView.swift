@@ -207,10 +207,10 @@ struct AMDOSWorkspaceView: View {
              .adminProtocols, .adminSchedule, .adminMsOverview, .adminSeasonPL,
              .adminSettings, .adminTsukuyomi, .adminWeekly,
              .spec, .specDetail,
-             .notifications, .hudNotifications, .proactive, .projectReportPrint,
+             .notifications, .proactive, .projectReportPrint,
              .contracts, .japaneseCultureMap,
              .atlasThemes, .institutionAssess,
-             .amdScoreRetrofit, .hudAmdScoreRetrofit, .managementScore:
+             .amdScoreRetrofit, .managementScore:
             return true
         default:
             return false

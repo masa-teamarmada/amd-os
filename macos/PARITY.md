@@ -2,7 +2,7 @@
 
 最終更新: 2026-10-03
 
-> **現行SPS override（2026-08-18）**: `amdScore` / `amdScoreDetail` / HUD / dashboard / cyberspaceのactive routeは`/api/hud/dashboard`の現行SPS DTOだけを読む。完全版組は`sps-ind-tier0-v1 / sps-ind-v1 / q-eval-v2 / rubric-v1.1 / p-ind-v1 / rubric-v1.1+ind-v1`。旧スコアrouteは退役表示へ収束し、`AMDOSRESTClient`が旧3テーブルの読取・更新・追加・upsert・削除を拒否する。下表の旧AMD Score記述は履歴であり非規範。
+> **現行SPS override（2026-08-18）**: `amdScore` / `amdScoreDetail` / dashboard / cyberspaceのactive routeは`/api/hud/dashboard`の現行SPS DTOだけを読む。完全版組は`sps-ind-tier0-v1 / sps-ind-v1 / q-eval-v2 / rubric-v1.1 / p-ind-v1 / rubric-v1.1+ind-v1`。旧スコアrouteは退役表示へ収束し、`AMDOSRESTClient`が旧3テーブルの読取・更新・追加・upsert・削除を拒否する。下表の旧AMD Score記述は履歴であり非規範。
 
 このファイルは開発・レビュー専用。ユーザー向けのmacOS画面、空状態、エラー、アクセシビリティ文言へ台帳の語彙を渡さない。
 NativeScreenID、読取元、書込み先、権限、回帰確認を全件残し、実装していない行を削除しない。
@@ -58,14 +58,13 @@ PWAロゴ正本をプロジェクト内へ同期し、AppIconの各サイズは�
 | `/admin/tsukuyomi` | `adminTsukuyomi` | `tsukuyomi_context`、learning/status read model | `/api/admin/tsukuyomi/context` GET/POST/PATCH | admin | 実装済み。PWA同一のcontext検索・layer/status絞り込み、追加・編集・archive、learning/status読取を実装。学習投稿は対象外で、`/api/tsukuyomi/post` の501状態を維持。認証済み実データ書込みは未確認 |
 | `/admin/season-pl` | `adminSeasonPl` | `computeSeasonPl`, reward cache | `/api/admin/season-pl` GET | admin | 実装済み。PWA同一のlist/detail検算、収入/配分・pt・member収束、member mypage native遷移を実装。認証済みdetail読取は未確認 |
 | `/admin/weekly` | `adminWeekly` | `member_activities`, reward cache | `/api/admin/weekly` GET | admin | 実装済み。PWA同一の26週移動、PJ×member活動/報酬matrix、source URL、member mypage native遷移を実装。認証済み実データ読取は未確認 |
-| `/hud`, `/hud/dashboard`, `/hud/dashboard/embed`, `/hud/notifications`, `/hud/project/[projectId]/cockpit`, `/hud/atlas/**`, `/hud/seeds/**`, `/hud/vcs/**`, `/hud/venture-map/amd-score/retrofit` | `hudDashboard` / routeごとの対応NativeScreenID | HUD snapshot、通知、Atlas、Seeds、VC、Score | dashboard/embedはPWA同一の匿名RLS read model。通知/Atlas/Seeds/VC/retrofitのaliasは対応するNative本体へ収束し、元routeの既存API/RLS操作を維持 | member（embedのみpublic、個別admin gateは元route準拠） | 実装済み。HUD dashboardはPWA同一の集約snapshot、embedは未ログインでも公開RLS read modelだけを読む。re-export aliasを静的HUDカードへ劣化させず、通知・Atlas・Seeds・VC・retrofitのNative実装へ渡す。認証済み実読取・実書込みは未確認 |
 | `/manual`, `/manual/[slug]` | `manual` | PWA manual markdown | manual Q&A API（read-only） | member | 実装済み。PWAと同じ章順/番号、テーマ、全章本文検索、章本文・manual内リンク、前後章、ページ限定つくよみを実装。実データ読取は未確認 |
 | `/spec`, `/spec/[slug]` | `spec`, `specDetail` | PWA spec Markdown正本 | read-only document bridge | admin | 実装済み。PWA同一のsection/番号/章group、本文、前後章を表示し、Native入口とbridgeの双方でnonadminを拒否。認証済み実読取は未確認 |
 | `/bzm`, `/bzm/[slug]`, `/bzm/public`, `/bzm/public/[slug]` | `bzm`, `bzmDetail`, `bzmPublic`, `bzmPublicDetail` | bundled BZM Markdown正本 | read-only document bridge | 通常版member / 公開版public | 実装済み。通常版はmember境界を維持し、章/part/未着手stub/前後章をNative表示。公開版はPWA・Macとも未ログインで公開原稿のpart/章/前後章を読める。実読取は未確認 |
 | `/bzm/read` | 未割当 | 書斎の棚（2026-10-03 PWA追加。2026-10-04 に PWA は別アドレス `https://bookshelf-armada.vercel.app` の別アプリ（`manifest-shosai.json`、scope は `/`）になり、棚も外枠なし。PWAの左ナビに書斎の項目は無い。AMD OS のアドレスの `/bzm/read` 配下は書斎のアドレスへ送る）。管理者限定で、執筆途中の本と論文6冊をカードで並べる。読むだけで原稿は書き換えない | なし（PWAは `bzm/*.md` を読む。DB の表は使わない） | なし | admin | **Native未移植**。PWAの書斎 `/spec/5-18-bzm-reader-current-spec` を正本とし、iOS の `TextbookReaderView`（縦書き）とは別の画面。移植するときは管理者の境界と、端末ごとの読書位置を持たせる |
 | `/bzm/read/[book]`, `/bzm/read/[book]/[chapter]` | 未割当 | 書斎の続きから開く・読書画面（2026-10-03 PWA追加。2026-10-04 に PWA は左に目次の列（1100px 以上）を常設し、見開きの左右のページの間を広げた）。外枠なしの全画面で、ページ送り、目次・しおり・文字の設定、端末ごとの読書位置を持つ | `GET /api/bzm-reader/asset/[...path]`（図、admin のみ） | 端末ごとの `localStorage`（位置・しおり・設定。サーバへ送らない） | admin | **Native未移植**。縦書きの `TextbookReaderView` とは別に、PWAは横書きのページ送り。端末をまたぐ同期は PWA 側も未実装（DB の表が要る、まさの判断待ち） |
 | `/japanese-culture-map`, `/admin/japanese-culture-map` | `adminCultureMap` | active `jp_culture_items` | read-only | admin | 実装済み。旧routeはPWA同様admin文化マップへ収束し、一般Explore navから除外。カテゴリtree・都道府県→市区町村geography・詳細（画像/link）を表示。認証済み実読取は未確認 |
-| `/dashboard-cyber-3d-lab`, `/dashboard-cyber-glass-cube`, `/dashboard-cyber-hud-wall` | `cyber3DLab`, `cyberGlassCube`, `cyberHudWall` | PWA同一HUD PJ信号 | read-only `/api/hud/dashboard` | member | 実装済み。3D Lab / Glass Cube / HUD Wallを、実PJ HUD dataの選択可能Native Canvas/Cube/Wallとして表示。認証済み実読取は未確認 |
+| `/dashboard-cyber-3d-lab`, `/dashboard-cyber-glass-cube`, `/dashboard-cyber-hud-wall` | `cyber3DLab`, `cyberGlassCube`, `cyberHudWall` | PWA同一のPJ信号（`/api/hud/dashboard`） | read-only `/api/hud/dashboard` | member | 実装済み。3D Lab / Glass Cube / HUD Wallを、実PJ HUD dataの選択可能Native Canvas/Cube/Wallとして表示。認証済み実読取は未確認 |
 | `/proactive` | `proactive` | `proactive_todos`の`attention_state='approved' AND attention_type IN ('decision','masa_action')`、`projects` | done/block/dismissは既存`/api/proactive-todos/[id]/resolve`、reopenはPWA同一RLS PATCH | admin | 実装済み。未対応・ブロック中はCodex審査済みのまさ判断/本人行動だけ。`due_basis='explicit'`だけを期限超過・red扱いし、MTG prepはOSへ複製しない。履歴tab、解決操作、PJ cockpit deep linkは維持 |
 
 ## 2. PWA重要UI登録簿 → NativeScreenID
@@ -107,7 +106,7 @@ PWAロゴ正本をプロジェクト内へ同期し、AppIconの各サイズは�
 |---|---|---|
 | `MainTabView`, `MyPageView`, `ProjectRewardCard` | `today` | 実装済み / ネイティブ再構成 |
 | `CockpitView`, `CockpitDetailView`, `MonthlyModal` | `projects`, `projectDetail` | 旧iOS画面名。現行PWA相当は `projectCockpit` / `projectReportPrint` のNative実装を正本とする |
-| `CockpitHUDView` | `hudDashboard`, `hudProjectCockpit` | 実装済み。PWA HUD dashboard / PJ cockpitの実データ表示・deep linkへ再構成。認証済み実読取は未確認 |
+| `CockpitHUDView` | （なし） | 2026-10-04 に廃止。PWA の HUD（`/hud/*`）と一緒に、Native の HUD 画面（`hudDashboard` ほか8画面）も削除した |
 | `NotificationInboxView`, `NotificationJudgmentCard` | `notifications` | 旧iOS画面名。現行PWA通知Native実装を正本とする |
 | `RegistrationHubView`, `ReimburseListView`, `ReimburseFormView` | `reimbursements` | 旧iOS画面名。現行PWA立替Native実装を正本とする |
 | `BusinessCardsView` | `businessCards` | 旧iOS画面名。現行PWAのOCR / PJ複数選択を含むNative実装を正本とする |
@@ -130,6 +129,6 @@ PWAロゴ正本をプロジェクト内へ同期し、AppIconの各サイズは�
 | OCR候補の確定 | 氏名とPJを人が確認してから | `PATCH /api/business-cards/[cardId]` |
 | MS進捗・設計 | 保存前検算を通す | 既存PWA admin API / Edge Function |
 | 支払・請求・管理台帳 | admin gate + 既存API | PWA API / Edge Function / GAS |
-| 教科書・材料・HUD | read-only | bundled markdown / read model |
+| 教科書・材料 | read-only | bundled markdown / read model |
 
 PWAへ委譲する確認導線はSwiftUI `Link`で保持する。通常クリックは既定ブラウザで開き、Commandクリックは既定ブラウザの新しいタブへ開くmacOS標準操作に委譲する。

@@ -48,10 +48,6 @@ struct AMDOSRootView: View {
                 // PWAの`/bzm/public/**`も公開ルート。本文はログインなしで読めるため、
                 // Macでもログイン画面に戻さず同じ公開Markdown bridgeを開く。
                 AMDOSBZMPublicDetailView(initialSlug: publicBzmRoute.documentSlug)
-            } else if pendingHUDEmbedRoute != nil {
-                // PWAの`/hud/dashboard/embed`は未ログインでもRLSで許可された
-                // HUD read modelだけを表示する。通常HUD/APIへ認可を広げない。
-                AMDOSHUDEmbedDashboardView()
             } else {
                 AMDOSLoginView()
             }
@@ -75,11 +71,6 @@ struct AMDOSRootView: View {
         guard let route = workspace.pendingRoute,
               route.screen == .bzmPublic || route.screen == .bzmPublicDetail else { return nil }
         return route
-    }
-
-    private var pendingHUDEmbedRoute: AMDOSPWAPathRoute? {
-        guard workspace.pendingRoute?.screen == .hudEmbedDashboard else { return nil }
-        return workspace.pendingRoute
     }
 
 }

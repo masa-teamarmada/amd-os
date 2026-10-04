@@ -15,9 +15,9 @@
 | `実装済み` | route固有のSwiftUI画面と現行PWA API/Edge Function境界を実装済み |
 | `確認済み` | 認証済み実データでloading/empty/error/権限拒否と代表導線を確認済み |
 
-## PWA source page 110件の正本一覧
+## PWA source page 89件の正本一覧
 
-以下は `pwa/src/app/**/page.tsx` の全110件を、source file単位で数えた一覧。alias / mock / HUD mirrorも省略しない。`未確認` はそのsource pageの固有UI・導線・実データ・代表更新をまだ完了と扱わない意味。
+以下は `pwa/src/app/**/page.tsx` の全89件を、source file単位で数えた一覧。alias / mock も省略しない（HUD の21件は 2026-10-04 に PWA から削除した）。`未確認` はそのsource pageの固有UI・導線・実データ・代表更新をまだ完了と扱わない意味。
 
 | source page | canonical path | NativeScreenID | 状態 |
 |---|---|---|---|
@@ -65,27 +65,6 @@
 | `(app)/dashboard-cyber-3d-lab/page.tsx` | `/dashboard-cyber-3d-lab` | `cyber3DLab` | 実装済み（PWA同じHUD PJ信号を選択可能Native Canvasで表示。Native静的確認、実読取未確認） |
 | `(app)/dashboard-cyber-glass-cube/page.tsx` | `/dashboard-cyber-glass-cube` | `cyberGlassCube` | 実装済み（PWA同じPJ選択/KPIをNative Cubeで表示。Native静的確認、実読取未確認） |
 | `(app)/dashboard-cyber-hud-wall/page.tsx` | `/dashboard-cyber-hud-wall` | `cyberHudWall` | 実装済み（PWA同じPJ選択・status/monthly/signalをNative Wallで表示。Native静的確認、実読取未確認） |
-| `(app)/hud/page.tsx` | `/hud` | `hudDashboard` | 実装済み（PWA redirect先のHUD dashboardへ収束。Native静的確認、実読取未確認） |
-| `(app)/hud/dashboard/page.tsx` | `/hud/dashboard` | `hudDashboard` | 実装済み（PWA同じ認証済みHUD snapshot。Native静的確認、実読取未確認） |
-| `hud/dashboard/embed/page.tsx` | `/hud/dashboard/embed` | `hudEmbedDashboard` | 実装済み（PWA同様、未ログインではprojects/billing_cycles/monthly_reportsのRLS read modelだけを表示。Native静的確認） |
-| `(app)/hud/notifications/page.tsx` | `/hud/notifications` | `hudNotifications` | 実装済み（PWA re-exportと同じ通知Native実装へ接続し、操作をHUD read-onlyへ落とさない。Native静的確認） |
-| `(app)/hud/project/[projectId]/cockpit/page.tsx` | `/hud/project/[projectId]/cockpit` | `hudProjectCockpit` | 実装済み（PWAのPJ/ym deep linkをNative cockpit文脈へ渡す。Native静的確認、実読取未確認） |
-| `(app)/hud/atlas/page.tsx` | `/hud/atlas` | `hudAtlas` | 実装済み（PWA re-exportと同じAtlas homeへ接続。Native静的確認） |
-| `(app)/hud/atlas/admin/themes/page.tsx` | `/hud/atlas/admin/themes` | `atlasThemes` | 実装済み（PWA re-exportと同じadmin theme画面・gateへ接続。Native静的確認） |
-| `(app)/hud/atlas/decisions/page.tsx` | `/hud/atlas/decisions` | `atlasDecisions` | 実装済み（PWA re-exportと同じAtlas判断操作を維持。Native静的確認） |
-| `(app)/hud/atlas/divergence/page.tsx` | `/hud/atlas/divergence` | `atlasDivergence` | 実装済み（PWA re-exportと同じAtlas乖離操作を維持。Native静的確認） |
-| `(app)/hud/atlas/inbox/page.tsx` | `/hud/atlas/inbox` | `atlasInbox` | 実装済み（PWA re-exportと同じInbox採否操作を維持。Native静的確認） |
-| `(app)/hud/atlas/inbox/submit/page.tsx` | `/hud/atlas/inbox/submit` | `atlasInboxSubmit` | 実装済み（PWA re-exportと同じsignal送信を維持。Native静的確認） |
-| `(app)/hud/atlas/macrotrends/page.tsx` | `/hud/atlas/macrotrends` | `atlasMacrotrends` | 実装済み（PWA固有macrotrends read modelをNativeへ移植。Native静的確認、実読取未確認） |
-| `(app)/hud/atlas/map/page.tsx` | `/hud/atlas/map` | `atlasMap` | 実装済み（PWA re-exportと同じAtlas mapを維持。Native静的確認） |
-| `(app)/hud/seeds/page.tsx` | `/hud/seeds` | `hudSeeds` | 実装済み（PWA re-exportと同じSeeds一覧/操作を維持。Native静的確認） |
-| `(app)/hud/seeds/[id]/page.tsx` | `/hud/seeds/[id]` | `seedDetail` | 実装済み（PWA re-exportと同じSeed detail deep link/操作を維持。Native静的確認） |
-| `(app)/hud/seeds/inbox/page.tsx` | `/hud/seeds/inbox` | `seedInbox` | 実装済み（PWA re-exportと同じSeed Inbox採否操作を維持。Native静的確認） |
-| `(app)/hud/vcs/page.tsx` | `/hud/vcs` | `hudVcs` | 実装済み（PWA re-exportと同じVC一覧/操作を維持。Native静的確認） |
-| `(app)/hud/vcs/[id]/page.tsx` | `/hud/vcs/[id]` | `vcDetail` | 実装済み（PWA re-exportと同じVC detail deep linkを維持。Native静的確認） |
-| `(app)/hud/vcs/[id]/edit/page.tsx` | `/hud/vcs/[id]/edit` | `vcEdit` | 実装済み（PWA re-exportと同じVC編集を維持。Native静的確認） |
-| `(app)/hud/vcs/inbox/page.tsx` | `/hud/vcs/inbox` | `vcInbox` | 実装済み（PWA re-exportと同じVC Inbox採否操作を維持。Native静的確認） |
-| `(app)/hud/venture-map/amd-score/retrofit/page.tsx` | `/hud/venture-map/amd-score/retrofit` | `hudAmdScoreRetrofit` | 実装済み（PWA re-exportと同じ既存認可済みScore refreshを維持。Native静的確認） |
 | `(app)/institutions/page.tsx` | `/institutions` | `institutions` | 実装済み（PWA固定KUTE/NIMS対応、実データ読取は未確認） |
 | `(app)/institutions/[institutionId]/page.tsx` | `/institutions/[institutionId]` | `institutionDetail` | 実装済み（ECR詳細、実データ読取は未確認） |
 | `(app)/institutions/[institutionId]/cockpit/page.tsx` | `/institutions/[institutionId]/cockpit` | `institutionCockpit` | 実装済み（実PJ cockpit・月別MTGツリー、実データ読取は未確認） |
@@ -206,17 +185,9 @@
 | `/admin/settings` | `adminSettings` | `settings`、PWA operations catalog / admin | `GET` / `POST` / `PATCH` / `DELETE /api/admin/settings`（catalog DTO含む）、`POST /api/settings/cron-run` | 実装済み（PWA正本catalogのRaw/L2/Cron、source/input/outputと同一のkey/label/type/value/description CRUD、手動実行。settings writerはrequireAdmin付き共有APIへ集約） | 未確認 |
 | `/admin/tsukuyomi` | `adminTsukuyomi` | `tsukuyomi_context`、learning/status read model / admin | `GET` / `POST` / `PATCH /api/admin/tsukuyomi/context` | 実装済み（PWA同一のcontext検索・layer/status絞り込み、追加・編集・archive、learning/status読取。学習投稿は対象外で`/api/tsukuyomi/post`の501を維持） | 未確認 |
 | `/admin/weekly` | `adminWeekly` | `member_weekly`活動・`billing_cycles`月次報酬 / admin | read-only `/api/admin/weekly?weekStart=` | 実装済み（PWA同一の週移動、活動/PJ/メンバー/報酬集計、PJ × メンバーmatrix、source URL） | 確認済み（Bearer GET 200、11 member / 7 PJ / 72 activity / 6 reward、2026-07-18） |
-| `/hud`, `/hud/dashboard` | `hudDashboard` | HUD dashboard / member | read-only `GET /api/hud/dashboard` | 実装済み（PWA同じPJ・請求・score・Management Score snapshot） | Native静的確認。認証済み実読取は未確認 |
-| `/hud/dashboard/embed` | `hudEmbedDashboard` | projects / billing_cycles / monthly_reports の公開RLS範囲 | read-only direct RLS（PWAと同じ3 source） | 実装済み（未ログインでも公開read modelだけを表示。通常HUD API/管理scoreを呼ばない） | Native静的確認。公開RLS実読取は未確認 |
-| `/hud/notifications` | `hudNotifications` | notification mirror / admin | PWA `/notifications` と同じ既存API/RLS | 実装済み（re-export元と同じ通知実装・操作へ接続） | Native静的確認。認証済み実書込みは未確認 |
-| `/hud/project/[projectId]/cockpit` | `hudProjectCockpit` | cockpit domain / member | PWA HUD cockpitと同じPJ/ym deep link、既存cockpit API/RLS | 実装済み（HUDの操作を静的snapshotに落とさずNative cockpit文脈へ渡す） | Native静的確認。認証済み実読取・実書込みは未確認 |
-| `/hud/atlas`, `/hud/atlas/admin/themes`, `/hud/atlas/decisions`, `/hud/atlas/divergence`, `/hud/atlas/inbox`, `/hud/atlas/inbox/submit`, `/hud/atlas/macrotrends`, `/hud/atlas/map` | routeごとの`hudAtlas` / `atlas*` | HUD Atlas mirror / member・admin | PWA再export元と同じAtlas API/RLS（macrotrends/mapはread-only） | 実装済み（aliasごとに同じNative実装へ収束し、採否・送信・theme操作をread-onlyへ劣化させない） | Native静的確認。認証済み実読取・実書込みは未確認 |
-| `/hud/seeds`, `/hud/seeds/[id]`, `/hud/seeds/inbox` | `hudSeeds`, `seedDetail`, `seedInbox` | HUD seeds mirror / member | PWA再export元と同じSeeds API/RLS | 実装済み（一覧・detail・Inboxの既存操作を維持） | Native静的確認。認証済み実書込みは未確認 |
-| `/hud/vcs`, `/hud/vcs/[id]`, `/hud/vcs/[id]/edit`, `/hud/vcs/inbox` | `hudVcs`, `vcDetail`, `vcEdit`, `vcInbox` | HUD VC mirror / member・admin | PWA再export元と同じVC API/RLS | 実装済み（一覧・detail・edit・Inboxの既存操作を維持） | Native静的確認。認証済み実書込みは未確認 |
-| `/hud/venture-map/amd-score/retrofit` | `hudAmdScoreRetrofit` | HUD score mirror / admin | PWA再export元と同じ既存認可済みrefresh | 実装済み（HUD aliasでもScore refreshをread-onlyへ劣化させない） | Native静的確認。認証済み実書込みは未確認 |
-| `/dashboard-cyber-3d-lab` | `cyber3DLab` | cyber HUD data / member | read-only `GET /api/hud/dashboard` | 実装済み（選択可能Native Canvas、M/X/Fとscore history） | Native静的確認。認証済み実読取は未確認 |
-| `/dashboard-cyber-glass-cube` | `cyberGlassCube` | cyber HUD data / member | read-only `GET /api/hud/dashboard` | 実装済み（PJ選択・Cube・KPI） | Native静的確認。認証済み実読取は未確認 |
-| `/dashboard-cyber-hud-wall` | `cyberHudWall` | cyber HUD data / member | read-only `GET /api/hud/dashboard` | 実装済み（PJ選択・status/monthly/signal Wall） | Native静的確認。認証済み実読取は未確認 |
+| `/dashboard-cyber-3d-lab` | `cyber3DLab` | cyber dashboard data / member | read-only `GET /api/hud/dashboard` | 実装済み（選択可能Native Canvas、M/X/Fとscore history） | Native静的確認。認証済み実読取は未確認 |
+| `/dashboard-cyber-glass-cube` | `cyberGlassCube` | cyber dashboard data / member | read-only `GET /api/hud/dashboard` | 実装済み（PJ選択・Cube・KPI） | Native静的確認。認証済み実読取は未確認 |
+| `/dashboard-cyber-hud-wall` | `cyberHudWall` | cyber dashboard data / member | read-only `GET /api/hud/dashboard` | 実装済み（PJ選択・status/monthly/signal Wall） | Native静的確認。認証済み実読取は未確認 |
 | `/manual`, `/manual/[slug]` | `manual`, `manualDetail` | PWA manual markdown / member | manual Q&A API | 実装済み（章順/番号、テーマ、全章本文検索、本文/内リンク、前後章、Q&A） | 実データ読取は未確認 |
 | `/spec`, `/spec/[slug]` | `spec`, `specDetail` | PWA spec Markdown / admin | read-only document bridge（bridgeも`is_admin`確認） | 実装済み（section/番号/章group/本文/前後章、Native gate） | Native静的確認。認証済み実読取は未確認 |
 | `/bzm`, `/bzm/[slug]` | `bzm`, `bzmDetail` | bundled BZM Markdown / member | read-only document bridge | 実装済み（chapter/part/未着手stub/本文/前後章） | Native静的確認。認証済み実読取は未確認 |

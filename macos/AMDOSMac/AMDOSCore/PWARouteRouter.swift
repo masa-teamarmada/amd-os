@@ -53,8 +53,7 @@ struct AMDOSPWAPathRoute: Hashable, Sendable {
              .adminSchedule, .adminMsOverview, .adminSeasonPL, .adminSettings, .adminTsukuyomi,
              .adminWeekly:
             return .admin
-        case .hudDashboard, .hudEmbedDashboard, .hudNotifications, .hudProjectCockpit, .hudAtlas, .hudSeeds, .hudVcs,
-             .hudAmdScoreRetrofit, .cyber3DLab, .cyberGlassCube, .cyberHudWall, .manual,
+        case .cyber3DLab, .cyberGlassCube, .cyberHudWall, .manual,
              .manualDetail, .spec, .specDetail, .bzm, .bzmDetail, .bzmPublic, .bzmPublicDetail,
              .account:
             return .settings
@@ -187,31 +186,6 @@ enum AMDOSPWAPathRouter {
         case let values where values.count == 3 && values[0] == "bzm" && values[1] == "public": return AMDOSPWAPathRoute(screen: .bzmPublicDetail, documentSlug: values[2])
         case let values where values.count == 2 && values[0] == "bzm": return AMDOSPWAPathRoute(screen: .bzmDetail, documentSlug: values[1])
 
-        case ["hud"], ["hud", "dashboard"]:
-            return AMDOSPWAPathRoute(screen: .hudDashboard)
-        // PWAの`/hud/dashboard/embed`だけは未ログインで開ける。通常HUDとは
-        // 権限境界が異なるため、同じscreen IDに潰さずRootで公開read modelを開く。
-        case ["hud", "dashboard", "embed"]:
-            return AMDOSPWAPathRoute(screen: .hudEmbedDashboard)
-        case ["hud", "notifications"]: return AMDOSPWAPathRoute(screen: .hudNotifications)
-        case let values where values.count == 4 && values[0] == "hud" && values[1] == "project" && values[3] == "cockpit":
-            return AMDOSPWAPathRoute(screen: .hudProjectCockpit, projectID: values[2], reportYM: query.value(named: "ym"), query: queryValues)
-        case ["hud", "atlas"]: return AMDOSPWAPathRoute(screen: .hudAtlas)
-        case ["hud", "atlas", "admin", "themes"]: return AMDOSPWAPathRoute(screen: .atlasThemes)
-        case ["hud", "atlas", "decisions"]: return AMDOSPWAPathRoute(screen: .atlasDecisions)
-        case ["hud", "atlas", "divergence"]: return AMDOSPWAPathRoute(screen: .atlasDivergence)
-        case ["hud", "atlas", "inbox"]: return AMDOSPWAPathRoute(screen: .atlasInbox)
-        case ["hud", "atlas", "inbox", "submit"]: return AMDOSPWAPathRoute(screen: .atlasInboxSubmit)
-        case ["hud", "atlas", "macrotrends"]: return AMDOSPWAPathRoute(screen: .atlasMacrotrends)
-        case ["hud", "atlas", "map"]: return AMDOSPWAPathRoute(screen: .atlasMap)
-        case ["hud", "seeds"]: return AMDOSPWAPathRoute(screen: .hudSeeds)
-        case ["hud", "seeds", "inbox"]: return AMDOSPWAPathRoute(screen: .seedInbox)
-        case let values where values.count == 3 && values[0] == "hud" && values[1] == "seeds": return AMDOSPWAPathRoute(screen: .seedDetail, seedID: values[2])
-        case ["hud", "vcs"]: return AMDOSPWAPathRoute(screen: .hudVcs)
-        case ["hud", "vcs", "inbox"]: return AMDOSPWAPathRoute(screen: .vcInbox)
-        case let values where values.count == 3 && values[0] == "hud" && values[1] == "vcs": return AMDOSPWAPathRoute(screen: .vcDetail, vcID: values[2])
-        case let values where values.count == 4 && values[0] == "hud" && values[1] == "vcs" && values[3] == "edit": return AMDOSPWAPathRoute(screen: .vcEdit, vcID: values[2])
-        case ["hud", "venture-map", "amd-score", "retrofit"]: return AMDOSPWAPathRoute(screen: .hudAmdScoreRetrofit)
 
         case ["admin"]: return AMDOSPWAPathRoute(screen: .adminHome)
         case let values where values.count == 2 && values[0] == "admin":

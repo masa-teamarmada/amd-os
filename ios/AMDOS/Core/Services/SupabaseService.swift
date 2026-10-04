@@ -4438,36 +4438,7 @@ extension SupabaseService {
         }
     }
 
-    // MARK: - HUD Control Center (直読み)
-    // PWA /hud/dashboard と同じ素データを Supabase から直読みする（API 不要・会場ネット非依存）。
-
-    func fetchHudManagementSnapshots() async throws -> [HudMgmtSnapshotRow] {
-        try await client.database
-            .from("amd_management_score_snapshots")
-            .select("ym,total_score,initiative_score,finance_score,retention_score,pipeline_score,direction_score,confidence,updated_at")
-            .order("ym", ascending: true)
-            .order("updated_at", ascending: true)
-            .execute()
-            .value
-    }
-
-    func fetchHudBillingCycles(ym: String) async throws -> [HudBillingRow] {
-        try await client.database
-            .from("billing_cycles")
-            .select("project_id,ym,status,budget_yen,meeting_start_at,report_fixed_at,invoice_sent_at,payment_confirmed_at")
-            .eq("ym", value: ym)
-            .execute()
-            .value
-    }
-
-    func fetchHudMonthlyReports(ym: String) async throws -> [HudReportRow] {
-        try await client.database
-            .from("monthly_reports")
-            .select("project_id,status,fixed_at")
-            .eq("ym", value: ym)
-            .execute()
-            .value
-    }
+    // MARK: - PWA の WebView 用の認証 cookie
 
     /// 現在のセッションを @supabase/ssr 互換 cookie に変換（PWA 詳細ページを WebView で認証付き表示するため）。
     /// cookie 名: sb-<ref>-auth-token、値: "base64-" + base64url(session JSON)、長い場合は .0/.1 で chunk 分割。
@@ -4527,36 +4498,6 @@ private enum SupabaseError: Error {
     case authRequired
     case invalidURL
     case httpError(Int)
-}
-
-// MARK: - HUD Control Center 直読み行
-
-struct HudMgmtSnapshotRow: Decodable {
-    let ym: String?
-    let total_score: Double?
-    let initiative_score: Double?
-    let finance_score: Double?
-    let retention_score: Double?
-    let pipeline_score: Double?
-    let direction_score: Double?
-    let confidence: Double?
-}
-
-struct HudBillingRow: Decodable {
-    let project_id: String
-    let ym: String?
-    let status: String?
-    let budget_yen: Double?
-    let meeting_start_at: String?
-    let report_fixed_at: String?
-    let invoice_sent_at: String?
-    let payment_confirmed_at: String?
-}
-
-struct HudReportRow: Decodable {
-    let project_id: String?
-    let status: String?
-    let fixed_at: String?
 }
 
 private struct NotificationReadUpdate: Encodable {
