@@ -6,9 +6,11 @@ import { requireReaderAdmin } from "@/lib/bzm-reader/require-reader-admin";
  * 棚には未投稿の論文と匿名化前の草稿が並ぶ。広げるかはまさが決めるまで管理者だけに絞る。
  * layout は他の segment を止めないので、各 page と generateMetadata でも requireReaderAdmin を呼ぶ。
  * 専用アプリとしてインストールできるよう、ルートの /manifest.json を書斎の配下でだけ別の manifest に差し替える。
+ * 題も「… - AMD OS」ではなく「書斎」にする（(app)/layout.tsx の題を、この layout が上書きする。アプリの窓の題に出る）。
  * 設計正本: pwa/design/bzm_reader.md §1
  */
 export const metadata: Metadata = {
+  title: "書斎",
   manifest: "/manifest-shosai.json",
   appleWebApp: {
     capable: true,

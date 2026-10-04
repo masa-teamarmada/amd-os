@@ -28,8 +28,8 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   await requireReaderAdmin();
   const { book, chapter } = await params;
   const content = getReaderChapterContent(decodeURIComponent(book), decodeURIComponent(chapter));
-  if (!content) return { title: "書斎 - AMD OS" };
-  return { title: `${content.chapter.title} - ${content.book.title} - AMD OS` };
+  if (!content) return { title: "書斎" };
+  return { title: `${content.chapter.title} - ${content.book.title}` };
 }
 
 export default async function BzmReaderChapterPage({ params }: { params: Params }) {

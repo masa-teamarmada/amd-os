@@ -42,7 +42,7 @@
 | 場所 | 内容 |
 |---|---|
 | `pwa/public/manifest-shosai.json` | `name`・`short_name` は「書斎」。`id`・`start_url`・`scope` はすべて `/bzm/read`。`display` は `standalone`。`background_color`・`theme_color` は `#ffffff`。アイコンは AMD OS と同じ `/icons/*`。向き（`orientation`）は固定しない |
-| `pwa/src/app/(app)/bzm/read/layout.tsx` | 書斎の配下でだけ、ルートの `manifest: "/manifest.json"` を `manifest: "/manifest-shosai.json"` に差し替える。あわせて `appleWebApp`（`capable: true`、`title: "書斎"`、`statusBarStyle: "default"`）と `viewport.themeColor` の `#ffffff` を出す。管理者の判定 `requireReaderAdmin()` は従来どおり |
+| `pwa/src/app/(app)/bzm/read/layout.tsx` | 書斎の配下でだけ、ルートの `manifest: "/manifest.json"` を `manifest: "/manifest-shosai.json"` に差し替える。あわせて `appleWebApp`（`capable: true`、`title: "書斎"`、`statusBarStyle: "default"`）と `viewport.themeColor` の `#ffffff` を出す。ページの題は `title: "書斎"` で、`(app)/layout.tsx` の「… - AMD OS」を上書きする（アプリの窓の題に出る。章ページは「章の題 - 本の題」）。管理者の判定 `requireReaderAdmin()` は従来どおり |
 | `pwa/src/middleware.ts` | matcher の除外に `manifest-shosai\\.json` を足す。除外しないと manifest の取得がログイン画面への 307 になり、インストールが壊れる（`manifest.json` と同じ理由） |
 
 - インストール: iPhone は Safari で `/bzm/read` を開き、共有ボタンの「ホーム画面に追加」で名前は「書斎」のまま追加する。Mac の Chrome は同じ URL を開き、アドレスバー右端のインストールのアイコン、またはメニュー（︙）の「キャスト、保存、共有」の「ページをアプリとしてインストール」で入れる。手順の詳細は `pwa/manual/2-10-bzm-reader.md`。
