@@ -14,6 +14,8 @@ import {
 } from "@/lib/dd-package-core";
 import { isDdItemKind, type DdItemKind } from "@/lib/dd-payload";
 import { loadDdItemLive, mergeDdUnverifiedNotes, type DdItemLive } from "@/lib/dd-sources";
+import { ddPageForItem, type DdPageKey } from "@/lib/dd-pages";
+import type { DdLiveData } from "@/lib/dd-payload";
 
 // DD の掲載項目・公開の切り替え・閲覧権限の読み書き（service_role）。
 // 公開中（is_published）の項目は、閲覧のたびに元データの最新をワークスペースと同じ形で返す（公開した時点で固定しない）。
@@ -53,6 +55,19 @@ export type DdItemRow = {
 const PACKAGE_FIELDS = "id,project_id,slug,title,notice_text,status,updated_at";
 const ITEM_FIELDS =
   "id,package_id,project_id,section_key,item_kind,source_key,source_options,title,summary,unverified_notes,evidence_item_ids,sort_order,status,is_published,published_at,published_by_member_id,created_at,updated_at";
+
+// PJの表示名だけは参照系。認可を終えた後に使い、権限や公開状態はキャッシュしない。
+const projectNames = new Map<string, { expiresAt: number; value: Promise<string | null> }>();
+function ddProjectName(projectId: string) {
+  const cached = projectNames.get(projectId);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  if (projectNames.size >= 256) projectNames.clear();
+  const value = Promise.resolve(createAdminClient().from("projects").select("project_name,display_name").eq("project_id", projectId).maybeSingle())
+    .then(({ data, error }) => { if (error) throw new Error(error.message); return data?.display_name || data?.project_name || null; })
+    .catch((error) => { projectNames.delete(projectId); throw error; });
+  projectNames.set(projectId, { expiresAt: Date.now() + 60_000, value });
+  return value;
+}
 
 async function loadPackage(packageId: string): Promise<DdPackageRow | null> {
   const db = createAdminClient();
@@ -114,6 +129,8 @@ async function liveMeta(row: DdItemRow): Promise<{ live: DdItemLive | null; meta
 
 export type DdViewItem = {
   itemId: string;
+  pageKey: DdPageKey;
+  live: DdLiveData | null;
   sectionKey: DdSectionKey;
   sortOrder: number;
   itemKind: DdItemKind;
@@ -127,6 +144,7 @@ export type DdViewItem = {
 
 export type DdPackageView = {
   package: DdPackageRow;
+  projectName: string;
   sections: Array<{ key: DdSectionKey; label: string; description: string; items: DdViewItem[] }>;
   /** 公開中の項目の元データのうち、いちばん新しい更新日時。 */
   lastUpdatedAt: string | null;
@@ -148,9 +166,14 @@ export async function loadDdPublishedLive(packageId: string): Promise<Array<{ ro
 export async function loadDdPackageView(access: DdViewerAccess): Promise<DdPackageView | null> {
   const pkg = await loadPackage(access.packageId);
   if (!pkg) return null;
-  const loaded = await loadDdPublishedLive(pkg.id);
-  const items: DdViewItem[] = loaded.map(({ row, meta }) => ({
+  const [loaded, projectName] = await Promise.all([
+    loadDdPublishedLive(pkg.id),
+    ddProjectName(access.projectId),
+  ]);
+  const items: DdViewItem[] = loaded.map(({ row, meta, live }) => ({
     itemId: row.id,
+    pageKey: ddPageForItem(row.item_kind, live?.data ?? null),
+    live: live?.data ?? null,
     sectionKey: row.section_key,
     sortOrder: row.sort_order,
     itemKind: row.item_kind,
@@ -162,6 +185,7 @@ export async function loadDdPackageView(access: DdViewerAccess): Promise<DdPacka
   }));
   return {
     package: pkg,
+    projectName: projectName || pkg.title,
     sections: DD_SECTIONS.map((section) => ({
       key: section.key,
       label: section.label,

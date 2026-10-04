@@ -51,7 +51,7 @@ import {
   resolveCockpitTabForType,
   type CockpitGroupKey,
 } from "@/lib/cockpit-tabs";
-import { projectFormatTypeOf } from "@/lib/project-formats";
+import { projectFormatTypeOf, PROJECT_PAGE_LABELS } from "@/lib/project-formats";
 import { fetchInstitutionIdForProject } from "@/lib/seeds-data";
 
 interface PlanCycleShape {
@@ -463,7 +463,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
   const workspaceView = WORKSPACE_VIEW_BY_TAB[activeTab];
   const tabItem = (key: CockpitTab) => ({
     key,
-    label: tabLabel[key] ?? key,
+    label: PROJECT_PAGE_LABELS[key] ?? tabLabel[key] ?? key,
     onHover: key === "score-detail" ? () => prefetchProjectOrg(project.projectId)
       : key === "technology" || key === "competition" || key === "business-model" ? () => prefetchProjectTech(project.projectId)
       : key === "business-plan" ? () => prefetchProjectBusinessPlan(project.projectId)

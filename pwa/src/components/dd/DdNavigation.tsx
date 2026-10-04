@@ -1,35 +1,31 @@
 import Link from "next/link";
-import type { DdPackageView } from "@/lib/dd-package-server";
+import { DD_TAB_FORMAT, PROJECT_PAGE_LABELS } from "@/lib/project-formats";
+import { COCKPIT_GROUP_LABELS } from "@/lib/cockpit-tabs";
+import type { DdPageKey } from "@/lib/dd-pages";
 
-// 他のPJ領域と同じ「分類 → 子タブ → 本文」。DDの子タブは認可済みの掲載項目だけ。
-export function DdNavigation({ view, slug, sectionKey, itemId }: {
-  view: DdPackageView;
-  slug: string;
-  sectionKey: string;
-  itemId?: string;
-}) {
+// 他の2領域と同じ分類・ページ名。公開項目数でタブを増減させない。
+export function DdNavigation({ slug, pageKey }: { slug: string; pageKey: DdPageKey }) {
   const base = `/dd/${encodeURIComponent(slug)}`;
-  const section = view.sections.find((entry) => entry.key === sectionKey) ?? view.sections[0];
+  const selectedGroup = DD_TAB_FORMAT.find((group) => (group.tabs as readonly string[]).includes(pageKey)) ?? DD_TAB_FORMAT[0];
+  const groupLabel = (key: string) => key === "business-plan-group" ? COCKPIT_GROUP_LABELS.businessPlan : COCKPIT_GROUP_LABELS.documents;
   return (
     <div className="space-y-2">
-      <nav aria-label="DDパッケージの分類" className="grid grid-cols-2 gap-1 rounded-xl border border-[#bfc0c7] bg-[#f5f5f7] p-1 sm:grid-cols-4 lg:grid-cols-7">
-        {view.sections.map((entry) => (
-          <Link key={entry.key} href={`${base}?section=${entry.key}`} aria-current={entry.key === section.key ? "page" : undefined}
-            className={`flex min-h-11 items-center justify-center rounded-lg border px-2 text-center text-[12.5px] font-semibold sm:min-h-9 ${entry.key === section.key ? "border-[#bcdcf6] bg-white text-[#0267b2]" : "border-transparent text-[#6e6e73] hover:bg-white"}`}>
-            {entry.label}
+      <nav aria-label="DDパッケージの分類" data-testid="dd-group-navigation" className="grid grid-cols-2 gap-1 rounded-xl border border-[#bfc0c7] bg-[#f5f5f7] p-1">
+        {DD_TAB_FORMAT.map((group) => (
+          <Link key={group.group} href={`${base}?tab=${group.tabs[0]}`} aria-current={group.group === selectedGroup.group ? "page" : undefined}
+            className={`flex min-h-11 items-center justify-center rounded-lg px-3 text-[13px] font-bold sm:min-h-9 ${group.group === selectedGroup.group ? "bg-white text-slate-950 shadow-[inset_0_-2px_0_#0f172a]" : "text-slate-500 hover:bg-white/80 hover:text-slate-900"}`}>
+            {groupLabel(group.group)}
           </Link>
         ))}
       </nav>
-      <nav aria-label={`${section.label}の表示切り替え`} className="flex flex-wrap gap-1 rounded-lg border border-[#d2d2d7] bg-white p-1">
-        <Link href={`${base}?section=${section.key}`} aria-current={!itemId ? "page" : undefined}
-          className={`inline-flex min-h-11 items-center rounded-md px-3 text-[12.5px] sm:min-h-8 ${!itemId ? "bg-[#eef6fd] font-semibold text-[#0267b2]" : "text-[#6e6e73] hover:bg-[#f5f5f7]"}`}>一覧</Link>
-        {section.items.map((item) => (
-          <Link key={item.itemId} href={`${base}/items/${item.itemId}`} aria-current={itemId === item.itemId ? "page" : undefined}
-            className={`inline-flex min-h-11 max-w-full items-center rounded-md px-3 text-[12.5px] sm:min-h-8 ${itemId === item.itemId ? "bg-[#eef6fd] font-semibold text-[#0267b2]" : "text-[#6e6e73] hover:bg-[#f5f5f7]"}`}>
-            <span className="break-words">{item.title}</span>
+      {selectedGroup.tabs.length > 1 && <nav aria-label={`${groupLabel(selectedGroup.group)}の表示切り替え`} data-testid="dd-child-navigation" className="flex gap-1 overflow-x-auto rounded-lg border border-[#d6d6da] bg-white p-1">
+        {selectedGroup.tabs.map((tab) => (
+          <Link key={tab} href={`${base}?tab=${tab}`} aria-current={pageKey === tab ? "page" : undefined}
+            className={`inline-flex min-h-11 shrink-0 items-center rounded-md px-3 text-[12px] font-semibold sm:min-h-8 ${pageKey === tab ? "bg-[#f5f5f7] text-slate-950 shadow-[inset_0_-2px_0_#0f172a]" : "text-slate-600 hover:bg-[#f5f5f7] hover:text-slate-900"}`}>
+            {PROJECT_PAGE_LABELS[tab]}
           </Link>
         ))}
-      </nav>
+      </nav>}
     </div>
   );
 }

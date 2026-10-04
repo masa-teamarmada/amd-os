@@ -90,7 +90,7 @@ import {
 } from "@/lib/sx-display-lanes";
 import { SxPartnerPipeline } from "./SxPartnerPipeline";
 import { CockpitCostTab } from "@/components/cockpit/CockpitCostTab";
-import { DEFAULT_TABS, WORKSPACE_TAB_FORMATS, projectFormatTypeOf, type ProjectFormatType } from "@/lib/project-formats";
+import { DEFAULT_TABS, WORKSPACE_TAB_FORMATS, PROJECT_PAGE_LABELS, projectFormatTypeOf, type ProjectFormatType } from "@/lib/project-formats";
 import { WorkspaceDocumentRoom } from "@/components/workspace-documents/WorkspaceDocumentRoom";
 import { CockpitIpPortfolio } from "@/components/cockpit/CockpitIpPortfolio";
 import { CockpitTechnology } from "@/components/cockpit/CockpitTechnology";
@@ -398,7 +398,7 @@ function workspaceGroupsForType(type: ProjectFormatType): readonly WorkspaceTabG
   return WORKSPACE_TAB_FORMATS[type].map((group) => ({
     key: group.group as WorkspaceGroupKey,
     label: WORKSPACE_GROUP_LABELS[group.group as WorkspaceGroupKey],
-    children: group.tabs.map((tab) => ({ key: tab as SxWeeklyControlView, label: WORKSPACE_TAB_LABELS[tab as SxWeeklyControlView] })),
+    children: group.tabs.map((tab) => ({ key: tab as SxWeeklyControlView, label: PROJECT_PAGE_LABELS[tab] ?? WORKSPACE_TAB_LABELS[tab as SxWeeklyControlView] })),
   }));
 }
 const EXTERNAL_WORKSPACE_TABS = new Set<SxWeeklyControlView>([

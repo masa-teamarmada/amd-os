@@ -55,8 +55,11 @@ assert.doesNotMatch(adminPage, /cockpit\?tab=dd/, "DD入口からコックピッ
 assert.match(adminPage, /<DdProjectTab/, "DD管理を独立したDD画面で開く");
 assert.match(read("src/app/(app)/project/[projectId]/cockpit/page.tsx"), /legacyDd.*?=/, "旧DD子タブのURLを受け付ける");
 const ddNavigation = read("src/components/dd/DdNavigation.tsx");
-assert.match(ddNavigation, /view\.sections\.map/, "DD分類は未登録でも常設する");
-assert.match(ddNavigation, /section\.items\.map/, "DD子タブは認可済みの掲載項目だけから作る");
+assert.match(ddNavigation, /DD_TAB_FORMAT\.map/, "DD分類は固定の共通ページ定義から作る");
+assert.match(ddNavigation, /PROJECT_PAGE_LABELS\[tab\]/, "DDのページ名は3領域の共通定義から作る");
+assert.doesNotMatch(ddNavigation, />一覧</, "DD専用の一覧タブを足さない");
+assert.doesNotMatch(read("src/components/dd/DdViewerShell.tsx"), /管理者プレビュー|role="status"/, "DD閲覧へ専用の管理帯を足さない");
+assert.doesNotMatch(read("src/components/dd/DdPackageTop.tsx"), /<table|<dl|DD_ITEM_KIND_LABEL/, "ページ選択から一覧を挟まず本文を開く");
 const sharedPage = read("src/app/(shared-workspace)/project/[projectId]/workspace/page.tsx");
 assert.match(sharedPage, /resolveDdViewerScope\(\)/, "共有画面のDD入口は独立したDD付与を再確認する");
 assert.match(sharedPage, /pkg\.projectId === projectId/, "DD入口は現在のPJに限定する");

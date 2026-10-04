@@ -1,95 +1,33 @@
-import Link from "next/link";
 import { DdNavigation } from "./DdNavigation";
-import { DD_ITEM_KIND_LABEL } from "@/lib/dd-payload";
-import { formatDdDate } from "@/lib/dd-format";
-import type { DdPackageView } from "@/lib/dd-package-server";
+import { DdLiveBody } from "./DdItemDetail";
+import { DdDocumentBody } from "./DdItemBodies";
+import { PROJECT_PAGE_LABELS } from "@/lib/project-formats";
+import { DD_PAGE_KEYS, type DdPageKey } from "@/lib/dd-pages";
+import type { DdPackageView, DdViewItem } from "@/lib/dd-package-server";
 
-// DDトップ。先頭に全体の要約（公開中の項目数・元データの最終更新・未確認事項・資料の数）を置き、
-// その下に分類・子タブを並べ、選択中の区分を表示する。公開中でない項目は一切出さない。
-// 各項目は、ワークスペースの最新の内容をそのまま表示する（公開した時点で固定しない）。
-
-export function DdPackageTop({ view, slug, sectionKey }: { view: DdPackageView; slug: string; sectionKey?: string }) {
-  const selectedSection = view.sections.find((section) => section.key === sectionKey) ?? view.sections[0];
+// ページを選ぶと本文を直接表示。DD専用の一覧・概要・公開状態の枠を挟まない。
+export function DdPackageTop({ view, slug, tab, sectionKey, canDownload = false, selectedItem }: {
+  view: DdPackageView; slug: string; tab?: string; sectionKey?: string; canDownload?: boolean; selectedItem?: DdViewItem;
+}) {
   const items = view.sections.flatMap((section) => section.items);
-  const unverifiedTotal = items.reduce((sum, item) => sum + item.unverifiedNotes.length, 0);
-  const fileCount = items.filter((item) => item.itemKind === "document").length;
-
+  const legacyPage = view.sections.find((section) => section.key === sectionKey)?.items[0]?.pageKey;
+  const pageKey = (selectedItem?.pageKey ?? (tab && DD_PAGE_KEYS.includes(tab) ? tab : legacyPage) ?? "technology") as DdPageKey;
+  const pageItems = items.filter((item) => item.pageKey === pageKey);
+  if (selectedItem && !pageItems.some((item) => item.itemId === selectedItem.itemId)) pageItems.push(selectedItem);
   return (
-    <div className="space-y-6">
-      <section>
-        <h1 className="text-[20px] font-semibold leading-7 text-[#1d1d1f]">{view.package.title}</h1>
-        {view.package.notice_text && (
-          <p className="mt-1.5 max-w-3xl text-[13px] leading-6 text-[#424245]">{view.package.notice_text}</p>
-        )}
-        <dl className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-[#e5e5e7] bg-[#e5e5e7] text-[12px] sm:grid-cols-4">
-          <div className="bg-white px-3 py-2.5">
-            <dt className="text-[#6e6e73]">公開中の項目</dt>
-            <dd className="mt-0.5 text-[18px] font-semibold tabular-nums text-[#1d1d1f]">{items.length}件</dd>
+    <div className="space-y-3">
+      <DdNavigation slug={slug} pageKey={pageKey} />
+      <section className="min-w-0 space-y-3" aria-label={PROJECT_PAGE_LABELS[pageKey]} data-testid="dd-page-body">
+        {pageItems.length === 0 ? (
+          <div className="rounded-xl border border-[#e5e5e7] bg-white p-4 text-[13px] text-[#6e6e73]">{PROJECT_PAGE_LABELS[pageKey]}は未登録。</div>
+        ) : pageItems.map((item) => (
+          <div key={item.itemId} id={`dd-item-${item.itemId}`} className="min-w-0 scroll-mt-16">
+            {!item.live ? <p className="rounded-xl border border-[#e5e5e7] bg-white p-4 text-[13px] text-[#6e6e73]">この内容はいま表示できない。</p>
+              : item.live.kind === "document" ? <DdDocumentBody payload={item.live} fileHref={`/dd/${encodeURIComponent(slug)}/items/${item.itemId}/file`} canDownload={canDownload} previewNote="この画面からは開けない。" />
+              : <DdLiveBody live={item.live} />}
           </div>
-          <div className="bg-white px-3 py-2.5">
-            <dt className="text-[#6e6e73]">元データの最終更新</dt>
-            <dd className="mt-0.5 text-[15px] font-semibold text-[#1d1d1f]">{formatDdDate(view.lastUpdatedAt)}</dd>
-          </div>
-          <div className="bg-white px-3 py-2.5">
-            <dt className="text-[#6e6e73]">未確認事項</dt>
-            <dd className="mt-0.5 text-[18px] font-semibold tabular-nums text-[#475569]">{unverifiedTotal}件</dd>
-          </div>
-          <div className="bg-white px-3 py-2.5">
-            <dt className="text-[#6e6e73]">資料</dt>
-            <dd className="mt-0.5 text-[18px] font-semibold tabular-nums text-[#1d1d1f]">{fileCount}件</dd>
-          </div>
-        </dl>
-        <p className="mt-2 text-[11px] leading-5 text-[#6e6e73]">
-          各項目は、事業の元データの最新の内容をそのまま表示している。元データが更新されると、この画面の内容も変わる。
-        </p>
+        ))}
       </section>
-
-      <DdNavigation view={view} slug={slug} sectionKey={selectedSection.key} />
-
-      {[selectedSection].map((section) => (
-        <section key={section.key} id={`section-${section.key}`} className="scroll-mt-20">
-          <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[#1d1d1f] pb-1.5">
-            <h2 className="text-[15px] font-semibold text-[#1d1d1f]">{section.label}</h2>
-            <span className="text-[11px] text-[#6e6e73]">{section.description}</span>
-          </div>
-          {section.items.length === 0 ? (
-            <p className="py-3 text-[12px] text-[#6e6e73]">この区分に公開中の項目はまだない。</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[560px] border-collapse text-[12.5px]">
-                <thead>
-                  <tr className="text-left text-[11px] text-[#6e6e73]">
-                    <th className="px-2 py-1.5 font-medium">項目</th>
-                    <th className="w-[128px] px-2 py-1.5 font-medium">種類</th>
-                    <th className="w-[128px] px-2 py-1.5 font-medium">元データの更新</th>
-                    <th className="w-[88px] px-2 py-1.5 text-right font-medium">未確認事項</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {section.items.map((item) => (
-                    <tr key={item.itemId} className="border-t border-[#f0f0f2] align-top hover:bg-[#fafafa]">
-                      <td className="px-2 py-2">
-                        <Link
-                          href={`/dd/${encodeURIComponent(slug)}/items/${item.itemId}`}
-                          className="font-semibold text-[#0267b2] hover:underline"
-                        >
-                          {item.title}
-                        </Link>
-                        {item.summary && <p className="mt-0.5 line-clamp-2 text-[11.5px] leading-5 text-[#6e6e73]">{item.summary}</p>}
-                      </td>
-                      <td className="px-2 py-2 text-[#424245]">{DD_ITEM_KIND_LABEL[item.itemKind]}</td>
-                      <td className="px-2 py-2 text-[#424245]">{item.unavailable ? "いまは表示できない" : formatDdDate(item.sourceAsOf)}</td>
-                      <td className="px-2 py-2 text-right tabular-nums text-[#475569]">
-                        {item.unverifiedNotes.length > 0 ? `${item.unverifiedNotes.length}件` : "なし"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      ))}
     </div>
   );
 }

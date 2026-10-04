@@ -24,7 +24,7 @@ export default async function DdHomePage() {
     return (
       <div className="mx-auto max-w-3xl px-4 py-8 text-[#1d1d1f] sm:px-6">
         <h1 className="text-[18px] font-semibold">DDパッケージ（管理者）</h1>
-        <p className="mt-1 text-[12px] text-[#6e6e73]">投資家・金融機関向けの開示面。管理者は未公開のパッケージもプレビューできる。</p>
+        <p className="mt-1 text-[12px] text-[#6e6e73]">閲覧できるDDパッケージを選ぶ。</p>
         <table className="mt-4 w-full border-collapse text-[13px]">
           <thead>
             <tr className="text-left text-[11px] text-[#6e6e73]">
@@ -39,7 +39,7 @@ export default async function DdHomePage() {
                 <td className="px-2 py-2 font-semibold">{pkg.title}</td>
                 <td className="px-2 py-2 text-[12px] text-[#424245]">{DD_PACKAGE_STATUS_LABEL[pkg.status]}</td>
                 <td className="px-2 py-2 text-[12px]">
-                  <Link href={`/dd/${encodeURIComponent(pkg.slug)}`} className="mr-3 text-[#0267b2] hover:underline">プレビュー</Link>
+                  <Link href={`/dd/${encodeURIComponent(pkg.slug)}`} className="mr-3 text-[#0267b2] hover:underline">開く</Link>
                   <Link href={`/project/${encodeURIComponent(pkg.project_id)}/dd?tab=manage`} className="text-[#0267b2] hover:underline">管理</Link>
                 </td>
               </tr>

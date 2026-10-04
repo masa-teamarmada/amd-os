@@ -98,7 +98,7 @@ export function DdAdminPanel({ state, candidates, onChanged }: Props) {
           </div>
           <div className="flex flex-wrap gap-2">
             <a href={topHref} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center rounded-md border border-[#d2d2d7] bg-white px-3 text-[12.5px] font-semibold hover:bg-[#f5f5f7]">
-              投資家の見え方
+              DDパッケージを開く
             </a>
             <a href={`${topHref}/print`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center rounded-md border border-[#027FDC] bg-[#027FDC] px-3 text-[12.5px] font-semibold text-white hover:bg-[#0267b2]">
               PDFを出力
@@ -241,7 +241,7 @@ export function DdAdminPanel({ state, candidates, onChanged }: Props) {
           <h3 className="text-[15px] font-semibold">閲覧記録</h3>
         </div>
         {state.events.length === 0 ? (
-          <p className="text-[12px] text-[#6e6e73]">外部アカウントの閲覧記録はまだない（管理者のプレビューは記録しない）。</p>
+          <p className="text-[12px] text-[#6e6e73]">外部アカウントの閲覧記録はまだない。</p>
         ) : (
           <div className="max-h-[360px] overflow-auto">
             <table className="w-full border-collapse text-[12px]">

@@ -1,5 +1,17 @@
 # HANDOFF - AMD OS PWA
 
+## 2026-10-04 — DD閲覧の画面構造と3領域のページ対照表
+
+- DDの管理者プレビュー帯・概要一覧・一覧タブを削除。共通PJ見出し・領域選択・分類・固定ページ・本文で表示し、技術等は既存の共通部品をそのまま使う。資料/PDF/公開管理は既存認可のまま、設定から扱う。
+- DD_TAB_FORMAT、PROJECT_PAGE_LABELS、dd-pages.tsを正本にし、3領域・PJタイプ別の◯表をspec/3-24へ追加。技術台帳のページ区分は既存techLedgerTabOfに一致。DDは公開対象だけを読む。空のページも入口を隠さず未登録と出す。
+- TypeScript、DD権限/表示/ページ対応、project-format、critical-ui、変更DDファイルのESLintが成功。DB・認可・公開設定・BZM/model変更なし。iOS/macOS/AndroidのDD画面は未移植。共有checkoutの未追跡引き継ぎファイルは維持。
+
+| 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
+|---|---|---|---|
+| DD閲覧を共通ページ構造へ統一 | spec/5-17・3-23、ios/DESIGN | manual/2-6 | 同期済み |
+| 3領域の表示ページ対照表 | spec/3-24、project-formats.ts | manual/2-6 | 同期済み |
+| BZM/model・DB・認可 | 変更なし | 対象外 | 棚卸し済み |
+
 ## 2026-10-04 — ホームのPJリンクとページの戻る/進む
 
 - PJポートフォリオの研究機関PJとシーズPJは、行に紐づくPJコックピットへ直接つなぐ。PJ未登録の候補は元の詳細へ進む。事業会社PJ・各一覧の入口は維持。

@@ -205,7 +205,7 @@
     "test:surface-catalog-contract": "node scripts/check_surface_catalog_contract.mjs",
     "test:admin-kiyo": "node --experimental-strip-types scripts/check_admin_kiyo.mts && node --experimental-strip-types scripts/check_invoice_expense_rule.mts",
     "test:workspace-capabilities": "node --experimental-strip-types scripts/check_workspace_capabilities.mts",
-    "test:dd-package": "node --experimental-strip-types scripts/check_tech_qa_sort.mts && node --experimental-strip-types scripts/check_dd_package_core.mts && node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_dd_payload.mts && node scripts/check_dd_package_contract.mjs",
+    "test:dd-package": "node --experimental-strip-types scripts/check_tech_qa_sort.mts && node --experimental-strip-types scripts/check_dd_package_core.mts && node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_dd_payload.mts && node scripts/check_dd_package_contract.mjs && node --experimental-strip-types scripts/check_dd_pages.mts",
     "test:reward-payout-rounding": "node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_reward_payout_rounding.mts && node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_common_payout_protection.mts",
     "test:effluent-extraction": "node --experimental-strip-types scripts/check_effluent_component_extraction.mts",
     "test:project-gantt-roadmap": "node --experimental-strip-types scripts/test_project_gantt_roadmap.mts"
