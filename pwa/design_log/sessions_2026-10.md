@@ -48,3 +48,74 @@
 - **捨てた案**: 最新版とぶつからない古い書きかけ（追跡ファイルの変更・削除）まで72時間放置で隔離する拡張。auto mode の安全装置が「他の作業への干渉」として止め、まさの「1と3」にも含まれないため入れていない。
 - **auto mode の安全装置**: 書きかけの破棄・フック編集は会話内の承認では通らなかった。フック編集はまさに権限モードを「毎回確認」へ切り替えてもらって通した。
 
+
+## 2026-10-05 DD・3領域の引き継ぎ
+
+開発履歴のみ。正本spec/3-24・5-17・3-23、manual/2-1・2-3・2-6、ios/DESIGNへ同期済み。ホーム導線・履歴UI、領域並列化、DDプレビュー/一覧削除、ページ対照表、指定ページ追加と沿革改名、最後に正本本文共通化を実施。タブだけ共通/掲載QA抜粋案は廃止。最新修正のDB/schema/env追加なし（以前の469は適用済み）。BUGSへ根因記録。共有の月次報告書作業は保全。専用HANDOFF_dd_spacesへ現在地を保存。
+
+ファイル単位の本文共通化変更（A=新規、M=変更。初期データ引数と共通取得関数、再現試験を含む）:
+```text
+M	ios/DESIGN.md
+M	pwa/HANDOFF_pwa_rebuild.md
+M	pwa/design/governance_action_items.md
+M	pwa/manual/2-6-admin-ops.md
+M	pwa/manual/9-3-appendix-changelog.md
+M	pwa/package.json
+A	pwa/scripts/check_dd_shared_page_data.mts
+M	pwa/scripts/check_killer_factor_catalog_contract.mjs
+M	pwa/scripts/check_project_format_contract.mjs
+M	pwa/scripts/check_project_workspace_route_contract.mjs
+M	pwa/scripts/check_pwa_critical_ui.cjs
+A	pwa/scripts/register_relative_ts.mjs
+M	pwa/spec/3-23-project-format-current-spec.md
+M	pwa/spec/3-24-project-surface-pages-current-spec.md
+M	pwa/spec/5-17-dd-package-current-spec.md
+M	pwa/spec/6-1-appendix-changelog.md
+M	pwa/src/app/api/governance/capital-plans/route.ts
+M	pwa/src/app/api/governance/killer-factors/route.ts
+M	pwa/src/app/api/governance/route.ts
+M	pwa/src/app/api/project-tech/route.ts
+M	pwa/src/app/dd/[slug]/items/[itemId]/page.tsx
+M	pwa/src/app/dd/[slug]/page.tsx
+M	pwa/src/components/cockpit/CapitalPlanWorkspace.tsx
+M	pwa/src/components/cockpit/CockpitCapitalPlan.tsx
+M	pwa/src/components/cockpit/CockpitCompanyOverview.tsx
+M	pwa/src/components/cockpit/CockpitCostModel.tsx
+M	pwa/src/components/cockpit/CockpitCostTab.tsx
+M	pwa/src/components/cockpit/CockpitFinancialProjection.tsx
+M	pwa/src/components/cockpit/CockpitFuelCostModel.tsx
+M	pwa/src/components/cockpit/CockpitKillerFactorCatalog.tsx
+M	pwa/src/components/cockpit/CockpitTechnology.tsx
+M	pwa/src/components/cockpit/ProjectCostFormat.tsx
+M	pwa/src/components/cockpit/ProjectFinanceFormat.tsx
+M	pwa/src/components/cockpit/finance-format-client.ts
+M	pwa/src/components/dd/DdAdminPanel.tsx
+A	pwa/src/components/dd/DdDocumentsPage.tsx
+M	pwa/src/components/dd/DdPackageTop.tsx
+M	pwa/src/components/dd/DdProjectPageBody.tsx
+M	pwa/src/components/project-workspace/SxWeeklyControlDashboard.tsx
+M	pwa/src/components/workspace-documents/WorkspaceDocumentRoom.tsx
+M	pwa/src/lib/build-info.ts
+M	pwa/src/lib/dd-project-page-types.ts
+M	pwa/src/lib/dd-project-pages-server.ts
+A	pwa/src/lib/project-capital-plan-data.ts
+A	pwa/src/lib/project-capital-plan-server.ts
+A	pwa/src/lib/project-finance-page-data.ts
+A	pwa/src/lib/project-finance-page-server.ts
+A	pwa/src/lib/project-governance-server.ts
+A	pwa/src/lib/project-killer-factor-types.ts
+A	pwa/src/lib/project-killer-factors-server.ts
+A	pwa/src/lib/project-tech-server.ts
+
+M	pwa/scripts/check_project_fuel_cost_model.mts
+M	pwa/src/lib/project-finance-page-data.ts
+M	pwa/src/lib/project-killer-factor-types.ts
+
+M	pwa/HANDOFF_pwa_rebuild.md
+M	pwa/scripts/check_capital_plan_workspace.mts
+M	pwa/spec/5-17-dd-package-current-spec.md
+
+M	pwa/HANDOFF_pwa_rebuild.md
+M	pwa/src/components/cockpit/CockpitCompanyOverview.tsx
+M	pwa/src/lib/build-info.ts
+```
