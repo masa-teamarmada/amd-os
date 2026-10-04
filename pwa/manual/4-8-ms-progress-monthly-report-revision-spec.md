@@ -322,3 +322,9 @@ PM routine step 行や `?step=` query からこのモーダルを開いてはい
 - 6-6 章 [Member Ops / 請求書発行 / Prompt](6-6-member-billing-prompts-spec.md) (= mypage 月次進捗表示)
 - 8-1 章 [Knowledge Admin / Tsukuyomi](8-1-knowledge-admin-tsukuyomi-spec.md) (= dialog 対話型ループ全体)
 - 6-1 章 [Operations Settings](6-1-operations-settings-spec.md) (= cron Run Now)
+
+### 2026-10-04 月次報告書の対象期間
+
+月次報告書の対象期間は、社内版・提出版とも対象月の1日〜末日とする。末日は暦から計算し、30日・31日・2月28日／うるう年29日に対応する。生成日・作成日・証跡の確認日とは分け、25日に生成しても対象期間を25日で切らない。本文には生成時点で確認済みの実績だけを記載し、未実施の予定を実績化しない。26日〜末日の実績は当月分の追補対象とし、翌月分へ移さない。既存の確定稿は自動上書きせず、必要な追補は既存の編集・保存経路で行う。
+
+生成日は毎月25日16:00 JSTを維持する。

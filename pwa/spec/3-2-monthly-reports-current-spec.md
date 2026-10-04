@@ -47,7 +47,7 @@
 |---|---|
 | primary writer | Claude Code Routine `amd-os-l2-monthend-evidence` のM-1 phase |
 | routine表示名 | `AMD OS L2 月末抽出 (M-1月次レポート/M-2 XRL/M-3経営シグナル)` |
-| schedule | cron UTC `0 7 25 * *` (= 毎月25日 16:00 JST) + Phase 0 で「今日 == 25日 JST」判定、25日以外は即 exit。報告対象は当月1〜25日の証跡 (2026-08-29 まさ確定) |
+| schedule | cron UTC `0 7 25 * *` (= 毎月25日 16:00 JST) + Phase 0 で「今日 == 25日 JST」判定、25日以外は即 exit。報告対象期間は当月1日〜末日。生成時点の確認済み実績を記載する (2026-10-04 まさ確定) |
 | repo 正本 SKILL | `pwa/scheduled-tasks/amd-os-l2-monthend-evidence/SKILL.md` + `pwa/scheduled-tasks/amd-os-l2m1-monthly-report/SKILL.md` + `pwa/scheduled-tasks/shared/kaku-report/SKILL.md` |
 | model / effort | Fable 5固定。別モデル、CLI、従量課金API、subagent/workflowへのfallback禁止 |
 | input | Gmail / Drive / Calendar / Slack / Notion 5 生データ + L2 スナップショット + contracts + members + AMD Score + XRL + MS 進捗 + action_items + grants + media + documents |
@@ -295,3 +295,9 @@ ZMP（p19）もSOL・CX・KUTEと同じく `monthly_report_scope=internal_and_ex
 ### 2026-09-26 前月書式の復元と視覚検収
 
 `src/lib/monthly-report-layouts.json` にPJ別の実提出書式を保存し、印刷ビューと `generate_monthly_report.py` が同じCSSを使う。KUTEは2026-08実提出修正版のCSS、SOLのDriveにある6ページ版との全ページ画像一致は、実送付版との一致を意味しない。2026-08-31に愛媛大学へ送付した3ページの添付PDF（Gmail message 1a05810815d1fd13）を実提出の視覚正本とし、既存OS提出ビューを継承する。8月本文を再描画し、全3ページの文字・改頁・見出し・表の配置を照合する。KUTEは実送付添付PDFとDrive原本の同一性を別途確認する。OS共通スタイルによる書式変更を防ぐため、提出版の見出し・表を独立した文書領域で描画し、印刷プレビューと生成PDFを全ページ比較する。本文構造のvalidatorだけでは視覚書式の合格としない。CXの8月Drive PDFはログイン画面を含む不正な資料であり、視覚正本として採用しない。正常な7月提出PDF・既存印刷ビューを暫定比較元にし、8月書式との一致は未確認として扱う。
+
+### 2026-10-04 対象期間を暦月に統一
+
+月次報告書の対象期間は、社内版・提出版とも対象月の1日〜末日とする。末日は暦から計算し、30日・31日・2月28日／うるう年29日に対応する。生成日・作成日・証跡の確認日とは分け、25日に生成しても対象期間を25日で切らない。本文には生成時点で確認済みの実績だけを記載し、未実施の予定を実績化しない。26日〜末日の実績は当月分の追補対象とし、翌月分へ移さない。既存の確定稿は自動上書きせず、必要な追補は既存の編集・保存経路で行う。
+
+発火日時（毎月25日16:00 JST）は維持する。月末前の生成物は月末までの実績が揃ったことを意味しない。DB schema・理論・モデル・クライアント画面の変更は不要。既存報告書の一括変更や再生成は行わない。
