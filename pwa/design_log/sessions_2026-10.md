@@ -27,3 +27,13 @@
 - **確認**: `test:payout-source-span`（ちこの実データ 4〜8月の例を追加）、`check_pwa_critical_ui.cjs`、`tsc`、deploy.sh の検査一式。作り直したPDF（9月差し替え版・10月分）を Drive から取り出して画像で目視。
 - **未対応**: 送付済みで旧表記のままの通知書（例: かるの8月支払 145,575円「4〜6月発生分の一部」）は差し替えていない。2行目の稼働月を残すかは税理士・きょうこさん確認待ち（不要なら `payoutTargetText` の行を外すだけ）。
 
+## 2026-10-03〜04 PWAのタブ表示と、作業フォルダの自動追従（v3.148.2 / v3.149.1 / v3.154.4）
+
+まさ「pwaアプリだけど、chromeみたいに複数タブを許容するようにしてほしい」「その作業フォルダの遅れの解消もしておいて」「こういうことが起きないような仕組みを作ってほしい」「１と３やってほしい」。
+
+- **タブ表示**（`7620e8f0`、v3.148.2）: `public/manifest.json` に `display_override: ["tabbed", "standalone"]`。Chromium の `runtime_enabled_features.json5` で `WebAppTabStrip` は ChromeOS だけ stable、それ以外は experimental（`DesktopPWAsTabStrip`）。まさの Chrome 154（Mac）に `enable-desktop-pwas-tab-strip` の flag があり、未有効だったことを確認。flag を有効にした端末だけタブ列が出る。手順は manual 2-1「アプリ版でタブを並べる」、仕様は spec 2-1。画面側に `display-mode` の分岐が無いことを確認。まさの端末で flag を入れたあとの実画面は未確認。
+- **作業フォルダの追従**: 311件遅れ・書きかけ35件・未push 3件を3者比較で仕分け、控え（`/Users/masa/projects/AMD/amd-os-root-dirty-20261003/`）を取ってまさ承認で追従。最新版に無かった記録2件は `7f4d6e5a` で移設（`HANDOFF_CONTRACT_DRAFT_2026-09-25.md`、本ファイル8月分の OIST 節）。経緯は BUGS 2026-10-03。
+- **再発防止**（`80a9e159` v3.149.1、`e4c83d0c` v3.154.4）: `scripts/root-checkout-sync.py`。8通りの使い捨て repo と、当日の状態の再現で確認。`.claude/hooks/git_dirty_guard.sh`（git 管理外）の session_start で `--quarantine on` 実行。30分ごとの LaunchAgent（plist は `scripts/launchagents/` に同梱）はまさ判断で不採用。
+- **捨てた案**: 最新版とぶつからない古い書きかけ（追跡ファイルの変更・削除）まで72時間放置で隔離する拡張。auto mode の安全装置が「他の作業への干渉」として止め、まさの「1と3」にも含まれないため入れていない。
+- **auto mode の安全装置**: 書きかけの破棄・フック編集は会話内の承認では通らなかった。フック編集はまさに権限モードを「毎回確認」へ切り替えてもらって通した。
+
