@@ -196,7 +196,7 @@ SX p21では、PJ固有の別writerを増やさず、PJ横断で再利用する`
 | `/workspaces` | 外部利用者の組織・PJ切替 | 取得失敗と参加先0件を分離し、organization文脈を選べるようにする |
 | `/workspace/[slug]` | 研究機関workspace | 大学の機関全体面を維持し、大学メンバー向けPJレンズをここから接続する。内部cockpitや簡易PJ代替面は流用しない |
 | 旧Project Share各instance | 共同PJ workspace | 2026-08-26までに移行readbackと入口閉鎖を完了 |
-| HUDと実験画面 | canonical画面のmirrorまたは検証用 | 独立writerを持たせず、surface catalogで状態を明示する |
+| 実験画面 | canonical画面の検証用 | 独立writerを持たせず、surface catalogで状態を明示する |
 
 URLを直ちに減らすことを目的にしない。
 

@@ -65,7 +65,7 @@ PCでは親グループへホバーまたはキーボードフォーカスする
 
 **削除履歴 (2026-08-16, v3.78.3)**: `project_documents` テーブルを実体とする旧 `CockpitProjectDocuments` コンポーネントと `GET/POST /api/project-documents`、`POST /api/project-documents/reconcile`、`src/lib/project-documents/reconcile.ts` は、`CockpitView` からどこからも呼ばれていないdead codeだったため削除した。2026-08-16 (v3.78.0) セッションでこのdead codeへ「Drive資料室folder → `project_documents` additive-only同期」機能を追加してしまっていたが (下記changelog該当行)、UIとして表示されたことは一度も無い。`project_documents` テーブル自体は `app/api/project/monthly-report-print/route.ts` が月次レポート添付一覧の読み取り専用ソースとして使い続けるため削除しない。共有ドライブの `AMD OS資料室` フォルダ名・folder ID (rename済み) はこの削除と無関係にそのまま維持する。
 
-`tsukuyomi_nudge_queue` は通常PJ / institution cockpit の `CockpitView` へ渡さず、`CockpitNudge` カードも表示しない。既存の `fetchCockpitFromSupabase` が互換用に `nudges` を返す場合でも、この画面では読まない。HUD / dashboard 実験面で同じ queue を使う場合は、それぞれの専用コンポーネントの契約として扱う。
+`tsukuyomi_nudge_queue` は通常PJ / institution cockpit の `CockpitView` へ渡さず、`CockpitNudge` カードも表示しない。既存の `fetchCockpitFromSupabase` が互換用に `nudges` を返す場合でも、この画面では読まない。dashboard 実験面で同じ queue を使う場合は、それぞれの専用コンポーネントの契約として扱う。
 
 `CockpitStrategySignals` は経営ハイライト内に `重要な動き` と `採用リサーチ` の2棚を持つ。前者は従来の internal candidate/confirmed、後者は通知で採用済みの external_research confirmed だけを表示する。外部リサーチの未採用候補、見送り、過去の重複候補を cockpit に混ぜない。
 
@@ -79,7 +79,7 @@ PJ限定ログインはGoogle OAuthで本人確認した直後に通常のSupaba
 
 Tallyは別クライアントから、正規PJへ完全一致で紐づいた週別の作業時間・MTG時間を `tally_weekly_effort_entries` へ同期する。既存の `project_weekly_effort_entries` を上書き・合算しない。ワークスペースの「Tally集計」は同週の作業・MTG・合計を出所付きで表示し、Tally同期設定にはPJ表示名とMTG検索語だけを保存する。フォルダ絶対パス、会議題名、Google認証情報は保存しない。書込みは `tally-sync` Edge Function が専用キー・PJ/メンバー実在・値域・重複週を検証して行い、直近365日の範囲だけを置換する。
 
-月次 routine 専用の `canEditRoutine` 判定は廃止。`/project/[projectId]/cockpit` / `/hud/project/[projectId]/cockpit` / `/institutions/[institutionId]/cockpit` の page route は PM/admin 判定を持たず、`CockpitView` / `HudCockpitView` に `canEditRoutine` を渡さない。
+月次 routine 専用の `canEditRoutine` 判定は廃止。`/project/[projectId]/cockpit` / `/institutions/[institutionId]/cockpit` の page route は PM/admin 判定を持たず、`CockpitView` / `HudCockpitView` に `canEditRoutine` を渡さない。
 
 月次・報酬・資料・MTG の write 権限は、それぞれの API / RLS / admin route が判定する。cockpit 本体は authenticated read と各モーダル/APIへの導線を担当する。
 
@@ -157,10 +157,10 @@ KUTEガントの年度末マーカーは「年度末 YYYY-MM（目途）」で�
 | grants | `CockpitGrants` | 助成金 / funding 関連。各行に備考（1行目を常に表示し、2行目以降は「詳細」で開く）と添付（`attachments_json`、📎から資料室の資料を開く）を出し、期間は「2026年4月〜2027年9月（18か月）」の形で表示する（2026-09-30） |
 | monthly list/modal | `CockpitMonthlyList`, `CockpitMonthlyModal` | `billing_cycles`, reports / reward / progress |
 | meeting summaries | `CockpitMeetingSummary` | `project_meeting_summaries` |
-| legacy kanban | `CockpitKanbanGas` / `HudCockpitKanbanGas` | `tasks`。PJ cockpit / HUD cockpit の主要導線からは外す |
+| legacy kanban | `CockpitKanbanGas` | `tasks`。PJ cockpit の主要導線からは外す |
 | freeze / MS status | `CockpitFreezeBackfill` | freeze backfill and read-only MS period status。MS 設計編集は `/admin/ms-overview` に集約する |
 
-`CockpitMeetingSummary` の通常PJ cockpit表示は、一覧本体に `max-height` と `overflow-y-auto` を置かない。議事録カードや予定MTGカードが増えた場合もカード一覧を縦に伸ばし、コックピット全体のページスクロールで読む。HUD cockpit や detail modal の内部スクロールはこの制約の対象外。
+`CockpitMeetingSummary` の通常PJ cockpit表示は、一覧本体に `max-height` と `overflow-y-auto` を置かない。議事録カードや予定MTGカードが増えた場合もカード一覧を縦に伸ばし、コックピット全体のページスクロールで読む。detail modal の内部スクロールはこの制約の対象外。
 
 ### SX business plan: GRL・資本政策・年次試算（2026-07-28）
 

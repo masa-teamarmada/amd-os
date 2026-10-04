@@ -13,7 +13,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 ## 現行SPS override（2026-08-18）
 
-スコア関連の下位履歴より本節を優先する。`/dashboard`、HUD、PJ cockpit、Venture Map、Seeds、研究機関workspace、macOSが使うのは`SPS = Σ q_o P^ind_o`の現行完全版組だけ。旧9軸、持分価値版、SPS 2.1、`seed_sps_assessments`、`amd_score_inputs`、`amd_score_alpha`は監査履歴でありactive pathへ接続しない。現行評価がなければ「最新版未評価」とし、旧値へfallbackしない。BZM 2.2はSPSとは別モデル。回帰防止は`npm run test:current-sps-only`で検査する。
+スコア関連の下位履歴より本節を優先する。`/dashboard`、PJ cockpit、Venture Map、Seeds、研究機関workspace、macOSが使うのは`SPS = Σ q_o P^ind_o`の現行完全版組だけ。旧9軸、持分価値版、SPS 2.1、`seed_sps_assessments`、`amd_score_inputs`、`amd_score_alpha`は監査履歴でありactive pathへ接続しない。現行評価がなければ「最新版未評価」とし、旧値へfallbackしない。BZM 2.2はSPSとは別モデル。回帰防止は`npm run test:current-sps-only`で検査する。
 
 ## 運用ルール
 
@@ -53,7 +53,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - SSRの`generateMetadata`とclientの`PageTitleSetter`は同じ`surfaceTitleForPath()`を使い、別々のroute title表を持たない。
 - ホーム `/dashboard` は `canonical`として維持し、本収束作業で再設計しない。
 - `/project/[projectId]/weekly-control`と`navigation`、`/notifications`と`/proactive`は移行中レンズとして登録し、共通作業・判断カーネルへ寄せるまでは独立writerを増やさない。
-- HUDとdashboard実験面は`mirror`とし、正規画面から独立した業務正本を持たせない。
+- dashboard実験面は`mirror`とし、正規画面から独立した業務正本を持たせない。
 - admin navigationは同じcatalogから項目を取り、「組織・権限」「契約・お金」「PJ・実行」「知識・AI」「運用」の職務groupで並べる。既存routeは削除しない。
 
 回帰防止:
@@ -66,7 +66,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 必須機能:
 
-- `/vcs`、`/vcs/investments`、`/vcs/inbox` を上部タブで往復できる。HUD mirror も同じ導線を持つ。
+- `/vcs`、`/vcs/investments`、`/vcs/inbox` を上部タブで往復できる。
 - 投資履歴は `startup_companies`、`startup_funding_rounds`、`vc_investments` を結合した投影で、独立 writer を持たない。
 - `VC個別出資額` と `ラウンド総額` を別列にし、`非公開`、`未確認`、`既存値・要確認` を分ける。
 - `予定 / 発表済み / 払込確認済み` と `確認済み / 収集候補 / 既存・要確認` を文字で表示し、色だけに依存しない。
@@ -659,7 +659,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - SX月次資金繰り: p21の`Bzm22TimeLedger`はP/L直下へ月初資金、営業C/F（営業利益代用の簡易値）、設備投資、株式調達、融資、助成金等入金、月次純C/F、月末資金を追加する。株式調達はactive資本政策、採択証拠は`project_grants`を読む。融資未登録は0円でなく未計画。PSI Step 2の6,000万円はPhase 0へ1回だけ置き、FY2027へ重複させない。BZM経済CFはJ/P用の別計算。金額セルは右寄せ・等幅数字・14px以上、単位は表外の`単位：百万円`だけに置く。
 - スコア詳細の高密度表示と財務セル注記: score-detail外周、BZM 2.2の指標・数式・シミュレーター・監査台帳、イベント時間軸、月次P/L・C/Fを4px基準で圧縮し、`compact-score-page` / `compact-score` / `compact-ledger`のdensity anchorを固定する。用途を説明できない固定高さを禁止し、月次表は固定見出し108/172px、月列76px、金額11px、通常行20px前後、イベント軸101pxとする。数式注釈は内容幅の一段セルとし、`flex-grow`/`stretch`による空白枠を禁止する。判定月シミュレーターは初期閉じ、月次編集は中央モーダルで開く。「全パラメータ」の選択中ケース値は混合データ列として左寄せ、純粋な金額列だけ右寄せにする。SXの設立前費用は正の「設立前PJ支出」へ集約し、NewCoの粗利・営業利益は2027-02から表示する。フェーズ開始、設備投資、株式調達、助成金等の大きな変動セルには`◆`を置き、hover/focusのportal tooltipで計画／観測、理由、金額、時点、仮置き精度を表示する。Series A等はactive資本政策、工場建設はフェーズ技術レーン＋年次CAPEX、採択は`project_grants`を根拠にし、採択と受領、調達計画と入金実績を混同しない。SXの初回調達は会議上の2027-03内部目標とactive資本政策の2027-04 Seed計上を分離表示する。
 - スコア詳細タブ末尾の《組織》 (2026-08-28 まさ依頼で新設): `CockpitOrgSection` (`data-testid` 無し、見出し `組織`) を BZM 3.0 パネルの下に置く。経営チームの八機能 (モデル台帳 §6.B-1) の充足状態、人・組織の観測ログ、メンバーの3ブロック。**機能の一覧を画面へ書き写さず正本 md から実行時に読む** (見つからなければ機能表を丸ごと出さない)。充足は実働の記録だけで判定し、役職の台帳・肩書・名義を根拠にしない。直近6か月の記録が1件以下のPJは「空席」ではなく「未記帳」と出す (記録の薄さを悪材料と混同しない)。個人の評価を含むため `project_org_observations` の RLS は member 以上のみで、外部ワークスペースからは読めない。人の性質・組織の状態を経営ハイライトへ入れないことと対で運用する。正本は [`spec/4-9`](../spec/4-9-project-org-section-current-spec.md)。
-- 今期MSリスト: `CockpitGoalsCompact` / `MilestoneGanttChart` でMS期間、pt、担当、sub item、MS単位の `設計額`、担当者ごとの `担当設計額` を表示する。設計額は通常MSなら `value_plan_cycles.budget_yen`、`cap_extra` なら同期間の `billing_cycles.extra_budget_yen` 合計を、それぞれの有効ptで按分する目安で、支払確定額ではない。MS 設計編集は `/admin/ms-overview` に集約し、cockpit / HUD cockpit からは編集しない。
+- 今期MSリスト: `CockpitGoalsCompact` / `MilestoneGanttChart` でMS期間、pt、担当、sub item、MS単位の `設計額`、担当者ごとの `担当設計額` を表示する。設計額は通常MSなら `value_plan_cycles.budget_yen`、`cap_extra` なら同期間の `billing_cycles.extra_budget_yen` 合計を、それぞれの有効ptで按分する目安で、支払確定額ではない。MS 設計編集は `/admin/ms-overview` に集約し、cockpit からは編集しない。
 - MS変更履歴: `CockpitMsChangeHistory` を今期MSの直下、`CockpitSeasonFinance` の手前に初期折りたたみで表示する。正本は `/admin/ms-overview` 保存時に追加される `milestone_change_events` と、2026-07-09 backfill の `source='migration'` 基準線。表示は確認専用で、変更日時、記録者、追加/無効化/更新されたMS、担当share差分、保存前支払検算の状態、追加支払/差額控除の合計を出す。契約本文、メール全文、議事録全文、raw source は保存・表示しない。cockpit 側には MS 設計の保存口を置かない。
 - 今シーズン収支: `CockpitSeasonFinance` をMS変更履歴の下、月次カードの手前に表示する。シーズン合計と月次行で `クライアント支払` / `バッファ` / `原資上限` / `PJ予算` / `メンバー支払` / `期末未払` / `収支` を出す。クライアント支払は `contractBackedClientAmount` + 別財布売上、schedule_based 契約では `contract_terms_json.monthlySchedule.amountTaxExcl`、バッファは `value_plan_cycles.buffer_breakdown_json` 優先、原資上限は `(クライアント支払 - バッファ) × 65%`、PJ予算は `budget_yen + extra_budget_yen`、メンバー支払・未払残は `reward_summary_json` を正本にする。`期末未払` / `未払残` は支払通知対象の外部メンバーへ将来払う残高だけを表示し、役員の未充当繰越は会社留保側の内部検算へ寄せる。`収支` は現金主義で `クライアント支払 - バッファ - メンバー支払` とし、役員向け報酬相当額や未払残は含めない。役員向け報酬相当額は検算には含めるが、PJ cockpit では表示しない。期末未払または原資超過が 1 円でも残る場合は `不足` 表示と赤い停止帯を出し、報酬計算側の自動上乗せでゼロに見せない。
 - 先手TODO: 旧 `proactive_outbox` 由来の `ProactiveQueuePanel` は通常PJ / institution cockpit に表示しない。`資料作成済み` など旧司令塔状態の手動seedがPJ状況面に残ると読解ノイズになるため。先手TODOの棚卸しは `proactive_todos` + `/proactive` + dashboard 上段バッジで扱う。

@@ -199,7 +199,7 @@ export function ManualTsukuyomiFloat({ currentSlug }: ManualTsukuyomiFloatProps)
                   {message.role === "assistant" ? "つくよみ" : "まさ"}
                 </div>
                 {message.role === "assistant" ? (
-                  <MarkdownView source={protectManualIdentifiers(message.content)} tone="light" linkMode="manual" />
+                  <MarkdownView source={protectManualIdentifiers(message.content)} linkMode="manual" />
                 ) : (
                   <div className="whitespace-pre-wrap leading-relaxed">{message.content}</div>
                 )}

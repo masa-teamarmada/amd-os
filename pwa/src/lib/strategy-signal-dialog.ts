@@ -383,7 +383,6 @@ export async function applyProposal(args: {
   // 一部 cache が残るため revalidatePath で確実に再 fetch させる (= 2026-05-25 #71 対話型 UI fix)
   try {
     revalidatePath(`/project/${args.context.project_id}/cockpit`, "page");
-    revalidatePath(`/hud/project/${args.context.project_id}/cockpit`, "page");
   } catch (_e) {
     // revalidatePath は server context 必須、API route 内では基本通る。失敗時は silent
   }

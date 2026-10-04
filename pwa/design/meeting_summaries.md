@@ -273,7 +273,7 @@ recurring MTG は、Google Calendar の `recurring_event_id` が取れる場合�
 ### UI
 
 - `CockpitMeetingSummary` は `source_kinds='upcoming'` の行を、通常の月別議事録とは分けて先頭の「予定MTG / 準備中」ブロックに表示する。`meeting_id LIKE 'upcoming:%'` だけでは確定予定扱いにしない。recurring MTG は series ごとに次回1件だけ表示し、確定予定 count も series card 数で数える。日程未確定の仮置き (`upcoming_tentative`) は「日程調整中MTG」ブロックに表示し、確定予定 count には含めない。仮置き用の `meeting_date` は DB の都合で入っていても、一覧では未定として表示する。
-- `CockpitMeetingSummary` の一覧は枠内で独立スクロールさせない。予定MTGや過去議事録が増えた場合も、カード一覧をそのまま縦に伸ばし、コックピット全体のページスクロールで読む。HUD専用表示や詳細モーダルのスクロールとは別扱い。
+- `CockpitMeetingSummary` の一覧は枠内で独立スクロールさせない。予定MTGや過去議事録が増えた場合も、カード一覧をそのまま縦に伸ばし、コックピット全体のページスクロールで読む。詳細モーダルのスクロールとは別扱い。
 - row には `予定MTG` chip と Calendar link を出す。
 - 詳細モーダルは `narrative_md` の「初見ブリーフ」を主表示にする。`decided / progress / next_actions / risks` は箇条書きではなく、「会議後に残したい状態」「いまの状況」「当日までに揃えるもの」「必ず確認すること」という文章カードとして補助表示する。既存 `risks` の値は破壊せず「必ず確認すること」に読み替えて表示・編集する。
 - 編集欄は `1段落1ブロック` で保存する。短い断片を並べる用途ではなく、初めて読む人が背景・狙い・準備を文章として追える粒度にする。
@@ -523,9 +523,7 @@ if existing.source_hash === newHash: skip (LLM 呼ばない)
 | [pwa/src/app/api/meeting-summary/manual-update/route.ts](../src/app/api/meeting-summary/manual-update/route.ts) | **議事録手動修正 API (2026-05-27 新設)**。通常MTG / dialogue row の表示用フィールドを上書きする。`source_hash` は変更しない |
 | [pwa/src/app/api/meeting-workflow/finalize/route.ts](../src/app/api/meeting-workflow/finalize/route.ts) | **会議後 workflow API (2026-05-26 新設)**。routine 生成済み議事録から次MTGカード / Calendar / action item / Slack nudge 予約を作る。LLM 呼び出しなし |
 | [pwa/src/app/api/meeting-workflow/actions/[actionId]/complete/route.ts](../src/app/api/meeting-workflow/actions/[actionId]/complete/route.ts) | **準備action完了 API (2026-05-26 新設)**。Slackボタン / OS UI / webhook から action を done にし、prep_status を ready/nudging に更新。LLM 呼び出しなし |
-| [pwa/src/components/cockpit/MarkdownView.tsx](../src/components/cockpit/MarkdownView.tsx) | **共通 Markdown renderer (2026-05-23 新設)**。`react-markdown` + `remark-gfm` ベース。`tone: 'light' \| 'hud'` で配色切替。GFM table / 見出し / リスト / コード / 引用 / リンク をサポート |
-| [pwa/src/components/hud/HudCockpitMeetingSummary.tsx](../src/components/hud/HudCockpitMeetingSummary.tsx) | HUD 版一覧 UI (= 同じパターンで `HudCockpitMeetingDetailModal` を開く) |
-| [pwa/src/components/hud/HudCockpitMeetingDetailModal.tsx](../src/components/hud/HudCockpitMeetingDetailModal.tsx) | **HUD 詳細モーダル (2026-05-23 新設)**。cyber 配色版 (cyan/slate/grid)。中身は `MarkdownView tone='hud'` |
+| [pwa/src/components/cockpit/MarkdownView.tsx](../src/components/cockpit/MarkdownView.tsx) | **共通 Markdown renderer (2026-05-23 新設)**。`react-markdown` + `remark-gfm` ベース。GFM table / 見出し / リスト / コード / 引用 / リンク をサポート |
 
 ### UI 仕様 (2026-05-23 更新)
 

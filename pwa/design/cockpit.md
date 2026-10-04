@@ -160,7 +160,7 @@ MSは報酬配分の最小単位でもある。`milestone_responsibility.share` 
 - 事業計画 / 資本政策 / 知財戦略のように、進捗が別々に確定する場合: 成果物ごとに別MSへ分ける。
 - SX旧MS#1はこのルールにより、`事業計画策定`、`資本政策策定`、`知財戦略策定` のように成果物単位へ分割済み。担当割合は各 `milestone_responsibility` に保存し、個人名を仕様例として固定しない。
 - OkuDoor追加開発など通常固定費と別枠の受託分は、MS `tag='cap_extra'` で別財布に分ける。
-- 年間MS設定では、各MSに `period_start_ym` / `target_ym` を持たせる。UI上は `MS開始` / `MS終了` として表示し、月次モーダル・HUDの期間表示もこのDB値を優先する。
+- 年間MS設定では、各MSに `period_start_ym` / `target_ym` を持たせる。UI上は `MS開始` / `MS終了` として表示し、月次モーダルの期間表示もこのDB値を優先する。
 - コックピットのMS行に出す `設計額` は `/admin/ms-overview` と同じ read-only の設計額目安。通常MSは `value_plan_cycles.budget_yen` をシーズン月数×10ptで按分し、`cap_extra` は同期間の `billing_cycles.extra_budget_yen` 合計を cap_extra の有効pt合計で按分する。実支払額は reward cache / season-pl / payouts 側だけが正本。
 - **MS変更履歴**: `CockpitMsChangeHistory` を今期MSの直下、`今シーズン収支` の手前に折りたたみ表示する。正本は `/admin/ms-overview` の保存時に追加される `milestone_change_events`。表示は確認専用で、変更日時、記録者、追加/無効化/更新されたMS、担当share変更、保存前支払検算の状態、本人別差額サマリを出す。契約本文、メール全文、議事録全文、raw source は保存・表示しない。cockpit 側にはMS設計の保存口を置かない。
 - このUIは過去に消えた回帰が複数回あるため、PWAで年間MS設定を触るときは `npm run test:next-period-ui` を必ず通す。

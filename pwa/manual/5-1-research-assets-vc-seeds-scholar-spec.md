@@ -342,5 +342,5 @@ Claude + web_search に「国内ディープテック VC 25-40 社」を JSON �
 - 設計: [`pwa/design/vc_list.md`](../design/vc_list.md)
 - 設計: [`pwa/design/macrotrend_atlas_seeds_architecture.md`](../design/macrotrend_atlas_seeds_architecture.md) (= Atlas との分離経緯)
 - 4-2 章 [Atlas / Macrotrend 詳細仕様](4-2-atlas-macrotrend-signal-spec.md)
-- 5-2 章 [HUD / Venture Map 仕様](5-2-hud-and-venture-map-spec.md) (= 旧 seeds 切り離し履歴)
+- 5-2 章 [Venture Map 仕様](5-2-venture-map-spec.md) (= 旧 seeds 切り離し履歴)
 - 6-1 章 [Operations Settings](6-1-operations-settings-spec.md) (= cron 復活方法)

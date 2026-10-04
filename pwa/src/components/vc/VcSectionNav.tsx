@@ -11,7 +11,7 @@ const ITEMS = [
 
 export function VcSectionNav() {
   const pathname = usePathname();
-  const base = pathname.startsWith("/hud/") ? "/hud/vcs" : "/vcs";
+  const base = "/vcs";
 
   return (
     <nav aria-label="VC台帳の表示切替" className="flex min-w-0 items-center gap-1 overflow-x-auto border-b border-border/70">

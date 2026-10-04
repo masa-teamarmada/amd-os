@@ -251,20 +251,20 @@ Codex automation に寄せる処理:
 
 次回のMacrotrend修正は、マインドマップを主役に戻すところから入る。
 
-1. マインドマップ的なコンテンツが最重要なので、`/hud/atlas/macrotrends` / `/atlas/macrotrends` ではmindmapをfirst viewport上位へ移動する。文字だけの説明・補足・根拠文は下へ送る。
+1. マインドマップ的なコンテンツが最重要なので、`/atlas/macrotrends` ではmindmapをfirst viewport上位へ移動する。文字だけの説明・補足・根拠文は下へ送る。
 2. Macrotrendの主分類は、AMD Score / M算定と同じ ASPI 8 domain に揃える。UN SDGs / WEF Global Risks Report 2026 は上位分類ではなく、ASPI domain nodeへ重ねるrisk / issue networkとして扱う。
 3. Macrotrend mapのinteractionはAtlas Mapと揃える。
    - node dragで隣接nodeも連動して引っ張られる。
    - 空白dragでmap全体がpanする。
    - ASPI 8 domain配下の子nodeは初期表示から開く。node clickは選択/フォーカス用途とし、drag移動したpointerではclickを発火させない。
-   - motion timing / easing / drag feelを `/hud/atlas/map` と比較しながら寄せる。
+   - motion timing / easing / drag feelを `/atlas/map` と比較しながら寄せる。
 4. Seedsは全部node化しない。論文数は小項目課題node上の数字として表示し、必要なときだけ関連Seedsへ掘れる構造にする。
 
-次セッションの最初の実装作業は、`/hud/atlas/map` のdrag / pan / expand実装を読み、Macrotrend側へ同じ操作感を移植できる境界を特定すること。
+次セッションの最初の実装作業は、`/atlas/map` のdrag / pan / expand実装を読み、Macrotrend側へ同じ操作感を移植できる境界を特定すること。
 
 ### 実装メモ (2026-05-19 Macrotrend fidelity pass)
 
-- `/atlas/macrotrends` / `/hud/atlas/macrotrends` は、first viewportで `MacrotrendMindmap` を主役にする。説明文・根拠資料・Selected Domain詳細はmap下へ送る。
+- `/atlas/macrotrends` は、first viewportで `MacrotrendMindmap` を主役にする。説明文・根拠資料・Selected Domain詳細はmap下へ送る。
 - 初期表示ではASPI 8 domain配下の小項目nodeまで全て表示する。domain / sub node clickは選択とフォーカス用途で、位置調整drag後にはclickを発火させない。
 - 空白dragはmap全体pan、node dragは隣接nodeを `0.38` 比率で連動移動する。click後の位置変化はAtlas Mapの `centerAt(..., 600)` に合わせて600ms / ease-out系に寄せる。
 - Seedsはnode化しない。小項目nodeに `NN papers` と `seeds N` を表示し、具体Seedsは下段の `Seeds by Issue` panelから掘る。

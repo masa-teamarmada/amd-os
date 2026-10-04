@@ -15,10 +15,9 @@ import { useEffect, useId, useRef, useState } from "react";
 
 type Props = {
   code: string;
-  tone?: "light" | "hud";
 };
 
-export function MermaidDiagram({ code, tone = "light" }: Props) {
+export function MermaidDiagram({ code }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [failed, setFailed] = useState(false);
   const rawId = useId();
@@ -33,7 +32,7 @@ export function MermaidDiagram({ code, tone = "light" }: Props) {
         mermaid.initialize({
           startOnLoad: false,
           securityLevel: "strict",
-          theme: tone === "hud" ? "dark" : "neutral",
+          theme: "neutral",
           fontFamily: "inherit",
           // 既定のままだと図が大きすぎて全体を追えない (まさ指摘 2026-08-29)。
           // 文字とノード間隔を詰めて、1画面で流れを追える大きさにする。
@@ -63,13 +62,13 @@ export function MermaidDiagram({ code, tone = "light" }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [code, renderId, tone]);
+  }, [code, renderId]);
 
   if (failed) {
     return (
       <pre
         className={`my-2 overflow-x-auto rounded p-3 text-[11px] font-mono ${
-          tone === "hud" ? "bg-slate-900/70 text-cyan-50" : "bg-[#f5f5f7] text-[#1d1d1f]"
+          "bg-[#f5f5f7] text-[#1d1d1f]"
         }`}
       >
         {code}
@@ -82,7 +81,7 @@ export function MermaidDiagram({ code, tone = "light" }: Props) {
       ref={containerRef}
       data-testid="mermaid-diagram"
       className={`my-3 overflow-x-auto rounded-lg border p-3 ${
-        tone === "hud" ? "border-cyan-300/30 bg-slate-900/40" : "border-[#d2d2d7] bg-white"
+        "border-[#d2d2d7] bg-white"
       } [&_svg]:mx-auto [&_svg]:h-auto`}
     />
   );

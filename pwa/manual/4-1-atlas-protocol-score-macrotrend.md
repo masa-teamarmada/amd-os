@@ -142,7 +142,7 @@ AMD Protocol は、AMD の経営判断を **再利用できる判断パターン
 | Atlas の signal / inbox / 外部マクロ運用 | [`pwa/design/atlas.md`](../design/atlas.md), [`pwa/design/atlas_routine.md`](../design/atlas_routine.md) |
 | Macrotrend と Seeds の階層 | [`pwa/design/macrotrend_atlas_seeds_architecture.md`](../design/macrotrend_atlas_seeds_architecture.md) |
 | Atlas / Seeds / VC / Scholar の使い方 | [2-5 章 探索系アセット](2-5-research-assets-quick-start.md) |
-| HUD / Venture Map の数理モデル・実験ビュー | [5-2 章 HUD / Venture Map](5-2-hud-and-venture-map-spec.md) |
+| Venture Map の数理モデル・実験ビュー | [5-2 章 Venture Map](5-2-venture-map-spec.md) |
 | AMD Score の式・UI・軸の意味 | [4-3 章 AMD Score 詳細仕様](4-3-amd-score-spec.md), [`pwa/design/amd_score.md`](../design/amd_score.md) |
 | AMD Management Score | [`pwa/design/management_score.md`](../design/management_score.md) |
 | AMD Protocol | [`pwa/design/amd_protocol.md`](../design/amd_protocol.md) |

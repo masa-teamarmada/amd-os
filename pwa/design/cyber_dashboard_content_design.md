@@ -185,27 +185,6 @@ HUDの形状そのものをCSSで無理に作ると品質が落ちる。
 - 空間構造: 手前レイヤーにステータス/アラート、中央レイヤーにPJモジュール群、奥レイヤーにKPI/Proof、背景に生成CanvasTextureのHUD回路。参考画像の「HUDパーツが密に並ぶ」印象を優先する。
 - 禁止: CSSでHUDオブジェクトを作らない。CSSはcanvasのページ土台だけ。HUDフレーム、ゲージ、レール、発光、動きはthree.js / CanvasTexture側を正本にする。
 
-### PJ Cockpit HUD Mock Continuation (2026-05-17)
-
-PJ cockpit は dashboard HUD と見た目が乖離しているため、実装前に画像生成モックを正本候補として作る。
-初回生成画像は `pwa/design/assets/hud_cockpit_generated_mock_20260517.png`。雰囲気はまさOK。ただし現行cockpitのコンテンツが欠けているため、次回は下記をすべて入れたうえで再生成する。
-
-現行cockpitに存在するコンテンツ:
-
-- Project Header: PJ ID、PJ名、client、status、CONFIG。
-- PJ Status / Venture Status: SU系PJのAMD Score状態、SPS primary、legacy M/X/F comparison、trend、status。
-- Milestone Matrix: current plan cycle、Annual Goals、Routine Ops、Buffer、各MSのpt/担当/share/role/taskDescription/期間/サブアイテム。
-- Next Period Setup: MS未設定warning、期間終了warning、次期MS設定/編集。
-- Past MS Periods: 過去plan cycle折りたたみ、展開時のMilestone Matrix。
-- Task Control / Kanban: Pending/TODO/Doing/Done、task title、assignee、priority、紐付きMS、drag/drop、task detail modal。
-- Monthly List: ym、会議/報告/請求/入金badge、review dot、請求額、MS進捗率、MS別progress展開。
-- Freeze Backfill / Meeting Summary。
-- Right Column: 凍結/再開badge、PM lock、Nudge。PM向け月次ルーティンは出さない。
-- Monthly Modal:
-  - 進捗確認: plan info、5指標、未確認つくよみ推定、AI再推定、Edit、一括保存、MS加重平均、MS別進捗、この月の仕事、revision、報酬予定、メンバー報酬、進捗イベント、月次ノート、立替精算。
-  - レポート: draft/fixed、生成/再生成、修正指示、FIX、PDF disabled、Markdown/plain表示、本文。
-  - 請求書: client/契約、freee warning、件名、請求日/支払期限、明細編集、調整行、立替精算toggle、合計、備考、freee発行。
-
 ## Data Implementation Notes
 
 最初はモック値で表示面を作る。
@@ -222,19 +201,3 @@ PJ cockpit は dashboard HUD と見た目が乖離しているため、実装前
 - `lastUpdatedAt`
 
 数値は飾りではなく、AMDが何を改善しているかを証明するために置く。
-
-## HUD Project Signal Board Current Rules (2026-05-19)
-
-`/hud/dashboard` の Project Signal Board は、生成PNG frameを背景にし、その上にReact overlayでlive dataを置く。
-
-- 左から `PJ abbreviation frame`、`M/X/F bars`、`AMD score trend + AMD SCORE`、`先手力 ring + PL/PM/Closer` のzoneとして扱う。
-- PJ row内の縦区切り線は、生成frame画像に既に含まれる線を優先する。DOMで追加線を重ねると二重/四重線に見えるため、原則追加しない。
-- M/X/F barsは、全PJの最大値の約1.2倍をscale maxにし、数値は小数なしで表示する。
-- Sparkline SVGは横幅可変にするため `preserveAspectRatio="none"` を必ず指定する。
-- AMD SCOREは折れ線graphと同じzone内の右側に置き、右側に余白を抱えた巨大objectにしない。
-- NO SCORE fallbackは、M/X/F bars + trend/score zoneの合計幅に収める。右端の先手力/PL/PM/Closer zoneまでは占有しない。
-- 右端zoneは、先手力ringと `PL:` / `PM:` / `CLOSER:` を均等に置き、右端に張り付かせない。2026-05-21時点では、ringをrole labelsの左へ寄せ、score zoneとの間に空白が残りすぎないようにする。role labelsは9px級まで上げ、PL/PM/Closerが視認できる幅を確保する。
-- board本体の表示対象は `active` + `ended`。`ended` は終了PJとして歴史的な signal / AMD SCORE を参照したいので折りたたみへ落とさない。`active` と `ended` を混ぜて AMD SCORE 降順で表示する。
-- `sales` / `draft` / `frozen` / `lost` / unknown は `Other Project Files` の折りたたみに入れる。
-
-このrowは画像frame座標とlive overlay座標のズレが起きやすい。修正時はdesktop幅だけで判断せず、ブラウザ幅を変えながら、各zoneの余白・重なり・NO SCORE幅を実測確認する。

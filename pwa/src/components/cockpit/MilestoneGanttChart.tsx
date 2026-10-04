@@ -120,8 +120,6 @@ type MsBudgetInfo = {
   isCapExtra: boolean;
 };
 
-type Variant = "light" | "hud";
-
 interface Milestone {
   milestoneId: string;
   title: string;
@@ -204,7 +202,6 @@ interface Props {
   responsibilities: Responsibility[];
   memberMap: Record<string, string>;
   schedules: Record<string, MsScheduleInfo>;
-  variant?: Variant;
   progress?: Progress[];
   currentYm?: string;
   msActivities?: MemberMsActivity[];
@@ -219,23 +216,7 @@ function tagLabel(tag: string) {
   return "年間";
 }
 
-function classes(variant: Variant) {
-  if (variant === "hud") {
-    return {
-      section: "relative overflow-hidden border border-cyan-300/35 bg-slate-950/88 px-4 py-3 text-cyan-50 shadow-[0_0_20px_rgba(34,211,238,0.12)]",
-      gridBg: "relative overflow-x-auto border border-cyan-300/22 bg-slate-950/72 font-mono [container-type:inline-size]",
-      header: "border-b border-cyan-300/18 bg-cyan-300/8 text-cyan-100/68",
-      row: "border-b border-cyan-300/14 hover:bg-cyan-300/6",
-      left: "border-r border-cyan-300/18 bg-slate-950/84",
-      month: "border-r border-cyan-300/12",
-      title: "text-cyan-50",
-      muted: "text-cyan-100/54",
-      bar: "border border-cyan-300/42 bg-cyan-300/18 text-cyan-50 shadow-[0_0_14px_rgba(103,232,249,.2)]",
-      chip: "border border-cyan-300/20 bg-slate-950/72 text-cyan-100/78",
-      detail: "border-t border-cyan-300/18 text-cyan-50/78",
-      edit: "border border-cyan-300/28 bg-cyan-300/8 px-1.5 py-0.5 text-[11px] font-bold text-cyan-100/70 transition-colors hover:bg-cyan-300/14 hover:text-white",
-    };
-  }
+function classes() {
   return {
     section: "bg-white rounded-xl border border-[#e5e5e7] px-4 py-3.5",
     gridBg: "overflow-x-auto rounded-lg border border-[#e5e5e7] bg-white [container-type:inline-size]",
@@ -252,13 +233,8 @@ function classes(variant: Variant) {
   };
 }
 
-function tagClass(tag: string, variant: Variant) {
+function tagClass(tag: string) {
   const key = tag.toLowerCase();
-  if (variant === "hud") {
-    if (key === "routine") return "border-cyan-300/22 bg-cyan-300/10 text-cyan-100/70";
-    if (key === "buffer") return "border-amber-300/32 bg-amber-300/12 text-amber-100";
-    return "border-emerald-300/28 bg-emerald-300/12 text-emerald-100";
-  }
   if (key === "routine") return "border-sky-200 bg-sky-50 text-sky-700";
   if (key === "buffer") return "border-amber-200 bg-amber-50 text-amber-700";
   return "border-emerald-200 bg-emerald-50 text-emerald-700";
@@ -295,14 +271,13 @@ export function MilestoneGanttChart({
   responsibilities,
   memberMap,
   schedules,
-  variant = "light",
   progress = [],
   currentYm,
   msActivities = [],
   memberActivities = [],
   onEdit,
 }: Props) {
-  const c = classes(variant);
+  const c = classes();
   const months = useMemo(
     () => monthRange(planCycle.periodStartYm, planCycle.periodEndYm),
     [planCycle.periodStartYm, planCycle.periodEndYm]
@@ -416,12 +391,9 @@ export function MilestoneGanttChart({
 
   return (
     <section className={c.section}>
-      {variant === "hud" && (
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(34,211,238,0.06)_1px,transparent_1px),linear-gradient(rgba(34,211,238,0.08)_1px,transparent_1px)] bg-[size:44px_100%,100%_8px]" />
-      )}
       <div className="relative mb-3 flex items-center gap-2 text-[13px]">
-        <span className={variant === "hud" ? "text-[12px] font-black uppercase tracking-[0.18em] text-cyan-100" : "font-medium"}>
-          {variant === "hud" ? "Milestone Gantt" : "年間マイルストーン"}
+        <span className="font-medium">
+          年間マイルストーン
         </span>
         <span className={`ml-auto text-[12px] ${c.muted}`}>
           {formatYm(planCycle.periodStartYm)} 〜 {formatYm(planCycle.periodEndYm)}
@@ -438,7 +410,7 @@ export function MilestoneGanttChart({
         )}
         {onEdit && (
           <button onClick={onEdit} className={c.edit}>
-            {variant === "hud" ? "EDIT" : "編集"}
+            編集
           </button>
         )}
       </div>
@@ -469,7 +441,6 @@ export function MilestoneGanttChart({
               budgetInfo={budgetInfoByMilestone.get(ms.milestoneId)}
               memberMap={memberMap}
               gridTemplateColumns={gridTemplateColumns}
-              variant={variant}
               c={c}
             />
           ))}
@@ -493,7 +464,6 @@ function GanttRow({
   budgetInfo,
   memberMap,
   gridTemplateColumns,
-  variant,
   c,
 }: {
   order: number;
@@ -509,7 +479,6 @@ function GanttRow({
   budgetInfo?: MsBudgetInfo;
   memberMap: Record<string, string>;
   gridTemplateColumns: string;
-  variant: Variant;
   c: ReturnType<typeof classes>;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -532,16 +501,14 @@ function GanttRow({
   const recentActivities = memberActivities
     .filter((activity) => activity.title?.trim() || activity.contentPreview?.trim())
     .slice(0, 4);
-  const taskCardClass = variant === "hud"
-    ? "rounded-md border border-cyan-300/16 bg-slate-900/50 px-2 py-1.5 text-[11px] leading-snug text-cyan-50/74"
-    : "rounded-md border border-slate-200/70 bg-white/70 px-2 py-1.5 text-[11px] leading-snug text-slate-700";
-  const taskOwnerClass = variant === "hud" ? "font-medium text-cyan-50/88" : "font-medium text-slate-800";
-  const currentTextClass = variant === "hud" ? "text-[11px] leading-snug text-cyan-50/76 whitespace-pre-wrap" : "text-[11px] leading-snug text-slate-700 whitespace-pre-wrap";
-  const dividerClass = variant === "hud" ? "mt-2 border-t border-cyan-300/18 pt-2" : "mt-2 border-t border-slate-200/70 pt-2";
-  const activityTextClass = variant === "hud" ? "text-[10px] leading-snug text-cyan-50/64" : "text-[10px] leading-snug text-slate-600";
-  const activityStrongClass = variant === "hud" ? "font-medium text-cyan-50/82" : "font-medium text-slate-700";
-  const activityMetaClass = variant === "hud" ? "text-cyan-100/42" : "text-slate-400";
-  const budgetTextClass = variant === "hud" ? "font-semibold text-cyan-50/88" : "font-semibold text-[#1d1d1f]";
+  const taskCardClass = "rounded-md border border-slate-200/70 bg-white/70 px-2 py-1.5 text-[11px] leading-snug text-slate-700";
+  const taskOwnerClass = "font-medium text-slate-800";
+  const currentTextClass = "text-[11px] leading-snug text-slate-700 whitespace-pre-wrap";
+  const dividerClass = "mt-2 border-t border-slate-200/70 pt-2";
+  const activityTextClass = "text-[10px] leading-snug text-slate-600";
+  const activityStrongClass = "font-medium text-slate-700";
+  const activityMetaClass = "text-slate-400";
+  const budgetTextClass = "font-semibold text-[#1d1d1f]";
   const budgetTitle = budgetInfo
     ? `設計額 ${formatYen(budgetInfo.designAmountYen)} / ${budgetInfo.isCapExtra ? "別財布" : "本契約"} / 有効pt ${budgetInfo.effectivePoints} / 単価 ${formatYen(budgetInfo.designUnitYen)}`
     : "";
@@ -561,7 +528,7 @@ function GanttRow({
             <span className={`block truncate text-[12px] font-semibold ${c.title}`}>{ms.title}</span>
             <span className={`mt-0.5 flex flex-wrap items-center gap-1 text-[10px] ${c.muted}`}>
               <span>{ms.points}pt</span>
-              <span className={`rounded border px-1 py-0.5 ${tagClass(ms.tag, variant)}`}>{tagLabel(ms.tag)}</span>
+              <span className={`rounded border px-1 py-0.5 ${tagClass(ms.tag)}`}>{tagLabel(ms.tag)}</span>
               {subItems.length > 0 && <span>{doneCount}/{subItems.length}</span>}
               {budgetInfo && (
                 <span className={budgetTextClass} title={budgetTitle}>
@@ -616,7 +583,7 @@ function GanttRow({
       {expanded && (
         <div className={`sticky left-0 box-border w-[100cqw] max-w-[100cqw] px-3 py-3 text-[12px] ${c.detail}`}>
           <div className="grid gap-2 xl:grid-cols-3">
-            <DetailPanel title="ゴール" variant={variant}>
+            <DetailPanel title="ゴール">
               <p className={`text-[11px] leading-snug whitespace-pre-wrap ${ms.successCriteria ? "" : c.muted}`}>
                 {ms.successCriteria?.trim() || "完了条件は未設定。MS編集から success criteria を入れると、ここが追跡の基準になる。"}
               </p>
@@ -649,7 +616,7 @@ function GanttRow({
               )}
             </DetailPanel>
 
-            <DetailPanel title="TODO" variant={variant}>
+            <DetailPanel title="TODO">
               {ownerTasks.length > 0 && (
                 <div className="mb-2 space-y-1">
                   {ownerTasks.map((resp) => (
@@ -672,7 +639,7 @@ function GanttRow({
               ) : null}
             </DetailPanel>
 
-            <DetailPanel title="現状" variant={variant}>
+            <DetailPanel title="現状">
               <div className="mb-2 flex items-center gap-2">
                 <span className="text-[18px] font-semibold text-[#0066cc]">{Math.round(progress?.progressPct ?? 0)}%</span>
                 {progress?.ym && <span className={`text-[10px] ${c.muted}`}>{formatYm(progress.ym)} 時点</span>}
@@ -719,13 +686,9 @@ function GanttRow({
   );
 }
 
-function DetailPanel({ title, variant, children }: { title: string; variant: Variant; children: ReactNode }) {
-  const panelClass = variant === "hud"
-    ? "rounded-md border border-cyan-300/18 bg-slate-950/58 px-3 py-2"
-    : "rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2";
-  const titleClass = variant === "hud"
-    ? "mb-1.5 text-[10px] font-semibold uppercase text-cyan-100/70"
-    : "mb-1.5 text-[10px] font-semibold uppercase text-slate-500";
+function DetailPanel({ title, children }: { title: string; children: ReactNode }) {
+  const panelClass = "rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2";
+  const titleClass = "mb-1.5 text-[10px] font-semibold uppercase text-slate-500";
   return (
     <div className={panelClass}>
       <div className={titleClass}>{title}</div>

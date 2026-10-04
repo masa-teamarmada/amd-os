@@ -2,7 +2,7 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { SeedDetailModal } from "@/components/seeds/SeedDetailModal";
 
 /**
@@ -14,8 +14,7 @@ import { SeedDetailModal } from "@/components/seeds/SeedDetailModal";
 export default function SeedDetailPage(props: { params: Promise<{ id: string }> }) {
   const { id } = use(props.params);
   const router = useRouter();
-  const pathname = usePathname();
-  const seedsBase = pathname.startsWith("/hud/") ? "/hud/seeds" : "/seeds";
+  const seedsBase = "/seeds";
   const [reloadKey, setReloadKey] = useState(0);
 
   return (

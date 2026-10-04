@@ -405,12 +405,6 @@ CREATE TABLE management_pipeline_items (
 /management-score
 ```
 
-または HUD 系に統合する場合:
-
-```text
-/hud/management
-```
-
 初期画面:
 
 ```text
@@ -500,7 +494,7 @@ GAS 月次試算表の凍結 baseline は fallback として保持し、通常�
 ## 未確定 / 実装前に決めること
 
 - 表示名: `AMD Management Score` / `Studio Health Score` / `経営スコア`
-- route: `/management-score` か `/hud/management` か
+- route: `/management-score`
 - GAS 月次試算表の source project / backing Spreadsheet / JSON export path
 - freee の勘定科目 mapping
 - runway の cash 正本を freee のどの値にするか

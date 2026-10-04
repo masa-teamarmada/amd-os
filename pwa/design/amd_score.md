@@ -287,14 +287,6 @@ SPS `P` / `R_net` の resolution order は `resolvePrsInputs()` を正本にす�
 - X (5 XRL): Mankins (1995) NASA TRL + 内閣府 SIP 公募要領 (令和 5) + EU H2020 SRL
 - F (FRL 6 因子): Bernstein 2017 JF / Walumbwa 2008 JoM / Duckworth 2007 JPSP / Markman 2005 JOB / Hsu 2007 RP
 
-#### M/X/F Dashboard Copy Rule (2026-05-17)
-
-- `/hud/dashboard` の Project Signal Board に出す M/X/F 数値は、cockpit スコア詳細の `BalanceBar` と同じ「今日以前の最新評価行」からコピーする。
-- ダッシュボード側で future / retrofit row を拾わない。cockpit スコア詳細と同じく `evaluated_at <= today` の最新行を使う。
-- M は Macrotrend raw contribution であり、理論最大値を置かない。`10^α_sigma` で割った達成率にしない。
-- X/F も表示値は raw contribution。バー幅だけ、画面内で比較しやすい表示スケールにしてよい。
-- 例: SX の cockpit スコア詳細で `M=12.44, X=206, F=18.12` なら、HUD dashboard のPJ rowも同じ数値を表示する。`M=79` や `M=15.71` のような再計算値は出さない。
-
 ### Tsukuyomi 連携 (各軸クリックで修正依頼) — 2026-05-09 追加
 
 人が入力するスライダー UI は廃止 (まさ判断「人が入力する UI は使われない」)。値の修正は **Tsukuyomi (右下マスコット) 経由**:
@@ -421,7 +413,7 @@ state_space_model.md §4.5 に従い、BVAR Kalman filter で μ_A(t)/μ_I(t)/μ
 ### Retrofit ページ (α 重み調整) — 2026-05-09 追加 / 2026-08-18 退役
 
 > **退役 (2026-08-18 `f92f1598`)**: まさ「古いバージョンのスコアリングなんて一切使わない。全部最新バージョンにして」で現行SPS一本化。
-> `/venture-map/amd-score/retrofit` と `/hud/venture-map/amd-score/retrofit` は `/venture-map/amd-score` への redirect のみになり、`AmdScoreRetrofit.tsx` はどの route からも到達不能。以下は退役時の仕様。
+> `/venture-map/amd-score/retrofit` は `/venture-map/amd-score` への redirect のみになり、`AmdScoreRetrofit.tsx` はどの route からも到達不能。以下は退役時の仕様。
 
 Path: `/venture-map/amd-score/retrofit` (タブバーには出さない、cockpit スコア詳細からのリンクのみ)
 

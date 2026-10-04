@@ -142,7 +142,6 @@
 | `src/lib/task-point-ledger.ts` | タスクpt検収の試行（SOL、2026年10月から） | 報酬の規則。画面は全PJ同じ形で、API が「試行の対象か」を返し、対象外のPJは「検収 対象外」と出す |
 | `src/app/api/project-workspace/[projectId]/management/route.ts` | SOLの設立前提の2つのMSを、点のMSの決まりから外す | データの整合の規則（migration 220 の DB の制約と同じ） |
 | `src/app/api/meeting-workflow/finalize/route.ts`・`automation-context/route.ts` | 会議の取り込みで、SOLだけワークスペースの文脈を足す | 自動処理。全PJに広げると取り込みの費用が増えるため、広げるかはまさの判断 |
-| `src/components/hud/*` | HUD（見せ方の実験の面）の見本の数字（AAA の見本・SOL・CTB・CX） | PJの画面の外。消すか全PJ同じ作りにするかはまさの判断 |
 | `src/lib/sx-display-lanes.ts` | 4つの柱（事業・技術・資金・組織）を持つPJは、ガントのレーンを3本に畳む | データの形で決まる規則。今の画面（ゴールツリーのガント）は使っていない |
 
 コスト試算タブは §7 の標準フォーマットを決めた（2026-10-03）。SX の2つの試算（廃液 `CockpitCostModel`・燃料 `CockpitFuelCostModel`）は、切り替え（株・用途・方式・装置、FAME転換・収率）と式の説明が多いため、標準の画面へ移すのは次の段。移すときは、それぞれの内訳の区分を §7 の行へ次のとおり流し込み、区分の呼び名（菌体費・FAMEにする など）は行の中身として残す。

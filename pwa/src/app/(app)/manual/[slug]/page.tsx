@@ -71,7 +71,7 @@ export default async function ManualChapterPage({ params }: { params: Promise<{ 
             </Link>
           </div>
           <article className="prose prose-sm max-w-none">
-            <MarkdownView source={displaySource} tone="light" linkMode="manual" />
+            <MarkdownView source={displaySource} linkMode="manual" />
           </article>
           <nav className="mt-10 flex justify-between border-t border-border pt-4 text-xs">
             {prev ? (

@@ -1,6 +1,6 @@
 # SPEC — AMD OS PWA
 
-2026-10-04: ホームのPJポートフォリオは、由来にかかわらずPJカードから `/project/[id]/cockpit` を開く。PJ未登録の候補は元の機関/シーズ詳細へ進む。社内画面・ワークスペース・DDの上部には、ブラウザの履歴を使う共通の「戻る」「進む」を置く。印刷・ネイティブ埋込み・HUD・書斎は専用の枠を維持する。詳細は `spec/2-1`「ページの移動と履歴」、使い方は `manual/2-1`。
+2026-10-04: ホームのPJポートフォリオは、由来にかかわらずPJカードから `/project/[id]/cockpit` を開く。PJ未登録の候補は元の機関/シーズ詳細へ進む。社内画面・ワークスペース・DDの上部には、ブラウザの履歴を使う共通の「戻る」「進む」を置く。印刷・ネイティブ埋込み・書斎は専用の枠を維持する。詳細は `spec/2-1`「ページの移動と履歴」、使い方は `manual/2-1`。
 
 AMD OS PWA の **正本仕様書**。
 画面構成・データモデル・共通インフラ・運用コマンド・実装規約を 1 箇所にまとめる。
@@ -100,7 +100,6 @@ pwa/
 | `/` | role-based top。AMDの `portfolio` は `/dashboard`、PJ限定は参加1件なら `/project/[projectId]/workspace`、複数なら `/my-projects`、未認証なら `/auth/login` |
 | `/auth/login` | Google OAuth ログイン (Supabase Auth) |
 | `/auth/callback` | OAuth callback |
-| `/hud/dashboard/embed` | STAPA投影資料など外部プレゼン用の公開HUD埋め込みroute。通常の `/hud/dashboard` は認証必須のまま、embed routeのみ `frame-ancestors 'self' http://127.0.0.1:8766 http://localhost:8766` を許可する。 |
 
 ### 旧・独立プレビューroute (2026-08-02 /dashboard へ統合済み)
 
@@ -487,7 +486,7 @@ npx tsc --noEmit     # 型チェック
 ### MS別期間設定の扱い
 - 年間MS設定では、PlanCycle全体の開始/終了とは別に、各MSごとの `MS開始` / `MS終了` を必ず表示する。
 - 正本列は `value_milestones.period_start_ym` / `target_ym`。未設定時はPlanCycle全体またはlegacy scheduleへfallbackするが、新規保存ではMS別期間を保存する。
-- `/api/progress/ms-schedule`、Cockpit、HUD、月次モーダルの期間表示と期待進捗アンカーは、GAS推定より `value_milestones` のMS別期間を優先する。対象月の期待累積%は `period_start_ym`〜`target_ym` の経過月数で計算する。
+- `/api/progress/ms-schedule`、Cockpit、月次モーダルの期間表示と期待進捗アンカーは、GAS推定より `value_milestones` のMS別期間を優先する。対象月の期待累積%は `period_start_ym`〜`target_ym` の経過月数で計算する。
 - 回帰防止: 年間MS設定UIを触ったら `npm run test:next-period-ui` を通す。`MS開始` / `MS終了`、DB列、schedule override のいずれかが消えたら失敗させる。
 
 ### 立替精算と請求書発行の境界
@@ -497,7 +496,7 @@ npx tsc --noEmit     # 型チェック
 - 報告書FIXも請求書発行の blocker にしない。報告書は月次提出・対外共有の業務として別導線で扱う。
 
 ### 通知 admin-only
-- `/notifications` / `/hud/notifications` は server-side で `members.is_admin` を確認し、admin以外は404扱い。
+- `/notifications` は server-side で `members.is_admin` を確認し、admin以外は404扱い。
 - `l2_notifications` / `meeting_notifications` / `app_notifications` / `l2_feedbacks` は migration 066 で admin authenticated のみ SELECT/UPDATE/INSERT 可能。
 - iOS/APNs 配信済みは `notified_at`、PWA上の人間の既読は `read_at`。既読は削除ではなく状態更新。現状はDBに蓄積し続け、UI側で最新100件 + 既読折りたたみとして扱う。
 

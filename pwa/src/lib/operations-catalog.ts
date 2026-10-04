@@ -291,7 +291,7 @@ export const l2Datasets: L2Dataset[] = [
     table: "amd_score_inputs",
     source: "manual evidence / Codex automation",
     cadence: "停止中",
-    purpose: "PJごとのM/X/F入力値と根拠。HUD/PJ signal boardのスコア正本。",
+    purpose: "PJごとのM/X/F入力値と根拠（旧スコア。現行は現行SPS）。",
   },
 ];
 

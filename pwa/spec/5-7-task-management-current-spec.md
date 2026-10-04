@@ -28,7 +28,7 @@
 
 | column | purpose |
 |---|---|
-| `task_id`, `project_id`, `title`, `status`, `assignee`, `priority` | cockpit / HUD 互換列。意味を変えない |
+| `task_id`, `project_id`, `title`, `status`, `assignee`, `priority` | cockpit 互換列。意味を変えない |
 | `assignee_member_id` | `members.member_id` への正規担当。既存 `assignee` text は互換表示用 |
 | `start_date` / `due_date` | H-1 や planner が使う作業期間 |
 | `parent_task_id`, `mindmap_x`, `mindmap_y` | `/tasks` 画面時代の列。既存データ保持のみ |
@@ -67,4 +67,4 @@ Migration history: `pwa/scripts/migrations/136_tasks_management_fields.sql`, `pw
 
 ## Removal Rule
 
-今後 `tasks` table / `/api/tasks` を削除する場合は、先に cockpit / HUD / H-1 / task-calendar planner の current caller を再確認し、別の永続先へ移してから実施する。今回の廃止対象は `/tasks` の画面・ナビ・agent helper であり、DB/API の破壊的削除ではない。
+今後 `tasks` table / `/api/tasks` を削除する場合は、先に cockpit / H-1 / task-calendar planner の current caller を再確認し、別の永続先へ移してから実施する。今回の廃止対象は `/tasks` の画面・ナビ・agent helper であり、DB/API の破壊的削除ではない。
