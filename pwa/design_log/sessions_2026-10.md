@@ -119,3 +119,11 @@ M	pwa/HANDOFF_pwa_rebuild.md
 M	pwa/src/components/cockpit/CockpitCompanyOverview.tsx
 M	pwa/src/lib/build-info.ts
 ```
+
+
+## 2026-10-05 月次報告書の対象期間変更・9月限定修正のcloseout
+
+- 仕事種別: development（生成仕様と運用データ修正）。0648e03eで月初〜暦上月末を正本仕様・manual・M群/M-1指示へ反映し、正規deployの必須検査と本番SHA確認が成功。生成25日16:00は維持。クラウドroutineも限定指示差替え→保存→編集画面再読込で新規則あり/旧1〜25日なし。
+- 9月CX/KUTE提出版は対象期間とKUTE冒頭説明だけ9/30へ更新。置換を逆適用して修正前本文との完全一致を検証し、提出版validator両件ok/formatMatch=true。monthly_report_external_saveによる編集履歴とDB読戻しbody_matchesを確認。SOLは既に9/30、未変更。Drive PDF更新は未実施。
+- 原因: 8/29の25日発火化で対象期間まで25日に固定していた。解決: 生成日と暦月の対象期間を分離。未来予定の実績化は引き続き禁止。新規schema/env/route/モデル変更なし。
+- 引き継ぎはroot HANDOFF_monthly_report_period.mdとSESSION_MIGRATION_PROMPT.md。既存共通HANDOFFの他チャット差分は未変更。共有checkoutに残る22パスはactive「9月月報の記載を修正」由来とread_threadで確認。9/22の未追跡タスク移行案も保存維持。main整合・branch/worktree・配信を監査済み、共有checkout全体はarchive不可。会話の検討材料0件。
