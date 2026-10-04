@@ -3749,8 +3749,11 @@ expectNotIncludes("src/components/nav/GlobalNav.tsx", ['"/bzm/read"']);
 expectIncludes("src/components/nav/AppShell.tsx", [
   "const BZM_READER_ROUTE = /^\\/bzm\\/read(?:\\/[^/]+){0,2}\\/?$/;",
 ]);
-expectIncludes("public/manifest-shosai.json", ['"start_url": "/bzm/read"', '"scope": "/bzm/read"', '"display": "standalone"']);
+expectIncludes("public/manifest-shosai.json", ['"start_url": "/bzm/read"', '"scope": "/"', '"display": "standalone"']);
 expectIncludes("src/middleware.ts", ["manifest-shosai\\\\.json"]);
+// 書斎は別のアドレスで開く別アプリ。アドレスの振り分けはログインの判定より前に置く（bzm_reader.md §2.1）
+expectIncludes("src/middleware.ts", ["readerHostRedirect(request.nextUrl", "NextResponse.redirect(hostRedirect, 307)"]);
+expectIncludes("src/lib/bzm-reader/hosts.ts", ['SHOSAI_HOST = "bookshelf-armada.vercel.app"', 'AMD_OS_HOST = "amd-os-pwa.vercel.app"']);
 expectIncludes("src/app/(app)/bzm/read/layout.tsx", ['manifest: "/manifest-shosai.json"']);
 expectIncludes("src/lib/surface-catalog.ts", ['id: "bzm-reader"']);
 // /bzm の章ページに原稿の HTML コメント（執筆メモ）を出さない。BzmMarkdown は生の HTML を描かず文字として出すため（2026-10-03）

@@ -1,7 +1,7 @@
 # 書斎（/bzm/read）— 執筆途中の本と論文を読む画面
 
 *設計正本。2026-10-03 新設。まさ「執筆途中の本や論文を kindle みたいに表示するアプリを pwa で作ってほしい」。*
-*2026-10-04: AMD OS とは別の専用アプリにした。まさ「書斎は、OSの中に入れずに別アプリにしてほしい」（まさが「書斎専用のアプリにする」を選択）。*
+*2026-10-04: AMD OS とは別の専用アプリにした。まさ「書斎は、OSの中に入れずに別アプリにしてほしい」（まさが「書斎専用のアプリにする」を選択）。同日午後、別のアドレス `https://bookshelf-armada.vercel.app` で開く方式にした（v3.154.0）。まさ「AMD OSアプリの中に包含されちゃってる。使いにくい。やっぱり別アプリに分けてほしい」。*
 *共有型は `pwa/src/lib/bzm-reader/types.ts`。型と本書は同じ commit で直す。*
 
 ---
@@ -11,7 +11,7 @@
 - 書いている途中の本と論文を、Kindle のように1ページずつめくって通読する。
 - 読む人は、まず著者本人（まさ）。草稿の通読と赤入れの前読みに使う。
 - 既存の `/bzm/[slug]` は「章を1枚の長い紙で見る」作業画面で、左ナビが常に幅を取り、文字は 13.5px 固定である。書斎は、外枠を外した全画面で、文字の大きさ・行間・書体・背景を読む人が決める。
-- 書斎は AMD OS とは別の専用アプリとして使う。同じサーバ・同じログインのまま、書斎だけを1つのアプリとしてホーム画面や Dock に入れられる（§2.1）。棚（`/bzm/read`）も外枠（左ナビ・通知・チャット・月初合意ゲート）を持たず、AMD OS の左ナビには入口を置かない。入口は URL `https://amd-os-pwa.vercel.app/bzm/read` か、インストールした「書斎」アプリ。
+- 書斎は AMD OS とは別のアドレス `https://bookshelf-armada.vercel.app` で開く別アプリとして使う。サーバのプログラムと Supabase は AMD OS と同じで、アドレス（オリジン）だけが違う。そのため AMD OS をインストールした端末でも、書斎は AMD OS の窓に取り込まれず、ホーム画面や Dock に単独のアプリとして入る（§2.1）。棚（`/bzm/read`）も外枠（左ナビ・通知・チャット・月初合意ゲート）を持たず、AMD OS の左ナビには入口を置かない。入口は書斎のアドレスか、インストールした「書斎」アプリ。AMD OS のアドレスで `/bzm/read` 配下を開いても、書斎のアドレスへ移る。
 - 原稿の正本は従来どおりリポジトリ直下の `bzm/*.md`。書斎は読むだけで、原稿を書き換えない。
 
 ## 1. 公開範囲
@@ -21,9 +21,11 @@
 - 会員かどうかの判定は `(app)/layout.tsx` が済ませる。管理者かどうかは `src/lib/bzm-reader/require-reader-admin.ts` の `requireReaderAdmin()` が決める。`getCurrentMemberAccess` の `isAdmin` を見て、会員でなければ `/auth/login`、管理者でなければ `/dashboard` へ戻す。
 - `requireReaderAdmin()` は `read/layout.tsx`、3つの page（棚、続きから開く、読書画面）、章ページの `generateMetadata` のすべてから呼ぶ。layout は画面遷移のたびに再描画されず、他の segment の描画も止めないため、layout だけに置かない。`getCurrentMemberAccess` は同じリクエスト内で一度だけ引くので、重ねて呼んでも問い合わせは増えない。
 - `/bzm/public` の公開例外には入れない。
-- 専用アプリとしてインストールした書斎から開いても、同じ `requireReaderAdmin()` が働く（管理者限定は変わらない）。
+- 専用アプリとしてインストールした書斎から開いても、同じ `requireReaderAdmin()` が働く（管理者限定は変わらない）。書斎のアドレスで管理者でない人が `/dashboard` へ戻されたときは、書斎のアドレスに `/dashboard` が無いので、middleware が AMD OS のアドレスの `/dashboard` へ送る（§2.1）。
 
 ## 2. 画面と URL
+
+書斎の正規のアドレスは `https://bookshelf-armada.vercel.app`。下の URL はそのアドレスのパス。AMD OS のアドレス（`https://amd-os-pwa.vercel.app`）で `/bzm/read` 配下を開いたときは、書斎のアドレスの同じパスへ送る（§2.1）。
 
 | URL | 中身 | 外枠 |
 |---|---|---|
@@ -34,23 +36,41 @@
 
 - `?at=start` / `?at=end` で章の最初／最後のページから開く（前後の章へめくったとき）。`#見出しid` でその見出しのページを開く。どちらも、使ったら URL から外す（再読み込みで先頭・末尾や引用の行き先へ飛び直さず、以後は保存位置で戻る）。
 - **外枠を外す場所**: `src/components/nav/AppShell.tsx` の `isBzmReaderRoute`。`usePathname()` が `^\/bzm\/read(?:\/[^/]+){0,2}\/?$`（正規表現 `BZM_READER_ROUTE`）に合うとき、左ナビと常駐の部品（通知・チャット）を載せず、`<main>` だけを描く。対象は棚（`/bzm/read`）、続きから開く（`/bzm/read/<本>`）、読書画面（`/bzm/read/<本>/<章>`）の3つすべて。月初合意ゲートも同じ判定で飛ばす（`shouldSkipMonthlyAgreementGate`）。
-- 判定をサーバの `(app)/layout.tsx` ではなくクライアントに置く理由: layout はソフトナビゲーションで再描画されないため、書斎から画面内リンクで範囲外の画面（章間リンクの `/bzm/<slug>` など）へ移ったとき（と逆）に、外枠の有無が古いままになる。`usePathname` は遷移のたびに更新される。`(app)/layout.tsx` には書斎の判定を置かない。
+- 判定をサーバの `(app)/layout.tsx` ではなくクライアントに置く理由: layout はソフトナビゲーションで再描画されないため、書斎から画面内リンクで範囲外の画面（章間リンクの `/bzm/<slug>` など）へ移ったとき（と逆）に、外枠の有無が古いままになる。`usePathname` は遷移のたびに更新される。書斎のアドレスでは範囲外の画面が AMD OS のアドレスへ移る（§2.1）が、プレビューや手元の開発は振り分けないので、同じアドレスの中で移る。`(app)/layout.tsx` には書斎の判定を置かない。
 - AMD OS の左ナビ（`GlobalNav.tsx`「資料」）には書斎の項目を置かない（2026-10-04 に外した）。`surface-catalog.ts` の `bzm-reader`（`prefixes: ["/bzm/read"]`）は `bzm` より前に残す。
 
-### 2.1 専用アプリとして入れる（2026-10-04）
+### 2.1 別のアドレスの専用アプリとして入れる（2026-10-04、v3.154.0）
 
-書斎は、AMD OS 本体のアプリ（`manifest.json`、`start_url` が `/dashboard`）とは別のアプリとして、ホーム画面や Dock に単独で入れられる。サーバとログインは AMD OS と同じ。ここでの manifest は、ブラウザがアプリとして登録するための定義ファイルで、§3 の「棚に並べる本（manifest）」とは別のもの。
+書斎は、AMD OS とは別のアドレス `https://bookshelf-armada.vercel.app`（`hosts.ts` の `SHOSAI_HOST`）で開く別アプリとして、ホーム画面や Dock に単独で入れられる。AMD OS のアドレスは `https://amd-os-pwa.vercel.app`（`AMD_OS_HOST`）。アドレス（オリジン）が違うので、AMD OS をインストールした端末でも、書斎は AMD OS の窓に取り込まれない。ここでの manifest は、ブラウザがアプリとして登録するための定義ファイルで、§3 の「棚に並べる本（manifest）」とは別のもの。
+
+- **共通のもの**: サーバのプログラム（Vercel のプロジェクト `amd-os-pwa`、同じ deploy）、ログインの仕組み、Supabase（同じプロジェクト）。費用は増えない。1回の deploy で両方のアドレスが更新される。
+- **別のもの**: クッキー（ログインの状態）と、アプリとしての登録（アドレスごと）。
 
 | 場所 | 内容 |
 |---|---|
-| `pwa/public/manifest-shosai.json` | `name`・`short_name` は「書斎」。`id`・`start_url`・`scope` はすべて `/bzm/read`。`display` は `standalone`。`background_color`・`theme_color` は `#ffffff`。アイコンは AMD OS と同じ `/icons/*`（192・512 の通常と maskable）。向き（`orientation`）は固定しない |
+| `pwa/src/lib/bzm-reader/hosts.ts` | 2つのアドレスの定数 `SHOSAI_HOST`・`AMD_OS_HOST`、書斎のアドレスで出してよいパスの判定 `isShosaiHostPath`、振り分け先の URL を返す純関数 `readerHostRedirect(url, host)`（振り分けないときは null）。`host` は要求の Host ヘッダ（無ければ URL の host）で、小文字にしてポートを外して比べる。検査から読むため、`@/` の import を持たない |
+| `pwa/src/middleware.ts` | `readerHostRedirect` の振り分けを、ログインの判定（`updateSession`）より前に行い、307（一時的）で送る。一時的な転送にするのは、アドレスを変えたときにブラウザへ古い振り分けを残さないため。matcher の除外に `manifest-shosai\\.json` も入れてある。除外しないと manifest の取得がログイン画面への 307 になり、インストールが壊れる（`manifest.json` と同じ理由）。静的ファイル、manifest、画像、`/auth/callback`、`/api/build-info` は middleware を通らず、振り分けもされない |
+| `pwa/public/manifest-shosai.json` | `name`・`short_name` は「書斎」。`id`・`start_url` は `/bzm/read`、`scope` は `/`。書斎のアドレスは書斎の画面だけを出すので、ログイン画面もアプリの範囲に入る。`display` は `standalone`。`background_color`・`theme_color` は `#ffffff`。アイコンは AMD OS と同じ `/icons/*`（192・512 の通常と maskable）。向き（`orientation`）は固定しない |
 | `pwa/src/app/(app)/bzm/read/layout.tsx` | 書斎の配下でだけ、ルートの `manifest: "/manifest.json"`（`src/app/layout.tsx`）を `metadata.manifest = "/manifest-shosai.json"` に差し替える。あわせて `appleWebApp`（`capable: true`、`title: "書斎"`、`statusBarStyle: "default"`）と `viewport.themeColor` の `#ffffff` を出す。ページの題は `title: "書斎"` で、`(app)/layout.tsx` の「… - AMD OS」を上書きする（アプリの窓の題に出る。章ページは「章の題 - 本の題」）。管理者の判定 `requireReaderAdmin()` は従来どおり |
-| `pwa/src/middleware.ts` | matcher の除外に `manifest-shosai\\.json` を足す。除外しないと manifest の取得がログイン画面への 307 になり、インストールが壊れる（`manifest.json` と同じ理由） |
+| Vercel（コードの外） | プロジェクト `amd-os-pwa` の Domains に `bookshelf-armada.vercel.app`（本番に割り当て） |
+| Supabase（コードの外） | Authentication の URL Configuration の Redirect URLs に `https://bookshelf-armada.vercel.app/**`。ログイン後に書斎のアドレスの `/auth/callback` へ戻るために要る |
 
-- **インストール**: iPhone は Safari で `/bzm/read` を開き、共有ボタンの「ホーム画面に追加」で名前は「書斎」のまま追加する。Mac の Chrome は同じ URL を開き、アドレスバー右端のインストールのアイコン、またはメニュー（︙）の「キャスト、保存、共有」の「ページをアプリとしてインストール」で入れる。利用者向けの手順は `pwa/manual/2-10-bzm-reader.md`。
-- **ログイン**: 未ログインで開くと、middleware が `/auth/login?next=/bzm/read…`（開こうとした書斎のパスと query）へ送り、ログイン後は元の書斎の画面へ戻る（既存の `next` の仕組み、`src/lib/supabase/middleware.ts`）。iPhone のホーム画面に追加したアプリは Safari とログインが別なので、初回はアプリの中でログインする。
-- **範囲（scope）の外へ出るリンク**: 原稿の章間リンクで、同じ本でない章は `/bzm/<slug>`（教科書の作業画面）へ飛ぶ（§4 の 7）。そこは書斎アプリの範囲（`/bzm/read`）の外なので、アプリの外の画面として開く。
+**アドレスの振り分け**（`readerHostRedirect`）:
+
+| 要求のアドレス | パス | 結果 |
+|---|---|---|
+| 書斎のアドレス | `/` | `/bzm/read`（棚）へ送る |
+| 書斎のアドレス | `/bzm/read` と `/bzm/read/…`（書斎の画面）、`/api/bzm-reader/` 配下（図の API）、`/auth` と `/auth/…`（ログイン）、`/api/build-info` | そのまま出す |
+| 書斎のアドレス | 上以外のすべてのパス | AMD OS のアドレスの同じパスと query へ送る |
+| AMD OS のアドレス | `/bzm/read` と `/bzm/read/…` | 書斎のアドレスの同じパスと query へ送る（古いブックマークや、AMD OS の中から開いたときも書斎アプリ側へ移る） |
+| 上の2つ以外（プレビューの deploy、手元の開発） | すべて | 振り分けない |
+
+- 書斎の画面かどうかは、パスが `/bzm/read` ちょうどか、`/bzm/read/` で始まるかで見る。`/bzm/readme` は書斎の画面ではなく、書斎のアドレスでは AMD OS のアドレスへ送る。
+- **範囲（scope）の外へ出るリンク**: 原稿の章間リンクで、同じ本でない章は `/bzm/<slug>`（教科書の作業画面）へ飛ぶ（§4 の 7）。書斎のアドレスにこのパスは無いので、AMD OS のアドレスの同じパスへ送り、AMD OS の教科書の画面で開く。別のアドレスなので、書斎アプリの範囲の外の画面として開く。管理者でない人が `requireReaderAdmin()` で `/dashboard` へ戻されたときも、同じ振り分けで AMD OS のアドレスへ移る。
+- **ログイン**: 書斎のアドレスはクッキーが AMD OS とは別なので、書斎アプリでは初回に1回ログインする（Google）。未ログインで開くと、`updateSession` が書斎のアドレスの `/auth/login?next=/bzm/read…`（開こうとした書斎のパスと query）へ送る。ログイン画面は開いているアドレスの `/auth/callback` を戻り先にするので、ログイン後は書斎のアドレスの元の書斎の画面へ戻る（既存の `next` の仕組み、`src/lib/supabase/middleware.ts`）。`next` が無いときは `/` へ戻り、書斎のアドレスでは棚が開く。iPhone のホーム画面に追加したアプリは Safari とクッキーが別なので、アプリの中でもログインする。
+- **インストール**: iPhone は Safari で `https://bookshelf-armada.vercel.app` を開き、ログインして棚が出てから、共有ボタンの「ホーム画面に追加」で名前は「書斎」のまま追加する。Mac の Chrome は同じアドレスを開き、アドレスバー右端のインストールのアイコン、またはメニュー（︙）の「キャスト、保存、共有」の「ページをアプリとしてインストール」で入れる。AMD OS のアドレスから入れた「書斎」がある場合は、消して入れ直す（AMD OS のアドレスの書斎は、開くと書斎のアドレスへ移る）。利用者向けの手順は `pwa/manual/2-10-bzm-reader.md`。
 - **表示の既定**: 棚の画面（`read/page.tsx`）は外枠を持たないので、上に「書斎」の見出し、白い背景（`min-h-dvh`）、幅の上限 1200px、画面端の余白（`env(safe-area-inset-*)`）を自前で持つ。読書画面の背景は §6.5 の設定に従う。
+- **アドレスを変えるとき**: `hosts.ts` の `SHOSAI_HOST`、Vercel の Domains、Supabase の Redirect URLs を同時に変える。1つでも欠けると、振り分けが外れる、アドレスが届かない、ログイン後に戻れない、のいずれかになる。インストール済みの書斎は、アドレスが変わると別のアプリとして扱われるので入れ直す。
 
 ## 3. 棚に並べる本（manifest）
 
@@ -79,7 +99,7 @@
 4. **論文の引用番号** `<sup>[1,2]</sup>`、`<sup>[3–5]</sup>` を `[1,2](#ref-1)` の形へ直す（描画側が上付きの番号にする）。論文を章に割った本では、10 で番号ごとのリンクに替わる。
 5. **文献一覧**: 見出しが `References` または `参考文献` の節の中で、行頭が `N. ` の番号付きリストを `[N](#refdef-N) ` で始まる段落に直す（描画側が `id="ref-N"` の目印にする）。
 6. **図のパス**: `![説明](相対パス)` は、その md のあるフォルダからの相対として解いて `/api/bzm-reader/asset/<bzm からの相対パス>` に書き換える。`/` で始まる絶対パス（`pwa/public` の図）と `http(s)://` はそのまま。
-7. **章間リンク**: `./slug` と `./slug.md` は、同じ本の章なら書斎の URL（`/bzm/read/<book>/<slug>`）へ、そうでなければ `/bzm/<slug>`（教科書の作業画面）へ書き換える。後者は書斎アプリの範囲（`/bzm/read`、§2.1）の外なので、アプリの外の画面として開く。
+7. **章間リンク**: `./slug` と `./slug.md` は、同じ本の章なら書斎の URL（`/bzm/read/<book>/<slug>`）へ、そうでなければ `/bzm/<slug>`（教科書の作業画面）へ書き換える。後者は書斎のアドレスに無いパスなので、書斎のアドレスでは AMD OS のアドレスの同じパスへ送られ、AMD OS の教科書の画面で開く（書斎アプリの範囲の外の画面になる。§2.1）。
 8. **callout**: `> [!NOTE]` `> [!TIP]` `> [!IMPORTANT]` `> [!WARNING]` `> [!CAUTION]` の行を `> **メモ**` `> **ヒント**` `> **重要**` `> **注意**` `> **注意**` に置き換える（Book A 第5章冒頭の警告を落とさないため）。
 9. **割り（split: "h1"）**: コードブロックの外の `# ` 見出しで区切る。最初の見出しより前（著者行など）は最初の章の頭に付ける。slug は見出しの文字から作る（英数字とハイフン、小文字。例: `1-introduction`、`abstract`、`references`）。重複したら末尾に `-2` を付ける。
 
@@ -177,7 +197,7 @@
 
 ### 6.6 位置と進み具合
 
-- 位置は端末ごとに `localStorage` に残す（キーは `types.ts` の `READER_STORAGE_KEYS`）。端末をまたいだ同期はしない（同期するには DB の表が要る。まさの判断待ち）。
+- 位置は端末ごとに `localStorage` に残す（キーは `types.ts` の `READER_STORAGE_KEYS`）。端末をまたいだ同期はしない（同期するには DB の表が要る。まさの判断待ち）。`localStorage` と背景色の Cookie はアドレス（オリジン）ごとに分かれるので、AMD OS のアドレスで残した位置・しおり・設定は、書斎のアドレスへ引き継がない（移す処理は持たない。§2.1）。
 - 残すもの: 章、章の中の位置 `fraction`（0〜1）、ページ先頭の本文ブロック番号 `blockIndex`、更新日時。画面が変わってから 300ms 遅らせて書き、ページを離れるとき・隠れるとき（`pagehide`、`visibilitychange`）に書き残しを書く。
 - **読書位置は、ブロック番号と、ブロック内の位置の2つで持つ**。ブロック内の位置は `fraction` で保存する。復元は、ブロック番号が見つかるとき、そのブロックが占めるページ（スクロール表示では範囲）の中で、`fraction` に最も近い位置を選ぶ。1つのブロックが長く複数のページにまたがるときも、途中のページへ戻る。ブロックが見つからなければ `fraction` だけで戻す。
 - スクロール表示では、「上端にいるブロック」の判定と、戻すときの位置を、同じ許容値（余白 8px + 端数 2px）で決める。保存して戻しても、1つ前のブロックへずれない。
@@ -239,6 +259,7 @@
   - 前処理の各規則（YAML、コメント、見出し属性、引用番号、文献一覧、図のパス、章間リンク、callout、コードブロックの中を触らないこと）の入出力。
   - 章の割り（`splitByH1`）、補足資料の先頭見出し（`ensureLeadingH1`）、目次の見出し抽出、文字数の数え方（`countReaderChars`）。
   - 同じ文字の見出しの連番、論文の引用から文献一覧の章へのリンクへの書き換え。
+  - 書斎のアドレスの振り分け（`readerHostRedirect`。`check_bzm_reader.mts` の末尾）: 書斎のアドレスで、`/` は棚へ、書斎の画面（クエリつきを含む）・図の API・`/auth/login`・`/auth/callback` はそのまま、`/dashboard` や別の本の章 `/bzm/<slug>`（クエリつき）と `/bzm/readme` は AMD OS のアドレスの同じパスへ。大文字やポート付きの Host も同じ。AMD OS のアドレスでは、`/bzm/read` 配下だけが書斎のアドレスへ送られ、`/bzm`・`/bzm/readme`・`/dashboard` は触らない。プレビューの deploy と手元の開発は振り分けない。
   - 数式の退避: インラインの規則（実原稿の3か所、表のセル、改行をまたぐ式、空行をまたがない、`\$`、コードの中）。実原稿の全章で、数式の外に `$` が残らないこと。
   - manifest: 本と章の重複なし、Book A の章が `BZM_PARTS` と一致、実在する章ファイルは存在し、存在しないのは未執筆と知っているものだけ。BZM 3.0教科書は16本で、序・第3章・付録の題が `plannedTitle` と一致する。
   - 実原稿（第1論文）の割りと、他の本でコメントと callout が残らないこと。
@@ -248,13 +269,14 @@
 - `check_pwa_critical_ui.cjs` に釘:
   - 外す判定は `AppShell.tsx` に `isBzmReaderRoute` があり、`(app)/layout.tsx` には無いこと。`BZM_READER_ROUTE` が `/^\/bzm\/read(?:\/[^/]+){0,2}\/?$/` で、棚を含む3画面に合うこと。
   - `require-reader-admin.ts` に `isAdmin` と `redirect("/dashboard")`、layout と3つの page のすべてに `requireReaderAdmin()`。
-  - 専用アプリ（§2.1）: `GlobalNav.tsx` に `"/bzm/read"` が無いこと（左ナビに入口を置かない）、`public/manifest-shosai.json` の `start_url`・`scope`・`display`、`middleware.ts` の `manifest-shosai\\.json` の除外、`read/layout.tsx` の `manifest: "/manifest-shosai.json"`。どれかが欠けると、インストールできない、棚だけ左ナビが出る、のいずれかになる。
+  - 専用アプリ（§2.1）: `GlobalNav.tsx` に `"/bzm/read"` が無いこと（左ナビに入口を置かない）、`public/manifest-shosai.json` の `start_url`（`/bzm/read`）・`scope`（`/`）・`display`、`middleware.ts` の `manifest-shosai\\.json` の除外、`read/layout.tsx` の `manifest: "/manifest-shosai.json"`。どれかが欠けると、インストールできない、棚だけ左ナビが出る、のいずれかになる。
+  - 別のアドレスへの振り分け（§2.1）: `middleware.ts` が `readerHostRedirect(request.nextUrl` で振り分けを呼び、`NextResponse.redirect(hostRedirect, 307)` で送ること、`hosts.ts` に `SHOSAI_HOST = "bookshelf-armada.vercel.app"` と `AMD_OS_HOST = "amd-os-pwa.vercel.app"` があること。欠けると、書斎が AMD OS の窓に取り込まれる、またはログインの判定が先に走って書斎のアドレスの `/` が棚へ届かない。
   - `surface-catalog` の `bzm-reader`。
   - `next.config.ts` の同梱指定、図の API の専用ヘッダ（`source: "/api/bzm-reader/asset/:path*"`、`bzmReaderAssetSecurityHeaders`）。
   - `package.json` の `test:bzm-reader`。
   - 読書画面の「目次」「文字の設定」ボタン、左の目次の列（`ReaderTocColumn` と `data-bzr-toc-col`、`toc-open` の保存キー、列と段の間のノドの CSS）。
 - `deploy.sh` の検査の並びに `test:bzm-reader` を足す。
-- 検査は `node --experimental-strip-types` で走らせるので、検査から読む `library.ts`・`preprocess.ts`・`protect-math.ts`・`progress.ts`・`storage.ts` は `@/` を使わず、拡張子 `.ts` 付きの相対 import だけにする（`allowImportingTsExtensions` が有効）。
+- 検査は `node --experimental-strip-types` で走らせるので、検査から読む `library.ts`・`preprocess.ts`・`protect-math.ts`・`progress.ts`・`storage.ts`・`hosts.ts` は `@/` を使わず、拡張子 `.ts` 付きの相対 import だけにする（`allowImportingTsExtensions` が有効）。
 
 ## 10. まだ作っていないもの（次の段）
 
@@ -272,3 +294,4 @@
 | 2026-10-03 | 点検後の修正に合わせて改訂。外枠を外す判定を `AppShell` へ、管理者判定を `requireReaderAdmin()` へ、図の API に専用ヘッダ、引用を文献ごとのリンクへ、数式・表・文字数・読書位置・しおりの規則、Escape・ホイール・本の端の表示、背景色の Cookie | えいみ |
 | 2026-10-04 | 左の目次の列（1100px 以上で常設、開閉を `toc-open` に保存、いま読んでいる見出しを強調）、見開きの判定を本文の領域の幅で行う、見開きの段の間を広げてノドの罫線を置く | えいみ |
 | 2026-10-04 | 書斎を AMD OS とは別の専用アプリにした（v3.153.0）。棚を含む3画面から外枠を外す（`BZM_READER_ROUTE` を `/^\/bzm\/read(?:\/[^/]+){0,2}\/?$/` へ）、左ナビ「資料」から「書斎」を外す、`manifest-shosai.json`（`scope` `/bzm/read`）と書斎の配下だけの manifest の差し替え、middleware の除外、ログイン後に元の書斎へ戻ること、範囲外リンクの扱い（§2.1）。棚の見出し・白い背景・幅の上限 1200px・safe-area の余白。BZM 3.0教科書の序の題を「序 — このモデルは何を測るのか」へ改題 | えいみ |
+| 2026-10-04 | 書斎を AMD OS とは別のアドレス `https://bookshelf-armada.vercel.app` で開く別アプリにした（v3.154.0）。午前は同じアドレスのまま manifest だけを差し替えたが、AMD OS をインストールした端末では書斎が AMD OS の窓に取り込まれたため。サーバのプログラム・ログインの仕組み・Supabase は共通（費用は増えない）。`hosts.ts` と middleware の振り分け（書斎のアドレスの `/` は棚へ、書斎の画面・図の API・ログイン以外は AMD OS のアドレスへ、AMD OS のアドレスの `/bzm/read` 配下は書斎のアドレスへ。ログインの判定より前、307）、`manifest-shosai.json` の `scope` を `/` に、Vercel の Domains と Supabase の Redirect URLs への追加、書斎のアドレスでの初回ログインと入れ直しの手順（§2.1） | えいみ |

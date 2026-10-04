@@ -4,7 +4,7 @@
   "description": "執筆中の本と論文を、ページ送りで通読",
   "id": "/bzm/read",
   "start_url": "/bzm/read",
-  "scope": "/bzm/read",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#ffffff",

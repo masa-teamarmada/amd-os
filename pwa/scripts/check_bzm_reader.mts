@@ -24,6 +24,7 @@ import {
   splitByH1,
 } from "../src/lib/bzm-reader/preprocess.ts";
 import { protectMath } from "../src/lib/bzm-reader/protect-math.ts";
+import { AMD_OS_HOST, SHOSAI_HOST, readerHostRedirect } from "../src/lib/bzm-reader/hosts.ts";
 import { bookProgressFraction, remainingMinutes } from "../src/lib/bzm-reader/progress.ts";
 import {
   loadReaderBookmarks,
@@ -722,6 +723,33 @@ function strayDollars(text: string): number {
       assert.ok(box === "bzr-hscroll bzr-table bzr-table--wide" || box === "bzr-table bzr-table--fit", box);
     }
   }
+}
+
+// 書斎のアドレスの振り分け（hosts.ts）
+{
+  const at = (u: string) => new URL(u);
+  // 書斎のアドレス: `/` は棚へ、書斎・図の API・ログインは通し、それ以外は AMD OS へ
+  assert.equal(readerHostRedirect(at(`https://${SHOSAI_HOST}/`), SHOSAI_HOST), `https://${SHOSAI_HOST}/bzm/read`);
+  assert.equal(readerHostRedirect(at(`https://${SHOSAI_HOST}/bzm/read`), SHOSAI_HOST), null);
+  assert.equal(readerHostRedirect(at(`https://${SHOSAI_HOST}/bzm/read/bzm30-textbook/x?at=end`), SHOSAI_HOST), null);
+  assert.equal(readerHostRedirect(at(`https://${SHOSAI_HOST}/api/bzm-reader/asset/a.png`), SHOSAI_HOST), null);
+  assert.equal(readerHostRedirect(at(`https://${SHOSAI_HOST}/auth/login?next=%2Fbzm%2Fread`), SHOSAI_HOST), null);
+  assert.equal(readerHostRedirect(at(`https://${SHOSAI_HOST}/auth/callback?code=1`), SHOSAI_HOST), null);
+  assert.equal(readerHostRedirect(at(`https://${SHOSAI_HOST}/dashboard`), SHOSAI_HOST), `https://${AMD_OS_HOST}/dashboard`);
+  assert.equal(readerHostRedirect(at(`https://${SHOSAI_HOST}/bzm/book-a-ch-1?x=1`), SHOSAI_HOST), `https://${AMD_OS_HOST}/bzm/book-a-ch-1?x=1`);
+  assert.equal(readerHostRedirect(at(`https://${SHOSAI_HOST}/bzm/readme`), SHOSAI_HOST), `https://${AMD_OS_HOST}/bzm/readme`);
+  // 大文字やポート付きの Host でも同じ
+  assert.equal(readerHostRedirect(at(`https://${SHOSAI_HOST}/`), `Bookshelf-Armada.vercel.app:443`), `https://${SHOSAI_HOST}/bzm/read`);
+  // AMD OS のアドレス: 書斎だけを書斎のアドレスへ。他は触らない
+  assert.equal(readerHostRedirect(at(`https://${AMD_OS_HOST}/bzm/read/book-a?x=1`), AMD_OS_HOST), `https://${SHOSAI_HOST}/bzm/read/book-a?x=1`);
+  assert.equal(readerHostRedirect(at(`https://${AMD_OS_HOST}/bzm/read`), AMD_OS_HOST), `https://${SHOSAI_HOST}/bzm/read`);
+  assert.equal(readerHostRedirect(at(`https://${AMD_OS_HOST}/bzm`), AMD_OS_HOST), null);
+  assert.equal(readerHostRedirect(at(`https://${AMD_OS_HOST}/bzm/readme`), AMD_OS_HOST), null);
+  assert.equal(readerHostRedirect(at(`https://${AMD_OS_HOST}/dashboard`), AMD_OS_HOST), null);
+  // その他のアドレス（プレビュー、手元の開発）は振り分けない
+  assert.equal(readerHostRedirect(at("http://localhost:3000/bzm/read"), "localhost:3000"), null);
+  assert.equal(readerHostRedirect(at("https://amd-os-abc123-armada0130.vercel.app/bzm/read"), "amd-os-abc123-armada0130.vercel.app"), null);
+  console.log("  書斎のアドレスの振り分け: ok");
 }
 
 console.log("check_bzm_reader: ok");

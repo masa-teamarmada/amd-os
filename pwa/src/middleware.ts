@@ -1,7 +1,13 @@
-import { type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
+import { readerHostRedirect } from "@/lib/bzm-reader/hosts";
 
 export async function middleware(request: NextRequest) {
+  // 書斎は AMD OS とは別のアドレスで開く別アプリ。アドレスごとの振り分けを、ログインの判定より先に行う。
+  // 307（一時的）にして、アドレスを変えたときにブラウザへ古い振り分けが残らないようにする。設計正本 bzm_reader.md §2.1
+  const hostRedirect = readerHostRedirect(request.nextUrl, request.headers.get("host"));
+  if (hostRedirect) return NextResponse.redirect(hostRedirect, 307);
+
   // 先に request headers に x-pathname をセットして updateSession に渡す。
   // (= server component の generateMetadata から next/headers の headers() で取れる)
   // Next.js の作法: response.headers.set だけだと server component に届かないため、
