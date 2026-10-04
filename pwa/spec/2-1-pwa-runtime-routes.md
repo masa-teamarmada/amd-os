@@ -133,7 +133,7 @@ migration 212 / 213 / 216〜219 / 258 と対になる contract。212 / 213は202
 
 | 項目 | contract |
 |---|---|
-| route | `/` / `/workspaces` / `/workspace/[slug]` / `/project/[projectId]/workspace` (外部面) / `/auth/login?audience=institution` / `/auth/logout` / `/admin/access` / `/dd/**`（DD の面と正式版の印刷画面）/ `/project/[projectId]/dd`（旧URL） |
+| route | `/` / `/workspaces` / `/workspace/[slug]` / `/project/[projectId]/workspace` (外部面) / `/auth/login?audience=institution` / `/auth/logout` / `/admin/access` / `/dd/**`（DD の面と正式版の印刷画面）/ `/project/[projectId]/dd`（独立したDD入口・管理） |
 | API | `POST /api/auth/email-start` / `/auth/callback` / `GET/POST/PATCH /api/admin/workspace-access` / `GET/POST/PATCH/PUT /api/workspace-documents/**` / `GET/POST /api/admin/dd` / `GET /api/dd/summary` |
 | table | 212の7テーブル `workspace_user_accounts` / `institution_workspaces` / `institution_workspace_memberships` / `institution_workspace_project_scopes` / `institution_workspace_seed_scopes` / `project_access_memberships` / `workspace_access_audit_logs`、216の `workspace_documents`、258の `workspace_email_otp_rate_limits`、455〜458 の `dd_packages` / `dd_package_grants` / `dd_package_items`（公開の切り替え `is_published`）/ `dd_item_publications`（初版の公開時点の記録。新しい行は作らない）、private Storage `dd-publication-files`（ドライブの資料の写し） |
 | authority | access 7テーブルとOTP limiterは RLS 有効・anon / 一般 authenticated の直接権限なし。admin (`is_admin()`) と service_roleだけを使う。role名は権限そのものにせず、`workspace-capabilities.ts` の明示capability束へ変換してから資料操作を判定する |

@@ -18,6 +18,8 @@ for (const status of ["canonical", "projection", "transitional", "mirror", "depr
 }
 assert.match(catalog, /id: "portfolio-home"[\s\S]*status: "canonical"/, "ホームはcanonicalとして凍結する");
 assert.match(catalog, /id: "weekly-control"[\s\S]*status: "deprecated"/, "旧週次管制routeはdeprecatedとして明記する");
+assert.match(catalog, /id: "project-dd-admin"[^\n]*title: "DDパッケージ管理"[^\n]*status: "canonical"/, "独立したDD管理画面を正式な入口として表示する");
+assert.doesNotMatch(catalog, /DDパッケージ管理（旧URL）/, "DD管理に旧URLの題名を残さない");
 assert.match(catalog, /id: "dashboard-cyber-lab"[\s\S]*status: "mirror"/, "実験dashboardはmirrorとして明記する");
 
 for (const [label, source] of [["server layout", serverLayout], ["client title", clientTitle]]) {

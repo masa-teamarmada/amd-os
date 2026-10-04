@@ -3,6 +3,7 @@
 ## 2026-10-04 — コックピット・ワークスペース・DDの並列化
 
 - DDをコックピット・ワークスペースの分類から外し、共通の領域選択へ独立させた。DD閲覧は分類・子タブ・本文、管理は `/project/[id]/dd?tab=manage`。旧DD子タブURLは独立したDDへ送る。
+- 本番 v3.152.3 / ce40465a で3入口・DD閲覧・独立した管理をChromeで確認。狭い幅354pxでもDD/ワークスペースの入口が折り返し、横はみ出しなし・高さ44px。モバイル画像取得は縮尺の不具合があるためDOM寸法を補助証跡とし、実機確認済みとは扱わない。画面台帳に残った管理画面の「旧URL」タイトルも独立領域に合わせて修正、旧項目プレビューだけをdeprecatedとして分離。
 - DDの付与とPJ所属は独立のまま。公開設定・DB・APIの認可・PDF出力・表示本文の共通部品は変更なし。BZM/modelは理論変更なしのため同期対象外。Swift/AndroidのDD画面は未移植、ブラウザで開く前提。
 - 前セッション由来の未追跡 `SESSION_MIGRATION_PROMPT_task_based_pt_20260922.md` は別作業の引き継ぎ資料として維持し、今回のcommitに含めない。
 - 検査: TypeScript・新規DD/領域選択部品のESLint・critical-ui・DD権限/表示/分離・標準フォーマット・参照キャッシュ・workspace所属判定・3者表示モデルが成功。追加の旧 `test:project-workspace-route` は前から存在しない `PROJECT_WORKSPACE_GROUPS` を要求して失敗（現行は `WORKSPACE_TAB_FORMATS`）。CockpitView全体のESLintは既存の3つのeffect内setStateで失敗。対象外の既存実装は変更していない。
