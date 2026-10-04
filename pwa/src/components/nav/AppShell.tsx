@@ -10,6 +10,7 @@ import type { MonthlyWorkAgreementBundle } from "@/lib/monthly-work-agreement-ty
 import type { OsAccessScope, ProjectNavItem } from "@/lib/project-workspace-types";
 import { GlobalNav } from "./GlobalNav";
 import { PageTitleSetter } from "./PageTitleSetter";
+import { PageHistoryToolbar } from "./PageHistoryToolbar";
 import { ProjectWorkspaceNav } from "./ProjectWorkspaceNav";
 
 type AppShellProps = {
@@ -101,7 +102,7 @@ export function AppShell({
     <>
       <PageTitleSetter />
       {useEmbeddedShellOnly ? (
-        <main className="flex-1">{children}</main>
+        <main className="flex-1">{!pathname.startsWith("/hud") && <PageHistoryToolbar />}{children}</main>
       ) : (
         <div className="flex min-h-screen bg-background text-foreground">
           {isProjectScope ? (
@@ -115,7 +116,7 @@ export function AppShell({
               memberId={memberId}
             />
           )}
-          <main className={`min-w-0 flex-1 ${isProjectScope ? "pb-16 lg:pb-0" : ""}`}>{children}</main>
+          <main className={`min-w-0 flex-1 ${isProjectScope ? "pb-16 lg:pb-0" : ""}`}><PageHistoryToolbar />{children}</main>
         </div>
       )}
       {agreementGateBundle && (

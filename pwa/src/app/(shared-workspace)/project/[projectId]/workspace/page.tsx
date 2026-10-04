@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { resolveSharedWorkspaceAccess } from "@/lib/project-shared-workspace-access";
 import { getProjectWorkspaceBundle } from "@/lib/project-workspace";
 import { SharedWorkspaceScopeRibbon } from "@/components/project-workspace/SharedWorkspaceScopeRibbon";
+import { PageHistoryToolbar } from "@/components/nav/PageHistoryToolbar";
 import { SxWeeklyControlDashboard } from "@/components/project-workspace/SxWeeklyControlDashboard";
 import { externalWorkspaceRoleCapabilityLabel } from "@/lib/workspace-capabilities";
 import { resolveDdViewerScope } from "@/lib/dd-access";
@@ -27,6 +28,7 @@ export default async function SharedWorkspacePage({
 
   return (
     <>
+      <PageHistoryToolbar />
       {access.principal === "workspace_account" && (
         <SharedWorkspaceScopeRibbon
           projectName={bundle.project.projectName}

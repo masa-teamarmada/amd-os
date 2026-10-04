@@ -1,5 +1,7 @@
 # DESIGN.md — AMD OS 全画面設計の正本
 
+2026-10-04: PWAホームのPJポートフォリオの研究機関PJ・シーズPJも、紐づくPJコックピットへ直接移動する。社内画面・共有ワークスペース・DDの上部にChrome型の戻る/進む矢印を追加し、ブラウザと同じ履歴を使う。DB・認可の変更なし。印刷・HUD・ネイティブ埋込み・専用の書斎画面は対象外。Swift/Androidの画面構造・履歴操作へは未移植（spec/2-1、manual/2-1）。
+
 2026-10-04: PWAのコックピット・ワークスペース・DDパッケージを並列の領域へ修正。各画面の見出し下に共通の領域選択を置き、DDの分類・子タブ・本文は独立した `/dd/[slug]` で表示する。DD管理は `/project/[projectId]/dd?tab=manage`。旧 `cockpit?tab=dd` と workspace `#dd-package` は独立したDD入口へ送る。入場権限・公開範囲・共有DB・表示本文の部品は変更なし。iOS/macOS/AndroidのDD画面は未移植、ブラウザで開く前提（spec 5-17）。
 
 2026-10-04: PWAの書斎 `/bzm/read` を AMD OS とは別の専用アプリにした（`manifest-shosai.json`、scope は `/bzm/read`。同じサーバ・同じログインのまま、書斎だけをホーム画面や Dock に単独で入れられる）。棚も外枠なしになり、PWAの左ナビに書斎の項目は無い。読書画面の左に目次の列（画面 1100px 以上）を常設し、見開きの左右のページの間を広げた。iOS/macOS/Android のネイティブ画面は未移植のまま。詳細は `../pwa/design/bzm_reader.md`

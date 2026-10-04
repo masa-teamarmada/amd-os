@@ -16,6 +16,13 @@
 | 書斎の専用アプリ（2026-10-04） | `public/manifest-shosai.json`。書斎（`/bzm/read`）を AMD OS とは別のアプリとして、同じサーバ・同じログインのまま単独でインストールするための manifest。`name`・`short_name` は「書斎」、`id`・`start_url`・`scope` は `/bzm/read`、`display` は `standalone`、`background_color`・`theme_color` は `#ffffff`、アイコンは `manifest.json` と同じ `/icons/*`。向きは固定しない。書斎の配下の `src/app/(app)/bzm/read/layout.tsx` だけが、ルートの `manifest: "/manifest.json"` を `/manifest-shosai.json` に差し替え、`appleWebApp`（title「書斎」）と `themeColor #ffffff` を出す |
 | manifest の認証除外 | `src/middleware.ts` の matcher は `manifest.json` と `manifest-shosai.json`（`manifest-shosai\\.json`）を認証の対象から外す。外さないと manifest の取得がログイン画面への 307 になり、インストールが壊れる |
 
+## ページの移動と履歴（2026-10-04）
+
+- ホームのPJポートフォリオは、研究機関PJ・シーズPJ・事業会社PJとも、紐づくPJカードを `/project/[projectId]/cockpit` へつなぐ。研究機関/シーズの全件リンクは各一覧へ、PJ未登録の候補は元の機関/シーズ詳細へ進む。シーズに複数PJがある場合は、行のPJ番号と同じprimary（active優先、次にsales/draft）を開く。
+- `PageHistoryToolbar` を社内の `AppShell`、認可済み共有ワークスペース、DD閲覧の共通枠に置く。Chrome型の左矢印「戻る」・右矢印「進む」はブラウザ自身の履歴を使い、検索条件・タブ・元ページへの戻りを保つ。独自の履歴保存・書換え、データ再登録はしない。
+- ChromeなどNavigation APIのある環境は `canGoBack` / `canGoForward` と `currententrychange` を使い、行き先がない矢印を無効にする。API非対応ブラウザは `history.length` で戻るだけ判定し、進む先の有無を取得できないため進むは有効のままブラウザへ委譲する。`popstate` / `pageshow` も監視する。
+- 操作の高さは狭い画面44px、広い画面36px。本文と同じ通常フローで配置し、既存の固定タブ/見出しと重ならない。印刷、ネイティブ埋込み、HUD、書斎の専用画面には追加しない。認証・閲覧範囲の判定は既存経路のまま。
+
 ## ディレクトリ契約
 
 | path | 役割 |

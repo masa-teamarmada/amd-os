@@ -77,6 +77,8 @@ assert.match(pulseComponent, /title="事業会社PJ"/);
 assert.doesNotMatch(pulseComponent, /PJ運用 — 稼働中/);
 assert.match(pulseComponent, /actionHref="\/institutions"/);
 assert.match(pulseComponent, /actionHref="\/seeds"/);
+assert.ok(pulseComponent.includes('`/project/${encodeURIComponent(row.projectLink.projectId)}/cockpit`'), "研究機関PJカードは紐づくPJコックピットへ移動する");
+assert.ok(pulseComponent.includes('primary ? `/project/${encodeURIComponent(primary.project_id)}/cockpit` : `/seeds/${encodeURIComponent(seed.id)}`'), "シーズPJカードはPJへ移動し、PJ未登録の候補だけシーズ詳細を開く");
 assert.ok(
   pulseComponent.indexOf('title="研究機関PJ"') < pulseComponent.indexOf('title="シーズPJ"'),
   "研究機関PJパネルはシーズPJパネルより先に描画される必要がある",

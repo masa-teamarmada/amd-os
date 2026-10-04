@@ -189,7 +189,7 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
                   badge={running ? "稼働中" : "検討中"}
                   href={
                     row.projectLink
-                      ? `/institutions/${encodeURIComponent(row.institutionId)}/cockpit`
+                      ? `/project/${encodeURIComponent(row.projectLink.projectId)}/cockpit`
                       : `/institutions/${encodeURIComponent(row.institutionId)}`
                   }
                 />
@@ -226,7 +226,7 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
                   }
                   meta={primary ? (primary.client_name || seed.org_name) : [seed.org_name, seed.researcher_name || "PI未登録"].filter(Boolean).join(" ・ ")}
                   badge={running.length ? "稼働中" : "検討中"}
-                  href={`/seeds/${encodeURIComponent(seed.id)}`}
+                  href={primary ? `/project/${encodeURIComponent(primary.project_id)}/cockpit` : `/seeds/${encodeURIComponent(seed.id)}`}
                 />
               );
             })
@@ -393,4 +393,3 @@ function CandidateRow({
 function EmptyQueue({ label }: { label: string }) {
   return <p className="px-1 py-2 text-[13px] text-[var(--desk-muted)]">{label}</p>;
 }
-

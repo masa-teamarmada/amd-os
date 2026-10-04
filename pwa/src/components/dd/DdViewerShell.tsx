@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ProjectSurfaceNav } from "@/components/nav/ProjectSurfaceNav";
+import { PageHistoryToolbar } from "@/components/nav/PageHistoryToolbar";
 import type { ReactNode } from "react";
 import { DD_PACKAGE_STATUS_LABEL, type DdViewerAccess } from "@/lib/dd-package-core";
 import { resolveSharedWorkspaceAccess } from "@/lib/project-shared-workspace-access";
@@ -19,6 +20,7 @@ export async function DdViewerShell({
   const workspaceAccess = access.preview ? null : await resolveSharedWorkspaceAccess(access.projectId).catch(() => null);
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-white text-[#1d1d1f]">
+      <PageHistoryToolbar />
       {access.preview && (
         <div className="border-b border-[#f3d9a4] bg-[#fff8e8] px-4 py-2 text-[12px] leading-5 text-[#7a4b00] sm:px-6" role="status">
           <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-2">
