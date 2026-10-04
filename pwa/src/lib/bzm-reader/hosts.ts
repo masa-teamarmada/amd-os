@@ -13,6 +13,16 @@
 export const SHOSAI_HOST = "bookshelf-armada.vercel.app";
 export const AMD_OS_HOST = "amd-os-pwa.vercel.app";
 
+/** Host ヘッダを比べられる形にする（小文字、ポートを外す） */
+export function normalizeHost(host: string): string {
+  return host.toLowerCase().replace(/:\d+$/, "");
+}
+
+/** 書斎のアドレスで開いた要求か */
+export function isShosaiHost(host: string | null | undefined): boolean {
+  return host ? normalizeHost(host) === SHOSAI_HOST : false;
+}
+
 function isReaderPath(pathname: string): boolean {
   return pathname === "/bzm/read" || pathname.startsWith("/bzm/read/");
 }
@@ -33,7 +43,7 @@ export function isShosaiHostPath(pathname: string): boolean {
  * `host` は要求の Host ヘッダ（無ければ URL の host）。ポート付きでも比べられるよう小文字にしてポートを外す。
  */
 export function readerHostRedirect(url: URL, host: string | null): string | null {
-  const h = (host ?? url.host).toLowerCase().replace(/:\d+$/, "");
+  const h = normalizeHost(host ?? url.host);
   const path = url.pathname;
   if (h === SHOSAI_HOST) {
     if (path === "/" || path === "") return `https://${SHOSAI_HOST}/bzm/read`;

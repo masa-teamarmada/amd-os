@@ -3754,6 +3754,9 @@ expectIncludes("src/middleware.ts", ["manifest-shosai\\\\.json"]);
 // 書斎は別のアドレスで開く別アプリ。アドレスの振り分けはログインの判定より前に置く（bzm_reader.md §2.1）
 expectIncludes("src/middleware.ts", ["readerHostRedirect(request.nextUrl", "NextResponse.redirect(hostRedirect, 307)"]);
 expectIncludes("src/lib/bzm-reader/hosts.ts", ['SHOSAI_HOST = "bookshelf-armada.vercel.app"', 'AMD_OS_HOST = "amd-os-pwa.vercel.app"']);
+// 書斎のアドレスのログイン画面は「書斎」として出す（題・manifest・見出し・内部ログインだけ）
+expectIncludes("src/app/auth/login/layout.tsx", ["isShosaiHost(h.get(\"host\"))", 'manifest: "/manifest-shosai.json"', "<LoginAppProvider app={app}>"]);
+expectIncludes("src/app/auth/login/page.tsx", ["useLoginApp()", 'loginApp === "shosai"']);
 expectIncludes("src/app/(app)/bzm/read/layout.tsx", ['manifest: "/manifest-shosai.json"']);
 expectIncludes("src/lib/surface-catalog.ts", ['id: "bzm-reader"']);
 // /bzm の章ページに原稿の HTML コメント（執筆メモ）を出さない。BzmMarkdown は生の HTML を描かず文字として出すため（2026-10-03）

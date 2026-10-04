@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useLoginApp } from "@/components/auth/LoginAppContext";
 
 const PORTFOLIO_GOOGLE_SCOPES = [
   "openid",
@@ -16,6 +17,8 @@ const PROJECT_GOOGLE_SCOPES = ["openid", "email", "profile"].join(" ");
 type Audience = "armada" | "institution";
 
 export default function LoginPage() {
+  // 書斎のアドレスでは「書斎」として出し、AMD メンバーのログインだけを置く（書斎は管理者限定）
+  const loginApp = useLoginApp();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<"portfolio" | "project" | null>(null);
   const [audience, setAudience] = useState<Audience>("armada");
@@ -148,12 +151,21 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-6 text-center">
         <div className="space-y-2">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            <span className="text-primary">◈</span> AMD OS
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Team ARMADA Business Operating System
-          </p>
+          {loginApp === "shosai" ? (
+            <>
+              <h1 className="text-2xl font-semibold tracking-tight">書斎</h1>
+              <p className="text-sm text-muted-foreground">執筆中の本と論文を、ページ送りで通読</p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-2xl font-semibold tracking-tight">
+                <span className="text-primary">◈</span> AMD OS
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Team ARMADA Business Operating System
+              </p>
+            </>
+          )}
         </div>
         {error === "calendar_required" && (
           <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-left text-xs text-amber-800">
@@ -190,7 +202,20 @@ export default function LoginPage() {
           </div>
         )}
 
-        {audience === "institution" ? (
+        {loginApp === "shosai" ? (
+          <div className="space-y-3">
+            <button
+              onClick={() => handleLogin("portfolio")}
+              disabled={submitting !== null}
+              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            >
+              {submitting === "portfolio" ? "接続中…" : "AMDメンバーとしてログイン"}
+            </button>
+            <p className="text-left text-[11px] leading-relaxed text-muted-foreground">
+              AMD OS と同じ Google アカウントでログインします。書斎を開けるのは管理者だけです。
+            </p>
+          </div>
+        ) : audience === "institution" ? (
           <div className="space-y-5">
             {emailForm}
             <div className="flex items-center gap-3 text-[11px] text-muted-foreground">

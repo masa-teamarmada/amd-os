@@ -62,7 +62,7 @@
 | `/workspaces` | 外部アカウント (`workspace_user_accounts`) の入口。所属する機関ワークスペースと、`project_access_memberships` で個別に許可されたPJだけを並べる。機関所属をPJ一覧の根拠にしない。PJ台帳の取得失敗は参加0件へ変換せず、参加状況を変更していないことと再読込案内を出す |
 | `/workspace/[slug]` | 研究機関ワークスペース本体。内部アプリの chrome を共有しない独立シェル。対象機関のPJ、シーズ一覧、ECR を読み取り専用で表示する。シーズはPJ化済み → PJ化検討中 → PJなし・SPS算出済み → その他の順で、同区分内は表題の日本語順。ECR は1機関の縦並び (総合値 + 8軸) で、SPS とは別系列のまま合算しない。資料欄は BOX からの移行準備中の表示のみ (リンク / iframe / 署名トークンなし) |
 | `/workspace/[slug]/project/[projectId]` | 研究機関の個別PJ面。機関所属と当該PJの個別membershipを両方確認し、kernelのactive principal・organization membership・party・`publication.view`をDB RPCで再確認する。最新publicationがviewer audienceを含む時だけ承認済み項目を表示し、未公開・読取失敗・audience除外時にAMD内部値や旧版へfallbackしない。先頭は研究機関が返すもの、相手待ち、次期限、現在地、4本柱を表示する |
-| `/auth/login` | ログイン。`audience` で内部 (`armada` = Google Workspace OAuth) と外部 (`institution` = メールリンク) を出し分ける。`?audience=institution` または `?workspace=` があれば外部入口として開く |
+| `/auth/login` | ログイン。`audience` で内部 (`armada` = Google Workspace OAuth) と外部 (`institution` = メールリンク) を出し分ける。`?audience=institution` または `?workspace=` があれば外部入口として開く。書斎のアドレス（`bookshelf-armada.vercel.app`）で開いたときは「書斎」の見出しと内部ログインだけを出し、題と manifest も書斎のもの（`auth/login/layout.tsx`、2026-10-04） |
 | `/auth/logout` | 統一ログアウト。`amd_os_workspace_session` と旧 `amd_os_project_session` の両cookieを消し、Supabase も `scope:'local'` でログアウトして `/auth/login` へ戻す |
 | `/dd` | DD の入口。外部アカウントは閲覧できるパッケージが1つならそのトップへ、複数なら一覧。AMD admin には全パッケージのプレビューと管理画面への入口。admin 以外の内部メンバーは not found |
 | `/dd/[slug]` / `/dd/[slug]/items/[itemId]` | DDトップと項目1件（投資家・金融機関向け）。`dd_package_grants` の有効な付与（公開中のパッケージ・期限内・`dd.view`）か AMD admin のプレビューだけで開き、公開中（`is_published`）の有効な項目だけを出す（admin は非公開の項目も開ける）。中身は閲覧のたびに元データの最新を、ワークスペースと同じ部品で描く。非公開・外した・別パッケージ・権限なしはすべて not found |

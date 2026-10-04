@@ -24,7 +24,7 @@ import {
   splitByH1,
 } from "../src/lib/bzm-reader/preprocess.ts";
 import { protectMath } from "../src/lib/bzm-reader/protect-math.ts";
-import { AMD_OS_HOST, SHOSAI_HOST, readerHostRedirect } from "../src/lib/bzm-reader/hosts.ts";
+import { AMD_OS_HOST, SHOSAI_HOST, isShosaiHost, readerHostRedirect } from "../src/lib/bzm-reader/hosts.ts";
 import { bookProgressFraction, remainingMinutes } from "../src/lib/bzm-reader/progress.ts";
 import {
   loadReaderBookmarks,
@@ -749,6 +749,11 @@ function strayDollars(text: string): number {
   // その他のアドレス（プレビュー、手元の開発）は振り分けない
   assert.equal(readerHostRedirect(at("http://localhost:3000/bzm/read"), "localhost:3000"), null);
   assert.equal(readerHostRedirect(at("https://amd-os-abc123-armada0130.vercel.app/bzm/read"), "amd-os-abc123-armada0130.vercel.app"), null);
+  // ログイン画面の出し分け
+  assert.equal(isShosaiHost(SHOSAI_HOST), true);
+  assert.equal(isShosaiHost("BOOKSHELF-ARMADA.vercel.app:443"), true);
+  assert.equal(isShosaiHost(AMD_OS_HOST), false);
+  assert.equal(isShosaiHost(null), false);
   console.log("  書斎のアドレスの振り分け: ok");
 }
 
