@@ -1,5 +1,6 @@
 "use client";
 
+import { loadWorkspaceMeetings } from "@/lib/workspace-meetings-client";
 import { useEffect, useState } from "react";
 import type { ProjectStrategySignal } from "@/lib/supabase-data";
 import { CockpitStrategySignals } from "@/components/cockpit/CockpitStrategySignals";
@@ -11,12 +12,8 @@ export function WorkspaceMeetings({ projectId, readOnly }: { projectId: string; 
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/project/${encodeURIComponent(projectId)}/workspace-meetings`)
-      .then(async (response) => {
-        const json = await response.json();
-        if (!response.ok || !json.ok) throw new Error("動向を読み込めない");
-        if (!cancelled) setSignals(json.signals);
-      })
+    loadWorkspaceMeetings(projectId)
+      .then((payload) => { if (!cancelled) setSignals(payload.signals); })
       .catch(() => {
         if (!cancelled) setError("動向を読み込めない。再読み込みして。");
       });

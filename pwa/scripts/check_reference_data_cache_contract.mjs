@@ -33,6 +33,12 @@ const BASELINE_PATH = path.join(scriptDir, "reference_data_cache_baseline.json")
 /** 参照系として確定済みのエンドポイント。新しい参照系データを足したらここへ登録する。 */
 const REFERENCE_DATA_ENDPOINTS = [
   {
+    endpoint: "/api/project/:p/workspace-meetings",
+    label: "共有PJの動向・会議",
+    routeFile: "src/app/api/project/[projectId]/workspace-meetings/route.ts",
+    clientModule: "src/lib/workspace-meetings-client.ts",
+  },
+  {
     // 2026-10-03: 事業計画タブ（フェーズマトリクス）を全PJ同じ形にし、中身を project_business_plans へ移した（spec 3-23）。
     endpoint: "/api/project-business-plan",
     label: "事業計画（フェーズマトリクス）",

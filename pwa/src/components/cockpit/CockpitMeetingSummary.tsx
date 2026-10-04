@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { loadWorkspaceMeetings } from "@/lib/workspace-meetings-client";
 import { fetchProjectMeetingSummaries, type ProjectMeetingSummary } from "@/lib/supabase-data";
 import {
   groupUpcomingMeetingsBySeries,
@@ -113,12 +114,9 @@ export function CockpitMeetingSummary({ projectId, sharedWorkspace = false, read
   const [selectedMeeting, setSelectedMeeting] = useState<ProjectMeetingSummary | null>(null);
 
   const [loadError, setLoadError] = useState<string | null>(null);
-  const loadMeetings = useCallback(async (id: string, options: {sinceDate?: string}) => {
+  const loadMeetings = useCallback(async (id: string, options: {sinceDate?: string; force?: boolean}) => {
     if (!sharedWorkspace) return fetchProjectMeetingSummaries(id, options);
-    const response = await fetch(`/api/project/${encodeURIComponent(id)}/workspace-meetings${options.sinceDate ? `?since=${encodeURIComponent(options.sinceDate)}` : ""}`);
-    const json = await response.json();
-    if (!response.ok || !json.ok) throw new Error("会議を読み込めない");
-    return json.meetings as ProjectMeetingSummary[];
+    return (await loadWorkspaceMeetings(id, options)).meetings;
   }, [sharedWorkspace]);
   const sinceDate = useMemo(() => todayMinus365IsoDate(), []);
   // /project/[id]/cockpit?meeting=<meeting_id> で開いた場合、対象 meeting の詳細モーダルを auto-open
@@ -146,7 +144,7 @@ export function CockpitMeetingSummary({ projectId, sharedWorkspace = false, read
   async function reloadRecentMeetings() {
     setRefreshing(true);
     try {
-      const next = await loadMeetings(projectId, { sinceDate });
+      const next = await loadMeetings(projectId, { sinceDate, force: true });
       setRecentItems(next);
       setOlderLoaded(false);
       setOlderItems([]);
