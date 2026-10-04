@@ -203,7 +203,8 @@ export function CockpitMeetingSummary({ projectId, sharedWorkspace = false, read
     params.delete("ym");
     params.delete("step");
     const next = params.toString();
-    return next ? `${pathname}?${next}` : pathname;
+    const url = next ? `${pathname}?${next}` : pathname;
+    return sharedWorkspace ? `${url}#meetings` : url;
   }
 
   function openSelectedMeeting(meeting: ProjectMeetingSummary) {
@@ -222,7 +223,8 @@ export function CockpitMeetingSummary({ projectId, sharedWorkspace = false, read
       const params = new URLSearchParams(searchParams.toString());
       params.delete("meeting");
       const next = params.toString();
-      router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
+      const url = next ? `${pathname}?${next}` : pathname;
+      router.replace(sharedWorkspace ? `${url}#meetings` : url, { scroll: false });
     }
   };
 
