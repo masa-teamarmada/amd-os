@@ -90,15 +90,16 @@ type CompanyOverviewSurface = "cockpit" | "workspace";
 export function CockpitCompanyOverview({
   projectId,
   projectName,
-  surface,
   readOnly = false,
   initialData,
+  initialKillerFactors,
   initialBusinessSummary,
   canDownload = true,
 }: {
   projectId: string;
   projectName: string;
   surface: CompanyOverviewSurface;
+  initialKillerFactors?: import("@/lib/project-killer-factor-types").KillerFactorItem[];
   readOnly?: boolean;
   initialData?: CompanyOverviewData;
   initialBusinessSummary?: BusinessSummaryResponse;
@@ -115,6 +116,7 @@ export function CockpitCompanyOverview({
   const exportRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
+    if (initialData) return;
     setLoading(true);
     setError("");
     try {
@@ -124,7 +126,7 @@ export function CockpitCompanyOverview({
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, initialData]);
 
   useEffect(() => { if (initialData === undefined) void load(); }, [load, initialData]);
 
@@ -290,7 +292,7 @@ export function CockpitCompanyOverview({
           </div>
         </Section>
 
-        {surface === "cockpit" && <CockpitKillerFactorCatalog projectId={projectId} />}
+        <CockpitKillerFactorCatalog projectId={projectId} initialItems={initialKillerFactors} readOnly={readOnly} />
 
 
 

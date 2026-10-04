@@ -5,6 +5,7 @@ import { loadDdItemView, loadDdPackageView, recordDdAccessEvent } from "@/lib/dd
 import { ddPageForItem } from "@/lib/dd-pages";
 import { DdViewerShell } from "@/components/dd/DdViewerShell";
 import { DdPackageTop } from "@/components/dd/DdPackageTop";
+import { loadDdProjectPage } from "@/lib/dd-project-pages-server";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -27,9 +28,10 @@ export default async function DdItemPage({ params }: { params: Promise<{ slug: s
     title: item.title, summary: item.summary, sourceAsOf: view.live?.sourceAsOf ?? null,
     unverifiedNotes: view.unverifiedNotes, unavailable: !view.live,
   };
+  const canonicalPage = selectedItem.pageKey === "documents" ? undefined : await loadDdProjectPage(access.projectId, selectedItem.pageKey);
   return (
     <DdViewerShell access={access} projectName={packageView.projectName}>
-      <DdPackageTop view={packageView} slug={access.slug} selectedItem={selectedItem} canDownload={hasDdCapability(access, "dd.download")} />
+      <DdPackageTop view={packageView} slug={access.slug} selectedItem={selectedItem} canonicalPage={canonicalPage} canDownload={hasDdCapability(access, "dd.download")} />
     </DdViewerShell>
   );
 }

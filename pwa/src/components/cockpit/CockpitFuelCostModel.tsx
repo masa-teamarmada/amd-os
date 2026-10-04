@@ -60,6 +60,7 @@ interface Props {
   projectId: string;
   /** ワークスペース側など、保存させない面では false。試算 (画面上の書き換え) はどちらの面でもできる。 */
   allowEdit?: boolean;
+  initialData?: import("@/lib/project-cost-model-client").CostModelResponse;
 }
 
 export interface FuelViewState {
@@ -85,8 +86,8 @@ export function formatFuelDraftValue(change: Pick<DraftChange, "field">, value: 
   return formatDraftValue(change.field, value);
 }
 
-export function CockpitFuelCostModel({ projectId, allowEdit = true }: Props) {
-  const cached = peekProjectFuelCostModel(projectId);
+export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData }: Props) {
+  const cached = initialData ?? peekProjectFuelCostModel(projectId);
   const [bundle, setBundle] = useState<CostModelBundle | null>(cached?.bundle ?? null);
   const [canEdit, setCanEdit] = useState(!!cached?.canEdit && allowEdit);
   const [state, setState] = useState<"loading" | "ready" | "empty" | "error">(
@@ -125,7 +126,7 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true }: Props) {
   const load = useCallback(
     async (force = false) => {
       try {
-        const res = await loadProjectFuelCostModel(projectId, { force });
+        const res = initialData ?? await loadProjectFuelCostModel(projectId, { force });
         setCanEdit(res.canEdit && allowEdit);
         if (!res.bundle || !isFuelModel(res.bundle.model)) return setState("empty");
         const next = res.bundle;
@@ -137,7 +138,7 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true }: Props) {
         setState("error");
       }
     },
-    [projectId, allowEdit, setDraft]
+    [projectId, allowEdit, setDraft, initialData]
   );
 
   useEffect(() => {

@@ -61,13 +61,9 @@ for (const tab of ["technology", "competition", "business-model", "business-plan
 }
 assert.doesNotMatch(externalAllowlist[1], /"overview"/, "PJ概要は cockpit-only");
 assert.match(sxWorkspaceDashboard, /surface="workspace" readOnly=\{externalViewer\}/, "workspace company overview must be read-only for external PJ members");
-assert.doesNotMatch(sxWorkspaceDashboard, /CockpitKillerFactorCatalog/, "workspace must not mount the killer-factor catalog");
-assert.match(companyOverview, /surface === "cockpit" && <CockpitKillerFactorCatalog/, "killer-factor catalog must be cockpit-only");
-assert.match(governanceRoute, /profile: profileRes\.data \?\? null/, "workspace company overview must receive the company profile");
-assert.match(governanceRoute, /const SHARED_WORKSPACE_PROFILE_FIELDS/, "workspace company profile needs an explicit safe-field allowlist");
-assert.match(governanceRoute, /select\(sharedWorkspaceRead \? SHARED_WORKSPACE_PROFILE_FIELDS : "\*"\)/, "workspace company profile must not use the internal full-record query");
-assert.match(governanceRoute, /sharedWorkspaceRead \? noSharedWorkspaceRows : db\.from\("project_financial_periods"\)/, "workspace must not fetch annual financial records");
-assert.match(governanceRoute, /共有面からはカタログ自体をマウントしない/, "governance route must document the killer-factor boundary");
+assert.match(companyOverview, /<CockpitKillerFactorCatalog[\s\S]*readOnly=\{readOnly\}/, "company page content is common; operations follow viewer permissions");
+assert.match(governanceRoute, /loadProjectGovernance\(db, projectId\)/, "workspace and cockpit use the same governance loader");
+assert.match(governanceRoute, /hasSharedWorkspaceProjectReadAccess\(projectId\)/, "shared readers still need the exact PJ membership");
 assert.match(sxWorkspaceDashboard, /\(externalViewer \|\| isZmpWorkspace \? "issues" : "weekly"\)/);
 assert.doesNotMatch(sxWorkspaceDashboard, /"themes"/, "retired theme tab must not return");
 assert.match(

@@ -1,3 +1,5 @@
+import { hasSharedWorkspaceProjectReadAccess } from "@/lib/shared-workspace-project-read-access";
+import { loadCapitalPlanPage } from "@/lib/project-capital-plan-server";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireMember } from "@/lib/supabase/api-auth";
@@ -70,10 +72,14 @@ function toCapitalPlan(row: { id: string; name: string; document_json: unknown }
 /** GET /api/governance/capital-plans?projectId=p09[&planId=...] */
 export async function GET(req: NextRequest) {
   const auth = await requireMember();
-  if (!auth.ok) return auth.errorResponse;
-
   const projectId = req.nextUrl.searchParams.get("projectId");
   if (!projectId) return badRequest("projectId required");
+  if (!auth.ok) {
+    if (!await hasSharedWorkspaceProjectReadAccess(projectId)) return auth.errorResponse;
+    const data = await loadCapitalPlanPage(createAdminClient(), projectId);
+    const planId = req.nextUrl.searchParams.get("planId");
+    return NextResponse.json({ ok: true, plans: planId ? data.plans.filter(row => row.id === planId) : data.plans, versions: planId ? data.versions.filter(row => row.plan_id === planId) : data.versions });
+  }
   const planId = req.nextUrl.searchParams.get("planId");
 
   const db = createAdminClient();

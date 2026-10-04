@@ -4,6 +4,8 @@ import { loadDdPackageView, recordDdAccessEvent } from "@/lib/dd-package-server"
 import { DdViewerShell } from "@/components/dd/DdViewerShell";
 import { DdPackageTop } from "@/components/dd/DdPackageTop";
 import { hasDdCapability } from "@/lib/dd-package-core";
+import { DD_PAGE_KEYS } from "@/lib/dd-pages";
+import { loadDdProjectPage } from "@/lib/dd-project-pages-server";
 
 export const dynamic = "force-dynamic";
 
@@ -19,9 +21,12 @@ export default async function DdPackagePage({ params, searchParams }: { params: 
   await recordDdAccessEvent(access, "dd_package_viewed");
 
   const { section, tab } = await searchParams;
+  const legacyPage = view.sections.find((row) => row.key === section)?.items[0]?.pageKey;
+  const pageKey = (tab && DD_PAGE_KEYS.includes(tab) ? tab : legacyPage) ?? "technology";
+  const canonicalPage = pageKey === "documents" ? undefined : await loadDdProjectPage(access.projectId, pageKey);
   return (
     <DdViewerShell access={access} projectName={view.projectName}>
-      <DdPackageTop view={view} slug={access.slug} sectionKey={section} tab={tab} canDownload={hasDdCapability(access, "dd.download")} />
+      <DdPackageTop view={view} slug={access.slug} sectionKey={section} tab={pageKey} canonicalPage={canonicalPage} canDownload={hasDdCapability(access, "dd.download")} />
     </DdViewerShell>
   );
 }

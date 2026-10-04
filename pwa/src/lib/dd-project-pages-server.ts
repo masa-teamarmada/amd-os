@@ -1,3 +1,5 @@
+import { loadProjectGovernance } from "./project-governance-server";
+import { loadProjectKillerFactors } from "./project-killer-factors-server";
 import "server-only";
 import { createAdminClient } from "./supabase/admin";
 import { buildDagHealth } from "./project-management-logic";
@@ -7,19 +9,29 @@ import { loadProjectBusinessPlan } from "./project-business-plan-server";
 import { normalizeBzm22AcquisitionRow } from "./bzm-2-2-acquisitions";
 import { buildAmdContributionsPayload, normalizeActivityRow, normalizeMeetingRow, type AmdContributionItem } from "./amd-contributions";
 import { projectFormatTypeOf } from "./project-formats";
-import { isDdSharedPageKey } from "./dd-package-core";
+import { DD_PAGE_KEYS } from "./dd-pages";
+import { loadProjectTechData } from "./project-tech-server";
+import { loadProjectFinancePage } from "./project-finance-page-server";
+import { loadCapitalPlanPage } from "./project-capital-plan-server";
+import { loadCostModelBundle } from "@/app/api/project-cost-model/route";
 import type { DdLiveProjectPage } from "./dd-project-page-types";
-import type { CompanyOverviewData } from "./company-overview";
 import type { IpPortfolioBundle } from "@/components/cockpit/CockpitIpPortfolio";
 import type { Grant } from "@/components/cockpit/CockpitGrants";
 
-/** 呼び出す前にDDの付与と項目の公開を確認する。汎用APIの権限をDDへ広げない。 */
+/** 呼び出す前に当該DDへの入場権限を確認する。ページは共通定義の全内容を読む。 */
 export async function loadDdProjectPage(projectId: string, page: string): Promise<DdLiveProjectPage> {
-  if (!isDdSharedPageKey(page)) throw new Error("Unsupported DD page");
+  if (!DD_PAGE_KEYS.includes(page) || page === "documents") throw new Error("Unsupported DD page");
   const db = createAdminClient();
   const identity = await db.from("projects").select("project_name,display_name,project_category").eq("project_id", projectId).single();
   if (identity.error) throw new Error(identity.error.message);
   const base = { kind: "project_page" as const, projectId, projectName: identity.data.display_name || identity.data.project_name };
+  if (page === "technology" || page === "competition" || page === "business-model") return { ...base, page, tech: await loadProjectTechData(db, projectId) };
+  if (page === "financial-projection") return { ...base, page, finance: await loadProjectFinancePage(db, projectId) };
+  if (page === "capital-plan") return { ...base, page, capital: await loadCapitalPlanPage(db, projectId) };
+  if (page === "cost-model") {
+    const [main, fuel] = await Promise.all([loadCostModelBundle(projectId, "default"), loadCostModelBundle(projectId, "fuel")]);
+    return { ...base, page, costs: { main: { canEdit: false, bundle: main }, fuel: { canEdit: false, bundle: fuel } } };
+  }
   if (page === "gantt") return { ...base, page, tree: await getQuestionTreeBundle(projectId, false, false) };
   if (page === "partners") {
     const all = await getSxManagementBundle(projectId, false);
@@ -32,18 +44,13 @@ export async function loadDdProjectPage(projectId: string, page: string): Promis
   }
   if (page === "business-plan") return { ...base, page, plan: await loadProjectBusinessPlan(projectId) };
   if (page === "company" || page === "capital-policy") {
-    const [profile, shareholders, transactions, convertibles, rounds, business] = await Promise.all([
-      page === "company" ? db.from("project_company_profiles").select("id,project_id,legal_status,legal_name,legal_name_en,corporate_number,entity_type,incorporated_on,head_office,business_purpose,representative_name,capital_yen,authorized_shares,registered_issued_shares,board_structure,has_board,has_auditor,fiscal_year_end_month,public_notice_method,invoice_registration_number,source_ref,source_verified_on").eq("project_id", projectId).maybeSingle() : Promise.resolve({ data: null, error: null }),
-      db.from("project_shareholders").select("id,holder_type,holder_name,share_class,shares,ownership_pct,invested_yen,as_of_ym,is_current").eq("project_id", projectId).order("holder_type"),
-      db.from("project_equity_transactions").select("id,project_id,round_id,effective_on,transaction_type,description,status,source_ref,notes,project_equity_entries(id,holder_type,holder_name,security_class,outstanding_delta,diluted_delta,paid_in_yen_delta)").eq("project_id", projectId).order("effective_on").order("created_at"),
-      db.from("project_convertible_instruments").select("id,holder_name,instrument_type,issued_on,principal_yen,valuation_cap_yen,discount_rate,conversion_trigger,maturity_on,estimated_conversion_price,estimated_conversion_shares,status,notes").eq("project_id", projectId).order("issued_on", {ascending:false,nullsFirst:false}),
-      db.from("project_valuation_rounds").select("id,round_name,round_date,round_ym,pre_money_yen,post_money_yen,raised_yen,price_per_share_yen,lead_investor,source_ref,notes").eq("project_id", projectId).order("round_date", {ascending:false,nullsFirst:false}),
+    const [governance, business, killerFactors] = await Promise.all([
+      loadProjectGovernance(db, projectId),
       page === "company" ? db.from("project_business_summaries").select("summary,detail,updated_at").eq("project_id", projectId).maybeSingle() : Promise.resolve({ data: null, error: null }),
+      page === "company" ? loadProjectKillerFactors(db, projectId) : Promise.resolve([]),
     ]);
-    const error = [profile, shareholders, transactions, convertibles, rounds, business].find(r=>r.error)?.error;
-    if (error) throw new Error(error.message);
-    const governance = { profile: profile.data, shareholders: shareholders.data ?? [], transactions: transactions.data ?? [], convertibles: convertibles.data ?? [], rounds: rounds.data ?? [], financialPeriods: [], meetings: [], actionItems: [] } as CompanyOverviewData;
-    return { ...base, page, governance, businessSummary: {ok: true, business: business.data ? {summary:business.data.summary, detail:business.data.detail, updatedAt:business.data.updated_at, updatedBy:null} : null, viewer:{canEdit:false}} };
+    if (business.error) throw new Error(business.error.message);
+    return { ...base, page, governance, killerFactors, businessSummary: {ok: true, business: business.data ? {summary:business.data.summary, detail:business.data.detail, updatedAt:business.data.updated_at, updatedBy:null} : null, viewer:{canEdit:false}} };
   }
   if (page === "ip") {
     const [assets, deadlines, events] = await Promise.all([

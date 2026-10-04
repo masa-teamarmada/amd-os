@@ -1,5 +1,7 @@
 # 要対応案件 + 株主・ガバナンス・保有株式 (Action Items & Governance/Cap-table) 設計
 
+2026-10-04: 会社概要の本文は3領域で同一の元データ・部品を使用。共有ワークスペースでも決算・総会・要対応・キラー要素を読み取り専用で表示する。DDは独立した入場認可後に同じローダーから取得。汎用APIのDD権限は追加せず、書込みは従来のAMDメンバー認可のまま。仕様はspec/5-17・3-24。
+
 **ステータス**: 実装中 (2026-06-15 起票・まさ承認)。DDL は migration `137_governance_and_action_items.sql` (136 は別セッションの tasks 拡張が先取りしたため 137 に採番)。
 
 **2026-07-16 追記**: PJ cockpit の「株主・ガバナンス」欄 (`CockpitGovernance.tsx`) は「会社概要」常設タブ (`CockpitCompanyOverview.tsx`) へ統合し削除した。cap table / valuation / 総会役会は migration `174_project_company_overview_and_equity_ledger.sql` で追加した `project_company_profiles` / `project_equity_transactions` / `project_equity_entries` / `project_convertible_instruments` / `project_financial_periods` とあわせて会社概要タブ配下に集約する。**まさ確定によりRLSも変更**: cap table / ラウンド / 総会役会は、以降「admin 限定」ではなく「members 登録済みの AMD メンバー全員が閲覧・編集可」に緩和した (`amd_os_is_member()` gate 関数、`/api/governance` は `requireMember`)。本章の以下の記述のうち「admin gate」「anon/authenticated への付与なし」等の RLS 方針は、この 2026-07-16 の変更で上書きされている。詳細は `pwa/spec/3-8-cockpit-current-spec.md` と `pwa/design/FEATURE_REGISTRY.md` の「株主・ガバナンス + 要対応」節を正とする。

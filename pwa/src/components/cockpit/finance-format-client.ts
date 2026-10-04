@@ -5,6 +5,7 @@
  * 画面からは素の fetch を書かない（spec 5-10）。保存した画面は該当のキャッシュを捨てる。
  */
 
+import { FINANCE_CASHFLOW_COLUMNS } from "@/lib/project-finance-page-data";
 import { createClient } from "@/lib/supabase/client";
 import { invalidateReferenceData, loadReferenceData, peekReferenceData } from "@/lib/reference-data-cache";
 import type { FinanceCashSourceRow } from "@/lib/project-finance-format";
@@ -14,28 +15,6 @@ const CAPITAL_PLAN_KEY = "cockpit/finance-format/capital-plan/";
 const GRANTS_KEY = "cockpit/finance-format/grants/";
 const FOUNDED_KEY = "cockpit/finance-format/founded/";
 
-const CASHFLOW_COLUMNS = [
-  "ym",
-  "source_status",
-  "operating_cash_flow_yen",
-  "investing_cash_flow_yen",
-  "equity_funding_yen",
-  "grant_receipt_yen",
-  "cash_inflow_yen",
-  "sbir_payment_yen",
-  "nedo_payment_yen",
-  "working_capital_payment_yen",
-  "free_cash_flow_yen",
-  "financing_cash_flow_yen",
-  "net_cash_flow_yen",
-  "opening_cash_yen",
-  "closing_cash_yen",
-  "sbir_account_balance_yen",
-  "working_capital_balance_yen",
-  "bank_borrowing_balance_yen",
-  "source_note",
-  "planning_details_json",
-].join(", ");
 
 /** 月次C/F（資金計画の列を含む）。1,000行の上限を跨いでも黙って切れないよう、500行ずつ読む。 */
 export function getCachedFinanceCashflow(projectId: string): FinanceCashSourceRow[] | undefined {
@@ -49,7 +28,7 @@ export function loadFinanceCashflow(projectId: string): Promise<FinanceCashSourc
     for (let from = 0; ; from += 500) {
       const { data, error } = await supabase
         .from("project_monthly_cashflow")
-        .select(CASHFLOW_COLUMNS)
+        .select(FINANCE_CASHFLOW_COLUMNS)
         .eq("project_id", projectId)
         .order("ym")
         .range(from, from + 499);

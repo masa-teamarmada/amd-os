@@ -5817,7 +5817,7 @@ export function SxWeeklyControlDashboard({
         )}
         {activeView === "capital-plan" && (
           <section id="capital-plan" className={styles.section} role="tabpanel" aria-label="資本政策表">
-            <CockpitCapitalPlan projectId={bundle.project.projectId} projectName={bundle.project.projectName} />
+            <CockpitCapitalPlan projectId={bundle.project.projectId} projectName={bundle.project.projectName} readOnly={externalViewer} />
           </section>
         )}
         {activeView === "company" && (

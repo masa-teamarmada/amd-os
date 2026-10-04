@@ -1161,6 +1161,7 @@ function TechTopicPager({
 
 interface Props {
   projectId: string;
+  initialData?: ProjectTechResponse;
   /**
    * technology = 技術タブ (区分「競合比較」「ビジネスモデル」を除く) / competition = 事業計画グループの競合比較タブ (区分「競合比較」だけ) /
    * business-model = 事業計画グループのビジネスモデルタブ (区分「ビジネスモデル」だけ)。振り分けは techLedgerTabOf。
@@ -1169,7 +1170,7 @@ interface Props {
   mode?: TechLedgerTab;
 }
 
-export function CockpitTechnology({ projectId, mode = "technology" }: Props) {
+export function CockpitTechnology({ projectId, mode = "technology", initialData }: Props) {
   const competition = mode === "competition";
   const businessModel = mode === "business-model";
   // 競合比較とビジネスモデルは区分が1つ。区分のタブ・全体像・未整理の断片を持たない。
@@ -1180,7 +1181,7 @@ export function CockpitTechnology({ projectId, mode = "technology" }: Props) {
   // (cockpit/page.tsx と同じ流儀)。キャッシュ済みなら peek で即描画する。
   const [loaded, setLoaded] = useState<{ projectId: string; data: ProjectTechResponse | null }>(() => ({
     projectId,
-    data: peekProjectTech(projectId) ?? null,
+    data: initialData ?? peekProjectTech(projectId) ?? null,
   }));
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -1204,7 +1205,7 @@ export function CockpitTechnology({ projectId, mode = "technology" }: Props) {
 
   const reload = useCallback(
     (force = false) =>
-      loadProjectTech(projectId, { force })
+      (initialData ? Promise.resolve(initialData) : loadProjectTech(projectId, { force }))
         .then((d) => {
           setLoaded({ projectId, data: d });
           return d;
@@ -1213,14 +1214,14 @@ export function CockpitTechnology({ projectId, mode = "technology" }: Props) {
           setError(e instanceof Error ? e.message : "読み込みに失敗");
           return null;
         }),
-    [projectId]
+    [projectId, initialData]
   );
 
   useEffect(() => {
-    void reload();
-  }, [projectId, reload]);
+    if (!initialData) void reload();
+  }, [projectId, reload, initialData]);
 
-  const rawData = loaded.projectId === projectId ? loaded.data : peekProjectTech(projectId) ?? null;
+  const rawData = initialData ?? (loaded.projectId === projectId ? loaded.data : peekProjectTech(projectId) ?? null);
   // 技術タブは区分「競合比較」「ビジネスモデル」を除き、それぞれのタブはその区分だけを出す。未整理の断片は技術タブだけ。
   const data = useMemo<ProjectTechResponse | null>(() => {
     if (!rawData) return null;

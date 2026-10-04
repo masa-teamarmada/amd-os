@@ -36,36 +36,14 @@ import { CapitalPlanMatrix } from "./CapitalPlanMatrix";
 // Types mirroring the API rows
 // ---------------------------------------------------------------------------
 
-interface PlanRow {
-  id: string;
-  project_id: string;
-  name: string;
-  status: "active" | "archived";
-  revision: number;
-  document_json: { holders?: Holder[]; events?: CapitalEvent[] };
-  created_by_email: string;
-  updated_by_email: string;
-  created_at: string;
-  updated_at: string;
-  latest_frozen_version?: number | null;
-}
-
-interface VersionRow {
-  id: string;
-  plan_id: string;
-  project_id: string;
-  version: number;
-  document_json: { holders?: Holder[]; events?: CapitalEvent[] };
-  source_revision: number;
-  validation_summary: { blockingIssues?: ValidationIssue[]; warnings?: ValidationIssue[] };
-  published_by_email: string;
-  published_at: string;
-}
+import type { CapitalPlanRow as PlanRow, CapitalPlanVersionRow as VersionRow, CapitalPlanPageData } from "@/lib/project-capital-plan-data";
 
 interface CapitalPlanWorkspaceProps {
   projectId: string;
   projectName: string;
   companyOverviewData?: CompanyOverviewData;
+  initialData?: CapitalPlanPageData;
+  readOnly?: boolean;
 }
 
 const EVENT_TYPE_LABEL: Record<CapitalEventType, string> = {
@@ -206,7 +184,7 @@ function scaleEditableValue(ev: EditableValue | undefined, factor: number): Edit
 // Main component
 // ---------------------------------------------------------------------------
 
-export default function CapitalPlanWorkspace({ projectId, projectName, companyOverviewData }: CapitalPlanWorkspaceProps) {
+export default function CapitalPlanWorkspace({ projectId, projectName, companyOverviewData, initialData, readOnly = false }: CapitalPlanWorkspaceProps) {
   const [plans, setPlans] = useState<PlanRow[]>([]);
   const [versions, setVersions] = useState<VersionRow[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
@@ -251,8 +229,7 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/governance/capital-plans?projectId=${encodeURIComponent(projectId)}`);
-        const json = await res.json();
+        const json = initialData ? { ok: true, error: undefined, ...initialData } : await (await fetch(`/api/governance/capital-plans?projectId=${encodeURIComponent(projectId)}`)).json();
         if (!json.ok) throw new Error(json.error ?? "読み込みに失敗しました");
         const nextPlans: PlanRow[] = json.plans ?? [];
         setPlans(nextPlans);
@@ -271,7 +248,7 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
         setLoading(false);
       }
     },
-    [projectId],
+    [projectId, initialData],
   );
 
   function selectPlan(row: PlanRow) {
@@ -308,7 +285,7 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
   useEffect(() => {
     void loadPlans();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
+  }, [projectId, initialData]);
 
   const selectedPlanRow = plans.find((p) => p.id === selectedPlanId) ?? null;
   const planVersions = versions
@@ -476,6 +453,7 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
   }, [runPersist]);
 
   function updatePlan(updater: (draft: CapitalPlan) => CapitalPlan) {
+    if (readOnly) return;
     const planId = selectedPlanIdRef.current;
     if (!planId) return;
     // Always compute from latestPlanRef.current (not React state) and assign the result back to
@@ -724,7 +702,7 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
         version: version.version,
         source_revision: String(version.source_revision),
         published_at: version.published_at,
-        published_by: version.published_by_email,
+        published_by: version.published_by_email ?? "",
         document_json: JSON.stringify(version.document_json),
         status: "frozen",
         validation,
@@ -1501,6 +1479,7 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
           </select>
         </label>
 
+        {!readOnly && <>
         {renaming ? (
           <input
             autoFocus
@@ -1605,6 +1584,7 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
           {saveState === "error" && "保存エラー"}
           {saveState === "idle" && ""}
         </span>
+        </>}
       </div>
 
       {saveState === "conflict" && conflictServerPlan && (
@@ -1706,12 +1686,13 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
             onAddHolder={addHolder}
             onAddEvent={addEvent}
             onRenameHolder={(holderId, name) => updateHolder(holderId, { name })}
+            readOnly={readOnly}
           />
 
           {/* Selected event editor */}
           <details className="rounded-lg border border-zinc-200 bg-white p-3">
             <summary className="cursor-pointer text-sm font-semibold text-zinc-700">株主・イベント詳細設定</summary>
-            <div className="mt-3">
+            <fieldset disabled={readOnly} className={`mt-3 ${readOnly ? "[&_button]:hidden" : ""}`}>
               <EventEditor
                 event={selectedEvent}
                 holders={plan.holders}
@@ -1732,7 +1713,7 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
                   sortedEvents.findIndex((e) => e.id === selectedEventId) < sortedEvents.length - 1
                 }
               />
-            </div>
+            </fieldset>
           </details>
 
           {/* Frozen versions */}
@@ -1749,8 +1730,9 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
                   >
                     <span className="font-semibold">v{v.version}</span>
                     <span className="text-zinc-500">
-                      {new Date(v.published_at).toLocaleString("ja-JP")} / {v.published_by_email}
+                      {new Date(v.published_at).toLocaleString("ja-JP")}{!readOnly && ` / ${v.published_by_email ?? ""}`}
                     </span>
+                    {!readOnly && <>
                     <button
                       className="ml-auto min-h-[44px] rounded-md border border-zinc-300 px-3 hover:bg-zinc-50 disabled:opacity-40"
                       onClick={() => exportFrozenVersion(v)}
@@ -1765,6 +1747,7 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
                     >
                       この版を復元
                     </button>
+                    </>}
                   </div>
                 ))}
               </div>

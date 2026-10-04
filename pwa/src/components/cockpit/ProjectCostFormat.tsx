@@ -44,6 +44,7 @@ interface Props {
   projectId: string;
   /** ワークスペース・DD など、保存させない面では false。試算（画面上の書き換え）はどの面でもできる。 */
   allowEdit?: boolean;
+  initialData?: import("@/lib/project-cost-model-client").CostModelResponse;
 }
 
 // 試算中の変更とケースの選択は、タブを行き来しても消えないようにモジュールに持つ（再読み込みで消える）。
@@ -52,8 +53,8 @@ const caseMemory = new Map<string, string>();
 
 const sectionLabel = (key: (typeof COST_FORMAT_SECTIONS)[number]["key"]) => COST_FORMAT_SECTIONS.find((s) => s.key === key)?.label ?? key;
 
-export function ProjectCostFormat({ projectId, allowEdit = true }: Props) {
-  const cached = peekProjectCostModel(projectId);
+export function ProjectCostFormat({ projectId, allowEdit = true, initialData }: Props) {
+  const cached = initialData ?? peekProjectCostModel(projectId);
   const [bundle, setBundle] = useState<CostModelBundle | null>(cached?.bundle ?? null);
   const [canEdit, setCanEdit] = useState(!!cached?.canEdit && allowEdit);
   const [state, setState] = useState<"loading" | "ready" | "empty" | "error">(cached ? (cached.bundle ? "ready" : "empty") : "loading");
@@ -87,7 +88,7 @@ export function ProjectCostFormat({ projectId, allowEdit = true }: Props) {
   const load = useCallback(
     async (force = false) => {
       try {
-        const res = await loadProjectCostModel(projectId, { force });
+        const res = initialData ?? await loadProjectCostModel(projectId, { force });
         setCanEdit(res.canEdit && allowEdit);
         if (!res.bundle) return setState("empty");
         const next = res.bundle;
@@ -99,7 +100,7 @@ export function ProjectCostFormat({ projectId, allowEdit = true }: Props) {
         setState("error");
       }
     },
-    [projectId, allowEdit, setDraft]
+    [projectId, allowEdit, setDraft, initialData]
   );
 
   useEffect(() => {

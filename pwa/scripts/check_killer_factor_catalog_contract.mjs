@@ -56,7 +56,7 @@ expectAll(graduatedMigration, [
   "成熟度",
 ], "graduated assessment migration");
 
-expectAll(route, [
+expectAll(route + read("src/lib/project-killer-factors-server.ts"), [
   "requireMember",
   ".from(\"killer_factor_catalog\")",
   ".from(\"project_killer_factor_states\")",
@@ -139,7 +139,7 @@ expectAll(designCode, [
 
 expectAll(overview, [
   'import { CockpitKillerFactorCatalog } from "@/components/cockpit/CockpitKillerFactorCatalog";',
-  "<CockpitKillerFactorCatalog projectId={projectId} />",
+  "<CockpitKillerFactorCatalog projectId={projectId} initialItems={initialKillerFactors} readOnly={readOnly} />",
 ], "company overview wiring");
 
 console.log("killer factor catalog contract: OK");

@@ -8,13 +8,21 @@ import type { Bzm22AcquisitionApiPayload } from "./bzm-2-2-acquisitions";
 import type { AmdContributionsPayload } from "./amd-contributions";
 
 import type { BusinessSummaryResponse } from "./project-overview";
+import type { ProjectTechResponse } from "./project-tech-client";
+import type { ProjectFinancePageData } from "./project-finance-page-data";
+import type { CapitalPlanPageData } from "./project-capital-plan-data";
+import type { CostModelResponse } from "./project-cost-model-client";
 
 type Identity = { kind: "project_page"; projectId: string; projectName: string };
 export type DdLiveProjectPage = Identity & (
+  | { page: "technology" | "competition" | "business-model"; tech: ProjectTechResponse }
+  | { page: "financial-projection"; finance: ProjectFinancePageData }
+  | { page: "capital-plan"; capital: CapitalPlanPageData }
+  | { page: "cost-model"; costs: { main: CostModelResponse; fuel: CostModelResponse } }
   | { page: "gantt"; tree: QuestionTreeBundle }
   | { page: "partners"; management: SxManagementBundle }
   | { page: "business-plan"; plan: ProjectBusinessPlan | null }
   | { page: "ip"; portfolio: IpPortfolioBundle }
-  | { page: "company" | "capital-policy"; governance: CompanyOverviewData; businessSummary?: BusinessSummaryResponse }
+  | { page: "company" | "capital-policy"; governance: CompanyOverviewData; killerFactors?: import("./project-killer-factor-types").KillerFactorItem[]; businessSummary?: BusinessSummaryResponse }
   | { page: "activity"; grants: Grant[]; acquisitions: Bzm22AcquisitionApiPayload; contributions: AmdContributionsPayload; showAcquisitions: boolean }
 );

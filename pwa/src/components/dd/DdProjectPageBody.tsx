@@ -9,15 +9,23 @@ import { CockpitCapitalPolicy } from "@/components/cockpit/CockpitCapitalPolicy"
 import { CockpitGrants } from "@/components/cockpit/CockpitGrants";
 import { Bzm22AcquisitionLedger } from "@/components/cockpit/Bzm22AcquisitionLedger";
 import { CockpitAmdContributions } from "@/components/cockpit/CockpitAmdContributions";
+import { CockpitTechnology } from "@/components/cockpit/CockpitTechnology";
+import { CockpitFinancialProjection } from "@/components/cockpit/CockpitFinancialProjection";
+import { CockpitCapitalPlan } from "@/components/cockpit/CockpitCapitalPlan";
+import { CockpitCostTab } from "@/components/cockpit/CockpitCostTab";
 
 const noop = () => {};
 export function DdProjectPageBody({data,canDownload=false}:{data:DdLiveProjectPage;canDownload?:boolean}) {
   switch(data.page) {
+    case "technology": case "competition": case "business-model": return <CockpitTechnology key={`${data.projectId}:${data.page}`} projectId={data.projectId} mode={data.page} initialData={data.tech} />;
+    case "financial-projection": return <CockpitFinancialProjection projectId={data.projectId} initialData={data.finance} readOnly />;
+    case "capital-plan": return <CockpitCapitalPlan projectId={data.projectId} projectName={data.projectName} initialData={data.capital} readOnly />;
+    case "cost-model": return <CockpitCostTab projectId={data.projectId} allowEdit={false} initialData={data.costs} />;
     case "gantt": return <QuestionTreeView initialBundle={data.tree} projectId={data.projectId} projectName={data.projectName} embedded mode="gantt" />;
     case "partners": return <SxPartnerPipeline management={data.management} projectId={data.projectId} onManagementChange={noop} />;
     case "business-plan": return <CockpitBusinessPlan projectId={data.projectId} projectName={data.projectName} initialPlan={data.plan} canDownload={canDownload} />;
     case "ip": return <CockpitIpPortfolio projectId={data.projectId} initialData={data.portfolio} />;
-    case "company": return <CockpitCompanyOverview projectId={data.projectId} projectName={data.projectName} surface="workspace" readOnly initialData={data.governance} initialBusinessSummary={data.businessSummary} canDownload={canDownload} />;
+    case "company": return <CockpitCompanyOverview projectId={data.projectId} projectName={data.projectName} surface="workspace" readOnly initialData={data.governance} initialKillerFactors={data.killerFactors} initialBusinessSummary={data.businessSummary} canDownload={canDownload} />;
     case "capital-policy": return <CockpitCapitalPolicy projectId={data.projectId} readOnly initialData={data.governance} />;
     case "activity": return <div className="space-y-3"><CockpitGrants projectId={data.projectId} initialGrants={data.grants} disableAttachments />{data.showAcquisitions&&<Bzm22AcquisitionLedger projectId={data.projectId} initialPayload={data.acquisitions} />}<CockpitAmdContributions projectId={data.projectId} initialPayload={data.contributions} /></div>;
   }

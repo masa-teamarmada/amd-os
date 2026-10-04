@@ -155,7 +155,7 @@ for (const [file, limit] of Object.entries(allowed)) {
 
 // --- 3. 試算表タブは標準フォーマットだけ ----------------------------------------
 const financeTab = read("src/components/cockpit/CockpitFinancialProjection.tsx");
-const financeImports = [...stripComments(financeTab).matchAll(/^import\s+.*?from\s+["']([^"']+)["']/gm)].map((match) => match[1]);
+const financeImports = [...stripComments(financeTab).matchAll(/^import\s+(?!type\b).*?from\s+["']([^"']+)["']/gm)].map((match) => match[1]);
 if (financeImports.length !== 1 || financeImports[0] !== "./ProjectFinanceFormat") {
   errors.push(`試算表タブ（CockpitFinancialProjection.tsx）は ProjectFinanceFormat だけを読み込む。今の読み込み: ${financeImports.join(", ") || "なし"}`);
 }

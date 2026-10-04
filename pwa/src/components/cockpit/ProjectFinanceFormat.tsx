@@ -59,6 +59,8 @@ import {
   type FinanceGrantEvidence,
 } from "./finance-format-client";
 
+import type { ProjectFinancePageData } from "@/lib/project-finance-page-data";
+
 const MONTH_WIDTH = 76;
 const AXIS_Y = 61;
 const TIMELINE_HEIGHT = 101;
@@ -1010,17 +1012,18 @@ export function FinanceFormatView({
  * 試算表タブ。PJのデータ（月次試算・資金繰り・資金計画・資本政策・試算の時間軸・助成金）を読み、
  * 標準フォーマットへ流し込んで描く。全PJで同じ部品・同じ読み方。
  */
-export function ProjectFinanceFormat({ projectId }: { projectId: string }) {
-  const [plRows, setPlRows] = useState(() => getCachedPlMonthly(projectId));
-  const [cashRows, setCashRows] = useState(() => getCachedFinanceCashflow(projectId));
-  const [capitalPlan, setCapitalPlan] = useState(() => getCachedFinanceCapitalPlan(projectId));
-  const [grants, setGrants] = useState(() => getCachedFinanceGrants(projectId));
-  const [pilot, setPilot] = useState<Bzm22PilotProject | null | undefined>(() => getCachedBzm22Pilot(projectId));
-  const [foundedAt, setFoundedAt] = useState(() => getCachedFinanceFoundedAt(projectId));
+export function ProjectFinanceFormat({ projectId, initialData, readOnly = false }: { projectId: string; initialData?: ProjectFinancePageData; readOnly?: boolean }) {
+  const [plRows, setPlRows] = useState(() => initialData ? initialData.plRows : getCachedPlMonthly(projectId));
+  const [cashRows, setCashRows] = useState(() => initialData ? initialData.cashRows : getCachedFinanceCashflow(projectId));
+  const [capitalPlan, setCapitalPlan] = useState(() => initialData ? initialData.capitalPlan : getCachedFinanceCapitalPlan(projectId));
+  const [grants, setGrants] = useState(() => initialData ? initialData.grants : getCachedFinanceGrants(projectId));
+  const [pilot, setPilot] = useState<Bzm22PilotProject | null | undefined>(() => initialData ? initialData.pilot : getCachedBzm22Pilot(projectId));
+  const [foundedAt, setFoundedAt] = useState(() => initialData ? initialData.foundedAt : getCachedFinanceFoundedAt(projectId));
   const [error, setError] = useState<string | null>(null);
 
   // PJを切り替えたときは親が key で作り直すので、ここは読み込みの結果を受け取るだけ。
   useEffect(() => {
+    if (initialData) return;
     let cancelled = false;
     loadPlMonthly(projectId).then((rows) => { if (!cancelled) setPlRows(rows); }).catch(() => { if (!cancelled) setError("月次試算を読み込めない。再読み込みして。"); });
     loadFinanceCashflow(projectId).then((rows) => { if (!cancelled) setCashRows(rows); }).catch((cause) => { if (!cancelled) setError(cause instanceof Error ? cause.message : "資金繰りを読み込めない。"); });
@@ -1032,7 +1035,7 @@ export function ProjectFinanceFormat({ projectId }: { projectId: string }) {
       // 試算（BZM）の対象外PJは 404。ほかの失敗でも、試算の行は「試算なし」として描く（表そのものは止めない）。
       .catch(() => { if (!cancelled) setPilot(null); });
     return () => { cancelled = true; };
-  }, [projectId]);
+  }, [projectId, initialData]);
 
   const reloadPl = async () => {
     const rows = await loadPlMonthly(projectId);
@@ -1098,7 +1101,8 @@ export function ProjectFinanceFormat({ projectId }: { projectId: string }) {
         fundingEvents={capitalInputs.fundingEvents}
         grants={grants ?? []}
         plRows={plRows ?? []}
-        onPlChanged={reloadPl}
+        readOnly={readOnly}
+        onPlChanged={readOnly ? undefined : reloadPl}
       />
     </div>
   );

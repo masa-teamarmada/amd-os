@@ -93,7 +93,7 @@ export function DdAdminPanel({ state, candidates, onChanged }: Props) {
             <p className="text-[11px] font-semibold text-[#6e6e73]">DDパッケージ（投資家・金融機関向けの開示面）</p>
             <h2 className="text-[18px] font-semibold">{state.package.title}</h2>
             <p className="mt-0.5 text-[12px] text-[#6e6e73]">
-              公開中の項目は、ワークスペースの最新の内容がそのまま投資家に見える。正式に提出する版は「PDFを出力」で残す。
+              各ページはコックピット・ワークスペースと同じ内容を表示する。ここでは共有資料と正式版PDFに含める項目を選ぶ。
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -143,7 +143,7 @@ export function DdAdminPanel({ state, candidates, onChanged }: Props) {
       <section className="space-y-2">
         <div className="flex items-baseline justify-between gap-2 border-b border-[#1d1d1f] pb-1">
           <h3 className="text-[15px] font-semibold">掲載項目</h3>
-          <span className="text-[11px] text-[#6e6e73]">外部に見えるのは「公開中」の項目だけ。新しく足した項目は「公開する」を押すまで見えない。</span>
+          <span className="text-[11px] text-[#6e6e73]">ページ本文は共通の元データから自動で表示する。資料は公開中のものだけを共有し、資料以外の選択は正式版PDFに使う。</span>
         </div>
         {DD_SECTIONS.map((section) => {
           const rows = activeItems.filter((item) => item.section_key === section.key).sort((a, b) => a.sort_order - b.sort_order);
@@ -283,7 +283,7 @@ function PackageSettings({ state, pending, run }: { state: DdAdminState; pending
     {
       status: "open",
       label: "公開を始める",
-      confirm: "付与された外部の人が、公開中の項目を閲覧できるようになる（中身はワークスペースの最新）。招待メールは送られない。公開を始める？",
+      confirm: "付与された人がDDの全ページと公開資料を閲覧できるようになる。ページの中身はコックピット・ワークスペースと共通。招待メールは送られない。公開を始める？",
     },
     { status: "closed", label: "受付を終了する", confirm: "付与があっても誰も閲覧できなくなる。受付を終了する？" },
   ];
@@ -359,11 +359,11 @@ function ItemRow({
         <td className="px-2 py-2">
           {item.is_published ? (
             <span className="font-semibold text-[#0267b2]">
-              公開中
+              {item.item_kind === "document" ? "公開中" : "PDF対象"}
               <span className="block text-[11px] font-normal text-[#6e6e73]">{formatDdDate(item.published_at)}から</span>
             </span>
           ) : (
-            <span className="text-[#6e6e73]">非公開</span>
+            <span className="text-[#6e6e73]">{item.item_kind === "document" ? "非公開" : "PDF対象外"}</span>
           )}
         </td>
         <td className="px-2 py-2 text-[12px] text-[#424245]">{formatDdDate(item.sourceAsOf)}</td>
@@ -381,10 +381,10 @@ function ItemRow({
               <button
                 type="button"
                 disabled={pending}
-                onClick={() => run({ action: "withdraw_item", itemId: item.id }, "公開をやめた（外部から見えなくなった）", "この項目を外部から見えなくする。公開をやめる？")}
+                onClick={() => run({ action: "withdraw_item", itemId: item.id }, item.item_kind === "document" ? "資料の公開をやめた" : "PDFの対象から外した", item.item_kind === "document" ? "この資料の公開をやめる？" : "正式版PDFの対象から外す？ 共通ページの本文は引き続き表示される。")}
                 className="rounded border border-[#d2d2d7] px-2 py-1 text-[12px] hover:bg-[#f5f5f7]"
               >
-                公開をやめる
+                {item.item_kind === "document" ? "公開をやめる" : "PDFから外す"}
               </button>
             ) : (
               <button
@@ -393,13 +393,13 @@ function ItemRow({
                 onClick={() =>
                   run(
                     { action: "publish_item", itemId: item.id },
-                    "公開した（元データの最新がそのまま見える）",
-                    "この項目を公開する。付与された投資家には、ワークスペースの最新の内容がそのまま見える。公開する？",
+                    item.item_kind === "document" ? "資料を公開した" : "PDFの対象にした",
+                    item.item_kind === "document" ? "付与された人にこの資料を公開する？" : "正式版PDFにこの項目を含める？",
                   )
                 }
                 className="rounded border border-[#027FDC] bg-[#027FDC] px-2 py-1 text-[12px] font-semibold text-white hover:bg-[#0267b2] disabled:opacity-50"
               >
-                公開する
+                {item.item_kind === "document" ? "公開する" : "PDFに含める"}
               </button>
             )}
             <button type="button" onClick={onToggleEdit} className="rounded border border-[#d2d2d7] px-2 py-1 text-[12px] hover:bg-[#f5f5f7]">
@@ -520,7 +520,7 @@ function ItemEditor({ item, pending, run, documentItems }: { item: DdAdminItem; 
         <button
           type="button"
           disabled={pending}
-          onClick={() => run({ action: "archive_item", itemId: item.id }, "項目を外した（外部からも見えなくなった）", "この項目をDDから外す。外部からも見えなくなる。外す？")}
+          onClick={() => run({ action: "archive_item", itemId: item.id }, item.item_kind === "document" ? "資料を外した" : "PDFの項目を外した", item.item_kind === "document" ? "この資料をDDから外す？" : "この項目をPDF対象から外す？ 共通ページの本文は引き続き表示される。")}
           className="rounded-md border border-[#f5c2c2] px-3 py-1.5 text-[#b71c1c] hover:bg-[#fff5f5]"
         >
           DDから外す
@@ -569,7 +569,7 @@ function AddItemForm({
     <section className="space-y-2">
       <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[#1d1d1f] pb-1">
         <h2 className="text-[15px] font-semibold">元データから追加</h2>
-        <span className="text-[11px] text-[#6e6e73]">追加しただけでは外部に見えない。「公開する」にした項目は、元データの最新がそのまま見える。</span>
+        <span className="text-[11px] text-[#6e6e73]">資料は追加後に公開を選ぶ。資料以外は正式版PDFの対象を選ぶ操作で、ページ本文の表示には影響しない。</span>
       </div>
       <div className="flex flex-wrap gap-2 text-[12px]">
         <select value={kind} onChange={(event) => setKind(event.target.value as DdItemKind | "all")} className="min-h-9 rounded border border-[#d2d2d7] px-2">

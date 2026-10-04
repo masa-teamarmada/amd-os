@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { loadProjectTechData } from "@/lib/project-tech-server";
 import { randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, requireMember } from "@/lib/supabase/api-auth";
@@ -28,10 +29,6 @@ const ID_PREFIX: Record<Entity, string> = {
   topic: "ptt",
   entry: "pte",
 };
-
-/** 技術タブ下段に出す、まだ構造化していない断片。project_knowledge のうち技術に関わる3分類だけ。 */
-const FRAGMENT_CATEGORIES = ["tech", "term", "competitor"];
-const FRAGMENT_LIMIT = 300;
 
 const CACHE_HEADERS = { "Cache-Control": "private, max-age=60, stale-while-revalidate=300" };
 
@@ -63,43 +60,12 @@ export async function GET(req: NextRequest) {
     : { data: null };
   const db = auth.ok ? auth.supabase : createAdminClient();
 
-  const [topicsRes, entriesRes, fragmentsRes] = await Promise.all([
-    db
-      .from("project_tech_topics")
-      .select("*")
-      .eq("project_id", projectId)
-      .neq("status", "archived")
-      .order("sort_order", { ascending: true })
-      .order("updated_at", { ascending: false }),
-    db
-      .from("project_tech_entries")
-      .select("*")
-      .eq("project_id", projectId)
-      .order("sort_order", { ascending: true })
-      .order("row_label", { ascending: true }),
-    db
-      .from("project_knowledge")
-      .select("id, category, entity_name, fact_text, confidence, source, updated_at")
-      .eq("project_id", projectId)
-      .eq("status", "active")
-      .in("category", FRAGMENT_CATEGORIES)
-      .order("updated_at", { ascending: false })
-      .limit(FRAGMENT_LIMIT),
-  ]);
-
-  const err = topicsRes.error || entriesRes.error || fragmentsRes.error;
-  if (err) return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
-
-  return NextResponse.json(
-    {
-      ok: true,
-      canEdit: Boolean(member.data?.is_admin),
-      topics: topicsRes.data ?? [],
-      entries: entriesRes.data ?? [],
-      fragments: fragmentsRes.data ?? [],
-    },
-    { headers: CACHE_HEADERS }
-  );
+  try {
+    const data = await loadProjectTechData(db, projectId, Boolean(member.data?.is_admin));
+    return NextResponse.json({ ok: true, ...data }, { headers: CACHE_HEADERS });
+  } catch (error) {
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "読み込みに失敗" }, { status: 500 });
+  }
 }
 
 /** POST /api/project-tech  body: { entity, row } → 新規作成 (admin) */

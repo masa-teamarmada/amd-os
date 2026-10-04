@@ -66,7 +66,7 @@ import { formatBytes, formatDate } from "./workspace-document-format";
 import styles from "./workspace-document-room.module.css";
 import { subscribeWorkspaceDocumentUpdates } from "./workspace-document-sync";
 
-type DocumentItem = {
+export type DocumentItem = {
   documentId: string;
   entryKind: WorkspaceDocumentEntryKind | "report";
   visibility: WorkspaceDocumentVisibility;
@@ -78,6 +78,8 @@ type DocumentItem = {
   createdAt: string;
   updatedAt: string;
   reportHref?: string;
+  viewHref?: string;
+  downloadHref?: string;
 };
 
 type Permissions = {
@@ -135,6 +137,7 @@ function fullPath(item: DocumentItem) {
 }
 
 function workspaceDocumentViewHref(item: DocumentItem) {
+  if (item.viewHref) return item.viewHref;
   if (item.reportHref) return item.reportHref;
   const encodedId = encodeURIComponent(item.documentId);
   if (isWorkspaceDocumentHtml(item.mimeType, item.displayName)) {
@@ -247,6 +250,8 @@ export function WorkspaceDocumentRoom({
   returnLabel = "概要へ戻る",
   presentation = "page",
   surface = "cockpit",
+  initialDocuments,
+  canDownload = true,
 }: {
   scopeKind: WorkspaceDocumentScopeKind;
   scopeId: string;
@@ -257,13 +262,16 @@ export function WorkspaceDocumentRoom({
   presentation?: "page" | "modal";
   /** workspace面ではAMD内部資料を一覧へ出さず、共有範囲を操作させない。 */
   surface?: WorkspaceDocumentSurface;
+  /** 認可済みのサーバ読み取りを使う領域。汎用資料APIへは接続しない。 */
+  initialDocuments?: DocumentItem[];
+  canDownload?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const [documents, setDocuments] = useState<DocumentItem[]>([]);
-  const [permissions, setPermissions] = useState<Permissions | null>(null);
+  const [documents, setDocuments] = useState<DocumentItem[]>(initialDocuments ?? []);
+  const [permissions, setPermissions] = useState<Permissions | null>(initialDocuments ? { principal: "workspace_account", role: "readonly", canReadInternal: false, canUpload: false, canManage: false } : null);
   const [currentFolder, setCurrentFolder] = useState("");
   const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialDocuments);
   const [busy, setBusy] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null);
@@ -293,6 +301,7 @@ export function WorkspaceDocumentRoom({
   const [uploadConflictIndex, setUploadConflictIndex] = useState<number | null>(null);
 
   const loadDocuments = useCallback(async () => {
+    if (initialDocuments) return;
     setLoading(true);
     setError(null);
     try {
@@ -314,13 +323,14 @@ export function WorkspaceDocumentRoom({
     } finally {
       setLoading(false);
     }
-  }, [scopeId, scopeKind, surface]);
+  }, [scopeId, scopeKind, surface, initialDocuments]);
 
   /**
    * 背景の突き合わせ。loadDocumentsと違い、スピナーへ切り替えず、失敗しても一覧を空にしない。
    * 画面を先に動かしたあと、サーバの確定結果へ静かに揃えるために使う。
    */
   const refreshDocuments = useCallback(async () => {
+    if (initialDocuments) return;
     try {
       const response = await fetch(apiUrl(scopeKind, scopeId, surface), {
         cache: "no-store",
@@ -332,7 +342,7 @@ export function WorkspaceDocumentRoom({
     } catch {
       // 背景同期の失敗は表示を壊さない。次の操作か再読込で揃う。
     }
-  }, [scopeId, scopeKind, surface]);
+  }, [scopeId, scopeKind, surface, initialDocuments]);
 
   /**
    * 別タブの編集ページが保存したときの取り込み。本文は運ばず「更新されたよ」とだけ受けて、
@@ -1470,7 +1480,7 @@ export function WorkspaceDocumentRoom({
                     </p>
                   </div>
                   <div className="col-span-2 flex min-h-11 flex-wrap items-center justify-start gap-1.5 xl:col-span-1 xl:min-h-0 xl:justify-end">
-                    {(item.entryKind === "file" || item.entryKind === "link") && isWorkspaceDocumentHtml(item.mimeType, item.displayName) ? (
+                    {!initialDocuments && canDownload && (item.entryKind === "file" || item.entryKind === "link") && isWorkspaceDocumentHtml(item.mimeType, item.displayName) ? (
                       <button
                         type="button"
                         onClick={() => void downloadHtmlAsPdf(item)}
@@ -1485,11 +1495,11 @@ export function WorkspaceDocumentRoom({
                         <Download className="h-4 w-4" aria-hidden />
                         PDF化
                       </button>
-                    ) : item.entryKind !== "folder" && item.entryKind !== "report" ? (
+                    ) : canDownload && item.entryKind !== "folder" && item.entryKind !== "report" ? (
                       <a
-                        href={item.entryKind === "link"
+                        href={item.downloadHref ?? (item.entryKind === "link"
                           ? workspaceDocumentViewHref(item)
-                          : `/api/workspace-documents/${encodeURIComponent(item.documentId)}/open?download=1`}
+                          : `/api/workspace-documents/${encodeURIComponent(item.documentId)}/open?download=1`)}
                         target="_blank"
                         rel="noreferrer"
                         className="grid h-11 w-11 place-items-center rounded-md text-slate-600 hover:bg-slate-100 hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 xl:h-9 xl:w-9"

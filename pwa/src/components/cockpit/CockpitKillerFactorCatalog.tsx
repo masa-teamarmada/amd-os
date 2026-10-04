@@ -39,22 +39,7 @@ import {
   type KillerFactorStatus,
 } from "@/lib/killer-factor-risk";
 
-type KillerFactorItem = {
-  killerFactorId: string;
-  operatingMode: KillerFactorOperatingMode;
-  factorType: string;
-  eventDescription: string;
-  observationClues: string;
-  preventiveAction: string | null;
-  timingGuidance: string | null;
-  status: KillerFactorStatus;
-  statusOn: string | null;
-  targetOn: string | null;
-  evidenceNote: string | null;
-  recordedByMemberId: string | null;
-  recordedByLabel: string | null;
-  recordedAt: string | null;
-};
+import type { KillerFactorItem } from "@/lib/project-killer-factor-types";
 
 type StatusPresentation = {
   label: string;
@@ -205,9 +190,9 @@ function groupSnapshot(items: KillerFactorItem[]) {
   return values.length > 0 ? values.join(" · ") : "0件";
 }
 
-export function CockpitKillerFactorCatalog({ projectId }: { projectId: string }) {
-  const [items, setItems] = useState<KillerFactorItem[]>([]);
-  const [loading, setLoading] = useState(true);
+export function CockpitKillerFactorCatalog({ projectId, initialItems, readOnly = false }: { projectId: string; initialItems?: KillerFactorItem[]; readOnly?: boolean }) {
+  const [items, setItems] = useState<KillerFactorItem[]>(initialItems ?? []);
+  const [loading, setLoading] = useState(!initialItems);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -217,6 +202,7 @@ export function CockpitKillerFactorCatalog({ projectId }: { projectId: string })
   const [editingStatus, setEditingStatus] = useState<KillerFactorStatus>("clear");
 
   const load = useCallback(async () => {
+    if (initialItems) return;
     setLoading(true);
     setError("");
     try {
@@ -229,7 +215,7 @@ export function CockpitKillerFactorCatalog({ projectId }: { projectId: string })
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, initialItems]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -241,6 +227,7 @@ export function CockpitKillerFactorCatalog({ projectId }: { projectId: string })
   const overall = OVERALL_PRESENTATION[summary.level];
 
   async function post(body: Record<string, unknown>) {
+    if (readOnly) return;
     const response = await fetch("/api/governance/killer-factors", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -330,14 +317,14 @@ export function CockpitKillerFactorCatalog({ projectId }: { projectId: string })
             AMDが先に塞ぐ予防統制と、継続して兆候を見る常時監視。未確認は安全扱いしない。
           </p>
         </div>
-        <Button
+        {!readOnly && <Button
           variant="outline"
           className="h-11 w-full shrink-0 sm:h-9 sm:w-auto"
           onClick={() => setAddOpen(true)}
           data-html2canvas-ignore="true"
         >
           <Plus />要素を追加
-        </Button>
+        </Button>}
       </div>
 
       <div
@@ -453,6 +440,7 @@ export function CockpitKillerFactorCatalog({ projectId }: { projectId: string })
                               type="button"
                               variant="outline"
                               className={`h-11 w-full min-w-0 justify-between gap-1.5 px-2.5 text-[11px] lg:h-9 ${statusMeta.className}`}
+                              disabled={readOnly}
                               onClick={() => openStateEditor(item)}
                               title={item.statusOn ? `${statusMeta.label} · ${formatDate(item.statusOn)} · ${item.recordedByLabel || "記録者未確認"}` : `${statusMeta.label} · 状態を更新`}
                               data-html2canvas-ignore="true"

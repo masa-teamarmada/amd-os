@@ -78,6 +78,7 @@ interface Props {
   projectId: string;
   /** ワークスペース側など、保存させない面では false。試算 (画面上の書き換え) はどちらの面でもできる。 */
   allowEdit?: boolean;
+  initialData?: import("@/lib/project-cost-model-client").CostModelResponse;
 }
 
 interface ViewState {
@@ -94,8 +95,8 @@ const viewMemory = new Map<string, ViewState>();
 // 開いたときの株は自然株 (まさ 2026-09-14「デフォルトが強化株になってるから、自然株に変えて」)。自然株が無い試算は最初の株。
 const DEFAULT_VIEW: ViewState = { strain: "wild", application: null, location: "onsite", method: "投入", tankMode: "既設" };
 
-export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
-  const cached = peekProjectCostModel(projectId);
+export function CockpitCostModel({ projectId, allowEdit = true, initialData }: Props) {
+  const cached = initialData ?? peekProjectCostModel(projectId);
   const [bundle, setBundle] = useState<CostModelBundle | null>(cached?.bundle ?? null);
   const [canEdit, setCanEdit] = useState(!!cached?.canEdit && allowEdit);
   const [state, setState] = useState<"loading" | "ready" | "empty" | "error">(
@@ -134,7 +135,7 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
   const load = useCallback(
     async (force = false) => {
       try {
-        const res = await loadProjectCostModel(projectId, { force });
+        const res = initialData ?? await loadProjectCostModel(projectId, { force });
         setCanEdit(res.canEdit && allowEdit);
         if (!res.bundle) return setState("empty");
         const next = res.bundle;
@@ -146,7 +147,7 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
         setState("error");
       }
     },
-    [projectId, allowEdit, setDraft]
+    [projectId, allowEdit, setDraft, initialData]
   );
 
   // 初回だけ読む。キャッシュが温まっていれば即描画される。

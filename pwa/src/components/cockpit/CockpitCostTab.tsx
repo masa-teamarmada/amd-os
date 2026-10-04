@@ -29,18 +29,20 @@ interface Props {
   allowEdit?: boolean;
   /** 旧アドレス「コスト試算（燃料）」から開いたとき、燃料の試算を先に選ぶ。 */
   initialRenderer?: "fuel";
-  /** 燃料の試算も読むか。DDパッケージは燃料の試算を別の区画で出すので読まない。 */
+  /** 燃料の試算も読むか。旧項目の互換表示に限って false。3領域のページでは同じ切り替えを使う。 */
   includeFuel?: boolean;
+  initialData?: { main: CostModelResponse; fuel: CostModelResponse };
 }
 
 type Choice = "main" | "fuel";
 
-export function CockpitCostTab({ projectId, allowEdit = true, initialRenderer, includeFuel = true }: Props) {
-  const [res, setRes] = useState<CostModelResponse | null>(() => peekProjectCostModel(projectId) ?? null);
+export function CockpitCostTab({ projectId, allowEdit = true, initialRenderer, includeFuel = true, initialData }: Props) {
+  const [res, setRes] = useState<CostModelResponse | null>(() => initialData?.main ?? peekProjectCostModel(projectId) ?? null);
   const [failed, setFailed] = useState(false);
-  const [fuel, setFuel] = useState<CostModelResponse | null | undefined>(() => (includeFuel ? peekProjectFuelCostModel(projectId) : null));
+  const [fuel, setFuel] = useState<CostModelResponse | null | undefined>(() => (initialData ? initialData.fuel : includeFuel ? peekProjectFuelCostModel(projectId) : null));
   const [choice, setChoice] = useState<Choice>(initialRenderer === "fuel" ? "fuel" : "main");
   useEffect(() => {
+    if (initialData) return;
     let cancelled = false;
     loadProjectCostModel(projectId)
       .then((r) => {
@@ -61,7 +63,7 @@ export function CockpitCostTab({ projectId, allowEdit = true, initialRenderer, i
     return () => {
       cancelled = true;
     };
-  }, [projectId, includeFuel]);
+  }, [projectId, includeFuel, initialData]);
 
   if ((!res && !failed) || fuel === undefined) {
     return <div className="h-[520px] animate-pulse rounded-xl border border-[#e5e5e7] bg-[#fafafa]" data-testid="cost-tab-loading" />;
@@ -75,10 +77,10 @@ export function CockpitCostTab({ projectId, allowEdit = true, initialRenderer, i
 
   const engine = costFormatEngineOf(bundle);
   const body = active === "fuel"
-    ? <CockpitFuelCostModel projectId={projectId} allowEdit={allowEdit} />
+    ? <CockpitFuelCostModel projectId={projectId} allowEdit={allowEdit} initialData={initialData?.fuel} />
     : engine === "wastewater" || (bundle && engine === null)
-      ? <CockpitCostModel projectId={projectId} allowEdit={allowEdit} />
-      : <ProjectCostFormat projectId={projectId} allowEdit={allowEdit} />;
+      ? <CockpitCostModel projectId={projectId} allowEdit={allowEdit} initialData={initialData?.main} />
+      : <ProjectCostFormat projectId={projectId} allowEdit={allowEdit} initialData={initialData?.main} />;
 
   if (options.length < 2) return body;
   return (

@@ -1,6 +1,6 @@
 # DDパッケージ仕様（投資家・金融機関向けの開示面）
 
-2026-10-04 追加指定: 固定ページを14ページへ拡張。ガント・関係先・事業計画・知財・会社概要・資金調達履歴・沿革は `project_page:<ページキー>` として既存の追加・公開・停止経路で選択する。migration 469 の種類／source_key制約を本番適用済み。既存の公開状態・付与の変更なし。
+2026-10-04: DDのページ本文を掲載項目の抜粋から共通ページへ修正。技術・競合比較・ビジネスモデルは全トピック・行・知識断片、試算表はPL/CF/資本計画/助成金/設立日/試算、資本政策表は全プランと版、コスト試算は廃液・燃料を共通部品で表示。会社概要も決算・総会・キラー要素を含む同一データを使用。DDの入場認可は独立したまま、書込み権限は追加しない。資料の公開対象と正式版PDFの項目選択は維持。
 
 > **この章は何か**: 投資家・金融機関が、共有対象に指定されたページ・資料だけを閲覧する「DDパッケージ」の確定仕様。入れる領域と操作の分け方、中身の出し方、画面、正式版（PDF）の出力、権限の検証、残課題を定める。初版は SOL（p21）で 2026-09-30 に実装した（migration 455〜458）。
 
@@ -12,7 +12,7 @@ AMD OS の PJ 情報は、コックピット・ワークスペース・DDパッ�
 |---|---|---|---|
 | コックピット `/project/[id]/cockpit` | AMD メンバー | `members`・`project_members`（Supabase の社内ログイン） | 経営管理・内部判断・交渉情報 |
 | ワークスペース `/project/[id]/workspace` | 招待した研究者・事業化メンバー | `project_access_memberships`（外部アカウント）/ PJ限定メンバー | 共同作業に要る情報 |
-| DD `/dd/[slug]` | 招待した投資家・金融機関 | `dd_package_grants`（外部アカウント） | 共有対象に指定した項目の、いまの内容 |
+| DD `/dd/[slug]` | 招待した投資家・金融機関 | `dd_package_grants`（外部アカウント） | DDで表示する共通ページの全内容と、公開対象の資料 |
 
 - **入れる領域と、できる操作を別に持つ。** 領域は付与の表（どの表に行があるか）で決まり、操作は DD の付与行の `capabilities`（`dd.view` 閲覧 / `dd.download` 資料のダウンロード）で決まる。`dd.view` は必須。
 - DD の付与はワークスペース・コックピットへ入る根拠にならない。ワークスペースの所属（`readonly` を含む）も DD へ入る根拠にならない。`workspace-access-scope-core.ts` の範囲判定は DD の付与を数えない。
@@ -37,7 +37,7 @@ AMD OS の PJ 情報は、コックピット・ワークスペース・DDパッ�
 |---|---|
 | `dd_packages` | パッケージ。`status`: `draft`（未公開・管理者だけ）/ `open`（付与された人だけ閲覧）/ `closed`（誰も閲覧できない）。`slug` は URL、`notice_text` は冒頭の注意書き |
 | `dd_package_grants` | 閲覧権限。外部アカウント × パッケージ。`status`: invited / active / suspended / revoked、`capabilities`、`expires_at`、`organization_name`（投資家・金融機関名）。同じ人への2つ目の付与は作れず、停止・失効は作成で復活しない |
-| `dd_package_items` | 掲載項目。区分 `section_key`、種類 `item_kind`、元データ `source_key`、表示の選択 `source_options`（自動の未確認事項を加えるか）、表題・一行説明・未確認事項・根拠資料。**`is_published` が外部に見せるかの切り替え**（公開した日時と admin を `published_at` / `published_by_member_id` に残す）。新しい項目は `false`（非公開）で作り、外した項目（archived）は公開できない（DB の制約） |
+| `dd_package_items` | 掲載項目。区分 `section_key`、種類 `item_kind`、元データ `source_key`、表示の選択 `source_options`（自動の未確認事項を加えるか）、表題・一行説明・未確認事項・根拠資料。**`is_published` は資料の共有と正式版PDFの項目選択の切り替え。固定14ページの本文表示には使わない**（公開した日時と admin を `published_at` / `published_by_member_id` に残す）。新しい項目は `false`（非公開）で作り、外した項目（archived）は公開できない（DB の制約） |
 | `dd_item_publications` | 初版（2026-09-30 の最初の反映）で使った、公開時点の内容の記録。追記のみで、新しい行は作らない（記録として残す） |
 
 - 4表とも RLS 有効、anon と一般 authenticated の直接権限なし、admin は SELECT だけ。書込みは service_role のサーバ経路。
@@ -45,39 +45,32 @@ AMD OS の PJ 情報は、コックピット・ワークスペース・DDパッ�
 - private Storage `dd-publication-files` は、Google ドライブの資料を投資家へ渡すための写しの置き場（`cache/<package>/<document>/<ドライブの md5>`。同じ版なら使い回す）。
 - DB 側の約束は `scripts/dd_package_db_readback.sql` で本番 DB 上を確かめる（最後に必ず ROLLBACK）。
 
-## 4. 中身の出し方（ワークスペースの最新をそのまま見せる）
+## 4. 共通ページの本文
 
-2026-09-30 まさ「これは正式な提出版ではなく、あくまでワークスペースの最新版を見てもらいたいだけなので、中身を変えたらちゃんと変わるようにしてほしい」「コックピット、ワークスペース、DDパッケのどこから見ても同じ内容が見えるようにしてほしい」。
+2026-10-04 まさ「ページの中身を３つのスペースで別々になってるのは設計上のミス」。3領域は表示するページと入れる人を変え、同じページは同じ元データ・表示部品・構成で描く。DDだけ掲載項目から本文を組み立てる処理を廃止した。
 
-1. admin が元データから項目を追加する（非公開）。
-2. 「見る」で同じページを確認する。未公開の項目を開けるのは既存の内部管理者だけで、外部には返さない。
-3. 「公開する」で `is_published` を `true` にする。**公開中の項目は、閲覧のたびにサーバが元データの最新を読み、ワークスペースと同じ部品で描く。** 元データを直すと、次の閲覧から DD の表示も変わる。
-4. 「公開をやめる」で `false` に戻す。次のリクエストから外部に見えない。
-5. 正式に提出する版は、その時点の内容を PDF に出力して残す（§6）。
+DDの入場認可を毎リクエスト確認した後、選択したページの当該PJデータをサーバで取得し、共通部品へ初期データとして渡す。ページ本文は `dd_package_items.is_published` の有無に依存しない。元データが本当にない場合のみ共通の空状態を表示する。DD付与を汎用PJ APIの権限へ流用しない。DDでは編集・保存・追加を表示しない。
 
-### 種類ごとの部品と中身（`src/components/dd/DdItemDetail.tsx`・`DdProjectPageBody.tsx`、`src/lib/dd-payload.ts`）
+| ページ | 元データと共通部品 |
+|---|---|
+| 技術・競合比較・ビジネスモデル | `loadProjectTechData` → `CockpitTechnology`。全トピック・行・知識断片、ページ内の全体像・技術区分・トピック切替まで共通 |
+| 試算表 | `loadProjectFinancePage` → `ProjectFinanceFormat`。PL、CF、最新active資本計画、助成金、設立日、BZM試算の6種類を共通表示へ渡す |
+| 資本政策表 | `loadCapitalPlanPage` → `CapitalPlanWorkspace`。プラン選択・株主・イベント・計算結果・凍結版を共通表示。DDでは編集と復元不可 |
+| コスト試算 | 廃液と燃料の両モデル → `CockpitCostTab`。選択と明細を共通化 |
+| ガント | `getQuestionTreeBundle` → `QuestionTreeView`。gantt、canManage=false、pt権限なし |
+| 関係先 | 当該PJの管理データ → `SxPartnerPipeline`。このページで使わない内部判断・週次差分・監査などは送らない |
+| 事業計画 | `loadProjectBusinessPlan` → `CockpitBusinessPlan` |
+| 知財 | 当該PJの資産・権利・期限・経過 → `CockpitIpPortfolio` |
+| 会社概要 | `loadProjectGovernance` と事業概要、`loadProjectKillerFactors` → `CockpitCompanyOverview`。基本情報・決算・総会・要対応・キラー要素も同じ本文 |
+| 資金調達履歴 | `loadProjectGovernance` → `CockpitCapitalPolicy` |
+| 沿革 | 助成金・獲得台帳・活動履歴 → `CockpitGrants` / `Bzm22AcquisitionLedger` / `CockpitAmdContributions` |
+| ドライブ | 公開対象の資料 → `WorkspaceDocumentRoom`。一覧と検索などは共通部品、表示・ダウンロードURLはDD認可経路 |
 
-| 種類 | 元データ | 描く部品（ワークスペースと同じ） | 部品が表示しないので送らないもの |
-|---|---|---|---|
-| 資料 | 資料室（`workspace_documents`）のファイル、または Google ドライブのファイルへのリンク | ファイル名・形式・サイズと「開く／ダウンロード」。中身は資料室の最新の実体 | 資料室の保存先・フォルダ・共有範囲 |
-| 技術台帳のページ | `project_tech_topics` + `project_tech_entries` の1ページ | `TopicCard`（技術・競合比較・ビジネスモデルのタブと同じ。`canEdit=false`） | 作成者・更新者、別ページの行 |
-| 資金計画 | `project_monthly_cashflow.planning_details_json` | `ProjectFinanceFormat`（試算表タブと同じ） | 月の行に重複して入っている summary の写し |
-| 資本政策 | `project_capital_plans`（作業中の案の最新）または `project_capital_plan_versions`（凍結済みの提出版） | `CapitalPlanMatrix`（資本政策表タブと同じ表を、同じ計算エンジンで。`readOnly`） | 株主・ラウンド・配分・値のメモ（`note`） |
-| 採算（コスト試算） | `project_cost_models` 系。指定した試算の種類（廃液 / 燃料）について、そのタブと同じ「いまの試算」 | `CockpitCostTab` 経由の標準表示（`allowEdit=false`。明細・単価・確認事項までワークスペースと同じ） | なし |
+入場権限とファイル共有は別に保つ。ドライブは公開対象として選んだファイルだけを返し、直接URLにも公開状態・付与・`dd.download`の認可を行う。パッケージのdraft/open/closed、付与の停止・失効、外部ログインは変更しない。
 
-| ガント | 当該PJのゴールツリー・タスク・ロードマップ | `QuestionTreeView`（gantt、canManage=false、ptなし） | 他PJの情報・pt台帳 |
-| 関係先 | 当該PJの関係先・約束・作業項目・到達目標 | `SxPartnerPipeline`（canManage=false） | 非表示の内部判断・週次差分・監査・資金スナップショット |
-| 事業計画 | `project_business_plans` | `CockpitBusinessPlan`（同じフェーズマトリクス） | 作成者・更新者 |
-| 知財 | 当該PJの知財・権利・期限・経過 | `CockpitIpPortfolio`（canEdit=false） | 他PJの知財 |
-| 会社概要・資金調達履歴 | 当該PJの法人属性・株主・株式取引・転換証券・調達ラウンド | `CockpitCompanyOverview` / `CockpitCapitalPolicy`（readOnly） | 社内決算区画・会社会議・社内対応項目・監査の実行者 |
-| 沿革 | 助成金・獲得台帳・活動履歴 | `CockpitGrants` / `Bzm22AcquisitionLedger` / `CockpitAmdContributions` | 助成金の添付リンク |
+設定画面の資料以外の掲載項目は正式版PDFに含める対象で、本文の表示条件にはならない。技術台帳の個別選択・未確認事項・根拠資料の編集は正式版PDFの整理用として残す。技術ページの一部を非掲載にしても、DDの共通技術ページから内容は消えない。ページ全体を開示することを設定画面に明記する。
 
-追加7ページはページ全体を共有する。候補の段階でページ全体が開示される旨を表示し、新規項目は非公開で登録する。サーバの `loadDdProjectPage` は、パッケージ入場認可と項目の公開判定を終えた経路からのみ呼び、共通部品へ取得済みデータを渡す。DD付与を汎用のPJ APIの権限に流用しない。Excel/PDF出力は `dd.download` のある人だけ。URLキーは従来どおり `activity`、表示名は沿革。
-
-- 投資家は汎用の API（`/api/project-cost-model` など）を叩けない。サーバが「DDで公開中の範囲」だけを読んで画面へ渡し、コスト試算はその値を手元のキャッシュへ置いてから部品を描く（`primeProjectCostModel`）。部品は見るだけで、編集・保存・追加の操作を出さない。
-- 技術台帳の「要秘匿」のページは、管理画面で「開示してよいと確認した」を付けたときだけ追加できる。「社内」の項目・資料室で社内限定の資料には注意を出す。
-- **未確認事項** = 管理者が書いた分 + 元データから自動で拾った分（技術台帳の要確認と理由、資金計画の未確定の条件、資本政策の未定ラウンドと作業中の案である旨・転換型の株式数が試算である旨、採算の未解決の確認事項）。閲覧のたびに元データから拾い直す。自動分は項目ごとに外せる。
-- **根拠資料** = 同じパッケージの資料項目のうち、いま公開中のもの。
+旧 `/items/[itemId]` は項目の認可を保ったまま対応する共通ページを開く。資料の非公開・別パッケージの項目は引き続き拒否する。共通ページの閲覧入口は `?tab=`。
 
 ## 5. 画面
 
@@ -100,13 +93,13 @@ AMD OS の PJ 情報は、コックピット・ワークスペース・DDパッ�
 - 閲覧者の面は社内の枠（AppShell）を使わず、タイトルに PJ 名・パッケージ名を出さない（権限の確認より先に描かれるため）。権限が無い・非公開・外した・別パッケージはすべて「見つからない」で閉じ、存在を区別させない。
 - DD には検索の入口を置かない。
 - DDの表示ページは鍵付きの `DD_TAB_FORMAT`、3領域の表示名は `PROJECT_PAGE_LABELS`、元データの振り分けは `dd-pages.ts` と技術台帳の `techLedgerTabOf`。旧7区分は設定・正式版PDFの整理用に保持し、閲覧の分類には使わない。ページ対照表は spec/3-24。
-- DD本文は公開対象の元データだけを同じ表示部品へ渡す。元データがないときにタブを隠さず、未登録を表示する。閲覧権限・公開設定・停止/失効・正式版PDFの認可は変更なし。
+- DD本文は当該PJの共通ページの元データを同じ表示部品へ渡す。元データがないときにタブを隠さず、未登録を表示する。閲覧権限・公開設定・停止/失効・正式版PDFの認可は変更なし。
 
 ## 6. 正式版（PDF）の出力
 
 2026-09-30 まさ「とある時点のバージョンを正式版として提出しなきゃいけないので、PDFとして出力できる機能もつけておけばいい」。
 
-- 設定画面の「PDFを出力」から `/dd/[slug]/print` を開く。公開中の項目を、いまの元データで、§4と同じ部品で1つの文書に並べる（表紙に表題・注意書き・出力日時・項目数・目次）。印刷の設定は A4 横、項目ごとに改ページ。
+- 設定画面の「PDFを出力」から `/dd/[slug]/print` を開く。PDF対象の項目を、いまの元データで、従来の項目用部品で1つの文書に並べる（共通ページ全体の印刷とは別）（表紙に表題・注意書き・出力日時・項目数・目次）。印刷の設定は A4 横、項目ごとに改ページ。
 - 「PDFに保存（印刷）」を押すと、サーバが公開中の項目と、それぞれの元データの更新日時を読み直して、出力の記録（`workspace_access_audit_logs` の `dd_package_exported`。detail はパッケージの id・項目数・項目の id と元データの更新日時だけ）を残してから、ブラウザの印刷画面を開く。印刷先で「PDFに保存」を選ぶ。
 - 出力した PDF の置き場は、提出物として Google ドライブの該当PJフォルダ（`YYMMDD_件名/`）。
 - 管理の「PDFの出力の記録」に、日時・出力した人・項目数を出す。
@@ -136,9 +129,9 @@ DD の「内部の値を外へ出さない」を満たすために、既存の�
 - **ログインなしで読める表**: 公開用の鍵だけで、`project_monthly_cashflow`（SOL の資金計画を含む）、`project_pl_monthly`、`project_knowledge`、`monthly_reports`、`company_budget_monthly`、`member_activities`、`tsukuyomi_chat_logs`、`llm_prompts` など多数の表が読める（`{public}` に `USING (true)` の読み取り方針が125件）。ワークスペースの試算表タブの資金計画も、ブラウザからこの表を直接読んでいる（DD はサーバで読む）。**DD を投資家へ開く前に閉じる**。ログインなしで動く画面が依存している可能性があり、影響を洗ってから閉じる（まさの判断待ち）。
 - `requireAuth()` だけで通る受け口がほかにも残る（`funding-stats`、`progress/unconfirmed`、`atlas/*`、`business-cards/*` など）。外部アカウントの Supabase ユーザーでも通り得るので、上と合わせて点検する。
 - 既存の資料室の HTML プレビュー（`/api/workspace-documents/[id]/render`）も、route の付けたサンドボックスの CSP が全体の CSP に上書きされている（DD の資料表示と同じ仕組み。DD 側は `next.config.ts` で上書きし直した）。資料室側を直すと、スクリプトや外部の画像に頼る既存の HTML の表示が変わるので、まさの確認を取ってから直す。
-- ワークスペースの資本政策表タブは、読み取りの API が AMD メンバー限定のため、外部の参加者には表示されない（DD はサーバで読むので投資家には見える）。
+- ワークスペースの資本政策表は、当該PJの参加者の読み取りにも対応済み。書込みはAMDメンバーのみ。DDは独立認可後にサーバで取得する。
 - 検査 `test:workspace-documents-contract`・`test:workspace-fact-origin-contract`・`check_project_workspace_route_contract.mjs`（資金調達履歴タブの名前が古い）・`check_zmp_workspace_themes.mjs` は、この変更の前の main でも落ちている（deploy 前ゲートの外）。
-- 将来拡張（初回は作らない）: 投資家ごとの追加開示（パッケージを分けるか、項目の audience を持たせる）、質問対応、知財・会社概要・事業計画のタブを項目として載せること、PDF をサーバで作って保存すること。
+- 将来拡張（初回は作らない）: 投資家ごとの追加開示（パッケージを分けるか、項目の audience を持たせる）、質問対応、PDF をサーバで作って保存すること。
 
 ## 11. SOL（p21）の状態
 
