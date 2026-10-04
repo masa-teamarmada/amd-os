@@ -4,7 +4,7 @@
  * PJコックピット「PJ管理 > PJ概要」タブ。全PJ共通の標準フォーマット（spec 3-23 §9、定義は project-formats.ts・鍵付き）。
  *
  * 2026-10-04 まさ確定「1で進めて」。
- * - PJの定義（目的・相手・AMDの関わり方・AMDの稼ぎ方・期間と体制）… PJを作るときに決めて、めったに変えない。
+ * - PJの定義（目的・相手・AMDの関わり方・AMDの報酬形態・期間と体制）… PJを作るときに決めて、めったに変えない。
  *   直せるのは管理者だけ（「定義を直す」）。目的はゴールツリーの到達点をそのまま出す。
  * - 今の状態（段階と次の節目・契約と収支・まだ決まっていないこと・最近の重要な動き）… ほかのタブのデータから出す。ここでは書かない。
  * - 事業の一言（何をする事業か）は会社の話なので、会社情報 > 会社概要「事業の概要」に置く。
@@ -243,7 +243,7 @@ export function ProjectOverviewFormat({ project, onSelectTab }: Props) {
     if (!overview) return overviewError ? <ErrorLine text={overviewError} /> : <SkeletonLines />;
     const streams = overview.definition?.revenueStreams ?? [];
     if (streams.length === 0) {
-      return <Unregistered hint="受託料・株式・設立後の委託料など。管理者が「定義を直す」から書く" />;
+      return <Unregistered hint="業務委託料・顧問料・成功報酬・株式など。管理者が「定義を直す」から書く" />;
     }
     return (
       <ul className="flex flex-col gap-1">
@@ -582,8 +582,8 @@ function ProjectDefinitionDialog({
               <Textarea id="involvementNote" value={involvementNote} onChange={(event) => setInvolvementNote(event.target.value)} rows={2} maxLength={600} />
             </Field>
             <fieldset className="space-y-2">
-              <legend className="text-xs text-slate-700">AMDの稼ぎ方</legend>
-              {streams.length === 0 && <p className="text-[12px] text-[#86868b]">まだ無い。「稼ぎ方を足す」から足す。</p>}
+              <legend className="text-xs text-slate-700">AMDの報酬形態</legend>
+              {streams.length === 0 && <p className="text-[12px] text-[#86868b]">まだ無い。「報酬形態を足す」から足す。</p>}
               {streams.map((stream, index) => (
                 <div key={index} className="grid gap-2 sm:grid-cols-[11em_minmax(0,1fr)_auto]">
                   <Select
@@ -592,7 +592,7 @@ function ProjectDefinitionDialog({
                       setStreams((current) => current.map((item, i) => (i === index ? { ...item, kind: (next || item.kind) as AmdRevenueKindKey } : item)))
                     }
                   >
-                    <SelectTrigger className="h-11 w-full bg-white" aria-label="稼ぎ方の種類"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-11 w-full bg-white" aria-label="報酬形態の種類"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {AMD_REVENUE_KINDS.map((kind) => (
                         <SelectItem key={kind.key} value={kind.key}>{kind.label}</SelectItem>
@@ -603,7 +603,7 @@ function ProjectDefinitionDialog({
                     value={stream.note}
                     onChange={(event) => setStreams((current) => current.map((item, i) => (i === index ? { ...item, note: event.target.value } : item)))}
                     placeholder="例: NIMSからの事業化支援の業務委託"
-                    aria-label="稼ぎ方の中身"
+                    aria-label="報酬形態の中身"
                     maxLength={300}
                     className="h-11"
                   />
@@ -612,7 +612,7 @@ function ProjectDefinitionDialog({
                     variant="outline"
                     className="h-11"
                     onClick={() => setStreams((current) => current.filter((_, i) => i !== index))}
-                    aria-label="この稼ぎ方を消す"
+                    aria-label="この報酬形態を消す"
                   >
                     <Trash2 />
                   </Button>
@@ -625,7 +625,7 @@ function ProjectDefinitionDialog({
                 onClick={() => setStreams((current) => [...current, { kind: "contract_fee", note: "" }])}
                 disabled={streams.length >= 12}
               >
-                <Plus />稼ぎ方を足す
+                <Plus />報酬形態を足す
               </Button>
             </fieldset>
             <Field label="先方の窓口" name="counterpartContacts" hint="誰が、どの立場で窓口か">

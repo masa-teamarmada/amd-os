@@ -5,8 +5,8 @@
  * 前段の指摘「そもそも概要って、PJ作ったときに作ったら、それ以降書き換えることはないのでは？」に対し、
  * 事業の一言を書き換えられる入口の数で止める（入口は会社概要の1つだけ）。
  *
- * 1. 組み立ての純関数（目的・次のMS・まだ決まっていないこと・段階・収支・期間・稼ぎ方）が正しく返すか
- * 2. 稼ぎ方の種類が、定義（project-formats.ts）と DB の CHECK（migration 468）で同じか
+ * 1. 組み立ての純関数（目的・次のMS・まだ決まっていないこと・段階・収支・期間・報酬形態）が正しく返すか
+ * 2. 報酬形態の種類が、定義（project-formats.ts）と DB の CHECK（migration 468）で同じか
  * 3. 画面が定義の9項目を全部描き、読み込み層を通しているか。コックピットの PJ概要がこの画面か
  * 4. 事業の一言（project_ventures.short_description / long_description）を書く入口が増えていないか
  *    （つくよみの追記マージ・チャットの道具・Venture Map の分類の編集から外した。正本は会社概要の1つだけ）
@@ -159,7 +159,7 @@ check("収支は今のシーズン（無ければ直近）。消化は「収支�
   assert.equal(overviewSeason([], "202610"), null);
 });
 
-check("稼ぎ方は定義にある種類だけ。中身は文字列", () => {
+check("報酬形態は定義にある種類だけ。中身は文字列", () => {
   assert.deepEqual(
     normalizeRevenueStreams([{ kind: "contract_fee", note: " NIMSからの業務委託 " }, { kind: "unknown", note: "x" }, { kind: "equity" }, "bad"]),
     [{ kind: "contract_fee", note: "NIMSからの業務委託" }, { kind: "equity", note: "" }],
@@ -167,10 +167,10 @@ check("稼ぎ方は定義にある種類だけ。中身は文字列", () => {
   assert.deepEqual(normalizeRevenueStreams(null), []);
 });
 
-check("稼ぎ方の種類が、定義（鍵付き）と DB の CHECK（migration 468）で同じ並び", () => {
+check("報酬形態の種類が、定義（鍵付き）と DB の CHECK（migration 468）で同じ並び", () => {
   const sql = read("scripts/migrations/468_project_overview_definitions.sql");
   const match = sql.match(/ANY \(ARRAY\[([^\]]+)\]\)/);
-  assert.ok(match, "migration 468 に稼ぎ方の種類の CHECK がある");
+  assert.ok(match, "migration 468 に報酬形態の種類の CHECK がある");
   const dbKinds = match[1].split(",").map((part) => part.trim().replace(/^'|'$/g, ""));
   assert.deepEqual(dbKinds, AMD_REVENUE_KINDS.map((kind) => kind.key));
 });

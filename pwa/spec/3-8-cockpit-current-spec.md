@@ -118,7 +118,7 @@ KUTEガントの年度末マーカーは「年度末 YYYY-MM（目途）」で�
 | `?meeting=<meeting_id>` | MTG詳細 modal を優先。月次 modal と二重起動しない |
 | `?tab=score-detail` | SU 系 PJ の `スコア詳細` を初期表示する。最上段が「現行SPS｜産業創出価値」の評価カード、その下が BZM 3.0 のスコアパネル。2026-08-27 に BZM 2.2 暫定パイロットと旧モデルのアーカイブトグルをこのタブから外した (下記 score detail tab 行が正本) |
 | `?tab=weekly` / `?tab=gantt` / `?tab=partners` / `?tab=issues` | PJ管制の4タブを初期表示する。`gantt`は目的構造を内包し、中身はPJワークスペースと同一。旧`?tab=objective-structure`は`gantt`へ互換遷移する (下記 project control tabs 行が正本) |
-| `?tab=overview` | 常設「PJ概要」タブを初期表示する。全PJ共通の9項目（PJの定義＝目的・相手・AMDの関わり方・AMDの稼ぎ方・期間と体制、今の状態＝段階と次の節目・契約と収支・まだ決まっていないこと・最近の重要な動き）を `ProjectOverviewFormat` で読む（spec 3-23 §9）。AMD本体は `CockpitManagementScoreHero` |
+| `?tab=overview` | 常設「PJ概要」タブを初期表示する。全PJ共通の9項目（PJの定義＝目的・相手・AMDの関わり方・AMDの報酬形態・期間と体制、今の状態＝段階と次の節目・契約と収支・まだ決まっていないこと・最近の重要な動き）を `ProjectOverviewFormat` で読む（spec 3-23 §9）。AMD本体は `CockpitManagementScoreHero` |
 | `?tab=project-contracts` | 常設「契約」タブを初期表示する。現行契約の実行条件を読む |
 | `?tab=project-finance` | 常設「収支」タブを初期表示する。シーズン予算と消化を読む |
 | `?tab=business-plan` | 常設「事業計画」タブを初期表示する。2026-08-21 (v3.87.3) に全PJ常設へ拡大した (旧: SX `p21` のみ) |

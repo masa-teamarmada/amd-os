@@ -2,7 +2,7 @@
  * PJ概要タブ（PJ管理）の中身を組み立てる純関数と型。正本は spec 3-23 §9、項目の定義は project-formats.ts（鍵付き）。
  *
  * 2026-10-04 まさ確定「1で進めて」（PJの定義5項目・今の状態4項目）。
- * - PJの定義: 目的はゴールツリーの到達点、相手は PJ・シーズ・Venture Map の登録、関わり方の補足・稼ぎ方・先方の窓口は
+ * - PJの定義: 目的はゴールツリーの到達点、相手は PJ・シーズ・Venture Map の登録、関わり方の補足・報酬形態・先方の窓口は
  *   project_definitions（書けるのは管理者だけ）から出す。PJを作るときに決めて、めったに変えない。
  * - 今の状態: ゴールツリー・契約・収支・重要な動きのデータから出す。このタブでは書かない。
  * 画面は src/components/cockpit/ProjectOverviewFormat.tsx、読み込みは project-overview-client.ts。ここは純関数だけを置く。
@@ -144,7 +144,7 @@ export function revenueKindLabel(kind: string): string {
 
 const REVENUE_KIND_KEYS = new Set<string>(AMD_REVENUE_KINDS.map((entry) => entry.key));
 
-/** 稼ぎ方の一覧を、定義にある種類と文字列の中身だけへ揃える（DB の CHECK と同じ決まり）。 */
+/** 報酬形態の一覧を、定義にある種類と文字列の中身だけへ揃える（DB の CHECK と同じ決まり）。 */
 export function normalizeRevenueStreams(value: unknown): ProjectRevenueStream[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item) => {

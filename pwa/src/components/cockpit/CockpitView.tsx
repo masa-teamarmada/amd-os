@@ -927,7 +927,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       {/* PJ概要タブ。このPJがどういうものかを読む面。
             - AMD本体は AMD Management Score の時系列折れ線 + 最新値カード
             - ほかのPJは全PJ共通の標準フォーマット（ProjectOverviewFormat、spec 3-23 §9）。
-              PJの定義（目的・相手・関わり方・稼ぎ方・期間と体制）と、今の状態（段階と次の節目・契約と収支・
+              PJの定義（目的・相手・関わり方・報酬形態・期間と体制）と、今の状態（段階と次の節目・契約と収支・
               まだ決まっていないこと・最近の重要な動き）の9項目（2026-10-04 まさ確定「1で進めて」）。
               事業の一言は会社情報 > 会社概要「事業の概要」へ移した。XRL進捗はスコア詳細タブ。 */}
       {activeTab === "monthly-reports" && (

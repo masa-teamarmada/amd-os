@@ -131,7 +131,7 @@
 4. **コスト試算タブは入口がデータの形で選ぶ**（§7）：入口 `CockpitCostTab` は `costFormatEngineOf(bundle)` だけで画面を選ぶ。標準フォーマット `ProjectCostFormat` は §7 の区画をすべて描き、要約の欄と前提の並べ方は定義の順に描く。コックピット・PJワークスペース・DD はどれも入口を通し、廃液の画面（`CockpitCostModel`）を直に描かない。燃料の試算もタブを足さず、入口の中の切り替えで読む。計算の答えと式の一致は `npm run test:project-cost-model`（`scripts/check_project_cost_items_engine.mts`）が確かめる。
 5. **タブはPJタイプの定義からだけ作る**（§2）：`CockpitView` は `cockpitGroupsForType(formatType)`・`resolveCockpitTabForType`、ワークスペースは `WORKSPACE_TAB_FORMATS` からタブを作る。中身の有無でタブを出し分ける書き方（`hasCompetition`・`hasBusinessModel`・`hasFuelCost`・`hasDd`・`hasInstitutionSeedsTab`・`ledgerTabsPresent`）を戻さない。DDはタブの外の領域選択に置き、独立した認可を使う。ワークスペースの題名は表示名から作る。
 6. **事業計画タブはデータから**（§8）：`CockpitBusinessPlan` は `project_business_plans` を読み、`BUSINESS_PLAN_FORMAT` のレーンの順に描く。PJの定数（`sx-business-plan`）を画面に持ち込まない。
-7. **PJ概要は9項目、事業の一言の入口は会社概要だけ**（§9）：`npm run test:project-overview`（`scripts/check_project_overview_contract.mts`）が、`ProjectOverviewFormat` が定義の9項目を全部描くこと、コックピットの PJ概要がこの画面であること、`project_ventures.short_description` / `long_description` を書くコードが無いこと、PJの定義と事業の概要を書くのが管理者だけが通れる2つの API だけであること、稼ぎ方の種類が定義と DB の CHECK で同じであることを確かめる。DB でも、控えの2列を直に書き換えると止まる（トリガー `project_ventures_business_summary_guard`）。
+7. **PJ概要は9項目、事業の一言の入口は会社概要だけ**（§9）：`npm run test:project-overview`（`scripts/check_project_overview_contract.mts`）が、`ProjectOverviewFormat` が定義の9項目を全部描くこと、コックピットの PJ概要がこの画面であること、`project_ventures.short_description` / `long_description` を書くコードが無いこと、PJの定義と事業の概要を書くのが管理者だけが通れる2つの API だけであること、報酬形態の種類が定義と DB の CHECK で同じであることを確かめる。DB でも、控えの2列を直に書き換えると止まる（トリガー `project_ventures_business_summary_guard`）。
 
 ## 6. 統一の残り
 
@@ -244,7 +244,7 @@
 | PJの定義 | PJの目的 | ゴールツリーのいちばん上（到達点、`project_questions.question_kind = 'goal'` の根）。承認待ちは印を付けて分ける |
 | PJの定義 | 相手 | 契約先（`projects.client_name`）・出身（Venture Map の `origin_org`／`origin_pi`、無ければ元になる技術の機関と研究者）・元になる技術（`seed_projects` → `seeds.title`）・分野（Venture Map のレーン） |
 | PJの定義 | AMDの関わり方 | PJの種類（`project_category`）・関わり方（Venture Map の `amd_role`：スタジオモデル／ファウンダースタジオ／サポート参画）・補足（`project_definitions.involvement_note`） |
-| PJの定義 | AMDの稼ぎ方 | `project_definitions.revenue_streams`（種類は業務委託料・顧問料・成功報酬・AMD OSの利用料・株式・その他）。金額と時期は書かない（契約・収支・資本政策表から出る） |
+| PJの定義 | AMDの報酬形態 | `project_definitions.revenue_streams`（種類は業務委託料・顧問料・成功報酬・AMD OSの利用料・株式・その他）。金額と時期は書かない（契約・収支・資本政策表から出る） |
 | PJの定義 | 期間と体制 | AMDが関わる期間（Venture Map の参画期間、無ければ `projects.start_ym`〜`end_ym`）・AMD側の担当（`project_members` の PL・PM・クローザー・メンバー）・先方の窓口（`project_definitions.counterpart_contacts`） |
 | 今の状態 | 今の段階と次の節目 | 段階（Venture Map のアウトカム）・PJの状態（`projects.status`）・設立（会社概要の設立日、無ければ Venture Map の設立年月。未来なら「設立予定」）・次のMS（ゴールツリーの承認済みで開いているMSのうち、今日以降でいちばん近い期限のもの。期限切れの数も出す） |
 | 今の状態 | 契約と収支 | 「契約」タブの現行契約（最大3件）と、「収支」タブの今のシーズン（無ければ直近）の請求・メンバー原資の消化 |
@@ -269,7 +269,7 @@
 
 | データ | 正本 | API | クライアント層 |
 |---|---|---|---|
-| PJの定義（関わり方の補足・稼ぎ方・先方の窓口） | `project_definitions`（migration 468、1PJ1行） | `/api/project/[projectId]/overview`（GET＝AMDメンバー、PATCH＝管理者だけ） | `src/lib/project-overview-client.ts` |
+| PJの定義（関わり方の補足・報酬形態・先方の窓口） | `project_definitions`（migration 468、1PJ1行） | `/api/project/[projectId]/overview`（GET＝AMDメンバー、PATCH＝管理者だけ） | `src/lib/project-overview-client.ts` |
 | 事業の概要 | `project_business_summaries`（migration 468、1PJ1行） | `/api/project/[projectId]/business-summary`（GET＝AMDメンバーとワークスペースの参加者、PATCH＝管理者だけ） | `src/lib/business-summary-client.ts` |
 
 - どちらも参照系（spec 5-10）。サーバのプロセス内（PJ概要60秒・事業の概要5分、同時の読み込みは1本へ束ねる）・`Cache-Control`・クライアントのキャッシュの3層を通す。PJ概要タブにカーソルが乗ったら、PJ概要・ゴールツリー・収支を先読みする。会社情報タブでは事業の概要も先読みする。
@@ -280,4 +280,4 @@
 
 - 13PJの事業の一言を `project_business_summaries` へ写し、そのうち12PJ（tiem・KT・CTB・LST・JC・BWE・YD・CX・SOL・OQC・CLG・KENQ）の文から、出資・調達・採択・予定・進み具合・AMDの関わり方を外した（2026-10-03 にまさへ出した文面）。前の文は変更の記録に残る。
 - CX の沿革から、Build VC の出資の見通しと、未来の設立予定の項目を外した。
-- PJの定義（稼ぎ方・先方の窓口・関わり方の補足）は、まだどのPJも未登録。管理者が「定義を直す」から書く。
+- PJの定義（報酬形態・先方の窓口・関わり方の補足）は、CX を除き未登録（CX は migration 471）。管理者が「定義を直す」から書く。

@@ -354,7 +354,7 @@ export const PROJECT_OVERVIEW_SECTIONS = [
   { key: "purpose", group: "definition", label: "PJの目的", hint: "何ができたらこのPJは成功か。ゴールツリーのいちばん上（到達点）" },
   { key: "counterpart", group: "definition", label: "相手", hint: "契約先、出身の研究機関と研究者、元になる技術" },
   { key: "involvement", group: "definition", label: "AMDの関わり方", hint: "自分たちで会社を創る・受託・顧問 など" },
-  { key: "revenue", group: "definition", label: "AMDの稼ぎ方", hint: "受託料・株式・設立後の委託料 など。金額と時期は契約・収支・資本政策から出す" },
+  { key: "revenue", group: "definition", label: "AMDの報酬形態", hint: "業務委託料・顧問料・成功報酬・株式 など。金額と時期は契約・収支・資本政策表から出す" },
   { key: "team", group: "definition", label: "期間と体制", hint: "AMDが関わる期間、AMD側の担当、先方の窓口" },
   { key: "stage", group: "status", label: "今の段階と次の節目", hint: "段階と設立、ゴールツリーの次のMS" },
   { key: "contract", group: "status", label: "契約と収支", hint: "「契約」と「収支」のタブの要約" },
@@ -365,7 +365,7 @@ export const PROJECT_OVERVIEW_SECTIONS = [
 export type ProjectOverviewSectionKey = (typeof PROJECT_OVERVIEW_SECTIONS)[number]["key"];
 
 /**
- * AMDの稼ぎ方の種類（project_definitions.revenue_streams の kind）。
+ * AMDの報酬形態の種類（project_definitions.revenue_streams の kind）。
  * DB の CHECK（migration 468 の project_revenue_streams_valid）と同じ並び。
  */
 export const AMD_REVENUE_KINDS = [
