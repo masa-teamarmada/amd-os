@@ -257,7 +257,7 @@ export function CockpitCompanyOverview({
         <div className="flex flex-wrap gap-2" data-html2canvas-ignore="true">
           <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" disabled={!canDownload} onClick={() => downloadCompanyOverviewXlsx(projectName, data)}><FileSpreadsheet />会社概要Excel</Button>
           <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" onClick={() => void exportPdf()} disabled={exportingPdf || !canDownload}>{exportingPdf ? <Loader2 className="animate-spin" /> : <Download />}PDF</Button>
-          <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" onClick={() => void load()}><RefreshCw />更新</Button>
+          <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" onClick={() => initialData ? window.location.reload() : void load()}><RefreshCw />更新</Button>
         </div>
       </div>
 
