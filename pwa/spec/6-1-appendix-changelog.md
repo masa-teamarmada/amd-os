@@ -1,5 +1,6 @@
 # 附則（設計書変更履歴）
 
+| 2026-10-04 JST | 2-2 surface inventory・3-3・design（SPEC_pwa・FEATURE_REGISTRY・README・amd_score・cyber_hud_design_code・cyber_dashboard_content_design）・macOS（PARITY・PWA_PARITY_EVIDENCE） | 削除 | v3.157.0。実験ダッシュボード `/dashboard-cyber-3d-lab`・`/dashboard-cyber-glass-cube`・`/dashboard-cyber-hud-wall` と `/mock/*`、`components/dashboard/Cyber*.tsx`、設計メモ2枚、`middleware` の `/mock` 素通し、`surface-catalog` の `dashboard-cyber-lab` を削除。Mac アプリの3画面（`AMDOSCyber3DLabView` ほか）と台帳の行も外した。`test:critical-ui` と `check_surface_catalog_contract` に戻さない検査を足した | まさ「消して」 | まさ・えいみ |
 2026-10-04: DDのページ本文を掲載項目の抜粋から共通ページへ修正。技術・競合比較・ビジネスモデルは全トピック・行・知識断片、試算表はPL/CF/資本計画/助成金/設立日/試算、資本政策表は全プランと版、コスト試算は廃液・燃料を共通部品で表示。会社概要も決算・総会・キラー要素を含む同一データを使用。DDの入場認可は独立したまま、書込み権限は追加しない。資料の公開対象と正式版PDFの項目選択は維持。
 
 | 2026-10-04 JST | 3-20 技術台帳（データ） | 変更 | データだけ（migration 472、本番適用済み）。技術タブの文章で事業の収益の仕組みを「稼ぎ方」「稼ぐ」と書いていたところを言い換えた。SOL「ガルデリアとの違い」の比較表の行と本文・「よく聞かれる問いと答え方」の本文 → 収益モデル、LiSTie「LiSTieのビジネスモデル」の「膜の定期交換でも稼ぐ事業」→「収益を得る事業」 | まさ「稼ぎ方っていう言い方は下品なので、報酬形態、みたいな言い方に変えて」→ SXの競合比較表を「収益モデル」に言い換える案に「1で」 |

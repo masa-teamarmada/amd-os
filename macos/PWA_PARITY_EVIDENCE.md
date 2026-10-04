@@ -15,9 +15,9 @@
 | `実装済み` | route固有のSwiftUI画面と現行PWA API/Edge Function境界を実装済み |
 | `確認済み` | 認証済み実データでloading/empty/error/権限拒否と代表導線を確認済み |
 
-## PWA source page 89件の正本一覧
+## PWA source page 83件の正本一覧
 
-以下は `pwa/src/app/**/page.tsx` の全89件を、source file単位で数えた一覧。alias / mock も省略しない（HUD の21件は 2026-10-04 に PWA から削除した）。`未確認` はそのsource pageの固有UI・導線・実データ・代表更新をまだ完了と扱わない意味。
+以下は `pwa/src/app/**/page.tsx` の全83件を、source file単位で数えた一覧。alias も省略しない（HUD の21件と、サイバー風の実験ダッシュボード・その mock の6件は 2026-10-04 に PWA から削除した）。`未確認` はそのsource pageの固有UI・導線・実データ・代表更新をまだ完了と扱わない意味。
 
 | source page | canonical path | NativeScreenID | 状態 |
 |---|---|---|---|
@@ -62,9 +62,6 @@
 | `(app)/company/page.tsx` | `/company` | `company` | 未確認 |
 | `(app)/contracts/page.tsx` | `/contracts` | `adminContracts` (PWA redirect) | 未確認 |
 | `(app)/dashboard/page.tsx` | `/dashboard` | `today` | 未確認 |
-| `(app)/dashboard-cyber-3d-lab/page.tsx` | `/dashboard-cyber-3d-lab` | `cyber3DLab` | 実装済み（PWA同じHUD PJ信号を選択可能Native Canvasで表示。Native静的確認、実読取未確認） |
-| `(app)/dashboard-cyber-glass-cube/page.tsx` | `/dashboard-cyber-glass-cube` | `cyberGlassCube` | 実装済み（PWA同じPJ選択/KPIをNative Cubeで表示。Native静的確認、実読取未確認） |
-| `(app)/dashboard-cyber-hud-wall/page.tsx` | `/dashboard-cyber-hud-wall` | `cyberHudWall` | 実装済み（PWA同じPJ選択・status/monthly/signalをNative Wallで表示。Native静的確認、実読取未確認） |
 | `(app)/institutions/page.tsx` | `/institutions` | `institutions` | 実装済み（PWA固定KUTE/NIMS対応、実データ読取は未確認） |
 | `(app)/institutions/[institutionId]/page.tsx` | `/institutions/[institutionId]` | `institutionDetail` | 実装済み（ECR詳細、実データ読取は未確認） |
 | `(app)/institutions/[institutionId]/cockpit/page.tsx` | `/institutions/[institutionId]/cockpit` | `institutionCockpit` | 実装済み（実PJ cockpit・月別MTGツリー、実データ読取は未確認） |
@@ -106,9 +103,6 @@
 | `(app)/venture-map/su/[id]/page.tsx` | `/venture-map/su/[id]` | `ventureSuDetail` | 実装済み（target `project_id` を公開flagで絞らず取得、同じXRL/macro/マイルストーン。認証済み実データ読取は未確認） |
 | `(app)/venture-map/timeline-3d/page.tsx` | `/venture-map/timeline-3d` | `ventureTimeline3D` | 実装済み（public venture IDsに限定したXRL、TRL/BRL/HRL/GRL/SRL積層、milestone、SU詳細遷移。Native透視投影で3D/T×SCORE/SU×SCORE/T×SU preset、PWA GizmoViewport相当の軸コントローラ、ドラッグ旋回、Option+ドラッグ平行移動、pinch/scrollズーム） |
 | `auth/login/page.tsx` | `/auth/login` | `account` | 未確認 |
-| `mock/dashboard-cyber-3d-lab/page.tsx` | `/mock/dashboard-cyber-3d-lab` | `cyber3DLab` | 実装済み（PWA mock aliasと同じNative 3D Labへ収束。Native静的確認） |
-| `mock/dashboard-cyber-glass-cube/page.tsx` | `/mock/dashboard-cyber-glass-cube` | `cyberGlassCube` | 実装済み（PWA mock aliasと同じNative Glass Cubeへ収束。Native静的確認） |
-| `mock/dashboard-cyber-hud-wall/page.tsx` | `/mock/dashboard-cyber-hud-wall` | `cyberHudWall` | 実装済み（PWA mock aliasと同じNative HUD Wallへ収束。Native静的確認） |
 | `payment-confirm/page.tsx` | `/payment-confirm` | `paymentConfirm` | 未確認 |
 
 ## 全PWA画面 route
@@ -185,9 +179,6 @@
 | `/admin/settings` | `adminSettings` | `settings`、PWA operations catalog / admin | `GET` / `POST` / `PATCH` / `DELETE /api/admin/settings`（catalog DTO含む）、`POST /api/settings/cron-run` | 実装済み（PWA正本catalogのRaw/L2/Cron、source/input/outputと同一のkey/label/type/value/description CRUD、手動実行。settings writerはrequireAdmin付き共有APIへ集約） | 未確認 |
 | `/admin/tsukuyomi` | `adminTsukuyomi` | `tsukuyomi_context`、learning/status read model / admin | `GET` / `POST` / `PATCH /api/admin/tsukuyomi/context` | 実装済み（PWA同一のcontext検索・layer/status絞り込み、追加・編集・archive、learning/status読取。学習投稿は対象外で`/api/tsukuyomi/post`の501を維持） | 未確認 |
 | `/admin/weekly` | `adminWeekly` | `member_weekly`活動・`billing_cycles`月次報酬 / admin | read-only `/api/admin/weekly?weekStart=` | 実装済み（PWA同一の週移動、活動/PJ/メンバー/報酬集計、PJ × メンバーmatrix、source URL） | 確認済み（Bearer GET 200、11 member / 7 PJ / 72 activity / 6 reward、2026-07-18） |
-| `/dashboard-cyber-3d-lab` | `cyber3DLab` | cyber dashboard data / member | read-only `GET /api/hud/dashboard` | 実装済み（選択可能Native Canvas、M/X/Fとscore history） | Native静的確認。認証済み実読取は未確認 |
-| `/dashboard-cyber-glass-cube` | `cyberGlassCube` | cyber dashboard data / member | read-only `GET /api/hud/dashboard` | 実装済み（PJ選択・Cube・KPI） | Native静的確認。認証済み実読取は未確認 |
-| `/dashboard-cyber-hud-wall` | `cyberHudWall` | cyber dashboard data / member | read-only `GET /api/hud/dashboard` | 実装済み（PJ選択・status/monthly/signal Wall） | Native静的確認。認証済み実読取は未確認 |
 | `/manual`, `/manual/[slug]` | `manual`, `manualDetail` | PWA manual markdown / member | manual Q&A API | 実装済み（章順/番号、テーマ、全章本文検索、本文/内リンク、前後章、Q&A） | 実データ読取は未確認 |
 | `/spec`, `/spec/[slug]` | `spec`, `specDetail` | PWA spec Markdown / admin | read-only document bridge（bridgeも`is_admin`確認） | 実装済み（section/番号/章group/本文/前後章、Native gate） | Native静的確認。認証済み実読取は未確認 |
 | `/bzm`, `/bzm/[slug]` | `bzm`, `bzmDetail` | bundled BZM Markdown / member | read-only document bridge | 実装済み（chapter/part/未着手stub/本文/前後章） | Native静的確認。認証済み実読取は未確認 |

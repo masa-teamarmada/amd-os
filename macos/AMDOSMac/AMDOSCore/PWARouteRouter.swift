@@ -53,7 +53,7 @@ struct AMDOSPWAPathRoute: Hashable, Sendable {
              .adminSchedule, .adminMsOverview, .adminSeasonPL, .adminSettings, .adminTsukuyomi,
              .adminWeekly:
             return .admin
-        case .cyber3DLab, .cyberGlassCube, .cyberHudWall, .manual,
+        case .manual,
              .manualDetail, .spec, .specDetail, .bzm, .bzmDetail, .bzmPublic, .bzmPublicDetail,
              .account:
             return .settings
@@ -127,9 +127,6 @@ enum AMDOSPWAPathRouter {
         case ["management-score"]: return AMDOSPWAPathRoute(screen: .managementScore)
         case ["proactive"]: return AMDOSPWAPathRoute(screen: .proactive)
         case ["japanese-culture-map"]: return AMDOSPWAPathRoute(screen: .adminCultureMap)
-        case ["dashboard-cyber-3d-lab"], ["mock", "dashboard-cyber-3d-lab"]: return AMDOSPWAPathRoute(screen: .cyber3DLab)
-        case ["dashboard-cyber-glass-cube"], ["mock", "dashboard-cyber-glass-cube"]: return AMDOSPWAPathRoute(screen: .cyberGlassCube)
-        case ["dashboard-cyber-hud-wall"], ["mock", "dashboard-cyber-hud-wall"]: return AMDOSPWAPathRoute(screen: .cyberHudWall)
 
         // PWAの score-detail は独立画面ではなくCockpit内のtab。Macも同じCockpitへ
         // `tab` を渡し、進捗/会社概要と同じ文脈を保ったままスコア詳細を開く。

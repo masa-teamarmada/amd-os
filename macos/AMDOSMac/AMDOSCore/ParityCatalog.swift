@@ -78,9 +78,6 @@ enum AMDOSParityCatalog {
         case .adminSettings: return "設定"
         case .adminTsukuyomi: return "つくよみ"
         case .adminWeekly: return "週次活動"
-        case .cyber3DLab: return "3D Lab"
-        case .cyberGlassCube: return "Glass Cube"
-        case .cyberHudWall: return "HUD Wall"
         case .manual: return "マニュアル"
         case .manualDetail: return "マニュアル本文"
         case .spec: return "仕様書"
@@ -138,7 +135,6 @@ enum AMDOSParityCatalog {
         case .adminSettings: return "gearshape.fill"
         case .adminTsukuyomi: return "moon.stars.fill"
         case .adminWeekly: return "calendar.badge.clock"
-        case .cyber3DLab, .cyberGlassCube, .cyberHudWall: return "cube.transparent.fill"
         case .manual, .manualDetail: return "book.closed.fill"
         case .spec, .specDetail: return "doc.badge.gearshape"
         case .bzm, .bzmDetail, .bzmPublic, .bzmPublicDetail: return "text.book.closed.fill"
@@ -165,7 +161,7 @@ enum AMDOSParityCatalog {
         case .admin:
             return isAdmin ? [.adminHome, .adminCompany, .adminContexts, .adminInvoices, .adminFinance, .adminPayouts, .adminContracts, .adminMembers, .adminGovernance, .adminCoverageGaps, .adminIP, .adminCultureMap, .adminMonthlyAgreements, .adminPrivateWiki, .adminManagementKnowledge, .adminProjects, .adminPrompts, .adminProtocols, .adminSchedule, .adminMsOverview, .adminSeasonPL, .adminSettings, .adminTsukuyomi, .adminWeekly] : []
         case .settings:
-            return [.cyber3DLab, .cyberGlassCube, .cyberHudWall, .manual, .spec, .bzm, .bzmPublic, .account]
+            return [.manual, .spec, .bzm, .bzmPublic, .account]
         }
     }
 }

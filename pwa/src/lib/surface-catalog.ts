@@ -122,7 +122,6 @@ export const SURFACE_CATALOG: readonly SurfaceDefinition[] = [
   { id: "admin-settings", title: "Admin 設定", navLabel: "設定", primaryPath: "/admin/settings", domain: "platform", lens: "amd_operations", status: "canonical", exact: ["/admin/settings"] },
   { id: "admin-fallback", title: "Admin", domain: "company_operations", lens: "amd_operations", status: "transitional", prefixes: ["/admin"] },
 
-  { id: "dashboard-cyber-lab", title: "ダッシュボード実験", domain: "portfolio", lens: "amd_portfolio", status: "mirror", prefixes: ["/dashboard-cyber-3d-lab", "/dashboard-cyber-glass-cube", "/dashboard-cyber-hud-wall"] },
 ] as const;
 
 export const ADMIN_SURFACE_GROUPS = [

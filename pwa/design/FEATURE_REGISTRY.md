@@ -53,7 +53,6 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - SSRの`generateMetadata`とclientの`PageTitleSetter`は同じ`surfaceTitleForPath()`を使い、別々のroute title表を持たない。
 - ホーム `/dashboard` は `canonical`として維持し、本収束作業で再設計しない。
 - `/project/[projectId]/weekly-control`と`navigation`、`/notifications`と`/proactive`は移行中レンズとして登録し、共通作業・判断カーネルへ寄せるまでは独立writerを増やさない。
-- dashboard実験面は`mirror`とし、正規画面から独立した業務正本を持たせない。
 - admin navigationは同じcatalogから項目を取り、「組織・権限」「契約・お金」「PJ・実行」「知識・AI」「運用」の職務groupで並べる。既存routeは削除しない。
 
 回帰防止:

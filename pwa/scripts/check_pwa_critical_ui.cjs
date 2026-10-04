@@ -2186,7 +2186,7 @@ expectIncludes("src/components/formula/FormulaPanelKit.tsx", [
 // HUD パネルを 1 枚だけ差し込むと、その 1 枚だけ別世界になる。
 // 履歴: v3.83.17 でえいみが「HUD の SVG コーナーフレームが欠けている」と真逆に解釈して HUD を
 // 復活させ、差し戻された。同じ誤りを二度やらないための機械的な釘。
-// 正本: pwa/design/cyber_hud_design_code.md「適用対象外」節。
+// HUD と実験ダッシュボードは 2026-10-04 に削除した。暗い背景・ネオン発光・SVGコーナーフレームを通常画面へ戻さない。
 expectNotIncludes("src/components/formula/FormulaPanelKit.tsx", [
   "formula-hud-panel",
   "viewBox=",
@@ -2371,6 +2371,16 @@ for (const retired of [
   "public/hud",
   "design/HUD_CLIENT_MIGRATION.md",
   "design/hud_visual_language.md",
+  // サイバー風の実験ダッシュボード（3D Lab・Glass Cube・HUD Wall）も 2026-10-04 に削除（まさ「消して」）。
+  "src/app/(app)/dashboard-cyber-3d-lab",
+  "src/app/(app)/dashboard-cyber-glass-cube",
+  "src/app/(app)/dashboard-cyber-hud-wall",
+  "src/app/mock",
+  "src/components/dashboard/Cyber3DLab.tsx",
+  "src/components/dashboard/CyberGlassCubeDashboard.tsx",
+  "src/components/dashboard/CyberHudWallDashboard.tsx",
+  "design/cyber_hud_design_code.md",
+  "design/cyber_dashboard_content_design.md",
 ]) {
   expectFileMissing(retired);
 }
@@ -2468,9 +2478,6 @@ expectNotIncludes(
   "src/app/(app)/institutions/[institutionId]/cockpit/page.tsx",
   ["nudges={cockpit.nudges"],
 );
-expectNotIncludes("src/components/dashboard/CyberHudWallDashboard.tsx", [
-  "nudges={cockpit.nudges",
-]);
 
 expectIncludes("src/components/cockpit/CockpitSeasonFinance.tsx", [
   "今シーズン収支",

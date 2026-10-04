@@ -91,10 +91,7 @@ export async function updateSession(request: NextRequest) {
     !pathname.startsWith("/api/") &&
     !isPublicMeetingArtifact &&
     !isPublicBzmManuscript &&
-    pathname !== "/" &&
-    pathname !== "/mock/dashboard-cyber-3d-lab" &&
-    pathname !== "/mock/dashboard-cyber-glass-cube" &&
-    pathname !== "/mock/dashboard-cyber-hud-wall"
+    pathname !== "/"
   ) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";

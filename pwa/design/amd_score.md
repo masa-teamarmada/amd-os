@@ -230,7 +230,7 @@ amd_score_alpha (alpha jsonb, effective_from / effective_to)
 > **2026-08-21 訂正**: この節はもともと「cockpit スコア詳細のレイアウト」という見出しで、下のレイアウトを cockpit の現行として書いていた。
 > 実体は `/venture-map/amd-score/[projectId]` (= `AmdScoreView`) のレイアウトで、2026-07-16 `1bb11009` で cockpit へ集約したときに退役済み。
 > **現行の cockpit「スコア詳細」タブは `CockpitAmdScoreDetailTab` → `CurrentSpsAssessmentCard` (現行SPS｜産業創出価値: SPS帯 / 根拠レベル / q帯 / P^ind帯 / 段階仮説 / 総合判断) + `Bzm22ProvisionalObservatory` (BZM 2.2 暫定パイロット)**。
-> 古い記述を残したまま「生きている cockpit の見た目」として参照した事故が実際に起きた (2026-08-21、`design/cyber_hud_design_code.md` の事故後日訂正を参照)。
+> 古い記述を残したまま「生きている cockpit の見た目」として参照した事故が実際に起きた (2026-08-21)。
 
 退役時レイアウト (= `AmdScoreView`。現在どの route からも到達不能):
 ```

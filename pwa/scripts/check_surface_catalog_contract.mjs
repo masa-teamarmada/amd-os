@@ -20,7 +20,8 @@ assert.match(catalog, /id: "portfolio-home"[\s\S]*status: "canonical"/, "ホー�
 assert.match(catalog, /id: "weekly-control"[\s\S]*status: "deprecated"/, "旧週次管制routeはdeprecatedとして明記する");
 assert.match(catalog, /id: "project-dd-admin"[^\n]*title: "DDパッケージ管理"[^\n]*status: "canonical"/, "独立したDD管理画面を正式な入口として表示する");
 assert.doesNotMatch(catalog, /DDパッケージ管理（旧URL）/, "DD管理に旧URLの題名を残さない");
-assert.match(catalog, /id: "dashboard-cyber-lab"[\s\S]*status: "mirror"/, "実験dashboardはmirrorとして明記する");
+// サイバー風の実験ダッシュボード（3D Lab・Glass Cube・HUD Wall）は 2026-10-04 に削除した（まさ「消して」）。戻さない。
+assert.doesNotMatch(catalog, /dashboard-cyber/, "削除した実験ダッシュボードを catalog に戻さない");
 
 for (const [label, source] of [["server layout", serverLayout], ["client title", clientTitle]]) {
   assert.match(source, /surfaceTitleForPath/, `${label}は共通catalogからtitleを解決する`);
