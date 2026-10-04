@@ -1,7 +1,7 @@
 {
   "_README": "PJタイプ別の標準フォーマット（src/lib/project-formats.ts）の鍵。sha256 が定義ファイルと一致しないと scripts/check_project_format_contract.mjs が本番反映を止める。定義を変えてよいのは、まさが明示で承認したときだけ。承認を得たら approvals の末尾に1件足し、sha256 を更新する（spec 3-23）。",
   "file": "src/lib/project-formats.ts",
-  "sha256": "8ccad013d9a8947575ce0d9f672d0c0090b6634d39a2e98482d42c2ba3ce503f",
+  "sha256": "800461693c4659f8defe98fcf9523f49f536f55c19946414c3ce7fb1376d3b5d",
   "approvals": [
     {
       "date": "2026-10-03",
@@ -32,6 +32,12 @@
       "by": "まさ",
       "request": "コックピット、ワークスペース、DDパッケは表示できるページと見れる人が違うだけにして。",
       "change": "DDを同じページ分類・ページ名の固定フォーマットへ統合。DD専用の管理者プレビュー帯・概要一覧・一覧タブを撤去。開示設定と閲覧権限は維持。"
+    },
+    {
+      "date": "2026-10-04",
+      "by": "まさ",
+      "request": "1で進めて（PJ概要に載せる項目の案: PJの定義＝PJの目的・相手・AMDの関わり方・AMDの稼ぎ方・期間と体制、今の状態＝今の段階と次の節目・契約と収支・まだ決まっていないこと・最近の重要な動き。前段「これは会社の概要じゃなくてPJの概要なわけだから、もっとPJとしての情報が必要なのでは？」）",
+      "change": "PJ概要タブ（PJ管理）の標準フォーマットを追加。2つのまとまり（PJの定義・今の状態）と9項目（PROJECT_OVERVIEW_GROUPS / PROJECT_OVERVIEW_SECTIONS）、AMDの稼ぎ方の種類（AMD_REVENUE_KINDS: 業務委託料・顧問料・成功報酬・AMD OSの利用料・株式・その他。DB の CHECK と同じ並び）を定義。事業の一言は会社情報 > 会社概要へ移した。"
     }
   ]
 }

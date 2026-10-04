@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CockpitHeader } from "./CockpitHeader";
-import { CockpitVentureStatus } from "./CockpitVentureStatus";
+import { ProjectOverviewFormat } from "./ProjectOverviewFormat";
 import { CockpitManagementScoreHero } from "./CockpitManagementScoreHero";
 import { CockpitGoalsCompact } from "./CockpitGoalsCompact";
 import { CockpitGoalTreePoints } from "./CockpitGoalTreePoints";
@@ -44,6 +44,10 @@ import { prefetchProjectOrg } from "@/lib/project-org-client";
 import { prefetchProjectCostModel, prefetchProjectFuelCostModel } from "@/lib/project-cost-model-client";
 import { prefetchProjectTech } from "@/lib/project-tech-client";
 import { prefetchProjectBusinessPlan } from "@/lib/project-business-plan-client";
+import { prefetchProjectOverview } from "@/lib/project-overview-client";
+import { prefetchBusinessSummary } from "@/lib/business-summary-client";
+import { prefetchQuestionTree } from "@/lib/question-tree-client";
+import { prefetchSeasonBudget } from "@/lib/season-budget-client";
 import {
   DEFAULT_COCKPIT_TAB,
   cockpitGroupForTabInType,
@@ -415,8 +419,6 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
   const modalMsActivities = !usesMsProgress || isReportOnlyMonth ? [] : (modalBundle?.msActivities || msActivities || []);
   const modalMemberActivities = isReportOnlyMonth ? [] : (modalBundle?.memberActivities || memberActivities || []);
   const showLiveOperations = isLiveOperationalProject(project, currentYm);
-  // AMD Score は大学発SUと新規事業のPJに付ける（研究機関エコシステムとAMD本体は対象外）。
-  const showAmdScore = formatType === "su" || formatType === "new_business";
 
   // グループと所属タブはPJタイプの標準フォーマット（src/lib/project-formats.ts、鍵付き）が正本。
   // ここではラベルと、見る人の役割による出し分け（DDパッケージ＝AMDの管理者）だけを足す。
@@ -469,7 +471,9 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       : key === "business-plan" ? () => prefetchProjectBusinessPlan(project.projectId)
       : key === "cost-model" ? () => { prefetchProjectCostModel(project.projectId); prefetchProjectFuelCostModel(project.projectId); }
       : key === "monthly-reports" ? () => prefetchMonthlyReports(project.projectId)
-      : key === "capital-policy" || key === "company" ? () => prefetchGovernance(project.projectId)
+      : key === "capital-policy" ? () => prefetchGovernance(project.projectId)
+      : key === "company" ? () => { prefetchGovernance(project.projectId); prefetchBusinessSummary(project.projectId); }
+      : key === "overview" ? () => { prefetchProjectOverview(project.projectId); prefetchQuestionTree(project.projectId); prefetchSeasonBudget(project.projectId); }
       : undefined,
   });
   const childTabItems: { key: CockpitTab; label: string; onHover?: () => void }[] = childTabs.map(tabItem);
@@ -920,12 +924,12 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
         </section>
       )}
 
-      {/* PJ概要タブ (2026-08-28 まさ依頼)。このPJがどういうものかを読む面。
-            - p00 (= AMD 会社全体) は AMD Management Score の時系列折れ線 + 最新値カード
-            - SU 系 PJ は CockpitVentureStatus の見出し・レーン・担当・事業概要
-              (XRL進捗は 2026-08-28 まさ指摘でスコア詳細タブへ)
-            - ecosystem PJ は AMD Score 対象外なので出さない
-          契約とシーズン収支は別タブへ分ける。 */}
+      {/* PJ概要タブ。このPJがどういうものかを読む面。
+            - AMD本体は AMD Management Score の時系列折れ線 + 最新値カード
+            - ほかのPJは全PJ共通の標準フォーマット（ProjectOverviewFormat、spec 3-23 §9）。
+              PJの定義（目的・相手・関わり方・稼ぎ方・期間と体制）と、今の状態（段階と次の節目・契約と収支・
+              まだ決まっていないこと・最近の重要な動き）の9項目（2026-10-04 まさ確定「1で進めて」）。
+              事業の一言は会社情報 > 会社概要「事業の概要」へ移した。XRL進捗はスコア詳細タブ。 */}
       {activeTab === "monthly-reports" && (
         <CockpitMonthlyReports key={project.projectId} projectId={project.projectId} currentYm={currentYm} />
       )}
@@ -934,15 +938,8 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
         <section role="tabpanel" aria-label="PJ概要" className="flex min-w-0 flex-col gap-3">
           {formatType === "amd" ? (
             <CockpitManagementScoreHero />
-          ) : showAmdScore ? (
-            <CockpitVentureStatus
-              projectId={project.projectId}
-              projectName={project.projectName}
-              onOpenScoreDetail={() => selectTab("score-detail")}
-              sections="identity"
-            />
           ) : (
-            <p className="rounded-xl border border-[#e5e5e7] bg-white px-4 py-6 text-[13px] leading-6 text-[#6e6e73]">研究機関エコシステムのPJは AMD Score の対象外。契約の条件は「契約」、シーズン予算と消化は「収支」で見る。</p>
+            <ProjectOverviewFormat key={project.projectId} project={project} onSelectTab={selectTab} />
           )}
         </section>
       )}

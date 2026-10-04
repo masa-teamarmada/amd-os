@@ -157,6 +157,20 @@ const REFERENCE_DATA_ENDPOINTS = [
     routeFile: "src/app/api/dd/summary/route.ts",
     clientModule: "src/lib/dd-client.ts",
   },
+  {
+    // 2026-10-04: PJ概要タブを全PJ共通の9項目に作り直した（spec 3-23 §9）。PJの定義はめったに変わらない参照系。
+    endpoint: "/api/project/:p/overview",
+    label: "PJ概要 (PJの定義と、今の状態のうち重要な動きなど)",
+    routeFile: "src/app/api/project/[projectId]/overview/route.ts",
+    clientModule: "src/lib/project-overview-client.ts",
+  },
+  {
+    // 2026-10-04: 事業の一言をPJ概要から会社概要へ移した。PJを作るときに書いて、めったに変えない参照系。
+    endpoint: "/api/project/:p/business-summary",
+    label: "事業の概要 (会社概要の事業の一言と詳しい説明)",
+    routeFile: "src/app/api/project/[projectId]/business-summary/route.ts",
+    clientModule: "src/lib/business-summary-client.ts",
+  },
 ];
 
 // ---------------------------------------------------------------------------

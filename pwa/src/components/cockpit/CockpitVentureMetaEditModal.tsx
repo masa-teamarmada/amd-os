@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * PJ Status のヘッダー (PJ 名 / lane / outcome / 設立日 / origin / short_description)
+ * Venture Map の分類 (PJ 名 / lane / outcome / 設立日 / origin / AMD の関わり方と期間)。
+ * 事業の一言はここでは直さない。会社情報 > 会社概要「事業の概要」が正本（2026-10-04 まさ確定、migration 468）
  * を直接編集するモーダル。`project_ventures` テーブルを直接更新する。
  */
 
@@ -41,7 +42,7 @@ interface Props {
   venture: ProjectVentureRow;
   projectName: string;
   /** どのフィールドにフォーカスするか (UI ヒント) */
-  focus?: "outcome" | "founded_at" | "origin_pi" | "origin_org" | "lane" | "description";
+  focus?: "outcome" | "founded_at" | "origin_pi" | "origin_org" | "lane";
   onClose: () => void;
   onSaved: () => void;
 }
@@ -56,7 +57,6 @@ export function CockpitVentureMetaEditModal({ venture, projectName, focus, onClo
   const [amdRole, setAmdRole] = useState(venture.amd_role ?? "");
   const [amdSupportStart, setAmdSupportStart] = useState(venture.amd_support_started_at ?? "");
   const [amdSupportEnd, setAmdSupportEnd] = useState(venture.amd_support_ended_at ?? "");
-  const [shortDescription, setShortDescription] = useState(venture.short_description ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,7 +73,6 @@ export function CockpitVentureMetaEditModal({ venture, projectName, focus, onClo
       amd_role: amdRole.trim() || null,
       amd_support_started_at: amdSupportStart || null,
       amd_support_ended_at: amdSupportEnd || null,
-      short_description: shortDescription.trim() || null,
     });
     setSaving(false);
     if (!r) {
@@ -227,17 +226,6 @@ export function CockpitVentureMetaEditModal({ venture, projectName, focus, onClo
               value={amdSupportEnd ? amdSupportEnd.slice(0, 10) : ""}
               onChange={(e) => setAmdSupportEnd(e.target.value)}
               className="border border-[#e5e5e7] rounded-md px-2 py-1.5 text-[13px]"
-            />
-          </label>
-
-          <label className={`flex flex-col gap-1 text-[12px] col-span-2 ${focusRing("description")} rounded`}>
-            <span className="text-muted-foreground">概要 (1〜2 行)</span>
-            <textarea
-              value={shortDescription}
-              onChange={(e) => setShortDescription(e.target.value)}
-              autoFocus={focus === "description"}
-              rows={2}
-              className="border border-[#e5e5e7] rounded-md px-2 py-1.5 text-[12px]"
             />
           </label>
 

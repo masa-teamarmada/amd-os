@@ -5,7 +5,7 @@
  *
  * - 画面の URL から projectId を抽出 (cockpit / venture-map/su など)
  * - 各ターン: 履歴 + 画面 context を Sonnet に渡す
- * - Sonnet が tool 呼んで修正適用 (今のところは short/long_description, narrative_invalidate)
+ * - Sonnet が tool 呼んで修正適用 (沿革の再生成マーク・XRL の修正依頼など。事業の一言は書き換えない: 2026-10-04 まさ確定)
  * - 全会話は tsukuyomi_chat_logs に保存 → admin/tsukuyomi で見える
  */
 

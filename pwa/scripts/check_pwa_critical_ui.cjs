@@ -664,8 +664,8 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   '<CockpitAmdContributions projectId={project.projectId} />',
 ]);
 expectPattern("src/components/cockpit/CockpitView.tsx", [
-  // PJ概要、契約、収支の判断材料を混ぜない
-  /aria-label="PJ概要"[\s\S]{0,600}<CockpitVentureStatus/,
+  // PJ概要、契約、収支の判断材料を混ぜない。PJ概要は全PJ共通の9項目（2026-10-04 まさ確定、spec 3-23 §9）
+  /aria-label="PJ概要"[\s\S]{0,600}<ProjectOverviewFormat/,
   /aria-label="契約"[\s\S]{0,400}<CockpitProjectOverview/,
   /aria-label="収支"[\s\S]{0,300}<CockpitSeasonBudget/,
   /aria-label="活動実績"[\s\S]{0,600}<CockpitGrants/,
@@ -2046,7 +2046,8 @@ expectIncludes("src/components/admin/AdminProjectsTable.tsx", [
 ]);
 
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
-  "showAmdScore",
+  // PJ概要は全PJ共通の9項目。AMD Score の有無（旧 showAmdScore）で中身を出し分けない（2026-10-04 まさ確定、spec 3-23 §9）
+  "ProjectOverviewFormat",
   "ecosystem",
   "CockpitStrategySignals",
   "strategySignals",
@@ -2064,7 +2065,8 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   "Bzm22AcquisitionLedger",
   "CockpitAmdContributions",
   "CockpitAmdScoreDetailTab",
-  "onOpenScoreDetail",
+  // PJ概要の各項目から、元のタブ（ゴールツリー・契約・収支・動向・会議）へ移れる
+  "onSelectTab={selectTab}",
   "score-detail",
 ]);
 

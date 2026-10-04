@@ -14,7 +14,6 @@
     { "file": "src/app/api/meeting-summary/narrate/route.ts", "provider": "anthropic", "reason": "既存 (2026-09-04 基準線)。会議要約の語り生成 (画面操作起点と推定、まさ未確認)" },
     { "file": "src/app/api/progress/revisions/route.ts", "provider": "anthropic", "reason": "既存 (2026-09-04 基準線)。進捗の修正提案 (画面 / macOS アプリの操作起点)" },
     { "file": "src/app/api/project-events/parse/route.ts", "provider": "gemini", "reason": "既存 (2026-09-04 基準線)。PJイベントの文章解析 (画面操作起点)" },
-    { "file": "src/app/api/project-ventures/[projectId]/description-merge/route.ts", "provider": "anthropic", "reason": "既存 (2026-09-04 基準線)。PJ説明文の統合 (画面操作起点)" },
     { "file": "src/app/api/project-ventures/[projectId]/narrative-regen/route.ts", "provider": "gemini+anthropic", "reason": "既存 (2026-09-04 基準線)。沿革の再生成ボタン" },
     { "file": "src/app/api/project-ventures/[projectId]/pl-hearing/turn/route.ts", "provider": "anthropic", "reason": "既存 (2026-09-04 基準線)。PLヒアリングの対話 (画面操作起点)" },
     { "file": "src/app/api/project-ventures/[projectId]/xrl-revise/route.ts", "provider": "gemini", "reason": "既存 (2026-09-04 基準線)。XRL の修正提案ボタン" },

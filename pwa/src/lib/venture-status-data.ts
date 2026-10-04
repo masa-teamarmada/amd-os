@@ -481,26 +481,6 @@ async function invalidateNarrative(projectId: string) {
     .eq("project_id", projectId);
 }
 
-// ---- description merge (つくよみ) -----------------------------
-
-export async function mergeDescriptionWithLLM(input: {
-  projectId: string;
-  addition: string;
-}): Promise<{ long_description: string; short_description: string } | null> {
-  try {
-    const res = await fetch(`/api/project-ventures/${input.projectId}/description-merge`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ addition: input.addition }),
-    });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (e) {
-    console.error("[mergeDescriptionWithLLM]", e);
-    return null;
-  }
-}
-
 // ---- narrative feedback ---------------------------------------
 
 export interface NarrativeFeedback {
@@ -698,8 +678,8 @@ export interface VentureMetaPatch {
   amd_role?: string | null;
   amd_support_started_at?: string | null;
   amd_support_ended_at?: string | null;
-  short_description?: string | null;
-  long_description?: string | null;
+  // 事業の一言と詳しい説明（short_description / long_description）はここから書かない。
+  // 正本は会社情報 > 会社概要「事業の概要」（project_business_summaries、管理者だけ）。DB のトリガーが控えへ写す（migration 468）。
 }
 
 export async function updateProjectVenture(

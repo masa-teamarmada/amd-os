@@ -35,7 +35,7 @@ export interface CockpitOverviewProject {
   contractTerms?: ProjectContractTerms | null;
 }
 
-const CONTRACT_TYPE_LABELS: Record<string, string> = {
+export const CONTRACT_TYPE_LABELS: Record<string, string> = {
   contract: "契約",
   nda: "NDA",
   outsourcing: "業務委託",
@@ -110,7 +110,7 @@ function legacyCurrentContract(project: CockpitOverviewProject): ProjectCurrentC
   };
 }
 
-function currentContracts(project: CockpitOverviewProject) {
+export function currentContracts(project: CockpitOverviewProject) {
   const terms = project.contractTerms;
   if (Array.isArray(terms?.currentContracts)) return terms.currentContracts;
   const legacy = legacyCurrentContract(project);
