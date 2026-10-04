@@ -196,15 +196,13 @@ flowchart LR
 | `/atlas/stories` | story 一覧 / 検索 |
 | `/atlas/stories/[id]` | story 詳細 (= 時系列 signal + 紐付け theme + 関連 PJ) |
 | `/atlas/themes` | theme 一覧 + divergence 表示 |
-| `/atlas/macrotrends` | 現行は `/atlas/divergence` へ redirect。HUD 実験版は `/hud/atlas/macrotrends` |
+| `/atlas/macrotrends` | 現行は `/atlas/divergence` へ redirect |
 | `/atlas/divergence` | theme 単位の global / Japan 乖離 |
 | `/atlas/decisions` | AMD 判断ログ |
 
 ### Atlas visual boundary
 
-通常 `/atlas` 系 route は HUD ではない。`/atlas` の分野 / tag chip は各 domain / tag の色を表示し、`/atlas/map` の node / title / edge は通常 Atlas の domain palette と読みやすい label を使う。HUD 用の glow、cyan link、outlined label、dark cockpit skin は `/hud/atlas/*` に限定する。
-
-`amd-hud-page-skin` を `(app)` shared layout から通常 Atlas に適用しない。reload 後に Dashboard へ戻っても HUD skin が残るため、HUD skin は `HudShell` 配下の `/hud/*` route だけに閉じる。
+`/atlas` の分野 / tag chip は各 domain / tag の色を表示し、`/atlas/map` の node / title / edge は通常 Atlas の domain palette と読みやすい label を使う。glow・cyan link・outlined label・暗い背景の表現は使わない。
 
 ## 関連 cron (= 停止中)
 
@@ -252,5 +250,5 @@ divergence 高いテーマは AMD の事業機会 (= AMD 内部評価で `amd_ra
 - 4-1 章 [判断エンジン overview](4-1-atlas-protocol-score-macrotrend.md) (= Atlas + Protocol + Score + Macrotrend の関係)
 - 2-5 章 [探索系アセットの使い方](2-5-research-assets-quick-start.md) (= ユーザー視点)
 - 5-1 章 [Seeds / VC / Scholar 詳細仕様](5-1-research-assets-vc-seeds-scholar-spec.md)
-- 5-2 章 [HUD / Venture Map 仕様](5-2-hud-and-venture-map-spec.md)
+- 5-2 章 [Venture Map 仕様](5-2-venture-map-spec.md)
 - 6-1 章 [Operations Settings](6-1-operations-settings-spec.md) (= 停止中 cron の復活方法)

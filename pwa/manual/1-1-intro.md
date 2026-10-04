@@ -119,7 +119,7 @@ AMD OS は、**株式会社チームアルマダ (= AMD)** が手がけるディ
 | AMD Score の数式や軸の意味まで知りたい | **[4-3 章 AMD Score 詳細仕様](4-3-amd-score-spec.md)** |
 | 通知・つくよみ修正依頼・正本反映ゲートを知りたい | **[3-3 章 通知・つくよみ](3-3-notifications-and-tsukuyomi.md)** |
 | Atlas / Seeds / VC / Scholar をどう使うか知りたい | **[2-5 章 探索系アセット](2-5-research-assets-quick-start.md)** |
-| HUD / Venture Map の設計や実験ビューを知りたい | **[5-2 章 HUD / Venture Map](5-2-hud-and-venture-map-spec.md)** |
+| Venture Map の設計や実験ビューを知りたい | **[5-2 章 Venture Map](5-2-venture-map-spec.md)** |
 | `/admin/settings` の Raw / L2 / Cron 台帳を知りたい | **[6-1 章 Operations Settings](6-1-operations-settings-spec.md)** |
 | 「なぜこのデータがあるんだっけ?」「どう抽出されてるんだっけ?」 | **[3-2 章 データと抽出](3-2-data-and-extraction.md)** |
 | 月次支払・請求・立替申請 | **[2-6 章 admin オペ](2-6-admin-ops.md)** |

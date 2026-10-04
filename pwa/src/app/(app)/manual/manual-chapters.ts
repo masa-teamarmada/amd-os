@@ -115,10 +115,10 @@ export const MANUAL_SECTIONS: ManualSectionConfig[] = [
   {
     key: "assets",
     label: "外部探索・事業アセット",
-    description: "Seeds、VC、Scholar、Venture Map、HUD など外部探索と事業化アセットの章。",
+    description: "Seeds、VC、Scholar、Venture Map など外部探索と事業化アセットの章。",
     slugs: [
       "5-1-research-assets-vc-seeds-scholar-spec",
-      "5-2-hud-and-venture-map-spec",
+      "5-2-venture-map-spec",
     ],
   },
   {
@@ -199,7 +199,7 @@ export const MANUAL_CHAPTERS: ManualChapterConfig[] = [
   { slug: "4-9-institution-ers-spec", title: "研究機関 ECR (エコシステム構築率)", summary: "苗床レイヤー指標。8 軸 × サブ軸 Lv1-5 の加重和 (充足率)。AMD Score SPS primary (個体) とは別ロジックで σ_SU 経由で概念連動。二重計上しない。", topics: ["decision", "discovery", "system-dev"], screens: ["/institutions", "/institutions/{institutionId}", "/dashboard"], tables: ["institutions", "institution_assessments"] },
 
   { slug: "5-1-research-assets-vc-seeds-scholar-spec", title: "Seeds / PoC / VC / Scholar 詳細仕様", summary: "研究シーズ、PoC案件化、VC、Scholar の DB、inbox、cron route。", topics: ["discovery", "admin-dev"], screens: ["/seeds", "/poc", "/vcs", "/scholar"], tables: ["seeds", "poc_companies", "poc_matches", "vcs", "papers_log"] },
-  { slug: "5-2-hud-and-venture-map-spec", title: "HUD / Venture Map 仕様", summary: "HUD mirror、Venture Map、実験ビュー、ルート一覧。", topics: ["discovery", "system-dev"], screens: ["/hud", "/venture-map"] },
+  { slug: "5-2-venture-map-spec", title: "Venture Map 仕様", summary: "Venture Map の数理モデル、実験ビュー、ルート一覧。", topics: ["discovery", "system-dev"], screens: ["/hud", "/venture-map"] },
 
   { slug: "6-1-operations-settings-spec", title: "Operations Settings", summary: "Raw Data、L2 Data、Cron Control、運用設定画面。", topics: ["admin-dev", "system-dev"], screens: ["/admin/settings"] },
   { slug: "6-2-admin-projects-members-ledger-spec", title: "Admin Projects / Members 台帳", summary: "PJ 台帳、AMD メンバー台帳、契約・請求・支払条件。", topics: ["admin-dev", "monthly"], screens: ["/admin/projects", "/admin/members"], tables: ["projects", "members", "project_members"] },
@@ -268,7 +268,7 @@ export const MANUAL_TOPIC_NODES: ManualTopicNodeConfig[] = [
     description: "Atlas、Macrotrend、Seeds、VC、Scholar、Venture Map から事業機会を見る。",
     icon: "search",
     color: "amber",
-    chapterSlugs: ["2-5-research-assets-quick-start", "4-2-atlas-macrotrend-signal-spec", "5-1-research-assets-vc-seeds-scholar-spec", "5-2-hud-and-venture-map-spec", "4-9-institution-ers-spec"],
+    chapterSlugs: ["2-5-research-assets-quick-start", "4-2-atlas-macrotrend-signal-spec", "5-1-research-assets-vc-seeds-scholar-spec", "5-2-venture-map-spec", "4-9-institution-ers-spec"],
     relatedTopicKeys: ["decision", "admin", "developer"],
   },
   {
@@ -326,7 +326,7 @@ export const MANUAL_TOPIC_NODES: ManualTopicNodeConfig[] = [
     description: "画面、DB、cron、書き込み経路、設計 md 索引を開発者向けに俯瞰する。",
     icon: "database",
     color: "slate",
-    chapterSlugs: ["3-1-system-architecture", "3-2-data-and-extraction", "6-1-operations-settings-spec", "4-2-atlas-macrotrend-signal-spec", "5-1-research-assets-vc-seeds-scholar-spec", "5-2-hud-and-venture-map-spec", "9-1-decisions-and-history", "9-2-developer"],
+    chapterSlugs: ["3-1-system-architecture", "3-2-data-and-extraction", "6-1-operations-settings-spec", "4-2-atlas-macrotrend-signal-spec", "5-1-research-assets-vc-seeds-scholar-spec", "5-2-venture-map-spec", "9-1-decisions-and-history", "9-2-developer"],
     relatedTopicKeys: ["developer", "knowledge-dev", "admin-dev"],
   },
   {

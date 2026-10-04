@@ -40,7 +40,6 @@ const sxMonthlyBackfillPath = path.join(root, "scripts/backfill_sx_phase_monthly
 const scoreDetailPath = path.join(root, "src/components/cockpit/CockpitAmdScoreDetailTab.tsx");
 const cockpitSummaryPath = path.join(root, "src/components/cockpit/Bzm22CockpitSummary.tsx");
 const cockpitVenturePath = path.join(root, "src/components/cockpit/CockpitVentureStatus.tsx");
-const hudVenturePath = path.join(root, "src/components/hud/HudCockpitVentureStatus.tsx");
 
 const sha256 = (value: string | Buffer) =>
   crypto.createHash("sha256").update(value).digest("hex");
@@ -724,10 +723,6 @@ for (const forbidden of ["登録値あり（日本語表示未接続）", "期�
 }
 if (cockpitVentureSource.includes("CockpitPlMonthlyModal") || cockpitVentureSource.includes("📊 試算表")) {
   throw new Error("cockpit header must not keep the detached monthly P&L button/modal");
-}
-const hudVentureSource = requireText(hudVenturePath);
-if (hudVentureSource.includes("CockpitPlMonthlyModal") || hudVentureSource.includes("📊 試算表")) {
-  throw new Error("HUD cockpit header must not keep the detached monthly P&L button/modal");
 }
 
 // 上から「現行SPSの評価カード」→「BZM 3.0 のスコアパネル」。

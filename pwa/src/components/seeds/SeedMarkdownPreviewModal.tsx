@@ -126,7 +126,7 @@ export function SeedMarkdownPreviewModal({
               {error}
             </div>
           ) : (
-            <MarkdownView source={markdown || "（本文なし）"} tone="light" />
+            <MarkdownView source={markdown || "（本文なし）"} />
           )}
         </div>
       </DialogContent>

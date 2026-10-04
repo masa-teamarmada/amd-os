@@ -152,7 +152,7 @@ Venture Map は、探索系アセットを使って「どの波にいつ PJ を�
 | `/venture-map/state-space` | Triple Helix 状態空間 |
 | `/venture-map/cyberspace` | 実験ビュー |
 
-細かいモデルは [5-2 章 HUD / Venture Map 仕様](5-2-hud-and-venture-map-spec.md)、AMD Score の式は [4-3 章](4-3-amd-score-spec.md) を見る。
+細かいモデルは [5-2 章 Venture Map 仕様](5-2-venture-map-spec.md)、AMD Score の式は [4-3 章](4-3-amd-score-spec.md) を見る。
 
 ## AMD Materials を見る
 

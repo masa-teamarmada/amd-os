@@ -34,7 +34,6 @@ forbidAll(loader, ["seed_sps_assessments", "project_pl_monthly"], "current asses
 const retiredTableNames = ["amd_score_inputs", "amd_score_alpha", "seed_sps_assessments"];
 const activeSurfaces = [
   "src/app/(app)/dashboard/page.tsx",
-  "src/app/(app)/hud/dashboard/page.tsx",
   "src/app/(app)/venture-map/amd-score/page.tsx",
   "src/app/api/hud/dashboard/route.ts",
   "src/app/api/dashboard/portfolio-pulse/route.ts",

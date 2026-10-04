@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+
 import {
   fetchSeedInbox,
   verifySeed,
@@ -14,8 +14,7 @@ import {
 import type { SeedInboxItem } from "@/lib/seeds-data";
 
 export default function SeedsInboxPage() {
-  const pathname = usePathname();
-  const seedsBase = pathname.startsWith("/hud/") ? "/hud/seeds" : "/seeds";
+  const seedsBase = "/seeds";
   const [items, setItems] = useState<SeedInboxItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "gx_circular" | "gx_energy" | "life" | "materials" | "robo">("all");

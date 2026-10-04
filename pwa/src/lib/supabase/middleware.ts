@@ -92,7 +92,6 @@ export async function updateSession(request: NextRequest) {
     !isPublicMeetingArtifact &&
     !isPublicBzmManuscript &&
     pathname !== "/" &&
-    pathname !== "/hud/dashboard/embed" &&
     pathname !== "/mock/dashboard-cyber-3d-lab" &&
     pathname !== "/mock/dashboard-cyber-glass-cube" &&
     pathname !== "/mock/dashboard-cyber-hud-wall"

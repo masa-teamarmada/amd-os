@@ -16,8 +16,8 @@
 - `CockpitRoutine.tsx` / `CockpitRoutineGas.tsx` / `HudCockpitRoutineGas.tsx` / `CockpitRoutine*Modal.tsx` は削除済み。
 - `/project/[projectId]/cockpit?step=<stepId>&ym=YYYYMM` は legacy query。現行 cockpit は `step` を解釈しない。
 - `/mypage` は月次確認 TODO を生成しない。月次報酬予定は表示するが、月次ルーティン未対応による取り消し線・除外判定は行わない。
-- `/dashboard` / `/hud/dashboard` の action queue は月次ルーティンから生成しない。
-- `/api/hud/dashboard` は `actionItems: []` を返し、請求額確定・報告会日程調整・報告書確認・請求書送付などを生成しない。
+- `/dashboard` の action queue は月次ルーティンから生成しない。
+- `/api/hud/dashboard`（Mac アプリの現行SPS・経営スコアの推移が読むデータの入口）は `actionItems: []` を返し、請求額確定・報告会日程調整・報告書確認・請求書送付などを生成しない。
 
 ## GAS legacy 境界
 

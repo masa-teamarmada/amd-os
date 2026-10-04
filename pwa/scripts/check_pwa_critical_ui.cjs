@@ -2361,11 +2361,32 @@ expectNotIncludes("src/components/cockpit/CockpitVentureStatus.tsx", [
   "📊 試算表",
   "setPlOpen",
 ]);
-expectNotIncludes("src/components/hud/HudCockpitVentureStatus.tsx", [
-  "CockpitPlMonthlyModal",
-  "📊 試算表",
-  "setPlOpen",
-]);
+// HUD（/hud の見せ方の別面）は 2026-10-04 に廃止して残骸ごと消した（まさ「HUDなんてもう使わないから廃止されてるはず。
+// 残骸があるなら消して」）。画面・部品・HUD専用の画像・書体・見た目の分岐を戻さない。
+// Mac アプリの「現行SPS」などが読むデータの入口 /api/hud/dashboard だけは、Mac アプリを壊さないよう残す。
+for (const retired of [
+  "src/app/(app)/hud",
+  "src/app/hud",
+  "src/components/hud",
+  "public/hud",
+  "design/HUD_CLIENT_MIGRATION.md",
+  "design/hud_visual_language.md",
+]) {
+  expectFileMissing(retired);
+}
+expectNotIncludes("src/components/nav/AppShell.tsx", ['startsWith("/hud")']);
+expectNotIncludes("src/lib/supabase/middleware.ts", ['"/hud/dashboard/embed"']);
+expectNotIncludes("src/lib/surface-catalog.ts", ['id: "hud"', '"/hud/']);
+expectNotIncludes("src/app/layout.tsx", ["Rajdhani", "--font-hud-display"]);
+expectNotIncludes("src/app/globals.css", [".amd-hud-page-skin", ".hud-control-center", ".amd-hud-body"]);
+for (const shared of [
+  "src/components/cockpit/MarkdownView.tsx",
+  "src/components/cockpit/MermaidDiagram.tsx",
+  "src/components/cockpit/PictogramDiagram.tsx",
+  "src/components/cockpit/MilestoneGanttChart.tsx",
+]) {
+  expectNotIncludes(shared, ['"hud"', "isHud"]);
+}
 expectIncludes("src/lib/bzm-2-2-pilot-ui.server.ts", [
   "PILOT_LOADERS",
   "schemaVersion",
@@ -3358,7 +3379,7 @@ expectNotIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx
 expectIncludes("src/components/cockpit/MarkdownView.tsx", [
   'import { PictogramDiagram } from "@/components/cockpit/PictogramDiagram";',
   'className.includes("language-pictogram")',
-  "<PictogramDiagram code={plainText(children)} tone={tone} />",
+  "<PictogramDiagram code={plainText(children)} />",
   "if (containsDiagram(children)) return <>{children}</>;",
 ]);
 expectIncludes("src/components/cockpit/PictogramDiagram.tsx", [

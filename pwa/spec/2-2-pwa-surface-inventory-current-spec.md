@@ -24,7 +24,6 @@
 | notifications | `/notifications` | L2 / MTG / app notifications の確認と採否 | `notifications/page.tsx` |
 | decision | `/venture-map/amd-score`, `/management-score`, `/institutions`, `/institutions/assess` | AMD Score / Management Score / ECR | related page files |
 | discovery | `/atlas/*`, `/seeds/*`, `/vcs/*`, `/scholar` | 外部シグナル、研究シーズ、VC、学術トレンド | related page files |
-| HUD | `/hud/*` | mirror UI / projection UI | `hud/*` |
 
 ## API route groups
 

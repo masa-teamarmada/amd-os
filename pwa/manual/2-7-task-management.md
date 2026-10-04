@@ -17,7 +17,7 @@
 
 ## 残す理由
 
-`tasks` はもともと PJ cockpit / HUD の旧 TODO / kanban 系データとして存在していた。さらに H-1 Meeting Flow は、MTG から生まれた次アクションを `POST /api/task-calendar/register-tasks` 経由で `tasks` に登録する。
+`tasks` はもともと PJ cockpit の旧 TODO / kanban 系データとして存在していた。さらに H-1 Meeting Flow は、MTG から生まれた次アクションを `POST /api/task-calendar/register-tasks` 経由で `tasks` に登録する。
 
 そのため今回は、画面としての `/tasks` と agent helper は廃止するが、DB table と API は削除しない。`tasks` の物理削除、DROP、既存 row の一括削除はしない。
 

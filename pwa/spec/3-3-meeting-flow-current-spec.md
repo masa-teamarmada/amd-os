@@ -421,7 +421,7 @@ W-Prep / worker の共有フォルダ資料:
 - 資料化前に論点継続性gateを再実行し、`scope_coverage_complete` を確認する。
 - `projects.drive_folder_id` 直下の `YYMMDD_<MTG名>_prep/` に置く prep 資料の主成果物は、すべて AMD OS のデザインコードに従った HTML に統一する。
 - Google Docs / Markdown / Slides / Sheets を主成果物として作らない。表、チェックリスト、提案書、アジェンダ、試算も HTML 内の section / table / callout で表現する。
-- HTML は `pwa/src/lib/exec_summary/template.css`、`pwa/src/lib/exec_summary/template_section.html`、`pwa/design/cyber_hud_design_code.md`、`pwa/design/hud_visual_language.md` を参照し、原則 self-contained にする。外部URL、secret、raw本文は入れない。
+- HTML は `pwa/src/lib/exec_summary/template.css`、`pwa/src/lib/exec_summary/template_section.html`、`pwa/design/cyber_hud_design_code.md` を参照し、原則 self-contained にする。外部URL、secret、raw本文は入れない。
 
 ### Readiness Score 計算
 

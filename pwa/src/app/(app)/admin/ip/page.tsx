@@ -42,7 +42,7 @@ export default function AdminIpPage() {
 
       {/* レポート本体 */}
       <div className="rounded-lg border border-[#D9DDE3] bg-white px-5 py-4 shadow-sm">
-        <MarkdownView source={IP_REPORT_MD} tone="light" />
+        <MarkdownView source={IP_REPORT_MD} />
       </div>
     </div>
   );

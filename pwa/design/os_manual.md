@@ -80,7 +80,7 @@ Admin: Admin | Management | 設計書
 
 ```text
 5-1 Seeds / VC / Scholar 詳細仕様
-5-2 HUD / Venture Map 仕様
+5-2 Venture Map 仕様
 ```
 
 ### section 6: Admin / Finance / 月次オペ

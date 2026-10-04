@@ -162,7 +162,7 @@ parseNg(
 {
   const md = read("src/components/cockpit/MarkdownView.tsx");
   assert.match(md, /language-pictogram/);
-  assert.match(md, /<PictogramDiagram code=\{plainText\(children\)\} tone=\{tone\} \/>/);
+  assert.match(md, /<PictogramDiagram code=\{plainText\(children\)\} \/>/);
   assert.match(md, /language-\(\?:mermaid\|pictogram\)/);
   const view = read("src/components/cockpit/PictogramDiagram.tsx");
   for (const anchor of [

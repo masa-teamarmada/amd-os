@@ -28,7 +28,7 @@ type AppShellProps = {
 const BZM_READER_ROUTE = /^\/bzm\/read(?:\/[^/]+){0,2}\/?$/;
 
 function shouldSkipMonthlyAgreementGate(pathname: string) {
-  return BZM_READER_ROUTE.test(pathname) || pathname.startsWith("/monthly-agreement") || pathname.startsWith("/hud") || pathname.startsWith("/native") || /^\/project\/[^/]+\/(?:workspace|weekly-control|navigation)(?:\/|$)/.test(pathname);
+  return BZM_READER_ROUTE.test(pathname) || pathname.startsWith("/monthly-agreement") || pathname.startsWith("/native") || /^\/project\/[^/]+\/(?:workspace|weekly-control|navigation)(?:\/|$)/.test(pathname);
 }
 
 // 月初合意ゲートは (app)/layout.tsx の SSR では計算しない。
@@ -84,7 +84,7 @@ export function AppShell({
   const isBzmReaderRoute = BZM_READER_ROUTE.test(pathname);
   const isAdminRoute = pathname.startsWith("/admin");
   const isWorkspaceRoute = /^\/project\/[^/]+\/(?:workspace|weekly-control|navigation)(?:\/|$)/.test(pathname);
-  const useEmbeddedShellOnly = pathname.startsWith("/hud") || isNativeShell || isWorkspaceRoute;
+  const useEmbeddedShellOnly = isNativeShell || isWorkspaceRoute;
   const isProjectScope = accessScope === "project";
   const agreementGateBundle = useMonthlyAgreementGateBundle(isProjectScope ? null : memberId, pathname);
 
@@ -102,7 +102,7 @@ export function AppShell({
     <>
       <PageTitleSetter />
       {useEmbeddedShellOnly ? (
-        <main className="flex-1">{!pathname.startsWith("/hud") && <PageHistoryToolbar />}{children}</main>
+        <main className="flex-1"><PageHistoryToolbar />{children}</main>
       ) : (
         <div className="flex min-h-screen bg-background text-foreground">
           {isProjectScope ? (

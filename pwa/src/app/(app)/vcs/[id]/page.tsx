@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+
 import { fetchVcDetail } from "@/lib/vc-data";
 import type { VcDetail } from "@/types/vc";
 import { VcDetailBody } from "@/components/vc/VcDetailBody";
@@ -13,8 +13,7 @@ import { VcDetailBody } from "@/components/vc/VcDetailBody";
  */
 export default function VcDetailPage(props: { params: Promise<{ id: string }> }) {
   const { id } = use(props.params);
-  const pathname = usePathname();
-  const vcsBase = pathname.startsWith("/hud/") ? "/hud/vcs" : "/vcs";
+  const vcsBase = "/vcs";
   const [data, setData] = useState<VcDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);

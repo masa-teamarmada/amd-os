@@ -178,7 +178,7 @@ XRL (= TRL/BRL/GRL/SRL/HRL) の評価値とその根拠を時系列で残す。
 | `/project/[projectId]/cockpit` 内 Venture Status panel | `project_ventures` 表示 + narrative 表示 / 再生成ボタン |
 | `/project/[projectId]/cockpit` 内 XRL panel | `project_xrl_log` の最新値 + 各軸の `project_xrl_evidence` drilldown |
 | `/project/[projectId]/cockpit` 内 PL panel | `project_pl_hearings` の Q&A 履歴 + `generated_pl` の 5 ヶ年表示 |
-| `/venture-map` | 全 SU 一覧 + マクロトレンド地図 ([5-2 章](5-2-hud-and-venture-map-spec.md)) |
+| `/venture-map` | 全 SU 一覧 + マクロトレンド地図 ([5-2 章](5-2-venture-map-spec.md)) |
 
 ### Venture Status panel UI
 
@@ -226,7 +226,7 @@ invalidate されたら、 admin が cockpit を開いた時に「narrative が�
 - 設計: [`pwa/design/xrl_evidence.md`](../design/xrl_evidence.md) (= M-2 設計)
 - 設計: [`pwa/design/project_pl_monthly.md`](../design/project_pl_monthly.md) (= 月次 PL)
 - 4-3 章 [AMD Score 詳細仕様](4-3-amd-score-spec.md)
-- 5-2 章 [HUD / Venture Map 仕様](5-2-hud-and-venture-map-spec.md)
+- 5-2 章 [Venture Map 仕様](5-2-venture-map-spec.md)
 - 4-4 章 [FRL / HRL / 関連メンバー詳細仕様](4-4-frl-related-members-score-spec.md)
 - 8-3 章 [L2 Extraction Routines](8-3-l2-extraction-routines-spec.md) (= M-2 XRL 根拠抽出)
 - 4-6 章 [卒業フェーズ検出](4-6-graduation-detection-spec.md) (= rocket 卒業の確定 path)

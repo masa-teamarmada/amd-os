@@ -96,17 +96,10 @@ Adminは、追加された順の一列メニューではなく、次の職務グ
 | `/admin/tsukuyomi` | つくよみ管理 |
 | `/admin/contexts` | LLM context 管理 |
 
-### HUD / 実験ビュー
+### 実験ビュー
 
 | 画面 | 役割 |
 |---|---|
-| `/hud/dashboard` | HUD 版 dashboard。将来的に正本化したい候補 |
-| `/hud/project/{project_id}/cockpit` | HUD 版 PJ cockpit |
-| `/hud/notifications` | HUD 版 notifications |
-| `/hud/atlas` / `/hud/atlas/*` | HUD skin 付き Atlas |
-| `/hud/seeds` / `/hud/seeds/*` | HUD skin 付き Seeds |
-| `/hud/vcs` / `/hud/vcs/*` | HUD skin 付き VC List |
-| `/hud/venture-map/amd-score/retrofit` | HUD 版 retrofit view |
 | `/venture-map/cyberspace` | 実験ビュー |
 | `/venture-map/oscillator` | Coupled oscillator 実験 |
 | `/venture-map/state-space` | Triple Helix 状態空間 |
@@ -166,7 +159,6 @@ Decision / Ops UI
 
 - PWA の `(app)` 配下は Supabase Auth の Google login が必要
 - `/auth/login` と `/auth/callback` は公開
-- `/hud/dashboard/embed` は外部プレゼン用の公開 embed route
 - admin 画面と `/notifications` は admin 権限を前提にする
 - Google Workspace login は Calendar / Gmail scope を使う。Calendar 共有状態は `members.google_calendar_status` に残す
 - ログインが途中で弾かれたとき (メンバー未登録、社外ドメイン、参加PJなし、Calendar 未共有)、OS が捨てるのは**そのブラウザのログインだけ**。スマホや別PCのログインは残る
@@ -186,8 +178,7 @@ Decision / Ops UI
 | AMD Score の数式・軸・更新ロジック | [4-3 章](4-3-amd-score-spec.md) | 追記済み |
 | 通知 / つくよみ修正依頼 / 正本反映ゲート | [3-3 章](3-3-notifications-and-tsukuyomi.md) | 追記済み |
 | Seeds / VC / Scholar の使い方 | [2-5 章](2-5-research-assets-quick-start.md) | 追記済み |
-| Venture Map の数理モデル・実験ビュー | [5-2 章](5-2-hud-and-venture-map-spec.md) | 追記済み |
-| HUD 版の正本化方針 | [5-2 章](5-2-hud-and-venture-map-spec.md) | 追記済み |
+| Venture Map の数理モデル・実験ビュー | [5-2 章](5-2-venture-map-spec.md) | 追記済み |
 | admin/settings の Cron Control | [6-1 章](6-1-operations-settings-spec.md) | 追記済み |
 
 manual 拡充時は、この表を更新しながら「見つける -> 書く -> 再クロール」を回す。

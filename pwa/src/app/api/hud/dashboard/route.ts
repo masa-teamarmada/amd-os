@@ -1,8 +1,9 @@
 /**
  * GET /api/hud/dashboard
  *
- * `/hud/dashboard` (HudControlCenterDashboard) と同じ集計を server 側で行い JSON で返す。
- * iOS アプリの HUD コックピットがこの endpoint を叩いて、PWA と同一の数値を表示する。
+ * PJ一覧・請求の状態・現行SPS・AMD Management Score の推移を server 側で集計して JSON で返す。
+ * Mac アプリの「現行SPS」「経営スコアの推移」などの画面がこの endpoint を読む。
+ * HUD（/hud の見せ方の別面）は 2026-10-04 に廃止したが、Mac アプリを壊さないよう、データの入口だけはこの名前のまま残す。
  *
  * - projects / billingStatus / scoreHistory / signalMetrics: 既存 lib の anon read + 純粋計算関数を再利用
  * - managementScore / managementHistory: amd_management_score_snapshots を service_role で read

@@ -50,9 +50,6 @@
     "src/app/(app)/dashboard/page.tsx": [
       "/api/sps/current"
     ],
-    "src/app/(app)/hud/dashboard/page.tsx": [
-      "/api/sps/current"
-    ],
     "src/app/(app)/institutions/assess/page.tsx": [
       "/api/institutions/assess",
       "/api/institutions/policies"
@@ -257,9 +254,6 @@
     ],
     "src/components/governance/ActionItemsPanel.tsx": [
       "/api/action-items"
-    ],
-    "src/components/hud/HudCockpitGoalsCompact.tsx": [
-      "/api/progress/ms-schedule"
     ],
     "src/components/institutions/InstitutionRegulations.tsx": [
       "/api/institution-regulations"

@@ -260,7 +260,7 @@ W-Prep の最初の役割は、まさが背景を思い出して論点を一緒�
    - 複数資料が必要な場合も、用途ごとに HTML を分けるか、1つの HTML 内に section としてまとめる
 4. HTML は AMD OS のデザインコードに従う:
    - まず `/Users/masa/projects/AMD/amd-os/pwa/src/lib/exec_summary/template.css` と `/Users/masa/projects/AMD/amd-os/pwa/src/lib/exec_summary/template_section.html` を参照する
-   - 視覚言語は `/Users/masa/projects/AMD/amd-os/pwa/design/cyber_hud_design_code.md` と `/Users/masa/projects/AMD/amd-os/pwa/design/hud_visual_language.md` の原則に寄せる
+   - 視覚言語は `/Users/masa/projects/AMD/amd-os/pwa/design/cyber_hud_design_code.md` の原則に寄せる
    - 協議資料では、表紙は会議名または資料名、各区画は中立な section 名を最大見出しにする。提案、推定着地、結論、日程案を hero / tagline / eyecatch / section title にしない
    - 連続型のMTG投影HTMLは、desktopで白背景の左固定menuを置き、section anchor、関連資料を別tabで開く操作、meeting memo、コピー・文言編集・HTML保存・消去buttonを備える
    - 投影前提では、本文、table、menu、label、button、注記を含むすべての可視文字を16px以上、資料番号や比較対象番号を28px以上にする
