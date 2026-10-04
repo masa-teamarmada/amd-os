@@ -17,6 +17,7 @@ export const config = {
   matcher: [
     // 静的アセット / PWA manifest / ファビコン / OAuth callback / public build stamp は middleware を素通りさせる。
     // manifest.json を除外しないと auth redirect で 307 となり PWA installable が壊れる。
-    "/((?!_next/static|_next/image|favicon.ico|icon\\.png|apple-icon\\.png|manifest\\.json|manifest\\.webmanifest|auth/callback|api/build-info|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    // 書斎の専用アプリ用 manifest-shosai.json も同じ扱い（除外しないとインストールが壊れる）。
+    "/((?!_next/static|_next/image|favicon.ico|icon\\.png|apple-icon\\.png|manifest\\.json|manifest-shosai\\.json|manifest\\.webmanifest|auth/callback|api/build-info|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

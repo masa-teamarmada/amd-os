@@ -363,7 +363,7 @@ function strayDollars(text: string): number {
   const bzm30 = READER_LIBRARY[0];
   assert.equal(bzm30.chapters.length, 16);
   assert.equal(bzm30.chapters[0].slug, "bzm-3-0-textbook-introduction");
-  assert.equal(bzm30.chapters[0].plannedTitle, "序 — 何を測り、なぜ作り直したか");
+  assert.equal(bzm30.chapters[0].plannedTitle, "序 — このモデルは何を測るのか");
   assert.equal(bzm30.chapters[3].plannedTitle, "第3章 — 案件パラメータと事前分布");
   assert.equal(bzm30.chapters[15].plannedTitle, "付録 — 記号一覧、用語、参考文献");
 

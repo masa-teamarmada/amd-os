@@ -356,9 +356,9 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   // --- BZM 3.0 教科書 (2026-10-03 全16本の初稿。textbook v0.1〜v0.2) ---
   {
     slug: "bzm-3-0-textbook-introduction",
-    title: "序 — 何を測り、なぜ作り直したか",
+    title: "序 — このモデルは何を測るのか",
     summary:
-      "三つの目的と十二の要件、採らない主張、確定している構造、旧版からの系譜と本書の読み方。",
+      "三つの目的と十二の要件、採らない主張、モデルの骨組み、本書の読み方。",
     status: "in-progress",
   },
   {

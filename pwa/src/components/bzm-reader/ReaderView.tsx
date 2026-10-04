@@ -36,8 +36,11 @@ import {
 } from "@/lib/bzm-reader/storage";
 import { bookProgressFraction, remainingMinutes } from "@/lib/bzm-reader/progress";
 import { ReaderPanels, type ReaderPanelKind, type ReaderTocTab } from "./ReaderPanels";
+import { ReaderTocColumn } from "./ReaderTocColumn";
 import {
-  READER_COLUMN_GAP,
+  activeHeadingId as pickActiveHeadingId,
+  readerColumnGap,
+  readerTocWidth,
   useReaderPagination,
   type InitialCandidate,
 } from "./useReaderPagination";
@@ -50,8 +53,12 @@ import "./reader-shell.css";
 const MARGIN_PX = [16, 28, 48] as const;
 /** 本文の1行の最大幅（文字数）。広い画面で行が伸びすぎないようにする */
 const MEASURE_EM = { ja: 40, en: 36 } as const;
-/** 見開きにできる画面の幅（px） */
+/** 見開きにできる本文の領域の幅（px）。左の目次の列を出しているときは、その列を除いた幅で見る */
 const SPREAD_MIN_WIDTH = 1100;
+/** 左の目次の列を常設できる画面の幅（px）。これ未満は、目次ボタンで横からパネルを出す */
+const TOC_COLUMN_MIN_WIDTH = 1100;
+/** 目次の列の開閉の保存キー（設定には足さない）。値は "1"（開）か "0"（閉）。既定は開 */
+const TOC_OPEN_KEY = "amd-os.bzm-reader.toc-open";
 const POSITION_SAVE_DELAY_MS = 300;
 const SWIPE_MIN_PX = 40;
 const TAP_MAX_MOVE_PX = 10;
@@ -83,6 +90,8 @@ const FONT_STACKS = {
  * 横へはみ出している表（.bzr-hscroll）は、動きだけをめくりに使わない（押下は別に判定する）。
  */
 const NO_FLIP_SELECTOR = 'a, button, input, select, textarea, summary, [role="slider"]';
+/** 左の目次の列。この中のキー操作では、本文をめくらない（押す・ホイールは列が .bzr-stage の外にあるため届かない） */
+const TOC_COLUMN_SELECTOR = "[data-bzr-toc-col]";
 /** ページ表示のキー操作から外す入力部品。範囲スライダーだけは、矢印キー以外をめくりに使う */
 const KEY_IGNORE_SELECTOR = 'input:not([type="range"]), textarea, select, [contenteditable="true"], [role="dialog"]';
 
@@ -166,19 +175,62 @@ function useMounted(): boolean {
   );
 }
 
-function subscribeWide(listener: () => void) {
-  const mq = window.matchMedia(`(min-width: ${SPREAD_MIN_WIDTH}px)`);
-  mq.addEventListener("change", listener);
-  return () => mq.removeEventListener("change", listener);
+function subscribeResize(listener: () => void) {
+  window.addEventListener("resize", listener);
+  return () => window.removeEventListener("resize", listener);
 }
 
-function useWideScreen(): boolean {
+/** 画面の幅（px）。サーバの描画と最初のクライアント描画は 0（広い画面向けの表示は、直後に切り替わる） */
+function useViewportWidth(): number {
   return useSyncExternalStore(
-    subscribeWide,
-    () => window.matchMedia(`(min-width: ${SPREAD_MIN_WIDTH}px)`).matches,
-    () => false,
+    subscribeResize,
+    () => window.innerWidth,
+    () => 0,
   );
 }
+
+/** 左の目次の列を開いているか。端末ごとの保存値（localStorage、読み書きは try/catch）。既定は開 */
+const tocOpenStore = (() => {
+  let cache: boolean | null = null;
+  const listeners = new Set<() => void>();
+  const emit = () => listeners.forEach((l) => l());
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === TOC_OPEN_KEY) {
+      cache = null;
+      emit();
+    }
+  };
+  const read = (): boolean => {
+    try {
+      return window.localStorage.getItem(TOC_OPEN_KEY) !== "0";
+    } catch {
+      return true;
+    }
+  };
+  return {
+    subscribe(listener: () => void) {
+      if (listeners.size === 0) window.addEventListener("storage", onStorage);
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+        if (listeners.size === 0) window.removeEventListener("storage", onStorage);
+      };
+    },
+    get(): boolean {
+      if (cache === null) cache = read();
+      return cache;
+    },
+    set(open: boolean) {
+      cache = open;
+      try {
+        window.localStorage.setItem(TOC_OPEN_KEY, open ? "1" : "0");
+      } catch {
+        // 保存できなくても、この画面の間は開閉できる
+      }
+      emit();
+    },
+  };
+})();
 
 function newBookmarkId(): string {
   try {
@@ -231,7 +283,8 @@ function ReaderViewInner({ content, initialTheme, children }: ReaderViewProps) {
     () => EMPTY_BOOKMARKS,
   );
   const mounted = useMounted();
-  const wide = useWideScreen();
+  const tocOpen = useSyncExternalStore(tocOpenStore.subscribe, tocOpenStore.get, () => true);
+  const viewportWidth = useViewportWidth();
 
   const [bars, setBars] = useState(true);
   const [panel, setPanel] = useState<ReaderPanelKind | null>(null);
@@ -253,7 +306,20 @@ function ReaderViewInner({ content, initialTheme, children }: ReaderViewProps) {
   const noticeTimerRef = useRef<number | null>(null);
   const panelClosedAtRef = useRef(0);
 
+  // 左の目次の列は、画面が 1100px 以上で、開いているときだけ出す。出すと本文の領域がその分狭くなる
+  const tocAvailable = viewportWidth >= TOC_COLUMN_MIN_WIDTH;
+  const tocShown = tocAvailable && tocOpen;
+  // 広い画面へ移ったら、横から出していた目次のパネルは閉じる（目次は列で見せる）。
+  // 閉じずに残すと、狭い画面へ戻ったときに目次のパネルが勝手に開き直る
+  const [prevTocAvailable, setPrevTocAvailable] = useState(tocAvailable);
+  if (prevTocAvailable !== tocAvailable) {
+    setPrevTocAvailable(tocAvailable);
+    if (tocAvailable && panel === "toc") setPanel(null);
+  }
+  const bodyWidth = viewportWidth - (tocShown ? readerTocWidth(viewportWidth) : 0);
+  const wide = bodyWidth >= SPREAD_MIN_WIDTH;
   const cols: 1 | 2 = settings.layout === "page" && settings.spread && wide ? 2 : 1;
+  const gap = readerColumnGap(cols, bodyWidth);
   const layoutKey = `${settings.fontSize}|${settings.lineHeight}|${settings.margin}|${settings.fontFamily}|${settings.showNotes}|${lang}`;
 
   const resolveInitial = useCallback((): InitialCandidate[] => {
@@ -285,7 +351,7 @@ function ReaderViewInner({ content, initialTheme, children }: ReaderViewProps) {
     enabled: mounted,
     layout: settings.layout,
     cols,
-    gap: READER_COLUMN_GAP,
+    gap,
     layoutKey,
     viewportRef,
     trackRef,
@@ -304,6 +370,7 @@ function ReaderViewInner({ content, initialTheme, children }: ReaderViewProps) {
     goToFraction,
     goToElementId,
     goToBlock,
+    blockIndexOfId,
     bookmarkMatches,
     layoutVersion,
     goFirst,
@@ -421,13 +488,17 @@ function ReaderViewInner({ content, initialTheme, children }: ReaderViewProps) {
   }, [book.id]);
 
   /* ---- キー操作 ---- */
-  const panelOpen = panel !== null;
+  // 目次の列を出せる広さでは、目次はパネルでなく列で見せる
+  const shownPanel = panel === "toc" && tocAvailable ? null : panel;
+  const panelOpen = shownPanel !== null;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || panelOpen) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const target = e.target instanceof Element ? e.target : null;
       if (target?.closest(KEY_IGNORE_SELECTOR)) return;
+      // 左の目次の列の中では、Escape（帯の出し入れ）以外のキーで本文をめくらない
+      if (e.key !== "Escape" && target?.closest(TOC_COLUMN_SELECTOR)) return;
       const scrollMode = settings.layout === "scroll";
       const onControl = Boolean(target?.closest("button, a, summary"));
       // ページ位置のスライダーでは、矢印キーだけをスライダーの操作として残す
@@ -513,7 +584,9 @@ function ReaderViewInner({ content, initialTheme, children }: ReaderViewProps) {
         return;
       }
       if (Math.abs(dx) > TAP_MAX_MOVE_PX || Math.abs(dy) > TAP_MAX_MOVE_PX) return;
-      const ratio = e.clientX / Math.max(1, window.innerWidth);
+      // めくりの領域は、目次の列を除いた本文の領域（.bzr-stage）の幅で見る
+      const stage = e.currentTarget.getBoundingClientRect();
+      const ratio = (e.clientX - stage.left) / Math.max(1, stage.width);
       if (page && ratio >= 0.7) flip("next");
       else if (page && ratio <= 0.3) flip("prev");
       else setBars((v) => !v);
@@ -626,6 +699,16 @@ function ReaderViewInner({ content, initialTheme, children }: ReaderViewProps) {
     return bookmarks.some((b) => b.chapterSlug === chapter.slug && bookmarkMatches(b.blockIndex, b.fraction));
   }, [bookmarks, chapter.slug, bookmarkMatches, viewKey]);
 
+  // 目次で強調する見出し: いまの画面の先頭ブロックと同じか、それより前にある最後の見出し。
+  // 見出しのブロック番号は描画された本文から引く（blockIndexOfId は ref を読むため、割り付けのたびに引き直す）
+  const activeHeadingId = useMemo(() => {
+    void layoutVersion;
+    return pickActiveHeadingId(
+      headings.map((h) => ({ id: h.id, block: blockIndexOfId(h.id) })),
+      view.blockIndex,
+    );
+  }, [headings, blockIndexOfId, layoutVersion, view.blockIndex]);
+
   const toggleBookmark = useCallback(() => {
     if (marked) {
       const rest = bookmarks.filter(
@@ -693,16 +776,32 @@ function ReaderViewInner({ content, initialTheme, children }: ReaderViewProps) {
     goToFraction(0);
   }, [goToFraction]);
 
+  // 目次の列は出したままなので、帯は動かさない
+  const columnJumpHeading = useCallback(
+    (id: string) => {
+      goToElementId(id);
+    },
+    [goToElementId],
+  );
+  const columnJumpChapterStart = useCallback(() => {
+    goToFraction(0);
+  }, [goToFraction]);
+  const collapseToc = useCallback(() => tocOpenStore.set(false), []);
+
   const closePanel = useCallback(() => {
     panelClosedAtRef.current = performance.now();
     setPanel(null);
   }, []);
   const openPanel = useCallback((kind: ReaderPanelKind) => setPanel(kind), []);
-  // 目次ボタンは、最後に開いていたタブに関わらず目次を開く
+  // 目次ボタン: 広い画面では左の列を開閉する。狭い画面では、最後に開いていたタブに関わらず目次のパネルを開く
   const openToc = useCallback(() => {
+    if (tocAvailable) {
+      tocOpenStore.set(!tocOpenStore.get());
+      return;
+    }
     setTab("toc");
     setPanel("toc");
-  }, []);
+  }, [tocAvailable]);
 
   // 帯のボタンをポインタで押したあとは、フォーカスを外す（直後のキーをボタンが取らないように）。
   // キーボードの操作（detail が 0）では、フォーカスを残す
@@ -714,8 +813,8 @@ function ReaderViewInner({ content, initialTheme, children }: ReaderViewProps) {
 
   /* ---- 表示 ---- */
   const measureEm = MEASURE_EM[lang];
-  const vpMax = Math.round(settings.fontSize * measureEm) * cols + (cols === 2 ? READER_COLUMN_GAP : 0);
-  const columnWidth = metrics ? (metrics.width - (cols - 1) * READER_COLUMN_GAP) / cols : 0;
+  const vpMax = Math.round(settings.fontSize * measureEm) * cols + (cols === 2 ? gap : 0);
+  const columnWidth = metrics ? (metrics.width - (cols - 1) * gap) / cols : 0;
   const stackSet = FONT_STACKS[lang];
 
   const rootStyle = {
@@ -725,7 +824,7 @@ function ReaderViewInner({ content, initialTheme, children }: ReaderViewProps) {
     "--bzr-page-height": `${metrics ? metrics.height : 600}px`,
     "--bzr-page-width": `${Math.max(0, Math.round(columnWidth))}px`,
     "--bzr-cols": cols,
-    "--bzr-gap": `${READER_COLUMN_GAP}px`,
+    "--bzr-gap": `${gap}px`,
     "--bzr-side": `${MARGIN_PX[settings.margin]}px`,
     "--bzr-vp-max": `${vpMax}px`,
   } as CSSProperties;
@@ -746,6 +845,7 @@ function ReaderViewInner({ content, initialTheme, children }: ReaderViewProps) {
       className="bzr-root"
       data-theme={settings.theme}
       data-layout={settings.layout}
+      data-toc={tocShown ? "open" : undefined}
       data-ready={ready ? "true" : undefined}
       lang={lang}
       style={rootStyle}
@@ -767,7 +867,14 @@ function ReaderViewInner({ content, initialTheme, children }: ReaderViewProps) {
             {chapter.title}
           </span>
         </div>
-        <button type="button" className="bzr-btn" aria-label="目次" title="目次" onClick={openToc}>
+        <button
+          type="button"
+          className="bzr-btn"
+          aria-label="目次"
+          title={tocAvailable ? (tocOpen ? "目次を閉じる" : "目次を開く") : "目次"}
+          aria-expanded={tocAvailable ? tocOpen : undefined}
+          onClick={openToc}
+        >
           <List aria-hidden="true" />
         </button>
         <button
@@ -791,6 +898,24 @@ function ReaderViewInner({ content, initialTheme, children }: ReaderViewProps) {
         </button>
       </header>
 
+      {tocShown ? (
+        <ReaderTocColumn
+          tab={tab}
+          onTabChange={setTab}
+          book={book}
+          chapterIndex={chapterIndex}
+          headings={headings}
+          bookmarks={bookmarks}
+          onJumpHeading={columnJumpHeading}
+          onJumpChapterStart={columnJumpChapterStart}
+          onJumpBookmark={jumpBookmark}
+          onRemoveBookmark={removeBookmark}
+          activeHeadingId={activeHeadingId}
+          onCollapse={collapseToc}
+          onClick={blurAfterPointer}
+        />
+      ) : null}
+
       <div
         className="bzr-stage"
         onPointerDown={onPointerDown}
@@ -801,6 +926,7 @@ function ReaderViewInner({ content, initialTheme, children }: ReaderViewProps) {
         <div className="bzr-runhead" aria-hidden="true">
           <span>{chapter.title}</span>
         </div>
+        {settings.layout === "page" && cols === 2 ? <div className="bzr-gutter" aria-hidden="true" /> : null}
         <div className="bzr-viewport" ref={viewportRef}>
           <div className="bzr-track" ref={trackRef}>
             <div className="bzr-columns" ref={columnsRef} style={columnsStyle} onClick={onContentClick}>
@@ -853,7 +979,7 @@ function ReaderViewInner({ content, initialTheme, children }: ReaderViewProps) {
       </footer>
 
       <ReaderPanels
-        panel={panel}
+        panel={shownPanel}
         onClose={closePanel}
         tab={tab}
         onTabChange={setTab}
@@ -868,6 +994,8 @@ function ReaderViewInner({ content, initialTheme, children }: ReaderViewProps) {
         settings={settings}
         onSettingsChange={onSettingsChange}
         canSpread={wide}
+        spreadNeedsTocClosed={tocShown && !wide && viewportWidth >= SPREAD_MIN_WIDTH}
+        activeHeadingId={activeHeadingId}
       />
     </div>
   );

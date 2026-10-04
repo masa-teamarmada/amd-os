@@ -1,6 +1,7 @@
 # 書斎（/bzm/read）— 執筆途中の本と論文を読む画面
 
 *設計正本。2026-10-03 新設。まさ「執筆途中の本や論文を kindle みたいに表示するアプリを pwa で作ってほしい」。*
+*2026-10-04: AMD OS とは別の専用アプリにした。まさ「書斎は、OSの中に入れずに別アプリにしてほしい」（まさが「書斎専用のアプリにする」を選択）。*
 *共有型は `pwa/src/lib/bzm-reader/types.ts`。型と本書は同じ commit で直す。*
 
 ---
@@ -10,6 +11,7 @@
 - 書いている途中の本と論文を、Kindle のように1ページずつめくって通読する。
 - 読む人は、まず著者本人（まさ）。草稿の通読と赤入れの前読みに使う。
 - 既存の `/bzm/[slug]` は「章を1枚の長い紙で見る」作業画面で、左ナビが常に幅を取り、文字は 13.5px 固定である。書斎は、外枠を外した全画面で、文字の大きさ・行間・書体・背景を読む人が決める。
+- 書斎は AMD OS とは別の専用アプリとして使う。同じサーバ・同じログインのまま、書斎だけを1つのアプリとしてホーム画面や Dock に入れられる（§2.1）。棚（`/bzm/read`）も外枠（左ナビ・通知・チャット・月初合意ゲート）を持たず、AMD OS の左ナビには入口を置かない。入口は URL `https://amd-os-pwa.vercel.app/bzm/read` か、インストールした「書斎」アプリ。
 - 原稿の正本は従来どおりリポジトリ直下の `bzm/*.md`。書斎は読むだけで、原稿を書き換えない。
 
 ## 1. 公開範囲
@@ -19,20 +21,36 @@
 - 会員かどうかの判定は `(app)/layout.tsx` が済ませる。管理者かどうかは `src/lib/bzm-reader/require-reader-admin.ts` の `requireReaderAdmin()` が決める。`getCurrentMemberAccess` の `isAdmin` を見て、会員でなければ `/auth/login`、管理者でなければ `/dashboard` へ戻す。
 - `requireReaderAdmin()` は `read/layout.tsx`、3つの page（棚、続きから開く、読書画面）、章ページの `generateMetadata` のすべてから呼ぶ。layout は画面遷移のたびに再描画されず、他の segment の描画も止めないため、layout だけに置かない。`getCurrentMemberAccess` は同じリクエスト内で一度だけ引くので、重ねて呼んでも問い合わせは増えない。
 - `/bzm/public` の公開例外には入れない。
+- 専用アプリとしてインストールした書斎から開いても、同じ `requireReaderAdmin()` が働く（管理者限定は変わらない）。
 
 ## 2. 画面と URL
 
 | URL | 中身 | 外枠 |
 |---|---|---|
-| `/bzm/read` | 書斎（本棚）。本ごとのカード、書けた章の数、総文字数、通読の目安時間、この端末での読書位置 | 通常の AppShell |
-| `/bzm/read/[book]` | 続きから開く。端末に残った読書位置の章へ移る。無ければ最初の書けている章 | 外枠なし |
+| `/bzm/read` | 書斎（本棚）。専用アプリの入口。上に「書斎」の見出し、本ごとのカード、書けた章の数、総文字数、通読の目安時間、この端末での読書位置 | **外枠なし**。白い背景、幅の上限 1200px、iPhone の画面端（safe-area）の余白 |
+| `/bzm/read/[book]` | 続きから開く。端末に残った読書位置の章へ移る。無ければ最初の書けている章 | **外枠なし** |
 | `/bzm/read/[book]/[chapter]` | 読書画面 | **外枠なし**（クライアントの `AppShell` が外す。下の「外枠を外す場所」） |
 | `/api/bzm-reader/asset/[...path]` | 原稿フォルダ内の図（png / jpg / jpeg / svg / webp / gif）を配る | — |
 
 - `?at=start` / `?at=end` で章の最初／最後のページから開く（前後の章へめくったとき）。`#見出しid` でその見出しのページを開く。どちらも、使ったら URL から外す（再読み込みで先頭・末尾や引用の行き先へ飛び直さず、以後は保存位置で戻る）。
-- **外枠を外す場所**: `src/components/nav/AppShell.tsx` の `isBzmReaderRoute`。`usePathname()` が `^/bzm/read/[^/]+(?:/[^/]+)?/?$`（正規表現 `BZM_READER_ROUTE`）に合うとき、左ナビと常駐の部品（通知・チャット）を載せず、`<main>` だけを描く。対象は `/bzm/read/<本>` と `/bzm/read/<本>/<章>`。棚（`/bzm/read`）は含めず、通常の外枠で出す。月初合意ゲートも同じ判定で飛ばす（`shouldSkipMonthlyAgreementGate`）。
-- 判定をサーバの `(app)/layout.tsx` ではなくクライアントに置く理由: layout はソフトナビゲーションで再描画されないため、棚から画面内リンクで読書画面へ移ったとき（と逆）に、外枠の有無が古いままになる。`usePathname` は遷移のたびに更新される。`(app)/layout.tsx` には書斎の判定を置かない。
-- 左ナビ「資料」に「書斎」（管理者だけ）を足す。`surface-catalog.ts` に `bzm-reader`（`prefixes: ["/bzm/read"]`）を `bzm` より前に足す。
+- **外枠を外す場所**: `src/components/nav/AppShell.tsx` の `isBzmReaderRoute`。`usePathname()` が `^\/bzm\/read(?:\/[^/]+){0,2}\/?$`（正規表現 `BZM_READER_ROUTE`）に合うとき、左ナビと常駐の部品（通知・チャット）を載せず、`<main>` だけを描く。対象は棚（`/bzm/read`）、続きから開く（`/bzm/read/<本>`）、読書画面（`/bzm/read/<本>/<章>`）の3つすべて。月初合意ゲートも同じ判定で飛ばす（`shouldSkipMonthlyAgreementGate`）。
+- 判定をサーバの `(app)/layout.tsx` ではなくクライアントに置く理由: layout はソフトナビゲーションで再描画されないため、書斎から画面内リンクで範囲外の画面（章間リンクの `/bzm/<slug>` など）へ移ったとき（と逆）に、外枠の有無が古いままになる。`usePathname` は遷移のたびに更新される。`(app)/layout.tsx` には書斎の判定を置かない。
+- AMD OS の左ナビ（`GlobalNav.tsx`「資料」）には書斎の項目を置かない（2026-10-04 に外した）。`surface-catalog.ts` の `bzm-reader`（`prefixes: ["/bzm/read"]`）は `bzm` より前に残す。
+
+### 2.1 専用アプリとして入れる（2026-10-04）
+
+書斎は、AMD OS 本体のアプリ（`manifest.json`、`start_url` が `/dashboard`）とは別のアプリとして、ホーム画面や Dock に単独で入れられる。サーバとログインは AMD OS と同じ。ここでの manifest は、ブラウザがアプリとして登録するための定義ファイルで、§3 の「棚に並べる本（manifest）」とは別のもの。
+
+| 場所 | 内容 |
+|---|---|
+| `pwa/public/manifest-shosai.json` | `name`・`short_name` は「書斎」。`id`・`start_url`・`scope` はすべて `/bzm/read`。`display` は `standalone`。`background_color`・`theme_color` は `#ffffff`。アイコンは AMD OS と同じ `/icons/*`（192・512 の通常と maskable）。向き（`orientation`）は固定しない |
+| `pwa/src/app/(app)/bzm/read/layout.tsx` | 書斎の配下でだけ、ルートの `manifest: "/manifest.json"`（`src/app/layout.tsx`）を `metadata.manifest = "/manifest-shosai.json"` に差し替える。あわせて `appleWebApp`（`capable: true`、`title: "書斎"`、`statusBarStyle: "default"`）と `viewport.themeColor` の `#ffffff` を出す。管理者の判定 `requireReaderAdmin()` は従来どおり |
+| `pwa/src/middleware.ts` | matcher の除外に `manifest-shosai\\.json` を足す。除外しないと manifest の取得がログイン画面への 307 になり、インストールが壊れる（`manifest.json` と同じ理由） |
+
+- **インストール**: iPhone は Safari で `/bzm/read` を開き、共有ボタンの「ホーム画面に追加」で名前は「書斎」のまま追加する。Mac の Chrome は同じ URL を開き、アドレスバー右端のインストールのアイコン、またはメニュー（︙）の「キャスト、保存、共有」の「ページをアプリとしてインストール」で入れる。利用者向けの手順は `pwa/manual/2-10-bzm-reader.md`。
+- **ログイン**: 未ログインで開くと、middleware が `/auth/login?next=/bzm/read…`（開こうとした書斎のパスと query）へ送り、ログイン後は元の書斎の画面へ戻る（既存の `next` の仕組み、`src/lib/supabase/middleware.ts`）。iPhone のホーム画面に追加したアプリは Safari とログインが別なので、初回はアプリの中でログインする。
+- **範囲（scope）の外へ出るリンク**: 原稿の章間リンクで、同じ本でない章は `/bzm/<slug>`（教科書の作業画面）へ飛ぶ（§4 の 7）。そこは書斎アプリの範囲（`/bzm/read`）の外なので、アプリの外の画面として開く。
+- **表示の既定**: 棚の画面（`read/page.tsx`）は外枠を持たないので、上に「書斎」の見出し、白い背景（`min-h-dvh`）、幅の上限 1200px、画面端の余白（`env(safe-area-inset-*)`）を自前で持つ。読書画面の背景は §6.5 の設定に従う。
 
 ## 3. 棚に並べる本（manifest）
 
@@ -40,7 +58,7 @@
 
 | id | 題 | 種類 | 言語 | 章の出どころ |
 |---|---|---|---|---|
-| `bzm30-textbook` | BZM 3.0教科書 | 教科書 | ja | `bzm/BZM_3_0_TEXTBOOK_PLAN.md` §1 の16本（序、第1〜14章、付録）。slug は `bzm-3-0-textbook-<名前>`。未執筆の章は `plannedTitle` で目次に灰色で出す |
+| `bzm30-textbook` | BZM 3.0教科書 | 教科書 | ja | `bzm/BZM_3_0_TEXTBOOK_PLAN.md` §1 の16本（序、第1〜14章、付録）。slug は `bzm-3-0-textbook-<名前>`。未執筆の章は `plannedTitle` で目次に灰色で出す。序の題は「序 — このモデルは何を測るのか」（`library.ts` の `plannedTitle` と `bzm-chapters.ts` の題で同じ。2026-10-04 に改題） |
 | `book-a` | ディープテック起業の経営学 | 本 | ja | `bzm-chapters.ts` の `BZM_PARTS` の `key: "book-a"` の slugs と `BZM_CHAPTERS` の題 |
 | `bzm22-textbook` | BZM 2.2教科書 | 教科書 | ja | `bzm-2-2-textbook-introduction`、`-states-and-actions`、`-value-and-indices`、`-context-and-limits`（未執筆） |
 | `bzm-course` | BZM 批判的基礎講座 | 講座 | ja | `course-bzm-foundations-index`、`-s00`、`-s01` |
@@ -61,7 +79,7 @@
 4. **論文の引用番号** `<sup>[1,2]</sup>`、`<sup>[3–5]</sup>` を `[1,2](#ref-1)` の形へ直す（描画側が上付きの番号にする）。論文を章に割った本では、10 で番号ごとのリンクに替わる。
 5. **文献一覧**: 見出しが `References` または `参考文献` の節の中で、行頭が `N. ` の番号付きリストを `[N](#refdef-N) ` で始まる段落に直す（描画側が `id="ref-N"` の目印にする）。
 6. **図のパス**: `![説明](相対パス)` は、その md のあるフォルダからの相対として解いて `/api/bzm-reader/asset/<bzm からの相対パス>` に書き換える。`/` で始まる絶対パス（`pwa/public` の図）と `http(s)://` はそのまま。
-7. **章間リンク**: `./slug` と `./slug.md` は、同じ本の章なら書斎の URL（`/bzm/read/<book>/<slug>`）へ、そうでなければ `/bzm/<slug>` へ書き換える。
+7. **章間リンク**: `./slug` と `./slug.md` は、同じ本の章なら書斎の URL（`/bzm/read/<book>/<slug>`）へ、そうでなければ `/bzm/<slug>`（教科書の作業画面）へ書き換える。後者は書斎アプリの範囲（`/bzm/read`、§2.1）の外なので、アプリの外の画面として開く。
 8. **callout**: `> [!NOTE]` `> [!TIP]` `> [!IMPORTANT]` `> [!WARNING]` `> [!CAUTION]` の行を `> **メモ**` `> **ヒント**` `> **重要**` `> **注意**` `> **注意**` に置き換える（Book A 第5章冒頭の警告を落とさないため）。
 9. **割り（split: "h1"）**: コードブロックの外の `# ` 見出しで区切る。最初の見出しより前（著者行など）は最初の章の頭に付ける。slug は見出しの文字から作る（英数字とハイフン、小文字。例: `1-introduction`、`abstract`、`references`）。重複したら末尾に `-2` を付ける。
 
@@ -92,7 +110,9 @@
 ### 6.1 ページの作り方
 
 - **ページ表示（既定）**: 本文を、高さが画面いっぱいの多段組み（CSS columns）に流し込み、1段＝1ページとして横へずらす。段の幅＝本文の幅。ページ数＝流し込んだ幅 ÷（段の幅＋段の間）。
-- 広い画面（本文の段を2つ置ける幅、目安 1100px 以上）で「見開き」が有効なら、2段を1画面に並べ、2ページずつめくる。
+- 広い画面（本文の段を2つ置ける幅、目安 1100px 以上）で「見開き」が有効なら、2段を1画面に並べ、2ページずつめくる。この幅は「本文の領域の幅」で見る。左の目次の列（§6.4）を出しているときは、画面の幅からその列の幅を引いた値で判定する（列のぶん本文が 1100px を切れば1段になる）。
+- 見開きの段の間（`column-gap`）は、本文の領域の幅の 7% か 72px の大きいほう（上限 120px）。1段のときは 48px のまま。段の間の真ん中には、本のノドのように細い縦の罫線（`--bzr-rule`、上下に 16px の余白）を置く。罫線はスクロールするビューポートの外（`.bzr-gutter`）に置いて動かさない。めくり幅は「1画面の幅 + 段の間」で、段の間が変わっても同じ式で合わせる。段の間は割り直しの鍵に含まれ、位置の保存と復元（ブロック番号と fraction）は、段の間が変わっても読んでいたブロックが見える画面へ戻る。計算は純関数（`readerColumnGap`、`readerTocWidth`、`activeHeadingId`）に切り出してある。
+- 割り直しで同じブロックへ戻るとき、ブロックの中の位置は画面差（先頭の画面からの数）で持つ。画面差は記録したときの段数で数えた値なので、段数（1段と2段）が変わった割り直し（目次の列の開閉で本文の領域が狭まった場合など）では差を使わず、ブロック番号と fraction で戻す。
 - 文字の大きさ・行間・余白・書体・画面の大きさが変わったら、ページを割り直し、読んでいた本文ブロックが入っているページへ戻る。図の読み込みと Web フォントの準備が済んだときも割り直す。
 - 数式と図は段の途中で割らない（`break-inside: avoid`）。図は1ページの高さに収まるよう縮める。
 - 表は列の数で扱いが違う（§5）。4列以下の表は囲みなしで、段をまたいで割れる。5列以上の表と表示数式は、横スクロールの囲みに入れる。ページ表示では、`overflow` を持つ要素は段をまたいで割れないため、この囲みの高さを「ページの高さ − 3em」までに止め、1ページより高いときはその中を縦にもスクロールさせる。
@@ -120,11 +140,18 @@
 
 ### 6.3 上下の帯
 
-- **上**: 「書斎へ戻る」、本の題と章の題、目次、しおり（このページを挟む／外す）、文字の設定（Aa）。
+- **上**: 「書斎へ戻る」、本の題と章の題、目次、しおり（このページを挟む／外す）、文字の設定（Aa）。目次ボタンは、画面が 1100px 以上なら左の目次の列の開閉、それ未満なら目次パネルを開く。
 - **下**: 章の中の位置のつまみ（ドラッグでページへ飛ぶ）、「p. 3 / 41」、「本全体 18%」、「この章の残り 約12分」。
 - 帯は最初に表示し、めくると隠す。中央を押すと出る。
 
-### 6.4 目次としおり（横から出るパネル）
+### 6.4 目次としおり（左の列と、横から出るパネル）
+
+- **左の目次の列（画面の幅が 1100px 以上）**: 読書画面の左に常に出す。幅は `min(280px, 22vw)`。本文の領域（`.bzr-stage`）はその右側。中身は下のパネルと同じ部品（`ReaderTocContent`）で、目次としおりのタブを持つ。さらに、いま読んでいるページに当たる見出し（いまの画面の先頭ブロックと同じか、それより前にある最後の h2・h3）を強調し、列の見える範囲から外れていれば列の中だけをスクロールして寄せる。
+  - 開閉は上の帯の目次ボタンと、列の先頭の「目次を閉じる」ボタン。状態は `ReaderSettings` には足さず、localStorage の別キー `amd-os.bzm-reader.toc-open`（"1" 開 / "0" 閉、読み書きは try/catch、既定は開）に持つ。
+  - 色は `.bzr-root` のテーマの変数（`--bzr-bg`、`--bzr-rule`、`--bzr-fg`、`--bzr-muted`、`--bzr-accent`）で描く（白・セピア・黒）。項目の高さは 44px 以上。
+  - 項目を押したときの動きはパネルと同じ（見出しのページへ、別の章へ。章はポインタを載せたときとフォーカスで先読み）。ただし列は出したままなので、見出しを押しても上下の帯は隠さない。
+  - 列は `.bzr-stage` の外にあるため、列の中の押下・ホイールでは本文をめくらない。キーも、Escape 以外は列の中では本文をめくらない。ポインタで押したボタンはフォーカスを外し、直後の矢印キーで本文をめくれる。画面を押したときの左右3割の判定は、列を除いた `.bzr-stage` の幅で見る。
+- **1100px 未満**: 下のパネルを使う。目次ボタンで横から出る。画面が 1100px 以上へ広がったときは、開いていた目次のパネルを閉じ、列に切り替える。
 
 - 目次: 本の章の一覧（いまの章を強調。未執筆の章は灰色で押せない）。いまの章の見出し（h2・h3）を下に並べ、押すとその見出しのページへ飛ぶ。
 - しおり: この本で挟んだしおりの一覧（章の題、本文の冒頭 40 字、挟んだ日）。押すとその位置へ。外す操作もここ。
@@ -146,6 +173,7 @@
 
 - 書体は端末に入っている字体を使う（Web フォントは読み込まない。CSP の `font-src 'self'` のため）。
 - 設定は全書籍で共通。
+- 見開きは、本文の領域の幅が 1100px 以上のときだけ効く（§6.1）。左の目次の列を出しているぶん本文の領域が狭くなるので、画面の幅が 1100px 以上でも列を開いたままでは1ページになる場合がある（計算上、列の幅が上限の 280px になる画面の幅 1272px 以上では、およそ 1380px 以上で列を開いたまま見開きになる）。この場合、設定パネルの「見開き」の補足は「左の目次を閉じると有効」と出る（`spreadNeedsTocClosed`）。本文の領域が 1100px を切る狭い画面では「幅が広い画面で有効」と出る。
 
 ### 6.6 位置と進み具合
 
@@ -212,18 +240,19 @@
   - 章の割り（`splitByH1`）、補足資料の先頭見出し（`ensureLeadingH1`）、目次の見出し抽出、文字数の数え方（`countReaderChars`）。
   - 同じ文字の見出しの連番、論文の引用から文献一覧の章へのリンクへの書き換え。
   - 数式の退避: インラインの規則（実原稿の3か所、表のセル、改行をまたぐ式、空行をまたがない、`\$`、コードの中）。実原稿の全章で、数式の外に `$` が残らないこと。
-  - manifest: 本と章の重複なし、Book A の章が `BZM_PARTS` と一致、実在する章ファイルは存在し、存在しないのは未執筆と知っているものだけ。
+  - manifest: 本と章の重複なし、Book A の章が `BZM_PARTS` と一致、実在する章ファイルは存在し、存在しないのは未執筆と知っているものだけ。BZM 3.0教科書は16本で、序・第3章・付録の題が `plannedTitle` と一致する。
   - 実原稿（第1論文）の割りと、他の本でコメントと callout が残らないこと。
   - 進み具合と残り時間、端末内保存（入れ物を差し込む。サーバ側、保存先が例外を投げる場合も落ちない）。
   - `load.ts` を実際に通す: 棚の書けている章数がファイルの有無と一致、本か章が manifest に無いときだけ null で未執筆の章は `exists=false`、論文の引用が文献一覧の章へのリンクに書き換わる。
   - `ReaderMarkdown` を `react-dom/server` で描く: 文献一覧の `id="ref-N"`、全章で目次の id と描画された見出しの id が順番まで一致し重複しないこと、表の囲みが列の数で2種類のどちらかになること、表示数式。
 - `check_pwa_critical_ui.cjs` に釘:
-  - 外す判定は `AppShell.tsx` に `isBzmReaderRoute` があり、`(app)/layout.tsx` には無いこと。
+  - 外す判定は `AppShell.tsx` に `isBzmReaderRoute` があり、`(app)/layout.tsx` には無いこと。`BZM_READER_ROUTE` が `/^\/bzm\/read(?:\/[^/]+){0,2}\/?$/` で、棚を含む3画面に合うこと。
   - `require-reader-admin.ts` に `isAdmin` と `redirect("/dashboard")`、layout と3つの page のすべてに `requireReaderAdmin()`。
-  - 左ナビの「書斎」、`surface-catalog` の `bzm-reader`。
+  - 専用アプリ（§2.1）: `GlobalNav.tsx` に `"/bzm/read"` が無いこと（左ナビに入口を置かない）、`public/manifest-shosai.json` の `start_url`・`scope`・`display`、`middleware.ts` の `manifest-shosai\\.json` の除外、`read/layout.tsx` の `manifest: "/manifest-shosai.json"`。どれかが欠けると、インストールできない、棚だけ左ナビが出る、のいずれかになる。
+  - `surface-catalog` の `bzm-reader`。
   - `next.config.ts` の同梱指定、図の API の専用ヘッダ（`source: "/api/bzm-reader/asset/:path*"`、`bzmReaderAssetSecurityHeaders`）。
   - `package.json` の `test:bzm-reader`。
-  - 読書画面の「目次」「文字の設定」ボタン。
+  - 読書画面の「目次」「文字の設定」ボタン、左の目次の列（`ReaderTocColumn` と `data-bzr-toc-col`、`toc-open` の保存キー、列と段の間のノドの CSS）。
 - `deploy.sh` の検査の並びに `test:bzm-reader` を足す。
 - 検査は `node --experimental-strip-types` で走らせるので、検査から読む `library.ts`・`preprocess.ts`・`protect-math.ts`・`progress.ts`・`storage.ts` は `@/` を使わず、拡張子 `.ts` 付きの相対 import だけにする（`allowImportingTsExtensions` が有効）。
 
@@ -233,7 +262,7 @@
 - 文字列への線引きとメモ（ハイライト）。
 - 縦書き（数式の多い本では崩れやすい。iOS の `TextbookReaderView` は縦書き）。
 - 電波の無い場所での読書（service worker が無い）。
-- `manifest.json` の `orientation: "landscape"`。Android にインストールした PWA は横向きに固定されうる。全画面に効くので、外すかはまさが決める。
+- AMD OS 本体の `manifest.json` の `orientation: "landscape"`。Android にインストールした AMD OS は横向きに固定されうる。外すかはまさが決める。書斎の `manifest-shosai.json` は向きを固定しない。
 
 ## Changelog
 
@@ -241,3 +270,5 @@
 |---|---|---|
 | 2026-10-03 | 新設。棚6冊、ページ送り、文字の設定、目次としおり、端末ごとの位置の記憶、管理者限定 | えいみ |
 | 2026-10-03 | 点検後の修正に合わせて改訂。外枠を外す判定を `AppShell` へ、管理者判定を `requireReaderAdmin()` へ、図の API に専用ヘッダ、引用を文献ごとのリンクへ、数式・表・文字数・読書位置・しおりの規則、Escape・ホイール・本の端の表示、背景色の Cookie | えいみ |
+| 2026-10-04 | 左の目次の列（1100px 以上で常設、開閉を `toc-open` に保存、いま読んでいる見出しを強調）、見開きの判定を本文の領域の幅で行う、見開きの段の間を広げてノドの罫線を置く | えいみ |
+| 2026-10-04 | 書斎を AMD OS とは別の専用アプリにした（v3.153.0）。棚を含む3画面から外枠を外す（`BZM_READER_ROUTE` を `/^\/bzm\/read(?:\/[^/]+){0,2}\/?$/` へ）、左ナビ「資料」から「書斎」を外す、`manifest-shosai.json`（`scope` `/bzm/read`）と書斎の配下だけの manifest の差し替え、middleware の除外、ログイン後に元の書斎へ戻ること、範囲外リンクの扱い（§2.1）。棚の見出し・白い背景・幅の上限 1200px・safe-area の余白。BZM 3.0教科書の序の題を「序 — このモデルは何を測るのか」へ改題 | えいみ |

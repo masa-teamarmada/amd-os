@@ -2,8 +2,53 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
 import type { ReaderLayoutMode } from "@/lib/bzm-reader/types";
 
-/** 段と段の間（px）。めくり幅 = 1画面の幅 + この値 */
+/** 1段のときの段の間（px）。めくり幅 = 1画面の幅 + 段の間 */
 export const READER_COLUMN_GAP = 48;
+/** 見開きの段の間の下限・上限（px）と、本文の領域の幅に対する割合 */
+export const SPREAD_GAP_MIN = 72;
+export const SPREAD_GAP_MAX = 120;
+export const SPREAD_GAP_RATIO = 0.07;
+/** 左の目次の列の幅の上限（px）と、画面の幅に対する割合の上限 */
+export const TOC_COLUMN_MAX_WIDTH = 280;
+export const TOC_COLUMN_MAX_RATIO = 0.22;
+
+/**
+ * 段の間（px）。1段は固定、見開きは本文の領域の幅の 7% か 72px の大きいほう（上限 120px）。
+ * 見開きの左右のページの間を広げ、ノドの罫線を置く余白にする。
+ */
+export function readerColumnGap(cols: 1 | 2, bodyWidth: number): number {
+  if (cols === 1) return READER_COLUMN_GAP;
+  const w = Number.isFinite(bodyWidth) ? Math.max(0, bodyWidth) : 0;
+  return Math.min(SPREAD_GAP_MAX, Math.max(SPREAD_GAP_MIN, Math.round(w * SPREAD_GAP_RATIO)));
+}
+
+/** 左の目次の列の幅（px）。280px か画面の幅の 22% の小さいほう。CSS の min(280px, 22vw) と同じ値 */
+export function readerTocWidth(viewportWidth: number): number {
+  const w = Number.isFinite(viewportWidth) ? Math.max(0, viewportWidth) : 0;
+  return Math.min(TOC_COLUMN_MAX_WIDTH, Math.round(w * TOC_COLUMN_MAX_RATIO));
+}
+
+/**
+ * 目次の見出しのうち、いまの画面の先頭ブロックに当たるもの。
+ * 先頭ブロックと同じか、それより前にある最後の見出し。見出しのブロック番号が分からないもの（null）は飛ばす。
+ * 先頭ブロックより前に見出しが無いときは null。
+ */
+export function activeHeadingId(
+  headings: { id: string; block: number | null }[],
+  topBlock: number | null,
+): string | null {
+  if (topBlock === null) return null;
+  let found: string | null = null;
+  let foundBlock = -1;
+  for (const h of headings) {
+    if (h.block === null || h.block > topBlock) continue;
+    if (h.block >= foundBlock) {
+      found = h.id;
+      foundBlock = h.block;
+    }
+  }
+  return found;
+}
 
 /** 画面の数え方は、ページ表示では「めくり1回 = 1画面」、スクロール表示では「ビューポートの高さ = 1画面」 */
 export interface PaginationView {
@@ -64,13 +109,16 @@ interface Geometry {
  * 割り直しで戻る先。
  * - ブロック番号と、そのブロックの中の差（ページ表示は先頭の画面からの画面差、スクロール表示はブロック先頭からの px 差）
  * - fraction は章の中の正確な位置
- * 表示方式が変わったときは差を使わず、ブロック番号と fraction で戻す。
+ * 表示方式か段数が変わったときは差を使わず、ブロック番号と fraction で戻す
+ * （差は記録したときの段数で数えた画面数で、段数が違えば別の位置を指すため）。
  */
 interface Anchor {
   blockIndex: number | null;
   fraction: number;
   delta: number;
   layout: ReaderLayoutMode;
+  /** 差を記録したときの段数。ページ表示の差はこの段数で数えている */
+  cols: 1 | 2;
 }
 
 /** 位置の端数で隣の画面へずれないための余裕（px） */
@@ -266,7 +314,7 @@ export function useReaderPagination(opts: Options) {
   const blockPosRef = useRef<BlockPos[]>([]);
   const ownersRef = useRef<(number | null)[]>([]);
   /** 割り直しで戻る先。ユーザー操作とスクロールだけが更新し、割り直しでは動かさない */
-  const anchorRef = useRef<Anchor>({ blockIndex: null, fraction: 0, delta: 0, layout: "page" });
+  const anchorRef = useRef<Anchor>({ blockIndex: null, fraction: 0, delta: 0, layout: "page", cols });
   const initialDoneRef = useRef(false);
   const resolveInitialRef = useRef(opts.resolveInitial);
 
@@ -309,6 +357,7 @@ export function useReaderPagination(opts: Options) {
       fraction: fractionOf(screen, count),
       delta: first >= 0 ? screen - first : 0,
       layout: "page",
+      cols: cfgRef.current.cols,
     };
   }, []);
 
@@ -321,8 +370,21 @@ export function useReaderPagination(opts: Options) {
       fraction,
       delta: hit ? scrollTop - hit.pos : 0,
       layout: "scroll",
+      cols: cfgRef.current.cols,
     };
   }, []);
+
+  /** 見出しなどの要素（id）が属する本文ブロックの番号。目次で、いま読んでいる見出しを決めるのに使う */
+  const blockIndexOfId = useCallback(
+    (id: string): number | null => {
+      const el = findById(columnsRef.current, id);
+      const blockEl = el?.closest<HTMLElement>("[data-bzr-block]") ?? null;
+      if (!blockEl) return null;
+      const n = Number(blockEl.dataset.bzrBlock);
+      return Number.isFinite(n) ? n : null;
+    },
+    [columnsRef],
+  );
 
   /** 要素の位置 → スクロール表示の scrollTop / ページ表示の画面番号を求める */
   const elementOffset = useCallback(
@@ -632,7 +694,7 @@ export function useReaderPagination(opts: Options) {
       const hasBlock = a.blockIndex !== null && list.some((b) => b.index === a.blockIndex);
       if (!hasBlock || a.blockIndex === null) {
         placeFraction(a.fraction);
-      } else if (a.layout !== mode) {
+      } else if (a.layout !== mode || (mode === "page" && a.cols !== nCols)) {
         placeSaved(a.blockIndex, a.fraction);
       } else if (mode === "page") {
         landed =
@@ -760,6 +822,7 @@ export function useReaderPagination(opts: Options) {
     goToFraction,
     goToElementId,
     goToBlock,
+    blockIndexOfId,
     bookmarkMatches,
     goFirst,
     goLast,

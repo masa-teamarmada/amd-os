@@ -49,6 +49,10 @@ export interface ReaderPanelsProps {
   onSettingsChange: (patch: Partial<ReaderSettings>) => void;
   /** 見開きが効く広さか。狭い画面では見開きの切替に補足を出す */
   canSpread: boolean;
+  /** 左の目次の列を閉じれば見開きが効く広さか（列の分だけ本文の領域が狭くなっている） */
+  spreadNeedsTocClosed?: boolean;
+  /** いま読んでいるページに当たる見出しの id（目次で強調する） */
+  activeHeadingId?: string | null;
 }
 
 const SHEET_WIDTH = "data-[side=left]:w-[88%] data-[side=right]:w-[88%]";
@@ -82,7 +86,25 @@ export function ReaderPanels(props: ReaderPanelsProps) {
 
 /* ------------------------------ 目次としおり ------------------------------ */
 
-function TocPanel({
+/** 目次としおりの中身（タブと本体）。横から出るパネルと、左の目次の列で同じ部品を使う */
+export interface ReaderTocContentProps {
+  tab: ReaderTocTab;
+  onTabChange: (tab: ReaderTocTab) => void;
+  book: ReaderBookInfo;
+  chapterIndex: number;
+  headings: ReaderHeading[];
+  bookmarks: ReaderBookmark[];
+  onJumpHeading: (id: string) => void;
+  onJumpChapterStart: () => void;
+  onJumpBookmark: (bookmark: ReaderBookmark) => void;
+  onRemoveBookmark: (id: string) => void;
+  /** いま読んでいるページに当たる見出しの id（強調する）。無ければ強調しない */
+  activeHeadingId?: string | null;
+  /** panel: 開いたときにいまの章へ寄せる。column: 呼び出し側（列）が寄せる */
+  variant: "panel" | "column";
+}
+
+export function ReaderTocContent({
   tab,
   onTabChange,
   book,
@@ -93,7 +115,9 @@ function TocPanel({
   onJumpChapterStart,
   onJumpBookmark,
   onRemoveBookmark,
-}: ReaderPanelsProps) {
+  activeHeadingId = null,
+  variant,
+}: ReaderTocContentProps) {
   const router = useRouter();
   const prefetch = useCallback(
     (slug: string) => {
@@ -106,9 +130,12 @@ function TocPanel({
     [router, book.id],
   );
   // パネルを開いたとき、いまの章が見える位置へ寄せる
-  const currentRef = useCallback((el: HTMLElement | null) => {
-    el?.scrollIntoView({ block: "center" });
-  }, []);
+  const currentRef = useCallback(
+    (el: HTMLElement | null) => {
+      if (variant === "panel") el?.scrollIntoView({ block: "center" });
+    },
+    [variant],
+  );
 
   const sortedBookmarks = [...bookmarks].sort((a, b) => {
     const ai = book.chapters.findIndex((c) => c.slug === a.chapterSlug);
@@ -118,13 +145,6 @@ function TocPanel({
 
   return (
     <>
-      <SheetHeader className="flex-row items-center justify-between gap-2 pb-0">
-        <div className="min-w-0">
-          <SheetTitle lang={book.lang}>{book.title}</SheetTitle>
-          <SheetDescription className="sr-only">章の一覧としおり</SheetDescription>
-        </div>
-        <PanelClose />
-      </SheetHeader>
       <div className="bzr-tabs" role="tablist">
         <button
           type="button"
@@ -162,13 +182,21 @@ function TocPanel({
                     </button>
                     {headings.length > 0 ? (
                       <ul className="bzr-toc-sub">
-                        {headings.map((h, i) => (
-                          <li key={`${h.id}-${i}`} data-level={h.level}>
-                            <button type="button" className="bzr-toc-sub-item" onClick={() => onJumpHeading(h.id)}>
-                              {h.text}
-                            </button>
-                          </li>
-                        ))}
+                        {headings.map((h, i) => {
+                          const active = activeHeadingId !== null && h.id === activeHeadingId;
+                          return (
+                            <li key={`${h.id}-${i}`} data-level={h.level}>
+                              <button
+                                type="button"
+                                className={active ? "bzr-toc-sub-item is-active" : "bzr-toc-sub-item"}
+                                aria-current={active ? "true" : undefined}
+                                onClick={() => onJumpHeading(h.id)}
+                              >
+                                {h.text}
+                              </button>
+                            </li>
+                          );
+                        })}
                       </ul>
                     ) : null}
                   </li>
@@ -228,6 +256,35 @@ function TocPanel({
   );
 }
 
+function TocPanel(props: ReaderPanelsProps) {
+  const { book } = props;
+  return (
+    <>
+      <SheetHeader className="flex-row items-center justify-between gap-2 pb-0">
+        <div className="min-w-0">
+          <SheetTitle lang={book.lang}>{book.title}</SheetTitle>
+          <SheetDescription className="sr-only">章の一覧としおり</SheetDescription>
+        </div>
+        <PanelClose />
+      </SheetHeader>
+      <ReaderTocContent
+        tab={props.tab}
+        onTabChange={props.onTabChange}
+        book={book}
+        chapterIndex={props.chapterIndex}
+        headings={props.headings}
+        bookmarks={props.bookmarks}
+        onJumpHeading={props.onJumpHeading}
+        onJumpChapterStart={props.onJumpChapterStart}
+        onJumpBookmark={props.onJumpBookmark}
+        onRemoveBookmark={props.onRemoveBookmark}
+        activeHeadingId={props.activeHeadingId}
+        variant="panel"
+      />
+    </>
+  );
+}
+
 function formatBookmarkDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
@@ -258,7 +315,7 @@ const LAYOUT_OPTIONS: { value: ReaderLayoutMode; label: string }[] = [
   { value: "scroll", label: "スクロール" },
 ];
 
-function SettingsPanel({ settings, onSettingsChange, canSpread }: ReaderPanelsProps) {
+function SettingsPanel({ settings, onSettingsChange, canSpread, spreadNeedsTocClosed }: ReaderPanelsProps) {
   const sizeIndex = Math.max(0, READER_FONT_SIZES.indexOf(settings.fontSize as (typeof READER_FONT_SIZES)[number]));
   const stepSize = (delta: number) => {
     const next = READER_FONT_SIZES[Math.min(READER_FONT_SIZES.length - 1, Math.max(0, sizeIndex + delta))];
@@ -341,7 +398,9 @@ function SettingsPanel({ settings, onSettingsChange, canSpread }: ReaderPanelsPr
               ? "ページ表示のときだけ有効"
               : canSpread
                 ? "広い画面で2ページを並べる"
-                : "幅が広い画面で有効"
+                : spreadNeedsTocClosed
+                  ? "左の目次を閉じると有効"
+                  : "幅が広い画面で有効"
           }
           checked={settings.spread}
           onChange={(spread) => onSettingsChange({ spread })}

@@ -3742,7 +3742,16 @@ for (const file of [
 ]) {
   expectIncludes(file, ["requireReaderAdmin()"]);
 }
-expectIncludes("src/components/nav/GlobalNav.tsx", ['label: "書斎"', 'href: "/bzm/read"']);
+// 書斎は AMD OS とは別の専用アプリ（2026-10-04）。左ナビには入口を置かず、専用の manifest で単独インストールする。
+// 外枠を外す判定が棚 /bzm/read まで含むこと、manifest が middleware の認証を素通りすること、
+// 書斎の配下でだけ manifest を差し替えることのどれかが欠けると、インストールできない、棚だけ左ナビが出る、のいずれかになる。
+expectNotIncludes("src/components/nav/GlobalNav.tsx", ['"/bzm/read"']);
+expectIncludes("src/components/nav/AppShell.tsx", [
+  "const BZM_READER_ROUTE = /^\\/bzm\\/read(?:\\/[^/]+){0,2}\\/?$/;",
+]);
+expectIncludes("public/manifest-shosai.json", ['"start_url": "/bzm/read"', '"scope": "/bzm/read"', '"display": "standalone"']);
+expectIncludes("src/middleware.ts", ["manifest-shosai\\\\.json"]);
+expectIncludes("src/app/(app)/bzm/read/layout.tsx", ['manifest: "/manifest-shosai.json"']);
 expectIncludes("src/lib/surface-catalog.ts", ['id: "bzm-reader"']);
 // /bzm の章ページに原稿の HTML コメント（執筆メモ）を出さない。BzmMarkdown は生の HTML を描かず文字として出すため（2026-10-03）
 expectIncludes("src/app/(app)/bzm/bzm-data.ts", ["export function stripHtmlComments", "return stripHtmlComments(source);"]);
@@ -3759,7 +3768,12 @@ expectIncludes("package.json", ["test:bzm-reader"]);
 expectIncludes("src/components/bzm-reader/ReaderView.tsx", [
   'aria-label="目次"',
   'aria-label="文字の設定"',
+  // 左の目次の列（画面 1100px 以上で常設、開閉は toc-open に保存）と、本文の領域の幅での見開き判定（2026-10-04、設計 §6.4）
+  "<ReaderTocColumn",
+  "amd-os.bzm-reader.toc-open",
 ]);
+expectIncludes("src/components/bzm-reader/ReaderTocColumn.tsx", ['data-bzr-toc-col="true"', "ReaderTocContent"]);
+expectIncludes("src/components/bzm-reader/reader-shell.css", [".bzr-toc-col {", "--bzr-toc-w", ".bzr-gutter::after"]);
 
 // 通知 action contract (2026-07-24): 開催履歴候補は、採用前には正本を増やさず、
 // 追加先・追加内容・外部操作を伴わない結果を明示してから同一feedback APIで反映する。

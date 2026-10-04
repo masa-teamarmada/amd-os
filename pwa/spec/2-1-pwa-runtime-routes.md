@@ -13,6 +13,8 @@
 | Vercel project | `amd-os-pwa` / scope `armada0130` |
 | Backend | Supabase `nbnhrhybjslbawdukvvk` + AMD OS GAS bridge |
 | インストール版の表示 | `public/manifest.json` の `display_override: ["tabbed", "standalone"]`。Chrome のタブ付きアプリ窓で開く。Mac / Windows / Linux の Chrome では実験機能 `DesktopPWAsTabStrip`（ChromeOS 以外は標準 off）のため、`chrome://flags/#enable-desktop-pwas-tab-strip` を有効にした端末だけタブ列が出る。無効な端末は `standalone` の1画面窓になる。画面側のコードは表示形式（`display-mode`）で分岐しない |
+| 書斎の専用アプリ（2026-10-04） | `public/manifest-shosai.json`。書斎（`/bzm/read`）を AMD OS とは別のアプリとして、同じサーバ・同じログインのまま単独でインストールするための manifest。`name`・`short_name` は「書斎」、`id`・`start_url`・`scope` は `/bzm/read`、`display` は `standalone`、`background_color`・`theme_color` は `#ffffff`、アイコンは `manifest.json` と同じ `/icons/*`。向きは固定しない。書斎の配下の `src/app/(app)/bzm/read/layout.tsx` だけが、ルートの `manifest: "/manifest.json"` を `/manifest-shosai.json` に差し替え、`appleWebApp`（title「書斎」）と `themeColor #ffffff` を出す |
+| manifest の認証除外 | `src/middleware.ts` の matcher は `manifest.json` と `manifest-shosai.json`（`manifest-shosai\\.json`）を認証の対象から外す。外さないと manifest の取得がログイン画面への 307 になり、インストールが壊れる |
 
 ## ディレクトリ契約
 
@@ -31,7 +33,7 @@
 - 通常アプリ route は login 必須。
 - `/spec` は admin (`members.is_admin=true`) 限定。
 - `/manual` と `/bzm` は認証済みメンバーが読む前提。
-- `/bzm/read` 配下（書斎）と `/api/bzm-reader/**` は admin (`members.is_admin=true`) 限定。管理者の判定は `requireReaderAdmin()`（`src/lib/bzm-reader/require-reader-admin.ts`）で、layout・3つの page・章ページの `generateMetadata` のすべてから呼び、管理者でなければ `/dashboard` へ戻す。図の API も管理者だけに配る。`/bzm/public` の公開例外には入れない（2026-10-03）。
+- `/bzm/read` 配下（書斎）と `/api/bzm-reader/**` は admin (`members.is_admin=true`) 限定。管理者の判定は `requireReaderAdmin()`（`src/lib/bzm-reader/require-reader-admin.ts`）で、layout・3つの page・章ページの `generateMetadata` のすべてから呼び、管理者でなければ `/dashboard` へ戻す。図の API も管理者だけに配る。`/bzm/public` の公開例外には入れない（2026-10-03）。書斎は専用アプリとしてインストールして開いても、同じ判定が働く（2026-10-04）。
 - `/api/*` の mutation は route ごとに `requireAuth` / admin check / `CRON_SECRET` を使い分ける。
 - Google OAuth は Calendar / Gmail の readonly access を前提にし、server-side ingestion 用 token は `member_google_oauth_tokens` に保存する。
 - 認証主体は3種類。(1) 内部メンバー = Google OAuth の Supabase authenticated session、(2) PJ限定メンバー = 旧 `amd_os_project_session` 署名cookie、(3) **外部の研究機関ユーザー (`workspace_user_accounts`) = `amd_os_workspace_session` 署名cookie**。
@@ -68,9 +70,9 @@
 | `/spec` | 設計書。確定実装仕様。admin 限定 |
 | `/bzm` | BZM テキストブック。理論・数式・rubric 導出 |
 | `/bzm/map` | 理論マップ (論証台帳)。共有正本 `bzm_theory_nodes` / `bzm_theory_edges` を0件から本人が育てる。admin は空白クリックで作成、通常クリックで編集、通常ドラッグで配置変更、Cmd/Ctrl二点クリックで接続、線クリックで接続解除する。各panelはノードを覆わないマップ作業区画に表示し、memberは閲覧できる。旧Markdown 21ノード / 34関係は履歴資産で自動表示しない。件数・接続数は真偽・確信度を表さない。詳細契約は `/spec/2-6-bzm-theory-map-current-spec` |
-| `/bzm/read` | 書斎（本棚）。管理者限定。執筆途中の本と論文6冊（BZM 3.0教科書、ディープテック起業の経営学、BZM 2.2教科書、BZM 批判的基礎講座、第1論文、第1論文 補足資料）を、書けた章の数・総文字数・通読の目安時間・この端末での読書位置つきのカードで並べる。通常の AppShell で表示する。この端末に位置があれば「続きから読む」（その章へ直接）、無ければ「最初から読む」。未執筆の章には「未執筆」の札。`/spec/5-18-bzm-reader-current-spec` |
+| `/bzm/read` | 書斎（本棚）。管理者限定。執筆途中の本と論文6冊（BZM 3.0教科書、ディープテック起業の経営学、BZM 2.2教科書、BZM 批判的基礎講座、第1論文、第1論文 補足資料）を、書けた章の数・総文字数・通読の目安時間・この端末での読書位置つきのカードで並べる。AMD OS とは別の専用アプリの入口で、外枠（左ナビ・通知・チャット・月初合意ゲート）を載せず、上に「書斎」の見出し、白い背景、幅の上限 1200px、画面端（safe-area）の余白で表示する（外す判定は `AppShell` の `isBzmReaderRoute`）。AMD OS の左ナビには入口を置かず、URL か、インストールした「書斎」アプリから開く。この端末に位置があれば「続きから読む」（その章へ直接）、無ければ「最初から読む」。未執筆の章には「未執筆」の札。`/spec/5-18-bzm-reader-current-spec` |
 | `/bzm/read/[book]` | 書斎の「続きから開く」入口。管理者限定。この端末に残った読書位置の章へ移り、無ければ最初の書けている章へ移る。外枠なし（`AppShell` の `isBzmReaderRoute` が外す） |
-| `/bzm/read/[book]/[chapter]` | 書斎の読書画面。管理者限定。外枠（AppShell）を外した全画面で（外す判定はクライアントの `src/components/nav/AppShell.tsx` の `isBzmReaderRoute`。画面内リンクで移っても外れる。`(app)/layout.tsx` には置かない）、1ページずつのページ表示と縦のスクロール表示、目次・しおり・文字の設定を持つ。未執筆の章を直接開いたときは「この章は未執筆」と、最初の書けている章・書斎へのリンクを出す。`?at=start` / `?at=end` で章の最初／最後のページから、`#見出しid` でその見出しのページから開く。読書位置・しおり・設定は端末ごとの `localStorage` に残し、サーバへ送らない（背景色の名前だけは、再読み込みの最初の描画のために Cookie `amd-os.bzm-reader.theme` にも書き、章ページがサーバで読む） |
+| `/bzm/read/[book]/[chapter]` | 書斎の読書画面。管理者限定。外枠（AppShell）を外した全画面で（外す判定はクライアントの `src/components/nav/AppShell.tsx` の `isBzmReaderRoute`。正規表現は `^\/bzm\/read(?:\/[^/]+){0,2}\/?$` で棚・続きから開く・読書画面の3つに合う。画面内リンクで移っても外れる。`(app)/layout.tsx` には置かない）、1ページずつのページ表示と縦のスクロール表示、目次・しおり・文字の設定を持つ。画面が 1100px 以上のときは、左に目次の列（幅 `min(280px, 22vw)`、開閉は端末ごとの `localStorage` `amd-os.bzm-reader.toc-open`、既定は開）を常設し、いま読んでいる見出しを強調する。見開きは本文の領域の幅が 1100px 以上のときだけで、左右のページの間は本文の領域の幅の 7%（72〜120px）、中央に細い仕切りの線を引く。未執筆の章を直接開いたときは「この章は未執筆」と、最初の書けている章・書斎へのリンクを出す。`?at=start` / `?at=end` で章の最初／最後のページから、`#見出しid` でその見出しのページから開く。読書位置・しおり・設定は端末ごとの `localStorage` に残し、サーバへ送らない（背景色の名前だけは、再読み込みの最初の描画のために Cookie `amd-os.bzm-reader.theme` にも書き、章ページがサーバで読む） |
 | `/knowledge-map` | AMD Materials。高校生でも読める日本語で118元素を熱色・日本語主用途・供給警報から俯瞰し、元素の小窓で直近公表相場・5年推移・産出国円グラフを確認する。総合値は4指標合計（20点満点）で、周期表以外は合計の高い順。全材料横断の需給の崩れランキングは専用の偏りの強さ（5点満点）で並べ、不足側、供給過剰側、価格乱高下を区別し、原因、供給が詰まる工程、評価時点、確からしさを示す。全体の入口はカード全面で操作できる。元素・鉱物・樹脂は選択直後に要点の小窓を開き、詳細操作で同じ小窓を拡張する。樹脂の詳細では原料と製造方法も確認できる。比較、従来のノウハウ地図まで横断する読み取り専用の材料データベース |
 | `/business-cards` | 名刺管理。スマホ撮影 / 写真選択 → Gemini OCR → 人の確認 → 1件以上のPJ紐付け → `business_cards` と D-3 `project_knowledge(category='people')` へ保存する。OCR結果は自動確定しない |
 | `/native/business-cards` | iOS名刺タブ用のナビ無しnative shell。通常の月初合意overlayを重ねず、認証cookieつきWKWebViewから `/business-cards` と同じUI/APIを使う |

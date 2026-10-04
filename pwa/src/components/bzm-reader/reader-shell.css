@@ -4,6 +4,9 @@
  * - 色は reader.css の変数（--bzr-bg / --bzr-fg / --bzr-muted / --bzr-rule / --bzr-accent）を使う。
  * - 目次・文字の設定のパネルは Sheet で document.body 直下へ出るため、.bzr-root の外にある。
  *   パネルの中身はアプリ共通の色（--border など）で体裁を整え、.bzr-root の変数に頼らない。
+ * - 画面が 1100px 以上で目次の列を開いているとき（.bzr-root[data-toc="open"]）は、左に目次の列を置き、
+ *   .bzr-stage（本文の領域。めくりの操作の対象）をその右へ寄せる。列の幅は min(280px, 22vw)。
+ *   JS 側の readerTocWidth（useReaderPagination.ts）と同じ値にすること。
  * - ビューポートの大きさは CSS だけで決め、JS（useReaderPagination）がその実寸を測って多段組みの
  *   幅と高さを整数に固定する。ここで変えるときは、測る側（getBoundingClientRect）と食い違わないこと。
  */
@@ -46,9 +49,17 @@
   }
 }
 
+/* 目次の列を開いているときの列の幅。見開きの判定も、この分を除いた本文の領域の幅で見る */
+.bzr-root[data-toc="open"] {
+  --bzr-toc-w: min(280px, 22vw);
+}
+
 .bzr-stage {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: var(--bzr-toc-w, 0px);
   /* ページ表示は横の動きを自前で扱う。縦のスクロールと拡大だけをブラウザに任せる */
   touch-action: pan-y pinch-zoom;
 }
@@ -79,8 +90,35 @@
 }
 
 /* 最初の割り付けが済むまでは本文を隠す（段組みが定まる前の崩れを見せない） */
-.bzr-root:not([data-ready]) .bzr-viewport {
+.bzr-root:not([data-ready]) .bzr-viewport,
+.bzr-root:not([data-ready]) .bzr-gutter {
   visibility: hidden;
+}
+
+/*
+ * 見開きのノド。2段のとき、左右のページの間の真ん中に細い縦の罫線を置く。
+ * 本文のビューポートはスクロールして動くため、罫線はその外（同じ位置と幅の箱）に置いて動かさない。
+ */
+.bzr-gutter {
+  position: absolute;
+  top: var(--bzr-top);
+  bottom: var(--bzr-bottom);
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  width: var(--bzr-vp-w);
+  pointer-events: none;
+}
+
+.bzr-gutter::after {
+  content: "";
+  position: absolute;
+  top: 16px;
+  bottom: 16px;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-0.5px);
+  background: var(--bzr-rule);
 }
 
 .bzr-track {
@@ -784,4 +822,156 @@
   .bzr-switch-knob {
     transition: none;
   }
+}
+
+/* --------------------- 左の目次の列（画面 1100px 以上で常設） --------------------- */
+
+/*
+ * 中身は横から出るパネルと同じ部品（.bzr-toc、.bzr-tabs など）。パネルはアプリ共通の色を使うが、
+ * 列は .bzr-root の中にあるので、テーマの変数（白・セピア・黒）で描き直す。
+ */
+.bzr-toc-col {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 3;
+  box-sizing: border-box;
+  width: var(--bzr-toc-w, 0px);
+  display: flex;
+  flex-direction: column;
+  /* 本文と同じ上下の位置に置く。帯を出したときは、帯が余白の上に重なる */
+  padding-top: var(--bzr-top);
+  padding-bottom: var(--bzr-bottom);
+  border-right: 1px solid var(--bzr-rule);
+  background: var(--bzr-bg);
+  color: var(--bzr-fg);
+  overscroll-behavior: contain;
+}
+
+.bzr-toc-col-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  min-height: 44px;
+  padding: 0 8px 0 16px;
+}
+
+.bzr-toc-col-title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--bzr-muted);
+}
+
+.bzr-toc-col .bzr-icon-btn {
+  color: var(--bzr-fg);
+}
+
+.bzr-toc-col .bzr-icon-btn:hover:not(:disabled),
+.bzr-toc-col .bzr-icon-btn:focus-visible {
+  background: color-mix(in srgb, var(--bzr-fg) 8%, transparent);
+}
+
+.bzr-toc-col .bzr-tabs {
+  margin: 0 12px;
+  background: color-mix(in srgb, var(--bzr-fg) 7%, transparent);
+}
+
+.bzr-toc-col .bzr-tab {
+  color: var(--bzr-muted);
+}
+
+.bzr-toc-col .bzr-tab[aria-selected="true"] {
+  background: var(--bzr-bg);
+  color: var(--bzr-fg);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--bzr-fg) 18%, transparent);
+}
+
+.bzr-toc-col .bzr-panel-body {
+  padding: 8px 12px 16px;
+}
+
+.bzr-toc-col .bzr-toc-item {
+  color: var(--bzr-fg);
+}
+
+.bzr-toc-col .bzr-toc-item:hover,
+.bzr-toc-col .bzr-toc-item:focus-visible,
+.bzr-toc-col .bzr-toc-sub-item:hover,
+.bzr-toc-col .bzr-toc-sub-item:focus-visible,
+.bzr-toc-col .bzr-bookmark-main:hover,
+.bzr-toc-col .bzr-bookmark-main:focus-visible {
+  background: color-mix(in srgb, var(--bzr-fg) 8%, transparent);
+}
+
+.bzr-toc-col .bzr-toc-item.is-current {
+  background: color-mix(in srgb, var(--bzr-accent) 14%, transparent);
+}
+
+.bzr-toc-col .bzr-toc-item.is-disabled {
+  color: var(--bzr-muted);
+}
+
+.bzr-toc-col .bzr-toc-item.is-disabled:hover {
+  background: transparent;
+}
+
+.bzr-toc-col .bzr-toc-badge {
+  border-color: var(--bzr-rule);
+}
+
+.bzr-toc-col .bzr-toc-sub {
+  border-left-color: var(--bzr-rule);
+}
+
+.bzr-toc-col .bzr-toc-sub-item {
+  color: var(--bzr-fg);
+}
+
+.bzr-toc-col .bzr-toc-sub li[data-level="3"] > .bzr-toc-sub-item {
+  color: var(--bzr-muted);
+}
+
+.bzr-toc-col .bzr-empty,
+.bzr-toc-col .bzr-bookmark-snippet,
+.bzr-toc-col .bzr-bookmark-date {
+  color: var(--bzr-muted);
+}
+
+.bzr-toc-col .bzr-bookmark {
+  border-bottom-color: var(--bzr-rule);
+}
+
+.bzr-toc-col .bzr-bookmark-main {
+  color: var(--bzr-fg);
+}
+
+.bzr-toc-col .bzr-tab:focus-visible,
+.bzr-toc-col .bzr-icon-btn:focus-visible,
+.bzr-toc-col .bzr-toc-item:focus-visible,
+.bzr-toc-col .bzr-toc-sub-item:focus-visible,
+.bzr-toc-col .bzr-bookmark-main:focus-visible {
+  outline: 2px solid var(--bzr-accent);
+  outline-offset: -2px;
+}
+
+/* いま読んでいるページに当たる見出し（パネルと列の両方で強調する） */
+.bzr-toc-sub li[data-level] > .bzr-toc-sub-item.is-active {
+  background: var(--accent);
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+/* 文字は本文の色のまま太字にし、左の縦線で示す（青い文字を青い下地に載せると、白の背景で読みにくい） */
+.bzr-toc-col .bzr-toc-sub li[data-level] > .bzr-toc-sub-item.is-active {
+  background: color-mix(in srgb, var(--bzr-accent) 12%, transparent);
+  color: var(--bzr-fg);
+  box-shadow: inset 3px 0 0 var(--bzr-accent);
 }
