@@ -135,3 +135,5 @@ M	pwa/src/lib/build-info.ts
 - 検証: 認証済みHTTPでp25/202609本文とcompact controls、未認証PDF APIの拒否を確認。実HTMLとCSSの静的描画は1440×900で操作列53px、390×844で142px、横overflowなし。PDFはA4全5頁を画像確認し、操作列・編集履歴の印刷混入なし。Chromeの拡張接続とローカルGoogleログインは利用できず、操作確認は静的描画とAPI検証で代替。本番Google連携の認証取得は既存read-only routeで確認。
 - deploy bundle: このUI・PDF保存・関連spec/manual/registryと回帰検査をmainへ保存し、正規deploy scriptでpush。本番build-info SHA一致、PDF保存API、OSドライブ一覧とStorage SHA、共有Drive size/md5を反映後に検収する。rollbackは本変更commitをrevertしてpatch versionを上げ、正規deployする。
 - 既存未追跡SESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdは本件の成果物ではなく保持。branch/worktreeは作成なし。秘密値・raw会話の恒久保存なし。
+
+- 本番v3.159.3では提出版PDFのOS Storage・共有Drive保存と読戻しは成功、最後の保存記録の本文URL filterが失敗。長い日本語本文をPOST RPCへ移し、本文保存と同じadvisory lock下でPDF参照だけ条件更新する `monthly_report_pdf_record` をSupabaseへ適用。schemaの正本はios/supabase migration、本文・履歴に影響なし。v3.159.4でクライアント側の呼出を反映して再検収する。

@@ -617,3 +617,5 @@ SOLの202610以降、通常cap配分後の現金メンバー未払合計が税�
 ### 2026-10-05 PWA 月次報告書の操作・PDF保存
 
 PWAのコックピット月報は月/版プルダウンと編集/保存を同一列へ集約、履歴を紙面末尾へ移動。本文保存・社内版確定時に既存帳票書式のPDFをOSドライブ（内部専用）・共有Driveへ保存し、PDF専用ボタンを廃止。ネイティブiOS/macOS/AndroidのUIは未移植。正本pwa/spec/3-2、操作pwa/manual/4-8。DB schema・BZM/modelは不変。
+
+月報PDFの保存記録はadmin/service_role限定 `monthly_report_pdf_record` RPCで更新する。既存本文との一致をSQL内で確認し、本文・編集履歴は変更しない。正本migration `20261004172000_monthly_report_pdf_record.sql`、テーブル追加なし。

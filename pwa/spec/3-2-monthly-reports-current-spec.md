@@ -309,3 +309,5 @@ ZMP（p19）もSOL・CX・KUTEと同じく `monthly_report_scope=internal_and_ex
 本文保存（社内版下書き/提出版）と社内版確定の認可済みrouteは、保存済みの同一印刷画面をPDFへ描画し、OSのprivate Storageと既存共有Driveに保存する。社内版下書きはversion=draftで確定本文より下書きを優先する。印刷CSSと@pageを保持し、HTMLのscriptと外部通信は無効化、日本語font・ChromiumはFunctionへ同梱する。PDFはOSドライブの月次報告書/YYYY年M月にamd_internalのfileとして登録（source_kind=monthly_report_pdf、source_ref=PJ:月:版、一意）し、共有Driveの既存PDFがあればID・場所・権限を保持。新規はPJ drive_folder_id配下の当日YYMMDD_月次報告書へ置く。共有権限を追加しない。
 
 本文は既存atomic RPCで保存し、PDF結果をpdf:{ok,message}として別に返す。保存本文と生成直前・生成後・登録前の本文一致を確認し、OS bytesのSHA256・Drive size/md5を読み戻す。PDF失敗でも本文保存を取り消さず、画面は失敗理由を示し、同じ保存ボタンでPOST /api/monthly-report/pdfを再実行する（本文・編集履歴を重複保存しない）。PDF保存recordは既存本文一致条件で更新する。手動提出版編集の書式比較元は現行の承認済み本文、未作成月のみ直前月本文とする。帳票本文やPDFの章構造をUI都合で変更しない。
+
+PDF保存記録の更新は `monthly_report_pdf_record` RPC（正本migration: `ios/supabase/migrations/20261004172000_monthly_report_pdf_record.sql`）へ全文・PJ・月・版・Drive IDをPOST bodyで渡す。SQL内で本文一致を条件にPDF参照だけを更新し、既存本文保存RPCと同じadvisory lockを使う。admin/service_roleに限定し、本文・編集履歴には書き込まない。長い日本語本文をPostgRESTのURL filterへ入れない。

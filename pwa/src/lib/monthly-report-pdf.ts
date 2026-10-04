@@ -81,9 +81,14 @@ export async function saveMonthlyReportPdf(request: Request, input: MonthlyRepor
       ? await db.from("workspace_documents").update(row).eq("document_id", documentId)
       : await db.from("workspace_documents").insert(row);
     if (registered.error) throw new Error("OSドライブのPDF登録を完了できなかった");
-    const metadata = external ? { pdf_drive_url: `https://drive.google.com/file/d/${driveFileId}/view` } : { pdf_file_id: driveFileId };
-    const updated = await db.from(table).update(metadata).eq("project_id", input.projectId).eq("ym", month).eq(column, input.expectedContent).select("project_id");
-    if (updated.error || !updated.data?.length) throw new Error("PDFの保存記録を完了できなかった");
+    // Keep the full content comparison in SQL. PostgREST URL filters exceed
+    // proxy limits for long Japanese reports; RPC sends parameters in its body.
+    const updated = await db.rpc("monthly_report_pdf_record", {
+      p_project_id: input.projectId, p_ym: input.ym, p_report_kind: input.kind,
+      p_expected_content: input.expectedContent, p_pdf_file_id: driveFileId,
+      p_version: input.version === "draft" ? "draft" : "final",
+    });
+    if (updated.error || updated.data !== true) throw new Error("PDFの保存記録を完了できなかった");
     return { ok: true, message: "PDFをOSドライブと共有ドライブへ保存した。", documentId, driveFileId };
   } catch (error) {
     console.error("[monthly-report-pdf]", error instanceof Error ? error.message : "PDF save failed");
