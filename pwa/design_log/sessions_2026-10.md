@@ -152,3 +152,7 @@ M	pwa/src/lib/build-info.ts
 - 引き継ぎ入口: ../../HANDOFF_KUTE_MONTHLY_REPORT_20261006.md、../../SESSION_MIGRATION_PROMPT.md。前の月報期間移行プロンプトはrootのSESSION_MIGRATION_PROMPT_monthly_report_period_previous.mdへ内容維持で控えた。
 - 長文URL/RPC、Linuxフォント、印刷余白、skip ci混在、ブラウザ検証境界をBUGS.mdへ症状/原因/解決策/教訓で記録。新規env/秘密種別/テーブル追加なし（RPC migrationのみ適用済み）。
 - manual/spec/registryは実装時に同期済み。今回は画面に出ない終了文書のみをcommitする。旧未追跡タスクpt移行ファイルは別作業として保持、保存可否はまさへ確認。
+
+## 2026-10-06 全体メニュー・3スペースの左ナビ 本番検証
+
+本番確認: 7f6cb1cc / v3.159.11をproduction aliasのbuild-infoで照合。Chromeで1440×900・390×844指定（ブラウザ110%）の全体メニューの開閉・ラベル・余白と閉じた後のフォーカス復帰を確認。コックピット会社情報→ワークスペース→DDの左メニューと本文、狭幅DDの開閉・ページ選択を確認し、UI品質8/10。ホームPJ運用リンクの実DOMに `target="_blank"`・`rel="noopener noreferrer"` を確認（通常クリックによる新タブの実着は自動操作では確認できず）。コックピットのゴールツリーは初回に管制データ取得失敗を表示したが、会社概要の取得と切替は成功。本文取得の再現調査はナビ変更から分離して扱う。共有DB・公開付与・掲載状態に書込みなし。今回の変更はmain/push済み、新規branch/worktreeなし。別セッションの未追跡handoffは保持しており、統合する場合はその報酬移行作業の担当が判断する。
