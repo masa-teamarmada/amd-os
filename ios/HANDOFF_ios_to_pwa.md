@@ -1,5 +1,9 @@
 # iOS → PWA ハンドオフ
 
+## 2026-10-05 追記: SOL DDの共通データと知財表示
+
+SOLのDDコンテンツを共有DBへ追加した（PWA migration 479・480、本番適用済み、再適用しない）。9記事・大学関連出願4件・設立前会社プロフィール・事業の詳細説明・事業計画の非財務補足を、既存の共通ページで読む。PWAの知財は審査請求日が空欄のとき「未確認」を表示する。iOS/macOS/Androidは今回変更していないため、ネイティブの空欄の表現は別途確認する。schema・API・認可・数式の変更なし。DDネイティブ画面は未移植で、ブラウザのDDを利用する。
+
 > See also: [DESIGN.md](DESIGN.md) — **全画面の正本仕様（必読）** / [HANDOFF_ios_to_android.md](HANDOFF_ios_to_android.md) — 並行する Android 向け引き継ぎ
 >
 > **このドキュメントの目的**: iOS（Swift / SwiftUI）で 2026-04-30 に実装した変更群を、別 PC で開発中の PWA（Next.js App Router）に移植する。

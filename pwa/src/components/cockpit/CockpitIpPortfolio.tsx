@@ -251,7 +251,7 @@ export function CockpitIpPortfolio({ projectId, initialData }: { projectId: stri
                         <Cell>{IP_STATUS_LABEL[a.status] ?? a.status}</Cell>
                         <Cell><Chip meta={annuity} /></Cell>
                         <Cell dim>{a.annuity_paid_through_on ?? "—"}</Cell>
-                        <Cell>{a.examination_requested_on ?? <span className="text-muted-foreground">未請求</span>}</Cell>
+                        <Cell>{a.examination_requested_on ?? <span className="text-muted-foreground">未確認</span>}</Cell>
                         <Cell><Chip meta={pct} /></Cell>
                         <Cell dim>{a.pct_number ?? "—"}</Cell>
                         <Cell>
@@ -386,7 +386,7 @@ function AssetDetail({
           <Row label="登録日">{asset.registration_date}</Row>
           <Row label="満了日">{asset.expiry_date}</Row>
           <Row label="優先日">{asset.priority_date}</Row>
-          <Row label="審査請求日">{asset.examination_requested_on ?? "未請求"}</Row>
+          <Row label="審査請求日">{asset.examination_requested_on ?? "未確認"}</Row>
           <Row label="年金">{`${ANNUITY_LABEL[asset.annuity_status]?.txt ?? asset.annuity_status}${asset.annuity_paid_through_on ? ` (${asset.annuity_paid_through_on} まで納付済)` : ""}`}</Row>
           <Row label="外国 (PCT)">{`${PCT_LABEL[asset.pct_status]?.txt ?? asset.pct_status}${asset.pct_number ? ` / ${asset.pct_number}` : ""}`}</Row>
           <Row label="出願人">{asset.applicants?.join(" / ")}</Row>
