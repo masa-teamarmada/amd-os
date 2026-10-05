@@ -5174,3 +5174,24 @@ kiyo-amd-os 側の設定で解消しているので、そちらは触ってい�
 - 原因: 共通タブ・部品を使ってもDDの取得元が掲載項目のみで、ページ全体の正本取得を共通化していなかった。
 - 解決策: 独立DD入場認可後に共通server loaderで全ページの正本を取得し、共通部品へ初期データを渡す。資料公開と正式PDF項目選択は別境界として維持。
 - 教訓: 同じタブ名だけで完了とせず、認可・データ取得・本文を3領域で照合。競合未掲載でも本文取得、技術全トピック、資本計画全版と両コストモデルを再現試験に含める。
+
+## [monthly-report/pdf] 長文URL・Linux字形・表紙改頁の不具合（2026-10-05、終了記録10-06）
+
+- 症状: PDF配置後の記録更新が長文で失敗。本番LinuxのPDFで日本語が消え、社内版表紙の確定情報だけ別頁へ流れた。
+- 原因: 本文全文をPostgREST URL filterへ載せて上限超過。Mac専用フォント指定がLinuxでOpenSansへfallback。画面用18mm paddingが印刷指定を上書きし@page余白と重複。
+- 解決策: 本文をPOST RPC monthly_report_pdf_recordへ渡し、本文保存と同じadvisory lock/期待本文一致でPDF参照だけ更新。適用済みmigration 20261004172000。全文字のNoto Sans JPを明示loadしPDF全textへ適用、失敗は保存前停止。印刷時だけcover-sheet.sheetのpadding=0へ限定。
+- 教訓: ローカルPDFの成功だけで完了にしない。実Linux PDF全頁画像・文字・OS Storage SHA・共有Drive size/md5・本文履歴不変まで照合。サーバー描画のstyleを実際のCSSとして渡す。js実行なしでストリームの隠しprint-rootを正しく抽出する。
+
+## [process/deploy] 未pushの画面変更とskip ciの混在（2026-10-05）
+
+- 症状: cache baseline文書のskip ci付きcommitが先頭になり、先行する月報UI変更を含むpushが事前検査で拒否された。
+- 原因: 最後のcommitだけで画面影響なしと判断し、未push全体の画面差分を見ていなかった。
+- 解決策: 月報UI配信を示すrelease commitを追加し、正規deploy.shで検査・push・本番SHA読戻しを完了。
+- 教訓: push予定全commitの画面差分を確認する。docs-only判定は単一commitとpush全体を分ける。他作業のstageを一括commitしない。
+
+## [verification/browser] 静的描画と認証後の実操作の境界（2026-10-06）
+
+- 症状: Chrome接続がrequest-header policy読込みで失敗し、IABはGoogleパスワード画面で止まった。
+- 原因: ブラウザ連携の接続状態とIAB未認証。アプリUIの失敗とは断定できない。
+- 解決策: 認証済みHTTP/API、実コンポーネントのPC/スマホ静的描画、実PDFで検証可能な範囲を完了。自分のIABタブを閉じ、実操作は未確認として引き継いだ。
+- 教訓: 静的描画をクリック確認と言わない。認証情報・権限を勝手に変えない。

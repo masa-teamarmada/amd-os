@@ -145,3 +145,10 @@ M	pwa/src/lib/build-info.ts
 ## 2026-10-06 月報の初期月とコックピット見出し
 
 まさ依頼で、月報の初期月をJST24日まで前月・25日から当月へ変更。1月の年跨ぎ、UTC日付とJSTの25日境界、うるう月を実行可能な検査に追加。PJメンバー文字列をヘッダーから外し、既存の3領域ナビを同一行へ集約。リンク認可・データ・帳票本文・PDF保存は維持。実装箇所はCockpitHeader／CockpitView／ProjectSurfaceNav／CockpitMonthlyReports／monthly-report-default-month。別セッションのDDキラー要素修正と既存の移行メモは対象外。
+
+## 2026-10-06 KUTE月報UIの引き継ぎ・終了整理
+
+- 開発の実装/検証はmainのecab9a16と並行SOL作業9485bfdeに含まれ、v3.159.9のbuild-info SHA一致を再確認。本文・Drive PDF・カレンダーの業務根拠はKUTE目的別mdへ分離。
+- 引き継ぎ入口: ../../HANDOFF_KUTE_MONTHLY_REPORT_20261006.md、../../SESSION_MIGRATION_PROMPT.md。前の月報期間移行プロンプトはrootのSESSION_MIGRATION_PROMPT_monthly_report_period_previous.mdへ内容維持で控えた。
+- 長文URL/RPC、Linuxフォント、印刷余白、skip ci混在、ブラウザ検証境界をBUGS.mdへ症状/原因/解決策/教訓で記録。新規env/秘密種別/テーブル追加なし（RPC migrationのみ適用済み）。
+- manual/spec/registryは実装時に同期済み。今回は画面に出ない終了文書のみをcommitする。旧未追跡タスクpt移行ファイルは別作業として保持、保存可否はまさへ確認。
