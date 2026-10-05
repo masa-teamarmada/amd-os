@@ -380,7 +380,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     setModalInitialTab(undefined);
   }
 
-  const { project, currentYm, billingCycles, planCycle, milestones, progress, reports, members, subItems, responsibilities, memberMap, pastPlanCycles, msActivities, memberActivities, seasonFinance, msChangeHistory, strategySignals } = cockpit;
+  const { project, currentYm, billingCycles, planCycle, milestones, progress, reports, subItems, responsibilities, memberMap, pastPlanCycles, msActivities, memberActivities, seasonFinance, msChangeHistory, strategySignals } = cockpit;
   const usesMsProgress = usesMsProgressCategory(project.projectCategory);
   // 事業計画グループ・シーズリスト・規程内規のどれを出すかは、PJタイプの標準フォーマットで決まる（下の groups）。
 
@@ -553,8 +553,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       data-project-format-type={formatType}
     >
       {/* [A] Project Header (full width) */}
-      <CockpitHeader project={project} members={members} />
-      {!hideNavigation && <InternalProjectSurfaceNav projectId={project.projectId} current="cockpit" />}
+      <CockpitHeader project={project} navigation={!hideNavigation ? <InternalProjectSurfaceNav projectId={project.projectId} current="cockpit" inline /> : undefined} />
 
       {/* 旧 [A2] Hero (PJの見出し・担当・事業概要・XRL進捗) は 2026-08-28 まさ依頼で
           「PJ概要」タブへ丸ごと移した。上段に残すのは CockpitHeader だけで、

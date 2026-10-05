@@ -499,3 +499,7 @@ iOS から完結できる UI を追加。
 ## 2026-10-05 月報PDF配置の保存記録
 
 PWAの月報保存時PDF配置に `monthly_report_pdf_record` RPCを追加。admin/service_role限定で、同一本文のままPDF参照だけ更新する。正本は `ios/supabase/migrations/20261004172000_monthly_report_pdf_record.sql`。本文・履歴のwriterを変更しない。Swift/Androidの画面・コード・モデル・実機配信は今回の変更対象外。
+
+## 2026-10-06 PWAコックピットの上段・月報初期月（未移植）
+
+PWAはPJメンバー表示を上段から外し、コックピット／ワークスペース／DDをPJ名等と同じ行へ移設。月報は日本時間24日まで前月・25日から当月を開いたときの初期値にし、明示月・手動選択を維持。共有DB・認可・生成予定は変更なし。iOS/macOS/Androidは未移植。正本はPWA spec/3-8、3-2。

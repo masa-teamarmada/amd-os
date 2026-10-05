@@ -619,3 +619,5 @@ SOLの202610以降、通常cap配分後の現金メンバー未払合計が税�
 PWAのコックピット月報は月/版プルダウンと編集/保存を同一列へ集約、履歴を紙面末尾へ移動。本文保存・社内版確定時に既存帳票書式のPDFをOSドライブ（内部専用）・共有Driveへ保存し、PDF専用ボタンを廃止。ネイティブiOS/macOS/AndroidのUIは未移植。正本pwa/spec/3-2、操作pwa/manual/4-8。DB schema・BZM/modelは不変。
 
 月報PDFの保存記録はadmin/service_role限定 `monthly_report_pdf_record` RPCで更新する。既存本文との一致をSQL内で確認し、本文・編集履歴は変更しない。正本migration `20261004172000_monthly_report_pdf_record.sql`、テーブル追加なし。
+
+2026-10-06: PWAのPJコックピットはPJメンバー表示を上段から削除し、コックピット・ワークスペース・DDパッケージの選択をPJ名等と同じ見出し行へ移設。狭い幅では折り返し、リンク権限は維持。月報タブの初期月は日本時間24日まで前月、25日から当月（明示月・手動選択は維持）。DB・認可・帳票本文・生成予定変更なし。iOS/macOS/AndroidのネイティブUIは今回未移植。spec/3-8、3-2、manual/2-3、4-8。

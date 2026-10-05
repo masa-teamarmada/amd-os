@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { MonthlyReportSelectors } from "./MonthlyReportSelectors";
 import { Button } from "@/components/ui/button";
+import { getDefaultMonthlyReportYm } from "@/lib/monthly-report-default-month";
 
 import { loadMonthlyReports, peekMonthlyReports, invalidateMonthlyReports, type ReportMonth } from "@/lib/monthly-reports-client";
 export { prefetchMonthlyReports } from "@/lib/monthly-reports-client";
@@ -11,7 +12,8 @@ function monthLabel(ym: string) { return `${ym.slice(0, 4)}年${Number(ym.slice(
 
 export function CockpitMonthlyReports({ projectId, currentYm }: { projectId: string; currentYm: string }) {
   const [state, setState] = useState<{ projectId: string; reports: ReportMonth[]; loading: boolean; error: string | null }>({ projectId, reports: peekMonthlyReports(projectId) ?? [], loading: true, error: null });
-  const [selectedYm, setSelectedYm] = useState(currentYm);
+  const [defaultYm] = useState(getDefaultMonthlyReportYm);
+  const [selectedYm, setSelectedYm] = useState(defaultYm);
   const [template, setTemplate] = useState<"internal" | "submission">("submission");
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [retry, setRetry] = useState(0);
@@ -27,12 +29,12 @@ export function CockpitMonthlyReports({ projectId, currentYm }: { projectId: str
   }, [projectId, currentYm, retry]);
   useEffect(() => {
     let cancelled = false;
-    queueMicrotask(() => { if (!cancelled) setSelectedYm(currentYm); });
+    queueMicrotask(() => { if (!cancelled) setSelectedYm(defaultYm); });
     return () => { cancelled = true; };
-  }, [projectId, currentYm]);
+  }, [projectId, defaultYm]);
   const current = state.projectId === projectId;
   const reports = current ? state.reports : [];
-  const months = [...new Set([currentYm, ...reports.map((report) => report.ym)])].sort().reverse();
+  const months = [...new Set([currentYm, defaultYm, ...reports.map((report) => report.ym)])].sort().reverse();
   const selected = reports.find((report) => report.ym === selectedYm);
   const available = template === "internal" ? Boolean(selected?.internalStatus) : Boolean(selected?.hasSubmission);
   const href = `/project/${encodeURIComponent(projectId)}/report/${selectedYm}/print?template=${template}`;

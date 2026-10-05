@@ -141,3 +141,7 @@ M	pwa/src/lib/build-info.ts
 - 実Vercel PDFの画像検収で、desktop専用のHiragino/Meiryo指定がLinuxのOpenSansへfallbackし日本語字形が消えることを検出。PDF描画時だけ全textへ同梱Noto Sans JPを適用し、本文の全文字でfont faceを明示load、読込み失敗なら保存前に停止する。Macの描画成功だけでは合格にしない。v3.159.5で本番PDFを再生成し画像検収する。
 
 - 月報PDFの本番全ページ検収で、社内版表紙の18mm画面paddingが印刷時にも残り確定情報だけ次ページへ流れることを確認。v3.159.6は印刷時のcover-sheet paddingのみ無効化し、本文と画面組版を維持。実PDFの表紙・後続本文のページ境界を検証する。
+
+## 2026-10-06 月報の初期月とコックピット見出し
+
+まさ依頼で、月報の初期月をJST24日まで前月・25日から当月へ変更。1月の年跨ぎ、UTC日付とJSTの25日境界、うるう月を実行可能な検査に追加。PJメンバー文字列をヘッダーから外し、既存の3領域ナビを同一行へ集約。リンク認可・データ・帳票本文・PDF保存は維持。実装箇所はCockpitHeader／CockpitView／ProjectSurfaceNav／CockpitMonthlyReports／monthly-report-default-month。別セッションのDDキラー要素修正と既存の移行メモは対象外。

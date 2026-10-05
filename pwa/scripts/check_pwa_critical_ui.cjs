@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const fs = require("fs");
 const path = require("path");
+const { execFileSync } = require("node:child_process");
 
 const root = path.resolve(__dirname, "..");
 
@@ -4728,4 +4729,5 @@ expectIncludes("scripts/deploy.sh", ["npm run test:model-formula-canon"]);
 require("./check_season_reward_trend.cjs");
 expectIncludes("src/app/api/project/monthly-reports/route.ts", ["requireAdmin()", "auth.errorResponse", '"Cache-Control": "private, max-age=30"']);
 expectIncludes("src/components/cockpit/CockpitMonthlyReports.tsx", ['aria-label="月次報告書"', 'template=${template}', '<iframe', '未生成です']);
+execFileSync(process.execPath, ["--experimental-strip-types", path.join(root, "scripts/test_monthly_report_default_month.mts")], { stdio: "pipe" });
 expectIncludes("next.config.ts", ['source: "/project/:projectId/report/:ym/print"', 'headers: monthlyReportSecurityHeaders', 'value: "SAMEORIGIN"', '"frame-ancestors \'self\'"']);

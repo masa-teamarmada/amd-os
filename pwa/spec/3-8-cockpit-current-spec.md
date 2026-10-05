@@ -513,3 +513,7 @@ PJ管理に「月次報告書」（`?tab=monthly-reports`）を常設する。�
 - DDL `ios/supabase/migrations/20260930040000_monthly_funding_plan_details.sql`、データ `pwa/scripts/migrations/410_sol_current_funding_plan_20260930.sql`。後者はレビュー時revision/document/対象15行を検査した単一transactionで、再実行をガードする。`check_sol_funding_plan.mts` が4ケースと資本条件・旧PL/CF保持を検査する。追加通知・権限変更・外部送信はない。
 
 2026-09-30 v3.145.14: `deriveEvent` はmanualの `convertible_issue` にも割当額合計から `primaryRaise` を導出し、資本政策表の新規資金行へ表示する。`newShares` とpost評価額を新しく導出しない。`convertible_conversion` の新規資金0円は維持する。
+
+### 2026-10-06 PJ見出しと領域選択の集約
+
+`CockpitHeader`はPJ名・相手先・状態・分類と領域選択を同じ行に置き、PJメンバー文字列を表示しない。`CockpitView`が既存の`InternalProjectSurfaceNav`をnavigation slotへ渡す。ナビのinline variantは専用行のborder/paddingを除き、PC36px・スマホ44pxの操作高さを維持する。狭い幅では折り返し、横方向へはみ出さない。`hideNavigation`の埋込みでは領域選択を表示しない。リンク先・DD管理権限・ワークスペースの認可と他領域の独立ナビは維持する。
