@@ -1,0 +1,16 @@
+.body > aside {
+  position: static;
+  width: 100%;
+  height: 100%;
+  padding: 12px;
+  border: 0;
+}
+.body aside :global(.hidden) { display: block; }
+.body aside :global(.hidden.flex-col) { display: flex; }
+.body aside a {
+  min-height: 44px;
+  justify-content: flex-start;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+.body aside a > span:last-child { position: static; }
