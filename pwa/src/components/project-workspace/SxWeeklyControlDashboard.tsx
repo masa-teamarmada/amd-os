@@ -5830,7 +5830,7 @@ export function SxWeeklyControlDashboard({
         )}
         {activeView === "company" && (
           <section id="company-overview" className={styles.section} role="tabpanel" aria-label="会社概要">
-            <CockpitCompanyOverview projectId={bundle.project.projectId} projectName={bundle.project.projectName} surface="workspace" readOnly={externalViewer} />
+            <CockpitCompanyOverview projectId={bundle.project.projectId} projectName={bundle.project.projectName} readOnly={externalViewer} />
           </section>
         )}
         {activeView === "capital-policy" && (

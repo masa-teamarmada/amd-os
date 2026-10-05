@@ -137,9 +137,16 @@ expectAll(designCode, [
   "mobile 390×844",
 ], "UI design code");
 
-expectAll(overview, [
-  'import { CockpitKillerFactorCatalog } from "@/components/cockpit/CockpitKillerFactorCatalog";',
-  "<CockpitKillerFactorCatalog projectId={projectId} initialItems={initialKillerFactors} readOnly={readOnly} />",
-], "company overview wiring");
+assert.doesNotMatch(overview, /CockpitKillerFactorCatalog|killerFactors|surface/, "company page is identical on all surfaces; catalog belongs to a separate page");
+const cockpit = read("src/components/cockpit/CockpitView.tsx");
+assert.match(cockpit, /activeTab === "killer-factors" && \([\s\S]*?<CockpitKillerFactorCatalog projectId=\{project\.projectId\} \/>/, "catalog is mounted only on its own cockpit page");
+
+assert.doesNotMatch(route, /hasSharedWorkspaceProjectReadAccess|resolveDdPackageAccess/, "catalog API must never accept workspace or DD access");
+const ddLoader = read("src/lib/dd-project-pages-server.ts");
+const ddBody = read("src/components/dd/DdProjectPageBody.tsx");
+assert.doesNotMatch(ddLoader, /loadProjectKillerFactors|killerFactors|killer_factor_catalog|project_killer_factor_states/, "DD must not query or return internal catalog data, even in admin preview/PDF");
+assert.doesNotMatch(read("src/lib/dd-project-page-types.ts") + ddBody, /killerFactors|initialKillerFactors|KillerFactorItem/, "DD payload/component must not carry catalog data");
+assert.doesNotMatch(ddBody, /CockpitKillerFactorCatalog/, "DD cannot mount the internal catalog page");
+assert.doesNotMatch(read("src/lib/company-overview-xlsx.ts"), /killerFactors|KillerFactorItem|killer_factor/, "company spreadsheet must not export the internal catalog");
 
 console.log("killer factor catalog contract: OK");

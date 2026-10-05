@@ -47,6 +47,7 @@ export const COCKPIT_TABS = [
   "monthly-reports",
   "capital-policy",
   "company",
+  "killer-factors",
   "activity",
   // 旧 ?tab=dd の互換解析専用。独立したDDへ送る。分類には含めない。
   "dd",

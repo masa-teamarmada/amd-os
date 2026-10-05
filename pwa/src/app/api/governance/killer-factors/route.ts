@@ -1,5 +1,4 @@
 import { loadProjectKillerFactors } from "@/lib/project-killer-factors-server";
-import { hasSharedWorkspaceProjectReadAccess } from "@/lib/shared-workspace-project-read-access";
 import { NextRequest, NextResponse } from "next/server";
 import {
   isKillerFactorOperatingMode,
@@ -11,6 +10,7 @@ import {
 } from "@/lib/killer-factor-risk";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireMember } from "@/lib/supabase/api-auth";
+import { getCurrentMemberAccess } from "@/lib/project-workspace";
 
 export const runtime = "nodejs";
 
@@ -76,14 +76,16 @@ async function memberForEmail(db: ReturnType<typeof createAdminClient>, email: s
 /** GET /api/governance/killer-factors?projectId=p21 */
 export async function GET(req: NextRequest) {
   const auth = await requireMember();
+  if (!auth.ok) return auth.errorResponse;
+  const access = await getCurrentMemberAccess();
+  if (access?.scope !== "portfolio") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const projectId = textValue(req.nextUrl.searchParams.get("projectId"), 64);
   if (!projectId) return badRequest("projectId required");
-  if (!auth.ok && !await hasSharedWorkspaceProjectReadAccess(projectId)) return auth.errorResponse;
 
   const db = createAdminClient();
   try {
     const items = await loadProjectKillerFactors(db, projectId);
-    return NextResponse.json({ ok: true, projectId, summary: summarizeKillerFactorRisk(items), items });
+    return NextResponse.json({ ok: true, projectId, summary: summarizeKillerFactorRisk(items), items }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (cause) {
     return NextResponse.json({ ok: false, error: cause instanceof Error ? cause.message : "読み込めなかったよ" }, { status: 500 });
   }
@@ -93,6 +95,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const auth = await requireMember();
   if (!auth.ok) return auth.errorResponse;
+  const access = await getCurrentMemberAccess();
+  if (access?.scope !== "portfolio") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json().catch(() => null) as RequestBody | null;
   if (!body?.action) return badRequest("action required");

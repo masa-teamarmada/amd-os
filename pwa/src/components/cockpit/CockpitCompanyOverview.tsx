@@ -27,7 +27,6 @@ import {
   type CompanyOverviewData,
 } from "@/lib/company-overview";
 import { downloadCompanyOverviewXlsx } from "@/lib/company-overview-xlsx";
-import { CockpitKillerFactorCatalog } from "@/components/cockpit/CockpitKillerFactorCatalog";
 import type { BusinessSummaryResponse } from "@/lib/project-overview";
 import { CompanyBusinessSummarySection } from "@/components/cockpit/CompanyBusinessSummarySection";
 import { loadGovernance, peekGovernance, saveGovernanceEntity } from "@/lib/governance-client";
@@ -85,21 +84,16 @@ function sourceHref(attachment: { url?: string; webViewLink?: string; web_view_l
   return attachment.url || attachment.webViewLink || attachment.web_view_link || "";
 }
 
-type CompanyOverviewSurface = "cockpit" | "workspace";
-
 export function CockpitCompanyOverview({
   projectId,
   projectName,
   readOnly = false,
   initialData,
-  initialKillerFactors,
   initialBusinessSummary,
   canDownload = true,
 }: {
   projectId: string;
   projectName: string;
-  surface: CompanyOverviewSurface;
-  initialKillerFactors?: import("@/lib/project-killer-factor-types").KillerFactorItem[];
   readOnly?: boolean;
   initialData?: CompanyOverviewData;
   initialBusinessSummary?: BusinessSummaryResponse;
@@ -291,11 +285,6 @@ export function CockpitCompanyOverview({
             <InfoCell label="確認元 / 確認日" value={[data.profile?.source_ref, data.profile?.source_verified_on && formatDate(data.profile.source_verified_on)].filter(Boolean).join(" / ")} wide />
           </div>
         </Section>
-
-        <CockpitKillerFactorCatalog projectId={projectId} initialItems={initialKillerFactors} readOnly={readOnly} />
-
-
-
 
         <div className="grid gap-4 xl:grid-cols-2">
           <Section title="総会・取締役会" description="決議、AMD対応、関連資料を開催履歴と一緒に保存" action={readOnly ? undefined : <Button variant="outline" className="h-11" onClick={() => setDialog("meeting")}><Plus />開催情報</Button>}>

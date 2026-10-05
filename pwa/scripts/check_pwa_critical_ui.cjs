@@ -3446,8 +3446,6 @@ expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
 
 expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
   'data-testid="company-overview-tab"',
-  "CockpitKillerFactorCatalog",
-  '<CockpitKillerFactorCatalog projectId={projectId} initialItems={initialKillerFactors} readOnly={readOnly}',
   "buildCapTableSnapshots",
   "capTableTieOut",
   "convertibleScenario",
@@ -3455,6 +3453,11 @@ expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
   "登記との差",
   "downloadCompanyOverviewXlsx",
   "exportPdf",
+]);
+expectNotIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", ["CockpitKillerFactorCatalog"]);
+expectIncludes("src/components/cockpit/CockpitView.tsx", [
+  'activeTab === "killer-factors"',
+  '<CockpitKillerFactorCatalog projectId={project.projectId} />',
 ]);
 // 転換前証券の追加ダイアログは 2026-08-29 に資本政策表タブへ移した。
 expectIncludes("src/components/cockpit/CockpitCapitalPolicy.tsx", [

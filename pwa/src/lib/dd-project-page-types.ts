@@ -23,6 +23,6 @@ export type DdLiveProjectPage = Identity & (
   | { page: "partners"; management: SxManagementBundle }
   | { page: "business-plan"; plan: ProjectBusinessPlan | null }
   | { page: "ip"; portfolio: IpPortfolioBundle }
-  | { page: "company" | "capital-policy"; governance: CompanyOverviewData; killerFactors?: import("./project-killer-factor-types").KillerFactorItem[]; businessSummary?: BusinessSummaryResponse }
+  | { page: "company" | "capital-policy"; governance: CompanyOverviewData; businessSummary?: BusinessSummaryResponse }
   | { page: "activity"; grants: Grant[]; acquisitions: Bzm22AcquisitionApiPayload; contributions: AmdContributionsPayload; showAcquisitions: boolean }
 );

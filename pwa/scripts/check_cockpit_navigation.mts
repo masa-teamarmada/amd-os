@@ -7,7 +7,7 @@ import {
   cockpitGroupsForType,
   resolveCockpitTabForType,
 } from "../src/lib/cockpit-tabs.ts";
-import { PROJECT_FORMAT_TYPES, projectFormatTypeOf } from "../src/lib/project-formats.ts";
+import { PROJECT_FORMAT_TYPES, projectFormatTypeOf, WORKSPACE_TAB_FORMATS, DD_TAB_FORMAT } from "../src/lib/project-formats.ts";
 
 // タブの並びはPJタイプ（大学発SU・新規事業・研究機関エコシステム・AMD本体）ごとに1つ。
 // 同じタイプのPJは、データの有無にかかわらず同じタブを持つ（2026-10-03 まさ「全部統一してないとだめ。OSの大原則」、spec 3-23）。
@@ -22,7 +22,11 @@ for (const type of TYPES) {
   assert.ok(!children.includes("objective-structure"), `${type}: objective structure must no longer be a visible cockpit tab`);
   assert.ok(!children.includes("cost-fuel"), `${type}: fuel cost lives inside the cost tab, not as its own tab`);
   assert.equal(new Set(children).size, children.length, `${type} cockpit tabs must belong to only one group`);
+  assert.equal(resolveCockpitTabForType("killer-factors", type), "killer-factors", `${type}: catalog has its own URL`);
+  assert.equal(cockpitGroupForTabInType("killer-factors", type).label, "会社情報");
+  assert.ok(!WORKSPACE_TAB_FORMATS[type].some(group => group.tabs.includes("killer-factors")), `${type}: internal catalog page must not be shared`);
 }
+assert.ok(!DD_TAB_FORMAT.some(group => (group.tabs as readonly string[]).includes("killer-factors")), "DD must not expose the catalog page");
 
 const STANDARD_GROUPS = ["進捗管理", "事業計画", "ドライブ", "PJ管理", "会社情報"];
 for (const type of ["su", "new_business", "amd"] as const) {

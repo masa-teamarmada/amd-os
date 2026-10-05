@@ -1,5 +1,4 @@
 import { loadProjectGovernance } from "./project-governance-server";
-import { loadProjectKillerFactors } from "./project-killer-factors-server";
 import "server-only";
 import { createAdminClient } from "./supabase/admin";
 import { buildDagHealth } from "./project-management-logic";
@@ -44,13 +43,13 @@ export async function loadDdProjectPage(projectId: string, page: string): Promis
   }
   if (page === "business-plan") return { ...base, page, plan: await loadProjectBusinessPlan(projectId) };
   if (page === "company" || page === "capital-policy") {
-    const [governance, business, killerFactors] = await Promise.all([
+    // キラー要素の状態・根拠・集計は社内コックピット専用。DDでは取得もしない。
+    const [governance, business] = await Promise.all([
       loadProjectGovernance(db, projectId),
       page === "company" ? db.from("project_business_summaries").select("summary,detail,updated_at").eq("project_id", projectId).maybeSingle() : Promise.resolve({ data: null, error: null }),
-      page === "company" ? loadProjectKillerFactors(db, projectId) : Promise.resolve([]),
     ]);
     if (business.error) throw new Error(business.error.message);
-    return { ...base, page, governance, killerFactors, businessSummary: {ok: true, business: business.data ? {summary:business.data.summary, detail:business.data.detail, updatedAt:business.data.updated_at, updatedBy:null} : null, viewer:{canEdit:false}} };
+    return { ...base, page, governance, businessSummary: {ok: true, business: business.data ? {summary:business.data.summary, detail:business.data.detail, updatedAt:business.data.updated_at, updatedBy:null} : null, viewer:{canEdit:false}} };
   }
   if (page === "ip") {
     const [assets, deadlines, events] = await Promise.all([

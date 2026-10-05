@@ -60,8 +60,8 @@ for (const tab of ["technology", "competition", "business-model", "business-plan
   assert.match(externalAllowlist[1], new RegExp(`"${tab}"`), `external workspace must expose ${tab}`);
 }
 assert.doesNotMatch(externalAllowlist[1], /"overview"/, "PJ概要は cockpit-only");
-assert.match(sxWorkspaceDashboard, /surface="workspace" readOnly=\{externalViewer\}/, "workspace company overview must be read-only for external PJ members");
-assert.match(companyOverview, /<CockpitKillerFactorCatalog[\s\S]*readOnly=\{readOnly\}/, "company page content is common; operations follow viewer permissions");
+assert.match(sxWorkspaceDashboard, /<CockpitCompanyOverview[^\n]*readOnly=\{externalViewer\}/, "workspace company overview must be read-only for external PJ members");
+assert.doesNotMatch(companyOverview, /CockpitKillerFactorCatalog|surface/, "company page must be common and cannot contain cockpit-only catalog content");
 assert.match(governanceRoute, /loadProjectGovernance\(db, projectId\)/, "workspace and cockpit use the same governance loader");
 assert.match(governanceRoute, /hasSharedWorkspaceProjectReadAccess\(projectId\)/, "shared readers still need the exact PJ membership");
 assert.match(sxWorkspaceDashboard, /\(externalViewer \|\| isZmpWorkspace \? "issues" : "weekly"\)/);

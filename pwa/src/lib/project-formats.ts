@@ -52,7 +52,7 @@ const COCKPIT_STANDARD_TABS = [
   { group: "business-plan-group", tabs: ["score-detail", "technology", "competition", "business-model", "business-plan", "financial-projection", "capital-plan", "cost-model", "ip"] },
   { group: "documents-group", tabs: ["documents"] },
   { group: "project-management-group", tabs: ["overview", "project-contracts", "project-finance", "monthly-reports"] },
-  { group: "company-information-group", tabs: ["company", "capital-policy", "activity"] },
+  { group: "company-information-group", tabs: ["company", "killer-factors", "capital-policy", "activity"] },
 ] as const;
 
 export const COCKPIT_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ group: string; tabs: readonly string[] }>> = {
@@ -66,7 +66,7 @@ export const COCKPIT_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ grou
     { group: "regulations-group", tabs: ["regulations"] },
     { group: "documents-group", tabs: ["documents"] },
     { group: "project-management-group", tabs: ["overview", "project-contracts", "project-finance", "monthly-reports"] },
-    { group: "company-information-group", tabs: ["company", "capital-policy", "activity"] },
+    { group: "company-information-group", tabs: ["company", "killer-factors", "capital-policy", "activity"] },
   ],
 };
 
@@ -104,7 +104,7 @@ export const DD_TAB_FORMAT = [
 export const PROJECT_PAGE_LABELS: Readonly<Record<string, string>> = {
   issues: "ゴールツリー", tasks: "タスク", gantt: "ガント", progress: "MS・月次", meetings: "動向・会議", slack: "Slack", weekly: "週次差分", partners: "関係先",
   "score-detail": "スコア詳細", technology: "技術", competition: "競合比較", "business-model": "ビジネスモデル", "business-plan": "事業計画", "financial-projection": "試算表", "capital-plan": "資本政策表", "cost-model": "コスト試算", cost: "コスト試算", ip: "知財",
-  documents: "ドライブ", drive: "ドライブ", overview: "PJ概要", "project-contracts": "契約", "project-finance": "収支", "monthly-reports": "月次報告書", company: "会社概要", "capital-policy": "資金調達履歴", activity: "沿革", seeds: "シーズ一覧", regulations: "規程一覧",
+  documents: "ドライブ", drive: "ドライブ", overview: "PJ概要", "project-contracts": "契約", "project-finance": "収支", "monthly-reports": "月次報告書", company: "会社概要", "killer-factors": "キラー要素", "capital-policy": "資金調達履歴", activity: "沿革", seeds: "シーズ一覧", regulations: "規程一覧",
 };
 
 /** 開いたときのタブ。全PJ同じ。 */

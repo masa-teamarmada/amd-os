@@ -25,6 +25,7 @@ import { CockpitSlackMessages } from "./CockpitSlackMessages";
 import { CockpitFreezeBackfill } from "./CockpitFreezeBackfill";
 import { CockpitAmdScoreDetailTab } from "./CockpitAmdScoreDetailTab";
 import { CockpitCompanyOverview } from "./CockpitCompanyOverview";
+import { CockpitKillerFactorCatalog } from "./CockpitKillerFactorCatalog";
 import { CockpitProjectOverview } from "./CockpitProjectOverview";
 import { CockpitSeasonBudget } from "./CockpitSeasonBudget";
 import { CockpitProjectControl } from "./CockpitProjectControl";
@@ -356,10 +357,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     if (resolvedTab === "seeds") setHasVisitedSeeds(true);
   }, [resolvedTab]);
 
-  // 会社概要タブも同じ扱いにする（2026-09-12）。hidden で常時マウントしていたため、
-  // どのタブを開いていても中の KillerFactorCatalog が governance と
-  // governance/killer-factors を読んでいた。本番実測で合計2.0秒、
-  // ゴールツリーを見ているだけのときにも必ず払っていた。
+  // 会社概要も初回訪問まで取得しない。キラー要素は独立タブで取得する。
   const [hasVisitedCompany, setHasVisitedCompany] = useState(false);
   useEffect(() => {
     if (resolvedTab === "company") setHasVisitedCompany(true);
@@ -451,6 +449,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     "project-finance": "収支",
     "capital-policy": "資金調達履歴",
     company: "会社概要",
+    "killer-factors": "キラー要素",
     activity: "沿革",
     dd: "DDパッケージ",
   };
@@ -969,7 +968,13 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
           hidden={activeTab !== "company"}
           className={activeTab === "company" ? "min-w-0" : "hidden"}
         >
-          <CockpitCompanyOverview projectId={project.projectId} projectName={project.projectName} surface="cockpit" />
+          <CockpitCompanyOverview projectId={project.projectId} projectName={project.projectName} />
+        </section>
+      )}
+
+      {activeTab === "killer-factors" && (
+        <section role="tabpanel" aria-label="キラー要素" className="min-w-0">
+          <CockpitKillerFactorCatalog projectId={project.projectId} />
         </section>
       )}
 
