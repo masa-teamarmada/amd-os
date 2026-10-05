@@ -1,5 +1,7 @@
 # PWA Feature Registry
 
+2026-10-06: ホーム・コックピットの全体導線は `GlobalMenu` の三点リーダーに集約。3スペースは `ProjectSpaceLayout` で左メニュー、分類と子ページは `ProjectPageMenu` / `DdNavigation`。ホームPJリンクは別タブが既定。`test:critical-ui` で入口・左レイアウト・44px操作・先読み・別タブ属性を保護する。
+
 ## PJの並列の3領域（2026-10-04）
 
 - コックピット・ワークスペース・DDパッケージは共通の `ProjectSurfaceNav` から独立した画面を開く。DDを前2領域の分類・子タブに含めない。

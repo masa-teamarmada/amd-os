@@ -51,6 +51,7 @@ function ManagementScoreCard({ score, history }: { score: DashboardManagementSco
     <section className="relative cursor-pointer rounded-lg border border-border bg-card p-3 flex flex-col gap-1.5 min-h-[120px] transition-all hover:shadow-md hover:-translate-y-0.5">
       <Link
         href="/project/p00/cockpit"
+        target="_blank" rel="noopener noreferrer"
         aria-label="AMD PJ cockpitを開く"
         className="absolute inset-0 z-10 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       />

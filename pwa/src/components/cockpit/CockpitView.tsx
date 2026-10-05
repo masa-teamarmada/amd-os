@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ProjectSpaceLayout } from "@/components/nav/ProjectSpaceLayout";
+import { ProjectPageMenu } from "@/components/nav/ProjectPageMenu";
 import { CockpitHeader } from "./CockpitHeader";
 import { ProjectOverviewFormat } from "./ProjectOverviewFormat";
 import { CockpitManagementScoreHero } from "./CockpitManagementScoreHero";
@@ -314,8 +316,6 @@ const TAB_BY_WORKSPACE_VIEW: Partial<Record<SxWeeklyControlView, CockpitTab>> = 
 
 export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab, onTabChange, institutionId: providedInstitutionId, hideNavigation = false }: CockpitViewProps) {
   const [localActiveTab, setLocalActiveTab] = useState<CockpitTab>(DEFAULT_COCKPIT_TAB);
-  const [openGroupKey, setOpenGroupKey] = useState<CockpitGroupKey | null>(null);
-  const [desktopHoverEnabled, setDesktopHoverEnabled] = useState(false);
   const requestedTab = controlledTab ?? localActiveTab;
   const [resolvedInstitutionId, setResolvedInstitutionId] = useState<string | null | undefined>(providedInstitutionId);
   useEffect(() => {
@@ -335,13 +335,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       cancelled = true;
     };
   }, [cockpit.project.projectId, providedInstitutionId]);
-  useEffect(() => {
-    const media = window.matchMedia("(hover: hover) and (pointer: fine)");
-    const update = () => setDesktopHoverEnabled(media.matches);
-    update();
-    media.addEventListener?.("change", update);
-    return () => media.removeEventListener?.("change", update);
-  }, []);
+
   // タブの並びはPJタイプごとの標準フォーマット（src/lib/project-formats.ts、鍵付き）で決める。
   // データの有無やPJ番号では出し分けない（2026-10-03 まさ「全部統一してないとだめ。OSの大原則」）。
   const formatType = projectFormatTypeOf({ projectId: cockpit.project.projectId, projectCategory: cockpit.project.projectCategory });
@@ -460,7 +454,6 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
   const activeTab = activeGroupWithAvailableChildren?.children.includes(resolvedTab)
     ? resolvedTab
     : activeGroupWithAvailableChildren?.children[0] ?? DEFAULT_COCKPIT_TAB;
-  const childTabs = activeGroupWithAvailableChildren?.children ?? [DEFAULT_COCKPIT_TAB];
   const workspaceView = WORKSPACE_VIEW_BY_TAB[activeTab];
   const tabItem = (key: CockpitTab) => ({
     key,
@@ -475,17 +468,6 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       : key === "overview" ? () => { prefetchProjectOverview(project.projectId); prefetchQuestionTree(project.projectId); prefetchSeasonBudget(project.projectId); }
       : undefined,
   });
-  const childTabItems: { key: CockpitTab; label: string; onHover?: () => void }[] = childTabs.map(tabItem);
-  const groupTabItems = (group: typeof visibleGroups[number]) => group.children.map(tabItem);
-  const shouldShowChildNavigation = childTabItems.length > 1;
-  // 分類の数だけ横に並べる。会社情報はPJ管理から独立させ、研究機関PJは6分類になる。
-  const groupGridClass = visibleGroups.length >= 6
-    ? "grid-cols-3 sm:grid-cols-6"
-    : visibleGroups.length >= 5
-      ? "grid-cols-3 sm:grid-cols-5"
-    : visibleGroups.length === 4
-      ? "grid-cols-2 sm:grid-cols-4"
-      : "grid-cols-3";
 
   function selectGroup(groupKey: CockpitGroupKey) {
     const group = visibleGroups.find((candidate) => candidate.key === groupKey);
@@ -552,127 +534,19 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       data-project-format-type={formatType}
     >
       {/* [A] Project Header (full width) */}
-      <CockpitHeader project={project} navigation={!hideNavigation ? <InternalProjectSurfaceNav projectId={project.projectId} current="cockpit" inline /> : undefined} />
+      <CockpitHeader project={project} />
 
       {/* 旧 [A2] Hero (PJの見出し・担当・事業概要・XRL進捗) は 2026-08-28 まさ依頼で
           「PJ概要」タブへ丸ごと移した。上段に残すのは CockpitHeader だけで、
           コックピットを開いた直後は進捗管理の中身がすぐ目に入る。 */}
 
-      {!hideNavigation && (
-        <>
-          <nav
-            className={`grid gap-1 rounded-xl border border-[#bfc0c7] bg-[#f5f5f7] p-1 ${groupGridClass}`}
-            aria-label="コックピット分類"
-            data-testid="cockpit-group-navigation"
-          >
-            {visibleGroups.map((group) => {
-              const selected = activeGroupWithAvailableChildren?.key === group.key;
-              const groupItems = groupTabItems(group);
-              return (
-                <div
-                  key={group.key}
-                  className="group relative min-w-0"
-                  onPointerEnter={() => {
-                    if (desktopHoverEnabled) setOpenGroupKey(group.key);
-                  }}
-                  onPointerLeave={() => {
-                    if (desktopHoverEnabled) setOpenGroupKey(null);
-                  }}
-                  onFocusCapture={() => setOpenGroupKey(group.key)}
-                  onBlurCapture={(event) => {
-                    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-                      setOpenGroupKey(null);
-                    }
-                  }}
-                >
-                  <button
-                    type="button"
-                    aria-current={selected ? "page" : undefined}
-                    aria-haspopup={desktopHoverEnabled && groupItems.length > 1 ? "true" : undefined}
-                    aria-expanded={desktopHoverEnabled && groupItems.length > 1 ? openGroupKey === group.key : undefined}
-                    aria-controls={desktopHoverEnabled && groupItems.length > 1 ? `cockpit-group-menu-${group.key}` : undefined}
-                    data-cockpit-group={group.key}
-                    onClick={() => selectGroup(group.key)}
-                    className={`min-h-11 sm:min-h-9 w-full cursor-pointer whitespace-nowrap rounded-lg px-2 sm:px-3 text-center text-[13px] font-bold transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 ${
-                      selected
-                        ? "bg-white text-slate-950 shadow-[inset_0_-2px_0_#0f172a]"
-                        : "text-slate-500 hover:bg-white/80 hover:text-slate-900"
-                    }`}
-                  >
-                    {group.label}
-                  </button>
-                  {desktopHoverEnabled && openGroupKey === group.key && groupItems.length > 1 && (
-                    <div
-                      className="pointer-events-auto absolute left-0 top-full z-30 w-max min-w-full pt-1"
-                      id={`cockpit-group-menu-${group.key}`}
-                      role="region"
-                      aria-label={`${group.label}のタブ`}
-                      data-testid={`cockpit-floating-${group.key}`}
-                    >
-                      <div className="overflow-hidden rounded-lg border border-[#bfc0c7] bg-white p-1 shadow-[0_8px_24px_rgba(15,23,42,0.12)]">
-                        {groupItems.map((tab) => {
-                          const tabSelected = activeTab === tab.key;
-                          return (
-                            <button
-                              key={tab.key}
-                              type="button"
-                              aria-current={tabSelected ? "page" : undefined}
-                              data-cockpit-tab={tab.key}
-                              onClick={() => {
-                                setOpenGroupKey(null);
-                                selectTab(tab.key);
-                              }}
-                              onMouseEnter={tab.onHover}
-                              onFocus={tab.onHover}
-                              className={`flex min-h-11 sm:min-h-7 w-full cursor-pointer items-center whitespace-nowrap rounded-md px-2.5 text-left text-[12px] font-semibold transition-[background-color,color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-inset ${
-                                tabSelected
-                                  ? "bg-[#f5f5f7] text-slate-950"
-                                  : "text-slate-600 hover:bg-[#f5f5f7] hover:text-slate-900"
-                              }`}
-                            >
-                              {tab.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </nav>
-          {shouldShowChildNavigation && (
-            <nav
-              className="flex gap-1 overflow-x-auto rounded-lg border border-[#d6d6da] bg-white p-1"
-              aria-label={`${activeGroupWithAvailableChildren?.label ?? "コックピット"}の表示切り替え`}
-              data-testid="cockpit-child-navigation"
-            >
-              {childTabItems.map((tab) => {
-                const selected = activeTab === tab.key;
-                return (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    aria-current={selected ? "page" : undefined}
-                    data-cockpit-tab={tab.key}
-                    onClick={() => selectTab(tab.key)}
-                    onMouseEnter={tab.onHover}
-                    onFocus={tab.onHover}
-                    className={`min-h-11 sm:min-h-8 shrink-0 cursor-pointer whitespace-nowrap rounded-md px-2.5 sm:px-3 text-[12px] font-semibold transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 ${
-                      selected
-                        ? "bg-[#f5f5f7] text-slate-950 shadow-[inset_0_-2px_0_#0f172a]"
-                        : "text-slate-500 hover:bg-[#f5f5f7] hover:text-slate-900"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </nav>
-          )}
-        </>
-      )}
-
+      <ProjectSpaceLayout navigation={!hideNavigation ? <>
+        <InternalProjectSurfaceNav projectId={project.projectId} current="cockpit" />
+        <ProjectPageMenu label="コックピット分類" testPrefix="cockpit"
+          groups={visibleGroups.map((group) => ({ ...group, children: group.children.map(tabItem) }))}
+          activeGroup={activeGroupWithAvailableChildren?.key} activePage={activeTab}
+          onGroup={(key) => selectGroup(key as CockpitGroupKey)} onPage={(key) => selectTab(key as CockpitTab)} />
+      </> : undefined}>
       {activeTab === "progress" && (
         <>
       {/* メインボード: 通常は 2 カラム。凍結/再開バッジがある時だけ 3 カラム目を出す。 */}
@@ -1010,6 +884,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
           onClose={closeMonthlyModal}
         />
       )}
+      </ProjectSpaceLayout>
     </div>
   );
 }

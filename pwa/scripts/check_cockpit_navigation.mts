@@ -105,11 +105,12 @@ const cockpitViewSource = fs.readFileSync(
   new URL("../src/components/cockpit/CockpitView.tsx", import.meta.url),
   "utf8",
 );
-assert.match(cockpitViewSource, /min-h-11 sm:min-h-9/, "mobile group touch target with compact desktop height");
-assert.match(cockpitViewSource, /min-h-11 sm:min-h-8/, "mobile child touch target with compact desktop height");
-assert.match(cockpitViewSource, /min-h-11 sm:min-h-7/, "mobile float target with compact desktop height");
-assert.doesNotMatch(cockpitViewSource, /className={`min-h-12 w-full/, "legacy oversized group height must not return");
-assert.doesNotMatch(cockpitViewSource, /className={`flex min-h-11 w-full cursor-pointer items-center/, "legacy oversized float height must not return");
+const pageMenuSource = fs.readFileSync(new URL("../src/components/nav/ProjectPageMenu.tsx", import.meta.url), "utf8");
+assert.match(cockpitViewSource, /<ProjectSpaceLayout/, "cockpit uses the shared left menu layout");
+assert.match(cockpitViewSource, /children: group.children.map\(tabItem\)/, "all canonical child pages and prefetch handlers reach the shared menu");
+assert.match(pageMenuSource, /min-h-11/, "left menu touch targets remain at least 44px");
+assert.match(pageMenuSource, /selected && group.children.length > 1/, "only the chosen group expands, single-child pages are not repeated");
+assert.match(pageMenuSource, /onMouseEnter={page.onHover}/, "reference data prefetch remains attached to page entries");
 assert.match(cockpitViewSource, /const groups = cockpitGroupsForType\(formatType\);/, "groups come from the PJ type format");
 
 const kuteSeedsSource = fs.readFileSync(

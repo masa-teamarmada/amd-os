@@ -1,4 +1,3 @@
-import { DdNavigation } from "./DdNavigation";
 import { DdProjectPageBody } from "./DdProjectPageBody";
 import type { DdLiveProjectPage } from "@/lib/dd-project-page-types";
 import { DdDocumentsPage } from "./DdDocumentsPage";
@@ -17,7 +16,6 @@ export function DdPackageTop({ view, slug, tab, sectionKey, canDownload = false,
   if (selectedItem && !pageItems.some((item) => item.itemId === selectedItem.itemId)) pageItems.push(selectedItem);
   return (
     <div className="space-y-3">
-      <DdNavigation slug={slug} pageKey={pageKey} />
       <section className="min-w-0 space-y-3" aria-label={PROJECT_PAGE_LABELS[pageKey]} data-testid="dd-page-body">
         {pageKey !== "documents" ? (
           canonicalPage ? <DdProjectPageBody key={`${view.package.project_id}:${pageKey}`} data={canonicalPage} canDownload={canDownload} /> : <p role="alert">このページはいま表示できない。</p>

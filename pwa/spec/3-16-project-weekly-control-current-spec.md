@@ -512,7 +512,7 @@ v3.63.1 の再指摘対応: (10) 名前・バーのボタンはワークスペ�
 - **担当プルダウンの候補から状態記述を落とす**（`SxPartnerPipeline` の `ROSTER_STATUS_PHRASE_RE = /(待ち|未確認|要確認|未定)/` を `isSelectableRosterName` に追加）。「紹介接続待ち」「先方回答待ち」「担当者未確認」は人名ではないので候補に載せない。**すでに保存済みの値は選択中として先頭に残る**ので、表示が消えるわけではない（まさ 2026-08-07「Bで。」＝ 自動除外案の承認）。
 ## 2026-08-20 仕様追補: 全PJ共通のSXワークスペース面
 
-- `/project/[projectId]/workspace` は、p21で先行実装した `SxWeeklyControlDashboard` を全PJへ適用する共通の操作面とする。タブの正本は `PROJECT_WORKSPACE_GROUPS` で、コックピットと共通の`進捗管理 / 事業計画 / ドライブ / 会社情報`の二段ナビへ分類する。`PJ管理`はPJ概要だけのコックピット分類である。PCはhover/focusで子一覧、touchは常設子列を使う。`知財` は `CockpitIpPortfolio` をそのまま置く (仕様は [`3-19`](/spec/3-19-project-ip-current-spec))。外部アカウントは明示的なPJ membershipに絞り、会社基本情報・資本政策と共有対象の事業計画タブを読み取り表示する。キラー要素カタログは共有面にマウントしない。
+- `/project/[projectId]/workspace` は、p21で先行実装した `SxWeeklyControlDashboard` を全PJへ適用する共通の操作面とする。タブの正本は `PROJECT_WORKSPACE_GROUPS` で、コックピットと共通の`進捗管理 / 事業計画 / ドライブ / 会社情報`の二段ナビへ分類する。`PJ管理`はPJ概要だけのコックピット分類である。左側で分類を選び、その直下に子ページを縦に展開する。幅768px未満では「スペースメニュー」から左ドロワーで開く（2026-10-06、spec 3-24）。`知財` は `CockpitIpPortfolio` をそのまま置く (仕様は [`3-19`](/spec/3-19-project-ip-current-spec))。外部アカウントは明示的なPJ membershipに絞り、会社基本情報・資本政策と共有対象の事業計画タブを読み取り表示する。キラー要素カタログは共有面にマウントしない。
 - `ドライブ` は `WorkspaceDocumentRoom` を `scopeKind="project"`、`scopeId={bundle.project.projectId}`、`surface="workspace"`、`presentation="modal"` で開く。PJごとに別資料室、別テーブル、別一覧を作らない。
 - 共通化の対象はタブ、配置、操作、資料室の仕様であり、`project_name`、管理柱・表示レーン、実データ、`externalWorkspaceRoleCapabilityLabel` と共有PJアクセスによる絞り込みはbundle/accessの正本を使う。PJ固有の柱を3レーンへ統合するDB変更はしない。
 - 導線は Seed詳細モーダル → `/project/{projectId}/cockpit` → `/project/{projectId}/workspace` の一方向とする。Seed詳細モーダルからworkspaceへ直接リンクしない。

@@ -30,7 +30,7 @@ export default async function DdItemPage({ params }: { params: Promise<{ slug: s
   };
   const canonicalPage = selectedItem.pageKey === "documents" ? undefined : await loadDdProjectPage(access.projectId, selectedItem.pageKey);
   return (
-    <DdViewerShell access={access} projectName={packageView.projectName}>
+    <DdViewerShell access={access} projectName={packageView.projectName} pageKey={selectedItem.pageKey}>
       <DdPackageTop view={packageView} slug={access.slug} selectedItem={selectedItem} canonicalPage={canonicalPage} canDownload={hasDdCapability(access, "dd.download")} />
     </DdViewerShell>
   );

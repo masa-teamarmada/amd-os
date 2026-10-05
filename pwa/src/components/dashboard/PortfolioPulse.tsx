@@ -373,6 +373,8 @@ function CandidateRow({
   return (
     <Link
       href={href}
+      target={href.startsWith("/project/") ? "_blank" : undefined}
+      rel={href.startsWith("/project/") ? "noopener noreferrer" : undefined}
       className="flex items-center gap-2 rounded border border-[var(--desk-line)] px-2 py-2 text-[13px] hover:bg-[var(--desk-blue-soft)]"
     >
       <Icon className="h-4 w-4 shrink-0 text-[var(--desk-muted)]" aria-hidden="true" />

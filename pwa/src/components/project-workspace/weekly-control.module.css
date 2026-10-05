@@ -36,7 +36,8 @@
 .page[data-embedded] { min-height: 0; padding: 0; background: none; overflow-x: visible; }
 .page[data-embedded] .shell { max-width: none; }
 
-.shell { max-width: 1480px; margin: 0 auto; }
+.shell { max-width: 1600px; margin: 0 auto; }
+.shell > [data-testid="project-space-layout"] { margin-top: 12px; }
 .header {
   overflow: visible;
   border: 1px solid #c8d7e3;

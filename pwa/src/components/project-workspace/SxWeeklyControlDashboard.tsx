@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { ProjectSpaceLayout } from "@/components/nav/ProjectSpaceLayout";
+import { ProjectPageMenu } from "@/components/nav/ProjectPageMenu";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -4658,8 +4660,6 @@ export function SxWeeklyControlDashboard({
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [workloadFilter, setWorkloadFilter] =
     useState<WorkloadBucketKey | null>(null);
-  const [openGroupKey, setOpenGroupKey] = useState<WorkspaceGroupKey | null>(null);
-  const [desktopHoverEnabled, setDesktopHoverEnabled] = useState(false);
   const externalViewer = access.principal === "workspace_account";
   useEffect(() => {
     if (embedded) return;
@@ -4751,16 +4751,7 @@ export function SxWeeklyControlDashboard({
     window.history.replaceState(null, "", `#${SX_WEEKLY_VIEW_HASH[resolved]}`);
   }
 
-  useEffect(() => {
-    if (embedded) return;
-    const media = window.matchMedia("(hover: hover) and (pointer: fine)");
-    const update = () => setDesktopHoverEnabled(media.matches);
-    update();
-    media.addEventListener?.("change", update);
-    return () => media.removeEventListener?.("change", update);
-  }, [embedded]);
   const activeWorkspaceGroup = workspaceGroups.find((group) => group.children.some((tab) => tab.key === activeView)) ?? workspaceGroups[0];
-  const activeGroupTabs = activeWorkspaceGroup?.children ?? [];
   const isGanttView = activeView === "gantt";
   function selectWorkspaceTab(tab: SxWeeklyControlView) {
     if (tab === "partners") setPartnerTrackFilter(null);
@@ -5453,31 +5444,19 @@ export function SxWeeklyControlDashboard({
               </div>
             )}
           </div>
+        </header>
+        )}
+        <ProjectSpaceLayout navigation={!embedded ? <>
           {externalViewer ? (
             <ProjectSurfaceNav projectId={bundle.project.projectId} current="workspace" canWorkspace ddHref={ddHref} />
           ) : (
             <InternalProjectSurfaceNav projectId={bundle.project.projectId} current="workspace" canCockpit={access.scope === "portfolio" || access.isAdmin} />
           )}
-          <nav className={styles.workspaceGroupNavigation} style={{ gridTemplateColumns: `repeat(${workspaceGroups.length}, minmax(0, 1fr))` }} aria-label="PJワークスペースの分類">
-            {workspaceGroups.map((group) => {
-              const selected = activeWorkspaceGroup?.key === group.key;
-              return <div key={group.key} className={styles.workspaceNavGroup} onPointerEnter={() => { if (desktopHoverEnabled) setOpenGroupKey(group.key); }} onPointerLeave={() => { if (desktopHoverEnabled) setOpenGroupKey(null); }} onFocusCapture={() => setOpenGroupKey(group.key)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpenGroupKey(null); }}>
-                <button type="button" className={styles.workspaceGroupButton} aria-current={selected ? "page" : undefined} aria-haspopup={desktopHoverEnabled && group.children.length > 1 ? "true" : undefined} aria-expanded={desktopHoverEnabled && group.children.length > 1 ? openGroupKey === group.key : undefined} aria-controls={desktopHoverEnabled && group.children.length > 1 ? `workspace-group-menu-${group.key}` : undefined} data-selected={selected || undefined} onClick={() => selectWorkspaceGroup(group.key)}>{group.label}</button>
-                {desktopHoverEnabled && openGroupKey === group.key && group.children.length > 1 && (
-                  <div className={styles.workspaceFloatingTabs} id={`workspace-group-menu-${group.key}`} role="region" aria-label={`${group.label}のタブ`}>
-                    {group.children.map((tab) => <button key={tab.key} type="button" aria-current={activeView === tab.key ? "page" : undefined} data-selected={activeView === tab.key || undefined} onClick={() => { setOpenGroupKey(null); selectWorkspaceTab(tab.key); }}>{tab.label}</button>)}
-                  </div>
-                )}
-              </div>;
-            })}
-          </nav>
-          {activeGroupTabs.length > 1 && (
-            <nav className={styles.workspaceChildNavigation} aria-label={`${activeWorkspaceGroup?.label ?? "PJワークスペース"}の表示切り替え`} role="tablist">
-              {activeGroupTabs.map((tab) => <button key={tab.key} type="button" role="tab" aria-selected={activeView === tab.key} aria-controls={SX_WEEKLY_VIEW_HASH[tab.key]} data-selected={activeView === tab.key || undefined} onClick={() => selectWorkspaceTab(tab.key)}>{tab.label}</button>)}
-            </nav>
-          )}
-        </header>
-        )}
+          <ProjectPageMenu label="PJワークスペースの分類" testPrefix="workspace"
+            groups={workspaceGroups.map((group) => ({ ...group, children: [...group.children] }))}
+            activeGroup={activeWorkspaceGroup?.key} activePage={activeView}
+            onGroup={(key) => selectWorkspaceGroup(key as WorkspaceGroupKey)} onPage={(key) => selectWorkspaceTab(key as SxWeeklyControlView)} />
+        </> : undefined}>
 
         {/* 管制帯は週次差分タブ専用 (2026-08-09 まさ #11「週次差分以外のタブに管制のやつ入れないで」)。 */}
         {activeView === "weekly" && (
@@ -5947,6 +5926,7 @@ export function SxWeeklyControlDashboard({
             <ArrowRight aria-hidden="true" />
           </Link>
         </footer>
+        </ProjectSpaceLayout>
       </div>
       {notice && (
         <div className={styles.toast} role="status">

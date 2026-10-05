@@ -722,7 +722,7 @@ expectIncludes("src/lib/cockpit-tabs.ts", [
 ]);
 // PJ管理と会社情報は、それぞれの中身を子タブとして明示する。
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
-  "shouldShowChildNavigation",
+  "<ProjectPageMenu",
   '"project-contracts": "契約"',
   '"project-finance": "収支"',
   'activity: "沿革"',
@@ -3594,15 +3594,12 @@ expectIncludes("src/lib/project-formats.ts", [
 ]);
 expectNotIncludes("src/lib/cockpit-tabs.ts", ['"themes"']);
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
-  'data-testid="cockpit-group-navigation"',
-  'data-testid="cockpit-child-navigation"',
+  '<ProjectSpaceLayout',
+  '<ProjectPageMenu label="コックピット分類" testPrefix="cockpit"',
   'data-cockpit-project-kind={formatType === "ecosystem" ? "institution" : "standard"}',
   "data-project-format-type={formatType}",
-  'childTabItems.length > 1',
-  'grid-cols-2 sm:grid-cols-4',
-  'aria-controls={desktopHoverEnabled && groupItems.length > 1 ? `cockpit-group-menu-${group.key}` : undefined}',
-  'data-testid={`cockpit-floating-${group.key}`}',
-  'matchMedia("(hover: hover) and (pointer: fine)")',
+  'children: group.children.map(tabItem)',
+
 ]);
 expectIncludes("src/lib/cockpit-tabs.ts", [
   '"objective-structure": "gantt",',
@@ -4134,7 +4131,7 @@ expectIncludes(
     // 2026-08-08: 「hydration停止」の正体は検証側の背面タブ (rAF停止で
     // streaming revealが保留されるだけ) と判明。タブ化を再適用しアサーションも復元。
     "partners: \"partner-ledger\"",
-    "role=\"tablist\"",
+    '<ProjectPageMenu label="PJワークスペースの分類"',
     "onManagementChange={setManagement}",
     'kind: "create_partner"',
     'kind: "create_partner_work_item"',
@@ -4734,3 +4731,12 @@ expectIncludes("src/app/api/project/monthly-reports/route.ts", ["requireAdmin()"
 expectIncludes("src/components/cockpit/CockpitMonthlyReports.tsx", ['aria-label="月次報告書"', 'template=${template}', '<iframe', '未生成です']);
 execFileSync(process.execPath, ["--experimental-strip-types", path.join(root, "scripts/test_monthly_report_default_month.mts")], { stdio: "pipe" });
 expectIncludes("next.config.ts", ['source: "/project/:projectId/report/:ym/print"', 'headers: monthlyReportSecurityHeaders', 'value: "SAMEORIGIN"', '"frame-ancestors \'self\'"']);
+
+// 2026-10-06: 全体メニューとスペースメニューを分離し、既存の操作を左に保つ。
+expectIncludes("src/components/nav/GlobalMenu.tsx", ['aria-label="全体メニューを開く"', '<Ellipsis', '<SheetContent side="left"', 'setOpen(false)']);
+expectIncludes("src/components/nav/AppShell.tsx", ['useGlobalMenu', '<GlobalMenu><GlobalNav', 'leading={useGlobalMenu']);
+expectIncludes("src/components/nav/ProjectSpaceLayout.tsx", ['md:grid-cols-[208px_minmax(0,1fr)]', '<SheetContent side="left"', 'スペースメニュー', '[data-space-page]']);
+expectIncludes("src/components/nav/ProjectPageMenu.tsx", ['group.children.length > 1', 'onGroup(group.key)', 'onPage(page.key)', 'onMouseEnter={page.onHover}', 'min-h-11']);
+expectIncludes("src/components/dd/DdViewerShell.tsx", ['<ProjectSpaceLayout', '<DdNavigation']);
+expectIncludes("src/components/dashboard/DashboardGrid.tsx", ['target="_blank" rel="noopener noreferrer"']);
+expectIncludes("src/components/dashboard/PortfolioPulse.tsx", ['target={href.startsWith("/project/") ? "_blank" : undefined}']);

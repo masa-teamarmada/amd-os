@@ -3,10 +3,9 @@
 /**
  * PJコックピット最上段の見出し。
  *
- * PJの識別情報と、コックピット・ワークスペース・DDの領域選択を一段に置く。
+ * PJの識別情報を上段に置く。領域選択は共通の左メニュー。
  * 契約まわりの前提は 2026-09-17 まさ依頼で「契約」タブ (`CockpitProjectOverview`) へ置く。
  */
-import type { ReactNode } from "react";
 
 const STATUS_COLORS: Record<string, string> = {
   active: "bg-emerald-500/10 text-emerald-700",
@@ -24,7 +23,6 @@ interface Props {
     status: string;
     projectCategory?: string;
   };
-  navigation?: ReactNode;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -41,7 +39,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   advisor: "bg-amber-500/10 text-amber-700",
 };
 
-export function CockpitHeader({ project, navigation }: Props) {
+export function CockpitHeader({ project }: Props) {
   const category = project.projectCategory || "dtsu";
   return (
     <header className="border-b border-[#d2d2d7] py-1">
@@ -50,7 +48,6 @@ export function CockpitHeader({ project, navigation }: Props) {
         {project.clientName && <span className="text-[13px] text-[#86868b]">{project.clientName}</span>}
         <span className={`rounded-full px-2 py-0.5 text-[11px] ${STATUS_COLORS[project.status] ?? "bg-muted text-muted-foreground"}`}>{project.status === "active" ? "Active" : project.status}</span>
         <span className={`rounded-full px-2 py-0.5 text-[11px] ${CATEGORY_COLORS[category] ?? CATEGORY_COLORS.dtsu}`}>{CATEGORY_LABELS[category] ?? "DTSU"}</span>
-        {navigation}
       </div>
     </header>
   );

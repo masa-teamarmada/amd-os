@@ -8,6 +8,7 @@ import { CriticalRealtimeNotify } from "@/components/notifications/CriticalRealt
 import { TsukuyomiChatBridge } from "@/components/tsukuyomi/TsukuyomiChatBridge";
 import type { MonthlyWorkAgreementBundle } from "@/lib/monthly-work-agreement-types";
 import type { OsAccessScope, ProjectNavItem } from "@/lib/project-workspace-types";
+import { GlobalMenu } from "./GlobalMenu";
 import { GlobalNav } from "./GlobalNav";
 import { PageTitleSetter } from "./PageTitleSetter";
 import { PageHistoryToolbar } from "./PageHistoryToolbar";
@@ -85,6 +86,7 @@ export function AppShell({
   const isAdminRoute = pathname.startsWith("/admin");
   const isWorkspaceRoute = /^\/project\/[^/]+\/(?:workspace|weekly-control|navigation)(?:\/|$)/.test(pathname);
   const useEmbeddedShellOnly = isNativeShell || isWorkspaceRoute;
+  const useGlobalMenu = accessScope !== "project" && (pathname === "/dashboard" || /^\/project\/[^/]+\/cockpit(?:\/|$)/.test(pathname) || /^\/institutions\/[^/]+\/cockpit(?:\/|$)/.test(pathname));
   const isProjectScope = accessScope === "project";
   const agreementGateBundle = useMonthlyAgreementGateBundle(isProjectScope ? null : memberId, pathname);
 
@@ -105,7 +107,7 @@ export function AppShell({
         <main className="flex-1"><PageHistoryToolbar />{children}</main>
       ) : (
         <div className="flex min-h-screen bg-background text-foreground">
-          {isProjectScope ? (
+          {useGlobalMenu ? null : isProjectScope ? (
             <ProjectWorkspaceNav userCodeName={userCodeName} projects={projectNavItems} />
           ) : isAdminRoute ? (
             <AdminSidebar />
@@ -116,7 +118,7 @@ export function AppShell({
               memberId={memberId}
             />
           )}
-          <main className={`min-w-0 flex-1 ${isProjectScope ? "pb-16 lg:pb-0" : ""}`}><PageHistoryToolbar />{children}</main>
+          <main className={`min-w-0 flex-1 ${isProjectScope ? "pb-16 lg:pb-0" : ""}`}><PageHistoryToolbar leading={useGlobalMenu ? <GlobalMenu><GlobalNav userCodeName={userCodeName} isAdmin={isAdmin} memberId={memberId} /></GlobalMenu> : undefined} />{children}</main>
         </div>
       )}
       {agreementGateBundle && (

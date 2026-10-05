@@ -455,6 +455,7 @@ function NavLink({
  */
 function ModelNavLink({ item, active }: { item: NavItem; active: boolean }) {
   const [open, setOpen] = useState(false);
+  const [portalTarget, setPortalTarget] = useState<Element | null>(null);
   const [position, setPosition] = useState<{
     top: number;
     left: number;
@@ -478,6 +479,7 @@ function ModelNavLink({ item, active }: { item: NavItem; active: boolean }) {
   const updatePosition = useCallback(() => {
     const rect = anchorRef.current?.getBoundingClientRect();
     if (!rect) return;
+    setPortalTarget(anchorRef.current?.closest("[data-slot=sheet-content]") ?? document.body);
     const width = Math.min(320, Math.max(200, window.innerWidth - 96));
     const gutter = 8;
     const left = Math.min(
@@ -575,7 +577,7 @@ function ModelNavLink({ item, active }: { item: NavItem; active: boolean }) {
               </div>
             )}
           </div>,
-          document.body,
+          portalTarget ?? document.body,
         )
       : null;
 
@@ -627,7 +629,9 @@ function BoardNavLink({
   activeProjects: ActiveProjectNavItem[];
   activeProjectsStatus: "loading" | "ready" | "error";
 }) {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [portalTarget, setPortalTarget] = useState<Element | null>(null);
   const [flyoutPosition, setFlyoutPosition] = useState<{
     top: number;
     left: number;
@@ -650,6 +654,7 @@ function BoardNavLink({
   const updateFlyoutPosition = useCallback(() => {
     const rect = anchorRef.current?.getBoundingClientRect();
     if (!rect) return;
+    setPortalTarget(anchorRef.current?.closest("[data-slot=sheet-content]") ?? document.body);
 
     const width = Math.min(288, Math.max(180, window.innerWidth - 96));
     const gutter = 8;
@@ -757,6 +762,8 @@ function BoardNavLink({
                     key={project.projectId}
                     href={`/project/${encodeURIComponent(project.projectId)}/cockpit`}
                     prefetch={false}
+                    target={pathname === "/dashboard" ? "_blank" : undefined}
+                    rel={pathname === "/dashboard" ? "noopener noreferrer" : undefined}
                     data-testid="board-nav-project-trigger"
                     className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-foreground transition-colors hover:bg-muted focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   >
@@ -771,7 +778,7 @@ function BoardNavLink({
               </div>
             )}
           </div>,
-          document.body,
+          portalTarget ?? document.body,
         )
       : null;
 
