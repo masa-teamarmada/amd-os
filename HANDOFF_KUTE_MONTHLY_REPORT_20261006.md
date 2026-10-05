@@ -27,8 +27,19 @@
 ## 次の行動と終了状態
 - 最初にfetch/status/build-infoと現行本文を確認。認証済み画面が使える場合に実操作を検証する。
 - 新宿企画書は未作成。業務の次行動はKUTE専用HANDOFFへ。
-- branch/worktree作成ゼロ。自分の開発差分はpush済み。文書のみを別commit/pushして閉じる。
+- branch/worktree作成ゼロ。自分の開発差分はpush済み。引き継ぎ文書は0dfa2cdfでmainへpush済み（画面変更なし、skip ci）。local main=origin/main、ahead/behind 0。conflictなし。
 - 既存未追跡 SESSION_MIGRATION_PROMPT_task_based_pt_20260922.md は別作業の未完引き継ぎ。所有=タスクpt移行担当/まさ、保持。内容を変えずGit保存するか、まさへ確認中。判断条件=明示回答。無断で削除・移動・stash・今回commitしない。残る場合do not archive。
 - 自分のdev server/ブラウザタブは終了。検証用/tmp画像/PDFはローカル診断控えとして保持、認証ファイルauth.json/production.envは削除済み。
 - 会話の検討材料は0件。既存の別案件HANDOFFと旧プロンプトは保持。
 - 終了中に別チャット「左メニューを三点リーダー化」（01a10d16-952b-7d60-a3cf-e683d1b22a3e）が同じcheckoutで実装を開始。pwa/srcのcockpit/dashboard/nav/project-workspaceおよびDD関連の変更は同チャット所有、こちらでstage/削除しない。同チャットがmainへ保存・配信するのが次の責任。新しい左メニュー仕様を古いヘッダーへ戻さない。
+
+## Dirtyの担当と具体的な処置
+| 対象 | 分類・所有者 | 処置・次の判定 | リスク |
+|---|---|---|---|
+| pwa/src/app/dd/、globals.css、components/cockpit/CockpitView、dashboard、dd、nav、project-workspace、lib/build-info（終了確認時16変更+新規nav3ファイル） | other-worker: 左メニューを三点リーダー化 01a10d16-952b-7d60-a3cf-e683d1b22a3e、active | 同チャットが検証・main保存・配信。こちらは触らない。次判定=同チャット終了時のstatus/build-info | 中: 一括stageすると未検証UIが混入 |
+| SESSION_MIGRATION_PROMPT_task_based_pt_20260922.md | preexisting: タスクpt移行担当、quarantine owner=まさ | 内容不変でGit保存するか質問済み、次判定=まさの明示回答。回答まで保持 | 低: 別作業の再開資料、削除すると喪失 |
+
+- safe to remove after approval: なし。
+- send back to owner: 上記active UI変更（担当と次処置を記録、メッセージ送信は未承認のため未実施）。
+- needs Masa decision: 旧未追跡プロンプトの内容不変Git保存。
+- 状態: 自分の成果はcommitted success/main aligned。旧ファイルの判断未了のためdo not archive。現行の別チャット差分はlive作業、古いヘッダーへ戻さない。
