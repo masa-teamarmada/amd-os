@@ -1,3 +1,4 @@
+import { resolveWorkspaceAccessRequestTarget } from "@/lib/workspace-access-request-target-server";
 // Admin-only management surface for external workspace access.
 //
 // Invariants enforced here (see scripts/check_workspace_access_admin_contract.mjs):
@@ -166,6 +167,12 @@ export async function GET() {
     accounts.error ?? workspaces.error ?? institutionMemberships.error ?? projects.error ?? projectMemberships.error ?? accessRequests.error;
   if (firstError) return failed("load_failed", firstError);
 
+  const resolvedRequests = await Promise.all((accessRequests.data ?? []).map(async (row) => {
+    if (row.status !== "pending" || row.target_kind !== "unspecified") return row;
+    const target = await resolveWorkspaceAccessRequestTarget(db, String(row.requested_path));
+    return { ...row, target_kind: target.targetKind, workspace_slug: target.workspaceSlug, project_id: target.projectId };
+  }));
+
   return NextResponse.json({
     ok: true,
     accounts: accounts.data ?? [],
@@ -173,7 +180,7 @@ export async function GET() {
     institutionMemberships: institutionMemberships.data ?? [],
     projects: projects.data ?? [],
     projectMemberships: projectMemberships.data ?? [],
-    accessRequests: accessRequests.data ?? [],
+    accessRequests: resolvedRequests,
   });
 }
 

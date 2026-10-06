@@ -13,6 +13,7 @@ export type WorkspaceAccessRequestDecisionResult = {
   workspaceName?: string;
   workspaceSlug?: string;
   accountId?: string;
+  projectId?: string;
   membershipId?: string;
 };
 

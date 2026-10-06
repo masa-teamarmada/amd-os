@@ -7,7 +7,7 @@ import { hasAnyUsableMembership } from "@/lib/workspace-access-scope-core";
 import { hasLoginEligibleDdGrant } from "@/lib/dd-package-core";
 import { loadDdGrantsForLogin } from "@/lib/dd-access";
 import { recordWorkspaceAuditEvent } from "@/lib/workspace-access-audit";
-import { workspaceAccessRequestTarget } from "@/lib/workspace-access-request-core";
+import { resolveWorkspaceAccessRequestTarget } from "@/lib/workspace-access-request-target-server";
 import { notifyWorkspaceAccessRequest } from "@/lib/workspace-access-request-notify";
 
 // Always the same response shape/status, whether the email is registered or not —
@@ -37,7 +37,7 @@ async function registerAccessRequest(
   next: string,
   origin: string,
 ) {
-  const target = workspaceAccessRequestTarget(next);
+  const target = await resolveWorkspaceAccessRequestTarget(service, next);
   const { data, error } = await service.rpc("workspace_register_access_request", {
     p_email_normalized: email,
     p_requested_path: target.requestedPath,

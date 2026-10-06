@@ -215,7 +215,7 @@ export function WorkspaceAccessAdminPanel() {
         const payload = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!response.ok || !payload.ok) {
           const label = payload.error === "scope_required"
-            ? "この要求は対象範囲が特定できない。下の台帳でアカウントと権限を個別に登録して"
+            ? "この要求は対象範囲が特定できない。許可先が残っていない。申請者に対象ワークスペースのリンクから申請し直してもらって"
             : payload.error === "access_stopped"
               ? "停止済みのアカウントまたは権限がある。下の台帳で状態を確認して"
               : "アクセス要求の決定を反映できなかった";
@@ -268,7 +268,7 @@ export function WorkspaceAccessAdminPanel() {
         </p>
       )}
 
-      <AccessRequestsSection requests={data.accessRequests} busy={busy} decide={decideRequest} />
+      <AccessRequestsSection requests={data.accessRequests} projects={data.projects} workspaces={data.institutionWorkspaces} busy={busy} decide={decideRequest} />
 
       <AccountsSection accounts={data.accounts} busy={busy} mutate={mutate} />
 
@@ -298,9 +298,9 @@ export function WorkspaceAccessAdminPanel() {
   );
 }
 
-function accessRequestTargetLabel(request: AccessRequestRow) {
-  if (request.target_kind === "institution" && request.workspace_slug) return `研究機関 / ${request.workspace_slug}`;
-  if (request.target_kind === "project" && request.project_id) return `PJ / ${request.project_id}`;
+function accessRequestTargetLabel(request: AccessRequestRow, projects: ProjectRow[], workspaces: WorkspaceRow[]) {
+  if (request.target_kind === "institution" && request.workspace_slug) return `研究機関 / ${workspaces.find((workspace) => workspace.slug === request.workspace_slug)?.name ?? request.workspace_slug}`;
+  if (request.target_kind === "project" && request.project_id) return `PJ / ${projects.find((project) => project.project_id === request.project_id)?.project_name ?? request.project_id}`;
   return "対象未特定";
 }
 
@@ -316,10 +316,14 @@ function accessRequestDate(value: string) {
 
 function AccessRequestsSection({
   requests,
+  projects,
+  workspaces,
   busy,
   decide,
 }: {
   requests: AccessRequestRow[];
+  projects: ProjectRow[];
+  workspaces: WorkspaceRow[];
   busy: boolean;
   decide: (requestId: string, decision: "approved" | "rejected") => Promise<void>;
 }) {
@@ -330,7 +334,7 @@ function AccessRequestsSection({
     <SectionShell
       icon={<ShieldCheck className="h-4 w-4" aria-hidden="true" />}
       title={`承認待ちのアクセス要求${pending.length ? ` ${pending.length}件` : ""}`}
-      description="許可されていないアカウントがログインを求めた記録。研究機関ワークスペースは閲覧のみで許可でき、停止済み権限は自動で復活しない。"
+      description="許可されていないアカウントがログインを求めた記録。許可すると申請先ワークスペースの閲覧権限とアカウントをまとめて登録する。停止済み権限は自動で復活しない。"
     >
       {pending.length === 0 ? (
         <div className="rounded-md border border-dashed border-border px-3 py-5 text-center text-xs text-muted-foreground">
@@ -339,14 +343,13 @@ function AccessRequestsSection({
       ) : (
         <ul className="divide-y divide-border/70 border-y border-border/70">
           {pending.map((request) => {
-            const canApprove = request.target_kind === "institution" && Boolean(request.workspace_slug);
             return (
               <li key={request.id} className="grid gap-3 py-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="break-all text-sm font-semibold text-foreground">{request.email_normalized}</span>
                     <span className="rounded-sm bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">
-                      {accessRequestTargetLabel(request)}
+                      {accessRequestTargetLabel(request, projects, workspaces)}
                     </span>
                   </div>
                   <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
@@ -354,13 +357,12 @@ function AccessRequestsSection({
                     <span>{request.request_count}回目</span>
                     <span>Slack: {request.slack_notification_status === "sent" ? "通知済み" : "記録済み"}</span>
                   </div>
-                  {!canApprove && (
-                    <p className="mt-1 text-[11px] text-amber-800">対象範囲が一意でないため、下の台帳で権限を選んで登録</p>
+                  {request.target_kind === "unspecified" && (
+                    <p className="mt-1 text-[11px] text-amber-800">申請先の共有資料からワークスペースを確認して許可する</p>
                   )}
                 </div>
                 <div className="flex gap-2 md:justify-end">
-                  {canApprove && (
-                    <button
+                  <button
                       type="button"
                       disabled={busy}
                       onClick={() => void decide(request.id, "approved")}
@@ -368,7 +370,6 @@ function AccessRequestsSection({
                     >
                       閲覧を許可
                     </button>
-                  )}
                   <button
                     type="button"
                     disabled={busy}

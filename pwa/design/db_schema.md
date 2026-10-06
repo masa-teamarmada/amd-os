@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-10-04 19:05 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-10-06 20:05 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -188,7 +188,7 @@ PRIMARY KEY: `id`
 
 ## amd_os_data_change_history
 
-行数 (概算): 259,309
+行数 (概算): 286,754
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -654,7 +654,7 @@ PRIMARY KEY: `id`
 
 ## boss_notification_jobs
 
-行数 (概算): 4,485
+行数 (概算): 6,287
 PRIMARY KEY: `id`
 UNIQUE: `(event_id)` (constraint: `boss_notification_jobs_event_id_key`)
 UNIQUE: `(server_boss_id,schedule_revision,lead_minutes)` (constraint: `boss_notification_jobs_server_boss_id_schedule_revision_lea_key`)
@@ -679,7 +679,7 @@ UNIQUE: `(server_boss_id,schedule_revision,lead_minutes)` (constraint: `boss_not
 
 ## boss_report_occurrences
 
-行数 (概算): 1,877
+行数 (概算): 2,378
 PRIMARY KEY: `id`
 UNIQUE: `(revision)` (constraint: `boss_report_occurrences_revision_key`)
 UNIQUE: `(server_boss_id,accepted_report_id,spawn_at)` (constraint: `boss_report_occurrences_server_boss_id_accepted_report_id_s_key`)
@@ -694,7 +694,7 @@ UNIQUE: `(server_boss_id,accepted_report_id,spawn_at)` (constraint: `boss_report
 
 ## boss_reports
 
-行数 (概算): 193
+行数 (概算): 591
 PRIMARY KEY: `id`
 UNIQUE: `(game_server_id,input_source,source_dedupe_key)` (constraint: `boss_reports_game_server_id_input_source_source_dedupe_key_key`)
 
@@ -718,7 +718,7 @@ UNIQUE: `(game_server_id,input_source,source_dedupe_key)` (constraint: `boss_rep
 
 ## boss_schedules
 
-行数 (概算): 54
+行数 (概算): 101
 PRIMARY KEY: `server_boss_id`
 
 | # | column | type | nullable | default |
@@ -1614,7 +1614,7 @@ UNIQUE: `(obligation_id,recipient_slack_id,schedule_key,stage)` (constraint: `co
 
 ## company_payment_obligations
 
-行数 (概算): 390
+行数 (概算): 392
 PRIMARY KEY: `id`
 UNIQUE: `(source_key)` (constraint: `company_payment_obligations_source_key_key`)
 
@@ -1716,7 +1716,7 @@ UNIQUE: `(occurrence_id,recipient_slack_id,schedule_key,stage)` (constraint: `co
 
 ## company_schedule_occurrences
 
-行数 (概算): 3,072
+行数 (概算): 3,345
 PRIMARY KEY: `occurrence_id`
 UNIQUE: `(occurrence_key,source_hash)` (constraint: `company_schedule_occurrences_source_uniq`)
 
@@ -2265,6 +2265,7 @@ UNIQUE: `(slug)` (constraint: `game_servers_slug_key`)
 | 10 | `server_reset_at` | `timestamptz` | NULL | `` |
 | 11 | `world_name` | `text` | NULL | `` |
 | 12 | `official_server_id` | `int4` | NULL | `` |
+| 13 | `maintenance_started_at` | `timestamptz` | NULL | `` |
 
 ## guardrail_cards
 
@@ -2828,7 +2829,7 @@ UNIQUE: `(l2_kind,target_id,scope_key)` (constraint: `l2n_unique`)
 
 ## l2m_boss_auth_attempts
 
-行数 (概算): 16
+行数 (概算): 32
 PRIMARY KEY: `attempt_key`
 
 | # | column | type | nullable | default |
@@ -3261,7 +3262,7 @@ PRIMARY KEY: `user_id`
 
 ## member_boss_preferences
 
-行数 (概算): 1,406
+行数 (概算): 1,511
 PRIMARY KEY: `id`
 UNIQUE: `(game_server_id,user_id,server_boss_id)` (constraint: `member_boss_preferences_game_server_id_user_id_server_boss__key`)
 
@@ -3445,7 +3446,7 @@ UNIQUE: `(member_id,milestone_id,ym)` (constraint: `member_ms_activities_member_
 
 ## member_notification_preferences
 
-行数 (概算): 130
+行数 (概算): 338
 PRIMARY KEY: `game_server_id, user_id`
 
 | # | column | type | nullable | default |
@@ -3767,7 +3768,7 @@ UNIQUE: `(sub_item_id)` (constraint: `milestone_sub_items_sub_item_id_key`)
 
 ## monthly_report_edit_history
 
-行数 (概算): 116
+行数 (概算): 170
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -4004,7 +4005,7 @@ UNIQUE: `(item_id)` (constraint: `navigator_items_item_id_key`)
 
 ## notification_deliveries
 
-行数 (概算): 52
+行数 (概算): 390
 PRIMARY KEY: `id`
 UNIQUE: `(job_id,subscription_id,attempt_number)` (constraint: `notification_deliveries_job_id_subscription_id_attempt_numb_key`)
 
@@ -6786,7 +6787,7 @@ PRIMARY KEY: `tech_entry_id`
 
 ## project_tech_topics
 
-行数 (概算): 94
+行数 (概算): 96
 PRIMARY KEY: `tech_topic_id`
 
 | # | column | type | nullable | default |
@@ -7722,7 +7723,7 @@ UNIQUE: `(token_hash)` (constraint: `server_invites_token_hash_key`)
 
 ## server_memberships
 
-行数 (概算): 159
+行数 (概算): 315
 PRIMARY KEY: `id`
 UNIQUE: `(game_server_id,user_id)` (constraint: `server_memberships_game_server_id_user_id_key`)
 
@@ -8586,7 +8587,7 @@ UNIQUE: `(document_id,revision_no)` (constraint: `workspace_document_revisions_u
 
 ## workspace_documents
 
-行数 (概算): 292
+行数 (概算): 333
 PRIMARY KEY: `document_id`
 UNIQUE: `(project_id,document_id)` (constraint: `workspace_documents_project_document_uq`)
 

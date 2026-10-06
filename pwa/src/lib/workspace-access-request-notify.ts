@@ -1,4 +1,5 @@
 import "server-only";
+import { resolveWorkspaceAccessRequestTarget } from "./workspace-access-request-target-server";
 
 import { WebClient } from "@slack/web-api";
 import type { ActionsBlockElement } from "@slack/types";
@@ -23,7 +24,7 @@ function targetLabel(request: RequestRow): string {
   if (request.target_kind === "project" && request.project_id) {
     return `PJワークスペース「${request.project_id}」`;
   }
-  return "対象未特定（管理画面で権限範囲の選択が必要）";
+  return "対象未特定（共有資料の所属を確認して許可）";
 }
 
 function shortError(error: unknown): string {
@@ -83,26 +84,37 @@ export async function notifyWorkspaceAccessRequest(
       hour: "2-digit",
       minute: "2-digit",
     }).format(new Date(row.last_requested_at));
-    const canApproveInSlack = row.target_kind === "institution" && Boolean(row.workspace_slug);
+    const target = await resolveWorkspaceAccessRequestTarget(db, row.requested_path);
+    if (row.target_kind === "unspecified") {
+      row.target_kind = target.targetKind;
+      row.workspace_slug = target.workspaceSlug;
+      row.project_id = target.projectId;
+    }
+    let scopeLabel = targetLabel(row);
+    if (row.target_kind === "project" && row.project_id) {
+      const { data: project } = await db.from("projects").select("project_name").eq("project_id", row.project_id).maybeSingle();
+      if (project?.project_name) scopeLabel = `${project.project_name} ワークスペース（閲覧のみ）`;
+    } else if (row.target_kind === "institution" && row.workspace_slug) {
+      const { data: workspace } = await db.from("institution_workspaces").select("name").eq("slug", row.workspace_slug).maybeSingle();
+      if (workspace?.name) scopeLabel = `${workspace.name} ワークスペース（閲覧のみ）`;
+    }
     const value = JSON.stringify({ requestId: row.id });
     const adminUrl = `${adminOrigin.replace(/\/$/, "")}/admin/access?request=${encodeURIComponent(row.id)}`;
-    const text = `外部ワークスペースへのアクセス要求: ${row.email_normalized} / ${targetLabel(row)}`;
+    const text = `外部ワークスペースへのアクセス要求: ${row.email_normalized} / ${scopeLabel}`;
     const actions: ActionsBlockElement[] = [];
-    if (canApproveInSlack) {
-      actions.push({
+    actions.push({
         type: "button",
         action_id: "workspace_access_approve",
-        text: { type: "plain_text", text: "閲覧を許可", emoji: true },
+        text: { type: "plain_text", text: "許可する", emoji: true },
         style: "primary",
         value,
         confirm: {
           title: { type: "plain_text", text: "閲覧を許可する？" },
-          text: { type: "mrkdwn", text: `*${row.email_normalized}* に ${targetLabel(row)} の閲覧権限を付けるよ。` },
+          text: { type: "mrkdwn", text: `*${row.email_normalized}* に ${scopeLabel} の閲覧権限を付けるよ。` },
           confirm: { type: "plain_text", text: "許可する" },
           deny: { type: "plain_text", text: "戻る" },
         },
       });
-    }
     actions.push({
       type: "button",
       action_id: "workspace_access_reject",
@@ -127,7 +139,7 @@ export async function notifyWorkspaceAccessRequest(
           text: { type: "mrkdwn", text: "*外部ワークスペースへのアクセス要求*" },
           fields: [
             { type: "mrkdwn", text: `*アカウント*\n${row.email_normalized}` },
-            { type: "mrkdwn", text: `*希望先*\n${targetLabel(row)}` },
+            { type: "mrkdwn", text: `*希望先*\n${scopeLabel}` },
             { type: "mrkdwn", text: `*要求日時*\n${requestedAt}` },
             { type: "mrkdwn", text: `*試行回数*\n${row.request_count}回` },
           ],
@@ -135,7 +147,7 @@ export async function notifyWorkspaceAccessRequest(
         {
           type: "context",
           elements: [
-            { type: "mrkdwn", text: "許可すると閲覧のみで登録。本人がもう一度ログイン操作するとログインリンクが届く。" },
+            { type: "mrkdwn", text: "許可するとアカウント登録と、このワークスペースの閲覧権限付与が一度で完了。本人がもう一度ログイン操作するとログインリンクが届く。" },
           ],
         },
         { type: "actions", elements: actions },
