@@ -5226,3 +5226,11 @@ kiyo-amd-os 側の設定で解消しているので、そちらは触ってい�
 - 原因: 内部評価を会社概要に内包し、契約の関連PJと契約主体・明示採用範囲を同一視した。
 - 解決策: キラー要素をコックピット専用ページへ分離。契約はproject_party/project_relatedに限定し、4件をstudio_serviceとして除外。指定NDA1件はproject_related、未締結のまま採用。migration482/483は本番適用済み。
 - 教訓: 共通本文は面ごとの隠し分岐を増やさずページ境界で管理する。契約一覧・件数・読取API・更新APIの掲載条件を一致させ、未分類を自動採用しない。元台帳を削除して帳尻を合わせない。
+
+
+## [開発環境] clone外のnode_modules symlinkによるTurbopack失敗（2026-10-06）
+
+- 症状: 独立cloneでproduction buildがfilesystem root外の参照として失敗。
+- 原因: 共有checkoutのnode_modulesをcloneへsymlinkした。
+- 解決策: 自分のsymlinkだけ外し、clone内部へAPFSコピーで依存を用意。再ビルドとFunction容量ゲート成功。
+- 教訓: Turbopack検証の独立cloneは依存もそのroot内部に置く。共有checkoutの依存や別担当差分を変更しない。

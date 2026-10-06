@@ -212,3 +212,46 @@ f0c30d0f6ffa7a7387aff44d7cf8d3d994161c88 / v3.159.15がproduction aliasのbuild-
 実DBの旧/新取得を各3回比較（認証・監査・利用者回線・画面描画を除く）: ホーム1093→295ms/1,210,314→358,405 bytes、コックピット1318→561ms/24→18要求/867,523→662,569 bytes、DD会社概要634→249ms/15→11要求/27,798→2,964 bytes。コックピットの現在/過去データは配列順を正規化して一致。初期route entry JSのgzipはコックピット823,864→209,427、workspace647,839→105,764、DD572,205→141,221 bytes（選択ページの追加chunk・認証・通信を含まない）。数式・DB schema・開示範囲は変更していない。
 
 検証: loader実行を含む`test:project-space-loading`（200キー/1000行境界、過去MS、読取失敗、DD読取モード・再認可・監査、実page handlerのURL保持とserver navigationゼロ）、home/critical-ui/DD/cache/format/workspace/3領域契約、tsc、対象ESLint、production buildと容量ガード。workspace routeの古い固定ラベル検査は現行の共通定義に同期。公開build-infoはv3.159.23/f6a0d3a4/main/dirty=false。実Chromeの検収範囲と画像はHANDOFFに記録。PC/スマホのホーム・ガントは横はみ出し0。開発成果はspec/manualとHANDOFFへ同期、会話の検討材料は0件。
+
+
+## 2026-10-06 資本政策表の株主行の情報密度改善・closeout
+
+# 資本政策表の株主行の密度改善 — 検証記録
+
+2026-10-06 JST。実装commit: 56c6461d。本番反映SHA: bca5c497e919eab4c8f31d8ac795791c1aaa8016、v3.159.20、dirty:false。deploy.sh成功（2分41秒）。変更前: v3.159.19。
+
+## 対象
+共通CapitalPlanMatrix。株主1人1行、FD比率と前回比（ポイント）、非ゼロ出資額だけ補足。出資額編集と株数内訳は個別/一括展開。DB・計算エンジン・権限・Excelは変更なし。Native未変更。
+
+## 検証
+- 資本政策エンジン、資本政策ワークスペース、DDの閲覧・正本データ、critical UI、対象eslint、TypeScript成功。
+- production build・Function容量ゲート成功。deploy.shの全必須ゲート成功。
+- 実DB読み取り12株主×7ラウンドから実部品を静的描画し、Chromeで配置と大きい金額の表示を確認。確認用HTMLは削除。
+- 本番AMD OS専用Chromeウインドウで株主一覧の1行表示、FD比率・前回比・出資額を確認。CEOの＋から出資額・株数・発行済・FD株数の4行を開き、閉じることを確認。
+- 本番PC画面約1414×1089物理ポイント、拡大率110%。表内の横スクロールは既存どおり。株主12人の全行が同じ画面に収まり、名称と数値の重なりなし。UI品質8.5/10。WebはPC確認（既存handoffのPC運用）。モバイルの実画面確認は未実施、44pxの操作と表内スクロール契約は維持。
+
+## 除外と同期
+前から残るSESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdと、共有mainで進行する別セッションの未push作業は保持。共有checkoutでは変更を消さずfetchし、今回の実装がorigin/mainに含まれることと同じ部品の差分なしを確認した。
+
+## 反映経路と復旧
+正規deploy.shからmain push。関連spec/manualとiOS DESIGN/HANDOFFを同じ実装commitに含めた。復旧が必要な場合は今回の実装commitを取り消す通常commitを作り、配信版より新しい版数へ上げて正規deploy.shで反映する。履歴の巻戻しや直接Vercel deployは使わない。
+
+### 実装commitの変更ファイル（13件）
+
+```text
+ios/DESIGN.md
+pwa/HANDOFF_pwa_rebuild.md
+pwa/design/FEATURE_REGISTRY.md
+pwa/design/cockpit.md
+pwa/manual/2-3-pj-cockpit.md
+pwa/manual/9-3-appendix-changelog.md
+pwa/scripts/check_capital_plan_workspace.mts
+pwa/spec/3-24-project-surface-pages-current-spec.md
+pwa/spec/3-8-cockpit-current-spec.md
+pwa/spec/5-17-dd-package-current-spec.md
+pwa/spec/6-1-appendix-changelog.md
+pwa/src/components/cockpit/CapitalPlanMatrix.tsx
+pwa/src/lib/build-info.ts
+```
+
+恒久仕様はspec/manualへ反映済み。新規route/API/schema/環境変数/鍵/モデル変更なし。開発検証だけの履歴であり事業方針の変更なし。後続本番f6a0d3a4/v3.159.23にも実装を含む。引き継ぎは../../HANDOFF_CAPITAL_PLAN_DENSITY_20261006.md。
