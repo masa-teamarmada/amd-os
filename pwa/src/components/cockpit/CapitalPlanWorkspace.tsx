@@ -30,6 +30,7 @@ import {
   createStandardIpoCapitalPlanDocument,
 } from "@/lib/capital-plan-presets";
 import type { CompanyOverviewData } from "@/lib/company-overview";
+import { capitalPlanIssueAction } from "@/lib/capital-plan-issue-action";
 import { CapitalPlanMatrix } from "./CapitalPlanMatrix";
 
 // ---------------------------------------------------------------------------
@@ -201,6 +202,23 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
   const [deriveError, setDeriveError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [directEditError, setDirectEditError] = useState<string | null>(null);
+  const eventEditorRef = useRef<HTMLDetailsElement>(null);
+  const [issueNavigation, setIssueNavigation] = useState<ReturnType<typeof capitalPlanIssueAction> | null>(null);
+
+  useEffect(() => {
+    if (!issueNavigation || !eventEditorRef.current) return;
+    const editor = eventEditorRef.current;
+    editor.open = true;
+    const section = editor.querySelector<HTMLElement>(`[data-capital-section="${issueNavigation.section}"]`) ?? editor;
+    const holderRow = issueNavigation.holderId
+      ? Array.from(section.querySelectorAll<HTMLElement>("[data-holder-id]")).find((row) => row.dataset.holderId === issueNavigation.holderId)
+      : undefined;
+    const target = holderRow ?? section;
+    target.scrollIntoView({ block: "start", behavior: "instant" });
+    const selector = "input:not(:disabled), select:not(:disabled), button:not(:disabled), textarea:not(:disabled)";
+    const control = target.matches(selector) ? target : target.querySelector<HTMLElement>(selector);
+    (readOnly ? editor.querySelector<HTMLElement>("summary") : control)?.focus({ preventScroll: true });
+  }, [issueNavigation, readOnly]);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSavePlanIdRef = useRef<string | null>(null);
@@ -1424,9 +1442,10 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
     }));
   }
 
-  function selectEventFromIssue(eventId?: string) {
-    if (!eventId) return;
-    setSelectedEventId(eventId);
+  function selectEventFromIssue(issue: ValidationIssue) {
+    const action = capitalPlanIssueAction(issue, plan);
+    setSelectedEventId(action.eventId ?? null);
+    setIssueNavigation(action);
   }
 
   function selectPrevEvent() {
@@ -1610,17 +1629,12 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
         </div>
       )}
 
-      <p className="text-xs text-zinc-500">
-        保存された資本政策表を社内承認とVC提出に使用します。
-      </p>
-
       {selectedPlanId && !eligibility.eligible && eligibility.blockingIssues.length > 0 && (
-        <div role="alert" className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
-          {eligibility.blockingIssues[0].message}
-          {eligibility.blockingIssues.length > 1 && (
-            <span className="ml-2 text-xs text-red-600">（他 {eligibility.blockingIssues.length - 1} 件）</span>
-          )}
-        </div>
+        <button type="button" onClick={() => selectEventFromIssue(eligibility.blockingIssues[0])}
+          className="flex min-h-[44px] flex-wrap items-center justify-between gap-2 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-left text-sm text-red-800 hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-[var(--amd-action)]">
+          <span>提出前に修正が必要な項目 {errorCount}件</span>
+          <span className="font-semibold text-[var(--amd-action)]">{readOnly ? "確認する" : "修正する"} →</span>
+        </button>
       )}
 
       {!selectedPlanId ? (
@@ -1630,14 +1644,18 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
       ) : (
         <>
           {deriveError && (
-            <div role="alert" className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
-              {deriveError}
+            <div role="alert">
+            <button type="button" onClick={() => selectEventFromIssue({ severity: "error", code: "calculation_error", message: deriveError,
+              eventId: [...sortedEvents].sort((a, b) => b.label.length - a.label.length).find((event) => event.label && deriveError.includes(event.label))?.id ?? selectedEventId ?? undefined,
+            })} className="flex min-h-[44px] w-full flex-wrap items-center justify-between gap-2 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-left text-sm text-red-800 hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-[var(--amd-action)]">
+              <span>計算できない入力があります。</span><span className="font-semibold text-[var(--amd-action)]">{readOnly ? "確認する" : "調達条件を確認"} →</span>
+            </button>
             </div>
           )}
 
           {/* Validation summary */}
           {issues.length > 0 && (
-            <details className="rounded-lg border border-zinc-200 bg-white p-3">
+            <details open className="rounded-lg border border-zinc-200 bg-white p-3">
               <summary className="cursor-pointer text-xs font-semibold text-zinc-500">
                 検証結果（エラー {errorCount}件 / 警告 {warningCount}件）
               </summary>
@@ -1645,15 +1663,16 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
                 {issues.map((issue, idx) => (
                   <button
                     key={`${issue.code}_${idx}`}
-                    onClick={() => selectEventFromIssue(issue.eventId)}
-                    className={`min-h-[44px] rounded-md border px-3 py-2 text-left text-xs ${
+                    type="button"
+                    onClick={() => selectEventFromIssue(issue)}
+                    className={`flex min-h-[44px] flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-xs focus-visible:outline-2 focus-visible:outline-[var(--amd-action)] ${
                       issue.severity === "error"
                         ? "border-red-300 bg-red-50 text-red-800 hover:bg-red-100"
                         : "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
                     }`}
                   >
-                    <span className="mr-2 font-semibold">{issue.severity === "error" ? "エラー" : "警告"}</span>
-                    {issue.message}
+                    <span className="min-w-0 flex-1 break-words"><span className="mr-2 font-semibold">{issue.severity === "error" ? "エラー" : "警告"}</span>{issue.message}</span>
+                    <span className="font-semibold text-[var(--amd-action)]">{readOnly ? "確認する" : capitalPlanIssueAction(issue, plan).label} →</span>
                   </button>
                 ))}
               </div>
@@ -1665,10 +1684,6 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
               {directEditError}
             </div>
           )}
-
-          <p className="text-xs text-zinc-500" role="note">
-            プレマネー/投資額/単価などの入力に応じて算定方式が自動切替され、下流ラウンドも再計算される。
-          </p>
 
           {/* Capital plan matrix (holder x event grid, editable) */}
           <CapitalPlanMatrix
@@ -1690,9 +1705,9 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
           />
 
           {/* Selected event editor */}
-          <details className="rounded-lg border border-zinc-200 bg-white p-3">
+          <details ref={eventEditorRef} className="min-w-0 scroll-mt-24 rounded-lg border border-zinc-200 bg-white p-3">
             <summary className="cursor-pointer text-sm font-semibold text-zinc-700">株主・イベント詳細設定</summary>
-            <fieldset disabled={readOnly} className={`mt-3 ${readOnly ? "[&_button]:hidden" : ""}`}>
+            <fieldset disabled={readOnly} className={`mt-3 min-w-0 ${readOnly ? "[&_button]:hidden" : ""}`}>
               <EventEditor
                 event={selectedEvent}
                 holders={plan.holders}
@@ -1821,10 +1836,10 @@ function EventEditor({
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <p className="hidden text-sm font-semibold text-zinc-700 md:block">イベント編集</p>
         <div className="flex flex-wrap gap-2">
-          <button className="min-h-[44px] rounded-md border border-zinc-300 px-3 text-xs hover:bg-zinc-50" onClick={onAddEvent}>
+          <button data-capital-section={!event ? "event" : undefined} className="min-h-[44px] rounded-md border border-zinc-300 px-3 text-xs hover:bg-zinc-50" onClick={onAddEvent}>
             + イベント追加
           </button>
-          <button className="min-h-[44px] rounded-md border border-zinc-300 px-3 text-xs hover:bg-zinc-50" onClick={onAddHolder}>
+          <button data-capital-section={!event ? "holders" : undefined} className="min-h-[44px] rounded-md border border-zinc-300 px-3 text-xs hover:bg-zinc-50" onClick={onAddHolder}>
             + 株主追加
           </button>
           {event && (
@@ -1842,7 +1857,7 @@ function EventEditor({
         <p className="text-sm text-zinc-400">下の表またはグラフからイベントを選択してください。</p>
       ) : (
         <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div data-capital-section="event" className="grid scroll-mt-24 grid-cols-2 gap-3 md:grid-cols-4">
             <label className="col-span-2 flex flex-col gap-1">
               <span className="text-xs font-medium text-zinc-500">イベント名</span>
               <input
@@ -1906,6 +1921,7 @@ function EventEditor({
                   title="コンバーティブル転換イベントは常に手動（自動計算なし）です"
                 >
                   {CALCULATION_BASIS_LABEL.manual}
+                  {event.calculationBasis && event.calculationBasis !== "manual" && <button type="button" className="ml-2 underline" onClick={() => onUpdateEvent(event.id, { calculationBasis: "manual" })}>手動に戻す</button>}
                 </span>
               ) : (
                 <select
@@ -1923,6 +1939,27 @@ function EventEditor({
             </label>
           </div>
 
+          <div data-capital-section="financing" className="grid scroll-mt-24 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+            {([
+              ["preMoneyValuation", "プレマネー評価額（円）"],
+              ["pricePerShare", "1株価格（円）"],
+              ["primaryRaise", "調達額（円）"],
+              ["postMoneyValuation", "ポストマネー評価額（円）"],
+              ["newShares", "新規発行株式数"],
+              ...(event.type === "share_split" ? [["splitRatio", "株式分割比率"]] : []),
+              ...(event.type === "option_pool" ? [["poolSize", "オプションプール株数"]] : []),
+            ] as [keyof Pick<CapitalEvent, "preMoneyValuation" | "pricePerShare" | "primaryRaise" | "postMoneyValuation" | "newShares" | "splitRatio" | "poolSize">, string][]).map(([field, label]) => {
+              const calculated = field === "postMoneyValuation" || field === "newShares" || (field === "primaryRaise" && event.calculationBasis !== "ownership_target");
+              return <label key={field} className="flex min-w-0 flex-col gap-1">
+                <span className="text-xs font-medium text-zinc-500">{label}{calculated && "（割当から計算）"}</span>
+                {calculated ? <div className="flex min-h-[44px] flex-wrap items-center gap-2 rounded-md bg-zinc-50 px-2 text-sm tabular-nums"><output aria-label={label}>{field === "newShares" ? fmtShares(event[field]?.value) : fmtYen(event[field]?.value)}</output>
+                  {event[field]?.source === "override" && <button type="button" className="min-h-[44px] text-xs text-[var(--amd-action)] underline" onClick={() => onUpdateEvent(event.id, { [field]: editableValue(event[field]?.value ?? 0, "calculated") })}>再計算に戻す</button>}
+                </div> :
+                  <TableNumberInput ev={event[field]} onChange={(value) => onUpdateEvent(event.id, { [field]: value })} ariaLabel={`${label} ${event.label}`} />}
+              </label>;
+            })}
+          </div>
+
           <label className="flex flex-col gap-1">
             <span className="text-xs font-medium text-zinc-500">備考</span>
             <textarea
@@ -1934,12 +1971,15 @@ function EventEditor({
           </label>
 
           {/* Holders registry (compact, applies globally) */}
-          <div>
+          <div data-capital-section="holders" className="scroll-mt-24">
             <p className="mb-2 text-xs font-semibold text-zinc-500">株主一覧（全イベント共通）</p>
             <div className="flex flex-col gap-2">
-              {holders.length === 0 && <p className="text-xs text-zinc-400">株主が登録されていません。</p>}
+              {holders.length === 0 && <>
+                <p className="text-xs text-zinc-400">株主が登録されていません。</p>
+                <button type="button" onClick={onAddHolder} className="min-h-[44px] self-start rounded-md border border-zinc-300 px-3 text-xs hover:bg-zinc-50">+ 株主追加</button>
+              </>}
               {holders.map((h) => (
-                <div key={h.id} className="flex flex-wrap items-center gap-2">
+                <div key={h.id} data-holder-id={h.id} className="flex scroll-mt-24 flex-wrap items-center gap-2">
                   <input
                     className="min-h-[44px] min-w-[8rem] flex-1 rounded-md border border-zinc-300 px-2 py-2 text-sm"
                     value={h.name}
@@ -1971,7 +2011,7 @@ function EventEditor({
           </div>
 
           {/* Allocations for this event */}
-          <div>
+          <div data-capital-section="allocations" className="scroll-mt-24">
             <div className="mb-2 flex items-center justify-between">
               <p className="text-xs font-semibold text-zinc-500">このイベントの割当</p>
               <button
@@ -1999,7 +2039,8 @@ function EventEditor({
                   {event.allocations.map((alloc) => (
                     <div
                       key={alloc.id}
-                      className="grid grid-cols-[10rem_7rem_7rem_7rem_7rem_7rem_3rem] items-center gap-2 px-1 py-0.5"
+                      data-holder-id={alloc.holderId}
+                      className="grid scroll-mt-24 grid-cols-[10rem_7rem_7rem_7rem_7rem_7rem_3rem] items-center gap-2 px-1 py-0.5"
                     >
                       <select
                         className="min-h-[44px] w-full min-w-0 rounded-md border border-zinc-300 px-2 py-2 text-sm"

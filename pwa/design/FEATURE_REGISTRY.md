@@ -1027,3 +1027,5 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - Guard: `test:project-contract-list`、`test:dd-package`、`test:project-format`、`test:reference-data-cache`。仕様: spec5-17/3-24、manual2-3/2-6、ios/DESIGN。
 
 2026-10-06: PJ左ナビは分類の開閉とページ移動を分離、独立スクロール。DD32の原本入口と資料名検索。従業員名簿はコックピット/ワークスペースのみ。契約: test:critical-ui、test:dd-package、test:project-format。正本spec 5-17/3-24。
+
+2026-10-06: 資本政策表の検証カードは対象イベントの詳細設定を開き、割当・調達条件・株主/イベント追加へ移動する。閲覧専用は確認のみ。修正操作は既存derive/自動保存へ接続。保存/使用先の常設説明を戻さない。契約: spec/3-8、test:capital-plan-workspace。

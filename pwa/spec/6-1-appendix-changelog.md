@@ -1131,3 +1131,5 @@ spec/3-14: SOL 202610以降の少額残高判定、二財布合算、ゼロcap/�
 2026-10-06（v3.159.20）: 3スペースのページ部品を分割し、選択ページの既存認可付きclientを先読み。CockpitDataをPJのMSへ限定したまとめ取得・分割ページングへ変更。DDのheader/documents/full読取モード、本文/監査の並列化、外部workspaceの独立したDD入口照会を並列化。DB・BZM・モデル・開示・権限は変更なし。新しい実loader/route回帰ゲートをdeployに追加。
 
 2026-10-06（v3.159.23）: PJ内のページ選択はNative History経由のACTION_RESTOREで同期し、server RSC navigationを発生させない。既存の入場/API認可/RLS、DD再認可は維持。実page handlerで非tab paramsと既定ページの復元を検証。
+
+2026-10-06 JST: 資本政策表の保管/使用先説明を削除。エラーから対象イベントの割当/調達条件の修正欄へ移動し、入力・自動保存・再検証へ接続。重複する割当不足を整理。閲覧専用は確認のみ。他画面のメタ説明はspec/audits/ui-meta-copy-20261006.mdへ監査一覧を保存、未削除。DB・権限・理論・モデル・ネイティブ変更なし。

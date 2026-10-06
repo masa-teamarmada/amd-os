@@ -448,9 +448,9 @@ for (const [label, fnStart] of [
   }
 }
 
-// 25. Intro copy describes the saved plan's real use (internal approval + VC submission) and
-// carries none of the old hypothetical/unsaved/legal-current/protect-holder caveats
-expectIncludes(["保存された資本政策表を社内承認とVC提出に使用します。"]);
+// 25. Page copy contains business data and repair actions, not storage/use commentary.
+expectNotIncludes(["保存された資本政策表を社内承認とVC提出に使用します。"]);
+expectIncludes(["selectEventFromIssue(issue)", "editor.open = true", "target.scrollIntoView", "focus({ preventScroll: true })", 'data-capital-section="financing"', 'data-capital-section="allocations"']);
 expectNotIncludes([
   "仮説",
   "未保存",
@@ -862,7 +862,7 @@ expectIncludes([
   "const eligibility = useMemo(() => checkPublishEligibility(plan), [plan]);",
   "const issues = useMemo(",
   "...eligibility.blockingIssues, ...eligibility.warnings",
-  "onClick={() => selectEventFromIssue(issue.eventId)}",
+  "onClick={() => selectEventFromIssue(issue)}",
 ]);
 
 // 46. The advanced "詳細設定" (株主・イベント詳細設定) section's controls carry Japanese aria-labels
@@ -967,7 +967,7 @@ expectNotIncludes(["protectHolder", "protectedHolder", "ProtectHolder", "守り�
 {
   const labelIdx = src.indexOf('<span className="text-xs font-medium text-zinc-500">計算基準</span>');
   assert.ok(labelIdx >= 0, "計算基準 label not found");
-  const block = src.slice(labelIdx, labelIdx + 900);
+  const block = src.slice(labelIdx, labelIdx + 1400);
   assert.match(block, /event\.type === "convertible_conversion" \? \(/, "計算基準 field must branch on event.type === convertible_conversion");
   assert.match(block, /\{CALCULATION_BASIS_LABEL\.manual\}/, "convertible_conversion branch must render the fixed manual label, not a live value");
   assert.doesNotMatch(

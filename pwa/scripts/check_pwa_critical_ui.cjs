@@ -3737,11 +3737,16 @@ expectNotIncludes("src/components/cockpit/CockpitBusinessPlan.tsx", [
 // CapitalPlanWorkspace (2026-07-17): VC提出用の凍結(freeze)エクスポート導線とモバイル44pxを保護する。
 expectIncludes("src/components/cockpit/CapitalPlanWorkspace.tsx", [
   "checkPublishEligibility",
-  "保存された資本政策表を社内承認とVC提出に使用します。",
+  "capitalPlanIssueAction",
+  "setIssueNavigation(action)",
+  "editor.open = true",
   "VC提出用Excel",
   'action: "freeze"',
   "createCapitalPlanXlsx",
   "min-h-[44px]",
+]);
+expectNotIncludes("src/components/cockpit/CapitalPlanWorkspace.tsx", [
+  "保存された資本政策表を社内承認とVC提出に使用します。",
 ]);
 
 expectIncludes("src/lib/capital-plan-xlsx.ts", [

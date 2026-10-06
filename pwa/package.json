@@ -46,7 +46,7 @@
     "test:killer-factor-catalog": "node --experimental-strip-types scripts/test_killer_factor_risk.mts && node scripts/check_killer_factor_catalog_contract.mjs && node --experimental-strip-types scripts/check_killer_factor_read_access.mts",
     "test:capital-plan": "node --experimental-strip-types scripts/check_capital_plan.mts",
     "test:capital-plan-presets": "node --experimental-strip-types scripts/check_capital_plan_presets.mts",
-    "test:capital-plan-workspace": "node --experimental-strip-types scripts/check_capital_plan_workspace.mts",
+    "test:capital-plan-workspace": "node --experimental-strip-types scripts/check_capital_plan_workspace.mts && node --experimental-strip-types scripts/check_capital_plan_issue_action.mts",
     "test:capital-plan-xlsx": "node --experimental-strip-types scripts/check_capital_plan_xlsx.mts",
     "proactive-heartbeat:prepare": "node scripts/proactive_heartbeat_tool.mjs prepare",
     "proactive-heartbeat:validate": "node scripts/proactive_heartbeat_tool.mjs validate",

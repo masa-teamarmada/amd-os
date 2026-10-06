@@ -1208,7 +1208,7 @@ export function validateSubmissionCompleteness(plan: CapitalPlan): ValidationIss
         issues.push({
           severity: 'error',
           code: 'submission_financing_incomplete',
-          message: `増資イベント"${event.label}"のプレマネー評価額・ポストマネー評価額・1株あたり価格・調達額・新規発行株式数のいずれかが未確定です。calculationBasisを設定してderiveを実行するか、これらの項目をすべて手動入力してから提出してください。`,
+          message: `増資イベント「${event.label}」の調達条件が未入力です。評価額と株主ごとの出資額、または1株価格と割当株数を入力してください。`,
           eventId: event.id,
         });
       }
@@ -1219,10 +1219,13 @@ export function validateSubmissionCompleteness(plan: CapitalPlan): ValidationIss
 }
 
 export function checkPublishEligibility(plan: CapitalPlan): PublishEligibility {
-  const issues = [...validateCapitalPlan(plan), ...validateSubmissionCompleteness(plan)];
+  const numericalIssues = validateCapitalPlan(plan);
+  const emptyAllocationEvents = new Set(numericalIssues.filter((issue) => issue.code === 'empty_equity_issue').map((issue) => issue.eventId));
+  const issues = [...numericalIssues, ...validateSubmissionCompleteness(plan).filter((issue) =>
+    issue.code !== 'submission_financing_missing_allocations' || !emptyAllocationEvents.has(issue.eventId),
+  )];
   const blockingIssues = issues.filter((i) => i.severity === 'error');
   const warnings = issues.filter((i) => i.severity === 'warning');
-  const hasEvents = plan.events.length > 0;
   const hasHolders = plan.holders.length > 0;
 
   if (!hasHolders) {
@@ -1230,13 +1233,6 @@ export function checkPublishEligibility(plan: CapitalPlan): PublishEligibility {
       severity: 'error',
       code: 'no_holders',
       message: 'プランに株主が登録されていません。',
-    });
-  }
-  if (!hasEvents) {
-    blockingIssues.push({
-      severity: 'error',
-      code: 'no_events',
-      message: 'プランに資本イベントが登録されていません。',
     });
   }
 
