@@ -759,3 +759,49 @@ button.issueRowTitleButton:hover, button.issueRowTitleButton:focus-visible { bor
   .issueDetails summary svg { transition: none; }
   .spin { animation: none; }
 }
+
+/* PCのPJ見出しは一覧の上に収まる1行の帯にする。 */
+@media (min-width: 901px) {
+  .header {
+    border-radius: 6px;
+  }
+
+  .titleRow {
+    gap: 12px;
+    padding: 8px 12px;
+  }
+
+  .titleRow > div:first-child {
+    min-width: 0;
+  }
+
+  .titleRow .eyebrow {
+    display: none;
+  }
+
+  .titleRow h1 {
+    margin: 0;
+    font-size: 20px;
+    line-height: 28px;
+    letter-spacing: -.02em;
+    overflow-wrap: anywhere;
+  }
+
+  .titleRow .headerActions {
+    flex-shrink: 0;
+    gap: 6px;
+  }
+
+  .titleRow .headerActions a,
+  .titleRow .headerActions button {
+    min-height: 28px;
+    padding: 0 8px;
+    gap: 4px;
+    font-size: 11px;
+  }
+
+  .titleRow .headerActions svg {
+    width: 14px;
+    height: 14px;
+  }
+}

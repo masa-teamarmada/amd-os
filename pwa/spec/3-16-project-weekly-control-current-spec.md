@@ -516,3 +516,5 @@ v3.63.1 の再指摘対応: (10) 名前・バーのボタンはワークスペ�
 - `ドライブ` は `WorkspaceDocumentRoom` を `scopeKind="project"`、`scopeId={bundle.project.projectId}`、`surface="workspace"`、`presentation="modal"` で開く。PJごとに別資料室、別テーブル、別一覧を作らない。
 - 共通化の対象はタブ、配置、操作、資料室の仕様であり、`project_name`、管理柱・表示レーン、実データ、`externalWorkspaceRoleCapabilityLabel` と共有PJアクセスによる絞り込みはbundle/accessの正本を使う。PJ固有の柱を3レーンへ統合するDB変更はしない。
 - 導線は Seed詳細モーダル → `/project/{projectId}/cockpit` → `/project/{projectId}/workspace` の一方向とする。Seed詳細モーダルからworkspaceへ直接リンクしない。
+
+2026-10-06: PCのPJワークスペース上部を1行のコンパクトな見出し帯へ変更（901px以上）。重複する「PJ共有ワークスペース」の小見出しを非表示、PJ名は20px・行高28px、上下余白8px、ホーム/コックピット操作は28pxに統一。通常の1行見出しは全高46px。全PJ共通で、ページの所属・リンク・権限・本文は変更しない。
