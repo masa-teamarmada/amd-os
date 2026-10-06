@@ -11,6 +11,7 @@ import { resolveWorkspaceAccessRequestTarget } from "@/lib/workspace-access-requ
 //      The two grants are independent rows and independent admin actions.
 //   5. auth.users ids are never selected or returned. The admin UI identifies people by email.
 
+import { isSameOriginWorkspaceMutation } from "@/lib/workspace-mutation-origin";
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -154,17 +155,19 @@ export async function GET() {
 
   const db = createAdminClient();
 
-  const [accounts, workspaces, institutionMemberships, projects, projectMemberships, accessRequests] = await Promise.all([
+  const [accounts, workspaces, institutionMemberships, projects, projectMemberships, accessRequests, ddPackages, ddGrants] = await Promise.all([
     listAllRows(db, "workspace_user_accounts", ACCOUNT_FIELDS, "created_at", false),
     listAllRows(db, "institution_workspaces", INSTITUTION_WORKSPACE_FIELDS, "name"),
     listAllRows(db, "institution_workspace_memberships", INSTITUTION_MEMBERSHIP_FIELDS, "created_at", false),
     listAllRows(db, "projects", "project_id,project_name,status", "project_id"),
     listAllRows(db, "project_access_memberships", PROJECT_MEMBERSHIP_FIELDS, "created_at", false),
     listAllRows(db, "workspace_access_requests", ACCESS_REQUEST_FIELDS, "last_requested_at", false),
+    listAllRows(db, "dd_packages", "id,project_id,slug,title,status", "created_at"),
+    listAllRows(db, "dd_package_grants", "id,package_id,user_account_id,status,capabilities,expires_at", "created_at"),
   ]);
 
   const firstError =
-    accounts.error ?? workspaces.error ?? institutionMemberships.error ?? projects.error ?? projectMemberships.error ?? accessRequests.error;
+    accounts.error ?? workspaces.error ?? institutionMemberships.error ?? projects.error ?? projectMemberships.error ?? accessRequests.error ?? ddPackages.error ?? ddGrants.error;
   if (firstError) return failed("load_failed", firstError);
 
   const resolvedRequests = await Promise.all((accessRequests.data ?? []).map(async (row) => {
@@ -181,6 +184,8 @@ export async function GET() {
     projects: projects.data ?? [],
     projectMemberships: projectMemberships.data ?? [],
     accessRequests: resolvedRequests,
+    ddPackages: ddPackages.data ?? [],
+    ddGrants: ddGrants.data ?? [],
   });
 }
 
@@ -190,12 +195,15 @@ export async function POST(request: Request) {
   const auth = await requireAdmin();
   if (!auth.ok) return auth.errorResponse;
 
+  if (!isSameOriginWorkspaceMutation(request)) return bad("same_origin_required", 403);
   const body = await readBody(request);
   if (!body) return bad("invalid_json");
 
   if (body.action === "access_request_decision") {
     return decideAccessRequest(body, auth.user.email);
   }
+
+  if (body.action === "grant_project_viewer") return createProjectViewer(createAdminClient(), body);
 
   const kind = pick(body.kind, MUTATION_KINDS);
   if (!kind) return bad("invalid_kind");
@@ -443,6 +451,7 @@ export async function PATCH(request: Request) {
   const auth = await requireAdmin();
   if (!auth.ok) return auth.errorResponse;
 
+  if (!isSameOriginWorkspaceMutation(request)) return bad("same_origin_required", 403);
   const body = await readBody(request);
   if (!body) return bad("invalid_json");
 
@@ -463,7 +472,7 @@ async function patchAccount(db: Db, body: Body) {
 
   const { data: updated, error } = await db
     .from("workspace_user_accounts")
-    .update({ status })
+    .update({ status, ...(hasField(body, "displayName") ? { display_name: text(body.displayName, 120) || null } : {}) })
     .eq("id", accountId)
     .select("id,email")
     .maybeSingle();
@@ -545,4 +554,25 @@ async function patchProjectMembership(db: Db, body: Body) {
     detail: { action: "status_change", role: updated.role, status: updated.status },
   });
   return NextResponse.json({ ok: true, membershipId: updated.id, role: updated.role, status: updated.status });
+}
+
+// A project workspace viewer does not require or imply institution/kernel access.
+async function createProjectViewer(db: Db, body: Body) {
+  const projectId = text(body.projectId, 32);
+  if (!projectId) return bad("project_required");
+  const resolved = await resolveAccount(db, body);
+  if (!resolved.ok) return resolved.server ? failed(resolved.error, resolved.server) : bad(resolved.error);
+  const account = resolved.account;
+  if (account.status === "suspended") return bad("account_suspended");
+  const { data: project, error: projectError } = await db.from("projects").select("project_id").eq("project_id", projectId).maybeSingle();
+  if (projectError) return failed("project_lookup_failed", projectError);
+  if (!project) return bad("unknown_project");
+  const { data: existing, error: lookupError } = await db.from("project_access_memberships").select("id,status").eq("project_id", projectId).eq("user_account_id", account.id).maybeSingle();
+  if (lookupError) return failed("membership_lookup_failed", lookupError);
+  if (existing) return conflict(STOPPED_MEMBERSHIP_STATUSES.has(existing.status) ? "membership_stopped" : "membership_exists");
+  const status = account.status === "active" ? "active" : "invited";
+  const { data: inserted, error } = await db.from("project_access_memberships").insert({ project_id: projectId, user_account_id: account.id, role: "readonly", status }).select("id").single();
+  if (error) return failed("membership_create_failed", error);
+  await recordWorkspaceAuditEvent(db, { eventType: "admin_project_membership_mutation", userAccountId: account.id, projectId, detail: { action: "create_viewer", role: "readonly", status } });
+  return NextResponse.json({ ok: true, membershipId: inserted.id });
 }
