@@ -39,7 +39,10 @@ type NativeDocumentChapter = {
 function documentDirectory(kind: DocumentKind): string {
   if (kind === "bzm") return bzmContentDir();
   if (kind === "bzm-public") return bzmPublicManuscriptDir();
-  return path.join(process.cwd(), kind);
+  // Keep filesystem tracing bounded to these two document folders. A dynamic
+  // `kind` path makes the build tracer include unrelated files across pwa/.
+  if (kind === "manual") return path.join(process.cwd(), "manual");
+  return path.join(process.cwd(), "spec");
 }
 
 function isKind(value: string | null): value is DocumentKind {
