@@ -223,3 +223,86 @@
     border-radius: 8px;
   }
 }
+
+/* PCの資料一覧はカードではなく、名前・URL・更新・操作を揃えた行で読む。 */
+@media (min-width: 1024px) {
+  .listHeader {
+    display: grid;
+  }
+
+  .fileRow {
+    grid-template-columns: minmax(0, 1fr) 84px 320px;
+    gap: 12px;
+    padding: 6px 12px;
+  }
+
+  .fileIdentity {
+    grid-column: span 1;
+    gap: 8px;
+  }
+
+  .fileIdentity > span:last-of-type {
+    width: 28px;
+    height: 28px;
+  }
+
+  .fileIdentity a,
+  .fileIdentity button {
+    min-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  .fileIdentity > div {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .fileIdentity > div > div > a,
+  .fileIdentity > div > div > button {
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  .fileRow > div:nth-child(2) {
+    display: contents;
+  }
+
+  .fileRow > div:nth-child(2) p {
+    font-size: 10px;
+  }
+
+  .fileActions {
+    grid-column: span 1;
+    min-height: 0;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    gap: 4px;
+  }
+
+  .fileActions a,
+  .fileActions button {
+    height: 28px;
+    min-height: 28px;
+    padding-left: 8px;
+    padding-right: 8px;
+    gap: 4px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .fileActions > .secondaryAction {
+    border-color: transparent;
+    background: transparent;
+  }
+
+  .fileActions > .secondaryAction:hover {
+    border-color: var(--room-line);
+    background: var(--room-inset);
+  }
+
+  .fileActions svg {
+    width: 14px;
+    height: 14px;
+  }
+}

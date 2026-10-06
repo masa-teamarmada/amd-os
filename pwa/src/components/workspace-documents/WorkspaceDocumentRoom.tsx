@@ -281,6 +281,13 @@ export function WorkspaceDocumentRoom({
   const [notice, setNotice] = useState<string | null>(null);
   const [urlItem, setUrlItem] = useState<DocumentItem | null>(null);
   const [documentUrl, setDocumentUrl] = useState("");
+  const [documentOrigin, setDocumentOrigin] = useState("");
+  useEffect(() => setDocumentOrigin(window.location.origin), []);
+
+  function absoluteDocumentUrl(item: DocumentItem) {
+    const href = workspaceDocumentViewHref(item);
+    return documentOrigin ? new URL(href, documentOrigin).href : href;
+  }
   const [urlNotice, setUrlNotice] = useState<string | null>(null);
 
   function showDocumentUrl(item: DocumentItem) {
@@ -466,11 +473,16 @@ export function WorkspaceDocumentRoom({
       .filter((item) =>
         normalizedQuery
           ? fullPath(item).toLocaleLowerCase("ja").includes(normalizedQuery)
-          : item.folderPath === currentFolder,
+          : currentFolder
+            ? item.folderPath === currentFolder
+            : item.entryKind !== "folder" || !item.folderPath,
       )
       .sort(
         (a, b) =>
-          kindOrder[a.entryKind] - kindOrder[b.entryKind] ||
+          (!currentFolder ? Number(a.entryKind === "folder") - Number(b.entryKind === "folder") : 0) ||
+          (!currentFolder && a.entryKind !== "folder" && b.entryKind !== "folder"
+            ? b.updatedAt.localeCompare(a.updatedAt)
+            : kindOrder[a.entryKind] - kindOrder[b.entryKind]) ||
           a.displayName.localeCompare(b.displayName, "ja"),
       );
   }, [currentFolder, documents, query]);
@@ -1366,7 +1378,7 @@ export function WorkspaceDocumentRoom({
             </div>
           )}
 
-          <div className="hidden grid-cols-[minmax(0,1fr)_120px_360px] gap-4 border-t border-slate-200 bg-slate-100 px-5 py-1.5 text-[10px] font-semibold tracking-[0.08em] text-slate-600 xl:grid">
+          <div className={cn(styles.listHeader, "hidden grid-cols-[minmax(0,1fr)_84px_320px] gap-3 border-t border-slate-200 bg-slate-100 px-3 py-1.5 text-[10px] font-semibold tracking-[0.08em] text-slate-600")}>
             <span>名称</span>
             <span>更新</span>
             <span className="text-right">操作</span>
@@ -1431,7 +1443,7 @@ export function WorkspaceDocumentRoom({
                     "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-2.5 xl:grid-cols-[minmax(0,1fr)_120px_360px] xl:gap-4 xl:px-5 xl:py-2",
                   )}
                 >
-                  <div className="col-span-2 flex min-w-0 items-center gap-2 xl:col-span-1">
+                  <div className={cn(styles.fileIdentity, "col-span-2 flex min-w-0 items-center gap-2 xl:col-span-1")}>
                     {permissions?.canManage && item.entryKind !== "report" && (
                       <span
                         className="hidden shrink-0 text-slate-400 xl:inline"
@@ -1482,17 +1494,19 @@ export function WorkspaceDocumentRoom({
                         />
                       </div>
                       {item.entryKind !== "folder" && (
-                        <button
-                          type="button"
-                          onClick={() => showDocumentUrl(item)}
-                          className="min-h-11 text-xs text-slate-600 underline underline-offset-2 hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 xl:min-h-0 xl:py-1"
-                          aria-label={`${item.displayName}のURLを表示`}
+                        <a
+                          href={workspaceDocumentViewHref(item)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block truncate text-[11px] leading-4 text-slate-600 underline underline-offset-2 hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
+                          title={absoluteDocumentUrl(item)}
+                          aria-label={`${item.displayName}の閲覧URL`}
                         >
-                          URLを表示
-                        </button>
+                          {absoluteDocumentUrl(item)}
+                        </a>
                       )}
                       <p className="truncate text-[10px] text-slate-500">
-                        {query && item.folderPath
+                        {(query || !currentFolder) && item.folderPath
                           ? `${item.folderPath} ・ `
                           : ""}
                         {item.entryKind === "file"
@@ -1510,7 +1524,7 @@ export function WorkspaceDocumentRoom({
                       {formatDate(item.updatedAt)}
                     </p>
                   </div>
-                  <div className="col-span-2 flex min-h-11 flex-wrap items-center justify-start gap-1.5 xl:col-span-1 xl:min-h-0 xl:justify-end">
+                  <div className={cn(styles.fileActions, "col-span-2 flex min-h-11 flex-wrap items-center justify-start gap-1.5 xl:col-span-1 xl:min-h-0 xl:justify-end")}>
                     {item.entryKind !== "folder" && (
                       <button
                         type="button"
