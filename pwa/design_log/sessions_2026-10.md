@@ -292,3 +292,13 @@ pwa/src/lib/build-info.ts
 
 ### SOL経営陣略歴の検証・結了（2026-10-06）
 実装4a7f56cc、本番v3.160.15をbuild-infoとChrome PC画面で確認。登録値はDB読み戻しで完全一致。プロフィール1名、学歴職歴29行、受賞8件。本文領域1148pxで横溢れなし。型検査、変更箇所lint、test:dd-package、登録値/未登録/不正形式のparser検査、本番反映ゲート成功。マニュアル2-6とdb_schemaに登録/表示の説明を補完。新規API・環境変数・表・権限変更はない。Swift未移植。個人の略歴内容と素材はSOL_DD_CONTENTS_PLAN.md参照。
+
+## 2026-10-06 ドライブURL常時表示・高密度一覧・見出し縮小の結了
+
+仕事種別:開発。URLコピー20f968b5/v3.160.8、常時表示と全フォルダ一覧dd4e6e56/v3.160.9、見出し456a0350・統合8d2816aa/v3.160.12を正規deploy.shで配信した。Readyとbuild-infoのSHA一致を確認。Chromeの実ファイルURLをコピーしネイティブ貼付で完全一致を確認した。PC実測ファイル65px、フォルダ49px、見出し87→46px、タイトル20px・移動ボタン28px。狭い幅の44px操作領域は保持。
+
+初案は「URLを表示」ダイアログで、利用者から常時表示を求められたため一覧へ出した。フォルダを逐次開く初期表示も全フォルダのファイル一覧に変更。所属フォルダ・URL・操作を同時に見せる。コピー失敗時のみ手動選択へ案内し、期限付き署名URLは共有しない。
+
+TypeScript、対象ESLint、workspace-documents-core、配布必須検査成功。workspace-documents-contractは既存routeの同名競合メッセージと検査文言の不一致で失敗（本変更ではAPIを変更せず）。操作検証と区別して記録する。仕様3-8/3-16/附則、manual2-3/附則、FEATURE_REGISTRY・ios/DESIGNを同期。新規schema・環境変数・認可・理論変更なし、NativeUI未移植。
+
+専用引き継ぎは../../HANDOFF_DRIVE_20261006.md、再開文../../SESSION_MIGRATION_PROMPT_DRIVE_20261006.md。前の汎用再開文は内容不変で別名保全。共有checkoutの別担当差分を混ぜずmainのclean cloneを使用。旧タスク報酬の未追跡メモは前担当の現行照合待ちで保護。今回の検証に使った一時clone・ログは成果がmainに含まれることを確認後に除去する。closeout時の本番v3.160.15/6e1f408aは本変更を含むが別担当の後続配信は進行中。
