@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="568" viewBox="0 0 960 568" role="img" aria-labelledby="title desc">
+<title id="title">製品化のTRLロードマップ</title><desc id="desc">TRL1から9を左から右へ並べる。現在は排水処理装置を軸にTRL4。シード目標TRL6、シリーズA期間の目標TRL7、シリーズB期間の目標TRL8。TRL9は実運用の実績を示す。将来の到達は実証条件を満たす計画である。</desc>
+<rect width="960" height="568" fill="#fff"/>
+<g font-family="'Hiragino Kaku Gothic ProN','Noto Sans JP',Meiryo,sans-serif"><text x="32" y="40" fill="#1d1d1f" font-size="24" font-weight="600" text-anchor="start"><tspan x="32" dy="0">ラボの検証から、顧客現場で使える製品へ</tspan></text>
+<path d="M48 152 L918 152" fill="none" stroke="#bbc4ca" stroke-width="3"/>
+<path d="M918 146 L930 152 L918 158 Z" fill="#bbc4ca"/>
+<path d="M80 152 L380 152" fill="none" stroke="#07869e" stroke-width="4"/>
+<text x="80" y="120" fill="#62676d" font-size="18" font-weight="600" text-anchor="middle"><tspan x="80" dy="0">TRL 1</tspan></text>
+<circle cx="80" cy="152" r="7" fill="#fff" stroke="#bbc4ca" stroke-width="2"/>
+<text x="80" y="194" fill="#62676d" font-size="16" font-weight="400" text-anchor="middle"><tspan x="80" dy="0">基本原理</tspan><tspan x="80" dy="24">の確認</tspan></text>
+<text x="180" y="120" fill="#62676d" font-size="18" font-weight="600" text-anchor="middle"><tspan x="180" dy="0">TRL 2</tspan></text>
+<circle cx="180" cy="152" r="7" fill="#fff" stroke="#bbc4ca" stroke-width="2"/>
+<text x="180" y="194" fill="#62676d" font-size="16" font-weight="400" text-anchor="middle"><tspan x="180" dy="0">用途の</tspan><tspan x="180" dy="24">構想</tspan></text>
+<text x="280" y="120" fill="#62676d" font-size="18" font-weight="600" text-anchor="middle"><tspan x="280" dy="0">TRL 3</tspan></text>
+<circle cx="280" cy="152" r="7" fill="#fff" stroke="#bbc4ca" stroke-width="2"/>
+<text x="280" y="194" fill="#62676d" font-size="16" font-weight="400" text-anchor="middle"><tspan x="280" dy="0">概念の</tspan><tspan x="280" dy="24">実証</tspan></text>
+<text x="380" y="120" fill="#07869e" font-size="18" font-weight="600" text-anchor="middle"><tspan x="380" dy="0">TRL 4</tspan></text>
+<circle cx="380" cy="152" r="11" fill="#07869e" stroke="#07869e" stroke-width="2"/>
+<text x="380" y="194" fill="#07869e" font-size="16" font-weight="500" text-anchor="middle"><tspan x="380" dy="0">ラボで</tspan><tspan x="380" dy="24">検証</tspan></text>
+<text x="480" y="120" fill="#62676d" font-size="18" font-weight="600" text-anchor="middle"><tspan x="480" dy="0">TRL 5</tspan></text>
+<circle cx="480" cy="152" r="7" fill="#fff" stroke="#bbc4ca" stroke-width="2"/>
+<text x="480" y="194" fill="#62676d" font-size="16" font-weight="400" text-anchor="middle"><tspan x="480" dy="0">想定環境</tspan><tspan x="480" dy="24">で検証</tspan></text>
+<text x="580" y="120" fill="#527889" font-size="18" font-weight="600" text-anchor="middle"><tspan x="580" dy="0">TRL 6</tspan></text>
+<circle cx="580" cy="152" r="11" fill="#527889" stroke="#527889" stroke-width="2"/>
+<text x="580" y="194" fill="#527889" font-size="16" font-weight="500" text-anchor="middle"><tspan x="580" dy="0">試作機</tspan><tspan x="580" dy="24">で実証</tspan></text>
+<text x="680" y="120" fill="#956a00" font-size="18" font-weight="600" text-anchor="middle"><tspan x="680" dy="0">TRL 7</tspan></text>
+<circle cx="680" cy="152" r="11" fill="#956a00" stroke="#956a00" stroke-width="2"/>
+<text x="680" y="194" fill="#956a00" font-size="16" font-weight="500" text-anchor="middle"><tspan x="680" dy="0">顧客現場</tspan><tspan x="680" dy="24">で実証</tspan></text>
+<text x="780" y="120" fill="#357458" font-size="18" font-weight="600" text-anchor="middle"><tspan x="780" dy="0">TRL 8</tspan></text>
+<circle cx="780" cy="152" r="11" fill="#357458" stroke="#357458" stroke-width="2"/>
+<text x="780" y="194" fill="#357458" font-size="16" font-weight="500" text-anchor="middle"><tspan x="780" dy="0">製品の</tspan><tspan x="780" dy="24">完成</tspan></text>
+<text x="880" y="120" fill="#62676d" font-size="18" font-weight="600" text-anchor="middle"><tspan x="880" dy="0">TRL 9</tspan></text>
+<circle cx="880" cy="152" r="7" fill="#fff" stroke="#bbc4ca" stroke-width="2"/>
+<text x="880" y="194" fill="#62676d" font-size="16" font-weight="400" text-anchor="middle"><tspan x="880" dy="0">実運用</tspan><tspan x="880" dy="24">の実績</tspan></text>
+<rect x="324.0" y="64" width="112" height="32" rx="4" fill="#07869e"/>
+<text x="380" y="86" fill="#fff" font-size="16" font-weight="600" text-anchor="middle"><tspan x="380" dy="0">現在ここ</tspan></text>
+<path d="M380 96 L380 104" fill="none" stroke="#07869e" stroke-width="2"/>
+<rect x="636.0" y="64" width="88" height="32" rx="4" fill="#956a00"/>
+<text x="680" y="86" fill="#fff" font-size="16" font-weight="600" text-anchor="middle"><tspan x="680" dy="0">Aで到達</tspan></text>
+<path d="M680 96 L680 104" fill="none" stroke="#956a00" stroke-width="2"/>
+<rect x="736.0" y="64" width="88" height="32" rx="4" fill="#357458"/>
+<text x="780" y="86" fill="#fff" font-size="16" font-weight="600" text-anchor="middle"><tspan x="780" dy="0">Bで到達</tspan></text>
+<path d="M780 96 L780 104" fill="none" stroke="#357458" stroke-width="2"/>
+<text x="580" y="250" fill="#527889" font-size="14" font-weight="500" text-anchor="middle"><tspan x="580" dy="0">シードの到達目標</tspan></text>
+<path d="M32 280 L928 280" fill="none" stroke="#dce1e5" stroke-width="1"/>
+<path d="M32 308 L72 308" fill="none" stroke="#07869e" stroke-width="4"/>
+<text x="32" y="344" fill="#07869e" font-size="22" font-weight="600" text-anchor="start"><tspan x="32" dy="0">現在｜TRL4</tspan></text>
+<text x="32" y="380" fill="#1d1d1f" font-size="18" font-weight="400" text-anchor="start"><tspan x="32" dy="0">ラボで処理性能を検証</tspan><tspan x="32" dy="26">実排液・10L試験の報告あり</tspan></text>
+<text x="32" y="444" fill="#62676d" font-size="16" font-weight="400" text-anchor="start"><tspan x="32" dy="0">次は連続運転・再現性と</tspan><tspan x="32" dy="26">現場規模への拡張を確認</tspan></text>
+<path d="M344 308 L384 308" fill="none" stroke="#956a00" stroke-width="4"/>
+<text x="344" y="344" fill="#956a00" font-size="22" font-weight="600" text-anchor="start"><tspan x="344" dy="0">シリーズA｜TRL7</tspan></text>
+<text x="344" y="380" fill="#1d1d1f" font-size="18" font-weight="400" text-anchor="start"><tspan x="344" dy="0">量産実証工場と顧客現場で</tspan><tspan x="344" dy="26">供給・品質・原価を実証</tspan></text>
+<text x="344" y="444" fill="#62676d" font-size="16" font-weight="400" text-anchor="start"><tspan x="344" dy="0">6か月連続で目標達成</tspan><tspan x="344" dy="26">2028.07–2031.03の計画</tspan></text>
+<path d="M656 308 L696 308" fill="none" stroke="#357458" stroke-width="4"/>
+<text x="656" y="344" fill="#357458" font-size="22" font-weight="600" text-anchor="start"><tspan x="656" dy="0">シリーズB｜TRL8</tspan></text>
+<text x="656" y="380" fill="#1d1d1f" font-size="18" font-weight="400" text-anchor="start"><tspan x="656" dy="0">本格工場を整備し</tspan><tspan x="656" dy="26">品質と供給を安定化</tspan></text>
+<text x="656" y="444" fill="#62676d" font-size="16" font-weight="400" text-anchor="start"><tspan x="656" dy="0">能力・歩留まり・原価を</tspan><tspan x="656" dy="26">12か月安定達成する計画</tspan><tspan x="656" dy="26">2031.04–2033.03の計画</tspan></text>
+<text x="32" y="542" fill="#62676d" font-size="14" font-weight="400" text-anchor="start"><tspan x="32" dy="0">A・Bは各ラウンドの資金で目指す到達点。TRLの間隔は期間の長さを表さない。</tspan></text></g></svg>
