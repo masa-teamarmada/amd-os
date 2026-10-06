@@ -11,9 +11,9 @@ import type { ReaderBookManifest, ReaderChapterManifest } from "./types.ts";
 const BZM30_CHAPTERS: Array<{ name: string; plannedTitle: string }> = [
   { name: "introduction", plannedTitle: "序章　このモデルは何を測るのか" },
   { name: "industrial-value", plannedTitle: "第1章　産業創出価値とスコアの式" },
-  { name: "observed-state", plannedTitle: "第2章 — 観測状態と資金の二勘定" },
-  { name: "parameters", plannedTitle: "第3章 — 案件パラメータと事前分布" },
-  { name: "stage-gates", plannedTitle: "第4章 — 標準ゲート表と前進の式" },
+  { name: "observed-state", plannedTitle: "第2章　観測状態と資金の二勘定" },
+  { name: "parameters", plannedTitle: "第3章　案件パラメータと事前分布" },
+  { name: "stage-gates", plannedTitle: "第4章　標準ゲート表と前進の式" },
   { name: "team-functions", plannedTitle: "第5章 — 担い手の八機能と充足係数" },
   { name: "funding-and-offers", plannedTitle: "第6章 — 資金調達、実現の申し出、受託、権利の解決" },
   { name: "transition-and-plan-rules", plannedTitle: "第7章 — 一か月の遷移と計画の規則" },
