@@ -164,3 +164,11 @@ M	pwa/src/lib/build-info.ts
 検証: 型検査、新規ファイルESLint、critical-ui、project-format、reference-data-cache、DD package、実route/loaderによるproject-contract-listテスト通過。実NDA1件とsigned_at/date=nullを確認。v3.159.14の決議3一覧はPC Chromeで実表示確認。v3.159.15は公式deploy.shで配信し、PCで3領域の表示とオンオフ往復を検証する。Webスマホ検証・Swift変更はまさ指定で対象外。共通ページ原則・専用変更範囲はspec5-17/3-24・FEATURE_REGISTRY・manual2-3/2-6・ios/DESIGNに同期。理論/model変更なし。
 
 共有checkout: mainのみ。今回の変更ファイルは本commit対象、既存未追跡SESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdはタスク報酬移行担当の資料として保持（次判定は同担当がspec3-14/完了履歴と照合）、今回stage/deleteしない。検証の/tmpログ・.jez証跡はlocal temporary。対話証拠0件（製品仕様をrepo正本へ記載、個人の価値観として保存しない）。
+
+### 契約リスト 配信後の検証・終了
+
+f0c30d0f6ffa7a7387aff44d7cf8d3d994161c88 / v3.159.15がproduction aliasのbuild-infoと一致（公式deploy.sh、4分45秒）。新APIの未認証GETは401。PC Chromeのコックピットで5件・NDA1件・両当事者・確認中/未締結・表示チェックを実画面確認し、UI品質8.5/10。チェックをoffへ操作してDB falseをreadback。実server loaderと本番DBで内部5/DD0を確認後、当該NDAだけtrueへ復帰し、内部5/DD1、未締結維持をreadback。現在DD表示オン。
+
+まさがChromeをMeetタブへ切り替えたため、ワークスペースとDDの実画面およびworkspaceチェック操作は未検証。タブへの限定接続もrequest-header policy読込みで2回失敗し、会議中のUI操作を停止した。代替は共通本文/導線の回帰・実route/loaderテストと本番DB読取り。会議のカメラ/マイク/参加操作は変更なし。Webスマホ検証・Swift変更なし。検証の一時scriptはignored .jezへ移し、秘密値/原メール/契約本文は保存しない。
+
+終了分類: development、main aligned、committed success。恒久仕様はspec5-17/3-24・manual2-3/2-6・FEATURE_REGISTRY・DESIGN、本ログは開発検証記録のみ。今回のproduct変更はmainへ統合・push・配信済み。conflictなし、今回のtracked dirtyなし。既存未追跡handoffはタスク報酬移行担当の所有物として保持、次判定は同担当のspec3-14/完了履歴照合。安全に消す対象なし、まさ判断が必要な新規残件なし。対話証拠0件。残るPC追加画面確認は次にブラウザを利用できるときの検証範囲として明示し、実施済みとは扱わない。
