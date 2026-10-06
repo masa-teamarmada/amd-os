@@ -326,3 +326,7 @@ v3.159.5はLinux PDFの日本語font欠落も修正。PDF描画時だけNoto San
 | BZM・モデル・DB・認可・開示 | 変更なし | 対象外 | 元の境界を維持 |
 
 検証は`test:project-space-loading`、DD/critical-ui/format/cache/3領域の既存契約、tsc、対象ESLint、production build。会話の証跡保存は不要（製品変更のみ）。初期の未追跡移行メモは引き続き保全する。
+
+### 表示速度改善の配布束（v3.159.21）
+
+5981449aの表示速度改善を、同時進行の資本政策表改善56c6461dとmainで統合して配布する。通常経路`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`を使う。v3.159.19のポートフォリオ改善は本番b6138915でPC/スマホと65機関・815シーズ・736評価・35PJを確認済み。3スペースは統合build後に本番SHAとページ表示を確認する。配布の取り消しは既存の直近正常production deploymentのpromote経路を使い、履歴改変やDB変更をしない。未追跡の過去移行メモは除外。
