@@ -626,36 +626,31 @@ expectIncludes(["function addHolder(name?: string) {", "onAddHolder={addHolder}"
   assert.match(decl, /convertible_issue/, "convertible_issue must remain amount-bearing (it can accept an issuance amount in holder amount rows)");
 }
 
-// 32. Holder rows are grouped contiguously per holder. The always-visible pair is the amount row
-// (editable holder name + 出資額) followed by the FD% row; event shares, post-issued and post-FD rows
-// appear only after that holder is expanded. Totals render once after every holder block (not
-// interleaved between row kinds). 2026-09-30: 出資額 moved out of the collapsed detail so the
-// amount each holder invests per round is editable without opening anything.
+// 32. One FD summary per holder; cash and shares remain available through disclosure.
 {
   const holderMapMatches = [...matrixSrc.matchAll(/plan\.holders\.map\(\(holder, holderIndex\) => \{/g)];
-  assert.equal(holderMapMatches.length, 1, `expected exactly one plan.holders.map((holder, holderIndex) => { ... }) call building the contiguous per-holder row block, found ${holderMapMatches.length}`);
+  assert.equal(holderMapMatches.length, 1);
   const mapIdx = holderMapMatches[0].index!;
   const nextTopLevelIdx = matrixSrc.indexOf("発行済株式数合計", mapIdx);
-  assert.ok(nextTopLevelIdx > mapIdx, "totals rows must come after the per-holder block");
   const block = matrixSrc.slice(mapIdx, nextTopLevelIdx);
-  assert.match(block, /<Fragment key=\{holder\.id\}>/, "each holder's summary/detail rows must share one Fragment keyed by holder.id");
-  assert.match(block, /aria-expanded=\{expanded\}/, "holder summary must expose its expand/collapse state");
-  const amountIdx = block.indexOf('data-holder-row="amount"');
-  const nameIdx = block.indexOf("<HolderNameInput");
+  assert.match(block, /aria-expanded=\{expanded\}/);
   const pctIdx = block.indexOf('data-holder-row="fd-ratio"');
+  const nameIdx = block.indexOf("<HolderNameInput");
   const expandedIdx = block.indexOf("{expanded && <>");
+  const amountIdx = block.indexOf('data-holder-row="amount"');
   const sharesIdx = block.indexOf('data-holder-row="shares"');
   const issuedIdx = block.indexOf('data-holder-row="issued-shares"');
   const fdIdx = block.indexOf('data-holder-row="fully-diluted-shares"');
-  assert.ok(
-    amountIdx >= 0 && amountIdx < nameIdx && nameIdx < pctIdx && pctIdx < expandedIdx && expandedIdx < sharesIdx && sharesIdx < issuedIdx && issuedIdx < fdIdx,
-    "per-holder rows must appear in order: amount (with editable name), FD% (both always visible), then expanded shares, post-issued, post-FD",
-  );
-  const amountRow = block.slice(amountIdx, pctIdx);
-  assert.match(amountRow, /holderAmountActionable\(event\)/, "the always-visible amount row must gate editability on holderAmountActionable");
-  assert.match(amountRow, /onEditHolderAmount\(event\.id, holder\.id, n\)/, "the always-visible amount row must write through onEditHolderAmount");
-  // totals must not be interleaved: no per-holder row may reappear after the totals rows.
-  assert.doesNotMatch(matrixSrc.slice(nextTopLevelIdx), /data-holder-row=/, "totals must render after all per-holder blocks, not have holder rows interleaved after them");
+  assert.ok(pctIdx >= 0 && pctIdx < nameIdx && nameIdx < expandedIdx && expandedIdx < amountIdx && amountIdx < sharesIdx && sharesIdx < issuedIdx && issuedIdx < fdIdx,
+    "one summary row must precede disclosed cash, event shares, issued shares and FD shares");
+  const summary = block.slice(pctIdx, expandedIdx);
+  assert.match(summary, /agg\.amount !== 0/, "empty cash must not occupy a summary line");
+  assert.match(summary, /standing\.fullyDilutedPercentage/, "summary must use actual calculated ownership");
+  assert.match(summary, /standing && previousSnapshot/, "change must never invent a missing previous snapshot");
+  const amountRow = block.slice(amountIdx, sharesIdx);
+  assert.match(amountRow, /holderAmountActionable\(event\)/);
+  assert.match(amountRow, /onEditHolderAmount\(event\.id, holder\.id, n\)/);
+  assert.doesNotMatch(matrixSrc.slice(nextTopLevelIdx), /data-holder-row=/);
 }
 
 // 33. The event header row is sticky at the top of the scroll container (readable scroll sense
@@ -793,18 +788,15 @@ expectMatrixIncludes([
   assert.match(fdBlock, /<OutputCell key=\{event\.id\} value=\{standing\.fullyDilutedShares\}/, "post-FD row must render via OutputCell, not an editable input");
 }
 
-// 41. FD% cell is editable only under the ownership_target basis (the only mode where the engine
-// solves shares FROM a target ratio); every other basis renders it as a read-only OutputCell.
+// 41. Only editable ownership targets expose an input; DD displays the derived FD ratio.
 {
   const pctIdx = matrixSrc.indexOf('data-holder-row="fd-ratio"');
-  assert.ok(pctIdx >= 0, "FD% row label not found");
-  const block = matrixSrc.slice(pctIdx, pctIdx + 2200);
-  assert.match(block, /event\.calculationBasis === 'ownership_target'/, "FD% row must gate the editable branch on calculationBasis === 'ownership_target'");
-  const gateIdx = block.indexOf("event.calculationBasis === 'ownership_target'");
-  const editableBranch = block.slice(gateIdx, block.indexOf("const standing = snapshotByEventId.get(event.id)", gateIdx));
-  assert.match(editableBranch, /<NumberCell/, "the ownership_target branch of the FD% cell must be an editable NumberCell");
-  const readonlyBranch = block.slice(block.indexOf("const standing = snapshotByEventId.get(event.id)", gateIdx));
-  assert.match(readonlyBranch, /<OutputCell/, "every non-ownership_target basis must render the FD% cell as a read-only OutputCell");
+  const end = matrixSrc.indexOf('{expanded && <>', pctIdx);
+  const block = matrixSrc.slice(pctIdx, end);
+  assert.match(block, /event\.calculationBasis === 'ownership_target' && !readOnly/);
+  assert.match(block, /<NumberCell/);
+  assert.match(block, /onEditHolderPostRatio\(event\.id, holder\.id, n \/ 100\)/);
+  assert.match(block, /standing \? fmtPct\(standing\.fullyDilutedPercentage\) : '—'/);
 }
 
 // 42. Summary output cells (OutputCell) carry an explicit "上書き" (override) mode driven by the

@@ -108,6 +108,8 @@ PWAの全route・重要UI・iOS画面の対応状況は `../macos/PARITY.md` を
 > ピクト図（2026-09-17）は、本文のコードブロック `pictogram` の JSON を 3×3 の枠の図にする。モノ・サービスは青、お金は橙と ¥ の印、計画中は破線、ヒトにカーソルでその流れだけを濃く出す。図は 1000px で組み、枠が狭いときは枠の幅まで縮める（下限0.7、「実寸で表示」で戻せる）。640px 未満は縮めずに図の中だけ横に動かし、図の下に流れの一覧を出す。
 > 実装: `pwa/src/components/cockpit/CockpitTechnology.tsx`（`mode="business-model"`）/ `pwa/src/lib/project-tech.ts`（`isBusinessModelTopic` / `techLedgerTabOf` / `ledgerTabsPresent`）/ `pwa/src/components/cockpit/PictogramDiagram.tsx`・`pwa/src/lib/pictogram.ts`（ピクト図）。仕様 `../pwa/spec/3-20-project-technology-current-spec.md` §5.5・§5.6。
 
+> 2026-10-06: 共通の資本政策プラン表 `CapitalPlanMatrix` は、株主1人1行でFD比率・前ラウンド比（ポイント）・非ゼロ出資額を比較する。出資額編集と株数の内訳4行は＋から展開する。DD/コックピット/ワークスペースに同じ表示を適用、Native未移植。計算・DB・認可・Excelは維持。
+
 > **PWA専用画面（Native未移植）**: PJコックピット `?tab=capital-policy` の「資本政策表」タブ
 > （2026-08-29追加、**全PJ常設**）。会社概要タブから独立させた資本構成の正本面で、ラウンドを列・株主を行に
 > 置き、1ラウンド = 新規割当分 / 発行済株数 / 払込金額 / 顕在株比率 / 新規発行SO / 発行済SO / 潜在込比率 と、
