@@ -1,5 +1,6 @@
 "use client";
 
+import { ProjectPageTitle } from "@/components/nav/PageTitleSetter";
 import { ProjectEmployeeRegister } from "@/components/project-workspace/ProjectEmployeeRegister";
 
 import dynamic from "next/dynamic";
@@ -544,6 +545,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       data-cockpit-project-kind={formatType === "ecosystem" ? "institution" : "standard"}
       data-project-format-type={formatType}
     >
+      {!hideNavigation && <ProjectPageTitle projectName={project.projectName} surface="コックピット" pageLabel={PROJECT_PAGE_LABELS[activeTab] ?? tabLabel[activeTab] ?? activeTab} />}
       {/* [A] Project Header (full width) */}
       <CockpitHeader project={project} />
 

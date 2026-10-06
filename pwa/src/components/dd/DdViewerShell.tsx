@@ -1,3 +1,5 @@
+import { ProjectPageTitle } from "@/components/nav/PageTitleSetter";
+import { ddPageLabel } from "@/lib/dd-pages";
 import Link from "next/link";
 import { ProjectSpaceLayout } from "@/components/nav/ProjectSpaceLayout";
 import { DdNavigation } from "./DdNavigation";
@@ -14,6 +16,7 @@ export async function DdViewerShell({ access, projectName, pageKey, children }: 
   const workspaceAccess = access.preview ? null : await resolveSharedWorkspaceAccess(access.projectId).catch(() => null);
   return (
     <div className="min-h-screen w-full bg-white text-[#1d1d1f]">
+      <ProjectPageTitle projectName={projectName} surface="DD" pageLabel={ddPageLabel(pageKey)} />
       <PageHistoryToolbar />
       <main className="mx-auto max-w-[1600px] space-y-3 px-4 pb-16 pt-3">
         <header className="flex min-w-0 flex-wrap items-center justify-between gap-2">

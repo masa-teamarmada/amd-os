@@ -1,5 +1,6 @@
 "use client";
 import dynamic from "next/dynamic";
+import { ProjectPageTitle } from "@/components/nav/PageTitleSetter";
 import { ProjectPageLoading } from "@/components/project-space/ProjectPageLoading";
 
 import { prefetchProjectPage } from "@/lib/project-page-prefetch";
@@ -5439,6 +5440,7 @@ export function SxWeeklyControlDashboard({
       className={embedded ? `${styles.page} sx-management-workspace` : `${styles.page} amd-workspace-page-skin sx-management-workspace`}
       data-embedded={embedded || undefined}
     >
+      {!embedded && <ProjectPageTitle projectName={bundle.project.projectName} surface="ワークスペース" pageLabel={dynamicTabs.find((tab) => tab.key === activeView)?.label ?? WORKSPACE_TAB_LABELS[activeView]} />}
       <div className={styles.shell}>
         {/* バッジ行・既存ワークスペースリンク・週レンジ・運用準備中スタンプは
             2026-08-08 まさ指示 #10 で削除。タイトルとナビだけを残す。

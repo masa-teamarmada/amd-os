@@ -23,6 +23,17 @@
 | 書斎の専用アプリ（manifest） | `public/manifest-shosai.json`。`name`・`short_name` は「書斎」、`id`・`start_url` は `/bzm/read`、`scope` は `/`（書斎のアドレスは書斎の画面だけを出すので、ログイン画面もアプリの範囲に入る）、`display` は `standalone`、`background_color`・`theme_color` は `#ffffff`、アイコンは書斎専用の `/icons/shosai-*`（まさ提供の本の絵。192・512 の通常と maskable、apple-touch-icon 180、favicon 48。書斎の layout とログイン画面の layout も同じ絵を出す）。向きは固定しない。書斎の配下の `src/app/(app)/bzm/read/layout.tsx` だけが、ルートの `manifest: "/manifest.json"` を `/manifest-shosai.json` に差し替え、`appleWebApp`（title「書斎」）と `themeColor #ffffff` を出す |
 | manifest の認証除外 | `src/middleware.ts` の matcher は `manifest.json` と `manifest-shosai.json`（`manifest-shosai\\.json`）を認証の対象から外す。外さないと manifest の取得がログイン画面への 307 になり、インストールが壊れる。静的ファイル、画像、`/auth/callback`、`/api/build-info` も matcher の外で、アドレスの振り分けも通らない |
 
+## 複数タブの現在地（2026-10-06）
+
+- インストール版のタブ列自体はChromeが描画する。画面CSSでタブ枠を上書きせず、文書タイトルとテーマ色を提供する。黒いテーマでは窓の状態によって選択中との差が弱いため、`manifest.json`とルートviewportの`theme_color`を既存の淡いグレー`#f5f5f7`へ統一し、起動背景を白にする。
+- 開いているタブの文書タイトル先頭だけに`▶ `を付ける。`document.visibilityState === "visible"`が判定根拠。`visibilitychange`でタブを切り替えたら印を移す。窓がフォーカスを失うだけでは印を消さない。複数窓では各窓の選択タブが対象となる。通常Chromeタブも同じ契約で、`display-mode`で分岐しない。
+- PJ本文は認可済みのデータを使い、`PJ名｜コックピット / ワークスペース / DD｜実際に表示中のページ名 - AMD OS`を`ProjectPageTitle`へ渡す。ページラベルは既存の`PROJECT_PAGE_LABELS` / メニュー定義 / `ddPageLabel`を使う。コックピットのquery、ワークスペースのhashや保存済み選択、DDのqueryから解決済みの表示状態へ追従し、URLから名前を推測する追加取得は行わない。
+- `PageTitleSetter`はAppShellの通常画面で既存surface名を使う。コックピットとワークスペースの詳細では、外枠の一般名が本文の題名を上書きしないよう本文側だけが担当する。埋め込みワークスペースは親コックピットの題名を維持する。
+- DDの未認可HTMLは引き続き`DD資料`だけ。認可済み`DdViewerShell`のクライアントがPJ名と資料名を表示する。DD一覧・権限・共有データ・公開範囲は変更しない。
+- Next.jsの遅延metadata差し替えに対してheadのMutationObserverで題名を維持する。値が同じなら書き換えず、observer/listenerを離脱時に解除。`pageshow`でも復帰する。印刷routeは対象外で、通常画面もbeforeprint中は補正を止める。書斎とネイティブ埋め込みは既存AppShell除外を維持する。
+- ネイティブタブ枠の最終色はChromeとインストール済み設定に依存するため、色に加えて文字の印と具体的な題名で現在地を示す。タブの再読込で題名と文書テーマは更新され、manifest保存値はChromeの更新に従う。
+- Chrome公式の[タブ付きPWA仕様](https://developer.chrome.com/docs/capabilities/tabbed-application-mode)を確認。独自の擬似タブ管理は追加しない。
+
 ## ページの移動と履歴（2026-10-04）
 
 - ホームのPJポートフォリオは、研究機関PJ・シーズPJ・事業会社PJとも、紐づくPJカードを `/project/[projectId]/cockpit` へつなぐ。研究機関/シーズの全件リンクは各一覧へ、PJ未登録の候補は元の機関/シーズ詳細へ進む。シーズに複数PJがある場合は、行のPJ番号と同じprimary（active優先、次にsales/draft）を開く。

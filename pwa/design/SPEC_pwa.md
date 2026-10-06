@@ -572,3 +572,5 @@ npm run test:critical-ui
 | Venture Map 数理モデル | `venture_map_model.md` |
 | PJ Status コックピット (SU 系 PJ の上部セクション) | `cockpit.md` ⭐ |
 | AMD Score (SPS primary / legacy M-X-F comparison) | `amd_score.md` ⭐ |
+
+- 2026-10-06: 複数タブの選択印▶とPJ/領域/ページ名、文書とmanifestの淡いグレーテーマはspec/2-1「複数タブの現在地」が現行正本。
