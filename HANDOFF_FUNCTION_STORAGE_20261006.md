@@ -13,7 +13,7 @@
 ## 2026-10-06 再確認と追加対策
 - CLIログインでAPI認証を復旧。保持40件（READY26/CANCELED14）は全て当日作成。1日保存の期限前だった。
 - 同一期間のUsage内訳を画面で確認: チーム10.22GBに対しAMD OS単体10.09GB。他PJは約127MB。以前の単体値と今回のチーム値を比較していた点を訂正。画面表示Last 30 Days/Sep 6 3:00–Oct 6 3:00。
-- まさの明示承認後、FUNCTION_STORAGE_CLEANUP_PLAN_20261006.mdの23IDだけ通常削除。各回に対象project/READY/現在aliasなし/直近正常3版以外を検査。23件のDELETED応答と一覧からの除外を確認。残存17件（READY3/CANCELED14）。
+- まさの明示承認後、HANDOFF_FUNCTION_STORAGE_CLEANUP_20261006.mdの23IDだけ通常削除。各回に対象project/READY/現在aliasなし/直近正常3版以外を検査。23件のDELETED応答と一覧からの除外を確認。残存17件（READY3/CANCELED14）。
 - 最新dpl_7KH3Q7go4wmLUD3qJaaQ2nN9Hb4yの4aliasは維持。直近復旧候補dpl_FqPBGtuVRodQKWfNSpbcTnddUVCA、dpl_5wcS2PPJNY8uhNZWuUMKCsKBtwFUも維持。
 - 公開build-info v3.160.7/17d15894/dirty:false、manual/spec/bzm API未認証401を削除後に確認。Vercel Resourcesでは文書API20.3MB、月報履歴/編集20.3MB。ローカルtraceはroute単位、Vercel表示はgroup単位なので値を同一視しない。
 - 全状態1日設定をAPIで再読戻し。公式のGB-monthは日次最大保存量の期間合算。削除後も過去期間のAMD10.09GBは同値で、表示の即時低下や物理解放完了は確認できない。Today表示0Bも現在物理容量の証拠にはしない。
