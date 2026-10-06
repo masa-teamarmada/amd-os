@@ -672,7 +672,7 @@ export function CapitalPlanMatrix({
       </div>
 
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-y border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
-        <p>{readOnly ? "「自動」は他の欄から計算した値。株数の内訳は株主名の左の＋で開く。" : "枠のある欄は書き換えられる（株主名・出資額・評価額など）。「自動」は他の欄から計算した値。株数の内訳は株主名の左の＋で開く。"}</p>
+        <p>{readOnly ? "「自動」は他の欄から計算した値。出資額と株数の内訳は株主名の左の＋で開く。" : "枠のある欄は書き換えられる（株主名・出資額・評価額など）。「自動」は他の欄から計算した値。出資額と株数の内訳は株主名の左の＋で開く。"}</p>
         <button type="button" onClick={toggleAllHolders} className="rounded-md border border-indigo-200 bg-white px-2 py-1 font-semibold text-indigo-700 hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
           {allHoldersExpanded ? "全株主を閉じる" : "全株主を展開"}
         </button>
@@ -999,61 +999,82 @@ export function CapitalPlanMatrix({
 
             <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/40">
               <th scope="colgroup" colSpan={sortedEvents.length + 1} className="px-1.5 py-1.5 text-left text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                <span className="sticky left-1.5">株主別の出資額とFD比率</span>
+                <span className="sticky left-1.5">株主別の持株構成 <span className="ml-2 font-normal text-slate-500 dark:text-slate-400">FD比率 · 前回比（ポイント） · 出資額</span></span>
               </th>
             </tr>
             {plan.holders.map((holder, holderIndex) => {
               const expanded = expandedHolderIds.has(holder.id);
-              const subLabelClass = 'sticky left-0 z-10 bg-white py-1 pl-8 pr-1.5 text-left text-[11px] text-slate-500 dark:bg-slate-950 dark:text-slate-400';
               const detailLabelClass = 'sticky left-0 z-10 bg-slate-50 py-1 pl-8 pr-1.5 text-left text-[11px] text-slate-600 dark:bg-slate-900 dark:text-slate-400';
               return (
                 <Fragment key={holder.id}>
-                  <tr data-holder-row="amount" className="border-t-2 border-slate-200 dark:border-slate-800">
+                  <tr data-holder-row="fd-ratio" className="border-b border-slate-200 hover:bg-slate-50/60 dark:border-slate-800 dark:hover:bg-slate-900/40">
                     <th scope="row" className="sticky left-0 z-10 bg-white px-1.5 py-1 text-left text-[11px] text-slate-700 dark:bg-slate-950 dark:text-slate-300">
-                      <div className="flex items-center gap-1">
+                      <div className="flex min-h-8 items-center gap-1">
                         <button
                           type="button"
                           aria-expanded={expanded}
-                          aria-label={`${holder.name} の株数の内訳を${expanded ? '閉じる' : '開く'}`}
+                          aria-label={`${holder.name} の出資額と株数の内訳を${expanded ? '閉じる' : '開く'}`}
                           onClick={() => toggleHolder(holder.id)}
-                          className="flex min-h-[44px] w-5 shrink-0 items-center justify-center font-semibold text-indigo-600 hover:text-indigo-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 md:min-h-[30px]"
+                          className="flex min-h-[44px] w-11 md:w-6 shrink-0 items-center justify-center font-semibold text-indigo-600 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 md:min-h-[32px] dark:text-indigo-400 dark:hover:bg-slate-800"
                         >
                           <span aria-hidden="true">{expanded ? '−' : '+'}</span>
                         </button>
                         <span aria-hidden="true" className="inline-block h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ backgroundColor: holderColor(holderIndex) }} />
                         <HolderNameInput name={holder.name} onCommit={(name) => onRenameHolder(holder.id, name)} />
-                        <span className="shrink-0 text-[10px] text-slate-500 dark:text-slate-400">
-                          <span className="sr-only">{holder.name}｜</span>出資額
-                        </span>
                       </div>
                     </th>
-                    {sortedEvents.map((event) => {
-                      const label = `出資額 ${event.label} ${holder.name}`;
-                      // 設立・SOプール・株式分割などお金の動かないイベントと、出資しないSOプール枠は、出資額を出さない（¥0 と誤読させない）。
-                      if (!AMOUNT_BEARING_TYPES.has(event.type) || holder.kind === 'esop_pool') return <DashCell key={event.id} label={label} />;
-                      const agg = aggregateHolderAllocations(event, holder.id);
-                      const actionable = holderAmountActionable(event);
-                      if (agg.count === 0) return actionable ? <td key={event.id}><NumberCell value={undefined} ariaLabel={label} placeholder="—" onCommit={(n) => onEditHolderAmount(event.id, holder.id, n)} /></td> : <DashCell key={event.id} label={label} />;
-                      return actionable ? <td key={event.id}><NumberCell value={agg.amount} ariaLabel={label} onCommit={(n) => onEditHolderAmount(event.id, holder.id, n)} onClear={() => onEditHolderAmount(event.id, holder.id, 0)} /></td> : <OutputCell key={event.id} value={agg.amount} label={label} formatter={fmtYen} />;
-                    })}
-                  </tr>
-                  <tr data-holder-row="fd-ratio" className="border-b border-slate-100 dark:border-slate-900">
-                    <th scope="row" className={subLabelClass}>
-                      <span className="sr-only">{holder.name}｜</span>FD比率
-                    </th>
-                    {sortedEvents.map((event) => {
+                    {sortedEvents.map((event, eventIndex) => {
                       const label = `完全希薄化後比率(%) ${event.label} ${holder.name}`;
-                      if (event.calculationBasis === 'ownership_target') {
-                        const alloc = event.allocations.find((a) => a.holderId === holder.id && a.targetOwnershipPercentage != null);
-                        const pctValue = alloc ? resolvedValue(alloc.targetOwnershipPercentage) * 100 : undefined;
-                        return <td key={event.id}><NumberCell value={pctValue} ariaLabel={`目標完全希薄化後比率(%) ${event.label} ${holder.name}`} onCommit={(n) => onEditHolderPostRatio(event.id, holder.id, n / 100)} onClear={() => onClearHolderPostRatio ? onClearHolderPostRatio(event.id, holder.id) : onEditHolderPostRatio(event.id, holder.id, 0)} /></td>;
-                      }
                       const standing = snapshotByEventId.get(event.id)?.holders.find((h) => h.holderId === holder.id);
-                      if (!standing) return <DashCell key={event.id} label={label} />;
-                      return <OutputCell key={event.id} value={standing.fullyDilutedPercentage} label={label} formatter={fmtPct} />;
+                      const previousSnapshot = eventIndex > 0 ? snapshotByEventId.get(sortedEvents[eventIndex - 1].id) : undefined;
+                      // 直前のsnapshotがある場合だけ比較。未保有の株主は0%、snapshot欠落は未確認のまま。
+                      const change = standing && previousSnapshot
+                        ? (standing.fullyDilutedPercentage - (previousSnapshot.holders.find((h) => h.holderId === holder.id)?.fullyDilutedPercentage ?? 0)) * 100
+                        : undefined;
+                      const agg = aggregateHolderAllocations(event, holder.id);
+                      const showAmount = AMOUNT_BEARING_TYPES.has(event.type) && holder.kind !== 'esop_pool' && agg.amount !== 0;
+                      const target = event.calculationBasis === 'ownership_target'
+                        ? event.allocations.find((a) => a.holderId === holder.id && a.targetOwnershipPercentage != null)
+                        : undefined;
+                      return (
+                        <td key={event.id} className="px-1.5 py-1 text-right tabular-nums" aria-label={label}>
+                          <div className="flex min-h-8 flex-col justify-center gap-0.5">
+                            {event.calculationBasis === 'ownership_target' && !readOnly ? (
+                              <NumberCell
+                                value={target ? resolvedValue(target.targetOwnershipPercentage) * 100 : undefined}
+                                ariaLabel={`目標完全希薄化後比率(%) ${event.label} ${holder.name}`}
+                                onCommit={(n) => onEditHolderPostRatio(event.id, holder.id, n / 100)}
+                                onClear={() => onClearHolderPostRatio ? onClearHolderPostRatio(event.id, holder.id) : onEditHolderPostRatio(event.id, holder.id, 0)}
+                              />
+                            ) : (
+                              <div className="flex flex-wrap items-baseline justify-end gap-x-1.5 leading-4">
+                                <span className="text-[13px] font-semibold text-slate-900 dark:text-slate-100">{standing ? fmtPct(standing.fullyDilutedPercentage) : '—'}</span>
+                                {change != null && Math.abs(change) >= 0.005 && (
+                                  <span className="text-[10px] text-slate-600 dark:text-slate-400" aria-label={`前ラウンド比 ${change.toFixed(2)}ポイント`} title="前ラウンドからのFD比率の増減（ポイント）">
+                                    {change > 0 ? '+' : '−'}{Math.abs(change).toFixed(2)}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {showAmount && <span className="text-[11px] leading-4 text-slate-600 dark:text-slate-400" aria-label={`出資額 ${event.label} ${holder.name}`}><span className="mr-1">出資</span>{fmtYen(agg.amount)}</span>}
+                          </div>
+                        </td>
+                      );
                     })}
                   </tr>
                   {expanded && <>
+                    <tr data-holder-row="amount" className="border-b border-slate-100 dark:border-slate-900">
+                      <th scope="row" className={detailLabelClass}><span className="sr-only">{holder.name}｜</span>出資額</th>
+                      {sortedEvents.map((event) => {
+                        const label = `出資額 ${event.label} ${holder.name}`;
+                        // 設立・SOプール・株式分割などお金の動かないイベントと、出資しないSOプール枠は、出資額を出さない（¥0 と誤読させない）。
+                        if (!AMOUNT_BEARING_TYPES.has(event.type) || holder.kind === 'esop_pool') return <DashCell key={event.id} label={label} />;
+                        const agg = aggregateHolderAllocations(event, holder.id);
+                        const actionable = holderAmountActionable(event);
+                        if (agg.count === 0) return actionable ? <td key={event.id}><NumberCell value={undefined} ariaLabel={label} placeholder="—" onCommit={(n) => onEditHolderAmount(event.id, holder.id, n)} /></td> : <DashCell key={event.id} label={label} />;
+                        return actionable ? <td key={event.id}><NumberCell value={agg.amount} ariaLabel={label} onCommit={(n) => onEditHolderAmount(event.id, holder.id, n)} onClear={() => onEditHolderAmount(event.id, holder.id, 0)} /></td> : <OutputCell key={event.id} value={agg.amount} label={label} formatter={fmtYen} />;
+                      })}
+                    </tr>
                     <tr data-holder-row="shares" className="border-b border-slate-100 dark:border-slate-900">
                       <th scope="row" className={detailLabelClass}><span className="sr-only">{holder.name}｜</span>株数</th>
                       {sortedEvents.map((event) => {
