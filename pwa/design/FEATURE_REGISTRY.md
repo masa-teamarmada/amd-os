@@ -1016,3 +1016,10 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 2026-10-06: DDの左メニューは一般DDの16項目をグループ分けせず、一段で常設する。順番は会社基本情報、株主・資本政策・投資条件、会社の意思決定、事業計画・開発計画、市場・競合、顧客・販売、技術・製品、技術実証の証拠、製造・品質・供給、知財・大学の利用権、経営陣・人員・雇用、重要契約、法規制・許認可・安全、紛争・関連当事者・利益相反、財務・税務・借入・採算、証憑・版・開示管理。資料の有無では入口を変えない。新規の7区分は未登録の空状態とし、説明記事があるだけで原本を登録済みと扱わない。既存の共通ページ本文はそのまま使い、ビジネスモデル・ガント・コスト試算・資金調達履歴・沿革は関連リンクと旧URLから開ける。コックピット・ワークスペースのメニュー、閲覧権限、DB、正式版PDFの選択項目は変更しない。
 
 新規区分キー: `governance`、`technical-evidence`、`manufacturing`、`team`、`contracts`、`regulatory`、`disputes`。DDの共通取得でPJの存在を確認した後、共通空状態を返す。社内の契約台帳やキラー要素を自動開示しない。外部付与・公開状態・既存データは不変。
+
+## PJ契約リスト（2026-10-06）
+
+- 導線: cockpit `?tab=contracts`、workspace `#contracts`、DD `?tab=contracts`。共通 `ProjectContractList`。契約当事者と関連PJを区別し、採用済み契約を未締結を含め集計。
+- 操作: 内部admin/portfolio memberまたは当該PJ workspace managerが契約ごとの「DDに表示」チェックを変更。readonly/contributor/DD-onlyは変更不可。非表示行はDD payloadに含めない。
+- 正本/API: `contracts.dd_visible`、migration482、`/api/project/[projectId]/contract-list`、`project-contract-list-server/client`。原メール・内部メモ・添付公開の拡張なし。
+- Guard: `test:project-contract-list`、`test:dd-package`、`test:project-format`、`test:reference-data-cache`。仕様: spec5-17/3-24、manual2-3/2-6、ios/DESIGN。

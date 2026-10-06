@@ -32,6 +32,7 @@ const BASELINE_PATH = path.join(scriptDir, "reference_data_cache_baseline.json")
 
 /** 参照系として確定済みのエンドポイント。新しい参照系データを足したらここへ登録する。 */
 const REFERENCE_DATA_ENDPOINTS = [
+  { endpoint: "/api/project/:p/contract-list", label: "PJ契約リスト", routeFile: "src/app/api/project/[projectId]/contract-list/route.ts", clientModule: "src/lib/project-contract-list-client.ts" },
   {
     endpoint: "/api/project/:p/workspace-meetings",
     label: "共有PJの動向・会議",

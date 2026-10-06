@@ -22,6 +22,9 @@ for (const type of TYPES) {
   assert.ok(!children.includes("objective-structure"), `${type}: objective structure must no longer be a visible cockpit tab`);
   assert.ok(!children.includes("cost-fuel"), `${type}: fuel cost lives inside the cost tab, not as its own tab`);
   assert.equal(new Set(children).size, children.length, `${type} cockpit tabs must belong to only one group`);
+  assert.equal(resolveCockpitTabForType("contracts", type), "contracts");
+  assert.equal(cockpitGroupForTabInType("contracts", type).label, "会社情報");
+  assert.ok(WORKSPACE_TAB_FORMATS[type].some(group => group.tabs.includes("contracts")));
   assert.equal(resolveCockpitTabForType("killer-factors", type), "killer-factors", `${type}: catalog has its own URL`);
   assert.equal(cockpitGroupForTabInType("killer-factors", type).label, "会社情報");
   assert.ok(!WORKSPACE_TAB_FORMATS[type].some(group => group.tabs.includes("killer-factors")), `${type}: internal catalog page must not be shared`);

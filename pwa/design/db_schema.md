@@ -1954,6 +1954,7 @@ PRIMARY KEY: `contract_id`
 | 44 | `party_confirmed_at` | `timestamptz` | NULL | `` |
 | 45 | `party_confirmed_by` | `text` | NULL | `` |
 | 46 | `operational_terms_json` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 47 | `dd_visible` | `bool` | NOT NULL | `false` |
 
 ## dd_item_publications
 

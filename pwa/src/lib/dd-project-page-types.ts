@@ -13,6 +13,7 @@ import type { ProjectFinancePageData } from "./project-finance-page-data";
 import type { CapitalPlanPageData } from "./project-capital-plan-data";
 import type { CostModelResponse } from "./project-cost-model-client";
 
+import type { ProjectContractListData } from "./project-contract-list";
 import type { DdEmptyPageKey } from "./dd-pages";
 
 type Identity = { kind: "project_page"; projectId: string; projectName: string };
@@ -25,6 +26,7 @@ export type DdLiveProjectPage = Identity & (
   | { page: "gantt"; tree: QuestionTreeBundle }
   | { page: "partners"; management: SxManagementBundle }
   | { page: "business-plan"; plan: ProjectBusinessPlan | null }
+  | { page: "contracts"; contracts: ProjectContractListData }
   | { page: "ip"; portfolio: IpPortfolioBundle }
   | { page: "company" | "capital-policy"; governance: CompanyOverviewData; businessSummary?: BusinessSummaryResponse }
   | { page: "activity"; grants: Grant[]; acquisitions: Bzm22AcquisitionApiPayload; contributions: AmdContributionsPayload; showAcquisitions: boolean }

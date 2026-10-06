@@ -9,7 +9,9 @@ import { resolveWorkspaceAccess } from "@/lib/workspace-access-resolver";
 
 // Access shape for the *shared* workspace page/bundle only. Internal/legacy member routes
 // that write effort/management must keep using `CurrentMemberAccess` + `getCurrentMemberAccess`
-// directly — never this union — so a workspace_account can never reach a write path.
+// directly — never this union. The sole dedicated disclosure writer is contract-list PATCH
+// (2026-10-06 Masa instruction; spec5-17): it revalidates this project, manager role,
+// origin and target, and writes only dd_visible plus audit fields. No effort/management writes.
 
 export type InternalMemberViewerAccess = CurrentMemberAccess & {
   principal: "member";

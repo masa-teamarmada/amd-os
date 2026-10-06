@@ -156,3 +156,11 @@ M	pwa/src/lib/build-info.ts
 ## 2026-10-06 全体メニュー・3スペースの左ナビ 本番検証
 
 本番確認: 7f6cb1cc / v3.159.11をproduction aliasのbuild-infoで照合。Chromeで1440×900・390×844指定（ブラウザ110%）の全体メニューの開閉・ラベル・余白と閉じた後のフォーカス復帰を確認。コックピット会社情報→ワークスペース→DDの左メニューと本文、狭幅DDの開閉・ページ選択を確認し、UI品質8/10。ホームPJ運用リンクの実DOMに `target="_blank"`・`rel="noopener noreferrer"` を確認（通常クリックによる新タブの実着は自動操作では確認できず）。コックピットのゴールツリーは初回に管制データ取得失敗を表示したが、会社概要の取得と切替は成功。本文取得の再現調査はナビ変更から分離して扱う。共有DB・公開付与・掲載状態に書込みなし。今回の変更はmain/push済み、新規branch/worktreeなし。別セッションの未追跡handoffは保持しており、統合する場合はその報酬移行作業の担当が判断する。
+
+## 2026-10-06 契約リスト・DD表示選択 v3.159.15
+
+開発。全PJの3領域に共通契約リストを配置し、採用済み契約を関連PJで集計。専用GET/PATCHとcontract-list server/client、限定DTO、DD server filterを追加。DD変更はinternal admin/portfolio memberとworkspace manager、閲覧のみの利用者は拒否。既存PJサービス契約条件は維持。migration482適用済み、dd_visible=false初期値とSOLいよぎんNDAのaccepted/under_review/未締結/dd_visible=trueをreadback。条項・署名・期間は推定しない。元メールの送受信・添付公開・外部付与は変更なし。
+
+検証: 型検査、新規ファイルESLint、critical-ui、project-format、reference-data-cache、DD package、実route/loaderによるproject-contract-listテスト通過。実NDA1件とsigned_at/date=nullを確認。v3.159.14の決議3一覧はPC Chromeで実表示確認。v3.159.15は公式deploy.shで配信し、PCで3領域の表示とオンオフ往復を検証する。Webスマホ検証・Swift変更はまさ指定で対象外。共通ページ原則・専用変更範囲はspec5-17/3-24・FEATURE_REGISTRY・manual2-3/2-6・ios/DESIGNに同期。理論/model変更なし。
+
+共有checkout: mainのみ。今回の変更ファイルは本commit対象、既存未追跡SESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdはタスク報酬移行担当の資料として保持（次判定は同担当がspec3-14/完了履歴と照合）、今回stage/deleteしない。検証の/tmpログ・.jez証跡はlocal temporary。対話証拠0件（製品仕様をrepo正本へ記載、個人の価値観として保存しない）。

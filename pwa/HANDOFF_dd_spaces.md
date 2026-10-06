@@ -13,3 +13,7 @@
 旧SESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdは9/22別作業の未完タスク報酬移行資料として保持。所有者はタスクpt移行担当。次判定: 現行spec/3-14と移行完了履歴を照合して採否を確定。削除・今回commit対象ではない。
 旧root移行プロンプト（Gmail照合）は別作業資料なので原文をdesign_logではなくrootの専用保存先へ退避。最新プロンプトはDD用。
 最初の行動: 共通ルールと上記正本を読み、fetch/statusで並行作業を確認してからまさの次依頼を扱う。
+
+## 2026-10-06 契約リスト
+
+契約リストを3領域へ常設し、専用APIで契約単位のDD表示選択を保存。詳細正本はspec5-17・3-24、機能とguardはFEATURE_REGISTRY。migration482は本番適用済み、再適用不要。SOLいよぎんNDAはaccepted/under_review、未締結・日付条件未確認、dd_visible=true。主キーb5e39c23-6039-428d-bddf-5f90bb6f862a。取得・表示の検証はPCだけ（まさ指定）。Swiftの追加実装なし。外部共有やメール送信なし。決議ページも3会議体の器の表示まで反映済み。

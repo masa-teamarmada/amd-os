@@ -3561,7 +3561,7 @@ expectIncludes("src/components/cockpit/CockpitCapitalPlan.tsx", [
   "<CapitalPlanWorkspace",
 ]);
 expectIncludes("src/lib/project-formats.ts", [
-  '{ group: "company-information-group", tabs: ["company", "capital-policy"] },',
+  '{ group: "company-information-group", tabs: ["company", "contracts", "capital-policy"] },',
 ]);
 expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
   '"company-information-group": COCKPIT_GROUP_LABELS.companyInformation,',

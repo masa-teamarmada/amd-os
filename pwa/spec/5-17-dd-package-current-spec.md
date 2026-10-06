@@ -1,5 +1,16 @@
 # DDパッケージ仕様（投資家・金融機関向けの開示面）
 
+## 契約リストの開示選択（2026-10-06、まさ指示）
+
+- `contracts` ページは3領域共通の `ProjectContractList`。全PJタイプで常設し、DDの16項目中の名称を「契約リスト」に改める。既存PJ管理の `project-contracts`（PJのサービス契約条件）は別ページとして維持。
+- 正本は `contracts`。`project_id` は関連PJ、`amd_entity_name` / `counterparty_name` は契約当事者。関連PJが契約当事者であることを集計条件にしない。`registry_status=accepted` の契約を既存台帳と同じ論理契約単位で集計し、候補・却下・証跡のみは除外。未締結も件数へ含めて状態を明示する。
+- migration482適用済み。`dd_visible boolean NOT NULL DEFAULT false` を契約単位の明示選択として保存。既存契約は自動開示しない。今回のSOLいよぎんキャピタルNDAはユーザー指定によりオンで登録した。未締結、条件・日付は未確認、レビュー状態はpending。
+- 専用 `/api/project/[projectId]/contract-list` GETは当該PJの有効なinternal member accessまたはworkspace所属を検証。PATCHは内部admin/portfolio member、または当該PJのworkspace managerだけを許可する。contributor/readonly/project scope非adminは読み取り。DD付与だけではGET/PATCHを許可しない。これは契約表示選択の専用書込みであり、共有認可を汎用内部書込みAPIへ拡張しない。
+- PATCH入力は `{contractId:string, ddVisible:boolean}`。same-originを検証し、当該PJ・acceptedな契約の存在を確認して、同じ論理契約の関連レコードの `dd_visible/updated_by/updated_at` だけを更新する。401/403/400/404はDB更新前に返し、保存失敗は本文に表示。private no-store。
+- DDは既存のパッケージ入場認可後、server queryで `project_id/accepted/dd_visible=true` に限定し、限定DTOを共通本文へ渡す。内部メモ、メール参照、添付、条件JSON、非表示レコードは渡さない。DD本文は変更操作なし。契約行の選択は今回ユーザーが指定した開示境界で、同じ契約本文の領域別複製を作らない。
+- read clientは30秒の参照キャッシュ。保存成功時に無効化し、APIの最新一覧で画面を更新する。回帰ゲート `test:project-contract-list` は実route/loaderの実行で、PJ越境・候補・非表示版・DD-only・無効所属・閲覧専用・cross-originの拒否と許可範囲を検証する。今回のUI確認はPCのみ。Swiftのネイティブ契約リスト画面追加は本変更に含めない。
+
+
 2026-10-06: DDのgovernanceは「総会・取締役会・経営会議の決議」。株主総会・取締役会・経営会議を別々の一覧で常設し、各一覧の列は開催日・決議事項・決議結果・議事録。資料登録前は「決議事項未登録」。左メニューの16項目・順序・URL・認可・共通ページ原則は維持。今回は器の作成で、既存会議メモから決議を推定・転記せず、DB登録や外部付与は行わない。
 
 2026-10-06: 投資家向け閲覧本文には編集権限・更新頻度・更新日の操作メタ情報や執筆指示を表示しない。会社概要の事業説明は「事業概要」「事業詳細」とし、見出し下の操作説明を撤去する。技術・競合・ビジネスモデルの案内は投資判断に必要な内容の短い説明、DDの空状態は「資料未登録」とする。同じページはコックピット・ワークスペース・DDで共通部品から表示し、領域別に文体を分けない。元データ・認可・保存処理・証拠資料の確認日・数値前提は変更しない。

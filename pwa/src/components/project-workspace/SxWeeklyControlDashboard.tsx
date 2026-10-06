@@ -1,4 +1,5 @@
 "use client";
+import { ProjectContractList } from "@/components/project-workspace/ProjectContractList";
 
 import Link from "next/link";
 import { ProjectSpaceLayout } from "@/components/nav/ProjectSpaceLayout";
@@ -342,7 +343,7 @@ const STAGE_LABEL: Record<StageKey, string> = Object.fromEntries(
 // すべてのPJで、PJ資料室と同じ正本を開く「ドライブ」を加える。既存のアンカー名
 // (#weekly-change / #project-gantt / #partner-ledger / #issue-hypothesis / #input-readiness)
 // は他画面からのリンク互換のためhashとしてそのまま残す。
-export type SxWeeklyControlView = "meetings" | "slack" | "weekly" | "gantt" | "objective-structure" | "partners" | "issues" | "tasks" | "technology" | "competition" | "business-model" | "business-plan" | "financial-projection" | "capital-plan" | "company" | "capital-policy" | "cost" | "cost-fuel" | "ip" | "drive" | "dd";
+export type SxWeeklyControlView = "meetings" | "slack" | "weekly" | "gantt" | "objective-structure" | "partners" | "issues" | "tasks" | "technology" | "competition" | "business-model" | "business-plan" | "financial-projection" | "capital-plan" | "company" | "contracts" | "capital-policy" | "cost" | "cost-fuel" | "ip" | "drive" | "dd";
 const SX_WEEKLY_VIEW_STORAGE_KEY = "sx-weekly-control-view-v1";
 const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   meetings: "meetings",
@@ -360,6 +361,7 @@ const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   "financial-projection": "financial-projection",
   "capital-plan": "capital-plan",
   company: "company-overview",
+  contracts: "contracts",
   "capital-policy": "capital-policy",
   cost: "cost-model",
   "cost-fuel": "cost-model-fuel",
@@ -395,6 +397,7 @@ const WORKSPACE_TAB_LABELS: Record<SxWeeklyControlView, string> = {
   ip: "知財",
   drive: "ドライブ",
   company: "会社概要",
+  contracts: "契約リスト",
   "capital-policy": "資金調達履歴",
   dd: "DDパッケージ",
 };
@@ -415,7 +418,7 @@ function workspaceGroupsForType(type: ProjectFormatType): readonly WorkspaceTabG
 const EXTERNAL_WORKSPACE_TABS = new Set<SxWeeklyControlView>([
   "issues", "tasks", "gantt", "meetings", "slack", "partners", "drive",
   "technology", "competition", "business-model", "business-plan", "financial-projection", "capital-plan",
-  "cost", "cost-fuel", "ip", "capital-policy", "company",
+  "cost", "cost-fuel", "ip", "capital-policy", "company", "contracts",
 ]);
 function viewForHash(hash: string): SxWeeklyControlView | null {
   const normalized = hash.replace(/^#/, "");
@@ -439,6 +442,7 @@ function viewForHash(hash: string): SxWeeklyControlView | null {
   if (normalized === "business-plan") return "business-plan";
   if (normalized === "financial-projection") return "financial-projection";
   if (normalized === "capital-plan") return "capital-plan";
+  if (normalized === "contracts") return "contracts";
   if (normalized === "company-overview") return "company";
   if (normalized === "capital-policy") return "capital-policy";
   if (normalized === "dd-package") return "dd";
@@ -4723,6 +4727,7 @@ export function SxWeeklyControlDashboard({
         value === "business-plan" ||
         value === "financial-projection" ||
         value === "capital-plan" ||
+        value === "contracts" ||
         value === "company" ||
         value === "capital-policy" ||
         value === "cost" ||
@@ -5807,6 +5812,8 @@ export function SxWeeklyControlDashboard({
             <CockpitCapitalPlan projectId={bundle.project.projectId} projectName={bundle.project.projectName} readOnly={externalViewer} />
           </section>
         )}
+        {activeView === "contracts" && <section id="contracts" role="tabpanel" aria-label="契約リスト" className="min-w-0"><ProjectContractList key={bundle.project.projectId} projectId={bundle.project.projectId} /></section>}
+
         {activeView === "company" && (
           <section id="company-overview" className={styles.section} role="tabpanel" aria-label="会社概要">
             <CockpitCompanyOverview projectId={bundle.project.projectId} projectName={bundle.project.projectName} readOnly={externalViewer} />

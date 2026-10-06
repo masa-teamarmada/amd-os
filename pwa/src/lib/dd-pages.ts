@@ -9,7 +9,7 @@ export const DD_PAGE_KEYS: readonly string[] = [...new Set([
   ...DD_TAB_FORMAT.flatMap((group) => [...group.tabs]),
 ])];
 
-export const DD_EMPTY_PAGE_KEYS = ["governance", "technical-evidence", "manufacturing", "team", "contracts", "regulatory", "disputes"] as const;
+export const DD_EMPTY_PAGE_KEYS = ["governance", "technical-evidence", "manufacturing", "team", "regulatory", "disputes"] as const;
 export type DdEmptyPageKey = (typeof DD_EMPTY_PAGE_KEYS)[number];
 export function isDdEmptyPageKey(page: string): page is DdEmptyPageKey {
   return (DD_EMPTY_PAGE_KEYS as readonly string[]).includes(page);

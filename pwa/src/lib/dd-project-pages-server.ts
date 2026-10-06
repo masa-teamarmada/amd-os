@@ -1,5 +1,6 @@
 import { loadProjectGovernance } from "./project-governance-server";
 import "server-only";
+import { loadProjectContractList } from "./project-contract-list-server";
 import { createAdminClient } from "./supabase/admin";
 import { buildDagHealth } from "./project-management-logic";
 import { getQuestionTreeBundle } from "./question-tree";
@@ -24,6 +25,7 @@ export async function loadDdProjectPage(projectId: string, page: string): Promis
   const identity = await db.from("projects").select("project_name,display_name,project_category").eq("project_id", projectId).single();
   if (identity.error) throw new Error(identity.error.message);
   const base = { kind: "project_page" as const, projectId, projectName: identity.data.display_name || identity.data.project_name };
+  if (page === "contracts") return { ...base, page, contracts: await loadProjectContractList(db, projectId, true, false) };
   if (isDdEmptyPageKey(page)) return { ...base, page, empty: true };
   if (page === "technology" || page === "competition" || page === "business-model") return { ...base, page, tech: await loadProjectTechData(db, projectId) };
   if (page === "financial-projection") return { ...base, page, finance: await loadProjectFinancePage(db, projectId) };
