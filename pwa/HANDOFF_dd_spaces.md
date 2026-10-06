@@ -26,3 +26,6 @@
 ## Git・並行作業
 
 共有mainのみ。終了照合時の実装HEAD/main/originはf6a0d3a4、本番同SHA/v3.159.23。高速化担当の先行commitを含むため固定SHAへ戻さない。最新状態は次回再取得する。旧未追跡タスクptプロンプトの保存可否はまさへ確認中。HANDOFF_pwa_rebuild.mdは別担当なので変更していない。
+
+- 終了時、別担当の資本政策編集3パス（pwa/src/components/cockpit/CapitalPlanWorkspace.tsx、pwa/src/lib/capital-plan.ts、pwa/src/lib/capital-plan-issue-action.ts）が残る。内容は未変更・未stage。所有者は資本政策担当、担当のcommit/push後に再判定。引き継ぎ文書は16663fbeでpush済み。
+終了判定: do not archive。旧未追跡資料の判断と、別担当の作業中差分の解消後に再判定。新規worktree/branchなし。

@@ -18,6 +18,8 @@ SOLのDDコンテンツ整備を引き継いで。作業場所は /Users/masa/pr
 - 引き継ぎ時の実装HEADと本番はf6a0d3a4/v3.159.23、main/originは一致。後続の引き継ぎ文書commitは本番コード変更なし。固定SHAへ戻さず開始時fetch/status/build-infoを再取得する。
 - 旧未追跡SESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdの内容不変Git保存をまさへ確認中。返答を確認してから処理し、無断削除・stageしない。旧Function StorageプロンプトはSESSION_MIGRATION_PROMPT_FUNCTION_STORAGE_20261006.mdへ原文保存。
 
+- 終了時、別担当の資本政策編集3パス（pwa/src/components/cockpit/CapitalPlanWorkspace.tsx、pwa/src/lib/capital-plan.ts、pwa/src/lib/capital-plan-issue-action.ts）が残る。内容は未変更・未stage。所有者は資本政策担当、担当のcommit/push後に再判定。引き継ぎ文書は16663fbeでpush済み。
+
 次の具体的な作業:
 1. 未追跡の旧資料の判断を確認し、終了処理を確定する。
 2. PCで3スペースの契約1件・件数・DD表示選択を照合する。スマホWebは検証しない。まさはスマホでSwiftだけを見る指定。
