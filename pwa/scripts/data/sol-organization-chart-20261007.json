@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "status": "proposed",
+  "asOf": "2026-10-07",
+  "sourceRef": "https://amd-os-pwa.vercel.app/api/workspace-documents/db8569d4-b583-4840-a1ce-4183b909dd67/render#organization",
+  "note": "取締役会非設置。研究開発はすべて杉浦研究室に委託し、CTOが委託管理と製品化を統括する体制案。費用・納期・成果利用は個別契約で合意する。",
+  "governingBodies": [
+    {
+      "label": "株主総会"
+    },
+    {
+      "label": "経営会議（週次）"
+    },
+    {
+      "label": "代表取締役／CEO",
+      "person": "山地"
+    }
+  ],
+  "departments": [
+    {
+      "id": "management",
+      "label": "経営企画部",
+      "roles": [
+        "経営戦略・事業計画",
+        "資金調達・投資家対応",
+        "顧客開拓・共同開発契約",
+        "予算・会計・契約管理",
+        "採用・体制構築・全社進行"
+      ],
+      "people": [
+        "統括：山地",
+        "事業開発・PM支援：石原先生",
+        "実務全般：輕部、遠藤、肥塚"
+      ]
+    },
+    {
+      "id": "technology",
+      "label": "技術開発部",
+      "roles": [
+        "研究開発の委託管理・製品化の統括",
+        "リアクター要求仕様・設計管理",
+        "菌体の量産・品質・供給管理",
+        "オンサイトPoC・性能原価検証",
+        "納品・受入・保守・改良"
+      ],
+      "people": [
+        "開発統括：杉浦先生（CTO）",
+        "研究開発実施：杉浦研究室（委託）",
+        "技術支援：中島純一（技術顧問）"
+      ]
+    }
+  ],
+  "collaborations": [
+    {
+      "id": "university",
+      "departmentId": "technology",
+      "label": "愛媛大 杉浦研",
+      "relationship": "研究開発の委託先",
+      "roles": [
+        "研究開発全般を実施",
+        "強化株・実廃液・新対象の研究",
+        "反応・培養・保存条件の評価",
+        "バイオ燃料評価・技術移管"
+      ],
+      "people": []
+    },
+    {
+      "id": "reactor",
+      "departmentId": "technology",
+      "label": "ダイキアクシス",
+      "relationship": "リアクター共同開発先",
+      "roles": [
+        "リアクターの概念設計〜詳細設計",
+        "3台の製作・据付・受入試験",
+        "現場実証・保守・装置改良"
+      ],
+      "people": []
+    },
+    {
+      "id": "culture",
+      "departmentId": "technology",
+      "label": "ツウテック",
+      "relationship": "培養装置共同開発先",
+      "roles": [
+        "培養槽・照明・制御の開発",
+        "回収・濃縮・保存設備の開発",
+        "試作・立上げ・部材供給"
+      ],
+      "people": []
+    }
+  ]
+}
