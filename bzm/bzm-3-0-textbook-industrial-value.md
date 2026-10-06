@@ -497,7 +497,7 @@ $\alpha^{\mathrm{loc}}$ は、他者が同じ用途を実現していた場合�
 - [第2章　観測状態と資金の二勘定](./bzm-3-0-textbook-observed-state)：観測状態の九つの成分と、資金の遷移式。
 - [第3章　案件パラメータと事前分布](./bzm-3-0-textbook-parameters)：$\theta$ の十一の成分と、$\bar P_u$、$\delta_u$、$\psi$ の置き方。
 - [第6章　資金調達、実現の申し出、受託、権利の解決](./bzm-3-0-textbook-funding-and-offers)：申し出で決着したシナリオに掛かる承継者の到達確率。
-- [第8章　シナリオの価値、割引、継続価値、撤退の四経路](./bzm-3-0-textbook-scenario-value)：式 (1.2) の導出、社会的割引率、継続価値、四つの分岐の条件と価値。
+- [第8章　シナリオの価値、割引、継続価値、四つの分岐](./bzm-3-0-textbook-scenario-value)：式 (1.2) の導出、社会的割引率、継続価値、四つの分岐の条件と価値。
 - [第9章　スコアの三つの数と報告様式](./bzm-3-0-textbook-score-and-report)：$v(\theta)$、$q_o$、$P_o$、$Q(h)$ と報告に出す量。
 
 <!-- 執筆メモ:
