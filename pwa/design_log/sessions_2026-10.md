@@ -300,3 +300,11 @@ pwa/src/lib/build-info.ts
 恒久仕様はspec5-17/3-24/附則、manual2-3/2-6/附則と共通DESIGNへ実装commitで同期済み。専用引き継ぎは[HANDOFF_DD_NAVIGATION_20261006.md](../../HANDOFF_DD_NAVIGATION_20261006.md)、再開文は[SESSION_MIGRATION_PROMPT.md](../../SESSION_MIGRATION_PROMPT.md)。旧Function Storage文を内容不変で保存。既存報酬移行メモは担当判断まで保護。会話の検討材料0件。
 
 closeout文書の[skip ci] pushは後続1e23112eの未配布画面差分を保護するpre-pushに停止された。省略指定を外して通常pushへ修正。後続担当はさらに開発課題を実装中で、当該dirtyは担当継続として保護。
+
+
+## 2026-10-06 いよぎんNDA登録と契約リストの密度修正
+仕事種別:開発。a47660bdで既存p21契約へ先方受領版・変更履歴付き修正案の2版と確認済み4履歴を登録。データ登録484は適用済み。新しい表・カラム・環境変数・APIキー・権限の追加なし。署名待ち・未締結、期間未確認を保持。
+初期の一覧下へ全契約の文書・履歴を縦積みする案は、数十件への増加と情報密度の指摘で撤去。1e85e608/v3.160.14で1契約1行、検索・状態絞り込み・並び順、選択契約だけの表モーダルへ変更。project-contract-list-view.ts追加、既存contract-list GETへ認可済みcontractId/日時+IDカーソルの詳細取得を追加。初期は最新版のみ、履歴20件ずつ。同時刻のID順も安定化。DDは追加文書・メール経緯を取得しない。
+検証:test:project-contract-list、tsc、production build、deploy.shゲート成功。ローカル60契約×60履歴の検索と20→40→60件追加、実loader同時刻60履歴の欠落・重複ゼロ。PC本番で2版・4履歴を確認。390px幅も検証。一時mock/preview3ファイルとdev serverを除去。証跡はCodex visualizations/2026/10/06/01a110c7-3254-7d63-a9b0-6157d2af9d19。
+共通AGENTS.common.md:152へ余白カード反復の絶対禁止を保存・readback。恒久仕様spec5-6/5-17/5-10、manual2-3/2-6、DESIGN、changelogへ反映済み。Swift未移植。再開文はroot SESSION_MIGRATION_PROMPT.md、最終引き継ぎはroot HANDOFF_CONTRACT_EVIDENCE_20261006.md。旧pwa/HANDOFFは実装時記録で、最終状態はrootを読む。
+closeout時は他担当の財務/DD差分とremote更新が重なりff-onlyが拒否されたため、共有dirtyを保持して最新mainの一時clean cloneで文書のみ保存。今回の実装はmain祖先、公開本番は後続v3.160.15/4a7f56ccでdirty:falseを確認。個人特性の対話証拠は0件。
