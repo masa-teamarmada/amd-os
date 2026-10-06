@@ -1,30 +1,30 @@
-Vercel Functions Storageの超過対策の続きを確認して。作業場所は /Users/masa/projects/AMD/amd-os。
+SOLのDDコンテンツ整備を引き継いで。作業場所は /Users/masa/projects/AMD/amd-os、調査・資料の保存先は /Users/masa/projects/AMD/SOL。
 
 読む順:
 1. /Users/masa/projects/AGENTS.common.md
 2. /Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md
-3. リポジトリのAGENTS.mdとpwa/AGENTS.md、pwa/manual/1-1-intro.md
-4. HANDOFF_FUNCTION_STORAGE_20261006.md
-5. pwa/spec/5-2-development-operations-current-spec.mdの「Function保存容量の抑制」、pwa/manual/9-2-developer.md
-6. pwa/BUGS.mdのFunction保存容量の項、pwa/design_log/sessions_2026-10.mdの同項
+3. リポジトリとpwaのAGENTS.md、pwa/HANDOFF_dd_spaces.md
+4. /Users/masa/projects/AMD/SOL/SOL_DD_CONTENTS_PLAN.md、pwa/spec/5-17-dd-package-current-spec.md、pwa/spec/3-24-project-surface-pages-current-spec.md
+5. pwa/BUGS.md、pwa/manual/2-3-pj-cockpit.md、pwa/manual/2-6-admin-ops.md
 
 現在地:
-- 依頼は「vercelのfn storageがオーバーしてる原因を特定して対策してほしい」。原因調査と対策の本番反映は済み、使用量低下は未確認。
-- チーム10.1GB/10GB、amd-os-pwa10.09GB、他の主な使用はokudoor-preview10.88MB。Origin/Blobと混同しない。
-- ac3866c9で文書APIの動的ディレクトリ解決を静的分岐にし、不要資料・計算pilot成果物・PDFを作らない月報routeのChromium/font同梱を抑制。実traceの重複除去後で文書API168.70→24.13MB、モデル66.61→34.55MB、月報履歴/つくよみ編集74.2→2.01MB。traceの合計はVercelの保存量そのものではない。
-- postbuildのscripts/check_function_bundle_storage.mjsで容量上限と必要文書・日本語font・Chromiumの存在を検査。build、日本語PDF、書斎、モデル数式、認証を確認済み。資料室contractの既存正規表現検査は今回と無関係に失敗する。
-- amd-os-pwaだけpreview/production/canceled/errored保存期間を全て1日へ変更・APIで読戻し済み。deploymentsToKeep:10も返る。公式の保持例外は現行aliasと直近正常版など。保持件数を3だけと断定しない。
-- 本番は2026-10-06の最終確認でv3.159.19、b6138915、dirty:false。この版はac3866c9を含む。mainのdb51c543は検証記録だけ後続し、その重複ビルドは取り消し済み。固定SHAへ巻き戻さない。
-- 実装・仕様・manual・検証記録はmainにpush済み。一時cloneは削除済み。新branch/worktreeは作っていない。
-- 共有checkoutでは「PJポートフォリオの表示を高速化」（01a10f1c-985a-7ae3-912b-7817a8adedac）が3スペース高速化を実装中。変更パスと所有者は専用HANDOFF。別担当の差分はcommit/reset/stash/deleteしない。
-- 未追跡SESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdは以前からの別作業資料。所有はタスクpt移行担当/まさ、内容不変Git保存の判断待ち。勝手に削除・今回commitしない。従来のKUTE引き継ぎはSESSION_MIGRATION_PROMPT_KUTE_20261006.mdへ内容不変で保存。
+- 調査と実装の混合作業。一般的なDDの確認領域・証憑不足はSOL_DD_CONTENTS_PLAN.mdに保存。初版素材はSOL/work/260930_dd_packageのSOURCE_RECONCILIATION.md、final/証憑一覧.csv、final/SolvioraX_DD資料_要点_v0.1.6_20260930.md。過去の不足評価は10月5日時点で、現在の収録状況は再確認する。
+- DD各項目の器とフラットメニューを整備。別セッションが資料単位へ分割し、現行ナビは32項目。現行spec3-24を優先する。同一ページは全スペースで本文共通。キラー要素はコックピット専用の独立ページ。
+- 読者は手練のキャピタリスト。高校生向けの説明口調、編集権限・更新日などのメタ情報を本文へ出さない。
+- 決議は総会・役会・経営会議それぞれの一覧。未確認の決議は作らない。
+- 契約リストはコックピット・ワークスペース・DDに設置。内部2スペースで契約ごとのDD表示チェックを保存。SOLは指定されたいよぎんキャピタルと株式会社チームアルマダのNDA1件のみ。未締結・確認中、DD表示オン。他4件はAMD業務契約なのでSOL一覧対象外、元台帳5件は保持。
+- 契約主体または明示採用した関連契約だけを一覧・件数・更新対象にする。関連PJだけで自動採用しない。migration482/483は本番適用済み、再適用しない。
+- 修正478f37be/v3.159.17は本番反映済み。型検査・契約route/loader回帰・DD回帰・配信ゲート成功、本番DBと実loaderで内部1/DD1を確認。PCコックピットの一覧・チェック操作と決議3一覧は確認済み。範囲訂正後のワークスペース/DD実画面は未確認。
+- 引き継ぎ時の実装HEADと本番はf6a0d3a4/v3.159.23、main/originは一致。後続の引き継ぎ文書commitは本番コード変更なし。固定SHAへ戻さず開始時fetch/status/build-infoを再取得する。
+- 旧未追跡SESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdの内容不変Git保存をまさへ確認中。返答を確認してから処理し、無断削除・stageしない。旧Function StorageプロンプトはSESSION_MIGRATION_PROMPT_FUNCTION_STORAGE_20261006.mdへ原文保存。
 
 次の具体的な作業:
-1. fetch/statusと/api/build-infoを確認。Chromeの https://vercel.com/armada0130/~/usage/deployments-functions?view=Projects で同じFunctions Storageの最新値を読み、現在値と期間を記録する。
-2. 1日保存の期限と整理処理を経ても上限超過が続く場合は、保持中deploymentの状態・alias・保持例外と設定を再確認。新規版の軽量化、旧版の整理、請求履歴を別々に判定する。低下を実測してから解消済みと報告する。
-3. 手動の旧deployment削除が必要なら稼働aliasと復旧候補を保ち、対象IDと影響を確定してまさに判断を求める。完全消去・有料プラン移行・権限変更・通知・自動監視は今回依頼に含まれない。
+1. 未追跡の旧資料の判断を確認し、終了処理を確定する。
+2. PCで3スペースの契約1件・件数・DD表示選択を照合する。スマホWebは検証しない。まさはスマホでSwiftだけを見る指定。
+3. DDの各ページと原本を対応付け、技術原データ・反復結果・大学知財/ノウハウ利用条件・顧客別検証段階などの不足を優先して埋める。ページの存在を内容完成と扱わない。コスト試算と月次試算表は別セッションで進行中なので触れない。
 
 運用:
-- cwdはモノレポルート、main一本。修正が必要な場合はmanual/specを同期し、AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.shで一括pushと本番SHA確認。直接Vercel deployをしない。
-- docsだけはcommit件名に[skip ci]を付ける。並行作業をmergeする場合も最終件名に保持し、検証記録だけで重複ビルドを発生させない。
-- Supabase、GAS、ネイティブ、モデル本文は今回変更なし。既適用migrationの再適用、新しいモデル前提の追加をしない。
+- 共有mainの他担当差分をreset/stash/delete/一括commitしない。変更は現行仕様・マニュアルと同期し、対象パスだけ保存する。
+- 開発履歴はpwa/design_log、非開発の調査・事業判断はSOL目的別文書へ保存。HANDOFFは現在地と次の行動に限定する。
+- PWA変更はAMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.shで正規配信し、本番SHAを読む。未pushコードがある束に文書だけの[skip ci]判断を適用しない。
+- 未合意条件を確定せず、対外公開・閲覧権限追加・メール送信を追加しない。認証や他アプリ操作で詰まった際は未確認範囲を明記する。
