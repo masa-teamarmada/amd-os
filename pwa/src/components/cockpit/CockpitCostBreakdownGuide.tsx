@@ -68,7 +68,7 @@ export function CostBreakdownGuide({ slices, unit, scenarioLabel, groupTitle, dr
   const barSlices = slices.filter((x) => x.amount > 0);
   const barTotal = barSlices.reduce((s, x) => s + x.amount, 0);
   return (
-    <section id={id} aria-label="総コストの内訳と、動かす場所" data-testid={testId} className="scroll-mt-12 rounded-lg border border-[#e5e5e7] px-2.5 py-2">
+    <section id={id} aria-label="総コストの内訳と、動かす場所" data-testid={testId} className="scroll-mt-12 rounded-lg border border-[#e5e5e7] px-2 py-1">
       <div className="flex flex-wrap items-baseline justify-between gap-x-2">
         <h4 className="text-[13px] font-semibold text-[#1d1d1f]">総コストの内訳（大きい順）</h4>
         <span className="text-[11px] text-[#3c3c43]">
@@ -88,7 +88,7 @@ export function CostBreakdownGuide({ slices, unit, scenarioLabel, groupTitle, dr
           const groups = breakdownGroupsOf(x.parts);
           const extra = (drivers?.[x.key] ?? []).filter((d) => !groups.some((g) => g.groupKey === d.groupKey));
           return (
-            <li key={x.key} className="py-1.5" data-breakdown-key={x.key}>
+            <li key={x.key} className="py-1 xl:grid xl:grid-cols-[280px_minmax(0,1fr)] xl:items-center xl:gap-x-2 xl:py-0.5" data-breakdown-key={x.key}>
               {/* 狭い幅では額と割合を次の行の右へ送る（区分名を1文字ずつ折り返さない） */}
               <div className="flex flex-wrap items-baseline gap-x-2">
                 <Swatch color={x.color} className="translate-y-[1px]" />
@@ -97,11 +97,11 @@ export function CostBreakdownGuide({ slices, unit, scenarioLabel, groupTitle, dr
                   <span className="text-[12px] font-semibold tabular-nums text-[#1d1d1f]">
                     {formatAmount(x.amount)} 円/{unit}
                   </span>
-                  <span className="w-12 text-right text-[11px] tabular-nums text-[#6e6e73]">{total > 0 ? pct(x.amount / total) : "—"}</span>
+                  <span className="w-9 text-right text-[11px] tabular-nums text-[#6e6e73]">{total > 0 ? pct(x.amount / total) : "—"}</span>
                 </span>
               </div>
               {(groups.length > 0 || extra.length > 0) && (
-                <div className="mt-1 flex flex-wrap gap-1 pl-[16px]" aria-label={`${x.label}を動かす場所`}>
+                <div className="mt-1 flex flex-wrap gap-1 pl-[16px] xl:mt-0 xl:gap-0.5 xl:pl-0" aria-label={`${x.label}を動かす場所`}>
                   {groups.map((g) => (
                     <button key={g.groupKey} type="button" onClick={() => onJump(g.groupKey)} className={CHIP}>
                       {groupTitle(g.groupKey) ?? g.groupKey}

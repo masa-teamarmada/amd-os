@@ -295,7 +295,7 @@ export function CockpitCostModel({ projectId, allowEdit = true, initialData }: P
   };
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2">
       <div className="rounded-xl border border-[#e5e5e7] bg-white" data-testid="cost-simulator">
         <h2 className="sr-only">{model.title}</h2>
         {/* スマホ幅: 結果の要約を上に固定する */}
@@ -311,8 +311,8 @@ export function CockpitCostModel({ projectId, allowEdit = true, initialData }: P
         </div>
 
         {/* 切り替えと、保存していない変更 */}
-        <div className="relative flex flex-col gap-2 border-b border-[#e5e5e7] px-3 py-2 xl:flex-row xl:items-center xl:justify-between">
-          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:flex xl:flex-wrap xl:items-center xl:gap-x-4">
+        <div className="relative flex flex-col gap-2 border-b border-[#e5e5e7] px-2 py-1 xl:flex-row xl:flex-wrap xl:items-center xl:justify-between">
+          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:flex xl:w-full xl:flex-wrap xl:items-center xl:gap-x-3">
             {strains.length > 0 && (
               <Segmented
                 label="株"
@@ -462,7 +462,7 @@ export function CockpitCostModel({ projectId, allowEdit = true, initialData }: P
         {/* 操作パネル（左）と結果（右）。デスクトップは画面の下端まで、操作パネルの中だけスクロールする */}
         <div
           ref={panesRef}
-          className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_460px]"
+          className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]"
           style={paneHeight ? { height: paneHeight } : undefined}
         >
           <div className="order-2 min-h-0 xl:order-1 xl:border-r xl:border-[#e5e5e7]">
@@ -478,7 +478,7 @@ export function CockpitCostModel({ projectId, allowEdit = true, initialData }: P
               onSelectTankMode={(tankMode) => setView({ tankMode })}
             />
           </div>
-          <div className="order-1 min-h-0 border-b border-[#e5e5e7] p-3 xl:order-2 xl:overflow-y-auto xl:border-b-0">
+          <div className="order-1 min-h-0 border-b border-[#e5e5e7] p-2 xl:order-2 xl:overflow-y-auto xl:border-b-0">
             <CostResultsPanel
               unit={unit}
               computed={computed}
@@ -519,7 +519,7 @@ function PartialCostModel({ bundle }: { bundle: CostModelBundle }) {
     return `${num(assumption.value)}${assumption.unit ? ` ${assumption.unit}` : ""}`;
   };
   return (
-    <div className="flex flex-col gap-3" data-testid="cost-model-partial">
+    <div className="flex flex-col gap-2" data-testid="cost-model-partial">
       <section className="rounded-xl border border-[#e5e5e7] bg-white p-4 sm:p-5">
         <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center rounded-full bg-[#1d1d1f] px-2.5 py-1 text-[11px] font-semibold text-white">部分試算</span>

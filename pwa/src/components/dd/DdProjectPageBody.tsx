@@ -47,7 +47,7 @@ export function DdProjectPageBody({data,canDownload=false}:{data:DdLiveProjectPa
     case "short-term-plan": return <DdShortTermPlan available={data.available} />;
     case "gantt": return <QuestionTreeView initialBundle={data.tree} projectId={data.projectId} projectName={data.projectName} embedded mode="gantt" />;
     case "partners": return <SxPartnerPipeline management={data.management} projectId={data.projectId} onManagementChange={noop} />;
-    case "long-term-plan": return <ProjectLongTermPlan plan={data.plan} />;
+    case "long-term-plan": return data.available ? <DdShortTermPlan available term="long" /> : <ProjectLongTermPlan plan={data.plan} />;
     case "business-plan": return <CockpitBusinessPlan projectId={data.projectId} projectName={data.projectName} initialPlan={data.plan} canDownload={canDownload} />;
     case "ip": return <CockpitIpPortfolio projectId={data.projectId} initialData={data.portfolio} />;
     case "company": return <CockpitCompanyOverview projectId={data.projectId} projectName={data.projectName} readOnly initialData={data.governance} initialBusinessSummary={data.businessSummary} canDownload={canDownload} />;

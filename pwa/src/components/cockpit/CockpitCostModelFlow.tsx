@@ -74,9 +74,9 @@ export function CostTaskFlowOverview({
   const hasProduction = flow.steps.some((s) => s.rows.some((r) => r.isProduction));
   return (
     <div data-testid="cost-task-flow">
-      <p className="text-[11px] leading-5 text-[#3c3c43]">
+      <p className="text-[11px] leading-4 text-[#3c3c43]">
         <span className="text-[#6e6e73]">{scenarioLabel}</span>
-        <br />
+        <br className="xl:hidden" />
         <span className="font-semibold text-[#1d1d1f]">SXの作業工数 年 {int(flow.siteHours)}時間（顧客1社分）</span>
         ・作業費 {num(flow.sitePerUnit)} 円/{unit}（年 {yen(flow.siteAnnual)}）
         {hasProduction && (
@@ -91,7 +91,7 @@ export function CostTaskFlowOverview({
           const stepHours = stepHoursText(step);
           const customerOnly = step.rows.every((r) => r.performer === "customer");
           return (
-            <li key={step.label} className="relative grid grid-cols-[22px_minmax(0,1fr)] gap-x-2 pb-2 last:pb-0">
+            <li key={step.label} className="relative grid grid-cols-[22px_minmax(0,1fr)] gap-x-2 pb-2 xl:pb-0.5 last:pb-0">
               {i < flow.steps.length - 1 && <span aria-hidden="true" className="absolute bottom-0 left-[10.5px] top-[22px] w-px bg-[#d2d2d7]" />}
               <span className="relative flex h-[22px] w-[22px] items-center justify-center rounded-full border border-[#7cbceb] bg-white text-[11px] font-semibold text-[#0267b2]">
                 {i + 1}

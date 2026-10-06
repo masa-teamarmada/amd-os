@@ -1,0 +1,27 @@
+/* Common cost page density; the same wrapper is used on all three surfaces. */
+.dense :global([data-testid="cost-controls"]),
+.dense :global([data-testid="fuel-cost-controls"]),
+.dense :global([data-testid="cost-format-controls"]) {
+  container-type: inline-size;
+}
+
+@media (min-width: 1280px) {
+  .dense :global([data-testid="cost-controls"] li),
+  .dense :global([data-testid="fuel-cost-controls"] li) {
+    line-height: 16px;
+  }
+}
+
+/* Two columns depend on the actual input pane width, not the project or space. */
+@container (min-width: 730px) {
+  .dense :global([data-cost-condition-groups="true"]) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 12px;
+  }
+  .dense :global([data-cost-condition-groups="true"] > section) {
+    min-width: 0;
+    border-top: 1px solid #f0f0f2;
+    padding-top: 4px;
+  }
+}

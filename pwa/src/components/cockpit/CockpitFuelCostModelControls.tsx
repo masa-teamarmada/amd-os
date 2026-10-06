@@ -65,7 +65,7 @@ interface Props {
   scrollable: boolean;
 }
 
-const NAV_BUTTON = "min-h-[36px] shrink-0 rounded-md px-2 text-[11px] font-semibold text-[#3c3c43] hover:bg-[#e8f3fc] hover:text-[#0267b2] xl:min-h-[26px]";
+const NAV_BUTTON = "min-h-[36px] shrink-0 rounded-md px-2 text-[11px] font-semibold text-[#3c3c43] hover:bg-[#e8f3fc] hover:text-[#0267b2] xl:min-h-[24px]";
 const stepAnchorId = (label: string) => `fuel-step-${label}`;
 
 /**
@@ -263,13 +263,13 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
           type="button"
           onClick={() => setShowAllRows((v) => !v)}
           aria-pressed={showAllRows}
-          className="ml-auto min-h-[36px] rounded-md border border-[#d2d2d7] bg-white px-2 text-[11px] font-semibold text-[#3c3c43] hover:border-[#7cbceb] xl:min-h-[26px]"
+          className="ml-auto min-h-[36px] rounded-md border border-[#d2d2d7] bg-white px-2 text-[11px] font-semibold text-[#3c3c43] hover:border-[#7cbceb] xl:min-h-[24px]"
           title="明細の行を、選んだFAME転換で発生する行だけにするか、すべて出すか"
         >
           {showAllRows ? "選んだFAME転換の行だけにする" : `すべての行を出す（明細${allItems.length}行）`}
         </button>
       </nav>
-      <div className="flex flex-col gap-4 px-3 pb-6 pt-3">
+      <div className="flex flex-col gap-2 px-2 pb-3 pt-2">
         <CostBreakdownGuide
           id="fuel-breakdown"
           testId="fuel-breakdown-guide"
@@ -293,7 +293,7 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
           </section>
         )}
         {blocks.map(({ block, rendered }) => (
-          <section key={block.key} id={`fuel-block-${block.key}`} aria-label={block.title} className="scroll-mt-12 rounded-lg border border-[#e5e5e7] px-2.5 py-2">
+          <section key={block.key} id={`fuel-block-${block.key}`} aria-label={block.title} className="scroll-mt-12 rounded-lg border border-[#e5e5e7] px-2 py-1">
             <h4 className="text-[13px] font-semibold text-[#1d1d1f]">{block.title}</h4>
             <p className="text-[10px] leading-4 text-[#6e6e73]">{block.hint}</p>
             <div className="mt-1 flex flex-wrap gap-x-1 gap-y-0.5" aria-label={`${block.title}の区分`}>
@@ -308,7 +308,7 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
                 </button>
               ))}
             </div>
-            <div className="mt-2 flex flex-col gap-3">{rendered.map(({ node }) => node)}</div>
+            <div data-cost-condition-groups={block.key === "conditions" ? "true" : undefined} className="mt-1 flex flex-col gap-1.5">{rendered.map(({ node }) => node)}</div>
           </section>
         ))}
       </div>
@@ -319,7 +319,7 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
 /** 前提の下に出す、いまの数字での割り算の箱。 */
 function Formula({ children, testId }: { children: ReactNode; testId?: string }) {
   return (
-    <p className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 text-[11px] leading-5 text-[#3c3c43]" data-testid={testId}>
+    <p className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 xl:py-0.5 text-[11px] leading-5 text-[#3c3c43]" data-testid={testId}>
       {children}
     </p>
   );
@@ -357,7 +357,7 @@ function AssumptionControl({ assumption: a, saved, onChange }: { assumption: Cos
     const current = a.valueText ?? choices[0].value;
     const baseline = saved?.valueText ?? choices[0].value;
     return (
-      <li className="flex flex-col gap-1 py-1.5 xl:flex-row xl:items-center xl:gap-2">
+      <li className="flex flex-col gap-1 py-1.5 xl:py-0.5 xl:flex-row xl:items-center xl:gap-2">
         <div className="min-w-0 flex-1 text-[12px] leading-5 text-[#1d1d1f]">
           {a.label}
           <span className="ml-1 align-middle"><ConfidenceTag value={a.confidence} /></span>
@@ -383,7 +383,7 @@ function AssumptionControl({ assumption: a, saved, onChange }: { assumption: Cos
   }
   const isOverride = a.roleKey === "biomass_cost_per_kg_override";
   return (
-    <li className="flex flex-col gap-1 py-1.5 xl:flex-row xl:items-center xl:gap-2">
+    <li className="flex flex-col gap-1 py-1.5 xl:py-0.5 xl:flex-row xl:items-center xl:gap-2">
       <div className="min-w-0 flex-1 text-[12px] leading-5 text-[#1d1d1f]">
         {a.label}
         <span className="ml-1 align-middle"><ConfidenceTag value={a.confidence} /></span>
@@ -408,7 +408,7 @@ function AssumptionControl({ assumption: a, saved, onChange }: { assumption: Cos
 
 function TargetControl({ saved, working, onChange }: { saved: CostModelBundle; working: CostModelBundle; onChange: FuelChangeHandler }) {
   return (
-    <li className="flex flex-col gap-1 py-1.5 xl:flex-row xl:items-center xl:gap-2">
+    <li className="flex flex-col gap-1 py-1.5 xl:py-0.5 xl:flex-row xl:items-center xl:gap-2">
       <div className="min-w-0 flex-1 text-[12px] leading-5 text-[#1d1d1f]">
         総コスト目標（粗利30%を残す原価）
         <NoteToggle note={working.model.targetNote} />
@@ -464,7 +464,7 @@ function YieldTable({
             const baseRow = fuelSecretionAssumptionOf(working.assumptions, role, "base");
             const unit = role === "secretion_rate" ? "g/L/日" : "%";
             return (
-              <li key={role} className="grid grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,4.5rem))] items-center gap-x-1.5 py-1.5 xl:grid-cols-[minmax(0,1fr)_repeat(3,5.25rem)]">
+              <li key={role} className="grid grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,4.5rem))] items-center gap-x-1.5 py-1.5 xl:py-0.5 xl:grid-cols-[minmax(0,1fr)_repeat(3,5.25rem)]">
                 <span className="min-w-0 text-[12px] leading-5 text-[#1d1d1f]">
                   {FUEL_SECRETION_YIELD_ROLE_LABEL[role]}
                   <span className="ml-1 text-[10px] text-[#6e6e73]">（{unit}）</span>
@@ -498,14 +498,14 @@ function YieldTable({
           const unused = secreting && (role === "fame_potential" || role === "harvest_recovery" || role === "extraction_recovery");
           if (unused) {
             return (
-              <li key={role} className="grid grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,4.5rem))] items-center gap-x-1.5 py-1.5 opacity-50 xl:grid-cols-[minmax(0,1fr)_repeat(3,5.25rem)]">
+              <li key={role} className="grid grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,4.5rem))] items-center gap-x-1.5 py-1.5 xl:py-0.5 opacity-50 xl:grid-cols-[minmax(0,1fr)_repeat(3,5.25rem)]">
                 <span className="min-w-0 text-[12px] leading-5 text-[#1d1d1f]">{FUEL_YIELD_ROLE_LABEL[role]}</span>
                 <span className="col-span-3 text-right text-[11px] text-[#86868b]">脂質分泌株では使わない</span>
               </li>
             );
           }
           return (
-            <li key={role} className="grid grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,4.5rem))] items-center gap-x-1.5 py-1.5 xl:grid-cols-[minmax(0,1fr)_repeat(3,5.25rem)]">
+            <li key={role} className="grid grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,4.5rem))] items-center gap-x-1.5 py-1.5 xl:py-0.5 xl:grid-cols-[minmax(0,1fr)_repeat(3,5.25rem)]">
               <span className="min-w-0 text-[12px] leading-5 text-[#1d1d1f]">
                 {FUEL_YIELD_ROLE_LABEL[role]}
                 {baseRow && <span className="ml-1 align-middle"><ConfidenceTag value={baseRow.confidence} /></span>}
@@ -533,7 +533,7 @@ function YieldTable({
           );
         })}
         {density && (
-          <li className="flex flex-col gap-1 py-1.5 xl:flex-row xl:items-center xl:gap-2">
+          <li className="flex flex-col gap-1 py-1.5 xl:py-0.5 xl:flex-row xl:items-center xl:gap-2">
             <div className="min-w-0 flex-1 text-[12px] leading-5 text-[#1d1d1f]">
               {density.label}（3ケース共通）
               <span className="ml-1 align-middle"><ConfidenceTag value={density.confidence} /></span>
@@ -553,7 +553,7 @@ function YieldTable({
           </li>
         )}
       </ul>
-      <div className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 text-[11px] leading-5 text-[#3c3c43]" data-testid="fuel-yield-formula">
+      <div className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 xl:py-0.5 text-[11px] leading-5 text-[#3c3c43]" data-testid="fuel-yield-formula">
         <p>
           {secreting
             ? "燃料1Lに要る脂肪酸 ＝ 密度 ÷（培養液からの回収率 × メチル化反応率 × FAME精製回収率）。分泌速度は、要る培養液の量（培養設備の系列数）を決める"
@@ -593,7 +593,7 @@ function BiomassFormula({ scenario }: { scenario: FuelScenarioResult }) {
     [`${u}の量に比例する費用`, s.secreting ? `培地・CO2・溶媒など 1kgあたりの単価（菌体1kgあたりの行は 入れ替える菌体 ${num(s.cellMakeupPerUnit, 2)} kg を掛ける）` : "培地・CO2・濃縮など 1kgあたりの単価", row("variable")],
   ];
   return (
-    <div className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 text-[11px] leading-5 text-[#3c3c43]" data-testid="fuel-biomass-formula">
+    <div className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 xl:py-0.5 text-[11px] leading-5 text-[#3c3c43]" data-testid="fuel-biomass-formula">
       <p className="font-semibold text-[#1d1d1f]">
         {u}1kgの原価 <span className="tabular-nums">{num(b.computedPerKg)} 円/kg</span>
         <span className="font-normal text-[#6e6e73]">（明細と作業から計算。設備は系列の数だけ並べるので、1kgあたりは作る量でほとんど変わらない）</span>
@@ -748,7 +748,7 @@ function FuelTaskList({
                   return (
                     <li
                       key={t.costTaskId}
-                      className={`grid grid-cols-2 gap-x-2 gap-y-1 py-1.5 xl:grid-cols-[minmax(0,1fr)_78px_130px_92px_56px] xl:items-center xl:gap-x-1.5 ${applies ? "" : "opacity-50"}`}
+                      className={`grid grid-cols-2 gap-x-2 gap-y-1 py-1.5 xl:py-0.5 xl:grid-cols-[minmax(0,1fr)_78px_130px_92px_56px] xl:items-center xl:gap-x-1.5 ${applies ? "" : "opacity-50"}`}
                     >
                       <div className="col-span-2 min-w-0 text-[12px] leading-5 text-[#1d1d1f] xl:col-span-1">
                         {t.label}
@@ -879,7 +879,7 @@ function FuelItemRows({
           return (
             <li
               key={i.costItemId}
-              className={`grid grid-cols-2 gap-x-2 gap-y-1 py-1.5 xl:grid-cols-[minmax(0,1fr)_64px_128px_64px_60px] xl:items-center xl:gap-x-1.5 ${applies ? "" : "opacity-50"}`}
+              className={`grid grid-cols-2 gap-x-2 gap-y-1 py-1.5 xl:py-0.5 xl:grid-cols-[minmax(0,1fr)_64px_128px_64px_60px] xl:items-center xl:gap-x-1.5 ${applies ? "" : "opacity-50"}`}
             >
               <div className="col-span-2 min-w-0 text-[12px] leading-5 text-[#1d1d1f] xl:col-span-1">
                 {fuelItemLabel(i)}

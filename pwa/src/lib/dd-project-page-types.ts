@@ -32,7 +32,8 @@ export type DdLiveProjectPage = Identity & (
   | { page: "short-term-plan"; available: boolean }
   | { page: "gantt"; tree: QuestionTreeBundle }
   | { page: "partners"; management: SxManagementBundle }
-  | { page: "business-plan" | "long-term-plan"; plan: ProjectBusinessPlan | null }
+  | { page: "long-term-plan"; available: boolean; plan: ProjectBusinessPlan | null }
+  | { page: "business-plan"; plan: ProjectBusinessPlan | null }
   | { page: "development-issues"; issues: ProjectDevelopmentIssuesData | null }
   | { page: "contracts"; contracts: ProjectContractListData }
   | { page: "ip"; portfolio: IpPortfolioBundle }

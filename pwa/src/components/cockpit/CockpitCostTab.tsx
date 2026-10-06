@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import styles from "./CockpitCostDensity.module.css";
 import { CockpitCostModel } from "@/components/cockpit/CockpitCostModel";
 import { CockpitFuelCostModel } from "@/components/cockpit/CockpitFuelCostModel";
 import { ProjectCostFormat } from "@/components/cockpit/ProjectCostFormat";
@@ -82,10 +83,9 @@ export function CockpitCostTab({ projectId, allowEdit = true, initialRenderer, i
       ? <CockpitCostModel projectId={projectId} allowEdit={allowEdit} initialData={initialData?.main} />
       : <ProjectCostFormat projectId={projectId} allowEdit={allowEdit} initialData={initialData?.main} />;
 
-  if (options.length < 2) return body;
   return (
-    <div className="flex min-w-0 flex-col gap-3" data-testid="cockpit-cost-tab">
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#e5e5e7] bg-white px-4 py-3">
+    <div className={`${styles.dense} flex min-w-0 flex-col gap-2`} data-testid="cockpit-cost-tab">
+      {options.length > 1 && <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[#e5e5e7] bg-white px-2 py-1">
         <span className="text-[12px] font-semibold text-[#1d1d1f]">試算</span>
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="試算の切り替え" data-testid="cockpit-cost-model-switch">
           {options.map((option) => (
@@ -94,13 +94,13 @@ export function CockpitCostTab({ projectId, allowEdit = true, initialRenderer, i
               type="button"
               aria-pressed={option.key === active}
               onClick={() => setChoice(option.key)}
-              className={`min-h-9 rounded-md border px-3 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#027fdc] ${option.key === active ? "border-[#1d1d1f] bg-[#1d1d1f] text-white" : "border-[#d2d2d7] bg-white text-[#1d1d1f] hover:bg-[#f5f5f7]"}`}
+              className={`min-h-9 rounded-md border px-2 xl:min-h-7 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#027fdc] ${option.key === active ? "border-[#1d1d1f] bg-[#1d1d1f] text-white" : "border-[#d2d2d7] bg-white text-[#1d1d1f] hover:bg-[#f5f5f7]"}`}
             >
               {option.label}
             </button>
           ))}
         </div>
-      </div>
+      </div>}
       {body}
     </div>
   );

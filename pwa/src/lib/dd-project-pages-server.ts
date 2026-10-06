@@ -4,7 +4,7 @@ import { loadProjectOrganizationChart } from "./project-organization-chart-serve
 import { loadProjectGovernance } from "./project-governance-server";
 import "server-only";
 import { loadProjectMarketResearch } from "./project-market-research-server";
-import { loadShortTermPlanDocument } from "./project-short-term-plan-server";
+import { loadShortTermPlanDocument, loadLongTermPlanDocument } from "./project-short-term-plan-server";
 import { loadProjectDevelopmentIssues } from "./project-development-issues-server";
 import { loadProjectContractList } from "./project-contract-list-server";
 import { createAdminClient } from "./supabase/admin";
@@ -55,7 +55,11 @@ export async function loadDdProjectPage(projectId: string, page: string): Promis
       partnerInteractions: [], partnerRoles: [], technicalTests: [], fundingSnapshots: [], organizationRoles: [], raci: [], capacity: [], history: [], fieldAudit: [], canManage: false };
     return { ...base, page, management };
   }
-  if (page === "business-plan" || page === "long-term-plan") return { ...base, page, plan: await loadProjectBusinessPlan(projectId) };
+  if (page === "long-term-plan") {
+    const available = Boolean(await loadLongTermPlanDocument(db, projectId));
+    return { ...base, page, available, plan: available ? null : await loadProjectBusinessPlan(projectId) };
+  }
+  if (page === "business-plan") return { ...base, page, plan: await loadProjectBusinessPlan(projectId) };
   if (page === "company" || page === "capital-policy") {
     // キラー要素の状態・根拠・集計は社内コックピット専用。DDでは取得もしない。
     const [governance, business] = await Promise.all([

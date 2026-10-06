@@ -1,6 +1,7 @@
 "use client";
 import { usePathname } from "next/navigation";
-export function DdShortTermPlan({ available }: { available: boolean }) {
+export function DdShortTermPlan({ available, term = "short" }: { available: boolean; term?: "short" | "long" }) {
   const pathname = usePathname();
-  return available ? <iframe title="短期計画・15か月計画のガント" src={`${pathname}/short-term-plan-document`} sandbox="" className="h-[1100px] w-full rounded-xl border border-slate-200 bg-white" /> : <p className="py-4 text-sm text-slate-500">短期計画は未登録。</p>;
+  const label = term === "short" ? "短期計画" : "長期計画";
+  return available ? <iframe title={term === "short" ? "短期計画・15か月計画のガント" : "長期計画・IPOまでのガント"} src={`${pathname}/${term}-term-plan-document`} sandbox="" className="h-[1100px] w-full rounded-xl border border-slate-200 bg-white" /> : <p className="py-4 text-sm text-slate-500">{label}は未登録。</p>;
 }

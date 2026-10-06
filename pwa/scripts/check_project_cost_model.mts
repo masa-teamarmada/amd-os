@@ -419,7 +419,7 @@ assert.ok(
   const controls = read(files[1]);
   assert.match(main, /computeCostModel\(working, \{ strain/, "画面は選んだ株と試算中の変更で計算する");
   assert.match(main, /CostControlsPanel[\s\S]*CostResultsPanel/, "操作パネルと結果を同じ枠に並べる");
-  assert.match(main, /xl:grid-cols-\[minmax\(0,1fr\)_460px\]/, "デスクトップは操作パネルと結果の2列");
+  assert.match(main, /xl:grid-cols-\[minmax\(0,1fr\)_380px\]/, "デスクトップは操作パネルと結果の2列");
   assert.match(main, /CostResultsSummaryBar/, "スマホ幅は結果の要約を上に固定する");
   assert.match(main, /sticky top-0 z-20 xl:hidden/, "要約はスマホ幅だけ固定");
   assert.match(main, /この値を保存/, "保存は admin の「この値を保存」から");

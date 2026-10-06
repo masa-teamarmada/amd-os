@@ -380,13 +380,13 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
           type="button"
           onClick={() => setShowAllRows((v) => !v)}
           aria-pressed={showAllRows}
-          className="ml-auto min-h-[36px] rounded-md border border-[#d2d2d7] bg-white px-2 text-[11px] font-semibold text-[#3c3c43] hover:border-[#7cbceb] xl:min-h-[26px]"
+          className="ml-auto min-h-[36px] rounded-md border border-[#d2d2d7] bg-white px-2 text-[11px] font-semibold text-[#3c3c43] hover:border-[#7cbceb] xl:min-h-[24px]"
           title="明細の行を、選んだ株・用途・方式・装置に効く行だけにするか、すべて出すか"
         >
           {showAllRows ? "選んだ組み合わせの行だけにする" : `すべての行を出す（明細${allItems.length}行）`}
         </button>
       </nav>
-      <div className="flex flex-col gap-4 px-3 pb-6 pt-3">
+      <div className="flex flex-col gap-2 px-2 pb-3 pt-2">
         {scenario && (
           <CostBreakdownGuide
             id="cm-breakdown"
@@ -412,7 +412,7 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
           </section>
         )}
         {blocks.map(({ block, rendered }) => (
-          <section key={block.key} id={`cm-block-${block.key}`} aria-label={block.title} className="scroll-mt-12 rounded-lg border border-[#e5e5e7] px-2.5 py-2">
+          <section key={block.key} id={`cm-block-${block.key}`} aria-label={block.title} className="scroll-mt-12 rounded-lg border border-[#e5e5e7] px-2 py-1">
             <h4 className="text-[13px] font-semibold text-[#1d1d1f]">{block.title}</h4>
             <p className="text-[10px] leading-4 text-[#6e6e73]">{block.hint}</p>
             <div className="mt-1 flex flex-wrap gap-x-1 gap-y-0.5" aria-label={`${block.title}の区分`}>
@@ -427,7 +427,7 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
                 </button>
               ))}
             </div>
-            <div className="mt-2 flex flex-col gap-3">{rendered.map(({ node }) => node)}</div>
+            <div data-cost-condition-groups={block.key === "conditions" ? "true" : undefined} className="mt-1 flex flex-col gap-1.5">{rendered.map(({ node }) => node)}</div>
           </section>
         ))}
       </div>
@@ -435,7 +435,7 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
   );
 }
 
-const NAV_BUTTON = "min-h-[36px] shrink-0 rounded-md px-2 text-[11px] font-semibold text-[#3c3c43] hover:bg-[#e8f3fc] hover:text-[#0267b2] xl:min-h-[26px]";
+const NAV_BUTTON = "min-h-[36px] shrink-0 rounded-md px-2 text-[11px] font-semibold text-[#3c3c43] hover:bg-[#e8f3fc] hover:text-[#0267b2] xl:min-h-[24px]";
 
 /**
  * 内訳の区分の額を比例して動かす前提 (金額の行ではない)。菌体費は使い切る菌体の量と、菌体1kgの原価の割り算 (販売率・上書き) で動く。
@@ -452,7 +452,7 @@ const COST_BREAKDOWN_DRIVERS: Record<string, BreakdownGuideDriver[]> = {
 /** 前提の下に出す、いまの数字での割り算の箱。選んだ組み合わせで効かない割り算は薄く出す。 */
 function Formula({ children, testId, muted = false }: { children: ReactNode; testId?: string; muted?: boolean }) {
   return (
-    <p className={`mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 text-[11px] leading-5 text-[#3c3c43] ${muted ? "opacity-50" : ""}`} data-testid={testId}>
+    <p className={`mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 xl:py-0.5 text-[11px] leading-5 text-[#3c3c43] ${muted ? "opacity-50" : ""}`} data-testid={testId}>
       {children}
     </p>
   );
@@ -514,7 +514,7 @@ function AssumptionControl({
   mutedNote: string | null;
 }) {
   const choices = a.roleKey ? TEXT_CHOICE_ROLES[a.roleKey] : undefined;
-  const rowClass = `flex flex-col gap-1 py-1.5 xl:flex-row xl:items-center xl:gap-2 ${mutedNote ? "opacity-50" : ""}`;
+  const rowClass = `flex flex-col gap-1 py-1.5 xl:py-0.5 xl:flex-row xl:items-center xl:gap-2 ${mutedNote ? "opacity-50" : ""}`;
   if (choices) {
     const current = a.valueText ?? choices[choices.length - 1].value;
     return (
@@ -588,7 +588,7 @@ function AssumptionControl({
 /** オンサイトの槽を SX が持つときだけ、既設か新設かを選ぶ (槽を顧客が持つとき・オフサイトは選ぶものが無いので出さない)。 */
 function TankModeControl({ value, onChange }: { value: CostTankMode; onChange: (tankMode: CostTankMode) => void }) {
   return (
-    <li className="flex flex-col gap-1 py-1.5 xl:flex-row xl:items-center xl:gap-2">
+    <li className="flex flex-col gap-1 py-1.5 xl:py-0.5 xl:flex-row xl:items-center xl:gap-2">
       <div className="min-w-0 flex-1 text-[12px] leading-5 text-[#1d1d1f]">
         オンサイトの槽は既設か新設か
         <span className="block text-[10px] leading-4 text-[#6e6e73]">既設はSXの負担0円、新設は新設槽CAPEX ÷ 償却年数</span>
@@ -616,7 +616,7 @@ function TargetControl({
 }) {
   const offsitePriced = typeof resolveAssumption(working.assumptions, "offsite_sale_price")?.value === "number";
   return (
-    <li className="flex flex-col gap-1 py-1.5 xl:flex-row xl:items-center xl:gap-2">
+    <li className="flex flex-col gap-1 py-1.5 xl:py-0.5 xl:flex-row xl:items-center xl:gap-2">
       <div className="min-w-0 flex-1 text-[12px] leading-5 text-[#1d1d1f]">
         総コスト目標{offsitePriced ? "（オンサイト）" : ""}
         <NoteToggle note={working.model.targetNote} />
@@ -669,7 +669,7 @@ function BiomassFormula({ biomass: b, unit }: { biomass: CostBiomassCost; unit: 
     ["菌体量に比例する費用", "培地・CO2・濃縮など 1kgあたりの単価", row("variable")],
   ];
   return (
-    <div className="mb-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 text-[11px] leading-5 text-[#3c3c43]" data-testid="cost-biomass-formula">
+    <div className="mb-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 xl:py-0.5 text-[11px] leading-5 text-[#3c3c43]" data-testid="cost-biomass-formula">
       <p className="font-semibold text-[#1d1d1f]">
         {b.strainLabel ? `${b.strainLabel}の` : ""}菌体1kgの原価{" "}
         <span className="tabular-nums">{num(b.perKg)} 円/kg</span>
@@ -793,7 +793,7 @@ function TaskList({
                 return (
                   <li
                     key={t.costTaskId}
-                    className={`grid grid-flow-row-dense grid-cols-2 gap-x-2 gap-y-1 py-1.5 xl:grid-flow-row xl:grid-cols-[minmax(0,1fr)_78px_150px_92px_56px] xl:items-center xl:gap-x-1.5 ${applies ? "" : "opacity-50"}`}
+                    className={`grid grid-flow-row-dense grid-cols-2 gap-x-2 gap-y-1 py-1.5 xl:py-0.5 xl:grid-flow-row xl:grid-cols-[minmax(0,1fr)_78px_150px_92px_56px] xl:items-center xl:gap-x-1.5 ${applies ? "" : "opacity-50"}`}
                   >
                     <div className="col-span-2 min-w-0 text-[12px] leading-5 text-[#1d1d1f] xl:col-span-1">
                       {t.label}
@@ -917,7 +917,7 @@ function TaskList({
         );
       })}
       {scenario && (
-        <p className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 text-[11px] leading-5 text-[#3c3c43]">
+        <p className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 xl:py-0.5 text-[11px] leading-5 text-[#3c3c43]">
           選んだ方式・装置でSXがやる作業（運ぶ・運転・保守・管理） <span className="font-semibold tabular-nums">{num(scenario.siteTaskPerUnit)} 円/{unit}</span>
           （年 {yen(scenario.siteTaskAnnual)}・{int(scenario.siteTaskHours)}時間）。
 {PRODUCTION_SITE_LABEL}の作業は年 {yen(b.tasksAnnual)}（{int(b.taskHoursAnnual)}時間）で、菌体1kgあたり {num(b.rows.find((r) => r.key === "tasks")?.perKg ?? 0)} 円として菌体費に入る。
@@ -997,7 +997,7 @@ function ItemRows({
           return (
             <li
               key={i.costItemId}
-              className={`grid grid-cols-2 gap-x-2 gap-y-1 py-1.5 xl:grid-cols-[minmax(0,1fr)_64px_128px_64px_56px] xl:items-center xl:gap-x-1.5 ${applies ? "" : "opacity-50"}`}
+              className={`grid grid-cols-2 gap-x-2 gap-y-1 py-1.5 xl:py-0.5 xl:grid-cols-[minmax(0,1fr)_64px_128px_64px_56px] xl:items-center xl:gap-x-1.5 ${applies ? "" : "opacity-50"}`}
             >
               <div className="col-span-2 min-w-0 text-[12px] leading-5 text-[#1d1d1f] xl:col-span-1">
                 {costItemLabel(i)}

@@ -240,6 +240,7 @@ const nextConfig: NextConfig = {
         headers: ddPublicationFileSecurityHeaders,
       },
       { source: "/dd/:slug/short-term-plan-document", headers: ddPublicationFileSecurityHeaders },
+      { source: "/dd/:slug/long-term-plan-document", headers: ddPublicationFileSecurityHeaders },
       {
         source: "/api/bzm-reader/asset/:path*",
         headers: bzmReaderAssetSecurityHeaders,

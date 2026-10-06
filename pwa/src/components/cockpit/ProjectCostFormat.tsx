@@ -183,7 +183,7 @@ export function ProjectCostFormat({ projectId, allowEdit = true, initialData }: 
   const caseLabel = current ? `${caseOptionLabel(current, unit)}/年${current.label ? `（${current.label}）` : ""}` : volume > 0 ? `${int(volume)}${unit}/年` : "年間の量は未登録";
 
   return (
-    <div className="flex flex-col gap-3" data-testid="project-cost-format">
+    <div className="flex flex-col gap-2" data-testid="project-cost-format">
       <div className="rounded-xl border border-[#e5e5e7] bg-white">
         <h2 className="sr-only">{model.title}</h2>
         {/* スマホ幅: 結果の要約を上に固定する */}
@@ -315,7 +315,7 @@ export function ProjectCostFormat({ projectId, allowEdit = true, initialData }: 
         </section>
 
         {/* 前提と作業（左）と、要約・ケースの比較・原価の内訳（右）。デスクトップは画面の下端まで、操作パネルの中だけスクロールする */}
-        <div ref={panesRef} className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_460px]" style={paneHeight ? { height: paneHeight } : undefined}>
+        <div ref={panesRef} className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]" style={paneHeight ? { height: paneHeight } : undefined}>
           <section data-cost-section="inputs" aria-label={sectionLabel("inputs")} className="order-2 min-h-0 xl:order-1 xl:border-r xl:border-[#e5e5e7]">
             <CostFormatControls
               saved={bundle}
@@ -331,7 +331,7 @@ export function ProjectCostFormat({ projectId, allowEdit = true, initialData }: 
           <section
             data-cost-section="results"
             aria-label={sectionLabel("results")}
-            className="order-1 min-h-0 border-b border-[#e5e5e7] p-3 xl:order-2 xl:overflow-y-auto xl:border-b-0"
+            className="order-1 min-h-0 border-b border-[#e5e5e7] p-2 xl:order-2 xl:overflow-y-auto xl:border-b-0"
           >
             <CostFormatResults
               unit={unit}

@@ -314,7 +314,7 @@ check("燃料のシミュレーターの画面の約束（排水処理のコス�
   const results = read("src/components/cockpit/CockpitFuelCostModelResults.tsx");
   const reading = read("src/components/cockpit/CockpitFuelCostModelReading.tsx");
   // 操作パネルと結果を同じ枠に2列、スマホ幅は要約を上に固定
-  assert.match(main, /xl:grid-cols-\[minmax\(0,1fr\)_460px\]/);
+  assert.match(main, /xl:grid-cols-\[minmax\(0,1fr\)_380px\]/);
   assert.match(main, /sticky top-0 z-20 xl:hidden/);
   assert.match(main, /FuelResultsSummaryBar/);
   // 保存は編集できる人だけ、「この値を保存」から。入力のたびに保存しない
@@ -475,9 +475,9 @@ check("コスト試算（廃液・燃料）共通: 明細の行の下に、数�
 
   // 画面: 両方の操作パネルの明細の行に、計算と根拠を出す。根拠は「説明」を押さなくても読める
   const calcUi = read("src/components/cockpit/CockpitCostItemCalc.tsx");
-  assert.match(calcUi, /data-testid="cost-item-calc"/);
-  assert.match(calcUi, /data-testid="cost-item-note"/);
-  assert.match(calcUi, /line-clamp-2/, "長い根拠は2行で畳む");
+  assert.match(calcUi, /testId="cost-item-calc"/);
+  assert.match(calcUi, /testId="cost-item-note"/);
+  assert.match(calcUi, /line-clamp-2/, "長い根拠は狭い画面で2行、デスクトップで1行の予告から全文を開ける");
   const fuelControls = read("src/components/cockpit/CockpitFuelCostModelControls.tsx");
   const fuelRowsSrc = fuelControls.slice(fuelControls.indexOf("function FuelItemRows("));
   assert.match(fuelRowsSrc, /<ItemCalcLine calc=\{fuelItemCalc\(i, current, ctx\)\} \/>/);

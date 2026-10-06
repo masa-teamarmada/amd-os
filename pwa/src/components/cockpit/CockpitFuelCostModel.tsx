@@ -252,7 +252,7 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData 
   };
 
   return (
-    <div className="flex flex-col gap-3" data-testid="fuel-cost-model">
+    <div className="flex flex-col gap-2" data-testid="fuel-cost-model">
       <div className="rounded-xl border border-[#e5e5e7] bg-white" data-testid="fuel-cost-simulator">
         <h2 className="sr-only">{model.title}</h2>
         {/* スマホ幅: 結果の要約を上に固定する */}
@@ -261,8 +261,8 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData 
         </div>
 
         {/* 切り替えと、保存していない変更 */}
-        <div className="relative flex flex-col gap-2 border-b border-[#e5e5e7] px-3 py-2 xl:flex-row xl:items-center xl:justify-between">
-          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:flex xl:flex-wrap xl:items-center xl:gap-x-4">
+        <div className="relative flex flex-col gap-2 border-b border-[#e5e5e7] px-2 py-1 xl:flex-row xl:flex-wrap xl:items-center xl:justify-between">
+          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:flex xl:w-full xl:flex-wrap xl:items-center xl:gap-x-3">
             {/* 見出しが株・用途より長いので、切り替えの部品の外に置いて幅を取らせる */}
             <div className="flex min-w-0 items-center gap-1.5">
               <span className="w-[4.5rem] shrink-0 text-[11px] font-semibold text-[#3c3c43] xl:w-auto">FAME転換</span>
@@ -400,7 +400,7 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData 
         {/* 操作パネル（左）と結果（右）。デスクトップは画面の下端まで、操作パネルの中だけスクロールする */}
         <div
           ref={panesRef}
-          className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_460px]"
+          className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]"
           style={paneHeight ? { height: paneHeight } : undefined}
         >
           <div className="order-2 min-h-0 xl:order-1 xl:border-r xl:border-[#e5e5e7]">
@@ -414,7 +414,7 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData 
               scrollable={paneHeight !== null}
             />
           </div>
-          <div className="order-1 min-h-0 border-b border-[#e5e5e7] p-3 xl:order-2 xl:overflow-y-auto xl:border-b-0">
+          <div className="order-1 min-h-0 border-b border-[#e5e5e7] p-2 xl:order-2 xl:overflow-y-auto xl:border-b-0">
             <FuelResultsPanel
               computed={computed}
               baseline={baseline}

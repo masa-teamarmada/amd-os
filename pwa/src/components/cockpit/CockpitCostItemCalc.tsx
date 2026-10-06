@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { CalcSegment, CalcTerm, ItemCalc } from "@/lib/cost-item-calc";
 import { num } from "@/components/cockpit/CockpitCostModelParts";
 
@@ -42,9 +42,7 @@ function Segment({ segment, last }: { segment: CalcSegment; last: boolean }) {
 export function ItemCalcLine({ calc }: { calc: ItemCalc | null }) {
   if (!calc || calc.segments.length === 0) return null;
   return (
-    <div className="flex gap-1.5 text-[10px] leading-4 text-[#3c3c43]" data-testid="cost-item-calc">
-      <span className="shrink-0 font-semibold text-[#6e6e73]">計算</span>
-      <p className="min-w-0 tabular-nums">
+    <CostDetailLine label="計算" testId="cost-item-calc" signature={JSON.stringify(calc)}>
         {calc.price && (
           <>
             単価 ＝ <Segment segment={calc.price} last={false} />
@@ -58,41 +56,41 @@ export function ItemCalcLine({ calc }: { calc: ItemCalc | null }) {
           </span>
         ))}
         {calc.excluded && <span className="font-semibold text-[#b45309]">（{calc.excluded}）</span>}
-      </p>
-    </div>
+    </CostDetailLine>
   );
 }
 
-/** 明細の説明を「根拠」として行の中に出す。長い説明は2行で畳み、「続きを読む」で開く。 */
-export function ItemNoteLine({ note }: { note: string | null }) {
-  const text = note?.trim() ?? "";
+/** 長い計算・根拠も全文を保持し、必要な行だけ開ける。 */
+function CostDetailLine({ label, testId, signature, children }: { label: string; testId: string; signature: string; children: ReactNode }) {
   const ref = useRef<HTMLParagraphElement>(null);
   const [open, setOpen] = useState(false);
   const [overflowing, setOverflowing] = useState(false);
   useEffect(() => {
     const el = ref.current;
     if (!el || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(() => setOverflowing(el.scrollHeight > el.clientHeight + 1));
+    const measure = () => setOverflowing(el.scrollHeight > el.clientHeight + 1);
+    measure();
+    const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [text]);
+  }, [signature]);
   return (
-    <div className="flex gap-1.5 text-[10px] leading-4" data-testid="cost-item-note">
-      <span className="shrink-0 font-semibold text-[#6e6e73]">根拠</span>
-      {text ? (
-        <div className="min-w-0">
-          <p ref={ref} className={`whitespace-pre-line text-[#6e6e73] ${open ? "" : "line-clamp-2"}`}>
-            {text}
-          </p>
-          {(open || overflowing) && (
-            <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="font-semibold text-[#0267b2] hover:underline">
-              {open ? "閉じる" : "続きを読む"}
-            </button>
-          )}
-        </div>
-      ) : (
-        <span className="text-[#86868b]">書かれていない</span>
+    <div className="flex items-start gap-1.5 text-[10px] leading-4" data-testid={testId}>
+      <span className="shrink-0 font-semibold text-[#6e6e73]">{label}</span>
+      <p ref={ref} className={`min-w-0 flex-1 whitespace-pre-line tabular-nums text-[#6e6e73] ${open ? "" : "line-clamp-2 xl:line-clamp-1"}`}>
+        {children}
+      </p>
+      {(open || overflowing) && (
+        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label={`${label}を${open ? "閉じる" : "全文表示"}`} className="min-h-8 shrink-0 font-semibold text-[#0267b2] hover:underline xl:min-h-0">
+          {open ? "閉じる" : "全文"}
+        </button>
       )}
     </div>
   );
+}
+
+/** 明細の説明。省略は表示だけで、根拠本文を削らない。 */
+export function ItemNoteLine({ note }: { note: string | null }) {
+  const text = note?.trim() ?? "";
+  return <CostDetailLine label="根拠" testId="cost-item-note" signature={text}>{text || "書かれていない"}</CostDetailLine>;
 }
