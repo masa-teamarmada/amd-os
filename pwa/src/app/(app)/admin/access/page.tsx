@@ -11,8 +11,8 @@ export const dynamic = "force-dynamic";
 export default function AdminWorkspaceAccessPage() {
   return (
     <div>
-      <div className="mb-2 flex items-baseline gap-3">
-        <h1 className="text-lg font-semibold">外部アクセス権限</h1>
+      <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h1 className="text-lg font-semibold whitespace-nowrap">外部アクセス権限</h1>
         <span className="text-sm text-muted-foreground">人ごとに、見られる場所を管理</span>
       </div>
       <p className="mb-4 text-xs text-muted-foreground">
