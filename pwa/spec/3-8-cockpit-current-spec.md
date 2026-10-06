@@ -540,3 +540,6 @@ PJ管理に「月次報告書」（`?tab=monthly-reports`）を常設する。�
 検査: test:capital-plan-workspace（修正対象解決・重複排除・割当入力後の提出可否）/test:capital-plan。同種説明の所在は[監査一覧](audits/ui-meta-copy-20261006.md)へ記録。他画面は未削除。保存失敗・未登録・操作確認・根拠日時は維持する。
 
 2026-10-06 v3.159.25: 本番の手動基準プランも確認。調達条件セクションの先頭に計算基準を配置し、カードから選択にフォーカス。手動の場合は評価額・単価・割当株数・出資額が必要と案内。方式の切替・手動入力のいずれでも解決できる。資本条件の値は変更しない。
+
+
+2026-10-06: WorkspaceDocumentRoomの全非folder行（file/link/report）に「URLコピー」と「URLを表示」を追加。workspaceDocumentViewHrefとwindow.location.originから絶対閲覧URLを作る。署名URLを取得せず、既存認可routeまたはsurfaceのviewHref/reportHrefを維持する。Clipboard成功後のみ完了通知、拒否時はreadonly入力のURLダイアログで手動コピーへ誘導。canManage/canUpload/canDownloadに依存せず閲覧者が利用できる。共通部品なのでcockpit/workspace/DDに適用し、DDは初期DTOのviewHrefを使う。DB・認可変更なし。

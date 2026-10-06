@@ -13,6 +13,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ChevronRight,
+  Copy,
   Download,
   ExternalLink,
   File,
@@ -35,7 +36,6 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -279,6 +279,27 @@ export function WorkspaceDocumentRoom({
   const [folderDropPath, setFolderDropPath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [urlItem, setUrlItem] = useState<DocumentItem | null>(null);
+  const [documentUrl, setDocumentUrl] = useState("");
+  const [urlNotice, setUrlNotice] = useState<string | null>(null);
+
+  function showDocumentUrl(item: DocumentItem) {
+    setUrlItem(item);
+    setDocumentUrl(new URL(workspaceDocumentViewHref(item), window.location.origin).href);
+    setUrlNotice(null);
+  }
+
+  async function copyDocumentUrl(item: DocumentItem) {
+    const url = new URL(workspaceDocumentViewHref(item), window.location.origin).href;
+    try {
+      await navigator.clipboard.writeText(url);
+      setNotice(`${item.displayName}のURLをコピーしました`);
+      setUrlNotice("URLをコピーしました");
+    } catch {
+      showDocumentUrl(item);
+      setUrlNotice("自動コピーできませんでした。下のURLを選択してコピーしてください。");
+    }
+  }
   const [dialog, setDialog] = useState<DialogKind>(null);
   // 編集タブから戻る先。資料室はPJ配下でも共有画面でも使われるので、決め打ちにしない。
   const pathname = usePathname();
@@ -1460,6 +1481,16 @@ export function WorkspaceDocumentRoom({
                           entryKind={item.entryKind}
                         />
                       </div>
+                      {item.entryKind !== "folder" && (
+                        <button
+                          type="button"
+                          onClick={() => showDocumentUrl(item)}
+                          className="min-h-11 text-xs text-slate-600 underline underline-offset-2 hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 xl:min-h-0 xl:py-1"
+                          aria-label={`${item.displayName}のURLを表示`}
+                        >
+                          URLを表示
+                        </button>
+                      )}
                       <p className="truncate text-[10px] text-slate-500">
                         {query && item.folderPath
                           ? `${item.folderPath} ・ `
@@ -1480,6 +1511,17 @@ export function WorkspaceDocumentRoom({
                     </p>
                   </div>
                   <div className="col-span-2 flex min-h-11 flex-wrap items-center justify-start gap-1.5 xl:col-span-1 xl:min-h-0 xl:justify-end">
+                    {item.entryKind !== "folder" && (
+                      <button
+                        type="button"
+                        onClick={() => void copyDocumentUrl(item)}
+                        className={cn(styles.secondaryAction, "inline-flex h-11 items-center gap-1.5 rounded-md px-3 text-xs font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 xl:h-9 xl:px-2.5")}
+                        aria-label={`${item.displayName}のURLをコピー`}
+                      >
+                        <Copy className="h-4 w-4" aria-hidden />
+                        URLコピー
+                      </button>
+                    )}
                     {!initialDocuments && canDownload && (item.entryKind === "file" || item.entryKind === "link") && isWorkspaceDocumentHtml(item.mimeType, item.displayName) ? (
                       <button
                         type="button"
@@ -1562,6 +1604,25 @@ export function WorkspaceDocumentRoom({
           </div>
         </section>
       </main>
+
+      <Dialog open={urlItem !== null} onOpenChange={(open) => !open && setUrlItem(null)}>
+        <DialogContent className="w-[calc(100vw-32px)] max-w-lg bg-white text-slate-950">
+          <DialogHeader>
+            <DialogTitle>ファイルのURL</DialogTitle>
+            <DialogDescription className="break-words">{urlItem?.displayName}</DialogDescription>
+          </DialogHeader>
+          <label className="space-y-2 text-sm">
+            <span>閲覧URL</span>
+            <Input aria-label="ファイルの閲覧URL" readOnly value={documentUrl} onFocus={(event) => event.currentTarget.select()} />
+          </label>
+          <p className="text-xs text-slate-500">開くには、この資料の閲覧権限が必要です。</p>
+          {urlNotice && <p role="status" className="text-sm text-slate-700">{urlNotice}</p>}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUrlItem(null)}>閉じる</Button>
+            <Button onClick={() => urlItem && void copyDocumentUrl(urlItem)}><Copy className="h-4 w-4" aria-hidden />URLコピー</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={dialog === "upload_conflict"}

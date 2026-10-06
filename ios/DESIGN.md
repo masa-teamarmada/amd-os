@@ -654,3 +654,6 @@ PWAのコックピット月報は月/版プルダウンと編集/保存を同一
 2026-10-06 v3.159.25追補: Web調達条件の先頭に計算基準を配置。手動の場合の必要入力を案内。ネイティブ未移植。
 
 - 2026-10-06 PWA: Chromeタブ列の選択中タイトルへ▶を追加、PJ/コックピット・ワークスペース・DD/ページ名を表示。可視状態の切替とmetadata更新へ追従。manifest/viewportは淡いグレー。PWA固有のアプリ窓変更、Swift/iOS/macOS/Androidコード・DB・GAS・理論変更なし。正本pwa/spec/2-1。
+
+
+2026-10-06: PWAのPJドライブ（共通WorkspaceDocumentRoom）でファイルURLの表示・コピーを追加。閲覧権限は既存のまま。iOS/macOS/AndroidのネイティブUIは未移植。
