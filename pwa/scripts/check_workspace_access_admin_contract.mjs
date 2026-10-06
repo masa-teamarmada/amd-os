@@ -290,7 +290,7 @@ assert.ok(
 );
 
 const projectTableWrites = [...routeCode.matchAll(/\.from\("project_access_memberships"\)/g)].length;
-const projectScopedFns = ["createProjectMembership", "patchProjectMembership"]
+const projectScopedFns = ["createProjectMembership", "patchProjectMembership", "createProjectViewer"]
   .map((name) => functionBlock(routeCode, `async function ${name}(`))
   .join("\n");
 assert.equal(
@@ -317,9 +317,11 @@ assert.ok(
   "admin/access/page.tsx must render the WorkspaceAccessAdminPanel",
 );
 
-for (const heading of ["外部メールアカウント", "研究機関ワークスペース権限", "個別PJ権限"]) {
-  assert.ok(panelSource.includes(heading), `the admin panel must have a clearly separated "${heading}" section`);
+for (const heading of ["見られる場所", "人を追加", "名前を保存"]) {
+  assert.ok(panelSource.includes(heading), `the person editor must include ${heading}`);
 }
+assert.ok(!pageSource.includes("<DdGrantLedger"), "DD must be integrated into the person list");
+assert.ok(panelSource.includes('action: "grant_project_viewer"'), "new project access must default to workspace viewing only");
 assert.ok(
   panelSource.includes("機関の権限は、個別PJの権限を含まない"),
   "the admin panel must state that institution permission does not include individual PJ permission",
@@ -328,7 +330,7 @@ assert.ok(
 const panelFetches = [...panelSource.matchAll(/fetch\(\s*"([^"]+)"/g)].map((match) => match[1]);
 assert.ok(panelFetches.length > 0, "the admin panel must call the admin API");
 for (const url of panelFetches) {
-  assert.equal(url, "/api/admin/workspace-access", `the admin panel must only call its own admin API (found ${url})`);
+  assert.ok(["/api/admin/workspace-access", "/api/admin/dd"].includes(url), `unknown admin API ${url}`);
 }
 
 // --- 9. list reads are complete or explicitly fail --------------------------------------------
@@ -352,3 +354,9 @@ for (const table of [
 }
 
 console.log("check_workspace_access_admin_contract.mjs: OK");
+
+const viewer = functionBlock(routeCode, "async function createProjectViewer(");
+assert.ok(!viewer.includes("institution_workspace_memberships") && !viewer.includes(".rpc("), "viewer creation must not grant institution/kernel access");
+assert.ok(viewer.includes('role: "readonly"') && viewer.includes('account.status === "suspended"'), "viewer creation must be readonly and refuse stopped accounts");
+assert.ok(viewer.includes('if (existing) return conflict'), "viewer creation must not reactivate a stopped grant");
+assert.ok(viewer.includes('recordWorkspaceAuditEvent'), "viewer creation must be audited");

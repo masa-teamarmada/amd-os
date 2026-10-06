@@ -1179,3 +1179,5 @@ BZM/modelの変更なし。
 1契約1行の比較表、検索・状態絞り込み・並び順、選択契約だけの文書・経緯モーダルへ変更。履歴は20件ずつ追加し、初期一覧で全契約の文書・履歴を取得しない。
 
 2026-10-06: 経営陣略歴は project_config の management_biographies（JSON文字列、version=1、profiles、sourceRef）から明示登録されたプロフィールのみ取得し、共通本文で表示する。profilesは氏名・読み・肩書・概要・兼職・年月付き学歴職歴・受賞歴。DD認可後に取得し、未登録は資料未登録。PJ参加者や雇用情報から経歴・新会社の役職を推定しない。SOL p21に山地正洋の公式書類用プロフィールを登録。パッケージの公開・閲覧権限・正式PDF掲載設定は変更しない。
+
+- 2026-10-06 JST: 人別アクセスUI、DD付きpagination GET、readonly限定grant_project_viewer、account表示名PATCH、same-origin POST/PATCHを追加。

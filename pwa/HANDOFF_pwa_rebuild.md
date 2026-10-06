@@ -467,3 +467,6 @@ Slackと管理画面で、メール再入力や台帳の別登録を挟まず申
 | 履歴 | spec/6-1 | manual/9-3 | 同期済み |
 | 他プラットフォーム | ios/DESIGN | 対象外 | ネイティブ管理UI未移植 |
 | 理論 | 対象外 | 対象外 | 理論変更なし |
+
+### 2026-10-06 外部アクセスの人別編集
+PWA `/admin/access` は一人一行の一覧と編集ダイアログ。DDを別メール一覧から統合。workspace GETにDDを追加、POST grant_project_viewerはreadonly workspaceのみ。既存kind/RPCは維持。POST/PATCH same-originチェック追加。iOS/macOSは未移植、同じ認可APIと独立grant境界を利用すること。

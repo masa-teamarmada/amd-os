@@ -224,3 +224,6 @@ migration 212 / 213 / 216〜219 / 258 と対になる contract。212 / 213は202
 検証: 同じ本番データ3回のローカル直接読取り中央値は旧1093ms→新295ms。UTF-8の返却量は1,210,314→358,405 bytes（約70%削減）。サーバ保持中の追加DB問い合わせは0。65機関/815シーズ/736評価、ECR値、PJ由来・分類、候補順の旧新一致を確認。これらは画面全体の表示秒数とは別の測定。実行検査は `test:portfolio-home-contract`（>1000件、最新評価、同時取得、再取得、部分失敗後の回復、権限拒否）。参照キャッシュ検査にも登録し、deploy前に両検査を実行する。
 
 2026-10-06: 組織図は全PJのコックピット `?tab=organization-chart`、ワークスペース `#organization-chart`、DD `?tab=organization-chart` から共通本文を開く。領域別入場認可は維持。詳細はspec 3-23。
+
+### 2026-10-06 人ごとの外部アクセス管理
+`/admin/access` は一人一行の検索可能な一覧と単一の編集ダイアログ。GET `/api/admin/workspace-access` にDD packages/grantsの全件paginationを追加。DD編集は既存 `/api/admin/dd` のcreate_grant/update_grant。POST action `grant_project_viewer` は既存accountへのreadonly PJ membershipのみを作り、機関所属/共同正本を作らない。停止account・既存membershipは拒否し、変更を監査する。account PATCHで表示名を変更できる。POST/PATCHはsame-origin必須。旧kind経路は互換維持。

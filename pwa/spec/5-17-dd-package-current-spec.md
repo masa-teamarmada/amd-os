@@ -250,3 +250,5 @@ SOLの会社概要のデータ処理は3回中央値634→249ms、15→11リク�
 参考: [IBM Carbon 左パネル](https://www.carbondesignsystem.com/building-blocks/core/components/ui-shell-left-panel/guidelines)の2階層・山形での独立開閉、[Atlassian navigation layout](https://atlassian.design/components/navigation-system/layout/code)のナビと本文の独立領域、狭幅での折り畳みを照合。200px・灰色背景・余白の値はDDの日本語資料名と本文幅を踏まえた本OSの設計判断。
 
 2026-10-06: 経営陣略歴は project_config の management_biographies（JSON文字列、version=1、profiles、sourceRef）から明示登録されたプロフィールのみ取得し、共通本文で表示する。profilesは氏名・読み・肩書・概要・兼職・年月付き学歴職歴・受賞歴。DD認可後に取得し、未登録は資料未登録。PJ参加者や雇用情報から経歴・新会社の役職を推定しない。SOL p21に山地正洋の公式書類用プロフィールを登録。パッケージの公開・閲覧権限・正式PDF掲載設定は変更しない。
+
+2026-10-06 JST: 外部アクセス管理は人ごとの単一一覧にDD付与を統合。編集ダイアログから既存DD管理APIで許可/停止・ダウンロード可否を編集。workspaceとDDは別grantとして維持し、パッケージ公開状態は付与操作で変更しない。
