@@ -226,3 +226,8 @@ DBキャッシュを効かせた状態でもう一度測り、残った時間が
 `project-page-prefetch.ts`はコックピット・ワークスペースで選択したページの既存read clientだけを先読みする。会社概要/資本政策、技術/競合/ビジネスモデル、事業計画、コスト試算、ゴールツリー、契約リストが対象。既存のTTL・保存後invalidate・権限確認を維持し、同時取得は同じ参照キャッシュへ束ねる。全ページを一括取得しない。DDでは呼び出さない。可変workspace-bundleとCockpitDataは新たな持続キャッシュへ入れない。
 
 2026-10-06: 登録した組織・協業図はproject-organization-chart-clientからPJ単位30秒TTLで読む。DDはサーバの認可済み初期値を渡し、汎用APIを呼ばない。
+
+
+### 2026-10-06 契約の詳細取得
+
+同じ認可済みcontract-list APIへcontractIdと任意のbefore/beforeIdを渡して選択契約の詳細を読む。クライアントはPJ・契約・カーソル単位30秒の共通参照キャッシュを使い、契約名や文書・経緯のホバー・フォーカスで先読みする。一覧の履歴は取得しない。DD変更後はPJのcontract-list接頭辞をinvalidateする。認可前のDB読取りは行わず、private, no-storeを維持する。
