@@ -31,14 +31,14 @@ for (const type of TYPES) {
 }
 assert.ok(!DD_TAB_FORMAT.some(group => (group.tabs as readonly string[]).includes("killer-factors")), "DD must not expose the catalog page");
 
-const STANDARD_GROUPS = ["進捗管理", "事業計画", "ドライブ", "PJ管理", "会社情報"];
+const STANDARD_GROUPS = ["進捗管理", "事業計画", "PJ管理", "会社情報", "ドライブ"];
 for (const type of ["su", "new_business", "amd"] as const) {
   // DDパッケージのタブは、AMDの管理者が見るときだけ出る（表示条件は CockpitView の役割の判定）。PJでは出し分けない。
   assert.deepEqual(cockpitGroupsForType(type).map((group) => group.label), STANDARD_GROUPS, `${type} groups`);
 }
 assert.deepEqual(
   cockpitGroupsForType("ecosystem").map((group) => group.label),
-  ["進捗管理", "シーズリスト", "規程・内規", "ドライブ", "PJ管理", "会社情報"],
+  ["進捗管理", "シーズリスト", "規程・内規", "PJ管理", "会社情報", "ドライブ"],
 );
 // 事業計画グループの中身は大学発SU・新規事業で同じ。AMD本体は AMD Score の内訳だけを持たない。
 const businessPlan = (type: "su" | "new_business" | "amd") =>

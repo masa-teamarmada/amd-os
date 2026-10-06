@@ -14,15 +14,15 @@ for (const [domain, page] of [["競合比較", "competition"], ["ビジネスモ
 }
 const canonical = (tab: string) => tab === "cost" ? "cost-model" : tab === "drive" ? "documents" : tab;
 const dd = new Set<string>(DD_PAGE_KEYS);
-assert.equal(dd.size, 38, "33資料と既存の5ページURL");
-assert.equal(DD_ITEM_PAGES.length, 33);
+assert.equal(dd.size, 42, "39資料と既存の3ページURL");
+assert.equal(DD_ITEM_PAGES.length, 39);
 const grouped = DD_NAVIGATION_GROUPS.flatMap(group => [...group.pages]);
 assert.equal(DD_NAVIGATION_GROUPS.length, 7);
-assert.equal(grouped.length, 33, "分類に全資料を一度ずつ含める");
-assert.equal(new Set(grouped).size, 33, "分類間に重複なし");
+assert.equal(grouped.length, 39, "分類に全資料を一度ずつ含める");
+assert.equal(new Set(grouped).size, 39, "分類間に重複なし");
 assert.deepEqual([...grouped].sort(), DD_ITEM_PAGES.map(item => item.key).sort());
 assert.deepEqual(DD_NAVIGATION_GROUPS.at(-1)?.pages, ["documents"], "開示資料は最後に常設");
-assert.equal(new Set(DD_ITEM_PAGES.map(page => page.key)).size, 33);
+assert.equal(new Set(DD_ITEM_PAGES.map(page => page.key)).size, 39);
 for (const [key, label] of [["articles-of-incorporation", "定款"], ["corporate-register", "登記事項証明書"], ["internal-rules", "規程類"], ["financial-statements", "決算書"], ["tax-returns", "税務申告書"], ["team", "経営陣略歴"]]) {
   assert.equal(ddPageLabel(key), label);
   assert.ok(isDdEmptyPageKey(key), "元データを新しい正式資料へ読み替えない");
@@ -56,7 +56,15 @@ assert.throws(() => ddPageForItem("project_page", null, "project_page:slack"));
 assert.equal(PROJECT_PAGE_LABELS.activity, "沿革");
 assert.equal(dd.has("list"), false);
 const allCockpit = new Set(Object.values(COCKPIT_TAB_FORMATS).flatMap(groups => groups.flatMap(g => [...g.tabs])));
-for (const key of dd) assert.ok((allCockpit.has(key) || isDdEmptyPageKey(key)) && PROJECT_PAGE_LABELS[key], `${key}は共通ページまたは新しい資料区分`);
+for (const key of dd) assert.ok((allCockpit.has(key) || ["short-term-plan", "long-term-plan", "monthly-trial", "next-round-overview"].includes(key) || isDdEmptyPageKey(key)) && PROJECT_PAGE_LABELS[key], `${key}は共通ページまたは新しい資料区分`);
+for (const formats of [COCKPIT_TAB_FORMATS, WORKSPACE_TAB_FORMATS]) {
+  for (const groups of Object.values(formats)) {
+    assert.ok(groups.findIndex(group => group.group === "documents-group") > groups.findIndex(group => group.group === "company-information-group"));
+  }
+}
+assert.equal(ddPageLabel("business-plan"), "フェーズマトリクス");
+assert.equal(DD_NAVIGATION_GROUPS.find(group => group.key === "business")?.label, "事業計画関連");
+for (const key of ["business-model", "short-term-plan", "long-term-plan", "cost-model", "monthly-trial"]) assert.ok(grouped.includes(key as never));
 let matrix = "# 3つの領域で表示するページ\n\n◯はページを表示する。空欄は表示しない。公開内容が未登録でも、DDのページ入口は残し、本文に未登録と出す。\n\n閲覧者は、コックピット＝社内の許可されたメンバー、ワークスペース＝当該PJの参加者、DD＝当該パッケージの閲覧権限を付与した人。内部管理者のアクセスは既存どおり。\n\n";
 for (const [type, label] of [["su", "大学発SU・顧問PJ・新規事業"], ["ecosystem", "研究機関エコシステム"], ["amd", "チームアルマダ本体"]] as const) {
   const groups = COCKPIT_TAB_FORMATS[type as ProjectFormatType];
@@ -68,6 +76,6 @@ for (const [type, label] of [["su", "大学発SU・顧問PJ・新規事業"], ["
   matrix += "\n";
 }
 matrix += "DDの技術・競合比較・ビジネスモデルは `CockpitTechnology` でページ全体を表示する。掲載項目への追加や個別公開は本文の表示条件ではない。試算表・資本政策表・コスト試算・会社概要も省略版を作らず、共通ページのデータと部品を使う。キラー要素カタログは会社概要から切り出した独立ページ。全PJでコックピットの会社情報に常設し、ワークスペース・DDにはページを置かない。会社概要の本文と出力は3領域で共通に保つ（2026-10-06、v3.159.9）。契約リストも3領域共通の本文を使用する。DDでは「DDに表示」がオンの掲載対象契約だけをserverで取得し、編集操作は表示しない。ドライブの共有ファイル選択、DDの入場権限、書込み・ダウンロードの権限は独立して保つ。\n\n正本は `src/lib/project-formats.ts` の3領域のフォーマットと共通ページ名、元データの対応は `src/lib/dd-pages.ts`。新規事業は大学発SUと同じ定義。project_pageの7キー（migration 469）は正式版PDFの互換項目用に保持する。ワークスペースの動向・会議／Slackは当該PJの参加者の読み取りに限る。理論変更なし。\n";
-matrix += "\n2026-10-06: DDは33の資料入口。経営陣略歴と従業員名簿を分離し、従業員名簿は全PJタイプのコックピット・ワークスペースのみ。定款・登記・規程類・決算書・税務申告書を補完。異なる原本は別ページ、未登録は資料未登録。左メニューは7分類、初期全展開。開示資料一覧は下部常設。調査根拠とメニュー動作はspec 5-17。\n";
+matrix += "\n2026-10-06: DDは39の資料入口。経営陣略歴と従業員名簿を分離し、従業員名簿は全PJタイプのコックピット・ワークスペースのみ。定款・登記・規程類・決算書・税務申告書を補完。異なる原本は別ページ、未登録は資料未登録。左メニューは7分類、初期全展開。開示資料一覧は下部常設。調査根拠とメニュー動作はspec 5-17。\n";
 if (process.argv.includes("--write-matrix")) writeFileSync(new URL("../spec/3-24-project-surface-pages-current-spec.md", import.meta.url), matrix);
 console.log("DD page routing and shared page format: ok");
