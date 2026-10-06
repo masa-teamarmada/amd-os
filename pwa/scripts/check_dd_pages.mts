@@ -17,7 +17,7 @@ const dd = new Set<string>(DD_PAGE_KEYS);
 assert.equal(dd.size, 21, "16 menu items plus five preserved legacy page URLs");
 assert.equal(DD_ITEM_PAGES.length, 16);
 assert.deepEqual(DD_ITEM_PAGES.map(page => page.label), [
-  "会社基本情報", "株主・資本政策・投資条件", "会社の意思決定", "事業計画・開発計画",
+  "会社基本情報", "株主・資本政策・投資条件", "総会・取締役会・経営会議の決議", "事業計画・開発計画",
   "市場・競合", "顧客・販売", "技術・製品", "技術実証の証拠", "製造・品質・供給",
   "知財・大学の利用権", "経営陣・人員・雇用", "重要契約", "法規制・許認可・安全",
   "紛争・関連当事者・利益相反", "財務・税務・借入・採算", "証憑・版・開示管理",
