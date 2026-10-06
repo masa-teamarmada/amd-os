@@ -141,7 +141,6 @@ export const DD_ITEM_PAGES = [
   { key: "related-party-transactions", label: "関連当事者取引一覧", related: [] },
   { key: "financial-statements", label: "決算書", related: [] },
   { key: "tax-returns", label: "税務申告書", related: [] },
-  { key: "financial-projection", label: "収支計画書", related: ["cost-model"] },
   { key: "documents", label: "開示資料一覧", related: [] },
 ] as const;
 
@@ -151,7 +150,7 @@ export const DD_NAVIGATION_GROUPS = [
   { key: "business", label: "事業計画関連", pages: ["business-model", "business-plan", "short-term-plan", "long-term-plan", "development-issues", "market-research", "competition", "partners", "sales-partners", "cost-model"] },
   { key: "technology", label: "技術・製品・開発・製造", pages: ["technology", "product-description", "development-plan", "technical-evidence", "manufacturing", "quality-control", "supply-chain"] },
   { key: "rights", label: "知財・契約", pages: ["ip", "university-rights", "contracts"] },
-  { key: "finance", label: "財務・資金調達", pages: ["financial-projection", "monthly-trial", "financial-statements", "tax-returns", "capital-plan", "next-round-overview", "shareholder-register", "next-round-term-sheet"] },
+  { key: "finance", label: "財務・資金調達", pages: ["monthly-trial", "financial-statements", "tax-returns", "capital-plan", "next-round-overview", "shareholder-register", "next-round-term-sheet"] },
   { key: "risk", label: "法規制・リスク", pages: ["regulatory", "safety-assessment", "disputes", "related-party-transactions"] },
   { key: "disclosure", label: "開示資料", pages: ["documents"] },
 ] as const satisfies ReadonlyArray<{ key: string; label: string; pages: ReadonlyArray<(typeof DD_ITEM_PAGES)[number]["key"]> }>;

@@ -3,6 +3,7 @@ import { loadProjectProductDescription } from "./project-product-description-ser
 import { loadProjectOrganizationChart } from "./project-organization-chart-server";
 import { loadProjectGovernance } from "./project-governance-server";
 import "server-only";
+import { loadProjectMarketResearch } from "./project-market-research-server";
 import { loadShortTermPlanDocument } from "./project-short-term-plan-server";
 import { loadProjectDevelopmentIssues } from "./project-development-issues-server";
 import { loadProjectContractList } from "./project-contract-list-server";
@@ -31,6 +32,7 @@ export async function loadDdProjectPage(projectId: string, page: string): Promis
   if (identity.error) throw new Error(identity.error.message);
   const base = { kind: "project_page" as const, projectId, projectName: identity.data.display_name || identity.data.project_name };
   if (page === "development-issues") return { ...base, page, issues: await loadProjectDevelopmentIssues(db, projectId) };
+  if (page === "market-research") return { ...base, page, empty: true, marketResearch: await loadProjectMarketResearch(db, projectId) };
   if (page === "contracts") return { ...base, page, contracts: await loadProjectContractList(db, projectId, true, false) };
   if (page === "team") return { ...base, page, empty: true, biographies: await loadProjectManagementBiographies(db, projectId) };
   if (page === "product-description") return { ...base, page, empty: true, productDescription: await loadProjectProductDescription(db, projectId) };

@@ -5,6 +5,8 @@ export interface FundingScenarioMonth {
   bridgeInflowYen: number; loanDrawdownYen: number; grantReceiptYen: number;
   loanRepaymentYen: number; loanBalanceYen: number; peakLoanYen: number;
   roundingYen: number; netCashFlowYen: number; closingYen: number;
+  /** 現金予算の売上代金。発生主義の売上とは分ける。旧計画では未指定=0。 */
+  salesReceiptYen?: number;
 }
 export interface FundingPlanSummary {
   version: string; asOf: string; startYm: string; endYm: string; nextRoundYm: string;
@@ -43,7 +45,8 @@ export function resolveFundingPlan(rows: Array<{ym: string; planning_details_jso
       if (m.planning_details_json.scenarios.length !== keys.length || Object.entries(s).some(([k,v]) => !['key','label'].includes(k) && !Number.isSafeInteger(v))) throw new Error('資金計画の数値・ケース数が不正');
       const priorLoan = i ? months[i-1].planning_details_json.scenarios.find(x=>x.key===key)!.loanBalanceYen : 0;
       if (Math.abs(priorLoan+s.loanDrawdownYen-s.loanRepaymentYen-s.loanBalanceYen)>1) throw new Error('資金計画の借入残高が一致しない');
-      const net=s.seedInflowYen+s.bridgeInflowYen+s.loanDrawdownYen+s.grantReceiptYen-s.loanRepaymentYen-s.ordinarySpendYen-s.equipmentSpendYen-s.interestYen+s.roundingYen;
+      if (s.salesReceiptYen !== undefined && s.salesReceiptYen < 0) throw new Error('資金計画の売上入金が不正');
+      const net=s.seedInflowYen+s.bridgeInflowYen+s.loanDrawdownYen+s.grantReceiptYen+(s.salesReceiptYen ?? 0)-s.loanRepaymentYen-s.ordinarySpendYen-s.equipmentSpendYen-s.interestYen+s.roundingYen;
       if (net!==s.netCashFlowYen || s.openingYen+net!==s.closingYen) throw new Error('資金計画の入出金と残高が一致しない');
       if (i && months[i-1].planning_details_json.scenarios.find(x=>x.key===key)!.closingYen!==s.openingYen) throw new Error('前月と当月の残高がつながっていない');
     }

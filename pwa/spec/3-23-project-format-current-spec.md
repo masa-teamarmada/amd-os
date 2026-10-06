@@ -1,5 +1,7 @@
 # 3-23 PJタイプ別の標準フォーマット（現行仕様）
 
+2026-10-06: DDの「収支計画書」を資料目録から削除し「月次試算表」へ統一。旧URLは認可後に月次試算表へ転送。funding_plan項目も同ページに対応。SOLは指定された15か月資料v0.9（workspace document db8569d4-b583-4840-a1ce-4183b909dd67、2027-04〜2028-06）の現金予算をproject_monthly_cashflow.planning_details_jsonへ採用。売上入金を任意フィールドとして共通変換・残高検証へ対応し、標準C/Fと元データの支出・売上入金に表示。P/Lは現金予算から作らず、2028-07以降・会計登録値・資本政策を維持。DDは既存ProjectFinanceFormatを使用。市場調査はproject_config.market_researchのversion1/summaryMd/records DTOを認可済みPJ/key限定で読み、出所付きMarkdownと開閉式の19調査記録を掲載。SOLの専門家5名、共有整理、2月6シート、5月AI鉱山調査2件、参考PDFを保持し、AI生成・未回答・相違する数値を明示。既存schema/RLS/付与/PDF対象項目の変更なし。ネイティブDD画面は未移植、ブラウザで確認。
+
 ## 登録した組織・協業図の表示（2026-10-06）
 
 - 全PJ共通で project_config の key=organization_chart を読み、version=1のJSON（会議体、部署、役割、担当表記、協業先、部署との接続、proposed/confirmed、確認日、出典、注記）を同じ部品で表示する。未登録は既存ひな形。登録値の不正・読取失敗はエラーとし、未登録へ置き換えない。

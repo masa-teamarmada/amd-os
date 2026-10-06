@@ -132,6 +132,8 @@ export const FINANCE_CASH_EXTRA_COLUMNS: ReadonlyArray<{ key: keyof FinanceCashS
 
 /** 資金計画（planning_details_json）から入る、標準の行に入らない内訳。 */
 const PLAN_EXTRA_ROWS = [
+  { key: "plan_spending_yen", label: "支出計（元本返済を除く）" },
+  { key: "plan_sales_receipt_yen", label: "売上代金の入金（税込）" },
   { key: "plan_interest_yen", label: "うち融資利息・手数料" },
   { key: "plan_rounding_yen", label: "端数調整" },
 ] as const;
@@ -340,7 +342,7 @@ function planMonth(ym: string, scenario: FundingScenarioMonth): FinanceMonth {
     plNotes: null,
     cash: {
       opening: scenario.openingYen,
-      operating: -(scenario.ordinarySpendYen + scenario.interestYen),
+      operating: (scenario.salesReceiptYen ?? 0) - scenario.ordinarySpendYen - scenario.interestYen,
       investing: -scenario.equipmentSpendYen,
       equity: scenario.seedInflowYen + scenario.bridgeInflowYen,
       loanDrawdown: scenario.loanDrawdownYen,
@@ -352,6 +354,8 @@ function planMonth(ym: string, scenario: FundingScenarioMonth): FinanceMonth {
     },
     cashDerived: false,
     extras: {
+      plan_spending_yen: scenario.salesReceiptYen === undefined ? null : scenario.ordinarySpendYen + scenario.equipmentSpendYen + scenario.interestYen,
+      plan_sales_receipt_yen: scenario.salesReceiptYen ?? null,
       plan_interest_yen: -scenario.interestYen,
       plan_rounding_yen: scenario.roundingYen,
     },
@@ -473,8 +477,13 @@ export function financeMonthFigures(month: FinanceMonth, incorporationYm: string
   let inflow: number | null = null;
   let outflow: number | null = null;
   if (cash) {
+    const salesReceipt = month.extras.plan_sales_receipt_yen;
+    const spending = month.extras.plan_spending_yen;
     const parts = [cash.operating, cash.investing, cash.equity, cash.loanDrawdown, cash.loanRepayment, cash.grant];
-    if (parts.some((value) => value !== null)) {
+    if (salesReceipt != null && spending != null) {
+      inflow = salesReceipt + (cash.equity ?? 0) + (cash.loanDrawdown ?? 0) + (cash.grant ?? 0);
+      outflow = spending - (cash.loanRepayment ?? 0);
+    } else if (parts.some((value) => value !== null)) {
       inflow = parts.reduce<number>((sum, value) => sum + (value !== null && value > 0 ? value : 0), 0);
       outflow = parts.reduce<number>((sum, value) => sum + (value !== null && value < 0 ? -value : 0), 0);
     } else {

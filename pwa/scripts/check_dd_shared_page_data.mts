@@ -76,3 +76,17 @@ for (const bad of ["{broken", {}, { ...productDocument, bodyMd: " " }, { ...prod
   assert.throws(() => parseProductDescription(bad), /製品説明資料の登録形式/);
 }
 console.log("DD canonical page data: competition without publication, full technology/governance/capital, PJ scope and query errors OK");
+
+const {loadProjectMarketResearch}=await import('../src/lib/project-market-research-server.ts');
+const {parseMarketResearch}=await import('../src/lib/project-market-research.ts');
+const research={version:1,summaryMd:'調査概要',records:[{id:'interview',title:'回答',date:'2026-04-17',kind:'専門家インタビュー',sourceUrl:'https://example.com/source',notice:'概算',bodyMd:'回答本文',internal:'除外'}]};
+tables.project_config.push({project_id:'p21',key:'market_research',value:JSON.stringify(research)},{project_id:'p34',key:'market_research',value:JSON.stringify({...research,summaryMd:'他PJ'})});
+const loaded=await loadProjectMarketResearch(fakeDb(),'p21');
+assert.equal(loaded!.summaryMd,'調査概要');
+assert.equal((loaded!.records[0] as any).internal,undefined);
+assert.equal(await loadProjectMarketResearch(fakeDb(),'unregistered'),null);
+await assert.rejects(loadProjectMarketResearch(fakeDb('project_config'),'p21'),/fixture failure/);
+assert.ok(calls.filter(c=>c.table==='project_config'&&c.filters.some(f=>f[2]==='market_research')).every(c=>c.filters.some(f=>f[1]==='project_id')));
+assert.throws(()=>parseMarketResearch({...research,records:[research.records[0],research.records[0]]}),/登録形式/);
+assert.throws(()=>parseMarketResearch({...research,records:[{...research.records[0],sourceUrl:'javascript:alert(1)'}]}),/登録形式/);
+console.log('Market research: authorized PJ/key, unregistered, query failure, internal DTO exclusion and unsafe source rejection: PASS');

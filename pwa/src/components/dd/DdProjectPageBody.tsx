@@ -31,7 +31,9 @@ const DdShortTermPlan = dynamic(() => import("./DdShortTermPlan").then(module =>
 const ProjectProductDescription = dynamic(() => import("@/components/project-workspace/ProjectProductDescription").then(module => module.ProjectProductDescription), { loading: ProjectPageLoading });
 
 const noop = () => {};
+const ProjectMarketResearch = dynamic(() => import("@/components/project-workspace/ProjectMarketResearch").then(module => module.ProjectMarketResearch), { loading: ProjectPageLoading });
 export function DdProjectPageBody({data,canDownload=false}:{data:DdLiveProjectPage;canDownload?:boolean}) {
+  if ("empty" in data && data.page === "market-research") return <ProjectMarketResearch data={data.marketResearch ?? null} />;
   if ("empty" in data && data.page === "product-description") return <ProjectProductDescription data={data.productDescription ?? null} />;
   if ("empty" in data) return <ProjectDiligenceSection page={data.page} organizationChart={data.organizationChart} biographies={data.biographies} />;
   switch(data.page) {

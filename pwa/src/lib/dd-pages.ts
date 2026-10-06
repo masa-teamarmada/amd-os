@@ -27,7 +27,7 @@ export function ddPageForItem(kind: DdItemKind, live: DdLiveData | null, sourceK
       return key;
     }
     case "document": return "documents";
-    case "funding_plan": return "financial-projection";
+    case "funding_plan": return "monthly-trial";
     case "capital_policy": return "capital-plan";
     case "cost_model": return "cost-model";
     case "tech_topic": return live?.kind === "tech_topic" ? techLedgerTabOf(live.topic) : "technology";

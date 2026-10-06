@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { resolveDdPackageAccess } from "@/lib/dd-access";
 import { loadDdPackageView, recordDdAccessEvent } from "@/lib/dd-package-server";
 import { DdViewerShell } from "@/components/dd/DdViewerShell";
@@ -16,6 +16,7 @@ export default async function DdPackagePage({ params, searchParams }: { params: 
   if (!access) notFound();
 
   const { section, tab } = await searchParams;
+  if (tab === "financial-projection") redirect(`/dd/${encodeURIComponent(access.slug)}?tab=monthly-trial`);
   // 認可後、選択された正本ページと監査記録を並行して読む。
   // 旧section URLだけはlive項目からページを解決する互換経路を使う。
   const selectedPage = tab && DD_PAGE_KEYS.includes(tab) ? tab : section ? undefined : "company";

@@ -42,3 +42,28 @@ assert.deepEqual(validateCapitalPlan(cap).filter(e=>e.severity==='error').map(e=
 assert.match(sql,/Capital plan changed since review/);
 assert.doesNotMatch(sql,/SET\s+opening_cash_yen|SET\s+closing_cash_yen|UPDATE public\.project_pl_monthly/i,'Keep complete old accounting forecast as reference');
 console.log('SOL funding plan: 15 months, 4 cases, loans/repayment, capital terms, concurrency guards: PASS');
+
+// 指定資料v0.9の移行値と共通C/F表示を検証。旧計画の売上入金なし互換は上記で確認。
+const { financeDatasetFromFundingPlan, financeMonthFigures } = await import('../src/lib/project-finance-format.ts');
+const updateSql=fs.readFileSync('scripts/data/sol-finance-20261006.sql','utf8');
+const updated=[...updateSql.matchAll(/planning_details_json=\$plan\$([\s\S]*?)\$plan\$::jsonb WHERE project_id='p21' AND ym='([^']+)'/g)].map(m=>({ym:m[2],planning_details_json:JSON.parse(m[1])}));
+const newPlan=resolveFundingPlan(updated)!;
+assert.equal(newPlan.months.length,15);
+const newMonths=financeDatasetFromFundingPlan(newPlan).monthsByCase.adopted;
+assert.equal(newMonths.reduce((sum,m)=>sum+(m.extras.plan_sales_receipt_yen??0),0),18_150_000);
+assert.equal(newMonths.reduce((sum,m)=>sum+(m.extras.plan_spending_yen??0),0),133_052_312);
+assert.equal(newMonths.at(-1)!.cash!.closing,12_649_227);
+assert.equal(newMonths.at(-1)!.cash!.loanBalance,4_749_503);
+for (const m of newMonths) {
+ const c=m.cash!;
+ assert.equal(m.pl,null,'税込現金支出を損益に転記しない');
+ assert.equal(c.opening!+c.net!,c.closing);
+ assert.equal(c.operating!+c.investing!+c.equity!+c.loanDrawdown!+c.loanRepayment!+c.grant!+m.extras.plan_rounding_yen!,c.net);
+ const figures=financeMonthFigures(m,'2027-04');
+ assert.equal(figures.inflow!-figures.outflow!+m.extras.plan_rounding_yen!,c.net,'売上入金と支出の総額を相殺せず維持');
+}
+const altered=structuredClone(updated);altered[6].planning_details_json.scenarios[0].salesReceiptYen+=1;
+assert.throws(()=>resolveFundingPlan(altered),/残高/,'売上入金が変われば残高不一致を検出');
+assert.match(updateSql,/Source plan changed/);
+assert.doesNotMatch(updateSql,/UPDATE.*(?:project_pl_monthly|project_capital_plans)/i);
+console.log('SOL v0.9: 15 monthly balances, gross cash receipts/spending, no accrual P/L, guarded scope: PASS');
