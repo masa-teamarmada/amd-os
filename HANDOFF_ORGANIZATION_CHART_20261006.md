@@ -12,7 +12,7 @@
 
 ## 検証と反映
 
-test:organization-chart、test:reference-data-cache、TypeScript全体検査、test:no-project-special-cases、test:project-format、test:dd-packageは通過。DB登録値を読み戻し、2部署・3協業先・proposedと完全一致を確認。main pushの反映・画面確認は、このコミット後にdeploy.shで実施する。
+test:organization-chart、test:reference-data-cache、TypeScript全体検査、test:no-project-special-cases、test:project-format、test:dd-packageは通過。DB登録値を読み戻し、2部署・3協業先・proposedと完全一致を確認。本番v3.160.6 / 4a90431eadbe5c756e14b90604baf1a48cc6bc41をdeploy.sh経由で反映し、api/build-infoのSHA一致と本番ワークスペース画面を確認済み。2部署・3協業先・19件の役割箇条書き、CTO統括、実務中核未定、両矢印を確認。スマホ確認はユーザー指定で実施していない。
 
 ## マニュアル同期
 
@@ -23,3 +23,5 @@ test:organization-chart、test:reference-data-cache、TypeScript全体検査、t
 | 理論・評価 | 変更なし | bzm | 対象外 |
 
 反映用checkoutは /Users/masa/projects/AMD/SOL/work/amie_os_organization_20261006。共有root checkoutの未確定作業を分離し、origin/mainの公開済みナビゲーション変更を取り込んだ。登録と画面readbackの記録はSOLのoutputs/amie_261005_15mo_9f334f8e/に保存する。
+
+共有root checkoutの自分の変更だけを照合して除去し、公開済みmainをfast-forwardで取り込んだ。他担当のナビゲーション変更と既存未追跡ファイルは保全。PWAの必須deploy検査は全件通過。資料HTMLは内容・数字を保持し31.39%短縮、HTML/XLSXとも同一Drive IDの更新と同期SHA一致を確認済み。
