@@ -1,0 +1,18 @@
+-- Source-bounded NDA version metadata and short exchange history. No document/mail body, permission change or notification.
+BEGIN;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM contracts WHERE contract_id='b5e39c23-6039-428d-bddf-5f90bb6f862a' AND project_id='p21' AND registry_status='accepted' AND project_contract_scope='project_related' AND status IN ('under_review','awaiting_signature') AND signed_at IS NULL) THEN
+ RAISE EXCEPTION 'NDA current state changed; review before applying'; END IF;
+END $$;
+INSERT INTO contract_documents (document_id,contract_id,project_id,document_kind,version_label,drive_file_id,drive_folder_id,web_view_link,file_name,mime_type,file_size_bytes,source_kind,received_at,is_latest) VALUES
+('c6543e82-b545-4cd3-bd5b-6dd1d27f60c3','b5e39c23-6039-428d-bddf-5f90bb6f862a','p21','draft','先方受領版','1EG8nbrKQl1hWscgwTwxZfAdZF6jePrLf','1Za13W_eQn4HoSd-qXNShm7YmbNJs1HH9','https://docs.google.com/document/d/1EG8nbrKQl1hWscgwTwxZfAdZF6jePrLf/edit','秘密保持契約書(電子対応版).docx','application/vnd.openxmlformats-officedocument.wordprocessingml.document',29346,'gmail_drive','2026-10-02T16:21:06+09:00',false),
+('991c7dd4-1844-4d2b-9320-d3c932dfbaee','b5e39c23-6039-428d-bddf-5f90bb6f862a','p21','redline','チームアルマダ修正案（変更履歴付き）','1bJAKvudwvo8xPfJ4edsWi2BXl6fOjvie','1Za13W_eQn4HoSd-qXNShm7YmbNJs1HH9','https://docs.google.com/document/d/1bJAKvudwvo8xPfJ4edsWi2BXl6fOjvie/edit','いよぎんキャピタル_NDA_チームアルマダ修正案_変更履歴付き_20261002.docx','application/vnd.openxmlformats-officedocument.wordprocessingml.document',26861,'gmail_drive','2026-10-02T23:56:07+09:00',true)
+ON CONFLICT (document_id) DO NOTHING;
+INSERT INTO contract_signals (contract_id,project_id,source_kind,source_table,source_id,source_url,title,snippet,signal_type,confidence,review_required,status,detected_at,metadata_json) VALUES
+('b5e39c23-6039-428d-bddf-5f90bb6f862a','p21','gmail','gmail_messages','1a0fb7d0bff9c98a','https://mail.google.com/mail/u/?authuser=masa%40team-armada.jp#all/1a0fb7d0bff9c98a','先方ひな形を受領','いよぎんキャピタルの高瀨氏からNDAひな形を受領。先方受領版を保存。','contract_exchange',1,false,'linked','2026-10-02T16:21:06+09:00','{"event_time_basis":"gmail_sent_at","review_basis":"user_requested_contract_history"}'::jsonb),
+('b5e39c23-6039-428d-bddf-5f90bb6f862a','p21','gmail','gmail_messages','1a0fd1d93f136b85','https://mail.google.com/mail/u/?authuser=masa%40team-armada.jp#all/1a0fd1d93f136b85','チームアルマダ修正案を返送','変更履歴付きの修正案を返送。乙の名称・末尾の記名欄・第1条の目的・第8条の管轄裁判所の4点を修正。設立予定会社への出資検討と情報交換を目的に含め、管轄を被告地主義とする案を提示。','contract_exchange',1,false,'linked','2026-10-02T23:56:07+09:00','{"event_time_basis":"gmail_sent_at","review_basis":"user_requested_contract_history"}'::jsonb),
+('b5e39c23-6039-428d-bddf-5f90bb6f862a','p21','gmail','gmail_messages','1a1104b2bccaf6ed','https://mail.google.com/mail/u/?authuser=masa%40team-armada.jp#all/1a1104b2bccaf6ed','先方が修正内容で締結を進める旨を返信','先方が修正案を確認し、この内容で締結を進めたいと回答。電子契約の可否と決裁ルートを照会。社内手続き後にクラウドサインを発信予定。','contract_exchange',1,false,'linked','2026-10-06T17:18:40+09:00','{"event_time_basis":"gmail_sent_at","review_basis":"user_requested_contract_history"}'::jsonb),
+('b5e39c23-6039-428d-bddf-5f90bb6f862a','p21','gmail','gmail_messages','1a1105e814a53f29','https://mail.google.com/mail/u/?authuser=masa%40team-armada.jp#all/1a1105e814a53f29','電子署名と契約管理担当を回答','山地が電子サインによる締結に同意。契約管理は肥塚、署名は山地が担当すると返信。クラウドサインの発信・署名完了は未確認。','contract_exchange',1,false,'linked','2026-10-06T17:39:47+09:00','{"event_time_basis":"gmail_sent_at","review_basis":"user_requested_contract_history"}'::jsonb)
+ON CONFLICT (source_kind,source_table,source_id,signal_type) DO NOTHING;
+UPDATE contracts SET status='awaiting_signature',last_activity_at='2026-10-06T17:39:47+09:00',updated_at=now() WHERE contract_id='b5e39c23-6039-428d-bddf-5f90bb6f862a';
+COMMIT;

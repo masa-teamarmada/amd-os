@@ -312,3 +312,11 @@ cron が機能するには、対象 PJ の契約が Contract Apply 済みであ�
 - `/admin/contracts` local browser確認
 - `git diff --check`
 - migrationは非破壊DDLのみ。`DELETE` / `TRUNCATE` / `DROP` は使わない
+
+## PJ契約リストの文書・やりとり（2026-10-06）
+
+コックピット・ワークスペースでは1契約の行の下に「文書とやりとり」を開ける。`contract_documents` の版・Driveリンクと、`contract_signals.signal_type=contract_exchange/status=linked` の確認済み短文・メール参照・発生日時を昇順で表示する。件数は契約数であり、2版を2契約にしない。単独の契約は詳細を初期表示し、複数件では折りたたむ。本文・rawメール・管理者の台帳メモ・他種のsignalは取得しない。
+
+取得は認可済みPJの採用済み・掲載対象契約の関連IDに限定し、子記録もproject_idとcontract_idで照合する。リンクはHTTPSのDrive/DocsとGmailのみ。DDでは文書と経緯を取得・返却しない。既存の契約単位DDチェックはこれらの追加開示を許可しない。Driveの共有権限は変更しない。
+
+いよぎんキャピタルNDAは先方受領版と変更履歴付き修正案の2版、10/2受領・返送、10/6先方回答・電子署名担当回答の4履歴を登録。先方回答に基づき署名待ちへ更新。未締結、締結日・契約期間未確認を維持する。

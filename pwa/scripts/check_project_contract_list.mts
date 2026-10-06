@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import ts from "typescript";
-import { buildProjectContractList, projectContractGroups, canManageContractDisclosure, PROJECT_CONTRACT_LIST_SCOPES, type ProjectContractSource } from "../src/lib/project-contract-list.ts";
+import { attachProjectContractEvidence, buildProjectContractList, projectContractGroups, canManageContractDisclosure, PROJECT_CONTRACT_LIST_SCOPES, type ProjectContractSource } from "../src/lib/project-contract-list.ts";
 const row: ProjectContractSource = {
   contract_id: "nda", project_id: "p21", contract_title: "NDA", canonical_title: null,
   counterparty_name: "相手先", contract_type: "nda", status: "under_review", registry_status: "accepted",
@@ -78,3 +78,19 @@ assert.ok(serverExports.loadProjectContractList);await serverExports.loadProject
 assert.deepEqual(dbFilters,[["project_id","p21"],["registry_status","accepted"],["project_contract_scope",[...PROJECT_CONTRACT_LIST_SCOPES]],["dd_visible",true]]);
 assert.ok(!selected[0].includes("source_summary"));assert.ok(!selected[0].includes("ledger_notes"));
 console.log("contract list: project scope, candidate exclusion, unsigned count, hidden record/revision filtering, read-only/DD denial, manager mutation, origin/input and narrow update OK");
+
+const doc = { document_id:"original",contract_id:"nda",project_id:"p21",version_label:"先方受領版",file_name:"original.docx",web_view_link:"https://docs.google.com/document/d/verified/edit",received_at:"2026-10-02T16:21:06+09:00",is_latest:false };
+const event = { signal_id:"received",contract_id:"nda",project_id:"p21",signal_type:"contract_exchange",status:"linked",title:"受領",snippet:"確認済みの経緯",source_url:"https://mail.google.com/mail/u/#all/verified",detected_at:doc.received_at };
+const withEvidence=attachProjectContractEvidence(buildProjectContractList([root],"p21",false),projectContractGroups([root],"p21"),"p21",[doc,{...doc,document_id:"foreign",project_id:"p34"},{...doc,document_id:"unrelated",contract_id:"other"},{...doc,document_id:"unsafe",web_view_link:"javascript:alert(1)"}],[event,{...event,signal_id:"candidate",status:"candidate"},{...event,signal_id:"raw",signal_type:"contract"},{...event,signal_id:"foreign",project_id:"p34"}]);
+assert.equal(withEvidence.contracts.length,1);assert.equal(withEvidence.contracts[0].documents?.length,1);assert.equal(withEvidence.contracts[0].history?.length,1);
+assert.ok(!("documents" in buildProjectContractList([root],"p21",true).contracts[0]));
+// Execute the actual loader with children, and ensure DD never queries them.
+const evidenceExports:{loadProjectContractList?:(db:unknown,id:string,ddOnly:boolean)=>Promise<unknown>}={};
+new Function("require","exports",ts.transpileModule(server,{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)((name:string)=>name==="server-only"?{}:{buildProjectContractList,projectContractGroups,attachProjectContractEvidence,PROJECT_CONTRACT_LIST_SCOPES},evidenceExports);
+const accessed:string[]=[];const childFilters:unknown[][]=[];
+const evidenceDb={from(table:string){accessed.push(table);const result=table==="contracts"?[root]:table==="contract_documents"?[doc]:[event];const q={select(){return q;},eq(k:string,v:unknown){if(table!=="contracts")childFilters.push([table,k,v]);return q;},in(k:string,v:unknown){if(table!=="contracts")childFilters.push([table,k,v]);return q;},order(){return q;},range(){return q;},then(done:(x:unknown)=>unknown){return Promise.resolve(done({data:result,error:null}));}};return q;}};
+await evidenceExports.loadProjectContractList!(evidenceDb,"p21",true);assert.deepEqual(accessed,["contracts"]);
+accessed.length=0;const loaded=await evidenceExports.loadProjectContractList!(evidenceDb,"p21",false) as {contracts:Array<{documents:unknown[];history:unknown[]}>};
+assert.equal(loaded.contracts[0].documents.length,1);assert.equal(loaded.contracts[0].history.length,1);
+for(const table of ["contract_documents","contract_signals"]) {assert.ok(childFilters.some(f=>f[0]===table&&f[1]==="project_id"&&f[2]==="p21"));assert.ok(childFilters.some(f=>f[0]===table&&f[1]==="contract_id"));}
+console.log("contract evidence: project/contract isolation, explicit linked history, safe URLs, DD non-disclosure and actual child loader OK");

@@ -6,10 +6,13 @@ export type ProjectContractScope = "project_party" | "project_related" | "studio
 export type ProjectContractSource = ContractLedgerSourceRow & {
   dd_visible: boolean; project_contract_scope?: ProjectContractScope; project_party_name?: string | null;
 };
+export type ProjectContractDocument = { id: string; label: string; fileName: string; url: string; receivedAt: string; latest: boolean };
+export type ProjectContractHistory = { id: string; title: string; summary: string; url: string | null; occurredAt: string };
 export type ProjectContractListRow = {
   contractId: string; title: string; contractingParty: string; counterparty: string | null;
   contractType: string; status: ContractStatus; signedAt: string | null;
   effectiveDate: string | null; expirationDate: string | null; ddVisible: boolean;
+  documents?: ProjectContractDocument[]; history?: ProjectContractHistory[];
 };
 export type ProjectContractListData = { contracts: ProjectContractListRow[]; canManage: boolean };
 
@@ -40,4 +43,23 @@ export function buildProjectContractList(rows: ProjectContractSource[], projectI
     ddVisible: row.related_contract_ids.some(id => visibleIds.has(id)),
   }));
   return { contracts: ddOnly ? contracts.filter(row => row.ddVisible) : contracts, canManage: !ddOnly && canManage };
+}
+
+export type ProjectContractDocumentSource = { document_id: string; contract_id: string; project_id: string; version_label: string; file_name: string; web_view_link: string; received_at: string; is_latest: boolean };
+export type ProjectContractHistorySource = { signal_id: string; contract_id: string; project_id: string; signal_type: string; status: string; title: string; snippet: string; source_url: string | null; detected_at: string };
+function evidenceUrl(value: string | null, hosts: string[]): string | null {
+  try { const url = new URL(value ?? ""); return url.protocol === "https:" && !url.username && !url.password && hosts.includes(url.hostname) ? url.href : null; } catch { return null; }
+}
+/** Explicit exchange records only; never project raw mail, arbitrary signals or admin notes. */
+export function attachProjectContractEvidence(data: ProjectContractListData, groups: ReturnType<typeof projectContractGroups>, projectId: string, documents: ProjectContractDocumentSource[], history: ProjectContractHistorySource[]): ProjectContractListData {
+  return { ...data, contracts: data.contracts.map(row => {
+    const ids = new Set(groups.find(group => group.contract_id === row.contractId)?.related_contract_ids ?? []);
+    return { ...row,
+      documents: documents.filter(doc => doc.project_id === projectId && ids.has(doc.contract_id)).flatMap(doc => {
+        const url = evidenceUrl(doc.web_view_link, ["drive.google.com", "docs.google.com"]);
+        return url ? [{ id: doc.document_id, label: doc.version_label, fileName: doc.file_name, url, receivedAt: doc.received_at, latest: doc.is_latest }] : [];
+      }).sort((a, b) => a.receivedAt.localeCompare(b.receivedAt)),
+      history: history.filter(event => event.project_id === projectId && ids.has(event.contract_id) && event.signal_type === "contract_exchange" && event.status === "linked").map(event => ({ id: event.signal_id, title: event.title, summary: event.snippet, url: evidenceUrl(event.source_url, ["mail.google.com"]), occurredAt: event.detected_at })).sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)),
+    };
+  }) };
 }
