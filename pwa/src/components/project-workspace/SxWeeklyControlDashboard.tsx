@@ -5835,7 +5835,7 @@ export function SxWeeklyControlDashboard({
             <CockpitCapitalPlan projectId={bundle.project.projectId} projectName={bundle.project.projectName} readOnly={externalViewer} />
           </section>
         )}
-        {activeView === "organization-chart" && <section id="organization-chart" role="tabpanel" aria-label="組織図"><ProjectOrganizationChart /></section>}
+        {activeView === "organization-chart" && <section id="organization-chart" role="tabpanel" aria-label="組織図"><ProjectOrganizationChart projectId={bundle.project.projectId} /></section>}
         {activeView === "employee-register" && <section id="employee-register" role="tabpanel" aria-label="従業員名簿"><ProjectEmployeeRegister /></section>}
         {activeView === "contracts" && <section id="contracts" role="tabpanel" aria-label="契約リスト" className="min-w-0"><ProjectContractList key={bundle.project.projectId} projectId={bundle.project.projectId} /></section>}
 

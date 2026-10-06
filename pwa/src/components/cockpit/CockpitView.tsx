@@ -843,7 +843,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
         </section>
       )}
 
-      {activeTab === "organization-chart" && <section role="tabpanel" aria-label="組織図"><ProjectOrganizationChart /></section>}
+      {activeTab === "organization-chart" && <section role="tabpanel" aria-label="組織図"><ProjectOrganizationChart projectId={cockpit.project.projectId} /></section>}
       {activeTab === "employee-register" && <section role="tabpanel" aria-label="従業員名簿"><ProjectEmployeeRegister /></section>}
       {activeTab === "contracts" && <section role="tabpanel" aria-label="契約リスト" className="min-w-0"><ProjectContractList key={project.projectId} projectId={project.projectId} /></section>}
 

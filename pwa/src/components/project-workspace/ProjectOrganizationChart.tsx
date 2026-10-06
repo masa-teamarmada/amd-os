@@ -1,8 +1,29 @@
+"use client";
+import { useEffect, useState } from "react";
+import { parseProjectOrganizationChart, type ProjectOrganizationChartData } from "@/lib/project-organization-chart";
+import { RegisteredOrganizationChart } from "./RegisteredOrganizationChart";
+export function ProjectOrganizationChart({ projectId, initialData }: { projectId?: string; initialData?: ProjectOrganizationChartData | null }) {
+  const [state, setState] = useState<{ projectId?: string; chart: ProjectOrganizationChartData | null; loading: boolean; error?: string }>({ projectId, chart: initialData ?? null, loading: initialData === undefined && Boolean(projectId) });
+  useEffect(() => {
+    if (initialData !== undefined || !projectId) return;
+    const controller = new AbortController();
+    setState({ projectId, chart: null, loading: true });
+    fetch("/api/project-organization-chart?projectId=" + encodeURIComponent(projectId), { signal: controller.signal, cache: "no-store" })
+      .then(async (r) => { const body = await r.json(); if (!r.ok || !body.ok) throw new Error(body.error || "組織図を読み込めなかった"); return parseProjectOrganizationChart(body.chart); })
+      .then((chart) => setState({ projectId, chart, loading: false }))
+      .catch((e) => { if (!controller.signal.aborted) setState({ projectId, chart: null, loading: false, error: e instanceof Error ? e.message : "組織図を読み込めなかった" }); });
+    return () => controller.abort();
+  }, [projectId, initialData]);
+  if (initialData !== undefined) return initialData ? <RegisteredOrganizationChart data={initialData} /> : <OrganizationChartTemplate />;
+  if (state.loading || state.projectId !== projectId) return <p className="py-3 text-sm text-slate-500" role="status">組織図を読み込んでいるよ</p>;
+  if (state.error) return <p className="py-3 text-sm text-red-700" role="alert">{state.error}</p>;
+  return state.chart ? <RegisteredOrganizationChart data={state.chart} /> : <OrganizationChartTemplate />;
+}
 import { ORGANIZATION_CHART_FORMAT as format } from "@/lib/project-formats";
 
 // 役員・部署の確認済みデータが無い段階の共通ひな形。PJ参加者から雇用・指揮命令を推定しない。
 // 株主総会→取締役会→代表取締役、側方の監査・直轄部門、部門→部署→担当の縦配置を固定する。
-export function ProjectOrganizationChart() {
+function OrganizationChartTemplate() {
   const centers = Array.from({ length: format.departmentCount }, (_, index) => 112 + index * 328);
   const node = (key: string, label: string, x: number, y: number, governing = false) => (
     <div key={key} className={`absolute flex h-14 w-44 flex-col items-center justify-center gap-1 rounded-md border text-center ${governing ? "border-sky-200 bg-sky-50" : "border-slate-300 bg-white"}`} style={{ left: x, top: y }}>

@@ -23,7 +23,7 @@ const CockpitCostTab = dynamic(() => import("@/components/cockpit/CockpitCostTab
 
 const noop = () => {};
 export function DdProjectPageBody({data,canDownload=false}:{data:DdLiveProjectPage;canDownload?:boolean}) {
-  if ("empty" in data) return <ProjectDiligenceSection page={data.page} />;
+  if ("empty" in data) return <ProjectDiligenceSection page={data.page} organizationChart={data.organizationChart} />;
   switch(data.page) {
     case "contracts": return <ProjectContractList projectId={data.projectId} initialData={data.contracts} />;
     case "technology": case "competition": case "business-model": return <CockpitTechnology key={`${data.projectId}:${data.page}`} projectId={data.projectId} mode={data.page} initialData={data.tech} />;

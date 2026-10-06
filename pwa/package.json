@@ -213,7 +213,8 @@
     "test:reward-payout-rounding": "node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_reward_payout_rounding.mts && node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_common_payout_protection.mts",
     "test:effluent-extraction": "node --experimental-strip-types scripts/check_effluent_component_extraction.mts",
     "test:project-gantt-roadmap": "node --experimental-strip-types scripts/test_project_gantt_roadmap.mts",
-    "test:project-contract-list": "node --experimental-strip-types --import ./scripts/register_relative_ts.mjs scripts/check_project_contract_list.mts"
+    "test:project-contract-list": "node --experimental-strip-types --import ./scripts/register_relative_ts.mjs scripts/check_project_contract_list.mts",
+    "test:organization-chart": "node --experimental-strip-types scripts/check_project_organization_chart.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",
