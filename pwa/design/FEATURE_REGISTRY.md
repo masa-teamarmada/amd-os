@@ -1009,3 +1009,10 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 - 月/版の共通プルダウン、紙面編集と本文保存、社内版の明示確定、末尾から開く編集履歴。PDF保存ボタンを置かず、保存/確定時にOS内部ドライブと共有Driveへ同じ帳票PDFを配置。失敗時は本文を保持しPDFのみ再試行。
 - UI: CockpitMonthlyReports、MonthlyReportSelectors、MonthlyReportPrintClient、MonthlyReportHistoryPanel。API: monthly-report/manual-update、external-manual-update、pdf、report/fix。DB:既存monthly_reports、monthly_reports_external、workspace_documents。回帰: test_monthly_report_history、check_pwa_critical_ui。正本spec/3-2、manual/4-8。
+
+
+## 2026-10-06 DDの16項目と一段の左メニュー
+
+2026-10-06: DDの左メニューは一般DDの16項目をグループ分けせず、一段で常設する。順番は会社基本情報、株主・資本政策・投資条件、会社の意思決定、事業計画・開発計画、市場・競合、顧客・販売、技術・製品、技術実証の証拠、製造・品質・供給、知財・大学の利用権、経営陣・人員・雇用、重要契約、法規制・許認可・安全、紛争・関連当事者・利益相反、財務・税務・借入・採算、証憑・版・開示管理。資料の有無では入口を変えない。新規の7区分は未登録の空状態とし、説明記事があるだけで原本を登録済みと扱わない。既存の共通ページ本文はそのまま使い、ビジネスモデル・ガント・コスト試算・資金調達履歴・沿革は関連リンクと旧URLから開ける。コックピット・ワークスペースのメニュー、閲覧権限、DB、正式版PDFの選択項目は変更しない。
+
+新規区分キー: `governance`、`technical-evidence`、`manufacturing`、`team`、`contracts`、`regulatory`、`disputes`。DDの共通取得でPJの存在を確認した後、共通空状態を返す。社内の契約台帳やキラー要素を自動開示しない。外部付与・公開状態・既存データは不変。

@@ -55,8 +55,11 @@ assert.doesNotMatch(adminPage, /cockpit\?tab=dd/, "DD入口からコックピッ
 assert.match(adminPage, /<DdProjectTab/, "DD管理を独立したDD画面で開く");
 assert.match(read("src/app/(app)/project/[projectId]/cockpit/page.tsx"), /legacyDd.*?=/, "旧DD子タブのURLを受け付ける");
 const ddNavigation = read("src/components/dd/DdNavigation.tsx");
-assert.match(ddNavigation, /DD_TAB_FORMAT\.map/, "DD分類は固定の共通ページ定義から作る");
-assert.match(ddNavigation, /PROJECT_PAGE_LABELS\[tab\]/, "DDのページ名は3領域の共通定義から作る");
+assert.match(ddNavigation, /DD_ITEM_PAGES\.map/, "DDの16項目は固定定義から一段で作る");
+assert.match(ddNavigation, /item\.label/, "DDの項目名は承認済みの16項目から作る");
+assert.doesNotMatch(ddNavigation, /selectedGroup|dd-group-navigation|dd-child-navigation|COCKPIT_GROUP_LABELS/, "DDにグループや子メニューを戻さない");
+assert.match(read("src/lib/dd-project-pages-server.ts"), /isDdEmptyPageKey\(page\)\) return/, "未登録の項目も共通空状態で開ける");
+assert.match(read("src/components/dd/DdProjectPageBody.tsx"), /ProjectDiligenceSection/, "新規資料区分の空状態を描く");
 assert.doesNotMatch(ddNavigation, />一覧</, "DD専用の一覧タブを足さない");
 assert.doesNotMatch(read("src/components/dd/DdViewerShell.tsx"), /管理者プレビュー|role="status"/, "DD閲覧へ専用の管理帯を足さない");
 assert.doesNotMatch(read("src/components/dd/DdPackageTop.tsx"), /<table|<dl|DD_ITEM_KIND_LABEL/, "ページ選択から一覧を挟まず本文を開く");

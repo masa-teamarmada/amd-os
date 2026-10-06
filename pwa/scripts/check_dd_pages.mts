@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { writeFileSync } from "node:fs";
-import { DD_PAGE_KEYS, ddPageForItem } from "../src/lib/dd-pages.ts";
-import { COCKPIT_TAB_FORMATS, WORKSPACE_TAB_FORMATS, DD_TAB_FORMAT, PROJECT_PAGE_LABELS, type ProjectFormatType } from "../src/lib/project-formats.ts";
+import { DD_PAGE_KEYS, DD_EMPTY_PAGE_KEYS, ddPageForItem, isDdEmptyPageKey, ddPageLabel } from "../src/lib/dd-pages.ts";
+import { COCKPIT_TAB_FORMATS, WORKSPACE_TAB_FORMATS, DD_TAB_FORMAT, DD_ITEM_PAGES, PROJECT_PAGE_LABELS, type ProjectFormatType } from "../src/lib/project-formats.ts";
 import { DD_SHARED_PAGE_KEYS } from "../src/lib/dd-package-core.ts";
 import type { DdLiveData } from "../src/lib/dd-payload.ts";
 
@@ -14,7 +14,23 @@ for (const [domain, page] of [["競合比較", "competition"], ["ビジネスモ
 }
 const canonical = (tab: string) => tab === "cost" ? "cost-model" : tab === "drive" ? "documents" : tab;
 const dd = new Set<string>(DD_PAGE_KEYS);
-assert.equal(dd.size, 14);
+assert.equal(dd.size, 21, "16 menu items plus five preserved legacy page URLs");
+assert.equal(DD_ITEM_PAGES.length, 16);
+assert.deepEqual(DD_ITEM_PAGES.map(page => page.label), [
+  "会社基本情報", "株主・資本政策・投資条件", "会社の意思決定", "事業計画・開発計画",
+  "市場・競合", "顧客・販売", "技術・製品", "技術実証の証拠", "製造・品質・供給",
+  "知財・大学の利用権", "経営陣・人員・雇用", "重要契約", "法規制・許認可・安全",
+  "紛争・関連当事者・利益相反", "財務・税務・借入・採算", "証憑・版・開示管理",
+]);
+assert.equal(new Set(DD_ITEM_PAGES.map(page => page.key)).size, 16);
+for (const item of DD_ITEM_PAGES) {
+  assert.ok(dd.has(item.key));
+  assert.equal(ddPageLabel(item.key), item.label);
+  for (const related of item.related) assert.ok(dd.has(related), "related pages remain accessible");
+}
+for (const page of DD_EMPTY_PAGE_KEYS) assert.ok(isDdEmptyPageKey(page));
+assert.ok(!isDdEmptyPageKey("killer-factors"));
+assert.ok(!dd.has("killer-factors"));
 for (const page of DD_SHARED_PAGE_KEYS) {
   assert.equal(ddPageForItem("project_page", null, `project_page:${page}`), page);
   assert.equal(ddPageForItem("project_page", { kind: "project_page", page } as DdLiveData), page);
@@ -23,7 +39,7 @@ assert.throws(() => ddPageForItem("project_page", null, "project_page:slack"));
 assert.equal(PROJECT_PAGE_LABELS.activity, "沿革");
 assert.equal(dd.has("list"), false);
 const allCockpit = new Set(Object.values(COCKPIT_TAB_FORMATS).flatMap(groups => groups.flatMap(g => [...g.tabs])));
-for (const key of dd) assert.ok(allCockpit.has(key) && PROJECT_PAGE_LABELS[key], `${key}は他領域と共通のページ`);
+for (const key of dd) assert.ok((allCockpit.has(key) || isDdEmptyPageKey(key)) && PROJECT_PAGE_LABELS[key], `${key}は共通ページまたは新しい資料区分`);
 let matrix = "# 3つの領域で表示するページ\n\n◯はページを表示する。空欄は表示しない。公開内容が未登録でも、DDのページ入口は残し、本文に未登録と出す。\n\n閲覧者は、コックピット＝社内の許可されたメンバー、ワークスペース＝当該PJの参加者、DD＝当該パッケージの閲覧権限を付与した人。内部管理者のアクセスは既存どおり。\n\n";
 for (const [type, label] of [["su", "大学発SU・顧問PJ・新規事業"], ["ecosystem", "研究機関エコシステム"], ["amd", "チームアルマダ本体"]] as const) {
   const groups = COCKPIT_TAB_FORMATS[type as ProjectFormatType];

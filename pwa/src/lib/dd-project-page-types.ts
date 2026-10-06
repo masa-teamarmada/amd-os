@@ -13,8 +13,11 @@ import type { ProjectFinancePageData } from "./project-finance-page-data";
 import type { CapitalPlanPageData } from "./project-capital-plan-data";
 import type { CostModelResponse } from "./project-cost-model-client";
 
+import type { DdEmptyPageKey } from "./dd-pages";
+
 type Identity = { kind: "project_page"; projectId: string; projectName: string };
 export type DdLiveProjectPage = Identity & (
+  | { page: DdEmptyPageKey; empty: true }
   | { page: "technology" | "competition" | "business-model"; tech: ProjectTechResponse }
   | { page: "financial-projection"; finance: ProjectFinancePageData }
   | { page: "capital-plan"; capital: CapitalPlanPageData }

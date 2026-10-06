@@ -1,10 +1,22 @@
-import { DD_TAB_FORMAT } from "./project-formats.ts";
+import { DD_TAB_FORMAT, DD_ITEM_PAGES, PROJECT_PAGE_LABELS } from "./project-formats.ts";
 import { techLedgerTabOf } from "./project-tech.ts";
 import type { DdLiveData } from "./dd-payload";
 import { isDdSharedPageKey, type DdItemKind } from "./dd-package-core.ts";
 
-export type DdPageKey = (typeof DD_TAB_FORMAT)[number]["tabs"][number];
-export const DD_PAGE_KEYS: readonly string[] = DD_TAB_FORMAT.flatMap((group) => [...group.tabs]);
+export type DdPageKey = (typeof DD_TAB_FORMAT)[number]["tabs"][number] | (typeof DD_ITEM_PAGES)[number]["key"];
+export const DD_PAGE_KEYS: readonly string[] = [...new Set([
+  ...DD_ITEM_PAGES.map((page) => page.key),
+  ...DD_TAB_FORMAT.flatMap((group) => [...group.tabs]),
+])];
+
+export const DD_EMPTY_PAGE_KEYS = ["governance", "technical-evidence", "manufacturing", "team", "contracts", "regulatory", "disputes"] as const;
+export type DdEmptyPageKey = (typeof DD_EMPTY_PAGE_KEYS)[number];
+export function isDdEmptyPageKey(page: string): page is DdEmptyPageKey {
+  return (DD_EMPTY_PAGE_KEYS as readonly string[]).includes(page);
+}
+export function ddPageLabel(page: string): string {
+  return DD_ITEM_PAGES.find((item) => item.key === page)?.label ?? PROJECT_PAGE_LABELS[page] ?? page;
+}
 
 /** 掲載用区分や表題でページを推測せず、他領域と同じ元データの種類・技術区分で決める。 */
 export function ddPageForItem(kind: DdItemKind, live: DdLiveData | null, sourceKey?: string): DdPageKey {

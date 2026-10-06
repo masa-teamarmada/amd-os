@@ -8,7 +8,7 @@ import { loadProjectBusinessPlan } from "./project-business-plan-server";
 import { normalizeBzm22AcquisitionRow } from "./bzm-2-2-acquisitions";
 import { buildAmdContributionsPayload, normalizeActivityRow, normalizeMeetingRow, type AmdContributionItem } from "./amd-contributions";
 import { projectFormatTypeOf } from "./project-formats";
-import { DD_PAGE_KEYS } from "./dd-pages";
+import { DD_PAGE_KEYS, isDdEmptyPageKey } from "./dd-pages";
 import { loadProjectTechData } from "./project-tech-server";
 import { loadProjectFinancePage } from "./project-finance-page-server";
 import { loadCapitalPlanPage } from "./project-capital-plan-server";
@@ -24,6 +24,7 @@ export async function loadDdProjectPage(projectId: string, page: string): Promis
   const identity = await db.from("projects").select("project_name,display_name,project_category").eq("project_id", projectId).single();
   if (identity.error) throw new Error(identity.error.message);
   const base = { kind: "project_page" as const, projectId, projectName: identity.data.display_name || identity.data.project_name };
+  if (isDdEmptyPageKey(page)) return { ...base, page, empty: true };
   if (page === "technology" || page === "competition" || page === "business-model") return { ...base, page, tech: await loadProjectTechData(db, projectId) };
   if (page === "financial-projection") return { ...base, page, finance: await loadProjectFinancePage(db, projectId) };
   if (page === "capital-plan") return { ...base, page, capital: await loadCapitalPlanPage(db, projectId) };

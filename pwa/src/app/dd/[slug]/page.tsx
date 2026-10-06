@@ -22,7 +22,7 @@ export default async function DdPackagePage({ params, searchParams }: { params: 
 
   const { section, tab } = await searchParams;
   const legacyPage = view.sections.find((row) => row.key === section)?.items[0]?.pageKey;
-  const pageKey = (tab && DD_PAGE_KEYS.includes(tab) ? tab : legacyPage) ?? "technology";
+  const pageKey = (tab && DD_PAGE_KEYS.includes(tab) ? tab : legacyPage) ?? "company";
   const canonicalPage = pageKey === "documents" ? undefined : await loadDdProjectPage(access.projectId, pageKey);
   return (
     <DdViewerShell access={access} projectName={view.projectName} pageKey={pageKey as DdPageKey}>

@@ -93,6 +93,7 @@ export const WORKSPACE_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ gr
 export const ROLE_RESTRICTED_TABS: Readonly<Record<string, "amd_admin">> = {};
 
 /** DDも同じページ分類を使う。ページ内では公開を許可された元データだけを表示する。 */
+// 従来の共通ページキー。旧URL・正式版PDFとの互換用。左メニューはDD_ITEM_PAGESを使う。
 export const DD_TAB_FORMAT = [
   { group: "progress-group", tabs: ["gantt", "partners"] },
   { group: "business-plan-group", tabs: ["technology", "competition", "business-model", "business-plan", "financial-projection", "capital-plan", "cost-model", "ip"] },
@@ -100,10 +101,31 @@ export const DD_TAB_FORMAT = [
   { group: "company-information-group", tabs: ["company", "capital-policy", "activity"] },
 ] as const;
 
+/** DDの常設メニュー。資料の有無にかかわらず、16項目を同じ順に並べる。 */
+export const DD_ITEM_PAGES = [
+  { key: "company", label: "会社基本情報", related: ["activity"] },
+  { key: "capital-plan", label: "株主・資本政策・投資条件", related: ["capital-policy"] },
+  { key: "governance", label: "会社の意思決定", related: ["company"] },
+  { key: "business-plan", label: "事業計画・開発計画", related: ["gantt"] },
+  { key: "competition", label: "市場・競合", related: ["business-model"] },
+  { key: "partners", label: "顧客・販売", related: ["business-model"] },
+  { key: "technology", label: "技術・製品", related: [] },
+  { key: "technical-evidence", label: "技術実証の証拠", related: ["technology"] },
+  { key: "manufacturing", label: "製造・品質・供給", related: ["technology"] },
+  { key: "ip", label: "知財・大学の利用権", related: ["technology"] },
+  { key: "team", label: "経営陣・人員・雇用", related: ["business-model"] },
+  { key: "contracts", label: "重要契約", related: ["business-model"] },
+  { key: "regulatory", label: "法規制・許認可・安全", related: ["technology", "business-model"] },
+  { key: "disputes", label: "紛争・関連当事者・利益相反", related: [] },
+  { key: "financial-projection", label: "財務・税務・借入・採算", related: ["cost-model"] },
+  { key: "documents", label: "証憑・版・開示管理", related: ["business-model"] },
+] as const;
+
 /** 3領域のページ名。ワークスペースの旧キー cost/drive は同じページへ対応する。 */
 export const PROJECT_PAGE_LABELS: Readonly<Record<string, string>> = {
   issues: "ゴールツリー", tasks: "タスク", gantt: "ガント", progress: "MS・月次", meetings: "動向・会議", slack: "Slack", weekly: "週次差分", partners: "関係先",
   "score-detail": "スコア詳細", technology: "技術", competition: "競合比較", "business-model": "ビジネスモデル", "business-plan": "事業計画", "financial-projection": "試算表", "capital-plan": "資本政策表", "cost-model": "コスト試算", cost: "コスト試算", ip: "知財",
+  governance: "会社の意思決定", "technical-evidence": "技術実証の証拠", manufacturing: "製造・品質・供給", team: "経営陣・人員・雇用", contracts: "重要契約", regulatory: "法規制・許認可・安全", disputes: "紛争・関連当事者・利益相反",
   documents: "ドライブ", drive: "ドライブ", overview: "PJ概要", "project-contracts": "契約", "project-finance": "収支", "monthly-reports": "月次報告書", company: "会社概要", "killer-factors": "キラー要素", "capital-policy": "資金調達履歴", activity: "沿革", seeds: "シーズ一覧", regulations: "規程一覧",
 };
 

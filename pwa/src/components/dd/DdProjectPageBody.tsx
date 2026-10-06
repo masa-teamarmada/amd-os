@@ -1,4 +1,5 @@
 "use client";
+import { ProjectDiligenceSection } from "@/components/project-workspace/ProjectDiligenceSection";
 import type { DdLiveProjectPage } from "@/lib/dd-project-page-types";
 import { QuestionTreeView } from "@/components/question-tree/QuestionTreeView";
 import { SxPartnerPipeline } from "@/components/project-workspace/SxPartnerPipeline";
@@ -16,6 +17,7 @@ import { CockpitCostTab } from "@/components/cockpit/CockpitCostTab";
 
 const noop = () => {};
 export function DdProjectPageBody({data,canDownload=false}:{data:DdLiveProjectPage;canDownload?:boolean}) {
+  if ("empty" in data) return <ProjectDiligenceSection page={data.page} />;
   switch(data.page) {
     case "technology": case "competition": case "business-model": return <CockpitTechnology key={`${data.projectId}:${data.page}`} projectId={data.projectId} mode={data.page} initialData={data.tech} />;
     case "financial-projection": return <CockpitFinancialProjection projectId={data.projectId} initialData={data.finance} readOnly />;
