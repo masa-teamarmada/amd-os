@@ -94,7 +94,7 @@ export function CockpitCostTab({ projectId, allowEdit = true, initialRenderer, i
               type="button"
               aria-pressed={option.key === active}
               onClick={() => setChoice(option.key)}
-              className={`min-h-9 rounded-md border px-2 xl:min-h-7 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#027fdc] ${option.key === active ? "border-[#1d1d1f] bg-[#1d1d1f] text-white" : "border-[#d2d2d7] bg-white text-[#1d1d1f] hover:bg-[#f5f5f7]"}`}
+              className={`min-h-9 rounded-md border px-2 lg:min-h-7 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#027fdc] ${option.key === active ? "border-[#1d1d1f] bg-[#1d1d1f] text-white" : "border-[#d2d2d7] bg-white text-[#1d1d1f] hover:bg-[#f5f5f7]"}`}
             >
               {option.label}
             </button>

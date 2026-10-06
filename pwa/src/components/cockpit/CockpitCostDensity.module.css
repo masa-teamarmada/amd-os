@@ -5,7 +5,7 @@
   container-type: inline-size;
 }
 
-@media (min-width: 1280px) {
+@media (min-width: 1024px) {
   .dense :global([data-testid="cost-controls"] li),
   .dense :global([data-testid="fuel-cost-controls"] li) {
     line-height: 16px;

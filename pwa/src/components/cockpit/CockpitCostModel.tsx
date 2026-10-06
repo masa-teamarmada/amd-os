@@ -174,7 +174,7 @@ export function CockpitCostModel({ projectId, allowEdit = true, initialData }: P
     if (state !== "ready") return;
     const measure = () => {
       const el = panesRef.current;
-      if (!el || !window.matchMedia("(min-width: 1280px)").matches) {
+      if (!el || !window.matchMedia("(min-width: 1100px)").matches) {
         setPaneHeight(null);
         return;
       }
@@ -299,7 +299,7 @@ export function CockpitCostModel({ projectId, allowEdit = true, initialData }: P
       <div className="rounded-xl border border-[#e5e5e7] bg-white" data-testid="cost-simulator">
         <h2 className="sr-only">{model.title}</h2>
         {/* スマホ幅: 結果の要約を上に固定する */}
-        <div className="sticky top-0 z-20 xl:hidden">
+        <div className="sticky top-0 z-20 min-[1100px]:hidden">
           <CostResultsSummaryBar
             unit={unit}
             computed={computed}
@@ -311,8 +311,8 @@ export function CockpitCostModel({ projectId, allowEdit = true, initialData }: P
         </div>
 
         {/* 切り替えと、保存していない変更 */}
-        <div className="relative flex flex-col gap-2 border-b border-[#e5e5e7] px-2 py-1 xl:flex-row xl:flex-wrap xl:items-center xl:justify-between">
-          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:flex xl:w-full xl:flex-wrap xl:items-center xl:gap-x-3">
+        <div className="relative flex flex-col gap-2 border-b border-[#e5e5e7] px-2 py-1 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:flex lg:w-full lg:flex-wrap lg:items-center lg:gap-x-3">
             {strains.length > 0 && (
               <Segmented
                 label="株"
@@ -356,7 +356,7 @@ export function CockpitCostModel({ projectId, allowEdit = true, initialData }: P
               />
             )}
             <FactoryUtilitySwitches items={factoryUtilities} />
-            <p className="text-[10px] leading-4 text-[#6e6e73] sm:col-span-2 xl:basis-full" data-testid="cost-selection-note">
+            <p className="text-[10px] leading-4 text-[#6e6e73] sm:col-span-2 lg:basis-full" data-testid="cost-selection-note">
               {locations.length > 1 && <>{LOCATION_SHORT_LABEL[selection.location]}＝{LOCATION_DESCRIPTION[selection.location]}。</>}
               {METHOD_LABEL[selection.method]}＝{METHOD_DESCRIPTION[selection.method]}。
               {reactorAssumption && (
@@ -381,7 +381,7 @@ export function CockpitCostModel({ projectId, allowEdit = true, initialData }: P
               )}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5 xl:self-start">
+          <div className="flex flex-wrap items-center gap-1.5 lg:self-start">
             {/* 書き換え中は「保存していない変更」のボタンを1行に収めるため、版ラベルを隠す（版は読み物の「この試算について」にも出る） */}
             {model.versionLabel && changes.length === 0 && (
               <span className="inline-flex items-center rounded-full border border-[#d2d2d7] px-2 py-0.5 text-[11px] text-[#3c3c43]">{model.versionLabel}</span>
@@ -395,14 +395,14 @@ export function CockpitCostModel({ projectId, allowEdit = true, initialData }: P
                   type="button"
                   onClick={() => setChangesOpen((v) => !v)}
                   aria-expanded={changesOpen}
-                  className="min-h-[40px] rounded-md bg-[#e8f3fc] px-2.5 text-[12px] font-semibold text-[#0267b2] hover:bg-[#d6eafa] xl:min-h-[30px]"
+                  className="min-h-[40px] rounded-md bg-[#e8f3fc] px-2.5 text-[12px] font-semibold text-[#0267b2] hover:bg-[#d6eafa] lg:min-h-[30px]"
                 >
                   保存していない変更 {changes.length}件 {changesOpen ? "▲" : "▼"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setDraft(() => ({}))}
-                  className="min-h-[40px] rounded-md border border-[#d2d2d7] bg-white px-2.5 text-[12px] font-semibold text-[#3c3c43] hover:border-[#7cbceb] xl:min-h-[30px]"
+                  className="min-h-[40px] rounded-md border border-[#d2d2d7] bg-white px-2.5 text-[12px] font-semibold text-[#3c3c43] hover:border-[#7cbceb] lg:min-h-[30px]"
                 >
                   すべて戻す
                 </button>
@@ -411,7 +411,7 @@ export function CockpitCostModel({ projectId, allowEdit = true, initialData }: P
                     type="button"
                     disabled={saving}
                     onClick={() => void save(changes.map((c) => c.key))}
-                    className="min-h-[40px] rounded-md bg-[#027fdc] px-2.5 text-[12px] font-semibold text-white hover:bg-[#0267b2] disabled:opacity-60 xl:min-h-[30px]"
+                    className="min-h-[40px] rounded-md bg-[#027fdc] px-2.5 text-[12px] font-semibold text-white hover:bg-[#0267b2] disabled:opacity-60 lg:min-h-[30px]"
                   >
                     {saving ? "保存中..." : "すべて保存"}
                   </button>
@@ -439,7 +439,7 @@ export function CockpitCostModel({ projectId, allowEdit = true, initialData }: P
                       {formatDraftValue(c.field, c.before)} → <span className="font-semibold text-[#0267b2]">{formatDraftValue(c.field, c.after)}</span>
                       {c.unit && <span className="ml-0.5 text-[11px] text-[#6e6e73]">{c.unit}</span>}
                     </span>
-                    <button type="button" onClick={() => revert([c.key])} className="min-h-[36px] rounded px-1.5 text-[11px] font-semibold text-[#3c3c43] hover:bg-[#f5f5f7] xl:min-h-0">
+                    <button type="button" onClick={() => revert([c.key])} className="min-h-[36px] rounded px-1.5 text-[11px] font-semibold text-[#3c3c43] hover:bg-[#f5f5f7] lg:min-h-0">
                       戻す
                     </button>
                     {canEdit && (
@@ -447,7 +447,7 @@ export function CockpitCostModel({ projectId, allowEdit = true, initialData }: P
                         type="button"
                         disabled={saving}
                         onClick={() => void save([c.key])}
-                        className="min-h-[36px] rounded bg-[#027fdc] px-1.5 text-[11px] font-semibold text-white hover:bg-[#0267b2] disabled:opacity-60 xl:min-h-0 xl:py-0.5"
+                        className="min-h-[36px] rounded bg-[#027fdc] px-1.5 text-[11px] font-semibold text-white hover:bg-[#0267b2] disabled:opacity-60 lg:min-h-0 lg:py-0.5"
                       >
                         この値を保存
                       </button>
@@ -462,10 +462,10 @@ export function CockpitCostModel({ projectId, allowEdit = true, initialData }: P
         {/* 操作パネル（左）と結果（右）。デスクトップは画面の下端まで、操作パネルの中だけスクロールする */}
         <div
           ref={panesRef}
-          className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]"
+          className="grid grid-cols-1 min-[1100px]:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_380px]"
           style={paneHeight ? { height: paneHeight } : undefined}
         >
-          <div className="order-2 min-h-0 xl:order-1 xl:border-r xl:border-[#e5e5e7]">
+          <div className="order-2 min-h-0 min-[1100px]:order-1 min-[1100px]:border-r min-[1100px]:border-[#e5e5e7]">
             <CostControlsPanel
               saved={bundle}
               working={working}
@@ -478,7 +478,7 @@ export function CockpitCostModel({ projectId, allowEdit = true, initialData }: P
               onSelectTankMode={(tankMode) => setView({ tankMode })}
             />
           </div>
-          <div className="order-1 min-h-0 border-b border-[#e5e5e7] p-2 xl:order-2 xl:overflow-y-auto xl:border-b-0">
+          <div className="order-1 min-h-0 border-b border-[#e5e5e7] p-2 min-[1100px]:order-2 min-[1100px]:overflow-y-auto min-[1100px]:border-b-0">
             <CostResultsPanel
               unit={unit}
               computed={computed}
@@ -535,7 +535,7 @@ function PartialCostModel({ bundle }: { bundle: CostModelBundle }) {
         [...groups.entries()].map(([group, assumptions]) => (
           <section key={group} className="rounded-xl border border-[#e5e5e7] bg-white p-4 sm:p-5">
             <h3 className="text-[13px] font-semibold text-[#1d1d1f]">{group}</h3>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {assumptions.map((assumption) => (
                 <Metric
                   key={assumption.costAssumptionId}

@@ -76,7 +76,7 @@ export function CostTaskFlowOverview({
     <div data-testid="cost-task-flow">
       <p className="text-[11px] leading-4 text-[#3c3c43]">
         <span className="text-[#6e6e73]">{scenarioLabel}</span>
-        <br className="xl:hidden" />
+        <br className="lg:hidden" />
         <span className="font-semibold text-[#1d1d1f]">SXの作業工数 年 {int(flow.siteHours)}時間（顧客1社分）</span>
         ・作業費 {num(flow.sitePerUnit)} 円/{unit}（年 {yen(flow.siteAnnual)}）
         {hasProduction && (
@@ -91,7 +91,7 @@ export function CostTaskFlowOverview({
           const stepHours = stepHoursText(step);
           const customerOnly = step.rows.every((r) => r.performer === "customer");
           return (
-            <li key={step.label} className="relative grid grid-cols-[22px_minmax(0,1fr)] gap-x-2 pb-2 xl:pb-0.5 last:pb-0">
+            <li key={step.label} className="relative grid grid-cols-[22px_minmax(0,1fr)] gap-x-2 pb-2 lg:pb-0.5 last:pb-0">
               {i < flow.steps.length - 1 && <span aria-hidden="true" className="absolute bottom-0 left-[10.5px] top-[22px] w-px bg-[#d2d2d7]" />}
               <span className="relative flex h-[22px] w-[22px] items-center justify-center rounded-full border border-[#7cbceb] bg-white text-[11px] font-semibold text-[#0267b2]">
                 {i + 1}
@@ -101,7 +101,7 @@ export function CostTaskFlowOverview({
                   type="button"
                   onClick={() => onJumpStep(step.label)}
                   title="作業リストのこの段へ移る"
-                  className="grid min-h-[36px] w-full grid-cols-[minmax(0,1fr)_64px] items-center gap-x-2 rounded text-left hover:bg-[#f5f5f7] sm:grid-cols-[minmax(0,1fr)_minmax(80px,180px)_92px_64px] xl:min-h-[22px]"
+                  className="grid min-h-[36px] w-full grid-cols-[minmax(0,1fr)_64px] items-center gap-x-2 rounded text-left hover:bg-[#f5f5f7] sm:grid-cols-[minmax(0,1fr)_minmax(80px,180px)_92px_64px] lg:min-h-[22px]"
                 >
                   <span className="min-w-0 text-[12px] font-semibold text-[#1d1d1f] sm:truncate">{step.label}</span>
                   <span className="hidden sm:block"><HoursBar step={step} maxHours={maxHours} /></span>

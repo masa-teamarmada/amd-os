@@ -65,7 +65,7 @@ interface Props {
   scrollable: boolean;
 }
 
-const NAV_BUTTON = "min-h-[36px] shrink-0 rounded-md px-2 text-[11px] font-semibold text-[#3c3c43] hover:bg-[#e8f3fc] hover:text-[#0267b2] xl:min-h-[24px]";
+const NAV_BUTTON = "min-h-[36px] shrink-0 rounded-md px-2 text-[11px] font-semibold text-[#3c3c43] hover:bg-[#e8f3fc] hover:text-[#0267b2] lg:min-h-[24px]";
 const stepAnchorId = (label: string) => `fuel-step-${label}`;
 
 /**
@@ -263,7 +263,7 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
           type="button"
           onClick={() => setShowAllRows((v) => !v)}
           aria-pressed={showAllRows}
-          className="ml-auto min-h-[36px] rounded-md border border-[#d2d2d7] bg-white px-2 text-[11px] font-semibold text-[#3c3c43] hover:border-[#7cbceb] xl:min-h-[24px]"
+          className="ml-auto min-h-[36px] rounded-md border border-[#d2d2d7] bg-white px-2 text-[11px] font-semibold text-[#3c3c43] hover:border-[#7cbceb] lg:min-h-[24px]"
           title="明細の行を、選んだFAME転換で発生する行だけにするか、すべて出すか"
         >
           {showAllRows ? "選んだFAME転換の行だけにする" : `すべての行を出す（明細${allItems.length}行）`}
@@ -304,7 +304,7 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
                   key={g.key}
                   type="button"
                   onClick={() => jump(`fuel-g-${g.key}`)}
-                  className="min-h-[32px] rounded-full border border-[#e5e5e7] bg-[#fafafa] px-2 text-[10px] font-medium text-[#3c3c43] hover:border-[#7cbceb] hover:text-[#0267b2] xl:min-h-[22px]"
+                  className="min-h-[32px] rounded-full border border-[#e5e5e7] bg-[#fafafa] px-2 text-[10px] font-medium text-[#3c3c43] hover:border-[#7cbceb] hover:text-[#0267b2] lg:min-h-[22px]"
                 >
                   {g.title}
                 </button>
@@ -321,21 +321,21 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
 /** 前提の下に出す、いまの数字での割り算の箱。 */
 function Formula({ children, testId }: { children: ReactNode; testId?: string }) {
   return (
-    <p className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 xl:py-0.5 text-[11px] leading-5 text-[#3c3c43]" data-testid={testId}>
+    <p className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 lg:py-0.5 text-[11px] leading-5 text-[#3c3c43]" data-testid={testId}>
       {children}
     </p>
   );
 }
 
 /** スマホ幅で入力欄をマスいっぱいに広げる。 */
-const FILL = "flex w-full items-center gap-1 xl:inline-flex xl:w-auto";
+const FILL = "flex w-full items-center gap-1 lg:inline-flex lg:w-auto";
 
 /** 表の1マス。スマホ幅は見出しを上・入力を下に置き、デスクトップは見出しを表の頭に出して入力だけを置く。 */
 function Cell({ label, children, className = "", align = "end" }: { label: string; children: ReactNode; className?: string; align?: "start" | "end" }) {
   return (
     <div className={`flex min-w-0 flex-col gap-0.5 ${className}`}>
-      <span className="text-[10px] leading-4 text-[#6e6e73] xl:hidden">{label}</span>
-      <div className={`flex min-w-0 items-center gap-1 ${align === "end" ? "xl:justify-end" : ""}`}>{children}</div>
+      <span className="text-[10px] leading-4 text-[#6e6e73] lg:hidden">{label}</span>
+      <div className={`flex min-w-0 items-center gap-1 ${align === "end" ? "lg:justify-end" : ""}`}>{children}</div>
     </div>
   );
 }
@@ -359,7 +359,7 @@ function AssumptionControl({ assumption: a, saved, onChange }: { assumption: Cos
     const current = a.valueText ?? choices[0].value;
     const baseline = saved?.valueText ?? choices[0].value;
     return (
-      <li className="flex flex-col gap-1 py-1.5 xl:py-0.5 xl:flex-row xl:items-center xl:gap-2">
+      <li className="flex flex-col gap-1 py-1.5 lg:py-0.5 lg:flex-row lg:items-center lg:gap-2">
         <div className="min-w-0 flex-1 text-[12px] leading-5 text-[#1d1d1f]">
           {a.label}
           <span className="ml-1 align-middle"><ConfidenceTag value={a.confidence} /></span>
@@ -370,7 +370,7 @@ function AssumptionControl({ assumption: a, saved, onChange }: { assumption: Cos
             aria-label={a.label}
             value={current}
             onChange={(e) => onChange("assumption", a.costAssumptionId, "valueText", e.target.value)}
-            className={`min-h-[44px] rounded-md border px-2 text-[16px] text-[#1d1d1f] xl:h-7 xl:min-h-0 xl:text-[12px] ${
+            className={`min-h-[44px] rounded-md border px-2 text-[16px] text-[#1d1d1f] lg:h-7 lg:min-h-0 lg:text-[12px] ${
               baseline !== current ? "border-[#027fdc] bg-[#e8f3fc]" : "border-[#d2d2d7] bg-white"
             }`}
           >
@@ -385,7 +385,7 @@ function AssumptionControl({ assumption: a, saved, onChange }: { assumption: Cos
   }
   const isOverride = a.roleKey === "biomass_cost_per_kg_override";
   return (
-    <li className="flex flex-col gap-1 py-1.5 xl:py-0.5 xl:flex-row xl:items-center xl:gap-2">
+    <li className="flex flex-col gap-1 py-1.5 lg:py-0.5 lg:flex-row lg:items-center lg:gap-2">
       <div className="min-w-0 flex-1 text-[12px] leading-5 text-[#1d1d1f]">
         {a.label}
         <span className="ml-1 align-middle"><ConfidenceTag value={a.confidence} /></span>
@@ -400,7 +400,7 @@ function AssumptionControl({ assumption: a, saved, onChange }: { assumption: Cos
           allowNull={isOverride}
           min={isOverride ? 0 : undefined}
           placeholder={isOverride ? "空欄＝計算値" : undefined}
-          widthClass="w-36 xl:w-24"
+          widthClass="w-36 lg:w-24"
         />
         <span className="w-16 text-[11px] text-[#6e6e73]">{a.unit}</span>
       </div>
@@ -410,7 +410,7 @@ function AssumptionControl({ assumption: a, saved, onChange }: { assumption: Cos
 
 function TargetControl({ saved, working, onChange }: { saved: CostModelBundle; working: CostModelBundle; onChange: FuelChangeHandler }) {
   return (
-    <li className="flex flex-col gap-1 py-1.5 xl:py-0.5 xl:flex-row xl:items-center xl:gap-2">
+    <li className="flex flex-col gap-1 py-1.5 lg:py-0.5 lg:flex-row lg:items-center lg:gap-2">
       <div className="min-w-0 flex-1 text-[12px] leading-5 text-[#1d1d1f]">
         総コスト目標（粗利30%を残す原価）
         <NoteToggle note={working.model.targetNote} />
@@ -423,7 +423,7 @@ function TargetControl({ saved, working, onChange }: { saved: CostModelBundle; w
           allowNull
           min={0}
           placeholder="空欄＝目標なし"
-          widthClass="w-36 xl:w-24"
+          widthClass="w-36 lg:w-24"
           onChange={(v) => onChange("model", working.model.costModelId, "targetTotalCostPerUnit", v)}
         />
         <span className="w-16 text-[11px] text-[#6e6e73]">円/L</span>
@@ -453,7 +453,7 @@ function YieldTable({
   const u = current.yield.unitLabel;
   return (
     <div className="mt-1.5" data-testid="fuel-yield-table">
-      <div className="grid grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,4.5rem))] items-end gap-x-1.5 border-b border-[#e5e5e7] pb-1 text-[10px] font-medium text-[#6e6e73] xl:grid-cols-[minmax(0,1fr)_repeat(3,5.25rem)]">
+      <div className="grid grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,4.5rem))] items-end gap-x-1.5 border-b border-[#e5e5e7] pb-1 text-[10px] font-medium text-[#6e6e73] lg:grid-cols-[minmax(0,1fr)_repeat(3,5.25rem)]">
         <span>項目（%）</span>
         {FUEL_YIELD_CASES.map((y) => (
           <span key={y} className={`text-right ${y === current.yieldCase ? "font-semibold text-[#0267b2]" : ""}`}>{FUEL_YIELD_CASE_LABEL[y]}</span>
@@ -466,7 +466,7 @@ function YieldTable({
             const baseRow = fuelSecretionAssumptionOf(working.assumptions, role, "base");
             const unit = role === "secretion_rate" ? "g/L/日" : "%";
             return (
-              <li key={role} className="grid grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,4.5rem))] items-center gap-x-1.5 py-1.5 xl:py-0.5 xl:grid-cols-[minmax(0,1fr)_repeat(3,5.25rem)]">
+              <li key={role} className="grid grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,4.5rem))] items-center gap-x-1.5 py-1.5 lg:py-0.5 lg:grid-cols-[minmax(0,1fr)_repeat(3,5.25rem)]">
                 <span className="min-w-0 text-[12px] leading-5 text-[#1d1d1f]">
                   {FUEL_SECRETION_YIELD_ROLE_LABEL[role]}
                   <span className="ml-1 text-[10px] text-[#6e6e73]">（{unit}）</span>
@@ -500,14 +500,14 @@ function YieldTable({
           const unused = secreting && (role === "fame_potential" || role === "harvest_recovery" || role === "extraction_recovery");
           if (unused) {
             return (
-              <li key={role} className="grid grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,4.5rem))] items-center gap-x-1.5 py-1.5 xl:py-0.5 opacity-50 xl:grid-cols-[minmax(0,1fr)_repeat(3,5.25rem)]">
+              <li key={role} className="grid grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,4.5rem))] items-center gap-x-1.5 py-1.5 lg:py-0.5 opacity-50 lg:grid-cols-[minmax(0,1fr)_repeat(3,5.25rem)]">
                 <span className="min-w-0 text-[12px] leading-5 text-[#1d1d1f]">{FUEL_YIELD_ROLE_LABEL[role]}</span>
                 <span className="col-span-3 text-right text-[11px] text-[#86868b]">脂質分泌株では使わない</span>
               </li>
             );
           }
           return (
-            <li key={role} className="grid grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,4.5rem))] items-center gap-x-1.5 py-1.5 xl:py-0.5 xl:grid-cols-[minmax(0,1fr)_repeat(3,5.25rem)]">
+            <li key={role} className="grid grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,4.5rem))] items-center gap-x-1.5 py-1.5 lg:py-0.5 lg:grid-cols-[minmax(0,1fr)_repeat(3,5.25rem)]">
               <span className="min-w-0 text-[12px] leading-5 text-[#1d1d1f]">
                 {FUEL_YIELD_ROLE_LABEL[role]}
                 {baseRow && <span className="ml-1 align-middle"><ConfidenceTag value={baseRow.confidence} /></span>}
@@ -535,7 +535,7 @@ function YieldTable({
           );
         })}
         {density && (
-          <li className="flex flex-col gap-1 py-1.5 xl:py-0.5 xl:flex-row xl:items-center xl:gap-2">
+          <li className="flex flex-col gap-1 py-1.5 lg:py-0.5 lg:flex-row lg:items-center lg:gap-2">
             <div className="min-w-0 flex-1 text-[12px] leading-5 text-[#1d1d1f]">
               {density.label}（3ケース共通）
               <span className="ml-1 align-middle"><ConfidenceTag value={density.confidence} /></span>
@@ -548,14 +548,14 @@ function YieldTable({
                 baseline={savedOf(density.costAssumptionId)?.value ?? null}
                 onChange={(v) => onChange("assumption", density.costAssumptionId, "value", v)}
                 min={0.1}
-                widthClass="w-36 xl:w-24"
+                widthClass="w-36 lg:w-24"
               />
               <span className="w-16 text-[11px] text-[#6e6e73]">{density.unit}</span>
             </div>
           </li>
         )}
       </ul>
-      <div className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 xl:py-0.5 text-[11px] leading-5 text-[#3c3c43]" data-testid="fuel-yield-formula">
+      <div className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 lg:py-0.5 text-[11px] leading-5 text-[#3c3c43]" data-testid="fuel-yield-formula">
         <p>
           {secreting
             ? "燃料1Lに要る脂肪酸 ＝ 密度 ÷（培養液からの回収率 × メチル化反応率 × FAME精製回収率）。分泌速度は、要る培養液の量（培養設備の系列数）を決める"
@@ -595,7 +595,7 @@ function BiomassFormula({ scenario }: { scenario: FuelScenarioResult }) {
     [`${u}の量に比例する費用`, s.secreting ? `培地・CO2・溶媒など 1kgあたりの単価（菌体1kgあたりの行は 入れ替える菌体 ${num(s.cellMakeupPerUnit, 2)} kg を掛ける）` : "培地・CO2・濃縮など 1kgあたりの単価", row("variable")],
   ];
   return (
-    <div className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 xl:py-0.5 text-[11px] leading-5 text-[#3c3c43]" data-testid="fuel-biomass-formula">
+    <div className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 lg:py-0.5 text-[11px] leading-5 text-[#3c3c43]" data-testid="fuel-biomass-formula">
       <p className="font-semibold text-[#1d1d1f]">
         {u}1kgの原価 <span className="tabular-nums">{num(b.computedPerKg)} 円/kg</span>
         <span className="font-normal text-[#6e6e73]">（明細と作業から計算。設備は系列の数だけ並べるので、1kgあたりは作る量でほとんど変わらない）</span>
@@ -651,7 +651,7 @@ function FuelTaskFlowOverview({ flow, current, onJumpStep }: { flow: FuelTaskFlo
                   type="button"
                   onClick={() => onJumpStep(st.label)}
                   title="作業リストのこの段へ移る"
-                  className="grid min-h-[36px] w-full grid-cols-[minmax(0,1fr)_64px] items-center gap-x-2 rounded text-left hover:bg-[#f5f5f7] sm:grid-cols-[minmax(0,1fr)_minmax(80px,180px)_92px_64px] xl:min-h-[22px]"
+                  className="grid min-h-[36px] w-full grid-cols-[minmax(0,1fr)_64px] items-center gap-x-2 rounded text-left hover:bg-[#f5f5f7] sm:grid-cols-[minmax(0,1fr)_minmax(80px,180px)_92px_64px] lg:min-h-[22px]"
                 >
                   <span className="min-w-0 text-[12px] font-semibold text-[#1d1d1f] sm:truncate">{st.label}</span>
                   <span className="hidden sm:block">
@@ -717,7 +717,7 @@ function FuelTaskList({
         年額 ＝ 年間回数 ×（1回の工数 × 作業単価 {int(rate)}円/時 ＋ 1回の経費）。作業単価は上の共通の1つ。工数が空欄の行は未確認で、0時間として数える。
         {FUEL_CULTURE_LABEL}の作業は{u}費に入る。選んだFAME転換や株で発生しない行は薄く出す。
       </p>
-      <div className="hidden xl:grid xl:grid-cols-[minmax(0,1fr)_78px_130px_92px_56px] xl:gap-x-1.5 xl:border-b xl:border-[#e5e5e7] xl:pb-1 xl:text-[10px] xl:font-medium xl:text-[#6e6e73]">
+      <div className="hidden lg:grid lg:grid-cols-[minmax(0,1fr)_78px_130px_92px_56px] lg:gap-x-1.5 lg:border-b lg:border-[#e5e5e7] lg:pb-1 lg:text-[10px] lg:font-medium lg:text-[#6e6e73]">
         <span>作業</span>
         <span className="text-right">1回の工数(時)</span>
         <span>年間回数</span>
@@ -750,9 +750,9 @@ function FuelTaskList({
                   return (
                     <li
                       key={t.costTaskId}
-                      className={`grid grid-cols-2 gap-x-2 gap-y-1 py-1.5 xl:py-0.5 xl:grid-cols-[minmax(0,1fr)_78px_130px_92px_56px] xl:items-center xl:gap-x-1.5 ${applies ? "" : "opacity-50"}`}
+                      className={`grid grid-cols-2 gap-x-2 gap-y-1 py-1.5 lg:py-0.5 lg:grid-cols-[minmax(0,1fr)_78px_130px_92px_56px] lg:items-center lg:gap-x-1.5 ${applies ? "" : "opacity-50"}`}
                     >
-                      <div className="col-span-2 min-w-0 text-[12px] leading-5 text-[#1d1d1f] xl:col-span-1">
+                      <div className="col-span-2 min-w-0 text-[12px] leading-5 text-[#1d1d1f] lg:col-span-1">
                         {t.label}
                         <span className="ml-1 align-middle"><ConfidenceTag value={t.confidence} /></span>
                         <span className="block text-[10px] leading-4 text-[#6e6e73]">
@@ -770,12 +770,12 @@ function FuelTaskList({
                           min={0}
                           placeholder="未確認"
                           compact
-                          widthClass="w-full xl:w-[4.5rem]"
+                          widthClass="w-full lg:w-[4.5rem]"
                           wrapperClass={FILL}
                           onChange={(v) => onChange("task", t.costTaskId, "hoursPerOccurrence", v)}
                         />
                       </Cell>
-                      <Cell label={`年間回数（${FUEL_TASK_DRIVER_LABEL[driver as FuelTaskDriver] ?? driver}）`} className="col-span-2 xl:col-span-1" align="start">
+                      <Cell label={`年間回数（${FUEL_TASK_DRIVER_LABEL[driver as FuelTaskDriver] ?? driver}）`} className="col-span-2 lg:col-span-1" align="start">
                         {usesCount ? (
                           <>
                             <NumberField
@@ -784,7 +784,7 @@ function FuelTaskList({
                               baseline={base?.countPerYear ?? null}
                               min={0}
                               compact
-                              widthClass="w-16 xl:w-12"
+                              widthClass="w-16 lg:w-12"
                               onChange={(v) => onChange("task", t.costTaskId, "countPerYear", v ?? 0)}
                             />
                             <span className="text-[10px] leading-4 text-[#6e6e73]">
@@ -792,7 +792,7 @@ function FuelTaskList({
                             </span>
                           </>
                         ) : (
-                          <span className="text-[12px] tabular-nums text-[#1d1d1f] xl:text-[11px]">
+                          <span className="text-[12px] tabular-nums text-[#1d1d1f] lg:text-[11px]">
                             {int(amt.occurrences)}回<span className="ml-1 text-[10px] text-[#6e6e73]">（{FUEL_TASK_DRIVER_LABEL[driver as FuelTaskDriver] ?? driver}）</span>
                           </span>
                         )}
@@ -804,13 +804,13 @@ function FuelTaskList({
                           baseline={base?.expensePerOccurrence ?? 0}
                           min={0}
                           compact
-                          widthClass="w-full xl:w-[5.5rem]"
+                          widthClass="w-full lg:w-[5.5rem]"
                           wrapperClass={FILL}
                           onChange={(v) => onChange("task", t.costTaskId, "expensePerOccurrence", v ?? 0)}
                         />
                       </Cell>
                       <Cell label="円/L">
-                        <span className="min-h-[44px] w-full text-right text-[13px] font-semibold leading-[44px] tabular-nums text-[#1d1d1f] xl:min-h-0 xl:text-[11px] xl:font-normal xl:leading-normal">
+                        <span className="min-h-[44px] w-full text-right text-[13px] font-semibold leading-[44px] tabular-nums text-[#1d1d1f] lg:min-h-0 lg:text-[11px] lg:font-normal lg:leading-normal">
                           {perLiter === null ? "—" : num(perLiter, 2)}
                         </span>
                       </Cell>
@@ -857,7 +857,7 @@ function FuelItemRows({
   const savedWasteHeat = wasteHeat ? saved.assumptions.find((a) => a.costAssumptionId === wasteHeat.costAssumptionId) : undefined;
   return (
     <div className="mt-1.5">
-      <div className="hidden xl:grid xl:grid-cols-[minmax(0,1fr)_64px_128px_64px_60px] xl:gap-x-1.5 xl:border-b xl:border-[#e5e5e7] xl:pb-1 xl:text-[10px] xl:font-medium xl:text-[#6e6e73]">
+      <div className="hidden lg:grid lg:grid-cols-[minmax(0,1fr)_64px_128px_64px_60px] lg:gap-x-1.5 lg:border-b lg:border-[#e5e5e7] lg:pb-1 lg:text-[10px] lg:font-medium lg:text-[#6e6e73]">
         <span>明細（行の下に計算と根拠）</span>
         <span className="text-right" title="行の「〜あたり」（1系列・1kg・燃料1L など）に使う量。単位は行の下の計算に出す">数量</span>
         <span className="text-right" title="数量の単位1つあたりの値段">単価</span>
@@ -881,9 +881,9 @@ function FuelItemRows({
           return (
             <li
               key={i.costItemId}
-              className={`grid grid-cols-2 gap-x-2 gap-y-1 py-1.5 xl:py-0.5 xl:grid-cols-[minmax(0,1fr)_64px_128px_64px_60px] xl:items-center xl:gap-x-1.5 ${applies ? "" : "opacity-50"}`}
+              className={`grid grid-cols-2 gap-x-2 gap-y-1 py-1.5 lg:py-0.5 lg:grid-cols-[minmax(0,1fr)_64px_128px_64px_60px] lg:items-center lg:gap-x-1.5 ${applies ? "" : "opacity-50"}`}
             >
-              <div className="col-span-2 min-w-0 text-[12px] leading-5 text-[#1d1d1f] xl:col-span-1">
+              <div className="col-span-2 min-w-0 text-[12px] leading-5 text-[#1d1d1f] lg:col-span-1">
                 {fuelItemLabel(i)}
                 {i.midLabel && i.leafLabel && i.costType === "CAPEX" && <span className="ml-1 text-[10px] text-[#6e6e73]">{i.leafLabel}</span>}
                 <span className="ml-1 align-middle"><ConfidenceTag value={i.confidence} /></span>
@@ -920,14 +920,14 @@ function FuelItemRows({
                   baseline={base?.quantity ?? i.quantity}
                   min={0}
                   compact
-                  widthClass="w-full xl:w-14"
+                  widthClass="w-full lg:w-14"
                   wrapperClass={FILL}
                   onChange={(v) => onChange("item", i.costItemId, "quantity", v ?? 0)}
                 />
               </Cell>
               <Cell label={`単価（${i.unitPriceUnit ?? "円"}）`}>
                 {i.priceRule === "culture_loss" ? (
-                  <span className="min-h-[44px] w-full text-right text-[11px] leading-[44px] text-[#6e6e73] xl:min-h-0 xl:leading-normal">原料の合計</span>
+                  <span className="min-h-[44px] w-full text-right text-[11px] leading-[44px] text-[#6e6e73] lg:min-h-0 lg:leading-normal">原料の合計</span>
                 ) : (
                   <>
                     <NumberField
@@ -936,11 +936,11 @@ function FuelItemRows({
                       baseline={base?.unitPrice ?? i.unitPrice}
                       min={0}
                       compact
-                      widthClass="w-full xl:w-[5.5rem]"
+                      widthClass="w-full lg:w-[5.5rem]"
                       wrapperClass={FILL}
                       onChange={(v) => onChange("item", i.costItemId, "unitPrice", v ?? 0)}
                     />
-                    <span className="hidden w-8 shrink-0 text-[10px] text-[#6e6e73] xl:inline">{(i.unitPriceUnit ?? "").replace(/^円\//, "/")}</span>
+                    <span className="hidden w-8 shrink-0 text-[10px] text-[#6e6e73] lg:inline">{(i.unitPriceUnit ?? "").replace(/^円\//, "/")}</span>
                   </>
                 )}
               </Cell>
@@ -952,20 +952,20 @@ function FuelItemRows({
                     baseline={base?.usefulLifeYears ?? i.usefulLifeYears}
                     min={0.5}
                     compact
-                    widthClass="w-full xl:w-12"
+                    widthClass="w-full lg:w-12"
                     wrapperClass={FILL}
                     onChange={(v) => onChange("item", i.costItemId, "usefulLifeYears", v)}
                   />
                 ) : (
-                  <span className="min-h-[44px] w-full text-right leading-[44px] text-[#86868b] xl:min-h-0 xl:leading-normal">—</span>
+                  <span className="min-h-[44px] w-full text-right leading-[44px] text-[#86868b] lg:min-h-0 lg:leading-normal">—</span>
                 )}
               </Cell>
               <Cell label="円/L">
-                <span className="min-h-[44px] w-full text-right text-[13px] font-semibold leading-[44px] tabular-nums text-[#1d1d1f] xl:min-h-0 xl:text-[11px] xl:font-normal xl:leading-normal">
+                <span className="min-h-[44px] w-full text-right text-[13px] font-semibold leading-[44px] tabular-nums text-[#1d1d1f] lg:min-h-0 lg:text-[11px] lg:font-normal lg:leading-normal">
                   {right === null ? "—" : num(right, 2)}
                 </span>
               </Cell>
-              <div className="col-span-2 flex flex-col gap-0.5 xl:col-span-5">
+              <div className="col-span-2 flex flex-col gap-0.5 lg:col-span-5">
                 {right !== null && <ItemCalcLine calc={fuelItemCalc(i, current, ctx)} />}
                 <ItemNoteLine note={i.note} />
               </div>

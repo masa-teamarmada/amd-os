@@ -315,7 +315,7 @@ check("燃料のシミュレーターの画面の約束（排水処理のコス�
   const reading = read("src/components/cockpit/CockpitFuelCostModelReading.tsx");
   // 操作パネルと結果を同じ枠に2列、スマホ幅は要約を上に固定
   assert.match(main, /xl:grid-cols-\[minmax\(0,1fr\)_380px\]/);
-  assert.match(main, /sticky top-0 z-20 xl:hidden/);
+  assert.match(main, /sticky top-0 z-20 min-\[1100px\]:hidden/);
   assert.match(main, /FuelResultsSummaryBar/);
   // 保存は編集できる人だけ、「この値を保存」から。入力のたびに保存しない
   assert.match(main, /\{canEdit && \(\s*<button[\s\S]*?この値を保存/);

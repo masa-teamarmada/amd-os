@@ -120,8 +120,8 @@ export function Segmented<T extends string>({
 }) {
   return (
     <div className="flex min-w-0 items-center gap-1.5">
-      {label && <span className="w-7 shrink-0 text-[11px] font-semibold text-[#3c3c43] xl:w-auto">{label}</span>}
-      <div role="group" aria-label={ariaLabel} className="inline-flex min-w-0 flex-1 rounded-lg border border-[#d2d2d7] bg-white p-0.5 xl:flex-none">
+      {label && <span className="w-7 shrink-0 text-[11px] font-semibold text-[#3c3c43] lg:w-auto">{label}</span>}
+      <div role="group" aria-label={ariaLabel} className="inline-flex min-w-0 flex-1 rounded-lg border border-[#d2d2d7] bg-white p-0.5 lg:flex-none">
         {options.map((o) => {
           const active = o.value === value;
           return (
@@ -130,7 +130,7 @@ export function Segmented<T extends string>({
               type="button"
               aria-pressed={active}
               onClick={() => onChange(o.value)}
-              className={`min-h-[40px] flex-1 whitespace-nowrap rounded-md px-2.5 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7cbceb] xl:min-h-[30px] xl:flex-none ${
+              className={`min-h-[40px] flex-1 whitespace-nowrap rounded-md px-2.5 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7cbceb] lg:min-h-[30px] lg:flex-none ${
                 active ? "bg-[#027fdc] text-white" : "text-[#3c3c43] hover:bg-[#e8f3fc]"
               }`}
             >
@@ -207,8 +207,8 @@ export function FactoryUtilitySwitches({ items }: { items: Array<{ key: string; 
   if (items.length === 0) return null;
   return (
     <div className="flex min-w-0 items-center gap-1.5" data-testid="factory-utility-switches">
-      <span className="w-[4.5rem] shrink-0 text-[11px] font-semibold text-[#3c3c43] xl:w-auto" title="培養の拠点を工場の隣に置いて、工場から出るものをもらう前提にする">工場から</span>
-      <div role="group" aria-label="工場のものを使うかの切り替え" className="inline-flex min-w-0 flex-1 gap-0.5 rounded-lg border border-[#d2d2d7] bg-white p-0.5 xl:flex-none">
+      <span className="w-[4.5rem] shrink-0 text-[11px] font-semibold text-[#3c3c43] lg:w-auto" title="培養の拠点を工場の隣に置いて、工場から出るものをもらう前提にする">工場から</span>
+      <div role="group" aria-label="工場のものを使うかの切り替え" className="inline-flex min-w-0 flex-1 gap-0.5 rounded-lg border border-[#d2d2d7] bg-white p-0.5 lg:flex-none">
         {items.map((it) => {
           const changed = it.on !== it.baselineOn;
           return (
@@ -220,7 +220,7 @@ export function FactoryUtilitySwitches({ items }: { items: Array<{ key: string; 
               aria-label={it.label}
               title={it.hint}
               onClick={() => it.onToggle(!it.on)}
-              className={`min-h-[40px] flex-1 whitespace-nowrap rounded-md px-2 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7cbceb] xl:min-h-[30px] xl:flex-none ${
+              className={`min-h-[40px] flex-1 whitespace-nowrap rounded-md px-2 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7cbceb] lg:min-h-[30px] lg:flex-none ${
                 it.on ? "bg-[#027fdc] text-white" : "text-[#3c3c43] hover:bg-[#e8f3fc]"
               } ${changed ? "ring-2 ring-[#7cbceb] ring-offset-1" : ""}`}
             >
@@ -243,10 +243,10 @@ export function ReactorBearerSwitch({ on, baselineOn, disabled, onToggle }: { on
   const changed = on !== baselineOn;
   return (
     <div className="flex min-w-0 items-center gap-1.5" data-testid="reactor-bearer-switch">
-      <span className="w-[4.5rem] shrink-0 text-[11px] font-semibold text-[#3c3c43] xl:w-auto" title="顧客工場に置くリアクター（処理設備と、その消耗品・点検・電力・運転）を誰が持つか">
+      <span className="w-[4.5rem] shrink-0 text-[11px] font-semibold text-[#3c3c43] lg:w-auto" title="顧客工場に置くリアクター（処理設備と、その消耗品・点検・電力・運転）を誰が持つか">
         リアクター
       </span>
-      <div className="inline-flex min-w-0 flex-1 rounded-lg border border-[#d2d2d7] bg-white p-0.5 xl:flex-none">
+      <div className="inline-flex min-w-0 flex-1 rounded-lg border border-[#d2d2d7] bg-white p-0.5 lg:flex-none">
         <button
           type="button"
           role="switch"
@@ -261,7 +261,7 @@ export function ReactorBearerSwitch({ on, baselineOn, disabled, onToggle }: { on
                 : "OFF：SXが持つ（SXの原価に入れる）"
           }
           onClick={() => onToggle(!on)}
-          className={`min-h-[40px] flex-1 whitespace-nowrap rounded-md px-2 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7cbceb] disabled:cursor-not-allowed disabled:opacity-40 xl:min-h-[30px] xl:flex-none ${
+          className={`min-h-[40px] flex-1 whitespace-nowrap rounded-md px-2 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7cbceb] disabled:cursor-not-allowed disabled:opacity-40 lg:min-h-[30px] lg:flex-none ${
             on && !disabled ? "bg-[#027fdc] text-white" : "text-[#3c3c43] enabled:hover:bg-[#e8f3fc]"
           } ${changed ? "ring-2 ring-[#7cbceb] ring-offset-1" : ""}`}
         >
@@ -284,13 +284,13 @@ function ItemInlineSwitch({ on, baselineOn, onToggle, label, hint, testId }: { o
         aria-label={label}
         onClick={() => onToggle(!on)}
         title={changed ? "保存値と違う（保存していない）" : undefined}
-        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7cbceb] xl:h-5 xl:w-9 ${
+        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7cbceb] lg:h-5 lg:w-9 ${
           on ? "border-[#027fdc] bg-[#027fdc]" : "border-[#d2d2d7] bg-[#e5e5e7]"
         } ${changed ? "ring-2 ring-[#7cbceb] ring-offset-1" : ""}`}
       >
         <span
           aria-hidden="true"
-          className={`inline-block h-6 w-6 rounded-full bg-white shadow-sm transition-transform xl:h-4 xl:w-4 ${on ? "translate-x-[21px] xl:translate-x-[17px]" : "translate-x-[1px]"}`}
+          className={`inline-block h-6 w-6 rounded-full bg-white shadow-sm transition-transform lg:h-4 lg:w-4 ${on ? "translate-x-[21px] lg:translate-x-[17px]" : "translate-x-[1px]"}`}
         />
       </button>
       <span className="text-[11px] font-semibold text-[#1d1d1f]">{label}</span>
@@ -400,7 +400,7 @@ export function NumberField({
           commit(grouped);
         }}
         onBlur={() => setText(formatInput(value))}
-        className={`${widthClass} min-h-[44px] rounded-md border px-2 text-right text-[16px] font-semibold tabular-nums text-[#1d1d1f] placeholder:font-normal placeholder:text-[#86868b] focus:outline-none focus:ring-2 focus:ring-[#7cbceb] disabled:bg-[#f5f5f7] disabled:text-[#86868b] xl:h-7 xl:min-h-0 xl:text-[12px] ${
+        className={`${widthClass} min-h-[44px] rounded-md border px-2 text-right text-[16px] font-semibold tabular-nums text-[#1d1d1f] placeholder:font-normal placeholder:text-[#86868b] focus:outline-none focus:ring-2 focus:ring-[#7cbceb] disabled:bg-[#f5f5f7] disabled:text-[#86868b] lg:h-7 lg:min-h-0 lg:text-[12px] ${
           changed ? "border-[#027fdc] bg-[#e8f3fc]" : "border-[#d2d2d7] bg-white"
         }`}
       />
@@ -408,7 +408,7 @@ export function NumberField({
         <button
           type="button"
           onClick={() => onChange(baseline)}
-          className="min-h-[44px] rounded px-1 text-[11px] font-semibold text-[#0267b2] hover:underline xl:min-h-0"
+          className="min-h-[44px] rounded px-1 text-[11px] font-semibold text-[#0267b2] hover:underline lg:min-h-0"
           title={`保存値 ${baseline === null ? "空欄" : baseline.toLocaleString("ja-JP")} に戻す`}
         >
           戻す

@@ -77,11 +77,11 @@ function CostDetailLine({ label, testId, signature, children }: { label: string;
   return (
     <div className="flex items-start gap-1.5 text-[10px] leading-4" data-testid={testId}>
       <span className="shrink-0 font-semibold text-[#6e6e73]">{label}</span>
-      <p ref={ref} className={`min-w-0 flex-1 whitespace-pre-line tabular-nums text-[#6e6e73] ${open ? "" : "line-clamp-2 xl:line-clamp-1"}`}>
+      <p ref={ref} className={`min-w-0 flex-1 whitespace-pre-line tabular-nums text-[#6e6e73] ${open ? "" : "line-clamp-2 lg:line-clamp-1"}`}>
         {children}
       </p>
       {(open || overflowing) && (
-        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label={`${label}を${open ? "閉じる" : "全文表示"}`} className="min-h-8 shrink-0 font-semibold text-[#0267b2] hover:underline xl:min-h-0">
+        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label={`${label}を${open ? "閉じる" : "全文表示"}`} className="min-h-8 shrink-0 font-semibold text-[#0267b2] hover:underline lg:min-h-0">
           {open ? "閉じる" : "全文"}
         </button>
       )}

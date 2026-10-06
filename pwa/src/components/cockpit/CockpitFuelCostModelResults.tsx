@@ -166,7 +166,7 @@ export function FuelResultsPanel({ computed, baseline, current, flow, baselineFl
                         aria-pressed={active}
                         onClick={() => onSelect(conversion, yieldCase)}
                         title={[`${fuelSelectionLabel(x)} 総コスト ${num(x.totalPerLiter)} 円/L${x.totalPerLiter > scaleMax ? "（棒は目盛りの外まで伸びている）" : ""}`, ...x.breakdown.filter((p) => p.perLiter > 0).map((p) => `${p.label} ${num(p.perLiter)}`)].join("\n")}
-                        className={`grid min-h-[44px] w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1.5 gap-y-1 rounded-md border px-1 py-1 text-left sm:grid-cols-[64px_minmax(0,1fr)_124px] sm:py-0 xl:min-h-[20px] ${
+                        className={`grid min-h-[44px] w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1.5 gap-y-1 rounded-md border px-1 py-1 text-left sm:grid-cols-[64px_minmax(0,1fr)_124px] sm:py-0 lg:min-h-[20px] ${
                           active ? "border-[#027fdc] bg-[#e8f3fc]" : "border-transparent hover:border-[#d2d2d7]"
                         }`}
                       >
@@ -243,7 +243,7 @@ export function FuelResultsPanel({ computed, baseline, current, flow, baselineFl
                   aria-expanded={open}
                   onClick={() => setOpenKey(open ? null : key)}
                   title={`${FUEL_BREAKDOWN_HINT[key]}\n${slice.parts.map((p) => `${p.label} ${num(p.perLiter)}`).join("\n")}`}
-                  className="grid min-h-[40px] w-full grid-cols-[minmax(0,1fr)_58px_34px] items-center gap-x-1.5 gap-y-0.5 rounded py-0.5 text-left text-[11px] leading-[18px] hover:bg-[#f0f0f2] sm:grid-cols-[minmax(0,116px)_minmax(0,1fr)_58px_34px_40px] sm:py-0 xl:min-h-0"
+                  className="grid min-h-[40px] w-full grid-cols-[minmax(0,1fr)_58px_34px] items-center gap-x-1.5 gap-y-0.5 rounded py-0.5 text-left text-[11px] leading-[18px] hover:bg-[#f0f0f2] sm:grid-cols-[minmax(0,116px)_minmax(0,1fr)_58px_34px_40px] sm:py-0 lg:min-h-0"
                 >
                   <span className="flex min-w-0 items-center gap-1 text-[#3c3c43]">
                     <Swatch color={FUEL_CATEGORY_COLOR[key]} />
@@ -308,7 +308,7 @@ export function FuelResultsPanel({ computed, baseline, current, flow, baselineFl
               <span className="font-semibold">年 {int(flow.plantHours + flow.cultureHours)}時間</span>
               <Delta value={flow.plantHours + flow.cultureHours - (baselineFlow.plantHours + baselineFlow.cultureHours)} digits={0} className="text-[10px]" />
               {flow.unknownCount > 0 && <span className="text-[10px] text-[#6e6e73]">未確認{flow.unknownCount}件</span>}
-              <button type="button" onClick={onShowFlow} className="min-h-[36px] rounded px-1 text-[10px] font-semibold text-[#0267b2] hover:underline xl:min-h-0">
+              <button type="button" onClick={onShowFlow} className="min-h-[36px] rounded px-1 text-[10px] font-semibold text-[#0267b2] hover:underline lg:min-h-0">
                 流れを見る
               </button>
             </dd>

@@ -40,12 +40,12 @@ export function caseOptionLabel(c: ItemsVolumeCase, unit: string) {
 }
 
 const NAV_BUTTON =
-  "min-h-[36px] shrink-0 rounded-md px-2 text-[11px] font-semibold text-[#3c3c43] hover:bg-[#e8f3fc] hover:text-[#0267b2] xl:min-h-[24px]";
+  "min-h-[36px] shrink-0 rounded-md px-2 text-[11px] font-semibold text-[#3c3c43] hover:bg-[#e8f3fc] hover:text-[#0267b2] lg:min-h-[24px]";
 const STATUS_CLASS = { bad: "text-[#be123c]", warn: "text-[#b45309]", ok: "text-[#1d1d1f]", none: "text-[#6e6e73]" } as const;
 
 function Formula({ children, testId }: { children: ReactNode; testId?: string }) {
   return (
-    <p className="rounded-md bg-[#f5f5f7] px-2 py-1.5 xl:py-0.5 text-[11px] leading-5 text-[#3c3c43]" data-testid={testId}>
+    <p className="rounded-md bg-[#f5f5f7] px-2 py-1.5 lg:py-0.5 text-[11px] leading-5 text-[#3c3c43]" data-testid={testId}>
       {children}
     </p>
   );
@@ -66,8 +66,8 @@ function NoteToggle({ note }: { note: string | null }) {
 
 function Cell({ label, children, className = "" }: { label: string; children: ReactNode; className?: string }) {
   return (
-    <div className={`flex items-center justify-between gap-2 xl:justify-end ${className}`}>
-      <span className="text-[10px] text-[#6e6e73] xl:hidden">{label}</span>
+    <div className={`flex items-center justify-between gap-2 lg:justify-end ${className}`}>
+      <span className="text-[10px] text-[#6e6e73] lg:hidden">{label}</span>
       {children}
     </div>
   );
@@ -356,7 +356,7 @@ export function CostFormatResults({
 
 function AssumptionRow({ a, saved, onChange }: { a: CostAssumption; saved: CostAssumption | undefined; onChange: CostFormatChange }) {
   return (
-    <li className="flex flex-col gap-1 py-1.5 xl:py-0.5 xl:flex-row xl:items-center xl:justify-between">
+    <li className="flex flex-col gap-1 py-1.5 lg:py-0.5 lg:flex-row lg:items-center lg:justify-between">
       <span className="flex min-w-0 flex-wrap items-center gap-1 text-[12px] text-[#1d1d1f]">
         {a.label}
         <ConfidenceTag value={a.confidence} />
@@ -368,7 +368,7 @@ function AssumptionRow({ a, saved, onChange }: { a: CostAssumption; saved: CostA
           value={a.value}
           baseline={saved?.value ?? null}
           onChange={(v) => onChange("assumption", a.costAssumptionId, "value", v)}
-          widthClass={Math.abs(a.value ?? 0) >= 1e9 ? "w-44 xl:w-32" : "w-36 xl:w-28"}
+          widthClass={Math.abs(a.value ?? 0) >= 1e9 ? "w-44 lg:w-32" : "w-36 lg:w-28"}
         />
         {a.unit && <span className="text-[11px] text-[#6e6e73]">{a.unit}</span>}
       </span>
@@ -378,7 +378,7 @@ function AssumptionRow({ a, saved, onChange }: { a: CostAssumption; saved: CostA
 
 function TargetRow({ working, saved, unit, onChange }: { working: CostModelBundle; saved: CostModelBundle; unit: string; onChange: CostFormatChange }) {
   return (
-    <li className="flex flex-col gap-1 py-1.5 xl:py-0.5 xl:flex-row xl:items-center xl:justify-between">
+    <li className="flex flex-col gap-1 py-1.5 lg:py-0.5 lg:flex-row lg:items-center lg:justify-between">
       <span className="flex min-w-0 flex-wrap items-center gap-1 text-[12px] text-[#1d1d1f]">
         総コスト目標
         <NoteToggle note={working.model.targetNote} />
@@ -392,7 +392,7 @@ function TargetRow({ working, saved, unit, onChange }: { working: CostModelBundl
           allowNull
           min={0}
           placeholder="空欄＝目標なし"
-          widthClass="w-36 xl:w-28"
+          widthClass="w-36 lg:w-28"
         />
         <span className="text-[11px] text-[#6e6e73]">円/{unit}</span>
       </span>
@@ -403,7 +403,7 @@ function TargetRow({ working, saved, unit, onChange }: { working: CostModelBundl
 function ItemRows({ items, saved, lines, unit, onChange }: { items: CostItem[]; saved: CostModelBundle; lines: ItemsLine[]; unit: string; onChange: CostFormatChange }) {
   return (
     <div className="flex flex-col">
-      <div className="hidden grid-cols-[minmax(0,1fr)_64px_128px_64px_88px] gap-2 border-b border-[#f0f0f2] pb-1 text-[10px] text-[#6e6e73] xl:grid">
+      <div className="hidden grid-cols-[minmax(0,1fr)_64px_128px_64px_88px] gap-2 border-b border-[#f0f0f2] pb-1 text-[10px] text-[#6e6e73] lg:grid">
         <span>明細（行の下に計算と根拠）</span>
         <span className="text-right">数量</span>
         <span className="text-right">単価</span>
@@ -416,9 +416,9 @@ function ItemRows({ items, saved, lines, unit, onChange }: { items: CostItem[]; 
         const label = itemsItemLabel(i);
         const capex = i.costType === "CAPEX";
         return (
-          <div key={i.costItemId} className="border-b border-[#f0f0f2] py-1.5 xl:py-0.5 last:border-b-0">
-            <div className="grid grid-cols-1 items-center gap-x-2 gap-y-1 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_64px_128px_64px_88px]">
-              <span className="flex min-w-0 flex-wrap items-center gap-1 text-[12px] text-[#1d1d1f] sm:col-span-2 xl:col-span-1">
+          <div key={i.costItemId} className="border-b border-[#f0f0f2] py-1.5 lg:py-0.5 last:border-b-0">
+            <div className="grid grid-cols-1 items-center gap-x-2 gap-y-1 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_64px_128px_64px_88px]">
+              <span className="flex min-w-0 flex-wrap items-center gap-1 text-[12px] text-[#1d1d1f] sm:col-span-2 lg:col-span-1">
                 {label}
                 <ConfidenceTag value={i.confidence} />
                 <span className="basis-full text-[10px] text-[#6e6e73]">
@@ -463,7 +463,7 @@ function ItemRows({ items, saved, lines, unit, onChange }: { items: CostItem[]; 
 function TaskRows({ tasks, saved, lines, unit, onChange }: { tasks: CostTask[]; saved: CostModelBundle; lines: ItemsLine[]; unit: string; onChange: CostFormatChange }) {
   return (
     <div className="flex flex-col">
-      <div className="hidden grid-cols-[minmax(0,1fr)_78px_110px_92px_88px] gap-2 border-b border-[#f0f0f2] pb-1 text-[10px] text-[#6e6e73] xl:grid">
+      <div className="hidden grid-cols-[minmax(0,1fr)_78px_110px_92px_88px] gap-2 border-b border-[#f0f0f2] pb-1 text-[10px] text-[#6e6e73] lg:grid">
         <span>作業</span>
         <span className="text-right">1回の工数(時)</span>
         <span className="text-right">年間回数</span>
@@ -474,9 +474,9 @@ function TaskRows({ tasks, saved, lines, unit, onChange }: { tasks: CostTask[]; 
         const s = (saved.tasks ?? []).find((x) => x.costTaskId === t.costTaskId);
         const line = lines.find((l) => l.entity === "task" && l.id === t.costTaskId);
         return (
-          <div key={t.costTaskId} className="border-b border-[#f0f0f2] py-1.5 xl:py-0.5 last:border-b-0">
-            <div className="grid grid-cols-1 items-center gap-x-2 gap-y-1 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_78px_110px_92px_88px]">
-              <span className="flex min-w-0 flex-wrap items-center gap-1 text-[12px] text-[#1d1d1f] sm:col-span-2 xl:col-span-1">
+          <div key={t.costTaskId} className="border-b border-[#f0f0f2] py-1.5 lg:py-0.5 last:border-b-0">
+            <div className="grid grid-cols-1 items-center gap-x-2 gap-y-1 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_78px_110px_92px_88px]">
+              <span className="flex min-w-0 flex-wrap items-center gap-1 text-[12px] text-[#1d1d1f] sm:col-span-2 lg:col-span-1">
                 {t.label}
                 <ConfidenceTag value={t.confidence} />
                 {line && <span className="basis-full text-[10px] text-[#6e6e73]">年 {yen(line.annual)}（{int(line.hours)}時間）</span>}
@@ -631,7 +631,7 @@ export function CostFormatControls({
               <h4 className="text-[13px] font-semibold text-[#1d1d1f]">{costFormatBlockTitle(block.key)}</h4>
               <div className="mt-1 flex flex-wrap gap-1" aria-label={`${block.label}の区分`}>
                 {blockGroups.map((g) => (
-                  <button key={g.key} type="button" onClick={() => jumpToGroup(g.key)} className="min-h-[32px] rounded-full border border-[#d2d2d7] px-2 text-[11px] text-[#3c3c43] hover:border-[#7cbceb] xl:min-h-[22px]">
+                  <button key={g.key} type="button" onClick={() => jumpToGroup(g.key)} className="min-h-[32px] rounded-full border border-[#d2d2d7] px-2 text-[11px] text-[#3c3c43] hover:border-[#7cbceb] lg:min-h-[22px]">
                     {g.title}
                   </button>
                 ))}
@@ -671,7 +671,7 @@ export function CostFormatControls({
 
 export function Card({ id, title, hint, children, section }: { id?: string; title: string; hint?: string; children: ReactNode; section: string }) {
   return (
-    <section id={id} data-cost-section={section} aria-label={title} className="scroll-mt-4 rounded-xl border border-[#e5e5e7] bg-white p-3 xl:p-2">
+    <section id={id} data-cost-section={section} aria-label={title} className="scroll-mt-4 rounded-xl border border-[#e5e5e7] bg-white p-3 lg:p-2">
       <h3 className="text-[13px] font-semibold text-[#1d1d1f]">{title}</h3>
       {hint && <p className="mt-1 text-[11px] leading-5 text-[#6e6e73]">{hint}</p>}
       <div className="mt-3">{children}</div>

@@ -207,7 +207,7 @@ export function CostResultsPanel({
               type="button"
               aria-pressed={active}
               onClick={() => bs.strain && onSelectStrain(bs.strain)}
-              className={`flex min-h-[40px] items-baseline gap-x-1 rounded-md border px-2 py-0.5 text-left transition-colors xl:min-h-0 ${
+              className={`flex min-h-[40px] items-baseline gap-x-1 rounded-md border px-2 py-0.5 text-left transition-colors lg:min-h-0 ${
                 active ? "border-[#027fdc] bg-[#e8f3fc]" : "border-[#e5e5e7] bg-white hover:border-[#7cbceb]"
               }`}
             >
@@ -277,7 +277,7 @@ export function CostResultsPanel({
                     aria-pressed={active}
                     onClick={() => onSelectScenario(app, slot.location, slot.method)}
                     title={breakdownTitle(s, unit, s.totalPerUnit > scaleMax)}
-                    className={`grid min-h-[44px] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1.5 gap-y-1 rounded-md border px-1 py-1 text-left sm:grid-cols-[88px_minmax(0,1fr)_84px] sm:py-0 xl:min-h-[24px] ${
+                    className={`grid min-h-[44px] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1.5 gap-y-1 rounded-md border px-1 py-1 text-left sm:grid-cols-[88px_minmax(0,1fr)_84px] sm:py-0 lg:min-h-[24px] ${
                       active ? "border-[#027fdc] bg-[#e8f3fc]" : "border-transparent hover:border-[#d2d2d7]"
                     }`}
                   >
@@ -392,7 +392,7 @@ export function CostResultsPanel({
                     aria-expanded={open}
                     onClick={() => setOpenKey(open ? null : key)}
                     title={`${BREAKDOWN_HINT[key]}\n${slice.parts.map((p) => `${p.label} ${num(p.perUnit)}`).join("\n")}`}
-                    className="grid min-h-[40px] w-full grid-cols-[minmax(0,1fr)_50px_34px] items-center gap-x-1.5 gap-y-0.5 rounded py-0.5 text-left text-[11px] leading-[18px] hover:bg-[#f0f0f2] sm:grid-cols-[minmax(0,116px)_minmax(0,1fr)_50px_34px_40px] sm:py-0 xl:min-h-0"
+                    className="grid min-h-[40px] w-full grid-cols-[minmax(0,1fr)_50px_34px] items-center gap-x-1.5 gap-y-0.5 rounded py-0.5 text-left text-[11px] leading-[18px] hover:bg-[#f0f0f2] sm:grid-cols-[minmax(0,116px)_minmax(0,1fr)_50px_34px_40px] sm:py-0 lg:min-h-0"
                   >
                     <span className="flex min-w-0 items-center gap-1 text-[#3c3c43]">
                       <Swatch color={CATEGORY_COLOR[key]} />
@@ -437,7 +437,7 @@ export function CostResultsPanel({
                 <span className="font-semibold">年 {int(flow.siteHours)}時間</span>
                 <Delta value={flow.siteHours - baselineFlow.siteHours} digits={0} className="text-[10px]" />
                 <span className="text-[10px] text-[#6e6e73]">（顧客1社分{flow.productionHours > 0 ? `＋製造拠点 ${int(flow.productionHours)}時間` : ""}）</span>
-                <button type="button" onClick={onShowFlow} className="min-h-[36px] rounded px-1 text-[10px] font-semibold text-[#0267b2] hover:underline xl:min-h-0">
+                <button type="button" onClick={onShowFlow} className="min-h-[36px] rounded px-1 text-[10px] font-semibold text-[#0267b2] hover:underline lg:min-h-0">
                   流れを見る
                 </button>
               </dd>

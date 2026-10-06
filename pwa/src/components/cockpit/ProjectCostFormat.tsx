@@ -123,7 +123,7 @@ export function ProjectCostFormat({ projectId, allowEdit = true, initialData }: 
     if (state !== "ready") return;
     const measure = () => {
       const el = panesRef.current;
-      if (!el || !window.matchMedia("(min-width: 1280px)").matches) {
+      if (!el || !window.matchMedia("(min-width: 1100px)").matches) {
         setPaneHeight(null);
         return;
       }
@@ -187,7 +187,7 @@ export function ProjectCostFormat({ projectId, allowEdit = true, initialData }: 
       <div className="rounded-xl border border-[#e5e5e7] bg-white">
         <h2 className="sr-only">{model.title}</h2>
         {/* スマホ幅: 結果の要約を上に固定する */}
-        <div className="sticky top-0 z-20 border-b border-[#e5e5e7] bg-white/95 px-3 py-1.5 backdrop-blur xl:hidden" data-testid="cost-format-summary-bar">
+        <div className="sticky top-0 z-20 border-b border-[#e5e5e7] bg-white/95 px-3 py-1.5 backdrop-blur min-[1100px]:hidden" data-testid="cost-format-summary-bar">
           <p className="truncate text-[10px] text-[#6e6e73]">
             {caseLabel}
             {changes.length > 0 && <span className="ml-1 font-semibold text-[#0267b2]">試算中 {changes.length}件</span>}
@@ -211,7 +211,7 @@ export function ProjectCostFormat({ projectId, allowEdit = true, initialData }: 
         <section
           data-cost-section="selection"
           aria-label={sectionLabel("selection")}
-          className="relative flex flex-col gap-2 border-b border-[#e5e5e7] px-3 py-2 xl:flex-row xl:items-center xl:justify-between"
+          className="relative flex flex-col gap-2 border-b border-[#e5e5e7] px-3 py-2 lg:flex-row lg:items-center lg:justify-between"
         >
           <div className="flex min-w-0 flex-col gap-1.5">
             {cases.length > 1 && (
@@ -230,7 +230,7 @@ export function ProjectCostFormat({ projectId, allowEdit = true, initialData }: 
                 : `1${unit}あたりの明細だけの試算（年間の量が未登録のため、年額の費用・設備の償却・作業は1${unit}あたりに割っていない）。`}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5 xl:shrink-0 xl:flex-nowrap xl:self-start">
+          <div className="flex flex-wrap items-center gap-1.5 lg:shrink-0 lg:flex-nowrap lg:self-start">
             {model.versionLabel && changes.length === 0 && (
               <span className="inline-flex items-center rounded-full border border-[#d2d2d7] px-2 py-0.5 text-[11px] text-[#3c3c43]">{model.versionLabel}</span>
             )}
@@ -247,14 +247,14 @@ export function ProjectCostFormat({ projectId, allowEdit = true, initialData }: 
                   type="button"
                   onClick={() => setChangesOpen((v) => !v)}
                   aria-expanded={changesOpen}
-                  className="min-h-[40px] rounded-md bg-[#e8f3fc] px-2.5 text-[12px] font-semibold text-[#0267b2] hover:bg-[#d6eafa] xl:min-h-[30px]"
+                  className="min-h-[40px] rounded-md bg-[#e8f3fc] px-2.5 text-[12px] font-semibold text-[#0267b2] hover:bg-[#d6eafa] lg:min-h-[30px]"
                 >
                   保存していない変更 {changes.length}件 {changesOpen ? "▲" : "▼"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setDraft(() => ({}))}
-                  className="min-h-[40px] rounded-md border border-[#d2d2d7] bg-white px-2.5 text-[12px] font-semibold text-[#3c3c43] hover:border-[#7cbceb] xl:min-h-[30px]"
+                  className="min-h-[40px] rounded-md border border-[#d2d2d7] bg-white px-2.5 text-[12px] font-semibold text-[#3c3c43] hover:border-[#7cbceb] lg:min-h-[30px]"
                 >
                   すべて戻す
                 </button>
@@ -263,7 +263,7 @@ export function ProjectCostFormat({ projectId, allowEdit = true, initialData }: 
                     type="button"
                     disabled={saving}
                     onClick={() => void save(changes.map((c) => c.key))}
-                    className="min-h-[40px] rounded-md bg-[#027fdc] px-2.5 text-[12px] font-semibold text-white hover:bg-[#0267b2] disabled:opacity-60 xl:min-h-[30px]"
+                    className="min-h-[40px] rounded-md bg-[#027fdc] px-2.5 text-[12px] font-semibold text-white hover:bg-[#0267b2] disabled:opacity-60 lg:min-h-[30px]"
                   >
                     {saving ? "保存中..." : "すべて保存"}
                   </button>
@@ -293,7 +293,7 @@ export function ProjectCostFormat({ projectId, allowEdit = true, initialData }: 
                     <button
                       type="button"
                       onClick={() => setDraft((d) => dropDraftKeys(d, [c.key]))}
-                      className="min-h-[36px] rounded px-1.5 text-[11px] font-semibold text-[#3c3c43] hover:bg-[#f5f5f7] xl:min-h-0"
+                      className="min-h-[36px] rounded px-1.5 text-[11px] font-semibold text-[#3c3c43] hover:bg-[#f5f5f7] lg:min-h-0"
                     >
                       戻す
                     </button>
@@ -302,7 +302,7 @@ export function ProjectCostFormat({ projectId, allowEdit = true, initialData }: 
                         type="button"
                         disabled={saving}
                         onClick={() => void save([c.key])}
-                        className="min-h-[36px] rounded bg-[#027fdc] px-1.5 text-[11px] font-semibold text-white hover:bg-[#0267b2] disabled:opacity-60 xl:min-h-0 xl:py-0.5"
+                        className="min-h-[36px] rounded bg-[#027fdc] px-1.5 text-[11px] font-semibold text-white hover:bg-[#0267b2] disabled:opacity-60 lg:min-h-0 lg:py-0.5"
                       >
                         この値を保存
                       </button>
@@ -315,8 +315,8 @@ export function ProjectCostFormat({ projectId, allowEdit = true, initialData }: 
         </section>
 
         {/* 前提と作業（左）と、要約・ケースの比較・原価の内訳（右）。デスクトップは画面の下端まで、操作パネルの中だけスクロールする */}
-        <div ref={panesRef} className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]" style={paneHeight ? { height: paneHeight } : undefined}>
-          <section data-cost-section="inputs" aria-label={sectionLabel("inputs")} className="order-2 min-h-0 xl:order-1 xl:border-r xl:border-[#e5e5e7]">
+        <div ref={panesRef} className="grid grid-cols-1 min-[1100px]:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_380px]" style={paneHeight ? { height: paneHeight } : undefined}>
+          <section data-cost-section="inputs" aria-label={sectionLabel("inputs")} className="order-2 min-h-0 min-[1100px]:order-1 min-[1100px]:border-r min-[1100px]:border-[#e5e5e7]">
             <CostFormatControls
               saved={bundle}
               working={working}
@@ -331,7 +331,7 @@ export function ProjectCostFormat({ projectId, allowEdit = true, initialData }: 
           <section
             data-cost-section="results"
             aria-label={sectionLabel("results")}
-            className="order-1 min-h-0 border-b border-[#e5e5e7] p-2 xl:order-2 xl:overflow-y-auto xl:border-b-0"
+            className="order-1 min-h-0 border-b border-[#e5e5e7] p-2 min-[1100px]:order-2 min-[1100px]:overflow-y-auto min-[1100px]:border-b-0"
           >
             <CostFormatResults
               unit={unit}

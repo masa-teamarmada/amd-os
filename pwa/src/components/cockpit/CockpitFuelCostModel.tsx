@@ -156,7 +156,7 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData 
     if (state !== "ready") return;
     const measure = () => {
       const el = panesRef.current;
-      if (!el || !window.matchMedia("(min-width: 1280px)").matches) {
+      if (!el || !window.matchMedia("(min-width: 1100px)").matches) {
         setPaneHeight(null);
         return;
       }
@@ -256,17 +256,17 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData 
       <div className="rounded-xl border border-[#e5e5e7] bg-white" data-testid="fuel-cost-simulator">
         <h2 className="sr-only">{model.title}</h2>
         {/* スマホ幅: 結果の要約を上に固定する */}
-        <div className="sticky top-0 z-20 xl:hidden">
+        <div className="sticky top-0 z-20 min-[1100px]:hidden">
           <FuelResultsSummaryBar current={current} baseline={currentBase} target={computed.targetTotalPerLiter} changeCount={changes.length} />
         </div>
 
         {/* 切り替えと、保存していない変更 */}
-        <div className="relative flex flex-col gap-2 border-b border-[#e5e5e7] px-2 py-1 xl:flex-row xl:flex-wrap xl:items-center xl:justify-between">
-          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:flex xl:w-full xl:flex-wrap xl:items-center xl:gap-x-3">
+        <div className="relative flex flex-col gap-2 border-b border-[#e5e5e7] px-2 py-1 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:flex lg:w-full lg:flex-wrap lg:items-center lg:gap-x-3">
             {/* 見出しが株・用途より長いので、切り替えの部品の外に置いて幅を取らせる */}
             <div className="flex min-w-0 items-center gap-1.5">
-              <span className="w-[4.5rem] shrink-0 text-[11px] font-semibold text-[#3c3c43] xl:w-auto">FAME転換</span>
-              <div className="min-w-0 flex-1 xl:flex-none">
+              <span className="w-[4.5rem] shrink-0 text-[11px] font-semibold text-[#3c3c43] lg:w-auto">FAME転換</span>
+              <div className="min-w-0 flex-1 lg:flex-none">
                 <Segmented
                   ariaLabel="FAME転換の切り替え"
                   options={FUEL_CONVERSIONS.map((c) => ({ value: c, label: FUEL_CONVERSION_LABEL[c] }))}
@@ -276,8 +276,8 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData 
               </div>
             </div>
             <div className="flex min-w-0 items-center gap-1.5">
-              <span className="w-[4.5rem] shrink-0 text-[11px] font-semibold text-[#3c3c43] xl:w-auto">収率</span>
-              <div className="min-w-0 flex-1 xl:flex-none">
+              <span className="w-[4.5rem] shrink-0 text-[11px] font-semibold text-[#3c3c43] lg:w-auto">収率</span>
+              <div className="min-w-0 flex-1 lg:flex-none">
                 <Segmented
                   ariaLabel="収率の切り替え"
                   options={FUEL_YIELD_CASES.map((y) => ({ value: y, label: FUEL_YIELD_CASE_LABEL[y] }))}
@@ -290,8 +290,8 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData 
                 (まさ 2026-09-14「コスト試算表を「脂質分泌株」のスイッチオンオフで切り替えられるようにしてほしい」) */}
             {secretionAssumption && (
               <div className="flex min-w-0 items-center gap-1.5" data-testid="fuel-strain-switch">
-                <span className="w-[4.5rem] shrink-0 text-[11px] font-semibold text-[#3c3c43] xl:w-auto">株</span>
-                <div className={`min-w-0 flex-1 rounded-lg xl:flex-none ${secretionChanged ? "ring-2 ring-[#7cbceb]" : ""}`}>
+                <span className="w-[4.5rem] shrink-0 text-[11px] font-semibold text-[#3c3c43] lg:w-auto">株</span>
+                <div className={`min-w-0 flex-1 rounded-lg lg:flex-none ${secretionChanged ? "ring-2 ring-[#7cbceb]" : ""}`}>
                   <Segmented
                     ariaLabel="脂質分泌株の切り替え"
                     options={[
@@ -305,7 +305,7 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData 
               </div>
             )}
             <FactoryUtilitySwitches items={factoryUtilities} />
-            <p className="text-[10px] leading-4 text-[#6e6e73] sm:col-span-2 xl:basis-full" data-testid="fuel-selection-note">
+            <p className="text-[10px] leading-4 text-[#6e6e73] sm:col-span-2 lg:basis-full" data-testid="fuel-selection-note">
               {FUEL_CONVERSION_LABEL[current.conversion]}＝{FUEL_CONVERSION_DESCRIPTION[current.conversion]}。収率{FUEL_YIELD_CASE_LABEL[current.yieldCase]}＝{FUEL_YIELD_CASE_DESCRIPTION[current.yieldCase]}。
               {secretionAssumption && <>{LIPID_SECRETION_LABEL}を{secreting ? "使う" : "使わない"}＝{LIPID_SECRETION_DESCRIPTION[secreting ? "on" : "off"]}。</>}
               {factoryUtilities.length > 0 && (
@@ -320,7 +320,7 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData 
             </p>
           </div>
           {/* 書き換え中に保存のボタンが2段に折り返さないよう、右端は縮めない (説明の一文の方を折り返す) */}
-          <div className="flex flex-wrap items-center gap-1.5 xl:shrink-0 xl:flex-nowrap xl:self-start">
+          <div className="flex flex-wrap items-center gap-1.5 lg:shrink-0 lg:flex-nowrap lg:self-start">
             {model.versionLabel && changes.length === 0 && (
               <span className="inline-flex items-center rounded-full border border-[#d2d2d7] px-2 py-0.5 text-[11px] text-[#3c3c43]">{model.versionLabel}</span>
             )}
@@ -333,14 +333,14 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData 
                   type="button"
                   onClick={() => setChangesOpen((v) => !v)}
                   aria-expanded={changesOpen}
-                  className="min-h-[40px] rounded-md bg-[#e8f3fc] px-2.5 text-[12px] font-semibold text-[#0267b2] hover:bg-[#d6eafa] xl:min-h-[30px]"
+                  className="min-h-[40px] rounded-md bg-[#e8f3fc] px-2.5 text-[12px] font-semibold text-[#0267b2] hover:bg-[#d6eafa] lg:min-h-[30px]"
                 >
                   保存していない変更 {changes.length}件 {changesOpen ? "▲" : "▼"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setDraft(() => ({}))}
-                  className="min-h-[40px] rounded-md border border-[#d2d2d7] bg-white px-2.5 text-[12px] font-semibold text-[#3c3c43] hover:border-[#7cbceb] xl:min-h-[30px]"
+                  className="min-h-[40px] rounded-md border border-[#d2d2d7] bg-white px-2.5 text-[12px] font-semibold text-[#3c3c43] hover:border-[#7cbceb] lg:min-h-[30px]"
                 >
                   すべて戻す
                 </button>
@@ -349,7 +349,7 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData 
                     type="button"
                     disabled={saving}
                     onClick={() => void save(changes.map((c) => c.key))}
-                    className="min-h-[40px] rounded-md bg-[#027fdc] px-2.5 text-[12px] font-semibold text-white hover:bg-[#0267b2] disabled:opacity-60 xl:min-h-[30px]"
+                    className="min-h-[40px] rounded-md bg-[#027fdc] px-2.5 text-[12px] font-semibold text-white hover:bg-[#0267b2] disabled:opacity-60 lg:min-h-[30px]"
                   >
                     {saving ? "保存中..." : "すべて保存"}
                   </button>
@@ -377,7 +377,7 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData 
                       {formatFuelDraftValue(c, c.before)} → <span className="font-semibold text-[#0267b2]">{formatFuelDraftValue(c, c.after)}</span>
                       {c.unit && <span className="ml-0.5 text-[11px] text-[#6e6e73]">{c.unit}</span>}
                     </span>
-                    <button type="button" onClick={() => revert([c.key])} className="min-h-[36px] rounded px-1.5 text-[11px] font-semibold text-[#3c3c43] hover:bg-[#f5f5f7] xl:min-h-0">
+                    <button type="button" onClick={() => revert([c.key])} className="min-h-[36px] rounded px-1.5 text-[11px] font-semibold text-[#3c3c43] hover:bg-[#f5f5f7] lg:min-h-0">
                       戻す
                     </button>
                     {canEdit && (
@@ -385,7 +385,7 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData 
                         type="button"
                         disabled={saving}
                         onClick={() => void save([c.key])}
-                        className="min-h-[36px] rounded bg-[#027fdc] px-1.5 text-[11px] font-semibold text-white hover:bg-[#0267b2] disabled:opacity-60 xl:min-h-0 xl:py-0.5"
+                        className="min-h-[36px] rounded bg-[#027fdc] px-1.5 text-[11px] font-semibold text-white hover:bg-[#0267b2] disabled:opacity-60 lg:min-h-0 lg:py-0.5"
                       >
                         この値を保存
                       </button>
@@ -400,10 +400,10 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData 
         {/* 操作パネル（左）と結果（右）。デスクトップは画面の下端まで、操作パネルの中だけスクロールする */}
         <div
           ref={panesRef}
-          className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]"
+          className="grid grid-cols-1 min-[1100px]:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_380px]"
           style={paneHeight ? { height: paneHeight } : undefined}
         >
-          <div className="order-2 min-h-0 xl:order-1 xl:border-r xl:border-[#e5e5e7]">
+          <div className="order-2 min-h-0 min-[1100px]:order-1 min-[1100px]:border-r min-[1100px]:border-[#e5e5e7]">
             <FuelControlsPanel
               saved={bundle}
               working={working}
@@ -414,7 +414,7 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData 
               scrollable={paneHeight !== null}
             />
           </div>
-          <div className="order-1 min-h-0 border-b border-[#e5e5e7] p-2 xl:order-2 xl:overflow-y-auto xl:border-b-0">
+          <div className="order-1 min-h-0 border-b border-[#e5e5e7] p-2 min-[1100px]:order-2 min-[1100px]:overflow-y-auto min-[1100px]:border-b-0">
             <FuelResultsPanel
               computed={computed}
               baseline={baseline}

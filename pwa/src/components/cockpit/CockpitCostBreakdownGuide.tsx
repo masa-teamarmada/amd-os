@@ -48,9 +48,9 @@ interface Props {
 }
 
 const CHIP =
-  "min-h-[32px] rounded-full border border-[#d2d2d7] bg-white px-2 text-left text-[11px] font-medium text-[#1d1d1f] hover:border-[#7cbceb] hover:text-[#0267b2] xl:min-h-[22px]";
+  "min-h-[32px] rounded-full border border-[#d2d2d7] bg-white px-2 text-left text-[11px] font-medium text-[#1d1d1f] hover:border-[#7cbceb] hover:text-[#0267b2] lg:min-h-[22px]";
 const CHIP_DRIVER =
-  "min-h-[32px] rounded-full border border-dashed border-[#d2d2d7] bg-[#fafafa] px-2 text-left text-[11px] font-medium text-[#3c3c43] hover:border-[#7cbceb] hover:text-[#0267b2] xl:min-h-[22px]";
+  "min-h-[32px] rounded-full border border-dashed border-[#d2d2d7] bg-[#fafafa] px-2 text-left text-[11px] font-medium text-[#3c3c43] hover:border-[#7cbceb] hover:text-[#0267b2] lg:min-h-[22px]";
 
 /** 区分の中身を小分けごとに足し、大きい順に並べる。 */
 export function breakdownGroupsOf(parts: BreakdownGuidePart[]): Array<{ groupKey: string; amount: number }> {
@@ -88,7 +88,7 @@ export function CostBreakdownGuide({ slices, unit, scenarioLabel, groupTitle, dr
           const groups = breakdownGroupsOf(x.parts);
           const extra = (drivers?.[x.key] ?? []).filter((d) => !groups.some((g) => g.groupKey === d.groupKey));
           return (
-            <li key={x.key} className="py-1 xl:grid xl:grid-cols-[280px_minmax(0,1fr)] xl:items-center xl:gap-x-2 xl:py-0.5" data-breakdown-key={x.key}>
+            <li key={x.key} className="py-1 lg:grid lg:grid-cols-[280px_minmax(0,1fr)] lg:items-center lg:gap-x-2 lg:py-0.5" data-breakdown-key={x.key}>
               {/* 狭い幅では額と割合を次の行の右へ送る（区分名を1文字ずつ折り返さない） */}
               <div className="flex flex-wrap items-baseline gap-x-2">
                 <Swatch color={x.color} className="translate-y-[1px]" />
@@ -101,7 +101,7 @@ export function CostBreakdownGuide({ slices, unit, scenarioLabel, groupTitle, dr
                 </span>
               </div>
               {(groups.length > 0 || extra.length > 0) && (
-                <div className="mt-1 flex flex-wrap gap-1 pl-[16px] xl:mt-0 xl:gap-0.5 xl:pl-0" aria-label={`${x.label}を動かす場所`}>
+                <div className="mt-1 flex flex-wrap gap-1 pl-[16px] lg:mt-0 lg:gap-0.5 lg:pl-0" aria-label={`${x.label}を動かす場所`}>
                   {groups.map((g) => (
                     <button key={g.groupKey} type="button" onClick={() => onJump(g.groupKey)} className={CHIP}>
                       {groupTitle(g.groupKey) ?? g.groupKey}

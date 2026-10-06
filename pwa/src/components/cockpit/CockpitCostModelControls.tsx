@@ -380,7 +380,7 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
           type="button"
           onClick={() => setShowAllRows((v) => !v)}
           aria-pressed={showAllRows}
-          className="ml-auto min-h-[36px] rounded-md border border-[#d2d2d7] bg-white px-2 text-[11px] font-semibold text-[#3c3c43] hover:border-[#7cbceb] xl:min-h-[24px]"
+          className="ml-auto min-h-[36px] rounded-md border border-[#d2d2d7] bg-white px-2 text-[11px] font-semibold text-[#3c3c43] hover:border-[#7cbceb] lg:min-h-[24px]"
           title="明細の行を、選んだ株・用途・方式・装置に効く行だけにするか、すべて出すか"
         >
           {showAllRows ? "選んだ組み合わせの行だけにする" : `すべての行を出す（明細${allItems.length}行）`}
@@ -423,7 +423,7 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
                   key={g.key}
                   type="button"
                   onClick={() => jump(`cm-g-${g.key}`)}
-                  className="min-h-[32px] rounded-full border border-[#e5e5e7] bg-[#fafafa] px-2 text-[10px] font-medium text-[#3c3c43] hover:border-[#7cbceb] hover:text-[#0267b2] xl:min-h-[22px]"
+                  className="min-h-[32px] rounded-full border border-[#e5e5e7] bg-[#fafafa] px-2 text-[10px] font-medium text-[#3c3c43] hover:border-[#7cbceb] hover:text-[#0267b2] lg:min-h-[22px]"
                 >
                   {g.title}
                 </button>
@@ -437,7 +437,7 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
   );
 }
 
-const NAV_BUTTON = "min-h-[36px] shrink-0 rounded-md px-2 text-[11px] font-semibold text-[#3c3c43] hover:bg-[#e8f3fc] hover:text-[#0267b2] xl:min-h-[24px]";
+const NAV_BUTTON = "min-h-[36px] shrink-0 rounded-md px-2 text-[11px] font-semibold text-[#3c3c43] hover:bg-[#e8f3fc] hover:text-[#0267b2] lg:min-h-[24px]";
 
 /**
  * 内訳の区分の額を比例して動かす前提 (金額の行ではない)。菌体費は使い切る菌体の量と、菌体1kgの原価の割り算 (販売率・上書き) で動く。
@@ -454,14 +454,14 @@ const COST_BREAKDOWN_DRIVERS: Record<string, BreakdownGuideDriver[]> = {
 /** 前提の下に出す、いまの数字での割り算の箱。選んだ組み合わせで効かない割り算は薄く出す。 */
 function Formula({ children, testId, muted = false }: { children: ReactNode; testId?: string; muted?: boolean }) {
   return (
-    <p className={`mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 xl:py-0.5 text-[11px] leading-5 text-[#3c3c43] ${muted ? "opacity-50" : ""}`} data-testid={testId}>
+    <p className={`mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 lg:py-0.5 text-[11px] leading-5 text-[#3c3c43] ${muted ? "opacity-50" : ""}`} data-testid={testId}>
       {children}
     </p>
   );
 }
 
 /** スマホ幅で入力欄をマスいっぱいに広げる。 */
-const FILL = "flex w-full items-center gap-1 xl:inline-flex xl:w-auto";
+const FILL = "flex w-full items-center gap-1 lg:inline-flex lg:w-auto";
 
 /** 表の1マス。スマホ幅は見出しを上・入力を下に置き、デスクトップは見出しを表の頭に出して入力だけを置く。 */
 function Cell({
@@ -477,8 +477,8 @@ function Cell({
 }) {
   return (
     <div className={`flex min-w-0 flex-col gap-0.5 ${className}`}>
-      <span className="text-[10px] leading-4 text-[#6e6e73] xl:hidden">{label}</span>
-      <div className={`flex min-w-0 items-center gap-1 ${align === "end" ? "xl:justify-end" : ""}`}>{children}</div>
+      <span className="text-[10px] leading-4 text-[#6e6e73] lg:hidden">{label}</span>
+      <div className={`flex min-w-0 items-center gap-1 ${align === "end" ? "lg:justify-end" : ""}`}>{children}</div>
     </div>
   );
 }
@@ -516,7 +516,7 @@ function AssumptionControl({
   mutedNote: string | null;
 }) {
   const choices = a.roleKey ? TEXT_CHOICE_ROLES[a.roleKey] : undefined;
-  const rowClass = `flex flex-col gap-1 py-1.5 xl:py-0.5 xl:flex-row xl:items-center xl:gap-2 ${mutedNote ? "opacity-50" : ""}`;
+  const rowClass = `flex flex-col gap-1 py-1.5 lg:py-0.5 lg:flex-row lg:items-center lg:gap-2 ${mutedNote ? "opacity-50" : ""}`;
   if (choices) {
     const current = a.valueText ?? choices[choices.length - 1].value;
     return (
@@ -531,7 +531,7 @@ function AssumptionControl({
             aria-label={a.label}
             value={current}
             onChange={(e) => onChange("assumption", a.costAssumptionId, "valueText", e.target.value)}
-            className={`min-h-[44px] rounded-md border px-2 text-[16px] text-[#1d1d1f] xl:h-7 xl:min-h-0 xl:text-[12px] ${
+            className={`min-h-[44px] rounded-md border px-2 text-[16px] text-[#1d1d1f] lg:h-7 lg:min-h-0 lg:text-[12px] ${
               (baselineText ?? choices[choices.length - 1].value) !== current ? "border-[#027fdc] bg-[#e8f3fc]" : "border-[#d2d2d7] bg-white"
             }`}
           >
@@ -579,7 +579,7 @@ function AssumptionControl({
           placeholder={isOverride ? "空欄＝計算値" : undefined}
           // 3桁カンマ入りの大きい数字（20,000,000 など）がスマホの16pxでも欄に収まる幅。
           // 10桁以上（中央回収設備の初期投資 5,670,000,000 など）は、その幅では末尾が欠けるので広げる
-          widthClass={Math.abs(a.value ?? 0) >= 1e9 ? "w-44 xl:w-32" : "w-36 xl:w-24"}
+          widthClass={Math.abs(a.value ?? 0) >= 1e9 ? "w-44 lg:w-32" : "w-36 lg:w-24"}
         />
         <span className="w-16 text-[11px] text-[#6e6e73]">{a.unit}</span>
       </div>
@@ -590,7 +590,7 @@ function AssumptionControl({
 /** オンサイトの槽を SX が持つときだけ、既設か新設かを選ぶ (槽を顧客が持つとき・オフサイトは選ぶものが無いので出さない)。 */
 function TankModeControl({ value, onChange }: { value: CostTankMode; onChange: (tankMode: CostTankMode) => void }) {
   return (
-    <li className="flex flex-col gap-1 py-1.5 xl:py-0.5 xl:flex-row xl:items-center xl:gap-2">
+    <li className="flex flex-col gap-1 py-1.5 lg:py-0.5 lg:flex-row lg:items-center lg:gap-2">
       <div className="min-w-0 flex-1 text-[12px] leading-5 text-[#1d1d1f]">
         オンサイトの槽は既設か新設か
         <span className="block text-[10px] leading-4 text-[#6e6e73]">既設はSXの負担0円、新設は新設槽CAPEX ÷ 償却年数</span>
@@ -618,7 +618,7 @@ function TargetControl({
 }) {
   const offsitePriced = typeof resolveAssumption(working.assumptions, "offsite_sale_price")?.value === "number";
   return (
-    <li className="flex flex-col gap-1 py-1.5 xl:py-0.5 xl:flex-row xl:items-center xl:gap-2">
+    <li className="flex flex-col gap-1 py-1.5 lg:py-0.5 lg:flex-row lg:items-center lg:gap-2">
       <div className="min-w-0 flex-1 text-[12px] leading-5 text-[#1d1d1f]">
         総コスト目標{offsitePriced ? "（オンサイト）" : ""}
         <NoteToggle note={working.model.targetNote} />
@@ -632,7 +632,7 @@ function TargetControl({
           allowNull
           min={0}
           placeholder="空欄＝目標なし"
-          widthClass="w-36 xl:w-24"
+          widthClass="w-36 lg:w-24"
           onChange={(v) => onChange("model", working.model.costModelId, "targetTotalCostPerUnit", v)}
         />
         <span className="w-16 text-[11px] text-[#6e6e73]">円/{unit}</span>
@@ -671,7 +671,7 @@ function BiomassFormula({ biomass: b, unit }: { biomass: CostBiomassCost; unit: 
     ["菌体量に比例する費用", "培地・CO2・濃縮など 1kgあたりの単価", row("variable")],
   ];
   return (
-    <div className="mb-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 xl:py-0.5 text-[11px] leading-5 text-[#3c3c43]" data-testid="cost-biomass-formula">
+    <div className="mb-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 lg:py-0.5 text-[11px] leading-5 text-[#3c3c43]" data-testid="cost-biomass-formula">
       <p className="font-semibold text-[#1d1d1f]">
         {b.strainLabel ? `${b.strainLabel}の` : ""}菌体1kgの原価{" "}
         <span className="tabular-nums">{num(b.perKg)} 円/kg</span>
@@ -755,7 +755,7 @@ function TaskList({
         年額 ＝ 年間回数 ×（1回の工数 × 作業単価 {int(commonRate)}円/時 ＋ 1回の経費）。作業単価は上の共通の1つで、作業ごとには持たない。工数が空欄の行は未確認で、0時間として数える。
         {PRODUCTION_SITE_LABEL}の作業は菌体費に入り、年間回数は「固定の回数」（拠点に1つの作業）か「系列ごと」（培養設備1系列あたりの回数 × 系列数）で数える。「誰がやるか」が顧客の作業は、SXの原価にも作業時間にも数えない（円/{unit}は「—」）。段は「作業の流れと工数」と同じ順。選んだ方式・装置で発生しない段と行は薄く出す。
       </p>
-      <div className="hidden xl:grid xl:grid-cols-[minmax(0,1fr)_78px_150px_92px_56px] xl:gap-x-1.5 xl:border-b xl:border-[#e5e5e7] xl:pb-1 xl:text-[10px] xl:font-medium xl:text-[#6e6e73]">
+      <div className="hidden lg:grid lg:grid-cols-[minmax(0,1fr)_78px_150px_92px_56px] lg:gap-x-1.5 lg:border-b lg:border-[#e5e5e7] lg:pb-1 lg:text-[10px] lg:font-medium lg:text-[#6e6e73]">
         <span>作業</span>
         <span className="text-right">1回の工数(時)</span>
         <span>年間回数</span>
@@ -795,9 +795,9 @@ function TaskList({
                 return (
                   <li
                     key={t.costTaskId}
-                    className={`grid grid-flow-row-dense grid-cols-2 gap-x-2 gap-y-1 py-1.5 xl:py-0.5 xl:grid-flow-row xl:grid-cols-[minmax(0,1fr)_78px_150px_92px_56px] xl:items-center xl:gap-x-1.5 ${applies ? "" : "opacity-50"}`}
+                    className={`grid grid-flow-row-dense grid-cols-2 gap-x-2 gap-y-1 py-1.5 lg:py-0.5 lg:grid-flow-row lg:grid-cols-[minmax(0,1fr)_78px_150px_92px_56px] lg:items-center lg:gap-x-1.5 ${applies ? "" : "opacity-50"}`}
                   >
-                    <div className="col-span-2 min-w-0 text-[12px] leading-5 text-[#1d1d1f] xl:col-span-1">
+                    <div className="col-span-2 min-w-0 text-[12px] leading-5 text-[#1d1d1f] lg:col-span-1">
                       {t.label}
                       <ScopeTag strain={t.strain} application={t.application} />
                       <span className="ml-1 align-middle"><ConfidenceTag value={t.confidence} /></span>
@@ -826,7 +826,7 @@ function TaskList({
                             value={t.performer}
                             title={TASK_PERFORMER_LABEL[t.performer]}
                             onChange={(e) => onChange("task", t.costTaskId, "performer", e.target.value as CostTaskPerformer)}
-                            className={`min-h-[36px] max-w-full rounded-md border px-1 text-[16px] text-[#1d1d1f] xl:h-6 xl:min-h-0 xl:text-[11px] ${
+                            className={`min-h-[36px] max-w-full rounded-md border px-1 text-[16px] text-[#1d1d1f] lg:h-6 lg:min-h-0 lg:text-[11px] ${
                               base && base.performer !== t.performer ? "border-[#027fdc] bg-[#e8f3fc]" : "border-[#d2d2d7] bg-white"
                             }`}
                           >
@@ -848,12 +848,12 @@ function TaskList({
                         min={0}
                         placeholder="未確認"
                         compact
-                        widthClass="w-full xl:w-[4.5rem]"
+                        widthClass="w-full lg:w-[4.5rem]"
                         wrapperClass={FILL}
                         onChange={(v) => onChange("task", t.costTaskId, "hoursPerOccurrence", v)}
                       />
                     </Cell>
-                    <Cell label="年間回数" className="col-span-2 xl:col-span-1" align="start">
+                    <Cell label="年間回数" className="col-span-2 lg:col-span-1" align="start">
                       <select
                         aria-label={`${t.label} 年間回数の決め方`}
                         value={t.countDriver}
@@ -865,7 +865,7 @@ function TaskList({
                           }
                           onChange("task", t.costTaskId, "countDriver", next);
                         }}
-                        className={`min-h-[44px] min-w-0 flex-1 rounded-md border px-1 text-[16px] text-[#1d1d1f] xl:h-7 xl:min-h-0 xl:max-w-[6.75rem] xl:flex-none xl:text-[11px] ${
+                        className={`min-h-[44px] min-w-0 flex-1 rounded-md border px-1 text-[16px] text-[#1d1d1f] lg:h-7 lg:min-h-0 lg:max-w-[6.75rem] lg:flex-none lg:text-[11px] ${
                           base && base.countDriver !== t.countDriver ? "border-[#027fdc] bg-[#e8f3fc]" : "border-[#d2d2d7] bg-white"
                         }`}
                       >
@@ -881,12 +881,12 @@ function TaskList({
                             baseline={base?.countPerYear ?? null}
                             min={0}
                             compact
-                            widthClass="w-16 xl:w-12"
+                            widthClass="w-16 lg:w-12"
                             onChange={(v) => onChange("task", t.costTaskId, "countPerYear", v ?? 0)}
                           />
                         </>
                       ) : (
-                        <span className="w-16 shrink-0 text-right text-[12px] tabular-nums text-[#1d1d1f] xl:w-auto xl:text-[11px]">
+                        <span className="w-16 shrink-0 text-right text-[12px] tabular-nums text-[#1d1d1f] lg:w-auto lg:text-[11px]">
                           {num(amt.occurrences, amt.occurrences < 10 ? 2 : 0)}回
                         </span>
                       )}
@@ -898,14 +898,14 @@ function TaskList({
                         baseline={base?.expensePerOccurrence ?? 0}
                         min={0}
                         compact
-                        widthClass="w-full xl:w-[5.5rem]"
+                        widthClass="w-full lg:w-[5.5rem]"
                         wrapperClass={FILL}
                         onChange={(v) => onChange("task", t.costTaskId, "expensePerOccurrence", v ?? 0)}
                       />
                     </Cell>
                     <Cell label={`円/${unit}`}>
                       <span
-                        className={`min-h-[44px] w-full text-right text-[13px] font-semibold leading-[44px] tabular-nums xl:min-h-0 xl:text-[11px] xl:font-normal xl:leading-normal ${doneBy === "customer" ? "text-[#86868b]" : "text-[#1d1d1f]"}`}
+                        className={`min-h-[44px] w-full text-right text-[13px] font-semibold leading-[44px] tabular-nums lg:min-h-0 lg:text-[11px] lg:font-normal lg:leading-normal ${doneBy === "customer" ? "text-[#86868b]" : "text-[#1d1d1f]"}`}
                         title={doneBy === "customer" && perUnit !== null ? "顧客が持つリアクターの額（SXの原価には入れない）" : undefined}
                       >
                         {perUnit === null ? "—" : num(perUnit)}
@@ -919,7 +919,7 @@ function TaskList({
         );
       })}
       {scenario && (
-        <p className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 xl:py-0.5 text-[11px] leading-5 text-[#3c3c43]">
+        <p className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 lg:py-0.5 text-[11px] leading-5 text-[#3c3c43]">
           選んだ方式・装置でSXがやる作業（運ぶ・運転・保守・管理） <span className="font-semibold tabular-nums">{num(scenario.siteTaskPerUnit)} 円/{unit}</span>
           （年 {yen(scenario.siteTaskAnnual)}・{int(scenario.siteTaskHours)}時間）。
 {PRODUCTION_SITE_LABEL}の作業は年 {yen(b.tasksAnnual)}（{int(b.taskHoursAnnual)}時間）で、菌体1kgあたり {num(b.rows.find((r) => r.key === "tasks")?.perKg ?? 0)} 円として菌体費に入る。
@@ -972,7 +972,7 @@ function ItemRows({
 
   return (
     <div className="mt-1.5">
-      <div className="hidden xl:grid xl:grid-cols-[minmax(0,1fr)_64px_128px_64px_56px] xl:gap-x-1.5 xl:border-b xl:border-[#e5e5e7] xl:pb-1 xl:text-[10px] xl:font-medium xl:text-[#6e6e73]">
+      <div className="hidden lg:grid lg:grid-cols-[minmax(0,1fr)_64px_128px_64px_56px] lg:gap-x-1.5 lg:border-b lg:border-[#e5e5e7] lg:pb-1 lg:text-[10px] lg:font-medium lg:text-[#6e6e73]">
         <span>明細（行の下に計算と根拠）</span>
         <span className="text-right" title="行の「〜あたり」（1系列・菌体1kg・処理量1単位 など）に使う量。単位は行の下の計算に出す">数量</span>
         <span className="text-right" title="数量の単位1つあたりの値段">単価</span>
@@ -999,9 +999,9 @@ function ItemRows({
           return (
             <li
               key={i.costItemId}
-              className={`grid grid-cols-2 gap-x-2 gap-y-1 py-1.5 xl:py-0.5 xl:grid-cols-[minmax(0,1fr)_64px_128px_64px_56px] xl:items-center xl:gap-x-1.5 ${applies ? "" : "opacity-50"}`}
+              className={`grid grid-cols-2 gap-x-2 gap-y-1 py-1.5 lg:py-0.5 lg:grid-cols-[minmax(0,1fr)_64px_128px_64px_56px] lg:items-center lg:gap-x-1.5 ${applies ? "" : "opacity-50"}`}
             >
-              <div className="col-span-2 min-w-0 text-[12px] leading-5 text-[#1d1d1f] xl:col-span-1">
+              <div className="col-span-2 min-w-0 text-[12px] leading-5 text-[#1d1d1f] lg:col-span-1">
                 {costItemLabel(i)}
                 <ScopeTag strain={i.strain} application={i.application} />
                 <span className="ml-1 align-middle"><ConfidenceTag value={i.confidence} /></span>
@@ -1019,7 +1019,7 @@ function ItemRows({
                       value={i.bearer}
                       title={ITEM_BEARER_LABEL[i.bearer]}
                       onChange={(e) => onChange("item", i.costItemId, "bearer", e.target.value as CostItemBearer)}
-                      className={`min-h-[36px] max-w-full rounded-md border px-1 text-[16px] text-[#1d1d1f] xl:h-6 xl:min-h-0 xl:text-[11px] ${
+                      className={`min-h-[36px] max-w-full rounded-md border px-1 text-[16px] text-[#1d1d1f] lg:h-6 lg:min-h-0 lg:text-[11px] ${
                         base && base.bearer !== i.bearer ? "border-[#027fdc] bg-[#e8f3fc]" : "border-[#d2d2d7] bg-white"
                       }`}
                     >
@@ -1061,14 +1061,14 @@ function ItemRows({
                   baseline={base?.quantity ?? i.quantity}
                   min={0}
                   compact
-                  widthClass="w-full xl:w-14"
+                  widthClass="w-full lg:w-14"
                   wrapperClass={FILL}
                   onChange={(v) => onChange("item", i.costItemId, "quantity", v ?? 0)}
                 />
               </Cell>
               <Cell label={`単価（${i.unitPriceUnit ?? "円"}）`}>
                 {i.priceRule && i.priceRule !== "co2_supply" ? (
-                  <span className="min-h-[44px] w-full text-right text-[11px] leading-[44px] text-[#6e6e73] xl:min-h-0 xl:leading-normal">
+                  <span className="min-h-[44px] w-full text-right text-[11px] leading-[44px] text-[#6e6e73] lg:min-h-0 lg:leading-normal">
                     {i.priceRule === "culture_loss" ? "原料の合計" : "前提から計算"}
                   </span>
                 ) : (
@@ -1079,11 +1079,11 @@ function ItemRows({
                       baseline={base?.unitPrice ?? i.unitPrice}
                       min={0}
                       compact
-                      widthClass="w-full xl:w-[5.5rem]"
+                      widthClass="w-full lg:w-[5.5rem]"
                       wrapperClass={FILL}
                       onChange={(v) => onChange("item", i.costItemId, "unitPrice", v ?? 0)}
                     />
-                    <span className="hidden w-8 shrink-0 text-[10px] text-[#6e6e73] xl:inline">{(i.unitPriceUnit ?? "").replace(/^円\//, "/")}</span>
+                    <span className="hidden w-8 shrink-0 text-[10px] text-[#6e6e73] lg:inline">{(i.unitPriceUnit ?? "").replace(/^円\//, "/")}</span>
                   </>
                 )}
               </Cell>
@@ -1095,24 +1095,24 @@ function ItemRows({
                     baseline={base?.usefulLifeYears ?? i.usefulLifeYears}
                     min={0.5}
                     compact
-                    widthClass="w-full xl:w-12"
+                    widthClass="w-full lg:w-12"
                     wrapperClass={FILL}
                     onChange={(v) => onChange("item", i.costItemId, "usefulLifeYears", v)}
                   />
                 ) : (
-                  <span className="min-h-[44px] w-full text-right leading-[44px] text-[#86868b] xl:min-h-0 xl:leading-normal">—</span>
+                  <span className="min-h-[44px] w-full text-right leading-[44px] text-[#86868b] lg:min-h-0 lg:leading-normal">—</span>
                 )}
               </Cell>
               <Cell label={isCentral ? "円/kg" : `円/${unit}`}>
                 <span
-                  className={`min-h-[44px] w-full text-right text-[13px] font-semibold leading-[44px] tabular-nums xl:min-h-0 xl:text-[11px] xl:font-normal xl:leading-normal ${paidBy === "customer" ? "text-[#86868b]" : "text-[#1d1d1f]"}`}
+                  className={`min-h-[44px] w-full text-right text-[13px] font-semibold leading-[44px] tabular-nums lg:min-h-0 lg:text-[11px] lg:font-normal lg:leading-normal ${paidBy === "customer" ? "text-[#86868b]" : "text-[#1d1d1f]"}`}
                   title={paidBy === "customer" && right !== null ? "顧客が持つリアクターの額（SXの原価には入れない）" : undefined}
                 >
                   {right === null ? "—" : num(right, 2)}
-                  {right !== null && isCentral && <span className="ml-0.5 hidden text-[9px] font-normal text-[#6e6e73] xl:inline">/kg</span>}
+                  {right !== null && isCentral && <span className="ml-0.5 hidden text-[9px] font-normal text-[#6e6e73] lg:inline">/kg</span>}
                 </span>
               </Cell>
-              <div className="col-span-2 flex flex-col gap-0.5 xl:col-span-5">
+              <div className="col-span-2 flex flex-col gap-0.5 lg:col-span-5">
                 {right !== null && (
                   <ItemCalcLine calc={costItemCalc(i, working.assumptions, derived, sel, { capacity: b.lineCapacityKgYear, sel: centralSel }, unit, working.items)} />
                 )}
