@@ -292,3 +292,11 @@ pwa/src/lib/build-info.ts
 
 ### SOL経営陣略歴の検証・結了（2026-10-06）
 実装4a7f56cc、本番v3.160.15をbuild-infoとChrome PC画面で確認。登録値はDB読み戻しで完全一致。プロフィール1名、学歴職歴29行、受賞8件。本文領域1148pxで横溢れなし。型検査、変更箇所lint、test:dd-package、登録値/未登録/不正形式のparser検査、本番反映ゲート成功。マニュアル2-6とdb_schemaに登録/表示の説明を補完。新規API・環境変数・表・権限変更はない。Swift未移植。個人の略歴内容と素材はSOL_DD_CONTENTS_PLAN.md参照。
+
+## 2026-10-06 DD左メニューの分類・幅・視認性改善
+仕事種別: 開発。まさの案了承により技術開発と製造を統合し、33資料を7分類へ。6つの開閉見出しは初期全展開、開示資料は下部常設。af482837で実装。155dc6c1/v3.160.13でDDのみPC幅240→200px、間隔12px・内側8px、灰色背景・境界・現在地表示、短い字下げへ。資料名を省略せず折返し、検索は閉じた分類も横断し解除時に元の状態へ。スマホdrawer264px、44pxタップ領域を確認。
+新規ファイルなし。DD_NAVIGATION_GROUPS、DdNavigation、ProjectSpaceLayoutの任意compact指定とDD呼出し、共通ナビCSSを変更。分類固定lockとDD検査契約を更新。test:dd-package、test:project-format、tsc --noEmit、production buildと正規配布ゲート成功。本番ChromeのPC/狭幅で幅、検索、開閉、選択移動を検証。参考はCarbonとAtlassian、根拠はspec5-17へ。DB/schema/権限/鍵/環境変数/model/Native変更なし。
+最初の監視は他担当後続版に追い越されたため祖先関係と同一差分を確認し、自分の古い監視だけ停止。2回目は共有dirtyを保持して一時clean main cloneから正規deployし、Ready2分23秒、SHA155dc6c1を確認。clone除去済み。後続事業計画1e23112eは別担当。closeout本番読戻しv3.160.15/6e1f408a、main d0ece3c4/origin一致。後続配布を今回の未完了作業に含めない。
+恒久仕様はspec5-17/3-24/附則、manual2-3/2-6/附則と共通DESIGNへ実装commitで同期済み。専用引き継ぎは[HANDOFF_DD_NAVIGATION_20261006.md](../../HANDOFF_DD_NAVIGATION_20261006.md)、再開文は[SESSION_MIGRATION_PROMPT.md](../../SESSION_MIGRATION_PROMPT.md)。旧Function Storage文を内容不変で保存。既存報酬移行メモは担当判断まで保護。会話の検討材料0件。
+
+closeout文書の[skip ci] pushは後続1e23112eの未配布画面差分を保護するpre-pushに停止された。省略指定を外して通常pushへ修正。後続担当はさらに開発課題を実装中で、当該dirtyは担当継続として保護。
