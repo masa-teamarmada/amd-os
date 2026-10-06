@@ -251,9 +251,6 @@
     "src/components/dashboard/FundingStatsCard.tsx": [
       "/api/funding-stats"
     ],
-    "src/components/dashboard/PortfolioPulse.tsx": [
-      "/api/dashboard/portfolio-pulse"
-    ],
     "src/components/governance/ActionItemsPanel.tsx": [
       "/api/action-items"
     ],

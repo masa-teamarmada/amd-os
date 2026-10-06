@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { DashboardGrid } from "@/components/dashboard/DashboardGrid";
+import { loadPortfolioPulse } from "@/lib/portfolio-pulse-client";
 import { PortfolioPulse } from "@/components/dashboard/PortfolioPulse";
 import type { CompanyContentPreview } from "@/types/company-content";
 import { loadCompanyContent, peekCompanyContent } from "@/lib/company-content-client";
@@ -64,11 +65,14 @@ export default function DashboardPage() {
   const [companyLoading, setCompanyLoading] = useState(false);
   const companyAnchorRef = useRef<HTMLDivElement | null>(null);
   const [loading, setLoading] = useState(true);
+  const [operationsLoading, setOperationsLoading] = useState(true);
 
   useEffect(() => {
     const supabase = createClient();
+    // Start the portfolio before the other dashboard requests finish.
+    void loadPortfolioPulse().catch(() => undefined);
     Promise.allSettled([
-      fetchProjectsFromSupabase(),
+      fetchProjectsFromSupabase().then((value) => { setProjects(value); setLoading(false); return value; }, (error) => { setProjectLoadFailed(true); setLoading(false); throw error; }),
       fetchBillingStatusFromSupabase(getCurrentYm()),
       fetch("/api/sps/current", { cache: "no-store" }).then(async (response) => {
         const payload = await response.json();
@@ -96,7 +100,8 @@ export default function DashboardPage() {
       }
 
       setLoading(false);
-    }).catch(() => setLoading(false));
+      setOperationsLoading(false);
+    }).catch(() => { setLoading(false); setOperationsLoading(false); });
   }, []);
 
   // 会社の記録 (名簿・沿革・メディア掲載・写真) は参照系なので、一度読んだらキャッシュから配る。
@@ -185,7 +190,9 @@ export default function DashboardPage() {
                 旧 /portfolio-preview を2026-08-02にホームへ正式採用 (まさ確定)。 */}
             <PortfolioPulse projects={dashboardProjects} />
             <div id="pj-operations" className="scroll-mt-4 space-y-4">
-              {projectLoadFailed ? (
+              {operationsLoading ? (
+                <section className="dashboard-desk-section px-3 py-4 text-[13px] text-[var(--desk-muted)]" aria-busy="true">PJ運用の評価・請求状況を読み込み中…</section>
+              ) : projectLoadFailed ? (
                 <section className="dashboard-desk-section border-amber-300 bg-amber-50/80 px-4 py-5 text-sm text-amber-950">
                   <p className="font-semibold">PJ台帳を読み込めなかった</p>
                   <p className="mt-1 text-amber-900">認証状態を更新するため、ページを再読み込みしてください。</p>

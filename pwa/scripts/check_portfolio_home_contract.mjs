@@ -53,7 +53,7 @@ assert.match(dashboard, /<MyPageContent embedded showMonthlyProjects=\{false\}/)
 //    呼び出しを禁止する。
 assert.doesNotMatch(pulseComponent, /fetchErsBundle\(/);
 assert.doesNotMatch(pulseComponent, /fetchAllResearchInstitutionSeeds\(/);
-assert.match(pulseComponent, /fetch\("\/api\/dashboard\/portfolio-pulse"/);
+assert.match(pulseComponent, /loadPortfolioPulse\(/);
 assert.match(pulseRoute, /createAdminClient\(\)/);
 assert.match(pulseRoute, /requireMember\(\)/);
 assert.match(pulseRoute, /getCurrentMemberAccess\(\)/);
@@ -63,9 +63,11 @@ assert.ok(
   pulseRoute.indexOf('access.scope !== "portfolio"') < pulseRoute.indexOf("createAdminClient()"),
   "portfolio scope gate must run before the service client is created",
 );
-assert.match(pulseRoute, /Promise\.allSettled/);
-assert.match(pulseRoute, /fetchErsBundle\(readClient\)/);
-assert.match(pulseRoute, /fetchAllResearchInstitutionSeeds\(readClient\)/);
+assert.match(pulseRoute, /loadPortfolioPulse\(/);
+const pulseServer = read("../src/lib/portfolio-pulse-server.ts");
+assert.match(pulseServer, /Promise\.allSettled/);
+assert.match(pulseServer, /fetchErsBundle\(db\)/);
+assert.match(pulseServer, /loadSeeds\(db\)/);
 
 // 5. PJになる前の候補を、研究機関から来たものとシーズから来たものの2枚で表す。
 //    実routeへ接続する (表示だけの偽ボタン禁止)。研究機関が先。

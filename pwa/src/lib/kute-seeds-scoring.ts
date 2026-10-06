@@ -6,7 +6,7 @@ import type { SeedPublicView } from "../types/seeds.ts";
 import { projectLifecyclePriority, projectStatusLifecycle, type ProjectLifecycle } from "./institution-projects.ts";
 
 /** AMDシーズPJのライフサイクル。PJ関係を優先し、未紐付けの商談状態だけを検討中へ補う。 */
-export function seedProjectLifecycle(seed: SeedPublicView): ProjectLifecycle {
+export function seedProjectLifecycle(seed: Pick<SeedPublicView, "status" | "project_links">): ProjectLifecycle {
   const linkedLifecycles = (seed.project_links ?? []).map((link) => projectStatusLifecycle(link.project_status));
   if (linkedLifecycles.includes("realized")) return "realized";
   if (linkedLifecycles.includes("considering")) return "considering";
@@ -15,7 +15,7 @@ export function seedProjectLifecycle(seed: SeedPublicView): ProjectLifecycle {
 }
 
 /** 表示優先度: PJ化済み=0、PJ化検討中=1、その他=2。 */
-export function seedProjectPriority(seed: SeedPublicView): 0 | 1 | 2 {
+export function seedProjectPriority(seed: Pick<SeedPublicView, "status" | "project_links">): 0 | 1 | 2 {
   return projectLifecyclePriority(seedProjectLifecycle(seed));
 }
 
@@ -23,7 +23,7 @@ export function seedProjectPriority(seed: SeedPublicView): 0 | 1 | 2 {
  * `/seeds` 全機関横断リスト向けの表示優先度: PJ化済み=0、PJ化検討中=1、
  * PJなし=3。現行SPSの有無はservice_role境界のscreening band DTOで別判定する。
  */
-export function seedListPriority(seed: SeedPublicView): 0 | 1 | 2 | 3 {
+export function seedListPriority(seed: Pick<SeedPublicView, "status" | "project_links">): 0 | 1 | 2 | 3 {
   const base = seedProjectPriority(seed);
   if (base !== 2) return base;
   return 3;

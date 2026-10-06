@@ -65,7 +65,7 @@
     "test:kute-seeds-tab-contract": "node scripts/check_kute_seeds_tab_contract.cjs",
     "test:institution-regulations": "node scripts/check_institution_regulations_contract.mjs",
     "test:institution-seed-project-domains": "node --experimental-strip-types scripts/check_institution_seed_project_domains.mts",
-    "test:portfolio-home-contract": "node scripts/check_portfolio_home_contract.mjs",
+    "test:portfolio-home-contract": "node scripts/check_portfolio_home_contract.mjs && node --experimental-strip-types scripts/check_portfolio_pulse_loading.mts",
     "test:seed-sps-score": "node --experimental-strip-types scripts/check_seed_sps_score.mts",
     "test:institution-soil-seeds": "node --experimental-strip-types scripts/check_institution_soil_seeds.mts",
     "test:monthly-agreement-diff": "node --experimental-strip-types scripts/check_monthly_agreement_diff.mts",
