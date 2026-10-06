@@ -470,3 +470,7 @@ Slackと管理画面で、メール再入力や台帳の別登録を挟まず申
 
 ### 2026-10-06 外部アクセスの人別編集
 PWA `/admin/access` は一人一行の一覧と編集ダイアログ。DDを別メール一覧から統合。workspace GETにDDを追加、POST grant_project_viewerはreadonly workspaceのみ。既存kind/RPCは維持。POST/PATCH same-originチェック追加。iOS/macOSは未移植、同じ認可APIと独立grant境界を利用すること。
+
+## ドライブ改善の再開入口（2026-10-06）
+
+今回の最新状態・検証・別作業境界は[専用引き継ぎ](../HANDOFF_DRIVE_20261006.md)、開発経緯はdesign_log/sessions_2026-10.md。追加依頼はなく完了。
