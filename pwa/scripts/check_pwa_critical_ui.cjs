@@ -3627,7 +3627,7 @@ expectNotIncludes("src/app/(app)/project/[projectId]/cockpit/page.tsx", [
 // 資金調達履歴タブ: 会社概要から独立した確定履歴の結線と、
 // 縦積み100%グラフ / ラウンド一覧 / 株式イベント追加導線を保護する。
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
-  'import { CockpitCapitalPolicy } from "./CockpitCapitalPolicy";',
+  'const CockpitCapitalPolicy = dynamic(() => import("./CockpitCapitalPolicy").then((module) => module.CockpitCapitalPolicy)',
   '"capital-policy": "資金調達履歴"',
   "<CockpitCapitalPolicy",
 ]);

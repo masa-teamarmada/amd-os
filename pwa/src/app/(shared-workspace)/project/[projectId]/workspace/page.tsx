@@ -19,11 +19,12 @@ export default async function SharedWorkspacePage({
   const access = await resolveSharedWorkspaceAccess(projectId);
   if (!access) notFound();
 
-  const bundle = await getProjectWorkspaceBundle(projectId, access);
+  // 両方の権限は独立に検証する。DD入口の照会を本文取得の後へ直列に積まない。
+  const [bundle, ddScope] = await Promise.all([
+    getProjectWorkspaceBundle(projectId, access),
+    access.principal === "workspace_account" ? resolveDdViewerScope().catch(() => null) : Promise.resolve(null),
+  ]);
   if (!bundle) notFound();
-
-  // PJ所属とDD付与は独立に確認する。両方を持つ人だけ並列の入口を出す。
-  const ddScope = access.principal === "workspace_account" ? await resolveDdViewerScope().catch(() => null) : null;
   const ddPackage = ddScope?.packages.find((pkg) => pkg.projectId === projectId);
 
   return (

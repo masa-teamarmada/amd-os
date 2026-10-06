@@ -118,7 +118,7 @@ assert.ok(
 const server = read("src/lib/dd-package-server.ts");
 assert.match(server, /\.eq\("package_id", packageId\)\.eq\("status", "active"\)/, "有効な項目だけを読む");
 assert.match(server, /if \(!options\.includeUnpublished\) query = query\.eq\("is_published", true\);/, "閲覧者には公開中の項目だけを返す");
-assert.match(server, /loadActiveItems\(packageId, \{ includeUnpublished: false \}\)/, "DDトップと正式版の出力は公開中の項目だけ");
+assert.match(server, /loadActiveItems\(packageId, \{ includeUnpublished: false, itemKind \}\)/, "DDトップと正式版の出力は公開中の項目だけ");
 assert.match(server, /if \(!row\.is_published && access\.principal !== "internal_admin"\) return null;/, "未公開の項目は管理者のプレビューだけ");
 assert.match(server, /row\.package_id !== access\.packageId/, "別パッケージの項目は開かない");
 assert.match(server, /loadDdItemLive\(/, "中身は閲覧のたびに元データの最新から作る");

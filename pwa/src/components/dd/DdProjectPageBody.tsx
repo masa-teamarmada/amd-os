@@ -1,20 +1,25 @@
 "use client";
-import { ProjectContractList } from "@/components/project-workspace/ProjectContractList";
+import dynamic from "next/dynamic";
+import { ProjectPageLoading } from "@/components/project-space/ProjectPageLoading";
+
 import { ProjectDiligenceSection } from "@/components/project-workspace/ProjectDiligenceSection";
 import type { DdLiveProjectPage } from "@/lib/dd-project-page-types";
-import { QuestionTreeView } from "@/components/question-tree/QuestionTreeView";
-import { SxPartnerPipeline } from "@/components/project-workspace/SxPartnerPipeline";
-import { CockpitBusinessPlan } from "@/components/cockpit/CockpitBusinessPlan";
-import { CockpitIpPortfolio } from "@/components/cockpit/CockpitIpPortfolio";
-import { CockpitCompanyOverview } from "@/components/cockpit/CockpitCompanyOverview";
-import { CockpitCapitalPolicy } from "@/components/cockpit/CockpitCapitalPolicy";
-import { CockpitGrants } from "@/components/cockpit/CockpitGrants";
-import { Bzm22AcquisitionLedger } from "@/components/cockpit/Bzm22AcquisitionLedger";
-import { CockpitAmdContributions } from "@/components/cockpit/CockpitAmdContributions";
-import { CockpitTechnology } from "@/components/cockpit/CockpitTechnology";
-import { CockpitFinancialProjection } from "@/components/cockpit/CockpitFinancialProjection";
-import { CockpitCapitalPlan } from "@/components/cockpit/CockpitCapitalPlan";
-import { CockpitCostTab } from "@/components/cockpit/CockpitCostTab";
+
+// 選んだページの部品だけを取得し、他ページのJSを初期表示の待ち時間に積まない。
+const ProjectContractList = dynamic(() => import("@/components/project-workspace/ProjectContractList").then((module) => module.ProjectContractList), { loading: ProjectPageLoading });
+const QuestionTreeView = dynamic(() => import("@/components/question-tree/QuestionTreeView").then((module) => module.QuestionTreeView), { loading: ProjectPageLoading });
+const SxPartnerPipeline = dynamic(() => import("@/components/project-workspace/SxPartnerPipeline").then((module) => module.SxPartnerPipeline), { loading: ProjectPageLoading });
+const CockpitBusinessPlan = dynamic(() => import("@/components/cockpit/CockpitBusinessPlan").then((module) => module.CockpitBusinessPlan), { loading: ProjectPageLoading });
+const CockpitIpPortfolio = dynamic(() => import("@/components/cockpit/CockpitIpPortfolio").then((module) => module.CockpitIpPortfolio), { loading: ProjectPageLoading });
+const CockpitCompanyOverview = dynamic(() => import("@/components/cockpit/CockpitCompanyOverview").then((module) => module.CockpitCompanyOverview), { loading: ProjectPageLoading });
+const CockpitCapitalPolicy = dynamic(() => import("@/components/cockpit/CockpitCapitalPolicy").then((module) => module.CockpitCapitalPolicy), { loading: ProjectPageLoading });
+const CockpitGrants = dynamic(() => import("@/components/cockpit/CockpitGrants").then((module) => module.CockpitGrants), { loading: ProjectPageLoading });
+const Bzm22AcquisitionLedger = dynamic(() => import("@/components/cockpit/Bzm22AcquisitionLedger").then((module) => module.Bzm22AcquisitionLedger), { loading: ProjectPageLoading });
+const CockpitAmdContributions = dynamic(() => import("@/components/cockpit/CockpitAmdContributions").then((module) => module.CockpitAmdContributions), { loading: ProjectPageLoading });
+const CockpitTechnology = dynamic(() => import("@/components/cockpit/CockpitTechnology").then((module) => module.CockpitTechnology), { loading: ProjectPageLoading });
+const CockpitFinancialProjection = dynamic(() => import("@/components/cockpit/CockpitFinancialProjection").then((module) => module.CockpitFinancialProjection), { loading: ProjectPageLoading });
+const CockpitCapitalPlan = dynamic(() => import("@/components/cockpit/CockpitCapitalPlan").then((module) => module.CockpitCapitalPlan), { loading: ProjectPageLoading });
+const CockpitCostTab = dynamic(() => import("@/components/cockpit/CockpitCostTab").then((module) => module.CockpitCostTab), { loading: ProjectPageLoading });
 
 const noop = () => {};
 export function DdProjectPageBody({data,canDownload=false}:{data:DdLiveProjectPage;canDownload?:boolean}) {
