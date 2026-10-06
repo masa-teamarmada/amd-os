@@ -18,8 +18,8 @@ type Data = {
 };
 type Place = { key: string; label: string; kind: "institution" | "project" | "dd"; targetId: string; available: boolean };
 type Assignment = { place: Place; id: string; status: string; role: string; capabilities?: string[]; expiresAt?: string | null };
-const input = "h-9 rounded-md border border-border bg-background px-3 text-sm min-w-0";
-const button = "rounded-md border border-border px-3 py-2 text-xs font-medium disabled:opacity-50";
+const input = "h-11 sm:h-9 rounded-md border border-border bg-background px-3 text-sm min-w-0";
+const button = "min-h-11 sm:min-h-9 rounded-md border border-border px-3 py-2 text-xs font-medium disabled:opacity-50";
 const enabled = (status: string) => status === "active" || status === "invited";
 const statusLabel = (status: string) => ({ active: "利用中", invited: "初回ログイン待ち", suspended: "停止中", revoked: "取消済み" }[status] || status);
 const roleLabel = (role: string) => ({ readonly: "閲覧のみ", contributor: "参加者", manager: "管理担当", owner: "管理担当", member: "メンバー" }[role] || role);
@@ -62,7 +62,7 @@ export function WorkspaceAccessAdminPanel() {
   async function send(body: Record<string, unknown>, dd = false, patch = false) {
     const response = await fetch(dd ? "/api/admin/dd" : "/api/admin/workspace-access", { method: patch ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const result = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(`変更できません (${result.error || response.status})。一覧を確認してください。`);
+    if (!response.ok) throw new Error(result.error === "account_suspended" ? "この人は停止中です。利用を再開してから権限を追加してください。" : result.error === "invalid_email" ? "メールアドレスの形式を確認してください。" : result.error === "membership_exists" || result.error === "membership_stopped" ? "登録済みの場所です。一覧を再読み込みして、その場所の状態を変更してください。" : "変更を保存できませんでした。一覧を再読み込みして、もう一度操作してください。");
     return result;
   }
   async function perform(operation: () => Promise<unknown>) {
@@ -103,16 +103,16 @@ export function WorkspaceAccessAdminPanel() {
       </div>)}
     </section>}
     <div className="flex flex-wrap items-center gap-2">
-      <input aria-label="名前・メール・場所で検索" placeholder="名前・メール・場所で検索" className={`${input} flex-1`} value={query} onChange={e => setQuery(e.target.value)} />
+      <input aria-label="名前・メール・場所で検索" placeholder="名前・メール・場所で検索" className={`${input} w-full basis-full sm:w-auto sm:basis-0 sm:flex-1`} value={query} onChange={e => setQuery(e.target.value)} />
       <select aria-label="表示する人" className={input} value={filter} onChange={e => setFilter(e.target.value)}><option value="all">すべて</option><option value="allowed">権限あり</option><option value="stopped">停止中</option></select>
       <button className={button} onClick={() => open("new")}>人を追加</button>
     </div>
     <p className="text-xs text-muted-foreground">{visible.length}人 · 追加する権限は閲覧のみ。変更はその場で保存される。</p>
     <div className="divide-y divide-border border-y border-border">
       {visible.map(a => <div key={a.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 py-3 md:grid-cols-[minmax(180px,1fr)_minmax(0,2fr)_auto]">
-        <div className="min-w-0"><p className="truncate text-sm font-medium">{a.display_name || "名前未登録"}</p><p className="break-all text-xs text-muted-foreground">{a.email}</p><p className="mt-1 text-[11px] text-muted-foreground">{statusLabel(a.status)}</p></div>
-        <div className="col-start-1 flex flex-wrap items-center gap-1 md:col-start-auto">{assignments(a.id).filter(s => enabled(s.status)).map(s => <span key={s.id} className="rounded bg-muted px-2 py-1 text-xs">{s.place.label}<span className="text-muted-foreground"> · {s.expiresAt && Date.parse(s.expiresAt) <= Date.now() ? "期限切れ" : !s.place.available ? "非公開" : roleLabel(s.role)}</span></span>)}{!assignments(a.id).some(s => enabled(s.status)) && <span className="text-xs text-muted-foreground">閲覧できる場所なし</span>}</div>
-        <button aria-label={`${a.display_name || a.email}の権限を編集`} className={`${button} col-start-2 row-start-1 self-start md:col-start-auto`} onClick={() => open(a)}>編集</button>
+        <div className="col-start-1 row-start-1 min-w-0"><p className="truncate text-sm font-medium">{a.display_name || "名前未登録"}</p><p className="break-all text-xs text-muted-foreground">{a.email}</p><p className="mt-1 text-[11px] text-muted-foreground">{statusLabel(a.status)}</p></div>
+        <div className="col-span-2 col-start-1 row-start-2 flex flex-wrap items-center gap-1 md:col-span-1 md:col-start-2 md:row-start-1">{assignments(a.id).filter(s => enabled(s.status)).map(s => <span key={s.id} className="rounded bg-muted px-2 py-1 text-xs">{s.place.label}<span className="text-muted-foreground"> · {s.expiresAt && Date.parse(s.expiresAt) <= Date.now() ? "期限切れ" : !s.place.available ? "非公開" : roleLabel(s.role)}</span></span>)}{!assignments(a.id).some(s => enabled(s.status)) && <span className="text-xs text-muted-foreground">閲覧できる場所なし</span>}</div>
+        <button aria-label={`${a.display_name || a.email}の権限を編集`} className={`${button} col-start-2 row-start-1 self-start md:col-start-3`} onClick={() => open(a)}>編集</button>
       </div>)}
       {!visible.length && <p className="py-8 text-center text-sm text-muted-foreground">該当する人がいない</p>}
     </div>
