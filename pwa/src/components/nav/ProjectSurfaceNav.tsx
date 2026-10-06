@@ -1,5 +1,7 @@
 "use client";
 
+import { Gauge, Users, Files } from "lucide-react";
+import styles from "./ProjectNavigation.module.css";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { loadProjectDdSummary, peekProjectDdSummary } from "@/lib/dd-client";
@@ -17,16 +19,16 @@ type Props = {
 export function ProjectSurfaceNav({ projectId, current, canCockpit = false, canWorkspace = false, ddHref }: Props) {
   const base = `/project/${encodeURIComponent(projectId)}`;
   const surfaces = [
-    { key: "cockpit", label: "コックピット", href: `${base}/cockpit`, visible: canCockpit },
-    { key: "workspace", label: "ワークスペース", href: `${base}/workspace`, visible: canWorkspace },
-    { key: "dd", label: "DDパッケージ", href: ddHref ?? `${base}/dd`, visible: Boolean(ddHref) || current === "dd" },
+    { key: "cockpit", label: "コックピット", icon: Gauge, href: `${base}/cockpit`, visible: canCockpit },
+    { key: "workspace", label: "ワークスペース", icon: Users, href: `${base}/workspace`, visible: canWorkspace },
+    { key: "dd", label: "DDパッケージ", icon: Files, href: ddHref ?? `${base}/dd`, visible: Boolean(ddHref) || current === "dd" },
   ];
   return (
-    <nav aria-label="PJの領域" data-testid="project-surface-navigation" className="flex flex-col gap-1">
+    <nav aria-label="PJの領域" data-testid="project-surface-navigation" className={styles.surfaces}>
       {surfaces.filter((surface) => surface.visible).map((surface) => (
         <Link key={surface.key} href={surface.href} aria-current={current === surface.key ? "page" : undefined}
-          className={`inline-flex min-h-11 items-center whitespace-nowrap rounded-md border px-3 text-[12.5px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC] ${current === surface.key ? "border-[#027FDC] bg-[#eef6fd] text-[#0267b2]" : "border-transparent text-[#6e6e73] hover:bg-[#f5f5f7] hover:text-[#1d1d1f]"}`}>
-          {surface.label}
+          className={`${styles.row} ${styles.surface}`}>
+          <surface.icon className="h-4 w-4 shrink-0" aria-hidden="true" />{surface.label}
         </Link>
       ))}
     </nav>

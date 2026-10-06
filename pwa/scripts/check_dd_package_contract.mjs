@@ -197,3 +197,10 @@ assert.match(migration, /dd grants must not create by this migration|dd grants m
 assert.match(migration, /'sol',\s*\n\s*'SolvioraX DD資料',[\s\S]*?'draft'/, "SOL のパッケージは未公開で作る");
 
 console.log("dd package contract: ok");
+
+// 従業員名簿は共同作業の2領域のみ。DD用loaderは目録外のkeyをDB読取り前に拒否する。
+const ddPageLoader = read("src/lib/dd-project-pages-server.ts");
+assert.ok(ddPageLoader.indexOf("!DD_PAGE_KEYS.includes(page)") < ddPageLoader.indexOf("createAdminClient()"));
+assert.doesNotMatch(code(ddPageLoader), /employee-register|ProjectEmployeeRegister/);
+for (const file of ["src/components/cockpit/CockpitView.tsx", "src/components/project-workspace/SxWeeklyControlDashboard.tsx"]) assert.match(read(file), /ProjectEmployeeRegister/);
+assert.doesNotMatch(read("src/components/project-workspace/ProjectEmployeeRegister.tsx"), /project_members|members|email/);

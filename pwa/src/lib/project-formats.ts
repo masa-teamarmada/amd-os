@@ -52,7 +52,7 @@ const COCKPIT_STANDARD_TABS = [
   { group: "business-plan-group", tabs: ["score-detail", "technology", "competition", "business-model", "business-plan", "financial-projection", "capital-plan", "cost-model", "ip"] },
   { group: "documents-group", tabs: ["documents"] },
   { group: "project-management-group", tabs: ["overview", "project-contracts", "project-finance", "monthly-reports"] },
-  { group: "company-information-group", tabs: ["company", "contracts", "killer-factors", "capital-policy", "activity"] },
+  { group: "company-information-group", tabs: ["company", "employee-register", "contracts", "killer-factors", "capital-policy", "activity"] },
 ] as const;
 
 export const COCKPIT_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ group: string; tabs: readonly string[] }>> = {
@@ -66,7 +66,7 @@ export const COCKPIT_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ grou
     { group: "regulations-group", tabs: ["regulations"] },
     { group: "documents-group", tabs: ["documents"] },
     { group: "project-management-group", tabs: ["overview", "project-contracts", "project-finance", "monthly-reports"] },
-    { group: "company-information-group", tabs: ["company", "contracts", "killer-factors", "capital-policy", "activity"] },
+    { group: "company-information-group", tabs: ["company", "employee-register", "contracts", "killer-factors", "capital-policy", "activity"] },
   ],
 };
 
@@ -75,7 +75,7 @@ const WORKSPACE_STANDARD_TABS = [
   { group: "progress-group", tabs: ["issues", "tasks", "gantt", "meetings", "slack", "weekly", "partners"] },
   { group: "business-plan-group", tabs: ["technology", "competition", "business-model", "business-plan", "financial-projection", "capital-plan", "cost", "ip"] },
   { group: "documents-group", tabs: ["drive"] },
-  { group: "company-information-group", tabs: ["company", "contracts", "capital-policy"] },
+  { group: "company-information-group", tabs: ["company", "employee-register", "contracts", "capital-policy"] },
 ] as const;
 
 export const WORKSPACE_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ group: string; tabs: readonly string[] }>> = {
@@ -85,7 +85,7 @@ export const WORKSPACE_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ gr
   ecosystem: [
     { group: "progress-group", tabs: ["issues", "tasks", "gantt", "meetings", "slack", "weekly", "partners"] },
     { group: "documents-group", tabs: ["drive"] },
-    { group: "company-information-group", tabs: ["company", "contracts", "capital-policy"] },
+    { group: "company-information-group", tabs: ["company", "employee-register", "contracts", "capital-policy"] },
   ],
 };
 
@@ -101,33 +101,62 @@ export const DD_TAB_FORMAT = [
   { group: "company-information-group", tabs: ["company", "capital-policy", "activity"] },
 ] as const;
 
-/** DDの資料目録。資料の有無にかかわらず、18資料の入口を同じ順に並べる。 */
+/** DDの資料目録。別の原本は別の入口にし、未登録でも同じ順で表示する。 */
 export const DD_ITEM_PAGES = [
   { key: "company", label: "会社概要", related: ["activity"] },
+  { key: "articles-of-incorporation", label: "定款", related: [] },
+  { key: "corporate-register", label: "登記事項証明書", related: [] },
+  { key: "internal-rules", label: "規程類", related: [] },
   { key: "capital-plan", label: "資本政策表", related: ["capital-policy"] },
   { key: "shareholder-register", label: "株主名簿", related: [] },
   { key: "next-round-term-sheet", label: "次回ラウンドタームシート", related: [] },
   { key: "governance", label: "総会・取締役会・経営会議議事録", related: ["company"] },
-  { key: "business-plan", label: "事業計画書・開発計画書", related: ["gantt"] },
-  { key: "competition", label: "市場調査・競合比較資料", related: ["business-model"] },
-  { key: "partners", label: "顧客・販売先リスト", related: ["business-model"] },
-  { key: "technology", label: "技術・製品説明資料", related: [] },
+  { key: "team", label: "経営陣略歴", related: [] },
+  { key: "business-plan", label: "事業計画書", related: [] },
+  { key: "development-plan", label: "開発計画書", related: ["gantt"] },
+  { key: "market-research", label: "市場調査資料", related: [] },
+  { key: "competition", label: "競合比較資料", related: ["business-model"] },
+  { key: "partners", label: "顧客リスト", related: [] },
+  { key: "sales-partners", label: "販売先リスト", related: [] },
+  { key: "technology", label: "技術説明資料", related: [] },
+  { key: "product-description", label: "製品説明資料", related: [] },
   { key: "technical-evidence", label: "技術実証報告書", related: ["technology"] },
-  { key: "manufacturing", label: "製造・品質管理・供給体制資料", related: ["technology"] },
-  { key: "ip", label: "知財一覧・大学との権利契約", related: ["technology"] },
-  { key: "team", label: "経営陣略歴・従業員名簿", related: ["business-model"] },
-  { key: "contracts", label: "契約リスト", related: ["business-model"] },
-  { key: "regulatory", label: "許認可一覧・安全性評価資料", related: ["technology", "business-model"] },
-  { key: "disputes", label: "訴訟・関連当事者取引一覧", related: [] },
+  { key: "manufacturing", label: "製造体制資料", related: [] },
+  { key: "quality-control", label: "品質管理資料", related: [] },
+  { key: "supply-chain", label: "供給体制資料", related: [] },
+  { key: "ip", label: "知財一覧", related: [] },
+  { key: "university-rights", label: "大学との権利契約", related: [] },
+  { key: "contracts", label: "契約リスト", related: [] },
+  { key: "regulatory", label: "許認可一覧", related: [] },
+  { key: "safety-assessment", label: "安全性評価資料", related: [] },
+  { key: "disputes", label: "訴訟一覧", related: [] },
+  { key: "related-party-transactions", label: "関連当事者取引一覧", related: [] },
+  { key: "financial-statements", label: "決算書", related: [] },
+  { key: "tax-returns", label: "税務申告書", related: [] },
   { key: "financial-projection", label: "収支計画書", related: ["cost-model"] },
-  { key: "documents", label: "開示資料一覧", related: ["business-model"] },
+  { key: "documents", label: "開示資料一覧", related: [] },
 ] as const;
 
 /** 3領域のページ名。ワークスペースの旧キー cost/drive は同じページへ対応する。 */
 export const PROJECT_PAGE_LABELS: Readonly<Record<string, string>> = {
+  "employee-register": "従業員名簿",
+  "articles-of-incorporation": "定款",
+  "corporate-register": "登記事項証明書",
+  "internal-rules": "規程類",
+  "development-plan": "開発計画書",
+  "market-research": "市場調査資料",
+  "sales-partners": "販売先リスト",
+  "product-description": "製品説明資料",
+  "quality-control": "品質管理資料",
+  "supply-chain": "供給体制資料",
+  "university-rights": "大学との権利契約",
+  "safety-assessment": "安全性評価資料",
+  "related-party-transactions": "関連当事者取引一覧",
+  "financial-statements": "決算書",
+  "tax-returns": "税務申告書",
   issues: "ゴールツリー", tasks: "タスク", gantt: "ガント", progress: "MS・月次", meetings: "動向・会議", slack: "Slack", weekly: "週次差分", partners: "関係先",
   "score-detail": "スコア詳細", technology: "技術", competition: "競合比較", "business-model": "ビジネスモデル", "business-plan": "事業計画", "financial-projection": "試算表", "capital-plan": "資本政策表", "cost-model": "コスト試算", cost: "コスト試算", ip: "知財",
-  governance: "総会・取締役会・経営会議議事録", "technical-evidence": "技術実証報告書", manufacturing: "製造・品質管理・供給体制資料", team: "経営陣略歴・従業員名簿", contracts: "契約リスト", regulatory: "許認可一覧・安全性評価資料", disputes: "訴訟・関連当事者取引一覧", "shareholder-register": "株主名簿", "next-round-term-sheet": "次回ラウンドタームシート",
+  governance: "総会・取締役会・経営会議議事録", "technical-evidence": "技術実証報告書", manufacturing: "製造体制資料", team: "経営陣略歴", contracts: "契約リスト", regulatory: "許認可一覧", disputes: "訴訟一覧", "shareholder-register": "株主名簿", "next-round-term-sheet": "次回ラウンドタームシート",
   documents: "ドライブ", drive: "ドライブ", overview: "PJ概要", "project-contracts": "契約", "project-finance": "収支", "monthly-reports": "月次報告書", company: "会社概要", "killer-factors": "キラー要素", "capital-policy": "資金調達履歴", activity: "沿革", seeds: "シーズ一覧", regulations: "規程一覧",
 };
 

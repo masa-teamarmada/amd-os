@@ -1,16 +1,34 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import styles from "./ProjectNavigation.module.css";
 import { PanelLeft, X } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 
 /** 3スペース共通の左ナビ。狭い画面でも本文を縮めず、左から開く。 */
 export function ProjectSpaceLayout({ navigation, children }: { navigation?: ReactNode; children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const sidebar = useRef<HTMLElement>(null);
+  const [availableHeight, setAvailableHeight] = useState<number>();
+  useEffect(() => {
+    const element = sidebar.current;
+    if (!element) return;
+    let frame = 0;
+    const measure = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => setAvailableHeight(Math.max(0, window.innerHeight - Math.max(64, element.getBoundingClientRect().top) - 16)));
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(element.parentElement ?? element);
+    window.addEventListener("resize", measure);
+    window.addEventListener("scroll", measure, { passive: true });
+    measure();
+    return () => { observer.disconnect(); cancelAnimationFrame(frame); window.removeEventListener("resize", measure); window.removeEventListener("scroll", measure); };
+  }, [Boolean(navigation)]);
   if (!navigation) return <div className="min-w-0 space-y-3">{children}</div>;
   return (
-    <div data-testid="project-space-layout" className="grid min-w-0 items-start gap-4 md:grid-cols-[208px_minmax(0,1fr)]">
-      <aside aria-label="スペースメニュー" className="sticky top-3 hidden max-h-[calc(100dvh-24px)] min-w-0 space-y-4 overflow-y-auto border-r border-[#d2d2d7] pr-3 md:block">{navigation}</aside>
+    <div data-testid="project-space-layout" className={styles.layout}>
+      <aside ref={sidebar} aria-label="スペースメニュー" className={styles.sidebar} style={{ maxHeight: availableHeight ?? "calc(100dvh - 240px)" }}>{navigation}</aside>
       <div className="min-w-0 space-y-3 md:col-start-2">
         <div className="md:hidden">
           <Sheet open={open} onOpenChange={setOpen}>

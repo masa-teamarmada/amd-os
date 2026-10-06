@@ -457,3 +457,5 @@ URL: `/proactive`
 
 ## 関連
 - 設計議論: [`pwa/design/FEATURE_REGISTRY.md`](../design/FEATURE_REGISTRY.md) (= 各画面の消してはいけない業務導線), [`pwa/design/routine.md`](../design/routine.md) (= 月次ルーティン廃止), [`pwa/design/institution_seed_project_model.md`](../design/institution_seed_project_model.md) §6.3.1 (= 業務デスクのデータ設計)
+
+2026-10-06: DDは32資料の一段目録。定款・登記事項証明書・規程類・決算書・税務申告書を追加し、事業/開発計画、市場調査/競合比較など異なる原本を分けた。左の「資料名で検索」で絞り込み、目録をスクロールして開く。原本のない資料は資料未登録。経営陣略歴はDDの独立資料、従業員名簿はコックピット・ワークスペースの会社情報だけ。調査は国内外4つの法律事務所の資料を照合し、案件ごとのDD要求が違う点もspec 5-17へ記録。

@@ -1025,3 +1025,5 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 操作: 内部admin/portfolio memberまたは当該PJ workspace managerが契約ごとの「DDに表示」チェックを変更。readonly/contributor/DD-onlyは変更不可。非表示行はDD payloadに含めない。
 - 正本/API: `contracts.dd_visible`、migration482、`/api/project/[projectId]/contract-list`、`project-contract-list-server/client`。原メール・内部メモ・添付公開の拡張なし。
 - Guard: `test:project-contract-list`、`test:dd-package`、`test:project-format`、`test:reference-data-cache`。仕様: spec5-17/3-24、manual2-3/2-6、ios/DESIGN。
+
+2026-10-06: PJ左ナビは分類の開閉とページ移動を分離、独立スクロール。DD32の原本入口と資料名検索。従業員名簿はコックピット/ワークスペースのみ。契約: test:critical-ui、test:dd-package、test:project-format。正本spec 5-17/3-24。

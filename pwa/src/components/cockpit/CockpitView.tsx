@@ -1,4 +1,6 @@
 "use client";
+
+import { ProjectEmployeeRegister } from "@/components/project-workspace/ProjectEmployeeRegister";
 import { ProjectContractList } from "@/components/project-workspace/ProjectContractList";
 
 import { useEffect, useState } from "react";
@@ -444,6 +446,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     "project-finance": "収支",
     "capital-policy": "資金調達履歴",
     company: "会社概要",
+    "employee-register": "従業員名簿",
     contracts: "契約リスト",
     "killer-factors": "キラー要素",
     activity: "沿革",
@@ -830,6 +833,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
         </section>
       )}
 
+      {activeTab === "employee-register" && <section role="tabpanel" aria-label="従業員名簿"><ProjectEmployeeRegister /></section>}
       {activeTab === "contracts" && <section role="tabpanel" aria-label="契約リスト" className="min-w-0"><ProjectContractList key={project.projectId} projectId={project.projectId} /></section>}
 
       {activeTab === "capital-policy" && (

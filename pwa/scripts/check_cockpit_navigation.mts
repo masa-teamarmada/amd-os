@@ -111,8 +111,12 @@ const cockpitViewSource = fs.readFileSync(
 const pageMenuSource = fs.readFileSync(new URL("../src/components/nav/ProjectPageMenu.tsx", import.meta.url), "utf8");
 assert.match(cockpitViewSource, /<ProjectSpaceLayout/, "cockpit uses the shared left menu layout");
 assert.match(cockpitViewSource, /children: group.children.map\(tabItem\)/, "all canonical child pages and prefetch handlers reach the shared menu");
-assert.match(pageMenuSource, /min-h-11/, "left menu touch targets remain at least 44px");
-assert.match(pageMenuSource, /selected && group.children.length > 1/, "only the chosen group expands, single-child pages are not repeated");
+const navCss = fs.readFileSync(new URL("../src/components/nav/ProjectNavigation.module.css", import.meta.url), "utf8");
+assert.match(navCss, /min-height: 44px/, "touch targets remain at least 44px");
+assert.match(navCss, /min-height: 36px/, "desktop navigation uses a compact density");
+assert.match(pageMenuSource, /hidden={!open}/, "each group can collapse independently");
+assert.match(pageMenuSource, /hasChildren \? setExpanded/, "group disclosure does not navigate");
+assert.match(pageMenuSource, /aria-controls=/, "disclosure identifies its child list");
 assert.match(pageMenuSource, /onMouseEnter={page.onHover}/, "reference data prefetch remains attached to page entries");
 assert.match(cockpitViewSource, /const groups = cockpitGroupsForType\(formatType\);/, "groups come from the PJ type format");
 

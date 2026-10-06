@@ -3561,7 +3561,7 @@ expectIncludes("src/components/cockpit/CockpitCapitalPlan.tsx", [
   "<CapitalPlanWorkspace",
 ]);
 expectIncludes("src/lib/project-formats.ts", [
-  '{ group: "company-information-group", tabs: ["company", "contracts", "capital-policy"] },',
+  '{ group: "company-information-group", tabs: ["company", "employee-register", "contracts", "capital-policy"] },',
 ]);
 expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
   '"company-information-group": COCKPIT_GROUP_LABELS.companyInformation,',
@@ -4735,8 +4735,11 @@ expectIncludes("next.config.ts", ['source: "/project/:projectId/report/:ym/print
 // 2026-10-06: 全体メニューとスペースメニューを分離し、既存の操作を左に保つ。
 expectIncludes("src/components/nav/GlobalMenu.tsx", ['aria-label="全体メニューを開く"', '<Menu', '<SheetContent side="left"', 'setOpen(false)']);
 expectIncludes("src/components/nav/AppShell.tsx", ['useGlobalMenu', '<GlobalMenu><GlobalNav', 'leading={useGlobalMenu']);
-expectIncludes("src/components/nav/ProjectSpaceLayout.tsx", ['md:grid-cols-[208px_minmax(0,1fr)]', '<SheetContent side="left"', 'スペースメニュー', '[data-space-page]']);
-expectIncludes("src/components/nav/ProjectPageMenu.tsx", ['group.children.length > 1', 'onGroup(group.key)', 'onPage(page.key)', 'onMouseEnter={page.onHover}', 'min-h-11']);
+expectIncludes("src/components/nav/ProjectSpaceLayout.tsx", ['styles.layout', 'element.getBoundingClientRect().top', '<SheetContent side="left"', 'スペースメニュー', '[data-space-page]']);
+expectIncludes("src/components/nav/ProjectPageMenu.tsx", ['group.children.length > 1', 'onGroup(group.key)', 'onPage(page.key)', 'onMouseEnter={page.onHover}', 'aria-controls=', 'setExpanded', 'hidden={!open}']);
 expectIncludes("src/components/dd/DdViewerShell.tsx", ['<ProjectSpaceLayout', '<DdNavigation']);
 expectIncludes("src/components/dashboard/DashboardGrid.tsx", ['target="_blank" rel="noopener noreferrer"']);
 expectIncludes("src/components/dashboard/PortfolioPulse.tsx", ['target={href.startsWith("/project/") ? "_blank" : undefined}']);
+
+expectIncludes("src/components/nav/ProjectNavigation.module.css", ["grid-template-columns: 240px minmax(0, 1fr)", "min-height: 44px", "min-height: 36px", "overflow-y: auto", ".row[aria-current=\"page\"]"]);
+expectIncludes("src/components/dd/DdNavigation.tsx", ["資料名で検索", "type=\"search\"", "該当する資料はありません"]);

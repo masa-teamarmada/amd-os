@@ -47,6 +47,7 @@ export const COCKPIT_TABS = [
   "monthly-reports",
   "capital-policy",
   "company",
+  "employee-register",
   "contracts",
   "killer-factors",
   "activity",
