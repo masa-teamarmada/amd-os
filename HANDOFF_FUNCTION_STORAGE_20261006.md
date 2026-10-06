@@ -48,3 +48,10 @@
 3区分: safe to remove after approval=なし、send back to owner=上記activeチャットの実装差分（担当が継続中、こちらから送信なし）、needs Masa decision=旧ptプロンプトのGit保存。
 
 今回成果はmainに保存。表の他担当差分はその後担当が反映済みで、今回の終了時にtracked差分なしを再確認する。旧ptプロンプトは別作業資料としてそのまま保持する。このチャットを閉じても今回成果はmain・正本md・次セッションプロンプトに残る。会話の検討材料: 0件。
+
+## 最終closeout
+まさはtoken-indicatorで集計を確認可能。減る時期の質問であり追加監視は不要。10月7〜8日は確認目安、更新確約ではない。Hobby一般仕様には超過時の機能制限の可能性があり、Storage固有の停止条件は未確認。現在本番v3.160.8/20f968b5/main/dirty:falseをAPIで確認。https://vercel.com/docs/plans/hobby
+
+現在の10ファイルのtracked差分は「ドライブのファイルURLをコピー可能にする」01a110ae-f3c2-77a1-9218-228ea3602227が継続中。資料室コード/CSSとDESIGN・FEATURE_REGISTRY・manual/spec附則・build-info・PWA HANDOFF。owner=同担当、action=担当の検証/commit/push、期限=同チャットcloseout、削除リスク=実装喪失。今回stageしない。旧ptプロンプトは既知の別作業資料として保持、quarantine owner=まさ/移行担当、次判定=当該移行再開または明示指示。safe to remove after approval=なし、send back to owner=資料室担当が継続、needs Masa decision=旧pt資料の保存方針（今回は保持で確定、質問不要）。
+
+今回の成果はmain aligned/push対象。共有repo全体はdo not archive（別担当の実装中）。自分のbranch/worktree作成・削除0。会話の検討材料0件。今回追加の製品仕様なし、spec/manual同期は既存容量対策の記録で充足。
