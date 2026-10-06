@@ -2,6 +2,8 @@
 
 import { MarkdownView } from "@/components/cockpit/MarkdownView";
 import type { ProjectProductDescriptionData } from "@/lib/project-product-description";
+import { splitProductDescriptionLayout } from "@/lib/project-product-description-layout";
+import styles from "./ProjectProductDescription.module.css";
 
 export function ProjectProductDescription({ data, founding = false }: { data: ProjectProductDescriptionData | null; founding?: boolean }) {
   if (!data) return (
@@ -10,16 +12,21 @@ export function ProjectProductDescription({ data, founding = false }: { data: Pr
       <p className="text-sm text-[#6e6e73]">資料未登録</p>
     </div>
   );
+  // 投資実務家が装置・用途・成立条件を比較する連続した資料面。
+  // 白地と細罫線、本文12px、4px刻み。図のSVG内文字には本文CSSを適用しない。
+  const layout = splitProductDescriptionLayout(data.bodyMd);
   return (
-    <article data-testid={founding ? "project-founding-background" : "project-product-description"} className="min-w-0 max-w-[960px] py-3 text-[#1d1d1f]">
-      <h2 className="text-xl font-semibold leading-8">{data.title}</h2>
-      <p className="mt-3 mb-6 text-sm leading-7">{data.summary}</p>
-      <div className="[&>div>p]:text-sm [&>div>p]:leading-7 [&_li]:text-sm [&_li]:leading-7 [&_td]:text-[13px] [&_th]:text-[13px] [&_h2]:border-b [&_h2]:border-[#e5e5e7] [&_h2]:pb-2 [&_h2]:mt-8 [&_h3]:border-[#027FDC]">
-        <MarkdownView source={data.bodyMd} />
+    <article data-testid={founding ? "project-founding-background" : "project-product-description"} className={`min-w-0 ${styles.document}`}>
+      <h2 className={styles.title}>{data.title}</h2>
+      <p className={styles.summary}>{data.summary}</p>
+      {layout.figures.length > 0 && <div className={styles.gallery}>{layout.figures.map((source, index) => <figure key={index}><MarkdownView source={source} /></figure>)}</div>}
+      {layout.lead && <MarkdownView source={layout.lead} />}
+      <div className={styles.sections}>
+        {layout.sections.map((section, index) => <section key={index} className={`${styles.section} ${founding || section.wide ? styles.wide : ""}`}><MarkdownView source={section.source} /></section>)}
       </div>
-      <aside className="mt-8 border-t border-[#e5e5e7] pt-4 text-xs leading-6 text-[#6e6e73]" aria-label="資料の根拠">
+      <aside className={styles.sources} aria-label="資料の根拠">
         <h3 className="font-medium">資料の根拠</h3>
-        <ul className="mt-1 list-disc pl-4">{data.sourceRefs.map(ref => <li key={ref}>{ref}</li>)}</ul>
+        <ul className="list-disc">{data.sourceRefs.map(ref => <li key={ref}>{ref}</li>)}</ul>
       </aside>
     </article>
   );

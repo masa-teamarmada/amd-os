@@ -4,6 +4,20 @@ import { DD_PAGE_KEYS, DD_EMPTY_PAGE_KEYS, ddPageForItem, isDdEmptyPageKey, ddPa
 import { COCKPIT_TAB_FORMATS, WORKSPACE_TAB_FORMATS, DD_TAB_FORMAT, DD_ITEM_PAGES, DD_NAVIGATION_GROUPS, PROJECT_PAGE_LABELS, type ProjectFormatType } from "../src/lib/project-formats.ts";
 import { DD_SHARED_PAGE_KEYS } from "../src/lib/dd-package-core.ts";
 import type { DdLiveData } from "../src/lib/dd-payload.ts";
+import { splitProductDescriptionLayout } from "../src/lib/project-product-description-layout.ts";
+
+// 表示の組み替えで注記・リンク・図・本文を落とさない。
+for (const source of [
+  "本文だけの資料",
+  "前書き\n\n## 概要\n\n本文\n\n## 検証\n\n```mermaid\nflowchart LR\nA-->B\n```",
+  "![写真](/image.png)\n\n開発中。[根拠](https://example.com)\n\n![比較図](/comparison.svg)\n\n条件を確認。\n\n## 用途\n\n|条件|結果|\n|---|---|\n|試験|未確認|",
+  "![写真](/image.png)\n\n![比較図](/comparison.svg)\n\n## 用途\n\n本文",
+  "",
+]) {
+  const layout = splitProductDescriptionLayout(source);
+  const rendered = [...layout.figures, layout.lead, ...layout.sections.map(section => section.source)].join("\n\n");
+  assert.equal(rendered.replace(/\s+/g, ""), source.replace(/\s+/g, ""), "密度調整は内容と図の定義を保持する");
+}
 
 for (const [kind, page] of [["document", "documents"], ["funding_plan", "monthly-trial"], ["capital_policy", "capital-plan"], ["cost_model", "cost-model"], ["tech_topic", "technology"]] as const) {
   assert.equal(ddPageForItem(kind, null), page);

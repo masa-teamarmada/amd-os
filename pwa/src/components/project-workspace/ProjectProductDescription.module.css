@@ -1,0 +1,34 @@
+.document {
+  max-width: 1120px;
+  padding-block: 4px;
+  color: #1d1d1f;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.title { font-size: 16px; font-weight: 600; line-height: 1.35; }
+.summary { margin: 6px 0 8px; }
+.gallery { display: grid; grid-template-columns: 0.7fr 1fr; gap: 12px; align-items: start; }
+.gallery figure { min-width: 0; margin: 0; }
+.gallery img { max-height: 320px; width: auto; max-width: 100%; object-fit: contain; margin: 0; }
+.sections { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 16px; align-items: start; }
+.section { min-width: 0; }
+.wide { grid-column: 1 / -1; }
+.document :where(p, li, td, th):not(svg *) { font-size: 12px; line-height: 1.45; }
+.document :where(p):not(svg *) { margin-block: 4px; }
+.document :where(h2):not(svg *) { font-size: 14px; line-height: 1.35; margin: 12px 0 4px; padding-bottom: 3px; border-bottom: 1px solid #e5e5e7; }
+.document :where(h3):not(svg *) { font-size: 12px; line-height: 1.4; margin: 8px 0 4px; }
+.document :where(ul, ol):not(svg *) { margin-block: 4px; padding-left: 16px; }
+.document :where(li):not(svg *) { margin-block: 2px; }
+.document :where(td, th):not(svg *) { padding: 3px 6px; }
+.document :where(table):not(svg *) { font-size: 12px; }
+.document :where(div:has(> table)):not(svg *) { margin-block: 6px; border-radius: 0; }
+.document :where(img) { margin-block: 4px; }
+.document [data-testid="mermaid-diagram"] { margin-block: 6px; padding: 4px; border-radius: 2px; }
+.sources { margin-top: 10px; padding-top: 6px; border-top: 1px solid #e5e5e7; color: #62676d; font-size: 11px; }
+.sources :where(li):not(svg *) { font-size: 11px; line-height: 1.4; }
+.sources ul { columns: 2; column-gap: 16px; }
+@media (max-width: 1000px) {
+  .sections { grid-template-columns: minmax(0, 1fr); }
+  .gallery { grid-template-columns: minmax(0, 1fr); }
+  .sources ul { columns: 1; }
+}
