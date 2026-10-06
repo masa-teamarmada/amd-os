@@ -31,13 +31,13 @@ export async function loadDdProjectPage(projectId: string, page: string): Promis
   if (page === "team") return { ...base, page, empty: true, biographies: await loadProjectManagementBiographies(db, projectId) };
   if (isDdEmptyPageKey(page)) return { ...base, page, empty: true, ...(page === "organization-chart" ? { organizationChart: await loadProjectOrganizationChart(db, projectId) } : {}) };
   if (page === "technology" || page === "competition" || page === "business-model") return { ...base, page, tech: await loadProjectTechData(db, projectId) };
-  if (page === "financial-projection") return { ...base, page, finance: await loadProjectFinancePage(db, projectId) };
-  if (page === "capital-plan") return { ...base, page, capital: await loadCapitalPlanPage(db, projectId) };
+  if (page === "financial-projection" || page === "monthly-trial") return { ...base, page, finance: await loadProjectFinancePage(db, projectId) };
+  if (page === "capital-plan" || page === "next-round-overview") return { ...base, page, capital: await loadCapitalPlanPage(db, projectId) };
   if (page === "cost-model") {
     const [main, fuel] = await Promise.all([loadCostModelBundle(projectId, "default"), loadCostModelBundle(projectId, "fuel")]);
     return { ...base, page, costs: { main: { canEdit: false, bundle: main }, fuel: { canEdit: false, bundle: fuel } } };
   }
-  if (page === "gantt") return { ...base, page, tree: await getQuestionTreeBundle(projectId, false, false) };
+  if (page === "gantt" || page === "short-term-plan") return { ...base, page, tree: await getQuestionTreeBundle(projectId, false, false) };
   if (page === "partners") {
     const all = await getSxManagementBundle(projectId, false);
     // 関係先ページに使わない内部判断・週次差分・監査・資金スナップショットは送らない。
@@ -47,7 +47,7 @@ export async function loadDdProjectPage(projectId: string, page: string): Promis
       partnerInteractions: [], partnerRoles: [], technicalTests: [], fundingSnapshots: [], organizationRoles: [], raci: [], capacity: [], history: [], fieldAudit: [], canManage: false };
     return { ...base, page, management };
   }
-  if (page === "business-plan") return { ...base, page, plan: await loadProjectBusinessPlan(projectId) };
+  if (page === "business-plan" || page === "long-term-plan") return { ...base, page, plan: await loadProjectBusinessPlan(projectId) };
   if (page === "company" || page === "capital-policy") {
     // キラー要素の状態・根拠・集計は社内コックピット専用。DDでは取得もしない。
     const [governance, business] = await Promise.all([

@@ -21,17 +21,23 @@ const CockpitFinancialProjection = dynamic(() => import("@/components/cockpit/Co
 const CockpitCapitalPlan = dynamic(() => import("@/components/cockpit/CockpitCapitalPlan").then((module) => module.CockpitCapitalPlan), { loading: ProjectPageLoading });
 const CockpitCostTab = dynamic(() => import("@/components/cockpit/CockpitCostTab").then((module) => module.CockpitCostTab), { loading: ProjectPageLoading });
 
+const ProjectLongTermPlan = dynamic(() => import("@/components/project-workspace/ProjectLongTermPlan").then((module) => module.ProjectLongTermPlan), { loading: ProjectPageLoading });
+
+const ProjectNextRoundOverview = dynamic(() => import("@/components/project-workspace/ProjectNextRoundOverview").then(module => module.ProjectNextRoundOverview), { loading: ProjectPageLoading });
+
 const noop = () => {};
 export function DdProjectPageBody({data,canDownload=false}:{data:DdLiveProjectPage;canDownload?:boolean}) {
   if ("empty" in data) return <ProjectDiligenceSection page={data.page} organizationChart={data.organizationChart} biographies={data.biographies} />;
   switch(data.page) {
     case "contracts": return <ProjectContractList projectId={data.projectId} initialData={data.contracts} />;
     case "technology": case "competition": case "business-model": return <CockpitTechnology key={`${data.projectId}:${data.page}`} projectId={data.projectId} mode={data.page} initialData={data.tech} />;
-    case "financial-projection": return <CockpitFinancialProjection projectId={data.projectId} initialData={data.finance} readOnly />;
+    case "monthly-trial": case "financial-projection": return <CockpitFinancialProjection projectId={data.projectId} initialData={data.finance} readOnly monthlyOnly={data.page === "monthly-trial"} />;
+    case "next-round-overview": return <ProjectNextRoundOverview data={data.capital} />;
     case "capital-plan": return <CockpitCapitalPlan projectId={data.projectId} projectName={data.projectName} initialData={data.capital} readOnly />;
     case "cost-model": return <CockpitCostTab projectId={data.projectId} allowEdit={false} initialData={data.costs} />;
-    case "gantt": return <QuestionTreeView initialBundle={data.tree} projectId={data.projectId} projectName={data.projectName} embedded mode="gantt" />;
+    case "short-term-plan": case "gantt": return <QuestionTreeView initialBundle={data.tree} projectId={data.projectId} projectName={data.projectName} embedded mode="gantt" />;
     case "partners": return <SxPartnerPipeline management={data.management} projectId={data.projectId} onManagementChange={noop} />;
+    case "long-term-plan": return <ProjectLongTermPlan plan={data.plan} />;
     case "business-plan": return <CockpitBusinessPlan projectId={data.projectId} projectName={data.projectName} initialPlan={data.plan} canDownload={canDownload} />;
     case "ip": return <CockpitIpPortfolio projectId={data.projectId} initialData={data.portfolio} />;
     case "company": return <CockpitCompanyOverview projectId={data.projectId} projectName={data.projectName} readOnly initialData={data.governance} initialBusinessSummary={data.businessSummary} canDownload={canDownload} />;

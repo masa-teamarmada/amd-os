@@ -1180,4 +1180,6 @@ BZM/modelの変更なし。
 
 2026-10-06: 経営陣略歴は project_config の management_biographies（JSON文字列、version=1、profiles、sourceRef）から明示登録されたプロフィールのみ取得し、共通本文で表示する。profilesは氏名・読み・肩書・概要・兼職・年月付き学歴職歴・受賞歴。DD認可後に取得し、未登録は資料未登録。PJ参加者や雇用情報から経歴・新会社の役職を推定しない。SOL p21に山地正洋の公式書類用プロフィールを登録。パッケージの公開・閲覧権限・正式PDF掲載設定は変更しない。
 
+
+2026-10-06: DDの事業・市場・顧客を事業計画関連へ、事業計画書をフェーズマトリクスへ改名。ビジネスモデルとコスト試算の共通本文を目録に追加。短期計画は既存ガントと同じQuestionTreeView・getQuestionTreeBundleで登録済み15か月工程をそのまま表示。長期計画はproject_business_plansの期間・予算・調達・4レーンの活動と到達条件を時系列表示。月次試算表は既存ProjectFinanceFormatの計画・ケース選択、月次P/L・C/F・資金推移、前提と注記を表示し、収支計画書の全体表示は維持。次回ラウンドの概要は採用中の資本政策に明示されたplannedの株式・転換型調達から順序が最初の1件を各計画ごとに表示。時期・金額・評価額・転換条件・注記は登録値のみ、未登録を推定しない。目録39件・7分類。公開状態・入場権限・正式版PDF掲載設定・DBデータ変更なし。コックピット・ワークスペースの全PJタイプでドライブを会社情報の後に移動。
 - 2026-10-06 JST: 人別アクセスUI、DD付きpagination GET、readonly限定grant_project_viewer、account表示名PATCH、same-origin POST/PATCHを追加。

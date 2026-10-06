@@ -435,6 +435,7 @@ export interface FinanceFormatViewProps {
   grants: readonly FinanceGrantEvidence[];
   plRows: readonly ProjectPlMonthly[];
   readOnly?: boolean;
+  monthlyOnly?: boolean;
   onPlChanged?: () => Promise<void> | void;
 }
 
@@ -448,6 +449,7 @@ export function FinanceFormatView({
   grants,
   plRows,
   readOnly = false,
+  monthlyOnly = false,
   onPlChanged,
 }: FinanceFormatViewProps) {
   const ordered = useMemo(() => orderFinanceDatasets(datasets), [datasets]);
@@ -575,6 +577,7 @@ export function FinanceFormatView({
   const draftBeforeIncorporation = Boolean(draft && incorporationYm && draft.ym < incorporationYm);
 
   const renderSection = (key: FinanceFormatSectionKey, title: string): ReactNode => {
+    if (monthlyOnly && !["dataset", "monthly-table", "notes"].includes(key)) return null;
     switch (key) {
       case "dataset":
         return (
@@ -959,7 +962,7 @@ export function FinanceFormatView({
     <TooltipProvider delay={100}>
       <section data-testid="project-finance-format" className="amd-dense-ui overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <header className="flex flex-wrap items-baseline justify-between gap-2 px-3 pb-1 pt-3 sm:px-4">
-          <h3 className="text-[14px] font-semibold tracking-tight text-[#173f51]">試算表</h3>
+          <h3 className="text-[14px] font-semibold tracking-tight text-[#173f51]">{monthlyOnly ? "月次試算表" : "試算表"}</h3>
           <span className="text-[10px] text-slate-500">{dataset ? dataset.label : "未登録"}{activeCase && dataset && dataset.cases.length > 1 ? ` · ${activeCase.label}` : ""}</span>
         </header>
         {FINANCE_FORMAT_SECTIONS.map((section) => renderSection(section.key, section.label))}
@@ -1012,7 +1015,7 @@ export function FinanceFormatView({
  * 試算表タブ。PJのデータ（月次試算・資金繰り・資金計画・資本政策・試算の時間軸・助成金）を読み、
  * 標準フォーマットへ流し込んで描く。全PJで同じ部品・同じ読み方。
  */
-export function ProjectFinanceFormat({ projectId, initialData, readOnly = false }: { projectId: string; initialData?: ProjectFinancePageData; readOnly?: boolean }) {
+export function ProjectFinanceFormat({ projectId, initialData, readOnly = false, monthlyOnly = false }: { projectId: string; initialData?: ProjectFinancePageData; readOnly?: boolean; monthlyOnly?: boolean }) {
   const [plRows, setPlRows] = useState(() => initialData ? initialData.plRows : getCachedPlMonthly(projectId));
   const [cashRows, setCashRows] = useState(() => initialData ? initialData.cashRows : getCachedFinanceCashflow(projectId));
   const [capitalPlan, setCapitalPlan] = useState(() => initialData ? initialData.capitalPlan : getCachedFinanceCapitalPlan(projectId));
@@ -1078,7 +1081,7 @@ export function ProjectFinanceFormat({ projectId, initialData, readOnly = false 
   if (!built) {
     return (
       <section data-testid="project-finance-format" className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" aria-busy="true">
-        <header className="px-4 pb-1 pt-3"><h3 className="text-[14px] font-semibold tracking-tight text-[#173f51]">試算表</h3></header>
+        <header className="px-4 pb-1 pt-3"><h3 className="text-[14px] font-semibold tracking-tight text-[#173f51]">{monthlyOnly ? "月次試算表" : "試算表"}</h3></header>
         {FINANCE_FORMAT_SECTIONS.filter((section) => section.key !== "timeline" && section.key !== "monthly-cash-chart").map((section) => (
           <div key={section.key} className="border-t border-[#d8e2e5] px-4 py-3">
             <div className="text-[12px] font-semibold text-[#173f51]">{section.label}</div>
@@ -1102,6 +1105,7 @@ export function ProjectFinanceFormat({ projectId, initialData, readOnly = false 
         grants={grants ?? []}
         plRows={plRows ?? []}
         readOnly={readOnly}
+        monthlyOnly={monthlyOnly}
         onPlChanged={readOnly ? undefined : reloadPl}
       />
     </div>

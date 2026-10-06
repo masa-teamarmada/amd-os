@@ -2263,7 +2263,7 @@ expectIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
 // PJ専用の表・グラフ（旧 CockpitFundingPlan / Bzm22TimeLedger / CockpitPlMonthlySection）へ戻さない。
 expectIncludes("src/components/cockpit/CockpitFinancialProjection.tsx", [
   'import { ProjectFinanceFormat } from "./ProjectFinanceFormat";',
-  "<ProjectFinanceFormat key={projectId} projectId={projectId} initialData={initialData} readOnly={readOnly} />",
+  "<ProjectFinanceFormat key={projectId} projectId={projectId} initialData={initialData} readOnly={readOnly} monthlyOnly={monthlyOnly} />",
 ]);
 expectNotIncludes("src/components/cockpit/CockpitFinancialProjection.tsx", [
   "showSxDetail",

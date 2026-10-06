@@ -22,12 +22,12 @@ type Identity = { kind: "project_page"; projectId: string; projectName: string }
 export type DdLiveProjectPage = Identity & (
   | { page: DdEmptyPageKey; empty: true; biographies?: ProjectManagementBiographies | null; organizationChart?: ProjectOrganizationChartData | null }
   | { page: "technology" | "competition" | "business-model"; tech: ProjectTechResponse }
-  | { page: "financial-projection"; finance: ProjectFinancePageData }
-  | { page: "capital-plan"; capital: CapitalPlanPageData }
+  | { page: "financial-projection" | "monthly-trial"; finance: ProjectFinancePageData }
+  | { page: "capital-plan" | "next-round-overview"; capital: CapitalPlanPageData }
   | { page: "cost-model"; costs: { main: CostModelResponse; fuel: CostModelResponse } }
-  | { page: "gantt"; tree: QuestionTreeBundle }
+  | { page: "gantt" | "short-term-plan"; tree: QuestionTreeBundle }
   | { page: "partners"; management: SxManagementBundle }
-  | { page: "business-plan"; plan: ProjectBusinessPlan | null }
+  | { page: "business-plan" | "long-term-plan"; plan: ProjectBusinessPlan | null }
   | { page: "contracts"; contracts: ProjectContractListData }
   | { page: "ip"; portfolio: IpPortfolioBundle }
   | { page: "company" | "capital-policy"; governance: CompanyOverviewData; businessSummary?: BusinessSummaryResponse }
