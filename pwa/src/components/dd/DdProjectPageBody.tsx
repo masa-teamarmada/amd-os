@@ -27,6 +27,8 @@ const ProjectNextRoundOverview = dynamic(() => import("@/components/project-work
 
 const ProjectDevelopmentIssues = dynamic(() => import("@/components/project-workspace/ProjectDevelopmentIssues").then(module => module.ProjectDevelopmentIssues), { loading: ProjectPageLoading });
 
+const DdShortTermPlan = dynamic(() => import("./DdShortTermPlan").then(module => module.DdShortTermPlan), { loading: ProjectPageLoading });
+
 const noop = () => {};
 export function DdProjectPageBody({data,canDownload=false}:{data:DdLiveProjectPage;canDownload?:boolean}) {
   if ("empty" in data) return <ProjectDiligenceSection page={data.page} organizationChart={data.organizationChart} biographies={data.biographies} />;
@@ -38,7 +40,8 @@ export function DdProjectPageBody({data,canDownload=false}:{data:DdLiveProjectPa
     case "next-round-overview": return <ProjectNextRoundOverview data={data.capital} />;
     case "capital-plan": return <CockpitCapitalPlan projectId={data.projectId} projectName={data.projectName} initialData={data.capital} readOnly />;
     case "cost-model": return <CockpitCostTab projectId={data.projectId} allowEdit={false} initialData={data.costs} />;
-    case "short-term-plan": case "gantt": return <QuestionTreeView initialBundle={data.tree} projectId={data.projectId} projectName={data.projectName} embedded mode="gantt" />;
+    case "short-term-plan": return <DdShortTermPlan available={data.available} />;
+    case "gantt": return <QuestionTreeView initialBundle={data.tree} projectId={data.projectId} projectName={data.projectName} embedded mode="gantt" />;
     case "partners": return <SxPartnerPipeline management={data.management} projectId={data.projectId} onManagementChange={noop} />;
     case "long-term-plan": return <ProjectLongTermPlan plan={data.plan} />;
     case "business-plan": return <CockpitBusinessPlan projectId={data.projectId} projectName={data.projectName} initialPlan={data.plan} canDownload={canDownload} />;

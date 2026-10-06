@@ -27,7 +27,8 @@ export type DdLiveProjectPage = Identity & (
   | { page: "financial-projection" | "monthly-trial"; finance: ProjectFinancePageData }
   | { page: "capital-plan" | "next-round-overview"; capital: CapitalPlanPageData }
   | { page: "cost-model"; costs: { main: CostModelResponse; fuel: CostModelResponse } }
-  | { page: "gantt" | "short-term-plan"; tree: QuestionTreeBundle }
+  | { page: "short-term-plan"; available: boolean }
+  | { page: "gantt"; tree: QuestionTreeBundle }
   | { page: "partners"; management: SxManagementBundle }
   | { page: "business-plan" | "long-term-plan"; plan: ProjectBusinessPlan | null }
   | { page: "development-issues"; issues: ProjectDevelopmentIssuesData | null }

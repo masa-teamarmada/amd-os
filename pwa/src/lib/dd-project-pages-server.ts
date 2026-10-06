@@ -2,6 +2,7 @@ import { loadProjectManagementBiographies } from "./project-management-biographi
 import { loadProjectOrganizationChart } from "./project-organization-chart-server";
 import { loadProjectGovernance } from "./project-governance-server";
 import "server-only";
+import { loadShortTermPlanDocument } from "./project-short-term-plan-server";
 import { loadProjectDevelopmentIssues } from "./project-development-issues-server";
 import { loadProjectContractList } from "./project-contract-list-server";
 import { createAdminClient } from "./supabase/admin";
@@ -39,7 +40,8 @@ export async function loadDdProjectPage(projectId: string, page: string): Promis
     const [main, fuel] = await Promise.all([loadCostModelBundle(projectId, "default"), loadCostModelBundle(projectId, "fuel")]);
     return { ...base, page, costs: { main: { canEdit: false, bundle: main }, fuel: { canEdit: false, bundle: fuel } } };
   }
-  if (page === "gantt" || page === "short-term-plan") return { ...base, page, tree: await getQuestionTreeBundle(projectId, false, false) };
+  if (page === "short-term-plan") return { ...base, page, available: Boolean(await loadShortTermPlanDocument(db, projectId)) };
+  if (page === "gantt") return { ...base, page, tree: await getQuestionTreeBundle(projectId, false, false) };
   if (page === "partners") {
     const all = await getSxManagementBundle(projectId, false);
     // 関係先ページに使わない内部判断・週次差分・監査・資金スナップショットは送らない。
