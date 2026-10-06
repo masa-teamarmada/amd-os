@@ -4800,5 +4800,5 @@ expectIncludes("src/components/dd/DdViewerShell.tsx", ['<ProjectSpaceLayout', '<
 expectIncludes("src/components/dashboard/DashboardGrid.tsx", ['target="_blank" rel="noopener noreferrer"']);
 expectIncludes("src/components/dashboard/PortfolioPulse.tsx", ['target={href.startsWith("/project/") ? "_blank" : undefined}']);
 
-expectIncludes("src/components/nav/ProjectNavigation.module.css", ["grid-template-columns: 240px minmax(0, 1fr)", "min-height: 44px", "min-height: 28px", "overflow-y: auto", ".row[aria-current=\"page\"]", ".row:hover", ".row[aria-current=\"page\"]:hover"]);
+expectIncludes("src/components/nav/ProjectNavigation.module.css", ["grid-template-columns: 240px minmax(0, 1fr)", "min-height: 44px", ".row, .menu .row { min-height: 28px", "overflow-y: auto", ".row[aria-current=\"page\"]", ".row:hover", ".row[aria-current=\"page\"]:hover"]);
 expectIncludes("src/components/dd/DdNavigation.tsx", ["資料名で検索", "type=\"search\"", "該当する資料はありません"]);
