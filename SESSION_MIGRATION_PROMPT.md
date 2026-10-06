@@ -1,34 +1,30 @@
-KUTEの9月月報とAMD OSの画面修正を引き継いで。
-業務資料の場所は /Users/masa/projects/AMD/kute、実装は /Users/masa/projects/AMD/amd-os。
+Vercel Functions Storageの超過対策の続きを確認して。作業場所は /Users/masa/projects/AMD/amd-os。
 
-最初に読む順:
+読む順:
 1. /Users/masa/projects/AGENTS.common.md
 2. /Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md
-3. 両プロジェクトのAGENTS.md
-4. /Users/masa/projects/AMD/kute/HANDOFF_monthly_report_20261006.md
-5. /Users/masa/projects/AMD/kute/docs/MONTHLY_REPORT_REVISION_20261004.md
-6. /Users/masa/projects/AMD/amd-os/HANDOFF_KUTE_MONTHLY_REPORT_20261006.md
-7. AMD OSのpwa/spec/3-2-monthly-reports-current-spec.md、3-8-cockpit-current-spec.md、pwa/manual/4-8-ms-progress-monthly-report-revision-spec.md、2-3-pj-cockpit.md
-8. 両PJのBUGS.md、AMD OSのpwa/BUGS.mdとpwa/design_log/sessions_2026-10.md
+3. リポジトリのAGENTS.mdとpwa/AGENTS.md、pwa/manual/1-1-intro.md
+4. HANDOFF_FUNCTION_STORAGE_20261006.md
+5. pwa/spec/5-2-development-operations-current-spec.mdの「Function保存容量の抑制」、pwa/manual/9-2-developer.md
+6. pwa/BUGS.mdのFunction保存容量の項、pwa/design_log/sessions_2026-10.mdの同項
 
 現在地:
-- 9月24日の有識者枠委員としての出席、9月29日の第2・第3領域構想共有、筑波大学訪問、担当者名を月報へ反映済み。「未達」「時期未定」という誤った報告を除いた。活動本文で「弊社の山地」を繰り返さない。
-- 新宿フロアのSU向けサービス企画書をチームアルマダ側で作成する宿題を報告書へ反映済み。10月8日08:30〜09:45 JSTの「＋KUTE 新宿フロアのSU向けサービス企画書作成」はGoogleカレンダー登録・読戻し済み。重複登録しない。企画書自体はこの作業で完成していない。
-- 正本本文はOSのp25/202609社内・提出版。修正原稿・変更前控えはKUTEのoutput/monthly_reports/202609_review/と202609_followup/。過去の保存SQLは再実行しない。
-- PDFは社内版10頁・提出版5頁、OSドライブと共有Drive双方へ保存・実体照合済み。最新PDF ID・保存先は専用HANDOFF。初期のPDFへ戻さない。
-- 月・社内版/提出版はプルダウン、編集と保存を同じ操作行へ集約。PDF保存ボタンは削除、編集履歴は本文末尾。本文保存後のPDF配置失敗はPDFだけ再試行する。
-- 初期表示は日本時間の1〜24日が前月、25日から当月。手動で選んだ月は更新時に維持。PJメンバー文字列をヘッダーから除き、コックピット/ワークスペース/DDパッケを同じ行へ移した。
-- 実装はmainのecab9a16を含む9485bfdeで本番v3.159.9へ配信済み。今回の引き継ぎ文書のみ後続commitになる。fetch/status/build-infoを確認し、固定SHAへ巻き戻さない。KUTEは非Git管理。新規branch/worktreeはゼロ。
-- 月境界12ケースを3タイムゾーンで検証、型検査・本番build・PDF全頁・PC/スマホ静的描画は確認済み。Chrome接続エラーとブラウザのログイン待ちにより、ログイン後の実操作は未確認。
+- 依頼は「vercelのfn storageがオーバーしてる原因を特定して対策してほしい」。原因調査と対策の本番反映は済み、使用量低下は未確認。
+- チーム10.1GB/10GB、amd-os-pwa10.09GB、他の主な使用はokudoor-preview10.88MB。Origin/Blobと混同しない。
+- ac3866c9で文書APIの動的ディレクトリ解決を静的分岐にし、不要資料・計算pilot成果物・PDFを作らない月報routeのChromium/font同梱を抑制。実traceの重複除去後で文書API168.70→24.13MB、モデル66.61→34.55MB、月報履歴/つくよみ編集74.2→2.01MB。traceの合計はVercelの保存量そのものではない。
+- postbuildのscripts/check_function_bundle_storage.mjsで容量上限と必要文書・日本語font・Chromiumの存在を検査。build、日本語PDF、書斎、モデル数式、認証を確認済み。資料室contractの既存正規表現検査は今回と無関係に失敗する。
+- amd-os-pwaだけpreview/production/canceled/errored保存期間を全て1日へ変更・APIで読戻し済み。deploymentsToKeep:10も返る。公式の保持例外は現行aliasと直近正常版など。保持件数を3だけと断定しない。
+- 本番は2026-10-06の最終確認でv3.159.19、b6138915、dirty:false。この版はac3866c9を含む。mainのdb51c543は検証記録だけ後続し、その重複ビルドは取り消し済み。固定SHAへ巻き戻さない。
+- 実装・仕様・manual・検証記録はmainにpush済み。一時cloneは削除済み。新branch/worktreeは作っていない。
+- 共有checkoutでは「PJポートフォリオの表示を高速化」（01a10f1c-985a-7ae3-912b-7817a8adedac）が3スペース高速化を実装中。変更パスと所有者は専用HANDOFF。別担当の差分はcommit/reset/stash/deleteしない。
+- 未追跡SESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdは以前からの別作業資料。所有はタスクpt移行担当/まさ、内容不変Git保存の判断待ち。勝手に削除・今回commitしない。従来のKUTE引き継ぎはSESSION_MIGRATION_PROMPT_KUTE_20261006.mdへ内容不変で保存。
 
 次の具体的な作業:
-1. 認証済み画面を利用できる場合、月報の月/版切替、編集保存、未保存確認、履歴表示、PDF失敗時の再試行を実画面で確認する。権限や認証情報を勝手に変えない。
-2. 新宿企画書へ進む依頼が来たら、9月29日の全体構想と現行の第2・第3領域正本を先に読み、サービス内容・対象者・運営・費用財源・大学との役割分担を具体化する。10月9日事前共有版、10月13日定例提示は計画であり大学の採用合意とは区別する。
-3. 月報の内容・対象期間を直す依頼では、現行本文と変更前控えを取得し、限定差分・章/表構造・編集履歴・DB本文・両DriveのPDFを照合する。本文保存とPDF配置を別に検収する。
+1. fetch/statusと/api/build-infoを確認。Chromeの https://vercel.com/armada0130/~/usage/deployments-functions?view=Projects で同じFunctions Storageの最新値を読み、現在値と期間を記録する。
+2. 1日保存の期限と整理処理を経ても上限超過が続く場合は、保持中deploymentの状態・alias・保持例外と設定を再確認。新規版の軽量化、旧版の整理、請求履歴を別々に判定する。低下を実測してから解消済みと報告する。
+3. 手動の旧deployment削除が必要なら稼働aliasと復旧候補を保ち、対象IDと影響を確定してまさに判断を求める。完全消去・有料プラン移行・権限変更・通知・自動監視は今回依頼に含まれない。
 
-運用ルール:
-- 業務の判断・根拠はKUTEの目的別md、実装仕様はAMD OSのspec/manual、開発履歴だけdesign_logへ保存する。
-- 別チャット「左メニューを三点リーダー化」（01a10d16-952b-7d60-a3cf-e683d1b22a3e）が同じcheckoutで実装中。新しい左メニュー仕様を古いヘッダーへ戻さない。共有checkoutの他作業の差分はcommit・削除・stashしない。旧未追跡SESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdの扱いは専用HANDOFFのcloseout記録を確認する。
-- main一本で自分の差分だけcommit/push。PWA変更はmanual/specを同期し、AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.shで配信とSHAまで確認する。
-- monthly_report_pdf_recordの20261004172000 migrationは適用済み。再適用しない。PDFは同梱Noto Sans JPで実Linux成果物を確認する。
-- 外部メール/Slack送信、共有権限変更、追加の自動化はこの引き継ぎの承認に含まれない。
+運用:
+- cwdはモノレポルート、main一本。修正が必要な場合はmanual/specを同期し、AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.shで一括pushと本番SHA確認。直接Vercel deployをしない。
+- docsだけはcommit件名に[skip ci]を付ける。並行作業をmergeする場合も最終件名に保持し、検証記録だけで重複ビルドを発生させない。
+- Supabase、GAS、ネイティブ、モデル本文は今回変更なし。既適用migrationの再適用、新しいモデル前提の追加をしない。

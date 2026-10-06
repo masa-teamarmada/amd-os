@@ -193,3 +193,14 @@ f0c30d0f6ffa7a7387aff44d7cf8d3d994161c88 / v3.159.15がproduction aliasのbuild-
 478f37be1314b1dd4c9f6cdd90695a372f3c8907 / v3.159.17は公式deploy.shで4分28秒で本番反映。production aliasのbuild-infoで同一SHA、未認証GET=401を確認。反映後も実server loaderと本番DBで内部リスト1/DD1・指定NDAのみ・未締結/DD表示オンを再確認。元台帳の採用済み5件は保持。PC画面の再確認はCua接続/Statsig取得エラーで実施できず、今回のUI形状・操作は未変更として前回共通本文の確認と実route/loader回帰を代替にした。モバイル/Swift検証なし。
 
 終了: development、main aligned、committed success。恒久仕様/手順はspec5-17/3-24、manual2-3/2-6、DESIGN、FEATURE_REGISTRY。今回のコードとmigrationはmain/push/本番反映済み、conflictなし。既存未追跡SESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdはタスク報酬移行担当の所有資料として保持し、同担当がspec3-14/完了履歴で採否を判定する。今回の一時script・証跡はignored .jez、各検査ログは/tmp。対話証拠0件（製品仕様の訂正としてrepo正本に保存）。
+
+
+## 2026-10-06 Function保存容量の抑制・引き継ぎ
+
+- 原因・対策はspec/5-2、manual/9-2・9-3、spec/6-1へ同期。実装ac3866c9、検証記録d723980a、並行作業との統合db51c543。文書APIの静的分岐、next.configのtrace除外/同梱限定、postbuild容量検査の新規script/package登録、版数18を変更。DB・環境変数・秘密値・GAS・ネイティブ・モデル本文は変更なし。
+- trace重複除去後: 文書API168.70→24.13MB、モデル66.61→34.55MB、月報履歴/つくよみ編集74.2→2.01MB。PDF生成5routeは88.4〜88.6MBでChromium/fontを保持。Vercelの保存量へ直接換算しない。
+- 実施: npm run build、node scripts/check_function_bundle_storage.mjs、test:bzm-reader、test:model-formula-canon、test:monthly-report-pdf、変更コードESLint、git diff --check成功。既存test:workspace-documents-contractだけ失敗し未変更の正規checkoutでも再現。
+- 正規deploy.shでmain push・本番Readyとac3866c9/v3.159.18/dirty:falseを確認。公開35章200、社内manual/spec/bzm未認証401。本番は後続の並行作業b6138915/v3.159.19へ進み、今回の修正を含むことを確認。
+- amd-os-pwaの保存期間を全状態30→1日へ変更して読戻し。deploymentsToKeep:10も返る。使用量画面を反映後に再読込しても10.09GB。旧版整理・集計待ちで、超過解消は未確認。
+- docs-only mergeの[skip ci]抜けによる重複ビルド予約は取り消し済み。原因・対応・教訓はBUGSに記録。一時cloneと検証serverは終了済み。
+- closeoutはHANDOFF_FUNCTION_STORAGE_20261006.mdへ現在地/次の一手/他担当dirty帰属を保存。SESSION_MIGRATION_PROMPT.mdを今回用に更新し、従来KUTE全文はSESSION_MIGRATION_PROMPT_KUTE_20261006.mdへ内容不変で保存。会話の検討材料0件。
