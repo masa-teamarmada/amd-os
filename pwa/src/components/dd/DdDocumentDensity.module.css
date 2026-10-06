@@ -1,0 +1,37 @@
+/* エグサマの画面基準。データ・並び順・図の内部・操作対象を保つ。 */
+.document { font-size: 12px; line-height: 1.45; }
+.document :where(h1, h2):not(svg *) { font-size: 15px; line-height: 1.35; }
+.document :where(h3):not(svg *) { font-size: 13px; line-height: 1.4; }
+.document :where(p, li):not(svg *) { line-height: 1.45; }
+.document :where([class~="text-sm"], [class~="text-base"]):not(svg *) { font-size: 12px; }
+.document :where([class~="text-lg"], [class~="text-xl"], [class~="text-2xl"]):not(svg *) { font-size: 15px; }
+.document :where(table):not(svg *) { font-size: 12px; line-height: 1.4; }
+.document :where(th, td):not(svg *) { padding: 3px 6px; font-size: 12px; line-height: 1.4; }
+.document :where([class~="p-4"], [class~="p-5"], [class~="p-6"]):not(svg *) { padding: 8px; }
+.document :where([class~="py-3"], [class~="py-4"], [class~="py-5"], [class~="py-6"]):not(svg *) { padding-block: 6px; }
+.document :where([class~="gap-4"], [class~="gap-5"], [class~="gap-6"]):not(svg *) { gap: 8px; }
+.document :where([class~="space-y-4"], [class~="space-y-5"], [class~="space-y-6"], [class~="space-y-8"]):not(svg *) > :where(:not(:last-child)) { margin-block-start: 0; margin-block-end: 8px; }
+.document :where([class~="mt-6"], [class~="mt-8"]):not(svg *) { margin-top: 12px; }
+.document :where([class~="mb-6"], [class~="mb-8"]):not(svg *) { margin-bottom: 8px; }
+.document :where([class~="leading-6"], [class~="leading-7"], [class~="leading-8"]):not(svg *) { line-height: 1.45; }
+.document :where([class~="rounded-xl"], [class~="rounded-2xl"]):not(svg *) { border-radius: 3px; }
+.document [data-testid="project-management-biographies"] article { max-width: none; display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); column-gap: 16px; align-items: start; }
+.document [data-testid="project-management-biographies"] article > header { grid-column: 1 / -1; }
+.document [data-testid="project-management-biographies"] article > div,
+.document [data-testid="project-management-biographies"] article > section { grid-column: 1; }
+.document [data-testid="project-management-biographies"] article > section:has(dl) { grid-column: 2; grid-row: 2 / 5; }
+.document [data-testid="project-management-biographies"] dl > div { padding-block: 3px; gap: 8px; }
+.document [data-testid="project-management-biographies"] article > :not(:last-child) { margin-block: 0 8px; }
+@media (min-width: 768px) {
+  .document :where(button, a)[class~="min-h-11"],
+  .document :where(button, a)[class~="min-h-10"],
+  .document :where(button, a)[class~="min-h-9"] { min-height: 28px; }
+  .document :where(button, a)[class~="h-11"],
+  .document :where(button, a)[class~="h-10"] { height: 28px; }
+}
+@media (max-width: 1000px) {
+  .document [data-testid="project-management-biographies"] article { display: block; }
+}
+
+.document [data-testid="project-management-biographies"] article { grid-template-rows: repeat(4, min-content); }
+.document [data-testid="project-management-biographies"] dt { white-space: nowrap; }

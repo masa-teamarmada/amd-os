@@ -285,3 +285,6 @@ project_config.key=company_incorporation_planはversion1、capitalYen/issuedShar
 DD資料目録は40資料、既存互換URLを含め44ページ。「会社・経営体制」の会社概要直下にfounding-background（創業の背景と社会課題）を追加。project_config.founding_backgroundは製品説明と同じversion1/title/summary/bodyMd/sourceRefs。認可後、当該PJ/keyだけを読み、同じMarkdown本文部品で表示する。コックピット・ワークスペースの入口は増やさない。会社概要と相互の関連リンクを持つ。未登録は資料未登録、形式不正は取得失敗。
 
 SOLはSolvioraX（仮）／SolvioraX Inc.（仮）、2027-04-01設立予定、代表取締役山地正洋予定、本店EUIC予定、取締役会・監査役非設置、決算3月案、官報案。資本金108万円・1株10円は本依頼の設立案。発行予定108,000株とSOを含む120,000株、シード条件は現行資本政策に合わせる。公開状態・閲覧権限・正式版PDFの掲載対象は変更しない。登録SQLはscripts/data/sol-company-overview-20261006.sql。
+
+
+2026-10-07: DD全資料の本文にエグサマ基準の高密度表示を適用。DdDocumentDensity.module.cssは本文12px・行高1.45、表セル上下3px/左右6px、見出し13〜15px、節と枠の余白8〜12px、PC操作高28pxを使用。SVG/foreignObject内は対象外として図の計測とラベルの一致を維持。ナビゲーション・公開範囲・データ・本文順は変更しない。経営陣略歴は概要・現職・受賞と学歴職歴を左右に配置し全行を保持。製品説明は本文の冒頭画像と注記を対に分離し、7節を同じ順で配置。図を含む節は全幅、それ以外はPC2列、狭い幅では1列。採用済みPNGの画素・本文・出所を維持し、用途SVG520×248/TRL SVG960×250へ再組版。フォントは12px中心。計画書・表・グラフの数値と計算条件は不変。新規schema/RLS/APIなし。
