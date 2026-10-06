@@ -270,6 +270,7 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
         </button>
       </nav>
       <div className="flex flex-col gap-2 px-2 pb-3 pt-2">
+        <div data-cost-overview="true">
         <CostBreakdownGuide
           id="fuel-breakdown"
           testId="fuel-breakdown-guide"
@@ -292,6 +293,7 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
             <FuelTaskFlowOverview flow={flow} current={current} onJumpStep={(label) => jump(stepAnchorId(label))} />
           </section>
         )}
+        </div>
         {blocks.map(({ block, rendered }) => (
           <section key={block.key} id={`fuel-block-${block.key}`} aria-label={block.title} className="scroll-mt-12 rounded-lg border border-[#e5e5e7] px-2 py-1">
             <h4 className="text-[13px] font-semibold text-[#1d1d1f]">{block.title}</h4>

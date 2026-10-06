@@ -25,3 +25,31 @@
     padding-top: 4px;
   }
 }
+
+.dense :global([data-cost-overview="true"]) {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@container (min-width: 730px) {
+  .dense :global([data-cost-overview="true"]) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 8px;
+  }
+  .dense :global([data-cost-overview="true"] > *) {
+    min-width: 0;
+  }
+  .dense :global([data-cost-overview="true"] [data-breakdown-key]) {
+    display: block;
+  }
+  .dense :global([data-cost-overview="true"] [data-breakdown-key] > div + div) {
+    margin-top: 2px;
+  }
+  .dense :global([data-cost-overview="true"] [aria-label="作業の流れ"] button) {
+    grid-template-columns: minmax(0, 1fr) 44px 66px 54px;
+    column-gap: 4px;
+  }
+}
