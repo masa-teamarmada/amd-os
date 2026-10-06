@@ -4609,6 +4609,8 @@ UNIQUE: `(project_id,key)` (constraint: `project_config_project_id_key_key`)
 | 4 | `value` | `text` | NULL | `` |
 | 5 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
 
+project_config の `management_biographies` は経営陣略歴の明示登録値。JSON文字列（version=1、profiles、sourceRef）を保持する。構造・認可・未登録表示は [DD仕様](../spec/5-17-dd-package-current-spec.md) を参照。今回の追加は既存表へのデータ登録で、DDL・RLS変更なし。
+
 ## project_convertible_instruments
 
 行数 (概算): -1

@@ -289,3 +289,6 @@ pwa/src/lib/build-info.ts
 
 ## 2026-10-06 SOL 経営陣略歴
 まさの依頼により、公式プロフィールから略歴を登録。DD teamの共通本文と認可後loaderを接続。project_config既存表を利用。公開や閲覧権限の変更なし。Swiftの略歴表示は未移植。
+
+### SOL経営陣略歴の検証・結了（2026-10-06）
+実装4a7f56cc、本番v3.160.15をbuild-infoとChrome PC画面で確認。登録値はDB読み戻しで完全一致。プロフィール1名、学歴職歴29行、受賞8件。本文領域1148pxで横溢れなし。型検査、変更箇所lint、test:dd-package、登録値/未登録/不正形式のparser検査、本番反映ゲート成功。マニュアル2-6とdb_schemaに登録/表示の説明を補完。新規API・環境変数・表・権限変更はない。Swift未移植。個人の略歴内容と素材はSOL_DD_CONTENTS_PLAN.md参照。
