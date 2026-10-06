@@ -204,3 +204,46 @@ f0c30d0f6ffa7a7387aff44d7cf8d3d994161c88 / v3.159.15がproduction aliasのbuild-
 - amd-os-pwaの保存期間を全状態30→1日へ変更して読戻し。deploymentsToKeep:10も返る。使用量画面を反映後に再読込しても10.09GB。旧版整理・集計待ちで、超過解消は未確認。
 - docs-only mergeの[skip ci]抜けによる重複ビルド予約は取り消し済み。原因・対応・教訓はBUGSに記録。一時cloneと検証serverは終了済み。
 - closeoutはHANDOFF_FUNCTION_STORAGE_20261006.mdへ現在地/次の一手/他担当dirty帰属を保存。SESSION_MIGRATION_PROMPT.mdを今回用に更新し、従来KUTE全文はSESSION_MIGRATION_PROMPT_KUTE_20261006.mdへ内容不変で保存。会話の検討材料0件。
+
+
+## 2026-10-06 資本政策表の株主行の情報密度改善・closeout
+
+# 資本政策表の株主行の密度改善 — 検証記録
+
+2026-10-06 JST。実装commit: 56c6461d。本番反映SHA: bca5c497e919eab4c8f31d8ac795791c1aaa8016、v3.159.20、dirty:false。deploy.sh成功（2分41秒）。変更前: v3.159.19。
+
+## 対象
+共通CapitalPlanMatrix。株主1人1行、FD比率と前回比（ポイント）、非ゼロ出資額だけ補足。出資額編集と株数内訳は個別/一括展開。DB・計算エンジン・権限・Excelは変更なし。Native未変更。
+
+## 検証
+- 資本政策エンジン、資本政策ワークスペース、DDの閲覧・正本データ、critical UI、対象eslint、TypeScript成功。
+- production build・Function容量ゲート成功。deploy.shの全必須ゲート成功。
+- 実DB読み取り12株主×7ラウンドから実部品を静的描画し、Chromeで配置と大きい金額の表示を確認。確認用HTMLは削除。
+- 本番AMD OS専用Chromeウインドウで株主一覧の1行表示、FD比率・前回比・出資額を確認。CEOの＋から出資額・株数・発行済・FD株数の4行を開き、閉じることを確認。
+- 本番PC画面約1414×1089物理ポイント、拡大率110%。表内の横スクロールは既存どおり。株主12人の全行が同じ画面に収まり、名称と数値の重なりなし。UI品質8.5/10。WebはPC確認（既存handoffのPC運用）。モバイルの実画面確認は未実施、44pxの操作と表内スクロール契約は維持。
+
+## 除外と同期
+前から残るSESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdと、共有mainで進行する別セッションの未push作業は保持。共有checkoutでは変更を消さずfetchし、今回の実装がorigin/mainに含まれることと同じ部品の差分なしを確認した。
+
+## 反映経路と復旧
+正規deploy.shからmain push。関連spec/manualとiOS DESIGN/HANDOFFを同じ実装commitに含めた。復旧が必要な場合は今回の実装commitを取り消す通常commitを作り、配信版より新しい版数へ上げて正規deploy.shで反映する。履歴の巻戻しや直接Vercel deployは使わない。
+
+### 実装commitの変更ファイル（13件）
+
+```text
+ios/DESIGN.md
+pwa/HANDOFF_pwa_rebuild.md
+pwa/design/FEATURE_REGISTRY.md
+pwa/design/cockpit.md
+pwa/manual/2-3-pj-cockpit.md
+pwa/manual/9-3-appendix-changelog.md
+pwa/scripts/check_capital_plan_workspace.mts
+pwa/spec/3-24-project-surface-pages-current-spec.md
+pwa/spec/3-8-cockpit-current-spec.md
+pwa/spec/5-17-dd-package-current-spec.md
+pwa/spec/6-1-appendix-changelog.md
+pwa/src/components/cockpit/CapitalPlanMatrix.tsx
+pwa/src/lib/build-info.ts
+```
+
+恒久仕様はspec/manualへ反映済み。新規route/API/schema/環境変数/鍵/モデル変更なし。開発検証だけの履歴であり事業方針の変更なし。後続本番f6a0d3a4/v3.159.23にも実装を含む。引き継ぎは../../HANDOFF_CAPITAL_PLAN_DENSITY_20261006.md。
