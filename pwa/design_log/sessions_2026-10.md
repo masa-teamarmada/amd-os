@@ -178,3 +178,12 @@ f0c30d0f6ffa7a7387aff44d7cf8d3d994161c88 / v3.159.15がproduction aliasのbuild-
 開発修正。関連PJだけでAMD業務契約まで掲載した点を訂正。共通のproject_contract_scope/project_party_nameを追加し、project_party/project_relatedかつacceptedだけを一覧・件数・PATCH対象にする。scopeはDB取得時とprojectionで絞り、DD表示をオンにしても対象外契約を昇格させない。migration483適用済み。ユーザーが明示指定したNDAだけproject_related、既存4件だけstudio_service、元台帳/採用状態/契約状態は保持。PJ番号・相手先によるコード特例なし。新たな契約は未分類から確認後に採用する。UI/Swift/財務数値/外部付与/メール送信は変更なし。spec5-17/3-24、manual2-3/2-6、FEATURE_REGISTRY、DESIGN、HANDOFF、changelogを同期。検証は実route/loader regression・型検査・対象ESLint、本番DBとの実loader readback。前回のPC共通本文形状は維持。既存他セッションの未追跡handoffは保持・stageしない。
 
 本番DBと実server loaderのreadback: SOL内部リスト1件/DD1件、対象は指定NDAの主キーのみ、未締結・表示オン。元台帳のaccepted5件は保存されている。scope4件はstudio_service、NDA1件はproject_related。型検査・対象ESLint・実route/loaderの掲載範囲/PATCH/非表示版テスト・DD回帰通過。並行のメニュー変更ba363e8a/23fe973fは既にmainへcommitされ、同じpush束に含まれる。今回の変更によりBUILD_VERSIONをv3.159.17へ進める。
+
+## 2026-10-06 全体メニュー「≡」とDD資料目録の本番確認
+
+- 本番 v3.159.16 / 23fe973f21d996db1e63aacf80908bfc96976209 のbuild-infoをreadback。正規deploy.sh経由でmainへpushし、2分36秒でReady。
+- ChromeのPC画面（通常のブラウザ幅約1532px）でDD左メニューを確認。会社概要・資本政策表・株主名簿・次回ラウンドタームシートが独立し、長い資料名は左列内で折り返す。株主名簿とタームシートは各ページ見出しと「資料未登録」。資本政策表では既存の保存済みプランを表示。
+- ホーム左上の三本線を目視確認し、ホーム・コックピット双方で全体メニューが開いた。Escapeで閉じ、開くボタンへフォーカスが戻った。確認用タブは閉じた。UI品質8/10、PCで重なり・文字切れなし。今回のWeb確認はPCのみ。
+- DDページの資料名・18入口・23互換キー・空状態・DD認可の検査、標準フォーマット、型検査、変更部品のESLint、本番向けbuild、deploy必須ゲートが成功。
+- 共有checkoutで同時編集された契約掲載範囲の文書をindexだけで別作業へ分離し、元の作業ファイルは保持した。本番反映はmainのクリーンな一時cloneから実施。契約範囲の後続478f37beは別セッションのcommitで、今回のnavigation差分とは分離。
+- DB・GAS・数式・ネイティブの変更なし。SESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdは別セッションの引き継ぎとして保持。
