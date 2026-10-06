@@ -79,7 +79,7 @@ export const READER_LIBRARY: ReaderBookManifest[] = [
   {
     id: "bzm30-textbook",
     title: "BZM 3.0教科書",
-    description: "産業創出価値の最上段の式から、状態、遷移、登録簿、検算までを16本で通読",
+    description: "産業創出価値とスコアの式から、状態、遷移、登録簿、検算までを16本で通読",
     kind: "textbook",
     lang: "ja",
     // 白文字を載せる色帯。#027fdc は白との比が 4.14:1 で足りないので 5.8:1 の濃さにする
