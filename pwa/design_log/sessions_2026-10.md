@@ -204,3 +204,11 @@ f0c30d0f6ffa7a7387aff44d7cf8d3d994161c88 / v3.159.15がproduction aliasのbuild-
 - amd-os-pwaの保存期間を全状態30→1日へ変更して読戻し。deploymentsToKeep:10も返る。使用量画面を反映後に再読込しても10.09GB。旧版整理・集計待ちで、超過解消は未確認。
 - docs-only mergeの[skip ci]抜けによる重複ビルド予約は取り消し済み。原因・対応・教訓はBUGSに記録。一時cloneと検証serverは終了済み。
 - closeoutはHANDOFF_FUNCTION_STORAGE_20261006.mdへ現在地/次の一手/他担当dirty帰属を保存。SESSION_MIGRATION_PROMPT.mdを今回用に更新し、従来KUTE全文はSESSION_MIGRATION_PROMPT_KUTE_20261006.mdへ内容不変で保存。会話の検討材料0件。
+
+## 2026-10-06 ホーム・3スペース表示速度の改善と本番検収
+
+実装46dd85cd/5981449a/f6a0d3a4、配布v3.159.19→21→23。同時進行のFunction容量・資本政策表・DD資料/ナビの変更をmainで保持した。ホームは他集計完了後のマウント待ち、履歴を含む大きなDTO、シーズ関連の分割読取が原因。先行取得、ホーム用DTO、60秒保持と同時要求の集約、1000行越えの安定ページングに変更した。3スペースは全ページの部品を初期配布、コックピットのサイクルごとの全PJ進捗再読取、DDの全公開項目読取と監査の直列待ちが原因。選択部品の分割、既存認可済みloaderでの並行先読み、PJ/MS限定のまとめ読取、DD header/documents/fullモードと監査の並行化へ変更。実画面で発見した同一PJのタブ切替のRSC待ちは、NextのNative History統合でURLと本文をその場で切替えるよう修正した。
+
+実DBの旧/新取得を各3回比較（認証・監査・利用者回線・画面描画を除く）: ホーム1093→295ms/1,210,314→358,405 bytes、コックピット1318→561ms/24→18要求/867,523→662,569 bytes、DD会社概要634→249ms/15→11要求/27,798→2,964 bytes。コックピットの現在/過去データは配列順を正規化して一致。初期route entry JSのgzipはコックピット823,864→209,427、workspace647,839→105,764、DD572,205→141,221 bytes（選択ページの追加chunk・認証・通信を含まない）。数式・DB schema・開示範囲は変更していない。
+
+検証: loader実行を含む`test:project-space-loading`（200キー/1000行境界、過去MS、読取失敗、DD読取モード・再認可・監査、実page handlerのURL保持とserver navigationゼロ）、home/critical-ui/DD/cache/format/workspace/3領域契約、tsc、対象ESLint、production buildと容量ガード。workspace routeの古い固定ラベル検査は現行の共通定義に同期。公開build-infoはv3.159.23/f6a0d3a4/main/dirty=false。実Chromeの検収範囲と画像はHANDOFFに記録。PC/スマホのホーム・ガントは横はみ出し0。開発成果はspec/manualとHANDOFFへ同期、会話の検討材料は0件。
