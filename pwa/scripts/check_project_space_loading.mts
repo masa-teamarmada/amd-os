@@ -89,3 +89,23 @@ await assert.rejects(page.default(props('company')),/not found/);assert.equal(ro
 allowed=true;await page.default(props('company'));await page.default(props('documents'));assert.deepEqual(modes,['header','documents']);assert.equal(audits,2);
 allowed=false;await assert.rejects(page.default(props('company')),/not found/);assert.equal(audits,2,'revocation stops the next page request before data or audit');
 console.log('project space loading: cycle scope/chunking/pagination/history/error, DD selective loading/full compatibility/fresh authorization/audit OK');
+
+// A tab is an in-page view: preserve deep-link params without requesting the RSC route again.
+const locations: string[] = []; let routeNavigations = 0;
+const search = new URLSearchParams('tab=company&ym=202609&meeting=m1');
+const clientPage = compile('../src/app/(app)/project/[projectId]/cockpit/page.tsx', {
+  'react/jsx-runtime': {jsx,jsxs},
+  react: {useEffect:()=>{},useState:()=>[{projectId:'p21',cockpit:{tasks:[]},error:null},()=>{}]},
+  'next/navigation': {useParams:()=>({projectId:'p21'}),usePathname:()=>'/project/p21/cockpit',useSearchParams:()=>search,useRouter:()=>({replace:()=>{routeNavigations++}})},
+  '@/components/cockpit/CockpitView': {CockpitView:()=>null},
+  '@/lib/cockpit-tabs': {DEFAULT_COCKPIT_TAB:'issues',NON_DEFAULT_COCKPIT_TABS:['company','contracts']},
+  '@/lib/project-page-prefetch': {},'@/lib/supabase-data': {},
+});
+Object.defineProperty(globalThis, 'window', {configurable:true,value:{history:{replaceState:(_:unknown,_title:string,url:string)=>locations.push(url)}}});
+try {
+  const rendered=clientPage.default();rendered.props.onTabChange('contracts');rendered.props.onTabChange('issues');
+  assert.equal(locations[0],'/project/p21/cockpit?tab=contracts&ym=202609&meeting=m1');
+  assert.equal(locations[1],'/project/p21/cockpit?ym=202609&meeting=m1');
+  assert.equal(routeNavigations,0,'switching an admitted PJ tab does not wait for a new server navigation');
+} finally { delete (globalThis as Record<string,unknown>).window; }
+console.log('cockpit tab navigation: native history, preserved modal/deep-link params, default-tab normalization, no RSC navigation OK');

@@ -341,3 +341,5 @@ DD32資料、従業員名簿は全タイプの他2領域のみ。原本未接続
 ### 表示速度改善の配布束（v3.159.21）
 
 5981449aの表示速度改善を、同時進行の資本政策表改善56c6461dとmainで統合して配布する。通常経路`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`を使う。v3.159.19のポートフォリオ改善は本番b6138915でPC/スマホと65機関・815シーズ・736評価・35PJを確認済み。3スペースは統合build後に本番SHAとページ表示を確認する。配布の取り消しは既存の直近正常production deploymentのpromote経路を使い、履歴改変やDB変更をしない。未追跡の過去移行メモは除外。
+
+2026-10-06 v3.159.23: 実画面で発見したコックピットのページ選択時RSC再要求をNative Historyへ変更。URL/modal指定を維持した実page handler検査を`test:project-space-loading`へ追加。manual 2-1/9-3、spec 3-8/6-1へ同期。v3.159.21は本番e168a8bcで反映済み。v3.159.22の同時進行ナビ変更を保持して23へ束ねる。

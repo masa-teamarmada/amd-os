@@ -118,7 +118,10 @@ export default function CockpitPage() {
       nextParams.delete("tab");
     }
     const query = nextParams.toString();
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    // 同じPJの本文切替はclientだけで完結する。router.replaceでRSCと入場処理を
+    // 再要求すると、キャッシュ済みのページまでネットワークの返答を待ってしまう。
+    // Nextの履歴連携がuseSearchParamsを更新するため、共有URL/再読込/戻るも維持する。
+    window.history.replaceState(null, "", query ? `${pathname}?${query}` : pathname);
   }
 
   return (
