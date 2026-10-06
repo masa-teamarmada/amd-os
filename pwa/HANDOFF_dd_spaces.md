@@ -17,3 +17,7 @@
 ## 2026-10-06 契約リスト
 
 契約リストを3領域へ常設し、専用APIで契約単位のDD表示選択を保存。詳細正本はspec5-17・3-24、機能とguardはFEATURE_REGISTRY。migration482は本番適用済み、再適用不要。SOLいよぎんNDAはaccepted/under_review、未締結・日付条件未確認、dd_visible=true。主キーb5e39c23-6039-428d-bddf-5f90bb6f862a。取得・表示の検証はPCだけ（まさ指定）。Swiftの追加実装なし。外部共有やメール送信なし。決議ページも3会議体の器の表示まで反映済み。
+
+## 2026-10-06 掲載範囲の訂正
+
+「関連PJだけで契約リストに載せる」は撤回。project_partyまたは明示採用したproject_relatedだけを掲載・計上する。SOLは指定NDA1件のみ、ほかの4件はstudio_serviceで一覧対象外、元台帳は維持。migration483本番適用済み、再適用しない。詳細はspec5-17。今後未分類を自動で関連契約にせず、契約主体/明示採用を確認する。

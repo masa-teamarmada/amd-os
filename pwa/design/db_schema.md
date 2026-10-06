@@ -1955,6 +1955,8 @@ PRIMARY KEY: `contract_id`
 | 45 | `party_confirmed_by` | `text` | NULL | `` |
 | 46 | `operational_terms_json` | `jsonb` | NOT NULL | `'{}'::jsonb` |
 | 47 | `dd_visible` | `bool` | NOT NULL | `false` |
+| 48 | `project_contract_scope` | `text` | NOT NULL | `'unclassified'::text` |
+| 49 | `project_party_name` | `text` | NULL | `` |
 
 ## dd_item_publications
 

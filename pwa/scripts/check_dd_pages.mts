@@ -66,6 +66,6 @@ for (const [type, label] of [["su", "大学発SU・顧問PJ・新規事業"], ["
   for (const key of rows) matrix += `| ${PROJECT_PAGE_LABELS[key]} | ${cockpit.has(key) ? "◯" : ""} | ${workspace.has(key) ? "◯" : ""} | ${dd.has(key) ? "◯" : ""} |\n`;
   matrix += "\n";
 }
-matrix += "DDの技術・競合比較・ビジネスモデルは `CockpitTechnology` でページ全体を表示する。掲載項目への追加や個別公開は本文の表示条件ではない。試算表・資本政策表・コスト試算・会社概要も省略版を作らず、共通ページのデータと部品を使う。キラー要素カタログは会社概要から切り出した独立ページ。全PJでコックピットの会社情報に常設し、ワークスペース・DDにはページを置かない。会社概要の本文と出力は3領域で共通に保つ（2026-10-06、v3.159.9）。契約リストも3領域共通の本文を使用する。DDでは「DDに表示」がオンの採用済み契約だけをserverで取得し、編集操作は表示しない。ドライブの共有ファイル選択、DDの入場権限、書込み・ダウンロードの権限は独立して保つ。\n\n正本は `src/lib/project-formats.ts` の3領域のフォーマットと共通ページ名、元データの対応は `src/lib/dd-pages.ts`。新規事業は大学発SUと同じ定義。project_pageの7キー（migration 469）は正式版PDFの互換項目用に保持する。ワークスペースの動向・会議／Slackは当該PJの参加者の読み取りに限る。理論変更なし。\n";
+matrix += "DDの技術・競合比較・ビジネスモデルは `CockpitTechnology` でページ全体を表示する。掲載項目への追加や個別公開は本文の表示条件ではない。試算表・資本政策表・コスト試算・会社概要も省略版を作らず、共通ページのデータと部品を使う。キラー要素カタログは会社概要から切り出した独立ページ。全PJでコックピットの会社情報に常設し、ワークスペース・DDにはページを置かない。会社概要の本文と出力は3領域で共通に保つ（2026-10-06、v3.159.9）。契約リストも3領域共通の本文を使用する。DDでは「DDに表示」がオンの掲載対象契約だけをserverで取得し、編集操作は表示しない。ドライブの共有ファイル選択、DDの入場権限、書込み・ダウンロードの権限は独立して保つ。\n\n正本は `src/lib/project-formats.ts` の3領域のフォーマットと共通ページ名、元データの対応は `src/lib/dd-pages.ts`。新規事業は大学発SUと同じ定義。project_pageの7キー（migration 469）は正式版PDFの互換項目用に保持する。ワークスペースの動向・会議／Slackは当該PJの参加者の読み取りに限る。理論変更なし。\n";
 if (process.argv.includes("--write-matrix")) writeFileSync(new URL("../spec/3-24-project-surface-pages-current-spec.md", import.meta.url), matrix);
 console.log("DD page routing and shared page format: ok");

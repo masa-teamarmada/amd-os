@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { resolveSharedWorkspaceAccess } from "@/lib/project-shared-workspace-access";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { canManageContractDisclosure, projectContractGroups } from "@/lib/project-contract-list";
+import { canManageContractDisclosure, projectContractGroups, PROJECT_CONTRACT_LIST_SCOPES } from "@/lib/project-contract-list";
 import { loadProjectContractList, loadProjectContractSources } from "@/lib/project-contract-list-server";
 import { isSameOriginWorkspaceMutation } from "@/lib/workspace-mutation-origin";
 
@@ -33,7 +33,7 @@ export async function PATCH(req: Request, ctx: Context) {
     const target = groups.find(row => row.contract_id === body.contractId);
     if (!target) return NextResponse.json({ error: "Not found" }, { status: 404, headers });
     const { error } = await db.from("contracts").update({ dd_visible: body.ddVisible, updated_by: access.email, updated_at: new Date().toISOString() })
-      .eq("project_id", projectId).eq("registry_status", "accepted").in("contract_id", target.related_contract_ids);
+      .eq("project_id", projectId).eq("registry_status", "accepted").in("project_contract_scope", [...PROJECT_CONTRACT_LIST_SCOPES]).in("contract_id", target.related_contract_ids);
     if (error) throw error;
     return NextResponse.json({ ok: true, ...await loadProjectContractList(db, projectId, false, true) }, { headers });
   } catch {

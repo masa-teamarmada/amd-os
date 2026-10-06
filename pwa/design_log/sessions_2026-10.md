@@ -172,3 +172,9 @@ f0c30d0f6ffa7a7387aff44d7cf8d3d994161c88 / v3.159.15がproduction aliasのbuild-
 まさがChromeをMeetタブへ切り替えたため、ワークスペースとDDの実画面およびworkspaceチェック操作は未検証。タブへの限定接続もrequest-header policy読込みで2回失敗し、会議中のUI操作を停止した。代替は共通本文/導線の回帰・実route/loaderテストと本番DB読取り。会議のカメラ/マイク/参加操作は変更なし。Webスマホ検証・Swift変更なし。検証の一時scriptはignored .jezへ移し、秘密値/原メール/契約本文は保存しない。
 
 終了分類: development、main aligned、committed success。恒久仕様はspec5-17/3-24・manual2-3/2-6・FEATURE_REGISTRY・DESIGN、本ログは開発検証記録のみ。今回のproduct変更はmainへ統合・push・配信済み。conflictなし、今回のtracked dirtyなし。既存未追跡handoffはタスク報酬移行担当の所有物として保持、次判定は同担当のspec3-14/完了履歴照合。安全に消す対象なし、まさ判断が必要な新規残件なし。対話証拠0件。残るPC追加画面確認は次にブラウザを利用できるときの検証範囲として明示し、実施済みとは扱わない。
+
+## 2026-10-06 SOLの契約リスト掲載範囲 v3.159.17
+
+開発修正。関連PJだけでAMD業務契約まで掲載した点を訂正。共通のproject_contract_scope/project_party_nameを追加し、project_party/project_relatedかつacceptedだけを一覧・件数・PATCH対象にする。scopeはDB取得時とprojectionで絞り、DD表示をオンにしても対象外契約を昇格させない。migration483適用済み。ユーザーが明示指定したNDAだけproject_related、既存4件だけstudio_service、元台帳/採用状態/契約状態は保持。PJ番号・相手先によるコード特例なし。新たな契約は未分類から確認後に採用する。UI/Swift/財務数値/外部付与/メール送信は変更なし。spec5-17/3-24、manual2-3/2-6、FEATURE_REGISTRY、DESIGN、HANDOFF、changelogを同期。検証は実route/loader regression・型検査・対象ESLint、本番DBとの実loader readback。前回のPC共通本文形状は維持。既存他セッションの未追跡handoffは保持・stageしない。
+
+本番DBと実server loaderのreadback: SOL内部リスト1件/DD1件、対象は指定NDAの主キーのみ、未締結・表示オン。元台帳のaccepted5件は保存されている。scope4件はstudio_service、NDA1件はproject_related。型検査・対象ESLint・実route/loaderの掲載範囲/PATCH/非表示版テスト・DD回帰通過。並行のメニュー変更ba363e8a/23fe973fは既にmainへcommitされ、同じpush束に含まれる。今回の変更によりBUILD_VERSIONをv3.159.17へ進める。

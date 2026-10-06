@@ -1,7 +1,11 @@
 import { consolidateContractRecords, type ContractLedgerSourceRow } from "./contracts-ledger.ts";
 import type { ContractStatus } from "./contracts";
 
-export type ProjectContractSource = ContractLedgerSourceRow & { dd_visible: boolean };
+export const PROJECT_CONTRACT_LIST_SCOPES = ["project_party", "project_related"] as const;
+export type ProjectContractScope = "project_party" | "project_related" | "studio_service" | "unclassified";
+export type ProjectContractSource = ContractLedgerSourceRow & {
+  dd_visible: boolean; project_contract_scope?: ProjectContractScope; project_party_name?: string | null;
+};
 export type ProjectContractListRow = {
   contractId: string; title: string; contractingParty: string; counterparty: string | null;
   contractType: string; status: ContractStatus; signedAt: string | null;
@@ -17,16 +21,16 @@ export function canManageContractDisclosure(access: {
     : access.role === "manager";
 }
 
-/** 台帳に採用した契約だけ。推定候補や原メール・内部メモは閲覧本文へ送らない。 */
+/** PJ主体、または明示採用した関連契約だけ。AMD業務契約・未分類はPJへの関連付けだけでは掲載しない。 */
 export function projectContractGroups(rows: ProjectContractSource[], projectId: string) {
-  return consolidateContractRecords(rows.filter(row => row.project_id === projectId && row.registry_status === "accepted"));
+  return consolidateContractRecords(rows.filter(row => row.project_id === projectId && row.registry_status === "accepted" && (PROJECT_CONTRACT_LIST_SCOPES as readonly string[]).includes(row.project_contract_scope ?? "unclassified")));
 }
 export function buildProjectContractList(rows: ProjectContractSource[], projectId: string, ddOnly: boolean, canManage = false): ProjectContractListData {
   const visibleIds = new Set(rows.filter(row => row.project_id === projectId && row.dd_visible).map(row => row.contract_id));
   const contracts = projectContractGroups(ddOnly ? rows.filter(row => row.dd_visible) : rows, projectId).map(row => ({
     contractId: row.contract_id,
     title: row.canonical_title || row.contract_title,
-    contractingParty: row.relationship_scope === "amd_contract" ? row.amd_entity_name || "株式会社チームアルマダ" : "未確認",
+    contractingParty: row.project_contract_scope === "project_party" ? row.project_party_name || "未確認" : row.relationship_scope === "amd_contract" ? row.amd_entity_name || "株式会社チームアルマダ" : "未確認",
     counterparty: row.counterparty_name,
     contractType: row.contract_type,
     status: row.status,
