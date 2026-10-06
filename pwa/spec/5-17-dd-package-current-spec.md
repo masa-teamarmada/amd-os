@@ -248,3 +248,5 @@ SOLの会社概要のデータ処理は3回中央値634→249ms、15→11リク�
 2026-10-06 JST: DDの左ナビはPC幅200px（従来240px）、本文との間隔12px、内側余白8px。ナビは淡いグレー背景と1pxの境界で白い本文から区別し、分類見出しを太字、現在の資料を青い左線と背景で示す。子項目の字下げを短縮、長い資料名は省略せず折り返す。スマホは幅264pxのドロワーと44px以上のタップ領域を維持。7分類・初期全展開・横断検索・下部常設の開示資料は維持。DDのみcompact指定で適用し、他スペースの寸法は維持。
 
 参考: [IBM Carbon 左パネル](https://www.carbondesignsystem.com/building-blocks/core/components/ui-shell-left-panel/guidelines)の2階層・山形での独立開閉、[Atlassian navigation layout](https://atlassian.design/components/navigation-system/layout/code)のナビと本文の独立領域、狭幅での折り畳みを照合。200px・灰色背景・余白の値はDDの日本語資料名と本文幅を踏まえた本OSの設計判断。
+
+2026-10-06: 経営陣略歴は project_config の management_biographies（JSON文字列、version=1、profiles、sourceRef）から明示登録されたプロフィールのみ取得し、共通本文で表示する。profilesは氏名・読み・肩書・概要・兼職・年月付き学歴職歴・受賞歴。DD認可後に取得し、未登録は資料未登録。PJ参加者や雇用情報から経歴・新会社の役職を推定しない。SOL p21に山地正洋の公式書類用プロフィールを登録。パッケージの公開・閲覧権限・正式PDF掲載設定は変更しない。

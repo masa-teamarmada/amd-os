@@ -286,3 +286,6 @@ pwa/src/lib/build-info.ts
 本番ワークスペースでは全体button44pxが下段に勝つ問題を発見。PC.menu .rowを優先した17d15894/v3.160.7を正規deploy、5分47秒で成功。公開SHA一致、実画面と表示中19行の28px計測を確認。ローカル共通部品だけの判断を改めた経緯はBUGSへ保存。
 検証:test:critical-uiと配布ゲート成功、PC ChromeでDD/コックピットのホバーとワークスペースの行高を確認。PWA=PC、スマホ=Swiftというまさの指定後はPCのみ確認。環境変数・鍵・schema・モデル・Nativeの追加変更なし。一時preview route/server/tab/clone除去済み。証跡はignored .jez/artifacts。
 恒久仕様spec2-1/2-7/3-23/3-24/5-17、manual2-1と附則、共通DESIGN/FEATURE_REGISTRYへ反映済み。専用引き継ぎは../../HANDOFF_PROJECT_NAV_20261006.md、再開文は../../SESSION_MIGRATION_PROMPT.md。旧資本政策プロンプトを内容不変で別名保持。旧タスク報酬の未追跡メモは前担当の判断待ちとして保護し、本タスクに混ぜない。
+
+## 2026-10-06 SOL 経営陣略歴
+まさの依頼により、公式プロフィールから略歴を登録。DD teamの共通本文と認可後loaderを接続。project_config既存表を利用。公開や閲覧権限の変更なし。Swiftの略歴表示は未移植。

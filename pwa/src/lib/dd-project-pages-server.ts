@@ -1,3 +1,4 @@
+import { loadProjectManagementBiographies } from "./project-management-biographies-server";
 import { loadProjectOrganizationChart } from "./project-organization-chart-server";
 import { loadProjectGovernance } from "./project-governance-server";
 import "server-only";
@@ -27,6 +28,7 @@ export async function loadDdProjectPage(projectId: string, page: string): Promis
   if (identity.error) throw new Error(identity.error.message);
   const base = { kind: "project_page" as const, projectId, projectName: identity.data.display_name || identity.data.project_name };
   if (page === "contracts") return { ...base, page, contracts: await loadProjectContractList(db, projectId, true, false) };
+  if (page === "team") return { ...base, page, empty: true, biographies: await loadProjectManagementBiographies(db, projectId) };
   if (isDdEmptyPageKey(page)) return { ...base, page, empty: true, ...(page === "organization-chart" ? { organizationChart: await loadProjectOrganizationChart(db, projectId) } : {}) };
   if (page === "technology" || page === "competition" || page === "business-model") return { ...base, page, tech: await loadProjectTechData(db, projectId) };
   if (page === "financial-projection") return { ...base, page, finance: await loadProjectFinancePage(db, projectId) };

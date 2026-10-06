@@ -1,3 +1,4 @@
+import type { ProjectManagementBiographies } from "./project-management-biographies";
 import type { ProjectOrganizationChartData } from "./project-organization-chart";
 import type { QuestionTreeBundle } from "./question-tree-types";
 import type { SxManagementBundle } from "./sx-management";
@@ -19,7 +20,7 @@ import type { DdEmptyPageKey } from "./dd-pages";
 
 type Identity = { kind: "project_page"; projectId: string; projectName: string };
 export type DdLiveProjectPage = Identity & (
-  | { page: DdEmptyPageKey; empty: true; organizationChart?: ProjectOrganizationChartData | null }
+  | { page: DdEmptyPageKey; empty: true; biographies?: ProjectManagementBiographies | null; organizationChart?: ProjectOrganizationChartData | null }
   | { page: "technology" | "competition" | "business-model"; tech: ProjectTechResponse }
   | { page: "financial-projection"; finance: ProjectFinancePageData }
   | { page: "capital-plan"; capital: CapitalPlanPageData }

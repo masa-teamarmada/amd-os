@@ -1,10 +1,13 @@
+import type { ProjectManagementBiographies as Biographies } from "@/lib/project-management-biographies";
+import { ProjectManagementBiographies } from "./ProjectManagementBiographies";
 import type { ProjectOrganizationChartData } from "@/lib/project-organization-chart";
 import { ProjectOrganizationChart } from "./ProjectOrganizationChart";
 import type { DdEmptyPageKey } from "@/lib/dd-pages";
 import { PROJECT_PAGE_LABELS } from "@/lib/project-formats";
 
 /** 新しい資料区分の共通空状態。既存の説明記事を資料登録済みとは扱わない。 */
-export function ProjectDiligenceSection({ page, organizationChart }: { page: DdEmptyPageKey; organizationChart?: ProjectOrganizationChartData | null }) {
+export function ProjectDiligenceSection({ page, organizationChart, biographies }: { page: DdEmptyPageKey; biographies?: Biographies | null; organizationChart?: ProjectOrganizationChartData | null }) {
+  if (page === "team") return <ProjectManagementBiographies data={biographies ?? null} />;
   if (page === "organization-chart") return <ProjectOrganizationChart initialData={organizationChart ?? null} />;
   if (page === "governance") return <ProjectMeetingResolutions />;
   return (
