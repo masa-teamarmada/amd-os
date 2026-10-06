@@ -25,7 +25,7 @@
 
 ## 複数タブの現在地（2026-10-06）
 
-- インストール版のタブ列自体はChromeが描画する。画面CSSでタブ枠を上書きせず、文書タイトルとテーマ色を提供する。黒いテーマでは窓の状態によって選択中との差が弱いため、`manifest.json`とルートviewportの`theme_color`を既存の淡いグレー`#f5f5f7`へ統一し、起動背景を白にする。
+- インストール版のタブ列自体はChromeが描画する。画面CSSでタブ枠を上書きせず、文書タイトルとテーマ色を提供する。黒・淡いグレーでは選択中との差が弱いため、`manifest.json`とルートviewportの`theme_color`を白い選択タブとの差が分かる青灰色`#a8bdd3`へ統一し、起動背景を白にする。
 - 開いているタブの文書タイトル先頭だけに`▶ `を付ける。`document.visibilityState === "visible"`が判定根拠。`visibilitychange`でタブを切り替えたら印を移す。窓がフォーカスを失うだけでは印を消さない。複数窓では各窓の選択タブが対象となる。通常Chromeタブも同じ契約で、`display-mode`で分岐しない。
 - PJ本文は認可済みのデータを使い、`PJ名｜コックピット / ワークスペース / DD｜実際に表示中のページ名 - AMD OS`を`ProjectPageTitle`へ渡す。ページラベルは既存の`PROJECT_PAGE_LABELS` / メニュー定義 / `ddPageLabel`を使う。コックピットのquery、ワークスペースのhashや保存済み選択、DDのqueryから解決済みの表示状態へ追従し、URLから名前を推測する追加取得は行わない。
 - `PageTitleSetter`はAppShellの通常画面で既存surface名を使う。コックピットとワークスペースの詳細では、外枠の一般名が本文の題名を上書きしないよう本文側だけが担当する。埋め込みワークスペースは親コックピットの題名を維持する。
@@ -222,3 +222,5 @@ migration 212 / 213 / 216〜219 / 258 と対になる contract。212 / 213は202
 サーバは完全な結果を60秒保持し、同時取得を1本に束ねる。クライアントは `portfolio-pulse-client.ts` から共通参照キャッシュを60秒使い、再訪時はpeekで即描画。`?fresh=1` はサーバ再取得。ネットワークに出るたび `requireMember` とactiveなportfolio scopeを確認し、共有の横断データを権限変更後にHTTPから返さないため `Cache-Control: private, no-store` を維持する。無認証/PJ限定/無効メンバーはデータ取得前に拒否する。両層の `invalidatePortfolioPulseCache` で明示破棄できる。DB/評価式/通知は変更なし。
 
 検証: 同じ本番データ3回のローカル直接読取り中央値は旧1093ms→新295ms。UTF-8の返却量は1,210,314→358,405 bytes（約70%削減）。サーバ保持中の追加DB問い合わせは0。65機関/815シーズ/736評価、ECR値、PJ由来・分類、候補順の旧新一致を確認。これらは画面全体の表示秒数とは別の測定。実行検査は `test:portfolio-home-contract`（>1000件、最新評価、同時取得、再取得、部分失敗後の回復、権限拒否）。参照キャッシュ検査にも登録し、deploy前に両検査を実行する。
+
+2026-10-06: 組織図は全PJのコックピット `?tab=organization-chart`、ワークスペース `#organization-chart`、DD `?tab=organization-chart` から共通本文を開く。領域別入場認可は維持。詳細はspec 3-23。

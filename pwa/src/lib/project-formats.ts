@@ -52,7 +52,7 @@ const COCKPIT_STANDARD_TABS = [
   { group: "business-plan-group", tabs: ["score-detail", "technology", "competition", "business-model", "business-plan", "financial-projection", "capital-plan", "cost-model", "ip"] },
   { group: "documents-group", tabs: ["documents"] },
   { group: "project-management-group", tabs: ["overview", "project-contracts", "project-finance", "monthly-reports"] },
-  { group: "company-information-group", tabs: ["company", "employee-register", "contracts", "killer-factors", "capital-policy", "activity"] },
+  { group: "company-information-group", tabs: ["company", "organization-chart", "employee-register", "contracts", "killer-factors", "capital-policy", "activity"] },
 ] as const;
 
 export const COCKPIT_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ group: string; tabs: readonly string[] }>> = {
@@ -66,7 +66,7 @@ export const COCKPIT_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ grou
     { group: "regulations-group", tabs: ["regulations"] },
     { group: "documents-group", tabs: ["documents"] },
     { group: "project-management-group", tabs: ["overview", "project-contracts", "project-finance", "monthly-reports"] },
-    { group: "company-information-group", tabs: ["company", "employee-register", "contracts", "killer-factors", "capital-policy", "activity"] },
+    { group: "company-information-group", tabs: ["company", "organization-chart", "employee-register", "contracts", "killer-factors", "capital-policy", "activity"] },
   ],
 };
 
@@ -75,7 +75,7 @@ const WORKSPACE_STANDARD_TABS = [
   { group: "progress-group", tabs: ["issues", "tasks", "gantt", "meetings", "slack", "weekly", "partners"] },
   { group: "business-plan-group", tabs: ["technology", "competition", "business-model", "business-plan", "financial-projection", "capital-plan", "cost", "ip"] },
   { group: "documents-group", tabs: ["drive"] },
-  { group: "company-information-group", tabs: ["company", "employee-register", "contracts", "capital-policy"] },
+  { group: "company-information-group", tabs: ["company", "organization-chart", "employee-register", "contracts", "capital-policy"] },
 ] as const;
 
 export const WORKSPACE_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ group: string; tabs: readonly string[] }>> = {
@@ -85,7 +85,7 @@ export const WORKSPACE_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ gr
   ecosystem: [
     { group: "progress-group", tabs: ["issues", "tasks", "gantt", "meetings", "slack", "weekly", "partners"] },
     { group: "documents-group", tabs: ["drive"] },
-    { group: "company-information-group", tabs: ["company", "employee-register", "contracts", "capital-policy"] },
+    { group: "company-information-group", tabs: ["company", "organization-chart", "employee-register", "contracts", "capital-policy"] },
   ],
 };
 
@@ -112,6 +112,7 @@ export const DD_ITEM_PAGES = [
   { key: "next-round-term-sheet", label: "次回ラウンドタームシート", related: [] },
   { key: "governance", label: "総会・取締役会・経営会議議事録", related: ["company"] },
   { key: "team", label: "経営陣略歴", related: [] },
+  { key: "organization-chart", label: "組織図", related: [] },
   { key: "business-plan", label: "事業計画書", related: [] },
   { key: "development-plan", label: "開発計画書", related: ["gantt"] },
   { key: "market-research", label: "市場調査資料", related: [] },
@@ -139,6 +140,7 @@ export const DD_ITEM_PAGES = [
 
 /** 3領域のページ名。ワークスペースの旧キー cost/drive は同じページへ対応する。 */
 export const PROJECT_PAGE_LABELS: Readonly<Record<string, string>> = {
+  "organization-chart": "組織図",
   "employee-register": "従業員名簿",
   "articles-of-incorporation": "定款",
   "corporate-register": "登記事項証明書",
@@ -431,3 +433,13 @@ export const AMD_REVENUE_KINDS = [
 ] as const;
 
 export type AmdRevenueKindKey = (typeof AMD_REVENUE_KINDS)[number]["key"];
+
+
+/** 3スペース共通の縦型組織図。未登録時はこの配置のひな形を表示する。 */
+export const ORGANIZATION_CHART_FORMAT = {
+  governingBodies: ["株主総会", "取締役会", "代表取締役"],
+  oversight: "監査役",
+  directReport: "社長直轄部門",
+  departmentCount: 3,
+  departmentLevels: ["部門名", "部署・チーム名", "担当・役職名"],
+} as const;

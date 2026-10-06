@@ -6,7 +6,7 @@
   "display": "standalone",
   "display_override": ["tabbed", "standalone"],
   "background_color": "#ffffff",
-  "theme_color": "#f5f5f7",
+  "theme_color": "#a8bdd3",
   "orientation": "landscape",
   "icons": [
     {

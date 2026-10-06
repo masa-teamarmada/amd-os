@@ -1,5 +1,7 @@
 # PJ Status コックピット — 設計の正本
 
+2026-10-06: 会社情報へ「組織図」（?tab=organization-chart）を全PJタイプ共通で追加。ワークスペースの#organization-chart・DDの?tab=organization-chartと同じ縦型ひな形をProjectOrganizationChartで表示する。会議体・監査役・直轄部門・3部門の配置、実組織は未登録と表示。保存・DB・理論変更なし。正本spec/3-23・3-24。
+
 2026-10-04: コックピット・ワークスペース・DDパッケージは並列の領域。左メニュー先頭の領域選択は `ProjectSurfaceNav` を共用する。DDをコックピット分類に含めない。DDは独立した画面で分類・子タブ・本文を表示し、管理はDD内で開く（spec 5-17）。
 
 作成: 2026-05-06 (cool-booth-b72d09 セッション)

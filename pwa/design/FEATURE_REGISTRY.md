@@ -1,5 +1,7 @@
 # PWA Feature Registry
 
+2026-10-06: 「組織図」は全PJタイプのコックピット・ワークスペース会社情報とDD資料目録に常設する。DD目録は33資料。共通ProjectOrganizationChartの縦型ひな形と未登録表示を維持し、組織データを推定しない。DD入場認可・正式版PDF契約は維持。防波堤はtest:project-format・test:dd-package・test:critical-ui、正本spec/3-23・3-24・5-17。アプリのテーマ色は #a8bdd3（spec/2-1）。
+
 2026-10-06: DDの左メニューは18資料の目録。資本政策表・株主名簿・次回ラウンドタームシートを独立させ、全項目を資料名で表示。名簿・タームシートは原本未登録の空状態。既存共通本文・認可・旧URLは保持。
 
 2026-10-06: ホーム・コックピットの全体導線は `GlobalMenu` のメニューアイコン「≡」に集約。3スペースは `ProjectSpaceLayout` で左メニュー、分類と子ページは `ProjectPageMenu` / `DdNavigation`。ホームPJリンクは別タブが既定。`test:critical-ui` で入口・左レイアウト・44px操作・先読み・別タブ属性を保護する。

@@ -1,6 +1,7 @@
 "use client";
 
 import { ProjectPageTitle } from "@/components/nav/PageTitleSetter";
+import { ProjectOrganizationChart } from "@/components/project-workspace/ProjectOrganizationChart";
 import { ProjectEmployeeRegister } from "@/components/project-workspace/ProjectEmployeeRegister";
 
 import dynamic from "next/dynamic";
@@ -453,6 +454,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     "project-finance": "収支",
     "capital-policy": "資金調達履歴",
     company: "会社概要",
+    "organization-chart": "組織図",
     "employee-register": "従業員名簿",
     contracts: "契約リスト",
     "killer-factors": "キラー要素",
@@ -841,6 +843,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
         </section>
       )}
 
+      {activeTab === "organization-chart" && <section role="tabpanel" aria-label="組織図"><ProjectOrganizationChart /></section>}
       {activeTab === "employee-register" && <section role="tabpanel" aria-label="従業員名簿"><ProjectEmployeeRegister /></section>}
       {activeTab === "contracts" && <section role="tabpanel" aria-label="契約リスト" className="min-w-0"><ProjectContractList key={project.projectId} projectId={project.projectId} /></section>}
 

@@ -1,5 +1,7 @@
 # SPEC — AMD OS PWA
 
+2026-10-06: 3スペース共通に「組織図」（organization-chart）を追加。全PJ共通の縦型ひな形、未登録表示、本文はProjectOrganizationChartを共用する。実データ・編集・DB・DD認可・正式版PDFは変更なし（spec/3-23・3-24・5-17）。アプリのタブ列背景は青灰色 #a8bdd3、選択中の白いタブとの色差を確保する（spec/2-1）。
+
 2026-10-04: ホームのPJポートフォリオは、由来にかかわらずPJカードから `/project/[id]/cockpit` を開く。PJ未登録の候補は元の機関/シーズ詳細へ進む。社内画面・ワークスペース・DDの上部には、ブラウザの履歴を使う共通の「戻る」「進む」を置く。印刷・ネイティブ埋込み・書斎は専用の枠を維持する。詳細は `spec/2-1`「ページの移動と履歴」、使い方は `manual/2-1`。
 
 AMD OS PWA の **正本仕様書**。
@@ -573,4 +575,4 @@ npm run test:critical-ui
 | PJ Status コックピット (SU 系 PJ の上部セクション) | `cockpit.md` ⭐ |
 | AMD Score (SPS primary / legacy M-X-F comparison) | `amd_score.md` ⭐ |
 
-- 2026-10-06: 複数タブの選択印▶とPJ/領域/ページ名、文書とmanifestの淡いグレーテーマはspec/2-1「複数タブの現在地」が現行正本。
+- 2026-10-06: 複数タブの選択印▶とPJ/領域/ページ名、文書とmanifestの青灰色テーマはspec/2-1「複数タブの現在地」が現行正本。

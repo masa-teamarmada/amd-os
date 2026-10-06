@@ -1,8 +1,10 @@
+import { ProjectOrganizationChart } from "./ProjectOrganizationChart";
 import type { DdEmptyPageKey } from "@/lib/dd-pages";
 import { PROJECT_PAGE_LABELS } from "@/lib/project-formats";
 
 /** 新しい資料区分の共通空状態。既存の説明記事を資料登録済みとは扱わない。 */
 export function ProjectDiligenceSection({ page }: { page: DdEmptyPageKey }) {
+  if (page === "organization-chart") return <ProjectOrganizationChart />;
   if (page === "governance") return <ProjectMeetingResolutions />;
   return (
     <div data-testid="project-diligence-empty" data-page={page} className="space-y-3 py-3">
