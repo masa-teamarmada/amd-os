@@ -85,10 +85,11 @@ export async function loadDdItem(itemId: string): Promise<DdItemRow | null> {
   return row;
 }
 
-async function loadActiveItems(packageId: string, options: { includeUnpublished: boolean }): Promise<DdItemRow[]> {
+async function loadActiveItems(packageId: string, options: { includeUnpublished: boolean; itemKind?: DdItemKind }): Promise<DdItemRow[]> {
   const db = createAdminClient();
   let query = db.from("dd_package_items").select(ITEM_FIELDS).eq("package_id", packageId).eq("status", "active");
   if (!options.includeUnpublished) query = query.eq("is_published", true);
+  if (options.itemKind) query = query.eq("item_kind", options.itemKind);
   const { data, error } = await query.order("sort_order");
   if (error) throw new Error(`dd items: ${error.message}`);
   return ((data ?? []) as unknown as DdItemRow[]).filter((row) => isDdItemKind(row.item_kind) && isDdSectionKey(row.section_key));
@@ -151,8 +152,8 @@ export type DdPackageView = {
 };
 
 /** 公開中の項目を、いまの元データ（更新日時・未確認事項・中身）と一緒に返す。DDトップと正式版（PDF）の出力で使う。 */
-export async function loadDdPublishedLive(packageId: string): Promise<Array<{ row: DdItemRow; live: DdItemLive | null; meta: ItemLiveMeta }>> {
-  const rows = await loadActiveItems(packageId, { includeUnpublished: false });
+export async function loadDdPublishedLive(packageId: string, itemKind?: DdItemKind): Promise<Array<{ row: DdItemRow; live: DdItemLive | null; meta: ItemLiveMeta }>> {
+  const rows = await loadActiveItems(packageId, { includeUnpublished: false, itemKind });
   const loaded = await Promise.all(rows.map((row) => liveMeta(row)));
   return rows
     .map((row, index) => ({ row, live: loaded[index].live, meta: loaded[index].meta }))
@@ -163,13 +164,18 @@ export async function loadDdPublishedLive(packageId: string): Promise<Array<{ ro
 }
 
 /** DDトップ。公開中の項目だけを、いまの元データの更新日時と未確認事項つきで返す（管理者のプレビューでも同じ）。 */
-export async function loadDdPackageView(access: DdViewerAccess): Promise<DdPackageView | null> {
-  const pkg = await loadPackage(access.packageId);
-  if (!pkg) return null;
-  const [loaded, projectName] = await Promise.all([
-    loadDdPublishedLive(pkg.id),
+export async function loadDdPackageView(
+  access: DdViewerAccess,
+  options: { mode?: "full" | "header" | "documents" } = {},
+): Promise<DdPackageView | null> {
+  // 通常のページは正本の本文を読むため、全掲載資料の本文を先に読まない。
+  // 旧section URLと正式版出力は従来の全項目live projectionを維持する。
+  const [pkg, loaded, projectName] = await Promise.all([
+    loadPackage(access.packageId),
+    options.mode === "header" ? Promise.resolve([]) : loadDdPublishedLive(access.packageId, options.mode === "documents" ? "document" : undefined),
     ddProjectName(access.projectId),
   ]);
+  if (!pkg) return null;
   const items: DdViewItem[] = loaded.map(({ row, meta, live }) => ({
     itemId: row.id,
     pageKey: ddPageForItem(row.item_kind, live?.data ?? null, row.source_key),

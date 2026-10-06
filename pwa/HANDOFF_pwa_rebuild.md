@@ -303,3 +303,15 @@ v3.159.5はLinux PDFの日本語font欠落も修正。PDF描画時だけNoto San
 | 評価式・DB・通知 | 変更なし | 対象外 | 表示速度の変更だけ |
 
 残存する `SESSION_MIGRATION_PROMPT_task_based_pt_20260922.md` は前セッションのタスク報酬移行用メモ。今回の読み込み改善には属さず、未追跡のまま保全する。
+
+## 2026-10-06 3スペースのページ表示改善（v3.159.20）
+
+正本spec 3-8/5-10/5-17。選択ページの部品分割、既存read clientの並行先読み、CockpitDataのまとめ取得・1000行/200キー境界、DDの選択読取と監査の並列化。DB migrationなし。Swift/Androidの画面・API DTOは変更なし。内部/共有/投資家の認可を統合しない。Native側に同じサイクル別重複取得があれば、共通のPJ/MS限定ルールで改善する（本変更はPWAのみ）。
+
+| 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
+|---|---|---|---|
+| コックピット・ワークスペース部品分割/先読み/まとめ取得 | spec 3-8/5-10/6-1 | manual 2-1/9-3 | 同期済み |
+| DD header/documents/full読取・監査並列 | spec 5-17/6-1 | manual 2-1/9-3 | 同期済み |
+| BZM・モデル・DB・認可・開示 | 変更なし | 対象外 | 元の境界を維持 |
+
+検証は`test:project-space-loading`、DD/critical-ui/format/cache/3領域の既存契約、tsc、対象ESLint、production build。会話の証跡保存は不要（製品変更のみ）。初期の未追跡移行メモは引き続き保全する。

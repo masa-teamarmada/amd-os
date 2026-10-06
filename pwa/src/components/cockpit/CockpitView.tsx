@@ -1,49 +1,30 @@
 "use client";
-import { ProjectContractList } from "@/components/project-workspace/ProjectContractList";
+import dynamic from "next/dynamic";
+import { ProjectPageLoading } from "@/components/project-space/ProjectPageLoading";
 
 import { useEffect, useState } from "react";
 import { ProjectSpaceLayout } from "@/components/nav/ProjectSpaceLayout";
 import { ProjectPageMenu } from "@/components/nav/ProjectPageMenu";
 import { CockpitHeader } from "./CockpitHeader";
-import { ProjectOverviewFormat } from "./ProjectOverviewFormat";
+
 import { CockpitManagementScoreHero } from "./CockpitManagementScoreHero";
 import { CockpitGoalsCompact } from "./CockpitGoalsCompact";
-import { CockpitGoalTreePoints } from "./CockpitGoalTreePoints";
-import { CockpitStrategySignals } from "./CockpitStrategySignals";
-import { Bzm22AcquisitionLedger } from "./Bzm22AcquisitionLedger";
-import { CockpitAmdContributions } from "./CockpitAmdContributions";
-import { CockpitGrants } from "./CockpitGrants";
-import { WorkspaceDocumentRoom } from "@/components/workspace-documents/WorkspaceDocumentRoom";
-import { CockpitIpPortfolio } from "@/components/cockpit/CockpitIpPortfolio";
-import { CockpitTechnology } from "@/components/cockpit/CockpitTechnology";
-import { InstitutionRegulationsPanel } from "@/components/institutions/InstitutionRegulations";
-import { ProjectInstitutionSeeds } from "./CockpitKuteSeeds";
+
 import { CockpitSeasonFinance } from "./CockpitSeasonFinance";
 import { CockpitMsChangeHistory } from "./CockpitMsChangeHistory";
 import { CockpitMonthlyReports, prefetchMonthlyReports } from "./CockpitMonthlyReports";
 import { CockpitMonthlyList } from "./CockpitMonthlyList";
-import { CockpitMonthlyModal } from "./CockpitMonthlyModal";
-import { CockpitMeetingSummary } from "./CockpitMeetingSummary";
-import { CockpitSlackMessages } from "./CockpitSlackMessages";
+
 import { CockpitFreezeBackfill } from "./CockpitFreezeBackfill";
-import { CockpitAmdScoreDetailTab } from "./CockpitAmdScoreDetailTab";
-import { CockpitCompanyOverview } from "./CockpitCompanyOverview";
-import { CockpitKillerFactorCatalog } from "./CockpitKillerFactorCatalog";
-import { CockpitProjectOverview } from "./CockpitProjectOverview";
-import { CockpitSeasonBudget } from "./CockpitSeasonBudget";
-import { CockpitProjectControl } from "./CockpitProjectControl";
-import { CockpitProjectTasks } from "./CockpitProjectTasks";
+
 import type { SxWeeklyControlView } from "@/components/project-workspace/SxWeeklyControlDashboard";
 import { InternalProjectSurfaceNav } from "@/components/nav/ProjectSurfaceNav";
-import { CockpitBusinessPlan } from "./CockpitBusinessPlan";
-import { CockpitFinancialProjection } from "./CockpitFinancialProjection";
-import { CockpitCapitalPlan } from "./CockpitCapitalPlan";
-import { CockpitCapitalPolicy } from "./CockpitCapitalPolicy";
+
 import type { CockpitTab } from "@/lib/cockpit-tabs";
 import { prefetchGovernance } from "@/lib/governance-client";
 import type { CockpitSeasonFinance as CockpitSeasonFinanceData, MilestoneChangeHistory } from "@/lib/supabase-data";
 import type { ProjectContractTerms } from "@/lib/project-contract-terms";
-import { CockpitCostTab } from "@/components/cockpit/CockpitCostTab";
+
 import { prefetchProjectOrg } from "@/lib/project-org-client";
 import { prefetchProjectCostModel, prefetchProjectFuelCostModel } from "@/lib/project-cost-model-client";
 import { prefetchProjectTech } from "@/lib/project-tech-client";
@@ -61,6 +42,35 @@ import {
 } from "@/lib/cockpit-tabs";
 import { projectFormatTypeOf, PROJECT_PAGE_LABELS } from "@/lib/project-formats";
 import { fetchInstitutionIdForProject } from "@/lib/seeds-data";
+
+// 選んだページの部品だけを取得し、他ページのJSを初期表示の待ち時間に積まない。
+const ProjectContractList = dynamic(() => import("@/components/project-workspace/ProjectContractList").then((module) => module.ProjectContractList), { loading: ProjectPageLoading });
+const ProjectOverviewFormat = dynamic(() => import("./ProjectOverviewFormat").then((module) => module.ProjectOverviewFormat), { loading: ProjectPageLoading });
+const CockpitGoalTreePoints = dynamic(() => import("./CockpitGoalTreePoints").then((module) => module.CockpitGoalTreePoints), { loading: ProjectPageLoading });
+const CockpitStrategySignals = dynamic(() => import("./CockpitStrategySignals").then((module) => module.CockpitStrategySignals), { loading: ProjectPageLoading });
+const Bzm22AcquisitionLedger = dynamic(() => import("./Bzm22AcquisitionLedger").then((module) => module.Bzm22AcquisitionLedger), { loading: ProjectPageLoading });
+const CockpitAmdContributions = dynamic(() => import("./CockpitAmdContributions").then((module) => module.CockpitAmdContributions), { loading: ProjectPageLoading });
+const CockpitGrants = dynamic(() => import("./CockpitGrants").then((module) => module.CockpitGrants), { loading: ProjectPageLoading });
+const WorkspaceDocumentRoom = dynamic(() => import("@/components/workspace-documents/WorkspaceDocumentRoom").then((module) => module.WorkspaceDocumentRoom), { loading: ProjectPageLoading });
+const CockpitIpPortfolio = dynamic(() => import("@/components/cockpit/CockpitIpPortfolio").then((module) => module.CockpitIpPortfolio), { loading: ProjectPageLoading });
+const CockpitTechnology = dynamic(() => import("@/components/cockpit/CockpitTechnology").then((module) => module.CockpitTechnology), { loading: ProjectPageLoading });
+const InstitutionRegulationsPanel = dynamic(() => import("@/components/institutions/InstitutionRegulations").then((module) => module.InstitutionRegulationsPanel), { loading: ProjectPageLoading });
+const ProjectInstitutionSeeds = dynamic(() => import("./CockpitKuteSeeds").then((module) => module.ProjectInstitutionSeeds), { loading: ProjectPageLoading });
+const CockpitMonthlyModal = dynamic(() => import("./CockpitMonthlyModal").then((module) => module.CockpitMonthlyModal), { loading: ProjectPageLoading });
+const CockpitMeetingSummary = dynamic(() => import("./CockpitMeetingSummary").then((module) => module.CockpitMeetingSummary), { loading: ProjectPageLoading });
+const CockpitSlackMessages = dynamic(() => import("./CockpitSlackMessages").then((module) => module.CockpitSlackMessages), { loading: ProjectPageLoading });
+const CockpitAmdScoreDetailTab = dynamic(() => import("./CockpitAmdScoreDetailTab").then((module) => module.CockpitAmdScoreDetailTab), { loading: ProjectPageLoading });
+const CockpitCompanyOverview = dynamic(() => import("./CockpitCompanyOverview").then((module) => module.CockpitCompanyOverview), { loading: ProjectPageLoading });
+const CockpitKillerFactorCatalog = dynamic(() => import("./CockpitKillerFactorCatalog").then((module) => module.CockpitKillerFactorCatalog), { loading: ProjectPageLoading });
+const CockpitProjectOverview = dynamic(() => import("./CockpitProjectOverview").then((module) => module.CockpitProjectOverview), { loading: ProjectPageLoading });
+const CockpitSeasonBudget = dynamic(() => import("./CockpitSeasonBudget").then((module) => module.CockpitSeasonBudget), { loading: ProjectPageLoading });
+const CockpitProjectControl = dynamic(() => import("./CockpitProjectControl").then((module) => module.CockpitProjectControl), { loading: ProjectPageLoading });
+const CockpitProjectTasks = dynamic(() => import("./CockpitProjectTasks").then((module) => module.CockpitProjectTasks), { loading: ProjectPageLoading });
+const CockpitBusinessPlan = dynamic(() => import("./CockpitBusinessPlan").then((module) => module.CockpitBusinessPlan), { loading: ProjectPageLoading });
+const CockpitFinancialProjection = dynamic(() => import("./CockpitFinancialProjection").then((module) => module.CockpitFinancialProjection), { loading: ProjectPageLoading });
+const CockpitCapitalPlan = dynamic(() => import("./CockpitCapitalPlan").then((module) => module.CockpitCapitalPlan), { loading: ProjectPageLoading });
+const CockpitCapitalPolicy = dynamic(() => import("./CockpitCapitalPolicy").then((module) => module.CockpitCapitalPolicy), { loading: ProjectPageLoading });
+const CockpitCostTab = dynamic(() => import("@/components/cockpit/CockpitCostTab").then((module) => module.CockpitCostTab), { loading: ProjectPageLoading });
 
 interface PlanCycleShape {
   planCycleId: string; status: string; budgetYen: number; extraDesignBudgetYen?: number; totalPoints: number;
@@ -318,19 +328,18 @@ const TAB_BY_WORKSPACE_VIEW: Partial<Record<SxWeeklyControlView, CockpitTab>> = 
 export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab, onTabChange, institutionId: providedInstitutionId, hideNavigation = false }: CockpitViewProps) {
   const [localActiveTab, setLocalActiveTab] = useState<CockpitTab>(DEFAULT_COCKPIT_TAB);
   const requestedTab = controlledTab ?? localActiveTab;
-  const [resolvedInstitutionId, setResolvedInstitutionId] = useState<string | null | undefined>(providedInstitutionId);
+  const [institutionLookup, setInstitutionLookup] = useState<{ projectId: string; value: string | null } | null>(null);
+  const resolvedInstitutionId = providedInstitutionId !== undefined ? providedInstitutionId
+    : institutionLookup?.projectId === cockpit.project.projectId ? institutionLookup.value : undefined;
   useEffect(() => {
-    if (providedInstitutionId !== undefined) {
-      setResolvedInstitutionId(providedInstitutionId);
-      return;
-    }
+    if (providedInstitutionId !== undefined) return;
     let cancelled = false;
     fetchInstitutionIdForProject(cockpit.project.projectId)
       .then((nextInstitutionId) => {
-        if (!cancelled) setResolvedInstitutionId(nextInstitutionId);
+        if (!cancelled) setInstitutionLookup({ projectId: cockpit.project.projectId, value: nextInstitutionId });
       })
       .catch(() => {
-        if (!cancelled) setResolvedInstitutionId(null);
+        if (!cancelled) setInstitutionLookup({ projectId: cockpit.project.projectId, value: null });
       });
     return () => {
       cancelled = true;
@@ -348,15 +357,11 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
   // 連携シーズタブ: 初回訪問まではマウントせず、訪問後は hidden で保持して
   // タブを行き来しても Seeds を読み直さない。
   const [hasVisitedSeeds, setHasVisitedSeeds] = useState(false);
-  useEffect(() => {
-    if (resolvedTab === "seeds") setHasVisitedSeeds(true);
-  }, [resolvedTab]);
+  if (resolvedTab === "seeds" && !hasVisitedSeeds) setHasVisitedSeeds(true);
 
   // 会社概要も初回訪問まで取得しない。キラー要素は独立タブで取得する。
   const [hasVisitedCompany, setHasVisitedCompany] = useState(false);
-  useEffect(() => {
-    if (resolvedTab === "company") setHasVisitedCompany(true);
-  }, [resolvedTab]);
+  if (resolvedTab === "company" && !hasVisitedCompany) setHasVisitedCompany(true);
 
   function selectTab(tab: CockpitTab) {
     setLocalActiveTab(tab);

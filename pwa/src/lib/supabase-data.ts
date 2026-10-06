@@ -2123,8 +2123,28 @@ function asRewardPreviewStatus(value: unknown): MilestoneChangeHistory["rewardPr
   return "not_checked";
 }
 
+/** PostgREST上限と長いin句を避け、指定したキーの行だけを漏れなく読む。 */
+async function readCockpitRows<T>(
+  ids: string[],
+  query: (ids: string[], from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<T[]> {
+  const unique = [...new Set(ids)];
+  const chunks = Array.from({ length: Math.ceil(unique.length / 200) }, (_, index) => unique.slice(index * 200, (index + 1) * 200));
+  const results = await Promise.all(chunks.map(async (chunk) => {
+    const rows: T[] = [];
+    for (let from = 0; ; from += 1000) {
+      const result = await query(chunk, from, from + 999);
+      if (result.error) throw new Error(`cockpit cycle data: ${result.error.message}`);
+      rows.push(...(result.data ?? []));
+      if ((result.data?.length ?? 0) < 1000) return rows;
+    }
+  }));
+  return results.flat();
+}
+
 export async function fetchCockpitFromSupabase(
-  projectId: string
+  projectId: string,
+  readClient: SupabaseClient = supabase,
 ): Promise<CockpitData> {
   const currentYm = getCurrentYm();
 
@@ -2138,13 +2158,16 @@ export async function fetchCockpitFromSupabase(
     strategySignalsRes,
     strategyResearchRes,
     msChangeHistoryRes,
+    rpRes,
+    nudgeRes,
+    taskRes,
   ] = await Promise.all([
-    supabase.from("projects").select("*").eq("project_id", projectId).single(),
-    supabase.from("billing_cycles").select("*").eq("project_id", projectId).order("ym", { ascending: false }),
-    supabase.from("value_plan_cycles").select("*").eq("project_id", projectId).in("status", ["active", "confirmed", "fixed", "draft"]).order("period_start_ym", { ascending: false }),
-    supabase.from("project_members").select("member_id").eq("project_id", projectId).eq("is_active", true),
-    supabase.from("members").select("member_id, code_name"),
-    supabase
+    readClient.from("projects").select("*").eq("project_id", projectId).single(),
+    readClient.from("billing_cycles").select("*").eq("project_id", projectId).order("ym", { ascending: false }),
+    readClient.from("value_plan_cycles").select("*").eq("project_id", projectId).in("status", ["active", "confirmed", "fixed", "draft"]).order("period_start_ym", { ascending: false }),
+    readClient.from("project_members").select("member_id").eq("project_id", projectId).eq("is_active", true),
+    readClient.from("members").select("member_id, code_name"),
+    readClient
       .from("project_strategy_signals")
       .select("*")
       .eq("project_id", projectId)
@@ -2154,7 +2177,7 @@ export async function fetchCockpitFromSupabase(
       .order("created_at", { ascending: false })
       // 「重要な動き」棚は初期8件表示 + 「古い動きも表示」で全件へ広げるため、取得側は広めに取る (2026-08-28)
       .limit(200),
-    supabase
+    readClient
       .from("project_strategy_signals")
       .select("*")
       .eq("project_id", projectId)
@@ -2163,12 +2186,16 @@ export async function fetchCockpitFromSupabase(
       .order("signal_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
       .limit(20),
-    supabase
+    readClient
       .from("milestone_change_events")
       .select("*")
       .eq("project_id", projectId)
       .order("changed_at", { ascending: false })
       .limit(12),
+    readClient.from("monthly_reports").select("*").eq("project_id", projectId),
+    readClient.from("tsukuyomi_nudge_queue").select("*").eq("project_id", projectId)
+      .order("posted_at", { ascending: false, nullsFirst: false }).limit(10),
+    readClient.from("tasks").select("*").eq("project_id", projectId),
   ]);
 
   if (projRes.error) throw new Error(`project: ${projRes.error.message}`);
@@ -2177,7 +2204,7 @@ export async function fetchCockpitFromSupabase(
   const allYms = (bcRes.data || []).map((bc) => bc.ym).filter(Boolean).sort();
   const firstYm = allYms[allYms.length - 1] || currentYm;
   const lastYm = allYms[0] || currentYm;
-  const reimburseRes = await supabase
+  const reimburseRes = await readClient
     .from("reimbursements")
     .select("date, status")
     .eq("project_id", projectId)
@@ -2254,17 +2281,35 @@ export async function fetchCockpitFromSupabase(
 
   const pastPlanCycleRaws = allPlanCycles.filter((pc) => pc.planCycleId !== planCycle?.planCycleId);
 
+  // 全サイクルをまとめて読む。全PJの進捗をサイクルごとに再取得しない。
+  const cycleIds = allPlanCycles.map((cycle) => cycle.planCycleId);
+  const allMilestoneRows = await readCockpitRows(cycleIds, (ids, from, to) =>
+    readClient.from("value_milestones").select("*").in("plan_cycle_id", ids)
+      .eq("is_active", true).order("milestone_id").range(from, to));
+  const milestoneIds = allMilestoneRows.map((row) => String(row.milestone_id));
+  const [allProgressRows, allSubRows, allResponsibilityRows, allMsActivityRows, allMemberActivityRows] = await Promise.all([
+    readCockpitRows(milestoneIds, (ids, from, to) => readClient.from("milestone_monthly_progress").select("*")
+      .in("milestone_key", ids).order("milestone_key").order("ym").range(from, to)),
+    readCockpitRows(milestoneIds, (ids, from, to) => readClient.from("milestone_sub_items").select("*")
+      .in("milestone_id", ids).order("sub_item_id").range(from, to)),
+    readCockpitRows(milestoneIds, (ids, from, to) => readClient.from("milestone_responsibility").select("*")
+      .in("milestone_id", ids).order("milestone_id").order("member_id").range(from, to)),
+    readCockpitRows(milestoneIds, (ids, from, to) => readClient.from("member_ms_activities")
+      .select("member_id, milestone_id, ym, narrative, learned_addendum, generated_at")
+      .in("milestone_id", ids).order("milestone_id").order("member_id").order("ym").range(from, to)),
+    readCockpitRows(milestoneIds, (ids, from, to) => readClient.from("member_activities").select("*")
+      .eq("project_id", projectId).in("milestone_id", ids).order("id").range(from, to)),
+  ]);
+
   // Helper: PlanCycle1件分のMS/Progress/SubItems/Responsibilityを取得
   async function fetchBundleForCycle(pc: PlanCycle): Promise<{
     milestones: Milestone[]; progress: MilestoneProgress[];
     subItems: SubItem[]; responsibilities: MilestoneResponsibility[];
     msActivities: MemberMsActivity[]; memberActivities: MemberActivity[];
   }> {
-    const [msRes, progRes] = await Promise.all([
-      supabase.from("value_milestones").select("*")
-        .eq("plan_cycle_id", pc.planCycleId).eq("is_active", true).order("sort_order"),
-      supabase.from("milestone_monthly_progress").select("*"),
-    ]);
+    const msRes = { data: allMilestoneRows.filter((row) => row.plan_cycle_id === pc.planCycleId)
+      .sort((left, right) => Number(left.sort_order) - Number(right.sort_order)) };
+    const progRes = { data: allProgressRows };
 
     const ms: Milestone[] = (msRes.data || []).map((m) => ({
       milestoneId: m.milestone_id, planCycleId: m.plan_cycle_id,
@@ -2284,23 +2329,16 @@ export async function fetchCockpitFromSupabase(
         source: p.source || "", note: p.note || null, confirmedAt: p.confirmed_at,
       }));
 
-    const msIdArr = Array.from(msIds);
     let subs: SubItem[] = [];
     let resps: MilestoneResponsibility[] = [];
     let msActivities: MemberMsActivity[] = [];
     let memberActivities: MemberActivity[] = [];
-    if (msIdArr.length > 0) {
-      const [subRes, respRes, activityRes, memberActivityRes] = await Promise.all([
-        supabase.from("milestone_sub_items").select("*").in("milestone_id", msIdArr),
-        supabase.from("milestone_responsibility").select("*").in("milestone_id", msIdArr),
-        supabase.from("member_ms_activities")
-          .select("member_id, milestone_id, ym, narrative, learned_addendum, generated_at")
-          .in("milestone_id", msIdArr),
-        supabase.from("member_activities")
-          .select("*")
-          .eq("project_id", projectId)
-          .in("milestone_id", msIdArr),
-      ]);
+    if (msIds.size > 0) {
+      const subRes = { data: allSubRows.filter((row) => msIds.has(row.milestone_id)) };
+      const respRes = { data: allResponsibilityRows.filter((row) => msIds.has(row.milestone_id)) };
+      const activityRes = { data: allMsActivityRows.filter((row) => msIds.has(row.milestone_id)) };
+      const memberActivityRes = { data: allMemberActivityRows.filter((row) => msIds.has(row.milestone_id)) };
+
       subs = (subRes.data || []).map((s) => ({
         subItemId: s.sub_item_id, milestoneId: s.milestone_id,
         title: s.title, weight: Number(s.weight) || 1,
@@ -2365,10 +2403,6 @@ export async function fetchCockpitFromSupabase(
   );
 
   // Reports
-  const rpRes = await supabase
-    .from("monthly_reports")
-    .select("*")
-    .eq("project_id", projectId);
 
   const reports: ReportSummary[] = (rpRes.data || []).map((r) => ({
     reportId: r.report_id,
@@ -2470,12 +2504,6 @@ export async function fetchCockpitFromSupabase(
   });
 
   // Nudges
-  const nudgeRes = await supabase
-    .from("tsukuyomi_nudge_queue")
-    .select("*")
-    .eq("project_id", projectId)
-    .order("posted_at", { ascending: false, nullsFirst: false })
-    .limit(10);
 
   const nudges: NudgeItem[] = (nudgeRes.data || [])
     .filter((n) => !isLegacyMonthlyRoutineNudge(String(n.message || "")))
@@ -2487,10 +2515,6 @@ export async function fetchCockpitFromSupabase(
     }));
 
   // Tasks
-  const taskRes = await supabase
-    .from("tasks")
-    .select("*")
-    .eq("project_id", projectId);
 
   const tasks: TaskItem[] = (taskRes.data || []).map((t) => ({
     taskId: t.task_id,

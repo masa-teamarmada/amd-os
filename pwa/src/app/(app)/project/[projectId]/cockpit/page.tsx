@@ -8,6 +8,7 @@ import {
   NON_DEFAULT_COCKPIT_TABS,
   type CockpitTab,
 } from "@/lib/cockpit-tabs";
+import { prefetchProjectPage } from "@/lib/project-page-prefetch";
 import { fetchCockpitFromSupabase, type CockpitData } from "@/lib/supabase-data";
 
 // "progress" は既定タブなので ?tab= を付けない。それ以外は URL に残して共有・再読込で復元する。
@@ -31,10 +32,16 @@ export default function CockpitPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const projectId = params.projectId as string;
+  const selectedTab = searchParams.get("tab") ?? DEFAULT_COCKPIT_TAB;
   const legacyDd = searchParams.get("tab") === "dd";
   useEffect(() => {
     if (legacyDd) router.replace(`/project/${encodeURIComponent(projectId)}/dd`);
   }, [legacyDd, projectId, router]);
+
+  // 本文の先読みを基本データ取得と並行させ、基本データ→部品→APIの直列待ちを減らす。
+  useEffect(() => {
+    if (!legacyDd) prefetchProjectPage(projectId, selectedTab);
+  }, [projectId, selectedTab, legacyDd]);
 
   const [loadState, setLoadState] = useState<CockpitLoadState>(() => ({
     projectId,

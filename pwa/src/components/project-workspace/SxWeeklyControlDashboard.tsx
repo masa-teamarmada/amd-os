@@ -1,6 +1,8 @@
 "use client";
-import { ProjectContractList } from "@/components/project-workspace/ProjectContractList";
+import dynamic from "next/dynamic";
+import { ProjectPageLoading } from "@/components/project-space/ProjectPageLoading";
 
+import { prefetchProjectPage } from "@/lib/project-page-prefetch";
 import Link from "next/link";
 import { ProjectSpaceLayout } from "@/components/nav/ProjectSpaceLayout";
 import { ProjectPageMenu } from "@/components/nav/ProjectPageMenu";
@@ -25,7 +27,7 @@ import type {
   CurrentMemberAccess,
   ProjectWorkspaceBundle,
 } from "@/lib/project-workspace";
-import { QuestionTreeView } from "@/components/question-tree/QuestionTreeView";
+
 import { useModalContainment } from "@/components/project-workspace/useModalContainment";
 import type {
   SxActionItem,
@@ -88,29 +90,36 @@ import {
   sxWeeklyValueMissing,
   type SxWeeklyIssueStage,
 } from "@/lib/sx-weekly-control";
-import { SxUnifiedTimeline } from "./SxUnifiedTimeline";
+
 import {
   buildSxLaneFold,
   type SxDisplayLaneKey,
   type SxLaneFold,
 } from "@/lib/sx-display-lanes";
-import { SxPartnerPipeline } from "./SxPartnerPipeline";
-import { CockpitCostTab } from "@/components/cockpit/CockpitCostTab";
+
 import { DEFAULT_TABS, WORKSPACE_TAB_FORMATS, PROJECT_PAGE_LABELS, projectFormatTypeOf, type ProjectFormatType } from "@/lib/project-formats";
-import { WorkspaceDocumentRoom } from "@/components/workspace-documents/WorkspaceDocumentRoom";
-import { CockpitIpPortfolio } from "@/components/cockpit/CockpitIpPortfolio";
-import { CockpitTechnology } from "@/components/cockpit/CockpitTechnology";
-import { CockpitBusinessPlan } from "@/components/cockpit/CockpitBusinessPlan";
-import { CockpitFinancialProjection } from "@/components/cockpit/CockpitFinancialProjection";
-import { CockpitCapitalPlan } from "@/components/cockpit/CockpitCapitalPlan";
-import { CockpitCapitalPolicy } from "@/components/cockpit/CockpitCapitalPolicy";
-import { CockpitCompanyOverview } from "@/components/cockpit/CockpitCompanyOverview";
-import { WorkspaceMeetings } from "./WorkspaceMeetings";
-import { CockpitSlackMessages } from "@/components/cockpit/CockpitSlackMessages";
-import { CockpitProjectTasks } from "@/components/cockpit/CockpitProjectTasks";
+
 import { COCKPIT_GROUP_LABELS } from "@/lib/cockpit-tabs";
 import { InternalProjectSurfaceNav, ProjectSurfaceNav } from "@/components/nav/ProjectSurfaceNav";
 import styles from "./weekly-control.module.css";
+
+// 選んだページの部品だけを取得し、他ページのJSを初期表示の待ち時間に積まない。
+const ProjectContractList = dynamic(() => import("@/components/project-workspace/ProjectContractList").then((module) => module.ProjectContractList), { loading: ProjectPageLoading });
+const QuestionTreeView = dynamic(() => import("@/components/question-tree/QuestionTreeView").then((module) => module.QuestionTreeView), { loading: ProjectPageLoading });
+const SxUnifiedTimeline = dynamic(() => import("./SxUnifiedTimeline").then((module) => module.SxUnifiedTimeline), { loading: ProjectPageLoading });
+const SxPartnerPipeline = dynamic(() => import("./SxPartnerPipeline").then((module) => module.SxPartnerPipeline), { loading: ProjectPageLoading });
+const CockpitCostTab = dynamic(() => import("@/components/cockpit/CockpitCostTab").then((module) => module.CockpitCostTab), { loading: ProjectPageLoading });
+const WorkspaceDocumentRoom = dynamic(() => import("@/components/workspace-documents/WorkspaceDocumentRoom").then((module) => module.WorkspaceDocumentRoom), { loading: ProjectPageLoading });
+const CockpitIpPortfolio = dynamic(() => import("@/components/cockpit/CockpitIpPortfolio").then((module) => module.CockpitIpPortfolio), { loading: ProjectPageLoading });
+const CockpitTechnology = dynamic(() => import("@/components/cockpit/CockpitTechnology").then((module) => module.CockpitTechnology), { loading: ProjectPageLoading });
+const CockpitBusinessPlan = dynamic(() => import("@/components/cockpit/CockpitBusinessPlan").then((module) => module.CockpitBusinessPlan), { loading: ProjectPageLoading });
+const CockpitFinancialProjection = dynamic(() => import("@/components/cockpit/CockpitFinancialProjection").then((module) => module.CockpitFinancialProjection), { loading: ProjectPageLoading });
+const CockpitCapitalPlan = dynamic(() => import("@/components/cockpit/CockpitCapitalPlan").then((module) => module.CockpitCapitalPlan), { loading: ProjectPageLoading });
+const CockpitCapitalPolicy = dynamic(() => import("@/components/cockpit/CockpitCapitalPolicy").then((module) => module.CockpitCapitalPolicy), { loading: ProjectPageLoading });
+const CockpitCompanyOverview = dynamic(() => import("@/components/cockpit/CockpitCompanyOverview").then((module) => module.CockpitCompanyOverview), { loading: ProjectPageLoading });
+const WorkspaceMeetings = dynamic(() => import("./WorkspaceMeetings").then((module) => module.WorkspaceMeetings), { loading: ProjectPageLoading });
+const CockpitSlackMessages = dynamic(() => import("@/components/cockpit/CockpitSlackMessages").then((module) => module.CockpitSlackMessages), { loading: ProjectPageLoading });
+const CockpitProjectTasks = dynamic(() => import("@/components/cockpit/CockpitProjectTasks").then((module) => module.CockpitProjectTasks), { loading: ProjectPageLoading });
 
 type StageKey = SxWeeklyIssueStage;
 type SxDashboardAccess = Pick<CurrentMemberAccess, "displayName" | "isAdmin" | "scope"> & {
@@ -613,7 +622,6 @@ function hypothesisStatusLabel(status: SxHypothesis["status"]) {
     )[status] || status
   );
 }
-
 
 function issueKindLabel(kind: SxManagementIssue["knowledgeType"]) {
   return (
@@ -3635,7 +3643,6 @@ function IssueEditor({
   );
 }
 
-
 /**
  * 論点を扱う会議中に閉じない、高密度の3ペイン作業面。
  * 左=背景/仮説、中央=議論、右=判断/次の一手。子レコードの編集も右ペイン内で完結する。
@@ -4682,8 +4689,9 @@ export function SxWeeklyControlDashboard({
   const workspaceGroups = useMemo(() => workspaceGroupsForType(formatType).map((group) => ({
     ...group,
     children: group.children
-      .filter((tab) => !externalViewer || EXTERNAL_WORKSPACE_TABS.has(tab.key)),
-  })).filter((group) => group.children.length > 0), [externalViewer, formatType]);
+      .filter((tab) => !externalViewer || EXTERNAL_WORKSPACE_TABS.has(tab.key))
+      .map((tab) => ({ ...tab, onHover: () => prefetchProjectPage(bundle.project.projectId, tab.key) })),
+  })).filter((group) => group.children.length > 0), [externalViewer, formatType, bundle.project.projectId]);
   const dynamicTabs = useMemo(() => workspaceGroups.flatMap((group) => group.children), [workspaceGroups]);
 
   const externalDefaultView: SxWeeklyControlView = DEFAULT_TABS.workspaceExternal;
@@ -4694,6 +4702,9 @@ export function SxWeeklyControlDashboard({
   const [costInitialRenderer, setCostInitialRenderer] = useState<"fuel" | undefined>(undefined);
   // 埋め込み時は外から渡された view が正。単体ページのときだけ hash / localStorage を見る。
   const activeView = embedded && view ? view : internalView;
+  useEffect(() => {
+    prefetchProjectPage(bundle.project.projectId, activeView);
+  }, [bundle.project.projectId, activeView]);
   useEffect(() => {
     if (embedded) return;
     // 旧アドレスの別名を標準のタブへ読み替え、このPJタイプのフォーマットに無いタブ

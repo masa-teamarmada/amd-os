@@ -38,20 +38,23 @@ assert.match(legacyWeeklyPage, /redirect\(`\/project\/\$\{encodeURIComponent\(pr
 assert.doesNotMatch(legacyWeeklyPage, /SxWeeklyControlDashboard|getProjectWorkspaceBundle|getCurrentMemberAccess/);
 
 assert.doesNotMatch(sxWorkspaceDashboard, /supportsDrive/);
-assert.match(sxWorkspaceDashboard, /PROJECT_WORKSPACE_GROUPS/);
-assert.match(sxWorkspaceDashboard, /label: COCKPIT_GROUP_LABELS\.progress/);
-assert.match(sxWorkspaceDashboard, /label: COCKPIT_GROUP_LABELS\.businessPlan/);
-assert.match(sxWorkspaceDashboard, /label: COCKPIT_GROUP_LABELS\.documents/);
-assert.match(sxWorkspaceDashboard, /label: COCKPIT_GROUP_LABELS\.companyInformation/);
+// 現行spec 3-23ではラベル/並び/既定ページを標準フォーマットから作る。
+assert.match(sxWorkspaceDashboard, /workspaceGroupsForType\(formatType\)/);
+assert.match(sxWorkspaceDashboard, /WORKSPACE_TAB_FORMATS\[type\]/);
+assert.match(sxWorkspaceDashboard, /PROJECT_PAGE_LABELS\[tab\]/);
+assert.match(sxWorkspaceDashboard, /"progress-group": COCKPIT_GROUP_LABELS\.progress/);
+assert.match(sxWorkspaceDashboard, /"business-plan-group": COCKPIT_GROUP_LABELS\.businessPlan/);
+assert.match(sxWorkspaceDashboard, /"documents-group": COCKPIT_GROUP_LABELS\.documents/);
+assert.match(sxWorkspaceDashboard, /"company-information-group": COCKPIT_GROUP_LABELS\.companyInformation/);
 assert.doesNotMatch(sxWorkspaceDashboard, /\{ key: "project-management-group",/, "PJ管理はコックピット内部だけに置く");
 assert.doesNotMatch(sxWorkspaceDashboard, /label: "実行"|label: "計画・根拠"|label: "経営・会社"|label: "資料"/);
 assert.doesNotMatch(sxWorkspaceDashboard, /key: "objective-structure", label: "目的構造"/);
 assert.match(sxWorkspaceDashboard, /normalized === "objective-structure"\) return "gantt"/);
 assert.doesNotMatch(sxWorkspaceDashboard, /key: "overview", label: "PJ概要"/, "PJ概要 must remain cockpit-only");
 assert.doesNotMatch(sxWorkspaceDashboard, /CockpitProjectOverview/, "PJ概要 component must not be mounted in the workspace");
-assert.match(sxWorkspaceDashboard, /key: "company", label: "会社概要"/);
-assert.match(sxWorkspaceDashboard, /key: "capital-policy", label: "資本政策"/);
-assert.match(sxWorkspaceDashboard, /\{ key: "drive", label: "ドライブ" \}/);
+assert.match(sxWorkspaceDashboard, /company: "会社概要"/);
+assert.match(sxWorkspaceDashboard, /"capital-policy": "資金調達履歴"/);
+assert.match(sxWorkspaceDashboard, /drive: "ドライブ"/);
 assert.match(sxWorkspaceDashboard, /access\.principal === "workspace_account"/);
 assert.match(sxWorkspaceDashboard, /EXTERNAL_WORKSPACE_TABS/);
 const externalAllowlist = sxWorkspaceDashboard.match(/const EXTERNAL_WORKSPACE_TABS = new Set<SxWeeklyControlView>\(\[([\s\S]*?)\]\);/);
@@ -64,7 +67,7 @@ assert.match(sxWorkspaceDashboard, /<CockpitCompanyOverview[^\n]*readOnly=\{exte
 assert.doesNotMatch(companyOverview, /CockpitKillerFactorCatalog|surface/, "company page must be common and cannot contain cockpit-only catalog content");
 assert.match(governanceRoute, /loadProjectGovernance\(db, projectId\)/, "workspace and cockpit use the same governance loader");
 assert.match(governanceRoute, /hasSharedWorkspaceProjectReadAccess\(projectId\)/, "shared readers still need the exact PJ membership");
-assert.match(sxWorkspaceDashboard, /\(externalViewer \|\| isZmpWorkspace \? "issues" : "weekly"\)/);
+assert.match(sxWorkspaceDashboard, /externalViewer \? DEFAULT_TABS\.workspaceExternal : DEFAULT_TABS\.workspaceInternal/);
 assert.doesNotMatch(sxWorkspaceDashboard, /"themes"/, "retired theme tab must not return");
 assert.match(
   sxWorkspaceDashboard,

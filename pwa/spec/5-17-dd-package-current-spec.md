@@ -182,3 +182,11 @@ DD の「内部の値を外へ出さない」を満たすために、既存の�
 - `pwa/src/components/dd/**`、`pwa/src/components/cockpit/CockpitTechnology.tsx`（`TopicCard`）、`CapitalPlanMatrix.tsx`（`readOnly`）、`CockpitView.tsx`、`pwa/src/components/project-workspace/SxWeeklyControlDashboard.tsx`、`pwa/src/lib/cockpit-tabs.ts`、`pwa/src/components/admin/DdGrantLedger.tsx`
 - `pwa/scripts/migrations/455_dd_packages.sql`〜`458_dd_drop_fixed_publications.sql`、`pwa/scripts/dd_package_db_readback.sql`
 - `pwa/scripts/check_dd_package_core.mts` / `check_dd_payload.mts` / `check_dd_package_contract.mjs`
+
+## 2026-10-06 選択ページだけの読み込み（v3.159.20）
+
+`/dd/[slug]`は毎リクエストの`resolveDdPackageAccess`とnot-found境界を維持する。認可後、通常ページでは`loadDdPackageView({mode:"header"})`がパッケージとPJ名だけを読み、`loadDdProjectPage`の選択された正本本文、既存の閲覧監査を並列に取得する。無関係な掲載資料の本文や更新日時を先に読み込まない。本文は従来のDD限定DTO・非編集設定を維持する。成功応答は監査完了も待つ。停止された付与は次ページのリクエストで拒否する。
+
+開示資料一覧は`mode:"documents"`でactive/publishedかつdocumentの項目だけを元データ付きで読む。旧section URLは従来の全項目からページを解決する。`loadDdPackageView`と`loadDdPublishedLive`の既定動作、管理者プレビュー・個別項目・正式版/PDFは全公開項目のlive projectionを維持する。DDの本文部品も遅延読込する。開示範囲・キャッシュ・認可・更新/ダウンロード経路は変更しない。
+
+SOLの会社概要のデータ処理は3回中央値634→249ms、15→11リクエスト、読取量27,798→2,964バイト（認証・監査書込・画面通信を除く）。回帰ゲートは資料だけの取得、通常ページの資料取得ゼロ、既定full互換、各ページでの再認可と監査、失効後拒否を実loader/routeで検査する。

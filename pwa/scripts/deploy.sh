@@ -107,6 +107,7 @@ echo "Running critical UI / spec rollback guard ..."
 (cd "$REPO_ROOT/pwa" && npm run test:critical-ui)
 (cd "$REPO_ROOT/pwa" && npm run test:reference-data-cache)
 (cd "$REPO_ROOT/pwa" && npm run test:portfolio-home-contract)
+(cd "$REPO_ROOT/pwa" && npm run test:project-space-loading)
 # PJタイプ別の標準フォーマット（鍵付きの定義・PJ番号の名指しのラチェット）。spec 3-23。
 (cd "$REPO_ROOT/pwa" && npm run test:project-format)
 # 特定のPJだけの処理を戻さない（2026-10-04 まさ「特定のPJだけの特例を入れたらシステムにならない」、spec 3-23 §6）
