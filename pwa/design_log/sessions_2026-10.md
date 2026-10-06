@@ -187,3 +187,9 @@ f0c30d0f6ffa7a7387aff44d7cf8d3d994161c88 / v3.159.15がproduction aliasのbuild-
 - DDページの資料名・18入口・23互換キー・空状態・DD認可の検査、標準フォーマット、型検査、変更部品のESLint、本番向けbuild、deploy必須ゲートが成功。
 - 共有checkoutで同時編集された契約掲載範囲の文書をindexだけで別作業へ分離し、元の作業ファイルは保持した。本番反映はmainのクリーンな一時cloneから実施。契約範囲の後続478f37beは別セッションのcommitで、今回のnavigation差分とは分離。
 - DB・GAS・数式・ネイティブの変更なし。SESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdは別セッションの引き継ぎとして保持。
+
+### 掲載範囲修正の配信後確認
+
+478f37be1314b1dd4c9f6cdd90695a372f3c8907 / v3.159.17は公式deploy.shで4分28秒で本番反映。production aliasのbuild-infoで同一SHA、未認証GET=401を確認。反映後も実server loaderと本番DBで内部リスト1/DD1・指定NDAのみ・未締結/DD表示オンを再確認。元台帳の採用済み5件は保持。PC画面の再確認はCua接続/Statsig取得エラーで実施できず、今回のUI形状・操作は未変更として前回共通本文の確認と実route/loader回帰を代替にした。モバイル/Swift検証なし。
+
+終了: development、main aligned、committed success。恒久仕様/手順はspec5-17/3-24、manual2-3/2-6、DESIGN、FEATURE_REGISTRY。今回のコードとmigrationはmain/push/本番反映済み、conflictなし。既存未追跡SESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdはタスク報酬移行担当の所有資料として保持し、同担当がspec3-14/完了履歴で採否を判定する。今回の一時script・証跡はignored .jez、各検査ログは/tmp。対話証拠0件（製品仕様の訂正としてrepo正本に保存）。
