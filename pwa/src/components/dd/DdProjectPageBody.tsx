@@ -25,10 +25,13 @@ const ProjectLongTermPlan = dynamic(() => import("@/components/project-workspace
 
 const ProjectNextRoundOverview = dynamic(() => import("@/components/project-workspace/ProjectNextRoundOverview").then(module => module.ProjectNextRoundOverview), { loading: ProjectPageLoading });
 
+const ProjectDevelopmentIssues = dynamic(() => import("@/components/project-workspace/ProjectDevelopmentIssues").then(module => module.ProjectDevelopmentIssues), { loading: ProjectPageLoading });
+
 const noop = () => {};
 export function DdProjectPageBody({data,canDownload=false}:{data:DdLiveProjectPage;canDownload?:boolean}) {
   if ("empty" in data) return <ProjectDiligenceSection page={data.page} organizationChart={data.organizationChart} biographies={data.biographies} />;
   switch(data.page) {
+    case "development-issues": return <ProjectDevelopmentIssues projectId={data.projectId} initialData={data.issues} />;
     case "contracts": return <ProjectContractList projectId={data.projectId} initialData={data.contracts} />;
     case "technology": case "competition": case "business-model": return <CockpitTechnology key={`${data.projectId}:${data.page}`} projectId={data.projectId} mode={data.page} initialData={data.tech} />;
     case "monthly-trial": case "financial-projection": return <CockpitFinancialProjection projectId={data.projectId} initialData={data.finance} readOnly monthlyOnly={data.page === "monthly-trial"} />;

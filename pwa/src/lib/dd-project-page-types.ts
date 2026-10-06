@@ -18,6 +18,8 @@ import type { CostModelResponse } from "./project-cost-model-client";
 import type { ProjectContractListData } from "./project-contract-list";
 import type { DdEmptyPageKey } from "./dd-pages";
 
+import type { ProjectDevelopmentIssuesData } from "./project-development-issues";
+
 type Identity = { kind: "project_page"; projectId: string; projectName: string };
 export type DdLiveProjectPage = Identity & (
   | { page: DdEmptyPageKey; empty: true; biographies?: ProjectManagementBiographies | null; organizationChart?: ProjectOrganizationChartData | null }
@@ -28,6 +30,7 @@ export type DdLiveProjectPage = Identity & (
   | { page: "gantt" | "short-term-plan"; tree: QuestionTreeBundle }
   | { page: "partners"; management: SxManagementBundle }
   | { page: "business-plan" | "long-term-plan"; plan: ProjectBusinessPlan | null }
+  | { page: "development-issues"; issues: ProjectDevelopmentIssuesData | null }
   | { page: "contracts"; contracts: ProjectContractListData }
   | { page: "ip"; portfolio: IpPortfolioBundle }
   | { page: "company" | "capital-policy"; governance: CompanyOverviewData; businessSummary?: BusinessSummaryResponse }

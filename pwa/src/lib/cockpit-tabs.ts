@@ -32,6 +32,7 @@ export const COCKPIT_TABS = [
   // ビジネスモデル。技術台帳の区分「ビジネスモデル」のトピックを持つPJだけに出す (表示条件は CockpitView)。
   "business-model",
   "business-plan",
+  "development-issues",
   "financial-projection",
   "capital-plan",
   "cost-model",

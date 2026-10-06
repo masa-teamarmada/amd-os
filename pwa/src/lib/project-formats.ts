@@ -49,7 +49,7 @@ export function projectFormatTypeOf(project: { projectId: string; projectCategor
  */
 const COCKPIT_STANDARD_TABS = [
   { group: "progress-group", tabs: ["issues", "tasks", "gantt", "progress", "meetings", "slack", "weekly", "partners"] },
-  { group: "business-plan-group", tabs: ["score-detail", "technology", "competition", "business-model", "business-plan", "financial-projection", "capital-plan", "cost-model", "ip"] },
+  { group: "business-plan-group", tabs: ["score-detail", "technology", "competition", "business-model", "business-plan", "development-issues", "financial-projection", "capital-plan", "cost-model", "ip"] },
   { group: "project-management-group", tabs: ["overview", "project-contracts", "project-finance", "monthly-reports"] },
   { group: "company-information-group", tabs: ["company", "organization-chart", "employee-register", "contracts", "killer-factors", "capital-policy", "activity"] },
   { group: "documents-group", tabs: ["documents"] },
@@ -73,7 +73,7 @@ export const COCKPIT_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ grou
 /** PJワークスペース（PJメンバーと共有する面）のタブ。コックピットと同じく、タイプごとに全タブを出す。 */
 const WORKSPACE_STANDARD_TABS = [
   { group: "progress-group", tabs: ["issues", "tasks", "gantt", "meetings", "slack", "weekly", "partners"] },
-  { group: "business-plan-group", tabs: ["technology", "competition", "business-model", "business-plan", "financial-projection", "capital-plan", "cost", "ip"] },
+  { group: "business-plan-group", tabs: ["technology", "competition", "business-model", "business-plan", "development-issues", "financial-projection", "capital-plan", "cost", "ip"] },
   { group: "company-information-group", tabs: ["company", "organization-chart", "employee-register", "contracts", "capital-policy"] },
   { group: "documents-group", tabs: ["drive"] },
 ] as const;
@@ -96,7 +96,7 @@ export const ROLE_RESTRICTED_TABS: Readonly<Record<string, "amd_admin">> = {};
 // 従来の共通ページキー。旧URL・正式版PDFとの互換用。左メニューはDD_ITEM_PAGESを使う。
 export const DD_TAB_FORMAT = [
   { group: "progress-group", tabs: ["gantt", "partners"] },
-  { group: "business-plan-group", tabs: ["technology", "competition", "business-model", "business-plan", "financial-projection", "capital-plan", "cost-model", "ip"] },
+  { group: "business-plan-group", tabs: ["technology", "competition", "business-model", "business-plan", "development-issues", "financial-projection", "capital-plan", "cost-model", "ip"] },
   { group: "company-information-group", tabs: ["company", "capital-policy", "activity"] },
   { group: "documents-group", tabs: ["documents"] },
 ] as const;
@@ -114,6 +114,7 @@ export const DD_ITEM_PAGES = [
   { key: "team", label: "経営陣略歴", related: [] },
   { key: "organization-chart", label: "組織図", related: [] },
   { key: "business-plan", label: "フェーズマトリクス", related: [] },
+  { key: "development-issues", label: "開発課題", related: [] },
   { key: "business-model", label: "ビジネスモデル", related: [] },
   { key: "short-term-plan", label: "短期計画", related: [] },
   { key: "long-term-plan", label: "長期計画", related: [] },
@@ -147,7 +148,7 @@ export const DD_ITEM_PAGES = [
 /** DD資料目録の7分類。全PJ共通、開示資料は一覧下部に常設する。 */
 export const DD_NAVIGATION_GROUPS = [
   { key: "company", label: "会社・経営体制", pages: ["company", "team", "organization-chart", "articles-of-incorporation", "corporate-register", "internal-rules", "governance"] },
-  { key: "business", label: "事業計画関連", pages: ["business-model", "business-plan", "short-term-plan", "long-term-plan", "market-research", "competition", "partners", "sales-partners", "cost-model"] },
+  { key: "business", label: "事業計画関連", pages: ["business-model", "business-plan", "short-term-plan", "long-term-plan", "development-issues", "market-research", "competition", "partners", "sales-partners", "cost-model"] },
   { key: "technology", label: "技術・製品・開発・製造", pages: ["technology", "product-description", "development-plan", "technical-evidence", "manufacturing", "quality-control", "supply-chain"] },
   { key: "rights", label: "知財・契約", pages: ["ip", "university-rights", "contracts"] },
   { key: "finance", label: "財務・資金調達", pages: ["financial-projection", "monthly-trial", "financial-statements", "tax-returns", "capital-plan", "next-round-overview", "shareholder-register", "next-round-term-sheet"] },
@@ -157,6 +158,7 @@ export const DD_NAVIGATION_GROUPS = [
 
 /** 3領域のページ名。ワークスペースの旧キー cost/drive は同じページへ対応する。 */
 export const PROJECT_PAGE_LABELS: Readonly<Record<string, string>> = {
+  "development-issues": "開発課題",
   "short-term-plan": "短期計画",
   "long-term-plan": "長期計画",
   "monthly-trial": "月次試算表",

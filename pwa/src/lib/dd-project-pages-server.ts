@@ -2,6 +2,7 @@ import { loadProjectManagementBiographies } from "./project-management-biographi
 import { loadProjectOrganizationChart } from "./project-organization-chart-server";
 import { loadProjectGovernance } from "./project-governance-server";
 import "server-only";
+import { loadProjectDevelopmentIssues } from "./project-development-issues-server";
 import { loadProjectContractList } from "./project-contract-list-server";
 import { createAdminClient } from "./supabase/admin";
 import { buildDagHealth } from "./project-management-logic";
@@ -27,6 +28,7 @@ export async function loadDdProjectPage(projectId: string, page: string): Promis
   const identity = await db.from("projects").select("project_name,display_name,project_category").eq("project_id", projectId).single();
   if (identity.error) throw new Error(identity.error.message);
   const base = { kind: "project_page" as const, projectId, projectName: identity.data.display_name || identity.data.project_name };
+  if (page === "development-issues") return { ...base, page, issues: await loadProjectDevelopmentIssues(db, projectId) };
   if (page === "contracts") return { ...base, page, contracts: await loadProjectContractList(db, projectId, true, false) };
   if (page === "team") return { ...base, page, empty: true, biographies: await loadProjectManagementBiographies(db, projectId) };
   if (isDdEmptyPageKey(page)) return { ...base, page, empty: true, ...(page === "organization-chart" ? { organizationChart: await loadProjectOrganizationChart(db, projectId) } : {}) };

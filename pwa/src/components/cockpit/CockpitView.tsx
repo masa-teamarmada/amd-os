@@ -1,6 +1,7 @@
 "use client";
 
 import { ProjectPageTitle } from "@/components/nav/PageTitleSetter";
+import { ProjectDevelopmentIssues } from "@/components/project-workspace/ProjectDevelopmentIssues";
 import { ProjectOrganizationChart } from "@/components/project-workspace/ProjectOrganizationChart";
 import { ProjectEmployeeRegister } from "@/components/project-workspace/ProjectEmployeeRegister";
 
@@ -454,7 +455,8 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     "project-finance": "収支",
     "capital-policy": "資金調達履歴",
     company: "会社概要",
-    "organization-chart": "組織図",
+    "development-issues": "開発課題",
+  "organization-chart": "組織図",
     "employee-register": "従業員名簿",
     contracts: "契約リスト",
     "killer-factors": "キラー要素",
@@ -843,6 +845,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
         </section>
       )}
 
+      {activeTab === "development-issues" && <section role="tabpanel" aria-label="開発課題"><ProjectDevelopmentIssues key={cockpit.project.projectId} projectId={cockpit.project.projectId} /></section>}
       {activeTab === "organization-chart" && <section role="tabpanel" aria-label="組織図"><ProjectOrganizationChart projectId={cockpit.project.projectId} /></section>}
       {activeTab === "employee-register" && <section role="tabpanel" aria-label="従業員名簿"><ProjectEmployeeRegister /></section>}
       {activeTab === "contracts" && <section role="tabpanel" aria-label="契約リスト" className="min-w-0"><ProjectContractList key={project.projectId} projectId={project.projectId} /></section>}
