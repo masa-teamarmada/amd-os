@@ -3,7 +3,7 @@
 ## 登録した組織・協業図の表示（2026-10-06）
 
 - 全PJ共通で project_config の key=organization_chart を読み、version=1のJSON（会議体、部署、役割、担当表記、協業先、部署との接続、proposed/confirmed、確認日、出典、注記）を同じ部品で表示する。未登録は既存ひな形。登録値の不正・読取失敗はエラーとし、未登録へ置き換えない。
-- コックピット・ワークスペースは GET /api/project-organization-chart?projectId=...。内部メンバーまたは当該PJの既存共有閲覧範囲を確認して、当該キーだけを返す。DDは既存の入場・掲載認可後にサーバで同じ値を読み、初期値を渡す。DDの部品は汎用APIを呼ばない。
+- コックピット・ワークスペースは GET /api/project-organization-chart?projectId=...。参照系の共通キャッシュにPJ単位・30秒TTLで載せ、同時取得を1本にまとめる。内部メンバーまたは当該PJの既存共有閲覧範囲を確認して、当該キーだけを返す。DDは既存の入場・掲載認可後にサーバで同じ値を読み、初期値を渡す。DDの部品は汎用APIを呼ばない。
 - 会議体から部署へ縦の実線、登録された協業先へ両矢印。部署・協業先の役割は箇条書き。人員・会議体・取引関係は推定しない。proposedは「組織案」、confirmedは「登録済み」を表示し、組織案を登記済み・参画合意済みと扱わない。
 - 今回は表示と明示指定された組織案の登録。画面の編集・自動採用・正式版PDFへの追加・DBスキーマ変更・新しい閲覧権限は追加しない。未登録PJの鍵付きひな形と入口は維持する。
 - データ契約は project-organization-chart.ts、読取は project-organization-chart-server.ts、表示は ProjectOrganizationChart / RegisteredOrganizationChart、検証は test:organization-chart。iOS/macOS/Androidのネイティブ表示は未移植。

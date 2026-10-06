@@ -1,18 +1,19 @@
 "use client";
 import { useEffect, useState } from "react";
-import { parseProjectOrganizationChart, type ProjectOrganizationChartData } from "@/lib/project-organization-chart";
+import { type ProjectOrganizationChartData } from "@/lib/project-organization-chart";
+import { loadProjectOrganizationChartClient, peekProjectOrganizationChart } from "@/lib/project-organization-chart-client";
 import { RegisteredOrganizationChart } from "./RegisteredOrganizationChart";
 export function ProjectOrganizationChart({ projectId, initialData }: { projectId?: string; initialData?: ProjectOrganizationChartData | null }) {
-  const [state, setState] = useState<{ projectId?: string; chart: ProjectOrganizationChartData | null; loading: boolean; error?: string }>({ projectId, chart: initialData ?? null, loading: initialData === undefined && Boolean(projectId) });
+  const [state, setState] = useState<{ projectId?: string; chart: ProjectOrganizationChartData | null; loading: boolean; error?: string }>({ projectId, chart: initialData ?? (projectId ? peekProjectOrganizationChart(projectId) ?? null : null), loading: initialData === undefined && Boolean(projectId) && peekProjectOrganizationChart(projectId!) === undefined });
   useEffect(() => {
     if (initialData !== undefined || !projectId) return;
-    const controller = new AbortController();
-    setState({ projectId, chart: null, loading: true });
-    fetch("/api/project-organization-chart?projectId=" + encodeURIComponent(projectId), { signal: controller.signal, cache: "no-store" })
-      .then(async (r) => { const body = await r.json(); if (!r.ok || !body.ok) throw new Error(body.error || "組織図を読み込めなかった"); return parseProjectOrganizationChart(body.chart); })
-      .then((chart) => setState({ projectId, chart, loading: false }))
-      .catch((e) => { if (!controller.signal.aborted) setState({ projectId, chart: null, loading: false, error: e instanceof Error ? e.message : "組織図を読み込めなかった" }); });
-    return () => controller.abort();
+    let active = true;
+    const cached = peekProjectOrganizationChart(projectId);
+    setState({ projectId, chart: cached ?? null, loading: cached === undefined });
+    loadProjectOrganizationChartClient(projectId)
+      .then((chart) => { if (active) setState({ projectId, chart, loading: false }); })
+      .catch((e) => { if (active) setState({ projectId, chart: null, loading: false, error: e instanceof Error ? e.message : "組織図を読み込めなかった" }); });
+    return () => { active = false; };
   }, [projectId, initialData]);
   if (initialData !== undefined) return initialData ? <RegisteredOrganizationChart data={initialData} /> : <OrganizationChartTemplate />;
   if (state.loading || state.projectId !== projectId) return <p className="py-3 text-sm text-slate-500" role="status">組織図を読み込んでいるよ</p>;
