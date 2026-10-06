@@ -2,6 +2,7 @@
 
 2026-10-06: DDの左メニューは18資料の目録。資本政策表・株主名簿・次回ラウンドタームシートを独立させ、全項目を資料名で表示。名簿・タームシートは原本未登録の空状態。既存共通本文・認可・旧URLは保持。
 
+
 2026-10-06: ホーム・コックピットの全体導線は `GlobalMenu` のメニューアイコン「≡」に集約。3スペースは `ProjectSpaceLayout` で左メニュー、分類と子ページは `ProjectPageMenu` / `DdNavigation`。ホームPJリンクは別タブが既定。`test:critical-ui` で入口・左レイアウト・44px操作・先読み・別タブ属性を保護する。
 
 ## PJの並列の3領域（2026-10-04）
@@ -1021,7 +1022,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 ## PJ契約リスト（2026-10-06）
 
-- 導線: cockpit `?tab=contracts`、workspace `#contracts`、DD `?tab=contracts`。共通 `ProjectContractList`。契約当事者と関連PJを区別し、採用済みでproject_party/project_relatedの契約を未締結を含め集計。スタジオ業務契約・未分類は除外（migration483）。
+- 導線: cockpit `?tab=contracts`、workspace `#contracts`、DD `?tab=contracts`。共通 `ProjectContractList`。契約当事者と関連PJを区別し、採用済み契約を未締結を含め集計。
 - 操作: 内部admin/portfolio memberまたは当該PJ workspace managerが契約ごとの「DDに表示」チェックを変更。readonly/contributor/DD-onlyは変更不可。非表示行はDD payloadに含めない。
 - 正本/API: `contracts.dd_visible`、migration482、`/api/project/[projectId]/contract-list`、`project-contract-list-server/client`。原メール・内部メモ・添付公開の拡張なし。
 - Guard: `test:project-contract-list`、`test:dd-package`、`test:project-format`、`test:reference-data-cache`。仕様: spec5-17/3-24、manual2-3/2-6、ios/DESIGN。
