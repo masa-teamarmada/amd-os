@@ -20,6 +20,7 @@ import {
   DEFAULT_READER_SETTINGS,
   READER_STORAGE_KEYS,
   readerChapterHref,
+  readerShowsIntro,
   type ReaderBookmark,
   type ReaderChapterContent,
   type ReaderSettings,
@@ -736,6 +737,12 @@ function ReaderViewInner({ content, initialTheme, children, openingSlug, onOpenC
     );
   }, [headings, blockIndexOfId, layoutVersion, view.blockIndex]);
 
+  // 目次で「導入」を強調する条件: 読んでいるページが、章の最初の節より前（章の扉と導入のページ）にある。
+  // 画面の先頭ブロックが分かっていて（割り付けが済んでいて）、それより前に目次の見出しが 1 つも無いとき。
+  // 最初の節に入れば activeHeadingId が決まり、節や項の強調に替わる
+  const introActive =
+    readerShowsIntro(chapter, headings.length) && view.blockIndex !== null && activeHeadingId === null;
+
   const toggleBookmark = useCallback(() => {
     if (marked) {
       const rest = bookmarks.filter(
@@ -945,6 +952,7 @@ function ReaderViewInner({ content, initialTheme, children, openingSlug, onOpenC
           onJumpBookmark={jumpBookmark}
           onRemoveBookmark={removeBookmark}
           activeHeadingId={activeHeadingId}
+          introActive={introActive}
           openingSlug={openingSlug}
           onOpenChapter={onOpenChapter}
           onCollapse={collapseToc}
@@ -1033,6 +1041,7 @@ function ReaderViewInner({ content, initialTheme, children, openingSlug, onOpenC
         canSpread={wide}
         spreadNeedsTocClosed={tocShown && !wide && viewportWidth >= SPREAD_MIN_WIDTH}
         activeHeadingId={activeHeadingId}
+        introActive={introActive}
         openingSlug={openingSlug}
         onOpenChapter={onOpenChapter}
       />

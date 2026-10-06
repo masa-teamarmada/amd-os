@@ -3,7 +3,8 @@
 // load.ts（`@/` 別名を使う）は、register_ts_aliases.mjs で別名を解く登録をしてから読み込む。
 // ReaderMarkdown.tsx（JSX と css の import を含む）は、typescript で変換した写しを
 // node_modules/.cache の下に作って読み込み、react-dom/server で描く。
-// 章の扉と節番号の分け方（heading-parts.ts）、目次が持つ全章の見出し（bookHeadings）、文字の色の比も確かめる。
+// 章の扉と節番号の分け方（heading-parts.ts）、目次が持つ全章の見出し（bookHeadings）、目次の「導入」の判定
+// （chapterHasIntro。章の題から最初の節までの本文の有無）、文字の色の比も確かめる。
 // Run: npm run test:bzm-reader
 
 import assert from "node:assert/strict";
@@ -15,6 +16,7 @@ import { BZM_PARTS } from "../src/app/(app)/bzm/bzm-chapters.ts";
 import { headingAnchorId } from "../src/lib/heading-anchor.ts";
 import { READER_LIBRARY } from "../src/lib/bzm-reader/library.ts";
 import {
+  chapterHasIntro,
   countReaderChars,
   ensureLeadingH1,
   extractReaderHeadings,
@@ -41,6 +43,7 @@ import {
   readerAssetHref,
   readerChapterHref,
   readerHeadingHref,
+  readerShowsIntro,
 } from "../src/lib/bzm-reader/types.ts";
 
 const opts = { file: "book-a-ch-1.md", bookId: "book-a", bookChapterSlugs: ["book-a-ch-1", "book-a-ch-2"] };
@@ -207,6 +210,57 @@ const soft = (cond: boolean, message: string) => {
   ]);
   const withAttr = extractReaderHeadings("## Title {-}", headingAnchorId);
   assert.deepEqual(withAttr, [{ id: headingAnchorId("Title"), text: "Title", level: 2 }]);
+}
+
+// ---------------------------------------------------------------------------
+// (c2) chapterHasIntro: 目次の「導入」の項目を置くか。
+// 章の題（最初の h1）から、目次に載る最初の見出し（h2。h2 より先に h3 が来る原稿はその h3）までに、空白以外の本文があるか
+// ---------------------------------------------------------------------------
+{
+  // h1 の後に段落があり、そのあとに節が来る
+  assert.equal(chapterHasIntro("# 第1章　題\n\n導入の段落。\n\n## 1.1 最初の節\n\n本文"), true);
+  assert.equal(chapterHasIntro("# 序章　題\n\n導入の段落。\n\n> 本章の到達目標\n\n## 0.1 最初の節"), true);
+  // h1 のすぐ後に h2（間は空行だけ、または改行だけ）
+  assert.equal(chapterHasIntro("# 第1章　題\n\n## 1.1 最初の節\n\n本文"), false);
+  assert.equal(chapterHasIntro("# 第1章　題\n## 1.1 最初の節\n\n本文"), false);
+  // 間の空行がいくつあっても、空白だけの行（全角の空白を含む）があっても、本文ではない
+  assert.equal(chapterHasIntro("# 題\n\n\n   \n　\n\n## 節\n\n本文"), false);
+  // 段落以外（リスト、表、図、引用、h4 の見出し）も本文
+  assert.equal(chapterHasIntro("# 題\n\n- 到達目標\n\n## 節"), true);
+  assert.equal(chapterHasIntro("# 題\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n## 節"), true);
+  assert.equal(chapterHasIntro("# 題\n\n![図](/api/bzm-reader/asset/a.png)\n\n## 節"), true);
+  assert.equal(chapterHasIntro("# 題\n\n#### 小見出し\n\n## 節"), true);
+  // 改行コードは問わない。見出し属性 {-} つきの h1 も h1
+  assert.equal(chapterHasIntro("# 題\r\n\r\n導入\r\n\r\n## 節"), true);
+  assert.equal(chapterHasIntro("# 題 {-}\n\n導入\n\n## 節"), true);
+  // h1 が無い原稿は false（導入は章の題の直後から数える）
+  assert.equal(chapterHasIntro("本文だけ\n\n## 節\n\n本文"), false);
+  assert.equal(chapterHasIntro("## 節\n\n本文"), false);
+  assert.equal(chapterHasIntro(""), false);
+  // コードブロックの中の # に惑わされない。中の「# 題」は h1 ではなく、そのせいで導入ありにならない
+  assert.equal(chapterHasIntro("```\n# コードの中の見出しに見える行\n```\n\n本文\n\n## 節"), false);
+  assert.equal(chapterHasIntro("~~~\n# 同じく\n~~~\n\n本文"), false);
+  // コードブロックそのものは本文。中の ## は節の始まりではない
+  assert.equal(chapterHasIntro("# 題\n\n```\n## コードの中の節に見える行\n```\n\n## 節"), true);
+  assert.equal(chapterHasIntro("# 題\n\n~~~\n## コードの中\n~~~"), true);
+  // 最初の節より後のコードブロックは導入ではない
+  assert.equal(chapterHasIntro("# 題\n\n## 節\n\n```\n# コードの中\n```\n\n本文"), false);
+  // 節が 1 つも無い章は、h1 より後のすべてが導入。h1 だけで本文が無ければ false
+  assert.equal(chapterHasIntro("# 題\n\n本文だけで節が無い"), true);
+  assert.equal(chapterHasIntro("# 題"), false);
+  assert.equal(chapterHasIntro("# 題\n\n\n"), false);
+  // 補足資料のように h1 の後が h3 から始まる原稿は、最初の h3 を最初の節として扱う（h2 だけを境にすると全章が導入ありになる）
+  assert.equal(chapterHasIntro("# SM-A. 題\n\n### A.0 最初の項\n\n本文"), false);
+  assert.equal(chapterHasIntro("# SM-B. 題\n\n導入の文\n\n### B.1 最初の項\n\n本文"), true);
+  // 見るのは最初の節より前だけ。節が複数あっても、最初の節より後の本文は導入ではない
+  assert.equal(chapterHasIntro("# 題\n\n導入\n\n## 節\n\n本文\n\n## 次の節"), true);
+  assert.equal(chapterHasIntro("# 題\n\n## 節\n\n本文\n\n導入のように見える文\n\n## 次の節"), false);
+
+  // 目次に「導入」を置くか。見出しが 1 つも無い章は、導入の本文が空でも置く（章の最初へ移る入口を残す）
+  assert.equal(readerShowsIntro({ hasIntro: true }, 3), true);
+  assert.equal(readerShowsIntro({ hasIntro: false }, 3), false);
+  assert.equal(readerShowsIntro({ hasIntro: false }, 0), true);
+  assert.equal(readerShowsIntro({ hasIntro: true }, 0), true);
 }
 
 // countReaderChars: 画面に見える字に近づける（URL・図・数式の原文は数えない）
@@ -528,9 +582,9 @@ function strayDollars(text: string): number {
   const book = {
     totalChars: 1000,
     chapters: [
-      { slug: "c1", title: "1", exists: true, charCount: 400 },
-      { slug: "c2", title: "2", exists: false, charCount: 0 },
-      { slug: "c3", title: "3", exists: true, charCount: 600 },
+      { slug: "c1", title: "1", exists: true, charCount: 400, hasIntro: true },
+      { slug: "c2", title: "2", exists: false, charCount: 0, hasIntro: false },
+      { slug: "c3", title: "3", exists: true, charCount: 600, hasIntro: false },
     ],
   };
   assert.equal(bookProgressFraction(book, "c1", 0), 0);
@@ -695,6 +749,7 @@ function strayDollars(text: string): number {
       assert.deepEqual(content.headings, []);
       assert.deepEqual(content.notes, []);
       assert.equal(content.chapter.charCount, 0);
+      assert.equal(content.chapter.hasIntro, false, `${manifest.id}/${chapter.slug}: 未執筆の章に導入がある`);
       assert.ok(content.chapter.title.length > 0);
       unwritten += 1;
     }
@@ -738,6 +793,59 @@ function strayDollars(text: string): number {
     soft(chaptersChecked >= 40, `bookHeadings を突き合わせた章が少ない: ${chaptersChecked}`);
     soft(headingsTotal >= 800, `bookHeadings を突き合わせた見出しが少ない: ${headingsTotal}`);
     console.log(`  bookHeadings: ${chaptersChecked} 章、見出し ${headingsTotal} 件が、各章の headings と一致`);
+  }
+
+  // 章の最初の文章（hasIntro）: load.ts が、前処理後の本文から章ごとに求める。
+  // 目次は、これが true の章の見出しの一覧の先頭に「導入」を置き、章の行は見出しを開閉するだけにする
+  {
+    const bzm30 = getReaderBook("bzm30-textbook");
+    assert.ok(bzm30);
+    // BZM 3.0教科書の序章と第1章は、扉の導入の段落があるので導入ありになる
+    for (const slug of ["bzm-3-0-textbook-introduction", "bzm-3-0-textbook-industrial-value"]) {
+      const content = getReaderChapterContent("bzm30-textbook", slug);
+      assert.ok(content && content.chapter.exists, `${slug}: 章が無い`);
+      assert.equal(content.chapter.hasIntro, true, `${slug}: 章の題と最初の節のあいだに本文があるのに、導入なしになっている`);
+      assert.equal(bzm30.chapters[content.chapterIndex].hasIntro, true, `${slug}: 棚の章の情報（book.chapters）にも導入ありが載る`);
+      assert.ok(content.headings.length > 0, `${slug}: 見出しが無い`);
+      assert.equal(readerShowsIntro(content.chapter, content.headings.length), true);
+    }
+    // 全章: 書けている章の hasIntro は、前処理後の本文を chapterHasIntro に通した値と一致する。
+    // どの章（どの章のページでも）の book.chapters にも載り、未執筆の章は false
+    let withIntro = 0;
+    let withoutIntro = 0;
+    let headingless = 0;
+    for (const manifest of READER_LIBRARY) {
+      const book = getReaderBook(manifest.id);
+      assert.ok(book, manifest.id);
+      for (const chapter of book.chapters) {
+        assert.equal(typeof chapter.hasIntro, "boolean", `${manifest.id}/${chapter.slug}: hasIntro が無い`);
+        const content = getReaderChapterContent(manifest.id, chapter.slug);
+        assert.ok(content, `${manifest.id}/${chapter.slug}`);
+        assert.deepEqual(content.book.chapters, book.chapters, `${manifest.id}/${chapter.slug}: 章ごとに book.chapters が違う`);
+        if (!chapter.exists) {
+          assert.equal(chapter.hasIntro, false, `${manifest.id}/${chapter.slug}: 未執筆の章に導入がある`);
+          continue;
+        }
+        assert.equal(
+          chapter.hasIntro,
+          chapterHasIntro(content.markdown),
+          `${manifest.id}/${chapter.slug}: hasIntro が前処理後の本文の判定と違う`,
+        );
+        // 書けている章は、目次で必ず 1 項目以上を持つ（導入か見出し）。見出しが 1 つも無い章（論文の Abstract など）は「導入」だけが出る
+        const items = (readerShowsIntro(chapter, content.headings.length) ? 1 : 0) + content.headings.length;
+        assert.ok(items >= 1, `${manifest.id}/${chapter.slug}: 目次の項目が 1 つも無く、章の最初へ移る入口が無い`);
+        if (content.headings.length === 0) headingless += 1;
+        if (chapter.hasIntro) withIntro += 1;
+        else withoutIntro += 1;
+      }
+    }
+    // 実原稿の件数は原稿の書き換えで動くので、下限は警告だけにする
+    soft(withIntro >= 30, `導入ありの章が少ない: ${withIntro}`);
+    soft(withoutIntro >= 5, `導入なしの章が少ない: ${withoutIntro}`);
+    // h1 の直後に節が来る章（補足資料 SM-A は、h1 の後がすぐ h3 の項）は、導入なしになる
+    const smA = getReaderBook("p1-supplement")?.chapters.find((c) => c.slug === "sm-a");
+    if (smA?.exists) soft(smA.hasIntro === false, "SM-A は h1 のすぐ後が最初の項なので導入なしの前提が崩れた");
+    console.log(`  導入: 導入あり ${withIntro} 章、なし ${withoutIntro} 章（見出しの無い章 ${headingless} 章）`);
   }
 
   // 取り決め C: 論文の引用は、文献一覧の章へ飛ぶリンクに書き換わり、書誌が title に入る

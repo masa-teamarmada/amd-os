@@ -3842,8 +3842,9 @@ expectIncludes("src/components/bzm-reader/ReaderView.tsx", [
 expectIncludes("src/components/bzm-reader/ReaderTocColumn.tsx", ['data-bzr-toc-col="true"', "ReaderTocContent"]);
 expectIncludes("src/components/bzm-reader/reader-shell.css", [".bzr-toc-col {", "--bzr-toc-w", ".bzr-gutter::after"]);
 // 書斎の目次（2026-10-04、設計 §6.4）: 章の題を押して新しい章のサーバ描画が届くまで 3〜4 秒待っていた。
-// (1) 本の全章の見出しを最初から持ち（bookHeadings）、各章の行の右端の矢印（aria-expanded、44px）で、画面遷移なしに見出しを開閉する。
-// (2) 別の章の題か見出しを押したら、その章を目次で即座に「開いている章」にして「開いています…」を出し、画面の最上部に進行の帯を出して本文を薄くする。
+// (1) 本の全章の見出しを最初から持ち（bookHeadings）、各章の行ぜんたいが 1 つの開閉のボタン（aria-expanded、44px 以上）で、画面遷移なしに見出しを開閉する。
+//     章の行は開閉だけで本文へ移らない（2026-10-06）。章の最初の文章（導入）は、見出しの一覧の先頭の「導入」の項目から開く。
+// (2) 別の章の「導入」か見出しを押したら、その章を目次で即座に「開いている章」にして「開いています…」を出し、画面の最上部に進行の帯を出して本文を薄くする。
 //     届いた（章が替わった）ことは effect の中の setState ではなく、描画の中で前の章と比べて解く。
 // (3) 章の先読みは完全な先読み（PrefetchKind.FULL。既定の auto は、loading.js の無い動的なページでは実質なにも運ばない）。
 //     ポインタ・フォーカス・タッチの意図で始め、今の章の最初の割り付けが済んでブラウザが空いたら前後の章を先読みする（データセーバーでは自動の先読みをしない）。
@@ -3852,9 +3853,9 @@ expectIncludes("src/lib/bzm-reader/load.ts", ["bookHeadings: loaded.headingsBySl
 expectIncludes("src/lib/bzm-reader/types.ts", ["bookHeadings: Record<string, ReaderHeading[]>;", "export function readerHeadingHref("]);
 expectIncludes("src/app/(app)/bzm/read/[book]/[chapter]/page.tsx", ["bookHeadings"]);
 expectIncludes("src/components/bzm-reader/ReaderPanels.tsx", [
-  'className="bzr-toc-toggle"',
-  "aria-expanded={open}",
-  "の見出しを${open ? \"閉じる\" : \"開く\"}",
+  'cn("bzr-toc-item", "bzr-toc-toggle"',
+  "aria-expanded={expanded}",
+  "の見出しを${expanded ? \"閉じる\" : \"開く\"}",
   "readerHeadingHref(book.id, chapter.slug, h.id)",
   "bookHeadings[chapter.slug]",
   "開いています…",
@@ -3864,6 +3865,47 @@ expectIncludes("src/components/bzm-reader/ReaderPanels.tsx", [
   "prefetchChapterFull(router, href)",
 ]);
 expectNotIncludes("src/components/bzm-reader/ReaderPanels.tsx", ["router.prefetch(readerChapterHref("]);
+// 章の行は、見出しの一覧を開閉するだけのボタン。この範囲（章の行ここから〜ここまで）に、本文へ移るリンクや遷移を置かない
+// （置くと、章の最初の文章が「折りたたむ側」の行に紛れ、開閉と遷移が 1 つの押下に混ざる）。開閉の処理（toggleChapter）も遷移しない。
+expectSegmentNotIncludes(
+  "src/components/bzm-reader/ReaderPanels.tsx",
+  "{/* 章の行（開閉のボタン）ここから",
+  "{/* 章の行ここまで */}",
+  ["<Link", "href=", "router.push", "onJumpChapterStart", "onOpenChapter", "openClick("],
+);
+expectSegmentNotIncludes(
+  "src/components/bzm-reader/ReaderPanels.tsx",
+  "const toggleChapter = (slug: string) => {",
+  "// パネルを開いたとき",
+  ["router.push", "onOpenChapter", "onJumpChapterStart"],
+);
+expectPattern("src/components/bzm-reader/ReaderPanels.tsx", [
+  // 章の行は、type="button" のボタンで、aria-expanded を持ち、押すと toggleChapter（開閉）を呼ぶ
+  /章の行（開閉のボタン）ここから[\s\S]*?<button\s+type="button"[\s\S]*?aria-expanded=\{expanded\}[\s\S]*?onClick=\{\(\) => toggleChapter\(chapter\.slug\)\}[\s\S]*?章の行ここまで/,
+  // 「導入」の項目は、見出しの一覧の先頭（見出しの list.map より前）。いまの章は同じ画面の中で章の最初へ、別の章は ?at=start で最初のページから開く
+  /showIntro \? \([\s\S]*?onClick=\{onJumpChapterStart\}[\s\S]*?導入[\s\S]*?readerChapterHref\(book\.id, chapter\.slug, "start"\)[\s\S]*?導入[\s\S]*?\{list\.map\(/,
+]);
+expectIncludes("src/components/bzm-reader/ReaderPanels.tsx", [
+  "readerShowsIntro(chapter, list.length)",
+  'data-intro="true"',
+  "introActive",
+  "onClick={openClick(chapter.slug)}",
+  "{...intentProps(chapter.slug, \"start\")}",
+]);
+// 目次の「導入」の有無は章ごとに持つ（hasIntro。前処理後の本文で、章の題から最初の節までに本文があるか）。
+// 読んでいるページが最初の節より前のときは、目次の「導入」を今いる場所として強調する（introActive）
+expectIncludes("src/lib/bzm-reader/types.ts", ["hasIntro: boolean;", "export function readerShowsIntro("]);
+expectIncludes("src/lib/bzm-reader/preprocess.ts", ["export function chapterHasIntro("]);
+expectIncludes("src/lib/bzm-reader/load.ts", [
+  "hasIntro: chapterHasIntro(markdown)",
+  "hasIntro: chapterHasIntro(section.markdown)",
+  "hasIntro: false",
+]);
+expectIncludes("src/components/bzm-reader/ReaderView.tsx", [
+  "readerShowsIntro(chapter, headings.length)",
+  "introActive={introActive}",
+]);
+expectIncludes("src/components/bzm-reader/ReaderTocColumn.tsx", ["introActive"]);
 expectIncludes("src/components/bzm-reader/chapter-prefetch.ts", [
   'import { PrefetchKind } from "next/dist/client/components/router-reducer/router-reducer-types";',
   "router.prefetch(href, { kind: PrefetchKind.FULL })",
@@ -3883,7 +3925,19 @@ expectIncludes("src/components/bzm-reader/ReaderView.tsx", [
 ]);
 // 解除を effect の中の setState にしない（描画の中で前の章と比べる）
 expectNotIncludes("src/components/bzm-reader/ReaderView.tsx", ["useEffect(() => {\n    setOpeningSlug"]);
-expectIncludes("src/components/bzm-reader/reader-shell.css", [".bzr-toc-toggle {", ".bzr-toc-row.is-opening", ".bzr-progress {", '.bzr-root[data-opening="true"] .bzr-viewport']);
+expectIncludes("src/components/bzm-reader/reader-shell.css", [
+  ".bzr-toc-toggle {",
+  ".bzr-toc-chevron {",
+  ".bzr-toc-row > .bzr-toc-opening {",
+  ".bzr-toc-row.is-opening",
+  ".bzr-progress {",
+  '.bzr-root[data-opening="true"] .bzr-viewport',
+]);
+// 目次で押せる部品（章の行のボタンと、見出し・「導入」の項目）は高さ 44px 以上
+expectPattern("src/components/bzm-reader/reader-shell.css", [
+  /\.bzr-toc-item \{[^}]*min-height: 44px;[^}]*\}/,
+  /\.bzr-toc-sub-item \{[^}]*min-height: 44px;[^}]*\}/,
+]);
 // 章と節の区切り（2026-10-04、設計 §5）: 章の扉（ラベルと大きな題）、節番号の色分け、ページ表示では扉のある章の最初の節（最初の h2）を新しいページから始める。
 // 縦スクロール表示では区切らない（data-layout="page" の中だけ）。文字の色は reader.css の変数が 4.5:1 以上（check_bzm_reader.mts が読む）。
 expectIncludes("src/components/bzm-reader/ReaderMarkdown.tsx", [

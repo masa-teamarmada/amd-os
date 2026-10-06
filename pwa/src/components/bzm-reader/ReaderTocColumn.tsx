@@ -19,11 +19,17 @@ const REVEAL_PAD = 44;
  * 中身は横から出るパネルと同じ部品（ReaderTocContent）。色は .bzr-root のテーマの変数で描く。
  * 本文のめくり（押す・スワイプ・ホイール・キー）の対象は .bzr-stage だけで、この列は外にある。
  */
-export function ReaderTocColumn({ onCollapse, onClick, activeHeadingId, ...content }: ReaderTocColumnProps) {
+export function ReaderTocColumn({
+  onCollapse,
+  onClick,
+  activeHeadingId,
+  introActive,
+  ...content
+}: ReaderTocColumnProps) {
   const rootRef = useRef<HTMLElement | null>(null);
   const { book, tab, chapterIndex } = content;
 
-  // いま読んでいる見出し（なければ、いまの章）が列の見える範囲から外れていたら、その位置へ寄せる。
+  // いま読んでいる見出し（章の扉と導入のページなら「導入」。どちらも無ければ、いまの章）が列の見える範囲から外れていたら、その位置へ寄せる。
   // scrollIntoView は祖先まで動かし得るため、列の本体の scrollTop だけを動かす
   useEffect(() => {
     const body = rootRef.current?.querySelector<HTMLElement>(".bzr-panel-body");
@@ -36,7 +42,7 @@ export function ReaderTocColumn({ onCollapse, onClick, activeHeadingId, ...conte
     const r = target.getBoundingClientRect();
     if (r.top >= b.top + REVEAL_PAD && r.bottom <= b.bottom - REVEAL_PAD) return;
     body.scrollTop += r.top - b.top - (b.height - r.height) / 2;
-  }, [activeHeadingId, tab, chapterIndex]);
+  }, [activeHeadingId, introActive, tab, chapterIndex]);
 
   return (
     <nav className="bzr-toc-col" data-bzr-toc-col="true" aria-label="章の一覧" ref={rootRef} onClick={onClick}>
@@ -54,7 +60,7 @@ export function ReaderTocColumn({ onCollapse, onClick, activeHeadingId, ...conte
           <ChevronsLeft aria-hidden="true" />
         </button>
       </div>
-      <ReaderTocContent {...content} activeHeadingId={activeHeadingId} variant="column" />
+      <ReaderTocContent {...content} activeHeadingId={activeHeadingId} introActive={introActive} variant="column" />
     </nav>
   );
 }

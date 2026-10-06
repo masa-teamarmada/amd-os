@@ -9,9 +9,10 @@
  *   JS 側の readerTocWidth（useReaderPagination.ts）と同じ値にすること。
  * - ビューポートの大きさは CSS だけで決め、JS（useReaderPagination）がその実寸を測って多段組みの
  *   幅と高さを整数に固定する。ここで変えるときは、測る側（getBoundingClientRect）と食い違わないこと。
- * - 目次の章の行は「題（章へのリンク）＋見出しを開閉する矢印」の1行（.bzr-toc-row）。いまの章と、押して届くのを
- *   待っている章（.is-opening）は行ぜんたいを強調する。待っているあいだは、画面の最上部に細い進行の帯
- *   （.bzr-progress）を出し、本文を少し薄くする（.bzr-root[data-opening]）。
+ * - 目次の章の行（.bzr-toc-row）は、題と開閉の矢印を含む行ぜんたいが1つのボタン（.bzr-toc-toggle）。押すと見出しの
+ *   一覧を開閉するだけで、本文へは移らない。いまの章と、押して届くのを待っている章（.is-opening）は行ぜんたいを
+ *   強調する。待っているあいだは、画面の最上部に細い進行の帯（.bzr-progress）を出し、本文を少し薄くする
+ *   （.bzr-root[data-opening]）。
  */
 
 /* ---------------------------------- 外枠 ---------------------------------- */
@@ -502,8 +503,9 @@
   background: var(--muted);
 }
 
-/* 章の行: 題（押すとその章へ）と、その章の見出しを開閉する矢印（右端）を1行に並べる */
+/* 章の行: 題と開閉の矢印（右端）を含む行ぜんたいが、見出しの一覧を開閉する1つのボタン */
 .bzr-toc-row {
+  position: relative;
   display: flex;
   align-items: center;
   border-radius: 8px;
@@ -530,7 +532,7 @@
   font-weight: 700;
 }
 
-/* 押して届くのを待っている章の題の横に出す小さな表示 */
+/* 押して届くのを待っている章の行に出す小さな表示。矢印の左に重ねる（押す操作は行のボタンへ通す） */
 .bzr-toc-opening {
   flex: none;
   font-size: 11px;
@@ -540,40 +542,43 @@
   white-space: nowrap;
 }
 
-/* 見出しを開閉する矢印。見た目は小さな矢印で、押せる範囲は 44px 四方 */
+.bzr-toc-row > .bzr-toc-opening {
+  position: absolute;
+  top: 50%;
+  right: 44px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+/* 章の行のボタン。右端の矢印は、見た目は小さな矢印（18px）で、行ぜんたいが押せる範囲（高さ 44px 以上） */
 .bzr-toc-toggle {
+  padding-right: 13px;
+}
+
+.bzr-toc-toggle.is-opening .bzr-toc-title {
+  /* 「開いています…」を重ねる場所を、題の右に空けておく */
+  margin-right: 6.5em;
+}
+
+.bzr-toc-chevron {
   flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--muted-foreground);
-  cursor: pointer;
-}
-
-.bzr-toc-toggle:hover,
-.bzr-toc-toggle:focus-visible {
-  background: var(--muted);
-  color: var(--foreground);
-}
-
-.bzr-toc-toggle svg {
   width: 18px;
   height: 18px;
+  color: var(--muted-foreground);
   transition: transform 0.15s ease;
 }
 
-.bzr-toc-toggle[aria-expanded="true"] svg {
+.bzr-toc-toggle:hover .bzr-toc-chevron,
+.bzr-toc-toggle:focus-visible .bzr-toc-chevron {
+  color: var(--foreground);
+}
+
+.bzr-toc-toggle[aria-expanded="true"] .bzr-toc-chevron {
   transform: rotate(180deg);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bzr-toc-toggle svg {
+  .bzr-toc-chevron {
     transition: none;
   }
 }
@@ -980,8 +985,6 @@
 
 .bzr-toc-col .bzr-toc-item:hover,
 .bzr-toc-col .bzr-toc-item:focus-visible,
-.bzr-toc-col .bzr-toc-toggle:hover,
-.bzr-toc-col .bzr-toc-toggle:focus-visible,
 .bzr-toc-col .bzr-toc-sub-item:hover,
 .bzr-toc-col .bzr-toc-sub-item:focus-visible,
 .bzr-toc-col .bzr-bookmark-main:hover,
@@ -1003,12 +1006,12 @@
   color: var(--bzr-fg);
 }
 
-.bzr-toc-col .bzr-toc-toggle {
+.bzr-toc-col .bzr-toc-chevron {
   color: var(--bzr-muted);
 }
 
-.bzr-toc-col .bzr-toc-toggle:hover,
-.bzr-toc-col .bzr-toc-toggle:focus-visible {
+.bzr-toc-col .bzr-toc-toggle:hover .bzr-toc-chevron,
+.bzr-toc-col .bzr-toc-toggle:focus-visible .bzr-toc-chevron {
   color: var(--bzr-fg);
 }
 

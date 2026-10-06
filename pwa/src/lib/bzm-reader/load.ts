@@ -9,6 +9,7 @@ import { readModelCanonFile } from "@/lib/model-canon-source";
 import { headingAnchorId } from "@/lib/heading-anchor";
 import { READER_LIBRARY } from "./library.ts";
 import {
+  chapterHasIntro,
   countReaderChars,
   ensureLeadingH1,
   extractReaderHeadings,
@@ -73,6 +74,7 @@ function loadBook(manifest: ReaderBookManifest): LoadedBook {
         title: chapter.title ?? chapter.plannedTitle ?? chapter.slug,
         exists: false,
         charCount: 0,
+        hasIntro: false,
       });
       continue;
     }
@@ -109,6 +111,7 @@ function loadBook(manifest: ReaderBookManifest): LoadedBook {
           title,
           exists: true,
           charCount: countReaderChars(section.markdown),
+          hasIntro: chapterHasIntro(section.markdown),
         });
         bodies.set(section.slug, buildBody(section.markdown, index === 0 ? prepared.notes : []));
       });
@@ -122,7 +125,13 @@ function loadBook(manifest: ReaderBookManifest): LoadedBook {
       cleanChapterTitle(firstHeadingText(markdown) ?? "") ||
       chapter.plannedTitle ||
       chapter.slug;
-    chapters.push({ slug: chapter.slug, title, exists: true, charCount: countReaderChars(markdown) });
+    chapters.push({
+      slug: chapter.slug,
+      title,
+      exists: true,
+      charCount: countReaderChars(markdown),
+      hasIntro: chapterHasIntro(markdown),
+    });
     bodies.set(chapter.slug, buildBody(markdown, prepared.notes));
   }
 

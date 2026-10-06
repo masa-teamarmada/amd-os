@@ -421,6 +421,19 @@ export function ensureLeadingH1(markdown: string): string {
 }
 
 /**
+ * 目次の第2階層に載る見出しの行（`## ` と `### `）を読む。載らない行（h2・h3 以外、平文が空の見出し）は null。
+ * extractReaderHeadings と chapterHasIntro が同じ判定を使い、目次に載る見出しと「導入」の境目を食い違わせない。
+ */
+function readTocHeadingLine(line: string): { level: 2 | 3; id: string | null; text: string } | null {
+  const match = /^\s{0,3}(#{2,3})\s+(\S.*)$/.exec(line);
+  if (!match) return null;
+  const attrs = parseHeadingAttrs(match[2]);
+  const text = headingPlainText(attrs.hadAttr ? attrs.text : match[2]);
+  if (!text) return null;
+  return { level: match[1].length === 2 ? 2 : 3, id: attrs.id, text };
+}
+
+/**
  * 目次の第2階層（`## ` と `### `）。コードブロックの外だけを見る。
  * id は `{#id}` があればそれ、無ければ見出しの平文から anchorId で作る（描画側と同じ規則）。
  */
@@ -431,18 +444,42 @@ export function extractReaderHeadings(markdown: string, anchorId: (text: string)
     const step = stepFence(line, fence);
     fence = step.fence;
     if (step.isCode) continue;
-    const match = /^\s{0,3}(#{2,3})\s+(\S.*)$/.exec(line);
-    if (!match) continue;
-    const attrs = parseHeadingAttrs(match[2]);
-    const text = headingPlainText(attrs.hadAttr ? attrs.text : match[2]);
-    if (!text) continue;
-    headings.push({
-      id: attrs.id ?? anchorId(text),
-      text,
-      level: match[1].length === 2 ? 2 : 3,
-    });
+    const toc = readTocHeadingLine(line);
+    if (!toc) continue;
+    headings.push({ id: toc.id ?? anchorId(toc.text), text: toc.text, level: toc.level });
   }
   return headings;
+}
+
+/**
+ * 章の最初の文章（導入）があるか。目次で「導入」の項目を置くかどうかを決める。設計正本 §6.4。
+ *
+ * 前処理後の本文で、最初の h1（章の題）から、目次に載る最初の見出し（h2。h2 より先に h3 が来る原稿は、その h3）までの
+ * あいだに、空白以外の本文があれば true。本文は、空行以外のすべて（段落、リスト、表、図、引用、コードブロック、h4 以下の見出し）。
+ * - h1 のすぐ後に節が来る（間が空行だけ）なら false。
+ * - 節が 1 つも無い章は、h1 より後のすべてが導入になる。
+ * - h1 が無い原稿は false。導入は章の題の直後から数える。
+ * - コードブロックの中の `#` は見出しとして読まない（コードブロックそのものは本文として数える）。
+ * 補足資料のように h1 の後が h3 から始まる原稿は、最初の h3 を最初の節として扱う（h2 だけを境にすると、h2 の無い原稿は全章が導入ありになる）。
+ */
+export function chapterHasIntro(markdown: string): boolean {
+  let fence: FenceState | null = null;
+  let afterH1 = false;
+  for (const line of normalizeNewlines(markdown).split("\n")) {
+    const step = stepFence(line, fence);
+    fence = step.fence;
+    if (step.isCode) {
+      if (afterH1) return true;
+      continue;
+    }
+    if (!afterH1) {
+      if (/^\s{0,3}#\s+\S/.test(line)) afterH1 = true;
+      continue;
+    }
+    if (readTocHeadingLine(line) !== null) return false;
+    if (line.trim() !== "") return true;
+  }
+  return false;
 }
 
 // 括弧の中身は、引用符つきの title（書誌に `(2020)` のような括弧が入る）を 1 つの塊として読む

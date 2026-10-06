@@ -56,6 +56,12 @@ export interface ReaderChapterInfo {
    * 1 字に置き換えて数える: 図 1 枚、数式 1 件。リンクは表示文字だけで、URL は数えない。
    */
   charCount: number;
+  /**
+   * 章の題（h1）から最初の節（最初の h2・h3）までのあいだに、空白以外の本文（章の最初の文章）があるか。
+   * 目次で、開いた見出しの一覧の先頭に「導入」の項目を置くかどうかを決める。求め方は `chapterHasIntro`（preprocess.ts）。
+   * 未執筆の章は false。
+   */
+  hasIntro: boolean;
 }
 
 export interface ReaderBookInfo {
@@ -181,6 +187,16 @@ export function readerChapterHref(bookId: string, chapterSlug: string, at?: "sta
  */
 export function readerHeadingHref(bookId: string, chapterSlug: string, headingId: string): string {
   return `${readerChapterHref(bookId, chapterSlug)}#${encodeURIComponent(headingId)}`;
+}
+
+/**
+ * 目次の見出しの一覧に「導入」の項目を置くか。
+ * 章の最初の文章（`hasIntro`）がある章に置く。見出し（h2・h3）が 1 つも無い章は、導入の本文が空でも置く
+ * （章の行は見出しを開閉するだけで、本文へ移らないので、章の最初へ移る入口を目次から無くさないため）。
+ * 書けている章は、これで必ず 1 項目以上を持つ。
+ */
+export function readerShowsIntro(chapter: Pick<ReaderChapterInfo, "hasIntro">, headingCount: number): boolean {
+  return chapter.hasIntro || headingCount === 0;
 }
 
 /** 原稿内の図を配る API の URL（`bzm/` からの相対パス） */
