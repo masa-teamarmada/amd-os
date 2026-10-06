@@ -1,5 +1,7 @@
 # DESIGN.md — AMD OS 全画面設計の正本
 
+2026-10-06: PWA DDの製品説明資料に採用済み外観画像と工程比較図を本文冒頭へ掲載。SOLの大型透明カートリッジ・透明配管v2と上下比較図v1を同一バイトの静的画像で配信し、外観・SOL方式は開発構想と明示。一般方式の一次出所を添える。本文・権限は既存運用。ネイティブDD画面は今回もブラウザで閲覧、Swiftへの追加移植なし。spec5-17/manual2-6。
+
 2026-10-06: DDの「収支計画書」を資料目録から削除し「月次試算表」へ統一。旧URLは認可後に月次試算表へ転送。funding_plan項目も同ページに対応。SOLは指定された15か月資料v0.9（workspace document db8569d4-b583-4840-a1ce-4183b909dd67、2027-04〜2028-06）の現金予算をproject_monthly_cashflow.planning_details_jsonへ採用。売上入金を任意フィールドとして共通変換・残高検証へ対応し、標準C/Fと元データの支出・売上入金に表示。P/Lは現金予算から作らず、2028-07以降・会計登録値・資本政策を維持。DDは既存ProjectFinanceFormatを使用。市場調査はproject_config.market_researchのversion1/summaryMd/records DTOを認可済みPJ/key限定で読み、出所付きMarkdownと開閉式の19調査記録を掲載。SOLの専門家5名、共有整理、2月6シート、5月AI鉱山調査2件、参考PDFを保持し、AI生成・未回答・相違する数値を明示。既存schema/RLS/付与/PDF対象項目の変更なし。ネイティブDD画面は未移植、ブラウザで確認。
 
 2026-10-06: PWAのDD「製品説明資料」に明示登録したMarkdown本文、表、工程図を表示。正本はproject_config.product_description、認可後にPJ/keyを限定して読む。SOLの初稿は排水処理、金属回収、在庫シアノによる燃料原料生産を説明し、研究の報告と開発構想を分ける。未登録は既存空状態。DDL/RLS・DD付与・正式版PDFは変更なし。ネイティブDD画面は未移植で、今回もブラウザで開く既存運用。spec 5-17。
