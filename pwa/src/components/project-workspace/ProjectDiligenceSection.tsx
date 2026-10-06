@@ -6,7 +6,7 @@ export function ProjectDiligenceSection({ page }: { page: DdEmptyPageKey }) {
   return (
     <div data-testid="project-diligence-empty" data-page={page} className="space-y-3 py-3">
       <h2 className="text-lg font-semibold leading-7">{PROJECT_PAGE_LABELS[page]}</h2>
-      <p className="text-sm text-[#6e6e73]">この項目の資料はまだ登録されていないよ。</p>
+      <p className="text-sm text-[#6e6e73]">資料未登録</p>
     </div>
   );
 }

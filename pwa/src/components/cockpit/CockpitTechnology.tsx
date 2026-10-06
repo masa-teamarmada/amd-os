@@ -1386,22 +1386,13 @@ export function CockpitTechnology({ projectId, mode = "technology", initialData 
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <h3 className="text-[13px] font-semibold text-[#1d1d1f]">{tabLabel}</h3>
-              {competition ? (
-                <p className="mt-1 text-[11px] leading-5 text-[#86868b]">
-                  競合や既存の方式と比べる場所。社外に出す星取り表は VC 提出用の資料と同じ形で出し、記号の付け方は表の下の補足に書いてある。
-                  バッジが<span className="font-medium text-[#1d1d1f]">「公開可」</span>のページは社外に出せる形、「社内限定」のページは社内で使う準備用。
-                </p>
-              ) : businessModel ? (
-                <p className="mt-1 text-[11px] leading-5 text-[#86868b]">
-                  誰に何を売り、どこで稼ぐかと、その事業の形が成り立つかを検証した結果を置く場所。原価と売価の数字はコスト試算のタブが正本で、ここには検証した時点の数字と出典を書く。
-                  まだ確かめていないことは<span className="text-[#b71c1c]">⚠ 要確認</span>を付け、誰に何を聞けば決まるかを添える。
-                </p>
-              ) : (
-                <p className="mt-1 text-[11px] leading-5 text-[#86868b]">
-                  この技術が「どの範囲で成立するか」「何がどう違うか」「今どこまで行っているか」を貯める場所。競合との比較は事業計画グループの「競合比較」タブに置く。
-                  数値は出典と確度を必ず添える。資料によって値が食い違うものは<span className="text-[#b71c1c]">⚠ 要確認</span>を付け、両方の値を出典つきで残す。
-                </p>
-              )}
+              <p className="mt-1 text-[11px] leading-5 text-[#86868b]">
+                {competition
+                  ? "競合・代替技術との比較および差別化の根拠。"
+                  : businessModel
+                    ? "対象顧客、提供価値、収益構造および事業成立条件の検証。"
+                    : "技術の適用範囲、性能、優位性および開発・実証の進捗。"}
+              </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {countByKind.map(({ kind, n }) => (
