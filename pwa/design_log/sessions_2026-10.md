@@ -277,3 +277,12 @@ pwa/src/lib/build-info.ts
 ## 2026-10-06 SOL資本政策の既存保存経路を検証
 
 計画条件と採用根拠は /Users/masa/projects/AMD/SOL/IYOGIN_FINANCING_MATERIALS.md の「シリーズAのOS反映」が正本。既存本番UIと自動保存APIでrevision8→16。DB読戻し・画面再読込み・検証エラー0/警告0・提出可能を確認。提出版の確定は未実行。株主一覧と他イベントの入力条件の不変を検査し、派生値のみ再計算。追加のコード・スキーマ・配布変更なし。
+
+
+## 2026-10-06 左ナビ・複数タブ・DD資料目録・組織図の完了記録
+仕事種別:開発。全体メニューを≡へ収納、3スペースを並列左ナビへ移動、ホームのPJリンクを別タブへ。DDを資料名の目録へ揃え、資本政策表/株主名簿/次回タームシートを分離、経営陣略歴と従業員名簿を分離し後者はDDへ出さない。定款・規程類等を含む33資料。調査根拠はspec5-17に保存済み。
+タブ題名にPJ・領域・ページと選択印を反映。青灰色の非選択枠と白い選択タブへ変更。共通組織図の縦型ひな形をe46751a7/v3.160.2で追加。後続の登録組織図は別作業のHANDOFF_ORGANIZATION_CHART_20261006.mdを参照。
+左ナビを28px・上下4px、全幅ホバー#dbe9f5・選択中#cde4f7へ変更（245cc242、同期後fbfa8056/v3.160.5）。共有dirtyを保持してmainの使い捨てclean cloneから正規deploy。後続mainを正規checkoutへ統合しcloneを除去。
+本番ワークスペースでは全体button44pxが下段に勝つ問題を発見。PC.menu .rowを優先した17d15894/v3.160.7を正規deploy、5分47秒で成功。公開SHA一致、実画面と表示中19行の28px計測を確認。ローカル共通部品だけの判断を改めた経緯はBUGSへ保存。
+検証:test:critical-uiと配布ゲート成功、PC ChromeでDD/コックピットのホバーとワークスペースの行高を確認。PWA=PC、スマホ=Swiftというまさの指定後はPCのみ確認。環境変数・鍵・schema・モデル・Nativeの追加変更なし。一時preview route/server/tab/clone除去済み。証跡はignored .jez/artifacts。
+恒久仕様spec2-1/2-7/3-23/3-24/5-17、manual2-1と附則、共通DESIGN/FEATURE_REGISTRYへ反映済み。専用引き継ぎは../../HANDOFF_PROJECT_NAV_20261006.md、再開文は../../SESSION_MIGRATION_PROMPT.md。旧資本政策プロンプトを内容不変で別名保持。旧タスク報酬の未追跡メモは前担当の判断待ちとして保護し、本タスクに混ぜない。

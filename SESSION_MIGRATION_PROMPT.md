@@ -1,30 +1,36 @@
-AMD OSの資本政策表修正とSOLシリーズA入力を引き継いで。作業場所は /Users/masa/projects/AMD/amd-os。仕事種別は開発と事業計画の混合。
+AMD OSの左ナビ・複数タブ・DD資料目録・組織図の改善を引き継いで。作業場所は /Users/masa/projects/AMD/amd-os。仕事種別は開発。今回の依頼は本番確認まで完了し、まさが「おけ」と受入済み。追加実装の依頼はまだない。
 
 読む順:
 1. /Users/masa/projects/AGENTS.common.md
-2. /Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md
-3. AGENTS.md、HANDOFF_CAPITAL_PLAN_20261006.md
-4. pwa/manual/1-1-intro.md、pwa/spec/1-3-reconstruction-coverage-audit.md、pwa/spec/3-8-cockpit-current-spec.md、pwa/manual/2-3-pj-cockpit.md
-5. /Users/masa/projects/AMD/SOL/IYOGIN_FINANCING_MATERIALS.md、/Users/masa/projects/knowledge/sol.md
-6. pwa/BUGS.md、/Users/masa/projects/AMD/SOL/BUGS.md、pwa/spec/audits/ui-meta-copy-20261006.md
+2. /Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md（AMD共通知識）
+3. /Users/masa/projects/AMD/amd-os/AGENTS.md、HANDOFF_PROJECT_NAV_20261006.md
+4. pwa/manual/1-1-intro.md、pwa/spec/1-3-reconstruction-coverage-audit.md
+5. pwa/spec/2-1-pwa-runtime-routes.md、2-7-ui-design-code-current-spec.md、3-23-project-format-current-spec.md、3-24-project-surface-pages-current-spec.md、5-17-dd-package-current-spec.md、pwa/manual/2-1-member-quick-start.md
+6. pwa/BUGS.md、pwa/design/SPEC_GOVERNANCE.md、pwa/design/FEATURE_REGISTRY.md、ios/DESIGN.md
+7. 開発履歴が必要ならpwa/design_log/sessions_2026-10.md。本仕様より履歴を優先しない。
 
-現在地:
-- 依頼は「保存された〜使用します」の削除、OS全体の同種説明の洗出し、エラーカードから修正できる導線、既に資料で固めたシリーズA条件の入力。受入済み。
-- コード91883c67/369f2923はmain統合・本番v3.159.25で確認済み。公開build-infoのSHAは369f2923024f26a23cae63f1cc61c20f8f8a6451/main/dirty=false。その後は引き継ぎ文書のみ。開始時fetch/status/build-infoを再確認し、古いSHAへ戻さない。
-- エラーカードが詳細を開き対象欄へ移動・フォーカス。計算基準、評価額、単価、割当を修正し既存自動保存で解決できる。重複エラー統合、閲覧専用導線、スマホ横はみ出しも修正。
-- 資本政策41検査、関連導線・出力検査、型検査、627ページ本番ビルドと配布ゲート成功。PC/390pxスマホの編集・保存・再読込みは模擬データで確認。本番SOLではカード導線と今回指定条件の保存・DB読戻し・再読込みを確認。
-- SOL Aは2028年7月、調達前12億円（J-KISS転換分込み）、調達3億円、調達後15億円、A20%。plan id9a6fb7cd-8f57-4456-92a5-8df486a55ae3、revision16、エラー0/警告0。投資家別配分は未定の協議案。提出版は確定していない。
-- 株主一覧・他イベントの入力条件、月次P/L・現金計画・調達実績・確定J-KISS転換取引は変更していない。後続イベントの計算値は再計算。
-- OS説明文監査はPWA33/iOS1/macOS128候補。他画面の削除は未実施、動的文言やDB本文の全数監査ではない。native実装は未移植。現行仕様・マニュアルとios/DESIGNに境界を記録済み。
-- 技術履歴はpwa/design_log/sessions_2026-10.md。計画条件の正本はSOLのIYOGIN_FINANCING_MATERIALS.md。既存の別件引き継ぎはSESSION_MIGRATION_PROMPT_PAGE_LOADING_20261006.md等を参照。
-- 未追跡の旧SESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdは別担当資料。内容不変のGit保存可否をまさに確認中。返答なしでstage・削除しない。
+状態スナップショット:
+- 製品変更の最新commitは17d15894d57dbcd0a80fec1b72228c31c14b6d85。main統合・push済み。本番v3.160.7/main/dirty=false、公開build-infoのSHA一致を確認済み。この後は引き継ぎ文書のみの更新。
+- 確認時のlocal mainとorigin/mainはahead0/behind0。本タスクの未コミット・未push・競合は0。開始時にfetch/status/build-infoを再確認し、後続変更を旧SHAへ戻さない。
+- 左上は「≡」で全体メニューを開く。PJのコックピット・ワークスペース・DDは並列の左入口。ホームからPJを開くと既定で別タブ。
+- DDは資料名による33入口。資本政策表・株主名簿・次回ラウンドタームシート、経営陣略歴などは独立した資料。定款・規程類を含む。従業員名簿はコックピットとワークスペースだけに表示する。認可・正式資料・未登録表示の境界はspec5-17。
+- Chrome PWAでは非選択の枠が青灰色、選択タブが白。タブ題名はPJ・スペース・ページと現在表示の印に追従する。
+- 組織図は3スペース共通の縦型ひな形。後続の別作業で登録値の表示も追加済み。現在の登録仕様はspec3-23とHANDOFF_ORGANIZATION_CHART_20261006.md。古いひな形専用表示へ戻さず、組織案を正式所属の確定へ変えない。
+- 左ナビはPCで28px行・上下4px、分類末尾4px。項目の余白を含む全幅のホバーが青灰色、選択中ホバーは一段濃い背景。現在地の左線・太字・キーボード枠を保つ。
+- ワークスペースでは全体button44px指定が下段だけを広げていた。ProjectNavigation.module.cssのPC .menu .rowを優先し、上3リンク・分類・子ページすべて28pxへ修正。本番DOM計測と画像で確認済み。ローカルの共通部品だけで完了を判断せず、実ワークスペースの親CSS条件を確認する。
+- まさはPWAをPCで使い、スマホはSwift版。PWAのスマホ確認を追加しない。Native移植は今回の依頼範囲外。
+- 検査はtest:critical-uiと通常deploy.shのゲートが成功。本番確認はPC Chrome。確認専用タブ・route・サーバ・使い捨てcloneを除去済み。証跡は.jez/artifacts/design-review.mdとnav-equal-rows-live-20261006.png。
+- 既存の未追跡SESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdは別件のタスク報酬移行資料。前の引き継ぎでGit保存の判断待ちとされている。所有境界は移行担当／まさ。変更・stage・削除せず保護し、当該移行の再開時またはまさの明示判断時に扱う。本件の未完了実装ではない。
+- 以前の資本政策の再開用プロンプトはSESSION_MIGRATION_PROMPT_CAPITAL_PLAN_20261006.mdへ内容不変で保持。
 
 次の行動:
-- 今回の追加実装は不要。上記旧メモの判断だけを返答に従って処理する。
-- OS全体の説明文を削る追加依頼が来たら監査表から対象を選び、意思決定に必要な操作説明を残す。資本政策の計画条件を旧「未定」へ戻さない。
-- 月次計画やIPO公募額の整合は別依頼。未確認の投資家合意・配分・調達実績を作らない。
+- 今回の追加実装は不要。まさの新しい依頼を待つ。
+- 左ナビの追加調整を頼まれたら、上3スペースと「進捗管理」以下を同じ密度で比較する。ホバーは文字だけでなくカード全幅で分かることをPCで確認する。
+- 全体メニューとPJ内の3スペース切替を混同しない。資料の集合であるDDを調査テーマ名へ戻さず、別資料を1項目へ束ねない。
 
 運用:
-- main一本、新規branch/worktree禁止。共有checkoutをreset/stash/deleteしない。対象ファイルのみ明示stage。
-- 仕様変更はspec/manualと附則を同期。PWA配布は AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh。本番SHAを照合する。pwa/HANDOFFはskip-ci除外対象ではないため今回専用文書はroot HANDOFFへ。
-- 個別PJの計画条件は目的別正本へ、開発履歴はdesign_logへ分ける。秘密値やDB全文はGit/報告に出さない。自動継続・外部送信・提出版確定は依頼されていない。
+- main一本。新規branch/worktree・subagentを作らない。既存dirtyをreset/stash/deleteしない。対象ファイルのみ明示stage。
+- 着手前とpush前にfetchし、behindを解消してから作業する。使い捨てcloneで配布した場合は正規checkoutの同期も確認する。
+- 製品の恒久仕様はspec/manualと附則、画面の追加・改名はios/DESIGNへ同じcommitで同期。実装履歴はdesign_log、現在地は短いHANDOFFへ分離。
+- 製品変更の配布は AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh。main pushで自動配布、本番SHAとPC画面を確認。CLI直接deployや微細変更ごとのpushはしない。
+- 今回は引き継ぎ文書だけの最終更新を[skip ci]でpushし、製品の再配布を増やさない。本番17d15894がmainの祖先であることを確認する。
