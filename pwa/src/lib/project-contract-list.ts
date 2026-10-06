@@ -12,9 +12,13 @@ export type ProjectContractListRow = {
   contractId: string; title: string; contractingParty: string; counterparty: string | null;
   contractType: string; status: ContractStatus; signedAt: string | null;
   effectiveDate: string | null; expirationDate: string | null; ddVisible: boolean;
+  lastActivityAt?: string | null; latestDocument?: ProjectContractDocument | null;
   documents?: ProjectContractDocument[]; history?: ProjectContractHistory[];
 };
-export type ProjectContractListData = { contracts: ProjectContractListRow[]; canManage: boolean };
+export type ProjectContractListData = { contracts: ProjectContractListRow[]; canManage: boolean; canReadEvidence?: boolean };
+export type ProjectContractHistoryCursor = { occurredAt: string; id: string };
+export type ProjectContractEvidenceData = { contractId: string; documents: ProjectContractDocument[]; history: ProjectContractHistory[]; nextHistoryCursor: ProjectContractHistoryCursor | null };
+export const CONTRACT_NEXT_ACTION: Record<ContractStatus, string> = { planned: "条件・締結予定の確認", drafting: "草案の作成・確認", under_review: "修正内容の確認", awaiting_signature: "署名依頼・完了確認", signed: "締結版・期限の確認", stalled: "停滞理由の確認", cancelled: "対応終了" };
 
 export function canManageContractDisclosure(access: {
   principal: "member" | "workspace_account"; scope: string; isAdmin: boolean; role?: string;
@@ -38,11 +42,12 @@ export function buildProjectContractList(rows: ProjectContractSource[], projectI
     contractType: row.contract_type,
     status: row.status,
     signedAt: row.signed_at,
+    lastActivityAt: row.last_activity_at,
     effectiveDate: row.effective_date,
     expirationDate: row.expiration_date,
     ddVisible: row.related_contract_ids.some(id => visibleIds.has(id)),
   }));
-  return { contracts: ddOnly ? contracts.filter(row => row.ddVisible) : contracts, canManage: !ddOnly && canManage };
+  return { contracts: ddOnly ? contracts.filter(row => row.ddVisible) : contracts, canManage: !ddOnly && canManage, canReadEvidence: !ddOnly };
 }
 
 export type ProjectContractDocumentSource = { document_id: string; contract_id: string; project_id: string; version_label: string; file_name: string; web_view_link: string; received_at: string; is_latest: boolean };
@@ -58,8 +63,8 @@ export function attachProjectContractEvidence(data: ProjectContractListData, gro
       documents: documents.filter(doc => doc.project_id === projectId && ids.has(doc.contract_id)).flatMap(doc => {
         const url = evidenceUrl(doc.web_view_link, ["drive.google.com", "docs.google.com"]);
         return url ? [{ id: doc.document_id, label: doc.version_label, fileName: doc.file_name, url, receivedAt: doc.received_at, latest: doc.is_latest }] : [];
-      }).sort((a, b) => a.receivedAt.localeCompare(b.receivedAt)),
-      history: history.filter(event => event.project_id === projectId && ids.has(event.contract_id) && event.signal_type === "contract_exchange" && event.status === "linked").map(event => ({ id: event.signal_id, title: event.title, summary: event.snippet, url: evidenceUrl(event.source_url, ["mail.google.com"]), occurredAt: event.detected_at })).sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)),
+      }).sort((a, b) => a.receivedAt.localeCompare(b.receivedAt) || a.id.localeCompare(b.id)),
+      history: history.filter(event => event.project_id === projectId && ids.has(event.contract_id) && event.signal_type === "contract_exchange" && event.status === "linked").map(event => ({ id: event.signal_id, title: event.title, summary: event.snippet, url: evidenceUrl(event.source_url, ["mail.google.com"]), occurredAt: event.detected_at })).sort((a, b) => a.occurredAt.localeCompare(b.occurredAt) || a.id.localeCompare(b.id)),
     };
   }) };
 }

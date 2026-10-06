@@ -37,7 +37,7 @@ const mocks: Record<string,unknown> = {
  "@/lib/project-shared-workspace-access":{resolveSharedWorkspaceAccess:async(id:string)=>id==="p21"?access:null},
  "@/lib/supabase/admin":{createAdminClient:()=>{dbCreations++;return{from:(table:string)=>{assert.equal(table,"contracts");return query;}};}},
  "@/lib/project-contract-list":{canManageContractDisclosure,projectContractGroups,PROJECT_CONTRACT_LIST_SCOPES},
- "@/lib/project-contract-list-server":{loadProjectContractSources:async()=>rows,loadProjectContractList:async(_db:unknown,id:string,ddOnly:boolean,canManage:boolean)=>buildProjectContractList(rows,id,ddOnly,canManage)},
+ "@/lib/project-contract-list-server":{loadProjectContractEvidence:async(_db:unknown,id:string,contractId:string)=>projectContractGroups(rows,id).some(row=>row.contract_id===contractId)?{contractId,documents:[],history:[],nextHistoryCursor:null}:null,loadProjectContractSources:async()=>rows,loadProjectContractList:async(_db:unknown,id:string,ddOnly:boolean,canManage:boolean)=>buildProjectContractList(rows,id,ddOnly,canManage)},
  "@/lib/workspace-mutation-origin":{isSameOriginWorkspaceMutation:(req:Request)=>req.headers.get("Origin")===new URL(req.url).origin},
 };
 const handlers:{GET?:(r:Request,c:unknown)=>Promise<Response>;PATCH?:(r:Request,c:unknown)=>Promise<Response>}={};
@@ -73,7 +73,7 @@ const server=readFileSync(new URL("../src/lib/project-contract-list-server.ts",i
 const serverExports:{loadProjectContractList?:(db:unknown,id:string,ddOnly:boolean)=>Promise<unknown>}={};
 new Function("require","exports",ts.transpileModule(server,{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)((name:string)=>name==="server-only"?{}:{buildProjectContractList,PROJECT_CONTRACT_LIST_SCOPES},serverExports);
 const selected:string[]=[]; const dbFilters:unknown[][]=[];
-const dbQuery={select(s:string){selected.push(s);return dbQuery;},eq(k:string,v:unknown){dbFilters.push([k,v]);return dbQuery;},in(k:string,v:unknown){dbFilters.push([k,v]);return dbQuery;},order(){return dbQuery;},then(done:(x:unknown)=>unknown){return Promise.resolve(done({data:[row],error:null}));}};
+const dbQuery={select(s:string){selected.push(s);return dbQuery;},eq(k:string,v:unknown){dbFilters.push([k,v]);return dbQuery;},in(k:string,v:unknown){dbFilters.push([k,v]);return dbQuery;},order(){return dbQuery;},range(){return dbQuery;},then(done:(x:unknown)=>unknown){return Promise.resolve(done({data:[row],error:null}));}};
 assert.ok(serverExports.loadProjectContractList);await serverExports.loadProjectContractList({from:()=>dbQuery},"p21",true);
 assert.deepEqual(dbFilters,[["project_id","p21"],["registry_status","accepted"],["project_contract_scope",[...PROJECT_CONTRACT_LIST_SCOPES]],["dd_visible",true]]);
 assert.ok(!selected[0].includes("source_summary"));assert.ok(!selected[0].includes("ledger_notes"));
@@ -88,9 +88,30 @@ assert.ok(!("documents" in buildProjectContractList([root],"p21",true).contracts
 const evidenceExports:{loadProjectContractList?:(db:unknown,id:string,ddOnly:boolean)=>Promise<unknown>}={};
 new Function("require","exports",ts.transpileModule(server,{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)((name:string)=>name==="server-only"?{}:{buildProjectContractList,projectContractGroups,attachProjectContractEvidence,PROJECT_CONTRACT_LIST_SCOPES},evidenceExports);
 const accessed:string[]=[];const childFilters:unknown[][]=[];
-const evidenceDb={from(table:string){accessed.push(table);const result=table==="contracts"?[root]:table==="contract_documents"?[doc]:[event];const q={select(){return q;},eq(k:string,v:unknown){if(table!=="contracts")childFilters.push([table,k,v]);return q;},in(k:string,v:unknown){if(table!=="contracts")childFilters.push([table,k,v]);return q;},order(){return q;},range(){return q;},then(done:(x:unknown)=>unknown){return Promise.resolve(done({data:result,error:null}));}};return q;}};
+const evidenceDb={from(table:string){accessed.push(table);const result=table==="contracts"?[root]:table==="contract_documents"?[{...doc,is_latest:true}]:[event];const q={select(){return q;},eq(k:string,v:unknown){if(table!=="contracts")childFilters.push([table,k,v]);return q;},in(k:string,v:unknown){if(table!=="contracts")childFilters.push([table,k,v]);return q;},order(){return q;},range(){return q;},then(done:(x:unknown)=>unknown){return Promise.resolve(done({data:result,error:null}));}};return q;}};
 await evidenceExports.loadProjectContractList!(evidenceDb,"p21",true);assert.deepEqual(accessed,["contracts"]);
-accessed.length=0;const loaded=await evidenceExports.loadProjectContractList!(evidenceDb,"p21",false) as {contracts:Array<{documents:unknown[];history:unknown[]}>};
-assert.equal(loaded.contracts[0].documents.length,1);assert.equal(loaded.contracts[0].history.length,1);
-for(const table of ["contract_documents","contract_signals"]) {assert.ok(childFilters.some(f=>f[0]===table&&f[1]==="project_id"&&f[2]==="p21"));assert.ok(childFilters.some(f=>f[0]===table&&f[1]==="contract_id"));}
+accessed.length=0;const loaded=await evidenceExports.loadProjectContractList!(evidenceDb,"p21",false) as {contracts:Array<{latestDocument:unknown;documents?:unknown[];history?:unknown[]}>};
+assert.ok(loaded.contracts[0].latestDocument);assert.equal(loaded.contracts[0].documents,undefined);assert.equal(loaded.contracts[0].history,undefined);assert.ok(!accessed.includes("contract_signals"),"list must not read correspondence");
+for(const table of ["contract_documents"]) {assert.ok(childFilters.some(f=>f[0]===table&&f[1]==="project_id"&&f[2]==="p21"));assert.ok(childFilters.some(f=>f[0]===table&&f[1]==="contract_id"));}
 console.log("contract evidence: project/contract isolation, explicit linked history, safe URLs, DD non-disclosure and actual child loader OK");
+
+// Detail reads retain workspace authorization and reject malformed cursors before touching storage.
+function getReq(search:string){return new Request(`https://example.test/api/project/p21/contract-list?${search}`);}
+access=null;assert.equal((await handlers.GET!(getReq("contractId=nda"),ctx)).status,401);
+access={principal:"workspace_account",scope:"project",isAdmin:false,role:"readonly",email:"reader"};
+rows=[root];assert.equal((await handlers.GET!(getReq("contractId=nda"),ctx)).status,200);
+for(const id of ["other","studio","candidate"]) assert.equal((await handlers.GET!(getReq(`contractId=${id}`),ctx)).status,404);
+assert.equal((await handlers.GET!(getReq("contractId=nda&before=evil&beforeId=bad"),ctx)).status,400);
+assert.equal((await handlers.GET!(getReq("before=2026-10-02T16%3A21%3A06Z"),ctx)).status,400);
+console.log("contract list: compact summary only, no eager histories, authorized detail and cursor validation OK");
+
+// Sixty exchanges at the same timestamp must page without gaps or duplicates.
+const pagedExports:{loadProjectContractEvidence?:(db:unknown,p:string,c:string,cursor?:unknown)=>Promise<any>}={};
+new Function("require","exports",ts.transpileModule(server,{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)((name:string)=>name==="server-only"?{}:{buildProjectContractList,projectContractGroups,attachProjectContractEvidence,PROJECT_CONTRACT_LIST_SCOPES},pagedExports);
+const sixty=Array.from({length:60},(_,i)=>({...event,signal_id:`00000000-0000-0000-0000-${String(60-i).padStart(12,"0")}`}));
+let documentQueries=0;
+const pagingDb={from(table:string){if(table==="contract_documents")documentQueries++;let limit=Infinity;let before="";const q={select(){return q;},eq(k:string,v:unknown){if(table!=="contracts"&&k==="project_id")assert.equal(v,"p21");return q;},in(k:string,v:unknown){if(table!=="contracts")assert.deepEqual(v,["nda"]);return q;},order(){return q;},range(){return q;},limit(n:number){assert.equal(n,21);limit=n;return q;},or(s:string){assert.ok(s.startsWith("detected_at.lt."));before=s.match(/signal_id\.lt\.([^)]*)/)![1];return q;},then(done:(x:unknown)=>unknown){const data=table==="contracts"?[root]:table==="contract_documents"?[doc]:sixty.filter(e=>!before||e.signal_id<before).slice(0,limit);return Promise.resolve(done({data,error:null}));}};return q;}};
+const ids:string[]=[];let cursor=undefined;
+for(let page=0;page<3;page++){const result=await pagedExports.loadProjectContractEvidence!(pagingDb,"p21","nda",cursor);assert.equal(result.history.length,20);ids.push(...result.history.map((e:any)=>e.id));cursor=result.nextHistoryCursor;assert.equal(result.documents.length,page?0:1);}
+assert.equal(cursor,null);assert.equal(documentQueries,1);assert.deepEqual(ids,sixty.map(e=>e.signal_id));assert.equal(new Set(ids).size,60);
+console.log("contract history: sixty equal-time exchanges, stable three-page cursor, one document read, no duplicate or missing entries OK");
