@@ -1046,3 +1046,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 ## 2026-10-06 DD製品説明資料の登録本文
 
 DDのproduct-descriptionはproject_configの当該PJ/key=product_descriptionだけを認可後に取得し、共通ProjectProductDescriptionでタイトル・要約・Markdown本文・表・Mermaid工程図・根拠を表示する。未登録は既存の資料未登録。不正形式と読取失敗は未登録に置換しない。version1/title/summary/bodyMd/sourceRefsだけをDDへ渡す。書込みAPI・自動生成・新しい入口・権限・正式版PDFの追加変更なし。回帰検査test:dd-package、正本spec5-17/3-24、manual2-6、ios/DESIGN。SOLに7節2図の初稿を明示登録。
+
+## 2026-10-06 会社概要の設立案・創業背景
+
+3領域共通の会社概要はproject_company_profilesとcompany_incorporation_planを表で表示し、設立前の計画資本・株式を実績へ加算しない。DDには会社・経営体制の会社概要直下へfounding-backgroundを追加し、認可済みPJ/keyの明示文書をProjectProductDescriptionで表示。未登録と取得失敗を区別する。DD目録40資料・44URL。回帰防止はcheck_dd_pages.mts/check_dd_shared_page_data.mts、仕様spec 3-23/3-24/5-17、manual 2-6。

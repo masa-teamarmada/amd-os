@@ -71,6 +71,7 @@ function titleRow(title: string, columns: number) {
 
 function overviewSheet(projectName: string, data: CompanyOverviewData): Sheet {
   const profile = data.profile;
+  const plan = profile?.legal_status === "pre_incorporation" ? data.incorporationPlan : null;
   const latest = latestCapTable(data);
   const tieOut = profile?.registered_issued_shares
     ? (latest?.outstandingShares || 0) - Number(profile.registered_issued_shares)
@@ -83,11 +84,11 @@ function overviewSheet(projectName: string, data: CompanyOverviewData): Sheet {
     [c("英文商号"), c(profile?.legal_name_en)],
     [c("法人番号"), c(profile?.corporate_number)],
     [c("法人形態"), c(profile?.entity_type)],
-    [c("設立日"), c(profile?.incorporated_on)],
+    [c("設立日"), c(profile?.incorporated_on ? `${profile.incorporated_on}${plan ? "（予定）" : ""}` : null)],
     [c("本店所在地"), c(profile?.head_office)],
     [c("事業内容・目的"), c(profile?.business_purpose)],
     [c("代表者"), c(profile?.representative_name)],
-    [c("資本金"), c(profile?.capital_yen, 4)],
+    [c(plan ? "資本金（案）" : "資本金"), c(plan?.capitalYen ?? profile?.capital_yen, 4)],
     [c("発行可能株式総数"), c(profile?.authorized_shares, 3)],
     [c("登記上の発行済株式数"), c(profile?.registered_issued_shares, 3)],
     [c("台帳上の発行済株式数"), c(latest?.outstandingShares, 3)],
@@ -101,6 +102,10 @@ function overviewSheet(projectName: string, data: CompanyOverviewData): Sheet {
     [c("確認日"), c(profile?.source_verified_on), c(profile?.source_ref)],
     [c("メモ"), c(profile?.notes)],
   ];
+  if (plan) {
+    rows.push([c("設立時発行株式（予定）"), c(plan.issuedShares, 3)], [c("SO枠を含む株式数（案）"), c(plan.dilutedShares, 3)]);
+    for (const row of [...plan.organizationRows, ...plan.capitalRows, ...plan.operationRows]) rows.push([c(row.label), c(row.value)]);
+  }
   return { name: "会社概要", rows, widths: [26, 48, 42], freezeRow: 2 };
 }
 

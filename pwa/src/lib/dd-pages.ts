@@ -9,7 +9,7 @@ export const DD_PAGE_KEYS: readonly string[] = [...new Set([
   ...DD_TAB_FORMAT.flatMap((group) => [...group.tabs]),
 ])];
 
-export const DD_EMPTY_PAGE_KEYS = ["organization-chart", "shareholder-register", "next-round-term-sheet", "governance", "technical-evidence", "manufacturing", "team", "regulatory", "disputes", "articles-of-incorporation", "corporate-register", "internal-rules", "development-plan", "market-research", "sales-partners", "product-description", "quality-control", "supply-chain", "university-rights", "safety-assessment", "related-party-transactions", "financial-statements", "tax-returns"] as const;
+export const DD_EMPTY_PAGE_KEYS = ["founding-background", "organization-chart", "shareholder-register", "next-round-term-sheet", "governance", "technical-evidence", "manufacturing", "team", "regulatory", "disputes", "articles-of-incorporation", "corporate-register", "internal-rules", "development-plan", "market-research", "sales-partners", "product-description", "quality-control", "supply-chain", "university-rights", "safety-assessment", "related-party-transactions", "financial-statements", "tax-returns"] as const;
 export type DdEmptyPageKey = (typeof DD_EMPTY_PAGE_KEYS)[number];
 export function isDdEmptyPageKey(page: string): page is DdEmptyPageKey {
   return (DD_EMPTY_PAGE_KEYS as readonly string[]).includes(page);

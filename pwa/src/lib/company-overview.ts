@@ -1,3 +1,5 @@
+import type { CompanyIncorporationPlan } from "./company-incorporation-plan";
+
 export type CompanyProfile = {
   id: string;
   project_id: string;
@@ -134,6 +136,7 @@ export type GovernanceActionItem = {
 };
 
 export type CompanyOverviewData = {
+  incorporationPlan?: CompanyIncorporationPlan | null;
   profile: CompanyProfile | null;
   shareholders: LegacyShareholder[];
   transactions: EquityTransaction[];

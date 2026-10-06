@@ -90,3 +90,23 @@ assert.ok(calls.filter(c=>c.table==='project_config'&&c.filters.some(f=>f[2]==='
 assert.throws(()=>parseMarketResearch({...research,records:[research.records[0],research.records[0]]}),/登録形式/);
 assert.throws(()=>parseMarketResearch({...research,records:[{...research.records[0],sourceUrl:'javascript:alert(1)'}]}),/登録形式/);
 console.log('Market research: authorized PJ/key, unregistered, query failure, internal DTO exclusion and unsafe source rejection: PASS');
+
+// 設立案は認可済みPJだけから取得し、実績の株式へ混ぜない。
+const { parseCompanyIncorporationPlan } = await import("../src/lib/company-incorporation-plan.ts");
+const { buildCapTableSnapshots } = await import("../src/lib/company-overview.ts");
+const { loadProjectFoundingBackground } = await import("../src/lib/project-founding-background-server.ts");
+const plan = { version: 1, capitalYen: 1080000, issuedShares: 108000, dilutedShares: 120000, firstFiscalPeriod: "2027年度", organizationRows: [{ label: "CEO", value: "山地（予定）", internal: "除外" }], capitalRows: [], operationRows: [], sourceRef: "設立案" };
+tables.project_config.push({ project_id: "p21", key: "company_incorporation_plan", value: JSON.stringify(plan) }, { project_id: "p34", key: "company_incorporation_plan", value: "{}" });
+const withPlan = await loadProjectGovernance(fakeDb(), "p21");
+assert.equal(withPlan.incorporationPlan!.issuedShares, 108000);
+assert.equal(buildCapTableSnapshots(withPlan).length, 0, "設立予定株式を発行実績に加算しない");
+assert.equal((withPlan.incorporationPlan!.organizationRows[0] as any).internal, undefined);
+assert.equal(parseCompanyIncorporationPlan(null), null);
+assert.throws(() => parseCompanyIncorporationPlan({ ...plan, dilutedShares: 100 }), /登録形式/);
+assert.throws(() => parseCompanyIncorporationPlan({ ...plan, capitalYen: -1 }), /登録形式/);
+tables.project_config.push({ project_id: "p21", key: "founding_background", value: JSON.stringify({ ...productDocument, title: "創業背景" }) }, { project_id: "p34", key: "founding_background", value: JSON.stringify({ ...productDocument, title: "他PJ" }) });
+assert.equal((await loadProjectFoundingBackground(fakeDb(), "p21"))!.title, "創業背景");
+assert.equal(await loadProjectFoundingBackground(fakeDb(), "unregistered"), null);
+await assert.rejects(loadProjectFoundingBackground(fakeDb("project_config"), "p21"), /fixture failure/);
+assert.ok(calls.filter(c => c.table === "project_config").every(c => c.filters.some(f => f[1] === "project_id")), "文書・設立案の取得はすべてPJ限定");
+console.log("Company incorporation plans stay separate from issued shares; founding document scope OK");

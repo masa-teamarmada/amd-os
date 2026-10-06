@@ -24,7 +24,7 @@ import type { ProjectDevelopmentIssuesData } from "./project-development-issues"
 
 type Identity = { kind: "project_page"; projectId: string; projectName: string };
 export type DdLiveProjectPage = Identity & (
-  | { page: DdEmptyPageKey; empty: true; biographies?: ProjectManagementBiographies | null; organizationChart?: ProjectOrganizationChartData | null; productDescription?: ProjectProductDescriptionData | null; marketResearch?: ProjectMarketResearch | null }
+  | { page: DdEmptyPageKey; empty: true; biographies?: ProjectManagementBiographies | null; organizationChart?: ProjectOrganizationChartData | null; productDescription?: ProjectProductDescriptionData | null; foundingBackground?: ProjectProductDescriptionData | null; marketResearch?: ProjectMarketResearch | null }
   | { page: "technology" | "competition" | "business-model"; tech: ProjectTechResponse }
   | { page: "financial-projection" | "monthly-trial"; finance: ProjectFinancePageData }
   | { page: "capital-plan" | "next-round-overview"; capital: CapitalPlanPageData }

@@ -275,3 +275,13 @@ SOLの会社概要のデータ処理は3回中央値634→249ms、15→11リク�
 
 
 2026-10-06: DDの長期計画は、project_config.long_term_plan_document_idで指定したワークスペースHTMLのwork区画とスタイルを、短期計画と同じsandbox iframeで表示する。SOLは設立準備から2035年4月のIPO目標までの8領域・16工程ガントと、各段階の到達目標・投資判断を登録。短期計画の配色・矢羽・書体を維持し、設立準備〜Aは15か月資料v0.9、以降はフェーズマトリクスと資本政策の長期仮説を参照した計画案として示す。IPOの公募額は資料間で不一致のため固定しない。HTML未指定のPJは既存の長期フェーズ表示を維持。指定がある場合はPJ/scope/active/HTMLを再検証し、不正・削除・読込み失敗を別表示へ置換しない。新routeはDD入場認可を毎回確認し、private no-store、外部通信・スクリプト・送信禁止CSP。短期計画本文、フェーズマトリクス、月次数値、資本政策、DD公開設定・付与は変更しない。SwiftのネイティブDD画面は未移植。
+
+## 会社概要の設立案と創業背景（2026-10-06）
+
+会社概要の基本情報・体制・資本・運営はコンパクトな表で表示する。project_company_profilesには仮称・代表者・本店・機関設計等を登録し、pre_incorporationの設立日は予定、決算月は案として表示する。番号未取得は設立後の取得・登録予定と表示する。確認元は編集面に置き、DD本文には表示しない。
+
+project_config.key=company_incorporation_planはversion1、capitalYen/issuedShares/dilutedShares、firstFiscalPeriod、organizationRows/capitalRows/operationRows（label/value）、sourceRefを保持。数値は正の安全な整数、希薄化後>=発行予定。共通governance loaderはPJ/key限定で読み、DTO以外を除外、不正値・DBエラーは失敗。設立前の会社概要だけに案として表示し、設立済みでは適用しない。登記資本金・発行株式・会計決算・評価ラウンドへ計画を加算しない。Excelも設立案の数値と行を明示して含める。
+
+DD資料目録は40資料、既存互換URLを含め44ページ。「会社・経営体制」の会社概要直下にfounding-background（創業の背景と社会課題）を追加。project_config.founding_backgroundは製品説明と同じversion1/title/summary/bodyMd/sourceRefs。認可後、当該PJ/keyだけを読み、同じMarkdown本文部品で表示する。コックピット・ワークスペースの入口は増やさない。会社概要と相互の関連リンクを持つ。未登録は資料未登録、形式不正は取得失敗。
+
+SOLはSolvioraX（仮）／SolvioraX Inc.（仮）、2027-04-01設立予定、代表取締役山地正洋予定、本店EUIC予定、取締役会・監査役非設置、決算3月案、官報案。資本金108万円・1株10円は本依頼の設立案。発行予定108,000株とSOを含む120,000株、シード条件は現行資本政策に合わせる。公開状態・閲覧権限・正式版PDFの掲載対象は変更しない。登録SQLはscripts/data/sol-company-overview-20261006.sql。

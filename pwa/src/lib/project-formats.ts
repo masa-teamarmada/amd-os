@@ -103,7 +103,8 @@ export const DD_TAB_FORMAT = [
 
 /** DDの資料目録。別の原本は別の入口にし、未登録でも同じ順で表示する。 */
 export const DD_ITEM_PAGES = [
-  { key: "company", label: "会社概要", related: ["activity"] },
+  { key: "company", label: "会社概要", related: ["founding-background", "activity"] },
+  { key: "founding-background", label: "創業の背景と社会課題", related: ["company"] },
   { key: "articles-of-incorporation", label: "定款", related: [] },
   { key: "corporate-register", label: "登記事項証明書", related: [] },
   { key: "internal-rules", label: "規程類", related: [] },
@@ -146,7 +147,7 @@ export const DD_ITEM_PAGES = [
 
 /** DD資料目録の7分類。全PJ共通、開示資料は一覧下部に常設する。 */
 export const DD_NAVIGATION_GROUPS = [
-  { key: "company", label: "会社・経営体制", pages: ["company", "team", "organization-chart", "articles-of-incorporation", "corporate-register", "internal-rules", "governance"] },
+  { key: "company", label: "会社・経営体制", pages: ["company", "founding-background", "team", "organization-chart", "articles-of-incorporation", "corporate-register", "internal-rules", "governance"] },
   { key: "business", label: "事業計画関連", pages: ["business-model", "business-plan", "short-term-plan", "long-term-plan", "development-issues", "market-research", "competition", "partners", "sales-partners", "cost-model"] },
   { key: "technology", label: "技術・製品・開発・製造", pages: ["technology", "product-description", "development-plan", "technical-evidence", "manufacturing", "quality-control", "supply-chain"] },
   { key: "rights", label: "知財・契約", pages: ["ip", "university-rights", "contracts"] },
@@ -157,6 +158,7 @@ export const DD_NAVIGATION_GROUPS = [
 
 /** 3領域のページ名。ワークスペースの旧キー cost/drive は同じページへ対応する。 */
 export const PROJECT_PAGE_LABELS: Readonly<Record<string, string>> = {
+  "founding-background": "創業の背景と社会課題",
   "development-issues": "開発課題",
   "short-term-plan": "短期計画",
   "long-term-plan": "長期計画",

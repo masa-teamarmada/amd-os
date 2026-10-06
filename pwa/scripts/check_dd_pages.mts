@@ -14,15 +14,17 @@ for (const [domain, page] of [["競合比較", "competition"], ["ビジネスモ
 }
 const canonical = (tab: string) => tab === "cost" ? "cost-model" : tab === "drive" ? "documents" : tab;
 const dd = new Set<string>(DD_PAGE_KEYS);
-assert.equal(dd.size, 43, "39資料と既存の4ページURL");
-assert.equal(DD_ITEM_PAGES.length, 39);
+assert.equal(dd.size, 44, "40資料と既存の4ページURL");
+assert.equal(DD_ITEM_PAGES.length, 40);
+assert.equal(ddPageLabel("founding-background"), "創業の背景と社会課題");
+assert.ok(isDdEmptyPageKey("founding-background"));
 const grouped = DD_NAVIGATION_GROUPS.flatMap(group => [...group.pages]);
 assert.equal(DD_NAVIGATION_GROUPS.length, 7);
-assert.equal(grouped.length, 39, "分類に全資料を一度ずつ含める");
-assert.equal(new Set(grouped).size, 39, "分類間に重複なし");
+assert.equal(grouped.length, 40, "分類に全資料を一度ずつ含める");
+assert.equal(new Set(grouped).size, 40, "分類間に重複なし");
 assert.deepEqual([...grouped].sort(), DD_ITEM_PAGES.map(item => item.key).sort());
 assert.deepEqual(DD_NAVIGATION_GROUPS.at(-1)?.pages, ["documents"], "開示資料は最後に常設");
-assert.equal(new Set(DD_ITEM_PAGES.map(page => page.key)).size, 39);
+assert.equal(new Set(DD_ITEM_PAGES.map(page => page.key)).size, 40);
 for (const [key, label] of [["articles-of-incorporation", "定款"], ["corporate-register", "登記事項証明書"], ["internal-rules", "規程類"], ["financial-statements", "決算書"], ["tax-returns", "税務申告書"], ["team", "経営陣略歴"]]) {
   assert.equal(ddPageLabel(key), label);
   assert.ok(isDdEmptyPageKey(key), "元データを新しい正式資料へ読み替えない");

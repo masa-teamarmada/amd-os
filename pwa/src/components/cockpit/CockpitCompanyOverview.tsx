@@ -7,14 +7,11 @@ import {
   Check,
   Download,
   FileSpreadsheet,
-  Landmark,
   Loader2,
   Pencil,
   Plus,
   RefreshCw,
   Scale,
-  Users,
-  WalletCards,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -33,7 +30,6 @@ import { loadGovernance, peekGovernance, saveGovernanceEntity } from "@/lib/gove
 import {
   EmptyState,
   Field,
-  InfoCell,
   NativeSelect,
   Section,
   formatDate,
@@ -137,7 +133,37 @@ export function CockpitCompanyOverview({
   const selectedEquityValue = selectedSnapshot && latestRound?.price_per_share_yen
     ? selectedSnapshot.outstandingShares * Number(latestRound.price_per_share_yen)
     : latestRound?.post_money_yen || null;
+  const preIncorporation = data.profile?.legal_status === "pre_incorporation";
+  const incorporationPlan = preIncorporation ? data.incorporationPlan : null;
   const profileCompleteness = [data.profile?.legal_name, data.profile?.head_office, data.profile?.business_purpose, data.profile?.capital_yen, data.profile?.board_structure, data.profile?.fiscal_year_end_month].filter((value) => value != null && value !== "").length;
+
+  const profileRows = [
+    { label: "法人状態 / 法人形態", value: `${preIncorporation ? "設立準備中" : LEGAL_STATUS.find(option => option.value === data.profile?.legal_status)?.label || "設立前"} / ${data.profile?.entity_type || "未入力"}` },
+    { label: "商号", value: data.profile?.legal_name },
+    { label: "英文商号", value: data.profile?.legal_name_en },
+    { label: "設立日", value: data.profile?.incorporated_on ? `${formatDate(data.profile.incorporated_on)}${preIncorporation ? "（予定）" : ""}` : "未入力" },
+    { label: "代表者", value: data.profile?.representative_name },
+    { label: "資本金", value: incorporationPlan ? `${formatYen(incorporationPlan.capitalYen)}（案）` : formatYen(data.profile?.capital_yen) },
+    { label: "決算月", value: data.profile?.fiscal_year_end_month ? `${data.profile.fiscal_year_end_month}月${preIncorporation ? "（案）" : ""}` : "未入力" },
+    { label: "本店所在地", value: data.profile?.head_office },
+    { label: "事業内容・定款目的", value: data.profile?.business_purpose },
+    { label: "機関設計", value: [data.profile?.board_structure, data.profile?.has_board == null ? null : data.profile.has_board ? "取締役会設置" : "取締役会非設置", data.profile?.has_auditor == null ? null : data.profile.has_auditor ? "監査役設置" : "監査役非設置"].filter(Boolean).join(" / ") },
+    { label: "公告方法", value: data.profile?.public_notice_method },
+    { label: "法人番号", value: data.profile?.corporate_number ? compactCorporateNumber(data.profile.corporate_number) : preIncorporation ? "設立後に取得" : "未入力" },
+    { label: "適格請求書発行事業者番号", value: data.profile?.invoice_registration_number || (preIncorporation ? "設立後に登録（予定）" : "未入力") },
+    ...(!readOnly ? [{ label: "確認元 / 確認日", value: [data.profile?.source_ref, data.profile?.source_verified_on && formatDate(data.profile.source_verified_on)].filter(Boolean).join(" / ") }] : []),
+  ];
+  const metricRows = incorporationPlan ? [
+    { label: "資本金（案）", value: formatYen(incorporationPlan.capitalYen) },
+    { label: "設立時発行株式（予定）", value: `${formatNumber(incorporationPlan.issuedShares)}株` },
+    { label: "SO枠を含む株式数（案）", value: `${formatNumber(incorporationPlan.dilutedShares)}株` },
+    { label: "法人状態", value: "設立準備中" },
+  ].map(row => ({ ...row, detail: "" })) : [
+    { label: "基本情報", detail: "", value: `${profileCompleteness} / 6項目` },
+    { label: "発行済株式", detail: tieOut.state === "matched" ? "登記株式数と一致" : tieOut.state === "mismatch" ? `登記との差 ${formatNumber(tieOut.difference, 2)}株` : "登記株式数は未入力", value: `${formatNumber(latestSnapshot?.outstandingShares, 2)}株` },
+    { label: "完全希薄化後", detail: `転換見込を含む参考値 ${formatNumber(conversion.proFormaDilutedShares, 2)}株`, value: `${formatNumber(latestSnapshot?.dilutedShares, 2)}株` },
+    { label: "直近企業価値", detail: latestRound?.round_name || "ラウンド未入力", value: formatYen(selectedEquityValue) },
+  ];
 
   async function post(entity: string, row: Record<string, unknown>) {
     await saveGovernanceEntity(projectId, entity, row);
@@ -262,37 +288,26 @@ export function CockpitCompanyOverview({
         {/* 事業の概要（何をする事業か）を会社概要のいちばん上に置く（2026-10-04 まさ確定、spec 3-23 §9） */}
         <CompanyBusinessSummarySection projectId={projectId} readOnly={readOnly} initialData={initialBusinessSummary} />
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center justify-between text-[11px] text-slate-500"><span>基本情報</span><Building2 className="size-4" /></div><div className="mt-2 text-xl font-semibold tabular-nums text-slate-950">{profileCompleteness}<span className="ml-1 text-xs font-normal text-slate-400">/ 6項目</span></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full bg-slate-800" style={{ width: `${profileCompleteness / 6 * 100}%` }} /></div></div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center justify-between text-[11px] text-slate-500"><span>発行済株式</span><Users className="size-4" /></div><div className="mt-2 text-xl font-semibold tabular-nums text-slate-950">{formatNumber(latestSnapshot?.outstandingShares, 2)}<span className="ml-1 text-xs font-normal text-slate-400">株</span></div><p className={`mt-2 text-[11px] ${tieOut.state === "mismatch" ? "text-rose-600" : tieOut.state === "matched" ? "text-emerald-700" : "text-slate-500"}`}>{tieOut.state === "matched" ? "登記株式数と一致" : tieOut.state === "mismatch" ? `登記との差 ${formatNumber(tieOut.difference, 2)}株` : "登記株式数は未入力"}</p></div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center justify-between text-[11px] text-slate-500"><span>完全希薄化後</span><WalletCards className="size-4" /></div><div className="mt-2 text-xl font-semibold tabular-nums text-slate-950">{formatNumber(latestSnapshot?.dilutedShares, 2)}<span className="ml-1 text-xs font-normal text-slate-400">株</span></div><p className="mt-2 text-[11px] text-slate-500">転換見込を含む参考値 {formatNumber(conversion.proFormaDilutedShares, 2)}株</p></div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center justify-between text-[11px] text-slate-500"><span>直近企業価値</span><Landmark className="size-4" /></div><div className="mt-2 text-xl font-semibold tabular-nums text-slate-950">{formatYen(selectedEquityValue)}</div><p className="mt-2 truncate text-[11px] text-slate-500">{latestRound?.round_name || "ラウンド未入力"}</p></div>
+        <div className="grid grid-cols-2 divide-x divide-slate-200 rounded-lg border border-slate-200 bg-white sm:grid-cols-4">
+          {metricRows.map(row => <div key={row.label} className="min-w-0 px-4 py-3"><div className="text-xs text-slate-500">{row.label}</div><div className="mt-1 text-base font-semibold tabular-nums text-slate-950">{row.value}</div>{row.detail && <p className={`mt-1 text-xs ${row.label === "発行済株式" && tieOut.state === "mismatch" ? "text-rose-600" : "text-slate-500"}`}>{row.detail}</p>}</div>)}
         </div>
 
         <Section title="基本情報" action={readOnly ? undefined : <Button variant="outline" className="h-11" onClick={() => setDialog("profile")}><Pencil />編集</Button>}>
-          <div className="grid sm:grid-cols-2">
-            <InfoCell label="法人状態 / 法人形態" value={`${LEGAL_STATUS.find((option) => option.value === data.profile?.legal_status)?.label || "設立前"} / ${data.profile?.entity_type || "未入力"}`} />
-            <InfoCell label="法人番号" value={compactCorporateNumber(data.profile?.corporate_number)} />
-            <InfoCell label="商号" value={data.profile?.legal_name} />
-            <InfoCell label="英文商号" value={data.profile?.legal_name_en} />
-            <InfoCell label="設立日 / 代表者" value={[data.profile?.incorporated_on && formatDate(data.profile.incorporated_on), data.profile?.representative_name].filter(Boolean).join(" / ")} />
-            <InfoCell label="資本金 / 決算月" value={`${formatYen(data.profile?.capital_yen)} / ${data.profile?.fiscal_year_end_month ? `${data.profile.fiscal_year_end_month}月` : "未入力"}`} />
-            <InfoCell label="本店所在地" value={data.profile?.head_office} wide />
-            <InfoCell label="事業内容・定款目的" value={data.profile?.business_purpose} wide />
-            <InfoCell label="機関設計" value={[data.profile?.board_structure, data.profile?.has_board == null ? null : data.profile.has_board ? "取締役会設置" : "取締役会非設置", data.profile?.has_auditor == null ? null : data.profile.has_auditor ? "監査役設置" : "監査役非設置"].filter(Boolean).join(" / ")} wide />
-            <InfoCell label="公告方法" value={data.profile?.public_notice_method} />
-            <InfoCell label="適格請求書発行事業者番号" value={data.profile?.invoice_registration_number} />
-            <InfoCell label="確認元 / 確認日" value={[data.profile?.source_ref, data.profile?.source_verified_on && formatDate(data.profile.source_verified_on)].filter(Boolean).join(" / ")} wide />
-          </div>
+          <CompanyOverviewRows rows={profileRows} />
         </Section>
+        {incorporationPlan && <>
+          <Section title="創業・事業体制"><CompanyOverviewRows rows={incorporationPlan.organizationRows} /></Section>
+          <Section title="設立時の資本・資金調達"><CompanyOverviewRows rows={incorporationPlan.capitalRows} /></Section>
+          <Section title="会社運営"><CompanyOverviewRows rows={incorporationPlan.operationRows} /></Section>
+        </>}
 
         <div className="grid gap-4 xl:grid-cols-2">
-          <Section title="総会・取締役会" action={readOnly ? undefined : <Button variant="outline" className="h-11" onClick={() => setDialog("meeting")}><Plus />開催情報</Button>}>
+          {(!incorporationPlan || data.meetings.length > 0) && <Section title="総会・取締役会" action={readOnly ? undefined : <Button variant="outline" className="h-11" onClick={() => setDialog("meeting")}><Plus />開催情報</Button>}>
             {data.meetings.length === 0 ? <EmptyState>開催記録未登録</EmptyState> : <div className="divide-y divide-slate-100">{data.meetings.map((meeting) => <div key={meeting.id} className="px-4 py-4 sm:px-5"><div className="flex flex-wrap items-center gap-2"><span className="text-xs font-semibold tabular-nums text-slate-900">{formatDate(meeting.meeting_date)}</span><span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] text-slate-600">{meetingLabel(meeting.meeting_type)}</span>{meeting.amd_response && <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] text-emerald-700">AMD: {meeting.amd_response}</span>}</div>{meeting.agenda_summary && <p className="mt-2 text-xs leading-5 text-slate-600">{meeting.agenda_summary}</p>}{meeting.resolutions_json?.length ? <ul className="mt-2 list-disc space-y-1 pl-4 text-[11px] text-slate-500">{meeting.resolutions_json.map((resolution, index) => <li key={index}>{resolution.title}</li>)}</ul> : null}{meeting.attachments_json?.length ? <div className="mt-3 flex flex-wrap gap-2">{meeting.attachments_json.map((attachment, index) => sourceHref(attachment) ? <a key={index} href={sourceHref(attachment)} target="_blank" rel="noopener noreferrer" className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] text-slate-700 hover:bg-slate-50 hover:underline">資料: {attachment.name || index + 1}</a> : null)}</div> : null}</div>)}</div>}
-          </Section>
+          </Section>}
 
           <Section title="年度決算" action={readOnly ? undefined : <Button variant="outline" className="h-11" onClick={() => setDialog("financial")}><Plus />決算</Button>}>
-            {data.financialPeriods.length === 0 ? <EmptyState>年度決算未登録</EmptyState> : <div className="overflow-x-auto"><table className="w-full min-w-[620px] text-xs"><thead className="bg-slate-50 text-[11px] text-slate-500"><tr><th className="px-4 py-3 text-left font-medium">年度</th><th className="px-3 py-3 text-left font-medium">状態</th><th className="px-3 py-3 text-right font-medium">売上高</th><th className="px-3 py-3 text-right font-medium">営業利益</th><th className="px-3 py-3 text-right font-medium">純利益</th><th className="px-4 py-3 text-right font-medium">純資産</th></tr></thead><tbody className="divide-y divide-slate-100">{data.financialPeriods.map((period) => <tr key={period.id}><td className="px-4 py-3 font-semibold tabular-nums text-slate-900">{period.fiscal_year}</td><td className="px-3 py-3 text-slate-600">{statusLabel(period.statement_status)}</td><td className="px-3 py-3 text-right tabular-nums">{formatYen(period.revenue_yen)}</td><td className={`px-3 py-3 text-right tabular-nums ${Number(period.operating_income_yen) < 0 ? "text-rose-600" : ""}`}>{formatYen(period.operating_income_yen)}</td><td className={`px-3 py-3 text-right tabular-nums ${Number(period.net_income_yen) < 0 ? "text-rose-600" : ""}`}>{formatYen(period.net_income_yen)}</td><td className="px-4 py-3 text-right tabular-nums">{formatYen(period.net_assets_yen)}</td></tr>)}</tbody></table></div>}
+            {data.financialPeriods.length === 0 ? <div className="px-4 py-3 text-[13px] leading-6 text-slate-700">{incorporationPlan ? `初年度：${incorporationPlan.firstFiscalPeriod}（予定）` : "年度決算未登録"}</div> : <div className="overflow-x-auto"><table className="w-full min-w-[620px] text-xs"><thead className="bg-slate-50 text-[11px] text-slate-500"><tr><th className="px-4 py-3 text-left font-medium">年度</th><th className="px-3 py-3 text-left font-medium">状態</th><th className="px-3 py-3 text-right font-medium">売上高</th><th className="px-3 py-3 text-right font-medium">営業利益</th><th className="px-3 py-3 text-right font-medium">純利益</th><th className="px-4 py-3 text-right font-medium">純資産</th></tr></thead><tbody className="divide-y divide-slate-100">{data.financialPeriods.map((period) => <tr key={period.id}><td className="px-4 py-3 font-semibold tabular-nums text-slate-900">{period.fiscal_year}</td><td className="px-3 py-3 text-slate-600">{statusLabel(period.statement_status)}</td><td className="px-3 py-3 text-right tabular-nums">{formatYen(period.revenue_yen)}</td><td className={`px-3 py-3 text-right tabular-nums ${Number(period.operating_income_yen) < 0 ? "text-rose-600" : ""}`}>{formatYen(period.operating_income_yen)}</td><td className={`px-3 py-3 text-right tabular-nums ${Number(period.net_income_yen) < 0 ? "text-rose-600" : ""}`}>{formatYen(period.net_income_yen)}</td><td className="px-4 py-3 text-right tabular-nums">{formatYen(period.net_assets_yen)}</td></tr>)}</tbody></table></div>}
           </Section>
         </div>
 
@@ -341,4 +356,8 @@ export function CockpitCompanyOverview({
       </div><DialogFooter><Button type="button" variant="outline" className="h-11" onClick={() => setDialog(null)}>閉じる</Button><Button type="submit" className="h-11" disabled={saving}>追加</Button></DialogFooter></form></DialogContent></Dialog>
     </div>
   );
+}
+
+function CompanyOverviewRows({ rows }: { rows: Array<{ label: string; value: string | null | undefined }> }) {
+  return <table className="w-full table-fixed text-[13px] leading-6"><tbody className="divide-y divide-slate-100">{rows.map(row => <tr key={row.label}><th scope="row" className="w-36 bg-slate-50 px-4 py-2 text-left align-top font-medium text-slate-600 sm:w-48">{row.label}</th><td className="whitespace-pre-wrap break-words px-4 py-2 align-top text-slate-900">{row.value || "未入力"}</td></tr>)}</tbody></table>;
 }
