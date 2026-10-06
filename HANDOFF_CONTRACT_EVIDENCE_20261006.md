@@ -23,4 +23,4 @@ quarantine owner: 上表の担当。safe to remove after approval: なし。send
 ## 未解決・最初の次の行動
 今回の未解決実装なし。まさの次の依頼を待つ。署名版を受領したら、締結事実を確認して既存の押印版登録経路で更新する。追加通知・共有・定期監視を推測して始めない。
 
-再開文: SESSION_MIGRATION_PROMPT.md。以前のFunction Storage再開文はSESSION_MIGRATION_PROMPT_FUNCTION_STORAGE_20261006_BEFORE_CONTRACT.mdに保存。
+再開文: SESSION_MIGRATION_PROMPT_CONTRACT_DENSITY_20261006.md（共通SESSION_MIGRATION_PROMPT.mdにも全文を併記）。以前のFunction Storage再開文はSESSION_MIGRATION_PROMPT_FUNCTION_STORAGE_20261006_BEFORE_CONTRACT.mdに保存。
