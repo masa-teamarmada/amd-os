@@ -31,6 +31,17 @@ export interface ErsBundle {
   institutionProjectIds: string[];
 }
 
+/** Page all rows so growing catalogs/assessment history never silently stop at 1000. */
+async function allRows<T>(query: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>) {
+  const data: T[] = [];
+  for (let from = 0; ; from += 1000) {
+    const page = await query(from, from + 999);
+    if (page.error) return { data: null, error: page.error };
+    data.push(...(page.data ?? []));
+    if ((page.data?.length ?? 0) < 1000) return { data, error: null };
+  }
+}
+
 export async function fetchErsBundle(
   readClient: SupabaseClient = createClient(),
 ): Promise<ErsBundle> {
@@ -42,33 +53,33 @@ export async function fetchErsBundle(
     institutionProjectRes,
     seedInstitutionRes,
   ] = await Promise.all([
-    readClient
+    allRows((from, to) => readClient
       .from("institutions")
       .select("*")
-      .order("sort_order", { ascending: true }),
-    readClient
+      .order("sort_order", { ascending: true }).order("institution_id").range(from, to)),
+    allRows((from, to) => readClient
       .from("institution_capability_axes")
       .select("*")
-      .order("sort_order", { ascending: true }),
-    readClient
+      .order("sort_order", { ascending: true }).order("axis_id").range(from, to)),
+    allRows((from, to) => readClient
       .from("institution_capability_criteria")
       .select("*")
-      .order("sort_order", { ascending: true }),
-    readClient
+      .order("sort_order", { ascending: true }).order("criterion_id").range(from, to)),
+    allRows((from, to) => readClient
       .from("institution_assessments")
       .select(
         "institution_id,criterion_id,level,na,note,evaluated_at,evaluation_version",
       )
-      .order("evaluated_at", { ascending: false }),
-    readClient
+      .order("evaluated_at", { ascending: false }).order("institution_id").order("criterion_id").range(from, to)),
+    allRows((from, to) => readClient
       .from("institution_projects")
       .select(
         "institution_id,project_id,engagement_scope,target_unit,ecosystem_goal,projects(project_name,status)",
-      ),
-    readClient
+      ).order("institution_id").order("project_id").range(from, to)),
+    allRows((from, to) => readClient
       .from("seeds")
       .select("institution_id")
-      .not("institution_id", "is", null),
+      .not("institution_id", "is", null).order("id").range(from, to)),
   ]);
 
   const firstError = [

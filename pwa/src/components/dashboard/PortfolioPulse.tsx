@@ -27,7 +27,8 @@ import {
   type PortfolioPulseModel,
 } from "@/lib/portfolio-pulse";
 import type { DashProject } from "@/lib/supabase-data";
-import type { SeedPublicView, SeedScreeningBandSummary } from "@/types/seeds";
+import type { PortfolioPulseResponse, PortfolioPulseSeed } from "@/lib/portfolio-pulse";
+import { loadPortfolioPulse, peekPortfolioPulse } from "@/lib/portfolio-pulse-client";
 
 const EMPTY_ERS_BUNDLE: ErsBundle = {
   institutions: [],
@@ -40,28 +41,14 @@ const EMPTY_ERS_BUNDLE: ErsBundle = {
   institutionProjectIds: [],
 };
 
-type PulseApiResponse = {
-  ok: boolean;
-  institutionBundle: ErsBundle | null;
-  institutionError: boolean;
-  seeds: SeedPublicView[] | null;
-  seedsError: boolean;
-  screeningBands: SeedScreeningBandSummary[] | null;
-  screeningBandsError: boolean;
-};
-
-type FetchState = {
-  status: "loading" | "ready" | "error";
-  institutionBundle: ErsBundle | null;
-  institutionError: boolean;
-  seeds: SeedPublicView[] | null;
-  seedsError: boolean;
-  screeningBands: SeedScreeningBandSummary[] | null;
-  screeningBandsError: boolean;
-};
+type FetchState = PortfolioPulseResponse & { status: "loading" | "ready" | "error" };
 
 export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
-  const [state, setState] = useState<FetchState>({
+  const [state, setState] = useState<FetchState>(() => {
+    const cached = peekPortfolioPulse();
+    if (cached) return { ...cached, status: "ready" };
+    return {
+    ok: true,
     status: "loading",
     institutionBundle: null,
     institutionError: false,
@@ -69,15 +56,15 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
     seedsError: false,
     screeningBands: null,
     screeningBandsError: false,
-  });
+  }; });
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/dashboard/portfolio-pulse", { cache: "no-store" })
-      .then((res) => (res.ok ? (res.json() as Promise<PulseApiResponse>) : Promise.reject(new Error(String(res.status)))))
+    loadPortfolioPulse()
       .then((json) => {
         if (cancelled) return;
         setState({
+          ok: json.ok,
           status: "ready",
           institutionBundle: json.institutionBundle,
           institutionError: json.institutionError,
@@ -115,8 +102,20 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
 
   if (state.status === "loading" || !model) {
     return (
-      <section className="dashboard-desk-section px-3 py-4 text-center text-[13px] text-[var(--desk-muted)]">
-        PJポートフォリオを読み込み中…
+      <section className="dashboard-desk-section" aria-busy="true" aria-label="PJポートフォリオを読み込み中">
+        <h2 className="dashboard-desk-section-title">PJポートフォリオ — 今日動かす対象</h2>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6" aria-hidden="true">
+          {Array.from({ length: 6 }, (_, i) => <div key={i} className="h-14 animate-pulse rounded border border-[var(--desk-line)] bg-[var(--desk-sheet)]" />)}
+        </div>
+        <div className="mt-2 grid grid-cols-1 items-start gap-2 lg:grid-cols-3">
+          {["研究機関PJ", "シーズPJ", "事業会社PJ"].map((title) => (
+            <div key={title} className="rounded border border-[var(--desk-line)] bg-[var(--desk-sheet)] p-2">
+              <p className="mb-2 text-[13px] font-semibold">{title}</p>
+              <div className="h-32 animate-pulse rounded bg-[var(--desk-blue-soft)]" aria-hidden="true" />
+            </div>
+          ))}
+        </div>
+        <p className="mt-2 text-[11px] text-[var(--desk-muted)]" role="status">PJポートフォリオを読み込み中…</p>
       </section>
     );
   }
@@ -134,13 +133,13 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
   );
   // 行の主役は「紐づくPJ」。稼働中PJがあればそれ、無ければ検討中PJ (sales/draft)。
   // どちらも無い行だけシーズ名を主役にする (= まだPJになっていないシーズ)。
-  const primarySeedLink = (seed: SeedPublicView) => {
+  const primarySeedLink = (seed: PortfolioPulseSeed) => {
     const links = seed.project_links ?? [];
     return links.find((link) => link.project_status === "active")
       ?? links.find((link) => link.project_status === "sales" || link.project_status === "draft")
       ?? null;
   };
-  const activeSeedLinks = (seed: SeedPublicView) =>
+  const activeSeedLinks = (seed: PortfolioPulseSeed) =>
     (seed.project_links ?? []).filter((link) => link.project_status === "active");
   // PJ番号は台帳の `p12` 形式のものだけ前に出す。シーズから自動生成された
   // `seed-xxxxxxxx-xxxxxxxx` のような長い仮IDを出すと、行の名前を押しつぶす。

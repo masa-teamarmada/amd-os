@@ -22,10 +22,23 @@ import type { DashProject } from "@/lib/supabase-data";
 import type { SeedPublicView, SeedScreeningBandSummary } from "@/types/seeds";
 import { AMD_COMPANY_PROJECT_ID } from "@/lib/project-formats";
 
+export type PortfolioPulseSeed = Pick<SeedPublicView, "id" | "title" | "org_name" | "researcher_name" | "status" | "project_links">;
+export type PortfolioPulseBand = Pick<SeedScreeningBandSummary, "seed_id" | "assessment_id" | "sps_lower_yen" | "sps_upper_yen">;
+export type PortfolioPulseInstitutionBundle = Omit<ErsBundle, "assessmentHistoryByInstitution">;
+export type PortfolioPulseResponse = {
+  ok: boolean;
+  institutionBundle: PortfolioPulseInstitutionBundle | null;
+  institutionError: boolean;
+  seeds: PortfolioPulseSeed[] | null;
+  seedsError: boolean;
+  screeningBands: PortfolioPulseBand[] | null;
+  screeningBandsError: boolean;
+};
+
 export type PortfolioPulseData = {
-  institutionBundle: ErsBundle;
-  seeds: SeedPublicView[];
-  screeningBands: SeedScreeningBandSummary[];
+  institutionBundle: PortfolioPulseInstitutionBundle;
+  seeds: PortfolioPulseSeed[];
+  screeningBands: PortfolioPulseBand[];
   projects: DashProject[];
 };
 
@@ -60,7 +73,7 @@ export type ProjectRow = {
 
 export type PortfolioPulseModel = {
   institutionRows: InstitutionRow[];
-  seedRows: SeedPublicView[];
+  seedRows: PortfolioPulseSeed[];
   projectRows: ProjectRow[];
   counts: {
     institutions: number;
