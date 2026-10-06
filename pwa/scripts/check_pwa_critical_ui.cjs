@@ -4733,7 +4733,7 @@ execFileSync(process.execPath, ["--experimental-strip-types", path.join(root, "s
 expectIncludes("next.config.ts", ['source: "/project/:projectId/report/:ym/print"', 'headers: monthlyReportSecurityHeaders', 'value: "SAMEORIGIN"', '"frame-ancestors \'self\'"']);
 
 // 2026-10-06: 全体メニューとスペースメニューを分離し、既存の操作を左に保つ。
-expectIncludes("src/components/nav/GlobalMenu.tsx", ['aria-label="全体メニューを開く"', '<Ellipsis', '<SheetContent side="left"', 'setOpen(false)']);
+expectIncludes("src/components/nav/GlobalMenu.tsx", ['aria-label="全体メニューを開く"', '<Menu', '<SheetContent side="left"', 'setOpen(false)']);
 expectIncludes("src/components/nav/AppShell.tsx", ['useGlobalMenu', '<GlobalMenu><GlobalNav', 'leading={useGlobalMenu']);
 expectIncludes("src/components/nav/ProjectSpaceLayout.tsx", ['md:grid-cols-[208px_minmax(0,1fr)]', '<SheetContent side="left"', 'スペースメニュー', '[data-space-page]']);
 expectIncludes("src/components/nav/ProjectPageMenu.tsx", ['group.children.length > 1', 'onGroup(group.key)', 'onPage(page.key)', 'onMouseEnter={page.onHover}', 'min-h-11']);

@@ -55,8 +55,8 @@ assert.doesNotMatch(adminPage, /cockpit\?tab=dd/, "DD入口からコックピッ
 assert.match(adminPage, /<DdProjectTab/, "DD管理を独立したDD画面で開く");
 assert.match(read("src/app/(app)/project/[projectId]/cockpit/page.tsx"), /legacyDd.*?=/, "旧DD子タブのURLを受け付ける");
 const ddNavigation = read("src/components/dd/DdNavigation.tsx");
-assert.match(ddNavigation, /DD_ITEM_PAGES\.map/, "DDの16項目は固定定義から一段で作る");
-assert.match(ddNavigation, /item\.label/, "DDの項目名は承認済みの16項目から作る");
+assert.match(ddNavigation, /DD_ITEM_PAGES\.map/, "DDの資料目録は固定定義から一段で作る");
+assert.match(ddNavigation, /item\.label/, "DDの項目名は承認済みの資料名から作る");
 assert.doesNotMatch(ddNavigation, /selectedGroup|dd-group-navigation|dd-child-navigation|COCKPIT_GROUP_LABELS/, "DDにグループや子メニューを戻さない");
 assert.match(read("src/lib/dd-project-pages-server.ts"), /isDdEmptyPageKey\(page\)\) return/, "未登録の項目も共通空状態で開ける");
 assert.match(read("src/components/dd/DdProjectPageBody.tsx"), /ProjectDiligenceSection/, "新規資料区分の空状態を描く");

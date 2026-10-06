@@ -1,13 +1,25 @@
 # DDパッケージ仕様（投資家・金融機関向けの開示面）
 
+## PJ主体の契約とスタジオ業務契約の分離（2026-10-06修正）
+
+まさの指示: 「いよぎん＜＞AMDの契約以外は、SOLが主体となるべきものじゃないから入れるべきじゃない」。一覧の掲載範囲とDD表示選択を分ける。全PJ共通の採用規則として扱い、PJ番号・相手先名による表示特例をコードに置かない。
+
+migration483で `contracts.project_contract_scope`（project_party/project_related/studio_service/unclassified、初期値unclassified）と `project_party_name` を追加。project_partyには確認済みのPJ側主体名が必須。明示採用したproject_relatedはAMD側の当事者を既存項目から表示する。台帳acceptedだけでは掲載を許可しない。未分類は確認まで一覧・件数・DD・チェック更新APIから除外する。専用server loaderは掲載区分をDB queryで絞り、pure projectionとPATCHも同じ判定を行う。DDに表示=trueでもstudio_service等は昇格しない。
+
+今回いよぎんNDAをproject_relatedへ、確認した4契約をstudio_serviceへ分類。元の契約・文書・PJ関連付け・registry_status・statusは保持。4件は全3領域のSOL契約リストから除外し、NDA1件・未締結・DD表示オンを維持。新たな契約は、PJ主体または明示採用した関連契約として区分を確認してから掲載する。UI本文/権限/チェック操作は変更しない。回帰テストは、スタジオ契約・未分類の一覧/件数/PATCH拒否と、PJ主体名の表示、DD selectionによる掲載範囲の昇格禁止を追加する。
+
+
+2026-10-06（v3.159.16）: DDパッケージの左メニューは調査テーマではなく資料目録とし、18資料の入口を全PJ同じ順序で常設する。名称と順序は、会社概要、資本政策表、株主名簿、次回ラウンドタームシート、総会・取締役会・経営会議議事録、事業計画書・開発計画書、市場調査・競合比較資料、顧客・販売先リスト、技術・製品説明資料、技術実証報告書、製造・品質管理・供給体制資料、知財一覧・大学との権利契約、経営陣略歴・従業員名簿、契約リスト、許認可一覧・安全性評価資料、訴訟・関連当事者取引一覧、収支計画書、開示資料一覧。資本政策表は既存の共通本文を使い、`shareholder-register`（株主名簿）と`next-round-term-sheet`（次回ラウンドタームシート）は独立した未登録ページを追加する。計画の株主や試算を正式名簿・タームシートとして転記しない。既存本文・旧URL・認可・公開設定・正式版PDFの項目は維持。以下の16項目の記述は変更前の履歴。
+
+
 ## 契約リストの開示選択（2026-10-06、まさ指示）
 
 - `contracts` ページは3領域共通の `ProjectContractList`。全PJタイプで常設し、DDの16項目中の名称を「契約リスト」に改める。既存PJ管理の `project-contracts`（PJのサービス契約条件）は別ページとして維持。
-- 正本は `contracts`。`project_id` は関連PJ、`amd_entity_name` / `counterparty_name` は契約当事者。関連PJが契約当事者であることを集計条件にしない。`registry_status=accepted` の契約を既存台帳と同じ論理契約単位で集計し、候補・却下・証跡のみは除外。未締結も件数へ含めて状態を明示する。
+- 正本は `contracts`。`project_id` は関連PJ、`amd_entity_name` / `counterparty_name` は契約当事者。`project_contract_scope=project_party`（PJ主体）または `project_related`（個別に掲載を認めた関連契約）かつ `registry_status=accepted` の契約だけを集計する。studio_service（スタジオ業務契約）とunclassified（未分類）、候補・却下・証跡のみは除外。未締結も件数へ含めて状態を明示する。
 - migration482適用済み。`dd_visible boolean NOT NULL DEFAULT false` を契約単位の明示選択として保存。既存契約は自動開示しない。今回のSOLいよぎんキャピタルNDAはユーザー指定によりオンで登録した。未締結、条件・日付は未確認、レビュー状態はpending。
 - 専用 `/api/project/[projectId]/contract-list` GETは当該PJの有効なinternal member accessまたはworkspace所属を検証。PATCHは内部admin/portfolio member、または当該PJのworkspace managerだけを許可する。contributor/readonly/project scope非adminは読み取り。DD付与だけではGET/PATCHを許可しない。これは契約表示選択の専用書込みであり、共有認可を汎用内部書込みAPIへ拡張しない。
-- PATCH入力は `{contractId:string, ddVisible:boolean}`。same-originを検証し、当該PJ・acceptedな契約の存在を確認して、同じ論理契約の関連レコードの `dd_visible/updated_by/updated_at` だけを更新する。401/403/400/404はDB更新前に返し、保存失敗は本文に表示。private no-store。
-- DDは既存のパッケージ入場認可後、server queryで `project_id/accepted/dd_visible=true` に限定し、限定DTOを共通本文へ渡す。内部メモ、メール参照、添付、条件JSON、非表示レコードは渡さない。DD本文は変更操作なし。契約行の選択は今回ユーザーが指定した開示境界で、同じ契約本文の領域別複製を作らない。
+- PATCH入力は `{contractId:string, ddVisible:boolean}`。same-originを検証し、当該PJ・acceptedな契約の存在を確認して、同じ掲載区分の対象となる論理契約の関連レコードの `dd_visible/updated_by/updated_at` だけを更新する。401/403/400/404はDB更新前に返し、保存失敗は本文に表示。private no-store。
+- DDは既存のパッケージ入場認可後、server queryで `project_id/accepted/project_contract_scope IN (project_party,project_related)/dd_visible=true` に限定し、限定DTOを共通本文へ渡す。内部メモ、メール参照、添付、条件JSON、非表示レコードは渡さない。DD本文は変更操作なし。契約行の選択は今回ユーザーが指定した開示境界で、同じ契約本文の領域別複製を作らない。
 - read clientは30秒の参照キャッシュ。保存成功時に無効化し、APIの最新一覧で画面を更新する。回帰ゲート `test:project-contract-list` は実route/loaderの実行で、PJ越境・候補・非表示版・DD-only・無効所属・閲覧専用・cross-originの拒否と許可範囲を検証する。今回のUI確認はPCのみ。Swiftのネイティブ契約リスト画面追加は本変更に含めない。
 
 
@@ -26,7 +38,7 @@
 
 ## 1. 3つの領域
 
-AMD OS の PJ 情報は、コックピット・ワークスペース・DDパッケージの並列の3領域に分ける。コックピットとワークスペースは「PJ見出し → 領域の選択 → 分類 → 子タブ → 本文」、DDは「PJ見出し → 領域の選択 → 16項目の一段メニュー → 本文」を使い、見られる人・ページ・操作を独立した権限で決める。DDを他領域の子タブには入れない（2026-10-04 まさ確定）。
+AMD OS の PJ 情報は、コックピット・ワークスペース・DDパッケージの並列の3領域に分ける。コックピットとワークスペースは「PJ見出し → 領域の選択 → 分類 → 子タブ → 本文」、DDは「PJ見出し → 領域の選択 → 18資料の一段目録 → 本文」を使い、見られる人・ページ・操作を独立した権限で決める。DDを他領域の子タブには入れない（2026-10-04 まさ確定）。
 
 | 領域 | 入れる人 | 根拠（毎リクエスト DB 再確認） | 中身 |
 |---|---|---|---|

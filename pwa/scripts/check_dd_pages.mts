@@ -14,20 +14,36 @@ for (const [domain, page] of [["競合比較", "competition"], ["ビジネスモ
 }
 const canonical = (tab: string) => tab === "cost" ? "cost-model" : tab === "drive" ? "documents" : tab;
 const dd = new Set<string>(DD_PAGE_KEYS);
-assert.equal(dd.size, 21, "16 menu items plus five preserved legacy page URLs");
-assert.equal(DD_ITEM_PAGES.length, 16);
+assert.equal(dd.size, 23, "18 document entries plus five preserved legacy page URLs");
+assert.equal(DD_ITEM_PAGES.length, 18);
 assert.deepEqual(DD_ITEM_PAGES.map(page => page.label), [
-  "会社基本情報", "株主・資本政策・投資条件", "総会・取締役会・経営会議の決議", "事業計画・開発計画",
-  "市場・競合", "顧客・販売", "技術・製品", "技術実証の証拠", "製造・品質・供給",
-  "知財・大学の利用権", "経営陣・人員・雇用", "契約リスト", "法規制・許認可・安全",
-  "紛争・関連当事者・利益相反", "財務・税務・借入・採算", "証憑・版・開示管理",
+  "会社概要",
+  "資本政策表",
+  "株主名簿",
+  "次回ラウンドタームシート",
+  "総会・取締役会・経営会議議事録",
+  "事業計画書・開発計画書",
+  "市場調査・競合比較資料",
+  "顧客・販売先リスト",
+  "技術・製品説明資料",
+  "技術実証報告書",
+  "製造・品質管理・供給体制資料",
+  "知財一覧・大学との権利契約",
+  "経営陣略歴・従業員名簿",
+  "契約リスト",
+  "許認可一覧・安全性評価資料",
+  "訴訟・関連当事者取引一覧",
+  "収支計画書",
+  "開示資料一覧"
 ]);
-assert.equal(new Set(DD_ITEM_PAGES.map(page => page.key)).size, 16);
+assert.equal(new Set(DD_ITEM_PAGES.map(page => page.key)).size, 18);
 for (const item of DD_ITEM_PAGES) {
   assert.ok(dd.has(item.key));
   assert.equal(ddPageLabel(item.key), item.label);
   for (const related of item.related) assert.ok(dd.has(related), "related pages remain accessible");
 }
+assert.ok(dd.has("shareholder-register") && dd.has("next-round-term-sheet"));
+assert.ok(isDdEmptyPageKey("shareholder-register") && isDdEmptyPageKey("next-round-term-sheet"), "計画の株主や試算を正式な名簿・タームシートへ読み替えない");
 for (const page of DD_EMPTY_PAGE_KEYS) assert.ok(isDdEmptyPageKey(page));
 assert.ok(!isDdEmptyPageKey("killer-factors"));
 assert.ok(!dd.has("killer-factors"));
@@ -50,6 +66,6 @@ for (const [type, label] of [["su", "大学発SU・顧問PJ・新規事業"], ["
   for (const key of rows) matrix += `| ${PROJECT_PAGE_LABELS[key]} | ${cockpit.has(key) ? "◯" : ""} | ${workspace.has(key) ? "◯" : ""} | ${dd.has(key) ? "◯" : ""} |\n`;
   matrix += "\n";
 }
-matrix += "DDの技術・競合比較・ビジネスモデルは `CockpitTechnology` でページ全体を表示する。掲載項目への追加や個別公開は本文の表示条件ではない。試算表・資本政策表・コスト試算・会社概要も省略版を作らず、共通ページのデータと部品を使う。キラー要素カタログは会社概要から切り出した独立ページ。全PJでコックピットの会社情報に常設し、ワークスペース・DDにはページを置かない。会社概要の本文と出力は3領域で共通に保つ（2026-10-06、v3.159.9）。契約リストも3領域共通の本文を使用する。DDでは「DDに表示」がオンの採用済み契約だけをserverで取得し、編集操作は表示しない。ドライブの共有ファイル選択、DDの入場権限、書込み・ダウンロードの権限は独立して保つ。\n\n正本は `src/lib/project-formats.ts` の3領域のフォーマットと共通ページ名、元データの対応は `src/lib/dd-pages.ts`。新規事業は大学発SUと同じ定義。project_pageの7キー（migration 469）は正式版PDFの互換項目用に保持する。ワークスペースの動向・会議／Slackは当該PJの参加者の読み取りに限る。理論変更なし。\n";
+matrix += "DDの技術・競合比較・ビジネスモデルは `CockpitTechnology` でページ全体を表示する。掲載項目への追加や個別公開は本文の表示条件ではない。試算表・資本政策表・コスト試算・会社概要も省略版を作らず、共通ページのデータと部品を使う。キラー要素カタログは会社概要から切り出した独立ページ。全PJでコックピットの会社情報に常設し、ワークスペース・DDにはページを置かない。会社概要の本文と出力は3領域で共通に保つ（2026-10-06、v3.159.9）。契約リストも3領域共通の本文を使用する。DDでは「DDに表示」がオンの掲載対象契約だけをserverで取得し、編集操作は表示しない。ドライブの共有ファイル選択、DDの入場権限、書込み・ダウンロードの権限は独立して保つ。\n\n正本は `src/lib/project-formats.ts` の3領域のフォーマットと共通ページ名、元データの対応は `src/lib/dd-pages.ts`。新規事業は大学発SUと同じ定義。project_pageの7キー（migration 469）は正式版PDFの互換項目用に保持する。ワークスペースの動向・会議／Slackは当該PJの参加者の読み取りに限る。理論変更なし。\n";
 if (process.argv.includes("--write-matrix")) writeFileSync(new URL("../spec/3-24-project-surface-pages-current-spec.md", import.meta.url), matrix);
 console.log("DD page routing and shared page format: ok");

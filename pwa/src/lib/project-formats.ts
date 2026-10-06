@@ -101,31 +101,33 @@ export const DD_TAB_FORMAT = [
   { group: "company-information-group", tabs: ["company", "capital-policy", "activity"] },
 ] as const;
 
-/** DDの常設メニュー。資料の有無にかかわらず、16項目を同じ順に並べる。 */
+/** DDの資料目録。資料の有無にかかわらず、18資料の入口を同じ順に並べる。 */
 export const DD_ITEM_PAGES = [
-  { key: "company", label: "会社基本情報", related: ["activity"] },
-  { key: "capital-plan", label: "株主・資本政策・投資条件", related: ["capital-policy"] },
-  { key: "governance", label: "総会・取締役会・経営会議の決議", related: ["company"] },
-  { key: "business-plan", label: "事業計画・開発計画", related: ["gantt"] },
-  { key: "competition", label: "市場・競合", related: ["business-model"] },
-  { key: "partners", label: "顧客・販売", related: ["business-model"] },
-  { key: "technology", label: "技術・製品", related: [] },
-  { key: "technical-evidence", label: "技術実証の証拠", related: ["technology"] },
-  { key: "manufacturing", label: "製造・品質・供給", related: ["technology"] },
-  { key: "ip", label: "知財・大学の利用権", related: ["technology"] },
-  { key: "team", label: "経営陣・人員・雇用", related: ["business-model"] },
+  { key: "company", label: "会社概要", related: ["activity"] },
+  { key: "capital-plan", label: "資本政策表", related: ["capital-policy"] },
+  { key: "shareholder-register", label: "株主名簿", related: [] },
+  { key: "next-round-term-sheet", label: "次回ラウンドタームシート", related: [] },
+  { key: "governance", label: "総会・取締役会・経営会議議事録", related: ["company"] },
+  { key: "business-plan", label: "事業計画書・開発計画書", related: ["gantt"] },
+  { key: "competition", label: "市場調査・競合比較資料", related: ["business-model"] },
+  { key: "partners", label: "顧客・販売先リスト", related: ["business-model"] },
+  { key: "technology", label: "技術・製品説明資料", related: [] },
+  { key: "technical-evidence", label: "技術実証報告書", related: ["technology"] },
+  { key: "manufacturing", label: "製造・品質管理・供給体制資料", related: ["technology"] },
+  { key: "ip", label: "知財一覧・大学との権利契約", related: ["technology"] },
+  { key: "team", label: "経営陣略歴・従業員名簿", related: ["business-model"] },
   { key: "contracts", label: "契約リスト", related: ["business-model"] },
-  { key: "regulatory", label: "法規制・許認可・安全", related: ["technology", "business-model"] },
-  { key: "disputes", label: "紛争・関連当事者・利益相反", related: [] },
-  { key: "financial-projection", label: "財務・税務・借入・採算", related: ["cost-model"] },
-  { key: "documents", label: "証憑・版・開示管理", related: ["business-model"] },
+  { key: "regulatory", label: "許認可一覧・安全性評価資料", related: ["technology", "business-model"] },
+  { key: "disputes", label: "訴訟・関連当事者取引一覧", related: [] },
+  { key: "financial-projection", label: "収支計画書", related: ["cost-model"] },
+  { key: "documents", label: "開示資料一覧", related: ["business-model"] },
 ] as const;
 
 /** 3領域のページ名。ワークスペースの旧キー cost/drive は同じページへ対応する。 */
 export const PROJECT_PAGE_LABELS: Readonly<Record<string, string>> = {
   issues: "ゴールツリー", tasks: "タスク", gantt: "ガント", progress: "MS・月次", meetings: "動向・会議", slack: "Slack", weekly: "週次差分", partners: "関係先",
   "score-detail": "スコア詳細", technology: "技術", competition: "競合比較", "business-model": "ビジネスモデル", "business-plan": "事業計画", "financial-projection": "試算表", "capital-plan": "資本政策表", "cost-model": "コスト試算", cost: "コスト試算", ip: "知財",
-  governance: "総会・取締役会・経営会議の決議", "technical-evidence": "技術実証の証拠", manufacturing: "製造・品質・供給", team: "経営陣・人員・雇用", contracts: "契約リスト", regulatory: "法規制・許認可・安全", disputes: "紛争・関連当事者・利益相反",
+  governance: "総会・取締役会・経営会議議事録", "technical-evidence": "技術実証報告書", manufacturing: "製造・品質管理・供給体制資料", team: "経営陣略歴・従業員名簿", contracts: "契約リスト", regulatory: "許認可一覧・安全性評価資料", disputes: "訴訟・関連当事者取引一覧", "shareholder-register": "株主名簿", "next-round-term-sheet": "次回ラウンドタームシート",
   documents: "ドライブ", drive: "ドライブ", overview: "PJ概要", "project-contracts": "契約", "project-finance": "収支", "monthly-reports": "月次報告書", company: "会社概要", "killer-factors": "キラー要素", "capital-policy": "資金調達履歴", activity: "沿革", seeds: "シーズ一覧", regulations: "規程一覧",
 };
 
