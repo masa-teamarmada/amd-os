@@ -240,3 +240,9 @@ SOLの会社概要のデータ処理は3回中央値634→249ms、15→11リク�
 取得は認可済みPJの採用済み・掲載対象契約の関連IDに限定し、子記録もproject_idとcontract_idで照合する。リンクはHTTPSのDrive/DocsとGmailのみ。DDでは文書と経緯を取得・返却しない。既存の契約単位DDチェックはこれらの追加開示を許可しない。Driveの共有権限は変更しない。
 
 いよぎんキャピタルNDAは先方受領版と変更履歴付き修正案の2版、10/2受領・返送、10/6先方回答・電子署名担当回答の4履歴を登録。先方回答に基づき署名待ちへ更新。未締結、締結日・契約期間未確認を維持する。
+
+## 2026-10-06 DDナビの幅と本文との区別
+
+2026-10-06 JST: DDの左ナビはPC幅200px（従来240px）、本文との間隔12px、内側余白8px。ナビは淡いグレー背景と1pxの境界で白い本文から区別し、分類見出しを太字、現在の資料を青い左線と背景で示す。子項目の字下げを短縮、長い資料名は省略せず折り返す。スマホは幅264pxのドロワーと44px以上のタップ領域を維持。7分類・初期全展開・横断検索・下部常設の開示資料は維持。DDのみcompact指定で適用し、他スペースの寸法は維持。
+
+参考: [IBM Carbon 左パネル](https://www.carbondesignsystem.com/building-blocks/core/components/ui-shell-left-panel/guidelines)の2階層・山形での独立開閉、[Atlassian navigation layout](https://atlassian.design/components/navigation-system/layout/code)のナビと本文の独立領域、狭幅での折り畳みを照合。200px・灰色背景・余白の値はDDの日本語資料名と本文幅を踏まえた本OSの設計判断。
