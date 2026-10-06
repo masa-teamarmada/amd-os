@@ -12,7 +12,7 @@
 
 ## 検証と反映
 
-test:organization-chart、TypeScript全体検査、test:no-project-special-cases、test:project-format、test:dd-packageは通過。DB登録値を読み戻し、2部署・3協業先・proposedと完全一致を確認。main pushの反映・画面確認は、このコミット後にdeploy.shで実施する。
+test:organization-chart、test:reference-data-cache、TypeScript全体検査、test:no-project-special-cases、test:project-format、test:dd-packageは通過。DB登録値を読み戻し、2部署・3協業先・proposedと完全一致を確認。main pushの反映・画面確認は、このコミット後にdeploy.shで実施する。
 
 ## マニュアル同期
 
@@ -22,4 +22,4 @@ test:organization-chart、TypeScript全体検査、test:no-project-special-cases
 | DDのサーバ初期値と既存認可 | spec 3-23 / 既存5-17 | manual 2-1 / 既存7-2 | 表示説明同期、認可手順は不変 |
 | 理論・評価 | 変更なし | bzm | 対象外 |
 
-反映用checkoutは /Users/masa/projects/AMD/SOL/work/amie_os_organization_20261006。共有root checkoutで同時に進んでいたナビゲーション変更は含めていない。登録と画面readbackの記録はSOLのoutputs/amie_261005_15mo_9f334f8e/に保存する。
+反映用checkoutは /Users/masa/projects/AMD/SOL/work/amie_os_organization_20261006。共有root checkoutの未確定作業を分離し、origin/mainの公開済みナビゲーション変更を取り込んだ。登録と画面readbackの記録はSOLのoutputs/amie_261005_15mo_9f334f8e/に保存する。
