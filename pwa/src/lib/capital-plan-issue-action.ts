@@ -14,7 +14,6 @@ export function capitalPlanIssueAction(issue: ValidationIssue, plan: CapitalPlan
     label = '調達条件を入力';
     if (issue.code === 'invalid_split_ratio') label = '分割比率を入力';
     if (issue.code === 'option_pool_size_mismatch') label = 'プール株数を編集';
-    if (issue.code === 'convertible_conversion_non_manual_basis') section = 'event';
   } else if (issue.holderId || /allocation|empty_equity|secondary|convertible|shares_sum|percentage_sum/.test(issue.code)) {
     section = 'allocations';
     label = '割当を編集';

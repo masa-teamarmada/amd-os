@@ -1208,7 +1208,9 @@ export function validateSubmissionCompleteness(plan: CapitalPlan): ValidationIss
         issues.push({
           severity: 'error',
           code: 'submission_financing_incomplete',
-          message: `増資イベント「${event.label}」の調達条件が未入力です。評価額と株主ごとの出資額、または1株価格と割当株数を入力してください。`,
+          message: !event.calculationBasis || event.calculationBasis === 'manual'
+            ? `増資イベント「${event.label}」の調達条件が未入力です。計算基準を選んで入力するか、手動で評価額・1株価格・割当株数・出資額を入力してください。`
+            : `増資イベント「${event.label}」の調達条件が未入力です。評価額と株主ごとの出資額、または1株価格と割当株数を入力してください。`,
           eventId: event.id,
         });
       }

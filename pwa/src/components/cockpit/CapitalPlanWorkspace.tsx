@@ -1913,7 +1913,10 @@ function EventEditor({
                 ))}
               </select>
             </label>
-            <label className="flex flex-col gap-1">
+          </div>
+
+          <div data-capital-section="financing" className="grid scroll-mt-24 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+            <label className="flex min-w-0 flex-col gap-1">
               <span className="text-xs font-medium text-zinc-500">計算基準</span>
               {event.type === "convertible_conversion" ? (
                 <span
@@ -1937,9 +1940,6 @@ function EventEditor({
                 </select>
               )}
             </label>
-          </div>
-
-          <div data-capital-section="financing" className="grid scroll-mt-24 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
             {([
               ["preMoneyValuation", "プレマネー評価額（円）"],
               ["pricePerShare", "1株価格（円）"],
