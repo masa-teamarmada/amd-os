@@ -342,3 +342,11 @@ Drive原稿は共有ARMADA/p21_sol/261006_製品説明資料/製品説明資料_
 他担当の会社概要・創業背景の共有dirtyは触らず、対象アセットと本文だけを最新mainの一時clean cloneへ分離。SVG制作元と出所はSOL/output/productの改訂メモ、Drive同日の製品説明資料フォルダ。プレビューで図外のテキスト0、DD回帰成功。本番配布後に本文と画像読戻し、PC Chromeの7節・図全体の表示を確認する。
 
 図解改訂の最終確認: b42fa88a/v3.160.25を正規deploy.shで配信し3分2秒でalias SHA一致。旧値一致SQLは1行更新。本文期待値完全一致、他のp21設定・DDパッケージ・事業計画は不変。PNG2枚とSVG2枚の公開バイト一致。Chrome PC1392×824、本文幅960pxで7節・4表・2Mermaid図・4画像を確認。第3節の左右工程、第7節のTRL全体を一画面に表示し文字・矢印・注記の収まりと横溢れなしを確認。品質9.0/10。Drive原稿12290bytesと図・制作元・改訂メモの同期を確認。証跡SOL/work/amie_dd_product_visual_20261006/。共有本体は別担当の0d3fd466を含むmainと0/0へ到達し、cloneにも統合済み。検証サーバ停止、プレビュータブ終了。新規branch/worktreeなし、対話証拠0件。最終引き継ぎはroot HANDOFF_SOL_DD_PRODUCT_VISUAL_20261006.md。
+
+## 2026-10-06 SOL DD会社概要の設立案と創業背景
+
+開発記録。共通会社概要にcompany_incorporation_planの予定値を表で表示し、登記・株式実績へ加算しない。DDのfounding-backgroundは認可済みPJ/key限定の文書取得で独立表示。仮称・代表・EUIC・取締役会非設置を明示登録、両configの読戻し一致。仕様はspec 3-23/3-24/5-17、使い方はmanual 2-6、全プラットフォームはios/DESIGNへ同期。非開発の内容正本はSOL/SOL_DD_CONTENTS_PLAN.md。
+
+最新mainの一時clean cloneへ他担当の製品説明更新を保持して統合し、0d3fd466/v3.160.26を正規deploy.shで配布。3分5秒でReady、alias SHA一致・dirty=false。型検査・対象lint・DD回帰・本番配布の全検査を通過。Chrome PC1234×898で基本13行・体制9行・資本6行・運営7行、背景5節・2表、相互リンクを確認。横溢れ0、タイトル重複0、UI評価8.5/10。ブラウザ出力Excelの仮称・資本金108万円案・予定株式108000/120000・非設置・運営行を実ファイルで検証。モバイルはSOLのPC検証方針に従い対象外。
+
+共有checkoutはroot-checkout-syncのupstream_same/contains検証と控え保存後に0d3fd466へ同期。今回の未保存差分・一時枝・worktreeなし。開始前からあるSESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdは既存のタスク移行草稿として保持（owner: まさ／旧タスク、判断条件: 当該引き継ぎの更新指示時、今回の機能へ影響なし）。会話の検討材料0件。証跡はSOL/work/amie_dd_company_20261006とCodex visualizations/2026/10/06/01a11190-2c1f-7850-8136-6eb6718b24d6。依頼の未完了作業なし。
