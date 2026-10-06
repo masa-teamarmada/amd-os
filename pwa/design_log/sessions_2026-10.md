@@ -325,3 +325,6 @@ closeout時は他担当の財務/DD差分とremote更新が重なりff-onlyが�
 型検査、対象lint、DD回帰、production build成功。DB本文完全一致（SHA256 5fb3e4fe5ca23b31e53231dbfddff34e96e68adb4e8578be5758b419c0089d27）、他のp21設定3件とパッケージ状態の不変を確認。スキーマ・RLS・公開設定・DD付与・正式PDFは追加変更なし。Swift未移植。配布とPC Chromeの表示検証を続ける。引き継ぎHANDOFF_SOL_DD_PRODUCT_20261006.md。
 
 初回配信c9193b78/v3.160.19は2分52秒でalias SHA一致。Chrome実画面でMermaidラベルの文字切れを発見。本文のp全子孫指定がSVG内pへ14px/28pxを適用し、図の12px/18px計測（2行枠36px）と不一致。本文直下のpだけへ限定して修正し、図の寸法と文字寸法の一致を最終確認する。登録本文は変更しない。
+
+最終確認: df52e6d2/v3.160.20を正規配布し3分5秒で本番alias SHA一致。Chrome PC1392×824、本文幅960px、本文7節・表5件・SVG工程図2件。図14ラベルの文字寸法と枠寸法を測り文字切れ0、ページ全体の横溢れ0を確認。全体・設置運用・顧客判断条件・燃料生産・製品化の表を実画面で検証し、視覚評価8.5/10。PCのみというSOL指定に従いモバイル検証を追加しない。本文登録値・既存p21設定3件・DDパッケージ状態を最終readbackで再確認して不変。
+Drive原稿は共有ARMADA/p21_sol/261006_製品説明資料/製品説明資料_初稿.md、file id 1eGmxBWcJYtBmecQIPsxH9S6j-9Z3gfOi。クラウド側メタデータで同名・10163bytes・親フォルダを確認し同期済み。証跡はSOL/work/amie_dd_product_20261006のDB receipt・build/deploy logs・browser-geometry.json・product-after.jpg・product-fuel.jpg。初稿作成の未完了作業なし。
