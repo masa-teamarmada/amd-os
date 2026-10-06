@@ -138,6 +138,17 @@ export const DD_ITEM_PAGES = [
   { key: "documents", label: "開示資料一覧", related: [] },
 ] as const;
 
+/** DD資料目録の7分類。全PJ共通、開示資料は一覧下部に常設する。 */
+export const DD_NAVIGATION_GROUPS = [
+  { key: "company", label: "会社・経営体制", pages: ["company", "team", "organization-chart", "articles-of-incorporation", "corporate-register", "internal-rules", "governance"] },
+  { key: "business", label: "事業・市場・顧客", pages: ["business-plan", "market-research", "competition", "partners", "sales-partners"] },
+  { key: "technology", label: "技術・製品・開発・製造", pages: ["technology", "product-description", "development-plan", "technical-evidence", "manufacturing", "quality-control", "supply-chain"] },
+  { key: "rights", label: "知財・契約", pages: ["ip", "university-rights", "contracts"] },
+  { key: "finance", label: "財務・資金調達", pages: ["financial-projection", "financial-statements", "tax-returns", "capital-plan", "shareholder-register", "next-round-term-sheet"] },
+  { key: "risk", label: "法規制・リスク", pages: ["regulatory", "safety-assessment", "disputes", "related-party-transactions"] },
+  { key: "disclosure", label: "開示資料", pages: ["documents"] },
+] as const satisfies ReadonlyArray<{ key: string; label: string; pages: ReadonlyArray<(typeof DD_ITEM_PAGES)[number]["key"]> }>;
+
 /** 3領域のページ名。ワークスペースの旧キー cost/drive は同じページへ対応する。 */
 export const PROJECT_PAGE_LABELS: Readonly<Record<string, string>> = {
   "organization-chart": "組織図",

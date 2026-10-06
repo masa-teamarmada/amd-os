@@ -16,6 +16,8 @@
 .search { width: 100%; min-height: 36px; border: 1px solid #d2d2d7; border-radius: 6px; background: #fff; padding: 6px 10px; font-size: 13px; }
 .items { min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: thin; }
 .count { padding: 6px 8px; font-size: 12px; color: #6e6e73; }
+.ddDisclosure { flex-shrink: 0; border-top: 1px solid #e5e5e7; margin-top: 8px; padding-top: 8px; }
+.dd .group:disabled { cursor: default; }
 @media (min-width: 768px) {
   .layout { grid-template-columns: 240px minmax(0, 1fr); }
   .sidebar { position: sticky; top: 64px; display: flex; min-height: 0; flex-direction: column; gap: 8px; border-right: 1px solid #e5e5e7; padding-right: 12px; }
