@@ -255,3 +255,15 @@ pwa/src/lib/build-info.ts
 ```
 
 恒久仕様はspec/manualへ反映済み。新規route/API/schema/環境変数/鍵/モデル変更なし。開発検証だけの履歴であり事業方針の変更なし。後続本番f6a0d3a4/v3.159.23にも実装を含む。引き継ぎは../../HANDOFF_CAPITAL_PLAN_DENSITY_20261006.md。
+
+## 2026-10-04 PJ概要の標準フォーマット化・事業の一言の会社概要への移動・報酬形態への改名（CXセッション）
+
+まさの指摘「PJの概要にそもそも出資とかテンポラリーな情報が入ってるのがおかしい」「そもそも概要って、PJ作ったときに作ったら、それ以降書き換えることはないのでは？」「これは会社の概要じゃなくてPJの概要なわけだから、もっとPJとしての情報が必要なのでは？」→「1で進めて」。
+
+- 実装（v3.155.0、commit 991bcfe）: PJ概要を `ProjectOverviewFormat` の9項目（PJの定義5・今の状態4）に。定義は `project-formats.ts` の `PROJECT_OVERVIEW_*`・`AMD_REVENUE_KINDS`（鍵の承認追加）。API `/api/project/[projectId]/overview`（GET=メンバー、PATCH=管理者）と `/business-summary`（GET=メンバー＋共有WS、PATCH=管理者）、参照系3層。事業の一言は会社概要「事業の概要」（`CompanyBusinessSummarySection`）。つくよみの追記マージ（description-merge・`CockpitDescriptionDetailModal`）とチャット道具 `update_short_long_description` を削除。検査 `test:project-overview` を deploy に追加。
+- migration 468（適用済み）: `project_definitions`・`project_business_summaries`（RLS 管理者書き込み、履歴トリガー）。`project_ventures.short/long_description` は同期トリガーで写す控え、直書きは `project_ventures_business_summary_guard` で拒否。13PJを写し12PJの文から一時情報を除去。CX沿革の Build VC と未来の設立予定を除去。`tsukuyomi.system` から道具の行を除去（llm_prompt_revisions）。
+- 修正（v3.156.2）: 設立前の会社を「設立済み」と出していた（会社概要の設立日欄が計画日）→ 法人状態を先に見る。契約の状態を日本語化。事業の概要を会社概要の最上段へ（別セッションの DD 用 `initialData` を保持して統合）。
+- 改名（v3.156.4・migration 471）: 「AMDの稼ぎ方」→「AMDの報酬形態」（まさ「下品なので」）。CX の PJの定義を登録（業務委託料2件・株式・先方の窓口）。
+- データ（migration 472）: 技術台帳の「稼ぎ方」「稼ぐ」→「収益モデル」「収益を得る」（SOL 2記事・LiSTie 1か所）。
+- 途中で捨てた案: 保存時の禁止語リスト（DBトリガーの正規表現）。まさ「リストアップした単語だけ止めるっていう設計の意図が全然分からん」で取り下げ、入口の数で止める設計に変更。
+- 検証: tsc・関連契約検査・next build、本番でCX/ZMP/愛媛大学/AMD本体のPJ概要、CX会社概要、Venture Map、SOL競合比較を確認。
