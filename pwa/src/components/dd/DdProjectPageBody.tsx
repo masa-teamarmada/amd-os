@@ -28,9 +28,11 @@ const ProjectNextRoundOverview = dynamic(() => import("@/components/project-work
 const ProjectDevelopmentIssues = dynamic(() => import("@/components/project-workspace/ProjectDevelopmentIssues").then(module => module.ProjectDevelopmentIssues), { loading: ProjectPageLoading });
 
 const DdShortTermPlan = dynamic(() => import("./DdShortTermPlan").then(module => module.DdShortTermPlan), { loading: ProjectPageLoading });
+const ProjectProductDescription = dynamic(() => import("@/components/project-workspace/ProjectProductDescription").then(module => module.ProjectProductDescription), { loading: ProjectPageLoading });
 
 const noop = () => {};
 export function DdProjectPageBody({data,canDownload=false}:{data:DdLiveProjectPage;canDownload?:boolean}) {
+  if ("empty" in data && data.page === "product-description") return <ProjectProductDescription data={data.productDescription ?? null} />;
   if ("empty" in data) return <ProjectDiligenceSection page={data.page} organizationChart={data.organizationChart} biographies={data.biographies} />;
   switch(data.page) {
     case "development-issues": return <ProjectDevelopmentIssues projectId={data.projectId} initialData={data.issues} />;

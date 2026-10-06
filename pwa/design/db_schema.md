@@ -4611,6 +4611,8 @@ UNIQUE: `(project_id,key)` (constraint: `project_config_project_id_key_key`)
 
 project_config の `management_biographies` は経営陣略歴の明示登録値。JSON文字列（version=1、profiles、sourceRef）を保持する。構造・認可・未登録表示は [DD仕様](../spec/5-17-dd-package-current-spec.md) を参照。今回の追加は既存表へのデータ登録で、DDL・RLS変更なし。
 
+project_config の `product_description` は製品説明資料の明示登録値。JSON文字列（version=1、title、summary、bodyMd、sourceRefs）を保持する。DDは認可後に当該PJ/keyの文書だけを読み、Markdownの表と工程図を表示する。未登録と不正形式を区別する。仕様5-17。既存表への登録で、DDL・RLS変更なし。
+
 ## project_convertible_instruments
 
 行数 (概算): -1

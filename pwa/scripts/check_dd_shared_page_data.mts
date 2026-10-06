@@ -4,8 +4,16 @@ const { loadProjectTechData } = await import("../src/lib/project-tech-server.ts"
 const { loadProjectGovernance } = await import("../src/lib/project-governance-server.ts");
 const { loadCapitalPlanPage } = await import("../src/lib/project-capital-plan-server.ts");
 const { techLedgerTabOf } = await import("../src/lib/project-tech.ts");
+const { loadProjectProductDescription } = await import("../src/lib/project-product-description-server.ts");
+const { parseProductDescription } = await import("../src/lib/project-product-description.ts");
+const productDocument = { version: 1, title: "製品の全体像", summary: "排水処理と在庫からの燃料生産", bodyMd: "## 製品\n本文", sourceRefs: ["技術台帳"] };
 // No DD publication exists for the competition topic. It must still come from the canonical PJ ledger.
 const tables: Record<string, Record<string, unknown>[]> = {
+  project_config: [
+    { project_id: "p21", key: "product_description", value: JSON.stringify({ ...productDocument, internalNotes: "DDに出さない" }) },
+    { project_id: "p21", key: "private_config", value: "DDに出さない" },
+    { project_id: "p34", key: "product_description", value: JSON.stringify({ ...productDocument, title: "他PJの資料" }) },
+  ],
   project_tech_topics: [
     { project_id: "p21", tech_topic_id: "qa", tech_domain: "QA", status: "active", sort_order: 2 },
     { project_id: "p21", tech_topic_id: "competition", tech_domain: "競合比較", status: "active", sort_order: 1 },
@@ -59,5 +67,12 @@ const capital = await loadCapitalPlanPage(fakeDb(), "p21");
 assert.equal(capital.plans.length, 2, "all plans, including alternatives, appear in the common selector");
 assert.equal(capital.versions.length, 1);
 assert.equal(capital.plans.find(p => p.id === "main")?.document_json.events?.[0].note, "前提を保持");
+assert.deepEqual(await loadProjectProductDescription(fakeDb(), "p21"), productDocument, "製品説明は認可済みPJの明示登録文書だけ。内部追加項目を返さない");
+await assert.rejects(loadProjectProductDescription(fakeDb("project_config"), "p21"), /fixture failure/);
 assert.ok(calls.every(call => call.filters.some(([op, field, value]) => op === "eq" && field === "project_id" && value === "p21")), "every read stays within the authorized project");
+assert.equal(await loadProjectProductDescription(fakeDb(), "unregistered"), null, "未登録PJへ他PJの本文を出さない");
+assert.equal(parseProductDescription(null), null);
+for (const bad of ["{broken", {}, { ...productDocument, bodyMd: " " }, { ...productDocument, sourceRefs: [] }, { ...productDocument, version: 2 }]) {
+  assert.throws(() => parseProductDescription(bad), /製品説明資料の登録形式/);
+}
 console.log("DD canonical page data: competition without publication, full technology/governance/capital, PJ scope and query errors OK");

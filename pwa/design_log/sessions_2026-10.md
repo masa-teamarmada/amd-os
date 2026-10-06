@@ -318,3 +318,8 @@ closeout文書の[skip ci] pushは後続1e23112eの未配布画面差分を保�
 検証:test:project-contract-list、tsc、production build、deploy.shゲート成功。ローカル60契約×60履歴の検索と20→40→60件追加、実loader同時刻60履歴の欠落・重複ゼロ。PC本番で2版・4履歴を確認。390px幅も検証。一時mock/preview3ファイルとdev serverを除去。証跡はCodex visualizations/2026/10/06/01a110c7-3254-7d63-a9b0-6157d2af9d19。
 共通AGENTS.common.md:152へ余白カード反復の絶対禁止を保存・readback。恒久仕様spec5-6/5-17/5-10、manual2-3/2-6、DESIGN、changelogへ反映済み。Swift未移植。再開文はroot SESSION_MIGRATION_PROMPT.md、最終引き継ぎはroot HANDOFF_CONTRACT_EVIDENCE_20261006.md。旧pwa/HANDOFFは実装時記録で、最終状態はrootを読む。
 closeout時は他担当の財務/DD差分とremote更新が重なりff-onlyが拒否されたため、共有dirtyを保持して最新mainの一時clean cloneで文書のみ保存。今回の実装はmain祖先、公開本番は後続v3.160.15/4a7f56ccでdirty:falseを確認。個人特性の対話証拠は0件。
+
+## 2026-10-06 SOL DD製品説明資料の初稿
+
+仕事種別: 開発。まさが合意した構成で本文7節・工程図2件を作成し、既存project_configのp21/product_descriptionへ1行登録。装置・継続供給・排水処理・金属回収に加え、出荷待ち在庫シアノが脂質を分泌して燃料原料を生産する開発構想を記載。研究報告、製品構想、残る実証条件を区別。DD認可後にPJとkeyを限定して取得する共通表示を既存入口へ接続。未登録の空状態を維持。
+型検査、対象lint、DD回帰、production build成功。DB本文完全一致（SHA256 5fb3e4fe5ca23b31e53231dbfddff34e96e68adb4e8578be5758b419c0089d27）、他のp21設定3件とパッケージ状態の不変を確認。スキーマ・RLS・公開設定・DD付与・正式PDFは追加変更なし。Swift未移植。配布とPC Chromeの表示検証を続ける。引き継ぎHANDOFF_SOL_DD_PRODUCT_20261006.md。

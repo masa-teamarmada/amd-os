@@ -1042,3 +1042,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 2026-10-06: ドライブの初期一覧は全フォルダ内のファイル・リンク・月報を更新順（新しい順）に表示し、所属フォルダも併記する。フォルダ行はファイルの後に置き、フォルダを開くとその直下へ絞る。各ファイルの閲覧URLは名称の直下へ常時表示し、「URLコピー」で直接コピーできる。コピーを拒否された時だけURLの手動選択ダイアログを開く。URLは既存閲覧route（DDでは既存viewHref/reportHref）を絶対URL化し、署名URLはコピーしない。認可・追加先・移動先・DBは変更しない。
 
 2026-10-06: ドライブのPC一覧（1024px以上）を高密度な表形式へ変更。名前・URL・所在を左列、更新日を84px、操作を320pxの列に揃え、行の上下余白6px・操作高さ28pxに統一。URLは常時表示・長い場合は省略し、ホバーで全文を確認、コピーは全文を取得する。狭い画面の44px操作領域は維持。
+
+## 2026-10-06 DD製品説明資料の登録本文
+
+DDのproduct-descriptionはproject_configの当該PJ/key=product_descriptionだけを認可後に取得し、共通ProjectProductDescriptionでタイトル・要約・Markdown本文・表・Mermaid工程図・根拠を表示する。未登録は既存の資料未登録。不正形式と読取失敗は未登録に置換しない。version1/title/summary/bodyMd/sourceRefsだけをDDへ渡す。書込みAPI・自動生成・新しい入口・権限・正式版PDFの追加変更なし。回帰検査test:dd-package、正本spec5-17/3-24、manual2-6、ios/DESIGN。SOLに7節2図の初稿を明示登録。
