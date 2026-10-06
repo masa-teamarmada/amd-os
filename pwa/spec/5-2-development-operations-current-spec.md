@@ -257,3 +257,15 @@ select / filter / insert / upsert を書くこと。
 手動編集禁止 (= 次回再生成で消える)。
 
 ---
+
+
+## Function保存容量の抑制（2026-10-06）
+
+Functions Storageは保持中のFunction bundleの容量。BlobやFast Origin Transferとは別。チーム使用量画面の直近値は10.1GB/10GBで、amd-os-pwaが10.09GB、okudoor-previewが10.88MBだった。公式の課金集計は日次最大値によるGB-monthであり、削除後も履歴値と課金済み値は直ちに消えない。
+
+- ネイティブ文書APIのディレクトリ解決はmanual/specの静的パスへ分岐し、動的kindによるPWA全体のトレースを避ける。文書APIからdesign/design_log/output/scripts/public/srcおよびbzm/pilotを除外。model/bzm画面から計算pilot artifactを除外する。必要なMarkdown・model/CURRENT.json・LOCK.jsonは保持。
+- Chromium/Notoの明示同梱は月報PDF・内外月報手動保存・report/fix・資料室PDFに限定。月報履歴とつくよみ編集では同梱しない。
+- `npm run build`のpostbuildで`check_function_bundle_storage.mjs`が実際のnft traceを検査する。文書API40MB、モデル一覧50MB、月報履歴/つくよみ編集8MB、PDF route120MBの上限と、必要な文書・Chromium・日本語fontの存在を確認する。容量は同じtrace内のパスを重複除去して測る。VercelがFunctionをまとめて保存するため、この合計を本番保存容量とは同一視しない。
+- amd-os-pwaだけ保存期間をpreview/production/canceled/errored各1日へ変更。設定readback済み。現行配信aliasと直近の正常production3版等はVercelの保持例外で残る。期限到達後の整理は通常48時間以内、例外解除の再評価は最大30日。即時解消は本番使用量で別途確認する。手動削除・完全消去・プラン変更は実施していない。
+
+根拠: https://vercel.com/docs/deployment-storage / https://vercel.com/docs/deployment-retention

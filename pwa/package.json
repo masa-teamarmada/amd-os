@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postbuild": "node scripts/check_function_bundle_storage.mjs",
+    "test:function-bundles": "node scripts/check_function_bundle_storage.mjs",
     "start": "next start",
     "lint": "eslint",
     "test:deploy-version-guard": "node scripts/check_deploy_version_guard.cjs",

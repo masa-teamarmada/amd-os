@@ -139,6 +139,16 @@ const nextConfig: NextConfig = {
   // Vercel 側は Root Directory=pwa だが sourceFilesOutsideRootDirectory が有効なので、
   // ビルド環境にはリポジトリ全体が入っている。
   outputFileTracingRoot: path.join(PWA_ROOT, ".."),
+  outputFileTracingExcludes: {
+    "/api/macos/document": [
+      "./design/**", "./design_log/**", "./output/**", "./scripts/**",
+      "./public/**", "./src/**", "./*.html", "../bzm/pilot/**",
+    ],
+    "/model{,/**}": ["../bzm/pilot/**"],
+    "/bzm{,/**}": ["../bzm/pilot/**"],
+    "/api/monthly-report/history": ["./node_modules/@sparticuz/chromium/bin/**", "./node_modules/@fontsource-variable/noto-sans-jp/**"],
+    "/api/monthly-report/edit-by-tsukuyomi": ["./node_modules/@sparticuz/chromium/bin/**", "./node_modules/@fontsource-variable/noto-sans-jp/**"],
+  },
   outputFileTracingIncludes: {
     "/api/admin/pj-introduction-html/route": [
       "./src/lib/exec_summary/template_section.html",
@@ -186,7 +196,7 @@ const nextConfig: NextConfig = {
     // @sparticuz/chromiumの実行バイナリ(bin/*.br)はfs.existsSync(path.join(__dirname,...))で
     // 動的解決されるため自動tracingに乗らず、明示しないと /var/task に無くPDF生成が
     // 全滅する (2026-08-03 本番ログで確認)。
-    "/api/monthly-report/*": ["./node_modules/@fontsource-variable/noto-sans-jp/**", "./node_modules/@sparticuz/chromium/bin/**"],
+    "/api/monthly-report/{pdf,manual-update,external-manual-update}": ["./node_modules/@fontsource-variable/noto-sans-jp/**", "./node_modules/@sparticuz/chromium/bin/**"],
     "/api/report/fix": ["./node_modules/@fontsource-variable/noto-sans-jp/**", "./node_modules/@sparticuz/chromium/bin/**"],
     "/api/workspace-documents/*/pdf": [
       "./node_modules/@fontsource-variable/noto-sans-jp/**",

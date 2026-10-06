@@ -46,3 +46,8 @@
 ## 再構築可能性チェック
 
 この manual 章だけでは OS は再構築できない。目的は「開発者の入口」。再構築に必要な contract は `/spec` の各章を読む。
+
+
+## Vercelの関数保存容量が増えたとき
+
+Vercelの使用量で「Functions Storage」を開き、Projectsでプロジェクト別に比較する。旧版の保持とFunctionに同梱するファイル量を確認し、詳しい対処は[/spec/5-2-development-operations-current-spec](/spec/5-2-development-operations-current-spec)へ。AMD OSのbuild後検査は、文書読み込みへの不要資料混入と、PDFを作らない処理へのChromium混入を止める。PDF生成に必要な日本語フォント等は残す。
