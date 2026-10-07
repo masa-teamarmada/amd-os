@@ -134,3 +134,8 @@ assert.match(
 );
 
 console.log("cockpit navigation grouping contract: ok");
+
+for (const type of ["su", "new_business", "ecosystem", "amd"] as const) {
+  assert.equal(cockpitGroupForTabInType("proper-nouns", type).label, "PJ管理");
+  assert.equal(resolveCockpitTabForType("proper-nouns", type), "proper-nouns");
+}

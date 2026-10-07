@@ -1,7 +1,7 @@
 {
   "_README": "PJタイプ別の標準フォーマット（src/lib/project-formats.ts）の鍵。sha256 が定義ファイルと一致しないと scripts/check_project_format_contract.mjs が本番反映を止める。定義を変えてよいのは、まさが明示で承認したときだけ。承認を得たら approvals の末尾に1件足し、sha256 を更新する（spec 3-23）。",
   "file": "src/lib/project-formats.ts",
-  "sha256": "22954ab8e4e4c19fcac6e75dcedf279932621e94d9d9e8e1f27767d542cb4d98",
+  "sha256": "eb2c4d4d6408cf022a2d4e86e2e2825182ae2b65bfc8cd62e9dc0b9609345773",
   "approvals": [
     {
       "date": "2026-10-03",
@@ -128,6 +128,12 @@
       "by": "まさ",
       "request": "創業の背景と解決すべき社会課題については、別ページを新たに作ってそこに書いてほしい。",
       "change": "DDの会社・経営体制にfounding-background（創業の背景と社会課題）を追加。会社概要と相互の関連リンクを設け、資料目録40資料に。コックピット・ワークスペースのページ定義、認可、正式PDF対象は維持。"
+    },
+    {
+      "date": "2026-10-07",
+      "by": "まさ",
+      "request": "そこの下にあるのが違和感ある。PJ管理の中とかじゃないの？",
+      "change": "コックピットの全PJタイプでPJ管理に固有名詞タブを常設。MTGサマリ内のボタンから専用編集ページへ移動。"
     }
   ]
 }

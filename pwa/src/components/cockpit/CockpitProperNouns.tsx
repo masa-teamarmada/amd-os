@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import { ProjectContentModal } from "@/components/project-workspace/ProjectContentModal";
 import { type ProperNounEntry, type ProperNounResponse } from "@/lib/project-proper-nouns";
 
 type EditableRow = { id: string; canonical: string; aliases: string; kind: ProperNounEntry["kind"] };
@@ -10,14 +9,6 @@ const control = "min-h-11 w-full min-w-0 rounded-lg border border-[#d2d2d7] bg-w
 const secondary = "min-h-11 rounded-lg border border-[#d2d2d7] px-3 py-2 text-sm font-medium hover:bg-[#f5f5f7] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007aff] disabled:opacity-50";
 
 export function CockpitProperNouns({ projectId, readOnly = false }: { projectId: string; readOnly?: boolean }) {
-  const [open, setOpen] = useState(false);
-  return <>
-    <button type="button" aria-haspopup="dialog" onClick={() => setOpen(true)} className="min-h-11 rounded-lg border border-[#d2d2d7] px-3 py-2 text-xs font-medium text-[#3c3c43] hover:bg-[#f5f5f7] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007aff]">固有名詞</button>
-    {open && <ProperNounEditor key={projectId} projectId={projectId} readOnly={readOnly} onClose={() => setOpen(false)} />}
-  </>;
-}
-
-function ProperNounEditor({ projectId, readOnly, onClose }: { projectId: string; readOnly: boolean; onClose: () => void }) {
   const [rows, setRows] = useState<EditableRow[]>([]);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [canEdit, setCanEdit] = useState(false);
@@ -92,11 +83,8 @@ function ProperNounEditor({ projectId, readOnly, onClose }: { projectId: string;
     } finally { setSaving(false); }
   }
   const editable = canEdit && loaded && !loading;
-  return <ProjectContentModal title="固有名詞" subtitle="議事録に使う正しい表記と、読み違い・旧表記を登録する。" onClose={onClose}
-    footer={<div className="flex flex-wrap items-center justify-between gap-3">
-      <div aria-live="polite" className="text-sm text-[#6e6e73]">{saving ? "保存中…" : saved ? "保存しました。次回の議事録生成から使用されます。" : loaded && !canEdit ? "閲覧のみ" : "変更したら保存してください。"}</div>
-      {editable && <button type="button" disabled={saving} onClick={save} className="min-h-11 rounded-lg bg-[#0066cc] px-5 py-2 text-sm font-medium text-white hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007aff] disabled:opacity-50">{saving ? "保存中…" : "保存"}</button>}
-    </div>}>
+  return <section className="rounded-xl border border-[#e5e5e7] bg-white p-4 sm:p-6">
+    <header className="mb-4"><h2 className="text-lg font-semibold text-[#1d1d1f]">固有名詞</h2><p className="mt-1 text-sm text-[#6e6e73]">議事録に使う正しい表記と、読み違い・旧表記を登録する。</p></header>
     <div className="space-y-4">
       <p className="text-sm leading-6 text-[#6e6e73]">このプロジェクトの議事録に適用される。旧表記は1行に1つ入力してください。過去の議事録は保存だけでは変更されない。</p>
       {error && !invalidTarget && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"><p>{error}</p><button type="button" disabled={saving || loading} onClick={() => void reload()} className={secondary}>再読み込み</button></div>}
@@ -114,5 +102,9 @@ function ProperNounEditor({ projectId, readOnly, onClose }: { projectId: string;
         {editable && <button type="button" disabled={saving || rows.length >= 200} className={`${secondary} inline-flex items-center gap-2`} onClick={() => { setRows(current => [...current, { id: `proper-noun-${nextId.current++}`, canonical: "", aliases: "", kind: "other" }]); setSaved(false); }}><Plus className="h-4 w-4" aria-hidden="true" />固有名詞を追加</button>}
       </>}
     </div>
-  </ProjectContentModal>;
+    <footer className="mt-6 border-t border-[#e5e5e7] pt-4"><div className="flex flex-wrap items-center justify-between gap-3">
+      <div aria-live="polite" className="text-sm text-[#6e6e73]">{saving ? "保存中…" : saved ? "保存しました。次回の議事録生成から使用されます。" : loaded && !canEdit ? "閲覧のみ" : "変更したら保存してください。"}</div>
+      {editable && <button type="button" disabled={saving} onClick={save} className="min-h-11 rounded-lg bg-[#0066cc] px-5 py-2 text-sm font-medium text-white hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007aff] disabled:opacity-50">{saving ? "保存中…" : "保存"}</button>}
+    </div></footer>
+  </section>;
 }

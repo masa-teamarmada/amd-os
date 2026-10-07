@@ -63,6 +63,7 @@ const CockpitTechnology = dynamic(() => import("@/components/cockpit/CockpitTech
 const InstitutionRegulationsPanel = dynamic(() => import("@/components/institutions/InstitutionRegulations").then((module) => module.InstitutionRegulationsPanel), { loading: ProjectPageLoading });
 const ProjectInstitutionSeeds = dynamic(() => import("./CockpitKuteSeeds").then((module) => module.ProjectInstitutionSeeds), { loading: ProjectPageLoading });
 const CockpitMonthlyModal = dynamic(() => import("./CockpitMonthlyModal").then((module) => module.CockpitMonthlyModal), { loading: ProjectPageLoading });
+const CockpitProperNouns = dynamic(() => import("./CockpitProperNouns").then((module) => module.CockpitProperNouns), { loading: ProjectPageLoading });
 const CockpitMeetingSummary = dynamic(() => import("./CockpitMeetingSummary").then((module) => module.CockpitMeetingSummary), { loading: ProjectPageLoading });
 const CockpitSlackMessages = dynamic(() => import("./CockpitSlackMessages").then((module) => module.CockpitSlackMessages), { loading: ProjectPageLoading });
 const CockpitAmdScoreDetailTab = dynamic(() => import("./CockpitAmdScoreDetailTab").then((module) => module.CockpitAmdScoreDetailTab), { loading: ProjectPageLoading });
@@ -453,6 +454,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     "monthly-reports": "月次報告書",
     "project-contracts": "契約",
     "project-finance": "収支",
+    "proper-nouns": "固有名詞",
     "capital-policy": "資金調達履歴",
     company: "会社概要",
     "development-issues": "開発課題",
@@ -832,6 +834,8 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
           )}
         </section>
       )}
+
+      {activeTab === "proper-nouns" && <section role="tabpanel" aria-label="固有名詞" className="min-w-0"><CockpitProperNouns key={project.projectId} projectId={project.projectId} /></section>}
 
       {activeTab === "project-contracts" && (
         <section role="tabpanel" aria-label="契約" className="min-w-0">

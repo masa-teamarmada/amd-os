@@ -46,6 +46,7 @@ export const COCKPIT_TABS = [
   "project-contracts",
   "project-finance",
   "monthly-reports",
+  "proper-nouns",
   "capital-policy",
   "company",
   "organization-chart",

@@ -11,7 +11,6 @@ import {
   isUpcomingMeeting,
   type UpcomingMeetingSeries,
 } from "@/lib/meeting-series";
-import { CockpitProperNouns } from "./CockpitProperNouns";
 import { CockpitMeetingDetailModal } from "./CockpitMeetingDetailModal";
 
 interface Props {
@@ -305,7 +304,6 @@ export function CockpitMeetingSummary({ projectId, sharedWorkspace = false, read
       <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-[13px] font-medium">MTGサマリ</h3>
         <div className="flex flex-wrap items-center gap-1.5">
-          <CockpitProperNouns projectId={projectId} readOnly={readOnly} />
           {plannedMeetingCount > 0 && (
             <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800">
               予定 {plannedMeetingCount}

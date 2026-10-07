@@ -3588,7 +3588,7 @@ expectIncludes("src/lib/cockpit-tabs.ts", [
   "COCKPIT_TAB_FORMATS[type]",
 ]);
 expectIncludes("src/lib/project-formats.ts", [
-  '{ group: "project-management-group", tabs: ["overview", "project-contracts", "project-finance", "monthly-reports"] },',
+  '{ group: "project-management-group", tabs: ["overview", "project-contracts", "project-finance", "monthly-reports", "proper-nouns"] },',
   '{ group: "company-information-group", tabs: ["company", "capital-policy", "activity"] },',
   '{ group: "business-plan-group", tabs: ["score-detail", "technology", "competition", "business-model", "business-plan", "development-issues", "financial-projection", "capital-plan", "cost-model", "ip"] },',
 ]);

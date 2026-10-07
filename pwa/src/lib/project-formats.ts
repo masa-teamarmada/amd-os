@@ -50,7 +50,7 @@ export function projectFormatTypeOf(project: { projectId: string; projectCategor
 const COCKPIT_STANDARD_TABS = [
   { group: "progress-group", tabs: ["issues", "tasks", "gantt", "progress", "meetings", "slack", "weekly", "partners"] },
   { group: "business-plan-group", tabs: ["score-detail", "technology", "competition", "business-model", "business-plan", "development-issues", "financial-projection", "capital-plan", "cost-model", "ip"] },
-  { group: "project-management-group", tabs: ["overview", "project-contracts", "project-finance", "monthly-reports"] },
+  { group: "project-management-group", tabs: ["overview", "project-contracts", "project-finance", "monthly-reports", "proper-nouns"] },
   { group: "company-information-group", tabs: ["company", "organization-chart", "employee-register", "contracts", "killer-factors", "capital-policy", "activity"] },
   { group: "documents-group", tabs: ["documents"] },
 ] as const;
@@ -64,7 +64,7 @@ export const COCKPIT_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ grou
     { group: "progress-group", tabs: ["issues", "tasks", "gantt", "progress", "meetings", "slack", "weekly", "partners"] },
     { group: "seeds-group", tabs: ["seeds"] },
     { group: "regulations-group", tabs: ["regulations"] },
-    { group: "project-management-group", tabs: ["overview", "project-contracts", "project-finance", "monthly-reports"] },
+    { group: "project-management-group", tabs: ["overview", "project-contracts", "project-finance", "monthly-reports", "proper-nouns"] },
     { group: "company-information-group", tabs: ["company", "organization-chart", "employee-register", "contracts", "killer-factors", "capital-policy", "activity"] },
     { group: "documents-group", tabs: ["documents"] },
   ],
@@ -183,7 +183,7 @@ export const PROJECT_PAGE_LABELS: Readonly<Record<string, string>> = {
   issues: "ゴールツリー", tasks: "タスク", gantt: "ガント", progress: "MS・月次", meetings: "動向・会議", slack: "Slack", weekly: "週次差分", partners: "関係先",
   "score-detail": "スコア詳細", technology: "技術", competition: "競合比較", "business-model": "ビジネスモデル", "business-plan": "事業計画", "financial-projection": "試算表", "capital-plan": "資本政策表", "cost-model": "コスト試算", cost: "コスト試算", ip: "知財",
   governance: "総会・取締役会・経営会議議事録", "technical-evidence": "技術実証報告書", manufacturing: "製造体制資料", team: "経営陣略歴", contracts: "契約リスト", regulatory: "許認可一覧", disputes: "訴訟一覧", "shareholder-register": "株主名簿", "next-round-term-sheet": "次回ラウンドタームシート",
-  documents: "ドライブ", drive: "ドライブ", overview: "PJ概要", "project-contracts": "契約", "project-finance": "収支", "monthly-reports": "月次報告書", company: "会社概要", "killer-factors": "キラー要素", "capital-policy": "資金調達履歴", activity: "沿革", seeds: "シーズ一覧", regulations: "規程一覧",
+  documents: "ドライブ", drive: "ドライブ", overview: "PJ概要", "project-contracts": "契約", "project-finance": "収支", "monthly-reports": "月次報告書", "proper-nouns": "固有名詞", company: "会社概要", "killer-factors": "キラー要素", "capital-policy": "資金調達履歴", activity: "沿革", seeds: "シーズ一覧", regulations: "規程一覧",
 };
 
 /** 開いたときのタブ。全PJ同じ。 */
