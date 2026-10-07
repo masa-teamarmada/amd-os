@@ -15,3 +15,9 @@ DB読戻しで3設定が期待値と完全一致。設定全体および関連�
 仕事種別：混合。現行の次セッション入口は/SOL/HANDOFF_DD_COMPANY_20261007.md（絶対ルート/Users/masa/projects/AMD）。内容正本SOL_DD_CONTENTS_PLAN.md、長期索引/Users/masa/projects/knowledge/sol.md、誤補完の教訓はSOL/BUGS.md。実装仕様・manual・開発履歴は初回変更と同期済み。今回の追加は内容訂正と記録のみで新たな製品仕様はない。
 
 引き継ぎ開始時main a7be1d45、origin/mainと一致。訂正9cf09c27を含む。今回の未完了依頼なし、次はまさの新しい依頼を受ける。別案件の旧タスク移行草稿1件は保管資料として保持（管理者：まさ／旧タスク、判断時期：当該案件の再開・整理依頼時）。この草稿を会社情報作業の指示に使わない。
+
+## 2026-10-07 社会課題ページの改訂
+
+今回の社会課題ページ改訂を本番DBへ反映。4節、研究成果5領域、受賞表彰6件。研究開発から生産・販売までの一気通貫の責任、山地・杉浦先生の呼称、カーボンネガティブの条件を明記し、旧第5節は削除。内容正本はSOL/SOL_DD_CONTENTS_PLAN.md、登録原稿は従来と同じsol-founding-background-20261006.json/.md。更新SQLはsol-founding-background-revision-20261007.sql。適用済み・再実行不要。
+
+DB読戻し・既存形式確認・本番Chrome表示を確認。他設定7件・DD2件不変。今回のアプリ構造の変更はなく、本文はデータ更新で即時反映。画面で閲覧する仕様・manualも正規deploy.sh経由で一括配布する。確認資料はSOL/work/amie_founding_background_20261007/。今回の未完了なし。

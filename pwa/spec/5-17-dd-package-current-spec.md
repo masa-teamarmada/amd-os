@@ -284,6 +284,8 @@ project_config.key=company_incorporation_planはversion1、capitalYen/issuedShar
 
 DD資料目録は40資料、既存互換URLを含め44ページ。「会社・経営体制」の会社概要直下にfounding-background（創業の背景と社会課題）を追加。project_config.founding_backgroundは製品説明と同じversion1/title/summary/bodyMd/sourceRefs。認可後、当該PJ/keyだけを読み、同じMarkdown本文部品で表示する。コックピット・ワークスペースの入口は増やさない。会社概要と相互の関連リンクを持つ。未登録は資料未登録、形式不正は取得失敗。
 
+2026-10-07のSOL本文改訂は4節（研究蓄積・成果と受賞、資源安全保障と都市鉱山、環境負荷と燃料、事業体制）。研究成果5領域・受賞表彰6件を出典付きで掲載し、旧第5節の効果測定表を削除。カーボンネガティブは大気由来CO₂の除去・長期固定が全工程の排出を上回る条件付きの理論的可能性として扱い、燃料の化石燃料代替効果と区別する。事業主体の説明は研究開発・装置開発・シアノ生産・販売の実行責任を明記し、「つなぐ」などの抽象表現で代用しない。本文の呼称は山地・杉浦先生。研究開発全件の杉浦研究室委託とSolvioraXの委託管理・製品化の責任を併記する。更新SQLはscripts/data/sol-founding-background-revision-20261007.sql（変更前一致・1行限定）。表示のデータ契約と認可は不変。
+
 SOLはSolvioraX（仮）／SolvioraX Inc.（仮）、2027-04-01設立予定、代表取締役山地正洋予定、本店EUIC予定、取締役会・監査役非設置、決算3月案、官報案。資本金108万円・1株10円は本依頼の設立案。発行予定108,000株とSOを含む120,000株、シード条件は現行資本政策に合わせる。公開状態・閲覧権限・正式版PDFの掲載対象は変更しない。登録SQLはscripts/data/sol-company-overview-20261006.sql。
 
 
