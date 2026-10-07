@@ -9,3 +9,9 @@ DB読戻しで3設定が期待値と完全一致。設定全体および関連�
 現行原稿はpwa/scripts/dataのsol-company-incorporation-plan-20261006.json、sol-founding-background-20261006.json/.md、sol-organization-chart-20261007.json。適用済み訂正SQLはsol-company-corrections-20261007.sql。旧登録SQLも現行の会社概要・背景に同期済み。変更前値の照合条件つきSQLなので再実行しない。
 
 確認資料はSOL/work/amie_company_corrections_20261007/のreadback.json、name-audit.jsonとCodex visualizations内のcompany/background/organization-corrected-20261007.png。現行の事業方針はSOL/SOL_DD_CONTENTS_PLAN.mdに記録。今回の未完了作業なし。
+
+## 引き継ぎ・結了（2026-10-07）
+
+仕事種別：混合。現行の次セッション入口は/SOL/HANDOFF_DD_COMPANY_20261007.md（絶対ルート/Users/masa/projects/AMD）。内容正本SOL_DD_CONTENTS_PLAN.md、長期索引/Users/masa/projects/knowledge/sol.md、誤補完の教訓はSOL/BUGS.md。実装仕様・manual・開発履歴は初回変更と同期済み。今回の追加は内容訂正と記録のみで新たな製品仕様はない。
+
+引き継ぎ開始時main a7be1d45、origin/mainと一致。訂正9cf09c27を含む。今回の未完了依頼なし、次はまさの新しい依頼を受ける。別案件の旧タスク移行草稿1件は保管資料として保持（管理者：まさ／旧タスク、判断時期：当該案件の再開・整理依頼時）。この草稿を会社情報作業の指示に使わない。
