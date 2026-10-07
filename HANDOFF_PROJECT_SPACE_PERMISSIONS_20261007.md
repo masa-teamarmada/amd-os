@@ -52,4 +52,4 @@ migration 20261007090000は本番適用済み。Supabase migration履歴にもap
 
 画面検証：PC1392×824で13人×17PJ・51スペース列、名前先頭、１PJ時の外枠466px/表464px（余分な拡張なし）。スマホ390×800でページ横溢れなし、名前列112px、SOL名を読める。表を115px横移動しても名前左80.9px・PJ名左192.9pxを維持。遠いKGWへ移動しても名前列は固定。名前検索１行・空状態も確認。セルから選択済みPJ/人/スペースのdialogを開き、新規外部メンバーの入力も確認。dialog幅358px=scrollWidth、入力/select/保存44px。今回の表示検証では保存を実行せず、利用者権限・通知・登録データの変更なし。明色PC/スマホで視認性・余白・列境界・操作・幾何を確認し、評価8.5/10。未修正の表示blockerなし。
 
-保存証拠はローカルのpermissions-matrix-desktop.png/permissions-matrix-mobile.png。ローカル開発サーバは停止、検証用clean cloneは全件commit/push一致を確認して削除する。共有checkoutのchangelog2ファイルに残る組織図ルールの重複追記削除は「DD組織図の協業先配置を変更」側の差分として保持し、この作業の追記だけをstageした。残る実装作業なし、ネイティブ管理UIは従来どおり未移植。
+保存証拠はローカルのpermissions-matrix-desktop.png/permissions-matrix-mobile.png。ローカル開発サーバは停止、検証用clean cloneは全件commit/push一致を確認して削除済み。共有checkoutのchangelog2ファイルに残る組織図ルールの重複追記削除は「DD組織図の協業先配置を変更」側の差分として保持し、この作業の追記だけをstageした。残る実装作業なし、ネイティブ管理UIは従来どおり未移植。
