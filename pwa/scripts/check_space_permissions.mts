@@ -67,14 +67,26 @@ const matrix=buildSpacePermissionMatrix({...data,
   {...data.accounts[0],id:'pending',email:'pending@example.com',status:'invited'},
   {...data.accounts[0],id:'stopped',email:'stopped@example.com',status:'suspended'}],
  memberGrants:[...data.memberGrants,{...view,project_id:'p2',surface:'dd',permission:'edit'}],
+ projectMemberships:[...data.projectMemberships,{...data.projectMemberships[0],id:'pending-view',user_account_id:'pending',role:'readonly',status:'invited'}],
+ ddGrants:[...data.ddGrants,{...data.ddGrants[0],id:'pending-dd',user_account_id:'pending',status:'invited',capabilities:['dd.view'],expires_at:null}],
 });
 assert.deepEqual(matrix.projects.map(p=>p.project_id),['p1','p2']);
-assert.equal(matrix.people.length,2,'active internal/external people, one row each across all active projects');
+assert.equal(matrix.people.length,3,'active internal/external and invited people, one row each across all active projects');
 const known=matrix.people.find(p=>p.memberId==='ID2')!;
 assert.deepEqual(Object.keys(known.projects),['p1','p2']);
 assert.equal(known.projects.p1.permissions.cockpit.permission,'view');
 assert.equal(known.projects.p2.permissions.cockpit.permission,null);
 assert.equal(known.projects.p2.permissions.dd.permission,'edit');
-assert.ok(!matrix.people.some(p=>['inactive@example.com','pending@example.com','stopped@example.com'].includes(p.email)));
+assert.ok(!matrix.people.some(p=>['inactive@example.com','stopped@example.com'].includes(p.email)));
+const pending=matrix.people.find(p=>p.accountId==='pending')!;
+assert.equal(pending.status,'invited');
+assert.equal(pending.projects.p1.permissions.workspace.permission,'view','granted viewer stays visible before first login');
+assert.equal(pending.projects.p1.permissions.dd.permission,'view');
+assert.equal(pending.projects.p1.permissions.dd.note,'初回ログイン待ち');
+assert.equal(pending.projects.p2.permissions.workspace.permission,null,'listing does not grant access to another PJ');
+assert.equal(pending.projects.p1.permissions.cockpit.permission,null,'invitation never grants internal cockpit');
 assert.ok(matrix.people.some(p=>p.email==='external@example.com'),'active member with no grants remains available for granting');
-console.log('member-first matrix: active PJ/person only, unique person and independent PJ/surface cells: PASS');
+const unnamed=buildSpacePermissionMatrix({...data,accounts:[{...data.accounts[0],id:'unnamed',email:'unnamed@example.com',display_name:null,status:'invited'}]}).people.find(p=>p.accountId==='unnamed')!;
+assert.equal(unnamed.name,'unnamed@example.com','unregistered names remain distinguishable without inventing names');
+assert.equal(unnamed.projects.p1.permissions.dd.permission,null);
+console.log('member-first matrix: active PJ/person and invited viewers, suspended exclusion, identity and grant isolation: PASS');

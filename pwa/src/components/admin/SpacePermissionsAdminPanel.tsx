@@ -51,11 +51,11 @@ export function SpacePermissionsAdminPanel() {
      await send('/api/admin/dd',existing?{action:'update_grant',grantId:existing.id,capabilities}:{action:'create_grant',packageId:pkg!.id,email:account.email,capabilities,createAccount:false});
     }
    }
-   await load();setTarget(null);setNotice(`${labels[surface]}の${permission==='edit'?'閲覧・編集':'閲覧'}権限を保存済み。${person==='new'?'新しい外部メンバーは初回ログイン後に一覧へ表示される。':''}`);
+   await load();setTarget(null);setNotice(`${labels[surface]}の${permission==='edit'?'閲覧・編集':'閲覧'}権限を保存済み。${person==='new'?'新しい外部メンバーも一覧に表示される。':''}`);
   } catch(e) {setError(e instanceof Error?e.message:'保存できない');await load().catch(()=>{});} finally {setBusy(false);}
  }
  if(!data) return <div role={error?'alert':'status'} className="text-sm">{error||'権限を読み込み中…'}{error&&<button className={`${button} ml-2`} onClick={()=>void load().catch(e=>setError(e.message))}>再読み込み</button>}</div>;
- const people=[...data.members.filter(m=>m.status==='active').map(m=>({value:`member:${m.member_id}`,name:`${m.member_name||m.code_name} · 社内`})),...data.accounts.filter(a=>a.status==='active'&&!data.members.some(m=>m.email.toLowerCase()===a.email.toLowerCase())).map(a=>({value:`account:${a.id}`,name:`${a.display_name||a.email} · 外部`}))];
+ const people=[...data.members.filter(m=>m.status==='active').map(m=>({value:`member:${m.member_id}`,name:`${m.member_name||m.code_name} · 社内`})),...data.accounts.filter(a=>['active','invited'].includes(a.status)&&!data.members.some(m=>m.email.toLowerCase()===a.email.toLowerCase())).map(a=>({value:`account:${a.id}`,name:`${a.display_name||a.email} · 外部`}))];
  return <div className="min-w-0 space-y-3">
   <div className="flex flex-wrap items-center gap-2">
    <input aria-label="メンバーを検索" placeholder="名前・メールで検索" value={query} onChange={e=>setQuery(e.target.value)} className={`${input} w-full sm:w-64`}/>
@@ -64,7 +64,7 @@ export function SpacePermissionsAdminPanel() {
   </div>
   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
    <span>{visiblePeople.length}人 × {visibleProjects.length} PJ · アクティブのみ</span><span><span className="font-medium text-blue-700 dark:text-blue-400">閲覧</span> / <span className="font-semibold text-red-700 dark:text-red-400">編集</span>（閲覧を含む） / — 未付与</span>
-   <Link href="/admin/access" className="text-primary underline">招待待ち・停止中を管理</Link><Link href="/admin/members" className="text-primary underline">社内メンバーを登録</Link>
+   <Link href="/admin/access" className="text-primary underline">外部アカウントを管理</Link><Link href="/admin/members" className="text-primary underline">社内メンバーを登録</Link>
   </div>
   {notice&&<p role="status" className="text-sm text-primary">{notice}</p>}{error&&!target&&<p role="alert" className="text-sm text-destructive">{error}</p>}
   <div role="region" aria-label="メンバー別PJ権限表・横スクロール可能" tabIndex={0} className="relative isolate max-h-[65dvh] w-fit max-w-full overflow-auto rounded-md border border-border focus-visible:outline-2 focus-visible:outline-primary [--member-column:112px] sm:[--member-column:176px]">
@@ -76,7 +76,7 @@ export function SpacePermissionsAdminPanel() {
      <tr>{visibleProjects.flatMap(p=>PROJECT_SURFACES.map((s,i)=><th key={`${p.project_id}:${s}`} scope="col" className={`sticky top-8 z-20 h-8 border-b border-border bg-muted px-1 text-center text-[11px] font-normal text-muted-foreground ${i===2?'border-r':''}`}>{labels[s]}</th>))}</tr>
     </thead>
     <tbody>{visiblePeople.map(person=><tr key={person.key} className="group">
-     <th scope="row" className="sticky left-0 z-10 border-b border-r border-border bg-background px-3 text-left font-medium group-hover:bg-muted" title={`${person.name} · ${person.email}${person.isAdmin?' · 管理者':''}`}><span className="block truncate">{person.name}</span></th>
+     <th scope="row" className="sticky left-0 z-10 border-b border-r border-border bg-background px-3 text-left font-medium group-hover:bg-muted" title={`${person.name} · ${person.email}${person.isAdmin?' · 管理者':''}`}><span className="block truncate">{person.name}</span>{person.status==='invited'&&<span className="block truncate text-[10px] font-normal text-muted-foreground">初回ログイン待ち</span>}</th>
      {visibleProjects.flatMap(p=>PROJECT_SURFACES.map((s,i)=>{const row=person.projects[p.project_id],cell=row.permissions[s];return <td key={`${p.project_id}:${s}`} className={`border-b border-border p-0 group-hover:bg-muted/40 ${i===2?'border-r':''}`}>
       <button className="flex h-11 w-full items-center justify-center hover:bg-muted focus-visible:relative focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-default" disabled={row.isAdmin||(!row.memberId&&s==='cockpit')} aria-label={`${p.project_name}・${person.name}の${labels[s]}権限を変更`} title={`${labels[s]}：${cell.permission==='edit'?'編集（閲覧を含む）':cell.permission==='view'?'閲覧':'未付与'}${cell.note?` · ${cell.note}`:''}`} onClick={()=>open(row,s)}>
        <span className={cell.permission==='edit'?'font-semibold text-red-700 dark:text-red-400':cell.permission==='view'?'font-medium text-blue-700 dark:text-blue-400':'text-muted-foreground'}>{cell.permission==='edit'?'編集':cell.permission==='view'?'閲覧':'—'}</span>

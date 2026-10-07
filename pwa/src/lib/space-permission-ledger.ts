@@ -11,15 +11,15 @@ export type PermissionLedgerData = {
 };
 export type LedgerPermission = {permission:SurfacePermission|null;note:string;grantId?:string;packageId?:string;capabilities?:string[]};
 export type PermissionLedgerRow = {key:string;projectId:string;projectName:string;name:string;email:string;memberId?:string;accountId?:string;status:string;isAdmin:boolean;permissions:Record<ProjectSurface,LedgerPermission>};
-export type PermissionMatrixPerson = Pick<PermissionLedgerRow,'name'|'email'|'memberId'|'accountId'|'isAdmin'> & {key:string;projects:Record<string,PermissionLedgerRow>};
+export type PermissionMatrixPerson = Pick<PermissionLedgerRow,'name'|'email'|'memberId'|'accountId'|'isAdmin'|'status'> & {key:string;projects:Record<string,PermissionLedgerRow>};
 // 表示対象の状態はアカウント/メンバーとPJの正本から取る。
-// invitedは初回ログイン前なのでこの現役一覧には含めず、外部アクセス管理で扱う。
+// invitedは招待済みの利用可能アカウント。ログイン状態と付与済み権限を混同しない。
 export function buildSpacePermissionMatrix(data:PermissionLedgerData,now=Date.now()) {
- const activeData={...data,projects:data.projects.filter(p=>p.status==='active'),members:data.members.filter(m=>m.status==='active'),accounts:data.accounts.filter(a=>a.status==='active')};
+ const activeData={...data,projects:data.projects.filter(p=>p.status==='active'),members:data.members.filter(m=>m.status==='active'),accounts:data.accounts.filter(a=>['active','invited'].includes(a.status))};
  const people=new Map<string,PermissionMatrixPerson>();
  for(const row of buildSpacePermissionRows(activeData,now)) {
   let person=people.get(row.email);
-  if(!person) {person={key:row.email,name:row.name,email:row.email,memberId:row.memberId,accountId:row.accountId,isAdmin:row.isAdmin,projects:{}};people.set(row.email,person);}
+  if(!person) {person={key:row.email,name:row.name,email:row.email,memberId:row.memberId,accountId:row.accountId,isAdmin:row.isAdmin,status:row.status,projects:{}};people.set(row.email,person);}
   person.projects[row.projectId]=row;
  }
  return {projects:activeData.projects,people:[...people.values()]};
@@ -58,7 +58,7 @@ export function buildSpacePermissionRows(data:PermissionLedgerData,now=Date.now(
     if(!permissions.dd.permission || permission==='edit'&&permissions.dd.permission!=='edit') permissions.dd={permission,note:account.status==='suspended'?'アカウント停止中':expired?'期限切れ':pkg!.status!=='open'?'公開待ち':g.status==='invited'?'初回ログイン待ち':'個別付与',grantId:g.id,packageId:pkg!.id,capabilities:g.capabilities};
    }
   }
-  rows.push({key:`${project.project_id}:${email}`,projectId:project.project_id,projectName:project.project_name,name:member?.member_name||member?.code_name||account?.display_name||'名前未登録',email,memberId:member?.member_id,accountId:account?.id,status:member?.status||account?.status||'',isAdmin:member?.status==='active'&&member.is_admin===true,permissions});
+  rows.push({key:`${project.project_id}:${email}`,projectId:project.project_id,projectName:project.project_name,name:member?.member_name||member?.code_name||account?.display_name||email,email,memberId:member?.member_id,accountId:account?.id,status:member?.status||account?.status||'',isAdmin:member?.status==='active'&&member.is_admin===true,permissions});
  }
  return rows;
 }
