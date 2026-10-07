@@ -19,4 +19,8 @@
 
 追加実行した既存`check_workspace_documents_contract.mjs`は資料の同名raceエラーメッセージの固定regex（235行）で失敗。資料登録API・同検査scriptはHEADから変更しておらず、ログイン差分とは無関係。入口・メール認証契約・next sanitization・critical UIの必要検査は通過している。
 
-本番反映とPC/スマホの画面確認結果は完了時に追記する。
+本番反映：実装`0e5c1cd5785e3be188744067cd29d224fc584019`、v3.161.14。clean main cloneから正規deploy.shでmain push、必須gate通過、2分6秒で本番aliasのSHA一致。Vercel project amd-os-pwa、production `dpl_7uD6hbuJP32q752mdBM8MBEGzB4e` / `https://amd-os-29u3pryts-armada0130.vercel.app`をReadyと確認。
+
+本番Chrome：PC1392×824・mobile390×800のどちらもメール入力と「続ける」だけ。mobileのpage scrollWidth=390、scrollHeight=800、入力/ボタン約48px、フォーム342px、入力16pxを確認。既存audience=institution/workspace/next付きURLでも同じフォーム。書斎hostは「書斎」見出しと管理者用Google１ボタンの既存入口を維持。ログインメール・Google認証は実行せず、DOM/画面・通信代替検証を分けて確認した。
+
+証拠：`/Users/masa/.codex/visualizations/2026/10/07/01a11471-c176-7972-8339-7eecea332656/login-entry-desktop.png`と`login-entry-mobile.png`。viewportはreset、ローカルserverは停止、使い捨てcloneはclean/pushedを照合して削除。正規checkoutをfetchしてHEAD/origin main 0/0、今回の未commit変更なし。既存の別作業のCockpitBusinessPlanとproject-business-planの4ファイル、既存未追跡3ファイルを保持。native UI変更なし。完了後のこの確認記録だけをdocs-only commit/pushする。
