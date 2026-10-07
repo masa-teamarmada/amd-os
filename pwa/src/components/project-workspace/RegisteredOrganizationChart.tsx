@@ -4,7 +4,7 @@ import type { ProjectOrganizationChartData } from "@/lib/project-organization-ch
 import styles from "./RegisteredOrganizationChart.module.css";
 
 export function RegisteredOrganizationChart({ data }: { data: ProjectOrganizationChartData }) {
-  const columns = { "--org-columns": data.departments.length, "--org-width": `${data.departments.length * 300 + (data.departments.length - 1) * 48 + 36}px` } as CSSProperties;
+  const columns = { "--partner-columns": Math.min(3, data.collaborations.length), "--org-columns": data.departments.length, "--org-width": `${data.departments.length * 300 + (data.departments.length - 1) * 48 + 36}px` } as CSSProperties;
   const chartRef = useRef<HTMLDivElement>(null);
   const arrowId = useId().replaceAll(":", "");
   const [links, setLinks] = useState<string[]>([]);
@@ -24,9 +24,13 @@ export function RegisteredOrganizationChart({ data }: { data: ProjectOrganizatio
         const slot = siblings.findIndex((item) => item.id === partner.id);
         const x = from.left - origin.left + from.width / 2 + slot * 8;
         const y = from.bottom - origin.top + 4;
-        const endX = to.left - origin.left - 4, endY = to.top - origin.top + 28;
-        const lane = Math.max(6, to.left - origin.left - 12 - slot * 8);
-        return [`M ${x} ${y} V ${y + 32 + slot * 8} H ${lane} V ${endY} H ${endX}`];
+        if (origin.width <= 520) {
+          const endX = to.left - origin.left - 4, endY = to.top - origin.top + 28;
+          const lane = Math.max(6, to.left - origin.left - 12 - slot * 8);
+          return [`M ${x} ${y} V ${y + 36 + slot * 8} H ${lane} V ${endY} H ${endX}`];
+        }
+        const endX = to.left - origin.left + to.width / 2, endY = to.top - origin.top - 4;
+        return [`M ${x} ${y} V ${y + 36 + slot * 8} H ${endX} V ${endY}`];
       }));
     };
     const observer = new ResizeObserver(measure);
@@ -65,19 +69,11 @@ export function RegisteredOrganizationChart({ data }: { data: ProjectOrganizatio
       {data.collaborations.length > 0 && <section className={`${styles.collaborations} min-w-0 px-3 sm:px-4`} aria-label="NewCoの社外協業先">
         <h3 className="mt-4 text-sm font-semibold text-slate-600">協業先（社外）</h3>
         <div className={styles.partners}>
-          {data.departments.map((d) => {
-            const partners = data.collaborations.filter((p) => p.departmentId === d.id);
-            return <div key={d.id} className="min-w-0" data-department-id={d.id}>
-              {partners.length > 0 && <>
-                <p className="mb-2 flex items-center justify-center gap-2 text-xs text-slate-600">{d.label}と連携</p>
-                <div className="space-y-3">{partners.map((p) => <section key={p.id} data-org-partner={p.id} className="min-w-0 break-words border border-slate-300 bg-white" aria-label={p.label}>
-                  <div className="border-b border-slate-200 bg-slate-50 px-3 py-2"><h4 className="text-sm font-semibold text-sky-800">{p.label}</h4><p className="mt-1 text-xs text-slate-600">{p.relationship}</p></div>
-                  <ul className="mx-3 my-2 list-inside list-disc text-sm leading-5">{p.roles.map((role, j) => <li key={j}>{role}</li>)}</ul>
-                  {p.people.length > 0 && <div className="px-3 pb-2 text-xs leading-5 text-slate-600">{p.people.map((person, j) => <p key={j}>{person}</p>)}</div>}
-                </section>)}</div>
-              </>}
-            </div>;
-          })}
+          {data.collaborations.map((p) => <section key={p.id} data-org-partner={p.id} className="min-w-0 break-words border border-slate-300 bg-white" aria-label={p.label}>
+            <div className="border-b border-slate-200 bg-slate-50 px-3 py-2"><h4 className="text-sm font-semibold text-sky-800">{p.label}</h4><p className="mt-1 text-xs text-slate-600">{p.relationship}</p></div>
+            <ul className="mx-3 my-2 list-inside list-disc text-sm leading-5">{p.roles.map((role, j) => <li key={j}>{role}</li>)}</ul>
+            {p.people.length > 0 && <div className="px-3 pb-2 text-xs leading-5 text-slate-600">{p.people.map((person, j) => <p key={j}>{person}</p>)}</div>}
+          </section>)}
         </div>
       </section>}
     </div>

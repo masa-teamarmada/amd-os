@@ -5,8 +5,7 @@
   min-width: 0;
 }
 
-.departments,
-.partners {
+.departments {
   display: grid;
   grid-template-columns: repeat(var(--org-columns), minmax(0, 1fr));
   gap: 48px;
@@ -33,10 +32,8 @@
 .department:last-child::before { right: 50%; }
 
 @container (max-width: 600px) {
-  .departments,
-  .partners { grid-template-columns: minmax(0, 1fr); }
+  .departments { grid-template-columns: minmax(0, 1fr); }
   .department::before { display: none; }
-  .partners > :empty { display: none; }
 }
 
 .connections {
@@ -51,5 +48,16 @@
 
 @container (max-width: 600px) {
   .departments { gap: 16px; }
+}
+
+.partners {
+  display: grid;
+  grid-template-columns: repeat(var(--partner-columns), minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 64px;
+}
+
+@container (max-width: 520px) {
   .collaborations { padding-left: 40px; }
+  .partners { grid-template-columns: minmax(0, 1fr); }
 }
