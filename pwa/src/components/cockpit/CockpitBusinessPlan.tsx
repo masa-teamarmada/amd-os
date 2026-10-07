@@ -10,8 +10,9 @@
  * - 試算表と資本政策表は、更新の目的が異なるため独立タブに分ける。
  */
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import {
+  ArrowRight,
   BriefcaseBusiness,
   FileSpreadsheet,
   FlaskConical,
@@ -19,6 +20,7 @@ import {
   UsersRound,
   type LucideIcon,
 } from "lucide-react";
+import styles from "./CockpitBusinessPlan.module.css";
 import { BUSINESS_PLAN_FORMAT } from "@/lib/project-formats";
 import {
   XRL_KEYS,
@@ -65,9 +67,67 @@ function XrlStrip({ target, keys }: { target: XrlTarget; keys?: readonly XrlKey[
   );
 }
 
-function PhaseHeader({ phase }: { phase: BusinessPlanPhase }) {
+const XRL_CONTEXT: Record<XrlKey, { label: string; max: number }> = {
+  trl: { label: "技術", max: 9 },
+  brl: { label: "事業", max: 9 },
+  grl: { label: "ガバナンス", max: 8 },
+  srl: { label: "社会受容", max: 9 },
+  hrl: { label: "人材・組織", max: 9 },
+};
+
+function phaseMarker(phase: BusinessPlanPhase, index: number) {
+  return phase.label.match(/^Phase\s*(\d+)/i)?.[1] ?? String(index + 1);
+}
+
+function PhaseOverview({ phases, selectedId, onSelect }: { phases: BusinessPlanPhase[]; selectedId: string | null; onSelect: (index: number) => void }) {
+  return <section className={styles.overview} style={{ "--phase-count": phases.length } as CSSProperties} aria-label="フェーズ計画の全体像">
+    <div className="mb-2 flex flex-wrap items-baseline justify-between gap-1">
+      <h3 className="text-[12px] font-semibold text-slate-900">計画の流れ <span className="font-normal text-slate-500">→ フェーズ順</span></h3>
+      <span className="text-[11px] text-slate-500">各フェーズから詳細を確認</span>
+    </div>
+    <ol className={styles.timeline}>
+      {phases.map((phase, index) => <li key={phase.id} className={styles.step}>
+        <button type="button" className={styles.phaseButton} aria-pressed={selectedId === phase.id} onClick={() => onSelect(index)}>
+          <div className="flex items-start gap-1.5">
+            <span className={styles.stepNumber}>{phaseMarker(phase, index)}</span>
+            <strong className="min-w-0 text-[12px] font-semibold leading-[18px]">{phase.label.replace(/^Phase\s*\d+\s*[｜|]\s*/i, "")}</strong>
+          </div>
+          <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-1 text-[11px] leading-4">
+            <span className="tabular-nums text-slate-600">{phase.period}</span>
+            <span className={`font-semibold tabular-nums ${phase.budgetYen === null ? "text-amber-700" : "text-slate-800"}`}>{formatPlanYen(phase.budgetYen)}</span>
+          </div>
+          <p className="mt-1 text-[12px] leading-[18px] text-slate-700"><span className="mr-1 text-[11px] text-slate-500">技術の到達点</span>{phase.lanes.technology.exitGate || "未登録"}</p>
+        </button>
+        {index < phases.length - 1 && <ArrowRight className={styles.arrow} aria-hidden="true" />}
+      </li>)}
+    </ol>
+    <div className="mb-1 mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+      <h3 className="text-[12px] font-semibold text-slate-900">各フェーズの到達目標</h3>
+      <span className="text-[11px] text-slate-500">計画値・現在の実績ではない</span>
+    </div>
+    <table className={styles.targets} aria-label="フェーズごとの成熟度の到達目標">
+      <colgroup><col className={styles.targetLabel} />{phases.map((phase) => <col key={phase.id} />)}</colgroup>
+      <thead><tr><th scope="col" className="text-left text-[11px] font-normal text-slate-500">到達指標</th>{phases.map((phase, index) => <th key={phase.id} scope="col" className="text-[11px] font-medium text-slate-600"><span className="sr-only">{phase.label} </span>{phaseMarker(phase, index)}</th>)}</tr></thead>
+      <tbody>{XRL_KEYS.map((key) => <tr key={key}>
+        <th scope="row" className="pr-1 text-left text-[11px] font-medium text-slate-600">{XRL_CONTEXT[key].label} <span className="font-normal">{XRL_LABELS[key]} /{XRL_CONTEXT[key].max}</span></th>
+        {phases.map((phase) => {
+          const value = phase.targetXrl[key], max = XRL_CONTEXT[key].max;
+          const valid = value !== null && Number.isInteger(value) && value >= (key === "grl" ? 1 : 0) && value <= max;
+          return <td key={phase.id} aria-label={`${phase.label} ${XRL_CONTEXT[key].label} 到達目標 ${value ?? "未登録"}${valid ? ` / ${max}` : ""}`}>
+            <div className={styles.level}>
+              <div className={styles.segments} style={{ "--level-count": max } as CSSProperties} aria-hidden="true">{Array.from({ length: max }, (_, i) => <span key={i} data-filled={valid && i < value ? "true" : "false"} />)}</div>
+              <span className="text-[12px] font-semibold tabular-nums text-slate-800">{value ?? "—"}</span>
+            </div>
+          </td>;
+        })}
+      </tr>)}</tbody>
+    </table>
+  </section>;
+}
+
+function PhaseHeader({ phase, selected }: { phase: BusinessPlanPhase; selected: boolean }) {
   return (
-    <th scope="col" className="sticky top-0 z-20 border-b border-r border-slate-300 bg-slate-100 px-3 py-2 align-top text-slate-900 last:border-r-0">
+    <th scope="col" className={`sticky top-0 z-20 border-b border-r border-slate-300 px-3 py-2 align-top text-slate-900 last:border-r-0 ${selected ? "bg-sky-100" : "bg-slate-100"}`}>
       <div className="text-[12px] font-semibold leading-[18px]">{phase.label}</div>
       <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-[11px] leading-4">
         <span className="tabular-nums text-slate-600">{phase.period}</span>
@@ -111,6 +171,19 @@ function LaneExitCell({ phase, laneKey }: { phase: BusinessPlanPhase; laneKey: B
 function PhaseMatrix({ projectName, plan, canDownload = true }: { projectName: string; plan: ProjectBusinessPlan | null; canDownload?: boolean }) {
   const phases = plan?.phases ?? [];
   const empty = phases.length === 0;
+  const matrixRef = useRef<HTMLDivElement>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectPhase = (index: number) => {
+    setSelectedId(phases[index].id);
+    const matrix = matrixRef.current;
+    const header = matrix?.querySelectorAll<HTMLTableCellElement>("thead th")[index + 1];
+    if (matrix && header) {
+      const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+      const left = header.getBoundingClientRect().left - matrix.getBoundingClientRect().left + matrix.scrollLeft - 104;
+      matrix.scrollTo({ left: Math.max(0, left), behavior });
+      matrix.scrollIntoView({ block: "start", behavior });
+    }
+  };
   return (
     <SectionShell style={{ maxWidth: empty ? 640 : 104 + phases.length * 260 }}>
       <div className="border-b border-slate-200 bg-slate-50 px-3 py-2">
@@ -122,7 +195,8 @@ function PhaseMatrix({ projectName, plan, canDownload = true }: { projectName: s
         </p>
       </div>
 
-      <div className="overflow-x-auto" data-testid="business-plan-phase-matrix" data-phase-count={phases.length}>
+      {!empty && <PhaseOverview phases={phases} selectedId={selectedId} onSelect={selectPhase} />}
+      <div ref={matrixRef} className="overflow-x-auto" data-testid="business-plan-phase-matrix" data-phase-count={phases.length}>
         <table className="w-full table-fixed border-separate border-spacing-0 text-left" style={{ minWidth: empty ? undefined : `${104 + phases.length * 260}px` }}>
           <colgroup><col style={{ width: 104 }} />{Array.from({ length: empty ? 1 : phases.length }, (_, i) => <col key={i} />)}</colgroup>
           <thead>
@@ -133,7 +207,7 @@ function PhaseMatrix({ projectName, plan, canDownload = true }: { projectName: s
               {empty ? (
                 <th className="border-b border-slate-300 bg-slate-100 px-3 py-2 align-bottom text-[12px] font-semibold text-slate-600">フェーズ（未登録）</th>
               ) : (
-                phases.map((phase) => <PhaseHeader key={phase.id} phase={phase} />)
+                phases.map((phase) => <PhaseHeader key={phase.id} phase={phase} selected={selectedId === phase.id} />)
               )}
             </tr>
           </thead>
