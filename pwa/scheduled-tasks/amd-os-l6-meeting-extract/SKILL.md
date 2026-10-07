@@ -602,6 +602,21 @@ curl -s "$SUPABASE_URL/rest/v1/members?select=member_id,code_name,email,status&o
   - ちこ = ... (以下続く)
   ```
 
+### C-2a: プロジェクトの確定固有名詞
+
+各議事録の `projectId` に対応する確定表記を、抽出前に取得する。
+
+```bash
+curl -s "$SUPABASE_URL/rest/v1/project_config?project_id=eq.<projectId>&key=eq.proper_noun_spellings&select=value" \
+  -H "apikey: $SRK" -H "Authorization: Bearer $SRK"
+```
+
+`value` はJSON文字列。`entries` の各 `canonical` / `aliases` / `kind` を読み、「確定固有名詞マップ」として C-4 の入力へ追加する。登録のないPJでは空のマップとし、別PJの辞書を流用しない。取得失敗やJSON不正を未登録扱いにせず、再取得し、解決しなければその議事録の抽出を保留して理由を残す。
+
+確定表記は要約・議事録本文・決定事項・進捗・次の一手・残課題に適用し、code_nameより優先する。同じ人物・企業だと照合した場合だけ使い、別人・一般語・原文の引用を一括置換しない。元のURL・ID・メールアドレス・コード・保存済みsource_hashは変えない。未確認の正式名称や名字以外の名前を推測で補わない。
+
+ユーザーが確認した追加訂正も、該当PJの同じ `project_config` の辞書を更新する。
+
 ### C-3: feedback block (= GAS 155 `_l2_loadFeedbackBlock_` 移植)
 
 ```bash
@@ -632,6 +647,8 @@ filter:
 <C-0 os_context block>
 
 <C-2 alias block>
+
+<C-2a 確定固有名詞マップ>
 
 <C-3 feedback block (該当ありなら)>
 
