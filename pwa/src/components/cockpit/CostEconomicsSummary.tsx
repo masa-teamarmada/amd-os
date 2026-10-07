@@ -47,7 +47,7 @@ export function CostEconomicsSummary({ bundle, computed, selection, unit }: {
             <tbody>
               <tr className="border-b border-[#e5e5e7]"><th scope="row" className="py-1 pr-3 text-left font-medium">SOL</th><td className="px-2">{num(s.opexTotalPerUnit)}</td><td className="px-2">{num(s.capexTotalPerUnit)}</td><td className="px-2">{num(s.totalPerUnit)}</td><td className="pl-2">料金上限 {s.feeCeilingPerUnit! < 0 ? "なし" : num(s.feeCeilingPerUnit!)}</td></tr>
               <tr className="border-b border-[#e5e5e7]"><th scope="row" className="py-1 pr-3 text-left font-medium">顧客負担</th><td className="px-2">{num(s.customerCostPerUnit - s.customerCapexPerUnit)}</td><td className="px-2">{num(s.customerCapexPerUnit)}</td><td className="px-2">{num(s.customerCostPerUnit)}</td><td className="pl-2">顧客側の支出 {num(s.customerCostPerUnit)}</td></tr>
-              <tr className="font-semibold text-[#1d1d1f]"><th scope="row" className="py-1 pr-3 text-left">両者合計</th><td className="px-2">{num(ledger.opex)}</td><td className="px-2">{num(ledger.capex)}</td><td className="px-2" data-testid="cost-all-in">{num(ledger.total)}</td><td className="pl-2">提供総額 {num(budget)}</td></tr>
+              <tr className="font-semibold text-[#1d1d1f]"><th scope="row" className="py-1 pr-3 text-left">両者合計</th><td className="px-2">{num(ledger.opex)}</td><td className="px-2">{num(ledger.capex)}</td><td className="px-2" data-testid="cost-all-in">{num(ledger.total)}</td><td className="pl-2">総額上限 {num(budget)}</td></tr>
             </tbody>
           </table>
         </div>

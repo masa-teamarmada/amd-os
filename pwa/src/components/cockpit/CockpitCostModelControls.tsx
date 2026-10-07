@@ -551,6 +551,8 @@ function AssumptionControl({
     );
   }
   const isOverride = a.roleKey === "biomass_cost_per_kg_override";
+  const isBudget = a.roleKey === "customer_total_budget";
+  const isPendingCost = a.roleKey === "customer_residual_cost" || a.roleKey === "unpriced_extra_cost";
   const isSalesRate = a.roleKey === "sales_rate";
   const set = (v: number | null) => onChange("assumption", a.costAssumptionId, "value", v);
   return (
@@ -579,10 +581,10 @@ function AssumptionControl({
           value={a.value}
           baseline={baseline}
           onChange={set}
-          allowNull={isOverride}
+          allowNull={isOverride || isBudget || isPendingCost}
           min={isSalesRate ? 1 : undefined}
           max={isSalesRate ? 100 : undefined}
-          placeholder={isOverride ? "空欄＝計算値" : undefined}
+          placeholder={isOverride ? "空欄＝計算値" : isPendingCost ? "空欄＝未確認" : isBudget ? "空欄＝総額枠なし" : undefined}
           // 3桁カンマ入りの大きい数字（20,000,000 など）がスマホの16pxでも欄に収まる幅。
           // 10桁以上（中央回収設備の初期投資 5,670,000,000 など）は、その幅では末尾が欠けるので広げる
           widthClass={Math.abs(a.value ?? 0) >= 1e9 ? "w-44 lg:w-32" : "w-36 lg:w-24"}
