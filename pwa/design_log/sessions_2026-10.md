@@ -428,3 +428,7 @@ Drive原稿は共有ARMADA/p21_sol/261006_製品説明資料/製品説明資料_
 - 追加ファイル: project-management-minutes.ts / -server.ts、project-proper-nouns.ts / -handlers.ts、API project/[projectId]/proper-nouns/route.ts、CockpitProperNouns.tsx、ProjectContentModal.tsx、check_project_proper_nouns.mts。既存DD型/本文/loader/ナビ・標準フォーマット/契約検査/会議抽出SKILLを更新。詳細は3-24、3-3、db_schema。
 - DD/重要画面/ナビ/標準フォーマット/辞書/H-1安全性/型/ビルドが通過。PC/スマホ表内スクロール、13行・日付行結合5/3/5、本文モーダル、辞書保存・再取得を本番確認。次回H-1実行と実添付開封は未確認。
 - 終了時に旧DD概要仕様・管理マニュアルを現行へ同期。BUGSへ非対応表示・対外表記・対象外タブへの操作混入を記録。使い捨てmain clone2個と旧未追跡移行文を削除せず回復可能に保管。現在地はrootのHANDOFF_DD_MINUTES_20261007.md。
+
+### 2026-10-07 DD表示改善の受入と終了記録
+
+組織図・共通UI優先順位・フェーズ密度・全体図・17項目比較の現行正本と素材をHANDOFF_DD_LAYOUT_20261007.mdへ集約。手引き2-3/9-3と仕様3-23/6-1、画面規約2-7、ios/DESIGNの同期済みを照合。12項目だけの案と既存活動ベースの仮テーマ整理を破棄した経緯はBUGSへ保存。新規テーブル・列・環境変数・通知経路なし。SQL485は適用済みで再実行不要。型/静的/契約/専用検査、DB before-after、本番表示・開閉・移動が成功。通常Chromeと390pxを確認。まさ「うん、よくなった！」で受入済み。会話の検討材料0件。
