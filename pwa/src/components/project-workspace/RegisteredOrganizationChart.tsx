@@ -27,7 +27,7 @@ export function RegisteredOrganizationChart({ data }: { data: ProjectOrganizatio
         if (origin.width <= 520) {
           const endX = to.left - origin.left - 4, endY = to.top - origin.top + 28;
           const lane = Math.max(6, to.left - origin.left - 12 - slot * 8);
-          return [`M ${x} ${y} V ${y + 36 + slot * 8} H ${lane} V ${endY} H ${endX}`];
+          return [`M ${x} ${y} V ${y + 72 + slot * 8} H ${lane} V ${endY} H ${endX}`];
         }
         const endX = to.left - origin.left + to.width / 2, endY = to.top - origin.top - 4;
         return [`M ${x} ${y} V ${y + 36 + slot * 8} H ${endX} V ${endY}`];

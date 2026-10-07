@@ -69,3 +69,5 @@
 - `pwa/scripts/check_killer_factor_catalog_contract.mjs`
 - `pwa/src/app/globals.css`（通常OS画面の意味別カラートークン）
 - `pwa/scripts/check_ui_design_code.mjs`
+
+2026-10-07 まさ確定：画面設計は常に「1. 見やすさ → 2. 情報密度 → 3. 美しさ」の順で判断する。読みやすさと関係の把握を最優先し、その範囲で情報を集約する。外観の整い方を理由に上位の要件を損なわない。
