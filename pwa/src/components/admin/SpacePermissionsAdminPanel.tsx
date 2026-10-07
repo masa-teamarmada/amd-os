@@ -67,12 +67,12 @@ export function SpacePermissionsAdminPanel() {
    <Link href="/admin/access" className="text-primary underline">招待待ち・停止中を管理</Link><Link href="/admin/members" className="text-primary underline">社内メンバーを登録</Link>
   </div>
   {notice&&<p role="status" className="text-sm text-primary">{notice}</p>}{error&&!target&&<p role="alert" className="text-sm text-destructive">{error}</p>}
-  <div role="region" aria-label="メンバー別PJ権限表・横スクロール可能" tabIndex={0} className="relative isolate max-h-[65dvh] max-w-full overflow-auto rounded-md border border-border focus-visible:outline-2 focus-visible:outline-primary [--member-column:144px] sm:[--member-column:176px]">
+  <div role="region" aria-label="メンバー別PJ権限表・横スクロール可能" tabIndex={0} className="relative isolate max-h-[65dvh] w-fit max-w-full overflow-auto rounded-md border border-border focus-visible:outline-2 focus-visible:outline-primary [--member-column:112px] sm:[--member-column:176px]">
    <table className="table-fixed border-separate border-spacing-0 text-xs" style={{width:`calc(var(--member-column) + ${visibleProjects.length*288}px)`}}>
     <caption className="sr-only">１人１行。各PJのコックピット、ワークスペース、DDパッケージの権限。セルを押すと詳細を確認して変更できる。</caption>
     <colgroup><col style={{width:'var(--member-column)'}}/>{visibleProjects.flatMap(p=>PROJECT_SURFACES.map(s=><col key={`${p.project_id}:${s}`} style={{width:96}}/>))}</colgroup>
     <thead>
-     <tr><th scope="col" rowSpan={2} className="sticky left-0 top-0 z-30 border-b border-r border-border bg-muted px-3 text-left font-medium">名前</th>{visibleProjects.map(p=><th key={p.project_id} scope="colgroup" colSpan={3} className="sticky top-0 z-20 h-8 border-b border-r border-border bg-muted px-2 text-center font-semibold" title={p.project_name}><span className="block truncate">{p.project_name}</span></th>)}</tr>
+     <tr><th scope="col" rowSpan={2} className="sticky left-0 top-0 z-30 border-b border-r border-border bg-muted px-3 text-left font-medium">名前</th>{visibleProjects.map(p=><th key={p.project_id} scope="colgroup" colSpan={3} className="sticky top-0 z-20 h-8 border-b border-r border-border bg-muted text-left font-semibold" title={p.project_name}><span className="sticky left-[var(--member-column)] inline-block max-w-[272px] truncate px-2">{p.project_name}</span></th>)}</tr>
      <tr>{visibleProjects.flatMap(p=>PROJECT_SURFACES.map((s,i)=><th key={`${p.project_id}:${s}`} scope="col" className={`sticky top-8 z-20 h-8 border-b border-border bg-muted px-1 text-center text-[11px] font-normal text-muted-foreground ${i===2?'border-r':''}`}>{labels[s]}</th>))}</tr>
     </thead>
     <tbody>{visiblePeople.map(person=><tr key={person.key} className="group">
