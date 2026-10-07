@@ -10,6 +10,10 @@
 
 反映先はmain、正規deploy.sh経由。共有checkoutに残る事業計画・Excel関連とSOLフェーズ台帳の別担当差分、旧移行プロンプトは今回のcommitに含めない。実装の復旧は今回のcommitをmainでrevertして通常反映する。
 
+最終検証：96a30729217b413e575c602fa7fd21cb07657be5、v3.161.12。正規deployの必須検査とTypeScript検査通過、1分56秒で本番反映。Vercel dpl_4ES2hKbVYgfuC7fKRhNTZj5HA2dZはReady、本番aliasのgit_sha一致。実画面で26行・招待済み13行、付与選択26件、杉浦先生・石原先生のSOL workspace/DD閲覧、SEの招待済み5件の閲覧、停止中の検証用account除外を確認。保存を実行せず利用者権限・状態・通知は変更していない。
+
+PC1392px／スマホ390×800で名前2行は約45pxの行高に収まり、ページ横溢れなし。スマホ名前列112px、表内115px横移動後も名前左80.9px・SOL名左192.9pxを維持しworkspace/DDの青い閲覧を同時確認。証拠はローカルpermissions-invited-desktop.png／permissions-invited-mobile.png。視認性・行密度・固定列・操作の確認を通過、評価8.5/10、表示blockerなし。viewportを戻し杉浦先生のSOL行を本番タブに保持。検証用clean cloneはpush一致・cleanを確認して削除済み。正規checkoutはorigin/mainとの0/0を確認。同期棚卸しは上表と同じ、今回追加の招待済み表示もmanual/spec/ios正本へ反映済み。
+
 まさの依頼：adminにPJごとのコックピット・ワークスペース・DD権限一覧を新設し、新規メンバーへの閲覧・編集付与を可能にする。
 
 正本はpwa/spec/2-1、3-24、5-17、manual/2-6、ios/DESIGN.md。入口は/admin/permissions。内部個別grantは既存所属と独立、外部workspace/DDは従来のgrant。権限は追加型でadmin・既存社内・所属を下げない。DD editは掲載項目編集、外部workspace editは共有資料編集。権限再付与・全社設定はadminだけ。
