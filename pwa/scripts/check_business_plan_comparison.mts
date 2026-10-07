@@ -26,3 +26,14 @@ assert.deepEqual(businessPlanComparisonCell(legacy, "researchValidation").activi
 assert.deepEqual(businessPlanComparisonCell(legacy, "quality").activities, []);
 assert.ok(strFromU8(unzipSync(createBusinessPlanPhaseMatrixXlsx([legacy]))["xl/worksheets/sheet1.xml"]).includes("old"));
 console.log("business-plan comparison: 17 rows, 66 activities, XLSX preservation, legacy/invalid mappings passed");
+
+const productionSource = JSON.parse(fs.readFileSync(new URL("./data/sol-phase-production-20261007.json", import.meta.url), "utf8"));
+assert.equal(Object.keys(productionSource.mapping).length, 5);
+const productionPhases = phases.map(phase => ({ ...phase, comparisonTargets: { ...phase.comparisonTargets, productionVolume: productionSource.mapping[phase.id] } }));
+const productionXml = strFromU8(unzipSync(createBusinessPlanPhaseMatrixXlsx(productionPhases))["xl/worksheets/sheet1.xml"]);
+for (const phase of productionPhases) {
+  const target = businessPlanComparisonCell(phase, "productionVolume").target;
+  assert.equal(target, productionSource.mapping[phase.id]);
+  assert.ok(productionXml.includes(target));
+}
+console.log("production targets: all five phase cells and XLSX preserved");
