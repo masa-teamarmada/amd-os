@@ -1,5 +1,9 @@
+"use client";
+
+import { useState } from "react";
 import type { ProjectManagementMinute } from "@/lib/project-management-minutes";
 import { MarkdownView } from "@/components/cockpit/MarkdownView";
+import { ProjectContentModal } from "./ProjectContentModal";
 import type { ProjectManagementBiographies as Biographies } from "@/lib/project-management-biographies";
 import { ProjectManagementBiographies } from "./ProjectManagementBiographies";
 import type { ProjectOrganizationChartData } from "@/lib/project-organization-chart";
@@ -22,6 +26,7 @@ export function ProjectDiligenceSection({ page, organizationChart, biographies, 
 
 /** 決議記録の一覧。資料登録前でも、会議体と列を常設する。 */
 function ProjectMeetingResolutions({ minutes }: { minutes: ProjectManagementMinute[] }) {
+  const [selectedMinute, setSelectedMinute] = useState<ProjectManagementMinute | null>(null);
   return (
     <div data-testid="project-meeting-resolutions" className="space-y-6 py-3">
       <h2 className="text-lg font-semibold leading-7">{PROJECT_PAGE_LABELS.governance}</h2>
@@ -29,28 +34,30 @@ function ProjectMeetingResolutions({ minutes }: { minutes: ProjectManagementMinu
         <section key={body} className="overflow-hidden rounded-xl border border-[#e5e5e7] bg-white" aria-label={body}>
           <h3 className="border-b border-[#e5e5e7] px-4 py-3 text-sm font-semibold">{body}</h3>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-sm">
+            <table className="w-full min-w-[720px] table-fixed text-sm">
+              <colgroup><col className="w-40" /><col className="w-1/2" /><col /></colgroup>
               <thead className="bg-[#f5f5f7] text-left text-xs text-[#6e6e73]">
                 <tr>
-                  {["開催日", "決議事項", "決議結果", "議事録"].map((label) => <th key={label} scope="col" className="px-4 py-3 font-medium">{label}</th>)}
+                  {["開催日", "決議事項", "決議結果"].map((label) => <th key={label} scope="col" className="px-4 py-3 font-medium">{label}</th>)}
                 </tr>
               </thead>
               <tbody>
                 {body === "経営会議" && minutes.length ? minutes.map((minute) => (
                   <tr key={minute.meetingId} className="border-t border-[#e5e5e7] align-top" data-meeting-id={minute.meetingId}>
-                    <td className="whitespace-nowrap px-4 py-3"><time dateTime={minute.meetingDate}>{minute.meetingDate.replaceAll("-", "/")}</time></td>
-                    <td className="min-w-48 px-4 py-3"><p className="font-medium">{minute.title}</p>{minute.summary && <p className="mt-1 text-xs text-[#6e6e73]">{minute.summary}</p>}</td>
-                    <td className="min-w-48 px-4 py-3">{minute.decided.length ? <ul className="list-disc space-y-1 pl-4">{minute.decided.map((item, index) => <li key={index}>{item}</li>)}</ul> : <span className="text-[#6e6e73]">決定事項の記録なし</span>}</td>
-                    <td className="w-2/5 min-w-64 px-4 py-3">{minute.narrativeMd ? (
-                      <details className="group"><summary className="min-h-11 cursor-pointer content-center text-[#007aff] focus-visible:outline-2" aria-label={`${minute.meetingDate}の議事録を読む`}>議事録を読む</summary><div className="mt-2 break-words"><MarkdownView source={minute.narrativeMd} /></div></details>
-                    ) : <span className="text-[#6e6e73]">本文未登録</span>}</td>
+                    <td className="px-4 py-3">
+                      <time className="whitespace-nowrap tabular-nums" dateTime={minute.meetingDate}>{minute.meetingDate.replaceAll("-", "/")}</time>
+                      {minute.narrativeMd ? <button type="button" className="mt-3 min-h-11 rounded-lg border border-[#d2d2d7] bg-white px-3 py-2 text-xs font-medium text-[#0066cc] hover:bg-[#f5f5f7] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007aff]" aria-label={`${minute.meetingDate}の議事録を開く`} aria-haspopup="dialog" onClick={() => setSelectedMinute(minute)}>議事録を開く</button> : <p className="mt-3 text-xs text-[#6e6e73]">本文未登録</p>}
+                    </td>
+                    <td className="break-words px-4 py-3"><p className="font-medium">{minute.title}</p>{minute.summary && <p className="mt-2 text-sm leading-6 text-[#6e6e73]">{minute.summary}</p>}</td>
+                    <td className="break-words px-4 py-3 leading-6">{minute.decided.length ? <ul className="list-disc space-y-2 pl-4">{minute.decided.map((item, index) => <li key={index}>{item}</li>)}</ul> : <span className="text-[#6e6e73]">決定事項の記録なし</span>}</td>
                   </tr>
-                )) : <tr><td colSpan={4} className="px-4 py-5 text-[#6e6e73]">{body === "経営会議" ? "開催済みの経営会議記録は未登録" : "決議事項未登録"}</td></tr>}
+                )) : <tr><td colSpan={3} className="px-4 py-5 text-[#6e6e73]">{body === "経営会議" ? "開催済みの経営会議記録は未登録" : "決議事項未登録"}</td></tr>}
               </tbody>
             </table>
           </div>
         </section>
       ))}
+      {selectedMinute && <ProjectContentModal title={selectedMinute.title} subtitle={selectedMinute.meetingDate.replaceAll("-", "/")} onClose={() => setSelectedMinute(null)}><MarkdownView source={selectedMinute.narrativeMd ?? ""} /></ProjectContentModal>}
     </div>
   );
 }
