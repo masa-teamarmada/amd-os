@@ -6,11 +6,15 @@ export type PermissionLedgerData = {
  memberGrants:MemberSurfaceGrant[];
  accounts:{id:string;email:string;display_name:string|null;status:string}[];
  projectMemberships:{id:string;project_id:string;user_account_id:string;role:string;status:string}[];
- ddPackages:{id:string;project_id:string;slug:string;title:string;status:string}[];
+ ddPackages:{id:string;project_id:string;slug:string;title:string;status:string;created_at?:string}[];
  ddGrants:{id:string;package_id:string;user_account_id:string;status:string;capabilities:string[];expires_at:string|null}[];
 };
 export type LedgerPermission = {permission:SurfacePermission|null;note:string;grantId?:string;packageId?:string;capabilities?:string[]};
 export type PermissionLedgerRow = {key:string;projectId:string;projectName:string;name:string;email:string;memberId?:string;accountId?:string;status:string;isAdmin:boolean;permissions:Record<ProjectSurface,LedgerPermission>};
+// 既存DD管理・ナビと同じ、PJで最初に作成した正本パッケージ。動作確認用をUUID順で選ばない。
+export function canonicalProjectDdPackage(packages:PermissionLedgerData['ddPackages'],projectId:string) {
+ return packages.filter(p=>p.project_id===projectId).sort((a,b)=>(a.created_at??'').localeCompare(b.created_at??''))[0];
+}
 export function buildSpacePermissionRows(data:PermissionLedgerData,now=Date.now()):PermissionLedgerRow[] {
  const people = new Map<string,{member?:PermissionLedgerData['members'][number];account?:PermissionLedgerData['accounts'][number]}>();
  for (const m of data.members) people.set(m.email.toLowerCase(),{member:m});
@@ -21,7 +25,7 @@ export function buildSpacePermissionRows(data:PermissionLedgerData,now=Date.now(
   if (member?.status === 'active') for (const surface of ['cockpit','workspace','dd'] as const) {
    const grant=data.memberGrants.find(g=>g.member_id===member.member_id && g.project_id===project.project_id && g.surface===surface);
    const permission=memberSurfacePermission({memberId:member.member_id,isAdmin:member.is_admin,scope:member.os_access_scope,projects:data.projectMembers.filter(p=>p.is_active&&p.member_id===member.member_id).map(p=>({projectId:p.project_id})),surfaceGrants:data.memberGrants.filter(g=>g.member_id===member.member_id)},project.project_id,surface);
-   const pkg=data.ddPackages.find(p=>p.project_id===project.project_id);
+   const pkg=canonicalProjectDdPackage(data.ddPackages,project.project_id);
    permissions[surface]={permission,note:member.is_admin?'管理者':grant?'個別付与':permission?'既存権限':'',packageId:pkg?.id};
    if(surface==='workspace' && !member.is_admin && !grant && data.projectMembers.some(p=>p.is_active&&p.member_id===member.member_id&&p.project_id===project.project_id)) permissions.workspace={permission:'edit',note:'資料編集（既存所属）'};
    if(surface==='cockpit' && !member.is_admin && !grant && member.os_access_scope==='portfolio') permissions.cockpit={permission:'edit',note:'共有情報の編集（社内）'};
@@ -33,7 +37,7 @@ export function buildSpacePermissionRows(data:PermissionLedgerData,now=Date.now(
     const permission=m.role==='readonly'?'view':'edit';
     if(!permissions.workspace.permission || permission==='edit'&&permissions.workspace.permission!=='edit') permissions.workspace={permission,note:account.status==='suspended'?'アカウント停止中':m.status==='invited'?'初回ログイン待ち':m.role==='contributor'?'資料追加のみ':m.role==='manager'?'共有資料の編集':'個別付与',grantId:m.id};
    }
-   const pkg=data.ddPackages.find(p=>p.project_id===project.project_id);
+   const pkg=canonicalProjectDdPackage(data.ddPackages,project.project_id);
    const g=pkg&&data.ddGrants.find(g=>g.package_id===pkg.id&&g.user_account_id===account.id);
    if(g && ['active','invited'].includes(g.status) && g.capabilities.includes('dd.view')) {
     const permission=g.capabilities.includes('dd.edit')?'edit':'view';

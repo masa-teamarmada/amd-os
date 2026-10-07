@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {memberSurfacePermission} from '../src/lib/project-surface-permissions.ts';
-import {buildSpacePermissionRows,type PermissionLedgerData} from '../src/lib/space-permission-ledger.ts';
+import {buildSpacePermissionRows,canonicalProjectDdPackage,type PermissionLedgerData} from '../src/lib/space-permission-ledger.ts';
 const base={memberId:'ID2',isAdmin:false,scope:'project' as const,projects:[]};
 const view={project_id:'p1',member_id:'ID2',surface:'cockpit' as const,permission:'view' as const};
 assert.equal(memberSurfacePermission({...base,surfaceGrants:[view]},'p1','cockpit'),'view');
@@ -51,3 +51,11 @@ const surfaceNav=readFileSync('src/components/nav/ProjectSurfaceNav.tsx','utf8')
 assert.ok(surfaceNav.includes('summary?.canWorkspace'));
 assert.ok(surfaceNav.includes('summary?.canCockpit'));
 console.log('surface navigation resolves all three grants independently: PASS');
+
+const official={...data.ddPackages[0],id:'z-official',created_at:'2026-09-30T07:05:00Z'};
+const verification={...official,id:'a-test',status:'closed',created_at:'2026-09-30T07:21:00Z'};
+assert.equal(canonicalProjectDdPackage([verification,official],'p1')?.id,'z-official');
+const officialRows=buildSpacePermissionRows({...data,ddPackages:[verification,official],ddGrants:[{...data.ddGrants[0],package_id:'z-official',expires_at:null}]});
+assert.equal(officialRows[0].permissions.dd.permission,'edit');
+assert.equal(officialRows[0].permissions.dd.packageId,'z-official');
+console.log('canonical DD selection ignores UUID order and later verification packages: PASS');

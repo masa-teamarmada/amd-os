@@ -242,3 +242,5 @@ migration 212 / 213 / 216〜219 / 258 と対になる contract。212 / 213は202
 内部コンテンツの委譲APIは `requireProjectContentEditor` でactive member、対象PJの明示cockpit/workspace edit（またはadmin）を確認する。cookie認証の変更はsame-origin必須。Cookie/Originを伴わないNative Bearerは検証済みの内部JWTで認証し、同じPJ認可を行う。PJの定義・権限付与・全社設定は委譲対象外。
 
 社内の領域ナビは GET `/api/project-surface/navigation/[projectId]`（no-store）でcockpit/workspace/DDを独立に再照合する。DD管理リンクはadminだけ。DD個別付与は公開/編集可能状態の `/dd/[slug]` へ、workspace未付与ならそのリンクを出さない。表示中の領域だけは読み込み中も保持する。
+
+権限一覧と付与先のDDは、既存loadDdAdminState/getDdPackageSummaryと同じく当該PJで最初に作成したpackageを選ぶ。created_atを取得し作成日時で選び、UUID順や後発の検証packageを根拠にしない。

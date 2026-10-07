@@ -25,7 +25,7 @@ export async function GET() {
       all('project_surface_member_permissions','project_id,member_id,surface,permission,updated_at','member_id'),
       all('workspace_user_accounts','id,email,display_name,status','id'),
       all('project_access_memberships','id,project_id,user_account_id,role,status','id'),
-      all('dd_packages','id,project_id,slug,title,status','id'),
+      all('dd_packages','id,project_id,slug,title,status,created_at','created_at'),
       all('dd_package_grants','id,package_id,user_account_id,status,capabilities,expires_at','id'),
     ]);
     return NextResponse.json({projects,members,projectMembers,memberGrants,accounts,projectMemberships,ddPackages,ddGrants},{headers:{'Cache-Control':'no-store'}});

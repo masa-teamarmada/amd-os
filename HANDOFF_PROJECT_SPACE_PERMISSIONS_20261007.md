@@ -10,7 +10,7 @@ migration 20261007090000は本番適用済み。Supabase migration履歴にもap
 
 前セッションのSOL原稿・manual訂正等はSOL担当の変更として保持し、同担当がd1d70969等でcommitしたことを確認。旧SESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdは保管資料で今回の指示に使用しない。
 
-検証と本番反映の結果は完了後に追記する。理論変更なし、BZM同期不要。
+6923efac（v3.161.0）はmain push済み、本番aliasのSHA一致、Vercel TypeScript・630ページbuild成功を確認。画面確認で、同PJの後発検証DDをUUID順で拾う点とスマホダイアログの入力幅を発見しv3.161.1で修正。正式DDは既存DD管理と同じ最初のcreated_atを選び、選択検査を追加。最終画面readbackは完了後に追記する。理論変更なし、BZM同期不要。
 
 ## OSマニュアル同期ゲート
 
