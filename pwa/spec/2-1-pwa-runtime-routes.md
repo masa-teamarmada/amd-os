@@ -1,5 +1,7 @@
 # PWA ランタイム / ルート仕様
 
+2026-10-07: AMD OSの`/auth/login`は全員共通のメール入力と「続ける」１つに統一。`resolveLoginEntry`がtrim/lowercaseと形式検証の後、メールのdomainが厳密に`team-armada.jp`なら既存portfolio Google OAuth（Calendar/Gmail readonly、offline、consent、入力メールをlogin_hint）へ、それ以外なら既存`/api/auth/email-start`へ進める。subdomainや似たdomainは社内扱いにしない。domainは認証方式の選択だけで、付与・利用可否は既存callback/DB/RLSが検査する。旧`audience`/`workspace`queryによるUIの並べ替えとPJログインボタンは廃止し、`next`は両方式で引き継ぐ。旧project callbackの認可は維持。書斎hostは既存管理者用Google入口を維持する。未登録・未許可・送信抑制の200応答は同じ案内を表示。通信失敗は入力を保った再試行案内にする。入力・主操作48px、入力文字16px、横溢れなし。メール実送信・権限変更を伴わない画面検証を行う。
+
 2026-10-06: ホームとコックピットの全体メニューは左上のメニューアイコン「≡」で開く左ドロワー。常設の全体サイドバーは出さず、既存のホーム・研究機関・シーズ・管理・資料などの入口を保持する。閉じるボタン、背景クリック、Escape、リンク選択で閉じ、キーボードフォーカスを開くボタンへ戻す。ホームのPJカード（研究機関・シーズ・事業会社・PJ運用一覧）と全体メニューのPJリンクは別タブを既定とし、PJ未登録の候補詳細と一覧・ページ内アンカーは同じタブで開く。
 
 2026-10-04: `GET /api/project/[projectId]/workspace-meetings` は `resolveSharedWorkspaceAccess(projectId)` の毎回判定後に当該PJの会議／動向だけを返す（private/no-store）。`GET /api/slack/messages?projectId=...` も当該PJの共有所属の読み取りを許す。DD付与だけの人は両APIへ入れない。

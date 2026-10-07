@@ -102,7 +102,7 @@ pwa/
 | パス | 役割 |
 |---|---|
 | `/` | role-based top。AMDの `portfolio` は `/dashboard`、PJ限定は参加1件なら `/project/[projectId]/workspace`、複数なら `/my-projects`、未認証なら `/auth/login` |
-| `/auth/login` | Google OAuth ログイン (Supabase Auth) |
+| `/auth/login` | 共通メール入力＋「続ける」。厳密なteam-armada.jpはGoogle OAuth、それ以外は既存メールリンク認証。認可はDB/サーバで検査。書斎hostは管理者用Google入口 |
 | `/auth/callback` | OAuth callback |
 
 ### 旧・独立プレビューroute (2026-08-02 /dashboard へ統合済み)
@@ -383,6 +383,8 @@ pwa/
 ---
 
 ## 6. 認証
+
+- 2026-10-07: AMD OSの入口はメール入力と「続ける」１つ。`team-armada.jp`のみportfolio Googleへ入力メールをlogin_hintとして渡し、他domainは既存email-startへ進む。共有URLのnextを保持し、audience/workspaceで入口を分けない。domainによる権限付与は行わず、既存membership/DD grantとcallback/RLSを維持。書斎hostは管理者用Googleログインのまま。詳細はspec/2-1。
 
 - 現状: Supabase Auth + middleware (`src/middleware.ts` → `src/lib/supabase/middleware.ts`)
 - `(app)/layout.tsx` で `getUser()` を呼び未認証なら `/auth/login` へ redirect

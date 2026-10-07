@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useLoginApp } from "@/components/auth/LoginAppContext";
+import { resolveLoginEntry } from "@/lib/login-entry";
 
 const PORTFOLIO_GOOGLE_SCOPES = [
   "openid",
@@ -12,19 +13,13 @@ const PORTFOLIO_GOOGLE_SCOPES = [
   "https://www.googleapis.com/auth/gmail.readonly",
 ].join(" ");
 
-const PROJECT_GOOGLE_SCOPES = ["openid", "email", "profile"].join(" ");
-
-type Audience = "armada" | "institution";
-
 export default function LoginPage() {
   // 書斎のアドレスでは「書斎」として出し、AMD メンバーのログインだけを置く（書斎は管理者限定）
   const loginApp = useLoginApp();
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState<"portfolio" | "project" | null>(null);
-  const [audience, setAudience] = useState<Audience>("armada");
+  const [submitting, setSubmitting] = useState(false);
   const [next, setNext] = useState("/");
   const [email, setEmail] = useState("");
-  const [emailSubmitting, setEmailSubmitting] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
 
   useEffect(() => {
@@ -32,124 +27,111 @@ export default function LoginPage() {
     const params = new URLSearchParams(window.location.search);
     setError(params.get("error"));
     setNext(params.get("next") || "/");
-    setAudience(params.get("audience") === "institution" || params.has("workspace") ? "institution" : "armada");
   }, []);
 
-  const handleLogin = async (loginScope: "portfolio" | "project") => {
-    setSubmitting(loginScope);
+  const handleLogin = async (loginEmail?: string) => {
+    setSubmitting(true);
     const supabase = createClient();
     const { error: signInError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}&login_scope=${loginScope}`,
-        scopes: loginScope === "portfolio" ? PORTFOLIO_GOOGLE_SCOPES : PROJECT_GOOGLE_SCOPES,
-        queryParams: loginScope === "portfolio"
-          ? {
-              hd: "team-armada.jp",
-              access_type: "offline",
-              prompt: "consent",
-              include_granted_scopes: "true",
-            }
-          : {
-              prompt: "select_account",
-            },
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}&login_scope=portfolio`,
+        scopes: PORTFOLIO_GOOGLE_SCOPES,
+        queryParams: {
+          hd: "team-armada.jp",
+          access_type: "offline",
+          prompt: "consent",
+          include_granted_scopes: "true",
+          ...(loginEmail ? { login_hint: loginEmail } : {}),
+        },
       },
     });
     if (signInError) {
       setError("auth_failed");
-      setSubmitting(null);
+      setSubmitting(false);
     }
   };
 
   const handleEmailSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setEmailSubmitting(true);
+    if (submitting) return;
+    const entry = resolveLoginEntry(email);
+    if (!entry) return;
+    setError(null);
+    setSubmitting(true);
     try {
-      await fetch("/api/auth/email-start", {
+      if (entry.method === "google") {
+        await handleLogin(entry.email);
+        return;
+      }
+      const response = await fetch("/api/auth/email-start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, next }),
+        body: JSON.stringify({ email: entry.email, next }),
       });
-    } catch {
-      // Network failure still shows the generic message below — never reveal
-      // whether the address is registered based on request outcome.
-    } finally {
-      setEmailSubmitting(false);
+      if (!response.ok) throw new Error("email_start_failed");
       setEmailSent(true);
+    } catch {
+      // A transport failure says nothing about whether this email has access.
+      setError("connection_failed");
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const emailForm = (
-    <form onSubmit={handleEmailSubmit} className="space-y-3 text-left">
-      <label htmlFor="workspace-email" className="block text-xs font-medium text-muted-foreground">
-        研究機関・PJ関係者・DD資料の閲覧者向けメールアドレス
-      </label>
-      <input
-        id="workspace-email"
-        type="email"
-        required
-        autoComplete="email"
-        value={email}
-        onChange={(event) => setEmail(event.target.value)}
-        placeholder="you@example.com"
-        className="block min-h-11 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-      />
+    <form onSubmit={handleEmailSubmit} className="space-y-4 text-left" aria-busy={submitting}>
+      <div className="space-y-2">
+        <label htmlFor="workspace-email" className="block text-sm font-medium">
+          メールアドレス
+        </label>
+        <input
+          id="workspace-email"
+          type="email"
+          required
+          autoComplete="email"
+          autoCapitalize="none"
+          spellCheck={false}
+          maxLength={320}
+          aria-describedby="login-email-help"
+          disabled={submitting}
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder="you@example.com"
+          className="block h-12 w-full min-w-0 rounded-md border border-border bg-background px-3 py-2 text-base outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
+        />
+      </div>
       <button
         type="submit"
-        disabled={emailSubmitting}
-        className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+        disabled={submitting}
+        className="inline-flex h-12 w-full items-center justify-center rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50"
       >
-        {emailSubmitting ? "送信中…" : "ログインリンクを送る"}
+        {submitting ? "接続中…" : "続ける"}
       </button>
-      <p className="text-[11px] leading-relaxed text-muted-foreground">
-        届いたリンクは、この画面を開いているのと同じブラウザで開いてください。別の端末やブラウザで開くとログインできません。
+      <p id="login-email-help" className="text-xs leading-relaxed text-muted-foreground">
+        メールが届いたら、ログインリンクをこのブラウザで開いてください。
       </p>
     </form>
   );
 
-  const googleButtons = (
-    <div className="space-y-3">
-      <button
-        onClick={() => handleLogin("portfolio")}
-        disabled={submitting !== null}
-        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-      >
-        {submitting === "portfolio" ? "接続中…" : "AMDメンバーとしてログイン"}
-      </button>
-      <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-        <span className="h-px flex-1 bg-border" />
-        PJメンバーはこちら
-        <span className="h-px flex-1 bg-border" />
-      </div>
-      <button
-        onClick={() => handleLogin("project")}
-        disabled={submitting !== null}
-        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border bg-background px-6 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
-      >
-        {submitting === "project" ? "接続中…" : "参加PJだけを見る"}
-      </button>
-      <p className="text-left text-[11px] leading-relaxed text-muted-foreground">
-        PJ限定ログインでは、招待されたPJの共有ダッシュボードだけが表示されるよ。
-      </p>
-    </div>
-  );
-
   if (emailSent) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-4">
-        <div className="w-full max-w-sm space-y-4 text-center">
-          <h1 className="text-lg font-semibold">メールを確認してください</h1>
-          <p className="text-sm text-muted-foreground">
-            登録済みのメールアドレスなら、ログインリンクを送ったよ。リンクはこのブラウザで開いてください。届いていない場合は、入力したアドレスか迷惑メールフォルダを確認してください。
+      <div className="flex min-h-screen items-center justify-center px-6 py-12">
+        <div className="w-full min-w-0 max-w-sm space-y-4 text-center">
+          <h1 className="text-xl font-semibold">メールを確認してください</h1>
+          <p className="text-sm leading-relaxed text-muted-foreground" role="status">
+            閲覧が許可されているメールアドレスに、ログインリンクを送ります。届いたリンクは、このブラウザで開いてください。
           </p>
+          <p className="text-xs leading-relaxed text-muted-foreground">届かない場合は迷惑メールフォルダを確認してください。閲覧権限がない場合は、管理者の承認後にもう一度ログインしてください。</p>
+          <button type="button" onClick={() => setEmailSent(false)} className="min-h-11 px-3 text-sm underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-ring">メールアドレスを入力し直す</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm space-y-6 text-center">
+    <div className="flex min-h-screen items-center justify-center px-6 py-12">
+      <div className="w-full min-w-0 max-w-sm space-y-8 text-center">
         <div className="space-y-2">
           {loginApp === "shosai" ? (
             <>
@@ -162,8 +144,9 @@ export default function LoginPage() {
                 <span className="text-primary">◈</span> AMD OS
               </h1>
               <p className="text-sm text-muted-foreground">
-                Team ARMADA Business Operating System
+                メールアドレスを入力してログイン
               </p>
+              <p className="text-xs leading-relaxed text-muted-foreground">招待されたメールアドレスを使ってください。</p>
             </>
           )}
         </div>
@@ -175,6 +158,11 @@ export default function LoginPage() {
         {error === "auth_failed" && (
           <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-left text-xs text-red-700">
             ログインに失敗。もう一度Google Workspaceでログインして。
+          </div>
+        )}
+        {error === "connection_failed" && (
+          <div role="alert" className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-left text-xs text-red-700">
+            接続できませんでした。通信状態を確認して、もう一度続けてください。
           </div>
         )}
         {error === "domain_not_allowed" && (
@@ -205,36 +193,18 @@ export default function LoginPage() {
         {loginApp === "shosai" ? (
           <div className="space-y-3">
             <button
-              onClick={() => handleLogin("portfolio")}
-              disabled={submitting !== null}
+              onClick={() => handleLogin()}
+              disabled={submitting}
               className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             >
-              {submitting === "portfolio" ? "接続中…" : "AMDメンバーとしてログイン"}
+              {submitting ? "接続中…" : "AMDメンバーとしてログイン"}
             </button>
             <p className="text-left text-[11px] leading-relaxed text-muted-foreground">
               AMD OS と同じ Google アカウントでログインします。書斎を開けるのは管理者だけです。
             </p>
           </div>
-        ) : audience === "institution" ? (
-          <div className="space-y-5">
-            {emailForm}
-            <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-              <span className="h-px flex-1 bg-border" />
-              ARMADAメンバーはこちら
-              <span className="h-px flex-1 bg-border" />
-            </div>
-            {googleButtons}
-          </div>
         ) : (
-          <div className="space-y-5">
-            {googleButtons}
-            <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-              <span className="h-px flex-1 bg-border" />
-              研究機関・PJ関係者の方はこちら
-              <span className="h-px flex-1 bg-border" />
-            </div>
-            {emailForm}
-          </div>
+          emailForm
         )}
       </div>
     </div>
