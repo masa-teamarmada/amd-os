@@ -1,0 +1,310 @@
+{
+  "projectId": "p21",
+  "source": "登録済み66活動と20出口条件・予算。2026-10-07まさ承認の17項目へ対応。新しい数量目標は追加しない。",
+  "phases": [
+    {
+      "id": "psi",
+      "comparisonTargets": {
+        "customers": "有償PoC候補2社",
+        "markets": "優先顧客2業界",
+        "financing": "シード1億円・キャップ5億円・ディスカウント20％を協議",
+        "spending": "予算 6,000万円／資金調達500万円・事業1,000万円・技術4,000万円・組織500万円"
+      },
+      "lanes": {
+        "funding": {
+          "activities": [
+            "シードJ-KISSと15か月の資金使途を準備",
+            "設立前に進められるDD・投資委員会の範囲を確認",
+            "必要DD資料と投資家別の条件を協議"
+          ],
+          "activityRowKeys": [
+            "financing",
+            "incorporationDd",
+            "financing"
+          ]
+        },
+        "business": {
+          "activities": [
+            "優先顧客2業界と最初の用途を固定",
+            "排水基準・環境安全・菌体/包装物の取扱いと顧客設備側の責任分界を整理",
+            "有償PoC候補2社の意向を確認",
+            "対象液・採用条件・決裁者を案件ごとに確認し、紹介・サンプル提供・実証・導入合意を区別する"
+          ],
+          "activityRowKeys": [
+            "markets",
+            "regulationSafety",
+            "customers",
+            "customers"
+          ]
+        },
+        "technology": {
+          "activities": [
+            "培養株・培養レシピ・品質指標を絞る",
+            "培養→回収→包装→輸送→顧客投入の一連条件を設計",
+            "PoC用リアクター仕様と測定計画を固定",
+            "試料番号、原水と処理後水、菌体量、反復・対照、分析方法をそろえた実証計画を研究チームと顧客に確認する"
+          ],
+          "activityRowKeys": [
+            "researchValidation",
+            "productSupply",
+            "facilities",
+            "researchValidation"
+          ]
+        },
+        "organization": {
+          "activities": [
+            "設立前DDの技術・法務・財務・知財論点を完了",
+            "NewCo設立とCEO候補の役割確定",
+            "大学・発明者・SX間の知財境界を整理",
+            "CEO予定・研究・製品開発・運転品質の役割、大学の兼業・利益相反、許諾と設立後への承継を文書で確認する"
+          ],
+          "activityRowKeys": [
+            "incorporationDd",
+            "roles",
+            "governanceIp",
+            "governanceIp"
+          ]
+        }
+      }
+    },
+    {
+      "id": "seed",
+      "comparisonTargets": {
+        "customers": "有償PoC3件／年間契約へ進む顧客1社",
+        "quality": "3ロット連続合格・輸送後性能合格",
+        "cash": "2028年6月末現金：約359万円／純改善目標1,000万円",
+        "spending": "予算 1.3億円／資金調達再精査中・事業再精査中・技術再精査中・組織再精査中"
+      },
+      "lanes": {
+        "funding": {
+          "activities": [
+            "シードJ-KISSをクローズしSTS申請とつなぎ融資を協議",
+            "2028年6月末現金約359万円に対して純改善1,000万円を目指す",
+            "2028年7月のシリーズA払込に向けDD・条件交渉を前倒し"
+          ],
+          "activityRowKeys": [
+            "financing",
+            "cash",
+            "incorporationDd"
+          ]
+        },
+        "business": {
+          "activities": [
+            "顧客拠点で有償PoCを3件実施",
+            "包装単位・納品頻度・顧客側運転手順と既存制度への適合要件を商品仕様化",
+            "単価、粗利、継続条件を顧客別に検証",
+            "現場ごとに水質・処理量・運転負担・検収を合意し、試料と結果の投資家向け開示条件を記録する"
+          ],
+          "activityRowKeys": [
+            "customers",
+            "productSupply",
+            "unitEconomics",
+            "researchValidation"
+          ]
+        },
+        "technology": {
+          "activities": [
+            "自社内の小規模培養・包装パイロット設備を構築",
+            "輸送後の活性・保存期限・ロット品質基準を確立",
+            "顧客設備での再現運転とユニットエコノミクスを証明",
+            "差圧・破過・交換・停止復旧と、原水・処理後水・菌体・回収金属の物質収支を記録する"
+          ],
+          "activityRowKeys": [
+            "facilities",
+            "quality",
+            "researchValidation",
+            "researchValidation"
+          ]
+        },
+        "organization": {
+          "activities": [
+            "製品開発担当を確保し、必要な役割を段階的に補う",
+            "品質記録、出荷判定、顧客障害対応の標準手順を導入",
+            "取締役会・月次資金管理を開始",
+            "出荷判定、設置保守、回収、事故・漏洩、代理担当を手順と契約の責任分担に落とす"
+          ],
+          "activityRowKeys": [
+            "roles",
+            "productSupply",
+            "governanceIp",
+            "regulationSafety"
+          ]
+        }
+      }
+    },
+    {
+      "id": "series-a",
+      "comparisonTargets": {
+        "sales": "売上7億円規模",
+        "customers": "継続顧客3社以上",
+        "unitEconomics": "変動粗利黒字",
+        "headcount": "社員数：未定／体制15–20名",
+        "spending": "予算 再精査中／資金調達再精査中・事業再精査中・技術再精査中・組織再精査中"
+      },
+      "lanes": {
+        "funding": {
+          "activities": [
+            "設備投資を能力増強ゲートごとに分割承認",
+            "借入・補助金を株式資金と併用",
+            "Series Bで本格工場投資を開けるDDパックを整備"
+          ],
+          "activityRowKeys": [
+            "spending",
+            "financing",
+            "incorporationDd"
+          ]
+        },
+        "business": {
+          "activities": [
+            "複数顧客との年間供給契約へ移行",
+            "導入設計・運転支援・定期供給を標準商品化",
+            "顧客別採算と回収期間を共通指標で管理"
+          ],
+          "activityRowKeys": [
+            "customers",
+            "productSupply",
+            "unitEconomics"
+          ]
+        },
+        "technology": {
+          "activities": [
+            "自社量産実証工場を取得・整備",
+            "培養能力をSeed比10倍へ拡張し包装工程を半自動化",
+            "出荷品質・顧客取扱い・トレーサビリティの標準運用を顧客現場で試行"
+          ],
+          "activityRowKeys": [
+            "facilities",
+            "facilities",
+            "quality"
+          ]
+        },
+        "organization": {
+          "activities": [
+            "工場長、品質保証、営業責任者を採用",
+            "製造・営業・管理の部門別予算と権限を設定",
+            "安全衛生・教育・BCPを運用"
+          ],
+          "activityRowKeys": [
+            "roles",
+            "governanceIp",
+            "regulationSafety"
+          ]
+        }
+      }
+    },
+    {
+      "id": "series-b",
+      "comparisonTargets": {
+        "sales": "売上60億円規模への受注残",
+        "headcount": "社員数：未定／体制40–60名",
+        "spending": "予算 15億円／資金調達1億円・事業2.8億円・技術9億円・組織2.2億円"
+      },
+      "lanes": {
+        "funding": {
+          "activities": [
+            "工場建設の予備費・支払条件・借入余力を管理",
+            "Series Cまたはプロジェクトファイナンスを比較",
+            "IPO準備監査のギャップ診断を開始"
+          ],
+          "activityRowKeys": [
+            "cash",
+            "financing",
+            "incorporationDd"
+          ]
+        },
+        "business": {
+          "activities": [
+            "国内重点産業へ販売網を拡大",
+            "複数年・最低購入量付き契約を増やす",
+            "海外導入候補で規制・物流・価格を検証"
+          ],
+          "activityRowKeys": [
+            "markets",
+            "customers",
+            "markets"
+          ]
+        },
+        "technology": {
+          "activities": [
+            "土地・建屋・複数培養ラインを備えた本格自社工場を建設",
+            "自動培養制御・包装・出荷判定を統合",
+            "複数拠点供給に耐える種株保全と災害復旧系を構築"
+          ],
+          "activityRowKeys": [
+            "facilities",
+            "facilities",
+            "productSupply"
+          ]
+        },
+        "organization": {
+          "activities": [
+            "製造・品質・サプライチェーン・海外事業の執行体制を整備",
+            "内部統制と月次決算を上場準備水準へ引上げ",
+            "採用・育成を拠点展開に合わせて標準化"
+          ],
+          "activityRowKeys": [
+            "roles",
+            "governanceIp",
+            "roles"
+          ]
+        }
+      }
+    },
+    {
+      "id": "series-c",
+      "comparisonTargets": {
+        "spending": "予算 20億円／資金調達1億円・事業6.5億円・技術9.5億円・組織3億円"
+      },
+      "lanes": {
+        "funding": {
+          "activities": [
+            "主幹事・監査法人・証券審査へ対応",
+            "IPO時の公募10億円を成長投資枠として設計",
+            "既存株主・SO・公開市場の希薄化を最終調整"
+          ],
+          "activityRowKeys": [
+            "incorporationDd",
+            "financing",
+            "financing"
+          ]
+        },
+        "business": {
+          "activities": [
+            "全国供給網と海外初号案件を立上げ",
+            "用途別プロダクトラインと価格体系を展開",
+            "売上200億円規模へ向かう受注・継続率を証明"
+          ],
+          "activityRowKeys": [
+            "markets",
+            "productSupply",
+            "sales"
+          ]
+        },
+        "technology": {
+          "activities": [
+            "第二ライン・自動倉庫・全国物流品質を増強",
+            "培養条件のデータ化と遠隔品質監視を完成",
+            "次世代株・用途別包装の継続開発系を運用"
+          ],
+          "activityRowKeys": [
+            "facilities",
+            "quality",
+            "researchValidation"
+          ]
+        },
+        "organization": {
+          "activities": [
+            "上場会社水準の経営管理・内部監査・開示体制を整備",
+            "海外・製造・研究開発の後継責任者を配置",
+            "安全・品質文化を全拠点へ展開"
+          ],
+          "activityRowKeys": [
+            "governanceIp",
+            "roles",
+            "regulationSafety"
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -6,6 +6,9 @@ import { BUSINESS_PLAN_FORMAT } from "./project-formats.ts";
 import {
   BUSINESS_PLAN_LANE_KEYS,
   XRL_KEYS,
+  businessPlanComparisonCell,
+  businessPlanUnclassifiedActivities,
+  businessPlanPhaseLabel,
   type BusinessPlanLaneKey,
   type BusinessPlanPhase,
   type XrlKey,
@@ -76,29 +79,28 @@ function xrlText(target: XrlTarget, keys: readonly XrlKey[] = XRL_KEYS) {
   return keys.map((key) => `${XRL_LABELS[key]} ${target[key] ?? "—"}`).join(" / ");
 }
 
-function laneCell(phase: BusinessPlanPhase, laneKey: BusinessPlanLaneKey) {
-  const lane = phase.lanes[laneKey];
-  return [
-    `費用：${lane.costYen === null ? "再精査中" : lane.costYen.toLocaleString("ja-JP") + "円"}`,
-    "活動：",
-    ...lane.activities.map((activity) => `・${activity}`),
-    `出口条件：${lane.exitGate}`,
-    `到達XRL：${xrlText(phase.targetXrl, lane.xrlKeys)}`,
-  ].join("\n");
-}
-
 function phaseMatrixSheet(phases: readonly BusinessPlanPhase[]): Sheet {
-  const phaseColumns = phases.map((phase) => c(phase.label, 2));
+  const phaseColumns = phases.map((phase) => c(businessPlanPhaseLabel(phase), 2));
   const rows: Cell[][] = [
     [c("フェーズマトリクス", 1), ...phases.map(() => c("", 1))],
-    [c("開発レーン", 2), ...phaseColumns],
+    [c("比較項目", 2), ...phaseColumns],
     [c("期間", 3), ...phases.map((phase) => c(phase.period, 4))],
     [c("フェーズ予算（円）", 3), ...phases.map((phase) => c(phase.budgetYen ?? "再精査中", 5))],
+    ...LANE_ORDER.map((laneKey) => [c(`${LANE_LABELS[laneKey]}費用（円）`, 3), ...phases.map((phase) => c(phase.lanes[laneKey].costYen ?? "再精査中", 5))]),
     [c("調達ラウンド", 3), ...phases.map((phase) => c(phase.openingRound, 4))],
     [c("資金源", 3), ...phases.map((phase) => c(phase.fundingSource, 4))],
     [c("到達XRL", 3), ...phases.map((phase) => c(xrlText(phase.targetXrl), 4))],
     [c("固定費バーン上限（月額・円）", 3), ...phases.map((phase) => c(phase.maxFixedBurnMonthlyYen === null ? "再精査中" : phase.burnLabel ? `${phase.burnLabel} ${phase.maxFixedBurnMonthlyYen.toLocaleString("ja-JP")}円` : phase.maxFixedBurnMonthlyYen, 5))],
-    ...LANE_ORDER.map((laneKey) => [c(LANE_LABELS[laneKey], 6), ...phases.map((phase) => c(laneCell(phase, laneKey), 7))]),
+    ...LANE_ORDER.flatMap((laneKey) => [
+      [c(LANE_LABELS[laneKey], 6), ...phases.map(() => c("", 6))],
+      ...BUSINESS_PLAN_FORMAT.comparisonRows.filter((row) => row.lane === laneKey).map((row) => [c(row.label, 3), ...phases.map((phase) => {
+        const cell = businessPlanComparisonCell(phase, row.key);
+        return c([cell.target, ...cell.activities].filter(Boolean).join("\n") || "未定", 7);
+      })]),
+    ]),
+    [c("次フェーズへ進む条件", 6), ...phases.map(() => c("", 6))],
+    ...LANE_ORDER.map((laneKey) => [c(LANE_LABELS[laneKey], 6), ...phases.map((phase) => c(`${phase.lanes[laneKey].exitGate}\n${xrlText(phase.targetXrl, phase.lanes[laneKey].xrlKeys)}`, 7))]),
+    ...LANE_ORDER.filter((laneKey) => phases.some((phase) => businessPlanUnclassifiedActivities(phase, laneKey).length)).map((laneKey) => [c(`${LANE_LABELS[laneKey]} その他の活動`, 3), ...phases.map((phase) => c(businessPlanUnclassifiedActivities(phase, laneKey).join("\n"), 7))]),
   ];
   return {
     name: "フェーズマトリクス",
@@ -106,7 +108,7 @@ function phaseMatrixSheet(phases: readonly BusinessPlanPhase[]): Sheet {
     widths: [28, ...phases.map(() => 52)],
     rowHeights: {
       1: 26,
-      ...Object.fromEntries(LANE_ORDER.map((_, index) => [9 + index, 150])),
+      ...Object.fromEntries(rows.slice(8).map((row, index) => [9 + index, Math.max(24, ...row.map((cell) => String(cell.value ?? "").split("\n").reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / 28)), 0) * 15 + 12))])),
     },
   };
 }

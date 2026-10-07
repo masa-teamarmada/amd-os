@@ -729,3 +729,5 @@ DDの「総会・取締役会・経営会議議事録」は、コックピット
 PWA `/admin/permissions` は名前を１列目・１人１行にして、各PJのコックピット／ワークスペース／DDパッケージを３列ずつ横に並べた権限一覧。社内activeメンバーと利用可能な外部account（active/invited）をactive PJについて表示。青の「閲覧」、赤の「編集」、未付与「—」。名前列とPJ/スペースの２段見出しを固定し、表内を縦横スクロール。名前・メール検索、PJ絞込み、各セルから詳細確認と付与編集、新しい外部メンバー登録。招待済みの外部メンバーも初回ログイン前から表示し、名前の下に待ち状態を添える。停止中は除外。既存の管理者・社内・PJ所属権限と追加付与を区別する。内部追加grantは `project_surface_member_permissions`、外部workspace/DDは既存独立grant。編集に管理者権限や他人への再付与は含めない。
 
 DDの掲載項目編集は独立領域の `/dd/[slug]/edit`。`dd.edit` を毎requestで確認し、該当packageの項目だけを変更する。共通元データ編集とは独立。iOS/macOS/Androidの管理画面は未移植。DB・capabilityとAPIは全platform共通。詳細= `pwa/spec/2-1-pwa-runtime-routes.md`。
+
+2026-10-07 PWA共通フェーズマトリクス：まさ承認の17比較項目を常設し、登録活動を同じ行へ揃える。詳細は行単位で全フェーズを同時開閉。4レーンの移行条件、期間・予算・成熟度は保持。DB JSONの追加キーcomparisonTargets/activityRowKeysは任意。iOS/macOSの同表UIは今回未変更。仕様正本pwa/spec/3-23、引き継ぎpwa/HANDOFF_dd_business_plan_20261006.md。

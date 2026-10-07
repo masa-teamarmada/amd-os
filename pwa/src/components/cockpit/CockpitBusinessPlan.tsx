@@ -13,6 +13,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import {
   ArrowRight,
+  ChevronDown,
   BriefcaseBusiness,
   FileSpreadsheet,
   FlaskConical,
@@ -24,6 +25,9 @@ import styles from "./CockpitBusinessPlan.module.css";
 import { BUSINESS_PLAN_FORMAT } from "@/lib/project-formats";
 import {
   XRL_KEYS,
+  businessPlanComparisonCell,
+  businessPlanUnclassifiedActivities,
+  businessPlanPhaseLabel,
   formatPlanYen,
   type BusinessPlanLaneKey,
   type BusinessPlanPhase,
@@ -103,11 +107,10 @@ function PhaseOverview({ phases, selectedId, onSelect }: { phases: BusinessPlanP
     </ol>
     <div className="mb-1 mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
       <h3 className="text-[12px] font-semibold text-slate-900">各フェーズの到達目標</h3>
-      <span className="text-[11px] text-slate-500">計画値・現在の実績ではない</span>
     </div>
     <table className={styles.targets} aria-label="フェーズごとの成熟度の到達目標">
       <colgroup><col className={styles.targetLabel} />{phases.map((phase) => <col key={phase.id} />)}</colgroup>
-      <thead><tr><th scope="col" className="text-left text-[11px] font-normal text-slate-500">到達指標</th>{phases.map((phase, index) => <th key={phase.id} scope="col" className="text-[11px] font-medium text-slate-600"><span className="sr-only">{phase.label} </span>{phaseMarker(phase, index)}</th>)}</tr></thead>
+      <thead><tr><th scope="col" className="text-left text-[11px] font-normal text-slate-500">フェーズ</th>{phases.map((phase, index) => <th key={phase.id} scope="col" className="text-[11px] font-medium text-slate-600"><span className="sr-only">{phase.label} </span><span className={styles.phaseWord}>フェーズ</span>{phaseMarker(phase, index)}</th>)}</tr></thead>
       <tbody>{XRL_KEYS.map((key) => <tr key={key}>
         <th scope="row" className="pr-1 text-left text-[11px] font-medium text-slate-600">{XRL_CONTEXT[key].label} <span className="font-normal">{XRL_LABELS[key]} /{XRL_CONTEXT[key].max}</span></th>
         {phases.map((phase) => {
@@ -128,7 +131,7 @@ function PhaseOverview({ phases, selectedId, onSelect }: { phases: BusinessPlanP
 function PhaseHeader({ phase, selected }: { phase: BusinessPlanPhase; selected: boolean }) {
   return (
     <th scope="col" className={`sticky top-0 z-20 border-b border-r border-slate-300 px-3 py-2 align-top text-slate-900 last:border-r-0 ${selected ? "bg-sky-100" : "bg-slate-100"}`}>
-      <div className="text-[12px] font-semibold leading-[18px]">{phase.label}</div>
+      <div className="text-[12px] font-semibold leading-[18px]">{businessPlanPhaseLabel(phase)}</div>
       <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-[11px] leading-4">
         <span className="tabular-nums text-slate-600">{phase.period}</span>
         <span className="font-semibold tabular-nums">{formatPlanYen(phase.budgetYen)}</span>
@@ -143,27 +146,10 @@ function PhaseHeader({ phase, selected }: { phase: BusinessPlanPhase; selected: 
   );
 }
 
-function LaneCell({ phase, laneKey }: { phase: BusinessPlanPhase; laneKey: BusinessPlanLaneKey }) {
-  const lane = phase.lanes[laneKey];
-  return (
-    <td className="border-r border-slate-200 p-0 align-top last:border-r-0">
-      <div className="space-y-2 px-3 py-2 text-[12px] leading-[18px]">
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="text-[11px] text-slate-500">費用</span>
-          <span className="font-semibold tabular-nums text-slate-900" aria-label={`費用 ${formatPlanYen(lane.costYen)}`}>{formatPlanYen(lane.costYen)}</span>
-        </div>
-        <ul className="space-y-1 text-slate-700">
-          {lane.activities.map((activity) => <li key={activity} className="flex gap-1.5"><span aria-hidden="true" className="shrink-0 text-slate-400">•</span><span>{activity}</span></li>)}
-        </ul>
-      </div>
-    </td>
-  );
-}
-
-function LaneExitCell({ phase, laneKey }: { phase: BusinessPlanPhase; laneKey: BusinessPlanLaneKey }) {
+function LaneExitCell({ phase, laneKey, showLabel = true }: { phase: BusinessPlanPhase; laneKey: BusinessPlanLaneKey; showLabel?: boolean }) {
   const lane = phase.lanes[laneKey];
   return <td className="border-b border-r border-slate-300 bg-slate-50/50 px-3 py-1.5 align-top text-[12px] leading-[18px] last:border-r-0">
-    <p className="text-slate-800"><span className="mr-1 font-semibold text-sky-800">出口条件</span>{lane.exitGate || "未登録"}</p>
+    <p className="text-slate-800">{showLabel && <span className="mr-1 font-semibold text-sky-800">出口条件</span>}{lane.exitGate || "未登録"}</p>
     <div className="mt-1"><XrlStrip target={phase.targetXrl} keys={lane.xrlKeys} /></div>
   </td>;
 }
@@ -173,6 +159,7 @@ function PhaseMatrix({ projectName, plan, canDownload = true }: { projectName: s
   const empty = phases.length === 0;
   const matrixRef = useRef<HTMLDivElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(() => new Set());
   const selectPhase = (index: number) => {
     setSelectedId(phases[index].id);
     const matrix = matrixRef.current;
@@ -202,7 +189,7 @@ function PhaseMatrix({ projectName, plan, canDownload = true }: { projectName: s
           <thead>
             <tr>
               <th className="sticky left-0 top-0 z-30 border-b border-r border-slate-300 bg-slate-100 px-2 py-2 align-bottom text-slate-900">
-                <span className="block text-[12px] font-semibold">開発レーン</span>
+                <span className="block text-[12px] font-semibold">比較項目</span>
               </th>
               {empty ? (
                 <th className="border-b border-slate-300 bg-slate-100 px-3 py-2 align-bottom text-[12px] font-semibold text-slate-600">フェーズ（未登録）</th>
@@ -213,20 +200,34 @@ function PhaseMatrix({ projectName, plan, canDownload = true }: { projectName: s
           </thead>
           {BUSINESS_PLAN_FORMAT.lanes.map((lane) => {
             const Icon = LANE_ICONS[lane.key];
-            return (
-              <tbody key={lane.key}>
-                <tr>
-                  <th scope="rowgroup" rowSpan={empty ? 1 : 2} className="sticky left-0 z-10 border-b border-r border-slate-300 bg-slate-50 px-2 py-2 align-top">
-                    <div className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-900"><Icon className="size-3.5 shrink-0 text-slate-500" />{lane.label}</div>
-                  </th>
-                  {empty
-                    ? <td className="border-b border-slate-200 px-3 py-2 align-top text-[12px] text-slate-500">未登録</td>
-                    : phases.map((phase) => <LaneCell key={phase.id} phase={phase} laneKey={lane.key} />)}
-                </tr>
-                {!empty && <tr>{phases.map((phase) => <LaneExitCell key={phase.id} phase={phase} laneKey={lane.key} />)}</tr>}
-              </tbody>
-            );
+            return <tbody key={lane.key} data-lane={lane.key} className={styles.alignedLane}>
+              <tr className={styles.laneHeading}><th colSpan={empty ? 2 : phases.length + 1} scope="rowgroup"><div className="flex items-center gap-1.5"><Icon className="size-3.5" />{lane.label}</div></th></tr>
+              {BUSINESS_PLAN_FORMAT.comparisonRows.filter((row) => row.lane === lane.key).map((row) => {
+                const expandable = phases.some((phase) => { const cell = businessPlanComparisonCell(phase, row.key); return cell.activities.length > (cell.target ? 0 : 1); });
+                const expanded = expandedRows.has(row.key);
+                return <tr key={row.key} data-comparison-row={row.key} className={styles.activityRow}>
+                <th scope="row" className={styles.rowLabel}>{expandable ? <button type="button" className={styles.rowToggle} aria-expanded={expanded} aria-label={`${row.label}の作業詳細`} onClick={() => setExpandedRows((previous) => { const next = new Set(previous); if (next.has(row.key)) next.delete(row.key); else next.add(row.key); return next; })}>{row.label}<ChevronDown aria-hidden="true" className={`size-3 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`} /></button> : row.label}</th>
+                {empty ? <td className="text-slate-500">未登録</td> : phases.map((phase) => {
+                  const cell = businessPlanComparisonCell(phase, row.key);
+                  const details = cell.target ? cell.activities : cell.activities.slice(1);
+                  return <td key={phase.id}>
+                    {cell.target ? <p className={styles.targetValue}>{cell.target}</p> : cell.activities[0] && <p>{cell.activities[0]}</p>}
+                    {details.length > 0 && <ul hidden={!expanded} className="mt-1 space-y-1">{details.map((activity, i) => <li key={i}>{activity}</li>)}</ul>}
+                    {!cell.target && cell.activities.length === 0 && <span className="text-slate-400">未定</span>}
+                  </td>;
+                })}
+              </tr>; })}
+            </tbody>;
           })}
+          {!empty && <tbody className={styles.alignedLane} data-testid="phase-transition-conditions">
+            <tr className={styles.laneHeading}><th colSpan={phases.length + 1} scope="rowgroup">次フェーズへ進む条件</th></tr>
+            {BUSINESS_PLAN_FORMAT.lanes.map((lane) => <tr key={lane.key}><th scope="row" className={`${styles.rowLabel} ${styles.exitLabel}`}>{lane.label}</th>{phases.map((phase) => <LaneExitCell key={phase.id} phase={phase} laneKey={lane.key} showLabel={false} />)}</tr>)}
+          </tbody>}
+          {!empty && phases.some((phase) => BUSINESS_PLAN_FORMAT.lanes.some((lane) => businessPlanUnclassifiedActivities(phase, lane.key).length)) && <tbody className={styles.alignedLane}>
+            <tr className={styles.laneHeading}><th colSpan={phases.length + 1} scope="rowgroup">その他の活動</th></tr>
+            {BUSINESS_PLAN_FORMAT.lanes.filter((lane) => phases.some((phase) => businessPlanUnclassifiedActivities(phase, lane.key).length)).map((lane) => <tr key={lane.key}><th scope="row" className={styles.rowLabel}>{lane.label}</th>{phases.map((phase) => <td key={phase.id}><ul className="space-y-1">{businessPlanUnclassifiedActivities(phase, lane.key).map((activity, i) => <li key={i}>{activity}</li>)}</ul></td>)}</tr>)}
+          </tbody>}
+
         </table>
       </div>
 

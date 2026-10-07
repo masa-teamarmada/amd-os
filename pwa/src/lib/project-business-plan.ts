@@ -11,6 +11,7 @@
 import { BUSINESS_PLAN_FORMAT } from "./project-formats.ts";
 
 export type BusinessPlanLaneKey = (typeof BUSINESS_PLAN_FORMAT.lanes)[number]["key"];
+export type BusinessPlanComparisonKey = (typeof BUSINESS_PLAN_FORMAT.comparisonRows)[number]["key"];
 export type XrlKey = (typeof BUSINESS_PLAN_FORMAT.xrl)[number]["key"];
 export type XrlTarget = Record<XrlKey, number | null>;
 
@@ -18,6 +19,8 @@ export interface BusinessPlanLanePlan {
   /** このレーンの費用（円）。未確定は null（画面は「再精査中」）。 */
   costYen: number | null;
   activities: string[];
+  /** activities と同じ添字の共通比較項目。 */
+  activityRowKeys?: (BusinessPlanComparisonKey | null)[];
   /** 次のフェーズへの出口条件。 */
   exitGate: string;
   /** このレーンの到達を測るXRL。 */
@@ -39,6 +42,7 @@ export interface BusinessPlanPhase {
   maxFixedBurnMonthlyYen: number | null;
   targetXrl: XrlTarget;
   lanes: Record<BusinessPlanLaneKey, BusinessPlanLanePlan>;
+  comparisonTargets?: Partial<Record<BusinessPlanComparisonKey, string>>;
 }
 
 export interface ProjectBusinessPlan {
@@ -70,12 +74,33 @@ function isXrlKey(value: unknown): value is XrlKey {
 
 function normalizeLane(raw: unknown): BusinessPlanLanePlan {
   const lane = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const rowKeys: unknown[] = Array.isArray(lane.activityRowKeys) ? lane.activityRowKeys : [];
+  const entries = Array.isArray(lane.activities) ? lane.activities.map((value, index) => ({
+    activity: text(value), rowKey: BUSINESS_PLAN_FORMAT.comparisonRows.some((row) => row.key === rowKeys[index]) ? rowKeys[index] as BusinessPlanComparisonKey : null,
+  })).filter((entry) => entry.activity) : [];
   return {
     costYen: numberOrNull(lane.costYen),
-    activities: Array.isArray(lane.activities) ? lane.activities.map(text).filter(Boolean) : [],
+    activities: entries.map((entry) => entry.activity),
+    activityRowKeys: entries.map((entry) => entry.rowKey),
     exitGate: text(lane.exitGate),
     xrlKeys: Array.isArray(lane.xrlKeys) ? lane.xrlKeys.filter(isXrlKey) : [],
   };
+}
+
+/** 対応は登録キーのみで決め、未分類の活動も失わない。 */
+export function businessPlanComparisonCell(phase: BusinessPlanPhase, rowKey: BusinessPlanComparisonKey) {
+  return {
+    target: phase.comparisonTargets?.[rowKey] || (rowKey === "spending" ? BUSINESS_PLAN_FORMAT.lanes.map((lane) => `${lane.label} ${formatPlanYen(phase.lanes[lane.key].costYen)}`).join("／") : ""),
+    activities: BUSINESS_PLAN_LANE_KEYS.flatMap((key) => phase.lanes[key].activities.filter((_, i) => phase.lanes[key].activityRowKeys?.[i] === rowKey)),
+  };
+}
+
+export function businessPlanUnclassifiedActivities(phase: BusinessPlanPhase, laneKey: BusinessPlanLaneKey) {
+  return phase.lanes[laneKey].activities.filter((_, i) => !phase.lanes[laneKey].activityRowKeys?.[i]);
+}
+
+export function businessPlanPhaseLabel(phase: BusinessPlanPhase): string {
+  return phase.label.replace(/^Phase\s*(\d+)/i, "フェーズ$1");
 }
 
 /** DB の phases_json を画面の形へ。id と見出しの無いフェーズは捨てる。レーンとXRLはフォーマットの全キーを必ず持たせる。 */
@@ -100,6 +125,7 @@ export function normalizeBusinessPlanPhases(raw: unknown): BusinessPlanPhase[] {
       fundingSource: text(phase.fundingSource),
       maxFixedBurnMonthlyYen: numberOrNull(phase.maxFixedBurnMonthlyYen),
       targetXrl: Object.fromEntries(XRL_KEYS.map((key) => [key, numberOrNull(xrl[key])])) as XrlTarget,
+      comparisonTargets: Object.fromEntries(BUSINESS_PLAN_FORMAT.comparisonRows.map((row) => [row.key, text((phase.comparisonTargets as Record<string, unknown> | undefined)?.[row.key])])),
       lanes: Object.fromEntries(BUSINESS_PLAN_LANE_KEYS.map((key) => [key, normalizeLane(lanes[key])])) as Record<BusinessPlanLaneKey, BusinessPlanLanePlan>,
     });
   }

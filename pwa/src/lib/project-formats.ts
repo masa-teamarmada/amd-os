@@ -195,6 +195,25 @@ export const DEFAULT_TABS = {
 
 /** 事業計画タブ。全PJで同じ「フェーズマトリクス」を描き、中身は project_business_plans のデータから出す。 */
 export const BUSINESS_PLAN_FORMAT = {
+  comparisonRows: [
+    { key: "markets", label: "市場・用途", lane: "business" },
+    { key: "sales", label: "売上", lane: "business" },
+    { key: "customers", label: "顧客・契約数", lane: "business" },
+    { key: "unitEconomics", label: "単価・粗利", lane: "business" },
+    { key: "productionVolume", label: "生産量", lane: "technology" },
+    { key: "facilities", label: "設備・生産能力", lane: "technology" },
+    { key: "quality", label: "性能・品質", lane: "technology" },
+    { key: "productSupply", label: "製品・供給運用", lane: "technology" },
+    { key: "researchValidation", label: "研究開発・実証", lane: "technology" },
+    { key: "headcount", label: "社員数", lane: "organization" },
+    { key: "roles", label: "役割・体制", lane: "organization" },
+    { key: "governanceIp", label: "経営管理・知財", lane: "organization" },
+    { key: "regulationSafety", label: "規制・安全", lane: "organization" },
+    { key: "incorporationDd", label: "設立・DD・上場準備", lane: "organization" },
+    { key: "spending", label: "投資・費用", lane: "funding" },
+    { key: "financing", label: "調達・資本構成", lane: "funding" },
+    { key: "cash", label: "手元資金", lane: "funding" },
+  ],
   sections: [{ key: "phase-matrix", label: "フェーズマトリクス" }],
   lanes: [
     { key: "business", label: "事業開発" },
