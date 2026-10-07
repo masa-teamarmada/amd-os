@@ -36,7 +36,7 @@ export function DdProjectPageBody({data,canDownload=false}:{data:DdLiveProjectPa
   if ("empty" in data && data.page === "market-research") return <ProjectMarketResearch data={data.marketResearch ?? null} />;
   if ("empty" in data && data.page === "product-description") return <ProjectProductDescription data={data.productDescription ?? null} />;
   if ("empty" in data && data.page === "founding-background") return <ProjectProductDescription data={data.foundingBackground ?? null} founding />;
-  if ("empty" in data) return <ProjectDiligenceSection page={data.page} organizationChart={data.organizationChart} biographies={data.biographies} />;
+  if ("empty" in data) return <ProjectDiligenceSection page={data.page} managementMinutes={data.managementMinutes} organizationChart={data.organizationChart} biographies={data.biographies} />;
   switch(data.page) {
     case "development-issues": return <ProjectDevelopmentIssues projectId={data.projectId} initialData={data.issues} />;
     case "contracts": return <ProjectContractList projectId={data.projectId} initialData={data.contracts} />;

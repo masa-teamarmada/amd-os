@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import type { SupabaseClient } from "@supabase/supabase-js";
+const { loadProjectManagementMinutes } = await import("../src/lib/project-management-minutes-server.ts");
+const { managementMinuteFromRow } = await import("../src/lib/project-management-minutes.ts");
 const { loadProjectTechData } = await import("../src/lib/project-tech-server.ts");
 const { loadProjectGovernance } = await import("../src/lib/project-governance-server.ts");
 const { loadCapitalPlanPage } = await import("../src/lib/project-capital-plan-server.ts");
@@ -9,6 +11,11 @@ const { parseProductDescription } = await import("../src/lib/project-product-des
 const productDocument = { version: 1, title: "製品の全体像", summary: "排水処理と在庫からの燃料生産", bodyMd: "## 製品\n本文", sourceRefs: ["技術台帳"] };
 // No DD publication exists for the competition topic. It must still come from the canonical PJ ledger.
 const tables: Record<string, Record<string, unknown>[]> = {
+  project_meeting_summaries: [
+    { project_id: "p21", meeting_id: "held", meeting_date: "2026-06-30", title: "SolvioraX経営会議", source_kinds: "notion+gmail", decided: ["確認された決定"], narrative_md: "議事録本文" },
+    { project_id: "p21", meeting_id: "upcoming:held", meeting_date: "2026-06-30", title: "SolvioraX経営会議", source_kinds: "upcoming", narrative_md: "準備メモ" },
+    { project_id: "p34", meeting_id: "other", meeting_date: "2026-06-30", title: "経営会議", source_kinds: "notion", narrative_md: "他PJの本文" },
+  ],
   project_config: [
     { project_id: "p21", key: "product_description", value: JSON.stringify({ ...productDocument, internalNotes: "DDに出さない" }) },
     { project_id: "p21", key: "private_config", value: "DDに出さない" },
@@ -41,10 +48,13 @@ function fakeDb(failingTable?: string) {
       neq(field: string, value: unknown) { call.filters.push(["neq", field, value]); return query; },
       in(field: string, value: unknown[]) { call.filters.push(["in", field, value]); return query; },
       order(field: string) { orders.push(field); return query; },
+      ilike(field: string, value: unknown) { call.filters.push(["ilike", field, value]); return query; },
+      lte(field: string, value: unknown) { call.filters.push(["lte", field, value]); return query; },
+      range(start: number, end: number) { limit = end - start + 1; return query; },
       limit(value: number) { limit = value; return query; },
       maybeSingle() { single = true; return query; },
       then(resolve: (value: unknown) => unknown) {
-        const rows = (tables[table] ?? []).filter(row => call.filters.every(([op, field, value]) => op === "eq" ? row[field] === value : op === "neq" ? row[field] !== value : (value as unknown[]).includes(row[field]))).sort((a, b) => { for (const key of orders) { if (a[key] !== b[key]) return String(a[key]).localeCompare(String(b[key])); } return 0; }).slice(0, limit);
+        const rows = (tables[table] ?? []).filter(row => call.filters.every(([op, field, value]) => op === "ilike" ? String(row[field]).includes(String(value).replaceAll("%", "")) : op === "lte" ? String(row[field]) <= String(value) : op === "eq" ? row[field] === value : op === "neq" ? row[field] !== value : (value as unknown[]).includes(row[field]))).sort((a, b) => { for (const key of orders) { if (a[key] !== b[key]) return String(a[key]).localeCompare(String(b[key])); } return 0; }).slice(0, limit);
         return Promise.resolve({ data: single ? rows[0] ?? null : rows, error: table === failingTable ? { message: "fixture failure" } : null }).then(resolve);
       },
     }; return query;
@@ -110,3 +120,13 @@ assert.equal(await loadProjectFoundingBackground(fakeDb(), "unregistered"), null
 await assert.rejects(loadProjectFoundingBackground(fakeDb("project_config"), "p21"), /fixture failure/);
 assert.ok(calls.filter(c => c.table === "project_config").every(c => c.filters.some(f => f[1] === "project_id")), "文書・設立案の取得はすべてPJ限定");
 console.log("Company incorporation plans stay separate from issued shares; founding document scope OK");
+
+const minutes = await loadProjectManagementMinutes(fakeDb(), "p21");
+assert.deepEqual(minutes.map(row => row.meetingId), ["held"], "PJ限定で開催済みだけ。準備行の本文を議事録にしない");
+assert.equal(minutes[0].narrativeMd, "議事録本文");
+assert.deepEqual(minutes[0].decided, ["確認された決定"]);
+await assert.rejects(loadProjectManagementMinutes(fakeDb("project_meeting_summaries"), "p21"), /fixture failure/);
+for (const patch of [{ source_kinds: "none" }, { source_kinds: "dialogue" }, { meeting_date: "2099-01-01" }, { title: "顧客MTG" }, { decided: [], narrative_md: null }]) {
+  assert.equal(managementMinuteFromRow({ ...tables.project_meeting_summaries[0], ...patch }, "2026-10-07"), null);
+}
+console.log("DD management minutes: scoped held meetings, prep/dialogue/future/missing exclusions and query error OK");

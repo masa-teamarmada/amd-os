@@ -1,3 +1,4 @@
+import { loadProjectManagementMinutes } from "./project-management-minutes-server";
 import { loadProjectManagementBiographies } from "./project-management-biographies-server";
 import { loadProjectProductDescription } from "./project-product-description-server";
 import { loadProjectFoundingBackground } from "./project-founding-background-server";
@@ -38,6 +39,7 @@ export async function loadDdProjectPage(projectId: string, page: string): Promis
   if (page === "team") return { ...base, page, empty: true, biographies: await loadProjectManagementBiographies(db, projectId) };
   if (page === "product-description") return { ...base, page, empty: true, productDescription: await loadProjectProductDescription(db, projectId) };
   if (page === "founding-background") return { ...base, page, empty: true, foundingBackground: await loadProjectFoundingBackground(db, projectId) };
+  if (page === "governance") return { ...base, page, empty: true, managementMinutes: await loadProjectManagementMinutes(db, projectId) };
   if (isDdEmptyPageKey(page)) return { ...base, page, empty: true, ...(page === "organization-chart" ? { organizationChart: await loadProjectOrganizationChart(db, projectId) } : {}) };
   if (page === "technology" || page === "competition" || page === "business-model") return { ...base, page, tech: await loadProjectTechData(db, projectId) };
   if (page === "financial-projection" || page === "monthly-trial") return { ...base, page, finance: await loadProjectFinancePage(db, projectId) };
