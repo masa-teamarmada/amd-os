@@ -891,7 +891,9 @@ assert.ok(
   };
   const differs = (a: number[], b: number[]) => a.some((v, i) => Math.abs(v - b[i]) > 1e-9);
   // 選択肢から選ぶ前提（槽を持つのは・排ガス利用可能）は数字を3倍にして動かせないので、下で別に切り替えて確かめる
-  const numericRoles = [...CONDITIONAL_ROLE_KEYS].filter((role) => !TEXT_CHOICE_ROLES[role]);
+  // 旧保存モデルの契約。新しい任意入力は261008 fixtureの採算契約で検査する。
+  const optionalEconomicsRoles = new Set(["customer_total_budget", "customer_residual_cost", "unpriced_extra_cost", "culture_cooling_cop", "flue_gas_co2_percent", "flue_gas_pressure_pa", "flue_gas_blower_efficiency", "business_overhead_annual"]);
+  const numericRoles = [...CONDITIONAL_ROLE_KEYS].filter((role) => !TEXT_CHOICE_ROLES[role] && !optionalEconomicsRoles.has(role));
   for (const role of numericRoles) assert.ok(fixture.assumptions.some((a) => a.roleKey === role && typeof a.value === "number"), `SX に ${role} の前提がある`);
   const sxTank = clone();
   for (const a of sxTank.assumptions) if (a.roleKey === "onsite_tank_bearer") a.valueText = "sx";

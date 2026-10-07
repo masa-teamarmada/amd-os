@@ -150,6 +150,9 @@ def main():
     out.append("## 索引")
     out.append("")
     table_names = sorted(by_table.keys())
+    annotations_path = os.path.join(os.path.dirname(__file__), 'schema_annotations.json')
+    with open(annotations_path, encoding='utf-8') as f:
+        annotations = json.load(f)
     out.append(" / ".join(f"[`{t}`](#{t.lower().replace('_', '-')})" for t in table_names))
     out.append("")
     out.append("---")
@@ -179,6 +182,10 @@ def main():
                 default = default[:57] + "..."
             out.append(f"| {c['ordinal_position']} | `{c['column_name']}` | `{dt}` | {null} | `{default}` |")
         out.append("")
+
+        if t in annotations:
+            out.append(annotations[t])
+            out.append("")
 
     out_path = os.path.join(REPO_ROOT, "pwa", "design", "db_schema.md")
     with open(out_path, "w", encoding="utf-8") as f:

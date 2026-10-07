@@ -160,7 +160,7 @@ Claude Code のセッション開始時に `.claude/hooks/git_dirty_guard.sh` �
 | schema dump | `python3 -X utf8 pwa/scripts/dump_schema.py` |
 | schema 正本 | `pwa/design/db_schema.md` |
 
-`db_schema.md` は自動生成なので手動編集しない。DDL を変えたら migration と schema dump を同じ commit に含める。列名・テーブル名は想像で書かない。
+`db_schema.md` は自動生成なので手動編集しない。 既存の設定キー注記は `scripts/schema_annotations.json` から再生成し、dumpで脱落させない。DDL を変えたら migration と schema dump を同じ commit に含める。列名・テーブル名は想像で書かない。
 
 ## GAS Web App deploy
 

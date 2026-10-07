@@ -145,7 +145,7 @@ export function scenarioFullLabelOf(location: CostLocation, method: CostMethod, 
 /** 画面での呼び名。DB の値 '中央培養' はそのまま使い、表示だけ置き換える。 */
 export const PRODUCTION_SITE_LABEL = "菌体の製造拠点";
 export const PRODUCTION_SITE_DESCRIPTION =
-  "顧客工場では培養せず、SOL側の1拠点でまとめて菌体を育て、濃縮して各工場へ運ぶところ。";
+  "菌体を育てて濃縮するSOL側の設備。排水を処理する顧客工場の槽と区別して数え、必要な菌体を各工場へ供給する。所在地・拠点数は設計上の仮定。";
 export const SCENARIO_SCOPE_LABEL: Record<CostScenarioScope, string> = {
   中央培養: PRODUCTION_SITE_LABEL,
   共通: "処理（方式・装置によらない）",
@@ -190,6 +190,9 @@ export type CostPriceRule =
   | "culture_loss"
   | "medium_supply"
   | "heat_supply"
+  | "culture_cooling"
+  | "flue_gas_transport"
+  | "business_overhead"
   | "recovery_capex";
 
 export interface CostItem {
@@ -400,6 +403,14 @@ export type CostInputs = Pick<CostModelBundle, "assumptions" | "items"> & { task
  * (ここに無い前提を動かしても総コストは変わらない)。
  */
 export const COST_ROLE_KEYS = new Set([
+  "customer_total_budget",
+  "customer_residual_cost",
+  "unpriced_extra_cost",
+  "culture_cooling_cop",
+  "flue_gas_co2_percent",
+  "flue_gas_pressure_pa",
+  "flue_gas_blower_efficiency",
+  "business_overhead_annual",
   "sale_price",
   "batch_volume",
   "operating_days",
@@ -729,8 +740,19 @@ export interface CostScenarioResult {
   reactorCustomerCapexPerUnit: number;
   /** 顧客が持つリアクターの初期投資 (顧客1社分、償却前)。 */
   reactorCustomerCapexTotal: number;
-  /** 顧客の支払い = 売価 + 顧客が持つリアクター (円/単位)。汚泥の処分・処理水の分析など、顧客が持つそのほかの費用は入らない。 */
+  /** 総額上限あり: 料金上限＋顧客の全登録費＋入力済み追加費。なし: 従来の売価＋顧客リアクター。 */
   customerOutlayPerUnit: number;
+  /** リアクター以外も含む、顧客負担の全登録費用。 */
+  customerCostPerUnit: number;
+  customerCapexPerUnit: number;
+  /** SOLと顧客の登録費用の合計。利益と未見積費用を含まない。 */
+  allInCostPerUnit: number;
+  /** 総額提供の上限。設定のあるオンサイトだけ。 */
+  customerBudgetPerUnit: number | null;
+  customerResidualPerUnit: number | null;
+  unpricedExtraPerUnit: number | null;
+  /** 総額上限から顧客負担と入力済み追加費を引いたSOL料金の上限。負なら実現不可。 */
+  feeCeilingPerUnit: number | null;
 
   /** 総コストの内訳。足すと totalPerUnit になる。 */
   breakdown: CostBreakdownSlice[];
@@ -1008,6 +1030,9 @@ export const RECOVERY_CAPEX_ROLES = ["recovery_facility_capex", "recovery_facili
 
 /** 明細の単価の連動のしかたが読む前提。 */
 const ROLES_BY_PRICE_RULE: Record<string, string[]> = {
+  culture_cooling: ["culture_cooling_cop"],
+  flue_gas_transport: [CO2_FLUE_GAS_ROLE, "flue_gas_co2_percent", "flue_gas_pressure_pa", "flue_gas_blower_efficiency"],
+  business_overhead: ["business_overhead_annual"],
   module_swap: ["module_unit_price", "module_durability_batches"],
   power_circulation: ["power_unit_price", "power_kw_circulation", "hrt_circulation"],
   power_injection: ["power_unit_price", "power_kw_injection", "hrt_injection"],
@@ -1041,6 +1066,9 @@ export const CONDITIONAL_ROLE_KEYS = new Set<string>([
   "labor_rate",
   "sale_price",
   "offsite_sale_price",
+  "customer_total_budget",
+  "customer_residual_cost",
+  "unpriced_extra_cost",
   // 回収率は次のバッチへ回す量に使うので、使い回すとき (色素分解) だけ効く。金属回収は使用回数1回で固定なので効かない
   "recovery_eta",
   // 排液で増える速さの倍率は、排液を培地に使うとき (waste_medium が on) だけ効く
@@ -1070,7 +1098,8 @@ export function rolesInEffect(bundle: CostInputs, view: CostEffectSelection): Se
     row.scenario === "中央培養" ? !overridden && scopeApplies(row, centralSel) : rowAppliesTo(row, view.location, view.method, sel);
   const reactorCustomer = reactorCustomerBorne(bundle.assumptions);
   // 数字に出る行: 製造拠点の行、SX が持つ (やる) 行、リアクターの行。リアクターは顧客が持つときも額を別に出すので、その単価・回数の前提は効く。
-  const shown = (row: { scenario: CostScenarioScope }, who: "sx" | "customer", reactor: boolean) => row.scenario === "中央培養" || who === "sx" || reactor;
+  const budgetMode = view.location === "onsite" && typeof resolveAssumption(bundle.assumptions, "customer_total_budget", sel)?.value === "number";
+  const shown = (row: { scenario: CostScenarioScope }, who: "sx" | "customer", reactor: boolean) => row.scenario === "中央培養" || who === "sx" || reactor || budgetMode;
   let reactorRows = false;
 
   for (const i of bundle.items) {
@@ -1081,6 +1110,10 @@ export function rolesInEffect(bundle: CostInputs, view: CostEffectSelection): Se
     // 液化炭酸ガスの買値が0円なら、排ガスを使えるかを切り替えても数字は動かない
     if (i.priceRule === "co2_supply" && i.unitPrice === 0) continue;
     if (i.priceRule === "heat_supply" && i.unitPrice === 0) continue;
+    if (i.priceRule === "flue_gas_transport" && !flueGasOn(resolveAssumption(bundle.assumptions, CO2_FLUE_GAS_ROLE, centralSel))) {
+      inEffect.add(CO2_FLUE_GAS_ROLE);
+      continue;
+    }
     // 排液を培地に使う切り替えが OFF なら、減る割合を変えても数字は動かない
     if (i.priceRule === "medium_supply" && !wasteMediumOn(resolveAssumption(bundle.assumptions, WASTE_MEDIUM_ROLE, centralSel))) {
       inEffect.add(WASTE_MEDIUM_ROLE);
@@ -1105,7 +1138,8 @@ export function rolesInEffect(bundle: CostInputs, view: CostEffectSelection): Se
   if (basis.reuseCount > 1 && basis.requiredBiomassPerM3 > 0) inEffect.add("recovery_eta");
   // 売価は選んだ方式のものだけが効く。オフサイトの売価を別に持たない試算は、オフサイトもオンサイトの売価で出す
   const offsitePriceSeparate = typeof resolveAssumption(bundle.assumptions, "offsite_sale_price", sel)?.value === "number";
-  inEffect.add(view.location === "offsite" && offsitePriceSeparate ? "offsite_sale_price" : "sale_price");
+  if (budgetMode) add(["customer_total_budget", "customer_residual_cost", "unpriced_extra_cost"]);
+  else inEffect.add(view.location === "offsite" && offsitePriceSeparate ? "offsite_sale_price" : "sale_price");
   // 槽の償却が乗るのは、SX が槽を新設するとき (オフサイトは常に。オンサイトは槽を SX が持ち、新設を選んだとき)。
   const tank = view.location === "offsite" ? "新設" : onsiteTankBearer(bundle.assumptions) === "customer" ? "既設" : view.tankMode;
   if (tank === "新設") add(NEW_TANK_ROLES);
@@ -1146,6 +1180,7 @@ export const COST_PARAM_BLOCKS: CostParamBlock[] = [
 ];
 
 export const COST_PARAM_GROUPS: CostParamGroup[] = [
+  { key: "cond-budget", block: "conditions", title: "顧客総額の上限と残存費", hint: "設備償却・運転・清掃等を含む提供総額。未確認欄は合計に含めず、残枠を確定利益とみなさない。SOL料金は総額上限から顧客負担を引いて導出", roles: ["customer_total_budget", "customer_residual_cost", "unpriced_extra_cost"] },
   { key: "cond-scale", block: "conditions", title: "事業の規模と売価", hint: "オンサイトとオフサイトの年間処理量と売価から、売上・顧客の数が決まる。年に作る菌体の量は、両方の年間処理量にそれぞれの濃さで使い切る菌体の量を掛けて足す", roles: ["business_annual_volume", "sale_price", "offsite_annual_volume", "offsite_sale_price"] },
   { key: "cond-site", block: "conditions", title: "顧客1社の処理", hint: "顧客1社あたりの年間処理量と年間バッチ数が決まる", roles: ["batch_volume", "operating_days", "utilization"] },
   { key: "cond-substance", block: "conditions", title: "対象物質と菌体の量", hint: "流入の濃さと目標放流水濃度の差から1バッチに要る菌体の量が、回収率と使用回数から新しく入れる菌体の量が決まる。オフサイトで引き取る液の濃さは別に置ける", roles: ["target_concentration", "offsite_target_concentration", "effluent_target_concentration", "uptake_alpha", "recovery_eta", "reuse_count", "k_ppm"] },
@@ -1160,8 +1195,9 @@ export const COST_PARAM_GROUPS: CostParamGroup[] = [
   { key: "capex-closed", block: "capex", title: "閉鎖系の追加（強化株のみ）", hint: "強化株のときだけ乗る設備", roles: [] },
   { key: "capex-other", block: "capex", title: "その他の設備", hint: "上の区分に入らない設備", roles: [] },
   { key: "opex-labor", block: "opex", title: "人件費（作業）", hint: "作業単価は共通の1つ。作業ごとに1回の工数・年間回数・1回の経費を入れる", roles: ["labor_rate"], tasks: true },
+  { key: "opex-overhead", block: "opex", title: "営業・本部管理", hint: "量産時の年額予算を、顧客工場での事業全体の排水量へ配賦。月次予算とは別の製品原価試算", roles: ["business_overhead_annual"] },
   { key: "opex-transport", block: "opex", title: "運ぶ", hint: "菌体を運ぶ回数と排液を運ぶ台数を決める前提と、顧客工場への菌体の保管・梱包。移動と輸送の工数・経費は人件費の作業で動かす", roles: ["patrol_batches_per_delivery", "truck_capacity_m3"] },
-  { key: "opex-production", block: "opex", title: "菌体の製造拠点（原料・品質確認）", hint: "培地・CO2・濃縮など菌体1kgあたりの費用と、培養設備1系列あたりの品質確認。工場の排ガスを使えるかは CO2 の行、工場の排液を培地に使えるかは培地の原料の行、工場の排熱を使えるかは加温の熱の行で切り替える", roles: [CO2_FLUE_GAS_ROLE, WASTE_MEDIUM_ROLE, WASTE_MEDIUM_REDUCTION_ROLE, WASTE_MEDIUM_GROWTH_ROLE, WASTE_HEAT_ROLE] },
+  { key: "opex-production", block: "opex", title: "菌体の製造拠点（原料・品質確認）", hint: "培地・CO2・濃縮・冷却等の菌体1kgあたり費用。排液・排ガス・排熱の利用は培養側の条件。受入・接続・前処理の設備は見積で追加する", roles: [CO2_FLUE_GAS_ROLE, WASTE_MEDIUM_ROLE, WASTE_MEDIUM_REDUCTION_ROLE, WASTE_MEDIUM_GROWTH_ROLE, WASTE_HEAT_ROLE, "culture_cooling_cop", "flue_gas_co2_percent", "flue_gas_pressure_pa", "flue_gas_blower_efficiency"] },
   { key: "opex-parts", block: "opex", title: "交換部品", hint: "循環カートリッジの菌体保持モジュールと、直接投入の膜の交換", roles: ["module_unit_price", "module_durability_batches", "membrane_life_years"] },
   { key: "opex-power", block: "opex", title: "電力", hint: "装置を動かす電力。動力 × 反応時間 × 電力単価 ÷ バッチ容量", roles: ["power_unit_price", "power_kw_circulation", "hrt_circulation", "power_kw_injection", "hrt_injection"] },
   { key: "opex-consumables", block: "opex", title: "消耗品・点検・分析", hint: "洗浄・監視・点検・分析・菌体の補充など", roles: [] },
@@ -1194,6 +1230,7 @@ export function paramGroupOfItem(
     return group("capex-other");
   }
   if (item.costType !== "OPEX") return undefined;
+  if (item.priceRule === "business_overhead") return group("opex-overhead");
   if (closed) return group("opex-closed");
   if (item.scenario === "中央培養") return group("opex-production");
   if (item.groupLabel !== null && POST_PROCESS_GROUPS.has(item.groupLabel)) return group("opex-post");
@@ -1325,6 +1362,23 @@ export function effectiveUnitPrice(
 ): number {
   const batchVolume = roleValue(assumptions, "batch_volume", 100, sel);
   switch (item.priceRule) {
+    case "culture_cooling": {
+      const led = items?.find((i) => i.scenario === "中央培養" && i.costType === "OPEX" && /照明.*電力|電力.*LED/.test(costItemLabel(i)) && scopeApplies(i, sel));
+      return led ? led.quantity / Math.max(roleValue(assumptions, "culture_cooling_cop", 5, sel), 0.1) * led.unitPrice : item.unitPrice;
+    }
+    case "flue_gas_transport": {
+      if (!flueGasOn(resolveAssumption(assumptions, CO2_FLUE_GAS_ROLE, sel))) return 0;
+      const co2 = items?.find((i) => i.priceRule === "co2_supply" && scopeApplies(i, sel));
+      if (!co2) return item.unitPrice;
+      const fraction = Math.max(roleValue(assumptions, "flue_gas_co2_percent", 6.5, sel) / 100, 0.0001);
+      const efficiency = Math.max(roleValue(assumptions, "flue_gas_blower_efficiency", 60, sel) / 100, 0.0001);
+      const led = items?.find((i) => i.scenario === "中央培養" && i.costType === "OPEX" && /照明.*電力|電力.*LED/.test(costItemLabel(i)) && scopeApplies(i, sel));
+      return co2.quantity / 44.01 * 24.465 / fraction * Math.max(roleValue(assumptions, "flue_gas_pressure_pa", 10000, sel), 0) / efficiency / 3.6e6 * (led?.unitPrice ?? 17.45);
+    }
+    case "business_overhead": {
+      const annual = resolveAssumption(assumptions, "business_overhead_annual", sel)?.value;
+      return typeof annual === "number" ? safeDiv(annual, roleValue(assumptions, "business_annual_volume", 0, sel)) : item.unitPrice;
+    }
     case "co2_supply":
       return flueGasOn(resolveAssumption(assumptions, CO2_FLUE_GAS_ROLE, sel)) ? 0 : item.unitPrice;
     case "heat_supply":
@@ -1517,6 +1571,37 @@ function priceRuleCalc(item: CostItem, assumptions: CostAssumption[], derived: C
     result,
   });
   switch (item.priceRule) {
+    case "business_overhead":
+      if (typeof resolveAssumption(assumptions, "business_overhead_annual", sel)?.value !== "number") return null;
+      return { continues: false, terms: [
+        { op: null, value: roleValue(assumptions, "business_overhead_annual", 0, sel), unit: "円/年", label: "営業・本部管理の予算" },
+        { op: "÷", value: roleValue(assumptions, "business_annual_volume", 0, sel), unit: "m³/年", label: "事業全体の顧客工場処理量" },
+      ], result };
+    case "culture_cooling": {
+      const led = items?.find((i) => i.scenario === "中央培養" && i.costType === "OPEX" && /照明.*電力|電力.*LED/.test(costItemLabel(i)) && scopeApplies(i, sel));
+      if (!led) return null;
+      return { continues: false, terms: [
+        { op: null, value: led.quantity, unit: "kWh/kg", label: "LED電力を冷却する" },
+        { op: "÷", value: Math.max(roleValue(assumptions, "culture_cooling_cop", 5, sel), 0.1), unit: "倍", label: "冷却の成績係数" },
+        { op: "×", value: led.unitPrice, unit: "円/kWh", label: "照明と共通の買値" },
+      ], result };
+    }
+    case "flue_gas_transport": {
+      const co2 = items?.find((i) => i.priceRule === "co2_supply" && scopeApplies(i, sel));
+      if (!co2) return null;
+      const led = items?.find((i) => i.scenario === "中央培養" && i.costType === "OPEX" && /照明.*電力|電力.*LED/.test(costItemLabel(i)) && scopeApplies(i, sel));
+      return { continues: false, terms: [
+        { op: null, value: co2.quantity, unit: "kg/kg", label: "CO₂供給量" },
+        { op: "÷", value: 44.01, unit: "kg/kmol", label: "CO₂モル質量" },
+        { op: "×", value: 24.465, unit: "m³/kmol", label: "25℃のモル体積" },
+        { op: "÷", value: Math.max(roleValue(assumptions, "flue_gas_co2_percent", 6.5, sel) / 100, 0.0001), unit: "", label: "排ガスCO₂濃度" },
+        { op: "×", value: Math.max(roleValue(assumptions, "flue_gas_pressure_pa", 10000, sel), 0), unit: "Pa", label: "搬送差圧" },
+        { op: "÷", value: Math.max(roleValue(assumptions, "flue_gas_blower_efficiency", 60, sel) / 100, 0.0001), unit: "", label: "送風機効率" },
+        { op: "÷", value: 3.6e6, unit: "J/kWh", label: "電力量換算" },
+        { op: "×", value: led?.unitPrice ?? 17.45, unit: "円/kWh", label: "電力買値（照明行なしは17.45）" },
+        { op: "×", value: flueGasOn(resolveAssumption(assumptions, CO2_FLUE_GAS_ROLE, sel)) ? 1 : 0, unit: "", label: "排ガス利用時のみ" },
+      ], result };
+    }
     case "co2_supply":
       return co2SupplyCalc(item, flueGasOn(resolveAssumption(assumptions, CO2_FLUE_GAS_ROLE, sel)));
     case "heat_supply":
@@ -2050,6 +2135,10 @@ export function computeCostModel(
       const reactorCustomerCapexAnnual = reactorCustomerItems.filter((i) => i.costType === "CAPEX").reduce((s, i) => s + amount(i), 0);
       const reactorCustomerAnnual =
         reactorCustomerItems.reduce((s, i) => s + amount(i), 0) + reactorCustomerTasks.reduce((s, t) => s + taskAnnualOf(t).annual, 0);
+      const customerItems = own.filter((i) => i.costType !== "参考" && resolveBearer(i, location, reactorCustomer) === "customer");
+      const customerWork = applicableTasks.filter((t) => resolvePerformer(t, location, reactorCustomer) === "customer");
+      const customerAnnual = customerItems.reduce((s, i) => s + amount(i), 0) + customerWork.reduce((s, t) => s + taskAnnualOf(t).annual, 0);
+      const customerCapexAnnual = customerItems.filter((i) => i.costType === "CAPEX").reduce((s, i) => s + amount(i), 0);
       const reactorCustomerCapexTotal = items
         .filter(
           (i) =>
@@ -2104,7 +2193,19 @@ export function computeCostModel(
         const totalAnnual = opexTotalAnnual + capexTotalAnnual;
         const totalPerUnit = perUnit(totalAnnual);
         const offsitePriced = location === "offsite" && derived.offsitePriceSeparate;
-        const price = location === "offsite" ? derived.offsiteSalePrice : derived.salePrice;
+        const nullableValue = (role: string) => {
+          const v = resolveAssumption(assumptions, role, sel)?.value;
+          return typeof v === "number" && Number.isFinite(v) ? Math.max(v, 0) : null;
+        };
+        const customerBudget = location === "onsite" ? nullableValue("customer_total_budget") : null;
+        const customerResidual = customerBudget === null ? null : nullableValue("customer_residual_cost");
+        const unpricedExtra = customerBudget === null ? null : nullableValue("unpriced_extra_cost");
+        const extraKnown = (customerResidual ?? 0) + (unpricedExtra ?? 0);
+        const customerCost = perUnit(customerAnnual);
+        const allInCost = totalPerUnit + customerCost;
+        const feeCeiling = customerBudget === null ? null : customerBudget - customerCost - extraKnown;
+        // 上限の分担試算。未合意の販売価格を保存せず、顧客の全登録費用を500円枠から引く。
+        const price = feeCeiling !== null ? Math.max(feeCeiling, 0) : location === "offsite" ? derived.offsiteSalePrice : derived.salePrice;
         const businessScope: CostScenarioResult["businessScope"] = biomass.offsiteVolumeSeparate ? location : "total";
         const businessVolume = !biomass.fromVolume ? 0 : businessScope === "offsite" ? biomass.offsiteVolume : businessScope === "onsite" ? biomass.onsiteVolume : biomass.businessVolume;
 
@@ -2181,7 +2282,7 @@ export function computeCostModel(
         };
 
         const marginForRequired = targetMargin ?? 0;
-        const allowedTotalCostPerUnit = price * (1 - marginForRequired);
+        const allowedTotalCostPerUnit = customerBudget === null ? price * (1 - marginForRequired) : customerBudget * (1 - marginForRequired) - customerCost - extraKnown;
         const appLabel = application ? APPLICATION_LABEL[application] : "";
 
         scenarios.push({
@@ -2240,7 +2341,7 @@ export function computeCostModel(
           allowedTotalCostPerUnit,
           gapToAllowedPerUnit: allowedTotalCostPerUnit - totalPerUnit,
           // 総コスト目標はオンサイトの売価に対して置いた値なので、売価を別に持つオフサイトには当てない
-          gapToTargetPerUnit: targetTotal === null || offsitePriced ? null : targetTotal - totalPerUnit,
+          gapToTargetPerUnit: targetTotal === null || offsitePriced ? null : targetTotal - (customerBudget === null ? totalPerUnit : allInCost + extraKnown),
 
           strainSpecificPerUnit: perUnit(siteStrainSpecificAnnual + centralStrainSpecificAnnual),
           postProcessPerUnit: perUnit(postAnnual),
@@ -2249,7 +2350,14 @@ export function computeCostModel(
           reactorCustomerPerUnit: perUnit(reactorCustomerAnnual),
           reactorCustomerCapexPerUnit: perUnit(reactorCustomerCapexAnnual),
           reactorCustomerCapexTotal,
-          customerOutlayPerUnit: price + perUnit(reactorCustomerAnnual),
+          customerOutlayPerUnit: customerBudget === null ? price + perUnit(reactorCustomerAnnual) : price + customerCost + extraKnown,
+          customerCostPerUnit: customerCost,
+          customerCapexPerUnit: perUnit(customerCapexAnnual),
+          allInCostPerUnit: allInCost,
+          customerBudgetPerUnit: customerBudget,
+          customerResidualPerUnit: customerResidual,
+          unpricedExtraPerUnit: unpricedExtra,
+          feeCeilingPerUnit: feeCeiling,
 
           breakdown: BREAKDOWN_ORDER.map((key) => ({ key, label: BREAKDOWN_LABEL[key], perUnit: slices[key], parts: parts[key] })),
 

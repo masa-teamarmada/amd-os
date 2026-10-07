@@ -1054,3 +1054,8 @@ DDのproduct-descriptionはproject_configの当該PJ/key=product_descriptionだ�
 ## Admin 閲覧・編集権限（2026-10-07）
 
 /admin/permissionsはPJ×人を行、３スペースを列にする。既存権限・個別付与・停止/期限を表示。新規外部member登録と閲覧/編集付与、参加PJから独立入口。API=admin/space-permissions、DB=project_surface_member_permissions、DD edit=dd/[slug]/edit。test:space-permissions、test:dd-packageがPJ/surface隔離と操作境界を検査する。
+
+### 廃液の顧客総額（2026-10-08）
+
+- 共通CockpitCostModel→CostEconomicsSummary / project-cost-model。DBはproject_cost_*。総額上限ありのオンサイトに全顧客費・料金上限・未入力費残枠、別単位の処理/製造量、期間比較を表示。旧モデルの売価契約は保持し、PJ IDで分岐しない。
+- 検査: check_cost_economics.mts（合算・負担切替・追加費・用途・冷却/ガス/管理）、test:project-cost-modelへ接続。正本spec5-13、manual2-3。

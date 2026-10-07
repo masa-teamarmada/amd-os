@@ -67,6 +67,9 @@ export function selectionLabel(sel: CostViewSelection) {
 
 /** 総コストが売価・目標のどこにあるか。色だけで伝えず、必ず言葉を添える。 */
 export function costStatus(s: CostScenarioResult, hasMargin: boolean) {
+  if (s.customerBudgetPerUnit !== null) return s.gapToAllowedPerUnit < 0
+    ? { label: "枠超", cls: "text-[#be123c]" }
+    : { label: "残枠", cls: "text-[#1d1d1f]" };
   if (s.gapToAllowedPerUnit < 0) return { label: hasMargin ? "上限超" : "赤字", cls: "text-[#be123c]" };
   if (s.gapToTargetPerUnit !== null && s.gapToTargetPerUnit < 0) return { label: "目標超", cls: "text-[#b45309]" };
   return { label: s.gapToTargetPerUnit !== null ? "目標内" : "黒字", cls: "text-[#1d1d1f]" };
@@ -180,7 +183,7 @@ export function CostResultsPanel({
     .filter((r): r is { slot: (typeof slots)[number]; s: CostScenarioResult } => !!r.s);
   const onsiteMax = Math.max(0, ...rows.filter((r) => r.s.location === "onsite").map((r) => r.s.totalPerUnit));
   const allMax = Math.max(0, ...rows.map((r) => r.s.totalPerUnit));
-  const price = derived.salePrice;
+  const price = current?.salePricePerUnit ?? derived.salePrice;
   // オフサイトの売価をオンサイトと別に置いているとき、売価の線はそれぞれの方式の売価で引き、目標はオンサイトにだけ当てる。
   const offsitePriced = hasOffsite && derived.offsitePriceSeparate;
   // オフサイトが桁違いに大きいとオンサイトの棒が読めなくなるので、目盛りはオンサイトの最大の2倍 (売価の1.3倍) で頭打ちにする。
@@ -242,7 +245,7 @@ export function CostResultsPanel({
       <section aria-label={`方式と装置ごとの総コスト（円/${unit}）`}>
         <div className="grid grid-cols-[88px_minmax(0,1fr)_84px] items-end gap-x-1.5 pb-0.5 text-[10px] text-[#6e6e73] sm:grid-cols-[88px_minmax(0,1fr)_84px_70px]">
           <h4 className="col-span-2 text-[11px] font-semibold text-[#3c3c43]">
-            総コスト（円/{unit}）{computed.strain ? `・${STRAIN_LABEL[computed.strain]}` : ""}
+            SOL原価（円/{unit}）{computed.strain ? `・${STRAIN_LABEL[computed.strain]}` : ""}
             {app && <span className="font-normal text-[#6e6e73]">・棒は{APPLICATION_LABEL[app]}の内訳</span>}
           </h4>
           <span className="text-right font-medium">{app ? APPLICATION_LABEL[app] : "総コスト"}</span>
@@ -265,7 +268,7 @@ export function CostResultsPanel({
                     <span className="font-normal">（{slot.location === "offsite" ? "SX工場まで運んで処理" : computed.onsiteTankBearer === "customer" ? "顧客工場で処理" : `顧客工場で処理・槽は${slot.tankMode}`}）</span>
                     {offsitePriced && (
                       <span className="font-normal" data-testid={`cost-price-${slot.location}`}>
-                        ・売価 {num(slot.location === "offsite" ? derived.offsiteSalePrice : price, 0)}
+                        ・{slot.location === "onsite" && s.customerBudgetPerUnit !== null ? "SOL料金上限" : "売価"} {num(s.salePricePerUnit, 1)}
                         {slot.location === "onsite" && targetTotal !== null ? `・目標 ${num(targetTotal, 0)}` : ""}
                       </span>
                     )}
@@ -288,7 +291,7 @@ export function CostResultsPanel({
                     <span className="flex items-baseline justify-end gap-x-1 tabular-nums">
                       {sb && <Delta value={s.totalPerUnit - sb.totalPerUnit} digits={0} className="text-[9px]" />}
                       <span className="text-[12px] font-semibold text-[#1d1d1f]">{num(s.totalPerUnit)}</span>
-                      <span className={`w-[24px] whitespace-nowrap text-left text-[9px] font-semibold ${st.cls}`} title={statusHint(hasMargin, targetTotal)}>{st.label}</span>
+                      <span className={`w-[24px] whitespace-nowrap text-left text-[9px] font-semibold ${st.cls}`} title={s.customerBudgetPerUnit !== null ? "総額枠から両社原価・入力済み追加費・設定済み目標利益を引いた残枠。未入力費は別。" : statusHint(hasMargin, targetTotal)}>{st.label}</span>
                     </span>
                   </button>
                   {o && ost && otherApp && (
@@ -316,7 +319,7 @@ export function CostResultsPanel({
           ))}
           <span className="inline-flex items-center gap-1">
             {/* オフサイトの売価を別に置くときは、数字は方式の見出しに出し、凡例は線の種類だけにする */}
-            <span aria-hidden="true" className="inline-block h-2.5 border-l border-dashed border-[#3c3c43]" />売価{offsitePriced ? "" : ` ${num(price, 0)}`}
+            <span aria-hidden="true" className="inline-block h-2.5 border-l border-dashed border-[#3c3c43]" />{current?.customerBudgetPerUnit != null ? "料金上限" : "売価"}{offsitePriced ? "" : ` ${num(price, 0)}`}
           </span>
           {targetTotal !== null && (
             <span className="inline-flex items-center gap-1">
@@ -340,7 +343,7 @@ export function CostResultsPanel({
               {currentBase && <Delta value={current.totalPerUnit - currentBase.totalPerUnit} className="text-[12px]" />}
             </span>
             <span className="text-[11px] text-[#3c3c43]">
-              売価との差{" "}
+              {current.customerBudgetPerUnit === null ? "売価との差" : hasMargin ? "目標利益控除後の残枠" : "総額上限からの残枠"}{" "}
               <span className={`font-semibold tabular-nums ${current.gapToAllowedPerUnit < 0 ? "text-[#be123c]" : "text-[#1d1d1f]"}`}>
                 {signed(current.gapToAllowedPerUnit)}
               </span>
@@ -367,7 +370,7 @@ export function CostResultsPanel({
                     <span className="text-[10px] text-[#6e6e73]">（SXの原価の外。設備の初期投資 {yen(current.reactorCustomerCapexTotal)}）</span>
                   </span>
                   <span>
-                    顧客の支払い（売価＋リアクター）{" "}
+                    {current.customerBudgetPerUnit === null ? "顧客の支払い（売価＋リアクター）" : "顧客総支払（料金上限＋全登録費）"}{" "}
                     <span className="font-semibold tabular-nums text-[#1d1d1f]">{num(current.customerOutlayPerUnit)}</span>
                     <span className="text-[#6e6e73]"> 円/{unit}</span>
                   </span>
@@ -451,13 +454,13 @@ export function CostResultsPanel({
               <dd className="tabular-nums text-[#1d1d1f]">{current.strainSpecificPerUnit > 0 ? num(current.strainSpecificPerUnit) : "なし"}</dd>
             </div>
             <div className="flex items-baseline justify-between gap-x-2 sm:col-span-2">
-              <dt className="shrink-0">1社の年間</dt>
+              <dt className="shrink-0">{current.customerBudgetPerUnit === null ? "1社の年間" : "1社の年間（料金上限での試算）"}</dt>
               {/* 金額はカンマ区切りの円で長いので、見出しと同じ行から「売上 金額」の組ごとに右寄せで折り返す */}
               <dd className="flex min-w-0 flex-1 flex-wrap justify-end tabular-nums text-[#1d1d1f]">
                 <span className="whitespace-nowrap">売上 {yen(current.revenueAnnual)}・</span>
                 <span className="whitespace-nowrap">総コスト {yen(current.totalAnnual)}・</span>
                 <span className="whitespace-nowrap">
-                  利益 <span className={current.profitAnnual < 0 ? "text-[#be123c]" : ""}>{yen(current.profitAnnual)}</span>
+                  {current.customerBudgetPerUnit === null ? "利益" : "未入力費控除前"} <span className={current.profitAnnual < 0 ? "text-[#be123c]" : ""}>{yen(current.profitAnnual)}</span>
                 </span>
               </dd>
             </div>
@@ -474,7 +477,7 @@ export function CostResultsPanel({
                   <span className="whitespace-nowrap">売上 {yen(current.businessRevenueAnnual)}・</span>
                   <span className="whitespace-nowrap">総コスト {yen(current.businessTotalAnnual)}・</span>
                   <span className="whitespace-nowrap">
-                    利益 <span className={current.businessProfitAnnual < 0 ? "text-[#be123c]" : ""}>{yen(current.businessProfitAnnual)}</span>
+                    {current.customerBudgetPerUnit === null ? "利益" : "未入力費控除前"} <span className={current.businessProfitAnnual < 0 ? "text-[#be123c]" : ""}>{yen(current.businessProfitAnnual)}</span>
                   </span>
                 </dd>
               </div>

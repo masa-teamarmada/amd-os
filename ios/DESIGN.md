@@ -733,3 +733,5 @@ PWA `/admin/permissions` は名前を１列目・１人１行にして、各PJ�
 DDの掲載項目編集は独立領域の `/dd/[slug]/edit`。`dd.edit` を毎requestで確認し、該当packageの項目だけを変更する。共通元データ編集とは独立。iOS/macOS/Androidの管理画面は未移植。DB・capabilityとAPIは全platform共通。詳細= `pwa/spec/2-1-pwa-runtime-routes.md`。
 
 2026-10-07 PWA共通フェーズマトリクス：まさ承認の17比較項目を常設し、登録活動を同じ行へ揃える。詳細は行単位で全フェーズを同時開閉。4レーンの移行条件、期間・予算・成熟度は保持。DB JSONの追加キーcomparisonTargets/activityRowKeysは任意。iOS/macOSの同表UIは今回未変更。仕様正本pwa/spec/3-23、引き継ぎpwa/HANDOFF_dd_business_plan_20261006.md。
+
+2026-10-08（v3.161.19）: 廃液コスト試算へ処理量と両社総額比較を追加。色素の総額枠500から顧客の全登録費を引くSOL料金上限と、未入力費控除前の残枠を導出。製造kgと排水m³を区別し、改善効果・回収期間を表示。migration487〜489は好条件仮説と清掃等の入力更新。本番適用済み、再適用しない。燃料・月次・資本政策・長期計画/DD制作元は不変。正本spec5-13、使い方manual2-3。ネイティブ専用画面は未移植。

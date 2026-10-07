@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-10-07 17:33 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-10-08 00:37 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -623,7 +623,7 @@ PRIMARY KEY: `id`
 
 ## boss_baseline_occurrences
 
-行数 (概算): 517
+行数 (概算): 624
 PRIMARY KEY: `id`
 UNIQUE: `(revision)` (constraint: `boss_baseline_occurrences_revision_key`)
 UNIQUE: `(server_boss_id,baseline_at,spawn_at)` (constraint: `boss_baseline_occurrences_server_boss_id_baseline_at_spawn__key`)
@@ -654,7 +654,7 @@ PRIMARY KEY: `id`
 
 ## boss_notification_jobs
 
-行数 (概算): 7,606
+行数 (概算): 7,910
 PRIMARY KEY: `id`
 UNIQUE: `(event_id)` (constraint: `boss_notification_jobs_event_id_key`)
 UNIQUE: `(server_boss_id,schedule_revision,lead_minutes)` (constraint: `boss_notification_jobs_server_boss_id_schedule_revision_lea_key`)
@@ -679,7 +679,7 @@ UNIQUE: `(server_boss_id,schedule_revision,lead_minutes)` (constraint: `boss_not
 
 ## boss_report_occurrences
 
-行数 (概算): 2,378
+行数 (概算): 2,696
 PRIMARY KEY: `id`
 UNIQUE: `(revision)` (constraint: `boss_report_occurrences_revision_key`)
 UNIQUE: `(server_boss_id,accepted_report_id,spawn_at)` (constraint: `boss_report_occurrences_server_boss_id_accepted_report_id_s_key`)
@@ -694,7 +694,7 @@ UNIQUE: `(server_boss_id,accepted_report_id,spawn_at)` (constraint: `boss_report
 
 ## boss_reports
 
-行数 (概算): 698
+行数 (概算): 816
 PRIMARY KEY: `id`
 UNIQUE: `(game_server_id,input_source,source_dedupe_key)` (constraint: `boss_reports_game_server_id_input_source_source_dedupe_key_key`)
 
@@ -2829,7 +2829,7 @@ UNIQUE: `(l2_kind,target_id,scope_key)` (constraint: `l2n_unique`)
 
 ## l2m_boss_auth_attempts
 
-行数 (概算): 32
+行数 (概算): 46
 PRIMARY KEY: `attempt_key`
 
 | # | column | type | nullable | default |
@@ -4005,7 +4005,7 @@ UNIQUE: `(item_id)` (constraint: `navigator_items_item_id_key`)
 
 ## notification_deliveries
 
-行数 (概算): 820
+行数 (概算): 1,390
 PRIMARY KEY: `id`
 UNIQUE: `(job_id,subscription_id,attempt_number)` (constraint: `notification_deliveries_job_id_subscription_id_attempt_numb_key`)
 
@@ -8607,7 +8607,7 @@ UNIQUE: `(document_id,revision_no)` (constraint: `workspace_document_revisions_u
 
 ## workspace_documents
 
-行数 (概算): 333
+行数 (概算): 339
 PRIMARY KEY: `document_id`
 UNIQUE: `(project_id,document_id)` (constraint: `workspace_documents_project_document_uq`)
 

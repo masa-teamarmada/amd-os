@@ -173,6 +173,12 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
   const derivedBox = (key: string): ReactNode => {
     switch (key) {
       case "cond-scale":
+        if (scenario?.customerBudgetPerUnit !== null && scenario?.customerBudgetPerUnit !== undefined) return (
+          <Formula testId="cost-business-scale">
+            顧客総額の上限 {num(scenario.customerBudgetPerUnit)} 円/{unit} − 顧客負担 {num(scenario.customerCostPerUnit)} − 入力済み追加費 {num((scenario.customerResidualPerUnit ?? 0) + (scenario.unpricedExtraPerUnit ?? 0))} ＝ SOL料金の上限 {scenario.feeCeilingPerUnit! < 0 ? "なし" : num(scenario.feeCeilingPerUnit!)} 円/{unit}。<br />
+            この料金上限でのオンサイト売上試算 {yen(scenario.businessRevenueAnnual)}/年。契約価格・月次売上には未採用。顧客1工場の排水は年 {int(derived.annualVolume)} {unit}、菌体製造は事業全体の需要から {int(biomass.capacityKgYear)} kg/年。
+          </Formula>
+        );
         return biomass.fromVolume ? (
           <Formula testId="cost-business-scale">
             {biomass.offsiteVolumeSeparate ? "オンサイトの売上" : "売上"} ＝ 年間処理量 {int(biomass.onsiteVolume)} {unit} × 売価 {int(derived.salePrice)} 円/{unit} ＝{" "}
@@ -741,7 +747,7 @@ function TaskList({
   const perUnitOf = (t: CostTask) => {
     if (!taskApplies(t, selection)) return null;
     // 顧客がやる作業は出さない。リアクターの運転は顧客がやるときも、顧客が持つリアクターの額に入るので出す (灰色)。
-    if (resolvePerformer(t, selection.location, computed.reactorCustomerBorne) === "customer" && !isReactorRow(t)) return null;
+    if (resolvePerformer(t, selection.location, computed.reactorCustomerBorne) === "customer" && !isReactorRow(t) && scenario?.customerBudgetPerUnit == null) return null;
     if (t.scenario === "中央培養") {
       const annual = taskAmount(t, working.assumptions, derived, centralSel).annual;
       return b.capacityKgYear > 0 ? (annual / b.capacityKgYear / b.salesRate) * derived.biomassKgPerUnit : 0;
@@ -753,7 +759,7 @@ function TaskList({
     <div>
       <p className="mb-1.5 mt-1.5 text-[11px] leading-5 text-[#6e6e73]">
         年額 ＝ 年間回数 ×（1回の工数 × 作業単価 {int(commonRate)}円/時 ＋ 1回の経費）。作業単価は上の共通の1つで、作業ごとには持たない。工数が空欄の行は未確認で、0時間として数える。
-        {PRODUCTION_SITE_LABEL}の作業は菌体費に入り、年間回数は「固定の回数」（拠点に1つの作業）か「系列ごと」（培養設備1系列あたりの回数 × 系列数）で数える。「誰がやるか」が顧客の作業は、SXの原価にも作業時間にも数えない（円/{unit}は「—」）。段は「作業の流れと工数」と同じ順。選んだ方式・装置で発生しない段と行は薄く出す。
+        {PRODUCTION_SITE_LABEL}の作業は菌体費に入り、年間回数は「固定の回数」（拠点に1つの作業）か「系列ごと」（培養設備1系列あたりの回数 × 系列数）で数える。{scenario?.customerBudgetPerUnit != null ? "顧客の作業費も総額の原価へ数えるが、SXの作業時間へは足さない。" : <>「誰がやるか」が顧客の作業は、SXの原価にも作業時間にも数えない（円/{unit}は「—」）。</>}段は「作業の流れと工数」と同じ順。選んだ方式・装置で発生しない段と行は薄く出す。
       </p>
       <div className="hidden lg:grid lg:grid-cols-[minmax(0,1fr)_78px_150px_92px_56px] lg:gap-x-1.5 lg:border-b lg:border-[#e5e5e7] lg:pb-1 lg:text-[10px] lg:font-medium lg:text-[#6e6e73]">
         <span>作業</span>
@@ -987,7 +993,7 @@ function ItemRows({
           const paidBy = resolveBearer(i, selection.location, computed.reactorCustomerBorne);
           const reactor = isReactorRow(i) && !isCentral;
           // 顧客が持つ行は額を出さない。リアクターの行は顧客が持つときも、顧客が持つリアクターの額に入るので出す (灰色)。
-          const right = !applies || (paidBy === "customer" && !reactor)
+          const right = !applies || (paidBy === "customer" && !reactor && (selection.location !== "onsite" || typeof resolveAssumption(working.assumptions, "customer_total_budget", sel)?.value !== "number"))
             ? null
             : isCentral
               ? centralItemPerKg(i, working.assumptions, b.lineCapacityKgYear, centralSel, working.items)
@@ -1125,4 +1131,3 @@ function ItemRows({
     </div>
   );
 }
-
