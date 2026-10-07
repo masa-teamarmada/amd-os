@@ -386,3 +386,28 @@ Drive原稿は共有ARMADA/p21_sol/261006_製品説明資料/製品説明資料_
 
 
 2026-10-07 まさ承認の17比較項目：市場・用途、売上、顧客・契約数、単価・粗利、生産量、設備・生産能力、性能・品質、製品・供給運用、研究開発・実証、社員数、役割・体制、経営管理・知財、規制・安全、設立・DD・上場準備、投資・費用、調達・資本構成、手元資金。全フェーズで同じ行を常設し、登録済み到達目標と具体的な活動を横に比較。比較目標はphases_json.comparisonTargets、活動との対応は各レーンのactivityRowKeys（activitiesと同じ添字）。対応は文字推測で作らず登録キーのみを使う。無効・未登録キーの活動はその他の活動へ保全。4レーンの20出口条件は次フェーズへ進む条件として保持。SOLはSQL485で66活動を無改変で対応付け、既存数値を抜粋。生産量・社員数は記載のない値を補完せず、体制人数を社員数へ置換しない。Excelも同じ17行・条件・未分類活動を出力。到達指標をフェーズへ、見出しのPhaseをフェーズへ変更し、計画値に関する自明な注記を削除。成熟度・期間・予算・認可・共有範囲は維持。
+
+## 2026-10-07 権限と共通ログイン（development）
+
+依頼の最終形は、権限を１人１行・名前/メール/所属の識別３列とPJごと３スペース列で比較し、青の閲覧/赤の編集を同じ場所で付与すること。activeだけの初期案は、付与済みinvitedを含める形へ訂正。表の末尾に必須３項目の空欄追加行を常設した。ログインは利用者種別の補助リンク案を採用せず、まさの指摘に従い共通メール入力から厳密な社内domainだけGoogleへ進める。権限をdomainから推定しない。
+
+| # | 変更・追加物 | 恒久正本 / 記録先 | OSマニュアル | 状態 |
+|---|---|---|---|---|
+| 1 | admin/permissions page・space-permissions API・SpacePermissionsAdminPanel・space-permission-ledgerの新設、package検査コマンド、cache baseline | spec/2-1・3-24、FEATURE_REGISTRY、ios/DESIGN | 2-6・9-3 | 同期済み |
+| 2 | project-surface-access/permissions、cockpit/navigation API新設、既存layout/my-projects/PJ面/nav/loaderを共通認可へ接続 | spec/2-1・3-24、ios/DESIGN | 2-3・2-6 | 同期済み |
+| 3 | dd-admin-actions、DD edit API/page新設、DD管理/掲載委譲、tech/ip/cost/summary/management既存APIのPJ編集判定 | spec/3-23・5-17、ios/DESIGN | 2-3・2-6 | 同期済み |
+| 4 | migration20261007090000_project_surface_permissionsのtable/index/RLS/RPC、schema dump | spec/2-1・3-24、design/db_schema | 2-6 | 本番適用・履歴登録済み |
+| 5 | matrix比較・active PJ限定・名前固定・２段見出し・幅制限・青閲覧/赤編集、正式DD選択・invited13人の表示補正 | spec/2-1・3-24、ios/DESIGN | 2-6・9-3 | 同期済み |
+| 6 | 常設追加行、workspace-account-identity新設、account createOnly/affiliation更新、migration20261007171000の独立所属列 | spec/2-1・3-24、design/db_schema、ios/DESIGN | 2-6・9-3 | 本番適用・同期済み |
+| 7 | login-entryとcheck_login_entry新設、既存login pageを単一入力/続けるへ変更、next/OAuth scope/login_hint/通信失敗案内/再入力 | spec/2-1、design/SPEC_pwa、ios/DESIGN | 2-1・9-3 | 同期済み |
+| 8 | check_space_permissions新設/拡張、DD/overview既存検査、DB rollback/local応答代替、公開・PC/mobile証拠、build-info patch更新 | 個別HANDOFF２枚・この開発履歴 | 対象外：検証の詳細 | 保存済み |
+| 9 | 未許可email-startの既存通知経路確認（変更なし） | manual/2-6、HANDOFF_PROJECT_SPACE_PERMISSIONS_20261007 | 2-6の既存運用 | 確認済み、送信なし |
+| 10 | invited漏れ/３ボタン/追加入口不足の原因と防波堤、途中案の破棄理由 | pwa/BUGS.mdの同日アクセス画面項目 | 上記章 | 保存済み |
+| 11 | 個別HANDOFF２枚、全体HANDOFF_ACCESS_LOGIN_20261007、root SESSION_MIGRATION_PROMPT更新 | 各引き継ぎとこの履歴 | 対象外：終了時点 | 保存済み |
+| 12 | 新規env/APIキー/cron/外部通知・理論・数式・非開発PJ成果 | 追加/変更なし。model/BZM不変 | 対象外 | 確認済み |
+
+実装SHA：初期6923efac、正式DD/mobile修正5ddf3d02、matrix e86a3af2/4b1deece、invited96a30729、追加行2817b000、共通入口0e5c1cd5。いずれもmainへpush・通常のproduction反映済み。追加行v3.161.13、ログインv3.161.14でReady/alias SHAとChrome確認。closeoutでは後続別担当の1e5dc53f/v3.161.15がmainと本番で一致することも確認した。
+
+最終権限表26人（社内13/外部invited13）・active17PJを確認し、既存停止者は除外。本番利用者データは変更せず、登録/付与の検証はrollbackまたはローカル模擬応答で行った。ログイン実handlerを通信代替でテストし、メール/Google/Slackの実操作なし。PC1392×824/mobile390×800、１主操作・48px/16px・横溢れなし、書斎と旧共有queryを確認。型検査・critical UI・関連認証/権限検査・deploy gate通過。資料同名raceの固定regexは未変更でも失敗し、既存BUGS記録へ参照する。
+
+一時QAページ・server・main clone・viewport overrideは終了。必要な証拠はリポ外の既知スクリーンショット保存先にあり、プロセス継続を必要としない。設計スキルの一時承認案やドメインだけでの権限付与は追加しない。新branch/worktreeなし、会話の検討材料0件。旧未追跡文書の整理だけは他担当ファイルのためまさへ対象を指定して確認中。

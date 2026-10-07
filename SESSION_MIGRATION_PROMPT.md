@@ -1,24 +1,25 @@
-SOLのDD製品説明資料を引き継いで。作業種別は開発。資料の内容正本は /Users/masa/projects/AMD/SOL、アプリの正本は /Users/masa/projects/AMD/amd-os。
+AMD OSの権限一覧と共通ログインの引き継ぎ。作業種別は開発。cwdは /Users/masa/projects/AMD/amd-os のまま使う。
 
-読む順:
+読む順：
 1. /Users/masa/projects/AGENTS.common.md
 2. /Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md
-3. /Users/masa/projects/AMD/amd-os/AGENTS.md と HANDOFF_SOL_DD_DENSITY_20261007.md
-4. /Users/masa/projects/AMD/SOL/SOL_DD_CONTENTS_PLAN.md
-5. /Users/masa/projects/AMD/amd-os/pwa/spec/5-17-dd-package-current-spec.md、pwa/manual/2-6-admin-ops.md
-6. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md と pwa/design_log/sessions_2026-10.md
+3. repoのAGENTS.md、HANDOFF_ACCESS_LOGIN_20261007.md。詳細が必要ならHANDOFF_PROJECT_SPACE_PERMISSIONS_20261007.mdとHANDOFF_LOGIN_ENTRY_20261007.md
+4. pwa/manual/1-1-intro.md、pwa/spec/1-3-reconstruction-coverage-audit.md、pwa/spec/2-1-pwa-runtime-routes.md、3-24-project-surface-pages-current-spec.md、5-17-dd-package-current-spec.md
+5. pwa/manual/2-1-member-quick-start.md、2-6-admin-ops.md、ios/DESIGN.md
+6. pwa/BUGS.md、pwa/design_log/sessions_2026-10.mdの同日「権限と共通ログイン」
 
-状態:
-製品説明の初稿、在庫シアノからの燃料生産、SOLロゴ入り装置写真、現行処理とSOL処理の上下比較図、用途別工程図、TRL1〜9の矢印を作成・採用済み。写真は透明配管に茶色い流入水と透明な処理水、透明な大型シアノ充填カートリッジ。採用PNG2枚はそのまま維持する。
-最後の指示は「フォント大きすぎない？ とにかく全ページエグサマのレベルで情報密度を高くして」。全DD本文を12px中心、表・余白を縮小。製品説明は写真と図、関連する節を左右へ配置。現在TRL4、シード6、A7、B8は現在と計画を分けて維持。
-実装3374d609、公開ba623c78/v3.160.28、本番Ready・SHA一致。PC1392×824で40資料の共通密度と横溢れ0を確認。製品説明7節・4表・2Mermaid・4画像、本文2607.63pxで約56%減。略歴29職歴・8受賞を維持、約61%減。DD回帰・型検査成功。製品説明/略歴のDB正本不変、公開画像4件バイト一致。
-Gitはmainへ保存・push済み。引き継ぎ開始時HEAD f4253ed5、ahead/behind 0/0。後続の別担当変更があるため再開時に現在値を確認する。
-素材と制作元はDriveのp21_sol/261007_製品説明資料。原稿12290bytes、用途SVG、TRL SVG、制作元、改訂メモ、完成画面。採用PNG原本は前日の261006資料フォルダ。検証証跡はSOL/work/amie_dd_density_20261007/production-readback.json、live-40-pages.json、product-dense-live.jpg。過去の段階はOS rootのHANDOFF_SOL_DD_PRODUCT_MEDIA_20261006.md、HANDOFF_SOL_DD_PRODUCT_VISUAL_20261006.md。
-試作ページ、試作サーバ、試作タブは終了。新規branch/worktreeなし。共有checkoutの創業背景・仕様・マニュアル等の未保存差分は別の稼働中チャット「DDパッケ社会課題ページを修正」（01a11467-7a83-7461-92fc-62421036dd56）のもの。変更・削除・一括保存しない。古い未追跡SESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdは「タスク方式への変更」（01a0c711-2edc-7cc3-b346-fbe198603454）の草稿で、今回の指示として実行しない。
+状態：
+権限ページ/admin/permissionsは１人１行、名前・メール・所属の独立３列と、active PJごとコックピット/ワークスペース/DDの３列。閲覧は青、編集は赤。社内activeと外部active/invitedを表示し、初回ログイン前の杉浦先生などを落とさない。確認時は26人・17PJ。表の末尾に必ず空欄追加行があり、３項目入力後に追加/Enterで外部accountだけを登録する。既存メールは上書きせず、権限はセルから別に付ける。
+ログイン/auth/loginは全員共通のメール入力と「続ける」１つ。厳密なteam-armada.jpだけGoogleへ、それ以外はメールリンクへ進む。まさの最後の意図は「そもそも社内向けかどうかでUI上で分岐させる必要なくない？ ドメインで判断できるじゃん」。入口選択を戻さず、domainから閲覧権限を付けない。共有URLのnext、既存PKCE、書斎の管理者Google入口を保つ。
+未許可メールの既存承認依頼はまさSlack DMと/admin/accessに来る。許可は機関/PJ workspace閲覧のみで、DD/編集は独立。調査だけで通知変更や試験送信はなし。
 
-次の行動:
-今回の依頼は完了。追加実装は不要。新しい依頼を受けたら本番 /dd/sol?tab=product-description を確認し、指定された箇所だけ進める。採用済み写真・比較イラストとエグサマの密度を維持し、達成済みと調達後目標を混ぜない。製品説明の変更は共通ページ経由でワークスペース/コックピット/DDに反映される。
+保存・検証：
+初期権限6923efac、招待表示96a30729、追加行2817b000、共通ログイン0e5c1cd5はmainへ保存/push済み。本番のログインv3.161.14でReady/SHA一致・PC1392×824/mobile390×800を確認。closeoutの最新確認では別担当のフェーズ改善も含む1e5dc53f/v3.161.15がmainと本番で一致。docs-onlyの終了記録はこの後のmain履歴を確認する。
+migration20261007090000_project_surface_permissionsと20261007171000_workspace_account_affiliationは本番適用・履歴登録済み。再適用しない。関連権限・認証検査、型検査、deploy必須gate成功。登録/付与はDB rollbackとlocal模擬応答、ログイン振り分けは実handler＋通信代替で検証。本番で利用者登録・権限付与・メール/Slack送信・Google実ログインはしていない。資料登録APIの既存固定regex検査失敗は今回のログイン差分と別で、BUGSへ記録済み。
+画面証拠は /Users/masa/.codex/visualizations/2026/10/07/01a11471-c176-7972-8339-7eecea332656/ のpermissions-addrow-desktop/mobile.png、login-entry-desktop/mobile.png。一時QA route、server、使い捨てmain clone、viewport変更は終了。iOS/macOS/Androidの管理・外部ログインUIは未移植/未変更。
 
-運用:
-main一本で新しい枝・worktree・子エージェントを作らない。共有差分は対象だけを扱い、reset/stash/一括commitを使わない。必要ならmainのclean cloneで作業する。仕様・使い方・全プラットフォーム設計を同期し、npm --prefix pwa run test:dd-package と型検査、実PC画面を確認する。CSS ModulesでTailwindのクラスを参照する際は属性セレクタを使い、SVG/foreignObjectの内部には本文CSSを適用しない。
-PWA変更の配布は AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh でmain push、Ready、配信SHAと実画面まで確認。データ更新は旧値一致と読戻しが必須。依頼外のDB操作、公開範囲変更、メール・Slack送信はしない。
+次の行動：
+今回の製品作業の残件はない。まさの次の依頼を待ち、権限一覧・追加行・共通ログインを再実装しない。再開時はgit fetchしてHEADとorigin/main、未保存差分、本番build-infoを読み直す。別担当のフェーズ/Excel変更は既にmainへ反映済み。作業前からの旧未追跡SESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdは、削除せず復元できる保管先へ移す可否をまさに確認中。この旧文書を実行用の正本として採用しない。扱いの最終状態はHANDOFF_ACCESS_LOGIN_20261007.mdの終了判定を読む。
+
+運用：
+main一本。新branch/worktreeを作らず、他担当の差分をreset/stash/delete/一括保存しない。対象だけを明示して保存する。実装公開はAMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.shを使い、まとめて１回のpushでReadyと本番を確認。docs-onlyの終了記録は通常pushし[skip ci]で追加実ビルドを避ける。手動Vercel deployや適用済みmigrationの再適用は禁止。メールは送らず、Slack等の対人通知も依頼外に追加しない。nativeを触る新依頼が来たらそのplatformの規則と実機検証条件を先に読む。
