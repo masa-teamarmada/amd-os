@@ -437,3 +437,17 @@ Drive原稿は共有ARMADA/p21_sol/261006_製品説明資料/製品説明資料_
 ### 2026-10-07 生産量セル補完の終了記録（開発）
 
 既存comparisonTargets.productionVolumeへ長期v0.5から5フェーズの工程を登録。SQL486、根拠JSON、専用検査の追加は62d1c322でmainへ送信済み。登録HTMLと制作元のバイト一致、5キー以外のDB不変、標準契約・66活動・Excel出力保持、本番Chrome5セル、通常幅/390pxの横溢れ0を確認。画面・schema・環境変数・認可・長期本文の変更なし。DB反映のみで本番表示済み、アプリ再ビルド不要。まさ受入済み。証拠はSOL/work/amie_phase_production_20261007/VERIFICATION.md。OSマニュアル同期は対象外：既存表示の登録内容補完。会話の検討材料0件。
+
+
+### 2026-10-07 インストール済みPWAのコスト試算表示差・終了
+
+- 実装: e2143fedf3bc8f690090180e5746bf8b1dceb76c / v3.160.27。正規deploy scriptが2分40秒で成功、本番build-infoの版とSHAを確認。
+- 原因: 1280px以上だけ横並び・コンパクト表示だったため、Chromeインストール済みPWAの1234px表示で縦積み。再読み込みでも同じ形を確認。
+- 共通変更: 1024pxで明細をコンパクト化、1100pxで2ペイン化。結果320px、1280pxで380px。3つのエンジンと3領域へ同じ部品で適用。数値・保存・認可・DB・計算式は変更なし。
+- 検証: アプリ1172×898で606.9px/320pxの横並び、入力28px、横はみ出しなし。入力パネル自然高さ16508px（修正前1234px表示では28563px）。燃料も横並び・31920.0円/L。排水402.5円/m³を保持。ブラウザ1392×824で766.9px/380px、横はみ出しなし。390×800は入力44px/16px、横はみ出しなし。
+- project-cost-model（廃液・燃料・汎用）、TypeScript、正規deployの必須検査が成功。表示レビュー8.5/10、重大な重なり・切れなし。
+- 同期: manual/2-3・9-3、spec/3-8・6-1、ios/DESIGN。BZM/modelは変更なし。iOS/macOS/Androidの独立ネイティブ画面は未移植。今回のアプリはChromeインストール済みPWA。
+- 他作業境界: regular checkoutの製品画像・DD本文密度・製品説明部品・会社情報・認証確認用previewの別作業は取り込まず保持。専用cloneから自分のcommitだけを本番反映。
+
+
+pwa/design_log/CLOSEOUT_SOL_DD_COST_20261007.md / BUGS.md / SESSION_MIGRATION_PROMPT_COST_PWA_20261007.md
