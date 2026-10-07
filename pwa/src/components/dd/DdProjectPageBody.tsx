@@ -2,7 +2,7 @@
 import dynamic from "next/dynamic";
 import { ProjectPageLoading } from "@/components/project-space/ProjectPageLoading";
 
-import { ProjectDiligenceSection } from "@/components/project-workspace/ProjectDiligenceSection";
+import { ProjectDiligenceSection, type ResolutionDocument } from "@/components/project-workspace/ProjectDiligenceSection";
 import type { DdLiveProjectPage } from "@/lib/dd-project-page-types";
 
 // 選んだページの部品だけを取得し、他ページのJSを初期表示の待ち時間に積まない。
@@ -32,11 +32,11 @@ const ProjectProductDescription = dynamic(() => import("@/components/project-wor
 
 const noop = () => {};
 const ProjectMarketResearch = dynamic(() => import("@/components/project-workspace/ProjectMarketResearch").then(module => module.ProjectMarketResearch), { loading: ProjectPageLoading });
-export function DdProjectPageBody({data,canDownload=false}:{data:DdLiveProjectPage;canDownload?:boolean}) {
+export function DdProjectPageBody({data,canDownload=false,resolutionDocuments=[]}:{data:DdLiveProjectPage;canDownload?:boolean;resolutionDocuments?:ResolutionDocument[]}) {
   if ("empty" in data && data.page === "market-research") return <ProjectMarketResearch data={data.marketResearch ?? null} />;
   if ("empty" in data && data.page === "product-description") return <ProjectProductDescription data={data.productDescription ?? null} />;
   if ("empty" in data && data.page === "founding-background") return <ProjectProductDescription data={data.foundingBackground ?? null} founding />;
-  if ("empty" in data) return <ProjectDiligenceSection page={data.page} managementMinutes={data.managementMinutes} organizationChart={data.organizationChart} biographies={data.biographies} />;
+  if ("empty" in data) return <ProjectDiligenceSection page={data.page} managementMinutes={data.managementMinutes} resolutionDocuments={resolutionDocuments} organizationChart={data.organizationChart} biographies={data.biographies} />;
   switch(data.page) {
     case "development-issues": return <ProjectDevelopmentIssues projectId={data.projectId} initialData={data.issues} />;
     case "contracts": return <ProjectContractList projectId={data.projectId} initialData={data.contracts} />;

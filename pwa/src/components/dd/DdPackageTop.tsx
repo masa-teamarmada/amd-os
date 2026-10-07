@@ -27,7 +27,7 @@ export function DdPackageTop({ view, slug, tab, sectionKey, canDownload = false,
           </div>}
         </nav>
         {pageKey !== "documents" ? (
-          canonicalPage ? <DdProjectPageBody key={`${view.package.project_id}:${pageKey}`} data={canonicalPage} canDownload={canDownload} /> : <p role="alert">このページはいま表示できない。</p>
+          canonicalPage ? <DdProjectPageBody key={`${view.package.project_id}:${pageKey}`} data={canonicalPage} canDownload={canDownload} resolutionDocuments={items.flatMap(item => item.live?.kind === "document" ? [{ itemId: item.itemId, label: item.live.fileName, href: `/dd/${encodeURIComponent(slug)}/items/${encodeURIComponent(item.itemId)}/file` }] : [])} /> : <p role="alert">このページはいま表示できない。</p>
         ) : <DdDocumentsPage projectId={view.package.project_id} projectName={view.projectName} slug={slug} items={pageItems} canDownload={canDownload} />}
       </section>
     </div>

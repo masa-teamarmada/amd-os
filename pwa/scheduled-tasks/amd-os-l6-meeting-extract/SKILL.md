@@ -764,6 +764,18 @@ curl -s -X POST "$APP_BASE_URL/api/meeting-assets/adopt-drive-folder" \
 - `adopted` が 0 件でも失敗ではない。`driveFolders` が空なら「その日付のMTGフォルダがまだ無い」だけなので、run summary に件数だけ残して次へ進む。
 - 402/403/502 が返っても H-1 は止めない。`review_required` として run summary に残し、以降の Phase を続ける。
 
+### D-1a: 経営会議の決議事項と決議結果の対応
+
+開催済みの経営会議では、1議案につき1組の `agenda` / `outcome` / `detail` / `evidence` を作る。会議タイトル・要約全体を議案にせず、別々の配列を件数や順序で結び付けない。一つの決定文に複数の議案があれば、議案ごとに分ける。
+
+- `outcome` は `承認` / `条件付き承認` / `否決` / `継続審議` / `方針確認` / `次回確認` / `未確認` のいずれか。
+- 承認・条件付き承認・否決は会議の明示記録がある場合だけ。進める方向の合意は方針確認、検討を続けるなら継続審議、次回確認なら次回確認。未確定の株式比率や投資家参画を承認扱いにしない。
+- `detail` に当該議案の条件、保留理由、実際に決まった内容を残す。他の議案の結果を混ぜない。`evidence` は保存済み `decided` または `narrative_md` に含まれる該当箇所の正確な抜粋。
+- 見積書・仕様書などの資料は、その議案との対応が原資料で確認できる場合だけ関連付ける。資料が存在しない場合にファイル名や添付を創作しない。議案の任意 `attachmentItemIds` は同じPJの既存DD資料IDだけを指定し、資料の公開設定を変更しない。
+- これは `project_meeting_summaries` の追加列ではない。D-1保存後のPJ・meeting_id・source_hashを読み戻し、既存 `project_config` の `project_id=<対象PJ>` / `key=meeting_resolutions:<保存済みmeeting_id>` に、`{"version":1,"sourceHash":"<保存済みsource_hash>","entries":[{"agenda":"<議案>","outcome":"<結果区分>","detail":"<条件・内容>","evidence":"<正確な抜粋>"}]}` のJSON文字列を保存する。
+- 新規はINSERT、既存は読み戻したupdated_atを条件にUPDATEし、競合したら上書きせず再取得。対象PJとkeyを必ず限定する。保存後に同じPJ/key/valueを読み戻す。準備・予定・対話の行には作らない。
+- 正本のsource_hashと一致しない対応付け、根拠を本文に見つけられない対応付けをDDに出さない。対応を確認できない場合は「未確認」とし、承認を推測しない。
+
 ### D-2: meeting_notifications upsert (= iOS APNs 通知)
 
 ```bash

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import type { SupabaseClient } from "@supabase/supabase-js";
 const { loadProjectManagementMinutes } = await import("../src/lib/project-management-minutes-server.ts");
-const { managementMinuteFromRow } = await import("../src/lib/project-management-minutes.ts");
+const { managementMinuteFromRow, parseMeetingResolutions } = await import("../src/lib/project-management-minutes.ts");
 const { loadProjectTechData } = await import("../src/lib/project-tech-server.ts");
 const { loadProjectGovernance } = await import("../src/lib/project-governance-server.ts");
 const { loadCapitalPlanPage } = await import("../src/lib/project-capital-plan-server.ts");
@@ -126,7 +126,20 @@ assert.deepEqual(minutes.map(row => row.meetingId), ["held"], "PJ限定で開催
 assert.equal(minutes[0].narrativeMd, "議事録本文");
 assert.deepEqual(minutes[0].decided, ["確認された決定"]);
 await assert.rejects(loadProjectManagementMinutes(fakeDb("project_meeting_summaries"), "p21"), /fixture failure/);
+const pairDocument = { version: 1, sourceHash: "fixture-hash", entries: [{ agenda: "装置の購入", outcome: "条件付き承認", detail: "二社見積もりをとること", evidence: "確認された決定" }] };
+assert.deepEqual(parseMeetingResolutions(pairDocument, "fixture-hash", minutes[0]), pairDocument.entries);
+assert.deepEqual(parseMeetingResolutions(pairDocument, "new-hash", minutes[0]), [], "更新前の対応付けを再利用しない");
+assert.deepEqual(parseMeetingResolutions({ ...pairDocument, entries: [{ ...pairDocument.entries[0], evidence: "原文にない承認" }] }, "fixture-hash", minutes[0]), [], "根拠のない結果を表示しない");
+assert.deepEqual(parseMeetingResolutions("{broken", "fixture-hash", minutes[0]), []);
+tables.project_meeting_summaries[0].source_hash = "fixture-hash";
+tables.project_config.push({ project_id: "p21", key: "meeting_resolutions:held", value: JSON.stringify(pairDocument) }, { project_id: "p34", key: "meeting_resolutions:held", value: JSON.stringify({ ...pairDocument, entries: [{ ...pairDocument.entries[0], agenda: "他PJの議案" }] }) });
+assert.deepEqual((await loadProjectManagementMinutes(fakeDb(), "p21"))[0].resolutions, pairDocument.entries);
+await assert.rejects(loadProjectManagementMinutes(fakeDb("project_config"), "p21"), /fixture failure/);
+
 for (const patch of [{ source_kinds: "none" }, { source_kinds: "dialogue" }, { meeting_date: "2099-01-01" }, { title: "顧客MTG" }, { decided: [], narrative_md: null }]) {
   assert.equal(managementMinuteFromRow({ ...tables.project_meeting_summaries[0], ...patch }, "2026-10-07"), null);
 }
 console.log("DD management minutes: scoped held meetings, prep/dialogue/future/missing exclusions and query error OK");
+
+assert.deepEqual(parseMeetingResolutions({ ...pairDocument, entries: [{ ...pairDocument.entries[0], detail: "" }] }, "fixture-hash", minutes[0]), [], "条件付き承認には条件が必要");
+assert.deepEqual(parseMeetingResolutions({ ...pairDocument, entries: [{ ...pairDocument.entries[0], attachmentItemIds: ["published-document"] }] }, "fixture-hash", minutes[0])[0].attachmentItemIds, ["published-document"]);
