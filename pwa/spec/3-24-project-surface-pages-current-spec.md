@@ -203,7 +203,7 @@ DDの技術・競合比較・ビジネスモデルは `CockpitTechnology` でペ
 
 2026-10-07: ３領域のメンバー別閲覧・編集権限を `/admin/permissions` へ集約。内部追加grantはPJ×member×surface、外部workspace/DDは既存独立grantを利用。１つの領域の付与を他へ流用しない。入口・操作・停止状態・追加権限と既存権限の関係はspec 2-1の「PJの３スペース権限管理」に記載。
 
-2026-10-07: admin権限表を有効な人（社内active、外部active/invited）１行、active PJごと３列のmatrixへ再設計。名前列・２段見出し固定、青の閲覧/赤の編集/未付与—、表内スクロール、名前検索・PJ絞込み。詳細と付与は各セルのdialogへ。既存の独立grant・認可・保存先は維持。
+2026-10-07: admin権限表を有効な人（社内active、外部active/invited）１行、識別３列（名前・メール・所属）＋active PJごと３列のmatrixへ再設計。名前列・２段見出し固定、青の閲覧/赤の編集/未付与—、表内スクロール、３項目検索・PJ絞込み。末尾の空欄行から新規外部メンバーを登録し、名前・email・affiliationを独立保存。詳細と付与は各セルのdialogへ。既存の独立grant・認可は維持。
 
 ## DDの議事録一覧（2026-10-07）
 

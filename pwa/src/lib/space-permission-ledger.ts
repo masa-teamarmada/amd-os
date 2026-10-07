@@ -4,14 +4,14 @@ export type PermissionLedgerData = {
  members:{member_id:string;member_name:string|null;code_name:string;email:string;status:string;is_admin:boolean;os_access_scope:'portfolio'|'project'}[];
  projectMembers:{project_id:string;member_id:string;is_active:boolean}[];
  memberGrants:MemberSurfaceGrant[];
- accounts:{id:string;email:string;display_name:string|null;status:string}[];
+ accounts:{id:string;email:string;display_name:string|null;affiliation?:string|null;status:string}[];
  projectMemberships:{id:string;project_id:string;user_account_id:string;role:string;status:string}[];
  ddPackages:{id:string;project_id:string;slug:string;title:string;status:string;created_at?:string}[];
  ddGrants:{id:string;package_id:string;user_account_id:string;status:string;capabilities:string[];expires_at:string|null}[];
 };
 export type LedgerPermission = {permission:SurfacePermission|null;note:string;grantId?:string;packageId?:string;capabilities?:string[]};
-export type PermissionLedgerRow = {key:string;projectId:string;projectName:string;name:string;email:string;memberId?:string;accountId?:string;status:string;isAdmin:boolean;permissions:Record<ProjectSurface,LedgerPermission>};
-export type PermissionMatrixPerson = Pick<PermissionLedgerRow,'name'|'email'|'memberId'|'accountId'|'isAdmin'|'status'> & {key:string;projects:Record<string,PermissionLedgerRow>};
+export type PermissionLedgerRow = {key:string;projectId:string;projectName:string;name:string;email:string;affiliation:string|null;memberId?:string;accountId?:string;status:string;isAdmin:boolean;permissions:Record<ProjectSurface,LedgerPermission>};
+export type PermissionMatrixPerson = Pick<PermissionLedgerRow,'name'|'email'|'affiliation'|'memberId'|'accountId'|'isAdmin'|'status'> & {key:string;projects:Record<string,PermissionLedgerRow>};
 // 表示対象の状態はアカウント/メンバーとPJの正本から取る。
 // invitedは招待済みの利用可能アカウント。ログイン状態と付与済み権限を混同しない。
 export function buildSpacePermissionMatrix(data:PermissionLedgerData,now=Date.now()) {
@@ -19,7 +19,7 @@ export function buildSpacePermissionMatrix(data:PermissionLedgerData,now=Date.no
  const people=new Map<string,PermissionMatrixPerson>();
  for(const row of buildSpacePermissionRows(activeData,now)) {
   let person=people.get(row.email);
-  if(!person) {person={key:row.email,name:row.name,email:row.email,memberId:row.memberId,accountId:row.accountId,isAdmin:row.isAdmin,status:row.status,projects:{}};people.set(row.email,person);}
+  if(!person) {person={key:row.email,name:row.name,email:row.email,affiliation:row.affiliation,memberId:row.memberId,accountId:row.accountId,isAdmin:row.isAdmin,status:row.status,projects:{}};people.set(row.email,person);}
   person.projects[row.projectId]=row;
  }
  return {projects:activeData.projects,people:[...people.values()]};
@@ -58,7 +58,7 @@ export function buildSpacePermissionRows(data:PermissionLedgerData,now=Date.now(
     if(!permissions.dd.permission || permission==='edit'&&permissions.dd.permission!=='edit') permissions.dd={permission,note:account.status==='suspended'?'アカウント停止中':expired?'期限切れ':pkg!.status!=='open'?'公開待ち':g.status==='invited'?'初回ログイン待ち':'個別付与',grantId:g.id,packageId:pkg!.id,capabilities:g.capabilities};
    }
   }
-  rows.push({key:`${project.project_id}:${email}`,projectId:project.project_id,projectName:project.project_name,name:member?.member_name||member?.code_name||account?.display_name||email,email,memberId:member?.member_id,accountId:account?.id,status:member?.status||account?.status||'',isAdmin:member?.status==='active'&&member.is_admin===true,permissions});
+  rows.push({key:`${project.project_id}:${email}`,projectId:project.project_id,projectName:project.project_name,name:member?.member_name||member?.code_name||account?.display_name||email,email,affiliation:account?.affiliation||null,memberId:member?.member_id,accountId:account?.id,status:member?.status||account?.status||'',isAdmin:member?.status==='active'&&member.is_admin===true,permissions});
  }
  return rows;
 }

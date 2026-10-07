@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {memberSurfacePermission} from '../src/lib/project-surface-permissions.ts';
 import {buildSpacePermissionRows,buildSpacePermissionMatrix,canonicalProjectDdPackage,type PermissionLedgerData} from '../src/lib/space-permission-ledger.ts';
+import {newWorkspaceAccountIdentity} from '../src/lib/workspace-account-identity.ts';
 const base={memberId:'ID2',isAdmin:false,scope:'project' as const,projects:[]};
 const view={project_id:'p1',member_id:'ID2',surface:'cockpit' as const,permission:'view' as const};
 assert.equal(memberSurfacePermission({...base,surfaceGrants:[view]},'p1','cockpit'),'view');
@@ -90,3 +91,38 @@ const unnamed=buildSpacePermissionMatrix({...data,accounts:[{...data.accounts[0]
 assert.equal(unnamed.name,'unnamed@example.com','unregistered names remain distinguishable without inventing names');
 assert.equal(unnamed.projects.p1.permissions.dd.permission,null);
 console.log('member-first matrix: active PJ/person and invited viewers, suspended exclusion, identity and grant isolation: PASS');
+
+const identity=newWorkspaceAccountIdentity({email:' NEW@Example.com ',displayName:' New Person ',affiliation:' Research University '});
+assert.deepEqual(identity,{ok:true,email:'new@example.com',display_name:'New Person',affiliation:'Research University'});
+assert.equal(newWorkspaceAccountIdentity({email:'bad',displayName:'Person',affiliation:'University'}).ok,false);
+assert.equal(newWorkspaceAccountIdentity({email:'new@example.com',displayName:' ',affiliation:'University'}).ok,false);
+assert.equal(newWorkspaceAccountIdentity({email:'new@example.com',displayName:'Person',affiliation:' '}).ok,false);
+assert.equal(newWorkspaceAccountIdentity({email:'new@example.com',displayName:'Person',affiliation:'x'.repeat(161)}).ok,false);
+const withAffiliation=buildSpacePermissionMatrix({...data,accounts:[{...data.accounts[0],affiliation:'Research University'}]}).people[0];
+assert.equal(withAffiliation.affiliation,'Research University');
+assert.equal(withAffiliation.email,'known@example.com');
+console.log('new member identity: independent name/email/affiliation, normalization and required field limits: PASS');
+
+// Exercise the actual account mutation function against a narrow DB double.
+// A stale UI must never turn a duplicate "new member" into an attribute update.
+const accessSource=readFileSync('src/app/api/admin/workspace-access/route.ts','utf8');
+const accessAst=ts.createSourceFile('access',accessSource,ts.ScriptTarget.Latest,true);
+const createAccountNode=accessAst.statements.find(s=>ts.isFunctionDeclaration(s)&&s.name?.text==='createAccount')!;
+const createAccountJs=ts.transpileModule(createAccountNode.getText(accessAst),{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText;
+async function accountCase(existing:{id:string;status:string}|null=null,internal=false,body:Record<string,unknown>={createOnly:true,email:' NEW@example.com ',displayName:' New Person ',affiliation:' Research University '}) {
+ const writes:Record<string,unknown>[]=[],audits:unknown[]=[];
+ const db={from(table:string){const chain={select(){return chain;},eq(){return chain;},ilike(){return chain;},async maybeSingle(){return {data:table==='members'?(internal?{member_id:'known'}:null):existing,error:null};},insert(row:Record<string,unknown>){writes.push(row);return chain;},update(row:Record<string,unknown>){writes.push(row);return chain;},async single(){return {data:{id:'new-account'},error:null};}};return chain;}};
+ const result=(payload:unknown,status=200)=>({payload,status});
+ const create=new Function('newWorkspaceAccountIdentity','normalizeWorkspaceEmail','text','hasField','bad','failed','conflict','recordWorkspaceAuditEvent','NextResponse',`${createAccountJs};return createAccount;`)(newWorkspaceAccountIdentity,(raw:unknown)=>typeof raw==='string'?raw.trim().toLowerCase():null,(raw:unknown,max:number)=>typeof raw==='string'?raw.trim().slice(0,max):'',(b:object,k:string)=>Object.hasOwn(b,k),(error:string)=>result({error},400),(error:string)=>result({error},500),(error:string)=>result({error},409),async(_db:unknown,event:unknown)=>{audits.push(event);},{json:(payload:unknown,options?:{status:number})=>result(payload,options?.status)}) as (db:unknown,body:Record<string,unknown>)=>Promise<{payload:unknown;status:number}>;
+ return {response:await create(db,body),writes,audits};
+}
+const createdIdentity=await accountCase();
+assert.equal(createdIdentity.response.status,200);
+assert.deepEqual(createdIdentity.writes,[{email:'new@example.com',display_name:'New Person',affiliation:'Research University',status:'invited'}]);
+assert.equal(createdIdentity.audits.length,1);
+for(const existing of [{id:'existing',status:'invited'},{id:'existing',status:'active'},{id:'existing',status:'suspended'}]) {
+ const duplicate=await accountCase(existing);assert.equal(duplicate.response.status,409);assert.equal(duplicate.writes.length,0);assert.equal(duplicate.audits.length,0);
+}
+const internalDuplicate=await accountCase(null,true);assert.equal(internalDuplicate.response.status,409);assert.equal(internalDuplicate.writes.length,0);
+const missingAffiliation=await accountCase(null,false,{createOnly:true,email:'new@example.com',displayName:'Person'});assert.equal(missingAffiliation.response.status,400);assert.equal(missingAffiliation.writes.length,0);
+console.log('account creation: independent invited identity and audit, stale duplicate/internal/suspended refusal without writes: PASS');

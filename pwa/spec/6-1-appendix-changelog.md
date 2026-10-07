@@ -1,5 +1,9 @@
 # 附則（設計書変更履歴）
 
+## 2026-10-07 — 権限表の空欄追加行と所属
+
+workspace_user_accountsへnullable affiliation/max160字を追加、本番適用済み。名前・email・所属を独立保存。admin POST kind=account/createOnlyは３項目必須・既存account/社内member/停止中を拒否。権限表に識別３列と下端/横左端stickyのtfoot追加行。追加後は未付与行・次の空欄を保持。既存grant・認可・通知は維持。正本=2-1・3-24、manual/2-6、ios/DESIGN.md。
+
 ## 2026-10-07 — 招待済みメンバーの権限表示漏れを修正
 
 閲覧・編集権限の対象を社内active／外部active・invitedとactive PJに修正。初回ログイン待ちと付与済み権限を分離し、招待済みの人も表・付与選択に表示する。名前未登録はメールで識別。停止中・終了PJを除外する条件と認可・登録状態は維持。正本はspec/2-1・3-24、manual/2-6、ios/DESIGN.md。

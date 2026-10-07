@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-10-07 12:46 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-10-07 17:33 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -623,7 +623,7 @@ PRIMARY KEY: `id`
 
 ## boss_baseline_occurrences
 
-行数 (概算): 316
+行数 (概算): 517
 PRIMARY KEY: `id`
 UNIQUE: `(revision)` (constraint: `boss_baseline_occurrences_revision_key`)
 UNIQUE: `(server_boss_id,baseline_at,spawn_at)` (constraint: `boss_baseline_occurrences_server_boss_id_baseline_at_spawn__key`)
@@ -654,7 +654,7 @@ PRIMARY KEY: `id`
 
 ## boss_notification_jobs
 
-行数 (概算): 6,761
+行数 (概算): 7,606
 PRIMARY KEY: `id`
 UNIQUE: `(event_id)` (constraint: `boss_notification_jobs_event_id_key`)
 UNIQUE: `(server_boss_id,schedule_revision,lead_minutes)` (constraint: `boss_notification_jobs_server_boss_id_schedule_revision_lea_key`)
@@ -718,7 +718,7 @@ UNIQUE: `(game_server_id,input_source,source_dedupe_key)` (constraint: `boss_rep
 
 ## boss_schedules
 
-行数 (概算): 121
+行数 (概算): 135
 PRIMARY KEY: `server_boss_id`
 
 | # | column | type | nullable | default |
@@ -4005,7 +4005,7 @@ UNIQUE: `(item_id)` (constraint: `navigator_items_item_id_key`)
 
 ## notification_deliveries
 
-行数 (概算): 579
+行数 (概算): 820
 PRIMARY KEY: `id`
 UNIQUE: `(job_id,subscription_id,attempt_number)` (constraint: `notification_deliveries_job_id_subscription_id_attempt_numb_key`)
 
@@ -6250,7 +6250,7 @@ PRIMARY KEY: `id`
 
 ## project_meeting_summaries
 
-行数 (概算): 582
+行数 (概算): 650
 PRIMARY KEY: `meeting_id`
 UNIQUE: `(project_id,meeting_id)` (constraint: `project_meeting_summaries_project_meeting_uq`)
 
@@ -8716,6 +8716,7 @@ UNIQUE: `(email_normalized)` (constraint: `workspace_user_accounts_email_normali
 | 7 | `last_login_at` | `timestamptz` | NULL | `` |
 | 8 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 9 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 10 | `affiliation` | `text` | NULL | `` |
 
 ## workspace_work_case_deadlines
 

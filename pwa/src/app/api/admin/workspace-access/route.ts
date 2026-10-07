@@ -17,6 +17,7 @@ import { randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
 import { normalizeWorkspaceEmail } from "@/lib/workspace-email";
+import { newWorkspaceAccountIdentity } from "@/lib/workspace-account-identity";
 import { recordWorkspaceAuditEvent } from "@/lib/workspace-access-audit";
 import {
   decideWorkspaceAccessRequest,
@@ -40,7 +41,7 @@ const PROJECT_ROLES = new Set(["manager", "contributor", "readonly"]);
 const STOPPED_MEMBERSHIP_STATUSES = new Set(["suspended", "revoked"]);
 
 // Safe column sets. auth_user_id is deliberately absent from every select below.
-const ACCOUNT_FIELDS = "id,email,display_name,status,last_login_at,created_at,updated_at";
+const ACCOUNT_FIELDS = "id,email,display_name,affiliation,status,last_login_at,created_at,updated_at";
 const INSTITUTION_WORKSPACE_FIELDS = "id,slug,name,status,is_publicly_listed";
 const INSTITUTION_MEMBERSHIP_FIELDS = "id,workspace_id,user_account_id,role,status,created_at,updated_at";
 const PROJECT_MEMBERSHIP_FIELDS = "id,project_id,user_account_id,role,status,created_at,updated_at";
@@ -250,9 +251,17 @@ async function decideAccessRequest(body: Body, adminEmail: string) {
 }
 
 async function createAccount(db: Db, body: Body) {
+  const identity = body.createOnly === true ? newWorkspaceAccountIdentity(body) : null;
+  if (identity && !identity.ok) return bad(identity.error);
   const email = normalizeWorkspaceEmail(body.email);
   if (!email) return bad("invalid_email");
   const displayName = text(body.displayName, 120);
+  const affiliation = text(body.affiliation, 160) || null;
+  if (body.createOnly === true) {
+    const { data: member, error } = await db.from("members").select("member_id").ilike("email", email).maybeSingle();
+    if (error) return failed("account_lookup_failed", error);
+    if (member) return conflict("internal_member_exists");
+  }
 
   const { data: existing, error: lookupError } = await db
     .from("workspace_user_accounts")
@@ -265,12 +274,13 @@ async function createAccount(db: Db, body: Body) {
     // A stopped account is never revived by re-inviting the same address. Reactivation
     // has to be a deliberate PATCH so it shows up as its own audited decision.
     if (existing.status === "suspended") return conflict("account_suspended");
+    if (body.createOnly === true) return conflict("account_exists");
 
     // Existing invited/active account: refresh the display name only. status is untouched.
     if (displayName) {
       const { error } = await db
         .from("workspace_user_accounts")
-        .update({ display_name: displayName })
+        .update({ display_name: displayName, ...(hasField(body, "affiliation") ? { affiliation } : {}) })
         .eq("id", existing.id);
       if (error) return failed("account_update_failed", error);
     }
@@ -288,7 +298,7 @@ async function createAccount(db: Db, body: Body) {
   // first successful email login — an admin never hands out an already-active account.
   const { data: inserted, error: insertError } = await db
     .from("workspace_user_accounts")
-    .insert({ email, display_name: displayName, status: "invited" })
+    .insert({ email, display_name: displayName, affiliation, status: "invited" })
     .select("id")
     .single();
   if (insertError) return failed("account_create_failed", insertError);
@@ -472,7 +482,7 @@ async function patchAccount(db: Db, body: Body) {
 
   const { data: updated, error } = await db
     .from("workspace_user_accounts")
-    .update({ status, ...(hasField(body, "displayName") ? { display_name: text(body.displayName, 120) || null } : {}) })
+    .update({ status, ...(hasField(body, "displayName") ? { display_name: text(body.displayName, 120) || null } : {}), ...(hasField(body, "affiliation") ? { affiliation: text(body.affiliation, 160) || null } : {}) })
     .eq("id", accountId)
     .select("id,email")
     .maybeSingle();
