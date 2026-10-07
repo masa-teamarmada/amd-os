@@ -26,7 +26,7 @@ export function RegisteredOrganizationChart({ data }: { data: ProjectOrganizatio
         const y = from.bottom - origin.top + 4;
         const endX = to.left - origin.left - 4, endY = to.top - origin.top + 28;
         const lane = Math.max(6, to.left - origin.left - 12 - slot * 8);
-        return [`M ${x} ${y} V ${y + 12 + slot * 8} H ${lane} V ${endY} H ${endX}`];
+        return [`M ${x} ${y} V ${y + 32 + slot * 8} H ${lane} V ${endY} H ${endX}`];
       }));
     };
     const observer = new ResizeObserver(measure);
