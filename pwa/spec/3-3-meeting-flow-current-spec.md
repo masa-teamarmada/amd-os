@@ -499,3 +499,6 @@ migration 151 で追加:
 - 同じ MTG に複数 session を spawn しない (= `prep_worker_status` で防御)。`failed` のみ再試行可。
 - `claude code` で session を spawn しない (= まさ確定で codex 一本化)。
 - 定額外トークン課金経路 (= OpenAI API key / Anthropic API key) で worker を動かさない (= `~/.codex/auth.json` の `auth_mode='chatgpt'` を維持)。
+
+
+2026-10-07: 議事録中の山地正洋の表記は名字「山地」で統一する。入力の「まさ」と「山地」は同一人物として照合し、表示用の本文・要約・決定事項・進捗・次の一手・残課題では「山地」を使う。元URL・ID・source_hash・開催日・元データ種別を変えず、一般語を人名に変換しない。SOLの開催済み議事録は過去分もこの表記へ修正。予定・準備・対話の記録と他メンバーの表記は今回の過去分修正の対象外。

@@ -592,11 +592,13 @@ curl -s "$SUPABASE_URL/rest/v1/members?select=member_id,code_name,email,status&o
   ```
   === 名前の正規化マップ (同一人物の別表記) ===
   [以下は AMD のメンバー一覧。同一人物が異なる表記 (姓 / 名 / 本名 / ローマ字) で
-   入力に出てくることがある。LLM は以下のマップに従って **必ず code_name に正規化** して
-   抽出すること。例: '山田氏' と書かれていたら 'りょー' と読み替える。'山地' は 'まさ'、
-   'chiko' は 'ちこ'。誤って別人として扱わないこと。]
+   入力に出てくることがある。LLM は以下のマップに従って同一人物を照合し、
+   山地正洋の表示は名字『山地』で統一する。『まさ』も『山地』として記す。
+   他メンバーは既存のcode_name正規化を維持する。誤って別人として扱わないこと。]
 
-  - まさ = 山地 正洋, 山地, 正洋, masa  (= 同一人物、code_name は 'まさ')
+  【2026-10-07の確定表記】人物照合では上の同一人物マップを使うが、議事録の表示本文・要約・決定事項・進捗・次の一手・残課題で山地正洋を記すときは、コードネーム「まさ」へ変換せず、名字「山地」で統一する。この表示表記を上のcode_name正規化より優先する。元の参照URL・ID・メールアドレス・source_hashは変更しない。一般語の「まさに」「まさか」等を人名として置換しない。他メンバーの表記は既存の指示を維持する。
+
+  - 山地 = 山地 正洋, 山地, まさ, 正洋, masa  (= 同一人物、表示は '山地'、内部照合の code_name は 'まさ')
   - ちこ = ... (以下続く)
   ```
 
@@ -641,7 +643,7 @@ filter:
 
 **抽出ルール** (= GAS 074 prompt revision v4_alias_feedback と同じ):
 - meeting_meta に書かれた `projectId` / `projectName` 以外の PJ の話題は **完全に無視**
-- decided / progress / next_actions / risks は **各 1 文 1 項目**、5W1H 明確、固有名詞は alias map で **code_name に正規化**
+- decided / progress / next_actions / risks は **各 1 文 1 項目**、5W1H 明確、固有名詞は alias map で同一人物を照合する。山地正洋の表示表記は名字「山地」で統一し、他メンバーは既存のcode_name正規化を維持する。summary_short・narrative_mdも同じ表記を使う。
 - past_feedbacks があれば必ず反映
 - summary_short は 80-180 字目安
 - 該当事項なし field は `[]`、null / undefined は禁止
