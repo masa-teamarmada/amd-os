@@ -1,24 +1,24 @@
-AMD OSのドライブ改善の引き継ぎ。作業場所は /Users/masa/projects/AMD/amd-os。仕事種別は開発。
+SOLのDD製品説明資料を引き継いで。作業種別は開発。資料の内容正本は /Users/masa/projects/AMD/SOL、アプリの正本は /Users/masa/projects/AMD/amd-os。
 
 読む順:
 1. /Users/masa/projects/AGENTS.common.md
 2. /Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md
-3. AGENTS.md、HANDOFF_DRIVE_20261006.md
-4. pwa/manual/1-1-intro.md、pwa/spec/1-3-reconstruction-coverage-audit.md
-5. pwa/spec/3-8-cockpit-current-spec.md、pwa/spec/3-16-project-weekly-control-current-spec.md、pwa/manual/2-3-pj-cockpit.md
-6. pwa/BUGS.md、pwa/spec/5-2-development-operations-current-spec.md、pwa/design/SPEC_GOVERNANCE.md
+3. /Users/masa/projects/AMD/amd-os/AGENTS.md と HANDOFF_SOL_DD_DENSITY_20261007.md
+4. /Users/masa/projects/AMD/SOL/SOL_DD_CONTENTS_PLAN.md
+5. /Users/masa/projects/AMD/amd-os/pwa/spec/5-17-dd-package-current-spec.md、pwa/manual/2-6-admin-ops.md
+6. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md と pwa/design_log/sessions_2026-10.md
 
 状態:
-- URLコピー20f968b5、常時表示と高密度一覧dd4e6e56、見出し縮小456a0350（統合8d2816aa）はmainと本番へ反映済み。検収時はv3.160.12、Chrome実測でファイル65px・フォルダ49px・見出し46px、コピー後の実貼付も確認。
-- 全フォルダのファイルを初期一覧に出し、更新順に表示。URL・所属フォルダ・コピー操作を常設。フォルダを開くと直下へ絞る。表示URLは既存認可付き閲覧URLで、期限付き署名URLをコピーしない。
-- 型検査、対象lint、workspace-documents-core、配布ゲート成功。同名競合contractの文言正規表現は既存不整合で失敗。新規DB・環境変数・認可・理論変更なし。Swift等のUIは未移植。
-- closeout開始時main d0ece3c4、ahead/behind各0。本番確認はv3.160.15/6e1f408aで本変更を含む。別担当の配信が進行しているため、再開時はfetchとbuild-infoを再確認する。
-- 実装・仕様・使い方は上記正本、開発経緯はpwa/design_log/sessions_2026-10.md。元スクリーンショットは会話添付で、一時パスの永続性は保証しない。
+製品説明の初稿、在庫シアノからの燃料生産、SOLロゴ入り装置写真、現行処理とSOL処理の上下比較図、用途別工程図、TRL1〜9の矢印を作成・採用済み。写真は透明配管に茶色い流入水と透明な処理水、透明な大型シアノ充填カートリッジ。採用PNG2枚はそのまま維持する。
+最後の指示は「フォント大きすぎない？ とにかく全ページエグサマのレベルで情報密度を高くして」。全DD本文を12px中心、表・余白を縮小。製品説明は写真と図、関連する節を左右へ配置。現在TRL4、シード6、A7、B8は現在と計画を分けて維持。
+実装3374d609、公開ba623c78/v3.160.28、本番Ready・SHA一致。PC1392×824で40資料の共通密度と横溢れ0を確認。製品説明7節・4表・2Mermaid・4画像、本文2607.63pxで約56%減。略歴29職歴・8受賞を維持、約61%減。DD回帰・型検査成功。製品説明/略歴のDB正本不変、公開画像4件バイト一致。
+Gitはmainへ保存・push済み。引き継ぎ開始時HEAD f4253ed5、ahead/behind 0/0。後続の別担当変更があるため再開時に現在値を確認する。
+素材と制作元はDriveのp21_sol/261007_製品説明資料。原稿12290bytes、用途SVG、TRL SVG、制作元、改訂メモ、完成画面。採用PNG原本は前日の261006資料フォルダ。検証証跡はSOL/work/amie_dd_density_20261007/production-readback.json、live-40-pages.json、product-dense-live.jpg。過去の段階はOS rootのHANDOFF_SOL_DD_PRODUCT_MEDIA_20261006.md、HANDOFF_SOL_DD_PRODUCT_VISUAL_20261006.md。
+試作ページ、試作サーバ、試作タブは終了。新規branch/worktreeなし。共有checkoutの創業背景・仕様・マニュアル等の未保存差分は別の稼働中チャット「DDパッケ社会課題ページを修正」（01a11467-7a83-7461-92fc-62421036dd56）のもの。変更・削除・一括保存しない。古い未追跡SESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdは「タスク方式への変更」（01a0c711-2edc-7cc3-b346-fbe198603454）の草稿で、今回の指示として実行しない。
 
 次の行動:
-今回の依頼は完了、追加実装は不要。まさの「最初から表示」「情報密度を高く」「見出しもコンパクト」を維持する。新しい依頼が来たら現在のPC Chromeで確認してから対象を絞る。URLを追加クリックの裏に戻さない。
-別件の古いSESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdは未追跡のまま保護。担当は「タスク方式への変更」（01a0c711-2edc-7cc3-b346-fbe198603454）。再開時に現行仕様・支払保護状態と照合し保存/廃棄を決めるまで、古い指示を実行しない。
+今回の依頼は完了。追加実装は不要。新しい依頼を受けたら本番 /dd/sol?tab=product-description を確認し、指定された箇所だけ進める。採用済み写真・比較イラストとエグサマの密度を維持し、達成済みと調達後目標を混ぜない。製品説明の変更は共通ページ経由でワークスペース/コックピット/DDに反映される。
 
 運用:
-cwdはリポルート、main一本。新しい枝・worktree・子エージェントを作らない。fetchしてbehindを解消し、他担当の差分を一括commit/reset/stashしない。対象ファイルだけstageする。
-変更時はmanual/spec/附則と必要なDESIGN・引き継ぎを同期し、実画面の寸法とコピー後の貼付を確認する。PWA配信は AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh でmain push・Ready・配信SHAまで確認。依頼外のDB操作・通知・外部連絡を行わない。
+main一本で新しい枝・worktree・子エージェントを作らない。共有差分は対象だけを扱い、reset/stash/一括commitを使わない。必要ならmainのclean cloneで作業する。仕様・使い方・全プラットフォーム設計を同期し、npm --prefix pwa run test:dd-package と型検査、実PC画面を確認する。CSS ModulesでTailwindのクラスを参照する際は属性セレクタを使い、SVG/foreignObjectの内部には本文CSSを適用しない。
+PWA変更の配布は AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh でmain push、Ready、配信SHAと実画面まで確認。データ更新は旧値一致と読戻しが必須。依頼外のDB操作、公開範囲変更、メール・Slack送信はしない。

@@ -13,3 +13,12 @@
 - 従来のSESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdは旧タスクの草稿として保持（owner:まさ/旧タスク、判断条件:当該引き継ぎ更新の依頼）。依頼の未完了なし。対話証拠0件。
 
 証跡: /Users/masa/projects/AMD/SOL/work/amie_dd_density_20261007/。40資料の幾何情報はlive-40-pages.json、画像はproduct-dense-live.jpgほか。
+
+
+## 引き継ぎ時点
+
+今回の仕事種別は開発。恒久仕様・使い方は上記spec/manual、実装履歴のみdesign_logへ保存。製品の内容と素材の現在地はSOL_DD_CONTENTS_PLAN.md。今回の追加依頼はすべて完了、最初の次の行動は新しい依頼を受けてから本番を確認すること。SESSION_MIGRATION_PROMPT.mdに移行文を保存。旧ドライブ用の移行文はSESSION_MIGRATION_PROMPT_DRIVE_20261006.mdへ保存して保持。
+
+mainはf4253ed5まで保存・push済み、公開の今回実装はba623c78/v3.160.28。引き継ぎ文・バグ教訓の保存はこの後の記録commit。共有本体の創業背景、会社訂正HANDOFF、spec5-17/仕様履歴、manual2-6/履歴の差分は稼働中の「DDパッケ社会課題ページを修正」（01a11467-7a83-7461-92fc-62421036dd56）が保存・pushする。自分の差分ではなく、操作対象外。ownerは同チャット、期限はその作業終了時、次の判断条件は同チャットのcommit/push完了。古い未追跡草稿のownerは「タスク方式への変更」（01a0c711-2edc-7cc3-b346-fbe198603454）。判断条件はまさがその引き継ぎを再開した時。削除や今回への取り込みはしない。
+
+会話の検討材料: 0件。検証の画像・読戻し・図制作元はセッション外のSOL/workとDriveに保存済み。ローカル検証用cloneはmainのみ・未保存0・未push0を確認し、再利用不要な一時checkoutとして証跡保管区画へ移す。稼働中の別チャットの差分が残る共有checkout全体についてはarchive okを宣言しない。今回チャットには未処理の実装・未push・未保存作業なし。
