@@ -1,0 +1,13 @@
+# 工程サマリの設備イラスト
+
+2026-10-07、ユーザーが示した工場ラインの参考画像をスタイル参照として、内蔵 image_gen で生成。参考画像自体は再配布しない。
+
+保存先: `public/illustrations/cost-process-atlas-20261007.png`。1774×887px、RGBA、4列×2段の8設備。画像の加工は行わず、CSS background-position で各設備を表示する。設備の形・配置は模式図であり、実機の設計図ではない。
+
+各設備を単独のカードにせず、共有の床と連続経路に配置する。白・灰色の装置、緑の菌体、青の水、琥珀色の光。動きと選択条件の説明は別のSVG/CSSを重ねる。
+
+## 生成プロンプト
+
+```text
+Use case: infographic-diagram. Generate a project asset: one transparent PNG sprite atlas of eight consistent isometric industrial equipment illustrations for a cyanobacteria wastewater process visualization. The attached image is STYLE REFERENCE ONLY, not an edit target: use the same polished axonometric factory illustration quality, readable dimensional machinery, restrained shadows and clear industrial forms. Do not copy the exact machines. Absolutely strict 4 columns by 2 rows, EIGHT equal rectangular cells, each machine centered in its own cell with generous transparent margins, never touching other cells, no dividing lines or panels, no text, numbers, people, watermark, logos or background. Atlas should be wide 2:1 overall. All objects same isometric viewpoint and scale. Palette: white/light gray equipment, dark charcoal bases, cyan blue pipework/water, emerald green biomass, amber LED lights. TOP ROW LEFT TO RIGHT: (1) transparent cylindrical photobioreactor containing green cyanobacteria culture with two amber vertical LED light bars and a CO2 inlet pipe; (2) compact continuous centrifuge/concentration machine with pale green inlet culture container and a small dark green concentrated biomass receiver; (3) filling and quality-control station with a clean filling head, sealed green biomass canisters and shipping cartons; (4) small blue-and-white refrigerated delivery truck carrying sealed green canisters. BOTTOM ROW LEFT TO RIGHT: (5) industrial enclosed reactor housing with removable green cartridge module, an open upper service hatch and connecting pipes; (6) operational wastewater treatment reactor with dirty amber wastewater flowing in through a blue pipe and clear cyan water leaving, green biomass inside the transparent chamber; (7) cartridge removal/recovery workstation with a sealed used green canister being placed into a transport container; (8) compact return processing station with washing vessel, sample analysis bench, recovery tank and small waste bin. The atlas is intentionally separate transparent equipment sprites to be placed on ONE continuous route in the app, so don't draw inter-cell pipes or conveyors. Extremely clean silhouettes, high illustration quality, dimensional platforms under the machinery allowed but NO enclosing boxes around an entire cell.
+```

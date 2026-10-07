@@ -4,6 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { APPLICATION_LABEL, LOCATION_SHORT_LABEL, METHOD_LABEL, STRAIN_LABEL, type CostComputation, type CostModelBundle } from "@/lib/project-cost-model";
 import { computeProcessSummary, type CostProcessKey, type ProcessSelection } from "@/lib/cost-process-summary";
 import { CostProcessAnimation } from "./CostProcessAnimation";
+import { CostProcessConnectors } from "./CostProcessConnectors";
 import styles from "./CostProcessSummary.module.css";
 
 const amount = (n: number) => n.toLocaleString("ja-JP", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -17,6 +18,7 @@ export function CostProcessSummary({ bundle, computed, selection, unit }: {
   const [opened, setOpened] = useState<CostProcessKey | null>(null);
   const detailHeading = useRef<HTMLHeadingElement>(null);
   const opener = useRef<HTMLButtonElement>(null);
+  const flowCanvas = useRef<HTMLDivElement>(null);
   const id = useId();
   useEffect(() => {
     if (!opened) return;
@@ -36,10 +38,12 @@ export function CostProcessSummary({ bundle, computed, selection, unit }: {
     </div>
     <p className={styles.legend}><i className={styles.capexDot} />CAPEX＝設備の償却 <i className={styles.opexDot} />OPEX＝運転費 <span>各工程で増える原価を表示。工程を押すと初期投資額と明細が開く。</span></p>
     {summary.invalidVolume && <p className={styles.gaps}>年間処理量が0のため、単位あたりの原価を計算できない。表示の0は実際の0円を意味しない。</p>}
+    <div ref={flowCanvas} className={styles.flowCanvas}>
+    <CostProcessConnectors canvas={flowCanvas} />
     <ol className={styles.grid}>
-      {summary.steps.map((step, i) => <li key={step.key} className={styles.step} data-testid={`cost-process-${step.key}`} data-step-number={i + 1}>
+      {summary.steps.map((step, i) => <li key={step.key} className={styles.step} style={{ gridArea: `s${i + 1}` }} data-testid={`cost-process-${step.key}`} data-step-number={i + 1}>
         <button type="button" className={styles.stepButton} aria-expanded={opened === step.key} aria-controls={opened === step.key ? `${id}-detail` : undefined} onClick={(e) => { opener.current = e.currentTarget; setOpened(opened === step.key ? null : step.key); }}>
-          <span className={styles.stepHeading}><span className={styles.number}>{i + 1}</span><span>{step.title}</span><span className={styles.arrowMark} aria-hidden="true" /></span>
+          <span className={styles.stepHeading}><span className={styles.number}>{i + 1}</span><span>{step.title}</span></span>
           <CostProcessAnimation process={step.key} cartridge={selection.method === "循環"} metal={selection.application === "metal"} offsite={selection.location === "offsite"} />
           <span className={styles.description}>{step.description}</span>
           <span className={styles.costs}><span><i className={styles.capexDot} />CAPEX <b data-process-capex={step.capex}>+{amount(step.capex)}</b></span><span><i className={styles.opexDot} />OPEX <b data-process-opex={step.opex}>+{amount(step.opex)}</b></span></span>
@@ -50,6 +54,7 @@ export function CostProcessSummary({ bundle, computed, selection, unit }: {
         </button>
       </li>)}
     </ol>
+    </div>
     {selected && <div id={`${id}-detail`} className={styles.detail} data-testid="cost-process-detail" role="region" aria-labelledby={`${id}-detail-heading`}>
       <div className={styles.detailHeading}><h4 ref={detailHeading} id={`${id}-detail-heading`} tabIndex={-1}>{summary.steps.indexOf(selected) + 1} {selected.title}の内訳</h4><button type="button" onClick={closeDetail} className={styles.motionButton}>閉じる</button></div>
       {selected.gaps.length > 0 && <p className={styles.gaps}>{selected.gaps.join("。")}{selected.gaps.some((g) => /未計上|未確定/.test(g)) ? "。未計上・未確認の費用は実際の0円を意味しない。" : "。"}</p>}
@@ -61,7 +66,7 @@ export function CostProcessSummary({ bundle, computed, selection, unit }: {
       </tbody></table></div>
       {selected.rows.every((r) => r.perUnit === 0 && r.initial === 0 && !r.unknown && !r.note) && <p className={styles.gaps}>この工程単独の費用は登録されていない。</p>}
     </div>}
-    <p className={styles.footer}>累計はSOLと顧客の登録済み原価の合計（売価・利益を含まない）。往復移動は④、搬入・搬出の合算作業は⑤に一度だけ計上。動きは工程の模式図。</p>
+    <p className={styles.footer}>累計はSOLと顧客の登録済み原価の合計（売価・利益を含まない）。往復移動は④、搬入・搬出の合算作業は⑤に一度だけ計上。設備の形・配置・動きは模式図。</p>
     {summary.overridden && <p className={styles.gaps}>菌体の原価を上書き中：①〜③は①へ合算。製造のCAPEX/OPEX内訳は上書き値から分けられない。</p>}
   </section>;
 }
