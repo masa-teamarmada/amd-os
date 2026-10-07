@@ -370,3 +370,8 @@ Drive原稿は共有ARMADA/p21_sol/261006_製品説明資料/製品説明資料_
 - 従来のSESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdは旧タスクの草稿として保持（owner:まさ/旧タスク、判断条件:当該引き継ぎ更新の依頼）。依頼の未完了なし。対話証拠0件。
 
 証跡: /Users/masa/projects/AMD/SOL/work/amie_dd_density_20261007/。40資料の幾何情報はlive-40-pages.json、画像はproduct-dense-live.jpgほか。
+
+
+## 2026-10-07 登録済み組織図の幅と会社境界
+
+協業先の右側固定配置を廃止し、NewCoの会議体・代表者・部署を枠囲み。枠外の下段で接続部署ごとに協業先を配置。600px以下は一列。登録値・認可は維持。対象lint、型検査、組織図・DD契約、Chrome900px/390pxコンテナ表示を確認。反映・本番確認の証拠はSOL/work/amie_org_layout_20261007/DEPLOY_BUNDLE.md。
