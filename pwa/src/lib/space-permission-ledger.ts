@@ -11,6 +11,19 @@ export type PermissionLedgerData = {
 };
 export type LedgerPermission = {permission:SurfacePermission|null;note:string;grantId?:string;packageId?:string;capabilities?:string[]};
 export type PermissionLedgerRow = {key:string;projectId:string;projectName:string;name:string;email:string;memberId?:string;accountId?:string;status:string;isAdmin:boolean;permissions:Record<ProjectSurface,LedgerPermission>};
+export type PermissionMatrixPerson = Pick<PermissionLedgerRow,'name'|'email'|'memberId'|'accountId'|'isAdmin'> & {key:string;projects:Record<string,PermissionLedgerRow>};
+// 表示対象の状態はアカウント/メンバーとPJの正本から取る。
+// invitedは初回ログイン前なのでこの現役一覧には含めず、外部アクセス管理で扱う。
+export function buildSpacePermissionMatrix(data:PermissionLedgerData,now=Date.now()) {
+ const activeData={...data,projects:data.projects.filter(p=>p.status==='active'),members:data.members.filter(m=>m.status==='active'),accounts:data.accounts.filter(a=>a.status==='active')};
+ const people=new Map<string,PermissionMatrixPerson>();
+ for(const row of buildSpacePermissionRows(activeData,now)) {
+  let person=people.get(row.email);
+  if(!person) {person={key:row.email,name:row.name,email:row.email,memberId:row.memberId,accountId:row.accountId,isAdmin:row.isAdmin,projects:{}};people.set(row.email,person);}
+  person.projects[row.projectId]=row;
+ }
+ return {projects:activeData.projects,people:[...people.values()]};
+}
 // 既存DD管理・ナビと同じ、PJで最初に作成した正本パッケージ。動作確認用をUUID順で選ばない。
 export function canonicalProjectDdPackage(packages:PermissionLedgerData['ddPackages'],projectId:string) {
  return packages.filter(p=>p.project_id===projectId).sort((a,b)=>(a.created_at??'').localeCompare(b.created_at??''))[0];

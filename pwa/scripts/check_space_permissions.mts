@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {memberSurfacePermission} from '../src/lib/project-surface-permissions.ts';
-import {buildSpacePermissionRows,canonicalProjectDdPackage,type PermissionLedgerData} from '../src/lib/space-permission-ledger.ts';
+import {buildSpacePermissionRows,buildSpacePermissionMatrix,canonicalProjectDdPackage,type PermissionLedgerData} from '../src/lib/space-permission-ledger.ts';
 const base={memberId:'ID2',isAdmin:false,scope:'project' as const,projects:[]};
 const view={project_id:'p1',member_id:'ID2',surface:'cockpit' as const,permission:'view' as const};
 assert.equal(memberSurfacePermission({...base,surfaceGrants:[view]},'p1','cockpit'),'view');
@@ -59,3 +59,22 @@ const officialRows=buildSpacePermissionRows({...data,ddPackages:[verification,of
 assert.equal(officialRows[0].permissions.dd.permission,'edit');
 assert.equal(officialRows[0].permissions.dd.packageId,'z-official');
 console.log('canonical DD selection ignores UUID order and later verification packages: PASS');
+
+const matrix=buildSpacePermissionMatrix({...data,
+ projects:[...data.projects,{project_id:'p2',project_name:'PJ2',status:'active'},{project_id:'ended',project_name:'Ended',status:'ended'}],
+ members:[...data.members,{...data.members[0],member_id:'inactive',email:'inactive@example.com',status:'inactive'}],
+ accounts:[...data.accounts,{...data.accounts[0],id:'active-external',email:'external@example.com'},
+  {...data.accounts[0],id:'pending',email:'pending@example.com',status:'invited'},
+  {...data.accounts[0],id:'stopped',email:'stopped@example.com',status:'suspended'}],
+ memberGrants:[...data.memberGrants,{...view,project_id:'p2',surface:'dd',permission:'edit'}],
+});
+assert.deepEqual(matrix.projects.map(p=>p.project_id),['p1','p2']);
+assert.equal(matrix.people.length,2,'active internal/external people, one row each across all active projects');
+const known=matrix.people.find(p=>p.memberId==='ID2')!;
+assert.deepEqual(Object.keys(known.projects),['p1','p2']);
+assert.equal(known.projects.p1.permissions.cockpit.permission,'view');
+assert.equal(known.projects.p2.permissions.cockpit.permission,null);
+assert.equal(known.projects.p2.permissions.dd.permission,'edit');
+assert.ok(!matrix.people.some(p=>['inactive@example.com','pending@example.com','stopped@example.com'].includes(p.email)));
+assert.ok(matrix.people.some(p=>p.email==='external@example.com'),'active member with no grants remains available for granting');
+console.log('member-first matrix: active PJ/person only, unique person and independent PJ/surface cells: PASS');
