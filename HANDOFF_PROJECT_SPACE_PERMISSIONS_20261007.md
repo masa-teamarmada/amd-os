@@ -8,6 +8,12 @@ DBはdisplay_name/email/affiliationを独立保存。所属nullableの追加migr
 
 検証：一時的なlocalhostの実コンポーネント＋模擬応答で26→27行、名前・メール・所属の独立表示、未付与、次の空欄、重複拒否、検索0件でも追加行、390pxで横移動731px後もフォーム左25px、Enter登録を確認。本番DBはrollback transactionで３列とinvitedを保存・読戻し、fixture残存0を確認。実利用者の登録・通知・権限付与は今回の検証で行わない。manual/2-6・9-3、spec/2-1・3-24・6-1、ios正本を同期、理論変更なし。ネイティブ管理UIは未移植。
 
+本番検証完了：2817b0004bf2698db75eefca6fa9a60a3c467698、v3.161.13。正規deploy.shの必須検査通過、2分24秒でReady。本番aliasのgit_sha一致、Vercel dpl_JDTMER2SWjDaMLoPhik9in9AqVst Readyを確認。test:space-permissionsは実createAccount関数をDB doubleで実行し、独立３列・invited・監査、既存active/invited/suspended/社内/所属欠測の拒否と書込み0も検証。workspace-access-admin、UI設計検査、ESLint、TypeScriptが通過。
+
+実画面はPC1392px／mobile390×800で３つの識別列、既存26人、常設の空欄tfoot1行を確認。SOL杉浦先生のworkspace/DD閲覧を維持。追加フォームPC720×80px、mobile284×160px、mobile全操作44px、ページ横溢れなし。横移動499px後も名前と追加欄は左80.9pxで固定。表示・操作・余白・固定列を点検し評価8.5/10、表示blockerなし。証拠はpermissions-addrow-desktop.png／permissions-addrow-mobile.png。実画面では保存しない。追加の実操作は前記local模擬環境とDB rollbackで検証した。一時QA route・dev server・clean cloneは撤去済み。正規checkoutのorigin/mainとの0/0を確認、別担当の事業計画/Excel/SOLフェーズ差分と旧移行プロンプトのみ保持。
+
+まさの通知先の質問も現行実装・本番DBで確認。未登録／利用可能権限なしのemail-startは承認要求台帳へ記録し、ID001のSlack DMへ通知（30分同一要求/全体20件毎時）。許可/拒否/管理画面ボタン、承認待ちはadmin/access。最新の既存要求1件はapproved/not_neededだがDM channelと投稿tsを保持し、送信記録がある。現在のSlack承認は機関/PJ workspace readonly、DD grantとは独立。通知の試験送信・変更は行わない。
+
 ## 最新訂正：招待済みメンバーの表示漏れ（2026-10-07）
 
 まさの杉浦先生・他にも漏れがあるという指摘から全利用者を本番DBのGETで監査。社内active13人、外部14人のうちinvited13人全員が進行中PJの権限を付与済みだった。初回ログイン前というだけで表と付与選択から除外していた条件を修正した。外部suspendedの動作確認用1人は停止・DD失効済みで引き続き対象外。
