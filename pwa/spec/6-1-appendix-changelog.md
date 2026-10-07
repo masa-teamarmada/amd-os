@@ -1,5 +1,9 @@
 # 附則（設計書変更履歴）
 
+## 2026-10-07 — v3.161.16 議事録の現行説明を同期
+
+DDの概要仕様と管理者マニュアルを、1議案1行・結果と条件の対応・本文モーダルへ揃えた。議事録の設定キーをスキーマ解説へ追加。製品の挙動変更はなし。
+
 ## 2026-10-07 — 権限表の空欄追加行と所属
 
 workspace_user_accountsへnullable affiliation/max160字を追加、本番適用済み。名前・email・所属を独立保存。admin POST kind=account/createOnlyは３項目必須・既存account/社内member/停止中を拒否。権限表に識別３列と下端/横左端stickyのtfoot追加行。追加後は未付与行・次の空欄を保持。既存grant・認可・通知は維持。正本=2-1・3-24、manual/2-6、ios/DESIGN.md。

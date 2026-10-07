@@ -4609,6 +4609,12 @@ UNIQUE: `(project_id,key)` (constraint: `project_config_project_id_key_key`)
 | 4 | `value` | `text` | NULL | `` |
 | 5 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
 
+### 議事録で使う設定キー（2026-10-07）
+
+- `proper_noun_spellings`: version=1 / entries（canonical/aliases/kind）のJSON文字列。PJ管理の固有名詞画面が認可・同一オリジン・updated_at競合を検査して保存し、H-1が参照する。詳細はspec/3-3。
+- `meeting_resolutions:<meeting_id>`: version=1 / sourceHash / entries（agenda/outcome/detail/evidence、任意attachmentItemIds）のJSON文字列。開催済み経営会議の議案と結果を対応させ、原文根拠とsource_hash一致を検証する。取得と書込みはproject_id/key限定。詳細はspec/3-24。
+- 既存のTEXT valueと(project_id,key)一意制約を使用。今回テーブル・列・RLS・トリガ・環境変数の追加なし。
+
 ## project_convertible_instruments
 
 行数 (概算): -1
