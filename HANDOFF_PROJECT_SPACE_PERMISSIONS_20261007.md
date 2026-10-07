@@ -10,7 +10,24 @@ migration 20261007090000は本番適用済み。Supabase migration履歴にもap
 
 前セッションのSOL原稿・manual訂正等はSOL担当の変更として保持し、同担当がd1d70969等でcommitしたことを確認。旧SESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdは保管資料で今回の指示に使用しない。
 
-6923efac（v3.161.0）はmain push済み、本番aliasのSHA一致、Vercel TypeScript・630ページbuild成功を確認。画面確認で、同PJの後発検証DDをUUID順で拾う点とスマホダイアログの入力幅を発見しv3.161.1で修正。正式DDは既存DD管理と同じ最初のcreated_atを選び、選択検査を追加。最終画面readbackは完了後に追記する。理論変更なし、BZM同期不要。
+6923efac（v3.161.0）はmain push済み、本番aliasのSHA一致、Vercel TypeScript・630ページbuild成功を確認。画面確認で、同PJの後発検証DDをUUID順で拾う点とスマホダイアログの入力幅を発見しv3.161.1で修正。正式DDは既存DD管理と同じ最初のcreated_atを選び、選択検査を追加。理論変更なし、BZM同期不要。
+
+## 完了・検証（2026-10-07）
+
+- 最終実装はmainの5ddf3d028f8d4bf6f5b34616c60ae191fccd5c3a、v3.161.1。承認済みdeploy.sh経由のmain push後、2分39秒で本番Ready。https://amd-os-pwa.vercel.app/api/build-info のgit_sha一致を確認。
+- 本番入口：https://amd-os-pwa.vercel.app/admin/permissions 。PC 1392×824、スマホ390×800で一覧・PJ絞込み・既存権限セル・新規メンバー付与ダイアログを確認。ページ横溢れなし、スマホの表内スクロールのみ許容。ダイアログ幅358px、scrollWidth358px、入力と保存操作は44px以上。
+- SOLの正式DDに既存の外部閲覧権限が表示されること、コックピット・ワークスペース・DDを独立した列で判定することを実画面と既存DBで照合。既存メンバー編集、新規外部登録、閲覧/編集選択を操作確認したが、本番画面では保存しない。登録・招待メール・利用者権限の変更は行っていない。
+- 保存系はrollback付きSupabase transactionで閲覧付与→読戻し→編集変更、非admin・無効surface・authenticated直接書込み/実行の拒否を確認。永続的な内部個別grantは0件。
+- test:space-permissions（PJ/space/member境界、停止/期限、更新対象の所属PJ、DD掲載操作、正式DD選択）、workspace access admin/scope、surface catalog、DD package、project overview/cost model/threeparty、契約一覧・portfolio・project space loading・critical UI検査が通過。deploy.shの必須ゲートも通過し、本番ビルド成功。最終TypeScript検査は8GB指定でexit 0。
+- ローカルwebpack生成の旧.next/types/app検査は既存ページの余分なexportで失敗したため、生成物だけを/tmp/amie_space_permissions_legacy_types_app_20261007へ退避し保存。ソースの修正や削除はしていない。現行Turbopackの検査と本番ビルドは成功。ローカルwebpack全体成功とは報告しない。
+- 未認証のadmin一覧・保存APIは401、PJ space loader/navとDD編集APIは404を確認。対象PJと利用者をサーバーで認可し、一覧の表示だけで権限を成立させない。
+- 他platformの管理UIは未移植。PWAの追加対応は残っていない。移植時は上記正本と本番適用済みmigrationを参照する。
+
+## 終了時の保管と責任範囲
+
+今回の変更はコード・schema・manual/spec・全platform正本・この引き継ぎに保存しmainへpush。復旧は上記実装commitをmainでrevertし通常deploy経路で反映する。新しいtableは追加型で実grant0のため、DDLの削除やmigration再適用は不要。
+
+作業開始前からの未追跡SESSION_MIGRATION_PROMPT_task_based_pt_20260922.mdは旧移行資料として保持し、今回のcommit対象から除外。共有checkoutの保管責任は元の移行作業側で、次の移行再開時に正本との重複を確認する。既存stash2件は2026-08-03/04のHTML preview作業による一時保管であり、今回の作業では作成・適用・削除しない。今回の未commit変更、追加branch/worktree、未push実装は残さない。ローカルの生成物・検証ログは再実行可能な証拠であり起動依存はない。会話証跡の恒久保存候補は0件。
 
 ## OSマニュアル同期ゲート
 
