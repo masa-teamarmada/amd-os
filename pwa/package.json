@@ -215,7 +215,8 @@
     "test:project-gantt-roadmap": "node --experimental-strip-types scripts/test_project_gantt_roadmap.mts",
     "test:project-contract-list": "node --experimental-strip-types --import ./scripts/register_relative_ts.mjs scripts/check_project_contract_list.mts",
     "test:organization-chart": "node --experimental-strip-types scripts/check_project_organization_chart.mts",
-    "test:space-permissions": "node --experimental-strip-types --import ./scripts/register_relative_ts.mjs scripts/check_space_permissions.mts"
+    "test:space-permissions": "node --experimental-strip-types --import ./scripts/register_relative_ts.mjs scripts/check_space_permissions.mts",
+    "test:project-proper-nouns": "node --experimental-strip-types --import ./scripts/register_relative_ts.mjs scripts/check_project_proper_nouns.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",
