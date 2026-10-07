@@ -48,6 +48,7 @@ import { FactoryUtilitySwitches, ReactorBearerSwitch, Segmented, num } from "@/c
 import { CostControlsPanel } from "@/components/cockpit/CockpitCostModelControls";
 import { CostResultsPanel, CostResultsSummaryBar, type CostViewSelection } from "@/components/cockpit/CockpitCostModelResults";
 import { CostReadingSections } from "@/components/cockpit/CockpitCostModelReading";
+import { CostProcessSummary } from "@/components/cockpit/CostProcessSummary";
 
 // PJコックピット / PJワークスペース「コスト試算」タブ。全PJ共通の雛形。
 //
@@ -296,6 +297,7 @@ export function CockpitCostModel({ projectId, allowEdit = true, initialData }: P
 
   return (
     <div className="flex flex-col gap-2">
+      <CostProcessSummary bundle={working} computed={computed} selection={{ ...selection, strain: computed.strain }} unit={unit} />
       <div className="rounded-xl border border-[#e5e5e7] bg-white" data-testid="cost-simulator">
         <h2 className="sr-only">{model.title}</h2>
         {/* スマホ幅: 結果の要約を上に固定する */}
