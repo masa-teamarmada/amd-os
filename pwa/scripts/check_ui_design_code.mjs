@@ -34,6 +34,7 @@ for (const [token, value] of [
 assert.match(designCode, /通常のOS業務画面の主色はsky/);
 assert.match(designCode, /emeraldは、根拠確認済みの安全・完了・成功/);
 assert.match(designCode, /test:ui-design-code/);
+assert.match(designCode, /横幅を埋めることを目的にしない/);
 
 assert.match(objectiveMap, /--tree-accent:\s*var\(--amd-action,\s*#027fdc\)/);
 assert.match(objectiveMap, /--tree-accent-soft:\s*var\(--amd-action-soft,\s*#e8f3fc\)/);
