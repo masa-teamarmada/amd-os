@@ -264,14 +264,18 @@ check("migration 468 より後は、project_ventures の事業の一言を直に
   assert.match(sql, /CREATE TRIGGER project_business_summaries_sync_venture/);
 });
 
-check("PJの定義と事業の概要を書くのは、管理者だけが通れる2つの API だけ", () => {
+check("PJの定義と事業の概要は、それぞれ認可された専用 API だけが書く", () => {
   const allowed = new Map([
     ["project_definitions", "src/app/api/project/[projectId]/overview/route.ts"],
     ["project_business_summaries", "src/app/api/project/[projectId]/business-summary/route.ts"],
   ]);
   for (const [table, route] of allowed) {
     const source = read(route);
-    assert.match(source, /export async function PATCH[\s\S]*?requireAdmin\(\)/, `${route} の書き込みは管理者だけ`);
+    if (table === "project_definitions") {
+      assert.match(source, /export async function PATCH[\s\S]*?requireAdmin\(\)/, `${route} の定義変更は管理者だけ`);
+    } else {
+      assert.match(source, /export async function PATCH[\s\S]*?requireProjectContentEditor\(req,\s*projectId\)/, `${route} の事業概要変更は対象PJのコンテンツ編集者だけ`);
+    }
     for (const full of walk(path.join(ROOT, "src"))) {
       const rel = path.relative(ROOT, full).split(path.sep).join("/");
       if (rel === route) continue;

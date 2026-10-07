@@ -227,3 +227,18 @@ migration 212 / 213 / 216〜219 / 258 と対になる contract。212 / 213は202
 
 ### 2026-10-06 人ごとの外部アクセス管理
 `/admin/access` は一人一行の検索可能な一覧と単一の編集ダイアログ。GET `/api/admin/workspace-access` にDD packages/grantsの全件paginationを追加。DD編集は既存 `/api/admin/dd` のcreate_grant/update_grant。POST action `grant_project_viewer` は既存accountへのreadonly PJ membershipのみを作り、機関所属/共同正本を作らない。停止account・既存membershipは拒否し、変更を監査する。account PATCHで表示名を変更できる。POST/PATCHはsame-origin必須。旧kind経路は互換維持。
+
+## PJの３スペース権限管理（2026-10-07）
+
+- admin-only `/admin/permissions`、GET/POST `/api/admin/space-permissions`。GETは全件pagination・安全な列だけで内部members、project_members、個別付与、外部accounts、PJ memberships、DD packages/grantsを集約する。認証IDや秘密値は返さない。同じメールは同じ人の行へまとめ、PJ×人を行、３スペースを列に表示。既存権限の根拠と停止・未ログイン・失効・未公開を区別する。
+- 内部の追加権限は `project_surface_member_permissions(project_id,member_id,surface,permission,granted_by_member_id,updated_at)`。surface=cockpit/workspace/dd、permission=view/edit。PK=(project_id,member_id,surface)。初期行なし、既存権限は独立した基準値。active memberだけが利用できる。admin管理権限は個別付与では変更しない。追加grantはPJ所属、報酬、エフォート対象を作らない。
+- POSTはrequireAdmin＋same-origin＋active admin再照合の後、service_role専用RPC `amd_os_admin_grant_project_surface`。active target・FK・allowlistで検証し、権限と監査を同じtransactionで保存。tableはRLS有効、anon/authenticatedに直接権限なし。migration正本=`ios/supabase/migrations/20261007090000_project_surface_permissions.sql`。本番適用済み、再適用不要。
+- `getCurrentMemberAccess` は毎requestで個別grantを読む。コックピット入口はapp layoutでPJ/surfaceを検証、`/api/project-surface/cockpit/[projectId]` は同じ認可後に既存共通loaderをservice clientで呼ぶ。署名付きPJ限定sessionでのコックピット付与も全社sessionへ昇格せず利用できる。workspace resolverはworkspaceの個別grantだけを採用する。
+- 内部editの委譲は対象PJの共有management、技術、知財、コスト試算、事業概要、資料へ接続。admin専用の全社・会計・権限・契約確定APIは維持。技術/IP/コストは保存済み対象行からproject_idを解決し、他PJへのID差替え・project_id/親IDの移動を拒否する。read flagとwrite guardは共通の個別grantを読む。既存portfolioの共有編集を新規の技術/IP等の編集根拠にしない。
+- 外部は既存 `project_access_memberships` にreadonly/managerを保存（manager=共有資料編集）。新規accountはinvited、初回ログインでactive化する。停止行は作成で復帰しない。内部用のコックピット付与を外部アカウントへ流用しない。
+- DDの外部capabilityに `dd.edit` を追加。dd.view必須、期限・account停止・package状態の既存境界を維持。内部のDD個別viewはopenだけ、editはdraftも利用でき、closedはadmin以外不可。DD編集画面=`/dd/[slug]/edit`、API=`/api/dd/[slug]/edit`。毎回resolveDdPackageAccess＋dd.edit＋same-originを確認。allowed actions=add/update/publish/withdraw/archive/restore_itemだけ。package_idとitem所属をDBで検証する。package受付状態・権限・ログの操作を委譲しない。GETはgrants/events/exportsを除き、画面もその操作を隠す。既存admin APIは `dd-admin-actions.ts` の同じ実装をrequireAdminで呼ぶ。
+- 「参加しているプロジェクト」へ個別付与のPJも含め、各スペースを独立に認可した入口を出す。マニュアル=2-6、共通画面正本=ios/DESIGN.md、pure判定の検査=`scripts/check_space_permissions.mts`、DD既存検査=`test:dd-package`。
+
+内部コンテンツの委譲APIは `requireProjectContentEditor` でactive member、対象PJの明示cockpit/workspace edit（またはadmin）を確認する。cookie認証の変更はsame-origin必須。Cookie/Originを伴わないNative Bearerは検証済みの内部JWTで認証し、同じPJ認可を行う。PJの定義・権限付与・全社設定は委譲対象外。
+
+社内の領域ナビは GET `/api/project-surface/navigation/[projectId]`（no-store）でcockpit/workspace/DDを独立に再照合する。DD管理リンクはadminだけ。DD個別付与は公開/編集可能状態の `/dd/[slug]` へ、workspace未付与ならそのリンクを出さない。表示中の領域だけは読み込み中も保持する。

@@ -1,3 +1,4 @@
+import { canEditProjectSurface, requireProjectContentEditor } from "@/lib/project-surface-access";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, requireMember } from "@/lib/supabase/api-auth";
@@ -193,10 +194,10 @@ export async function GET(req: NextRequest) {
   const kind: CostModelKind = req.nextUrl.searchParams.get("kind") === "fuel" ? "fuel" : "default";
   const bundle = await loadCostModelBundle(projectId, kind);
   if (!bundle) {
-    return NextResponse.json({ ok: true, canEdit: !!member.data?.is_admin, bundle: null }, { headers });
+    return NextResponse.json({ ok: true, canEdit: !!member.data?.is_admin || await canEditProjectSurface(projectId, "cockpit") || await canEditProjectSurface(projectId, "workspace"), bundle: null }, { headers });
   }
 
-  return NextResponse.json({ ok: true, canEdit: !!member.data?.is_admin, bundle }, { headers });
+  return NextResponse.json({ ok: true, canEdit: !!member.data?.is_admin || await canEditProjectSurface(projectId, "cockpit") || await canEditProjectSurface(projectId, "workspace"), bundle }, { headers });
 }
 
 const ASSUMPTION_FIELDS = new Set(["value", "value_text", "confidence", "source_kind", "owner", "note", "is_key", "visibility"]);
@@ -232,9 +233,6 @@ const ITEM_BEARERS = new Set(["sx", "customer", "site", "reactor"]);
  * 画面の試算は保存しない。admin が「この値を保存」を押したときだけ、ここで正本へ書く。計算結果は保存しない (常に導出)。
  */
 export async function PATCH(req: NextRequest) {
-  const auth = await requireAdmin();
-  if (!auth.ok) return auth.errorResponse;
-
   const body = await req.json().catch(() => null);
   if (!body || typeof body !== "object") return NextResponse.json({ ok: false, error: "invalid body" }, { status: 400 });
 
@@ -269,9 +267,13 @@ export async function PATCH(req: NextRequest) {
     : null;
   if (!table || !pk || !allowed) return NextResponse.json({ ok: false, error: "unknown entity" }, { status: 400 });
 
+  const {data: stored,error: lookupError} = await createAdminClient().from(table).select("project_id").eq(pk,id).maybeSingle();
+  if(lookupError || !stored) return NextResponse.json({error:"Not found"},{status:404});
+  const auth = await requireProjectContentEditor(req,stored.project_id);
+  if(!auth.ok) return auth.errorResponse;
   const clean: Record<string, unknown> = {};
   for (const [k, raw] of Object.entries(patch)) {
-    if (!allowed.has(k)) continue;
+    if (!allowed.has(k) || k === "project_id") continue;
     const v = raw === "" ? null : raw;
     if (NUMERIC_FIELDS.has(k)) {
       if (v === null) {

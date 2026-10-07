@@ -422,7 +422,7 @@ export async function loadDdAdminState(projectId: string): Promise<DdAdminState 
 }
 
 /** 公開する／公開をやめる。公開中の項目は、閲覧のたびに元データの最新を見せる。外した項目は公開できない（DB の制約）。 */
-export async function setDdItemPublished(itemId: string, published: boolean, actorMemberId: string): Promise<void> {
+export async function setDdItemPublished(itemId: string, published: boolean, actorMemberId: string | null): Promise<void> {
   const db = createAdminClient();
   const { error } = await db
     .from("dd_package_items")

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { memberSurfacePermission } from "@/lib/project-surface-permissions";
 import { getCurrentMemberAccess } from "@/lib/project-workspace";
 import { getWorkspaceAccessCandidateSession } from "@/lib/workspace-access-session";
 import {
@@ -19,7 +20,7 @@ import {
 //
 // - 外部アカウントは、署名 cookie を読んだあと毎回 DB を引き直す（停止・失効・期限切れ・パッケージの受付終了は次のリクエストで効く）。
 // - DDへ入れる根拠は dd_package_grants だけ。project_access_memberships / institution_workspace_memberships はここでは読まない。
-// - AMD の admin は、未公開（draft）を含むすべてのパッケージを管理者プレビューとして開ける。admin 以外の内部メンバーは DD を開けない。
+// - AMD の admin は、未公開（draft）を含むすべてのパッケージを管理者プレビューとして開ける。内部メンバーは対象PJのDD個別view/editだけを使い、workspaceやcockpitの権限から推測しない。
 // - どの失敗も null に倒す。呼び出し側は「見つからない」として閉じ、パッケージの有無を漏らさない。
 
 type PackageRow = { id: string; slug: string; project_id: string; title: string; status: DdPackageStatus };
@@ -100,7 +101,7 @@ async function loadPackageBySlug(slug: string): Promise<PackageRow | null> {
 
 /**
  * 1つのパッケージを開いてよいかを決める。ページ・ファイル配信・ダウンロードのすべてがここを通る。
- * 順序: AMD admin（管理者プレビュー） → 外部アカウントの DD 閲覧権限。どちらでもなければ null。
+ * 順序: AMD admin（管理者プレビュー） → 内部個別DD権限 → 外部アカウントの DD 閲覧権限。どちらでもなければ null。
  */
 export async function resolveDdPackageAccess(slug: string): Promise<DdViewerAccess | null> {
   if (!isDdSlug(slug)) return null;
@@ -120,6 +121,16 @@ export async function resolveDdPackageAccess(slug: string): Promise<DdViewerAcce
       packageStatus: pkg.status,
       capabilities: DD_CAPABILITIES,
       preview: true,
+    };
+  }
+
+  if (member) {
+    const pkg = await loadPackageBySlug(slug);
+    const permission = pkg ? memberSurfacePermission(member, pkg.project_id, "dd") : null;
+    if (pkg && permission && pkg.status !== "closed" && (pkg.status === "open" || permission === "edit")) return {
+      principal: "internal_member", memberId: member.memberId, email: member.email,
+      packageId: pkg.id, slug: pkg.slug, projectId: pkg.project_id, title: pkg.title,
+      packageStatus: pkg.status, capabilities: permission === "edit" ? ["dd.view", "dd.download", "dd.edit"] : ["dd.view"], preview: false,
     };
   }
 

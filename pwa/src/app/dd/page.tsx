@@ -1,3 +1,4 @@
+import {memberSurfacePermission} from "@/lib/project-surface-permissions";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -13,17 +14,18 @@ export const dynamic = "force-dynamic";
 export default async function DdHomePage() {
   const member = await getCurrentMemberAccess();
   if (member) {
-    if (!member.isAdmin) notFound();
+
     const db = createAdminClient();
     const { data, error } = await db
       .from("dd_packages")
       .select("id,slug,title,project_id,status,updated_at")
       .order("created_at");
     if (error) throw new Error(`dd package list: ${error.message}`);
-    const packages = (data ?? []) as Array<{ id: string; slug: string; title: string; project_id: string; status: DdPackageStatus }>;
+    const packages = ((data ?? []) as Array<{ id: string; slug: string; title: string; project_id: string; status: DdPackageStatus }>).filter(pkg => member.isAdmin || (memberSurfacePermission(member,pkg.project_id,"dd") && pkg.status !== "closed" && (pkg.status === "open" || memberSurfacePermission(member,pkg.project_id,"dd") === "edit")));
+    if (!member.isAdmin && packages.length === 1) redirect(`/dd/${encodeURIComponent(packages[0].slug)}`);
     return (
       <div className="mx-auto max-w-3xl px-4 py-8 text-[#1d1d1f] sm:px-6">
-        <h1 className="text-[18px] font-semibold">DDパッケージ（管理者）</h1>
+        <h1 className="text-[18px] font-semibold">DDパッケージ</h1>
         <p className="mt-1 text-[12px] text-[#6e6e73]">閲覧できるDDパッケージを選ぶ。</p>
         <table className="mt-4 w-full border-collapse text-[13px]">
           <thead>
@@ -40,7 +42,7 @@ export default async function DdHomePage() {
                 <td className="px-2 py-2 text-[12px] text-[#424245]">{DD_PACKAGE_STATUS_LABEL[pkg.status]}</td>
                 <td className="px-2 py-2 text-[12px]">
                   <Link href={`/dd/${encodeURIComponent(pkg.slug)}`} className="mr-3 text-[#0267b2] hover:underline">開く</Link>
-                  <Link href={`/project/${encodeURIComponent(pkg.project_id)}/dd?tab=manage`} className="text-[#0267b2] hover:underline">管理</Link>
+                  {member.isAdmin && <Link href={`/project/${encodeURIComponent(pkg.project_id)}/dd?tab=manage`} className="text-[#0267b2] hover:underline">管理</Link>}
                 </td>
               </tr>
             ))}

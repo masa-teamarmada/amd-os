@@ -142,7 +142,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - BOX移行: VSX/CX/SE/SX/ZMP/KUTEの旧Project ShareはPJ資料室へ移行済みで、2026-08-26に全廃した。既存 `project_documents` のDrive資料は `AMD内部/Drive資料` へ内部限定linkとして併記し、旧テーブルは既存機能のため残す。資料共有の正本は `workspace_documents` とprivate Storage `workspace-files`だけ。旧サブドメイン、Vercel project、Blob store、共有パスワード方式は復元・再利用しない。
 - capability: role名は `workspace-capabilities.ts` で明示capability束へ変換する。manager / ownerという名前から、未実装の所属管理、共同PJ更新、相手方主権データ確定を推定して付与しない。
 - mutation origin: cookie認証付き資料変更はsame-origin guardを必須とし、`Origin`、`Sec-Fetch-Site`、`Referer`のいずれでも同一originを確認できないrequestを403で閉じる。
-- admin management: `/admin/access` (内部admin限定) + `GET/POST/PATCH /api/admin/workspace-access` が唯一の付与・停止導線。`kind` を必須にし汎用upsert経路を作らない。停止済み (suspended / revoked) は作成では復活せず明示的な PATCH のみ。機関所属の付与がPJアクセスを自動作成しない。`auth.users` の id は select も返却もしない。GETは全対象tableをpaginationし、500/1000件で黙って切らない。未許可メールのログイン要求は`workspace_access_requests`へ分離し、まさへのSlack DMと`/admin/access`最上段の承認待ちから判断する。研究機関workspaceが一意な要求だけを閲覧権限で直接許可し、PJ/対象未特定は手動選択へ止める。
+- admin management: `/admin/access` (内部admin限定) + `GET/POST/PATCH /api/admin/workspace-access` が機関所属・停止状態の管理導線。PJの３領域の付与は `/admin/permissions` へ集約（spec 2-1）。`kind` を必須にし汎用upsert経路を作らない。停止済み (suspended / revoked) は作成では復活せず明示的な PATCH のみ。機関所属の付与がPJアクセスを自動作成しない。`auth.users` の id は select も返却もしない。GETは全対象tableをpaginationし、500/1000件で黙って切らない。未許可メールのログイン要求は`workspace_access_requests`へ分離し、まさへのSlack DMと`/admin/access`最上段の承認待ちから判断する。研究機関workspaceが一意な要求だけを閲覧権限で直接許可し、PJ/対象未特定は手動選択へ止める。
 - audit: `workspace_access_audit_logs` にログイン要求・送信・成功・拒否・ログアウト・admin操作を記録する。account、grant、資料metadataのrow変更はDB triggerで同じtransactionに記録し、semantic audit insert失敗も成功扱いしない。メール本文、URL、トークン、未登録アドレス、Storage pathは残さない。OS全体の行変更は別正本`amd_os_data_change_history`へDB triggerで残し、`/admin/change-history`で実行者・日時・対象・変更前後を読む。秘密storeとOTP limiter、未登録メールを持つaccess request台帳は値複製の対象外。履歴は2026-09-16以降・append-onlyで、導入前を遡及生成しない。
 - RLS: migration 212 の新設7テーブルは anon / 一般 authenticated のポリシーを持たない (admin + service_role のみ)。migration 213 は既存15テーブルの anon read を撤去し、authenticated を `amd_os_is_member()` ゲートへ寄せる。ECR / SPS の軸値と評価行そのものへは INSERT / UPDATE / DELETE を行わない。
 - internal read client: migration 213で閉じた内部テーブルをブラウザから読む場合は、匿名固定clientでなくSupabaseのログイン済みsessionを持つbrowser clientを使う。server routeはservice clientを明示注入する。PJ取得失敗を0件表示へ潰さず、dashboardに再読み込み可能なエラーを出す。
@@ -1050,3 +1050,7 @@ DDのproduct-descriptionはproject_configの当該PJ/key=product_descriptionだ�
 ## 2026-10-06 会社概要の設立案・創業背景
 
 3領域共通の会社概要はproject_company_profilesとcompany_incorporation_planを表で表示し、設立前の計画資本・株式を実績へ加算しない。DDには会社・経営体制の会社概要直下へfounding-backgroundを追加し、認可済みPJ/keyの明示文書をProjectProductDescriptionで表示。未登録と取得失敗を区別する。DD目録40資料・44URL。回帰防止はcheck_dd_pages.mts/check_dd_shared_page_data.mts、仕様spec 3-23/3-24/5-17、manual 2-6。
+
+## Admin 閲覧・編集権限（2026-10-07）
+
+/admin/permissionsはPJ×人を行、３スペースを列にする。既存権限・個別付与・停止/期限を表示。新規外部member登録と閲覧/編集付与、参加PJから独立入口。API=admin/space-permissions、DB=project_surface_member_permissions、DD edit=dd/[slug]/edit。test:space-permissions、test:dd-packageがPJ/surface隔離と操作境界を検査する。

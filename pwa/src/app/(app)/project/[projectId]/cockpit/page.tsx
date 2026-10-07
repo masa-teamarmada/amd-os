@@ -9,7 +9,7 @@ import {
   type CockpitTab,
 } from "@/lib/cockpit-tabs";
 import { prefetchProjectPage } from "@/lib/project-page-prefetch";
-import { fetchCockpitFromSupabase, type CockpitData } from "@/lib/supabase-data";
+import { type CockpitData } from "@/lib/supabase-data";
 
 // "progress" は既定タブなので ?tab= を付けない。それ以外は URL に残して共有・再読込で復元する。
 // 一覧の正本は src/lib/cockpit-tabs.ts。ここへ手で書き写すと、タブを足したときに
@@ -53,7 +53,10 @@ export default function CockpitPage() {
     if (legacyDd) return;
     let cancelled = false;
 
-    fetchCockpitFromSupabase(projectId)
+    fetch(`/api/project-surface/cockpit/${encodeURIComponent(projectId)}`, {cache: "no-store"}).then(async response => {
+      if (!response.ok) throw new Error("このPJの閲覧権限を確認できない");
+      return await response.json() as CockpitData;
+    })
       .then((data) => {
         if (cancelled) return;
         setLoadState({ projectId, cockpit: data, error: null });

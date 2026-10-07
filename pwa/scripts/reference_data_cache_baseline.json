@@ -23,7 +23,10 @@
     "src/components/admin/cash/CashLedgerPanel.tsx": "書き込み専用。口座明細 (cash-entries) と借入・返済 (cash-loan-events) の POST/DELETE にしか使わない。読み取りは src/lib/finance/cash-and-loans-client.ts のキャッシュ経由で、書き込み直後に invalidateCashAndLoans() を通して読み直す。ガードの静的検出が読み取りと誤認しないよう、読み取りの /api/admin/cash とパスを分けている。",
     "src/components/dd/DdAdminPanel.tsx": "書き込み専用。DDパッケージの管理操作 (POST /api/admin/dd: 項目の追加・編集・公開の切り替え・外す/戻す、パッケージの状態、閲覧権限の付与・停止・失効) にしか使わない。読み取りは DdProjectTab が行い、操作の直後に読み直す (2026-09-30 追加、同日にコックピット・ワークスペースのタブへ移設)。",
     "src/components/dd/DdProjectTab.tsx": "可変系。DDパッケージの管理画面の中身 (GET /api/admin/dd: 掲載項目と公開の切り替え、閲覧権限、閲覧記録、PDF出力の記録) は操作のたびに変わるので、タブを開くたびと操作の直後に読み直す (2026-09-30 追加)。",
-    "src/components/dd/DdPrintToolbar.tsx": "書き込み専用。正式版（PDF）の出力の記録 (POST /api/admin/dd action=record_export) にしか使わない (2026-09-30 追加)。"
+    "src/components/dd/DdPrintToolbar.tsx": "書き込み専用。正式版（PDF）の出力の記録 (POST /api/admin/dd action=record_export) にしか使わない (2026-09-30 追加)。",
+    "src/app/(app)/project/[projectId]/cockpit/page.tsx": "可変系。コックピット初期束は進行中タスク・重要な動き・通知を含み、PJ/surface入場権限を毎requestで再確認する。署名付きPJ限定sessionの許可範囲をキャッシュ済みの他PJ束で置き換えない。",
+    "src/components/admin/SpacePermissionsAdminPanel.tsx": "可変系。権限編集・停止・期限を保存直後に全件読み直す管理一覧。直前の付与状態を保存操作へ使うため毎回no-store。",
+    "src/components/nav/ProjectSurfaceNav.tsx": "表示時にPJ別の可変権限を再照合する。変更は次のリクエストで反映し、過去の管理権限をキャッシュしない。"
   },
   "allowed": {
     "src/lib/institution-support-programs-client.ts": [
@@ -335,6 +338,17 @@
     ],
     "src/components/dd/DdPrintToolbar.tsx": [
       "/api/admin/dd"
+    ],
+    "src/app/(app)/project/[projectId]/cockpit/page.tsx": [
+      "/api/project-surface/cockpit/:p"
+    ],
+    "src/components/admin/SpacePermissionsAdminPanel.tsx": [
+      "/api/admin/space-permissions",
+      "/api/admin/workspace-access",
+      "/api/admin/dd"
+    ],
+    "src/components/nav/ProjectSurfaceNav.tsx": [
+      "/api/project-surface/navigation/:p"
     ]
   }
 }

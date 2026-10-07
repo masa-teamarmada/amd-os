@@ -80,8 +80,8 @@ export function isDdItemKind(value: unknown): value is DdItemKind {
   return typeof value === "string" && (DD_ITEM_KINDS as readonly string[]).includes(value);
 }
 
-export type DdCapability = "dd.view" | "dd.download";
-export const DD_CAPABILITIES: readonly DdCapability[] = ["dd.view", "dd.download"];
+export type DdCapability = "dd.view" | "dd.download" | "dd.edit";
+export const DD_CAPABILITIES: readonly DdCapability[] = ["dd.view", "dd.download", "dd.edit"];
 
 export type DdGrantStatus = "invited" | "active" | "suspended" | "revoked";
 export type DdPackageStatus = "draft" | "open" | "closed";
@@ -101,6 +101,7 @@ export const DD_PACKAGE_STATUS_LABEL: Record<DdPackageStatus, string> = {
 
 export const DD_CAPABILITY_LABEL: Record<DdCapability, string> = {
   "dd.view": "閲覧",
+  "dd.edit": "掲載項目の編集",
   "dd.download": "添付資料のダウンロード",
 };
 
@@ -213,7 +214,7 @@ export function hasLoginEligibleDdGrant(
 /** DD の閲覧者（外部アカウント）と管理者プレビューを区別して扱うための型。 */
 export type DdViewerAccess =
   | {
-      principal: "internal_admin";
+      principal: "internal_admin" | "internal_member";
       memberId: string;
       email: string;
       packageId: string;
@@ -222,7 +223,7 @@ export type DdViewerAccess =
       title: string;
       packageStatus: DdPackageStatus;
       capabilities: readonly DdCapability[];
-      preview: true;
+      preview: boolean;
     }
   | {
       principal: "workspace_account";
@@ -289,7 +290,7 @@ export function isUuid(value: unknown): value is string {
 /** 外部アカウントの署名 cookie を認証の代わりに使ってよい DD の path。中身の認可は各ページが行う。 */
 export function isDdViewerPath(pathname: string): boolean {
   if (pathname === "/dd") return true;
-  return /^\/dd\/[^/]+(?:\/items\/[^/]+(?:\/file)?)?\/?$/.test(pathname);
+  return /^\/dd\/[^/]+(?:\/edit|\/items\/[^/]+(?:\/file)?)?\/?$/.test(pathname);
 }
 
 /** 公開対象にできる追加の共通ページ。DB制約とも一致させる。 */

@@ -4,7 +4,6 @@ import { Gauge, Users, Files } from "lucide-react";
 import styles from "./ProjectNavigation.module.css";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { loadProjectDdSummary, peekProjectDdSummary } from "@/lib/dd-client";
 
 type Surface = "cockpit" | "workspace" | "dd";
 type Props = {
@@ -35,18 +34,21 @@ export function ProjectSurfaceNav({ projectId, current, canCockpit = false, canW
   );
 }
 
-// 社内画面でのDD入口は、既存の参照系キャッシュ越しに管理権限を確認する。
+// 各領域の入口を独立に再照合する。表示結果を他領域の権限へ流用しない。
 export function InternalProjectSurfaceNav({ projectId, current, canCockpit = true }: Pick<Props, "projectId" | "current" | "canCockpit" >) {
-  const [loaded, setLoaded] = useState<{ projectId: string; canManage: boolean } | null>(null);
+  const [loaded, setLoaded] = useState<{ projectId: string; canCockpit: boolean; canWorkspace: boolean; ddHref?: string } | null>(null);
   useEffect(() => {
     let cancelled = false;
-    loadProjectDdSummary(projectId).then((summary) => {
-      if (!cancelled) setLoaded({ projectId, canManage: summary.canManage });
+    fetch(`/api/project-surface/navigation/${encodeURIComponent(projectId)}`, {cache: 'no-store'}).then(async response => {
+      if (!response.ok) throw new Error('navigation_unavailable');
+      return await response.json() as {canCockpit: boolean; canWorkspace: boolean; ddHref?: string};
+    }).then((summary) => {
+      if (!cancelled) setLoaded({ ...summary, projectId });
     }).catch(() => {
-      if (!cancelled) setLoaded({ projectId, canManage: false });
+      if (!cancelled) setLoaded({ projectId, canCockpit: false, canWorkspace: false });
     });
     return () => { cancelled = true; };
   }, [projectId]);
-  const canManage = loaded?.projectId === projectId ? loaded.canManage : peekProjectDdSummary(projectId)?.canManage;
-  return <ProjectSurfaceNav projectId={projectId} current={current} canCockpit={canCockpit} canWorkspace ddHref={canManage ? `/project/${encodeURIComponent(projectId)}/dd` : undefined} />;
+  const summary = loaded?.projectId === projectId ? loaded : null;
+  return <ProjectSurfaceNav projectId={projectId} current={current} canCockpit={current === 'cockpit' || (canCockpit && !!summary?.canCockpit)} canWorkspace={current === 'workspace' || !!summary?.canWorkspace} ddHref={summary?.ddHref} />;
 }

@@ -22,7 +22,7 @@ import { formatDdDate } from "@/lib/dd-format";
 // 項目は「公開する／公開をやめる」の切り替えだけ。公開中の項目は、元データの最新がそのまま投資家に見える（固定した版は作らない）。
 // 公開の切り替え・状態変更・付与の停止/失効は確認を挟む。投資家への招待メールは送らない（この画面にも送信機能は無い）。
 
-type Props = { state: DdAdminState; candidates: DdSourceCandidate[]; onChanged: () => void };
+type Props = { state: DdAdminState; candidates: DdSourceCandidate[]; onChanged: () => void; endpoint?: string; contentOnly?: boolean };
 
 const EVENT_LABEL: Record<string, string> = {
   dd_package_viewed: "トップを閲覧",
@@ -31,8 +31,8 @@ const EVENT_LABEL: Record<string, string> = {
   dd_file_downloaded: "資料をダウンロード",
 };
 
-async function postAction(body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; [key: string]: unknown }> {
-  const response = await fetch("/api/admin/dd", {
+async function postAction(endpoint: string, body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; [key: string]: unknown }> {
+  const response = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -60,7 +60,7 @@ function errorText(error: string | undefined) {
   return ERROR_TEXT[error] ?? error;
 }
 
-export function DdAdminPanel({ state, candidates, onChanged }: Props) {
+export function DdAdminPanel({ state, candidates, onChanged, endpoint = "/api/admin/dd", contentOnly = false }: Props) {
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -68,7 +68,7 @@ export function DdAdminPanel({ state, candidates, onChanged }: Props) {
   const run = (body: Record<string, unknown>, success: string, confirmText?: string) => {
     if (confirmText && !window.confirm(confirmText)) return;
     startTransition(async () => {
-      const result = await postAction(body);
+      const result = await postAction(endpoint, body);
       if (result.ok) {
         setMessage({ tone: "ok", text: success });
         onChanged();
@@ -105,7 +105,7 @@ export function DdAdminPanel({ state, candidates, onChanged }: Props) {
             </a>
           </div>
         </div>
-        <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-[#e5e5e7] bg-[#e5e5e7] text-[12px] md:grid-cols-5">
+        {!contentOnly && <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-[#e5e5e7] bg-[#e5e5e7] text-[12px] md:grid-cols-5">
           <div className="bg-white px-3 py-2">
             <dt className="text-[#6e6e73]">パッケージの状態</dt>
             <dd className="mt-0.5 font-semibold">{DD_PACKAGE_STATUS_LABEL[state.package.status]}</dd>
@@ -130,7 +130,7 @@ export function DdAdminPanel({ state, candidates, onChanged }: Props) {
               {state.exports.length}回{state.exports[0] ? `（最後 ${formatDdDate(state.exports[0].createdAt)}）` : ""}
             </dd>
           </div>
-        </dl>
+        </dl>}
         {message && (
           <p role="status" className={`rounded-md border px-3 py-2 text-[12.5px] ${message.tone === "ok" ? "border-[#bcdcf6] bg-[#eef6fd] text-[#0267b2]" : "border-[#f5c2c2] bg-[#fff5f5] text-[#b71c1c]"}`}>
             {message.text}
@@ -138,7 +138,7 @@ export function DdAdminPanel({ state, candidates, onChanged }: Props) {
         )}
       </header>
 
-      <PackageSettings state={state} pending={pending} run={run} />
+      {!contentOnly && <PackageSettings state={state} pending={pending} run={run} />}
 
       <section className="space-y-2">
         <div className="flex items-baseline justify-between gap-2 border-b border-[#1d1d1f] pb-1">
@@ -206,8 +206,9 @@ export function DdAdminPanel({ state, candidates, onChanged }: Props) {
 
       <AddItemForm packageId={state.package.id} candidates={candidates} addedKeys={addedKeys} pending={pending} run={run} />
 
-      <GrantsSection state={state} pending={pending} run={run} />
+      {!contentOnly && <GrantsSection state={state} pending={pending} run={run} />}
 
+      {!contentOnly && <>
       <section className="space-y-2">
         <div className="border-b border-[#1d1d1f] pb-1">
           <h3 className="text-[15px] font-semibold">PDFの出力の記録</h3>
@@ -269,6 +270,7 @@ export function DdAdminPanel({ state, candidates, onChanged }: Props) {
           </div>
         )}
       </section>
+      </>}
     </div>
   );
 }

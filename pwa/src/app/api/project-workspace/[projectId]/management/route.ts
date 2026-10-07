@@ -1,3 +1,4 @@
+import { memberSurfacePermission } from "@/lib/project-surface-permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
 import { canAccessWorkspaceProject, getCurrentMemberAccess } from "@/lib/project-workspace";
@@ -717,14 +718,14 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
 async function getWorkspaceContext(projectId: string) {
   const access = await getCurrentMemberAccess();
   if (!access) return { response: NextResponse.json({ error: "ログインが必要です" }, { status: 401 }) };
-  if (!canAccessWorkspaceProject(access, projectId)) return { response: NextResponse.json({ error: "このPJの共有情報には入れないよ" }, { status: 404 }) };
+  if (!canAccessWorkspaceProject(access, projectId) && !memberSurfacePermission(access, projectId, "cockpit")) return { response: NextResponse.json({ error: "このPJの共有情報には入れないよ" }, { status: 404 }) };
   return { access };
 }
 
 async function getManagerContext(projectId: string) {
   const context = await getWorkspaceContext(projectId);
   if ("response" in context) return context;
-  if (context.access.scope !== "portfolio" && !context.access.isAdmin) return { response: NextResponse.json({ error: "共有情報の更新権限がないよ" }, { status: 403 }) };
+  if (!(context.access.scope === "portfolio" || context.access.isAdmin || context.access.surfaceGrants?.some(g => g.project_id === projectId && (g.surface === "workspace" || g.surface === "cockpit") && g.permission === "edit"))) return { response: NextResponse.json({ error: "共有情報の更新権限がないよ" }, { status: 403 }) };
   return context;
 }
 
@@ -858,7 +859,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       const deletedRecords = await listDeletedRecords(createAdminClient(), projectId);
       return NextResponse.json({ deletedRecords }, { headers: { "Cache-Control": "no-store, max-age=0" } });
     }
-    const bundle = await getSxManagementBundle(projectId, context.access.scope === "portfolio" || context.access.isAdmin);
+    const bundle = await getSxManagementBundle(projectId, context.access.scope === "portfolio" || context.access.isAdmin || context.access.surfaceGrants?.some(g => g.project_id === projectId && (g.surface === "workspace" || g.surface === "cockpit") && g.permission === "edit") === true);
     return NextResponse.json(bundle, { headers: { "Cache-Control": "no-store, max-age=0" } });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "共有管理データを取得できなかったよ" }, { status: 500 });

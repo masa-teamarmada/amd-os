@@ -77,7 +77,7 @@ for (const file of viewerFiles) {
   const relative = path.relative(root, file);
   if (relative === path.join("src", "app", "dd", "page.tsx")) {
     assert.match(source, /resolveDdViewerScope\(\)/, "/dd は DB を引き直した閲覧範囲から一覧を作る");
-    assert.match(source, /if \(!member\.isAdmin\) notFound\(\)/, "admin 以外の内部メンバーは /dd を開けない");
+    assert.match(source, /memberSurfacePermission\(member,pkg\.project_id,"dd"\)/, "内部メンバーもPJ別のDD個別付与を確認する");
     continue;
   }
   const accessIndex = source.indexOf("resolveDdPackageAccess(");
@@ -137,7 +137,8 @@ assert.match(liveBodies, /allowEdit=\{false\}/, "コスト試算は見るだけ�
 assert.match(liveBodies, /\breadOnly\b/, "資本政策表は見るだけで描く");
 
 // --- 管理 API ---------------------------------------------------------------
-const adminApi = read("src/app/api/admin/dd/route.ts");
+const adminApi = read("src/lib/dd-admin-actions.ts");
+assert.match(read("src/app/api/admin/dd/route.ts"), /export \{ GET, POST \} from "@\/lib\/dd-admin-actions"/);
 const postBody = adminApi.slice(adminApi.indexOf("export async function POST"));
 assert.ok(postBody.indexOf("requireAdmin()") < postBody.indexOf("readBody("), "requireAdmin を最初に呼ぶ");
 assert.match(postBody, /isSameOriginWorkspaceMutation\(request\)/, "同一サイト確認");

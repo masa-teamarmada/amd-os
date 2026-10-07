@@ -15,12 +15,12 @@ type LoadState =
   | { status: "none" }
   | { status: "ready"; state: DdAdminState; candidates: DdSourceCandidate[] };
 
-export function DdProjectTab({ projectId }: { projectId: string }) {
+export function DdProjectTab({ projectId, endpoint, contentOnly = false }: { projectId: string; endpoint?: string; contentOnly?: boolean }) {
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
 
   const reload = useCallback(async () => {
     try {
-      const response = await fetch(`/api/admin/dd?projectId=${encodeURIComponent(projectId)}`, { cache: "no-store" });
+      const response = await fetch(endpoint ?? `/api/admin/dd?projectId=${encodeURIComponent(projectId)}`, { cache: "no-store" });
       const json = (await response.json().catch(() => null)) as
         | { ok?: boolean; state?: DdAdminState | null; candidates?: DdSourceCandidate[]; error?: string }
         | null;
@@ -33,7 +33,7 @@ export function DdProjectTab({ projectId }: { projectId: string }) {
     } catch {
       setLoad({ status: "error", message: "DDパッケージを読み込めなかった。画面を開き直す。" });
     }
-  }, [projectId]);
+  }, [projectId, endpoint]);
 
   useEffect(() => {
     void reload();
@@ -54,5 +54,5 @@ export function DdProjectTab({ projectId }: { projectId: string }) {
   if (load.status === "none") {
     return <p className="text-[12.5px] text-[#6e6e73]">このPJにはDDパッケージがまだない。</p>;
   }
-  return <DdAdminPanel state={load.state} candidates={load.candidates} onChanged={() => void reload()} />;
+  return <DdAdminPanel endpoint={endpoint} contentOnly={contentOnly} state={load.state} candidates={load.candidates} onChanged={() => void reload()} />;
 }

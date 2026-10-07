@@ -714,3 +714,9 @@ PWA会社概要はproject_company_profilesとproject_config.company_incorporatio
 ## 2026-10-07 DDの経営会議議事録
 
 DDの「総会・取締役会・経営会議議事録」は、コックピットのMTGツリーと同じ `project_meeting_summaries` から、当該PJの開催済み経営会議を全期間・開催日の新しい順に表示する。会議名に「経営会議」を含む記録を対象とし、予定・準備・対話・資料なし・未来日の記録を除外する。開催日、会議名と概要、記録済みの決定事項、開閉式の議事録本文を表示し、自由文から正式な決議・結果を推定しない。本文未登録と会議未登録は区別する。株主総会・取締役会は既存の未登録表示を維持。DD認可後にサーバで読むため、内部の会議APIや編集機能へつながず、付与・公開設定・DB書込み・通知を追加しない。500件ずつ全期間を取得し、取得失敗を空一覧と扱わない。ネイティブDD画面は未移植。
+
+## Admin 閲覧・編集権限（2026-10-07）
+
+PWA `/admin/permissions` はPJ×メンバーを行、コックピット／ワークスペース／DDパッケージを列にした権限一覧。名前・メール・PJ検索、未付与表示、各セルから付与編集、新しい外部メンバー登録。既存の管理者・社内・PJ所属権限と追加付与を区別する。内部追加grantは `project_surface_member_permissions`、外部workspace/DDは既存独立grant。編集に管理者権限や他人への再付与は含めない。
+
+DDの掲載項目編集は独立領域の `/dd/[slug]/edit`。`dd.edit` を毎requestで確認し、該当packageの項目だけを変更する。共通元データ編集とは独立。iOS/macOS/Androidの管理画面は未移植。DB・capabilityとAPIは全platform共通。詳細= `pwa/spec/2-1-pwa-runtime-routes.md`。

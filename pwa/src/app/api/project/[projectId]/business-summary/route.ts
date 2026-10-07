@@ -1,6 +1,7 @@
+import { canEditProjectSurface, requireProjectContentEditor } from "@/lib/project-surface-access";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAdmin, requireMember } from "@/lib/supabase/api-auth";
+import { requireMember } from "@/lib/supabase/api-auth";
 import { hasSharedWorkspaceProjectReadAccess } from "@/lib/shared-workspace-project-read-access";
 import { textOrNull, type BusinessSummary, type BusinessSummaryResponse } from "@/lib/project-overview";
 
@@ -8,7 +9,7 @@ export const runtime = "nodejs";
 
 // 会社情報 > 会社概要「事業の概要」（事業の一言と詳しい説明）の API（spec 3-23 §9）。2026-10-04 まさ確定。
 // GET   = ログイン済みAMDメンバー、または当該PJの共有ワークスペースメンバー（会社概要はワークスペースでも読む）。
-// PATCH = 管理者だけ。正本は project_business_summaries（migration 468）。Venture Map などが読む
+// PATCH = 管理者、または対象PJのコックピット/ワークスペースを明示的に編集付与された内部メンバー。正本は project_business_summaries（migration 468）。Venture Map などが読む
 //         project_ventures.short_description / long_description へは DB のトリガーが写す。ほかの入口からは書けない。
 
 /** 参照系。事業の概要はPJを作るときに書いて、めったに変えない（spec 5-10）。 */
@@ -75,6 +76,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ projectId: str
       const { data } = await db.from("members").select("is_admin").ilike("email", auth.user.email).maybeSingle();
       canEdit = Boolean((data as { is_admin?: boolean } | null)?.is_admin);
     }
+    canEdit ||= await canEditProjectSurface(projectId, "workspace") || await canEditProjectSurface(projectId, "cockpit");
     const body: BusinessSummaryResponse = { ok: true, business, viewer: { canEdit } };
     return NextResponse.json(body, { headers: HEADERS });
   } catch {
@@ -86,7 +88,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ projectId: str
 export async function PATCH(req: Request, ctx: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await ctx.params;
   if (!projectId) return NextResponse.json({ ok: false, error: "projectId required" }, { status: 400 });
-  const auth = await requireAdmin();
+  const auth = await requireProjectContentEditor(req,projectId);
   if (!auth.ok) return auth.errorResponse;
 
   const body = (await req.json().catch(() => null)) as { summary?: unknown; detail?: unknown } | null;

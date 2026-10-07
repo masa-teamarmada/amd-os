@@ -1,3 +1,4 @@
+import { canEditProjectSurface, requireProjectContentEditor } from "@/lib/project-surface-access";
 import { NextRequest, NextResponse } from "next/server";
 import { loadProjectTechData } from "@/lib/project-tech-server";
 import { randomUUID } from "node:crypto";
@@ -61,7 +62,7 @@ export async function GET(req: NextRequest) {
   const db = auth.ok ? auth.supabase : createAdminClient();
 
   try {
-    const data = await loadProjectTechData(db, projectId, Boolean(member.data?.is_admin));
+    const data = await loadProjectTechData(db, projectId, Boolean(member.data?.is_admin) || await canEditProjectSurface(projectId, "cockpit") || await canEditProjectSurface(projectId, "workspace"));
     return NextResponse.json({ ok: true, ...data }, { headers: CACHE_HEADERS });
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "読み込みに失敗" }, { status: 500 });
@@ -70,9 +71,6 @@ export async function GET(req: NextRequest) {
 
 /** POST /api/project-tech  body: { entity, row } → 新規作成 (admin) */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
-  if (!auth.ok) return auth.errorResponse;
-
   const body = await req.json().catch(() => null);
   const entity = parseEntity(body?.entity);
   if (!entity || !body?.row) {
@@ -88,6 +86,12 @@ export async function POST(req: NextRequest) {
     if (!row.tech_topic_id) return NextResponse.json({ ok: false, error: "row.tech_topic_id required" }, { status: 400 });
     if (!row.row_label) return NextResponse.json({ ok: false, error: "row.row_label required" }, { status: 400 });
   }
+  const auth = await requireProjectContentEditor(req, String(row.project_id));
+  if (!auth.ok) return auth.errorResponse;
+  if (entity === "entry") {
+    const {data: parent} = await createAdminClient().from("project_tech_topics").select("project_id").eq("tech_topic_id",row.tech_topic_id).maybeSingle();
+    if (!parent || parent.project_id !== row.project_id) return NextResponse.json({error:"invalid_parent"},{status:400});
+  }
   row.updated_by = auth.user.email;
   row.created_by = row.created_by || auth.user.email;
 
@@ -99,15 +103,18 @@ export async function POST(req: NextRequest) {
 
 /** PATCH /api/project-tech  body: { entity, id, patch } → 更新 (admin) */
 export async function PATCH(req: NextRequest) {
-  const auth = await requireAdmin();
-  if (!auth.ok) return auth.errorResponse;
-
   const body = await req.json().catch(() => null);
   const entity = parseEntity(body?.entity);
   if (!entity || !body?.id || !body?.patch) {
     return NextResponse.json({ ok: false, error: "entity / id / patch required" }, { status: 400 });
   }
+  const { data: stored, error: lookupError } = await createAdminClient().from(TABLE[entity]).select("project_id").eq(PK[entity], body.id).maybeSingle();
+  if (lookupError || !stored) return NextResponse.json({error:"Not found"},{status:404});
+  const auth = await requireProjectContentEditor(req, stored.project_id);
+  if (!auth.ok) return auth.errorResponse;
   const patch = { ...body.patch } as Record<string, unknown>;
+  delete patch.project_id;
+  delete patch.tech_topic_id;
   delete patch[PK[entity]];
   patch.updated_at = new Date().toISOString();
   patch.updated_by = auth.user.email;
@@ -125,13 +132,15 @@ export async function PATCH(req: NextRequest) {
 
 /** DELETE /api/project-tech?entity=topic&id=ptt_xxx → 削除 (admin)。トピックを消すと中身も消える。 */
 export async function DELETE(req: NextRequest) {
-  const auth = await requireAdmin();
-  if (!auth.ok) return auth.errorResponse;
 
   const entity = parseEntity(req.nextUrl.searchParams.get("entity"));
   const id = req.nextUrl.searchParams.get("id");
   if (!entity || !id) return NextResponse.json({ ok: false, error: "entity / id required" }, { status: 400 });
 
+  const {data: stored} = await createAdminClient().from(TABLE[entity]).select("project_id").eq(PK[entity], id).maybeSingle();
+  if (!stored) return NextResponse.json({error:"Not found"},{status:404});
+  const auth = await requireProjectContentEditor(req,stored.project_id);
+  if (!auth.ok) return auth.errorResponse;
   const admin = createAdminClient();
   const { error } = await admin.from(TABLE[entity]).delete().eq(PK[entity], id);
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { memberSurfacePermission } from "@/lib/project-surface-permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentMemberAccess } from "@/lib/project-workspace";
 import { resolveSharedWorkspaceAccess } from "@/lib/project-shared-workspace-access";
@@ -28,7 +29,9 @@ export type WorkspaceDocumentAccess = {
 };
 
 export async function resolveProjectDocumentAccess(projectId: string): Promise<WorkspaceDocumentAccess | null> {
-  const access = await resolveSharedWorkspaceAccess(projectId);
+  const shared = await resolveSharedWorkspaceAccess(projectId);
+  const internal = await getCurrentMemberAccess();
+  const access = shared ?? (internal && memberSurfacePermission(internal, projectId, "cockpit") ? {...internal,principal:"member" as const} : null);
   if (!access) return null;
 
   if (access.principal === "workspace_account") {
@@ -54,7 +57,8 @@ export async function resolveProjectDocumentAccess(projectId: string): Promise<W
     };
   }
 
-  const directProjectMember = access.projects.some((project) => project.projectId === projectId);
+  const explicitEdit = access.surfaceGrants?.some(g => g.project_id === projectId && (g.surface === "workspace" || g.surface === "cockpit") && g.permission === "edit");
+  const directProjectMember = explicitEdit || internal?.projects.some(project => project.projectId === projectId) === true;
   const capabilities = workspaceCapabilities({
     principal: "internal_member",
     scopeKind: "project",

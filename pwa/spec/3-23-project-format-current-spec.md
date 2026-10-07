@@ -164,7 +164,7 @@
 4. **コスト試算タブは入口がデータの形で選ぶ**（§7）：入口 `CockpitCostTab` は `costFormatEngineOf(bundle)` だけで画面を選ぶ。標準フォーマット `ProjectCostFormat` は §7 の区画をすべて描き、要約の欄と前提の並べ方は定義の順に描く。コックピット・PJワークスペース・DD はどれも入口を通し、廃液の画面（`CockpitCostModel`）を直に描かない。燃料の試算もタブを足さず、入口の中の切り替えで読む。計算の答えと式の一致は `npm run test:project-cost-model`（`scripts/check_project_cost_items_engine.mts`）が確かめる。
 5. **タブはPJタイプの定義からだけ作る**（§2）：`CockpitView` は `cockpitGroupsForType(formatType)`・`resolveCockpitTabForType`、ワークスペースは `WORKSPACE_TAB_FORMATS` からタブを作る。中身の有無でタブを出し分ける書き方（`hasCompetition`・`hasBusinessModel`・`hasFuelCost`・`hasDd`・`hasInstitutionSeedsTab`・`ledgerTabsPresent`）を戻さない。DDはタブの外の領域選択に置き、独立した認可を使う。ワークスペースの題名は表示名から作る。
 6. **事業計画タブはデータから**（§8）：`CockpitBusinessPlan` は `project_business_plans` を読み、`BUSINESS_PLAN_FORMAT` のレーンの順に描く。PJの定数（`sx-business-plan`）を画面に持ち込まない。
-7. **PJ概要は9項目、事業の一言の入口は会社概要だけ**（§9）：`npm run test:project-overview`（`scripts/check_project_overview_contract.mts`）が、`ProjectOverviewFormat` が定義の9項目を全部描くこと、コックピットの PJ概要がこの画面であること、`project_ventures.short_description` / `long_description` を書くコードが無いこと、PJの定義と事業の概要を書くのが管理者だけが通れる2つの API だけであること、報酬形態の種類が定義と DB の CHECK で同じであることを確かめる。DB でも、控えの2列を直に書き換えると止まる（トリガー `project_ventures_business_summary_guard`）。
+7. **PJ概要は9項目、事業の一言の入口は会社概要だけ**（§9）：`npm run test:project-overview`（`scripts/check_project_overview_contract.mts`）が、`ProjectOverviewFormat` が定義の9項目を全部描くこと、コックピットの PJ概要がこの画面であること、`project_ventures.short_description` / `long_description` を書くコードが無いこと、PJ定義は管理者、事業概要は管理者または対象PJの明示的なコンテンツ編集者だけが各専用APIで書くこと、報酬形態の種類が定義と DB の CHECK で同じであることを確かめる。DB でも、控えの2列を直に書き換えると止まる（トリガー `project_ventures_business_summary_guard`）。
 
 ## 6. 特定のPJだけの処理を置かない
 
@@ -310,7 +310,7 @@
 
 事業の一言（何をする事業か）は会社の話なので、PJ概要から会社情報 > 会社概要のいちばん上「事業の概要」へ移した。部品は `CompanyBusinessSummarySection`。共有ワークスペースの会社概要でも読み取りで出す。
 
-- 正本は `project_business_summaries`（`summary`＝事業の一言、`detail`＝詳しい説明。全PJで持てる）。書けるのは管理者だけ（RLS と API）。
+- 正本は `project_business_summaries`（`summary`＝事業の一言、`detail`＝詳しい説明。全PJで持てる）。書けるのは管理者、または対象PJのコックピット/ワークスペースを明示的に編集付与された内部メンバー（service APIでPJ認可、DBの直接書込みは従来RLSのまま）。
 - 書くのは、技術・製品・用途・顧客・出自だけ。出資・調達・採択・予定・進み具合は書かない（置き場は資本政策表・動向・会議・ゴールツリー）。
 - Venture Map・沿革・XRL判定・PJ紹介資料・つくよみの文脈が読む `project_ventures.short_description` / `long_description` は、正本から写す控え（トリガー `project_business_summaries_sync_venture`）。控えを直に書き換えると DB が止める（トリガー `project_ventures_business_summary_guard`）。
 - 外した入口: つくよみの「追記をマージ」（`/api/project-ventures/[projectId]/description-merge` と `CockpitDescriptionDetailModal`）、つくよみのチャットの道具 `update_short_long_description`（指示文 `tsukuyomi.system` の行も外した）、Venture Map の分類の編集の「概要」欄。事業の一言の入口は会社概要の1つだけにし、入口が増えたら本番反映の前の検査（§5 の7）で止める。
@@ -319,8 +319,8 @@
 
 | データ | 正本 | API | クライアント層 |
 |---|---|---|---|
-| PJの定義（関わり方の補足・報酬形態・先方の窓口） | `project_definitions`（migration 468、1PJ1行） | `/api/project/[projectId]/overview`（GET＝AMDメンバー、PATCH＝管理者だけ） | `src/lib/project-overview-client.ts` |
-| 事業の概要 | `project_business_summaries`（migration 468、1PJ1行） | `/api/project/[projectId]/business-summary`（GET＝AMDメンバーとワークスペースの参加者、PATCH＝管理者だけ） | `src/lib/business-summary-client.ts` |
+| PJの定義（関わり方の補足・報酬形態・先方の窓口） | `project_definitions`（migration 468、1PJ1行） | `/api/project/[projectId]/overview`（GET＝AMDメンバー、PATCH＝管理者または対象PJの明示コンテンツ編集者） | `src/lib/project-overview-client.ts` |
+| 事業の概要 | `project_business_summaries`（migration 468、1PJ1行） | `/api/project/[projectId]/business-summary`（GET＝AMDメンバーとワークスペースの参加者、PATCH＝管理者または対象PJの明示コンテンツ編集者） | `src/lib/business-summary-client.ts` |
 
 - どちらも参照系（spec 5-10）。サーバのプロセス内（PJ概要60秒・事業の概要5分、同時の読み込みは1本へ束ねる）・`Cache-Control`・クライアントのキャッシュの3層を通す。PJ概要タブにカーソルが乗ったら、PJ概要・ゴールツリー・収支を先読みする。会社情報タブでは事業の概要も先読みする。
 - ゴールツリー（`question-tree-client`）・収支（`season-budget-client`）・契約（コックピットの束）は、それぞれのタブと同じ読み込み層から読む。PJ概要で別に計算しない（組み立ての純関数は `src/lib/project-overview.ts`）。

@@ -1,3 +1,4 @@
+import { canEditProjectSurface, requireProjectContentEditor } from "@/lib/project-surface-access";
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -96,7 +97,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    canEdit: Boolean(member.data?.is_admin),
+    canEdit: Boolean(member.data?.is_admin) || await canEditProjectSurface(projectId, "cockpit") || await canEditProjectSurface(projectId, "workspace"),
     assets: assetsRes.data ?? [],
     deadlines: deadlinesRes.data ?? [],
     events: eventsRes.data ?? [],
@@ -104,11 +105,20 @@ export async function GET(req: NextRequest) {
   });
 }
 
+async function resourceProjectId(entity: Entity, id: string): Promise<string | null> {
+  const db = createAdminClient();
+  if (entity !== "right") {
+    const {data,error} = await db.from(TABLE[entity]).select("project_id").eq(PK[entity],id).maybeSingle();
+    return error ? null : data?.project_id ?? null;
+  }
+  const {data: right,error} = await db.from("project_ip_rights").select("ip_asset_id").eq("ip_right_id",id).maybeSingle();
+  if(error || !right) return null;
+  const {data: asset} = await db.from("project_ip_assets").select("project_id").eq("ip_asset_id",right.ip_asset_id).maybeSingle();
+  return asset?.project_id ?? null;
+}
+
 /** POST /api/project-ip  body: { entity, row } → 新規作成 (admin) */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
-  if (!auth.ok) return auth.errorResponse;
-
   const body = await req.json().catch(() => null);
   const entity = parseEntity(body?.entity);
   if (!entity || !body?.row) {
@@ -116,13 +126,19 @@ export async function POST(req: NextRequest) {
   }
   const row = { ...body.row } as Record<string, unknown>;
   row[PK[entity]] = row[PK[entity]] || `${ID_PREFIX[entity]}_${randomUUID().slice(0, 12)}`;
-  if (entity === "asset" || entity === "deadline" || entity === "event") {
-    if (!row.project_id) return NextResponse.json({ ok: false, error: "row.project_id required" }, { status: 400 });
+  let projectId = typeof row.project_id === "string" ? row.project_id : "";
+  if (entity === "right" || row.ip_asset_id) {
+    const {data: asset} = await createAdminClient().from("project_ip_assets").select("project_id").eq("ip_asset_id",row.ip_asset_id).maybeSingle();
+    if (!asset || (projectId && projectId !== asset.project_id)) return NextResponse.json({error:"invalid_parent"},{status:400});
+    projectId = asset.project_id;
+    if (entity === "right") delete row.project_id;
   }
+  const auth = await requireProjectContentEditor(req, projectId);
+  if (!auth.ok) return auth.errorResponse;
   if (entity === "asset") {
-    if (!row.title) return NextResponse.json({ ok: false, error: "row.title required" }, { status: 400 });
+    if (!row.title) return NextResponse.json({error:"title_required"},{status:400});
     row.updated_by = auth.user.email;
-    row.created_by = row.created_by || auth.user.email;
+    row.created_by = auth.user.email;
   }
 
   const admin = createAdminClient();
@@ -133,15 +149,18 @@ export async function POST(req: NextRequest) {
 
 /** PATCH /api/project-ip  body: { entity, id, patch } → 更新 (admin) */
 export async function PATCH(req: NextRequest) {
-  const auth = await requireAdmin();
-  if (!auth.ok) return auth.errorResponse;
-
   const body = await req.json().catch(() => null);
   const entity = parseEntity(body?.entity);
   if (!entity || !body?.id || !body?.patch) {
     return NextResponse.json({ ok: false, error: "entity / id / patch required" }, { status: 400 });
   }
+  const projectId = await resourceProjectId(entity,body.id);
+  if (!projectId) return NextResponse.json({error:"Not found"},{status:404});
+  const auth = await requireProjectContentEditor(req, projectId);
+  if (!auth.ok) return auth.errorResponse;
   const patch = { ...body.patch } as Record<string, unknown>;
+  delete patch.project_id;
+  delete patch.ip_asset_id;
   delete patch[PK[entity]];
   if (entity !== "event") patch.updated_at = new Date().toISOString();
   if (entity === "asset") patch.updated_by = auth.user.email;
@@ -159,13 +178,15 @@ export async function PATCH(req: NextRequest) {
 
 /** DELETE /api/project-ip?entity=asset&id=ipa_xxx → 削除 (admin) */
 export async function DELETE(req: NextRequest) {
-  const auth = await requireAdmin();
-  if (!auth.ok) return auth.errorResponse;
 
   const entity = parseEntity(req.nextUrl.searchParams.get("entity"));
   const id = req.nextUrl.searchParams.get("id");
   if (!entity || !id) return NextResponse.json({ ok: false, error: "entity / id required" }, { status: 400 });
 
+  const projectId = await resourceProjectId(entity,id);
+  if (!projectId) return NextResponse.json({error:"Not found"},{status:404});
+  const auth = await requireProjectContentEditor(req,projectId);
+  if (!auth.ok) return auth.errorResponse;
   const admin = createAdminClient();
   const { error } = await admin.from(TABLE[entity]).delete().eq(PK[entity], id);
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });

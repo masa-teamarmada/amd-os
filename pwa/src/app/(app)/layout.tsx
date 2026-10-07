@@ -7,6 +7,8 @@ import {
   memberHome,
   projectScopedPathAllowed,
 } from "@/lib/project-workspace";
+import { notFound } from "next/navigation";
+import { memberSurfacePermission } from "@/lib/project-surface-permissions";
 import { surfaceTitleForPath } from "@/lib/surface-catalog";
 
 // SSR 時点で <title> を確定させる (= タブタイトル「変わらない」事故防止)。
@@ -44,6 +46,8 @@ export default async function AppLayout({
       `/auth/login?next=${encodeURIComponent(pathname || "/dashboard")}&error=calendar_required`,
     );
   }
+  const cockpit = pathname.match(/^\/project\/([^/]+)\/cockpit\/?$/);
+  if (cockpit && !memberSurfacePermission(access, decodeURIComponent(cockpit[1]), "cockpit")) notFound();
   if (!projectScopedPathAllowed(access, pathname)) {
     redirect(memberHome(access));
   }

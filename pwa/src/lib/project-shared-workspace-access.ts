@@ -1,5 +1,6 @@
 import "server-only";
 
+import { memberSurfacePermission } from "@/lib/project-surface-permissions";
 import type { ProjectNavItem } from "@/lib/project-workspace-types";
 import {
   getCurrentMemberAccess,
@@ -15,7 +16,9 @@ import { resolveWorkspaceAccess } from "@/lib/workspace-access-resolver";
 
 export type InternalMemberViewerAccess = CurrentMemberAccess & {
   principal: "member";
-  canEditEffort: true;
+  canEditEffort: boolean;
+  canCockpit: boolean;
+  canManage: boolean;
 };
 
 export type ExternalProjectViewerAccess = {
@@ -49,15 +52,16 @@ export async function resolveSharedWorkspaceAccess(
 ): Promise<SharedWorkspaceAccess | null> {
   const memberAccess = await getCurrentMemberAccess();
   if (memberAccess) {
-    const allowed =
-      memberAccess.scope === "portfolio" ||
-      memberAccess.isAdmin ||
-      memberAccess.projects.some((project) => project.projectId === projectId);
+    const permission = memberSurfacePermission(memberAccess, projectId, "workspace");
+    const allowed = !!permission;
     if (!allowed) return null;
     return {
       ...memberAccess,
+      projects: memberAccess.projects.some(p => p.projectId === projectId) ? memberAccess.projects : [...memberAccess.projects, {projectId, projectName: projectId}],
       principal: "member",
-      canEditEffort: true,
+      canCockpit: !!memberSurfacePermission(memberAccess, projectId, "cockpit"),
+      canEditEffort: memberAccess.isAdmin || memberAccess.scope === "portfolio" || memberAccess.projects.some(p => p.projectId === projectId),
+      canManage: memberAccess.isAdmin || memberAccess.scope === "portfolio" || memberAccess.surfaceGrants?.some(g => g.project_id === projectId && g.surface === "workspace" && g.permission === "edit") === true,
     };
   }
 

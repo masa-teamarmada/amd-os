@@ -1,47 +1,11 @@
-import Link from "next/link";
-import { ArrowRight, FlaskConical } from "lucide-react";
-import { getCurrentMemberAccess } from "@/lib/project-workspace";
-
+import Link from 'next/link';
+import {createAdminClient} from '@/lib/supabase/admin';
+import {getCurrentMemberAccess} from '@/lib/project-workspace';
+import {memberSurfacePermission} from '@/lib/project-surface-permissions';
 export default async function MyProjectsPage() {
-  const access = await getCurrentMemberAccess();
-
-  return (
-    <div className="amd-desk-page-skin min-h-screen px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-8 max-w-2xl">
-          <p className="mb-2 text-xs font-semibold tracking-[0.14em] text-[#256c55]">PROJECT WORKSPACE</p>
-          <h1 className="text-2xl font-semibold tracking-tight text-[#24231f] sm:text-3xl">参加しているプロジェクト</h1>
-          <p className="mt-3 text-sm leading-6 text-[#69665d]">
-            ここには参加設定されたPJだけが表示されるよ。ほかのPJやAMD社内の管理情報は表示されない。
-          </p>
-        </div>
-
-        {access && access.projects.length > 0 ? (
-          <div className="grid gap-4 md:grid-cols-2">
-            {access.projects.map((project) => (
-              <Link
-                key={project.projectId}
-                href={`/project/${encodeURIComponent(project.projectId)}/workspace`}
-                className="group rounded-xl border border-[#d9d2c3] bg-[#fffdf7]/90 p-5 transition hover:-translate-y-0.5 hover:border-[#256c55]/50 hover:shadow-[0_10px_30px_rgba(46,54,45,0.08)]"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-[#dfeee6] text-[#256c55]">
-                    <FlaskConical className="h-5 w-5" aria-hidden="true" />
-                  </span>
-                  <ArrowRight className="h-4 w-4 text-[#928d82] transition-transform group-hover:translate-x-1 group-hover:text-[#256c55]" aria-hidden="true" />
-                </div>
-                <h2 className="mt-6 text-lg font-semibold text-[#24231f]">{project.projectName}</h2>
-                <p className="mt-1 font-mono text-xs text-[#928d82]">{project.projectId}</p>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-xl border border-dashed border-[#c7bfaf] bg-[#fffdf7]/70 px-6 py-12 text-center">
-            <p className="text-sm font-medium text-[#24231f]">参加PJがまだ設定されてないよ</p>
-            <p className="mt-2 text-xs text-[#69665d]">PJ管理者にメンバー設定を確認してもらってください。</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+ const access=await getCurrentMemberAccess();
+ const ids=[...new Set([...(access?.projects.map(p=>p.projectId)??[]),...(access?.surfaceGrants?.map(g=>g.project_id)??[])])];
+ const db=createAdminClient();
+ const [projects,packages]=await Promise.all([ids.length?db.from('projects').select('project_id,project_name').in('project_id',ids):Promise.resolve({data:[]}),ids.length?db.from('dd_packages').select('project_id,slug,status').in('project_id',ids):Promise.resolve({data:[]})]);
+ return <main className="min-w-0 p-4"><h1 className="text-lg font-semibold">参加しているプロジェクト</h1><p className="mb-3 mt-1 text-xs text-muted-foreground">所属と個別に付与された権限に応じて、各スペースを開ける。</p><div className="max-w-full overflow-x-auto"><table className="w-full min-w-[550px] text-left text-sm"><thead className="bg-muted text-xs text-muted-foreground"><tr><th className="p-2">PJ</th><th className="p-2">コックピット</th><th className="p-2">ワークスペース</th><th className="p-2">DDパッケージ</th></tr></thead><tbody>{access&&(projects.data??[]).map(p=>{const pkg=packages.data?.find(d=>d.project_id===p.project_id);return <tr className="border-b border-border" key={p.project_id}><td className="p-2 font-medium">{p.project_name}</td>{(['cockpit','workspace','dd'] as const).map(s=>{const permission=memberSurfacePermission(access,p.project_id,s);const allowed=permission&&(s!=='dd'||pkg&&(access.isAdmin||pkg.status==='open'||pkg.status==='draft'&&permission==='edit'));return <td key={s} className="p-2">{allowed?<Link className="inline-flex min-h-11 items-center text-primary underline" href={s==='dd'?`/dd/${encodeURIComponent(pkg!.slug)}`:`/project/${encodeURIComponent(p.project_id)}/${s}`}>開く</Link>:<span className="text-xs text-muted-foreground">—</span>}</td>;})}</tr>;})}</tbody></table></div>{!ids.length&&<p className="mt-3 text-sm text-muted-foreground">参加設定・個別付与されたPJはまだない。</p>}</main>;
 }

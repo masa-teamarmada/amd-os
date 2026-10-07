@@ -129,6 +129,7 @@ type StageKey = SxWeeklyIssueStage;
 type SxDashboardAccess = Pick<CurrentMemberAccess, "displayName" | "isAdmin" | "scope"> & {
   memberId: string | null;
   principal?: "member" | "workspace_account";
+  canCockpit?: boolean;
 };
 type WorkloadBucketKey =
   | "blocked"
@@ -5483,7 +5484,7 @@ export function SxWeeklyControlDashboard({
           {externalViewer ? (
             <ProjectSurfaceNav projectId={bundle.project.projectId} current="workspace" canWorkspace ddHref={ddHref} />
           ) : (
-            <InternalProjectSurfaceNav projectId={bundle.project.projectId} current="workspace" canCockpit={access.scope === "portfolio" || access.isAdmin} />
+            <InternalProjectSurfaceNav projectId={bundle.project.projectId} current="workspace" canCockpit={access.canCockpit ?? (access.scope === "portfolio" || access.isAdmin)} />
           )}
           <ProjectPageMenu label="PJワークスペースの分類" testPrefix="workspace"
             groups={workspaceGroups.map((group) => ({ ...group, children: [...group.children] }))}

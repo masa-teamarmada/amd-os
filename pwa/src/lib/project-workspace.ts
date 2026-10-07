@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cache } from "react";
+import { memberSurfacePermission, type MemberSurfaceGrant } from "@/lib/project-surface-permissions";
 import { unstable_cache } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -25,6 +26,7 @@ export type CurrentMemberAccess = {
   isAdmin: boolean;
   scope: OsAccessScope;
   calendarStatus: string;
+  surfaceGrants?: MemberSurfaceGrant[];
   projects: ProjectNavItem[];
 };
 
@@ -36,6 +38,8 @@ export type WorkspaceProjectAccess = {
   scope: OsAccessScope;
   isAdmin: boolean;
   projects: ProjectNavItem[];
+  canManage?: boolean;
+  surfaceGrants?: MemberSurfaceGrant[];
 };
 
 export type ProjectWorkspaceBundle = {
@@ -214,12 +218,15 @@ export const getCurrentMemberAccess = cache(async (): Promise<CurrentMemberAcces
     || member.os_access_scope !== "project"
   )) return null;
 
-  const { data: membershipRows, error: membershipError } = await db
-    .from("project_members")
-    .select("project_id")
-    .eq("member_id", member.member_id)
-    .eq("is_active", true);
+  const [membershipResult, grantResult] = await Promise.all([
+    db.from("project_members").select("project_id").eq("member_id", member.member_id).eq("is_active", true),
+    db.from("project_surface_member_permissions").select("project_id,member_id,surface,permission").eq("member_id", member.member_id),
+  ]);
+  const {data: membershipRows, error: membershipError} = membershipResult;
   if (membershipError) throw new Error(`project membership lookup: ${membershipError.message}`);
+
+  const { data: surfaceGrants, error: grantError } = grantResult;
+  if (grantError) throw new Error("surface permission lookup failed");
 
   const projectIds = Array.from(
     new Set((membershipRows ?? []).map((row) => String(row.project_id)).filter(Boolean)),
@@ -246,6 +253,7 @@ export const getCurrentMemberAccess = cache(async (): Promise<CurrentMemberAcces
     isAdmin: Boolean(member.is_admin),
     scope: member.os_access_scope === "project" ? "project" : "portfolio",
     calendarStatus: String(member.google_calendar_status || "missing"),
+    surfaceGrants: (surfaceGrants ?? []) as MemberSurfaceGrant[],
     projects,
   };
 });
@@ -259,15 +267,17 @@ export function memberHome(access: CurrentMemberAccess) {
 }
 
 export function canAccessWorkspaceProject(access: WorkspaceProjectAccess, projectId: string) {
-  return access.scope === "portfolio" || access.isAdmin || access.projects.some((project) => project.projectId === projectId);
+  return access.scope === "portfolio" || access.isAdmin || access.projects.some((project) => project.projectId === projectId) || access.surfaceGrants?.some(g => g.project_id === projectId && g.surface === "workspace") === true;
 }
 
 export function projectScopedPathAllowed(access: CurrentMemberAccess, pathname: string) {
   if (access.scope !== "project") return true;
   if (pathname === "/my-projects") return true;
+  const cockpit = pathname.match(/^\/project\/([^/]+)\/cockpit\/?$/);
+  if (cockpit) return !!memberSurfacePermission(access, decodeURIComponent(cockpit[1]), "cockpit");
   const match = pathname.match(/^\/project\/([^/]+)\/(?:workspace(?:\/files)?|weekly-control|navigation)\/?$/);
   if (!match) return false;
-  return access.projects.some((project) => project.projectId === decodeURIComponent(match[1]));
+  return !!memberSurfacePermission(access, decodeURIComponent(match[1]), "workspace");
 }
 
 function emptyCategories(): Record<EffortCategory, number> {
@@ -398,7 +408,7 @@ export async function getProjectWorkspaceBundle(
   // completed. It is the largest projection on this route, so that serialized
   // waterfall made a reload pay both costs. Start it in the same fan-out and
   // make the response wait only for the slowest branch.
-  const canManage = access.scope === "portfolio" || access.isAdmin;
+  const canManage = access.canManage ?? (access.scope === "portfolio" || access.isAdmin || access.surfaceGrants?.some(g => g.project_id === projectId && g.surface === "workspace" && g.permission === "edit") === true);
   const [
     identity,
     { data: activityRows, error: activityError },
