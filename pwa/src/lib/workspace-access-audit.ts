@@ -26,6 +26,7 @@ export type WorkspaceAuditEvent = {
     | "workspace_document_mutated"
     // DDパッケージ（投資家・金融機関向け）。外部アカウントの閲覧・添付の表示/ダウンロード、admin の操作と正式版（PDF）の出力。
     // detailにはpackage / grant / item のidと操作名・元データの更新日時だけを入れ、ファイル名・URL・本文は記録しない。
+    | "dd_confidentiality_confirmed"
     | "dd_package_viewed"
     | "dd_item_viewed"
     | "dd_file_opened"

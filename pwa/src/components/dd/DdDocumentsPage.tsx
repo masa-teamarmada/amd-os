@@ -11,5 +11,5 @@ export function DdDocumentsPage({ projectId, projectName, slug, items, canDownlo
     return [{ documentId: item.itemId, entryKind: "file", visibility: "workspace_shared", folderPath: "", displayName: item.live.fileName,
       mimeType: item.live.mimeType, fileSizeBytes: item.live.sizeBytes, sourceKind: "dd", createdAt: item.sourceAsOf ?? "", updatedAt: item.sourceAsOf ?? "", viewHref: href, downloadHref: `${href}?download=1` }];
   }), [items, slug]);
-  return <WorkspaceDocumentRoom scopeKind="project" scopeId={projectId} scopeName={projectName} surface="workspace" presentation="modal" initialDocuments={documents} canDownload={canDownload} />;
+  return <><p className="mb-2 text-xs leading-5 text-[#6e6e73]">ダウンロードは原本と開示通知をまとめたZIPで受け取る。</p><WorkspaceDocumentRoom scopeKind="project" scopeId={projectId} scopeName={projectName} surface="workspace" presentation="modal" initialDocuments={documents} canDownload={canDownload} /></>;
 }

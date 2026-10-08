@@ -1061,3 +1061,8 @@ DDのproduct-descriptionはproject_configの当該PJ/key=product_descriptionだ�
 - 検査: check_cost_economics.mts（合算・負担切替・追加費・用途・冷却/ガス/管理）、test:project-cost-modelへ接続。正本spec5-13、manual2-3。
 
 2026-10-08: PWAのPJ管理「契約」は現行契約ごとに「契約の論点・必要な手続き」を表示。追加確認が必要な論点は初期展開し、契約上の義務・開示前の確認・未確定点・原本条項・確認日を分ける。秘密保持等の条項要約は折りたたみで確認。条項確認と個別開示承認は別。契約間の条件流用はしない。正本spec5-6、使い方manual6-7。iOS/macOSの専用表示は未移植。
+
+
+### DD全体の秘密指定（2026-10-08）
+
+DdViewerShell/DdConfidentialityNoticeで全ページに指定全文を常設。直接HTML/PDF/画像にも指定、原本＋開示通知ZIP、正式版とDD生成PDF/Excelにも指定。POST /dd/[slug]/confidentialityはsame-origin＋毎回のDD認可後に版の受領確認を既存workspace_access_audit_logsへ保存。提示応答と受領確認は区別し、付与・NDA成立・第三者情報の開示許可を推定しない。guard=test:dd-confidentiality/test:dd-package。正本spec5-17、手引きmanual2-6。

@@ -1,3 +1,4 @@
+import { ddContentHash } from "@/lib/dd-confidentiality-server";
 import { notFound, redirect } from "next/navigation";
 import { resolveDdPackageAccess } from "@/lib/dd-access";
 import { loadDdPackageView, recordDdAccessEvent } from "@/lib/dd-package-server";
@@ -23,13 +24,14 @@ export default async function DdPackagePage({ params, searchParams }: { params: 
   const [view, initialPage] = await Promise.all([
     loadDdPackageView(access, { mode: selectedPage === "documents" ? "documents" : selectedPage ? "header" : "full" }),
     selectedPage && selectedPage !== "documents" ? loadDdProjectPage(access.projectId, selectedPage) : Promise.resolve(undefined),
-    recordDdAccessEvent(access, "dd_package_viewed"),
   ]);
   if (!view) notFound();
 
   const legacyPage = view.sections.find((row) => row.key === section)?.items[0]?.pageKey;
   const pageKey = selectedPage ?? legacyPage ?? "company";
   const canonicalPage = initialPage ?? (pageKey === "documents" ? undefined : await loadDdProjectPage(access.projectId, pageKey));
+
+  await recordDdAccessEvent(access, "dd_package_viewed", { pageKey, contentHash: ddContentHash(canonicalPage ?? view.sections) });
 
   return (
     <DdViewerShell access={access} projectName={view.projectName} pageKey={pageKey as DdPageKey}>

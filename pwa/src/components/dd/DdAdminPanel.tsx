@@ -1,4 +1,6 @@
 "use client";
+import { DD_CONFIDENTIALITY_NOTICE } from "@/lib/dd-confidentiality";
+
 
 import { useMemo, useState, useTransition } from "react";
 import {
@@ -28,6 +30,7 @@ const EVENT_LABEL: Record<string, string> = {
   dd_package_viewed: "トップを閲覧",
   dd_item_viewed: "項目を閲覧",
   dd_file_opened: "資料を表示",
+  dd_confidentiality_confirmed: "秘密指定を確認",
   dd_file_downloaded: "資料をダウンロード",
 };
 
@@ -206,6 +209,8 @@ export function DdAdminPanel({ state, candidates, onChanged, endpoint = "/api/ad
 
       <AddItemForm packageId={state.package.id} candidates={candidates} addedKeys={addedKeys} pending={pending} run={run} />
 
+      {!contentOnly && <section className="border-y border-[#cbd5e1] bg-[#f1f5f9] px-3 py-2 text-xs leading-6 text-[#334155]"><h3 className="font-semibold">秘密情報の指定</h3><p>{DD_CONFIDENTIALITY_NOTICE}</p><p>閲覧者を許可する前に、相手とのNDAの締結状態と、電子表示・書面通知などの指定方法を確認する。画面の確認ボタンは秘密指定の受領確認で、契約締結や開示許可の代わりにはならない。</p></section>}
+
       {!contentOnly && <GrantsSection state={state} pending={pending} run={run} />}
 
       {!contentOnly && <>
@@ -259,7 +264,7 @@ export function DdAdminPanel({ state, candidates, onChanged, endpoint = "/api/ad
                   <tr key={event.id} className="border-t border-[#f0f0f2]">
                     <td className="px-2 py-1 whitespace-nowrap">{new Date(event.createdAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}</td>
                     <td className="px-2 py-1">{event.email ?? "—"}</td>
-                    <td className="px-2 py-1">{EVENT_LABEL[event.eventType] ?? event.eventType}</td>
+                    <td className="px-2 py-1">{EVENT_LABEL[event.eventType] ?? event.eventType}{event.noticeVersion && <span className="block text-[11px] text-[#6e6e73]">秘密指定 {event.noticeVersion}</span>}</td>
                     <td className="px-2 py-1">
                       {event.itemId ? (state.items.find((item) => item.id === event.itemId)?.title ?? "（削除済み）") : "—"}
                     </td>

@@ -1,3 +1,5 @@
+import { DD_CONFIDENTIALITY_VERSION } from "./dd-confidentiality";
+import { DD_NOTICE_HASH } from "./dd-confidentiality-server";
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -246,13 +248,13 @@ export async function loadDdItemView(access: DdViewerAccess, itemId: string): Pr
   return { item: row, live, liveError: meta.error, unverifiedNotes: meta.unverifiedNotes, evidence };
 }
 
-export type DdAccessEvent = "dd_package_viewed" | "dd_item_viewed" | "dd_file_opened" | "dd_file_downloaded";
+export type DdAccessEvent = "dd_confidentiality_confirmed" | "dd_package_viewed" | "dd_item_viewed" | "dd_file_opened" | "dd_file_downloaded";
 
 /** 外部アカウントの閲覧・ダウンロードを記録する（管理者プレビューは記録しない）。detail に URL・ファイル名は入れない。 */
 export async function recordDdAccessEvent(
   access: DdViewerAccess,
   eventType: DdAccessEvent,
-  detail: { itemId?: string } = {},
+  detail: { itemId?: string; pageKey?: string; contentHash?: string; sourceAsOf?: string | null } = {},
 ): Promise<void> {
   if (access.principal !== "workspace_account") return;
   await recordWorkspaceAuditEvent(createAdminClient(), {
@@ -264,6 +266,11 @@ export async function recordDdAccessEvent(
       package_id: access.packageId,
       grant_id: access.grantId,
       item_id: detail.itemId ?? null,
+      notice_version: DD_CONFIDENTIALITY_VERSION,
+      notice_hash: DD_NOTICE_HASH,
+      page_key: detail.pageKey ?? null,
+      content_hash: detail.contentHash ?? null,
+      source_as_of: detail.sourceAsOf ?? null,
     },
   });
 }
@@ -284,6 +291,8 @@ export async function recordDdPackageExport(input: {
     projectId: input.pkg.project_id,
     detail: {
       package_id: input.pkg.id,
+      notice_version: DD_CONFIDENTIALITY_VERSION,
+      notice_hash: DD_NOTICE_HASH,
       item_count: input.items.length,
       items: JSON.stringify(input.items.map((item) => ({ i: item.itemId, a: item.sourceAsOf }))),
     },
@@ -313,7 +322,7 @@ export type DdAdminItem = DdItemRow & {
   autoUnverified: string[];
 };
 
-export type DdAdminEvent = { id: string; eventType: string; email: string | null; createdAt: string; itemId: string | null };
+export type DdAdminEvent = { id: string; eventType: string; email: string | null; createdAt: string; itemId: string | null; noticeVersion?: string | null; pageKey?: string | null; contentHash?: string | null };
 export type DdAdminExport = { id: string; email: string | null; createdAt: string; itemCount: number };
 
 export type DdAdminState = {
@@ -349,7 +358,7 @@ export async function loadDdAdminState(projectId: string): Promise<DdAdminState 
       .eq("project_id", projectId)
       // 同じPJに別のパッケージ（動作確認用など）があっても混ぜないよう、パッケージで絞る。
       .eq("detail->>package_id", pkg.id)
-      .in("event_type", ["dd_package_viewed", "dd_item_viewed", "dd_file_opened", "dd_file_downloaded", "dd_package_exported"])
+      .in("event_type", ["dd_package_viewed", "dd_item_viewed", "dd_file_opened", "dd_file_downloaded", "dd_package_exported", "dd_confidentiality_confirmed"])
       .order("created_at", { ascending: false })
       .limit(200),
   ]);
@@ -405,6 +414,9 @@ export async function loadDdAdminState(projectId: string): Promise<DdAdminState 
           email: (row.email as string) ?? null,
           createdAt: String(row.created_at),
           itemId: typeof detail.item_id === "string" ? detail.item_id : null,
+          noticeVersion: typeof detail.notice_version === "string" ? detail.notice_version : null,
+          pageKey: typeof detail.page_key === "string" ? detail.page_key : null,
+          contentHash: typeof detail.content_hash === "string" ? detail.content_hash : null,
         };
       }),
     exports: eventRows

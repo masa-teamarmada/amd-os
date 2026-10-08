@@ -1,4 +1,5 @@
 "use client";
+import { DdConfidentialityNotice } from "@/components/dd/DdConfidentialityNotice";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
@@ -87,6 +88,7 @@ export function CockpitCompanyOverview({
   initialData,
   initialBusinessSummary,
   canDownload = true,
+  confidential = false,
 }: {
   projectId: string;
   projectName: string;
@@ -94,6 +96,7 @@ export function CockpitCompanyOverview({
   initialData?: CompanyOverviewData;
   initialBusinessSummary?: BusinessSummaryResponse;
   canDownload?: boolean;
+  confidential?: boolean;
 }) {
   const [data, setData] = useState<CompanyOverviewData>(() => initialData ?? peekGovernance(projectId) ?? EMPTY_DATA);
   const [loading, setLoading] = useState(initialData === undefined);
@@ -241,7 +244,7 @@ export function CockpitCompanyOverview({
     setError("");
     try {
       const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import("html2canvas"), import("jspdf")]);
-      const canvas = await html2canvas(exportRef.current, { scale: 1.7, backgroundColor: "#f8fafc", useCORS: true, logging: false });
+      const canvas = await html2canvas(exportRef.current, { scale: 1.7, backgroundColor: "#f8fafc", useCORS: true, logging: false, onclone: (_document, element) => { if (confidential) element.querySelector("[data-dd-export-notice]")?.removeAttribute("hidden"); } });
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
       const pageWidth = 210;
       const pageHeight = 297;
@@ -275,7 +278,7 @@ export function CockpitCompanyOverview({
           <p className="mt-1 text-xs leading-5 text-slate-300">会社情報・資本政策・機関決定・決算</p>
         </div>
         <div className="flex flex-wrap gap-2" data-html2canvas-ignore="true">
-          <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" disabled={!canDownload} onClick={() => downloadCompanyOverviewXlsx(projectName, data)}><FileSpreadsheet />会社概要Excel</Button>
+          <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" disabled={!canDownload} onClick={() => downloadCompanyOverviewXlsx(projectName, data, confidential)}><FileSpreadsheet />会社概要Excel</Button>
           <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" onClick={() => void exportPdf()} disabled={exportingPdf || !canDownload}>{exportingPdf ? <Loader2 className="animate-spin" /> : <Download />}PDF</Button>
           <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" onClick={() => initialData ? window.location.reload() : void load()}><RefreshCw />更新</Button>
         </div>
@@ -285,6 +288,7 @@ export function CockpitCompanyOverview({
       {notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"><Check className="size-4" />{notice}</div>}
 
       <div ref={exportRef} className="space-y-4 rounded-2xl bg-slate-50">
+        {confidential && <div hidden data-dd-export-notice><DdConfidentialityNotice /></div>}
         {/* 事業の概要（何をする事業か）を会社概要のいちばん上に置く（2026-10-04 まさ確定、spec 3-23 §9） */}
         <CompanyBusinessSummarySection projectId={projectId} readOnly={readOnly} initialData={initialBusinessSummary} />
 

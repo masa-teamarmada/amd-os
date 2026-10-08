@@ -43,7 +43,7 @@ export function DdDocumentBody({
               href={`${fileHref}?download=1`}
               className="inline-flex min-h-9 items-center rounded-md border border-[#d2d2d7] bg-white px-3 text-[12.5px] font-semibold text-[#1d1d1f] hover:bg-[#f5f5f7]"
             >
-              ダウンロード
+              開示通知付きZIPをダウンロード
             </a>
           ) : (
             <span className="inline-flex min-h-9 items-center text-[12px] text-[#6e6e73]">ダウンロードの権限は付与されていない</span>

@@ -1,3 +1,4 @@
+import { ddContentHash } from "@/lib/dd-confidentiality-server";
 import { notFound } from "next/navigation";
 import { resolveDdPackageAccess } from "@/lib/dd-access";
 import { hasDdCapability, isUuid } from "@/lib/dd-package-core";
@@ -21,7 +22,6 @@ export default async function DdItemPage({ params }: { params: Promise<{ slug: s
   const packageView = await loadDdPackageView(access);
   if (!packageView) notFound();
   const { item } = view;
-  await recordDdAccessEvent(access, "dd_item_viewed", { itemId });
   const selectedItem = {
     itemId, pageKey: ddPageForItem(item.item_kind, view.live?.data ?? null, item.source_key), live: view.live?.data ?? null,
     sectionKey: item.section_key, sortOrder: item.sort_order, itemKind: item.item_kind,
@@ -29,6 +29,7 @@ export default async function DdItemPage({ params }: { params: Promise<{ slug: s
     unverifiedNotes: view.unverifiedNotes, unavailable: !view.live,
   };
   const canonicalPage = selectedItem.pageKey === "documents" ? undefined : await loadDdProjectPage(access.projectId, selectedItem.pageKey);
+  await recordDdAccessEvent(access, "dd_item_viewed", { itemId, pageKey: selectedItem.pageKey, contentHash: ddContentHash(canonicalPage ?? view.live?.data), sourceAsOf: view.live?.sourceAsOf });
   return (
     <DdViewerShell access={access} projectName={packageView.projectName} pageKey={selectedItem.pageKey}>
       <DdPackageTop view={packageView} slug={access.slug} selectedItem={selectedItem} canonicalPage={canonicalPage} canDownload={hasDdCapability(access, "dd.download")} />

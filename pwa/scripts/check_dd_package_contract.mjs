@@ -205,3 +205,12 @@ assert.ok(ddPageLoader.indexOf("!DD_PAGE_KEYS.includes(page)") < ddPageLoader.in
 assert.doesNotMatch(code(ddPageLoader), /employee-register|ProjectEmployeeRegister/);
 for (const file of ["src/components/cockpit/CockpitView.tsx", "src/components/project-workspace/SxWeeklyControlDashboard.tsx"]) assert.match(read(file), /ProjectEmployeeRegister/);
 assert.doesNotMatch(read("src/components/project-workspace/ProjectEmployeeRegister.tsx"), /project_members|members|email/);
+
+// 秘密指定は単独の入口だけではなく、全本文・直接資料・出力へ適用する。
+assert.match(read("src/components/dd/DdViewerShell.tsx"), /<DdConfidentialityNotice/);
+assert.match(printPage, /<DdConfidentialityNotice/);
+assert.match(fileRoute, /ddDisclosureZip/);
+assert.match(fileRoute, /markDdPdf/);
+assert.match(fileRoute, /markDdImage/);
+assert.doesNotMatch(fileRoute, /NextResponse\.redirect\(delivery\.url/, "秘密指定のない原本署名URLを返さない");
+for (const term of ["short", "long"]) assert.match(read(`src/app/dd/[slug]/${term}-term-plan-document/route.ts`), /markDdHtml\(html\)/);

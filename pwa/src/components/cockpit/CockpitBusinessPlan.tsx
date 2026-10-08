@@ -43,6 +43,7 @@ interface CockpitBusinessPlanProps {
   projectName: string;
   initialPlan?: ProjectBusinessPlan | null;
   canDownload?: boolean;
+  confidential?: boolean;
 }
 
 const LANE_ICONS: Record<BusinessPlanLaneKey, LucideIcon> = {
@@ -154,7 +155,7 @@ function LaneExitCell({ phase, laneKey, showLabel = true }: { phase: BusinessPla
   </td>;
 }
 
-function PhaseMatrix({ projectName, plan, canDownload = true }: { projectName: string; plan: ProjectBusinessPlan | null; canDownload?: boolean }) {
+function PhaseMatrix({ projectName, plan, canDownload = true, confidential = false }: { projectName: string; plan: ProjectBusinessPlan | null; canDownload?: boolean; confidential?: boolean }) {
   const phases = plan?.phases ?? [];
   const empty = phases.length === 0;
   const matrixRef = useRef<HTMLDivElement>(null);
@@ -236,7 +237,7 @@ function PhaseMatrix({ projectName, plan, canDownload = true }: { projectName: s
         <button
           type="button"
           className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 sm:min-h-10 transition hover:border-indigo-300 hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
-          onClick={() => downloadBusinessPlanPhaseMatrixXlsx(projectName, phases)}
+          onClick={() => downloadBusinessPlanPhaseMatrixXlsx(projectName, phases, confidential)}
           disabled={empty || !canDownload}
           data-testid="phase-matrix-xlsx-export"
         >
@@ -272,7 +273,7 @@ interface PlanState {
   error: string | null;
 }
 
-export function CockpitBusinessPlan({ projectId, projectName, initialPlan, canDownload = true }: CockpitBusinessPlanProps) {
+export function CockpitBusinessPlan({ projectId, projectName, initialPlan, canDownload = true, confidential = false }: CockpitBusinessPlanProps) {
   const [state, setState] = useState<PlanState>(() => ({ projectId, plan: initialPlan !== undefined ? initialPlan : peekProjectBusinessPlan(projectId), error: null }));
   const current: PlanState = state.projectId === projectId ? state : { projectId, plan: initialPlan !== undefined ? initialPlan : peekProjectBusinessPlan(projectId), error: null };
 
@@ -292,7 +293,7 @@ export function CockpitBusinessPlan({ projectId, projectName, initialPlan, canDo
       {current.error ? (
         <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-[12px] text-rose-700">{current.error}。再読み込みして。</p>
       ) : null}
-      {current.plan === undefined ? <PhaseMatrixSkeleton /> : <PhaseMatrix projectName={projectName} plan={current.plan} canDownload={canDownload} />}
+      {current.plan === undefined ? <PhaseMatrixSkeleton /> : <PhaseMatrix projectName={projectName} plan={current.plan} canDownload={canDownload} confidential={confidential} />}
     </div>
   );
 }

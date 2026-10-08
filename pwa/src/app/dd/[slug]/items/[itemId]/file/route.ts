@@ -4,6 +4,11 @@ import { hasDdCapability, isUuid } from "@/lib/dd-package-core";
 import { loadDdItem, recordDdAccessEvent } from "@/lib/dd-package-server";
 import { deliverDdDocument } from "@/lib/dd-sources";
 import { ddDocumentPreview } from "@/lib/dd-payload";
+import { ddDisclosureZip } from "@/lib/dd-confidentiality";
+import { ddContentHash, markDdHtml, markDdImage, markDdPdf } from "@/lib/dd-confidentiality-server";
+import { DD_FILE_MAX_BYTES, DD_FILE_CACHE_BUCKET } from "@/lib/dd-sources";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { DD_CONFIDENTIALITY_VERSION } from "@/lib/dd-confidentiality";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,10 +75,9 @@ export async function GET(
     }
   }
 
-  await recordDdAccessEvent(access, download ? "dd_file_downloaded" : "dd_file_opened", { itemId });
-
   if (delivery.mode === "html") {
-    return new NextResponse(delivery.html, {
+    await recordDdAccessEvent(access, "dd_file_opened", { itemId, contentHash: ddContentHash(delivery.html) });
+    return new NextResponse(markDdHtml(delivery.html), {
       headers: {
         "Cache-Control": "private, no-store, max-age=0",
         "Content-Disposition": `inline; filename*=UTF-8''${contentDispositionFilename(delivery.fileName)}`,
@@ -86,7 +90,56 @@ export async function GET(
     });
   }
 
-  const response = NextResponse.redirect(delivery.url, 303);
-  response.headers.set("Cache-Control", "no-store");
-  return response;
+  // Storage署名URLは利用者へ返さず、この認可済み応答に秘密指定を付けて渡す。
+  // 上流URLはdeliverDdDocumentが生成したものだけ。原本の保存先・内容は変更しない。
+  try {
+    const upstream = await fetch(delivery.url, { cache: "no-store", redirect: "error", signal: AbortSignal.timeout(20_000) });
+    if (!upstream.ok || Number(upstream.headers.get("content-length") ?? 0) > DD_FILE_MAX_BYTES) throw new Error("source_unavailable");
+    const reader = upstream.body?.getReader();
+    if (!reader) throw new Error("empty_source");
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > DD_FILE_MAX_BYTES) { await reader.cancel(); throw new Error("source_too_large"); }
+      chunks.push(value);
+    }
+    const bytes = Buffer.concat(chunks);
+    const contentHash = ddContentHash(bytes);
+    const preview = ddDocumentPreview(delivery.mimeType, delivery.fileName);
+    const output = download ? ddDisclosureZip(bytes, delivery.fileName, new Date().toISOString(), contentHash)
+      : preview === "pdf" ? await markDdPdf(bytes)
+      : preview === "image" ? await markDdImage(bytes, delivery.mimeType)
+      : null;
+    if (!output) throw new Error("unsupported_preview");
+    const fileName = download ? `${delivery.fileName}_開示通知付き.zip` : preview === "image" ? `${delivery.fileName}.svg` : delivery.fileName;
+    const mimeType = download ? "application/zip" : preview === "image" ? "image/svg+xml" : "application/pdf";
+    // PDFはHTML用sandboxから分離してブラウザのPDFビューアで開く。
+    // Vercel Function応答上限を超える生成物もprivate bucketへ置く。
+    // 署名先は必ず秘密表示付きの写し／通知付きZIPで、原本へのURLは返さない。
+    if ((!download && preview === "pdf") || output.byteLength > 3 * 1024 * 1024) {
+      const storage = createAdminClient().storage.from(DD_FILE_CACHE_BUCKET);
+      const path = `disclosures/${access.packageId}/${itemId}/${DD_CONFIDENTIALITY_VERSION}/${ddContentHash(output)}`;
+      const uploaded = await storage.upload(path, output, { contentType: mimeType, upsert: false });
+      if (uploaded.error && !/exists|duplicate/i.test(uploaded.error.message)) throw new Error("marked_copy_failed");
+      const signed = await storage.createSignedUrl(path, 60, download ? { download: fileName } : undefined);
+      if (signed.error || !signed.data?.signedUrl) throw new Error("marked_copy_url_failed");
+      await recordDdAccessEvent(access, download ? "dd_file_downloaded" : "dd_file_opened", { itemId, contentHash });
+      const response = NextResponse.redirect(signed.data.signedUrl, 303);
+      response.headers.set("Cache-Control", "private, no-store");
+      return response;
+    }
+    await recordDdAccessEvent(access, download ? "dd_file_downloaded" : "dd_file_opened", { itemId, contentHash });
+    return new NextResponse(Buffer.from(output), { headers: {
+      "Content-Type": mimeType,
+      "Content-Disposition": `${download ? "attachment" : "inline"}; filename*=UTF-8''${contentDispositionFilename(fileName)}`,
+      "Cache-Control": "private, no-store, max-age=0",
+      "X-Content-Type-Options": "nosniff",
+      "Referrer-Policy": "no-referrer",
+    } });
+  } catch {
+    return NextResponse.json({ ok: false, error: "秘密表示付きの資料を作成できなかった。画面を開き直して再試行する。" }, { status: 500, headers: { "Cache-Control": "no-store" } });
+  }
 }

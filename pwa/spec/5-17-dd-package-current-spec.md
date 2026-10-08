@@ -302,3 +302,16 @@ DDの「総会・取締役会・経営会議議事録」は、コックピット
 2026-10-07: 議事録中の山地正洋の表記は名字「山地」で統一する。入力の「まさ」と「山地」は同一人物として照合し、表示用の本文・要約・決定事項・進捗・次の一手・残課題では「山地」を使う。元URL・ID・source_hash・開催日・元データ種別を変えず、一般語を人名に変換しない。SOLの開催済み議事録は過去分もこの表記へ修正。予定・準備・対話の記録と他メンバーの表記は今回の過去分修正の対象外。
 
 2026-10-08 JST: 行き先未指定の外部アクセス要求はSlack/adminでDDのみ・workspaceのみ・双方を明示して承認できる。DDは公開中packageのdd.viewのみ。複合付与はtransaction、停止・期限切れgrantを自動復活せず失敗時はworkspace付与も残さない。アドレスだけから既存の別アカウント権限を継承しない。
+
+
+## 2026-10-08 DD全体の秘密指定
+
+DDの共通枠 `DdViewerShell` は、認可後にすべての本文ページへ `DdConfidentialityNotice` を常設する。秘密指定の正本は `dd-confidentiality.ts` のラベル・全文・版（初版2026-10-08.1）。既存・追加・更新情報をまとめて指定し、取扱いは適用NDAに従うと表示する。NDA成立、相手別条項への適合、大学等の第三者情報の開示許可を自動判定しない。管理画面にNDAの締結状態・秘密指定方法を開示前に照合する案内を置く。既存の付与・公開範囲・編集・ダウンロード権限は維持する。
+
+- 外部閲覧者は任意の「秘密指定を確認した」から `POST /dd/[slug]/confidentiality` へ版だけを送る。same-originを検証し、毎requestでDD認可を再確認。失効・未認可404、別origin403、旧/不正版400、監査保存失敗500。保存成功だけ確認済み表示。確認は秘密指定の受領記録であり新規契約への同意ではない。内部プレビューは従来通り外部閲覧ログを残さない。
+- ページの提供記録に `notice_version/notice_hash/page_key/content_hash/source_as_of` を追加。サーバから提供する正本DTOのSHA-256、資料は原本byteのSHA-256を記録する。本文・URL・署名・ファイル名は監査detailへ入れない。提供記録は閲覧者が実際に読んだ証明とは区別する。`dd_confidentiality_confirmed` を既存 `workspace_access_audit_logs` に追加し、管理の閲覧記録に操作と秘密指定の版を表示する。テーブル・列・RLS・契約台帳を変更しない。
+- HTMLの直接表示・短期/長期計画は `markDdHtml` で秘密指定帯を追加し、従来のscript/外部通信/フォーム禁止sandbox CSPとprivate no-storeを保持。PDFは閲覧用写しに各ページ上28ptの余白と `CONFIDENTIAL` を追加し、本文を覆わない。日本語の指定全文はPDFのsubjectにも保持。画像は原本をdata URIで埋めたSVG写しへ日本語の秘密表示帯を追加。元の保存資料は変更しない。
+- 資料のダウンロードは、原本byteと `開示通知.txt` をまとめたZIP。通知には対象ファイル名、発行日時、秘密指定の全文/版、原本SHA-256を含む。元資料内の署名・内容を加工しない。失敗時は秘密表示のない原本URLへ迂回しない。上流はサーバ生成Storage署名URLだけで、redirect:errorと20秒timeout、宣言サイズとストリーム実byte双方で100MB上限を守る。
+- PDFの閲覧用写し（HTML用sandboxによるPDFビューア阻害を避ける）と3MB超の生成物は既存private `dd-publication-files` の `disclosures/{package}/{item}/{noticeVersion}/{outputHash}` に保存して60秒署名URLへ転送する。利用者へ原本の署名URLは返さない。既存60秒の署名URL寿命内は失効後でも写しを取得できる点は従来の配信境界。小さい生成物は直接no-store応答。
+- 正式版PDFは表紙と各資料区画に秘密表示、出力記録に秘密指定の版/hash。DD会社概要のPDFは本文先頭に同じ指定全文。DD会社概要/フェーズマトリクスのExcelには「開示通知」シートと全シート印刷ヘッダー/フッターを追加。元のシートのセル・計算・値を変えず、他スペースの出力には適用しない。
+- 回帰は `test:dd-confidentiality`（原本保持・パス安全・Excelセル不変・PDF余白・画像実体・実routeの認可/CSRF/保存失敗/通知ZIP/サイズ拒否）と `test:dd-package`（枠/直接資料/出力の秘密指定と既存認可境界）。PWAのみ。iOS/macOS/Androidの独立DD画面は未移植でブラウザを使う。

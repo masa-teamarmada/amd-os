@@ -1,3 +1,4 @@
+import { DdConfidentialityNotice } from "@/components/dd/DdConfidentialityNotice";
 import { notFound } from "next/navigation";
 import { resolveDdPackageAccess } from "@/lib/dd-access";
 import { DD_SECTIONS } from "@/lib/dd-package-core";
@@ -59,6 +60,7 @@ export default async function DdPrintPage({ params }: { params: Promise<{ slug: 
       <main className="mx-auto max-w-6xl space-y-8 px-4 pb-16 pt-6">
         <header className="space-y-3 border-b-2 border-[#1d1d1f] pb-4">
           <p className="text-[11px] font-semibold text-[#6e6e73]">DD資料（正式版）</p>
+          <DdConfidentialityNotice />
           <h1 className="text-[22px] font-semibold leading-8">{pkg.title}</h1>
           {pkg.notice_text && <p className="max-w-4xl text-[12.5px] leading-6 text-[#424245]">{pkg.notice_text}</p>}
           <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-[#e5e5e7] bg-[#e5e5e7] text-[12px] sm:grid-cols-3">
@@ -97,6 +99,7 @@ export default async function DdPrintPage({ params }: { params: Promise<{ slug: 
         ) : (
           loaded.map(({ row, live, meta }) => (
             <div key={row.id} className="dd-print-item">
+              <DdConfidentialityNotice />
               <DdItemDetail
                 headingLevel={2}
                 topHref={null}
