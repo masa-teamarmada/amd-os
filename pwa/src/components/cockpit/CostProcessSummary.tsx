@@ -4,7 +4,6 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { APPLICATION_LABEL, LOCATION_SHORT_LABEL, METHOD_LABEL, STRAIN_LABEL, type CostComputation, type CostModelBundle } from "@/lib/project-cost-model";
 import { computeProcessSummary, type CostProcessKey, type ProcessSelection } from "@/lib/cost-process-summary";
 import { CostProcessAnimation } from "./CostProcessAnimation";
-import { CostProcessConnectors } from "./CostProcessConnectors";
 import styles from "./CostProcessSummary.module.css";
 
 const amount = (n: number) => n.toLocaleString("ja-JP", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -18,7 +17,6 @@ export function CostProcessSummary({ bundle, computed, selection, unit }: {
   const [opened, setOpened] = useState<CostProcessKey | null>(null);
   const detailHeading = useRef<HTMLHeadingElement>(null);
   const opener = useRef<HTMLButtonElement>(null);
-  const flowCanvas = useRef<HTMLDivElement>(null);
   const id = useId();
   useEffect(() => {
     if (!opened) return;
@@ -38,17 +36,14 @@ export function CostProcessSummary({ bundle, computed, selection, unit }: {
     </div>
     <p className={styles.legend}><i className={styles.capexDot} />CAPEX＝設備の償却 <i className={styles.opexDot} />OPEX＝運転費 <span>各工程で増える原価を表示。工程を押すと初期投資額と明細が開く。</span></p>
     {summary.invalidVolume && <p className={styles.gaps}>年間処理量が0のため、単位あたりの原価を計算できない。表示の0は実際の0円を意味しない。</p>}
-    <div ref={flowCanvas} className={styles.flowCanvas}>
-    <CostProcessConnectors canvas={flowCanvas} />
+    <div className={styles.flowCanvas}>
+    <CostProcessAnimation cartridge={selection.method === "循環"} metal={selection.application === "metal"} offsite={selection.location === "offsite"} />
     <ol className={styles.grid}>
       {summary.steps.map((step, i) => <li key={step.key} className={styles.step} style={{ gridArea: `s${i + 1}` }} data-testid={`cost-process-${step.key}`} data-step-number={i + 1}>
         <button type="button" className={styles.stepButton} aria-expanded={opened === step.key} aria-controls={opened === step.key ? `${id}-detail` : undefined} onClick={(e) => { opener.current = e.currentTarget; setOpened(opened === step.key ? null : step.key); }}>
           <span className={styles.stepHeading}><span className={styles.number}>{i + 1}</span><span>{step.title}</span></span>
-          <CostProcessAnimation process={step.key} cartridge={selection.method === "循環"} metal={selection.application === "metal"} offsite={selection.location === "offsite"} />
-          <span className={styles.description}>{step.description}</span>
           <span className={styles.costs}><span><i className={styles.capexDot} />CAPEX <b data-process-capex={step.capex}>+{amount(step.capex)}</b></span><span><i className={styles.opexDot} />OPEX <b data-process-opex={step.opex}>+{amount(step.opex)}</b></span></span>
           <span className={styles.bar} aria-hidden="true"><span className={styles.capexBar} style={{ width: `${step.capex / max * 100}%` }} /><span className={styles.opexBar} style={{ width: `${step.opex / max * 100}%` }} /></span>
-          <span className={styles.payers}>SOL {amount(step.sx)} <span>／</span> 顧客 {amount(step.customer)}</span>
           <span className={styles.cumulative}>ここまでの累計 <b data-process-cumulative={step.cumulative}>{amount(step.cumulative)}</b></span>
           <span className={styles.status}>{step.rows.some((r) => r.unknown) ? "工数未確認あり" : step.gaps.length ? step.gaps[0] : "内訳を見る"}<span aria-hidden="true">{opened === step.key ? "−" : "＋"}</span></span>
         </button>
@@ -57,6 +52,7 @@ export function CostProcessSummary({ bundle, computed, selection, unit }: {
     </div>
     {selected && <div id={`${id}-detail`} className={styles.detail} data-testid="cost-process-detail" role="region" aria-labelledby={`${id}-detail-heading`}>
       <div className={styles.detailHeading}><h4 ref={detailHeading} id={`${id}-detail-heading`} tabIndex={-1}>{summary.steps.indexOf(selected) + 1} {selected.title}の内訳</h4><button type="button" onClick={closeDetail} className={styles.motionButton}>閉じる</button></div>
+      <p className={styles.detailDescription}>{selected.description}。SOL {amount(selected.sx)} ／ 顧客 {amount(selected.customer)} 円/{unit}</p>
       {selected.gaps.length > 0 && <p className={styles.gaps}>{selected.gaps.join("。")}{selected.gaps.some((g) => /未計上|未確定/.test(g)) ? "。未計上・未確認の費用は実際の0円を意味しない。" : "。"}</p>}
       <div className={styles.tableWrap}><table><thead><tr><th>費用・作業</th><th>負担</th><th>区分</th><th>初期投資（償却前）</th><th>円/{unit}</th></tr></thead><tbody>
         {selected.rows.filter((r) => r.perUnit !== 0 || r.initial !== 0 || r.unknown || r.note).map((row) => <tr key={row.id}>

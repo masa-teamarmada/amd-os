@@ -272,8 +272,8 @@ export function CockpitCostModel({ projectId, allowEdit = true, initialData }: P
 
   return (
     <div className="flex flex-col gap-2">
-      <CostEconomicsSummary bundle={working} computed={computed} selection={{ ...selection, strain: computed.strain }} unit={unit} />
       <CostProcessSummary bundle={working} computed={computed} selection={{ ...selection, strain: computed.strain }} unit={unit} />
+      <CostEconomicsSummary bundle={working} computed={computed} selection={{ ...selection, strain: computed.strain }} unit={unit} />
       <div className="rounded-xl border border-[#e5e5e7] bg-white" data-testid="cost-simulator">
         <h2 className="sr-only">{model.title}</h2>
         {/* スマホ幅: 結果の要約を上に固定する */}
