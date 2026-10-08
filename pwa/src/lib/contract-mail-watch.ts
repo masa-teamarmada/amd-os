@@ -6,12 +6,14 @@ import {getGoogleAuthAsync} from '@/lib/sources/google';
 import {classifyContractMail,MAIL_EVENT_LABEL,WORKFLOW_STATUS,type WorkflowMailEvent,type WorkflowStatus} from './workflows';
 const BASE='https://amd-os-pwa.vercel.app';
 function header(message:gmail_v1.Schema$Message,name:string){return message.payload?.headers?.find(h=>h.name?.toLowerCase()===name.toLowerCase())?.value||'';}
+function mimeBody(part:gmail_v1.Schema$MessagePart|undefined,mime:string):string {
+ if(!part||part.filename)return '';
+ if(part.mimeType===mime&&part.body?.data)return Buffer.from(part.body.data,'base64url').toString('utf8');
+ return (part.parts||[]).map(child=>mimeBody(child,mime)).find(Boolean)||'';
+}
 function body(part:gmail_v1.Schema$MessagePart|undefined):string {
- if(!part)return '';
- if(part.mimeType==='text/plain'&&part.body?.data)return Buffer.from(part.body.data,'base64url').toString('utf8');
- const plain=(part.parts||[]).map(body).filter(Boolean).join('\n');if(plain)return plain;
- if(part.mimeType==='text/html'&&part.body?.data)return Buffer.from(part.body.data,'base64url').toString('utf8').replace(/<(script|style)[\s\S]*?<\/\1>/gi,'').replace(/<br\s*\/?>|<\/p>/gi,'\n').replace(/<[^>]+>/g,' ');
- return '';
+ const plain=mimeBody(part,'text/plain');if(plain)return plain;
+ return mimeBody(part,'text/html').replace(/<(script|style)[\s\S]*?<\/\1>/gi,'').replace(/<blockquote[\s\S]*?<\/blockquote>/gi,'').replace(/<br\s*\/?>|<\/p>/gi,'\n').replace(/<[^>]+>/g,' ');
 }
 function filenames(part:gmail_v1.Schema$MessagePart|undefined):string[]{return part?[part.filename||'',...(part.parts||[]).flatMap(filenames)].filter(Boolean):[];}
 function safeSubject(subject:string){return subject.replace(/https?:\/\/\S+|[\w.+-]+@[\w.-]+/g,'[参照]').replace(/[\x00-\x1f<>]/g,' ').slice(0,160);}
