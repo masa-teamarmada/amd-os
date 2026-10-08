@@ -8,6 +8,8 @@
 
 2026-10-07: AMD OSの`/auth/login`は全員共通のメール入力と「続ける」１つに統一。`resolveLoginEntry`がtrim/lowercaseと形式検証の後、メールのdomainが厳密に`team-armada.jp`なら既存portfolio Google OAuth（Calendar/Gmail readonly、offline、consent、入力メールをlogin_hint）へ、それ以外なら既存`/api/auth/email-start`へ進める。subdomainや似たdomainは社内扱いにしない。domainは認証方式の選択だけで、付与・利用可否は既存callback/DB/RLSが検査する。旧`audience`/`workspace`queryによるUIの並べ替えとPJログインボタンは廃止し、`next`は両方式で引き継ぐ。旧project callbackの認可は維持。書斎hostは既存管理者用Google入口を維持する。未登録・未許可・送信抑制の200応答は同じ案内を表示。通信失敗は入力を保った再試行案内にする。入力・主操作48px、入力文字16px、横溢れなし。メール実送信・権限変更を伴わない画面検証を行う。
 
+2026-10-08: callbackのコード未付与・交換失敗・user取得失敗時は、`login_scope=workspace`なら`workspace_auth_failed`、他は`auth_failed`で共通入力へ戻す。`sanitizeNextPath`を通した`next`を失敗時も保存し、codeは戻さない。一般失敗にGoogle Workspaceを要求せず、外部認証失敗はメール入力と同じブラウザで最新リンクを開く案内にする。account不在・権限不足・activation失敗は管理者確認の案内を維持し、再入力だけで直ると扱わない。書斎の管理者専用入口はメール入力を要求しない。SMTPの未設定は別の未解決条件として残る。
+
 2026-10-06: ホームとコックピットの全体メニューは左上のメニューアイコン「≡」で開く左ドロワー。常設の全体サイドバーは出さず、既存のホーム・研究機関・シーズ・管理・資料などの入口を保持する。閉じるボタン、背景クリック、Escape、リンク選択で閉じ、キーボードフォーカスを開くボタンへ戻す。ホームのPJカード（研究機関・シーズ・事業会社・PJ運用一覧）と全体メニューのPJリンクは別タブを既定とし、PJ未登録の候補詳細と一覧・ページ内アンカーは同じタブで開く。
 
 2026-10-04: `GET /api/project/[projectId]/workspace-meetings` は `resolveSharedWorkspaceAccess(projectId)` の毎回判定後に当該PJの会議／動向だけを返す（private/no-store）。`GET /api/slack/messages?projectId=...` も当該PJの共有所属の読み取りを許す。DD付与だけの人は両APIへ入れない。
@@ -85,7 +87,7 @@
 | `/workspaces` | 外部アカウント (`workspace_user_accounts`) の入口。所属する機関ワークスペースと、`project_access_memberships` で個別に許可されたPJだけを並べる。機関所属をPJ一覧の根拠にしない。PJ台帳の取得失敗は参加0件へ変換せず、参加状況を変更していないことと再読込案内を出す |
 | `/workspace/[slug]` | 研究機関ワークスペース本体。内部アプリの chrome を共有しない独立シェル。対象機関のPJ、シーズ一覧、ECR を読み取り専用で表示する。シーズはPJ化済み → PJ化検討中 → PJなし・SPS算出済み → その他の順で、同区分内は表題の日本語順。ECR は1機関の縦並び (総合値 + 8軸) で、SPS とは別系列のまま合算しない。資料欄は BOX からの移行準備中の表示のみ (リンク / iframe / 署名トークンなし) |
 | `/workspace/[slug]/project/[projectId]` | 研究機関の個別PJ面。機関所属と当該PJの個別membershipを両方確認し、kernelのactive principal・organization membership・party・`publication.view`をDB RPCで再確認する。最新publicationがviewer audienceを含む時だけ承認済み項目を表示し、未公開・読取失敗・audience除外時にAMD内部値や旧版へfallbackしない。先頭は研究機関が返すもの、相手待ち、次期限、現在地、4本柱を表示する |
-| `/auth/login` | ログイン。`audience` で内部 (`armada` = Google Workspace OAuth) と外部 (`institution` = メールリンク) を出し分ける。`?audience=institution` または `?workspace=` があれば外部入口として開く。書斎のアドレス（`bookshelf-armada.vercel.app`）で開いたときは「書斎」の見出しと内部ログインだけを出し、題と manifest も書斎のもの（`auth/login/layout.tsx`、2026-10-04） |
+| `/auth/login` | ログイン。共通のメール入力と「続ける」で、厳密な社内domainはGoogle OAuth、それ以外はメールリンクへ進む。旧`audience`/`workspace`queryで方式を選ばせない。失敗時は方式に応じた再試行案内と検証済み`next`を保持する。書斎のアドレス（`bookshelf-armada.vercel.app`）で開いたときは「書斎」の見出しと内部ログインだけを出し、題と manifest も書斎のもの（`auth/login/layout.tsx`、2026-10-04） |
 | `/auth/logout` | 統一ログアウト。`amd_os_workspace_session` と旧 `amd_os_project_session` の両cookieを消し、Supabase も `scope:'local'` でログアウトして `/auth/login` へ戻す |
 | `/dd` | DD の入口。外部アカウントは閲覧できるパッケージが1つならそのトップへ、複数なら一覧。AMD admin には全パッケージのプレビューと管理画面への入口。admin 以外の内部メンバーは not found |
 | `/dd/[slug]` / `/dd/[slug]/items/[itemId]` | DDトップと項目1件（投資家・金融機関向け）。`dd_package_grants` の有効な付与（公開中のパッケージ・期限内・`dd.view`）か AMD admin のプレビューだけで開き、公開中（`is_published`）の有効な項目だけを出す（admin は非公開の項目も開ける）。中身は閲覧のたびに元データの最新を、ワークスペースと同じ部品で描く。非公開・外した・別パッケージ・権限なしはすべて not found |

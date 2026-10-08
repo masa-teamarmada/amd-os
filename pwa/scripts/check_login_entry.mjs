@@ -82,4 +82,48 @@ const shosai = build({ email: "" });
 await shosai.handleLogin();
 assert.equal(shosai.calls[0].kind, "google");
 assert.equal(shosai.calls[0].options.options.queryParams.login_hint, undefined);
+
+// Execute the real callback's failure branches with local auth doubles. A failed
+// external link must return to email login with its validated destination intact.
+const { sanitizeNextPath } = loadPure("src/lib/workspace-next-path.ts");
+const callbackSource = fs.readFileSync("src/app/auth/callback/route.ts", "utf8");
+const callbackAst = ts.createSourceFile("route.ts", callbackSource, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+const callbackGet = callbackAst.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "GET");
+assert.ok(callbackGet);
+const runCallbackFailure = async ({ scope, next, code, missingUser = false }) => {
+  const exchanges = [], signOuts = [];
+  const callbackUrl = new URL("https://amd-os-pwa.vercel.app/auth/callback");
+  if (scope) callbackUrl.searchParams.set("login_scope", scope);
+  if (next) callbackUrl.searchParams.set("next", next);
+  if (code) callbackUrl.searchParams.set("code", code);
+  const exports = {};
+  vm.runInNewContext(compile(printer.printNode(ts.EmitHint.Unspecified, callbackGet, callbackAst)), {
+    exports, URL, sanitizeNextPath,
+    NextResponse: { redirect: (url) => new URL(String(url)) },
+    createClient: async () => ({ auth: {
+      exchangeCodeForSession: async (value) => { exchanges.push(value); return { data: {}, error: missingUser ? null : { message: "invalid code" } }; },
+      getUser: async () => ({ data: { user: null } }),
+      signOut: async (options) => { signOuts.push(options); return { error: null }; },
+    } }),
+  });
+  const redirected = await exports.GET({ url: callbackUrl.href });
+  return { redirected, exchanges, signOuts };
+};
+for (const fixture of [
+  { scope: "workspace", next: "/dd/sol?page=company", code: "invalid-code" },
+  { scope: "workspace", next: "/project/p21/workspace" },
+  { scope: "workspace", next: "/project/p21/workspace", code: "valid-code", missingUser: true },
+  { scope: "portfolio", next: "/dashboard", code: "invalid-code" },
+  { next: "//outside.invalid", code: "invalid-code" },
+]) {
+  const { redirected, exchanges, signOuts } = await runCallbackFailure(fixture);
+  assert.equal(redirected.origin, "https://amd-os-pwa.vercel.app");
+  assert.equal(redirected.pathname, "/auth/login");
+  assert.equal(redirected.searchParams.get("error"), fixture.scope === "workspace" ? "workspace_auth_failed" : "auth_failed");
+  assert.equal(redirected.searchParams.get("next"), sanitizeNextPath(fixture.next));
+  assert.equal(redirected.searchParams.has("code"), false);
+  assert.equal(exchanges.length, fixture.code ? 1 : 0);
+  assert.equal(signOuts.length, fixture.missingUser ? 1 : 0);
+  if (fixture.missingUser) assert.equal(signOuts[0].scope, "local");
+}
 console.log("Login entry: domain boundaries, actual submit routing, OAuth scope/return path, double-submit and failures passed (no live transports)");

@@ -157,7 +157,9 @@ export default function LoginPage() {
         )}
         {error === "auth_failed" && (
           <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-left text-xs text-red-700">
-            ログインに失敗。もう一度Google Workspaceでログインして。
+            {loginApp === "shosai"
+              ? "ログインを完了できませんでした。もう一度ログインしてください。"
+              : "ログインを完了できませんでした。メールアドレスを入力して、もう一度続けてください。"}
           </div>
         )}
         {error === "connection_failed" && (
@@ -183,10 +185,14 @@ export default function LoginPage() {
         {(error === "workspace_account_not_found"
           || error === "workspace_no_access"
           || error === "workspace_activation_failed"
-          || error === "workspace_account_conflict"
-          || error === "workspace_auth_failed") && (
+          || error === "workspace_account_conflict") && (
           <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-left text-xs text-amber-800">
-            このメールでのログインを完了できなかったよ。招待メールのリンクか、担当者からの案内を確認してください。
+            このメールでのログインを完了できませんでした。招待されたメールアドレスか、管理者側の閲覧許可を確認してください。
+          </div>
+        )}
+        {error === "workspace_auth_failed" && (
+          <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-left text-xs text-amber-800">
+            このメールでのログインを完了できませんでした。メールアドレスを入力し直し、届いた最新のログインリンクをこのブラウザで開いてください。
           </div>
         )}
 

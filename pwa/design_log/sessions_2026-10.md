@@ -469,3 +469,14 @@ pwa/design_log/CLOSEOUT_SOL_DD_COST_20261007.md / BUGS.md / SESSION_MIGRATION_PR
 - Chromeの実管理画面で石原先生の別メールのSOL workspace閲覧のみ・SOL DDのdd.view・初回ログイン待ちを確認。承認待ちの新部品は実TSXの確認用SSRをPC/390pxで確認し、場所未選択では許可無効、選択済みでは有効。重なり・画面外への横溢れなし。評価8.2/10。Slack実アプリで未特定申請を新たに送信して承認する一連操作は未実施（card/handler契約と本番SQLを検証）。
 - 後続の利用者操作でログインメール未着が判明。本番送信ログはemail rate limit exceeded、Auth配信設定はcustom SMTP/hook未設定・標準2通/時。権限は有効、送信成功と本人のログインは未確認。配信接続先が必要で、権限修正だけではメールログインの完了条件を満たさない。BUGS/HANDOFF/spec/manualへ現状と次の確認を保存。秘密値やメール本文は記録していない。
 - 開発・運用検証のみ。理論/model/ネイティブ/新通知経路の変更なし。会話の検討材料: 0件。
+
+
+### 2026-10-08 外部ログインのGoogle Workspace誤案内を修正（開発）
+
+- 一般auth_failedの社内専用案内を共通メール入力へ変更。明示workspace認証失敗は最新リンクを入力時と同じブラウザで開く案内、権限不足・activation失敗は管理者確認へ区別。書斎は既存管理者入口に合う再ログイン案内。
+- 実callback GETのコードなし・交換失敗・userなしで、scopeに応じたerrorとsanitizeNextPath済みのnextを保持。認証codeは再試行URLへ転送しない。PKCE・local signOut・30日cookie・既存grant/RLSは変更なし。
+- check_login_entryで実handler/GETを通信代替実行。無効code/コードなし/userなし/portfolio/外部next拒否、社内domain境界、OAuth scope、二重送信、通信失敗を確認。workspace-email-start-contract/next-path/access-sessionとTypeScriptが成功。メール送信・OAuthログイン・権限変更は実行しない。
+- 実React画面をChromeで通常幅と390×876で確認。エラー全文・メール入力・続けるが画面内に収まり、横はみ出し・重なりなし。入力16px/48px、主操作48pxは既存を維持。表示レビュー8.4/10。失敗案内にGoogle Workspaceの準備を求めない。
+- manual2-1/9-3、spec2-1/6-1、ios/DESIGN、BUGS/HANDOFFを同時同期。BZM/model・schema・ネイティブ・環境変数・新通知経路は変更なし。本人が開いた正確なURL・認証失敗の個別原因は未確認。
+- 本番反映はmain正規deploy経路でv3.161.22を一度にpushし、公開build-infoの版/SHAと実callbackのコードなしredirectを確認する。rollbackは本commitのコード・案内を戻す。メール配信未設定は未解決で、案内の修正を本人ログインの成功と扱わない。
+- 開発・運用検証のみ。会話の検討材料0件。

@@ -282,6 +282,9 @@ export async function GET(request: Request) {
   const code = searchParams.get("code");
   const loginScope = searchParams.get("login_scope");
   const next = sanitizeNextPath(searchParams.get("next"));
+  const retryUrl = new URL("/auth/login", origin);
+  retryUrl.searchParams.set("error", loginScope === "workspace" ? "workspace_auth_failed" : "auth_failed");
+  retryUrl.searchParams.set("next", next);
 
   if (code) {
     const supabase = await createClient();
@@ -290,7 +293,7 @@ export async function GET(request: Request) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user?.email) {
         await supabase.auth.signOut({ scope: "local" });
-        return NextResponse.redirect(`${origin}/auth/login?error=auth_failed`);
+        return NextResponse.redirect(retryUrl);
       }
 
       if (loginScope === "workspace") {
@@ -335,7 +338,7 @@ export async function GET(request: Request) {
           .filter((name) => name.startsWith("sb-"));
         const { error: signOutError } = await supabase.auth.signOut({ scope: "local" });
         if (signOutError) {
-          return NextResponse.redirect(`${origin}/auth/login?error=auth_failed`);
+          return NextResponse.redirect(retryUrl);
         }
 
         const response = NextResponse.redirect(`${origin}${next}`);
@@ -406,5 +409,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.redirect(`${origin}/auth/login?error=auth_failed`);
+  return NextResponse.redirect(retryUrl);
 }
