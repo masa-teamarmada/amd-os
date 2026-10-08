@@ -1,5 +1,20 @@
 # HANDOFF - AMD OS PWA
 
+## 2026-10-08 — 外部メールのコード入力（v3.162.7）
+
+PWAへメールの数字でログインする入力欄とPOST callbackを追加。申込ブラウザのPKCE cookieを使わず本人確認し、既存のaccount/所属/DD付与検査と30日外部sessionを再利用する。リンクで失敗した場合は新しいメールを受け取り、ボタンを押さずコードを入力する。共通Auth本文にTokenを表示。社内Google・Swift UI・DB認可・理論は変更なし。先生本人の再ログイン成功は未確認。 2026-10-08、本番v3.162.7 / a66b48c774c1c0c451a66cdde0ac412b5812944eを通常deploy.shで反映、公開build-info一致を確認。共通Authテンプレート4項目を読戻して一致、他Auth設定不変。実Authのasahinaコード検証は本番でもSOL workspace/DD一覧・SolvioraX DD本文200・使用済みコード拒否・外部署名cookieのみを確認（メール送信なし、先生本人の実績と区別）。Chrome本番のコード入力欄を確認し、390pxの画面証跡は/tmp/amie-workspace-code-production-20261008.png。先生本人の新規メール受信とログイン成功は未確認。 実Authのasahina検証では、メールを送らず生成したコードをPKCE cookieなしで入力し、SOL workspace/DD一覧・DD本文200・使用済みコード拒否を確認。PC1440px/スマホ390・320pxで入力48px・操作44px以上・横溢れなし。型/静的検査・Auth/DD回帰検査を通過。
+
+| 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
+|---|---|---|---|
+| 数値コード入力・POST本人確認・失敗時の再発行案内 | spec/2-1、SPEC_pwa、BUGS | manual/2-1 | 同期済み |
+| 共通Auth本文のコード | ios/supabase/templates | manual/2-1 | 本番4項目一致・他Auth不変を読戻し済み |
+| 変更履歴 | spec/6-1 | manual/9-3 | 同期済み |
+| 他プラットフォーム | ios/DESIGN、HANDOFF_pwa_to_native_viewing | 対象外 | ネイティブUI未変更・ConfirmationURL維持 |
+| DB・認可・理論・model | 既存契約維持 | 対象外 | 変更なし |
+
+
+2026-10-08: 杉浦先生の別大学メールsugiura.miwa.me@ehime-u.ac.jpはp21 readonly invitedのみでDD付与なしだった。2人へSOL workspace/DDを許可する既存指示に合わせ、停止行/重複なし・account invited・SOL package open・admin actorを確認してDD sol invited/dd.view/無期限を追加。DB読戻し・admin_dd_mutation監査を確認。accountは本人認証前にactive化せず、メール送信なし。主大学メールと石原先生の大学/Gmailは両方のinvited付与あり。
+
 ## 2026-10-08 — v3.162.5 DDの404
 
 asahina Chromeの/dd/solで404、同じブラウザの/workspacesでもログインへ戻る。DBのSOL DD付与は有効で再付与不要。callback成功後にCookieが空になった原因は未確定。DDページ入口にセッション検証を追加し、元DD URL/tabを保って再認証へ戻す。本文前の個別grant検証・API/添付/印刷の認可は維持。実helper/pageの欠落/空/改ざん/期限切れ/未付与/許可正常を検査し、既存DD検査を通過。ローカルHTTPでも空/改ざんCookieは元tabを保つ307、既存asahina付与の120秒検証用sessionではSOL本文200を確認（本人の閲覧実績とは分ける）。本人の再認証からDD本文までの実確認は反映後に行う。メールのボタン初期表示は本人確認済み。
@@ -608,7 +623,7 @@ DB rollback検査でmember保存・readback、外部拒否、区分混在/重複
 今回の成果はorigin/mainと本番で整合。元checkoutは別作業の未push3件（f2a08962 / 3f11241e / c0f23546）があり同期未完。その3件はgit cherryで未反映と確認し保持。契約承認・メール取込の担当作業で統合するまでreset/rebase/stash/pushしない。今回の作業用main cloneは証跡保存後に撤去し、枝・worktreeは新設していない。新たな実装残件なし。会話の検討材料0件（製品仕様はspecへ記録）。
 
 
-## 2026-10-09 市場ニーズを主画面にする（v3.162.7）
+## 2026-10-09 市場ニーズを主画面にする（v3.162.8）
 
 一市場一行・出典・国内世界/年別規模順位・確度・直接シーズ接続。正本spec5-19、使い方manual2-5。499/500は本番適用済みで再実行しない。記入例の金額は未評価。配布・実画面確認・作業用コピー整理はrepo rootのHANDOFF_MARKET_NEEDS_20261009.mdを参照。
 

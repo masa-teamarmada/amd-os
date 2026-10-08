@@ -1,5 +1,9 @@
 # 閲覧中・閲覧履歴: 他プラットフォームへの引き継ぎ
 
+## 2026-10-08 — 外部メールのコード入力（v3.162.7）
+
+PWAの共通ログインへ数値コードを追加。POST /auth/callbackでverifyOtp後、既存account/所属/DD検査と30日外部cookieを再利用する。申込ブラウザのPKCE cookieは不要。共通Authメール本文にTokenを表示するが、ConfirmationURLは維持。Swift/Androidのログイン画面は未変更で、外部資料はブラウザで開く前提。先生本人の新規メール受信・コード入力は未確認。 2026-10-08、本番v3.162.7 / a66b48c774c1c0c451a66cdde0ac412b5812944eを通常deploy.shで反映、公開build-info一致を確認。共通Authテンプレート4項目を読戻して一致、他Auth設定不変。実Authのasahinaコード検証は本番でもSOL workspace/DD一覧・SolvioraX DD本文200・使用済みコード拒否・外部署名cookieのみを確認（メール送信なし、先生本人の実績と区別）。Chrome本番のコード入力欄を確認し、390pxの画面証跡は/tmp/amie-workspace-code-production-20261008.png。先生本人の新規メール受信とログイン成功は未確認。
+
 2026-10-08（v3.162.5）: PWAのDDページ入口は、内部memberも有効な外部sessionも無ければ元DD URLを保って共通ログインへ戻す。認証済みでも個別DD付与が必須。API/添付/印刷の認可・応答、ネイティブUI/認証方式は維持。spec/5-17・2-1、manual/2-1。
 
 ## 2026-10-08 — 共通Authのログインメール
