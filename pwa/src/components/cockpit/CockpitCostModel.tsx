@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   APPLICATION_LABEL,
   CO2_FLUE_GAS_ROLE,
@@ -63,7 +63,7 @@ import { CostEconomicsSummary } from "@/components/cockpit/CostEconomicsSummary"
 //   - 操作パネル (株・用途・方式・装置の切り替え＋前提・作業リスト・明細) と結果を同じ画面に並べる。
 //     槽は上端に出さない (まさ 2026-09-14「「槽　顧客の設備」ってのが最上段にある意味がわからん。特出しするものでもないと思うので削除して」)。
 //     オンサイトの槽を SX が持つ形にしたときだけ、操作パネルの CAPEX「槽」で既設・新設を選ぶ。
-//     デスクトップ 1440×900 では、操作パネルの中だけがスクロールし、結果はスクロールせずに見える。
+//     デスクトップもページ全体でスクロールし、操作パネルと結果の高さを制限しない。
 //     スマホ幅では結果の要約を上に固定する
 //   - 未確定の数字はすべて画面で書き換えられる。書き換えはその場で再計算するだけで保存しない (試算)。
 //     正本へ書くのは、admin が「この値を保存」を押したときだけ
@@ -110,8 +110,6 @@ export function CockpitCostModel({ projectId, allowEdit = true, initialData }: P
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [changesOpen, setChangesOpen] = useState(false);
-  const [paneHeight, setPaneHeight] = useState<number | null>(null);
-  const panesRef = useRef<HTMLDivElement>(null);
 
   const setDraft = useCallback(
     (update: (d: CostDraft) => CostDraft) => {
@@ -170,28 +168,6 @@ export function CockpitCostModel({ projectId, allowEdit = true, initialData }: P
     return other ? computeCostModel(working, { strain: other }) : null;
   }, [working, computed]);
   const changes = useMemo(() => (bundle ? listDraftChanges(bundle, draft) : []), [bundle, draft]);
-
-  // デスクトップでは、操作パネルと結果の高さを「画面の下端まで」にそろえ、操作パネルの中だけをスクロールさせる。
-  useLayoutEffect(() => {
-    if (state !== "ready") return;
-    const measure = () => {
-      const el = panesRef.current;
-      if (!el || !window.matchMedia("(min-width: 1100px)").matches) {
-        setPaneHeight(null);
-        return;
-      }
-      const top = el.getBoundingClientRect().top + window.scrollY;
-      setPaneHeight(Math.round(Math.min(Math.max(window.innerHeight - top - 12, 520), 1000)));
-    };
-    measure();
-    window.addEventListener("resize", measure);
-    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
-    ro?.observe(document.body);
-    return () => {
-      window.removeEventListener("resize", measure);
-      ro?.disconnect();
-    };
-  }, [state]);
 
   const onChange = useCallback(
     (entity: DraftEntity, id: string, field: DraftField, value: DraftValue) => {
@@ -291,9 +267,7 @@ export function CockpitCostModel({ projectId, allowEdit = true, initialData }: P
   const baselineFlow = hasDraft ? computeTaskFlow(bundle, baseline, flowSel) : flow;
   const showFlow = () => {
     const target = document.getElementById("cm-flow");
-    const pane = target?.closest<HTMLElement>('[data-testid="cost-controls"]');
-    if (pane && pane.scrollHeight > pane.clientHeight) pane.scrollTo({ top: 0, behavior: "smooth" });
-    else target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   return (
@@ -432,7 +406,7 @@ export function CockpitCostModel({ projectId, allowEdit = true, initialData }: P
                   ? "書き換えた数字の一覧。「この値を保存」を押すと正本に書き、全員の画面に反映される。"
                   : "書き換えた数字の一覧。保存はコックピットの管理者だけができる。ここでの書き換えは、再読み込みすると消える。"}
               </p>
-              <ul className="max-h-[360px] divide-y divide-[#f0f0f2] overflow-y-auto">
+              <ul className="divide-y divide-[#f0f0f2]">
                 {changes.map((c) => (
                   <li key={c.key} className="flex flex-wrap items-center gap-x-2 gap-y-1 px-1 py-1.5 text-[12px]">
                     <span className="min-w-0 flex-1 text-[#1d1d1f]">
@@ -463,11 +437,9 @@ export function CockpitCostModel({ projectId, allowEdit = true, initialData }: P
           )}
         </div>
 
-        {/* 操作パネル（左）と結果（右）。デスクトップは画面の下端まで、操作パネルの中だけスクロールする */}
+        {/* 操作パネル（左）と結果（右）。両方とも自然な高さで、ページ全体をスクロールする */}
         <div
-          ref={panesRef}
           className="grid grid-cols-1 min-[1100px]:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_380px]"
-          style={paneHeight ? { height: paneHeight } : undefined}
         >
           <div className="order-2 min-h-0 min-[1100px]:order-1 min-[1100px]:border-r min-[1100px]:border-[#e5e5e7]">
             <CostControlsPanel
@@ -478,11 +450,10 @@ export function CockpitCostModel({ projectId, allowEdit = true, initialData }: P
               flow={flow}
               unit={unit}
               onChange={onChange}
-              scrollable={paneHeight !== null}
               onSelectTankMode={(tankMode) => setView({ tankMode })}
             />
           </div>
-          <div className="order-1 min-h-0 border-b border-[#e5e5e7] p-2 min-[1100px]:order-2 min-[1100px]:overflow-y-auto min-[1100px]:border-b-0">
+          <div className="order-1 min-h-0 border-b border-[#e5e5e7] p-2 min-[1100px]:order-2 min-[1100px]:border-b-0">
             <CostResultsPanel
               unit={unit}
               computed={computed}

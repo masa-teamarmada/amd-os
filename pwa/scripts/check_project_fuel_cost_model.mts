@@ -317,6 +317,7 @@ check("燃料のシミュレーターの画面の約束（排水処理のコス�
   assert.match(main, /xl:grid-cols-\[minmax\(0,1fr\)_380px\]/);
   assert.match(main, /sticky top-0 z-20 min-\[1100px\]:hidden/);
   assert.match(main, /FuelResultsSummaryBar/);
+  assert.doesNotMatch(main + controls, /paneHeight|overscroll-contain|overflow-y-auto/, "燃料も縦スクロールをページ内に重ねない");
   // 保存は編集できる人だけ、「この値を保存」から。入力のたびに保存しない
   assert.match(main, /\{canEdit && \(\s*<button[\s\S]*?この値を保存/);
   assert.ok(!/saveFuelCostPatches\([^)]*\)[\s\S]{0,40}onChange/.test(main));
@@ -373,11 +374,13 @@ check("コスト試算（廃液・燃料）共通: 操作パネルの一番上�
   const fuelControls = read("src/components/cockpit/CockpitFuelCostModelControls.tsx");
   assert.ok(fuelControls.indexOf("<CostBreakdownGuide") > 0 && fuelControls.indexOf("<CostBreakdownGuide") < fuelControls.indexOf('<section id="fuel-flow"'), "燃料: 内訳が作業の流れより前");
   assert.match(fuelControls, /jump\(`fuel-g-\$\{groupKey\}`\)/);
-  assert.match(fuelControls, /onClick=\{\(\) => jump\("fuel-breakdown"\)\}/, "燃料: 目次から内訳へ戻れる");
+  assert.doesNotMatch(fuelControls, /操作パネルの目次|showAllRows|すべての行を出す/, "燃料: 本文を連続表示し、全行切替を設けない");
+  assert.match(fuelControls, /items=\{groupItems\}/, "燃料: 初めから全明細を出す");
   const wwControls = read("src/components/cockpit/CockpitCostModelControls.tsx");
   assert.ok(wwControls.indexOf("<CostBreakdownGuide") > 0 && wwControls.indexOf("<CostBreakdownGuide") < wwControls.indexOf('<section id="cm-flow"'), "廃液: 内訳が作業の流れより前");
   assert.match(wwControls, /jump\(`cm-g-\$\{groupKey\}`\)/);
-  assert.match(wwControls, /onClick=\{\(\) => jump\("cm-breakdown"\)\}/, "廃液: 目次から内訳へ戻れる");
+  assert.doesNotMatch(wwControls, /操作パネルの目次|showAllRows|すべての行を出す/, "廃液: 本文を連続表示し、全行切替を設けない");
+  assert.match(wwControls, /items=\{groupItems\}/, "廃液: 初めから全明細を出す");
 });
 
 check("コスト試算（廃液・燃料）共通: 明細の行の下に、数量 × 単価 から右端の額までの計算の式と、数の根拠を出す。式の答えは右端の額と一致する", () => {

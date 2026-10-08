@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   APPLICATION_LABEL,
   CO2_FLUE_GAS_ROLE,
@@ -92,15 +92,11 @@ interface Props {
   flow: CostTaskFlow;
   unit: string;
   onChange: CostChangeHandler;
-  /** 操作パネル自体がスクロールする枠か (デスクトップ)。目次の移動先を枠の中にする。 */
-  scrollable: boolean;
   /** オンサイトの槽を SX が持つときの、既設・新設の切り替え。 */
   onSelectTankMode: (tankMode: CostTankMode) => void;
 }
 
-export function CostControlsPanel({ saved, working, computed, selection, flow, unit, onChange, scrollable, onSelectTankMode }: Props) {
-  const paneRef = useRef<HTMLDivElement>(null);
-  const [showAllRows, setShowAllRows] = useState(false);
+export function CostControlsPanel({ saved, working, computed, selection, flow, unit, onChange, onSelectTankMode }: Props) {
   // 選んだ方式の物量。オフサイトは対象物質の濃さを別に持てるので、使い切る菌体の量が方式で変わる。
   const derived = derivedOf(computed, selection.application, selection.location);
   const concentrationUnit =
@@ -154,14 +150,7 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
   const jump = (id: string) => {
     const target = document.getElementById(id);
     if (!target) return;
-    if (scrollable && paneRef.current) {
-      const pane = paneRef.current;
-      const navHeight = pane.querySelector("nav")?.getBoundingClientRect().height ?? 40;
-      const top = pane.scrollTop + target.getBoundingClientRect().top - pane.getBoundingClientRect().top - navHeight - 8;
-      pane.scrollTo({ top, behavior: "smooth" });
-    } else {
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
   };
   const jumpToGroup = (groupKey: string) => {
     jump(`cm-g-${groupKey}`);
@@ -311,7 +300,6 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
   const renderGroup = (g: CostParamGroup) => {
     const rows = [...(assumptionRows.byGroup.get(g.key) ?? []), ...(g.key === "cond-biomass" ? assumptionRows.unplaced : [])];
     const groupItems = itemsOfGroup(g.key);
-    const visibleItems = showAllRows ? groupItems : groupItems.filter((i) => itemApplies(i, selection));
     const hasTasks = !!g.tasks && tasks.length > 0;
     const box = derivedBox(g.key);
     if (rows.length === 0 && groupItems.length === 0 && !hasTasks) return null;
@@ -341,12 +329,9 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
         )}
         {box}
         {hasTasks && <TaskList saved={saved} working={working} computed={computed} selection={selection} flow={flow} unit={unit} onChange={onChange} />}
-        {groupItems.length > 0 &&
-          (visibleItems.length > 0 ? (
-            <ItemRows saved={saved} working={working} computed={computed} selection={selection} unit={unit} items={visibleItems} onChange={onChange} />
-          ) : (
-            <p className="mt-1 text-[11px] text-[#86868b]">選んだ組み合わせでは発生しない（{groupItems.length}行。上の「すべての行を出す」で見られる）</p>
-          ))}
+        {groupItems.length > 0 && (
+          <ItemRows saved={saved} working={working} computed={computed} selection={selection} unit={unit} items={groupItems} onChange={onChange} />
+        )}
       </section>
     );
   };
@@ -358,40 +343,7 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
   }).filter((b) => b.rendered.length > 0);
 
   return (
-    <div
-      ref={paneRef}
-      className={scrollable ? "h-full overflow-y-auto overscroll-contain" : ""}
-      data-testid="cost-controls"
-    >
-      <nav
-        aria-label="操作パネルの目次"
-        className={`${scrollable ? "sticky top-0" : ""} z-10 flex flex-wrap items-center gap-x-0.5 gap-y-0 border-b border-[#e5e5e7] bg-white px-2 py-1`}
-      >
-        {scenario && (
-          <button type="button" onClick={() => jump("cm-breakdown")} className={NAV_BUTTON}>
-            内訳
-          </button>
-        )}
-        {tasks.length > 0 && (
-          <button type="button" onClick={() => jump("cm-flow")} className={NAV_BUTTON}>
-            作業の流れと工数
-          </button>
-        )}
-        {blocks.map(({ block }) => (
-          <button key={block.key} type="button" onClick={() => jump(`cm-block-${block.key}`)} className={NAV_BUTTON}>
-            {block.title}
-          </button>
-        ))}
-        <button
-          type="button"
-          onClick={() => setShowAllRows((v) => !v)}
-          aria-pressed={showAllRows}
-          className="ml-auto min-h-[36px] rounded-md border border-[#d2d2d7] bg-white px-2 text-[11px] font-semibold text-[#3c3c43] hover:border-[#7cbceb] lg:min-h-[24px]"
-          title="明細の行を、選んだ株・用途・方式・装置に効く行だけにするか、すべて出すか"
-        >
-          {showAllRows ? "選んだ組み合わせの行だけにする" : `すべての行を出す（明細${allItems.length}行）`}
-        </button>
-      </nav>
+    <div data-testid="cost-controls">
       <div className="flex flex-col gap-2 px-2 pb-3 pt-2">
         <div data-cost-overview="true">
         {scenario && (
@@ -423,18 +375,6 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
           <section key={block.key} id={`cm-block-${block.key}`} aria-label={block.title} className="scroll-mt-12 rounded-lg border border-[#e5e5e7] px-2 py-1">
             <h4 className="text-[13px] font-semibold text-[#1d1d1f]">{block.title}</h4>
             <p className="text-[10px] leading-4 text-[#6e6e73]">{block.hint}</p>
-            <div className="mt-1 flex flex-wrap gap-x-1 gap-y-0.5" aria-label={`${block.title}の区分`}>
-              {rendered.map(({ g }) => (
-                <button
-                  key={g.key}
-                  type="button"
-                  onClick={() => jump(`cm-g-${g.key}`)}
-                  className="min-h-[32px] rounded-full border border-[#e5e5e7] bg-[#fafafa] px-2 text-[10px] font-medium text-[#3c3c43] hover:border-[#7cbceb] hover:text-[#0267b2] lg:min-h-[22px]"
-                >
-                  {g.title}
-                </button>
-              ))}
-            </div>
             <div data-cost-condition-groups={block.key === "conditions" ? "true" : undefined} className="mt-1 flex flex-col gap-1.5">{rendered.map(({ node }) => node)}</div>
           </section>
         ))}
@@ -443,7 +383,6 @@ export function CostControlsPanel({ saved, working, computed, selection, flow, u
   );
 }
 
-const NAV_BUTTON = "min-h-[36px] shrink-0 rounded-md px-2 text-[11px] font-semibold text-[#3c3c43] hover:bg-[#e8f3fc] hover:text-[#0267b2] lg:min-h-[24px]";
 
 /**
  * 内訳の区分の額を比例して動かす前提 (金額の行ではない)。菌体費は使い切る菌体の量と、菌体1kgの原価の割り算 (販売率・上書き) で動く。

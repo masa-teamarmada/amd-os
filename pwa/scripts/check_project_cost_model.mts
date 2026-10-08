@@ -487,7 +487,9 @@ assert.ok(
   assert.doesNotMatch(route.replace(/\/\/.*$/gm, ""), /hourly_rate/, "API は作業ごとの作業単価を読まない・書かない");
   assert.match(controls, /COST_PARAM_BLOCKS\.map\(\(block\)/, "操作パネルは「事業と処理の条件 / CAPEX / OPEX」の区分で並べる");
   assert.match(controls, /id=\{`cm-g-\$\{g\.key\}`\}/, "小分けの区分ごとに移動先を持つ");
-  assert.match(controls, /jump\(`cm-block-\$\{block\.key\}`\)/, "目次から CAPEX / OPEX へ移動できる");
+  assert.doesNotMatch(controls, /操作パネルの目次|showAllRows|すべての行を出す/, "目次と全行切替を設けず、本文を連続表示する");
+  assert.match(controls, /items=\{groupItems\}/, "明細は初めから全行表示する");
+  assert.doesNotMatch(main + controls, /paneHeight|overscroll-contain|overflow-y-auto/, "縦スクロールをページの内側に重ねない");
   assert.match(controls, /paramGroupOfItem\(i\)\?\.key === key/, "明細は区分に置く");
   assert.doesNotMatch(controls, /function ItemEditor|SCOPE_ORDER/, "明細を方式ごとの束で別の場所に出さない");
   assert.match(read(files[3]), /COST_PARAM_BLOCKS\.map\(\(block\)/, "読み物の「すべての前提」も同じ区分");

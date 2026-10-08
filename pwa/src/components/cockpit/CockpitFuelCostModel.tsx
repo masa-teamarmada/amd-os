@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { CO2_FLUE_GAS_ROLE, WASTE_HEAT_ROLE, WASTE_MEDIUM_ROLE, flueGasOn, wasteHeatOn, wasteMediumOn, type CostModelBundle } from "@/lib/project-cost-model";
 import {
   FUEL_CONVERSIONS,
@@ -49,7 +49,7 @@ import { FuelReadingSections } from "@/components/cockpit/CockpitFuelCostModelRe
 // そんで廃液処理のコスト試算と同様にバイオディーゼル事業のコスト試算シートを作ってほしい」。
 //
 // 排水処理の「コスト試算」タブ (CockpitCostModel) と同じ形のシミュレーター:
-//   - 操作パネル (前提・作業リスト・明細) と結果を同じ枠に並べる。デスクトップは操作パネルの中だけがスクロールし、結果はスクロールせずに見える。
+//   - 操作パネル (前提・作業リスト・明細) と結果を同じ枠に並べる。デスクトップも高さを制限せず、ページ全体でスクロールする。
 //     スマホ幅は結果の要約を上に固定する
 //   - 未確定の数字はすべて画面で書き換えられる。書き換えはその場で再計算するだけで保存しない。admin だけ「この値を保存」で正本へ書く
 //   - 前提・作業・明細は「事業と製造の条件 / CAPEX / OPEX」の区分に並べる。数字の欄は3桁カンマ。作業単価は共通の1つ
@@ -99,8 +99,6 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [changesOpen, setChangesOpen] = useState(false);
-  const [paneHeight, setPaneHeight] = useState<number | null>(null);
-  const panesRef = useRef<HTMLDivElement>(null);
 
   const setDraft = useCallback(
     (update: (d: CostDraft) => CostDraft) => {
@@ -150,28 +148,6 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData 
   const hasDraft = Object.keys(draft).length > 0;
   const baseline = useMemo(() => (bundle && computed ? (hasDraft ? computeFuelCostModel(bundle) : computed) : null), [bundle, computed, hasDraft]);
   const changes = useMemo(() => (bundle ? listDraftChanges(bundle, draft) : []), [bundle, draft]);
-
-  // デスクトップでは、操作パネルと結果の高さを「画面の下端まで」にそろえ、操作パネルの中だけをスクロールさせる。
-  useLayoutEffect(() => {
-    if (state !== "ready") return;
-    const measure = () => {
-      const el = panesRef.current;
-      if (!el || !window.matchMedia("(min-width: 1100px)").matches) {
-        setPaneHeight(null);
-        return;
-      }
-      const top = el.getBoundingClientRect().top + window.scrollY;
-      setPaneHeight(Math.round(Math.min(Math.max(window.innerHeight - top - 12, 520), 1000)));
-    };
-    measure();
-    window.addEventListener("resize", measure);
-    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
-    ro?.observe(document.body);
-    return () => {
-      window.removeEventListener("resize", measure);
-      ro?.disconnect();
-    };
-  }, [state]);
 
   const onChange = useCallback(
     (entity: DraftEntity, id: string, field: DraftField, value: DraftValue) => {
@@ -246,9 +222,7 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData 
   const baselineFlow = hasDraft && currentBase ? computeFuelTaskFlow(bundle, currentBase) : flow;
   const showFlow = () => {
     const target = document.getElementById("fuel-flow");
-    const pane = target?.closest<HTMLElement>('[data-testid="fuel-cost-controls"]');
-    if (pane && pane.scrollHeight > pane.clientHeight) pane.scrollTo({ top: 0, behavior: "smooth" });
-    else target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   return (
@@ -366,7 +340,7 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData 
                   ? "書き換えた数字の一覧。「この値を保存」を押すと正本に書き、全員の画面に反映される。"
                   : "書き換えた数字の一覧。保存はコックピットの管理者だけができる。ここでの書き換えは、再読み込みすると消える。"}
               </p>
-              <ul className="max-h-[360px] divide-y divide-[#f0f0f2] overflow-y-auto">
+              <ul className="divide-y divide-[#f0f0f2]">
                 {changes.map((c) => (
                   <li key={c.key} className="flex flex-wrap items-center gap-x-2 gap-y-1 px-1 py-1.5 text-[12px]">
                     <span className="min-w-0 flex-1 text-[#1d1d1f]">
@@ -397,11 +371,9 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData 
           )}
         </div>
 
-        {/* 操作パネル（左）と結果（右）。デスクトップは画面の下端まで、操作パネルの中だけスクロールする */}
+        {/* 操作パネル（左）と結果（右）。両方とも自然な高さで、ページ全体をスクロールする */}
         <div
-          ref={panesRef}
           className="grid grid-cols-1 min-[1100px]:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_380px]"
-          style={paneHeight ? { height: paneHeight } : undefined}
         >
           <div className="order-2 min-h-0 min-[1100px]:order-1 min-[1100px]:border-r min-[1100px]:border-[#e5e5e7]">
             <FuelControlsPanel
@@ -411,10 +383,9 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData 
               current={current}
               flow={flow}
               onChange={onChange}
-              scrollable={paneHeight !== null}
             />
           </div>
-          <div className="order-1 min-h-0 border-b border-[#e5e5e7] p-2 min-[1100px]:order-2 min-[1100px]:overflow-y-auto min-[1100px]:border-b-0">
+          <div className="order-1 min-h-0 border-b border-[#e5e5e7] p-2 min-[1100px]:order-2 min-[1100px]:border-b-0">
             <FuelResultsPanel
               computed={computed}
               baseline={baseline}
