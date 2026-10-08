@@ -536,3 +536,22 @@ PWA社内共通枠・共有PJ・DDへPageViewingを追加。migration 2026100812
 | 閲覧履歴・外部本人限定 | spec2-1 / DB schema | manual2-1 / 9-3 | 同期済み |
 | 理論・数式 | 変更なし | 対象外 | 閲覧状態のみ |
 | 他プラットフォーム | ios/DESIGN | 対象外 | UI未移植・適用済みDB再適用禁止 |
+
+
+## 2026-10-08 シーズ×ニーズ一覧（v3.162.1）
+
+実装は `/seed-needs`。正本spec5-19、使い方manual2-5。市場→企業の事業領域/強み/方針→企業ニーズ→seeds.idの接続。市場4/企業6/接続5の編集可能な記入例と実際の蓄積を分離。migration495/496適用済みで再適用禁止。既存seeds本体への書込みなし。専用ネイティブUIは未移植。
+
+DB rollback検査でmember保存・readback、外部拒否、区分混在/重複/誤った確認済/非存在seed/同時編集を確認。型検査と対象ESLint、新規結合・検索テストを実施。標準Turbopack production build（8192MB指定）成功。初回のwebpack検査は既存route exportの型制限に当たったため、依存をclone内へ複製して標準buildで検証。配布は通常deploy.shを使用し、本番build-infoと実ブラウザで確認する。
+
+共有checkoutには別作業の未push 3commitがあり、origin/mainから別のmain cloneで実装。別作業を混入させない。schema dumpには既に適用されていた別作業のDB列も現況として出力される。ローカル元checkoutをreset/stashしない。
+
+| 新仕様/変更 | 設計正本 | OSマニュアル | 状態 |
+|---|---|---|---|
+| 一覧・追加編集・未接続・記入例 | spec5-19 / ios DESIGN / FEATURE_REGISTRY | manual2-5 / 5-1 | 同期済み |
+| route・認可 | spec2-1 / spec5-19 | manual2-5 | 同期済み |
+| DB・保存・競合・参照キャッシュ | migration495/496 / db_schema / spec5-19 | manual2-5 | 同期済み |
+| 変更履歴 | spec6-1 | manual9-3 | 同期済み |
+| 理論・BZM / model | 変更対象外 | 対象外 | モデル変更なし |
+
+配布束: 新一覧・編集・DB migration・記入例・回帰検査・仕様一式。除外: 既存シーズ更新、外部共有、通知、別セッションの未push変更。反映先origin/main→amd-os-pwa。戻す場合はクライアントの本差分をrevertし版数を進め通常deploy、入力済みニーズをDROP/DELETEしない。

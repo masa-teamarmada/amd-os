@@ -111,6 +111,7 @@
 | `/knowledge-map` | AMD Materials。高校生でも読める日本語で118元素を熱色・日本語主用途・供給警報から俯瞰し、元素の小窓で直近公表相場・5年推移・産出国円グラフを確認する。総合値は4指標合計（20点満点）で、周期表以外は合計の高い順。全材料横断の需給の崩れランキングは専用の偏りの強さ（5点満点）で並べ、不足側、供給過剰側、価格乱高下を区別し、原因、供給が詰まる工程、評価時点、確からしさを示す。全体の入口はカード全面で操作できる。元素・鉱物・樹脂は選択直後に要点の小窓を開き、詳細操作で同じ小窓を拡張する。樹脂の詳細では原料と製造方法も確認できる。比較、従来のノウハウ地図まで横断する読み取り専用の材料データベース |
 | `/business-cards` | 名刺管理。スマホ撮影 / 写真選択 → Gemini OCR → 人の確認 → 1件以上のPJ紐付け → `business_cards` と D-3 `project_knowledge(category='people')` へ保存する。OCR結果は自動確定しない |
 | `/native/business-cards` | iOS名刺タブ用のナビ無しnative shell。通常の月初合意overlayを重ねず、認証cookieつきWKWebViewから `/business-cards` と同じUI/APIを使う |
+| `/seed-needs` | 社内portfolioの市場・企業ニーズ×既存シーズ一覧。記入例/実際の蓄積、追加編集、未接続、根拠・研究設計。RLSと詳細は5-19 |
 | `/poc` | PoC案件化。Seeds とPoC先を入力し、その掛け合わせからヒアリング論点、PoC条件、謝礼、契約、資金、収益分配を追う |
 | `/venture-map/amd-score` | 現行SPS一覧。`sps-ind-v1 / q-eval-v2 / rubric-v1.1 / p-ind-v1`だけを表示 |
 | `/project/[projectId]/cockpit?tab=score-detail` | PJ cockpit 内の現行SPS詳細。BZM 2.2は同じBZMから出る別の出力として、合算せず続けて表示 |

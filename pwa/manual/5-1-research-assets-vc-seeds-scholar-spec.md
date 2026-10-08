@@ -8,6 +8,7 @@
 |---|---|---|---|
 | `/seeds` | 研究シーズ (= 機関 × PI × シーズ) のマスタ | `seeds` / `seed_funding` / `seed_news` / `seed_contact_log` | `/api/cron/seeds-ingest` (停止中) |
 | `/seeds/inbox` | 自動収集された未確認シーズの受信箱 | `seeds (discovery_status='discovered')` | 同上 |
+| `/seed-needs` | 市場・企業ニーズと既存シーズの接続。詳細spec5-19 | `market_needs` / `company_needs` / `seed_need_matches` / `seeds` | なし |
 | `/poc` | シーズ x PoC先のPoC案件化台帳 | `seeds` / `poc_companies` / `poc_matches` | なし |
 | `/vcs` | 国内ディープテック VC マスタ | `vcs` / `vc_funds` / `vc_investments` / `vc_contacts` / `project_vc_relations` / `vc_news` | `/api/cron/vc-discover` (停止中) |
 | `/vcs/inbox` | VC ニュース受信箱 | `vc_news (verified=false)` | 同上 |

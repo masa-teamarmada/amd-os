@@ -4815,3 +4815,8 @@ expectIncludes("src/components/dashboard/PortfolioPulse.tsx", ['target={href.sta
 
 expectIncludes("src/components/nav/ProjectNavigation.module.css", ["grid-template-columns: 240px minmax(0, 1fr)", "min-height: 44px", ".row, .menu .row { min-height: 28px", "overflow-y: auto", ".row[aria-current=\"page\"]", ".row:hover", ".row[aria-current=\"page\"]:hover"]);
 expectIncludes("src/components/dd/DdNavigation.tsx", ["資料名で検索", "type=\"search\"", "該当する資料はありません"]);
+
+// 市場・企業ニーズの分離と、未接続を残すシーズ結合の入口。
+expectIncludes("src/components/nav/GlobalNav.tsx", ['href: "/seed-needs"', 'label: "シーズ×ニーズ"']);
+expectIncludes("src/components/seed-needs/SeedNeedsWorkspace.tsx", ['議論用の記入例', '実際の蓄積', '未接続のみ', 'NeedEditor', 'joinSeedNeeds']);
+execFileSync(process.execPath, ["--experimental-strip-types", path.join(root, "scripts/check_seed_needs.mts")], { stdio: "pipe" });

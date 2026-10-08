@@ -251,3 +251,8 @@ SPS はシーズ有望度スコア。KUTE / p25 に限らず **全国のすべ�
 `SeedDetailModal` の接続PJリンクは `/project/{project_id}/cockpit` のみとする。ワークスペースはコックピットの「共有ワークスペースへ」から入る。これにより、シーズを確認した後に社内の判断面（cockpit）を経由してPJ実行面（workspace）へ進む。
 
 PJワークスペースは、SX (p21) が最初に作った `SxWeeklyControlDashboard` を全PJ共通仕様として使う。全PJに `週次差分 / ガント / 関係先 / 論点・仮説 / ドライブ` のタブを表示し、ドライブは `WorkspaceDocumentRoom` を `scopeKind='project'` / `scopeId=当該PJ` / `surface='workspace'` で再利用する。共通化はタブ、配置、操作、資料室の仕様だけで、PJ固有の `project_name`、管理柱・レーン、実データ、外部workspace accountの権限絞り込みは維持する。p30の6領域など既存のDB分類を3レーンへ変換しない。
+
+
+## シーズ×ニーズへの接続（2026-10-08）
+
+`/seed-needs` の seed_need_matches.seed_id から参照。既存seedsの行・評価・接触履歴は変更しない。市場/企業ニーズと記入例は別表。詳細はspec/5-19-seed-needs-current-spec.md。

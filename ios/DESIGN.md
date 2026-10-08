@@ -761,3 +761,8 @@ PWA DDは認可後の全ページ・直接資料・保存出力に秘密表示�
 ## PWA同一画面の閲覧者・閲覧履歴（2026-10-08 16:40 JST）
 
 PWAの共通ページ移動帯右上に丸い頭文字と人数、閲覧中／閲覧履歴の切替を追加。画面追加・改名なし。既存認可を毎回検証する/api/page-viewingと共有Supabaseのos_page_viewer_sessions / os_page_viewing_visitsを使う。表示中タブ10秒更新、30秒期限切れ、外部は本人の履歴。正式仕様pwa/spec/2-1。iOS/macOS/AndroidのUI・ライフサイクル対応は未移植。migrationは適用済み、再適用禁止。
+
+
+## 2026-10-08 シーズ×ニーズ（PWA先行）
+
+`/seed-needs` は市場→企業の事業領域/強み/方針→企業ニーズ→既存シーズの結合一覧。market_needs/company_needs/seed_need_matchesを正本とし、RLSはamd_os_is_member。記入例と実際の蓄積を分離。原案の編集・未接続・既存シーズ詳細への導線。詳細spec5-19、native専用UI未移植。

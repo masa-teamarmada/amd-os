@@ -219,7 +219,8 @@
     "test:space-permissions": "node --experimental-strip-types --import ./scripts/register_relative_ts.mjs scripts/check_space_permissions.mts",
     "test:project-proper-nouns": "node --experimental-strip-types --import ./scripts/register_relative_ts.mjs scripts/check_project_proper_nouns.mts",
     "test:contract-operational-checks": "node --experimental-strip-types scripts/check_contract_operational_checks.mts",
-    "test:page-viewing": "node --experimental-strip-types scripts/check_page_viewing.mts"
+    "test:page-viewing": "node --experimental-strip-types scripts/check_page_viewing.mts",
+    "test:seed-needs": "node --experimental-strip-types scripts/check_seed_needs.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",

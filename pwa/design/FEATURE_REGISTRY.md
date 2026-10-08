@@ -1072,3 +1072,12 @@ DdViewerShell/DdConfidentialityNoticeで全ページに指定全文を常設。�
 PageHistoryToolbarのPageViewing、丸い頭文字と人数、閲覧中／閲覧履歴の切替、閉じる・Escape・再試行を維持。コックピット／共有PJ／DDを別々に認可。本人判定はサーバ、外部の履歴は本人のみ。表示中タブ、10秒更新、30秒TTL、複数タブの人数重複なし。
 
 実装: `/api/page-viewing`、`os_page_viewer_sessions` / `os_page_viewing_visits`、`amie_update_page_viewer`。検査: test:page-viewing / test_page_viewing_transaction.sql。正本spec2-1、manual2-1。
+
+
+## シーズ×ニーズ
+
+- Route: `/seed-needs`（社内portfolioのみ）
+- UI: `src/components/seed-needs/SeedNeedsWorkspace.tsx` / `NeedEditor.tsx`
+- Data: market_needs/company_needs/seed_need_matches + seedsのID参照。RLS、区分複合FK、楽観排他。
+- 守る導線: 市場/企業の追加・編集、既存シーズ検索・接続、未接続行、記入例の分離、根拠・検証条件。
+- Guard: test:seed-needs / scripts/check_seed_needs_db.sql。正本spec5-19、manual2-5。
