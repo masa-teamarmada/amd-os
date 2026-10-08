@@ -249,3 +249,6 @@ migration 212 / 213 / 216〜219 / 258 と対になる contract。212 / 213は202
 社内の領域ナビは GET `/api/project-surface/navigation/[projectId]`（no-store）でcockpit/workspace/DDを独立に再照合する。DD管理リンクはadminだけ。DD個別付与は公開/編集可能状態の `/dd/[slug]` へ、workspace未付与ならそのリンクを出さない。表示中の領域だけは読み込み中も保持する。
 
 権限一覧と付与先のDDは、既存loadDdAdminState/getDdPackageSummaryと同じく当該PJで最初に作成したpackageを選ぶ。created_atを取得し作成日時で選び、UUID順や後発の検証packageを根拠にしない。
+
+### 2026-10-08 行き先未指定の承認
+`requested_path=/` 等の未特定申請には対象を推測しない。Slackのstatic_select（workspace_access_destination/workspace_access_scope）またはadmin画面で管理者がscopeを明示する。scopeはinstitution:slug / project:id / dd:uuid / project_dd:uuid。`workspace_decide_access_request_scoped` はservice_role＋active admin（SlackはID001限定）でのみ実行でき、pending未特定申請をロックする。institution/projectは既存canonical decisionへ委譲、DDは公開中packageだけdd.viewをinvitedで付与する。project_ddは双方を同一transactionで付与し、停止・期限切れDDで失敗すればworkspace付与もrollbackする。既決定は再付与しない。通知の選択値はpayload.stateの固定block/actionから読み、dedupeに選択値を含める。過去の未特定カードは再押下でchat.updateして選択欄を出す。明確な申請先は従来の一回承認を維持。未知errorの英語本文をSlackへ表示しない。migration 20261008041500は2026-10-08に本番適用済み。

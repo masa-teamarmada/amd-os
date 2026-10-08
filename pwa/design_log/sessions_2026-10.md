@@ -451,3 +451,14 @@ Drive原稿は共有ARMADA/p21_sol/261006_製品説明資料/製品説明資料_
 
 
 pwa/design_log/CLOSEOUT_SOL_DD_COST_20261007.md / BUGS.md / SESSION_MIGRATION_PROMPT_COST_PWA_20261007.md
+
+### 2026-10-08 外部アクセス要求の行き先未指定を修正（開発）
+
+- 原因：一般ログインのnext=/には対象がなく、通知の許可ボタンから既存RPCへ進むとexplicit workspace requiredで失敗。共有資料の所属判定だけではこの経路を解消できなかった。
+- Slackの未特定申請に場所選択を追加。ワークスペース、DDのみ、同一PJの両方、機関ワークスペースを明示選択できる。既知の行き先は従来の直接承認。古い未特定カードは許可押下で選択欄へ更新し、選択前後を別の重複キーで処理する。
+- 管理画面の同じ申請行に選択欄を追加。未選択の許可ボタンは無効。人物登録・権限付与は一度で完了し、メールの再入力は不要。
+- workspace_decide_access_request_scopedのmigrationは本番適用済み。service_roleとactive adminを必須とし、SlackはID001限定。未特定のpending requestだけを対象にして、公開DD・readonly PJ・dd.viewを同一transactionで登録。停止/期限切れDDがある場合はPJ付与と決定もrollback。決定済み再操作は追加付与しない。
+- まさが確認した石原先生の別メールへSOLワークスペース・SOL DDの閲覧だけを付与し、invited・初回ログイン待ちをDBで読戻し。メール/手動Slack通知は送信しない。既存アドレスの権限継承なし。
+- 型検査、workspace-access-admin、workspace-access-scope、data-change-history、dd-packageが成功。SQLで複合閲覧、DDのみの境界、再操作、停止権限の非復活、原子性、不正scope・非管理者拒否を検証し全fixtureをrollback。申請行は確認用データのSSRとChrome実画面で表示を確認。
+- manual2-6/9-3、spec2-1/5-17/6-1、ios/DESIGN、HANDOFFを同期。schema列・RLS・新env・新通知経路・model/BZMの変更なし。ネイティブの管理UIは未移植。
+- 反映はmainから正規deploy scriptにまとめる。本番確認はbuild-infoの版/SHA、実管理画面、権限の読戻し。rollbackは通知/handler/UIの変更を戻し、追加関数は呼ばれない状態で保持する（登録済みの許可を一括削除しない）。

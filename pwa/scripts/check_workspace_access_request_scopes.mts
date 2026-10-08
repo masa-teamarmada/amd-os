@@ -1,0 +1,24 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { accessRequestScopeChoices, parseAccessRequestScope, selectedAccessRequestScope, ACCESS_REQUEST_SCOPE_ACTION, ACCESS_REQUEST_SCOPE_BLOCK } from "../src/lib/workspace-access-request-scopes.ts";
+import { workspaceAccessRequestCard } from "../src/lib/workspace-access-request-card.ts";
+const pkg = "11111111-2222-3333-4444-555555555555";
+const choices = accessRequestScopeChoices({ projects: [{project_id:"p21", project_name:"SOL"}], institutionWorkspaces:[{slug:"ehime", name:"EHM", status:"active"},{slug:"closed",name:"Closed",status:"closed"}], ddPackages:[{id:pkg,title:"SOL資料",project_id:"p21",status:"open"},{id:"closed",title:"未公開",project_id:"p21",status:"draft"}] });
+assert.deepEqual(choices.map(c => c.value), [`project_dd:${pkg}`,"project:p21",`dd:${pkg}`,"institution:ehime"]);
+assert.deepEqual(parseAccessRequestScope(`project_dd:${pkg}`),{kind:"project_dd",id:pkg});
+for (const invalid of ["",null,"all:*","project:p21,p30","dd:not-a-uuid","institution:../../admin","project:p21:readonly"]) assert.equal(parseAccessRequestScope(invalid),null);
+assert.equal(selectedAccessRequestScope({ values: { [ACCESS_REQUEST_SCOPE_BLOCK]: { [ACCESS_REQUEST_SCOPE_ACTION]: {selected_option: {value:`project_dd:${pkg}`}}}}}),`project_dd:${pkg}`);
+assert.equal(selectedAccessRequestScope({ values: { unrelated: { [ACCESS_REQUEST_SCOPE_ACTION]: {selected_option:{value:"project:p21"}}}}}),null);
+assert.equal(selectedAccessRequestScope({ values: { [ACCESS_REQUEST_SCOPE_BLOCK]: { [ACCESS_REQUEST_SCOPE_ACTION]: {selected_option:null}}}}),null);
+const facts = {requestId:"request",email:"test@example.invalid",scopeLabel:"未指定",requestedAt:"2026/10/08",count:1,adminUrl:"https://amd-os-pwa.vercel.app/admin/access"};
+const unknown = workspaceAccessRequestCard({...facts,choices});
+assert.ok(unknown.blocks.some(b => b.type === "actions" && b.block_id === ACCESS_REQUEST_SCOPE_BLOCK), "unknown destination must have a picker");
+const serialized = JSON.stringify(unknown.blocks);
+assert.ok(serialized.includes("閲覧させる場所を選ぶ") && serialized.includes("workspace_access_approve"));
+assert.ok(!JSON.stringify(workspaceAccessRequestCard(facts).blocks).includes(ACCESS_REQUEST_SCOPE_BLOCK),"known destination keeps one-click approval");
+const interactive = await readFile(new URL("../src/app/api/slack/interactive/route.ts",import.meta.url),"utf8");
+assert.match(interactive,/selectedAccessRequestScope\(payload.state\) \?\? ""/,"a first click without a choice must not suppress a subsequent selected approval");
+assert.match(interactive,/client.chat.update/); // Old failed cards can gain a picker when clicked again.
+const ui = await readFile(new URL("../src/components/admin/WorkspaceAccessAdminPanel.tsx",import.meta.url),"utf8");
+assert.match(ui,/r.target_kind === "unspecified" && !requestScopes\[r.id\]/,"an unknown target requires selection in the admin UI");
+console.log("scope parsing, isolated state, known/unknown cards, valid options and retry behavior: OK");

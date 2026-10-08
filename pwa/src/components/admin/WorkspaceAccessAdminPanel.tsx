@@ -1,5 +1,6 @@
 "use client";
 
+import { accessRequestScopeChoices } from "@/lib/workspace-access-request-scopes";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
@@ -33,6 +34,7 @@ export function WorkspaceAccessAdminPanel() {
   const [email, setEmail] = useState("");
   const [selected, setSelected] = useState("");
   const [busy, setBusy] = useState(false);
+  const [requestScopes, setRequestScopes] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const load = useCallback(async () => {
@@ -90,6 +92,7 @@ export function WorkspaceAccessAdminPanel() {
     });
   }
   if (!data) return <p role="status" className="text-sm">{error || "読み込み中…"}</p>;
+  const scopeChoices = accessRequestScopeChoices(data);
   const pending = data.accessRequests.filter(r => r.status === "pending");
   return <div className="space-y-4">
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
@@ -98,7 +101,10 @@ export function WorkspaceAccessAdminPanel() {
       <h2 className="py-3 text-sm font-semibold">承認待ちのアクセス要求 · {pending.length}件</h2>
       {pending.map(r => <div key={r.id} className="flex flex-wrap items-center gap-2 border-t border-border py-3 text-sm">
         <div className="min-w-0 flex-1 break-all"><strong>{r.email_normalized}</strong><p className="text-xs text-muted-foreground">{r.project_id ? data.projects.find(p => p.project_id === r.project_id)?.project_name : data.institutionWorkspaces.find(w => w.slug === r.workspace_slug)?.name || "対象未特定"}</p></div>
-        <button className={button} disabled={busy} onClick={() => void perform(() => send({ action: "access_request_decision", requestId: r.id, decision: "approved" }))}>閲覧を許可</button>
+        {r.target_kind === "unspecified" && <select aria-label={`${r.email_normalized}の閲覧先`} className={`${input} w-full text-base sm:w-auto sm:max-w-sm sm:text-sm`} disabled={busy} value={requestScopes[r.id] || ""} onChange={e => setRequestScopes(prev => ({ ...prev, [r.id]: e.target.value }))}>
+          <option value="">閲覧させる場所を選ぶ</option>{scopeChoices.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+        </select>}
+        <button className={button} disabled={busy || (r.target_kind === "unspecified" && !requestScopes[r.id])} onClick={() => void perform(() => send({ action: "access_request_decision", requestId: r.id, decision: "approved", scope: r.target_kind === "unspecified" ? requestScopes[r.id] : undefined }))}>閲覧を許可</button>
         <button className={button} disabled={busy} onClick={() => void perform(() => send({ action: "access_request_decision", requestId: r.id, decision: "rejected" }))}>許可しない</button>
       </div>)}
     </section>}

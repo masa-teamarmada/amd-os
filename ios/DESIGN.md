@@ -735,3 +735,5 @@ DDの掲載項目編集は独立領域の `/dd/[slug]/edit`。`dd.edit` を毎re
 2026-10-07 PWA共通フェーズマトリクス：まさ承認の17比較項目を常設し、登録活動を同じ行へ揃える。詳細は行単位で全フェーズを同時開閉。4レーンの移行条件、期間・予算・成熟度は保持。DB JSONの追加キーcomparisonTargets/activityRowKeysは任意。iOS/macOSの同表UIは今回未変更。仕様正本pwa/spec/3-23、引き継ぎpwa/HANDOFF_dd_business_plan_20261006.md。
 
 2026-10-08（v3.161.19）: 廃液コスト試算へ処理量と両社総額比較を追加。色素の総額枠500から顧客の全登録費を引くSOL料金上限と、未入力費控除前の残枠を導出。製造kgと排水m³を区別し、改善効果・回収期間を表示。migration487〜489は好条件仮説と清掃等の入力更新。本番適用済み、再適用しない。燃料・月次・資本政策・長期計画/DD制作元は不変。正本spec5-13、使い方manual2-3。ネイティブ専用画面は未移植。
+
+2026-10-08 JST: 行き先未指定の外部アクセス要求はSlack/PWA管理画面で閲覧先を選び、accountとworkspace/DDを一回で承認。新scoped RPCはservice_role/active admin限定、DD-onlyはworkspaceへ入れず、双方選択はatomic。iOS/macOSの管理UIは未移植。

@@ -236,6 +236,7 @@ async function decideAccessRequest(body: Body, adminEmail: string) {
       decision,
       actorMemberId: actor.member_id,
       source: "admin_page",
+      scope: typeof body.scope === "string" ? body.scope : undefined,
     });
     return NextResponse.json({ ok: true, result });
   } catch (error) {

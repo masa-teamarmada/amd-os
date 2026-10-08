@@ -7,6 +7,10 @@ import {
   type ReimbursementDecisionAction,
 } from "@/lib/reimbursement-decision";
 import { confirmPaymentGroup, verifyPaymentConfirmationToken } from "@/lib/payment-confirmation";
+import { selectedAccessRequestScope } from "@/lib/workspace-access-request-scopes";
+import { loadAccessRequestScopeChoices } from "@/lib/workspace-access-request-scopes-server";
+import { resolveWorkspaceAccessRequestTarget } from "@/lib/workspace-access-request-target-server";
+import { workspaceAccessRequestCard } from "@/lib/workspace-access-request-card";
 import { decideWorkspaceAccessRequest } from "@/lib/workspace-access-request-decision";
 
 export const runtime = "nodejs";
@@ -169,6 +173,7 @@ async function replyInThread(
 type SlackAction = { action_id?: string; value?: string };
 type SlackPayload = {
   type?: string;
+  state?: unknown;
   actions?: SlackAction[];
   user?: { id?: string };
   channel?: { id?: string };
@@ -265,6 +270,7 @@ async function handleWorkspaceAccessDecision(
   payload: SlackPayload,
   actionId: string,
   actionValue: string,
+  adminOrigin: string,
 ) {
   const channel = String(payload.channel?.id ?? "");
   const threadTs = String(payload.message?.ts ?? "");
@@ -291,11 +297,31 @@ async function handleWorkspaceAccessDecision(
 
   const decision = actionId === "workspace_access_approve" ? "approved" : "rejected";
   try {
+    const scope = selectedAccessRequestScope(payload.state);
+    if (decision === "approved" && !scope) {
+      const { data: request, error } = await db.from("workspace_access_requests")
+        .select("id,email_normalized,requested_path,target_kind,status,request_count,last_requested_at,slack_channel_id,slack_message_ts")
+        .eq("id", requestId).maybeSingle();
+      if (error || !request) throw new Error("access request not found");
+      const target = await resolveWorkspaceAccessRequestTarget(db, request.requested_path);
+      if (request.status === "pending" && request.target_kind === "unspecified" && target.targetKind === "unspecified") {
+        if (!client || !request.slack_channel_id || !request.slack_message_ts) throw new Error("access request notification unavailable");
+        const choices = await loadAccessRequestScopeChoices(db);
+        const card = workspaceAccessRequestCard({ requestId, email: request.email_normalized,
+          scopeLabel: "行き先未指定（下で閲覧させる場所を選択）", count: request.request_count,
+          requestedAt: new Date(request.last_requested_at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }),
+          adminUrl: `${adminOrigin}/admin/access?request=${encodeURIComponent(requestId)}`, choices });
+        await client.chat.update({ channel: request.slack_channel_id, ts: request.slack_message_ts, ...card });
+        await replyInThread(client, channel, threadTs, "通知に閲覧先の選択欄を追加しました。場所を選択して、再度「許可する」を押してください。");
+        return;
+      }
+    }
     const result = await decideWorkspaceAccessRequest(db, {
       requestId,
       decision,
       actorMemberId: actor.memberId,
       source: "slack",
+      scope: decision === "approved" ? scope : undefined,
     });
     if (result.alreadyDecided) {
       const label = result.status === "approved" ? "許可済み" : "許可しないで確定済み";
@@ -314,7 +340,11 @@ async function handleWorkspaceAccessDecision(
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    await replyInThread(client, channel, threadTs, `⚠️ 決定を反映できなかった。管理画面で確認して\n${message.slice(0, 240)}`);
+    console.error("[workspace-access-decision]", message.slice(0, 240));
+    const explanation = /stopped|suspended|expired/.test(message) ? "停止中・期限切れの権限があるため、自動で再開できません。管理画面で状態を確認してください。"
+      : /not open/.test(message) ? "選択したDDは公開中ではありません。管理画面で公開状態を確認してください。"
+      : "許可を保存できませんでした。時間をおいて再度操作してください。管理画面からも閲覧先を選択して許可できます。";
+    await replyInThread(client, channel, threadTs, `⚠️ ${explanation}`);
   }
 }
 
@@ -351,6 +381,7 @@ export async function POST(req: NextRequest) {
     payload.channel?.id ?? "",
     payload.message?.ts ?? "",
     actionId,
+    selectedAccessRequestScope(payload.state) ?? "",
   ].join("|");
   if (isDuplicate(dedupeKey)) return new NextResponse("", { status: 200 });
 
@@ -361,7 +392,7 @@ export async function POST(req: NextRequest) {
   } else if (actionId === "payment_confirm_expected") {
     after(() => handlePaymentConfirm(client, payload, actionValue));
   } else if (WORKSPACE_ACCESS_ACTIONS.has(actionId)) {
-    after(() => handleWorkspaceAccessDecision(client, payload, actionId, actionValue));
+    after(() => handleWorkspaceAccessDecision(client, payload, actionId, actionValue, new URL(req.url).origin));
   }
 
   // 未知の action_id は黙って 200。リンクボタン等で毎回叩かれるため。

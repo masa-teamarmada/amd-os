@@ -2,7 +2,8 @@ import "server-only";
 import { resolveWorkspaceAccessRequestTarget } from "./workspace-access-request-target-server";
 
 import { WebClient } from "@slack/web-api";
-import type { ActionsBlockElement } from "@slack/types";
+import { workspaceAccessRequestCard } from "./workspace-access-request-card";
+import { loadAccessRequestScopeChoices } from "./workspace-access-request-scopes-server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type RequestRow = {
@@ -24,7 +25,7 @@ function targetLabel(request: RequestRow): string {
   if (request.target_kind === "project" && request.project_id) {
     return `PJワークスペース「${request.project_id}」`;
   }
-  return "対象未特定（共有資料の所属を確認して許可）";
+  return "行き先未指定（下で閲覧させる場所を選択）";
 }
 
 function shortError(error: unknown): string {
@@ -98,61 +99,10 @@ export async function notifyWorkspaceAccessRequest(
       const { data: workspace } = await db.from("institution_workspaces").select("name").eq("slug", row.workspace_slug).maybeSingle();
       if (workspace?.name) scopeLabel = `${workspace.name} ワークスペース（閲覧のみ）`;
     }
-    const value = JSON.stringify({ requestId: row.id });
     const adminUrl = `${adminOrigin.replace(/\/$/, "")}/admin/access?request=${encodeURIComponent(row.id)}`;
-    const text = `外部ワークスペースへのアクセス要求: ${row.email_normalized} / ${scopeLabel}`;
-    const actions: ActionsBlockElement[] = [];
-    actions.push({
-        type: "button",
-        action_id: "workspace_access_approve",
-        text: { type: "plain_text", text: "許可する", emoji: true },
-        style: "primary",
-        value,
-        confirm: {
-          title: { type: "plain_text", text: "閲覧を許可する？" },
-          text: { type: "mrkdwn", text: `*${row.email_normalized}* に ${scopeLabel} の閲覧権限を付けるよ。` },
-          confirm: { type: "plain_text", text: "許可する" },
-          deny: { type: "plain_text", text: "戻る" },
-        },
-      });
-    actions.push({
-      type: "button",
-      action_id: "workspace_access_reject",
-      text: { type: "plain_text", text: "許可しない", emoji: true },
-      style: "danger",
-      value,
-    });
-    actions.push({
-      type: "button",
-      action_id: "workspace_access_open_admin",
-      text: { type: "plain_text", text: "管理画面で確認", emoji: true },
-      url: adminUrl,
-      value,
-    });
-
-    const posted = await client.chat.postMessage({
-      channel,
-      text,
-      blocks: [
-        {
-          type: "section",
-          text: { type: "mrkdwn", text: "*外部ワークスペースへのアクセス要求*" },
-          fields: [
-            { type: "mrkdwn", text: `*アカウント*\n${row.email_normalized}` },
-            { type: "mrkdwn", text: `*希望先*\n${scopeLabel}` },
-            { type: "mrkdwn", text: `*要求日時*\n${requestedAt}` },
-            { type: "mrkdwn", text: `*試行回数*\n${row.request_count}回` },
-          ],
-        },
-        {
-          type: "context",
-          elements: [
-            { type: "mrkdwn", text: "許可するとアカウント登録と、このワークスペースの閲覧権限付与が一度で完了。本人がもう一度ログイン操作するとログインリンクが届く。" },
-          ],
-        },
-        { type: "actions", elements: actions },
-      ],
-    });
+    const choices = row.target_kind === "unspecified" ? await loadAccessRequestScopeChoices(db) : undefined;
+    const card = workspaceAccessRequestCard({ requestId: row.id, email: row.email_normalized, scopeLabel, requestedAt, count: row.request_count, adminUrl, choices });
+    const posted = await client.chat.postMessage({ channel, ...card });
 
     await db
       .from("workspace_access_requests")

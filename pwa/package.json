@@ -181,7 +181,7 @@
     "test:shared-project-control-core": "node --experimental-strip-types scripts/check_shared_project_control_core.mts",
     "test:three-lens-project-control": "node scripts/check_three_lens_project_control_runtime.mjs",
     "test:three-party-project-view": "node scripts/check_three_party_project_view_acceptance.mjs",
-    "test:workspace-access-admin": "node scripts/check_workspace_access_admin_contract.mjs",
+    "test:workspace-access-admin": "node scripts/check_workspace_access_admin_contract.mjs && node --experimental-strip-types --import ./scripts/register_relative_ts.mjs scripts/check_workspace_access_request_scopes.mts",
     "test:workspace-project-publication-access": "node scripts/check_workspace_project_publication_access_migration.mjs",
     "test:workspace-rls-closure": "node scripts/check_workspace_rls_closure_contract.mjs",
     "test:seed-screening-bands": "node scripts/check_seed_screening_bands_contract.mjs",
