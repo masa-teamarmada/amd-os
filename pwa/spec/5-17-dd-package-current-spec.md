@@ -315,3 +315,5 @@ DDの共通枠 `DdViewerShell` は、認可後にすべての本文ページへ 
 - PDFの閲覧用写し（HTML用sandboxによるPDFビューア阻害を避ける）と3MB超の生成物は既存private `dd-publication-files` の `disclosures/{package}/{item}/{noticeVersion}/{outputHash}` に保存して60秒署名URLへ転送する。利用者へ原本の署名URLは返さない。既存60秒の署名URL寿命内は失効後でも写しを取得できる点は従来の配信境界。小さい生成物は直接no-store応答。
 - 正式版PDFは表紙と各資料区画に秘密表示、出力記録に秘密指定の版/hash。DD会社概要のPDFは本文先頭に同じ指定全文。DD会社概要/フェーズマトリクスのExcelには「開示通知」シートと全シート印刷ヘッダー/フッターを追加。元のシートのセル・計算・値を変えず、他スペースの出力には適用しない。
 - 回帰は `test:dd-confidentiality`（原本保持・パス安全・Excelセル不変・PDF余白・画像実体・実routeの認可/CSRF/保存失敗/通知ZIP/サイズ拒否）と `test:dd-package`（枠/直接資料/出力の秘密指定と既存認可境界）。PWAのみ。iOS/macOS/Androidの独立DD画面は未移植でブラウザを使う。
+
+2026-10-08 16:50（v3.161.30）: 会社概要PDFは印刷用の複製内だけでCSS Color 4（lab/oklch等）をRGBAへ変換する。現行Tailwindの色をhtml2canvasが読めない失敗を解消。本文画像をページごとに切り分け、DD出力は各ページの専用余白にCONFIDENTIALを付ける。全文の秘密指定は先頭ページにも残す。画面・元データ・既存の出力権限は変更しない。
