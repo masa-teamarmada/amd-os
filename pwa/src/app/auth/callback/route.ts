@@ -257,7 +257,7 @@ async function handleWorkspaceLoginCallback(
   // ワークスペースの入口（/workspaces）へ送っても、DD の付与はワークスペースの根拠にならないため入れない。
   const safeNext = sanitizeNextPath(next);
   const landing = workspaceEmailLanding(safeNext, hasWorkspaceScope, !!ddScope,
-    workspaceScope?.institutionWorkspaces.map((entry) => entry.slug));
+    scopeSummary?.institutionWorkspaces.map((entry) => entry.slug));
   const response = NextResponse.redirect(`${origin}${landing}`);
   for (const name of supabaseCookieNames) {
     response.cookies.set(name, "", { path: "/", maxAge: 0 });
