@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-10-08 16:53 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-10-08 17:26 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -718,7 +718,7 @@ UNIQUE: `(game_server_id,input_source,source_dedupe_key)` (constraint: `boss_rep
 
 ## boss_schedules
 
-行数 (概算): 140
+行数 (概算): 141
 PRIMARY KEY: `server_boss_id`
 
 | # | column | type | nullable | default |
@@ -4040,7 +4040,7 @@ UNIQUE: `(lane,observed_at,observation_key,source)` (constraint: `observation_lo
 
 ## os_page_viewer_sessions
 
-行数 (概算): -1
+行数 (概算): 5
 PRIMARY KEY: `session_id`
 
 | # | column | type | nullable | default |
@@ -4056,7 +4056,7 @@ PRIMARY KEY: `session_id`
 
 ## os_page_viewing_visits
 
-行数 (概算): -1
+行数 (概算): 7
 PRIMARY KEY: `visit_id`
 
 | # | column | type | nullable | default |
@@ -8512,7 +8512,7 @@ UNIQUE: `(game_server_id,user_id,endpoint_hash)` (constraint: `web_push_subscrip
 
 ## workflow_alert_deliveries
 
-行数 (概算): -1
+行数 (概算): 0
 PRIMARY KEY: `event_key, recipient_member_id`
 
 | # | column | type | nullable | default |

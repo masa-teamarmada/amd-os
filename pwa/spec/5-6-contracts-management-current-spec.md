@@ -348,7 +348,7 @@ SOLの原本は第11条の個人情報・再委託と第12条の細則準用と�
 
 申請対象は最新・未押印PDF（25MB以下）。本文・添付をまとめた最終版を登録する。サーバーがDriveコピーを同じ親フォルダへ作成し、元PDFとコピーのSHA-256が一致したときだけ申請を作る。Drive共有権限は変更しない。条件スナップショットをDBに固定し、承認・手続き開始時に原本と固定コピーの内容hashを再検証する。同一Drive IDの上書きも検証時に失効する。契約条件の更新や未押印最新版の差し替えはDB triggerで進行中申請を失効させる。最終押印版は証拠登録として扱い、自動的に承認済みへしない。照合完了は押印版登録済みのreleased申請をきよが照合する。
 
-全クライアント共通DBは `workflow_rules/requests/events/mail_events/alert_deliveries/monitor_state`。migration `20261008183000`、`20261008183500` は適用済み。authenticatedはactive adminのRLS SELECTのみ。INSERT/UPDATE/DELETEとRPCはservice_role専用。cookie認証の `/api/workflows` GET/POST と `/api/workflows/[requestId]` GET/POST がメールから本人を特定し、クライアント指定のactorを使わない。service-only RPC `workflow_submit/transition` が本人・承認者・状態・文書条件を重ねて検証する。承認を経ない台帳の手動締結状態更新（証拠なし）もDBで拒否する。実際にOS外で締結された押印版の証拠登録は受け入れ、事後照合と承認を混同しない。
+全クライアント共通DBは `workflow_rules/requests/events/mail_events/alert_deliveries/monitor_state`。migration `20261008183000`、`20261008183500`、`20261008184000` は適用済み。authenticatedはactive adminのRLS SELECTのみ。INSERT/UPDATE/DELETEとRPCはservice_role専用。cookie認証の `/api/workflows` GET/POST と `/api/workflows/[requestId]` GET/POST がメールから本人を特定し、クライアント指定のactorを使わない。service-only RPC `workflow_submit/transition` が本人・承認者・状態・文書条件を重ねて検証する。承認を経ない採用済みAMD契約台帳の手動締結状態更新（証拠なし）もDBで拒否する。実際にOS外で締結された押印版の証拠登録は受け入れ、事後照合と承認を混同しない。
 
 ### 契約メール監視・通知
 

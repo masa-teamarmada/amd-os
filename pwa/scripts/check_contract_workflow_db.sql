@@ -21,6 +21,11 @@ do $$ declare cid uuid:=gen_random_uuid(); did uuid:=gen_random_uuid(); rid uuid
  update contracts set status='signed',signed_document_id=did where contract_id=cid;
  if exists(select 1 from workflow_requests where contract_id=cid and status='completed') then raise exception 'FAIL evidence became approval';end if;
 end $$;
+do $$ declare cid uuid:=gen_random_uuid();begin
+ insert into contracts(contract_id,project_id,contract_title,counterparty_name,relationship_scope,registry_status,status) values(cid,'p00','OTHER PARTY TRANSACTIONAL TEST','TEST','third_party','accepted','under_review');
+ update contracts set status='signed' where contract_id=cid;
+ if not exists(select 1 from contracts where contract_id=cid and status='signed') then raise exception 'FAIL other party ledger';end if;
+end $$;
 -- Direct authenticated and anonymous writes/RPC calls are denied independently of UI.
 set local role authenticated;
 do $$ declare blocked boolean:=false;begin
