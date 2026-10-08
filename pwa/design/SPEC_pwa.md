@@ -1,5 +1,9 @@
 # SPEC — AMD OS PWA
 
+## 2026-10-08 — 外部認証と公開入口
+
+外部メールのattempt別PKCE cookie、成功後/workspaces（DDのみ/dd）、匿名の共通ログイン、DB確認済みメンバー限定の社内入口。SMTP接続済み。正本詳細はspec/2-1。
+
 2026-10-06: 登録した組織・協業図を3スペース共通で表示。project_config.organization_chartの構造化登録値を読み、組織案/登録済みを区別する。役割は箇条書き、協業は両矢印。未登録は既存ひな形。DBスキーマ・権限・正式版PDFは変更なし。正本spec 3-23「登録した組織・協業図の表示」、検証test:organization-chart。ネイティブ3クライアントは未移植。
 
 2026-10-06: 3スペース共通に「組織図」（organization-chart）を追加。全PJ共通の縦型ひな形、未登録表示、本文はProjectOrganizationChartを共用する。実データ・編集・DB・DD認可・正式版PDFは変更なし（spec/3-23・3-24・5-17）。アプリのタブ列背景は青灰色 #a8bdd3、選択中の白いタブとの色差を確保する（spec/2-1）。

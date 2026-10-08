@@ -74,6 +74,7 @@
     "test:task-point-reward": "node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_task_point_reward.mts",
     "test:reward-participation-period": "node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_reward_participation_period.mts",
     "test:next-period-ui": "node scripts/check_next_period_ms_period_ui.cjs",
+    "test:workspace-email-attempts": "node --experimental-strip-types scripts/check_workspace_email_attempts.mjs",
     "test:critical-ui": "node scripts/check_pwa_critical_ui.cjs && node --experimental-strip-types scripts/check_cockpit_navigation.mts && node scripts/check_ui_design_code.mjs && node scripts/check_question_tree_task_review_contract.mjs && node --experimental-strip-types scripts/check_pictogram.mts",
     "test:cockpit-navigation": "node --experimental-strip-types scripts/check_cockpit_navigation.mts",
     "test:ui-design-code": "node scripts/check_ui_design_code.mjs",

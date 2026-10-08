@@ -1,5 +1,9 @@
 # 閲覧中・閲覧履歴: 他プラットフォームへの引き継ぎ
 
+## 2026-10-08 — 外部メール入口
+
+PWAの公開入口とメール認証cookie分離を修正。ネイティブUIは未変更。許可済みPJ/workspace/DDの独立認可は既存を維持。
+
 2026-10-08。PWAの共通閲覧ツールバーに追加。iOS/macOS/Androidの部品・送信は未実装。共通画面仕様は ios/DESIGN.md、認可と保存仕様は spec/2-1-pwa-runtime-routes.md、使い方は manual/2-1-member-quick-start.md を参照。
 
 - Supabase migration `20261008120000` は本番適用・履歴登録済み。再適用しない。2テーブルは service_role のみアクセス可能。ネイティブから直接読書きしない。

@@ -779,6 +779,7 @@ expectIncludes("src/app/page.tsx", [
   "利用中のワークスペースへ",
 ]);
 expectNotIncludes("src/app/page.tsx", [
+  "ARMADAメンバーとしてログイン",
   'from "next/navigation"',
   'redirect(memberHome(memberAccess))',
   'redirect("/workspaces")',

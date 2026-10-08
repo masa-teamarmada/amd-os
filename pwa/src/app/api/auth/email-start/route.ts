@@ -1,4 +1,5 @@
 import { after, NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient as createPkceAuthClient } from "@/lib/supabase/server";
 import { normalizeWorkspaceEmail } from "@/lib/workspace-email";
@@ -9,6 +10,7 @@ import { loadDdGrantsForLogin } from "@/lib/dd-access";
 import { recordWorkspaceAuditEvent } from "@/lib/workspace-access-audit";
 import { resolveWorkspaceAccessRequestTarget } from "@/lib/workspace-access-request-target-server";
 import { notifyWorkspaceAccessRequest } from "@/lib/workspace-access-request-notify";
+import { workspaceEmailCookieName } from "@/lib/workspace-email-login";
 
 // Always the same response shape/status, whether the email is registered or not —
 // this endpoint must never let a caller distinguish "registered" from "unregistered"
@@ -27,8 +29,8 @@ function getServiceClient() {
 // フラグメントへアクセストークンを付けるため、/auth/callback が code を受け取れずログインが完了しない上に、
 // 本人のブラウザのアドレス欄へ Supabase の認証済みセッションが残る（2026-09-30 DD 実装時に確認）。
 // SSR のサーバクライアントは flowType=pkce で、コード検証値を HTTP cookie に置く。リンクは同じブラウザで開く。
-async function getPkceAuthClient() {
-  return createPkceAuthClient();
+async function getPkceAuthClient(attempt: string) {
+  return createPkceAuthClient({ cookieName: workspaceEmailCookieName(attempt)! });
 }
 
 async function registerAccessRequest(
@@ -142,12 +144,13 @@ export async function POST(request: Request) {
       return NextResponse.json(GENERIC_RESPONSE, { status: 200 });
     }
 
-    const authClient = await getPkceAuthClient();
+    const attempt = randomUUID();
+    const authClient = await getPkceAuthClient(attempt);
     const { error: otpError } = await authClient.auth.signInWithOtp({
       email: account.email_normalized,
       options: {
         shouldCreateUser: true,
-        emailRedirectTo: `${origin}/auth/callback?login_scope=workspace&next=${encodeURIComponent(next)}`,
+        emailRedirectTo: `${origin}/auth/callback?login_scope=workspace&attempt=${attempt}&next=${encodeURIComponent(next)}`,
       },
     });
 

@@ -18,6 +18,7 @@ import {
 import { resolveWorkspaceAccessForAccount } from "@/lib/workspace-access-resolver";
 import { resolveDdViewerScopeForAccount } from "@/lib/dd-access";
 import { recordWorkspaceAuditEvent } from "@/lib/workspace-access-audit";
+import { workspaceEmailCookieName, workspaceEmailLanding } from "@/lib/workspace-email-login";
 
 const ALLOWED_DOMAIN = "team-armada.jp";
 const REQUIRED_SCOPES = [
@@ -255,7 +256,7 @@ async function handleWorkspaceLoginCallback(
   // DD だけを許可された人（投資家・金融機関）は、戻り先の指定が無ければ DD の入口へ案内する。
   // ワークスペースの入口（/workspaces）へ送っても、DD の付与はワークスペースの根拠にならないため入れない。
   const safeNext = sanitizeNextPath(next);
-  const landing = !hasWorkspaceScope && ddScope && (safeNext === "/" || safeNext === "/workspaces") ? "/dd" : safeNext;
+  const landing = workspaceEmailLanding(safeNext, hasWorkspaceScope, !!ddScope);
   const response = NextResponse.redirect(`${origin}${landing}`);
   for (const name of supabaseCookieNames) {
     response.cookies.set(name, "", { path: "/", maxAge: 0 });
@@ -281,13 +282,22 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const loginScope = searchParams.get("login_scope");
+  const attempt = searchParams.get("attempt");
+  const emailCookieName = attempt ? workspaceEmailCookieName(attempt) : null;
   const next = sanitizeNextPath(searchParams.get("next"));
   const retryUrl = new URL("/auth/login", origin);
   retryUrl.searchParams.set("error", loginScope === "workspace" ? "workspace_auth_failed" : "auth_failed");
   retryUrl.searchParams.set("next", next);
 
+  if (loginScope === "workspace" && attempt && !emailCookieName) {
+    return NextResponse.redirect(retryUrl);
+  }
+
   if (code) {
-    const supabase = await createClient();
+    // Old delivered links retain the default cookie path; new links use their
+    // own attempt cookie and cannot consume a Google/other email verifier.
+    const supabase = await createClient(loginScope === "workspace" && emailCookieName
+      ? { cookieName: emailCookieName } : undefined);
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
       const { data: { user } } = await supabase.auth.getUser();
@@ -406,6 +416,11 @@ export async function GET(request: Request) {
         maxAge: 0,
       });
       return response;
+    } else if (loginScope === "workspace") {
+      await recordWorkspaceAuditEvent(getServiceClient(), {
+        eventType: "callback_login_denied",
+        detail: { reason: "code_exchange_failed", isolatedAttempt: !!emailCookieName },
+      });
     }
   }
 
