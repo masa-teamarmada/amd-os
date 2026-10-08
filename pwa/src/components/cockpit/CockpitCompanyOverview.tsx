@@ -1,5 +1,6 @@
 "use client";
 import { DdConfidentialityNotice } from "@/components/dd/DdConfidentialityNotice";
+import { normalizeHtml2CanvasColors } from "@/lib/html2canvas-colors";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
@@ -244,19 +245,33 @@ export function CockpitCompanyOverview({
     setError("");
     try {
       const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import("html2canvas"), import("jspdf")]);
-      const canvas = await html2canvas(exportRef.current, { scale: 1.7, backgroundColor: "#f8fafc", useCORS: true, logging: false, onclone: (_document, element) => { if (confidential) element.querySelector("[data-dd-export-notice]")?.removeAttribute("hidden"); } });
+      const canvas = await html2canvas(exportRef.current, { scale: 1.7, backgroundColor: "#f8fafc", useCORS: true, logging: false, onclone: (document, element) => {
+        if (confidential) element.querySelector("[data-dd-export-notice]")?.removeAttribute("hidden");
+        normalizeHtml2CanvasColors(document);
+      } });
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
       const pageWidth = 210;
       const pageHeight = 297;
       const margin = 8;
       const imageWidth = pageWidth - margin * 2;
-      const imageHeight = canvas.height * imageWidth / canvas.width;
-      const image = canvas.toDataURL("image/jpeg", 0.9);
+      const topMargin = confidential ? 13 : margin;
+      const sliceHeight = Math.floor((pageHeight - topMargin - margin) * canvas.width / imageWidth);
       let offset = 0;
-      while (offset < imageHeight) {
+      while (offset < canvas.height) {
         if (offset > 0) pdf.addPage();
-        pdf.addImage(image, "JPEG", margin, margin - offset, imageWidth, imageHeight, undefined, "FAST");
-        offset += pageHeight - margin * 2;
+        const slice = document.createElement("canvas");
+        slice.width = canvas.width;
+        slice.height = Math.min(sliceHeight, canvas.height - offset);
+        const context = slice.getContext("2d");
+        if (!context) throw new Error("PDFのページを作成できなかった。");
+        context.drawImage(canvas, 0, offset, canvas.width, slice.height, 0, 0, slice.width, slice.height);
+        pdf.addImage(slice.toDataURL("image/jpeg", 0.9), "JPEG", margin, topMargin, imageWidth, slice.height * imageWidth / canvas.width, undefined, "FAST");
+        if (confidential) {
+          pdf.setFontSize(9);
+          pdf.setTextColor(51, 65, 85);
+          pdf.text("CONFIDENTIAL", margin, 8);
+        }
+        offset += slice.height;
       }
       pdf.save(`${projectName.replace(/[\\/:*?"<>|]/g, "_")}_会社概要_cap-table.pdf`);
     } catch (cause) {

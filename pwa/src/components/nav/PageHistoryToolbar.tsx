@@ -3,6 +3,7 @@
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useSyncExternalStore, type ReactNode } from "react";
+import { PageViewing } from "./PageViewing";
 
 type BrowserNavigation = EventTarget & { canGoBack: boolean; canGoForward: boolean };
 
@@ -48,6 +49,7 @@ export function PageHistoryToolbar({ leading }: { leading?: ReactNode } = {}) {
       <button type="button" aria-label="進む" title="次のページに進む" disabled={!(availability & 2)} onClick={() => window.history.forward()} className={buttonClass}>
         <ArrowRight className="h-5 w-5" aria-hidden="true" />
       </button>
+      <PageViewing />
     </nav>
   );
 }

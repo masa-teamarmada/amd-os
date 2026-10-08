@@ -1066,3 +1066,9 @@ DDのproduct-descriptionはproject_configの当該PJ/key=product_descriptionだ�
 ### DD全体の秘密指定（2026-10-08）
 
 DdViewerShell/DdConfidentialityNoticeで全ページに指定全文を常設。直接HTML/PDF/画像にも指定、原本＋開示通知ZIP、正式版とDD生成PDF/Excelにも指定。POST /dd/[slug]/confidentialityはsame-origin＋毎回のDD認可後に版の受領確認を既存workspace_access_audit_logsへ保存。提示応答と受領確認は区別し、付与・NDA成立・第三者情報の開示許可を推定しない。guard=test:dd-confidentiality/test:dd-package。正本spec5-17、手引きmanual2-6。
+
+## 同じ画面の閲覧者・閲覧履歴（2026-10-08）
+
+PageHistoryToolbarのPageViewing、丸い頭文字と人数、閲覧中／閲覧履歴の切替、閉じる・Escape・再試行を維持。コックピット／共有PJ／DDを別々に認可。本人判定はサーバ、外部の履歴は本人のみ。表示中タブ、10秒更新、30秒TTL、複数タブの人数重複なし。
+
+実装: `/api/page-viewing`、`os_page_viewer_sessions` / `os_page_viewing_visits`、`amie_update_page_viewer`。検査: test:page-viewing / test_page_viewing_transaction.sql。正本spec2-1、manual2-1。
