@@ -91,14 +91,14 @@ export function ContractLedgerTable({ rows, onOpen, loading = false, initialView
     <>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-2">
         <div className="flex items-center gap-2" role="group" aria-label="表の表示項目">
-          <span className="text-xs text-slate-600">表示項目</span>
+          <span className="hidden text-xs text-slate-600 sm:inline">表示項目</span>
           <div className="flex rounded-md border border-slate-200 p-0.5">
-            {VIEWS.map(option => <button key={option.value} type="button" aria-pressed={view === option.value} onClick={() => setView(option.value)} className={`min-h-11 rounded px-3 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 sm:min-h-8 ${view === option.value ? "bg-slate-800 text-white" : "text-slate-600 hover:bg-slate-100"}`}>{option.label}</button>)}
+            {VIEWS.map(option => <button key={option.value} type="button" aria-pressed={view === option.value} onClick={() => setView(option.value)} className={`min-h-11 whitespace-nowrap rounded px-2 text-xs sm:px-3 font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 sm:min-h-8 ${view === option.value ? "bg-slate-800 text-white" : "text-slate-600 hover:bg-slate-100"}`}>{option.label}</button>)}
           </div>
         </div>
         <span className="text-xs text-slate-500">{rows.length}件 · 横にスクロールして比較</span>
       </div>
-      <div className="[--contract-title-width:180px] sm:[--contract-title-width:260px] [scroll-padding-left:var(--contract-title-width)] sm:[scroll-padding-left:calc(var(--contract-title-width)+112px)] isolate max-h-[70vh] w-full overflow-auto overscroll-x-contain outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-500" role="region" aria-label="契約台帳の比較表" tabIndex={0} aria-busy={loading}>
+      <div className="[--contract-title-width:120px] sm:[--contract-title-width:260px] [scroll-padding-left:var(--contract-title-width)] sm:[scroll-padding-left:calc(var(--contract-title-width)+112px)] isolate max-h-[70vh] w-full overflow-auto overscroll-x-contain outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-500" role="region" aria-label="契約台帳の比較表" tabIndex={0} aria-busy={loading}>
         <table className="table-fixed border-collapse text-left text-xs leading-5" style={{ width: `calc(${width - 260}px + var(--contract-title-width))` }}>
           <caption className="sr-only">契約台帳。1行1契約、項目ごとの列で比較。契約名から詳細を開く。</caption>
           <colgroup>{columns.map(column => <col key={column.key} style={{ width: column.key === "title" ? "var(--contract-title-width)" : column.width }} />)}</colgroup>
