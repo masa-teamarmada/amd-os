@@ -26,7 +26,8 @@
     "src/components/dd/DdPrintToolbar.tsx": "書き込み専用。正式版（PDF）の出力の記録 (POST /api/admin/dd action=record_export) にしか使わない (2026-09-30 追加)。",
     "src/app/(app)/project/[projectId]/cockpit/page.tsx": "可変系。コックピット初期束は進行中タスク・重要な動き・通知を含み、PJ/surface入場権限を毎requestで再確認する。署名付きPJ限定sessionの許可範囲をキャッシュ済みの他PJ束で置き換えない。",
     "src/components/admin/SpacePermissionsAdminPanel.tsx": "可変系。権限編集・停止・期限を保存直後に全件読み直す管理一覧。直前の付与状態を保存操作へ使うため毎回no-store。",
-    "src/components/nav/ProjectSurfaceNav.tsx": "表示時にPJ別の可変権限を再照合する。変更は次のリクエストで反映し、過去の管理権限をキャッシュしない。"
+    "src/components/nav/ProjectSurfaceNav.tsx": "表示時にPJ別の可変権限を再照合する。変更は次のリクエストで反映し、過去の管理権限をキャッシュしない。",
+    "src/components/nav/PageViewing.tsx": "可変系。閲覧中の状態を10秒ごとに更新し、訪問履歴も増える。現行の画面権限を毎回再検証するPOSTなので参照キャッシュを挟まない。"
   },
   "allowed": {
     "src/lib/institution-support-programs-client.ts": [
@@ -349,6 +350,9 @@
     ],
     "src/components/nav/ProjectSurfaceNav.tsx": [
       "/api/project-surface/navigation/:p"
+    ],
+    "src/components/nav/PageViewing.tsx": [
+      "/api/page-viewing"
     ]
   }
 }

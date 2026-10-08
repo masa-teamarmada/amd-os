@@ -260,3 +260,14 @@ migration 212 / 213 / 216〜219 / 258 と対になる contract。212 / 213は202
 
 ### 2026-10-08 行き先未指定の承認
 `requested_path=/` 等の未特定申請には対象を推測しない。Slackのstatic_select（workspace_access_destination/workspace_access_scope）またはadmin画面で管理者がscopeを明示する。scopeはinstitution:slug / project:id / dd:uuid / project_dd:uuid。`workspace_decide_access_request_scoped` はservice_role＋active admin（SlackはID001限定）でのみ実行でき、pending未特定申請をロックする。institution/projectは既存canonical decisionへ委譲、DDは公開中packageだけdd.viewをinvitedで付与する。project_ddは双方を同一transactionで付与し、停止・期限切れDDで失敗すればworkspace付与もrollbackする。既決定は再付与しない。通知の選択値はpayload.stateの固定block/actionから読み、dedupeに選択値を含める。過去の未特定カードは再押下でchat.updateして選択欄を出す。明確な申請先は従来の一回承認を維持。未知errorの英語本文をSlackへ表示しない。migration 20261008041500は2026-10-08に本番適用済み。
+
+## 同じ画面の閲覧者と閲覧履歴（2026-10-08 16:40 JST）
+
+共通`PageHistoryToolbar`右上の`PageViewing`に丸い頭文字と人数を表示し、「閲覧中」「閲覧履歴」を切り替える。社内共通枠、共有PJ、DDで共用。印刷・書斎・native専用枠は対象外。ネイティブUIは未移植。
+
+- PJ・領域・選択済みページ名で区別する。`ProjectPageTitle`が`amie-page-selection`を通知。query/hashだけでなく解決済みの表示状態を使い、サーバでproject-formatsのタイプ別ページ、DD目録、外部タブの許可リストを検証する。URL/query/hash、メール、本文、入力、検索語を保存しない。一般画面はpathname単位。マイページ・月初合意・契約・立替・通知・参加PJは本人の名前空間。
+- `POST /api/page-viewing`は表示中タブだけ10秒ごとに更新。非表示・pagehide・切替・アンマウント時にkeepalive退出。通信断は30秒TTL。1人の複数タブは1人。8秒timeout、失敗時は古い一覧を消す。200session超は＋表示。document.visibilityState基準であり、視線・読了・実作業時間を判定しない。
+- `GET /api/page-viewing?pathname=...&pageLabel=...&history=1`は読取り専用。POSTは同一Origin、2KiB上限、UUID、単調増加revisionを検証。全応答private/no-store。毎回既存member/個別surface grant/PJ所属/外部membership/DD grantを再検証。DD項目は所属・active・公開を確認。失敗は一律404、未対応専用画面はUIを出さない。権限追加・対人通知なし。
+- `os_page_viewer_sessions`はsession UUIDごとの一時状態、`os_page_viewing_visits`はvisit UUIDごとの永続履歴。service-only RPC `amie_update_page_viewer`は同一transactionで更新、revisionで遅れたheartbeat/leaveを拒否し別actorのsession上書きを拒否。heartbeatでは履歴を増やさない。退出後に戻ると新visit。1日超の一時sessionだけ通常更新時に掃除し、履歴は削除しない。
+- 両tableはRLS有効でanon/authenticated権限なし。RPCもservice_roleのみ。外部の履歴は本人のactor_keyに限定。内部は認可された同一画面の履歴だけ。開始日時の降順50件、日本時間で表示。名前は登録済みmembers/display_nameから解決、未登録なら氏名未登録。横断監視や滞在時間推定は持たない。
+- migration `20261008120000_page_viewing_presence_history`は本番適用・履歴登録済み。`test:page-viewing`、DB ROLLBACK試験`test_page_viewing_transaction.sql`、実APIの境界試験`check_page_viewing_live.mjs`。有効な外部アカウントがなく、外部本人の実ログイン正例は未検証。
