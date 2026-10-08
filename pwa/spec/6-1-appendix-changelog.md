@@ -1,5 +1,9 @@
 # 附則（設計書変更履歴）
 
+## 2026-10-08 — v3.162.5 DD入口の再認証
+
+DDのページ入口で無効ログイン状態を404へ落とさず、元のDD URLと選択ページを保って共通ログインへ戻す。有効sessionでも個別DD付与を毎回確認する。日本語メールのボタン初期表示は本人のGmailで確認済み。
+
 ## 2026-10-08 18:57 JST — ログインメールの表示
 
 共通Authのmagic_link/confirmationのsubject/content4項目を変更・本番読戻し一致。ConfirmationURL、SMTP、他Auth設定、既存認可は維持。 本人のasahina再ログイン成功・SOL/DD一覧表示は確認済み。実Gmailの省略有無は新規受信で確認する。PWAの版数変更なし。

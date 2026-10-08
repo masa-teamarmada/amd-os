@@ -81,11 +81,12 @@ liveReads.length=0;await dd.loadDdPackageView(access);assert.deepEqual(liveReads
 let allowed=false;let routeReads=0;let audits=0;const modes:string[]=[];
 const page=compile('../src/app/dd/[slug]/page.tsx',{
  '@/lib/dd-confidentiality-server':{ddContentHash},
+ '@/lib/dd-page-session':{requireDdPageSession:async()=>{}},
  'react/jsx-runtime':{jsx,jsxs},'next/navigation':{notFound:()=>{throw new Error('not found')}},
  '@/lib/dd-access':{resolveDdPackageAccess:async()=>allowed?access:null},
  '@/lib/dd-package-server':{loadDdPackageView:async(_:unknown,o:any)=>{routeReads++;modes.push(o.mode);return {package:{project_id:'p21'},projectName:'project',sections:[]}},recordDdAccessEvent:async()=>{audits++}},
  '@/components/dd/DdViewerShell':{DdViewerShell:()=>null},'@/components/dd/DdPackageTop':{DdPackageTop:()=>null},
- '@/lib/dd-package-core':{hasDdCapability:()=>false},'@/lib/dd-pages':{DD_PAGE_KEYS:['company','documents']},
+ '@/lib/dd-package-core':{hasDdCapability:()=>false,isDdSlug:()=>true},'@/lib/dd-pages':{DD_PAGE_KEYS:['company','documents']},
  '@/lib/dd-project-pages-server':{loadDdProjectPage:async()=>{routeReads++;return {page:'company'}}},
 });
 const props=(tab:string)=>({params:Promise.resolve({slug:'sol'}),searchParams:Promise.resolve({tab})});

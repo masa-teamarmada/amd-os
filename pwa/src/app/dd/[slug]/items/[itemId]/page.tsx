@@ -1,7 +1,8 @@
 import { ddContentHash } from "@/lib/dd-confidentiality-server";
 import { notFound } from "next/navigation";
+import { requireDdPageSession } from "@/lib/dd-page-session";
 import { resolveDdPackageAccess } from "@/lib/dd-access";
-import { hasDdCapability, isUuid } from "@/lib/dd-package-core";
+import { hasDdCapability, isDdSlug, isUuid } from "@/lib/dd-package-core";
 import { loadDdItemView, loadDdPackageView, recordDdAccessEvent } from "@/lib/dd-package-server";
 import { ddPageForItem } from "@/lib/dd-pages";
 import { DdViewerShell } from "@/components/dd/DdViewerShell";
@@ -14,7 +15,8 @@ export const maxDuration = 60;
 // 旧項目URLも同じページ構造で開く。未公開を開けるのは既存の内部管理者だけ。
 export default async function DdItemPage({ params }: { params: Promise<{ slug: string; itemId: string }> }) {
   const { slug, itemId } = await params;
-  if (!isUuid(itemId)) notFound();
+  if (!isDdSlug(slug) || !isUuid(itemId)) notFound();
+  await requireDdPageSession(`/dd/${encodeURIComponent(slug)}/items/${encodeURIComponent(itemId)}`);
   const access = await resolveDdPackageAccess(slug);
   if (!access) notFound();
   const view = await loadDdItemView(access, itemId);

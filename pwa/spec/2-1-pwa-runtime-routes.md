@@ -1,5 +1,9 @@
 # PWA ランタイム / ルート仕様
 
+## 2026-10-08 — DD入口の認証状態（v3.162.5）
+
+DDのトップ、旧掲載項目、編集のページ入口は、内部memberまたは署名検証済みworkspace sessionが無いとき、パッケージの存在を調べる前に共通/auth/loginへ戻す。nextは同一originの元DD URLとtab/sectionを保持。欠落/空/改ざん/期限切れcookieでも404へ落とさない。有効sessionは従来のresolveDdPackageAccessを通し、停止・取消・期限・非公開・未付与は従来の404で閉じる。認証だけでDD grantを成立させない。API・添付・印刷は従来の応答を維持。検査test:dd-packageに実helper/pageの回帰検査を含める。
+
 ## 外部メールログインの配信前提（2026-10-08確認）
 
 `/api/auth/email-start`は利用可能なaccount/付与の検査と送信claimの後にPKCEの`signInWithOtp`を呼ぶ。権限付与や申請の承認自体ではメールを送らない。HTTP 200は登録有無を漏らさない共通応答なので、配信成功を意味しない。運用の完了は権限、`email_start_sent`、本人の受信、`callback_login_success`、対象面の実閲覧を別々に確認する。

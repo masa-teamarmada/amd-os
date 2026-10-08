@@ -1,5 +1,7 @@
 # SPEC — AMD OS PWA
 
+2026-10-08（v3.162.5）: PWAのDDページ入口は、内部memberも有効な外部sessionも無ければ元DD URLを保って共通ログインへ戻す。認証済みでも個別DD付与が必須。API/添付/印刷の認可・応答、ネイティブUI/認証方式は維持。spec/5-17・2-1、manual/2-1。
+
 ## 2026-10-08 — 外部認証と公開入口
 
 外部メールのattempt別PKCE cookie、成功後/workspaces（DDのみ/dd）、匿名の共通ログイン、DB確認済みメンバー限定の社内入口。SMTP接続済み。初回/通常の認証メールを日本語と上部のログインボタンへ統一し、配信ごとの件名でGmailの重複省略を避ける。本文正本はios/supabase/templates。正本詳細はspec/2-1。

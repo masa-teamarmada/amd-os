@@ -1,8 +1,19 @@
 # HANDOFF - AMD OS PWA
 
+## 2026-10-08 — v3.162.5 DDの404
+
+asahina Chromeの/dd/solで404、同じブラウザの/workspacesでもログインへ戻る。DBのSOL DD付与は有効で再付与不要。callback成功後にCookieが空になった原因は未確定。DDページ入口にセッション検証を追加し、元DD URL/tabを保って再認証へ戻す。本文前の個別grant検証・API/添付/印刷の認可は維持。実helper/pageの欠落/空/改ざん/期限切れ/未付与/許可正常を検査し、既存DD検査を通過。ローカルHTTPでも空/改ざんCookieは元tabを保つ307、既存asahina付与の120秒検証用sessionではSOL本文200を確認（本人の閲覧実績とは分ける）。本人の再認証からDD本文までの実確認は反映後に行う。メールのボタン初期表示は本人確認済み。
+
+| 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
+|---|---|---|---|
+| DDページ入口の再認証・next保持 | spec/5-17・2-1、SPEC_pwa、BUGS | manual/2-1 | 同期済み |
+| 履歴 | spec/6-1 | manual/9-3 | 同期済み |
+| 他プラットフォーム | ios/DESIGN、native handoff | 対象外 | ネイティブ未変更 |
+| DB・認可・理論・model | 既存契約維持 | 対象外 | 変更なし |
+
 ## 2026-10-08 18:57 JST — ログインメールの表示
 
-Gmailの「…」の中へ英語の既定本文が隠れるとの指摘。初回confirmationと通常magic_linkを日本語の「ログインする」ボタンへ統一。件名は配信ごとのTokenで変えて同じスレッドへまとめられないようにする。正本はios/supabase/templates/workspace-login.htmlとconfig.toml。管理APIへの4項目PATCH/readbackで一致と他Auth設定不変を確認済み。1636/390/320pxのChrome見本は初期表示・操作56px・横溢れなし。メール送信なし。実Gmailの省略有無と件名の変数展開は、まさ本人の新しいメール確認待ち。PWA実行コードは変更しないためproductionはv3.162.4のまま。
+Gmailの「…」の中へ英語の既定本文が隠れるとの指摘。初回confirmationと通常magic_linkを日本語の「ログインする」ボタンへ統一。件名は配信ごとのTokenで変えて同じスレッドへまとめられないようにする。正本はios/supabase/templates/workspace-login.htmlとconfig.toml。管理APIへの4項目PATCH/readbackで一致と他Auth設定不変を確認済み。1636/390/320pxのChrome見本は初期表示・操作56px・横溢れなし。メール送信なし。まさ本人の新規受信で、Gmailのログインボタン初期表示と日本語の配信件名を確認済み。PWA実行コードは変更しないためproductionはv3.162.4のまま。
 
 ## 2026-10-08 外部メール認証と共通入口
 
@@ -21,7 +32,7 @@ Gmailの「…」の中へ英語の既定本文が隠れるとの指摘。初回
 | 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
 |---|---|---|---|
 | メール認証cookie・成功着地・公開入口・SMTP接続 | spec/2-1、SPEC_pwa、BUGS | manual/2-1 | 同期済み |
-| 日本語ログインメールと配信ごとの件名 | ios/supabase/templates、spec/2-1 | manual/2-1 | 本番設定読戻し済み、実Gmail確認待ち |
+| 日本語ログインメールと配信ごとの件名 | ios/supabase/templates、spec/2-1 | manual/2-1 | 本番設定読戻し済み、実Gmailのボタン初期表示を本人確認済み |
 | 変更履歴 | spec/6-1 | manual/9-3 | 同期済み |
 | 他プラットフォーム | ios/DESIGN、HANDOFF_pwa_to_native_viewing | 対象外 | Swift UI未変更 |
 | DB・認可・理論・model | 既存契約維持 | 対象外 | 変更なし |

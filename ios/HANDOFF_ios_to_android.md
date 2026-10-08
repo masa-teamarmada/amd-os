@@ -1,8 +1,10 @@
 # iOS → Android ハンドオフ
 
+2026-10-08（v3.162.5）: PWAのDDページ入口は、内部memberも有効な外部sessionも無ければ元DD URLを保って共通ログインへ戻す。認証済みでも個別DD付与が必須。API/添付/印刷の認可・応答、ネイティブUI/認証方式は維持。spec/5-17・2-1、manual/2-1。
+
 ## 2026-10-08 — 共通Authのログインメール
 
-共通Supabaseの初回/通常メールを日本語ログインボタンと配信ごとの件名へ変更。本番4項目のみ反映・読戻し済み。正本はios/supabase/templates/workspace-login.htmlとconfig.toml、詳細spec/2-1。既存ConfirmationURL/PKCE/認可を維持。Swift/Kotlin/macOS UIの変更・移植は不要。PWAのasahina実ログインとSOL/DD一覧を確認済み。実Gmailの省略改善は新規受信確認待ち。
+共通Supabaseの初回/通常メールを日本語ログインボタンと配信ごとの件名へ変更。本番4項目のみ反映・読戻し済み。正本はios/supabase/templates/workspace-login.htmlとconfig.toml、詳細spec/2-1。既存ConfirmationURL/PKCE/認可を維持。Swift/Kotlin/macOS UIの変更・移植は不要。PWAのasahina実ログインとSOL/DD一覧を確認済み。実Gmailのボタン初期表示を本人確認済み。
 
 ## 2026-10-04 HUD版コックピットの廃止
 
