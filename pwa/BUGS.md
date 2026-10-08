@@ -1,5 +1,13 @@
 # BUGS.md — AMD OS PWA
 
+### [外部ログイン] 大学メールのリンク交換失敗（2026-10-08）
+
+- **状態**: v3.162.7で数値コード経路を追加。先生本人の再ログイン成功は未確認。 実Authのasahina検証では、メールを送らず生成したコードをPKCE cookieなしで入力し、SOL workspace/DD一覧・DD本文200・使用済みコード拒否を確認。PC1440px/スマホ390・320pxで入力48px・操作44px以上・横溢れなし。型/静的検査・Auth/DD回帰検査を通過。
+- **確認**: 指定Slackスレッドの杉浦先生は2つの大学メールで同じ失敗画面。21:47/21:49 JSTの申込はaccountFound/membershipFound、配信成功の後にcallback_login_denied/code_exchange_failed/isolatedAttempt=true。付与不足ではなくAuth交換の失敗。本人のブラウザ変更・大学メールの先読み等の具体的原因は未確定。
+- **対応**: verifyOtpで数値コードを本人確認し、既存の狭い外部session・付与検査へ接続。申込時のPKCE記録不要。共通メール本文にコードを表示。既存リンクは維持、リンク失敗後は新しいメールのコードを入力。
+- **検証**: 実callbackの通信代替で、PKCE cookieなしの成功・303/next/署名cookie、別origin/不正/再利用/期限切れ/未登録/未付与/紐付け不一致/activation失敗のsession発行拒否を確認。メール送信なし。
+
+
 バグ発見 → ここに記録、解決 → 解決策を追記してクローズ。
 根本原因（なぜそうなったか）と解決策を必ずセットで書く。
 

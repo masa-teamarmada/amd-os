@@ -1,5 +1,18 @@
 # HANDOFF - AMD OS PWA
 
+## 2026-10-08 — 外部メールのコード入力（v3.162.7）
+
+PWAへメールの数字でログインする入力欄とPOST callbackを追加。申込ブラウザのPKCE cookieを使わず本人確認し、既存のaccount/所属/DD付与検査と30日外部sessionを再利用する。リンクで失敗した場合は新しいメールを受け取り、ボタンを押さずコードを入力する。共通Auth本文にTokenを表示。社内Google・Swift UI・DB認可・理論は変更なし。先生本人の再ログイン成功は未確認。 実Authのasahina検証では、メールを送らず生成したコードをPKCE cookieなしで入力し、SOL workspace/DD一覧・DD本文200・使用済みコード拒否を確認。PC1440px/スマホ390・320pxで入力48px・操作44px以上・横溢れなし。型/静的検査・Auth/DD回帰検査を通過。
+
+| 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
+|---|---|---|---|
+| 数値コード入力・POST本人確認・失敗時の再発行案内 | spec/2-1、SPEC_pwa、BUGS | manual/2-1 | 同期済み |
+| 共通Auth本文のコード | ios/supabase/templates | manual/2-1 | 本番設定はPWA反映後に読戻し |
+| 変更履歴 | spec/6-1 | manual/9-3 | 同期済み |
+| 他プラットフォーム | ios/DESIGN、HANDOFF_pwa_to_native_viewing | 対象外 | ネイティブUI未変更・ConfirmationURL維持 |
+| DB・認可・理論・model | 既存契約維持 | 対象外 | 変更なし |
+
+
 ## 2026-10-08 — v3.162.5 DDの404
 
 asahina Chromeの/dd/solで404、同じブラウザの/workspacesでもログインへ戻る。DBのSOL DD付与は有効で再付与不要。callback成功後にCookieが空になった原因は未確定。DDページ入口にセッション検証を追加し、元DD URL/tabを保って再認証へ戻す。本文前の個別grant検証・API/添付/印刷の認可は維持。実helper/pageの欠落/空/改ざん/期限切れ/未付与/許可正常を検査し、既存DD検査を通過。ローカルHTTPでも空/改ざんCookieは元tabを保つ307、既存asahina付与の120秒検証用sessionではSOL本文200を確認（本人の閲覧実績とは分ける）。本人の再認証からDD本文までの実確認は反映後に行う。メールのボタン初期表示は本人確認済み。

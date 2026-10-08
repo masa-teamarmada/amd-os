@@ -1,5 +1,14 @@
 # PWA ランタイム / ルート仕様
 
+## 2026-10-08 — メールの数字でログイン（v3.162.7）
+
+PWAの外部ログインにコード入力を追加。メール申込後とworkspace_auth_failed/workspace_code_failed時は同じメール入力と数値コード欄を表示し、単一の「ログインする」でPOST /auth/callbackへ送る。初期画面は従来のメール入力、社内Google・書斎入口は維持。コードはURL・監査detailに載せない。
+
+POSTは同一originとform content-type、4 KiB、メール形式、6–10桁の数字を検査。attempt専用cookie名を新規生成し、Supabase verifyOtp(type=email)で本人確認する。申込時のPKCE cookieは不要。認証結果のemailと入力を照合し、既存handleWorkspaceLoginCallbackを再利用してactive/invited account・auth_user_id・既存所属/DD付与・停止/期限を検査する。local signOut後に既存の30日署名cookieのみを発行。POST後の遷移は303で検証済みnextを保持し、no-store/no-referrer。登録なし、停止、未付与、認証不一致、activation失敗はsession発行なし。
+
+共通Auth本文にTokenの数字を表示。ConfirmationURLは維持。リンクはコードを消費するため、リンクが失敗した場合は新しいメールを受け取り、リンクを押さずにコードを入力する。メールの生成・配信は本人操作。Auth/DB/SMTPの秘密値は保存しない。検査test:workspace-email-attemptsは実callbackの通信代替による成功/失敗と署名cookie/303を確認する。先生本人のログイン成功は別の実確認を必要とする。
+
+
 ## 2026-10-08 — DD入口の認証状態（v3.162.5）
 
 DDのトップ、旧掲載項目、編集のページ入口は、内部memberまたは署名検証済みworkspace sessionが無いとき、パッケージの存在を調べる前に共通/auth/loginへ戻す。nextは同一originの元DD URLとtab/sectionを保持。欠落/空/改ざん/期限切れcookieでも404へ落とさない。有効sessionは従来のresolveDdPackageAccessを通し、停止・取消・期限・非公開・未付与は従来の404で閉じる。認証だけでDD grantを成立させない。API・添付・印刷は従来の応答を維持。検査test:dd-packageに実helper/pageの回帰検査を含める。
@@ -22,7 +31,7 @@ DDのトップ、旧掲載項目、編集のページ入口は、内部memberま
 
 ## ログインメールの件名と本文（2026-10-08）
 
-共通Authのmagic_link/confirmationは日本語の件名と同じ本文を使用。件名は`AMD OS ログインリンク（{{ .Token }}）`で配信ごとに変わる。Gmailで同じ件名の会話にまとまり重複本文が省略されることを避ける。番号の入力は不要。本文正本は`ios/supabase/templates/workspace-login.html`、件名とcontent_pathは`ios/supabase/config.toml`。画像・非表示本文・引用を使わず、上部に56pxの「ログインする」を表示。ConfirmationURLを変更せず、attempt/nextを含む既存PKCEと認可を維持する。
+共通Authのmagic_link/confirmationは日本語の件名と同じ本文を使用。件名は`AMD OS ログインリンク（{{ .Token }}）`で配信ごとに変わる。Gmailで同じ件名の会話にまとまり重複本文が省略されることを避ける。番号は入力用のログインコードとしても使える。本文正本は`ios/supabase/templates/workspace-login.html`、件名とcontent_pathは`ios/supabase/config.toml`。画像・非表示本文・引用を使わず、上部に56pxの「ログインする」を表示。ConfirmationURLを変更せず、attempt/nextを含む既存PKCEと認可を維持する。
 
 本番は`python3.12 scripts/amie_auth_email_templates.py --apply`でsubject/contentの4項目のみPATCHし、読戻し一致と他Auth設定の不変を確認する。既に一致すれば再PATCHしない。秘密値・配信URL・OTP展開後の件名を出力しない。配信は本人の操作。設定一致/見本表示と実Gmailの省略有無は別々に検証する。2026-10-08 18:57 JSTの本番4項目一致、他Auth不変を確認済み。
 

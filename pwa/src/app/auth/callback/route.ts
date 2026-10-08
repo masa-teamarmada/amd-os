@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { google } from "googleapis";
@@ -111,6 +112,7 @@ async function handleWorkspaceLoginCallback(
   user: { id: string; email: string },
   next: string,
   origin: string,
+  method: "email_link" | "email_code" = "email_link",
 ) {
   const service = getServiceClient();
   const normalizedEmail = normalizeWorkspaceEmail(user.email);
@@ -250,7 +252,7 @@ async function handleWorkspaceLoginCallback(
     eventType: "callback_login_success",
     userAccountId: account.id,
     email: account.email_normalized,
-    detail: {},
+    detail: { method },
   });
 
   // DD だけを許可された人（投資家・金融機関）は、戻り先の指定が無ければ DD の入口へ案内する。
@@ -426,4 +428,53 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.redirect(retryUrl);
+}
+
+// Numeric email verification does not depend on the browser that requested the mail.
+// Reuse the same invited-account activation and narrow workspace/DD session boundary.
+export async function POST(request: Request) {
+  const { origin } = new URL(request.url);
+  const retryUrl = new URL("/auth/login", origin);
+  retryUrl.searchParams.set("error", "workspace_code_failed");
+  const redirect = (response: NextResponse) => {
+    const headers = new Headers(response.headers);
+    const location = headers.get("location");
+    if (location) {
+      const destination = new URL(location);
+      if (destination.pathname === "/auth/login") {
+        destination.searchParams.set("next", next);
+        headers.set("location", destination.toString());
+      }
+    }
+    headers.set("Cache-Control", "no-store");
+    headers.set("Referrer-Policy", "no-referrer");
+    return new NextResponse(null, { status: 303, headers });
+  };
+  if (request.headers.get("origin") !== origin
+    || !request.headers.get("content-type")?.startsWith("application/x-www-form-urlencoded")) {
+    return new NextResponse(null, { status: 403, headers: { "Cache-Control": "no-store" } });
+  }
+  // Bound input before parsing; tokens never enter query strings or audit details.
+  const body = await request.text();
+  if (body.length > 4096) return new NextResponse(null, { status: 413 });
+  const form = new URLSearchParams(body);
+  const next = sanitizeNextPath(form.get("next"));
+  retryUrl.searchParams.set("next", next);
+  const email = normalizeWorkspaceEmail(form.get("email"));
+  const token = form.get("token")?.trim();
+  if (!email || !token || !/^\d{6,10}$/.test(token)) {
+    return redirect(NextResponse.redirect(retryUrl));
+  }
+  const supabase = await createClient({ cookieName: workspaceEmailCookieName(randomUUID())! });
+  const { data, error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
+  if (error || !data.session || !data.user?.email || normalizeWorkspaceEmail(data.user.email) !== email) {
+    await supabase.auth.signOut({ scope: "local" });
+    await recordWorkspaceAuditEvent(getServiceClient(), {
+      eventType: "callback_login_denied",
+      detail: { reason: "email_code_verification_failed" },
+    });
+    return redirect(NextResponse.redirect(retryUrl));
+  }
+  return redirect(await handleWorkspaceLoginCallback(supabase,
+    { id: data.user.id, email: data.user.email }, next, origin, "email_code"));
 }

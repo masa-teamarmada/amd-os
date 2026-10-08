@@ -1,5 +1,14 @@
 # SPEC — AMD OS PWA
 
+## 2026-10-08 — メールの数字でログイン（v3.162.7）
+
+PWAの外部ログインにコード入力を追加。メール申込後とworkspace_auth_failed/workspace_code_failed時は同じメール入力と数値コード欄を表示し、単一の「ログインする」でPOST /auth/callbackへ送る。初期画面は従来のメール入力、社内Google・書斎入口は維持。コードはURL・監査detailに載せない。
+
+POSTは同一originとform content-type、4 KiB、メール形式、6–10桁の数字を検査。attempt専用cookie名を新規生成し、Supabase verifyOtp(type=email)で本人確認する。申込時のPKCE cookieは不要。認証結果のemailと入力を照合し、既存handleWorkspaceLoginCallbackを再利用してactive/invited account・auth_user_id・既存所属/DD付与・停止/期限を検査する。local signOut後に既存の30日署名cookieのみを発行。POST後の遷移は303で検証済みnextを保持し、no-store/no-referrer。登録なし、停止、未付与、認証不一致、activation失敗はsession発行なし。
+
+共通Auth本文にTokenの数字を表示。ConfirmationURLは維持。リンクはコードを消費するため、リンクが失敗した場合は新しいメールを受け取り、リンクを押さずにコードを入力する。メールの生成・配信は本人操作。Auth/DB/SMTPの秘密値は保存しない。検査test:workspace-email-attemptsは実callbackの通信代替による成功/失敗と署名cookie/303を確認する。先生本人のログイン成功は別の実確認を必要とする。
+
+
 2026-10-08（v3.162.5）: PWAのDDページ入口は、内部memberも有効な外部sessionも無ければ元DD URLを保って共通ログインへ戻す。認証済みでも個別DD付与が必須。API/添付/印刷の認可・応答、ネイティブUI/認証方式は維持。spec/5-17・2-1、manual/2-1。
 
 ## 2026-10-08 — 外部認証と公開入口

@@ -21,11 +21,13 @@ export default function LoginPage() {
   const [next, setNext] = useState("/");
   const [email, setEmail] = useState("");
   const [emailSent, setEmailSent] = useState(false);
+  const [useCode, setUseCode] = useState(false);
 
   useEffect(() => {
     // Query string is a browser-owned return value (OAuth error / external link); read after mount.
     const params = new URLSearchParams(window.location.search);
     setError(params.get("error"));
+    setUseCode(["workspace_auth_failed", "workspace_code_failed"].includes(params.get("error") || ""));
     setNext(params.get("next") || "/");
   }, []);
 
@@ -71,6 +73,7 @@ export default function LoginPage() {
       });
       if (!response.ok) throw new Error("email_start_failed");
       setEmailSent(true);
+      setUseCode(true);
     } catch {
       // A transport failure says nothing about whether this email has access.
       setError("connection_failed");
@@ -80,13 +83,16 @@ export default function LoginPage() {
   };
 
   const emailForm = (
-    <form onSubmit={handleEmailSubmit} className="space-y-4 text-left" aria-busy={submitting}>
+    <form action={useCode ? "/auth/callback" : undefined} method={useCode ? "post" : undefined}
+      onSubmit={useCode ? undefined : handleEmailSubmit} className="space-y-4 text-left" aria-busy={submitting}>
+      <input type="hidden" name="next" value={next} />
       <div className="space-y-2">
         <label htmlFor="workspace-email" className="block text-sm font-medium">
           メールアドレス
         </label>
         <input
           id="workspace-email"
+          name="email"
           type="email"
           required
           autoComplete="email"
@@ -101,16 +107,29 @@ export default function LoginPage() {
           className="block h-12 w-full min-w-0 rounded-md border border-border bg-background px-3 py-2 text-base outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
         />
       </div>
+      {useCode && (
+        <div className="space-y-2">
+          <label htmlFor="workspace-code" className="block text-sm font-medium">メールのログインコード</label>
+          <input id="workspace-code" name="token" type="text" required inputMode="numeric"
+            autoComplete="one-time-code" minLength={6} maxLength={10} pattern="[0-9]{6,10}"
+            aria-describedby="login-email-help" placeholder="メールに届いた数字"
+            className="block h-12 w-full min-w-0 rounded-md border border-border bg-background px-3 py-2 font-mono text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30" />
+        </div>
+      )}
       <button
         type="submit"
         disabled={submitting}
         className="inline-flex h-12 w-full items-center justify-center rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50"
       >
-        {submitting ? "接続中…" : "続ける"}
+        {submitting ? "接続中…" : useCode ? "ログインする" : "続ける"}
       </button>
       <p id="login-email-help" className="text-xs leading-relaxed text-muted-foreground">
-        メールが届いたら、ログインリンクをこのブラウザで開いてください。
+        {useCode ? "最新のメールにある数字を入力してください。コードは別のブラウザでも使えます。" : "メールのボタン、またはログインコードで入れます。"}
       </p>
+      <button type="button" onClick={() => { setUseCode(!useCode); setEmailSent(false); setError(null); }}
+        className="min-h-11 w-full px-3 text-sm underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-ring">
+        {useCode ? "新しいログインメールを受け取る" : "メールのコードでログイン"}
+      </button>
     </form>
   );
 
@@ -120,10 +139,10 @@ export default function LoginPage() {
         <div className="w-full min-w-0 max-w-sm space-y-4 text-center">
           <h1 className="text-xl font-semibold">メールを確認してください</h1>
           <p className="text-sm leading-relaxed text-muted-foreground" role="status">
-            閲覧が許可されているメールアドレスに、ログインリンクを送ります。届いたリンクは、このブラウザで開いてください。
+            届いたメールの「ログインする」を押すか、下にログインコードを入力してください。
           </p>
           <p className="text-xs leading-relaxed text-muted-foreground">届かない場合は迷惑メールフォルダを確認してください。閲覧権限がない場合は、管理者の承認後にもう一度ログインしてください。</p>
-          <button type="button" onClick={() => setEmailSent(false)} className="min-h-11 px-3 text-sm underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-ring">メールアドレスを入力し直す</button>
+          {emailForm}
         </div>
       </div>
     );
@@ -144,7 +163,7 @@ export default function LoginPage() {
                 <span className="text-primary">◈</span> AMD OS
               </h1>
               <p className="text-sm text-muted-foreground">
-                メールアドレスを入力してログイン
+                {useCode ? "メールのコードでログイン" : "メールアドレスを入力してログイン"}
               </p>
               <p className="text-xs leading-relaxed text-muted-foreground">招待されたメールアドレスを使ってください。</p>
             </>
@@ -191,8 +210,14 @@ export default function LoginPage() {
           </div>
         )}
         {error === "workspace_auth_failed" && (
-          <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-left text-xs text-amber-800">
-            このメールでのログインを完了できませんでした。メールアドレスを入力し直し、届いた最新のログインリンクをこのブラウザで開いてください。
+          <div role="alert" className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-left text-sm text-amber-800">
+            リンクでログインを完了できませんでした。新しいメールを受け取り、メールのボタンを押さずにログインコードを入力してください。
+          </div>
+        )}
+
+        {error === "workspace_code_failed" && (
+          <div role="alert" className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-left text-sm text-amber-800">
+            コードを確認できませんでした。最新のメールのコードを使ってください。期限切れの場合は、新しいログインメールを受け取ってください。
           </div>
         )}
 

@@ -18,7 +18,9 @@
               <a href="{{ .ConfirmationURL }}" style="display:block;padding:16px 12px;font-size:18px;line-height:24px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:8px;">ログインする</a>
             </td></tr>
           </table>
-          <p style="margin:24px 0 0;font-size:14px;line-height:24px;color:#66645c;">メールアドレスを入力したブラウザで開いてください。メールが複数届いたときは、最新のメールを使ってください。</p>
+          <p style="margin:24px 0 8px;font-size:14px;line-height:24px;">ログイン画面にこのコードを入力しても入れます。別のブラウザで開いた場合は、コードを使ってください。</p>
+          <p style="margin:0;padding:12px;border:1px solid #e5dfd2;border-radius:8px;font-family:monospace;font-size:28px;line-height:36px;font-weight:700;text-align:center;letter-spacing:4px;">{{ .Token }}</p>
+          <p style="margin:24px 0 0;font-size:14px;line-height:24px;color:#66645c;">メールアドレスを入力したブラウザで開いてください。メールが複数届いたときは、最新のメールを使ってください。ボタンが失敗した場合は、新しいメールを受け取り、ボタンを押さずにコードを入力してください。</p>
         </td></tr>
         <tr><td style="padding:16px 0 0;font-size:12px;line-height:20px;color:#77746b;">ログインを申し込んでいない場合は、このメールを閉じてください。</td></tr>
       </table>
