@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { jsx, jsxs } from 'react/jsx-runtime';
+import { DD_CONFIDENTIALITY_VERSION } from '../src/lib/dd-confidentiality.ts';
+import { DD_NOTICE_HASH, ddContentHash } from '../src/lib/dd-confidentiality-server.ts';
 function compile(file: string, mocks: Record<string, unknown>) {
   const exports: Record<string, any> = {};
   const code = ts.transpileModule(readFileSync(new URL(file, import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
@@ -63,6 +65,7 @@ tables.dd_package_items=[
 ];
 const liveReads:string[]=[];
 const dd = compile('../src/lib/dd-package-server.ts', {
+ './dd-confidentiality':{DD_CONFIDENTIALITY_VERSION},'./dd-confidentiality-server':{DD_NOTICE_HASH},
  'server-only':{},'@/lib/supabase/admin':{createAdminClient:()=>db},'@/lib/workspace-access-audit':{},
  '@/lib/dd-package-core':{DD_SECTIONS:[{key:'documents',label:'documents',description:''}],isDdSectionKey:()=>true},
  '@/lib/dd-payload':{isDdItemKind:()=>true},
@@ -77,6 +80,7 @@ liveReads.length=0;await dd.loadDdPackageView(access);assert.deepEqual(liveReads
 // Route still revalidates admission before any data/audit access, on every tab.
 let allowed=false;let routeReads=0;let audits=0;const modes:string[]=[];
 const page=compile('../src/app/dd/[slug]/page.tsx',{
+ '@/lib/dd-confidentiality-server':{ddContentHash},
  'react/jsx-runtime':{jsx,jsxs},'next/navigation':{notFound:()=>{throw new Error('not found')}},
  '@/lib/dd-access':{resolveDdPackageAccess:async()=>allowed?access:null},
  '@/lib/dd-package-server':{loadDdPackageView:async(_:unknown,o:any)=>{routeReads++;modes.push(o.mode);return {package:{project_id:'p21'},projectName:'project',sections:[]}},recordDdAccessEvent:async()=>{audits++}},
