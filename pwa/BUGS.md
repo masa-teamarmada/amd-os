@@ -2,7 +2,7 @@
 
 ### [外部ログイン] 大学メールのリンク交換失敗（2026-10-08）
 
-- **状態**: v3.162.7で数値コード経路を追加。先生本人の再ログイン成功は未確認。 実Authのasahina検証では、メールを送らず生成したコードをPKCE cookieなしで入力し、SOL workspace/DD一覧・DD本文200・使用済みコード拒否を確認。PC1440px/スマホ390・320pxで入力48px・操作44px以上・横溢れなし。型/静的検査・Auth/DD回帰検査を通過。
+- **状態**: v3.162.7で数値コード経路を追加。先生本人の再ログイン成功は未確認。 2026-10-08、本番v3.162.7 / a66b48c774c1c0c451a66cdde0ac412b5812944eを通常deploy.shで反映、公開build-info一致を確認。共通Authテンプレート4項目を読戻して一致、他Auth設定不変。実Authのasahinaコード検証は本番でもSOL workspace/DD一覧・SolvioraX DD本文200・使用済みコード拒否・外部署名cookieのみを確認（メール送信なし、先生本人の実績と区別）。Chrome本番のコード入力欄を確認し、390pxの画面証跡は/tmp/amie-workspace-code-production-20261008.png。先生本人の新規メール受信とログイン成功は未確認。 実Authのasahina検証では、メールを送らず生成したコードをPKCE cookieなしで入力し、SOL workspace/DD一覧・DD本文200・使用済みコード拒否を確認。PC1440px/スマホ390・320pxで入力48px・操作44px以上・横溢れなし。型/静的検査・Auth/DD回帰検査を通過。
 - **確認**: 指定Slackスレッドの杉浦先生は2つの大学メールで同じ失敗画面。21:47/21:49 JSTの申込はaccountFound/membershipFound、配信成功の後にcallback_login_denied/code_exchange_failed/isolatedAttempt=true。付与不足ではなくAuth交換の失敗。本人のブラウザ変更・大学メールの先読み等の具体的原因は未確定。
 - **対応**: verifyOtpで数値コードを本人確認し、既存の狭い外部session・付与検査へ接続。申込時のPKCE記録不要。共通メール本文にコードを表示。既存リンクは維持、リンク失敗後は新しいメールのコードを入力。
 - **検証**: 実callbackの通信代替で、PKCE cookieなしの成功・303/next/署名cookie、別origin/不正/再利用/期限切れ/未登録/未付与/紐付け不一致/activation失敗のsession発行拒否を確認。メール送信なし。

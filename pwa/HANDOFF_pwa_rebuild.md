@@ -2,16 +2,18 @@
 
 ## 2026-10-08 — 外部メールのコード入力（v3.162.7）
 
-PWAへメールの数字でログインする入力欄とPOST callbackを追加。申込ブラウザのPKCE cookieを使わず本人確認し、既存のaccount/所属/DD付与検査と30日外部sessionを再利用する。リンクで失敗した場合は新しいメールを受け取り、ボタンを押さずコードを入力する。共通Auth本文にTokenを表示。社内Google・Swift UI・DB認可・理論は変更なし。先生本人の再ログイン成功は未確認。 実Authのasahina検証では、メールを送らず生成したコードをPKCE cookieなしで入力し、SOL workspace/DD一覧・DD本文200・使用済みコード拒否を確認。PC1440px/スマホ390・320pxで入力48px・操作44px以上・横溢れなし。型/静的検査・Auth/DD回帰検査を通過。
+PWAへメールの数字でログインする入力欄とPOST callbackを追加。申込ブラウザのPKCE cookieを使わず本人確認し、既存のaccount/所属/DD付与検査と30日外部sessionを再利用する。リンクで失敗した場合は新しいメールを受け取り、ボタンを押さずコードを入力する。共通Auth本文にTokenを表示。社内Google・Swift UI・DB認可・理論は変更なし。先生本人の再ログイン成功は未確認。 2026-10-08、本番v3.162.7 / a66b48c774c1c0c451a66cdde0ac412b5812944eを通常deploy.shで反映、公開build-info一致を確認。共通Authテンプレート4項目を読戻して一致、他Auth設定不変。実Authのasahinaコード検証は本番でもSOL workspace/DD一覧・SolvioraX DD本文200・使用済みコード拒否・外部署名cookieのみを確認（メール送信なし、先生本人の実績と区別）。Chrome本番のコード入力欄を確認し、390pxの画面証跡は/tmp/amie-workspace-code-production-20261008.png。先生本人の新規メール受信とログイン成功は未確認。 実Authのasahina検証では、メールを送らず生成したコードをPKCE cookieなしで入力し、SOL workspace/DD一覧・DD本文200・使用済みコード拒否を確認。PC1440px/スマホ390・320pxで入力48px・操作44px以上・横溢れなし。型/静的検査・Auth/DD回帰検査を通過。
 
 | 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
 |---|---|---|---|
 | 数値コード入力・POST本人確認・失敗時の再発行案内 | spec/2-1、SPEC_pwa、BUGS | manual/2-1 | 同期済み |
-| 共通Auth本文のコード | ios/supabase/templates | manual/2-1 | 本番設定はPWA反映後に読戻し |
+| 共通Auth本文のコード | ios/supabase/templates | manual/2-1 | 本番4項目一致・他Auth不変を読戻し済み |
 | 変更履歴 | spec/6-1 | manual/9-3 | 同期済み |
 | 他プラットフォーム | ios/DESIGN、HANDOFF_pwa_to_native_viewing | 対象外 | ネイティブUI未変更・ConfirmationURL維持 |
 | DB・認可・理論・model | 既存契約維持 | 対象外 | 変更なし |
 
+
+2026-10-08: 杉浦先生の別大学メールsugiura.miwa.me@ehime-u.ac.jpはp21 readonly invitedのみでDD付与なしだった。2人へSOL workspace/DDを許可する既存指示に合わせ、停止行/重複なし・account invited・SOL package open・admin actorを確認してDD sol invited/dd.view/無期限を追加。DB読戻し・admin_dd_mutation監査を確認。accountは本人認証前にactive化せず、メール送信なし。主大学メールと石原先生の大学/Gmailは両方のinvited付与あり。
 
 ## 2026-10-08 — v3.162.5 DDの404
 
