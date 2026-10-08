@@ -476,7 +476,7 @@ function AssumptionControl({
             aria-label={a.label}
             value={current}
             onChange={(e) => onChange("assumption", a.costAssumptionId, "valueText", e.target.value)}
-            className={`min-h-[44px] rounded-md border px-2 text-[16px] text-[#1d1d1f] lg:h-7 lg:min-h-0 lg:text-[12px] ${
+            className={`min-h-[44px] min-w-0 max-w-full rounded-md border px-2 text-[16px] text-[#1d1d1f] lg:h-7 lg:min-h-0 lg:text-[12px] ${
               (baselineText ?? choices[choices.length - 1].value) !== current ? "border-[#027fdc] bg-[#e8f3fc]" : "border-[#d2d2d7] bg-white"
             }`}
           >
