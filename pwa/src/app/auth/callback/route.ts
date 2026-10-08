@@ -256,7 +256,8 @@ async function handleWorkspaceLoginCallback(
   // DD だけを許可された人（投資家・金融機関）は、戻り先の指定が無ければ DD の入口へ案内する。
   // ワークスペースの入口（/workspaces）へ送っても、DD の付与はワークスペースの根拠にならないため入れない。
   const safeNext = sanitizeNextPath(next);
-  const landing = workspaceEmailLanding(safeNext, hasWorkspaceScope, !!ddScope);
+  const landing = workspaceEmailLanding(safeNext, hasWorkspaceScope, !!ddScope,
+    workspaceScope?.institutionWorkspaces.map((entry) => entry.slug));
   const response = NextResponse.redirect(`${origin}${landing}`);
   for (const name of supabaseCookieNames) {
     response.cookies.set(name, "", { path: "/", maxAge: 0 });

@@ -7,10 +7,10 @@
 
 ### [外部ログイン] メールを開いても入口へ戻る（2026-10-08）
 
-- **状態**: v3.162.3で修正。実メールでの再ログイン確認は反映後に行う。
+- **状態**: v3.162.3/4で修正。実メールでの再ログイン確認は反映後に行う。
 - **確認**: asahinaへのメールはcallback/next=/workspace/ehimeを持つ正しいリンク。Authログ09:16:46 UTCでPKCE交換がbad_code_verifier（code challenge does not match previously saved code verifier）となり、外部accountのlast_login_atは未更新。メール到着だけではログインしていない。
 - **原因**: すべてのメール要求と社内Google開始が同じPKCE cookieを共有し、再要求で既存リンクのverifierを上書きできた。公開トップも匿名に社内専用カードを表示し、所属済み研究機関を選んでもログインへ戻した。
-- **対応**: メール要求ごとのUUIDでHttpOnly PKCE cookieを独立させ、callbackが対応するcookieを使用。next=/の外部ログインは許可済み一覧へ。匿名トップは共通「ログイン」、社内カードは確認済みメンバーだけ。所属済み研究機関の行は直接開く。既存のDB認可・DD独立範囲・停止保護は維持。
+- **対応**: メール要求ごとのUUIDでHttpOnly PKCE cookieを独立させ、callbackが対応するcookieを使用。next=/の外部ログインは許可済み一覧へ。匿名トップは共通「ログイン」、社内カードは確認済みメンバーだけ。所属済み研究機関の行は直接開く。未所属の研究機関をnextにした外部アカウントは許可済み一覧へ進む。既存のDB認可・DD独立範囲・停止保護は維持。
 - **検証**: 実SSRクライアント＋通信代替で、メール2件とGoogle開始を挟んで最初のリンクの交換も成功すること、cookie属性、不正attempt、workspace/DDの行き先を検査。メール実送信なし。
 
 ### [外部ログイン] 失敗時にGoogle Workspaceを要求する誤案内（2026-10-08）

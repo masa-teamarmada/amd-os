@@ -20,7 +20,7 @@
 
 外部メール開始はrate-limit claim後にUUID v4のattemptを発行し、callbackへ引き継ぐ。PKCE cookieはattemptごとの`sb-workspace-<UUID>-auth-token`、HttpOnly/SameSite=Lax/Path=/、有効期間1時間、本番Secure。社内Googleログインや別のメール要求が既に配信したリンクのverifierを上書きしない。callbackは厳密に検証したattemptのcookieだけで交換する。attempt不正はfail closed、以前の配信済みリンク（attemptなし）は旧cookieを使う。コード交換失敗は既存監査のcallback_login_deniedへ理由とisolatedAttemptの真偽だけを記録し、リンク・code・verifier・未登録メールは残さない。アカウント有効化、停止/取消/期限の判定、local signOutと署名付き外部cookie、DDとworkspaceの独立認可は維持する。
 
-外部ログインでnext=/なら許可済み一覧/workspaces、DDのみなら/ddへ進む。共有資料の検証済みnextは保持する。公開トップは自動転送しない。匿名入口は「ログイン」だけで、社内専用カードはDB確認済みメンバーだけに表示する。外部ログイン済みは許可済み一覧へのリンクを表示し、所属済み研究機関の行は直接そのworkspaceへ進む。表示の有無によって認可を成立させない。
+外部ログインでnext=/なら許可済み一覧/workspaces、DDのみなら/ddへ進む。共有資料の検証済みnextは保持する。研究機関全体の/workspace/<slug>がnextに残っていても、DB確認済みの機関所属が無ければ本人の許可済み一覧へ進む。PJ単位の許可を機関全体の許可へ広げない。公開トップは自動転送しない。匿名入口は「ログイン」だけで、社内専用カードはDB確認済みメンバーだけに表示する。外部ログイン済みは許可済み一覧へのリンクを表示し、所属済み研究機関の行は直接そのworkspaceへ進む。表示の有無によって認可を成立させない。
 
 ## 実行環境
 

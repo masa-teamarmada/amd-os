@@ -81,7 +81,11 @@ try {
   for (const invalid of ['', '../../cookies', 'sb-member-token', 'x'.repeat(200)]) assert.equal(workspaceEmailCookieName(invalid), null);
   assert.equal(workspaceEmailLanding('/', true, true), '/workspaces');
   assert.equal(workspaceEmailLanding('/', false, true), '/dd');
-  assert.equal(workspaceEmailLanding('/workspace/ehime', true, true), '/workspace/ehime');
+  assert.equal(workspaceEmailLanding('/workspace/ehime', true, true, ['ehime']), '/workspace/ehime');
+  assert.equal(workspaceEmailLanding('/workspace/ehime', true, true), '/workspaces');
+  assert.equal(workspaceEmailLanding('/workspace/ehime?tab=files', false, true), '/dd');
+  assert.equal(workspaceEmailLanding('/workspace/%', true, true), '/workspaces');
+  assert.equal(workspaceEmailLanding('/project/p21/workspace', true, true), '/project/p21/workspace');
   assert.equal(workspaceEmailLanding('/workspaces', false, true), '/dd');
   console.log('PASS: delivered email verifiers survive another email and Google start; private cookies and landing scopes verified. No real email/network.');
 } finally {

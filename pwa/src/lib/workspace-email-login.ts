@@ -5,8 +5,17 @@ export function workspaceEmailCookieName(attempt: string): string | null {
   return `sb-workspace-${attempt.toLowerCase()}-auth-token`;
 }
 
-export function workspaceEmailLanding(next: string, hasWorkspace: boolean, hasDd: boolean) {
-  if (next === "/") return hasWorkspace ? "/workspaces" : hasDd ? "/dd" : next;
+export function workspaceEmailLanding(next: string, hasWorkspace: boolean, hasDd: boolean, institutionSlugs: readonly string[] = []) {
+  const available = hasWorkspace ? "/workspaces" : hasDd ? "/dd" : "/";
+  if (next === "/") return available;
+  const institution = next.match(/^\/workspace\/([^/?]+)(?:[/?]|$)/);
+  if (institution) {
+    try {
+      if (!institutionSlugs.includes(decodeURIComponent(institution[1]))) return available;
+    } catch {
+      return available;
+    }
+  }
   if (next === "/workspaces" && !hasWorkspace && hasDd) return "/dd";
   return next;
 }
