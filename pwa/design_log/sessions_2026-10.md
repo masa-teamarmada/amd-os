@@ -462,3 +462,10 @@ pwa/design_log/CLOSEOUT_SOL_DD_COST_20261007.md / BUGS.md / SESSION_MIGRATION_PR
 - 型検査、workspace-access-admin、workspace-access-scope、data-change-history、dd-packageが成功。SQLで複合閲覧、DDのみの境界、再操作、停止権限の非復活、原子性、不正scope・非管理者拒否を検証し全fixtureをrollback。申請行は確認用データのSSRとChrome実画面で表示を確認。
 - manual2-6/9-3、spec2-1/5-17/6-1、ios/DESIGN、HANDOFFを同期。schema列・RLS・新env・新通知経路・model/BZMの変更なし。ネイティブの管理UIは未移植。
 - 反映はmainから正規deploy scriptにまとめる。本番確認はbuild-infoの版/SHA、実管理画面、権限の読戻し。rollbackは通知/handler/UIの変更を戻し、追加関数は呼ばれない状態で保持する（登録済みの許可を一括削除しない）。
+
+### 2026-10-08 外部アクセス要求の検証・配信障害
+
+- 実装cdcdf1cce6b4f8f33b4defaf9f173e84f82629a2 / v3.161.21は正規deploy経路でmainへpush済み。production Ready、公開build-infoの版/SHA/clean=true相当（dirty=false）を確認。正規checkoutを安全同期しahead/behind 0/0、変更なしを確認。
+- Chromeの実管理画面で石原先生の別メールのSOL workspace閲覧のみ・SOL DDのdd.view・初回ログイン待ちを確認。承認待ちの新部品は実TSXの確認用SSRをPC/390pxで確認し、場所未選択では許可無効、選択済みでは有効。重なり・画面外への横溢れなし。評価8.2/10。Slack実アプリで未特定申請を新たに送信して承認する一連操作は未実施（card/handler契約と本番SQLを検証）。
+- 後続の利用者操作でログインメール未着が判明。本番送信ログはemail rate limit exceeded、Auth配信設定はcustom SMTP/hook未設定・標準2通/時。権限は有効、送信成功と本人のログインは未確認。配信接続先が必要で、権限修正だけではメールログインの完了条件を満たさない。BUGS/HANDOFF/spec/manualへ現状と次の確認を保存。秘密値やメール本文は記録していない。
+- 開発・運用検証のみ。理論/model/ネイティブ/新通知経路の変更なし。会話の検討材料: 0件。
