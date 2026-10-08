@@ -332,3 +332,32 @@ cron が機能するには、対象 PJ の契約が Contract Apply 済みであ�
 SOLの原本は第11条の個人情報・再委託と第12条の細則準用と第14条の未定事項協議を確認。技術・事業の秘密情報全般の開示手続きは追加確認とする。大学との別NDA・添付仕様書・準用細則の適用版・承認権限者等は今回未確認。開示先NDAと情報提供元の許諾を別に扱う。確認日2026-10-08。再適用は変更前hashで停止する。
 
 検証: 型検査、実部品の描画・契約間条件分離・URL安全性・未登録/不正状態の確認試験、critical-ui、production build、実Chromeの契約タブ・狭幅・開閉・原本リンク。
+
+
+## 業務フロー・押印承認と契約メール監視（2026-10-08）
+
+ユーザーの承認: まさが「ジョブカンみたいな業務フローシステムをOS内に」「それでいこう」と実装を指定。まさの送受信メールから契約のやりとりを検知し、まさ・きよの2人へSlackでアラートを送ることも明示指定。初期の申請種別は押印。任意のフロー作成・既存経理の移行は未実装。
+
+### 画面・状態・権限
+
+`/admin/workflows`（管理者の業務フロー）と `/admin/kiyo?task=workflows`（押印承認タブ）は共通 `WorkflowWorkspace`。契約管理の未締結AMD契約の詳細から「押印申請」へ移動する。申請一覧は比較可能な行表、50件ずつ追加。契約候補は採用済みAMD契約・未締結の最新100件、名称検索で絞る。詳細は固定PDF、申請時の当事者・条件、申請理由・希望日、操作履歴を表示する。Slackの申請リンクは一覧の表示件数を超えても対象の詳細を取得する。
+
+状態は `submitted`（きよ承認待ち）→ `approved`（きよ承認済み）→ `released`（押印手続き中）→ `completed`（締結版照合済み）。差戻し `returned`、取下げ `cancelled`、変更により失効 `superseded` を別状態にする。1契約につき進行中申請は1件。申請者はactive admin、承認・差戻し・締結版照合はID002きよだけ。申請者は承認できず、きよ自身も自分への申請不可。押印手続き開始と取下げは本人だけ。承認・手続き開始・照合には文書確認チェック、差戻しにはコメントが必要。
+
+### 文書の固定・サーバー強制
+
+申請対象は最新・未押印PDF（25MB以下）。本文・添付をまとめた最終版を登録する。サーバーがDriveコピーを同じ親フォルダへ作成し、元PDFとコピーのSHA-256が一致したときだけ申請を作る。Drive共有権限は変更しない。条件スナップショットをDBに固定し、承認・手続き開始時に原本と固定コピーの内容hashを再検証する。同一Drive IDの上書きも検証時に失効する。契約条件の更新や未押印最新版の差し替えはDB triggerで進行中申請を失効させる。最終押印版は証拠登録として扱い、自動的に承認済みへしない。照合完了は押印版登録済みのreleased申請をきよが照合する。
+
+全クライアント共通DBは `workflow_rules/requests/events/mail_events/alert_deliveries/monitor_state`。migration `20261008183000`、`20261008183500` は適用済み。authenticatedはactive adminのRLS SELECTのみ。INSERT/UPDATE/DELETEとRPCはservice_role専用。cookie認証の `/api/workflows` GET/POST と `/api/workflows/[requestId]` GET/POST がメールから本人を特定し、クライアント指定のactorを使わない。service-only RPC `workflow_submit/transition` が本人・承認者・状態・文書条件を重ねて検証する。承認を経ない台帳の手動締結状態更新（証拠なし）もDBで拒否する。実際にOS外で締結された押印版の証拠登録は受け入れ、事後照合と承認を混同しない。
+
+### 契約メール監視・通知
+
+GAS `165_ContractWorkflowWatch.js` の `amie_contractWorkflowWatch` が5分ごとにBearer認証で `/api/cron/contract-mail-watch` を呼ぶ。専用triggerは `amie_setupContractWorkflowWatch` で重複なく1本作る。既存LLM cron停止を解除しない。Google OAuthのGmail接続アカウントをID001まさのメールと照合してから読む。初回は現時点のhistory IDを基準にし、過去メールを遡って通知しない。以後、messageAddedとSENT labelAddedを拾う。draft/spam/trashを除外、本文の新しい部分・件名・添付名の日本語/英語の契約語と署名・押印表現で分類する。引用や署名欄・メルマガ・求人・認証コードを除外する。既知の契約スレッドは短い返信も拾う。ルール判定なので誤検知・見逃しはあり得る。メール送信・相手への返信・自動承認はしない。
+
+historyのページ・未処理message IDs・次のcheckpointをDB保存し、1回40メールまで。history期限切れは直近成功時刻から1時間重複する固定期間（開始時刻より前は除外）のmessages.listへ切り替え、ページを保持して復旧する。leaseは4分、経過15分で画面に監視未確認表示。受信・送信は別方向。保存はmessage/thread ID、サニタイズ済み件名、方向、種別、日時、原メールURL。本文や添付の内容をDB・Slackに複製しない。
+
+mailbox+message IDのuniqueで重複検知を防ぐ。検知・申請イベントのINSERT triggerが、まさID001ときよID002へのoutbox行を同一DB transactionで作る。固定えいみ送信関数 `slackNotifyPostToChannelTsukuyomi_` を使い、各メンバーのSlackユーザーIDへ個別DM。alert本文は種別・送受信・件名・OSリンクと承認確認の案内。完了連絡では「承認記録との照合が必要」とする。2人のsent確認が揃った場合のみ「2人へ配信済み」。Slack拒否はfailedで再試行、通信結果不明・ack保存失敗はuncertainで無条件再送しない。配信結果の照合が必要な行を画面に示す。Slack DMのAPI受理と本人が読んだことは別。
+
+### 検証と適用限界
+
+`test:contract-workflows` は送受信・引用・ノイズ除外と操作権限を確認。DB試験 `check_contract_workflow_db.mjs` はtransaction/ROLLBACKで自己承認拒否、きよ限定承認、順序、二重申請、文書・条件変更、直接書込み拒否、2人分outboxを検証する。実データ・メールの捏造はしない。押印の実行API・電子署名サービスへの連携・印章の保管管理は未実装。OS内の手続きは承認で制御できるが、紙の印鑑や外部サービスでの操作をこの仕組みだけで物理的に止めることはできない。署名サービスの権限・印章管理は別途の設計が必要。

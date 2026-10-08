@@ -1499,6 +1499,7 @@ function ContractDetailDialog({ contract, project, documents, signals, linkedTer
 
         <Tabs defaultValue="answers" className="min-h-0 gap-0">
           <TabsList variant="line" className="w-full shrink-0 justify-start overflow-x-auto border-b border-slate-200 px-4 py-2 sm:px-5">
+            {!["signed", "cancelled"].includes(contract.status) && contract.relationship_scope === "amd_contract" && <a href={`/admin/workflows?contractId=${contract.contract_id}`} className="inline-flex min-h-11 shrink-0 items-center px-3 text-sm font-medium text-primary underline underline-offset-2">押印申請</a>}
             <TabsTrigger value="answers" className="flex-none px-3">実務条件</TabsTrigger>
             <TabsTrigger value="documents" className="flex-none px-3">文書と版 <span className="text-xs text-slate-400">{documents.length}</span></TabsTrigger>
             <TabsTrigger value="records" className="flex-none px-3">関連記録 <span className="text-xs text-slate-400">{contract.related_record_count}</span></TabsTrigger>

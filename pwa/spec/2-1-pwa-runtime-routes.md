@@ -271,3 +271,6 @@ migration 212 / 213 / 216〜219 / 258 と対になる contract。212 / 213は202
 - `os_page_viewer_sessions`はsession UUIDごとの一時状態、`os_page_viewing_visits`はvisit UUIDごとの永続履歴。service-only RPC `amie_update_page_viewer`は同一transactionで更新、revisionで遅れたheartbeat/leaveを拒否し別actorのsession上書きを拒否。heartbeatでは履歴を増やさない。退出後に戻ると新visit。1日超の一時sessionだけ通常更新時に掃除し、履歴は削除しない。
 - 両tableはRLS有効でanon/authenticated権限なし。RPCもservice_roleのみ。外部の履歴は本人のactor_keyに限定。内部は認可された同一画面の履歴だけ。開始日時の降順50件、日本時間で表示。名前は登録済みmembers/display_nameから解決、未登録なら氏名未登録。横断監視や滞在時間推定は持たない。
 - migration `20261008120000_page_viewing_presence_history`は本番適用・履歴登録済み。`test:page-viewing`、DB ROLLBACK試験`test_page_viewing_transaction.sql`、実APIの境界試験`check_page_viewing_live.mjs`。有効な外部アカウントがなく、外部本人の実ログイン正例は未検証。
+
+
+2026-10-08: `/admin/workflows`（active admin）、`/admin/kiyo?task=workflows`（既存admin shell）に押印承認。`/api/workflows`・`/api/workflows/[requestId]`はcookie admin+active本人照合、書込みservice-only RPC。`/api/cron/contract-mail-watch`はCRON_SECRET Bearerだけ、GAS5分trigger、maxDuration240秒。メールの読み取り・Slack個別DMのみ。正本spec5-6。

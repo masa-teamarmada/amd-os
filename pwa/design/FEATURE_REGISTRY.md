@@ -1072,3 +1072,10 @@ DdViewerShell/DdConfidentialityNoticeで全ページに指定全文を常設。�
 PageHistoryToolbarのPageViewing、丸い頭文字と人数、閲覧中／閲覧履歴の切替、閉じる・Escape・再試行を維持。コックピット／共有PJ／DDを別々に認可。本人判定はサーバ、外部の履歴は本人のみ。表示中タブ、10秒更新、30秒TTL、複数タブの人数重複なし。
 
 実装: `/api/page-viewing`、`os_page_viewer_sessions` / `os_page_viewing_visits`、`amie_update_page_viewer`。検査: test:page-viewing / test_page_viewing_transaction.sql。正本spec2-1、manual2-1。
+
+
+## 業務フロー・押印承認（2026-10-08）
+
+- `/admin/workflows`、`/admin/kiyo?task=workflows`、契約詳細の「押印申請」。共通WorkflowWorkspace。比較表・50件追加・固定PDF/条件/操作履歴・状態別本人操作。
+- API `/api/workflows`、`/api/workflows/[requestId]`、`/api/cron/contract-mail-watch`。DB workflow_*6表。きよだけ承認、直接クライアント書込みなし。契約メールと申請イベントから2人分通知outboxを作る。
+- 検証: test:contract-workflows、DB rollback試験、test:admin-kiyo、test:critical-ui。正本spec5-6、manual6-7。GAS5分trigger・非LLM。ネイティブ画面未移植。

@@ -4815,3 +4815,6 @@ expectIncludes("src/components/dashboard/PortfolioPulse.tsx", ['target={href.sta
 
 expectIncludes("src/components/nav/ProjectNavigation.module.css", ["grid-template-columns: 240px minmax(0, 1fr)", "min-height: 44px", ".row, .menu .row { min-height: 28px", "overflow-y: auto", ".row[aria-current=\"page\"]", ".row:hover", ".row[aria-current=\"page\"]:hover"]);
 expectIncludes("src/components/dd/DdNavigation.tsx", ["資料名で検索", "type=\"search\"", "該当する資料はありません"]);
+
+expectIncludes("src/components/workflows/WorkflowWorkspace.tsx", ["押印申請", "契約メールの監視", "申請・承認の履歴", "この最終版の押印を承認", "締結版を照合して完了"]);
+expectIncludes("src/app/api/workflows/[requestId]/route.ts", ["requireAdmin", "workflowActor", "verifyWorkflowPdf", "workflow_transition"]);

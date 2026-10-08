@@ -536,3 +536,17 @@ PWA社内共通枠・共有PJ・DDへPageViewingを追加。migration 2026100812
 | 閲覧履歴・外部本人限定 | spec2-1 / DB schema | manual2-1 / 9-3 | 同期済み |
 | 理論・数式 | 変更なし | 対象外 | 閲覧状態のみ |
 | 他プラットフォーム | ios/DESIGN | 対象外 | UI未移植・適用済みDB再適用禁止 |
+
+
+## 2026-10-08 業務フロー・押印承認
+
+PWA先行。UIは`src/components/workflows/WorkflowWorkspace.tsx`、APIは`/api/workflows`、`/api/workflows/[requestId]`。service-only RPCとRLSは全プラットフォーム共通、migration20261008183000/20261008183500適用済み・再適用不要。きよID002のみ承認、本人の自己承認不可。ネイティブは専用画面未移植。移植時は既存認可済みAPI経路を利用し、service keyをクライアントへ置かない。仕様詳細spec5-6。メール監視はGAS→PWAの5分trigger、各クライアントには監視実行の責任なし。
+
+| 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
+|---|---|---|---|
+| 押印申請・きよ承認・文書固定・失効・履歴 | spec5-6、ios/DESIGN、FEATURE_REGISTRY | manual6-7 | 同期済み |
+| 監視・2人への個別Slack・配信状態 | spec5-6、spec2-1、L2_DATA、operations-catalog | manual6-7 | 同期済み |
+| 変更履歴 | spec6-1 | manual9-3 | 同期済み |
+| DB | workflow_*6表、上記適用済みmigration、db_schema | manual6-7 | 同期済み |
+| 理論・BZM・model | 変更なし | 対象外 | 同期不要 |
+| iOS/macOS/Android画面 | ios/DESIGN、native handoff | 対象外 | 専用画面未移植 |

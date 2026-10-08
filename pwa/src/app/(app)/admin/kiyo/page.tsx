@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { WorkflowWorkspace } from "@/components/workflows/WorkflowWorkspace";
 import AdminInvoicesPage from "@/app/(app)/admin/invoices/page";
 import AdminPayoutsPage from "@/app/(app)/admin/payouts/page";
 import { ReimburseWorkspace } from "@/app/(app)/reimburse/page";
@@ -34,6 +35,7 @@ const KIYO_TASKS = [
     label: "メンバー支払",
     description: "支払確認・通知書発行・送付",
   },
+  { id: "workflows", step: "04", label: "押印承認", description: "押印申請・契約メールの監視" },
 ] as const;
 
 type KiyoTask = (typeof KIYO_TASKS)[number]["id"];
@@ -56,15 +58,15 @@ export default async function AdminKiyoPage({
       <header className="mb-2">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">きよ</h1>
         <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">
-          月次経理の処理をここで完了する。立替精算、請求書、メンバー支払を作業順に進めてください。
+          月次経理と押印承認をここで進める。申請内容を確認して、承認・差戻しを記録する。
         </p>
       </header>
 
       <div className="mb-3">
         <div
           role="tablist"
-          aria-label="きよの月次経理"
-          className="flex overflow-x-auto sm:grid sm:grid-cols-4 sm:overflow-visible"
+          aria-label="きよの業務"
+          className="flex overflow-x-auto sm:grid sm:grid-cols-5 sm:overflow-visible"
         >
           {KIYO_TASKS.map((task, index) => {
             const selected = task.id === activeTask;
@@ -103,6 +105,7 @@ export default async function AdminKiyoPage({
           aria-labelledby={`kiyo-tab-${activeTask}`}
           className="rounded-none border border-border bg-background p-3"
         >
+          {activeTask === "workflows" ? <WorkflowWorkspace embedded /> : null}
           {activeTask === "money-flow" ? <KiyoMoneyFlowPanel /> : null}
           {activeTask === "reimbursements" ? <ReimburseWorkspace embedded /> : null}
           {activeTask === "invoices" ? <AdminInvoicesPage embedded /> : null}

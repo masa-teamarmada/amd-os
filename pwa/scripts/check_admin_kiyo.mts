@@ -17,7 +17,7 @@ assert.match(kiyoPage, /absolute: "きよ - AMD OS"/, "page titleは『きよ』
 assert.match(kiyoPage, />きよ<\/h1>/, "画面見出しは『きよ』に固定する");
 assert.doesNotMatch(kiyoPage, /読み取り専用|read-only/, "きよを確認専用画面へ戻さない");
 
-for (const task of ["reimbursements", "invoices", "payouts"]) {
+for (const task of ["reimbursements", "invoices", "payouts", "workflows"]) {
   assert.match(kiyoPage, new RegExp(`id: "${task}"`), `${task} taskをきよに置く`);
   assert.match(kiyoPage, new RegExp(`/admin/kiyo\\?task=\\$\\{task\\.id\\}`), "task切替後も/admin/kiyoに留まる");
 }
@@ -39,7 +39,7 @@ assert.doesNotMatch(kiyoPage, /grid gap-2 sm:grid-cols-3/, "3taskをカードgri
 assert.doesNotMatch(kiyoPage, /rounded-lg|rounded-md|rounded-xl|shadow-/, "きよのタブ・作業面へ角丸・影を戻さない");
 
 // PCは同じ幅3区画が隣接し縦の境界線で区切られる。選択中は上辺・左右辺を強調し下辺を作業面へ隙間ゼロでつなげる
-assert.match(kiyoPage, /sm:grid sm:grid-cols-3/, "PCは3taskを同じ幅の隣接する3区画にする");
+assert.match(kiyoPage, /sm:grid sm:grid-cols-5/, "PCは押印承認を含む5タブを同じ幅の隣接区画にする");
 assert.match(kiyoPage, /index > 0 && "-ml-px"/, "隣接する区画の境界線を1本の縦線に重ねる");
 assert.match(kiyoPage, /border-t-2 border-t-foreground/, "選択中tabは上辺を太く強調して前面タブと分かるようにする");
 assert.match(kiyoPage, /border-b-background/, "選択中tabは下辺を作業面の背景色で消して前面状態にする");

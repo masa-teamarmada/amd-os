@@ -131,3 +131,6 @@ PWAロゴ正本をプロジェクト内へ同期し、AppIconの各サイズは�
 | 教科書・材料 | read-only | bundled markdown / read model |
 
 PWAへ委譲する確認導線はSwiftUI `Link`で保持する。通常クリックは既定ブラウザで開き、Commandクリックは既定ブラウザの新しいタブへ開くmacOS標準操作に委譲する。
+
+
+2026-10-08: PWA `/admin/workflows` および `/admin/kiyo?task=workflows` の押印申請/承認/履歴/監視状態はmacOS未移植。共通DBの承認強制・GAS/PWAメール監視は適用。移植正本pwa/spec5-6、pwa/HANDOFF_pwa_to_native_viewing。未移植項目は保持する。

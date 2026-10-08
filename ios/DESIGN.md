@@ -761,3 +761,8 @@ PWA DDは認可後の全ページ・直接資料・保存出力に秘密表示�
 ## PWA同一画面の閲覧者・閲覧履歴（2026-10-08 16:40 JST）
 
 PWAの共通ページ移動帯右上に丸い頭文字と人数、閲覧中／閲覧履歴の切替を追加。画面追加・改名なし。既存認可を毎回検証する/api/page-viewingと共有Supabaseのos_page_viewer_sessions / os_page_viewing_visitsを使う。表示中タブ10秒更新、30秒期限切れ、外部は本人の履歴。正式仕様pwa/spec/2-1。iOS/macOS/AndroidのUI・ライフサイクル対応は未移植。migrationは適用済み、再適用禁止。
+
+
+## 2026-10-08 業務フロー・押印承認（PWA先行）
+
+共通正本はpwa/spec/5-6。管理者の新画面`/admin/workflows`ときよ画面の5番目タブ「押印承認」。最新最終PDF・条件を固定して申請→きよのみ承認→本人が押印手続き開始→押印版登録後きよ照合。条件・未押印版変更で失効、自己承認不可。共通Supabaseのworkflow_*6表・service-only RPCに権限を集中。GAS5分のGmail受信/送信監視、まさ/きよへ個別Slack通知。ネイティブiOS/macOS/Androidの専用画面は未実装、DB・通知は共通で適用済み。クライアントから承認表を直接更新しない。

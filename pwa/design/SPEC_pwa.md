@@ -584,3 +584,6 @@ npm run test:critical-ui
 2026-10-08（v3.161.19）: 廃液コスト試算へ処理量と両社総額比較を追加。色素の総額枠500から顧客の全登録費を引くSOL料金上限と、未入力費控除前の残枠を導出。製造kgと排水m³を区別し、改善効果・回収期間を表示。migration487〜489は好条件仮説と清掃等の入力更新。本番適用済み、再適用しない。燃料・月次・資本政策・長期計画/DD制作元は不変。正本spec5-13、使い方manual2-3。ネイティブ専用画面は未移植。
 
 - 2026-10-08 16:40 JST: 共通ページ移動帯右上に同じ画面の閲覧者と履歴を追加。GET/POST /api/page-viewing、10秒更新、30秒期限切れ、外部は本人の履歴。正本spec2-1、使い方manual2-1。
+
+
+2026-10-08: 管理者の業務フロー `/admin/workflows` ときよの押印承認タブを追加。API `/api/workflows` GET/POST、`/api/workflows/[requestId]` GET/POST、Bearer専用GET `/api/cron/contract-mail-watch`。詳細はspec5-6。全クライアント共通の承認権限はDB側で強制。

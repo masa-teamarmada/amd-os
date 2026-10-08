@@ -328,6 +328,7 @@ function disabledCron({
 }
 
 export const cronOperations: CronOperation[] = [
+  { id: "contract-mail-watch", label: "契約メール監視・押印申請通知", layer: "GAS", cadence: "5分ごと（非LLM）", trigger: "amie_contractWorkflowWatch", defaultParams: "", input: "まさのGmail送受信差分・押印申請イベント", output: "workflow_mail_events / workflow_alert_deliveries・まさときよの個別Slack", run: { type: "gas", functionName: "amie_contractWorkflowWatch", defaultArgs: [] } },
   disabledCron({
     id: "gas-meeting-hourly",
     label: "MTGサマリ hourly polling",
