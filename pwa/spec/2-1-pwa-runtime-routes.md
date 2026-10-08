@@ -16,6 +16,12 @@
 
 > **この章は何か**: AMD OS PWA の実行環境、主要 route、API / cron / auth の確定仕様。詳細な履歴や長い route 説明は `pwa/design/SPEC_pwa.md` にも残す。移行中は両方を更新する。
 
+## ログインメールの件名と本文（2026-10-08）
+
+共通Authのmagic_link/confirmationは日本語の件名と同じ本文を使用。件名は`AMD OS ログインリンク（{{ .Token }}）`で配信ごとに変わる。Gmailで同じ件名の会話にまとまり重複本文が省略されることを避ける。番号の入力は不要。本文正本は`ios/supabase/templates/workspace-login.html`、件名とcontent_pathは`ios/supabase/config.toml`。画像・非表示本文・引用を使わず、上部に56pxの「ログインする」を表示。ConfirmationURLを変更せず、attempt/nextを含む既存PKCEと認可を維持する。
+
+本番は`python3.12 scripts/amie_auth_email_templates.py --apply`でsubject/contentの4項目のみPATCHし、読戻し一致と他Auth設定の不変を確認する。既に一致すれば再PATCHしない。秘密値・配信URL・OTP展開後の件名を出力しない。配信は本人の操作。設定一致/見本表示と実Gmailの省略有無は別々に検証する。2026-10-08 18:57 JSTの本番4項目一致、他Auth不変を確認済み。
+
 ## 外部メールの認証と共通ポータル（2026-10-08）
 
 外部メール開始はrate-limit claim後にUUID v4のattemptを発行し、callbackへ引き継ぐ。PKCE cookieはattemptごとの`sb-workspace-<UUID>-auth-token`、HttpOnly/SameSite=Lax/Path=/、有効期間1時間、本番Secure。社内Googleログインや別のメール要求が既に配信したリンクのverifierを上書きしない。callbackは厳密に検証したattemptのcookieだけで交換する。attempt不正はfail closed、以前の配信済みリンク（attemptなし）は旧cookieを使う。コード交換失敗は既存監査のcallback_login_deniedへ理由とisolatedAttemptの真偽だけを記録し、リンク・code・verifier・未登録メールは残さない。アカウント有効化、停止/取消/期限の判定、local signOutと署名付き外部cookie、DDとworkspaceの独立認可は維持する。

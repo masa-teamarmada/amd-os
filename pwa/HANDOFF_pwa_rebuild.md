@@ -1,12 +1,16 @@
 # HANDOFF - AMD OS PWA
 
+## 2026-10-08 18:57 JST — ログインメールの表示
+
+Gmailの「…」の中へ英語の既定本文が隠れるとの指摘。初回confirmationと通常magic_linkを日本語の「ログインする」ボタンへ統一。件名は配信ごとのTokenで変えて同じスレッドへまとめられないようにする。正本はios/supabase/templates/workspace-login.htmlとconfig.toml。管理APIへの4項目PATCH/readbackで一致と他Auth設定不変を確認済み。1636/390/320pxのChrome見本は初期表示・操作56px・横溢れなし。メール送信なし。実Gmailの省略有無と件名の変数展開は、まさ本人の新しいメール確認待ち。PWA実行コードは変更しないためproductionはv3.162.4のまま。
+
 ## 2026-10-08 外部メール認証と共通入口
 
 未特定申請の行き先選択はcdcdf1cc / v3.161.21をmainへpushし、production Readyと公開build-infoの一致を確認済み。SQLの複合readonly付与・停止権限保護・rollback、管理画面のPC/390px表示を確認。ネイティブ管理UIは未移植。
 
-会社GoogleメールのSMTP認証と本番設定読戻しを確認済み。上限30通/時、送信hookなし。他Auth設定は変更なし。まさ本人のasahinaテストで送信と受信を確認したが、PKCE交換がbad_code_verifierで失敗した。v3.162.3ではメール要求ごとにcookieを独立させて上書きを防ぎ、認証成功後は許可済み一覧へ進む。匿名トップの社内専用カードを共通ログインへ変更。反映後は本人の新しいメールリンクでcallback成功と許可面の実閲覧を確認する。v3.162.4では未所属の研究機関へのnextを許可済み一覧へ戻す。asahinaはSOL workspace/DDの付与のみで、EHM機関全体の付与は無いことをDBで確認。権限の再付与は不要。秘密値や認証URLは保存しない。
+会社GoogleメールのSMTP認証と本番設定読戻しを確認済み。上限30通/時、送信hookなし。他Auth設定は変更なし。まさ本人のasahinaテストで送信と受信を確認したが、PKCE交換がbad_code_verifierで失敗した。v3.162.3ではメール要求ごとにcookieを独立させて上書きを防ぎ、認証成功後は許可済み一覧へ進む。匿名トップの社内専用カードを共通ログインへ変更。反映後、まさ本人が新しいメールを開き「SOLのワークスペースとDDの一覧が出た」と確認。09:47:37 UTCのcallback_login_success、account active、p21 readonly active、DD sol active/dd.viewも読戻し済み。last_login_atは現行callbackが更新しないため、成功判定には使わない。v3.162.4では未所属の研究機関へのnextを許可済み一覧へ戻す。asahinaはSOL workspace/DDの付与のみで、EHM機関全体の付与は無いことをDBで確認。権限の再付与は不要。秘密値や認証URLは保存しない。
 
-本番v3.162.4 / 52c96ac7259790012e52f45c3153ee9d16d668deはReady、公開build-info一致を確認済み。実SSRクライアントで旧共通cookieの400を再現し、メール2要求＋Google開始を挟んだ独立cookieの交換、HttpOnly/Secure/Lax属性、行き先を確認。型検査・変更箇所の静的検査・本番反映前の全ゲートを通過。実Next GETで不正attempt/コードなしの失敗時にnextを保持し秘密値を戻さないことを確認。Chromeで匿名・外部workspace・DDのみ・社内メンバーの入口と390pxの横溢れなし/44px操作を確認（表示状態の代替検査は本番へ含めない）。実メールの再ログインはまさへ依頼済み、callback成功と実閲覧の返答待ち。
+本番v3.162.4 / 52c96ac7259790012e52f45c3153ee9d16d668deはReady、公開build-info一致を確認済み。実SSRクライアントで旧共通cookieの400を再現し、メール2要求＋Google開始を挟んだ独立cookieの交換、HttpOnly/Secure/Lax属性、行き先を確認。型検査・変更箇所の静的検査・本番反映前の全ゲートを通過。実Next GETで不正attempt/コードなしの失敗時にnextを保持し秘密値を戻さないことを確認。Chromeで匿名・外部workspace・DDのみ・社内メンバーの入口と390pxの横溢れなし/44px操作を確認（表示状態の代替検査は本番へ含めない）。実メールによるログイン成功と許可済み一覧表示を確認済み。個々の先生の本人ログインとDD本文の確認は別扱い。
 
 変更はmainのclean clone `/tmp/amie-smtp-docs-20261008` で全てpush済み。正規checkoutは別作業の未push契約修正3件（c0f23546、3f11241e、f2a08962）を保護して同期保留。確認時はHEAD=f2a08962、ahead3/behind6。契約作業の担当が統合した後に再fetch・同期する。今回の修正を未push契約コードへ混ぜて再デプロイしない。SMTP入力用のローカルサーバーは設定確認後に停止済み。
 
@@ -17,6 +21,7 @@
 | 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
 |---|---|---|---|
 | メール認証cookie・成功着地・公開入口・SMTP接続 | spec/2-1、SPEC_pwa、BUGS | manual/2-1 | 同期済み |
+| 日本語ログインメールと配信ごとの件名 | ios/supabase/templates、spec/2-1 | manual/2-1 | 本番設定読戻し済み、実Gmail確認待ち |
 | 変更履歴 | spec/6-1 | manual/9-3 | 同期済み |
 | 他プラットフォーム | ios/DESIGN、HANDOFF_pwa_to_native_viewing | 対象外 | Swift UI未変更 |
 | DB・認可・理論・model | 既存契約維持 | 対象外 | 変更なし |

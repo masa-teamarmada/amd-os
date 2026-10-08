@@ -2,7 +2,7 @@
 
 ## 2026-10-08 — 外部認証と公開入口
 
-外部メールのattempt別PKCE cookie、成功後/workspaces（DDのみ/dd）、匿名の共通ログイン、DB確認済みメンバー限定の社内入口。SMTP接続済み。正本詳細はspec/2-1。
+外部メールのattempt別PKCE cookie、成功後/workspaces（DDのみ/dd）、匿名の共通ログイン、DB確認済みメンバー限定の社内入口。SMTP接続済み。初回/通常の認証メールを日本語と上部のログインボタンへ統一し、配信ごとの件名でGmailの重複省略を避ける。本文正本はios/supabase/templates。正本詳細はspec/2-1。
 
 2026-10-06: 登録した組織・協業図を3スペース共通で表示。project_config.organization_chartの構造化登録値を読み、組織案/登録済みを区別する。役割は箇条書き、協業は両矢印。未登録は既存ひな形。DBスキーマ・権限・正式版PDFは変更なし。正本spec 3-23「登録した組織・協業図の表示」、検証test:organization-chart。ネイティブ3クライアントは未移植。
 

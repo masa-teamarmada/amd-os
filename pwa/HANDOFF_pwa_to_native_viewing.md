@@ -1,5 +1,9 @@
 # 閲覧中・閲覧履歴: 他プラットフォームへの引き継ぎ
 
+## 2026-10-08 — 共通Authのログインメール
+
+共通Supabaseの初回/通常メールを日本語ログインボタンと配信ごとの件名へ変更。本番4項目のみ反映・読戻し済み。正本はios/supabase/templates/workspace-login.htmlとconfig.toml、詳細spec/2-1。既存ConfirmationURL/PKCE/認可を維持。Swift/Kotlin/macOS UIの変更・移植は不要。PWAのasahina実ログインとSOL/DD一覧を確認済み。実Gmailの省略改善は新規受信確認待ち。
+
 ## 2026-10-08 — 外部メール入口
 
 PWAの公開入口とメール認証cookie分離を修正。ネイティブUIは未変更。許可済みPJ/workspace/DDの独立認可は既存を維持。

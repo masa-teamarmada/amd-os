@@ -226,6 +226,16 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
+# Shared Auth login emails: retain ConfirmationURL for PKCE callback/next.
+# A per-mail code in the subject separates repeated Gmail conversations.
+[auth.email.template.magic_link]
+subject = "AMD OS ログインリンク（{{ .Token }}）"
+content_path = "./supabase/templates/workspace-login.html"
+
+[auth.email.template.confirmation]
+subject = "AMD OS ログインリンク（{{ .Token }}）"
+content_path = "./supabase/templates/workspace-login.html"
+
 # Uncomment to customize email template
 # [auth.email.template.invite]
 # subject = "You have been invited"
