@@ -124,7 +124,7 @@ export default function LoginPage() {
         {submitting ? "接続中…" : useCode ? "ログインする" : "続ける"}
       </button>
       <p id="login-email-help" className="text-xs leading-relaxed text-muted-foreground">
-        {useCode ? "最新のメールにある数字を入力してください。コードは別のブラウザでも使えます。" : "メールのボタン、またはログインコードで入れます。"}
+        {useCode ? "最新のメールにある数字を入力してください。コードは別のブラウザでも使えます。" : "メールに届くログインコードを、この画面に入力します。"}
       </p>
       <button type="button" onClick={() => { setUseCode(!useCode); setEmailSent(false); setError(null); }}
         className="min-h-11 w-full px-3 text-sm underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-ring">
@@ -139,7 +139,7 @@ export default function LoginPage() {
         <div className="w-full min-w-0 max-w-sm space-y-4 text-center">
           <h1 className="text-xl font-semibold">メールを確認してください</h1>
           <p className="text-sm leading-relaxed text-muted-foreground" role="status">
-            届いたメールの「ログインする」を押すか、下にログインコードを入力してください。
+            届いたメールのログインコードを、下に入力してください。
           </p>
           <p className="text-xs leading-relaxed text-muted-foreground">届かない場合は迷惑メールフォルダを確認してください。閲覧権限がない場合は、管理者の承認後にもう一度ログインしてください。</p>
           {emailForm}
@@ -211,7 +211,7 @@ export default function LoginPage() {
         )}
         {error === "workspace_auth_failed" && (
           <div role="alert" className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-left text-sm text-amber-800">
-            リンクでログインを完了できませんでした。新しいメールを受け取り、メールのボタンを押さずにログインコードを入力してください。
+            ログインを完了できませんでした。「新しいログインメールを受け取る」から申し込み直し、最新のメールのコードを入力してください。
           </div>
         )}
 

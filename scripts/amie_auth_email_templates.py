@@ -22,8 +22,10 @@ def desired_fields():
         if not path.is_relative_to(ROOT / "ios/supabase/templates"):
             raise ValueError("Template path must stay in the shared Auth templates directory")
         body = path.read_text()
-        if body.count('{{ .ConfirmationURL }}') != 1 or '<html lang="ja">' not in body:
-            raise ValueError("Login template must retain one ConfirmationURL and Japanese language")
+        if body.count('{{ .Token }}') != 1 or '<html lang="ja">' not in body:
+            raise ValueError("Login template must display one OTP and use Japanese language")
+        if '{{ .ConfirmationURL }}' in body or '<a' in body.lower() or '<button' in body.lower():
+            raise ValueError("Login template must use codes only, without login links or buttons")
         if any(x in body.lower() for x in ("<script", "<img", "blockquote", "gmail_quote", "display:none")):
             raise ValueError("Login template must be visible without scripts, images or quoted content")
         fields[f"mailer_templates_{name}_content"] = body

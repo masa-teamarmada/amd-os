@@ -6,7 +6,7 @@ PWAの外部ログインにコード入力を追加。メール申込後とworks
 
 POSTは同一originとform content-type、4 KiB、メール形式、6–10桁の数字を検査。attempt専用cookie名を新規生成し、Supabase verifyOtp(type=email)で本人確認する。申込時のPKCE cookieは不要。認証結果のemailと入力を照合し、既存handleWorkspaceLoginCallbackを再利用してactive/invited account・auth_user_id・既存所属/DD付与・停止/期限を検査する。local signOut後に既存の30日署名cookieのみを発行。POST後の遷移は303で検証済みnextを保持し、no-store/no-referrer。登録なし、停止、未付与、認証不一致、activation失敗はsession発行なし。
 
-共通Auth本文にTokenの数字を表示。ConfirmationURLは維持。リンクはコードを消費するため、リンクが失敗した場合は新しいメールを受け取り、リンクを押さずにコードを入力する。メールの生成・配信は本人操作。Auth/DB/SMTPの秘密値は保存しない。検査test:workspace-email-attemptsは実callbackの通信代替による成功/失敗と署名cookie/303を確認する。先生本人のログイン成功は別の実確認を必要とする。
+共通Auth本文にTokenの数字だけを表示し、メールの認証リンクとログインボタンは置かない（2026-10-09）。使用済み・期限切れコードの場合は新しいメールを受け取って入力する。メールの生成・配信は本人操作。Auth/DB/SMTPの秘密値は保存しない。検査test:workspace-email-attemptsは実callbackの通信代替による成功/失敗と署名cookie/303を確認する。先生本人のログイン成功は別の実確認を必要とする。
 
 
 ## 2026-10-08 — DD入口の認証状態（v3.162.5）
@@ -21,7 +21,7 @@ DDのトップ、旧掲載項目、編集のページ入口は、内部memberま
 
 2026-10-07: AMD OSの`/auth/login`は全員共通のメール入力と「続ける」１つに統一。`resolveLoginEntry`がtrim/lowercaseと形式検証の後、メールのdomainが厳密に`team-armada.jp`なら既存portfolio Google OAuth（Calendar/Gmail readonly、offline、consent、入力メールをlogin_hint）へ、それ以外なら既存`/api/auth/email-start`へ進める。subdomainや似たdomainは社内扱いにしない。domainは認証方式の選択だけで、付与・利用可否は既存callback/DB/RLSが検査する。旧`audience`/`workspace`queryによるUIの並べ替えとPJログインボタンは廃止し、`next`は両方式で引き継ぐ。旧project callbackの認可は維持。書斎hostは既存管理者用Google入口を維持する。未登録・未許可・送信抑制の200応答は同じ案内を表示。通信失敗は入力を保った再試行案内にする。入力・主操作48px、入力文字16px、横溢れなし。メール実送信・権限変更を伴わない画面検証を行う。
 
-2026-10-08: callbackのコード未付与・交換失敗・user取得失敗時は、`login_scope=workspace`なら`workspace_auth_failed`、他は`auth_failed`で共通入力へ戻す。`sanitizeNextPath`を通した`next`を失敗時も保存し、codeは戻さない。一般失敗にGoogle Workspaceを要求せず、外部認証失敗はメール入力と同じブラウザで最新リンクを開く案内にする。account不在・権限不足・activation失敗は管理者確認の案内を維持し、再入力だけで直ると扱わない。書斎の管理者専用入口はメール入力を要求しない。SMTP接続状態は上記の配信前提に従う。
+2026-10-08: callbackのコード未付与・交換失敗・user取得失敗時は、`login_scope=workspace`なら`workspace_auth_failed`、他は`auth_failed`で共通入力へ戻す。`sanitizeNextPath`を通した`next`を失敗時も保存し、codeは戻さない。一般失敗にGoogle Workspaceを要求せず、外部認証失敗は新しいメールのコード入力を案内する（2026-10-09）。account不在・権限不足・activation失敗は管理者確認の案内を維持し、再入力だけで直ると扱わない。書斎の管理者専用入口はメール入力を要求しない。SMTP接続状態は上記の配信前提に従う。
 
 2026-10-06: ホームとコックピットの全体メニューは左上のメニューアイコン「≡」で開く左ドロワー。常設の全体サイドバーは出さず、既存のホーム・研究機関・シーズ・管理・資料などの入口を保持する。閉じるボタン、背景クリック、Escape、リンク選択で閉じ、キーボードフォーカスを開くボタンへ戻す。ホームのPJカード（研究機関・シーズ・事業会社・PJ運用一覧）と全体メニューのPJリンクは別タブを既定とし、PJ未登録の候補詳細と一覧・ページ内アンカーは同じタブで開く。
 
@@ -29,9 +29,9 @@ DDのトップ、旧掲載項目、編集のページ入口は、内部memberま
 
 > **この章は何か**: AMD OS PWA の実行環境、主要 route、API / cron / auth の確定仕様。詳細な履歴や長い route 説明は `pwa/design/SPEC_pwa.md` にも残す。移行中は両方を更新する。
 
-## ログインメールの件名と本文（2026-10-08）
+## ログインメールの件名と本文（2026-10-09）
 
-共通Authのmagic_link/confirmationは日本語の件名と同じ本文を使用。件名は`AMD OS ログインリンク（{{ .Token }}）`で配信ごとに変わる。Gmailで同じ件名の会話にまとまり重複本文が省略されることを避ける。番号は入力用のログインコードとしても使える。本文正本は`ios/supabase/templates/workspace-login.html`、件名とcontent_pathは`ios/supabase/config.toml`。画像・非表示本文・引用を使わず、上部に56pxの「ログインする」を表示。ConfirmationURLを変更せず、attempt/nextを含む既存PKCEと認可を維持する。
+共通Authのmagic_link/confirmationは日本語の件名と同じ本文を使用。件名は`AMD OS ログインコード（{{ .Token }}）`で配信ごとに変わり、Gmailで同じ会話へまとまることを避ける。本文正本は`ios/supabase/templates/workspace-login.html`、件名とcontent_pathは`ios/supabase/config.toml`。Tokenを28pxの等幅数字で表示し、ログイン画面へ戻って入力するよう案内する。ConfirmationURL・認証リンク・ログインボタン・画像・非表示本文・引用は置かない。`amie_auth_email_templates.py`がコード一つと日本語本文を必須にし、リンク・ボタン混入を拒否する。既存POST verifyOtpの本人確認・認可を使用する。過去メールのGET callbackと社内Googleは互換維持。
 
 本番は`python3.12 scripts/amie_auth_email_templates.py --apply`でsubject/contentの4項目のみPATCHし、読戻し一致と他Auth設定の不変を確認する。既に一致すれば再PATCHしない。秘密値・配信URL・OTP展開後の件名を出力しない。配信は本人の操作。設定一致/見本表示と実Gmailの省略有無は別々に検証する。2026-10-08 18:57 JSTの本番4項目一致、他Auth不変を確認済み。
 
