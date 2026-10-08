@@ -19,7 +19,15 @@ export type SeedNeedMatch = NeedBase & {
   owner_name: string; due_on: string | null; status: MatchStatus;
 };
 export type NeedSeed = { id: string; title: string; org_name: string | null; researcher_name: string | null; institution_id: string | null; seed_no: number | null };
-export type SeedNeedsData = { markets: MarketNeed[]; companies: CompanyNeed[]; matches: SeedNeedMatch[]; seeds: NeedSeed[] };
+export type ResearchKind = 'application' | 'combination' | 'new_seed';
+export const RESEARCH_LABEL: Record<ResearchKind, string> = { application: '既存技術の応用', combination: 'シーズの組み合わせ', new_seed: '新しいシーズの創出' };
+export type NeedResearch = NeedBase & {
+  title: string; kind: ResearchKind; gap: string; hypothesis: string; experiment: string;
+  success_criteria: string; next_action: string;
+  market_ids: string[]; company_ids: string[]; seed_ids: string[];
+};
+export type ExplorationSelection = { market_ids: string[]; company_ids: string[]; seed_ids: string[] };
+export type SeedNeedsData = { markets: MarketNeed[]; companies: CompanyNeed[]; matches: SeedNeedMatch[]; seeds: NeedSeed[]; research?: NeedResearch[] };
 export type NeedRow = { key: string; market?: MarketNeed; company?: CompanyNeed; match?: SeedNeedMatch; seed?: NeedSeed };
 export type NeedKind = 'market' | 'company' | 'match';
 export const NEED_TABLE = { market: 'market_needs', company: 'company_needs', match: 'seed_need_matches' } as const;

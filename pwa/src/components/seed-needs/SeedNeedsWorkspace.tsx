@@ -3,13 +3,14 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, ChevronDown, ChevronRight, ExternalLink, Plus, RefreshCw, Search, Pencil } from 'lucide-react';
-import { fetchSeedNeeds } from '@/lib/seed-needs-data';
+import { fetchSeedNeeds, saveNeedResearch } from '@/lib/seed-needs-data';
 import { joinSeedNeeds, filterNeedRows, EVIDENCE_LABEL, MATCH_LABEL, type NeedDataset, type NeedKind, type SeedNeedsData, type MarketNeed, type CompanyNeed, type SeedNeedMatch, type NeedRow } from '@/lib/seed-needs';
 import { NeedEditor, type EditorSelection } from './NeedEditor';
 import styles from './seed-needs.module.css';
+import { ExplorationBoard } from './ExplorationBoard';
 
-type View = 'connections' | 'markets' | 'companies';
-const VIEW_LABEL: Record<View, string> = { connections: 'シーズとの組み合わせ', markets: '市場ニーズ', companies: '企業ニーズ' };
+type View = 'exploration' | 'connections' | 'markets' | 'companies';
+const VIEW_LABEL: Record<View, string> = { exploration: '探索する', connections: '接続の記録', markets: '市場ニーズ', companies: '企業ニーズ' };
 const empty = '未整理';
 function Fact({ label, text }: { label: string; text?: string | null }) {
   return <div className={styles.fact}><dt>{label}</dt><dd>{text || empty}</dd></div>;
@@ -24,10 +25,11 @@ export function SeedNeedsWorkspace() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [dataset, setDataset] = useState<NeedDataset>('example');
-  const [view, setView] = useState<View>('connections');
+  const [view, setView] = useState<View>('exploration');
   const [query, setQuery] = useState('');
   const [unlinked, setUnlinked] = useState(false);
   const [institution, setInstitution] = useState('');
+  const [composing, setComposing] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [selection, setSelection] = useState<EditorSelection | null>(null);
   const load = useCallback(async (force = false) => {
@@ -62,27 +64,28 @@ export function SeedNeedsWorkspace() {
 
   return <div className={styles.workspace}>
     <header className={styles.header}>
-      <div><h1>シーズ×ニーズ</h1><p>市場の課題を、企業の事業領域・強みを通して研究・事業の機会へつなぐ。</p></div>
-      <Link href="/seeds" className={styles.textLink}>既存シーズ台帳 <ArrowRight size={16} /></Link>
+      <div><h1>シーズ×ニーズ</h1><p>市場・企業・技術のつながりと空白から、次の研究を構想する。</p></div>
+      <div className={styles.headerActions}><Link href="/seeds" className={styles.textLink}>既存シーズ台帳 <ArrowRight size={16} /></Link><button className={styles.iconButton} aria-label="探索データを更新" disabled={loading || composing} onClick={() => void load(true)}><RefreshCw size={16} /></button></div>
     </header>
-    <div className={styles.flow} aria-label="ニーズとシーズの関係"><span>市場の課題</span><ArrowRight size={14} /><span>企業の事業領域・強み・方針</span><ArrowRight size={14} /><span>企業としてのニーズ</span><span className={styles.times}>×</span><span>既存シーズ</span><ArrowRight size={14} /><strong>追加研究・PoC</strong></div>
     <div className={styles.datasetBar}>
-      <div className={styles.segment} aria-label="データの区分">{(['working','example'] as const).map(value => <button key={value} aria-pressed={dataset === value} onClick={() => { setDataset(value); setExpanded(null); setNotice(''); }}>
+      <div className={styles.segment} aria-label="データの区分">{(['working','example'] as const).map(value => <button key={value} disabled={composing} aria-pressed={dataset === value} onClick={() => { setDataset(value); setExpanded(null); setNotice(''); }}>
         {value === 'working' ? '実際の蓄積' : '議論用の記入例'}<span>{data ? joinSeedNeeds(data, value).length : '—'}</span>
       </button>)}</div>
       <p>{dataset === 'example' ? '実在するシーズに、仮の企業像・未確認のニーズを接続。会議中に編集できる原案。' : '調査・ヒアリングで得たニーズを、根拠と確認状況を付けて蓄積。'}</p>
     </div>
-    <div className={styles.tabs} role="tablist" aria-label="一覧の種類">{(Object.keys(VIEW_LABEL) as View[]).map(value => <button key={value} role="tab" id={`tab-${value}`} aria-controls="needs-panel" aria-selected={view === value} onClick={() => { setView(value); setQuery(''); setExpanded(null); }}>{VIEW_LABEL[value]}</button>)}</div>
-    <div className={styles.toolbar}>
+    <div className={styles.tabs} role="tablist" aria-label="一覧の種類">{(Object.keys(VIEW_LABEL) as View[]).map(value => <button key={value} disabled={composing} role="tab" id={`tab-${value}`} aria-controls="needs-panel" aria-selected={view === value} onClick={() => { setView(value); setQuery(''); setExpanded(null); }}>{VIEW_LABEL[value]}</button>)}</div>
+    {view !== 'exploration' && <div className={styles.toolbar}>
       <label className={styles.search}><Search size={16} /><input aria-label="ニーズ・企業・シーズを検索" value={query} onChange={e => setQuery(e.target.value)} placeholder="ニーズ・企業・技術・研究者を検索" /></label>
       {view === 'connections' && <><select aria-label="シーズの研究機関" value={institution} onChange={e => setInstitution(e.target.value)}><option value="">全研究機関</option>{institutions.map(([id,name]) => <option key={id} value={id}>{name}</option>)}</select><label className={styles.checkbox}><input type="checkbox" checked={unlinked} onChange={e => setUnlinked(e.target.checked)} />未接続のみ</label></>}
       <button className={styles.iconButton} aria-label="一覧を更新" title="一覧を更新" onClick={() => { setNotice(''); void load(true); }} disabled={loading}><RefreshCw size={16} className={loading ? styles.spin : ''} /></button>
       <button className={styles.primaryButton} disabled={!data || loading} onClick={() => openEditor(view === 'connections' ? 'match' : view === 'markets' ? 'market' : 'company')}><Plus size={16} />{view === 'connections' ? '組み合わせ' : view === 'markets' ? '市場ニーズ' : '企業ニーズ'}を追加</button>
     </div>
+    }
     {error && <div role="alert" className={styles.error}>{error} <button className={styles.textButton} onClick={() => void load(true)}>再読み込み</button></div>}
     {notice && <p role="status" className={styles.notice}>{notice}</p>}
     <div id="needs-panel" role="tabpanel" aria-labelledby={`tab-${view}`} aria-busy={loading}>
-      {!data && loading ? <div className={styles.skeleton} role="status">市場ニーズ・企業ニーズ・既存シーズを読み込み中…<div /><div /><div /></div> : data && <>
+    {view === 'exploration' && data && !loading && <ExplorationBoard key={dataset} data={data} dataset={dataset} onEdit={setSelection} onEditingChange={setComposing} saveResearch={saveNeedResearch} onResearchSaved={record => { setData(old => old ? { ...old, research: [...(old.research ?? []).filter(r => r.id !== record.id), record] } : old); setNotice('研究仮説を保存済み'); }} />}
+      {!data && loading ? <div className={styles.skeleton} role="status">市場ニーズ・企業ニーズ・既存シーズを読み込み中…<div /><div /><div /></div> : data && view !== 'exploration' && <>
         <div className={styles.countLine}><span>{view === 'connections' ? `${filtered.length}行 / ${rows.length}行` : view === 'markets' ? `${markets.length}件` : `${companies.length}件`}</span><span>{dataset === 'example' ? '記入例のニーズはすべて仮説' : '仮説と確認済みを区別して記録'}</span><span>{view === 'connections' ? '行を開くと根拠・実験案・予算条件' : '鉛筆から全文・根拠を確認して編集'}</span></div>
         <div className={styles.tableScroll} tabIndex={0} aria-label="ニーズ一覧。狭い画面では横にスクロール">
           {view === 'connections' && <table className={styles.connections}><colgroup><col style={{ width: '16%' }} /><col style={{ width: '17%' }} /><col style={{ width: '17%' }} /><col style={{ width: '19%' }} /><col style={{ width: '17%' }} /><col style={{ width: '14%' }} /></colgroup><thead><tr><th>市場ニーズ</th><th>企業のフィルター</th><th>企業としてのニーズ</th><th>接続するシーズ</th><th>追加研究・PoCの問い</th><th>次に確認すること</th></tr></thead><tbody>{filtered.map(row => <Fragment key={row.key}><tr className={expanded === row.key ? styles.selectedRow : ''}>
@@ -111,7 +114,7 @@ export function SeedNeedsWorkspace() {
         {(view === 'connections' ? !filtered.length : view === 'markets' ? !markets.length : !companies.length) && <div className={styles.empty}><strong>{query || unlinked || institution ? '条件に一致する項目なし' : '登録なし'}</strong><p>{query || unlinked || institution ? '検索語や絞り込み条件を変更して確認。' : '「市場ニーズ」または「企業ニーズ」から追加。シーズとの接続は後からでも可能。'}</p>{(query || unlinked || institution) && <button className={styles.button} onClick={() => { setQuery(''); setUnlinked(false); setInstitution(''); }}>絞り込みを解除</button>}</div>}
       </>}
     </div>
-    <p className={styles.footnote}>1行は企業ニーズとシーズの組み合わせ。同じ市場・シーズを複数行で参照。市場や企業から先に登録し、研究候補を後から接続できる。</p>
+    {view !== 'exploration' && <p className={styles.footnote}>1行は企業ニーズとシーズの組み合わせ。同じ市場・シーズを複数行で参照。市場や企業から先に登録し、研究候補を後から接続できる。</p>}
     {selection && data && <NeedEditor selection={selection} dataset={dataset} data={data} onClose={() => setSelection(null)} onSaved={saved} />}
   </div>;
 }

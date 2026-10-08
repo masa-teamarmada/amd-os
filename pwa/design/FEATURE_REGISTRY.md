@@ -1081,3 +1081,5 @@ PageHistoryToolbarのPageViewing、丸い頭文字と人数、閲覧中／閲覧
 - Data: market_needs/company_needs/seed_need_matches + seedsのID参照。RLS、区分複合FK、楽観排他。
 - 守る導線: 市場/企業の追加・編集、既存シーズ検索・接続、未接続行、記入例の分離、根拠・検証条件。
 - Guard: test:seed-needs / scripts/check_seed_needs_db.sql。正本spec5-19、manual2-5。
+
+- 2026-10-08: `/seed-needs` の初期面は三層関係図。交点比較・全台帳から候補追加・複数/ゼロシーズの研究仮説保存・再編集を維持する。研究構想と3関連表はRPC一括保存、既存seedsへ自動昇格しない。検証にcheck_seed_need_research_db.sqlを追加。

@@ -24,3 +24,22 @@ assert.match(loader, /\.eq\('updated_at', original.updated_at\)/, '同時編集�
 assert.match(loader, /loadReferenceData\(`seed-needs:seeds:\$\{user.id\}/, '参照シーズキャッシュはユーザー別');
 assert.doesNotMatch(loader, /SUPABASE_SERVICE_ROLE_KEY/);
 console.log('seed-needs: joins, filters, dataset separation, pagination and write conflict checks passed');
+
+const { buildExploration, traceExploration, researchAtPair, validateResearch } = await import('../src/lib/seed-needs-exploration.ts');
+data.companies.forEach(c => { c.company_name = ''; });
+const graph = buildExploration(data, 'working', ['seed-2']);
+assert.equal(graph.edges.length, 5, '市場の解釈2本と企業シーズ3本');
+assert.equal(graph.nodes.filter(n => n.kind === 'seed').length, 2, '同じシーズをノードとして重複表示しない');
+assert(graph.nodes.some(n => n.id === 'company-c' && n.unlinked), '技術を生む入口の未接続を保持');
+const fromCompany = traceExploration(data, 'working', 'company', 'company-b');
+assert(fromCompany.has('market:market') && fromCompany.has('seed:seed'));
+assert(!fromCompany.has('company:company-a') && !fromCompany.has('seed:seed-2'), '別企業経由の無関係な技術を適合経路に混ぜない');
+const fromSeed = traceExploration(data,'working','seed','seed');
+assert(fromSeed.has('company:company-a') && fromSeed.has('company:company-b'));
+assert(!fromSeed.has('seed:seed-2'), 'シーズ起点はそのシーズへの接続だけ');
+assert.equal(validateResearch({ market_ids:['market'],company_ids:[],seed_ids:[] },'new_seed'),null,'新規研究はシーズ未発見でも開始できる');
+assert(validateResearch({ market_ids:[],company_ids:[],seed_ids:['seed'] },'application'));
+assert(validateResearch({ market_ids:['market'],company_ids:[],seed_ids:['seed','seed'] },'combination'));
+assert.equal(researchAtPair([{ company_ids:['company-a','company-b'],seed_ids:['seed','seed-2'] } as never],'company-b','seed-2').length,1);
+assert.equal(researchAtPair([{ company_ids:['company-a'],seed_ids:['seed'] } as never],'company-c','seed').length,0);
+console.log('exploration: trace isolation, graph normalization, unconnected needs, multi/zero-seed proposals passed');

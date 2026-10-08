@@ -772,3 +772,7 @@ PWAの共通ページ移動帯右上に丸い頭文字と人数、閲覧中／�
 ## 2026-10-08 シーズ×ニーズ（PWA先行）
 
 `/seed-needs` は市場→企業の事業領域/強み/方針→企業ニーズ→既存シーズの結合一覧。market_needs/company_needs/seed_need_matchesを正本とし、RLSはamd_os_is_member。記入例と実際の蓄積を分離。原案の編集・未接続・既存シーズ詳細への導線。詳細spec5-19、native専用UI未移植。
+
+## 2026-10-08 シーズ×ニーズの探索面
+
+PWA `/seed-needs` の初期画面を市場・企業・技術の三層関係図へ更新。分岐/合流の強調、未接続から創出する点線、交点比較、全seedsから比較候補の追加、複数ニーズ/複数またはゼロシーズを束ねる研究構想を実装。正本seed_need_researchと3関連表、security invoker RPCで一括保存。詳細spec5-19。497/498適用済み、既存seeds不変。iOS/macOS/Android専用UIは未移植。

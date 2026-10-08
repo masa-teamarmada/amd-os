@@ -122,3 +122,4 @@
 @media (max-width: 700px) { .field :is(input,select,textarea), .search input { font-size: 16px; } }
 
 .catalog td { padding: 10px 12px; }
+.headerActions { display: flex; align-items: center; gap: 12px; }

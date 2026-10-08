@@ -6,7 +6,7 @@ import { saveNeedRecord } from '@/lib/seed-needs-data';
 import { EVIDENCE_LABEL, MATCH_LABEL, type NeedDataset, type NeedKind, type SeedNeedsData, type MarketNeed, type CompanyNeed, type SeedNeedMatch } from '@/lib/seed-needs';
 import styles from './seed-needs.module.css';
 
-export type EditorSelection = { kind: NeedKind; record?: MarketNeed | CompanyNeed | SeedNeedMatch; marketId?: string; companyId?: string };
+export type EditorSelection = { kind: NeedKind; record?: MarketNeed | CompanyNeed | SeedNeedMatch; marketId?: string; companyId?: string; seedId?: string };
 type Field = { key: string; label: string; hint?: string; required?: boolean; short?: boolean; type?: 'date' | 'url' };
 const MARKET_FIELDS: Field[] = [
   { key: 'title', label: '市場ニーズ', required: true, short: true }, { key: 'target_user', label: '誰が困っているか', short: true },
@@ -42,7 +42,7 @@ export function NeedEditor({ selection, dataset, data, onClose, onSaved }: {
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState('');
   const [seedQuery, setSeedQuery] = useState('');
-  const [seedId, setSeedId] = useState((selection.record as SeedNeedMatch | undefined)?.seed_id ?? '');
+  const [seedId, setSeedId] = useState((selection.record as SeedNeedMatch | undefined)?.seed_id ?? selection.seedId ?? '');
   const { kind, record } = selection;
   const fields = kind === 'market' ? MARKET_FIELDS : kind === 'company' ? COMPANY_FIELDS : MATCH_FIELDS;
   const values = (record ?? {}) as Record<string, unknown>;

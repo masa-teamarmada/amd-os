@@ -136,3 +136,5 @@ PWAへ委譲する確認導線はSwiftUI `Link`で保持する。通常クリッ
 ## 2026-10-08 追加未移植: /seed-needs
 
 市場・企業ニーズ・シーズ結合一覧、追加/編集、根拠・検証設計はPWA先行。新3表とRLSは共通。専用NativeScreenID/UIは未移植として保持。正本pwa/spec/5-19。
+
+2026-10-08追記: `/seed-needs` の三層関係図・交点比較・研究構想もPWA先行、native未移植。共有DBはseed_need_research+3関連表とRLS付き一括保存RPC。移植時は複数/ゼロシーズ、記入例と実データ、構想と台帳シーズを区別する。正本spec5-19。
