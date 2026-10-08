@@ -33,6 +33,7 @@
 | ECR | `4-3` | `partial` | 制度比較seedと投入手順、2026-07-29の主張境界は反映済み。rubric は `/bzm/9-4` 依存で、ECR 8軸rubricのPWA seed同期、自前ストック・実効サービス・流量成果の三層化、独立複数評価者、成果妥当性検証は未実装 |
 | 外部workspace / 研究機関 / SU | `1-4`, `1-5`, `2-1`, `2-2`, `2-3`, `4-3` | `partial` | organization tenant、capability、共同作業・判断、大学向けPJ面、外部公開版、資料revision、旧Project Share退役readback |
 | Admin / Finance / Reward | 未移行 | `not yet` | manual 6章・7章、`reward-summary.ts`、GAS payout PDF の spec 化 |
+| シーズ×ニーズ一覧 | `5-19` | `rebuildable` | 新3表・既存seeds ID参照・区分/RLS/競合・保存・記入例・UI・検査 |
 | Atlas / Seeds / VC / Scholar | 未移行 | `not yet` | manual 4-1/4-2/5章、design `atlas.md` / `seeds.md` / `vc_list.md` の spec 化 |
 | GAS | `5-2`, `5-3`, `5-5` | `partial` | GAS file/function 別の current / deprecated 表 |
 | iOS | `5-5` | `partial` | `ios/DESIGN.md` の全画面を spec へ移す作業 |

@@ -37,8 +37,11 @@
 .countLine { display: flex; gap: 16px; flex-wrap: wrap; padding: 8px 0; color: var(--need-muted); font-size: 12px; }
 .tableScroll { width: 100%; overflow: auto; border: 1px solid var(--need-line); border-radius: 6px; background: white; }
 .tableScroll table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px; line-height: 1.65; }
-.connections { min-width: 1200px; }
+.connections { min-width: 1120px; }
 .catalog { min-width: 1040px; }
+.catalog td { height: 64px; }
+.catalogActions { display: flex; align-items: center; gap: 4px; }
+.catalogActions > span { margin-right: 8px; }
 .tableScroll th { text-align: left; font-weight: 600; background: #f3f6fa; padding: 10px 12px; border-bottom: 1px solid #c9d2de; color: #37465a; }
 .tableScroll td { vertical-align: top; padding: 12px; border-bottom: 1px solid var(--need-line); overflow-wrap: anywhere; }
 .tableScroll tr:last-child td { border-bottom: 0; }
@@ -117,3 +120,5 @@
 @media (max-width: 700px) { .editButton { flex-basis: 44px; width: 44px; height: 44px; } }
 
 @media (max-width: 700px) { .field :is(input,select,textarea), .search input { font-size: 16px; } }
+
+.catalog td { padding: 10px 12px; }
