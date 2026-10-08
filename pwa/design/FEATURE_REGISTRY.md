@@ -1083,3 +1083,8 @@ PageHistoryToolbarのPageViewing、丸い頭文字と人数、閲覧中／閲覧
 - Guard: test:seed-needs / scripts/check_seed_needs_db.sql。正本spec5-19、manual2-5。
 
 - 2026-10-08: `/seed-needs` の初期面は三層関係図。交点比較・全台帳から候補追加・複数/ゼロシーズの研究仮説保存・再編集を維持する。研究構想と3関連表はRPC一括保存、既存seedsへ自動昇格しない。検証にcheck_seed_need_research_db.sqlを追加。
+
+
+## 2026-10-09 市場ニーズを起点にした一覧
+
+PWA /seed-needs と左メニューを「市場ニーズ」へ。一市場一行に企業・シーズ・出典のリンクをまとめ、25件ずつ表示。国内/世界の年間市場規模を年別に保持し、同一地域・年の下限で順位付け。確度A/B/C/未評価は独立した手動評価。出典と評価理由が必須。市場/企業のsources、市場のmarket_sizes/confidence_rank/confidence_noteと、直接リンクmarket_need_seed_linksを追加。499/500は本番適用済みで再実行しない。JSONの出典参照・型・評価条件とRLS/競合を検査。既存seeds不変。補助図・個別接続・研究構想を保持。正本spec5-19、操作manual2-5。iOS/macOS/Androidの専用UIは未移植。

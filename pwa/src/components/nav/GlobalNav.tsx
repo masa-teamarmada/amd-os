@@ -209,7 +209,7 @@ export function GlobalNav({
             badge: seedInboxCount,
           },
           {
-            label: "シーズ×ニーズ",
+            label: "市場ニーズ",
             href: "/seed-needs",
             icon: Handshake,
             title: "市場・企業ニーズと既存シーズの組み合わせ",

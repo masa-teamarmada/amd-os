@@ -45,7 +45,11 @@ export function buildExploration(
   const companies = data.companies.filter((x) => x.dataset === dataset);
   const matches = data.matches.filter((x) => x.dataset === dataset);
   const research = (data.research ?? []).filter((x) => x.dataset === dataset);
+  const directLinks = (data.marketSeedLinks ?? []).filter(
+    (x) => x.dataset === dataset,
+  );
   const seedIds = new Set([
+    ...directLinks.map((x) => x.seed_id),
     ...matches.map((x) => x.seed_id),
     ...research.flatMap((x) => x.seed_ids),
     ...extraSeedIds,
@@ -57,7 +61,9 @@ export function buildExploration(
       kind: "market" as const,
       title: m.title,
       subtitle: m.target_user,
-      unlinked: !companies.some((c) => c.market_need_id === m.id),
+      unlinked:
+        !companies.some((c) => c.market_need_id === m.id) &&
+        !directLinks.some((x) => x.market_need_id === m.id),
     })),
     ...companies.map((c) => ({
       id: c.id,
@@ -71,10 +77,17 @@ export function buildExploration(
       kind: "seed" as const,
       title: s.title,
       subtitle: [s.org_name, s.researcher_name].filter(Boolean).join("・"),
-      unlinked: !matches.some((m) => m.seed_id === s.id),
+      unlinked:
+        !matches.some((m) => m.seed_id === s.id) &&
+        !directLinks.some((x) => x.seed_id === s.id),
     })),
   ];
   const edges: ExploreEdge[] = [
+    ...directLinks.map((link) => ({
+      id: `direct-${link.id}`,
+      from: nodeKey("market", link.market_need_id),
+      to: nodeKey("seed", link.seed_id),
+    })),
     ...companies
       .filter(
         (c) =>
@@ -92,7 +105,16 @@ export function buildExploration(
       matchId: m.id,
     })),
   ];
-  return { markets, companies, matches, seeds, research, nodes, edges };
+  return {
+    markets,
+    companies,
+    matches,
+    seeds,
+    research,
+    nodes,
+    edges,
+    directLinks,
+  };
 }
 /** 選んだ要素の経路だけ。市場へ辿った後に無関係な兄弟企業へ拡張しない。 */
 export function traceExploration(
@@ -101,7 +123,7 @@ export function traceExploration(
   kind: NodeKind,
   id: string,
 ): Set<string> {
-  const { companies, matches } = buildExploration(data, dataset);
+  const { companies, matches, directLinks } = buildExploration(data, dataset);
   const companyIds = new Set(
     kind === "market"
       ? companies.filter((c) => c.market_need_id === id).map((c) => c.id)
@@ -117,6 +139,12 @@ export function traceExploration(
   for (const m of matches.filter((m) => companyIds.has(m.company_need_id))) {
     if (kind !== "seed" || m.seed_id === id)
       keys.add(nodeKey("seed", m.seed_id));
+  }
+  for (const link of directLinks) {
+    if (kind === "market" && link.market_need_id === id)
+      keys.add(nodeKey("seed", link.seed_id));
+    if (kind === "seed" && link.seed_id === id)
+      keys.add(nodeKey("market", link.market_need_id));
   }
   return keys;
 }

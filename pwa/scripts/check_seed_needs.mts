@@ -19,9 +19,9 @@ assert.equal(filterNeedRows(rows, '', false, 'two').length, 1, '機関IDで絞�
 assert.equal(joinSeedNeeds(data, 'example').length, 1, '実データと記入例を混ぜない');
 assert.equal(joinSeedNeeds(data, 'example')[0].company, undefined);
 const loader = readFileSync(new URL('../src/lib/seed-needs-data.ts', import.meta.url), 'utf8');
-assert.match(loader, /order\('id'\)\.range\(offset, offset \+ 499\)/, '安定順で全ページを読む');
-assert.match(loader, /\.eq\('updated_at', original.updated_at\)/, '同時編集を上書きしない');
-assert.match(loader, /loadReferenceData\(`seed-needs:seeds:\$\{user.id\}/, '参照シーズキャッシュはユーザー別');
+assert.match(loader, /order\(["']id["']\)\s*\.range\(offset, offset \+ 499\)/, '安定順で全ページを読む');
+assert.match(loader, /\.eq\(["']updated_at["'], original.updated_at\)/, '同時編集を上書きしない');
+assert.match(loader, /loadReferenceData\(\s*`seed-needs:seeds:\$\{user.id\}/, '参照シーズキャッシュはユーザー別');
 assert.doesNotMatch(loader, /SUPABASE_SERVICE_ROLE_KEY/);
 console.log('seed-needs: joins, filters, dataset separation, pagination and write conflict checks passed');
 
@@ -43,3 +43,35 @@ assert(validateResearch({ market_ids:['market'],company_ids:[],seed_ids:['seed',
 assert.equal(researchAtPair([{ company_ids:['company-a','company-b'],seed_ids:['seed','seed-2'] } as never],'company-b','seed-2').length,1);
 assert.equal(researchAtPair([{ company_ids:['company-a'],seed_ids:['seed'] } as never],'company-c','seed').length,0);
 console.log('exploration: trace isolation, graph normalization, unconnected needs, multi/zero-seed proposals passed');
+
+const { marketNeedRows, rankMarketSizes, searchMarketRows, marketSizeFor, validateMarketAssessment } = await import('../src/lib/market-needs.ts');
+const source = { id:'00000000-0000-4000-8000-000000000009', kind:'primary',title:'調査資料',publisher:'調査元',date:'2026-10-08',url:'https://example.invalid/report',note:'試験用の出典' } as const;
+const size = {scope:'japan',year:2026,min_oku:100,max_oku:200,definition:'対象製品',basis:'試験用の算定',source_id:source.id} as const;
+const large = { ...data, markets:Array.from({length:620},(_,i) => ({...data.markets[0],id:`m${i}`,title:`市場${String(i).padStart(3,'0')}`,sources:[source],market_sizes:i===619 ? [] : [{...size,min_oku:i,max_oku:i+20}],confidence_rank:'c',confidence_note:'仮説',updated_at:'2026-10-08T00:00:00Z'})),companies:[],matches:[],research:[],marketSeedLinks:[] } as SeedNeedsData;
+let catalog=marketNeedRows(large,'working');
+assert.equal(catalog.length,620);
+const rank=rankMarketSizes(catalog,'japan',2026);
+assert.equal(rank.get('m618'),1); assert.equal(rank.get('m0'),619); assert(!rank.has('m619'),'未評価をゼロへ変換しない');
+assert.equal(rankMarketSizes(catalog,'global',2026).size,0,'国内と世界を混ぜない');
+assert.equal(rankMarketSizes(catalog,'japan',2027).size,0,'異なる対象年を混ぜない');
+assert.equal(searchMarketRows(catalog,'市場618 調査元').length,1,'市場と出典を横断検索');
+assert.equal(marketSizeFor(catalog[0].market,'global',2026),undefined);
+large.markets[1].market_sizes=[{...size,min_oku:618,max_oku:620}];
+assert.equal(rankMarketSizes(marketNeedRows(large,'working'),'japan',2026).get('m1'),1,'同額は同順位');
+const withLinks={...data,marketSeedLinks:[{id:'direct',dataset:'working',market_need_id:'market',seed_id:'seed',rationale:'直接リンク'}],research:[{id:'r',dataset:'working',market_ids:['market'],company_ids:['company-a'],seed_ids:['seed','seed-2'],title:'組み合わせ'}]} as SeedNeedsData;
+catalog=marketNeedRows(withLinks,'working');
+assert.equal(catalog.length,2,'会社・シーズが増えても市場の行を増やさない');
+assert.equal(catalog.find(r=>r.market.id==='market')!.seeds.length,2,'経路が複数あってもシーズを重複させない');
+assert.equal(catalog[0].seeds[0].matches.length,2,'各企業からの関係を保持');
+assert.equal(catalog[0].seeds[0].research.length,1); assert(catalog[0].seeds[0].direct);
+assert.equal(marketNeedRows(withLinks,'example').length,1);
+assert.equal(buildExploration(withLinks,'working').edges.length,6,'直接リンクも補助図に表示');
+assert(traceExploration(withLinks,'working','seed','seed').has('market:market'));
+const assessed={dataset:'working',sources:[source],market_sizes:[size],confidence_rank:'a',confidence_note:'一次情報で確認'} as const;
+assert.equal(validateMarketAssessment({...assessed,sources:[source],market_sizes:[size]}),'');
+assert(validateMarketAssessment({...assessed,sources:[],market_sizes:[size]}),'出典なし高確度を拒否');
+assert(validateMarketAssessment({...assessed,sources:[source],market_sizes:[{...size,source_id:'missing'}]}),'推計から欠損した出典を拒否');
+assert(validateMarketAssessment({...assessed,sources:[source],market_sizes:[size,size]}),'地域年の重複を拒否');
+assert(validateMarketAssessment({...assessed,sources:[source],market_sizes:[{...size,min_oku:NaN}]}),'未入力を0扱いしない');
+assert(validateMarketAssessment({...assessed,dataset:'example',sources:[source],market_sizes:[size]}),'仮例を高確度へ昇格しない');
+console.log('market list: 620 needs, single row per market, deduped references, source provenance, comparable ranking, unknowns and assessment validation passed');

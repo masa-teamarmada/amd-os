@@ -606,3 +606,15 @@ DB rollback検査でmember保存・readback、外部拒否、区分混在/重複
 元の共有mainには別作業の未push3件があるため変更せず、origin/mainの一時cloneで実装。共有checkoutのreset/stashや混在commitなし。
 
 今回の成果はorigin/mainと本番で整合。元checkoutは別作業の未push3件（f2a08962 / 3f11241e / c0f23546）があり同期未完。その3件はgit cherryで未反映と確認し保持。契約承認・メール取込の担当作業で統合するまでreset/rebase/stash/pushしない。今回の作業用main cloneは証跡保存後に撤去し、枝・worktreeは新設していない。新たな実装残件なし。会話の検討材料0件（製品仕様はspecへ記録）。
+
+
+## 2026-10-09 市場ニーズを主画面にする（v3.162.7）
+
+一市場一行・出典・国内世界/年別規模順位・確度・直接シーズ接続。正本spec5-19、使い方manual2-5。499/500は本番適用済みで再実行しない。記入例の金額は未評価。配布・実画面確認・作業用コピー整理はrepo rootのHANDOFF_MARKET_NEEDS_20261009.mdを参照。
+
+| 同期先 | 状態 |
+|---|---|
+| spec5-19 / spec1-3 / spec6-1 / db_schema | 同期済み |
+| manual2-5 / manual9-3 | 同期済み |
+| FEATURE_REGISTRY / ios DESIGN / macos PARITY | 同期済み、専用native UI未移植 |
+| 理論・model | 変更なし |

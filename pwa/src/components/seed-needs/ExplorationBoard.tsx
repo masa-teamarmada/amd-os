@@ -448,6 +448,7 @@ export function ExplorationBoard({
                   checked={graph.seeds.some((x) => x.id === s.id)}
                   disabled={
                     graph.matches.some((x) => x.seed_id === s.id) ||
+                    graph.directLinks.some((x) => x.seed_id === s.id) ||
                     graph.research.some((r) => r.seed_ids.includes(s.id))
                   }
                   onChange={(e) => {
