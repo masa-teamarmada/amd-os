@@ -25,7 +25,22 @@ export type ProjectContractCockpitSummary = {
   execution?: string | null;
 };
 
+/** 原文に基づく確認結果。個別案件の開示承認とは別の記録。 */
+export type ContractOperationalCheck = {
+  id: string;
+  question: string;
+  status: "confirmed" | "needs_confirmation";
+  answer: string;
+  actions: Array<{ kind: "contract_requirement" | "recommended_check"; text: string }>;
+  unresolved: string[];
+  sourceTitle: string;
+  sourceUrl: string;
+  sourceClause: string;
+  checkedAt: string;
+};
+
 export interface ProjectContractTerms {
+  operationalChecks?: ContractOperationalCheck[] | null;
   currentContracts?: ProjectCurrentContract[] | null;
   currentContractId?: string | null;
   currentContractTitle?: string | null;
@@ -113,6 +128,7 @@ export const OPERATIONAL_TERM_KEYS = [
   "governingLawJurisdiction",
   "specialTerms",
   "cockpitSummary",
+  "operationalChecks",
 ] as const satisfies ReadonlyArray<keyof ProjectContractTerms>;
 
 export function textTerm(value: unknown) {

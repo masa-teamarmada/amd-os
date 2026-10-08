@@ -65,7 +65,7 @@ status:
 
 実務条件の正本は契約ごとの `contracts.operational_terms_json`。PJコックピットへ出す契約は `is_current_for_project=true` とし、`projects.contract_terms_json.currentContracts[]` へ契約ID単位で同期する。複数の現行契約をPJ直下の1組の条件へ混ぜない。未確認値を `0円`、`なし`、`申請可` へ変換しない。秘密保持は `in_contract / separate_nda / not_included / unknown` を正本とし、存続期間と短い根拠を併記できる。
 
-PJコックピット用の要約は、法務条項の網羅的な短縮版ではなく、PJを進める日に必要な実行条件に限定する。`operational_terms_json.cockpitSummary` は `invoiceTiming` / `paymentTiming` / `scope` / `deliverables` / `expense` / `execution` を持ち、admin の契約詳細でレビュー済みの短文を保存する。通常契約のコックピットは `契約期間` / `請求・振込` / `業務・成果物` / `経費申請` / 必要な場合だけ `推進条件` の最大5項目を表示する。知財、秘密保持、解除、責任、準拠法などの法務詳細は `/admin/contracts` の実務条件に残し、通常契約のコックピットへ常設しない。NDAだけは金額・経費の代わりに `利用目的` / `運用条件` を表示する。請求・振込タイミングは契約額の補足に必ず出し、未確認なら未確認と明示する。
+PJコックピット用の要約は、法務条項の網羅的な短縮版ではなく、PJを進める日に必要な実行条件に限定する。`operational_terms_json.cockpitSummary` は `invoiceTiming` / `paymentTiming` / `scope` / `deliverables` / `expense` / `execution` を持ち、admin の契約詳細でレビュー済みの短文を保存する。通常契約のコックピットは `契約期間` / `請求・振込` / `業務・成果物` / `経費申請` / 必要な場合だけ `推進条件` の最大5項目を表示する。知財、秘密保持、解除、責任、準拠法などの法務詳細は `/admin/contracts` の実務条件で確認し、PJ契約タブでも「契約の論点・必要な手続き」と折りたたみの条項要約から確認できる。NDAだけは金額・経費の代わりに `利用目的` / `運用条件` を表示する。請求・振込タイミングは契約額の補足に必ず出し、未確認なら未確認と明示する。
 
 `relationship_scope`:
 
@@ -322,3 +322,15 @@ cron が機能するには、対象 PJ の契約が Contract Apply 済みであ�
 取得は認可済みPJの採用済み・掲載対象契約の関連IDに限定し、子記録もproject_idとcontract_idで照合する。履歴は `contract_signals.signal_type=contract_exchange/status=linked` の確認済み短文のみ。本文・rawメール・台帳メモは取得しない。リンクはHTTPSのDrive/DocsとGmailのみ。DDでは文書・経緯を取得・返却しない。DDチェックは追加開示を許可しない。Drive共有権限は変更しない。
 
 いよぎんキャピタルNDAは先方受領版と変更履歴付き修正案の2版、10/2受領・返送、10/6先方回答・電子署名担当回答の4履歴を登録。先方回答に基づき署名待ちへ更新。未締結、締結日・契約期間未確認を維持する。
+
+## PJ契約の論点と手続き（2026-10-08）
+
+`CockpitProjectOverview` は契約IDごとの `terms` から `ContractOperationalChecks` を表示する。契約IDが一致しないPJ直下の条件は別契約へ流用しない。既存の期間・請求等のサマリを保ち、その下へ論点を置く。`needs_confirmation` は初期展開、`confirmed` は折りたたみ。知財・利用・公開・秘密保持・再委託・競業・解除・責任・管轄は別の折りたたみの行形式で全文を読める。未登録は未確認であり、許可や禁止へ自動判定しない。
+
+`contracts.operational_terms_json.operationalChecks[]` と、同期済みの `projects.contract_terms_json.currentContracts[].terms.operationalChecks[]` に確認済みの短文を保持する。1項目は `id/question/status/answer/actions[{kind,text}]/unresolved[]/sourceTitle/sourceUrl/sourceClause/checkedAt`。`status` は `confirmed`（条項確認済み）または `needs_confirmation`（追加確認）。個別開示の許可状態ではない。`actions.kind` は `contract_requirement`（契約に明記された義務）と `recommended_check`（開示前に確認すること）を分ける。根拠URL・条項・確認日が欠ける confirmed は表示時に追加確認へ下げる。根拠リンクはHTTPSのDrive/Docsだけ許可。原文や秘密情報本体、承認済みを推測した値は保存しない。
+
+原文確認後の限定データmigrationまたは既存の管理者による実務条件更新で登録する。今回のmigration492・493は原本SHAと変更前hashで単一契約・単一PJを検査し、論点配列だけを追加する。金額・請求cycle・契約一覧掲載/DD設定・Drive権限を変えない。D-13からの自動作成、自動承認、対外連絡、申請実行は追加しない。条件の再抽出・版変更時はその原文に対応する論点を再確認し、古い確認結果を新しい版の確定条件へ流用しない。既存Contract Applyは反映元候補の条件で正本を置き換えるため、論点が無い候補を反映した場合は未登録表示へ戻る。
+
+SOLの原本は第11条の個人情報・再委託と第12条の細則準用と第14条の未定事項協議を確認。技術・事業の秘密情報全般の開示手続きは追加確認とする。大学との別NDA・添付仕様書・準用細則の適用版・承認権限者等は今回未確認。開示先NDAと情報提供元の許諾を別に扱う。確認日2026-10-08。再適用は変更前hashで停止する。
+
+検証: 型検査、実部品の描画・契約間条件分離・URL安全性・未登録/不正状態の確認試験、critical-ui、production build、実Chromeの契約タブ・狭幅・開閉・原本リンク。

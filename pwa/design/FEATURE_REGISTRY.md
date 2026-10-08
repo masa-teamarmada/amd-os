@@ -1059,3 +1059,5 @@ DDのproduct-descriptionはproject_configの当該PJ/key=product_descriptionだ�
 
 - 共通CockpitCostModel→CostEconomicsSummary / project-cost-model。DBはproject_cost_*。総額上限ありのオンサイトに全顧客費・料金上限・未入力費残枠、別単位の処理/製造量、期間比較を表示。旧モデルの売価契約は保持し、PJ IDで分岐しない。
 - 検査: check_cost_economics.mts（合算・負担切替・追加費・用途・冷却/ガス/管理）、test:project-cost-modelへ接続。正本spec5-13、manual2-3。
+
+2026-10-08: PWAのPJ管理「契約」は現行契約ごとに「契約の論点・必要な手続き」を表示。追加確認が必要な論点は初期展開し、契約上の義務・開示前の確認・未確定点・原本条項・確認日を分ける。秘密保持等の条項要約は折りたたみで確認。条項確認と個別開示承認は別。契約間の条件流用はしない。正本spec5-6、使い方manual6-7。iOS/macOSの専用表示は未移植。

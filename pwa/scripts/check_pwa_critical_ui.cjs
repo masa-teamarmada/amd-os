@@ -644,6 +644,9 @@ expectNotIncludes("src/components/cockpit/CockpitProjectOverview.tsx", [
   'label: "解除・責任"',
 ]);
 
+expectIncludes("src/components/cockpit/CockpitProjectOverview.tsx", ["<ContractOperationalChecks terms={terms}"]);
+expectIncludes("src/components/cockpit/ContractOperationalChecks.tsx", ["契約の論点・必要な手続き", "契約上の義務", "開示前の確認", "まだ確定していないこと", "手続き未確認", "権利・制限・責任の条項要約"]);
+
 expectNotIncludes("src/components/cockpit/CockpitHeader.tsx", [
   "契約上の実行条件",
   "currentContracts",

@@ -19,6 +19,7 @@ import {
 } from "@/lib/project-contract-terms";
 import { paymentDueRuleLabel } from "@/lib/payment-rules";
 import { contractStatusLabel } from "@/lib/project-overview";
+import { ContractOperationalChecks } from "./ContractOperationalChecks";
 
 export interface CockpitOverviewProject {
   projectId: string;
@@ -119,7 +120,8 @@ export function currentContracts(project: CockpitOverviewProject) {
 }
 
 function effectiveTerms(contract: ProjectCurrentContract, fallback: ProjectContractTerms | null | undefined) {
-  return (contract.terms || fallback || {}) as ProjectContractTerms;
+  if (contract.terms) return contract.terms;
+  return contract.contractId && contract.contractId === fallback?.currentContractId ? fallback : {};
 }
 
 function CurrentContractTerms({ contract, project }: { contract: ProjectCurrentContract; project: CockpitOverviewProject }) {
@@ -212,6 +214,7 @@ function CurrentContractTerms({ contract, project }: { contract: ProjectCurrentC
           </div>
         ))}
       </dl>
+      <ContractOperationalChecks terms={terms} />
     </article>
   );
 }
@@ -224,7 +227,7 @@ export function CockpitProjectOverview({ project }: { project: CockpitOverviewPr
         <div className="flex items-center justify-between gap-3 border-b border-[#e5e5ea] px-3 py-2">
           <div className="min-w-0">
             <h2 className="text-[12px] font-semibold text-[#1d1d1f]">契約上の実行条件</h2>
-            <p className="text-[10px] text-[#86868b]">契約期間・請求と振込・業務と成果物・経費申請。数字と条件は締結済み契約の読み取りで、ここでは編集しない。</p>
+            <p className="text-xs leading-5 text-[#6e6e73]">契約期間・請求と振込・業務と成果物・経費申請に加え、秘密情報の開示などの論点と必要な手続きを確認する。</p>
           </div>
           <span className="shrink-0 text-[10px] text-[#86868b]">{contracts.length}件</span>
         </div>
