@@ -606,9 +606,8 @@ expectIncludes("src/app/(app)/admin/billing/page.tsx", [
 
 expectIncludes("src/components/contracts/ContractsClient.tsx", [
   "契約台帳",
-  "min-w-[1760px]",
-  "sticky left-0",
-  "sticky left-[160px]",
+  "ContractLedgerTable",
+  "contractTableRow",
   "consolidateContractRecords",
   "AMD当事者契約",
   "金額・支払",
@@ -623,6 +622,17 @@ expectIncludes("src/components/contracts/ContractsClient.tsx", [
   "sourceTitle: latestSelectedDocument?.file_name || textTerm(existingTerms.sourceTitle)",
   "sourceRef: latestSelectedDocument?.web_view_link || textTerm(existingTerms.sourceRef)",
 ]);
+
+// AMD台帳は幅にかかわらずHTML表。項目別の列と固定列を失わない。
+expectIncludes("src/components/contracts/ContractLedgerTable.tsx", [
+  "<table", "<thead", "<tbody", 'scope="col"',
+  'label: "相手先"', 'label: "状態"', 'label: "押印証跡"',
+  'label: "締結日"', 'label: "開始日"', 'label: "終了日"',
+  'label: "契約額"', 'label: "月額"', 'label: "支払条件"',
+  'label: "基本情報"', 'label: "実務条件"', 'label: "全項目"',
+  "sticky top-0", "sticky left-0 sm:left-28", "overflow-auto", "onOpen(row.id)",
+]);
+expectNotIncludes("src/components/contracts/ContractLedgerTable.tsx", ['role="button"', "hidden xl:block", "xl:hidden"]);
 
 // 契約上の実行条件はコックピット最上段から「契約」タブへ置く。
 // 最上段のヘッダには「今どのPJを見ているか」だけを残す。
@@ -741,8 +751,8 @@ expectIncludes("src/lib/contracts-ledger.ts", [
   "resolveConfidentiality",
 ]);
 
-expectPattern("src/components/contracts/ContractsClient.tsx", [
-  /<th[\s\S]*?>PJ<\/th>[\s\S]*?<th[\s\S]*?>契約<\/th>/,
+expectPattern("src/components/contracts/ContractLedgerTable.tsx", [
+  /key: "project", label: "PJ"[\s\S]*?key: "title", label: "契約名"/,
 ]);
 
 expectNotIncludes("src/components/contracts/ContractsClient.tsx", [

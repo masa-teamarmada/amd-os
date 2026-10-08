@@ -7,7 +7,6 @@ import {
   Banknote,
   BriefcaseBusiness,
   CalendarRange,
-  ChevronRight,
   Copyright,
   FileCheck2,
   FileSignature,
@@ -27,6 +26,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { ContractLedgerTable, type ContractTableRow } from "./ContractLedgerTable";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -259,16 +259,6 @@ const STATUS_LABEL: Record<ContractStatus, string> = {
   cancelled: "中止",
 };
 
-const STATUS_TONE: Record<ContractStatus, string> = {
-  planned: "border-slate-200 bg-slate-50 text-slate-700",
-  drafting: "border-sky-200 bg-sky-50 text-sky-700",
-  under_review: "border-amber-200 bg-amber-50 text-amber-800",
-  awaiting_signature: "border-orange-200 bg-orange-50 text-orange-800",
-  signed: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  stalled: "border-rose-200 bg-rose-50 text-rose-800",
-  cancelled: "border-zinc-200 bg-zinc-50 text-zinc-600",
-};
-
 const CONTRACT_TYPE_LABEL: Record<string, string> = {
   contract: "契約",
   nda: "NDA",
@@ -395,14 +385,6 @@ function daysUntil(value: string | null | undefined) {
   const date = dateForComparison(value);
   if (!date) return null;
   return Math.ceil((date.getTime() - Date.now()) / 86_400_000);
-}
-
-function remainingLabel(value: string | null | undefined) {
-  const days = daysUntil(value);
-  if (days === null) return "終了日未確認";
-  if (days < 0) return `${Math.abs(days)}日経過`;
-  if (days === 0) return "今日まで";
-  return `残り${days}日`;
 }
 
 function contractTitle(contract: Pick<ContractRow, "canonical_title" | "contract_title">) {
@@ -546,34 +528,6 @@ function contractTermsCoverage(terms: ProjectContractTerms) {
     Boolean(textTerm(terms.terminationTerms) || textTerm(terms.liabilityTerms)),
   ];
   return groups.filter(Boolean).length;
-}
-
-function paymentSummary(contract: LedgerContract, terms: ProjectContractTerms) {
-  const primary = contract.contract_value_yen
-    ? `契約額 ${yen(contract.contract_value_yen)}`
-    : terms.amountTaxExclTotal
-      ? `税抜総額 ${yen(terms.amountTaxExclTotal)}`
-      : terms.monthlyFeeYen
-        ? `月額 ${yen(terms.monthlyFeeYen)}`
-        : "金額未確認";
-  return {
-    primary,
-    secondary: joinedTerms([
-      (contract.contract_value_yen || terms.amountTaxExclTotal) && terms.monthlyFeeYen
-        ? `月額 ${yen(terms.monthlyFeeYen)}`
-        : null,
-      terms.paymentTerms,
-      terms.taxTreatment,
-    ]),
-  };
-}
-
-function statusBadge(status: ContractStatus) {
-  return (
-    <span className={`inline-flex h-6 items-center rounded-md border px-2 text-xs font-medium ${STATUS_TONE[status]}`}>
-      {STATUS_LABEL[status]}
-    </span>
-  );
 }
 
 function documentKindLabel(kind: ContractDocument["document_kind"]) {
@@ -1205,7 +1159,10 @@ export function ContractsClient() {
           <SummaryButton label="当事者判定待ち" value={metrics.scopeReview} tone="warning" active={statusFilter === "scope_review"} onClick={() => setStatusFilter("scope_review")} />
         </section>
 
-        <SigningWorkflowPanel drivePath={contractDrivePath(driveDestination)} />
+        <details className="rounded-md border border-slate-200 bg-white">
+          <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-slate-600">押印完了後の保存・登録方法</summary>
+          <SigningWorkflowPanel drivePath={contractDrivePath(driveDestination)} />
+        </details>
 
         <section className="overflow-hidden rounded-md border border-slate-200 bg-white" aria-label="契約一覧">
           <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3">
@@ -1265,55 +1222,12 @@ export function ContractsClient() {
             )}
           </div>
 
-          <div className="divide-y divide-slate-100 xl:hidden">
-            {filteredContracts.map((contract) => (
-              <MobileContractRow
-                key={contract.contract_id}
-                contract={contract}
-                project={projectById.get(contract.project_id)}
-                documents={rowDocuments(contract, docsByContract)}
-                onOpen={() => setSelectedId(contract.contract_id)}
-              />
-            ))}
-          </div>
+          <ContractLedgerTable
+            rows={filteredContracts.map(contract => contractTableRow(contract, projectById.get(contract.project_id), rowDocuments(contract, docsByContract)))}
+            loading={loading}
+            onOpen={setSelectedId}
+          />
 
-          <div className="hidden max-h-[calc(100vh-270px)] overflow-auto overscroll-x-contain xl:block">
-            <table className="w-full min-w-[1760px] table-fixed border-collapse text-left text-xs">
-              <colgroup>
-                <col className="w-[160px]" />
-                <col className="w-[340px]" />
-                <col className="w-[250px]" />
-                <col className="w-[230px]" />
-                <col className="w-[270px]" />
-                <col className="w-[230px]" />
-                <col className="w-[280px]" />
-              </colgroup>
-              <thead className="sticky top-0 z-20 border-b border-slate-200 bg-slate-50 text-[11px] text-slate-500">
-                <tr>
-                  <th className="sticky left-0 z-30 border-r border-slate-200 bg-slate-50 px-3 py-2 font-semibold">PJ</th>
-                  <th className="sticky left-[160px] z-30 border-r border-slate-200 bg-slate-50 px-3 py-2 font-semibold shadow-[5px_0_8px_-7px_rgba(15,23,42,0.35)]">契約</th>
-                  <th className="px-3 py-2 font-semibold">状態・期間</th>
-                  <th className="px-3 py-2 font-semibold">金額・支払</th>
-                  <th className="px-3 py-2 font-semibold">業務・成果物</th>
-                  <th className="px-3 py-2 font-semibold">費用・報告</th>
-                  <th className="px-3 py-2 font-semibold">権利・制限・リスク</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredContracts.map((contract) => (
-                  <DesktopContractRow
-                    key={contract.contract_id}
-                    contract={contract}
-                    project={projectById.get(contract.project_id)}
-                    documents={rowDocuments(contract, docsByContract)}
-                    onOpen={() => setSelectedId(contract.contract_id)}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {filteredContracts.length === 0 && <div className="px-3 py-12 text-center text-sm text-slate-500">該当する契約なし</div>}
         </section>
 
         <details className="rounded-md border border-slate-200 bg-white">
@@ -1385,7 +1299,7 @@ function SummaryButton({ label, value, tone = "default", active = false, onClick
       <span className={`text-xl font-semibold ${tone === "danger" ? "text-rose-700" : tone === "warning" ? "text-amber-700" : "text-slate-950"}`}>{value}</span>
     </>
   );
-  const className = `flex min-h-16 flex-col justify-center border-r border-b border-slate-100 px-3 text-left transition ${active ? "bg-slate-100" : "bg-white"}`;
+  const className = `flex min-h-11 items-center justify-between gap-2 border-r border-b border-slate-100 px-3 text-left transition ${active ? "bg-slate-100" : "bg-white"}`;
   return onClick ? <button type="button" onClick={onClick} className={`${className} hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400`}>{content}</button> : <div className={className}>{content}</div>;
 }
 
@@ -1437,99 +1351,61 @@ function OperationStep({ icon, label, value, tone = "default" }: { icon?: ReactN
   );
 }
 
-function DesktopContractRow({ contract, project, documents, onOpen }: { contract: LedgerContract; project?: Project; documents: ContractDocument[]; onOpen: () => void }) {
-  const period = resolveContractPeriod(contract, project);
-  const terms = effectiveContractTerms(contract, project);
-  const expense = expenseSummary(terms);
-  const signature = resolveSignatureProof(contract, documents);
-  const confidentiality = resolveConfidentiality(contract);
-  const latest = documents.find((doc) => doc.is_latest) || documents[0];
-  const needsAttention = contractNeedsAttention(contract, project, documents);
-  const reviewItems = contractReviewItems(contract, project, documents);
-  const expirationDays = daysUntil(period.end);
-  const payment = paymentSummary(contract, terms);
-  const deliverables = boolTerm(terms.deliverablesRequired);
-  const missingGroups = Math.max(0, 6 - contractTermsCoverage(terms));
-  const reviewSummary = reviewItems.slice(0, 3).map((item) => item.label).join(" / ");
-  return (
-    <tr
-      role="button"
-      tabIndex={0}
-      aria-label={`${contract.project_id} ${contractTitle(contract)} の詳細を開く`}
-      onClick={onOpen}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onOpen();
-        }
-      }}
-      className="group cursor-pointer bg-white outline-none hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400"
-    >
-      <td className="sticky left-0 z-10 border-r border-slate-100 bg-white px-3 py-2.5 align-top group-hover:bg-slate-50">
-        <p className="truncate font-semibold text-slate-950">{project?.project_name || "PJ未設定"}</p>
-        <p className="mt-0.5 text-[11px] text-slate-500">{contract.project_id}</p>
-      </td>
-      <td className="sticky left-[160px] z-10 border-r border-slate-100 bg-white px-3 py-2.5 align-top shadow-[5px_0_8px_-7px_rgba(15,23,42,0.35)] group-hover:bg-slate-50">
-        <div className="flex w-full items-start gap-2 text-left">
-          <span className="min-w-0 flex-1">
-            <span className="line-clamp-2 font-semibold text-slate-950">{contractTitle(contract)}</span>
-            <span className="mt-1 flex flex-wrap items-center gap-1 text-[11px] text-slate-500">
-              {contractTypeLabel(contract.contract_type)}
-              {contract.is_current_for_project && <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-800">PJ現行</Badge>}
-              {reviewItems.length > 0 && <ReviewBadge items={reviewItems} />}
-              {needsAttention && <Badge variant="outline" className="border-rose-200 bg-rose-50 text-rose-700">要対応</Badge>}
-            </span>
-            {reviewSummary && <span className="mt-1 block truncate text-[11px] font-medium text-amber-700">確認: {reviewSummary}{reviewItems.length > 3 ? ` +${reviewItems.length - 3}` : ""}</span>}
-            <span className="mt-1 block truncate text-[11px] text-slate-500">{contract.amd_entity_name || "株式会社チームアルマダ"} × {contract.counterparty_name || "相手先未設定"}</span>
-          </span>
-          <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-        </div>
-      </td>
-      <td className="px-3 py-2.5 align-top">
-        <div className="flex flex-wrap items-center gap-1.5">{statusBadge(contract.status)}<span className={`font-medium ${signature.state === "complete" ? "text-emerald-700" : signature.state === "needs_proof" ? "text-rose-700" : "text-amber-700"}`}>{signature.label}</span></div>
-        <p className="mt-1 font-medium text-slate-800">{period.start || period.end ? `${dateOnly(period.start)} - ${dateOnly(period.end)}` : "期間未確認"}</p>
-        <p className={`mt-0.5 text-[11px] ${expirationDays !== null && expirationDays <= 90 ? "font-medium text-amber-700" : "text-slate-500"}`}>{period.end ? remainingLabel(period.end) : "終了日未登録"}</p>
-        {!period.end && period.referenceEnd && <p className="mt-0.5 text-[11px] text-slate-500">PJ条件 {dateOnly(period.referenceEnd)}（参考）</p>}
-        <p className="mt-0.5 line-clamp-1 text-[11px] text-slate-500">{latest ? `${latest.version_label || documentKindLabel(latest.document_kind)} / ${documentFormat(latest)}` : textTerm(terms.sourceTitle) ? "条件根拠登録済み" : "文書未登録"}</p>
-      </td>
-      <td className="px-3 py-2.5 align-top"><CellText primary={payment.primary} secondary={payment.secondary} /></td>
-      <td className="px-3 py-2.5 align-top"><CellText primary={textTerm(terms.scopeSummary) || "業務範囲未確認"} secondary={deliverables === true ? `成果物あり${terms.deliverablesNote ? `: ${terms.deliverablesNote}` : ""}` : deliverables === false ? "成果物なし" : textTerm(terms.deliverablesNote) || "成果物未確認"} tertiary={textTerm(terms.acceptanceTerms)} /></td>
-      <td className="px-3 py-2.5 align-top"><CellText primary={joinedTerms([expense.label, expense.note])} secondary={joinedTerms([terms.monthlyReportSubmissionRule, terms.monthlyReportSubmissionTiming, terms.monthlyReportSubmissionNote], "報告条件未確認")} tone={expense.label === "未確認" ? "warning" : expense.label === "申請不可" ? "danger" : "good"} /></td>
-      <td className="px-3 py-2.5 align-top"><CellText primary={joinedTerms([terms.ipOwnership, terms.usageRights, terms.confidentialitySummary || confidentiality.label])} secondary={joinedTerms([terms.subcontractingTerms, terms.exclusivityTerms, terms.terminationTerms, terms.liabilityTerms])} tertiary={missingGroups > 0 ? `未確認カテゴリ ${missingGroups}件` : textTerm(terms.governingLawJurisdiction) || "主要条件確認済み"} tone={missingGroups > 0 ? "warning" : "good"} /></td>
-    </tr>
-  );
+function tableAmount(value: unknown, prefix = "") {
+  if (value === null || value === undefined || value === "" || !Number.isFinite(Number(value))) return "未確認";
+  return `${prefix}${Number(value).toLocaleString("ja-JP")}円`;
 }
 
-function MobileContractRow({ contract, project, documents, onOpen }: { contract: LedgerContract; project?: Project; documents: ContractDocument[]; onOpen: () => void }) {
+export function contractTableRow(contract: LedgerContract, project: Project | undefined, documents: ContractDocument[]): ContractTableRow {
   const period = resolveContractPeriod(contract, project);
   const terms = effectiveContractTerms(contract, project);
-  const expense = expenseSummary(terms);
   const signature = resolveSignatureProof(contract, documents);
   const confidentiality = resolveConfidentiality(contract);
-  const payment = paymentSummary(contract, terms);
-  const reviewItems = contractReviewItems(contract, project, documents);
-  return (
-    <button type="button" onClick={onOpen} className="block w-full p-3 text-left outline-none hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400">
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium text-slate-500">{contract.project_id} {project?.project_name || "PJ未設定"}</p>
-          <p className="mt-1 line-clamp-2 text-sm font-semibold text-slate-950">{contractTitle(contract)}</p>
-          <p className="mt-1 truncate text-xs text-slate-500">{contract.counterparty_name || "相手先未設定"}</p>
-          <div className="mt-2 flex flex-wrap gap-1">{statusBadge(contract.status)}<Badge variant="outline">{contractTypeLabel(contract.contract_type)}</Badge>{contract.is_current_for_project && <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-800">PJ現行</Badge>}{reviewItems.length > 0 && <ReviewBadge items={reviewItems} />}</div>
-          {reviewItems.length > 0 && <p className="mt-1 truncate text-xs font-medium text-amber-700">確認: {reviewItems.slice(0, 3).map((item) => item.label).join(" / ")}</p>}
-        </div>
-        <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
-      </div>
-      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
-        <MiniAnswer label="期限" value={period.end ? `${dateOnly(period.end)}・${remainingLabel(period.end)}` : "未確認"} />
-        <MiniAnswer label="状態・押印" value={`${STATUS_LABEL[contract.status]} / ${signature.label}`} />
-        <MiniAnswer label="金額・支払" value={joinedTerms([payment.primary, payment.secondary])} />
-        <MiniAnswer label="業務・成果物" value={joinedTerms([terms.scopeSummary, terms.deliverablesNote])} />
-        <MiniAnswer label="費用負担" value={joinedTerms([expense.label, expense.note])} />
-        <MiniAnswer label="知財・秘密保持" value={joinedTerms([terms.ipOwnership, terms.confidentialitySummary || confidentiality.label])} />
-      </div>
-    </button>
-  );
+  const expense = expenseSummary(terms);
+  const review = contractReviewItems(contract, project, documents);
+  const latest = documents.find(doc => doc.is_latest) || documents[0];
+  const deliverables = boolTerm(terms.deliverablesRequired);
+  const totalAmount = contract.contract_value_yen != null
+    ? tableAmount(contract.contract_value_yen)
+    : terms.amountTaxExclTotal != null ? tableAmount(terms.amountTaxExclTotal, "税抜 ")
+      : tableAmount(terms.amountTaxInclTotal, "税込 ");
+  return {
+    id: contract.contract_id,
+    project: project?.project_name || contract.project_id,
+    title: contractTitle(contract),
+    counterparty: contract.counterparty_name || "未確認",
+    type: contractTypeLabel(contract.contract_type),
+    status: STATUS_LABEL[contract.status],
+    signature: signature.label,
+    signatureTone: signature.state,
+    signedDate: contract.signed_at ? dateOnly(contract.signed_at) : "未確認",
+    startDate: period.start ? dateOnly(period.start) : "未確認",
+    endDate: period.end ? dateOnly(period.end) : "未確認",
+    renewal: contract.renewal_type || textTerm(terms.renewalType) || "未確認",
+    renewalNotice: contract.renewal_notice_date ? dateOnly(contract.renewal_notice_date) : "未確認",
+    totalAmount,
+    monthlyAmount: tableAmount(terms.monthlyFeeYen),
+    payment: textTerm(terms.paymentTerms) || "未確認",
+    tax: textTerm(terms.taxTreatment) || "未確認",
+    scope: textTerm(terms.scopeSummary) || "未確認",
+    deliverables: joinedTerms([deliverables === true ? "あり" : deliverables === false ? "なし" : null, terms.deliverablesNote]),
+    acceptance: textTerm(terms.acceptanceTerms) || "未確認",
+    expense: `${expense.label}${expense.note ? `（${expense.note}）` : ""}`,
+    report: joinedTerms([terms.monthlyReportSubmissionRule, terms.monthlyReportSubmissionTiming, terms.monthlyReportSubmissionNote]),
+    ip: textTerm(terms.ipOwnership) || "未確認",
+    usage: textTerm(terms.usageRights) || "未確認",
+    confidentiality: textTerm(terms.confidentialitySummary) || confidentiality.label,
+    subcontracting: textTerm(terms.subcontractingTerms) || "未確認",
+    exclusivity: textTerm(terms.exclusivityTerms) || "未確認",
+    termination: textTerm(terms.terminationTerms) || "未確認",
+    liability: textTerm(terms.liabilityTerms) || "未確認",
+    jurisdiction: textTerm(terms.governingLawJurisdiction) || "未確認",
+    owner: contract.business_owner || "未確認",
+    current: contract.is_current_for_project ? "現行" : "—",
+    document: latest ? { label: latest.version_label || latest.file_name, url: latest.web_view_link } : null,
+    review: review.length ? review.map(item => item.label).join("、") : "確認事項なし",
+    reviewCount: review.length,
+  };
 }
 
 function ReviewBadge({ items }: { items: ContractReviewItem[] }) {
@@ -1543,15 +1419,6 @@ function ReviewBadge({ items }: { items: ContractReviewItem[] }) {
       要確認 {items.length}
     </Badge>
   );
-}
-
-function CellText({ primary, secondary, tertiary, tone = "default" }: { primary: string; secondary?: string | null; tertiary?: string | null; tone?: "default" | "good" | "warning" | "danger" }) {
-  const primaryClass = tone === "good" ? "text-emerald-700" : tone === "warning" ? "text-amber-700" : tone === "danger" ? "text-rose-700" : "text-slate-900";
-  return <div className="min-w-0"><p className={`line-clamp-2 font-medium leading-4 ${primaryClass}`}>{primary}</p>{secondary && <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-500">{secondary}</p>}{tertiary && <p className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-slate-400">{tertiary}</p>}</div>;
-}
-
-function MiniAnswer({ label, value }: { label: string; value: string }) {
-  return <div className="min-w-0"><p className="text-[10px] font-medium text-slate-400">{label}</p><p className="mt-0.5 truncate font-medium text-slate-700">{value}</p></div>;
 }
 
 function CreateContractDialog({ open, onOpenChange, projects, value, onChange, onSubmit, saving }: { open: boolean; onOpenChange: (open: boolean) => void; projects: Project[]; value: typeof BLANK_CONTRACT; onChange: (value: typeof BLANK_CONTRACT) => void; onSubmit: (event: FormEvent) => void; saving: boolean }) {
