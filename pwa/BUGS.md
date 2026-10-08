@@ -7,10 +7,10 @@
 
 ### [外部DD] ログイン状態が無効なときに404になる（2026-10-08）
 
-- **状態**: v3.162.5で修正。本人の再認証からDD本文までの確認は反映後に行う。
+- **状態**: v3.162.5 / 2950871f363e78b3662d3cc3e825b829973c194aをmain push、2026-10-08 19:48 JSTに本番build-info一致を確認。本人の再認証からDD本文までの実確認は待ち。
 - **確認**: asahinaのChromeで `/dd/sol` が404、同じタブで `/workspaces` へ移動すると共通ログインへ戻った。account active/auth紐付けあり、SOL package open、DD grant active/dd.view/無期限をDBで確認。10:17:43 UTCにもcallback成功の記録あり。ブラウザのCookie一覧はworkspace cookieのValueが空、有効期限Sessionだった。Cookieが空になった原因は未確定で、期限切れや本人操作と断定しない。
 - **対応**: DDトップ・旧資料ページ・編集入口は、内部メンバーまたは署名検証済み外部sessionが無い場合、パッケージの存在を調べる前にnextを保って共通ログインへ戻す。有効sessionがあってもDDの個別grant・停止/期限/openの毎回検査は維持。添付/API/印刷の失敗応答は維持。
-- **検証**: 実helper/実page＋通信代替で、欠落/空/改ざん/期限切れのlogin redirect、選択tabの維持、匿名時のpackage lookup 0、認証済み未付与の404と本文読取0、付与済みの本文読取を確認。既存DD全検査も通過。ローカルHTTPでも空/改ざんCookieは元tabを保つ307、既存asahina付与を使った120秒の検証用sessionではSOL本文200を確認（本人の閲覧実績とは分ける）。メール送信なし。
+- **検証**: 実helper/実page＋通信代替で、欠落/空/改ざん/期限切れのlogin redirect、選択tabの維持、匿名時のpackage lookup 0、認証済み未付与の404と本文読取0、付与済みの本文読取を確認。既存DD全検査も通過。ローカルHTTPでも空/改ざんCookieは元tabを保つ307、既存asahina付与を使った120秒の検証用sessionではSOL本文200を確認（本人の閲覧実績とは分ける）。本番HTTPも空/無効Cookieが元tabを保つ307になった。全deploy検査と型検査を通過。本人操作の再ログイン画面をasahina Chromeに準備し、Network記録はCookie発行・次要求を調べるため一時的に保持（本人操作待ち）。メール送信なし。
 
 ### [ログインメール] Gmailで本文とリンクが「…」に隠れる（2026-10-08）
 
