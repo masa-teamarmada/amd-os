@@ -1,5 +1,30 @@
 # 同じ画面の閲覧者・閲覧履歴 — 2026-10-08
 
+## 2026-10-09 — 閲覧更新を1分に変更（反映済み）
+
+- PWAの定期更新を60秒、通信断の失効期限を180秒へ変更。初回表示・表示復帰・ページ切替・パネルを開く操作は即時更新、非表示・退出は即時離脱。定期通信の回数は従来の約6分の1。DB・認可・履歴の保存方式・理論・画面配置の変更なし。
+- 実装commit `f15ab19fbcb42b7f66657ad206b08f4791e078e6`、`v3.162.10`。正規deploy.sh経由でmainへpushし、2分15秒でproduction反映。対象amd-os-pwa、deployment `dpl_3fypNzncFoY6YqPGT8AMnLbhNQMY`はREADY。公開build-infoのSHA・main・dirty=falseを確認。
+- 本番ChromeとDB: 確認用の表示中タブで初回16:22:43.194→次回16:23:43.352 JST、連番1→2、間隔60.158秒。閲覧中は「まさ（自分）」、履歴一覧も表示。繰返し更新後の同一visitは1件。タブを閉じた後にactive=falseを確認。確認用タブは閉じ、既存タブは保持。
+- 検証: 既存test:page-viewing、単独TypeScript検査、通常npm run buildとpostbuild容量検査、pre-commitとdeploy.shの必須検査が成功。最初のローカルTurbopack検査は外部node_modulesシンボリックリンクで停止。webpack代替はメモリ上限と旧型生成の既存export制約で停止。依存ファイルを検査cloneへコピーし、NODE_OPTIONS=--max-old-space-size=8192で本番と同じTurbopackの通常buildを成功させた。本番設定・依存版・アプリの追加修正なし。DB ROLLBACK検査用SQLの失効条件も180秒へ同期（今回このSQLの実行は不要と判断）。
+- 表示配置は不変。パソコン幅と320px設定でパネルが表示幅内に収まり、氏名・履歴切替・閉じる操作を確認。幅設定は解除済み。新しい版の本番でも閲覧中・履歴を確認。前回の画面レビュー8.5/10の配置を維持。
+
+### 同期ゲート・事後報告
+
+| 仕様変更 | 設計正本 | OSマニュアル章 | 状態 |
+|---|---|---|---|
+| 60秒更新・180秒失効・操作時即時更新 | spec2-1 / FEATURE_REGISTRY / ios DESIGN | manual2-1 | 実装・文書・本番確認済み |
+| 変更履歴 | spec6-1 | manual9-3 | 同じ実装commitで同期 |
+| ネイティブへの引き継ぎ | HANDOFF_pwa_to_native_viewing | manual2-1 | 更新済み。ネイティブUIは従来の未移植範囲を維持 |
+| 理論・DB | 変更なし | 対象外 | bzm・migration追加/再適用なし |
+
+仕事種別development。恒久仕様・使い方・引き継ぎを更新し、design_logは対象外。含めた変更は更新間隔・失効期限・版数・関連文書と既存検査SQLの同期だけ。別チャットの契約workflow等は除外。mainと本番実装は一致し、自分の変更はすべてpush済み。新規branch/worktreeなし。検査cloneはmainのみ、dirty/conflict/stashなし、ahead/behind=0/0（本記録のpush後）。コピーしたnode_modules/.next、.vercel/.env.localの既存リンクはgitignore対象の検査用ファイル。
+
+正規の共有checkoutはfetch済みだが別作業の未反映commit3件が残り、実装push後の確認時点でahead3/behind22。quarantine ownerは進行中の契約承認workflowチャット。次の判断条件は同担当が3件を確認・統合する時。元からあるstash2件も今回作成しておらず、HTML preview/PDFの保存名で退避された理論・SX・Project Share差分を含む。元担当の統合確認まで保持し、復元・削除・一括commitなし。共有checkout同期は未完了、本番反映とは分けて扱う。本記録はrootのmdのみの追記なのでPWA build対象外。
+
+会話の検討材料: 0件。今回の製品設定を個人特性として保存しない。
+
+---
+
 PWAの共通ツールバー右上に氏名の頭文字と人数を表示し、開くと「閲覧中」「閲覧履歴」を切り替えられる。コックピット・ワークスペース・DDの画面内ページも区別する。履歴は導入後から保存し、表示は新しい順に50件。外部ユーザーには本人の履歴だけを返す。
 
 ## 反映・検証
