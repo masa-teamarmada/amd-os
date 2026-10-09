@@ -1,42 +1,36 @@
 # HANDOFF - AMD OS PWA
 
-## 2026-10-09 — APIの重複本人確認（ローカル検証、反映待ち）
+## 2026-10-09 — APIの重複本人確認とTally差分同期（統合検証、本番未反映）
 
-GitHub main `5c45b29527c314027377a832896d16fc3f338c67`を隔離cloneで検証。
-共有checkoutの3件の未push commitと既存履歴を保持し、Tallyの作業には触れない。
+GitHub main `5c45b29527c314027377a832896d16fc3f338c67`を基点に、認証 `31cfdb1a` とTally `943f0138` の最終差分を専用checkoutの `fix/api-auth-tally-sync` へ統合。
+元の共有checkoutと各担当のcheckoutは変更していない。migrationはmainの500に続く501で、番号重複なし。
+
 288 API経路を棚卸し、handler先頭に共通helperと失敗returnがある132経路・182操作（暗黙HEAD含め247操作）だけをmiddlewareのcookie更新へ切り替える。
 本人確認は処理本体の毎回のgetUser、member/admin/PJ/DDの認可は従来どおり。
-共通helperの後にも確認する6操作のscope/利用者判定を残したため、全対象の確認総数が1回になるわけではない。
-対象外経路・メソッドは従来のmiddleware確認を維持する。
-ページredirectにも更新/消去cookieと非キャッシュヘッダを保存する。
+共通helper後の6操作のscope/利用者確認、対象外経路・メソッド、helper前400の9操作、Bearerの従来のmiddleware責任を維持する。
+更新/消去cookieと非キャッシュヘッダをAPI応答・ページredirectへ保存する。
+対象APIはgetUser成功後に従来のmembers.last_login_atと1時間cookieを記録し、APIだけの利用も時刻・並び順・監査行へ反映する。
+同一requestでは一度だけ記録する。認証拒否では記録せず、検証済み本人の403では従来どおり記録する。
+client由来のidentity headerを信頼せず、request間の本人確認cacheは追加していない。
 
-検査: test:api-auth（23事例・288経路の2,016メソッド照合）、test:api-auth-http / test:api-auth-http-production（各HTTP13事例、GET/暗黙HEAD・更新後admin拒否を含む）、変更ファイルESLint、critical-ui、workspace session/scope/admin/RLS、DD package、space permissions、workspace email、reference-data-cacheが成功。
-使い捨て認証アプリのproduction build/型検査は成功。
-全製品はWebpack最適化コンパイル成功後、生成route型の2件でbuild失敗（mypage/page.tsxのMyPageContent、api/project-cost-model/route.tsのmapBundleが禁止export）。
-両ファイルのhashは基点と同一。生成型のない時点の全体tscは成功したが、このbuild失敗を全体型検査成功として扱わない。
-既定Turbopackは共有node_modules symlinkのため失敗、既定sandboxはGoogle Fonts DNS不可。公開font許可後の4GB OOMは一時8GB指定で回避。認証情報は取得していない。
-未変更基点Webpackは最適化コンパイル成功、型検査240秒上限で停止。
-通常Turbopackも共有依存の独立コピーでコンパイル2.5分で成功、型検査中に240秒上限停止。コピーは削除し元のsymlinkへ復旧。
-公開production79b8520と基点の問題2ファイル/Next設定は同一、ignoreBuildErrorsはrepositoryにない。hosting側overrideは未確認。
-WebpackとTurbopackでは生成型のexport検査が異なるため、2件を通常build失敗の原因と断定しない。無関係なexport修正は具体案を提示し未編集。
-通常Turbopackの生成型で全体tscを再実行し、59.6秒・exit0で成功。Webpackのexport2件は通常方式では再現せず、無関係なexport整理は今回不要・未編集。
-長め900秒上限で通常buildを再確認し、最適化コンパイル35.7秒・build内型検査60秒・page data収集を通過。
-静的生成の `/` が隔離環境の `SUPABASE_SERVICE_ROLE_KEY / NEXT_PUBLIC_SUPABASE_URL not set` によりexit1で停止（依存準備含む130.9秒）。今回は時間切れではない。
-stackはadmin.ts:15 → project-workspace.ts:191 → app/page.tsx:12。秘密値は取得/注入せず、本番DB/Authに接続していない。
-許可済みのSupabase設定を持つbuild環境でprerender以降を再検証する必要がある。全build成功とは区別し、本番実確認も未実施。
-本番・DB・認証設定・メール・push/mergeは今回の許可対象外。
-対象APIはgetUser成功後にmembers.last_login_atと1時間cookieを記録し、管理一覧等の時刻/並び順とmembers時刻変更の監査行を維持する。
-同一requestではmutable cookieで一度だけ記録し、次requestへcookieを返す。認証拒否は記録せず、本人確認済みの403は従来どおり記録する。
-helper前の400等がある9操作とBearerは従来のmiddleware責任を維持する。callback・ページ・対象外APIや他の監査も維持する。
+統合後の検査: critical-ui（認証23事例・2,016メソッド照合を含む）、workspace session/scope/admin/RLS、DD package、space permissions、workspace email、reference-data-cacheが成功。
+Next typegen後の全体tsc --noEmit --incremental false（126.7秒）と変更認証ファイル7件のESLintが成功。
+loopbackのdev/production HTTP検査は各13事例成功。production検査は使い捨て認証アプリのbuild/型検査を含む。
+TallyはDeno11件/lint、PGlite SQL55件、実入口→fixture SDK→SQL36件、native PostgreSQL17.11の独立接続・競合・rollback・監査30項目が成功。使い捨てDB/roleとclusterは停止・削除済み。
+Tallyの実SDK/PostgREST/schema cache/JWT署名検証・本番Edge経路は未検証。詳細はrootのHANDOFF_tally_differential_sync_20261009.md。
 
-次の担当は最新mainとの認証経路差分を確認し、今回のローカル差分のみを統合して再検査する。
-公開はまさの別承認を得てから通常deploy.sh経路を使い、Ready/build-info・ログイン/期限切れ/ログアウトと内部/外部の拒否応答を実確認する。
+認証側の通常Turbopack buildはコンパイル35.7秒・build内型検査60秒・page data収集を通過した後、隔離環境にSUPABASE_SERVICE_ROLE_KEY / NEXT_PUBLIC_SUPABASE_URLがなく `/` prerenderでexit1（依存準備含む130.9秒）。時間切れではない。
+秘密値は取得/注入せず、型検査やbuild設定も弱めていない。全build成功とは区別し、許可されたbuild環境でprerender以降を再確認する。
+
+承認範囲は専用branchのpushとdraft PR。merge/auto-merge・本番deploy・DB migration・認証設定・メール操作は行わない。
+Tallyの反映順はmigration501→tally-sync Edge。今回どちらも未実施。DBのRPC未反映で新Edgeだけを出さない。
+将来の本番反映は別承認後に通常deploy経路を使い、実環境のrefresh/期限切れ/失効/logout、内部/外部の拒否応答とTally同期を確認する。
 
 | 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
 |---|---|---|---|
-| API本人確認とcookie更新の責任分離 | spec/2-1・SPEC_pwa | manual/2-1・9-3 | 同期済み、ローカル検証 |
-| APIだけの利用時も最終ログイン時刻・監査行を維持 | spec/2-1・SPEC_pwa | manual/9-3 | 同期済み、回帰検査成功 |
-| 評価理論/式、ネイティブUI | bzm・ios/macos | 対象外 | 認証判定の理論・画面変更なし |
+| API本人確認とcookie更新、最終ログイン時刻・監査の維持 | spec/2-1・SPEC_pwa | manual/2-1・9-3 | 同期済み、統合回帰検査成功 |
+| Tallyの差分・原子保存・空/省略・日時・並行実行 | spec/3-8 | manual/2-3・9-3 | 同期済み、統合回帰検査成功・本番未適用 |
+| 評価理論/式、ネイティブUI | bzm・ios/macos | 対象外 | 認証・同期処理のみ |
 
 
 ## 2026-10-09 — ログインメールをコード入力に統一（v3.162.9）

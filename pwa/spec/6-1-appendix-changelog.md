@@ -1385,3 +1385,11 @@ DDの「総会・取締役会・経営会議議事録」は、コックピット
 ## 2026-10-09 市場ニーズを起点にした一覧
 
 PWA /seed-needs と左メニューを「市場ニーズ」へ。一市場一行に企業・シーズ・出典のリンクをまとめ、25件ずつ表示。国内/世界の年間市場規模を年別に保持し、同一地域・年の下限で順位付け。確度A/B/C/未評価は独立した手動評価。出典と評価理由が必須。市場/企業のsources、市場のmarket_sizes/confidence_rank/confidence_noteと、直接リンクmarket_need_seed_linksを追加。499/500は本番適用済みで再実行しない。JSONの出典参照・型・評価条件とRLS/競合を検査。既存seeds不変。補助図・個別接続・研究構想を保持。正本spec5-19、操作manual2-5。iOS/macOS/Androidの専用UIは未移植。
+
+## 2026-10-09 Tally差分同期の準備（本番未適用）
+
+spec 3-8に、送信PJ/ID001/両端を含む明示窓の差分・原子保存、空/省略の区別、鮮度と週日時、監査維持、直列化とsource revision未導入の境界を追記。
+migration 501とEdge修正、入力/認証テスト11件、local PostgreSQL回帰/同時実行テスト実行器を用意した。
+既存PGlite 0.5.8 / PostgreSQL18.3を再利用して55項目成功。実監査関数、ACL/RLS、rollback、単一接続のlock寿命・キュー順序を含む。
+承認された一時環境でnative PostgreSQL17.11の30項目も成功。独立接続のlock待ち、同一snapshotの追加監査ゼロ、空/有snapshot、先行rollback、lock timeout、実監査を含む全体rollbackを検証し、fixture DB/role削除・サーバー停止済み。
+実index/handler/payload → Request/Response → fixture SDK adapter → 実PGlite SQLの36項目成功。実SDK/PostgREST/JWT/デプロイ済みEdgeとの同等性は未検証。本番SQL・Edge・GitHubは未反映。
