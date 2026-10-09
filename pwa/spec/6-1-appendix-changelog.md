@@ -1,5 +1,20 @@
 # 附則（設計書変更履歴）
 
+## 2026-10-09 — APIの重複本人確認を整理（ローカル検証）
+
+先頭で共通認証する132経路ではmiddlewareをcookie更新に限定し、処理本体の毎回のgetUserと個別認可を維持する。
+共通helperの後にも本人確認する6操作は既存のscope/利用者判定を残すため、全経路で確認総数が1回になるわけではない。
+対象外経路/メソッドは従来の確認を残す。
+失効redirectでも更新/消去cookieを保存する。
+一覧と実routeの認証契約の一致検査、偽Authによる回帰検査、loopbackの実HTTP検査を追加。
+2,016組のメソッド照合と使い捨てアプリのproduction build/HTTP検査を追加。
+対象APIはgetUser成功後に従来のmembers.last_login_atと1時間cookieを記録し、最終ログイン表示・並び順・時刻変更監査を維持する。
+helper前に400を返す9操作やBearerは従来のmiddleware責任を維持する。
+認証拒否では記録せず、検証済み本人の権限403では従来どおり記録する。
+ログインcallback・ページ・対象外APIの時刻更新と、他のデータ変更監査は維持する。
+本番反映・DB・認証設定・メール操作は今回の対象外。
+
+
 ## 2026-10-09 — ログインメールをコード入力に統一（v3.162.9）
 
 まさがSafariで申込→メールのリンクでChrome起動→認証失敗を再現。共通Authの初回/通常メールから認証リンクとログインボタンを削除し、数字コードとログイン画面へ戻る案内に統一。PWAの申込前・送信後・旧リンク失敗時の説明もコード入力へ統一。既存verifyOtp・社内Google・認可・DB・理論は変更なし。配信操作と先生本人のログイン成功は本人による実確認が必要。
@@ -1370,3 +1385,11 @@ DDの「総会・取締役会・経営会議議事録」は、コックピット
 ## 2026-10-09 市場ニーズを起点にした一覧
 
 PWA /seed-needs と左メニューを「市場ニーズ」へ。一市場一行に企業・シーズ・出典のリンクをまとめ、25件ずつ表示。国内/世界の年間市場規模を年別に保持し、同一地域・年の下限で順位付け。確度A/B/C/未評価は独立した手動評価。出典と評価理由が必須。市場/企業のsources、市場のmarket_sizes/confidence_rank/confidence_noteと、直接リンクmarket_need_seed_linksを追加。499/500は本番適用済みで再実行しない。JSONの出典参照・型・評価条件とRLS/競合を検査。既存seeds不変。補助図・個別接続・研究構想を保持。正本spec5-19、操作manual2-5。iOS/macOS/Androidの専用UIは未移植。
+
+## 2026-10-09 Tally差分同期の準備（本番未適用）
+
+spec 3-8に、送信PJ/ID001/両端を含む明示窓の差分・原子保存、空/省略の区別、鮮度と週日時、監査維持、直列化とsource revision未導入の境界を追記。
+migration 501とEdge修正、入力/認証テスト11件、local PostgreSQL回帰/同時実行テスト実行器を用意した。
+既存PGlite 0.5.8 / PostgreSQL18.3を再利用して55項目成功。実監査関数、ACL/RLS、rollback、単一接続のlock寿命・キュー順序を含む。
+承認された一時環境でnative PostgreSQL17.11の30項目も成功。独立接続のlock待ち、同一snapshotの追加監査ゼロ、空/有snapshot、先行rollback、lock timeout、実監査を含む全体rollbackを検証し、fixture DB/role削除・サーバー停止済み。
+実index/handler/payload → Request/Response → fixture SDK adapter → 実PGlite SQLの36項目成功。実SDK/PostgREST/JWT/デプロイ済みEdgeとの同等性は未検証。本番SQL・Edge・GitHubは未反映。

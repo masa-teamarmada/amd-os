@@ -1,5 +1,38 @@
 # HANDOFF - AMD OS PWA
 
+## 2026-10-09 — APIの重複本人確認とTally差分同期（統合検証、本番未反映）
+
+GitHub main `5c45b29527c314027377a832896d16fc3f338c67`を基点に、認証 `31cfdb1a` とTally `943f0138` の最終差分を専用checkoutの `fix/api-auth-tally-sync` へ統合。
+元の共有checkoutと各担当のcheckoutは変更していない。migrationはmainの500に続く501で、番号重複なし。
+
+288 API経路を棚卸し、handler先頭に共通helperと失敗returnがある132経路・182操作（暗黙HEAD含め247操作）だけをmiddlewareのcookie更新へ切り替える。
+本人確認は処理本体の毎回のgetUser、member/admin/PJ/DDの認可は従来どおり。
+共通helper後の6操作のscope/利用者確認、対象外経路・メソッド、helper前400の9操作、Bearerの従来のmiddleware責任を維持する。
+更新/消去cookieと非キャッシュヘッダをAPI応答・ページredirectへ保存する。
+対象APIはgetUser成功後に従来のmembers.last_login_atと1時間cookieを記録し、APIだけの利用も時刻・並び順・監査行へ反映する。
+同一requestでは一度だけ記録する。認証拒否では記録せず、検証済み本人の403では従来どおり記録する。
+client由来のidentity headerを信頼せず、request間の本人確認cacheは追加していない。
+
+統合後の検査: critical-ui（認証23事例・2,016メソッド照合を含む）、workspace session/scope/admin/RLS、DD package、space permissions、workspace email、reference-data-cacheが成功。
+Next typegen後の全体tsc --noEmit --incremental false（126.7秒）と変更認証ファイル7件のESLintが成功。
+loopbackのdev/production HTTP検査は各13事例成功。production検査は使い捨て認証アプリのbuild/型検査を含む。
+TallyはDeno11件/lint、PGlite SQL55件、実入口→fixture SDK→SQL36件、native PostgreSQL17.11の独立接続・競合・rollback・監査30項目が成功。使い捨てDB/roleとclusterは停止・削除済み。
+Tallyの実SDK/PostgREST/schema cache/JWT署名検証・本番Edge経路は未検証。詳細はrootのHANDOFF_tally_differential_sync_20261009.md。
+
+認証側の通常Turbopack buildはコンパイル35.7秒・build内型検査60秒・page data収集を通過した後、隔離環境にSUPABASE_SERVICE_ROLE_KEY / NEXT_PUBLIC_SUPABASE_URLがなく `/` prerenderでexit1（依存準備含む130.9秒）。時間切れではない。
+秘密値は取得/注入せず、型検査やbuild設定も弱めていない。全build成功とは区別し、許可されたbuild環境でprerender以降を再確認する。
+
+承認範囲は専用branchのpushとdraft PR。merge/auto-merge・本番deploy・DB migration・認証設定・メール操作は行わない。
+Tallyの反映順はmigration501→tally-sync Edge。今回どちらも未実施。DBのRPC未反映で新Edgeだけを出さない。
+将来の本番反映は別承認後に通常deploy経路を使い、実環境のrefresh/期限切れ/失効/logout、内部/外部の拒否応答とTally同期を確認する。
+
+| 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
+|---|---|---|---|
+| API本人確認とcookie更新、最終ログイン時刻・監査の維持 | spec/2-1・SPEC_pwa | manual/2-1・9-3 | 同期済み、統合回帰検査成功 |
+| Tallyの差分・原子保存・空/省略・日時・並行実行 | spec/3-8 | manual/2-3・9-3 | 同期済み、統合回帰検査成功・本番未適用 |
+| 評価理論/式、ネイティブUI | bzm・ios/macos | 対象外 | 認証・同期処理のみ |
+
+
 ## 2026-10-09 — ログインメールをコード入力に統一（v3.162.9）
 
 まさがSafariで申込→メールのリンクでChrome起動→認証失敗を再現。共通Authの初回/通常メールから認証リンクとログインボタンを削除し、数字コードとログイン画面へ戻る案内に統一。PWAの申込前・送信後・旧リンク失敗時の説明もコード入力へ統一。既存verifyOtp・社内Google・認可・DB・理論は変更なし。配信操作と先生本人のログイン成功は本人による実確認が必要。 2026-10-09: 共通Authの件名・本文4項目の一致と他Auth設定不変を本番読戻しで確認（メール送信なし）。外部Chromeの1636px/320pxでコード本文とPWA入力を確認、横溢れなし、入力・主操作48px・再申込44px。実callbackの通信代替検査と型/変更箇所の静的検査を通過。先生本人の受信・ログイン成功は未確認。

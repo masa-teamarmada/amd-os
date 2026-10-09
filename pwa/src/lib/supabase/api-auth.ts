@@ -12,6 +12,19 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { cookies, headers } from "next/headers";
+import { API_ACTIVITY_HEADER, LAST_LOGIN_TOUCH_COOKIE, shouldTouchLastLogin, touchLastLogin, lastLoginCookieOptions } from "@/lib/supabase/last-login";
+
+async function recordApiActivity(verifiedEmail: string) {
+  if ((await headers()).get(API_ACTIVITY_HEADER) !== "1") return;
+  const cookieStore = await cookies();
+  const now = Date.now();
+  if (!shouldTouchLastLogin(cookieStore.get(LAST_LOGIN_TOUCH_COOKIE)?.value, now)) return;
+  // Mutating the request-local cookie store before awaiting the UPDATE also
+  // prevents multiple helper calls in this request from recording twice.
+  cookieStore.set(LAST_LOGIN_TOUCH_COOKIE, String(now), lastLoginCookieOptions());
+  await touchLastLogin(verifiedEmail);
+}
 
 /**
  * members 照合の短期キャッシュ。
@@ -63,6 +76,7 @@ export async function requireAuth(): Promise<AuthResult> {
     };
   }
 
+  await recordApiActivity(user.email);
   return { ok: true, user: { id: user.id, email: user.email }, supabase, errorResponse: null };
 }
 
@@ -98,6 +112,7 @@ export async function requireAdmin(): Promise<AuthResult> {
     };
   }
 
+  await recordApiActivity(user.email);
   const member = await lookupMember(supabase, user.email.toLowerCase());
 
   if (!member.isAdmin) {

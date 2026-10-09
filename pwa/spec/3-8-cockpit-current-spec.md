@@ -550,3 +550,28 @@ PJ管理に「月次報告書」（`?tab=monthly-reports`）を常設する。�
 - コスト試算のインストール済みPWA表示（2026-10-07 / v3.160.27）: 1024px以上で明細・入力・切替をコンパクトに表示し、1100px以上で入力と結果を横並びにする。結果欄は1100〜1279pxで320px、1280px以上で380px。枠内スクロールの高さ計測も1100pxに揃える。Chromeのインストール済みPWAで表示幅1234px・拡大率110%の場合に縦積みとなっていた差を解消。ブラウザ・PWAとも3領域の共通部品で適用し、スマートフォンの入力寸法、計算、保存、認可を保持。ネイティブ専用画面への移植は未実施。
 
 2026-10-08 16:50（v3.161.30）: 共通の会社概要PDF出力は印刷用の複製内でCSS Color 4をRGBAに変換してから描画する（html2canvasのlab/oklch非対応を回避）。複製内の装飾の影に同関数が含まれる場合だけ除く。本文はページごとに切り分け、DDでは各ページの余白に秘密指定を付ける。コックピット・ワークスペースの通常出力にはDDの秘密指定を加えない。
+
+## Tally 差分同期の準備（2026-10-09、本番未適用）
+
+`tally-sync`の週台帳同期を、一回のservice_role専用RPC `amie_sync_tally_effort`にまとめる修正を用意した。
+本番適用は保留中。PGlite 0.5.8 / PostgreSQL18.3のSQL・実監査関数・権限・rollback検証55項目は成功した。
+PostgreSQL17.11の回帰・独立した複数接続の競合・rollback・lock timeout検証30項目と、実際のEdgeソースからPGliteへ接続したRequest/Response試験36項目も成功した。
+実Supabase SDK/PostgREST/JWTを通す非本番検証は未実施。検証と適用承認後に、migration 501 → Edgeの順に適用する。
+専用キー・ID001・実在PJ/メンバー・値域・重複・件数上限を維持し、不正な暦日も拒否する。
+期間は呼び出し元が明示する `windowStart`〜`windowEnd` の両端を含み、曜日や固定日数の制限は追加しない。
+送信したPJの当該所有者・期間だけを正本として扱う。
+空の `weeklyEffort: []` はその窓の消去、PJの省略は不変、週配列・PJ配列・期間の欠落は不正入力とする。
+
+週のキーは `(project_id,member_id,week_start)`。
+新規週をINSERTし、`development_hours`または`meeting_hours`が変わった週だけUPDATE、正本窓から欠落した週だけDELETEする。
+同一の週はINSERT候補からも除外し、`synced_at`と物理行を維持する。
+設定の `last_synced_at` は接続成功時にPJごと一度更新するため、その設定書込みと監査は残る。
+既存の監査トリガーは変更・停止せず、工数の実変更・削除・追加は監査される。
+全PJ/設定/週/監査を一トランザクションにし、失敗時は全体を戻す。
+同一所有者の完全snapshotをtransaction advisory lockで直列化する。
+source revisionを持たない現行callerでは、古い集計の後着を識別できず、最後に直列化された要求が勝つ。
+
+検証入口は `scripts/test_tally_sync_pglite.mjs`、Request/Response経路用の `scripts/test_tally_sync_edge_pglite.mjs`、native複数接続用の `scripts/test_tally_sync_local.py`、`ios/supabase/functions/tally-sync/handler_test.ts`。
+PGliteは一接続であり、別instanceは別DBとなる。複数接続の証拠はMacのnative PostgreSQL17.11で得た。productionの17.6と同じmajorだが同一buildではない。
+Request/Response試験ではindex/handler/payloadの実ソースと実SQL/監査関数を使い、Deno.env/serve、createClient/rpc、JWT claimsはfixtureへ置換する。TCP HTTP、実SDK、PostgREST、JWT検証、デプロイ済みEdgeとの同等性は証明しない。
+検証状況、反映手順、残る制約はrootの `HANDOFF_tally_differential_sync_20261009.md`。
