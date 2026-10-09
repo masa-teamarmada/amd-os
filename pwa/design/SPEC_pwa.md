@@ -1,5 +1,38 @@
 # SPEC — AMD OS PWA
 
+## APIの本人確認とセッション更新（2026-10-09）
+
+`api-auth-routes.ts`はAPIの経路とHTTPメソッドごとに、本人確認の責任を記録する。
+288経路の棚卸しで、handlerの最初に直列の`requireAuth` / `requireMember` / `requireAdmin`と失敗時returnを確認した132経路・182操作（暗黙HEADを含め247操作）だけを対象とする。
+対象APIのmiddlewareは`getSession()`で期限切れtokenを更新し、request cookie・response cookie・Supabaseの非キャッシュヘッダを保存する。
+その戻り値のuserやemailは使わず、処理本体の`getUser()`を毎回の本人確認として残す。
+管理者・内部member・PJ・外部共有の認可、既存のmember照合30秒キャッシュ、RLSは変更しない。
+共通helperの後にPJ/全社scopeやチャット利用者を再確認する6操作では、その確認を残す。
+今回取り除くのはmiddlewareの1回であり、すべての対象APIの確認総数を1回にする変更ではない。
+
+静的経路を動的経路より先に照合し、対象外経路も空の操作一覧として記録する。
+未登録メソッド、独自`getUser`、条件付きhelper、外部workspace/DDのfallback、cron、署名webhook、メール認証、OAuth callbackは従来のmiddleware確認を維持する。
+クライアントが指定した本人情報ヘッダやcookie内のuser、リクエスト間の本人確認キャッシュは導入しない。
+`test:api-auth`は実routeの構文木と一覧の一致を確認し、認証が変わった経路を出荷前ゲート`test:critical-ui`で止める。
+helperより前に400等を返す9操作は活動記録を省略しないよう従来のmiddleware確認を維持する。
+対象を広げるときは経路別の認証・認可・活動記録と失敗応答を確認して一覧を更新する。
+
+ページは従来の本人確認・ログインredirect・最終ログイン記録を維持する。
+redirectにも更新/消去cookieと非キャッシュヘッダをコピーする。
+対象APIでは処理本体のgetUser成功後に、従来と同じmembers.last_login_at更新と1時間のamd_os_last_login_touch cookieを記録する。
+同一requestのmutable cookieを先に更新して複数helper呼出しによる二重記録を抑え、応答cookieを次requestの抑制にも使う。
+管理画面等の最終ログイン表示・並び順と、members更新triggerによる時刻変更監査を維持する。
+欠落・不正・失効した本人では記録しない。本人確認済みだが個別権限が403になる場合は従来どおり活動として記録する。
+middlewareはclientの活動記録hintを消去して対象操作だけへ再設定する。このhintを本人・権限の根拠にせず、検証済みgetUserのemailだけを更新先に使う。
+Bearerだけのrequestでは新しい活動記録を追加しない。Bearerとcookieが併存すると本人が異なる可能性があるため、従来の独立した検証・活動記録を維持する。
+ログインcallback・ページ・対象外APIでの従来の記録も維持する。
+logoutや失効は処理本体の毎回の確認で拒否し、APIは401、ページは元のURLを保持したログインredirectを返す。
+
+回帰検査は`npm run test:api-auth`（288経路×7メソッドの2,016組を含む）、`npm run test:api-auth-http`、`npm run test:api-auth-http-production`。
+後二者は使い捨てNextアプリと偽Authをloopbackだけで動かし、開発/productionサーバのcookie更新・次のrequest・GET/暗黙HEAD・401/redirect・更新後のadmin拒否・logoutを実HTTPで確認する。
+DB・メール・本番認証・設定変更は行わない。
+
+
 ## 2026-10-08 — メールの数字でログイン（v3.162.7）
 
 PWAの外部ログインにコード入力を追加。メール申込後とworkspace_auth_failed/workspace_code_failed時は同じメール入力と数値コード欄を表示し、単一の「ログインする」でPOST /auth/callbackへ送る。初期画面は従来のメール入力、社内Google・書斎入口は維持。コードはURL・監査detailに載せない。
@@ -199,7 +232,7 @@ pwa/
 
 **通知反映ルール:** 通知に表示される候補は、通知画面で「はい」を押したものだけ正本反映する。`project_knowledge` / `founding_members` / `project_registry_diff` / `xrl_evidence` は candidate/tentative/pending を経由し、「はい」で active/confirmed/applied、「いいえ」で rejected/invalid にする。`protocols` は yes で `confirmed`。`member_knowledge` は現 schema に `status` 列がないため、候補採否を row 自体に持つには migration が必要。
 
-**Auth:** Google Workspace login requires `calendar.readonly` and `gmail.readonly`. `/auth/callback` verifies Calendar API access before entering the app, stores non-secret status on `members.google_calendar_status`, updates `members.last_login_at` on successful login, and stores provider tokens in `member_google_oauth_tokens` for server-side ingestion. Existing sessions may not pass through `/auth/callback`, so middleware also touches `members.last_login_at` for authenticated page access at most once per hour.
+**Auth:** Google Workspace login requires `calendar.readonly` and `gmail.readonly`. `/auth/callback` verifies Calendar API access before entering the app, stores non-secret status on `members.google_calendar_status`, updates `members.last_login_at` on successful login, and stores provider tokens in `member_google_oauth_tokens` for server-side ingestion. Existing sessions may not pass through `/auth/callback`, so middleware and the audited API helpers touch `members.last_login_at` after authoritative authentication at most once per hour, retaining API-only activity records.
 
 ### Cron (`vercel.json`、UTC、Hobby plan で maxDuration=300 上限)
 
