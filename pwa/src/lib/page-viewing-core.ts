@@ -1,7 +1,7 @@
 import { COCKPIT_TAB_FORMATS, WORKSPACE_TAB_FORMATS, PROJECT_PAGE_LABELS, DD_ITEM_PAGES, DD_TAB_FORMAT, projectFormatTypeOf } from "./project-formats.ts";
 
-export const PAGE_VIEWING_REFRESH_MS = 10_000;
-export const PAGE_VIEWING_EXPIRY_MS = 30_000;
+export const PAGE_VIEWING_REFRESH_MS = 60_000;
+export const PAGE_VIEWING_EXPIRY_MS = 180_000;
 export type PageViewingInput = { pathname: string; pageLabel: string };
 export type PageViewer = { key: string; label: string; self: boolean };
 export type PageVisit = { id: string; label: string; self: boolean; startedAt: string; lastSeenAt: string };

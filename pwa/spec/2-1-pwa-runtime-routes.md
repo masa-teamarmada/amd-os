@@ -292,7 +292,7 @@ migration 212 / 213 / 216〜219 / 258 と対になる contract。212 / 213は202
 共通`PageHistoryToolbar`右上の`PageViewing`に丸い頭文字と人数を表示し、「閲覧中」「閲覧履歴」を切り替える。社内共通枠、共有PJ、DDで共用。印刷・書斎・native専用枠は対象外。ネイティブUIは未移植。
 
 - PJ・領域・選択済みページ名で区別する。`ProjectPageTitle`が`amie-page-selection`を通知。query/hashだけでなく解決済みの表示状態を使い、サーバでproject-formatsのタイプ別ページ、DD目録、外部タブの許可リストを検証する。URL/query/hash、メール、本文、入力、検索語を保存しない。一般画面はpathname単位。マイページ・月初合意・契約・立替・通知・参加PJは本人の名前空間。
-- `POST /api/page-viewing`は表示中タブだけ10秒ごとに更新。非表示・pagehide・切替・アンマウント時にkeepalive退出。通信断は30秒TTL。1人の複数タブは1人。8秒timeout、失敗時は古い一覧を消す。200session超は＋表示。document.visibilityState基準であり、視線・読了・実作業時間を判定しない。
+- `POST /api/page-viewing`は表示中タブだけ1分ごとに更新。初回表示・表示復帰・画面内ページ切替・閲覧情報パネルを開く操作は即時更新。非表示・pagehide・切替・アンマウント時にkeepalive退出。通信断は3分TTL（更新間隔の3倍）。1人の複数タブは1人。8秒timeout、失敗時は古い一覧を消す。200session超は＋表示。document.visibilityState基準であり、視線・読了・実作業時間を判定しない。
 - `GET /api/page-viewing?pathname=...&pageLabel=...&history=1`は読取り専用。POSTは同一Origin、2KiB上限、UUID、単調増加revisionを検証。全応答private/no-store。毎回既存member/個別surface grant/PJ所属/外部membership/DD grantを再検証。DD項目は所属・active・公開を確認。失敗は一律404、未対応専用画面はUIを出さない。権限追加・対人通知なし。
 - `os_page_viewer_sessions`はsession UUIDごとの一時状態、`os_page_viewing_visits`はvisit UUIDごとの永続履歴。service-only RPC `amie_update_page_viewer`は同一transactionで更新、revisionで遅れたheartbeat/leaveを拒否し別actorのsession上書きを拒否。heartbeatでは履歴を増やさない。退出後に戻ると新visit。1日超の一時sessionだけ通常更新時に掃除し、履歴は削除しない。
 - 両tableはRLS有効でanon/authenticated権限なし。RPCもservice_roleのみ。外部の履歴は本人のactor_keyに限定。内部は認可された同一画面の履歴だけ。開始日時の降順50件、日本時間で表示。名前は登録済みmembers/display_nameから解決、未登録なら氏名未登録。横断監視や滞在時間推定は持たない。

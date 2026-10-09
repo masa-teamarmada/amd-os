@@ -1069,7 +1069,7 @@ DdViewerShell/DdConfidentialityNoticeで全ページに指定全文を常設。�
 
 ## 同じ画面の閲覧者・閲覧履歴（2026-10-08）
 
-PageHistoryToolbarのPageViewing、丸い頭文字と人数、閲覧中／閲覧履歴の切替、閉じる・Escape・再試行を維持。コックピット／共有PJ／DDを別々に認可。本人判定はサーバ、外部の履歴は本人のみ。表示中タブ、10秒更新、30秒TTL、複数タブの人数重複なし。
+PageHistoryToolbarのPageViewing、丸い頭文字と人数、閲覧中／閲覧履歴の切替、閉じる・Escape・再試行を維持。コックピット／共有PJ／DDを別々に認可。本人判定はサーバ、外部の履歴は本人のみ。表示中タブ、1分更新、3分TTL、複数タブの人数重複なし。
 
 実装: `/api/page-viewing`、`os_page_viewer_sessions` / `os_page_viewing_visits`、`amie_update_page_viewer`。検査: test:page-viewing / test_page_viewing_transaction.sql。正本spec2-1、manual2-1。
 

@@ -776,7 +776,7 @@ PWA DDは認可後の全ページ・直接資料・保存出力に秘密表示�
 
 ## PWA同一画面の閲覧者・閲覧履歴（2026-10-08 16:40 JST）
 
-PWAの共通ページ移動帯右上に丸い頭文字と人数、閲覧中／閲覧履歴の切替を追加。画面追加・改名なし。既存認可を毎回検証する/api/page-viewingと共有Supabaseのos_page_viewer_sessions / os_page_viewing_visitsを使う。表示中タブ10秒更新、30秒期限切れ、外部は本人の履歴。正式仕様pwa/spec/2-1。iOS/macOS/AndroidのUI・ライフサイクル対応は未移植。migrationは適用済み、再適用禁止。
+PWAの共通ページ移動帯右上に丸い頭文字と人数、閲覧中／閲覧履歴の切替を追加。画面追加・改名なし。既存認可を毎回検証する/api/page-viewingと共有Supabaseのos_page_viewer_sessions / os_page_viewing_visitsを使う。表示中タブ1分更新、3分期限切れ、外部は本人の履歴。正式仕様pwa/spec/2-1。iOS/macOS/AndroidのUI・ライフサイクル対応は未移植。migrationは適用済み、再適用禁止。
 
 
 ## 2026-10-08 シーズ×ニーズ（PWA先行）
