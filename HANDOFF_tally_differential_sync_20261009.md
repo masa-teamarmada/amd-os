@@ -1,6 +1,6 @@
 # Tally 差分同期 — PG17競合検証済み・本番未反映
 
-対象: `masa-teamarmada/amd-os`。本番のSQL適用・Edge反映・pushは未実施。
+対象: `masa-teamarmada/amd-os`。本番のSQL適用・Edge反映は未実施。GitHub公開は専用branch `fix/api-auth-tally-sync` と [Draft PR #5](https://github.com/masa-teamarmada/amd-os/pull/5) まで。merge/auto-mergeは行っていない。
 作業元: GitHub main `5c45b29527c314027377a832896d16fc3f338c67`。
 GitHub connectorの比較で、このSHAとmainが一致することを確認した。
 正規checkout `/Users/masa/projects/AMD/amd-os` は未push 3件・cached origin/mainよりbehind 21件だったため、編集していない。
@@ -91,5 +91,5 @@ native SQL共通fixtureは同一UPDATEも記録する厳格な行トリガー。
 | 理論・数式 | 変更なし | 該当なし | 集計式・値を変更していない |
 
 仕事種別はdevelopment。design_logと記憶は更新していない。会話の検討材料は0件。
-今回の変更はこのTally作業の所有物。残る実Edge/PostgREST/JWT検証と本番反映判断の担当は親タスク `01a0f2bc-bbd9-76a6-9c62-402b06c75006`。
-本番・GitHubへの反映許可を得るまではローカル成果物として保持する。
+認証 `31cfdb1a` とTally `943f0138` の最終差分を最新main基点へ統合し、専用checkoutでDeno11件・PGlite SQL55件・実入口→fixture SDK→SQL36件・native PG17並行実行30項目を再確認した。使い捨てDB/role/clusterは停止・削除済み。
+残る実Edge/PostgREST/JWT検証と本番反映は別承認が必要。Draft PRの公開を本番反映済みと扱わない。反映順は引き続きmigration501→Edge。
