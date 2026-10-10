@@ -3325,6 +3325,7 @@ function PartnerProgressHistoryModal({
   onPatchSample,
   onCreateSample,
   onCreateInteraction,
+  onDeletePartner,
   onClose,
 }: {
   partner: SxManagementPartner;
@@ -3335,11 +3336,27 @@ function PartnerProgressHistoryModal({
   onPatchSample: (request: PartnerInlinePatch) => Promise<void>;
   onCreateSample: (partnerId: string, label: string) => Promise<void>;
   onCreateInteraction?: (partnerId: string) => void;
+  onDeletePartner: (partnerId: string) => Promise<void>;
   onClose: () => void;
 }) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
   const [activeFacetKey, setActiveFacetKey] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const requestClose = () => { if (!deleting) onClose(); };
+  const deletePartner = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await onDeletePartner(partner.id);
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "削除できなかったよ");
+      setDeleting(false);
+    }
+  };
   const display = sxPartnerDisplay(partner);
   const steps = buildPartnerProgressSteps(partner);
   const interactions = sxSortInteractionsByRecency(partner.interactions);
@@ -3361,7 +3378,7 @@ function PartnerProgressHistoryModal({
   useModalContainment({
     dialogRef,
     initialFocusRef: closeButtonRef,
-    onClose,
+    onClose: requestClose,
   });
   if (typeof document === "undefined") return null;
 
@@ -3371,7 +3388,7 @@ function PartnerProgressHistoryModal({
       role="presentation"
       data-modal-layer="sx-partner-history"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (event.target === event.currentTarget) requestClose();
       }}
     >
       <section
@@ -3395,16 +3412,38 @@ function PartnerProgressHistoryModal({
               {display.name}
             </h4>
           </div>
+          {canManage && (
+            <button
+              type="button"
+              data-testid="sx-partner-delete"
+              disabled={deleting}
+              onClick={() => { setConfirmDelete(true); setDeleteError(null); }}
+              className={`min-h-11 shrink-0 rounded-lg border border-[#dc2626]/40 bg-white px-3 text-[11px] font-semibold text-[#dc2626] hover:bg-red-50 disabled:opacity-50 ${FOCUS_RING}`}
+            >
+              関係先を削除
+            </button>
+          )}
           <button
             ref={closeButtonRef}
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             aria-label={`${display.name}の進捗と履歴を閉じる`}
             className={`grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[#94a3b8] bg-[#ffffff] text-[#3c3c43] hover:border-[#1d1d1f] hover:bg-[#f5f5f7] hover:text-[#1d1d1f] ${FOCUS_RING}`}
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </header>
+        {canManage && confirmDelete && (
+          <div className="border-b border-[#d2d2d7] bg-red-50 px-4 py-3 sm:px-[22px]" data-testid="sx-partner-delete-confirmation">
+            <p className="text-[12px] font-semibold text-[#1d1d1f]">{display.name}を関係先リストから削除する？</p>
+            <p className="mt-1 text-[11px] text-[#3c3c43]">一覧から外すよ。やり取り履歴は削除せず残すよ。</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button type="button" disabled={deleting} onClick={() => setConfirmDelete(false)} className={`min-h-11 rounded border border-[#c7c7cc] bg-white px-3 text-[11px] font-semibold disabled:opacity-50 ${FOCUS_RING}`}>やめる</button>
+              <button type="button" disabled={deleting} onClick={() => void deletePartner()} className={`min-h-11 rounded bg-[#dc2626] px-3 text-[11px] font-semibold text-white disabled:opacity-50 ${FOCUS_RING}`}>{deleting ? "削除中…" : "削除する"}</button>
+            </div>
+            {deleteError && <p role="alert" className="mt-2 text-[11px] font-semibold text-[#dc2626]">{deleteError}</p>}
+          </div>
+        )}
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-4 sm:px-[22px]">
           {/* 分類は複数選択でその場保存。チェックの結果は一覧の分類タブへ即反映される
               (2026-08-08 まさ「各関係先のモーダルの中で分類を変更できるようにして」)。
@@ -3830,6 +3869,7 @@ function PartnerInlineRow({
   onPatch,
   onCreateSample,
   onCreateInteraction,
+  onDeletePartner,
   ownSideBallLabel,
 }: {
   partner: SxManagementPartner;
@@ -3847,6 +3887,7 @@ function PartnerInlineRow({
   onPatch: (request: PartnerInlinePatch) => Promise<void>;
   onCreateSample: (partnerId: string, label: string) => Promise<void>;
   onCreateInteraction?: (partnerId: string) => void;
+  onDeletePartner: (partnerId: string) => Promise<void>;
   /** 当方がボールを持つ先に出す札の文言 (ownSideBallLabel())。 */
   ownSideBallLabel: string;
 }) {
@@ -4871,6 +4912,7 @@ function PartnerInlineRow({
           onPatchSample={onPatch}
           onCreateSample={onCreateSample}
           onCreateInteraction={onCreateInteraction}
+          onDeletePartner={onDeletePartner}
           onClose={() => onToggleExpand(partner.id)}
         />
       )}
@@ -4911,15 +4953,10 @@ export function SxPartnerPipeline({
   >(null);
   const [activeRoleKind, setActiveRoleKind] =
     useState<SxPartnerRoleKind | null>(null);
-  // 既定はPoC候補先タブ。担当・区分・段階・管制の各絞り込み帯は 2026-08-08 に削除 (まさ)。
-  // 並び順は優先度順固定 (上から順にアタックすれば良い並び、2026-08-06 まさ指示)。
-  // PoC候補先が1件も無いPJは全関係先から始める (2026-09-30、週次管制の分類タブと同じ決め方)。
+  // 初期表示は全関係先。PoC候補先などは利用者が選んだときだけ絞る。
+  // 並び順は優先度順固定 (2026-08-06 まさ指示)。
   const [internalClassification, setInternalClassification] =
-    useState<SxPartnerClassification | null>(() =>
-      management.partners.some((partner) => partner.classifications.includes("poc_candidate"))
-        ? "poc_candidate"
-        : null,
-    );
+    useState<SxPartnerClassification | null>(null);
   const classificationControlled = controlledClassification !== undefined;
   const activeClassification = classificationControlled
     ? controlledClassification
@@ -5002,6 +5039,23 @@ export function SxPartnerPipeline({
       }
     })();
     return Promise.resolve();
+  };
+  const deletePartner = async (partnerId: string) => {
+    const response = await fetch(
+      `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resource: "partner", id: partnerId, delete: true }),
+      },
+    );
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : "削除できなかったよ");
+    if (!body.bundle) throw new Error("削除後の一覧を確認できなかったよ。画面を再読み込みしてください");
+    onManagementChange(body.bundle as SxManagementBundle);
+    setExpandedId(null);
+    setActiveInlineEditorKey(null);
+    onSyncNotice?.("関係先を削除したよ。履歴は残してあるよ");
   };
   const createSample = async (partnerId: string, label: string) => {
     const response = await fetch(
@@ -5111,6 +5165,7 @@ export function SxPartnerPipeline({
     onFinishInlineEdit: () => setActiveInlineEditorKey(null),
     onPatch: patchInlineCell,
     onCreateSample: createSample,
+    onDeletePartner: deletePartner,
     // 履歴の追加・編集は親のフォームモーダルで行う。二重dialogを避けるため、
     // 開く前にこの画面の進捗・履歴モーダルを閉じる。
     onCreateInteraction: onCreateInteraction
@@ -5334,6 +5389,7 @@ function PartnerRow({
   onPatch,
   onCreateSample,
   onCreateInteraction,
+  onDeletePartner,
   ownSideBallLabel,
 }: {
   partner: SxManagementPartner;
@@ -5351,6 +5407,7 @@ function PartnerRow({
   onPatch: (request: PartnerInlinePatch) => Promise<void>;
   onCreateSample: (partnerId: string, label: string) => Promise<void>;
   onCreateInteraction?: (partnerId: string) => void;
+  onDeletePartner: (partnerId: string) => Promise<void>;
   ownSideBallLabel: string;
 }) {
   const expanded = expandedId === partner.id;
@@ -5371,6 +5428,7 @@ function PartnerRow({
       onPatch={onPatch}
       onCreateSample={onCreateSample}
       onCreateInteraction={onCreateInteraction}
+      onDeletePartner={onDeletePartner}
       ownSideBallLabel={ownSideBallLabel}
     />
   );

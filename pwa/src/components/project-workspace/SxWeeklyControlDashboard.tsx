@@ -4648,13 +4648,9 @@ export function SxWeeklyControlDashboard({
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   // 関係先リストの分類タブ。タイトル行のボタン群が正で、一覧側は絞り込みだけを受ける
   // (2026-08-08 まさ「タイトルの右の空いたスペースにボタン型で設置」)。
-  // PoC候補先が1件も無いPJ（LiSTieなど）は、空の一覧から始めず全関係先を出す (2026-09-30)。
+  // 初期表示は全PJで全関係先。未分類の名刺交換先も最初から見えるようにする。
   const [partnerClassification, setPartnerClassification] =
-    useState<SxPartnerClassification | null>(() =>
-      bundle.sxManagement?.partners?.some((partner) => partner.classifications.includes("poc_candidate"))
-        ? "poc_candidate"
-        : null,
-    );
+    useState<SxPartnerClassification | null>(null);
   // テーマから開いたときだけ、そのテーマの関係先へ絞る。台帳正本は共通のままで、
   // 外部を含むPJメンバーにも同じ読み取りビューを出す。
   const [partnerTrackFilter, setPartnerTrackFilter] = useState<SxTrackKey | null>(null);

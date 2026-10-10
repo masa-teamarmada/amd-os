@@ -491,7 +491,7 @@ v3.63.1 の再指摘対応: (10) 名前・バーのボタンはワークスペ�
 まさ指示3件 (2026-08-08 #1〜#3) による関係先リストの再構成。
 
 - **説明文と絞り込み帯の削除 (#1)**: 見出し「関係先リスト」下の説明文、台帳ヘッダーの「関係先の進捗比較」「接点・現在地・次の行動・ゴールを、1社1行で確認」を削除。「担当」(OwnerLoadBand)・「区分」「段階」(PocFacetFilterBand)・「管制」(PartnerComparisonControls) の各絞り込み帯も削除した。これに伴い要対応クイックフィルタ (停止/期限超過/7日以内/情報更新要/当方が動く/判定材料不足)、担当別絞り込み、並び替えトグルは廃止。**並び順は優先度順固定** (2026-08-06 まさ指示の既定を恒久化)。「列の並び/列幅をリセット」ボタンはカスタマイズ時だけ右上に出る。
-- **タブ「表示」→「分類」(#2)**: タブは「全関係先」+ 分類5種 (PoC候補先/技術協力先/試料提供元/試料提供ルート/VC、`SX_PARTNER_CLASSIFICATION_ORDER` 順)。既定はPoC候補先。ただしPoC候補先が1件も無いPJ（LiSTieなど）は全関係先から始める（2026-09-30。空の一覧から始めないため）。複数分類の会社は複数のタブに現れる。当方がボールを持つ先の札は、SX（p21）では「SOL側保有」、ほかのPJでは「当方保有」と出す。役割チップ (全関係先タブのみ) は従来どおり。
+- **タブ「表示」→「分類」(#2)**: タブは「全関係先」+ 分類5種 (PoC候補先/技術協力先/試料提供元/試料提供ルート/VC、`SX_PARTNER_CLASSIFICATION_ORDER` 順)。既定は全PJで全関係先（2026-10-10）。未分類の名刺交換先も初回から表示する。PoC候補先などの分類は利用者が選択したときだけ絞る。複数分類の会社は複数のタブに現れる。当方がボールを持つ先の札は、SX（p21）では「SOL側保有」、ほかのPJでは「当方保有」と出す。役割チップ (全関係先タブのみ) は従来どおり。
 - **分類の正本はDBの `classifications text[]` (#3、migration 243)**: 許可値は上記5種。既存の `poc_category` 単一値と VC role (`shareholder_investor`) から backfill 済み。`poc_category` は後方互換のため残し、API (PATCH/POST) が `classifications` の先頭のPoC系値を同期する。読み込みは `sx-management.ts` の `classifications`、ラベルと順序は client-safe な `sx-partner-progress.ts` (`sxPartnerClassificationLabel`)。
 - **モーダルで分類を複数選択 (#3)**: 「関係先を追加/編集」モーダルに「分類（複数選択可）」チェックボックス群 (フォーム field type `multi`、値はカンマ連結で保持し送信時に配列化)。さらに各関係先の「進捗・履歴」モーダル (`PartnerProgressHistoryModal`) のヘッダーにも同じ分類チェック群を置き、チェックした瞬間に PATCH 保存・一覧の分類タブへ即反映する (`data-testid="sx-partner-classification-editor"`、build v3.59.1)。行内のPoC営業ファセット編集から「区分」select は削除し、分類編集はモーダルへ一本化。
 - **タブ判定の後方互換**: PoC候補先 = `sxIsPocPartner` (classifications 優先 → poc_category → roleLabel prefix)。VC = `classifications` の `vc` または `sxIsVcPartner` (role)。**PoC候補先タブは poc_candidate 分類のみ**になり、旧「区分あり=全部PoC候補先63件」から変わった (技術協力先・試料提供元・試料提供ルートは各タブへ)。
@@ -518,3 +518,9 @@ v3.63.1 の再指摘対応: (10) 名前・バーのボタンはワークスペ�
 - 導線は Seed詳細モーダル → `/project/{projectId}/cockpit` → `/project/{projectId}/workspace` の一方向とする。Seed詳細モーダルからworkspaceへ直接リンクしない。
 
 2026-10-06: PCのPJワークスペース上部を1行のコンパクトな見出し帯へ変更（901px以上）。重複する「PJ共有ワークスペース」の小見出しを非表示、PJ名は20px・行高28px、上下余白8px、ホーム/コックピット操作は28pxに統一。通常の1行見出しは全高46px。全PJ共通で、ページの所属・リンク・権限・本文は変更しない。
+
+### 関係先の初期表示・削除（2026-10-10、v3.162.11）
+
+関係先ページの初期分類は、親dashboard・単独pipelineとも全関係先（null）。PoC候補の有無で初期表示を変えない。
+管理権限者は進捗・履歴モーダル上部の「関係先を削除」から対象名つきの確認を開き、「削除する」で既存の認可済みPATCH /managementへ `{resource:"partner", id, delete:true}` を送る。確認の取消では送信しない。処理中は二重送信と閉じる操作を止める。成功応答のbundleを反映してモーダルを閉じる。失敗時はモーダル・行を残し、局所エラーを表示する。
+DBはdeleted_at/deleted_byと既存update_historyだけを更新し、元のsource_kind/source_refと接点履歴・保有事項を保持する。物理削除しない。閲覧者には削除ボタンを出さず、APIも既存管理権限検査を維持する。DB schema・他プラットフォームのAPIは変更なし。
