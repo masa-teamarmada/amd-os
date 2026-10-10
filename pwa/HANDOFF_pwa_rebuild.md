@@ -739,3 +739,23 @@ DB rollback検査でmember保存・readback、外部拒否、区分混在/重複
 検証: 型検査・変更workflowコードのESLint・contract-workflows・critical-ui・admin-kiyo・reference-data-cacheが成功。実DB transaction/ROLLBACKで準備なしPDF境界・二重開始・再送・提出ID継続・自己承認拒否・順序・変更失効・締結証拠/完了分離・2人通知を確認。ローカル実部品のChrome PC/320pxで入口と全ステップの収まり・44px操作・次担当を確認。本番へは通常deploy scriptでmain反映し、画面を読戻す。実業務の試験契約・PDF・通知は作らない。
 
 v3.162.17（b8b8ce5b）は本番Ready・build-info一致を確認済み。隔離したローカルの実WorkflowWorkspaceで新規開始→PDF登録→提出→きよ承認→本人の押印手続き→締結版登録→きよ照合→完了を操作確認し、6ステップと担当の移行が成功。本番の試験契約・通知は作成していない。詳細の初期focusを見出しへ移す修正と遅延応答の世代管理をv3.162.18へまとめて通常deployする。共通DB/API・ネイティブ未移植の境界に変更なし。
+
+
+## 2026-10-11 契約のWord下書き・ファイル登録・矢印フロー（v3.162.19）
+
+Word（docx/doc）とPDF下書きを直接選択/ドロップして準備できる。最終版/締結版はPDFに限定。旧Driveリンクも補助として保持。段階・担当・次の作業を等幅6段階と5本の矢印で接続（768px以上は横、未満は縦）。版履歴、形式/25MB検査、転送段階、エラーと同じIDの再試行を実装。管理部門の契約Driveフォルダを実物の親子関係で確認してproductionのCONTRACTS_DRIVE_FOLDER_IDへ設定。PJ共有フォルダへ代用しない。共有権限は変更しない。
+
+migration20261010145238は本番適用/履歴登録済み、再適用禁止。非公開一時Storageとservice-only workflow_document_uploads/workflow_register_documentを追加。下書きPDFもworkflow_submitの承認対象外。DB transaction/ROLLBACKでWord下書き・同一file ID再試行・別人拒否・役割/PDF制限・版履歴・下書き通知なしを確認。実Storageの署名付き転送/非公開読戻し/bytes一致と検証物削除を確認。Google接続秘密値はproductionから読戻せないため、新しい実Driveアップロードは未確認。実部品のブラウザ操作は隔離環境、実業務の試験契約・通知は作成していない。
+
+型/変更範囲ESLint、contract-workflows、workflow-files、critical-ui、admin-kiyo、reference-data-cacheを検証。実Reactのdrop/複数・非対応拒否/通信失敗/再試行の同一IDを検証。Chrome PC1636/タブレット768/スマホ320、明暗配色、矢印5本、カード寸法、横はみ出しなし、44px操作、キーボード移動を確認。監査はinterface-design/design-review/web-design-guidelines/ui-polish-gateに沿った担当自身の点検で、独立デザイナー監査ではない。証跡は本チャットworkflow-evidence-v3。新ファイルの実Drive保存は初回業務登録で結果確認が必要。
+
+| 仕様変更 | 設計正本 | OSマニュアル | 状態 |
+|---|---|---|---|
+| Word下書き/直接登録/版履歴/再試行 | spec5-6、WorkflowDocumentUpload | manual6-7 | 同期済み |
+| 接続した6段階/現在/担当/次の作業 | spec5-6、WorkflowProgress | manual6-7 | 同期済み |
+| Storage/Drive/DB/認可/承認対象PDF | migration20261010145238、db_schema、spec5-6 | manual6-7 | 共通DB適用済み・再適用不可 |
+| 附則 | spec6-1 | manual9-3 | 同期済み |
+| ネイティブ境界 | ios/DESIGN、native handoff、macos/PARITY | manual6-7 | 専用UI未移植 |
+| 理論/BZM/model | 変更なし | 対象外 | 追加なし |
+
+PWA本番は通常deploy.shでmainを1回反映しReady/build-info/実画面を確認する。会話の検討材料0件、作業branch/worktreeなし。

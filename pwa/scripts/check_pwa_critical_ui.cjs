@@ -4821,7 +4821,7 @@ expectIncludes("src/components/dashboard/PortfolioPulse.tsx", ['target={href.sta
 expectIncludes("src/components/nav/ProjectNavigation.module.css", ["grid-template-columns: 240px minmax(0, 1fr)", "min-height: 44px", ".row, .menu .row { min-height: 28px", "overflow-y: auto", ".row[aria-current=\"page\"]", ".row:hover", ".row[aria-current=\"page\"]:hover"]);
 expectIncludes("src/components/dd/DdNavigation.tsx", ["資料名で検索", "type=\"search\"", "該当する資料はありません"]);
 
-expectIncludes("src/components/workflows/WorkflowWorkspace.tsx", ["契約フローを開始", "再申請を準備", "最終版PDFのDriveリンク", "締結版PDFのDriveリンク", "WorkflowProgress", "押印申請", "契約メールの監視", "申請・承認の履歴", "この最終版の押印を承認", "締結版を照合して完了", "initialFocus={detailHeading}", "detailSequence.current++"]);
+expectIncludes("src/components/workflows/WorkflowWorkspace.tsx", ["契約フローを開始", "再申請を準備", "WorkflowDocumentUpload", "文書と版の履歴", "WorkflowProgress", "押印申請", "契約メールの監視", "申請・承認の履歴", "この最終版の押印を承認", "締結版を照合して完了", "initialFocus={detailHeading}", "detailSequence.current++"]);
 expectIncludes("src/app/api/workflows/[requestId]/route.ts", ["requireAdmin", "workflowActor", "verifyWorkflowPdf", "workflow_transition"]);
 
 // 市場・企業ニーズの分離と、未接続を残すシーズ結合の入口。
@@ -4839,3 +4839,6 @@ for (const file of ["src/components/project-workspace/SxWeeklyControlDashboard.t
 
 expectIncludes("src/components/workflows/WorkflowStartForm.tsx", ["相手先", "契約の種類", "契約名", "対象PJ", "契約の目的", "開始後の流れ", "startId"]);
 expectIncludes("src/components/workflows/WorkflowProgress.tsx", ["フローのステップ", "フローの進み方", "aria-current", "担当："]);
+
+expectIncludes("src/components/workflows/WorkflowDocumentUpload.tsx", ["onDrop", "onDragOver", "type=\"file\"", "下書き（Word・PDF）", "uploadToSignedUrl", "finish_upload"]);
+expectIncludes("src/components/workflows/WorkflowProgress.tsx", ["ArrowRight", "ArrowDown", "data-workflow-connector", "aria-current"]);

@@ -38,7 +38,7 @@ export function workflowProgress(status:WorkflowStatus,requester:string,approver
  const index=status==='preparing'||status==='returned'||status==='superseded'?1:status==='submitted'?2:status==='approved'?3:status==='released'?(signedArtifact?4:3):status==='completed'?5:1;
  const details=[
   '相手先・契約の種類・目的を登録',
-  status==='returned'?'差戻し理由を確認して修正し、再申請':status==='superseded'?'変更した文書・条件で再申請':'契約本文と添付を含む最終版PDFを登録して申請',
+  status==='returned'?'差戻し理由を確認して修正し、再申請':status==='superseded'?'変更した文書・条件で再申請':'Word・PDFで案を準備し、固まった内容を最終版PDFで申請',
   '固定した最終版PDFと契約条件を確認して承認',
   status==='approved'?'承認対象を確認して押印手続きを開始':'承認された版に押印・署名し、締結版PDFを登録',
   '締結版と承認対象の内容を照合',

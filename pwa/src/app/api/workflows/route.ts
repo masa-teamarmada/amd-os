@@ -11,7 +11,7 @@ export async function GET(req:NextRequest) {
  const offset=Math.max(0,Math.min(10000,Number(req.nextUrl.searchParams.get('offset'))||0));
  const contractId=req.nextUrl.searchParams.get('contractId');
  if(contractId){
-  const {data,error}=await db.from('contract_documents').select('document_id,contract_id,file_name,version_label,drive_file_id,mime_type,is_latest,document_kind').eq('contract_id',contractId).eq('is_latest',true).neq('document_kind','signed').eq('mime_type','application/pdf');
+  const {data,error}=await db.from('contract_documents').select('document_id,contract_id,file_name,version_label,drive_file_id,mime_type,is_latest,document_kind').eq('contract_id',contractId).eq('is_latest',true).not('document_kind','in','(signed,draft)').eq('mime_type','application/pdf');
   if(error)throw error;return NextResponse.json({ok:true,documents:data});
  }
  let contracts=db.from('contracts').select('contract_id,contract_title,counterparty_name,contract_type,amd_entity_name,project_id,status,signed_document_id',{count:'exact'}).eq('relationship_scope','amd_contract').eq('registry_status','accepted').not('status','in','(signed,cancelled)').order('last_activity_at',{ascending:false}).limit(100);
@@ -51,7 +51,7 @@ export async function POST(req:NextRequest) {
  if(activeError)throw new Error('進行中のフローを確認できなかった');
  if(active&&(active.status!=='preparing'||active.requested_by!==actor.member_id))throw new Error('進行中のフローがある。申請者が一覧から確認');
  const {data:doc,error}=await db.from('contract_documents').select('document_id,contract_id,drive_file_id,is_latest,document_kind,mime_type').eq('document_id',body.documentId).eq('contract_id',body.contractId).single();
- if(error||!doc?.is_latest||doc.document_kind==='signed'||doc.mime_type!=='application/pdf')throw new Error('最新版の押印対象PDFを選択');
+ if(error||!doc?.is_latest||['signed','draft'].includes(doc.document_kind)||doc.mime_type!=='application/pdf')throw new Error('最新版の押印対象PDFを選択');
  const {data:terms,error:termsError}=await db.rpc('workflow_contract_snapshot',{p_contract:body.contractId});if(termsError)throw new Error('契約を確認できなかった');
  const pdf=await readWorkflowPdf(doc.drive_file_id);
  const copy=await pdf.drive.files.copy({fileId:doc.drive_file_id,supportsAllDrives:true,requestBody:{name:`押印申請_${randomUUID()}_${pdf.info.name}`,parents:pdf.info.parents},fields:'id'});

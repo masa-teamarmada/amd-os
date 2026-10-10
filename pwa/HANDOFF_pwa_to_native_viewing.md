@@ -72,3 +72,6 @@ PWAの定期更新は1分、通信断の失効期限は3分へ変更。初回表
 PWAの業務フロー、きよの押印承認タブ、契約メール監視を本番へ反映。共通DBの自己承認禁止・版変更失効・通知outboxは適用済み。migration20261010104759も適用済み、4件とも履歴登録済みで再適用不要。GAS5分triggerは1本、まさのGoogleアカウント一致と初回基準・手動実行成功を確認。主要操作は44pxへ統一。iOS/macOS/Androidの専用画面は未移植。権限と押印状態の更新は既存の認可済みAPIへ委譲し、service_roleを端末へ置かない。
 
 2026-10-10: 契約フローの入口を相手先/種類/目的の登録から始める。共通DBのpreparing・submitted_atとservice-only workflow_start/register_pdf追加済み（migration20261010114611、再適用不要）。PWAの6ステップ/次担当/同画面PDF登録はネイティブ未移植。workflow_submitは既存署名でpreparing→submittedを同じIDへ更新。通知/承認境界は共通。詳細spec5-6。
+
+2026-10-11 00:20 JST: 契約フローにWord/PDF下書き、ファイル選択・ドラッグ＆ドロップ、25MB制限、版履歴、失敗時再試行を追加。承認用最終版と締結版はPDF、下書き登録では通知なし。6段階を横/縦の矢印で接続。非公開一時Storageと管理部門の契約Drive保存、service-only登録RPCを追加。migration20261010145238適用済み・再適用不要。正本spec5-6、使い方manual6-7。理論/model変更なし。
+iOS/macOS/Androidのファイル登録と矢印UIは未移植。共通DB/認可済みAPIを利用し、端末へservice keyを置かない。

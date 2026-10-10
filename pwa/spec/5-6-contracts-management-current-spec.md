@@ -140,7 +140,7 @@ D-13 は契約予兆 (`contract_signals`) に加えて、契約No・見積No・�
 
 MVPでは `CONTRACTS_DRIVE_FOLDER_ID` が設定されているかを画面に出す。PWAから新規共有や外部共有拡大はしない。契約書ファイルはDriveに置き、OSは `drive_file_id` / `web_view_link` / `mime_type` / `version_label` / `document_kind` だけを保持する。
 
-DocuSign / クラウドサインの押印リレー完了後は、管理者が完了PDFと必要な署名証明書をこのDrive配下の該当PJ/契約フォルダへ保存し、`/admin/contracts` の詳細モーダル `文書と版` で `document_kind='signed'` として登録する。現時点では、外部署名サービスからの自動ダウンロード、Drive自動保存、フォルダ自動作成は未実装。
+DocuSign / クラウドサインの押印リレー完了後は、管理者が完了PDFと必要な署名証明書をこのDrive配下の該当PJ/契約フォルダへ保存し、`/admin/contracts` の詳細モーダル `文書と版` で `document_kind='signed'` として登録する。外部署名サービスからの自動ダウンロードは未実装。業務フロー詳細からのファイル登録・契約フォルダ保存は下記の専用経路を使う。
 
 ## Nudge
 
@@ -374,12 +374,28 @@ mailbox+message IDのuniqueで重複検知を防ぐ。検知・申請イベン�
 
 workflow_requests.statusにpreparingを追加。document_id/source_sha256/snapshot_file_id/snapshot_sha256はpreparingと未申請のcancelledのみ未設定を許す。submitted以降の申請には全4値を必須とするcheckを追加。submitted_atは準備開始日と申請日を分離、既存行はcreated_atを転記。active unique indexはpreparing/submitted/approved/released。同じcontractの同時進行は1つ。service-only workflow_startはactorのactive admin、きよの自己申請不可、対象contractの状態と当事者境界を検査する。clientのstartIdはrequest_idとしてtransaction advisory lockで再送を直列化し、同じIDの再送では元の案件を返す。旧workflow_submit署名は維持し、同じ申請者のpreparingをPDF/条件固定したsubmittedへ更新する。準備行がない旧経路は従来どおりsubmittedを作成する。準備中は申請者のcancelのみ。承認と押印開始へ飛ばせない。
 
-POST /api/workflows action=startはstartId、contractId（既存）またはprojectId/contractTitle/counterpartyName/contractType（新規）、purpose/desiredDateを受け取りrequestIdを返す。GETは現在のcontracts relationとprojects候補を同じbundleへ含める。/api/workflows/[requestId] GETは申請とevents、最新版PDFのmetadataをまとめて返す。準備中は現在のcontract metadata、提出後は固定terms_snapshotを表示する。
+POST /api/workflows action=startはstartId、contractId（既存）またはprojectId/contractTitle/counterpartyName/contractType（新規）、purpose/desiredDateを受け取りrequestIdを返す。GETは現在のcontracts relationとprojects候補を同じbundleへ含める。/api/workflows/[requestId] GETは申請とevents、Word/PDFの最新版・過去版metadataを受領順に最大100件まとめて返す。準備中は現在のcontract metadata、提出後は固定terms_snapshotを表示する。
 
-同詳細POST action=register_pdfは申請者のみ。preparingでは未押印最終版、releasedでは締結版。Driveのhttpsリンクを解析し、Google APIで非削除PDF・25MB以下・PDF headerを検証してから、service-only workflow_register_pdfで最新版切替・文書登録・contract状態更新・イベントを同一transactionで保存する。最終版はrevision/under_review、締結版はsigned/signed_document_idを更新する。締結版の既登録は重複登録で上書きしない。登録自体はworkflowの承認や完了にしない。契約管理の既存証拠登録経路も維持する。Drive保存・PDF変換・紙押印・電子署名は利用者の操作。
+同詳細POST action=register_pdfは申請者のみ。preparingでは未押印最終版、releasedでは締結版。Driveのhttpsリンクを解析し、Google APIで非削除PDF・25MB以下・PDF headerを検証してから、service-only workflow_register_document（最終版はrevision、旧RPCは互換維持）で最新版切替・文書登録・contract状態更新・イベントを同一transactionで保存する。最終版はrevision/under_review、締結版はsigned/signed_document_idを更新する。締結版の既登録は重複登録で上書きしない。登録自体はworkflowの承認や完了にしない。契約管理の既存証拠登録経路も維持する。ファイル登録のDrive保存は次節の専用経路。PDF変換・紙押印・電子署名は利用者の操作。
 
-フロー詳細に6ステップを常設: 開始→契約書の準備→きよの承認→押印・締結版の保存→締結版の照合→完了。各段階へ担当と完了/現在/これからを付け、現在の作業説明を先頭へ表示。preparingは準備、submittedはきよ承認、approved/released（締結版なし）は押印/保存、released（signed_document_idあり）はきよ照合、completedは全完了。締結版未登録では照合完了ボタンを無効にする。returned/supersededは準備へ戻る案内と元の理由、申請者の再申請開始を表示する。旧申請の履歴を保持し、新しいpreparing行を作る。cancelledは停止表示。
+フロー詳細に6ステップを常設: 開始→契約書の準備→きよの承認→押印・締結版の保存→締結版の照合→完了。各段階へ担当と完了/現在/これからを付け、現在の作業説明をフロー直下へ表示。preparingは準備、submittedはきよ承認、approved/released（締結版なし）は押印/保存、released（signed_document_idあり）はきよ照合、completedは全完了。締結版未登録では照合完了ボタンを無効にする。returned/supersededは準備へ戻る案内と元の理由、申請者の再申請開始を表示する。旧申請の履歴を保持し、新しいpreparing行を作る。cancelledは停止表示。
 
 started/final_pdf_registered/signed_pdf_registeredイベントは操作履歴だけに記録し、既存outboxの対象へ足さない。Slack承認依頼はsubmittedから、既存の承認/差戻し/変更/開始/完了/取下げ通知を維持。メール監視・宛先・間隔・既存ルールは非変更。migration20261010114611は本番適用済み・再適用不要。DB rollback試験は開始の冪等性、二重開始拒否、準備中の承認/押印拒否、同じrequest_idで提出、文書のtransaction登録、締結証拠と完了の分離まで検証する。PWA先行、ネイティブ専用UIは未移植。理論/modelは変更なし。
 
 2026-10-10: 詳細dialogの初期focusを見出しに固定し、最初の入力欄へ自動スクロールしない。開いた直後から相手先・種類と全6ステップを確認できる。閉じた後の遅延読取りでdialogを再表示しないよう世代番号で無効化する。
+
+### Word下書き・直接ファイル登録・矢印のフロー（2026-10-11）
+
+準備は `.docx` / `.doc` / PDFの下書きから始められる。ファイル選択とドラッグ＆ドロップが主経路、Driveリンクは補助の折りたたみ。1ファイル・25,000,000 bytes以下。登録前に名前・サイズ・役割を表示し、選び直し可能。「下書き（Word・PDF）」と「承認に出す最終版（PDF）」を明示選択、Word選択時は下書きへ合わせる。下書きPDFも承認対象から除外する。WordをOS内で編集・自動PDF変換する機能はない。詳細GETはWord/PDFの最新版・過去版を受領順に最大100件返す。「文書と版の履歴」からDriveで開き、編集後に新しい版を登録する。
+
+`/api/workflows/[requestId]/documents` POSTはcookie認証・active admin・申請者本人・preparing/releasedを検査。`prepare_upload` は拡張子/サイズ/役割を検証し、2時間以内の未完了登録10件を上限に、サーバでDriveファイルIDと保存先を確保する。`workflow_document_uploads` に記録し、1オブジェクトだけの署名付き転送トークンを返す。非公開Storage `workflow-document-uploads` は25MB/Word/PDF MIME限定、一般利用者の一覧/読取り/直接書込みpolicyなし。登録表もRLS有効・service_role以外の権限なし。
+
+`finish_upload` は同じ本人・request・upload ID・期限・現在段階を再確認。非公開Storageから読み戻したサイズと形式（PDF header、旧Word header、docx ZIP内のWord構成）を検証し、docxの本文を実行しない。保存先は `CONTRACTS_DRIVE_FOLDER_ID` の管理部門 `ARMADA/a3_backoffice/契約` 配下 `project_id/contract_id`。PJ共有フォルダへ代用しない。保存先の存在・フォルダ形式・書込み可否を確認し、共有権限は変更しない。接続未設定は登録前にエラー。事前確保した同じDrive file IDで作成し、再試行でファイルを増やさない。保存後にservice-only `workflow_register_document` が文書・最新版切替・契約状態・イベントを同時保存する。
+
+登録成功後の一時Storageオブジェクトは削除、登録metadataは保持。中断時の一時オブジェクトを自動削除する定期処理は未設定。署名と登録受付は2時間で失効する。下書きはdraft/drafting、最終版はrevision/under_review、締結版はsigned。役割の同じ同一Drive IDは同じdocument IDを返し、過去版を最新版に戻さない。releasedではPDF締結版だけを受け付け、既存締結版を上書きしない。確定済みupload IDの再送は同じdocument IDを返す。
+
+旧register_pdf/RPCは互換維持。リンク経路はregister_document/新RPCでWord下書きも受け付ける。申請時の最新PDF検査・workflow_submitはdraft/signedを除外する。Word登録や下書き更新だけで承認・完了・通知にはしない。draft_registeredを操作履歴だけへ追加し、きよ承認・内容固定・変更失効は維持する。
+
+`WorkflowProgress` は開始→準備→きよ承認→押印/締結版保存→きよ照合→完了の6段階を5本の矢印でつなぐ。768px以上は等幅・同じ高さの横配置、未満は縦配置と下向き矢印。完了チェック、現在の枠/太字/現在ラベル、担当名、次の作業を併記し色だけに依存しない。次の作業説明はフロー直下へ置く。入力/主操作は44px、エラーはalert、転送段階はstatus、通信中は閉じる/重複登録を抑止、動きの抑制設定に対応。
+
+migration20261010145238は本番適用・履歴登録済み、再適用不要。`test:workflow-files`は形式偽装・サイズ・docx構成・承認用PDF境界、DB rollback試験はWord下書き/下書きPDFの申請拒否・別人拒否・版履歴・冪等登録・通知なしを検証。PWA先行、ネイティブ専用UIは未移植。理論/modelは変更なし。

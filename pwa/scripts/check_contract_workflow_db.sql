@@ -55,6 +55,23 @@ do $$ declare start_id uuid:=gen_random_uuid(); w workflow_requests; again workf
  perform workflow_transition('ID001',w.request_id,'cancel',null);
  if (select status from workflow_requests where request_id=w.request_id)<>'cancelled' then raise exception 'FAIL preparing cancel'; end if;
  end $$;
+-- Editable drafts stay in preparation; neither Word nor a draft PDF can be submitted.
+do $$ declare w workflow_requests; did uuid; blocked boolean; begin
+ w:=workflow_start('ID001',gen_random_uuid(),null,'p00','DRAFT FILE TRANSACTIONAL TEST','TEST','nda','下書きと最終版の境界検証',null);
+ did:=workflow_register_document('ID001',w.request_id,'workflow_draft_word_test','draft.docx',200,'application/vnd.openxmlformats-officedocument.wordprocessingml.document','draft','workflow_file_upload');
+ if (select status from workflow_requests where request_id=w.request_id)<>'preparing' then raise exception 'FAIL draft advanced';end if;
+ if (select status from contracts where contract_id=w.contract_id)<>'drafting' then raise exception 'FAIL draft ledger status';end if;
+ if workflow_register_document('ID001',w.request_id,'workflow_draft_word_test','draft.docx',200,'application/vnd.openxmlformats-officedocument.wordprocessingml.document','draft','workflow_file_upload')<>did then raise exception 'FAIL upload retry duplicate';end if;
+ blocked:=false;begin perform workflow_register_document('ID002',w.request_id,'workflow_other_draft_test','draft.doc',200,'application/msword','draft');exception when others then blocked:=sqlerrm='requester_required';end;if not blocked then raise exception 'FAIL another actor draft';end if;
+ blocked:=false;begin perform workflow_register_document('ID001',w.request_id,'workflow_word_final_test','draft.docx',200,'application/vnd.openxmlformats-officedocument.wordprocessingml.document','revision');exception when others then blocked:=sqlerrm='final_pdf_required';end;if not blocked then raise exception 'FAIL Word final';end if;
+ did:=workflow_register_document('ID001',w.request_id,'workflow_draft_pdf_test','draft.pdf',200,'application/pdf','draft');
+ blocked:=false;begin perform workflow_submit('ID001',w.contract_id,did,'TEST',null,repeat('a',64),'workflow_draft_snapshot',repeat('a',64),workflow_contract_snapshot(w.contract_id));exception when others then blocked:=sqlerrm='final_pdf_required';end;if not blocked then raise exception 'FAIL draft PDF submission';end if;
+ if exists(select 1 from workflow_alert_deliveries where event_key in (select 'event:'||event_id from workflow_events where request_id=w.request_id)) then raise exception 'FAIL draft alert';end if;
+ did:=workflow_register_document('ID001',w.request_id,'workflow_ready_pdf_test','final.pdf',200,'application/pdf','revision');
+ perform workflow_submit('ID001',w.contract_id,did,'TEST',null,repeat('a',64),'workflow_ready_snapshot',repeat('a',64),workflow_contract_snapshot(w.contract_id));
+ blocked:=false;begin perform workflow_register_document('ID001',w.request_id,'workflow_after_submit_test','draft.doc',200,'application/msword','draft');exception when others then blocked:=sqlerrm='invalid_transition';end;if not blocked then raise exception 'FAIL draft after submission';end if;
+ if (select count(*) from contract_documents where contract_id=w.contract_id)<>3 then raise exception 'FAIL document history';end if;
+end $$;
 -- Direct authenticated and anonymous writes/RPC calls are denied independently of UI.
 set local role authenticated;
 do $$ declare blocked boolean:=false;begin
@@ -64,6 +81,7 @@ do $$ declare blocked boolean:=false;begin
  if not blocked then raise exception 'FAIL exposed service RPC';end if;
  blocked:=false;begin perform workflow_start('ID001',gen_random_uuid(),null,'p00','TEST','TEST','nda','TEST',null);exception when insufficient_privilege then blocked:=true;end;
  if not blocked then raise exception 'FAIL exposed workflow start';end if;
+ blocked:=false;begin perform workflow_register_document('ID001',gen_random_uuid(),'workflow_test_word','draft.doc',10,'application/msword','draft');exception when insufficient_privilege then blocked:=true;end;if not blocked then raise exception 'FAIL exposed file registration';end if;
 end $$;
 reset role;
 rollback;
