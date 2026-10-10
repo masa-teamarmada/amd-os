@@ -1,5 +1,5 @@
 'use client';
-import {useCallback,useEffect,useState} from 'react';
+import {useCallback,useEffect,useRef,useState} from 'react';
 import Link from 'next/link';
 import {Button} from '@/components/ui/button';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from '@/components/ui/dialog';
@@ -15,6 +15,7 @@ const termLabels:Record<string,string>={scopeSummary:'業務範囲',paymentTerms
 const dialogClass='max-h-[90vh] overflow-y-auto rounded-none [&>button]:size-11 [&>button]:top-1 [&>button]:right-1 sm:max-w-[760px]';
 const contractField=(r:WorkflowRequest,key:'contract_title'|'counterparty_name'|'contract_type'|'amd_entity_name')=>String((r.status==='preparing'?r.contract?.[key]:r.terms_snapshot[key])||r.terms_snapshot[key]||'未確認');
 export function WorkflowWorkspace({embedded=false,initialContractId='',initialRequestId=''}:{embedded?:boolean;initialContractId?:string;initialRequestId?:string}){
+ const detailHeading=useRef<HTMLHeadingElement>(null);const detailSequence=useRef(0);
  const [data,setData]=useState<Data|null>(null);const [error,setError]=useState('');const [busy,setBusy]=useState(false);const [selected,setSelected]=useState<WorkflowRequest|null>(null);
  const [events,setEvents]=useState<Event[]>([]);const [documents,setDocuments]=useState<WorkflowDocument[]>([]);const [detailLoading,setDetailLoading]=useState(false);
  const [showForm,setShowForm]=useState(!!initialContractId);const [formContractId,setFormContractId]=useState(initialContractId);
@@ -25,7 +26,9 @@ export function WorkflowWorkspace({embedded=false,initialContractId='',initialRe
   setData(old=>({...result,requests:offset?[...(old?.requests||[]),...result.requests]:result.requests}));
  },[initialContractId]);
  const loadDetail=useCallback(async(requestId:string)=>{
+  const generation=++detailSequence.current;
   const response=await fetch(`/api/workflows/${encodeURIComponent(requestId)}`,{cache:'no-store'});const result=await response.json();
+  if(generation!==detailSequence.current)return;
   if(!response.ok||!result.ok)throw new Error(result.error||'フローを読み込めなかった');
   setSelected(result.request);setEvents(result.events);setDocuments(result.documents);setDocumentId(result.documents.find((d:WorkflowDocument)=>d.document_kind!=='signed')?.document_id||'');
  },[]);
@@ -60,7 +63,7 @@ export function WorkflowWorkspace({embedded=false,initialContractId='',initialRe
    {!data.mailEvents.length&&<p className="py-3 text-muted-foreground">監視開始後の契約メールはまだ検知されていない。</p>}{data.mailCount>50&&<p className="py-2 text-xs text-muted-foreground">最新50件を表示 / 全 {data.mailCount}件</p>}
   </>}
   <Dialog open={showForm} onOpenChange={open=>{if(!busy)setShowForm(open);}}><DialogContent className={dialogClass}><DialogHeader><DialogTitle className="pr-8">契約フローを開始</DialogTitle><DialogDescription>相手先・契約の種類・目的を登録して準備を開始。契約書は開始後に登録できる。</DialogDescription></DialogHeader>{data&&<WorkflowStartForm contracts={data.contracts} contractCount={data.contractCount} projects={data.projects} busy={busy} error={error} initialContractId={formContractId} onSearch={searchContracts} onStart={(values:WorkflowStartInput)=>perform('/api/workflows',values,'契約フローを開始。次は最終版PDFを準備')} onClose={()=>setShowForm(false)}/>}</DialogContent></Dialog>
-  <Dialog open={!!selected} onOpenChange={open=>{if(!open&&!busy)setSelected(null);}}><DialogContent className={dialogClass}><DialogHeader><DialogTitle className="pr-8 break-words">{selected?title(selected):'契約フロー'}</DialogTitle><DialogDescription>{selected?(selected.status==='released'&&selected.contract?.signed_document_id?'きよの締結版照合待ち':WORKFLOW_STATUS[selected.status]):''}</DialogDescription></DialogHeader>{selected&&actions&&<div className="space-y-4">
+  <Dialog open={!!selected} onOpenChange={open=>{if(!open&&!busy){detailSequence.current++;setSelected(null);}}}><DialogContent className={dialogClass} initialFocus={detailHeading}><DialogHeader><DialogTitle ref={detailHeading} tabIndex={-1} className="pr-8 break-words outline-none">{selected?title(selected):'契約フロー'}</DialogTitle><DialogDescription>{selected?(selected.status==='released'&&selected.contract?.signed_document_id?'きよの締結版照合待ち':WORKFLOW_STATUS[selected.status]):''}</DialogDescription></DialogHeader>{selected&&actions&&<div className="space-y-4">
    <dl className="grid gap-3 border-y border-border py-3 sm:grid-cols-2">{[['相手先',contractField(selected,'counterparty_name')],['契約の種類',typeLabel(contractField(selected,'contract_type'))],['当事者',contractField(selected,'amd_entity_name')],['申請者・承認者',`${names(selected.requested_by)} → ${names(selected.approver_member_id)}`],['開始日・押印希望日',`${date(selected.created_at)} / ${selected.desired_date||'指定なし'}`],['押印申請日',selected.submitted_at?date(selected.submitted_at):'準備中・未申請']].map(([k,v])=><div key={k}><dt className="text-xs text-muted-foreground">{k}</dt><dd className="mt-1 break-words">{v}</dd></div>)}</dl>
    <WorkflowProgress status={selected.status} requester={names(selected.requested_by)} approver={names(selected.approver_member_id)} signedArtifact={!!selected.contract?.signed_document_id}/>
    <div><p className="text-xs font-medium text-muted-foreground">契約の目的・確認事項</p><p className="mt-1 whitespace-pre-wrap leading-6">{selected.purpose}</p></div>

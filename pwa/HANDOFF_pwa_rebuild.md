@@ -737,3 +737,5 @@ DB rollback検査でmember保存・readback、外部拒否、区分混在/重複
 | 理論/model | 変更なし | 対象外 | 理論追加なし |
 
 検証: 型検査・変更workflowコードのESLint・contract-workflows・critical-ui・admin-kiyo・reference-data-cacheが成功。実DB transaction/ROLLBACKで準備なしPDF境界・二重開始・再送・提出ID継続・自己承認拒否・順序・変更失効・締結証拠/完了分離・2人通知を確認。ローカル実部品のChrome PC/320pxで入口と全ステップの収まり・44px操作・次担当を確認。本番へは通常deploy scriptでmain反映し、画面を読戻す。実業務の試験契約・PDF・通知は作らない。
+
+v3.162.17（b8b8ce5b）は本番Ready・build-info一致を確認済み。隔離したローカルの実WorkflowWorkspaceで新規開始→PDF登録→提出→きよ承認→本人の押印手続き→締結版登録→きよ照合→完了を操作確認し、6ステップと担当の移行が成功。本番の試験契約・通知は作成していない。詳細の初期focusを見出しへ移す修正と遅延応答の世代管理をv3.162.18へまとめて通常deployする。共通DB/API・ネイティブ未移植の境界に変更なし。

@@ -381,3 +381,5 @@ POST /api/workflows action=startはstartId、contractId（既存）またはproj
 フロー詳細に6ステップを常設: 開始→契約書の準備→きよの承認→押印・締結版の保存→締結版の照合→完了。各段階へ担当と完了/現在/これからを付け、現在の作業説明を先頭へ表示。preparingは準備、submittedはきよ承認、approved/released（締結版なし）は押印/保存、released（signed_document_idあり）はきよ照合、completedは全完了。締結版未登録では照合完了ボタンを無効にする。returned/supersededは準備へ戻る案内と元の理由、申請者の再申請開始を表示する。旧申請の履歴を保持し、新しいpreparing行を作る。cancelledは停止表示。
 
 started/final_pdf_registered/signed_pdf_registeredイベントは操作履歴だけに記録し、既存outboxの対象へ足さない。Slack承認依頼はsubmittedから、既存の承認/差戻し/変更/開始/完了/取下げ通知を維持。メール監視・宛先・間隔・既存ルールは非変更。migration20261010114611は本番適用済み・再適用不要。DB rollback試験は開始の冪等性、二重開始拒否、準備中の承認/押印拒否、同じrequest_idで提出、文書のtransaction登録、締結証拠と完了の分離まで検証する。PWA先行、ネイティブ専用UIは未移植。理論/modelは変更なし。
+
+2026-10-10: 詳細dialogの初期focusを見出しに固定し、最初の入力欄へ自動スクロールしない。開いた直後から相手先・種類と全6ステップを確認できる。閉じた後の遅延読取りでdialogを再表示しないよう世代番号で無効化する。
