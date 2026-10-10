@@ -409,3 +409,11 @@ GAS は main へ push しても反映されず、`clasp push` と `clasp deploy 
 - 原因: pwa配下の当該mdは配信対象判定に含まれる。
 - 対応: 未送信の自分の記録だけをrootのHANDOFF_COST_PWA_20261007.mdへ移し、余分な改行も除去して保存・pushした。
 - 再発防止: 記録用ファイルでも命名・場所によって配信対象になる。rootのHANDOFF*.mdとpwa/design_log/など、deploy_skip.mjsで配信対象外と確認できる場所へ置く。拒否を迂回しない。
+
+
+## 2026-10-09 独立cloneの閲覧更新検査で組み立て方式を変更して検証が遠回りになった
+
+- 症状: clone外のnode_modules symlinkで通常Turbopack buildが停止。webpack代替は型検査でメモリ不足となり、上限を広げても既存MyPageContent/mapBundle exportに対する旧生成型の制約で停止した。
+- 原因: 検査cloneの依存がfilesystem root外だった。代替bundlerは本番と生成する型検査契約も異なるため、依存配置の問題を解決しないまま切替えると別の失敗を混ぜる。メモリ不足とアプリの型不整合は別に扱う。
+- 対応: 自分のsymlinkだけ移し、clone内部へ同じ版の依存をコピー。NODE_OPTIONS=--max-old-space-size=8192で通常npm run buildを成功させ、postbuild容量ゲート・正規deploy.sh・本番SHA・Chrome/DBの60秒更新を確認。共有checkoutの依存・本番設定・別機能を変更しなかった。
+- 再発防止: 独立cloneは依存もroot内部に揃え、本番と同じ方式で検査する。bundler代替の失敗を根拠に無関係な既存exportを修正しない。対象参照: pwa/BUGS.mdの2026-10-06 symlink事故、pwa/design_log/sessions_2026-10.mdの閲覧更新記録。

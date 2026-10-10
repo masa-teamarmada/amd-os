@@ -1,21 +1,20 @@
-SOLのDD・コスト試算の表示改善を引き継ぐ。正規の作業場所は /Users/masa/projects/AMD/amd-os、資料と検証画像は /Users/masa/projects/AMD/SOL。今回の修正はまさ受入済み。新しい依頼がない限り、実装・DB更新・採算精査を自動再開しない。
+AMD OSの閲覧者表示・閲覧履歴の引き継ぎ。正規cwdは /Users/masa/projects/AMD/amd-os。まさは「10秒ごと→1分ごと」に変更する方針を受け入れ済み。今回の機能に残作業はないので、新しい依頼がない限り追加実装・通知起動・ネイティブ移植を自動再開しない。
 
 読む順:
 1. /Users/masa/projects/AGENTS.common.md
 2. /Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md
-3. /Users/masa/projects/AMD/amd-os/AGENTS.md、HANDOFF_COST_PWA_20261007.md、pwa/design_log/CLOSEOUT_SOL_DD_COST_20261007.md
-4. pwa/manual/1-1-intro.md、pwa/spec/3-8-cockpit-current-spec.md、3-24-project-surface-pages-current-spec.md、5-17-dd-package-current-spec.md、pwa/manual/2-3-pj-cockpit.md、ios/DESIGN.md
-5. BUGS.md、pwa/BUGS.md。開発履歴はpwa/design_log/sessions_2026-10.md
-6. 計画の内容に進む場合だけ、SOL/LONG_TERM_PLAN.md、SOL_DD_CONTENTS_PLAN.md、HANDOFF_LONG_TERM_PLAN_20261007.md。採算精査はHANDOFF_COST_REVIEW_20261007.mdとその目的別mdを先に読む。
+3. /Users/masa/projects/AMD/amd-os/AGENTS.md、HANDOFF_PAGE_VIEWING_20261008.md
+4. pwa/manual/1-1-intro.md、pwa/spec/2-1-pwa-runtime-routes.mdの閲覧機能、pwa/manual/2-1-member-quick-start.md、ios/DESIGN.md、pwa/HANDOFF_pwa_to_native_viewing.md
+5. BUGS.md、pwa/BUGS.md、実装履歴pwa/design_log/sessions_2026-10.md。仕様統制はpwa/design/SPEC_GOVERNANCE.md、反映運用はpwa/spec/5-2。
 
 状態:
-ブラウザではコスト試算が改善されているのにアプリでは変わらない、という指摘を修正した。アプリはChromeのインストール済みPWA。旧1280px限定の配置が1234px幅で縦積みとなっていた。1024pxから入力・明細をコンパクトにし、1100pxから入力と結果を横に並べる。結果欄は320px、1280px以上で380px。CSSと高さ計測の判定を揃え、3つの計算エンジン・3つの領域の共通部品へ適用した。計算・入力値・保存権限・公開範囲は変えていない。
-実装e2143fed / v3.160.27はmainへ保存・push・正規反映済み。1172pxの実アプリ、1392pxのブラウザ、390pxの狭い画面を確認。廃液・燃料・汎用の検査、型検査、反映時の必須検査が成功。画像はSOL/outputs/261007_アプリのコスト試算表示確認/。確認時の金額を最新の採算結論として使わない。
-終了着手時の正規repoはmain eb3b939a、origin差0/0、未保存・未追跡・競合0。本番は後続更新のv3.161.16 / 6191ad90。自分の変更と本番SHAは現行mainに含まれ、該当の幅条件も残っている。終了文書の最新commitと本番は次回git履歴・build-infoで取り直す。現行本番の全画面を終了時に再検収したわけではない。
+PWA右上に同じ画面の閲覧者・閲覧履歴を表示。定期通信60秒、通信断180秒で失効。初回表示・復帰・ページ切替・パネルを開く操作は即時更新、非表示・退出は即時離脱。同じ人の複数タブは人数を重複計上しない。履歴は訪問ごとに1件、繰返し更新で増殖しない。最新50件は表示上限であり保存上限ではない。外部の履歴は本人のみ。
+初回実装8414eb47、間隔変更f15ab19f、確認記録1a6f3482はmainへpush済み。2026-10-09に通常build・必要検査・正規deploy.sh・本番Chrome/DBまで確認し、実更新間隔60.158秒と退出後inactiveを確認した。2026-10-10本番読戻しはv3.162.13 / 8e17d62fdac03b62a9ff9f658d083678cf7bac4e / main / dirty=false。後続変更後も60秒/180秒は維持。今回の終了処理は文書のみで再build/DB試験/本番画面再検査はしていない。旧一時cloneは現在存在しない。資料・証跡の正本はrepoの仕様・開発ログで、/tmpの旧パスに依存しない。
 
-次の行動:
-今回の残件はなし。新しい依頼の対象を決めてから最新状態を確認する。表示差なら、実アプリの表示幅・拡大率・適用配置を測って原因を確かめる。版だけを見て古い表示が残ったと断定しない。長期計画は後続のv0.5が正本で、旧初版へ戻さない。2035年4月IPOは条件付き計画。計画・採算・月次・資本政策の未確定値を推定で決定しない。別担当の採算精査を明示依頼なしに再開しない。
+最初の行動と残る境界:
+まずgit fetch origin main、status、HEAD、ahead/behind、git cherry、branch/worktree/stashを読取り確認。共有checkoutはHEAD f2a08962、未コミット0、未push3、終了文書push前behind30で、最新main起点dbebf316とは分岐している。古いcheckoutの本文を現行仕様として編集せず、安全な最新mainのclean cloneを使う。
+未push c0f23546 / 3f11241e / f2a08962 は別チャット「承認なしの押印を防ぐ設計」（01a11a36-1046-7ea0-a1d8-37c5ba39efa9）の契約承認・メール監視。patch未統合で、元担当の最終報告は通信障害によるpush停止。本番画面・5分監視・Slack実配信は未確認。今回の閲覧機能と混ぜてpush・merge・通知起動しない。quarantine ownerはその担当。再開条件は元担当が最新mainへの取り込みと正規反映経路を検証すること。既存stash2件も別作業なので復元・削除しない。共有checkout同期未完のためリポ全体はdo not archive、今回の閲覧機能は反映済み。
+外部本人の閲覧機能の正常系は未検証。iOS/macOS/Androidの閲覧UIは未移植。Supabase migration20261008120000は適用済みで再適用禁止。DBやメール・通知の追加操作は新しい依頼の範囲を確認してから行う。
 
-運用と保管:
-着手時にgit fetch、HEAD/origin/main、dirty、本番版を確認する。main一本、新規branch/worktree禁止。共有差分をreset/stash/delete/一括commitしない。表示変更は仕様・使い方・附則を同じ作業で同期する。検証は実アプリとブラウザで主要値・入力・根拠全文・横はみ出しを確認する。製品反映は AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh にまとめ、Ready・SHA・実画面を確認する。ローカル検証のために追加の認証権限を付与しない。
-確認用main cloneは /Users/masa/.codex/cleanup_archives/20261007-cost-pwa-closeout/amd-os-main-clone に退避済み。旧SOL/work/261006_dd_development_issues/amd-osを再開先にしない。復元控えは同archive、旧共用移行文はSESSION_MIGRATION_PROMPT_DD_LAYOUT_BEFORE_COST_CLOSEOUT_20261007.mdに保持。検証画像・計画原稿はセッション外へ保存済み。新規枝/作業ツリーなし。会話の検討材料0件。
+確立済みの運用:
+main一本、新branch/worker worktree/子タスクなし。別作業をreset/stash/削除/一括commitしない。push直前に再fetch。PWA変更の反映はAMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.shのみで、CLI直接deployは禁止。code変更時は型・通常build・必要検査・本番SHA/画面/DBを確認し、manual/spec/変更履歴・必要な全プラットフォーム仕様を同期する。独立cloneのnode_modulesはroot内部に置き、メモリ不足時は検査用NODE_OPTIONSの上限を調整。本番と異なるwebpackの型エラーを根拠に無関係な既存exportを修正しない。メール送信は禁止。閲覧履歴へ生URL・クエリ・本文・入力・秘密値を保存しない。
