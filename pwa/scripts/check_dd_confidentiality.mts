@@ -12,15 +12,24 @@ const zipped = unzipSync(ddDisclosureZip(original, "../../開示通知.txt", "20
 assert.deepEqual(zipped["原本/開示通知.txt"], original, "原本を変更しない／パストラバーサル・通知ファイル衝突を防ぐ");
 assert.match(strFromU8(zipped["開示通知.txt"]), new RegExp(ddContentHash(original)));
 assert.ok(strFromU8(zipped["開示通知.txt"]).includes(DD_CONFIDENTIALITY_NOTICE));
-assert.equal(Object.keys(zipped).length, 2);
+assert.equal(Object.keys(zipped).length, 3);
+assert.match(strFromU8(zipped["開示通知.html"]), /color:#b91c1c/);
+assert.match(strFromU8(zipped["開示通知.html"]), /CONFIDENTIAL/);
+assert.ok(strFromU8(zipped["開示通知.html"]).includes(DD_CONFIDENTIALITY_NOTICE));
+const escapedZip = unzipSync(ddDisclosureZip(original, '<script>alert(1)</script>.html', 'date', ddContentHash(original)));
+assert.ok(!strFromU8(escapedZip['開示通知.html']).includes('<script>'), '通知HTML内の資料名を実行可能なHTMLにしない');
 const workbook = createBusinessPlanPhaseMatrixXlsx([]);
 const oldFiles = unzipSync(workbook), newFiles = unzipSync(markDdWorkbook(workbook));
 assert.ok(strFromU8(newFiles["xl/workbook.xml"]).includes('name="開示通知"'));
 assert.ok(strFromU8(newFiles["xl/worksheets/dd-disclosure.xml"]).includes(DD_CONFIDENTIALITY_NOTICE));
+assert.match(strFromU8(newFiles["xl/styles.xml"]), /<b\/><color rgb="FFB91C1C"\/><sz val="18"/);
+assert.equal(strFromU8(newFiles['xl/styles.xml']).replace(/<fonts count="\d+"/, '<fonts').split('</fonts>')[0].split('<font>').slice(1, -1).join('<font>'), strFromU8(oldFiles['xl/styles.xml']).replace(/<fonts count="\d+"/, '<fonts').split('</fonts>')[0].split('<font>').slice(1).join('<font>'), '既存のフォント順序と内容を保持');
+assert.match(strFromU8(newFiles["xl/worksheets/sheet1.xml"]), /&amp;KB91C1CCONFIDENTIAL/);
 assert.equal(strFromU8(newFiles["xl/worksheets/sheet1.xml"]).replace(/<headerFooter>[\s\S]*?<\/headerFooter>/, ""), strFromU8(oldFiles["xl/worksheets/sheet1.xml"]), "元の表・数値・セル参照を保持");
 const html = '<!doctype html><html><body class="source"><h1>ORIGINAL</h1></body></html>';
 assert.ok(markDdHtml(html).includes('<h1>ORIGINAL</h1>'));
 assert.ok(markDdHtml(html).indexOf('data-dd-confidentiality') < markDdHtml(html).indexOf('<h1>'));
+assert.match(markDdHtml(html), /color:#b91c1c!important/);
 const pdf = await PDFDocument.create();
 const font = await pdf.embedFont(StandardFonts.Helvetica);
 pdf.addPage([600, 800]).drawText("ORIGINAL", { x: 30, y: 760, font });
@@ -33,6 +42,7 @@ const sharp = (await import("sharp")).default;
 const png = await sharp({ create: { width: 400, height: 300, channels: 3, background: 'white' } }).png().toBuffer();
 const image = await markDdImage(png, "image/png");
 assert.match(Buffer.from(image).toString(), /秘密情報/);
+assert.match(Buffer.from(image).toString(), /fill="#b91c1c">CONFIDENTIAL/);
 assert.ok(Buffer.from(image).toString().includes(png.toString("base64")), "元画像の実体を保持");
 
 // 実routeを依存先だけ置き換えて実行し、権限・CSRF・失敗時の閉鎖を検査する。

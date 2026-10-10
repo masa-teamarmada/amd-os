@@ -8,7 +8,7 @@ export const DD_NOTICE_HASH = ddContentHash(DD_CONFIDENTIALITY_NOTICE);
 
 /** 元資料のCSSから切り離した秘密指定帯。外部通信・スクリプトは追加しない。 */
 export function markDdHtml(html: string): string {
-  const notice = `<section data-dd-confidentiality="${DD_CONFIDENTIALITY_VERSION}" style="display:block!important;position:relative!important;z-index:2147483647!important;box-sizing:border-box!important;width:100%!important;margin:0!important;padding:12px!important;background:#f1f5f9!important;color:#334155!important;font:12px/1.7 sans-serif!important;text-align:left!important;visibility:visible!important;opacity:1!important"><strong style="font-weight:700!important">秘密情報</strong>｜${ddEscapeHtml(DD_CONFIDENTIALITY_NOTICE)}</section>`;
+  const notice = `<section data-dd-confidentiality="${DD_CONFIDENTIALITY_VERSION}" style="display:block!important;position:relative!important;z-index:2147483647!important;box-sizing:border-box!important;width:100%!important;margin:0!important;padding:12px!important;border-left:4px solid #b91c1c!important;background:#fff1f2!important;color:#7f1d1d!important;font:12px/1.7 sans-serif!important;text-align:left!important;visibility:visible!important;opacity:1!important"><strong style="display:block!important;color:#b91c1c!important;font-size:16px!important;font-weight:700!important;letter-spacing:.08em!important">CONFIDENTIAL</strong>${ddEscapeHtml(DD_CONFIDENTIALITY_NOTICE)}</section>`;
   // CSSのレイアウトを保ちながら、直開きと印刷にも通知を残す。
   return /<body\b[^>]*>/i.test(html) ? html.replace(/<body\b[^>]*>/i, match => `${match}${notice}`) : `${notice}${html}`;
 }
@@ -25,7 +25,7 @@ export async function markDdPdf(bytes: Uint8Array): Promise<Uint8Array> {
     const page = output.addPage([width, height + 28]);
     page.setRotation(originalPage.getRotation());
     page.drawPage(embedded, { x: 0, y: 0, width, height });
-    page.drawText("CONFIDENTIAL", { x: 10, y: height + 9, size: Math.min(11, width / 15), font, color: rgb(0.2, 0.25, 0.33) });
+    page.drawText("CONFIDENTIAL", { x: 10, y: height + 8, size: Math.min(14, width / 15), font, color: rgb(185 / 255, 28 / 255, 28 / 255) });
   }
   output.setSubject(DD_CONFIDENTIALITY_NOTICE);
   output.setKeywords(["秘密情報", DD_CONFIDENTIALITY_VERSION]);
@@ -37,6 +37,6 @@ export async function markDdImage(bytes: Uint8Array, mimeType: string): Promise<
   const sharp = (await import("sharp")).default;
   const { width = 800, height = 600 } = await sharp(bytes).metadata();
   const headerHeight = Math.max(48, Math.ceil(width / 22));
-  const label = "秘密情報｜適用される秘密保持契約に従って取り扱ってください";
-  return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height + headerHeight}" viewBox="0 0 ${width} ${height + headerHeight}"><rect width="100%" height="${headerHeight}" fill="#f1f5f9"/><text x="${width * 0.02}" y="${headerHeight * 0.62}" font-family="sans-serif" font-size="${width / 40}" fill="#334155">${label}</text><image x="0" y="${headerHeight}" width="${width}" height="${height}" href="data:${ddEscapeHtml(mimeType)};base64,${Buffer.from(bytes).toString("base64")}"/></svg>`);
+  const label = "CONFIDENTIAL｜秘密情報";
+  return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height + headerHeight}" viewBox="0 0 ${width} ${height + headerHeight}"><rect width="100%" height="${headerHeight}" fill="#fff1f2"/><text x="${width * 0.02}" y="${headerHeight * 0.65}" font-family="sans-serif" font-size="${Math.min(headerHeight * 0.45, width / 28)}" font-weight="700" fill="#b91c1c">${label}</text><image x="0" y="${headerHeight}" width="${width}" height="${height}" href="data:${ddEscapeHtml(mimeType)};base64,${Buffer.from(bytes).toString("base64")}"/></svg>`);
 }

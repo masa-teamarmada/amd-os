@@ -267,8 +267,9 @@ export function CockpitCompanyOverview({
         context.drawImage(canvas, 0, offset, canvas.width, slice.height, 0, 0, slice.width, slice.height);
         pdf.addImage(slice.toDataURL("image/jpeg", 0.9), "JPEG", margin, topMargin, imageWidth, slice.height * imageWidth / canvas.width, undefined, "FAST");
         if (confidential) {
-          pdf.setFontSize(9);
-          pdf.setTextColor(51, 65, 85);
+          pdf.setFont("helvetica", "bold");
+          pdf.setFontSize(12);
+          pdf.setTextColor(185, 28, 28);
           pdf.text("CONFIDENTIAL", margin, 8);
         }
         offset += slice.height;
