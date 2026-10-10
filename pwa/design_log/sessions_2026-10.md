@@ -480,3 +480,14 @@ pwa/design_log/CLOSEOUT_SOL_DD_COST_20261007.md / BUGS.md / SESSION_MIGRATION_PR
 - manual2-1/9-3、spec2-1/6-1、ios/DESIGN、BUGS/HANDOFFを同時同期。BZM/model・schema・ネイティブ・環境変数・新通知経路は変更なし。本人が開いた正確なURL・認証失敗の個別原因は未確認。
 - 本番反映はmain正規deploy経路でv3.161.22を一度にpushし、公開build-infoの版/SHAと実callbackのコードなしredirectを確認する。rollbackは本commitのコード・案内を戻す。メール配信未設定は未解決で、案内の修正を本人ログインの成功と扱わない。
 - 開発・運用検証のみ。会話の検討材料0件。
+
+## 2026-10-10 関係先の初期表示・削除（v3.162.11）
+
+- 症状: PoCの初期絞り込みで未分類のGSE登録先が見えず、古いSIER仮置き行を削除する入口がなかった。
+- 実装: SxWeeklyControlDashboardとSxPartnerPipelineの初期分類をnull（全関係先）へ統一。進捗・履歴上部に管理権限者向け削除と対象名つき確認を追加。既存PATCH /managementのpartner delete:trueを再利用。処理中の二重送信/閉じる操作を止め、成功bundleを反映、失敗は行と局所エラーを残す。API/schema変更なし。
+- commit: ef0f40bfbe4ef9cea8a2ae78d4f87528f99f1a1e。通常deploy.shでmainへpush、本番v3.162.11と公開build-info一致。
+- 検証: tsc、build/postbuild、critical UI、sx-partner-holdings、sx-weekly-control、workspace-access-scope、data-change-history、通常deployゲートが成功。ESLintの既存2エラー/警告はHEAD元ファイルと同一で追加なし。
+- Chrome: 初回の全関係先95 pressed=true、対象名つき確認→取消で行保持→確認後soft-delete→全94件とmodal終了を確認。ワークスペースを新しく開いても全94件が初期表示。画像の重なり・切れ・配置と44pxの操作領域を確認。
+- DB: SIER仮置き1件だけdeleted_at/deleted_by=ID001。元source_ref、接点履歴1件を保持し、削除history1件あり。他94件の全行JSON MD5は削除前後で一致。原資料の登録・Drive保存はSOL/GSE_CONTACT_IMPORT_20261010.mdで扱い、非開発PJ内容をこの開発履歴へ混ぜない。
+- 証跡: /Users/masa/projects/AMD/SOL/work/261010_gse_contacts/。新しい秘密値・環境変数・テーブル・権限・通知なし。取り消したのは未実装の復元導線の表示案（API復元は既存だが、UIの入口が確認できないので案内しない）。
+- 共有checkoutの既存未push3件は今回の所有差分ではない。採否判断前にreset/stash/一括commit/pushしない。今回の一時cloneは記録を移して削除する。
