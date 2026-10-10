@@ -7,6 +7,6 @@ export async function GET(req:NextRequest){
  const deadline=Date.now()+210_000;
  const dryRun=req.nextUrl.searchParams.get('dryRun')==='1';
  let scan:unknown;let scanError:string|null=null;
- try{scan=await scanContractMail(dryRun);}catch(e){scanError=e instanceof Error?e.message:'メール監視を確認が必要';}
- try{const delivery=await dispatchWorkflowAlerts(dryRun,deadline);return NextResponse.json({ok:!scanError,scan,scanError,delivery},{status:scanError?503:200});}catch{return NextResponse.json({ok:false,scan,scanError,error:'Slackの配信を確認が必要'},{status:503});}
+ try{scan=await scanContractMail(dryRun);}catch(e){scanError=e instanceof Error?e.message:'メール監視の確認が必要';}
+ try{const delivery=await dispatchWorkflowAlerts(dryRun,deadline);return NextResponse.json({ok:!scanError,scan,scanError,delivery},{status:scanError?503:200});}catch{return NextResponse.json({ok:false,scan,scanError,error:'Slackの配信の確認が必要'},{status:503});}
 }

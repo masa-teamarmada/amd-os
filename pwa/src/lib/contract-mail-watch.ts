@@ -84,7 +84,7 @@ async function alertText(key:string){
  const db=createAdminClient();
  if(key.startsWith('mail:')){
  const {data,error}=await db.from('workflow_mail_events').select('*').eq('event_id',key.slice(5)).single();if(error)throw error;const event=data as WorkflowMailEvent;
- return [MAIL_EVENT_LABEL[event.event_kind],`${event.direction==='sent'?'まさの送信':'まさの受信'} / ${new Date(event.occurred_at).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'})}`,slackText(event.subject),event.event_kind==='completion'?'締結・押印完了の連絡を検知。きよの承認記録との照合が必要。':'契約のやりとりを検知。押印する前に、きよの承認を確認が必要。',`<${BASE}/admin/workflows|OSで確認>`].join('\n');
+ return [MAIL_EVENT_LABEL[event.event_kind],`${event.direction==='sent'?'まさの送信':'まさの受信'} / ${new Date(event.occurred_at).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'})}`,slackText(event.subject),event.event_kind==='completion'?'締結・押印完了の連絡を検知。きよの承認記録との照合が必要。':'契約のやりとりを検知。押印する前に、きよの承認の確認が必要。',`<${BASE}/admin/workflows|OSで確認>`].join('\n');
  }
  const {data:event,error}=await db.from('workflow_events').select('*').eq('event_id',key.slice(6)).single();if(error)throw error;
  const {data:request,error:requestError}=await db.from('workflow_requests').select('terms_snapshot,status').eq('request_id',event.request_id).single();if(requestError)throw requestError;

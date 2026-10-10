@@ -1395,3 +1395,5 @@ PWA /seed-needs と左メニューを「市場ニーズ」へ。一市場一行�
 
 
 2026-10-10 JST: 通信復旧後、押印業務フローを最新mainへ統合。DB trigger helper3関数の公開EXECUTEを撤回しservice_role専用へ限定。承認・自己承認拒否・文書変更失効・通知の同時保存はDB rollback試験で確認。正本spec5-6、manual6-7。migration20261010104759適用済み、再適用不要。
+
+2026-10-10 JST: 押印業務フローの操作寸法と監視成功前の表示を補正。適用済み4 migrationの履歴をschema/ACL読戻し後に登録。正本spec5-6、使い方manual6-7。

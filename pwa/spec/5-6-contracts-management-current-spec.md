@@ -364,3 +364,5 @@ mailbox+message IDのuniqueで重複検知を防ぐ。検知・申請イベン�
 
 
 2026-10-10: workflow_enqueue_event/guard_signed_status/invalidateのtrigger helperもpublic/anon/authenticatedのEXECUTEを撤回。migration20261010104759適用済み。service_roleとDB内部trigger以外の公開呼出し不可。UI/API/RPCの権限分離と配信triggerの動作をrollback試験で再確認する。
+
+2026-10-10: 業務フローの主操作・フォーム・閉じる操作は44px以上へ統一（一覧内の確認はPC32px/スマホ44px）。監視表示はlast_success_atの存在とlast_checked_atの15分以内を要求し、dry-runだけで監視中にしない。適用済み4 migrationの履歴は実schema/ACL確認後に登録、DDL再適用なし。

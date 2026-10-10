@@ -18,7 +18,7 @@ export async function POST(req:NextRequest,ctx:{params:Promise<{requestId:string
  const {data:request,error}=await db.from('workflow_requests').select('*').eq('request_id',requestId).single();if(error||!request)throw new Error('申請を確認できなかった');
  const action=body.action;const note=typeof body.note==='string'?body.note.trim().slice(0,2000):null;
  if(['approve','return','complete'].includes(action)&&actor.member_id!==request.approver_member_id)return NextResponse.json({ok:false,error:'きよの承認が必要'},{status:403});
- if(['cancel','release'].includes(action)&&actor.member_id!==request.requested_by)return NextResponse.json({ok:false,error:'申請者だけが操作できるよ'},{status:403});
+ if(['cancel','release'].includes(action)&&actor.member_id!==request.requested_by)return NextResponse.json({ok:false,error:'申請者だけが操作できる'},{status:403});
  if(['approve','release','complete'].includes(action)&&body.confirmed!==true)throw new Error('対象の文書を確認してチェックを入れる');
  if(['approve','release'].includes(action))await verifyWorkflowPdf(request as WorkflowRequest);
  const {data,error:transitionError}=await db.rpc('workflow_transition',{p_actor:actor.member_id,p_request:requestId,p_action:action,p_note:note});
