@@ -36,3 +36,6 @@ quarantine owner: 上表の担当。safe to remove after approval: なし。send
 今回の未解決実装なし。まさの次の依頼を待つ。署名版を受領したら、締結事実を確認して既存の押印版登録経路で更新する。追加通知・共有・定期監視を推測して始めない。
 
 再開文: SESSION_MIGRATION_PROMPT_CONTRACT_DENSITY_20261006.md（共通SESSION_MIGRATION_PROMPT.mdにも全文を併記）。以前のFunction Storage再開文はSESSION_MIGRATION_PROMPT_FUNCTION_STORAGE_20261006_BEFORE_CONTRACT.mdに保存。
+
+## 2026-10-10 現在地の訂正
+上の「署名待ち」は10月6日時点。10月8日にNDA締結・署名版登録を完了し、494 SQL適用済み。現行はHANDOFF_CONTRACT_LEDGER_COLUMNS_20261008.mdとSESSION_MIGRATION_PROMPT_CONTRACT_COLUMNS_20261010.mdを読む。登録を再実行しない。

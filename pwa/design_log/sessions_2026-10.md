@@ -551,3 +551,9 @@ PWAの共通ツールバー右上に氏名の頭文字と人数を表示し、�
 共有checkoutには別の進行中チャット「承認なしの押印を防ぐ設計」に対応する契約workflow/管理者画面/メール監視/GASの変更が残る。owner推定およびquarantine ownerはその進行中チャット。今回のstage/commitに含めず保持。次の判断条件は当該チャットが自分の反映前に差分を検査しcommit・pushすること。勝手に削除すると進行中の実装を失うため触らない。今回の機能に残作業なし。
 
 会話の検討材料: 0件。製品設計はrepoへ保存し、個人の特性としては保存しない。
+
+### 2026-10-10終了記録 — 10月8日の契約一覧の列分割（開発）
+- 681078f7/c86bee22/f54e54e7でContractLedgerTable、contractTableRow、14/26/32項目表示、固定列、詳細/文書導線を実装・main反映。check_contract_ledger_table.mtsとcritical-uiアンカーを追加。データ/schema/API/env/理論変更なし。
+- spec5-6/manual6-7/両附則/ios DESIGN同期済み。モバイル固定名120pxへ修正、ネイティブ専用画面は未移植。
+- 静的検査、契約grouping/source-render回帰、critical-ui、ソース型検査成功。本番v3.161.31で実Chrome PC1392px/狭幅354px、検索・列切替・順序・詳細・文書を検証。ローカルwebpack全体は既存MyPageContent/mapBundle export制約2件で停止、本番通常ビルドは成功。
+- 10月10日終了時の配信は後続v3.162.13/8e17d62f。本番全画面の再検収ではない。別担当workflowの未push3件は扱わず、最新origin/mainのclean cloneで終了文書のみ保存。再開文と既存再開文の控えをrootへ保存。
