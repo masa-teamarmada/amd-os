@@ -722,3 +722,18 @@ DB rollback検査でmember保存・readback、外部拒否、区分混在/重複
 正本spec5-6、使い方manual6-7、監視経路spec2-1/L2_DATA、画面正本ios/DESIGNは同期済み。モデル/理論は変更なし。紙の印章や外部電子署名サービスそのものの操作制御は未連携。実際の申請は最終版PDFを登録して申請者が目的を記入し、きよが確認・承認する。旧「反映途中」節は過去の停止記録で、再開待ちは解消済み。
 
 会話の検討材料: 0件（製品実装と運用結果は正本仕様・引き継ぎへ保存）。作業用branch/worktreeなし。
+
+## 2026-10-10 契約フローの開始と全ステップ
+
+相手先/契約種別/契約名/目的の入力でpreparingから開始。WorkflowStartForm/WorkflowProgressを追加し、全6ステップ・現在地・担当・必要な作業を同じ詳細で表示。最終版/締結版のDrive PDFをその詳細から登録できる。開始は通知せず、提出で既存のまさ/きよへの通知。きよだけ承認/照合、文書変更で再申請は維持。migration20261010114611は本番適用・履歴登録済み、再適用しない。次担当の説明と使い方はspec5-6/manual6-7。
+
+| 新仕様/仕様変更 | 設計正本 | OSマニュアル章 | 状態 |
+|---|---|---|---|
+| 入口/相手先/種類/目的/準備の保存 | spec5-6、FEATURE_REGISTRY、ios DESIGN | manual6-7 | 同期済み |
+| 6ステップ/次担当/文書不足/再申請 | spec5-6 | manual6-7 | 同期済み |
+| DB/API/transaction/操作履歴 | migration20261010114611、db_schema、spec5-6 | manual6-7 | 同期済み |
+| 仕様附則 | spec6-1 | manual9-3 | 同期済み |
+| ネイティブ未移植 | PARITY、HANDOFF_pwa_to_native_viewing | manual6-7 | 共通DB適用、専用UI未移植 |
+| 理論/model | 変更なし | 対象外 | 理論追加なし |
+
+検証: 型検査・変更workflowコードのESLint・contract-workflows・critical-ui・admin-kiyo・reference-data-cacheが成功。実DB transaction/ROLLBACKで準備なしPDF境界・二重開始・再送・提出ID継続・自己承認拒否・順序・変更失効・締結証拠/完了分離・2人通知を確認。ローカル実部品のChrome PC/320pxで入口と全ステップの収まり・44px操作・次担当を確認。本番へは通常deploy scriptでmain反映し、画面を読戻す。実業務の試験契約・PDF・通知は作らない。

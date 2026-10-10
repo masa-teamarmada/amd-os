@@ -1094,3 +1094,5 @@ PageHistoryToolbarのPageViewing、丸い頭文字と人数、閲覧中／閲覧
 ## 2026-10-09 市場ニーズを起点にした一覧
 
 PWA /seed-needs と左メニューを「市場ニーズ」へ。一市場一行に企業・シーズ・出典のリンクをまとめ、25件ずつ表示。国内/世界の年間市場規模を年別に保持し、同一地域・年の下限で順位付け。確度A/B/C/未評価は独立した手動評価。出典と評価理由が必須。市場/企業のsources、市場のmarket_sizes/confidence_rank/confidence_noteと、直接リンクmarket_need_seed_linksを追加。499/500は本番適用済みで再実行しない。JSONの出典参照・型・評価条件とRLS/競合を検査。既存seeds不変。補助図・個別接続・研究構想を保持。正本spec5-19、操作manual2-5。iOS/macOS/Androidの専用UIは未移植。
+
+2026-10-10: WorkflowStartFormの相手先/種類/目的からpreparingを作成。WorkflowProgressの6ステップ/現在/担当を常設。最終版/締結版Driveリンク登録、同じ申請IDでsubmitted移行、再申請準備を維持。guard: check_pwa_critical_ui、check_contract_workflows、check_contract_workflow_db。

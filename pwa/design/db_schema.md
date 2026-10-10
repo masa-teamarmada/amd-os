@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-10-10 19:48 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-10-10 20:48 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -3519,7 +3519,7 @@ UNIQUE: `(member_id,milestone_id,ym)` (constraint: `member_ms_activities_member_
 
 ## member_notification_preferences
 
-行数 (概算): 546
+行数 (概算): 650
 PRIMARY KEY: `game_server_id, user_id`
 
 | # | column | type | nullable | default |
@@ -4113,7 +4113,7 @@ UNIQUE: `(lane,observed_at,observation_key,source)` (constraint: `observation_lo
 
 ## os_page_viewer_sessions
 
-行数 (概算): 21
+行数 (概算): 28
 PRIMARY KEY: `session_id`
 
 | # | column | type | nullable | default |
@@ -4129,7 +4129,7 @@ PRIMARY KEY: `session_id`
 
 ## os_page_viewing_visits
 
-行数 (概算): 86
+行数 (概算): 97
 PRIMARY KEY: `visit_id`
 
 | # | column | type | nullable | default |
@@ -8752,21 +8752,22 @@ PRIMARY KEY: `request_id`
 | 1 | `request_id` | `uuid` | NOT NULL | `gen_random_uuid()` |
 | 2 | `request_type` | `text` | NOT NULL | `'contract_seal'::text` |
 | 3 | `contract_id` | `uuid` | NOT NULL | `` |
-| 4 | `document_id` | `uuid` | NOT NULL | `` |
+| 4 | `document_id` | `uuid` | NULL | `` |
 | 5 | `requested_by` | `text` | NOT NULL | `` |
 | 6 | `approver_member_id` | `text` | NOT NULL | `` |
 | 7 | `status` | `text` | NOT NULL | `'submitted'::text` |
 | 8 | `purpose` | `text` | NOT NULL | `` |
 | 9 | `desired_date` | `date` | NULL | `` |
 | 10 | `terms_snapshot` | `jsonb` | NOT NULL | `` |
-| 11 | `source_sha256` | `text` | NOT NULL | `` |
-| 12 | `snapshot_file_id` | `text` | NOT NULL | `` |
-| 13 | `snapshot_sha256` | `text` | NOT NULL | `` |
+| 11 | `source_sha256` | `text` | NULL | `` |
+| 12 | `snapshot_file_id` | `text` | NULL | `` |
+| 13 | `snapshot_sha256` | `text` | NULL | `` |
 | 14 | `decision_note` | `text` | NULL | `` |
 | 15 | `decided_at` | `timestamptz` | NULL | `` |
 | 16 | `released_at` | `timestamptz` | NULL | `` |
 | 17 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 18 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 19 | `submitted_at` | `timestamptz` | NULL | `` |
 
 ## workflow_rules
 

@@ -145,3 +145,5 @@ PWAへ委譲する確認導線はSwiftUI `Link`で保持する。通常クリッ
 ## 2026-10-09 市場ニーズを起点にした一覧
 
 PWA /seed-needs と左メニューを「市場ニーズ」へ。一市場一行に企業・シーズ・出典のリンクをまとめ、25件ずつ表示。国内/世界の年間市場規模を年別に保持し、同一地域・年の下限で順位付け。確度A/B/C/未評価は独立した手動評価。出典と評価理由が必須。市場/企業のsources、市場のmarket_sizes/confidence_rank/confidence_noteと、直接リンクmarket_need_seed_linksを追加。499/500は本番適用済みで再実行しない。JSONの出典参照・型・評価条件とRLS/競合を検査。既存seeds不変。補助図・個別接続・研究構想を保持。正本spec5-19、操作manual2-5。iOS/macOS/Androidの専用UIは未移植。
+
+2026-10-10: 契約フローの入口を相手先/種類/目的の登録から始める。共通DBのpreparing・submitted_atとservice-only workflow_start/register_pdf追加済み（migration20261010114611、再適用不要）。PWAの6ステップ/次担当/同画面PDF登録はネイティブ未移植。workflow_submitは既存署名でpreparing→submittedを同じIDへ更新。通知/承認境界は共通。詳細spec5-6。

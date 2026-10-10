@@ -340,9 +340,9 @@ SOLの原本は第11条の個人情報・再委託と第12条の細則準用と�
 
 ### 画面・状態・権限
 
-`/admin/workflows`（管理者の業務フロー）と `/admin/kiyo?task=workflows`（押印承認タブ）は共通 `WorkflowWorkspace`。契約管理の未締結AMD契約の詳細から「押印申請」へ移動する。申請一覧は比較可能な行表、50件ずつ追加。契約候補は採用済みAMD契約・未締結の最新100件、名称検索で絞る。詳細は固定PDF、申請時の当事者・条件、申請理由・希望日、操作履歴を表示する。Slackの申請リンクは一覧の表示件数を超えても対象の詳細を取得する。
+`/admin/workflows`（管理者の業務フロー）と `/admin/kiyo?task=workflows`（押印承認タブ）は共通 `WorkflowWorkspace`。契約管理の未締結AMD契約の詳細から「契約フロー」へ移動する。申請一覧は比較可能な行表、50件ずつ追加。契約候補は採用済みAMD契約・未締結の最新100件、契約名・相手先で絞る。開始は相手先・契約種類・目的を入力し、PDFなしでも準備を保存する。詳細に全6ステップと担当を常設し、提出後は固定PDF、申請時の当事者・条件、申請理由・希望日、操作履歴を表示する。Slackの申請リンクは一覧の表示件数を超えても対象の詳細を取得する。
 
-状態は `submitted`（きよ承認待ち）→ `approved`（きよ承認済み）→ `released`（押印手続き中）→ `completed`（締結版照合済み）。差戻し `returned`、取下げ `cancelled`、変更により失効 `superseded` を別状態にする。1契約につき進行中申請は1件。申請者はactive admin、承認・差戻し・締結版照合はID002きよだけ。申請者は承認できず、きよ自身も自分への申請不可。押印手続き開始と取下げは本人だけ。承認・手続き開始・照合には文書確認チェック、差戻しにはコメントが必要。
+状態は `preparing`（契約書の準備中）→ `submitted`（きよ承認待ち）→ `approved`（きよ承認済み）→ `released`（押印手続き中）→ `completed`（締結版照合済み）。差戻し `returned`、取下げ `cancelled`、変更により失効 `superseded` を別状態にする。1契約につき進行中申請は1件。申請者はactive admin、承認・差戻し・締結版照合はID002きよだけ。申請者は承認できず、きよ自身も自分への申請不可。押印手続き開始と取下げは本人だけ。承認・手続き開始・照合には文書確認チェック、差戻しにはコメントが必要。
 
 ### 文書の固定・サーバー強制
 
@@ -366,3 +366,18 @@ mailbox+message IDのuniqueで重複検知を防ぐ。検知・申請イベン�
 2026-10-10: workflow_enqueue_event/guard_signed_status/invalidateのtrigger helperもpublic/anon/authenticatedのEXECUTEを撤回。migration20261010104759適用済み。service_roleとDB内部trigger以外の公開呼出し不可。UI/API/RPCの権限分離と配信triggerの動作をrollback試験で再確認する。
 
 2026-10-10: 業務フローの主操作・フォーム・閉じる操作は44px以上へ統一（一覧内の確認はPC32px/スマホ44px）。監視表示はlast_success_atの存在とlast_checked_atの15分以内を要求し、dry-runだけで監視中にしない。適用済み4 migrationの履歴は実schema/ACL確認後に登録、DDL再適用なし。
+
+
+### 契約フローの開始・準備・全ステップ（2026-10-10）
+
+入口は最終PDFの押印申請ではなく「契約フローを開始」。新規は相手先・契約の種類・契約名・対象PJ・目的を必須、希望日は任意とする。AMD当事者の確認後、新規contractsをplanned/accepted/amd_contractとして作り、workflow_requestsのpreparing行とstartedイベントを同一transactionで保存する。既存契約は採用済み未締結AMD契約のみを選択し、相手先・種類を読取り表示する。種類はnda/outsourcing/joint_research/mou/order/license/contract、旧値もそのまま表示。候補検索は契約名と相手先、最新100件。契約詳細からの指定IDは最新100件の外でも明示読取りで候補へ含める。一覧は相手先と種類を独立表示する。
+
+workflow_requests.statusにpreparingを追加。document_id/source_sha256/snapshot_file_id/snapshot_sha256はpreparingと未申請のcancelledのみ未設定を許す。submitted以降の申請には全4値を必須とするcheckを追加。submitted_atは準備開始日と申請日を分離、既存行はcreated_atを転記。active unique indexはpreparing/submitted/approved/released。同じcontractの同時進行は1つ。service-only workflow_startはactorのactive admin、きよの自己申請不可、対象contractの状態と当事者境界を検査する。clientのstartIdはrequest_idとしてtransaction advisory lockで再送を直列化し、同じIDの再送では元の案件を返す。旧workflow_submit署名は維持し、同じ申請者のpreparingをPDF/条件固定したsubmittedへ更新する。準備行がない旧経路は従来どおりsubmittedを作成する。準備中は申請者のcancelのみ。承認と押印開始へ飛ばせない。
+
+POST /api/workflows action=startはstartId、contractId（既存）またはprojectId/contractTitle/counterpartyName/contractType（新規）、purpose/desiredDateを受け取りrequestIdを返す。GETは現在のcontracts relationとprojects候補を同じbundleへ含める。/api/workflows/[requestId] GETは申請とevents、最新版PDFのmetadataをまとめて返す。準備中は現在のcontract metadata、提出後は固定terms_snapshotを表示する。
+
+同詳細POST action=register_pdfは申請者のみ。preparingでは未押印最終版、releasedでは締結版。Driveのhttpsリンクを解析し、Google APIで非削除PDF・25MB以下・PDF headerを検証してから、service-only workflow_register_pdfで最新版切替・文書登録・contract状態更新・イベントを同一transactionで保存する。最終版はrevision/under_review、締結版はsigned/signed_document_idを更新する。締結版の既登録は重複登録で上書きしない。登録自体はworkflowの承認や完了にしない。契約管理の既存証拠登録経路も維持する。Drive保存・PDF変換・紙押印・電子署名は利用者の操作。
+
+フロー詳細に6ステップを常設: 開始→契約書の準備→きよの承認→押印・締結版の保存→締結版の照合→完了。各段階へ担当と完了/現在/これからを付け、現在の作業説明を先頭へ表示。preparingは準備、submittedはきよ承認、approved/released（締結版なし）は押印/保存、released（signed_document_idあり）はきよ照合、completedは全完了。締結版未登録では照合完了ボタンを無効にする。returned/supersededは準備へ戻る案内と元の理由、申請者の再申請開始を表示する。旧申請の履歴を保持し、新しいpreparing行を作る。cancelledは停止表示。
+
+started/final_pdf_registered/signed_pdf_registeredイベントは操作履歴だけに記録し、既存outboxの対象へ足さない。Slack承認依頼はsubmittedから、既存の承認/差戻し/変更/開始/完了/取下げ通知を維持。メール監視・宛先・間隔・既存ルールは非変更。migration20261010114611は本番適用済み・再適用不要。DB rollback試験は開始の冪等性、二重開始拒否、準備中の承認/押印拒否、同じrequest_idで提出、文書のtransaction登録、締結証拠と完了の分離まで検証する。PWA先行、ネイティブ専用UIは未移植。理論/modelは変更なし。

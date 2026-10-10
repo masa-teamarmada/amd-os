@@ -26,6 +26,35 @@ do $$ declare cid uuid:=gen_random_uuid();begin
  update contracts set status='signed' where contract_id=cid;
  if not exists(select 1 from contracts where contract_id=cid and status='signed') then raise exception 'FAIL other party ledger';end if;
 end $$;
+-- Preparation starts without a PDF, preserves one case through submission, and cannot release early.
+do $$ declare start_id uuid:=gen_random_uuid(); w workflow_requests; again workflow_requests; did uuid:=gen_random_uuid(); blocked boolean;
+ begin
+ w:=workflow_start('ID001',start_id,null,'p00','PREPARATION TRANSACTIONAL TEST','TEST COUNTERPARTY','nda','準備からの一連の検証',null);
+ if w.status<>'preparing' or w.document_id is not null or w.snapshot_file_id is not null then raise exception 'FAIL preparation document boundary'; end if;
+ if not exists(select 1 from contracts where contract_id=w.contract_id and registry_status='accepted' and counterparty_name='TEST COUNTERPARTY' and contract_type='nda') then raise exception 'FAIL start contract metadata'; end if;
+ again:=workflow_start('ID001',start_id,null,'p00','PREPARATION TRANSACTIONAL TEST','TEST COUNTERPARTY','nda','準備からの一連の検証',null);
+ if again.contract_id<>w.contract_id or (select count(*) from workflow_events where request_id=start_id)<>1 then raise exception 'FAIL start retry duplicate'; end if;
+ if exists(select 1 from workflow_alert_deliveries where event_key in (select 'event:'||event_id from workflow_events where request_id=start_id)) then raise exception 'FAIL preparation approval alert'; end if;
+ blocked:=false;begin perform workflow_start('ID002',gen_random_uuid(),null,'p00','SELF START','TEST','nda','自己申請',null);exception when others then blocked:=sqlerrm='self_approval_forbidden';end;if not blocked then raise exception 'FAIL Kiyo self start';end if;
+ blocked:=false;begin perform workflow_start('ID001',gen_random_uuid(),w.contract_id,null,null,null,null,'二重開始',null);exception when unique_violation then blocked:=true;end;if not blocked then raise exception 'FAIL double preparing';end if;
+ blocked:=false;begin perform workflow_transition('ID002',start_id,'approve',null);exception when others then blocked:=sqlerrm in ('invalid_transition','request_superseded');end;if not blocked then raise exception 'FAIL preparation approved';end if;
+ blocked:=false;begin perform workflow_transition('ID001',start_id,'release',null);exception when others then blocked:=sqlerrm in ('invalid_transition','request_superseded');end;if not blocked then raise exception 'FAIL preparation released';end if;
+ update contracts set counterparty_name='CORRECTED COUNTERPARTY' where contract_id=w.contract_id;
+ did:=workflow_register_pdf('ID001',start_id,'workflow_preparation_test_pdf','final.pdf',100,false);
+ if (select status from workflow_requests where request_id=start_id)<>'preparing' then raise exception 'FAIL preparing invalidated by document'; end if;
+ if workflow_submit('ID001',w.contract_id,did,'提出目的',null,repeat('a',64),'workflow_preparation_snapshot',repeat('a',64),workflow_contract_snapshot(w.contract_id))<>start_id then raise exception 'FAIL case id lost on submit'; end if;
+ if (select submitted_at from workflow_requests where request_id=start_id) is null then raise exception 'FAIL submission time'; end if;
+ if (select count(*) from workflow_alert_deliveries where event_key in (select 'event:'||event_id from workflow_events where request_id=start_id))<>2 then raise exception 'FAIL submitted alert pair'; end if;
+ blocked:=false;begin perform workflow_register_pdf('ID001',start_id,'workflow_premature_signed_pdf','signed.pdf',100,true);exception when others then blocked:=sqlerrm='invalid_transition';end;if not blocked then raise exception 'FAIL premature signed registration';end if;
+ perform workflow_transition('ID002',start_id,'approve',null);perform workflow_transition('ID001',start_id,'release',null);
+ did:=workflow_register_pdf('ID001',start_id,'workflow_preparation_signed_pdf','signed.pdf',100,true);
+ if (select status from workflow_requests where request_id=start_id)<>'released' then raise exception 'FAIL artifact auto completes'; end if;
+ perform workflow_transition('ID002',start_id,'complete',null);
+ if (select status from workflow_requests where request_id=start_id)<>'completed' then raise exception 'FAIL preparation lifecycle completion'; end if;
+ w:=workflow_start('ID001',gen_random_uuid(),null,'p00','CANCEL PREPARATION TEST','TEST','nda','取り下げの検証',null);
+ perform workflow_transition('ID001',w.request_id,'cancel',null);
+ if (select status from workflow_requests where request_id=w.request_id)<>'cancelled' then raise exception 'FAIL preparing cancel'; end if;
+ end $$;
 -- Direct authenticated and anonymous writes/RPC calls are denied independently of UI.
 set local role authenticated;
 do $$ declare blocked boolean:=false;begin
@@ -33,6 +62,8 @@ do $$ declare blocked boolean:=false;begin
  if not blocked then raise exception 'FAIL direct write';end if;
  blocked:=false;begin perform workflow_transition('ID002',gen_random_uuid(),'approve',null);exception when insufficient_privilege then blocked:=true;end;
  if not blocked then raise exception 'FAIL exposed service RPC';end if;
+ blocked:=false;begin perform workflow_start('ID001',gen_random_uuid(),null,'p00','TEST','TEST','nda','TEST',null);exception when insufficient_privilege then blocked:=true;end;
+ if not blocked then raise exception 'FAIL exposed workflow start';end if;
 end $$;
 reset role;
 rollback;

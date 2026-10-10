@@ -21,6 +21,7 @@ export async function readWorkflowPdf(fileId:string) {
  return {drive,info:info.data,bytes,hash:createHash('sha256').update(bytes).digest('hex')};
 }
 export async function verifyWorkflowPdf(request:WorkflowRequest) {
+ if(!request.document_id||!request.snapshot_file_id)throw new Error('最終版PDFを申請してから操作');
  const db=createAdminClient();
  const {data:document,error}=await db.from('contract_documents').select('drive_file_id,is_latest,document_kind').eq('document_id',request.document_id).single();
  if(error||!document?.is_latest||document.document_kind==='signed')throw new Error('文書が更新されている。再申請が必要');
