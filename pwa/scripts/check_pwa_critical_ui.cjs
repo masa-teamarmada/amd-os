@@ -779,6 +779,7 @@ expectIncludes("src/app/page.tsx", [
   "利用中のワークスペースへ",
 ]);
 expectNotIncludes("src/app/page.tsx", [
+  "ARMADAメンバーとしてログイン",
   'from "next/navigation"',
   'redirect(memberHome(memberAccess))',
   'redirect("/workspaces")',
@@ -4303,9 +4304,13 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "interaction-${latestInteraction.id}",
   "work-${item.id}",
   'aria-modal="true"',
-  // 2026-09-30: PoC候補先が1件でもあるPJ（SX）は従来どおりPoC候補先が既定。0件のPJ（LiSTie）は全関係先から。
-  'management.partners.some((partner) => partner.classifications.includes("poc_candidate"))',
-  '? "poc_candidate"',
+  // 2026-10-10: 全PJで全関係先を初期表示する。
+  'useState<SxPartnerClassification | null>(null)',
+  'data-testid="sx-partner-delete"',
+  'data-testid="sx-partner-delete-confirmation"',
+  'JSON.stringify({ resource: "partner", id: partnerId, delete: true })',
+  'onManagementChange(body.bundle as SxManagementBundle)',
+  'canManage && confirmDelete',
   "showRoleFilter={!comparisonOnly}",
   "comparisonPartners.map",
   "sxIsVcPartner",
@@ -4818,3 +4823,16 @@ expectIncludes("src/components/dd/DdNavigation.tsx", ["資料名で検索", "typ
 
 expectIncludes("src/components/workflows/WorkflowWorkspace.tsx", ["押印申請", "契約メールの監視", "申請・承認の履歴", "この最終版の押印を承認", "締結版を照合して完了"]);
 expectIncludes("src/app/api/workflows/[requestId]/route.ts", ["requireAdmin", "workflowActor", "verifyWorkflowPdf", "workflow_transition"]);
+
+// 市場・企業ニーズの分離と、未接続を残すシーズ結合の入口。
+expectIncludes("src/components/nav/GlobalNav.tsx", ['href: "/seed-needs"', 'label: "市場ニーズ"']);
+expectIncludes("src/components/seed-needs/SeedNeedsWorkspace.tsx", ['議論用の記入例', '実際の蓄積', '未接続のみ', 'NeedEditor', 'joinSeedNeeds']);
+execFileSync(process.execPath, ["--experimental-strip-types", path.join(root, "scripts/check_seed_needs.mts")], { stdio: "pipe" });
+
+expectIncludes("src/components/seed-needs/MarketNeedsList.tsx", ["市場規模の比較地域", "情報の確度で絞り込み", "市場ニーズの次のページ", "出典"]);
+
+// 未分類の名刺交換先も初回から見える。条件付きPoC既定へ戻さない。
+for (const file of ["src/components/project-workspace/SxWeeklyControlDashboard.tsx", "src/components/project-workspace/SxPartnerPipeline.tsx"]) {
+  expectIncludes(file, ['useState<SxPartnerClassification | null>(null)']);
+  expectNotIncludes(file, ['some((partner) => partner.classifications.includes("poc_candidate"))']);
+}

@@ -451,3 +451,6 @@ Calendar event に Gemini / Google Meet notes Doc 添付がある、Notion の `
 ## 関連
 - 設計議論: [`pwa/design/L2_DATA.md`](../design/L2_DATA.md), [`pwa/design/strategy_signals_redesign.md`](../design/strategy_signals_redesign.md), [`pwa/design/xrl_evidence.md`](../design/xrl_evidence.md)
 - 経緯: **[9-1 章 5.1 cron 廃止経緯](9-1-decisions-and-history.md#51-cron-廃止経緯)**
+
+
+2026-10-10: 外部ワークスペースとDDには、確認して共有対象にした会議・動向・活動とSOL側Slackだけを表示する。AMD社内Slackの保存は停止し、既存保存と人物評価の複製を削除した。会議の準備メモは社内のみ。共有確認前の会議は一覧に表示しない。既存の資料・SOLワークスペース・DDの権限は維持する。

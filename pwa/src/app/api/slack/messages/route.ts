@@ -12,6 +12,7 @@
  * 画面は必ず src/lib/slack/slack-messages-client.ts 経由で読む
  * (guard: scripts/check_reference_data_cache_contract.mjs)。
  */
+import { matchesSlackArchiveTarget, type SlackArchiveTarget } from "@/lib/slack/archive-boundary";
 import { NextRequest, NextResponse } from "next/server";
 import { hasSharedWorkspaceProjectReadAccess } from "@/lib/shared-workspace-project-read-access";
 import { requireMember } from "@/lib/supabase/api-auth";
@@ -24,7 +25,7 @@ import type {
 
 export const runtime = "nodejs";
 
-const CACHE_CONTROL = "private, max-age=60, stale-while-revalidate=600";
+const CACHE_CONTROL = "private, no-store, max-age=0";
 const PAGE_SIZE = 1000;
 const MAX_MESSAGES = 3000;
 
@@ -86,28 +87,34 @@ export async function GET(req: NextRequest) {
 
   try {
     const supabase = createAdminClient();
+    const targetResult = await supabase.from("project_slack_sources").select("workspace_key,channel_id,archive_enabled,workspace_shared").eq("project_id",projectId).eq("archive_enabled",true);
+    if (targetResult.error) throw new Error(targetResult.error.message);
+    const targets = (targetResult.data ?? []) as SlackArchiveTarget[];
+    const channelIds = targets.filter(t => auth.ok || t.workspace_shared).map(t => t.channel_id);
+    if (!channelIds.length) return NextResponse.json({ok:true,data:{projectId,ym:jstYm(),months:[],channels:[],messages:[],lastCollectedAt:null,truncated:false}}, {headers:{"Cache-Control":CACHE_CONTROL}});
 
     // 取り込み済みの月 (セレクタ用)
-    const { rows: ymRows } = await fetchAllRows<{ ym: string }>(
+    const { rows: ymRows } = await fetchAllRows<{ ym: string; item_id: string; metadata_json: Record<string, unknown> | null }>(
       "slack months",
       (from, to) =>
         supabase
           .from("source_cache")
-          .select("ym")
+          .select("ym,item_id,metadata_json")
           .eq("project_id", projectId)
           .eq("source", "slack")
+          .in("metadata_json->>channel_id", channelIds)
           .order("ym", { ascending: false })
           .range(from, to),
       20000,
     );
-    const months = Array.from(new Set(ymRows.map((row) => String(row.ym || "")).filter(Boolean)))
+    const months = Array.from(new Set(ymRows.filter(row => matchesSlackArchiveTarget(row,targets,!auth.ok)).map((row) => String(row.ym || "")).filter(Boolean)))
       .sort()
       .reverse();
 
     const requestedYm = url.searchParams.get("ym")?.trim() || "";
     const ym = /^\d{6}$/.test(requestedYm) ? requestedYm : months[0] || jstYm();
 
-    const { rows, truncated } = await fetchAllRows<CacheRow>(
+    const { rows: fetchedRows, truncated } = await fetchAllRows<CacheRow>(
       "slack messages",
       (from, to) =>
         supabase
@@ -115,10 +122,13 @@ export async function GET(req: NextRequest) {
           .select("item_id,item_date,content_text,collected_at,metadata_json")
           .eq("project_id", projectId)
           .eq("source", "slack")
+          .in("metadata_json->>channel_id", channelIds)
           .eq("ym", ym)
           .order("item_date", { ascending: false, nullsFirst: false })
           .range(from, to),
     );
+
+    const rows = fetchedRows.filter(row => matchesSlackArchiveTarget(row,targets,!auth.ok));
 
     // 発言者IDをメンバー名へ。社外の人はIDのまま残す。
     const userIds = new Set<string>();

@@ -48,7 +48,9 @@ export default async function Home() {
               {workspaces.map((workspace) => (
                 <li key={workspace.slug}>
                   <Link
-                    href={`/auth/login?audience=institution&workspace=${encodeURIComponent(workspace.slug)}&next=${encodeURIComponent(`/workspace/${workspace.slug}`)}`}
+                    href={workspaceAccess?.institutionWorkspaces.some((entry) => entry.slug === workspace.slug)
+                      ? `/workspace/${workspace.slug}`
+                      : `/auth/login?audience=institution&workspace=${encodeURIComponent(workspace.slug)}&next=${encodeURIComponent(`/workspace/${workspace.slug}`)}`}
                     className="flex min-h-11 items-center justify-between gap-3 px-4 py-3 text-sm transition-colors hover:bg-[#f4f1e7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#4338ca]"
                   >
                     <span className="font-medium">{workspace.name}</span>
@@ -63,7 +65,7 @@ export default async function Home() {
           )}
         </section>
 
-        <section
+        {memberAccess ? <section
           aria-labelledby="armada-heading"
           className="space-y-3 rounded-lg border border-[#e4ddcd] bg-white px-4 py-5 text-center"
         >
@@ -71,15 +73,25 @@ export default async function Home() {
             ARMADAメンバー
           </h2>
           <p className="text-sm text-[#5c584d]">
-            {memberAccess ? `${memberAccess.displayName}でログイン中` : "社内メンバーはこちらからログインしてください。"}
+            {`${memberAccess.displayName}でログイン中`}
           </p>
           <Link
-            href={memberAccess ? memberHome(memberAccess) : "/auth/login?audience=armada"}
+            href={memberHome(memberAccess)}
             className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[#4338ca] px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#3730a3] sm:w-auto"
           >
-            {memberAccess ? "ARMADA OSへ入る" : "ARMADAメンバーとしてログイン"}
+            ARMADA OSへ入る
           </Link>
-        </section>
+        </section> : !workspaceAccess && !ddScope ? (
+          <div className="space-y-3 text-center">
+            <Link
+              href="/auth/login"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[#4338ca] px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#3730a3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4338ca] sm:w-auto"
+            >
+              ログイン
+            </Link>
+            <p className="text-sm text-[#5c584d]">招待されたメールアドレスでログインしてください。</p>
+          </div>
+        ) : null}
       </div>
     </div>
   );

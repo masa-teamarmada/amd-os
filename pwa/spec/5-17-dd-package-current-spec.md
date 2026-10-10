@@ -1,5 +1,9 @@
 # DDパッケージ仕様（投資家・金融機関向けの開示面）
 
+## 2026-10-08 — DD本文入口のログイン状態（v3.162.5）
+
+DDのトップ、旧掲載項目、編集のページ入口は、内部memberまたは署名検証済みworkspace sessionが無いとき、パッケージの存在を調べる前に共通/auth/loginへ戻す。nextは同一originの元DD URLとtab/sectionを保持。欠落/空/改ざん/期限切れcookieでも404へ落とさない。有効sessionは従来のresolveDdPackageAccessを通し、停止・取消・期限・非公開・未付与は従来の404で閉じる。認証だけでDD grantを成立させない。API・添付・印刷は従来の応答を維持。検査test:dd-packageに実helper/pageの回帰検査を含める。
+
 2026-10-06: DDの「収支計画書」を資料目録から削除し「月次試算表」へ統一。旧URLは認可後に月次試算表へ転送。funding_plan項目も同ページに対応。SOLは指定された15か月資料v0.9（workspace document db8569d4-b583-4840-a1ce-4183b909dd67、2027-04〜2028-06）の現金予算をproject_monthly_cashflow.planning_details_jsonへ採用。売上入金を任意フィールドとして共通変換・残高検証へ対応し、標準C/Fと元データの支出・売上入金に表示。P/Lは現金予算から作らず、2028-07以降・会計登録値・資本政策を維持。DDは既存ProjectFinanceFormatを使用。市場調査はproject_config.market_researchのversion1/summaryMd/records DTOを認可済みPJ/key限定で読み、出所付きMarkdownと開閉式の19調査記録を掲載。SOLの専門家5名、共有整理、2月6シート、5月AI鉱山調査2件、参考PDFを保持し、AI生成・未回答・相違する数値を明示。既存schema/RLS/付与/PDF対象項目の変更なし。ネイティブDD画面は未移植、ブラウザで確認。
 
 ## 製品説明資料の明示登録（2026-10-06）

@@ -209,6 +209,12 @@ export function GlobalNav({
             badge: seedInboxCount,
           },
           {
+            label: "市場ニーズ",
+            href: "/seed-needs",
+            icon: Handshake,
+            title: "市場・企業ニーズと既存シーズの組み合わせ",
+          },
+          {
             label: "PJ運用",
             href: "/dashboard#pj-operations",
             icon: FlaskConical,

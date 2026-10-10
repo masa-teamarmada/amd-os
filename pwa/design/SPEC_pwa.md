@@ -1,5 +1,20 @@
 # SPEC — AMD OS PWA
 
+## 2026-10-08 — メールの数字でログイン（v3.162.7）
+
+PWAの外部ログインにコード入力を追加。メール申込後とworkspace_auth_failed/workspace_code_failed時は同じメール入力と数値コード欄を表示し、単一の「ログインする」でPOST /auth/callbackへ送る。初期画面は従来のメール入力、社内Google・書斎入口は維持。コードはURL・監査detailに載せない。
+
+POSTは同一originとform content-type、4 KiB、メール形式、6–10桁の数字を検査。attempt専用cookie名を新規生成し、Supabase verifyOtp(type=email)で本人確認する。申込時のPKCE cookieは不要。認証結果のemailと入力を照合し、既存handleWorkspaceLoginCallbackを再利用してactive/invited account・auth_user_id・既存所属/DD付与・停止/期限を検査する。local signOut後に既存の30日署名cookieのみを発行。POST後の遷移は303で検証済みnextを保持し、no-store/no-referrer。登録なし、停止、未付与、認証不一致、activation失敗はsession発行なし。
+
+共通Auth本文にTokenの数字を表示。ConfirmationURLは維持。リンクはコードを消費するため、リンクが失敗した場合は新しいメールを受け取り、リンクを押さずにコードを入力する。メールの生成・配信は本人操作。Auth/DB/SMTPの秘密値は保存しない。検査test:workspace-email-attemptsは実callbackの通信代替による成功/失敗と署名cookie/303を確認する。先生本人のログイン成功は別の実確認を必要とする。
+
+
+2026-10-08（v3.162.5）: PWAのDDページ入口は、内部memberも有効な外部sessionも無ければ元DD URLを保って共通ログインへ戻す。認証済みでも個別DD付与が必須。API/添付/印刷の認可・応答、ネイティブUI/認証方式は維持。spec/5-17・2-1、manual/2-1。
+
+## 2026-10-08 — 外部認証と公開入口
+
+外部メールのattempt別PKCE cookie、成功後/workspaces（DDのみ/dd）、匿名の共通ログイン、DB確認済みメンバー限定の社内入口。SMTP接続済み。初回/通常の認証メールを日本語と上部のログインボタンへ統一し、配信ごとの件名でGmailの重複省略を避ける。本文正本はios/supabase/templates。正本詳細はspec/2-1。
+
 2026-10-06: 登録した組織・協業図を3スペース共通で表示。project_config.organization_chartの構造化登録値を読み、組織案/登録済みを区別する。役割は箇条書き、協業は両矢印。未登録は既存ひな形。DBスキーマ・権限・正式版PDFは変更なし。正本spec 3-23「登録した組織・協業図の表示」、検証test:organization-chart。ネイティブ3クライアントは未移植。
 
 2026-10-06: 3スペース共通に「組織図」（organization-chart）を追加。全PJ共通の縦型ひな形、未登録表示、本文はProjectOrganizationChartを共用する。実データ・編集・DB・DD認可・正式版PDFは変更なし（spec/3-23・3-24・5-17）。アプリのタブ列背景は青灰色 #a8bdd3、選択中の白いタブとの色差を確保する（spec/2-1）。

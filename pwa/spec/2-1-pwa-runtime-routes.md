@@ -1,20 +1,45 @@
 # PWA ランタイム / ルート仕様
 
+## 2026-10-08 — メールの数字でログイン（v3.162.7）
+
+PWAの外部ログインにコード入力を追加。メール申込後とworkspace_auth_failed/workspace_code_failed時は同じメール入力と数値コード欄を表示し、単一の「ログインする」でPOST /auth/callbackへ送る。初期画面は従来のメール入力、社内Google・書斎入口は維持。コードはURL・監査detailに載せない。
+
+POSTは同一originとform content-type、4 KiB、メール形式、6–10桁の数字を検査。attempt専用cookie名を新規生成し、Supabase verifyOtp(type=email)で本人確認する。申込時のPKCE cookieは不要。認証結果のemailと入力を照合し、既存handleWorkspaceLoginCallbackを再利用してactive/invited account・auth_user_id・既存所属/DD付与・停止/期限を検査する。local signOut後に既存の30日署名cookieのみを発行。POST後の遷移は303で検証済みnextを保持し、no-store/no-referrer。登録なし、停止、未付与、認証不一致、activation失敗はsession発行なし。
+
+共通Auth本文にTokenの数字だけを表示し、メールの認証リンクとログインボタンは置かない（2026-10-09）。使用済み・期限切れコードの場合は新しいメールを受け取って入力する。メールの生成・配信は本人操作。Auth/DB/SMTPの秘密値は保存しない。検査test:workspace-email-attemptsは実callbackの通信代替による成功/失敗と署名cookie/303を確認する。先生本人のログイン成功は別の実確認を必要とする。
+
+
+## 2026-10-08 — DD入口の認証状態（v3.162.5）
+
+DDのトップ、旧掲載項目、編集のページ入口は、内部memberまたは署名検証済みworkspace sessionが無いとき、パッケージの存在を調べる前に共通/auth/loginへ戻す。nextは同一originの元DD URLとtab/sectionを保持。欠落/空/改ざん/期限切れcookieでも404へ落とさない。有効sessionは従来のresolveDdPackageAccessを通し、停止・取消・期限・非公開・未付与は従来の404で閉じる。認証だけでDD grantを成立させない。API・添付・印刷は従来の応答を維持。検査test:dd-packageに実helper/pageの回帰検査を含める。
+
 ## 外部メールログインの配信前提（2026-10-08確認）
 
 `/api/auth/email-start`は利用可能なaccount/付与の検査と送信claimの後にPKCEの`signInWithOtp`を呼ぶ。権限付与や申請の承認自体ではメールを送らない。HTTP 200は登録有無を漏らさない共通応答なので、配信成功を意味しない。運用の完了は権限、`email_start_sent`、本人の受信、`callback_login_success`、対象面の実閲覧を別々に確認する。
 
-本番配信にはSupabase Authのcustom SMTP、または明示採用済みSend Email hookが必要。標準配信は試用向けで、組織メンバー外と送信数に制限がある（[公式仕様](https://supabase.com/docs/guides/auth/auth-smtp)）。2026-10-08時点の本番は両方未設定・2通/時で、実際の利用者操作は`email rate limit exceeded`で停止。配信先・送信元・認証情報を確認して接続するまで、外部メールログインが運用可能と断定しない。秘密値はrepoや監査detailへ保存しない。既存のreadonly/DD境界、共通応答、PKCEは維持する。
+本番配信にはSupabase Authのcustom SMTP、または明示採用済みSend Email hookが必要。標準配信は試用向けで、組織メンバー外と送信数に制限がある（[公式仕様](https://supabase.com/docs/guides/auth/auth-smtp)）。2026-10-08に会社GoogleメールのSMTP（smtp.gmail.com:465、送信元masa@team-armada.jp、表示名チームアルマダ OS）を接続し、SMTP認証と本番設定の読戻しを確認。送信上限は30通/時、Send Email hookは未使用。まさ本人の操作でasahinaへの送信と受信を確認した。メール到着を認証完了と同一視しない。秘密値はrepoや監査detailへ保存しない。既存のreadonly/DD境界、共通応答、PKCEは維持する。
 
 2026-10-07: AMD OSの`/auth/login`は全員共通のメール入力と「続ける」１つに統一。`resolveLoginEntry`がtrim/lowercaseと形式検証の後、メールのdomainが厳密に`team-armada.jp`なら既存portfolio Google OAuth（Calendar/Gmail readonly、offline、consent、入力メールをlogin_hint）へ、それ以外なら既存`/api/auth/email-start`へ進める。subdomainや似たdomainは社内扱いにしない。domainは認証方式の選択だけで、付与・利用可否は既存callback/DB/RLSが検査する。旧`audience`/`workspace`queryによるUIの並べ替えとPJログインボタンは廃止し、`next`は両方式で引き継ぐ。旧project callbackの認可は維持。書斎hostは既存管理者用Google入口を維持する。未登録・未許可・送信抑制の200応答は同じ案内を表示。通信失敗は入力を保った再試行案内にする。入力・主操作48px、入力文字16px、横溢れなし。メール実送信・権限変更を伴わない画面検証を行う。
 
-2026-10-08: callbackのコード未付与・交換失敗・user取得失敗時は、`login_scope=workspace`なら`workspace_auth_failed`、他は`auth_failed`で共通入力へ戻す。`sanitizeNextPath`を通した`next`を失敗時も保存し、codeは戻さない。一般失敗にGoogle Workspaceを要求せず、外部認証失敗はメール入力と同じブラウザで最新リンクを開く案内にする。account不在・権限不足・activation失敗は管理者確認の案内を維持し、再入力だけで直ると扱わない。書斎の管理者専用入口はメール入力を要求しない。SMTPの未設定は別の未解決条件として残る。
+2026-10-08: callbackのコード未付与・交換失敗・user取得失敗時は、`login_scope=workspace`なら`workspace_auth_failed`、他は`auth_failed`で共通入力へ戻す。`sanitizeNextPath`を通した`next`を失敗時も保存し、codeは戻さない。一般失敗にGoogle Workspaceを要求せず、外部認証失敗は新しいメールのコード入力を案内する（2026-10-09）。account不在・権限不足・activation失敗は管理者確認の案内を維持し、再入力だけで直ると扱わない。書斎の管理者専用入口はメール入力を要求しない。SMTP接続状態は上記の配信前提に従う。
 
 2026-10-06: ホームとコックピットの全体メニューは左上のメニューアイコン「≡」で開く左ドロワー。常設の全体サイドバーは出さず、既存のホーム・研究機関・シーズ・管理・資料などの入口を保持する。閉じるボタン、背景クリック、Escape、リンク選択で閉じ、キーボードフォーカスを開くボタンへ戻す。ホームのPJカード（研究機関・シーズ・事業会社・PJ運用一覧）と全体メニューのPJリンクは別タブを既定とし、PJ未登録の候補詳細と一覧・ページ内アンカーは同じタブで開く。
 
 2026-10-04: `GET /api/project/[projectId]/workspace-meetings` は `resolveSharedWorkspaceAccess(projectId)` の毎回判定後に当該PJの会議／動向だけを返す（private/no-store）。`GET /api/slack/messages?projectId=...` も当該PJの共有所属の読み取りを許す。DD付与だけの人は両APIへ入れない。
 
 > **この章は何か**: AMD OS PWA の実行環境、主要 route、API / cron / auth の確定仕様。詳細な履歴や長い route 説明は `pwa/design/SPEC_pwa.md` にも残す。移行中は両方を更新する。
+
+## ログインメールの件名と本文（2026-10-09）
+
+共通Authのmagic_link/confirmationは日本語の件名と同じ本文を使用。件名は`AMD OS ログインコード（{{ .Token }}）`で配信ごとに変わり、Gmailで同じ会話へまとまることを避ける。本文正本は`ios/supabase/templates/workspace-login.html`、件名とcontent_pathは`ios/supabase/config.toml`。Tokenを28pxの等幅数字で表示し、ログイン画面へ戻って入力するよう案内する。ConfirmationURL・認証リンク・ログインボタン・画像・非表示本文・引用は置かない。`amie_auth_email_templates.py`がコード一つと日本語本文を必須にし、リンク・ボタン混入を拒否する。既存POST verifyOtpの本人確認・認可を使用する。過去メールのGET callbackと社内Googleは互換維持。
+
+本番は`python3.12 scripts/amie_auth_email_templates.py --apply`でsubject/contentの4項目のみPATCHし、読戻し一致と他Auth設定の不変を確認する。既に一致すれば再PATCHしない。秘密値・配信URL・OTP展開後の件名を出力しない。配信は本人の操作。設定一致/見本表示と実Gmailの省略有無は別々に検証する。2026-10-08 18:57 JSTの本番4項目一致、他Auth不変を確認済み。
+
+## 外部メールの認証と共通ポータル（2026-10-08）
+
+外部メール開始はrate-limit claim後にUUID v4のattemptを発行し、callbackへ引き継ぐ。PKCE cookieはattemptごとの`sb-workspace-<UUID>-auth-token`、HttpOnly/SameSite=Lax/Path=/、有効期間1時間、本番Secure。社内Googleログインや別のメール要求が既に配信したリンクのverifierを上書きしない。callbackは厳密に検証したattemptのcookieだけで交換する。attempt不正はfail closed、以前の配信済みリンク（attemptなし）は旧cookieを使う。コード交換失敗は既存監査のcallback_login_deniedへ理由とisolatedAttemptの真偽だけを記録し、リンク・code・verifier・未登録メールは残さない。アカウント有効化、停止/取消/期限の判定、local signOutと署名付き外部cookie、DDとworkspaceの独立認可は維持する。
+
+外部ログインでnext=/なら許可済み一覧/workspaces、DDのみなら/ddへ進む。共有資料の検証済みnextは保持する。研究機関全体の/workspace/<slug>がnextに残っていても、DB確認済みの機関所属が無ければ本人の許可済み一覧へ進む。PJ単位の許可を機関全体の許可へ広げない。公開トップは自動転送しない。匿名入口は「ログイン」だけで、社内専用カードはDB確認済みメンバーだけに表示する。外部ログイン済みは許可済み一覧へのリンクを表示し、所属済み研究機関の行は直接そのworkspaceへ進む。表示の有無によって認可を成立させない。
 
 ## 実行環境
 
@@ -111,6 +136,7 @@
 | `/knowledge-map` | AMD Materials。高校生でも読める日本語で118元素を熱色・日本語主用途・供給警報から俯瞰し、元素の小窓で直近公表相場・5年推移・産出国円グラフを確認する。総合値は4指標合計（20点満点）で、周期表以外は合計の高い順。全材料横断の需給の崩れランキングは専用の偏りの強さ（5点満点）で並べ、不足側、供給過剰側、価格乱高下を区別し、原因、供給が詰まる工程、評価時点、確からしさを示す。全体の入口はカード全面で操作できる。元素・鉱物・樹脂は選択直後に要点の小窓を開き、詳細操作で同じ小窓を拡張する。樹脂の詳細では原料と製造方法も確認できる。比較、従来のノウハウ地図まで横断する読み取り専用の材料データベース |
 | `/business-cards` | 名刺管理。スマホ撮影 / 写真選択 → Gemini OCR → 人の確認 → 1件以上のPJ紐付け → `business_cards` と D-3 `project_knowledge(category='people')` へ保存する。OCR結果は自動確定しない |
 | `/native/business-cards` | iOS名刺タブ用のナビ無しnative shell。通常の月初合意overlayを重ねず、認証cookieつきWKWebViewから `/business-cards` と同じUI/APIを使う |
+| `/seed-needs` | 社内portfolioの市場・企業ニーズ×既存シーズ一覧。記入例/実際の蓄積、追加編集、未接続、根拠・研究設計。RLSと詳細は5-19 |
 | `/poc` | PoC案件化。Seeds とPoC先を入力し、その掛け合わせからヒアリング論点、PoC条件、謝礼、契約、資金、収益分配を追う |
 | `/venture-map/amd-score` | 現行SPS一覧。`sps-ind-v1 / q-eval-v2 / rubric-v1.1 / p-ind-v1`だけを表示 |
 | `/project/[projectId]/cockpit?tab=score-detail` | PJ cockpit 内の現行SPS詳細。BZM 2.2は同じBZMから出る別の出力として、合算せず続けて表示 |
@@ -266,7 +292,7 @@ migration 212 / 213 / 216〜219 / 258 と対になる contract。212 / 213は202
 共通`PageHistoryToolbar`右上の`PageViewing`に丸い頭文字と人数を表示し、「閲覧中」「閲覧履歴」を切り替える。社内共通枠、共有PJ、DDで共用。印刷・書斎・native専用枠は対象外。ネイティブUIは未移植。
 
 - PJ・領域・選択済みページ名で区別する。`ProjectPageTitle`が`amie-page-selection`を通知。query/hashだけでなく解決済みの表示状態を使い、サーバでproject-formatsのタイプ別ページ、DD目録、外部タブの許可リストを検証する。URL/query/hash、メール、本文、入力、検索語を保存しない。一般画面はpathname単位。マイページ・月初合意・契約・立替・通知・参加PJは本人の名前空間。
-- `POST /api/page-viewing`は表示中タブだけ10秒ごとに更新。非表示・pagehide・切替・アンマウント時にkeepalive退出。通信断は30秒TTL。1人の複数タブは1人。8秒timeout、失敗時は古い一覧を消す。200session超は＋表示。document.visibilityState基準であり、視線・読了・実作業時間を判定しない。
+- `POST /api/page-viewing`は表示中タブだけ1分ごとに更新。初回表示・表示復帰・画面内ページ切替・閲覧情報パネルを開く操作は即時更新。非表示・pagehide・切替・アンマウント時にkeepalive退出。通信断は3分TTL（更新間隔の3倍）。1人の複数タブは1人。8秒timeout、失敗時は古い一覧を消す。200session超は＋表示。document.visibilityState基準であり、視線・読了・実作業時間を判定しない。
 - `GET /api/page-viewing?pathname=...&pageLabel=...&history=1`は読取り専用。POSTは同一Origin、2KiB上限、UUID、単調増加revisionを検証。全応答private/no-store。毎回既存member/個別surface grant/PJ所属/外部membership/DD grantを再検証。DD項目は所属・active・公開を確認。失敗は一律404、未対応専用画面はUIを出さない。権限追加・対人通知なし。
 - `os_page_viewer_sessions`はsession UUIDごとの一時状態、`os_page_viewing_visits`はvisit UUIDごとの永続履歴。service-only RPC `amie_update_page_viewer`は同一transactionで更新、revisionで遅れたheartbeat/leaveを拒否し別actorのsession上書きを拒否。heartbeatでは履歴を増やさない。退出後に戻ると新visit。1日超の一時sessionだけ通常更新時に掃除し、履歴は削除しない。
 - 両tableはRLS有効でanon/authenticated権限なし。RPCもservice_roleのみ。外部の履歴は本人のactor_keyに限定。内部は認可された同一画面の履歴だけ。開始日時の降順50件、日本時間で表示。名前は登録済みmembers/display_nameから解決、未登録なら氏名未登録。横断監視や滞在時間推定は持たない。
@@ -274,3 +300,13 @@ migration 212 / 213 / 216〜219 / 258 と対になる contract。212 / 213は202
 
 
 2026-10-08: `/admin/workflows`（active admin）、`/admin/kiyo?task=workflows`（既存admin shell）に押印承認。`/api/workflows`・`/api/workflows/[requestId]`はcookie admin+active本人照合、書込みservice-only RPC。`/api/cron/contract-mail-watch`はCRON_SECRET Bearerだけ、GAS5分trigger、maxDuration240秒。メールの読み取り・Slack個別DMのみ。正本spec5-6。
+
+## 2026-10-10 外部開示とSlack保存の修正
+
+Slackの全文保存は、無料ワークスペースの履歴保持を目的とした明示登録に限定する。`project_slack_sources.archive_enabled`と`workspace_shared`は独立した設定で、AMD（armada/teamarmadahq）は双方falseをDB制約で固定。保存先のトリガーも同じ登録・チャンネル・HTTPSドメインを照合する。旧AMD backfillは廃止。取得元不明の行は共有しない。SOLの既存enabled対象だけを初期共有対象にし、他のdisabled対象を有効化しない。
+
+共有の動向・会議、テーマの会議ピッカー、DDの経営会議・活動は`workspace_shared=true`だけを取得。会議・動向・活動の既存行を自動公開しない。準備本文・準備状態・作業者情報は共有会議の返却対象外。共有本文を確認するまでは会議一覧は空になる。内部コックピットは内部認証で読む。会議・経営動向・活動・PJ設定の直接読取りはactiveな内部PJ権限に限定し、匿名と外部Auth利用者に許さない。共有資料・権限付与の範囲は維持。
+
+まさの明示指示により人物評価の独立記録3件と派生本文を削除し、AMD Slack保存2939件を除去。変更履歴の本文・復元値も対象を限定して除去し、時刻・対象・削除理由だけを残す。履歴保護は処理トランザクション終了時に復旧。削除済み行の識別子と本文ハッシュだけを非公開スキーマで持ち、同一内容の再登録を拒否する。元のSlack投稿・Drive/Notion原本・バックアップ・Git過去履歴の削除はこの作業に含まない。モデル数式・SPSの計算値は変更しない。
+
+検証: `test:external-disclosure`、DBの匿名/外部/内部権限照合、既知削除箇所の残件数、監査トリガー復旧、SOLログ247件保持。個人評価の本文・秘密値を検証ログや公開文書へ保存しない。

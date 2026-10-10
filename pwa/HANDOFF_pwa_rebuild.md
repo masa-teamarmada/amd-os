@@ -1,14 +1,99 @@
+
+
+## 2026-10-10 外部開示とSlack保存の修正
+
+Slackの全文保存は、無料ワークスペースの履歴保持を目的とした明示登録に限定する。`project_slack_sources.archive_enabled`と`workspace_shared`は独立した設定で、AMD（armada/teamarmadahq）は双方falseをDB制約で固定。保存先のトリガーも同じ登録・チャンネル・HTTPSドメインを照合する。旧AMD backfillは廃止。取得元不明の行は共有しない。SOLの既存enabled対象だけを初期共有対象にし、他のdisabled対象を有効化しない。
+
+共有の動向・会議、テーマの会議ピッカー、DDの経営会議・活動は`workspace_shared=true`だけを取得。会議・動向・活動の既存行を自動公開しない。準備本文・準備状態・作業者情報は共有会議の返却対象外。議事録末尾に埋め込まれた会議前準備メモと非公開の決議注釈も除外。Slackの旧表示キャッシュキーは更新して再取得する。共有本文を確認するまでは会議一覧は空になる。内部コックピットは内部認証で読む。会議・経営動向・活動・PJ設定・知識・月報・経営評価の元データの直接読取りはactiveな内部PJ権限に限定し、匿名と外部Auth利用者に許さない。共有資料・権限付与の範囲は維持。
+
+まさの明示指示により人物評価の独立記録3件と派生本文を削除し、AMD Slack保存2939件を除去。変更履歴の本文・復元値も対象を限定して除去し、時刻・対象・削除理由だけを残す。履歴保護は処理トランザクション終了時に復旧。削除済み行の識別子と本文ハッシュだけを非公開スキーマで持ち、同一内容の再登録を拒否する。元のSlack投稿・Drive/Notion原本・バックアップ・Git過去履歴の削除はこの作業に含まない。モデル数式・SPSの計算値は変更しない。
+
+検証: `test:external-disclosure`、DBの匿名/外部/内部権限照合、既知削除箇所の残件数、監査トリガー復旧、SOLログ247件保持。個人評価の本文・秘密値を検証ログや公開文書へ保存しない。
+
+| 棚卸し | 正本 | 状態 |
+|---|---|---|
+| 共有コンテンツ・保存・DB認可 | spec2-1/3-1/3-23・L2_DATA | 同期済み |
+| 操作・保存の目的 | manual2-3/3-2/9-3 | 同期済み |
+| 理論・数式 | bzm/model | 対象外 |
+| 全クライアント境界 | ios/DESIGN | 同期済み。DB適用済み、再適用禁止 |
+| ネイティブUI | ios/macos/android | 未変更。内部JWTはPJ認可、外部は共通共有APIを使う |
+
 # HANDOFF - AMD OS PWA
 
-## 2026-10-08 外部ログインのメール配信待ち
+## 2026-10-10 — 関係先の全件初期表示と削除（v3.162.11）
+
+全PJの初期分類を全関係先へ統一。進捗・履歴上部に管理権限者向け「関係先を削除」を追加し、対象名つき確認後に既存partner soft-delete APIを呼ぶ。成功bundleを表示し、失敗時は行を残す。履歴・出典・schema・理論は変更なし。
+
+| 仕様変更 | 設計正本 | マニュアル | 状態 |
+|---|---|---|---|
+| 全関係先の初期表示・削除操作 | spec/3-16 | manual/2-3 | 同期済み |
+| 履歴 | spec/6-1 | manual/9-3 | 同期済み |
+| 他プラットフォーム | ios/HANDOFF_ios_to_pwa | 対象外 | 今回PWAのみ、既存API契約維持 |
+| 理論・評価式 | bzm | 対象外 | 変更なし |
+
+
+## 2026-10-09 — ログインメールをコード入力に統一（v3.162.9）
+
+まさがSafariで申込→メールのリンクでChrome起動→認証失敗を再現。共通Authの初回/通常メールから認証リンクとログインボタンを削除し、数字コードとログイン画面へ戻る案内に統一。PWAの申込前・送信後・旧リンク失敗時の説明もコード入力へ統一。既存verifyOtp・社内Google・認可・DB・理論は変更なし。配信操作と先生本人のログイン成功は本人による実確認が必要。 2026-10-09: 共通Authの件名・本文4項目の一致と他Auth設定不変を本番読戻しで確認（メール送信なし）。外部Chromeの1636px/320pxでコード本文とPWA入力を確認、横溢れなし、入力・主操作48px・再申込44px。実callbackの通信代替検査と型/変更箇所の静的検査を通過。先生本人の受信・ログイン成功は未確認。
+
+
+| 仕様変更 | 設計正本 | マニュアル | 状態 |
+|---|---|---|---|
+| 外部メールのボタン削除・コード入力の案内 | spec/2-1、ios/supabase/templates、ios/DESIGN | manual/2-1、9-3 | 同じ変更で同期 |
+| 理論・評価式 | bzm | 対象外 | 認証案内のみ |
+| 他プラットフォーム | HANDOFF_pwa_to_native_viewing | 対象外 | 共通メールがコードのみ。ネイティブは社内Google、外部はPWAコード入力 |
+
+## 2026-10-08 — 外部メールのコード入力（v3.162.7）
+
+PWAへメールの数字でログインする入力欄とPOST callbackを追加。申込ブラウザのPKCE cookieを使わず本人確認し、既存のaccount/所属/DD付与検査と30日外部sessionを再利用する。リンクで失敗した場合は新しいメールを受け取り、ボタンを押さずコードを入力する。共通Auth本文にTokenを表示。社内Google・Swift UI・DB認可・理論は変更なし。先生本人の再ログイン成功は未確認。 2026-10-08、本番v3.162.7 / a66b48c774c1c0c451a66cdde0ac412b5812944eを通常deploy.shで反映、公開build-info一致を確認。共通Authテンプレート4項目を読戻して一致、他Auth設定不変。実Authのasahinaコード検証は本番でもSOL workspace/DD一覧・SolvioraX DD本文200・使用済みコード拒否・外部署名cookieのみを確認（メール送信なし、先生本人の実績と区別）。Chrome本番のコード入力欄を確認し、390pxの画面証跡は/tmp/amie-workspace-code-production-20261008.png。先生本人の新規メール受信とログイン成功は未確認。 実Authのasahina検証では、メールを送らず生成したコードをPKCE cookieなしで入力し、SOL workspace/DD一覧・DD本文200・使用済みコード拒否を確認。PC1440px/スマホ390・320pxで入力48px・操作44px以上・横溢れなし。型/静的検査・Auth/DD回帰検査を通過。
+
+| 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
+|---|---|---|---|
+| 数値コード入力・POST本人確認・失敗時の再発行案内 | spec/2-1、SPEC_pwa、BUGS | manual/2-1 | 同期済み |
+| 共通Auth本文のコード | ios/supabase/templates | manual/2-1 | 本番4項目一致・他Auth不変を読戻し済み |
+| 変更履歴 | spec/6-1 | manual/9-3 | 同期済み |
+| 他プラットフォーム | ios/DESIGN、HANDOFF_pwa_to_native_viewing | 対象外 | ネイティブUI未変更・ConfirmationURL維持 |
+| DB・認可・理論・model | 既存契約維持 | 対象外 | 変更なし |
+
+
+2026-10-08: 杉浦先生の別大学メールsugiura.miwa.me@ehime-u.ac.jpはp21 readonly invitedのみでDD付与なしだった。2人へSOL workspace/DDを許可する既存指示に合わせ、停止行/重複なし・account invited・SOL package open・admin actorを確認してDD sol invited/dd.view/無期限を追加。DB読戻し・admin_dd_mutation監査を確認。accountは本人認証前にactive化せず、メール送信なし。主大学メールと石原先生の大学/Gmailは両方のinvited付与あり。
+
+## 2026-10-08 — v3.162.5 DDの404
+
+asahina Chromeの/dd/solで404、同じブラウザの/workspacesでもログインへ戻る。DBのSOL DD付与は有効で再付与不要。callback成功後にCookieが空になった原因は未確定。DDページ入口にセッション検証を追加し、元DD URL/tabを保って再認証へ戻す。本文前の個別grant検証・API/添付/印刷の認可は維持。実helper/pageの欠落/空/改ざん/期限切れ/未付与/許可正常を検査し、既存DD検査を通過。ローカルHTTPでも空/改ざんCookieは元tabを保つ307、既存asahina付与の120秒検証用sessionではSOL本文200を確認（本人の閲覧実績とは分ける）。本人の再認証からDD本文までの実確認は反映後に行う。メールのボタン初期表示は本人確認済み。
+
+| 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
+|---|---|---|---|
+| DDページ入口の再認証・next保持 | spec/5-17・2-1、SPEC_pwa、BUGS | manual/2-1 | 同期済み |
+| 履歴 | spec/6-1 | manual/9-3 | 同期済み |
+| 他プラットフォーム | ios/DESIGN、native handoff | 対象外 | ネイティブ未変更 |
+| DB・認可・理論・model | 既存契約維持 | 対象外 | 変更なし |
+
+## 2026-10-08 18:57 JST — ログインメールの表示
+
+Gmailの「…」の中へ英語の既定本文が隠れるとの指摘。初回confirmationと通常magic_linkを日本語の「ログインする」ボタンへ統一。件名は配信ごとのTokenで変えて同じスレッドへまとめられないようにする。正本はios/supabase/templates/workspace-login.htmlとconfig.toml。管理APIへの4項目PATCH/readbackで一致と他Auth設定不変を確認済み。1636/390/320pxのChrome見本は初期表示・操作56px・横溢れなし。メール送信なし。まさ本人の新規受信で、Gmailのログインボタン初期表示と日本語の配信件名を確認済み。PWA実行コードは変更しないためproductionはv3.162.4のまま。
+
+## 2026-10-08 外部メール認証と共通入口
 
 未特定申請の行き先選択はcdcdf1cc / v3.161.21をmainへpushし、production Readyと公開build-infoの一致を確認済み。SQLの複合readonly付与・停止権限保護・rollback、管理画面のPC/390px表示を確認。ネイティブ管理UIは未移植。
 
-閲覧許可とメールログインは別状態。利用者による本番ログイン操作が`email rate limit exceeded`で失敗した。Authのcustom SMTP/Send Email hookが未設定で標準2通/時。配信サービス・送信元・認証情報の確認をまさへ依頼中。権限の付け直しや一括取消は不要。詳細と受入条件はBUGSの「本番メール配信が未設定」とspec2-1。次は既存の配信設定の有無を確認して接続する。本人の実着・ログイン完了は未確認。
+会社GoogleメールのSMTP認証と本番設定読戻しを確認済み。上限30通/時、送信hookなし。他Auth設定は変更なし。まさ本人のasahinaテストで送信と受信を確認したが、PKCE交換がbad_code_verifierで失敗した。v3.162.3ではメール要求ごとにcookieを独立させて上書きを防ぎ、認証成功後は許可済み一覧へ進む。匿名トップの社内専用カードを共通ログインへ変更。反映後、まさ本人が新しいメールを開き「SOLのワークスペースとDDの一覧が出た」と確認。09:47:37 UTCのcallback_login_success、account active、p21 readonly active、DD sol active/dd.viewも読戻し済み。last_login_atは現行callbackが更新しないため、成功判定には使わない。v3.162.4では未所属の研究機関へのnextを許可済み一覧へ戻す。asahinaはSOL workspace/DDの付与のみで、EHM機関全体の付与は無いことをDBで確認。権限の再付与は不要。秘密値や認証URLは保存しない。
 
-2026-10-08 v3.161.22: 外部の先生へGoogle Workspaceを要求する失敗文言を修正。外部認証失敗は最新メールリンク、権限不足は管理者確認へ案内する。callbackの失敗時も検証済みnextを保存し、実GETの通信代替検査を追加。書斎・社内Google・既存認可は維持。メールの送信元設定はまだ未解決で、表示修正をログイン完了と扱わない。ネイティブログインUIは未変更。
+本番v3.162.4 / 52c96ac7259790012e52f45c3153ee9d16d668deはReady、公開build-info一致を確認済み。実SSRクライアントで旧共通cookieの400を再現し、メール2要求＋Google開始を挟んだ独立cookieの交換、HttpOnly/Secure/Lax属性、行き先を確認。型検査・変更箇所の静的検査・本番反映前の全ゲートを通過。実Next GETで不正attempt/コードなしの失敗時にnextを保持し秘密値を戻さないことを確認。Chromeで匿名・外部workspace・DDのみ・社内メンバーの入口と390pxの横溢れなし/44px操作を確認（表示状態の代替検査は本番へ含めない）。実メールによるログイン成功と許可済み一覧表示を確認済み。個々の先生の本人ログインとDD本文の確認は別扱い。
+
+変更はmainのclean clone `/tmp/amie-smtp-docs-20261008` で全てpush済み。正規checkoutは別作業の未push契約修正3件（c0f23546、3f11241e、f2a08962）を保護して同期保留。確認時はHEAD=f2a08962、ahead3/behind6。契約作業の担当が統合した後に再fetch・同期する。今回の修正を未push契約コードへ混ぜて再デプロイしない。SMTP入力用のローカルサーバーは設定確認後に停止済み。
+
+2026-10-08 v3.161.22: 外部の先生へGoogle Workspaceを要求する失敗文言を修正。外部認証失敗は最新メールリンク、権限不足は管理者確認へ案内する。callbackの失敗時も検証済みnextを保存し、実GETの通信代替検査を追加。書斎・社内Google・既存認可は維持。送信元設定は後続のSMTP接続で解決。表示修正をログイン完了と扱わない。ネイティブログインUIは未変更。
 
 2026-10-08 v3.161.20: 廃液の総額・残存費・未見積費はnullへ戻せる。総額500は上限の試算。490はオフサイト/濃度評価2件の写しを現在値へ同期済み、再適用しない。正本5-13、使い方2-3。燃料・数値計画・長期計画の制作元は不変。
+
+| 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
+|---|---|---|---|
+| メール認証cookie・成功着地・公開入口・SMTP接続 | spec/2-1、SPEC_pwa、BUGS | manual/2-1 | 同期済み |
+| 日本語ログインメールと配信ごとの件名 | ios/supabase/templates、spec/2-1 | manual/2-1 | 本番設定読戻し済み、実Gmailのボタン初期表示を本人確認済み |
+| 変更履歴 | spec/6-1 | manual/9-3 | 同期済み |
+| 他プラットフォーム | ios/DESIGN、HANDOFF_pwa_to_native_viewing | 対象外 | Swift UI未変更 |
+| DB・認可・理論・model | 既存契約維持 | 対象外 | 変更なし |
 
 ## 2026-10-06 ワークスペース見出しの密度
 
@@ -565,3 +650,59 @@ PWA先行。UIは`src/components/workflows/WorkflowWorkspace.tsx`、APIは`/api/
 最初の一手はGitHub/OS通信の復旧後、`git fetch origin main` とbranch/dirty/ahead/behindの再確認。ほかのmain更新があれば安全に統合してBUILD_VERSION v3.162.0を下げない。その後 `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` で一括push・Readyまで確認する。
 
 次にBearer付き `/api/cron/contract-mail-watch` を実行してGoogleアカウントがID001まさと一致すること、初回history基準の保存をreadback。GAS `amie_contractWorkflowWatchStatus` → `amie_setupContractWorkflowWatch`（重複なく1本）→ `amie_contractWorkflowWatch`、5分後のlast_successを確認。Slackの固定えいみ送信経路・2人の配信結果を確認し、実Chromeで `/admin/workflows` ときよの押印承認タブ、申請フォーム・狭幅を確認してから完了。テスト契約やメールを本番で捏造しない。未pushのためこのチャットはアーカイブ不可。
+
+## 2026-10-08 シーズ×ニーズ一覧（v3.162.1）
+
+実装は `/seed-needs`。正本spec5-19、使い方manual2-5。市場→企業の事業領域/強み/方針→企業ニーズ→seeds.idの接続。市場4/企業6/接続5の編集可能な記入例と実際の蓄積を分離。migration495/496適用済みで再適用禁止。既存seeds本体への書込みなし。専用ネイティブUIは未移植。
+
+DB rollback検査でmember保存・readback、外部拒否、区分混在/重複/誤った確認済/非存在seed/同時編集を確認。型検査と対象ESLint、新規結合・検索テストを実施。標準Turbopack production build（8192MB指定）成功。初回のwebpack検査は既存route exportの型制限に当たったため、依存をclone内へ複製して標準buildで検証。配布は通常deploy.shを使用し、本番build-infoと実ブラウザで確認する。
+
+共有checkoutには別作業の未push 3commitがあり、origin/mainから別のmain cloneで実装。別作業を混入させない。schema dumpには既に適用されていた別作業のDB列も現況として出力される。ローカル元checkoutをreset/stashしない。
+
+| 新仕様/変更 | 設計正本 | OSマニュアル | 状態 |
+|---|---|---|---|
+| 一覧・追加編集・未接続・記入例 | spec5-19 / ios DESIGN / FEATURE_REGISTRY | manual2-5 / 5-1 | 同期済み |
+| route・認可 | spec2-1 / spec5-19 | manual2-5 | 同期済み |
+| DB・保存・競合・参照キャッシュ | migration495/496 / db_schema / spec5-19 | manual2-5 | 同期済み |
+| 変更履歴 | spec6-1 | manual9-3 | 同期済み |
+| 理論・BZM / model | 変更対象外 | 対象外 | モデル変更なし |
+
+配布束: 新一覧・編集・DB migration・記入例・回帰検査・仕様一式。除外: 既存シーズ更新、外部共有、通知、別セッションの未push変更。反映先origin/main→amd-os-pwa。戻す場合はクライアントの本差分をrevertし版数を進め通常deploy、入力済みニーズをDROP/DELETEしない。
+
+2026-10-08 追補 v3.162.3: v3.162.1/621f7841はproduction Ready。Chromeで記入例6行、桑折検索2行、未接続1行、実際の蓄積0行、費用条件の編集・保存・再読込保持を確認。単独一覧を64pxへ揃え、設計書5-19を目次へ追加。
+
+表示検証: Chrome CSS実寸1440×900で組み合わせ6行（各64px）。390×843でページ全体の横はみ出しなし、表内だけ横スクロール。編集dialogは1列・16px入力・保存footerが表示範囲内。実行時errorなし。v3.162.3のproduction buildと対象ESLint成功。画面品質8/10以上、全文は行展開/編集で確認する。
+
+## 2026-10-08 シーズ×ニーズを視覚的な探索面へ（v3.162.6）
+
+ユーザーの「記録表だけでは複合体になっていない」という指摘を受け、初期表示を三層関係図に変更。市場・企業・シーズの分岐と合流を辿り、交点比較から個別接続を記録、全シーズから比較候補を追加できる。未接続ニーズから点線で新しい技術を構想。複数ニーズ/複数シーズを研究構想へ束ね、既存シーズゼロの新規研究も保存可。
+
+497/498は本番DB適用済み、再適用しない。seed_need_researchと3関連表、RPC一括保存・RLS・複合FK・競合検知。構想2件はすべて議論用の未検証例。個別matchやseeds本体へ自動昇格しない。初期4市場/6企業/5接続・既存816シーズの参照を維持。
+
+検証: 社内/外部/匿名境界、複数・ゼロシーズ、区分FK、古い編集拒否、リンク失敗時の本文rollbackを本番transactionで確認（検証行はrollback）。経路の隔離・同一seedの集約・検索/結合テスト。独立したローカル表示で1440×900と390×844の図・交点・横並び構想を確認。本番v3.162.6（539044ab）は2026-10-08に通常deploy.shで反映済み。認証済みChromeで1市場・2企業ニーズ・2シーズの研究仮説を保存し、再読み込み後も参照と研究内容が維持されることを確認。交点から企業・シーズを引き継ぐ編集、CSS実寸1440×900・390×843、文書横はみ出しなし、スマホ交点44px、ブラウザ実行時エラーなしを確認。比較表の横スクロールは枠内のみ。記入例は未検証、実際の蓄積へは追加していない。画面証跡は正規checkoutの .jez/artifacts/seed-needs-exploration-20261008.jpg。
+
+| 同期先 | 今回の更新 |
+|---|---|
+| 正本仕様 | spec5-19 / spec1-3 / spec6-1 / db_schema自動生成 |
+| 操作 | manual2-5 / manual9-3 |
+| 業務導線 | FEATURE_REGISTRY / ios DESIGN / macos PARITY |
+| 理論 | 変更なし |
+| 他プラットフォーム | iOS/macOS/Androidは専用UI未移植、共有DB追加のみ |
+
+元の共有mainには別作業の未push3件があるため変更せず、origin/mainの一時cloneで実装。共有checkoutのreset/stashや混在commitなし。
+
+今回の成果はorigin/mainと本番で整合。元checkoutは別作業の未push3件（f2a08962 / 3f11241e / c0f23546）があり同期未完。その3件はgit cherryで未反映と確認し保持。契約承認・メール取込の担当作業で統合するまでreset/rebase/stash/pushしない。今回の作業用main cloneは証跡保存後に撤去し、枝・worktreeは新設していない。新たな実装残件なし。会話の検討材料0件（製品仕様はspecへ記録）。
+
+
+## 2026-10-09 市場ニーズを主画面にする（v3.162.8）
+
+一市場一行・出典・国内世界/年別規模順位・確度・直接シーズ接続。正本spec5-19、使い方manual2-5。499/500は本番適用済みで再実行しない。記入例の金額は未評価。配布・実画面確認・作業用コピー整理はrepo rootのHANDOFF_MARKET_NEEDS_20261009.mdを参照。
+
+| 同期先 | 状態 |
+|---|---|
+| spec5-19 / spec1-3 / spec6-1 / db_schema | 同期済み |
+| manual2-5 / manual9-3 | 同期済み |
+| FEATURE_REGISTRY / ios DESIGN / macos PARITY | 同期済み、専用native UI未移植 |
+| 理論・model | 変更なし |
+
+2026-10-10 本番画面確認：DD沿革から助成金の内部備考を除外し、活動欄の説明を公開確認済みの記録に合わせた。金額・名称・期間と内部コックピットの備考は維持。

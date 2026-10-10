@@ -17,7 +17,7 @@ import type { SlackMessagesResult } from "@/lib/slack/slack-messages-types";
 const ENDPOINT = "/api/slack/messages";
 
 function keyOf(projectId: string, ym?: string) {
-  return `slack-messages:${projectId}:${ym || "latest"}`;
+  return `slack-messages:disclosure-v2:${projectId}:${ym || "latest"}`;
 }
 
 async function request(projectId: string, ym?: string): Promise<SlackMessagesResult> {

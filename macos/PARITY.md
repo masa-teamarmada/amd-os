@@ -134,3 +134,14 @@ PWAへ委譲する確認導線はSwiftUI `Link`で保持する。通常クリッ
 
 
 2026-10-08: PWA `/admin/workflows` および `/admin/kiyo?task=workflows` の押印申請/承認/履歴/監視状態はmacOS未移植。共通DBの承認強制・GAS/PWAメール監視は適用。移植正本pwa/spec5-6、pwa/HANDOFF_pwa_to_native_viewing。未移植項目は保持する。
+
+## 2026-10-08 追加未移植: /seed-needs
+
+市場・企業ニーズ・シーズ結合一覧、追加/編集、根拠・検証設計はPWA先行。新3表とRLSは共通。専用NativeScreenID/UIは未移植として保持。正本pwa/spec/5-19。
+
+2026-10-08追記: `/seed-needs` の三層関係図・交点比較・研究構想もPWA先行、native未移植。共有DBはseed_need_research+3関連表とRLS付き一括保存RPC。移植時は複数/ゼロシーズ、記入例と実データ、構想と台帳シーズを区別する。正本spec5-19。
+
+
+## 2026-10-09 市場ニーズを起点にした一覧
+
+PWA /seed-needs と左メニューを「市場ニーズ」へ。一市場一行に企業・シーズ・出典のリンクをまとめ、25件ずつ表示。国内/世界の年間市場規模を年別に保持し、同一地域・年の下限で順位付け。確度A/B/C/未評価は独立した手動評価。出典と評価理由が必須。市場/企業のsources、市場のmarket_sizes/confidence_rank/confidence_noteと、直接リンクmarket_need_seed_linksを追加。499/500は本番適用済みで再実行しない。JSONの出典参照・型・評価条件とRLS/競合を検査。既存seeds不変。補助図・個別接続・研究構想を保持。正本spec5-19、操作manual2-5。iOS/macOS/Androidの専用UIは未移植。

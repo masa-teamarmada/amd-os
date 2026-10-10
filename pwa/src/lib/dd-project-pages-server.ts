@@ -39,7 +39,7 @@ export async function loadDdProjectPage(projectId: string, page: string): Promis
   if (page === "team") return { ...base, page, empty: true, biographies: await loadProjectManagementBiographies(db, projectId) };
   if (page === "product-description") return { ...base, page, empty: true, productDescription: await loadProjectProductDescription(db, projectId) };
   if (page === "founding-background") return { ...base, page, empty: true, foundingBackground: await loadProjectFoundingBackground(db, projectId) };
-  if (page === "governance") return { ...base, page, empty: true, managementMinutes: await loadProjectManagementMinutes(db, projectId) };
+  if (page === "governance") return { ...base, page, empty: true, managementMinutes: await loadProjectManagementMinutes(db, projectId, true) };
   if (isDdEmptyPageKey(page)) return { ...base, page, empty: true, ...(page === "organization-chart" ? { organizationChart: await loadProjectOrganizationChart(db, projectId) } : {}) };
   if (page === "technology" || page === "competition" || page === "business-model") return { ...base, page, tech: await loadProjectTechData(db, projectId) };
   if (page === "financial-projection" || page === "monthly-trial") return { ...base, page, finance: await loadProjectFinancePage(db, projectId) };
@@ -87,10 +87,10 @@ export async function loadDdProjectPage(projectId: string, page: string): Promis
     return { ...base, page, portfolio: { canEdit:false, assets:assets.data??[], deadlines:deadlines.data??[], events:events.data??[], rights:rights.data??[] } as IpPortfolioBundle };
   }
   const [grants, acquisitions, activities, meetings, members] = await Promise.all([
-    db.from("project_grants").select("id,grant_name,agency,grant_type,amount_yen,disbursed_yen,status,is_current,adopted_date,period_start_ym,period_end_ym,notes").eq("project_id",projectId).order("is_current",{ascending:false}).order("adopted_date",{ascending:false,nullsFirst:false}),
+    db.from("project_grants").select("id,grant_name,agency,grant_type,amount_yen,disbursed_yen,status,is_current,adopted_date,period_start_ym,period_end_ym").eq("project_id",projectId).order("is_current",{ascending:false}).order("adopted_date",{ascending:false,nullsFirst:false}),
     db.from("project_bzm_2_2_acquisitions").select("*").eq("project_id",projectId).eq("status","active").order("occurred_on",{ascending:false}).order("created_at",{ascending:false}),
-    db.from("member_activities").select("id,member_id,ym,source,title,content_preview,item_date,extracted_at").eq("project_id",projectId).order("item_date",{ascending:false,nullsFirst:false}).limit(400),
-    db.from("project_meeting_summaries").select("meeting_id,ym,meeting_date,title,summary_short,decided,source_kinds").eq("project_id",projectId).lte("meeting_date",new Date().toISOString().slice(0,10)).order("meeting_date",{ascending:false}).limit(400),
+    db.from("member_activities").select("id,member_id,ym,source,title,content_preview,item_date,extracted_at").eq("project_id",projectId).eq("workspace_shared",true).order("item_date",{ascending:false,nullsFirst:false}).limit(400),
+    db.from("project_meeting_summaries").select("meeting_id,ym,meeting_date,title,summary_short,decided,source_kinds").eq("project_id",projectId).eq("workspace_shared",true).lte("meeting_date",new Date().toISOString().slice(0,10)).order("meeting_date",{ascending:false}).limit(400),
     db.from("members").select("member_id,code_name"),
   ]);
   const error = [grants,acquisitions,activities,meetings,members].find(r=>r.error)?.error;
@@ -98,5 +98,5 @@ export async function loadDdProjectPage(projectId: string, page: string): Promis
   const names = new Map((members.data??[]).map(r=>[r.member_id,r.code_name||r.member_id]));
   const items = [...(activities.data??[]).map(r=>normalizeActivityRow(r,id=>names.get(id)||id)), ...(meetings.data??[]).filter(r=>r.source_kinds!=="upcoming").map(r=>normalizeMeetingRow(r))].filter((item):item is AmdContributionItem=>item!==null);
   const rows = (acquisitions.data??[]).map(normalizeBzm22AcquisitionRow);
-  return { ...base, page:"activity", grants:grants.data as Grant[] ?? [], acquisitions:{projectId,displayOnly:rows.every(r=>r.numericBinding==="display_only"),acquisitions:rows}, contributions:buildAmdContributionsPayload({projectId,items,truncated:(activities.data??[]).length>=400||(meetings.data??[]).length>=400}), showAcquisitions:["su","new_business"].includes(projectFormatTypeOf({projectId,projectCategory:identity.data.project_category})) };
+  return { ...base, page:"activity", grants:(grants.data ?? []).map(row=>({...row,notes:null})) as Grant[], acquisitions:{projectId,displayOnly:rows.every(r=>r.numericBinding==="display_only"),acquisitions:rows}, contributions:buildAmdContributionsPayload({projectId,items,truncated:(activities.data??[]).length>=400||(meetings.data??[]).length>=400}), showAcquisitions:["su","new_business"].includes(projectFormatTypeOf({projectId,projectCategory:identity.data.project_category})) };
 }

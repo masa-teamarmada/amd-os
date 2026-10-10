@@ -143,3 +143,14 @@ console.log("DD management minutes: scoped held meetings, prep/dialogue/future/m
 
 assert.deepEqual(parseMeetingResolutions({ ...pairDocument, entries: [{ ...pairDocument.entries[0], detail: "" }] }, "fixture-hash", minutes[0]), [], "条件付き承認には条件が必要");
 assert.deepEqual(parseMeetingResolutions({ ...pairDocument, entries: [{ ...pairDocument.entries[0], attachmentItemIds: ["published-document"] }] }, "fixture-hash", minutes[0])[0].attachmentItemIds, ["published-document"]);
+
+// Publication is independent of internal minute resolution annotations.
+tables.project_meeting_summaries[0].workspace_shared = true;
+tables.project_meeting_summaries[0].narrative_md = "議事録本文\n## 会議前準備メモ\n社内の準備本文";
+const sharedMinutes = await loadProjectManagementMinutes(fakeDb(), "p21", true);
+assert.equal(sharedMinutes.length, 1);
+assert.equal(sharedMinutes[0].narrativeMd, "議事録本文");
+assert.deepEqual(sharedMinutes[0].resolutions, []);
+tables.project_meeting_summaries[0].workspace_shared = false;
+assert.deepEqual(await loadProjectManagementMinutes(fakeDb(), "p21", true), []);
+console.log("DD published minutes: private prep/resolution annotations excluded, unapproved rows closed");

@@ -1,0 +1,101 @@
+{
+  "date": "2026-10-10",
+  "scope": "AMD OS canonical records and recovery histories",
+  "deleted_records": [
+    {
+      "table": "project_strategy_signals",
+      "pk": "signal_id",
+      "id": "796e9f4c-f271-4626-b424-d7c32195649d"
+    },
+    {
+      "table": "project_org_observations",
+      "pk": "id",
+      "id": "6088b204-1533-436c-a761-e0c023fb417b"
+    },
+    {
+      "table": "project_knowledge",
+      "pk": "id",
+      "id": "71f110f9-c658-4265-9b0b-43aca2f1094c"
+    }
+  ],
+  "redacted_fields": [
+    {
+      "table": "project_meeting_summaries",
+      "key": {
+        "meeting_id": "ouf25bgoukki7ljafou1t0e13e_20260521T060000Z"
+      },
+      "fields": [
+        "narrative_md",
+        "risks"
+      ]
+    },
+    {
+      "table": "project_meeting_summaries",
+      "key": {
+        "meeting_id": "7ui75q9llsbfaidd4631kcoagu"
+      },
+      "fields": [
+        "narrative_md",
+        "risks"
+      ]
+    },
+    {
+      "table": "project_meeting_summaries",
+      "key": {
+        "meeting_id": "upcoming:p21:20260627:8e0ce455e322"
+      },
+      "fields": [
+        "narrative_md"
+      ]
+    },
+    {
+      "table": "amd_management_score_raw_signals",
+      "key": {
+        "id": "c2e3de96-3c8f-44b4-a8b1-43576a139303"
+      },
+      "fields": [
+        "payload"
+      ]
+    },
+    {
+      "table": "amd_management_score_raw_signals",
+      "key": {
+        "id": "77cf90c1-3178-4daa-b95b-66b6d9066c1d"
+      },
+      "fields": [
+        "payload"
+      ]
+    },
+    {
+      "table": "monthly_reports",
+      "key": {
+        "id": "89e1dda6-5020-4fa6-8082-1f428f61a1f7"
+      },
+      "fields": [
+        "draft_content"
+      ]
+    },
+    {
+      "table": "source_cache",
+      "key": {
+        "id": "cb7b6321-c26f-4c03-bc27-47c18981a0ee"
+      },
+      "fields": [
+        "content_text"
+      ]
+    },
+    {
+      "table": "source_cache",
+      "key": {
+        "id": "5a82c7dc-5893-400a-9df1-3326f290145e"
+      },
+      "fields": [
+        "content_text"
+      ]
+    }
+  ],
+  "internal_slack_snapshots_deleted": 2939,
+  "sol_slack_snapshots_retained": 247,
+  "anonymous_and_external_direct_read_count": 0,
+  "source_documents": "Original Slack/Drive/Notion and Git history are outside this erasure."
+}

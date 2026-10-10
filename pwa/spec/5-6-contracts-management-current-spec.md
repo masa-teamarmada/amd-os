@@ -361,3 +361,6 @@ mailbox+message IDのuniqueで重複検知を防ぐ。検知・申請イベン�
 ### 検証と適用限界
 
 `test:contract-workflows` は送受信・引用・ノイズ除外と操作権限を確認。DB試験 `check_contract_workflow_db.mjs` はtransaction/ROLLBACKで自己承認拒否、きよ限定承認、順序、二重申請、文書・条件変更、直接書込み拒否、2人分outboxを検証する。実データ・メールの捏造はしない。押印の実行API・電子署名サービスへの連携・印章の保管管理は未実装。OS内の手続きは承認で制御できるが、紙の印鑑や外部サービスでの操作をこの仕組みだけで物理的に止めることはできない。署名サービスの権限・印章管理は別途の設計が必要。
+
+
+2026-10-10: workflow_enqueue_event/guard_signed_status/invalidateのtrigger helperもpublic/anon/authenticatedのEXECUTEを撤回。migration20261010104759適用済み。service_roleとDB内部trigger以外の公開呼出し不可。UI/API/RPCの権限分離と配信triggerの動作をrollback試験で再確認する。

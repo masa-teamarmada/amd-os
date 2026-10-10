@@ -53,6 +53,6 @@ export function DdProjectPageBody({data,canDownload=false,resolutionDocuments=[]
     case "ip": return <CockpitIpPortfolio projectId={data.projectId} initialData={data.portfolio} />;
     case "company": return <CockpitCompanyOverview projectId={data.projectId} projectName={data.projectName} readOnly initialData={data.governance} initialBusinessSummary={data.businessSummary} canDownload={canDownload} confidential />;
     case "capital-policy": return <CockpitCapitalPolicy projectId={data.projectId} readOnly initialData={data.governance} />;
-    case "activity": return <div className="space-y-3"><CockpitGrants projectId={data.projectId} initialGrants={data.grants} disableAttachments />{data.showAcquisitions&&<Bzm22AcquisitionLedger projectId={data.projectId} initialPayload={data.acquisitions} />}<CockpitAmdContributions projectId={data.projectId} initialPayload={data.contributions} /></div>;
+    case "activity": return <div className="space-y-3"><CockpitGrants projectId={data.projectId} initialGrants={data.grants} disableAttachments />{data.showAcquisitions&&<Bzm22AcquisitionLedger projectId={data.projectId} initialPayload={data.acquisitions} />}<CockpitAmdContributions projectId={data.projectId} initialPayload={data.contributions} sharedView /></div>;
   }
 }

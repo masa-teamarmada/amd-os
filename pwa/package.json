@@ -9,6 +9,7 @@
     "test:function-bundles": "node scripts/check_function_bundle_storage.mjs",
     "start": "next start",
     "lint": "eslint",
+    "test:external-disclosure": "node --experimental-strip-types scripts/check_external_disclosure_boundary.mts",
     "test:deploy-version-guard": "node scripts/check_deploy_version_guard.cjs",
     "test:manual-search-japanese": "node --experimental-strip-types scripts/check_manual_search_japanese.mts",
     "test:textbook-destination-contract": "node scripts/test_textbook_destination_contract.mjs",
@@ -74,6 +75,7 @@
     "test:task-point-reward": "node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_task_point_reward.mts",
     "test:reward-participation-period": "node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_reward_participation_period.mts",
     "test:next-period-ui": "node scripts/check_next_period_ms_period_ui.cjs",
+    "test:workspace-email-attempts": "node --experimental-strip-types scripts/check_workspace_email_attempts.mjs && node --experimental-strip-types scripts/check_workspace_email_code.mjs",
     "test:critical-ui": "node scripts/check_pwa_critical_ui.cjs && node --experimental-strip-types scripts/check_cockpit_navigation.mts && node scripts/check_ui_design_code.mjs && node scripts/check_question_tree_task_review_contract.mjs && node --experimental-strip-types scripts/check_pictogram.mts",
     "test:cockpit-navigation": "node --experimental-strip-types scripts/check_cockpit_navigation.mts",
     "test:ui-design-code": "node scripts/check_ui_design_code.mjs",
@@ -210,7 +212,7 @@
     "test:admin-kiyo": "node --experimental-strip-types scripts/check_admin_kiyo.mts && node --experimental-strip-types scripts/check_invoice_expense_rule.mts",
     "test:workspace-capabilities": "node --experimental-strip-types scripts/check_workspace_capabilities.mts",
     "test:dd-confidentiality": "node --experimental-strip-types scripts/check_dd_confidentiality.mts",
-    "test:dd-package": "node --experimental-strip-types scripts/check_tech_qa_sort.mts && node --experimental-strip-types scripts/check_dd_package_core.mts && node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_dd_payload.mts && node scripts/check_dd_package_contract.mjs && node --experimental-strip-types scripts/check_dd_pages.mts && node --experimental-strip-types --import ./scripts/register_server_only_stub.mjs --import ./scripts/register_relative_ts.mjs scripts/check_dd_shared_page_data.mts && node --experimental-strip-types --import ./scripts/register_server_only_stub.mjs --import ./scripts/register_relative_ts.mjs scripts/check_dd_plan_document.mts && node --experimental-strip-types scripts/check_dd_confidentiality.mts",
+    "test:dd-package": "node --experimental-strip-types scripts/check_tech_qa_sort.mts && node --experimental-strip-types scripts/check_dd_package_core.mts && node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_dd_payload.mts && node scripts/check_dd_package_contract.mjs && node --experimental-strip-types scripts/check_dd_pages.mts && node --experimental-strip-types --import ./scripts/register_server_only_stub.mjs --import ./scripts/register_relative_ts.mjs scripts/check_dd_shared_page_data.mts && node --experimental-strip-types --import ./scripts/register_server_only_stub.mjs --import ./scripts/register_relative_ts.mjs scripts/check_dd_plan_document.mts && node --experimental-strip-types scripts/check_dd_confidentiality.mts && node --experimental-strip-types scripts/check_dd_page_session.mjs",
     "test:reward-payout-rounding": "node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_reward_payout_rounding.mts && node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_common_payout_protection.mts",
     "test:effluent-extraction": "node --experimental-strip-types scripts/check_effluent_component_extraction.mts",
     "test:project-gantt-roadmap": "node --experimental-strip-types scripts/test_project_gantt_roadmap.mts",
@@ -220,7 +222,8 @@
     "test:project-proper-nouns": "node --experimental-strip-types --import ./scripts/register_relative_ts.mjs scripts/check_project_proper_nouns.mts",
     "test:contract-workflows": "node --experimental-strip-types scripts/check_contract_workflows.mts",
     "test:contract-operational-checks": "node --experimental-strip-types scripts/check_contract_operational_checks.mts",
-    "test:page-viewing": "node --experimental-strip-types scripts/check_page_viewing.mts"
+    "test:page-viewing": "node --experimental-strip-types scripts/check_page_viewing.mts",
+    "test:seed-needs": "node --experimental-strip-types scripts/check_seed_needs.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",

@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies, headers } from "next/headers";
 
-export async function createClient() {
+export async function createClient(options?: { cookieName: string }) {
   const cookieStore = await cookies();
   const headerStore = await headers();
   const authorization = headerStore.get("authorization");
@@ -10,6 +10,16 @@ export async function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      ...(options ? {
+        cookieOptions: {
+          name: options.cookieName,
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax" as const,
+          path: "/",
+          maxAge: 60 * 60,
+        },
+      } : {}),
       cookies: {
         getAll() {
           return cookieStore.getAll();
