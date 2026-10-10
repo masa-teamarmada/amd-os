@@ -17,6 +17,9 @@ const route=fs.readFileSync("src/app/api/slack/messages/route.ts","utf8");assert
 const meetings=fs.readFileSync("src/app/api/project/[projectId]/workspace-meetings/route.ts","utf8");assert.ok(meetings.includes("sharedOnly:true"));assert.ok(meetings.includes('.eq("workspace_shared",true)'));assert.ok(meetings.includes("prepDraftMd:null"));
 const workspace=fs.readFileSync("src/lib/project-workspace.ts","utf8");assert.ok(workspace.includes('.eq("workspace_shared",true)'));assert.ok(!workspace.includes('select("meeting_id,title,meeting_date,prep_draft_md'));
 const dd=fs.readFileSync("src/lib/dd-project-pages-server.ts","utf8");assert.ok(dd.includes("loadProjectManagementMinutes(db, projectId, true)"));assert.ok(dd.includes('item_date,extracted_at").eq("project_id",projectId).eq("workspace_shared",true)'));
+assert.ok(dd.includes('notes:null'));
+assert.ok(!dd.includes('period_start_ym,period_end_ym,notes'));
+assert.ok(fs.readFileSync("src/components/dd/DdProjectPageBody.tsx","utf8").includes('initialPayload={data.contributions} sharedView'));
 console.log("Disclosure boundary: positive provenance, channel publication, AMD/unknown/spoof rejection, prep and DD protection OK");
 
 // Execute the actual handlers with controlled auth and PostgREST transports.

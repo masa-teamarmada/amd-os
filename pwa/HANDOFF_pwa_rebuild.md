@@ -676,3 +676,5 @@ DB rollback検査でmember保存・readback、外部拒否、区分混在/重複
 | manual2-5 / manual9-3 | 同期済み |
 | FEATURE_REGISTRY / ios DESIGN / macos PARITY | 同期済み、専用native UI未移植 |
 | 理論・model | 変更なし |
+
+2026-10-10 本番画面確認：DD沿革から助成金の内部備考を除外し、活動欄の説明を公開確認済みの記録に合わせた。金額・名称・期間と内部コックピットの備考は維持。

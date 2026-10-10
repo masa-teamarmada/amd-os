@@ -78,29 +78,29 @@ function MonthBlock({ ym, items }: { ym: string; items: AmdContributionItem[] })
   );
 }
 
-export function CockpitAmdContributions({ projectId, initialPayload }: { projectId: string; initialPayload?: AmdContributionsPayload }) {
-  const [payload, setPayload] = useState<AmdContributionsPayload | null>(
-    () => initialPayload ?? peekAmdContributions(projectId) ?? null,
-  );
-  const [error, setError] = useState<string | null>(null);
+export function CockpitAmdContributions({ projectId, initialPayload, sharedView=false }: { projectId: string; initialPayload?: AmdContributionsPayload; sharedView?:boolean }) {
+  const [loaded, setLoaded] = useState<{projectId:string; payload:AmdContributionsPayload} | null>(() => {
+    const cached = sharedView ? undefined : peekAmdContributions(projectId);
+    return cached ? {projectId,payload:cached} : null;
+  });
+  const payload = initialPayload ?? (!sharedView && loaded?.projectId === projectId ? loaded.payload : null);
+  const [failure, setFailure] = useState<{projectId:string; message:string} | null>(null);
+  const error = !sharedView && failure?.projectId === projectId ? failure.message : null;
 
   useEffect(() => {
-    if (initialPayload) return;
+    if (initialPayload || sharedView) return;
     let cancelled = false;
-    const cached = peekAmdContributions(projectId);
-    setPayload(cached ?? null);
-    setError(null);
     loadAmdContributions(projectId)
       .then((json) => {
-        if (!cancelled) setPayload(json);
+        if (!cancelled) { setLoaded({projectId,payload:json}); setFailure(null); }
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "AMDの活動記録の取得に失敗");
+        if (!cancelled) setFailure({projectId,message:err instanceof Error ? err.message : "AMDの活動記録の取得に失敗"});
       });
     return () => {
       cancelled = true;
     };
-  }, [projectId, initialPayload]);
+  }, [projectId, initialPayload, sharedView]);
 
   const grouped = new Map<string, AmdContributionItem[]>();
   for (const item of payload?.items ?? []) {
@@ -123,8 +123,8 @@ export function CockpitAmdContributions({ projectId, initialPayload }: { project
           AMDがこのPJへ行ってきたこと
         </h3>
         <p className="mt-1 text-[11px] leading-4 text-[#86868b]">
-          AMD OSが生データ（週次の活動記録・カレンダー・メール・MTGサマリ）から拾えた分だけを日付順に並べている。
-          ここに無いことは「やっていない」ではなく「記録から拾えていない」。手で書き足す欄は持たない。
+          {sharedView ? "共有が確認された活動記録だけを日付順に表示している。" : <>AMD OSが生データ（週次の活動記録・カレンダー・メール・MTGサマリ）から拾えた分だけを日付順に並べている。
+          ここに無いことは「やっていない」ではなく「記録から拾えていない」。手で書き足す欄は持たない。</>}
         </p>
         {payload && payload.items.length > 0 && (
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[#5b5b60]">
@@ -155,8 +155,8 @@ export function CockpitAmdContributions({ projectId, initialPayload }: { project
         <div className="border-t border-[#e5e5e7] px-4 py-4 text-[12px] text-[#86868b]">読み込み中…</div>
       ) : payload.items.length === 0 ? (
         <div className="border-t border-[#e5e5e7] px-4 py-4 text-[12px] leading-5 text-[#86868b]">
-          このPJに紐づくAMDの活動記録がまだ拾えていない（活動が無いという意味ではない）。
-          週次の活動記録とMTGサマリがこのPJへ紐づくと、ここに自動で並ぶ。
+          {sharedView ? "共有が確認された活動記録はまだない。" : <>このPJに紐づくAMDの活動記録がまだ拾えていない（活動が無いという意味ではない）。
+          週次の活動記録とMTGサマリがこのPJへ紐づくと、ここに自動で並ぶ。</>}
         </div>
       ) : (
         <>
