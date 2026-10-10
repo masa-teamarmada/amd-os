@@ -9,10 +9,10 @@ type WorkspaceMeetingsPayload = {
   signals: ProjectStrategySignal[];
 };
 
-/** 閲覧専用の会議・動向。準備の更新があるため30秒に限り共用し、更新ボタンでは再取得する。 */
+/** 閲覧専用の会議・動向。共有本文の更新があるため30秒に限り共用し、更新ボタンでは再取得する。 */
 export function loadWorkspaceMeetings(projectId: string, options?: { sinceDate?: string; force?: boolean }) {
   const since = options?.sinceDate;
-  const key = `workspace-meetings:${projectId}:${since ?? "all"}`;
+  const key = `workspace-meetings:disclosure-v2:${projectId}:${since ?? "all"}`;
   return loadReferenceData(key, async (): Promise<WorkspaceMeetingsPayload> => {
     const params = new URLSearchParams();
     if (since) params.set("since", since);

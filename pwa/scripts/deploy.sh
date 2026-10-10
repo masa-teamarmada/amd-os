@@ -106,6 +106,7 @@ fi
 echo "Running critical UI / spec rollback guard ..."
 (cd "$REPO_ROOT/pwa" && npm run test:critical-ui)
 (cd "$REPO_ROOT/pwa" && npm run test:workspace-email-attempts)
+(cd "$REPO_ROOT/pwa" && npm run test:external-disclosure)
 (cd "$REPO_ROOT/pwa" && npm run test:reference-data-cache)
 (cd "$REPO_ROOT/pwa" && npm run test:portfolio-home-contract)
 (cd "$REPO_ROOT/pwa" && npm run test:project-space-loading)
