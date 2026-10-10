@@ -4304,9 +4304,13 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "interaction-${latestInteraction.id}",
   "work-${item.id}",
   'aria-modal="true"',
-  // 2026-09-30: PoC候補先が1件でもあるPJ（SX）は従来どおりPoC候補先が既定。0件のPJ（LiSTie）は全関係先から。
-  'management.partners.some((partner) => partner.classifications.includes("poc_candidate"))',
-  '? "poc_candidate"',
+  // 2026-10-10: 全PJで全関係先を初期表示する。
+  'useState<SxPartnerClassification | null>(null)',
+  'data-testid="sx-partner-delete"',
+  'data-testid="sx-partner-delete-confirmation"',
+  'JSON.stringify({ resource: "partner", id: partnerId, delete: true })',
+  'onManagementChange(body.bundle as SxManagementBundle)',
+  'canManage && confirmDelete',
   "showRoleFilter={!comparisonOnly}",
   "comparisonPartners.map",
   "sxIsVcPartner",
@@ -4823,3 +4827,9 @@ expectIncludes("src/components/seed-needs/SeedNeedsWorkspace.tsx", ['議論用�
 execFileSync(process.execPath, ["--experimental-strip-types", path.join(root, "scripts/check_seed_needs.mts")], { stdio: "pipe" });
 
 expectIncludes("src/components/seed-needs/MarketNeedsList.tsx", ["市場規模の比較地域", "情報の確度で絞り込み", "市場ニーズの次のページ", "出典"]);
+
+// 未分類の名刺交換先も初回から見える。条件付きPoC既定へ戻さない。
+for (const file of ["src/components/project-workspace/SxWeeklyControlDashboard.tsx", "src/components/project-workspace/SxPartnerPipeline.tsx"]) {
+  expectIncludes(file, ['useState<SxPartnerClassification | null>(null)']);
+  expectNotIncludes(file, ['some((partner) => partner.classifications.includes("poc_candidate"))']);
+}
