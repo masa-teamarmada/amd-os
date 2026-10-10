@@ -1722,7 +1722,7 @@ function dedupeWeakMeetingSummaries(items: ProjectMeetingSummary[]): ProjectMeet
  */
 export async function fetchProjectMeetingSummaries(
   projectId: string,
-  opts?: { sinceDate?: string; limit?: number },
+  opts?: { sinceDate?: string; limit?: number; sharedOnly?: boolean },
   client: SupabaseClient = supabase
 ): Promise<ProjectMeetingSummary[]> {
   let query = client
@@ -1731,6 +1731,7 @@ export async function fetchProjectMeetingSummaries(
     .eq("project_id", projectId)
     .order("meeting_date", { ascending: false });
 
+  if (opts?.sharedOnly) query = query.eq("workspace_shared",true);
   if (opts?.sinceDate) query = query.gte("meeting_date", opts.sinceDate);
   if (opts?.limit) query = query.limit(opts.limit);
 

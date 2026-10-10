@@ -467,7 +467,7 @@ export async function getProjectWorkspaceBundle(
     // of any size is the same bug in a different disguise, so this is a real range loop too, with
     // meeting_id as the tiebreaker under meeting_date (dates repeat across meetings).
     fetchAllRows((from, to) =>
-      db.from("project_meeting_summaries").select("meeting_id,title,meeting_date,prep_draft_md,prep_status,summary_short,updated_at").eq("project_id", projectId).order("meeting_date", { ascending: false }).order("meeting_id", { ascending: true }).range(from, to),
+      db.from("project_meeting_summaries").select("meeting_id,title,meeting_date,summary_short,updated_at").eq("project_id", projectId).eq("workspace_shared",true).order("meeting_date", { ascending: false }).order("meeting_id", { ascending: true }).range(from, to),
     ),
   ]);
 
@@ -485,8 +485,8 @@ export async function getProjectWorkspaceBundle(
       meetingId: String(row.meeting_id),
       title: String(row.title),
       meetingDate: String(row.meeting_date),
-      prepDraftMd: row.prep_draft_md ? String(row.prep_draft_md) : null,
-      prepStatus: row.prep_status ? String(row.prep_status) : null,
+      prepDraftMd: null,
+      prepStatus: null,
       summaryShort: String(row.summary_short || ""),
       meetingUpdatedAt: String(row.updated_at),
     }]),
@@ -508,6 +508,7 @@ export async function getProjectWorkspaceBundle(
       .select("document_id,display_name,entry_kind,mime_type")
       .eq("project_id", projectId)
       .eq("upload_status", "active")
+      .eq("visibility", "workspace_shared")
       .in("document_id", linkedDocumentIds);
     if (docError) throw new Error(`project workspace theme documents lookup: ${docError.message}`);
     documentById = new Map((docRows ?? []).map((row) => [String(row.document_id), {

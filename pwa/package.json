@@ -9,6 +9,7 @@
     "test:function-bundles": "node scripts/check_function_bundle_storage.mjs",
     "start": "next start",
     "lint": "eslint",
+    "test:external-disclosure": "node --experimental-strip-types scripts/check_external_disclosure_boundary.mts",
     "test:deploy-version-guard": "node scripts/check_deploy_version_guard.cjs",
     "test:manual-search-japanese": "node --experimental-strip-types scripts/check_manual_search_japanese.mts",
     "test:textbook-destination-contract": "node scripts/test_textbook_destination_contract.mjs",

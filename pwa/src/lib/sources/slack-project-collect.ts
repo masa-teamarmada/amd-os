@@ -2,7 +2,7 @@
  * PJ単位のSlack取り込み。
  *
  * 取り込み対象は `project_slack_sources` (project_id × workspace_key × channel_id) を正とし、
- * 行が無いPJは従来どおり `projects.slack_channel_id` を armada の1件として扱う。
+ * 自動保存は archive_enabled の明示対象だけ。AMDはライブ参照のみ。
  * チャンネルごとに workspace_key でトークンを切り替えるので、1つのPJが
  * 複数ワークスペースの部屋を持てる (SX = team ARMADA + SolvioraX)。
  *
@@ -30,6 +30,7 @@ export type SlackCollectTarget = {
   workspaceKey: string;
   channelId: string;
   channelName: string | null;
+  archiveEnabled?: boolean;
 };
 
 export type SlackChannelResult = {
@@ -72,12 +73,13 @@ export async function resolveSlackTargets(
       workspaceKey: normalizeWorkspaceKey(explicitWorkspaceKey),
       channelId: explicitChannelId,
       channelName: null,
+      archiveEnabled: normalizeWorkspaceKey(explicitWorkspaceKey) !== DEFAULT_SLACK_WORKSPACE_KEY && !!(await supabase.from("project_slack_sources").select("id").eq("project_id",projectId).eq("workspace_key",normalizeWorkspaceKey(explicitWorkspaceKey)).eq("channel_id",explicitChannelId).eq("archive_enabled",true).eq("enabled",true).maybeSingle()).data,
     }];
   }
 
   const { data, error } = await supabase
     .from("project_slack_sources")
-    .select("workspace_key, channel_id, channel_name")
+    .select("workspace_key, channel_id, channel_name, archive_enabled")
     .eq("project_id", projectId)
     .eq("enabled", true)
     .order("workspace_key", { ascending: true })
@@ -89,6 +91,7 @@ export async function resolveSlackTargets(
       workspaceKey: normalizeWorkspaceKey(row.workspace_key as string | null),
       channelId: String(row.channel_id || "").trim(),
       channelName: (row.channel_name as string | null) || null,
+      archiveEnabled: row.archive_enabled === true && !["armada","teamarmadahq"].includes(normalizeWorkspaceKey(row.workspace_key as string | null)),
     }))
     .filter((target) => target.channelId);
   if (configured.length) return configured;
@@ -135,6 +138,10 @@ export async function collectProjectSlackSources(
 
   const rows: SlackSourceCacheRow[] = [];
   for (const target of targets) {
+    if (options.save && !target.archiveEnabled) {
+      base.channels.push({...target,skipped:"保存対象外"});
+      continue;
+    }
     const token = slackTokenForWorkspace(target.workspaceKey);
     if (!token) {
       base.channels.push({
@@ -156,7 +163,7 @@ export async function collectProjectSlackSources(
         maxMessages: options.maxMessages,
         includeBots: options.includeBots,
       });
-      rows.push(...collected.rows);
+      rows.push(...collected.rows.map(row => ({...row,metadata_json:{...row.metadata_json,workspace_key:target.workspaceKey}})));
       base.previews.push(...collected.previews);
       base.messageCount += collected.messageCount;
       base.threadReplyCount += collected.threadReplyCount;
@@ -197,28 +204,20 @@ export async function collectProjectSlackSources(
 }
 
 /**
- * Slack取込対象は、明示的な `project_slack_sources` に加えて、PJ台帳でSlackチャンネルを
- * 持つ全PJ。後者を含めることで、新規PJも個別のコード追加なしに観測対象へ入る。
+ * 自動保存は project_slack_sources の enabled + archive_enabled の対象PJだけ。
  */
 export async function listSlackSourceProjects(supabase: AdminClient): Promise<string[]> {
   const { data: configuredSources, error: configuredSourcesError } = await supabase
     .from("project_slack_sources")
     .select("project_id")
+    .eq("archive_enabled", true)
     .eq("enabled", true);
   if (configuredSourcesError) throw new Error(configuredSourcesError.message);
-  const { data: projects, error: projectsError } = await supabase
-    .from("projects")
-    .select("project_id, slack_channel_id, slack_channel_not_required");
-  if (projectsError) throw new Error(projectsError.message);
   const ids = new Set<string>();
   for (const row of configuredSources || []) {
     const id = String(row.project_id || "").trim();
     if (id) ids.add(id);
   }
-  for (const project of projects || []) {
-    const id = String(project.project_id || "").trim();
-    const channelId = String(project.slack_channel_id || "").trim();
-    if (id && channelId && !project.slack_channel_not_required) ids.add(id);
-  }
+  // projects.slack_channel_id does not opt a workspace into retention.
   return Array.from(ids).sort();
 }

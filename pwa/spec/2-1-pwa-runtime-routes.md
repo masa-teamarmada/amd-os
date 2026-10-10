@@ -297,3 +297,14 @@ migration 212 / 213 / 216〜219 / 258 と対になる contract。212 / 213は202
 - `os_page_viewer_sessions`はsession UUIDごとの一時状態、`os_page_viewing_visits`はvisit UUIDごとの永続履歴。service-only RPC `amie_update_page_viewer`は同一transactionで更新、revisionで遅れたheartbeat/leaveを拒否し別actorのsession上書きを拒否。heartbeatでは履歴を増やさない。退出後に戻ると新visit。1日超の一時sessionだけ通常更新時に掃除し、履歴は削除しない。
 - 両tableはRLS有効でanon/authenticated権限なし。RPCもservice_roleのみ。外部の履歴は本人のactor_keyに限定。内部は認可された同一画面の履歴だけ。開始日時の降順50件、日本時間で表示。名前は登録済みmembers/display_nameから解決、未登録なら氏名未登録。横断監視や滞在時間推定は持たない。
 - migration `20261008120000_page_viewing_presence_history`は本番適用・履歴登録済み。`test:page-viewing`、DB ROLLBACK試験`test_page_viewing_transaction.sql`、実APIの境界試験`check_page_viewing_live.mjs`。有効な外部アカウントがなく、外部本人の実ログイン正例は未検証。
+
+
+## 2026-10-10 外部開示とSlack保存の修正
+
+Slackの全文保存は、無料ワークスペースの履歴保持を目的とした明示登録に限定する。`project_slack_sources.archive_enabled`と`workspace_shared`は独立した設定で、AMD（armada/teamarmadahq）は双方falseをDB制約で固定。保存先のトリガーも同じ登録・チャンネル・HTTPSドメインを照合する。旧AMD backfillは廃止。取得元不明の行は共有しない。SOLの既存enabled対象だけを初期共有対象にし、他のdisabled対象を有効化しない。
+
+共有の動向・会議、テーマの会議ピッカー、DDの経営会議・活動は`workspace_shared=true`だけを取得。会議・動向・活動の既存行を自動公開しない。準備本文・準備状態・作業者情報は共有会議の返却対象外。共有本文を確認するまでは会議一覧は空になる。内部コックピットは内部認証で読む。会議・経営動向・活動・PJ設定の直接読取りはactiveな内部PJ権限に限定し、匿名と外部Auth利用者に許さない。共有資料・権限付与の範囲は維持。
+
+まさの明示指示により人物評価の独立記録3件と派生本文を削除し、AMD Slack保存2939件を除去。変更履歴の本文・復元値も対象を限定して除去し、時刻・対象・削除理由だけを残す。履歴保護は処理トランザクション終了時に復旧。削除済み行の識別子と本文ハッシュだけを非公開スキーマで持ち、同一内容の再登録を拒否する。元のSlack投稿・Drive/Notion原本・バックアップ・Git過去履歴の削除はこの作業に含まない。モデル数式・SPSの計算値は変更しない。
+
+検証: `test:external-disclosure`、DBの匿名/外部/内部権限照合、既知削除箇所の残件数、監査トリガー復旧、SOLログ247件保持。個人評価の本文・秘密値を検証ログや公開文書へ保存しない。
