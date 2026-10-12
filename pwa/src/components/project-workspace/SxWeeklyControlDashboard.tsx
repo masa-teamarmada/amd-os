@@ -5809,17 +5809,17 @@ export function SxWeeklyControlDashboard({
 
         {activeView === "technology" && (
           <section id="technology" className={styles.section} role="tabpanel" aria-label="技術">
-            <CockpitTechnology projectId={bundle.project.projectId} />
+            <CockpitTechnology sharedView={externalViewer} projectId={bundle.project.projectId} />
           </section>
         )}
         {activeView === "competition" && (
           <section id="competition" className={styles.section} role="tabpanel" aria-label="競合比較">
-            <CockpitTechnology projectId={bundle.project.projectId} mode="competition" />
+            <CockpitTechnology sharedView={externalViewer} projectId={bundle.project.projectId} mode="competition" />
           </section>
         )}
         {activeView === "business-model" && (
           <section id="business-model" className={styles.section} role="tabpanel" aria-label="ビジネスモデル">
-            <CockpitTechnology projectId={bundle.project.projectId} mode="business-model" />
+            <CockpitTechnology sharedView={externalViewer} projectId={bundle.project.projectId} mode="business-model" />
           </section>
         )}
         {activeView === "business-plan" && (

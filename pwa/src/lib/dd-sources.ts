@@ -23,6 +23,9 @@ import {
 } from "@/lib/dd-payload";
 import { resolveFundingPlan, type FundingPlanningDetails } from "@/lib/project-funding-plan";
 import type { TechEntry, TechTopic } from "@/lib/project-tech";
+import { techLedgerTabOf } from "@/lib/project-tech";
+import { amieProjectDdTechTopic } from "@/lib/amie-tech-disclosure-server";
+import { AMIE_TECH_LEVEL_LABEL, amieTechLevelOf } from "@/lib/amie-tech-disclosure-model";
 import type { CapitalEvent, CapitalPlan, Holder } from "@/lib/capital-plan";
 import { loadCostModelBundle } from "@/app/api/project-cost-model/route";
 import { getGoogleAuthAsync } from "@/lib/sources/google";
@@ -111,7 +114,7 @@ const GOOGLE_NATIVE_MIME = /^application\/vnd\.google-apps\./;
 
 export async function listDdSourceCandidates(projectId: string): Promise<DdSourceCandidate[]> {
   const db = createAdminClient();
-  const [docs, topics, cashflow, plans, versions, costModels] = await Promise.all([
+  const [docs, topics, cashflow, plans, versions, costModels, techEntries] = await Promise.all([
     db
       .from("workspace_documents")
       .select("document_id,entry_kind,visibility,folder_path,display_name,mime_type,file_size_bytes,external_url,source_ref,updated_at")
@@ -123,7 +126,7 @@ export async function listDdSourceCandidates(projectId: string): Promise<DdSourc
       .order("display_name"),
     db
       .from("project_tech_topics")
-      .select("tech_topic_id,title,tech_domain,block_kind,confidentiality,needs_check,updated_at")
+      .select("*")
       .eq("project_id", projectId)
       .neq("status", "archived")
       .order("tech_domain")
@@ -152,8 +155,9 @@ export async function listDdSourceCandidates(projectId: string): Promise<DdSourc
       .eq("project_id", projectId)
       .eq("status", "active")
       .order("updated_at", { ascending: false }),
+    db.from("project_tech_entries").select("*").eq("project_id",projectId),
   ]);
-  for (const result of [docs, topics, cashflow, plans, versions, costModels]) {
+  for (const result of [docs, topics, cashflow, plans, versions, costModels, techEntries]) {
     if (result.error) throw new Error(`dd source list: ${result.error.message}`);
   }
 
@@ -185,20 +189,22 @@ export async function listDdSourceCandidates(projectId: string): Promise<DdSourc
 
   for (const row of (topics.data ?? []) as Array<Record<string, unknown>>) {
     const confidentiality = String(row.confidentiality) as "public" | "internal" | "confidential";
+    const technology = techLedgerTabOf(row as unknown as TechTopic) === "technology";
+    const projected = technology ? amieProjectDdTechTopic(row as unknown as TechTopic, (techEntries.data ?? []) as TechEntry[]) : null;
     candidates.push({
       itemKind: "tech_topic",
       sourceKey: `project_tech_topic:${row.tech_topic_id}`,
-      title: String(row.title),
+      title: projected?.topic.title ?? String(row.title),
       detail: [`技術台帳 / ${row.tech_domain ?? "未分類"}`, confidentiality === "public" ? "公開可" : confidentiality === "internal" ? "社内" : "要秘匿", row.needs_check ? "要確認あり" : null]
         .filter(Boolean)
         .join("・"),
       updatedAt: (row.updated_at as string) ?? null,
-      caution: confidentiality === "confidential"
+      caution: technology ? `${AMIE_TECH_LEVEL_LABEL[amieTechLevelOf(row)]}。通常DDは指定した見出し・掲載行・概要のみ。詳細な原文は出さない` : confidentiality === "confidential"
         ? "技術台帳で「要秘匿」の項目。追加には開示してよいことの明示の確認が要る"
         : confidentiality === "internal"
           ? "技術台帳で「社内」の項目。DDで開示してよいか確認してから公開する"
           : null,
-      blockedReason: null,
+      blockedReason: technology && !projected ? "DD掲載欄が未設定、または元内容の変更後に再確認が必要" : null,
       confidentiality,
     });
   }
@@ -321,7 +327,9 @@ export async function loadDdItemLive(input: ItemSourceInput): Promise<DdItemLive
     const topicRow = topic as TechTopic | null;
     if (!topicRow || topicRow.status === "archived") throw new DdSourceError("source_not_found", "技術台帳のページが見つからない");
     const entryRows = (entries ?? []) as TechEntry[];
-    const data = shapeDdTechTopic(input.projectId, topicRow, entryRows);
+    let data;
+    try { data = shapeDdTechTopic(input.projectId, topicRow, entryRows); }
+    catch { throw new DdSourceError("source_not_found", "この技術情報はDD非開示または再確認待ち"); }
     return {
       data,
       sourceAsOf: maxIso([topicRow.updated_at, ...entryRows.map((entry) => entry.updated_at)]),

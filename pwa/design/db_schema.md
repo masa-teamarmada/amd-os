@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-10-12 16:36 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-10-12 19:12 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -654,7 +654,7 @@ PRIMARY KEY: `id`
 
 ## boss_notification_jobs
 
-行数 (概算): 16,631
+行数 (概算): 17,235
 PRIMARY KEY: `id`
 UNIQUE: `(event_id)` (constraint: `boss_notification_jobs_event_id_key`)
 UNIQUE: `(server_boss_id,schedule_revision,lead_minutes)` (constraint: `boss_notification_jobs_server_boss_id_schedule_revision_lea_key`)
@@ -4113,7 +4113,7 @@ UNIQUE: `(lane,observed_at,observation_key,source)` (constraint: `observation_lo
 
 ## os_page_viewer_sessions
 
-行数 (概算): 50
+行数 (概算): 79
 PRIMARY KEY: `session_id`
 
 | # | column | type | nullable | default |
@@ -4129,7 +4129,7 @@ PRIMARY KEY: `session_id`
 
 ## os_page_viewing_visits
 
-行数 (概算): 158
+行数 (概算): 206
 PRIMARY KEY: `visit_id`
 
 | # | column | type | nullable | default |
@@ -6990,6 +6990,7 @@ PRIMARY KEY: `tech_entry_id`
 | 22 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
 | 23 | `needs_check` | `bool` | NOT NULL | `false` |
 | 24 | `check_reason` | `text` | NULL | `` |
+| 25 | `disclosure` | `jsonb` | NOT NULL | `'{"dd": null, "level": "restricted", "reason": "未仕分け", "v...` |
 
 ## project_tech_topics
 
@@ -7018,6 +7019,7 @@ PRIMARY KEY: `tech_topic_id`
 | 18 | `needs_check` | `bool` | NOT NULL | `false` |
 | 19 | `check_reason` | `text` | NULL | `` |
 | 20 | `presentation` | `jsonb` | NULL | `` |
+| 21 | `disclosure` | `jsonb` | NOT NULL | `'{"dd": null, "level": "restricted", "reason": "未仕分け", "v...` |
 
 ## project_theme_deliverables
 
@@ -8291,7 +8293,7 @@ PRIMARY KEY: `project_id, member_id`
 
 ## tally_weekly_effort_entries
 
-行数 (概算): 209
+行数 (概算): 210
 PRIMARY KEY: `project_id, member_id, week_start`
 
 | # | column | type | nullable | default |
@@ -9196,3 +9198,4 @@ PRIMARY KEY: `id`
 
 ## project_card_designs / versions / projects / assets（2026-10-12）
 自社名刺系列、版、関連PJ、版別資料。DDL/RLS/service専用RPCは `ios/supabase/migrations/20261012072118_amie_project_card_designs.sql`。承認版ポインタと最新版案を分離し、immutable PDF写しはprivate workspace-files。spec3-25参照。
+

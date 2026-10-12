@@ -3393,7 +3393,7 @@ expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", 
   '"capital-plan": "資本政策表",',
   'cost: "コスト試算",',
   "WORKSPACE_TAB_FORMATS[type]",
-  '<CockpitTechnology projectId={bundle.project.projectId} mode="competition" />',
+  '<CockpitTechnology sharedView={externalViewer} projectId={bundle.project.projectId} mode="competition" />',
 ]);
 // ビジネスモデルタブ (2026-09-14 まさ「そもそも本来はOSに置くべき資料だと思う。…事業計画グループの中に「ビジネスモデル」っていうタブを新たに追加して、その中に入れておくのはどう？」)。
 // 技術台帳の区分「ビジネスモデル」だけを技術タブと同じ部品で出し、技術タブ・競合比較からはその区分を外す。区分「ビジネスモデル」のトピックを持つPJだけに出す。
@@ -3410,7 +3410,7 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   'key === "technology" || key === "competition" || key === "business-model" ? () => prefetchProjectTech(project.projectId)',
 ]);
 expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
-  '<CockpitTechnology projectId={bundle.project.projectId} mode="business-model" />',
+  '<CockpitTechnology sharedView={externalViewer} projectId={bundle.project.projectId} mode="business-model" />',
   'if (normalized === "business-model") return "business-model";',
 ]);
 expectNotIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
@@ -4846,3 +4846,6 @@ expectIncludes("src/components/workflows/WorkflowProgress.tsx", ["ArrowRight", "
 // Card previews use a document renderer, avoiding dependence on the native PDF plugin.
 expectIncludes("src/components/project-card-designs/ProjectCardDesigns.tsx", ['PdfCanvas', 'pdfUrl={']);
 expectIncludes("src/components/project-card-designs/PdfCanvas.tsx", ['pdfjs-dist', 'getDocument', 'getPage', 'canvas', 'destroy']);
+
+expectIncludes("src/components/cockpit/CockpitTechnology.tsx", ["amie-tech-disclosure-controls", "DD掲載内容を確認", "秘密レベルで絞り込み"]);
+expectIncludes("src/components/cockpit/AmieTechDisclosure.tsx", ["秘密レベルとDDへの掲載範囲", "開示区分と掲載欄を保存", "amie-tech-disclosure-inventory"]);

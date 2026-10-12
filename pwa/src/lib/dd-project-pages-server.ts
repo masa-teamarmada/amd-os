@@ -53,7 +53,7 @@ async function loadDdProjectPageContent(projectId: string, page: string): Promis
   if (page === "founding-background") return { ...base, page, empty: true, foundingBackground: await loadProjectFoundingBackground(db, projectId) };
   if (page === "governance") return { ...base, page, empty: true, managementMinutes: await loadProjectManagementMinutes(db, projectId, true) };
   if (isDdEmptyPageKey(page)) return { ...base, page, empty: true, ...(page === "organization-chart" ? { organizationChart: await loadProjectOrganizationChart(db, projectId) } : {}) };
-  if (page === "technology" || page === "competition" || page === "business-model") return { ...base, page, tech: await loadProjectTechData(db, projectId) };
+  if (page === "technology" || page === "competition" || page === "business-model") return { ...base, page, tech: await loadProjectTechData(db, projectId, false, "dd", page) };
   if (page === "financial-projection" || page === "monthly-trial") return { ...base, page, finance: await loadProjectFinancePage(db, projectId) };
   if (page === "capital-plan" || page === "next-round-overview") return { ...base, page, capital: await loadCapitalPlanPage(db, projectId) };
   if (page === "cost-model") {

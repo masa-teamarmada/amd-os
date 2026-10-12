@@ -24,6 +24,9 @@ export type TechRating = "excellent" | "good" | "fair" | "poor" | "na" | "unknow
 export type TechConfidence = "high" | "medium" | "low" | "unverified";
 
 export type TechTopic = {
+  disclosure_level?: "public" | "dd_summary" | "restricted" | "core";
+  disclosure?: unknown;
+  disclosure_status?: "included" | "excluded" | "needs_review";
   tech_topic_id: string;
   project_id: string;
   block_kind: TechBlockKind;
@@ -98,6 +101,9 @@ export function readTechPresentation(value: unknown): TechPresentation | null {
 }
 
 export type TechEntry = {
+  disclosure_level?: "public" | "dd_summary" | "restricted" | "core";
+  disclosure?: unknown;
+  disclosure_status?: "included" | "excluded" | "needs_review";
   tech_entry_id: string;
   tech_topic_id: string;
   project_id: string;
