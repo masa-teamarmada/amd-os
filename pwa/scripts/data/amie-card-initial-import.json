@@ -1,0 +1,243 @@
+[
+  {
+    "owner_project_id": "p00",
+    "holder_label": "山地 正洋",
+    "holder_key": "masahiro-yamaji",
+    "variant_key": "amd-single",
+    "brand_label": "チームアルマダ",
+    "revision_label": "2026-10-09 第8稿",
+    "status": "approved",
+    "request_key": "1b944d70-c6c9-4ac3-a2ed-01f682b70f81",
+    "created_at": "2026-10-09",
+    "approved_at": "2026-10-09",
+    "expected_version": 0,
+    "actor": "initial-import:user-approved-20261009",
+    "note": "承認・発注済み。注文記録は10/9時点。出荷・到着の実績は未確認。",
+    "print_spec": {
+      "paper": "アラベール（スノーホワイト）かなり厚手200kg",
+      "size": "91×55mm",
+      "bleed": "3mm",
+      "sides": "両面カラー"
+    },
+    "order_record": {
+      "order_id": "261009883691",
+      "quantity": 100,
+      "total_jpy": 2740,
+      "scheduled_shipment_date": "2026-10-10",
+      "status": "受付確定・印刷加工中（10/9確認）",
+      "arrived_on": "未確認"
+    },
+    "related_project_ids": [],
+    "assets": [
+      {
+        "project_id": "p00",
+        "role": "preview",
+        "drive_file_id": "1tO3LxIvZ4g_1PSLPj8kdJas8qeefSaHA",
+        "drive_folder_id": "1lF-E6zDWefhFiD2zyBzQ7VfgF6iv8k3M",
+        "file_name": "チームアルマダ_名刺_両面確認用_20261009.pdf",
+        "mime_type": "application/pdf",
+        "byte_size": 331052,
+        "local_file": "work/261009_business_cards/output/チームアルマダ_名刺_両面確認用_20261009.pdf"
+      },
+      {
+        "project_id": "p00",
+        "role": "front_print",
+        "drive_file_id": "1HObKyb0avPoXeYieKuLvFir2q6Y3Oo5n",
+        "drive_folder_id": "1lF-E6zDWefhFiD2zyBzQ7VfgF6iv8k3M",
+        "file_name": "チームアルマダ_名刺_表面_20261009.pdf",
+        "mime_type": "application/pdf",
+        "byte_size": 165702,
+        "local_file": "work/261009_business_cards/output/チームアルマダ_名刺_表面_20261009.pdf"
+      },
+      {
+        "project_id": "p00",
+        "role": "back_print",
+        "drive_file_id": "1N_zxG4djc0L_vxSuSX4wnuP-ueFLnjSL",
+        "drive_folder_id": "1lF-E6zDWefhFiD2zyBzQ7VfgF6iv8k3M",
+        "file_name": "チームアルマダ_名刺_裏面_20261009.pdf",
+        "mime_type": "application/pdf",
+        "byte_size": 165540,
+        "local_file": "work/261009_business_cards/output/チームアルマダ_名刺_裏面_20261009.pdf"
+      },
+      {
+        "project_id": "p00",
+        "role": "editable",
+        "drive_file_id": "13xrYhn2v3tOnRoqEzk9nvxcuKaqqkE4seyIXssBpNRU",
+        "drive_folder_id": "1lF-E6zDWefhFiD2zyBzQ7VfgF6iv8k3M",
+        "file_name": "山地正洋 名刺｜チームアルマダのみ｜2026-10-09",
+        "mime_type": "application/vnd.google-apps.presentation",
+        "byte_size": 49137
+      },
+      {
+        "project_id": "p00",
+        "role": "source_zip",
+        "drive_file_id": "1dBrszAWcM9y-j5CaHs_YD0sTJS25k67j",
+        "drive_folder_id": "1lF-E6zDWefhFiD2zyBzQ7VfgF6iv8k3M",
+        "file_name": "山地正洋_名刺_制作元_20261009.zip",
+        "mime_type": "application/zip",
+        "byte_size": 1464650
+      },
+      {
+        "project_id": "p00",
+        "role": "spec",
+        "drive_file_id": "1pkuPfIU6yyS_0IJMsj8ykpa8RUvOtR9U",
+        "drive_folder_id": "1lF-E6zDWefhFiD2zyBzQ7VfgF6iv8k3M",
+        "file_name": "山地正洋_名刺_制作仕様_20261009.md",
+        "mime_type": "text/markdown",
+        "byte_size": 12858
+      }
+    ]
+  },
+  {
+    "owner_project_id": "p21",
+    "holder_label": "山地 正洋",
+    "holder_key": "masahiro-yamaji",
+    "variant_key": "sol-single",
+    "brand_label": "SolvioraX",
+    "revision_label": "2026-09-27 承認版",
+    "status": "approved",
+    "request_key": "ad6d5bf4-3ab5-4ef2-bb3d-f50b79a0c8aa",
+    "created_at": "2026-09-27",
+    "approved_at": "2026-09-27",
+    "expected_version": 0,
+    "actor": "initial-import:user-approved-20260927",
+    "note": "従来のSOL単独版。併記案とは別に保持。発注記録は9/27時点、到着実績は未確認。",
+    "print_spec": {
+      "paper": "マット紙220kg",
+      "size": "91×55mm",
+      "bleed": "3mm",
+      "sides": "両面カラー"
+    },
+    "order_record": {
+      "order_id": "260927717551",
+      "quantity": 100,
+      "total_jpy": 1884,
+      "scheduled_shipment_date": "2026-09-28",
+      "arrived_on": "未確認"
+    },
+    "related_project_ids": [],
+    "assets": [
+      {
+        "project_id": "p21",
+        "role": "preview",
+        "drive_file_id": "10hL49eH_vJbSXB_Akq1tmZN2KUh9C-l6",
+        "drive_folder_id": "1_q6Y1N3ulefw0n-KsnciYjjqB_s07kVC",
+        "file_name": "SolvioraX_名刺_両面確認用_20260927.pdf",
+        "mime_type": "application/pdf",
+        "byte_size": 316489,
+        "local_file": "SOL/output/pdf/sol-business-card/SolvioraX_business_card_proof.pdf"
+      },
+      {
+        "project_id": "p21",
+        "role": "front_print",
+        "drive_file_id": "1YPufBqAazaHistqT-NTpbofqiJWy66bj",
+        "drive_folder_id": "1_q6Y1N3ulefw0n-KsnciYjjqB_s07kVC",
+        "file_name": "SolvioraX_名刺_表面_入稿用_20260927.pdf",
+        "mime_type": "application/pdf",
+        "byte_size": 116842,
+        "local_file": "SOL/output/pdf/sol-business-card/SolvioraX_front.pdf"
+      },
+      {
+        "project_id": "p21",
+        "role": "back_print",
+        "drive_file_id": "1ofnemtD4ijwkNs4YegAv7LcBiuyiqwlj",
+        "drive_folder_id": "1_q6Y1N3ulefw0n-KsnciYjjqB_s07kVC",
+        "file_name": "SolvioraX_名刺_裏面_入稿用_20260927.pdf",
+        "mime_type": "application/pdf",
+        "byte_size": 214125,
+        "local_file": "SOL/output/pdf/sol-business-card/SolvioraX_back.pdf"
+      },
+      {
+        "project_id": "p21",
+        "role": "source_zip",
+        "drive_file_id": "1zK8F-BrZi_O0-dnEeEzSyPh9KZsmzmOw",
+        "drive_folder_id": "1_q6Y1N3ulefw0n-KsnciYjjqB_s07kVC",
+        "file_name": "SolvioraX_名刺_制作元_20260927.zip",
+        "mime_type": "application/zip",
+        "byte_size": 205396
+      },
+      {
+        "project_id": "p21",
+        "role": "spec",
+        "drive_file_id": "15QhsHvL4EoF5ZCAo2fJlpifVaSqNUxS6",
+        "drive_folder_id": "1_q6Y1N3ulefw0n-KsnciYjjqB_s07kVC",
+        "file_name": "SolvioraX_名刺_正本.md",
+        "mime_type": "text/markdown",
+        "byte_size": 5740
+      }
+    ]
+  },
+  {
+    "owner_project_id": "p21",
+    "holder_label": "山地 正洋",
+    "holder_key": "masahiro-yamaji",
+    "variant_key": "sol-amd-dual",
+    "brand_label": "SolvioraX＋チームアルマダ",
+    "revision_label": "2026-10-09 第7稿",
+    "status": "review",
+    "request_key": "d6fb9bd6-2fdb-459f-b990-7eeb4cd1a73c",
+    "created_at": "2026-10-09",
+    "expected_version": 0,
+    "actor": "initial-import:existing-draft",
+    "note": "SOL面にPh.D.を追加、裏はAMD人物面。作成済みの案・未発注。最終承認の記録なし。",
+    "print_spec": {
+      "size": "91×55mm",
+      "bleed": "3mm",
+      "sides": "両面カラー"
+    },
+    "order_record": {},
+    "related_project_ids": [
+      "p00"
+    ],
+    "assets": [
+      {
+        "project_id": "p21",
+        "role": "preview",
+        "drive_file_id": "1RhhzgCo-ldHS5YPZmN_KfzPXFj6rirCg",
+        "drive_folder_id": "1_q6Y1N3ulefw0n-KsnciYjjqB_s07kVC",
+        "file_name": "SolvioraX＋チームアルマダ_名刺_両面確認用_20261009.pdf",
+        "mime_type": "application/pdf",
+        "byte_size": 282273,
+        "local_file": "work/261009_business_cards/output/SolvioraX＋チームアルマダ_名刺_両面確認用_20261009.pdf"
+      },
+      {
+        "project_id": "p21",
+        "role": "front_print",
+        "drive_file_id": "1krsSWy8ehbYBL9B-PvSYohtm7FpgUExq",
+        "drive_folder_id": "1_q6Y1N3ulefw0n-KsnciYjjqB_s07kVC",
+        "file_name": "SolvioraX_併記名刺_表面_20261009.pdf",
+        "mime_type": "application/pdf",
+        "byte_size": 116761,
+        "local_file": "work/261009_business_cards/output/SolvioraX_併記名刺_表面_20261009.pdf"
+      },
+      {
+        "project_id": "p21",
+        "role": "back_print",
+        "drive_file_id": "1pUrfuH_3FOwDYT2-LZeo44y9Dziadg-C",
+        "drive_folder_id": "1_q6Y1N3ulefw0n-KsnciYjjqB_s07kVC",
+        "file_name": "SolvioraX_併記名刺_裏面_20261009.pdf",
+        "mime_type": "application/pdf",
+        "byte_size": 165702,
+        "local_file": "work/261009_business_cards/output/SolvioraX_併記名刺_裏面_20261009.pdf"
+      },
+      {
+        "project_id": "p21",
+        "role": "editable",
+        "drive_file_id": "1zJBAOzoTWH8RuwIme8LzyEVC5jWfooBsdtzTaJwPs7w",
+        "drive_folder_id": "1_q6Y1N3ulefw0n-KsnciYjjqB_s07kVC",
+        "file_name": "山地正洋 名刺｜SolvioraX＋チームアルマダ｜2026-10-09",
+        "mime_type": "application/vnd.google-apps.presentation",
+        "byte_size": 98015
+      },
+      {
+        "project_id": "p00",
+        "role": "source_zip",
+        "drive_file_id": "1dBrszAWcM9y-j5CaHs_YD0sTJS25k67j",
+        "drive_folder_id": "1lF-E6zDWefhFiD2zyBzQ7VfgF6iv8k3M",
+        "file_name": "山地正洋_名刺_制作元_20261009.zip",
+        "mime_type": "application/zip",
+        "byte_size": 1464650
+      }
+    ]
+  }
+]

@@ -74,3 +74,5 @@
 
 **重要**: 設計判断・仕様変更は、移行済みなら `pwa/spec/`、未移行ならこの `pwa/design/` 配下に置く。
 `design_log/` は時系列ログ用。新規設計 md を `design_log/` に作らない。
+
+自社名刺案の現行正本: `../spec/3-25-project-card-designs-current-spec.md`（使い方manual2-3）。

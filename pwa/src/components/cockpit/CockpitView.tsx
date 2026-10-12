@@ -64,6 +64,7 @@ const InstitutionRegulationsPanel = dynamic(() => import("@/components/instituti
 const ProjectInstitutionSeeds = dynamic(() => import("./CockpitKuteSeeds").then((module) => module.ProjectInstitutionSeeds), { loading: ProjectPageLoading });
 const CockpitMonthlyModal = dynamic(() => import("./CockpitMonthlyModal").then((module) => module.CockpitMonthlyModal), { loading: ProjectPageLoading });
 const CockpitProperNouns = dynamic(() => import("./CockpitProperNouns").then((module) => module.CockpitProperNouns), { loading: ProjectPageLoading });
+const ProjectCardDesigns = dynamic(() => import("@/components/project-card-designs/ProjectCardDesigns").then((module) => module.ProjectCardDesigns), { loading: ProjectPageLoading });
 const CockpitMeetingSummary = dynamic(() => import("./CockpitMeetingSummary").then((module) => module.CockpitMeetingSummary), { loading: ProjectPageLoading });
 const CockpitSlackMessages = dynamic(() => import("./CockpitSlackMessages").then((module) => module.CockpitSlackMessages), { loading: ProjectPageLoading });
 const CockpitAmdScoreDetailTab = dynamic(() => import("./CockpitAmdScoreDetailTab").then((module) => module.CockpitAmdScoreDetailTab), { loading: ProjectPageLoading });
@@ -455,6 +456,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     "project-contracts": "契約",
     "project-finance": "収支",
     "proper-nouns": "固有名詞",
+    "card-designs": "名刺案",
     "capital-policy": "資金調達履歴",
     company: "会社概要",
     "development-issues": "開発課題",
@@ -836,6 +838,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       )}
 
       {activeTab === "proper-nouns" && <section role="tabpanel" aria-label="固有名詞" className="min-w-0"><CockpitProperNouns key={project.projectId} projectId={project.projectId} /></section>}
+      {activeTab === "card-designs" && <section role="tabpanel" aria-label="名刺案" className="min-w-0"><ProjectCardDesigns key={project.projectId} projectId={project.projectId} /></section>}
 
       {activeTab === "project-contracts" && (
         <section role="tabpanel" aria-label="契約" className="min-w-0">

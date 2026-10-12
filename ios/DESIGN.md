@@ -814,3 +814,7 @@ PWA /seed-needs と左メニューを「市場ニーズ」へ。一市場一行�
 
 2026-10-11 00:20 JST: 契約フローにWord/PDF下書き、ファイル選択・ドラッグ＆ドロップ、25MB制限、版履歴、失敗時再試行を追加。承認用最終版と締結版はPDF、下書き登録では通知なし。6段階を横/縦の矢印で接続。非公開一時Storageと管理部門の契約Drive保存、service-only登録RPCを追加。migration20261010145238適用済み・再適用不要。正本spec5-6、使い方manual6-7。理論/model変更なし。
 iOS/macOS/Androidのファイル登録と矢印UIは未移植。共通DB/認可済みAPIを利用し、端末へservice keyを置かない。
+
+
+## 自社名刺案（PWA先行、2026-10-12）
+社内PJ管理「名刺案」、管理者「全PJの名刺案」を追加。最新版と承認版、入稿PDF写し・編集元・版履歴を保持。交換名刺OCRと別台帳。共通DBは適用済み。仕様 `pwa/spec/3-25-project-card-designs-current-spec.md`。iOS/macOS/Android専用画面は未移植。

@@ -9192,3 +9192,7 @@ PRIMARY KEY: `id`
 | 7 | `applied_at` | `timestamptz` | NULL | `` |
 | 8 | `applied_note` | `text` | NULL | `` |
 | 9 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+
+## project_card_designs / versions / projects / assets（2026-10-12）
+自社名刺系列、版、関連PJ、版別資料。DDL/RLS/service専用RPCは `ios/supabase/migrations/20261012071328_amie_project_card_designs.sql`。承認版ポインタと最新版案を分離し、immutable PDF写しはprivate workspace-files。spec3-25参照。

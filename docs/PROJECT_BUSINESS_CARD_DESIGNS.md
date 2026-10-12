@@ -1,6 +1,6 @@
 # PJ管理で自社名刺案を保存する設計
 
-更新: 2026-10-12。状態: 設計案完成・未実装。DB・API・画面の変更はまだ行っていない。
+更新: 2026-10-12。状態: 実装中。DB・初期登録反映済み、PWA本番反映前。旧提案は下記実装確定節とspec3-25を優先。
 
 ## 目的と現状
 
@@ -69,3 +69,8 @@ API案は `/api/project-card-designs?project_id=...` GET/POST、`/[designId]/ver
 ## 保存と引き継ぎ
 
 名刺の制作・内容正本は `/Users/masa/projects/AMD/BUSINESS_CARDS.md`、SOL単独版は `SOL/BUSINESS_CARD.md`。現況・次の一手は `/Users/masa/projects/AMD/HANDOFF_BUSINESS_CARDS.md`。技術実装案は本書へ集約し、名刺制作の履歴をdevelopmentのdesign_logへ移さない。
+
+
+## 2026-10-12 実装確定
+
+本書の設計案は承認され、DBと初期3種類の登録を反映済み。実装正本は `pwa/spec/3-25-project-card-designs-current-spec.md`、使い方は `pwa/manual/2-3-pj-cockpit.md`。管理者横断画面 `/admin/card-designs` を追加。資料室への複製登録は行わず、認可付き名刺専用閲覧URLを採用。PWA反映・画面検証はhandoffに実結果を残す。
