@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { PdfCanvas } from "./PdfCanvas";
 import {
   loadCardDesigns,
   peekCardDesigns,
@@ -351,9 +352,11 @@ export function ProjectCardDesigns({
                   </span>
                 </div>
                 {v.assets.find((a) => a.role === "preview") ? (
-                  <iframe
-                    title={`${d.brand_label} ${v.revision_label} 表裏の確認PDF`}
-                    src={`${v.assets.find((a) => a.role === "preview")!.openUrl}#view=FitH`}
+                  <PdfCanvas
+                    key={v.version_id}
+                    title={`${d.brand_label} ${v.revision_label}`}
+                    pdfUrl={`/api/project-card-designs/${d.design_id}/assets/${v.assets.find((a) => a.role === "preview")!.asset_id}/open?download=1`}
+                    compact
                   />
                 ) : (
                   <p>表裏の確認PDFは未登録</p>

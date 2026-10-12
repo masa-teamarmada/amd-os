@@ -16,7 +16,7 @@ POST `/api/project-card-designs` は氏名・ブランド・版名・関連PJ・
 
 登録時にDrive親フォルダ・MIMEを検証。PDFは実体を取得してSHA256を計算、private `workspace-files` のハッシュ付きパスへupsertなし保存し再ダウンロード照合する。表/裏は各1ページ97×61mm（91×55mm＋四辺3mm、誤差1pt）。20MB上限。編集元はDrive参照のまま。失敗時に前版を維持し、PDF保存だけ成功した場合の未参照オブジェクトは非公開のまま残る。削除は別途監査対象。
 
-資料の安定したURLは `/api/project-card-designs/{designId}/assets/{assetId}/open`。毎回ログイン・所有PJ・資料PJ・版所属を再検証し、PDFを返す。4MB超だけ60秒有効の配信用署名URLへ転送し、台帳には保存しない。PDFから連絡先・住所を抽出しない。発注JSONには配送先/支払カードを入れない。
+PDFの画面URLは `/card-designs/{designId}/assets/{assetId}`。PDF.js 6.4.299で保存済みPDFをcanvas描画し、Chrome内蔵PDF表示に依存しない。worker/CMap/標準フォントは同版のpublic/vendor/pdfjsへ同梱、外部CDNを使わない。font-faceとWASMを無効化して埋込フォントのパスから描く。PDF中のリンク/スクリプトは実行しない。原本ダウンロードと非PDF資料の安定したURLは `/api/project-card-designs/{designId}/assets/{assetId}/open`。毎回ログイン・所有PJ・資料PJ・版所属を再検証し、PDFを返す。4MB超だけ60秒有効の配信用署名URLへ転送し、台帳には保存しない。PDFから連絡先・住所を抽出しない。発注JSONには配送先/支払カードを入れない。
 
 ## 権限・読取り
 

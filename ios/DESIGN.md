@@ -818,3 +818,5 @@ iOS/macOS/Androidのファイル登録と矢印UIは未移植。共通DB/認可�
 
 ## 自社名刺案（PWA先行、2026-10-12）
 社内PJ管理「名刺案」、管理者「全PJの名刺案」を追加。最新版と承認版、入稿PDF写し・編集元・版履歴を保持。交換名刺OCRと別台帳。共通DBは適用済み。仕様 `pwa/spec/3-25-project-card-designs-current-spec.md`。iOS/macOS/Android専用画面は未移植。
+
+2026-10-12: 自社名刺PDFの閲覧ページ `/card-designs/{designId}/assets/{assetId}` をPWAへ追加。内蔵PDF表示に依存しない描画と原本ダウンロード。ネイティブ未移植。

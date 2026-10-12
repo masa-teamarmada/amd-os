@@ -4842,3 +4842,7 @@ expectIncludes("src/components/workflows/WorkflowProgress.tsx", ["フローの�
 
 expectIncludes("src/components/workflows/WorkflowDocumentUpload.tsx", ["onDrop", "onDragOver", "type=\"file\"", "下書き（Word・PDF）", "uploadToSignedUrl", "finish_upload"]);
 expectIncludes("src/components/workflows/WorkflowProgress.tsx", ["ArrowRight", "ArrowDown", "data-workflow-connector", "aria-current"]);
+
+// Card previews use a document renderer, avoiding dependence on the native PDF plugin.
+expectIncludes("src/components/project-card-designs/ProjectCardDesigns.tsx", ['PdfCanvas', 'pdfUrl={']);
+expectIncludes("src/components/project-card-designs/PdfCanvas.tsx", ['pdfjs-dist', 'getDocument', 'getPage', 'canvas', 'destroy']);
