@@ -1108,3 +1108,9 @@ PWA /seed-needs と左メニューを「市場ニーズ」へ。一市場一行�
 - 業務契約：上記spec3-20/5-17に従い、社内原本・DD抜粋・4段階絞り込み・行ごとの掲載編集を保つ。
 - UI：`CockpitTechnology`、`AmieTechDisclosure`。取得：project-tech API/loader、dd-sources。保存：project_tech_topics/entries.disclosure。
 - 回帰：`test:tech-disclosure`（`test:dd-package`で実行）。元内容不一致・未設定・非公開の行・PJ越境はDDから除外。Swift編集UIは未移植。
+
+### DD入場時のNDA確認（2026-10-12）
+
+- 入口/dd/{slug}、DdEntryGate、POST/dd/{slug}/nda。契約締結済みとの「はい」を保存してから本文を出す。設立済み正式商号のみ追加。
+- workspace_access_audit_logsのdd_nda_confirmed。adminで回答者/日時/対象会社名を確認。個別権限を維持し、保存失敗・未確認・古い文言/会社名では入場しない。
+- 維持する導線:「秘密保持契約の確認」「はい」「いいえ・戻る」。check_dd_nda.mtsをtest:dd-packageで実行。正本spec/5-17、manual/2-6。

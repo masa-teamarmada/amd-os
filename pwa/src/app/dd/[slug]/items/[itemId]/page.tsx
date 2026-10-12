@@ -1,3 +1,5 @@
+import { hasDdNdaConfirmation } from "@/lib/dd-nda-server";
+import { redirect as redirectToNda } from "next/navigation";
 import { ddContentHash } from "@/lib/dd-confidentiality-server";
 import { notFound } from "next/navigation";
 import { requireDdPageSession } from "@/lib/dd-page-session";
@@ -17,8 +19,9 @@ export default async function DdItemPage({ params }: { params: Promise<{ slug: s
   const { slug, itemId } = await params;
   if (!isDdSlug(slug) || !isUuid(itemId)) notFound();
   await requireDdPageSession(`/dd/${encodeURIComponent(slug)}/items/${encodeURIComponent(itemId)}`);
-  const access = await resolveDdPackageAccess(slug);
+  const access = await resolveDdPackageAccess(slug, { requireNdaConfirmation: false });
   if (!access) notFound();
+  if (!await hasDdNdaConfirmation(access)) redirectToNda(`/dd/${encodeURIComponent(slug)}?returnTo=${encodeURIComponent(`/dd/${encodeURIComponent(slug)}/items/${encodeURIComponent(itemId)}`)}`);
   const view = await loadDdItemView(access, itemId);
   if (!view) notFound();
   const packageView = await loadDdPackageView(access);

@@ -322,7 +322,7 @@ export type DdAdminItem = DdItemRow & {
   autoUnverified: string[];
 };
 
-export type DdAdminEvent = { id: string; eventType: string; email: string | null; createdAt: string; itemId: string | null; noticeVersion?: string | null; pageKey?: string | null; contentHash?: string | null };
+export type DdAdminEvent = { id: string; eventType: string; email: string | null; createdAt: string; itemId: string | null; noticeVersion?: string | null; pageKey?: string | null; contentHash?: string | null; ndaPartyLabel?: string | null; actorMemberId?: string | null; userAccountId?: string | null };
 export type DdAdminExport = { id: string; email: string | null; createdAt: string; itemCount: number };
 
 export type DdAdminState = {
@@ -354,11 +354,11 @@ export async function loadDdAdminState(projectId: string): Promise<DdAdminState 
       .order("created_at"),
     db
       .from("workspace_access_audit_logs")
-      .select("id,event_type,email,created_at,detail")
+      .select("id,event_type,email,user_account_id,created_at,detail")
       .eq("project_id", projectId)
       // 同じPJに別のパッケージ（動作確認用など）があっても混ぜないよう、パッケージで絞る。
       .eq("detail->>package_id", pkg.id)
-      .in("event_type", ["dd_package_viewed", "dd_item_viewed", "dd_file_opened", "dd_file_downloaded", "dd_package_exported", "dd_confidentiality_confirmed"])
+      .in("event_type", ["dd_package_viewed", "dd_item_viewed", "dd_file_opened", "dd_file_downloaded", "dd_package_exported", "dd_confidentiality_confirmed", "dd_nda_confirmed"])
       .order("created_at", { ascending: false })
       .limit(200),
   ]);
@@ -411,6 +411,9 @@ export async function loadDdAdminState(projectId: string): Promise<DdAdminState 
         return {
           id: String(row.id),
           eventType: String(row.event_type),
+          userAccountId: typeof row.user_account_id === "string" ? row.user_account_id : null,
+          actorMemberId: typeof detail.actor_member_id === "string" ? detail.actor_member_id : null,
+          ndaPartyLabel: typeof detail.nda_party_label === "string" ? detail.nda_party_label : null,
           email: (row.email as string) ?? null,
           createdAt: String(row.created_at),
           itemId: typeof detail.item_id === "string" ? detail.item_id : null,

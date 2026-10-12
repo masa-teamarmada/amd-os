@@ -30,6 +30,7 @@ const EVENT_LABEL: Record<string, string> = {
   dd_package_viewed: "トップを閲覧",
   dd_item_viewed: "項目を閲覧",
   dd_file_opened: "資料を表示",
+  dd_nda_confirmed: "NDA締結済みと回答（はい）",
   dd_confidentiality_confirmed: "秘密指定を確認",
   dd_file_downloaded: "資料をダウンロード",
 };
@@ -244,10 +245,10 @@ export function DdAdminPanel({ state, candidates, onChanged, endpoint = "/api/ad
 
       <section className="space-y-2">
         <div className="border-b border-[#1d1d1f] pb-1">
-          <h3 className="text-[15px] font-semibold">閲覧記録</h3>
+          <h3 className="text-[15px] font-semibold">入場確認・閲覧記録</h3>
         </div>
         {state.events.length === 0 ? (
-          <p className="text-[12px] text-[#6e6e73]">外部アカウントの閲覧記録はまだない。</p>
+          <p className="text-[12px] text-[#6e6e73]">閲覧・入場確認の記録はまだない。</p>
         ) : (
           <div className="max-h-[360px] overflow-auto">
             <table className="w-full border-collapse text-[12px]">
@@ -264,7 +265,7 @@ export function DdAdminPanel({ state, candidates, onChanged, endpoint = "/api/ad
                   <tr key={event.id} className="border-t border-[#f0f0f2]">
                     <td className="px-2 py-1 whitespace-nowrap">{new Date(event.createdAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}</td>
                     <td className="px-2 py-1">{event.email ?? "—"}</td>
-                    <td className="px-2 py-1">{EVENT_LABEL[event.eventType] ?? event.eventType}{event.noticeVersion && <span className="block text-[11px] text-[#6e6e73]">秘密指定 {event.noticeVersion}</span>}</td>
+                    <td className="px-2 py-1">{EVENT_LABEL[event.eventType] ?? event.eventType}{event.ndaPartyLabel && <span className="block text-[11px] text-[#6e6e73]">確認対象：{event.ndaPartyLabel}</span>}{event.noticeVersion && <span className="block text-[11px] text-[#6e6e73]">秘密指定 {event.noticeVersion}</span>}</td>
                     <td className="px-2 py-1">
                       {event.itemId ? (state.items.find((item) => item.id === event.itemId)?.title ?? "（削除済み）") : "—"}
                     </td>

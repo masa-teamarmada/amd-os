@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { PROJECT_WORKSPACE_SESSION_COOKIE } from "@/lib/project-workspace-session";
 import { WORKSPACE_SESSION_COOKIE } from "@/lib/workspace-access-session";
 import { createClient } from "@/lib/supabase/server";
@@ -25,5 +26,10 @@ export async function GET(request: Request) {
     path: "/",
     maxAge: 0,
   });
+  for (const cookie of (await cookies()).getAll()) {
+    if (cookie.name.startsWith("amd_os_dd_nda_")) response.cookies.set(cookie.name, "", {
+      httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 0,
+    });
+  }
   return response;
 }

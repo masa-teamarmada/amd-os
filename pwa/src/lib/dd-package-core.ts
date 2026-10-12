@@ -290,7 +290,7 @@ export function isUuid(value: unknown): value is string {
 /** 外部アカウントの署名 cookie を認証の代わりに使ってよい DD の path。中身の認可は各ページが行う。 */
 export function isDdViewerPath(pathname: string): boolean {
   if (pathname === "/dd") return true;
-  return /^\/dd\/[^/]+(?:\/edit|\/items\/[^/]+(?:\/file)?)?\/?$/.test(pathname);
+  return /^\/dd\/[^/]+(?:\/nda|\/confidentiality|\/edit|\/items\/[^/]+(?:\/file)?)?\/?$/.test(pathname);
 }
 
 /** 公開対象にできる追加の共通ページ。DB制約とも一致させる。 */

@@ -1,4 +1,5 @@
 import "server-only";
+import { hasDdNdaConfirmation } from "@/lib/dd-nda-server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { memberSurfacePermission } from "@/lib/project-surface-permissions";
@@ -103,7 +104,7 @@ async function loadPackageBySlug(slug: string): Promise<PackageRow | null> {
  * 1つのパッケージを開いてよいかを決める。ページ・ファイル配信・ダウンロードのすべてがここを通る。
  * 順序: AMD admin（管理者プレビュー） → 内部個別DD権限 → 外部アカウントの DD 閲覧権限。どちらでもなければ null。
  */
-export async function resolveDdPackageAccess(slug: string): Promise<DdViewerAccess | null> {
+async function resolveDdPackagePermission(slug: string): Promise<DdViewerAccess | null> {
   if (!isDdSlug(slug)) return null;
 
   const member = await getCurrentMemberAccess();
@@ -155,4 +156,11 @@ export async function resolveDdPackageAccess(slug: string): Promise<DdViewerAcce
 /** /api/auth/email-start と /auth/callback が使う。ログイン可否の判定に要る列だけを読む。 */
 export async function loadDdGrantsForLogin(accountId: string): Promise<DdGrantRow[]> {
   return loadGrantsWithPackages(accountId);
+}
+
+/** 本文/資料/APIは既定でNDA確認まで検証。入口と確認POSTだけ個別認可後の未確認アクセスを使う。 */
+export async function resolveDdPackageAccess(slug: string, { requireNdaConfirmation = true }: { requireNdaConfirmation?: boolean } = {}): Promise<DdViewerAccess | null> {
+  const access = await resolveDdPackagePermission(slug);
+  if (!access || !requireNdaConfirmation) return access;
+  try { return await hasDdNdaConfirmation(access) ? access : null; } catch { return null; }
 }

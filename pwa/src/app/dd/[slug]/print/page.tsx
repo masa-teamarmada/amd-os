@@ -1,3 +1,5 @@
+import { hasDdNdaConfirmation } from "@/lib/dd-nda-server";
+import { redirect as redirectToNda } from "next/navigation";
 import { DdConfidentialityNotice } from "@/components/dd/DdConfidentialityNotice";
 import { notFound } from "next/navigation";
 import { resolveDdPackageAccess } from "@/lib/dd-access";
@@ -27,9 +29,10 @@ function nowInTokyo(): string {
 
 export default async function DdPrintPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const access = await resolveDdPackageAccess(slug);
+  const access = await resolveDdPackageAccess(slug, { requireNdaConfirmation: false });
   // 正式版の出力は管理者だけ（投資家へは、出力したPDFをまさが渡す）。
   if (!access || access.principal !== "internal_admin") notFound();
+  if (!await hasDdNdaConfirmation(access)) redirectToNda(`/dd/${encodeURIComponent(slug)}?returnTo=${encodeURIComponent(`/dd/${encodeURIComponent(slug)}/print`)}`);
   const pkg = await loadDdPackageRow(access.packageId);
   if (!pkg) notFound();
 

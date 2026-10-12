@@ -88,7 +88,7 @@ assert.equal(hasLoginEligibleDdGrant([], NOW), false);
 
 // --- 関所で外部セッションを通す path -----------------------------------------
 const ITEM = "0b8c7a1e-3f7e-4a3b-9a55-2b1d8c4e6f70";
-for (const path of ["/dd", "/dd/sol", "/dd/sol/", `/dd/sol/items/${ITEM}`, `/dd/sol/items/${ITEM}/file`]) {
+for (const path of ["/dd", "/dd/sol", "/dd/sol/", "/dd/sol/nda", "/dd/sol/confidentiality", `/dd/sol/items/${ITEM}`, `/dd/sol/items/${ITEM}/file`]) {
   assert.ok(isDdViewerPath(path), `${path} は DD の面`);
 }
 for (const path of ["/ddx", "/dd/sol/admin", "/dd/sol/items", `/dd/sol/items/${ITEM}/file/x`, "/project/p21/dd", "/project/p21/workspace/dd", "/api/admin/dd"]) {

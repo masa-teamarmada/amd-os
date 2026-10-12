@@ -33,7 +33,7 @@ export async function DdViewerShell({ access, projectName, pageKey, children }: 
             {access.principal === "workspace_account" && <a href="/auth/logout" className="inline-flex min-h-11 items-center rounded-md border border-[#d2d2d7] px-3 hover:bg-[#f5f5f7] sm:min-h-9">ログアウト</a>}
           </div>
         </header>
-        <div className="sticky top-0 z-40 print:static"><DdConfidentialityNotice overlay slug={access.slug} canConfirm={access.principal === "workspace_account"} /></div>
+        <div className="sticky top-0 z-40 print:static"><DdConfidentialityNotice overlay slug={access.slug} /></div>
         <ProjectSpaceLayout compact navigation={<>
         <ProjectSurfaceNav projectId={access.projectId} current="dd" canCockpit={canCockpit} canWorkspace={access.preview || Boolean(workspaceAccess)} ddHref={homeHref} />
         <DdNavigation slug={access.slug} pageKey={pageKey} />

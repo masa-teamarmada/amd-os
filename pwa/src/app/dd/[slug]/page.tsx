@@ -1,3 +1,6 @@
+import { DdEntryGate } from "@/components/dd/DdEntryGate";
+import { loadDdNdaContext, hasDdNdaConfirmation } from "@/lib/dd-nda-server";
+import { ddNdaReturnPath } from "@/lib/dd-nda";
 import { ddContentHash } from "@/lib/dd-confidentiality-server";
 import { notFound, redirect } from "next/navigation";
 import { requireDdPageSession } from "@/lib/dd-page-session";
@@ -12,16 +15,18 @@ import { loadDdProjectPage } from "@/lib/dd-project-pages-server";
 export const dynamic = "force-dynamic";
 
 // DDトップ。権限の確認（毎回DBを引き直す）より前に、パッケージの有無が分かる応答を返さない。
-export default async function DdPackagePage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ tab?: string; section?: string }> }) {
+export default async function DdPackagePage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ tab?: string; section?: string; returnTo?: string }> }) {
   const { slug } = await params;
   if (!isDdSlug(slug)) notFound();
-  const { section, tab } = await searchParams;
+  const { section, tab, returnTo } = await searchParams;
   const query = new URLSearchParams();
   if (tab) query.set("tab", tab);
   if (section) query.set("section", section);
   await requireDdPageSession(`/dd/${encodeURIComponent(slug)}${query.size ? `?${query}` : ""}`);
-  const access = await resolveDdPackageAccess(slug);
+  const access = await resolveDdPackageAccess(slug, { requireNdaConfirmation: false });
   if (!access) notFound();
+  const nda = await loadDdNdaContext(access);
+  if (!await hasDdNdaConfirmation(access, nda)) return <DdEntryGate slug={slug} title={access.title} {...nda} returnTo={ddNdaReturnPath(slug, returnTo ?? `/dd/${encodeURIComponent(slug)}${query.size ? `?${query}` : ""}`)} />;
 
   if (tab === "financial-projection") redirect(`/dd/${encodeURIComponent(access.slug)}?tab=monthly-trial`);
   // 認可後、選択された正本ページと監査記録を並行して読む。

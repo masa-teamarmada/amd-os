@@ -1,3 +1,5 @@
+import { hasDdNdaConfirmation } from "@/lib/dd-nda-server";
+import { redirect as redirectToNda } from "next/navigation";
 import { requireDdPageSession } from "@/lib/dd-page-session";
 import {notFound} from 'next/navigation';
 import Link from 'next/link';
@@ -8,8 +10,9 @@ export default async function DdEditPage({params}:{params:Promise<{slug:string}>
  const {slug}=await params;
  if (!isDdSlug(slug)) notFound();
  await requireDdPageSession(`/dd/${encodeURIComponent(slug)}/edit`);
- const access=await resolveDdPackageAccess(slug);
+ const access=await resolveDdPackageAccess(slug, { requireNdaConfirmation: false });
  if (!access) notFound();
+  if (!await hasDdNdaConfirmation(access)) redirectToNda(`/dd/${encodeURIComponent(slug)}?returnTo=${encodeURIComponent(`/dd/${encodeURIComponent(slug)}/edit`)}`);
  if (!hasDdCapability(access,"dd.edit")) notFound();
  return <main className="min-w-0 p-4"><div className="mb-3 flex flex-wrap items-center gap-3"><h1 className="text-lg font-semibold">DD掲載項目の編集</h1><Link className="text-sm text-primary underline" href={`/dd/${encodeURIComponent(slug)}`}>DDパッケージへ戻る</Link></div><DdProjectTab projectId={access.projectId} endpoint={`/api/dd/${encodeURIComponent(slug)}/edit`} contentOnly /></main>;
 }
