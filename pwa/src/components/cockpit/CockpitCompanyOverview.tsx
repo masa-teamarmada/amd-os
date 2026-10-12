@@ -26,6 +26,7 @@ import {
   type CompanyOverviewData,
 } from "@/lib/company-overview";
 import { downloadCompanyOverviewXlsx } from "@/lib/company-overview-xlsx";
+import { loadDdStampBytes, DD_STAMP_WIDTH, DD_STAMP_HEIGHT } from "@/lib/dd-confidentiality-stamp";
 import type { BusinessSummaryResponse } from "@/lib/project-overview";
 import { CompanyBusinessSummarySection } from "@/components/cockpit/CompanyBusinessSummarySection";
 import { loadGovernance, peekGovernance, saveGovernanceEntity } from "@/lib/governance-client";
@@ -245,6 +246,7 @@ export function CockpitCompanyOverview({
     setError("");
     try {
       const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import("html2canvas"), import("jspdf")]);
+      const stamp = confidential ? await loadDdStampBytes() : null;
       const canvas = await html2canvas(exportRef.current, { scale: 1.7, backgroundColor: "#f8fafc", useCORS: true, logging: false, onclone: (document, element) => {
         if (confidential) element.querySelector("[data-dd-export-notice]")?.removeAttribute("hidden");
         normalizeHtml2CanvasColors(document);
@@ -254,7 +256,7 @@ export function CockpitCompanyOverview({
       const pageHeight = 297;
       const margin = 8;
       const imageWidth = pageWidth - margin * 2;
-      const topMargin = confidential ? 13 : margin;
+      const topMargin = confidential ? 34 : margin;
       const sliceHeight = Math.floor((pageHeight - topMargin - margin) * canvas.width / imageWidth);
       let offset = 0;
       while (offset < canvas.height) {
@@ -266,11 +268,8 @@ export function CockpitCompanyOverview({
         if (!context) throw new Error("PDFのページを作成できなかった。");
         context.drawImage(canvas, 0, offset, canvas.width, slice.height, 0, 0, slice.width, slice.height);
         pdf.addImage(slice.toDataURL("image/jpeg", 0.9), "JPEG", margin, topMargin, imageWidth, slice.height * imageWidth / canvas.width, undefined, "FAST");
-        if (confidential) {
-          pdf.setFont("helvetica", "bold");
-          pdf.setFontSize(12);
-          pdf.setTextColor(185, 28, 28);
-          pdf.text("CONFIDENTIAL", margin, 8);
+        if (stamp) {
+          pdf.addImage(stamp, "PNG", margin, 3, 62, 62 * DD_STAMP_HEIGHT / DD_STAMP_WIDTH);
         }
         offset += slice.height;
       }
@@ -294,7 +293,7 @@ export function CockpitCompanyOverview({
           <p className="mt-1 text-xs leading-5 text-slate-300">会社情報・資本政策・機関決定・決算</p>
         </div>
         <div className="flex flex-wrap gap-2" data-html2canvas-ignore="true">
-          <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" disabled={!canDownload} onClick={() => downloadCompanyOverviewXlsx(projectName, data, confidential)}><FileSpreadsheet />会社概要Excel</Button>
+          <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" disabled={!canDownload} onClick={() => void downloadCompanyOverviewXlsx(projectName, data, confidential).catch(cause => setError(cause instanceof Error ? cause.message : "Excelを作成できなかった。"))}><FileSpreadsheet />会社概要Excel</Button>
           <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" onClick={() => void exportPdf()} disabled={exportingPdf || !canDownload}>{exportingPdf ? <Loader2 className="animate-spin" /> : <Download />}PDF</Button>
           <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" onClick={() => initialData ? window.location.reload() : void load()}><RefreshCw />更新</Button>
         </div>

@@ -161,6 +161,7 @@ function PhaseMatrix({ projectName, plan, canDownload = true, confidential = fal
   const matrixRef = useRef<HTMLDivElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(() => new Set());
+  const [exportError, setExportError] = useState<string | null>(null);
   const selectPhase = (index: number) => {
     setSelectedId(phases[index].id);
     const matrix = matrixRef.current;
@@ -237,12 +238,13 @@ function PhaseMatrix({ projectName, plan, canDownload = true, confidential = fal
         <button
           type="button"
           className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 sm:min-h-10 transition hover:border-indigo-300 hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
-          onClick={() => downloadBusinessPlanPhaseMatrixXlsx(projectName, phases, confidential)}
+          onClick={() => { setExportError(null); void downloadBusinessPlanPhaseMatrixXlsx(projectName, phases, confidential).catch(cause => setExportError(cause instanceof Error ? cause.message : "Excelを作成できなかった。")); }}
           disabled={empty || !canDownload}
           data-testid="phase-matrix-xlsx-export"
         >
           <FileSpreadsheet className="size-3.5" /> Excel出力
         </button>
+        {exportError && <p role="alert" className="w-full text-xs text-red-700">{exportError}</p>}
       </div>
 
       <div className="border-t border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] leading-4 text-slate-600">

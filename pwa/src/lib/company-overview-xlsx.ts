@@ -1,4 +1,5 @@
 import { markDdWorkbook } from "./dd-confidentiality.ts";
+import { loadDdStampBytes } from "./dd-confidentiality-stamp.ts";
 import { strToU8, zipSync } from "fflate";
 import {
   HOLDER_LABELS,
@@ -316,9 +317,9 @@ export function createCompanyOverviewXlsx(projectName: string, data: CompanyOver
   return zipSync(files, { level: 6 });
 }
 
-export function downloadCompanyOverviewXlsx(projectName: string, data: CompanyOverviewData, confidential = false) {
+export async function downloadCompanyOverviewXlsx(projectName: string, data: CompanyOverviewData, confidential = false) {
   const original = createCompanyOverviewXlsx(projectName, data);
-  const bytes = confidential ? markDdWorkbook(original) : original;
+  const bytes = confidential ? markDdWorkbook(original, await loadDdStampBytes()) : original;
   const blob = new Blob([bytes.buffer as ArrayBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");

@@ -4,7 +4,7 @@ import ts from "typescript";
 import { unzipSync, strFromU8 } from "fflate";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import { ddDisclosureZip, markDdWorkbook, DD_CONFIDENTIALITY_VERSION, DD_CONFIDENTIALITY_NOTICE } from "../src/lib/dd-confidentiality.ts";
-import { ddContentHash, markDdHtml, markDdPdf, markDdImage } from "../src/lib/dd-confidentiality-server.ts";
+import { ddContentHash, markDdHtml, markDdPdf, markDdImage, loadDdStamp } from "../src/lib/dd-confidentiality-server.ts";
 import { createBusinessPlanPhaseMatrixXlsx } from "../src/lib/project-business-plan-xlsx.ts";
 
 const original = new Uint8Array([0, 1, 2, 255, 4]);
@@ -26,23 +26,30 @@ assert.match(strFromU8(newFiles["xl/styles.xml"]), /<b\/><color rgb="FFB91C1C"\/
 assert.equal(strFromU8(newFiles['xl/styles.xml']).replace(/<fonts count="\d+"/, '<fonts').split('</fonts>')[0].split('<font>').slice(1, -1).join('<font>'), strFromU8(oldFiles['xl/styles.xml']).replace(/<fonts count="\d+"/, '<fonts').split('</fonts>')[0].split('<font>').slice(1).join('<font>'), '既存のフォント順序と内容を保持');
 assert.match(strFromU8(newFiles["xl/worksheets/sheet1.xml"]), /&amp;KB91C1CCONFIDENTIAL/);
 assert.equal(strFromU8(newFiles["xl/worksheets/sheet1.xml"]).replace(/<headerFooter>[\s\S]*?<\/headerFooter>/, ""), strFromU8(oldFiles["xl/worksheets/sheet1.xml"]), "元の表・数値・セル参照を保持");
+const stamp = loadDdStamp();
+const stampedWorkbook = unzipSync(markDdWorkbook(workbook, stamp));
+assert.deepEqual(stampedWorkbook['xl/media/dd-confidential-stamp.png'], new Uint8Array(stamp), '生成した原寸スタンプをExcelへ同梱');
+assert.match(strFromU8(stampedWorkbook['xl/worksheets/dd-disclosure.xml']), /<drawing/);
+assert.equal(strFromU8(stampedWorkbook['xl/worksheets/sheet1.xml']).replace(/<headerFooter>[\s\S]*?<\/headerFooter>/, ''), strFromU8(oldFiles['xl/worksheets/sheet1.xml']), '画像追加でも元の表・数値を保持');
+const stampedZip = unzipSync(ddDisclosureZip(original, 'file.bin', 'date', ddContentHash(original), stamp));
+assert.ok(strFromU8(stampedZip['開示通知.html']).includes(Buffer.from(stamp).toString('base64')), '通信なしの通知にもスタンプを埋め込む');
 const html = '<!doctype html><html><body class="source"><h1>ORIGINAL</h1></body></html>';
 assert.ok(markDdHtml(html).includes('<h1>ORIGINAL</h1>'));
 assert.ok(markDdHtml(html).indexOf('data-dd-confidentiality') < markDdHtml(html).indexOf('<h1>'));
-assert.match(markDdHtml(html), /color:#b91c1c!important/);
+assert.ok(markDdHtml(html).includes(Buffer.from(stamp).toString('base64')));
 const pdf = await PDFDocument.create();
 const font = await pdf.embedFont(StandardFonts.Helvetica);
 pdf.addPage([600, 800]).drawText("ORIGINAL", { x: 30, y: 760, font });
 const pdfBytes = await pdf.save();
 const marked = await PDFDocument.load(await markDdPdf(pdfBytes));
 assert.equal(marked.getPageCount(), 1);
-assert.equal(marked.getPages()[0].getHeight(), 828, "本文を覆わず秘密表示の余白を追加");
+assert.ok(Math.abs(marked.getPages()[0].getHeight() - (800 + 220 * 817 / 1925 + 16)) < .01, "本文を覆わず大きいスタンプ用の余白を追加");
 assert.equal(marked.getSubject(), DD_CONFIDENTIALITY_NOTICE);
 const sharp = (await import("sharp")).default;
 const png = await sharp({ create: { width: 400, height: 300, channels: 3, background: 'white' } }).png().toBuffer();
 const image = await markDdImage(png, "image/png");
 assert.match(Buffer.from(image).toString(), /秘密情報/);
-assert.match(Buffer.from(image).toString(), /fill="#b91c1c">CONFIDENTIAL/);
+assert.ok(Buffer.from(image).toString().includes(Buffer.from(stamp).toString('base64')));
 assert.ok(Buffer.from(image).toString().includes(png.toString("base64")), "元画像の実体を保持");
 
 // 実routeを依存先だけ置き換えて実行し、権限・CSRF・失敗時の閉鎖を検査する。
@@ -87,7 +94,7 @@ const fileRoute = route('../src/app/dd/[slug]/items/[itemId]/file/route.ts', {
   '@/lib/dd-sources': { DD_FILE_MAX_BYTES: 100 * 1024 * 1024, DD_FILE_CACHE_BUCKET: 'cache', deliverDdDocument: async () => { deliveryCalls++; return delivery; } },
   '@/lib/dd-payload': { ddDocumentPreview: () => 'html' },
   '@/lib/dd-confidentiality': { ddDisclosureZip, DD_CONFIDENTIALITY_VERSION },
-  '@/lib/dd-confidentiality-server': { ddContentHash, markDdHtml, markDdImage, markDdPdf },
+  '@/lib/dd-confidentiality-server': { ddContentHash, markDdHtml, markDdImage, markDdPdf, loadDdStamp },
   '@/lib/supabase/admin': { createAdminClient: () => { throw new Error('unexpected write'); } },
 });
 const fileContext = { params: Promise.resolve({ slug: 'test', itemId: 'id' }) };

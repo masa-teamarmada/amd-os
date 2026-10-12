@@ -5,7 +5,7 @@ import { loadDdItem, recordDdAccessEvent } from "@/lib/dd-package-server";
 import { deliverDdDocument } from "@/lib/dd-sources";
 import { ddDocumentPreview } from "@/lib/dd-payload";
 import { ddDisclosureZip } from "@/lib/dd-confidentiality";
-import { ddContentHash, markDdHtml, markDdImage, markDdPdf } from "@/lib/dd-confidentiality-server";
+import { ddContentHash, markDdHtml, markDdImage, markDdPdf, loadDdStamp } from "@/lib/dd-confidentiality-server";
 import { DD_FILE_MAX_BYTES, DD_FILE_CACHE_BUCKET } from "@/lib/dd-sources";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DD_CONFIDENTIALITY_VERSION } from "@/lib/dd-confidentiality";
@@ -109,7 +109,7 @@ export async function GET(
     const bytes = Buffer.concat(chunks);
     const contentHash = ddContentHash(bytes);
     const preview = ddDocumentPreview(delivery.mimeType, delivery.fileName);
-    const output = download ? ddDisclosureZip(bytes, delivery.fileName, new Date().toISOString(), contentHash)
+    const output = download ? ddDisclosureZip(bytes, delivery.fileName, new Date().toISOString(), contentHash, loadDdStamp())
       : preview === "pdf" ? await markDdPdf(bytes)
       : preview === "image" ? await markDdImage(bytes, delivery.mimeType)
       : null;

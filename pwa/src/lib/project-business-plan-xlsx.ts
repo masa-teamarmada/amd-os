@@ -1,4 +1,5 @@
 import { markDdWorkbook } from "./dd-confidentiality.ts";
+import { loadDdStampBytes } from "./dd-confidentiality-stamp.ts";
 /**
  * 事業計画タブ（フェーズマトリクス）の Excel 出力。全PJ同じ形で、中身は project_business_plans から渡す（spec 3-23）。
  */
@@ -134,9 +135,9 @@ export function createBusinessPlanPhaseMatrixXlsx(phases: readonly BusinessPlanP
   return zipSync(files, { level: 6 });
 }
 
-export function downloadBusinessPlanPhaseMatrixXlsx(projectName: string, phases: readonly BusinessPlanPhase[], confidential = false) {
+export async function downloadBusinessPlanPhaseMatrixXlsx(projectName: string, phases: readonly BusinessPlanPhase[], confidential = false) {
   const original = createBusinessPlanPhaseMatrixXlsx(phases);
-  const bytes = confidential ? markDdWorkbook(original) : original;
+  const bytes = confidential ? markDdWorkbook(original, await loadDdStampBytes()) : original;
   const blob = new Blob([bytes.buffer as ArrayBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
