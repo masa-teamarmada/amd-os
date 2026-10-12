@@ -75,3 +75,21 @@ if(process.argv[2]) {
  console.log(JSON.stringify({corpusTopics:full.length,corpusEntries:121}));
 }
 console.log("Tech disclosure: private canaries, numeric preservation, stale review, unclassified, cross-PJ, DD/shared loader and selected item export PASS");
+
+// 実画面で発見した、保存後にブラウザのHTTPキャッシュへ戻る不具合の再発防止。
+const originalFetch=globalThis.fetch;
+Object.assign(globalThis,{window:{}});
+try {
+ const {loadProjectTech,updateTechRow}=await import("../src/lib/project-tech-client.ts");
+ let current={ok:true,canEdit:true,topics:[{...approvedTopic,disclosure_status:"included"}],entries:[],fragments:[]};
+ let browserCached: typeof current | null=null;
+ globalThis.fetch=(async (_url:unknown,init?:RequestInit)=>{
+  if(init?.method==="PATCH"){current={...current,topics:[{...approvedTopic,disclosure_status:"excluded"}]};return new Response(JSON.stringify({ok:true}));}
+  if(init?.cache==="no-store" || !browserCached) browserCached=current;
+  return new Response(JSON.stringify(browserCached));
+ }) as typeof fetch;
+ assert.equal((await loadProjectTech("http-cache-test")).topics[0].disclosure_status,"included");
+ await updateTechRow("http-cache-test","topic","culture",{disclosure:{version:1,level:"core",reason:"原本",dd:null}});
+ assert.equal((await loadProjectTech("http-cache-test",{force:true})).topics[0].disclosure_status,"excluded","保存後はブラウザの古い掲載状態を再利用しない");
+} finally {globalThis.fetch=originalFetch;Reflect.deleteProperty(globalThis,"window");}
+console.log("Tech disclosure saving: browser HTTP cache bypass and current inclusion state PASS");

@@ -30,8 +30,9 @@ export interface ProjectTechResponse {
   fragments: TechKnowledgeFragment[];
 }
 
-async function request(projectId: string): Promise<ProjectTechResponse> {
-  const res = await fetch(`/api/project-tech?projectId=${encodeURIComponent(projectId)}`);
+async function request(projectId: string, force = false): Promise<ProjectTechResponse> {
+  // 保存後は参照キャッシュだけでなく、ブラウザの60秒HTTPキャッシュも通さない。
+  const res = await fetch(`/api/project-tech?projectId=${encodeURIComponent(projectId)}`, { cache: force ? "no-store" : "default" });
   const payload = (await res.json()) as {
     ok: boolean;
     canEdit?: boolean;
@@ -55,7 +56,7 @@ async function request(projectId: string): Promise<ProjectTechResponse> {
 
 /** タブ本体から呼ぶ。同時に来た呼び出しは1本へ束ねられる。 */
 export function loadProjectTech(projectId: string, options?: { force?: boolean; sharedView?: boolean }) {
-  return loadReferenceData(key(projectId, options?.sharedView), () => request(projectId), options);
+  return loadReferenceData(key(projectId, options?.sharedView), () => request(projectId, options?.force), options);
 }
 
 /** キャッシュ済みなら同期で返す。タブを開いた瞬間に描画するために使う。 */
