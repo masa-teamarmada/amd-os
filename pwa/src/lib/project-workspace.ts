@@ -275,6 +275,8 @@ export function canAccessWorkspaceProject(access: WorkspaceProjectAccess, projec
 export function projectScopedPathAllowed(access: CurrentMemberAccess, pathname: string) {
   if (access.scope !== "project") return true;
   if (pathname === "/my-projects") return true;
+  const cardPdf = pathname.match(/^\/project\/([^/]+)\/card-designs\/[0-9a-f-]{36}\/assets\/[0-9a-f-]{36}\/?$/i);
+  if (cardPdf) return !!memberSurfacePermission(access, decodeURIComponent(cardPdf[1]), "cockpit");
   const cockpit = pathname.match(/^\/project\/([^/]+)\/cockpit\/?$/);
   if (cockpit) return !!memberSurfacePermission(access, decodeURIComponent(cockpit[1]), "cockpit");
   const match = pathname.match(/^\/project\/([^/]+)\/(?:workspace(?:\/files)?|weekly-control|navigation)\/?$/);

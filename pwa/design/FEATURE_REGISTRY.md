@@ -1101,4 +1101,4 @@ PWA /seed-needs と左メニューを「市場ニーズ」へ。一市場一行�
 ## 自社名刺案（2026-10-12）
 全PJ共通PJ管理 `card-designs` と管理者 `/admin/card-designs`。名刺系列・最新版・承認済み版・印刷PDF写し・編集元・発注情報を保持。SOL単独と併記版は別系列。契約はspec3-25、manual2-3。外部共有・発注の自動処理なし。
 
-自社名刺PDFは `/card-designs/{designId}/assets/{assetId}` で保存PDFを描画し原本を取得する。名刺一覧の表裏プレビューも同じ描画部品。
+自社名刺PDFは `/project/{ownerProjectId}/card-designs/{designId}/assets/{assetId}` で保存PDFを描画し原本を取得する。名刺一覧の表裏プレビューも同じ描画部品。

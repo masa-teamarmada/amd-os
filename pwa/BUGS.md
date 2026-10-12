@@ -5453,3 +5453,10 @@ kiyo-amd-os 側の設定で解消しているので、そちらは触ってい�
 - 原因: 両ツールがそれぞれ生成時刻を採番する。
 - 対応: 今回の2ファイルだけをDB適用履歴の実versionへ改名し参照を更新。DDLの再適用・既存DB履歴の変更なし。
 - 教訓: 作成/適用後にschema_migrationsのname/versionを読み戻し、ローカル同名ファイルと対応させる。
+
+
+## 2026-10-12 PJ限定メンバーの名刺PDF閲覧
+- 症状: 新しいglobal閲覧URLは、cockpit権限があるPJ限定メンバーでも全体layoutの許可外になる。
+- 原因: projectScopedPathAllowedがProjectIDを含む既存routeだけを許可するため。
+- 対応: 所有PJを含むcanonical PDF閲覧URLに変更。layoutはcockpit権限、ページは所有PJ一致/資料所属を再照合する。旧URLは認可付き転送で保持。
+- 教訓: 新しい閲覧routeはページ/APIだけでなく全体layoutのscope gateも検査する。workspace権限だけでは許可しない。

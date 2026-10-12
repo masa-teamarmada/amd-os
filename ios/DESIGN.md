@@ -819,7 +819,7 @@ iOS/macOS/Androidのファイル登録と矢印UIは未移植。共通DB/認可�
 ## 自社名刺案（PWA先行、2026-10-12）
 社内PJ管理「名刺案」、管理者「全PJの名刺案」を追加。最新版と承認版、入稿PDF写し・編集元・版履歴を保持。交換名刺OCRと別台帳。共通DBは適用済み。仕様 `pwa/spec/3-25-project-card-designs-current-spec.md`。iOS/macOS/Android専用画面は未移植。
 
-2026-10-12: 自社名刺PDFの閲覧ページ `/card-designs/{designId}/assets/{assetId}` をPWAへ追加。内蔵PDF表示に依存しない描画と原本ダウンロード。ネイティブ未移植。
+2026-10-12: 自社名刺PDFの閲覧ページ `/project/{ownerProjectId}/card-designs/{designId}/assets/{assetId}` をPWAへ追加。内蔵PDF表示に依存しない描画と原本ダウンロード。ネイティブ未移植。
 
 2026-10-12 DD秘密表示: 共通枠と閲覧写し・保存出力へ画像生成した赤いCONFIDENTIALスタンプを採用。既存の秘密指定全文・認可を維持。詳細はpwa/spec/5-17、独立DDのネイティブ移植は未実施。
 

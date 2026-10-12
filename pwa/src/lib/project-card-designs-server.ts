@@ -169,7 +169,7 @@ async function amieLoadCardDesignsUncached(
             .filter((a) => a.version_id === v.version_id)
             .map((a) => ({
               ...a,
-              openUrl: a.mime_type === "application/pdf" ? `/card-designs/${d.design_id}/assets/${a.asset_id}` : `/api/project-card-designs/${d.design_id}/assets/${a.asset_id}/open`,
+              openUrl: a.mime_type === "application/pdf" ? `/project/${encodeURIComponent(d.owner_project_id)}/card-designs/${d.design_id}/assets/${a.asset_id}` : `/api/project-card-designs/${d.design_id}/assets/${a.asset_id}/open`,
             })),
         })),
     })),

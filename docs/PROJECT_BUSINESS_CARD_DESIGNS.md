@@ -6,7 +6,7 @@
 
 - 各PJの社内コックピット「PJ管理 > 名刺案」: `/project/{projectId}/cockpit?tab=card-designs`
 - 管理者の全PJ一覧: `/admin/card-designs`
-- PDF閲覧: `/card-designs/{designId}/assets/{assetId}`。原本の取得入口も同じ面に表示。
+- PDF閲覧: `/project/{ownerProjectId}/card-designs/{designId}/assets/{assetId}`。原本の取得入口も同じ面に表示。
 
 名刺は一種類一行。氏名・ブランド・版・承認/発注状態を比較し、表裏・編集元・入稿PDF・過去版を開く。交換相手の名刺は既存 `/business-cards`、自社名刺は本台帳で管理する。
 
