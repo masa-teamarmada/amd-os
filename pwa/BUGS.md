@@ -5440,3 +5440,16 @@ kiyo-amd-os 側の設定で解消しているので、そちらは触ってい�
 - 原因: 検証環境で内蔵PDF表示が機能しない。同一PDFをCSPなしの通常HTTP配信でも再現。全体ヘッダーの上書き案は採用しない。
 - 対応: PDF.jsでOS内に表裏を直接描画。専用閲覧ページと原本PDFダウンロードを提供。PDF実体・認可・private/no-storeは維持。
 - 再発防止: 埋め込み/直接閲覧ページをChromeのPC/スマホで確認。登録元PDFのSHA256を変えない。
+
+
+## 2026-10-12 名刺台帳の直接読取りでinactiveが除外されない
+- 症状: APIは利用停止者を拒否するが、新設RLS helperはmembers.statusを見ていなかった。
+- 原因: current_member_idはメール対応だけを解決し、active判定を含まない。
+- 対応: helperにstatus=activeを追加し本番へ適用。authenticatedの実読取りでactive adminは3系列、inactiveは0系列/0資料を確認。16 inactiveのhelper拒否も確認。
+- 教訓: 既存helperの名前からactive条件を推測せず実定義を確認。Auth fixtureはJWT設定だけをトランザクション内で変え、メンバー行は変更しない。
+
+## 2026-10-12 CLI作成時刻とDB反映時刻のmigration ID差
+- 症状: CLIが生成した接頭時刻とMCP apply_migrationが保存する時刻が異なる。
+- 原因: 両ツールがそれぞれ生成時刻を採番する。
+- 対応: 今回の2ファイルだけをDB適用履歴の実versionへ改名し参照を更新。DDLの再適用・既存DB履歴の変更なし。
+- 教訓: 作成/適用後にschema_migrationsのname/versionを読み戻し、ローカル同名ファイルと対応させる。

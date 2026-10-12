@@ -1,6 +1,6 @@
 # 自社名刺案の保存・版管理
 
-更新: 2026-10-12。PWA実装。共通DB migration `20261012071328_amie_project_card_designs.sql` は本番適用済み。
+更新: 2026-10-12。PWA実装。利用停止者のRLS拒否は `20261012092110_amie_card_active_members.sql`（適用済み）。共通DB migration `20261012072118_amie_project_card_designs.sql` は本番適用済み。
 
 ## 画面と保存
 
@@ -20,7 +20,7 @@ PDFの画面URLは `/card-designs/{designId}/assets/{assetId}`。PDF.js 6.4.299�
 
 ## 権限・読取り
 
-社内メンバーの既存cockpit read/editを利用。adminのみ横断一覧。APIは所有PJと資料PJ双方のread、登録は関連PJ全部のeditを確認する。同一オリジンのPOSTのみ。authenticatedはRLS SELECTだけ、書込みRPCはservice_roleのみ。外部JWT・anonは読み書きできない。共有/DD向け公開操作を提供しない。
+activeな社内メンバーの既存cockpit read/editを利用。APIと直接RLSの両方でinactiveを拒否する。adminのみ横断一覧。APIは所有PJと資料PJ双方のread、登録は関連PJ全部のeditを確認する。同一オリジンのPOSTのみ。authenticatedはRLS SELECTだけ、書込みRPCはservice_roleのみ。外部JWT・anonは読み書きできない。共有/DD向け公開操作を提供しない。
 
 GETは認証再検証後、権限内容を含むキーで30秒サーバ保持し同時取得を束ねる。安定順序の500件ページ読みにより1000行制限を跨ぐ。private/no-storeは権限変更後にHTTPキャッシュから返さないため。クライアントは共通参照キャッシュ30秒、書込み成功後に無効化。fresh=1はサーバ再読取り。全版を同じ一覧に含み、行選択後の追加読取りを不要にする。
 
