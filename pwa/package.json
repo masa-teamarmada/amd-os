@@ -225,7 +225,8 @@
     "test:contract-operational-checks": "node --experimental-strip-types scripts/check_contract_operational_checks.mts",
     "test:page-viewing": "node --experimental-strip-types scripts/check_page_viewing.mts",
     "test:seed-needs": "node --experimental-strip-types scripts/check_seed_needs.mts",
-    "test:tech-disclosure": "node --experimental-strip-types --import ./scripts/register_server_only_stub.mjs --import ./scripts/register_ts_aliases.mjs --import ./scripts/register_relative_ts.mjs scripts/check_amie_tech_disclosure.mts"
+    "test:tech-disclosure": "node --experimental-strip-types --import ./scripts/register_server_only_stub.mjs --import ./scripts/register_ts_aliases.mjs --import ./scripts/register_relative_ts.mjs scripts/check_amie_tech_disclosure.mts",
+    "test:card-designs-access": "node --experimental-strip-types scripts/check_amie_card_access.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",

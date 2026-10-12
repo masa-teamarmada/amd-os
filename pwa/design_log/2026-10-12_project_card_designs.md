@@ -16,3 +16,5 @@
 注意: Supabase advisorのauthenticated SECURITY DEFINER警告はcaller自身の許可をbooleanだけで返すRLS helperの意図した権限。anon/PUBLICは実行不可、保存/承認RPCはserviceのみ。主な確認コードはtest_amie_card_designs.sqlとios/supabase/tests/amie_card_active_members.sql。
 
 仕様・マニュアル・DESIGN・機能/スキーマ登録簿・nav・フォーマット鍵を同期済み。最終対象v3.162.28（権限補正と資料同期）。最終配信/closeoutの実結果はDrive QAフォルダのreceiptへ記録。今回の機能での残作業なし、到着実績/併記の承認は未判断のまま保持。
+
+PJ限定メンバーのPDF入口も所有PJ配下へ統一。layoutの既存cockpit権限とページの所有PJ/版/資料検査を結合。実関数の実行検査でview付与の許可、workspace-only/他PJ/admin面の拒否を確認（test:card-designs-access）。並行mainの技術開示更新を両仕様の段落を保持して統合し、対象版をv3.162.28へ進めた。

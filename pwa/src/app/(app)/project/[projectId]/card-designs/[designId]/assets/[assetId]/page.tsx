@@ -22,7 +22,12 @@ export default async function CardPdfPage({
     .select("owner_project_id,brand_label")
     .eq("design_id", designId)
     .maybeSingle();
-  if (!design || design.owner_project_id !== projectId || !amieCardCanRead(member, design.owner_project_id)) notFound();
+  if (
+    !design ||
+    design.owner_project_id !== projectId ||
+    !amieCardCanRead(member, design.owner_project_id)
+  )
+    notFound();
   const { data: asset } = await db
     .from("project_card_design_assets")
     .select("project_id,version_id,file_name,mime_type")

@@ -112,6 +112,7 @@ echo "Running critical UI / spec rollback guard ..."
 (cd "$REPO_ROOT/pwa" && npm run test:project-space-loading)
 # PJタイプ別の標準フォーマット（鍵付きの定義・PJ番号の名指しのラチェット）。spec 3-23。
 (cd "$REPO_ROOT/pwa" && npm run test:project-format)
+(cd "$REPO_ROOT/pwa" && npm run test:card-designs-access)
 # 特定のPJだけの処理を戻さない（2026-10-04 まさ「特定のPJだけの特例を入れたらシステムにならない」、spec 3-23 §6）
 (cd "$REPO_ROOT/pwa" && npm run test:no-project-special-cases)
 # PJ概要の9項目と、事業の一言の入口（会社概要だけ）。spec 3-23 §9。
