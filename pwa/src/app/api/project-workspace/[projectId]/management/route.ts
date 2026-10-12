@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
 import { canAccessWorkspaceProject, getCurrentMemberAccess } from "@/lib/project-workspace";
 import { getSxManagementBundle } from "@/lib/sx-management";
+import { validatePartnerDisclosure } from "@/lib/project-partner-disclosure";
 import { assertSafeRelationshipOrigin } from "@/lib/sx-relationship-origin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -376,6 +377,7 @@ function patchFor(resource: Resource, raw: unknown, projectTracks: string[]): Re
     takeText("title", "title", 240); takeText("owner_label", "owner_label", 120); takeDate("due_date"); takeText("completion_criteria", "completion_criteria", 1200); takeDate("next_review_on"); takeEnum("status", ACTION_STATUSES); takeOptionalText("completion_note", "completion_note", 1200); takeDate("completed_at");
   }
   if (resource === "partner") {
+    takeOptionalText("business_area", "business_area", 120); takeBoolean("name_disclosure_prohibited");
     takeText("name", "name", 180); takeOptionalText("introducer_label", "introducer_label", 120); takeOptionalText("connection_context", "connection_context", 500); takeText("role_label", "role_label", 240); takeEnum("primary_track", projectTracks); takeEnum("relationship_stage", PARTNER_STAGES); takeEnum("agreement_state", AGREEMENT_STATES); takeText("agreed_scope", "agreed_scope", 1000); takeText("unagreed_scope", "unagreed_scope", 1000); takeDate("last_contact_date"); takeText("next_commitment", "next_commitment", 1000); takeDate("due_date"); takeText("owner_label", "owner_label", 120); takeEnum("current_ball_side", BALL_SIDES); takeOptionalText("current_ball_owner", "current_ball_owner", 120); takeOptionalText("next_ball_owner", "next_ball_owner", 120); takeOptionalText("target_state", "target_state", 500); takeEnum("due_date_precision", DATE_PRECISIONS); takeEnum("confidence", CONFIDENCES);
     takeEnum("activity_state", PARTNER_ACTIVITY_STATES);
     if ("poc_category" in raw) patch.poc_category = raw.poc_category == null || raw.poc_category === "" ? null : enumValue(raw.poc_category, "poc_category", POC_CATEGORIES);
@@ -598,6 +600,9 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
   }
   if (resource === "action") return { ...common(), project_id: projectId, decision_id: requiredId("decision_id"), client_token: optionalClientToken(), title: requiredText("title", 240), owner_label: requiredText("owner_label", 120), due_date: optionalDate("due_date"), completion_criteria: requiredText("completion_criteria", 1200), next_review_on: optionalDate("next_review_on"), status: requiredEnum("status", ACTION_STATUSES, "open"), completion_note: optionalTextValue("completion_note", 1200), completed_at: optionalDate("completed_at"), last_verified_at: today };
   if (resource === "partner") {
+    const businessArea = optionalTextValue("business_area", 120);
+    const nameDisclosureProhibited = raw.name_disclosure_prohibited == null ? false : booleanValue(raw.name_disclosure_prohibited, "name_disclosure_prohibited");
+    validatePartnerDisclosure({ business_area: businessArea, name_disclosure_prohibited: nameDisclosureProhibited });
     // 分類は複数可。単一値の poc_category は分類の先頭のPoC系値から同期する (migration 243)。
     const classifications = Array.isArray(raw.classifications)
       ? [...new Set(raw.classifications.map((item) => enumValue(item, "classifications", PARTNER_CLASSIFICATIONS)))]
@@ -619,7 +624,7 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
     const connectionContext = optionalTextValue("connection_context", 500);
     assertDatePrecisionConsistency(dueDate, dueDatePrecision, "期限日", "期限精度");
     assertSafeRelationshipOrigin(introducerLabel, "紹介者"); assertSafeRelationshipOrigin(connectionContext, "接点の経緯");
-    return { ...common(), project_id: projectId, slug: requiredText("slug", 120), name: requiredText("name", 180), introducer_label: introducerLabel, connection_context: connectionContext, role_label: optionalTextValue("role_label", 240) || inferredRole, primary_track: requiredEnum("primary_track", projectTracks, projectTracks[0]), relationship_stage: requiredEnum("relationship_stage", PARTNER_STAGES, "candidate"), activity_state: requiredEnum("activity_state", PARTNER_ACTIVITY_STATES, "unknown"), poc_category: pocCategory, classifications, agreement_state: requiredEnum("agreement_state", AGREEMENT_STATES, "unagreed"), agreed_scope: optionalTextValue("agreed_scope", 1000) || "未確認", unagreed_scope: optionalTextValue("unagreed_scope", 1000) || "未確認", last_contact_date: optionalDate("last_contact_date"), next_commitment: optionalTextValue("next_commitment", 1000) || "未確認", due_date: dueDate, owner_label: optionalTextValue("owner_label", 120) || "未確認", current_ball_side: requiredEnum("current_ball_side", BALL_SIDES, "unknown"), current_ball_owner: optionalTextValue("current_ball_owner", 120), next_ball_owner: optionalTextValue("next_ball_owner", 120), target_state: optionalTextValue("target_state", 500), due_date_precision: dueDatePrecision, effluent_procured: null, last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
+    return { ...common(), project_id: projectId, slug: requiredText("slug", 120), name: requiredText("name", 180), business_area: businessArea, name_disclosure_prohibited: nameDisclosureProhibited, introducer_label: introducerLabel, connection_context: connectionContext, role_label: optionalTextValue("role_label", 240) || inferredRole, primary_track: requiredEnum("primary_track", projectTracks, projectTracks[0]), relationship_stage: requiredEnum("relationship_stage", PARTNER_STAGES, "candidate"), activity_state: requiredEnum("activity_state", PARTNER_ACTIVITY_STATES, "unknown"), poc_category: pocCategory, classifications, agreement_state: requiredEnum("agreement_state", AGREEMENT_STATES, "unagreed"), agreed_scope: optionalTextValue("agreed_scope", 1000) || "未確認", unagreed_scope: optionalTextValue("unagreed_scope", 1000) || "未確認", last_contact_date: optionalDate("last_contact_date"), next_commitment: optionalTextValue("next_commitment", 1000) || "未確認", due_date: dueDate, owner_label: optionalTextValue("owner_label", 120) || "未確認", current_ball_side: requiredEnum("current_ball_side", BALL_SIDES, "unknown"), current_ball_owner: optionalTextValue("current_ball_owner", 120), next_ball_owner: optionalTextValue("next_ball_owner", 120), target_state: optionalTextValue("target_state", 500), due_date_precision: dueDatePrecision, effluent_procured: null, last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
   }
   if (resource === "interaction") {
     const occurredOn = optionalDate("occurred_on");
@@ -1164,6 +1169,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (beforeError) throw new Error(`共有情報の確認に失敗したよ: ${beforeError.message}`);
     if (!before) return NextResponse.json({ error: "更新対象が見つからないよ" }, { status: 404 });
     const beforeRecord = before as unknown as Record<string, unknown>;
+    if (resource === "partner" && !deleting && !restoring) validatePartnerDisclosure({ ...beforeRecord, ...patch });
     // MSを非表示化すると、そのMS配下のタスクは親を失う（タスクはMSにぶら下がって描画・集計される）。
     // 依存線は bundle 側が live な端点だけを通すので自動で落ちるが、タスクの移し先は人が決めるしかない。
     if (resource === "milestone" && deleting) {

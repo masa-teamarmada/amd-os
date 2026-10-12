@@ -5,8 +5,11 @@ import { loadProjectFoundingBackground } from "./project-founding-background-ser
 import { loadProjectOrganizationChart } from "./project-organization-chart-server";
 import { loadProjectGovernance } from "./project-governance-server";
 import "server-only";
+import { redactProjectPartnerNames } from "./project-partner-disclosure";
+import { loadProjectPartnerDisclosure } from "./project-partner-disclosure-server";
 import { loadProjectMarketResearch } from "./project-market-research-server";
 import { loadShortTermPlanDocument, loadLongTermPlanDocument } from "./project-short-term-plan-server";
+import { loadProjectTechnicalEvidence } from "./project-technical-evidence-server";
 import { loadProjectDevelopmentIssues } from "./project-development-issues-server";
 import { loadProjectContractList } from "./project-contract-list-server";
 import { createAdminClient } from "./supabase/admin";
@@ -29,10 +32,19 @@ import type { Grant } from "@/components/cockpit/CockpitGrants";
 /** 呼び出す前に当該DDへの入場権限を確認する。ページは共通定義の全内容を読む。 */
 export async function loadDdProjectPage(projectId: string, page: string): Promise<DdLiveProjectPage> {
   if (!DD_PAGE_KEYS.includes(page) || page === "documents") throw new Error("Unsupported DD page");
+  const [content, hidden] = await Promise.all([
+    loadDdProjectPageContent(projectId, page),
+    loadProjectPartnerDisclosure(createAdminClient(), projectId),
+  ]);
+  return redactProjectPartnerNames(content, hidden);
+}
+
+async function loadDdProjectPageContent(projectId: string, page: string): Promise<DdLiveProjectPage> {
   const db = createAdminClient();
   const identity = await db.from("projects").select("project_name,display_name,project_category").eq("project_id", projectId).single();
   if (identity.error) throw new Error(identity.error.message);
   const base = { kind: "project_page" as const, projectId, projectName: identity.data.display_name || identity.data.project_name };
+  if (page === "technical-evidence") return { ...base, page, empty: true, technicalEvidence: await loadProjectTechnicalEvidence(db, projectId) };
   if (page === "development-issues") return { ...base, page, issues: await loadProjectDevelopmentIssues(db, projectId) };
   if (page === "market-research") return { ...base, page, empty: true, marketResearch: await loadProjectMarketResearch(db, projectId) };
   if (page === "contracts") return { ...base, page, contracts: await loadProjectContractList(db, projectId, true, false) };
@@ -57,7 +69,7 @@ export async function loadDdProjectPage(projectId: string, page: string): Promis
       dag: buildDagHealth([], [], all.asOf), judgment: computeSxJudgment([], [], [], all.asOf),
       tracks: [], issues: [], hypotheses: [], evidence: [], validationRuns: [], decisions: [], actions: [], tasks: [],
       partnerInteractions: [], partnerRoles: [], technicalTests: [], fundingSnapshots: [], organizationRoles: [], raci: [], capacity: [], history: [], fieldAudit: [], canManage: false };
-    return { ...base, page, management };
+    return { ...base, page, management: redactProjectPartnerNames(management, all.partners) };
   }
   if (page === "long-term-plan") {
     const available = Boolean(await loadLongTermPlanDocument(db, projectId));

@@ -2315,6 +2315,8 @@ function HoldingRow({
 type PartnerLedgerColumnKey =
   | "grade"
   | "name"
+  | "business-area"
+  | "name-disclosure"
   | "goal"
   | "action"
   | "meeting"
@@ -2340,6 +2342,8 @@ const PARTNER_LEDGER_COLUMNS: readonly PartnerLedgerColumn[] = [
     minWidth: 30,
   },
   { key: "name", label: "関係先", defaultWidth: 248, minWidth: 150 },
+  { key: "business-area", label: "事業領域", defaultWidth: 150, minWidth: 100 },
+  { key: "name-disclosure", label: "開示不可", title: "ONの関係先はDD・社外共有で会社名を伏せ、事業領域を表示する", defaultWidth: 80, minWidth: 72 },
   { key: "goal", label: "ゴール", defaultWidth: 176, minWidth: 90 },
   { key: "action", label: "次にやること", defaultWidth: 200, minWidth: 90 },
   {
@@ -2479,7 +2483,11 @@ function sanitizePartnerLedgerOrder(value: unknown): PartnerLedgerColumnKey[] {
       seen.add(key);
     }
   }
+  // 旧保存順に新設の2列が無い場合だけ会社名の直後へ足す。既存列の相対順は保つ。
+  const added = (["business-area", "name-disclosure"] as const).filter(key => !seen.has(key));
+  const existing = [...seen];
   for (const key of PARTNER_LEDGER_MOVABLE_KEYS) seen.add(key);
+  if (added.length && existing.length) return [...added, ...seen].filter((key, index, list) => list.indexOf(key) === index);
   return [...seen];
 }
 
@@ -4253,6 +4261,43 @@ function PartnerInlineRow({
               </span>
             </div>
           </div>
+
+          <PartnerRowCell order={cellOrder("business-area")}>
+            {canManage ? <InlineCellEditor
+              editorKey={keyFor("business-area")}
+              activeEditorKey={activeEditorKey}
+              label={`${display.name}の事業領域`}
+              initialValues={{ business_area: partner.businessArea || "" }}
+              view={<span data-partner-business-area={partner.id} className="[overflow-wrap:anywhere] text-[11px] leading-4">{partner.businessArea || "未登録"}</span>}
+              onRequestEdit={onRequestInlineEdit}
+              onFinish={onFinishInlineEdit}
+              onSave={async (values) => {
+                if (partner.nameDisclosureProhibited && !values.business_area.trim()) throw new Error("開示不可の関係先には事業領域が必要");
+                await patchIfChanged("partner", partner.id, { business_area: partner.businessArea }, { business_area: values.business_area.trim() || null });
+              }}
+              renderFields={(values, setValue) => <label className="grid gap-1">
+                <span className="text-[10px] font-semibold text-[#3c3c43]">事業領域</span>
+                <input autoFocus maxLength={120} aria-describedby={`${partner.id}-business-area-help`} className={INLINE_CONTROL_CLASS} value={values.business_area} onChange={event => setValue("business_area", event.target.value)} />
+                <span id={`${partner.id}-business-area-help`} className="text-[10px] text-[#6e6e73]">開示不可にする場合は、事業領域を入力</span>
+              </label>}
+            /> : <span data-partner-business-area={partner.id} className="[overflow-wrap:anywhere] text-[11px] leading-4">{partner.businessArea || "未登録"}</span>}
+          </PartnerRowCell>
+          <PartnerRowCell order={cellOrder("name-disclosure")}>
+            <label className="flex min-h-11 cursor-pointer items-center gap-2 text-[11px]" data-partner-disclosure-cell={partner.id}>
+              <input type="checkbox" checked={partner.nameDisclosureProhibited === true} disabled={!canManage}
+                aria-label={`${display.name}の会社名を開示不可にする`}
+                className="h-4 w-4 accent-[#027FDC] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#027FDC] disabled:cursor-not-allowed"
+                onClick={event => event.stopPropagation()}
+                onChange={event => {
+                  if (event.target.checked && !partner.businessArea?.trim()) {
+                    onRequestInlineEdit(keyFor("business-area"));
+                    return;
+                  }
+                  void onPatch({ resource: "partner", id: partner.id, patch: { name_disclosure_prohibited: event.target.checked } });
+                }} />
+              <span className="@min-[480px]:sr-only">開示不可</span>
+            </label>
+          </PartnerRowCell>
 
           <PartnerRowCell
             order={cellOrder("goal")}

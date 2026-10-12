@@ -1,5 +1,15 @@
 # 2026-10 開発セッション
 
+## 2026-10-12 関係先名の開示制御・PoC報告初稿
+
+まさ依頼: 関係先一覧へ開示不可チェックと事業領域を追加、採算は別セッション、PoCは報告から書ける範囲を作り杉浦先生が不足を補う。内部実名・外部非開示を既定にした。
+
+migration501をapply_ddl.pyで適用。新しい2列・事業領域必須制約、ハタダの既存匿名化指定に基づく初期ON/食品製造。管理APIと一覧行内編集へ追加し、社外workspace bundle・DD各本文DTOで会社名/slugと関連出所を処理。非開示取得失敗時は閉じる。内部正本は保持。添付原本の改変は対象外。
+
+tech-evidenceの明示登録文書loaderとread-only本文を追加。技術台帳8件の報告欄と追記欄の初稿をproject_configへ初回INSERTし、SQL本文の完全一致を読戻し。研究者報告・解釈・現地PoCを分離、未測定値は埋めない。成果物はSOLのPoC原稿・採算議論プロンプトと本repoのscripts/dataに保存。schemaはdump_schema.pyで生成。新privacy検査、既存管理保存/楽観更新・外部開示・DD回帰・型検査を実行。最終デプロイ/画面確認は下に追記する。build versionはv3.162.20へ更新。依存のroot外symlinkではTurbopackが失敗したため、検査clone内部へ実体コピーし8192MBで同じbundlerの検査を実行（既存BUGS.mdの開発環境項に該当）。
+
+同時作業の名刺管理実装は別所有。共有checkoutの未完了ファイルを混ぜず、必要ならmainのclean cloneで自分の差分だけを反映する。未確定採算・資本・DD付与は変更しない。実装一覧は新server/helper/report component、既存管理API/DTO/list/DDloader/workspace loader、検査・migration・登録SQL。正本はspec3-16/5-17、manual2-3/2-6、ios/DESIGN。
+
 ## 2026-10-04 SOL の写しと説明の数字を、培養の LED（449）の後の試算にそろえる（migration 474、Drive・Vercel・claude.ai の写し）
 
 決まり: 試算が変わったら写しを聞かずに直す（まさ 2026-09-17「気づいてるならすべて新しい数字に変えて」、SOL の memory「4か所」）。449（2026-09-22、培養の LED の照明）で古くなっていた。

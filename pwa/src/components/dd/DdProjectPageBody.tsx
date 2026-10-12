@@ -30,9 +30,12 @@ const ProjectDevelopmentIssues = dynamic(() => import("@/components/project-work
 const DdShortTermPlan = dynamic(() => import("./DdShortTermPlan").then(module => module.DdShortTermPlan), { loading: ProjectPageLoading });
 const ProjectProductDescription = dynamic(() => import("@/components/project-workspace/ProjectProductDescription").then(module => module.ProjectProductDescription), { loading: ProjectPageLoading });
 
+const ProjectTechnicalEvidence = dynamic(() => import("@/components/project-workspace/ProjectTechnicalEvidence").then(module => module.ProjectTechnicalEvidence), { loading: ProjectPageLoading });
+
 const noop = () => {};
 const ProjectMarketResearch = dynamic(() => import("@/components/project-workspace/ProjectMarketResearch").then(module => module.ProjectMarketResearch), { loading: ProjectPageLoading });
 export function DdProjectPageBody({data,canDownload=false,resolutionDocuments=[]}:{data:DdLiveProjectPage;canDownload?:boolean;resolutionDocuments?:ResolutionDocument[]}) {
+  if ("empty" in data && data.page === "technical-evidence") return <ProjectTechnicalEvidence data={data.technicalEvidence ?? null} />;
   if ("empty" in data && data.page === "market-research") return <ProjectMarketResearch data={data.marketResearch ?? null} />;
   if ("empty" in data && data.page === "product-description") return <ProjectProductDescription data={data.productDescription ?? null} />;
   if ("empty" in data && data.page === "founding-background") return <ProjectProductDescription data={data.foundingBackground ?? null} founding />;

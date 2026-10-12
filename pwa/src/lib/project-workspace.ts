@@ -1,4 +1,5 @@
 import "server-only";
+import { redactProjectPartnerNames } from "./project-partner-disclosure";
 
 import { cache } from "react";
 import { memberSurfacePermission, type MemberSurfaceGrant } from "@/lib/project-surface-permissions";
@@ -35,6 +36,7 @@ export type CurrentMemberAccess = {
 // project-shared-workspace-access.ts, which imports FROM this file) are both structurally
 // compatible with this — kept here, not imported, to avoid a circular import.
 export type WorkspaceProjectAccess = {
+  principal?: "member" | "workspace_account";
   scope: OsAccessScope;
   isAdmin: boolean;
   projects: ProjectNavItem[];
@@ -881,7 +883,7 @@ export async function getProjectWorkspaceBundle(
     };
   });
 
-  return {
+  const bundle: ProjectWorkspaceBundle = {
     project: {
       projectId: String(project.project_id),
       projectName: String(project.project_name),
@@ -923,4 +925,5 @@ export async function getProjectWorkspaceBundle(
     weeklyTrend,
     sxManagement,
   };
+  return access.principal === "workspace_account" ? redactProjectPartnerNames(bundle, sxManagement.partners) : bundle;
 }
