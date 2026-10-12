@@ -472,6 +472,7 @@ function InlineCellEditor({
   view,
   viewClassName = "",
   align = "center",
+  focusTextInput = false,
   onRequestEdit,
   onFinish,
   onSave,
@@ -492,6 +493,8 @@ function InlineCellEditor({
    * 画面外へはみ出すので "start" を渡してcellの左端から右へ開かせる (2026-08-06 まさ指示)。
    */
   align?: "center" | "start";
+  /** 検証で文字入力へ誘導する欄だけ指定。選択式の既存欄はpanelへfocusする。 */
+  focusTextInput?: boolean;
   onRequestEdit: (editorKey: string) => boolean;
   onFinish: () => void;
   onSave: (values: Record<string, string>) => Promise<void>;
@@ -576,8 +579,9 @@ function InlineCellEditor({
     });
     // 開いた直後のフォーカスは編集面そのものへ置く。個々の入力欄 (特にプルダウン) へ
     // 当てると、何気なく打った1文字が先頭一致で拾われて値が黙って増える (2026-08-29 監査#2)。
-    panel.focus({ preventScroll: true });
-  }, [active]);
+    const textInput = focusTextInput ? panel.querySelector<HTMLInputElement>('input:not([type]), input[type="text"]') : null;
+    (textInput || panel).focus({ preventScroll: true });
+  }, [active, focusTextInput]);
 
   // 入力欄が入りきらず内側スクロールになったことを、下端のぼかしで示す (監査#1)。
   useEffect(() => {
@@ -4267,6 +4271,7 @@ function PartnerInlineRow({
               editorKey={keyFor("business-area")}
               activeEditorKey={activeEditorKey}
               label={`${display.name}の事業領域`}
+              focusTextInput
               initialValues={{ business_area: partner.businessArea || "" }}
               view={<span data-partner-business-area={partner.id} className="[overflow-wrap:anywhere] text-[11px] leading-4">{partner.businessArea || "未登録"}</span>}
               onRequestEdit={onRequestInlineEdit}
