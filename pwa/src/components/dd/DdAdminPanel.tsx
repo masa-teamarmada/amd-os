@@ -210,7 +210,7 @@ export function DdAdminPanel({ state, candidates, onChanged, endpoint = "/api/ad
 
       <AddItemForm packageId={state.package.id} candidates={candidates} addedKeys={addedKeys} pending={pending} run={run} />
 
-      {!contentOnly && <section className="border-y border-[#cbd5e1] bg-[#f1f5f9] px-3 py-2 text-xs leading-6 text-[#334155]"><h3 className="font-semibold">秘密情報の指定</h3><p>{DD_CONFIDENTIALITY_NOTICE}</p><p>閲覧者を許可する前に、相手とのNDAの締結状態と、電子表示・書面通知などの指定方法を確認する。画面の確認ボタンは秘密指定の受領確認で、契約締結や開示許可の代わりにはならない。</p></section>}
+      {!contentOnly && <section className="border-y border-[#cbd5e1] bg-[#f1f5f9] px-3 py-2 text-xs leading-6 text-[#334155]"><h3 className="font-semibold">秘密情報の指定</h3><p>{DD_CONFIDENTIALITY_NOTICE}</p><p>閲覧者を許可する前に、相手とのNDAの締結状態と、電子表示・書面通知などの指定方法を確認する。閲覧前の「はい」はNDAを締結済みとの回答を記録する。契約書の署名や管理者の開示判断は別に確認する。</p></section>}
 
       {!contentOnly && <GrantsSection state={state} pending={pending} run={run} />}
 
@@ -251,7 +251,7 @@ export function DdAdminPanel({ state, candidates, onChanged, endpoint = "/api/ad
           <p className="text-[12px] text-[#6e6e73]">閲覧・入場確認の記録はまだない。</p>
         ) : (
           <div className="max-h-[360px] overflow-auto">
-            <table className="w-full border-collapse text-[12px]">
+            <table className="min-w-[640px] w-full border-collapse text-[12px]">
               <thead>
                 <tr className="text-left text-[11px] text-[#6e6e73]">
                   <th className="px-2 py-1 font-medium">日時</th>
