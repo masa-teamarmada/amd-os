@@ -20,7 +20,7 @@ export function DdConfidentialityNotice({ slug, canConfirm = false, overlay = fa
     } catch { setState("error"); }
   }
   return <section aria-label="秘密情報の指定" data-dd-confidentiality={DD_CONFIDENTIALITY_VERSION} className={`flex min-w-0 flex-wrap items-center gap-x-6 gap-y-3 border-y border-[#fecaca] bg-white text-[#7f1d1d] print:break-inside-avoid ${overlay ? "relative px-3 py-2 sm:pr-48 print:p-4" : "p-4"}`}>
-    <Image src={DD_STAMP_URL} alt={`${DD_CONFIDENTIALITY_LABEL} — 秘密情報`} width={DD_STAMP_WIDTH} height={DD_STAMP_HEIGHT} unoptimized loading="eager" className={overlay ? "pointer-events-none absolute -bottom-10 right-3 h-auto w-[120px] select-none object-contain sm:-bottom-5 sm:w-40 print:static print:w-40" : "h-auto w-80 max-w-full shrink-0 object-contain"} />
+    <Image src={DD_STAMP_URL} alt={`${DD_CONFIDENTIALITY_LABEL} — 秘密情報`} width={DD_STAMP_WIDTH} height={DD_STAMP_HEIGHT} unoptimized loading="eager" className={overlay ? "pointer-events-none absolute -bottom-8 right-3 h-auto w-[100px] select-none object-contain sm:-bottom-5 sm:w-40 print:static print:w-40" : "h-auto w-80 max-w-full shrink-0 object-contain"} />
     <p className="min-w-0 flex-1 basis-64 text-[13px] leading-6">{DD_CONFIDENTIALITY_NOTICE}</p>
     {canConfirm && slug && <div className="print:hidden">
       <button type="button" onClick={() => void confirm()} disabled={state === "saving" || state === "confirmed"} className="inline-flex min-h-11 items-center rounded-md border border-[#94a3b8] bg-white px-3 text-xs font-medium hover:bg-[#e2e8f0] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0267b2] disabled:opacity-60 sm:min-h-9">{state === "saving" ? "記録中…" : state === "confirmed" ? "秘密指定を確認済み" : "秘密指定を確認した"}</button>
