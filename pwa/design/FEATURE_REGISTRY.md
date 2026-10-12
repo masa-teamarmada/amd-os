@@ -1102,3 +1102,9 @@ PWA /seed-needs と左メニューを「市場ニーズ」へ。一市場一行�
 全PJ共通PJ管理 `card-designs` と管理者 `/admin/card-designs`。名刺系列・最新版・承認済み版・印刷PDF写し・編集元・発注情報を保持。SOL単独と併記版は別系列。契約はspec3-25、manual2-3。外部共有・発注の自動処理なし。
 
 自社名刺PDFは `/card-designs/{designId}/assets/{assetId}` で保存PDFを描画し原本を取得する。名刺一覧の表裏プレビューも同じ描画部品。
+
+### 技術情報の4段階開示
+
+- 業務契約：上記spec3-20/5-17に従い、社内原本・DD抜粋・4段階絞り込み・行ごとの掲載編集を保つ。
+- UI：`CockpitTechnology`、`AmieTechDisclosure`。取得：project-tech API/loader、dd-sources。保存：project_tech_topics/entries.disclosure。
+- 回帰：`test:tech-disclosure`（`test:dd-package`で実行）。元内容不一致・未設定・非公開の行・PJ越境はDDから除外。Swift編集UIは未移植。

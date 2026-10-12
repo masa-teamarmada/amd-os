@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, requireMember } from "@/lib/supabase/api-auth";
 import { hasSharedWorkspaceProjectReadAccess } from "@/lib/shared-workspace-project-read-access";
+import { amiePrepareTechDisclosure } from "@/lib/amie-tech-disclosure-server";
 
 export const runtime = "nodejs";
 
@@ -62,8 +63,8 @@ export async function GET(req: NextRequest) {
   const db = auth.ok ? auth.supabase : createAdminClient();
 
   try {
-    const data = await loadProjectTechData(db, projectId, Boolean(member.data?.is_admin) || await canEditProjectSurface(projectId, "cockpit") || await canEditProjectSurface(projectId, "workspace"));
-    return NextResponse.json({ ok: true, ...data }, { headers: CACHE_HEADERS });
+    const data = await loadProjectTechData(db, projectId, auth.ok && (Boolean(member.data?.is_admin) || await canEditProjectSurface(projectId, "cockpit") || await canEditProjectSurface(projectId, "workspace")), auth.ok ? "internal" : "shared");
+    return NextResponse.json({ ok: true, ...data }, { headers: auth.ok ? CACHE_HEADERS : { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "読み込みに失敗" }, { status: 500 });
   }
@@ -88,6 +89,10 @@ export async function POST(req: NextRequest) {
   }
   const auth = await requireProjectContentEditor(req, String(row.project_id));
   if (!auth.ok) return auth.errorResponse;
+  if (row.disclosure !== undefined) {
+    try { row.disclosure = amiePrepareTechDisclosure(row, entity, row.disclosure); }
+    catch (error) { return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "開示区分の保存に失敗" }, { status: 400 }); }
+  }
   if (entity === "entry") {
     const {data: parent} = await createAdminClient().from("project_tech_topics").select("project_id").eq("tech_topic_id",row.tech_topic_id).maybeSingle();
     if (!parent || parent.project_id !== row.project_id) return NextResponse.json({error:"invalid_parent"},{status:400});
@@ -108,7 +113,7 @@ export async function PATCH(req: NextRequest) {
   if (!entity || !body?.id || !body?.patch) {
     return NextResponse.json({ ok: false, error: "entity / id / patch required" }, { status: 400 });
   }
-  const { data: stored, error: lookupError } = await createAdminClient().from(TABLE[entity]).select("project_id").eq(PK[entity], body.id).maybeSingle();
+  const { data: stored, error: lookupError } = await createAdminClient().from(TABLE[entity]).select("*").eq(PK[entity], body.id).maybeSingle();
   if (lookupError || !stored) return NextResponse.json({error:"Not found"},{status:404});
   const auth = await requireProjectContentEditor(req, stored.project_id);
   if (!auth.ok) return auth.errorResponse;
@@ -116,6 +121,11 @@ export async function PATCH(req: NextRequest) {
   delete patch.project_id;
   delete patch.tech_topic_id;
   delete patch[PK[entity]];
+  delete patch.disclosure_status;
+  if (patch.disclosure !== undefined) {
+    try { patch.disclosure = amiePrepareTechDisclosure({ ...stored, ...patch }, entity, patch.disclosure); }
+    catch (error) { return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "開示区分の保存に失敗" }, { status: 400 }); }
+  }
   patch.updated_at = new Date().toISOString();
   patch.updated_by = auth.user.email;
 

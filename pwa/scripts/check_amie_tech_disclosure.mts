@@ -1,0 +1,77 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { amiePrepareTechDisclosure, amieProjectDdTechTopic, amieTechDisclosureStatus } from "../src/lib/amie-tech-disclosure-server.ts";
+import { loadProjectTechData } from "../src/lib/project-tech-server.ts";
+import { shapeDdTechTopic } from "../src/lib/dd-payload.ts";
+
+const topic:any={project_id:"p21",tech_topic_id:"culture",tech_domain:"培養",status:"active",block_kind:"record",title:"CANARY_RECIPE",summary:"CANARY_SUMMARY",body_md:"CANARY_GENE",source_ref:"CANARY_PRIVATE_REF",source_url:"https://private.example/CANARY_SOURCE",created_by:"CANARY_AUTHOR",updated_by:"CANARY_EDITOR",sort_order:1,presentation:{private:"CANARY_PRESENTATION"},future_secret:"CANARY_FUTURE"};
+const row:any={project_id:"p21",tech_topic_id:"culture",tech_entry_id:"speed",row_label:"CANARY_RAW_LABEL",col_label:"CANARY_RAW_COL",value_min:15,value_max:15,unit:"h",value_text:"CANARY_CONTROL",condition_text:"CANARY_SETTINGS",note:"CANARY_MEASUREMENT",source_ref:"CANARY_INTERNAL_SOURCE",source_url:"https://private.example/CANARY_ROW_URL",created_by:"CANARY_AUTHOR",updated_by:"CANARY_EDITOR",confidence:"medium",observed_on:"2026-09-01",sort_order:1,future_secret:"CANARY_FUTURE"};
+const approvedTopic={...topic,disclosure:amiePrepareTechDisclosure(topic,"topic",{version:1,level:"core",reason:"CANARY_REVIEW_REASON",dd:{title:"供給能力",summary:"報告値と未達",body_md:null,source_label:"研究者報告",check_reason:"連続運転は未確認"}})};
+const approvedRow={...row,disclosure:amiePrepareTechDisclosure(row,"entry",{version:1,level:"dd_summary",reason:"CANARY_REVIEW_REASON",dd:{row_label:"培養時間",value_text:null,condition_text:"基準条件の報告値。制御手順は限定管理",note:"量産は未実証",source_label:"研究者報告",check_reason:"反復未確認"},reviewed_hash:"forged"})};
+const privateRow={...row,tech_entry_id:"recipe",disclosure:amiePrepareTechDisclosure({...row,tech_entry_id:"recipe"},"entry",{version:1,level:"core",reason:"原手順",dd:null})};
+const approvedRows=[approvedRow,privateRow,{...approvedRow,project_id:"p34"},{...approvedRow,tech_topic_id:"other"}];
+const projected=amieProjectDdTechTopic(approvedTopic,approvedRows)!;
+assert.ok(projected);
+assert.equal(projected.entries.length,1);
+assert.equal(projected.topic.body_md,null);
+assert.equal(projected.topic.needs_check,true,"DD側で追加した未確認事項も表示");
+assert.equal(projected.entries[0].value_min,15);
+assert.equal(projected.entries[0].unit,"h");
+assert.equal(projected.entries[0].confidence,"medium");
+assert.equal(projected.entries[0].observed_on,"2026-09-01");
+assert.equal(projected.entries[0].source_url,null);
+const textOnly={...row,disclosure:amiePrepareTechDisclosure(row,"entry",{version:1,level:"dd_summary",reason:"旧値との混同を避ける",dd:{row_label:"説明だけ",value_mode:"text_only",value_text:"条件を追加確認"}})};
+assert.equal(amieProjectDdTechTopic(approvedTopic,[textOnly])!.entries[0].value_min,null,"不要な旧値や質問回数は掲載しない");
+assert.equal(row.value_min,15,"非掲載でも原本の値は保持");
+assert.ok(!JSON.stringify(projected).includes("CANARY_"),"本文・条件・URL・備考・著者・将来カラム・仕分け理由を返さない");
+assert.equal(amieProjectDdTechTopic(topic,[approvedRow]),null,"未仕分け本文は非掲載");
+assert.equal(amieProjectDdTechTopic(approvedTopic,[]),null,"核心本文の見出しだけでは掲載しない");
+for(const changed of [{value_min:16},{condition_text:"新条件"},{note:"新しい結果"},{source_ref:"新資料"}]) {
+ assert.equal(amieTechDisclosureStatus({...approvedRow,...changed},"entry"),"needs_review");
+ assert.equal(amieProjectDdTechTopic(approvedTopic,[{...approvedRow,...changed}]),null,"古い掲載欄を再利用しない");
+}
+assert.equal(amieTechDisclosureStatus({...approvedRow,sort_order:50,updated_at:"2030-01-01"},"entry"),"included","並べ替えと更新日時だけでは失効しない");
+assert.equal(amieProjectDdTechTopic({...approvedTopic,body_md:"変更した原文"},[approvedRow]),null);
+assert.throws(()=>amiePrepareTechDisclosure(row,"entry",{version:1,level:"core",reason:"非公開",dd:{row_label:"誤開示"}}),/通常DD/);
+assert.throws(()=>amiePrepareTechDisclosure(topic,"topic",{version:1,level:"core",reason:"非公開",dd:{title:"見出し",body_md:"誤開示"}}),/通常DD/);
+assert.throws(()=>amiePrepareTechDisclosure(row,"entry",{version:1,level:"dd_summary",reason:"理由",dd:{row_label:"値",value_min:"偽数値"}}),/形式/);
+assert.notEqual((approvedRow.disclosure as any).reviewed_hash,"forged","確認hashはサーバー生成");
+assert.throws(()=>shapeDdTechTopic("p21",topic,[approvedRow]),/開示/);
+assert.equal(shapeDdTechTopic("p21",approvedTopic,approvedRows).entries.length,1,"選択DD項目・PDF用も同じ仕分け");
+assert.throws(()=>shapeDdTechTopic("p34",approvedTopic,approvedRows),/PJ/);
+
+const tables:any={project_tech_topics:[approvedTopic,{...topic,tech_topic_id:"unclassified"},{...topic,tech_topic_id:"competition",tech_domain:"競合比較"}],project_tech_entries:approvedRows,project_knowledge:[{fact_text:"CANARY_FRAGMENT"}]};
+const db:any={from(table:string){const query:any={select(){return query},eq(){return query},neq(){return query},order(){return query},in(){return query},limit(){return query},then(resolve:any){return Promise.resolve({data:tables[table],error:null}).then(resolve)}};return query}};
+const internal=await loadProjectTechData(db,"p21",true,"internal","technology");
+assert.equal(internal.topics[0].body_md,"CANARY_GENE");
+assert.equal(internal.canEdit,true);
+for(const audience of ["dd","shared"] as const){
+ const external=await loadProjectTechData(db,"p21",true,audience,"technology");
+ assert.equal(external.canEdit,false);
+ assert.equal(external.topics.length,1);
+ assert.equal(external.entries.length,1);
+ assert.equal(external.fragments.length,0);
+ assert.ok(!JSON.stringify(external).includes("CANARY_"),audience+"取得時に内部データを除外");
+}
+assert.equal((await loadProjectTechData(db,"p21",false,"dd","competition")).topics.length,1,"別タブへ技術原文を混ぜない");
+
+// 初回仕分けの全件を同じ投影関数で確認し、確認用原稿もDriveへ直接出す。
+if(process.argv[2]) {
+ const folder=process.argv[2];const snapshot=JSON.parse(fs.readFileSync(path.join(folder,"技術台帳_仕分け前.json"),"utf8"));
+ const policies=JSON.parse(fs.readFileSync(path.join(folder,"技術情報_開示仕分け.json"),"utf8"));
+ const withPolicy=(records:any[],entity:string)=>records.map(r=>({...r,disclosure:policies.find((p:any)=>p.entity===entity&&p.id===r[entity==="topic"?"tech_topic_id":"tech_entry_id"]).disclosure}));
+ const sourceTopics=withPolicy(snapshot.topics,"topic");const sourceEntries=withPolicy(snapshot.entries,"entry");
+ const full=sourceTopics.map((t:any)=>amieProjectDdTechTopic(t,sourceEntries)).filter((p): p is NonNullable<typeof p> => p !== null);
+ assert.equal(full.reduce((n:number,p:any)=>n+p.entries.length,0),121);
+ const json=JSON.stringify(full);
+ assert.ok(!/TmtA|メタノール|OD5|Fe\(NO|650nm|730nm|440nm|3%CO2|6\.5%CO2/.test(json),"個別遺伝子・培養・抽出条件が混ざらない");
+ assert.ok(full.some((p:any)=>p.entries.some((e:any)=>e.tech_entry_id==="pte_sx_1001_r01")));
+ assert.ok(full.some((p:any)=>p.entries.some((e:any)=>e.tech_entry_id==="pte_sol_mate_nd_20261008")));
+ fs.writeFileSync(path.join(folder,"通常DDの技術掲載内容.json"),JSON.stringify(full,null,2)+"\n");
+ const lines=["# 通常DDへ開示する技術情報","","仕分け済みの正本から投影した表示内容。数値は研究者報告・仮定・未確認を区別して読む。原データ・再現手順は含めない。",""];
+ for(const p of full){lines.push("## "+p.topic.title,"",p.topic.summary??"",p.topic.body_md??"","");for(const e of p.entries){lines.push("### "+e.row_label,"",[e.value_min!=null?`${e.value_min}${e.value_max!=null&&e.value_max!==e.value_min?"〜"+e.value_max:""}${e.unit??""}`:"",e.value_text,e.condition_text,e.note,e.check_reason?"要確認："+e.check_reason:null].filter(Boolean).join("\n\n"),"");}}
+ fs.writeFileSync(path.join(folder,"通常DDの技術掲載内容.md"),lines.join("\n")+"\n");
+ console.log(JSON.stringify({corpusTopics:full.length,corpusEntries:121}));
+}
+console.log("Tech disclosure: private canaries, numeric preservation, stale review, unclassified, cross-PJ, DD/shared loader and selected item export PASS");

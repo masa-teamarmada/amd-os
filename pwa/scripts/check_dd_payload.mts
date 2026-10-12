@@ -4,6 +4,7 @@
 // 実行: npm run test:dd-package
 
 import assert from "node:assert/strict";
+import { amiePrepareTechDisclosure } from "../src/lib/amie-tech-disclosure-server.ts";
 import {
   ddCapitalPolicyUnverified,
   ddCostModelUnverified,
@@ -77,14 +78,16 @@ const entry = (overrides: Partial<TechEntry>): TechEntry => ({
   ...overrides,
 });
 {
+  topic.disclosure = amiePrepareTechDisclosure(topic as any, "topic", {version:1, level:"dd_summary", reason:"性能の確認済み要約", dd:{title:topic.title,summary:topic.summary,body_md:topic.body_md,source_label:topic.source_ref,check_reason:topic.check_reason}});
+  const approvedEntry = (e: TechEntry) => ({ ...e, disclosure: amiePrepareTechDisclosure(e as any, "entry", {version:1,level:"dd_summary",reason:"確認済みの性能要約",dd:{row_label:e.row_label,value_text:e.value_text,note:e.note,condition_text:e.condition_text,source_label:e.source_ref,check_reason:e.check_reason}}) });
   const data = shapeDdTechTopic("p21", topic, [
-    entry({}),
-    entry({ tech_entry_id: "pte_b", row_label: "排液の試験", sort_order: 2, needs_check: true, check_reason: "COD 未測定" }),
+    approvedEntry(entry({})),
+    approvedEntry(entry({ tech_entry_id: "pte_b", row_label: "排液の試験", sort_order: 2, needs_check: true, check_reason: "COD 未測定" })),
     entry({ tech_entry_id: "pte_other", tech_topic_id: "ptt_other", row_label: "CANARY_OTHER_TOPIC_ROW" }),
   ]);
   assertNoCanary(data, "技術台帳のページ");
   assert.equal(data.entries.length, 2, "別のページの行は送らない");
-  // ワークスペースの TopicCard が表示する値（出典・行の備考・要確認）は、そのまま送る（どこから見ても同じ内容）。
+  // 明示レビューした出典・行の備考・要確認だけを送る。原本のURLや著者は返さない。
   assert.equal(data.topic.source_ref, "定例 2026-09-02");
   assert.equal(data.entries[0].note, "行の備考");
   assert.equal(data.topic.summary, "要約");

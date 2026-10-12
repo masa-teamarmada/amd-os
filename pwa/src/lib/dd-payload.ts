@@ -10,6 +10,7 @@
 //   - 未確認事項は、元データの「要確認」「未定」「未解決の確認事項」から自動で拾い、管理者が書いた分と合わせる。
 
 import type { TechEntry, TechTopic } from "@/lib/project-tech";
+import { amieProjectDdTechTopic } from "@/lib/amie-tech-disclosure-server";
 import type { FundingPlan } from "@/lib/project-funding-plan";
 import { deriveCapitalPlan, type CapitalEventType, type CapitalPlan } from "@/lib/capital-plan";
 import type { CostModelBundle } from "@/lib/project-cost-model";
@@ -59,6 +60,11 @@ export type DdLiveTechTopic = {
 };
 
 export function shapeDdTechTopic(projectId: string, topic: TechTopic, entries: TechEntry[]): DdLiveTechTopic {
+  if (topic.project_id !== projectId) throw new Error("DD技術資料のPJが不一致");
+  const projected = amieProjectDdTechTopic(topic, entries);
+  if (!projected) throw new Error("この技術情報はDD非開示または再確認待ち");
+  topic = projected.topic;
+  entries = projected.entries;
   const own = entries
     .filter((entry) => entry.tech_topic_id === topic.tech_topic_id)
     .sort((a, b) => a.sort_order - b.sort_order || a.row_label.localeCompare(b.row_label, "ja"))

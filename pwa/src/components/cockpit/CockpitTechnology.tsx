@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { AmieTechDisclosureBadge, AmieTechDisclosureInventory } from "./AmieTechDisclosure";
+import { AMIE_TECH_LEVELS, AMIE_TECH_LEVEL_LABEL, amieTechLevelOf, type AmieTechLevel } from "@/lib/amie-tech-disclosure-model";
 import { MarkdownView } from "@/components/cockpit/MarkdownView";
 import {
   ConditionBlock,
@@ -559,7 +561,7 @@ export function TopicCard({
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge className="border-[#d2d2d7] bg-[#f5f5f7] text-[#6e6e73]">{BLOCK_KIND_LABEL[topic.block_kind]}</Badge>
             <h4 className="text-[13px] font-semibold text-[#1d1d1f]">{topic.title}</h4>
-            <Badge className={CONFIDENTIALITY_STYLE[topic.confidentiality]}>{CONFIDENTIALITY_LABEL[topic.confidentiality]}</Badge>
+            {techLedgerTabOf(topic) === "technology" ? <AmieTechDisclosureBadge record={topic}/> : <Badge className={CONFIDENTIALITY_STYLE[topic.confidentiality]}>{CONFIDENTIALITY_LABEL[topic.confidentiality]}</Badge>}
             {(topic.needs_check || countNeedsCheck(entries) > 0) && (
               <Badge className="border-[#ffcdd2] bg-[#ffebee] text-[#b71c1c]">
                 ⚠ 要確認 {countNeedsCheck(entries) || ""}
@@ -592,6 +594,8 @@ export function TopicCard({
           </div>
         )}
       </div>
+
+      {techLedgerTabOf(topic) === "technology" && <AmieTechDisclosureInventory topic={topic} entries={entries} canEdit={canEdit} projectId={projectId} onChanged={onChanged}/>}
 
       {editingTopic && (
         <div className="mt-3">
@@ -1162,6 +1166,7 @@ function TechTopicPager({
 interface Props {
   projectId: string;
   initialData?: ProjectTechResponse;
+  sharedView?: boolean;
   /**
    * technology = 技術タブ (区分「競合比較」「ビジネスモデル」を除く) / competition = 事業計画グループの競合比較タブ (区分「競合比較」だけ) /
    * business-model = 事業計画グループのビジネスモデルタブ (区分「ビジネスモデル」だけ)。振り分けは techLedgerTabOf。
@@ -1170,7 +1175,9 @@ interface Props {
   mode?: TechLedgerTab;
 }
 
-export function CockpitTechnology({ projectId, mode = "technology", initialData }: Props) {
+export function CockpitTechnology({ projectId, mode = "technology", initialData, sharedView = false }: Props) {
+  const [disclosureView, setDisclosureView] = useState<"internal" | "dd_preview">("internal");
+  const [secretLevel, setSecretLevel] = useState<AmieTechLevel | "all">("all");
   const competition = mode === "competition";
   const businessModel = mode === "business-model";
   // 競合比較とビジネスモデルは区分が1つ。区分のタブ・全体像・未整理の断片を持たない。
@@ -1181,7 +1188,7 @@ export function CockpitTechnology({ projectId, mode = "technology", initialData 
   // (cockpit/page.tsx と同じ流儀)。キャッシュ済みなら peek で即描画する。
   const [loaded, setLoaded] = useState<{ projectId: string; data: ProjectTechResponse | null }>(() => ({
     projectId,
-    data: initialData ?? peekProjectTech(projectId) ?? null,
+    data: initialData ?? (sharedView ? null : peekProjectTech(projectId)) ?? null,
   }));
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -1205,7 +1212,7 @@ export function CockpitTechnology({ projectId, mode = "technology", initialData 
 
   const reload = useCallback(
     (force = false) =>
-      (initialData ? Promise.resolve(initialData) : loadProjectTech(projectId, { force }))
+      (initialData ? Promise.resolve(initialData) : loadProjectTech(projectId, { force, sharedView }))
         .then((d) => {
           setLoaded({ projectId, data: d });
           return d;
@@ -1214,26 +1221,25 @@ export function CockpitTechnology({ projectId, mode = "technology", initialData 
           setError(e instanceof Error ? e.message : "読み込みに失敗");
           return null;
         }),
-    [projectId, initialData]
+    [projectId, initialData, sharedView]
   );
 
   useEffect(() => {
     if (!initialData) void reload();
   }, [projectId, reload, initialData]);
 
-  const rawData = initialData ?? (loaded.projectId === projectId ? loaded.data : peekProjectTech(projectId) ?? null);
+  const rawData = initialData ?? (loaded.projectId === projectId ? loaded.data : (sharedView ? null : peekProjectTech(projectId)) ?? null);
   // 技術タブは区分「競合比較」「ビジネスモデル」を除き、それぞれのタブはその区分だけを出す。未整理の断片は技術タブだけ。
   const data = useMemo<ProjectTechResponse | null>(() => {
     if (!rawData) return null;
-    const topics = rawData.topics.filter((t) => techLedgerTabOf(t) === mode);
-    const ids = new Set(topics.map((t) => t.tech_topic_id));
-    return {
-      ...rawData,
-      topics,
-      entries: rawData.entries.filter((e) => ids.has(e.tech_topic_id)),
-      fragments: singleDomain ? [] : rawData.fragments,
-    };
-  }, [rawData, mode, singleDomain]);
+    const preview = !singleDomain && disclosureView === "dd_preview" && rawData.ddPreview;
+    const source = preview ? { ...rawData, ...preview, canEdit:false, fragments:[] } : rawData;
+    const candidates = source.topics.filter(t => techLedgerTabOf(t) === mode);
+    const allEntries = source.entries.filter(e => secretLevel === "all" || singleDomain || preview || amieTechLevelOf(e) === secretLevel);
+    const topics = candidates.filter(t => secretLevel === "all" || singleDomain || preview || amieTechLevelOf(t) === secretLevel || allEntries.some(e => e.tech_topic_id === t.tech_topic_id));
+    const ids = new Set(topics.map(t => t.tech_topic_id));
+    return { ...source, topics:topics.map(t => secretLevel !== "all" && !singleDomain && !preview && amieTechLevelOf(t) !== secretLevel ? { ...t, body_md:null } : t), entries:allEntries.filter(e=>ids.has(e.tech_topic_id)), fragments:singleDomain || preview || secretLevel !== "all" ? [] : source.fragments };
+  }, [rawData, mode, singleDomain, disclosureView, secretLevel]);
 
   // 区分の並びは五十音ではなく、その区分に入っているトピックの sort_order の小さい順。
   // 「培養 → 排水処理」のように、PJが読ませたい順を data 側で決められるようにする。
@@ -1381,6 +1387,17 @@ export function CockpitTechnology({ projectId, mode = "technology", initialData 
       className="space-y-4"
       data-testid={competition ? "cockpit-competition-tab" : businessModel ? "cockpit-business-model-tab" : "cockpit-technology-tab"}
     >
+      {!singleDomain && <section data-testid="amie-tech-disclosure-controls" className="space-y-2 rounded border border-[#d2d2d7] bg-white p-3 text-[12px]">
+        {rawData?.audience === "dd" || rawData?.audience === "shared" ? <p>DD開示範囲：事業化判断に必要な概要・数値・適用限界・未確認事項。詳細な実験データと核心ノウハウは別管理。</p> : <>
+          <div className="flex flex-wrap items-center gap-2"><strong>技術情報の開示範囲</strong>
+            <button type="button" aria-pressed={disclosureView === "internal"} onClick={()=>setDisclosureView("internal")} className="min-h-11 rounded border border-[#d2d2d7] px-3 aria-pressed:bg-[#E8F3FC] aria-pressed:text-[#027FDC]">社内の技術台帳</button>
+            <button type="button" aria-pressed={disclosureView === "dd_preview"} onClick={()=>setDisclosureView("dd_preview")} className="min-h-11 rounded border border-[#d2d2d7] px-3 aria-pressed:bg-[#E8F3FC] aria-pressed:text-[#027FDC]">DD掲載内容を確認</button>
+            {disclosureView === "internal" && <label className="flex items-center gap-2">秘密レベル<select aria-label="秘密レベルで絞り込み" value={secretLevel} onChange={e=>setSecretLevel(e.target.value as AmieTechLevel|"all")} className="min-h-11 rounded border border-[#d2d2d7] bg-white px-2"><option value="all">全区分</option>{AMIE_TECH_LEVELS.map(v=><option key={v} value={v}>{AMIE_TECH_LEVEL_LABEL[v]}</option>)}</select></label>}
+          </div>
+          <p className="text-[11px] leading-4 text-[#6e6e73]">1 公開情報 → 2 DD判断情報 → 3 限定技術情報 → 4 核心ノウハウ。社内原本を保持し、DDには確認済みの抜粋だけを掲載。各トピックの「秘密レベルとDDへの掲載範囲」で行ごとに確認・編集。</p>
+          <p className="text-[11px] text-[#6e6e73]">{disclosureView === "dd_preview" ? `DD掲載内容：${rawData?.ddPreview?.topics.length ?? 0}トピック・${rawData?.ddPreview?.entries.length ?? 0}行` : "社内原本を表示中。秘密レベルの指定と、第三者情報の開示許諾は別に確認。"}</p>
+        </>}
+      </section>}
       <section className="overflow-hidden rounded-xl border border-[#e5e5e7] bg-white">
         <div className="p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">

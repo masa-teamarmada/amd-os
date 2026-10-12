@@ -19,9 +19,11 @@ import {
 import type { TechEntry, TechKnowledgeFragment, TechTopic } from "@/lib/project-tech";
 
 const KEY_PREFIX = "project-tech:";
-const key = (projectId: string) => `${KEY_PREFIX}${projectId}`;
+const key = (projectId: string, sharedView = false) => `${KEY_PREFIX}${sharedView ? "shared:" : ""}${projectId}`;
 
 export interface ProjectTechResponse {
+  ddPreview?: { topics: TechTopic[]; entries: TechEntry[] };
+  audience?: "internal" | "dd" | "shared";
   canEdit: boolean;
   topics: TechTopic[];
   entries: TechEntry[];
@@ -37,9 +39,13 @@ async function request(projectId: string): Promise<ProjectTechResponse> {
     entries?: TechEntry[];
     fragments?: TechKnowledgeFragment[];
     error?: string;
+    audience?: "internal" | "dd" | "shared";
+    ddPreview?: { topics: TechTopic[]; entries: TechEntry[] };
   };
   if (!res.ok || !payload.ok) throw new Error(payload.error || "技術台帳の読み込みに失敗");
   return {
+    audience: payload.audience,
+    ddPreview: payload.ddPreview,
     canEdit: !!payload.canEdit,
     topics: payload.topics ?? [],
     entries: payload.entries ?? [],
@@ -48,8 +54,8 @@ async function request(projectId: string): Promise<ProjectTechResponse> {
 }
 
 /** タブ本体から呼ぶ。同時に来た呼び出しは1本へ束ねられる。 */
-export function loadProjectTech(projectId: string, options?: { force?: boolean }) {
-  return loadReferenceData(key(projectId), () => request(projectId), options);
+export function loadProjectTech(projectId: string, options?: { force?: boolean; sharedView?: boolean }) {
+  return loadReferenceData(key(projectId, options?.sharedView), () => request(projectId), options);
 }
 
 /** キャッシュ済みなら同期で返す。タブを開いた瞬間に描画するために使う。 */
@@ -65,6 +71,7 @@ export function prefetchProjectTech(projectId: string): void {
 /** トピックや行を書き換えた直後に呼ぶ。 */
 export function invalidateProjectTech(projectId?: string): void {
   invalidateReferenceData(projectId ? key(projectId) : KEY_PREFIX);
+  if (projectId) invalidateReferenceData(key(projectId, true));
 }
 
 type Entity = "topic" | "entry";
