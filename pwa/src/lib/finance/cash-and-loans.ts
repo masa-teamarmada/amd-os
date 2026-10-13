@@ -22,6 +22,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { daysBetween } from "@/lib/finance/loan-interest";
 import { computeLedgerRunning } from "@/lib/finance/ledger-running-balance";
+import { buildMonthlyTrend } from "@/lib/finance/cash-monthly-trend";
 import type {
   CashAccountView,
   CashAndLoansResult,
@@ -77,6 +78,7 @@ type AccountRow = {
   account_id: string; name: string; short_name: string; institution: string;
   purpose: string | null; sort_order: number; is_active: boolean;
   freee_sync_from: string | null;
+  freee_walletable_type: string | null; freee_walletable_id: number | string | null;
 };
 type EntryRow = {
   id: string; account_id: string; entry_date: string; seq: number;
@@ -91,6 +93,10 @@ type LoanRow = {
   contracted_on: string | null; drawdown_on: string | null;
   principal_amount: number | null; credit_limit: number | null; term_months: number | null;
   note: string | null; is_active: boolean;
+};
+type BankBalanceRow = {
+  ym: string;
+  payload: { wallets?: Array<{ key?: string; balance?: number; source?: string }> } | null;
 };
 type LoanEventRow = {
   id: string; loan_id: string; event_date: string; kind: string; amount: number;
@@ -242,11 +248,32 @@ function buildLoan(
   };
 }
 
+/**
+ * freee の月末残高から、freee とつなげない口座 (商工中金) の分を除いた合計。
+ * その口座は OS の明細から積み上げた値を足す (cash-monthly-trend.ts)。
+ */
+function bankBalancesByYm(rows: BankBalanceRow[], accounts: AccountRow[]): Map<string, number> {
+  const ledgerOnlyKeys = new Set(
+    accounts
+      .filter((a) => !a.freee_sync_from && a.freee_walletable_id != null)
+      .map((a) => `${a.freee_walletable_type ?? ""}:${a.freee_walletable_id}`),
+  );
+  const out = new Map<string, number>();
+  for (const row of rows) {
+    const wallets = row.payload?.wallets ?? [];
+    const total = wallets
+      .filter((w) => !ledgerOnlyKeys.has(String(w.key)) && w.source !== "os_cash_ledger")
+      .reduce((sum, w) => sum + (Number(w.balance) || 0), 0);
+    out.set(`${row.ym.slice(0, 4)}-${row.ym.slice(4, 6)}`, total);
+  }
+  return out;
+}
+
 async function computeInternal(): Promise<CashAndLoansResult> {
   const supabase = createAdminClient();
   const today = todayJst();
 
-  const [accounts, entries, loans, loanEvents] = await Promise.all([
+  const [accounts, entries, loans, loanEvents, bankRows] = await Promise.all([
     selectAll<AccountRow>((from, to) =>
       supabase.from("cash_accounts").select("*").eq("is_active", true).order("sort_order").range(from, to),
     ),
@@ -258,6 +285,11 @@ async function computeInternal(): Promise<CashAndLoansResult> {
     ),
     selectAll<LoanEventRow>((from, to) =>
       supabase.from("loan_events").select("*").order("event_date").range(from, to),
+    ),
+    // freee が銀行から取った月末残高 (manual/6-13「月末の口座残高の取り込み」)。月ごとの推移の残高に使う。
+    selectAll<BankBalanceRow>((from, to) =>
+      supabase.from("company_actual_monthly").select("ym, payload")
+        .eq("scope", "company").eq("category", "cash_balance").order("ym").range(from, to),
     ),
   ]);
 
@@ -284,12 +316,38 @@ async function computeInternal(): Promise<CashAndLoansResult> {
     ),
   );
 
+  // 月ごとの推移。予定か実績かは画面と同じ判定 (buildAccount / buildLoan) を使う。
+  const plannedEntryIds = new Set(
+    accountViews.flatMap((a) => a.entries.filter((e) => e.isPlanned).map((e) => e.id)),
+  );
+  const mainAccount = accounts[0];
+  const mainFirst = mainAccount
+    ? (entriesByAccount.get(mainAccount.account_id) ?? []).reduce<string | null>(
+      (min, r) => (min == null || r.entry_date < min ? r.entry_date : min), null)
+    : null;
+  const monthlyTrend = mainFirst
+    ? buildMonthlyTrend({
+      accounts: accounts.map((a) => ({ accountId: a.account_id, ledgerOnly: !a.freee_sync_from })),
+      entries: entries
+        .filter((e) => accountNameById.has(e.account_id))
+        .map((e) => ({ ...e, isPlanned: plannedEntryIds.has(e.id) })),
+      loanEvents: loanViews.flatMap((l) => l.events.map((e) => ({
+        loanId: l.loanId, accountId: l.accountId, eventDate: e.eventDate, kind: e.kind, amount: e.amount,
+        principal: e.principalAmount ?? (e.kind === "fee" ? 0 : e.amount), isPlanned: e.isPlanned,
+      }))),
+      startYm: mainFirst.slice(0, 7),
+      today,
+      bankBalances: bankBalancesByYm(bankRows, accounts),
+    })
+    : [];
+
   return {
     today,
     accounts: accountViews,
     loans: loanViews,
     totalActualBalance: accountViews.reduce((sum, a) => sum + (a.actualBalance ?? 0), 0),
     totalOutstanding: loanViews.reduce((sum, l) => sum + l.outstanding, 0),
+    monthlyTrend,
     computedAtIso: new Date().toISOString(),
   };
 }

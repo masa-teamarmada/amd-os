@@ -109,5 +109,39 @@ export type CashAndLoansResult = {
   totalActualBalance: number;
   /** 借入残高の合計。 */
   totalOutstanding: number;
+  /** 月ごとの入り・出・残高 (実績のみ)。 */
+  monthlyTrend: CashMonthlyTrendRow[];
   computedAtIso: string;
+};
+
+/** 月ごとの推移の区分。口座間の移動は入りにも出にも数えない。 */
+export type CashFlowKind =
+  | "income" // 入金 (売上など)
+  | "loan_in" // 借入で入ったお金
+  | "pay_masa" // まさへの振込 (役員報酬・立替の返金など)
+  | "pay_members" // メンバー・外注への支払
+  | "card" // カードの引き落とし
+  | "tax" // 税金・社会保険
+  | "other_out" // その他の出金 (相手先の書かれていない行、手数料など)
+  | "loan_out" // 借入の返済 (利息込み)
+  | "transfer"; // 自社の口座どうしの移動
+
+export type CashMonthlyTrendRow = {
+  ym: string;
+  /** 今月は今日まで。 */
+  partial: boolean;
+  flows: Record<Exclude<CashFlowKind, "transfer">, number>;
+  inflow: number;
+  outflow: number;
+  /** 月末 (今月は今日) の全口座の残高。 */
+  endBalance: number;
+  /** 月末の借入残高 (元金)。 */
+  loanOutstanding: number;
+  /** 口座の残高 − 借入残高。 */
+  netOfLoans: number;
+  /**
+   * 前の月末からの残高の増減と、入り − 出の差。0 でなければ、口座間の移動の片側が
+   * 記録されていない (きよのシートの書き漏れ) などで、明細が足りていない。
+   */
+  unexplained: number;
 };

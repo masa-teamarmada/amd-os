@@ -16,12 +16,14 @@ import { invalidateCashAndLoans, loadCashAndLoans, peekCashAndLoans } from "@/li
 import { CashLedgerPanel } from "./CashLedgerPanel";
 import { CashLoansPanel } from "./CashLoansPanel";
 import { LoanSimulatorPanel } from "./LoanSimulatorPanel";
+import { CashTrendPanel } from "./CashTrendPanel";
 import { yen } from "./format";
 
 const TASKS = [
   { id: "accounts", step: "00", label: "出入りと残高", description: "全口座を1枚の表で。セルを押すと直せる" },
   { id: "loans", step: "01", label: "借りているお金", description: "PayPay銀行・商工中金の残高と返済" },
   { id: "simulator", step: "02", label: "利息の試算", description: "借りたら利子がいくら付くか" },
+  { id: "trend", step: "03", label: "月ごとの推移", description: "入り・出・残高を月ごとのグラフと表で" },
 ] as const;
 
 export type CashTask = (typeof TASKS)[number]["id"];
@@ -90,7 +92,7 @@ export function AdminCashClient({ initialTask }: { initialTask: CashTask }) {
       </header>
 
       <div className="mb-3">
-        <div role="tablist" aria-label="現金と融資" className="flex overflow-x-auto sm:grid sm:grid-cols-3 sm:overflow-visible">
+        <div role="tablist" aria-label="現金と融資" className="flex overflow-x-auto sm:grid sm:grid-cols-4 sm:overflow-visible">
           {TASKS.map((item, index) => {
             const selected = item.id === task;
             return (
@@ -132,6 +134,7 @@ export function AdminCashClient({ initialTask }: { initialTask: CashTask }) {
             <CashLoansPanel data={data} loading={loading} onChanged={() => void reload(true)} />
           ) : null}
           {task === "simulator" ? <LoanSimulatorPanel data={data} /> : null}
+          {task === "trend" ? <CashTrendPanel data={data} loading={loading} /> : null}
         </section>
       </div>
     </div>

@@ -4,7 +4,7 @@ import { AdminCashClient, type CashTask } from "@/components/admin/cash/AdminCas
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: { absolute: "現金と融資 - AMD OS" } };
 
-const TASK_IDS: CashTask[] = ["accounts", "loans", "simulator"];
+const TASK_IDS: CashTask[] = ["accounts", "loans", "simulator", "trend"];
 
 function resolveTask(value: string | string[] | undefined): CashTask {
   const candidate = Array.isArray(value) ? value[0] : value;

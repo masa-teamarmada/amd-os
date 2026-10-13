@@ -166,6 +166,7 @@
     "sync:freee-cash-balances": "node scripts/sync_freee_cash_balances.cjs",
     "test:freee-cash-actuals": "node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_freee_cash_actuals.mts",
     "test:ledger-running-balance": "node --experimental-strip-types scripts/check_ledger_running_balance.mts",
+    "test:cash-monthly-trend": "node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_cash_monthly_trend.mts",
     "collect:management-score-raw": "node scripts/collect_management_score_raw_data.cjs",
     "calculate:management-score": "node scripts/calculate_management_score.cjs",
     "freee:refresh-token": "node scripts/get_freee_refresh_token.cjs --write-env",
