@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { freeeApi } from "@/lib/freee-client";
+import { computeLedgerRunning, ledgerBalanceOn, type LedgerRow } from "@/lib/finance/ledger-running-balance";
 
 const ACCOUNT_NAME = "freee口座残高合計";
 const FREEE_ACCOUNT_ID = "wallet_txns_balance_total";
@@ -309,6 +310,82 @@ function buildMonthlyBalances(
   }
 
   return rows;
+}
+
+type LedgerOnlyAccount = {
+  account_id: string;
+  short_name: string;
+  freee_walletable_type: string | null;
+  freee_walletable_id: number | string | null;
+};
+
+/**
+ * freee とつなげない口座 (cash_accounts.freee_sync_from が空。商工中金) の残高を、
+ * OS の入出金明細から積み上げた値に差し替える。
+ *
+ * freee 側では商工中金の残高が 2026-02-16 の 334,279 円で止まっており、
+ * そのまま合計すると、PayPay銀行から商工中金へ移したお金 (返済の原資) が消えて見える
+ * (まさ 2026-10-13「商工中金の口座はfreee連携できない」)。当月は今日までの残高を使う。
+ */
+async function overlayLedgerOnlyBalances(
+  supabase: SupabaseClient,
+  rows: CashBalanceDbRow[],
+  today: string
+): Promise<void> {
+  const { data: accounts, error } = await supabase
+    .from("cash_accounts")
+    .select("account_id, short_name, freee_walletable_type, freee_walletable_id")
+    .eq("is_active", true)
+    .is("freee_sync_from", null);
+  if (error) throw new Error(`select cash_accounts: ${error.message}`);
+  const targets = (accounts ?? []) as LedgerOnlyAccount[];
+  if (targets.length === 0) return;
+
+  for (const account of targets) {
+    const ledger: LedgerRow[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data, error: entryError } = await supabase
+        .from("cash_ledger_entries")
+        .select("id, entry_date, seq, deposit, withdrawal, balance, source, source_row")
+        .eq("account_id", account.account_id)
+        .order("entry_date")
+        .order("seq")
+        .range(from, from + 999);
+      if (entryError) throw new Error(`select cash_ledger_entries: ${entryError.message}`);
+      ledger.push(...((data ?? []) as LedgerRow[]));
+      if ((data ?? []).length < 1000) break;
+    }
+    const running = computeLedgerRunning(ledger);
+    const key = account.freee_walletable_id != null
+      ? walletableKey(account.freee_walletable_type, account.freee_walletable_id)
+      : `os:${account.account_id}`;
+
+    for (const row of rows) {
+      const monthEnd = ymEnd(row.ym);
+      const asOf = monthEnd < today ? monthEnd : today;
+      const balance = ledgerBalanceOn(running, asOf);
+      const wallets = (Array.isArray(row.payload.wallets) ? row.payload.wallets : []) as Array<Record<string, unknown>>;
+      const kept = wallets.filter((wallet) => wallet.key !== key);
+      if (balance != null) {
+        kept.push({
+          key,
+          type: account.freee_walletable_type ?? "bank_account",
+          id: String(account.freee_walletable_id ?? account.account_id),
+          name: account.short_name,
+          balance,
+          // freee の明細ではないので、取り込みの止まり確認 (latestTxnDate) には混ぜない。
+          lastTxnDate: null,
+          lastTxnId: null,
+          asOf,
+          source: "os_cash_ledger",
+        });
+      }
+      kept.sort((a, b) => String(a.name).localeCompare(String(b.name), "ja"));
+      row.payload = { ...row.payload, wallets: kept };
+      row.actual_amount_yen = kept.reduce((sum, wallet) => sum + Number(wallet.balance ?? 0), 0);
+      row.raw_hash = stableHash(row.payload);
+    }
+  }
 }
 
 function summarizeRows(rows: CashBalanceDbRow[]): FreeeCashBalanceSummaryRow[] {
@@ -688,6 +765,8 @@ export async function syncFreeeCashBalances(
     fetchWalletTxns(historyStartDate, historyEndDate),
   ]);
   const rows = buildMonthlyBalances(months, txns, walletables, historyStartDate, historyEndDate);
+  const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  await overlayLedgerOnlyBalances(supabase, rows, today);
   let cashActuals: SyncFreeeCashActualsResult | null = null;
   let cashActualError: string | null = null;
 

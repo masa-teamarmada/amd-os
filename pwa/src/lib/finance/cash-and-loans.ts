@@ -21,6 +21,7 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { daysBetween } from "@/lib/finance/loan-interest";
+import { computeLedgerRunning } from "@/lib/finance/ledger-running-balance";
 import type {
   CashAccountView,
   CashAndLoansResult,
@@ -75,6 +76,7 @@ async function selectAll<T>(
 type AccountRow = {
   account_id: string; name: string; short_name: string; institution: string;
   purpose: string | null; sort_order: number; is_active: boolean;
+  freee_sync_from: string | null;
 };
 type EntryRow = {
   id: string; account_id: string; entry_date: string; seq: number;
@@ -101,58 +103,15 @@ function buildAccount(account: AccountRow, rows: EntryRow[], today: string): Cas
     a.entry_date === b.entry_date ? a.seq - b.seq : a.entry_date < b.entry_date ? -1 : 1,
   );
 
-  // 残高の積み上げは日付順。同じ日の中だけ、取り込み元の行番号 (無ければ seq) で並べる。
-  // OS 上で足した行が正しい位置に入るようにするため、ここは日付を主にする。
-  // 元の表には日付が前後している箇所が1か所あり (8/6 の行が 8/5 の行より上)、
-  // そこは「その行で新しくズレた」1件として印が付く。
-  const inSheetOrder = [...rows].sort((a, b) => {
-    if (a.entry_date !== b.entry_date) return a.entry_date < b.entry_date ? -1 : 1;
-    const ao = a.source_row ?? a.seq + 1_000_000;
-    const bo = b.source_row ?? b.seq + 1_000_000;
-    return ao - bo;
-  });
-
-  // 期首残高: 残高が入っている最初の行から、そこまでの増減を差し引いて逆算する。
-  const first = inSheetOrder.find((r) => r.balance != null);
-  let opening = first ? num(first.balance) - num(first.deposit) + num(first.withdrawal) : 0;
-  if (first) {
-    for (const r of inSheetOrder) {
-      if (r.id === first.id) break;
-      opening -= num(r.deposit) - num(r.withdrawal);
-    }
-  }
-
   // 残高は毎回この場で積み上げ直す。取り込んだときの値を持ち回さないので、
   // 途中の行の金額を直せば、その先の残高がぜんぶ変わる (まさ 2026-09-05)。
-  //
-  // freee 由来の行だけは例外で、そこに書かれている残高 (銀行の実残高) で積み上げを合わせ直す。
-  // 銀行の記録が唯一の事実なので、そこまでの取りこぼしをここで吸収する。
-  const runningById = new Map<string, number>();
-  /** その行で新しく生じたズレ。スプレッドシートの残高と積み上げが食い違う行だけに印を付ける。 */
-  const gapStepById = new Map<string, number>();
-  {
-    let acc = opening;
-    let previousGap = 0;
-    for (const r of inSheetOrder) {
-      const moved = num(r.deposit) - num(r.withdrawal);
-      if (r.source === "freee" && r.balance != null) {
-        // 銀行の実残高で合わせ直す。ここまでの積み上げとの差は「取りこぼしがあった」印。
-        const before = acc + moved;
-        const diff = num(r.balance) - before;
-        if (diff !== 0) gapStepById.set(r.id, diff);
-        acc = num(r.balance);
-        previousGap = 0;
-      } else {
-        acc += moved;
-        if (r.balance != null) {
-          const gap = num(r.balance) - acc;
-          gapStepById.set(r.id, gap - previousGap);
-          previousGap = gap;
-        }
-      }
-      runningById.set(r.id, acc);
-    }
-  }
+  // freee 由来の行だけは銀行の実残高で合わせ直す。計算は ledger-running-balance.ts。
+  const { runningById, gapStepById } = computeLedgerRunning(rows);
+
+  // freee とつなげない口座 (freee_sync_from が空。商工中金) は、スプシの行が唯一の記録。
+  // 取り込んだ日に未来だった行も、日付が過ぎれば引き落とし済みとして扱う
+  // (返済は口座から自動で引き落とされる。まさ 2026-10-13)。
+  const ledgerOnly = !account.freee_sync_from;
 
   const entries: CashLedgerEntry[] = [];
   const monthly = new Map<string, CashMonthRow>();
@@ -166,7 +125,7 @@ function buildAccount(account: AccountRow, rows: EntryRow[], today: string): Cas
   let gapCount = 0;
 
   for (const r of sorted) {
-    const isPlanned = r.is_planned || r.entry_date > today;
+    const isPlanned = ledgerOnly ? r.entry_date > today : r.is_planned || r.entry_date > today;
     const running = runningById.get(r.id) ?? 0;
     const sheetBalance = r.balance == null ? null : num(r.balance);
     const gap = sheetBalance == null ? null : sheetBalance - running;
@@ -221,7 +180,9 @@ function buildAccount(account: AccountRow, rows: EntryRow[], today: string): Cas
   };
 }
 
-function buildLoan(loan: LoanRow, rows: LoanEventRow[], accountName: string | null, today: string): LoanView {
+function buildLoan(
+  loan: LoanRow, rows: LoanEventRow[], accountName: string | null, today: string, ledgerOnlyAccount: boolean,
+): LoanView {
   const sorted = [...rows].sort((a, b) => (a.event_date < b.event_date ? -1 : a.event_date > b.event_date ? 1 : 0));
   const annualRate = Number(loan.annual_rate) || 0;
 
@@ -234,7 +195,8 @@ function buildLoan(loan: LoanRow, rows: LoanEventRow[], accountName: string | nu
   const events: LoanEventView[] = [];
 
   for (const r of sorted) {
-    const isPlanned = r.is_planned || r.event_date > today;
+    // 引き落とし口座が freee とつなげない口座なら、返済予定表の日付が過ぎた回は返済済みとして扱う。
+    const isPlanned = ledgerOnlyAccount ? r.event_date > today : r.is_planned || r.event_date > today;
     const principal = r.principal_amount == null ? (r.kind === "fee" ? 0 : num(r.amount)) : num(r.principal_amount);
     if (r.kind === "drawdown") {
       balance += principal;
@@ -314,8 +276,12 @@ async function computeInternal(): Promise<CashAndLoansResult> {
 
   const accountViews = accounts.map((a) => buildAccount(a, entriesByAccount.get(a.account_id) ?? [], today));
   const accountNameById = new Map(accounts.map((a) => [a.account_id, a.short_name]));
+  const ledgerOnlyIds = new Set(accounts.filter((a) => !a.freee_sync_from).map((a) => a.account_id));
   const loanViews = loans.map((l) =>
-    buildLoan(l, eventsByLoan.get(l.loan_id) ?? [], l.account_id ? accountNameById.get(l.account_id) ?? null : null, today),
+    buildLoan(
+      l, eventsByLoan.get(l.loan_id) ?? [], l.account_id ? accountNameById.get(l.account_id) ?? null : null, today,
+      l.account_id ? ledgerOnlyIds.has(l.account_id) : false,
+    ),
   );
 
   return {
