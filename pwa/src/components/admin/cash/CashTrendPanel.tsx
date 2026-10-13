@@ -45,11 +45,11 @@ const STYLE = `
 const COL = 34; // 1か月の幅 (px)
 const BAR = 20;
 const LEFT = 56;
-const RIGHT = 96; // 折れ線の右端に直接ラベルを置く余白
+const RIGHT = 200; // 折れ線の右端に直接ラベルを置く余白
 const TOP_H = 240;
 const LINE_H = 170;
-/** 明細の漏れとして印を付ける下限。電子マネーの残高や端数のずれは拾わない。 */
-const UNEXPLAINED_MIN = 10_000;
+/** 明細の漏れとして印を付ける下限。電子マネーの残高や数万円の端数のずれは拾わない。 */
+const UNEXPLAINED_MIN = 50_000;
 
 function niceStep(span: number): number {
   const raw = span / 5;
