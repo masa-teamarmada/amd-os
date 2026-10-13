@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AmieTechDisclosureBadge, AmieTechDisclosureInventory } from "./AmieTechDisclosure";
+import { AmieTechDisclosureField, AmieTechDisclosureMark, AmieTechDisclosureLegend } from "./AmieTechDisclosureMark";
+import { amieTechRecordState, type AmieTechDisplayContext } from "@/lib/amie-tech-display";
 import { AMIE_TECH_LEVELS, AMIE_TECH_LEVEL_LABEL, amieTechLevelOf, type AmieTechLevel } from "@/lib/amie-tech-disclosure-model";
 import { MarkdownView } from "@/components/cockpit/MarkdownView";
 import {
@@ -539,12 +541,18 @@ export function TopicCard({
   canEdit,
   projectId,
   onChanged,
+  sharedTopic,
+  sharedEntries,
+  external = false,
 }: {
   topic: TechTopic;
   entries: TechEntry[];
   canEdit: boolean;
   projectId: string;
   onChanged: () => void;
+  sharedTopic?: TechTopic;
+  sharedEntries?: TechEntry[];
+  external?: boolean;
 }) {
   const [editingTopic, setEditingTopic] = useState(false);
   const [addingEntry, setAddingEntry] = useState(false);
@@ -553,6 +561,11 @@ export function TopicCard({
 
   const editingEntry = entries.find((e) => e.tech_entry_id === editingEntryId);
   const presentation = topic.block_kind === "matrix" ? readTechPresentation(topic.presentation) : null;
+  const technology = techLedgerTabOf(topic) === "technology";
+  const shared = topic.disclosure_level || external ? topic : sharedTopic;
+  const disclosure:AmieTechDisplayContext = {enabled:technology,external,parentStatus:topic.disclosure_status,sharedEntries:new Map((sharedEntries??[]).map(e=>[e.tech_entry_id,e]))};
+  const topicState=amieTechRecordState(topic,shared,["title","summary","body_md","source_ref","source_url"]);
+
 
   return (
     <section data-testid="tech-topic-card" className="rounded-xl border border-[#e5e5e7] bg-white p-4">
@@ -561,7 +574,7 @@ export function TopicCard({
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge className="border-[#d2d2d7] bg-[#f5f5f7] text-[#6e6e73]">{BLOCK_KIND_LABEL[topic.block_kind]}</Badge>
             <h4 className="text-[13px] font-semibold text-[#1d1d1f]">{topic.title}</h4>
-            {techLedgerTabOf(topic) === "technology" ? <AmieTechDisclosureBadge record={topic}/> : <Badge className={CONFIDENTIALITY_STYLE[topic.confidentiality]}>{CONFIDENTIALITY_LABEL[topic.confidentiality]}</Badge>}
+            {technology ? <><AmieTechDisclosureBadge record={topic}/><AmieTechDisclosureMark state={topicState}/></> : <Badge className={CONFIDENTIALITY_STYLE[topic.confidentiality]}>{CONFIDENTIALITY_LABEL[topic.confidentiality]}</Badge>}
             {(topic.needs_check || countNeedsCheck(entries) > 0) && (
               <Badge className="border-[#ffcdd2] bg-[#ffebee] text-[#b71c1c]">
                 ⚠ 要確認 {countNeedsCheck(entries) || ""}
@@ -571,7 +584,8 @@ export function TopicCard({
           {topic.needs_check && topic.check_reason && (
             <p className="mt-1 text-[11px] leading-5 text-[#b71c1c]">⚠ {topic.check_reason}</p>
           )}
-          {topic.summary && <p className="mt-1 text-[11px] leading-5 text-[#86868b]">{topic.summary}</p>}
+          {topic.summary && <div className="mt-1 max-w-[75ch] text-[12px] leading-5 text-[#515158]"><AmieTechDisclosureField record={topic} shared={shared} fields={["summary"]} enabled={technology} label="要約">{topic.summary}</AmieTechDisclosureField></div>}
+          {technology && shared?.summary && shared.summary !== topic.summary && <div className="mt-1 max-w-[75ch] text-[12px] leading-5 text-[#515158]"><AmieTechDisclosureField record={shared} shared={shared} fields={["summary"]} enabled label="DD掲載文">{shared.summary}</AmieTechDisclosureField></div>}
         </div>
         {canEdit && (
           <div className="flex shrink-0 gap-1">
@@ -597,6 +611,11 @@ export function TopicCard({
 
       {techLedgerTabOf(topic) === "technology" && <AmieTechDisclosureInventory topic={topic} entries={entries} canEdit={canEdit} projectId={projectId} onChanged={onChanged}/>}
 
+
+      {technology && shared && !external && !topic.disclosure_level && (shared.body_md && shared.body_md !== topic.body_md) && (
+        <div className="mt-3 max-w-[75ch]"><AmieTechDisclosureField record={shared} shared={shared} fields={["body_md"]} enabled label="DDに掲載する概要"><MarkdownView source={shared.body_md}/></AmieTechDisclosureField></div>
+      )}
+
       {editingTopic && (
         <div className="mt-3">
           <TopicForm
@@ -615,12 +634,12 @@ export function TopicCard({
         // 社外に出す形の星取り表は PDF と同じく表を先に出し、比べる相手・記号の付け方などの本文は表の下へ回す。
         <>
           <div className="mt-3">
-            <MatrixSheet entries={entries} presentation={presentation} />
+            <MatrixSheet entries={entries} presentation={presentation} disclosure={disclosure} />
           </div>
           {topic.body_md && (
             <div className="mt-3 border-l-2 border-[#e5e5e7] pl-3">
               <p className="mb-1 text-[11px] font-semibold text-[#6e6e73]">表の補足</p>
-              <MarkdownView source={topic.body_md} />
+              <AmieTechDisclosureField record={topic} shared={shared} fields={["body_md"]} enabled={technology} label="本文"><MarkdownView source={topic.body_md}/></AmieTechDisclosureField>
             </div>
           )}
         </>
@@ -628,16 +647,16 @@ export function TopicCard({
         <>
           {topic.body_md && (
             <div className="mt-3 border-l-2 border-[#e5e5e7] pl-3">
-              <MarkdownView source={topic.body_md} />
+              <AmieTechDisclosureField record={topic} shared={shared} fields={["body_md"]} enabled={technology} label="本文"><MarkdownView source={topic.body_md}/></AmieTechDisclosureField>
             </div>
           )}
 
           {topic.block_kind !== "article" && (
             <div className="mt-3">
-              {topic.block_kind === "condition" && <ConditionBlock entries={entries} />}
-              {topic.block_kind === "matrix" && <MatrixBlock entries={entries} />}
-              {topic.block_kind === "record" && <RecordBlock entries={entries} />}
-              {topic.block_kind === "qa" && <QaBlock entries={entries} />}
+              {topic.block_kind === "condition" && <ConditionBlock entries={entries} disclosure={disclosure} />}
+              {topic.block_kind === "matrix" && <MatrixBlock entries={entries} disclosure={disclosure} />}
+              {topic.block_kind === "record" && <RecordBlock entries={entries} disclosure={disclosure} />}
+              {topic.block_kind === "qa" && <QaBlock entries={entries} disclosure={disclosure} />}
             </div>
           )}
         </>
@@ -713,7 +732,7 @@ export function TopicCard({
         </div>
       )}
 
-      <p className="mt-3 text-[10px] text-[#86868b]">
+      <p className="mt-3 break-words text-[11px] text-[#6e6e73]">
         <SourceCell sourceKind={topic.source_kind} sourceRef={topic.source_ref} sourceUrl={topic.source_url} />
         {" ・ 更新 "}
         {topic.updated_at.slice(0, 10)}
@@ -949,6 +968,7 @@ function TechOverview({
   onOpenDomain,
   onOpenTopic,
   onOpenFragments,
+  sharedTopics,
 }: {
   groups: TechGroup[];
   entriesByTopic: Map<string, TechEntry[]>;
@@ -956,6 +976,7 @@ function TechOverview({
   onOpenDomain: (domain: string) => void;
   onOpenTopic: (topicId: string) => void;
   onOpenFragments: () => void;
+  sharedTopics?: TechTopic[];
 }) {
   const totalTopics = groups.reduce((s, g) => s + g.topics.length, 0);
   const totalRows = groups.reduce((s, g) => s + g.rows, 0);
@@ -998,7 +1019,7 @@ function TechOverview({
                       <span className="mt-[2px] shrink-0 rounded border border-[#d2d2d7] bg-white px-1 text-[9px] leading-[14px] text-[#6e6e73]">
                         {BLOCK_KIND_LABEL[t.block_kind]}
                       </span>
-                      <span className="min-w-0 flex-1 text-[11px] leading-[18px] text-[#1d1d1f] group-hover:text-[#027FDC]">{t.title}</span>
+                      <span className="min-w-0 flex-1 text-[11px] leading-[18px] text-[#1d1d1f] group-hover:text-[#027FDC]">{t.title}{techLedgerTabOf(t) === "technology" && <span className="mt-0.5 block"><AmieTechDisclosureMark state={amieTechRecordState(t,t.disclosure_level?t:sharedTopics?.find(p=>p.tech_topic_id===t.tech_topic_id),["title","summary","body_md"])} /></span>}</span>
                       <span className="shrink-0 text-[10px] leading-[18px] tabular-nums text-[#86868b]">
                         {entries.length > 0 ? `${entries.length}行` : ""}
                         {checks > 0 && <span className="ml-1 text-[#b71c1c]">⚠{checks}</span>}
@@ -1176,7 +1197,6 @@ interface Props {
 }
 
 export function CockpitTechnology({ projectId, mode = "technology", initialData, sharedView = false }: Props) {
-  const [disclosureView, setDisclosureView] = useState<"internal" | "dd_preview">("internal");
   const [secretLevel, setSecretLevel] = useState<AmieTechLevel | "all">("all");
   const competition = mode === "competition";
   const businessModel = mode === "business-model";
@@ -1232,14 +1252,13 @@ export function CockpitTechnology({ projectId, mode = "technology", initialData,
   // 技術タブは区分「競合比較」「ビジネスモデル」を除き、それぞれのタブはその区分だけを出す。未整理の断片は技術タブだけ。
   const data = useMemo<ProjectTechResponse | null>(() => {
     if (!rawData) return null;
-    const preview = !singleDomain && disclosureView === "dd_preview" && rawData.ddPreview;
-    const source = preview ? { ...rawData, ...preview, canEdit:false, fragments:[] } : rawData;
+    const source = rawData;
     const candidates = source.topics.filter(t => techLedgerTabOf(t) === mode);
-    const allEntries = source.entries.filter(e => secretLevel === "all" || singleDomain || preview || amieTechLevelOf(e) === secretLevel);
-    const topics = candidates.filter(t => secretLevel === "all" || singleDomain || preview || amieTechLevelOf(t) === secretLevel || allEntries.some(e => e.tech_topic_id === t.tech_topic_id));
+    const allEntries = source.entries.filter(e => secretLevel === "all" || singleDomain || amieTechLevelOf(e) === secretLevel);
+    const topics = candidates.filter(t => secretLevel === "all" || singleDomain || amieTechLevelOf(t) === secretLevel || allEntries.some(e => e.tech_topic_id === t.tech_topic_id));
     const ids = new Set(topics.map(t => t.tech_topic_id));
-    return { ...source, topics:topics.map(t => secretLevel !== "all" && !singleDomain && !preview && amieTechLevelOf(t) !== secretLevel ? { ...t, body_md:null } : t), entries:allEntries.filter(e=>ids.has(e.tech_topic_id)), fragments:singleDomain || preview || secretLevel !== "all" ? [] : source.fragments };
-  }, [rawData, mode, singleDomain, disclosureView, secretLevel]);
+    return { ...source, topics:topics.map(t => secretLevel !== "all" && !singleDomain && amieTechLevelOf(t) !== secretLevel ? { ...t, body_md:null } : t), entries:allEntries.filter(e=>ids.has(e.tech_topic_id)), fragments:singleDomain || secretLevel !== "all" ? [] : source.fragments };
+  }, [rawData, mode, singleDomain, secretLevel]);
 
   // 区分の並びは五十音ではなく、その区分に入っているトピックの sort_order の小さい順。
   // 「培養 → 排水処理」のように、PJが読ませたい順を data 側で決められるようにする。
@@ -1387,15 +1406,11 @@ export function CockpitTechnology({ projectId, mode = "technology", initialData,
       className="space-y-4"
       data-testid={competition ? "cockpit-competition-tab" : businessModel ? "cockpit-business-model-tab" : "cockpit-technology-tab"}
     >
-      {!singleDomain && <section data-testid="amie-tech-disclosure-controls" className="space-y-2 rounded border border-[#d2d2d7] bg-white p-3 text-[12px]">
-        {rawData?.audience === "dd" || rawData?.audience === "shared" ? <p>DD開示範囲：事業化判断に必要な概要・数値・適用限界・未確認事項。詳細な実験データと核心ノウハウは別管理。</p> : <>
-          <div className="flex flex-wrap items-center gap-2"><strong>技術情報の開示範囲</strong>
-            <button type="button" aria-pressed={disclosureView === "internal"} onClick={()=>setDisclosureView("internal")} className="min-h-11 rounded border border-[#d2d2d7] px-3 aria-pressed:bg-[#E8F3FC] aria-pressed:text-[#027FDC]">社内の技術台帳</button>
-            <button type="button" aria-pressed={disclosureView === "dd_preview"} onClick={()=>setDisclosureView("dd_preview")} className="min-h-11 rounded border border-[#d2d2d7] px-3 aria-pressed:bg-[#E8F3FC] aria-pressed:text-[#027FDC]">DD掲載内容を確認</button>
-            {disclosureView === "internal" && <label className="flex items-center gap-2">秘密レベル<select aria-label="秘密レベルで絞り込み" value={secretLevel} onChange={e=>setSecretLevel(e.target.value as AmieTechLevel|"all")} className="min-h-11 rounded border border-[#d2d2d7] bg-white px-2"><option value="all">全区分</option>{AMIE_TECH_LEVELS.map(v=><option key={v} value={v}>{AMIE_TECH_LEVEL_LABEL[v]}</option>)}</select></label>}
-          </div>
-          <p className="text-[11px] leading-4 text-[#6e6e73]">1 公開情報 → 2 DD判断情報 → 3 限定技術情報 → 4 核心ノウハウ。社内原本を保持し、DDには確認済みの抜粋だけを掲載。各トピックの「秘密レベルとDDへの掲載範囲」で行ごとに確認・編集。</p>
-          <p className="text-[11px] text-[#6e6e73]">{disclosureView === "dd_preview" ? `DD掲載内容：${rawData?.ddPreview?.topics.length ?? 0}トピック・${rawData?.ddPreview?.entries.length ?? 0}行` : "社内原本を表示中。秘密レベルの指定と、第三者情報の開示許諾は別に確認。"}</p>
+      {!singleDomain && <section data-testid="amie-tech-disclosure-controls" className="flex flex-wrap items-center justify-between gap-2 border-b border-[#d2d2d7] pb-3 text-[12px]">
+        {rawData?.audience === "dd" || rawData?.audience === "shared" ? <p>DD開示範囲：事業化判断に必要な概要・数値・適用限界・未確認事項。</p> : <>
+          <AmieTechDisclosureLegend/>
+          <label className="flex items-center gap-2">秘密レベル<select aria-label="秘密レベルで絞り込み" value={secretLevel} onChange={e=>setSecretLevel(e.target.value as AmieTechLevel|"all")} className="min-h-11 rounded border border-[#d2d2d7] bg-white px-2"><option value="all">全区分</option>{AMIE_TECH_LEVELS.map(v=><option key={v} value={v}>{AMIE_TECH_LEVEL_LABEL[v]}</option>)}</select></label>
+          <p className="w-full text-[11px] leading-4 text-[#515158]">値・説明・条件ごとに開示範囲を表示。一部DD開示は、社内原文から指定した情報だけを掲載。</p>
         </>}
       </section>}
       <section className="overflow-hidden rounded-xl border border-[#e5e5e7] bg-white">
@@ -1482,6 +1497,7 @@ export function CockpitTechnology({ projectId, mode = "technology", initialData,
               onOpenDomain={openDomain}
               onOpenTopic={openTopic}
               onOpenFragments={() => selectView({ kind: "fragments" })}
+              sharedTopics={rawData?.ddPreview?.topics}
             />
           )}
           {shownKind === "fragments" && <FragmentTable fragments={data.fragments} />}
@@ -1506,6 +1522,9 @@ export function CockpitTechnology({ projectId, mode = "technology", initialData,
                   entries={entriesByTopic.get(selectedTopic.tech_topic_id) ?? []}
                   canEdit={data.canEdit}
                   projectId={projectId}
+                  sharedTopic={rawData?.ddPreview?.topics.find(t=>t.tech_topic_id===selectedTopic.tech_topic_id)}
+                  sharedEntries={rawData?.ddPreview?.entries}
+                  external={rawData?.audience === "dd" || rawData?.audience === "shared"}
                   onChanged={() => reload(true)}
                 />
                 <TechTopicPager

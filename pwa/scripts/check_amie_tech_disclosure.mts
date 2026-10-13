@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { amieTechFieldState, amieTechRecordState, amieTechSharedEntry } from "../src/lib/amie-tech-display.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { amiePrepareTechDisclosure, amieProjectDdTechTopic, amieTechDisclosureStatus } from "../src/lib/amie-tech-disclosure-server.ts";
@@ -21,6 +22,17 @@ assert.equal(projected.entries[0].unit,"h");
 assert.equal(projected.entries[0].confidence,"medium");
 assert.equal(projected.entries[0].observed_on,"2026-09-01");
 assert.equal(projected.entries[0].source_url,null);
+
+// 同一行の数値と原条件は別の開示範囲。原本全体を「DD開示」にしない。
+const displayRow={...approvedRow,disclosure_status:"included"};
+assert.equal(amieTechFieldState(displayRow,projected.entries[0],["value_min","value_max","unit"]),"dd");
+assert.equal(amieTechFieldState(displayRow,projected.entries[0],["condition_text"]),"private");
+assert.equal(amieTechRecordState(displayRow,projected.entries[0],["value_min","condition_text"]),"excerpt");
+assert.equal(amieTechFieldState(displayRow,undefined,["value_min"]),"private","親トピックが非掲載なら掲載指定済みの子も非掲載");
+assert.equal(amieTechFieldState(displayRow,projected.entries[0],["value_min"],"needs_review"),"review");
+assert.equal(amieTechFieldState(projected.entries[0],projected.entries[0],["value_min"]),"dd","投影済みの外部表示はDD開示");
+assert.equal(amieTechSharedEntry(displayRow,{enabled:true,sharedEntries:new Map()}),undefined,"実際の投影にない行を採用しない");
+
 const textOnly={...row,disclosure:amiePrepareTechDisclosure(row,"entry",{version:1,level:"dd_summary",reason:"旧値との混同を避ける",dd:{row_label:"説明だけ",value_mode:"text_only",value_text:"条件を追加確認"}})};
 assert.equal(amieProjectDdTechTopic(approvedTopic,[textOnly])!.entries[0].value_min,null,"不要な旧値や質問回数は掲載しない");
 assert.equal(row.value_min,15,"非掲載でも原本の値は保持");

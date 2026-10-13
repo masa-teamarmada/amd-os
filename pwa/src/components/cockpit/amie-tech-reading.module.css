@@ -1,0 +1,29 @@
+.frame { max-width:100%; overflow-x:auto; }
+.table { width:100%; max-width:1280px; min-width:820px; table-layout:fixed; border-collapse:collapse; font-size:12px; line-height:1.55; }
+.table th,.table td { overflow-wrap:anywhere; vertical-align:top; }
+.item { width:16%; }
+.value { width:30%; }
+.condition { width:auto; }
+.date { width:96px; }
+.confidence { width:64px; }
+.source { width:136px; }
+.recordItem { width:16%; }
+.recordValue { width:34%; }
+.recordCondition { width:auto; }
+.sourceSummary { display:flex; gap:4px; cursor:pointer; align-items:flex-start; min-height:28px; color:#515158; }
+.sourceText { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; overflow-wrap:anywhere; line-height:17px; }
+.sourceDetail { margin-top:4px; line-height:18px; overflow-wrap:anywhere; }
+.sourceSummary:focus-visible { outline:2px solid var(--amd-action, #027FDC); outline-offset:2px; }
+.field { margin-top:4px; padding:3px 6px; border-left:2px solid; overflow-wrap:anywhere; }
+.field:first-child { margin-top:0; }
+.dd { background:var(--amd-action-soft, #e8f3fc); border-color:var(--amd-action, #027FDC); }
+.excerpt { background:var(--amd-action-soft, #e8f3fc); border-color:var(--amd-action, #027FDC); }
+.private { background:#f5f5f7; border-color:#a1a1aa; }
+.review { background:var(--amd-warning-soft, #fef3c7); border-color:var(--amd-warning, #d97706); }
+.badge { display:inline-flex; align-items:center; gap:3px; width:fit-content; max-width:100%; border:1px solid; border-radius:3px; padding:0 4px; font-size:11px; line-height:17px; font-weight:500; white-space:nowrap; }
+.badge.dd,.badge.excerpt { color:#075985; border-color:#afd4f0; }
+.badge.private { color:#515158; border-color:#d2d2d7; }
+.badge.review { color:#854d0e; border-color:#e9cc8d; }
+.fieldLabel { display:flex; align-items:center; flex-wrap:wrap; gap:4px; margin-bottom:2px; font-size:11px; line-height:17px; color:#6e6e73; }
+.legend { display:flex; align-items:center; flex-wrap:wrap; gap:6px 12px; font-size:12px; }
+@media(max-width:767px) { .sourceSummary { min-height:44px; } }

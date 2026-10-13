@@ -3450,7 +3450,7 @@ expectIncludes("src/components/cockpit/CockpitTechnology.tsx", [
   'from "@/components/cockpit/tech-blocks"',
   'data-testid="tech-sheet-fields"',
   'const presentation = topic.block_kind === "matrix" ? readTechPresentation(topic.presentation) : null;',
-  "<MatrixSheet entries={entries} presentation={presentation} />",
+  "<MatrixSheet entries={entries} presentation={presentation} disclosure={disclosure} />",
 ]);
 
 expectFileMissing("src/components/cockpit/CockpitGovernance.tsx");
@@ -4847,5 +4847,5 @@ expectIncludes("src/components/workflows/WorkflowProgress.tsx", ["ArrowRight", "
 expectIncludes("src/components/project-card-designs/ProjectCardDesigns.tsx", ['PdfCanvas', 'pdfUrl={']);
 expectIncludes("src/components/project-card-designs/PdfCanvas.tsx", ['pdfjs-dist', 'getDocument', 'getPage', 'canvas', 'destroy']);
 
-expectIncludes("src/components/cockpit/CockpitTechnology.tsx", ["amie-tech-disclosure-controls", "DD掲載内容を確認", "秘密レベルで絞り込み"]);
+expectIncludes("src/components/cockpit/CockpitTechnology.tsx", ["amie-tech-disclosure-controls", "AmieTechDisclosureLegend", "秘密レベルで絞り込み"]);
 expectIncludes("src/components/cockpit/AmieTechDisclosure.tsx", ["秘密レベルとDDへの掲載範囲", "開示区分と掲載欄を保存", "amie-tech-disclosure-inventory"]);
