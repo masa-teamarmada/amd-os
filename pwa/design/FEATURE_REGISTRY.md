@@ -1,5 +1,13 @@
 # PWA Feature Registry
 
+## コスト試算の自社／競合プロセス比較（2026-10-13）
+
+- 導線: 既存「コスト試算」本文内に自社試算（登録資料の自社名で表示）と競合プロセス試算を常設。自社側の廃液／燃料切替・試算中入力・保存を保持する。
+- 共通面: コックピット、PJワークスペース、DDの `CockpitCostTab`。比較資料が未登録なら競合側に空状態を表示。PJ番号・名前による分岐なし。
+- 部品: `CockpitCostComparison.tsx` / `project-cost-comparison.ts`。DB: `project_cost_models.competitor_comparison`。API: 既存 `/api/project-cost-model` と共有サーバーローダー。既存認可とPATCH許可フィールドを保持する。
+- 比較: 前段と追加工程の費用枠を独立保存し、初期設備額・年間OPEX・円/m³を導出。食品／染色の8ケースと条件・公開根拠・仮説・未見積を表示。既存価格や財務へ自動反映しない。
+- 検証: `test:project-cost-comparison`（`test:project-cost-model` にも含む）、旧コスト・燃料回帰、DB照合、PC／狭幅とタブ状態保持の本番ブラウザ確認。仕様: spec5-13 / manual2-3 / ios/DESIGN。
+
 2026-10-06: 登録した組織・協業図を3スペース共通で表示。project_config.organization_chartの構造化登録値を読み、組織案/登録済みを区別する。役割は箇条書き、協業は両矢印。未登録は既存ひな形。DBスキーマ・権限・正式版PDFは変更なし。正本spec 3-23「登録した組織・協業図の表示」、検証test:organization-chart。ネイティブ3クライアントは未移植。
 
 2026-10-06: 「組織図」は全PJタイプのコックピット・ワークスペース会社情報とDD資料目録に常設する。DD目録は33資料。共通ProjectOrganizationChartの縦型ひな形と未登録表示を維持し、組織データを推定しない。DD入場認可・正式版PDF契約は維持。防波堤はtest:project-format・test:dd-package・test:critical-ui、正本spec/3-23・3-24・5-17。アプリのテーマ色は #a8bdd3（spec/2-1）。

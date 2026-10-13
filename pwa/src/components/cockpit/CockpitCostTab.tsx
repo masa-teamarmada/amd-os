@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import styles from "./CockpitCostDensity.module.css";
 import { CockpitCostModel } from "@/components/cockpit/CockpitCostModel";
 import { CockpitFuelCostModel } from "@/components/cockpit/CockpitFuelCostModel";
+import { CockpitCostComparison } from "@/components/cockpit/CockpitCostComparison";
 import { ProjectCostFormat } from "@/components/cockpit/ProjectCostFormat";
 import { costFormatEngineOf } from "@/lib/project-cost-format";
 import {
@@ -38,6 +39,16 @@ interface Props {
 type Choice = "main" | "fuel";
 
 export function CockpitCostTab({ projectId, allowEdit = true, initialRenderer, includeFuel = true, initialData }: Props) {
+  const [domain, setDomain] = useState<"own" | "competitor">("own");
+  const tabId = useId();
+  const tabRefs = useRef<Partial<Record<"own" | "competitor", HTMLButtonElement | null>>>({});
+  function handleTabKey(event: KeyboardEvent<HTMLButtonElement>) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const next = event.key === "Home" ? "own" : event.key === "End" ? "competitor" : domain === "own" ? "competitor" : "own";
+    setDomain(next);
+    tabRefs.current[next]?.focus();
+  }
   const [res, setRes] = useState<CostModelResponse | null>(() => initialData?.main ?? peekProjectCostModel(projectId) ?? null);
   const [failed, setFailed] = useState(false);
   const [fuel, setFuel] = useState<CostModelResponse | null | undefined>(() => (initialData ? initialData.fuel : includeFuel ? peekProjectFuelCostModel(projectId) : null));
@@ -85,7 +96,13 @@ export function CockpitCostTab({ projectId, allowEdit = true, initialRenderer, i
 
   return (
     <div className={`${styles.dense} flex min-w-0 flex-col gap-2`} data-testid="cockpit-cost-tab">
-      {options.length > 1 && <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[#e5e5e7] bg-white px-2 py-1">
+      <div role="tablist" aria-label="コスト試算の対象" className="flex min-w-0 flex-wrap gap-1 border-b border-[#e5e5e7]" data-testid="cost-domain-tabs">
+        {(["own", "competitor"] as const).map((key) => <button key={key} type="button" role="tab" id={`${tabId}-${key}-tab`} aria-controls={`${tabId}-${key}-panel`} aria-selected={domain === key} tabIndex={domain === key ? 0 : -1} ref={(el) => { tabRefs.current[key] = el; }} onKeyDown={handleTabKey} onClick={() => setDomain(key)} className={`min-h-11 px-3 text-[13px] font-semibold border-b-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#027fdc] ${domain === key ? "border-[#027fdc] text-[#027fdc]" : "border-transparent text-[#666] hover:bg-[#f5f5f7]"}`}>
+          {key === "own" ? bundle?.comparison?.ownTabLabel || "自社試算" : "競合プロセス試算"}
+        </button>)}
+      </div>
+      <div role="tabpanel" id={`${tabId}-own-panel`} aria-labelledby={`${tabId}-own-tab`} hidden={domain !== "own"} style={domain !== "own" ? { display: "none" } : undefined}>
+      {options.length > 1 && <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-[#e5e5e7] bg-white px-2 py-1">
         <span className="text-[12px] font-semibold text-[#1d1d1f]">試算</span>
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="試算の切り替え" data-testid="cockpit-cost-model-switch">
           {options.map((option) => (
@@ -102,6 +119,10 @@ export function CockpitCostTab({ projectId, allowEdit = true, initialRenderer, i
         </div>
       </div>}
       {body}
+      </div>
+      <div role="tabpanel" id={`${tabId}-competitor-panel`} aria-labelledby={`${tabId}-competitor-tab`} hidden={domain !== "competitor"} style={domain !== "competitor" ? { display: "none" } : undefined}>
+        <CockpitCostComparison comparison={bundle?.comparison ?? null} />
+      </div>
     </div>
   );
 }

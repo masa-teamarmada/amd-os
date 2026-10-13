@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-10-12 19:12 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-10-13 22:18 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -4933,6 +4933,7 @@ PRIMARY KEY: `cost_model_id`
 | 18 | `target_margin_rate` | `numeric` | NULL | `` |
 | 19 | `target_note` | `text` | NULL | `` |
 | 20 | `unit_basis_label` | `text` | NOT NULL | `'m³'::text` |
+| 21 | `competitor_comparison` | `jsonb` | NULL | `` |
 
 ## project_cost_notes
 

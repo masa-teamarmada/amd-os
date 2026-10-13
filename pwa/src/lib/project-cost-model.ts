@@ -60,6 +60,7 @@
 // 同じ role_key が複数あるときは、株と用途の両方が一致する行 > 株だけ > 用途だけ > 共通 の順に採る。
 
 import { quantityPriceTerms, type CalcSegment, type ItemCalc } from "./cost-item-calc.ts";
+import type { CostComparison } from "./project-cost-comparison.ts";
 
 export type CostConfidence = "S" | "A" | "B" | "C" | "H";
 export type CostVisibility = "amd_internal" | "workspace_shared";
@@ -388,6 +389,8 @@ export interface CostModel {
 
 export interface CostModelBundle {
   model: CostModel;
+  /** 顧客の既存・競合工程の比較前提。未登録の旧モデルとも互換。 */
+  comparison?: CostComparison | null;
   assumptions: CostAssumption[];
   items: CostItem[];
   tasks: CostTask[];

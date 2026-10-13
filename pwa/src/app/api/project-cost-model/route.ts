@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, requireMember } from "@/lib/supabase/api-auth";
 import { hasSharedWorkspaceProjectReadAccess } from "@/lib/shared-workspace-project-read-access";
 import type { CostModelBundle } from "@/lib/project-cost-model";
+import { readCostComparison } from "@/lib/project-cost-comparison";
 
 export const runtime = "nodejs";
 
@@ -18,6 +19,7 @@ const NUM_OR_NULL = (v: unknown): number | null => (v === null || v === undefine
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export function mapBundle(model: any, assumptions: any[], items: any[], questions: any[], notes: any[] = [], tasks: any[] = []): CostModelBundle {
   return {
+    comparison: readCostComparison(model.competitor_comparison),
     model: {
       costModelId: model.cost_model_id,
       projectId: model.project_id,
