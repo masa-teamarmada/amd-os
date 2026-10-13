@@ -42,6 +42,13 @@ const STYLE = `
 }
 `;
 
+const BASIS_NOTE: Record<CashMonthlyTrendRow["basis"], string> = {
+  actual: "",
+  current: "今日までの実績＋残りの予定",
+  plan: "見込み: きよの予定",
+  average: "見込み: 直近3か月の中央値",
+};
+
 const COL = 34; // 1か月の幅 (px)
 const BAR = 20;
 const LEFT = 56;
@@ -110,8 +117,11 @@ export function CashTrendPanel({ data, loading }: { data: CashAndLoansResult | n
   const hovered = hover == null ? null : rows[hover];
   const showUnexplained = rows.some((r) => Math.abs(r.unexplained) >= UNEXPLAINED_MIN);
 
-  const linePath = (pick: (r: CashMonthlyTrendRow) => number) =>
-    rows.map((r, i) => `${i === 0 ? "M" : "L"}${x(i)},${ly(pick(r))}`).join(" ");
+  // 実績の最後の月 (今月より前) までを実線、そこから先 (今月の見込み・予定・中央値) を薄い破線で引く。
+  const lastActualIdx = rows.reduce((acc, r, i) => (r.basis === "actual" && !r.partial ? i : acc), 0);
+  const firstForecastIdx = rows.findIndex((r) => r.basis !== "actual");
+  const linePath = (pick: (r: CashMonthlyTrendRow) => number, from = 0, to = rows.length - 1) =>
+    rows.slice(from, to + 1).map((r, k) => `${k === 0 ? "M" : "L"}${x(from + k)},${ly(pick(r))}`).join(" ");
 
   const stack = (row: CashMonthlyTrendRow, i: number, series: typeof INFLOWS, sign: 1 | -1) => {
     let acc = 0;
@@ -146,7 +156,9 @@ export function CashTrendPanel({ data, loading }: { data: CashAndLoansResult | n
       <p className="max-w-4xl text-xs leading-relaxed text-muted-foreground">
         月ごとに、会社の外とのあいだで入ったお金と出たお金を区分ごとに積み上げ、下に月末の残高を並べる。
         自社の口座どうしの移動 (PayPay銀行→商工中金など) は数えない。月末の残高は freee が銀行から取った残高で、
-        商工中金だけは明細から積み上げる。今月は今日まで。
+        商工中金だけは明細から積み上げる。縦の点線から右は見込みで、薄く出す。今月は今日までの実績に残りの予定を足し、
+        先の月はきよの予定がある月はその予定、無い月は直近3か月の実績の中央値を置く。借入の返済は返済予定表
+        (PayPay銀行は前回と同じ額)。新しい借入は見込まない。
       </p>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
@@ -182,7 +194,7 @@ export function CashTrendPanel({ data, loading }: { data: CashAndLoansResult | n
             <rect x={LEFT + hover * COL} y={0} width={COL} height={TOP_H + LINE_H} className="fill-muted/60" />
           ) : null}
           {rows.map((r, i) => (
-            <g key={r.ym} opacity={r.partial ? 0.55 : 1}>
+            <g key={r.ym} opacity={r.basis === "actual" ? 1 : r.basis === "current" ? 0.7 : 0.4}>
               {stack(r, i, INFLOWS, 1)}
               {stack(r, i, OUTFLOWS, -1)}
             </g>
@@ -204,8 +216,14 @@ export function CashTrendPanel({ data, loading }: { data: CashAndLoansResult | n
                 </text>
               </g>
             ))}
-            <path d={linePath((r) => r.endBalance)} fill="none" className="stroke-muted-foreground" strokeWidth={2} strokeDasharray="4 3" />
-            <path d={linePath((r) => r.netOfLoans)} fill="none" style={{ stroke: "var(--ct-income)" }} strokeWidth={2} />
+            <path d={linePath((r) => r.endBalance, 0, lastActualIdx)} fill="none" className="stroke-muted-foreground" strokeWidth={2} strokeDasharray="4 3" />
+            <path d={linePath((r) => r.netOfLoans, 0, lastActualIdx)} fill="none" style={{ stroke: "var(--ct-income)" }} strokeWidth={2} />
+            {lastActualIdx < rows.length - 1 ? (
+              <g opacity={0.5}>
+                <path d={linePath((r) => r.endBalance, lastActualIdx)} fill="none" className="stroke-muted-foreground" strokeWidth={2} strokeDasharray="4 3" />
+                <path d={linePath((r) => r.netOfLoans, lastActualIdx)} fill="none" style={{ stroke: "var(--ct-income)" }} strokeWidth={2} strokeDasharray="6 4" />
+              </g>
+            ) : null}
             {rows.map((r, i) => (
               <g key={`p${r.ym}`}>
                 <circle cx={x(i)} cy={ly(r.netOfLoans)} r={hover === i ? 4.5 : 3} style={{ fill: "var(--ct-income)" }}
@@ -213,12 +231,20 @@ export function CashTrendPanel({ data, loading }: { data: CashAndLoansResult | n
               </g>
             ))}
             <text x={x(rows.length - 1) + 8} y={ly(last.endBalance)} dy="0.32em" className="fill-muted-foreground text-[11px]">
-              口座の残高 {man(last.endBalance)}
+              口座の残高 {man(last.endBalance)}{last.basis === "actual" ? "" : "（見込み）"}
             </text>
             <text x={x(rows.length - 1) + 8} y={ly(last.netOfLoans)} dy="0.32em" className="fill-foreground text-[11px] font-semibold">
-              借入を差し引くと {man(last.netOfLoans)}
+              差し引き {man(last.netOfLoans)}{last.basis === "actual" ? "" : "（見込み）"}
             </text>
           </g>
+
+          {firstForecastIdx > 0 ? (
+            <g>
+              <line x1={LEFT + firstForecastIdx * COL} x2={LEFT + firstForecastIdx * COL} y1={0} y2={TOP_H + LINE_H}
+                className="stroke-muted-foreground" strokeWidth={1} strokeDasharray="2 3" />
+              <text x={LEFT + firstForecastIdx * COL + 4} y={10} className="fill-muted-foreground text-[10px]">見込み →</text>
+            </g>
+          ) : null}
 
           {/* ホバーの当たり判定は棒より広く、月の列全体にする */}
           {rows.map((r, i) => (
@@ -233,7 +259,7 @@ export function CashTrendPanel({ data, loading }: { data: CashAndLoansResult | n
             style={{ left: Math.min(x(hover) + COL / 2 + 6, width - 230) }}
           >
             <div className="mb-1 font-semibold text-foreground">
-              {hovered.ym.replace("-", "年")}月{hovered.partial ? "（今日まで）" : ""}
+              {hovered.ym.replace("-", "年")}月{BASIS_NOTE[hovered.basis] ? `（${BASIS_NOTE[hovered.basis]}）` : ""}
             </div>
             <table className="w-full tabular-nums">
               <tbody>
@@ -278,10 +304,12 @@ export function CashTrendPanel({ data, loading }: { data: CashAndLoansResult | n
               const net = r.inflow - r.outflow;
               const leak = Math.abs(r.unexplained) >= UNEXPLAINED_MIN;
               return (
-                <tr key={r.ym} className={i === hover ? "bg-muted/60" : "border-t border-border/60"}
+                <tr key={r.ym}
+                  className={`${i === hover ? "bg-muted/60" : "border-t border-border/60"} ${r.basis === "actual" ? "" : "text-muted-foreground"} ${i === firstForecastIdx ? "border-t-2 border-t-muted-foreground/50" : ""}`}
                   onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
                   <td className="sticky left-0 bg-background px-2 py-0.5 text-left">
-                    {r.ym.replace("-", "/")}{r.partial ? <span className="ml-1 text-muted-foreground">今日まで</span> : null}
+                    {r.ym.replace("-", "/")}
+                    {BASIS_NOTE[r.basis] ? <span className="ml-1 text-muted-foreground">{BASIS_NOTE[r.basis]}</span> : null}
                   </td>
                   {[...INFLOWS, ...OUTFLOWS].map((s) => (
                     <td key={s.key} className="px-2 py-0.5 text-right font-mono">{amount(r.flows[s.key])}</td>

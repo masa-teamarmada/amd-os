@@ -126,10 +126,19 @@ export type CashFlowKind =
   | "loan_out" // 借入の返済 (利息込み)
   | "transfer"; // 自社の口座どうしの移動
 
+/**
+ * その月の数字の出どころ。
+ * actual: 実績だけ / current: 今月 (今日までの実績＋残りはきよの予定) /
+ * plan: きよの予定 / average: 予定が無いので直近3か月の実績の中央値。
+ * 借入の返済は、どの見込みでも返済予定表 (無ければ前回と同じ額) を使う。
+ */
+export type CashTrendBasis = "actual" | "current" | "plan" | "average";
+
 export type CashMonthlyTrendRow = {
   ym: string;
   /** 今月は今日まで。 */
   partial: boolean;
+  basis: CashTrendBasis;
   flows: Record<Exclude<CashFlowKind, "transfer">, number>;
   inflow: number;
   outflow: number;

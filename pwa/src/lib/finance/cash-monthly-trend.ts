@@ -125,6 +125,10 @@ export function buildMonthlyTrend(input: {
    * ずれは「明細の漏れ」(unexplained) としてその月に出る。
    */
   bankBalances?: Map<string, number>;
+  /** 予定・見込みを出す先の月数 (今月の残りに加えて)。 */
+  forecastMonths?: number;
+  /** メインの口座 (PayPay銀行)。この口座に予定の行がある月だけ、きよの予定を使う。 */
+  mainAccountId?: string;
 }): CashMonthlyTrendRow[] {
   const actual = input.entries.filter((e) => !e.isPlanned && e.entry_date <= input.today);
   const ledgerOnly = new Map(input.accounts.map((a) => [a.accountId, a.ledgerOnly]));
@@ -175,14 +179,140 @@ export function buildMonthlyTrend(input: {
     const endBalance = balanceOn(asOf);
     const loanOutstanding = loanOn(asOf);
     rows.push({
-      ym, partial, flows, inflow, outflow, endBalance, loanOutstanding,
+      ym, partial, basis: "actual", flows, inflow, outflow, endBalance, loanOutstanding,
       netOfLoans: endBalance - loanOutstanding,
       // 最初の月は前月末の残高がそろっていない (メインの口座の明細がその月から始まる) ので数えない。
       unexplained: ym === input.startYm ? 0 : endBalance - previousBalance - (inflow - outflow),
     });
     previousBalance = endBalance;
   }
+
+  const forecastMonths = input.forecastMonths ?? 0;
+  if (forecastMonths > 0 && rows.length > 0) {
+    appendForecast(rows, input, ledgerOnly, flowsByYm, todayYm, forecastMonths);
+  }
   return rows;
+}
+
+/**
+ * 今月の残りと、その先 forecastMonths か月の見込みを足す。
+ *
+ * - メインの口座にきよの予定の行がある月は、その予定を使う (今月は今日までの実績＋残りの予定)。
+ * - 予定の無い月は、直近3か月 (今月を除く) の実績の中央値を区分ごとに置く。
+ * - 借入の返済は、どちらの月も返済予定表から。予定表の無い借入 (PayPay銀行) は、
+ *   前回の返済と同じ額が毎月あると置く。借入の新規実行は見込まない。
+ * - 自社の口座どうしの移動は、実績と同じく数えない。
+ * 残高は、今日の実績の残高から見込みの入り − 出を積み上げる。
+ */
+function appendForecast(
+  rows: CashMonthlyTrendRow[],
+  input: Parameters<typeof buildMonthlyTrend>[0],
+  ledgerOnly: Map<string, boolean>,
+  actualFlowsByYm: Map<string, Record<FlowKey, number>>,
+  todayYm: string,
+  forecastMonths: number,
+): void {
+  const today = input.today;
+  // 予定の行は、その口座の実績の最終日より後のものを使う。freee は銀行の明細が数日遅れて届くので、
+  // 「今日より後」で切ると、実績の最終日から今日までの予定 (カードの引き落としなど) が抜け落ちる。
+  const lastActual = new Map<string, string>();
+  for (const e of input.entries) {
+    if (e.isPlanned || e.entry_date > today) continue;
+    if ((lastActual.get(e.account_id) ?? "") < e.entry_date) lastActual.set(e.account_id, e.entry_date);
+  }
+  const future = input.entries.filter((e) => e.isPlanned && e.entry_date > (lastActual.get(e.account_id) ?? ""));
+  const planFlowsByYm = new Map<string, Record<FlowKey, number>>();
+  const mainPlanned = new Set<string>();
+  for (const entry of future) {
+    const ym = entry.entry_date.slice(0, 7);
+    if (input.mainAccountId && entry.account_id === input.mainAccountId) mainPlanned.add(ym);
+    const kind = classifyEntry(entry, {
+      ledgerOnly: ledgerOnly.get(entry.account_id) ?? false,
+      loanEvents: input.loanEvents,
+    });
+    // 借入と返済は予定表から数えるので、明細の予定の行からは入れない。
+    if (kind === "transfer" || kind === "loan_in" || kind === "loan_out") continue;
+    const flows = planFlowsByYm.get(ym) ?? emptyFlows();
+    flows[kind] += INFLOW_KEYS.includes(kind) ? Number(entry.deposit) || 0 : Number(entry.withdrawal) || 0;
+    planFlowsByYm.set(ym, flows);
+  }
+
+  // 直近3か月 (今月を除く) の実績の中央値。平均にすると、一度きりの大きな支払
+  // (2026-09 の借入で払った 200 万円など) が先の月にも毎月あるように見えてしまう。
+  const recent = rows.filter((r) => r.basis === "actual" && r.ym < todayYm).slice(-3);
+  const average = emptyFlows();
+  for (const key of FLOW_KEYS) {
+    if (key === "loan_in" || key === "loan_out") continue;
+    const sorted = recent.map((r) => r.flows[key]).sort((a, b) => a - b);
+    average[key] = sorted.length ? sorted[Math.floor((sorted.length - 1) / 2)] : 0;
+  }
+
+  // 借入の返済の見込み。予定表の回 (今日より後) と、予定表の無い借入は前回と同じ額。
+  const repaymentsIn = (ym: string) => {
+    let amount = 0;
+    let principal = 0;
+    const loanIds = [...new Set(input.loanEvents.map((e) => e.loanId))];
+    for (const loanId of loanIds) {
+      const events = input.loanEvents.filter((e) => e.loanId === loanId);
+      const scheduled = events.filter((e) => e.kind === "repayment" && e.eventDate > today && e.eventDate.startsWith(ym));
+      if (scheduled.length) {
+        for (const e of scheduled) { amount += e.amount; principal += e.principal; }
+        continue;
+      }
+      if (events.some((e) => e.kind === "repayment" && e.eventDate > today)) continue; // 予定表はあるがこの月は無い
+      const lastPaid = events
+        .filter((e) => e.kind === "repayment" && !e.isPlanned && e.eventDate <= today)
+        .sort((a, b) => (a.eventDate < b.eventDate ? 1 : -1))[0];
+      const paidThisMonth = events.some((e) => e.kind === "repayment" && !e.isPlanned && e.eventDate.startsWith(ym));
+      if (lastPaid && !paidThisMonth) { amount += lastPaid.amount; principal += lastPaid.principal; }
+    }
+    return { amount, principal };
+  };
+
+  const current = rows[rows.length - 1];
+  let balance = current.endBalance;
+  let loan = current.loanOutstanding;
+
+  // 今月: 今日までの実績に、残りの予定と返済予定を足す。
+  if (current.ym === todayYm) {
+    const plan = planFlowsByYm.get(todayYm) ?? emptyFlows();
+    const repay = repaymentsIn(todayYm);
+    const flows = { ...(actualFlowsByYm.get(todayYm) ?? emptyFlows()) };
+    for (const key of FLOW_KEYS) flows[key] += plan[key];
+    flows.loan_out += repay.amount;
+    const addIn = INFLOW_KEYS.reduce((s, k) => s + plan[k], 0);
+    const addOut = OUTFLOW_KEYS.reduce((s, k) => s + plan[k], 0) + repay.amount;
+    balance += addIn - addOut;
+    loan -= repay.principal;
+    Object.assign(current, {
+      basis: "current" as const,
+      flows,
+      inflow: INFLOW_KEYS.reduce((s, k) => s + flows[k], 0),
+      outflow: OUTFLOW_KEYS.reduce((s, k) => s + flows[k], 0),
+      endBalance: balance,
+      loanOutstanding: loan,
+      netOfLoans: balance - loan,
+      unexplained: 0,
+    });
+  }
+
+  let ym = todayYm;
+  for (let i = 0; i < forecastMonths; i += 1) {
+    ym = addMonth(ym);
+    const usePlan = mainPlanned.has(ym);
+    const flows = { ...(usePlan ? planFlowsByYm.get(ym) ?? emptyFlows() : average) };
+    const repay = repaymentsIn(ym);
+    flows.loan_in = 0;
+    flows.loan_out = repay.amount;
+    const inflow = INFLOW_KEYS.reduce((s, k) => s + flows[k], 0);
+    const outflow = OUTFLOW_KEYS.reduce((s, k) => s + flows[k], 0);
+    balance += inflow - outflow;
+    loan -= repay.principal;
+    rows.push({
+      ym, partial: false, basis: usePlan ? "plan" : "average", flows, inflow, outflow,
+      endBalance: balance, loanOutstanding: loan, netOfLoans: balance - loan, unexplained: 0,
+    });
+  }
 }
 
 function addMonthBack(ym: string): string {

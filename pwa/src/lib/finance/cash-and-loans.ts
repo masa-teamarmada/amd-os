@@ -338,6 +338,8 @@ async function computeInternal(): Promise<CashAndLoansResult> {
       startYm: mainFirst.slice(0, 7),
       today,
       bankBalances: bankBalancesByYm(bankRows, accounts),
+      forecastMonths: 3,
+      mainAccountId: mainAccount.account_id,
     })
     : [];
 

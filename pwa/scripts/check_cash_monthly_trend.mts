@@ -53,4 +53,35 @@ assert.equal(rows[1].outflow, 100_000, "口座どうしの移動は出に入ら�
 assert.equal(rows[1].endBalance, 850_000, "銀行 450,000 + 商工中金の明細 400,000");
 assert.equal(rows[1].unexplained, -50_000, "銀行の残高が明細より 5万円少ない");
 
+// 見込み: 予定のある月はきよの予定、無い月は直近3か月の中央値。返済は予定表、無ければ前回と同じ額。
+const months = ["2026-06", "2026-07", "2026-08"];
+const forecast = buildMonthlyTrend({
+  accounts: [{ accountId: "paypay", ledgerOnly: false }],
+  entries: [
+    e("paypay", "2026-05-31", 1_000_000, 0, "売上", { balance: 1_000_000 }),
+    ...months.map((m, i) => e("paypay", `${m}-10`, 0, [100_000, 2_000_000, 300_000][i], "りさ")),
+    e("paypay", "2026-09-03", 0, 10_000, "りさ"),
+    // 実績の最終日 (9/3) より後で、今日 (9/5) より前の予定も入れる。
+    e("paypay", "2026-09-04", 0, 50_000, "JCBカード", { isPlanned: true }),
+    e("paypay", "2026-10-25", 500_000, 0, "売上", { isPlanned: true }),
+  ],
+  loanEvents: [
+    { loanId: "pp", accountId: "paypay", eventDate: "2026-08-31", kind: "repayment", amount: 30_000, principal: 16_000, isPlanned: false },
+  ],
+  startYm: "2026-06",
+  today: "2026-09-05",
+  forecastMonths: 2,
+  mainAccountId: "paypay",
+});
+const [sep, oct, nov] = forecast.slice(-3);
+assert.equal(sep.basis, "current");
+assert.equal(sep.flows.card, 50_000, "実績の最終日から今日までの予定も今月に入る");
+assert.equal(sep.flows.loan_out, 30_000, "予定表の無い借入は前回と同じ額を返す");
+assert.equal(oct.basis, "plan");
+assert.equal(oct.flows.income, 500_000);
+assert.equal(oct.flows.pay_members, 0, "予定のある月は予定だけを使う");
+assert.equal(nov.basis, "average");
+assert.equal(nov.flows.pay_members, 300_000, "中央値なので 200 万円の一度きりの支払に引っ張られない");
+assert.equal(nov.loanOutstanding - oct.loanOutstanding, -16_000);
+
 console.log("cash monthly trend: ok");
