@@ -582,7 +582,7 @@ export function TopicCard({
             )}
           </div>
           {topic.needs_check && topic.check_reason && (
-            <p className="mt-1 text-[11px] leading-5 text-[#b71c1c]">⚠ {topic.check_reason}</p>
+            <div className="mt-1 text-[11px] leading-5 text-[#b71c1c]"><AmieTechDisclosureField record={topic} shared={shared} fields={["check_reason"]} enabled={technology} label="要確認">⚠ {topic.check_reason}</AmieTechDisclosureField></div>
           )}
           {topic.summary && <div className="mt-1 max-w-[75ch] text-[12px] leading-5 text-[#515158]"><AmieTechDisclosureField record={topic} shared={shared} fields={["summary"]} enabled={technology} label="要約">{topic.summary}</AmieTechDisclosureField></div>}
           {technology && shared?.summary && shared.summary !== topic.summary && <div className="mt-1 max-w-[75ch] text-[12px] leading-5 text-[#515158]"><AmieTechDisclosureField record={shared} shared={shared} fields={["summary"]} enabled label="DD掲載文">{shared.summary}</AmieTechDisclosureField></div>}
@@ -732,11 +732,11 @@ export function TopicCard({
         </div>
       )}
 
-      <p className="mt-3 break-words text-[11px] text-[#6e6e73]">
-        <SourceCell sourceKind={topic.source_kind} sourceRef={topic.source_ref} sourceUrl={topic.source_url} />
+      <div className="mt-3 break-words text-[11px] text-[#6e6e73]">
+        <AmieTechDisclosureField record={topic} shared={shared} fields={["source_ref","source_url"]} enabled={technology} label="出典"><SourceCell sourceKind={topic.source_kind} sourceRef={topic.source_ref} sourceUrl={topic.source_url} /></AmieTechDisclosureField>
         {" ・ 更新 "}
         {topic.updated_at.slice(0, 10)}
-      </p>
+      </div>
     </section>
   );
 }
