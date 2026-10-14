@@ -173,7 +173,7 @@ export function KuteSeedDetailModal({
               )}
             </div>
 
-            <table className="w-full border-collapse text-sm">
+            <table data-amie-list="records" className="w-full border-collapse text-sm">
               <tbody>
                 <DetailRow label="想定用途" value={seed.envisioned_use_case} />
                 <DetailRow label="最初の顧客候補" value={seed.first_customer_candidate} />
@@ -201,7 +201,7 @@ export function KuteSeedDetailModal({
                   SPS帯（産業創出価値）
                   <span className="ml-2 text-[10px] font-normal text-slate-400">{screeningBand.measure_version}</span>
                 </h3>
-                <table className="w-full border-collapse text-sm">
+                <table data-amie-list="records" className="w-full border-collapse text-sm">
                   <tbody>
                     <DetailRow
                       label="段階仮説"

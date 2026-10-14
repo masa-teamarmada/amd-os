@@ -2881,7 +2881,7 @@ expectIncludes("src/components/admin/AdminMembersTable.tsx", [
   "google_calendar_status",
   "last_login_at",
   "最終ログイン",
-  "Google Calendar access is required at login",
+  "ログイン時にGoogleカレンダーへの接続が必要",
 ]);
 
 expectIncludes("src/app/api/cron/venture-xrl-refresh/route.ts", [

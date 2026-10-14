@@ -1,5 +1,6 @@
 "use client";
 
+import { AmieListStatus } from "@/components/ui/amie-list-signals";
 import { FormEvent, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
@@ -656,7 +657,7 @@ export default function PocHubPage() {
           <EmptyState text="タグ条件に合うPoC先がない" />
         ) : (
           <div className="overflow-x-auto rounded-lg border border-border">
-            <table className="w-full min-w-[1320px] text-xs">
+            <table data-amie-list="records" className="w-full min-w-[1320px] text-xs">
               <thead className="bg-muted/35 text-left text-[11px] text-muted-foreground">
                 <tr>
                   <th className="w-[220px] px-3 py-2">PoC先</th>
@@ -720,7 +721,7 @@ export default function PocHubPage() {
           <EmptyState text="案件候補なし。案件化キューから作れるよ" />
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-[1160px] w-full text-xs">
+            <table data-amie-list="records" className="min-w-[1160px] w-full text-xs">
               <thead className="bg-muted/35 text-left text-[11px] text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2">案件</th>
@@ -818,7 +819,7 @@ export default function PocHubPage() {
           <EmptyState text="PoC先なし" />
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-[980px] w-full text-xs">
+            <table data-amie-list="records" className="min-w-[980px] w-full text-xs">
               <thead className="bg-muted/35 text-left text-[11px] text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2">PoC先</th>
@@ -1023,7 +1024,7 @@ function PairingRowCard({
                 {SEED_DOMAIN_LANE_LABEL[row.seed.domain_lane as SeedDomainLane] ?? row.seed.domain_lane}
               </span>
             )}
-            <span className="text-[10px] text-muted-foreground">{SEED_STATUS_LABEL[row.seed.status as SeedStatus] ?? row.seed.status}</span>
+            <AmieListStatus value={row.seed.status} label={SEED_STATUS_LABEL[row.seed.status as SeedStatus] ?? row.seed.status} className="text-[10px] text-muted-foreground"/>
           </div>
           <h3 className="mt-1 line-clamp-2 text-sm font-semibold">{row.seed.title}</h3>
           <p className="mt-1 text-[11px] text-muted-foreground">

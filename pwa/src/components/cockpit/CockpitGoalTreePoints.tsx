@@ -1,5 +1,6 @@
 "use client";
 
+import { AmieListStatus } from "@/components/ui/amie-list-signals";
 import { useCallback, useEffect, useState } from "react";
 
 import { loadGoalTreePoints, mutateQuestionTree, peekGoalTreePoints } from "@/lib/question-tree-client";
@@ -177,7 +178,7 @@ export function CockpitGoalTreePoints({ projectId }: { projectId: string }) {
       <span className={`tabular-nums ${row.isOverdue ? "text-[#dc2626]" : "text-[#86868b]"}`}>
         {row.plannedEnd ? row.plannedEnd.slice(2).replace(/-/g, "-") : "期限なし"}
       </span>
-      <span className="text-[#86868b]">{STATUS_LABEL[row.status] ?? row.status}</span>
+      <AmieListStatus value={row.status} label={STATUS_LABEL[row.status] ?? row.status} className="text-[#86868b]"/>
       </div>
       {/* 見積・検収・証跡の行は全PJに出す。検収はタスクpt検収の試行に入っているPJだけ（APIの答えで決める）。 */}
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pl-1 text-[11px] text-[#6e6e73]">

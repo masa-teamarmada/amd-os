@@ -1,4 +1,6 @@
 "use client";
+import { AmieListCategory } from "@/components/ui/amie-list-signals";
+
 
 /**
  * PJコックピット最上段の見出し。
@@ -47,7 +49,7 @@ export function CockpitHeader({ project }: Props) {
         <h1 className="text-lg font-bold">{project.projectName}</h1>
         {project.clientName && <span className="text-[13px] text-[#86868b]">{project.clientName}</span>}
         <span className={`rounded-full px-2 py-0.5 text-[11px] ${STATUS_COLORS[project.status] ?? "bg-muted text-muted-foreground"}`}>{project.status === "active" ? "Active" : project.status}</span>
-        <span className={`rounded-full px-2 py-0.5 text-[11px] ${CATEGORY_COLORS[category] ?? CATEGORY_COLORS.dtsu}`}>{CATEGORY_LABELS[category] ?? "DTSU"}</span>
+        <AmieListCategory value={CATEGORY_LABELS[category] ?? "DTSU"} className={`rounded-full px-2 py-0.5 text-[11px] ${CATEGORY_COLORS[category] ?? CATEGORY_COLORS.dtsu}`}/>
       </div>
     </header>
   );

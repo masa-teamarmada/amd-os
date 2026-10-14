@@ -447,7 +447,7 @@ export function MiniMarkdown({ text }: { text: string }) {
           const body = lines.slice(2).map(cells);
           return (
             <div key={bi} className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
-              <table className="w-full min-w-[320px] border-collapse text-[11px]">
+              <table data-amie-list="matrix" className="w-full min-w-[320px] border-collapse text-[11px]">
                 <thead>
                   <tr className="border-b border-[#d2d2d7] text-left text-[10px] text-[#6e6e73]">
                     {head.map((h, i) => (

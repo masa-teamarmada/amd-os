@@ -173,7 +173,7 @@ export default function MicrosoftSettingsPage() {
           </p>
         ) : (
           <div className="mt-3 overflow-x-auto">
-            <table className="w-full min-w-[640px] border-collapse text-sm">
+            <table data-amie-list="records" className="w-full min-w-[640px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted-foreground">
                   <th className="py-2 pr-3 font-medium">日時</th>

@@ -269,7 +269,7 @@ function FundsSection({
       {funds.length === 0 ? (
         <div className="text-xs text-muted-foreground">未登録</div>
       ) : (
-        <table className="w-full text-xs">
+        <table data-amie-list="records" className="w-full text-xs">
           <thead className="text-left text-muted-foreground border-b border-border">
             <tr>
               <th className="py-1 pr-2">#</th>
@@ -502,7 +502,7 @@ function InvestmentsSection({
       {investments.length === 0 ? (
         <div className="text-xs text-muted-foreground">未登録</div>
       ) : (
-        <table className="w-full text-xs">
+        <table data-amie-list="records" className="w-full text-xs">
           <thead className="text-left text-muted-foreground border-b border-border">
             <tr>
               <th className="py-1 pr-2">投資先</th>
@@ -848,7 +848,7 @@ function RelationsSection({
       {relations.length === 0 ? (
         <div className="text-xs text-muted-foreground">未登録</div>
       ) : (
-        <table className="w-full text-xs">
+        <table data-amie-list="records" className="w-full text-xs">
           <thead className="text-left text-muted-foreground border-b border-border">
             <tr>
               <th className="py-1 pr-2">PJ</th>

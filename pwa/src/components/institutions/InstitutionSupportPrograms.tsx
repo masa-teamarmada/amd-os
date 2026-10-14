@@ -8,6 +8,7 @@
  * 知財、資金、伴走) を機関横断で比べる。データは参照系なので
  * lib/institution-support-programs-client.ts (reference-data-cache 経由) からだけ読む。
  */
+import { AmieListStatus } from "@/components/ui/amie-list-signals";
 import Link from "next/link";
 import { ExternalLink, Pencil, Plus, X } from "lucide-react";
 import {
@@ -212,7 +213,7 @@ export function SupportProgramMatrix({
       </dl>
 
       <div className="overflow-x-auto border border-slate-200 bg-white">
-        <table className="w-full min-w-[2300px] border-collapse text-left">
+        <table data-amie-list="records" className="w-full min-w-[2300px] border-collapse text-left">
           <thead>
             <tr className="bg-slate-50 text-[10px] font-semibold text-slate-600">
               <th
@@ -371,11 +372,7 @@ function CellButton({
         <span className="text-[10px] text-slate-400">未確認</span>
       ) : (
         <>
-          <span
-            className={`inline-block border px-1 py-px text-[10px] font-semibold leading-tight ${POLICY_STATUS_TONE[status]}`}
-          >
-            {POLICY_STATUS_LABEL[status]}
-          </span>
+          <AmieListStatus value={status} label={POLICY_STATUS_LABEL[status]} className={`inline-block border px-1 py-px text-[10px] font-semibold leading-tight ${POLICY_STATUS_TONE[status]}`}/>
           {cell?.value && (
             <span
               className="mt-0.5 block text-[11px] leading-snug text-slate-800"
@@ -481,11 +478,7 @@ function CellDetail({
             <div>
               <dt className="text-[10px] font-semibold text-slate-500">状態</dt>
               <dd className="mt-1">
-                <span
-                  className={`inline-block border px-1.5 py-0.5 text-xs font-semibold ${POLICY_STATUS_TONE[displayStatus]}`}
-                >
-                  {POLICY_STATUS_LABEL[displayStatus]}
-                </span>
+                <AmieListStatus value={displayStatus} label={POLICY_STATUS_LABEL[displayStatus]} className={`inline-block border px-1.5 py-0.5 text-xs font-semibold ${POLICY_STATUS_TONE[displayStatus]}`}/>
               </dd>
             </div>
             <div>
@@ -754,7 +747,7 @@ function RecommendationSection({
       </dl>
 
       <div className="overflow-x-auto border border-slate-200 bg-white">
-        <table className="w-full min-w-[1180px] border-collapse text-left">
+        <table data-amie-list="records" className="w-full min-w-[1180px] border-collapse text-left">
           <thead>
             <tr className="bg-slate-50 text-[10px] font-semibold text-slate-600">
               <th className="w-[22%] border-b border-r border-slate-200 px-3 py-2">論点</th>

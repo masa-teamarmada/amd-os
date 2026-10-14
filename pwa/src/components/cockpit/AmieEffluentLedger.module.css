@@ -45,3 +45,7 @@
  .legend button { min-height:44px; }
  .table tbody > tr:first-child { height:auto; }
 }
+.table :is(td,th)[data-amie-cell-edit] { cursor: pointer; position: relative; }
+.table :is(td,th)[data-amie-cell-edit]:hover { background: var(--amd-action-soft); box-shadow: inset 0 0 0 1px var(--amd-action-line); }
+.table :is(td,th)[data-amie-cell-edit]:focus-visible { outline: 2px solid var(--amd-action); outline-offset: -2px; background: var(--amd-action-soft); }
+@media (max-width:767px) { .table :is(td,th)[data-amie-cell-edit] { min-height:44px; } }

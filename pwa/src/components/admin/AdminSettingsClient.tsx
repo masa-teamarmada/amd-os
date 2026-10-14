@@ -102,7 +102,7 @@ export function AdminSettingsClient({ settings: initial }: Props) {
         </div>
       ) : (
         <div className="border border-border rounded-lg overflow-hidden">
-          <table className="w-full text-[12px]">
+          <table data-amie-list="records" className="w-full text-[12px]">
             <thead>
               <tr className="bg-muted/40 border-b border-border">
                 <th className="text-left px-3 py-2 font-medium">Key</th>

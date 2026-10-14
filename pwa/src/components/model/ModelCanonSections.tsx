@@ -193,7 +193,7 @@ export function ModelSymbolIndex({ symbols }: { symbols: ModelSymbol[] }) {
       </p>
 
       <div className="overflow-x-auto rounded-lg border border-border bg-white">
-        <table className="w-full min-w-[520px] border-collapse text-left">
+        <table data-amie-list="matrix" className="w-full min-w-[520px] border-collapse text-left">
           <thead>
             <tr className="border-b border-border bg-slate-50">
               <th className="w-[22%] px-3 py-2 text-[11px] font-bold text-slate-700">記号</th>

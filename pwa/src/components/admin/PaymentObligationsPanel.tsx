@@ -142,7 +142,7 @@ export function PaymentObligationsPanel({ initialObligations }: Props) {
       </div>
 
       <div className="overflow-x-auto border-y border-border">
-        <table className="w-full min-w-[1080px] text-[12px]">
+        <table data-amie-list="records" className="w-full min-w-[1080px] text-[12px]">
           <thead className="border-b border-border bg-muted/40">
             <tr><th className="px-3 py-2 text-left font-medium">支払内容</th><th className="px-3 py-2 text-left font-medium">金額</th><th className="px-3 py-2 text-left font-medium">期日</th><th className="px-3 py-2 text-left font-medium">区分</th><th className="px-3 py-2 text-left font-medium">資金繰り</th><th className="px-3 py-2 text-left font-medium">状態</th><th className="px-3 py-2 text-right font-medium">操作</th></tr>
           </thead>

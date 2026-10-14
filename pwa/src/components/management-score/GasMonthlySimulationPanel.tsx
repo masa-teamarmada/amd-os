@@ -1086,7 +1086,7 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
       </div>
 
       <div className="table-wrap">
-        <table>
+        <table data-amie-list="matrix">
           <thead>
             <tr>
               <th className="head-item" rowSpan={2}>

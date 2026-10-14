@@ -1,5 +1,6 @@
 'use client';
 
+import { AmieListStatus } from "@/components/ui/amie-list-signals";
 import { Fragment, createContext, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   editableValue,
@@ -679,7 +680,7 @@ export function CapitalPlanMatrix({
       </div>
 
       <div className="w-full overflow-x-auto border border-slate-200 dark:border-slate-800">
-        <table
+        <table data-amie-list="matrix"
           className="border-collapse text-[13px]"
           style={{ tableLayout: 'fixed', width: 224 + sortedEvents.length * 144 }}
         >
@@ -718,9 +719,7 @@ export function CapitalPlanMatrix({
                       <span className="block truncate text-[10px] text-slate-500 dark:text-slate-400">
                         {event.date ?? '—'}
                       </span>
-                      <span className="block truncate text-[10px] text-slate-500 dark:text-slate-400">
-                        {STATUS_LABEL[event.status ?? 'confirmed'] ?? event.status}
-                      </span>
+                      <AmieListStatus value={event.status} label={STATUS_LABEL[event.status ?? 'confirmed'] ?? event.status} className="block truncate text-[10px] text-slate-500 dark:text-slate-400"/>
                     </button>
                   </th>
                 );

@@ -46,7 +46,7 @@ function LoanCard({ loan }: { loan: LoanView }) {
           {loan.accountName ? `・引き落とし ${loan.accountName}` : ""}
         </span>
       </div>
-      <table className="w-full border-collapse">
+      <table data-amie-list="records" className="w-full border-collapse">
         <tbody>
           {rows.map((r) => (
             <tr key={r.label} className="border-b border-border last:border-b-0">
@@ -208,7 +208,7 @@ export function CashLoansPanel({
             </span>
           </h2>
           <div className="max-h-[420px] overflow-auto border border-border">
-            <table className="w-full min-w-[760px] border-collapse">
+            <table data-amie-list="records" className="w-full min-w-[760px] border-collapse">
               <thead className="sticky top-0 z-10 bg-muted/95">
                 <tr className="border-b border-border text-[11px] text-muted-foreground">
                   <th scope="col" className="px-2 py-1 text-left font-medium">日付</th>

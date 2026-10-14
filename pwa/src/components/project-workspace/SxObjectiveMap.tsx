@@ -1,5 +1,6 @@
 "use client";
 
+import { AmieListStatus } from "@/components/ui/amie-list-signals";
 import {
   useMemo,
   useState,
@@ -241,12 +242,8 @@ function TaskNode({
             </span>
           )}
           {detail && <p>{detail}</p>}
-          <span
-            className={styles.nodeState}
-            data-state={partner?.activityState || task.status}
-          >
-            {stateLabel}
-          </span>
+          <AmieListStatus label={stateLabel} className={styles.nodeState}
+            data-state={partner?.activityState || task.status}/>
         </button>
         {canManage && (
           <div className={styles.nodeActions}>

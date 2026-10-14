@@ -54,7 +54,7 @@ export function CostProcessSummary({ bundle, computed, selection, unit }: {
       <div className={styles.detailHeading}><h4 ref={detailHeading} id={`${id}-detail-heading`} tabIndex={-1}>{summary.steps.indexOf(selected) + 1} {selected.title}の内訳</h4><button type="button" onClick={closeDetail} className={styles.motionButton}>閉じる</button></div>
       <p className={styles.detailDescription}>{selected.description}。SOL {amount(selected.sx)} ／ 顧客 {amount(selected.customer)} 円/{unit}</p>
       {selected.gaps.length > 0 && <p className={styles.gaps}>{selected.gaps.join("。")}{selected.gaps.some((g) => /未計上|未確定/.test(g)) ? "。未計上・未確認の費用は実際の0円を意味しない。" : "。"}</p>}
-      <div className={styles.tableWrap}><table><thead><tr><th>費用・作業</th><th>負担</th><th>区分</th><th>初期投資（償却前）</th><th>円/{unit}</th></tr></thead><tbody>
+      <div className={styles.tableWrap}><table data-amie-list="matrix"><thead><tr><th>費用・作業</th><th>負担</th><th>区分</th><th>初期投資（償却前）</th><th>円/{unit}</th></tr></thead><tbody>
         {selected.rows.filter((r) => r.perUnit !== 0 || r.initial !== 0 || r.unknown || r.note).map((row) => <tr key={row.id}>
           <td>{row.label}{row.note && <small>{row.note}</small>}{row.unknown && <small>工数未確認・人件費未反映</small>}</td><td>{row.payer === "sx" ? "SOL" : "顧客"}</td><td>{row.type}</td>
           <td>{row.type === "CAPEX" ? <>{yen(row.initial)}<small>{row.initialScope === "production" ? "製造拠点全体" : row.initialScope === "recovery" ? "回収能力で比例換算" : "1処理拠点"}</small></> : "—"}</td><td>{amount(row.perUnit)}</td>

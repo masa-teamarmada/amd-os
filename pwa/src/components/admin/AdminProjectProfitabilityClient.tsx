@@ -136,7 +136,7 @@ function CompanySeasonTable({ rows, sortKey }: { rows: ScoredSeason[]; sortKey: 
 
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
-      <table className="w-full min-w-[1180px] text-sm">
+      <table data-amie-list="records" className="w-full min-w-[1180px] text-sm">
         <thead className="bg-muted/50 text-xs text-muted-foreground">
           <tr>
             <th className="px-3 py-2 text-left font-normal">PJ / シーズン</th>
@@ -256,7 +256,7 @@ function PersonalFeeTable({ rows, rate }: { rows: PersonalFeeRow[]; rate: number
 
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
-      <table className="w-full min-w-[900px] text-sm">
+      <table data-amie-list="records" className="w-full min-w-[900px] text-sm">
         <thead className="bg-muted/50 text-xs text-muted-foreground">
           <tr>
             <th className="px-3 py-2 text-left font-normal">PJ / 期間</th>
@@ -325,7 +325,7 @@ function UnfundedTable({ rows, rate }: { rows: UnfundedProjectRow[]; rate: numbe
   const totalHours = rows.reduce((s, r) => s + r.masaHours, 0);
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
-      <table className="w-full min-w-[560px] text-sm">
+      <table data-amie-list="records" className="w-full min-w-[560px] text-sm">
         <thead className="bg-muted/50 text-xs text-muted-foreground">
           <tr>
             <th className="px-3 py-2 text-left font-normal">PJ</th>
@@ -367,7 +367,7 @@ function IncompleteTable({ rows }: { rows: IncompleteSeasonRow[] }) {
   if (rows.length === 0) return null;
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
-      <table className="w-full min-w-[720px] text-sm">
+      <table data-amie-list="records" className="w-full min-w-[720px] text-sm">
         <thead className="bg-muted/50 text-xs text-muted-foreground">
           <tr>
             <th className="px-3 py-2 text-left font-normal">PJ / シーズン</th>

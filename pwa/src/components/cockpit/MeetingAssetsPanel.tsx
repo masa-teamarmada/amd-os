@@ -731,7 +731,7 @@ function MarkdownPreviewModal({
                 ),
                 table: ({ children }) => (
                   <div className="my-3 overflow-auto">
-                    <table className="min-w-full border-collapse text-left text-[12px]">{children}</table>
+                    <table data-amie-list="records" className="min-w-full border-collapse text-left text-[12px]">{children}</table>
                   </div>
                 ),
                 th: ({ children }) => <th className="border border-[#d2d2d7] bg-[#f5f5f7] px-2 py-1 font-semibold">{children}</th>,

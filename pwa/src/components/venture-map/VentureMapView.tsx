@@ -1,5 +1,6 @@
 "use client";
 
+import { AmieListDelta } from "@/components/ui/amie-list-signals";
 import { useMemo, useState } from "react";
 import type {
   LaneId,
@@ -426,7 +427,7 @@ export function VentureMapView({ ventures, laneWeights, macroLog, papersLog, sna
           </p>
         </div>
         <div className="px-4 py-3">
-          <table className="w-full text-[12px]">
+          <table data-amie-list="records" className="w-full text-[12px]">
             <thead>
               <tr className="text-left text-muted-foreground border-b border-border">
                 <th className="py-1.5 font-medium">領域</th>
@@ -537,7 +538,7 @@ export function VentureMapView({ ventures, laneWeights, macroLog, papersLog, sna
             <p className="text-muted-foreground text-[11px] mb-2 font-sans">
               領域別パラメータ（最新推定値・Supabase macro_lane_weights から取得）
             </p>
-            <table className="w-full font-mono">
+            <table data-amie-list="records" className="w-full font-mono">
               <thead>
                 <tr className="text-left text-[10px] text-muted-foreground">
                   <th className="py-1 font-medium">i</th>
@@ -560,7 +561,7 @@ export function VentureMapView({ ventures, laneWeights, macroLog, papersLog, sna
                       <td className="py-1.5">{w ? Number(w.alpha).toFixed(2) : "—"}</td>
                       <td className="py-1.5">{w ? Number(w.beta).toFixed(2) : "—"}</td>
                       <td className="py-1.5">{w ? Number(w.gamma).toFixed(2) : "—"}</td>
-                      <td className="py-1.5">{w ? Number(w.delta).toFixed(2) : "—"}</td>
+                      <td className="py-1.5"><AmieListDelta value={w?.delta==null?null:Number(w.delta)}>{w?.delta==null?"差分未確認":Number(w.delta).toFixed(2)}</AmieListDelta></td>
                       <td className="py-1.5">{w?.lambda != null ? Number(w.lambda).toFixed(2) : "—"}</td>
                       <td className="py-1.5">{w?.eta != null ? Number(w.eta).toFixed(2) : "—"}</td>
                     </tr>

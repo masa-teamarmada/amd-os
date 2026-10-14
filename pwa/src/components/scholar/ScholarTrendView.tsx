@@ -270,7 +270,7 @@ function QuarterlyTable({
   const recent = data.slice(-8); // 直近 8 quarter
   return (
     <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-800">
-      <table className="w-full text-xs">
+      <table data-amie-list="records" className="w-full text-xs">
         <thead className="bg-slate-50 dark:bg-slate-900/60">
           <tr>
             <th className="px-3 py-2 text-left font-medium text-slate-600 dark:text-slate-400">Lane</th>

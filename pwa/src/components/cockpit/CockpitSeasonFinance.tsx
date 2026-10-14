@@ -100,7 +100,7 @@ export function CockpitSeasonFinance({ finance }: Props) {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="min-w-[820px] w-full text-left text-[12px]">
+        <table data-amie-list="matrix" className="min-w-[820px] w-full text-left text-[12px]">
           <thead className="bg-[#f5f5f7] text-[11px] text-[#6e6e73]">
             <tr>
               <th className="px-4 py-2 font-semibold">月</th>

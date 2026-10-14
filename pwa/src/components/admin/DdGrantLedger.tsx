@@ -1,3 +1,4 @@
+import { AmieListStatus } from "@/components/ui/amie-list-signals";
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentMemberAccess } from "@/lib/project-workspace";
@@ -63,7 +64,7 @@ export async function DdGrantLedger() {
         {packages.map((pkg) => (
           <li key={pkg.id} className="rounded border border-border px-2 py-1">
             <span className="font-semibold">{pkg.title}</span>
-            <span className="ml-1 text-muted-foreground">{DD_PACKAGE_STATUS_LABEL[pkg.status]}</span>
+            <AmieListStatus value={pkg.status} label={DD_PACKAGE_STATUS_LABEL[pkg.status]} className="ml-1 text-muted-foreground"/>
             <Link href={`/project/${encodeURIComponent(pkg.project_id)}/dd?tab=manage`} className="ml-2 text-[#0267b2] hover:underline">管理</Link>
           </li>
         ))}
@@ -72,7 +73,7 @@ export async function DdGrantLedger() {
         <p className="text-xs text-muted-foreground">DDの閲覧権限はまだ誰にも付与していない。</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] border-collapse text-xs">
+          <table data-amie-list="records" className="w-full min-w-[720px] border-collapse text-xs">
             <thead>
               <tr className="text-left text-muted-foreground">
                 <th className="px-2 py-1 font-medium">メールアドレス・所属</th>

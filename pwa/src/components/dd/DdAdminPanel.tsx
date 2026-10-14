@@ -161,7 +161,7 @@ export function DdAdminPanel({ state, candidates, onChanged, endpoint = "/api/ad
                 <p className="py-1.5 text-[12px] text-[#6e6e73]">まだ項目がない。下の「元データから追加」で足す。</p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="mt-1 w-full min-w-[820px] border-collapse text-[12.5px]">
+                  <table data-amie-list="records" className="mt-1 w-full min-w-[820px] border-collapse text-[12.5px]">
                     <thead>
                       <tr className="text-left text-[11px] text-[#6e6e73]">
                         <th className="px-2 py-1 font-medium">項目</th>
@@ -222,7 +222,7 @@ export function DdAdminPanel({ state, candidates, onChanged, endpoint = "/api/ad
         {state.exports.length === 0 ? (
           <p className="text-[12px] text-[#6e6e73]">まだ出力していない。「PDFを出力」から印刷画面で「PDFに保存」を選ぶと、ここに記録が残る。</p>
         ) : (
-          <table className="w-full border-collapse text-[12px]">
+          <table data-amie-list="records" className="w-full border-collapse text-[12px]">
             <thead>
               <tr className="text-left text-[11px] text-[#6e6e73]">
                 <th className="px-2 py-1 font-medium">日時</th>
@@ -251,7 +251,7 @@ export function DdAdminPanel({ state, candidates, onChanged, endpoint = "/api/ad
           <p className="text-[12px] text-[#6e6e73]">閲覧・入場確認の記録はまだない。</p>
         ) : (
           <div className="max-h-[360px] overflow-auto">
-            <table className="min-w-[640px] w-full border-collapse text-[12px]">
+            <table data-amie-list="records" className="min-w-[640px] w-full border-collapse text-[12px]">
               <thead>
                 <tr className="text-left text-[11px] text-[#6e6e73]">
                   <th className="px-2 py-1 font-medium">日時</th>
@@ -590,7 +590,7 @@ function AddItemForm({
         <span className="self-center text-[#6e6e73]">{filtered.length}件</span>
       </div>
       <div className="max-h-[480px] overflow-auto rounded-lg border border-[#e5e5e7]">
-        <table className="w-full min-w-[880px] border-collapse text-[12.5px]">
+        <table data-amie-list="records" className="w-full min-w-[880px] border-collapse text-[12.5px]">
           <thead className="sticky top-0 bg-[#f5f5f7]">
             <tr className="text-left text-[11px] text-[#6e6e73]">
               <th className="px-2 py-1.5 font-medium">元データ</th>
@@ -698,7 +698,7 @@ function GrantsSection({ state, pending, run }: { state: DdAdminState; pending: 
         <p className="text-[12px] text-[#6e6e73]">まだ誰にも付与していない。</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[880px] border-collapse text-[12.5px]">
+          <table data-amie-list="records" className="w-full min-w-[880px] border-collapse text-[12.5px]">
             <thead>
               <tr className="text-left text-[11px] text-[#6e6e73]">
                 <th className="px-2 py-1 font-medium">メールアドレス・所属</th>

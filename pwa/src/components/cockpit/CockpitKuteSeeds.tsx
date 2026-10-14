@@ -1,5 +1,6 @@
 "use client";
 
+import { AmieListCategory } from "@/components/ui/amie-list-signals";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
@@ -432,7 +433,7 @@ export function CockpitKuteSeeds({
             style={tableMaxHeight === null ? undefined : { maxHeight: tableMaxHeight }}
             className="max-h-[70vh] overflow-auto border border-slate-200"
           >
-            <table className="table-fixed border-collapse text-[12px]" style={{ width: tableWidth }}>
+            <table data-amie-list="records" className="table-fixed border-collapse text-[12px]" style={{ width: tableWidth }}>
               <colgroup>
                 {visibleColumnKeys.map((key) => <col key={key} style={{ width: columnWidths[key] }} />)}
               </colgroup>
@@ -858,12 +859,8 @@ function SeedRow({
         {commercializationTypes.length > 0 ? (
           <div className="flex flex-wrap gap-1">
             {commercializationTypes.map((t) => (
-              <span
-                key={t}
-                className="whitespace-normal break-words rounded border border-slate-300 bg-slate-50 px-1 py-0.5 text-[10px] leading-tight text-slate-700"
-              >
-                {SEED_COMMERCIALIZATION_TYPE_LABEL[t] ?? t}
-              </span>
+              <AmieListCategory value={SEED_COMMERCIALIZATION_TYPE_LABEL[t] ?? t} key={t}
+                className="whitespace-normal break-words rounded border border-slate-300 bg-slate-50 px-1 py-0.5 text-[10px] leading-tight text-slate-700"/>
             ))}
           </div>
         ) : (

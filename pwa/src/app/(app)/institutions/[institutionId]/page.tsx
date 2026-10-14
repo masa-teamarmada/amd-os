@@ -7,6 +7,8 @@
  * 8 軸レーダー + 軸ごとのサブ軸 (Lv1-5 rubric) 充足状況 + ノート。
  * AMD Score (個体レイヤー) とは別ロジックの苗床レイヤー指標。
  */
+
+import { AmieListCategory } from "@/components/ui/amie-list-signals";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -92,9 +94,7 @@ export default function InstitutionDetailPage() {
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-2xl font-bold">{inst.name}</h1>
-              <span className="text-[10px] rounded border px-1.5 py-0.5 bg-indigo-50 text-indigo-800 border-indigo-300">
-                {INSTITUTION_TYPE_LABEL[inst.type] ?? inst.type}
-              </span>
+              <AmieListCategory value={INSTITUTION_TYPE_LABEL[inst.type] ?? inst.type} className="text-[10px] rounded border px-1.5 py-0.5 bg-indigo-50 text-indigo-800 border-indigo-300"/>
             </div>
             {meta && <p className="text-xs text-muted-foreground mt-1">{meta}</p>}
           </div>

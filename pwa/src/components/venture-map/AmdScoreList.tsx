@@ -94,7 +94,7 @@ export function AmdScoreList({ ventures, inputs, alpha }: Props) {
       </div>
 
       <div className="border border-[#e5e5e7] rounded-xl overflow-hidden bg-white">
-        <table className="w-full text-xs">
+        <table data-amie-list="matrix" className="w-full text-xs">
           <thead className="bg-slate-50 text-muted-foreground">
             <tr>
               <th className="text-left px-3 py-2">PJ</th>

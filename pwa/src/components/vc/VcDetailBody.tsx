@@ -1,5 +1,6 @@
 "use client";
 
+import { AmieListStatus, AmieListCategory } from "@/components/ui/amie-list-signals";
 import Link from "next/link";
 import {
   formatJpy,
@@ -26,7 +27,7 @@ export function VcDetailBody({ data, onEdit }: { data: VcDetail; onEdit?: () => 
       <div className="flex items-start justify-between gap-4 pr-10">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-            {vc.type && <span>{VC_TYPE_LABEL[vc.type] ?? vc.type}</span>}
+            {vc.type && <AmieListCategory value={VC_TYPE_LABEL[vc.type] ?? vc.type} />}
             {vc.hq && <span>· {vc.hq}</span>}
           </div>
           <h2 className="text-xl font-semibold">
@@ -118,17 +119,13 @@ export function VcDetailBody({ data, onEdit }: { data: VcDetail; onEdit?: () => 
                           <span className="ml-2 text-xs text-muted-foreground">{f.vintage_year}</span>
                         )}
                       </div>
-                      <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded ${
+                      <AmieListStatus value={f.status} label={FUND_STATUS_LABEL[f.status] ?? f.status} className={`text-[10px] px-1.5 py-0.5 rounded ${
                           f.status === "raising"
                             ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                             : f.status === "investing" || f.status === "first_closed" || f.status === "final_closed"
                             ? "bg-blue-500/15 text-blue-700 dark:text-blue-300"
                             : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {FUND_STATUS_LABEL[f.status] ?? f.status}
-                      </span>
+                        }`}/>
                     </div>
                     <dl className="grid grid-cols-2 gap-y-0.5 text-[11px]">
                       <Row
@@ -194,7 +191,7 @@ export function VcDetailBody({ data, onEdit }: { data: VcDetail; onEdit?: () => 
             {relations.length === 0 ? (
               <div className="text-xs text-muted-foreground">接点なし</div>
             ) : (
-              <table className="w-full text-xs">
+              <table data-amie-list="records" className="w-full text-xs">
                 <thead className="text-left text-muted-foreground border-b border-border">
                   <tr>
                     <th className="py-1 pr-2">PJ</th>
@@ -364,8 +361,6 @@ function StatusBadge({ status }: { status: string }) {
   };
   const cls = colorMap[status] ?? "bg-muted text-muted-foreground";
   return (
-    <span className={`text-[10px] px-1.5 py-0.5 rounded ${cls}`}>
-      {PVR_STATUS_LABEL[status] ?? status}
-    </span>
+    <AmieListStatus value={status} label={PVR_STATUS_LABEL[status] ?? status} className={`text-[10px] px-1.5 py-0.5 rounded ${cls}`}/>
   );
 }

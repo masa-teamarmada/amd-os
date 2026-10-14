@@ -151,7 +151,7 @@ function TeamFunctionBlock({ functions, thinRecord }: { functions: OrgFunctionRo
         </p>
       ) : null}
       <TableScroll>
-        <table className="w-full min-w-[760px] border-collapse text-[11px]">
+        <table data-amie-list="records" className="w-full min-w-[760px] border-collapse text-[11px]">
           <thead>
             <tr className="border-b border-border text-left text-[10px] text-muted-foreground">
               <th className="w-[16%] px-2 py-1 font-medium">機能</th>
@@ -252,7 +252,7 @@ function ObservationBlock({
         </p>
       ) : (
         <TableScroll>
-          <table className="w-full min-w-[820px] border-collapse text-[11px]">
+          <table data-amie-list="records" className="w-full min-w-[820px] border-collapse text-[11px]">
             <thead>
               <tr className="border-b border-border text-left text-[10px] text-muted-foreground">
                 <th className="w-[8%] px-2 py-1 font-medium">日付</th>
@@ -338,7 +338,7 @@ function PeopleBlock({ members, roleSlots }: { members: OrgMember[]; roleSlots: 
         <p className="px-1 py-2 text-[10px] text-muted-foreground">登録されている人がいない。</p>
       ) : (
         <TableScroll>
-          <table className="w-full min-w-[700px] border-collapse text-[11px]">
+          <table data-amie-list="records" className="w-full min-w-[700px] border-collapse text-[11px]">
             <thead>
               <tr className="border-b border-border text-left text-[10px] text-muted-foreground">
                 <th className="w-[14%] px-2 py-1 font-medium">名前</th>

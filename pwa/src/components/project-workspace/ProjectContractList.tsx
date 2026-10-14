@@ -75,7 +75,7 @@ export function ProjectContractList({ projectId, initialData }: { projectId: str
       </div>
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       {!data ? <p className="py-2 text-sm text-[#6e6e73]">読み込み中…</p> : <div className="overflow-x-auto rounded border border-[#e5e5e7] bg-white">
-        <table className="w-full min-w-[920px] table-fixed text-[13px] leading-5" data-testid="contract-summary-table">
+        <table data-amie-list="records" className="w-full min-w-[920px] table-fixed text-[13px] leading-5" data-testid="contract-summary-table">
           <colgroup><col className="w-[28%]" /><col className="w-[10%]" />{hasEvidence && <col className="w-[20%]" />}<col className="w-[11%]" />{hasEvidence && <col className="w-[14%]" />}<col className="w-[17%]" />{data.canManage && <col className="w-16" />}</colgroup>
           <thead className="bg-[#f5f5f7] text-left text-xs text-[#6e6e73]"><tr>{["契約・当事者", "状態", ...(hasEvidence ? ["最新版"] : []), "最終更新", ...(hasEvidence ? ["次の対応"] : []), "締結・期間", ...(data.canManage ? ["DD"] : [])].map(label => <th key={label} scope="col" className="px-3 py-2 font-medium">{label}</th>)}</tr></thead>
           <tbody className="divide-y divide-[#e5e5e7]">{rows.map(row => <tr key={row.contractId} className="align-top hover:bg-[#f5f8fb]">
@@ -105,13 +105,13 @@ export function ProjectContractList({ projectId, initialData }: { projectId: str
           {!currentEvidence ? !detailError && <p className="py-3 text-sm text-[#6e6e73]">文書・経緯を読み込み中…</p> : <>
             <div className="flex items-center gap-2 text-sm"><h3 className="font-semibold">文書と版</h3><span className="text-xs text-[#6e6e73]">{currentEvidence.documents.length}版</span></div>
             <div className="max-h-[22dvh] overflow-auto border border-[#e5e5e7]">
-              <table className="w-full min-w-[640px] text-xs leading-5"><thead className="sticky top-0 bg-[#f5f5f7] text-left text-[#6e6e73]"><tr><th className="w-32 px-2 py-1 font-medium">受領・返送日時</th><th className="w-72 px-2 py-1 font-medium">版</th><th className="px-2 py-1 font-medium">ファイル名</th></tr></thead>
+              <table data-amie-list="records" className="w-full min-w-[640px] text-xs leading-5"><thead className="sticky top-0 bg-[#f5f5f7] text-left text-[#6e6e73]"><tr><th className="w-32 px-2 py-1 font-medium">受領・返送日時</th><th className="w-72 px-2 py-1 font-medium">版</th><th className="px-2 py-1 font-medium">ファイル名</th></tr></thead>
                 <tbody className="divide-y divide-[#e5e5e7]">{currentEvidence.documents.map(doc => <tr key={doc.id} className={doc.latest ? "bg-[#f5f8fb]" : ""}><td className="px-2 py-1.5 whitespace-nowrap tabular-nums">{eventDate(doc.receivedAt, true)}</td><td className="px-2 py-1.5"><a href={doc.url} target="_blank" rel="noopener noreferrer" className={linkClass}>{doc.label}</a>{doc.latest && <span className="ml-2 text-[#6e6e73]">現行</span>}</td><td className="max-w-96 truncate px-2 py-1.5 text-[#6e6e73]" title={doc.fileName}>{doc.fileName}</td></tr>)}{!currentEvidence.documents.length && <tr><td colSpan={3} className="px-2 py-2 text-[#6e6e73]">文書未登録</td></tr>}</tbody>
               </table>
             </div>
             <div className="mt-1 flex items-center gap-2 text-sm"><h3 className="font-semibold">やりとりの経緯</h3><span className="text-xs text-[#6e6e73]">新しい順・{currentEvidence.history.length}件表示</span></div>
             <div className="max-h-[42dvh] overflow-auto border border-[#e5e5e7]">
-              <table className="w-full min-w-[720px] text-[13px] leading-5" data-testid="contract-history-table"><thead className="sticky top-0 bg-[#f5f5f7] text-left text-xs text-[#6e6e73]"><tr><th className="w-32 px-2 py-1 font-medium">日時</th><th className="w-52 px-2 py-1 font-medium">対応</th><th className="px-2 py-1 font-medium">内容・根拠</th></tr></thead>
+              <table data-amie-list="records" className="w-full min-w-[720px] text-[13px] leading-5" data-testid="contract-history-table"><thead className="sticky top-0 bg-[#f5f5f7] text-left text-xs text-[#6e6e73]"><tr><th className="w-32 px-2 py-1 font-medium">日時</th><th className="w-52 px-2 py-1 font-medium">対応</th><th className="px-2 py-1 font-medium">内容・根拠</th></tr></thead>
                 <tbody className="divide-y divide-[#e5e5e7]">{currentEvidence.history.map(event => <tr key={event.id} className="align-top"><td className="px-2 py-1.5 whitespace-nowrap text-xs tabular-nums">{eventDate(event.occurredAt, true)}</td><td className="px-2 py-1.5 font-medium">{event.title}</td><td className="px-2 py-1.5">{event.summary}{event.url && <a href={event.url} target="_blank" rel="noopener noreferrer" className={`${linkClass} ml-2 inline-block text-xs`}>メール</a>}</td></tr>)}{!currentEvidence.history.length && <tr><td colSpan={3} className="px-2 py-2 text-[#6e6e73]">経緯未登録</td></tr>}</tbody>
               </table>
             </div>

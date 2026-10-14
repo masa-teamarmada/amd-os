@@ -27,7 +27,7 @@ export function CockpitCostComparison({ comparison }: { comparison: CostComparis
     {comparison.industries.map((industry) => <section className={styles.industry} key={industry.key} data-testid={`cost-comparison-${industry.key}`} aria-label={`${industry.label}の競合プロセス試算`}>
       <h3>{industry.label}</h3>
       <p className={styles.flow}>{industry.pretreatment.join(" → ")} <strong>→ 各脱色工程</strong></p>
-      <table className={styles.table}>
+      <table data-amie-list="matrix" className={styles.table}>
         <thead><tr><th scope="col">脱色方式</th><th scope="col">設備・工事費<span className={styles.unit}>CAPEX・円</span></th><th scope="col">年間運転費<span className={styles.unit}>OPEX・円/年</span></th><th scope="col">運転費<span className={styles.unit}>円/m³</span></th><th scope="col">設備年割＋運転費<span className={styles.unit}>参考額・円/m³</span></th></tr></thead>
         <tbody>{industry.scenarios.map((scenario) => {
           const result = computeCostComparison(comparison, industry, scenario);

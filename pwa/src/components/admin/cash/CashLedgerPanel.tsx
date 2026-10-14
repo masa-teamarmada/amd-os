@@ -409,7 +409,7 @@ export function CashLedgerPanel({
     <div className="space-y-2">
       {/* ── 上段: 口座と借入のいま ── */}
       <section className="overflow-x-auto border border-border">
-        <table className="w-full min-w-[900px] border-collapse">
+        <table data-amie-list="records" className="w-full min-w-[900px] border-collapse">
           <thead>
             <tr className="border-b border-border bg-muted/40 text-[11px] text-muted-foreground">
               <th scope="col" className="px-2 py-1 text-left font-medium">口座・借入</th>
@@ -521,7 +521,7 @@ export function CashLedgerPanel({
 
       {/* ── 本体の1枚表 ── */}
       <div className="max-h-[720px] overflow-auto border border-border">
-        <table className="w-full min-w-[1620px] border-collapse">
+        <table data-amie-list="records" className="w-full min-w-[1620px] border-collapse">
           <thead>
             <tr className="text-[11px] text-muted-foreground">
               <th scope="col" className={cn(STICKY_HEAD, "w-6 px-0 py-1")}> </th>

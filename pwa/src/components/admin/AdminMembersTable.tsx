@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useMemo } from "react";
 import { Pencil } from "lucide-react";
+import { AmieListStatus, AmieListOverview } from "@/components/ui/amie-list-signals";
 
 export interface MemberRow {
   id: string;
@@ -43,59 +44,24 @@ const ACCESS_SCOPE_OPTIONS = [
 ] as const;
 
 function StatusBadge({ status }: { status: string }) {
-  const cls = status === "active"
-    ? "bg-emerald-500/10 text-emerald-700 border-emerald-200"
-    : "bg-zinc-500/10 text-zinc-500 border-zinc-200";
-  return (
-    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] border font-medium ${cls}`}>
-      {status}
-    </span>
-  );
+  return <AmieListStatus value={status}/>;
 }
 
 function CalendarBadge({ member }: { member: MemberRow }) {
   if (!requiresCalendarAccess(member)) {
-    return (
-      <span
-        className="inline-flex items-center rounded border border-zinc-200 bg-zinc-500/10 px-1.5 py-0.5 text-[11px] font-medium text-zinc-500"
-        title="System account or non-login account"
-      >
-        対象外
-      </span>
-    );
+    return <AmieListStatus label="対象外"/>;
   }
   const status = member.google_calendar_status || "missing";
   const checkedAt = member.google_calendar_checked_at
     ? new Date(member.google_calendar_checked_at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
     : null;
   if (status === "connected") {
-    return (
-      <span
-        className="inline-flex items-center rounded border border-emerald-200 bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700"
-        title={checkedAt ? `checked: ${checkedAt}` : "Calendar connected"}
-      >
-        ON
-      </span>
-    );
+    return <AmieListStatus value="connected" label="接続中" title={checkedAt ? `確認：${checkedAt}` : "カレンダー接続中"}/>;
   }
   if (status === "error") {
-    return (
-      <span
-        className="inline-flex items-center rounded border border-red-200 bg-red-500/10 px-1.5 py-0.5 text-[11px] font-medium text-red-700"
-        title={member.google_calendar_error || "Calendar access error"}
-      >
-        Error
-      </span>
-    );
+    return <AmieListStatus value="error" label="接続エラー" title={member.google_calendar_error || "カレンダー接続を確認"}/>;
   }
-  return (
-    <span
-      className="inline-flex items-center rounded border border-amber-200 bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-700"
-      title="Google Calendar access is required at login"
-    >
-      必須
-    </span>
-  );
+  return <AmieListStatus label="未接続・必須" tone="warning" title="ログイン時にGoogleカレンダーへの接続が必要"/>;
 }
 
 function requiresCalendarAccess(member: MemberRow) {
@@ -143,6 +109,7 @@ function defaultContractorName(member: MemberRow) {
 
 export function AdminMembersTable({ members: initialMembers }: Props) {
   const [members, setMembers] = useState<MemberRow[]>(initialMembers);
+  const [amieColumns,setAmieColumns] = useState<"overview"|"settings">("overview");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterQ, setFilterQ] = useState("");
   // editingCell = `${rowId}:${field}` 形式 (PJ リストと同じパターン)
@@ -251,6 +218,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
   return (
     <div>
       {/* Filters */}
+      <AmieListOverview items={[{label:"稼働中",count:members.filter(m=>m.status==="active").length,tone:"progress"},{label:"休止",count:members.filter(m=>m.status==="inactive").length},{label:"その他",count:members.filter(m=>!["active","inactive"].includes(m.status)).length}]}/>
       <div className="flex flex-wrap gap-3 mb-3 items-end">
         <div className="flex flex-col gap-0.5">
           <span className="text-[11px] text-muted-foreground">状態</span>
@@ -286,9 +254,10 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
         <div className="text-[12px] text-muted-foreground mb-2">{hint}</div>
       )}
 
+      <div className="mb-2 flex gap-1" aria-label="メンバー一覧の表示項目">{([ ["overview","比較一覧"], ["settings","すべての設定"] ] as const).map(([key,label])=><button key={key} type="button" aria-pressed={amieColumns===key} onClick={()=>setAmieColumns(key)} className={`min-h-11 rounded border px-3 text-xs sm:min-h-8 ${amieColumns===key?"border-sky-300 bg-sky-50 text-sky-800":"border-border text-muted-foreground"}`}>{label}</button>)}</div>
       {/* Table */}
       <div className="overflow-x-auto border border-border rounded-lg">
-        <table className="text-[12px] border-collapse" style={{ minWidth: "2360px" }}>
+        <table data-amie-list="records" data-amie-member-columns={amieColumns} className="text-[12px] border-collapse" style={{ minWidth: amieColumns==="overview"?"920px":"2360px" }}>
           <thead className="sticky top-0 z-30">
             <tr className="bg-muted text-muted-foreground">
               <th className="text-left px-3 py-2 font-medium sticky left-0 z-40 bg-muted w-24 border-r border-border">codeName</th>
@@ -375,6 +344,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
                         </button>
                       </div>
                     )}
+                  <div className="mt-1 md:hidden"><StatusBadge status={m.status}/></div>
                   </td>
 
                   {/* memberId - read-only (主キー的役割、FK 参照されているため編集不可) */}

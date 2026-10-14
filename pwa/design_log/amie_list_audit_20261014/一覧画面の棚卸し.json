@@ -1,0 +1,950 @@
+{
+  "sourceFiles": 106,
+  "tables": 203,
+  "inventory": [
+    {
+      "file": "pwa/src/components/monthly-agreement/MonthlyAgreementExperience.tsx",
+      "tables": 2,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/seed-needs/ExplorationBoard.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/seed-needs/MarketNeedsList.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/seed-needs/SeedNeedsWorkspace.tsx",
+      "tables": 2,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/scholar/ScholarTrendView.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/bzm-reader/ReaderMarkdown.tsx",
+      "tables": 1,
+      "kind": "document/print",
+      "contract": "original document geometry",
+      "appliedKinds": []
+    },
+    {
+      "file": "pwa/src/components/management-score/GasMonthlySimulationPanel.tsx",
+      "tables": 1,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/management-score/LongRangeProjectionPanel.tsx",
+      "tables": 1,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/app/dd/page.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/venture-map/AmdScoreList.tsx",
+      "tables": 1,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/venture-map/TripleHelixMatrix.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/venture-map/VentureMapView.tsx",
+      "tables": 2,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/venture-map/SuDetailView.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/venture-map/TripleHelixView.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/model/ModelCanonSections.tsx",
+      "tables": 1,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/model/ModelCurrentFormulas.tsx",
+      "tables": 1,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/dd/DdAdminPanel.tsx",
+      "tables": 5,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/workflows/WorkflowWorkspace.tsx",
+      "tables": 2,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/bzm30/Bzm30ScorePanel.tsx",
+      "tables": 4,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/bzm30/Bzm30SensitivityBoard.tsx",
+      "tables": 2,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/admin/AdminSettingsClient.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/admin/AdminWeeklyMatrix.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/admin/SpacePermissionsAdminPanel.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/admin/AdminSeasonPlClient.tsx",
+      "tables": 2,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/admin/FreeeReconciliationRail.tsx",
+      "tables": 2,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/admin/AdminGovernanceClient.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/admin/DdGrantLedger.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/admin/PaymentObligationsPanel.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/admin/AdminProjectProfitabilityClient.tsx",
+      "tables": 4,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/seeds/SeedDetailModal.tsx",
+      "tables": 2,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/seeds/KuteSeedDetailModal.tsx",
+      "tables": 2,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/admin/kiyo-money-flow/KiyoMoneyFlowSteps.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/admin/AdminProjectsTable.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/admin/MemberPayoutBreakdownModal.tsx",
+      "tables": 3,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/vc/VcEditBody.tsx",
+      "tables": 3,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/vc/VcDetailBody.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/vc/VcInvestmentLedger.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/admin/cash/CashLoansPanel.tsx",
+      "tables": 2,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/admin/cash/CashLedgerPanel.tsx",
+      "tables": 2,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/admin/cash/LoanSimulatorPanel.tsx",
+      "tables": 5,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/admin/cash/CashTrendPanel.tsx",
+      "tables": 2,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/admin/AdminMembersTable.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/admin/AdminFinanceClient.tsx",
+      "tables": 3,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/admin/AdminPayoutsClient.tsx",
+      "tables": 9,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/admin/StatutoryObligationCatalog.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/admin/AdminPaymentsClient.tsx",
+      "tables": 2,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/project-card-designs/ProjectCardDesigns.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/project-workspace/SxProofOutcomes.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/project-workspace/ProjectDiligenceSection.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/project-workspace/ThemeHistory.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/project-workspace/SxReadinessMatrix.tsx",
+      "tables": 1,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/project-workspace/ProjectContractList.tsx",
+      "tables": 3,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/project-workspace/ProjectDevelopmentIssues.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/project-navigation/SxNavigationDashboard.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/contracts/ContractLedgerTable.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/workspace-documents/WorkspaceMarkdownReader.tsx",
+      "tables": 1,
+      "kind": "document/print",
+      "contract": "original document geometry",
+      "appliedKinds": []
+    },
+    {
+      "file": "pwa/src/components/institutions/InstitutionSupportPrograms.tsx",
+      "tables": 2,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/institutions/InstitutionRegulations.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/institutions/InstitutionSupportAnalysis.tsx",
+      "tables": 4,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/project-members/ProjectMembersEditor.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/bzm/BzmMarkdown.tsx",
+      "tables": 1,
+      "kind": "document/print",
+      "contract": "original document geometry",
+      "appliedKinds": []
+    },
+    {
+      "file": "pwa/src/components/settings/OperationsSettingsClient.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/ProjectFinanceFormat.tsx",
+      "tables": 2,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/CockpitPlMonthlyModal.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/CockpitSeasonBudget.tsx",
+      "tables": 1,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/CockpitFuelCostModelReading.tsx",
+      "tables": 5,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/AmieTechDisclosure.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/Bzm21DynamicPolicyObservatory.tsx",
+      "tables": 7,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/CockpitCompanyOverview.tsx",
+      "tables": 2,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/tech-blocks.tsx",
+      "tables": 4,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/CapitalPlanMatrix.tsx",
+      "tables": 1,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/ProjectCostFormatSections.tsx",
+      "tables": 5,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/PatentMap.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/MarkdownView.tsx",
+      "tables": 1,
+      "kind": "document/print",
+      "contract": "original document geometry",
+      "appliedKinds": []
+    },
+    {
+      "file": "pwa/src/components/cockpit/CapitalPolicyTable.tsx",
+      "tables": 2,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/CockpitCostModelReading.tsx",
+      "tables": 5,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/CockpitSeasonFinance.tsx",
+      "tables": 1,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/CockpitBusinessPlan.tsx",
+      "tables": 2,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/CockpitOrgSection.tsx",
+      "tables": 3,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/Bzm22ProvisionalObservatory.tsx",
+      "tables": 5,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/CockpitIpPortfolio.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/CockpitKuteSeeds.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/MeetingAssetsPanel.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/CockpitTechnology.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/Bzm2ModelObservatory.tsx",
+      "tables": 3,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/CostEconomicsSummary.tsx",
+      "tables": 1,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/CockpitCostModelParts.tsx",
+      "tables": 1,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/CockpitCostComparison.tsx",
+      "tables": 1,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/CockpitMonthlyModal.tsx",
+      "tables": 3,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/CockpitCapitalPolicy.tsx",
+      "tables": 1,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/AmieEffluentLedger.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "custom"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/CostProcessSummary.tsx",
+      "tables": 1,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/components/cockpit/CockpitAmdScoreBreakdownModal.tsx",
+      "tables": 1,
+      "kind": "matrix",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "matrix"
+      ]
+    },
+    {
+      "file": "pwa/src/app/(app)/management-score/page.tsx",
+      "tables": 3,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/app/(app)/my-projects/page.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/app/(app)/project/[projectId]/report/[ym]/print/print-client.tsx",
+      "tables": 7,
+      "kind": "document/print",
+      "contract": "original document geometry",
+      "appliedKinds": []
+    },
+    {
+      "file": "pwa/src/app/(app)/settings/microsoft/page.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/app/(app)/admin/company/page.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/app/(app)/settings/calendar-feeds/page.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/app/(app)/poc/page.tsx",
+      "tables": 3,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/app/(app)/institutions/page.tsx",
+      "tables": 2,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/app/(app)/institutions/assess/page.tsx",
+      "tables": 4,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/app/(app)/vcs/page.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/app/(app)/reimburse/page.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/app/(app)/admin/meeting-gaps/page.tsx",
+      "tables": 2,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    },
+    {
+      "file": "pwa/src/app/(app)/admin/coverage-gaps/page.tsx",
+      "tables": 1,
+      "kind": "records",
+      "contract": "shared geometry + existing domain signals",
+      "appliedKinds": [
+        "records"
+      ]
+    }
+  ]
+}

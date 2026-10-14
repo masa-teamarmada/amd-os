@@ -261,7 +261,7 @@ export function CashTrendPanel({ data, loading }: { data: CashAndLoansResult | n
             <div className="mb-1 font-semibold text-foreground">
               {hovered.ym.replace("-", "年")}月{BASIS_NOTE[hovered.basis] ? `（${BASIS_NOTE[hovered.basis]}）` : ""}
             </div>
-            <table className="w-full tabular-nums">
+            <table data-amie-list="matrix" className="w-full tabular-nums">
               <tbody>
                 {[...INFLOWS, ...OUTFLOWS].filter((s) => hovered.flows[s.key] > 0).map((s) => (
                   <tr key={s.key}>
@@ -282,7 +282,7 @@ export function CashTrendPanel({ data, loading }: { data: CashAndLoansResult | n
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-max border-collapse text-[11px] tabular-nums">
+        <table data-amie-list="matrix" className="w-max border-collapse text-[11px] tabular-nums">
           <thead>
             <tr className="text-muted-foreground">
               <th className="sticky left-0 bg-background px-2 py-1 text-left font-medium">月</th>

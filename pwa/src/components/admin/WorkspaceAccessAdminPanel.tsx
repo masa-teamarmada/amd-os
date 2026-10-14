@@ -1,5 +1,6 @@
 "use client";
 
+import { AmieListStatus } from "@/components/ui/amie-list-signals";
 import { accessRequestScopeChoices } from "@/lib/workspace-access-request-scopes";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -134,7 +135,7 @@ export function WorkspaceAccessAdminPanel() {
           <button className={`${button} justify-self-start`} disabled={busy}>{editing === "new" ? "登録して場所を選ぶ" : "名前を保存"}</button>
         </form>
         {current && <>
-          <div className="flex items-center justify-between border-t border-border pt-3"><span className="text-xs">{statusLabel(current.status)}</span><button className={button} disabled={busy} onClick={() => void perform(() => send({ kind: "account", accountId: current.id, status: current.status === "suspended" ? "invited" : "suspended" }, false, true))}>{current.status === "suspended" ? "利用を再開" : "すべてのアクセスを停止"}</button></div>
+          <div className="flex items-center justify-between border-t border-border pt-3"><AmieListStatus value={current.status} label={statusLabel(current.status)} className="text-xs"/><button className={button} disabled={busy} onClick={() => void perform(() => send({ kind: "account", accountId: current.id, status: current.status === "suspended" ? "invited" : "suspended" }, false, true))}>{current.status === "suspended" ? "利用を再開" : "すべてのアクセスを停止"}</button></div>
           <h3 className="text-sm font-semibold">見られる場所</h3>
           <p className="text-xs text-muted-foreground">ワークスペースとDDは別々に選ぶ。機関の権限は、個別PJの権限を含まない。</p>
           <div className="divide-y divide-border">{currentAssignments.map(a => <div key={a.id} className="space-y-2 py-3">

@@ -201,7 +201,7 @@ export function MemberPayoutBreakdownView({
                   </p>
                 ) : (
                   <div className="overflow-x-auto rounded-md border border-border">
-                    <table className="w-full min-w-[720px] text-[11px]">
+                    <table data-amie-list="records" className="w-full min-w-[720px] text-[11px]">
                       <thead className="border-b border-border bg-muted/40">
                         <tr>
                           <th className="px-2 py-1.5 text-left font-medium">MS (この月に進んだ分)</th>
@@ -290,7 +290,7 @@ export function MemberPayoutBreakdownView({
                   </p>
                 ) : (
                   <div className="overflow-x-auto rounded-md border border-border">
-                    <table className="w-full min-w-[720px] text-[11px]">
+                    <table data-amie-list="records" className="w-full min-w-[720px] text-[11px]">
                       <thead className="border-b border-border bg-muted/40">
                         <tr>
                           <th className="px-2 py-1.5 text-left font-medium">稼働月</th>
@@ -344,7 +344,7 @@ export function MemberPayoutBreakdownView({
                   <p className="text-[11px] text-muted-foreground">このメンバー宛の支払通知書がまだない。</p>
                 ) : (
                   <div className="overflow-x-auto rounded-md border border-border">
-                    <table className="w-full min-w-[560px] text-[11px]">
+                    <table data-amie-list="records" className="w-full min-w-[560px] text-[11px]">
                       <thead className="border-b border-border bg-muted/40">
                         <tr>
                           <th className="px-2 py-1.5 text-left font-medium">支払月</th>

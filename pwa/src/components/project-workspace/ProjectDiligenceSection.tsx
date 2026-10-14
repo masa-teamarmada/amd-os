@@ -36,7 +36,7 @@ function ProjectMeetingResolutions({ minutes, documents }: { minutes: ProjectMan
         <section key={body} className="overflow-hidden rounded-xl border border-[#e5e5e7] bg-white" aria-label={body}>
           <h3 className="border-b border-[#e5e5e7] px-4 py-3 text-sm font-semibold">{body}</h3>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] table-fixed text-sm">
+            <table data-amie-list="records" className="w-full min-w-[720px] table-fixed text-sm">
               <colgroup><col className="w-40" /><col className="w-1/2" /><col /></colgroup>
               <thead className="bg-[#f5f5f7] text-left text-xs text-[#6e6e73]">
                 <tr>

@@ -1,5 +1,6 @@
 "use client";
 
+import { AmieListStatus } from "@/components/ui/amie-list-signals";
 import Link from "next/link";
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { CockpitMonthlyModal } from "@/components/cockpit/CockpitMonthlyModal";
@@ -2712,7 +2713,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
           </span>
         </div>
         <div className="overflow-hidden rounded-lg border border-border">
-          <table className="w-full text-[12px]">
+          <table data-amie-list="records" className="w-full text-[12px]">
             <thead className="border-b border-border bg-muted/40">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">メンバー</th>
@@ -2916,7 +2917,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
           </span>
         </div>
         <div className="overflow-hidden rounded-lg border border-border">
-          <table className="w-full text-[12px]">
+          <table data-amie-list="records" className="w-full text-[12px]">
             <thead className="border-b border-border bg-muted/40">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">PJ</th>
@@ -2955,9 +2956,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                       <td className="px-3 py-2 font-mono text-muted-foreground">{fmtYm(cycle.ym)}</td>
                       <td className="px-3 py-2 font-mono">{fmtYm(cycle.invoice_ym || cycle.ym)}</td>
                       <td className="px-3 py-2">
-                        <span className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] ${statusClass}`}>
-                          {BC_STATUS_LABEL[status] ?? status}
-                        </span>
+                        <AmieListStatus value={status} label={BC_STATUS_LABEL[status] ?? status} className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] ${statusClass}`}/>
                       </td>
                           <td className="px-3 py-2 text-right font-medium">
                             <div>{fmtYen(stats?.totalPay ?? 0)}</div>
@@ -3130,7 +3129,7 @@ function PayoutAgreementGatePanel({
 
       {shownRows.length > 0 && (
         <div className="mt-3 overflow-hidden rounded-md border border-background/70 bg-background/80">
-          <table className="w-full text-[11px]">
+          <table data-amie-list="records" className="w-full text-[11px]">
             <thead className="border-b border-border/60 bg-muted/30">
               <tr>
                 <th className="px-2 py-1.5 text-left font-medium">member</th>
@@ -3158,9 +3157,7 @@ function PayoutAgreementGatePanel({
                   </td>
                   <td className="px-2 py-1.5 font-mono">{fmtYm(row.sourceYm)}</td>
                   <td className="px-2 py-1.5">
-                    <span className={`rounded border px-1.5 py-0.5 text-[10px] ${PAYOUT_AGREEMENT_STATUS_CLASS[row.status]}`}>
-                      {PAYOUT_AGREEMENT_STATUS_LABEL[row.status]}
-                    </span>
+                    <AmieListStatus value={row.status} label={PAYOUT_AGREEMENT_STATUS_LABEL[row.status]} className={`rounded border px-1.5 py-0.5 text-[10px] ${PAYOUT_AGREEMENT_STATUS_CLASS[row.status]}`}/>
                   </td>
                   <td className="px-2 py-1.5 text-muted-foreground">{row.reason}</td>
                   <td className="px-2 py-1.5 text-right">
@@ -3269,7 +3266,7 @@ function AgreementOverrideConfirmModal({
           </div>
 
           <div className="overflow-hidden rounded-md border border-border">
-            <table className="w-full text-[11px]">
+            <table data-amie-list="records" className="w-full text-[11px]">
               <thead className="border-b border-border/60 bg-muted/30">
                 <tr>
                   <th className="px-2 py-1.5 text-left font-medium">member</th>
@@ -3293,9 +3290,7 @@ function AgreementOverrideConfirmModal({
                     <td className="px-2 py-1.5">{row.projectName}</td>
                     <td className="px-2 py-1.5 font-mono">{fmtYm(row.sourceYm)}</td>
                     <td className="px-2 py-1.5">
-                      <span className={`rounded border px-1.5 py-0.5 text-[10px] ${PAYOUT_AGREEMENT_STATUS_CLASS[row.status]}`}>
-                        {PAYOUT_AGREEMENT_STATUS_LABEL[row.status]}
-                      </span>
+                      <AmieListStatus value={row.status} label={PAYOUT_AGREEMENT_STATUS_LABEL[row.status]} className={`rounded border px-1.5 py-0.5 text-[10px] ${PAYOUT_AGREEMENT_STATUS_CLASS[row.status]}`}/>
                     </td>
                     <td className="px-2 py-1.5 text-muted-foreground">{row.reason}</td>
                     <td className="px-2 py-1.5 text-right">
@@ -3403,7 +3398,7 @@ function RewardDebtLedgerPanel({
       </div>
 
       <div className="mt-3 overflow-x-auto rounded-md border border-border bg-background">
-        <table className="min-w-[1120px] w-full text-[12px]">
+        <table data-amie-list="records" className="min-w-[1120px] w-full text-[12px]">
           <thead className="border-b border-border bg-muted/40">
             <tr>
               <th className="px-3 py-2 text-left font-medium">原因</th>
@@ -3612,7 +3607,7 @@ function BudgetAuditPanel({
           </div>
         ) : (
           <div className="overflow-x-auto rounded-md border border-border/70 bg-background">
-            <table className="min-w-[980px] border-separate border-spacing-0 text-[12px]">
+            <table data-amie-list="records" className="min-w-[980px] border-separate border-spacing-0 text-[12px]">
               <thead>
                 <tr className="bg-muted/40">
                   <th className="sticky left-0 z-20 w-40 border-b border-r border-border bg-muted px-3 py-2 text-left font-medium">
@@ -3775,7 +3770,7 @@ function FinancePurposeMatrix({
       </div>
 
       <div className="mt-3 overflow-x-auto rounded-md border border-border bg-background">
-        <table className="min-w-[1180px] w-full border-separate border-spacing-0 text-[12px]">
+        <table data-amie-list="records" className="min-w-[1180px] w-full border-separate border-spacing-0 text-[12px]">
           <thead>
             <tr className="bg-muted/40">
               <th className="sticky left-0 z-20 w-44 border-b border-r border-border bg-muted px-3 py-2 text-left font-medium">PJ</th>
@@ -4122,7 +4117,7 @@ function MemberMonthlyPayoutMatrix({
       </div>
 
       <div className="mt-3 overflow-x-auto rounded-md border border-border bg-background">
-        <table className="border-separate border-spacing-0 text-[12px]" style={{ minWidth: tableWidth, width: tableWidth }}>
+        <table data-amie-list="records" className="border-separate border-spacing-0 text-[12px]" style={{ minWidth: tableWidth, width: tableWidth }}>
           <colgroup>
             <col className="w-[176px]" />
             <col className="w-[144px]" />
@@ -4237,7 +4232,7 @@ function MemberMonthlyPayoutMatrix({
           </div>
 
           <div className="mt-3 overflow-x-auto rounded-md border border-border">
-            <table className="min-w-[760px] w-full text-[12px]">
+            <table data-amie-list="records" className="min-w-[760px] w-full text-[12px]">
               <thead className="border-b border-border bg-muted/40">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">PJ</th>

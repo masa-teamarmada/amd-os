@@ -1,5 +1,6 @@
 "use client";
 
+import { AmieListStatus } from "@/components/ui/amie-list-signals";
 import Link from "next/link";
 import { Suspense, type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -918,7 +919,7 @@ function MonthlyAgreementCard({ memberId }: { memberId: string }) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-[14px] font-semibold text-[#1d1d1f]">今月の遂行内容・予定報酬</h2>
-            <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusClass}`}>{statusText}</span>
+            <AmieListStatus label={statusText} className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusClass}`}/>
           </div>
           <p className="mt-1 text-[12px] leading-relaxed text-[#86868b]">
             {isNotRequired

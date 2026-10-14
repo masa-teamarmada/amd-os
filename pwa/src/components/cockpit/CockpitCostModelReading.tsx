@@ -277,7 +277,7 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
         hint={`CAPEXは償却後の年額換算。明細はSXが持つものだけ、作業（人件費）はSXがやるものだけを総コストに含む（顧客が持つ設備・処分、顧客がやる作業は数えない）。単位は 円/${unit}（括弧内は 円/年）。`}
       >
         <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-          <table className="w-full min-w-[720px] border-collapse text-[12px]">
+          <table data-amie-list="matrix" className="w-full min-w-[720px] border-collapse text-[12px]">
             <thead>
               <tr className="border-b border-[#e5e5e7] text-left text-[11px] text-[#6e6e73]">
                 <th className="py-2 pr-2 font-medium">指標</th>
@@ -370,7 +370,7 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
         <h4 className="mt-4 text-[12px] font-semibold text-[#1d1d1f]">精度を下げている項目（金額順）</h4>
         <p className="mt-1 text-[11px] text-[#6e6e73]">確度が仮説(H)・仮置き(C)のまま金額が大きい行。ここを潰すと数字が締まる。</p>
         <div className="mt-2 -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-          <table className="w-full min-w-[560px] border-collapse text-[11px]">
+          <table data-amie-list="matrix" className="w-full min-w-[560px] border-collapse text-[11px]">
             <thead>
               <tr className="border-b border-[#e5e5e7] text-left text-[10px] text-[#6e6e73]">
                 <th className="py-1.5 pr-2 font-medium">項目</th>
@@ -457,7 +457,7 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
                     <h5 className="text-[12px] font-semibold text-[#3c3c43]">{g.title}</h5>
                     <div className="mt-1.5 -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
                       {/* 区分ごとに表を分けても列がそろうように、列幅を固定する */}
-                      <table className="w-full min-w-[720px] table-fixed border-collapse text-[11px]">
+                      <table data-amie-list="matrix" className="w-full min-w-[720px] table-fixed border-collapse text-[11px]">
                         <colgroup>
                           <col />
                           <col className="w-[112px]" />
@@ -515,7 +515,7 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
       {tasks.length > 0 && (
         <Card title="作業リストの根拠と確認先" hint={`操作パネルの OPEX「人件費（作業）」の作業リストと同じ行。作業単価はすべての作業で共通の ${int(taskRate)}円/時。年額は選んだシナリオの物量（年間バッチ数 ${num(derived.annualBatches, 0)}・訪問回数 ${num(derived.visitsPerYear, 1)}・輸送 ${int(derived.truckTripsPerYear)}）で出す。「誰がやるか」が顧客の作業は、SXの原価に入れない（年額は「—」）。`}>
           <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-            <table className="w-full min-w-[700px] border-collapse text-[11px]">
+            <table data-amie-list="matrix" className="w-full min-w-[700px] border-collapse text-[11px]">
               <thead>
                 <tr className="border-b border-[#e5e5e7] text-left text-[10px] text-[#6e6e73]">
                   <th className="py-1.5 pr-2 font-medium">作業</th>
@@ -599,7 +599,7 @@ export function CostReadingSections({ saved, working, computed, selection, unit 
                 )}
                 <div className="mt-1.5 -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
                   {/* 区分ごとに表を分けても列がそろうように、列幅を固定する。CAPEX / OPEX は見出しに出す */}
-                  <table className="w-full min-w-[880px] table-fixed border-collapse text-[11px]">
+                  <table data-amie-list="matrix" className="w-full min-w-[880px] table-fixed border-collapse text-[11px]">
                     <colgroup>
                       <col />
                       <col className="w-[128px]" />

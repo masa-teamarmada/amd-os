@@ -349,7 +349,7 @@ function FactorCard({
       <div className="text-[10px] text-muted-foreground mb-2">
         {sub} · <span className="font-mono">{formula}</span>
       </div>
-      <table className="w-full text-[11px]">
+      <table data-amie-list="matrix" className="w-full text-[11px]">
         <tbody>{children}</tbody>
       </table>
     </div>

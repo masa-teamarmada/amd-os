@@ -1,0 +1,278 @@
+[
+  {
+    "file": "pwa/src/components/question-tree/QuestionTreeView.tsx",
+    "line": 2070,
+    "expression": "ACTION_STATUS_LABEL[action.status]",
+    "attributes": "className={styles.state} data-state=\"action\""
+  },
+  {
+    "file": "pwa/src/components/cockpit/Bzm2ModelObservatory.tsx",
+    "line": 340,
+    "expression": "VALUE_STATUS_LABELS[status]",
+    "attributes": "className={`inline-flex min-h-6 items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${VALUE_STATUS_TONES[status]}`}"
+  },
+  {
+    "file": "pwa/src/components/cockpit/CockpitGoalTreePoints.tsx",
+    "line": 180,
+    "expression": "STATUS_LABEL[row.status] ?? row.status",
+    "attributes": "className=\"text-[#86868b]\""
+  },
+  {
+    "file": "pwa/src/components/cockpit/Bzm21DynamicPolicyObservatory.tsx",
+    "line": 194,
+    "expression": "statusLabel(status)",
+    "attributes": "className={`inline-flex min-h-5 items-center whitespace-nowrap border px-1.5 py-0.5 text-[9px] font-semibold leading-none ${STATUS_META[tone].className}`}\n     "
+  },
+  {
+    "file": "pwa/src/components/cockpit/CockpitMeetingDetailModal.tsx",
+    "line": 844,
+    "expression": "statusLabel[status] || status",
+    "attributes": "className=\"text-[10px] px-1.5 py-0.5 rounded border border-emerald-200 bg-white text-emerald-800 whitespace-nowrap\""
+  },
+  {
+    "file": "pwa/src/components/cockpit/CapitalPlanMatrix.tsx",
+    "line": 721,
+    "expression": "STATUS_LABEL[event.status ?? 'confirmed'] ?? event.status",
+    "attributes": "className=\"block truncate text-[10px] text-slate-500 dark:text-slate-400\""
+  },
+  {
+    "file": "pwa/src/components/seeds/SeedDetailModal.tsx",
+    "line": 318,
+    "expression": "SEED_STATUS_LABEL[data.seed.status] ?? data.seed.status",
+    "attributes": "className={`px-1.5 py-0.5 rounded text-[10px] ${SEED_STATUS_COLOR[data.seed.status] ?? \"\"}`}"
+  },
+  {
+    "file": "pwa/src/components/seeds/SeedDetailModal.tsx",
+    "line": 531,
+    "expression": "SEED_STATUS_LABEL[s.status] ?? s.status",
+    "attributes": "className={`px-1.5 py-0.5 rounded text-[10px] ${SEED_STATUS_COLOR[s.status] ?? \"\"}`}"
+  },
+  {
+    "file": "pwa/src/components/vc/VcDetailBody.tsx",
+    "line": 121,
+    "expression": "FUND_STATUS_LABEL[f.status] ?? f.status",
+    "attributes": "className={`text-[10px] px-1.5 py-0.5 rounded ${\n                          f.status === \"raising\"\n                            ? \"bg-emerald-500/15 text-emerald-"
+  },
+  {
+    "file": "pwa/src/components/vc/VcDetailBody.tsx",
+    "line": 366,
+    "expression": "PVR_STATUS_LABEL[status] ?? status",
+    "attributes": "className={`text-[10px] px-1.5 py-0.5 rounded ${cls}`}"
+  },
+  {
+    "file": "pwa/src/components/project-workspace/SxObjectiveMap.tsx",
+    "line": 244,
+    "expression": "stateLabel",
+    "attributes": "className={styles.nodeState}\n            data-state={partner?.activityState || task.status}"
+  },
+  {
+    "file": "pwa/src/components/knowledge-map/KnowledgeMapView.tsx",
+    "line": 463,
+    "expression": "STATUS_LABEL[selected.status]",
+    "attributes": "className={cn(\n                          \"inline-flex rounded-full border px-2 py-1 text-[11px] font-semibold\",\n                          STATUS_STYLE[selected."
+  },
+  {
+    "file": "pwa/src/components/institutions/InstitutionSupportPrograms.tsx",
+    "line": 374,
+    "expression": "POLICY_STATUS_LABEL[status]",
+    "attributes": "className={`inline-block border px-1 py-px text-[10px] font-semibold leading-tight ${POLICY_STATUS_TONE[status]}`}"
+  },
+  {
+    "file": "pwa/src/components/institutions/InstitutionSupportPrograms.tsx",
+    "line": 484,
+    "expression": "POLICY_STATUS_LABEL[displayStatus]",
+    "attributes": "className={`inline-block border px-1.5 py-0.5 text-xs font-semibold ${POLICY_STATUS_TONE[displayStatus]}`}"
+  },
+  {
+    "file": "pwa/src/components/institutions/InstitutionSupportProfile.tsx",
+    "line": 134,
+    "expression": "POLICY_STATUS_LABEL[status]",
+    "attributes": "className={`inline-block border px-1 py-px text-[10px] font-semibold ${POLICY_STATUS_TONE[status]}`}"
+  },
+  {
+    "file": "pwa/src/components/institutions/InstitutionSupportProfile.tsx",
+    "line": 184,
+    "expression": "POLICY_STATUS_LABEL[status]",
+    "attributes": "className={`inline-block border px-1 py-px text-[10px] font-semibold ${POLICY_STATUS_TONE[status]}`}"
+  },
+  {
+    "file": "pwa/src/components/workspace/InstitutionProjectControlView.tsx",
+    "line": 214,
+    "expression": "stateLabel(control.summary.verdict.state)",
+    "attributes": ""
+  },
+  {
+    "file": "pwa/src/components/workspace/InstitutionProjectControlView.tsx",
+    "line": 343,
+    "expression": "stateLabel(item.state)",
+    "attributes": ""
+  },
+  {
+    "file": "pwa/src/components/admin/AdminMsOverviewClient.tsx",
+    "line": 725,
+    "expression": "statusLabel",
+    "attributes": "className={`rounded px-2 py-0.5 text-[11px] font-medium ${statusClass}`}"
+  },
+  {
+    "file": "pwa/src/components/admin/AdminScheduleClient.tsx",
+    "line": 649,
+    "expression": "stateLabel(item)",
+    "attributes": "className=\"text-muted-foreground\""
+  },
+  {
+    "file": "pwa/src/components/admin/AdminScheduleClient.tsx",
+    "line": 719,
+    "expression": "stateLabel(item)",
+    "attributes": ""
+  },
+  {
+    "file": "pwa/src/components/admin/DdGrantLedger.tsx",
+    "line": 66,
+    "expression": "DD_PACKAGE_STATUS_LABEL[pkg.status]",
+    "attributes": "className=\"ml-1 text-muted-foreground\""
+  },
+  {
+    "file": "pwa/src/components/project-navigation/SxNavigationDashboard.tsx",
+    "line": 241,
+    "expression": "row.statusLabel",
+    "attributes": "className={styles.statusPill} data-tone={statusToneAttr(row.tone)}"
+  },
+  {
+    "file": "pwa/src/components/project-navigation/SxNavigationDashboard.tsx",
+    "line": 725,
+    "expression": "detail.statusLabel",
+    "attributes": "className={styles.statusPill} data-tone=\"neutral\""
+  },
+  {
+    "file": "pwa/src/components/project-navigation/SxNavigationDashboard.tsx",
+    "line": 864,
+    "expression": "detail.statusLabel",
+    "attributes": "className={styles.statusPill} data-tone=\"neutral\""
+  },
+  {
+    "file": "pwa/src/components/project-navigation/SxNavigationDashboard.tsx",
+    "line": 1009,
+    "expression": "detail.statusLabel",
+    "attributes": "className={styles.statusPill} data-tone=\"neutral\""
+  },
+  {
+    "file": "pwa/src/components/admin/AdminPayoutsClient.tsx",
+    "line": 2958,
+    "expression": "BC_STATUS_LABEL[status] ?? status",
+    "attributes": "className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] ${statusClass}`}"
+  },
+  {
+    "file": "pwa/src/components/admin/AdminPayoutsClient.tsx",
+    "line": 3161,
+    "expression": "PAYOUT_AGREEMENT_STATUS_LABEL[row.status]",
+    "attributes": "className={`rounded border px-1.5 py-0.5 text-[10px] ${PAYOUT_AGREEMENT_STATUS_CLASS[row.status]}`}"
+  },
+  {
+    "file": "pwa/src/components/admin/AdminPayoutsClient.tsx",
+    "line": 3296,
+    "expression": "PAYOUT_AGREEMENT_STATUS_LABEL[row.status]",
+    "attributes": "className={`rounded border px-1.5 py-0.5 text-[10px] ${PAYOUT_AGREEMENT_STATUS_CLASS[row.status]}`}"
+  },
+  {
+    "file": "pwa/src/components/admin/WorkspaceAccessAdminPanel.tsx",
+    "line": 137,
+    "expression": "statusLabel(current.status)",
+    "attributes": "className=\"text-xs\""
+  },
+  {
+    "file": "pwa/src/components/admin/AdminInvoiceIssueQueue.tsx",
+    "line": 858,
+    "expression": "REIMBURSE_STATUS_LABEL[r.status] ?? r.status",
+    "attributes": "className={`border px-2 py-0.5 text-[9px] font-semibold ${\n                      APPROVED_STATUSES.has(r.status)\n                        ? \"border-emerald-200 b"
+  },
+  {
+    "file": "pwa/src/components/project-card-designs/ProjectCardDesigns.tsx",
+    "line": 318,
+    "expression": "version ? statusLabels[version.status] : \"未登録\"",
+    "attributes": ""
+  },
+  {
+    "file": "pwa/src/components/dashboard/DashboardGrid.tsx",
+    "line": 88,
+    "expression": "STATUS_LABEL[project.status] ?? project.status",
+    "attributes": "className={`rounded border px-1.5 py-0.5 text-[9px] ${STATUS_BADGE[project.status] ?? \"\"}`}"
+  },
+  {
+    "file": "pwa/src/components/dashboard/FundingStatsCard.tsx",
+    "line": 230,
+    "expression": "statusLabel(item)",
+    "attributes": "className=\"text-[10px] text-muted-foreground\""
+  },
+  {
+    "file": "pwa/src/components/bzm/BzmTheoryMapView.tsx",
+    "line": 1843,
+    "expression": "STATUS_LABEL[node.status]",
+    "attributes": ""
+  },
+  {
+    "file": "pwa/src/components/bzm/BzmTheoryComposerDialog.tsx",
+    "line": 596,
+    "expression": "STATUS_LABEL[node.status]",
+    "attributes": "className=\"rounded-full border px-1.5 py-0.5\" style={{ borderColor: PAPER_BORDER }}"
+  },
+  {
+    "file": "pwa/src/app/(app)/mypage/page.tsx",
+    "line": 921,
+    "expression": "statusText",
+    "attributes": "className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusClass}`}"
+  },
+  {
+    "file": "pwa/src/app/(app)/vcs/page.tsx",
+    "line": 231,
+    "expression": "FUND_STATUS_LABEL[af.status] ?? af.status",
+    "attributes": "className={`text-[9px] px-1 py-0.5 rounded ${\n                af.status === \"raising\"\n                  ? \"border border-emerald-300/40 bg-emerald-300/12 text-e"
+  },
+  {
+    "file": "pwa/src/app/(app)/reimburse/page.tsx",
+    "line": 758,
+    "expression": "STATUS_LABELS[status] || status",
+    "attributes": "className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${color}`}"
+  },
+  {
+    "file": "pwa/src/app/workspace/[slug]/page.tsx",
+    "line": 181,
+    "expression": "SEED_STATUS_LABEL[seed.status] ?? seed.status",
+    "attributes": "className=\"shrink-0 rounded-full border border-[#e4ddcd] px-2 py-0.5 text-[11px] text-[#5c584d]\""
+  },
+  {
+    "file": "pwa/src/app/(app)/institutions/page.tsx",
+    "line": 531,
+    "expression": "lifecycleLabel(lifecycle)",
+    "attributes": "className={`mt-0.5 block text-[10px] font-semibold ${lifecycleTextClass(lifecycle)}`}"
+  },
+  {
+    "file": "pwa/src/app/(app)/institutions/page.tsx",
+    "line": 672,
+    "expression": "lifecycleLabel(lifecycle)",
+    "attributes": "className={`mt-0.5 block text-[10px] font-semibold ${lifecycleTextClass(lifecycle)}`}"
+  },
+  {
+    "file": "pwa/src/app/(app)/institutions/assess/page.tsx",
+    "line": 578,
+    "expression": "POLICY_STATUS_LABEL[status]",
+    "attributes": "className={`inline-block rounded border px-1.5 py-0.5 text-[10px] font-medium ${POLICY_STATUS_TONE[status]}`}"
+  },
+  {
+    "file": "pwa/src/app/(app)/settings/calendar-feeds/page.tsx",
+    "line": 258,
+    "expression": "STATUS_LABEL[source.status] || source.status",
+    "attributes": "className=\"text-xs rounded border border-border px-1.5 py-0.5\""
+  },
+  {
+    "file": "pwa/src/app/(app)/poc/page.tsx",
+    "line": 1026,
+    "expression": "SEED_STATUS_LABEL[row.seed.status as SeedStatus] ?? row.seed.status",
+    "attributes": "className=\"text-[10px] text-muted-foreground\""
+  },
+  {
+    "file": "pwa/src/app/(app)/admin/monthly-work-agreements/page.tsx",
+    "line": 364,
+    "expression": "statusLabel(project.status)",
+    "attributes": "className=\"font-normal\""
+  }
+]

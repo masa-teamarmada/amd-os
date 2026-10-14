@@ -874,7 +874,7 @@ export function TripleHelixView() {
 
         <div className="lg:col-span-7">
           <Card title="A 行列 (3×3) — 対角=慣性、非対角=役割交差 (非対称→螺旋)">
-            <table className="w-full text-xs border-collapse">
+            <table data-amie-list="records" className="w-full text-xs border-collapse">
               <thead>
                 <tr>
                   <th className="px-1 py-0.5 w-12"></th>

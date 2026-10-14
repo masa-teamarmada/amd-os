@@ -1,5 +1,6 @@
 "use client";
 
+import { AmieListStatus } from "@/components/ui/amie-list-signals";
 import Link from "next/link";
 import { useState } from "react";
 import type { CurrentSpsProjectAssessment } from "@/lib/current-sps-model";
@@ -21,7 +22,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const STATUS_LEFT_BORDER: Record<string, string> = {
-  active: "border-l-[var(--desk-green)]", sales: "border-l-[var(--desk-blue)]", draft: "border-l-[var(--desk-blue)]",
+  active: "border-l-[var(--desk-blue)]", sales: "border-l-[var(--desk-blue)]", draft: "border-l-[var(--desk-quiet)]",
   ended: "border-l-[var(--desk-quiet)]", frozen: "border-l-[var(--desk-amber)]", advisor: "border-l-[var(--desk-violet)]",
 };
 
@@ -85,7 +86,7 @@ function ProjectStripe({ project, billing, assessment, hrefPrefix, isMine }: { p
   const assessed = assessment?.status === "assessed";
   return <Link target="_blank" rel="noopener noreferrer" href={`${hrefPrefix}/${project.projectId}/cockpit`} className={`block overflow-hidden rounded-[8px] border border-[var(--desk-line)] border-l-4 ${STATUS_LEFT_BORDER[project.status] ?? "border-l-zinc-300"} ${isMine ? "bg-[rgba(223,238,230,0.52)]" : "bg-[rgba(255,253,247,0.86)]"} transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(55,47,32,0.12)]`}>
     <div className="grid grid-cols-12 items-center gap-3 px-3 py-2">
-      <div className="col-span-4 min-w-0"><div className="flex flex-wrap items-center gap-1.5"><span className="font-mono text-[10px] text-muted-foreground">{project.projectId}</span><h3 className="truncate text-sm font-semibold">{project.projectName}</h3><span className={`rounded border px-1.5 py-0.5 text-[9px] ${STATUS_BADGE[project.status] ?? ""}`}>{STATUS_LABEL[project.status] ?? project.status}</span>{isMine ? <span className="rounded border border-sky-300 bg-sky-100 px-1.5 py-0.5 text-[9px] text-sky-800">参画</span> : null}</div><p className="mt-0.5 truncate text-[10px] text-muted-foreground">{project.clientName ?? "—"}</p></div>
+      <div className="col-span-4 min-w-0"><div className="flex flex-wrap items-center gap-1.5"><span className="font-mono text-[10px] text-muted-foreground">{project.projectId}</span><h3 className="truncate text-sm font-semibold">{project.projectName}</h3><AmieListStatus value={project.status} label={STATUS_LABEL[project.status] ?? project.status} className={`rounded border px-1.5 py-0.5 text-[9px] ${STATUS_BADGE[project.status] ?? ""}`}/>{isMine ? <span className="rounded border border-sky-300 bg-sky-100 px-1.5 py-0.5 text-[9px] text-sky-800">参画</span> : null}</div><p className="mt-0.5 truncate text-[10px] text-muted-foreground">{project.clientName ?? "—"}</p></div>
       <div className="col-span-2 min-w-0 border-l border-[var(--desk-line)] pl-3 text-[10px]"><div className="text-[10px] text-muted-foreground">担当</div><div className="truncate">{[roles.pl !== "--" && `PL ${roles.pl}`, roles.pm !== "--" && `PM ${roles.pm}`, roles.closer !== "--" && `Closer ${roles.closer}`].filter(Boolean).join(" / ") || "—"}</div></div>
       <div className="col-span-4 border-l border-[var(--desk-line)] pl-3" title={assessment?.assessment_id ? `評価ID ${assessment.assessment_id}` : "現行版の評価がまだありません"}><div className="text-[10px] text-muted-foreground">現行SPS｜産業創出価値</div><div className={`mt-0.5 text-[13px] font-semibold ${assessed ? "text-[#174b42]" : "text-amber-700"}`}>{assessed ? `${formatOku(assessment?.sps_lower_yen ?? null)}〜${formatOku(assessment?.sps_upper_yen ?? null)}` : "最新版はまだ評価していません"}</div></div>
       <div className="col-span-2 border-l border-[var(--desk-line)] pl-3">{billing ? <><div className="mb-1 font-mono text-[9px] text-muted-foreground">{billing.ym?.slice(0, 4)}.{billing.ym?.slice(4, 6)}</div><div className="flex justify-between"><BillingStep done={billing.budgetDone} label="確" full="確定" /><BillingStep done={billing.reportDone} label="報" full="報告" /><BillingStep done={billing.invoiceDone} label="請" full="請求" /><BillingStep done={billing.paymentDone} label="入" full="入金" /></div></> : <div className="text-center text-[10px] text-muted-foreground">—</div>}</div>

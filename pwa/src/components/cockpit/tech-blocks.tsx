@@ -137,7 +137,7 @@ export function ConditionBlock({ entries, disclosure }: { entries: TechEntry[]; 
   if (entries.length === 0) return <EmptyRows hint="項目・下限・上限・単位・条件を1行ずつ足す" />;
   return (
     <div className={styles.frame} role="region" aria-label="成立条件の表" tabIndex={0}>
-      <table className={styles.table} data-testid="amie-tech-condition-table">
+      <table data-amie-list="records" className={styles.table} data-testid="amie-tech-condition-table">
         <colgroup><col className={styles.item}/><col className={styles.value}/><col className={styles.condition}/><col className={styles.date}/><col className={styles.confidence}/><col className={styles.source}/></colgroup>
         <thead><tr className="bg-[#f5f5f7] text-left text-[11px] text-[#6e6e73]">
           {["項目","値","条件","時点","確度","出典"].map(label=><th key={label} className="border-b border-[#e5e5e7] px-2 py-1.5 font-medium">{label}</th>)}
@@ -167,7 +167,7 @@ export function MatrixBlock({ entries, disclosure }: { entries: TechEntry[]; dis
   const minWidth = Math.max(520, MATRIX_AXIS_COL_PX + cols.length * (disclosure?.enabled ? 128 : MATRIX_COL_PX));
   return (
     <div className="max-h-[70vh] overflow-auto">
-      <table className="w-auto max-w-full border-collapse text-[12px]" style={{ minWidth }}>
+      <table data-amie-list="records" className="w-auto max-w-full border-collapse text-[12px]" style={{ minWidth }}>
         <thead>
           <tr className="bg-[#f5f5f7] text-left text-[11px] text-[#6e6e73]">
             <th className="sticky left-0 top-0 z-30 border-b border-r border-[#e5e5e7] bg-[#f5f5f7] px-2 py-1.5 font-medium">
@@ -275,7 +275,7 @@ export function MatrixSheet({ entries, presentation, disclosure }: { entries: Te
       ) : (
         // PDF と同じく表は1枚で全行を見せる (表の中で縦にスクロールさせない)。狭い画面だけ表の中で横にスクロールする。
         <div className="mt-3 overflow-x-auto">
-          <table className="w-full table-fixed border-collapse text-[12px]" style={{ minWidth }}>
+          <table data-amie-list="records" className="w-full table-fixed border-collapse text-[12px]" style={{ minWidth }}>
             <colgroup>
               <col style={{ width: SHEET_AXIS_COL_PX }} />
               {cols.map((c) => (
@@ -366,7 +366,7 @@ export function RecordBlock({ entries, disclosure }: { entries: TechEntry[]; dis
   }
   return (
     <div className={styles.frame} role="region" aria-label="到達実績の表" tabIndex={0}>
-      <table className={styles.table} data-testid="amie-tech-record-table">
+      <table data-amie-list="records" className={styles.table} data-testid="amie-tech-record-table">
         <colgroup><col className={styles.recordItem}/><col className={styles.recordValue}/><col className={styles.date}/><col className={styles.recordCondition}/><col className={styles.source}/></colgroup>
         <thead>
           <tr className="bg-[#f5f5f7] text-left text-[11px] text-[#6e6e73]">

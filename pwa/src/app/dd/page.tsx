@@ -27,7 +27,7 @@ export default async function DdHomePage() {
       <div className="mx-auto max-w-3xl px-4 py-8 text-[#1d1d1f] sm:px-6">
         <h1 className="text-[18px] font-semibold">DDパッケージ</h1>
         <p className="mt-1 text-[12px] text-[#6e6e73]">閲覧できるDDパッケージを選ぶ。</p>
-        <table className="mt-4 w-full border-collapse text-[13px]">
+        <table data-amie-list="records" className="mt-4 w-full border-collapse text-[13px]">
           <thead>
             <tr className="text-left text-[11px] text-[#6e6e73]">
               <th className="px-2 py-1.5 font-medium">パッケージ</th>

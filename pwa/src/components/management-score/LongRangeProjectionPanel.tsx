@@ -274,7 +274,7 @@ export function LongRangeProjectionPanel({ projection }: { projection: LongRange
       )}
 
       <div className="table-wrap">
-        <table>
+        <table data-amie-list="matrix">
           <thead>
             <tr>
               <th className="item">項目</th>

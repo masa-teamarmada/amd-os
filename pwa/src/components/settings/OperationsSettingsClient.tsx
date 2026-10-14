@@ -147,7 +147,7 @@ export function OperationsSettingsClient({ rawDataSources, l2Datasets, cronOpera
           <PanelTitle icon={<Layers3 className="h-4 w-4" />} title="L2 Data" meta={`${l2Datasets.length} datasets`} />
           <div className="overflow-hidden border border-border bg-background">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left text-[12px]">
+              <table data-amie-list="records" className="w-full min-w-[760px] text-left text-[12px]">
                 <thead className="border-b border-border bg-muted/35 text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
                   <tr>
                     <th className="px-3 py-2 font-medium">Dataset</th>

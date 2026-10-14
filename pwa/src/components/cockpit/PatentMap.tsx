@@ -256,7 +256,7 @@ function ApplicantMatrix({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-auto border-collapse text-[10px]">
+      <table data-amie-list="records" className="w-auto border-collapse text-[10px]">
         <thead>
           <tr>
             <th className="border border-border bg-muted/30 px-1.5 py-0.5 text-left font-medium">出願人 \ 技術区分</th>

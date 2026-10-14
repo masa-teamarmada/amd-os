@@ -1,5 +1,6 @@
 "use client";
 
+import { AmieListStatus } from "@/components/ui/amie-list-signals";
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Check, CircleDollarSign, Clock, FilePlus, Save, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -855,17 +856,13 @@ function MonthWorkbench({
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                   <span className="font-mono">{yen(Number(r.amount || 0))}</span>
-                  <span
-                    className={`border px-2 py-0.5 text-[9px] font-semibold ${
+                  <AmieListStatus value={r.status} label={REIMBURSE_STATUS_LABEL[r.status] ?? r.status} className={`border px-2 py-0.5 text-[9px] font-semibold ${
                       APPROVED_STATUSES.has(r.status)
                         ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                         : r.status === "rejected"
                           ? "border-red-200 bg-red-50 text-red-700"
                           : "border-amber-200 bg-amber-50 text-amber-800"
-                    }`}
-                  >
-                    {REIMBURSE_STATUS_LABEL[r.status] ?? r.status}
-                  </span>
+                    }`}/>
                   {r.status === "submitted" && (viewerCanPmApprove || viewerIsAdmin) && (
                     <Button type="button" size="sm" className="h-8 px-3 text-[10px]" disabled={decidingReimbursementId === r.reimbursement_id} onClick={() => onApproveReimbursement(r)}>
                       {decidingReimbursementId === r.reimbursement_id ? "承認中" : "PM承認"}

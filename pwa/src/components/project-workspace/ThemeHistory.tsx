@@ -62,7 +62,7 @@ export function ThemeHistory({ rows, canManage, sources, onSave, onRefresh }: {
       {canManage && <Button size="sm" variant="outline" disabled={rows.length >= 40} onClick={() => edit()}>経緯を追加</Button>}
     </div>
     {!rows.length ? <p className={styles.empty}>経緯はまだ整理されていないよ。連携先・応募・計画変更など、追いたい対象ごとにまとめてください。</p> :
-      <table className={styles.table}>
+      <table data-amie-list="records" className={styles.table}>
         <thead><tr><th scope="col">対象・記録時点</th>{COLUMNS.map(([key, label]) => <th key={key} scope="col">{label}</th>)}</tr></thead>
         <tbody>{rows.map(row => <tr key={row.id}>
           <th scope="row">

@@ -253,7 +253,7 @@ export function AdminFinanceClient({ recurringItems, receiptEvents, officerReser
         </div>
         {officerReserve.entries.length > 0 && (
           <div className="mt-3 overflow-hidden rounded-md border border-amber-200 bg-background/80">
-            <table className="w-full text-[12px]">
+            <table data-amie-list="matrix" className="w-full text-[12px]">
               <thead className="border-b border-border bg-muted/40">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">PJ</th>
@@ -337,7 +337,7 @@ export function AdminFinanceClient({ recurringItems, receiptEvents, officerReser
       </div>
 
       <div className="overflow-hidden rounded-lg border border-border">
-        <table className="w-full text-[12px]">
+        <table data-amie-list="matrix" className="w-full text-[12px]">
           <thead>
             <tr className="border-b border-border bg-muted/40">
               <th className="px-3 py-2 text-left font-medium">Item</th>
@@ -486,7 +486,7 @@ export function AdminFinanceClient({ recurringItems, receiptEvents, officerReser
           </div>
         ) : (
           <div className="overflow-hidden rounded border border-border">
-            <table className="w-full text-[12px]">
+            <table data-amie-list="matrix" className="w-full text-[12px]">
               <thead>
                 <tr className="border-b border-border bg-muted/40">
                   <th className="px-3 py-2 text-left font-medium">YM</th>

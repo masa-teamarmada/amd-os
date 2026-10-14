@@ -1448,7 +1448,7 @@ function ProjectAllocationTable({ project }: { project: MonthlyWorkAgreementProj
       </ul>
 
       <div className="hidden w-full max-w-full overflow-x-auto rounded-md border border-[#e5e5e7] sm:block">
-        <table className="w-full min-w-[620px] border-collapse text-[13px]">
+        <table data-amie-list="records" className="w-full min-w-[620px] border-collapse text-[13px]">
           <thead>
             <tr className="border-b border-[#e5e5e7] bg-[#f5f5f7] text-left text-[12px] text-[#6e6e73]">
               <th className="whitespace-nowrap px-3 py-2 font-semibold">メンバー</th>
@@ -2533,7 +2533,7 @@ function PayoutScheduleMatrix({
 
   return (
     <div className="overflow-x-auto bg-white">
-      <table
+      <table data-amie-list="records"
         className="w-full border-collapse text-[11px]"
         style={{ minWidth: `${minTableWidth}px` }}
       >

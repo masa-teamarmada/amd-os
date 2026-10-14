@@ -126,7 +126,7 @@ function totalOf(item: ItemDef, totals: PivotProps["totals"], gpAll: number, opA
 function PlPivotTable({ rows, totals, gpAll, opAll, onCellClick, onDelete }: PivotProps) {
   return (
     <div className="overflow-x-auto max-h-[60vh]">
-      <table className="text-[11px] border-collapse">
+      <table data-amie-list="records" className="text-[11px] border-collapse">
         <thead>
           <tr className="bg-white">
             <th

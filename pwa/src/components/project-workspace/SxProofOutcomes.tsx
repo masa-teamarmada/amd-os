@@ -33,7 +33,7 @@ function ProofMatrix() {
   const rows = sxProofThemeMatrix();
   return (
     <div className="overflow-x-auto rounded-lg border border-[#ada18a] bg-white" data-testid="sx-proof-theme-matrix">
-      <table className="w-full min-w-[420px] border-collapse text-[11px]">
+      <table data-amie-list="records" className="w-full min-w-[420px] border-collapse text-[11px]">
         <thead>
           <tr className="border-b border-[#ada18a] bg-[#f2eee0] text-left text-[9px] font-semibold text-[#5f5a4d]">
             <th className="px-2.5 py-2">開発テーマ</th>

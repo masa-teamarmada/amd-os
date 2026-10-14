@@ -505,7 +505,7 @@ export function SeedNeedsWorkspace() {
                 aria-label="ニーズ一覧。狭い画面では横にスクロール"
               >
                 {view === "connections" && (
-                  <table className={styles.connections}>
+                  <table data-amie-list="records" className={styles.connections}>
                     <colgroup>
                       <col style={{ width: "16%" }} />
                       <col style={{ width: "17%" }} />
@@ -661,7 +661,7 @@ export function SeedNeedsWorkspace() {
                   </table>
                 )}
                 {view === "companies" && (
-                  <table className={styles.catalog}>
+                  <table data-amie-list="records" className={styles.catalog}>
                     <thead>
                       <tr>
                         <th>企業 / 事業領域</th>

@@ -90,7 +90,7 @@ export function SpacePermissionsAdminPanel() {
   </div>
   {notice&&<p role="status" className="text-sm text-primary">{notice}</p>}{error&&!target&&<p role="alert" className="text-sm text-destructive">{error}</p>}
   <div ref={tableRegion} role="region" aria-label="メンバー別PJ権限表・横スクロール可能" tabIndex={0} className="relative isolate max-h-[65dvh] w-fit max-w-full overflow-auto rounded-md border border-border focus-visible:outline-2 focus-visible:outline-primary [--member-column:112px] sm:[--member-column:176px]">
-   <table className="table-fixed border-separate border-spacing-0 text-xs" style={{width:`calc(var(--member-column) + ${384+visibleProjects.length*288}px)`}}>
+   <table data-amie-list="records" className="table-fixed border-separate border-spacing-0 text-xs" style={{width:`calc(var(--member-column) + ${384+visibleProjects.length*288}px)`}}>
     <caption className="sr-only">１人１行。各PJのコックピット、ワークスペース、DDパッケージの権限。セルを押すと詳細を確認して変更できる。</caption>
     <colgroup><col style={{width:'var(--member-column)'}}/><col style={{width:224}}/><col style={{width:160}}/>{visibleProjects.flatMap(p=>PROJECT_SURFACES.map(s=><col key={`${p.project_id}:${s}`} style={{width:96}}/>))}</colgroup>
     <thead>

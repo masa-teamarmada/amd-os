@@ -35,7 +35,7 @@ export function ModelCurrentFormulas({ formulas }: { formulas: CurrentFormula[] 
       </p>
 
       <div className="overflow-hidden rounded-md border border-border">
-        <table className="w-full table-fixed border-collapse text-[12px]">
+        <table data-amie-list="matrix" className="w-full table-fixed border-collapse text-[12px]">
           <thead>
             <tr className="bg-muted/60 text-left text-[11px] text-muted-foreground">
               <th className="w-[16%] px-2 py-1 font-medium">節</th>

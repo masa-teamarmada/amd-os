@@ -24,6 +24,7 @@
  *  - 各カードに「⚠️ つくよみに修正依頼」ボタン → /api/notifications/feedback。
  */
 
+import { AmieListCategory } from "@/components/ui/amie-list-signals";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
@@ -556,9 +557,7 @@ function StrategySignalRow({
         >
           {polarity ? `${polarity.emoji} ${polarity.label}` : categoryEmoji}
         </span>
-        <span className="rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px]">
-          {typeLabel ?? TYPE_LABEL[signal.signalType] ?? signal.signalType}
-        </span>
+        <AmieListCategory value={typeLabel ?? TYPE_LABEL[signal.signalType] ?? signal.signalType} className="rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px]"/>
         <span className="inline-flex items-center gap-0.5">
           <span className={`rounded border px-1.5 py-0.5 text-[10px] ${impactClass}`}>
             {signal.impactLevel}

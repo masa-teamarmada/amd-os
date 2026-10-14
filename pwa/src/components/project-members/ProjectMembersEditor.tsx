@@ -260,7 +260,7 @@ export function ProjectMembersEditor({ projectId, onSaved, initialMembers, initi
   return (
     <div className="space-y-3">
       <div className="overflow-x-auto">
-        <table className="w-full text-[12px] border-collapse">
+        <table data-amie-list="records" className="w-full text-[12px] border-collapse">
           <thead>
             <tr className="text-[10px] uppercase text-muted-foreground border-b border-border">
               <th className="text-left p-1.5 min-w-[260px]">メンバー</th>

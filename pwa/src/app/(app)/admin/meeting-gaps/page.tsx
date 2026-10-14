@@ -187,7 +187,7 @@ export default async function AdminMeetingGapsPage() {
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border mb-8">
-          <table className="w-full text-xs">
+          <table data-amie-list="records" className="w-full text-xs">
             <thead className="bg-muted/50 text-left">
               <tr>
                 <th className="px-3 py-2 font-medium">状態</th>
@@ -245,7 +245,7 @@ export default async function AdminMeetingGapsPage() {
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-xs">
+          <table data-amie-list="records" className="w-full text-xs">
             <thead className="bg-muted/50 text-left">
               <tr>
                 <th className="px-3 py-2 font-medium">開催日</th>

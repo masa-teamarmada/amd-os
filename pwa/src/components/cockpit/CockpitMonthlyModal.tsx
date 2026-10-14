@@ -2587,7 +2587,7 @@ function ReimburseSection({ items }: { items: ReimburseItem[] }) {
   return (
     <div className="space-y-2 pt-1">
       <div className="overflow-hidden rounded-lg border border-border">
-        <table className="w-full text-[12px]">
+        <table data-amie-list="records" className="w-full text-[12px]">
           <thead className="bg-muted/20 text-muted-foreground">
             <tr>
               <th className="text-left px-3 py-1.5 font-medium">内容</th>
@@ -2720,7 +2720,7 @@ function MemberPayoutSection({
       </div>
 
       <div className="overflow-hidden rounded-lg border border-border">
-        <table className="w-full text-[12px]">
+        <table data-amie-list="records" className="w-full text-[12px]">
           <thead className="bg-muted/30 text-[11px] text-muted-foreground">
             <tr>
               <th className="text-left px-3 py-1.5 font-medium">メンバー</th>
@@ -2778,7 +2778,7 @@ function MemberPayoutSection({
                         {!mb.breakdown || mb.breakdown.length === 0 ? (
                           <p className="text-[11px] text-muted-foreground">内訳データなし</p>
                         ) : (
-                          <table className="w-full text-[11px]">
+                          <table data-amie-list="records" className="w-full text-[11px]">
                             <thead className="text-muted-foreground">
                               <tr>
                                 <th className="text-left font-normal py-1 pl-2">MS</th>

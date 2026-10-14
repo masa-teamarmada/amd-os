@@ -268,7 +268,7 @@ export function ProjectCardDesigns({
       ) : (
         <>
           <div className={styles.tableWrap}>
-            <table>
+            <table data-amie-list="records">
               <thead>
                 <tr>
                   <th>PJ</th>

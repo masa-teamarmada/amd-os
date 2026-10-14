@@ -199,7 +199,7 @@ export function FuelReadingSections({ saved, working, computed, current }: Props
 
       <Card title="6通りの内訳" hint="FAME転換（外部に委託 / 自社で行う）× 収率（低位 / 基準 / 改善）。CAPEX は初期投資 ÷ 耐用年数の年額を燃料1Lあたりに割った値。">
         <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-          <table className="w-full min-w-[760px] border-collapse text-[12px]" data-testid="fuel-scenario-table">
+          <table data-amie-list="matrix" className="w-full min-w-[760px] border-collapse text-[12px]" data-testid="fuel-scenario-table">
             <thead>
               <tr className="border-b border-[#e5e5e7] text-left text-[11px] text-[#6e6e73]">
                 <th className="py-2 pr-2 font-medium">指標</th>
@@ -257,7 +257,7 @@ export function FuelReadingSections({ saved, working, computed, current }: Props
         <h4 className="mt-4 text-[12px] font-semibold text-[#1d1d1f]">精度を下げている項目（金額順）</h4>
         <p className="mt-1 text-[11px] text-[#6e6e73]">確度が仮説(H)・仮置き(C)のまま金額が大きい行。3ケースのうち大きい方の額。培養設備の行は第1段（菌体費）に配った額。</p>
         <div className="mt-2 -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-          <table className="w-full min-w-[560px] border-collapse text-[11px]">
+          <table data-amie-list="matrix" className="w-full min-w-[560px] border-collapse text-[11px]">
             <thead>
               <tr className="border-b border-[#e5e5e7] text-left text-[10px] text-[#6e6e73]">
                 <th className="py-1.5 pr-2 font-medium">項目</th>
@@ -325,7 +325,7 @@ export function FuelReadingSections({ saved, working, computed, current }: Props
                 <div key={g.key} className="mt-2">
                   <p className="text-[11px] font-semibold text-[#3c3c43]">{g.title}</p>
                   <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-                    <table className="w-full min-w-[640px] table-fixed border-collapse text-[11px]">
+                    <table data-amie-list="matrix" className="w-full min-w-[640px] table-fixed border-collapse text-[11px]">
                       <colgroup>
                         <col className="w-[30%]" />
                         <col className="w-[16%]" />
@@ -361,7 +361,7 @@ export function FuelReadingSections({ saved, working, computed, current }: Props
 
       <Card title="作業リストの根拠と確認先" hint={`操作パネルの OPEX「人件費（作業）」と同じ行。作業単価はすべての作業で共通の ${int(rate)}円/時。年額は選んだ組み合わせ（${FUEL_CONVERSION_LABEL[current.conversion]}・収率${FUEL_YIELD_CASE_LABEL[current.yieldCase]}）の物量で出す。`}>
         <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-          <table className="w-full min-w-[720px] border-collapse text-[11px]">
+          <table data-amie-list="matrix" className="w-full min-w-[720px] border-collapse text-[11px]">
             <thead>
               <tr className="border-b border-[#e5e5e7] text-left text-[10px] text-[#6e6e73]">
                 <th className="py-1.5 pr-2 font-medium">段・作業</th>
@@ -416,7 +416,7 @@ export function FuelReadingSections({ saved, working, computed, current }: Props
                 {section.title}
               </p>
               <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-                <table className="w-full min-w-[720px] table-fixed border-collapse text-[11px]">
+                <table data-amie-list="matrix" className="w-full min-w-[720px] table-fixed border-collapse text-[11px]">
                   <colgroup>
                     <col className="w-[30%]" />
                     <col className="w-[14%]" />

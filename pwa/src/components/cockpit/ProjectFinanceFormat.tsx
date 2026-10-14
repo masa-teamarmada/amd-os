@@ -893,7 +893,7 @@ export function FinanceFormatView({
           <SectionFrame key={key} sectionKey={key} title={title} aside={FINANCE_UNIT_LABEL}>
             {annualRows.length === 0 ? <EmptyNote>年度に集計できる登録はまだない。</EmptyNote> : (
               <div className="mx-3 mb-3 overflow-x-auto border border-[#cbd9de] bg-white sm:mx-4" data-testid="finance-format-annual-table">
-                <table className="w-full min-w-[680px] border-collapse text-[10px] tabular-nums">
+                <table data-amie-list="matrix" className="w-full min-w-[680px] border-collapse text-[10px] tabular-nums">
                   <thead>
                     <tr className="border-b border-[#d8e2e5] bg-[#edf3f5] text-slate-500">
                       <th scope="col" className="w-44 px-2 py-1.5 text-left font-medium">項目</th>
@@ -934,7 +934,7 @@ export function FinanceFormatView({
                       <div key={table.title} className="min-w-0">
                         <div className="mb-1 text-[11px] font-semibold text-[#173f51]">{table.title}{table.unit ? <span className="ml-1 font-normal text-slate-500">{table.unit}</span> : null}</div>
                         <div className="overflow-x-auto border border-[#cbd9de]">
-                          <table className="w-full border-collapse text-[10px]">
+                          <table data-amie-list="matrix" className="w-full border-collapse text-[10px]">
                             <thead><tr className="bg-[#edf3f5] text-slate-500">{table.columns.map((column, index) => <th key={column} scope="col" className={`px-2 py-1 font-medium ${index === 0 ? "text-left" : "text-right"}`}>{column}</th>)}</tr></thead>
                             <tbody>{table.rows.map((cells) => <tr key={cells.join("|")} className="border-t border-[#edf1f2]">{cells.map((cellValue, index) => <td key={`${index}-${cellValue}`} className={`px-2 py-1 ${index === 0 ? "text-left text-slate-700" : "text-right font-mono tabular-nums text-slate-800"}`}>{cellValue}</td>)}</tr>)}</tbody>
                           </table>

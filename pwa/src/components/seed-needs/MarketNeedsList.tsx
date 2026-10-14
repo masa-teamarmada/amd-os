@@ -300,7 +300,7 @@ export function MarketNeedsList({
         tabIndex={0}
         aria-label="市場ニーズ一覧。狭い画面では表内を横にスクロール"
       >
-        <table className={list.marketTable}>
+        <table data-amie-list="records" className={list.marketTable}>
           <colgroup>
             <col style={{ width: "26%" }} />
             <col style={{ width: "14%" }} />

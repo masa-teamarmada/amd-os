@@ -1,5 +1,6 @@
 "use client";
 
+import { AmieListStatus, AmieListCategory } from "@/components/ui/amie-list-signals";
 import { useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -560,7 +561,7 @@ export function ReimburseWorkspace({ embedded = false }: { embedded?: boolean })
                 <p className="mt-4 text-sm text-muted-foreground">承認済みはなし</p>
               ) : (
                 <div className="mt-3 max-w-full overflow-x-auto">
-                  <table className="w-full min-w-[860px] border-collapse text-[11px]">
+                  <table data-amie-list="records" className="w-full min-w-[860px] border-collapse text-[11px]">
                     <thead>
                       <tr className="border-b border-border text-left text-muted-foreground">
                         <th className="whitespace-nowrap py-1.5 pr-3 font-medium">発生日</th>
@@ -581,7 +582,7 @@ export function ReimburseWorkspace({ embedded = false }: { embedded?: boolean })
                           <td className="whitespace-nowrap py-1.5 pr-3">{projectNameById.get(item.project_id) || item.project_name || item.project_id}</td>
                           <td className="py-1.5 pr-3">{item.description || "摘要なし"}</td>
                           <td className="whitespace-nowrap py-1.5 pr-3">{item.created_by || "-"}</td>
-                          <td className="whitespace-nowrap py-1.5 pr-3">{CATEGORY_LABELS[normalizeCategory(item.category)]}</td>
+                          <td className="whitespace-nowrap py-1.5 pr-3"><AmieListCategory value={CATEGORY_LABELS[normalizeCategory(item.category)]} className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"/></td>
                           <td className="whitespace-nowrap py-1.5 pr-3 text-right font-mono tabular-nums">¥{Math.round(item.amount).toLocaleString()}</td>
                           <td className="whitespace-nowrap py-1.5 pr-3">
                             {item.pm_approved_by ? (
@@ -674,7 +675,7 @@ function ReimburseCard({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-muted-foreground">{item.date.slice(0, 10)}</span>
-            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{CATEGORY_LABELS[normalizeCategory(item.category)]}</span>
+            <AmieListCategory value={CATEGORY_LABELS[normalizeCategory(item.category)]} className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"/>
             <StatusPill status={item.status} />
           </div>
           <h3 className="mt-1 text-sm font-semibold">{item.description || "摘要なし"}</h3>
@@ -755,7 +756,7 @@ function StatusPill({ status }: { status: string }) {
       : status === "pmApproved" || status === "pmapproved"
         ? "bg-blue-500/12 text-blue-700"
         : "bg-amber-500/12 text-amber-700";
-  return <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${color}`}>{STATUS_LABELS[status] || status}</span>;
+  return <AmieListStatus value={status} label={STATUS_LABELS[status] || status} className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${color}`}/>;
 }
 
 function ApprovalMark({ label, by, at }: { label: string; by: string | null; at: string | null }) {

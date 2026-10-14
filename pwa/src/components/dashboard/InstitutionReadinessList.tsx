@@ -7,6 +7,7 @@
  * 上 (DashboardGrid) = 個体レイヤー (AMD Score)、下 (これ) = 苗床レイヤー (ECR 充足率)。
  * 設計正本: pwa/design/institution_readiness.md
  */
+import { AmieListCategory } from "@/components/ui/amie-list-signals";
 import Link from "next/link";
 import { computeErs, ersScoreColor, INSTITUTION_TYPE_LABEL, type ErsResult, type ErsInstitution } from "@/lib/ers";
 import type { ErsBundle } from "@/lib/ers-data";
@@ -73,9 +74,7 @@ function InstitutionStripe({
         <div className="col-span-4 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
             <h3 className="text-sm font-semibold truncate">{display.title}</h3>
-            <span className="text-[9px] rounded border px-1.5 py-0.5 bg-indigo-50 text-indigo-800 border-indigo-300">
-              {INSTITUTION_TYPE_LABEL[inst.type] ?? inst.type}
-            </span>
+            <AmieListCategory value={INSTITUTION_TYPE_LABEL[inst.type] ?? inst.type} className="text-[9px] rounded border px-1.5 py-0.5 bg-indigo-50 text-indigo-800 border-indigo-300"/>
             {projectLink && (
               <span className="text-[9px] rounded border px-1.5 py-0.5 bg-sky-50 text-sky-800 border-sky-300">
                 PJ cockpit

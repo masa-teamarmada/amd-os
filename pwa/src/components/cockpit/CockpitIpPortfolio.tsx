@@ -211,7 +211,7 @@ export function CockpitIpPortfolio({ projectId, initialData }: { projectId: stri
             {/* 列が多いので、先頭列 (名称) と見出し行を固定して横スクロールさせる (まさ指示 2026-08-21)。
                 overflow-x-auto だけだと overflow-y が auto になって sticky が効かないため、両軸スクロールの箱にする。 */}
             <div className="max-h-[70vh] overflow-auto">
-              <table className="w-max min-w-full border-collapse text-[11px]">
+              <table data-amie-list="records" className="w-max min-w-full border-collapse text-[11px]">
                 <thead>
                   <tr className="text-[10px] text-muted-foreground">
                     <th className="sticky left-0 top-0 z-30 min-w-[220px] border-b border-r border-border bg-muted px-2 py-1.5 text-left font-medium">名称</th>

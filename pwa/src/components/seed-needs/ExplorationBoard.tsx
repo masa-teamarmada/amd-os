@@ -672,7 +672,7 @@ export function ExplorationBoard({
               tabIndex={0}
               aria-label="企業ニーズとシーズの交点。横にスクロール可能"
             >
-              <table className={styles.matrix}>
+              <table data-amie-list="records" className={styles.matrix}>
                 <caption>
                   ● 記録した組み合わせ　◇ 同じ研究構想に含む　＋
                   未検討（押すと組み合わせを記録）

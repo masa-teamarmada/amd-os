@@ -150,7 +150,7 @@ export function LoanSimulatorPanel({ data }: { data: CashAndLoansResult | null }
           </span>
         </div>
         <div className="overflow-x-auto border border-border">
-          <table className="w-full min-w-[720px] border-collapse">
+          <table data-amie-list="matrix" className="w-full min-w-[720px] border-collapse">
             <thead>
               <tr className="border-b border-border bg-muted/40 text-[11px] text-muted-foreground">
                 <th scope="col" className="px-2 py-1 text-left font-medium">借りる額</th>
@@ -204,7 +204,7 @@ export function LoanSimulatorPanel({ data }: { data: CashAndLoansResult | null }
         </div>
 
         <div className="overflow-x-auto border border-border">
-          <table className="w-full min-w-[760px] border-collapse">
+          <table data-amie-list="matrix" className="w-full min-w-[760px] border-collapse">
             <thead>
               <tr className="border-b border-border bg-muted/40 text-[11px] text-muted-foreground">
                 <th scope="col" className="px-2 py-1 text-left font-medium">日付</th>
@@ -251,7 +251,7 @@ export function LoanSimulatorPanel({ data }: { data: CashAndLoansResult | null }
       <section className="grid gap-2 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
         <div className="border border-border">
           <h2 className="border-b border-border bg-muted/40 px-2 py-1.5 text-xs font-semibold text-foreground">この計画だと</h2>
-          <table className="w-full border-collapse">
+          <table data-amie-list="matrix" className="w-full border-collapse">
             <tbody>
               <tr className="border-b border-border">
                 <th scope="row" className="px-2 py-1.5 text-left text-[11px] font-normal text-muted-foreground">払う利子の合計</th>
@@ -297,7 +297,7 @@ export function LoanSimulatorPanel({ data }: { data: CashAndLoansResult | null }
             月ごとの利子
           </h2>
           <div className="max-h-[320px] overflow-auto">
-            <table className="w-full border-collapse">
+            <table data-amie-list="matrix" className="w-full border-collapse">
               <thead className="sticky top-0 bg-muted/95">
                 <tr className="border-b border-border text-[11px] text-muted-foreground">
                   <th scope="col" className="px-2 py-1 text-left font-medium">月</th>
@@ -335,7 +335,7 @@ export function LoanSimulatorPanel({ data }: { data: CashAndLoansResult | null }
         <section>
           <h2 className="mb-1 text-xs font-semibold text-foreground">どの期間にいくら付いたか</h2>
           <div className="max-h-[280px] overflow-auto border border-border">
-            <table className="w-full min-w-[600px] border-collapse">
+            <table data-amie-list="matrix" className="w-full min-w-[600px] border-collapse">
               <thead className="sticky top-0 bg-muted/95">
                 <tr className="border-b border-border text-[11px] text-muted-foreground">
                   <th scope="col" className="px-2 py-1 text-left font-medium">はじまり</th>

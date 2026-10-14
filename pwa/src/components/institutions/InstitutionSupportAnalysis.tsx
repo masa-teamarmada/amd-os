@@ -167,7 +167,7 @@ export function SupportProgramAnalysis({
         description="確認済み機関のうち整備済みの割合が高い順。AMDの推奨で「大部分が認めている」と言える根拠はここ。"
       >
         {loaded ? (
-          <table className="w-full border-collapse text-left text-xs">
+          <table data-amie-list="records" className="w-full border-collapse text-left text-xs">
             <thead>
               <tr className="bg-slate-50 text-[10px] font-semibold text-slate-600">
                 <th className="border-b border-slate-200 px-3 py-2">項目</th>
@@ -212,7 +212,7 @@ export function SupportProgramAnalysis({
       >
         {loaded ? (
           <div className="overflow-x-auto">
-            <table className="min-w-[1500px] w-full border-collapse text-left text-xs">
+            <table data-amie-list="records" className="min-w-[1500px] w-full border-collapse text-left text-xs">
               <thead>
                 <tr className="bg-slate-50 text-[10px] font-semibold text-slate-600">
                   <th className="sticky left-0 z-10 border-b border-r border-slate-200 bg-slate-50 px-3 py-2">地域</th>
@@ -263,7 +263,7 @@ export function SupportProgramAnalysis({
       >
         {loaded ? (
           <div className="max-h-[70vh] overflow-auto">
-            <table className="w-full border-collapse text-left text-xs">
+            <table data-amie-list="records" className="w-full border-collapse text-left text-xs">
               <thead>
                 <tr className="sticky top-0 z-10 bg-slate-50 text-[10px] font-semibold text-slate-600">
                   <th className="border-b border-slate-200 px-3 py-2 text-right">#</th>
@@ -314,7 +314,7 @@ export function SupportProgramAnalysis({
         {loaded ? (
           gaps.length ? (
             <div className="max-h-[60vh] overflow-auto">
-              <table className="w-full border-collapse text-left text-xs">
+              <table data-amie-list="records" className="w-full border-collapse text-left text-xs">
                 <thead>
                   <tr className="sticky top-0 z-10 bg-slate-50 text-[10px] font-semibold text-slate-600">
                     <th className="border-b border-slate-200 px-3 py-2">研究機関</th>

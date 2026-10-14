@@ -347,7 +347,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 function Table({ head, children }: { head: string[]; children: React.ReactNode }) {
   return (
-    <table className="w-full text-[11px]">
+    <table data-amie-list="records" className="w-full text-[11px]">
       <thead><tr className="text-left text-muted-foreground">{head.map((h, i) => <th key={i} className="pb-1 pr-2 font-medium">{h}</th>)}</tr></thead>
       <tbody>{children}</tbody>
     </table>

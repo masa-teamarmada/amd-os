@@ -188,7 +188,7 @@ function SeasonCard({ season }: { season: SeasonBudgetSeason }) {
       {season.membersVisible && season.members.length > 0 && (
         <div className="mt-4 overflow-x-auto border-t border-[#e5e5e7] pt-3">
           <p className="mb-2 text-[12px] font-semibold text-[#1d1d1f]">メンバー別（pt比の取り分と実績）</p>
-          <table className="w-full min-w-[560px] text-[11px]">
+          <table data-amie-list="matrix" className="w-full min-w-[560px] text-[11px]">
             <thead className="border-b border-[#e5e5e7] text-[#8e8e93]">
               <tr>
                 <th className="px-2 py-1.5 text-left font-medium">メンバー</th>

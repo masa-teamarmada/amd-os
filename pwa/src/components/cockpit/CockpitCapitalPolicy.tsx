@@ -187,7 +187,7 @@ export function CockpitCapitalPolicy({ projectId, readOnly = false, initialData 
                     <span>転換見込 {formatNumber(conversion.estimatedShares, 2)}株</span>
                   </div>
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[720px] text-xs">
+                    <table data-amie-list="matrix" className="w-full min-w-[720px] text-xs">
                       <thead className="bg-slate-50 text-[11px] text-slate-500">
                         <tr>
                           <th className="px-4 py-3 text-left font-medium">保有者</th>

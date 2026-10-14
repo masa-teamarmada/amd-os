@@ -1,5 +1,6 @@
 "use client";
 
+import { AmieListCategory } from "@/components/ui/amie-list-signals";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AmieTechDisclosureBadge, AmieTechDisclosureInventory } from "./AmieTechDisclosure";
@@ -802,7 +803,7 @@ function FragmentTable({ fragments }: { fragments: TechKnowledgeFragment[] }) {
         </div>
       </div>
       <div className="mt-3 overflow-x-auto">
-        <table className="w-full min-w-[600px] border-collapse text-[12px]">
+        <table data-amie-list="records" className="w-full min-w-[600px] border-collapse text-[12px]">
           <thead>
             <tr className="bg-[#f5f5f7] text-left text-[11px] text-[#6e6e73]">
               <th className="border-b border-[#e5e5e7] px-2 py-1.5 font-medium">区分</th>
@@ -815,7 +816,7 @@ function FragmentTable({ fragments }: { fragments: TechKnowledgeFragment[] }) {
             {shown.map((f) => (
               <tr key={f.id} className="align-top hover:bg-[#fafafa]">
                 <td className="border-b border-[#f0f0f2] px-2 py-1.5 whitespace-nowrap text-[#6e6e73]">
-                  {FRAGMENT_CATEGORY_LABEL[f.category] ?? f.category}
+                  <AmieListCategory value={FRAGMENT_CATEGORY_LABEL[f.category] ?? f.category} />
                 </td>
                 <td className="border-b border-[#f0f0f2] px-2 py-1.5 font-medium text-[#1d1d1f]">{f.entity_name}</td>
                 <td className="border-b border-[#f0f0f2] px-2 py-1.5 leading-5 text-[#1d1d1f]">{f.fact_text}</td>

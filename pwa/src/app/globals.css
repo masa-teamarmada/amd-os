@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "./amie-list-overview.css";
 
 /* spec / manual / design などの md は仕様の説明文であり、Tailwind のクラス供給元ではない。
    だが本文が `[grid-template-columns:var(--sx-pl-*)]` のようにクラス構文をそのまま引用する

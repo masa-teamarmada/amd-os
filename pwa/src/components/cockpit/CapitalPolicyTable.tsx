@@ -140,7 +140,7 @@ export function CapitalRoundsTable({ data, showLedgerHint = false }: { data: Com
     }, []);
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[880px] text-xs">
+      <table data-amie-list="matrix" className="w-full min-w-[880px] text-xs">
         <thead className="bg-slate-50 text-[11px] text-slate-500">
           <tr>
             <th className="px-4 py-3 text-left font-medium">日付</th>
@@ -210,7 +210,7 @@ export function CapitalPolicyTable({ data }: { data: CompanyOverviewData }) {
       </div>
 
       <div className="overflow-x-auto">
-        <table data-testid="capital-policy-table" className="w-max min-w-full border-separate border-spacing-0 text-[11px]">
+        <table data-amie-list="matrix" data-testid="capital-policy-table" className="w-max min-w-full border-separate border-spacing-0 text-[11px]">
           <thead>
             <tr>
               <th

@@ -1,5 +1,6 @@
 "use client";
 
+import { AmieListDelta } from "@/components/ui/amie-list-signals";
 import { useState } from "react";
 import { Loader2, PlayCircle, RefreshCw, ShieldCheck, X } from "lucide-react";
 import type { ReconciliationFindingRow, ReconciliationOverview, ReconciliationRunSummary } from "@/lib/finance/freee-reconciliation-client";
@@ -62,7 +63,7 @@ function FindingTable({
   }
   return (
     <div className="overflow-x-auto rounded-md border border-border">
-      <table className="min-w-[760px] w-full text-[12px]">
+      <table data-amie-list="records" className="min-w-[760px] w-full text-[12px]">
         <thead>
           <tr className="border-b border-border bg-muted/40">
             <th className="px-3 py-2 text-left font-medium">状態</th>
@@ -90,7 +91,7 @@ function FindingTable({
               <td className="px-3 py-2 text-right font-mono">
                 {yen(row.amountYen)}
                 {row.deltaYen != null && row.deltaYen !== 0 && (
-                  <div className="text-[11px] text-muted-foreground">差額 {yen(row.deltaYen)}</div>
+                  <div className="text-[11px] text-muted-foreground">差額 <AmieListDelta value={row.deltaYen}>{yen(row.deltaYen)}</AmieListDelta></div>
                 )}
               </td>
               <td className="px-3 py-2">{row.matchConfidence}</td>
@@ -130,7 +131,7 @@ function RunHistoryTable({ runs }: { runs: ReconciliationRunSummary[] }) {
   if (runs.length === 0) return <div className="py-4 text-center text-[12px] text-muted-foreground">run履歴なし</div>;
   return (
     <div className="overflow-x-auto rounded-md border border-border">
-      <table className="min-w-[820px] w-full text-[12px]">
+      <table data-amie-list="records" className="min-w-[820px] w-full text-[12px]">
         <thead>
           <tr className="border-b border-border bg-muted/40">
             <th className="px-3 py-2 text-left font-medium">週</th>

@@ -79,7 +79,7 @@
     "test:workspace-email-attempts": "node --experimental-strip-types scripts/check_workspace_email_attempts.mjs && node --experimental-strip-types scripts/check_workspace_email_code.mjs",
     "test:critical-ui": "node scripts/check_pwa_critical_ui.cjs && node --experimental-strip-types scripts/check_cockpit_navigation.mts && node scripts/check_ui_design_code.mjs && node scripts/check_question_tree_task_review_contract.mjs && node --experimental-strip-types scripts/check_pictogram.mts",
     "test:cockpit-navigation": "node --experimental-strip-types scripts/check_cockpit_navigation.mts",
-    "test:ui-design-code": "node scripts/check_ui_design_code.mjs",
+    "test:ui-design-code": "node scripts/check_ui_design_code.mjs && node --experimental-strip-types scripts/check_amie_list_signals.mts",
     "test:reference-data-cache": "node scripts/check_reference_data_cache_contract.mjs",
     "test:project-format": "node scripts/check_project_format_contract.mjs && node --experimental-strip-types scripts/check_business_plan_comparison.mts",
     "test:project-overview": "node --experimental-strip-types scripts/check_project_overview_contract.mts",

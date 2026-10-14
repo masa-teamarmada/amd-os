@@ -791,7 +791,7 @@ export function CostFormatReading({
           unregistered
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] table-fixed text-[11px]">
+            <table data-amie-list="matrix" className="w-full min-w-[520px] table-fixed text-[11px]">
               <thead>
                 <tr className="text-[#6e6e73]">
                   <th className="w-[170px] py-1 text-left font-normal">区分</th>
@@ -875,7 +875,7 @@ export function CostFormatReading({
             {uncertain.length > 0 && (
               <div className="mt-3 overflow-x-auto">
                 <p className="text-[12px] font-semibold text-[#1d1d1f]">精度を下げている項目（金額順）</p>
-                <table className="mt-1 w-full min-w-[520px] table-fixed text-[11px]">
+                <table data-amie-list="matrix" className="mt-1 w-full min-w-[520px] table-fixed text-[11px]">
                   <thead>
                     <tr className="text-[#6e6e73]">
                       <th className="py-1 text-left font-normal">項目</th>
@@ -946,7 +946,7 @@ export function CostFormatReading({
         <div className="flex flex-col gap-4">
           <div className="overflow-x-auto">
             <p className="text-[12px] font-semibold text-[#1d1d1f]">すべての前提</p>
-            <table className="mt-1 w-full min-w-[560px] table-fixed text-[11px]">
+            <table data-amie-list="matrix" className="mt-1 w-full min-w-[560px] table-fixed text-[11px]">
               <thead>
                 <tr className="text-[#6e6e73]">
                   <th className="py-1 text-left font-normal">変数</th>
@@ -984,7 +984,7 @@ export function CostFormatReading({
           {(working.tasks ?? []).length > 0 && (
             <div className="overflow-x-auto">
               <p className="text-[12px] font-semibold text-[#1d1d1f]">作業リストの根拠と確認先</p>
-              <table className="mt-1 w-full min-w-[620px] table-fixed text-[11px]">
+              <table data-amie-list="matrix" className="mt-1 w-full min-w-[620px] table-fixed text-[11px]">
                 <thead>
                   <tr className="text-[#6e6e73]">
                     <th className="py-1 text-left font-normal">作業</th>
@@ -1028,7 +1028,7 @@ export function CostFormatReading({
             return (
               <div key={type} className="overflow-x-auto">
                 <p className="text-[12px] font-semibold text-[#1d1d1f]">費用明細（{type === "CAPEX" ? "CAPEX・初期投資" : "OPEX・毎年の費用"}）</p>
-                <table className="mt-1 w-full min-w-[640px] table-fixed text-[11px]">
+                <table data-amie-list="matrix" className="mt-1 w-full min-w-[640px] table-fixed text-[11px]">
                   <thead>
                     <tr className="text-[#6e6e73]">
                       <th className="py-1 text-left font-normal">項目</th>

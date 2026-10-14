@@ -287,7 +287,7 @@ export function SuDetailView({ venture, xrlLog, macroLog }: Props) {
             <h2 className="text-sm font-semibold">マイルストーン年表</h2>
           </div>
           <div className="px-4 py-2">
-            <table className="w-full text-[12px]">
+            <table data-amie-list="records" className="w-full text-[12px]">
               <thead>
                 <tr className="text-left text-muted-foreground border-b border-border">
                   <th className="py-1.5 font-medium">観測日</th>

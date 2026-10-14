@@ -1,3 +1,4 @@
+import { AmieListStatus, AmieListCategory } from "@/components/ui/amie-list-signals";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { resolveWorkspaceAccess } from "@/lib/workspace-access-resolver";
@@ -105,7 +106,7 @@ export default async function InstitutionWorkspacePage({ params }: { params: Pro
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold">{data.institution.name}</p>
             <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[#8a8574]">
-              <span>{INSTITUTION_TYPE_LABEL[data.institution.type] ?? data.institution.type}</span>
+              <AmieListCategory value={INSTITUTION_TYPE_LABEL[data.institution.type] ?? data.institution.type} />
               {data.institution.region ? <span>・{data.institution.region}</span> : null}
               <span className="rounded-full border border-[#c7c0e0] bg-[#ecebf7] px-2 py-0.5 font-semibold text-[#4338ca]">
                 {INSTITUTION_ROLE_LABEL[membership.role]}
@@ -178,9 +179,7 @@ export default async function InstitutionWorkspacePage({ params }: { params: Pro
                         {seed.researcherName ? ` ・ ${seed.researcherName}` : ""}
                       </p>
                     </div>
-                    <span className="shrink-0 rounded-full border border-[#e4ddcd] px-2 py-0.5 text-[11px] text-[#5c584d]">
-                      {SEED_STATUS_LABEL[seed.status] ?? seed.status}
-                    </span>
+                    <AmieListStatus value={seed.status} label={SEED_STATUS_LABEL[seed.status] ?? seed.status} className="shrink-0 rounded-full border border-[#e4ddcd] px-2 py-0.5 text-[11px] text-[#5c584d]"/>
                   </div>
 
                   {seed.projects.length > 0 ? (

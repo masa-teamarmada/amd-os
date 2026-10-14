@@ -26,7 +26,7 @@ export function ProjectDevelopmentIssues({ projectId, initialData }: { projectId
       return <section key={group.key} className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white" aria-label={group.label}>
         <header className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3"><h3 className="text-base font-bold text-slate-900">{group.label}</h3><span className="text-xs text-slate-500">{issues.length}件</span></header>
         <div className="max-w-full overflow-x-auto">
-          <table className="w-full min-w-[800px] text-left text-sm"><thead className="bg-slate-50 text-xs text-slate-600"><tr>{['課題', '現状', '対応方針', '担当', '目標期限', '状態'].map(label => <th key={label} className="px-4 py-3 font-semibold">{label}</th>)}</tr></thead>
+          <table data-amie-list="records" className="w-full min-w-[800px] text-left text-sm"><thead className="bg-slate-50 text-xs text-slate-600"><tr>{['課題', '現状', '対応方針', '担当', '目標期限', '状態'].map(label => <th key={label} className="px-4 py-3 font-semibold">{label}</th>)}</tr></thead>
             <tbody className="divide-y divide-slate-100">{issues.map(issue => <tr key={issue.id}>{[issue.title, issue.current, issue.approach, issue.owner, issue.dueOn, issue.status].map((value, index) => <td key={index} className="max-w-72 whitespace-pre-wrap break-words px-4 py-3 align-top text-slate-700">{value || '未登録'}</td>)}</tr>)}
               {!issues.length && <tr><td colSpan={6} className="px-4 py-5 text-slate-500">{loading ? '読み込み中' : error ? '取得できない' : '課題未登録'}</td></tr>}
             </tbody>

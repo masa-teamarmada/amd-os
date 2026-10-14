@@ -93,7 +93,7 @@ export function SxReadinessMatrix({ management }: { management: SxManagementBund
       <h2 id="readiness-matrix-heading" className="mt-1 text-base font-semibold text-[#24231f]">4柱の弁充足と協力機関・体制の現在地</h2>
 
       <div className="mt-3 overflow-x-auto">
-        <table className="w-full min-w-[520px] border-collapse text-xs">
+        <table data-amie-list="matrix" className="w-full min-w-[520px] border-collapse text-xs">
           <thead>
             <tr className="border-y border-[#ada18a] bg-[#f2eee0] text-left text-[10px] font-semibold text-[#5f5a4d]">
               <th className="px-3 py-2">柱</th>

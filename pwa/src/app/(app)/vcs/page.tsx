@@ -1,5 +1,6 @@
 "use client";
 
+import { AmieListStatus, AmieListCategory } from "@/components/ui/amie-list-signals";
 import { useEffect, useMemo, useState } from "react";
 import {
   fetchVcList,
@@ -157,7 +158,7 @@ export default function VcListPage() {
         <div className="text-center text-muted-foreground py-10 text-sm">該当なし</div>
       ) : (
         <div className="border border-border rounded-lg overflow-hidden overflow-x-auto">
-          <table className="w-full text-xs">
+          <table data-amie-list="records" className="w-full text-xs">
             <thead className="bg-muted/40 text-left text-[11px] uppercase tracking-wide text-muted-foreground sticky top-0">
               <tr>
                 {COLUMNS.map((c) => (
@@ -210,7 +211,7 @@ function Row({ v, onSelect }: { v: VcListItem; onSelect: () => void }) {
         {v.name_en && <div className="text-[10px] text-muted-foreground">{v.name_en}</div>}
       </td>
       <td className="px-2 py-2 text-muted-foreground">
-        {v.type ? VC_TYPE_LABEL[v.type] ?? v.type : "—"}
+        <AmieListCategory value={v.type ? VC_TYPE_LABEL[v.type] ?? v.type : "—"} />
       </td>
       <td className="px-2 py-2 text-center" title={v.amd_rating_note ?? (v.amd_rating ? "" : "未評価")}>
         <span className="whitespace-nowrap">
@@ -228,17 +229,13 @@ function Row({ v, onSelect }: { v: VcListItem; onSelect: () => void }) {
         {af ? (
           <span className="inline-flex items-center gap-1">
             <span className="font-medium">#{af.fund_no}</span>
-            <span
-              className={`text-[9px] px-1 py-0.5 rounded ${
+            <AmieListStatus value={af.status} label={FUND_STATUS_LABEL[af.status] ?? af.status} className={`text-[9px] px-1 py-0.5 rounded ${
                 af.status === "raising"
                   ? "border border-emerald-300/40 bg-emerald-300/12 text-emerald-100"
                   : af.status === "investing" || af.status === "first_closed" || af.status === "final_closed"
                   ? "border border-sky-300/40 bg-sky-300/12 text-sky-100"
                   : "border border-slate-500/45 bg-slate-700/25 text-slate-300"
-              }`}
-            >
-              {FUND_STATUS_LABEL[af.status] ?? af.status}
-            </span>
+              }`}/>
           </span>
         ) : (
           <span className="text-muted-foreground/40">—</span>

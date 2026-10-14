@@ -1,5 +1,7 @@
 "use client";
 
+import { AmieListCategory, AmieListStatus } from "@/components/ui/amie-list-signals";
+
 import { useState } from "react";
 
 export type ContractTableRow = {
@@ -99,7 +101,7 @@ export function ContractLedgerTable({ rows, onOpen, loading = false, initialView
         <span className="text-xs text-slate-500">{rows.length}件 · 横にスクロールして比較</span>
       </div>
       <div className="[--contract-title-width:120px] sm:[--contract-title-width:260px] [scroll-padding-left:var(--contract-title-width)] sm:[scroll-padding-left:calc(var(--contract-title-width)+112px)] isolate max-h-[70vh] w-full overflow-auto overscroll-x-contain outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-500" role="region" aria-label="契約台帳の比較表" tabIndex={0} aria-busy={loading}>
-        <table className="table-fixed border-collapse text-left text-xs leading-5" style={{ width: `calc(${width - 260}px + var(--contract-title-width))` }}>
+        <table data-amie-list="records" className="table-fixed border-collapse text-left text-xs leading-5" style={{ width: `calc(${width - 260}px + var(--contract-title-width))` }}>
           <caption className="sr-only">契約台帳。1行1契約、項目ごとの列で比較。契約名から詳細を開く。</caption>
           <colgroup>{columns.map(column => <col key={column.key} style={{ width: column.key === "title" ? "var(--contract-title-width)" : column.width }} />)}</colgroup>
           <thead className="sticky top-0 z-20 bg-slate-100 text-slate-600">
@@ -113,6 +115,10 @@ export function ContractLedgerTable({ rows, onOpen, loading = false, initialView
                 return <td key={column.key} className={`border-b border-r border-slate-200 px-3 py-2 align-middle ${column.key === "project" ? "sm:sticky sm:left-0 z-10 bg-white group-even:bg-slate-50 group-hover:bg-slate-100 group-focus-within:bg-slate-100" : column.key === "title" ? "sticky left-0 sm:left-28 z-10 bg-white shadow-[4px_0_6px_-5px_rgba(15,23,42,0.4)] group-even:bg-slate-50 group-hover:bg-slate-100 group-focus-within:bg-slate-100" : ""} ${column.numeric ? "text-right tabular-nums" : ""}`}>
                   {column.key === "title" ? <button type="button" onClick={() => onOpen(row.id)} aria-label={`${row.project} ${row.title} の詳細を開く`} title={row.title} className="flex min-h-11 w-full items-center text-left font-semibold text-slate-900 underline-offset-4 hover:text-sky-800 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-500"><span className="line-clamp-2">{row.title}</span></button>
                     : column.key === "document" && row.document ? <a href={row.document.url} target="_blank" rel="noreferrer" title={row.document.label} className="flex min-h-11 items-center text-sky-800 underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"><span className="line-clamp-2">{row.document.label}</span></a>
+                      : column.key === "type" ? <AmieListCategory value={value} title={value} className={`line-clamp-2 break-words ${color}`}/>
+                      : column.key === "status" ? <AmieListStatus label={value}/>
+                      : column.key === "signature" ? <AmieListStatus label={value} tone={row.signatureTone === "complete" ? "complete" : row.signatureTone === "needs_proof" ? "warning" : "neutral"}/>
+                      : column.key === "review" && row.reviewCount > 0 ? <AmieListStatus label={value} tone="warning"/>
                       : <span title={value} className={`line-clamp-2 break-words ${color}`}>{value}</span>}
                 </td>;
               })}

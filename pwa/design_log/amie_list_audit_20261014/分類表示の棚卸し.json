@@ -1,0 +1,110 @@
+[
+  {
+    "file": "pwa/src/app/workspace/[slug]/page.tsx",
+    "line": 109,
+    "tag": "span",
+    "expression": "INSTITUTION_TYPE_LABEL[data.institution.type] ?? data.institution.type"
+  },
+  {
+    "file": "pwa/src/components/seeds/SeedDetailModal.tsx",
+    "line": 1491,
+    "tag": "td",
+    "expression": "SEED_COMPANY_FACT_CATEGORY_LABEL[f.category] ?? f.category"
+  },
+  {
+    "file": "pwa/src/components/vc/VcDetailBody.tsx",
+    "line": 30,
+    "tag": "span",
+    "expression": "VC_TYPE_LABEL[vc.type] ?? vc.type"
+  },
+  {
+    "file": "pwa/src/components/dashboard/InstitutionReadinessList.tsx",
+    "line": 76,
+    "tag": "span",
+    "expression": "INSTITUTION_TYPE_LABEL[inst.type] ?? inst.type"
+  },
+  {
+    "file": "pwa/src/components/cockpit/CockpitStrategySignals.tsx",
+    "line": 559,
+    "tag": "span",
+    "expression": "typeLabel ?? TYPE_LABEL[signal.signalType] ?? signal.signalType"
+  },
+  {
+    "file": "pwa/src/components/cockpit/CockpitTechnology.tsx",
+    "line": 817,
+    "tag": "td",
+    "expression": "FRAGMENT_CATEGORY_LABEL[f.category] ?? f.category"
+  },
+  {
+    "file": "pwa/src/components/cockpit/CockpitKuteSeeds.tsx",
+    "line": 857,
+    "tag": "td",
+    "expression": "commercializationTypes.length > 0 ? (\n          <div className=\"flex flex-wrap gap-1\">\n            {commercializationTypes.map((t) => (\n              <span\n                key={t}\n                className=\"whitespace-normal break-words rounded border border-slate-300 bg-slate-50 px-1 py-0.5 text-[10px] leading-tight text-slate-700\"\n              >\n                {SEED_COMMERCIALIZATION_TYPE_LABEL[t] ?? t}\n              </span>\n            ))}\n          </div>\n        ) : (\n          <span className=\"text-slate-400\">未確定</span>\n        )"
+  },
+  {
+    "file": "pwa/src/components/cockpit/CockpitKuteSeeds.tsx",
+    "line": 860,
+    "tag": "span",
+    "expression": "SEED_COMMERCIALIZATION_TYPE_LABEL[t] ?? t"
+  },
+  {
+    "file": "pwa/src/components/cockpit/Bzm22AcquisitionLedger.tsx",
+    "line": 103,
+    "tag": "span",
+    "expression": "BZM22_CONSTRAINT_TYPE_LABELS[constraint.constraintType] ?? constraint.constraintType"
+  },
+  {
+    "file": "pwa/src/components/cockpit/CockpitProjectOverview.tsx",
+    "line": 194,
+    "tag": "span",
+    "expression": "CONTRACT_TYPE_LABELS[contract.contractType || \"\"] || contract.contractType || \"契約\""
+  },
+  {
+    "file": "pwa/src/components/cockpit/CockpitHeader.tsx",
+    "line": 50,
+    "tag": "span",
+    "expression": "CATEGORY_LABELS[category] ?? \"DTSU\""
+  },
+  {
+    "file": "pwa/src/app/(app)/institutions/assess/page.tsx",
+    "line": 387,
+    "tag": "span",
+    "expression": "INSTITUTION_TYPE_LABEL[inst.type] ?? inst.type"
+  },
+  {
+    "file": "pwa/src/components/workflows/WorkflowWorkspace.tsx",
+    "line": 60,
+    "tag": "td",
+    "expression": "typeLabel(contractField(r,'contract_type'))"
+  },
+  {
+    "file": "pwa/src/app/(app)/institutions/[institutionId]/page.tsx",
+    "line": 95,
+    "tag": "span",
+    "expression": "INSTITUTION_TYPE_LABEL[inst.type] ?? inst.type"
+  },
+  {
+    "file": "pwa/src/components/admin/AdminScheduleClient.tsx",
+    "line": 719,
+    "tag": "span",
+    "expression": "CATEGORY_LABELS[item.category]"
+  },
+  {
+    "file": "pwa/src/app/(app)/vcs/page.tsx",
+    "line": 213,
+    "tag": "td",
+    "expression": "v.type ? VC_TYPE_LABEL[v.type] ?? v.type : \"—\""
+  },
+  {
+    "file": "pwa/src/app/(app)/reimburse/page.tsx",
+    "line": 585,
+    "tag": "td",
+    "expression": "CATEGORY_LABELS[normalizeCategory(item.category)]"
+  },
+  {
+    "file": "pwa/src/app/(app)/reimburse/page.tsx",
+    "line": 678,
+    "tag": "span",
+    "expression": "CATEGORY_LABELS[normalizeCategory(item.category)]"
+  }
+]

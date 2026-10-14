@@ -42,7 +42,7 @@ export function CostEconomicsSummary({ bundle, computed, selection, unit }: {
       {budget !== null && savings && <p className="mt-1 text-[12px]"><strong className="font-semibold">改善の効果（2026-10-08採用時）</strong> {savings.bodyMd}</p>}
       {budget !== null && <>
         <div className="mt-2 overflow-x-auto">
-          <table className="w-full max-w-[900px] border-collapse text-right tabular-nums" aria-label="総額の費用配分">
+          <table data-amie-list="matrix" className="w-full max-w-[900px] border-collapse text-right tabular-nums" aria-label="総額の費用配分">
             <thead className="border-b border-[#d2d2d7] text-[12px] text-[#6e6e73]"><tr><th scope="col" className="py-1 pr-3 text-left font-medium">円/{unit}</th><th scope="col" className="px-2 font-medium">運転・作業等</th><th scope="col" className="px-2 font-medium">設備償却</th><th scope="col" className="px-2 font-medium">原価合計</th><th scope="col" className="pl-2 font-medium">総額上限からの配分</th></tr></thead>
             <tbody>
               <tr className="border-b border-[#e5e5e7]"><th scope="row" className="py-1 pr-3 text-left font-medium">SOL</th><td className="px-2">{num(s.opexTotalPerUnit)}</td><td className="px-2">{num(s.capexTotalPerUnit)}</td><td className="px-2">{num(s.totalPerUnit)}</td><td className="pl-2">料金上限 {s.feeCeilingPerUnit! < 0 ? "なし" : num(s.feeCeilingPerUnit!)}</td></tr>

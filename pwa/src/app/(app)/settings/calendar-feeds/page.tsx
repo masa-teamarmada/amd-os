@@ -8,6 +8,7 @@
  * URLは登録後は画面に出さない。知っていれば認証なしで相手の予定が読めるため。
  */
 
+import { AmieListStatus } from "@/components/ui/amie-list-signals";
 import { useCallback, useEffect, useState } from "react";
 
 type FeedSource = {
@@ -255,9 +256,7 @@ export default function CalendarFeedsPage() {
                   <span className="text-xs rounded border border-border px-1.5 py-0.5">
                     {VISIBILITY_LABEL[source.visibilityLevel] || source.visibilityLevel}
                   </span>
-                  <span className="text-xs rounded border border-border px-1.5 py-0.5">
-                    {STATUS_LABEL[source.status] || source.status}
-                  </span>
+                  <AmieListStatus value={source.status} label={STATUS_LABEL[source.status] || source.status} className="text-xs rounded border border-border px-1.5 py-0.5"/>
                   <span className="text-xs font-mono text-muted-foreground">URL {source.urlFingerprint}</span>
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">
@@ -290,7 +289,7 @@ export default function CalendarFeedsPage() {
           <p className="mt-3 text-sm text-muted-foreground">まだ取り込んだ予定がない。</p>
         ) : (
           <div className="mt-3 overflow-x-auto">
-            <table className="w-full min-w-[560px] border-collapse text-sm">
+            <table data-amie-list="records" className="w-full min-w-[560px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted-foreground">
                   <th className="py-2 pr-3 font-medium">日時</th>

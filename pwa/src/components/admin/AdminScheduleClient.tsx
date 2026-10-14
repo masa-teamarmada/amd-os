@@ -1,5 +1,6 @@
 "use client";
 
+import { AmieListStatus, AmieListCategory } from "@/components/ui/amie-list-signals";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -646,7 +647,7 @@ function PaymentRow({ item, lane, onSelect }: { item: ScheduleViewOccurrence; la
   return <button type="button" onClick={() => onSelect(item.occurrence_id)} className={`block min-h-11 w-full rounded-lg border border-border/70 border-l-4 p-3 text-left transition-colors hover:border-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${STATUS_STYLES[item.computed_status]}`}>
     <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1"><span className="shrink-0 text-sm font-semibold tabular-nums">{paymentDateLabel(item)}</span><span className="break-words text-sm font-semibold leading-5">{item.title}</span></div>
     <div className="mt-2 grid gap-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:gap-3"><p className="break-words text-xs leading-5"><span className="text-muted-foreground">支払先:</span> {counterpartyFor(item)}</p><p className="break-words text-base font-semibold leading-5 tabular-nums">{formatScheduleYen(item.amount_yen)}</p></div>
-    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]"><span className={`font-semibold ${amountState === "概算" ? "text-amber-800" : "text-foreground"}`}>{amountState}</span><span className="text-muted-foreground">{lane === "paid" ? "納付済み" : lane === "reconcile" ? "要照合" : "口座流出予定"}</span><span className="text-muted-foreground">{stateLabel(item)}</span></div>
+    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]"><span className={`font-semibold ${amountState === "概算" ? "text-amber-800" : "text-foreground"}`}>{amountState}</span><span className="text-muted-foreground">{lane === "paid" ? "納付済み" : lane === "reconcile" ? "要照合" : "口座流出予定"}</span><AmieListStatus label={stateLabel(item)} className="text-muted-foreground"/></div>
   </button>;
 }
 
@@ -715,8 +716,8 @@ function MonthlyActionRow({ item, onSelect }: { item: ScheduleViewOccurrence; on
     <span className="min-w-0">
       <span className="block break-words text-[13px] font-semibold leading-[1.45]">{item.title}</span>
       <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] leading-4 opacity-80">
-        <span>{CATEGORY_LABELS[item.category]}</span>
-        <span>{stateLabel(item)}</span>
+        <AmieListCategory value={CATEGORY_LABELS[item.category]} />
+        <AmieListStatus label={stateLabel(item)} />
         {isInternalDeadline(item) && <span className="rounded-sm bg-black/10 px-1">社内準備</span>}
         {needsSourceCheck(item) && <span className="rounded-sm bg-black/10 px-1">正本要確認</span>}
         {amount && <span className="font-semibold tabular-nums">{amount}</span>}

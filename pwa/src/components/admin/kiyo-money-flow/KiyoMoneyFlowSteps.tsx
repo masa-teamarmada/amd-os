@@ -182,7 +182,7 @@ export function KiyoMoneyFlowMonthlyTable({ monthly }: { monthly: KiyoMoneyFlowM
     <section className="rounded-none border border-border bg-background p-2.5">
       <div className="mb-1.5 border-b border-border pb-1 text-[13px] font-semibold text-foreground">月ごとの推移</div>
       <div className="overflow-x-auto">
-        <table className="w-full text-xs tabular-nums">
+        <table data-amie-list="records" className="w-full text-xs tabular-nums">
           <thead>
             <tr className="text-[11px] text-muted-foreground">
               <th className="py-1 text-left font-normal">月</th>

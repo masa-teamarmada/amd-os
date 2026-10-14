@@ -8,6 +8,7 @@
  * 集計は /api/funding-stats。cap table の持株比率・投資家別内訳は返さない。
  */
 
+import { AmieListStatus } from "@/components/ui/amie-list-signals";
 import { type ReactNode, useEffect, useState } from "react";
 
 type ContributionStatus = "full" | "partial" | "none" | "unreviewed";
@@ -227,7 +228,7 @@ function FundingLedgerRow({ item, accent }: { item: FundingItem; accent: "emeral
         <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
           <span className={muted ? "truncate text-muted-foreground" : "truncate font-medium"}>{item.label}</span>
           {item.meta && <span className="rounded border border-border bg-muted/30 px-1 py-0 text-[9px] text-muted-foreground">{item.meta}</span>}
-          {item.status && <span className="text-[10px] text-muted-foreground">{statusLabel(item)}</span>}
+          {item.status && <AmieListStatus label={statusLabel(item)} className="text-[10px] text-muted-foreground"/>}
         </div>
         <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
           {item.date && <span className="tabular-nums">{item.date.slice(0, 10)}</span>}

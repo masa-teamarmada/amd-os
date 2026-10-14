@@ -352,7 +352,7 @@ function SeedInputBlock({
         </p>
       ) : null}
       <div className="w-0 min-w-full overflow-x-auto">
-        <table className="w-full min-w-[640px] border-collapse text-[11px]">
+        <table data-amie-list="matrix" className="w-full min-w-[640px] border-collapse text-[11px]">
           <thead>
             <tr className="border-b border-border text-left text-[10px] text-muted-foreground">
               <th className="w-[15%] px-2 py-1 font-medium">記号</th>
@@ -466,7 +466,7 @@ function GridBlock({ model }: { model: Bzm30Model }) {
         {model.numeric_error}。
       </p>
       <div className="w-0 min-w-full overflow-x-auto">
-        <table className="w-full min-w-[860px] border-collapse text-[11px]">
+        <table data-amie-list="matrix" className="w-full min-w-[860px] border-collapse text-[11px]">
           <thead>
             <tr className="border-b border-border text-left text-[10px] text-muted-foreground">
               <th className="px-1.5 py-1 font-medium">型</th>
@@ -609,7 +609,7 @@ function FormulaWithValues({
       </div>
       {rows.length === 0 ? null : (
         <div className="w-0 min-w-full overflow-x-auto border-t border-border/60">
-          <table className="w-full border-collapse text-[11px]">
+          <table data-amie-list="matrix" className="w-full border-collapse text-[11px]">
             <thead>
               <tr className="bg-muted/50 text-left text-[10px] text-muted-foreground">
                 <th className="w-[12%] px-2 py-1 font-medium">記号</th>
@@ -707,7 +707,7 @@ function ParamListBlock({ model }: { model: Bzm30Model }) {
               {g.group}
               <span className="ml-1.5 font-normal text-muted-foreground">{g.params.length} 件</span>
             </div>
-            <table className="w-full border-collapse text-[11px]">
+            <table data-amie-list="matrix" className="w-full border-collapse text-[11px]">
               <tbody>
                 {g.params.map((p) => (
                   <tr key={p.key} className="border-t border-border/40 align-top">

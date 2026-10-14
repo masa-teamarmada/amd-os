@@ -1,5 +1,6 @@
 "use client";
 
+import { AmieListStatus } from "@/components/ui/amie-list-signals";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   MsOverviewPlanCycle,
@@ -722,7 +723,7 @@ function EditActionBar({
       }
       data-testid="admin-ms-overview-edit-save-bar"
     >
-      <span className={`rounded px-2 py-0.5 text-[11px] font-medium ${statusClass}`}>{statusLabel}</span>
+      <AmieListStatus label={statusLabel} className={`rounded px-2 py-0.5 text-[11px] font-medium ${statusClass}`}/>
       <span className="text-[11px] text-muted-foreground">保存先 DB / protected月は差額精算</span>
       {pointSummary && (
         <span

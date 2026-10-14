@@ -1,5 +1,6 @@
 "use client";
 
+import { AmieListCategory } from "@/components/ui/amie-list-signals";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, ExternalLink, Loader2 } from "lucide-react";
@@ -1113,7 +1114,7 @@ function SeedFundingSection({
       {funding.length === 0 ? (
         <div className="text-[11px] text-muted-foreground py-2">なし</div>
       ) : (
-        <table className="w-full text-xs">
+        <table data-amie-list="records" className="w-full text-xs">
           <thead className="text-[10px] uppercase text-muted-foreground">
             <tr>
               <th className="px-1 py-1 text-left">プログラム</th>
@@ -1473,7 +1474,7 @@ function SeedCompanyFactSection({
         <div className="text-[11px] text-muted-foreground py-2">なし</div>
       ) : (
         <div className="w-0 min-w-full overflow-x-auto">
-          <table className="w-full text-xs">
+          <table data-amie-list="records" className="w-full text-xs">
             <thead className="text-[10px] uppercase text-muted-foreground">
               <tr>
                 <th className="px-1 py-1 text-left w-20">時点</th>
@@ -1489,7 +1490,7 @@ function SeedCompanyFactSection({
                 <tr key={f.id} className="border-t border-border/40 align-top">
                   <td className="px-1 py-1 text-muted-foreground text-[10px] whitespace-nowrap">{f.observed_on}</td>
                   <td className="px-1 py-1 text-[10px] text-muted-foreground">
-                    {SEED_COMPANY_FACT_CATEGORY_LABEL[f.category] ?? f.category}
+                    <AmieListCategory value={SEED_COMPANY_FACT_CATEGORY_LABEL[f.category] ?? f.category} />
                   </td>
                   <td className="px-1 py-1">
                     {f.source_url ? (

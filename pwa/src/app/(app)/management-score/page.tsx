@@ -2764,7 +2764,7 @@ export default async function ManagementScorePage() {
 
           <div className="border-t px-4 py-3">
             <div className="overflow-x-auto">
-              <table className="min-w-[980px] w-full text-xs">
+              <table data-amie-list="records" className="min-w-[980px] w-full text-xs">
                 <thead className="text-muted-foreground">
                   <tr className="border-b">
                     <th className="py-2 pr-3 text-left font-medium">月</th>
@@ -2920,7 +2920,7 @@ function FinancePurposeTable({
       </div>
 
       <div className="overflow-x-auto px-4 py-3">
-        <table className="min-w-[1180px] w-full border-separate border-spacing-0 text-xs">
+        <table data-amie-list="records" className="min-w-[1180px] w-full border-separate border-spacing-0 text-xs">
           <thead>
             <tr className="bg-muted/40">
               <th className="sticky left-0 z-20 w-44 border-b border-r bg-muted px-3 py-2 text-left font-medium">PJ</th>
@@ -3547,7 +3547,7 @@ function ScoreHistory({ rows }: { rows: ScoreSnapshot[] }) {
             );
           })}
         </div>
-        <table className="mt-3 w-full text-xs">
+        <table data-amie-list="records" className="mt-3 w-full text-xs">
           <thead className="text-muted-foreground">
             <tr>
               <th className="py-1 text-left font-medium">月</th>

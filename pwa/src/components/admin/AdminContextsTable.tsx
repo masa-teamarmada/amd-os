@@ -1,5 +1,6 @@
 "use client";
 
+import { AmieListStatus } from "@/components/ui/amie-list-signals";
 import { useState, useMemo } from "react";
 import { createClient } from "@supabase/supabase-js";
 
@@ -265,9 +266,7 @@ export function AdminContextsTable({ contexts: initial }: Props) {
                     {tags.map((t) => (
                       <span key={t} className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{t}</span>
                     ))}
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${r.status === "active" ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-zinc-500 bg-zinc-50 border-zinc-200"}`}>
-                      {r.status}
-                    </span>
+                    <AmieListStatus value={r.status}/>
                     <span className="text-[10px] text-muted-foreground">p={r.priority}</span>
                   </div>
                   {!isEditing && !isExpanded && (

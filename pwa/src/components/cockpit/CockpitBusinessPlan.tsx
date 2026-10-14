@@ -109,7 +109,7 @@ function PhaseOverview({ phases, selectedId, onSelect }: { phases: BusinessPlanP
     <div className="mb-1 mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
       <h3 className="text-[12px] font-semibold text-slate-900">各フェーズの到達目標</h3>
     </div>
-    <table className={styles.targets} aria-label="フェーズごとの成熟度の到達目標">
+    <table data-amie-list="records" className={styles.targets} aria-label="フェーズごとの成熟度の到達目標">
       <colgroup><col className={styles.targetLabel} />{phases.map((phase) => <col key={phase.id} />)}</colgroup>
       <thead><tr><th scope="col" className="text-left text-[11px] font-normal text-slate-500">フェーズ</th>{phases.map((phase, index) => <th key={phase.id} scope="col" className="text-[11px] font-medium text-slate-600"><span className="sr-only">{phase.label} </span><span className={styles.phaseWord}>フェーズ</span>{phaseMarker(phase, index)}</th>)}</tr></thead>
       <tbody>{XRL_KEYS.map((key) => <tr key={key}>
@@ -186,7 +186,7 @@ function PhaseMatrix({ projectName, plan, canDownload = true, confidential = fal
 
       {!empty && <PhaseOverview phases={phases} selectedId={selectedId} onSelect={selectPhase} />}
       <div ref={matrixRef} className="overflow-x-auto" data-testid="business-plan-phase-matrix" data-phase-count={phases.length}>
-        <table className="w-full table-fixed border-separate border-spacing-0 text-left" style={{ minWidth: empty ? undefined : `${104 + phases.length * 260}px` }}>
+        <table data-amie-list="records" className="w-full table-fixed border-separate border-spacing-0 text-left" style={{ minWidth: empty ? undefined : `${104 + phases.length * 260}px` }}>
           <colgroup><col style={{ width: 104 }} />{Array.from({ length: empty ? 1 : phases.length }, (_, i) => <col key={i} />)}</colgroup>
           <thead>
             <tr>

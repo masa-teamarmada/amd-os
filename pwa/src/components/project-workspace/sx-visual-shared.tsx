@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Ban, CircleCheck, CircleHelp, TriangleAlert } from "lucide-react";
+import { Ban, CircleCheck, CircleHelp, CirclePlay, TriangleAlert } from "lucide-react";
 import type {
   SxBallSide,
   SxDatePrecision,
@@ -50,12 +50,12 @@ export const SX_STATUS_LABEL: Record<SxMilestoneStatus, string> = {
 };
 
 export const SX_STATUS_TONE: Record<string, string> = {
-  on_track: "border-[#6ee7b7] bg-[#ecfdf5] text-[#047857]",
+  on_track: "border-[#7CBCEB] bg-[#E8F3FC] text-[#0267B2]",
   attention: "border-[#fbbf24] bg-[#fef3c7] text-[#92400e]",
   at_risk: "border-[#fbbf24] bg-[#fef3c7] text-[#92400e]",
   blocked: "border-[#ef4444] bg-[#fee2e2] text-[#dc2626]",
-  completed: "border-[#7CBCEB] bg-[#E8F3FC] text-[#027FDC]",
-  unassessed: "border-[#3D99E3] bg-[#E8F3FC] text-[#0267B2]",
+  completed: "border-[#6ee7b7] bg-[#ecfdf5] text-[#047857]",
+  unassessed: "border-[#cbd5e1] bg-[#f5f5f7] text-[#546375]",
   not_started: "border-[#cbd5e1] bg-[#f5f5f7] text-[#86868b]",
 };
 
@@ -90,7 +90,7 @@ export function sxTechnicalTestStatusLabel(value: string) {
 }
 
 export const SX_TECH_TEST_STATUS_TONE: Record<string, string> = {
-  unassessed: "border-[#3D99E3] bg-[#E8F3FC] text-[#0267B2]",
+  unassessed: "border-[#cbd5e1] bg-[#f5f5f7] text-[#546375]",
   planned: "border-[#cbd5e1] bg-[#f5f5f7] text-[#3c3c43]",
   running: "border-[#7CBCEB] bg-[#E8F3FC] text-[#027FDC]",
   passed: "border-[#6ee7b7] bg-[#ecfdf5] text-[#047857]",
@@ -168,7 +168,8 @@ export function SxBadge({ children, tone = "border-[#cbd5e1] bg-[#f5f5f7] text-[
 
 export function SxStatusIcon({ status, blocked, className = "h-4 w-4" }: { status: SxMilestoneStatus; blocked?: boolean; className?: string }) {
   if (blocked || status === "blocked") return <Ban className={className} aria-hidden="true" />;
-  if (status === "on_track" || status === "completed") return <CircleCheck className={className} aria-hidden="true" />;
+  if (status === "completed") return <CircleCheck className={className} aria-hidden="true" />;
+  if (status === "on_track") return <CirclePlay className={className} aria-hidden="true" />;
   if (status === "attention" || status === "at_risk") return <TriangleAlert className={className} aria-hidden="true" />;
   return <CircleHelp className={className} aria-hidden="true" />;
 }

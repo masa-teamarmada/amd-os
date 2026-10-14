@@ -69,7 +69,7 @@ function SeasonPlList({
 
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
-      <table className="w-full text-sm">
+      <table data-amie-list="matrix" className="w-full text-sm">
         <thead className="bg-muted/50 text-xs text-muted-foreground">
           <tr>
             <th className="px-3 py-2 text-left">PJ / シーズン</th>
@@ -275,7 +275,7 @@ function SeasonPlDetail({ pl, onBack }: { pl: SeasonPl; onBack: () => void }) {
           </p>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table data-amie-list="matrix" className="w-full text-sm">
             <thead className="bg-muted/50 text-xs text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 text-left">メンバー</th>

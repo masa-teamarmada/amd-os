@@ -9,6 +9,7 @@
  * どれにもチェックしなければ N/A (軸平均から除外)。列 = 機関、ヘッダ行・左列 sticky 固定。
  * 変更は 1 セルずつ即保存 (楽観更新)、ECR はリアルタイム再計算。
  */
+import { AmieListStatus, AmieListCategory } from "@/components/ui/amie-list-signals";
 import { Fragment, useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
 import { fetchErsBundle, type ErsBundle } from "@/lib/ers-data";
@@ -367,7 +368,7 @@ export default function AssessMatrixPage() {
 
       {activeTab === "ers" && (
       <div className="overflow-auto rounded-lg border border-border max-h-[80vh]">
-        <table className="text-xs border-collapse w-full">
+        <table data-amie-list="records" className="text-xs border-collapse w-full">
           <thead>
             <tr>
               <th className="sticky top-0 left-0 z-30 bg-muted px-3 py-2 text-left font-medium border-b border-r border-border min-w-[340px] w-[42%]">
@@ -383,9 +384,7 @@ export default function AssessMatrixPage() {
                     <Link href={`/institutions/${inst.institutionId}`} className="hover:underline">
                       {inst.name}
                     </Link>
-                    <span className="ml-1 text-[9px] rounded border px-1 py-0.5 bg-indigo-50 text-indigo-800 border-indigo-300">
-                      {INSTITUTION_TYPE_LABEL[inst.type] ?? inst.type}
-                    </span>
+                    <AmieListCategory value={INSTITUTION_TYPE_LABEL[inst.type] ?? inst.type} className="ml-1 text-[9px] rounded border px-1 py-0.5 bg-indigo-50 text-indigo-800 border-indigo-300"/>
                     <div className="mt-1 flex items-center justify-center gap-1.5">
                       <span
                         className="inline-block w-2.5 h-2.5 rounded-sm"
@@ -576,9 +575,7 @@ function PolicyCategoryRow({ label, colSpan }: { label: string; colSpan: number 
 
 function PolicyStatusBadge({ status }: { status: InstitutionPolicyStatus }) {
   return (
-    <span className={`inline-block rounded border px-1.5 py-0.5 text-[10px] font-medium ${POLICY_STATUS_TONE[status]}`}>
-      {POLICY_STATUS_LABEL[status]}
-    </span>
+    <AmieListStatus value={status} label={POLICY_STATUS_LABEL[status]} className={`inline-block rounded border px-1.5 py-0.5 text-[10px] font-medium ${POLICY_STATUS_TONE[status]}`}/>
   );
 }
 
@@ -601,7 +598,7 @@ function PolicyStatusTable({
 }) {
   return (
     <div className="overflow-auto rounded-lg border border-border max-h-[80vh]">
-      <table className="text-xs border-collapse w-full">
+      <table data-amie-list="records" className="text-xs border-collapse w-full">
         <thead>
           <tr>
             <th className="sticky top-0 left-0 z-30 bg-muted px-3 py-2 text-left font-medium border-b border-r border-border min-w-[300px]">
@@ -688,7 +685,7 @@ function PolicyAttributeTable({
 }) {
   return (
     <div className="overflow-auto rounded-lg border border-border max-h-[80vh]">
-      <table className="text-xs border-collapse w-full">
+      <table data-amie-list="records" className="text-xs border-collapse w-full">
         <thead>
           <tr>
             <th className="sticky top-0 left-0 z-30 bg-muted px-3 py-2 text-left font-medium border-b border-r border-border min-w-[300px]">
@@ -775,7 +772,7 @@ function PolicyEvidenceTable({
 }) {
   return (
     <div className="overflow-auto rounded-lg border border-border max-h-[80vh]">
-      <table className="text-xs border-collapse w-full">
+      <table data-amie-list="records" className="text-xs border-collapse w-full">
         <thead>
           <tr>
             <th className="sticky top-0 left-0 z-30 bg-muted px-3 py-2 text-left font-medium border-b border-r border-border min-w-[280px]">

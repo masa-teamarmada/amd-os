@@ -1,3 +1,4 @@
+import { AmieListStatus } from "@/components/ui/amie-list-signals";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -211,7 +212,7 @@ export function InstitutionProjectControlView({
               <h1 id="project-control-heading">{control.summary.projectName}</h1>
             </div>
             <div className={`${styles.verdict} ${stateClass(control.summary.verdict.state)}`}>
-              <span>{stateLabel(control.summary.verdict.state)}</span>
+              <AmieListStatus label={stateLabel(control.summary.verdict.state)} />
               <strong>{control.summary.verdict.label}</strong>
               <small>{control.summary.verdict.reason}</small>
             </div>
@@ -340,7 +341,7 @@ function ControlColumn({
             <li key={item.itemId}>
               <div className={styles.itemState}>
                 {item.state === "completed" ? <CheckCircle2 aria-hidden="true" /> : <Clock3 aria-hidden="true" />}
-                <span>{stateLabel(item.state)}</span>
+                <AmieListStatus label={stateLabel(item.state)} />
               </div>
               <div>
                 <strong>{item.label}</strong>

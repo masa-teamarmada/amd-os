@@ -12,6 +12,7 @@
  *   - 三点セット (閉じた条件 / 消費 / 行動の増減) は同じ行の中で並べる
  */
 
+import { AmieListCategory } from "@/components/ui/amie-list-signals";
 import { useEffect, useState } from "react";
 import {
   BZM22_AUDIT_TAG_LABELS,
@@ -100,9 +101,7 @@ function AcquisitionRow({ item }: { item: Bzm22Acquisition }) {
         <TripleCell title="閉じた条件" empty={item.closedConstraints.length === 0}>
           {item.closedConstraints.map((constraint, index) => (
             <div key={`${item.acquisitionId}-constraint-${index}`}>
-              <span className="text-slate-500">
-                {BZM22_CONSTRAINT_TYPE_LABELS[constraint.constraintType] ?? constraint.constraintType}
-              </span>
+              <AmieListCategory value={BZM22_CONSTRAINT_TYPE_LABELS[constraint.constraintType] ?? constraint.constraintType} className="text-slate-500"/>
               {" "}
               {constraint.constraintKey}
               <span className="ml-1 font-mono text-[9px] text-slate-500">

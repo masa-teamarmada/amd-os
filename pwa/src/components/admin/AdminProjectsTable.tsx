@@ -1,5 +1,7 @@
 "use client";
 
+import { AmieListStatus, AmieListCategory, AmieListOverview } from "@/components/ui/amie-list-signals";
+
 import { useEffect, useMemo, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { AdminProjectMembersModal } from "./AdminProjectMembersModal";
 import { EmailsEditModal } from "./EmailsEditModal";
@@ -150,29 +152,8 @@ const PROJECT_CATEGORY_OPTIONS: Array<{ value: ProjectCategory; label: string; n
   { value: "advisor", label: "Advisor", note: "社外役員/顧問" },
 ];
 
-const PROJECT_CATEGORY_COLORS: Record<ProjectCategory, string> = {
-  dtsu: "border-cyan-200 bg-cyan-50 text-cyan-800",
-  new_business: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  ecosystem: "border-violet-200 bg-violet-50 text-violet-800",
-  advisor: "border-amber-200 bg-amber-50 text-amber-800",
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-zinc-300/30 text-zinc-700 border-zinc-300",
-  active: "bg-emerald-500/10 text-emerald-700 border-emerald-200",
-  sales: "bg-blue-500/10 text-blue-700 border-blue-200",
-  ended: "bg-zinc-500/10 text-zinc-500 border-zinc-200",
-  frozen: "bg-amber-500/10 text-amber-700 border-amber-200",
-  lost: "bg-red-500/10 text-red-600 border-red-200",
-};
-
 function StatusBadge({ status }: { status: string }) {
-  const cls = STATUS_COLORS[status] ?? "bg-zinc-500/10 text-zinc-500 border-zinc-200";
-  return (
-    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] border font-medium ${cls}`}>
-      {status}
-    </span>
-  );
+  return <AmieListStatus value={status}/>;
 }
 
 function fmtYen(value: number | string | null | undefined) {
@@ -313,14 +294,8 @@ function feeTypeClass(value: string | null | undefined) {
 }
 
 function ProjectCategoryBadge({ value }: { value: string | null | undefined }) {
-  const category = (value || "dtsu") as ProjectCategory;
-  const meta = PROJECT_CATEGORY_OPTIONS.find((item) => item.value === category) ?? PROJECT_CATEGORY_OPTIONS[0];
-  const cls = PROJECT_CATEGORY_COLORS[meta.value];
-  return (
-    <span className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold ${cls}`}>
-      {meta.label}
-    </span>
-  );
+  const meta = PROJECT_CATEGORY_OPTIONS.find(item => item.value === (value || "dtsu")) ?? PROJECT_CATEGORY_OPTIONS[0];
+  return <AmieListCategory value={meta.label} title={meta.note}/>;
 }
 
 interface Props {
@@ -382,6 +357,7 @@ type EditVals = {
 
 export function AdminProjectsTable({ projects: initialProjects }: Props) {
   const [projects, setProjects] = useState<ProjectRow[]>(initialProjects);
+  const [amieColumns, setAmieColumns] = useState<"overview"|"settings">("overview");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterQ, setFilterQ] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -808,6 +784,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
 
   return (
     <div>
+      <AmieListOverview items={[{label:"稼働中",count:projects.filter(p=>p.status==="active").length,tone:"progress"},{label:"営業中",count:projects.filter(p=>p.status==="sales").length,tone:"progress"},{label:"下書き",count:projects.filter(p=>p.status==="draft").length},{label:"終了・凍結",count:projects.filter(p=>["ended","frozen"].includes(p.status)).length}]}/>
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-3 items-end">
         <div className="flex flex-col gap-0.5">
@@ -838,6 +815,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
           リセット
         </button>
         <span className="text-[12px] text-muted-foreground">{filtered.length} 件</span>
+        <div className="flex gap-1" aria-label="PJ一覧の表示項目">{([ ["overview","比較一覧"], ["settings","すべての設定"] ] as const).map(([key,label])=><button key={key} type="button" aria-pressed={amieColumns===key} onClick={()=>setAmieColumns(key)} className={`min-h-11 rounded border px-3 text-xs sm:min-h-8 ${amieColumns===key?"border-sky-300 bg-sky-50 text-sky-800":"border-border text-muted-foreground"}`}>{label}</button>)}</div>
       </div>
 
       {hint && (
@@ -846,7 +824,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
 
       {/* Table */}
       <div className="max-h-[calc(100vh-9rem)] overflow-auto border border-border rounded-lg">
-        <table className="text-[12px] border-collapse" style={{ minWidth: `${2712 + weeklyReportColumnWidth}px` }}>
+        <table data-amie-list="records" data-amie-columns={amieColumns} className="text-[12px] border-collapse" style={{ minWidth: amieColumns === "overview" ? "920px" : `${2712 + weeklyReportColumnWidth}px` }}>
           <thead className="sticky top-0 z-30">
             <tr className="bg-muted text-muted-foreground">
               <th className="text-left px-3 py-2 font-medium sticky left-0 z-40 bg-muted w-14">PJID</th>
@@ -955,6 +933,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                     ) : (
                       <span className="truncate block">{p.project_name}</span>
                     )}
+                    <div className="mt-1 flex flex-wrap gap-1 md:hidden"><StatusBadge status={p.status}/><ProjectCategoryBadge value={p.project_category}/></div>
                   </td>
 
                   {/* status */}
@@ -990,7 +969,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
 	                    ) : (
 	                      <div className="space-y-1">
 	                        <ProjectCategoryBadge value={p.project_category} />
-	                        <div className="text-[9px] text-muted-foreground">
+	                        <div className="amie-project-category-note text-[9px] text-muted-foreground">
 	                          {PROJECT_CATEGORY_OPTIONS.find((item) => item.value === p.project_category)?.note || "通常DTSU"}
 	                        </div>
 	                      </div>
@@ -1065,12 +1044,12 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                     onClick={() => setMembersModal({ projectId: p.project_id, projectName: p.project_name })}
                     title="クリックで PJ メンバーを編集"
                   >
-                    <div className="space-y-0.5 text-[11px] whitespace-nowrap">
+                    <div className="amie-project-members space-y-0.5 text-[11px] whitespace-nowrap">
                       {p.pls.length > 0 && (
                         <div><span className="text-muted-foreground mr-1">PL:</span><span className="text-blue-700 font-semibold">{p.pls.join(", ")}</span></div>
                       )}
                       {p.pms.length > 0 && (
-                        <div><span className="text-muted-foreground mr-1">PM:</span><span className="text-emerald-700 font-semibold">{p.pms.join(", ")}</span></div>
+                        <div><span className="text-muted-foreground mr-1">PM:</span><span className="text-blue-700 font-semibold">{p.pms.join(", ")}</span></div>
                       )}
                       {p.closers.length > 0 && (
                         <div><span className="text-muted-foreground mr-1">クローザー:</span><span className="text-orange-700 font-semibold">{p.closers.join(", ")}</span></div>

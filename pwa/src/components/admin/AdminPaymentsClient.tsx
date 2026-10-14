@@ -198,7 +198,7 @@ function PaymentMatrixSection({ rows, today, fiscalYearEndMonth }: { rows: Payme
         </div>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[64rem] border-collapse text-sm tabular-nums">
+        <table data-amie-list="records" className="w-full min-w-[64rem] border-collapse text-sm tabular-nums">
           <thead>
             <tr className="border-b border-border text-xs text-muted-foreground">
               <th scope="col" className="sticky left-0 bg-card py-2 pr-3 text-left font-semibold">月</th>
@@ -375,7 +375,7 @@ export function AdminPaymentsClient({ data }: { data: AdminPaymentsData }) {
           </p>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[64rem] border-collapse text-sm">
+          <table data-amie-list="records" className="w-full min-w-[64rem] border-collapse text-sm">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted-foreground">
                 <th scope="col" className="py-2 pr-3 font-semibold">期限</th>

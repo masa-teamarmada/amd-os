@@ -619,7 +619,7 @@ function ExtractionRuleLedger() {
           </span>
         </summary>
         <div className="mt-2 overflow-x-auto rounded-md border border-[#d6cfc2] bg-[#fffdf8]">
-          <table className="min-w-[900px] w-full border-collapse text-left">
+          <table data-amie-list="matrix" className="min-w-[900px] w-full border-collapse text-left">
             <thead>
               <tr className="border-b border-[#d7d0c4] bg-[#f1ede4] text-[9px] text-[#777168]">
                 <th className="w-[19%] px-2.5 py-1.5 font-medium">記号 / 群</th>
@@ -750,7 +750,7 @@ function ParameterHistoryToggle({
             出所：{current.evidenceRef}
           </p>
         )}
-        <table className="mt-2 w-full border-collapse text-left text-[9px]">
+        <table data-amie-list="matrix" className="mt-2 w-full border-collapse text-left text-[9px]">
           <thead>
             <tr className="border-b border-[#d9d2c6] text-[#888176]">
               <th className="py-1 pr-1 font-medium">版</th>
@@ -804,7 +804,7 @@ function ParameterLedgerTable({
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-[840px] w-full border-collapse text-left">
+      <table data-amie-list="matrix" className="min-w-[840px] w-full border-collapse text-left">
         <thead>
           <tr className="border-b border-[#d7d0c4] bg-[#f6f2e9] text-[9px] font-medium tracking-[0.06em] text-[#777168]">
             <th className="w-[29%] px-2.5 py-1.5 font-medium">記号 / 変数</th>

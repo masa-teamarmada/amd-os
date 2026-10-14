@@ -5,6 +5,7 @@
  * 支援プログラム比較と同じ参照系キャッシュから、この機関の16項目 + 制度整備の詳細 (21項目) を1機関分だけ描く。
  * 全機関との比較は /institutions の「支援プログラム比較」「分析」タブへ送る。
  */
+import { AmieListStatus } from "@/components/ui/amie-list-signals";
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
@@ -131,9 +132,7 @@ export function InstitutionSupportProfile({ institutionId }: { institutionId: st
                       </dt>
                       <dd className="min-w-0">
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <span className={`inline-block border px-1 py-px text-[10px] font-semibold ${POLICY_STATUS_TONE[status]}`}>
-                            {POLICY_STATUS_LABEL[status]}
-                          </span>
+                          <AmieListStatus value={status} label={POLICY_STATUS_LABEL[status]} className={`inline-block border px-1 py-px text-[10px] font-semibold ${POLICY_STATUS_TONE[status]}`}/>
                           {cell?.value && <span className="text-[11px] text-foreground">{cell.value}</span>}
                         </div>
                         {cell?.note && (
@@ -181,9 +180,7 @@ export function InstitutionSupportProfile({ institutionId }: { institutionId: st
                   <div key={item.policyItemId} className="grid grid-cols-[140px_1fr] gap-2 py-1 text-[11px]">
                     <dt className="text-muted-foreground">{item.label}</dt>
                     <dd className="flex flex-wrap items-center gap-1.5">
-                      <span className={`inline-block border px-1 py-px text-[10px] font-semibold ${POLICY_STATUS_TONE[status]}`}>
-                        {POLICY_STATUS_LABEL[status]}
-                      </span>
+                      <AmieListStatus value={status} label={POLICY_STATUS_LABEL[status]} className={`inline-block border px-1 py-px text-[10px] font-semibold ${POLICY_STATUS_TONE[status]}`}/>
                       {cell?.value && <span className="text-foreground">{cell.value}</span>}
                     </dd>
                   </div>

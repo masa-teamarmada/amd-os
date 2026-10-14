@@ -11,6 +11,7 @@
  * この画面は cockpit bundle が持つ `contractTerms` を読むだけで、編集はしない。
  */
 
+import { AmieListCategory } from "@/components/ui/amie-list-signals";
 import {
   boolTerm,
   textTerm,
@@ -191,7 +192,7 @@ function CurrentContractTerms({ contract, project }: { contract: ProjectCurrentC
     <article className="border-t border-[#e5e5ea] first:border-t-0">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5">
         <h3 className="min-w-0 text-sm font-semibold text-[#1d1d1f]">{contract.title || "現行契約"}</h3>
-        <span className="text-[11px] text-[#6e6e73]">{CONTRACT_TYPE_LABELS[contract.contractType || ""] || contract.contractType || "契約"}</span>
+        <AmieListCategory value={CONTRACT_TYPE_LABELS[contract.contractType || ""] || contract.contractType || "契約"} className="text-[11px] text-[#6e6e73]"/>
         <span className="text-[11px] text-[#6e6e73]">{contract.counterpartyName || "相手先未確認"}</span>
         <span className="text-[11px] font-medium text-[#1d1d1f]">{joinKnown([contractStatusLabel(textTerm(contract.status)), textTerm(contract.signatureStatus)], "状態未確認")}</span>
         {contract.documentUrl && (

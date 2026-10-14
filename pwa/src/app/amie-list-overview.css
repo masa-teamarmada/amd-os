@@ -1,0 +1,44 @@
+/* Business lists share geometry; measured/heatmap cells retain their own background. */
+[data-amie-list] { font-variant-numeric: tabular-nums; color: var(--amd-muted); }
+[data-amie-list] > thead { background: var(--amd-surface-muted); color: #546375; }
+[data-amie-list] > thead > tr > th { font-weight: 500; font-size: 12px; }
+[data-amie-list="records"] > tbody > tr > :is(td,th):not([colspan]) { height:44px; padding-block: 8px; border-bottom: 1px solid #e5eaf0; vertical-align: middle; }
+[data-amie-list="records"] > tbody > tr > :is(td,th):first-child { color: var(--amd-ink); font-weight: 500; }
+[data-amie-list="records"] > tbody > tr:hover { background-color: #f0f6fc; }
+[data-amie-list="records"] > tbody > tr:focus-within { outline: 1px solid var(--amd-action-line); outline-offset: -1px; }
+[data-amie-columns="overview"] > :is(thead,tbody) > tr > :is(th,td):nth-child(n+8) { display:none; }
+[data-amie-columns="overview"] > tbody > tr > :is(th,td) { max-width:260px; }
+[data-amie-columns="overview"] .amie-project-members { display:flex; flex-wrap:wrap; gap:2px 8px; max-width:240px; }
+[data-amie-columns="overview"] .amie-project-category-note { display:none; }
+[data-amie-member-columns="overview"] > :is(thead,tbody) > tr > :is(th,td):is(:nth-child(2),:nth-child(4),:nth-child(5),:nth-child(6),:nth-child(11),:nth-child(12),:nth-child(n+14)) { display:none; }
+:is(span,a,button).amie-list-status[data-tone],:is(span,a,button).amie-list-category[data-tone] { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; border: 1px solid var(--amie-signal-line,#d7dee7); border-radius: 4px; background: var(--amie-signal-bg,#f4f6f8); color: var(--amie-signal-ink,#546375); padding: 2px 6px; font-size: 11px; line-height: 16px; font-weight: 500; vertical-align: middle; }
+.amie-list-status[data-tone="neutral"],.amie-list-category[data-tone="neutral"] { --amie-signal-ink:#546375; --amie-signal-bg:#f4f6f8; --amie-signal-line:#d7dee7; }
+.amie-list-mark { display: inline-flex; justify-content: center; width: 12px; flex: none; font-weight: 700; }
+.amie-list-category-mark { font-size: 8px; flex: none; }
+.amie-list-status[data-tone="progress"] { --amie-signal-ink: #0267b2; --amie-signal-bg: #e8f3fc; --amie-signal-line: #a5d0ef; }
+.amie-list-status[data-tone="complete"] { --amie-signal-ink: #047857; --amie-signal-bg: #ecfdf5; --amie-signal-line: #a7d9c6; }
+.amie-list-status[data-tone="warning"] { --amie-signal-ink: #9a5800; --amie-signal-bg: #fff8e5; --amie-signal-line: #ead3a3; }
+.amie-list-status[data-tone="critical"] { --amie-signal-ink: #b42343; --amie-signal-bg: #fff1f3; --amie-signal-line: #efbdc6; }
+.amie-list-category[data-tone="sky"] { --amie-signal-ink:#075985; --amie-signal-bg:#eaf6fc; --amie-signal-line:#b7d9eb; }
+.amie-list-category[data-tone="violet"] { --amie-signal-ink:#6b21a8; --amie-signal-bg:#f7efff; --amie-signal-line:#dac7ef; }
+.amie-list-category[data-tone="indigo"] { --amie-signal-ink:#3730a3; --amie-signal-bg:#eef0ff; --amie-signal-line:#c6cdf3; }
+.amie-list-category[data-tone="cyan"] { --amie-signal-ink:#155e75; --amie-signal-bg:#eaf8fa; --amie-signal-line:#b9dce5; }
+.amie-list-delta { display:inline-flex; align-items:center; gap:4px; font-weight:600; font-variant-numeric:tabular-nums; color:#546375; }
+.amie-list-delta[data-tone="complete"] { color:#047857; }
+.amie-list-delta[data-tone="warning"] { color:#9a5800; }
+.amie-list-delta[data-tone="neutral"][data-direction="up"] { color:#0267b2; }
+.amie-list-delta[data-tone="neutral"][data-direction="down"] { color:#6b21a8; }
+.amie-list-overview { display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; margin-block:8px 12px; }
+.amie-list-overview-item { display:flex; align-items:center; gap:6px; }
+.amie-list-overview-item > strong { font-size:20px; line-height:28px; font-weight:600; font-variant-numeric:tabular-nums; }
+.amie-list-overview-item[data-tone="complete"] > strong { color:#047857; }
+.amie-list-overview-item[data-tone="warning"] > strong { color:#9a5800; }
+.amie-list-overview-item[data-tone="critical"] > strong { color:#b42343; }
+@media (max-width:767px) {
+  [data-amie-list="records"] :is(button,a,input,select)[data-amie-cell-edit] { min-height:44px; }
+  .amie-list-overview { gap:8px 12px; }
+}
+@media print {
+  [data-amie-list] > tbody > tr:focus-within { outline:none; }
+  .amie-list-status,.amie-list-category { print-color-adjust:exact; }
+}

@@ -1,5 +1,6 @@
 "use client";
 
+import { AmieListStatus } from "@/components/ui/amie-list-signals";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronRight, CircleAlert, CircleCheck, CircleHelp, ExternalLink, Plus, Search, ShieldAlert, X } from "lucide-react";
@@ -238,7 +239,7 @@ function RowLabel({ row }: { row: NavRow }) {
         <span className={styles.rowTitle}>{row.label}</span>
       </span>
       <span className={styles.rowMeta}>
-        {row.statusLabel && <span className={styles.statusPill} data-tone={statusToneAttr(row.tone)}>{row.statusLabel}</span>}
+        {row.statusLabel && <AmieListStatus label={row.statusLabel} className={styles.statusPill} data-tone={statusToneAttr(row.tone)}/>}
         {row.progressLabel && <span className={styles.progressText}>進捗 {row.progressLabel}</span>}
         {row.ownerLabel && <span>{row.ownerLabel}</span>}
       </span>
@@ -570,7 +571,7 @@ function PartnerLane({
         <p className={styles.emptyState}>{partners.length === 0 ? "関係先が未登録です。" : "絞り込み条件に一致する関係先がありません。"}</p>
       ) : (
         <div className={styles.partnerPanel}>
-          <table className={styles.partnerTable}>
+          <table data-amie-list="records" className={styles.partnerTable}>
             <thead>
               <tr>
                 <th>名称・役割</th>
@@ -722,7 +723,7 @@ function MilestoneDetailPane({ detail, projectId, canManage, onClose }: { detail
     <aside className={styles.detailPane} aria-label="ゲート詳細">
       <DetailHead eyebrow={`ゲート ・ ${navPillarMeta(detail.track).label}`} title={detail.title} onClose={onClose} />
       <div className={styles.detailMetaRow}>
-        <span className={styles.statusPill} data-tone="neutral">{detail.statusLabel}</span>
+        <AmieListStatus label={detail.statusLabel} className={styles.statusPill} data-tone="neutral"/>
         <span>{detail.ownerLabel}</span>
       </div>
       <Field label="ゲート条件" value={detail.gate} />
@@ -861,7 +862,7 @@ function IssueDetailPane({ detail, projectId, canManage, onClose }: { detail: Ex
     <aside className={styles.detailPane} aria-label="論点詳細">
       <DetailHead eyebrow={`論点 ・ ${navPillarMeta(detail.track).label}`} title={detail.title} onClose={onClose} />
       <div className={styles.detailMetaRow}>
-        <span className={styles.statusPill} data-tone="neutral">{detail.statusLabel}</span>
+        <AmieListStatus label={detail.statusLabel} className={styles.statusPill} data-tone="neutral"/>
         <span>{detail.ownerLabel}</span>
         <span>{detail.dueDate ? `期限 ${navFormatDate(detail.dueDate)}` : "期限未設定"}</span>
       </div>
@@ -1006,7 +1007,7 @@ function TestDetailPane({ detail, projectId, canManage, onClose }: { detail: Ext
     <aside className={styles.detailPane} aria-label="技術試験詳細">
       <DetailHead eyebrow="技術試験" title={detail.testName} onClose={onClose} />
       <div className={styles.detailMetaRow}>
-        <span className={styles.statusPill} data-tone="neutral">{detail.statusLabel}</span>
+        <AmieListStatus label={detail.statusLabel} className={styles.statusPill} data-tone="neutral"/>
         <span>{detail.ownerLabel}</span>
       </div>
       <Field label="試験条件" value={detail.testCondition} />

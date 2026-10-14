@@ -1,5 +1,6 @@
 "use client";
 
+import { AmieListStatus } from "@/components/ui/amie-list-signals";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
@@ -361,7 +362,7 @@ function AdminMonthlyWorkAgreementsContent() {
                               className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold hover:opacity-80 ${statusClass(project.status)}`}
                             >
                               {project.projectName}
-                              <span className="font-normal">{statusLabel(project.status)}</span>
+                              <AmieListStatus value={project.status} label={statusLabel(project.status)} className="font-normal"/>
                             </Link>
                           ))}
                         </div>

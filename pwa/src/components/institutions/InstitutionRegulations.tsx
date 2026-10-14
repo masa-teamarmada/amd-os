@@ -128,7 +128,7 @@ export function RegulationMatrix({
         </p>
       </div>
       <div className="overflow-x-auto border border-slate-200 bg-white">
-        <table className="min-w-[1080px] w-full border-collapse text-left">
+        <table data-amie-list="records" className="min-w-[1080px] w-full border-collapse text-left">
           <thead>
             <tr className="bg-slate-50 text-[10px] font-semibold text-slate-600">
               <th className="sticky left-0 z-10 w-56 border-b border-r border-slate-200 bg-slate-50 px-3 py-3">

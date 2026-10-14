@@ -155,7 +155,7 @@ function ReviewTable({ title, rows }: { title: string; rows: ReviewRow[] }) {
         </span>
       </div>
       <div className="overflow-hidden rounded-md border border-border">
-        <table className="w-full text-sm">
+        <table data-amie-list="records" className="w-full text-sm">
           <thead className="border-b border-border bg-muted/40 text-left text-xs text-muted-foreground">
             <tr>
               <th className="px-3 py-2 font-medium">item</th>

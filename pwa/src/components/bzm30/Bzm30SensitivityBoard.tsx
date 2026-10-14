@@ -17,6 +17,7 @@
  * 🚫 cyber HUD デザインコード（黒背景 / ネオン発光）は使わない。シーズリストの見た目に揃える。
  */
 
+import { AmieListDelta } from "@/components/ui/amie-list-signals";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, RotateCcw, Undo2 } from "lucide-react";
 import {
@@ -422,7 +423,7 @@ export function Bzm30SensitivityBoard() {
           <TableSkeleton />
         ) : (
           <div className="overflow-auto border border-slate-200">
-            <table className="w-full min-w-[1120px] table-fixed border-collapse text-[12px]">
+            <table data-amie-list="matrix" className="w-full min-w-[1120px] table-fixed border-collapse text-[12px]">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-slate-100 text-left text-[10px] font-semibold text-slate-500">
                   <th className="w-[72px] border-b border-slate-200 px-2 py-2">順位</th>
@@ -611,7 +612,7 @@ function OverviewRow({
           <span className="font-semibold" style={{ color: AMD_BLUE }}>
             {baseRank} → {liveRank}
             <span className={`ml-1 text-[10px] ${delta > 0 ? "text-emerald-700" : "text-rose-700"}`}>
-              {delta > 0 ? `＋${delta}` : delta}
+              <AmieListDelta value={delta} positiveMeaning="improve"/>
             </span>
           </span>
         ) : (
@@ -811,7 +812,7 @@ function ParameterPanel({
         </div>
       ) : (
         <div className="overflow-x-auto border border-slate-200">
-          <table className="w-full min-w-[1080px] border-collapse text-[12px]">
+          <table data-amie-list="matrix" className="w-full min-w-[1080px] border-collapse text-[12px]">
             <thead>
               <tr className="bg-slate-100 text-left text-[10px] font-semibold text-slate-500">
                 <th className="w-[220px] border-b border-slate-200 px-3 py-2">パラメータ</th>

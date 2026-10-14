@@ -5,6 +5,7 @@
  * ECR比較は同じ正本データの別表示とし、一覧の主役にはしない。
  * SU関連規程と支援プログラム比較は同じ institutions マスタを行にするので、機関を足せば両方に出る。
  */
+import { AmieListStatus } from "@/components/ui/amie-list-signals";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BriefcaseBusiness, Building2, Search } from "lucide-react";
@@ -510,7 +511,7 @@ function EcrComparison({
       {/* desktop/tablet: 全機関を横スクロールで比較 */}
       <div className="hidden overflow-hidden border border-slate-200 sm:block">
         <div className="max-h-[80vh] overflow-auto">
-          <table className="border-collapse text-xs">
+          <table data-amie-list="records" className="border-collapse text-xs">
             <thead>
               <tr>
                 <th className="sticky left-0 top-0 z-30 min-w-[168px] border-b border-r border-slate-200 bg-slate-100 px-3 py-2 text-left font-medium">
@@ -528,11 +529,7 @@ function EcrComparison({
                       >
                         {institution.name}
                       </Link>
-                      <span
-                        className={`mt-0.5 block text-[10px] font-semibold ${lifecycleTextClass(lifecycle)}`}
-                      >
-                        {lifecycleLabel(lifecycle)}
-                      </span>
+                      <AmieListStatus label={lifecycleLabel(lifecycle)} className={`mt-0.5 block text-[10px] font-semibold ${lifecycleTextClass(lifecycle)}`}/>
                       <span className="mt-0.5 block text-[10px] font-normal text-slate-400">
                         {latestEvaluatedAt ?? "日付未登録"} ·{" "}
                         {result.assessedCriteria}/{result.totalCriteria}項目
@@ -651,7 +648,7 @@ function EcrComparison({
           </div>
         ) : (
           <div className="overflow-hidden border border-slate-200">
-            <table className="w-full table-fixed border-collapse text-xs">
+            <table data-amie-list="records" className="w-full table-fixed border-collapse text-xs">
               <thead>
                 <tr>
                   <th className="w-[30%] border-b border-r border-slate-200 bg-slate-100 px-2 py-2 text-left font-medium">
@@ -669,11 +666,7 @@ function EcrComparison({
                         >
                           {institution.name}
                         </Link>
-                        <span
-                          className={`mt-0.5 block text-[10px] font-semibold ${lifecycleTextClass(lifecycle)}`}
-                        >
-                          {lifecycleLabel(lifecycle)}
-                        </span>
+                        <AmieListStatus label={lifecycleLabel(lifecycle)} className={`mt-0.5 block text-[10px] font-semibold ${lifecycleTextClass(lifecycle)}`}/>
                         <span className="mt-0.5 block truncate text-[10px] font-normal text-slate-400">
                           {latestEvaluatedAt ?? "日付未登録"} ·{" "}
                           {result.assessedCriteria}/{result.totalCriteria}項目

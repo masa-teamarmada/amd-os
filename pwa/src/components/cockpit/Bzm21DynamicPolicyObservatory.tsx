@@ -363,7 +363,7 @@ function InputLedger({ inputs }: { inputs: Bzm21InputObservation[] }) {
 
   return (
     <div className="max-w-full overflow-x-auto">
-      <table className="w-full min-w-[920px] border-collapse text-[9px] leading-4">
+      <table data-amie-list="matrix" className="w-full min-w-[920px] border-collapse text-[9px] leading-4">
         <thead className="bg-slate-50 text-left text-slate-500">
           <tr>
             <th className="px-2 py-1.5">範囲</th>
@@ -427,7 +427,7 @@ function TransitionRows({ transitions }: { transitions: Bzm21Transition[] }) {
   if (transitions.length === 0) return <div className="px-2 py-2 text-[9px] text-orange-700">遷移は欠測。</div>;
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[760px] border-collapse text-[9px] leading-4">
+      <table data-amie-list="matrix" className="w-full min-w-[760px] border-collapse text-[9px] leading-4">
         <thead className="bg-slate-50 text-left text-slate-500">
           <tr>
             <th className="px-2 py-1">遷移</th>
@@ -559,7 +559,7 @@ function CashflowLedger({ events }: { events: Bzm21CashflowEvent[] }) {
   }
   return (
     <div className="max-w-full overflow-x-auto">
-      <table className="w-full min-w-[980px] border-collapse text-[9px] leading-4">
+      <table data-amie-list="matrix" className="w-full min-w-[980px] border-collapse text-[9px] leading-4">
         <thead className="bg-slate-50 text-left text-slate-500">
           <tr>
             <th className="px-2 py-1.5">経済事象</th>
@@ -634,7 +634,7 @@ function PolicyEvaluationLedger({ model }: { model: Bzm21PolicyModelLedger }) {
   );
   return (
     <div className="max-w-full overflow-x-auto">
-      <table className="w-full min-w-[980px] border-collapse text-[9px] leading-4">
+      <table data-amie-list="matrix" className="w-full min-w-[980px] border-collapse text-[9px] leading-4">
         <thead className="bg-slate-50 text-left text-slate-500">
           <tr>
             <th className="px-2 py-1.5">視点</th>
@@ -697,7 +697,7 @@ function PolicyEvaluationLedger({ model }: { model: Bzm21PolicyModelLedger }) {
 function PolicyHistoryLedger({ evaluations }: { evaluations: Bzm21PolicyEvaluation[] }) {
   return (
     <div className="max-w-full overflow-x-auto">
-      <table className="w-full min-w-[900px] border-collapse text-[9px] leading-4">
+      <table data-amie-list="matrix" className="w-full min-w-[900px] border-collapse text-[9px] leading-4">
         <thead className="bg-slate-50 text-left text-slate-500">
           <tr><th className="px-2 py-1.5">版</th><th className="px-2 py-1.5">視点</th><th className="px-2 py-1.5">方針</th><th className="px-2 py-1.5">状態</th><th className="px-2 py-1.5 text-right"><Tex tex="q^{\pi}" /></th><th className="px-2 py-1.5 text-right"><Tex tex="V^{\pi}" /></th><th className="px-2 py-1.5 text-right">基準差</th><th className="px-2 py-1.5">再現情報</th></tr>
         </thead>
@@ -724,7 +724,7 @@ function ActionEvaluationLedger({ evaluations }: { evaluations: Bzm21ActionEvalu
   if (evaluations.length === 0) return <div className="px-3 py-3 text-[10px] text-orange-700">行動別評価は未登録。</div>;
   return (
     <div className="max-w-full overflow-x-auto">
-      <table className="w-full min-w-[860px] border-collapse text-[9px] leading-4">
+      <table data-amie-list="matrix" className="w-full min-w-[860px] border-collapse text-[9px] leading-4">
         <thead className="bg-slate-50 text-left text-slate-500">
           <tr><th className="px-2 py-1.5">行動</th><th className="px-2 py-1.5">視点</th><th className="px-2 py-1.5">状態</th><th className="px-2 py-1.5 text-right"><Tex tex="q_a" /></th><th className="px-2 py-1.5 text-right"><Tex tex="V_a" /></th><th className="px-2 py-1.5 text-right">必要資金</th><th className="px-2 py-1.5">詳細</th></tr>
         </thead>
@@ -751,7 +751,7 @@ function RevisionLedger({ model }: { model: Bzm21PolicyModelLedger }) {
   if (model.revisions.length === 0) return <div className="px-3 py-3 text-[10px] text-orange-700">版は未登録。</div>;
   return (
     <div className="max-w-full overflow-x-auto">
-      <table className="w-full min-w-[820px] border-collapse text-[9px] leading-4">
+      <table data-amie-list="matrix" className="w-full min-w-[820px] border-collapse text-[9px] leading-4">
         <thead className="bg-slate-50 text-left text-slate-500"><tr><th className="px-2 py-1.5">版</th><th className="px-2 py-1.5">測定状態</th><th className="px-2 py-1.5">モード</th><th className="px-2 py-1.5">価値基準日</th><th className="px-2 py-1.5">情報締切</th><th className="px-2 py-1.5 text-right">前向き検証</th><th className="px-2 py-1.5">計算契約</th></tr></thead>
         <tbody>
           {model.revisions.map((revision) => (

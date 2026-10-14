@@ -7,6 +7,7 @@
  * 形式: [{"domain": "<aspi_id>", "weight": 0.0-1.0}]、合計 = 1.0
  */
 
+import { AmieListCategory } from "@/components/ui/amie-list-signals";
 import { useEffect, useState } from "react";
 import {
   ASPI_DOMAIN_IDS,
@@ -35,7 +36,8 @@ export function LaneBadges({
   return (
     <div className="flex flex-wrap gap-1">
       {lanes.map((lw) => (
-        <span
+        <AmieListCategory
+          value={ASPI_DOMAIN_SHORT_LABEL[lw.domain] ?? lw.domain}
           key={lw.domain}
           className={`inline-flex items-center gap-1 rounded border border-cyan-200 bg-cyan-50 text-cyan-800 ${cls}`}
           title={ASPI_DOMAIN_LABEL_JP[lw.domain] ?? lw.domain}
@@ -44,7 +46,7 @@ export function LaneBadges({
           {lanes.length > 1 && (
             <span className="font-mono text-[9px] text-cyan-600">{Math.round(lw.weight * 100)}%</span>
           )}
-        </span>
+        </AmieListCategory>
       ))}
     </div>
   );

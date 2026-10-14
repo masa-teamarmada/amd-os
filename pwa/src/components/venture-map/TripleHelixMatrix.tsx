@@ -223,7 +223,7 @@ function MuChip({
 function CMatrixTable({ observations }: { observations: ObservationData[] }) {
   return (
     <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
-      <table className="w-full text-xs">
+      <table data-amie-list="records" className="w-full text-xs">
         <thead className="bg-slate-50 text-slate-600">
           <tr>
             <th className="px-2 py-1.5 text-left font-medium">観測量</th>
