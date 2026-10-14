@@ -11,12 +11,13 @@ if (!evidenceDir) throw new Error("AMIE_EFFLUENT_EVIDENCE_DIR is required");
 const env = Object.fromEntries(readFileSync(".env.local","utf8").split(/\r?\n/).filter(l=>l.trim()&&!l.startsWith("#")&&l.includes("=")).map(l=>{const i=l.indexOf("=");return [l.slice(0,i).trim(),l.slice(i+1).trim().replace(/^['"]|['"]$/g,"")];}));
 const db=createClient(env.NEXT_PUBLIC_SUPABASE_URL,env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false}});
 const fixture=JSON.parse(readFileSync("scripts/data/amie_sol_effluent_ledger_20261014.json","utf8"));
-const manifest=JSON.parse(readFileSync(`${evidenceDir}/元グラフ/画像出典.json`,"utf8")) as Array<{name:string;file:string;source:string;page:number;sha256:string}>;
+const manifest=JSON.parse(readFileSync(`${evidenceDir}/元グラフ/画像出典.json`,"utf8")) as Array<{name:string;file:string;source:string;page:number;sha256:string;pdf_soft_mask_preserved:boolean}>;
 const graphMap=new Map(manifest.map(g=>[g.name,g]));
 const uploads=[] as Array<{path:string;bytes:Buffer}>;
 for (const record of fixture.rows) {
   record.entry.experiment.graphs=record.graph_names.map((name:string)=>{
     const graph=graphMap.get(name); if(!graph)throw new Error(`Missing source graph: ${name}`);
+    if(!graph.pdf_soft_mask_preserved)throw new Error("PDF image soft mask must be preserved");
     const bytes=readFileSync(graph.file);
     const hash=createHash("sha256").update(bytes).digest("hex");
     if(hash!==graph.sha256)throw new Error("Source graph hash changed");
