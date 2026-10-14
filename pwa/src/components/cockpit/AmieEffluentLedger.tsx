@@ -9,7 +9,7 @@ import { AMIE_EFFLUENT_KINDS, AMIE_EFFLUENT_STATES, amieEffluentRows, amieEfflue
 // 白い表面と薄い罫線、既存AMD Blueの操作色。12px本文/14px見出し、4/8pxの間隔。
 const control = "min-h-11 w-full rounded border border-[#d2d2d7] bg-white px-2 py-2 text-[12px] text-[#1d1d1f] focus-visible:outline-2 focus-visible:outline-[#027FDC]";
 const button = "min-h-11 rounded border border-[#d2d2d7] px-3 text-[12px] text-[#1d1d1f] hover:bg-[#f5f5f7] focus-visible:outline-2 focus-visible:outline-[#027FDC] disabled:opacity-50";
-const cell = "px-3 py-2 align-top text-[12px] leading-4 [overflow-wrap:anywhere]";
+const cell = "px-2 py-1.5 align-top text-[12px] leading-4 [overflow-wrap:anywhere]";
 const rowButton = "min-h-11 rounded border border-[#d2d2d7] px-2 text-[12px] hover:bg-[#f5f5f7] focus-visible:outline-2 focus-visible:outline-[#027FDC] md:min-h-8";
 const date = (value: string | null | undefined) => value || "未確認";
 const value = (text: string | null | undefined) => text || "未確認";
@@ -114,9 +114,9 @@ export function AmieEffluentLedger({ projectId, topic, entries, allEntries, canE
     {editing && <AmieEffluentForm key={editing === "new" ? "new" : editing.tech_entry_id} projectId={projectId} topicId={topic.tech_topic_id} entry={editing === "new" ? undefined : editing} onCancel={()=>setEditing(null)} onSaved={()=>{setEditing(null);onChanged();}}/>}
     <p className="text-[12px] text-[#515158] md:hidden">比較表は横にスクロールできる。</p>
     <div ref={tableRef} className="overflow-x-auto rounded border border-[#d2d2d7]" tabIndex={0} aria-label="廃液ごとの比較表。狭い画面では横にスクロール">
-      <table className="w-full min-w-[1180px] max-w-[1600px] table-fixed text-left" data-testid="amie-effluent-table">
+      <table className="w-full min-w-[960px] max-w-[1200px] table-fixed text-left" data-testid="amie-effluent-table">
         <caption className="sr-only">廃液の入手元、成分、処理前後の結果と実験状態</caption>
-        <colgroup><col className="w-[170px]"/><col className="w-[180px]"/><col className="w-[180px]"/><col className="w-[170px]"/><col className="w-[250px]"/><col className="w-[160px]"/><col className="w-[120px]"/></colgroup>
+        <colgroup><col className="w-[140px]"/><col className="w-[130px]"/><col className="w-[140px]"/><col className="w-[136px]"/><col className="w-[176px]"/><col className="w-[132px]"/><col className="w-[104px]"/></colgroup>
         <thead className="bg-[#f5f5f7] text-[12px] text-[#515158]"><tr>{["廃液・区分","入手元・採取位置","含まれる成分","処理前","処理後・結果","実験の状態","詳細"].map(x=><th key={x} scope="col" className="px-3 py-2 font-medium">{x}</th>)}</tr></thead>
         {filtered.map(({entry,experiment:e}) => <tbody key={entry.tech_entry_id} className="border-t border-[#e5e5e7] hover:bg-[#fafafa]" data-effluent-type={e.type_key}>
           <tr>
@@ -124,7 +124,7 @@ export function AmieEffluentLedger({ projectId, topic, entries, allEntries, canE
             <td className={cell}><p className="line-clamp-1" title={e.provider}>{value(e.provider)}</p><p className="mt-1 line-clamp-1 text-[#515158]" title={e.sampling_point}>{value(e.sampling_point)}</p></td>
             <td className={cell}><p className="line-clamp-2" title={e.components}>{value(e.components)}</p></td><td className={cell}><p className="line-clamp-2" title={e.before}>{value(e.before)}</p></td>
             <td className={cell}><p className="line-clamp-2" title={e.after}>{value(e.after)}</p>{entry.value_text && <p className="mt-1 line-clamp-1 font-medium" title={entry.value_text}>{entry.value_text}</p>}</td>
-            <td className={cell}><p className={`font-medium ${e.status === "completed" ? "text-[#0267B2]" : e.status === "running" ? "text-[#9a5800]" : "text-[#515158]"}`}>{AMIE_EFFLUENT_STATES[e.status]}</p><p className="mt-1 text-[11px] text-[#515158]">報告 {date(entry.observed_on)}</p>{e.follow_up && <p className="mt-1 text-[11px] text-[#9a5800]">追加確認あり</p>}</td>
+            <td className={cell}><p className={`font-medium ${e.status === "completed" ? "text-[#0267B2]" : e.status === "running" ? "text-[#9a5800]" : "text-[#515158]"}`} title={AMIE_EFFLUENT_STATES[e.status]}>{e.status==="received"?"受領済み・未評価":AMIE_EFFLUENT_STATES[e.status]}</p><p className="mt-0.5 text-[11px] text-[#515158]">報告 {date(entry.observed_on)}</p>{e.follow_up && <p className="mt-0.5 text-[11px] text-[#9a5800]">追加確認あり</p>}</td>
             <td className={cell}><div className="flex gap-1"><button aria-label={`${entry.row_label}の詳細`} aria-expanded={expanded.has(entry.tech_entry_id)} className={rowButton} onClick={()=>{setExpanded(prev=>{const n=new Set(prev); if(n.has(entry.tech_entry_id))n.delete(entry.tech_entry_id);else n.add(entry.tech_entry_id);return n;});if(window.innerWidth<768)tableRef.current?.scrollTo({left:0,behavior:"smooth"});}}>{expanded.has(entry.tech_entry_id) ? "閉じる" : "詳細"}</button>{canEdit && <button aria-label={`${entry.row_label}を編集`} className={rowButton} onClick={()=>setEditing(entry)}>編集</button>}</div>{e.graphs.length>0&&<p className="mt-1 text-[11px] text-[#515158]">グラフ {e.graphs.length}枚</p>}</td>
           </tr>
           {expanded.has(entry.tech_entry_id) && <tr><td colSpan={7} className="bg-[#fafafa] px-3 py-3 text-[12px] leading-5"><div className="max-w-[calc(100vw-80px)] md:max-w-[1200px]"><button className={`${button} mb-2 md:hidden`} onClick={()=>setExpanded(prev=>{const n=new Set(prev);n.delete(entry.tech_entry_id);return n;})}>詳細を閉じる</button><dl className="grid gap-2 sm:grid-cols-2">

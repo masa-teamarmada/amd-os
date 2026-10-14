@@ -1507,13 +1507,13 @@ export function CockpitTechnology({ projectId, mode = "technology", initialData,
           )}
           {shownKind === "fragments" && <FragmentTable fragments={data.fragments} />}
           {shownKind === "topic" && selectedTopic && selectedGroup && (
-            <div className="xl:grid xl:grid-cols-[228px_minmax(0,1fr)] xl:gap-4">
-              <TechTopicList
+            <div className={selectedGroup.topics.length > 1 ? "xl:grid xl:grid-cols-[228px_minmax(0,1fr)] xl:gap-4" : "min-w-0"}>
+              {selectedGroup.topics.length > 1 && <TechTopicList
                 group={selectedGroup}
                 entriesByTopic={entriesByTopic}
                 selectedId={selectedTopic.tech_topic_id}
                 onSelect={openTopic}
-              />
+              />}
               <div className="min-w-0 space-y-3">
                 <TechTopicChips
                   group={selectedGroup}

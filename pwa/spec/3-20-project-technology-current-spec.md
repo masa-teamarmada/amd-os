@@ -2,6 +2,8 @@
 
 ## 廃液ごとの実験一覧（2026-10-14）
 
+トピックが1件だけの区分は重複する小ナビを置かず、本文の幅を使う。廃液比較表は960pxを最小幅として7列を配し、行高は約65px。狭幅の詳細は画面幅へ収め、開くと表の左端へ戻す。
+
 トピックpresentationがversion=1、kind=effluent_ledgerの場合、到達実績形式をAmieEffluentLedgerで表示する。PJ番号による分岐はない。廃液・入手元/採取系統・成分・処理前・処理後/結論・状態/報告日を同じ行で比較し、詳細で条件・課題・出典・元グラフを開く。検索、区分/状態の絞り込み、編集権限で追加・編集する。狭幅では表だけを横スクロールする。
 
 正本はproject_tech_entries.experiment（migration506）のversion=1 JSON。type_keyで再実験を同一種類へまとめ、kind=actual/simulated/reference/unknown、status=not_received/received/running/completed/unknown、identity_confirmedで種類照合を保持する。provider/route/sampling_point/received_on/tested_on/components/before/after/conditions/follow_upと、元技術・試料・技術試験のIDを保存する。既存value_textは結論、observed_onは報告日、source_ref/source_urlは出典。旧行と旧クライアントは任意の追加JSONとして互換を保つ。
