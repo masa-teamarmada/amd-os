@@ -120,3 +120,13 @@ export async function deleteTechRow(projectId: string, entity: Entity, id: strin
   if (!res.ok || !payload.ok) throw new Error(payload.error || "削除に失敗");
   invalidateProjectTech(projectId);
 }
+
+/** 元データのグラフを廃液行へ保存する。画像は非公開Storage、閲覧は認可済みroute。 */
+export async function uploadEffluentGraph(projectId: string, entryId: string, file: File, caption: string, source: string): Promise<void> {
+  const form = new FormData();
+  form.set("entryId", entryId); form.set("file", file); form.set("caption", caption); form.set("source", source);
+  const res = await fetch("/api/project-tech-graphs", { method: "POST", body: form });
+  const payload = await res.json() as {ok:boolean;error?:string};
+  if (!res.ok || !payload.ok) throw new Error(payload.error || "グラフ保存に失敗");
+  invalidateProjectTech(projectId);
+}

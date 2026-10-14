@@ -1,5 +1,7 @@
 # DESIGN.md — AMD OS 全画面設計の正本
 
+2026-10-14（PWA）: 技術の「廃液実験」区分へ入手元・成分・処理前後・状態・種類別完了数・原グラフを集約。関係先の排液成分列を退役。既存project_tech_entriesの任意experiment JSONと非公開Storageを使用し、旧decode互換を維持。新一覧・画像保存のSwift/macOS UIは未移植、PWAで利用。正本spec3-20/3-16、manual2-3。
+
 ## 2026-10-13 コスト試算の自社／競合プロセス比較
 
 PWA共通のCockpitCostTabに「自社試算」「競合プロセス試算」を常設。自社の名称はDBのcompetitor_comparison.ownTabLabelで指定でき、SOL登録資料は「SOL試算」。既存の廃液／燃料切替・計算・入力・保存を保持し、競合への切替でも自社本文をmountしたまま非表示にする。競合はproject_cost_models.competitor_comparisonの比較条件・業種別前段/脱色費用範囲から年額・単位額を導出し、出典・仮説・未見積を表示。既存の原価・価格・財務・権限は変更しない。PWAコックピット、ワークスペース、DDの同じ本文へ適用。iOS/macOS/Androidのネイティブ専用画面は未移植。正本spec5-13。

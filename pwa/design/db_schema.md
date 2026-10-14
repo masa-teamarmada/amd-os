@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-10-14 15:42 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-10-14 19:42 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -623,7 +623,7 @@ PRIMARY KEY: `id`
 
 ## boss_baseline_occurrences
 
-行数 (概算): 1,569
+行数 (概算): 1,792
 PRIMARY KEY: `id`
 UNIQUE: `(revision)` (constraint: `boss_baseline_occurrences_revision_key`)
 UNIQUE: `(server_boss_id,baseline_at,spawn_at)` (constraint: `boss_baseline_occurrences_server_boss_id_baseline_at_spawn__key`)
@@ -4113,7 +4113,7 @@ UNIQUE: `(lane,observed_at,observation_key,source)` (constraint: `observation_lo
 
 ## os_page_viewer_sessions
 
-行数 (概算): 15
+行数 (概算): 17
 PRIMARY KEY: `session_id`
 
 | # | column | type | nullable | default |
@@ -4129,7 +4129,7 @@ PRIMARY KEY: `session_id`
 
 ## os_page_viewing_visits
 
-行数 (概算): 301
+行数 (概算): 314
 PRIMARY KEY: `visit_id`
 
 | # | column | type | nullable | default |
@@ -6992,10 +6992,11 @@ PRIMARY KEY: `tech_entry_id`
 | 23 | `needs_check` | `bool` | NOT NULL | `false` |
 | 24 | `check_reason` | `text` | NULL | `` |
 | 25 | `disclosure` | `jsonb` | NOT NULL | `'{"dd": null, "level": "restricted", "reason": "未仕分け", "v...` |
+| 26 | `experiment` | `jsonb` | NULL | `` |
 
 ## project_tech_topics
 
-行数 (概算): 96
+行数 (概算): 105
 PRIMARY KEY: `tech_topic_id`
 
 | # | column | type | nullable | default |
@@ -8017,7 +8018,7 @@ UNIQUE: `(token_hash)` (constraint: `server_invites_token_hash_key`)
 
 ## server_memberships
 
-行数 (概算): 627
+行数 (概算): 679
 PRIMARY KEY: `id`
 UNIQUE: `(game_server_id,user_id)` (constraint: `server_memberships_game_server_id_user_id_key`)
 

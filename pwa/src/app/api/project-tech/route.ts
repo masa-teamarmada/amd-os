@@ -3,9 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { loadProjectTechData } from "@/lib/project-tech-server";
 import { randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAdmin, requireMember } from "@/lib/supabase/api-auth";
+import { requireMember } from "@/lib/supabase/api-auth";
 import { hasSharedWorkspaceProjectReadAccess } from "@/lib/shared-workspace-project-read-access";
 import { amiePrepareTechDisclosure } from "@/lib/amie-tech-disclosure-server";
+import { amieIsEffluentTopic, amieValidateEffluentEntry } from "@/lib/amie-effluent-experiments";
 
 export const runtime = "nodejs";
 
@@ -94,8 +95,13 @@ export async function POST(req: NextRequest) {
     catch (error) { return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "開示区分の保存に失敗" }, { status: 400 }); }
   }
   if (entity === "entry") {
-    const {data: parent} = await createAdminClient().from("project_tech_topics").select("project_id").eq("tech_topic_id",row.tech_topic_id).maybeSingle();
+    const {data: parent} = await createAdminClient().from("project_tech_topics").select("project_id,presentation").eq("tech_topic_id",row.tech_topic_id).maybeSingle();
     if (!parent || parent.project_id !== row.project_id) return NextResponse.json({error:"invalid_parent"},{status:400});
+    if (amieIsEffluentTopic(parent) || row.experiment != null) {
+      if (!amieIsEffluentTopic(parent)) return NextResponse.json({error:"廃液実験は廃液台帳へ登録して"},{status:400});
+      try { row.experiment = amieValidateEffluentEntry(row); }
+      catch (error) { return NextResponse.json({ok:false,error:error instanceof Error ? error.message : "廃液実験の登録形式が不正"},{status:400}); }
+    }
   }
   row.updated_by = auth.user.email;
   row.created_by = row.created_by || auth.user.email;
@@ -118,10 +124,17 @@ export async function PATCH(req: NextRequest) {
   const auth = await requireProjectContentEditor(req, stored.project_id);
   if (!auth.ok) return auth.errorResponse;
   const patch = { ...body.patch } as Record<string, unknown>;
+  const expectedUpdatedAt = patch.expected_updated_at;
+  delete patch.expected_updated_at;
   delete patch.project_id;
   delete patch.tech_topic_id;
   delete patch[PK[entity]];
   delete patch.disclosure_status;
+  if (entity === "entry" && (stored.experiment != null || patch.experiment !== undefined)) {
+    if (expectedUpdatedAt !== undefined && expectedUpdatedAt !== stored.updated_at) return NextResponse.json({ok:false,error:"別の更新が入った。最新の行を開いて保存して"},{status:409});
+    try { patch.experiment = amieValidateEffluentEntry({ ...stored, ...patch }); }
+    catch (error) { return NextResponse.json({ok:false,error:error instanceof Error ? error.message : "廃液実験の登録形式が不正"},{status:400}); }
+  }
   if (patch.disclosure !== undefined) {
     try { patch.disclosure = amiePrepareTechDisclosure({ ...stored, ...patch }, entity, patch.disclosure); }
     catch (error) { return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "開示区分の保存に失敗" }, { status: 400 }); }
@@ -134,6 +147,7 @@ export async function PATCH(req: NextRequest) {
     .from(TABLE[entity])
     .update(patch)
     .eq(PK[entity], body.id)
+    .eq("updated_at",stored.updated_at)
     .select()
     .single();
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });

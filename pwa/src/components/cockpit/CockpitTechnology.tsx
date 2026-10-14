@@ -7,6 +7,8 @@ import { AmieTechDisclosureField, AmieTechDisclosureMark, AmieTechDisclosureLege
 import { amieTechRecordState, type AmieTechDisplayContext } from "@/lib/amie-tech-display";
 import { AMIE_TECH_LEVELS, AMIE_TECH_LEVEL_LABEL, amieTechContainsLevel, type AmieTechLevel } from "@/lib/amie-tech-disclosure-model";
 import { MarkdownView } from "@/components/cockpit/MarkdownView";
+import { AmieEffluentLedger } from "./AmieEffluentLedger";
+import { amieIsEffluentTopic } from "@/lib/amie-effluent-experiments";
 import {
   ConditionBlock,
   MatrixBlock,
@@ -543,6 +545,7 @@ export function TopicCard({
   onChanged,
   sharedTopic,
   sharedEntries,
+  allEffluentEntries,
   external = false,
 }: {
   topic: TechTopic;
@@ -552,6 +555,7 @@ export function TopicCard({
   onChanged: () => void;
   sharedTopic?: TechTopic;
   sharedEntries?: TechEntry[];
+  allEffluentEntries?: TechEntry[];
   external?: boolean;
 }) {
   const [editingTopic, setEditingTopic] = useState(false);
@@ -561,6 +565,7 @@ export function TopicCard({
 
   const editingEntry = entries.find((e) => e.tech_entry_id === editingEntryId);
   const presentation = topic.block_kind === "matrix" ? readTechPresentation(topic.presentation) : null;
+  const effluentLedger = amieIsEffluentTopic(topic) && !external;
   const technology = techLedgerTabOf(topic) === "technology";
   const shared = topic.disclosure_level || external ? topic : sharedTopic;
   const disclosure:AmieTechDisplayContext = {enabled:technology,external,parentStatus:topic.disclosure_status,sharedEntries:new Map((sharedEntries??[]).map(e=>[e.tech_entry_id,e]))};
@@ -630,7 +635,7 @@ export function TopicCard({
         </div>
       )}
 
-      {presentation ? (
+      {effluentLedger ? <AmieEffluentLedger projectId={projectId} topic={topic} entries={entries} allEntries={allEffluentEntries} canEdit={canEdit} onChanged={onChanged}/> : presentation ? (
         // 社外に出す形の星取り表は PDF と同じく表を先に出し、比べる相手・記号の付け方などの本文は表の下へ回す。
         <>
           <div className="mt-3">
@@ -662,7 +667,7 @@ export function TopicCard({
         </>
       )}
 
-      {canEdit && topic.block_kind !== "article" && (
+      {canEdit && topic.block_kind !== "article" && !effluentLedger && (
         <div className="mt-3 space-y-2">
           {entries.length > 0 && (
             <button
@@ -1520,6 +1525,7 @@ export function CockpitTechnology({ projectId, mode = "technology", initialData,
                   key={selectedTopic.tech_topic_id}
                   topic={selectedTopic}
                   entries={entriesByTopic.get(selectedTopic.tech_topic_id) ?? []}
+                  allEffluentEntries={rawData?.entries.filter(e=>e.tech_topic_id===selectedTopic.tech_topic_id)}
                   canEdit={data.canEdit}
                   projectId={projectId}
                   sharedTopic={rawData?.ddPreview?.topics.find(t=>t.tech_topic_id===selectedTopic.tech_topic_id)}

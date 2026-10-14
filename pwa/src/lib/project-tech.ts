@@ -101,6 +101,8 @@ export function readTechPresentation(value: unknown): TechPresentation | null {
 }
 
 export type TechEntry = {
+  /** 廃液実験の構造化記録。旧行はnull/未指定、外部向け投影では返さない。 */
+  experiment?: unknown;
   disclosure_level?: "public" | "dd_summary" | "restricted" | "core";
   disclosure?: unknown;
   disclosure_status?: "included" | "excluded" | "needs_review";

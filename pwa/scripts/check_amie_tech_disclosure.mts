@@ -76,7 +76,7 @@ assert.equal(shapeDdTechTopic("p21",approvedTopic,approvedRows).entries.length,1
 assert.throws(()=>shapeDdTechTopic("p34",approvedTopic,approvedRows),/PJ/);
 
 const tables:any={project_tech_topics:[approvedTopic,{...topic,tech_topic_id:"unclassified"},{...topic,tech_topic_id:"competition",tech_domain:"競合比較"}],project_tech_entries:approvedRows,project_knowledge:[{fact_text:"CANARY_FRAGMENT"}]};
-const db:any={from(table:string){const query:any={select(){return query},eq(){return query},neq(){return query},order(){return query},in(){return query},limit(){return query},then(resolve:any){return Promise.resolve({data:tables[table],error:null}).then(resolve)}};return query}};
+const db:any={from(table:string){const query:any={select(){return query},eq(){return query},neq(){return query},order(){return query},in(){return query},limit(){return query},range(from:number,to:number){return Promise.resolve({data:tables[table].slice(from,to+1),error:null})},then(resolve:any){return Promise.resolve({data:tables[table],error:null}).then(resolve)}};return query}};
 const internal=await loadProjectTechData(db,"p21",true,"internal","technology");
 assert.equal(internal.topics[0].body_md,"CANARY_GENE");
 assert.equal(internal.canEdit,true);

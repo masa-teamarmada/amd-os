@@ -65,8 +65,6 @@ import {
   sxPartnerStageLabel,
   sxPartnerClassificationLabel,
   sxPartnerHasClassification,
-  SX_EFFLUENT_COMPONENT_CHOICES,
-  sxSplitEffluentComponents,
   sxPocCategoryLabel,
   sxPocLikelihoodLabel,
   sxCustomerValueLabel,
@@ -2325,7 +2323,6 @@ type PartnerLedgerColumnKey =
   | "action"
   | "meeting"
   | "owner"
-  | "effluent"
   | "origin"
   | "procurement";
 
@@ -2358,7 +2355,6 @@ const PARTNER_LEDGER_COLUMNS: readonly PartnerLedgerColumn[] = [
     minWidth: 90,
   },
   { key: "owner", label: "期限", defaultWidth: 96, minWidth: 72 },
-  { key: "effluent", label: "排液", defaultWidth: 208, minWidth: 100 },
   { key: "origin", label: "接点の経緯", defaultWidth: 208, minWidth: 100 },
   {
     key: "procurement",
@@ -3999,42 +3995,6 @@ function PartnerInlineRow({
       {display.name}
     </span>
   );
-  // 成分バッジに出すのはプルダウンにある語彙だけ (2026-08-29 まさ「モーダルの中のバッジが
-  // プルダウン選択にないものになってるから、プルダウン選択のいずれかにして」)。
-  // 語彙へ収まらない作文は成分として表示せず、メモ欄へ回して詳細の中で読む。
-  const effluentSplit = sxSplitEffluentComponents(partner.effluentComponents);
-  const effluentBadgeTokens = effluentSplit.components;
-  // 表に置くのは成分名だけ (2026-08-28 まさ「表の中ではもっとシンプルに成分名だけを
-  // 記載してほしい。文章で書くのやめて」)。年間量・処理費・実験結果・メモは、
-  // セルを押して開く詳細の中で読む。
-  const effluentHasDetail = Boolean(
-    effluentSplit.leftover ||
-      partner.effluentVolumeAnnual ||
-      partner.effluentCostAnnual ||
-      partner.effluentTestResult ||
-      partner.effluentNote,
-  );
-  const effluentView = (
-    <span className="flex min-h-11 min-w-0 flex-wrap content-center items-center gap-1">
-      {effluentBadgeTokens.map((token) => (
-        <span
-          key={token}
-          data-effluent-component={token}
-          className="inline-flex rounded-full border border-[#7CBCEB] bg-[#E8F3FC] px-2 py-0.5 text-[10px] font-semibold leading-4 text-[#0267B2]"
-        >
-          {token}
-        </span>
-      ))}
-      {effluentBadgeTokens.length === 0 && effluentHasDetail && (
-        <span
-          title="成分は未選択。年間量・処理費・メモはセルを押すと読める"
-          className="inline-flex rounded-full border border-[#d6d6da] bg-[#f5f5f7] px-2 py-0.5 text-[10px] font-medium leading-4 text-[#6e6e73]"
-        >
-          成分 未選択
-        </span>
-      )}
-    </span>
-  );
   // 次回面談。未設定の項目はラベルごと出さない (2026-08-08 まさ「未設定未登録は空白表示に」)。
   const nextMeetingDateText = partner.nextMeetingOn
     ? `${sxFormatDate(partner.nextMeetingOn)}${partner.nextMeetingTime ? ` ${partner.nextMeetingTime}` : ""}`
@@ -4703,203 +4663,6 @@ function PartnerInlineRow({
                     )
                   : ""}
               </span>
-            )}
-          </PartnerRowCell>
-
-          <PartnerRowCell
-            order={cellOrder("effluent")}
-            className="md:col-span-2 @min-[480px]:col-span-1"
-          >
-            <p className="text-[10px] font-semibold text-[#3c3c43] @min-[480px]:hidden">
-              排液
-            </p>
-            {canManage ? (
-              <InlineCellEditor
-                editorKey={keyFor("effluent")}
-                activeEditorKey={activeEditorKey}
-                label={`${display.name}の排液`}
-                title={`${display.name}の排液`}
-                widthClass="w-[min(380px,calc(100vw-32px))]"
-                initialValues={{
-                  // 成分はプルダウンの語彙だけを持たせ、語彙へ収まらない作文は
-                  // メモの先頭へ移す (捨てない)。保存すると成分欄から作文が消える。
-                  effluent_components: effluentSplit.components.join(","),
-                  effluent_volume_annual: partner.effluentVolumeAnnual || "",
-                  effluent_cost_annual: partner.effluentCostAnnual || "",
-                  effluent_test_result: partner.effluentTestResult || "",
-                  effluent_note: [
-                    effluentSplit.leftover,
-                    partner.effluentNote || "",
-                  ]
-                    .filter(Boolean)
-                    .join("\n"),
-                }}
-                view={effluentView}
-                onRequestEdit={onRequestInlineEdit}
-                onFinish={onFinishInlineEdit}
-                onSave={async (values) =>
-                  patchIfChanged(
-                    "partner",
-                    partner.id,
-                    {
-                      effluent_components: partner.effluentComponents,
-                      effluent_volume_annual: partner.effluentVolumeAnnual,
-                      effluent_cost_annual: partner.effluentCostAnnual,
-                      effluent_test_result: partner.effluentTestResult,
-                      effluent_note: partner.effluentNote,
-                    },
-                    {
-                      effluent_components:
-                        values.effluent_components.trim() || null,
-                      effluent_volume_annual:
-                        values.effluent_volume_annual.trim() || null,
-                      effluent_cost_annual:
-                        values.effluent_cost_annual.trim() || null,
-                      effluent_test_result:
-                        values.effluent_test_result.trim() || null,
-                      effluent_note: values.effluent_note.trim() || null,
-                    },
-                  )
-                }
-                renderFields={(values, setValue) => (
-                  <>
-                    <div className="grid gap-1">
-                      <span className={FIELD_GROUP_CLASS}>排液中の成分</span>
-                      {(() => {
-                        const chosen = sxSplitEffluentComponents(
-                          values.effluent_components,
-                        ).components;
-                        const commit = (next: string[]) =>
-                          setValue("effluent_components", next.join(","));
-                        const remaining =
-                          SX_EFFLUENT_COMPONENT_CHOICES.filter(
-                            (choice) => !chosen.includes(choice.value),
-                          );
-                        return (
-                          <>
-                            {chosen.length > 0 && (
-                              <span className="flex flex-wrap gap-1">
-                                {chosen.map((token) => (
-                                  <button
-                                    key={token}
-                                    type="button"
-                                    onClick={() =>
-                                      commit(
-                                        chosen.filter((item) => item !== token),
-                                      )
-                                    }
-                                    aria-label={`成分 ${token} を外す`}
-                                    title="押すと外す"
-                                    /* 44pxのタッチターゲット強制 (globals.css の .sx-management-workspace button) を
-                                       このバッジだけ外す。44pxの丸い塊が並ぶと何を選んだのか読めない。
-                                       押して外すのは補助操作で、保存・取消は44pxのまま残る。 */
-                                    className={`!min-h-0 !min-w-0 group inline-flex max-w-full items-center gap-1 rounded-full border border-[#7CBCEB] bg-[#E8F3FC] py-1 pl-2.5 pr-2 text-[10px] font-semibold leading-4 text-[#0267B2] transition-colors hover:border-[#e8a5a5] hover:bg-[#fdecec] hover:text-[#b42318] ${FOCUS_RING}`}
-                                  >
-                                    <span className="max-w-[140px] truncate">
-                                      {token}
-                                    </span>
-                                    <X
-                                      className="h-2.5 w-2.5 opacity-50 transition-opacity group-hover:opacity-100"
-                                      aria-hidden="true"
-                                    />
-                                  </button>
-                                ))}
-                              </span>
-                            )}
-                            {/* 選べる候補が無くなったら、空のプルダウンを残さない。 */}
-                            {remaining.length > 0 && (
-                              <select
-                                className={FIELD_INPUT_CLASS}
-                                value=""
-                                onChange={(event) => {
-                                  const token = event.target.value;
-                                  if (!token || chosen.includes(token)) return;
-                                  commit([...chosen, token]);
-                                }}
-                                aria-label="成分を追加"
-                              >
-                                <option value="">成分を追加…</option>
-                                {remaining.map((choice) => (
-                                  <option
-                                    key={choice.value}
-                                    value={choice.value}
-                                  >
-                                    {choice.label}
-                                  </option>
-                                ))}
-                              </select>
-                            )}
-                          </>
-                        );
-                      })()}
-                    </div>
-                    {/* 数量は「排液量」「処理コスト」と短くして横に並べる。先頭3文字が
-                        同じラベルが縦に続くと、拾い読みで取り違える (監査#4)。 */}
-                    <div className="grid gap-1">
-                      <span className={FIELD_GROUP_CLASS}>年間の実績</span>
-                      <div className="grid grid-cols-2 gap-2">
-                        <label className="grid min-w-0 gap-1">
-                          <span className={FIELD_LABEL_CLASS}>排液量</span>
-                          <input
-                            className={FIELD_INPUT_CLASS}
-                            placeholder="例: 約3,600 t/年"
-                            value={values.effluent_volume_annual}
-                            onChange={(event) =>
-                              setValue(
-                                "effluent_volume_annual",
-                                event.target.value,
-                              )
-                            }
-                          />
-                        </label>
-                        <label className="grid min-w-0 gap-1">
-                          <span className={FIELD_LABEL_CLASS}>処理コスト</span>
-                          <input
-                            className={FIELD_INPUT_CLASS}
-                            placeholder="例: 約276万円/年"
-                            value={values.effluent_cost_annual}
-                            onChange={(event) =>
-                              setValue(
-                                "effluent_cost_annual",
-                                event.target.value,
-                              )
-                            }
-                          />
-                        </label>
-                      </div>
-                    </div>
-                    <div className="grid gap-1">
-                      <span className={FIELD_GROUP_CLASS}>
-                        わかっていること
-                      </span>
-                      <label className="grid gap-1">
-                        <span className={FIELD_LABEL_CLASS}>実験結果</span>
-                        <textarea
-                          className={`${FIELD_INPUT_CLASS} min-h-[72px]`}
-                          placeholder="例: 受領済み排液の分析では重金属がほとんど検出されなかった"
-                          value={values.effluent_test_result}
-                          onChange={(event) =>
-                            setValue("effluent_test_result", event.target.value)
-                          }
-                        />
-                      </label>
-                      <label className="grid gap-1">
-                        <span className={FIELD_LABEL_CLASS}>メモ</span>
-                        <textarea
-                          className={`${FIELD_INPUT_CLASS} min-h-[72px]`}
-                          placeholder="一覧に無い成分や補足はここへ（例: 固体製品工場はリン負荷、液体製品工場はBOD/CODと油分）"
-                          value={values.effluent_note}
-                          onChange={(event) =>
-                            setValue("effluent_note", event.target.value)
-                          }
-                        />
-                      </label>
-                    </div>
-                  </>
-                )}
-              />
-            ) : (
-              effluentView
             )}
           </PartnerRowCell>
 

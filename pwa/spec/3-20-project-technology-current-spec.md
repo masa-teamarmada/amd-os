@@ -1,5 +1,21 @@
 # 3-20 PJ技術台帳 (技術タブ) — current spec
 
+## 廃液ごとの実験一覧（2026-10-14）
+
+トピックpresentationがversion=1、kind=effluent_ledgerの場合、到達実績形式をAmieEffluentLedgerで表示する。PJ番号による分岐はない。廃液・入手元/採取系統・成分・処理前・処理後/結論・状態/報告日を同じ行で比較し、詳細で条件・課題・出典・元グラフを開く。検索、区分/状態の絞り込み、編集権限で追加・編集する。狭幅では表だけを横スクロールする。
+
+正本はproject_tech_entries.experiment（migration506）のversion=1 JSON。type_keyで再実験を同一種類へまとめ、kind=actual/simulated/reference/unknown、status=not_received/received/running/completed/unknown、identity_confirmedで種類照合を保持する。provider/route/sampling_point/received_on/tested_on/components/before/after/conditions/follow_upと、元技術・試料・技術試験のIDを保存する。既存value_textは結論、observed_onは報告日、source_ref/source_urlは出典。旧行と旧クライアントは任意の追加JSONとして互換を保つ。
+
+完了は試験結果を得た状態で、処理成功・全成分除去・再現性保証とは別。実廃液の完了数はactual、identity_confirmed=true、completedで処理後・結論・出典のあるtype_keyを重複除外して数える。種類未照合の完了報告、模擬の照合済み完了数を別表示する。受領・成分分析だけでは完了にしない。presentation.reported_countの研究者累計には時点/出典を持たせ、個別一覧の数を補填しない。集計は検索/絞り込み前の全行。
+
+元グラフはexperiment.graphsのpath/caption/source_refで参照し、非公開Storage project-tech-graphs（migration507）へPNG/JPEG/WebP、8MB、1行12枚まで保存する。GET /api/project-tech-graphs?entryId=&index=は毎回member認可・行の閲覧権限を確認し、当該行のパスだけを60秒署名で返す。POSTは社内memberかつPJ編集権限を確認し、実byte/MIME/上限/説明/出典を検査する。SHA256オブジェクトを新規保存し、updated_at競合は409。署名URLは台帳に保存せず、画像は原縦横比で表示して原寸を開く。
+
+技術GETは既存の参照キャッシュを使い、保存後invalidate→force/no-storeで読み直す。topics/entriesは安定順で500件ずつ全ページ取得。experimentなしの既存DD確認hashは維持し、experimentのある行は画像参照も変更検知する。DD/shared限定DTOへ原記録・画像パスを返さず、自動掲載しない。
+
+SOLの初期入力はscripts/data/amie_sol_effluent_ledger_20261014.json。49行、実廃液完了9種類、試験中3種類、受領済み結果未確認10種類、種類未照合完了4件、模擬の照合済み完了3種類。7/22・9/2・10/14研究報告から無加工の原画像10枚を抽出し、18個のStorageオブジェクトで各行へ紐付けた。登録SQLは適用済み、初期seedは再実行しない。20種類以上という累計報告との全件照合は未完了。旧台帳は照合元として保持する。
+
+test:effluent-ledgerで再実験の重複、未照合/模擬/参考の除外、偽完了、出典必須、画像越境、原記録の非投影、1201行の全件取得を検査。test:tech-disclosure/reference-data-cacheも使用する。Swift/macOSの新一覧・画像保存は未移植、PWAを利用する。
+
 ## 技術情報の秘密度とDD掲載状況（2026-10-14）
 
 秘密度、DDへの掲載、事実の確度を独立して管理する。DD非掲載、未確認、旧値、説明の言い換えだけでは秘密度を上げない。トピックに秘密が混在しても、案内・要約・数値・条件・補足・出典を欄ごとに分類し、子の行の秘密度を一般説明へ継承しない。

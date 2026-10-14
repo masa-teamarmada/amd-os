@@ -14,7 +14,9 @@ function stable(value: unknown): unknown {
 }
 /** 内容更新後に古い開示原稿を再利用しない。権限の代わりではなく、内容一致の検査。 */
 export function amieTechReviewHash(record: Record<string, unknown>, entity: Entity) {
-  return createHash("sha256").update(JSON.stringify(stable(Object.fromEntries(FIELDS[entity].map(key => [key, record[key] ?? null]))))).digest("hex");
+  // 追加JSONのない既存行のhashは保持。廃液実験を持つ行は画像参照も変更検知する。
+  const fields = [...FIELDS[entity], ...(entity === "entry" && record.experiment != null ? ["experiment"] : [])];
+  return createHash("sha256").update(JSON.stringify(stable(Object.fromEntries(fields.map(key => [key, record[key] ?? null]))))).digest("hex");
 }
 export function amieTechDisclosureStatus(record: Record<string, unknown>, entity: Entity): AmieTechDisclosureStatus {
   const p = amieReadTechDisclosure(record.disclosure);

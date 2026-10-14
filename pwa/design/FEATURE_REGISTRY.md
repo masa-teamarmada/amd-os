@@ -1,5 +1,9 @@
 # PWA Feature Registry
 
+## 廃液実験の比較・集計・原画像
+
+技術トピックのpresentation.kind=effluent_ledgerから、入手元・成分・処理前後・状態・出典・原画像を開く。AmieEffluentLedger、amie-effluent-experiments、project_tech_entries.experiment、/api/project-tech-graphs。廃液追加・編集・画像保存・種類照合済み完了集計を保持し、関係先の退役した排液列を復元しない。guard: test:effluent-ledger/tech-disclosure。仕様3-20/3-16、manual2-3。
+
 ## コスト試算の自社／競合プロセス比較（2026-10-13）
 
 - 導線: 既存「コスト試算」本文内に自社試算（登録資料の自社名で表示）と競合プロセス試算を常設。自社側の廃液／燃料切替・試算中入力・保存を保持する。
