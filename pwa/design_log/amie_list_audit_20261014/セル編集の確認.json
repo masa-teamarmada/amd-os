@@ -1,0 +1,34 @@
+{
+  "checkedAt": "2026-10-14T15:58:43.114Z",
+  "fields": [
+    {
+      "field": "sample",
+      "opened": true
+    },
+    {
+      "field": "provider",
+      "opened": true
+    },
+    {
+      "field": "elements",
+      "opened": true
+    },
+    {
+      "field": "changes",
+      "opened": true
+    },
+    {
+      "field": "result",
+      "opened": true
+    },
+    {
+      "field": "status",
+      "opened": true
+    },
+    {
+      "field": "details",
+      "opened": true
+    }
+  ],
+  "saveAndReload": "実験結果セルで値を変えず保存し、49行・18画像・完了9の照合通過"
+}

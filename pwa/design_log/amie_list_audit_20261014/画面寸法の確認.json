@@ -1,0 +1,209 @@
+{
+  "checkedAt": "2026-10-14T16:00:22.047Z",
+  "codeVersion": "v3.162.47",
+  "desktopViewport": {
+    "requested": [
+      1440,
+      900
+    ],
+    "actualWidth": 1309
+  },
+  "mobileViewport": {
+    "requested": [
+      390,
+      844
+    ],
+    "actualWidth": 354
+  },
+  "existingFamilies": [
+    {
+      "name": "VC",
+      "category": 340,
+      "columns": 7,
+      "page": 1309,
+      "rows": [
+        49,
+        46,
+        62,
+        62,
+        46,
+        46
+      ],
+      "status": 340,
+      "viewport": 1309
+    },
+    {
+      "name": "シーズ",
+      "category": 161,
+      "columns": 19,
+      "page": 1309,
+      "rows": [
+        90,
+        65,
+        90,
+        65,
+        116,
+        90
+      ],
+      "status": 87,
+      "viewport": 1309
+    },
+    {
+      "name": "研究機関",
+      "category": 65,
+      "columns": 0,
+      "page": 1309,
+      "rows": [],
+      "status": 6,
+      "viewport": 1309
+    },
+    {
+      "name": "PJ台帳",
+      "mobile": true,
+      "hScroll": 1,
+      "page": 354,
+      "viewport": 354
+    },
+    {
+      "name": "VC",
+      "mobile": true,
+      "hScroll": 2,
+      "page": 354,
+      "viewport": 354
+    },
+    {
+      "name": "シーズ",
+      "mobile": true,
+      "hScroll": 1,
+      "page": 354,
+      "viewport": 354
+    },
+    {
+      "name": "研究機関",
+      "mobile": true,
+      "hScroll": 0,
+      "page": 354,
+      "viewport": 354
+    },
+    {
+      "name": "メンバー",
+      "mobile": true,
+      "category": 0,
+      "page": 354,
+      "status": 90,
+      "viewport": 354
+    },
+    {
+      "name": "契約",
+      "mobile": true,
+      "category": 24,
+      "page": 354,
+      "status": 47,
+      "viewport": 354
+    },
+    {
+      "name": "外部アクセス",
+      "mobile": true,
+      "category": 27,
+      "page": 354,
+      "status": 15,
+      "viewport": 354
+    },
+    {
+      "name": "外部アクセス",
+      "category": 27,
+      "page": 1309,
+      "status": 15,
+      "viewport": 1309
+    },
+    {
+      "name": "変更履歴",
+      "category": 0,
+      "page": 1309,
+      "status": 0,
+      "viewport": 1309
+    },
+    {
+      "name": "資料",
+      "category": 1,
+      "page": 1309,
+      "status": 0,
+      "viewport": 1309
+    },
+    {
+      "name": "業務フロー",
+      "mobile": true,
+      "page": 354,
+      "status": 13,
+      "tables": 2,
+      "viewport": 354
+    },
+    {
+      "name": "支払",
+      "mobile": true,
+      "page": 354,
+      "status": 10,
+      "tables": 9,
+      "viewport": 354
+    },
+    {
+      "name": "財務",
+      "mobile": true,
+      "page": 354,
+      "status": 0,
+      "tables": 9,
+      "viewport": 354
+    },
+    {
+      "name": "DD",
+      "mobile": true,
+      "page": 354,
+      "status": 0,
+      "tables": 0,
+      "viewport": 354
+    }
+  ],
+  "finalChecks": {
+    "seedRowsDesktop": [
+      63,
+      63,
+      63,
+      63,
+      63,
+      63
+    ],
+    "meetingDesktop": {
+      "page": 1309,
+      "columns": [
+        505,
+        505
+      ]
+    },
+    "meetingMobile": {
+      "page": 354,
+      "columns": [
+        323,
+        323
+      ]
+    },
+    "institutionsMobile": {
+      "page": 354,
+      "tabStripHeight": 49.8
+    },
+    "history": {
+      "groups": 122,
+      "desktopPage": 1309,
+      "mobilePage": 354
+    },
+    "dashboard": {
+      "desktopPage": 1309,
+      "mobilePage": 354,
+      "queueStatusLabels": 22
+    },
+    "allColumns": {
+      "project": 31,
+      "vc": 16
+    }
+  },
+  "note": "初回監査と修正後の確認を区別。DDは同意前の認可画面のみ実画面確認。"
+}
