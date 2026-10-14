@@ -17,7 +17,7 @@ const business = "性能・適用限界・実績・計画・試算の判断情�
 const experiment = "個別試験の菌体量・組成・培養設定・測定条件を特定できる詳細。概要の性能値とは分け、提供元と受領者の開示条件を確認する。";
 const customer = "顧客を特定する実名・試料の組成・採取工程・個別提供条件。提供元の情報利用条件の確認が必要。";
 const equipment = "試作装置の内部構造・配置・供給流量・個別運転記録。装置の容量や到達性能だけの説明とは分ける。";
-const gene = "未公開の導入対象・導入数・株の構成を特定する情報。強化株の性能・開発段階の概要とは分けて管理する。";
+const gene = "個別株の導入対象・導入数・株の構成を特定する設計情報。一般的なタンパク質の説明や性能値とは分け、公表範囲と大学の情報利用条件を確認する。";
 const recipe = "具体的な制御操作・投入順序・抽出と再利用の手順を含み、再現につながるため核心ノウハウとして管理する。";
 const edits = new Map<string, Record<string, [AmieTechLevel, string]>>();
 function mark(ids: string, fields: string, level: AmieTechLevel, reason: string) {
@@ -28,7 +28,7 @@ function mark(ids: string, fields: string, level: AmieTechLevel, reason: string)
 // 原本の本文・案内は子の試験行から独立して読む。
 mark("ptt_sx_spec_sheet ptt_sol_qa ptt_sx_preference", "body_md", "public", general);
 mark("ptt_sx_effluent_sources", "body_md", "restricted", customer);
-mark("ptt_sx_closed_mechanism", "body_md", "restricted", gene);
+mark("ptt_sx_closed_mechanism", "body_md", "dd_summary", business);
 mark("ptt_sx_closed_gilsp", "body_md", "dd_summary", business);
 
 // 規制の要件は一般説明。株の判定結果と装置への適用は事業情報として分ける。
@@ -59,8 +59,8 @@ mark("pte_sx_d01", "condition_text", "restricted", equipment);
 mark("pte_sx_d03", "note", "restricted", equipment);
 
 // 個別株の構成と性能値を分離。試験前という状態だけで核心にしない。
-mark("pte_sx_d10", "row_label value_min value_max value_text", "core", gene);
-mark("pte_sx_d11 pte_sx_ss25 pte_sx_ss26", "row_label", "core", gene);
+mark("pte_sx_d10", "row_label value_min value_max value_text", "restricted", gene);
+mark("pte_sx_d11 pte_sx_ss25 pte_sx_ss26", "row_label", "restricted", gene);
 mark("pte_sx_d16", "row_label value_text condition_text note", "restricted", gene);
 mark("pte_sx_f01 pte_sx_ss17", "condition_text", "restricted", gene);
 mark("pte_sx_l07", "value_text note", "restricted", gene);
