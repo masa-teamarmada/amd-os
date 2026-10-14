@@ -1,4 +1,5 @@
 import { AmieTechDisclosureField, AmieTechDisclosureMark } from "./AmieTechDisclosureMark";
+import { amieTechFieldLevel } from "@/lib/amie-tech-disclosure-model";
 import { amieTechDisplayEnabled, amieTechSharedEntry, amieTechRecordState, amieTechFieldState, type AmieTechDisplayContext } from "@/lib/amie-tech-display";
 import styles from "./amie-tech-reading.module.css";
 // 技術台帳（project_tech_topics / project_tech_entries）の表示専用ブロック。
@@ -97,7 +98,7 @@ function AmieTechValue({entry,context}:{entry:TechEntry;context?:AmieTechDisplay
   const shared=amieTechSharedEntry(entry,context); const enabled=amieTechDisplayEnabled(entry,context);
   const hasNumber=entry.value_min!==null || entry.value_max!==null;
   const numericKeys=["value_min","value_max","unit"];
-  const together=!entry.value_text || !hasNumber || amieTechFieldState(entry,shared,numericKeys,context?.parentStatus) === amieTechFieldState(entry,shared,["value_text"],context?.parentStatus);
+  const together=!entry.value_text || !hasNumber || (amieTechFieldState(entry,shared,numericKeys,context?.parentStatus) === amieTechFieldState(entry,shared,["value_text"],context?.parentStatus) && amieTechFieldLevel(entry,numericKeys) === amieTechFieldLevel(entry,["value_text"]));
   const props={record:entry,shared,enabled,parentStatus:context?.parentStatus};
   const valueRewritten=enabled && shared && amieTechFieldState(entry,shared,["value_text"],context?.parentStatus) === "private" && !!shared.value_text;
   return <>
@@ -125,7 +126,7 @@ function AmieTechEntryText({entry,context,field,label,children}:{entry:TechEntry
 /** 項目名の匿名化・言い換えも、原本の開示と混同しない。 */
 function AmieTechEntryLabel({entry,context,children}:{entry:TechEntry;context?:AmieTechDisplayContext;children:React.ReactNode}) {
   const shared=amieTechSharedEntry(entry,context);
-  if (!shared || amieTechFieldState(entry,shared,["row_label"],context?.parentStatus) === "dd") return <>{children}</>;
+  if (!["restricted","core"].includes(amieTechFieldLevel(entry,["row_label"])) && (!shared || amieTechFieldState(entry,shared,["row_label"],context?.parentStatus) === "dd")) return <>{children}</>;
   return <AmieTechEntryText entry={entry} context={context} field="row_label">{children}</AmieTechEntryText>;
 }
 function AmieTechCheckNote({entry,context}:{entry:TechEntry;context?:AmieTechDisplayContext}) {

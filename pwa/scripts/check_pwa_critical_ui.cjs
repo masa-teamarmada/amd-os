@@ -4847,5 +4847,6 @@ expectIncludes("src/components/workflows/WorkflowProgress.tsx", ["ArrowRight", "
 expectIncludes("src/components/project-card-designs/ProjectCardDesigns.tsx", ['PdfCanvas', 'pdfUrl={']);
 expectIncludes("src/components/project-card-designs/PdfCanvas.tsx", ['pdfjs-dist', 'getDocument', 'getPage', 'canvas', 'destroy']);
 
-expectIncludes("src/components/cockpit/CockpitTechnology.tsx", ["amie-tech-disclosure-controls", "AmieTechDisclosureLegend", "秘密レベルで絞り込み"]);
-expectIncludes("src/components/cockpit/AmieTechDisclosure.tsx", ["秘密レベルとDDへの掲載範囲", "開示区分と掲載欄を保存", "amie-tech-disclosure-inventory"]);
+expectIncludes("src/components/cockpit/CockpitTechnology.tsx", ["amie-tech-disclosure-controls", "AmieTechDisclosureLegend", "秘密度で絞り込み"]);
+expectIncludes("src/components/cockpit/AmieTechDisclosure.tsx", ["秘密度とDD掲載状況", "秘密度とDD掲載欄を保存", "amie-tech-disclosure-inventory", "field_levels", "field_reasons"]);
+expectIncludes("src/components/cockpit/AmieTechDisclosureMark.tsx", ['private:"DD非掲載"', "data-amie-sensitivity"]);

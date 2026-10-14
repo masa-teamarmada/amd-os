@@ -25,5 +25,6 @@
 .badge.private { color:#515158; border-color:#d2d2d7; }
 .badge.review { color:#854d0e; border-color:#e9cc8d; }
 .fieldLabel { display:flex; align-items:center; flex-wrap:wrap; gap:4px; margin-bottom:2px; font-size:11px; line-height:17px; color:#6e6e73; }
+.sensitivity { color:#515158; font-size:11px; line-height:17px; }
 .legend { display:flex; align-items:center; flex-wrap:wrap; gap:6px 12px; font-size:12px; }
 @media(max-width:767px) { .sourceSummary { min-height:44px; } }

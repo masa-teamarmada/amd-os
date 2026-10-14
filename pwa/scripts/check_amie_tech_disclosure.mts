@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { amieTechFieldState, amieTechRecordState, amieTechSharedEntry } from "../src/lib/amie-tech-display.ts";
+import { amieTechFieldLevel, amieTechContainsLevel, amieReadTechDisclosure } from "../src/lib/amie-tech-disclosure-model.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { amiePrepareTechDisclosure, amieProjectDdTechTopic, amieTechDisclosureStatus } from "../src/lib/amie-tech-disclosure-server.ts";
@@ -32,6 +33,27 @@ assert.equal(amieTechFieldState(displayRow,undefined,["value_min"]),"private","�
 assert.equal(amieTechFieldState(displayRow,projected.entries[0],["value_min"],"needs_review"),"review");
 assert.equal(amieTechFieldState(projected.entries[0],projected.entries[0],["value_min"]),"dd","投影済みの外部表示はDD開示");
 assert.equal(amieTechSharedEntry(displayRow,{enabled:true,sharedEntries:new Map()}),undefined,"実際の投影にない行を採用しない");
+
+// 機密度と掲載状況は独立。普通の説明を言い換えても秘密度は変わらない。
+const fieldTopic:any={...topic,summary:"性能と適用範囲を一枚にまとめる",body_md:"一般的な説明",disclosure:amiePrepareTechDisclosure({...topic,summary:"性能と適用範囲を一枚にまとめる",body_md:"一般的な説明"},"topic",{version:1,level:"restricted",reason:"出典の詳細",field_levels:{summary:"public",body_md:"public",source_ref:"restricted"},field_reasons:{summary:"案内文",body_md:"一般説明",source_ref:"内部の試験情報"},dd:{title:"性能の概要",summary:"事業判断の説明",body_md:"一般的な説明"}})};
+const fieldPreview=amieProjectDdTechTopic(fieldTopic,[])!;
+assert.ok(fieldPreview);
+assert.equal(amieTechFieldLevel(fieldTopic,["summary"]),"public");
+assert.equal(amieTechContainsLevel(fieldTopic,"public"),true,"秘密度の絞り込みでも一般の案内を親区分へ巻き込まない");
+assert.equal(amieTechFieldState(fieldTopic,fieldPreview.topic,["summary"]),"private","言い換えはDD非掲載の意味だけ");
+assert.equal(amieTechFieldLevel({...fieldTopic,disclosure:{...fieldTopic.disclosure,dd:null}},["summary"]),"public","DDを外しても秘密度は変わらない");
+const mixedRow:any={...row,disclosure:amiePrepareTechDisclosure(row,"entry",{version:1,level:"core",reason:"条件に制御手順",field_levels:{value_min:"dd_summary",value_max:"dd_summary",unit:"public",value_text:"dd_summary",condition_text:"core",row_label:"public"},field_reasons:{condition_text:"具体的な制御操作"},dd:{row_label:"培養時間",value_text:"CANARY_CONTROL",condition_text:"制御手順は別管理"}})};
+assert.equal(amieProjectDdTechTopic(approvedTopic,[mixedRow])!.entries[0].value_min,15,"秘密の条件があっても独立した性能値は投影できる");
+assert.equal(amieTechFieldLevel(mixedRow,["condition_text"]),"core");
+assert.throws(()=>amiePrepareTechDisclosure(row,"entry",{...mixedRow.disclosure,dd:{...mixedRow.disclosure.dd,condition_text:row.condition_text}}),/通常DD/,"秘密原条件をそのまま掲載できない");
+assert.throws(()=>amiePrepareTechDisclosure(row,"entry",{...mixedRow.disclosure,field_levels:{...mixedRow.disclosure.field_levels,value_min:"core"},field_reasons:{...mixedRow.disclosure.field_reasons,value_min:"具体的設定"}}),/通常DD/,"秘密に指定した原数値を掲載できない");
+assert.throws(()=>amiePrepareTechDisclosure(row,"entry",{...mixedRow.disclosure,field_reasons:{}}),/理由/);
+assert.equal(amieReadTechDisclosure({...mixedRow.disclosure,field_levels:{future_secret:"public"}}),null,"未知の欄の区分を採用しない");
+assert.equal(amieTechFieldLevel({...mixedRow,value_text:null},["value_min","value_max","unit","value_text"]),"dd_summary","空欄の秘密度を表示中の数値へ引き継がない");
+const markSource=fs.readFileSync(path.join(import.meta.dirname,"../src/components/cockpit/AmieTechDisclosureMark.tsx"),"utf8");
+assert.ok(markSource.includes('private:"DD非掲載"'));
+assert.ok(!markSource.includes("社内限定"));
+assert.ok(markSource.includes("data-amie-sensitivity"),"欄の秘密度を掲載バッジとは別に表示する");
 
 const textOnly={...row,disclosure:amiePrepareTechDisclosure(row,"entry",{version:1,level:"dd_summary",reason:"旧値との混同を避ける",dd:{row_label:"説明だけ",value_mode:"text_only",value_text:"条件を追加確認"}})};
 assert.equal(amieProjectDdTechTopic(approvedTopic,[textOnly])!.entries[0].value_min,null,"不要な旧値や質問回数は掲載しない");

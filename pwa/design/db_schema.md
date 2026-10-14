@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-10-13 22:18 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-10-14 15:42 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -188,7 +188,7 @@ PRIMARY KEY: `id`
 
 ## amd_os_data_change_history
 
-行数 (概算): 465,397
+行数 (概算): 516,199
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -540,7 +540,7 @@ UNIQUE: `(name)` (constraint: `atlas_themes_name_key`)
 
 ## automation_route_budget_usage
 
-行数 (概算): 115
+行数 (概算): 143
 PRIMARY KEY: `scope_kind, scope_key, route_key`
 
 | # | column | type | nullable | default |
@@ -623,7 +623,7 @@ PRIMARY KEY: `id`
 
 ## boss_baseline_occurrences
 
-行数 (概算): 1,361
+行数 (概算): 1,569
 PRIMARY KEY: `id`
 UNIQUE: `(revision)` (constraint: `boss_baseline_occurrences_revision_key`)
 UNIQUE: `(server_boss_id,baseline_at,spawn_at)` (constraint: `boss_baseline_occurrences_server_boss_id_baseline_at_spawn__key`)
@@ -654,7 +654,7 @@ PRIMARY KEY: `id`
 
 ## boss_notification_jobs
 
-行数 (概算): 17,235
+行数 (概算): 20,468
 PRIMARY KEY: `id`
 UNIQUE: `(event_id)` (constraint: `boss_notification_jobs_event_id_key`)
 UNIQUE: `(server_boss_id,schedule_revision,lead_minutes)` (constraint: `boss_notification_jobs_server_boss_id_schedule_revision_lea_key`)
@@ -679,7 +679,7 @@ UNIQUE: `(server_boss_id,schedule_revision,lead_minutes)` (constraint: `boss_not
 
 ## boss_report_occurrences
 
-行数 (概算): 5,205
+行数 (概算): 6,405
 PRIMARY KEY: `id`
 UNIQUE: `(revision)` (constraint: `boss_report_occurrences_revision_key`)
 UNIQUE: `(server_boss_id,accepted_report_id,spawn_at)` (constraint: `boss_report_occurrences_server_boss_id_accepted_report_id_s_key`)
@@ -694,7 +694,7 @@ UNIQUE: `(server_boss_id,accepted_report_id,spawn_at)` (constraint: `boss_report
 
 ## boss_reports
 
-行数 (概算): 1,840
+行数 (概算): 2,073
 PRIMARY KEY: `id`
 UNIQUE: `(game_server_id,input_source,source_dedupe_key)` (constraint: `boss_reports_game_server_id_input_source_source_dedupe_key_key`)
 
@@ -718,7 +718,7 @@ UNIQUE: `(game_server_id,input_source,source_dedupe_key)` (constraint: `boss_rep
 
 ## boss_schedules
 
-行数 (概算): 181
+行数 (概算): 185
 PRIMARY KEY: `server_boss_id`
 
 | # | column | type | nullable | default |
@@ -1743,7 +1743,7 @@ UNIQUE: `(occurrence_id,recipient_slack_id,schedule_key,stage)` (constraint: `co
 
 ## company_schedule_occurrences
 
-行数 (概算): 3,636
+行数 (概算): 3,696
 PRIMARY KEY: `occurrence_id`
 UNIQUE: `(occurrence_key,source_hash)` (constraint: `company_schedule_occurrences_source_uniq`)
 
@@ -3189,7 +3189,7 @@ PRIMARY KEY: `action_id`
 
 ## meeting_assets
 
-行数 (概算): 194
+行数 (概算): 220
 PRIMARY KEY: `asset_id`
 UNIQUE: `(storage_path)` (constraint: `meeting_assets_storage_path_key`)
 
@@ -3221,7 +3221,7 @@ UNIQUE: `(storage_path)` (constraint: `meeting_assets_storage_path_key`)
 
 ## meeting_minutes_backfill_ledger
 
-行数 (概算): 96
+行数 (概算): 108
 PRIMARY KEY: `calendar_event_id`
 
 | # | column | type | nullable | default |
@@ -3335,7 +3335,7 @@ PRIMARY KEY: `user_id`
 
 ## member_boss_preferences
 
-行数 (概算): 1,915
+行数 (概算): 1,975
 PRIMARY KEY: `id`
 UNIQUE: `(game_server_id,user_id,server_boss_id)` (constraint: `member_boss_preferences_game_server_id_user_id_server_boss__key`)
 
@@ -4078,7 +4078,7 @@ UNIQUE: `(item_id)` (constraint: `navigator_items_item_id_key`)
 
 ## notification_deliveries
 
-行数 (概算): 4,481
+行数 (概算): 4,994
 PRIMARY KEY: `id`
 UNIQUE: `(job_id,subscription_id,attempt_number)` (constraint: `notification_deliveries_job_id_subscription_id_attempt_numb_key`)
 
@@ -4113,7 +4113,7 @@ UNIQUE: `(lane,observed_at,observation_key,source)` (constraint: `observation_lo
 
 ## os_page_viewer_sessions
 
-行数 (概算): 79
+行数 (概算): 15
 PRIMARY KEY: `session_id`
 
 | # | column | type | nullable | default |
@@ -4129,7 +4129,7 @@ PRIMARY KEY: `session_id`
 
 ## os_page_viewing_visits
 
-行数 (概算): 206
+行数 (概算): 301
 PRIMARY KEY: `visit_id`
 
 | # | column | type | nullable | default |
@@ -6962,7 +6962,7 @@ PRIMARY KEY: `project_id, member_id, surface`
 
 ## project_tech_entries
 
-行数 (概算): 1,188
+行数 (概算): 1,218
 PRIMARY KEY: `tech_entry_id`
 
 | # | column | type | nullable | default |
@@ -8755,7 +8755,7 @@ UNIQUE: `(game_server_id,user_id,endpoint_hash)` (constraint: `web_push_subscrip
 
 ## workflow_alert_deliveries
 
-行数 (概算): 2
+行数 (概算): 18
 PRIMARY KEY: `event_key, recipient_member_id`
 
 | # | column | type | nullable | default |
@@ -9195,8 +9195,3 @@ PRIMARY KEY: `id`
 | 7 | `applied_at` | `timestamptz` | NULL | `` |
 | 8 | `applied_note` | `text` | NULL | `` |
 | 9 | `created_at` | `timestamptz` | NOT NULL | `now()` |
-
-
-## project_card_designs / versions / projects / assets（2026-10-12）
-自社名刺系列、版、関連PJ、版別資料。DDL/RLS/service専用RPCは `ios/supabase/migrations/20261012072118_amie_project_card_designs.sql`。承認版ポインタと最新版案を分離し、immutable PDF写しはprivate workspace-files。spec3-25参照。
-
