@@ -267,7 +267,7 @@ export function CockpitStrategySignals({ signals, projectId, readOnly = false }:
   }, [sorted, feedbacks]);
 
   return (
-    <section className="rounded-lg border border-border bg-background">
+    <section className="min-w-0 break-words rounded-lg border border-border bg-background">
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
         <h2 className="text-[13px] font-semibold">経営ハイライト</h2>
         <span className="ml-auto rounded bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">

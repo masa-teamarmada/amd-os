@@ -1,5 +1,5 @@
 "use client";
-import { AmieListCategory } from "@/components/ui/amie-list-signals";
+import { AmieListCategory, AmieListStatus } from "@/components/ui/amie-list-signals";
 
 
 /**
@@ -9,13 +9,6 @@ import { AmieListCategory } from "@/components/ui/amie-list-signals";
  * 契約まわりの前提は 2026-09-17 まさ依頼で「契約」タブ (`CockpitProjectOverview`) へ置く。
  */
 
-const STATUS_COLORS: Record<string, string> = {
-  active: "bg-emerald-500/10 text-emerald-700",
-  sales: "bg-blue-500/10 text-blue-700",
-  draft: "bg-violet-500/10 text-violet-700",
-  ended: "bg-zinc-200 text-zinc-500",
-  frozen: "bg-amber-500/10 text-amber-700",
-};
 
 interface Props {
   project: {
@@ -48,7 +41,7 @@ export function CockpitHeader({ project }: Props) {
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <h1 className="text-lg font-bold">{project.projectName}</h1>
         {project.clientName && <span className="text-[13px] text-[#86868b]">{project.clientName}</span>}
-        <span className={`rounded-full px-2 py-0.5 text-[11px] ${STATUS_COLORS[project.status] ?? "bg-muted text-muted-foreground"}`}>{project.status === "active" ? "Active" : project.status}</span>
+        <AmieListStatus value={project.status}/>
         <AmieListCategory value={CATEGORY_LABELS[category] ?? "DTSU"} className={`rounded-full px-2 py-0.5 text-[11px] ${CATEGORY_COLORS[category] ?? CATEGORY_COLORS.dtsu}`}/>
       </div>
     </header>

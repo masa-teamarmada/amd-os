@@ -1,5 +1,6 @@
 "use client";
 
+import { AmieListCategory, AmieListStatus } from "@/components/ui/amie-list-signals";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { loadWorkspaceMeetings } from "@/lib/workspace-meetings-client";
@@ -300,7 +301,7 @@ export function CockpitMeetingSummary({ projectId, sharedWorkspace = false, read
   }, [prepRows, selectedMeeting]);
 
   return (
-    <section className="bg-white rounded-xl border border-[#e5e5e7] px-4 py-3.5">
+    <section className="min-w-0 break-words bg-white rounded-xl border border-[#e5e5e7] px-4 py-3.5">
       <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-[13px] font-medium">MTGサマリ</h3>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -500,7 +501,7 @@ function MeetingRow({ item, onClick, series }: RowProps) {
         : null;
 
   return (
-    <div className={`group w-full rounded-lg border transition-colors flex items-start gap-2 px-3 py-2 ${
+    <div className={`group w-full rounded-lg border transition-colors flex flex-wrap items-start gap-2 px-3 py-2 ${
       isUpcoming
         ? "border-amber-200 bg-white hover:bg-amber-50 hover:border-amber-300"
         : isPrep
@@ -509,7 +510,7 @@ function MeetingRow({ item, onClick, series }: RowProps) {
     }`}>
       <button
         onClick={onClick}
-        className="text-left flex items-start gap-2 flex-1 min-w-0"
+        className="text-left flex w-full items-start gap-2 min-w-0 sm:w-auto sm:flex-1"
       >
         <span className="text-[11px] text-[#86868b] shrink-0 tabular-nums w-[64px] mt-0.5">
           {dateLabel}
@@ -522,21 +523,15 @@ function MeetingRow({ item, onClick, series }: RowProps) {
         <div className="flex-1 min-w-0">
           <div className="text-[12px] font-medium truncate flex items-center gap-1.5">
             {isUpcoming && (
-              <span className="text-[9px] px-1 py-px rounded bg-amber-100 border border-amber-200 text-amber-800 shrink-0">
-                {series?.kind === "series" ? "シリーズ" : "予定MTG"}
-              </span>
+              <AmieListStatus label={series?.kind === "series" ? "シリーズ予定" : "予定MTG"} tone="progress" className="shrink-0"/>
             )}
             {!isUpcoming && isPrep && (
-              <span className="text-[9px] px-1 py-px rounded bg-stone-100 border border-stone-200 text-stone-700 shrink-0">
-                日程未確定
-              </span>
+              <AmieListStatus label="日程未確定" className="shrink-0"/>
             )}
             {isDialogue && (
-              <span className="text-[9px] px-1 py-px rounded bg-violet-50 border border-violet-200 text-violet-800 shrink-0">
-                提案整理
-              </span>
+              <AmieListCategory value="提案整理" className="shrink-0"/>
             )}
-            <span className="truncate">{item.title}</span>
+            <span className="line-clamp-2 sm:truncate" title={item.title}>{item.title}</span>
           </div>
           {item.summaryShort && (
             <p className="mt-0.5 text-[11px] text-[#3c3c43] line-clamp-2 leading-snug">
@@ -550,7 +545,7 @@ function MeetingRow({ item, onClick, series }: RowProps) {
           )}
         </div>
       </button>
-      <div className="flex flex-col items-end gap-1 shrink-0">
+      <div className="flex w-full flex-wrap items-center justify-end gap-1 sm:w-auto sm:flex-col sm:items-end sm:shrink-0">
         {isUpcoming && <PrepWorkerCta meeting={item} />}
         <NotionTranscriptCta meeting={item} compact />
         {sourceLink && sourceLabel && (
@@ -562,7 +557,7 @@ function MeetingRow({ item, onClick, series }: RowProps) {
             className="text-[10px] text-[#007aff] hover:underline whitespace-nowrap"
             title={`元ソースを別タブで開く: ${sourceLink}`}
           >
-            {sourceLabel} ↗
+            <AmieListCategory value={sourceLabel}>{sourceLabel} ↗</AmieListCategory>
           </a>
         )}
       </div>

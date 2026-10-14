@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     .from("amd_os_data_change_history")
     .select(
       "id,occurred_at,table_name,operation,record_pk,actor_id,actor_label,actor_source,changed_fields,before_values,after_values,undo_supported,undo_block_reason,undo_of_history_id,transaction_id",
-      { count: "exact" },
+      { count: "planned" },
     )
     .order("occurred_at", { ascending: false })
     .order("id", { ascending: false });
@@ -54,9 +54,17 @@ export async function GET(request: Request) {
   if (operation) query = query.eq("operation", operation);
 
   const from = page * PAGE_SIZE;
-  const { data, error, count } = await query.range(from, from + PAGE_SIZE - 1);
-  if (error) {
-    console.error("[admin/change-history] load failed:", error.message);
+  let nextQuery = db.from("amd_os_data_change_history").select("id")
+    .neq("table_name", "project_management_field_audit")
+    .order("occurred_at", { ascending: false }).order("id", { ascending: false })
+    .range(from + PAGE_SIZE, from + PAGE_SIZE);
+  if (operation) nextQuery = nextQuery.eq("operation", operation);
+  // 全件COUNTで先頭ページまで止めない。総数は統計による概数、送り先は実在行で判定。
+  const [{ data, error, count }, nextPage] = await Promise.all([
+    query.range(from, from + PAGE_SIZE - 1), nextQuery,
+  ]);
+  if (error || nextPage.error) {
+    console.error("[admin/change-history] load failed:", (error ?? nextPage.error)?.message);
     return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
   }
 
@@ -182,8 +190,9 @@ export async function GET(request: Request) {
     }),
     page,
     pageSize: PAGE_SIZE,
-    total: count ?? 0,
-    hasMore: from + PAGE_SIZE < (count ?? 0),
+    total: count,
+    totalIsEstimated: count != null,
+    hasMore: Boolean(nextPage.data?.length),
   });
 }
 

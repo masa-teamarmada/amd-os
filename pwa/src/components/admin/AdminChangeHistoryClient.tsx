@@ -31,7 +31,8 @@ type HistoryResponse = {
   rows?: HistoryRow[];
   page?: number;
   pageSize?: number;
-  total?: number;
+  total?: number | null;
+  totalIsEstimated?: boolean;
   hasMore?: boolean;
   error?: string;
 };
@@ -225,7 +226,8 @@ export function AdminChangeHistoryClient() {
   const [rows, setRows] = useState<HistoryRow[]>([]);
   const [operation, setOperation] = useState<"" | Operation>("");
   const [page, setPage] = useState(0);
-  const [total, setTotal] = useState(0);
+  const [total, setTotal] = useState<number | null>(null);
+  const [totalIsEstimated, setTotalIsEstimated] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -244,7 +246,8 @@ export function AdminChangeHistoryClient() {
       const payload = await response.json() as HistoryResponse;
       if (!response.ok || !payload.ok) throw new Error(payload.error || "load_failed");
       setRows(payload.rows ?? []);
-      setTotal(payload.total ?? 0);
+      setTotal(payload.total ?? null);
+      setTotalIsEstimated(Boolean(payload.totalIsEstimated));
       setHasMore(Boolean(payload.hasMore));
     } catch {
       setError("変更履歴を読み込めなかった。少し待ってから再読み込みして。 ");
@@ -335,7 +338,7 @@ export function AdminChangeHistoryClient() {
       </div>
 
       <div className="flex items-center justify-between border-b border-border/70 py-2 text-xs text-muted-foreground">
-        <span>このページ {groups.length}操作 / 対象{new Intl.NumberFormat("ja-JP").format(total)}件</span>
+        <span title={totalIsEstimated ? "履歴全体の件数は統計による概数。ページ送りは実在する履歴で判定する。" : undefined}>このページ {groups.length}操作 / 対象履歴 {total == null ? "件数未確認" : <>{totalIsEstimated ? "約" : ""}{new Intl.NumberFormat("ja-JP").format(total)}件</>}</span>
         <span>新しい順</span>
       </div>
       {message && <div role="status" className="my-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{message}</div>}

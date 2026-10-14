@@ -183,7 +183,7 @@ export default function InstitutionsPage() {
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div
-            className="inline-grid grid-cols-5 rounded-md border border-slate-300 bg-slate-100 p-0.5"
+            className="flex max-w-full overflow-x-auto rounded-md border border-slate-300 bg-slate-100 p-0.5"
             role="tablist"
             aria-label="研究機関の表示切り替え"
           >
@@ -284,7 +284,7 @@ function ViewButton({
       onClick={onClick}
       onMouseEnter={onPrefetch}
       onFocus={onPrefetch}
-      className={`min-h-9 rounded px-4 text-xs font-semibold ${active ? "bg-white text-slate-950 shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
+      className={`min-h-11 shrink-0 whitespace-nowrap rounded px-4 text-xs font-semibold sm:min-h-9 ${active ? "bg-white text-slate-950 shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
     >
       {children}
     </button>

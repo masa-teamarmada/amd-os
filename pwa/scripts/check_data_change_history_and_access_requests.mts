@@ -121,6 +121,9 @@ assert.match(migration, /自動採番IDを安全に復元できないため戻�
 assert.match(historyApi, /export async function POST/, "変更履歴APIから戻し操作を受ける");
 assert.match(historyApi, /action !== "undo"/, "戻し操作を明示actionに限定する");
 assert.match(historyApi, /neq\("table_name", "project_management_field_audit"\)/, "二重監査行で本体履歴のページを埋めない");
+assert.match(historyApi, /count: "planned"/, "全件の正確なCOUNTで先頭ページを止めない");
+assert.match(historyApi, /hasMore: Boolean\(nextPage\.data\?\.length\)/, "概数からページ有無を決めず実在する次の履歴で判定する");
+assert.match(historyUi, /totalIsEstimated \? "約"/, "統計上の概数を実件数として見せない");
 assert.match(historyApi, /PAGE_SIZE = 1000/, "同じ自動処理を狭いraw pageで分断しない");
 assert.match(historyApi, /from\("projects"\)/, "PJの表示名を台帳へ解決する");
 assert.match(historyApi, /from\("members"\)/, "メンバーの表示名を台帳から解決する");

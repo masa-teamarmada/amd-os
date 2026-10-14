@@ -860,11 +860,9 @@ function SeedRow({
       <AxisCell value={seed.hrl} />
       <td className="border-b border-slate-100 px-3 py-2 align-top">
         {commercializationTypes.length > 0 ? (
-          <div className="flex flex-wrap gap-1">
-            {commercializationTypes.map((t) => (
-              <AmieListCategory value={SEED_COMMERCIALIZATION_TYPE_LABEL[t] ?? t} key={t}
-                className="whitespace-normal break-words rounded border border-slate-300 bg-slate-50 px-1 py-0.5 text-[10px] leading-tight text-slate-700"/>
-            ))}
+          <div className="flex items-center gap-1" title={commercializationTypes.map(t=>SEED_COMMERCIALIZATION_TYPE_LABEL[t] ?? t).join(" / ")}>
+            <AmieListCategory value={SEED_COMMERCIALIZATION_TYPE_LABEL[commercializationTypes[0]] ?? commercializationTypes[0]}/>
+            {commercializationTypes.length > 1 && <span className="shrink-0 text-[11px] text-slate-500">+{commercializationTypes.length - 1}</span>}
           </div>
         ) : (
           <span className="text-slate-400">未確定</span>

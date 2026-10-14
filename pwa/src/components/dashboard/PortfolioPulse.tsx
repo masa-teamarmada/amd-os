@@ -18,6 +18,7 @@
  * 消さない (障害分離)。
  */
 import Link from "next/link";
+import { AmieListStatus } from "@/components/ui/amie-list-signals";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ArrowRight, Briefcase, Building2, Sprout, type LucideIcon } from "lucide-react";
 import type { ErsBundle } from "@/lib/ers-data";
@@ -384,9 +385,7 @@ function CandidateRow({
         </span>
         <span className="block truncate text-[11px] text-[var(--desk-muted)]">{meta}</span>
       </span>
-      <span className="shrink-0 rounded border border-[var(--desk-line)] px-1 py-0.5 text-[11px] text-[var(--desk-muted)]">
-        {badge}
-      </span>
+      <AmieListStatus label={badge} className="shrink-0"/>
     </Link>
   );
 }
