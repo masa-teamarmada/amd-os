@@ -907,7 +907,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                   id={p.project_id}
                   className={`border-t border-border target:bg-amber-50 ${rowEditing ? "bg-blue-50/30" : "hover:bg-muted/20"}`}
                 >
-                  <td className="px-3 py-2 font-mono font-bold sticky left-0 bg-background">{p.project_id}</td>
+                  <td className="truncate px-3 py-2 font-mono font-bold sticky left-0 bg-background" title={p.project_id}>{p.project_id}</td>
 
                   {/* PJ名 */}
                   <td
@@ -1070,7 +1070,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                           className="border border-border rounded px-1.5 py-0.5 text-[12px] w-full bg-background" />
                         {cellActions("client_name")}
                       </div>
-                    ) : <span className="text-muted-foreground">{p.client_name || "—"}</span>}
+                    ) : <span className="line-clamp-2 text-muted-foreground" title={p.client_name || undefined}>{p.client_name || "—"}</span>}
                   </td>
 
                   {/* report_emails — 省略表示 + クリックで EmailsEditModal (#16 まさ 2026-05-24) */}

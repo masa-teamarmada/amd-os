@@ -1,6 +1,6 @@
 "use client";
 
-import { AmieListStatus } from "@/components/ui/amie-list-signals";
+import { AmieListStatus, AmieListCategory } from "@/components/ui/amie-list-signals";
 import { accessRequestScopeChoices } from "@/lib/workspace-access-request-scopes";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -116,9 +116,15 @@ export function WorkspaceAccessAdminPanel() {
     </div>
     <p className="text-xs text-muted-foreground">{visible.length}人 · 追加する権限は閲覧のみ。変更はその場で保存される。</p>
     <div className="divide-y divide-border border-y border-border">
-      {visible.map(a => <div key={a.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 py-3 md:grid-cols-[minmax(180px,1fr)_minmax(0,2fr)_auto]">
-        <div className="col-start-1 row-start-1 min-w-0"><p className="truncate text-sm font-medium">{a.display_name || "名前未登録"}</p><p className="break-all text-xs text-muted-foreground">{a.email}</p><p className="mt-1 text-[11px] text-muted-foreground">{statusLabel(a.status)}</p></div>
-        <div className="col-span-2 col-start-1 row-start-2 flex flex-wrap items-center gap-1 md:col-span-1 md:col-start-2 md:row-start-1">{assignments(a.id).filter(s => enabled(s.status)).map(s => <span key={s.id} className="rounded bg-muted px-2 py-1 text-xs">{s.place.label}<span className="text-muted-foreground"> · {s.expiresAt && Date.parse(s.expiresAt) <= Date.now() ? "期限切れ" : !s.place.available ? "非公開" : roleLabel(s.role)}</span></span>)}{!assignments(a.id).some(s => enabled(s.status)) && <span className="text-xs text-muted-foreground">閲覧できる場所なし</span>}</div>
+      {visible.map(a => <div key={a.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 py-2 md:grid-cols-[minmax(180px,1fr)_minmax(0,2fr)_auto]">
+        <div className="col-start-1 row-start-1 min-w-0"><div className="flex min-w-0 items-center gap-2"><p className="truncate text-xs font-medium" title={a.display_name || a.email}>{a.display_name || "名前未登録"}</p><AmieListStatus value={a.status} label={statusLabel(a.status)}/></div><p className="mt-0.5 break-all text-xs text-muted-foreground">{a.email}</p></div>
+        <div className="col-span-2 col-start-1 row-start-2 flex flex-wrap items-center gap-1 md:col-span-1 md:col-start-2 md:row-start-1">
+          {assignments(a.id).filter(s => enabled(s.status)).map(s => <div key={s.id} className="flex min-w-0 flex-wrap items-center gap-1">
+            <AmieListCategory value={s.place.kind} title={`${s.place.label} · ${roleLabel(s.role)}`}>{s.place.label} · {roleLabel(s.role)}</AmieListCategory>
+            {s.expiresAt && Date.parse(s.expiresAt) <= Date.now() ? <AmieListStatus label="期限切れ" tone="warning"/> : !s.place.available ? <AmieListStatus label="非公開"/> : null}
+          </div>)}
+          {!assignments(a.id).some(s => enabled(s.status)) && <span className="text-xs text-muted-foreground">閲覧できる場所なし</span>}
+        </div>
         <button aria-label={`${a.display_name || a.email}の権限を編集`} className={`${button} col-start-2 row-start-1 self-start md:col-start-3`} onClick={() => open(a)}>編集</button>
       </div>)}
       {!visible.length && <p className="py-8 text-center text-sm text-muted-foreground">該当する人がいない</p>}

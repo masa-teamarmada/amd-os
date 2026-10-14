@@ -5,7 +5,7 @@
  * ECR比較は同じ正本データの別表示とし、一覧の主役にはしない。
  * SU関連規程と支援プログラム比較は同じ institutions マスタを行にするので、機関を足せば両方に出る。
  */
-import { AmieListStatus } from "@/components/ui/amie-list-signals";
+import { AmieListStatus, AmieListCategory } from "@/components/ui/amie-list-signals";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BriefcaseBusiness, Building2, Search } from "lucide-react";
@@ -331,7 +331,7 @@ function InstitutionCatalog({
                     ? `/institutions/${institution.institutionId}/cockpit`
                     : `/institutions/${institution.institutionId}`
                 }
-                className={`group relative block px-4 py-4 transition-colors hover:bg-slate-50 ${realized ? "bg-indigo-50/35" : considering ? "bg-amber-50/35" : "bg-white"}`}
+                className={`group relative block px-4 py-2 transition-colors hover:bg-slate-50 ${realized ? "bg-indigo-50/35" : considering ? "bg-amber-50/35" : "bg-white"}`}
               >
                 {lifecycle !== "none" && (
                   <span
@@ -339,8 +339,8 @@ function InstitutionCatalog({
                     aria-hidden="true"
                   />
                 )}
-                <div className="grid gap-3 lg:grid-cols-[minmax(240px,1.5fr)_140px_120px_120px_minmax(220px,1fr)] lg:items-center">
-                  <div className="min-w-0">
+                <div className="grid grid-cols-2 gap-2 lg:grid-cols-[minmax(240px,1.5fr)_140px_120px_120px_minmax(220px,1fr)] lg:items-center">
+                  <div className="col-span-2 min-w-0 lg:col-span-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <Building2
                         className="h-4 w-4 text-slate-400"
@@ -364,8 +364,7 @@ function InstitutionCatalog({
                     </div>
                   </div>
                   <p className="text-xs text-slate-600">
-                    {INSTITUTION_TYPE_LABEL[institution.type] ??
-                      institution.type}
+                    <AmieListCategory value={INSTITUTION_TYPE_LABEL[institution.type] ?? institution.type}/>
                     {institution.region ? (
                       <span className="block text-slate-400">
                         {institution.region}
@@ -373,10 +372,10 @@ function InstitutionCatalog({
                     ) : null}
                   </p>
                   <p className="text-sm font-semibold tabular-nums text-slate-800">
-                    {seedCount}件
+                    <span className="mr-1 text-[10px] font-normal text-slate-500 lg:hidden">所属シーズ</span>{seedCount}件
                   </p>
                   <p className="text-sm font-semibold tabular-nums text-slate-800">
-                    {result.ers != null
+                    <span className="mr-1 text-[10px] font-normal text-slate-500 lg:hidden">ECR</span>{result.ers != null
                       ? `${Math.round(result.ers)}%`
                       : "未評価"}
                     <span className="block text-[10px] font-normal text-slate-400">
@@ -385,7 +384,7 @@ function InstitutionCatalog({
                   </p>
                   {lifecycle !== "none" ? (
                     <div
-                      className={`border-l-2 pl-3 ${realized ? "border-indigo-400" : "border-amber-400"}`}
+                      className={`col-span-2 border-l-2 pl-3 lg:col-span-1 ${realized ? "border-indigo-400" : "border-amber-400"}`}
                     >
                       <p
                         className={`flex items-center gap-1.5 text-[10px] font-semibold ${realized ? "text-indigo-700" : "text-amber-800"}`}
@@ -394,16 +393,12 @@ function InstitutionCatalog({
                           className="h-3.5 w-3.5"
                           aria-hidden="true"
                         />
-                        {realized ? "PJ化済み" : "PJ化検討中"}
+                        {realized ? "PJ化済み" : "PJ化検討中"}<strong className="ml-1 text-xs text-slate-800">{projectLink?.projectLabel}</strong>
                       </p>
                       {projectLink ? (
                         <>
-                          <p className="mt-0.5 text-sm font-semibold text-slate-950">
-                            {projectLink.projectLabel}
-                          </p>
                           <p className="text-[10px] text-slate-500">
-                            {projectLink.relationLabel} ·{" "}
-                            {projectLink.projectStatus}
+                            <AmieListStatus value={projectLink.projectStatus}/> <span className="ml-1" title={projectLink.relationLabel}>{projectLink.relationLabel}</span>
                           </p>
                         </>
                       ) : (

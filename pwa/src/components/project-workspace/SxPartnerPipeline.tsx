@@ -1,5 +1,7 @@
 "use client";
 
+import { AmieListCategory, AmieListStatus } from "@/components/ui/amie-list-signals";
+
 import {
   useEffect,
   useLayoutEffect,
@@ -5116,10 +5118,10 @@ export function SxPartnerPipeline({
                     は同じ複合ラベル("XX先")になるため、unclassified以外は状態を（）で必ず明示して見出し
                     だけでも区別できるようにする。 */}
                   <h4 className="w-fit text-[11px] font-semibold text-[#1d1d1f] @min-[480px]:sticky @min-[480px]:left-3">
-                    {group.label}
+                    <AmieListCategory value={group.label}/>
                     {group.roleKind !== "unclassified" && (
                       <span className="text-[#3c3c43]">
-                        （{sxRelationshipStateLabel(group.relationshipState)}）
+                        （<AmieListStatus label={sxRelationshipStateLabel(group.relationshipState)}/>）
                       </span>
                     )}{" "}
                     <span className="text-[#3c3c43]">

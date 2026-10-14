@@ -3,11 +3,11 @@ import { amieListCategoryTone, amieListDelta, amieListStatus, type AmieListTone 
 
 export function AmieListStatus({ value, label, tone, className, ...props }: Omit<HTMLAttributes<HTMLSpanElement>,"children"> & { value?: string | null; label?: string | null; tone?: AmieListTone }) {
   const signal = amieListStatus(value, label, tone);
-  return <span {...props} className={`amie-list-status ${className ?? ""}`} data-tone={signal.tone}><span aria-hidden="true" className="amie-list-mark">{signal.mark}</span><span>{signal.label}</span></span>;
+  return <span {...props} title={props.title ?? signal.label} className={`amie-list-status ${className ?? ""}`} data-tone={signal.tone}><span aria-hidden="true" className="amie-list-mark">{signal.mark}</span><span>{signal.label}</span></span>;
 }
 
 export function AmieListCategory({ value, children, className, ...props }: HTMLAttributes<HTMLSpanElement> & { value?: string | null; children?: ReactNode }) {
-  return <span {...props} className={`amie-list-category ${className ?? ""}`} data-tone={amieListCategoryTone(value)}><span aria-hidden="true" className="amie-list-category-mark">◆</span><span>{children ?? (value || "未分類")}</span></span>;
+  return <span {...props} title={props.title ?? value ?? "未分類"} className={`amie-list-category ${className ?? ""}`} data-tone={amieListCategoryTone(value)}><span aria-hidden="true" className="amie-list-category-mark">◆</span><span>{children ?? (value || "未分類")}</span></span>;
 }
 
 export function AmieListDelta({ value, children, positiveMeaning, title }: { value: number | null | undefined; children?: ReactNode; positiveMeaning?: "increase" | "improve" | "worsen"; title?: string }) {

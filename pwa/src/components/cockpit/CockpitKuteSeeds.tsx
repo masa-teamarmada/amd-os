@@ -1,6 +1,6 @@
 "use client";
 
-import { AmieListCategory } from "@/components/ui/amie-list-signals";
+import { AmieListCategory, AmieListStatus } from "@/components/ui/amie-list-signals";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
@@ -689,7 +689,7 @@ function ResizableTh({
 function Cell({ value }: { value: string | null }) {
   return (
     <td className="border-b border-slate-100 px-3 py-2 align-top">
-      <span className={`block whitespace-normal break-words leading-relaxed ${value ? "text-slate-700" : "text-slate-400"}`}>
+      <span title={value ?? undefined} className={`line-clamp-2 whitespace-normal break-words leading-4 ${value ? "text-slate-700" : "text-slate-400"}`}>
         {value ?? "未確定"}
       </span>
     </td>
@@ -773,26 +773,29 @@ function SeedRow({
     >
       <td className={`sticky left-0 z-10 border-b border-r px-3 py-2 align-top font-mono text-[11px] font-semibold ${stickyCellBorder} ${stickyCellBg} ${realized ? "text-indigo-700" : considering ? "text-amber-700" : "text-slate-600"}`}>
         {seed.seed_no == null ? "—" : String(seed.seed_no).padStart(2, "0")}
+        {seed.discovery_status === "discovered" && (
+          <span title="公開情報候補" className="mt-1 inline-flex whitespace-nowrap rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold leading-tight text-amber-800">
+            候補
+          </span>
+        )}
       </td>
       <td style={{ left: seedNoWidth }} className={`border-b border-r px-3 py-2 align-top sm:sticky sm:z-10 ${stickyCellBorder} ${stickyCellBg}`}>
-        <div className="whitespace-normal break-words font-semibold leading-snug text-slate-950">
+        <div className="line-clamp-1 whitespace-normal break-words text-[12px] font-semibold leading-4 text-slate-950" title={seed.title}>
           <SeedDomainIcon domain={seed.domain_lane} />
           <span className="ml-1">
             {seed.title}
           </span>
         </div>
-        {seed.discovery_status === "discovered" && (
-          <span className="mt-1.5 inline-flex whitespace-normal rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold leading-tight text-amber-800">
-            公開情報候補
-          </span>
-        )}
+        <div className="mt-1"><AmieListCategory value={bzm30?.evidence_stage == null ? undefined : STAGE_LABEL[bzm30.evidence_stage] ?? `段階${bzm30.evidence_stage}`}>{bzm30?.evidence_stage == null ? "現在地 未入力" : STAGE_LABEL[bzm30.evidence_stage] ?? `段階${bzm30.evidence_stage}`}</AmieListCategory></div>
+
       </td>
       <td className="relative border-b border-slate-100 px-3 py-2 align-top">
-        <span className={`block whitespace-normal break-words pr-7 text-[13px] font-bold leading-snug ${companyName ? "text-slate-950" : "text-slate-400"}`}>
+        <span title={[companyLabel,seed.company_note].filter(Boolean).join(" · ")} className={`line-clamp-1 whitespace-normal break-words pr-7 text-[12px] font-semibold leading-4 ${companyName ? "text-slate-950" : "text-slate-400"}`}>
           {companyLabel}
         </span>
+        <div className="mt-1"><AmieListStatus value={projectLink?.project_status} label={projectLink ? undefined : "PJ未登録"}/></div>
         {seed.company_note && (
-          <span className="mt-1 block whitespace-normal break-words pr-7 text-[11px] font-medium leading-snug text-slate-500">
+          <span className="sr-only">
             {seed.company_note}
           </span>
         )}
@@ -842,7 +845,7 @@ function SeedRow({
           {bzm30 ? (
             <>
               <div className="text-slate-700">
-                {bzm30.evidence_stage === null ? "現在地 未入力" : (STAGE_LABEL[bzm30.evidence_stage] ?? `段階${bzm30.evidence_stage}`)}
+                <AmieListCategory value={bzm30.evidence_stage === null ? undefined : (STAGE_LABEL[bzm30.evidence_stage] ?? `段階${bzm30.evidence_stage}`)}>{bzm30.evidence_stage === null ? "現在地 未入力" : (STAGE_LABEL[bzm30.evidence_stage] ?? `段階${bzm30.evidence_stage}`)}</AmieListCategory>
               </div>
               <div className="font-mono text-slate-500">
                 {bzm30.process_type ?? "—"}×{(bzm30.reg_class ?? "").replace("REG", "REG-")}

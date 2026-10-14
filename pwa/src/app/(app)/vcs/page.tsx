@@ -41,12 +41,12 @@ interface Column {
 
 const COLUMNS: Column[] = [
   { id: "name", sortKey: "name", label: "VC", align: "left" },
-  { id: "type", sortKey: "type", label: "type", align: "left", width: "w-20" },
+  { id: "type", sortKey: "type", label: "種別", align: "left", width: "w-20" },
   { id: "amd_rating", sortKey: "amd_rating", label: "★", align: "center", width: "w-24" },
-  { id: "stage", sortKey: "stage", label: "stage", align: "left", width: "w-32" },
-  { id: "ticket", sortKey: "ticket", label: "ticket", align: "right", width: "w-24" },
-  { id: "active_fund_status", sortKey: "active_fund_status", label: "active fund", align: "left", width: "w-28" },
-  { id: "active_fund_size", sortKey: "active_fund_size", label: "size", align: "right", width: "w-20" },
+  { id: "stage", sortKey: "stage", label: "投資段階", align: "left", width: "w-32" },
+  { id: "ticket", sortKey: "ticket", label: "投資額", align: "right", width: "w-24" },
+  { id: "active_fund_status", sortKey: "active_fund_status", label: "ファンド状態", align: "left", width: "w-28" },
+  { id: "active_fund_size", sortKey: "active_fund_size", label: "規模", align: "right", width: "w-20" },
   { id: "active_fund_vintage", sortKey: "active_fund_vintage", label: "vintage", align: "right", width: "w-16" },
   { id: "dry_powder", sortKey: "dry_powder", label: "DPE残", align: "right", width: "w-24" },
   { id: "fund_count", sortKey: "fund_count", label: "fund#", align: "right", width: "w-12" },
@@ -59,6 +59,7 @@ const COLUMNS: Column[] = [
 ];
 
 export default function VcListPage() {
+  const [amieColumns,setAmieColumns] = useState<"overview"|"all">("overview");
   const [items, setItems] = useState<VcListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>("amd_pj_total");
@@ -150,6 +151,7 @@ export default function VcListPage() {
           <option value="raising">募集中のみ</option>
         </select>
         <span className="text-muted-foreground ml-auto">{filtered.length} / {items.length}</span>
+        <div className="flex gap-1" aria-label="VC一覧の表示項目">{([["overview","比較一覧"],["all","すべての項目"]] as const).map(([key,label])=><button key={key} type="button" aria-pressed={amieColumns===key} onClick={()=>setAmieColumns(key)} className={`min-h-11 rounded border px-3 text-xs sm:min-h-8 ${amieColumns===key?"border-sky-300 bg-sky-50 text-sky-800":"border-border text-muted-foreground"}`}>{label}</button>)}</div>
       </div>
 
       {loading ? (
@@ -158,7 +160,7 @@ export default function VcListPage() {
         <div className="text-center text-muted-foreground py-10 text-sm">該当なし</div>
       ) : (
         <div className="border border-border rounded-lg overflow-hidden overflow-x-auto">
-          <table data-amie-list="records" className="w-full text-xs">
+          <table data-amie-list="records" data-amie-vc-columns={amieColumns} className="w-full text-xs">
             <thead className="bg-muted/40 text-left text-[11px] uppercase tracking-wide text-muted-foreground sticky top-0">
               <tr>
                 {COLUMNS.map((c) => (
@@ -207,8 +209,9 @@ function Row({ v, onSelect }: { v: VcListItem; onSelect: () => void }) {
       className="border-t border-border/40 hover:bg-accent/40 cursor-pointer"
     >
       <td className="px-2 py-2">
-        <div className="font-medium">{v.name}</div>
-        {v.name_en && <div className="text-[10px] text-muted-foreground">{v.name_en}</div>}
+        <div className="line-clamp-2 font-medium" title={v.name}>{v.name}</div>
+        {v.name_en && <div className="truncate text-[10px] text-muted-foreground" title={v.name_en}>{v.name_en}</div>}
+        <div className="mt-1 flex flex-wrap gap-1 md:hidden"><AmieListCategory value={v.type ? VC_TYPE_LABEL[v.type] ?? v.type : undefined}/><AmieListStatus value={af?.status} label={af ? FUND_STATUS_LABEL[af.status] ?? af.status : "ファンド未登録"}/></div>
       </td>
       <td className="px-2 py-2 text-muted-foreground">
         <AmieListCategory value={v.type ? VC_TYPE_LABEL[v.type] ?? v.type : "—"} />
@@ -220,7 +223,7 @@ function Row({ v, onSelect }: { v: VcListItem; onSelect: () => void }) {
         </span>
       </td>
       <td className="px-2 py-2 text-muted-foreground">
-        {(v.stage_focus ?? []).slice(0, 3).join(" / ") || "—"}
+        <span className="line-clamp-2" title={(v.stage_focus ?? []).join(" / ")}>{(v.stage_focus ?? []).slice(0, 3).join(" / ") || "—"}</span>
       </td>
       <td className="px-2 py-2 text-right text-muted-foreground">
         {formatJpyRange(v.ticket_min_jpy, v.ticket_max_jpy)}
@@ -238,7 +241,7 @@ function Row({ v, onSelect }: { v: VcListItem; onSelect: () => void }) {
               }`}/>
           </span>
         ) : (
-          <span className="text-muted-foreground/40">—</span>
+          <AmieListStatus label="未登録"/>
         )}
       </td>
       <td className="px-2 py-2 text-right">
