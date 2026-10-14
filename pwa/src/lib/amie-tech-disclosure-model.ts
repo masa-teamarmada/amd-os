@@ -31,9 +31,9 @@ export function amieTechFieldLevel(record: { disclosure?: unknown; disclosure_le
   const levels = (present.length ? present : fields).map(key => policy?.field_levels?.[key] ?? record.disclosure_level ?? policy?.level ?? "restricted");
   return levels.reduce((highest, level) => AMIE_TECH_LEVELS.indexOf(level) > AMIE_TECH_LEVELS.indexOf(highest) ? level : highest, "public");
 }
-export function amieTechFieldReason(record: { disclosure?: unknown }, fields: string[]): string {
+export function amieTechFieldReason(record: { disclosure?: unknown; disclosure_level?: AmieTechLevel }, fields: string[]): string {
   const policy = amieReadTechDisclosure(record.disclosure);
-  return [...new Set(fields.map(key => policy?.field_reasons?.[key]).filter(Boolean))].join(" / ") || policy?.reason || "秘密度の確認が必要";
+  return [...new Set(fields.map(key => policy?.field_reasons?.[key]).filter(Boolean))].join(" / ") || policy?.reason || (record.disclosure_level ? "DD掲載文として確認した情報。原本の秘密度とは別に表示。" : "秘密度の確認が必要");
 }
 export function amieTechContainsLevel(record: { disclosure?: unknown }, level: AmieTechLevel): boolean {
   const policy = amieReadTechDisclosure(record.disclosure);

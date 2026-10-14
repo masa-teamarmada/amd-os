@@ -6,7 +6,7 @@ import type { TechTopic, TechEntry } from "@/lib/project-tech";
 import { updateTechRow } from "@/lib/project-tech-client";
 
 // まさが原本とDDへの抜粋を照合する操作面。既存の白・Gray・Armada Blue、薄罫線、12px本文、4px刻みを使用。
-const control = "w-full rounded border border-[#d2d2d7] bg-white px-2 py-1 text-[12px] text-[#1d1d1f] focus-visible:outline-2 focus-visible:outline-[#027FDC]";
+const control = "min-h-11 w-full rounded border border-[#d2d2d7] bg-white px-2 py-1 text-[12px] text-[#1d1d1f] focus-visible:outline-2 focus-visible:outline-[#027FDC]";
 export function AmieTechDisclosureBadge({ record }: { record: TechTopic | TechEntry }) {
   const policy = amieReadTechDisclosure(record.disclosure);
   return <span className="rounded border border-[#d2d2d7] bg-[#f5f5f7] px-2 py-0.5 text-[11px] text-[#3c3c43]">{record.disclosure_level ? AMIE_TECH_LEVEL_LABEL[record.disclosure_level] : policy ? AMIE_TECH_LEVEL_LABEL[policy.level] : "開示未仕分け"}</span>;
@@ -36,7 +36,7 @@ export function AmieTechDisclosureEditor({ record, entity, projectId, onChanged 
     } catch (e) { setError(e instanceof Error ? e.message : "秘密度の保存に失敗"); } finally { setBusy(false); }
   }
   return <details className="mt-2 border-t border-[#e5e5e7] pt-2" data-testid="amie-tech-disclosure-editor">
-    <summary className="cursor-pointer text-[12px] font-medium text-[#027FDC]">秘密度とDD掲載欄を編集</summary>
+    <summary className="min-h-11 cursor-pointer text-[12px] font-medium text-[#027FDC] sm:min-h-0">秘密度とDD掲載欄を編集</summary>
     <div className="mt-2 space-y-2">
       <label className="grid gap-1 text-[11px]">情報の秘密度<select disabled={granular} className={control} value={displayLevel} onChange={e=>{ const v=e.target.value as AmieTechLevel; setLevel(v); if (!granular && entity === "entry" && ["restricted","core"].includes(v)) setEnabled(false); }}>{AMIE_TECH_LEVELS.map(v=><option key={v} value={v}>{AMIE_TECH_LEVEL_LABEL[v]}</option>)}</select></label>
       <p className="text-[11px] text-[#6e6e73]">{AMIE_TECH_LEVEL_HELP[displayLevel]}</p>
@@ -55,7 +55,7 @@ export function AmieTechDisclosureInventory({ topic, entries, canEdit, projectId
   if (!topic.disclosure) return null;
   const status = (record:TechTopic|TechEntry) => record.disclosure_status === "needs_review" ? "変更あり・再確認待ち" : record.disclosure_status === "included" ? "DD抜粋あり" : "DD非掲載";
   return <details className="mt-3 border-t border-[#e5e5e7] pt-2" data-testid="amie-tech-disclosure-inventory">
-    <summary className="cursor-pointer text-[12px] font-medium">秘密度とDD掲載状況</summary>
+    <summary className="min-h-11 cursor-pointer text-[12px] font-medium sm:min-h-0">秘密度とDD掲載状況</summary>
     <p className="mt-2 text-[11px] leading-4 text-[#6e6e73]">秘密度は内容と隠す理由、DD掲載状況は掲載原稿で管理。DD非掲載だけでは秘密情報を意味しない。</p>
     <div className="mt-2 flex flex-wrap items-center gap-2"><span className="text-[12px]">本文</span><AmieTechDisclosureBadge record={topic}/><span className="text-[11px]">{status(topic)}</span></div><p className="mt-1 text-[11px] leading-5 text-[#515158]">理由：{amieReadTechDisclosure(topic.disclosure)?.reason}</p>
     {canEdit && <AmieTechDisclosureEditor key={topic.tech_topic_id+topic.updated_at} record={topic} entity="topic" projectId={projectId} onChanged={onChanged}/>}

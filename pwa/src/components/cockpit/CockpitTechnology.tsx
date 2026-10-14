@@ -1410,7 +1410,7 @@ export function CockpitTechnology({ projectId, mode = "technology", initialData,
         {rawData?.audience === "dd" || rawData?.audience === "shared" ? <p>DD開示範囲：事業化判断に必要な概要・数値・適用限界・未確認事項。</p> : <>
           <AmieTechDisclosureLegend/>
           <label className="flex items-center gap-2">秘密度<select aria-label="秘密度で絞り込み" value={secretLevel} onChange={e=>setSecretLevel(e.target.value as AmieTechLevel|"all")} className="min-h-11 rounded border border-[#d2d2d7] bg-white px-2"><option value="all">全区分</option>{AMIE_TECH_LEVELS.map(v=><option key={v} value={v}>{AMIE_TECH_LEVEL_LABEL[v]}</option>)}</select></label>
-          <p className="w-full text-[11px] leading-4 text-[#515158]">秘密度とDD掲載状況を別に表示。DD非掲載は、秘密にすべき情報という意味ではない。一般情報でも掲載は別に指定する。</p>
+          <p className="w-full text-[11px] leading-4 text-[#515158]">秘密度とDD掲載状況を別に表示。DD非掲載は、秘密にすべき情報という意味ではない。絞り込みは選んだ秘密度の説明・値・条件を含む項目を表示する。</p>
         </>}
       </section>}
       <section className="overflow-hidden rounded-xl border border-[#e5e5e7] bg-white">
