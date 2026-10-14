@@ -54,6 +54,22 @@ export type TechTopic = {
   updated_at: string;
 };
 
+/** 実験一覧のページ名は全PJ共通。対象試料の名前は本文で扱う。 */
+export const TECH_EXPERIMENT_DOMAIN = "実験・評価";
+export const TECH_EXPERIMENT_TITLE = "実験・評価一覧";
+
+function isExperimentLedger(topic: Pick<TechTopic, "presentation">): boolean {
+  return topic.presentation?.kind === "effluent_ledger" && topic.presentation?.version === 1;
+}
+
+export function techTopicNavigationDomain(topic: Pick<TechTopic, "tech_domain" | "presentation">): string {
+  return isExperimentLedger(topic) ? TECH_EXPERIMENT_DOMAIN : topic.tech_domain || "未分類";
+}
+
+export function techTopicNavigationTitle(topic: Pick<TechTopic, "title" | "presentation">): string {
+  return isExperimentLedger(topic) ? TECH_EXPERIMENT_TITLE : topic.title;
+}
+
 /**
  * 星取り表の見せ方 (project_tech_topics.presentation を読んだもの)。
  * 2026-09-14 まさ「PDFの比較表めっちゃよく出来てるから、この３つそのままOSにも入れておいてほしい」。

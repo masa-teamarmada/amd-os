@@ -4,9 +4,28 @@ import {amieReadEffluentExperiment,amieValidateEffluentEntry,amieEffluentRows,am
 import {amieProjectDdTechTopic,amieTechReviewHash} from "../src/lib/amie-tech-disclosure-server.ts";
 import {amieAllTechRows} from "../src/lib/project-tech-server.ts";
 import type {TechEntry} from "../src/lib/project-tech.ts";
+import {techTopicNavigationDomain,techTopicNavigationTitle} from "../src/lib/project-tech.ts";
+import {readExperimentVisual} from "../src/lib/experiment-result.ts";
 const fixture=JSON.parse(readFileSync("scripts/data/amie_sol_effluent_ledger_20261014.json","utf8"));
 const entries=fixture.rows.map((r:{entry:TechEntry})=>r.entry) as TechEntry[];
+// PJや試料に固有の名前が登録されても、共通ページ名へ戻す。
+for(const project_id of ["p21","p25","other-project"]){
+ const topic={...fixture.topic,project_id,title:"個別の試料一覧",tech_domain:"廃液実験"};
+ assert.equal(techTopicNavigationDomain(topic),"実験・評価");
+ assert.equal(techTopicNavigationTitle(topic),"実験・評価一覧");
+}
+assert.equal(techTopicNavigationDomain({tech_domain:"技術の内容",presentation:null}),"技術の内容");
 const rows=amieEffluentRows(entries);
+assert.deepEqual(rows[0].experiment.visual?.element_symbols,["Cu","Zn","Mg"]);
+assert.ok(!rows[0].experiment.visual?.element_symbols.includes("Fe"));
+assert.equal(rows[0].experiment.visual?.weather,"storm");
+assert.equal(rows[0].experiment.status,"completed");
+const dye=rows.find(r=>r.experiment.type_key==="kuroki_indigo");
+assert.deepEqual(dye?.experiment.visual?.water_types,["colored","metal"]);
+assert.equal(dye?.experiment.visual?.changes.find(c=>c.parameter==="色")?.effect,"unknown");
+assert.equal(readExperimentVisual({...rows[0].experiment.visual,element_symbols:["Xx"]}),null);
+assert.equal(readExperimentVisual({...rows[0].experiment.visual,weather_reason:""}),null);
+assert.equal(amieReadEffluentExperiment({...rows[0].experiment,visual:undefined})?.visual,undefined);
 assert.equal(rows.length,49);
 assert.equal(amieEffluentSummary(rows).completed,9);
 assert.equal(amieEffluentSummary(rows).simulatedCompleted,3);

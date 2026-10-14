@@ -1,8 +1,10 @@
 # PWA Feature Registry
 
-## 廃液実験の比較・集計・原画像
+## 共通「実験・評価」の比較・集計・原画像
 
 技術トピックのpresentation.kind=effluent_ledgerから、入手元・成分・処理前後・状態・出典・原画像を開く。AmieEffluentLedger、amie-effluent-experiments、project_tech_entries.experiment、/api/project-tech-graphs。廃液追加・編集・画像保存・種類照合済み完了集計を保持し、関係先の退役した排液列を復元しない。guard: test:effluent-ledger/tech-disclosure。仕様3-20/3-16、manual2-3。
+
+ページ名・見出しはtechTopicNavigationDomain/TitleでPJ番号に依存せず共通化。experiment.visualの元素・性状・成分変化・結果判定を、原本の試験完了と独立して表示する。ExperimentResultWeatherと生成画像は全PJで共有。未知／不検出は含有元素にせず、未評価を成功色へしない。性状・天気の絞込みと詳細・編集・グラフ保存を保持。
 
 ## コスト試算の自社／競合プロセス比較（2026-10-13）
 

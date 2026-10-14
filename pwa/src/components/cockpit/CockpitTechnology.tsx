@@ -31,6 +31,8 @@ import {
   countNeedsCheck,
   readTechPresentation,
   techLedgerTabOf,
+  techTopicNavigationDomain,
+  techTopicNavigationTitle,
   type TechBlockKind,
   type TechConfidence,
   type TechConfidentiality,
@@ -573,15 +575,15 @@ export function TopicCard({
 
 
   return (
-    <section data-testid="tech-topic-card" className="rounded-xl border border-[#e5e5e7] bg-white p-4">
+    <section data-testid="tech-topic-card" className="min-w-0 rounded-xl border border-[#e5e5e7] bg-white p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
-            <Badge className="border-[#d2d2d7] bg-[#f5f5f7] text-[#6e6e73]">{BLOCK_KIND_LABEL[topic.block_kind]}</Badge>
-            <h4 className="text-[13px] font-semibold text-[#1d1d1f]">{topic.title}</h4>
+            {!effluentLedger&&<Badge className="border-[#d2d2d7] bg-[#f5f5f7] text-[#6e6e73]">{BLOCK_KIND_LABEL[topic.block_kind]}</Badge>}
+            <h4 className="text-[13px] font-semibold text-[#1d1d1f]">{techTopicNavigationTitle(topic)}</h4>
             {technology ? <><AmieTechDisclosureBadge record={topic}/><AmieTechDisclosureMark state={topicState}/></> : <Badge className={CONFIDENTIALITY_STYLE[topic.confidentiality]}>{CONFIDENTIALITY_LABEL[topic.confidentiality]}</Badge>}
             {(topic.needs_check || countNeedsCheck(entries) > 0) && (
-              <Badge className="border-[#ffcdd2] bg-[#ffebee] text-[#b71c1c]">
+              <Badge className={effluentLedger?"border-[#edcf9d] bg-[#fff7e7] text-[#9a5800]":"border-[#ffcdd2] bg-[#ffebee] text-[#b71c1c]"}>
                 ⚠ 要確認 {countNeedsCheck(entries) || ""}
               </Badge>
             )}
@@ -589,7 +591,7 @@ export function TopicCard({
           {topic.needs_check && topic.check_reason && (
             <div className="mt-1 text-[11px] leading-5 text-[#b71c1c]"><AmieTechDisclosureField record={topic} shared={shared} fields={["check_reason"]} enabled={technology} label="要確認">⚠ {topic.check_reason}</AmieTechDisclosureField></div>
           )}
-          {topic.summary && <div className="mt-1 max-w-[75ch] text-[12px] leading-5 text-[#515158]"><AmieTechDisclosureField record={topic} shared={shared} fields={["summary"]} enabled={technology} label="要約">{topic.summary}</AmieTechDisclosureField></div>}
+          {!effluentLedger&&topic.summary && <div className="mt-1 max-w-[75ch] text-[12px] leading-5 text-[#515158]"><AmieTechDisclosureField record={topic} shared={shared} fields={["summary"]} enabled={technology} label="要約">{topic.summary}</AmieTechDisclosureField></div>}
           {technology && shared?.summary && shared.summary !== topic.summary && <div className="mt-1 max-w-[75ch] text-[12px] leading-5 text-[#515158]"><AmieTechDisclosureField record={shared} shared={shared} fields={["summary"]} enabled label="DD掲載文">{shared.summary}</AmieTechDisclosureField></div>}
         </div>
         {canEdit && (
@@ -879,8 +881,8 @@ function techViewParam(view: TechView): string | null {
   return null;
 }
 
-function topicDomainOf(topic: Pick<TechTopic, "tech_domain">): string {
-  return topic.tech_domain || UNCATEGORIZED;
+function topicDomainOf(topic: Pick<TechTopic, "tech_domain" | "presentation">): string {
+  return techTopicNavigationDomain(topic);
 }
 
 /** 一覧とタブでは「 — 」より後ろの補足を落として短く出す。全文はトピックの見出しとホバーで見える。 */
@@ -1018,13 +1020,13 @@ function TechOverview({
                     <button
                       type="button"
                       onClick={() => onOpenTopic(t.tech_topic_id)}
-                      title={t.summary ?? t.title}
+                      title={t.summary ?? techTopicNavigationTitle(t)}
                       className={`group flex min-h-11 w-full items-start gap-1.5 rounded px-1 py-1.5 text-left hover:bg-white sm:min-h-0 sm:py-1 ${FOCUS_RING}`}
                     >
                       <span className="mt-[2px] shrink-0 rounded border border-[#d2d2d7] bg-white px-1 text-[9px] leading-[14px] text-[#6e6e73]">
                         {BLOCK_KIND_LABEL[t.block_kind]}
                       </span>
-                      <span className="min-w-0 flex-1 text-[11px] leading-[18px] text-[#1d1d1f] group-hover:text-[#027FDC]">{t.title}{techLedgerTabOf(t) === "technology" && <span className="mt-0.5 block"><AmieTechDisclosureMark state={amieTechRecordState(t,t.disclosure_level?t:sharedTopics?.find(p=>p.tech_topic_id===t.tech_topic_id),["title","summary","body_md"])} /></span>}</span>
+                      <span className="min-w-0 flex-1 text-[11px] leading-[18px] text-[#1d1d1f] group-hover:text-[#027FDC]">{techTopicNavigationTitle(t)}{techLedgerTabOf(t) === "technology" && <span className="mt-0.5 block"><AmieTechDisclosureMark state={amieTechRecordState(t,t.disclosure_level?t:sharedTopics?.find(p=>p.tech_topic_id===t.tech_topic_id),["title","summary","body_md"])} /></span>}</span>
                       <span className="shrink-0 text-[10px] leading-[18px] tabular-nums text-[#86868b]">
                         {entries.length > 0 ? `${entries.length}行` : ""}
                         {checks > 0 && <span className="ml-1 text-[#b71c1c]">⚠{checks}</span>}
@@ -1082,7 +1084,7 @@ function TechTopicList({
                   type="button"
                   onClick={() => onSelect(t.tech_topic_id)}
                   aria-current={on ? "page" : undefined}
-                  title={t.title}
+                  title={techTopicNavigationTitle(t)}
                   className={`-ml-px flex w-full items-start gap-1.5 border-l-2 py-1.5 pl-2 pr-1 text-left text-[11px] leading-4 ${FOCUS_RING} ${
                     on
                       ? "border-[#027FDC] bg-[#eef6fd] font-medium text-[#1d1d1f]"
@@ -1091,7 +1093,7 @@ function TechTopicList({
                 >
                   <span className="shrink-0 tabular-nums text-[#86868b]">{i + 1}</span>
                   <span className="min-w-0 flex-1">
-                    {shortTopicTitle(t.title)}
+                    {shortTopicTitle(techTopicNavigationTitle(t))}
                     {checks > 0 && <span className="ml-1 whitespace-nowrap text-[10px] text-[#b71c1c]">⚠{checks}</span>}
                   </span>
                 </button>
@@ -1144,7 +1146,7 @@ function TechTopicChips({
             }`}
           >
             <span className="shrink-0 tabular-nums text-[#86868b]">{i + 1}</span>
-            <span className="min-w-0 truncate">{shortTopicTitle(t.title)}</span>
+            <span className="min-w-0 truncate">{shortTopicTitle(techTopicNavigationTitle(t))}</span>
             {checks > 0 && <span className="shrink-0 text-[10px] text-[#b71c1c]">⚠{checks}</span>}
           </button>
         );
@@ -1172,7 +1174,7 @@ function TechTopicPager({
           <span className="block text-[10px] text-[#86868b]">
             {prev.crossesDomain ? `← 前の区分「${prev.domain}」` : "← 前のトピック"}
           </span>
-          <span className="block truncate text-[12px] font-medium text-[#1d1d1f]">{shortTopicTitle(prev.topic.title)}</span>
+          <span className="block truncate text-[12px] font-medium text-[#1d1d1f]">{shortTopicTitle(techTopicNavigationTitle(prev.topic))}</span>
         </button>
       ) : (
         <span aria-hidden="true" className="hidden sm:block" />
@@ -1182,7 +1184,7 @@ function TechTopicPager({
           <span className="block text-[10px] text-[#86868b]">
             {next.crossesDomain ? `次の区分「${next.domain}」 →` : "次のトピック →"}
           </span>
-          <span className="block truncate text-[12px] font-medium text-[#1d1d1f]">{shortTopicTitle(next.topic.title)}</span>
+          <span className="block truncate text-[12px] font-medium text-[#1d1d1f]">{shortTopicTitle(techTopicNavigationTitle(next.topic))}</span>
         </button>
       )}
     </nav>

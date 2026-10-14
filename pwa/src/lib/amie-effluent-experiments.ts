@@ -1,4 +1,5 @@
 import type { TechEntry, TechTopic } from "./project-tech";
+import { readExperimentVisual, type ExperimentVisual } from "./experiment-result";
 
 export const AMIE_EFFLUENT_KINDS = { actual: "実廃液", simulated: "模擬廃液", reference: "参考試料", unknown: "区分未確認" } as const;
 export const AMIE_EFFLUENT_STATES = { completed: "実験完了", running: "試験中", received: "受領済み・結果未確認", not_received: "未受領", unknown: "状態未確認" } as const;
@@ -25,6 +26,7 @@ export type AmieEffluentExperiment = {
   source_sample_ids: string[];
   source_test_ids: string[];
   graphs: AmieEffluentGraph[];
+  visual?: ExperimentVisual;
 };
 export type AmieEffluentRow = { entry: TechEntry; experiment: AmieEffluentExperiment };
 const textFields = ["provider", "route", "sampling_point", "received_on", "tested_on", "components", "before", "after", "conditions", "follow_up"] as const;
@@ -45,6 +47,7 @@ export function amieReadEffluentExperiment(value: unknown): AmieEffluentExperime
   if (["provider", "components", "before", "after"].some(k => typeof v[k] !== "string")) return null;
   if (referenceFields.some(k => v[k] !== undefined && (!Array.isArray(v[k]) || (v[k] as unknown[]).some(x => typeof x !== "string") || (v[k] as unknown[]).length > 100))) return null;
   const result = { version: 1, type_key: v.type_key.trim(), kind: v.kind, status: v.status, identity_confirmed: v.identity_confirmed } as AmieEffluentExperiment;
+  if(v.visual!==undefined){const visual=readExperimentVisual(v.visual);if(!visual)return null;result.visual=visual;}
   for (const k of textFields) result[k] = typeof v[k] === "string" ? (v[k] as string).trim() : "";
   for (const k of referenceFields) result[k] = Array.isArray(v[k]) ? [...new Set(v[k] as string[])] : [];
   if (v.graphs !== undefined && (!Array.isArray(v.graphs) || v.graphs.length > 12)) return null;
