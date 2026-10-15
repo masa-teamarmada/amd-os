@@ -29,7 +29,7 @@ export function ProjectPageMenu({ groups, activeGroup, activePage, onGroup, onPa
           aria-current={!hasChildren && activeGroup === group.key ? "page" : undefined}
           onClick={() => hasChildren ? setExpanded((current) => ({ ...current, [group.key]: !current[group.key] })) : onGroup(group.key)}
           className={`${styles.row} ${styles.group}`}>
-          {group.label}{hasChildren && (open ? <ChevronDown aria-hidden="true" className={`${styles.chevron} h-4 w-4`} /> : <ChevronRight aria-hidden="true" className={`${styles.chevron} h-4 w-4`} />)}
+          {hasChildren ? group.label : group.children[0]?.label ?? group.label}{hasChildren && (open ? <ChevronDown aria-hidden="true" className={`${styles.chevron} h-4 w-4`} /> : <ChevronRight aria-hidden="true" className={`${styles.chevron} h-4 w-4`} />)}
         </button>
         {hasChildren && <div id={childId} hidden={!open} aria-label={`${group.label}の表示切り替え`} data-testid={testPrefix ? `${testPrefix}-child-navigation` : undefined} className={styles.children}>
           {group.children.map((page) => <button key={page.key} type="button" data-space-page data-cockpit-tab={testPrefix === "cockpit" ? page.key : undefined}

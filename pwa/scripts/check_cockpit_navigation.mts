@@ -139,3 +139,5 @@ for (const type of ["su", "new_business", "ecosystem", "amd"] as const) {
   assert.equal(cockpitGroupForTabInType("proper-nouns", type).label, "PJ管理");
   assert.equal(resolveCockpitTabForType("proper-nouns", type), "proper-nouns");
 }
+
+assert.ok(pageMenuSource.includes("hasChildren ? group.label : group.children[0]?.label ?? group.label"), "単一ページの分類は実際のページ名を表示。PoCリストを分類名で隠さない");
