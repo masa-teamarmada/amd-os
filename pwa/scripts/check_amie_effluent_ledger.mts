@@ -53,7 +53,10 @@ assert.ok(!partners.includes('key: "effluent"'));
 assert.ok(!partners.includes('cellOrder("effluent")'));
 const graphRoute=readFileSync("src/app/api/project-tech-graphs/route.ts","utf8");
 assert.ok(graphRoute.includes("requireMember()"));
-assert.ok(graphRoute.includes('createSignedUrl(graph.path,60)'));
+assert.ok(graphRoute.includes('download(graph.path)'));
+assert.ok(graphRoute.includes('await image.data.arrayBuffer()'));
+assert.ok(!graphRoute.includes('NextResponse.redirect('), "ブラウザからStorageへ接続しなくても原画像を表示");
+assert.ok(graphRoute.indexOf('requireMember()') < graphRoute.indexOf('download(graph.path)'));
 assert.ok(graphRoute.includes('private, no-store'));
 console.log("PASS: reconciled count, distinct types, unresolved/simulated exclusion, validation, private graphs and partner column removal");
 

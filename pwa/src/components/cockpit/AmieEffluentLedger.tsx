@@ -108,6 +108,7 @@ export function AmieEffluentLedger({ projectId, topic, entries, allEntries, canE
   const summary = amieEffluentSummary(amieEffluentRows(allEntries??entries));
   const report = amieEffluentReportedCount(topic);
   const [query, setQuery] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [kind, setKind] = useState<AmieEffluentKind | "all">("actual");
   const [state, setState] = useState<AmieEffluentState | "all">("all");
   const [waterType,setWaterType]=useState<EffluentWaterType|"all">("all");
@@ -133,10 +134,12 @@ export function AmieEffluentLedger({ projectId, topic, entries, allEntries, canE
       <div className={styles.metric}><strong>{summary.completedUnresolved}</strong><span>件・完了報告<br/>種類未照合</span></div>
       <div className={styles.metric}><strong>{summary.simulatedCompleted}</strong><span>種類<br/>模擬廃液の完了</span></div>
     </div>
+    <button className={styles.mobileFilterToggle} aria-expanded={filtersOpen} aria-controls={`poc-filters-${topic.tech_topic_id}`} onClick={()=>setFiltersOpen(open=>!open)}>検索・絞り込み<span>{filtered.length} / {summary.rows}行</span></button>
+    <div id={`poc-filters-${topic.tech_topic_id}`} className={`${styles.filterBody} space-y-2`} data-open={filtersOpen}>
     <div className="flex flex-wrap items-center justify-between gap-2"><div className={styles.legend} aria-label="実験結果のお天気マークで絞り込み"><span className="mr-1 text-[11px] text-[#626b77]">実験結果</span>{Object.keys(EXPERIMENT_WEATHER).map(k=><button key={k} aria-pressed={weather===k} onClick={()=>setWeather(weather===k?"all":k as ExperimentVisual["weather"])} className="focus-visible:outline-2 focus-visible:outline-[#027FDC]"><ExperimentResultWeather weather={k as ExperimentVisual["weather"]} reason="" compact/></button>)}<button aria-pressed={weather==="unknown"} onClick={()=>setWeather(weather==="unknown"?"all":"unknown")} className="text-[11px] text-[#626b77]">未確認</button></div>
       <details className="text-[11px] text-[#626b77]"><summary className="cursor-pointer py-2 focus-visible:outline-2 focus-visible:outline-[#027FDC]">凡例・集計の定義{report?`／報告 ${report.minimum}種類以上`:""}</summary><div className="max-w-[85ch] space-y-1 py-2 leading-5"><p>「済」は試験完了、天気は対象成分の実験結果。対象成分の結果と条件を併せて読む。</p>{Object.values(EXPERIMENT_WEATHER).map(x=><p key={x.label}>{x.label}：{x.meaning}</p>)}<p>未確認は結果未登録。良い・悪いの評価には含めない。完了数は種類照合済みの実廃液を数え、再実験は同じ種類として集計する。</p>{report&&<p>研究者報告：{report.minimum}種類以上を試験（{report.reportedOn}）。個別一覧との全件照合は未完了。出典：{report.source}。</p>}</div></details>
     </div>
-    {malformed > 0 && <p role="alert" className="text-[12px] text-[#b71c1c]">登録形式を確認する行が{malformed}件ある。集計には含めていない。</p>}
+
     <div className="grid grid-cols-2 items-end gap-2 md:flex md:flex-wrap">
       <label className="col-span-2 min-w-0 text-[11px] md:flex-1 md:max-w-[220px]">検索<input className={control} type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="試料・入手元・元素"/></label>
       <label className="text-[11px]">性状<select aria-label="排水の性状" className={control} value={waterType} onChange={e=>setWaterType(e.target.value as EffluentWaterType|"all")}><option value="all">全性状</option>{Object.entries(EFFLUENT_WATER_TYPES).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
@@ -144,6 +147,8 @@ export function AmieEffluentLedger({ projectId, topic, entries, allEntries, canE
       <label className="text-[12px]">状態<select aria-label="廃液実験の状態で絞り込み" className={control} value={state} onChange={e=>setState(e.target.value as AmieEffluentState|"all")}><option value="all">全状態</option>{Object.entries(AMIE_EFFLUENT_STATES).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
       <div className="flex flex-col items-start gap-1 md:flex-row md:items-center md:gap-2"><span className="text-[11px] text-[#626b77]" aria-live="polite">{filtered.length} / {summary.rows}行</span>{canEdit && <button className={button} onClick={()=>{setCellEditing(null);setEditing("new");}}>＋ 廃液を追加</button>}</div>
     </div>
+    </div>
+    {malformed > 0 && <p role="alert" className="text-[12px] text-[#b71c1c]">登録形式を確認する行が{malformed}件ある。集計には含めていない。</p>}
     {editing && <AmieEffluentForm key={editing === "new" ? "new" : editing.tech_entry_id} projectId={projectId} topicId={topic.tech_topic_id} entry={editing === "new" ? undefined : editing} onCancel={()=>setEditing(null)} onSaved={()=>{setEditing(null);onChanged();}}/>}
     <p className="text-[12px] text-[#515158] md:hidden">比較表は横にスクロールできる。</p>
     <div ref={tableRef} className="overflow-x-auto rounded border border-[#d2d2d7]" tabIndex={0} aria-label="廃液ごとの比較表。狭い画面では横にスクロール">

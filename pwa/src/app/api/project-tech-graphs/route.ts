@@ -20,9 +20,10 @@ export async function GET(req: NextRequest) {
   const { data: row, error } = await auth.supabase.from("project_tech_entries").select("project_id,tech_entry_id,experiment").eq("tech_entry_id",id).maybeSingle();
   const graph = amieReadEffluentExperiment(row?.experiment)?.graphs[index];
   if (error || !row || !graph || !graph.path.startsWith(`${row.project_id}/${row.tech_entry_id}/`)) return NextResponse.json({error:"Not found"},{status:404});
-  const signed = await createAdminClient().storage.from(BUCKET).createSignedUrl(graph.path,60);
-  if (signed.error || !signed.data?.signedUrl) return NextResponse.json({error:"画像の読込みに失敗"},{status:500});
-  return NextResponse.redirect(signed.data.signedUrl,{status:302,headers});
+  // ブラウザをStorageへ転送せず、認可したOSの経路から原画像を返す。
+  const image = await createAdminClient().storage.from(BUCKET).download(graph.path);
+  if (image.error || !image.data || !["image/png", "image/jpeg", "image/webp"].includes(image.data.type)) return NextResponse.json({error:"画像の読込みに失敗"},{status:500});
+  return new NextResponse(await image.data.arrayBuffer(), {headers:{...headers,"Content-Type":image.data.type,"Content-Length":String(image.data.size)}});
 }
 
 export async function POST(req: NextRequest) {
