@@ -21,6 +21,7 @@ import { normalizeBzm22AcquisitionRow } from "./bzm-2-2-acquisitions";
 import { buildAmdContributionsPayload, normalizeActivityRow, normalizeMeetingRow, type AmdContributionItem } from "./amd-contributions";
 import { projectFormatTypeOf } from "./project-formats";
 import { DD_PAGE_KEYS, isDdEmptyPageKey } from "./dd-pages";
+import { loadProjectPocList } from "./project-poc-list-server";
 import { loadProjectTechData } from "./project-tech-server";
 import { loadProjectFinancePage } from "./project-finance-page-server";
 import { loadCapitalPlanPage } from "./project-capital-plan-server";
@@ -32,7 +33,7 @@ import { createDdReferenceCache } from "./dd-reference-cache";
 
 const pageCache = createDdReferenceCache<DdLiveProjectPage>();
 // 開示選択・共有済み判定・資料の有効状態が関わる本文は毎回読む。
-const uncachedPages = new Set(["technology", "competition", "business-model", "technical-evidence", "contracts", "governance", "partners", "activity", "gantt", "short-term-plan", "long-term-plan"]);
+const uncachedPages = new Set(["poc-list", "technology", "competition", "business-model", "technical-evidence", "contracts", "governance", "partners", "activity", "gantt", "short-term-plan", "long-term-plan"]);
 
 /** 呼び出す前に当該DDへの入場権限を確認する。ページは共通定義の全内容を読む。 */
 export async function loadDdProjectPage(projectId: string, page: string, fresh = false): Promise<DdLiveProjectPage> {
@@ -49,6 +50,7 @@ async function loadDdProjectPageContent(projectId: string, page: string): Promis
   const identity = await db.from("projects").select("project_name,display_name,project_category").eq("project_id", projectId).single();
   if (identity.error) throw new Error(identity.error.message);
   const base = { kind: "project_page" as const, projectId, projectName: identity.data.display_name || identity.data.project_name };
+  if (page === "poc-list") return { ...base, page, poc: await loadProjectPocList(db, projectId, "dd") };
   if (page === "technical-evidence") return { ...base, page, empty: true, technicalEvidence: await loadProjectTechnicalEvidence(db, projectId) };
   if (page === "development-issues") return { ...base, page, issues: await loadProjectDevelopmentIssues(db, projectId) };
   if (page === "market-research") return { ...base, page, empty: true, marketResearch: await loadProjectMarketResearch(db, projectId) };

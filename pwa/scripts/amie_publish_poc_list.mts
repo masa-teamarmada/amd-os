@@ -1,0 +1,40 @@
+/** 明示依頼されたPoC一覧の掲載。対象は引数で指定、閲覧権限・原グラフは変更しない。 */
+import {readFileSync,mkdirSync,writeFileSync} from "node:fs";
+import {join} from "node:path";
+import assert from "node:assert/strict";
+import {createClient} from "@supabase/supabase-js";
+import {projectPocListData} from "../src/lib/project-poc-list.ts";
+import {amieEffluentRows,amieEffluentSummary} from "../src/lib/amie-effluent-experiments.ts";
+import type {TechTopic,TechEntry} from "../src/lib/project-tech.ts";
+const arg=(name:string)=>process.argv[process.argv.indexOf(name)+1];
+for(const flag of ["--project","--topic","--expected-rows"])assert.ok(process.argv.includes(flag),`${flag} required`);
+const projectId=arg("--project"),topicId=arg("--topic"),expected=Number(arg("--expected-rows")),apply=process.argv.includes("--apply");
+const env=Object.fromEntries(readFileSync(".env.local","utf8").split(/\r?\n/).filter(l=>l&&!l.startsWith("#")&&l.includes("=")).map(l=>{const i=l.indexOf("=");return[l.slice(0,i).trim(),l.slice(i+1).trim().replace(/^['"]|['"]$/g,"")]}));
+const db=createClient(env.NEXT_PUBLIC_SUPABASE_URL,env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false}});
+async function checked(query:any){const r=await query;if(r.error)throw new Error(r.error.message);return r.data;}
+const topic:TechTopic=await checked(db.from("project_tech_topics").select("*").eq("project_id",projectId).eq("tech_topic_id",topicId).single());
+const entries:TechEntry[]=await checked(db.from("project_tech_entries").select("*").eq("project_id",projectId).eq("tech_topic_id",topicId).order("sort_order").order("tech_entry_id"));
+assert.equal(entries.length,expected);assert.ok(expected>0&&expected<500,"500行以上はページ読みを追加してから実行");
+const packages=await checked(db.from("dd_packages").select("id,project_id,slug,status").eq("project_id",projectId).eq("status","open"));
+assert.equal(packages.length,1,"対象の公開DDパッケージを一意に確定");
+const packageId=packages[0].id;
+const existing=await checked(db.from("dd_package_items").select("*").eq("package_id",packageId).eq("item_kind","project_page").eq("source_key","project_page:poc-list").maybeSingle());
+const now=new Date().toISOString();
+const presentation={...topic.presentation,poc_sharing:{version:1,workspace:true,dd:true,entry_ids:entries.map(e=>e.tech_entry_id),approved_on:now,approved_by:"まさ",basis:"2026-10-15 会話指示: PoCリストをワークスペース・DDへ掲載し、技術から独立。提供元・含有元素・処理前後・結果・状態を共通表示。原グラフ・試験条件・出典詳細を含めない。"}};
+const candidate={...topic,presentation};
+for(const audience of ["internal","shared","dd"] as const){const data=projectPocListData(projectId,[candidate],entries,audience);assert.equal(data.entries.length,expected,`${audience}の全行掲載を照合`);console.log(audience,JSON.stringify({rows:data.entries.length,completed:amieEffluentSummary(amieEffluentRows(data.entries)).completed}));}
+console.log(JSON.stringify({mode:apply?"apply":"dry-run",projectId,topicId,packageSlug:packages[0].slug,existingItem:!!existing,entryRows:entries.length}));
+if(!apply)process.exit(0);
+assert.ok(process.argv.includes("--evidence-dir"),"変更前控えのDrive日付フォルダが必要");
+const evidence=arg("--evidence-dir");assert.ok(evidence.includes("GoogleDrive-")&&evidence.includes("/261015_"));mkdirSync(evidence,{recursive:true});
+writeFileSync(join(evidence,"PoC掲載変更前.json"),JSON.stringify({savedAt:now,topic:{id:topicId,updated_at:topic.updated_at,presentation:topic.presentation},ddItem:existing},null,2),{flag:"wx"});
+const updated=await checked(db.from("project_tech_topics").update({presentation}).eq("project_id",projectId).eq("tech_topic_id",topicId).eq("updated_at",topic.updated_at).select("tech_topic_id"));
+assert.equal(updated.length,1,"別更新が入った場合は停止");
+if(!existing)await checked(db.from("dd_package_items").insert({package_id:packageId,project_id:projectId,section_key:"technology",item_kind:"project_page",source_key:"project_page:poc-list",title:"PoCリスト",summary:"入手元・含有元素・処理前後・実験結果・状態",sort_order:5,status:"active",is_published:true,published_at:now}));
+else assert.ok(existing.status==="active"&&existing.is_published,"既存の停止設定を上書きしない");
+const after=await checked(db.from("project_tech_topics").select("*").eq("tech_topic_id",topicId).eq("project_id",projectId).single());
+assert.deepEqual(after.presentation,presentation);
+const item=await checked(db.from("dd_package_items").select("id,title,status,is_published,source_key").eq("package_id",packageId).eq("source_key","project_page:poc-list").single());
+assert.equal(item.is_published,true);assert.equal(item.status,"active");
+writeFileSync(join(evidence,"PoC掲載読戻し.json"),JSON.stringify({checkedAt:new Date().toISOString(),projectId,topicId,approvedRows:entries.length,ddItem:item,graphAccess:"既存の非公開Storageと社内認可を維持",accessGrantsChanged:false},null,2));
+console.log("PASS: 掲載設定とDDの掲載元を読戻し。権限・原グラフ・実験行の変更0。");

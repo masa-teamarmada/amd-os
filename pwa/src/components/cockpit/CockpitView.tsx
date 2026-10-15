@@ -33,6 +33,7 @@ import type { ProjectContractTerms } from "@/lib/project-contract-terms";
 
 import { prefetchProjectOrg } from "@/lib/project-org-client";
 import { prefetchProjectCostModel, prefetchProjectFuelCostModel } from "@/lib/project-cost-model-client";
+import { prefetchProjectPocList } from "@/lib/project-poc-list-client";
 import { prefetchProjectTech } from "@/lib/project-tech-client";
 import { prefetchProjectBusinessPlan } from "@/lib/project-business-plan-client";
 import { prefetchProjectOverview } from "@/lib/project-overview-client";
@@ -60,6 +61,7 @@ const CockpitGrants = dynamic(() => import("./CockpitGrants").then((module) => m
 const WorkspaceDocumentRoom = dynamic(() => import("@/components/workspace-documents/WorkspaceDocumentRoom").then((module) => module.WorkspaceDocumentRoom), { loading: ProjectPageLoading });
 const CockpitIpPortfolio = dynamic(() => import("@/components/cockpit/CockpitIpPortfolio").then((module) => module.CockpitIpPortfolio), { loading: ProjectPageLoading });
 const CockpitTechnology = dynamic(() => import("@/components/cockpit/CockpitTechnology").then((module) => module.CockpitTechnology), { loading: ProjectPageLoading });
+const ProjectPocList = dynamic(() => import("@/components/project-workspace/ProjectPocList").then(module => module.ProjectPocList), { loading: ProjectPageLoading });
 const InstitutionRegulationsPanel = dynamic(() => import("@/components/institutions/InstitutionRegulations").then((module) => module.InstitutionRegulationsPanel), { loading: ProjectPageLoading });
 const ProjectInstitutionSeeds = dynamic(() => import("./CockpitKuteSeeds").then((module) => module.ProjectInstitutionSeeds), { loading: ProjectPageLoading });
 const CockpitMonthlyModal = dynamic(() => import("./CockpitMonthlyModal").then((module) => module.CockpitMonthlyModal), { loading: ProjectPageLoading });
@@ -441,6 +443,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     tasks: "タスク",
     "score-detail": "スコア詳細",
     technology: "技術",
+  "poc-list": "PoCリスト",
     competition: "競合比較",
     "business-model": "ビジネスモデル",
     "business-plan": "事業計画",
@@ -479,6 +482,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     key,
     label: PROJECT_PAGE_LABELS[key] ?? tabLabel[key] ?? key,
     onHover: key === "score-detail" ? () => prefetchProjectOrg(project.projectId)
+      : key === "poc-list" ? () => prefetchProjectPocList(project.projectId)
       : key === "technology" || key === "competition" || key === "business-model" ? () => prefetchProjectTech(project.projectId)
       : key === "business-plan" ? () => prefetchProjectBusinessPlan(project.projectId)
       : key === "cost-model" ? () => { prefetchProjectCostModel(project.projectId); prefetchProjectFuelCostModel(project.projectId); }
@@ -749,6 +753,8 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
 
       {/* 技術タブ (2026-08-29 まさ依頼)。この技術がどの範囲で成立し、競合とどこで差がつき、
           今どこまで行っているかを貯める。自前で fetch するので開いた時だけマウントする。 */}
+      {activeTab === "poc-list" && <ProjectPocList projectId={project.projectId} />}
+
       {activeTab === "technology" && (
         <section role="tabpanel" aria-label="技術" className="min-w-0">
           <CockpitTechnology projectId={project.projectId} />

@@ -294,6 +294,6 @@ export function isDdViewerPath(pathname: string): boolean {
 }
 
 /** 公開対象にできる追加の共通ページ。DB制約とも一致させる。 */
-export const DD_SHARED_PAGE_KEYS = ["gantt", "partners", "business-plan", "ip", "company", "capital-policy", "activity"] as const;
+export const DD_SHARED_PAGE_KEYS = ["gantt", "partners", "business-plan", "ip", "company", "capital-policy", "activity", "poc-list"] as const;
 export type DdSharedPageKey = (typeof DD_SHARED_PAGE_KEYS)[number];
 export function isDdSharedPageKey(value: string): value is DdSharedPageKey { return (DD_SHARED_PAGE_KEYS as readonly string[]).includes(value); }

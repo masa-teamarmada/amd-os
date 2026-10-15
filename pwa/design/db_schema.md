@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-10-14 19:42 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-10-15 10:03 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -679,7 +679,7 @@ UNIQUE: `(server_boss_id,schedule_revision,lead_minutes)` (constraint: `boss_not
 
 ## boss_report_occurrences
 
-行数 (概算): 6,405
+行数 (概算): 6,357
 PRIMARY KEY: `id`
 UNIQUE: `(revision)` (constraint: `boss_report_occurrences_revision_key`)
 UNIQUE: `(server_boss_id,accepted_report_id,spawn_at)` (constraint: `boss_report_occurrences_server_boss_id_accepted_report_id_s_key`)
@@ -3335,7 +3335,7 @@ PRIMARY KEY: `user_id`
 
 ## member_boss_preferences
 
-行数 (概算): 1,975
+行数 (概算): 2,011
 PRIMARY KEY: `id`
 UNIQUE: `(game_server_id,user_id,server_boss_id)` (constraint: `member_boss_preferences_game_server_id_user_id_server_boss__key`)
 
@@ -4113,7 +4113,7 @@ UNIQUE: `(lane,observed_at,observation_key,source)` (constraint: `observation_lo
 
 ## os_page_viewer_sessions
 
-行数 (概算): 17
+行数 (概算): 84
 PRIMARY KEY: `session_id`
 
 | # | column | type | nullable | default |
@@ -4129,7 +4129,7 @@ PRIMARY KEY: `session_id`
 
 ## os_page_viewing_visits
 
-行数 (概算): 314
+行数 (概算): 465
 PRIMARY KEY: `visit_id`
 
 | # | column | type | nullable | default |

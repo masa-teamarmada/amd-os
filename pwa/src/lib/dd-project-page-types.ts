@@ -13,6 +13,7 @@ import type { Bzm22AcquisitionApiPayload } from "./bzm-2-2-acquisitions";
 import type { AmdContributionsPayload } from "./amd-contributions";
 
 import type { BusinessSummaryResponse } from "./project-overview";
+import type { ProjectPocListData } from "./project-poc-list";
 import type { ProjectTechResponse } from "./project-tech-client";
 import type { ProjectFinancePageData } from "./project-finance-page-data";
 import type { CapitalPlanPageData } from "./project-capital-plan-data";
@@ -26,6 +27,7 @@ import type { ProjectDevelopmentIssuesData } from "./project-development-issues"
 type Identity = { kind: "project_page"; projectId: string; projectName: string };
 export type DdLiveProjectPage = Identity & (
   | { page: DdEmptyPageKey; empty: true; managementMinutes?: ProjectManagementMinute[]; biographies?: ProjectManagementBiographies | null; organizationChart?: ProjectOrganizationChartData | null; productDescription?: ProjectProductDescriptionData | null; foundingBackground?: ProjectProductDescriptionData | null; marketResearch?: ProjectMarketResearch | null; technicalEvidence?: ProjectProductDescriptionData | null }
+  | { page: "poc-list"; poc: ProjectPocListData }
   | { page: "technology" | "competition" | "business-model"; tech: ProjectTechResponse }
   | { page: "financial-projection" | "monthly-trial"; finance: ProjectFinancePageData }
   | { page: "capital-plan" | "next-round-overview"; capital: CapitalPlanPageData }

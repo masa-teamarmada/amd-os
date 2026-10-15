@@ -38,12 +38,12 @@ for (const type of ["su", "new_business", "amd"] as const) {
 }
 assert.deepEqual(
   cockpitGroupsForType("ecosystem").map((group) => group.label),
-  ["進捗管理", "シーズリスト", "規程・内規", "PJ管理", "会社情報", "ドライブ"],
+  ["進捗管理", "シーズリスト", "事業計画", "規程・内規", "PJ管理", "会社情報", "ドライブ"],
 );
 // 事業計画グループの中身は大学発SU・新規事業で同じ。AMD本体は AMD Score の内訳だけを持たない。
 const businessPlan = (type: "su" | "new_business" | "amd") =>
   cockpitGroupsForType(type).find((group) => group.key === "business-plan-group")?.children;
-assert.deepEqual(businessPlan("su"), ["score-detail", "technology", "competition", "business-model", "business-plan", "development-issues", "financial-projection", "capital-plan", "cost-model", "ip"]);
+assert.deepEqual(businessPlan("su"), ["score-detail", "technology", "poc-list", "competition", "business-model", "business-plan", "development-issues", "financial-projection", "capital-plan", "cost-model", "ip"]);
 assert.deepEqual(businessPlan("new_business"), businessPlan("su"));
 assert.deepEqual(businessPlan("amd"), businessPlan("su")!.filter((tab) => tab !== "score-detail"));
 

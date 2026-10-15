@@ -72,6 +72,7 @@ export function prefetchProjectTech(projectId: string): void {
 /** トピックや行を書き換えた直後に呼ぶ。 */
 export function invalidateProjectTech(projectId?: string): void {
   invalidateReferenceData(projectId ? key(projectId) : KEY_PREFIX);
+  invalidateReferenceData(projectId ? `project-poc-list:${projectId}:` : "project-poc-list:");
   if (projectId) invalidateReferenceData(key(projectId, true));
 }
 

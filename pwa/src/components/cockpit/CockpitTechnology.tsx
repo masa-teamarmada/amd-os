@@ -1257,11 +1257,19 @@ export function CockpitTechnology({ projectId, mode = "technology", initialData,
   }, [projectId, reload, initialData]);
 
   const rawData = initialData ?? (loaded.projectId === projectId ? loaded.data : (sharedView ? null : peekProjectTech(projectId)) ?? null);
+  useEffect(() => {
+    if (mode !== "technology" || !urlView || !rawData?.topics.some(t => t.tech_topic_id === urlView && amieIsEffluentTopic(t))) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("tech");
+    if (url.pathname.endsWith("/cockpit")) url.searchParams.set("tab", "poc-list");
+    else url.hash = "poc-list";
+    window.location.replace(url.toString());
+  }, [mode, urlView, rawData]);
   // 技術タブは区分「競合比較」「ビジネスモデル」を除き、それぞれのタブはその区分だけを出す。未整理の断片は技術タブだけ。
   const data = useMemo<ProjectTechResponse | null>(() => {
     if (!rawData) return null;
     const source = rawData;
-    const candidates = source.topics.filter(t => techLedgerTabOf(t) === mode);
+    const candidates = source.topics.filter(t => techLedgerTabOf(t) === mode && !amieIsEffluentTopic(t));
     const allEntries = source.entries.filter(e => secretLevel === "all" || singleDomain || amieTechContainsLevel(e, secretLevel));
     const topics = candidates.filter(t => secretLevel === "all" || singleDomain || amieTechContainsLevel(t, secretLevel) || allEntries.some(e => e.tech_topic_id === t.tech_topic_id));
     const ids = new Set(topics.map(t => t.tech_topic_id));

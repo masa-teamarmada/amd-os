@@ -3382,7 +3382,7 @@ expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
   "ledgerTabsPresent(",
 ]);
 expectIncludes("src/lib/project-formats.ts", [
-  '{ group: "business-plan-group", tabs: ["technology", "competition", "business-model", "business-plan", "development-issues", "financial-projection", "capital-plan", "cost", "ip"] },',
+  '{ group: "business-plan-group", tabs: ["technology", "poc-list", "competition", "business-model", "business-plan", "development-issues", "financial-projection", "capital-plan", "cost", "ip"] },',
 ]);
 expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
   'technology: "技術",',
@@ -3604,7 +3604,7 @@ expectIncludes("src/lib/cockpit-tabs.ts", [
 expectIncludes("src/lib/project-formats.ts", [
   '{ group: "project-management-group", tabs: ["overview", "project-contracts", "project-finance", "monthly-reports", "proper-nouns", "card-designs"] },',
   '{ group: "company-information-group", tabs: ["company", "capital-policy", "activity"] },',
-  '{ group: "business-plan-group", tabs: ["score-detail", "technology", "competition", "business-model", "business-plan", "development-issues", "financial-projection", "capital-plan", "cost-model", "ip"] },',
+  '{ group: "business-plan-group", tabs: ["score-detail", "technology", "poc-list", "competition", "business-model", "business-plan", "development-issues", "financial-projection", "capital-plan", "cost-model", "ip"] },',
 ]);
 expectNotIncludes("src/lib/cockpit-tabs.ts", ['"themes"']);
 expectIncludes("src/components/cockpit/CockpitView.tsx", [

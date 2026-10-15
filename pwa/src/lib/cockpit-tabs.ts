@@ -27,6 +27,7 @@ export const COCKPIT_TABS = [
   "slack",
   "score-detail",
   "technology",
+  "poc-list",
   // 競合比較。技術台帳の区分「競合比較」のトピックを持つPJだけに出す (表示条件は CockpitView)。
   "competition",
   // ビジネスモデル。技術台帳の区分「ビジネスモデル」のトピックを持つPJだけに出す (表示条件は CockpitView)。

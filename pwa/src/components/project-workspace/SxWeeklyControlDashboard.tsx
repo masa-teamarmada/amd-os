@@ -116,6 +116,7 @@ const CockpitCostTab = dynamic(() => import("@/components/cockpit/CockpitCostTab
 const WorkspaceDocumentRoom = dynamic(() => import("@/components/workspace-documents/WorkspaceDocumentRoom").then((module) => module.WorkspaceDocumentRoom), { loading: ProjectPageLoading });
 const CockpitIpPortfolio = dynamic(() => import("@/components/cockpit/CockpitIpPortfolio").then((module) => module.CockpitIpPortfolio), { loading: ProjectPageLoading });
 const CockpitTechnology = dynamic(() => import("@/components/cockpit/CockpitTechnology").then((module) => module.CockpitTechnology), { loading: ProjectPageLoading });
+const ProjectPocList = dynamic(() => import("@/components/project-workspace/ProjectPocList").then(module => module.ProjectPocList), { loading: ProjectPageLoading });
 const CockpitBusinessPlan = dynamic(() => import("@/components/cockpit/CockpitBusinessPlan").then((module) => module.CockpitBusinessPlan), { loading: ProjectPageLoading });
 const CockpitFinancialProjection = dynamic(() => import("@/components/cockpit/CockpitFinancialProjection").then((module) => module.CockpitFinancialProjection), { loading: ProjectPageLoading });
 const CockpitCapitalPlan = dynamic(() => import("@/components/cockpit/CockpitCapitalPlan").then((module) => module.CockpitCapitalPlan), { loading: ProjectPageLoading });
@@ -357,7 +358,7 @@ const STAGE_LABEL: Record<StageKey, string> = Object.fromEntries(
 // すべてのPJで、PJ資料室と同じ正本を開く「ドライブ」を加える。既存のアンカー名
 // (#weekly-change / #project-gantt / #partner-ledger / #issue-hypothesis / #input-readiness)
 // は他画面からのリンク互換のためhashとしてそのまま残す。
-export type SxWeeklyControlView = "meetings" | "slack" | "weekly" | "gantt" | "objective-structure" | "partners" | "issues" | "tasks" | "technology" | "competition" | "business-model" | "business-plan" | "development-issues" | "financial-projection" | "capital-plan" | "company" | "organization-chart" | "employee-register" | "contracts" | "capital-policy" | "cost" | "cost-fuel" | "ip" | "drive" | "dd";
+export type SxWeeklyControlView = "meetings" | "slack" | "weekly" | "gantt" | "objective-structure" | "partners" | "issues" | "tasks" | "technology" | "poc-list" | "competition" | "business-model" | "business-plan" | "development-issues" | "financial-projection" | "capital-plan" | "company" | "organization-chart" | "employee-register" | "contracts" | "capital-policy" | "cost" | "cost-fuel" | "ip" | "drive" | "dd";
 const SX_WEEKLY_VIEW_STORAGE_KEY = "sx-weekly-control-view-v1";
 const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   meetings: "meetings",
@@ -369,6 +370,7 @@ const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   issues: "issue-hypothesis",
   tasks: "project-tasks",
   technology: "technology",
+  "poc-list": "poc-list",
   competition: "competition",
   "business-model": "business-model",
   "business-plan": "business-plan",
@@ -404,6 +406,7 @@ const WORKSPACE_TAB_LABELS: Record<SxWeeklyControlView, string> = {
   weekly: "週次差分",
   partners: "関係先",
   technology: "技術",
+  "poc-list": "PoCリスト",
   competition: "競合比較",
   "business-model": "ビジネスモデル",
   "business-plan": "事業計画",
@@ -437,7 +440,7 @@ function workspaceGroupsForType(type: ProjectFormatType): readonly WorkspaceTabG
 }
 const EXTERNAL_WORKSPACE_TABS = new Set<SxWeeklyControlView>([
   "issues", "tasks", "gantt", "meetings", "slack", "partners", "drive",
-  "technology", "competition", "business-model", "business-plan", "development-issues", "financial-projection", "capital-plan",
+  "technology", "poc-list", "competition", "business-model", "business-plan", "development-issues", "financial-projection", "capital-plan",
   "cost", "cost-fuel", "ip", "capital-policy", "company", "organization-chart", "employee-register", "contracts",
 ]);
 function viewForHash(hash: string): SxWeeklyControlView | null {
@@ -456,6 +459,7 @@ function viewForHash(hash: string): SxWeeklyControlView | null {
   if (normalized === "project-tasks") return "tasks";
   if (normalized === "project-ip") return "ip";
   if (normalized === "project-drive") return "drive";
+  if (normalized === "poc-list") return "poc-list";
   if (normalized === "technology") return "technology";
   if (normalized === "competition") return "competition";
   if (normalized === "business-model") return "business-model";
@@ -4700,7 +4704,7 @@ export function SxWeeklyControlDashboard({
     ...group,
     children: group.children
       .filter((tab) => !externalViewer || EXTERNAL_WORKSPACE_TABS.has(tab.key))
-      .map((tab) => ({ ...tab, onHover: () => prefetchProjectPage(bundle.project.projectId, tab.key) })),
+      .map((tab) => ({ ...tab, onHover: () => prefetchProjectPage(bundle.project.projectId, tab.key, externalViewer) })),
   })).filter((group) => group.children.length > 0), [externalViewer, formatType, bundle.project.projectId]);
   const dynamicTabs = useMemo(() => workspaceGroups.flatMap((group) => group.children), [workspaceGroups]);
 
@@ -4713,7 +4717,7 @@ export function SxWeeklyControlDashboard({
   // 埋め込み時は外から渡された view が正。単体ページのときだけ hash / localStorage を見る。
   const activeView = embedded && view ? view : internalView;
   useEffect(() => {
-    prefetchProjectPage(bundle.project.projectId, activeView);
+    prefetchProjectPage(bundle.project.projectId, activeView, externalViewer);
   }, [bundle.project.projectId, activeView]);
   useEffect(() => {
     if (embedded) return;
@@ -4743,6 +4747,7 @@ export function SxWeeklyControlDashboard({
         value === "issues" ||
         value === "tasks" ||
         value === "technology" ||
+        value === "poc-list" ||
         value === "competition" ||
         value === "business-model" ||
         value === "business-plan" ||
@@ -5806,6 +5811,8 @@ export function SxWeeklyControlDashboard({
             <CockpitSlackMessages projectId={bundle.project.projectId} />
           </section>
         )}
+
+        {activeView === "poc-list" && <section id="poc-list"><ProjectPocList projectId={bundle.project.projectId} sharedView={externalViewer} /></section>}
 
         {activeView === "technology" && (
           <section id="technology" className={styles.section} role="tabpanel" aria-label="技術">

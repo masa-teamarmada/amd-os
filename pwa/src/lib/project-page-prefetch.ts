@@ -1,6 +1,7 @@
 "use client";
 import { prefetchGovernance } from "./governance-client";
 import { prefetchBusinessSummary } from "./business-summary-client";
+import { prefetchProjectPocList } from "./project-poc-list-client";
 import { prefetchProjectTech } from "./project-tech-client";
 import { prefetchProjectBusinessPlan } from "./project-business-plan-client";
 import { prefetchProjectCostModel, prefetchProjectFuelCostModel } from "./project-cost-model-client";
@@ -8,8 +9,9 @@ import { prefetchQuestionTree } from "./question-tree-client";
 import { loadProjectContracts } from "./project-contract-list-client";
 
 /** 内部/共有面の選択ページだけを既存の認可付きAPIで先読みする。DDでは使わない。 */
-export function prefetchProjectPage(projectId: string, page: string) {
+export function prefetchProjectPage(projectId: string, page: string, sharedView = false) {
   switch (page) {
+    case "poc-list": prefetchProjectPocList(projectId, sharedView); break;
     case "company": prefetchBusinessSummary(projectId); prefetchGovernance(projectId); break;
     case "capital-policy": prefetchGovernance(projectId); break;
     case "technology": case "competition": case "business-model": prefetchProjectTech(projectId); break;
