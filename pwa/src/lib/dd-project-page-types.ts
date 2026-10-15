@@ -30,10 +30,10 @@ export type DdLiveProjectPage = Identity & (
   | { page: "financial-projection" | "monthly-trial"; finance: ProjectFinancePageData }
   | { page: "capital-plan" | "next-round-overview"; capital: CapitalPlanPageData }
   | { page: "cost-model"; costs: { main: CostModelResponse; fuel: CostModelResponse } }
-  | { page: "short-term-plan"; available: boolean }
+  | { page: "short-term-plan"; available: boolean; html?: string | null }
   | { page: "gantt"; tree: QuestionTreeBundle }
   | { page: "partners"; management: SxManagementBundle }
-  | { page: "long-term-plan"; available: boolean; plan: ProjectBusinessPlan | null }
+  | { page: "long-term-plan"; available: boolean; html?: string | null; plan: ProjectBusinessPlan | null }
   | { page: "business-plan"; plan: ProjectBusinessPlan | null }
   | { page: "development-issues"; issues: ProjectDevelopmentIssuesData | null }
   | { page: "contracts"; contracts: ProjectContractListData }

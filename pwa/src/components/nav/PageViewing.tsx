@@ -12,7 +12,7 @@ function selectedPage(pathname: string): PageViewingInput | null {
 }
 
 /** Foreground-only presence; hidden tabs send an ordered leave and never poll. */
-export function PageViewing() {
+export function PageViewing({ compact = false }: { compact?: boolean } = {}) {
   const pathname = usePathname() ?? "";
   const [snapshot, setSnapshot] = useState<PageViewingSnapshot | null>(null);
   const [open, setOpen] = useState(false);
@@ -122,7 +122,7 @@ export function PageViewing() {
   return <div className="relative ml-auto min-w-0" data-testid="page-viewing">
     <button ref={trigger} type="button" onClick={() => setOpen(v => !v)} aria-expanded={open} aria-haspopup="dialog" aria-label="閲覧中の人と閲覧履歴" className="inline-flex h-11 items-center gap-2 rounded-full px-2 text-xs text-[#374151] hover:bg-[#e8edf3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#027FDC] sm:h-9 sm:px-3">
       <span className="flex -space-x-1" aria-hidden="true">{snapshot?.viewers.slice(0, 3).map(v => <span key={v.key} title={v.self ? `${v.label}（自分）` : v.label} className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border-2 border-[#f8fafc] text-[11px] font-semibold ${v.self ? "bg-[#dcebf7] text-[#245f84]" : "bg-[#e5e7eb] text-[#4b5563]"}`}>{Array.from(v.label)[0]}</span>)}{!count && <Users className="h-4 w-4" />}</span>
-      <span>{error ? "再接続中" : snapshot ? `${count}${snapshot.truncated ? "+" : ""}人が閲覧中` : "閲覧情報"}</span>
+      <span className={compact ? "hidden sm:inline" : undefined}>{error ? "再接続中" : snapshot ? `${count}${snapshot.truncated ? "+" : ""}人が閲覧中` : "閲覧情報"}</span>
     </button>
     {open && <div ref={panel} role="dialog" aria-label="この画面の閲覧情報" className="absolute right-0 top-full z-[70] mt-1 w-[min(360px,calc(100vw-24px))] overflow-hidden rounded-lg border border-[#d2d2d7] bg-white text-[#1d1d1f] shadow-sm">
       <div className="flex items-center gap-1 border-b border-[#e5e7eb] px-2 py-1">

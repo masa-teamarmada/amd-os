@@ -15,10 +15,10 @@ import { loadDdProjectPage } from "@/lib/dd-project-pages-server";
 export const dynamic = "force-dynamic";
 
 // DDトップ。権限の確認（毎回DBを引き直す）より前に、パッケージの有無が分かる応答を返さない。
-export default async function DdPackagePage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ tab?: string; section?: string; returnTo?: string }> }) {
+export default async function DdPackagePage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ tab?: string; section?: string; returnTo?: string; fresh?: string }> }) {
   const { slug } = await params;
   if (!isDdSlug(slug)) notFound();
-  const { section, tab, returnTo } = await searchParams;
+  const { section, tab, returnTo, fresh } = await searchParams;
   const query = new URLSearchParams();
   if (tab) query.set("tab", tab);
   if (section) query.set("section", section);
@@ -34,13 +34,13 @@ export default async function DdPackagePage({ params, searchParams }: { params: 
   const selectedPage = tab && DD_PAGE_KEYS.includes(tab) ? tab : section ? undefined : "company";
   const [view, initialPage] = await Promise.all([
     loadDdPackageView(access, { mode: selectedPage === "documents" ? "documents" : selectedPage ? "header" : "full" }),
-    selectedPage && selectedPage !== "documents" ? loadDdProjectPage(access.projectId, selectedPage) : Promise.resolve(undefined),
+    selectedPage && selectedPage !== "documents" ? loadDdProjectPage(access.projectId, selectedPage, fresh === "1") : Promise.resolve(undefined),
   ]);
   if (!view) notFound();
 
   const legacyPage = view.sections.find((row) => row.key === section)?.items[0]?.pageKey;
   const pageKey = selectedPage ?? legacyPage ?? "company";
-  const canonicalPage = initialPage ?? (pageKey === "documents" ? undefined : await loadDdProjectPage(access.projectId, pageKey));
+  const canonicalPage = initialPage ?? (pageKey === "documents" ? undefined : await loadDdProjectPage(access.projectId, pageKey, fresh === "1"));
 
   await recordDdAccessEvent(access, "dd_package_viewed", { pageKey, contentHash: ddContentHash(canonicalPage ?? view.sections) });
 

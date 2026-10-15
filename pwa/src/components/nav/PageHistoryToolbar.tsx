@@ -34,14 +34,14 @@ function historyAvailability() {
 const serverAvailability = () => 0;
 
 /** ブラウザと同じ履歴を使い、元のページ・検索条件・タブへ戻る。履歴を独自に書き換えない。 */
-export function PageHistoryToolbar({ leading }: { leading?: ReactNode } = {}) {
+export function PageHistoryToolbar({ leading, title, actions, compact = false }: { leading?: ReactNode; title?: ReactNode; actions?: ReactNode; compact?: boolean } = {}) {
   // Navigation APIが無いブラウザでも、Next.js内のページ移動ごとに再評価する。
   usePathname();
   const availability = useSyncExternalStore(subscribe, historyAvailability, serverAvailability);
   const buttonClass = "inline-flex h-11 w-11 items-center justify-center rounded-full text-[#374151] transition-colors hover:bg-[#e8edf3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#027FDC] disabled:cursor-default disabled:text-[#aeb5bf] disabled:hover:bg-transparent sm:h-9 sm:w-9";
 
   return (
-    <nav aria-label="閲覧履歴" data-testid="page-history-toolbar" className="flex h-[52px] shrink-0 items-center gap-1 border-b border-[#e5e7eb] bg-[#f8fafc] px-3 sm:h-11 sm:px-4 print:hidden">
+    <nav aria-label="閲覧履歴" data-testid="page-history-toolbar" className={compact ? "flex min-h-11 min-w-0 shrink-0 items-center gap-1 bg-white sm:min-h-9 print:hidden" : "flex h-[52px] shrink-0 items-center gap-1 border-b border-[#e5e7eb] bg-[#f8fafc] px-3 sm:h-11 sm:px-4 print:hidden"}>
       {leading}
       <button type="button" aria-label="戻る" title="前のページに戻る" disabled={!(availability & 1)} onClick={() => window.history.back()} className={buttonClass}>
         <ArrowLeft className="h-5 w-5" aria-hidden="true" />
@@ -49,7 +49,9 @@ export function PageHistoryToolbar({ leading }: { leading?: ReactNode } = {}) {
       <button type="button" aria-label="進む" title="次のページに進む" disabled={!(availability & 2)} onClick={() => window.history.forward()} className={buttonClass}>
         <ArrowRight className="h-5 w-5" aria-hidden="true" />
       </button>
-      <PageViewing />
+      {title}
+      <PageViewing compact={compact} />
+      {actions}
     </nav>
   );
 }

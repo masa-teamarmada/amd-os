@@ -48,10 +48,10 @@ export function DdProjectPageBody({data,canDownload=false,resolutionDocuments=[]
     case "next-round-overview": return <ProjectNextRoundOverview data={data.capital} />;
     case "capital-plan": return <CockpitCapitalPlan projectId={data.projectId} projectName={data.projectName} initialData={data.capital} readOnly />;
     case "cost-model": return <CockpitCostTab projectId={data.projectId} allowEdit={false} initialData={data.costs} />;
-    case "short-term-plan": return <DdShortTermPlan available={data.available} />;
+    case "short-term-plan": return <DdShortTermPlan available={data.available} html={data.html} />;
     case "gantt": return <QuestionTreeView initialBundle={data.tree} projectId={data.projectId} projectName={data.projectName} embedded mode="gantt" />;
     case "partners": return <SxPartnerPipeline management={data.management} projectId={data.projectId} onManagementChange={noop} />;
-    case "long-term-plan": return data.available ? <DdShortTermPlan available term="long" /> : <ProjectLongTermPlan plan={data.plan} />;
+    case "long-term-plan": return data.available ? <DdShortTermPlan available html={data.html} term="long" /> : <ProjectLongTermPlan plan={data.plan} />;
     case "business-plan": return <CockpitBusinessPlan projectId={data.projectId} projectName={data.projectName} initialPlan={data.plan} canDownload={canDownload} confidential />;
     case "ip": return <CockpitIpPortfolio projectId={data.projectId} initialData={data.portfolio} />;
     case "company": return <CockpitCompanyOverview projectId={data.projectId} projectName={data.projectName} readOnly initialData={data.governance} initialBusinessSummary={data.businessSummary} canDownload={canDownload} confidential />;

@@ -17,9 +17,11 @@ registerHooks({ resolve(specifier, context, next) {
 const {loadLongTermPlanHtml,loadLongTermPlanDocument,loadShortTermPlanHtml}=await import('../src/lib/project-short-term-plan-server.ts');
 const id='6b2f3927-ae3c-4934-b3e6-d3ab25275146';
 const source='<style>body{color:#15394A}</style><section id="work"><svg><title>IPO</title></svg></section><section id="cash">PRIVATE</section><script>PRIVATE</script>';
-function db(options:{project?:string;status?:string;mime?:string;pointer?:string|null;fail?:string;body?:string}={}){
+let textReads = 0;
+function db(options:{project?:string;status?:string;mime?:string;pointer?:string|null;fail?:string;body?:string;version?:string}={}){
  const tables:Record<string,Record<string,unknown>[]>= {project_config:[{project_id:'p21',key:'long_term_plan_document_id',value:options.pointer===undefined?id:options.pointer},{project_id:'p21',key:'short_term_plan_document_id',value:id}],workspace_documents:[{document_id:id,project_id:options.project??'p21',scope_kind:'project',upload_status:options.status??'active',mime_type:options.mime??'text/html'}]};
- return {from(table:string){const filters:[string,unknown][]=[];const query={select(){return query},eq(k:string,v:unknown){filters.push([k,v]);return query},maybeSingle(){return Promise.resolve({data:tables[table].find(r=>filters.every(([k,v])=>r[k]===v))??null,error:options.fail===table?{message:'failure'}:null})}};return query},readText(_row:unknown,max:number){assert.equal(max,5*1024*1024);return Promise.resolve({ok:true,text:options.body??source})}} as unknown as SupabaseClient;
+ tables.workspace_documents[0].updated_at = options.version ?? 'v1';
+ return {from(table:string){const filters:[string,unknown][]=[];const query={select(){return query},eq(k:string,v:unknown){filters.push([k,v]);return query},maybeSingle(){return Promise.resolve({data:tables[table].find(r=>filters.every(([k,v])=>r[k]===v))??null,error:options.fail===table?{message:'failure'}:null})}};return query},readText(_row:unknown,max:number){textReads++;assert.equal(max,5*1024*1024);return Promise.resolve({ok:true,text:options.body??source})}} as unknown as SupabaseClient;
 }
 const html=await loadLongTermPlanHtml(db(),'p21');
 assert.ok(html?.includes('<section id="work"><svg><title>IPO</title>'));
@@ -28,7 +30,14 @@ assert.ok(!html?.includes('PRIVATE'),'cash/other sections and outside scripts ar
 assert.equal(await loadLongTermPlanDocument(db(),'p34'),null);
 assert.equal(await loadLongTermPlanDocument(db({pointer:null}),'p21'),null);
 for(const bad of [{pointer:'invalid'},{project:'p34'},{status:'archived'},{mime:'text/plain'},{fail:'project_config'},{fail:'workspace_documents'}]) await assert.rejects(loadLongTermPlanDocument(db(bad),'p21'));
-await assert.rejects(loadLongTermPlanHtml(db({body:'<section id="cash">not work</section>'}),'p21'),/ガント/);
+await loadLongTermPlanHtml(db(),'p21');
+assert.equal(textReads,1,'same document revision reuses text');
+await assert.rejects(loadLongTermPlanHtml(db({status:'archived'}),'p21'),'cached HTML never bypasses the live document check');
+await assert.rejects(loadLongTermPlanHtml(db({body:'<section id="cash">not work</section>',version:'v2'}),'p21'),/ガント/);
+const changed=await loadLongTermPlanHtml(db({body:source.replace('IPO','NEW'),version:'v3'}),'p21');
+assert.ok(changed?.includes('NEW'),'new document revision replaces the cached body');
+assert.match(html!,/Content-Security-Policy/,'srcDoc keeps external network and scripts blocked');
+assert.doesNotMatch(html!,/data-dd-confidentiality|data:image\/png;base64/,'embedded plan uses the surrounding page notice once');
 assert.equal(await loadShortTermPlanHtml(db(),'p21'),html);
 const route=readFileSync('src/app/dd/[slug]/long-term-plan-document/route.ts','utf8');
 assert.ok(route.indexOf('if (!access) notFound()')<route.indexOf('loadLongTermPlanHtml(createAdminClient(), access.projectId)'));

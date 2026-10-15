@@ -8,7 +8,7 @@ import "server-only";
 import { redactProjectPartnerNames } from "./project-partner-disclosure";
 import { loadProjectPartnerDisclosure } from "./project-partner-disclosure-server";
 import { loadProjectMarketResearch } from "./project-market-research-server";
-import { loadShortTermPlanDocument, loadLongTermPlanDocument } from "./project-short-term-plan-server";
+import { loadShortTermPlanHtml, loadLongTermPlanHtml } from "./project-short-term-plan-server";
 import { loadProjectTechnicalEvidence } from "./project-technical-evidence-server";
 import { loadProjectDevelopmentIssues } from "./project-development-issues-server";
 import { loadProjectContractList } from "./project-contract-list-server";
@@ -28,12 +28,17 @@ import { loadCostModelBundle } from "@/app/api/project-cost-model/route";
 import type { DdLiveProjectPage } from "./dd-project-page-types";
 import type { IpPortfolioBundle } from "@/components/cockpit/CockpitIpPortfolio";
 import type { Grant } from "@/components/cockpit/CockpitGrants";
+import { createDdReferenceCache } from "./dd-reference-cache";
+
+const pageCache = createDdReferenceCache<DdLiveProjectPage>();
+// 開示選択・共有済み判定・資料の有効状態が関わる本文は毎回読む。
+const uncachedPages = new Set(["technology", "competition", "business-model", "technical-evidence", "contracts", "governance", "partners", "activity", "gantt", "short-term-plan", "long-term-plan"]);
 
 /** 呼び出す前に当該DDへの入場権限を確認する。ページは共通定義の全内容を読む。 */
-export async function loadDdProjectPage(projectId: string, page: string): Promise<DdLiveProjectPage> {
+export async function loadDdProjectPage(projectId: string, page: string, fresh = false): Promise<DdLiveProjectPage> {
   if (!DD_PAGE_KEYS.includes(page) || page === "documents") throw new Error("Unsupported DD page");
   const [content, hidden] = await Promise.all([
-    loadDdProjectPageContent(projectId, page),
+    uncachedPages.has(page) ? loadDdProjectPageContent(projectId, page) : pageCache.load(JSON.stringify([projectId, page]), () => loadDdProjectPageContent(projectId, page), fresh),
     loadProjectPartnerDisclosure(createAdminClient(), projectId),
   ]);
   return redactProjectPartnerNames(content, hidden);
@@ -60,7 +65,10 @@ async function loadDdProjectPageContent(projectId: string, page: string): Promis
     const [main, fuel] = await Promise.all([loadCostModelBundle(projectId, "default"), loadCostModelBundle(projectId, "fuel")]);
     return { ...base, page, costs: { main: { canEdit: false, bundle: main }, fuel: { canEdit: false, bundle: fuel } } };
   }
-  if (page === "short-term-plan") return { ...base, page, available: Boolean(await loadShortTermPlanDocument(db, projectId)) };
+  if (page === "short-term-plan") {
+    const html = await loadShortTermPlanHtml(db, projectId);
+    return { ...base, page, available: Boolean(html), html };
+  }
   if (page === "gantt") return { ...base, page, tree: await getQuestionTreeBundle(projectId, false, false) };
   if (page === "partners") {
     const all = await getSxManagementBundle(projectId, false);
@@ -72,8 +80,8 @@ async function loadDdProjectPageContent(projectId: string, page: string): Promis
     return { ...base, page, management: redactProjectPartnerNames(management, all.partners) };
   }
   if (page === "long-term-plan") {
-    const available = Boolean(await loadLongTermPlanDocument(db, projectId));
-    return { ...base, page, available, plan: available ? null : await loadProjectBusinessPlan(projectId) };
+    const html = await loadLongTermPlanHtml(db, projectId);
+    return { ...base, page, available: Boolean(html), html, plan: html ? null : await loadProjectBusinessPlan(projectId) };
   }
   if (page === "business-plan") return { ...base, page, plan: await loadProjectBusinessPlan(projectId) };
   if (page === "company" || page === "capital-policy") {

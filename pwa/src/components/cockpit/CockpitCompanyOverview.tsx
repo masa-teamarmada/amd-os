@@ -295,7 +295,12 @@ export function CockpitCompanyOverview({
         <div className="flex flex-wrap gap-2" data-html2canvas-ignore="true">
           <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" disabled={!canDownload} onClick={() => void downloadCompanyOverviewXlsx(projectName, data, confidential).catch(cause => setError(cause instanceof Error ? cause.message : "Excelを作成できなかった。"))}><FileSpreadsheet />会社概要Excel</Button>
           <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" onClick={() => void exportPdf()} disabled={exportingPdf || !canDownload}>{exportingPdf ? <Loader2 className="animate-spin" /> : <Download />}PDF</Button>
-          <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" onClick={() => initialData ? window.location.reload() : void load()}><RefreshCw />更新</Button>
+          <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" onClick={() => {
+            if (!initialData) { void load(); return; }
+            const url = new URL(window.location.href);
+            if (url.pathname.startsWith("/dd/")) url.searchParams.set("fresh", "1");
+            window.location.assign(url.href);
+          }}><RefreshCw />更新</Button>
         </div>
       </div>
 

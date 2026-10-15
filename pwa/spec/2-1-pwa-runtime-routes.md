@@ -1,5 +1,7 @@
 # PWA ランタイム / ルート仕様
 
+2026-10-15: ルートlayoutの`NavigationFavicon`は同一オリジンへの通常リンク遷移/戻る/進むの間だけ回転するファビコンを表示し、pathname/searchParamsの反映時に元のhref/type/sizesへ戻す。別タブ・外部・ダウンロード・同一ページのhash移動は対象外。失敗/キャンセルの復元上限30秒。DDでは選択本文を認可後の短時間参照キャッシュで取得し、短期/長期計画はsandbox/CSP付きsrcDoc。5-17参照。
+
 ## 2026-10-08 — メールの数字でログイン（v3.162.7）
 
 PWAの外部ログインにコード入力を追加。メール申込後とworkspace_auth_failed/workspace_code_failed時は同じメール入力と数値コード欄を表示し、単一の「ログインする」でPOST /auth/callbackへ送る。初期画面は従来のメール入力、社内Google・書斎入口は維持。コードはURL・監査detailに載せない。
