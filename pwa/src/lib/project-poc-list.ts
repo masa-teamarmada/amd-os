@@ -4,13 +4,20 @@ import { amieTechFieldLevel } from "./amie-tech-disclosure-model.ts";
 import type { ProjectTechResponse } from "./project-tech-client";
 import type { TechEntry, TechTopic } from "./project-tech";
 
-export type ProjectPocListData = Pick<ProjectTechResponse,"topics"|"entries"|"canEdit"|"audience">;
+export type ProjectPocListData = Pick<ProjectTechResponse,"topics"|"entries"|"canEdit"|"audience"> & {
+  /** 内部の編集者にだけ返す。開示用の行から編集元の完全な行を引く。 */
+  editEntryIds?: Record<string, string>;
+};
 export type PocAudience = "internal" | "shared" | "dd";
 
 /** 掲載する行と共有先は元トピックに明示する。新しい行を無断で外部へ追加しない。 */
 export function projectPocListData(projectId:string, topics:TechTopic[], entries:TechEntry[], audience:PocAudience, canEdit=false):ProjectPocListData {
   const own = topics.filter(t=>t.project_id===projectId && amieIsEffluentTopic(t));
-  if(audience==="internal") { const ids=new Set(own.map(t=>t.tech_topic_id)); return {audience,canEdit,topics:own,entries:entries.filter(e=>e.project_id===projectId&&ids.has(e.tech_topic_id))}; }
+  if(audience==="internal") {
+    const ids=new Set(own.map(t=>t.tech_topic_id));
+    const ownEntries=entries.filter(e=>e.project_id===projectId&&ids.has(e.tech_topic_id));
+    return {audience,canEdit,topics:own,entries:ownEntries,...(canEdit?{editEntryIds:Object.fromEntries(ownEntries.map(e=>[createHash("sha256").update(`${projectId}:${e.tech_entry_id}`).digest("hex"),e.tech_entry_id]))}:{})};
+  }
   const result:ProjectPocListData={audience,canEdit:false,topics:[],entries:[]};
   for(const topic of own){
     if(amieTechFieldLevel(topic,["presentation"])==="core")continue;

@@ -35,14 +35,14 @@ const ProjectTechnicalEvidence = dynamic(() => import("@/components/project-work
 const ProjectPocList = dynamic(() => import("@/components/project-workspace/ProjectPocList").then(module => module.ProjectPocList), { loading: ProjectPageLoading });
 const noop = () => {};
 const ProjectMarketResearch = dynamic(() => import("@/components/project-workspace/ProjectMarketResearch").then(module => module.ProjectMarketResearch), { loading: ProjectPageLoading });
-export function DdProjectPageBody({data,canDownload=false,resolutionDocuments=[]}:{data:DdLiveProjectPage;canDownload?:boolean;resolutionDocuments?:ResolutionDocument[]}) {
+export function DdProjectPageBody({data,canDownload=false,canEditPocList=false,resolutionDocuments=[]}:{data:DdLiveProjectPage;canDownload?:boolean;canEditPocList?:boolean;resolutionDocuments?:ResolutionDocument[]}) {
   if ("empty" in data && data.page === "technical-evidence") return <ProjectTechnicalEvidence data={data.technicalEvidence ?? null} />;
   if ("empty" in data && data.page === "market-research") return <ProjectMarketResearch data={data.marketResearch ?? null} />;
   if ("empty" in data && data.page === "product-description") return <ProjectProductDescription data={data.productDescription ?? null} />;
   if ("empty" in data && data.page === "founding-background") return <ProjectProductDescription data={data.foundingBackground ?? null} founding />;
   if ("empty" in data) return <ProjectDiligenceSection page={data.page} managementMinutes={data.managementMinutes} resolutionDocuments={resolutionDocuments} organizationChart={data.organizationChart} biographies={data.biographies} />;
   switch(data.page) {
-    case "poc-list": return <ProjectPocList projectId={data.projectId} initialData={data.poc} sharedView />;
+    case "poc-list": return <ProjectPocList projectId={data.projectId} initialData={data.poc} sharedView enableEditing={canEditPocList} />;
     case "development-issues": return <ProjectDevelopmentIssues projectId={data.projectId} initialData={data.issues} />;
     case "contracts": return <ProjectContractList projectId={data.projectId} initialData={data.contracts} />;
     case "technology": case "competition": case "business-model": return <CockpitTechnology key={`${data.projectId}:${data.page}`} projectId={data.projectId} mode={data.page} initialData={data.tech} />;

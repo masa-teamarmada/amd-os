@@ -11,6 +11,7 @@ import { DdPackageTop } from "@/components/dd/DdPackageTop";
 import { hasDdCapability, isDdSlug } from "@/lib/dd-package-core";
 import { DD_PAGE_KEYS, type DdPageKey } from "@/lib/dd-pages";
 import { loadDdProjectPage } from "@/lib/dd-project-pages-server";
+import { canEditProjectSurface } from "@/lib/project-surface-access";
 
 export const dynamic = "force-dynamic";
 
@@ -43,12 +44,14 @@ export default async function DdPackagePage({ params, searchParams }: { params: 
   const legacyPage = view.sections.find((row) => row.key === section)?.items[0]?.pageKey;
   const pageKey = selectedPage ?? legacyPage ?? "company";
   const canonicalPage = initialPage ?? (pageKey === "documents" ? undefined : await loadDdProjectPage(access.projectId, pageKey, fresh === "1"));
+  const canEditPocList = pageKey === "poc-list" && access.principal !== "workspace_account" && hasDdCapability(access, "dd.edit") &&
+    (await canEditProjectSurface(access.projectId, "cockpit") || await canEditProjectSurface(access.projectId, "workspace"));
 
   await recordDdAccessEvent(access, "dd_package_viewed", { pageKey, contentHash: ddContentHash(canonicalPage ?? view.sections) });
 
   return (
     <DdViewerShell access={access} projectName={view.projectName} pageKey={pageKey as DdPageKey}>
-      <DdPackageTop view={view} slug={access.slug} sectionKey={section} tab={pageKey} canonicalPage={canonicalPage} canDownload={hasDdCapability(access, "dd.download")} />
+      <DdPackageTop view={view} slug={access.slug} sectionKey={section} tab={pageKey} canonicalPage={canonicalPage} canEditPocList={canEditPocList} canDownload={hasDdCapability(access, "dd.download")} />
     </DdViewerShell>
   );
 }

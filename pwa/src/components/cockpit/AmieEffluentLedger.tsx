@@ -103,7 +103,7 @@ function AmieEffluentGraphUpload({ projectId, entry, onSaved }: {projectId:strin
   </form>;
 }
 
-export function AmieEffluentLedger({ projectId, topic, entries, allEntries, canEdit, onChanged, sharedView = false }: { projectId: string; topic: TechTopic; entries: TechEntry[]; allEntries?:TechEntry[]; sharedView?:boolean; canEdit: boolean; onChanged: () => void }) {
+export function AmieEffluentLedger({ projectId, topic, entries, allEntries, editableEntries, canEdit, onChanged, sharedView = false }: { projectId: string; topic: TechTopic; entries: TechEntry[]; allEntries?:TechEntry[]; editableEntries?:Record<string,TechEntry>; sharedView?:boolean; canEdit: boolean; onChanged: () => void }) {
   const rows = useMemo(() => amieEffluentRows(entries), [entries]);
   const summary = amieEffluentSummary(amieEffluentRows(allEntries??entries));
   const report = amieEffluentReportedCount(topic);
@@ -114,13 +114,14 @@ export function AmieEffluentLedger({ projectId, topic, entries, allEntries, canE
   const [waterType,setWaterType]=useState<EffluentWaterType|"all">("all");
   const [weather,setWeather]=useState<ExperimentVisual["weather"]|"all">("all");
   const [editing, setEditing] = useState<TechEntry | "new" | null>(null);
-  const [cellEditing, setCellEditing] = useState<{entry:TechEntry;field:AmieEffluentField}|null>(null);
+  const [cellEditing, setCellEditing] = useState<{entry:TechEntry;displayId:string;field:AmieEffluentField}|null>(null);
   const editOriginRef = useRef<HTMLElement|null>(null);
   useEffect(()=>{if(!cellEditing&&editOriginRef.current?.isConnected)editOriginRef.current.focus();},[cellEditing]);
-  const editableCell = (entry:TechEntry, field:AmieEffluentField) => canEdit ? {
+  const editSource = (entry:TechEntry) => canEdit ? (editableEntries ? editableEntries[entry.tech_entry_id] : entry) : undefined;
+  const editableCell = (entry:TechEntry, field:AmieEffluentField) => editSource(entry) ? {
     tabIndex:0, "data-amie-cell-edit":field, "aria-label":`${entry.row_label}の${AMIE_EFFLUENT_FIELD_LABEL[field]}を編集`,
-    onClick:(event:React.MouseEvent<HTMLElement>)=>{if((event.target as HTMLElement).closest("button,a,input,select,textarea"))return;editOriginRef.current=event.currentTarget;setEditing(null);setCellEditing({entry,field});if(window.innerWidth<768)tableRef.current?.scrollTo({left:0});},
-    onKeyDown:(event:React.KeyboardEvent<HTMLElement>)=>{if(event.target!==event.currentTarget)return;if(event.key==="Enter"||event.key===" "){event.preventDefault();editOriginRef.current=event.currentTarget;setEditing(null);setCellEditing({entry,field});if(window.innerWidth<768)tableRef.current?.scrollTo({left:0});}},
+    onClick:(event:React.MouseEvent<HTMLElement>)=>{if((event.target as HTMLElement).closest("button,a,input,select,textarea"))return;editOriginRef.current=event.currentTarget;setEditing(null);setCellEditing({entry:editSource(entry)!,displayId:entry.tech_entry_id,field});if(window.innerWidth<768)tableRef.current?.scrollTo({left:0});},
+    onKeyDown:(event:React.KeyboardEvent<HTMLElement>)=>{if(event.target!==event.currentTarget)return;if(event.key==="Enter"||event.key===" "){event.preventDefault();editOriginRef.current=event.currentTarget;setEditing(null);setCellEditing({entry:editSource(entry)!,displayId:entry.tech_entry_id,field});if(window.innerWidth<768)tableRef.current?.scrollTo({left:0});}},
   } : {};
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const tableRef = useRef<HTMLDivElement>(null);
@@ -145,7 +146,7 @@ export function AmieEffluentLedger({ projectId, topic, entries, allEntries, canE
       <label className="text-[11px]">性状<select aria-label="排水の性状" className={control} value={waterType} onChange={e=>setWaterType(e.target.value as EffluentWaterType|"all")}><option value="all">全性状</option>{Object.entries(EFFLUENT_WATER_TYPES).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
       <label className="text-[12px]">区分<select aria-label="廃液の区分" className={control} value={kind} onChange={e=>setKind(e.target.value as AmieEffluentKind|"all")}><option value="all">全区分</option>{Object.entries(AMIE_EFFLUENT_KINDS).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
       <label className="text-[12px]">状態<select aria-label="廃液実験の状態で絞り込み" className={control} value={state} onChange={e=>setState(e.target.value as AmieEffluentState|"all")}><option value="all">全状態</option>{Object.entries(AMIE_EFFLUENT_STATES).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
-      <div className="flex flex-col items-start gap-1 md:flex-row md:items-center md:gap-2"><span className="text-[11px] text-[#626b77]" aria-live="polite">{filtered.length} / {summary.rows}行</span>{canEdit && <button className={button} onClick={()=>{setCellEditing(null);setEditing("new");}}>＋ 廃液を追加</button>}</div>
+      <div className="flex flex-col items-start gap-1 md:flex-row md:items-center md:gap-2"><span className="text-[11px] text-[#626b77]" aria-live="polite">{filtered.length} / {summary.rows}行</span>{canEdit && !sharedView && <button className={button} onClick={()=>{setCellEditing(null);setEditing("new");}}>＋ 廃液を追加</button>}</div>
     </div>
     </div>
     {malformed > 0 && <p role="alert" className="text-[12px] text-[#b71c1c]">登録形式を確認する行が{malformed}件ある。集計には含めていない。</p>}
@@ -166,8 +167,8 @@ export function AmieEffluentLedger({ projectId, topic, entries, allEntries, canE
             <td {...editableCell(entry,"status")} className={cell} title={`${AMIE_EFFLUENT_STATES[e.status]} · 報告 ${date(entry.observed_on)}`}><div className="flex flex-col items-center">{e.status==="completed"?<ExperimentDoneStamp/>:<span className={e.status==="running"?styles.running:styles.neutral}>{e.status==="received"?"受領・結果待ち":AMIE_EFFLUENT_STATES[e.status]}</span>}{!e.identity_confirmed&&<span className="text-[10px] text-[#9a5800]">種類未照合</span>}</div></td>
             <td {...editableCell(entry,"details")} className={cell}><button aria-label={`${entry.row_label}の詳細`} aria-expanded={expanded.has(entry.tech_entry_id)} className={rowButton} onClick={()=>{setExpanded(prev=>{const n=new Set(prev); if(n.has(entry.tech_entry_id))n.delete(entry.tech_entry_id);else n.add(entry.tech_entry_id);return n;});if(window.innerWidth<768)tableRef.current?.scrollTo({left:0,behavior:"smooth"});}}>{expanded.has(entry.tech_entry_id)?"閉じる":"詳細"}</button>{e.graphs.length>0&&<p className="mt-0.5 text-[10px] text-[#626b77]">図 {e.graphs.length}枚</p>}</td>
           </tr>
-          {cellEditing?.entry.tech_entry_id === entry.tech_entry_id && <tr><td colSpan={7} className="bg-[#fafafa] px-2 py-2"><AmieEffluentForm key={`${entry.tech_entry_id}:${cellEditing.field}`} projectId={projectId} topicId={topic.tech_topic_id} entry={cellEditing.entry} section={cellEditing.field} onCancel={()=>setCellEditing(null)} onSaved={()=>{setCellEditing(null);onChanged();}}/></td></tr>}
-          {expanded.has(entry.tech_entry_id) && <tr><td colSpan={7} className="bg-[#fafafa] px-3 py-3 text-[12px] leading-5"><div className="max-w-[calc(100vw-80px)] md:max-w-[1200px]"><div className="mb-2 flex gap-2"><button className={`${button} md:hidden`} onClick={()=>setExpanded(prev=>{const n=new Set(prev);n.delete(entry.tech_entry_id);return n;})}>詳細を閉じる</button>{canEdit&&<button aria-label={`${entry.row_label}を編集`} className={button} onClick={()=>{setCellEditing(null);setEditing(entry);}}>この試料を編集</button>}</div><dl className={`${styles.detail} grid gap-3 sm:grid-cols-2`}>
+          {cellEditing?.displayId === entry.tech_entry_id && <tr><td colSpan={7} className="bg-[#fafafa] px-2 py-2"><AmieEffluentForm key={`${entry.tech_entry_id}:${cellEditing.field}`} projectId={projectId} topicId={topic.tech_topic_id} entry={cellEditing.entry} section={cellEditing.field} onCancel={()=>setCellEditing(null)} onSaved={()=>{setCellEditing(null);onChanged();}}/></td></tr>}
+          {expanded.has(entry.tech_entry_id) && <tr><td colSpan={7} className="bg-[#fafafa] px-3 py-3 text-[12px] leading-5"><div className="max-w-[calc(100vw-80px)] md:max-w-[1200px]"><div className="mb-2 flex gap-2"><button className={`${button} md:hidden`} onClick={()=>setExpanded(prev=>{const n=new Set(prev);n.delete(entry.tech_entry_id);return n;})}>詳細を閉じる</button>{editSource(entry)&&<button aria-label={`${entry.row_label}を編集`} className={button} onClick={()=>{setCellEditing(null);setEditing(editSource(entry)!);}}>この試料を編集</button>}</div><dl className={`${styles.detail} grid gap-3 sm:grid-cols-2`}>
             <div><dt className="font-medium">廃液名</dt><dd>{entry.row_label}</dd></div>
             <div><dt className="font-medium">{sharedView?"含有元素":"廃液の成分・採取位置"}</dt><dd>{value(e.components)}{!sharedView&&`／${value(e.sampling_point)}`}</dd></div>
             <div><dt className="font-medium">処理前 → 処理後</dt><dd>{value(e.before)} → {value(e.after)}</dd></div>
@@ -183,7 +184,7 @@ export function AmieEffluentLedger({ projectId, topic, entries, allEntries, canE
               const url=`/api/project-tech-graphs?entryId=${encodeURIComponent(entry.tech_entry_id)}&index=${index}`;
               return <figure key={g.path} className="min-w-0"><a href={url} target="_blank" rel="noopener noreferrer" className="block rounded border border-[#d2d2d7] bg-white focus-visible:outline-2 focus-visible:outline-[#027FDC]"><img src={url} alt={g.caption} loading="lazy" className="h-auto w-full"/></a><figcaption className="mt-1 text-[12px]"><span className="font-medium">{g.caption}</span><span className="block text-[11px] text-[#515158]">{g.source_ref}</span></figcaption></figure>;
             })}</div>}
-            {canEdit&&<AmieEffluentGraphUpload projectId={projectId} entry={entry} onSaved={onChanged}/>}
+            {editSource(entry)&&<AmieEffluentGraphUpload projectId={projectId} entry={editSource(entry)!} onSaved={onChanged}/>}
           </div></td></tr>}
         </tbody>;})}
         {filtered.length === 0 && <tbody><tr><td colSpan={7} className="p-4 text-[12px] text-[#515158]">条件に一致する廃液の記録がない。</td></tr></tbody>}

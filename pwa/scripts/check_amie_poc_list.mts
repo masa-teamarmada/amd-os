@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {projectPocListData} from "../src/lib/project-poc-list.ts";
+import {pocEditableEntries} from "../src/lib/project-poc-editing.ts";
 import {amieEffluentRows,amieEffluentSummary} from "../src/lib/amie-effluent-experiments.ts";
 import {redactProjectPartnerNames} from "../src/lib/project-partner-disclosure.ts";
 import {COCKPIT_TAB_FORMATS,WORKSPACE_TAB_FORMATS,DD_ITEM_PAGES,PROJECT_PAGE_LABELS} from "../src/lib/project-formats.ts";
@@ -15,6 +16,7 @@ for(const audience of ["internal","shared","dd"] as const){
  assert.equal(result.entries.length,49);assert.equal(result.canEdit,audience==="internal");
  assert.equal(amieEffluentSummary(amieEffluentRows(result.entries)).completed,9,"同じ廃液の再実験を二重計上しない");
  if(audience==="internal"){assert.deepEqual(result.entries,entries);continue;}
+ assert.equal(result.editEntryIds,undefined,"編集元の識別子は開示データに含めない");
  assert.equal(result.topics[0].title,"PoCリスト");
  for(const entry of result.entries){const experiment=entry.experiment as Record<string,any>;
   assert.equal(entry.source_url,null);assert.equal(entry.condition_text,null);assert.equal(entry.note,null);assert.equal(entry.created_by,null);
@@ -34,6 +36,19 @@ assert.equal(projectPocListData("p21",[topic],entries.map(e=>({...e,project_id:"
 const changed={...entries[0],value_text:"更新した結論"};
 assert.equal(projectPocListData("p21",[topic],[changed],"dd").entries[0].value_text,"更新した結論","掲載済み行の訂正は同じ元データから即反映");
 const published=projectPocListData("p21",[topic],entries,"dd");
+const editor=projectPocListData("p21",[topic],entries,"internal",true);
+const editSources=pocEditableEntries("p21",published,editor);
+assert.equal(Object.keys(editSources).length,49);
+for (const [i,entry] of published.entries.entries()) {
+ assert.equal(editSources[entry.tech_entry_id],entries[i],"省略された開示用の行ではなく社内正本を編集する");
+ assert.deepEqual(editSources[entry.tech_entry_id].experiment,entries[i].experiment,"原グラフ・条件・採取位置なども保持");
+}
+assert.deepEqual(pocEditableEntries("p21",published),{});
+assert.deepEqual(pocEditableEntries("p21",published,{...editor,canEdit:false}),{});
+assert.deepEqual(pocEditableEntries("p21",published,{...published,canEdit:true}),{},"公開projectionのフラグだけを変えても編集不可");
+assert.deepEqual(pocEditableEntries("other",published,editor),{});
+assert.deepEqual(pocEditableEntries("p21",published,{...editor,entries:entries.map(e=>({...e,tech_topic_id:"other"}))}),{});
+assert.deepEqual(pocEditableEntries("p21",published,{...editor,editEntryIds:undefined}),{});
 const hidden=redactProjectPartnerNames(published,[{id:"withheld",name:(entries[0].experiment as any).provider,slug:"hidden-provider",nameDisclosureProhibited:true}]);
 assert.equal((hidden.entries[0].experiment as any).provider,"会社名非開示");
 for(const format of [COCKPIT_TAB_FORMATS,WORKSPACE_TAB_FORMATS])for(const [type,groups]of Object.entries(format))assert.equal(groups.flatMap(g=>g.tabs).filter(t=>t==="poc-list").length,1,`${type}でも未登録時の入口を常設`);
@@ -42,6 +57,14 @@ const read=(f:string)=>readFileSync(f,"utf8");
 assert.match(read("src/components/cockpit/CockpitTechnology.tsx"),/techLedgerTabOf\(t\) === mode && !amieIsEffluentTopic\(t\)/);
 assert.match(read("src/components/cockpit/CockpitTechnology.tsx"),/window.location.replace/);
 assert.match(read("src/components/dd/DdProjectPageBody.tsx"),/initialData=\{data.poc\}/);
+assert.match(read("src/components/dd/DdProjectPageBody.tsx"),/enableEditing=\{canEditPocList\}/);
+for(const route of ["src/app/dd/[slug]/page.tsx","src/app/dd/[slug]/items/[itemId]/page.tsx"]){
+ const source=read(route);
+ assert.match(source,/access.principal !== "workspace_account" && hasDdCapability\(access, "dd.edit"\)/);
+ assert.match(source,/canEditProjectSurface\(access.projectId, "cockpit"\).*canEditProjectSurface\(access.projectId, "workspace"\)/);
+ assert.match(source,/canEditPocList=\{canEditPocList\}/);
+}
+assert.match(read("src/components/project-workspace/ProjectPocList.tsx"),/router.refresh\(\)/,"DD保存後も開示範囲で最新の値を読み戻す");
 assert.match(read("src/app/api/project-poc-list/route.ts"),/hasSharedWorkspaceProjectReadAccess\(projectId\)/);
 assert.match(read("scripts/migrations/508_amie_poc_list_dd_page.sql"),/'project_page:poc-list'/);
 console.log("PoC list: 49 canonical rows / 9 completed, 3 surfaces, live edits, approval scope, core exclusion, names and protected details: PASS");

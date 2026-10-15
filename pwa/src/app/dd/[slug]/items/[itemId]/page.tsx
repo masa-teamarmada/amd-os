@@ -10,6 +10,7 @@ import { ddPageForItem } from "@/lib/dd-pages";
 import { DdViewerShell } from "@/components/dd/DdViewerShell";
 import { DdPackageTop } from "@/components/dd/DdPackageTop";
 import { loadDdProjectPage } from "@/lib/dd-project-pages-server";
+import { canEditProjectSurface } from "@/lib/project-surface-access";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -34,10 +35,12 @@ export default async function DdItemPage({ params }: { params: Promise<{ slug: s
     unverifiedNotes: view.unverifiedNotes, unavailable: !view.live,
   };
   const canonicalPage = selectedItem.pageKey === "documents" ? undefined : await loadDdProjectPage(access.projectId, selectedItem.pageKey);
+  const canEditPocList = selectedItem.pageKey === "poc-list" && access.principal !== "workspace_account" && hasDdCapability(access, "dd.edit") &&
+    (await canEditProjectSurface(access.projectId, "cockpit") || await canEditProjectSurface(access.projectId, "workspace"));
   await recordDdAccessEvent(access, "dd_item_viewed", { itemId, pageKey: selectedItem.pageKey, contentHash: ddContentHash(canonicalPage ?? view.live?.data), sourceAsOf: view.live?.sourceAsOf });
   return (
     <DdViewerShell access={access} projectName={packageView.projectName} pageKey={selectedItem.pageKey}>
-      <DdPackageTop view={packageView} slug={access.slug} selectedItem={selectedItem} canonicalPage={canonicalPage} canDownload={hasDdCapability(access, "dd.download")} />
+      <DdPackageTop view={packageView} slug={access.slug} selectedItem={selectedItem} canonicalPage={canonicalPage} canEditPocList={canEditPocList} canDownload={hasDdCapability(access, "dd.download")} />
     </DdViewerShell>
   );
 }

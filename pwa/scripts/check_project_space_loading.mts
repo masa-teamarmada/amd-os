@@ -91,6 +91,7 @@ const page=compile('../src/app/dd/[slug]/page.tsx',{
  '@/components/dd/DdViewerShell':{DdViewerShell:()=>null},'@/components/dd/DdPackageTop':{DdPackageTop:()=>null},
  '@/lib/dd-package-core':{hasDdCapability:()=>false,isDdSlug:()=>true},'@/lib/dd-pages':{DD_PAGE_KEYS:['company','documents']},
  '@/lib/dd-project-pages-server':{loadDdProjectPage:async()=>{routeReads++;return {page:'company'}}},
+ '@/lib/project-surface-access':{canEditProjectSurface:async()=>false},
 });
 const props=(tab:string)=>({params:Promise.resolve({slug:'sol'}),searchParams:Promise.resolve({tab})});
 await assert.rejects(page.default(props('company')),/not found/);assert.equal(routeReads,0);assert.equal(audits,0);

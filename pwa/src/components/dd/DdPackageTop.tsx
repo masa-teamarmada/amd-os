@@ -8,8 +8,8 @@ import type { DdPackageView, DdViewItem } from "@/lib/dd-package-server";
 import density from "./DdDocumentDensity.module.css";
 
 // ページを選ぶと本文を直接表示。DD専用の一覧・概要・公開状態の枠を挟まない。
-export function DdPackageTop({ view, slug, tab, sectionKey, canDownload = false, selectedItem, canonicalPage }: {
-  view: DdPackageView; slug: string; tab?: string; sectionKey?: string; canDownload?: boolean; selectedItem?: DdViewItem; canonicalPage?: DdLiveProjectPage;
+export function DdPackageTop({ view, slug, tab, sectionKey, canDownload = false, canEditPocList = false, selectedItem, canonicalPage }: {
+  view: DdPackageView; slug: string; tab?: string; sectionKey?: string; canDownload?: boolean; canEditPocList?: boolean; selectedItem?: DdViewItem; canonicalPage?: DdLiveProjectPage;
 }) {
   const items = view.sections.flatMap((section) => section.items);
   const legacyPage = view.sections.find((section) => section.key === sectionKey)?.items[0]?.pageKey;
@@ -27,7 +27,7 @@ export function DdPackageTop({ view, slug, tab, sectionKey, canDownload = false,
           </div>
         </nav>}
         {pageKey !== "documents" ? (
-          canonicalPage ? <DdProjectPageBody key={`${view.package.project_id}:${pageKey}`} data={canonicalPage} canDownload={canDownload} resolutionDocuments={items.flatMap(item => item.live?.kind === "document" ? [{ itemId: item.itemId, label: item.live.fileName, href: `/dd/${encodeURIComponent(slug)}/items/${encodeURIComponent(item.itemId)}/file` }] : [])} /> : <p role="alert">このページはいま表示できない。</p>
+          canonicalPage ? <DdProjectPageBody key={`${view.package.project_id}:${pageKey}`} data={canonicalPage} canDownload={canDownload} canEditPocList={canEditPocList} resolutionDocuments={items.flatMap(item => item.live?.kind === "document" ? [{ itemId: item.itemId, label: item.live.fileName, href: `/dd/${encodeURIComponent(slug)}/items/${encodeURIComponent(item.itemId)}/file` }] : [])} /> : <p role="alert">このページはいま表示できない。</p>
         ) : <DdDocumentsPage projectId={view.package.project_id} projectName={view.projectName} slug={slug} items={pageItems} canDownload={canDownload} />}
       </section>
     </div>

@@ -33,17 +33,18 @@ await guard('/dd/sol');
 member = null;
 await assert.rejects(guard('//outside.example'), (error) => error.location === '/auth/login?next=%2F');
 
-let access = null, lookups = 0, reads = 0;
+let access = null, lookups = 0, reads = 0, contentEdit = false;
 const page = load('../src/app/dd/[slug]/page.tsx', {
-  'react/jsx-runtime': { jsx: () => null, jsxs: () => null },
+  'react/jsx-runtime': { jsx: (_type, props) => props, jsxs: (_type, props) => props },
   'next/navigation': navigate,
   '@/lib/dd-page-session': { requireDdPageSession: guard },
   '@/lib/dd-nda-server': {loadDdNdaContext:async()=>({prompt:'test',promptHash:'hash',version:'test'}),hasDdNdaConfirmation:async()=>true},
  '@/lib/dd-nda':{ddNdaReturnPath:(_slug,value)=>value},
  '@/components/dd/DdEntryGate':{DdEntryGate:()=>null},
  '@/lib/dd-access': { resolveDdPackageAccess: async () => { lookups++; return access; } },
-  '@/lib/dd-package-core': { isDdSlug: (slug) => /^[a-z0-9-]+$/.test(slug), hasDdCapability: () => false },
-  '@/lib/dd-pages': { DD_PAGE_KEYS: ['company', 'technology'] },
+  '@/lib/dd-package-core': { isDdSlug: (slug) => /^[a-z0-9-]+$/.test(slug), hasDdCapability: (access, capability) => access.capabilities?.includes(capability) === true },
+  '@/lib/project-surface-access': { canEditProjectSurface: async () => contentEdit },
+  '@/lib/dd-pages': { DD_PAGE_KEYS: ['company', 'technology', 'poc-list'] },
   '@/lib/dd-confidentiality-server': { ddContentHash: () => 'test-hash' },
   '@/lib/dd-package-server': {
     loadDdPackageView: async () => { reads++; return { sections: [], projectName: 'test' }; },
@@ -63,4 +64,16 @@ assert.equal(reads, 0, 'ログイン済みでもDD個別付与がなければ本
 access = { projectId: 'p21', slug: 'sol' };
 await page(input);
 assert.equal(reads, 2, '許可済みの人だけDDのヘッダと選択ページを読む');
+const pocInput = { ...input, searchParams: Promise.resolve({ tab: 'poc-list' }) };
+for (const [principal, capabilities, editable, expected] of [
+  ['internal_admin', ['dd.view','dd.edit'], true, true],
+  ['internal_member', ['dd.view','dd.edit'], true, true],
+  ['internal_member', ['dd.view','dd.edit'], false, false],
+  ['internal_member', ['dd.view'], true, false],
+  ['workspace_account', ['dd.view','dd.edit'], true, false],
+]) {
+  access = { projectId: 'p21', slug: 'sol', principal, capabilities };
+  contentEdit = editable;
+  assert.equal((await page(pocInput)).children.canEditPocList, expected, `${principal}: DDと正本の既存編集権限が両方必要`);
+}
 console.log('DD page session: missing/empty/expired/tampered -> login with next; valid sessions still require DD grant; no email/DB');
