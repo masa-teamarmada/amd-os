@@ -20,12 +20,12 @@ export function DdPackageTop({ view, slug, tab, sectionKey, canDownload = false,
   return (
     <div className="space-y-3">
       <section className={`min-w-0 space-y-2 ${density.document}`} aria-label={ddPageLabel(pageKey)} data-testid="dd-page-body" data-dd-page={pageKey} data-document-density="compact">
-        <nav aria-label="関連する既存ページ">
-          {definition && definition.related.length > 0 && <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
+        {definition && definition.related.length > 0 && <nav aria-label="関連する既存ページ">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
             <span className="text-[#6e6e73]">関連する既存ページ</span>
             {definition.related.map((page) => <Link key={page} href={`/dd/${encodeURIComponent(slug)}?tab=${page}`} className="inline-flex min-h-9 items-center text-[#0267b2] underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-[#027FDC]">{PROJECT_PAGE_LABELS[page]}</Link>)}
-          </div>}
-        </nav>
+          </div>
+        </nav>}
         {pageKey !== "documents" ? (
           canonicalPage ? <DdProjectPageBody key={`${view.package.project_id}:${pageKey}`} data={canonicalPage} canDownload={canDownload} resolutionDocuments={items.flatMap(item => item.live?.kind === "document" ? [{ itemId: item.itemId, label: item.live.fileName, href: `/dd/${encodeURIComponent(slug)}/items/${encodeURIComponent(item.itemId)}/file` }] : [])} /> : <p role="alert">このページはいま表示できない。</p>
         ) : <DdDocumentsPage projectId={view.package.project_id} projectName={view.projectName} slug={slug} items={pageItems} canDownload={canDownload} />}

@@ -28,7 +28,7 @@ export function DdEntryGate({ slug, title, prompt, promptHash, version, returnTo
         <Image src={DD_STAMP_URL} alt="CONFIDENTIAL — 秘密情報" width={DD_STAMP_WIDTH} height={DD_STAMP_HEIGHT} unoptimized loading="eager" className="h-auto w-40 max-w-full" />
         <DialogTitle className="text-base font-semibold leading-6">秘密保持契約の確認</DialogTitle>
         <DialogDescription className="text-[14px] leading-7 text-[#374151]">{prompt}</DialogDescription>
-        <p className="text-xs leading-5 text-[#6e6e73]">「はい」を選ぶと、回答したユーザーと日時が記録されます。</p>
+        <p className="text-xs leading-5 text-[#6e6e73]">この確認はユーザーごとに一度だけ行います。「はい」を選ぶと、回答したユーザーと日時が記録されます。</p>
         {state === "error" && <p role="alert" className="text-sm leading-6 text-[#b91c1c]">{stale ? "確認内容が更新されました。画面を再読み込みして、もう一度確認してください。" : "回答を保存できませんでした。もう一度お試しください。"}</p>}
         <div className="flex flex-wrap justify-end gap-2 border-t border-[#e5e5e7] pt-3">
           <Link href="/dd" className="inline-flex min-h-11 items-center justify-center rounded-md border border-[#d2d2d7] bg-white px-4 text-sm">いいえ・戻る</Link>

@@ -26,11 +26,12 @@ async function loadPlanHtml(db: SupabaseClient, projectId: string, kind: PlanKin
   return planHtmlCache.load(key, async () => {
     const loaded = await loadWorkspaceDocumentText(db, document, 5 * 1024 * 1024);
     if (!loaded.ok) throw new Error(`${label}の本文を読み込めなかった`);
-    // 原本の全社実施計画（静的SVGガント）とスタイルをそのまま使う。
+    // 原本の全社実施計画（静的SVGガント）を使い、DD内の冒頭余白だけ調整する。
     const section = loaded.text.match(/<section\b[^>]*\bid=["']work["'][^>]*>[\s\S]*?<\/section>/i)?.[0];
     if (!section) throw new Error(`${label}のガントを確認できない`);
     const styles = loaded.text.match(/<style\b[^>]*>[\s\S]*?<\/style>/gi)?.join("\n") ?? "";
-    return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; form-action 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:"><meta name="viewport" content="width=device-width,initial-scale=1">${styles}</head><body><main>${section}</main></body></html>`;
+    const ddLayout = `<style>@media screen { body[data-dd-plan] > main { padding: 8px 12px 24px; } body[data-dd-plan] > main > #work { margin-top: 0; } }</style>`;
+    return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; form-action 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:"><meta name="viewport" content="width=device-width,initial-scale=1">${styles}${ddLayout}</head><body data-dd-plan><main>${section}</main></body></html>`;
   });
 }
 

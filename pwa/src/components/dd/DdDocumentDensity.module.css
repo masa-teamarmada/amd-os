@@ -35,3 +35,5 @@
 
 .document [data-testid="project-management-biographies"] article { grid-template-rows: repeat(4, min-content); }
 .document [data-testid="project-management-biographies"] dt { white-space: nowrap; }
+.document [data-testid="project-product-description"] > h2:first-child,
+.document [data-testid="project-founding-background"] > h2:first-child { margin-top: 0; }

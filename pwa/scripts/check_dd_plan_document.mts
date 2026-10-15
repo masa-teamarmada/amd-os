@@ -16,7 +16,7 @@ registerHooks({ resolve(specifier, context, next) {
 } });
 const {loadLongTermPlanHtml,loadLongTermPlanDocument,loadShortTermPlanHtml}=await import('../src/lib/project-short-term-plan-server.ts');
 const id='6b2f3927-ae3c-4934-b3e6-d3ab25275146';
-const source='<style>body{color:#15394A}</style><section id="work"><svg><title>IPO</title></svg></section><section id="cash">PRIVATE</section><script>PRIVATE</script>';
+const source='<style>body{color:#15394A}main{padding:48px 32px 64px}section{margin-top:56px}</style><section id="work"><svg><title>IPO</title></svg></section><section id="cash">PRIVATE</section><script>PRIVATE</script>';
 let textReads = 0;
 function db(options:{project?:string;status?:string;mime?:string;pointer?:string|null;fail?:string;body?:string;version?:string}={}){
  const tables:Record<string,Record<string,unknown>[]>= {project_config:[{project_id:'p21',key:'long_term_plan_document_id',value:options.pointer===undefined?id:options.pointer},{project_id:'p21',key:'short_term_plan_document_id',value:id}],workspace_documents:[{document_id:id,project_id:options.project??'p21',scope_kind:'project',upload_status:options.status??'active',mime_type:options.mime??'text/html'}]};
@@ -25,7 +25,11 @@ function db(options:{project?:string;status?:string;mime?:string;pointer?:string
 }
 const html=await loadLongTermPlanHtml(db(),'p21');
 assert.ok(html?.includes('<section id="work"><svg><title>IPO</title>'));
-assert.ok(html?.includes('<style>body{color:#15394A}</style>'));
+assert.ok(html?.includes('body{color:#15394A}main{padding:48px 32px 64px}section{margin-top:56px}'));
+assert.match(html!, /body data-dd-plan/);
+assert.match(html!, /body\[data-dd-plan\] > main \{ padding: 8px 12px 24px; \}/);
+assert.match(html!, /body\[data-dd-plan\] > main > #work \{ margin-top: 0; \}/);
+assert.ok(html!.indexOf('padding: 8px 12px 24px') > html!.indexOf('padding:48px'), 'DD layout follows the source styles');
 assert.ok(!html?.includes('PRIVATE'),'cash/other sections and outside scripts are excluded');
 assert.equal(await loadLongTermPlanDocument(db(),'p34'),null);
 assert.equal(await loadLongTermPlanDocument(db({pointer:null}),'p21'),null);

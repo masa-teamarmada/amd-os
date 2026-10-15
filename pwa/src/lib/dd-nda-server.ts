@@ -1,22 +1,12 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { DdViewerAccess } from "@/lib/dd-package-core";
 import { DD_NDA_CONFIRMATION_VERSION, ddNdaPartyLabel, ddNdaPrompt } from "@/lib/dd-nda";
-import { signDdNdaSession, verifyDdNdaSession, type DdNdaSessionScope } from "@/lib/dd-nda-session-core";
 import { recordWorkspaceAuditEvent } from "@/lib/workspace-access-audit";
 import { DD_CONFIDENTIALITY_VERSION } from "@/lib/dd-confidentiality";
 
 export type DdNdaContext = { partyLabel: string; prompt: string; promptHash: string; version: string };
-export const ddNdaCookieName = (access: DdViewerAccess) => `amd_os_dd_nda_${access.packageId}`;
-const actor = (access: DdViewerAccess) => access.principal === "workspace_account" ? `account:${access.accountId}:${access.grantId}` : `member:${access.memberId}`;
-function secret(): string {
-  const value = process.env.WORKSPACE_SESSION_SECRET;
-  if (!value) throw new Error("dd_nda_secret_missing");
-  return value;
-}
-const scope = (access: DdViewerAccess, context: DdNdaContext): DdNdaSessionScope => ({ actor: actor(access), packageId: access.packageId, promptHash: context.promptHash, version: context.version });
 
 /** 認可後だけ、現在の法人状態を読む。設立予定を契約相手へ昇格しない。 */
 export async function loadDdNdaContext(access: DdViewerAccess): Promise<DdNdaContext> {
@@ -25,13 +15,19 @@ export async function loadDdNdaContext(access: DdViewerAccess): Promise<DdNdaCon
   const partyLabel = ddNdaPartyLabel(data), prompt = ddNdaPrompt(partyLabel);
   return { partyLabel, prompt, promptHash: createHash("sha256").update(prompt).digest("hex"), version: DD_NDA_CONFIRMATION_VERSION };
 }
-export async function hasDdNdaConfirmation(access: DdViewerAccess, context?: DdNdaContext): Promise<boolean> {
-  const current = context ?? await loadDdNdaContext(access);
-  const jar = await cookies();
-  return verifyDdNdaSession(jar.get(ddNdaCookieName(access))?.value, scope(access, current), secret());
-}
-export function createDdNdaSession(access: DdViewerAccess, context: DdNdaContext): string {
-  return signDdNdaSession(scope(access, context), secret());
+/** 個別DD認可後だけ呼ぶ。回答はユーザー×パッケージで一度。既存の監査記録も使う。 */
+export async function hasDdNdaConfirmation(access: DdViewerAccess): Promise<boolean> {
+  let query = createAdminClient().from("workspace_access_audit_logs")
+    .select("id")
+    .eq("event_type", "dd_nda_confirmed")
+    .eq("project_id", access.projectId)
+    .contains("detail", { package_id: access.packageId, answer: "yes" });
+  query = access.principal === "workspace_account"
+    ? query.eq("user_account_id", access.accountId)
+    : query.is("user_account_id", null).contains("detail", { actor_member_id: access.memberId });
+  const { data, error } = await query.limit(1).maybeSingle();
+  if (error) throw new Error("dd_nda_confirmation_lookup_failed");
+  return Boolean(data);
 }
 export async function recordDdNdaConfirmation(access: DdViewerAccess, context: DdNdaContext): Promise<void> {
   await recordWorkspaceAuditEvent(createAdminClient(), {

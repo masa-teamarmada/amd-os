@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { resolveDdPackageAccess } from "@/lib/dd-access";
-import { loadDdNdaContext, createDdNdaSession, ddNdaCookieName, recordDdNdaConfirmation } from "@/lib/dd-nda-server";
-import { DD_NDA_SESSION_MAX_AGE } from "@/lib/dd-nda-session-core";
+import { loadDdNdaContext, recordDdNdaConfirmation } from "@/lib/dd-nda-server";
 import { isSameOriginWorkspaceMutation } from "@/lib/workspace-mutation-origin";
 export const dynamic = "force-dynamic";
 const respond = (status: number) => NextResponse.json({ ok: false }, { status, headers: { "Cache-Control": "private, no-store" } });
@@ -16,11 +15,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
   try {
     const context = await loadDdNdaContext(access);
     if (body.version !== context.version || body.promptHash !== context.promptHash) return respond(409);
-    // 署名作成が失敗したら記録だけを残さない。保存失敗時はcookieを出さず入場も閉じる。
-    const ticket = createDdNdaSession(access, context);
+    // 保存済みの回答が次回以降の確認元。保存失敗時は入場を閉じる。
     await recordDdNdaConfirmation(access, context);
-    const response = NextResponse.json({ ok: true }, { headers: { "Cache-Control": "private, no-store" } });
-    response.cookies.set(ddNdaCookieName(access), ticket, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: DD_NDA_SESSION_MAX_AGE });
-    return response;
+    return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "private, no-store" } });
   } catch { return respond(500); }
 }

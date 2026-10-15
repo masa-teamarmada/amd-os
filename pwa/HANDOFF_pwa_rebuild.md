@@ -776,3 +776,13 @@ migration20261010145238は本番適用/履歴登録済み、再適用禁止。�
 | 理論/BZM/model | 変更なし | 対象外 | 追加なし |
 
 PWA本番は通常deploy.shでmainを1回反映しReady/build-info/実画面を確認する。会話の検討材料0件、作業branch/worktreeなし。
+
+## 2026-10-15 DD冒頭余白・初回NDA確認（v3.162.52）
+
+短期/長期の冒頭68pxを8pxへ。41目録を確認し創業背景/製品説明の先頭見出し余白と空navも除去。NDAは既存監査表の本人×PJ×packageのyesで判定。過去回答・別ブラウザ・再ログイン・grant更新を引き継ぐ。認可を毎回先に行い、保存/照会失敗時は閉じる。DDL/回答書換えなし。本番結果はSESSION_DD_SPACING_NDA_20261015.md。ネイティブ未移植はHANDOFF_pwa_to_native_viewing.md。
+
+| 仕様変更 | 設計正本 | OSマニュアル | 状態 |
+|---|---|---|---|
+| NDA回答の継続 | spec5-17、ios/DESIGN | manual2-6、9-3 | 同期済み |
+| DD本文冒頭の余白 | spec5-17、ios/DESIGN | manual2-6、9-3 | 同期済み |
+| 理論・数式 | 変更なし | 対象外 | 棚卸し済み |

@@ -25,8 +25,10 @@ export default async function DdPackagePage({ params, searchParams }: { params: 
   await requireDdPageSession(`/dd/${encodeURIComponent(slug)}${query.size ? `?${query}` : ""}`);
   const access = await resolveDdPackageAccess(slug, { requireNdaConfirmation: false });
   if (!access) notFound();
-  const nda = await loadDdNdaContext(access);
-  if (!await hasDdNdaConfirmation(access, nda)) return <DdEntryGate slug={slug} title={access.title} {...nda} returnTo={ddNdaReturnPath(slug, returnTo ?? `/dd/${encodeURIComponent(slug)}${query.size ? `?${query}` : ""}`)} />;
+  if (!await hasDdNdaConfirmation(access)) {
+    const nda = await loadDdNdaContext(access);
+    return <DdEntryGate slug={slug} title={access.title} {...nda} returnTo={ddNdaReturnPath(slug, returnTo ?? `/dd/${encodeURIComponent(slug)}${query.size ? `?${query}` : ""}`)} />;
+  }
 
   if (tab === "financial-projection") redirect(`/dd/${encodeURIComponent(access.slug)}?tab=monthly-trial`);
   // 認可後、選択された正本ページと監査記録を並行して読む。
