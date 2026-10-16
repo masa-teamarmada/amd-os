@@ -356,11 +356,15 @@ SOLの原本は第11条の個人情報・再委託と第12条の細則準用と�
 
 ### 契約メール監視・通知
 
+2026-10-16（v3.162.55）: 通知対象には、件名/添付名の具体的な契約文書語（契約書・秘密保持・NDA/MOU・覚書・承諾書・誓約書等）、新本文の同一文にある具体的文書語と送付/修正/添付等、明確な署名/押印依頼・完了表現、または根拠のある既知スレッドのいずれかを要求する。「契約」と「確認/条件」だけでは対象にしない。NDA/MOUの前後は英字以外を境界とし、ファイル名のunderscoreを許す。一斉配信は件名に明確な署名/締結アクションがある場合に限る。
+
+既知スレッド判定は同じmailbox/threadの直近20イベントから、contract_idあり、または過去件名だけでも具体的契約と再判定できるものを要求する。過去に誤検知した行が1件あるだけでは後続を通知しない。メール本文の保存や過去のsent再送は行わない。メール通知の先頭は「【契約メール】」、本文はメールの検知と押印申請の開始方法、リンク名は「OSのメール検知一覧を確認」とする。押印申請イベントの申請別リンク・きよ承認の制約は従来どおり。検査は実メール7件の読取りのみ再分類とtest:contract-workflowsで、無関係4件除外・文書関連3件維持、通知の実送信なしを確認する。
+
 GAS `165_ContractWorkflowWatch.js` の `amie_contractWorkflowWatch` が5分ごとにBearer認証で `/api/cron/contract-mail-watch` を呼ぶ。専用triggerは `amie_setupContractWorkflowWatch` で重複なく1本作る。既存LLM cron停止を解除しない。Google OAuthのGmail接続アカウントをID001まさのメールと照合してから読む。初回は現時点のhistory IDを基準にし、過去メールを遡って通知しない。以後、messageAddedとSENT labelAddedを拾う。draft/spam/trashを除外、本文の新しい部分・件名・添付名の日本語/英語の契約語と署名・押印表現で分類する。引用や署名欄・メルマガ・求人・認証コードを除外する。既知の契約スレッドは短い返信も拾う。ルール判定なので誤検知・見逃しはあり得る。メール送信・相手への返信・自動承認はしない。
 
 historyのページ・未処理message IDs・次のcheckpointをDB保存し、1回40メールまで。history期限切れは直近成功時刻から1時間重複する固定期間（開始時刻より前は除外）のmessages.listへ切り替え、ページを保持して復旧する。leaseは4分、経過15分で画面に監視未確認表示。受信・送信は別方向。保存はmessage/thread ID、サニタイズ済み件名、方向、種別、日時、原メールURL。本文や添付の内容をDB・Slackに複製しない。
 
-mailbox+message IDのuniqueで重複検知を防ぐ。検知・申請イベントのINSERT triggerが、まさID001ときよID002へのoutbox行を同一DB transactionで作る。固定えいみ送信関数 `slackNotifyPostToChannelTsukuyomi_` を使い、各メンバーのSlackユーザーIDへ個別DM。alert本文は種別・送受信・件名・OSリンクと承認確認の案内。完了連絡では「承認記録との照合が必要」とする。2人のsent確認が揃った場合のみ「2人へ配信済み」。Slack拒否はfailedで再試行、通信結果不明・ack保存失敗はuncertainで無条件再送しない。配信結果の照合が必要な行を画面に示す。Slack DMのAPI受理と本人が読んだことは別。
+mailbox+message IDのuniqueで重複検知を防ぐ。検知・申請イベントのINSERT triggerが、まさID001ときよID002へのoutbox行を同一DB transactionで作る。固定えいみ送信関数 `slackNotifyPostToChannelTsukuyomi_` を使い、各メンバーのSlackユーザーIDへ個別DM。メール通知は種別・送受信・件名・OSのメール検知一覧へのリンクを表示し、メール検知と押印申請の違いを明示する。完了連絡では締結版と承認記録の確認を案内する。2人のsent確認が揃った場合のみ「2人へ配信済み」。Slack拒否はfailedで再試行、通信結果不明・ack保存失敗はuncertainで無条件再送しない。配信結果の照合が必要な行を画面に示す。Slack DMのAPI受理と本人が読んだことは別。
 
 ### 検証と適用限界
 

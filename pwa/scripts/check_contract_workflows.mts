@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {classifyContractMail,currentMailText,workflowActions,workflowProgress} from '../src/lib/workflows.ts';
+import {classifyContractMail,currentMailText,hasContractMailThreadEvidence,formatContractMailAlert,workflowActions,workflowProgress} from '../src/lib/workflows.ts';
 const input={subject:'',body:'',filenames:[],labels:['INBOX'],from:'partner@example.com',bulk:false,knownThread:false};
 for(const labels of [['SENT'],['INBOX'],[]])assert.equal(classifyContractMail({...input,labels,subject:'秘密保持契約書の修正案'}),'exchange');
 assert.equal(classifyContractMail({...input,subject:'電子契約の署名依頼'}),'signature_request');
@@ -14,6 +14,24 @@ for(const subject of ['メモ: 「SX定例MTG」（2026年10月14日）','承認
 }
 assert.equal(classifyContractMail({...input,subject:'業務委託契約書 ログイン時のセキュリティ条項の修正案'}),'exchange');
 assert.equal(classifyContractMail({...input,subject:'コメント通知：秘密保持誓約書｜ジョブカンワークフロー'}),'exchange');
+assert.equal(classifyContractMail({...input,subject:'事務連絡 古本募金キャンペーン',body:'契約の条件をご確認ください。'}),null,'Generic contract wording is insufficient');
+assert.equal(classifyContractMail({...input,subject:'契約サービスのお知らせ',body:'ご契約いただいているサービスです。解除条件をご確認ください。'}),null);
+assert.equal(classifyContractMail({...input,subject:'Re: ご連絡',body:'秘密保持契約書の修正案を添付します。'}),'exchange');
+assert.equal(classifyContractMail({...input,subject:'書類送付',filenames:['20261014_MOU_AMD.pdf']}),'exchange');
+assert.equal(classifyContractMail({...input,subject:'完了: Docusignで送信: 20261014_MOU_AMD.pdf',body:'すべての署名が完了しました。'}),'completion');
+assert.equal(classifyContractMail({...input,subject:'承諾書の控えが届いています'}),'exchange');
+for(const subject of ['事務連絡 古本募金キャンペーン','【必読】BizSTATION 詐欺に注意','承認されていない申請があります。｜ジョブカンワークフロー']) {
+ const knownThread=hasContractMailThreadEvidence([{contract_id:null,subject}]);
+ assert.equal(knownThread,false,subject);
+ assert.equal(classifyContractMail({...input,subject,knownThread,body:'ご確認ください。'}),null,'A prior false detection must not propagate');
+}
+assert.equal(hasContractMailThreadEvidence([{contract_id:null,subject:'NDA修正案'}]),true);
+assert.equal(hasContractMailThreadEvidence([{contract_id:'registered-contract',subject:'Re: ご連絡'}]),true);
+assert.equal(hasContractMailThreadEvidence([]),false);
+const alert=formatContractMailAlert({event_id:'mail-event',contract_id:null,direction:'received',subject:'NDA <@everyone> &確認',event_kind:'exchange',occurred_at:'2026-10-16T00:00:00Z',source_url:'https://mail.google.com/mail/u/0/#all/example'},'https://amd-os-pwa.vercel.app');
+assert.ok(alert.startsWith('【契約メール】'));assert.ok(alert.includes('メールの検知通知'));
+assert.ok(alert.includes('OSのメール検知一覧を確認'));assert.ok(!alert.includes('きよの承認の確認が必要'));
+assert.ok(alert.includes('&lt;@everyone&gt; &amp;確認'));assert.ok(!alert.includes('<@everyone>'));
 assert.equal(classifyContractMail({...input,subject:'Re: ご連絡',body:'承知しました。',knownThread:true}),'exchange');
 assert.equal(classifyContractMail({...input,subject:'Re: 日程',body:'来週でお願いします。\nOn Thursday, someone wrote:\n署名依頼 NDA'}),null);
 assert.equal(classifyContractMail({...input,subject:'日程',body:'来週\n> 秘密保持契約書'}),null);

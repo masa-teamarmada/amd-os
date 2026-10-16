@@ -19,16 +19,28 @@ export function classifyContractMail(input:{subject:string;body:string;filenames
  if(/^メモ[:：]/.test(subject)||/^承認されていない申請があります[。.]?.*ジョブカン/.test(subject))return null;
  if(!/契約書|秘密保持|守秘義務|\bNDA\b|\bMOU\b|覚書|合意書|発注書|注文書|業務委託|共同研究契約|ライセンス契約|署名依頼|押印依頼/i.test(subject)&&
   /詐欺に注意|偽のセキュリティ警告|ログイン時のセキュリティ|利用可能枠変更|お引き落としのご連絡|ご返却ありがとうございました/.test(subject))return null;
- const text=[input.subject,currentMailText(input.body),...input.filenames].join('\n');
- const signature=/押印|合意締結|電子契約|クラウドサイン|docusign|(?:署名|sign(?:ature|ing)).*(?:依頼|完了|済|契約|お願い|required|request|complete)|(?:契約|agreement).*(?:署名|signature|signing)/i.test(text);
- if(input.bulk&&!signature)return null;
+ const freshBody=currentMailText(input.body).normalize('NFKC');
+ const text=[subject,freshBody,...input.filenames].join('\n');
+ const document=/契約書|秘密保持|守秘義務|(?:^|[^a-z])(?:NDA|MOU)(?:[^a-z]|$)|覚書|合意書|承諾書|誓約書|発注書|注文書|業務委託|共同研究契約|ライセンス契約|(?:^|[\s_.-])(?:contract|agreement)(?:[\s_.-]|$)/i;
+ const signatureAction=/(?:合意締結|締結|押印|署名)[^\n。]{0,48}(?:依頼|完了|済|お願い)|(?:signature|signing)[^\n.]{0,48}(?:required|request|complete)|please sign|review and sign|fully (?:signed|executed)/i;
+ const subjectEvidence=document.test(subject)||signatureAction.test(subject);
+ const attachmentEvidence=input.filenames.some(name=>document.test(name));
+ const bodyEvidence=signatureAction.test(freshBody)||freshBody.split(/[\n。]/).some(line=>document.test(line)&&/送付|受領|修正|赤入れ|条項|法務|締結|押印|署名|添付|確認|send|attach|review|redline|sign/i.test(line));
+ const signature=signatureAction.test(text);
+ if(input.bulk&&!signatureAction.test(subject))return null;
  if(/契約社員|雇用求人|求人情報|採用情報|メールマガジン|メルマガ|ウェビナー|セミナー案内/i.test(input.subject)&&!input.knownThread)return null;
- const document=/契約書|秘密保持|守秘義務|\bNDA\b|\bMOU\b|覚書|合意書|発注書|注文書|業務委託|共同研究契約|ライセンス契約|contract|agreement/i.test(text);
- const generic=/契約|締結|更新条件|解約|解除/i.test(text)&&/送付|受領|確認|修正|条項|条件|依頼|更新|解約|解除|合意|締結/.test(text);
- if(!document&&!signature&&!generic&&!input.knownThread)return null;
+ if(!subjectEvidence&&!attachmentEvidence&&!bodyEvidence&&!input.knownThread)return null;
  if(/合意締結.*完了|締結.*完了|押印.*(?:完了|済)|署名.*(?:完了|済)|契約締結済|fully (?:signed|executed)|completed.*(?:agreement|signature)/i.test(text))return 'completion';
  if(/署名.*依頼|押印.*依頼|確認依頼|署名して|押印して|please sign|signature requested|review and sign/i.test(text)&&signature)return 'signature_request';
  return 'exchange';
+}
+// Old false detections must not keep an unrelated Gmail thread permanently eligible.
+export function hasContractMailThreadEvidence(events:Array<{contract_id:string|null;subject:string}>) {
+ return events.some(event=>!!event.contract_id||classifyContractMail({subject:event.subject,body:'',filenames:[],labels:[],from:'',bulk:false,knownThread:false})!==null);
+}
+export function formatContractMailAlert(event:WorkflowMailEvent,base:string) {
+ const subject=event.subject.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+ return [`【契約メール】${MAIL_EVENT_LABEL[event.event_kind]}`,`${event.direction==='sent'?'まさの送信':'まさの受信'} / ${new Date(event.occurred_at).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'})}`,subject,event.event_kind==='completion'?'完了の連絡を検知。締結版と承認記録を確認。':'メールの検知通知。押印申請は契約フローから行う。',`<${base}/admin/workflows|OSのメール検知一覧を確認>`].join('\n');
 }
 export function workflowActions(status:WorkflowStatus,actor:string,requester:string,approver:string) {
  return {prepare:actor===requester&&status==='preparing',restart:actor===requester&&['returned','superseded'].includes(status),approve:actor===approver&&actor!==requester&&status==='submitted',return:actor===approver&&actor!==requester&&['submitted','approved','released'].includes(status),release:actor===requester&&status==='approved',cancel:actor===requester&&['preparing','submitted','approved'].includes(status),complete:actor===approver&&actor!==requester&&status==='released'};

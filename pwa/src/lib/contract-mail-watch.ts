@@ -3,7 +3,7 @@ import {randomUUID} from 'node:crypto';
 import {google,type gmail_v1} from 'googleapis';
 import {createAdminClient} from '@/lib/supabase/admin';
 import {getGoogleAuthAsync} from '@/lib/sources/google';
-import {classifyContractMail,MAIL_EVENT_LABEL,WORKFLOW_STATUS,type WorkflowMailEvent,type WorkflowStatus} from './workflows';
+import {classifyContractMail,hasContractMailThreadEvidence,formatContractMailAlert,WORKFLOW_STATUS,type WorkflowMailEvent,type WorkflowStatus} from './workflows';
 const BASE='https://amd-os-pwa.vercel.app';
 function header(message:gmail_v1.Schema$Message,name:string){return message.payload?.headers?.find(h=>h.name?.toLowerCase()===name.toLowerCase())?.value||'';}
 function mimeBody(part:gmail_v1.Schema$MessagePart|undefined,mime:string):string {
@@ -58,8 +58,8 @@ export async function scanContractMail(dryRun=false){
   try{message=(await gmail.users.messages.get({userId:'me',id,format:'full'})).data;}catch(e){if((e as {code?:number}).code===404){scanned++;continue;}throw e;}
   const occurredAt=new Date(Number(message.internalDate||0));
   if(occurredAt.getTime()<new Date(rule.activated_at).getTime()){scanned++;continue;}
-  const {data:known,error:knownError}=await db.from('workflow_mail_events').select('contract_id').eq('thread_id',message.threadId).eq('mailbox_member_id',rule.mailbox_member_id).limit(1);if(knownError)throw knownError;
-  const subject=header(message,'Subject');const kind=classifyContractMail({subject,body:body(message.payload)||message.snippet||'',filenames:filenames(message.payload),labels:message.labelIds||[],from:header(message,'From'),bulk:!!header(message,'List-Unsubscribe'),knownThread:!!known?.length});
+  const {data:known,error:knownError}=await db.from('workflow_mail_events').select('contract_id,subject').eq('thread_id',message.threadId).eq('mailbox_member_id',rule.mailbox_member_id).order('occurred_at',{ascending:false}).limit(20);if(knownError)throw knownError;
+  const subject=header(message,'Subject');const kind=classifyContractMail({subject,body:body(message.payload)||message.snippet||'',filenames:filenames(message.payload),labels:message.labelIds||[],from:header(message,'From'),bulk:!!header(message,'List-Unsubscribe'),knownThread:hasContractMailThreadEvidence(known||[])});
   if(kind){
    const direction=message.labelIds?.includes('SENT')?'sent':'received';const safe=safeSubject(subject)||'契約に関する連絡';
    if(dryRun)preview.push({direction,kind,subject:safe});
@@ -84,7 +84,7 @@ async function alertText(key:string){
  const db=createAdminClient();
  if(key.startsWith('mail:')){
  const {data,error}=await db.from('workflow_mail_events').select('*').eq('event_id',key.slice(5)).single();if(error)throw error;const event=data as WorkflowMailEvent;
- return [MAIL_EVENT_LABEL[event.event_kind],`${event.direction==='sent'?'まさの送信':'まさの受信'} / ${new Date(event.occurred_at).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'})}`,slackText(event.subject),event.event_kind==='completion'?'締結・押印完了の連絡を検知。きよの承認記録との照合が必要。':'契約のやりとりを検知。押印する前に、きよの承認の確認が必要。',`<${BASE}/admin/workflows|OSで確認>`].join('\n');
+ return formatContractMailAlert(event,BASE);
  }
  const {data:event,error}=await db.from('workflow_events').select('*').eq('event_id',key.slice(6)).single();if(error)throw error;
  const {data:request,error:requestError}=await db.from('workflow_requests').select('terms_snapshot,status').eq('request_id',event.request_id).single();if(requestError)throw requestError;
