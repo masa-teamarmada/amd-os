@@ -299,10 +299,10 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData,
               {secretionAssumption && <>{LIPID_SECRETION_LABEL}を{secreting ? "使う" : "使わない"}＝{LIPID_SECRETION_DESCRIPTION[secreting ? "on" : "off"]}。</>}
               {factoryUtilities.length > 0 && (
                 <>
-                  工場から＝
+                  {current.scale.operating.carbon.enabled ? "培地・熱源＝" : "工場から＝"}
                   {factoryUtilities.some((u) => u.on)
                     ? `${factoryUtilities.filter((u) => u.on).map((u) => u.label).join("・")}をもらう前提（培養の拠点を工場の隣に置く）`
-                    : "何ももらわない（すべて買う）"}
+                    : current.scale.operating.carbon.enabled ? "購入する条件" : "何ももらわない（すべて買う）"}
                   。
                 </>
               )}

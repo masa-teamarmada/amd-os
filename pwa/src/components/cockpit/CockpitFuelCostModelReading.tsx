@@ -360,7 +360,7 @@ export function FuelReadingSections({ saved, working, computed, current }: Props
         </div>
       </Card>
 
-      <Card title="作業リストの根拠と確認先" hint={`操作パネルの OPEX「人件費（作業）」と同じ行。作業単価はすべての作業で共通の ${int(rate)}円/時。年額は選んだ組み合わせ（${FUEL_CONVERSION_LABEL[current.conversion]}・収率${FUEL_YIELD_CASE_LABEL[current.yieldCase]}）の物量で出す。`}>
+      <Card title="作業リストの根拠と確認先" hint={`操作パネルの OPEX「人件費・外部経費」と同じ行。作業単価はすべての作業で共通の ${int(rate)}円/時。年額は選んだ組み合わせ（${FUEL_CONVERSION_LABEL[current.conversion]}・収率${FUEL_YIELD_CASE_LABEL[current.yieldCase]}）の物量で出す。`}>
         <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
           <table data-amie-list="matrix" className="w-full min-w-[720px] border-collapse text-[11px]">
             <thead>

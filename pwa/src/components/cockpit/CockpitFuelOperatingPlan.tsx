@@ -88,7 +88,7 @@ export function FuelOperatingSummary({ current }: { current: FuelScenarioResult 
     {op.inventoryExistingEquipment && <div className="mt-1.5 rounded-md border border-[#d2d2d7] bg-white px-2 py-1.5 text-[11px] leading-4 text-[#1d1d1f]" data-testid="fuel-existing-equipment">
       <p className="font-semibold">既存設備を使う追加採算</p>
       <p className="mt-1">培養・保管・回収・燃料化の設備購入費と償却、設備価格比の固定保守費は自動計上0円。追加購入する設備と追加の運転費は入力した分を加算。</p>
-      <p className="mt-1">追加購入設備 {op.missing.includes("inventory_equipment_capex") ? "未見積" : yen(op.inventoryEquipmentCapex)}。初回の溶媒等の運転資金 {op.inventoryInitialWorkingCapital === null ? "未見積" : yen(op.inventoryInitialWorkingCapital)}（年間原価と別表示）。</p>
+      <p className="mt-1">燃料設備の追加購入 {op.missing.includes("inventory_equipment_capex") ? "未見積" : yen(op.inventoryEquipmentCapex)}。初回の溶媒等の運転資金 {op.inventoryInitialWorkingCapital === null ? "未見積" : yen(op.inventoryInitialWorkingCapital)}（年間原価と別表示）。</p>
     </div>}
     <p className="mt-1 text-[10px] leading-4 text-[#6e6e73]">{op.inventoryExistingEquipment ? "既存設備の利用能力から作業量を算定。出荷・分析は1回単位。" : op.wholeLines ? "設備・出荷・分析ロットは1基・1回単位で計上。" : "量産の比例配賦で計算中。"}</p>
     {s.productionBatchesYear !== null && <p className="mt-1 text-[10px] leading-4 text-[#3c3c43]">回収・製造作業 {num(s.productionBatchesYear, 0)} 回/年。{op.inventoryExistingEquipment ? `追加設備の償却 ${num(current.capexPerLiter, 1)} 円/L。作業・薬品・消耗溶媒・電力等を追加の運転費として計上。` : `燃料化設備 ${yen(current.plantCapexInitial)}、回収等の追加設備 ${yen(current.biomass.capexInitial)}。設備費・工数は明細の仮置き値から計算。`}</p>}

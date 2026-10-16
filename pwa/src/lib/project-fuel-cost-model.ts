@@ -176,7 +176,7 @@ export const FUEL_BREAKDOWN_LABEL: Record<FuelBreakdownKey, string> = {
   conversion: "FAMEにする",
   residue: "残渣の処理",
   shipping: "品質確認・出荷",
-  capex: "燃料化設備の償却",
+  capex: "設備・分析機器の償却",
 };
 export const FUEL_BREAKDOWN_SHORT_LABEL: Record<FuelBreakdownKey, string> = {
   biomass: "菌体費",
@@ -192,7 +192,7 @@ export const FUEL_BREAKDOWN_HINT: Record<FuelBreakdownKey, string> = {
   conversion: "委託するときは委託費と委託先までの原料油の輸送。自社で行うときはメタノール・触媒などの薬品・電力・熱・保守と運転の作業",
   residue: "油を取ったあとの残渣（菌体の大部分）を処理する費用",
   shipping: "品質の分析と、タンクローリーでの出荷",
-  capex: "燃料化設備（脱水・油回収、自社で行うときはFAME転換も）の初期投資 ÷ 耐用年数。培養設備の償却は菌体費に入る",
+  capex: "燃料化設備と追加購入する分析機器の初期投資 ÷ 耐用年数。培養設備の償却は第1段に入る",
 };
 /**
  * 区分の呼び名。脂質分泌株のときは、菌体を脱水して壊す段が無く、培養液に出た脂肪酸を溶媒で受けて分ける段になるので言い換える。
@@ -361,7 +361,7 @@ export const FUEL_PARAM_GROUPS: FuelParamGroup[] = [
   { key: "capex-plant", block: "capex", title: "燃料化設備：脱水・油回収", hint: "設備1系列の能力と明細の積上げ額。総額の上書きも可能。製造作業は1回の処理量から年間回数を計算する", roles: ["plant_line_capacity_kg_year", "fuel_production_batch_kg", "fuel_plant_capex_override"] },
   { key: "capex-conversion", block: "capex", title: "燃料化設備：FAME転換（自社で行うときだけ）", hint: "FAMEへの転換と精製の設備。燃料化設備1系列あたり", roles: [] },
   { key: "capex-shipping", block: "capex", title: "燃料化設備：製品の貯蔵・出荷", hint: "FAMEの貯槽と出荷の設備。燃料化設備1系列あたり", roles: [] },
-  { key: "opex-labor", block: "opex", title: "人件費（作業）", hint: "作業単価は共通の1つ。作業ごとに1回の工数・年間回数・1回の経費を入れる", roles: ["labor_rate"], tasks: true },
+  { key: "opex-labor", block: "opex", title: "人件費・外部経費", hint: "実作業の人時と外部分析・運送等の経費を入力する。作業の流れで人件費と外部経費を別集計", roles: ["labor_rate"], tasks: true },
   { key: "opex-culture", block: "opex", title: "培養の原料・品質確認", hint: "培地・CO2・濃縮など菌体1kgあたりの費用と、培養設備1系列あたりの品質確認。工場の排ガスを使えるかは CO2 の行、工場の排液を培地に使えるかは培地の原料の行、工場の排熱を使えるかは加温の熱の行で切り替える。脂質分泌株のときは、菌体1kgあたりの行に「入れ替える菌体の量」を掛けて脂肪酸1kgあたりに直す", roles: [CO2_FLUE_GAS_ROLE, WASTE_MEDIUM_ROLE, WASTE_MEDIUM_REDUCTION_ROLE, WASTE_MEDIUM_GROWTH_ROLE, WASTE_HEAT_ROLE, "cell_makeup_kg_per_unit"] },
   { key: "opex-recovery", block: "opex", title: "脱水・油回収の溶媒・電力・熱・保守", hint: "菌体1kgあたりの溶媒の補給・電力・熱・水と、燃料化設備1系列あたりの保守", roles: [] },
   { key: "opex-outsourced", block: "opex", title: "FAME転換の委託（委託するときだけ）", hint: "燃料1Lあたりの委託費と、委託先までの原料油の輸送", roles: [] },
