@@ -2,7 +2,8 @@
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import styles from "./CockpitCostDensity.module.css";
-import { CockpitCostModel } from "@/components/cockpit/CockpitCostModel";
+import { CockpitCostModel, readEffluentWorkingSelection } from "@/components/cockpit/CockpitCostModel";
+import { deriveFuelEffluentSupply } from "@/lib/project-fuel-effluent-supply";
 import { CockpitFuelCostModel } from "@/components/cockpit/CockpitFuelCostModel";
 import { CockpitCostComparison } from "@/components/cockpit/CockpitCostComparison";
 import { ProjectCostFormat } from "@/components/cockpit/ProjectCostFormat";
@@ -88,8 +89,10 @@ export function CockpitCostTab({ projectId, allowEdit = true, initialRenderer, i
   const active: Choice = options.some((option) => option.key === choice) ? choice : options[0]?.key ?? "main";
 
   const engine = costFormatEngineOf(bundle);
+  const effluentSelection = readEffluentWorkingSelection(projectId, initialData ? bundle : peekProjectCostModel(projectId)?.bundle ?? bundle);
+  const effluentSupply = active === "fuel" && engine === "wastewater" ? deriveFuelEffluentSupply(effluentSelection.bundle, effluentSelection) : null;
   const body = active === "fuel"
-    ? <CockpitFuelCostModel projectId={projectId} allowEdit={allowEdit} initialData={initialData?.fuel} />
+    ? <CockpitFuelCostModel projectId={projectId} allowEdit={allowEdit} initialData={initialData?.fuel} effluentSupply={effluentSupply} onOpenEffluent={() => setChoice("main")} />
     : engine === "wastewater" || (bundle && engine === null)
       ? <CockpitCostModel projectId={projectId} allowEdit={allowEdit} initialData={initialData?.main} />
       : <ProjectCostFormat projectId={projectId} allowEdit={allowEdit} initialData={initialData?.main} />;

@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { computeFuelScenario, fuelCultureItemPerKg, fuelEffectiveUnitPrice, fuelItemCalc, fuelSelectionOf } from "../src/lib/project-fuel-cost-model.ts";
+import { computeFuelScenario, computeFuelTaskFlow, fuelTaskAmount, fuelCultureItemPerKg, fuelEffectiveUnitPrice, fuelItemCalc, fuelSelectionOf } from "../src/lib/project-fuel-cost-model.ts";
 import { scopeApplies, type CostModelBundle, type CostAssumption } from "../src/lib/project-cost-model.ts";
 import { evaluateCalcSegment, evaluateItemCalc } from "../src/lib/cost-item-calc.ts";
+import { deriveFuelEffluentSupply } from "../src/lib/project-fuel-effluent-supply.ts";
 
 const original: CostModelBundle = JSON.parse(fs.readFileSync(new URL("./__fixtures__/sx_fuel_cost_model.json", import.meta.url), "utf8"));
 function model() {
@@ -131,3 +132,95 @@ assert.ok(Number.isFinite(zero.totalPerLiter));
 add("lipid_secreting_strain", "off");
 assert.equal(computeFuelScenario(b, "outsourced", "base").scale.operating.inventory, false, "非分泌株へ出荷待ち分泌量を流用しない");
 console.log("fuel operating plan: inventory balance, sunlight, small-scale fixed costs, missing estimates and 48 scenario reconciliations passed");
+
+// 年産10,000Lの設計と在庫10m³の供給制約を混同せず、小規模の設備・作業を数える。
+const smallBundle: CostModelBundle = JSON.parse(fs.readFileSync(new URL("./__fixtures__/sx_fuel_small_scale.json", import.meta.url), "utf8"));
+const setSmall = (role: string, value: number | string) => {
+  const a = smallBundle.assumptions.find((x) => x.roleKey === role)!;
+  if (typeof value === "number") a.value = value; else a.valueText = value;
+};
+setSmall("inventory_sizing", "target");
+const design = computeFuelScenario(smallBundle, "outsourced", "base");
+close(design.scale.annualLiters, 10000);
+close(design.scale.requiredInventoryVolumeM3!, 1904.796537426222);
+assert.equal(design.scale.cultureLines, 9);
+assert.equal(design.scale.productionBatchesYear, 103);
+assert.equal(design.plantCapexInitial, 4000000);
+assert.equal(computeFuelScenario(smallBundle, "inhouse", "base").plantCapexInitial, 9000000);
+const designFlow = computeFuelTaskFlow(smallBundle, design);
+close(designFlow.plantHours + designFlow.cultureHours, 911);
+close(design.totalPerLiter, 2008.970318161629);
+assert.ok(design.totalAnnual < 30000000, "大規模工場の固定費を小規模回収へ戻さない");
+const productionTask = smallBundle.tasks!.find((t) => t.costTaskId === "ctf_sec_plant_operation")!;
+const qcTask = smallBundle.tasks!.find((t) => t.costTaskId === "ctf_ship_qc")!;
+assert.equal(fuelTaskAmount(productionTask, smallBundle.assumptions, design.scale).occurrences, 103);
+assert.equal(fuelTaskAmount(qcTask, smallBundle.assumptions, design.scale).occurrences, 10);
+setSmall("fuel_light_source", "led");
+const litDesign = computeFuelScenario(smallBundle, "outsourced", "base");
+close(litDesign.scale.annualLiters, 10000);
+close(litDesign.scale.requiredInventoryVolumeM3!, design.scale.requiredInventoryVolumeM3! / 2);
+setSmall("fuel_light_source", "sunlight");
+setSmall("inventory_sizing", "available");
+const stockLimited = computeFuelScenario(smallBundle, "outsourced", "base");
+close(stockLimited.scale.annualLiters, 52.499045454545445);
+assert.equal(stockLimited.scale.productionBatchesYear, 1);
+assert.equal(stockLimited.plantCapexInitial, 4000000);
+setSmall("inventory_sizing", "target");
+setSmall("business_annual_volume", 1000);
+const thousand = computeFuelScenario(smallBundle, "outsourced", "base");
+close(thousand.scale.annualLiters, 1000);
+close(thousand.scale.requiredInventoryVolumeM3!, design.scale.requiredInventoryVolumeM3! / 10);
+assert.equal(thousand.scale.productionBatchesYear, 11);
+assert.equal(thousand.scale.cultureLines, 1);
+setSmall("sunlight_productivity_ratio", 0);
+assert.equal(computeFuelScenario(smallBundle, "outsourced", "base").scale.annualLiters, 0);
+setSmall("sunlight_productivity_ratio", 50);
+setSmall("business_annual_volume", 10000);
+for (const mode of ["target", "available"]) for (const lightSource of ["sunlight", "led"]) {
+  setSmall("inventory_sizing", mode); setSmall("fuel_light_source", lightSource);
+  for (const c of ["outsourced", "inhouse"] as const) for (const y of ["low", "base", "high"] as const) {
+    const sc = computeFuelScenario(smallBundle, c, y);
+    close(sc.breakdown.reduce((sum, x) => sum + x.perLiter, 0), sc.totalPerLiter);
+    close(sc.confidenceBreakdown.reduce((sum, x) => sum + x.perLiter, 0), sc.totalPerLiter);
+    const flow = computeFuelTaskFlow(smallBundle, sc);
+    close(flow.plantHours, sc.plantTaskHours);
+    close(sc.totalAnnual, sc.totalPerLiter * sc.scale.annualLiters);
+  }
+}
+console.log("small batch design: target sizing, actual inventory cap, equipment, labor, QC batches and 24 scenario totals passed");
+
+// 排水の年間量→使う新しい菌体量→出荷待ちの分泌→FAME。燃料目標の入力は使わない。
+const effluent: CostModelBundle = JSON.parse(fs.readFileSync(new URL("./__fixtures__/sx_fuel_effluent_source.json", import.meta.url), "utf8"));
+setSmall("inventory_sizing", "effluent"); setSmall("fuel_light_source", "sunlight");
+const supply = deriveFuelEffluentSupply(effluent, { strain: "wild", application: "dye" })!;
+close(supply.annualBiomassKg, 2033267.9558000576);
+const linked = computeFuelScenario(smallBundle, "outsourced", "base", supply);
+close(linked.scale.annualLiters, 106744.62683281793);
+close(linked.scale.usedInventoryVolumeM3, 20332.67955800058);
+assert.ok(linked.scale.annualLiters > 10000, "FAMEを手入力の目標量で切り詰めない");
+setSmall("business_annual_volume", 1);
+close(computeFuelScenario(smallBundle, "outsourced", "base", supply).scale.annualLiters, linked.scale.annualLiters);
+const halfWater = structuredClone(effluent);
+for (const a of halfWater.assumptions) if (a.roleKey === "business_annual_volume" || a.roleKey === "offsite_annual_volume") a.value = (a.value ?? 0) / 2;
+const halfSupply = deriveFuelEffluentSupply(halfWater, { strain: "wild", application: "dye", draft: true })!;
+assert.equal(halfSupply.draft, true);
+close(halfSupply.annualBiomassKg, supply.annualBiomassKg / 2);
+close(computeFuelScenario(smallBundle, "outsourced", "base", halfSupply).scale.annualLiters, linked.scale.annualLiters / 2);
+setSmall("inventory_wait_days", 1.5);
+close(computeFuelScenario(smallBundle, "outsourced", "base", supply).scale.annualLiters, linked.scale.annualLiters / 2);
+setSmall("inventory_wait_days", 3); setSmall("inventory_recovery_share", 50);
+close(computeFuelScenario(smallBundle, "outsourced", "base", supply).scale.annualLiters, linked.scale.annualLiters / 2);
+setSmall("inventory_recovery_share", 100); setSmall("inventory_biomass_concentration", 2);
+close(computeFuelScenario(smallBundle, "outsourced", "base", supply).scale.annualLiters, linked.scale.annualLiters / 2);
+setSmall("inventory_biomass_concentration", 1);
+const metalSupply = deriveFuelEffluentSupply(effluent, { strain: "wild", application: "metal" })!;
+assert.ok(metalSupply.annualBiomassKg > supply.annualBiomassKg);
+assert.equal(deriveFuelEffluentSupply(null), null);
+const unavailable = computeFuelScenario(smallBundle, "outsourced", "base");
+assert.equal(unavailable.scale.annualLiters, 0);
+assert.ok(unavailable.scale.operating.missing.includes("effluent_supply"));
+const zeroSupply = { ...supply, annualBiomassKg: 0 };
+assert.equal(computeFuelScenario(smallBundle, "outsourced", "base", zeroSupply).scale.annualLiters, 0);
+for (const a of effluent.assumptions) if (a.roleKey === "business_annual_volume" || a.roleKey === "offsite_annual_volume") a.value = 0;
+assert.equal(deriveFuelEffluentSupply(effluent, { strain: "wild", application: "dye" })!.annualBiomassKg, 0, "排水ゼロで設備の名目能力を菌体使用量へ使わない");
+console.log("effluent linkage: annual biomass use, selected application, draft volume, waiting time, concentration, share, missing/zero source and FAME output passed");

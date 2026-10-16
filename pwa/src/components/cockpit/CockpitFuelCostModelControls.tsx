@@ -96,9 +96,13 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
         if (ITEM_INLINE_ROLES.has(role)) return [];
         // 脂質分泌株は枠の上端のスイッチで切り替える
         if (role === LIPID_SECRETION_ROLE) return [];
-        if (role === "fuel_light_source" || role === "fuel_culture_source") return [];
+        if (role === "fuel_light_source" || role === "fuel_culture_source" || role === "inventory_sizing") return [];
         if (role.startsWith("sunlight_") && !operating.sunlight) return [];
         if (role.startsWith("inventory_") && !operating.inventory) return [];
+        if (role === "inventory_volume_m3" && (operating.inventoryTarget || operating.inventoryFromEffluent)) return [];
+        if (role === "business_annual_volume" && operating.inventoryFromEffluent) return [];
+        if (role === "inventory_batches_year" && operating.inventoryFromEffluent) return [];
+        if ((role === "inventory_biomass_concentration" || role === "inventory_recovery_share") && !operating.inventoryFromEffluent) return [];
         const a = fuelAssumptionOf(working.assumptions, role, fuelSelectionOf(working.assumptions));
         return a ? [a] : [];
       }));
@@ -140,7 +144,7 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
         if (s.operating.inventory || s.operating.sunlight || s.operating.wholeLines) return (
           <Formula testId="fuel-culture-capacity">
             設備1系列の培養液 {num(s.cultureLineVolumeM3, 1)} m³、年間生産性の比率 {num(s.operating.productivityFactor * 100, 0)}%。
-            {s.operating.inventory ? `出荷待ちの培養液 ${num(s.operating.inventoryVolumeM3, 1)} m³に必要な追加設備を計上。共通の培養設備・原料・作業は二重計上しない。` : `必要な培養設備 ${num(s.cultureLines, 0)} 系列。`}
+            {s.operating.inventory ? `出荷待ちの培養液 ${num(s.usedInventoryVolumeM3, 1)} m³に必要な追加設備を計上。共通の培養費は年額の配賦欄で扱う。` : `必要な培養設備 ${num(s.cultureLines, 0)} 系列。`}
             初期投資 {yen(b.capexInitial)}、培養設備の償却 {num(b.rows.find((r) => r.key === "capex")?.perKg ?? 0)} 円/kg。太陽光の追加設備は「光と培養の使い方」で入力する。
           </Formula>
         );
@@ -548,7 +552,7 @@ function BiomassFormula({ scenario }: { scenario: FuelScenarioResult }) {
   const life = b.usefulLifeMinYears === null ? "—" : b.usefulLifeMinYears === b.usefulLifeMaxYears ? `${b.usefulLifeMinYears}年` : `${b.usefulLifeMinYears}〜${b.usefulLifeMaxYears}年`;
   const u = scenario.yield.unitLabel;
   const lines: Array<[string, string, number]> = [
-    ["培養設備の償却", `償却年額 ${yen(b.capexAnnual)} ÷ 年間の${u} ${num(s.unitKgYear, 1)} kg（設備耐用 ${life}、太陽光の追加設備を含む）`, row("capex")],
+    [s.operating.inventory ? "分泌回収の追加設備の償却" : "培養設備の償却", `償却年額 ${yen(b.capexAnnual)} ÷ 年間の${u} ${num(s.unitKgYear, 1)} kg（設備耐用 ${life}、太陽光の追加設備を含む）`, row("capex")],
     ["年ごとの固定費", `年額 ${yen(b.fixedOpexAnnual)} ÷ 年間の${u} ${num(s.unitKgYear, 1)} kg（維持費・共通費配賦等を含む）`, row("fixed")],
     ["培養の作業", `年 ${yen(b.tasksAnnual)} ÷ 年に要る${u} ${int(s.unitKgYear)} kg（作業リスト）`, row("tasks")],
     [`${u}の量に比例する費用`, s.secreting ? `培地・CO2・溶媒など 1kgあたりの単価（菌体1kgあたりの行は 入れ替える菌体 ${num(s.cellMakeupPerUnit, 2)} kg を掛ける）` : "培地・CO2・濃縮など 1kgあたりの単価", row("variable")],

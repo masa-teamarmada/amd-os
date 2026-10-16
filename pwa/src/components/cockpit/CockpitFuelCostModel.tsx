@@ -45,6 +45,7 @@ import { FuelResultsPanel, FuelResultsSummaryBar } from "@/components/cockpit/Co
 import { FuelReadingSections } from "@/components/cockpit/CockpitFuelCostModelReading";
 import { FuelOperatingSwitches } from "@/components/cockpit/CockpitFuelOperatingPlan";
 import { FUEL_OPERATING_CHOICES } from "@/lib/project-fuel-operating";
+import type { FuelEffluentSupply } from "@/lib/project-fuel-effluent-supply";
 
 // PJコックピット「事業計画」グループの「コスト試算（燃料）」タブ（コスト試算（廃液）の右隣。2026-09-14 に技術タブの中から移した）。
 // まさ 2026-09-14「OSの技術ページに、新たに『コスト試算（燃料）』を追加してほしい。
@@ -63,6 +64,8 @@ interface Props {
   /** ワークスペース側など、保存させない面では false。試算 (画面上の書き換え) はどちらの面でもできる。 */
   allowEdit?: boolean;
   initialData?: import("@/lib/project-cost-model-client").CostModelResponse;
+  effluentSupply?: FuelEffluentSupply | null;
+  onOpenEffluent?: () => void;
 }
 
 export interface FuelViewState {
@@ -92,7 +95,7 @@ export function formatFuelDraftValue(change: Pick<DraftChange, "field">, value: 
   return formatDraftValue(change.field, value);
 }
 
-export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData }: Props) {
+export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData, effluentSupply, onOpenEffluent }: Props) {
   const cached = initialData ?? peekProjectFuelCostModel(projectId);
   const [bundle, setBundle] = useState<CostModelBundle | null>(cached?.bundle ?? null);
   const [canEdit, setCanEdit] = useState(!!cached?.canEdit && allowEdit);
@@ -150,9 +153,9 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData 
   }, [load]);
 
   const working = useMemo(() => (bundle ? applyDraft(bundle, draft) : null), [bundle, draft]);
-  const computed = useMemo(() => (working ? computeFuelCostModel(working) : null), [working]);
+  const computed = useMemo(() => (working ? computeFuelCostModel(working, effluentSupply) : null), [working, effluentSupply]);
   const hasDraft = Object.keys(draft).length > 0;
-  const baseline = useMemo(() => (bundle && computed ? (hasDraft ? computeFuelCostModel(bundle) : computed) : null), [bundle, computed, hasDraft]);
+  const baseline = useMemo(() => (bundle && computed ? (hasDraft ? computeFuelCostModel(bundle, effluentSupply) : computed) : null), [bundle, computed, hasDraft, effluentSupply]);
   const changes = useMemo(() => (bundle ? listDraftChanges(bundle, draft) : []), [bundle, draft]);
 
   const onChange = useCallback(
@@ -289,7 +292,7 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData 
               </div>
             )}
             <FactoryUtilitySwitches items={factoryUtilities} />
-            <FuelOperatingSwitches working={working} onChange={onChange} />
+            <FuelOperatingSwitches working={working} onChange={onChange} onOpenEffluent={onOpenEffluent} />
             <p className="text-[10px] leading-4 text-[#6e6e73] sm:col-span-2 lg:basis-full" data-testid="fuel-selection-note">
               {FUEL_CONVERSION_LABEL[current.conversion]}＝{FUEL_CONVERSION_DESCRIPTION[current.conversion]}。収率{FUEL_YIELD_CASE_LABEL[current.yieldCase]}＝{FUEL_YIELD_CASE_DESCRIPTION[current.yieldCase]}。
               {secretionAssumption && <>{LIPID_SECRETION_LABEL}を{secreting ? "使う" : "使わない"}＝{LIPID_SECRETION_DESCRIPTION[secreting ? "on" : "off"]}。</>}

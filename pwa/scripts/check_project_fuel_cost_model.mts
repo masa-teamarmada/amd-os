@@ -292,7 +292,8 @@ check("コスト試算は全PJ常設の1タブで、燃料の試算はタブの�
   assert.match(view, /<CockpitCostTab projectId=\{project\.projectId\} initialRenderer=\{requestedTab === "cost-fuel" \? "fuel" : undefined\} \/>/);
   const costTab = read("src/components/cockpit/CockpitCostTab.tsx");
   assert.match(costTab, /loadProjectFuelCostModel\(projectId\)/);
-  assert.match(costTab, /<CockpitFuelCostModel projectId=\{projectId\} allowEdit=\{allowEdit\} initialData=\{initialData\?\.fuel\} \/>/);
+  assert.match(costTab, /<CockpitFuelCostModel projectId=\{projectId\} allowEdit=\{allowEdit\} initialData=\{initialData\?\.fuel\} effluentSupply=\{effluentSupply\}/);
+  assert.match(costTab, /deriveFuelEffluentSupply\(effluentSelection\.bundle, effluentSelection\)/);
   assert.match(costTab, /data-testid="cockpit-cost-model-switch"/);
   assert.match(costTab, /if \(fuelBundle\) options\.push/, "燃料の試算は、あるPJだけ切り替えの選択肢に足す（タブは足さない）");
   // 試算が無いPJでもタブは出して、標準フォーマットが「未登録」と出す

@@ -4,6 +4,7 @@ import type { CostAssumption, CostItem, CostTask } from "./project-cost-model.ts
 export const FUEL_OPERATING_CHOICES = {
   fuel_light_source: [{ value: "sunlight", label: "太陽光主体" }, { value: "led", label: "人工照明" }],
   fuel_culture_source: [{ value: "inventory", label: "出荷待ちから回収" }, { value: "dedicated", label: "燃料専用で培養" }],
+  inventory_sizing: [{ value: "effluent", label: "排水事業に連動" }, { value: "available", label: "在庫から算定" }],
   fuel_equipment_sizing: [{ value: "whole", label: "必要設備を1基単位で計上" }, { value: "proportional", label: "量産の比例配賦" }],
 } satisfies Record<string, Array<{ value: string; label: string }>>;
 
@@ -11,6 +12,7 @@ export const FUEL_OPERATING_NUMERIC_ROLES = [
   "sunlight_productivity_ratio", "sunlight_capex", "sunlight_life_years", "sunlight_opex_annual",
   "inventory_volume_m3", "inventory_wait_days", "inventory_batches_year",
   "inventory_incremental_annual", "inventory_common_allocation_annual",
+  "inventory_biomass_concentration", "inventory_recovery_share",
 ] as const;
 
 export const FUEL_OPERATING_ROLES = [...Object.keys(FUEL_OPERATING_CHOICES), ...FUEL_OPERATING_NUMERIC_ROLES];
@@ -25,16 +27,21 @@ export function fuelOperatingOf(assumptions: CostAssumption[]) {
   const inventorySelected = row("fuel_culture_source")?.valueText === "inventory";
   const inventory = inventorySelected && row("lipid_secreting_strain")?.valueText === "on";
   const wholeLines = row("fuel_equipment_sizing")?.valueText === "whole";
+  const inventoryTarget = inventory && row("inventory_sizing")?.valueText === "target";
+  const inventoryFromEffluent = inventory && row("inventory_sizing")?.valueText === "effluent";
+  const smallBatchEquipment = row("fuel_equipment_basis")?.valueText === "small_batch" && row("lipid_secreting_strain")?.valueText === "on";
   const plantValue = row("fuel_plant_capex_override")?.value;
   const plantCapexOverride = typeof plantValue === "number" && Number.isFinite(plantValue) && plantValue >= 0 ? plantValue : null;
   const productivityFactor = sunlight ? Math.min(value("sunlight_productivity_ratio", 50), 100) / 100 : 1;
   const missing = [
-    ...(wholeLines ? ["fuel_plant_capex_override"] : []),
+    ...(wholeLines && !smallBatchEquipment ? ["fuel_plant_capex_override"] : []),
     ...(sunlight ? ["sunlight_productivity_ratio", "sunlight_capex", "sunlight_life_years", "sunlight_opex_annual"] : []),
-    ...(inventory ? ["inventory_volume_m3", "inventory_wait_days", "inventory_batches_year", "inventory_incremental_annual", "inventory_common_allocation_annual"] : []),
-  ].filter((role) => row(role)?.value == null || (role === "sunlight_life_years" && value(role) <= 0) || (role === "fuel_plant_capex_override" && plantCapexOverride === null));
+    ...(inventory ? [...(inventoryTarget || inventoryFromEffluent ? [] : ["inventory_volume_m3"]), "inventory_wait_days", ...(inventoryFromEffluent ? ["inventory_biomass_concentration", "inventory_recovery_share"] : ["inventory_batches_year"]), "inventory_incremental_annual", "inventory_common_allocation_annual"] : []),
+  ].filter((role) => row(role)?.value == null || (["sunlight_life_years", "inventory_biomass_concentration"].includes(role) && value(role) <= 0) || (role === "fuel_plant_capex_override" && plantCapexOverride === null));
   return {
-    sunlight, inventory, inventorySelected, wholeLines, plantCapexOverride, productivityFactor, missing,
+    sunlight, inventory, inventorySelected, inventoryTarget, inventoryFromEffluent, smallBatchEquipment, wholeLines, plantCapexOverride, productivityFactor, missing,
+    inventoryBiomassConcentration: value("inventory_biomass_concentration"),
+    inventoryRecoveryShare: Math.min(value("inventory_recovery_share", 100), 100) / 100,
     inventoryVolumeM3: value("inventory_volume_m3"),
     inventoryWaitDays: value("inventory_wait_days"),
     inventoryBatchesYear: value("inventory_batches_year"),

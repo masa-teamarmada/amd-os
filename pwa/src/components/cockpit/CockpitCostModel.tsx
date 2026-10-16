@@ -97,6 +97,14 @@ const viewMemory = new Map<string, ViewState>();
 // 開いたときの株は自然株 (まさ 2026-09-14「デフォルトが強化株になってるから、自然株に変えて」)。自然株が無い試算は最初の株。
 const DEFAULT_VIEW: ViewState = { strain: "wild", application: null, location: "onsite", method: "投入", tankMode: "既設" };
 
+/** 同じ画面で燃料へ切り替える際、排水側の保存前の条件・選択も参照する。 */
+export function readEffluentWorkingSelection(projectId: string, saved: CostModelBundle | null) {
+  const source = saved;
+  const draft = draftMemory.get(projectId) ?? {};
+  const view = { ...DEFAULT_VIEW, ...viewMemory.get(projectId) };
+  return { bundle: source ? applyDraft(source, draft) : null, strain: view.strain, application: view.application, draft: Object.keys(draft).length > 0 };
+}
+
 export function CockpitCostModel({ projectId, allowEdit = true, initialData }: Props) {
   const cached = initialData ?? peekProjectCostModel(projectId);
   const [bundle, setBundle] = useState<CostModelBundle | null>(cached?.bundle ?? null);
