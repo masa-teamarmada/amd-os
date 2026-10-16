@@ -3,6 +3,7 @@
 import type { CostModelBundle } from "@/lib/project-cost-model";
 import { fuelAssumptionOf, type FuelScenarioResult } from "@/lib/project-fuel-cost-model";
 import { FUEL_OPERATING_CHOICES, fuelOperatingOf } from "@/lib/project-fuel-operating";
+import { FUEL_SUPPLY_CHOICES } from "@/lib/project-fuel-supply-quality";
 import { Segmented, num, yen } from "./CockpitCostModelParts";
 import type { FuelChangeHandler } from "./CockpitFuelCostModelControls";
 
@@ -11,6 +12,13 @@ export function FuelOperatingSwitches({ working, onChange, onOpenEffluent }: { w
   const secretion = fuelAssumptionOf(working.assumptions, "lipid_secreting_strain");
   const operating = fuelOperatingOf(working.assumptions);
   return <>
+    {operating.carbon.enabled && (() => {
+      const a = fuelAssumptionOf(working.assumptions, "fuel_carbon_source")!;
+      return <div className="flex min-w-0 items-center gap-1.5" data-testid="fuel-carbon-switch">
+        <span className="w-[4.5rem] shrink-0 text-[11px] font-semibold text-[#3c3c43] lg:w-auto">炭素源</span>
+        <Segmented ariaLabel="炭素源の切り替え" options={FUEL_SUPPLY_CHOICES.fuel_carbon_source} value={a.valueText ?? "flue_gas"} onChange={(value) => onChange("assumption", a.costAssumptionId, "valueText", value)} />
+      </div>;
+    })()}
     {(["fuel_light_source", "fuel_culture_source", "inventory_sizing"] as const).map((role) => {
       const a = fuelAssumptionOf(working.assumptions, role);
       if (!a || (role === "inventory_sizing" && fuelAssumptionOf(working.assumptions, "fuel_culture_source")?.valueText !== "inventory")) return null;
@@ -66,7 +74,17 @@ export function FuelOperatingSummary({ current }: { current: FuelScenarioResult 
       <p className="mt-1.5 text-[11px] leading-4 text-[#1d1d1f]" data-testid="fuel-required-inventory">{op.inventoryTarget ? "年産目標に必要な出荷待ち培養液" : "年産目標に必要な出荷待ち培養液の目安"} <strong className="tabular-nums">{s.requiredInventoryVolumeM3 === null ? "算定不可" : `${num(s.requiredInventoryVolumeM3, 1)} m³`}</strong>（同時利用量）。{op.inventoryTarget ? "必要量を確保できる場合の設計試算。" : `入力した在庫 ${num(op.inventoryVolumeM3, 1)} m³で計算。`}</p>
       <p className="mt-1 text-[10px] leading-4 text-[#3c3c43]">計算する培養液 {num(s.usedInventoryVolumeM3, 1)} m³ × 年間の待ち期間 {num(s.inventoryExposureDays, 1)} 日 × 分泌速度 × {num(op.productivityFactor * 100, 0)}%。共通培養費の配賦 {yen(op.commonAllocationAnnual)}/年。</p>
     </>}
-    {op.sunlight && <p className="mt-1 text-[10px] leading-4 text-[#3c3c43]">LED電力・器具を外し、年間生産性を人工照明比 {num(op.productivityFactor * 100, 0)}%にする。屋外設備・敷地・夜間維持等は追加費用の入力欄で計上。</p>}
+    {op.sunlight && <p className="mt-1 text-[10px] leading-4 text-[#3c3c43]">LED電力・器具を外し、年間生産性を人工照明比 {num(op.lightProductivityFactor * 100, 0)}%にする。屋外設備・敷地・夜間維持等は追加費用の入力欄で計上。</p>}
+    {op.carbon.enabled && <div className="mt-1.5 border-t border-[#e5e5e7] pt-1.5 text-[11px] leading-4" data-testid="fuel-carbon-summary">
+      <p className="font-semibold">炭素源：{op.carbon.source === "air" ? "空気" : op.carbon.source === "flue_gas" ? "排ガス" : "購入CO₂"} <a className="ml-1 font-normal text-[#0267b2] underline" href="#fuel-g-cond-carbon">条件を変更</a></p>
+      <p className="mt-1">脂肪酸1kgに固定する炭素はCO₂換算で約2.79kg（炭素分76%の仮定）。年間 {num(s.unitKgYear * 0.76 * 44 / 12, 0)} kg。{op.carbon.source !== "purchased" && "購入CO₂費0円。送気・前処理で増える費用を年額入力する。"}</p>
+      {op.carbon.source === "air" && <p className="mt-1">空気での分泌生産性は排ガス供給比 {num(op.carbon.productivityFactor * 100, 0)}%を比較用に仮置き。生産量も同じ比率で変わる。</p>}
+      {op.carbon.source !== "purchased" && op.carbon.gasFraction > 0 && <p className="mt-1 text-[10px] text-[#6e6e73]">設定濃度で必要な供給ガスは年 {num(s.unitKgYear * 0.76 * 44 / 12 / (1.964 * op.carbon.gasFraction), 0)} Nm³以上（CO₂を全量吸収する理論値）。実際の送気・吸収量は運転条件で測定する。</p>}
+    </div>}
+    {op.quality.enabled && <div className="mt-1.5 border-t border-[#e5e5e7] pt-1.5 text-[11px] leading-4" data-testid="fuel-quality-summary">
+      <p className="font-semibold">品質確認：{op.quality.hybrid ? "自社の日常分析＋定期外注" : "各ロットを外注"} <a className="ml-1 font-normal text-[#0267b2] underline" href="#fuel-g-cond-quality">条件を変更</a></p>
+      {op.quality.hybrid && <p className="mt-1">日常分析は1回 {num(op.quality.routineHours, 2)}人時＋消耗品{yen(op.quality.routineExpense)}。追加購入する分析機器 {op.quality.missing.includes("fuel_lab_capex") ? "未見積" : yen(op.quality.capex)}、校正・維持費 {op.quality.missing.includes("fuel_lab_annual") ? "未見積" : `${yen(op.quality.maintenanceAnnual)}/年`}。外部確認の頻度・工数・料金は作業欄で入力する。</p>}
+    </div>}
     {op.inventoryExistingEquipment && <div className="mt-1.5 rounded-md border border-[#d2d2d7] bg-white px-2 py-1.5 text-[11px] leading-4 text-[#1d1d1f]" data-testid="fuel-existing-equipment">
       <p className="font-semibold">既存設備を使う追加採算</p>
       <p className="mt-1">培養・保管・回収・燃料化の設備購入費と償却、設備価格比の固定保守費は自動計上0円。追加購入する設備と追加の運転費は入力した分を加算。</p>

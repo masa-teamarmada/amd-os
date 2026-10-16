@@ -277,3 +277,64 @@ const dedicatedRole = existingBundle.assumptions.find((a) => a.roleKey === "fuel
 dedicatedRole.valueText = "dedicated";
 assert.ok(computeFuelScenario(existingBundle, "outsourced", "base").capexInitial > 0, "専用培養では設備投資を残す");
 console.log("existing inventory equipment: no duplicate CAPEX, explicit purchase only, startup working capital separated, dedicated cultivation preserved and totals reconciled");
+// 自動運転の追加人時、炭素源と品質確認は独立した前提で比較する。
+const automated: CostModelBundle = JSON.parse(fs.readFileSync(new URL("./__fixtures__/sx_fuel_automated.json", import.meta.url), "utf8"));
+const supplyAuto = { modelId: "test", application: "dye" as const, strainLabel: "自然株", annualBiomassKg: 2033267.9558000576, onsiteVolume: 20000000, offsiteVolume: 30000, draft: false };
+const autoRole = (bundle: CostModelBundle, role: string, val: number | string | null) => {
+ const a = bundle.assumptions.find(a => a.roleKey === role)!;
+ a.value = typeof val === "number" ? val : null; a.valueText = typeof val === "string" ? val : null;
+};
+const auto = computeFuelScenario(automated, "outsourced", "base", supplyAuto);
+const autoFlow = computeFuelTaskFlow(automated, auto);
+close(auto.scale.annualLiters, 106744.62683281793);
+close(autoFlow.cultureHours, 75);
+close(autoFlow.cultureHours + autoFlow.plantHours, 417.75);
+close(autoFlow.annual, autoFlow.laborAnnual + autoFlow.expenseAnnual);
+close(autoFlow.perLiter, autoFlow.laborPerLiter + autoFlow.expensePerLiter);
+const twiceAuto = computeFuelScenario(automated, "outsourced", "base", { ...supplyAuto, annualBiomassKg: supplyAuto.annualBiomassKg * 2 });
+close(computeFuelTaskFlow(automated, twiceAuto).cultureHours, 75, "拠点の追加確認に系列数を掛けない");
+assert.equal(auto.scale.operating.quality.hybrid, true);
+assert.ok(auto.scale.operating.missing.includes("fuel_lab_capex"));
+assert.ok(auto.scale.operating.missing.includes("fuel_lab_annual"));
+assert.ok(auto.scale.operating.missing.includes("fuel_carbon_delivery_annual"));
+const upgradedLab = structuredClone(automated);
+autoRole(upgradedLab, "fuel_lab_capex", 700000);
+autoRole(upgradedLab, "fuel_lab_annual", 50000);
+const withLab = computeFuelScenario(upgradedLab, "outsourced", "base", supplyAuto);
+close(withLab.totalAnnual - auto.totalAnnual, 150000, "分析機器は一度だけ償却し校正維持を加える");
+close(withLab.capexInitial - auto.capexInitial, 700000);
+autoRole(upgradedLab, "fuel_carbon_delivery_annual", 123456);
+close(computeFuelScenario(upgradedLab, "outsourced", "base", supplyAuto).totalAnnual - withLab.totalAnnual, 123456, "送気の追加費を一度だけ加える");
+const bought = structuredClone(automated);
+autoRole(bought, "fuel_carbon_source", "purchased");
+autoRole(bought, "co2_flue_gas", "on");
+const purchasedAuto = computeFuelScenario(bought, "outsourced", "base", supplyAuto);
+close(purchasedAuto.totalPerLiter - auto.totalPerLiter, 178.97468265656778, "購入CO2は旧排ガススイッチで無料にならない");
+const airAuto = structuredClone(automated);
+autoRole(airAuto, "fuel_carbon_source", "air");
+const halfAir = computeFuelScenario(airAuto, "outsourced", "base", supplyAuto);
+close(halfAir.scale.annualLiters, auto.scale.annualLiters / 2, "空気生産性50%を年間FAMEへ反映");
+autoRole(airAuto, "fuel_air_productivity_ratio", 0);
+close(computeFuelScenario(airAuto, "outsourced", "base", supplyAuto).scale.annualLiters, 0);
+const exterior = structuredClone(upgradedLab);
+autoRole(exterior, "fuel_quality_mode", "external");
+const outside = computeFuelScenario(exterior, "outsourced", "base", supplyAuto);
+close(outside.capexInitial, 0, "各ロット外注は分析機器を購入しない");
+const periodic = exterior.tasks.find(t=>t.costTaskId === "ctf_periodic_external_qc")!;
+close(fuelTaskAmount(periodic, exterior.assumptions, outside.scale).annual, 0, "各ロット外注では定期一式の別枠を加算しない");
+for (const source of ["flue_gas", "air", "purchased"]) for (const qc of ["hybrid", "external"]) for (const c of ["outsourced", "inhouse"] as const) for (const y of ["low", "base", "high"] as const) {
+ const b = structuredClone(upgradedLab); autoRole(b,"fuel_carbon_source",source); autoRole(b,"fuel_quality_mode",qc);
+ const sc = computeFuelScenario(b,c,y,supplyAuto);
+ close(sc.breakdown.reduce((s,r)=>s+r.perLiter,0),sc.totalPerLiter,"36条件の内訳整合");
+ close(sc.breakdown.flatMap(r=>r.parts).reduce((s,r)=>s+r.perLiter,0),sc.totalPerLiter,"小分け整合");
+ close(sc.confidenceBreakdown.reduce((s,r)=>s+r.perLiter,0),sc.totalPerLiter,"確度別整合");
+ close(sc.totalAnnual,sc.totalPerLiter*sc.scale.annualLiters);
+ close(sc.capexPerLiter+sc.opexPerLiter,sc.totalPerLiter);
+ const ctx = { assumptions:b.assumptions,items:b.items,conversion:c };
+ for (const i of b.items.filter(i=>scopeApplies(i,fuelSelectionOf(b.assumptions)))) {
+  const calc=fuelItemCalc(i,sc,ctx); if(!calc)continue;
+  if(calc.price)close(evaluateCalcSegment(calc.price,null),calc.price.result.value);
+  let prev: number|null=null;for(const seg of calc.segments){prev=evaluateCalcSegment(seg,prev);close(prev,seg.result.value);}
+ }
+}
+console.log("automated fuel: incremental site labor, purchased/air/flue gas, quality modes, lab CAPEX, missing estimates and 36 reconciliations passed", { cost:auto.totalPerLiter, hours:autoFlow.cultureHours+autoFlow.plantHours, labor:autoFlow.laborPerLiter, expense:autoFlow.expensePerLiter });

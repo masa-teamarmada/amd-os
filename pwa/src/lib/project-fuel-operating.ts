@@ -1,4 +1,5 @@
 import type { CostAssumption, CostItem, CostTask } from "./project-cost-model.ts";
+import { fuelCarbonOf, fuelQualityOf } from "./project-fuel-supply-quality.ts";
 
 /** 燃料試算の運転条件。未登録の旧モデルは従来の計算を保つ。 */
 export const FUEL_OPERATING_CHOICES = {
@@ -34,15 +35,19 @@ export function fuelOperatingOf(assumptions: CostAssumption[]) {
   const smallBatchEquipment = row("fuel_equipment_basis")?.valueText === "small_batch" && row("lipid_secreting_strain")?.valueText === "on";
   const plantValue = row("fuel_plant_capex_override")?.value;
   const plantCapexOverride = typeof plantValue === "number" && Number.isFinite(plantValue) && plantValue >= 0 ? plantValue : null;
-  const productivityFactor = sunlight ? Math.min(value("sunlight_productivity_ratio", 50), 100) / 100 : 1;
+  const lightProductivityFactor = sunlight ? Math.min(value("sunlight_productivity_ratio", 50), 100) / 100 : 1;
+  const carbon = fuelCarbonOf(assumptions);
+  const quality = fuelQualityOf(assumptions);
+  const productivityFactor = lightProductivityFactor * carbon.productivityFactor;
   const missing = [
     ...(wholeLines && !smallBatchEquipment ? ["fuel_plant_capex_override"] : []),
     ...(sunlight ? ["sunlight_productivity_ratio", "sunlight_capex", "sunlight_life_years", "sunlight_opex_annual"] : []),
     ...(inventory ? [...(inventoryTarget || inventoryFromEffluent ? [] : ["inventory_volume_m3"]), "inventory_wait_days", ...(inventoryFromEffluent ? ["inventory_biomass_concentration", "inventory_recovery_share"] : ["inventory_batches_year"]), "inventory_incremental_annual", "inventory_common_allocation_annual"] : []),
     ...(inventoryExistingEquipment ? ["inventory_equipment_capex", "inventory_equipment_life_years", "inventory_initial_working_capital"] : []),
   ].filter((role) => row(role)?.value == null || (["sunlight_life_years", "inventory_biomass_concentration", "inventory_equipment_life_years"].includes(role) && value(role) <= 0) || (role === "fuel_plant_capex_override" && plantCapexOverride === null));
+  missing.push(...carbon.missing, ...quality.missing);
   return {
-    sunlight, inventory, inventorySelected, inventoryTarget, inventoryFromEffluent, inventoryExistingEquipment, smallBatchEquipment, wholeLines, plantCapexOverride, productivityFactor, missing,
+    sunlight, inventory, inventorySelected, inventoryTarget, inventoryFromEffluent, inventoryExistingEquipment, smallBatchEquipment, wholeLines, plantCapexOverride, productivityFactor, lightProductivityFactor, carbon, quality, missing,
     inventoryEquipmentCapex: inventoryExistingEquipment ? value("inventory_equipment_capex") : 0,
     inventoryEquipmentCapexAnnual: inventoryExistingEquipment ? value("inventory_equipment_capex") / Math.max(value("inventory_equipment_life_years", 7), 1) : 0,
     inventoryInitialWorkingCapital: inventoryExistingEquipment ? row("inventory_initial_working_capital")?.value ?? null : null,

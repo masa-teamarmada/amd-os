@@ -2,6 +2,7 @@
 
 import type { CostAssumption, CostItem, CostModelBundle, CostNote, CostNoteSection } from "@/lib/project-cost-model";
 import { CO2_FLUE_GAS_ROLE, CONFIDENCE_LABEL, flueGasOn } from "@/lib/project-cost-model";
+import { fuelQualityTask } from "@/lib/project-fuel-supply-quality";
 import {
   FUEL_BASIS_LABEL,
   FUEL_CONVERSION_LABEL,
@@ -101,7 +102,7 @@ export function FuelReadingSections({ saved, working, computed, current }: Props
       rows: [
         ...current.breakdown.map((slice) => ({ label: `　${slice.label}`, get: (s: FuelScenarioResult) => num(s.breakdown.find((x) => x.key === slice.key)?.perLiter ?? 0) })),
         { label: current.scale.operating.inventoryExistingEquipment ? "　追加原価" : "　総コスト", get: (s) => num(s.totalPerLiter), strong: true, danger: (s) => s.gapToPricePerLiter < 0 },
-        { label: "　うちCAPEX（培養設備と燃料化設備の償却）", get: (s) => num(s.capexPerLiter), muted: true },
+        { label: "　うちCAPEX（設備・分析機器の償却）", get: (s) => num(s.capexPerLiter), muted: true },
         { label: "　うちOPEX", get: (s) => num(s.opexPerLiter), muted: true },
         { label: "　売価との差", get: (s) => num(s.gapToPricePerLiter), danger: (s) => s.gapToPricePerLiter < 0 },
       ],
@@ -114,7 +115,7 @@ export function FuelReadingSections({ saved, working, computed, current }: Props
         { label: `　年に要る${unitLabel}（kg/年）`, get: (s) => num(s.scale.unitKgYear, 1) },
         { label: `　${FUEL_CULTURE_LABEL}（系列）`, get: (s) => int(s.scale.cultureLines) },
         { label: `　${FUEL_PLANT_LABEL}（系列）`, get: (s) => num(s.scale.plantLines, 2) },
-        { label: "　初期投資（培養設備＋燃料化設備）", get: (s) => yen(s.capexInitial) },
+        { label: "　初期投資（設備・分析機器）", get: (s) => yen(s.capexInitial) },
         { label: "　作業工数（時間/年、燃料化の工場）", get: (s) => int(s.plantTaskHours) },
       ],
     },
@@ -376,7 +377,7 @@ export function FuelReadingSections({ saved, working, computed, current }: Props
             <tbody className="tabular-nums">
               {[...tasks].sort((a, b) => a.sortOrder - b.sortOrder).map((t) => {
                 const amt = fuelTaskAmount(t, assumptions, current.scale);
-                const applies = fuelRowApplies(t, current.conversion);
+                const applies = fuelRowApplies(t, current.conversion) && !fuelQualityTask(t, assumptions).inactive;
                 const base = savedTask(t.costTaskId);
                 const changed = !!base && (base.hoursPerOccurrence !== t.hoursPerOccurrence || base.countPerYear !== t.countPerYear || base.expensePerOccurrence !== t.expensePerOccurrence);
                 return (
@@ -393,8 +394,8 @@ export function FuelReadingSections({ saved, working, computed, current }: Props
                       {int(amt.occurrences)}
                       <span className="block text-[10px] text-[#6e6e73]">{FUEL_TASK_DRIVER_LABEL[t.countDriver as FuelTaskDriver] ?? t.countDriver}</span>
                     </td>
-                    <td className="px-2 py-1.5 text-right">{t.hoursPerOccurrence === null ? "未確認" : `${num(t.hoursPerOccurrence, 1)}時間`}</td>
-                    <td className="px-2 py-1.5 text-right">{yen(t.expensePerOccurrence)}</td>
+                    <td className="px-2 py-1.5 text-right">{t.hoursPerOccurrence === null ? "未確認" : `${num(amt.hours, 2)}時間`}</td>
+                    <td className="px-2 py-1.5 text-right">{yen(amt.expense)}</td>
                     <td className="px-2 py-1.5 text-right font-semibold">{applies ? yen(amt.annual) : "—"}</td>
                     <td className="px-2 py-1.5 text-[#6e6e73]">
                       <ConfidenceTag value={t.confidence} /> {[t.sourceKind, t.owner].filter(Boolean).join("・")}
@@ -446,7 +447,7 @@ export function FuelReadingSections({ saved, working, computed, current }: Props
                           </td>
                           <td className="px-2 py-1.5 text-right">
                             {shownPrice.toLocaleString("ja-JP", { maximumFractionDigits: 2 })} <span className="text-[10px] text-[#6e6e73]">{i.unitPriceUnit}</span>
-                            {i.priceRule === "co2_supply" && (
+                            {i.priceRule === "co2_supply" && !current.scale.operating.carbon.enabled && (
                               <span className="block text-[10px] text-[#6e6e73]">
                                 排ガス利用可能 {flueGasOn(fuelAssumptionOf(assumptions, CO2_FLUE_GAS_ROLE)) ? `ON（買うなら ${i.unitPrice.toLocaleString("ja-JP")}）` : "OFF"}
                               </span>

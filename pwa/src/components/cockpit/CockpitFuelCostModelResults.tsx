@@ -310,7 +310,7 @@ export function FuelResultsPanel({ computed, baseline, current, flow, baselineFl
             </dd>
           </div>
           <div className="flex flex-wrap items-baseline justify-between gap-x-2">
-            <dt>作業工数（事業全体）</dt>
+            <dt>作業工数（{s.operating.inventory ? "燃料の追加作業" : "事業全体"}）</dt>
             <dd className="flex flex-wrap items-baseline justify-end gap-x-1 tabular-nums text-[#1d1d1f]">
               <span className="font-semibold">年 {int(flow.plantHours + flow.cultureHours)}時間</span>
               <Delta value={flow.plantHours + flow.cultureHours - (baselineFlow.plantHours + baselineFlow.cultureHours)} digits={0} className="text-[10px]" />

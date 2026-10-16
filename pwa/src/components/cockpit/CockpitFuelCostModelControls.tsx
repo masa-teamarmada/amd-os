@@ -47,6 +47,7 @@ import { FUEL_CATEGORY_COLOR, fuelSelectionLabel } from "@/components/cockpit/Co
 import { CostBreakdownGuide, flashElement, type BreakdownGuideDriver } from "@/components/cockpit/CockpitCostBreakdownGuide";
 import { ItemCalcLine, ItemNoteLine } from "@/components/cockpit/CockpitCostItemCalc";
 import { fuelOperatingOf } from "@/lib/project-fuel-operating";
+import { fuelQualityTask } from "@/lib/project-fuel-supply-quality";
 
 // コスト試算（燃料）の操作パネル。まだ確定できない数字を、すべてここで動かせるようにする。
 // 書き換えはその場で再計算するだけで保存しない。保存は上の「保存していない変更」から admin が行う。
@@ -91,17 +92,23 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
     const operating = fuelOperatingOf(working.assumptions);
     for (const g of FUEL_PARAM_GROUPS) {
       if (g.key === "cond-yield") continue;
+      if (g.key === "cond-carbon" && !operating.carbon.enabled) { map.set(g.key, []); continue; }
       map.set(g.key, g.roles.flatMap((role) => {
         // 排ガス利用可能は CO2 の明細の行に出す (まさ 2026-09-14「CO2コストのところに設置してほしい」)
         if (ITEM_INLINE_ROLES.has(role)) return [];
         // 脂質分泌株は枠の上端のスイッチで切り替える
         if (role === LIPID_SECRETION_ROLE) return [];
         if (role === "fuel_light_source" || role === "fuel_culture_source" || role === "inventory_sizing") return [];
+        if (role === "fuel_carbon_source") return [];
         if (role.startsWith("sunlight_") && !operating.sunlight) return [];
         if (role.startsWith("inventory_") && !operating.inventory) return [];
         if (role === "inventory_volume_m3" && (operating.inventoryTarget || operating.inventoryFromEffluent)) return [];
         if (role === "business_annual_volume" && operating.inventoryFromEffluent) return [];
         if (role === "fuel_plant_capex_override" && operating.inventoryExistingEquipment) return [];
+        if ((role === "fuel_air_productivity_ratio" || role === "fuel_air_co2_ppm") && operating.carbon.source !== "air") return [];
+        if (role === "fuel_flue_co2_percent" && operating.carbon.source !== "flue_gas") return [];
+        if (role === "fuel_carbon_delivery_annual" && operating.carbon.source === "purchased") return [];
+        if (role !== "fuel_quality_mode" && (role.startsWith("fuel_lab_") || role.startsWith("fuel_qc_")) && !operating.quality.hybrid) return [];
         if (role === "inventory_batches_year" && operating.inventoryFromEffluent) return [];
         if ((role === "inventory_biomass_concentration" || role === "inventory_recovery_share") && !operating.inventoryFromEffluent) return [];
         const a = fuelAssumptionOf(working.assumptions, role, fuelSelectionOf(working.assumptions));
@@ -347,7 +354,7 @@ function AssumptionControl({ assumption: a, saved, onChange }: { assumption: Cos
     );
   }
   const isOverride = a.roleKey === "biomass_cost_per_kg_override";
-  const optionalEstimate = ["fuel_plant_capex_override", "sunlight_capex", "sunlight_opex_annual", "inventory_incremental_annual", "inventory_common_allocation_annual", "inventory_equipment_capex", "inventory_initial_working_capital"].includes(a.roleKey ?? "");
+  const optionalEstimate = ["fuel_plant_capex_override", "sunlight_capex", "sunlight_opex_annual", "inventory_incremental_annual", "inventory_common_allocation_annual", "inventory_equipment_capex", "inventory_initial_working_capital", "fuel_carbon_delivery_annual", "fuel_lab_capex", "fuel_lab_annual"].includes(a.roleKey ?? "");
   return (
     <li className="flex flex-col gap-1 py-1.5 lg:py-0.5 lg:flex-row lg:items-center lg:gap-2">
       <div className="min-w-0 flex-1 text-[12px] leading-5 text-[#1d1d1f]">
@@ -598,8 +605,9 @@ function FuelTaskFlowOverview({ flow, current, onJumpStep }: { flow: FuelTaskFlo
       <p className="text-[11px] leading-5 text-[#3c3c43]">
         <span className="text-[#6e6e73]">{fuelSelectionLabel(current)}</span>
         <br />
-        <span className="font-semibold text-[#1d1d1f]">作業工数 年 {int(flow.plantHours + flow.cultureHours)}時間（事業全体）</span>
-        ・作業費 {num(flow.perLiter)} 円/L（年 {yen(flow.annual)}）
+        <span className="font-semibold text-[#1d1d1f]">作業工数 年 {int(flow.plantHours + flow.cultureHours)}時間（{current.scale.operating.inventory ? "燃料の追加作業" : "事業全体"}）</span>
+        ・追加人件費 {num(flow.laborPerLiter)} 円/L（年 {yen(flow.laborAnnual)}）
+        <br />外部分析・運送等の経費 {num(flow.expensePerLiter)} 円/L（年 {yen(flow.expenseAnnual)}）
         {flow.unknownCount > 0 && <>／工数が未確認の作業 {flow.unknownCount}件は0時間で数えている</>}
       </p>
       <ol className="mt-1.5 flex flex-col" aria-label="作業の流れ">
@@ -632,7 +640,7 @@ function FuelTaskFlowOverview({ flow, current, onJumpStep }: { flow: FuelTaskFlo
                       {j > 0 && "・"}
                       {r.task.label} {r.amount.occurrences < 10 ? num(r.amount.occurrences, 2) : int(r.amount.occurrences)}回×
                       {r.task.hoursPerOccurrence === null ? <span className="font-semibold text-[#3c3c43]">工数未確認</span> : `${Number(r.amount.hours.toFixed(2)).toLocaleString("ja-JP")}時間`}
-                      {r.task.expensePerOccurrence > 0 ? `＋${yen(r.task.expensePerOccurrence)}` : ""}
+                      {r.amount.expense > 0 ? `＋経費${yen(r.amount.expense)}` : ""}
                     </span>
                   ))}
                 </p>
@@ -642,7 +650,7 @@ function FuelTaskFlowOverview({ flow, current, onJumpStep }: { flow: FuelTaskFlo
         })}
       </ol>
       <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[10px] leading-4 text-[#6e6e73]">
-        <span>棒は1年分の工数（人時、事業全体）。右端は円/L。色は内訳の区分と同じ。</span>
+        <span>棒は追加の人時。右端は人件費と外部経費の合計（円/L）。</span>
         <span className="inline-flex items-center gap-1"><Swatch color={FUEL_CATEGORY_COLOR.biomass} />培養（菌体費に入る）</span>
       </p>
     </div>
@@ -706,7 +714,8 @@ function FuelTaskList({
                 .filter((t) => (t.groupLabel ?? "作業") === g)
                 .map((t) => {
                   const base = (saved.tasks ?? []).find((x) => x.costTaskId === t.costTaskId);
-                  const applies = fuelRowApplies(t, current.conversion, sel);
+                  const qt = fuelQualityTask(t, working.assumptions);
+                  const applies = fuelRowApplies(t, current.conversion, sel) && !qt.inactive;
                   const amt = fuelTaskAmount(t, working.assumptions, current.scale);
                   const perLiter = perLiterOf(t);
                   const driver = t.countDriver as string;
@@ -726,7 +735,7 @@ function FuelTaskList({
                         </span>
                       </div>
                       <Cell label="1回の工数（時間）">
-                        <NumberField
+                        {qt.routine ? <span className="text-[11px] tabular-nums">{num(amt.hours, 2)} 時間<a className="block text-[#0267b2] underline" href="#fuel-g-cond-quality">日常分析の設定</a></span> : <NumberField
                           ariaLabel={`${t.label} 1回の工数`}
                           value={t.hoursPerOccurrence}
                           baseline={base?.hoursPerOccurrence ?? null}
@@ -737,7 +746,7 @@ function FuelTaskList({
                           widthClass="w-full lg:w-[4.5rem]"
                           wrapperClass={FILL}
                           onChange={(v) => onChange("task", t.costTaskId, "hoursPerOccurrence", v)}
-                        />
+                        />}
                       </Cell>
                       <Cell label={`年間回数（${FUEL_TASK_DRIVER_LABEL[driver as FuelTaskDriver] ?? driver}）`} className="col-span-2 lg:col-span-1" align="start">
                         {usesCount ? (
@@ -762,7 +771,7 @@ function FuelTaskList({
                         )}
                       </Cell>
                       <Cell label="1回の経費（円）">
-                        <NumberField
+                        {qt.routine ? <span className="text-[11px] tabular-nums">{yen(amt.expense)}（消耗品）</span> : <NumberField
                           ariaLabel={`${t.label} 1回の経費`}
                           value={t.expensePerOccurrence}
                           baseline={base?.expensePerOccurrence ?? 0}
@@ -771,7 +780,7 @@ function FuelTaskList({
                           widthClass="w-full lg:w-[5.5rem]"
                           wrapperClass={FILL}
                           onChange={(v) => onChange("task", t.costTaskId, "expensePerOccurrence", v ?? 0)}
-                        />
+                        />}
                       </Cell>
                       <Cell label="円/L">
                         <span className="min-h-[44px] w-full text-right text-[13px] font-semibold leading-[44px] tabular-nums text-[#1d1d1f] lg:min-h-0 lg:text-[11px] lg:font-normal lg:leading-normal">
@@ -839,7 +848,7 @@ function FuelItemRows({
             : isCulture
               ? current.biomass.overridePerKg !== null ? 0 : perKg * current.yield.unitKgPerLiter
               : current.scale.annualLiters > 0 ? fuelItemAnnual(i, current.scale, ctx) / current.scale.annualLiters : 0;
-          const flueGasSwitch = i.priceRule === "co2_supply" && flueGas;
+          const flueGasSwitch = !current.scale.operating.carbon.enabled && i.priceRule === "co2_supply" && flueGas;
           const mediumSwitch = i.priceRule === "medium_supply" && wasteMedium;
           const heatSwitch = i.priceRule === "heat_supply" && wasteHeat;
           return (

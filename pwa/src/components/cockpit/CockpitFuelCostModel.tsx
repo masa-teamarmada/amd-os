@@ -216,6 +216,7 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData,
     { key: CO2_FLUE_GAS_ROLE, label: "排ガス", on: flueGasOn, hint: "工場の排ガスを使える（CO2 が0円）" },
     { key: WASTE_HEAT_ROLE, label: "排熱", on: wasteHeatOn, hint: "工場の排熱を使える（培養の加温の熱が0円）" },
   ].flatMap(({ key, label, on, hint }) => {
+    if (key === CO2_FLUE_GAS_ROLE && current.scale.operating.carbon.enabled) return [];
     const a = fuelAssumptionOf(working.assumptions, key);
     if (!a) return [];
     const saved = bundle.assumptions.find((x) => x.costAssumptionId === a.costAssumptionId);
