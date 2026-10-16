@@ -253,7 +253,7 @@ export function FuelResultsPanel({ computed, baseline, current, flow, baselineFl
                 >
                   <span className="flex min-w-0 items-center gap-1 text-[#3c3c43]">
                     <Swatch color={FUEL_CATEGORY_COLOR[key]} />
-                    <span className="truncate">{fuelBreakdownLabelOf(key, current.yield.secreting)}</span>
+                    <span className="truncate">{current.breakdown.find((slice) => slice.key === key)?.label ?? fuelBreakdownLabelOf(key, current.yield.secreting)}</span>
                   </span>
                   <span className="order-last col-span-3 h-2 overflow-hidden sm:order-none sm:col-span-1" aria-hidden="true">
                     <span className="block h-full rounded-r-[4px]" style={{ width: `${Math.max((slice.perLiter / maxSlice) * 100, 0)}%`, backgroundColor: FUEL_CATEGORY_COLOR[key] }} />
