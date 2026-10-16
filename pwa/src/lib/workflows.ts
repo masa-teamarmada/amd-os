@@ -13,6 +13,12 @@ export function currentMailText(value:string) {
 export function classifyContractMail(input:{subject:string;body:string;filenames:string[];labels:string[];from:string;bulk:boolean;knownThread:boolean}):MailEventKind|null {
  if(input.labels.some(label=>['DRAFT','SPAM','TRASH'].includes(label)))return null;
  if(/パスワード|認証コード|ワンタイム|password|verification code/i.test(input.subject))return null;
+ // Service notices and meeting minutes can contain contract words in footers or
+ // summaries. They are not a new contract exchange or a seal request.
+ const subject=input.subject.normalize('NFKC');
+ if(/^メモ[:：]/.test(subject)||/^承認されていない申請があります[。.]?.*ジョブカン/.test(subject))return null;
+ if(!/契約書|秘密保持|守秘義務|\bNDA\b|\bMOU\b|覚書|合意書|発注書|注文書|業務委託|共同研究契約|ライセンス契約|署名依頼|押印依頼/i.test(subject)&&
+  /詐欺に注意|偽のセキュリティ警告|ログイン時のセキュリティ|利用可能枠変更|お引き落としのご連絡|ご返却ありがとうございました/.test(subject))return null;
  const text=[input.subject,currentMailText(input.body),...input.filenames].join('\n');
  const signature=/押印|合意締結|電子契約|クラウドサイン|docusign|(?:署名|sign(?:ature|ing)).*(?:依頼|完了|済|契約|お願い|required|request|complete)|(?:契約|agreement).*(?:署名|signature|signing)/i.test(text);
  if(input.bulk&&!signature)return null;

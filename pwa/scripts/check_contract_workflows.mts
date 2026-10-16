@@ -9,6 +9,11 @@ assert.equal(classifyContractMail({...input,subject:'NDA',labels:['SPAM']}),null
 assert.equal(classifyContractMail({...input,subject:'パスワードのお知らせ NDA'}),null);
 assert.equal(classifyContractMail({...input,subject:'契約社員の求人情報'}),null);
 assert.equal(classifyContractMail({...input,subject:'NDA講座',bulk:true}),null);
+for(const subject of ['メモ: 「SX定例MTG」（2026年10月14日）','承認されていない申請があります。｜ジョブカンワークフロー','【必読】BizSTATION 【詐欺に注意】偽のセキュリティ警告画面','【WAN-Sign】 ログイン時のセキュリティ強化方法のご案内','freeeカード Unlimited 利用可能枠変更のお知らせ','お引き落としのご連絡','［WiFiレンタル］ご返却ありがとうございました']) {
+ assert.equal(classifyContractMail({...input,subject,body:'契約更新の確認、解約条件について。署名・押印が完了した。'}),null,subject);
+}
+assert.equal(classifyContractMail({...input,subject:'業務委託契約書 ログイン時のセキュリティ条項の修正案'}),'exchange');
+assert.equal(classifyContractMail({...input,subject:'コメント通知：秘密保持誓約書｜ジョブカンワークフロー'}),'exchange');
 assert.equal(classifyContractMail({...input,subject:'Re: ご連絡',body:'承知しました。',knownThread:true}),'exchange');
 assert.equal(classifyContractMail({...input,subject:'Re: 日程',body:'来週でお願いします。\nOn Thursday, someone wrote:\n署名依頼 NDA'}),null);
 assert.equal(classifyContractMail({...input,subject:'日程',body:'来週\n> 秘密保持契約書'}),null);

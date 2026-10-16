@@ -28,9 +28,11 @@ export async function GET(req:NextRequest) {
  db.from('members').select('member_id,code_name').eq('status','active'),
  db.from('workflow_requests').select('request_id',{count:'exact',head:true}).eq('status','submitted'),db.from('projects').select('project_id,project_name').order('project_id'),focusContractId?db.from('contracts').select('contract_id,contract_title,counterparty_name,contract_type,amd_entity_name,project_id,status,signed_document_id').eq('contract_id',focusContractId).eq('relationship_scope','amd_contract').eq('registry_status','accepted').not('status','in','(signed,cancelled)').maybeSingle():Promise.resolve({data:null,error:null})]);
  for(const result of results)if(result.error)throw result.error;
+ const focusedRequest=focusContractId?await db.from('workflow_requests').select('request_id').eq('contract_id',focusContractId).order('created_at',{ascending:false}).limit(1).maybeSingle():null;
+ if(focusedRequest?.error)throw focusedRequest.error;
  const [requests,options,mail,deliveries,monitor,rule,members,pending]=results;
  const candidates=[...(options.data||[])];const focused=results[9].data as typeof candidates[number]|null;if(focused&&!candidates.some(c=>c.contract_id===focused.contract_id))candidates.unshift(focused);
- return NextResponse.json({ok:true,actor:actor.member_id,requests:requests.data,requestCount:requests.count,pendingCount:pending.count,contracts:candidates,contractCount:options.count,mailEvents:mail.data,mailCount:mail.count,deliveries:deliveries.data,monitor:monitor.data,rule:rule.data,members:members.data,projects:results[8].data},{headers:{'Cache-Control':'private, no-store'}});
+ return NextResponse.json({ok:true,focusedRequestId:focusedRequest?.data?.request_id||null,actor:actor.member_id,requests:requests.data,requestCount:requests.count,pendingCount:pending.count,contracts:candidates,contractCount:options.count,mailEvents:mail.data,mailCount:mail.count,deliveries:deliveries.data,monitor:monitor.data,rule:rule.data,members:members.data,projects:results[8].data},{headers:{'Cache-Control':'private, no-store'}});
  }catch{return NextResponse.json({ok:false,error:'業務フローを読み込めなかった。接続の確認が必要'},{status:500});}
 }
 export async function POST(req:NextRequest) {

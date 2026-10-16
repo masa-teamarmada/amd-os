@@ -612,7 +612,7 @@ function contractReviewItems(contract: LedgerContract, project: Project | undefi
   return items;
 }
 
-export function ContractsClient() {
+export function ContractsClient({ initialContractId = "" }: { initialContractId?: string } = {}) {
   const [contracts, setContracts] = useState<ContractRow[]>([]);
   const [documents, setDocuments] = useState<ContractDocument[]>([]);
   const [signals, setSignals] = useState<ContractSignal[]>([]);
@@ -620,7 +620,7 @@ export function ContractsClient() {
   const [nudges, setNudges] = useState<ContractNudge[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [driveDestination, setDriveDestination] = useState<ContractsResponse["driveDestination"] | null>(null);
-  const [selectedId, setSelectedId] = useState("");
+  const [selectedId, setSelectedId] = useState(initialContractId);
   const [createOpen, setCreateOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ledger");
@@ -742,7 +742,7 @@ export function ContractsClient() {
   }, [docsByContract, ledgerContracts, projectById]);
 
   const selected = useMemo(
-    () => ledgerContracts.find((contract) => contract.contract_id === selectedId) || null,
+    () => ledgerContracts.find((contract) => contract.contract_id === selectedId || contract.related_contract_ids.includes(selectedId)) || null,
     [ledgerContracts, selectedId],
   );
   const selectedProject = selected ? projectById.get(selected.project_id) : undefined;
@@ -1134,6 +1134,7 @@ export function ContractsClient() {
           <div>
             <p className="text-[11px] font-semibold text-slate-500">管理 / 契約</p>
             <h1 className="text-2xl font-semibold tracking-normal text-slate-950">契約台帳</h1>
+            <a href="/admin/workflows" className="mt-1 inline-flex min-h-11 items-center text-sm font-medium text-primary underline underline-offset-2">契約フローの確認・取下げ</a>
           </div>
           <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-800">
             <ShieldCheck className="h-3 w-3" /> 管理者限定

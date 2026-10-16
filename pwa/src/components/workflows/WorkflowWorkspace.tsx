@@ -21,12 +21,13 @@ export function WorkflowWorkspace({embedded=false,initialContractId='',initialRe
  const detailHeading=useRef<HTMLHeadingElement>(null);const detailSequence=useRef(0);
  const [data,setData]=useState<Data|null>(null);const [error,setError]=useState('');const [busy,setBusy]=useState(false);const [selected,setSelected]=useState<WorkflowRequest|null>(null);
  const [events,setEvents]=useState<Event[]>([]);const [documents,setDocuments]=useState<WorkflowDocument[]>([]);const [detailLoading,setDetailLoading]=useState(false);
- const [showForm,setShowForm]=useState(!!initialContractId);const [formContractId,setFormContractId]=useState(initialContractId);
+ const [showForm,setShowForm]=useState(false);const [formContractId,setFormContractId]=useState(initialContractId);
  const [documentId,setDocumentId]=useState('');const [note,setNote]=useState('');const [confirmed,setConfirmed]=useState(false);const [notice,setNotice]=useState('');
  const reload=useCallback(async(offset=0)=>{
   const response=await fetch(`/api/workflows?offset=${offset}${initialContractId?`&focusContractId=${encodeURIComponent(initialContractId)}`:''}`,{cache:'no-store'});const result=await response.json();
   if(!response.ok||!result.ok)throw new Error(result.error||'読み込めなかった');
   setData(old=>({...result,requests:offset?[...(old?.requests||[]),...result.requests]:result.requests}));
+  return result;
  },[initialContractId]);
  const loadDetail=useCallback(async(requestId:string)=>{
   const generation=++detailSequence.current;
@@ -35,7 +36,7 @@ export function WorkflowWorkspace({embedded=false,initialContractId='',initialRe
   if(!response.ok||!result.ok)throw new Error(result.error||'フローを読み込めなかった');
   setSelected(result.request);setEvents(result.events);setDocuments(result.documents);setDocumentId(result.documents.find((d:WorkflowDocument)=>d.is_latest&&d.mime_type==='application/pdf'&&!['signed','draft'].includes(d.document_kind))?.document_id||'');
  },[]);
- useEffect(()=>{let active=true;reload().then(()=>initialRequestId?loadDetail(initialRequestId):undefined).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};},[reload,loadDetail,initialRequestId]);
+ useEffect(()=>{let active=true;reload().then(result=>{if(!active)return;const requestId=initialRequestId||result.focusedRequestId;if(requestId)return loadDetail(requestId);if(initialContractId)setShowForm(true);}).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};},[reload,loadDetail,initialRequestId,initialContractId]);
  const openDetail=async(request:WorkflowRequest)=>{setError('');setSelected(request);setEvents([]);setDocuments([]);setDocumentId('');setConfirmed(false);setNote('');setDetailLoading(true);try{await loadDetail(request.request_id);}catch(e){setError(e instanceof Error?e.message:'読み込めなかった');}finally{setDetailLoading(false);}};
  const perform=async(url:string,body:unknown,message='保存完了')=>{setBusy(true);setError('');try{
   const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const result=await response.json();
@@ -89,7 +90,7 @@ export function WorkflowWorkspace({embedded=false,initialContractId='',initialRe
    {selected.status==='completed'&&signedDocument&&<a className="inline-flex min-h-11 items-center text-primary underline" href={`https://drive.google.com/file/d/${signedDocument.drive_file_id}/view`} target="_blank" rel="noopener noreferrer">照合済みの締結版PDFを開く</a>}
    {!!documents.length&&<details className="border-y border-border"><summary className="min-h-11 cursor-pointer py-3 text-sm font-medium">文書と版の履歴（{documents.length}件）</summary><ul className="divide-y divide-border">{documents.map(doc=><li key={doc.document_id} className="py-2"><a className="inline-flex min-h-11 items-center break-words text-primary underline" href={`https://drive.google.com/file/d/${doc.drive_file_id}/view`} target="_blank" rel="noopener noreferrer">{doc.file_name}</a><p className="text-xs text-muted-foreground">{doc.version_label} / {doc.is_latest?'最新版':'以前の版'}</p></li>)}</ul></details>}
    {actions.restart&&<div className="space-y-2 border-t border-border pt-3"><p className="text-sm leading-6">{selected.contract?.status==='signed'?'締結版が登録されている。契約管理で事実と次の手続きを確認。':'文書・条件を確認して新しい申請を準備。元の承認は使用できない。'}</p><Button className="min-h-11" variant="outline" disabled={busy||selected.contract?.status==='signed'} onClick={()=>void restart()}>再申請を準備</Button></div>}
-   <Link className="inline-flex min-h-11 items-center text-primary underline" href="/admin/contracts">契約管理で条件・文書の版を確認</Link>
+   <Link className="inline-flex min-h-11 items-center text-primary underline" href={`/admin/contracts?contractId=${selected.contract_id}`}>この契約の条件・文書の版を確認</Link>
    {selected.snapshot_file_id&&<details><summary className="min-h-11 cursor-pointer py-3 text-sm font-medium">申請時の契約条件を確認</summary><dl className="divide-y divide-border">{Object.entries((selected.terms_snapshot.operational_terms_json||{}) as Record<string,unknown>).filter(([k,v])=>!!termLabels[k]&&(typeof v==='string'||typeof v==='number')).map(([key,value])=><div key={key} className="py-2"><dt className="text-xs text-muted-foreground">{termLabels[key]}</dt><dd className="whitespace-pre-wrap break-words leading-6">{String(value)}</dd></div>)}</dl></details>}
    <details><summary className="min-h-11 cursor-pointer py-3 text-sm font-medium">申請・承認の履歴</summary>{detailLoading?<p role="status">履歴を読み込み中…</p>:<ol className="divide-y divide-border">{events.map(event=><li key={event.event_id} className="py-2"><p className="text-xs text-muted-foreground">{date(event.created_at)} / {event.actor_member_id?names(event.actor_member_id):'OS'}</p><p className="mt-1 font-medium">{eventLabels[event.action]||'更新'}</p>{event.note&&<p className="mt-1 whitespace-pre-wrap leading-6">{event.note}</p>}</li>)}</ol>}</details>
    {(actions.approve||actions.release||(actions.complete&&!!selected.contract?.signed_document_id))&&<label className="flex min-h-11 items-start gap-2 border-y border-border py-3"><input className="mt-1 size-5 shrink-0" type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/><span className="leading-6">{actions.complete?'登録された締結版を開き、承認対象の内容と一致することを確認した':'固定した最終版PDFと契約条件を確認した'}</span></label>}

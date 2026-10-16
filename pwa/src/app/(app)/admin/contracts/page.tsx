@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: { absolute: "Admin 契約 - AMD OS" } };
 
-export default async function ContractsPage() {
+export default async function ContractsPage({ searchParams }: { searchParams: Promise<{ contractId?: string }> }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user?.email) notFound();
@@ -19,5 +19,6 @@ export default async function ContractsPage() {
 
   if (!member?.is_admin) notFound();
 
-  return <ContractsClient />;
+  const { contractId } = await searchParams;
+  return <ContractsClient initialContractId={contractId} />;
 }
