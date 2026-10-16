@@ -721,3 +721,15 @@ NDA回帰・従来DD検査成功。8GB指定の型検査・対象lint・project-
 
 
 2026-10-14 JST: 技術ページの秘密度とDD掲載状況を分離。一般説明・事業性能・限定技術・核心ノウハウを欄別の理由で管理し、DD非掲載を社内限定と表示する処理を廃止。SOLの全23項目・248行を再分類し、DD原稿と対象を保持。migration505、欄別保存/投影/秘密原文と原数値の拒否を追加。正本spec3-20/5-17、操作manual2-3。
+
+## 2026-10-16 契約通知・取下げの修正と終了記録
+
+作業種別development。まさのテスト契約bの申請と契約を、対象限定でcancelledへ。申請は既存workflow_transitionを利用し、操作履歴・文書を保持。新たな取下げ通知の未送信outboxだけを同一transactionで除去し、対人通知の追加送信なし。対象の未送信残0件をreadback。schema変更・再migrationなし。
+
+1. a8b87835 / v3.162.54: ContractsClientの初期契約指定と集約前ID照合、contractsページのquery受け渡し、台帳見出しのフロー/取下げ入口、workflow GETのfocusedRequestIdと既存申請優先、対象契約への直接リンクを追加。一般的なメール件名のノイズ除外、回帰検査、spec5-6/manual6-7/附則/プラットフォームhandoffを同期。
+2. 指定Slackの実着とworkflow_mail_events/alert_deliveriesを照合。連続通知はメール検知であり、申請イベント通知は初回の各1件だった。除外語だけの暫定修正では足りず、一般語判定と既知スレッドの継続条件を改める方針へ進んだ。
+3. 5e68ea25 / v3.162.55: 具体的文書・署名の根拠を必須化。過去20イベントの契約IDまたは具体的件名で既知スレッドを再判定。通知文の純粋な整形関数を追加し「【契約メール】」と押印申請を区別。実メール7件を読取りだけで再分類して不要4件除外・文書関連3件維持。本文・秘密値をファイルへ保存していない。新規ソースファイル・env・table・column・index・trigger追加なし。
+4. 分類/本人/状態・台帳表/集約検査、tsc、npm run build、正規deployの全検査成功。本番Ready/公開SHA一致。dryRun=1は200/ok、pending0/sent0/failed0、lease解放・監視エラーなし。PC/390pxで新入口、取下げ表示、契約と申請の相互導線を確認。実通知の試験送信なし。既存macOS文書routeのtracing警告2件は継続、bundle検査成功。
+5. 終了再監査時は他作業が先行し、main/origin/mainと本番が864ccc8d / v3.162.56。今回の契約対象ソースに後続変更なし。別チャット「バイオ燃料の脂肪酸原価を確認」が燃料計画の7ファイルをactiveに編集中で、fileChangeの帰属を確認。監査中にmanual2-3/spec5-16/build-infoも増え、別作業は10ファイルとなった。今回のstage/commitへ混入させず同所有者の検証・反映に委ねる。
+
+再開はHANDOFF_CONTRACT_NOTIFICATIONS.mdとSESSION_MIGRATION_PROMPT.md。恒久仕様はspec5-6、使い方manual6-7、不具合はBUGS。既存のpwa/HANDOFF_pwa_rebuild.mdは複数案件の長い履歴のため今回再構成しない。終了文書は既存の画面非表示判定でpushし、再deploy不要。戦略/MTG等の非開発成果物なし、会話の検討材料0件。
