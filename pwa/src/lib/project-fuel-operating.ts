@@ -13,6 +13,7 @@ export const FUEL_OPERATING_NUMERIC_ROLES = [
   "inventory_volume_m3", "inventory_wait_days", "inventory_batches_year",
   "inventory_incremental_annual", "inventory_common_allocation_annual",
   "inventory_biomass_concentration", "inventory_recovery_share",
+  "inventory_equipment_capex", "inventory_equipment_life_years", "inventory_initial_working_capital",
 ] as const;
 
 export const FUEL_OPERATING_ROLES = [...Object.keys(FUEL_OPERATING_CHOICES), ...FUEL_OPERATING_NUMERIC_ROLES];
@@ -29,6 +30,7 @@ export function fuelOperatingOf(assumptions: CostAssumption[]) {
   const wholeLines = row("fuel_equipment_sizing")?.valueText === "whole";
   const inventoryTarget = inventory && row("inventory_sizing")?.valueText === "target";
   const inventoryFromEffluent = inventory && row("inventory_sizing")?.valueText === "effluent";
+  const inventoryExistingEquipment = inventory && !!row("inventory_equipment_capex");
   const smallBatchEquipment = row("fuel_equipment_basis")?.valueText === "small_batch" && row("lipid_secreting_strain")?.valueText === "on";
   const plantValue = row("fuel_plant_capex_override")?.value;
   const plantCapexOverride = typeof plantValue === "number" && Number.isFinite(plantValue) && plantValue >= 0 ? plantValue : null;
@@ -37,9 +39,13 @@ export function fuelOperatingOf(assumptions: CostAssumption[]) {
     ...(wholeLines && !smallBatchEquipment ? ["fuel_plant_capex_override"] : []),
     ...(sunlight ? ["sunlight_productivity_ratio", "sunlight_capex", "sunlight_life_years", "sunlight_opex_annual"] : []),
     ...(inventory ? [...(inventoryTarget || inventoryFromEffluent ? [] : ["inventory_volume_m3"]), "inventory_wait_days", ...(inventoryFromEffluent ? ["inventory_biomass_concentration", "inventory_recovery_share"] : ["inventory_batches_year"]), "inventory_incremental_annual", "inventory_common_allocation_annual"] : []),
-  ].filter((role) => row(role)?.value == null || (["sunlight_life_years", "inventory_biomass_concentration"].includes(role) && value(role) <= 0) || (role === "fuel_plant_capex_override" && plantCapexOverride === null));
+    ...(inventoryExistingEquipment ? ["inventory_equipment_capex", "inventory_equipment_life_years", "inventory_initial_working_capital"] : []),
+  ].filter((role) => row(role)?.value == null || (["sunlight_life_years", "inventory_biomass_concentration", "inventory_equipment_life_years"].includes(role) && value(role) <= 0) || (role === "fuel_plant_capex_override" && plantCapexOverride === null));
   return {
-    sunlight, inventory, inventorySelected, inventoryTarget, inventoryFromEffluent, smallBatchEquipment, wholeLines, plantCapexOverride, productivityFactor, missing,
+    sunlight, inventory, inventorySelected, inventoryTarget, inventoryFromEffluent, inventoryExistingEquipment, smallBatchEquipment, wholeLines, plantCapexOverride, productivityFactor, missing,
+    inventoryEquipmentCapex: inventoryExistingEquipment ? value("inventory_equipment_capex") : 0,
+    inventoryEquipmentCapexAnnual: inventoryExistingEquipment ? value("inventory_equipment_capex") / Math.max(value("inventory_equipment_life_years", 7), 1) : 0,
+    inventoryInitialWorkingCapital: inventoryExistingEquipment ? row("inventory_initial_working_capital")?.value ?? null : null,
     inventoryBiomassConcentration: value("inventory_biomass_concentration"),
     inventoryRecoveryShare: Math.min(value("inventory_recovery_share", 100), 100) / 100,
     inventoryVolumeM3: value("inventory_volume_m3"),
@@ -51,6 +57,12 @@ export function fuelOperatingOf(assumptions: CostAssumption[]) {
     inventoryIncrementalAnnual: inventory ? value("inventory_incremental_annual") : 0,
     commonAllocationAnnual: inventory ? value("inventory_common_allocation_annual") : 0,
   };
+}
+
+/** 既存設備利用の追加採算。設備購入・償却と購入額比の保守は手入力の追加費用で数える。 */
+export function fuelUsesExistingEquipment(item: Pick<CostItem, "costType" | "basis" | "leafLabel">, assumptions: CostAssumption[]): boolean {
+  return fuelOperatingOf(assumptions).inventoryExistingEquipment &&
+    (item.costType === "CAPEX" || (item.basis === "年額固定" && /初期投資の[\d.]+%/.test(item.leafLabel ?? "")));
 }
 
 /** LEDの電力・器具は太陽光主体で除外。槽や保温・循環まで無料にしない。 */

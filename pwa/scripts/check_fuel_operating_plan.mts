@@ -224,3 +224,56 @@ assert.equal(computeFuelScenario(smallBundle, "outsourced", "base", zeroSupply).
 for (const a of effluent.assumptions) if (a.roleKey === "business_annual_volume" || a.roleKey === "offsite_annual_volume") a.value = 0;
 assert.equal(deriveFuelEffluentSupply(effluent, { strain: "wild", application: "dye" })!.annualBiomassKg, 0, "排水ゼロで設備の名目能力を菌体使用量へ使わない");
 console.log("effluent linkage: annual biomass use, selected application, draft volume, waiting time, concentration, share, missing/zero source and FAME output passed");
+
+// 在庫の既存設備利用では、新規購入の参考明細を追加原価へ載せない。
+const existingBundle: CostModelBundle = JSON.parse(fs.readFileSync(new URL("./__fixtures__/sx_fuel_small_scale.json", import.meta.url), "utf8"));
+const sourceBundle: CostModelBundle = JSON.parse(fs.readFileSync(new URL("./__fixtures__/sx_fuel_effluent_source.json", import.meta.url), "utf8"));
+const existingSupply = deriveFuelEffluentSupply(sourceBundle, { strain: "wild", application: "dye" })!;
+const equipmentBefore = computeFuelScenario(existingBundle, "outsourced", "base", existingSupply);
+const extra = (role: string, value: number | null) => {
+  let a = existingBundle.assumptions.find((r) => r.roleKey === role);
+  if (!a) { a = { ...existingBundle.assumptions[0], roleKey: role, costAssumptionId: role, valueText: null }; existingBundle.assumptions.push(a); }
+  a.value = value;
+};
+extra("inventory_equipment_capex", null); extra("inventory_equipment_life_years", 7); extra("inventory_initial_working_capital", null);
+const shared = computeFuelScenario(existingBundle, "outsourced", "base", existingSupply);
+close(shared.scale.annualLiters, equipmentBefore.scale.annualLiters);
+assert.equal(shared.capexInitial, 0);
+assert.equal(shared.capexPerLiter, 0);
+close(shared.totalPerLiter, 887.9280390490546);
+assert.ok(shared.scale.operating.missing.includes("inventory_equipment_capex"));
+const sharedCtx = { assumptions: existingBundle.assumptions, items: existingBundle.items, conversion: "outsourced" as const };
+for (const item of existingBundle.items.filter((r) => r.costType === "CAPEX")) {
+  assert.equal(fuelEffectiveUnitPrice(item, sharedCtx), 0, item.costItemId);
+}
+// 参考の装置価格を何倍にしても既存利用の追加採算は変わらない。
+for (const item of existingBundle.items.filter((r) => r.costType === "CAPEX")) item.unitPrice *= 10;
+close(computeFuelScenario(existingBundle, "outsourced", "base", existingSupply).totalPerLiter, shared.totalPerLiter);
+extra("inventory_equipment_capex", 700000);
+const purchased = computeFuelScenario(existingBundle, "outsourced", "base", existingSupply);
+close(purchased.capexInitial, 700000);
+close(purchased.totalAnnual - shared.totalAnnual, 100000, "追加購入の入力額だけを1回償却");
+close(purchased.confidenceBreakdown.reduce((sum, p) => sum + p.perLiter, 0), purchased.totalPerLiter);
+close(purchased.breakdown.reduce((sum, p) => sum + p.perLiter, 0), purchased.totalPerLiter);
+extra("inventory_initial_working_capital", 500000);
+const funded = computeFuelScenario(existingBundle, "outsourced", "base", existingSupply);
+assert.equal(funded.scale.operating.inventoryInitialWorkingCapital, 500000);
+close(funded.totalAnnual, purchased.totalAnnual, "初回溶媒等の運転資金を年間費用へ再計上しない");
+extra("inventory_equipment_capex", 0);
+for (const conv of ["outsourced", "inhouse"] as const) for (const yc of ["base", "low", "high"] as const) {
+  const sc = computeFuelScenario(existingBundle, conv, yc, existingSupply);
+  assert.equal(sc.capexPerLiter, 0);
+  close(sc.breakdown.reduce((sum, p) => sum + p.perLiter, 0), sc.totalPerLiter);
+  close(sc.confidenceBreakdown.reduce((sum, p) => sum + p.perLiter, 0), sc.totalPerLiter);
+  for (const item of existingBundle.items.filter((i) => scopeApplies(i, fuelSelectionOf(existingBundle.assumptions)))) {
+    const calc = fuelItemCalc(item, sc, { ...sharedCtx, conversion: conv });
+    if (!calc) continue;
+    if (calc.price) close(evaluateCalcSegment(calc.price, null), calc.price.result.value);
+    let previous: number | null = null;
+    for (const seg of calc.segments) { previous = evaluateCalcSegment(seg, previous); close(previous, seg.result.value); }
+  }
+}
+const dedicatedRole = existingBundle.assumptions.find((a) => a.roleKey === "fuel_culture_source")!;
+dedicatedRole.valueText = "dedicated";
+assert.ok(computeFuelScenario(existingBundle, "outsourced", "base").capexInitial > 0, "専用培養では設備投資を残す");
+console.log("existing inventory equipment: no duplicate CAPEX, explicit purchase only, startup working capital separated, dedicated cultivation preserved and totals reconciled");

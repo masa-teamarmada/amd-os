@@ -67,12 +67,17 @@ export function FuelOperatingSummary({ current }: { current: FuelScenarioResult 
       <p className="mt-1 text-[10px] leading-4 text-[#3c3c43]">計算する培養液 {num(s.usedInventoryVolumeM3, 1)} m³ × 年間の待ち期間 {num(s.inventoryExposureDays, 1)} 日 × 分泌速度 × {num(op.productivityFactor * 100, 0)}%。共通培養費の配賦 {yen(op.commonAllocationAnnual)}/年。</p>
     </>}
     {op.sunlight && <p className="mt-1 text-[10px] leading-4 text-[#3c3c43]">LED電力・器具を外し、年間生産性を人工照明比 {num(op.productivityFactor * 100, 0)}%にする。屋外設備・敷地・夜間維持等は追加費用の入力欄で計上。</p>}
-    <p className="mt-1 text-[10px] leading-4 text-[#6e6e73]">{op.wholeLines ? "設備・出荷・分析ロットは1基・1回単位で計上。" : "量産の比例配賦で計算中。"}</p>
-    {s.productionBatchesYear !== null && <p className="mt-1 text-[10px] leading-4 text-[#3c3c43]">回収・製造作業 {num(s.productionBatchesYear, 0)} 回/年。燃料化設備 {yen(current.plantCapexInitial)}、回収等の追加設備 {yen(current.biomass.capexInitial)}。設備費・工数は明細の仮置き値から計算。</p>}
+    {op.inventoryExistingEquipment && <div className="mt-1.5 rounded-md border border-[#d2d2d7] bg-white px-2 py-1.5 text-[11px] leading-4 text-[#1d1d1f]" data-testid="fuel-existing-equipment">
+      <p className="font-semibold">既存設備を使う追加採算</p>
+      <p className="mt-1">培養・保管・回収・燃料化の設備購入費と償却、設備価格比の固定保守費は自動計上0円。追加購入する設備と追加の運転費は入力した分を加算。</p>
+      <p className="mt-1">追加購入設備 {op.missing.includes("inventory_equipment_capex") ? "未見積" : yen(op.inventoryEquipmentCapex)}。初回の溶媒等の運転資金 {op.inventoryInitialWorkingCapital === null ? "未見積" : yen(op.inventoryInitialWorkingCapital)}（年間原価と別表示）。</p>
+    </div>}
+    <p className="mt-1 text-[10px] leading-4 text-[#6e6e73]">{op.inventoryExistingEquipment ? "既存設備の利用能力から作業量を算定。出荷・分析は1回単位。" : op.wholeLines ? "設備・出荷・分析ロットは1基・1回単位で計上。" : "量産の比例配賦で計算中。"}</p>
+    {s.productionBatchesYear !== null && <p className="mt-1 text-[10px] leading-4 text-[#3c3c43]">回収・製造作業 {num(s.productionBatchesYear, 0)} 回/年。{op.inventoryExistingEquipment ? `追加設備の償却 ${num(current.capexPerLiter, 1)} 円/L。作業・薬品・消耗溶媒・電力等を追加の運転費として計上。` : `燃料化設備 ${yen(current.plantCapexInitial)}、回収等の追加設備 ${yen(current.biomass.capexInitial)}。設備費・工数は明細の仮置き値から計算。`}</p>}
     {op.wholeLines && !op.smallBatchEquipment && op.plantCapexOverride === null && <p className="mt-1 text-[11px] leading-4 font-semibold text-[#b45309]">小型設備の見積未入力。燃料化設備は従来の大規模参考値で計算中。</p>}
     {shortfall > 0.01 && <p className="mt-1 font-semibold text-[11px] leading-4 text-[#b45309]" data-testid="fuel-volume-shortfall">目標まで {num(shortfall, 1)} L不足。追加培養・出荷延期は含めない。</p>}
     {s.inventoryScheduleExceeded && <p className="mt-1 text-[10px] leading-4 text-[#b45309]">{op.inventoryFromEffluent ? "出荷待ち日数が年間の稼働日数を超えるため、稼働日数を上限にした。" : "待ち日数×年間回数が稼働日数を超えるため、稼働日数を上限にした。並行する槽は培養液量へ含める。"}</p>}
-    {op.missing.length > 0 && <p className="mt-1 text-[11px] leading-4 font-semibold text-[#b45309]" data-testid="fuel-operating-missing">未入力の条件・追加費用 {op.missing.length}件。表示原価は入力済みの費用のみ。</p>}
+    {op.missing.length > 0 && <p className="mt-1 text-[11px] leading-4 font-semibold text-[#b45309]" data-testid="fuel-operating-missing">未入力の条件・追加費用{op.inventoryExistingEquipment ? "・開始資金" : ""} {op.missing.length}件。表示原価は入力済みの費用のみ。</p>}
     {s.annualLiters <= 0 && <p className="mt-1 text-[11px] font-semibold text-[#b45309]">生産量が0のため、1Lあたりの採算は算定できない。</p>}
   </section>;
 }

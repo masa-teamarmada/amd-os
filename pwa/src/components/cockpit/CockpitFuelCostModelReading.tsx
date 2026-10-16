@@ -100,7 +100,7 @@ export function FuelReadingSections({ saved, working, computed, current }: Props
       section: "燃料1Lあたり（円/L）",
       rows: [
         ...current.breakdown.map((slice) => ({ label: `　${slice.label}`, get: (s: FuelScenarioResult) => num(s.breakdown.find((x) => x.key === slice.key)?.perLiter ?? 0) })),
-        { label: "　総コスト", get: (s) => num(s.totalPerLiter), strong: true, danger: (s) => s.gapToPricePerLiter < 0 },
+        { label: current.scale.operating.inventoryExistingEquipment ? "　追加原価" : "　総コスト", get: (s) => num(s.totalPerLiter), strong: true, danger: (s) => s.gapToPricePerLiter < 0 },
         { label: "　うちCAPEX（培養設備と燃料化設備の償却）", get: (s) => num(s.capexPerLiter), muted: true },
         { label: "　うちOPEX", get: (s) => num(s.opexPerLiter), muted: true },
         { label: "　売価との差", get: (s) => num(s.gapToPricePerLiter), danger: (s) => s.gapToPricePerLiter < 0 },
@@ -119,11 +119,11 @@ export function FuelReadingSections({ saved, working, computed, current }: Props
       ],
     },
     {
-      section: "事業全体（年間）",
+      section: current.scale.operating.inventoryExistingEquipment ? "燃料側の追加採算（年間）" : "事業全体（年間）",
       rows: [
         { label: "　売上", get: (s) => yen(s.revenueAnnual) },
-        { label: "　総コスト", get: (s) => yen(s.totalAnnual), strong: true },
-        { label: "　営業利益（償却後）", get: (s) => yen(s.profitAnnual), danger: (s) => s.profitAnnual < 0 },
+        { label: current.scale.operating.inventoryExistingEquipment ? "　追加費用" : "　総コスト", get: (s) => yen(s.totalAnnual), strong: true },
+        { label: current.scale.operating.inventoryExistingEquipment ? "　追加利益（入力費用控除後）" : "　営業利益（償却後）", get: (s) => yen(s.profitAnnual), danger: (s) => s.profitAnnual < 0 },
         { label: "　利益率", get: (s) => pct(s.marginRate), danger: (s) => s.marginRate < 0 },
         { label: `　売価で成立する${unitLabel}の原価（円/kg 以下）`, get: (s) => (s.breakEvenBiomassPerKg > 0 ? num(s.breakEvenBiomassPerKg) : `${unitLabel}がタダでも赤字`), danger: (s) => s.breakEvenBiomassPerKg <= 0 },
       ],

@@ -151,7 +151,7 @@ export function FuelResultsPanel({ computed, baseline, current, flow, baselineFl
 
       {/* FAME転換 × 収率 の総コスト。内訳の色で積んだ棒を同じ目盛りで並べる。行を押すとその組み合わせを選ぶ。 */}
       <section aria-label="FAME転換と収率ごとの総コスト（円/L）">
-        <h4 className="text-[11px] font-semibold text-[#3c3c43]">総コスト（円/L）</h4>
+        <h4 className="text-[11px] font-semibold text-[#3c3c43]">{s.operating.inventoryExistingEquipment ? "追加原価（円/L）" : "総コスト（円/L）"}</h4>
         <ul className="flex flex-col">
           {FUEL_CONVERSIONS.map((conversion, gi) => (
             <li key={conversion}>
@@ -320,13 +320,13 @@ export function FuelResultsPanel({ computed, baseline, current, flow, baselineFl
             </dd>
           </div>
           <div className="flex items-baseline justify-between gap-x-2" data-testid="fuel-business-annual">
-            <dt className="shrink-0">事業全体の年間</dt>
+            <dt className="shrink-0">{s.operating.inventoryExistingEquipment ? "燃料側の年間追加採算" : "事業全体の年間"}</dt>
             {/* 金額はカンマ区切りの円で長いので、見出しと同じ行から「売上 金額」の組ごとに右寄せで折り返す（排水処理のコスト試算と同じ） */}
             <dd className="flex min-w-0 flex-1 flex-wrap justify-end tabular-nums text-[#1d1d1f]">
               <span className="whitespace-nowrap">売上 {yen(current.revenueAnnual)}・</span>
-              <span className="whitespace-nowrap">総コスト {yen(current.totalAnnual)}・</span>
+              <span className="whitespace-nowrap">{s.operating.inventoryExistingEquipment ? "追加費用" : "総コスト"} {yen(current.totalAnnual)}・</span>
               <span className="whitespace-nowrap">
-                利益 <span className={current.profitAnnual < 0 ? "text-[#be123c]" : ""}>{yen(current.profitAnnual)}</span>
+                {s.operating.inventoryExistingEquipment ? "追加利益" : "利益"} <span className={current.profitAnnual < 0 ? "text-[#be123c]" : ""}>{yen(current.profitAnnual)}</span>
               </span>
             </dd>
           </div>

@@ -156,6 +156,7 @@ PWAの全route・重要UI・iOS画面の対応状況は `../macos/PARITY.md` を
 > 実装: `pwa/src/lib/project-fuel-cost-model.ts`（純関数）/ `pwa/src/components/cockpit/CockpitFuelCostModel*.tsx` / `CockpitTechnology.tsx`。API は `/api/project-cost-model?kind=fuel`（`kind` なしは燃料の試算を読まない）。仕様 `../pwa/spec/5-16-project-fuel-cost-model-current-spec.md`。
 > 2026-10-16: PWA共通本文へ太陽光/人工照明、出荷待ち分泌回収/専用培養、小規模の整数設備・ロット、目標と回収可能量の分離、小型設備の見積総額入力を追加。初期の年間目標10,000Lは仮置き。DB構造は維持し、前提のrole_keyを追加。Nativeの計算画面は引き続き未移植。詳細と検証は `../pwa/HANDOFF_FUEL_OPERATING_20261016.md`。
 > 同日更新: 出荷待ちの初期条件を「排水事業に連動」へ変更。排水側の選択用途・株・試算中の年間量から新規菌体kg/年を参照し、待ち日数・濃度・回収割合・分泌速度・太陽光比率からFAME L/年を出力する。燃料年産の入力は専用培養の比較で使う。分泌回収は小規模バッチの設備・処理回数・追加点検を積上げ、各金額・工数は仮置きと表示。DB構造と権限は維持。Native専用画面は未移植。
+> 同日追加修正: 在庫菌体は既存設備を利用する追加採算。設備購入・償却・設備価格比保守を自動計上0とし、実際の追加購入額と耐用年数から計算する。初回の溶媒等は開始時の運転資金へ分離。追加運転費・作業・薬品・消耗溶媒等は残す。専用培養の全額計上と権限は維持。Native未移植。
 
 > **PWA専用画面（Native未移植）**: PJコックピット `?tab=competition`（事業計画グループ、「技術」の右隣）とPJワークスペース `#competition`（計画・根拠）の
 > 「競合比較」（2026-09-14追加、同日に技術タブの区分から事業計画グループのタブへ移した。**技術台帳に区分 `tech_domain = '競合比較'` のトピックを持つPJだけ**。いまは SX）。

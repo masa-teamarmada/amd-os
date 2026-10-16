@@ -101,6 +101,7 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
         if (role.startsWith("inventory_") && !operating.inventory) return [];
         if (role === "inventory_volume_m3" && (operating.inventoryTarget || operating.inventoryFromEffluent)) return [];
         if (role === "business_annual_volume" && operating.inventoryFromEffluent) return [];
+        if (role === "fuel_plant_capex_override" && operating.inventoryExistingEquipment) return [];
         if (role === "inventory_batches_year" && operating.inventoryFromEffluent) return [];
         if ((role === "inventory_biomass_concentration" || role === "inventory_recovery_share") && !operating.inventoryFromEffluent) return [];
         const a = fuelAssumptionOf(working.assumptions, role, fuelSelectionOf(working.assumptions));
@@ -144,7 +145,7 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
         if (s.operating.inventory || s.operating.sunlight || s.operating.wholeLines) return (
           <Formula testId="fuel-culture-capacity">
             設備1系列の培養液 {num(s.cultureLineVolumeM3, 1)} m³、年間生産性の比率 {num(s.operating.productivityFactor * 100, 0)}%。
-            {s.operating.inventory ? `出荷待ちの培養液 ${num(s.usedInventoryVolumeM3, 1)} m³に必要な追加設備を計上。共通の培養費は年額の配賦欄で扱う。` : `必要な培養設備 ${num(s.cultureLines, 0)} 系列。`}
+            {s.operating.inventory ? `出荷待ちの培養液 ${num(s.usedInventoryVolumeM3, 1)} m³について${s.operating.inventoryExistingEquipment ? "既存設備の利用量を算定。追加購入は入力額だけを計上。" : "必要な追加設備を計上。"}共通の培養費は年額の配賦欄で扱う。` : `必要な培養設備 ${num(s.cultureLines, 0)} 系列。`}
             初期投資 {yen(b.capexInitial)}、培養設備の償却 {num(b.rows.find((r) => r.key === "capex")?.perKg ?? 0)} 円/kg。太陽光の追加設備は「光と培養の使い方」で入力する。
           </Formula>
         );
@@ -346,7 +347,7 @@ function AssumptionControl({ assumption: a, saved, onChange }: { assumption: Cos
     );
   }
   const isOverride = a.roleKey === "biomass_cost_per_kg_override";
-  const optionalEstimate = ["fuel_plant_capex_override", "sunlight_capex", "sunlight_opex_annual", "inventory_incremental_annual", "inventory_common_allocation_annual"].includes(a.roleKey ?? "");
+  const optionalEstimate = ["fuel_plant_capex_override", "sunlight_capex", "sunlight_opex_annual", "inventory_incremental_annual", "inventory_common_allocation_annual", "inventory_equipment_capex", "inventory_initial_working_capital"].includes(a.roleKey ?? "");
   return (
     <li className="flex flex-col gap-1 py-1.5 lg:py-0.5 lg:flex-row lg:items-center lg:gap-2">
       <div className="min-w-0 flex-1 text-[12px] leading-5 text-[#1d1d1f]">

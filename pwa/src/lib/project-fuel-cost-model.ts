@@ -75,7 +75,7 @@ import {
   type CostTask,
 } from "./project-cost-model.ts";
 import { quantityPriceTerms, type CalcSegment, type ItemCalc } from "./cost-item-calc.ts";
-import { FUEL_OPERATING_CHOICES, FUEL_OPERATING_ROLES, fuelOperatingOf, fuelCultureChargeFactor, fuelLineCount, isFuelLightingItem } from "./project-fuel-operating.ts";
+import { FUEL_OPERATING_CHOICES, FUEL_OPERATING_ROLES, fuelOperatingOf, fuelCultureChargeFactor, fuelLineCount, isFuelLightingItem, fuelUsesExistingEquipment } from "./project-fuel-operating.ts";
 import type { FuelEffluentSupply } from "./project-fuel-effluent-supply.ts";
 
 /** 燃料の試算の case_kind。排水処理のタブはこの試算を読まない。 */
@@ -797,6 +797,7 @@ function fuelPlantPriceAdjustment(item: CostItem, ctx: FuelPriceContext): { over
  */
 export function fuelEffectiveUnitPrice(item: CostItem, ctx?: FuelPriceContext): number {
   if (!ctx) return item.unitPrice;
+  if (fuelUsesExistingEquipment(item, ctx.assumptions)) return 0;
   if (fuelOperatingOf(ctx.assumptions).sunlight && isFuelLightingItem(item)) return 0;
   const adjustment = fuelPlantPriceAdjustment(item, ctx);
   if (adjustment) return item.unitPrice * safeDiv(adjustment.override, adjustment.reference);
@@ -824,6 +825,11 @@ export function fuelEffectiveUnitPrice(item: CostItem, ctx?: FuelPriceContext): 
 
 /** 単価を計算で出す行の、単価の出し方。単価をそのまま使う行 (と排ガスを使わない CO2) は null。 */
 function fuelPriceCalc(item: CostItem, ctx: FuelPriceContext): CalcSegment | null {
+  if (fuelUsesExistingEquipment(item, ctx.assumptions)) return {
+    continues: false,
+    terms: [{ op: null, value: item.unitPrice, unit: item.unitPriceUnit ?? "円" }, { op: "×", value: 0, unit: "", label: "既存設備を利用。追加購入と保守は追加費用欄で計上" }],
+    result: { value: 0, unit: item.unitPriceUnit ?? "円" },
+  };
   if (fuelOperatingOf(ctx.assumptions).sunlight && isFuelLightingItem(item)) return {
     continues: false,
     terms: [{ op: null, value: item.unitPrice, unit: item.unitPriceUnit ?? "円" }, { op: "×", value: 0, unit: "", label: "太陽光主体でLEDは使わない" }],
@@ -1053,7 +1059,7 @@ export function computeFuelBiomassCost(bundle: Pick<CostModelBundle, "assumption
   }
   rowOf("tasks").perKg = safeDiv(tasksAnnual, scale.unitKgYear);
   const op = scale.operating;
-  rowOf("capex").perKg += safeDiv(op.solarCapexAnnual, scale.unitKgYear);
+  rowOf("capex").perKg += safeDiv(op.solarCapexAnnual + op.inventoryEquipmentCapexAnnual, scale.unitKgYear);
   rowOf("fixed").perKg += safeDiv(op.solarOpexAnnual + op.inventoryIncrementalAnnual + op.commonAllocationAnnual, scale.unitKgYear);
   const computedPerKg = rows.reduce((s, r) => s + r.perKg, 0);
   const overrideValue = fuelAssumptionOf(assumptions, "biomass_cost_per_kg_override")?.value;
@@ -1062,7 +1068,7 @@ export function computeFuelBiomassCost(bundle: Pick<CostModelBundle, "assumption
     cultureLines: scale.cultureLines,
     lineCapacityKgYear: lineCap,
     unitKgYear: scale.unitKgYear,
-    capexInitial: lineCapexInitial * scale.cultureLines + op.solarCapex,
+    capexInitial: lineCapexInitial * scale.cultureLines + op.solarCapex + op.inventoryEquipmentCapex,
     lineCapexInitial,
     usefulLifeMinYears: lives.length > 0 ? Math.min(...lives) : null,
     usefulLifeMaxYears: lives.length > 0 ? Math.max(...lives) : null,
@@ -1231,6 +1237,7 @@ export function computeFuelScenario(
 
   const biomassPerLiter = biomass.perKg * y.unitKgPerLiter;
   const operatingParts = [
+    { label: "追加購入設備の償却（入力分）", amount: scale.operating.inventoryEquipmentCapexAnnual, row: "capex" },
     { label: "太陽光利用の追加設備の償却", amount: scale.operating.solarCapexAnnual, row: "capex" },
     { label: "太陽光利用の追加維持費", amount: scale.operating.solarOpexAnnual, row: "fixed" },
     { label: "分泌回収による追加費用・出荷影響", amount: scale.operating.inventoryIncrementalAnnual, row: "fixed" },
@@ -1313,6 +1320,7 @@ export function computeFuelScenario(
         ];
   const allRows = [
     ...[
+      { role: "inventory_equipment_capex", amount: scale.operating.inventoryEquipmentCapexAnnual },
       { role: "sunlight_capex", amount: scale.operating.solarCapexAnnual },
       { role: "sunlight_opex_annual", amount: scale.operating.solarOpexAnnual },
       { role: "inventory_incremental_annual", amount: scale.operating.inventoryIncrementalAnnual },

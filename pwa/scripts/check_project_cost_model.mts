@@ -1030,7 +1030,7 @@ assert.ok(
   assert.match(results, /whitespace-nowrap">売上 \{yen\(current\.businessRevenueAnnual\)\}・/, "事業全体の年間は「売上 金額」の組ごとに折り返す");
   assert.match(results, /data-testid="cost-business-annual">\s*<dt className="shrink-0">[\s\S]*?<dd className="flex min-w-0 flex-1 flex-wrap justify-end/, "事業全体の年間の金額は見出しと同じ行から始める（結果の欄の高さを増やさない）");
   const fuelResults = read("../src/components/cockpit/CockpitFuelCostModelResults.tsx");
-  assert.match(fuelResults, /data-testid="fuel-business-annual">\s*<dt className="shrink-0">事業全体の年間<\/dt>[\s\S]*?<dd className="flex min-w-0 flex-1 flex-wrap justify-end[\s\S]*?whitespace-nowrap">売上 \{yen\(current\.revenueAnnual\)\}・/, "燃料の試算の事業全体の年間も同じ形");
+  assert.match(fuelResults, /data-testid="fuel-business-annual">\s*<dt className="shrink-0">\{s\.operating\.inventoryExistingEquipment \? "燃料側の年間追加採算" : "事業全体の年間"\}<\/dt>[\s\S]*?<dd className="flex min-w-0 flex-1 flex-wrap justify-end[\s\S]*?whitespace-nowrap">売上 \{yen\(current\.revenueAnnual\)\}・/, "燃料の年間追加採算と事業全体の年額は同じ折返し形式");
   // 文章の中の金額も同じ形（まさの言葉をそのまま引いたところだけは書き換えない）
   const QUOTES = ["売上100億到達レベル"];
   const texts: Array<[string, string | null | undefined]> = [];
