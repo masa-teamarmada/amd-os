@@ -144,6 +144,7 @@ export function FuelResultsPanel({ computed, baseline, current, flow, baselineFl
         >
           {/* 数字と単位の途中で折り返さないよう、区切りごとにまとめる */}
           <span className="whitespace-nowrap">年に要る{u} <span className="font-semibold text-[#1d1d1f]">{num(s.unitKgYear, 1)} kg/年</span>・</span>
+          {s.operating.inventoryExistingEquipment && <span>作業量算定用の既存設備換算：</span>}
           <span className="whitespace-nowrap">{FUEL_CULTURE_LABEL} {int(s.cultureLines)} 系列・</span>
           <span className="whitespace-nowrap">{FUEL_PLANT_LABEL} {num(s.plantLines, 1)} 系列</span>
         </p>

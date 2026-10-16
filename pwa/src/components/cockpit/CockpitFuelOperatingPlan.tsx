@@ -59,7 +59,7 @@ export function FuelOperatingSummary({ current }: { current: FuelScenarioResult 
     {op.inventoryFromEffluent && <div className="mt-1.5 text-[10px] leading-4 text-[#3c3c43]" data-testid="fuel-effluent-supply">
       {s.effluentSupply ? <>
         <p>排水処理の{ s.effluentSupply.application === "metal" ? "金属回収" : "色素分解" }・{s.effluentSupply.strainLabel}：オンサイト {num(s.effluentSupply.onsiteVolume, 0)} m³/年＋オフサイト {num(s.effluentSupply.offsiteVolume, 0)} m³/年。{s.effluentSupply.draft ? "排水側の保存前の試算条件を反映。" : "排水側の保存条件を参照。"}</p>
-        <p className="mt-1">菌体使用量 ÷ 培養液の菌体濃度 {num(op.inventoryBiomassConcentration, 2)} kg/m³ × 出荷待ち {num(op.inventoryWaitDays, 1)} 日 × 回収対象 {num(op.inventoryRecoveryShare * 100, 0)}% × 分泌速度 × 年間生産性比率で脂肪酸量を算出し、回収・反応・精製収率を掛ける。年{num(s.cultureOperatingDays, 0)}日の均等出荷を仮置きした平均の出荷待ち培養液 {num(s.usedInventoryVolumeM3, 1)} m³で追加設備を数える。</p>
+        <p className="mt-1">菌体使用量 ÷ 培養液の菌体濃度 {num(op.inventoryBiomassConcentration, 2)} kg/m³ × 出荷待ち {num(op.inventoryWaitDays, 1)} 日 × 回収対象 {num(op.inventoryRecoveryShare * 100, 0)}% × 分泌速度 × 年間生産性比率で脂肪酸量を算出し、回収・反応・精製収率を掛ける。年{num(s.cultureOperatingDays, 0)}日の均等出荷を仮置きした平均の出荷待ち培養液 {num(s.usedInventoryVolumeM3, 1)} m³で{op.inventoryExistingEquipment ? "既存設備の利用量と作業量を算定する。" : "追加設備を数える。"}</p>
       </> : <p className="font-semibold text-[#b45309]">排水処理の試算を読み込むと年間の菌体量とFAME量を計算できる。</p>}
     </div>}
     {op.inventory && !op.inventoryFromEffluent && <>
