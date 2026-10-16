@@ -43,6 +43,8 @@ import { FactoryUtilitySwitches, Segmented } from "@/components/cockpit/CockpitC
 import { FuelControlsPanel } from "@/components/cockpit/CockpitFuelCostModelControls";
 import { FuelResultsPanel, FuelResultsSummaryBar } from "@/components/cockpit/CockpitFuelCostModelResults";
 import { FuelReadingSections } from "@/components/cockpit/CockpitFuelCostModelReading";
+import { FuelOperatingSwitches } from "@/components/cockpit/CockpitFuelOperatingPlan";
+import { FUEL_OPERATING_CHOICES } from "@/lib/project-fuel-operating";
 
 // PJコックピット「事業計画」グループの「コスト試算（燃料）」タブ（コスト試算（廃液）の右隣。2026-09-14 に技術タブの中から移した）。
 // まさ 2026-09-14「OSの技術ページに、新たに『コスト試算（燃料）』を追加してほしい。
@@ -76,6 +78,10 @@ const DEFAULT_VIEW: FuelViewState = { conversion: "outsourced", yieldCase: "base
 
 /** 「保存していない変更」の一覧の値。選択肢で持つ前提 (残渣の行き先・脂質分泌株) は呼び名で出す。 */
 export function formatFuelDraftValue(change: Pick<DraftChange, "field">, value: DraftValue): string {
+  if (change.field === "valueText" && typeof value === "string") {
+    const operating = Object.values(FUEL_OPERATING_CHOICES).flat().find((c) => c.value === value);
+    if (operating) return operating.label;
+  }
   if (change.field === "valueText" && typeof value === "string" && value in FUEL_RESIDUE_ROUTE_LABEL) {
     return FUEL_RESIDUE_ROUTE_LABEL[value as FuelResidueRoute];
   }
@@ -273,12 +279,17 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData 
                       { value: "on" as const, label: LIPID_SECRETION_LABEL },
                     ]}
                     value={secreting ? "on" : "off"}
-                    onChange={(v) => onChange("assumption", secretionAssumption.costAssumptionId, "valueText", v)}
+                    onChange={(v) => {
+                      onChange("assumption", secretionAssumption.costAssumptionId, "valueText", v);
+                      const source = fuelAssumptionOf(working.assumptions, "fuel_culture_source");
+                      if (v === "off" && source?.valueText === "inventory") onChange("assumption", source.costAssumptionId, "valueText", "dedicated");
+                    }}
                   />
                 </div>
               </div>
             )}
             <FactoryUtilitySwitches items={factoryUtilities} />
+            <FuelOperatingSwitches working={working} onChange={onChange} />
             <p className="text-[10px] leading-4 text-[#6e6e73] sm:col-span-2 lg:basis-full" data-testid="fuel-selection-note">
               {FUEL_CONVERSION_LABEL[current.conversion]}＝{FUEL_CONVERSION_DESCRIPTION[current.conversion]}。収率{FUEL_YIELD_CASE_LABEL[current.yieldCase]}＝{FUEL_YIELD_CASE_DESCRIPTION[current.yieldCase]}。
               {secretionAssumption && <>{LIPID_SECRETION_LABEL}を{secreting ? "使う" : "使わない"}＝{LIPID_SECRETION_DESCRIPTION[secreting ? "on" : "off"]}。</>}

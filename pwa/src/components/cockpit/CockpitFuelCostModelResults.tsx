@@ -21,6 +21,7 @@ import {
   type FuelYieldCase,
 } from "@/lib/project-fuel-cost-model";
 import { CATEGORY_COLOR, Delta, Swatch, int, num, signed, yen } from "@/components/cockpit/CockpitCostModelParts";
+import { FuelOperatingSummary } from "./CockpitFuelOperatingPlan";
 
 // コスト試算（燃料）の結果パネル。操作パネルの横に置き、数字を動かしたときに全体がどう変わるかをスクロールせずに見る。
 // FAME転換 × 収率 の6通りの総コストを内訳の色で積んだ棒で並べ (同じ目盛り)、選んだ組み合わせの内訳を区分ごとの棒と割合で出す。
@@ -42,7 +43,9 @@ export const FUEL_CATEGORY_COLOR: Record<FuelBreakdownKey, string> = {
 
 /** 総コストが売価・目標のどこにあるか。色だけで伝えず、必ず言葉を添える。 */
 export function fuelCostStatus(s: FuelScenarioResult, target: number | null) {
+  if (s.scale.annualLiters <= 0 || s.scale.plantLines <= 0 || s.scale.shipmentsPerYear <= 0 || s.scale.lotsPerYear <= 0) return { label: "算定不可", cls: "text-[#b45309]" };
   if (s.gapToPricePerLiter < 0) return { label: "赤字", cls: "text-[#be123c]" };
+  if (s.scale.operating.missing.length > 0 || s.unknownTaskCount > 0) return { label: "未確認費あり", cls: "text-[#b45309]" };
   if (target !== null && s.totalPerLiter > target) return { label: "目標超", cls: "text-[#b45309]" };
   return { label: target !== null ? "目標内" : "黒字", cls: "text-[#1d1d1f]" };
 }
@@ -122,12 +125,15 @@ export function FuelResultsPanel({ computed, baseline, current, flow, baselineFl
   const scaleMax = Math.max(Math.min(allMax, Math.max(mainMax * 1.25, price * 1.3)), price * 1.1, target ?? 0, 1);
   const maxSlice = Math.max(...current.breakdown.map((x) => x.perLiter), 1);
 
+  if (s.annualLiters <= 0) return <div className="flex flex-col gap-1.5" data-testid="fuel-cost-results"><FuelOperatingSummary current={current} /><p className="px-2 text-[12px] leading-5 text-[#3c3c43]">培養液量・待ち期間・生産性・回収率を入力すると、実生産量と1Lあたりの費用を表示する。</p></div>;
+
   return (
     <div className="flex flex-col gap-1.5" data-testid="fuel-cost-results">
+      <FuelOperatingSummary current={current} />
       {/* 第1段: 菌体 (脂質分泌株のときは脂肪酸) 1kgの原価と、年に要る量・設備の系列数 */}
       <section aria-label={`${u}1kgの原価（第1段）`} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
         <h4 className="text-[11px] font-semibold text-[#3c3c43]">{u}1kgの原価（第1段）</h4>
-        <span className="text-[14px] font-semibold tabular-nums text-[#1d1d1f]">{num(b.perKg)}</span>
+        <span className="text-[14px] font-semibold tabular-nums text-[#1d1d1f]">{s.annualLiters > 0 ? num(b.perKg) : "—"}</span>
         <span className="text-[10px] text-[#6e6e73]">円/kg</span>
         {base && <Delta value={b.perKg - base.biomass.perKg} className="text-[10px]" />}
         {b.overridePerKg !== null && <span className="text-[10px] font-semibold text-[#b45309]">上書き値で計算中</span>}
@@ -137,7 +143,7 @@ export function FuelResultsPanel({ computed, baseline, current, flow, baselineFl
           title={`年に要る${u} ＝ 年間の燃料の量 ${int(s.annualLiters)} L × 燃料1Lに要る${u} ${num(current.yield.unitKgPerLiter, 2)} kg`}
         >
           {/* 数字と単位の途中で折り返さないよう、区切りごとにまとめる */}
-          <span className="whitespace-nowrap">年に要る{u} <span className="font-semibold text-[#1d1d1f]">{int(s.unitKgYear / 1000)} t/年</span>・</span>
+          <span className="whitespace-nowrap">年に要る{u} <span className="font-semibold text-[#1d1d1f]">{num(s.unitKgYear, 1)} kg/年</span>・</span>
           <span className="whitespace-nowrap">{FUEL_CULTURE_LABEL} {int(s.cultureLines)} 系列・</span>
           <span className="whitespace-nowrap">{FUEL_PLANT_LABEL} {num(s.plantLines, 1)} 系列</span>
         </p>
@@ -176,8 +182,8 @@ export function FuelResultsPanel({ computed, baseline, current, flow, baselineFl
                         </span>
                         <span className="flex items-baseline justify-end gap-x-1 tabular-nums">
                           {xb && <Delta value={x.totalPerLiter - xb.totalPerLiter} digits={0} className="text-[9px]" />}
-                          <span className="text-[12px] font-semibold text-[#1d1d1f]">{yenPerL(x.totalPerLiter)}</span>
-                          <span className={`w-[24px] whitespace-nowrap text-left text-[9px] font-semibold ${st.cls}`}>{st.label}</span>
+                          <span className="text-[12px] font-semibold text-[#1d1d1f]">{x.scale.annualLiters > 0 ? yenPerL(x.totalPerLiter) : "—"}</span>
+                          <span className={`min-w-[24px] whitespace-nowrap text-left text-[9px] font-semibold ${st.cls}`}>{st.label}</span>
                         </span>
                       </button>
                     </li>
@@ -350,7 +356,7 @@ export function FuelResultsSummaryBar({
         {changeCount > 0 && <span className="ml-1.5 font-semibold text-[#0267b2]">試算中 {changeCount}件</span>}
       </p>
       <p className="flex flex-wrap items-baseline gap-x-2">
-        <span className="text-[18px] font-semibold tabular-nums text-[#1d1d1f]">{num(current.totalPerLiter)}</span>
+        <span className="text-[18px] font-semibold tabular-nums text-[#1d1d1f]">{current.scale.annualLiters > 0 ? num(current.totalPerLiter) : "—"}</span>
         <span className="text-[11px] text-[#6e6e73]">円/L</span>
         <span className={`text-[11px] font-semibold ${st.cls}`}>{st.label}</span>
         {baseline && <Delta value={current.totalPerLiter - baseline.totalPerLiter} className="text-[11px]" />}

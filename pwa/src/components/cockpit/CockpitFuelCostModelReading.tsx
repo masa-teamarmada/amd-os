@@ -84,7 +84,7 @@ type MetricRow = {
 export function FuelReadingSections({ saved, working, computed, current }: Props) {
   const { model, assumptions, items, questions } = working;
   // CO2 と培養ロス補充の単価は、前提 (排ガス利用可能) とほかの行から出す
-  const priceCtx: FuelPriceContext = { assumptions, items };
+  const priceCtx: FuelPriceContext = { assumptions, items, conversion: current.conversion };
   // 第1段で数える単位の呼び名 (脂質分泌株なら「脂肪酸」、そうでなければ「菌体」)
   const unitLabel = current.yield.unitLabel;
   const tasks = working.tasks ?? [];
@@ -111,7 +111,7 @@ export function FuelReadingSections({ saved, working, computed, current }: Props
       rows: [
         { label: `　燃料1Lに要る${unitLabel}（kg/L）`, get: (s) => num(s.yield.unitKgPerLiter, 2) },
         { label: `　${unitLabel}1kgの原価（円/kg）`, get: (s) => num(s.biomass.perKg) },
-        { label: `　年に要る${unitLabel}（t/年）`, get: (s) => int(s.scale.unitKgYear / 1000) },
+        { label: `　年に要る${unitLabel}（kg/年）`, get: (s) => num(s.scale.unitKgYear, 1) },
         { label: `　${FUEL_CULTURE_LABEL}（系列）`, get: (s) => int(s.scale.cultureLines) },
         { label: `　${FUEL_PLANT_LABEL}（系列）`, get: (s) => num(s.scale.plantLines, 2) },
         { label: "　初期投資（培養設備＋燃料化設備）", get: (s) => yen(s.capexInitial) },

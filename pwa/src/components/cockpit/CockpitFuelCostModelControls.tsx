@@ -46,6 +46,7 @@ import { ConfidenceTag, FlueGasSwitch, NumberField, Swatch, WasteHeatSwitch, Was
 import { FUEL_CATEGORY_COLOR, fuelSelectionLabel } from "@/components/cockpit/CockpitFuelCostModelResults";
 import { CostBreakdownGuide, flashElement, type BreakdownGuideDriver } from "@/components/cockpit/CockpitCostBreakdownGuide";
 import { ItemCalcLine, ItemNoteLine } from "@/components/cockpit/CockpitCostItemCalc";
+import { fuelOperatingOf } from "@/lib/project-fuel-operating";
 
 // コスト試算（燃料）の操作パネル。まだ確定できない数字を、すべてここで動かせるようにする。
 // 書き換えはその場で再計算するだけで保存しない。保存は上の「保存していない変更」から admin が行う。
@@ -87,6 +88,7 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
 
   const assumptionsByGroup = useMemo(() => {
     const map = new Map<string, CostAssumption[]>();
+    const operating = fuelOperatingOf(working.assumptions);
     for (const g of FUEL_PARAM_GROUPS) {
       if (g.key === "cond-yield") continue;
       map.set(g.key, g.roles.flatMap((role) => {
@@ -94,6 +96,9 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
         if (ITEM_INLINE_ROLES.has(role)) return [];
         // 脂質分泌株は枠の上端のスイッチで切り替える
         if (role === LIPID_SECRETION_ROLE) return [];
+        if (role === "fuel_light_source" || role === "fuel_culture_source") return [];
+        if (role.startsWith("sunlight_") && !operating.sunlight) return [];
+        if (role.startsWith("inventory_") && !operating.inventory) return [];
         const a = fuelAssumptionOf(working.assumptions, role, fuelSelectionOf(working.assumptions));
         return a ? [a] : [];
       }));
@@ -126,12 +131,19 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
             売上 ＝ 年間の燃料の量 {int(s.annualLiters)} L × 想定売価 {int(current.salePrice)} 円/L ＝{" "}
             <span className="font-semibold tabular-nums">{yen(current.revenueAnnual)}/年</span>。
             年に要る{u} ＝ {int(s.annualLiters)} L × 燃料1Lに要る{u} {num(current.yield.unitKgPerLiter, 2)} kg（収率{FUEL_YIELD_CASE_LABEL[current.yieldCase]}）＝{" "}
-            <span className="font-semibold tabular-nums">{int(s.unitKgYear / 1000)} t/年</span>。{FUEL_CULTURE_LABEL} {int(s.cultureLines)} 系列・{FUEL_PLANT_LABEL} {num(s.plantLines, 1)} 系列。
+            <span className="font-semibold tabular-nums">{num(s.unitKgYear, 1)} kg/年</span>。{FUEL_CULTURE_LABEL} {int(s.cultureLines)} 系列・{FUEL_PLANT_LABEL} {num(s.plantLines, 1)} 系列。
           </Formula>
         );
       case "cond-biomass":
         return <BiomassFormula scenario={current} />;
       case "capex-culture":
+        if (s.operating.inventory || s.operating.sunlight || s.operating.wholeLines) return (
+          <Formula testId="fuel-culture-capacity">
+            設備1系列の培養液 {num(s.cultureLineVolumeM3, 1)} m³、年間生産性の比率 {num(s.operating.productivityFactor * 100, 0)}%。
+            {s.operating.inventory ? `出荷待ちの培養液 ${num(s.operating.inventoryVolumeM3, 1)} m³に必要な追加設備を計上。共通の培養設備・原料・作業は二重計上しない。` : `必要な培養設備 ${num(s.cultureLines, 0)} 系列。`}
+            初期投資 {yen(b.capexInitial)}、培養設備の償却 {num(b.rows.find((r) => r.key === "capex")?.perKg ?? 0)} 円/kg。太陽光の追加設備は「光と培養の使い方」で入力する。
+          </Formula>
+        );
         return (
           <Formula testId="fuel-culture-capacity">
             {s.secreting && (
@@ -149,7 +161,7 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
       case "capex-plant":
         return (
           <Formula>
-            年に要る{u} {int(s.unitKgYear)} kg ÷ 1系列 {int(s.plantLineCapacityKgYear)} kg ＝ <span className="font-semibold tabular-nums">{num(s.plantLines, 2)} 系列</span>。
+            年に要る{u} {num(s.unitKgYear, 1)} kg ÷ 1系列 {int(s.plantLineCapacityKgYear)} kg{s.operating.wholeLines ? "を切り上げ" : ""} ＝ <span className="font-semibold tabular-nums">{num(s.plantLines, 2)} 系列</span>。
             {FUEL_PLANT_LABEL}の初期投資 <span className="font-semibold tabular-nums">{yen(current.plantCapexInitial)}</span>（1系列 {yen(current.plantLineCapexInitial)}、FAME転換を{current.conversion === "inhouse" ? "自社で行う設備を含む" : "委託するので転換の設備は含まない"}）。
             償却は燃料1Lあたり {num(current.breakdown.find((x) => x.key === "capex")?.perLiter ?? 0)} 円
           </Formula>
@@ -330,6 +342,7 @@ function AssumptionControl({ assumption: a, saved, onChange }: { assumption: Cos
     );
   }
   const isOverride = a.roleKey === "biomass_cost_per_kg_override";
+  const optionalEstimate = ["fuel_plant_capex_override", "sunlight_capex", "sunlight_opex_annual", "inventory_incremental_annual", "inventory_common_allocation_annual"].includes(a.roleKey ?? "");
   return (
     <li className="flex flex-col gap-1 py-1.5 lg:py-0.5 lg:flex-row lg:items-center lg:gap-2">
       <div className="min-w-0 flex-1 text-[12px] leading-5 text-[#1d1d1f]">
@@ -343,9 +356,9 @@ function AssumptionControl({ assumption: a, saved, onChange }: { assumption: Cos
           value={a.value}
           baseline={saved?.value ?? null}
           onChange={(v) => onChange("assumption", a.costAssumptionId, "value", v)}
-          allowNull={isOverride}
-          min={isOverride ? 0 : undefined}
-          placeholder={isOverride ? "空欄＝計算値" : undefined}
+          allowNull={isOverride || optionalEstimate}
+          min={0}
+          placeholder={isOverride ? "空欄＝計算値" : optionalEstimate ? "未見積" : undefined}
           widthClass="w-36 lg:w-24"
         />
         <span className="w-16 text-[11px] text-[#6e6e73]">{a.unit}</span>
@@ -535,8 +548,8 @@ function BiomassFormula({ scenario }: { scenario: FuelScenarioResult }) {
   const life = b.usefulLifeMinYears === null ? "—" : b.usefulLifeMinYears === b.usefulLifeMaxYears ? `${b.usefulLifeMinYears}年` : `${b.usefulLifeMinYears}〜${b.usefulLifeMaxYears}年`;
   const u = scenario.yield.unitLabel;
   const lines: Array<[string, string, number]> = [
-    ["培養設備の償却", `1系列の初期投資 ${yen(b.lineCapexInitial)} ÷ 耐用 ${life} ÷ 1系列 ${int(s.cultureLineCapacityUnitYear)} kg`, row("capex")],
-    ["年ごとの固定費", `1系列の年額 ${yen(b.cultureLines > 0 ? b.fixedOpexAnnual / b.cultureLines : 0)} ÷ 1系列 ${int(s.cultureLineCapacityUnitYear)} kg`, row("fixed")],
+    ["培養設備の償却", `償却年額 ${yen(b.capexAnnual)} ÷ 年間の${u} ${num(s.unitKgYear, 1)} kg（設備耐用 ${life}、太陽光の追加設備を含む）`, row("capex")],
+    ["年ごとの固定費", `年額 ${yen(b.fixedOpexAnnual)} ÷ 年間の${u} ${num(s.unitKgYear, 1)} kg（維持費・共通費配賦等を含む）`, row("fixed")],
     ["培養の作業", `年 ${yen(b.tasksAnnual)} ÷ 年に要る${u} ${int(s.unitKgYear)} kg（作業リスト）`, row("tasks")],
     [`${u}の量に比例する費用`, s.secreting ? `培地・CO2・溶媒など 1kgあたりの単価（菌体1kgあたりの行は 入れ替える菌体 ${num(s.cellMakeupPerUnit, 2)} kg を掛ける）` : "培地・CO2・濃縮など 1kgあたりの単価", row("variable")],
   ];
@@ -544,7 +557,7 @@ function BiomassFormula({ scenario }: { scenario: FuelScenarioResult }) {
     <div className="mt-1.5 rounded-md bg-[#f5f5f7] px-2 py-1.5 lg:py-0.5 text-[11px] leading-5 text-[#3c3c43]" data-testid="fuel-biomass-formula">
       <p className="font-semibold text-[#1d1d1f]">
         {u}1kgの原価 <span className="tabular-nums">{num(b.computedPerKg)} 円/kg</span>
-        <span className="font-normal text-[#6e6e73]">（明細と作業から計算。設備は系列の数だけ並べるので、1kgあたりは作る量でほとんど変わらない）</span>
+        <span className="font-normal text-[#6e6e73]">（明細と作業、追加費用から計算。固定費は実生産量で割る）</span>
       </p>
       <ul className="mt-0.5">
         {lines.map(([label, formula, perKg]) => (
@@ -790,7 +803,7 @@ function FuelItemRows({
   onChange: FuelChangeHandler;
 }) {
   // CO2 と培養ロス補充の単価は、前提 (排ガス利用可能) とほかの行から出す
-  const ctx: FuelPriceContext = { assumptions: working.assumptions, items: working.items };
+  const ctx: FuelPriceContext = { assumptions: working.assumptions, items: working.items, conversion: current.conversion };
   const flueGas = fuelAssumptionOf(working.assumptions, CO2_FLUE_GAS_ROLE);
   const sel = fuelSelectionOf(working.assumptions);
   const savedFlueGas = flueGas ? saved.assumptions.find((a) => a.costAssumptionId === flueGas.costAssumptionId) : undefined;

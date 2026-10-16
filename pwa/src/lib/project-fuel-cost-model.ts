@@ -75,6 +75,7 @@ import {
   type CostTask,
 } from "./project-cost-model.ts";
 import { quantityPriceTerms, type CalcSegment, type ItemCalc } from "./cost-item-calc.ts";
+import { FUEL_OPERATING_CHOICES, FUEL_OPERATING_ROLES, fuelOperatingOf, fuelCultureChargeFactor, fuelLineCount, isFuelLightingItem } from "./project-fuel-operating.ts";
 
 /** 燃料の試算の case_kind。排水処理のタブはこの試算を読まない。 */
 export const FUEL_CASE_KIND = "biodiesel";
@@ -272,6 +273,7 @@ export const FUEL_RESIDUE_ROUTE_LABEL: Record<FuelResidueRoute, string> = {
 
 /** 画面で選択肢から選ぶ前提 (value_text に入れる)。 */
 export const FUEL_TEXT_CHOICE_ROLES: Record<string, Array<{ value: string; label: string }>> = {
+  ...FUEL_OPERATING_CHOICES,
   residue_route: [
     { value: "digestion", label: FUEL_RESIDUE_ROUTE_LABEL.digestion },
     { value: "disposal", label: FUEL_RESIDUE_ROUTE_LABEL.disposal },
@@ -283,6 +285,8 @@ export const FUEL_TEXT_CHOICE_ROLES: Record<string, Array<{ value: string; label
 };
 
 export const FUEL_ROLE_KEYS = new Set<string>([
+  "fuel_plant_capex_override",
+  ...FUEL_OPERATING_ROLES,
   "business_annual_volume",
   "sale_price",
   "fame_density",
@@ -341,11 +345,12 @@ export const FUEL_PARAM_BLOCKS: FuelParamBlock[] = [
 ];
 
 export const FUEL_PARAM_GROUPS: FuelParamGroup[] = [
+  { key: "cond-operating", block: "conditions", title: "光と培養の使い方", hint: "太陽光の生産性は人工照明に対する年間の比率。夜間・曇天・季節を含む仮定で、維持運転は止めない。出荷待ち回収は出荷量・品質・出荷日を保つ範囲で計算する", roles: [...FUEL_OPERATING_ROLES] },
   { key: "cond-scale", block: "conditions", title: "事業の規模と売価", hint: "事業全体の年間の燃料の量から、売上と、年に要る菌体の量・設備の系列数が決まる", roles: ["business_annual_volume", "sale_price"] },
   { key: "cond-yield", block: "conditions", title: "菌体から取れる燃料（収率）", hint: "低位・基準・改善の3ケース。掛け合わせて、燃料1Lに要る量が決まる。脂質分泌株のときは分泌速度と培養液からの回収率が効き、FAMEポテンシャル・菌体回収率・脂質抽出回収率は効かない", roles: [...FUEL_YIELD_ROLES, ...FUEL_SECRETION_YIELD_ROLES, "fame_density", LIPID_SECRETION_ROLE] },
   { key: "cond-biomass", block: "conditions", title: "菌体の原価", hint: "空欄なら培養設備の明細と作業から計算する", roles: ["biomass_cost_per_kg_override"] },
   { key: "capex-culture", block: "capex", title: "培養設備（菌体をつくる）", hint: "培養設備1系列の明細と、1系列で年に作れる菌体の量。年に要る量に合わせて系列を並べる。脂質分泌株のときは、この量と菌体の生産性・稼働日数から1系列の培養液量を出し、分泌速度を掛けて1系列が年に出す脂肪酸を計算する", roles: ["culture_line_capacity_kg_year", "culture_biomass_productivity", "culture_operating_days"] },
-  { key: "capex-plant", block: "capex", title: "燃料化設備：脱水・油回収", hint: "燃料化設備1系列の明細と、1系列で処理できる菌体の量。委託でも自社でも要る", roles: ["plant_line_capacity_kg_year"] },
+  { key: "capex-plant", block: "capex", title: "燃料化設備：脱水・油回収", hint: "設備1系列の能力と見積総額。総額の上書きは選んだ委託/自社構成の設備と連動保守費へ比例配分する。作業頻度は人件費で別に変更する", roles: ["plant_line_capacity_kg_year", "fuel_plant_capex_override"] },
   { key: "capex-conversion", block: "capex", title: "燃料化設備：FAME転換（自社で行うときだけ）", hint: "FAMEへの転換と精製の設備。燃料化設備1系列あたり", roles: [] },
   { key: "capex-shipping", block: "capex", title: "燃料化設備：製品の貯蔵・出荷", hint: "FAMEの貯槽と出荷の設備。燃料化設備1系列あたり", roles: [] },
   { key: "opex-labor", block: "opex", title: "人件費（作業）", hint: "作業単価は共通の1つ。作業ごとに1回の工数・年間回数・1回の経費を入れる", roles: ["labor_rate"], tasks: true },
@@ -513,6 +518,11 @@ export function fuelUnitFactorOf(item: Pick<CostItem, "basis" | "quantityUnit" |
 }
 
 export interface FuelScale {
+  operating: ReturnType<typeof fuelOperatingOf>;
+  requestedAnnualLiters: number;
+  availableAnnualLiters: number | null;
+  inventoryExposureDays: number;
+  inventoryScheduleExceeded: boolean;
   /** 年間の燃料の量 (事業全体、L/年)。 */
   annualLiters: number;
   /** 年に要る第1段の単位 (kg/年) = 年間の燃料の量 × 燃料1Lに要る量。分泌株なら脂肪酸、そうでなければ乾燥菌体。 */
@@ -546,26 +556,45 @@ export interface FuelScale {
 
 export function fuelScaleOf(assumptions: CostAssumption[], y: FuelYield): FuelScale {
   const sel = fuelSelectionOf(assumptions);
-  const annualLiters = Math.max(fuelRoleValue(assumptions, "business_annual_volume", 0), 0);
-  const unitKgYear = annualLiters * y.unitKgPerLiter;
+  const operating = fuelOperatingOf(assumptions);
+  const requestedAnnualLiters = Math.max(fuelRoleValue(assumptions, "business_annual_volume", 0), 0);
   // 排液を培地に使えるときは、増える速さの倍率 (前提 waste_medium_growth_factor) を1系列で年に作れる量と生産性に掛ける
   // (杉浦先生 2026-09-15「排液を入れると4倍くらい速く増えた」。実験室の観察で、大きな槽では光が律速になる可能性がある)
   const growthFactor = wasteMediumOn(fuelAssumptionOf(assumptions, WASTE_MEDIUM_ROLE))
     ? (() => { const v = fuelRoleValue(assumptions, WASTE_MEDIUM_GROWTH_ROLE, 1); return Number.isFinite(v) && v > 0 ? v : 1; })()
     : 1;
-  const cultureLineCapacityKgDcwYear = fuelRoleValue(assumptions, "culture_line_capacity_kg_year", 0) * growthFactor;
+  const nominalCapacity = fuelRoleValue(assumptions, "culture_line_capacity_kg_year", 0) * growthFactor;
+  const cultureLineCapacityKgDcwYear = nominalCapacity * operating.productivityFactor;
   const cultureOperatingDays = Math.max(fuelRoleValue(assumptions, "culture_operating_days", 0), 0);
   const cultureBiomassProductivity = Math.max(fuelRoleValue(assumptions, "culture_biomass_productivity", 0), 0) * growthFactor;
   // 1系列の培養液量 (m³): 年に作れる菌体 (kg) ÷ (生産性 g/L/日 × 稼働日数 日) … g/L/日 × 日 = g/L = kg/m³
-  const cultureLineVolumeM3 = safeDiv(cultureLineCapacityKgDcwYear, cultureBiomassProductivity * cultureOperatingDays);
+  const cultureLineVolumeM3 = safeDiv(nominalCapacity, cultureBiomassProductivity * cultureOperatingDays);
   // 分泌株のとき、1系列が1年に出す脂肪酸 (kg) = 培養液量 (m³ = 1,000L) × 分泌速度 (g/L/日) × 稼働日数 ÷ 1,000 (g→kg)
   const cultureLineCapacityUnitYear = y.secreting
-    ? cultureLineVolumeM3 * y.secretionRatePerLiterDay * cultureOperatingDays
+    ? cultureLineVolumeM3 * y.secretionRatePerLiterDay * cultureOperatingDays * operating.productivityFactor
     : cultureLineCapacityKgDcwYear;
+  // 同じ槽の待ち期間を稼働日数内に収め、燃料目標のために出荷を延ばさない。
+  const requestedExposureDays = operating.inventoryWaitDays * operating.inventoryBatchesYear;
+  const inventoryExposureDays = Math.min(requestedExposureDays, cultureOperatingDays);
+  const availableAnnualLiters = operating.inventory
+    ? operating.inventoryVolumeM3 * inventoryExposureDays * y.secretionRatePerLiterDay * operating.productivityFactor * y.litersPerKgDcw
+    : null;
+  const annualLiters = availableAnnualLiters === null
+    ? (cultureLineCapacityUnitYear > 0 && y.litersPerKgDcw > 0 ? requestedAnnualLiters : 0)
+    : Math.min(requestedAnnualLiters, availableAnnualLiters);
+  const unitKgYear = annualLiters * y.unitKgPerLiter;
+  const cultureLines = operating.inventory
+    ? fuelLineCount(safeDiv(operating.inventoryVolumeM3, cultureLineVolumeM3), operating.wholeLines)
+    : fuelLineCount(safeDiv(unitKgYear, cultureLineCapacityUnitYear), operating.wholeLines);
   const plantLineCapacityKgYear = fuelRoleValue(assumptions, "plant_line_capacity_kg_year", 0, sel);
   const truckCapacityLiters = fuelRoleValue(assumptions, "truck_capacity_l", 0);
   const lotSizeLiters = fuelRoleValue(assumptions, "lot_size_l", 0);
   return {
+    operating,
+    requestedAnnualLiters,
+    availableAnnualLiters,
+    inventoryExposureDays,
+    inventoryScheduleExceeded: operating.inventory && requestedExposureDays > cultureOperatingDays,
     annualLiters,
     unitKgYear,
     cultureLineCapacityUnitYear,
@@ -573,15 +602,15 @@ export function fuelScaleOf(assumptions: CostAssumption[], y: FuelYield): FuelSc
     cultureLineVolumeM3,
     cultureOperatingDays,
     cultureBiomassProductivity,
-    cultureLines: safeDiv(unitKgYear, cultureLineCapacityUnitYear),
+    cultureLines,
     secreting: y.secreting,
     cellMakeupPerUnit: y.cellMakeupPerUnit,
     plantLineCapacityKgYear,
-    plantLines: safeDiv(unitKgYear, plantLineCapacityKgYear),
+    plantLines: fuelLineCount(safeDiv(unitKgYear, plantLineCapacityKgYear), operating.wholeLines),
     truckCapacityLiters,
-    shipmentsPerYear: safeDiv(annualLiters, truckCapacityLiters),
+    shipmentsPerYear: fuelLineCount(safeDiv(annualLiters, truckCapacityLiters), operating.wholeLines),
     lotSizeLiters,
-    lotsPerYear: safeDiv(annualLiters, lotSizeLiters),
+    lotsPerYear: fuelLineCount(safeDiv(annualLiters, lotSizeLiters), operating.wholeLines),
   };
 }
 
@@ -598,7 +627,7 @@ export interface FuelTaskAmount {
 
 /** 作業1行の年額。年額 = 年間回数 × (1回の工数 × 作業単価 + 1回の経費)。工数が空欄 (未確認) の行は0時間で数える。 */
 export function fuelTaskAmount(task: CostTask, assumptions: CostAssumption[], scale: FuelScale): FuelTaskAmount {
-  const count = Math.max(task.countPerYear ?? 0, 0);
+  const count = Math.max(task.countPerYear ?? 0, 0) * (task.scenario === "中央培養" ? fuelCultureChargeFactor(task, assumptions) : 1);
   const driver = task.countDriver as string;
   const occurrences =
     driver === "production_line" ? count * scale.cultureLines
@@ -662,7 +691,7 @@ export function fuelResidueOf(assumptions: CostAssumption[], y?: Pick<FuelYield,
   const dry = Math.max(fuelRoleValue(assumptions, "residue_dry_kg_per_kg_dcw", 0), 0);
   const secreting = y ? y.secreting : fuelSecretionOn(assumptions);
   const makeup = y ? y.cellMakeupPerUnit : Math.max(fuelRoleValue(assumptions, "cell_makeup_kg_per_unit", 0), 0);
-  const dryKgPerUnit = secreting ? dry * makeup : dry;
+  const dryKgPerUnit = fuelOperatingOf(assumptions).inventory ? 0 : secreting ? dry * makeup : dry;
   const pricePerKgDry = route === "disposal"
     ? Math.max(fuelRoleValue(assumptions, "residue_wet_factor", 0), 0) * Math.max(fuelRoleValue(assumptions, "residue_disposal_price", 0), 0)
     : fuelRoleValue(assumptions, "residue_digestion_cost", 0);
@@ -729,6 +758,17 @@ export interface FuelBiomassCost {
 export interface FuelPriceContext {
   assumptions: CostAssumption[];
   items: CostItem[];
+  conversion?: FuelConversion;
+}
+
+function fuelPlantPriceAdjustment(item: CostItem, ctx: FuelPriceContext): { override: number; reference: number } | null {
+  const override = fuelOperatingOf(ctx.assumptions).plantCapexOverride;
+  if (item.scenario === "中央培養" || override === null ||
+      !(item.costType === "CAPEX" || /初期投資の[\d.]+%/.test(item.leafLabel ?? ""))) return null;
+  const scopes = fuelScopesFor(ctx.conversion ?? "outsourced") as string[];
+  const sel = fuelSelectionOf(ctx.assumptions);
+  const reference = ctx.items.filter((i) => i.costType === "CAPEX" && !i.isBreakdown && i.basis !== "内訳" && scopes.includes(i.scenario) && scopeApplies(i, sel)).reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
+  return { override, reference };
 }
 
 /**
@@ -738,6 +778,9 @@ export interface FuelPriceContext {
  */
 export function fuelEffectiveUnitPrice(item: CostItem, ctx?: FuelPriceContext): number {
   if (!ctx) return item.unitPrice;
+  if (fuelOperatingOf(ctx.assumptions).sunlight && isFuelLightingItem(item)) return 0;
+  const adjustment = fuelPlantPriceAdjustment(item, ctx);
+  if (adjustment) return item.unitPrice * safeDiv(adjustment.override, adjustment.reference);
   switch (item.priceRule) {
     case "co2_supply":
       return flueGasOn(fuelAssumptionOf(ctx.assumptions, CO2_FLUE_GAS_ROLE)) ? 0 : item.unitPrice;
@@ -762,6 +805,17 @@ export function fuelEffectiveUnitPrice(item: CostItem, ctx?: FuelPriceContext): 
 
 /** 単価を計算で出す行の、単価の出し方。単価をそのまま使う行 (と排ガスを使わない CO2) は null。 */
 function fuelPriceCalc(item: CostItem, ctx: FuelPriceContext): CalcSegment | null {
+  if (fuelOperatingOf(ctx.assumptions).sunlight && isFuelLightingItem(item)) return {
+    continues: false,
+    terms: [{ op: null, value: item.unitPrice, unit: item.unitPriceUnit ?? "円" }, { op: "×", value: 0, unit: "", label: "太陽光主体でLEDは使わない" }],
+    result: { value: 0, unit: item.unitPriceUnit ?? "円" },
+  };
+  const adjustment = fuelPlantPriceAdjustment(item, ctx);
+  if (adjustment) return {
+    continues: false,
+    terms: [{ op: null, value: item.unitPrice, unit: item.unitPriceUnit ?? "円" }, { op: "×", value: adjustment.override, unit: "円", label: "小型設備の見積総額" }, { op: "÷", value: adjustment.reference, unit: "円", label: "選んだ構成の参考設備総額" }],
+    result: { value: fuelEffectiveUnitPrice(item, ctx), unit: item.unitPriceUnit ?? "円" },
+  };
   switch (item.priceRule) {
     case "co2_supply":
       return co2SupplyCalc(item, flueGasOn(fuelAssumptionOf(ctx.assumptions, CO2_FLUE_GAS_ROLE)));
@@ -794,18 +848,22 @@ export function fuelCultureItemPerKg(
   item: CostItem,
   lineCapacityKgYear: number,
   ctx?: FuelPriceContext,
-  unit?: Pick<FuelYield, "secreting" | "cellMakeupPerUnit">
+  unit?: Pick<FuelYield, "secreting" | "cellMakeupPerUnit"> & Partial<Pick<FuelScale, "unitKgYear" | "cultureLines">>
 ): number {
   if (item.isBreakdown || item.basis === "内訳" || item.costType === "参考") return 0;
-  const base = item.quantity * fuelEffectiveUnitPrice(item, ctx) * item.annualFactor * (unit ? fuelUnitFactorOf(item, unit) : 1);
+  const charged = ctx ? fuelCultureChargeFactor(item, ctx.assumptions) : 1;
+  const base = item.quantity * fuelEffectiveUnitPrice(item, ctx) * item.annualFactor * (unit ? fuelUnitFactorOf(item, unit) : 1) * charged;
+  const op = ctx ? fuelOperatingOf(ctx.assumptions) : null;
+  const utilizationApplies = (op?.wholeLines || op?.inventory) && unit?.unitKgYear !== undefined && unit.cultureLines !== undefined;
+  const effectiveCapacity = utilizationApplies ? safeDiv(unit.unitKgYear!, unit.cultureLines!) : lineCapacityKgYear;
   switch (item.basis) {
     case "初期投資配賦":
-      return safeDiv(safeDiv(base, item.usefulLifeYears ?? 0), lineCapacityKgYear);
+      return safeDiv(safeDiv(base, item.usefulLifeYears ?? 0), effectiveCapacity);
     case "年額固定":
-      return safeDiv(base, lineCapacityKgYear);
+      return safeDiv(base, effectiveCapacity);
     case "毎kg菌体比例":
       // 作る量に比例する設備 (LED の照明器具など) は、耐用年数で割って1年あたりにする
-      return isScaledCapex(item) ? safeDiv(base, item.usefulLifeYears ?? 0) : base;
+      return isScaledCapex(item) ? safeDiv(base, item.usefulLifeYears ?? 0) * (utilizationApplies ? safeDiv(lineCapacityKgYear, effectiveCapacity) : 1) : base;
     default:
       return 0;
   }
@@ -818,6 +876,7 @@ export function fuelCultureItemPerKg(
  * 右端に額を出さない行 (発生しない・内訳・参考) と、年間の燃料の量が0の燃料化の工場の行は null。
  */
 export function fuelItemCalc(item: CostItem, scenario: FuelScenarioResult, ctx?: FuelPriceContext): ItemCalc | null {
+  if (ctx) ctx = { ...ctx, conversion: scenario.conversion };
   if (item.isBreakdown || item.basis === "内訳" || item.costType === "参考") return null;
   const s = scenario.scale;
   const kgPerLiter = scenario.yield.unitKgPerLiter;
@@ -846,6 +905,29 @@ export function fuelItemCalc(item: CostItem, scenario: FuelScenarioResult, ctx?:
     result: { value: perKg * kgPerLiter, unit: "円/L" },
   });
   const excluded = isCulture && scenario.biomass.overridePerKg !== null ? `${unitLabel}の原価を上書きしているので、この行は燃料の原価に入らない` : null;
+  // 小規模・出荷待ちでは設備の実稼働率と共通費除外も同じ式で説明する。
+  if (s.operating.wholeLines || s.operating.inventory || s.operating.sunlight) {
+    const charged = isCulture && ctx ? fuelCultureChargeFactor(item, ctx.assumptions) : 1;
+    const terms = [...head, ...(charged === 1 ? [] : [{ op: "×" as const, value: charged, unit: "", label: "共通培養費は年額の配賦欄で扱う" }])];
+    const start = { continues: false, terms, result: { value: base * charged, unit: "円", label: "入力単位あたり" } } satisfies CalcSegment;
+    const conversionTerms: CalcSegment["terms"] = [];
+    const times = (value: number, label: string, unit = "") => conversionTerms.push({ op: "×", value, unit, label });
+    const divide = (value: number, label: string, unit = "") => conversionTerms.push({ op: "÷", value, unit, label });
+    if (item.basis === "初期投資配賦" || isScaledCapex(item)) divide(item.usefulLifeYears ?? 0, "耐用年数", "年");
+    if (item.basis === "初期投資配賦" || item.basis === "年額固定" || isScaledCapex(item)) {
+      if (isScaledCapex(item)) times(s.cultureLineCapacityUnitYear, "1系列の年間生産能力", "kg/年");
+      times(isCulture ? s.cultureLines : s.plantLines, s.operating.wholeLines ? "1基単位で計上した系列数" : "系列数", "系列");
+      divide(s.annualLiters, "年間の実生産量", "L/年");
+    } else if (item.basis === "毎kg菌体比例") times(kgPerLiter, `燃料1Lに要る${unitLabel}`, "kg/L");
+    else if (item.basis === "バッチ連動") {
+      times(s.lotsPerYear, "年間の分析ロット", "回");
+      divide(s.annualLiters, "年間の実生産量", "L/年");
+    }
+    let result = base * charged;
+    for (const t of conversionTerms) result = t.op === "÷" ? safeDiv(result, t.value) : result * t.value;
+    const segments = conversionTerms.length ? [start, { continues: true, terms: conversionTerms, result: { value: result, unit: "円/L" } }] : [{ ...start, result: { value: result, unit: "円/L" } }];
+    return { price, excluded, segments };
+  }
   switch (item.basis) {
     case "初期投資配賦": {
       const annual = safeDiv(base, item.usefulLifeYears ?? 0);
@@ -930,12 +1012,12 @@ export function computeFuelBiomassCost(bundle: Pick<CostModelBundle, "assumption
     const perKg = fuelCultureItemPerKg(i, lineCap, ctx, scale);
     if (i.basis === "初期投資配賦") {
       rowOf("capex").perKg += perKg;
-      lineCapexInitial += i.quantity * i.unitPrice;
+      lineCapexInitial += i.quantity * fuelEffectiveUnitPrice(i, ctx) * fuelCultureChargeFactor(i, assumptions);
       if (i.usefulLifeYears && i.quantity * i.unitPrice > 0) lives.push(i.usefulLifeYears);
     } else if (isScaledCapex(i)) {
       // 作る量に比例する設備: 1系列ぶんの初期投資は「1kgあたりの量 × 単価 × 1系列が1年に作る(出す)量」
       rowOf("capex").perKg += perKg;
-      lineCapexInitial += i.quantity * i.unitPrice * fuelUnitFactorOf(i, scale) * lineCap;
+      lineCapexInitial += i.quantity * fuelEffectiveUnitPrice(i, ctx) * fuelUnitFactorOf(i, scale) * lineCap * fuelCultureChargeFactor(i, assumptions);
       if (i.usefulLifeYears && i.quantity * i.unitPrice > 0) lives.push(i.usefulLifeYears);
     } else if (i.basis === "年額固定") rowOf("fixed").perKg += perKg;
     else if (i.basis === "毎kg菌体比例") {
@@ -951,6 +1033,9 @@ export function computeFuelBiomassCost(bundle: Pick<CostModelBundle, "assumption
     taskHoursAnnual += amount.annualHours;
   }
   rowOf("tasks").perKg = safeDiv(tasksAnnual, scale.unitKgYear);
+  const op = scale.operating;
+  rowOf("capex").perKg += safeDiv(op.solarCapexAnnual, scale.unitKgYear);
+  rowOf("fixed").perKg += safeDiv(op.solarOpexAnnual + op.inventoryIncrementalAnnual + op.commonAllocationAnnual, scale.unitKgYear);
   const computedPerKg = rows.reduce((s, r) => s + r.perKg, 0);
   const overrideValue = fuelAssumptionOf(assumptions, "biomass_cost_per_kg_override")?.value;
   const overridePerKg = typeof overrideValue === "number" && Number.isFinite(overrideValue) && overrideValue >= 0 ? overrideValue : null;
@@ -958,7 +1043,7 @@ export function computeFuelBiomassCost(bundle: Pick<CostModelBundle, "assumption
     cultureLines: scale.cultureLines,
     lineCapacityKgYear: lineCap,
     unitKgYear: scale.unitKgYear,
-    capexInitial: lineCapexInitial * scale.cultureLines,
+    capexInitial: lineCapexInitial * scale.cultureLines + op.solarCapex,
     lineCapexInitial,
     usefulLifeMinYears: lives.length > 0 ? Math.min(...lives) : null,
     usefulLifeMaxYears: lives.length > 0 ? Math.max(...lives) : null,
@@ -1116,7 +1201,7 @@ export function computeFuelScenario(
   const perLiter = (annual: number) => safeDiv(annual, liters);
   const scopes = fuelScopesFor(conversion) as string[];
 
-  const ctx: FuelPriceContext = { assumptions, items: bundle.items };
+  const ctx: FuelPriceContext = { assumptions, items: bundle.items, conversion };
   const sel = fuelSelectionOf(assumptions);
   const items = bundle.items.filter((i) => scopes.includes(i.scenario) && !i.isBreakdown && i.basis !== "内訳" && i.costType !== "参考" && scopeApplies(i, sel));
   const itemRows = items.map((i) => ({ item: i, annual: fuelItemAnnual(i, scale, ctx), key: fuelBreakdownKeyOf(i) }));
@@ -1125,9 +1210,18 @@ export function computeFuelScenario(
     .map((t) => ({ task: t, amount: fuelTaskAmount(t, assumptions, scale), key: fuelBreakdownKeyOf(t) }));
 
   const biomassPerLiter = biomass.perKg * y.unitKgPerLiter;
+  const operatingParts = [
+    { label: "太陽光利用の追加設備の償却", amount: scale.operating.solarCapexAnnual, row: "capex" },
+    { label: "太陽光利用の追加維持費", amount: scale.operating.solarOpexAnnual, row: "fixed" },
+    { label: "分泌回収による追加費用・出荷影響", amount: scale.operating.inventoryIncrementalAnnual, row: "fixed" },
+    { label: "共通培養費の燃料側への配賦", amount: scale.operating.commonAllocationAnnual, row: "fixed" },
+  ];
   const biomassParts: FuelBreakdownPart[] = biomass.overridePerKg !== null
     ? [{ label: `${y.unitLabel}の原価（上書き値）`, perLiter: biomassPerLiter, groupKey: "cond-biomass" }]
-    : biomass.rows.map((r) => ({ label: r.label, perLiter: r.perKg * y.unitKgPerLiter, groupKey: FUEL_BIOMASS_PART_GROUP[r.key] }));
+    : [
+      ...biomass.rows.map((r) => ({ label: r.label, perLiter: r.perKg * y.unitKgPerLiter - perLiter(operatingParts.filter((p) => p.row === r.key).reduce((sum, p) => sum + p.amount, 0)), groupKey: FUEL_BIOMASS_PART_GROUP[r.key] })),
+      ...operatingParts.filter((p) => p.amount !== 0).map((p) => ({ label: p.label, perLiter: perLiter(p.amount), groupKey: "cond-operating" })),
+    ];
 
   const partsOf: Record<FuelBreakdownKey, FuelBreakdownPart[]> = {
     biomass: biomassParts,
@@ -1154,7 +1248,7 @@ export function computeFuelScenario(
   const cultureCapexPerLiter = biomass.overridePerKg !== null ? 0 : (biomass.rows.find((r) => r.key === "capex")?.perKg ?? 0) * y.unitKgPerLiter;
   const capexPerLiter = plantCapexPerLiter + cultureCapexPerLiter;
 
-  const plantLineCapexInitial = items.filter((i) => i.costType === "CAPEX").reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+  const plantLineCapexInitial = items.filter((i) => i.costType === "CAPEX").reduce((s, i) => s + i.quantity * fuelEffectiveUnitPrice(i, ctx), 0);
   const plantCapexInitial = plantLineCapexInitial * scale.plantLines;
 
   const salePrice = fuelRoleValue(assumptions, "sale_price", 0);
@@ -1198,6 +1292,15 @@ export function computeFuelScenario(
             })),
         ];
   const allRows = [
+    ...[
+      { role: "sunlight_capex", amount: scale.operating.solarCapexAnnual },
+      { role: "sunlight_opex_annual", amount: scale.operating.solarOpexAnnual },
+      { role: "inventory_incremental_annual", amount: scale.operating.inventoryIncrementalAnnual },
+      { role: "inventory_common_allocation_annual", amount: scale.operating.commonAllocationAnnual },
+    ].filter((x) => x.amount !== 0 && biomass.overridePerKg === null).map((x) => {
+      const a = fuelAssumptionOf(assumptions, x.role);
+      return { id: x.role, label: a?.label ?? x.role, scope: "中央培養", confidence: a?.confidence ?? "H" as CostConfidence, sourceKind: a?.sourceKind ?? null, owner: a?.owner ?? null, perLiter: perLiter(x.amount) };
+    }),
     ...cultureRows,
     ...itemRows.map((r) => ({ id: r.item.costItemId, label: fuelItemLabel(r.item), scope: r.item.scenario, confidence: r.item.confidence, sourceKind: r.item.sourceKind, owner: r.item.owner, perLiter: perLiter(r.annual) })),
     ...taskRows.map((r) => ({ id: r.task.costTaskId, label: r.task.label, scope: r.task.scenario, confidence: r.task.confidence, sourceKind: r.task.sourceKind, owner: r.task.owner, perLiter: perLiter(r.amount.annual) })),
@@ -1247,7 +1350,7 @@ export function computeFuelScenario(
     capexInitial: plantCapexInitial + biomass.capexInitial,
     plantTaskHours: taskRows.reduce((s, r) => s + r.amount.annualHours, 0),
     plantTaskAnnual: taskRows.reduce((s, r) => s + r.amount.annual, 0),
-    unknownTaskCount: [...taskRows.map((r) => r.task), ...tasks.filter((t) => t.scenario === "中央培養" && scopeApplies(t, sel))].filter((t) => t.hoursPerOccurrence === null || t.hoursPerOccurrence === undefined).length,
+    unknownTaskCount: [...taskRows.map((r) => r.task), ...tasks.filter((t) => t.scenario === "中央培養" && scopeApplies(t, sel) && fuelCultureChargeFactor(t, assumptions) > 0)].filter((t) => t.hoursPerOccurrence === null || t.hoursPerOccurrence === undefined).length,
     revenueAnnual: salePrice * liters,
     totalAnnual: totalPerLiter * liters,
     profitAnnual: (salePrice - totalPerLiter) * liters,
@@ -1323,7 +1426,7 @@ export function computeFuelTaskFlow(bundle: Pick<CostModelBundle, "assumptions" 
     step.hours += amount.annualHours;
     step.annual += amount.annual;
     step.perLiter += perLiter;
-    if (task.hoursPerOccurrence === null || task.hoursPerOccurrence === undefined) step.unknownCount += 1;
+    if ((task.hoursPerOccurrence === null || task.hoursPerOccurrence === undefined) && (!isCulture || fuelCultureChargeFactor(task, bundle.assumptions) > 0)) step.unknownCount += 1;
   }
   const cultureHours = steps.reduce((s, st) => s + st.rows.filter((r) => r.isCulture).reduce((u, r) => u + r.amount.annualHours, 0), 0);
   const allHours = steps.reduce((s, st) => s + st.hours, 0);
