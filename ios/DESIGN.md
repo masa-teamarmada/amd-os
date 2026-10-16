@@ -154,6 +154,7 @@ PWAの全route・重要UI・iOS画面の対応状況は `../macos/PARITY.md` を
 > 同じ `project_cost_*` の前提・明細・作業からクライアントで再計算する（FAME転換 外部に委託 / 自社で行う × 収率 低位 / 基準 / 改善 の6通り。第1段 菌体1kgの原価 → 第2段 菌体費 ＋ 脱水・油回収 ＋ FAMEにする ＋ 残渣の処理 ＋ 品質確認・出荷 ＋ 燃料化設備の償却）。
 > 形は「コスト試算」タブと同じ（左 操作パネル／右 結果の1枠、操作パネルの一番上に総コストの内訳（大きい順、札から小分けへ移る）、作業の流れと工数、事業と製造の条件 / CAPEX / OPEX、明細の行の下に計算の式と根拠（2026-09-14）、3桁カンマ、共通の作業単価、保存しない試算で admin だけ「この値を保存」、ワークスペースは保存なし）。
 > 実装: `pwa/src/lib/project-fuel-cost-model.ts`（純関数）/ `pwa/src/components/cockpit/CockpitFuelCostModel*.tsx` / `CockpitTechnology.tsx`。API は `/api/project-cost-model?kind=fuel`（`kind` なしは燃料の試算を読まない）。仕様 `../pwa/spec/5-16-project-fuel-cost-model-current-spec.md`。
+> 2026-10-16: PWA共通本文へ太陽光/人工照明、出荷待ち分泌回収/専用培養、小規模の整数設備・ロット、目標と回収可能量の分離、小型設備の見積総額入力を追加。初期の年間目標10,000Lは仮置き。DB構造は維持し、前提のrole_keyを追加。Nativeの計算画面は引き続き未移植。詳細と検証は `../pwa/HANDOFF_FUEL_OPERATING_20261016.md`。
 
 > **PWA専用画面（Native未移植）**: PJコックピット `?tab=competition`（事業計画グループ、「技術」の右隣）とPJワークスペース `#competition`（計画・根拠）の
 > 「競合比較」（2026-09-14追加、同日に技術タブの区分から事業計画グループのタブへ移した。**技術台帳に区分 `tech_domain = '競合比較'` のトピックを持つPJだけ**。いまは SX）。
