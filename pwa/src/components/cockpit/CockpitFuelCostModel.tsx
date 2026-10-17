@@ -46,7 +46,7 @@ import { FuelReadingSections } from "@/components/cockpit/CockpitFuelCostModelRe
 import { FuelOperatingSwitches } from "@/components/cockpit/CockpitFuelOperatingPlan";
 import { FUEL_OPERATING_CHOICES } from "@/lib/project-fuel-operating";
 import { FUEL_SOLVENT_CHOICES } from "@/lib/project-fuel-solvent";
-import type { FuelEffluentSupply } from "@/lib/project-fuel-effluent-supply";
+import { inheritFuelCulture, type FuelEffluentSupply } from "@/lib/project-fuel-effluent-supply";
 
 // PJコックピット「事業計画」グループの「コスト試算（燃料）」タブ（コスト試算（廃液）の右隣。2026-09-14 に技術タブの中から移した）。
 // まさ 2026-09-14「OSの技術ページに、新たに『コスト試算（燃料）』を追加してほしい。
@@ -155,7 +155,7 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData,
     void load();
   }, [load]);
 
-  const working = useMemo(() => (bundle ? applyDraft(bundle, draft) : null), [bundle, draft]);
+  const working = useMemo(() => (bundle ? inheritFuelCulture(applyDraft(bundle, draft), effluentSupply) : null), [bundle, draft, effluentSupply]);
   const computed = useMemo(() => (working ? computeFuelCostModel(working, effluentSupply) : null), [working, effluentSupply]);
   const hasDraft = Object.keys(draft).length > 0;
   const baseline = useMemo(() => (bundle && computed ? (hasDraft ? computeFuelCostModel(bundle, effluentSupply) : computed) : null), [bundle, computed, hasDraft, effluentSupply]);
@@ -295,12 +295,12 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData,
                 </div>
               </div>
             )}
-            <FactoryUtilitySwitches items={factoryUtilities} />
+            {!computed.scenarios[0]?.scale.operating.inventory && <FactoryUtilitySwitches items={factoryUtilities} />}
             <FuelOperatingSwitches working={working} onChange={onChange} onOpenEffluent={onOpenEffluent} />
             <p className="text-[10px] leading-4 text-[#6e6e73] sm:col-span-2 lg:basis-full" data-testid="fuel-selection-note">
               {FUEL_CONVERSION_LABEL[current.conversion]}＝{FUEL_CONVERSION_DESCRIPTION[current.conversion]}。収率{FUEL_YIELD_CASE_LABEL[current.yieldCase]}＝{FUEL_YIELD_CASE_DESCRIPTION[current.yieldCase]}。
               {secretionAssumption && <>{LIPID_SECRETION_LABEL}を{secreting ? "使う" : "使わない"}＝{LIPID_SECRETION_DESCRIPTION[secreting ? "on" : "off"]}。</>}
-              {factoryUtilities.length > 0 && (
+              {factoryUtilities.length > 0 && !computed.scenarios[0]?.scale.operating.inventory && (
                 <>
                   {current.scale.operating.carbon.enabled ? "培地・熱源＝" : "工場から＝"}
                   {factoryUtilities.some((u) => u.on)

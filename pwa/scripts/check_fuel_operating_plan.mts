@@ -66,14 +66,14 @@ for (const i of b.items.filter((i) => i.scenario === "中央培養" && i.strain 
 assert.ok(r.biomass.variablePerKg > 0);
 add("inventory_common_allocation_annual", 123456);
 const allocated = computeFuelScenario(b, "outsourced", "base");
-close(allocated.totalAnnual - r.totalAnnual, 123456, "共通費配賦は一度だけ足す");
+close(allocated.totalAnnual - r.totalAnnual, 0, "全培養費は排水側。旧共通費配賦を使わない");
 add("inventory_common_allocation_annual", 0);
 add("sunlight_capex", 300000);
 const extraSolar = computeFuelScenario(b, "outsourced", "base");
-close(extraSolar.capexInitial - r.capexInitial, 200000);
-close(extraSolar.totalAnnual - r.totalAnnual, 20000, "追加屋外設備を償却");
+close(extraSolar.capexInitial - r.capexInitial, 0);
+close(extraSolar.totalAnnual - r.totalAnnual, 0, "屋外の培養設備も排水側");
 add("sunlight_capex", null);
-assert.ok(computeFuelScenario(b, "outsourced", "base").scale.operating.missing.includes("sunlight_capex"));
+assert.ok(!computeFuelScenario(b, "outsourced", "base").scale.operating.missing.includes("sunlight_capex"));
 add("sunlight_capex", 100000);
 
 // 設備の実購入と量産配賦を分ける。年100Lでも1基と最低1ロット。
@@ -149,7 +149,7 @@ assert.equal(design.plantCapexInitial, 4000000);
 assert.equal(computeFuelScenario(smallBundle, "inhouse", "base").plantCapexInitial, 9000000);
 const designFlow = computeFuelTaskFlow(smallBundle, design);
 close(designFlow.plantHours + designFlow.cultureHours, 911);
-close(design.totalPerLiter, 2008.970318161629);
+close(design.totalPerLiter, 789.2099212193468);
 assert.ok(design.totalAnnual < 30000000, "大規模工場の固定費を小規模回収へ戻さない");
 const productionTask = smallBundle.tasks!.find((t) => t.costTaskId === "ctf_sec_plant_operation")!;
 const qcTask = smallBundle.tasks!.find((t) => t.costTaskId === "ctf_ship_qc")!;
@@ -240,7 +240,7 @@ const shared = computeFuelScenario(existingBundle, "outsourced", "base", existin
 close(shared.scale.annualLiters, equipmentBefore.scale.annualLiters);
 assert.equal(shared.capexInitial, 0);
 assert.equal(shared.capexPerLiter, 0);
-close(shared.totalPerLiter, 887.9280390490546);
+close(shared.totalPerLiter, 708.953356392487);
 assert.ok(shared.scale.operating.missing.includes("inventory_equipment_capex"));
 const sharedCtx = { assumptions: existingBundle.assumptions, items: existingBundle.items, conversion: "outsourced" as const };
 for (const item of existingBundle.items.filter((r) => r.costType === "CAPEX")) {
@@ -296,7 +296,7 @@ close(computeFuelTaskFlow(automated, twiceAuto).cultureHours, 75, "拠点の追�
 assert.equal(auto.scale.operating.quality.hybrid, true);
 assert.ok(auto.scale.operating.missing.includes("fuel_lab_capex"));
 assert.ok(auto.scale.operating.missing.includes("fuel_lab_annual"));
-assert.ok(auto.scale.operating.missing.includes("fuel_carbon_delivery_annual"));
+assert.ok(!auto.scale.operating.missing.includes("fuel_carbon_delivery_annual"));
 const upgradedLab = structuredClone(automated);
 autoRole(upgradedLab, "fuel_lab_capex", 700000);
 autoRole(upgradedLab, "fuel_lab_annual", 50000);
@@ -304,18 +304,18 @@ const withLab = computeFuelScenario(upgradedLab, "outsourced", "base", supplyAut
 close(withLab.totalAnnual - auto.totalAnnual, 150000, "分析機器は一度だけ償却し校正維持を加える");
 close(withLab.capexInitial - auto.capexInitial, 700000);
 autoRole(upgradedLab, "fuel_carbon_delivery_annual", 123456);
-close(computeFuelScenario(upgradedLab, "outsourced", "base", supplyAuto).totalAnnual - withLab.totalAnnual, 123456, "送気の追加費を一度だけ加える");
+close(computeFuelScenario(upgradedLab, "outsourced", "base", supplyAuto).totalAnnual - withLab.totalAnnual, 0, "在庫回収では送気費を計上しない");
 const bought = structuredClone(automated);
 autoRole(bought, "fuel_carbon_source", "purchased");
 autoRole(bought, "co2_flue_gas", "on");
 const purchasedAuto = computeFuelScenario(bought, "outsourced", "base", supplyAuto);
-close(purchasedAuto.totalPerLiter - auto.totalPerLiter, 178.97468265656778, "購入CO2は旧排ガススイッチで無料にならない");
+close(purchasedAuto.totalPerLiter - auto.totalPerLiter, 0, "在庫回収では購入CO2も全額排水側");
 const airAuto = structuredClone(automated);
 autoRole(airAuto, "fuel_carbon_source", "air");
 const halfAir = computeFuelScenario(airAuto, "outsourced", "base", supplyAuto);
-close(halfAir.scale.annualLiters, auto.scale.annualLiters / 2, "空気生産性50%を年間FAMEへ反映");
+close(halfAir.scale.annualLiters, auto.scale.annualLiters, "在庫回収では燃料側の炭素源で培養条件を変えない");
 autoRole(airAuto, "fuel_air_productivity_ratio", 0);
-close(computeFuelScenario(airAuto, "outsourced", "base", supplyAuto).scale.annualLiters, 0);
+close(computeFuelScenario(airAuto, "outsourced", "base", supplyAuto).scale.annualLiters, auto.scale.annualLiters);
 const exterior = structuredClone(upgradedLab);
 autoRole(exterior, "fuel_quality_mode", "external");
 const outside = computeFuelScenario(exterior, "outsourced", "base", supplyAuto);

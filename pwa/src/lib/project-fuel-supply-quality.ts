@@ -16,10 +16,11 @@ const value = (a: CostAssumption[], role: string, fallback = 0) => {
 export function fuelCarbonOf(a: CostAssumption[]) {
   const enabled = !!row(a, "fuel_carbon_source") && row(a, "lipid_secreting_strain")?.valueText === "on";
   const source = row(a, "fuel_carbon_source")?.valueText ?? "purchased";
-  const productivityFactor = enabled && source === "air" ? Math.min(value(a, "fuel_air_productivity_ratio", 50), 100) / 100 : 1;
+  const inventory = row(a, "fuel_culture_source")?.valueText === "inventory";
+  const productivityFactor = enabled && !inventory && source === "air" ? Math.min(value(a, "fuel_air_productivity_ratio", 50), 100) / 100 : 1;
   const gasFraction = Math.min(source === "air" ? value(a, "fuel_air_co2_ppm", 400) / 1e6 : source === "flue_gas" ? value(a, "fuel_flue_co2_percent", 5) / 100 : 1, 1);
-  const deliveryAnnual = enabled && source !== "purchased" ? value(a, "fuel_carbon_delivery_annual") : 0;
-  const missing = enabled ? [
+  const deliveryAnnual = enabled && !inventory && source !== "purchased" ? value(a, "fuel_carbon_delivery_annual") : 0;
+  const missing = enabled && !inventory ? [
     ...(source === "air" ? ["fuel_air_productivity_ratio", "fuel_air_co2_ppm"] : []),
     ...(source === "flue_gas" ? ["fuel_flue_co2_percent"] : []),
     ...(source !== "purchased" ? ["fuel_carbon_delivery_annual"] : []),

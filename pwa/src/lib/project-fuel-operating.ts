@@ -41,8 +41,8 @@ export function fuelOperatingOf(assumptions: CostAssumption[]) {
   const productivityFactor = lightProductivityFactor * carbon.productivityFactor;
   const missing = [
     ...(wholeLines && !smallBatchEquipment ? ["fuel_plant_capex_override"] : []),
-    ...(sunlight ? ["sunlight_productivity_ratio", "sunlight_capex", "sunlight_life_years", "sunlight_opex_annual"] : []),
-    ...(inventory ? [...(inventoryTarget || inventoryFromEffluent ? [] : ["inventory_volume_m3"]), "inventory_wait_days", ...(inventoryFromEffluent ? ["inventory_biomass_concentration", "inventory_recovery_share"] : ["inventory_batches_year"]), "inventory_incremental_annual", "inventory_common_allocation_annual"] : []),
+    ...(sunlight && !inventory ? ["sunlight_productivity_ratio", "sunlight_capex", "sunlight_life_years", "sunlight_opex_annual"] : []),
+    ...(inventory ? [...(inventoryTarget || inventoryFromEffluent ? [] : ["inventory_volume_m3"]), "inventory_wait_days", ...(inventoryFromEffluent ? ["inventory_biomass_concentration", "inventory_recovery_share"] : ["inventory_batches_year"]), "inventory_incremental_annual"] : []),
     ...(inventoryExistingEquipment ? ["inventory_equipment_capex", "inventory_equipment_life_years", "inventory_initial_working_capital"] : []),
   ].filter((role) => row(role)?.value == null || (["sunlight_life_years", "inventory_biomass_concentration", "inventory_equipment_life_years"].includes(role) && value(role) <= 0) || (role === "fuel_plant_capex_override" && plantCapexOverride === null));
   missing.push(...carbon.missing, ...quality.missing);
@@ -56,11 +56,11 @@ export function fuelOperatingOf(assumptions: CostAssumption[]) {
     inventoryVolumeM3: value("inventory_volume_m3"),
     inventoryWaitDays: value("inventory_wait_days"),
     inventoryBatchesYear: value("inventory_batches_year"),
-    solarCapex: sunlight ? value("sunlight_capex") : 0,
-    solarCapexAnnual: sunlight ? value("sunlight_capex") / Math.max(value("sunlight_life_years", 10), 1) : 0,
-    solarOpexAnnual: sunlight ? value("sunlight_opex_annual") : 0,
+    solarCapex: sunlight && !inventory ? value("sunlight_capex") : 0,
+    solarCapexAnnual: sunlight && !inventory ? value("sunlight_capex") / Math.max(value("sunlight_life_years", 10), 1) : 0,
+    solarOpexAnnual: sunlight && !inventory ? value("sunlight_opex_annual") : 0,
     inventoryIncrementalAnnual: inventory ? value("inventory_incremental_annual") : 0,
-    commonAllocationAnnual: inventory ? value("inventory_common_allocation_annual") : 0,
+    commonAllocationAnnual: 0,
   };
 }
 
@@ -75,9 +75,11 @@ export function isFuelLightingItem(item: Pick<CostItem, "leafLabel" | "midLabel"
   return /LED|照明/.test(`${item.midLabel ?? ""} ${item.leafLabel ?? ""}`);
 }
 
-/** 出荷待ちでは共通培養を再計上せず、分泌用の追加設備・原料を残す。共通費配賦は年額の入力で別計上。 */
-export function fuelCultureChargeFactor(row: Pick<CostItem | CostTask, "strain">, assumptions: CostAssumption[]): number {
-  return fuelOperatingOf(assumptions).inventory && row.strain !== "secreting" ? 0 : 1;
+/** 出荷待ちでは全培養費を除外。回収の追加溶媒・追加監視のみを残す。 */
+export function fuelCultureChargeFactor(row: Pick<CostItem | CostTask, "strain"> & { leafLabel?: string | null; costTaskId?: string }, assumptions: CostAssumption[]): number {
+  if (!fuelOperatingOf(assumptions).inventory) return 1;
+  // 回収の溶媒補給と追加監視だけを残す。脂肪酸用LED/CO₂も培養側の負担。
+  return row.costTaskId === "ctf_sec_culture_operation" || (row.strain === "secreting" && /溶媒.*補給/.test(row.leafLabel ?? "")) ? 1 : 0;
 }
 
 export function fuelLineCount(required: number, whole: boolean): number {

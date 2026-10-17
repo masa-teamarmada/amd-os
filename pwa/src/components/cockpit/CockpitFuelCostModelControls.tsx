@@ -92,12 +92,14 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
     const operating = fuelOperatingOf(working.assumptions);
     for (const g of FUEL_PARAM_GROUPS) {
       if (g.key === "cond-yield") continue;
-      if (g.key === "cond-carbon" && !operating.carbon.enabled) { map.set(g.key, []); continue; }
+      if (g.key === "cond-carbon" && (!operating.carbon.enabled || operating.inventory)) { map.set(g.key, []); continue; }
       const solventMode = fuelAssumptionOf(working.assumptions, "fuel_solvent_mode")?.valueText;
       if (g.key === "cond-solvent" && (!operating.inventory || !solventMode)) { map.set(g.key, []); continue; }
       map.set(g.key, g.roles.flatMap((role) => {
         // 排ガス利用可能は CO2 の明細の行に出す (まさ 2026-09-14「CO2コストのところに設置してほしい」)
         if (ITEM_INLINE_ROLES.has(role)) return [];
+        if (operating.inventory && (role.startsWith("sunlight_") || role === "inventory_common_allocation_annual" || role === "biomass_cost_per_kg_override")) return [];
+        if (role === "fuel_solvent_loop_capex" && working.assumptions.some((a) => a.roleKey === "fuel_solvent_contact_capex")) return [];
         // 脂質分泌株は枠の上端のスイッチで切り替える
         if (role === LIPID_SECRETION_ROLE) return [];
         if (role === "fuel_light_source" || role === "fuel_culture_source" || role === "inventory_sizing") return [];

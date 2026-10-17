@@ -78,7 +78,7 @@ import { quantityPriceTerms, type CalcSegment, type ItemCalc } from "./cost-item
 import { FUEL_OPERATING_CHOICES, FUEL_OPERATING_ROLES, fuelOperatingOf, fuelCultureChargeFactor, fuelLineCount, isFuelLightingItem, fuelUsesExistingEquipment } from "./project-fuel-operating.ts";
 import { FUEL_SUPPLY_CHOICES, FUEL_CARBON_ROLES, FUEL_QUALITY_ROLES, fuelCarbonOf, fuelQualityOf, fuelQualityTask } from "./project-fuel-supply-quality.ts";
 import { fuelSolventOf, fuelSolventLoopOn, fuelSolventReplaces, FUEL_SOLVENT_ROLES, FUEL_SOLVENT_CHOICES } from "./project-fuel-solvent.ts";
-import type { FuelEffluentSupply } from "./project-fuel-effluent-supply.ts";
+import { inheritFuelCulture, type FuelEffluentSupply } from "./project-fuel-effluent-supply.ts";
 
 /** 燃料の試算の case_kind。排水処理のタブはこの試算を読まない。 */
 export const FUEL_CASE_KIND = "biodiesel";
@@ -818,6 +818,7 @@ function fuelPlantPriceAdjustment(item: CostItem, ctx: FuelPriceContext): { over
  */
 export function fuelEffectiveUnitPrice(item: CostItem, ctx?: FuelPriceContext): number {
   if (!ctx) return item.unitPrice;
+  if (item.scenario === "中央培養" && fuelCultureChargeFactor(item, ctx.assumptions) === 0) return 0;
   if (fuelSolventReplaces(item, ctx.assumptions)) return 0;
   if (item.priceRule === "co2_supply" && fuelCarbonOf(ctx.assumptions).enabled) return fuelCarbonOf(ctx.assumptions).source === "purchased" ? item.unitPrice : 0;
   if (fuelUsesExistingEquipment(item, ctx.assumptions)) return 0;
@@ -849,6 +850,7 @@ export function fuelEffectiveUnitPrice(item: CostItem, ctx?: FuelPriceContext): 
 /** 単価を計算で出す行の、単価の出し方。単価をそのまま使う行 (と排ガスを使わない CO2) は null。 */
 function fuelPriceCalc(item: CostItem, ctx: FuelPriceContext): CalcSegment | null {
   const carbon = fuelCarbonOf(ctx.assumptions);
+  if (item.scenario === "中央培養" && fuelCultureChargeFactor(item, ctx.assumptions) === 0) return { continues: false, terms: [{ op: null, value: item.unitPrice, unit: item.unitPriceUnit ?? "円" }, { op: "×", value: 0, unit: "", label: "培養費はすべて排水事業で負担" }], result: { value: 0, unit: item.unitPriceUnit ?? "円" } };
   if (item.priceRule === "co2_supply" && carbon.enabled) return carbon.source === "purchased" ? null : {
     continues: false,
     terms: [{ op: null, value: item.unitPrice, unit: item.unitPriceUnit ?? "円" }, { op: "×", value: 0, unit: "", label: `${carbon.source === "air" ? "空気" : "排ガス"}から供給。送気・前処理の追加費は年額入力` }],
@@ -962,7 +964,7 @@ export function fuelItemCalc(item: CostItem, scenario: FuelScenarioResult, ctx?:
   // 小規模・出荷待ちでは設備の実稼働率と共通費除外も同じ式で説明する。
   if (s.operating.wholeLines || s.operating.inventory || s.operating.sunlight) {
     const charged = isCulture && ctx ? fuelCultureChargeFactor(item, ctx.assumptions) : 1;
-    const terms = [...head, ...(charged === 1 ? [] : [{ op: "×" as const, value: charged, unit: "", label: "共通培養費は年額の配賦欄で扱う" }])];
+    const terms = [...head, ...(charged === 1 ? [] : [{ op: "×" as const, value: charged, unit: "", label: "培養費はすべて排水事業で負担" }])];
     const start = { continues: false, terms, result: { value: base * charged, unit: "円", label: "入力単位あたり" } } satisfies CalcSegment;
     const conversionTerms: CalcSegment["terms"] = [];
     const times = (value: number, label: string, unit = "") => conversionTerms.push({ op: "×", value, unit, label });
@@ -1095,7 +1097,7 @@ export function computeFuelBiomassCost(bundle: Pick<CostModelBundle, "assumption
   variablePerKg += solventVariable;
   const computedPerKg = rows.reduce((s, r) => s + r.perKg, 0);
   const overrideValue = fuelAssumptionOf(assumptions, "biomass_cost_per_kg_override")?.value;
-  const overridePerKg = typeof overrideValue === "number" && Number.isFinite(overrideValue) && overrideValue >= 0 ? overrideValue : null;
+  const overridePerKg = !op.inventory && typeof overrideValue === "number" && Number.isFinite(overrideValue) && overrideValue >= 0 ? overrideValue : null;
   return {
     cultureLines: scale.cultureLines,
     lineCapacityKgYear: lineCap,
@@ -1250,6 +1252,7 @@ export function computeFuelScenario(
   yieldCase: FuelYieldCase,
   effluentSupply?: FuelEffluentSupply | null,
 ): FuelScenarioResult {
+  bundle = inheritFuelCulture(bundle, effluentSupply);
   const { assumptions } = bundle;
   const tasks = bundle.tasks ?? [];
   const y = fuelYieldOf(assumptions, yieldCase);

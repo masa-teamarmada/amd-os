@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { CULTURE_LIGHT_CHOICES, cultureLightOf } from "@/lib/project-cost-light";
 import {
   APPLICATION_LABEL,
   CO2_FLUE_GAS_ROLE,
@@ -341,6 +342,7 @@ export function CockpitCostModel({ projectId, allowEdit = true, initialData }: P
                 onToggle={(next) => onChange("assumption", reactorAssumption.costAssumptionId, "valueText", next ? "on" : "off")}
               />
             )}
+            {(() => { const a = resolveAssumption(working.assumptions, "culture_light_source"); return a ? <Segmented label="培養光源" ariaLabel="培養光源の切り替え" options={CULTURE_LIGHT_CHOICES} value={cultureLightOf(working.assumptions).source} onChange={(value) => onChange("assumption", a.costAssumptionId, "valueText", value)} /> : null; })()}
             <FactoryUtilitySwitches items={factoryUtilities} />
             <p className="text-[10px] leading-4 text-[#6e6e73] sm:col-span-2 lg:basis-full" data-testid="cost-selection-note">
               {locations.length > 1 && <>{LOCATION_SHORT_LABEL[selection.location]}＝{LOCATION_DESCRIPTION[selection.location]}。</>}

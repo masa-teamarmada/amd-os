@@ -1,3 +1,4 @@
+import { CULTURE_LIGHT_CHOICES, CULTURE_LIGHT_ROLES, cultureLightOf, cultureLightingExcluded } from "./project-cost-light.ts";
 // PJコックピット / PJワークスペース「コスト試算」タブの計算エンジン。
 //
 // 正本は project_cost_assumptions (変数)・project_cost_items (明細)・project_cost_tasks (作業リスト)。
@@ -406,6 +407,7 @@ export type CostInputs = Pick<CostModelBundle, "assumptions" | "items"> & { task
  * (ここに無い前提を動かしても総コストは変わらない)。
  */
 export const COST_ROLE_KEYS = new Set([
+  ...CULTURE_LIGHT_ROLES,
   "customer_total_budget",
   "customer_residual_cost",
   "unpriced_extra_cost",
@@ -1014,6 +1016,7 @@ export function cultureLossSources<T extends Pick<CostItem, "costItemId" | "scen
 
 /** 画面で選択肢から選ぶ前提 (value_text に入れる)。 */
 export const TEXT_CHOICE_ROLES: Record<string, Array<{ value: string; label: string }>> = {
+  culture_light_source: CULTURE_LIGHT_CHOICES,
   onsite_tank_bearer: [
     { value: "customer", label: TANK_BEARER_LABEL.customer },
     { value: "sx", label: TANK_BEARER_LABEL.sx },
@@ -1183,6 +1186,7 @@ export const COST_PARAM_BLOCKS: CostParamBlock[] = [
 ];
 
 export const COST_PARAM_GROUPS: CostParamGroup[] = [
+  { key: "cond-light", block: "conditions", title: "菌体の製造拠点の光源", hint: "培養用の照明設備・電力は排水事業で負担。太陽光は年間生産性の比率で必要系列数を計算。顧客の処理槽には適用しない。屋外化等の未見積費は追加年額換算へ入力", roles: CULTURE_LIGHT_ROLES },
   { key: "cond-budget", block: "conditions", title: "顧客総額の上限と残存費", hint: "設備償却・運転・清掃等を含む提供総額。未確認欄は合計に含めず、残枠を確定利益とみなさない。SOL料金は総額上限から顧客負担を引いて導出", roles: ["customer_total_budget", "customer_residual_cost", "unpriced_extra_cost"] },
   { key: "cond-scale", block: "conditions", title: "事業の規模と売価", hint: "オンサイトとオフサイトの年間処理量と売価から、売上・顧客の数が決まる。年に作る菌体の量は、両方の年間処理量にそれぞれの濃さで使い切る菌体の量を掛けて足す", roles: ["business_annual_volume", "sale_price", "offsite_annual_volume", "offsite_sale_price"] },
   { key: "cond-site", block: "conditions", title: "顧客1社の処理", hint: "顧客1社あたりの年間処理量と年間バッチ数が決まる", roles: ["batch_volume", "operating_days", "utilization"] },
@@ -1364,10 +1368,12 @@ export function effectiveUnitPrice(
   items?: CostItem[]
 ): number {
   const batchVolume = roleValue(assumptions, "batch_volume", 100, sel);
+  if (cultureLightingExcluded(item, assumptions)) return 0;
   switch (item.priceRule) {
     case "culture_cooling": {
+      if (cultureLightOf(assumptions).source === "sunlight") return 0;
       const led = items?.find((i) => i.scenario === "中央培養" && i.costType === "OPEX" && /照明.*電力|電力.*LED/.test(costItemLabel(i)) && scopeApplies(i, sel));
-      return led ? led.quantity / Math.max(roleValue(assumptions, "culture_cooling_cop", 5, sel), 0.1) * led.unitPrice : item.unitPrice;
+      return led && !cultureLightingExcluded(led, assumptions) ? led.quantity / Math.max(roleValue(assumptions, "culture_cooling_cop", 5, sel), 0.1) * led.unitPrice : item.unitPrice;
     }
     case "flue_gas_transport": {
       if (!flueGasOn(resolveAssumption(assumptions, CO2_FLUE_GAS_ROLE, sel))) return 0;
@@ -1573,6 +1579,7 @@ function priceRuleCalc(item: CostItem, assumptions: CostAssumption[], derived: C
     ],
     result,
   });
+  if (cultureLightingExcluded(item, assumptions)) return { continues: false, terms: [{ op: null, value: item.unitPrice, unit: priceUnit }, { op: "×", value: 0, unit: "", label: "太陽光主体のためLED費は計上しない" }], result };
   switch (item.priceRule) {
     case "business_overhead":
       if (typeof resolveAssumption(assumptions, "business_overhead_annual", sel)?.value !== "number") return null;
@@ -1584,7 +1591,7 @@ function priceRuleCalc(item: CostItem, assumptions: CostAssumption[], derived: C
       const led = items?.find((i) => i.scenario === "中央培養" && i.costType === "OPEX" && /照明.*電力|電力.*LED/.test(costItemLabel(i)) && scopeApplies(i, sel));
       if (!led) return null;
       return { continues: false, terms: [
-        { op: null, value: led.quantity, unit: "kWh/kg", label: "LED電力を冷却する" },
+        { op: null, value: cultureLightOf(assumptions).source === "sunlight" ? 0 : led.quantity, unit: "kWh/kg", label: "LED電力を冷却する（太陽光時は0）" },
         { op: "÷", value: Math.max(roleValue(assumptions, "culture_cooling_cop", 5, sel), 0.1), unit: "倍", label: "冷却の成績係数" },
         { op: "×", value: led.unitPrice, unit: "円/kWh", label: "照明と共通の買値" },
       ], result };
@@ -1876,7 +1883,7 @@ export function productionScaleOf(
   const offsiteBiomassKgPerUnit = deriveCostBasis(assumptions, appSel, "offsite").biomassKgPerUnit;
   const legacyCapacity = roleValue(assumptions, "culture_capacity_kg_year", 0, sel);
   // 排液を培地に使えるときは増える速さの倍率を掛ける (同じ設備で年に作れる量が増える)
-  const lineCapacity = roleValue(assumptions, "culture_line_capacity_kg_year", legacyCapacity, sel) * wasteMediumGrowthFactor(assumptions, sel);
+  const lineCapacity = roleValue(assumptions, "culture_line_capacity_kg_year", legacyCapacity, sel) * wasteMediumGrowthFactor(assumptions, sel) * cultureLightOf(assumptions).productivityFactor;
   if (!(volume > 0)) {
     const capacity = legacyCapacity > 0 ? legacyCapacity : lineCapacity;
     return { fromVolume: false, businessVolume: 0, onsiteVolume: 0, offsiteVolume: 0, offsiteVolumeSeparate, onsiteBiomassKgPerUnit, offsiteBiomassKgPerUnit, capacityKgYear: capacity, lineCapacityKgYear: capacity, productionLines: 1 };
@@ -1939,16 +1946,16 @@ export function computeBiomassCost(
     row.perKg += perKg;
     if (i.strain) row.strainSpecificPerKg += perKg;
     if (i.basis === "初期投資配賦") {
-      capexAnnual += safeDiv(i.quantity * i.unitPrice * i.annualFactor, i.usefulLifeYears ?? 0) * lines;
-      lineCapexInitial += i.quantity * i.unitPrice;
-      if (i.usefulLifeYears && i.quantity * i.unitPrice > 0) lives.push(i.usefulLifeYears);
+      capexAnnual += safeDiv(i.quantity * effectiveUnitPrice(i, assumptions, derived, sel, items) * i.annualFactor, i.usefulLifeYears ?? 0) * lines;
+      lineCapexInitial += i.quantity * effectiveUnitPrice(i, assumptions, derived, sel, items);
+      if (i.usefulLifeYears && i.quantity * effectiveUnitPrice(i, assumptions, derived, sel, items) > 0) lives.push(i.usefulLifeYears);
     } else if (scaled) {
       // 作る量に比例する設備: 1系列ぶんの初期投資は「1kgあたりの量 × 単価 × 1系列が1年に作る量」
       capexAnnual += perKg * scale.lineCapacityKgYear * lines;
-      lineCapexInitial += i.quantity * i.unitPrice * scale.lineCapacityKgYear;
-      if (i.usefulLifeYears && i.quantity * i.unitPrice > 0) lives.push(i.usefulLifeYears);
+      lineCapexInitial += i.quantity * effectiveUnitPrice(i, assumptions, derived, sel, items) * scale.lineCapacityKgYear;
+      if (i.usefulLifeYears && i.quantity * effectiveUnitPrice(i, assumptions, derived, sel, items) > 0) lives.push(i.usefulLifeYears);
     }
-    else if (i.basis === "年額固定") fixedOpexAnnual += i.quantity * i.unitPrice * i.annualFactor * lines;
+    else if (i.basis === "年額固定") fixedOpexAnnual += i.quantity * effectiveUnitPrice(i, assumptions, derived, sel, items) * i.annualFactor * lines;
     else if (i.basis === "毎kg菌体比例") variablePerKg += perKg;
   }
   for (const t of centralTasks) {

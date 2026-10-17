@@ -12,7 +12,8 @@ export function FuelOperatingSwitches({ working, onChange, onOpenEffluent }: { w
   const secretion = fuelAssumptionOf(working.assumptions, "lipid_secreting_strain");
   const operating = fuelOperatingOf(working.assumptions);
   return <>
-    {operating.carbon.enabled && (() => {
+    {operating.inventory && <div className="text-[11px] leading-5 text-[#3c3c43] sm:col-span-2 lg:basis-full" data-testid="fuel-shared-culture-boundary">培養条件は排水側を参照。光源：{operating.sunlight ? "太陽光主体" : "人工照明"}。培養設備・照明・CO₂・培地・通常作業の燃料負担はすべて0円。</div>}
+    {operating.carbon.enabled && !operating.inventory && (() => {
       const a = fuelAssumptionOf(working.assumptions, "fuel_carbon_source")!;
       return <div className="flex min-w-0 items-center gap-1.5" data-testid="fuel-carbon-switch">
         <span className="w-[4.5rem] shrink-0 text-[11px] font-semibold text-[#3c3c43] lg:w-auto">炭素源</span>
@@ -21,7 +22,7 @@ export function FuelOperatingSwitches({ working, onChange, onOpenEffluent }: { w
     })()}
     {(["fuel_light_source", "fuel_culture_source", "inventory_sizing"] as const).map((role) => {
       const a = fuelAssumptionOf(working.assumptions, role);
-      if (!a || (role === "inventory_sizing" && fuelAssumptionOf(working.assumptions, "fuel_culture_source")?.valueText !== "inventory")) return null;
+      if (!a || (role === "fuel_light_source" && operating.inventory) || (role === "inventory_sizing" && fuelAssumptionOf(working.assumptions, "fuel_culture_source")?.valueText !== "inventory")) return null;
       return <div key={role} className="flex min-w-0 items-center gap-1.5" data-testid={role}>
         <span className="w-[4.5rem] shrink-0 text-[11px] font-semibold text-[#3c3c43] lg:w-auto">{role === "fuel_light_source" ? "光源" : role === "inventory_sizing" ? "生産量" : "培養"}</span>
         <div className="min-w-0 flex-1 lg:flex-none">
@@ -70,12 +71,13 @@ export function FuelOperatingSummary({ current }: { current: FuelScenarioResult 
         <p className="mt-1">菌体使用量 ÷ 培養液の菌体濃度 {num(op.inventoryBiomassConcentration, 2)} kg/m³ × 出荷待ち {num(op.inventoryWaitDays, 1)} 日 × 回収対象 {num(op.inventoryRecoveryShare * 100, 0)}% × 分泌速度 × 年間生産性比率で脂肪酸量を算出し、回収・反応・精製収率を掛ける。年{num(s.cultureOperatingDays, 0)}日の均等出荷を仮置きした平均の出荷待ち培養液 {num(s.usedInventoryVolumeM3, 1)} m³で{op.inventoryExistingEquipment ? "既存設備の利用量と作業量を算定する。" : "追加設備を数える。"}</p>
       </> : <p className="font-semibold text-[#b45309]">排水処理の試算を読み込むと年間の菌体量とFAME量を計算できる。</p>}
     </div>}
+    {op.inventory && <p className="mt-1 text-[11px] leading-4 text-[#3c3c43]" data-testid="fuel-culture-exclusion">シアの生産費は全額、排水側で計上。燃料側は回収・FAME化・分析・出荷の追加費用だけ。光源による原価差は生産量と回収量の差から生じる。光源と年間生産性は排水側で変更する。</p>}
     {op.inventory && !op.inventoryFromEffluent && <>
       <p className="mt-1.5 text-[11px] leading-4 text-[#1d1d1f]" data-testid="fuel-required-inventory">{op.inventoryTarget ? "年産目標に必要な出荷待ち培養液" : "年産目標に必要な出荷待ち培養液の目安"} <strong className="tabular-nums">{s.requiredInventoryVolumeM3 === null ? "算定不可" : `${num(s.requiredInventoryVolumeM3, 1)} m³`}</strong>（同時利用量）。{op.inventoryTarget ? "必要量を確保できる場合の設計試算。" : `入力した在庫 ${num(op.inventoryVolumeM3, 1)} m³で計算。`}</p>
-      <p className="mt-1 text-[10px] leading-4 text-[#3c3c43]">計算する培養液 {num(s.usedInventoryVolumeM3, 1)} m³ × 年間の待ち期間 {num(s.inventoryExposureDays, 1)} 日 × 分泌速度 × {num(op.productivityFactor * 100, 0)}%。共通培養費の配賦 {yen(op.commonAllocationAnnual)}/年。</p>
+      <p className="mt-1 text-[10px] leading-4 text-[#3c3c43]">計算する培養液 {num(s.usedInventoryVolumeM3, 1)} m³ × 年間の待ち期間 {num(s.inventoryExposureDays, 1)} 日 × 分泌速度 × {num(op.productivityFactor * 100, 0)}%。培養費の燃料負担0円。</p>
     </>}
-    {op.sunlight && <p className="mt-1 text-[10px] leading-4 text-[#3c3c43]">LED電力・器具を外し、年間生産性を人工照明比 {num(op.lightProductivityFactor * 100, 0)}%にする。屋外設備・敷地・夜間維持等は追加費用の入力欄で計上。</p>}
-    {op.carbon.enabled && <div className="mt-1.5 border-t border-[#e5e5e7] pt-1.5 text-[11px] leading-4" data-testid="fuel-carbon-summary">
+    {op.sunlight && !op.inventory && <p className="mt-1 text-[10px] leading-4 text-[#3c3c43]">LED電力・器具を外し、年間生産性を人工照明比 {num(op.lightProductivityFactor * 100, 0)}%にする。屋外設備・敷地・夜間維持等は追加費用の入力欄で計上。</p>}
+    {op.carbon.enabled && !op.inventory && <div className="mt-1.5 border-t border-[#e5e5e7] pt-1.5 text-[11px] leading-4" data-testid="fuel-carbon-summary">
       <p className="font-semibold">炭素源：{op.carbon.source === "air" ? "空気" : op.carbon.source === "flue_gas" ? "排ガス" : "購入CO₂"} <a className="ml-1 font-normal text-[#0267b2] underline" href="#fuel-g-cond-carbon">条件を変更</a></p>
       <p className="mt-1">脂肪酸1kgに固定する炭素はCO₂換算で約2.79kg（炭素分76%の仮定）。年間 {num(s.unitKgYear * 0.76 * 44 / 12, 0)} kg。{op.carbon.source !== "purchased" && "購入CO₂費0円。送気・前処理で増える費用を年額入力する。"}</p>
       {op.carbon.source === "air" && <p className="mt-1">空気での分泌生産性は排ガス供給比 {num(op.carbon.productivityFactor * 100, 0)}%を比較用に仮置き。生産量も同じ比率で変わる。</p>}
@@ -86,15 +88,18 @@ export function FuelOperatingSummary({ current }: { current: FuelScenarioResult 
       {op.quality.hybrid && <p className="mt-1">日常分析は1回 {num(op.quality.routineHours, 2)}人時＋消耗品{yen(op.quality.routineExpense)}。追加購入する分析機器 {op.quality.missing.includes("fuel_lab_capex") ? "未見積" : yen(op.quality.capex)}、校正・維持費 {op.quality.missing.includes("fuel_lab_annual") ? "未見積" : `${yen(op.quality.maintenanceAnnual)}/年`}。外部確認の頻度・工数・料金は作業欄で入力する。</p>}
     </div>}
     {s.solvent.enabled && <div className="mt-1.5 border-t border-[#e5e5e7] pt-1.5 text-[11px] leading-4" data-testid="fuel-solvent-summary">
+      <p className="mt-1">溶媒は、薄い培養液から脂肪酸を受け取り、アルカリ水へ渡して濃縮する循環用の媒体。戻して使い、失った分だけ補給する。油層や粒子が集まるなら、すくう・こす物理回収を先に評価する。溶媒は必須ではなく、ここでは溶媒を使う方式の費用を比較。</p>
+      <p className="mt-1 text-[#b45309]">分泌速度の根拠は溶媒を用いた別株の試験。溶媒なしの物理回収へ同じ分泌速度・回収率をそのまま流用できない。</p>
       <p className="font-semibold">溶媒：{s.solvent.loop ? "循環回収（設計仮説）" : "全槽で保持（比較）"} <a className="ml-1 font-normal text-[#0267b2] underline" href="#fuel-g-cond-solvent">条件を変更</a></p>
       <dl className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 tabular-nums">
         <div><dt className="text-[#6e6e73]">必要な溶媒在庫</dt><dd>{s.solvent.valid ? `${num(s.solvent.stockM3, 2)} m³` : "—"}</dd></div>
         <div><dt className="text-[#6e6e73]">初回の溶媒調達</dt><dd>{s.solvent.valid ? yen(s.solvent.workingCapital) : "—"}</dd></div>
         {s.solvent.loop && <><div><dt className="text-[#6e6e73]">溶媒の循環量</dt><dd>{num(s.solvent.solventM3Hour, 1)} m³/時</dd></div><div><dt className="text-[#6e6e73]">培養液側の送液量</dt><dd>{num(s.solvent.waterM3Hour, 0)} m³/時</dd></div></>}
       </dl>
+      {s.solvent.loop && s.solvent.itemized && <dl className="mt-1 border-t border-[#e5e5e7] pt-1" data-testid="fuel-loop-equipment-parts">{s.solvent.equipment.map((x) => <div key={x.role} className="flex justify-between gap-3 py-0.5"><dt>{x.label}</dt><dd className="shrink-0 tabular-nums">{yen(x.amount)}</dd></div>)}</dl>}
       {s.solvent.loop && <p className="mt-1">循環回収の追加装置 {yen(s.solvent.capex)}、追加保守 {yen(s.solvent.maintenanceAnnual)}/年。溶媒補給 {num(s.solvent.makeupKgYear, 0)} kg/年・送液と回収の電力 {num(s.solvent.powerKwhYear, 0)} kWh/年を物量から計算。</p>}
       <p className="mt-1">初回溶媒の資金コスト {yen(s.solvent.fundingAnnual)}/年も表示原価へ含む。開始資金の元本は年間原価と分ける。</p>
-      <p className="mt-1 text-[#b45309]">濃度差・一巡時間・装置予算は仮置き。回収能力、溶媒の菌体への影響、出荷後の排水処理性能は実証が必要。</p>
+      <p className="mt-1 text-[#b45309]">最小構成は既存の培養槽・接触部・再生槽・受槽を共用できる条件付き予算。現物の保有・空き・材質・能力は未確認。表示の培養液側流量は必要な接触量で、新設ポンプの仕様ではない。不足設備は上の追加欄へ入力。濃度差・一巡時間・回収性能・菌体影響は実証前。</p>
     </div>}
     {op.inventoryExistingEquipment && <div className="mt-1.5 rounded-md border border-[#d2d2d7] bg-white px-2 py-1.5 text-[11px] leading-4 text-[#1d1d1f]" data-testid="fuel-existing-equipment">
       <p className="font-semibold">既存設備を使う追加採算</p>

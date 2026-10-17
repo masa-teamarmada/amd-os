@@ -1,7 +1,15 @@
 import type { CostAssumption, CostItem } from "./project-cost-model.ts";
 
 export const FUEL_SOLVENT_CHOICES = [{ value: "loop", label: "循環回収（設計仮説）" }, { value: "overlay", label: "全槽で保持（比較）" }];
-export const FUEL_SOLVENT_ROLES = ["fuel_solvent_mode", "fuel_solvent_overlay_percent", "fuel_solvent_net_loading", "fuel_solvent_cycle_minutes", "fuel_solvent_buffer_m3", "fuel_solvent_hours_day", "fuel_solvent_density", "fuel_solvent_loss_percent", "fuel_solvent_water_drop", "fuel_solvent_water_power", "fuel_solvent_organic_power", "fuel_solvent_strip_power", "fuel_solvent_loop_capex", "fuel_solvent_loop_life", "fuel_solvent_loop_annual", "fuel_solvent_funding_rate"];
+export const FUEL_SOLVENT_EQUIPMENT = [
+  { role: "fuel_solvent_contact_capex", label: "既存接触部の改造・分配器" },
+  { role: "fuel_solvent_pump_capex", label: "追加の溶媒用ポンプ" },
+  { role: "fuel_solvent_pipe_capex", label: "戻り配管・弁・受け皿" },
+  { role: "fuel_solvent_control_capex", label: "液面・漏れ検知と制御追加" },
+  { role: "fuel_solvent_install_capex", label: "取付・接続・試運転" },
+  { role: "fuel_solvent_capacity_capex", label: "既存能力の不足分を補う設備" },
+];
+export const FUEL_SOLVENT_ROLES = [...FUEL_SOLVENT_EQUIPMENT.map((x) => x.role),"fuel_solvent_mode", "fuel_solvent_overlay_percent", "fuel_solvent_net_loading", "fuel_solvent_cycle_minutes", "fuel_solvent_buffer_m3", "fuel_solvent_hours_day", "fuel_solvent_density", "fuel_solvent_loss_percent", "fuel_solvent_water_drop", "fuel_solvent_water_power", "fuel_solvent_organic_power", "fuel_solvent_strip_power", "fuel_solvent_loop_capex", "fuel_solvent_loop_life", "fuel_solvent_loop_annual", "fuel_solvent_funding_rate"];
 export function fuelSolventLoopOn(a: CostAssumption[]) {
   return a.some((x) => x.roleKey === "fuel_solvent_mode" && x.valueText === "loop") && a.some((x) => x.roleKey === "fuel_culture_source" && x.valueText === "inventory") && a.some((x) => x.roleKey === "lipid_secreting_strain" && x.valueText === "on");
 }
@@ -21,7 +29,8 @@ export function fuelSolventOf(a: CostAssumption[], items: CostItem[], annualKg: 
   const v = (r: string) => Number.isFinite(row(r)?.value) ? Math.max(row(r)?.value ?? 0, 0) : 0;
   const enabled = !!row("fuel_solvent_mode") && row("fuel_culture_source")?.valueText === "inventory" && row("lipid_secreting_strain")?.valueText === "on";
   const loop = enabled && row("fuel_solvent_mode")?.valueText === "loop";
-  const roles = enabled ? loop ? FUEL_SOLVENT_ROLES.filter((r) => r !== "fuel_solvent_mode" && r !== "fuel_solvent_overlay_percent") : ["fuel_solvent_overlay_percent", "fuel_solvent_density", "fuel_solvent_funding_rate"] : [];
+  const itemized = !!row("fuel_solvent_contact_capex");
+  const roles = enabled ? loop ? FUEL_SOLVENT_ROLES.filter((r) => r !== "fuel_solvent_mode" && r !== "fuel_solvent_overlay_percent" && (itemized ? r !== "fuel_solvent_loop_capex" : !FUEL_SOLVENT_EQUIPMENT.some((x) => x.role === r))) : ["fuel_solvent_overlay_percent", "fuel_solvent_density", "fuel_solvent_funding_rate"] : [];
   const positive = ["fuel_solvent_net_loading", "fuel_solvent_cycle_minutes", "fuel_solvent_hours_day", "fuel_solvent_density", "fuel_solvent_water_drop", "fuel_solvent_loop_life"];
   const missing = roles.filter((r) => !Number.isFinite(row(r)?.value) || (row(r)?.value ?? 0) < 0 || (positive.includes(r) && v(r) <= 0) || (r === "fuel_solvent_hours_day" && v(r) > 24) || ((r === "fuel_solvent_loss_percent" || r === "fuel_solvent_overlay_percent") && v(r) > 100));
   const solventPrice = items.find((x) => fuelSolventItemKind(x) === "makeup")?.unitPrice ?? 0;
@@ -38,18 +47,19 @@ export function fuelSolventOf(a: CostAssumption[], items: CostItem[], annualKg: 
   const workingCapital = stockM3 * v("fuel_solvent_density") * solventPrice;
   const makeupKgYear = solventM3Year * v("fuel_solvent_density") * Math.min(v("fuel_solvent_loss_percent"), 100) / 100;
   const powerKwhYear = loop && active ? waterM3Year * v("fuel_solvent_water_power") + solventM3Year * v("fuel_solvent_organic_power") + annualKg * v("fuel_solvent_strip_power") : 0;
-  const capex = loop && enabled ? v("fuel_solvent_loop_capex") : 0;
+  const equipment = itemized ? FUEL_SOLVENT_EQUIPMENT.map((x) => ({ ...x, amount: v(x.role) })) : [{ role: "fuel_solvent_loop_capex", label: "循環回収の追加装置一式", amount: v("fuel_solvent_loop_capex") }];
+  const capex = loop && enabled ? equipment.reduce((n, x) => n + x.amount, 0) : 0;
   const capexAnnual = capex / Math.max(v("fuel_solvent_loop_life"), 1);
   const makeupAnnual = makeupKgYear * solventPrice;
   const powerAnnual = powerKwhYear * electricityPrice;
   const maintenanceAnnual = loop && enabled ? v("fuel_solvent_loop_annual") : 0;
   const fundingAnnual = workingCapital * v("fuel_solvent_funding_rate") / 100;
   const costs = [
-    { role: "fuel_solvent_loop_capex", label: "循環回収設備の追加償却", amount: capexAnnual, row: "capex" },
+    ...equipment.map((x) => ({ role: x.role, label: `${x.label}の償却`, amount: loop && enabled ? x.amount / Math.max(v("fuel_solvent_loop_life"), 1) : 0, row: "capex" })),
     { role: "fuel_solvent_loss_percent", label: "循環回収の溶媒補給", amount: makeupAnnual, row: "variable" },
     { role: "fuel_solvent_water_power", label: "循環送液・回収の電力", amount: powerAnnual, row: "variable" },
     { role: "fuel_solvent_loop_annual", label: "循環回収の追加保守・交換", amount: maintenanceAnnual, row: "fixed" },
     { role: "fuel_solvent_funding_rate", label: "初回溶媒の資金コスト（比較用）", amount: fundingAnnual, row: "fixed" },
   ];
-  return { enabled, loop, valid: missing.length === 0, missing, solventM3Year, waterM3Year, solventM3Hour, waterM3Hour, stockM3, workingCapital, makeupKgYear, powerKwhYear, capex, capexAnnual, makeupAnnual, powerAnnual, maintenanceAnnual, fundingAnnual, costs, solventPrice, electricityPrice };
+  return { enabled, loop, equipment, itemized, valid: missing.length === 0, missing, solventM3Year, waterM3Year, solventM3Hour, waterM3Hour, stockM3, workingCapital, makeupKgYear, powerKwhYear, capex, capexAnnual, makeupAnnual, powerAnnual, maintenanceAnnual, fundingAnnual, costs, solventPrice, electricityPrice };
 }
