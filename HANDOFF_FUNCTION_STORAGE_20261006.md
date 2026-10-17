@@ -55,3 +55,9 @@
 現在の10ファイルのtracked差分は「ドライブのファイルURLをコピー可能にする」01a110ae-f3c2-77a1-9218-228ea3602227が継続中。資料室コード/CSSとDESIGN・FEATURE_REGISTRY・manual/spec附則・build-info・PWA HANDOFF。owner=同担当、action=担当の検証/commit/push、期限=同チャットcloseout、削除リスク=実装喪失。今回stageしない。旧ptプロンプトは既知の別作業資料として保持、quarantine owner=まさ/移行担当、次判定=当該移行再開または明示指示。safe to remove after approval=なし、send back to owner=資料室担当が継続、needs Masa decision=旧pt資料の保存方針（今回は保持で確定、質問不要）。
 
 今回の成果はmain aligned/push対象。共有repo全体はdo not archive（別担当の実装中）。自分のbranch/worktree作成・削除0。会話の検討材料0件。今回追加の製品仕様なし、spec/manual同期は既存容量対策の記録で充足。
+
+## 2026-10-17 追記（再増加8.9GBへの対策）
+- 現在地: 794c5bce / v3.162.68 を本番反映。1デプロイの関数合計は204.9MB→118.9MB（Vercel実測）。旧版は削除していない。amd-os-pwaの8.84GBは旧版の期限切れで3〜4日かけて下がる見込み（43件なら約5.1GB）。
+- 原因と対策の正本: pwa/spec/5-2「2026-10-17 追記」、pwa/BUGS.md 冒頭、pwa/design_log/sessions_2026-10.md 末尾。
+- 次の削減候補（まさの判断が要る）: ①PDF用Chromium（1デプロイ約64MB）を外部の置き場から実行時に取得、②反映後に古い版を自動削除（直近数版を残す）。
+- 確かめ方: `vercel api /v11/deployments/<id>/builds --scope armada0130` で関数の合計、Vercel Usage › Functions Storage › Projects で推移。

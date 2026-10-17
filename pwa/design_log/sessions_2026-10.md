@@ -733,3 +733,15 @@ NDA回帰・従来DD検査成功。8GB指定の型検査・対象lint・project-
 5. 終了再監査時は他作業が先行し、main/origin/mainと本番が864ccc8d / v3.162.56。今回の契約対象ソースに後続変更なし。別チャット「バイオ燃料の脂肪酸原価を確認」が燃料計画の7ファイルをactiveに編集中で、fileChangeの帰属を確認。監査中にmanual2-3/spec5-16/build-infoも増え、別作業は10ファイルとなった。今回のstage/commitへ混入させず同所有者の検証・反映に委ねる。
 
 再開はHANDOFF_CONTRACT_NOTIFICATIONS.mdとSESSION_MIGRATION_PROMPT.md。恒久仕様はspec5-6、使い方manual6-7、不具合はBUGS。既存のpwa/HANDOFF_pwa_rebuild.mdは複数案件の長い履歴のため今回再構成しない。終了文書は既存の画面非表示判定でpushし、再deploy不要。戦略/MTG等の非開発成果物なし、会話の検討材料0件。
+
+## 2026-10-17 Functions Storage 8.9GBの原因特定と関数同梱量の削減
+
+作業種別development。まさの依頼「vercel fn storageがやたら増えてるので原因を特定したうえで、減らす対策をとってほしい」。
+
+1. Vercel使用量（Last 30 Days）: Functions Storage 8.9GB/10GB、amd-os-pwa 8.84GB・okudoor 57MB。概要の値は日次グラフの直近日の保存量と一致。日次は9/17〜21に約100〜137GB、9/22に一斉整理、以後増加。
+2. amd-os-pwaの保持は48件（READY43/CANCELED5、全てgit由来のproduction、最古90時間）。保存期間1日でも削除処理が遅れて3〜4日分が残る。1デプロイの関数は10本・204.9MB（43件×約205MB≒8.8GB）。
+3. 直近42件の変更範囲を仕分けると、パス限定のビルド見送りで減らせるのは1件。件数ではなく1デプロイの同梱量を削る方針にした。
+4. 修正前traceの分解（圧縮見積り）: Chromium約66MB、sharp約47MB（DD処理を含む関数4本に重複）、教科書・モデル読み手の候補パス探索によるPWA配下の全md・設計メモ・開発記録・公開画像・TS元ファイル・bzm/pilotの同梱。Vercelのbuildログにも文書APIの「whole project」警告2件。
+5. 794c5bce / v3.162.68: image-dimensions.ts（PNG/JPEG/GIF/WebP、sharpと突き合わせるtest:image-dimensionsをdeploy.shへ追加）、読み手のfs/path呼び出しへturbopackIgnore、includesを`*`キーで明示（`MODEL_AND_BZM_DOCS` / `BZM_DOCS`）、postbuild検査（本文を読む15 routeの全件同梱・全434 traceの禁止物）。critical-uiの錨を新キーへ更新。spec5-2・manual9-2・附則へ同期。
+6. 検証: 使い捨てcloneで NODE_OPTIONS=--max-old-space-size=8192 の npm run build 成功（修正前の出力には同じ検査が設計メモ混入で停止）。test:dd-package / bzm-reader / model-formula-canon / critical-ui / image-dimensions、deploy.sh全検査、本番Ready 3分20秒・build-info一致。Vercel実測で関数合計204.9MB→118.9MB（Chromium群93.3→76.0、画面群41.8→16.9、API群39.5→13.1、DD群22.6→5.2）。本番でモデル画面・教科書の章・理論地図・一般書・文書API・書斎の図・PJ体制API（p01/p10/p21/p35）を確認。書斎の別アドレスはログインが必要なため画面は未確認。DD画像プレビューは開くと閲覧記録が残るため本番では開かず、sharpとの突き合わせで確認。
+7. 旧版は削除していない。保存量は旧版の期限切れに合わせて3〜4日で下がる見込み（43件なら約5.1GB）。次の削減候補（Chromiumの実行時取得、反映後の旧版自動削除）はまさの判断を得てから。
