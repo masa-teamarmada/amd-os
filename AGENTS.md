@@ -62,14 +62,17 @@ pwa を cwd にすると毎セッションこれを読み込む。
 
 - **gas** → `clasp push`
 - **pwa** → **main への push = Vercel 自動 production deploy** (2026-06-12 まさ確定 A案)。原則、deploy前の事前確認で止めず、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` 経由で push・build監視まで進める。deploy bundle は事後報告として残す。CLI 直接 deploy (`npx vercel`) は全面廃止。main 以外の branch は `pwa/vercel.json` の ignoreCommand で build されない。微細変更ごとの単発 push は禁止、束ねて 1 回
+- **反映後の旧版整理**（2026-10-17 まさ確定）: `deploy.sh` は本番が今回の commit を返したことを確かめた後、`pwa/scripts/cleanup_old_deployments.mjs --apply` で `amd-os-pwa` の古い版を消す。残すのは作り終えた版（READY）の新しい順5件と今の本番版で、アドレス付き・作成中・取消・失敗の版も残す。消した版は Vercel の amd-os-pwa › Settings › Security › Recently Deleted から30日以内に Restore できる。`vercel promote` ですぐ戻せるのは残っている5版と本番版で、それより前の版は先に Restore する。整理に失敗しても反映は成功として扱い、次の反映で再び整理する。手で回すと既定は予行（`node pwa/scripts/cleanup_old_deployments.mjs`）。仕様は `pwa/spec/5-2-development-operations-current-spec.md`「反映後の旧版整理」。
 
 ### デプロイ枠（2026-08-29 まさ指摘を受けて構造対策）
 
 Vercel は **Hobby プランで1日100デプロイ / アカウント全体**。プロジェクト単位ではない。枯渇すると全プロジェクトが反映できなくなる（2026-06-03、2026-08-29 に発生）。
 
-- **同じリポジトリに Vercel プロジェクトが2つ紐づいている**: `amd-os-pwa` (rootDir=`pwa`) と `kiyo-amd-os` (rootDir=`kiyo-admin`)。対策前は main への1 pushで**2デプロイ消費**していた（2026-08-29 は96件中、kiyo側49件がほぼ全部むだ打ち）。
-- 対策として両プロジェクトに **パス限定の build スキップ**を設定済み。`pwa` 配下（`pwa/design_log` を除く）に差分が無い push では `amd-os-pwa` は build されず、`kiyo-admin` 配下に差分が無い push では `kiyo-amd-os` は build されない。`pwa/vercel.json` の `ignoreCommand` とVercelプロジェクト設定の両方に入っている。**この設定を外さない。**
-- それでも `pwa/` を触る作業は1 push=1 build。**微細変更ごとの単発 push は禁止、束ねて1回**（既存ルール）。docs だけの変更は build されないので小刻みで良い。
+- **このリポジトリに紐づく Vercel プロジェクトは `amd-os-pwa`（rootDir=`pwa`）だけ**。2026-08-29 までは `kiyo-amd-os`（rootDir=`kiyo-admin`）も紐づき、main への1 pushで**2デプロイ消費**していた（同日は96件中、kiyo側49件がほぼ全部むだ打ち）。同日21:54に `kiyo-amd-os` を別リポジトリ `masa-teamarmada/kiyo-admin` へ付け替えた。`kiyo-amd-os` は使用を終えている（2026-10-17 まさ）。
+- **`amd-os-pwa` の build 見送りは、先頭 commit の件名の `[skip ci]` で決める**。`pwa/vercel.json` の ignoreCommand は、main 以外の branch と、件名に `[skip ci]` を含む commit を見送る。件名の `[skip ci]` は `.githooks/prepare-commit-msg` が付け、条件は staged が全部「画面に出ない場所」に収まること（ルートの引き継ぎ・セッション記録・BUGS・README/AGENTS/CLAUDE、`design_log/`、`knowledge/`、論文原稿と図、`model/cases`・`model/tools`、`pwa/design_log/`、`pwa/BUGS.md`、`pwa/AGENTS.md`、`pwa/scripts/`、`.githooks/`。正本は `pwa/scripts/deploy_skip.mjs` の SCREEN_INVISIBLE）。`.githooks/pre-push` は、本番の地点から画面に出る変更があるのに先頭 commit が `[skip ci]` なら push を止める。
+- 2026-08-30 に、Vercel のビルド環境で git の差分を取るパス判定（2026-08-29 導入）から、この件名方式へ切り替えた。パス判定が画面に出る変更まで見送り、本番が古いまま残ったため。
+- 新しく clone した作業場所では、commit の前に `git config core.hooksPath .githooks` を設定する。これで `[skip ci]` の自動付与と、pre-commit・pre-push の検査が動く。
+- マニュアル・設計書・教科書・モデルの本文（`pwa/manual`、`pwa/spec`、`bzm/`、`model/` の画面に出る文書）は関数に同梱されて画面に出るので、変えると build される。`pwa/` を触る作業は1 push=1 build。**微細変更ごとの単発 push は禁止、束ねて1回**（既存ルール）。画面に出ない場所だけの変更は build されないので小刻みで良い。
 - 残枠の確認（枯渇が疑われる時）:
 
 ```sh
