@@ -38,10 +38,10 @@ export function readModelCanonFile(root: CanonRoot, relPath: string): string | n
   const hit = cache.get(key);
   if (hit && Date.now() - hit.storedAt < TTL_MS) return hit.value;
 
-  const filePath = path.join(rootDir(root), relPath);
+  const filePath = path.join(/*turbopackIgnore: true*/ rootDir(root), relPath);
   let value: string | null = null;
   try {
-    if (fs.existsSync(filePath)) value = fs.readFileSync(filePath, "utf8");
+    if (fs.existsSync(/*turbopackIgnore: true*/ filePath)) value = fs.readFileSync(/*turbopackIgnore: true*/ filePath, "utf8");
   } catch (err) {
     console.error("[model] 正本ファイルの読み込みに失敗しました:", filePath, err);
     value = null;

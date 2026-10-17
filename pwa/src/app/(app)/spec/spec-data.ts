@@ -25,7 +25,7 @@ export function getSpecMarkdownSlugs() {
 }
 
 export function getSpecMarkdownSource(slug: string) {
-  const filePath = path.join(specDir(), `${slug}.md`);
+  const filePath = path.join(/*turbopackIgnore: true*/ specDir(), `${slug}.md`);
   if (!fs.existsSync(filePath)) return null;
   return fs.readFileSync(filePath, "utf8");
 }

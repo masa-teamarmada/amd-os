@@ -90,8 +90,8 @@ export function resolveSourceHref(sourceRef: string): string | null {
   const fileName = mdPath.split("/").pop() ?? mdPath;
   if (!fileName.endsWith(".md")) return null;
   const slug = fileName.replace(/\.md$/, "");
-  const filePath = path.join(bzmContentDir(), `${slug}.md`);
-  if (!fs.existsSync(filePath)) return null;
+  const filePath = path.join(/*turbopackIgnore: true*/ bzmContentDir(), `${slug}.md`);
+  if (!fs.existsSync(/*turbopackIgnore: true*/ filePath)) return null;
   // BzmMarkdown does not currently emit stable heading ids, so source links
   // intentionally open the document rather than a misleading fragment URL.
   return `/bzm/${encodeURIComponent(slug)}`;

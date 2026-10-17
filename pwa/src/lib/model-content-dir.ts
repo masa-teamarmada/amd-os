@@ -11,15 +11,18 @@ import path from "node:path";
  *
  * cwd は通常 Next.js のプロジェクトディレクトリ (= pwa) を指すが、実行環境によっては
  * リポジトリルートになりうる。どちらでも当たるよう候補を順に見る。
+ *
+ * fs 呼び出しには turbopackIgnore を付け、ビルドの自動追跡を止める（理由は bzm-content-dir.ts）。
+ * 本文の同梱は next.config.ts の outputFileTracingIncludes で明示する。
  */
 const CANDIDATE_PREFIXES = ["..", "."];
 
 export function modelContentDir(): string {
   for (const prefix of CANDIDATE_PREFIXES) {
-    const dir = path.resolve(process.cwd(), prefix, "model");
-    if (fs.existsSync(dir)) return dir;
+    const dir = path.resolve(/*turbopackIgnore: true*/ process.cwd(), prefix, "model");
+    if (fs.existsSync(/*turbopackIgnore: true*/ dir)) return dir;
   }
   // 見つからない場合も想定パスを返す。呼び出し側は existsSync / loadModelCurrent の
   // null 分岐で「台帳準備中」を出す。
-  return path.resolve(process.cwd(), "..", "model");
+  return path.resolve(/*turbopackIgnore: true*/ process.cwd(), "..", "model");
 }

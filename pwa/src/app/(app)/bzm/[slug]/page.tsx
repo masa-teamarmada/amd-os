@@ -27,8 +27,8 @@ import { bzmContentDir } from "@/lib/bzm-content-dir";
 
 export async function generateStaticParams() {
   const dir = bzmContentDir();
-  const fileSlug = fs.existsSync(dir)
-    ? fs.readdirSync(dir).filter(isBzmChapterFile).map((f) => f.replace(/\.md$/, ""))
+  const fileSlug = fs.existsSync(/*turbopackIgnore: true*/ dir)
+    ? fs.readdirSync(/*turbopackIgnore: true*/ dir).filter(isBzmChapterFile).map((f) => f.replace(/\.md$/, ""))
     : [];
   const entrySlug = BZM_CHAPTERS.map((c) => c.slug);
   const all = Array.from(new Set([...fileSlug, ...entrySlug]));
@@ -44,8 +44,8 @@ export default async function BzmChapterPage({ params }: { params: Promise<{ slu
     redirect(`/bzm/${aliasTarget}`);
   }
 
-  const filePath = path.join(bzmContentDir(), `${decoded}.md`);
-  const fileExists = fs.existsSync(filePath);
+  const filePath = path.join(/*turbopackIgnore: true*/ bzmContentDir(), `${decoded}.md`);
+  const fileExists = fs.existsSync(/*turbopackIgnore: true*/ filePath);
   const chapterEntry = getBzmChapter(decoded);
   const chapterStatus = getBzmChapterStatus(decoded);
 
@@ -58,7 +58,7 @@ export default async function BzmChapterPage({ params }: { params: Promise<{ slu
 
   let displaySource: string;
   if (fileExists) {
-    const rawSource = fs.readFileSync(filePath, "utf8");
+    const rawSource = fs.readFileSync(/*turbopackIgnore: true*/ filePath, "utf8");
     displaySource = numberedForSlug
       ? normalizeBzmMarkdownSource(rawSource, numberedForSlug)
       : rawSource;
@@ -88,7 +88,7 @@ export default async function BzmChapterPage({ params }: { params: Promise<{ slu
 
   // すべての BZM_CHAPTERS slug から sort (= md なしの未着手 entry も nav に含める)
   const allEntrySlugs = BZM_CHAPTERS.map((c) => c.slug);
-  const fileSlugs = fs.readdirSync(bzmContentDir()).filter(isBzmChapterFile).map((f) => f.replace(/\.md$/, ""));
+  const fileSlugs = fs.readdirSync(/*turbopackIgnore: true*/ bzmContentDir()).filter(isBzmChapterFile).map((f) => f.replace(/\.md$/, ""));
   const all = Array.from(new Set([...allEntrySlugs, ...fileSlugs]));
   const sorted = sortBzmSlugs(all);
   const idx = sorted.indexOf(decoded);

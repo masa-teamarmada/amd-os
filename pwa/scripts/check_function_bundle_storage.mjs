@@ -25,4 +25,67 @@ for (const route of ["api/monthly-report/pdf/route", "api/monthly-report/manual-
   check(route, 120, ["node_modules/@sparticuz/chromium/bin/chromium.br", "node_modules/@fontsource-variable/noto-sans-jp/wght.css"]);
   assert(filesFor(route).some(file => /noto-sans-jp\/files\/.*\.woff2$/.test(file)), `${route}: missing Japanese font files`);
 }
-console.log("function bundle storage: ok");
+
+// 2026-10-17: 教科書・モデル正本を実行時に読む route は、読む可能性のある本文を全部持つこと。
+// 読み手の fs 呼び出しは turbopackIgnore で自動追跡を止め、next.config.ts の outputFileTracingIncludes
+// だけで同梱している。書き漏れは本番だけ ENOENT（ページの「準備中」や 404）になるので、ここで止める。
+function filesUnder(dir, pattern) {
+  const out = [];
+  const walk = current => {
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      if (entry.name.startsWith(".") || entry.name === "node_modules" || entry.name === "pilot") continue;
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (pattern.test(entry.name)) out.push(full);
+    }
+  };
+  walk(path.resolve(root, dir));
+  return out;
+}
+function requireAll(route, dir, pattern) {
+  const files = new Set(filesFor(route));
+  const missing = filesUnder(dir, pattern).filter(file => !files.has(file));
+  assert(missing.length === 0, `${route}: ${dir} の ${missing.length} 件が同梱されていない（例: ${path.relative(root, missing[0] ?? "")}）。next.config.ts の outputFileTracingIncludes を確認する`);
+}
+const bzmReaders = ["(app)/bzm/[slug]/page", "(app)/bzm/map/page", "(app)/bzm/public/[slug]/page", "(app)/bzm/read/page", "(app)/bzm/read/[book]/page", "(app)/bzm/read/[book]/[chapter]/page", "api/bzm/theory-map/route", "api/macos/document/route"];
+const modelReaders = ["(app)/model/page", "(app)/model/[slug]/page", "(app)/model/formulas/page", "api/model/bzm30/route", "api/model/sections/route", "api/project/[projectId]/org/route"];
+for (const route of [...bzmReaders, ...modelReaders]) requireAll(route, "../bzm", /\.md$/);
+for (const route of modelReaders) requireAll(route, "../model", /\.(md|json)$/);
+requireAll("api/bzm-reader/asset/[...path]/route", "../bzm", /\.(png|jpe?g|svg|webp|gif)$/i);
+for (const dir of ["manual", "spec"]) requireAll("api/macos/document/route", dir, /\.md$/);
+
+// 2026-10-17: 全 route の実 trace を走査し、本番の関数に入れてはいけない物を止める。
+// 動的な fs 読みで PWA 全体を拾う、画像処理ライブラリを抱える、といった同梱はデプロイごとに保存され、
+// Functions Storage（Hobby 上限 10GB）を数十MB単位で押し上げる。
+const FORBIDDEN_EVERYWHERE = [
+  ["/node_modules/sharp/", "画像処理ライブラリ sharp（DDの画像の縦横は src/lib/image-dimensions.ts で読む）"],
+  ["/node_modules/@img/", "sharp の実行ファイル"],
+  ["/bzm/pilot/", "BZM の計算試行データ"],
+  ["/pwa/design/", "設計メモ"],
+  ["/pwa/design_log/", "開発記録"],
+  ["/pwa/output/", "調査の出力"],
+  ["/pwa/scripts/", "検査・移行の道具"],
+  ["/pwa/scheduled-tasks/", "定期タスクの指示書"],
+  ["/pwa/proposals/", "提案書の原稿"],
+  ["/pwa/public/bzm/", "書斎の公開画像（CDN から配る）"],
+  ["/pwa/tsconfig.tsbuildinfo", "型検査の中間ファイル"],
+];
+const traces = [];
+const walkTraces = dir => {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) walkTraces(full);
+    else if (entry.name.endsWith(".js.nft.json")) traces.push(path.relative(app, full).replace(/\.js\.nft\.json$/, ""));
+  }
+};
+walkTraces(app);
+for (const route of traces) {
+  const files = filesFor(route);
+  for (const [fragment, label] of FORBIDDEN_EVERYWHERE) {
+    const hit = files.find(file => file.includes(fragment));
+    assert(!hit, `${route}: ${label}が関数に同梱された（${path.relative(root, hit ?? "")}）。動的な fs 読みには turbopackIgnore を付け、必要な本文だけ outputFileTracingIncludes で同梱する`);
+  }
+  const source = files.find(file => file.includes("/pwa/src/") && /\.tsx?$/.test(file));
+  assert(!source, `${route}: TypeScript の元ファイルが関数に同梱された（${path.relative(root, source ?? "")}）。PWA 全体の自動追跡を疑う`);
+}
+console.log(`function bundle storage: ok (${traces.length} traces scanned)`);

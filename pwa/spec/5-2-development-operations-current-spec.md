@@ -268,4 +268,14 @@ Functions Storageは保持中のFunction bundleの容量。BlobやFast Origin Tr
 - `npm run build`のpostbuildで`check_function_bundle_storage.mjs`が実際のnft traceを検査する。文書API40MB、モデル一覧50MB、月報履歴/つくよみ編集8MB、PDF route120MBの上限と、必要な文書・Chromium・日本語fontの存在を確認する。容量は同じtrace内のパスを重複除去して測る。VercelがFunctionをまとめて保存するため、この合計を本番保存容量とは同一視しない。
 - amd-os-pwaだけ保存期間をpreview/production/canceled/errored各1日へ変更。設定readback済み。現行配信aliasと直近の正常production3版等はVercelの保持例外で残る。期限到達後の整理は通常48時間以内、例外解除の再評価は最大30日。即時解消は本番使用量で別途確認する。手動削除・完全消去・プラン変更は実施していない。
 
+### 2026-10-17 追記: 1デプロイあたりの同梱量の削減
+
+使用量画面のFunctions Storage（8.9GB/10GB、amd-os-pwa 8.84GB）は日次グラフの直近日の保存量と一致した。保存量は「保持中のデプロイ数 × 1デプロイの関数バンドル合計」で決まる。保存期間1日でも削除処理に最大48時間かかるため直近3〜4日分（10月17日時点で正常版43件）が残り、1日10〜20回のmain反映がそのまま積み上がる。当時の1デプロイは関数10本・圧縮後約205MB。
+
+- DDの画像プレビューの縦横は `src/lib/image-dimensions.ts` が画像の見出しから読む（PNG・JPEG・GIF・WebP）。sharp（libvipsとwasm版で約25MB）はDDの処理を含む関数4本へ重複同梱され、1デプロイ約47MBを占めていた。sharpと同じ縦横を返すことを `npm run test:image-dimensions`（deploy.shでも実行）で検査する。
+- 教科書・モデル正本の読み手（bzm-content-dir、model-content-dir、model-canon-source、model-data、bzm-data、public-manuscript、bzm-theory-store、/bzm/[slug]、文書API、書斎の図、spec-data）は、パスの組み立てとfs呼び出しに `/*turbopackIgnore: true*/` を付けて自動追跡を止める。候補パスを順に見る書き方から、Turbopackが9 routeへPWA配下の全md・設計メモ・開発記録・調査出力・公開画像・TypeScript元ファイルとbzm/pilot（約29MB）を同梱していた。
+- 本文は next.config.ts の outputFileTracingIncludes（`MODEL_AND_BZM_DOCS` / `BZM_DOCS`）だけで同梱する。動的セグメントのrouteキーは `/api/workspace-documents/*/pdf` と同じく `*` で書く（例: `/model/*/page`、`/api/project/*/org/route`）。
+- postbuildの `check_function_bundle_storage.mjs` は、本文を読む15 routeがbzm・model・manual・spec・書斎の図の該当ファイルを全部持つことと、全routeにsharp・bzm/pilot・設計メモ・開発記録・調査出力・道具・定期タスク・提案原稿・書斎の公開画像・型検査の中間ファイル・TypeScript元ファイルが無いことを検査し、崩れたらbuildを止める。新しくfsで文書を読む機能は、読み手へのturbopackIgnoreとincludesを同じ変更で書く。
+- ローカルtraceの圧縮見積りで1デプロイ約178MB→約115MB。月報・資料室のPDF生成に使うChromium（約64MB）は1デプロイに1回だけ同梱され、残る最大の項目。
+
 根拠: https://vercel.com/docs/deployment-storage / https://vercel.com/docs/deployment-retention

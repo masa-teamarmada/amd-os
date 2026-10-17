@@ -44,7 +44,7 @@ export async function GET(
   }
 
   const root = bzmContentDir();
-  const resolved = path.resolve(root, rel);
+  const resolved = path.resolve(/*turbopackIgnore: true*/ root, rel);
   const inside = path.relative(root, resolved);
   if (!inside || inside.startsWith("..") || path.isAbsolute(inside)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -52,7 +52,7 @@ export async function GET(
 
   let body: Buffer;
   try {
-    body = fs.readFileSync(resolved);
+    body = fs.readFileSync(/*turbopackIgnore: true*/ resolved);
   } catch {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }

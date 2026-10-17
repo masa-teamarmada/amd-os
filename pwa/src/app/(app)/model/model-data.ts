@@ -121,7 +121,7 @@ export function loadModelCurrent(): ModelCurrent | null {
   let raw: string | null;
   if (useOverride) {
     const filePath = overridePath as string;
-    raw = fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf8") : null;
+    raw = fs.existsSync(/*turbopackIgnore: true*/ filePath) ? fs.readFileSync(/*turbopackIgnore: true*/ filePath, "utf8") : null;
   } else {
     raw = readModelCanonFile("model", "CURRENT.json");
   }
@@ -156,7 +156,7 @@ export function getModelMarkdownSource(slug: string): string | null {
   if (!SAFE_SLUG_RE.test(slug)) return null;
 
   for (const sub of MODEL_MD_SUBDIRS) {
-    const relPath = sub ? path.join(sub, `${slug}.md`) : `${slug}.md`;
+    const relPath = sub ? path.join(/*turbopackIgnore: true*/ sub, `${slug}.md`) : `${slug}.md`;
     const source = readModelCanonFile("model", relPath);
     if (source !== null) return source;
   }

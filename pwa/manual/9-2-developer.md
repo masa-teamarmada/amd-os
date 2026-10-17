@@ -50,4 +50,4 @@
 
 ## Vercelの関数保存容量が増えたとき
 
-Vercelの使用量で「Functions Storage」を開き、Projectsでプロジェクト別に比較する。旧版の保持とFunctionに同梱するファイル量を確認し、詳しい対処は[/spec/5-2-development-operations-current-spec](/spec/5-2-development-operations-current-spec)へ。AMD OSのbuild後検査は、文書読み込みへの不要資料混入と、PDFを作らない処理へのChromium混入を止める。PDF生成に必要な日本語フォント等は残す。
+Vercelの使用量で「Functions Storage」を開き、Projectsでプロジェクト別に比較する。保存量は「保持中のデプロイ数 × 1デプロイの関数の大きさ」で決まり、AMD OSは保存期間1日でも直近3〜4日分のデプロイが残る。旧版の保持とFunctionに同梱するファイル量を確認し、詳しい対処は[/spec/5-2-development-operations-current-spec](/spec/5-2-development-operations-current-spec)へ。AMD OSのbuild後検査は、全routeへの不要資料・計算試行データ・画像処理ライブラリsharpの混入と、PDFを作らない処理へのChromium混入を止める。教科書・モデル・マニュアル・設計書を読む画面とAPIには、読む本文が全部同梱されていることも確かめる。PDF生成に必要な日本語フォント等は残す。教科書やモデルの本文をfsで読む機能を足すときは、読み手のfs呼び出しへ `/*turbopackIgnore: true*/` を付け、`next.config.ts` の outputFileTracingIncludes に本文を書く。

@@ -113,7 +113,7 @@ export function getPublicManuscriptChapter(slug: string) {
 }
 
 export function getPublicManuscriptMarkdown(slug: string) {
-  const filePath = path.join(publicManuscriptDir(), `${slug}.md`);
-  if (!fs.existsSync(filePath)) return null;
-  return fs.readFileSync(filePath, "utf8");
+  const filePath = path.join(/*turbopackIgnore: true*/ publicManuscriptDir(), `${slug}.md`);
+  if (!fs.existsSync(/*turbopackIgnore: true*/ filePath)) return null;
+  return fs.readFileSync(/*turbopackIgnore: true*/ filePath, "utf8");
 }

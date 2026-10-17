@@ -3838,9 +3838,11 @@ expectIncludes("src/lib/surface-catalog.ts", ['id: "bzm-reader"']);
 expectIncludes("src/app/(app)/bzm/bzm-data.ts", ["export function stripHtmlComments", "return stripHtmlComments(source);"]);
 // BZM 3.0 教科書を /bzm の左ナビ最上位の部に置く
 expectIncludes("src/app/(app)/bzm/bzm-chapters.ts", ['key: "bzm-3-0-textbook"', '"bzm-3-0-textbook-appendix"']);
+// 書斎の本文と図は outputFileTracingIncludes で同梱する。動的セグメントのキーは `*` で書く（2026-10-17）。
+// 実際に同梱されたかは build 後の check_function_bundle_storage.mjs が実 trace で確かめる。
 expectIncludes("next.config.ts", [
-  '"/bzm/read/[book]/[chapter]/page"',
-  '"/api/bzm-reader/asset/[...path]/route"',
+  '"/bzm/read/*/*/page"',
+  '"/api/bzm-reader/asset/*/route"',
   // 図(SVG)の CSP は全体の設定に上書きされるため、この path にだけ後から当てて上書きする。
   'source: "/api/bzm-reader/asset/:path*"',
   "bzmReaderAssetSecurityHeaders",
@@ -4773,7 +4775,7 @@ expectIncludes("src/app/(app)/model/page.tsx", [
   "<BzmMarkdown source={source} />",
 ]);
 expectIncludes("src/components/nav/GlobalNav.tsx", ['href: "/model"']);
-expectIncludes("next.config.ts", ['"/model/[slug]/page"', '"../model/**/*.json"']);
+expectIncludes("next.config.ts", ['"/model/*/page"', '"../model/**/*.json"']);
 
 // /model/formulas — BZM 2.2 の現行の式の一覧 (2026-08-23)。
 // この画面は式を持たず、正本 bzm md から抽出したものだけを出す。式を TS/JSON へ

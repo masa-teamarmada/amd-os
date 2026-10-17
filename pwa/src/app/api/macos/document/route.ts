@@ -173,11 +173,11 @@ export async function GET(req: NextRequest) {
   }
 
   const directory = documentDirectory(kindParam);
-  if (!fs.existsSync(directory)) {
+  if (!fs.existsSync(/*turbopackIgnore: true*/ directory)) {
     return NextResponse.json({ ok: true, kind: kindParam, chapters: [] });
   }
 
-  const chapters = fs.readdirSync(directory)
+  const chapters = fs.readdirSync(/*turbopackIgnore: true*/ directory)
     .filter((name) => name.endsWith(".md") && (kindParam !== "bzm" || !/^[A-Z]/.test(name)))
     .map((name) => name.replace(/\.md$/, ""))
     .sort();
@@ -193,7 +193,7 @@ export async function GET(req: NextRequest) {
   }
   const rawContent = isBzmPendingChapter
     ? bzmPendingSource(slug)!
-    : fs.readFileSync(path.join(directory, `${slug}.md`), "utf8");
+    : fs.readFileSync(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ directory, `${slug}.md`), "utf8");
   const specChapter = kindParam === "spec"
     ? getSpecBookChapters(getSpecChapters()).find((chapter) => chapter.slug === slug)
     : null;

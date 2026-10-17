@@ -21,14 +21,14 @@ export function isBzmChapterFile(name: string) {
 
 export function getBzmMarkdownSlugs() {
   const dir = bzmContentDir();
-  if (!fs.existsSync(dir)) return [];
-  return sortBzmSlugs(fs.readdirSync(dir).filter(isBzmChapterFile).map((f) => f.replace(/\.md$/, "")));
+  if (!fs.existsSync(/*turbopackIgnore: true*/ dir)) return [];
+  return sortBzmSlugs(fs.readdirSync(/*turbopackIgnore: true*/ dir).filter(isBzmChapterFile).map((f) => f.replace(/\.md$/, "")));
 }
 
 export function getBzmMarkdownSource(slug: string) {
-  const filePath = path.join(bzmContentDir(), `${slug}.md`);
-  if (!fs.existsSync(filePath)) return null;
-  return fs.readFileSync(filePath, "utf8");
+  const filePath = path.join(/*turbopackIgnore: true*/ bzmContentDir(), `${slug}.md`);
+  if (!fs.existsSync(/*turbopackIgnore: true*/ filePath)) return null;
+  return fs.readFileSync(/*turbopackIgnore: true*/ filePath, "utf8");
 }
 
 export function getBzmChapters(): BzmChapterConfig[] {

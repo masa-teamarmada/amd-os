@@ -128,6 +128,11 @@ const bzmReaderAssetSecurityHeaders = [
   },
 ];
 
+// 教科書とモデル正本の本文。読み手の fs 呼び出しは turbopackIgnore で自動追跡を止めているので、
+// 実行時に読む route へ outputFileTracingIncludes でこの範囲だけを同梱する。
+const BZM_DOCS = ["../bzm/**/*.md"];
+const MODEL_AND_BZM_DOCS = ["../model/**/*.md", "../model/**/*.json", "../bzm/**/*.md"];
+
 const nextConfig: NextConfig = {
   env: buildStampEnv,
   // 2026-05-12 まさ要望「雛形そのまま」で /api/admin/pj-introduction-html が
@@ -167,19 +172,28 @@ const nextConfig: NextConfig = {
     // Native macOS の文書readerもPWAの git 管理Markdownを正本として返す。
     // route内の readdir/readFileSync は自動トレースに乗らないため、ここで本文を
     // 明示しないと本番だけ `document not found` になる。
-    // モデル正本 (amd-os/model/) は教科書と同じくリポジトリルート直下。/model は admin 限定 layout で
-    // 動的レンダリングになり実行時に fs 読みするため、明示 bundle しないと本番だけ ENOENT になる。
-    "/model/[slug]/page": ["../model/**/*.md", "../model/**/*.json", "../bzm/**/*.md"],
-    "/model/page": ["../model/**/*.md", "../model/**/*.json", "../bzm/**/*.md"],
-    // モデルページは正本 bzm md から式と記号を実行時に抽出するので bzm も要る。
-    "/model/formulas/page": ["../model/**/*.md", "../model/**/*.json", "../bzm/**/*.md"],
-    // 書斎 (/bzm/read) は bzm/*.md を実行時に fs 読みする (admin 限定 layout で動的レンダリング)。
-    // 動的な fs 読みは nft の自動トレースに乗らず、本番だけ ENOENT になるため明示 bundle する。
-    // 図は asset route が bzm/ 配下から拡張子限定で配るので、図の6拡張子も同梱する。
-    "/bzm/read/page": ["../bzm/**/*.md"],
-    "/bzm/read/[book]/page": ["../bzm/**/*.md"],
-    "/bzm/read/[book]/[chapter]/page": ["../bzm/**/*.md"],
-    "/api/bzm-reader/asset/[...path]/route": [
+    // モデル正本 (amd-os/model/) と教科書 (amd-os/bzm/) はリポジトリルート直下にあり、モデル画面・書斎・
+    // 理論地図・モデルAPI・PJ体制が実行時に fs 読みする（admin 限定 layout で動的レンダリング）。
+    // 読み手の fs 呼び出しには turbopackIgnore を付けて自動追跡を止めている。止めないと候補パスを順に
+    // 見る書き方から PWA 全体（設計メモ・開発記録・公開画像・計算試行データ）を関数へ同梱し、
+    // デプロイのたびに Functions Storage が増える（2026-10-17）。本文の同梱はここだけで決める。
+    // 動的セグメントは `/api/workspace-documents/*/pdf` と同じく `*` で書く。
+    // 同梱の漏れは build 後の check_function_bundle_storage.mjs が本番前に止める。
+    "/model/page": MODEL_AND_BZM_DOCS,
+    // /model/[slug] と /model/formulas。モデルページは正本 bzm md から式と記号を実行時に抽出するので bzm も要る。
+    "/model/*/page": MODEL_AND_BZM_DOCS,
+    // /api/model/bzm30 と /api/model/sections
+    "/api/model/*/route": MODEL_AND_BZM_DOCS,
+    // PJ体制は機能の定義をモデル正本から読む
+    "/api/project/*/org/route": MODEL_AND_BZM_DOCS,
+    // /bzm/[slug]・/bzm/map・/bzm/read、一般書、書斎の本と章、理論地図
+    "/bzm/*/page": BZM_DOCS,
+    "/bzm/public/*/page": BZM_DOCS,
+    "/bzm/read/*/page": BZM_DOCS,
+    "/bzm/read/*/*/page": BZM_DOCS,
+    "/api/bzm/theory-map/route": BZM_DOCS,
+    // 書斎の図は asset route が bzm/ 配下から拡張子限定で配るので、図の6拡張子も同梱する。
+    "/api/bzm-reader/asset/*/route": [
       "../bzm/**/*.png",
       "../bzm/**/*.jpg",
       "../bzm/**/*.jpeg",

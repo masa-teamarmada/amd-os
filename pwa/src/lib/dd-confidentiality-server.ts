@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { DD_CONFIDENTIALITY_NOTICE, DD_CONFIDENTIALITY_VERSION, ddEscapeHtml } from "./dd-confidentiality.ts";
+import { readImageDimensions } from "./image-dimensions.ts";
 
 export function ddContentHash(value: unknown): string {
   return createHash("sha256").update(value instanceof Uint8Array ? value : JSON.stringify(value) ?? "null").digest("hex");
@@ -40,10 +41,15 @@ export async function markDdPdf(bytes: Uint8Array): Promise<Uint8Array> {
   return output.save();
 }
 
-/** 画像原本を埋め込んだ閲覧用SVG。秘密表示の分だけ縦に余白を加える。 */
+/**
+ * 画像原本を埋め込んだ閲覧用SVG。秘密表示の分だけ縦に余白を加える。
+ * 縦横は画像の見出しだけから読む。画像処理ライブラリ（sharp）はこのファイルを読む全DD処理の関数へ
+ * 同梱されて Functions Storage を押し上げるため使わない（2026-10-17）。
+ */
 export async function markDdImage(bytes: Uint8Array, mimeType: string): Promise<Uint8Array> {
-  const sharp = (await import("sharp")).default;
-  const { width = 800, height = 600 } = await sharp(bytes).metadata();
+  const dimensions = readImageDimensions(bytes);
+  if (!dimensions) throw new Error("unsupported_image");
+  const { width, height } = dimensions;
   const stampWidth = Math.min(320, width * 0.92);
   const stampHeight = stampWidth * 817 / 1925;
   const headerHeight = stampHeight + 24;
