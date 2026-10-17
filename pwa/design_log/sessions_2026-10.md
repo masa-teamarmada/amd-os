@@ -745,3 +745,14 @@ NDA回帰・従来DD検査成功。8GB指定の型検査・対象lint・project-
 5. 794c5bce / v3.162.68: image-dimensions.ts（PNG/JPEG/GIF/WebP、sharpと突き合わせるtest:image-dimensionsをdeploy.shへ追加）、読み手のfs/path呼び出しへturbopackIgnore、includesを`*`キーで明示（`MODEL_AND_BZM_DOCS` / `BZM_DOCS`）、postbuild検査（本文を読む15 routeの全件同梱・全434 traceの禁止物）。critical-uiの錨を新キーへ更新。spec5-2・manual9-2・附則へ同期。
 6. 検証: 使い捨てcloneで NODE_OPTIONS=--max-old-space-size=8192 の npm run build 成功（修正前の出力には同じ検査が設計メモ混入で停止）。test:dd-package / bzm-reader / model-formula-canon / critical-ui / image-dimensions、deploy.sh全検査、本番Ready 3分20秒・build-info一致。Vercel実測で関数合計204.9MB→118.9MB（Chromium群93.3→76.0、画面群41.8→16.9、API群39.5→13.1、DD群22.6→5.2）。本番でモデル画面・教科書の章・理論地図・一般書・文書API・書斎の図・PJ体制API（p01/p10/p21/p35）を確認。書斎の別アドレスはログインが必要なため画面は未確認。DD画像プレビューは開くと閲覧記録が残るため本番では開かず、sharpとの突き合わせで確認。
 7. 旧版は削除していない。保存量は旧版の期限切れに合わせて3〜4日で下がる見込み（43件なら約5.1GB）。次の削減候補（Chromiumの実行時取得、反映後の旧版自動削除）はまさの判断を得てから。
+
+## 2026-10-17 反映後の旧版整理（直近5版と本番版を残す）
+
+作業種別development。まさの指示「古い版の自動削除を入れて。AMD OSの更新が終わるたびに、直近5版と今の本番版を残して、それより古い版を消す形で」。
+
+1. 813128f9 / v3.162.69: `pwa/scripts/cleanup_old_deployments.mjs` と `test:deployment-cleanup` を追加。deploy.sh が本番の git_sha 一致を確かめた後に `--apply` で呼ぶ。整理の失敗は警告だけにして、反映は成功として扱う。
+2. 規則: READYの新しい順5版と、`amd-os-pwa.vercel.app` の alias が指す本番版を残す。アドレス付きの版は `vercel remove --safe` が飛ばし、作成中・取消・失敗の版は対象外。`dpl_` の ID だけを渡す（プロジェクト名を渡すと全版が消えるため）。消す直前に本番の alias を読み直し、1回に消すのは100件まで。手で回したときの既定は予行。
+3. 実データで予行し、本番と新しい4版を残して 10/13〜10/17朝の39版を選ぶことを確かめてから反映した。
+4. 初回の実行: 反映6分1秒、本番 dpl_7dSU…（813128f9）。40版を削除し、残りはREADY 5（813128f9・794c5bce・0746cee2・e3506db1・c99a5611）とCANCELED 6。Vercel の Settings › Security › Recently Deleted Deployments に「29 days left」で並ぶことを確認。本番 build-info は v3.162.69 / dirty:false。
+5. 保存量の見込み: 残る5版で約0.85GB（新しい2版が約119MB、古い3版が約205MB）。以後の反映で約0.6GBまで下がる。Vercelの日次値は当日の最大保存量を数えるため、使用量画面の数字が下がるのは翌日の集計から。
+6. 検証: test:deployment-cleanup（6場面）、critical-ui、deploy.sh の全検査、本番の alias と build-info。

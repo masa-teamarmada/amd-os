@@ -59,5 +59,6 @@
 ## 2026-10-17 追記（再増加8.9GBへの対策）
 - 現在地: 794c5bce / v3.162.68 を本番反映。1デプロイの関数合計は204.9MB→118.9MB（Vercel実測）。旧版は削除していない。amd-os-pwaの8.84GBは旧版の期限切れで3〜4日かけて下がる見込み（43件なら約5.1GB）。
 - 原因と対策の正本: pwa/spec/5-2「2026-10-17 追記」、pwa/BUGS.md 冒頭、pwa/design_log/sessions_2026-10.md 末尾。
-- 次の削減候補（まさの判断が要る）: ①PDF用Chromium（1デプロイ約64MB）を外部の置き場から実行時に取得、②反映後に古い版を自動削除（直近数版を残す）。
+- 反映後の旧版整理を追加（813128f9 / v3.162.69、まさ指示）。deploy.sh が反映のたびに READY の新しい5版と本番版を残して古い版を消す。初回で40版を削除し、Recently Deleted から30日以内に戻せる。保存量は残る5版で約0.85GB。
+- 次の削減候補（まさの判断が要る）: PDF用Chromium（1デプロイ約64MB）を外部の置き場から実行時に取得。
 - 確かめ方: `vercel api /v11/deployments/<id>/builds --scope armada0130` で関数の合計、Vercel Usage › Functions Storage › Projects で推移。
