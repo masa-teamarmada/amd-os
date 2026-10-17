@@ -43,6 +43,7 @@ import { FactoryUtilitySwitches, Segmented } from "@/components/cockpit/CockpitC
 import { FuelControlsPanel } from "@/components/cockpit/CockpitFuelCostModelControls";
 import { FuelResultsPanel, FuelResultsSummaryBar } from "@/components/cockpit/CockpitFuelCostModelResults";
 import { FuelReadingSections } from "@/components/cockpit/CockpitFuelCostModelReading";
+import { FuelSmallScale } from "@/components/cockpit/CockpitFuelSmallScale";
 import { FuelOperatingSwitches } from "@/components/cockpit/CockpitFuelOperatingPlan";
 import { FUEL_OPERATING_CHOICES } from "@/lib/project-fuel-operating";
 import { FUEL_SOLVENT_CHOICES } from "@/lib/project-fuel-solvent";
@@ -78,7 +79,7 @@ export interface FuelViewState {
 const draftMemory = new Map<string, CostDraft>();
 const viewMemory = new Map<string, FuelViewState>();
 // 開いたときは、事業概要 (2026-09-03) の分担どおり FAME転換を外部に委託し、収率は基準。
-const DEFAULT_VIEW: FuelViewState = { conversion: "outsourced", yieldCase: "base" };
+const DEFAULT_VIEW: FuelViewState = { conversion: "inhouse", yieldCase: "base" };
 
 /** 「保存していない変更」の一覧の値。選択肢で持つ前提 (残渣の行き先・脂質分泌株) は呼び名で出す。 */
 export function formatFuelDraftValue(change: Pick<DraftChange, "field">, value: DraftValue): string {
@@ -389,6 +390,7 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData,
           )}
         </div>
 
+        <div className="border-b border-[#e5e5e7] p-2"><FuelSmallScale working={working} current={current} onChange={onChange} /></div>
         {/* 操作パネル（左）と結果（右）。両方とも自然な高さで、ページ全体をスクロールする */}
         <div
           className="grid grid-cols-1 min-[1100px]:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_380px]"

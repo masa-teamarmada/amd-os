@@ -1,6 +1,6 @@
 import type { CostAssumption, CostItem } from "./project-cost-model.ts";
 
-export const FUEL_SOLVENT_CHOICES = [{ value: "loop", label: "循環回収（設計仮説）" }, { value: "overlay", label: "全槽で保持（比較）" }];
+export const FUEL_SOLVENT_CHOICES = [{ value: "physical", label: "溶媒なしの物理回収" }, { value: "loop", label: "溶媒の循環回収" }, { value: "overlay", label: "溶媒を全槽で保持" }];
 export const FUEL_SOLVENT_EQUIPMENT = [
   { role: "fuel_solvent_contact_capex", label: "既存接触部の改造・分配器" },
   { role: "fuel_solvent_pump_capex", label: "追加の溶媒用ポンプ" },
@@ -27,7 +27,7 @@ export function fuelSolventReplaces(item: Pick<CostItem, "strain" | "leafLabel">
 export function fuelSolventOf(a: CostAssumption[], items: CostItem[], annualKg: number, days: number, cultureM3: number) {
   const row = (r: string) => a.find((x) => x.roleKey === r);
   const v = (r: string) => Number.isFinite(row(r)?.value) ? Math.max(row(r)?.value ?? 0, 0) : 0;
-  const enabled = !!row("fuel_solvent_mode") && row("fuel_culture_source")?.valueText === "inventory" && row("lipid_secreting_strain")?.valueText === "on";
+  const enabled = ["loop", "overlay"].includes(row("fuel_solvent_mode")?.valueText ?? "") && row("fuel_culture_source")?.valueText === "inventory" && row("lipid_secreting_strain")?.valueText === "on";
   const loop = enabled && row("fuel_solvent_mode")?.valueText === "loop";
   const itemized = !!row("fuel_solvent_contact_capex");
   const roles = enabled ? loop ? FUEL_SOLVENT_ROLES.filter((r) => r !== "fuel_solvent_mode" && r !== "fuel_solvent_overlay_percent" && (itemized ? r !== "fuel_solvent_loop_capex" : !FUEL_SOLVENT_EQUIPMENT.some((x) => x.role === r))) : ["fuel_solvent_overlay_percent", "fuel_solvent_density", "fuel_solvent_funding_rate"] : [];

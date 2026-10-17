@@ -3,6 +3,7 @@
 import type { CostModelBundle } from "@/lib/project-cost-model";
 import { fuelAssumptionOf, type FuelScenarioResult } from "@/lib/project-fuel-cost-model";
 import { FUEL_OPERATING_CHOICES, fuelOperatingOf } from "@/lib/project-fuel-operating";
+import { FUEL_SOLVENT_CHOICES } from "@/lib/project-fuel-solvent";
 import { FUEL_SUPPLY_CHOICES } from "@/lib/project-fuel-supply-quality";
 import { Segmented, num, yen } from "./CockpitCostModelParts";
 import type { FuelChangeHandler } from "./CockpitFuelCostModelControls";
@@ -12,6 +13,7 @@ export function FuelOperatingSwitches({ working, onChange, onOpenEffluent }: { w
   const secretion = fuelAssumptionOf(working.assumptions, "lipid_secreting_strain");
   const operating = fuelOperatingOf(working.assumptions);
   return <>
+    {operating.inventory && (() => { const a = fuelAssumptionOf(working.assumptions, "fuel_solvent_mode"); return a ? <div className="flex min-w-0 items-center gap-1.5" data-testid="fuel-recovery-switch"><span className="w-[4.5rem] shrink-0 text-[11px] font-semibold lg:w-auto">回収</span><select aria-label="脂肪酸の回収方式" value={a.valueText ?? "loop"} onChange={(e) => onChange("assumption", a.costAssumptionId, "valueText", e.target.value)} className="min-h-11 min-w-0 max-w-full rounded-md border border-[#d2d2d7] bg-white px-2 text-[12px] lg:min-h-7">{FUEL_SOLVENT_CHOICES.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}</select></div> : null; })()}
     {operating.inventory && <div className="text-[11px] leading-5 text-[#3c3c43] sm:col-span-2 lg:basis-full" data-testid="fuel-shared-culture-boundary">培養条件は排水側を参照。光源：{operating.sunlight ? "太陽光主体" : "人工照明"}。培養設備・照明・CO₂・培地・通常作業の燃料負担はすべて0円。</div>}
     {operating.carbon.enabled && !operating.inventory && (() => {
       const a = fuelAssumptionOf(working.assumptions, "fuel_carbon_source")!;
@@ -86,6 +88,13 @@ export function FuelOperatingSummary({ current }: { current: FuelScenarioResult 
     {op.quality.enabled && <div className="mt-1.5 border-t border-[#e5e5e7] pt-1.5 text-[11px] leading-4" data-testid="fuel-quality-summary">
       <p className="font-semibold">品質確認：{op.quality.hybrid ? "自社の日常分析＋定期外注" : "各ロットを外注"} <a className="ml-1 font-normal text-[#0267b2] underline" href="#fuel-g-cond-quality">条件を変更</a></p>
       {op.quality.hybrid && <p className="mt-1">日常分析は1回 {num(op.quality.routineHours, 2)}人時＋消耗品{yen(op.quality.routineExpense)}。追加購入する分析機器 {op.quality.missing.includes("fuel_lab_capex") ? "未見積" : yen(op.quality.capex)}、校正・維持費 {op.quality.missing.includes("fuel_lab_annual") ? "未見積" : `${yen(op.quality.maintenanceAnnual)}/年`}。外部確認の頻度・工数・料金は作業欄で入力する。</p>}
+    </div>}
+    {s.physical.enabled && <div className="mt-1.5 border-t border-[#e5e5e7] pt-1.5 text-[11px] leading-4" data-testid="fuel-physical-summary">
+      <p className="font-semibold">溶媒なしの物理回収 <a href="#fuel-g-cond-physical" className="ml-1 font-normal text-[#0267b2] underline">条件を変更</a></p>
+      <p className="mt-1">すくい取り・ろ過で年{num(s.physical.recoveredKg, 0)}kgの脂肪酸を回収する仮定。回収率 {num(current.yield.brothRecovery * 100, 0)}%。分泌速度は人工照明基準 {num(current.yield.secretionRatePerLiterDay, 3)}g/L/日 × 光源の年間比率 {num(op.lightProductivityFactor * 100, 0)}%。</p>
+      <p className="mt-1">回収装置 {num(s.physical.points, 0)}か所で{yen(s.physical.recoveryCapex)}、自社FAME設備の追加購入 {yen(s.physical.fameCapex)}。溶媒の在庫・補給・再生費は0円。</p>
+      <p className="mt-1">回収物から除く水 {num(s.physical.waterKg, 0)}kg/年。追加電力 {num(s.physical.powerKwh, 0)}kWh/年・乾燥熱 {num(s.physical.heatMj, 0)}MJ/年を計上。</p>
+      <p className="mt-1 text-[#b45309]">分泌速度・回収率は溶媒なしの設計仮定。共通回収口、装置の処理能力、ろ過後の純度と菌体の排水処理性能を測定して更新する。</p>
     </div>}
     {s.solvent.enabled && <div className="mt-1.5 border-t border-[#e5e5e7] pt-1.5 text-[11px] leading-4" data-testid="fuel-solvent-summary">
       <p className="mt-1">溶媒は、薄い培養液から脂肪酸を受け取り、アルカリ水へ渡して濃縮する循環用の媒体。戻して使い、失った分だけ補給する。油層や粒子が集まるなら、すくう・こす物理回収を先に評価する。溶媒は必須ではなく、ここでは溶媒を使う方式の費用を比較。</p>

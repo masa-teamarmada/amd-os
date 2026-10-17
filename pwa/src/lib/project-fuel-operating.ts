@@ -42,7 +42,7 @@ export function fuelOperatingOf(assumptions: CostAssumption[]) {
   const missing = [
     ...(wholeLines && !smallBatchEquipment ? ["fuel_plant_capex_override"] : []),
     ...(sunlight && !inventory ? ["sunlight_productivity_ratio", "sunlight_capex", "sunlight_life_years", "sunlight_opex_annual"] : []),
-    ...(inventory ? [...(inventoryTarget || inventoryFromEffluent ? [] : ["inventory_volume_m3"]), "inventory_wait_days", ...(inventoryFromEffluent ? ["inventory_biomass_concentration", "inventory_recovery_share"] : ["inventory_batches_year"]), "inventory_incremental_annual"] : []),
+    ...(inventory ? [...(inventoryTarget || inventoryFromEffluent ? [] : ["inventory_volume_m3"]), "inventory_wait_days", ...(inventoryFromEffluent ? ["inventory_biomass_concentration", "inventory_recovery_share"] : ["inventory_batches_year"]), ...(row("fuel_solvent_mode")?.valueText === "physical" ? [] : ["inventory_incremental_annual"])] : []),
     ...(inventoryExistingEquipment ? ["inventory_equipment_capex", "inventory_equipment_life_years", "inventory_initial_working_capital"] : []),
   ].filter((role) => row(role)?.value == null || (["sunlight_life_years", "inventory_biomass_concentration", "inventory_equipment_life_years"].includes(role) && value(role) <= 0) || (role === "fuel_plant_capex_override" && plantCapexOverride === null));
   missing.push(...carbon.missing, ...quality.missing);
@@ -59,7 +59,7 @@ export function fuelOperatingOf(assumptions: CostAssumption[]) {
     solarCapex: sunlight && !inventory ? value("sunlight_capex") : 0,
     solarCapexAnnual: sunlight && !inventory ? value("sunlight_capex") / Math.max(value("sunlight_life_years", 10), 1) : 0,
     solarOpexAnnual: sunlight && !inventory ? value("sunlight_opex_annual") : 0,
-    inventoryIncrementalAnnual: inventory ? value("inventory_incremental_annual") : 0,
+    inventoryIncrementalAnnual: inventory && row("fuel_solvent_mode")?.valueText !== "physical" ? value("inventory_incremental_annual") : 0,
     commonAllocationAnnual: 0,
   };
 }
