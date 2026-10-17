@@ -93,6 +93,8 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
     for (const g of FUEL_PARAM_GROUPS) {
       if (g.key === "cond-yield") continue;
       if (g.key === "cond-carbon" && !operating.carbon.enabled) { map.set(g.key, []); continue; }
+      const solventMode = fuelAssumptionOf(working.assumptions, "fuel_solvent_mode")?.valueText;
+      if (g.key === "cond-solvent" && (!operating.inventory || !solventMode)) { map.set(g.key, []); continue; }
       map.set(g.key, g.roles.flatMap((role) => {
         // 排ガス利用可能は CO2 の明細の行に出す (まさ 2026-09-14「CO2コストのところに設置してほしい」)
         if (ITEM_INLINE_ROLES.has(role)) return [];
@@ -100,6 +102,9 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
         if (role === LIPID_SECRETION_ROLE) return [];
         if (role === "fuel_light_source" || role === "fuel_culture_source" || role === "inventory_sizing") return [];
         if (role === "fuel_carbon_source") return [];
+        if (role === "inventory_initial_working_capital" && solventMode) return [];
+        if (role === "fuel_solvent_overlay_percent" && solventMode === "loop") return [];
+        if (role.startsWith("fuel_solvent_") && solventMode === "overlay" && !["fuel_solvent_mode", "fuel_solvent_overlay_percent", "fuel_solvent_density", "fuel_solvent_funding_rate"].includes(role)) return [];
         if (role.startsWith("sunlight_") && !operating.sunlight) return [];
         if (role.startsWith("inventory_") && !operating.inventory) return [];
         if (role === "inventory_volume_m3" && (operating.inventoryTarget || operating.inventoryFromEffluent)) return [];

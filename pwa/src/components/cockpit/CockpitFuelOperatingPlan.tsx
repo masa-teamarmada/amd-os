@@ -85,6 +85,17 @@ export function FuelOperatingSummary({ current }: { current: FuelScenarioResult 
       <p className="font-semibold">品質確認：{op.quality.hybrid ? "自社の日常分析＋定期外注" : "各ロットを外注"} <a className="ml-1 font-normal text-[#0267b2] underline" href="#fuel-g-cond-quality">条件を変更</a></p>
       {op.quality.hybrid && <p className="mt-1">日常分析は1回 {num(op.quality.routineHours, 2)}人時＋消耗品{yen(op.quality.routineExpense)}。追加購入する分析機器 {op.quality.missing.includes("fuel_lab_capex") ? "未見積" : yen(op.quality.capex)}、校正・維持費 {op.quality.missing.includes("fuel_lab_annual") ? "未見積" : `${yen(op.quality.maintenanceAnnual)}/年`}。外部確認の頻度・工数・料金は作業欄で入力する。</p>}
     </div>}
+    {s.solvent.enabled && <div className="mt-1.5 border-t border-[#e5e5e7] pt-1.5 text-[11px] leading-4" data-testid="fuel-solvent-summary">
+      <p className="font-semibold">溶媒：{s.solvent.loop ? "循環回収（設計仮説）" : "全槽で保持（比較）"} <a className="ml-1 font-normal text-[#0267b2] underline" href="#fuel-g-cond-solvent">条件を変更</a></p>
+      <dl className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 tabular-nums">
+        <div><dt className="text-[#6e6e73]">必要な溶媒在庫</dt><dd>{s.solvent.valid ? `${num(s.solvent.stockM3, 2)} m³` : "—"}</dd></div>
+        <div><dt className="text-[#6e6e73]">初回の溶媒調達</dt><dd>{s.solvent.valid ? yen(s.solvent.workingCapital) : "—"}</dd></div>
+        {s.solvent.loop && <><div><dt className="text-[#6e6e73]">溶媒の循環量</dt><dd>{num(s.solvent.solventM3Hour, 1)} m³/時</dd></div><div><dt className="text-[#6e6e73]">培養液側の送液量</dt><dd>{num(s.solvent.waterM3Hour, 0)} m³/時</dd></div></>}
+      </dl>
+      {s.solvent.loop && <p className="mt-1">循環回収の追加装置 {yen(s.solvent.capex)}、追加保守 {yen(s.solvent.maintenanceAnnual)}/年。溶媒補給 {num(s.solvent.makeupKgYear, 0)} kg/年・送液と回収の電力 {num(s.solvent.powerKwhYear, 0)} kWh/年を物量から計算。</p>}
+      <p className="mt-1">初回溶媒の資金コスト {yen(s.solvent.fundingAnnual)}/年も表示原価へ含む。開始資金の元本は年間原価と分ける。</p>
+      <p className="mt-1 text-[#b45309]">濃度差・一巡時間・装置予算は仮置き。回収能力、溶媒の菌体への影響、出荷後の排水処理性能は実証が必要。</p>
+    </div>}
     {op.inventoryExistingEquipment && <div className="mt-1.5 rounded-md border border-[#d2d2d7] bg-white px-2 py-1.5 text-[11px] leading-4 text-[#1d1d1f]" data-testid="fuel-existing-equipment">
       <p className="font-semibold">既存設備を使う追加採算</p>
       <p className="mt-1">培養・保管・回収・燃料化の設備購入費と償却、設備価格比の固定保守費は自動計上0円。追加購入する設備と追加の運転費は入力した分を加算。</p>

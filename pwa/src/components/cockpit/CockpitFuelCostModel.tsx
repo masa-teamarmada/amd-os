@@ -45,6 +45,7 @@ import { FuelResultsPanel, FuelResultsSummaryBar } from "@/components/cockpit/Co
 import { FuelReadingSections } from "@/components/cockpit/CockpitFuelCostModelReading";
 import { FuelOperatingSwitches } from "@/components/cockpit/CockpitFuelOperatingPlan";
 import { FUEL_OPERATING_CHOICES } from "@/lib/project-fuel-operating";
+import { FUEL_SOLVENT_CHOICES } from "@/lib/project-fuel-solvent";
 import type { FuelEffluentSupply } from "@/lib/project-fuel-effluent-supply";
 
 // PJコックピット「事業計画」グループの「コスト試算（燃料）」タブ（コスト試算（廃液）の右隣。2026-09-14 に技術タブの中から移した）。
@@ -82,6 +83,8 @@ const DEFAULT_VIEW: FuelViewState = { conversion: "outsourced", yieldCase: "base
 /** 「保存していない変更」の一覧の値。選択肢で持つ前提 (残渣の行き先・脂質分泌株) は呼び名で出す。 */
 export function formatFuelDraftValue(change: Pick<DraftChange, "field">, value: DraftValue): string {
   if (change.field === "valueText" && typeof value === "string") {
+    const solvent = FUEL_SOLVENT_CHOICES.find((c) => c.value === value);
+    if (solvent) return solvent.label;
     const operating = Object.values(FUEL_OPERATING_CHOICES).flat().find((c) => c.value === value);
     if (operating) return operating.label;
   }
