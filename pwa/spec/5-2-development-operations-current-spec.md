@@ -45,6 +45,7 @@ AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts
 - `bash pwa/scripts/deploy.sh --dry-run` は push せず、上記検査と rollback guard だけを確認する。
 - `AMD_OS_VERCEL_DEPLOY_APPROVED=1` は承認済みを示す値ではなく、誤実行防止の明示スイッチ。原則、deploy 前の事前確認で止めず、deploy bundle は事後報告に残す。
 - script は push 後、新しい production deployment が Ready になるまで polling し (最大 15 分)、macOS 通知を出す。
+- script は本番が今回の commit を返したことを確かめた後、`cleanup_old_deployments.mjs --apply` で古い版を消す。残すのは作り終えた版（READY）の新しい順5件と今の本番版で、アドレス付き・作成中・取消・失敗の版も残す。整理に失敗しても反映は成功として扱い、次の反映で再び整理する。詳細は「反映後の旧版整理」。
 - **main 以外の branch は build されない**: `pwa/vercel.json` の `ignoreCommand: [ "$VERCEL_GIT_COMMIT_REF" != "main" ]` (exit 0 = build skip)。preview deploy は運用しない。
 - **ブランチ作成は全面禁止** (root `CLAUDE.md` 2026-06-12 確定)。
 - `.vercel/project.json` (`amd-os-pwa` / `prj_raZW3HSKIszzPUwNTHfy7xDGzLHm`) は緊急 rollback の `vercel promote` 用に維持する。
@@ -56,6 +57,8 @@ npx vercel promote <deployment-id> --scope armada0130 --yes
 ```
 
 恒久復旧は revert commit を main に push して行い、本番と main の乖離を残さない。
+
+promote で戻せるのは、反映後の旧版整理で残る直近5版と本番版。それより前の版は Vercel の amd-os-pwa › Settings › Security › Recently Deleted から30日以内に Restore してから promote する。
 
 ## Build version
 
@@ -277,5 +280,17 @@ Functions Storageは保持中のFunction bundleの容量。BlobやFast Origin Tr
 - 本文は next.config.ts の outputFileTracingIncludes（`MODEL_AND_BZM_DOCS` / `BZM_DOCS`）だけで同梱する。動的セグメントのrouteキーは `/api/workspace-documents/*/pdf` と同じく `*` で書く（例: `/model/*/page`、`/api/project/*/org/route`）。
 - postbuildの `check_function_bundle_storage.mjs` は、本文を読む15 routeがbzm・model・manual・spec・書斎の図の該当ファイルを全部持つことと、全routeにsharp・bzm/pilot・設計メモ・開発記録・調査出力・道具・定期タスク・提案原稿・書斎の公開画像・型検査の中間ファイル・TypeScript元ファイルが無いことを検査し、崩れたらbuildを止める。新しくfsで文書を読む機能は、読み手へのturbopackIgnoreとincludesを同じ変更で書く。
 - ローカルtraceの圧縮見積りで1デプロイ約178MB→約115MB。月報・資料室のPDF生成に使うChromium（約64MB）は1デプロイに1回だけ同梱され、残る最大の項目。
+
+### 反映後の旧版整理（2026-10-17）
+
+まさ確定（2026-10-17）: AMD OSの更新が終わるたびに、直近5版と今の本番版を残し、それより古い版を消す。保存期間1日と Vercel の削除処理の遅れに任せると直近3〜4日分（数十版）が残るため、反映ごとに保持を一定にする。
+
+- 実行: `deploy.sh` が `/api/build-info` の git_sha で本番の切り替わりを確かめた後、`node pwa/scripts/cleanup_old_deployments.mjs --apply --expect-production-sha <sha>` を呼ぶ。本番が今回の commit でなければ何も消さない。
+- 残す版: 作り終えた版（READY）の新しい順5件と、`amd-os-pwa.vercel.app` の alias が指す今の本番版。巻き戻しで本番が古い版を指していても本番は残す。アドレス付きの版は `vercel remove --safe` が飛ばす。作成中・待機中・取消・失敗の版は対象外（取消・失敗は中身を持たず容量を使わない。保存期間1日で Vercel が消す）。
+- 誤削除の防止: `vercel remove` にはプロジェクト名を渡すと全版を消すため、`dpl_` で始まる版の ID だけを渡す。消す直前に本番の alias をもう一度読み、変わっていたら止める。1回で消すのは古い順に100件まで。
+- 手で回したときの既定は予行で、消す対象の一覧だけを出す（`node pwa/scripts/cleanup_old_deployments.mjs`）。
+- 戻し方: Vercel の amd-os-pwa › Settings › Security › Recently Deleted から30日以内に Restore する。
+- 検査: `npm run test:deployment-cleanup`（deploy.sh でも実行）が、本番・新しい5版・作成中・取消・失敗・他プロジェクトの版を選ばないことと、本番が特定できないときに止まることを確かめる。
+- 保持の見込みは最大6版前後で、1版約119MBなら1GB未満。
 
 根拠: https://vercel.com/docs/deployment-storage / https://vercel.com/docs/deployment-retention

@@ -1,5 +1,7 @@
 # 附則（設計書変更履歴）
 
+2026-10-17（v3.162.69）: 反映後の旧版整理を追加。deploy.shが本番の切り替わりを確かめた後、READYの新しい順5版と本番版を残して古い版を消す（アドレス付き・作成中・取消・失敗は対象外、Recently Deletedから30日間復元可）。test:deployment-cleanupをdeploy.shへ追加。画面・DB不変。spec5-2/manual9-2。
+
 2026-10-17（v3.162.68）: Functions Storage対策。DD画像の縦横読みをsharpから見出し読み（image-dimensions.ts）へ置換。教科書・モデル正本の読み手の自動追跡をturbopackIgnoreで止め、本文をoutputFileTracingIncludesで明示。postbuildで本文を読む15 routeの全件同梱と全routeの禁止物を検査。ローカル見積りで1デプロイ約178MB→約115MB。画面・DB不変。spec5-2/manual9-2。
 
 2026-10-17（v3.162.67）: 物理回収の監視工数欄を実計算の5分/日と設定参照へ揃え、在庫作業の培養凡例を修正。監視時間変更の単一加算を追加検査。原価/DB不変。spec5-16/manual2-3。

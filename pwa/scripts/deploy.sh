@@ -24,6 +24,7 @@
 #   4. git push origin main → Vercel 自動 build 発火
 #   5. 新しい production deployment が Ready になるまで polling (最大 15 分)
 #   6. 完了 → macOS 通知 (Glass 音) / 失敗 → Basso 音
+#   7. 完了後、古い版を整理 (cleanup_old_deployments.mjs。直近5版と本番版を残す。まさ 2026-10-17)
 #
 # Claude / えいみ / Codex 向けルール:
 #   - PWA の本番反映は必ずこのスクリプト経由。`npx vercel` 直接実行は禁止
@@ -128,6 +129,8 @@ echo "Running critical UI / spec rollback guard ..."
 (cd "$REPO_ROOT/pwa" && npm run test:dd-package)
 # DDの画像プレビューは縦横を見出しから読む（sharp を本番の関数へ同梱しない。spec 5-2）
 (cd "$REPO_ROOT/pwa" && npm run test:image-dimensions)
+# 反映後の旧版整理が、本番・新しい5版・作成中・取消・失敗・他プロジェクトの版を消さないこと（spec 5-2）
+(cd "$REPO_ROOT/pwa" && npm run test:deployment-cleanup)
 (cd "$REPO_ROOT/pwa" && npm run test:issue-reorder)
 (cd "$REPO_ROOT/pwa" && npm run test:question-tree-state)
 (cd "$REPO_ROOT/pwa" && npm run test:question-tree-action-move)
@@ -218,6 +221,12 @@ while [ $TRY -lt $MAX_TRIES ]; do
     echo "✅ $MSG"
     echo "   live git_sha: $LIVE_SHA"
     osascript -e "display notification \"$MSG\" with title \"AMD OS PWA — Deploy 完了\" sound name \"Glass\"" 2>/dev/null || true
+    # 古い版を消して Functions Storage を一定に保つ（まさ 2026-10-17「直近5版と今の本番版を残して、それより古い版を消す」）。
+    # 本番が今回の commit を返したことを確かめた後だけ動かす。整理に失敗しても反映は完了しているので警告に留め、
+    # 次の反映で同じ規則がもう一度かかる。消した版は Vercel の Recently Deleted から30日間戻せる。
+    if ! node "$SCRIPT_DIR/cleanup_old_deployments.mjs" --apply --expect-production-sha "$EXPECTED_SHA_FULL"; then
+      echo "⚠ 古い版の整理は止めた（反映は完了）。原因は上の表示を見る。次の反映で再び整理する。" >&2
+    fi
     exit 0
   fi
 

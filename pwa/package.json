@@ -9,6 +9,7 @@
     "postbuild": "node scripts/check_function_bundle_storage.mjs",
     "test:function-bundles": "node scripts/check_function_bundle_storage.mjs",
     "test:image-dimensions": "node --experimental-strip-types scripts/check_image_dimensions.mts",
+    "test:deployment-cleanup": "node scripts/check_deployment_cleanup.mjs",
     "start": "next start",
     "lint": "eslint",
     "test:external-disclosure": "node --experimental-strip-types scripts/check_external_disclosure_boundary.mts",
