@@ -159,8 +159,8 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
         if (s.operating.inventory || s.operating.sunlight || s.operating.wholeLines) return (
           <Formula testId="fuel-culture-capacity">
             設備1系列の培養液 {num(s.cultureLineVolumeM3, 1)} m³、年間生産性の比率 {num(s.operating.productivityFactor * 100, 0)}%。
-            {s.operating.inventory ? `出荷待ちの培養液 ${num(s.usedInventoryVolumeM3, 1)} m³について${s.operating.inventoryExistingEquipment ? "既存設備の利用量を算定。追加購入は入力額だけを計上。" : "必要な追加設備を計上。"}共通の培養費は年額の配賦欄で扱う。` : `必要な培養設備 ${num(s.cultureLines, 0)} 系列。`}
-            初期投資 {yen(b.capexInitial)}、培養設備の償却 {num(b.rows.find((r) => r.key === "capex")?.perKg ?? 0)} 円/kg。太陽光の追加設備は「光と培養の使い方」で入力する。
+            {s.operating.inventory ? `出荷待ちの培養液 ${num(s.usedInventoryVolumeM3, 1)} m³について既存設備の利用量を算定。全培養費は排水側で負担し、回収の追加購入だけを入力額で計上。` : `必要な培養設備 ${num(s.cultureLines, 0)} 系列。`}
+            {s.operating.inventory ? "回収の追加設備" : "培養設備"}の初期投資 {yen(b.capexInitial)}、償却 {num(b.rows.find((r) => r.key === "capex")?.perKg ?? 0)} 円/kg。{!s.operating.inventory && "太陽光の追加設備は「運転条件と追加費用」で入力する。"}
           </Formula>
         );
         return (
@@ -273,7 +273,7 @@ export function FuelControlsPanel({ saved, working, computed, current, flow, onC
           unit="L"
           scenarioLabel={fuelSelectionLabel(current)}
           groupTitle={groupTitleOf}
-          drivers={FUEL_BREAKDOWN_DRIVERS}
+          drivers={current.scale.operating.inventory ? { ...FUEL_BREAKDOWN_DRIVERS, biomass: [YIELD_DRIVER] } : FUEL_BREAKDOWN_DRIVERS}
           onJump={jumpToGroup}
         />
         {tasks.length > 0 && (

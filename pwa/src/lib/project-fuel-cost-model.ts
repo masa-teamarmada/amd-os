@@ -357,7 +357,7 @@ export const FUEL_PARAM_GROUPS: FuelParamGroup[] = [
   { key: "cond-carbon", block: "conditions", title: "炭素源と生産性", hint: "脂肪酸へ固定する炭素と、購入するCO₂を分ける。空気での生産性は排ガス供給比の比較用仮定。送気・前処理の追加費は年額で入力する", roles: FUEL_CARBON_ROLES },
   { key: "cond-quality", block: "conditions", title: "日常分析と外部確認", hint: "自社の日常分析と定期外部確認を分ける。機器の追加購入・校正・維持費も計上。検査項目と頻度は精製委託先・販売先と決める", roles: FUEL_QUALITY_ROLES },
   { key: "cond-solvent", block: "conditions", title: "溶媒の循環回収", hint: "回収→アルカリへ移す→再生した溶媒を戻す設計。濃度差と一巡時間から在庫と送液量を計算。装置予算・損失率・菌体への影響は実測前", roles: FUEL_SOLVENT_ROLES },
-  { key: "cond-operating", block: "conditions", title: "光と培養の使い方", hint: "太陽光の生産性は人工照明に対する年間の比率。夜間・曇天・季節を含む仮定で、維持運転は止めない。出荷待ち回収は出荷量・品質・出荷日を保つ範囲で計算する", roles: [...FUEL_OPERATING_ROLES] },
+  { key: "cond-operating", block: "conditions", title: "運転条件と追加費用", hint: "出荷待ちでは全培養費を排水側で負担。在庫と回収の追加運転費を入力する。専用培養では光源の年間生産性と追加設備費も入力する", roles: [...FUEL_OPERATING_ROLES] },
   { key: "cond-scale", block: "conditions", title: "事業の規模と売価", hint: "事業全体の年間の燃料の量から、売上と、年に要る菌体の量・設備の系列数が決まる", roles: ["business_annual_volume", "sale_price"] },
   { key: "cond-yield", block: "conditions", title: "菌体から取れる燃料（収率）", hint: "低位・基準・改善の3ケース。掛け合わせて、燃料1Lに要る量が決まる。脂質分泌株のときは分泌速度と培養液からの回収率が効き、FAMEポテンシャル・菌体回収率・脂質抽出回収率は効かない", roles: [...FUEL_YIELD_ROLES, ...FUEL_SECRETION_YIELD_ROLES, "fame_density", LIPID_SECRETION_ROLE] },
   { key: "cond-biomass", block: "conditions", title: "菌体の原価", hint: "空欄なら培養設備の明細と作業から計算する", roles: ["biomass_cost_per_kg_override"] },
