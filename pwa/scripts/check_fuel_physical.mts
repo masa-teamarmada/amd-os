@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import assert from "node:assert/strict";
 import type { CostModelBundle } from "../src/lib/project-cost-model.ts";
-import { computeFuelScenario, fuelEffectiveUnitPrice } from "../src/lib/project-fuel-cost-model.ts";
+import { computeFuelScenario, fuelEffectiveUnitPrice, fuelTaskAmount } from "../src/lib/project-fuel-cost-model.ts";
 import { deriveFuelEffluentSupply } from "../src/lib/project-fuel-effluent-supply.ts";
 import { fuelSmallScaleCases } from "../src/lib/project-fuel-small-scale.ts";
 import { fuelPhysicalReplaces } from "../src/lib/project-fuel-physical.ts";
@@ -24,6 +24,10 @@ close(r.scale.physical.waterKg, r.scale.physical.recoveredKg * 3, "moisture load
 close(r.scale.physical.heatMj, r.scale.physical.waterKg * 2.6 / .7, "drying efficiency");
 close(r.scale.solvent.stockM3, 0, "no solvent stock");
 close(r.scale.operating.inventoryIncrementalAnnual, 0, "physical maintenance replaces solvent upkeep");
+const monitor = f.tasks.find((t) => t.costTaskId === "ctf_sec_culture_operation")!;
+close(fuelTaskAmount(monitor, f.assumptions, r.scale).annualHours, 25, "5 additional minutes per site-day");
+const monitorMore = structuredClone(f); set(monitorMore, "fuel_physical_monitor_minutes", 10);
+close(computeFuelScenario(monitorMore, "inhouse", "base", supply).totalAnnual - r.totalAnnual, 25 * 4000, "monitor setting controls labor once");
 for (const i of f.items.filter((i) => fuelPhysicalReplaces(i, f.assumptions))) close(fuelEffectiveUnitPrice(i, { assumptions: f.assumptions, items: f.items }), 0, `no solvent expense ${i.costItemId}`);
 assert.ok(f.items.some((i) => (i.scenario as string) === "自社精製" && fuelEffectiveUnitPrice(i, { assumptions: f.assumptions, items: f.items }) > 0), "FAME reagents remain chargeable");
 for (const mode of ["physical", "loop", "overlay"]) for (const conversion of ["inhouse", "outsourced"] as const) for (const y of ["low", "base", "high"] as const) for (const light of ["sunlight", "led"] as const) {

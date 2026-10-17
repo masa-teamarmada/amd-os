@@ -665,7 +665,7 @@ function FuelTaskFlowOverview({ flow, current, onJumpStep }: { flow: FuelTaskFlo
       </ol>
       <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[10px] leading-4 text-[#6e6e73]">
         <span>棒は追加の人時。右端は人件費と外部経費の合計（円/L）。</span>
-        <span className="inline-flex items-center gap-1"><Swatch color={FUEL_CATEGORY_COLOR.biomass} />培養（菌体費に入る）</span>
+        <span className="inline-flex items-center gap-1"><Swatch color={FUEL_CATEGORY_COLOR.biomass} />{current.scale.operating.inventory ? "分泌回収の追加作業" : "培養（菌体費に入る）"}</span>
       </p>
     </div>
   );
@@ -734,6 +734,7 @@ function FuelTaskList({
                   const perLiter = perLiterOf(t);
                   const driver = t.countDriver as string;
                   const usesCount = fuelDriverUsesCount(driver);
+                  const physicalMonitor = current.scale.physical.enabled && t.costTaskId === "ctf_sec_culture_operation";
                   return (
                     <li
                       key={t.costTaskId}
@@ -749,7 +750,7 @@ function FuelTaskList({
                         </span>
                       </div>
                       <Cell label="1回の工数（時間）">
-                        {qt.routine ? <span className="text-[11px] tabular-nums">{num(amt.hours, 2)} 時間<a className="block text-[#0267b2] underline" href="#fuel-g-cond-quality">日常分析の設定</a></span> : <NumberField
+                        {physicalMonitor ? <span className="text-[11px] tabular-nums">{num(amt.hours * 60, 1)} 分<a className="block text-[#0267b2] underline" href="#fuel-g-cond-physical">物理回収の設定</a></span> : qt.routine ? <span className="text-[11px] tabular-nums">{num(amt.hours, 2)} 時間<a className="block text-[#0267b2] underline" href="#fuel-g-cond-quality">日常分析の設定</a></span> : <NumberField
                           ariaLabel={`${t.label} 1回の工数`}
                           value={t.hoursPerOccurrence}
                           baseline={base?.hoursPerOccurrence ?? null}
