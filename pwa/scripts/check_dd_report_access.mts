@@ -41,3 +41,25 @@ assert.equal((await out.POST(request({action:'inputs',revision:1,values:{injecte
 calcError=true;assert.equal((await out.POST(request({action:'inputs',revision:1,values:{}}),params)).status,422);assert.equal(saves,0);
 calcError=false;assert.equal((await out.POST(request({action:'inputs',revision:1,values:{}}),params)).status,200);assert.equal(saves,1);
 console.log('PASS: DD isolation / edit boundary / CSRF / revisions / failed calculations cannot save / native formats');
+// Export rejects access/range/revision errors before touching private output storage.
+let outputStorageReads=0;
+const exportMocks={...mocks,
+ '@/lib/dd-package-core':{hasDdCapability:(a:DdViewerAccess,cap:string)=>a.capabilities.includes(cap as never)},
+ '@/lib/dd-report-pdf':{},'node:crypto':{},
+ '@/lib/dd-report-server':{loadDdReportEdition:async()=>edition,loadDdReportChapterIndex:async()=>Array.from({length:38},(_,i)=>({slug:'chapter-'+i,sort_order:i}))},
+ '@/lib/dd-report-export':{},'@/lib/workspace-document-html-pdf':{},
+ '@/lib/project-partner-disclosure-server':{loadProjectPartnerDisclosure:()=>{outputStorageReads++;throw Error('unexpected private read');}},
+ '@/lib/project-partner-disclosure':{},
+};
+const exported:Record<string,(...args:unknown[])=>Promise<{body:unknown;status:number}>>={};
+const exportSource=ts.transpileModule(fs.readFileSync(new URL('../src/app/api/dd/[slug]/report/export/route.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+new Function('require','exports',exportSource)((name:string)=>{assert(name in exportMocks,name);return exportMocks[name as keyof typeof exportMocks];},exported);
+const getExport=(query:string)=>exported.GET(new Request('https://example.test/api/dd/known/report/export?'+query),params);
+access=null;assert.equal((await getExport('format=pdf&scope=all')).status,404);
+access={...external,capabilities:['dd.view']};assert.equal((await getExport('format=pdf&scope=all')).status,404);
+access=external;assert.equal((await getExport('format=pdf&revision=0&scope=all')).status,409);
+assert.equal((await getExport('format=pdf&scope=all&prepareBatch=-1')).status,400);
+assert.equal((await getExport('format=pdf&scope=all&prepareBatch=10')).status,400);
+assert.equal((await getExport('format=xlsx&scope=all&prepareBatch=0')).status,400);
+assert.equal(outputStorageReads,0);
+console.log('PASS: export download permission / stale revision / invalid batch boundaries');

@@ -2,11 +2,11 @@
 import {useState} from 'react';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
-import type {DdReportChapter,DdReportChapterSummary,DdReportInput,DdReportValue} from '@/lib/dd-report-types';
+import type {DdReportChapter,DdReportChapterSummary,DdReportInput,DdReportValue,DdReportGlossary} from '@/lib/dd-report-types';
 import {DdReportContent} from './DdReportContent';
 import {DD_REPORT_CSS} from './dd-report-style';
 
-type Props={slug:string;title:string;revision:number;sourceVersion:string;chapter:DdReportChapter;index:DdReportChapterSummary[];canEdit:boolean;canDownload:boolean;inputs:DdReportInput[];overrides:Record<string,DdReportValue>};
+type Props={slug:string;title:string;revision:number;sourceVersion:string;chapter:DdReportChapter;index:DdReportChapterSummary[];canEdit:boolean;canDownload:boolean;inputs:DdReportInput[];overrides:Record<string,DdReportValue>;glossary?:DdReportGlossary};
 export function DdReportReader(props:Props) {
   const {slug,chapter,index,canEdit,canDownload,inputs,sourceVersion,revision}=props,router=useRouter(),company=props.title.split('｜')[0];
   const [panel,setPanel]=useState<'inputs'|'text'|null>(null),[values,setValues]=useState(props.overrides),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[filter,setFilter]=useState('');
@@ -26,8 +26,13 @@ export function DdReportReader(props:Props) {
   async function download(format:'pdf'|'xlsx',all=false) {
     setBusy(true);setMessage(format==='pdf'?'PDFを作成中…':'数式付きExcelを作成中…');
     try {
-      const r=await fetch(`/api/dd/${encodeURIComponent(slug)}/report/export?format=${format}${all?'&scope=all':`&chapter=${chapter.slug}`}`,{cache:'no-store'});
-      if(!r.ok){const data=await r.json().catch(()=>({}));throw new Error(data.error||'出力できなかった');}
+      const endpoint=`/api/dd/${encodeURIComponent(slug)}/report/export?format=${format}&revision=${revision}${all?'&scope=all':`&chapter=${chapter.slug}`}`;
+      let r=await fetch(endpoint,{cache:'no-store'});
+      if(r.status===202&&format==='pdf'&&all){const preparation=await r.json();for(let batch=0;batch<preparation.batches;batch++){
+        setMessage(`PDFを作成中… ${batch+1}/${preparation.batches}`);
+        const part=await fetch(endpoint+`&prepareBatch=${batch}`,{cache:'no-store'});const data=await part.json();if(!part.ok)throw new Error(data.error||'PDFを作成できなかった');
+      }setMessage('PDFをまとめてダウンロード中…');r=await fetch(endpoint,{cache:'no-store'});}
+      if(!r.ok||r.status===202){const data=await r.json().catch(()=>({}));throw new Error(data.error||'出力できなかった');}
       const url=URL.createObjectURL(await r.blob()),a=document.createElement('a');a.href=url;a.download=`${company}_DD_${all?'全資料':chapter.title}_r${revision}.${format}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);setMessage('出力済み。');
     }catch(error){setMessage(error instanceof Error?error.message:'出力できなかった');}finally{setBusy(false);}
   }
@@ -40,7 +45,7 @@ export function DdReportReader(props:Props) {
       </div></div>
 
       <h1>{chapter.title==='UE'?'UE（ユニットエコノミクス）':chapter.title}</h1>
-      <div className="ddr-version">資料版 {revision} · 移行元 {sourceVersion} · 全{index.length}資料</div>
+      <div className="ddr-version">資料版 {revision} · 移行元 {sourceVersion} · 全{index.length}資料{Object.keys(props.glossary??{}).length>0&&<span className="ddr-term-hint">点線の用語を押すと説明を表示</span>}</div>
     </header>
     {message&&<p role="status" className="ddr-message">{message}</p>}
     {panel==='inputs'&&<section className="ddr-parameter" aria-label="計算条件を編集"><h3>計算条件</h3><p>保存すると、原価・売上・損益・現金残高・持株比率・IRRを同じ計算モデルで更新する。</p>
@@ -49,9 +54,8 @@ export function DdReportReader(props:Props) {
       <div className="ddr-controls" style={{marginTop:16}}><button disabled={busy} className="ddr-button ddr-button-primary" onClick={()=>save('inputs')}>保存して全計画を更新</button><button disabled={busy} className="ddr-button" onClick={()=>setValues({})}>移行時の計算条件に戻す</button></div>
     </section>}
     {panel==='text'&&<section className="ddr-editor"><h3>本文を編集</h3><label className="ddr-field">編集する文章<select value={editAddress} onChange={e=>{setEditAddress(e.target.value);setEditValue(String(textCells.find(c=>c.address===e.target.value)?.value??''));}}><option value="">文章を選択</option>{textCells.map(c=><option value={c.address} key={c.address}>{String(c.value).slice(0,75)}</option>)}</select></label>{editAddress&&<><textarea aria-label="本文" value={editValue} onChange={e=>setEditValue(e.target.value)}/><button className="ddr-button ddr-button-primary" disabled={busy} onClick={()=>save('text')}>本文を保存</button></>}</section>}
-    {chapter.slug==='source-index'&&<><p>事業計画とエクイティストーリーで事業全体と成長の道筋を把握し、資本政策・資金繰り・採算を確認する。各資料の説明、図表と計算根拠は、この目録から開ける。</p><div className="ddr-table-scroll"><table><tbody>{ordered.filter(c=>c.slug!=='source-index').map((c,i)=><tr key={c.slug}><td>{String(i+1).padStart(2,'0')}</td><td><Link href={`/dd/${encodeURIComponent(slug)}?chapter=${c.slug}`}>{c.title}</Link></td><td>{c.group_label}</td></tr>)}</tbody></table></div><h2>資料概要と計画の前提</h2></>}
-    {sections.length>2&&<nav className="ddr-section-nav" aria-label="この資料の目次">{sections.map(r=><a key={r.row} href={'#section-'+r.row}>{String(r.cells[0].value)}</a>)}</nav>}
-    <DdReportContent chapter={chapter} slug={slug} index={index}/>
+    {chapter.slug!=='source-index'&&sections.length>2&&<nav className="ddr-section-nav" aria-label="この資料の目次">{sections.map(r=><a key={r.row} href={'#section-'+r.row}>{String(r.cells[0].value)}</a>)}</nav>}
+    <DdReportContent chapter={chapter} slug={slug} index={index} glossary={props.glossary}/>
     <footer className="ddr-chapter-footer">{position>0?<Link href={`/dd/${slug}?chapter=${ordered[position-1].slug}`}>← {ordered[position-1].title}</Link>:<span/>}{position<ordered.length-1&&<Link href={`/dd/${slug}?chapter=${ordered[position+1].slug}`}>{ordered[position+1].title} →</Link>}</footer>
   </article>;
 }

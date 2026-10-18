@@ -1,6 +1,6 @@
 ## 2026-10-18 — DDレポートと旧版の退避
 
-既存`/dd/[slug]`にedition登録によるレポート表示を追加。内容はSupabase4表とprivate dd-report-files。旧DD44ページを不変snapshotから`/legacy`で表示する。既存package/grants/NDAとアクセス境界は維持。モデル入力・文章は内部DD編集者、PDF/XLSXはdd.downloadで認可し、本文/入力/版/監査はservice専用RPCで更新する。2 migrationsは適用済み、再適用禁止。SOL v1.20の38シート・37グラフ・22画像・123,594数式を移行。UIはPWAのみで、Swift/Androidは既存ブラウザ入口を使用する。仕様5-17、manual2-1/2-6、ios/DESIGN。
+既存`/dd/[slug]`にedition登録によるレポート表示を追加。内容はSupabase4表とprivate dd-report-files。旧DD44ページを不変snapshotから`/legacy`で表示する。既存package/grants/NDAとアクセス境界は維持。モデル入力・文章は内部DD編集者、PDF/XLSXはdd.downloadで認可し、本文/入力/版/監査はservice専用RPCで更新する。3 migrationsは適用済み、再適用禁止。SOL v1.20の38シート・37グラフ・22画像・123,594数式を移行。UIはPWAのみで、Swift/Androidは既存ブラウザ入口を使用する。仕様5-17、manual2-1/2-6、ios/DESIGN。2026-10-18追加: 資料一覧・本文の高密度表示、版管理したglossaryの用語ポップアップ、本文の重要語強調、3事業の番号付き一覧と各節の工程・比較図、分割生成する一括PDFと用語集。ネイティブはブラウザ経路を継続する。計算付き説明文2セルの集計をシリーズA着金前月までに合わせ、原本の月次計画を維持する。INDEXの別シート参照を保持する共通計算修正と、Excel出力の明示的な説明式修正を含む。
 
 | 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
 |---|---|---|---|

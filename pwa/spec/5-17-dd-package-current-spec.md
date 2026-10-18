@@ -10,13 +10,13 @@ Supabaseのdd_report_editions/chapters/assets/changesと非公開dd-report-files
 
 事業計画→エクイティストーリー→資本政策→損益資金繰→生産拠点を冒頭に置き、事業、採算、市場、技術、体制、権利、付属資料へ進む。文章は段落、比較情報は横並びの表、工程や時系列は図、数値はグラフで読む。長い表は本文内スクロールと展開で全行を読める。読み手の役割は初めてSOLを検討するVC。採用済み図、資料の詳しい説明、略歴原文を保持する。
 
-情報密度を優先し、固定高さで生まれる空白、段落右側の大きな空白、空行は設けない。文字の可読性を保ち、段落・表・図の余白をコンテンツ量に合わせる。
+情報密度を優先し、固定高さで生まれる空白、段落右側の大きな空白、空行は設けない。資料一覧は分類ごとの横2列、番号22px・名称164px・説明、列間6px、基本行高29pxで表示する。本文14px/1.6、段落下10px、表セル上下5px。狭い画面は一覧1列、操作44pxを維持する。本文の金額・期限・要点を1段落3か所以内で強調し、金額がある段落では金額を優先する。列挙した3事業は番号付き一覧にする。事業計画の各セクションは既存の図・グラフと、本文に保存した工程図・比較図から把握できる。
 
 設計意図: 企業価値、廃液処理、金属資源化、燃料、培養、瀬戸内の生産拠点という領域を、成果と資金の因果で読む。SOL資料の紺、海の青、紙の白、金属の灰、培養を示す緑を用途ごとに使う。事業計画と調達の因果図を資料の特徴とし、指標カードの反復を避け、見出し・本文・表・図で密度を作る。既存OSのナビ・権限表示に従う。
 
 ## データと計算
 
-各シートの可視コンテンツを本文ブロックへ、数式・計算結果・数値書式・入力欄・図の参照範囲をモデルへ移す。元のブック全体も履歴として保存。各数値はシート名とセル番地で同じモデルを参照し、入力変更を持分・IRR・原価・利益・現金へ反映する。数式を維持したExcelを出力する。PDFとExcelには同じ資料版と数値モデル版を記録する。
+各シートの可視コンテンツを本文ブロックへ、数式・計算結果・数値書式・入力欄・図の参照範囲をモデルへ移す。元のブック全体も履歴として保存。各数値はシート名とセル番地で同じモデルを参照し、INDEXが返すセル・範囲にも元の参照先シートを保持する。入力変更を持分・IRR・原価・利益・現金へ反映する。説明文の計算式を修正するときはmodel.formulaPatchesに修正対象を記録し、モデルとExcel出力の同じ計算式を更新する。元ブックを履歴に保持し、対象外の全数式の一致を検証する。数式を維持したExcelを出力する。PDFとExcelには同じ資料版と数値モデル版を記録する。
 
 ## 旧版
 
@@ -28,9 +28,13 @@ Supabaseのdd_report_editions/chapters/assets/changesと非公開dd-report-files
 
 ## 保存形式と変更履歴
 
-`dd_report_editions`はパッケージ、source_version/source_sha256、status、input_overrides、revisionとmodel_storage_path/xlsx_storage_path/legacy_snapshot_pathを持つ。`dd_report_chapters`は資料名・順序・分類・元シートと本文の参照。bodyは`{version:1,storagePath,sha256,rowCount,objectCount}`で、本文JSONはgzipにしてprivate Storageへ保存する。元ブック全体、全数式、入力条件、図は同じ非公開bucketの不変ファイル。本文実体はrows/cells/objects。セルはaddress/column/span/value/format/formula/heading/link、objectsはimage/chart。グラフには数値範囲とExcelの軸書式を保持する。資料本文はブックの印刷範囲から取り込み、非表示の計算補助セルも計算モデル・Excel出力へ保持する。
+`dd_report_editions`はパッケージ、source_version/source_sha256、status、input_overrides、glossary、revisionとmodel_storage_path/xlsx_storage_path/legacy_snapshot_pathを持つ。`dd_report_chapters`は資料名・順序・分類・元シートと本文の参照。bodyは`{version:1,storagePath,sha256,rowCount,objectCount}`で、本文JSONはgzipにしてprivate Storageへ保存する。元ブック全体、全数式、入力条件、図は同じ非公開bucketの不変ファイル。本文実体はrows/cells/objectsと任意のvisuals（表示位置、工程/比較、題名、項目の見出し・説明）。セルはaddress/column/span/value/format/formula/heading/link、objectsはimage/chart。グラフには数値範囲とExcelの軸書式を保持する。資料本文はブックの印刷範囲から取り込み、非表示の計算補助セルも計算モデル・Excel出力へ保持する。
 
 `dd_report_assets`は版ごとの画像key・private path・SHA・MIME・サイズ。`dd_report_changes`は変更者・変更前後・日時。4表はRLS有効でanon/authenticatedへ権限を与えない。service_roleを使うAPIは毎回既存DD認可とNDA確認を通す。計算入力はモデルの入力欄とリスト選択だけを許可し、計算セルは上書きできない。保存前に株数・持分、4工程のUEと長期現金を計算する。本文編集は表示対象の文章セルに限定。版の照合、本文/入力保存、revision増分と監査記録はservice_role専用の`dd_report_commit_change`で一括実行する。競合は409、計算失敗は422として保存しない。
+
+## 用語説明
+
+用語集はedition.glossaryに用語→definition/chapter/sourceLabel/sourceUrlを保存し、同じ版と監査履歴で管理する。正本を参照する共有本文コンポーネントで、文章・表・図内の用語を説明ボタンにする。クリック・タップ・Enter/Spaceでネイティブpopoverを開き、閉じるボタン・Escape・外側クリックで終了できる。説明内に関連資料と出所を表示する。SIERの文字は必ずSIER資料へのリンクを保ち、隣に説明ボタンを置く。URL文字列の内部は用語へ分割しない。PDFは対話ボタンを出さず、巻末の用語説明へ収録する。glossary保存もservice専用RPCで版照合・監査と一括更新する。
 
 ## URL・出力
 
@@ -39,7 +43,7 @@ Supabaseのdd_report_editions/chapters/assets/changesと非公開dd-report-files
 - `GET /api/dd/[slug]/report`：資料目録、版、内部編集者だけ入力条件。`?chapter=...`は評価済み本文。
 - `POST /api/dd/[slug]/report`：same-origin・DD編集権限・版一致を検証してinputsまたはtextを保存。
 - `/api/dd/[slug]/report/assets/[assetKey]`：当該版の図だけを認可後にSHA照合して配信。
-- `/api/dd/[slug]/report/export?format=pdf|xlsx&scope=all`：dd.download必須。単一PDFはchapterも指定可能。PDFは共有本文と元図・SVGグラフを日本語組版し、月次の横長表は6列単位で収録。Excelは原ブックの全38シート、数式、37グラフ、9つのネイティブ感度表と選択リストを保持し、画像をPDF/HTMLへ集約して約4MBにする。入力・文章・計算キャッシュとグラフを現版へ更新し、Excel起動時の再計算も指定する。
+- `/api/dd/[slug]/report/export?format=pdf|xlsx&scope=all`：dd.download必須。単一PDFはchapterも指定可能。PDFは共有本文と元図・SVGグラフを日本語組版し、横長表は見出しと値5列ごとに分けて収録し、説明文が長い列は文字量に合わせた幅にする。一括PDFは最初に202と分割数を返し、ブラウザがprepareBatch=0..Nを順に要求して4資料単位でprivateファイルを生成したあと、同じrevisionの全パートを統合する。画面に進捗を表示する。各要求で認可・非開示指定・版を照合する。PDFの完全一致する辞書・ストリームだけを共有し、原図の画素を保持したまま容量を抑える。Excelは原ブックの全38シート、数式、37グラフ、9つのネイティブ感度表と選択リストを保持し、画像をPDF/HTMLへ集約して約4MBにする。入力・文章・計算キャッシュとグラフを現版へ更新し、Excel起動時の再計算も指定する。
 
 生成物は版・範囲・非開示指定のhashを含むprivate Storage pathへ保存し、同じ認可のあと60秒の署名URLでダウンロードする。生成中に版が変わった場合は409。サーバの応答上限を超えるPDFもStorageから受け取る。全形式に同じ資料revision、元版と秘密指定を記録する。企業名の非開示指定は毎回読んで画面・出力へ反映する。
 

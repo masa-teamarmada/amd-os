@@ -2,6 +2,26 @@ import FormulaParser from 'fast-formula-parser';
 import type { DdReportModel,DdReportValue } from './dd-report-types';
 
 type FormulaArgument={value:unknown};
+// The upstream INDEX returns a new cell reference without its source sheet.
+// Preserve it so cross-sheet INDEX and INDEX(...):INDEX(...) use the same cells as Excel.
+type IndexReference={ref?:{sheet?:string}};
+const nativeIndex=(new FormulaParser({onCell:()=>null,onRange:()=>[]})).functions.INDEX;
+const referenceFunctions={INDEX:(context:unknown,range:IndexReference,...args:unknown[])=>{
+  const sheet=range?.ref?.sheet,result=nativeIndex(context,range,...args) as IndexReference;
+  if(sheet&&result?.ref&&!result.ref.sheet)result.ref.sheet=sheet;
+  return result;
+}};
+function preserveRangeSheet(parser:FormulaParser){
+  const utilities=(parser as unknown as {utils:{applyRange:(refs:IndexReference[])=>IndexReference}}).utils;
+  const apply=utilities.applyRange.bind(utilities);
+  utilities.applyRange=refs=>{
+    const sheets=[...new Set(refs.flatMap(r=>r?.ref?.sheet?[r.ref.sheet]:[]))];
+    if(sheets.length>1)throw new Error('#REF!');
+    const result=apply(refs);if(sheets[0]&&result?.ref&&!result.ref.sheet)result.ref.sheet=sheets[0];
+    return result;
+  };
+  return parser;
+}
 const flatValues=(arg:FormulaArgument)=>Array.isArray(arg.value)?arg.value.flat(Infinity):[arg.value];
 function excelCriterion(value:unknown,criterion:unknown) {
   const raw=String(criterion??''),m=/^(<=|>=|<>|=|<|>)(.*)$/.exec(raw),operator=m?.[1]??'=',rhs=m?.[2]??raw;
@@ -129,11 +149,11 @@ export class DdReportCalculator {
     if(this.resolving.has(key))return '#CIRC!';
     this.resolving.add(key);this.depth++;
     try {
-      const parser=this.parsers[this.depth]??=new FormulaParser({functions:excelFunctions,onCell:ref=>this.get(ref.sheet,ddColumn(ref.col)+ref.row),onRange:ref=>{
+      const parser=this.parsers[this.depth]??=preserveRangeSheet(new FormulaParser({functions:excelFunctions,functionsNeedContext:referenceFunctions,onCell:ref=>this.get(ref.sheet,ddColumn(ref.col)+ref.row),onRange:ref=>{
         if((ref.to.row-ref.from.row+1)*(ref.to.col-ref.from.col+1)>200000)throw new Error('model_range_limit');
         const values:DdReportValue[][]=[];
         for(let r=ref.from.row;r<=ref.to.row;r++){const row:DdReportValue[]=[];for(let c=ref.from.col;c<=ref.to.col;c++)row.push(this.get(ref.sheet,ddColumn(c)+r));values.push(row);}return values;
-      }});
+      }}));
       let formula=this.compiled.get(cell.f);if(!formula){formula=expandSumProduct(cell.f.split(/("(?:[^"]|"")*")/g).map((part,i)=>i%2?part:part.replace(/(^|[,(+*/^=<>:\-])\.(\d)/g,(_m,before,digit)=>before+'0.'+digit)).join(''));this.compiled.set(cell.f,formula);}
       const pos=ddAddress(address);const raw=parser.parse(formula,{sheet,...pos});
       const value: DdReportValue=raw===null||raw===undefined?null:typeof raw==='string'||typeof raw==='boolean'||typeof raw==='number'?raw:String(raw);
