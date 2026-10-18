@@ -5,6 +5,7 @@ import {createAdminClient} from './supabase/admin';
 import type {DdViewerAccess} from './dd-package-core';
 import {canReadDdReport} from './dd-report-core';
 export {canReadDdReport,canEditDdReport} from './dd-report-core';
+import {ddJkissSummary} from './dd-report-jkiss';
 import {DdReportCalculator,ddAddress,ddColumn} from './dd-report-model';
 import type {DdReportAsset,DdReportBody,DdReportChapter,DdReportChapterSummary,DdReportEdition,DdReportModel,DdReportValue} from './dd-report-types';
 import {loadProjectPartnerDisclosure} from './project-partner-disclosure-server';
@@ -56,7 +57,7 @@ export async function loadDdLegacySnapshot(edition:DdReportEdition):Promise<{pag
   const r=await createAdminClient().storage.from(DD_REPORT_BUCKET).download(edition.legacy_snapshot_path);if(r.error)throw new Error('旧DDの控えを読み込めなかった');return JSON.parse(await r.data.text());
 }
 export function updateDdReportBody(body:DdReportBody,sheet:string,calc:DdReportCalculator):DdReportBody {
-  return {...body,rows:body.rows.map(row=>({...row,cells:row.cells.map(cell=>cell.formula||Object.hasOwn(calc.overrides,`${sheet}!${cell.address}`)||calc.isDataTableCell(sheet,cell.address)?{...cell,value:calc.get(sheet,cell.address)}:cell)})),objects:body.objects.map(object=>{
+  return {...body,...(sheet==='資本政策表'?{jkiss:ddJkissSummary(calc)}:{}),rows:body.rows.map(row=>({...row,cells:row.cells.map(cell=>cell.formula||Object.hasOwn(calc.overrides,`${sheet}!${cell.address}`)||calc.isDataTableCell(sheet,cell.address)?{...cell,value:calc.get(sheet,cell.address)}:cell)})),objects:body.objects.map(object=>{
     if(object.kind!=='chart')return object;
     return {...object,series:object.series.map(series=>{
       const ref=/^'?([^'!]+)'?!\$?([A-Z]+)\$?(\d+):\$?([A-Z]+)\$?(\d+)$/.exec(series.formula||'');if(!ref)return series;

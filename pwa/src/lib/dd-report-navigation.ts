@@ -12,3 +12,6 @@ export function ddPdfMarker(slug:string,chapter:string,address?:string){
 export function ddPdfLocation(index:DdPdfIndex|undefined,chapter:string,address?:string){
   return index?.[chapter+(address?'#cell-'+address:'')]??index?.[chapter];
 }
+
+export const DD_READING_PRIORITY=['source-index','business-plan','equity-story','capital-plan','financial-plan','unit-economics','production-plan'];
+export function orderDdReading<T extends {slug:string;sort_order:number}>(chapters:T[]){const rank=(c:T)=>c.slug==='assumptions'?1e6:DD_READING_PRIORITY.includes(c.slug)?DD_READING_PRIORITY.indexOf(c.slug):100+c.sort_order;return [...chapters].sort((a,b)=>rank(a)-rank(b));}

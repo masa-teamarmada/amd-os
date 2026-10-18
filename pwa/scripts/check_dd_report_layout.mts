@@ -25,6 +25,12 @@ const rounds=ddFundingRounds(capital);assert.equal(rounds.length,6);assert.equal
 const minimal='<c:chartSpace xmlns:c="c" xmlns:a="a"><a:t>ラウンド別の調達計画（億円）</a:t><c:barChart><c:grouping val="clustered"/><c:ser><c:idx val="0"/><c:order val="0"/><c:tx><c:v>新規調達額</c:v></c:tx><c:spPr></c:spPr><c:cat></c:cat><c:val></c:val></c:ser><c:overlap val="0"/></c:barChart></c:chartSpace>';
 const calc=new DdReportCalculator({sheets:{'資本政策表':{cells:{Z333:{v:12,f:null},C98:{v:3,f:null}}}}} as unknown as DdReportModel);
 const xml=updateDdFundingChartXml(minimal,calc);assert(xml.includes('val="stacked"'));assert.equal((xml.match(/<c:ser>/g)||[]).length,2);assert(xml.includes('$Z$333:$Z$337'));assert(xml.includes('$C$98:$C$102'));
+const flowChapter={...chapter,slug:'effluent-business',body:{...chapter.body,excel:{mode:'pdf',order:1},rows:[row(14,[[2,'調査'],[5,'試験'],[8,'導入'],[11,'供給']]),row(15,[[4,'→'],[7,'→'],[10,'→']])]}} as DdReportChapter;
+const flowHtml=renderToStaticMarkup(createElement(DdReportContent,{chapter:flowChapter,slug:'sample',index:[]}));assert(flowHtml.includes('ddr-source-flow'));assert(!flowHtml.includes('<table>'));
+const ganttChapter={...chapter,slug:'metal-business',body:{...chapter.body,rows:[row(110,[[2,'工程'],[5,'1〜3月'],[7,'4〜6月'],[9,'7〜9月']]),row(111,[[2,'試験'],[5,'実施'],[7,'実施']]),row(112,[[2,'評価'],[9,'実施']])]}} as DdReportChapter;
+const ganttHtml=renderToStaticMarkup(createElement(DdReportContent,{chapter:ganttChapter,slug:'sample',index:[]}));assert(ganttHtml.includes('ddr-gantt-bar'));for(const r of ganttChapter.body.rows)for(const c of r.cells)assert.equal(ganttHtml.split(`id="cell-${c.address}"`).length-1,1);
+const longChapter={...chapter,slug:'cyanobacteria-cost',body:{...chapter.body,rows:Array.from({length:40},(_,i)=>row(i+10,[[2,'費目'+i],[5,i]]))}};
+assert(!renderToStaticMarkup(createElement(DdReportContent,{chapter:longChapter,slug:'sample',index:[]})).includes('<details'));
 console.log('PASS: metadata outside numerical grids, first-column labels, separate annual tables, all cells exactly once, PDF-to-Excel contract, formula-linked funding stack');
 
 if(process.argv[2]){
@@ -32,12 +38,18 @@ if(process.argv[2]){
   const {DD_REPORT_CSS}=await import('../src/components/dd/report/dd-report-style.ts');
   const manifest=JSON.parse(await fs.readFile(process.argv[2],'utf8')),out=process.argv[3];await fs.mkdir(out,{recursive:true});
   for(const c of manifest.chapters){
-    if(c.slug==='organization')continue;
+
+    if(process.argv[4]){const {gunzipSync}=await import('node:zlib');const {updateDdReportBody}=await import('../src/lib/dd-report-server.ts');const model=JSON.parse(gunzipSync(await fs.readFile(process.argv[4])).toString());c.body=updateDdReportBody(c.body,c.source_sheet,new DdReportCalculator(model));}
     const markup=renderToStaticMarkup(createElement(DdReportContent,{chapter:c,slug:'sol',index:manifest.chapters}));
     await fs.writeFile(path.join(out,c.slug+'.html'),`<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>body{font-family:Arial,'Hiragino Kaku Gothic ProN',sans-serif;padding:20px} ${DD_REPORT_CSS}</style></head><body><main class="ddr"><h1>${c.title}</h1>${markup}</main></body></html>`);
+    assert(!markup.includes('<details'),'No collapsed publication content: '+c.slug);
+    if(c.slug==='unit-economics'){assert(markup.includes('ddr-ue-process'));assert(markup.includes('UE（ユニットエコノミクス）は'));}
+    if(c.slug==='biographies'){assert(!markup.includes('上段は提供略歴'));assert(markup.includes('ddr-bio-medal'));}
     if(['financial-plan','cyanobacteria-cost','reactor-cost','metal-cost','fame-cost','production-plan'].includes(c.slug)){
       for(const r of c.body.rows.filter((r:DdReportRow)=>r.row>2))for(const cell of r.cells)assert.equal(markup.split(`id="cell-${cell.address}"`).length-1,1,c.slug+'!'+cell.address);
     }
+    if(c.slug==='cyanobacteria-cost'&&process.argv[4]){const {gunzipSync}=await import('node:zlib');const model=JSON.parse(gunzipSync(await fs.readFile(process.argv[4])).toString());const controls=model.inputs.filter((i:any)=>i.sheet===c.source_sheet);const interactive=renderToStaticMarkup(createElement(DdReportContent,{chapter:c,slug:'sol',index:manifest.chapters,inputControls:{inputs:controls,sheet:c.source_sheet,values:{},disabled:false,change:()=>{}}}));assert((interactive.match(/<select/g)||[]).length>=6);assert((interactive.match(/<input/g)||[]).length>=100);assert(!interactive.includes('<details'));}
+    if(c.slug==='capital-plan'&&process.argv[4]){assert(markup.includes('2.00億円'));assert(markup.includes('20.83%'));assert(markup.includes('16.66%'));assert(markup.includes('12.50億円'));assert(markup.includes('12.49858335億円'));}
     if(c.slug==='financial-plan'){
       const t=[...markup.matchAll(/<table>[\s\S]*?<\/table>/g)].find(x=>x[0].includes('cell-C147'))?.[0];
       assert(t&&!t.includes('cell-B139')&&!t.includes('cell-B140')&&!t.includes('cell-B142'));

@@ -4,7 +4,7 @@ import {gunzipSync} from 'node:zlib';
 import {DdReportCalculator,validateDdOverrides,verifyDdReportCalculation} from '../src/lib/dd-report-model.ts';
 import type {DdReportModel} from '../src/lib/dd-report-types.ts';
 const folder=process.argv[2];if(!folder)throw new Error('Import folder required');
-const model=JSON.parse(gunzipSync(fs.readFileSync(folder+'/model.json.gz')).toString()) as DdReportModel;
+const model=JSON.parse(gunzipSync(fs.readFileSync(folder+(process.argv.includes('--current')?'/model.qa.json.gz':'/model.json.gz'))).toString()) as DdReportModel;
 const base=new DdReportCalculator(model);
 const inputs={'共通前提!C16':800000000,'共通前提!C17':.1};
 assert(validateDdOverrides(model,inputs));

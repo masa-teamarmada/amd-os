@@ -4,7 +4,7 @@ import {useState} from 'react';
 import type {DdReportChapterSummary} from '@/lib/dd-report-types';
 export function DdReportNavigation({slug,index,selected}:{slug:string;index:DdReportChapterSummary[];selected:string}) {
   const [query,setQuery]=useState('');
-  const priority=['source-index','business-plan','equity-story','capital-plan','financial-plan','production-plan'];
+  const priority=['source-index','business-plan','equity-story','capital-plan','financial-plan','unit-economics','production-plan'];
   const matches=(c:DdReportChapterSummary)=>c.title.includes(query.trim())||c.group_label.includes(query.trim());
   const groups=[...new Set(index.filter(c=>!priority.includes(c.slug)&&c.slug!=='assumptions').map(c=>c.group_label))];
   const link=(c:DdReportChapterSummary)=><Link key={c.slug} href={`/dd/${encodeURIComponent(slug)}?chapter=${c.slug}`} aria-current={selected===c.slug?'page':undefined}>{c.title==='UE'?'UE（ユニットエコノミクス）':c.title}</Link>;

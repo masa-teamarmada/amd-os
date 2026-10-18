@@ -11,13 +11,15 @@ import {ddEscapeHtml} from '../src/lib/dd-confidentiality.ts';
 import {DdReportCalculator} from '../src/lib/dd-report-model.ts';
 import type {DdReportEdition,DdReportModel,DdReportChapter} from '../src/lib/dd-report-types.ts';
 const folder=process.argv[2];if(!folder)throw new Error('Import folder required');
-const manifest=JSON.parse(await fs.readFile(path.join(folder,process.argv.includes('--current')?'manifest.qa.json':'manifest.json'),'utf8'));
+const manifestPath=process.argv.find(a=>a.startsWith('--manifest='))?.slice('--manifest='.length)??path.join(folder,process.argv.includes('--current')?'manifest.qa.json':'manifest.json');
+const manifest=JSON.parse(await fs.readFile(manifestPath,'utf8'));
 const model=JSON.parse(gunzipSync(await fs.readFile(path.join(folder,process.argv.includes('--current')?'model.qa.json.gz':'model.json.gz'))).toString()) as DdReportModel;
-const chapters=manifest.chapters.map((c:DdReportChapter)=>({...c,id:c.slug,revision:1,updated_at:new Date().toISOString()})) as DdReportChapter[];
+const {updateDdReportBody}=await import('../src/lib/dd-report-server.ts');
+const chapters=manifest.chapters.map((c:DdReportChapter)=>({...c,body:updateDdReportBody(c.body,c.source_sheet,new DdReportCalculator(model)),id:c.slug,revision:1,updated_at:new Date().toISOString()})) as DdReportChapter[];
 const edition={title:manifest.title,source_version:manifest.sourceVersion,source_sha256:manifest.sourceSha256,revision:manifest.revision??1,input_overrides:{},glossary:manifest.glossary} as DdReportEdition;
 const projected=chapters.some(c=>c.body.excel), kept=chapters.filter(c=>c.slug==='source-index'||c.body.excel?.mode!=='pdf');
 const out=process.argv.find(a=>a.startsWith('--output='))?.slice('--output='.length)??path.join(folder,'画面・出力検証');await fs.mkdir(out,{recursive:true});
-const assetUrls:Record<string,string>={};for(const a of manifest.assets)assetUrls[a.key]=`data:${a.mime};base64,${(await fs.readFile(path.join(folder,'assets',a.key))).toString('base64')}`;
+const assetUrls:Record<string,string>={};for(const a of manifest.assets)assetUrls[a.key]=`data:${a.mime};base64,${(await fs.readFile(path.join(folder,'assets',a.key)).catch(()=>fs.readFile(path.join(path.dirname(manifestPath),'assets',a.key)))).toString('base64')}`;
 for(const slug of ['business-plan','equity-story','organization','production-plan','market','financial-plan']){
   const html=await ddReportHtml({edition,chapters:chapters.filter(c=>c.slug===slug),index:chapters,slug:'sol',assetUrls});if(!projected||chapters.find(c=>c.slug===slug)?.body.excel?.mode!=='pdf'){assert(!html.split('<h1>専門用語の説明')[0].includes('<table'), 'Model tables belong in Excel: '+slug);assert(html.includes('同梱Excel')&&html.includes(encodeURI('_DD_数値計画・一覧表_r')), 'PDF must name and link to companion Excel');}if(slug==='financial-plan'){const visible=html.replace(/<!--[^]*?-->/g,'');assert(visible.includes('同梱Excelの「資金繰表」'));assert(!visible.includes('同梱Excelの「損益・資金繰」'));}await fs.writeFile(path.join(out,slug+'.html'),html);
 }
@@ -39,8 +41,8 @@ if(projected){
     const cells=new Map([...xml.matchAll(/<(?:[\w.-]+:)?c\b[^>]*?\br="([A-Z]+\d+)"[^>]*?(?:\/>|>[\s\S]*?<\/(?:[\w.-]+:)?c>)/g)].map(m=>[m[1],m[0]]));
     const sourceCells=new Map([...strFromU8(original[data.path]).matchAll(/<(?:[\w.-]+:)?c\b[^>]*?\br="([A-Z]+\d+)"[^>]*?(?:\/>|>[\s\S]*?<\/(?:[\w.-]+:)?c>)/g)].map(m=>[m[1],m[0]]));
     for(const [address,entry] of Object.entries(data.cells)){
-      if(entry.f){assert(cells.has(address),chapter.source_sheet+'!'+address+' preserves formula');const f=/<(?:[\w.-]+:)?f\b[^>]*?(?:\/>|>[\s\S]*?<\/(?:[\w.-]+:)?f>)/;assert.equal(cells.get(address)?.match(f)?.[0],sourceCells.get(address)?.match(f)?.[0]?.replaceAll('損益・資金繰','資金繰表'));}
-      if(typeof entry.v==='number'){assert(cells.has(address),chapter.source_sheet+'!'+address+' preserves numerical cell');const actual=Number(cells.get(address)?.match(/<(?:[\w.-]+:)?v>([^<]+)<\/(?:[\w.-]+:)?v>/)?.[1]);assert.equal(actual,Number(calc.get(chapter.source_sheet,address)),chapter.source_sheet+'!'+address+' preserves value');checked++;}
+      if(entry.f){assert(cells.has(address),chapter.source_sheet+'!'+address+' preserves formula');const f=/<(?:[\w.-]+:)?f\b[^>]*?(?:\/>|>[\s\S]*?<\/(?:[\w.-]+:)?f>)/;const originalFormula=sourceCells.get(address)?.match(f)?.[0]?.replaceAll('損益・資金繰','資金繰表');const scaled=chapter.source_sheet==='資本政策表'&&['B177','F177','N177','R177'].includes(address);assert.equal(cells.get(address)?.match(f)?.[0],scaled?originalFormula?.replace(/>([\s\S]*?)<\//,(_m,body)=>`>(${body})/100000000</`):originalFormula);}
+      if(typeof entry.v==='number'){assert(cells.has(address),chapter.source_sheet+'!'+address+' preserves numerical cell');const actual=Number(cells.get(address)?.match(/<(?:[\w.-]+:)?v>([^<]+)<\/(?:[\w.-]+:)?v>/)?.[1]);assert.equal(actual,Number(calc.get(chapter.source_sheet,address))/(chapter.source_sheet==='資本政策表'&&['B177','F177','N177','R177'].includes(address)?1e8:1),chapter.source_sheet+'!'+address+' preserves value');checked++;}
       if(entry.input)assert(cells.has(address),'Preserve input '+chapter.source_sheet+'!'+address);
     }
   }
