@@ -26,7 +26,7 @@ export function DdReportReader(props:Props) {
   async function download(format:'pdf'|'xlsx',all=false) {
     setBusy(true);setMessage(format==='pdf'?'PDFを作成中…':'数式付きExcelを作成中…');
     try {
-      const r=await fetch(`/api/dd/${encodeURIComponent(slug)}/report/export?format=${format}${all?'&scope=all':`&chapter=${chapter.slug}`}`);
+      const r=await fetch(`/api/dd/${encodeURIComponent(slug)}/report/export?format=${format}${all?'&scope=all':`&chapter=${chapter.slug}`}`,{cache:'no-store'});
       if(!r.ok){const data=await r.json().catch(()=>({}));throw new Error(data.error||'出力できなかった');}
       const url=URL.createObjectURL(await r.blob()),a=document.createElement('a');a.href=url;a.download=`${company}_DD_${all?'全資料':chapter.title}_r${revision}.${format}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);setMessage('出力済み。');
     }catch(error){setMessage(error instanceof Error?error.message:'出力できなかった');}finally{setBusy(false);}

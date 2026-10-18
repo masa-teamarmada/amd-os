@@ -80,6 +80,9 @@ liveReads.length=0;await dd.loadDdPackageView(access);assert.deepEqual(liveReads
 // Route still revalidates admission before any data/audit access, on every tab.
 let allowed=false;let routeReads=0;let audits=0;const modes:string[]=[];
 const page=compile('../src/app/dd/[slug]/page.tsx',{
+ '@/lib/dd-report-server':{loadDdReportEdition:async()=>null},
+ '@/components/dd/report/DdReportReader':{DdReportReader:()=>null},
+ '@/components/dd/report/DdReportNavigation':{DdReportNavigation:()=>null},
  '@/lib/dd-confidentiality-server':{ddContentHash},
  '@/lib/dd-page-session':{requireDdPageSession:async()=>{}},
  'react/jsx-runtime':{jsx,jsxs},'next/navigation':{notFound:()=>{throw new Error('not found')}},
