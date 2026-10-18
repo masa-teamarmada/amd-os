@@ -132,8 +132,14 @@ def main():
                 if match:
                     other=E.fromstring(data[sm[match[1] or match[2]]]);bounds=(cn(match[3]),int(match[4]),cn(match[5]),int(match[6]))
                     options=[str(cell_value(c)) for c in other.findall(S+'sheetData/'+S+'row/'+S+'c') if bounds[0]<=xy(c.get('r'))[0]<=bounds[2] and bounds[1]<=xy(c.get('r'))[1]<=bounds[3] and cell_value(c) not in (None,'')]
-            for address in validation.get('sqref','').split():
-                if ':' in address or address not in entries or not options:continue
+            addresses=[]
+            for ref in validation.get('sqref','').split():
+                if ':' in ref:
+                    a,b=map(xy,ref.split(':'))
+                    addresses.extend(key for key in entries if a[0]<=xy(key)[0]<=b[0] and a[1]<=xy(key)[1]<=b[1])
+                else:addresses.append(ref)
+            for address in addresses:
+                if address not in entries or not options:continue
                 if not any(c['address']==address for row in rows for c in row['cells']):continue
                 entry=entries[address]
                 if entry['f'] or not isinstance(entry['v'],str):continue

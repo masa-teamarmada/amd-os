@@ -1,3 +1,4 @@
+import {completeDdReportInputs} from '../src/lib/dd-report-input-metadata.ts';
 import assert from 'node:assert/strict';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {createElement} from 'react';
@@ -48,7 +49,7 @@ if(process.argv[2]){
     if(['financial-plan','cyanobacteria-cost','reactor-cost','metal-cost','fame-cost','production-plan'].includes(c.slug)){
       for(const r of c.body.rows.filter((r:DdReportRow)=>r.row>2))for(const cell of r.cells)assert.equal(markup.split(`id="cell-${cell.address}"`).length-1,1,c.slug+'!'+cell.address);
     }
-    if(c.slug==='cyanobacteria-cost'&&process.argv[4]){const {gunzipSync}=await import('node:zlib');const model=JSON.parse(gunzipSync(await fs.readFile(process.argv[4])).toString());const controls=model.inputs.filter((i:any)=>i.sheet===c.source_sheet);const interactive=renderToStaticMarkup(createElement(DdReportContent,{chapter:c,slug:'sol',index:manifest.chapters,inputControls:{inputs:controls,sheet:c.source_sheet,values:{},disabled:false,change:()=>{}}}));assert((interactive.match(/<select/g)||[]).length>=6);assert((interactive.match(/<input/g)||[]).length>=100);assert(!interactive.includes('<details'));}
+    if(c.slug==='cyanobacteria-cost'&&process.argv[4]){const {gunzipSync}=await import('node:zlib');const model=completeDdReportInputs(JSON.parse(gunzipSync(await fs.readFile(process.argv[4])).toString()));const controls=model.inputs.filter((i:any)=>i.sheet===c.source_sheet);const interactive=renderToStaticMarkup(createElement(DdReportContent,{chapter:c,slug:'sol',index:manifest.chapters,inputControls:{inputs:controls,sheet:c.source_sheet,values:{},disabled:false,change:()=>{}}}));assert((interactive.match(/<select/g)||[]).length>=6);assert((interactive.match(/<input/g)||[]).length>=100);assert(!interactive.includes('<details'));}
     if(c.slug==='capital-plan'&&process.argv[4]){assert(markup.includes('2.00億円'));assert(markup.includes('20.83%'));assert(markup.includes('16.66%'));assert(markup.includes('12.50億円'));assert(markup.includes('12.49858335億円'));}
     if(c.slug==='financial-plan'){
       const t=[...markup.matchAll(/<table>[\s\S]*?<\/table>/g)].find(x=>x[0].includes('cell-C147'))?.[0];

@@ -1,10 +1,11 @@
+import {completeDdReportInputs} from '../src/lib/dd-report-input-metadata.ts';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import {DdReportCalculator,validateDdOverrides,verifyDdReportCalculation} from '../src/lib/dd-report-model.ts';
 import type {DdReportModel} from '../src/lib/dd-report-types.ts';
 const folder=process.argv[2];if(!folder)throw new Error('Import folder required');
-const model=JSON.parse(gunzipSync(fs.readFileSync(folder+(process.argv.includes('--current')?'/model.qa.json.gz':'/model.json.gz'))).toString()) as DdReportModel;
+const model=completeDdReportInputs(JSON.parse(gunzipSync(fs.readFileSync(folder+(process.argv.includes('--current')?'/model.qa.json.gz':'/model.json.gz'))).toString()) as DdReportModel);
 const base=new DdReportCalculator(model);
 const inputs={'共通前提!C16':800000000,'共通前提!C17':.1};
 assert(validateDdOverrides(model,inputs));
@@ -23,6 +24,10 @@ for(const overrides of [
   {'シアノ生産コスト!E6':'人工照明'},
   {'リアクター処理コスト!I5':'循環カートリッジ'},
   {'FAME生産コスト!E5':'外部に委託'},
+  {'シアノ生産コスト!I6':'購入する'},
+  {'シアノ生産コスト!I7':'購入する'},
+  {'リアクター処理コスト!E6':'SOL'},
+  {'リアクター処理コスト!E7':'SOL'},
 ] as Record<string,string>[]) {
   assert(validateDdOverrides(model,overrides),JSON.stringify(overrides));
   const calc=verifyDdReportCalculation(model,overrides);

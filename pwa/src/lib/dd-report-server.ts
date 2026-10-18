@@ -5,6 +5,7 @@ import {createAdminClient} from './supabase/admin';
 import type {DdViewerAccess} from './dd-package-core';
 import {canReadDdReport} from './dd-report-core';
 export {canReadDdReport,canEditDdReport} from './dd-report-core';
+import {completeDdReportInputs} from './dd-report-input-metadata';
 import {ddJkissSummary} from './dd-report-jkiss';
 import {DdReportCalculator,ddAddress,ddColumn} from './dd-report-model';
 import type {DdReportAsset,DdReportBody,DdReportChapter,DdReportChapterSummary,DdReportEdition,DdReportModel,DdReportValue} from './dd-report-types';
@@ -45,7 +46,7 @@ export async function loadDdReportModel(edition:DdReportEdition):Promise<DdRepor
   const key=edition.source_sha256+':'+edition.model_storage_path;
   const old=modelCache.get(key);if(old)return old;
   if(modelCache.size>=2)modelCache.clear();
-  const loading=(async()=>{const r=await createAdminClient().storage.from(DD_REPORT_BUCKET).download(edition.model_storage_path);if(r.error)throw new Error('数値モデルを読み込めなかった');const model=JSON.parse(gunzipSync(Buffer.from(await r.data.arrayBuffer())).toString()) as DdReportModel;if(model.version!==1||model.sourceSha256!==edition.source_sha256)throw new Error('数値モデルの版が一致しない');const calc=new DdReportCalculator(model);model.inputs=model.inputs.filter(i=>!calc.isDataTableCell(i.sheet,i.address));return model;})();
+  const loading=(async()=>{const r=await createAdminClient().storage.from(DD_REPORT_BUCKET).download(edition.model_storage_path);if(r.error)throw new Error('数値モデルを読み込めなかった');const model=JSON.parse(gunzipSync(Buffer.from(await r.data.arrayBuffer())).toString()) as DdReportModel;if(model.version!==1||model.sourceSha256!==edition.source_sha256)throw new Error('数値モデルの版が一致しない');const complete=completeDdReportInputs(model);model.inputs=complete.inputs;const calc=new DdReportCalculator(model);model.inputs=model.inputs.filter(i=>!calc.isDataTableCell(i.sheet,i.address));return model;})();
   modelCache.set(key,loading);loading.catch(()=>modelCache.delete(key));return loading;
 }
 export async function ddReportAsset(editionId:string,key:string):Promise<{meta:DdReportAsset;bytes:Buffer}|null> {
