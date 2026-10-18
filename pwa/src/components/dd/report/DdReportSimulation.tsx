@@ -7,6 +7,10 @@ export function DdReportInputValue({address,children,controls:ctx}:{address:stri
   if(!ctx||!input)return children;
   const key=`${input.sheet}!${input.address}`,value=ctx.values[key]??input.value;
   if(input.options?.length)return <select className="ddr-simulation-input" aria-label={input.label} value={String(value??'')} disabled={ctx.disabled} onChange={e=>ctx.change(key,e.target.value)}>{input.options.map(v=><option key={v} value={v}>{v}</option>)}</select>;
-  if(typeof input.value==='number')return <input className="ddr-simulation-input" aria-label={input.label} type="number" step="any" value={value===null?'':String(value)} disabled={ctx.disabled} onChange={e=>{if(e.target.value.trim()!==''&&Number.isFinite(Number(e.target.value)))ctx.change(key,Number(e.target.value));}}/>;
+  if(typeof input.value==='number'){
+    const percentage=/%/.test(input.format.replace(/"(?:[^"]|"")*"/g,'').replace(/\\./g,'')),scale=percentage?100:1;
+    const display=value===null?'':percentage?String(Number((Number(value)*scale).toPrecision(12))):String(value);
+    return <span className="ddr-number-input-group"><input className="ddr-simulation-input" aria-label={input.label} type="number" step="any" value={display} disabled={ctx.disabled} onChange={e=>{if(e.target.value.trim()!==''&&Number.isFinite(Number(e.target.value)))ctx.change(key,Number(e.target.value)/scale);}}/>{percentage&&<span>%</span>}</span>;
+  }
   return children;
 }

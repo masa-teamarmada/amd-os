@@ -32,4 +32,5 @@ export const DD_REPORT_CSS=`
 
 .ddr-simulation-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid #b8d7df;background:#eef7f8;padding:8px 10px;margin:8px 0 12px;font-size:12px}.ddr-simulation-toolbar>div:last-child{display:flex;gap:6px;flex-shrink:0}.ddr-simulation-toolbar .ddr-button{min-height:30px;padding:4px 10px}.ddr .ddr-simulation-input{font:inherit;color:#086c9c;background:#fff;border:1px solid #9ebcc8;border-radius:3px;max-width:100%;padding:3px 5px;min-height:27px}.ddr input.ddr-simulation-input{width:120px;text-align:right}.ddr-simulation-input:disabled{opacity:.6}.ddr-simulation-message{font-size:12px;color:#086c9c}
 .ddr-cost-notes{margin:12px 0 16px;max-width:1000px}.ddr-cost-notes h3{font-size:13px;color:#086c9c;margin:0 0 6px}.ddr-cost-note{display:grid;grid-template-columns:180px minmax(0,1fr);gap:12px;border-top:1px solid #d6e1e5;padding:7px 0;font-size:12px;line-height:1.6}.ddr-cost-note>a{font-weight:600}.ddr-cost-note p{margin:0 0 5px}.ddr-cost-detail .ddr-table-scroll{margin-bottom:8px}
+.ddr-number-input-group{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
 `;
