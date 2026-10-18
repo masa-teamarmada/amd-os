@@ -20,7 +20,17 @@ for(const slug of ['business-plan','equity-story','organization','production-pla
 const bytes=ddReportXlsx(await fs.readFile(path.join(folder,'source.xlsx')),edition,model,chapters);await fs.writeFile(path.join(out,'SolvioraX_DD_r1.xlsx'),bytes);
 const files=unzipSync(bytes);
 const original=unzipSync(await fs.readFile(path.join(folder,'source.xlsx')));
-for(const sheet of Object.values(model.sheets)){const sourceXml=strFromU8(original[sheet.path]).replace(/<c\b[^>]*?\br="([A-Z]+\d+)"[^>]*?(?:\/>|>[\s\S]*?<\/c>)/g,(cell,address:string)=>{const name=Object.keys(model.sheets).find(s=>model.sheets[s].path===sheet.path)!,patch=model.formulaPatches?.[name+'!'+address];return patch?cell.replace(/<f\b([^>]*?)>[\s\S]*?<\/f>/,(_f,attrs:string)=>`<f${attrs}>${ddEscapeHtml(patch)}</f>`):cell;}),resultXml=strFromU8(files[sheet.path]);assert.deepEqual([...resultXml.matchAll(/<c\b[^>]*?\br="([A-Z]+\d+)"/g)].map(m=>m[1]),[...sourceXml.matchAll(/<c\b[^>]*?\br="([A-Z]+\d+)"/g)].map(m=>m[1]),sheet.path+' preserves every cell');assert.deepEqual(resultXml.match(/<f\b[^>]*?(?:\/>|>[\s\S]*?<\/f>)/g),sourceXml.match(/<f\b[^>]*?(?:\/>|>[\s\S]*?<\/f>)/g),sheet.path+' preserves every native formula');}
+// Excel may prefix SpreadsheetML elements with x:. Both forms must receive DB edits.
+const plant=chapters.find(c=>c.slug==='production-plan')!;
+const plantXml=strFromU8(files[model.sheets[plant.source_sheet].path]);
+for(const address of ['B276','B317']){
+  const expected=plant.body.rows.flatMap(r=>r.cells).find(c=>c.address===address)?.value;
+  assert(typeof expected==='string');
+  const actual=plantXml.match(new RegExp('<(?:[\\w.-]+:)?c\\b[^>]*\\br="'+address+'"[^>]*>[\\s\\S]*?<\\/(?:[\\w.-]+:)?c>'))?.[0];
+  assert(actual?.includes(ddEscapeHtml(expected)),address+' exports the current overseas explanation');
+}
+assert(plantXml.includes('CONFIDENTIAL · DD r'+edition.revision),'Prefixed sheets receive the current revision header');
+for(const sheet of Object.values(model.sheets)){const sourceXml=strFromU8(original[sheet.path]).replace(/<(?:[\w.-]+:)?c\b[^>]*?\br="([A-Z]+\d+)"[^>]*?(?:\/>|>[\s\S]*?<\/(?:[\w.-]+:)?c>)/g,(cell,address:string)=>{const name=Object.keys(model.sheets).find(s=>model.sheets[s].path===sheet.path)!,patch=model.formulaPatches?.[name+'!'+address];return patch?cell.replace(/<f\b([^>]*?)>[\s\S]*?<\/f>/,(_f,attrs:string)=>`<f${attrs}>${ddEscapeHtml(patch)}</f>`):cell;}),resultXml=strFromU8(files[sheet.path]);assert.deepEqual([...resultXml.matchAll(/<(?:[\w.-]+:)?c\b[^>]*?\br="([A-Z]+\d+)"/g)].map(m=>m[1]),[...sourceXml.matchAll(/<(?:[\w.-]+:)?c\b[^>]*?\br="([A-Z]+\d+)"/g)].map(m=>m[1]),sheet.path+' preserves every cell');assert.deepEqual(resultXml.match(/<(?:[\w.-]+:)?f\b[^>]*?(?:\/>|>[\s\S]*?<\/(?:[\w.-]+:)?f>)/g),sourceXml.match(/<(?:[\w.-]+:)?f\b[^>]*?(?:\/>|>[\s\S]*?<\/(?:[\w.-]+:)?f>)/g),sheet.path+' preserves every native formula');}
 
 assert.equal(Object.entries(files).filter(([p,b])=>p.endsWith('.xml')&&strFromU8(b.subarray(0,1500)).includes('<c:chartSpace')).length,37);
 assert(!Object.keys(files).some(p=>p.startsWith('xl/media/')));

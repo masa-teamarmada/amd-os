@@ -36,31 +36,39 @@ export async function ddReportPdf(args:Parameters<typeof ddReportHtml>[0],render
 }
 
 function xmlCell(original:string,value:DdReportValue,formula:boolean) {
+  const prefix=original.match(/^<([\w.-]+:)?c\b/)?.[1]??'';
   const attrs=original.slice(0,original.indexOf('>')+1).replace(/\s+t="[^"]*"/g,'').replace(/\/>$/,'>');
-  const f=formula?(original.match(/<f\b[^>]*(?:\/>|>[\s\S]*?<\/f>)/)?.[0]??''):'';
-  if(value===null)return attrs+f+'</c>';
+  const f=formula?(original.match(/<(?:[\w.-]+:)?f\b[^>]*(?:\/>|>[\s\S]*?<\/(?:[\w.-]+:)?f>)/)?.[0]??''):'';
+  if(value===null)return attrs+f+`</${prefix}c>`;
   const scalar=typeof value==='number'?String(value):typeof value==='boolean'?value?'1':'0':ddEscapeHtml(String(value));
-  if(typeof value==='string')return attrs.replace(/>$/,' t="'+(formula?'str':'inlineStr')+'">')+f+(formula?`<v>${scalar}</v>`:`<is><t xml:space="preserve">${scalar}</t></is>`)+'</c>';
-  return attrs.replace(/>$/,typeof value==='boolean'?' t="b">':'>')+f+`<v>${scalar}</v></c>`;
+  if(typeof value==='string')return attrs.replace(/>$/,' t="'+(formula?'str':'inlineStr')+'">')+f+(formula?`<${prefix}v>${scalar}</${prefix}v>`:`<${prefix}is><${prefix}t xml:space="preserve">${scalar}</${prefix}t></${prefix}is>`)+`</${prefix}c>`;
+  return attrs.replace(/>$/,typeof value==='boolean'?' t="b">':'>')+f+`<${prefix}v>${scalar}</${prefix}v></${prefix}c>`;
 }
 /** Preserve native formulas, chart objects, validations, styles and Excel data tables. */
 export function ddReportXlsx(source:Uint8Array,edition:DdReportEdition,model:DdReportModel,chapters:DdReportChapter[],redact:(text:string)=>string=(s)=>s,focusSheet?:string) {
   const files=unzipSync(source),calc=new DdReportCalculator(model,edition.input_overrides),edited=new Map(chapters.map(ch=>[ch.source_sheet,new Map(ch.body.rows.flatMap(r=>r.cells).filter(c=>!c.formula&&typeof c.value==='string').map(c=>[c.address,c.value]))]));
   for(const [sheet,data]of Object.entries(model.sheets)){
     let xml=strFromU8(files[data.path]);
-    xml=xml.replace(/<c\b[^>]*?\br="([A-Z]+\d+)"[^>]*?(?:\/>|>[\s\S]*?<\/c>)/g,(cell,address:string)=>{
+    xml=xml.replace(/<(?:[\w.-]+:)?c\b[^>]*?\br="([A-Z]+\d+)"[^>]*?(?:\/>|>[\s\S]*?<\/(?:[\w.-]+:)?c>)/g,(cell,address:string)=>{
       const entry=data.cells[address];if(!entry)return cell;
       let value=edited.get(sheet)?.get(address)??calc.get(sheet,address);
       if(typeof value==='string')value=redact(value);
       const patch=model.formulaPatches?.[`${sheet}!${address}`];
-      const originalCell=patch?cell.replace(/<f\b([^>]*?)>[\s\S]*?<\/f>/,(_f,attrs:string)=>`<f${attrs}>${ddEscapeHtml(patch)}</f>`):cell;
-      return xmlCell(originalCell,value,Boolean(entry.f)||/<f\b/.test(cell));
+      const originalCell=patch?cell.replace(/<((?:[\w.-]+:)?f)\b([^>]*?)>[\s\S]*?<\/(?:[\w.-]+:)?f>/,(_f,tag:string,attrs:string)=>`<${tag}${attrs}>${ddEscapeHtml(patch)}</${tag}>`):cell;
+      return xmlCell(originalCell,value,Boolean(entry.f)||/<(?:[\w.-]+:)?f\b/.test(cell));
     }).replace(/zoomScale="\d+"/g,'zoomScale="100"');
     if(focusSheet)xml=xml.replace(/tabSelected="[01]"/g,`tabSelected="${sheet===focusSheet?'1':'0'}"`);
     // Source files can already contain a print notice; replace it, never append a duplicate element.
-    const footer=`<headerFooter><oddHeader>&amp;C&amp;BCONFIDENTIAL · DD r${edition.revision}</oddHeader></headerFooter>`;
-    if(/<headerFooter\b/.test(xml))xml=xml.replace(/<headerFooter\b[\s\S]*?<\/headerFooter>/,footer);
-    else xml=xml.replace(/<(?:rowBreaks|colBreaks|customProperties|cellWatches|ignoredErrors|smartTags|drawing|legacyDrawing|legacyDrawingHF|picture|oleObjects|controls|webPublishItems|tableParts|extLst)\b|<\/worksheet>/,match=>footer+match);
+    const prefix=xml.match(/<([\w.-]+:)?worksheet\b/)?.[1]??'';
+    const footer=`<${prefix}headerFooter><${prefix}oddHeader>&amp;C&amp;BCONFIDENTIAL · DD r${edition.revision}</${prefix}oddHeader></${prefix}headerFooter>`;
+    if(/<(?:[\w.-]+:)?headerFooter\b/.test(xml))xml=xml.replace(/<(?:[\w.-]+:)?headerFooter\b[\s\S]*?<\/(?:[\w.-]+:)?headerFooter>/,footer);
+    else xml=xml.replace(/<(?:[\w.-]+:)?(?:rowBreaks|colBreaks|customProperties|cellWatches|ignoredErrors|smartTags|drawing|legacyDrawing|legacyDrawingHF|picture|oleObjects|controls|webPublishItems|tableParts|extLst)\b|<\/(?:[\w.-]+:)?worksheet>/,match=>footer+match);
+    const chapter=chapters.find(c=>c.source_sheet===sheet),relsPath=data.path.replace(/\/([^/]+)$/,'/_rels/$1.rels');
+    if(chapter&&files[relsPath]){
+      const targets=new Map(chapter.body.rows.flatMap(r=>r.cells).filter(c=>/^https?:\/\//i.test(c.link??'')).map(c=>[c.address,c.link!]));
+      const ids=new Map([...xml.matchAll(/<(?:[\w.-]+:)?hyperlink\b[^>]*\bref="([A-Z]+\d+)"[^>]*\br:id="([^"]+)"[^>]*\/>/g)].flatMap(m=>targets.has(m[1])?[[m[2],targets.get(m[1])!] as const]:[]));
+      files[relsPath]=strToU8(strFromU8(files[relsPath]).replace(/<Relationship\b[^>]*\/>/g,rel=>{const target=ids.get(rel.match(/\bId="([^"]+)"/)?.[1]??'');return target?rel.replace(/\bTarget="[^"]*"/,`Target="${ddEscapeHtml(target)}"`):rel;}));
+    }
     files[data.path]=strToU8(xml);
   }
   // Prose and original figures are supplied in PDF/HTML. Excel retains every text and numerical sheet.

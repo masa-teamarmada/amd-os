@@ -786,3 +786,8 @@ PWA本番は通常deploy.shでmainを1回反映しReady/build-info/実画面を�
 | NDA回答の継続 | spec5-17、ios/DESIGN | manual2-6、9-3 | 同期済み |
 | DD本文冒頭の余白 | spec5-17、ios/DESIGN | manual2-6、9-3 | 同期済み |
 | 理論・数式 | 変更なし | 対象外 | 棚卸し済み |
+
+
+## 2026-10-18 DD Excel本文反映
+
+`dd-report-export.tsx`は名前空間接頭辞付きセルにも本文・計算結果・資料版ヘッダを反映。Excelキーlayout-v4。接頭辞・数式・セル件数を保持し、生産拠点の説明2セルを保存本文と照合。DBとSwift/iOS/macOS/Androidコード、既存の認可・ダウンロード導線は同じ。
