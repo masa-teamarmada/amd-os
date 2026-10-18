@@ -1,5 +1,8 @@
 # PWA ランタイム / ルート仕様
 
+2026-10-18（v3.163.0）: DDの`?chapter=...`は同じパッケージのレポート本文、`/dd/[slug]/legacy`は移行前の控え。`/api/dd/[slug]/report`は目録・本文・内部編集、`assets/[assetKey]`は図版、`export`はPDF/Excel。全入口で既存の認証・付与・NDA・出力権限を検証し、private/no-storeとする。詳細は5-17。
+
+
 2026-10-15: ルートlayoutの`NavigationFavicon`は同一オリジンへの通常リンク遷移/戻る/進むの間だけ回転するファビコンを表示し、pathname/searchParamsの反映時に元のhref/type/sizesへ戻す。別タブ・外部・ダウンロード・同一ページのhash移動は対象外。失敗/キャンセルの復元上限30秒。DDでは選択本文を認可後の短時間参照キャッシュで取得し、短期/長期計画はsandbox/CSP付きsrcDoc。5-17参照。
 
 ## 2026-10-08 — メールの数字でログイン（v3.162.7）

@@ -1,3 +1,7 @@
+## 2026-10-18 — DD資料・数値モデル・PDF/Excel
+
+DDレポート登録済みパッケージは既存URLと閲覧権限で新版を開く。旧本文を別の「旧DDパッケ」に保存。38資料の説明・横表・原図・37グラフを読み、原価/UE/長期現金/J-KISS/持分/IRRを同じモデルで更新する。金属を含む選択リスト、本文編集、版競合検出、PDF/数式付きExcel出力を維持する。private Storageと4表はサーバの認可後だけ配信し、NDA・非開示企業名・dd.download・監査を通す。回帰: test:dd-package、check_dd_report_access/model/outputs。仕様5-17。PJ番号による分岐なし。
+
 # PWA Feature Registry
 
 ## 共通「実験・評価」の比較・集計・原画像

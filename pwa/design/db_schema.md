@@ -9196,3 +9196,17 @@ PRIMARY KEY: `id`
 | 7 | `applied_at` | `timestamptz` | NULL | `` |
 | 8 | `applied_note` | `text` | NULL | `` |
 | 9 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+
+## dd_report_editions / dd_report_chapters / dd_report_assets / dd_report_changes
+
+2026-10-18追加。DDL正本は`ios/supabase/migrations/20261018030428_amie_dd_report_editions.sql`と`20261018032200_amie_dd_report_commit.sql`（両方適用済み）。
+
+| 表 | 主な列・制約 | 用途 |
+|---|---|---|
+| dd_report_editions | id uuid PK、package_id uuid FK、title/source_version/source_sha256 text、status draft/published/archived、summary/input_overrides jsonb、3つのStorage path text、revision integer、created_at/updated_at timestamptz。unique(package_id,source_sha256)、公開中はpackageごと1件 | 資料版と共有数値モデル |
+| dd_report_chapters | id uuid PK、edition_id FK、slug/title/group_label/source_sheet text、sort_order/revision integer、body jsonb、updated_at。unique(edition_id,slug) | 本文の順序とgzip本文pointer/SHA |
+| dd_report_assets | id/edition_id uuid、asset_key/storage_path/mime_type/sha256 text、size_bytes bigint。unique(edition_id,asset_key) | 元図の不変ファイル |
+| dd_report_changes | id/edition_id/chapter_id uuid、actor_member_id/change_kind text、before_value/after_value jsonb、created_at。kind=chapter/inputs/publication | 変更監査 |
+
+4表はRLS有効、anon/authenticatedは権限なし。private Storage bucket `dd-report-files`（50MB上限）にも公開policyを作らない。既存DD認可後のservice_role APIのみ読み書き。`dd_report_commit_change`はedition行ロックと期待版照合、本文/入力・版増分・監査を同じtransactionで実行。service_roleだけEXECUTE可能。PDF/XLSXの出力は現行のdd.downloadとNDAを毎回確認し、60秒署名URLを発行する。詳細spec5-17。

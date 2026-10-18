@@ -71,6 +71,9 @@ const page=load('../src/app/dd/[slug]/page.tsx',{
  '@/lib/dd-project-pages-server':{loadDdProjectPage:async()=>{reads++;return {}}},'@/lib/dd-package-core':{isDdSlug:()=>true,hasDdCapability:()=>false},'@/lib/dd-pages':{DD_PAGE_KEYS:['company']},
  '@/components/dd/DdViewerShell':{DdViewerShell:'shell'},'@/components/dd/DdPackageTop':{DdPackageTop:'top'},
  '@/lib/project-surface-access':{canEditProjectSurface:async()=>false},
+ '@/lib/dd-report-server':{loadDdReportEdition:async()=>null},
+ '@/components/dd/report/DdReportReader':{DdReportReader:()=>null},
+ '@/components/dd/report/DdReportNavigation':{DdReportNavigation:()=>null},
 });
 const input={params:Promise.resolve({slug:'sol'}),searchParams:Promise.resolve({tab:'company'})};
 assert.equal((await page.default(input)).component,'gate');assert.equal(reads,0);assert.equal(contextReads,1);confirmed=true;await page.default(input);assert.equal(reads,3);assert.equal(contextReads,1,'confirmed readers do not re-read the first-entry prompt');

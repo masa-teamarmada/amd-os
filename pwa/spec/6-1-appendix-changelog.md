@@ -1,3 +1,7 @@
+## 2026-10-18 — DD資料・計算モデルとPDF/Excel
+
+既存のDD閲覧URLと付与を維持し、Excelの全内容をDB正本のDDへ移行。旧本文は別の「旧DDパッケ」に保存。38資料、共有計算モデル、図・37グラフ、入力/文章の版管理編集とPDF/数式付きExcelを追加。NDA・会社名非開示・出力権限・監査を継承。正本spec5-17、manual2-1/2-6、ios/DESIGNとschemaを同期。
+
 # 附則（設計書変更履歴）
 
 2026-10-17（v3.162.69）: 反映後の旧版整理を追加。deploy.shが本番の切り替わりを確かめた後、READYの新しい順5版と本番版を残して古い版を消す（アドレス付き・作成中・取消・失敗は対象外、Recently Deletedから30日間復元可）。test:deployment-cleanupをdeploy.shへ追加。画面・DB不変。spec5-2/manual9-2。

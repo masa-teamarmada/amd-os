@@ -1,0 +1,12 @@
+export type DdReportValue = string | number | boolean | null;
+export type DdReportCell = { address:string;column:number;span:number;value:DdReportValue;format:string;formula:boolean;heading:boolean;link?:string };
+export type DdReportRow = {row:number;cells:DdReportCell[]};
+export type DdReportChart = {kind:'chart';row:number;chartType:string;horizontal:boolean;stacked:boolean;title:string;numberFormat?:string;series:{name:string;categories:string[];values:number[];formula?:string|null}[]};
+export type DdReportImage = {kind:'image';row:number;assetKey:string;caption:string};
+export type DdReportBody = {version:1;rows:DdReportRow[];objects:(DdReportChart|DdReportImage)[]};
+export type DdReportChapter = {id:string;slug:string;title:string;group_label:string;sort_order:number;source_sheet:string;body:DdReportBody;revision:number;updated_at:string};
+export type DdReportChapterSummary = Omit<DdReportChapter,'body'>;
+export type DdReportEdition = {id:string;package_id:string;title:string;source_version:string;source_sha256:string;status:'draft'|'published'|'archived';summary:Record<string,number>;model_storage_path:string;xlsx_storage_path:string;legacy_snapshot_path:string|null;input_overrides:Record<string,DdReportValue>;revision:number;created_at:string;updated_at:string};
+export type DdReportInput = {sheet:string;address:string;label:string;value:DdReportValue;format:string;options?:string[]};
+export type DdReportModel = {version:1;sourceSha256:string;sheets:Record<string,{path:string;cells:Record<string,{v:DdReportValue;f:string|null;format:string;input?:boolean}>;merges:string[];dataTables:({anchor:string;ref:string;r1?:string;r2?:string;dt2D?:string;dtr?:string})[]}>;inputs:DdReportInput[]};
+export type DdReportAsset = {id:string;edition_id:string;asset_key:string;storage_path:string;mime_type:string;sha256:string;size_bytes:number};

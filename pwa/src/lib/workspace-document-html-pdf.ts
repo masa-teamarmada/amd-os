@@ -186,6 +186,9 @@ async function pdfFontCss(html: string) {
 type PdfRenderOptions = {
   executablePath?: string;
   args?: string[];
+  tagged?: boolean;
+  pageWidthPx?: number;
+  compactPagination?: boolean;
 };
 
 export async function renderWorkspaceDocumentHtmlToPdf(
@@ -232,7 +235,7 @@ export async function renderWorkspaceDocumentHtmlToPdf(
     const a4Metrics = await page.evaluate(() => ({
       scrollHeight: Math.ceil(Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight ?? 0)),
     }));
-    const pdfWidthPx = choosePdfContentWidthPx({
+    const pdfWidthPx = options.pageWidthPx ?? choosePdfContentWidthPx({
       collapsed: detectResponsiveCollapse({
         desktopScrollHeightPx: desktopMetrics.scrollHeight,
         a4ScrollHeightPx: a4Metrics.scrollHeight,
@@ -253,8 +256,8 @@ export async function renderWorkspaceDocumentHtmlToPdf(
         }
       `,
     });
-    await page.evaluate(keepHeadingBlocksTogether, pdfHeightPx);
-    await page.evaluate((pageHeightPx: number) => {
+    if(!options.compactPagination)await page.evaluate(keepHeadingBlocksTogether, pdfHeightPx);
+    if(!options.compactPagination)await page.evaluate((pageHeightPx: number) => {
       const logicalDisplays = new Set(["flex", "inline-flex", "grid", "inline-grid", "table", "table-row"]);
       for (const element of document.body?.querySelectorAll<HTMLElement>("*") ?? []) {
         if (!logicalDisplays.has(getComputedStyle(element).display)) continue;
@@ -276,6 +279,7 @@ export async function renderWorkspaceDocumentHtmlToPdf(
         left: PDF_PAGE_MARGIN,
       },
       printBackground: true,
+      ...(options.tagged===undefined?{}:{tagged:options.tagged}),
       preferCSSPageSize: false,
     }));
   } finally {

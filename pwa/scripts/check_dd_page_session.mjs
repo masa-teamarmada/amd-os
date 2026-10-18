@@ -53,6 +53,9 @@ const page = load('../src/app/dd/[slug]/page.tsx', {
   '@/lib/dd-project-pages-server': { loadDdProjectPage: async () => { reads++; return { page: 'company' }; } },
   '@/components/dd/DdViewerShell': { DdViewerShell: () => null },
   '@/components/dd/DdPackageTop': { DdPackageTop: () => null },
+  '@/lib/dd-report-server': {loadDdReportEdition:async()=>null},
+  '@/components/dd/report/DdReportReader': {DdReportReader:()=>null},
+  '@/components/dd/report/DdReportNavigation': {DdReportNavigation:()=>null},
 }).default;
 const input = { params: Promise.resolve({ slug: 'sol' }), searchParams: Promise.resolve({ tab: 'technology' }) };
 await assert.rejects(page(input), (error) => error.location && new URL('https://example.test' + error.location).searchParams.get('next') === '/dd/sol?tab=technology');

@@ -15,14 +15,14 @@ import { hasDdCapability } from "@/lib/dd-package-core";
 import { resolveSharedWorkspaceAccess } from "@/lib/project-shared-workspace-access";
 
 // 見出し・領域選択・分類・ページ・本文。閲覧画面に管理専用の帯を足さない。
-export async function DdViewerShell({ access, projectName, pageKey, children }: { access: DdViewerAccess; projectName: string; pageKey: DdPageKey; children: ReactNode }) {
+export async function DdViewerShell({ access, projectName, pageKey, children, reportNavigation, legacy=false,reportPageLabel }: { access: DdViewerAccess; projectName: string; pageKey: DdPageKey; children: ReactNode;reportNavigation?:ReactNode;legacy?:boolean;reportPageLabel?:string }) {
   const homeHref = `/dd/${encodeURIComponent(access.slug)}`;
   const member = await getCurrentMemberAccess();
   const canCockpit = member ? !!memberSurfacePermission(member,access.projectId,"cockpit") : false;
   const workspaceAccess = access.preview ? null : await resolveSharedWorkspaceAccess(access.projectId).catch(() => null);
   return (
     <div className="min-h-screen w-full bg-white text-[#1d1d1f]">
-      <ProjectPageTitle projectName={projectName} surface="DD" pageLabel={ddPageLabel(pageKey)} />
+      <ProjectPageTitle projectName={projectName} surface="DD" pageLabel={reportPageLabel??ddPageLabel(pageKey)} />
       <main className="mx-auto max-w-[1600px] space-y-2 px-4 pb-16">
         <PageHistoryToolbar compact title={<h1 className="min-w-0 flex-1 truncate px-1 text-base font-bold" title={projectName}>{projectName}</h1>} actions={
           <div className="flex shrink-0 gap-2 text-[12px] text-[#6e6e73]">
@@ -34,7 +34,7 @@ export async function DdViewerShell({ access, projectName, pageKey, children }: 
         <div className="sticky top-0 z-40 print:static"><DdConfidentialityNotice overlay slug={access.slug} /></div>
         <ProjectSpaceLayout compact navigation={<>
         <ProjectSurfaceNav projectId={access.projectId} current="dd" canCockpit={canCockpit} canWorkspace={access.preview || Boolean(workspaceAccess)} ddHref={homeHref} />
-        <DdNavigation slug={access.slug} pageKey={pageKey} />
+        {reportNavigation??<DdNavigation slug={access.slug} pageKey={pageKey} legacy={legacy} />}
         </>}>
         {children}
         </ProjectSpaceLayout>

@@ -155,6 +155,7 @@ const nextConfig: NextConfig = {
     "/api/monthly-report/edit-by-tsukuyomi": ["./node_modules/@sparticuz/chromium/bin/**", "./node_modules/@fontsource-variable/noto-sans-jp/**"],
   },
   outputFileTracingIncludes: {
+    "/api/dd/*/report/export": ["./node_modules/@fontsource-variable/noto-sans-jp/**", "./node_modules/@sparticuz/chromium/bin/**"],
     // DDの閲覧写しと通知ZIPへ埋め込む固定画像を、該当サーバ処理へ同梱する。
     "/dd/**": ["./public/dd/confidential-stamp-20261012.png"],
     "/api/admin/pj-introduction-html/route": [

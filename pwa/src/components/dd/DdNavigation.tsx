@@ -8,8 +8,8 @@ import type { DdPageKey } from "@/lib/dd-pages";
 import styles from "@/components/nav/ProjectNavigation.module.css";
 
 /** 初期は全分類を展開。検索は閉じた分類も横断し、本文や開示条件は変えない。 */
-export function DdNavigation({ slug, pageKey }: { slug: string; pageKey: DdPageKey }) {
-  const base = `/dd/${encodeURIComponent(slug)}`;
+export function DdNavigation({ slug, pageKey,legacy=false }: { slug: string; pageKey: DdPageKey;legacy?:boolean }) {
+  const base = `/dd/${encodeURIComponent(slug)}${legacy?'/legacy':''}`;
   const id = useId();
   const [query, setQuery] = useState("");
   const [closedGroups, setClosedGroups] = useState<string[]>([]);
@@ -21,6 +21,7 @@ export function DdNavigation({ slug, pageKey }: { slug: string; pageKey: DdPageK
   const matches = (label: string) => label.toLocaleLowerCase("ja").includes(query.trim().toLocaleLowerCase("ja"));
   const count = DD_ITEM_PAGES.filter((item) => matches(item.label)).length;
   return <nav aria-label="DDパッケージの資料目録" data-testid="dd-item-navigation" className={`${styles.menu} ${styles.dd}`}>
+    {legacy&&<Link href={`/dd/${encodeURIComponent(slug)}`} className={styles.row}>新版DDパッケージへ →</Link>}
     <div className={styles.searchWrap}>
       <label htmlFor={id} className="sr-only">資料名で検索</label>
       <input id={id} type="search" placeholder="資料名で検索" value={query} onChange={(event) => setQuery(event.target.value)} className={styles.search} />

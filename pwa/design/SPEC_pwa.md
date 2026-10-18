@@ -1,5 +1,8 @@
 # SPEC — AMD OS PWA
 
+2026-10-18（v3.163.0）: DDレポートは既存`/dd/[slug]`の認可を維持してHTML本文・計算モデル・PDF/Excel出力を提供する。旧本文は`legacy`に保存。現行仕様・テーブル・変更履歴・再構築と検証は`../spec/5-17-dd-package-current-spec.md`、URLは`../spec/2-1-pwa-runtime-routes.md`。
+
+
 ## 2026-10-08 — メールの数字でログイン（v3.162.7）
 
 PWAの外部ログインにコード入力を追加。メール申込後とworkspace_auth_failed/workspace_code_failed時は同じメール入力と数値コード欄を表示し、単一の「ログインする」でPOST /auth/callbackへ送る。初期画面は従来のメール入力、社内Google・書斎入口は維持。コードはURL・監査detailに載せない。

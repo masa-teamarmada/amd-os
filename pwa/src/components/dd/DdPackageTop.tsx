@@ -8,8 +8,8 @@ import type { DdPackageView, DdViewItem } from "@/lib/dd-package-server";
 import density from "./DdDocumentDensity.module.css";
 
 // ページを選ぶと本文を直接表示。DD専用の一覧・概要・公開状態の枠を挟まない。
-export function DdPackageTop({ view, slug, tab, sectionKey, canDownload = false, canEditPocList = false, selectedItem, canonicalPage }: {
-  view: DdPackageView; slug: string; tab?: string; sectionKey?: string; canDownload?: boolean; canEditPocList?: boolean; selectedItem?: DdViewItem; canonicalPage?: DdLiveProjectPage;
+export function DdPackageTop({ view, slug, tab, sectionKey, canDownload = false, canEditPocList = false, selectedItem, canonicalPage,legacy=false }: {
+  view: DdPackageView; slug: string; tab?: string; sectionKey?: string; canDownload?: boolean; canEditPocList?: boolean; selectedItem?: DdViewItem; canonicalPage?: DdLiveProjectPage;legacy?:boolean;
 }) {
   const items = view.sections.flatMap((section) => section.items);
   const legacyPage = view.sections.find((section) => section.key === sectionKey)?.items[0]?.pageKey;
@@ -23,7 +23,7 @@ export function DdPackageTop({ view, slug, tab, sectionKey, canDownload = false,
         {definition && definition.related.length > 0 && <nav aria-label="関連する既存ページ">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
             <span className="text-[#6e6e73]">関連する既存ページ</span>
-            {definition.related.map((page) => <Link key={page} href={`/dd/${encodeURIComponent(slug)}?tab=${page}`} className="inline-flex min-h-9 items-center text-[#0267b2] underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-[#027FDC]">{PROJECT_PAGE_LABELS[page]}</Link>)}
+            {definition.related.map((page) => <Link key={page} href={`/dd/${encodeURIComponent(slug)}${legacy?'/legacy':''}?tab=${page}`} className="inline-flex min-h-9 items-center text-[#0267b2] underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-[#027FDC]">{PROJECT_PAGE_LABELS[page]}</Link>)}
           </div>
         </nav>}
         {pageKey !== "documents" ? (
