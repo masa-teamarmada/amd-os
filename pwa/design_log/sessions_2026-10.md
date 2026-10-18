@@ -756,3 +756,26 @@ NDA回帰・従来DD検査成功。8GB指定の型検査・対象lint・project-
 4. 初回の実行: 反映6分1秒、本番 dpl_7dSU…（813128f9）。40版を削除し、残りはREADY 5（813128f9・794c5bce・0746cee2・e3506db1・c99a5611）とCANCELED 6。Vercel の Settings › Security › Recently Deleted Deployments に「29 days left」で並ぶことを確認。本番 build-info は v3.162.69 / dirty:false。
 5. 保存量の見込み: 残る5版で約0.85GB（新しい2版が約119MB、古い3版が約205MB）。以後の反映で約0.6GBまで下がる。Vercelの日次値は当日の最大保存量を数えるため、使用量画面の数字が下がるのは翌日の集計から。
 6. 検証: test:deployment-cleanup（6場面）、critical-ui、deploy.sh の全検査、本番の alias と build-info。
+
+## 2026-10-18 DD閲覧画面の一連の修正と終了記録
+
+作業種別development。まさ受入済み。恒久仕様はspec5-17/2-1とmanual2-1/2-6/各附則、全プラットフォーム境界はios/DESIGNとpwa/HANDOFF_pwa_to_native_viewing。非開発PJ成果物・新しい環境変数/秘密値/DB table・column・index・trigger・RLS変更なし。
+
+| 順 | commit / 版 | 変更・新規ファイルと設計判断 | 正本・記録先 |
+|---|---|---|---|
+| 1 | bda44956 / v3.163.4 | page-viewing-serverで認可後の新版chapter目録によるラベル照合とlegacy対応。NavigationProgressIndicator.tsx/.module.cssを追加、DdViewerShellとcheck_page_viewing/check_navigation_favicon、FEATURE_REGISTRYを更新 | spec5-17/2-1、manual2-1/9-3、BUGS |
+| 2 | d96146a2 / v3.163.5 | DdViewerShell上部へ共通BUILD_VERSION。資料revisionと区別し印刷対象外 | spec5-17、manual2-1/9-3 |
+| 3 | e67ef26e / v3.163.6 | DdNavigationFeedback.tsx/.module.css、dd-glossary-interactions.ts、check_dd_glossary_interactions.mtsを追加。NavigationFavicon、Reader、style、検査/package.jsonを更新。押下直後・連打・reload・hover/focus/tap・説明内移動を検証。最初に導入したdd/loading.tsxは次の本文取得時に左メニューを消すため後で撤去 | spec5-17/2-1、manual2-1/2-6/9-3、FEATURE_REGISTRY、BUGS |
+| 4 | 82bc2735 / v3.163.7 | homeをsource-indexへ明示、DdReportNavigationの共通前提を優先化、DdReportContent/ReportTableの最初の表だけpageScrollとCSSの最大高さ解除 | spec5-17、manual2-6/9-3 |
+| 5 | 8b37bfef / v3.163.8 | export routeのformat=zip。完成PDFとExcelを同じrevision/開示条件で取得・再検証し、非公開Storageから署名URLへ303。Readerの単一PDFを削除しPDF+excelへ。check_dd_report_accessでZIP2ファイル一致・権限・未完成・版/開示変更を確認 | spec5-17/2-1、manual2-6/9-3、FEATURE_REGISTRY |
+| 6 | e7340af4 / v3.163.9 | Readerの独立Excelボタンを削除し全資料出力は一括ZIPへ | spec5-17、manual2-6/9-3 |
+| 7 | b122848b / v3.163.11 | dd/loading.tsxを削除。既存の認可済み画面を維持し本文だけに回転表示。全体loading再追加と表示範囲拡大をcheck_dd_package_contractで拒否 | spec5-17/2-1、manual2-1/2-6/9-3、BUGS |
+| 8 | ac938cd5 / v3.163.13 | Readerから両編集ボタン/パネル/save/state/編集用propsを削除。pageの編集用モデル取得を終了。編集は指定された入力と一部文章に限定され、表示もまさ固有ではなく管理者/社内DD編集者条件だった。現行付与をDB読取りで照合しユーザーへ説明。既存更新API・認可は維持 | spec5-17、manual2-6/9-3、BUGS |
+
+全変更でbuild-infoを更新し、共通DESIGN/native handoffと両層の附則を必要に応じて同じcommitで同期。並行作業82e36fd3/v3.163.10、05a977f7/v3.163.12は出力の名前空間・PDF/Excel分担の変更で、このセッションの成果へ数えない。最新出力仕様はspec5-17を優先。
+
+検証: 各正規deploy.shの回帰検査・本番READY/公開SHA一致・旧版整理成功。最終編集削除はESLintとtsc --noEmit、check_dd_report_access（相対TS解決はregister_relative_ts.mjsを使う）成功。実Macでヘッダ版数、閲覧者、押下直後と取得中の表示、別資料への選び直し・完了解除、hoverで開く説明、共通前提の最初の表でinner scrollTop0/window scroll増加、最終ヘッダが一括DL1ボタン・編集入力0を確認。単独のnode実行で相対拡張子を解決できなかった検査はpackage.jsonの正規loader指定で実行し直して成功、ソース修正は不要だった。
+
+v3.163.8時点の実ボタンZIPはPDF/XLSXの2ファイル、破損なし・数式ありを確認。並行作業で後にExcel分担が変わったので、当時のシート数を現行値へ流用しない。画面画像・ログは/tmpの診断控え、ユーザーDownloadsはそのまま保持。確認タブは閉じ、用語のローカルfixtureサーバは停止済み。スマートフォンはSwift使用というまさの指示後、PWAのスマホ幅検査を追加しない。
+
+終了監査: main/origin/main・本番ac938cd5 / v3.163.13、ahead/behind0/0、競合なし、worktree本体1・local branch mainのみ。別activeチャット「いよぎんC向けDDパッケージ準備」(01a14258-f17e-75c0-bd20-a505cb3bb891)のPDF/Excel参照改善13パスが共有dirty。担当の進行中の実物監査依頼と編集対象を確認し、closeoutスキルの担当返却手順で同チャットへ通知。こちらのstage・commitへ混入させない。担当は監査完了前に検証/仕様同期/保存/正規反映。詳細分類・再判定条件はHANDOFF_DD_VIEWER_20261018.md。終了文書だけをcommit/pushし再buildを作らない。会話の検討材料0件。

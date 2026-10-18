@@ -1,27 +1,24 @@
-AMD OSの契約通知・取下げ修正を引き継ぐ。作業場所は /Users/masa/projects/AMD/amd-os。まさ受入済みで、この件の残作業はなし。新しい依頼なしに追加実装・通知・再申請を始めない。
+AMD OSのDD閲覧画面の修正を引き継ぐ。作業場所は /Users/masa/projects/AMD/amd-os。作業種別development。まさ受入済みで、今回の画面修正に残作業はない。新しい依頼を受けてから着手する。
 
 読む順:
 1. /Users/masa/projects/AGENTS.common.md
 2. /Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md
-3. /Users/masa/projects/AMD/amd-os/AGENTS.md と HANDOFF_CONTRACT_NOTIFICATIONS.md
-4. pwa/manual/1-1-intro.md、pwa/spec/1-3-reconstruction-coverage-audit.md、pwa/spec/5-6-contracts-management-current-spec.md、pwa/manual/6-7-contracts-management-spec.md
-5. pwa/BUGS.mdの2026-10-16契約通知節、pwa/design_log/sessions_2026-10.mdの同日終了節
+3. /Users/masa/projects/AMD/amd-os/AGENTS.md と HANDOFF_DD_VIEWER_20261018.md
+4. pwa/manual/1-1-intro.md、pwa/spec/1-3-reconstruction-coverage-audit.md、pwa/spec/5-17-dd-package-current-spec.md、pwa/spec/2-1-pwa-runtime-routes.md
+5. pwa/manual/2-1-member-quick-start.md、2-6-admin-ops.md、pwa/BUGS.mdの2026-10-18 DD節、pwa/design_log/sessions_2026-10.mdのDD終了節
 
 状態:
-実装はa8b87835（取下げ導線）と5e68ea25（メール判定・通知文面）。本番v3.162.55への反映を確認後、他の作業が進み、終了監査時点ではmain/origin/main・本番とも864ccc8d / v3.162.56。この2件の契約関連ソースに後続差分なし。終了文書のcommitはこの観測より後になる。再開時にfetch、status、ahead/behind、/api/build-infoを取り直す。
-共有フォルダの燃料計画の変更（監査開始時7、仕様/マニュアル/版数を含む10ファイルへ増加）は、別のactiveチャット「バイオ燃料の脂肪酸原価を確認」（01a143f3-9b20-7302-b822-ea831431d0ba）が編集中。今回の対象ではない。所有者の確定・反映前に戻す、消す、一括commitする操作は禁止。詳細と判断条件はHANDOFFの表を読む。今回の文書はpush済みにして閉じる。
+確認済み製品はmain/origin/main・本番 v3.163.13 / ac938cd5355a3e8eae0d3002f1def37f642e72fb。終了記録だけのcommitはその後になる。再開時にfetch、status、ahead/behind、公開/api/build-infoを取り直す。恒久仕様は上記spec/manual、実装履歴はdesign_log、バグの原因と再発防止はBUGS。チャットや/tmpを発掘する必要はない。
 
-まさの困りごとと解決:
-テストで契約フローを1件作った後、Slack通知が続き、契約一覧で対象が分からず取り下げられなかった。テスト契約bは既存RPCで申請をcancelled、契約もcancelledにした。文書・履歴は保持し、送信待ちは0件とreadback済み。新しい催促や取下げ通知は送っていない。
-今後は契約台帳上部「契約フローの確認・取下げ」→該当行「確認」→詳細下部「フローを取下げ」。本人の準備中・承認待ち・承認済みが対象。契約詳細からのフローリンクは既存申請を優先し、フローから契約へ戻ると対象の詳細を直接開く。
-続いていたSlackはテスト申請の再送ではなく、Gmailを拾うメール検知通知だった。銀行・募金・サービス案内や一般未承認通知を契約として拾っていた。具体的な文書・署名の根拠を必須とし、過去の誤検知だけで同じメールの会話を拾い続けないように変更した。メール通知は「【契約メール】」から始まり、押印申請通知と区別する。必要な契約メールの通知は維持。
+完了した挙動:
+DD上部のOS版・資料別閲覧者を表示。リンクを押すと対象がすぐ青くなり、本文だけに回転マークを表示する。読み込み中も左メニューは表示・操作でき、別資料を選び直せる。同一リンクの連打は抑止。dd/loading.tsxによる全体置換は削除済み。リロード開始時も現在の本文で回転表示。用語はマウスオーバーで説明を開く。
+入口は資料一覧、共通前提は左メニュー上部。共通前提の最初の表の縦方向はページ全体でスクロールする。
+ヘッダは「PDF+excel一括ダウンロード」だけ。「この資料をPDF」「表・数式付きExcel」「計算条件を編集」「本文を編集」と編集欄は削除。修正はえいみに伝える運用。編集用モデルを閲覧ページへ渡す処理も削除。既存の更新API・認可は維持。旧ボタンは管理者/社内DD編集者向けで、まさだけに限定していなかった。外部アカウントは編集対象外。
+ZIPは同じ版のPDFとExcelを収録し、取得後にも版・開示条件を再照合する。出力の本文/数値分担は別作業v3.163.12以降の最新spec5-17を優先する。
 
-確認済みと未確認:
-分類・状態/本人制約・表の回帰検査、型検査、全体構築、正規反映の検査成功。実メール7件を読取りだけで再判定し、不要4件除外・文書関連3件維持を確認。通知の試験送信なし。本番dryRun=1は200/ok、pending0/sent0/failed0、監視エラーなし・lease解放を確認。取下げ画面、既存申請と契約詳細の相互移動、新入口をChromeのPC/390px幅で確認。将来届く未知のメールの判定は未確認。
-証跡は /Users/masa/.codex/visualizations/2026/10/16/01a1439f-814e-7ce1-a106-58a2881d8094/ のcontract-flow-review.md、contract-mail-notification-audit.mdと画面画像。メール本文や秘密値は保存していない。仕様はspec5-6、操作はmanual6-7、他プラットフォーム境界はios/HANDOFF_ios_to_pwa.md。schema・RLS・環境変数・監視間隔・理論は変更なし。ネイティブ専用UIは未移植。
+別の進行中作業:
+共有checkoutに残るPDF/Excel参照改善の13パスは「いよぎんC向けDDパッケージ準備」(01a14258-f17e-75c0-bd20-a505cb3bb891)が担当。activeと現在の実物監査依頼を確認し、closeout手順で担当へ返却済み。対象一覧と保持理由・期限はHANDOFFの表。こちらの終了記録へ混入させず、同担当が監査完了前に検証・仕様同期・commit・正規反映まで担当する。次セッションの最初に同チャットの状態と差分を再確認。新たな依頼がなければその作業を引き取らない。
 
-最初の次の行動:
-新しい依頼を受けてから最新状態を照合する。通知がまた多い相談なら、ユーザー指定Slackの実着とworkflow_mail_events/alert_deliveriesを読取り、メール検知と申請イベントを先に区別する。テスト申請を作り直したり、確認のための実通知を送ったりしない。
-
-運用:
-main一本。新branch/worktree・サブエージェントを作らない。共有dirtyをreset/stash/delete/一括commitしない。PWA変更はspec/manual/附則を同じ変更単位で同期し、反映は AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh で束ね、Ready・公開SHA・本番の動作を確認する。終了記録だけの画面非表示文書は既存deploy_skipの判定に従ってpushし、不要な再構築をしない。メール送信は禁止。会話の検討材料は0件。
+確認と運用:
+DD/閲覧者/ファビコン/用語hover/出力認可とZIPの回帰検査、型・静的検査、正規反映の全検査が通過。Macの実画面でメニュー保持・読み込み途中の選び直し・完了解除・hover・最終編集欄0を確認。ユーザー指定によりスマートフォンのPWA幅は追加確認しない。スマホはSwiftだけで使用する。Swift専用UI、DB schema、RLS、環境変数、経済モデルは今回変更なし。
+main一本。新branch/worktree・サブエージェントを作らず、共有差分のreset/stash/delete/一括commitをしない。PWA変更時はspec/manual/附則と必要な共通DESIGN・native handoffを同期。反映は AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh で束ね、READY・公開SHA・Mac実画面を確認。終了記録だけは既存の画面非表示判定に従ってpushし、再構築しない。メールや対人通知は送らない。会話の検討材料0件。
