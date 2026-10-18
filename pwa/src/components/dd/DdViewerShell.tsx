@@ -19,7 +19,7 @@ import { DdNavigationFeedback } from "./DdNavigationFeedback";
 
 // 見出し・領域選択・分類・ページ・本文。閲覧画面に管理専用の帯を足さない。
 export async function DdViewerShell({ access, projectName, pageKey, children, reportNavigation, legacy=false,reportPageLabel }: { access: DdViewerAccess; projectName: string; pageKey: DdPageKey; children: ReactNode;reportNavigation?:ReactNode;legacy?:boolean;reportPageLabel?:string }) {
-  const homeHref = `/dd/${encodeURIComponent(access.slug)}`;
+  const homeHref = `/dd/${encodeURIComponent(access.slug)}${reportNavigation ? '?chapter=source-index' : ''}`;
   const member = await getCurrentMemberAccess();
   const canCockpit = member ? !!memberSurfacePermission(member,access.projectId,"cockpit") : false;
   const workspaceAccess = access.preview ? null : await resolveSharedWorkspaceAccess(access.projectId).catch(() => null);
