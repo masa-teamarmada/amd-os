@@ -72,6 +72,7 @@ const page=load('../src/app/dd/[slug]/page.tsx',{
  '@/components/dd/DdViewerShell':{DdViewerShell:'shell'},'@/components/dd/DdPackageTop':{DdPackageTop:'top'},
  '@/lib/project-surface-access':{canEditProjectSurface:async()=>false},
  '@/lib/dd-report-server':{loadDdReportEdition:async()=>null},
+ '@/lib/dd-report-output-state':{ddReportOutputState:async()=>({ready:true}),queueDdReportPdf:()=>{}},
  '@/components/dd/report/DdReportReader':{DdReportReader:()=>null},
  '@/components/dd/report/DdReportNavigation':{DdReportNavigation:()=>null},
 });

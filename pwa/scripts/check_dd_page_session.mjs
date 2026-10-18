@@ -54,6 +54,7 @@ const page = load('../src/app/dd/[slug]/page.tsx', {
   '@/components/dd/DdViewerShell': { DdViewerShell: () => null },
   '@/components/dd/DdPackageTop': { DdPackageTop: () => null },
   '@/lib/dd-report-server': {loadDdReportEdition:async()=>null},
+  '@/lib/dd-report-output-state': {ddReportOutputState:async()=>({ready:true}),queueDdReportPdf:()=>{}},
   '@/components/dd/report/DdReportReader': {DdReportReader:()=>null},
   '@/components/dd/report/DdReportNavigation': {DdReportNavigation:()=>null},
 }).default;

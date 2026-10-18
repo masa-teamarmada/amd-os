@@ -81,6 +81,7 @@ liveReads.length=0;await dd.loadDdPackageView(access);assert.deepEqual(liveReads
 let allowed=false;let routeReads=0;let audits=0;const modes:string[]=[];
 const page=compile('../src/app/dd/[slug]/page.tsx',{
  '@/lib/dd-report-server':{loadDdReportEdition:async()=>null},
+ '@/lib/dd-report-output-state':{ddReportOutputState:async()=>({ready:true}),queueDdReportPdf:()=>{}},
  '@/components/dd/report/DdReportReader':{DdReportReader:()=>null},
  '@/components/dd/report/DdReportNavigation':{DdReportNavigation:()=>null},
  '@/lib/dd-confidentiality-server':{ddContentHash},

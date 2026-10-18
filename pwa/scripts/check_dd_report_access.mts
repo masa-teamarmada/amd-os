@@ -18,11 +18,12 @@ assert.equal(formatDdReportValue(.2083127,'0.0%'),'20.8%');
 assert.equal(formatDdReportValue(.08,'"キャップ／割引率"'),'キャップ／割引率');
 assert.equal(formatDdReportValue(0,'#,##0;(#,##0);"—"'),'—');
 assert.equal(formatDdReportValue(45000,'yyyy/mm/dd'),'2023/03/15');
-let access:DdViewerAccess|null=null,editionReads=0,saves=0,calcError=false;
-const edition={id:'edition',package_id:'package',revision:1,input_overrides:{}},model={inputs:[]};
+let access:DdViewerAccess|null=null,editionReads=0,saves=0,calcError=false,queued=0;
+const edition={id:'edition',title:'Example｜DD',source_sha256:'sha',package_id:'package',revision:1,input_overrides:{}},model={inputs:[]};
 const response={json:(body:unknown,options:{status?:number}={})=>({body,status:options.status??200})};
 const mocks:Record<string,unknown>={
- 'next/server':{NextResponse:response},'@/lib/dd-access':{resolveDdPackageAccess:async()=>access},
+ 'next/server':{NextResponse:{...response,redirect:(url:string,options:{status:number})=>({body:{url},...options})}},'@/lib/dd-access':{resolveDdPackageAccess:async()=>access},
+ '@/lib/dd-report-output-state':{queueDdReportPdf:()=>{queued++;}},
  '@/lib/workspace-mutation-origin':{isSameOriginWorkspaceMutation:(r:Request)=>r.headers.get('origin')==='https://example.test'},
  '@/lib/supabase/admin':{createAdminClient:()=>({rpc:async(_name:string,args:Record<string,unknown>)=>{assert.equal(args.p_edition_id,'edition');assert.equal(args.p_actor,'author');saves++;return {data:2,error:null};}})},
  '@/lib/dd-report-server':{canEditDdReport,loadDdReportEdition:async()=>{editionReads++;return edition;},loadDdReportModel:async()=>model,loadDdReportChapterIndex:async()=>[],loadDdReportChapter:async()=>null},
@@ -39,13 +40,16 @@ access=internal;assert.equal((await out.POST(request({},'https://other.test'),pa
 assert.equal((await out.POST(request({action:'inputs',revision:0,values:{}}),params)).status,409);
 assert.equal((await out.POST(request({action:'inputs',revision:1,values:{injected:1}}),params)).status,400);
 calcError=true;assert.equal((await out.POST(request({action:'inputs',revision:1,values:{}}),params)).status,422);assert.equal(saves,0);
-calcError=false;assert.equal((await out.POST(request({action:'inputs',revision:1,values:{}}),params)).status,200);assert.equal(saves,1);
+calcError=false;assert.equal((await out.POST(request({action:'inputs',revision:1,values:{}}),params)).status,200);assert.equal(saves,1);assert.equal(queued,1);
 console.log('PASS: DD isolation / edit boundary / CSRF / revisions / failed calculations cannot save / native formats');
 // Export rejects access/range/revision errors before touching private output storage.
-let outputStorageReads=0;
+let outputStorageReads=0,rendered=0,pdfReady=true;
 const exportMocks={...mocks,
  '@/lib/dd-package-core':{hasDdCapability:(a:DdViewerAccess,cap:string)=>a.capabilities.includes(cap as never)},
  '@/lib/dd-report-pdf':{},'node:crypto':{},
+ '@/lib/dd-report-output-state':{ddReportOutputState:async()=>{outputStorageReads++;return {ready:pdfReady,key:'private/all.pdf',prefix:'private',hidden:[]};},queueDdReportPdf:()=>{queued++;}},
+ '@/lib/dd-report-output-server':{createDdReportOutput:()=>{rendered++;throw Error('download must not render bulk PDF');}},
+ '@/lib/supabase/admin':{createAdminClient:()=>({storage:{from:()=>({createSignedUrl:async()=>({data:{signedUrl:'https://storage.test/download'},error:null})})}})},
  '@/lib/dd-report-server':{loadDdReportEdition:async()=>edition,loadDdReportChapterIndex:async()=>Array.from({length:38},(_,i)=>({slug:'chapter-'+i,sort_order:i}))},
  '@/lib/dd-report-export':{},'@/lib/workspace-document-html-pdf':{},
  '@/lib/project-partner-disclosure-server':{loadProjectPartnerDisclosure:()=>{outputStorageReads++;throw Error('unexpected private read');}},
@@ -63,3 +67,8 @@ assert.equal((await getExport('format=pdf&scope=all&prepareBatch=10')).status,40
 assert.equal((await getExport('format=xlsx&scope=all&prepareBatch=0')).status,400);
 assert.equal(outputStorageReads,0);
 console.log('PASS: export download permission / stale revision / invalid batch boundaries');
+
+pdfReady=true;assert.equal((await getExport('format=pdf&scope=all&revision=1')).status,303);assert.equal(rendered,0);
+pdfReady=false;const queuedBefore=queued;assert.equal((await getExport('format=pdf&scope=all&revision=1')).status,409);assert.equal(rendered,0);assert.equal(queued,queuedBefore);
+assert.equal((await getExport('format=pdf&scope=all&revision=1&status=1')).status,200);assert.equal(queued,queuedBefore+1);assert.equal(rendered,0);
+console.log('PASS: prepared PDF downloads directly; pending downloads never render; background status resumes preparation');

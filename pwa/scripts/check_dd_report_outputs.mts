@@ -15,7 +15,7 @@ const edition={title:manifest.title,source_version:manifest.sourceVersion,source
 const out=path.join(folder,'画面・出力検証');await fs.mkdir(out,{recursive:true});
 const assetUrls:Record<string,string>={};for(const a of manifest.assets)assetUrls[a.key]=`data:${a.mime};base64,${(await fs.readFile(path.join(folder,'assets',a.key))).toString('base64')}`;
 for(const slug of ['business-plan','equity-story','organization','production-plan','market','financial-plan']){
-  const html=await ddReportHtml({edition,chapters:chapters.filter(c=>c.slug===slug),index:chapters,slug:'sol',assetUrls});await fs.writeFile(path.join(out,slug+'.html'),html);
+  const html=await ddReportHtml({edition,chapters:chapters.filter(c=>c.slug===slug),index:chapters,slug:'sol',assetUrls});assert(!html.split('<h1>専門用語の説明')[0].includes('<table'), 'Business tables belong in Excel: '+slug);assert(html.includes('format=xlsx'), 'PDF must link to Excel');await fs.writeFile(path.join(out,slug+'.html'),html);
 }
 const bytes=ddReportXlsx(await fs.readFile(path.join(folder,'source.xlsx')),edition,model,chapters);await fs.writeFile(path.join(out,'SolvioraX_DD_r1.xlsx'),bytes);
 const files=unzipSync(bytes);
@@ -26,6 +26,10 @@ assert.equal(Object.entries(files).filter(([p,b])=>p.endsWith('.xml')&&strFromU8
 assert(!Object.keys(files).some(p=>p.startsWith('xl/media/')));
 assert.equal(Object.entries(files).filter(([p])=>/^xl\/worksheets\/sheet\d+\.xml$/.test(p)).reduce((n,[,b])=>n+(strFromU8(b).match(/t="dataTable"/g)||[]).length,0),9);
 assert.equal(Object.keys(model.sheets).length,38);
+const focused=unzipSync(ddReportXlsx(await fs.readFile(path.join(folder,'source.xlsx')),edition,model,chapters,s=>s,'損益・資金繰'));
+const workbook=strFromU8(focused['xl/workbook.xml']),sheetNames=[...workbook.matchAll(/<sheet\b[^>]*name="([^"]+)"/g)].map(m=>m[1]);
+assert.equal(Number(workbook.match(/activeTab="(\d+)"/)?.[1]),sheetNames.indexOf('損益・資金繰'));
+assert(strFromU8(focused[model.sheets['損益・資金繰'].path]).includes('xSplit="4" ySplit="7"'));
 console.log('PASS: Excel 38 sheets / 37 native charts / 9 native data tables; bytes',bytes.length);
 // Recalculate the base case independently of cached Excel values.
 const force=new DdReportCalculator(model,{},true),checks=[['資本政策表','L206'],['資本政策表','V14'],['UE','E18'],['UE','E19'],['UE','E20'],['UE','E21'],['損益・資金繰','Q61'],['エクイティストーリー','AT340'],['エクイティストーリー','AT341'],['エクイティストーリー','AU340']] as const;

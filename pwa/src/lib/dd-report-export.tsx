@@ -8,21 +8,14 @@ import {DdReportCalculator,ddAddress,ddColumn} from './dd-report-model';
 import type {DdReportChapter,DdReportChapterSummary,DdReportEdition,DdReportModel,DdReportValue} from './dd-report-types';
 import {DD_CONFIDENTIALITY_LABEL,DD_CONFIDENTIALITY_NOTICE,ddEscapeHtml} from './dd-confidentiality';
 
-function printableChapter(chapter:DdReportChapter):DdReportChapter {
-  // Monthly matrices are divided into consecutive periods so numbers remain legible on paper.
-  const rows:typeof chapter.body.rows=[],wide:typeof chapter.body.rows=[];
-  const flush=()=>{if(!wide.length)return;const count=Math.max(...wide.map(r=>r.cells.length-1));for(let offset=0;offset<count;offset+=5)for(const row of wide)rows.push({...row,row:row.row+offset/10000,cells:[row.cells[0],...row.cells.slice(1+offset,6+offset)].map((c,i)=>({...c,column:i+1,span:1}))});wide.length=0;};
-  for(const row of chapter.body.rows){if(row.cells.length>6)wide.push(row);else{flush();rows.push(row);}}flush();
-  return {...chapter,body:{...chapter.body,rows}};
-}
 export function orderedDdChapters<T extends {slug:string;sort_order:number}>(chapters:T[]){return [...chapters].sort((a,b)=>a.slug==='source-index'?-1:b.slug==='source-index'?1:a.sort_order-b.sort_order);}
 export async function ddReportHtml({edition,chapters,index,slug,assetUrls,includeCover=true,includeGlossary=true,glossaryAll=false}:{edition:DdReportEdition;chapters:DdReportChapter[];index:DdReportChapterSummary[];slug:string;assetUrls:Record<string,string>;includeCover?:boolean;includeGlossary?:boolean;glossaryAll?:boolean}) {
   const ordered=orderedDdChapters(chapters);
   const stream=await renderToReadableStream(<html lang="ja"><head><meta charSet="utf-8"/><base href="https://amd-os-pwa.vercel.app"/><title>{edition.title}</title><style>{DD_REPORT_CSS+`
     body{margin:0;padding:16px;background:white;font-family:'Noto Sans JP Variable',sans-serif} .ddr{font-size:14px}.ddr p{max-width:none}.ddr-chapter{break-before:auto;margin-top:28px}.ddr-table-scroll{max-height:none;overflow:visible}.ddr table{font-size:11px}.ddr-table-scroll{width:100%;min-width:0!important}.ddr table{width:100%;table-layout:fixed}.ddr td,.ddr th{min-width:0!important;padding:4px 6px}.ddr td:first-child,.ddr th:first-child{width:auto!important}.ddr-wide td,.ddr .ddr-number{white-space:normal;overflow-wrap:anywhere}.ddr-equity-flow{grid-template-columns:repeat(2,minmax(0,1fr))}.ddr-phase>div{font-size:12px}.ddr-phase{break-inside:avoid}.ddr-equity-flow>.ddr-phase:nth-child(n){grid-column:auto;grid-row:auto}.ddr-flow-arrow{display:none}.ddr-chart svg{min-width:0}.ddr h2{break-after:avoid}.ddr p{orphans:2;widows:2}.ddr-image img{max-height:1000px}.ddr-header{padding:4px 0 8px;margin:0 0 12px}.ddr-header h1{font-size:24px}.ddr-header p{margin-bottom:6px}.ddr-directory{columns:2;column-gap:16px}.ddr-directory-priority .ddr-directory-entries{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:16px}.ddr-directory-group{margin-bottom:8px}.ddr-directory-group h3{font-size:11px;line-height:16px;margin:0 0 2px;padding:0 0 2px}.ddr .ddr-directory-item{grid-template-columns:18px 122px minmax(0,1fr);gap:4px;padding:2px 0;line-height:14px}.ddr-directory-title,.ddr-directory-number{font-size:10.5px}.ddr-directory-description{font-size:10px;white-space:normal;overflow:visible;line-height:14px}.ddr-org-scroll{overflow:visible}.ddr-org{padding:0;break-inside:avoid}.ddr-org-node{font-size:11px;line-height:1.4;padding:6px;margin:6px}.ddr-org-lead{margin:0}.ddr-org-stem{height:64px}.ddr-org-advisor{top:6px;left:8px;width:124px;font-size:10px;padding:6px}.ddr-org-advisor:before{left:-9px;width:8px}.ddr-org-dept h3{padding:8px;font-size:12px}.ddr-org>p{font-size:10px;margin-top:12px}.ddr-proof{font-size:10px;color:#526874;border-top:1px solid #d6e1e5;padding:10px 0;margin-top:24px} tr{break-inside:avoid}
   `}</style></head><body><main className="ddr">
-    {includeCover&&<header className="ddr-header"><div className="ddr-kicker">{DD_CONFIDENTIALITY_LABEL}</div><h1>{edition.title}</h1><p>資料版 {edition.revision} · 移行元 {edition.source_version}</p><p style={{fontSize:11}}>{DD_CONFIDENTIALITY_NOTICE}</p></header>}
-    {ordered.map(chapter=><section data-chapter={chapter.slug} className="ddr-chapter" key={chapter.id}><div className="ddr-kicker">{chapter.group_label}</div><h1>{chapter.title==='UE'?'UE（ユニットエコノミクス）':chapter.title}</h1><DdReportContent chapter={printableChapter(chapter)} slug={slug} index={index} assetUrls={assetUrls} glossary={edition.glossary} allRows/><p className="ddr-proof">{DD_CONFIDENTIALITY_LABEL} · 資料版 {edition.revision} · {chapter.title}</p></section>)}
+    {includeCover&&<header className="ddr-header"><div className="ddr-kicker">{DD_CONFIDENTIALITY_LABEL}</div><h1>{edition.title}</h1><p>本文・図解版 · 資料版 {edition.revision} · 移行元 {edition.source_version}</p><p><a href={`/api/dd/${encodeURIComponent(slug)}/report/export?format=xlsx&scope=all&revision=${edition.revision}`}>表・計算モデルをExcelでダウンロード ↗</a></p><p style={{fontSize:11}}>{DD_CONFIDENTIALITY_NOTICE}</p></header>}
+    {ordered.map(chapter=><section data-chapter={chapter.slug} className="ddr-chapter" key={chapter.id}><div className="ddr-kicker">{chapter.group_label}</div><h1>{chapter.title==='UE'?'UE（ユニットエコノミクス）':chapter.title}</h1><DdReportContent chapter={chapter} revision={edition.revision} slug={slug} index={index} assetUrls={assetUrls} glossary={edition.glossary} allRows/><p className="ddr-proof">{DD_CONFIDENTIALITY_LABEL} · 資料版 {edition.revision} · {chapter.title}</p></section>)}
     {includeGlossary&&Object.keys(edition.glossary??{}).length>0&&<section className="ddr-chapter"><h1>専門用語の説明</h1><table><colgroup><col style={{width:'22%'}}/><col style={{width:'78%'}}/></colgroup><tbody>{Object.entries(edition.glossary??{}).filter(([term])=>glossaryAll||index.length===chapters.length||chapters.some(c=>c.body.rows.some(r=>r.cells.some(v=>typeof v.value==='string'&&v.value.includes(term))))).map(([term,entry])=><tr key={term}><th>{term}</th><td>{entry.definition}{entry.sourceUrl&&<> <a href={entry.sourceUrl}>{entry.sourceLabel} ↗</a></>}</td></tr>)}</tbody></table></section>}
   </main></body></html>);
   return new Response(stream).text();
@@ -51,7 +44,7 @@ function xmlCell(original:string,value:DdReportValue,formula:boolean) {
   return attrs.replace(/>$/,typeof value==='boolean'?' t="b">':'>')+f+`<v>${scalar}</v></c>`;
 }
 /** Preserve native formulas, chart objects, validations, styles and Excel data tables. */
-export function ddReportXlsx(source:Uint8Array,edition:DdReportEdition,model:DdReportModel,chapters:DdReportChapter[],redact:(text:string)=>string=(s)=>s) {
+export function ddReportXlsx(source:Uint8Array,edition:DdReportEdition,model:DdReportModel,chapters:DdReportChapter[],redact:(text:string)=>string=(s)=>s,focusSheet?:string) {
   const files=unzipSync(source),calc=new DdReportCalculator(model,edition.input_overrides),edited=new Map(chapters.map(ch=>[ch.source_sheet,new Map(ch.body.rows.flatMap(r=>r.cells).filter(c=>!c.formula&&typeof c.value==='string').map(c=>[c.address,c.value]))]));
   for(const [sheet,data]of Object.entries(model.sheets)){
     let xml=strFromU8(files[data.path]);
@@ -63,6 +56,7 @@ export function ddReportXlsx(source:Uint8Array,edition:DdReportEdition,model:DdR
       const originalCell=patch?cell.replace(/<f\b([^>]*?)>[\s\S]*?<\/f>/,(_f,attrs:string)=>`<f${attrs}>${ddEscapeHtml(patch)}</f>`):cell;
       return xmlCell(originalCell,value,Boolean(entry.f)||/<f\b/.test(cell));
     }).replace(/zoomScale="\d+"/g,'zoomScale="100"');
+    if(focusSheet)xml=xml.replace(/tabSelected="[01]"/g,`tabSelected="${sheet===focusSheet?'1':'0'}"`);
     // Source files can already contain a print notice; replace it, never append a duplicate element.
     const footer=`<headerFooter><oddHeader>&amp;C&amp;BCONFIDENTIAL · DD r${edition.revision}</oddHeader></headerFooter>`;
     if(/<headerFooter\b/.test(xml))xml=xml.replace(/<headerFooter\b[\s\S]*?<\/headerFooter>/,footer);
@@ -88,6 +82,7 @@ export function ddReportXlsx(source:Uint8Array,edition:DdReportEdition,model:DdR
   delete files['xl/calcChain.xml'];
   files['xl/_rels/workbook.xml.rels']=strToU8(strFromU8(files['xl/_rels/workbook.xml.rels']).replace(/<Relationship\b[^>]*Type="[^"]*\/calcChain"[^>]*\/>/g,''));
   files['[Content_Types].xml']=strToU8(strFromU8(files['[Content_Types].xml']).replace(/<Override\b[^>]*PartName="\/xl\/calcChain.xml"[^>]*\/>/g,''));
+  if(focusSheet){const names=[...strFromU8(files['xl/workbook.xml']).matchAll(/<sheet\b[^>]*name="([^"]+)"/g)].map(m=>m[1].replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&'));const position=names.indexOf(focusSheet);if(position>=0)files['xl/workbook.xml']=strToU8(strFromU8(files['xl/workbook.xml']).replace(/activeTab="\d+"/g,`activeTab="${position}"`));}
   // A harmless custom XML part identifies the same DB revision as PDF without adding a visible sheet.
   files['dd-report-version.json']=strToU8(JSON.stringify({title:edition.title,revision:edition.revision,sourceVersion:edition.source_version,sourceSha256:edition.source_sha256}));
   const contentTypes=strFromU8(files['[Content_Types].xml']);if(!contentTypes.includes('Extension="json"'))files['[Content_Types].xml']=strToU8(contentTypes.replace('</Types>','<Default Extension="json" ContentType="application/json"/></Types>'));

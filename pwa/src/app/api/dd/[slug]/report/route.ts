@@ -1,4 +1,5 @@
 import {NextResponse} from 'next/server';
+import {queueDdReportPdf} from '@/lib/dd-report-output-state';
 import {resolveDdPackageAccess} from '@/lib/dd-access';
 import {isSameOriginWorkspaceMutation} from '@/lib/workspace-mutation-origin';
 import {createAdminClient} from '@/lib/supabase/admin';
@@ -8,7 +9,7 @@ import {recordDdAccessEvent} from '@/lib/dd-package-server';
 const denied=()=>NextResponse.json({error:'Not found'},{status:404,headers:{'Cache-Control':'no-store'}});
 const headers={'Cache-Control':'private, no-store'};
 export const dynamic='force-dynamic';
-export const maxDuration=60;
+export const maxDuration=300;
 export async function GET(request:Request,{params}:{params:Promise<{slug:string}>}) {
   const {slug}=await params,access=await resolveDdPackageAccess(slug);if(!access)return denied();
   const edition=await loadDdReportEdition(access);if(!edition)return denied();
@@ -28,6 +29,7 @@ export async function POST(request:Request,{params}:{params:Promise<{slug:string
   async function commit(args:Record<string,unknown>){
     const r=await db.rpc('dd_report_commit_change',{p_edition_id:edition!.id,p_expected_revision:edition!.revision,p_actor:access!.principal==='workspace_account'?'':access!.memberId,...args});
     if(r.error){if(r.error.code==='40001')return NextResponse.json({error:'別の更新を検出。画面を再読込してから保存する。'},{status:409});throw r.error;}
+    queueDdReportPdf({...edition!,revision:Number(r.data)},access!.projectId,slug);
     return NextResponse.json({ok:true,revision:r.data},{headers});
   }
   if(body.action==='inputs'){
