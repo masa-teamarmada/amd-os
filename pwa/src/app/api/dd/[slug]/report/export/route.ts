@@ -47,7 +47,7 @@ export async function GET(request:Request,{params}:{params:Promise<{slug:string}
     const bytes=await Promise.all(files.map(async file=>new Uint8Array(await file.data!.arrayBuffer())));
     const current=await loadDdReportEdition(access),fresh=await ddReportOutputState(edition,access.projectId,'pdf');
     if(current?.id!==edition.id||current?.revision!==edition.revision||current?.source_sha256!==edition.source_sha256||fresh.key!==bundlePdf.key||!fresh.ready)return NextResponse.json({error:'資料または開示条件が更新済み。画面を更新してダウンロードする。'},{status:409,headers});
-    const archive=zipSync({[`${company}_DD_本文・図解_r${edition.revision}.pdf`]:bytes[0],[`${company}_DD_全資料_r${edition.revision}.xlsx`]:bytes[1]},{level:0});
+    const archive=zipSync({[`${company}_DD_本文・図解_r${edition.revision}.pdf`]:bytes[0],[`${company}_DD_数値計画・一覧表_r${edition.revision}.xlsx`]:bytes[1]},{level:0});
     const bundleKey=`${bundlePdf.prefix}-pdf-excel-${createHash('sha256').update(key).digest('hex').slice(0,12)}.zip`;
     const saved=await bucket.upload(bundleKey,archive,{contentType:'application/zip',upsert:false});if(saved.error&&!/already exists|Duplicate/i.test(saved.error.message))throw new Error('一括ダウンロードの資料を保存できなかった');
     await recordDdAccessEvent(access,'dd_file_downloaded',{pageKey:'report-all',contentHash:`${edition.source_sha256}:r${edition.revision}`});
@@ -56,7 +56,7 @@ export async function GET(request:Request,{params}:{params:Promise<{slug:string}
     return NextResponse.redirect(signed.data.signedUrl,{status:303,headers});
   }
   await recordDdAccessEvent(access,'dd_file_downloaded',{pageKey:all?'report-all':selected[0].slug,contentHash:`${edition.source_sha256}:r${edition.revision}`});
-  const name=`${company}_DD_${format==='pdf'?'本文・図解':'全資料'}_r${edition.revision}.${format}`;
+  const name=`${company}_DD_${format==='pdf'?'本文・図解':'数値計画・一覧表'}_r${edition.revision}.${format}`;
   const signed=await bucket.createSignedUrl(key,60,{download:name});if(signed.error)throw new Error('出力ファイルを開けなかった');
   return NextResponse.redirect(signed.data.signedUrl,{status:303,headers});
 }

@@ -7,6 +7,7 @@ import {DD_REPORT_CSS} from '@/components/dd/report/dd-report-style';
 import {DdReportCalculator,ddAddress,ddColumn} from './dd-report-model';
 import type {DdReportChapter,DdReportChapterSummary,DdReportEdition,DdReportModel,DdReportValue} from './dd-report-types';
 import {DD_CONFIDENTIALITY_LABEL,DD_CONFIDENTIALITY_NOTICE,ddEscapeHtml} from './dd-confidentiality';
+import {projectDdWorkbook} from './dd-report-workbook';
 
 export function orderedDdChapters<T extends {slug:string;sort_order:number}>(chapters:T[]){return [...chapters].sort((a,b)=>a.slug==='source-index'?-1:b.slug==='source-index'?1:a.sort_order-b.sort_order);}
 export async function ddReportHtml({edition,chapters,index,slug,assetUrls,includeCover=true,includeGlossary=true,glossaryAll=false}:{edition:DdReportEdition;chapters:DdReportChapter[];index:DdReportChapterSummary[];slug:string;assetUrls:Record<string,string>;includeCover?:boolean;includeGlossary?:boolean;glossaryAll?:boolean}) {
@@ -45,7 +46,7 @@ function xmlCell(original:string,value:DdReportValue,formula:boolean) {
   return attrs.replace(/>$/,typeof value==='boolean'?' t="b">':'>')+f+`<${prefix}v>${scalar}</${prefix}v></${prefix}c>`;
 }
 /** Preserve native formulas, chart objects, validations, styles and Excel data tables. */
-export function ddReportXlsx(source:Uint8Array,edition:DdReportEdition,model:DdReportModel,chapters:DdReportChapter[],redact:(text:string)=>string=(s)=>s,focusSheet?:string) {
+export function ddReportXlsx(source:Uint8Array,edition:DdReportEdition,model:DdReportModel,chapters:DdReportChapter[],redact:(text:string)=>string=(s)=>s,focusSheet?:string,reportHref='https://amd-os-pwa.vercel.app/dd') {
   const files=unzipSync(source),calc=new DdReportCalculator(model,edition.input_overrides),edited=new Map(chapters.map(ch=>[ch.source_sheet,new Map(ch.body.rows.flatMap(r=>r.cells).filter(c=>!c.formula&&typeof c.value==='string').map(c=>[c.address,c.value]))]));
   for(const [sheet,data]of Object.entries(model.sheets)){
     let xml=strFromU8(files[data.path]);
@@ -90,9 +91,11 @@ export function ddReportXlsx(source:Uint8Array,edition:DdReportEdition,model:DdR
   delete files['xl/calcChain.xml'];
   files['xl/_rels/workbook.xml.rels']=strToU8(strFromU8(files['xl/_rels/workbook.xml.rels']).replace(/<Relationship\b[^>]*Type="[^"]*\/calcChain"[^>]*\/>/g,''));
   files['[Content_Types].xml']=strToU8(strFromU8(files['[Content_Types].xml']).replace(/<Override\b[^>]*PartName="\/xl\/calcChain.xml"[^>]*\/>/g,''));
-  if(focusSheet){const names=[...strFromU8(files['xl/workbook.xml']).matchAll(/<sheet\b[^>]*name="([^"]+)"/g)].map(m=>m[1].replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&'));const position=names.indexOf(focusSheet);if(position>=0)files['xl/workbook.xml']=strToU8(strFromU8(files['xl/workbook.xml']).replace(/activeTab="\d+"/g,`activeTab="${position}"`));}
+  const projected=projectDdWorkbook(files,chapters,model,edition,reportHref);
+  if(projected){const selected=focusSheet&&projected.includes(focusSheet)?focusSheet:projected[0];for(const name of projected){const p=model.sheets[name].path;files[p]=strToU8(strFromU8(files[p]).replace(/<(?:[\w.-]+:)?sheetView\b[^>]*>/g,view=>view.replace(/\s+tabSelected="[01]"/g,'').replace(/\/?>$/,` tabSelected="${name===selected?'1':'0'}"${view.endsWith('/>')?'/>':'>'}`)));}}
+  if(focusSheet){const names=projected??[...strFromU8(files['xl/workbook.xml']).matchAll(/<sheet\b[^>]*name="([^"]+)"/g)].map(m=>m[1].replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&'));const position=names.indexOf(focusSheet);if(position>=0)files['xl/workbook.xml']=strToU8(strFromU8(files['xl/workbook.xml']).replace(/activeTab="\d+"/g,`activeTab="${position}"`));}
   // A harmless custom XML part identifies the same DB revision as PDF without adding a visible sheet.
-  files['dd-report-version.json']=strToU8(JSON.stringify({title:edition.title,revision:edition.revision,sourceVersion:edition.source_version,sourceSha256:edition.source_sha256}));
+  files['dd-report-version.json']=strToU8(JSON.stringify({title:edition.title,revision:edition.revision,sourceVersion:edition.source_version,sourceSha256:edition.source_sha256,...(projected?{contents:'numerical-model-and-tables',sheets:projected}:{})}));
   const contentTypes=strFromU8(files['[Content_Types].xml']);if(!contentTypes.includes('Extension="json"'))files['[Content_Types].xml']=strToU8(contentTypes.replace('</Types>','<Default Extension="json" ContentType="application/json"/></Types>'));
   return zipSync(files,{level:6});
 }

@@ -791,3 +791,8 @@ PWA本番は通常deploy.shでmainを1回反映しReady/build-info/実画面を�
 ## 2026-10-18 DD Excel本文反映
 
 `dd-report-export.tsx`は名前空間接頭辞付きセルにも本文・計算結果・資料版ヘッダを反映。Excelキーlayout-v4。接頭辞・数式・セル件数を保持し、生産拠点の説明2セルを保存本文と照合。DBとSwift/iOS/macOS/Androidコード、既存の認可・ダウンロード導線は同じ。
+
+
+## 2026-10-18 DD PDF・数値Excelの分担
+
+body.excelでmodel/tables/pdfと出力順を管理。Excelは専用目録＋数値モデル13＋比較一覧6。`dd-report-workbook.ts`が元ブックの入力・数式・固定行列・30グラフ・9感度表を保ち、PDF章と長文を除去。PDF章の小表はPDFへ掲載。キーlayout-v5。未分類の旧版は従来出力を保持。共通バックエンド出力のみの変更で、Swift/iOS/macOS/Androidコード・認可・経済モデルは同じ。

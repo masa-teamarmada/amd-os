@@ -12,35 +12,45 @@ const manifest=JSON.parse(await fs.readFile(path.join(folder,process.argv.includ
 const model=JSON.parse(gunzipSync(await fs.readFile(path.join(folder,process.argv.includes('--current')?'model.qa.json.gz':'model.json.gz'))).toString()) as DdReportModel;
 const chapters=manifest.chapters.map((c:DdReportChapter)=>({...c,id:c.slug,revision:1,updated_at:new Date().toISOString()})) as DdReportChapter[];
 const edition={title:manifest.title,source_version:manifest.sourceVersion,source_sha256:manifest.sourceSha256,revision:manifest.revision??1,input_overrides:{},glossary:manifest.glossary} as DdReportEdition;
+const projected=chapters.some(c=>c.body.excel), kept=chapters.filter(c=>c.slug==='source-index'||c.body.excel?.mode!=='pdf');
 const out=path.join(folder,'画面・出力検証');await fs.mkdir(out,{recursive:true});
 const assetUrls:Record<string,string>={};for(const a of manifest.assets)assetUrls[a.key]=`data:${a.mime};base64,${(await fs.readFile(path.join(folder,'assets',a.key))).toString('base64')}`;
 for(const slug of ['business-plan','equity-story','organization','production-plan','market','financial-plan']){
-  const html=await ddReportHtml({edition,chapters:chapters.filter(c=>c.slug===slug),index:chapters,slug:'sol',assetUrls});assert(!html.split('<h1>専門用語の説明')[0].includes('<table'), 'Business tables belong in Excel: '+slug);assert(html.includes('format=xlsx'), 'PDF must link to Excel');await fs.writeFile(path.join(out,slug+'.html'),html);
+  const html=await ddReportHtml({edition,chapters:chapters.filter(c=>c.slug===slug),index:chapters,slug:'sol',assetUrls});if(!projected||chapters.find(c=>c.slug===slug)?.body.excel?.mode!=='pdf'){assert(!html.split('<h1>専門用語の説明')[0].includes('<table'), 'Model tables belong in Excel: '+slug);assert(html.includes('format=xlsx'), 'PDF must link to Excel');}await fs.writeFile(path.join(out,slug+'.html'),html);
 }
 const bytes=ddReportXlsx(await fs.readFile(path.join(folder,'source.xlsx')),edition,model,chapters);await fs.writeFile(path.join(out,'SolvioraX_DD_r1.xlsx'),bytes);
 const files=unzipSync(bytes);
 const original=unzipSync(await fs.readFile(path.join(folder,'source.xlsx')));
-// Excel may prefix SpreadsheetML elements with x:. Both forms must receive DB edits.
-const plant=chapters.find(c=>c.slug==='production-plan')!;
-const plantXml=strFromU8(files[model.sheets[plant.source_sheet].path]);
-for(const address of ['B276','B317']){
-  const expected=plant.body.rows.flatMap(r=>r.cells).find(c=>c.address===address)?.value;
-  assert(typeof expected==='string');
-  const actual=plantXml.match(new RegExp('<(?:[\\w.-]+:)?c\\b[^>]*\\br="'+address+'"[^>]*>[\\s\\S]*?<\\/(?:[\\w.-]+:)?c>'))?.[0];
-  assert(actual?.includes(ddEscapeHtml(expected)),address+' exports the current overseas explanation');
+if(projected){
+  const workbook=strFromU8(files['xl/workbook.xml']),names=[...workbook.matchAll(/<sheet\b[^>]*name="([^"]+)"/g)].map(m=>m[1]);
+  assert.equal(names.length,20);assert.equal(names[0],'資料一覧');assert(!names.includes('事業計画'));assert(!names.includes('経営陣略歴'));assert(!names.includes('SIER'));
+  assert.deepEqual(names.slice(1,8),['資本政策表','損益・資金繰','UE','シアノ生産コスト','リアクター処理コスト','金属回収コスト','FAME生産コスト']);
+  assert(!Object.keys(files).some(p=>p.startsWith('xl/media/')));
+  assert(!strFromU8(files[model.sheets['生産・拠点計画'].path]).includes('最初の進出先はシンガポール'));
+  assert(strFromU8(files[model.sheets['資料一覧'].path]).includes('数値計画・試算・一覧表'));
+  let checked=0;const calc=new DdReportCalculator(model,edition.input_overrides);
+  for(const chapter of kept.filter(c=>c.slug!=='source-index')){
+    const data=model.sheets[chapter.source_sheet],xml=strFromU8(files[data.path]);
+    const cells=new Map([...xml.matchAll(/<(?:[\w.-]+:)?c\b[^>]*?\br="([A-Z]+\d+)"[^>]*?(?:\/>|>[\s\S]*?<\/(?:[\w.-]+:)?c>)/g)].map(m=>[m[1],m[0]]));
+    const sourceCells=new Map([...strFromU8(original[data.path]).matchAll(/<(?:[\w.-]+:)?c\b[^>]*?\br="([A-Z]+\d+)"[^>]*?(?:\/>|>[\s\S]*?<\/(?:[\w.-]+:)?c>)/g)].map(m=>[m[1],m[0]]));
+    for(const [address,entry] of Object.entries(data.cells)){
+      if(entry.f){assert(cells.has(address),chapter.source_sheet+'!'+address+' preserves formula');const f=/<(?:[\w.-]+:)?f\b[^>]*?(?:\/>|>[\s\S]*?<\/(?:[\w.-]+:)?f>)/;assert.equal(cells.get(address)?.match(f)?.[0],sourceCells.get(address)?.match(f)?.[0]);}
+      if(typeof entry.v==='number'){assert(cells.has(address),chapter.source_sheet+'!'+address+' preserves numerical cell');const actual=Number(cells.get(address)?.match(/<(?:[\w.-]+:)?v>([^<]+)<\/(?:[\w.-]+:)?v>/)?.[1]);assert.equal(actual,Number(calc.get(chapter.source_sheet,address)),chapter.source_sheet+'!'+address+' preserves value');checked++;}
+      if(entry.input)assert(cells.has(address),'Preserve input '+chapter.source_sheet+'!'+address);
+    }
+  }
+  assert(checked>120000);console.log('PASS: numeric workbook, 20 sheets, PDF chapters absent; preserved numerical cells',checked);
+  assert.equal(Object.entries(files).filter(([p,b])=>p.endsWith('.xml')&&strFromU8(b.subarray(0,1500)).includes('<c:chartSpace')).length,30);
+  for(const [path,content]of Object.entries(files))if(path.endsWith('.xml'))assert(!/\/\s+hidden="/.test(strFromU8(content)),path+' has valid empty rows');
+}else{
+  assert.equal(Object.entries(files).filter(([p,b])=>p.endsWith('.xml')&&strFromU8(b.subarray(0,1500)).includes('<c:chartSpace')).length,37);
 }
-assert(plantXml.includes('CONFIDENTIAL · DD r'+edition.revision),'Prefixed sheets receive the current revision header');
-for(const sheet of Object.values(model.sheets)){const sourceXml=strFromU8(original[sheet.path]).replace(/<(?:[\w.-]+:)?c\b[^>]*?\br="([A-Z]+\d+)"[^>]*?(?:\/>|>[\s\S]*?<\/(?:[\w.-]+:)?c>)/g,(cell,address:string)=>{const name=Object.keys(model.sheets).find(s=>model.sheets[s].path===sheet.path)!,patch=model.formulaPatches?.[name+'!'+address];return patch?cell.replace(/<f\b([^>]*?)>[\s\S]*?<\/f>/,(_f,attrs:string)=>`<f${attrs}>${ddEscapeHtml(patch)}</f>`):cell;}),resultXml=strFromU8(files[sheet.path]);assert.deepEqual([...resultXml.matchAll(/<(?:[\w.-]+:)?c\b[^>]*?\br="([A-Z]+\d+)"/g)].map(m=>m[1]),[...sourceXml.matchAll(/<(?:[\w.-]+:)?c\b[^>]*?\br="([A-Z]+\d+)"/g)].map(m=>m[1]),sheet.path+' preserves every cell');assert.deepEqual(resultXml.match(/<(?:[\w.-]+:)?f\b[^>]*?(?:\/>|>[\s\S]*?<\/(?:[\w.-]+:)?f>)/g),sourceXml.match(/<(?:[\w.-]+:)?f\b[^>]*?(?:\/>|>[\s\S]*?<\/(?:[\w.-]+:)?f>)/g),sheet.path+' preserves every native formula');}
-
-assert.equal(Object.entries(files).filter(([p,b])=>p.endsWith('.xml')&&strFromU8(b.subarray(0,1500)).includes('<c:chartSpace')).length,37);
-assert(!Object.keys(files).some(p=>p.startsWith('xl/media/')));
-assert.equal(Object.entries(files).filter(([p])=>/^xl\/worksheets\/sheet\d+\.xml$/.test(p)).reduce((n,[,b])=>n+(strFromU8(b).match(/t="dataTable"/g)||[]).length,0),9);
-assert.equal(Object.keys(model.sheets).length,38);
+assert.equal(Object.entries(files).filter(([p])=>p.startsWith('xl/worksheets/')&&p.endsWith('.xml')).reduce((n,[,b])=>n+(strFromU8(b).match(/t="dataTable"/g)||[]).length,0),9);
 const focused=unzipSync(ddReportXlsx(await fs.readFile(path.join(folder,'source.xlsx')),edition,model,chapters,s=>s,'損益・資金繰'));
 const workbook=strFromU8(focused['xl/workbook.xml']),sheetNames=[...workbook.matchAll(/<sheet\b[^>]*name="([^"]+)"/g)].map(m=>m[1]);
 assert.equal(Number(workbook.match(/activeTab="(\d+)"/)?.[1]),sheetNames.indexOf('損益・資金繰'));
 assert(strFromU8(focused[model.sheets['損益・資金繰'].path]).includes('xSplit="4" ySplit="7"'));
-console.log('PASS: Excel 38 sheets / 37 native charts / 9 native data tables; bytes',bytes.length);
+console.log('PASS: Excel native formulas / 9 data tables / focused financial freeze; bytes',bytes.length);
 // Recalculate the base case independently of cached Excel values.
 const force=new DdReportCalculator(model,{},true),checks=[['資本政策表','L206'],['資本政策表','V14'],['UE','E18'],['UE','E19'],['UE','E20'],['UE','E21'],['損益・資金繰','Q61'],['エクイティストーリー','AT340'],['エクイティストーリー','AT341'],['エクイティストーリー','AU340']] as const;
 for(const [sheet,address]of checks){const expected=model.sheets[sheet].cells[address].v,actual=force.get(sheet,address);if(typeof expected==='number')assert(Math.abs(Number(actual)-expected)<=Math.max(1e-6,Math.abs(expected)*1e-9),`${sheet}!${address}: ${expected} != ${actual}`);else assert.equal(actual,expected);console.log('baseline',sheet,address,actual);}

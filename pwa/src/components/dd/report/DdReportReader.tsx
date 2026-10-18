@@ -47,7 +47,7 @@ export function DdReportReader(props:Props) {
       const endpoint=href??`/api/dd/${encodeURIComponent(slug)}/report/export?format=${format}&revision=${revision}${all?'&scope=all':`&chapter=${chapter.slug}`}`;
       const r=await fetch(endpoint,{cache:'no-store'});
       if(!r.ok||r.status===202){const data=await r.json().catch(()=>({}));throw new Error(data.error||'出力できなかった');}
-      const url=URL.createObjectURL(await r.blob()),a=document.createElement('a');a.href=url;a.download=`${company}_DD_${format==='zip'?'PDF+Excel':'全資料'}_r${revision}.${format}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);setMessage('出力済み。');
+      const url=URL.createObjectURL(await r.blob()),a=document.createElement('a');a.href=url;a.download=`${company}_DD_${format==='zip'?'PDF+Excel':'数値計画・一覧表'}_r${revision}.${format}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);setMessage('出力済み。');
     }catch(error){setMessage(error instanceof Error?error.message:'出力できなかった');}finally{setBusy(false);}
   }
   return <article ref={reader} className="ddr" data-testid="dd-report-reader" data-chapter={chapter.slug}>
@@ -61,7 +61,7 @@ export function DdReportReader(props:Props) {
       <h1>{chapter.title==='UE'?'UE（ユニットエコノミクス）':chapter.title}</h1>
       <div className="ddr-version">資料版 {revision} · 移行元 {sourceVersion} · 全{index.length}資料{Object.keys(props.glossary??{}).length>0&&<span className="ddr-term-hint">点線の用語にマウスを重ねるか、タップすると説明を表示</span>}</div>
     </header>
-    <p className="ddr-export-hint">PDFとExcelをZIPで一括保存。PDFは本文・図解・グラフ、表と計算はExcelで開く。</p>
+    <p className="ddr-export-hint">PDFとExcelをZIPで一括保存。事業説明・図解・経歴はPDF、数値計画・原価試算・一覧表はExcelで開く。</p>
     {message&&<p role="status" className="ddr-message">{message}</p>}
     {panel==='inputs'&&<section className="ddr-parameter" aria-label="計算条件を編集"><h3>計算条件</h3><p>保存すると、原価・売上・損益・現金残高・持株比率・IRRを同じ計算モデルで更新する。</p>
       <div className="ddr-controls"><label className="ddr-field">対象資料<select value={inputSheet} onChange={e=>setInputSheet(e.target.value)}>{[...new Set(inputs.map(i=>i.sheet))].map(s=><option key={s}>{s}</option>)}</select></label><label className="ddr-field">条件を探す<input type="search" placeholder="人件費、価格、キャップなど" value={filter} onChange={e=>setFilter(e.target.value)}/></label></div>

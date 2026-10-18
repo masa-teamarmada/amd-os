@@ -21,7 +21,7 @@ export async function createDdReportOutput({edition,index,selected,slug,hidden,f
   if(format==='xlsx'){
     const source=await createAdminClient().storage.from(DD_REPORT_BUCKET).download(edition.xlsx_storage_path);if(source.error)throw new Error('Excelを読み込めなかった');
     const bytes=new Uint8Array(await source.data.arrayBuffer());if(createHash('sha256').update(bytes).digest('hex')!==edition.source_sha256)throw new Error('Excel原本の版が一致しない');
-    return ddReportXlsx(bytes,edition,model,chapters,text=>redactProjectPartnerNames(text,hidden),focusSheet);
+    return ddReportXlsx(bytes,edition,model,chapters,text=>redactProjectPartnerNames(text,hidden),focusSheet,`https://amd-os-pwa.vercel.app/dd/${encodeURIComponent(slug)}`);
   }
   const keys=[...new Set(chapters.flatMap(c=>c.body.objects.flatMap(o=>o.kind==='image'?[o.assetKey]:[])))],assetUrls:Record<string,string>={};
   await Promise.all(keys.map(async assetKey=>{const a=await ddReportAsset(edition.id,assetKey);if(!a)throw new Error('図版が不足している');assetUrls[assetKey]=`data:${a.meta.mime_type};base64,${a.bytes.toString('base64')}`;}));
