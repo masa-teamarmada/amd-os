@@ -1,5 +1,7 @@
 ## 2026-10-18 — DD資料・数値モデル・PDF/Excel
 
+2026-10-18（v3.163.6）: DDリンクはクリック時に対象強調と本文の読み込み表示を出し、同じ移動先の連打を抑止する。上部には共通OSバージョンを表示。リロード中も回転表示、用語のヒントはhover/focusでも開く。仕様5-17/2-1、回帰check_navigation_favicon.mts/check_dd_glossary_interactions.mts。
+
 2026-10-18（v3.163.4）: DD共通ヘッダの画面内遷移表示と、新版の資料別/旧版の閲覧者を維持する。章名は認可済み版の目録で照合。防波堤はtest:page-viewing/check_navigation_favicon.mts、仕様5-17/2-1。
 
 DDレポート登録済みパッケージは既存URLと閲覧権限で新版を開く。旧本文を別の「旧DDパッケ」に保存。38資料の説明・横表・原図・37グラフを読み、原価/UE/長期現金/J-KISS/持分/IRRを同じモデルで更新する。金属を含む選択リスト、本文編集、版競合検出、PDF/数式付きExcel出力を維持する。private Storageと4表はサーバの認可後だけ配信し、NDA・非開示企業名・dd.download・監査を通す。回帰: test:dd-package、check_dd_report_access/model/outputs。仕様5-17。PJ番号による分岐なし。

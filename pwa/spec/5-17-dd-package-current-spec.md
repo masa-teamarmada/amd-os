@@ -8,6 +8,10 @@ Supabaseのdd_report_editions/chapters/assets/changesと非公開dd-report-files
 
 ## 画面
 
+2026-10-18（v3.163.6）: DD内の通常リンクは押した時点で青く強調しaria-busyを付ける。本文を薄くして操作を覆い、回転アイコン付き「ページを読み込み中…」を表示。共通NavigationFaviconのcapture処理で開始し、取得応答を待たない。同じ移動先の連打はpreventDefault/stopPropagationで抑止し、別資料への選び直しは許す。本文反映・離脱・30秒上限で強調と元のaria-busyを復元。別タブ・外部・ダウンロード・同一ページ内移動は従来どおり対象外。新版/旧版・左メニュー/本文リンクで共通利用。画面内のバージョンはv3.163.6へ更新。
+
+リロードはbeforeunloadで共通遷移表示を開始。新しい応答では`app/dd/loading.tsx`の回転アイコンと「DD資料を読み込み中…」を表示し、pageshow/本文反映で終了する。loadingはURL・業務データ・取得処理を持たない共通表示とし、本文の認可は従来の入口で毎回行う。
+
 2026-10-18（v3.163.5）: 新旧DD共通ヘッダの直下に`AMD OS {BUILD_VERSION}`を表示する。OSの配信版を共通build-infoから読み、本文の資料版と区別する。狭い画面でも省略せず、印刷には出さない。
 
 2026-10-18（v3.163.4）: 新版の閲覧者・履歴は毎回DD認可とNDA確認を通した後、本人が読めるeditionの章目録とpageLabelを照合する。従来の固定DDページ名と異なる資料名も受け付け、資料別resource_keyを保持する。旧版/添付項目は固定目録で検証する。`/legacy`も同じ閲覧者APIの対象とし、外部の履歴は本人のみ。更新60秒・失効180秒、保存項目は従来どおり。DDの履歴ツールバー左端に20pxの領域を確保し、NavigationFaviconの遷移状態で回転アイコンと読み上げ用の状態文を表示する。表示/非表示で見出しを動かさず、本文反映・離脱・30秒上限で終了。通常リンク、戻る/進むを対象とし、別タブ・外部・出力・同一ページ内移動は対象外。検査はtest:page-viewingとcheck_navigation_favicon.mts。
@@ -37,6 +41,8 @@ Supabaseのdd_report_editions/chapters/assets/changesと非公開dd-report-files
 `dd_report_assets`は版ごとの画像key・private path・SHA・MIME・サイズ。`dd_report_changes`は変更者・変更前後・日時。4表はRLS有効でanon/authenticatedへ権限を与えない。service_roleを使うAPIは毎回既存DD認可とNDA確認を通す。計算入力はモデルの入力欄とリスト選択だけを許可し、計算セルは上書きできない。保存前に株数・持分、4工程のUEと長期現金を計算する。本文編集は表示対象の文章セルに限定。版の照合、本文/入力保存、revision増分と監査記録はservice_role専用の`dd_report_commit_change`で一括実行する。競合は409、計算失敗は422として保存しない。
 
 ## 用語説明
+
+2026-10-18（v3.163.6）: 点線の用語とSIERの説明ボタンはマウスオーバー・キーボードフォーカスでも開く。説明を用語の近くへ置き、画面端では左右/上下を調整する。用語から説明へ移動している間は開いたままにし、両方から離れて200msで閉じる。クリックは開いたまま固定し、タップ・閉じる・Escape・外側クリックも維持する。イベントは閲覧本文1か所で委譲し、PDFの共通本文へ追加しない。test:dd-packageにhover/移動猶予/タッチ/クリック/キーボード/位置/解除の回帰検査を含める。
 
 用語集はedition.glossaryに用語→definition/chapter/sourceLabel/sourceUrlを保存し、同じ版と監査履歴で管理する。正本を参照する共有本文コンポーネントで、文章・表・図内の用語を説明ボタンにする。クリック・タップ・Enter/Spaceでネイティブpopoverを開き、閉じるボタン・Escape・外側クリックで終了できる。説明内に関連資料と出所を表示する。SIERの文字は必ずSIER資料へのリンクを保ち、隣に説明ボタンを置く。URL文字列の内部は用語へ分割しない。PDFは対話ボタンを出さず、巻末の用語説明へ収録する。glossary保存もservice専用RPCで版照合・監査と一括更新する。
 

@@ -15,6 +15,7 @@ import { memberSurfacePermission } from "@/lib/project-surface-permissions";
 import { hasDdCapability } from "@/lib/dd-package-core";
 import { resolveSharedWorkspaceAccess } from "@/lib/project-shared-workspace-access";
 import { BUILD_VERSION } from "@/lib/build-info";
+import { DdNavigationFeedback } from "./DdNavigationFeedback";
 
 // 見出し・領域選択・分類・ページ・本文。閲覧画面に管理専用の帯を足さない。
 export async function DdViewerShell({ access, projectName, pageKey, children, reportNavigation, legacy=false,reportPageLabel }: { access: DdViewerAccess; projectName: string; pageKey: DdPageKey; children: ReactNode;reportNavigation?:ReactNode;legacy?:boolean;reportPageLabel?:string }) {
@@ -41,7 +42,7 @@ export async function DdViewerShell({ access, projectName, pageKey, children, re
         <ProjectSurfaceNav projectId={access.projectId} current="dd" canCockpit={canCockpit} canWorkspace={access.preview || Boolean(workspaceAccess)} ddHref={homeHref} />
         {reportNavigation??<DdNavigation slug={access.slug} pageKey={pageKey} legacy={legacy} />}
         </>}>
-        {children}
+        <DdNavigationFeedback>{children}</DdNavigationFeedback>
         </ProjectSpaceLayout>
       </main>
     </div>

@@ -27,6 +27,18 @@ export function NavigationFavicon() {
     let timer: number | undefined;
     let timeout: number | undefined;
     let frame = 0;
+    let pendingLink: HTMLAnchorElement | null = null;
+    let pendingHref = "";
+    let previousBusy: string | null = null;
+    const clearLink = () => {
+      if (pendingLink) {
+        pendingLink.removeAttribute("data-amie-navigation-target");
+        if (previousBusy === null) pendingLink.removeAttribute("aria-busy");
+        else pendingLink.setAttribute("aria-busy", previousBusy);
+      }
+      pendingLink = null;
+      pendingHref = "";
+    };
     const saved = new Map<HTMLLinkElement, { href: string | null; type: string | null; sizes: string | null }>();
     const stop = () => {
       window.clearInterval(timer); window.clearTimeout(timeout);
@@ -37,6 +49,7 @@ export function NavigationFavicon() {
         }
       }
       saved.clear();
+      clearLink();
       delete document.documentElement.dataset.amieNavigationPending;
     };
     finish.current = stop;
@@ -61,16 +74,31 @@ export function NavigationFavicon() {
       if (!(link instanceof HTMLAnchorElement) || link.hasAttribute("download") || (link.target && link.target !== "_self")) return;
       const url = new URL(link.href);
       if (url.origin !== window.location.origin || (url.pathname === window.location.pathname && url.search === window.location.search)) return;
+      if (window.location.pathname.startsWith("/dd/")) {
+        if (pendingHref === url.href) {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+        clearLink();
+        pendingLink = link;
+        pendingHref = url.href;
+        previousBusy = link.getAttribute("aria-busy");
+        link.setAttribute("data-amie-navigation-target", "true");
+        link.setAttribute("aria-busy", "true");
+      }
       start();
     };
     document.addEventListener("click", click, true);
     window.addEventListener("popstate", start);
+    window.addEventListener("beforeunload", start);
     window.addEventListener("pagehide", stop);
     window.addEventListener("pageshow", stop);
     return () => {
       stop();
       document.removeEventListener("click", click, true);
       window.removeEventListener("popstate", start);
+      window.removeEventListener("beforeunload", start);
       window.removeEventListener("pagehide", stop);
       window.removeEventListener("pageshow", stop);
     };

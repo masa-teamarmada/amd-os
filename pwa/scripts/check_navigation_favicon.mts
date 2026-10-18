@@ -10,10 +10,14 @@ const timeouts = new Map<number, Function>();
 let timerId = 0, frame = 0;
 class FakeElement { closest() { return this; } }
 class FakeAnchor extends FakeElement {
+  attrs = new Map<string, string>();
   target = ""; download = false;
   href: string;
   constructor(href: string) { super(); this.href = href; }
   hasAttribute(name: string) { return name === "download" && this.download; }
+  getAttribute(name: string) { return this.attrs.get(name) ?? null; }
+  setAttribute(name: string, value: string) { this.attrs.set(name, value); }
+  removeAttribute(name: string) { this.attrs.delete(name); }
 }
 class FakeIcon {
   attrs = new Map<string, string>([["href", "/favicon-amd.ico"], ["type", "image/x-icon"]]);
@@ -54,7 +58,12 @@ try {
   new Function("require", "exports", compiled)((name: string) => name === "react" ? { useEffect: (fn: () => void) => effects.push(fn), useRef: (value: unknown) => ({ current: value }) } : { usePathname: () => win.location.pathname, useSearchParams: () => new URLSearchParams(win.location.search) }, output);
   output.NavigationFavicon();
   const dispose = effects[0](); effects[1]();
-  const click = (href: string, options: Record<string, unknown> = {}, linkOptions: Record<string, unknown> = {}) => events.get("click")!({ button: 0, target: Object.assign(new FakeAnchor(href), linkOptions), ...options });
+  const click = (href: string, options: Record<string, unknown> = {}, linkOptions: Record<string, unknown> = {}) => {
+    const event = { button: 0, target: Object.assign(new FakeAnchor(href), linkOptions), prevented: false, stopped: false,
+      preventDefault() { this.prevented = true; }, stopPropagation() { this.stopped = true; }, ...options };
+    events.get("click")!(event);
+    return event;
+  };
   for (const test of [
     ["https://other.test/dd/sol", {}, {}],
     ["https://os.test/dd/sol?tab=company#section", {}, {}],
@@ -71,12 +80,27 @@ try {
   effects[1]();
   assert.equal(intervals.size, 0);
   icons.forEach((icon, index) => assert.deepEqual(icon.attrs, originals[index], "original favicon attributes restored after route commit"));
-  click("https://os.test/dd/sol?chapter=financial-plan");
+  const chapterClick = click("https://os.test/dd/sol?chapter=financial-plan");
   assert.equal(dataset.amieNavigationPending, "true", "新版の章移動でも画面内の回転表示を開始する");
+  assert.equal(chapterClick.target.getAttribute("data-amie-navigation-target"), "true", "押したリンクを即時に強調する");
+  assert.equal(chapterClick.target.getAttribute("aria-busy"), "true");
+  const repeated = click("https://os.test/dd/sol?chapter=financial-plan");
+  assert.ok(repeated.prevented && repeated.stopped, "同じ移動先の連打は新しい遷移を起動しない");
+  assert.equal(chapterClick.target.getAttribute("data-amie-navigation-target"), "true");
+  const otherChapter = click("https://os.test/dd/sol?chapter=organization");
+  assert.equal(otherChapter.prevented, false, "別の移動先への変更は許す");
+  assert.equal(chapterClick.target.getAttribute("aria-busy"), null, "前のリンクの状態を戻す");
   effects[1]();
   assert.equal(dataset.amieNavigationPending, undefined, "本文の切替後に画面内の回転表示も終える");
+  assert.equal(otherChapter.target.getAttribute("data-amie-navigation-target"), null);
+  assert.equal(otherChapter.target.getAttribute("aria-busy"), null);
+  assert.equal(click("https://os.test/dd/sol?chapter=organization").prevented, false, "完了後は再選択できる");
+  effects[1]();
   events.get("popstate")!(); assert.equal(intervals.size, 1, "back/forward also animate");
   [...timeouts.values()][0](); assert.equal(intervals.size, 0, "cancelled/failed navigation cannot leave a permanent spinner");
+  events.get("beforeunload")!();
+  assert.equal(dataset.amieNavigationPending, "true", "リロード開始時にも回転・読み込み中を表示する");
+  events.get("pageshow")!(); assert.equal(intervals.size, 0, "再表示時に状態を戻す");
   click("https://os.test/dd/sol?tab=team"); events.get("pagehide")!();
   assert.equal(intervals.size, 0);
   if (typeof dispose === "function") dispose();

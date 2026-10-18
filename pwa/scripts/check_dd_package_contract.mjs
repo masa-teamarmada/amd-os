@@ -75,6 +75,13 @@ assert.ok(viewerFiles.length >= 4, "DD の面のページ・route が揃って�
 for (const file of viewerFiles) {
   const source = readFileSync(file, "utf8");
   const relative = path.relative(root, file);
+  if (relative === path.join("src", "app", "dd", "loading.tsx")) {
+    assert.deepEqual([...source.matchAll(/from\s+["']([^"']+)/g)].map(match => match[1]), ["lucide-react"], "認可前の読み込み画面はデータを読むモジュールを持たない");
+    assert.doesNotMatch(code(source), /\b(?:params|searchParams|fetch|async|await)\b/, "読み込み画面はURLや業務データを使わない");
+    assert.match(source, /DD資料を読み込み中/);
+    assert.match(source, /role="status"/);
+    continue;
+  }
   if (relative === path.join("src", "app", "dd", "page.tsx")) {
     assert.match(source, /resolveDdViewerScope\(\)/, "/dd は DB を引き直した閲覧範囲から一覧を作る");
     assert.match(source, /memberSurfacePermission\(member,pkg\.project_id,"dd"\)/, "内部メンバーもPJ別のDD個別付与を確認する");

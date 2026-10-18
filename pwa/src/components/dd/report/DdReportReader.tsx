@@ -1,14 +1,17 @@
 'use client';
-import {useEffect,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
 import type {DdReportChapter,DdReportChapterSummary,DdReportInput,DdReportValue,DdReportGlossary} from '@/lib/dd-report-types';
 import {DdReportContent} from './DdReportContent';
 import {DD_REPORT_CSS} from './dd-report-style';
+import {installDdGlossaryInteractions} from '@/lib/dd-glossary-interactions';
 
 type Props={slug:string;title:string;revision:number;sourceVersion:string;chapter:DdReportChapter;index:DdReportChapterSummary[];canEdit:boolean;canDownload:boolean;pdfReady:boolean;inputs:DdReportInput[];overrides:Record<string,DdReportValue>;glossary?:DdReportGlossary};
 export function DdReportReader(props:Props) {
   const {slug,chapter,index,canEdit,canDownload,inputs,sourceVersion,revision}=props,router=useRouter(),company=props.title.split('｜')[0];
+  const reader=useRef<HTMLElement>(null);
+  useEffect(()=>reader.current?installDdGlossaryInteractions(reader.current):undefined,[]);
   const [prepared,setPrepared]=useState(props.pdfReady);
   const [panel,setPanel]=useState<'inputs'|'text'|null>(null),[values,setValues]=useState(props.overrides),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[filter,setFilter]=useState('');
   const [inputSheet,setInputSheet]=useState(inputs.some(i=>i.sheet===chapter.source_sheet)?chapter.source_sheet:'共通前提');
@@ -47,7 +50,7 @@ export function DdReportReader(props:Props) {
       const url=URL.createObjectURL(await r.blob()),a=document.createElement('a');a.href=url;a.download=`${company}_DD_${format==='pdf'?(all?'本文・図解':chapter.title):'全資料'}_r${revision}.${format}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);setMessage('出力済み。');
     }catch(error){setMessage(error instanceof Error?error.message:'出力できなかった');}finally{setBusy(false);}
   }
-  return <article className="ddr" data-testid="dd-report-reader" data-chapter={chapter.slug}>
+  return <article ref={reader} className="ddr" data-testid="dd-report-reader" data-chapter={chapter.slug}>
     <style>{DD_REPORT_CSS}</style>
     <header className="ddr-header">
       <div className="ddr-header-top"><div className="ddr-kicker">{company} · {chapter.group_label}</div><div className="ddr-controls">
@@ -56,7 +59,7 @@ export function DdReportReader(props:Props) {
       </div></div>
 
       <h1>{chapter.title==='UE'?'UE（ユニットエコノミクス）':chapter.title}</h1>
-      <div className="ddr-version">資料版 {revision} · 移行元 {sourceVersion} · 全{index.length}資料{Object.keys(props.glossary??{}).length>0&&<span className="ddr-term-hint">点線の用語を押すと説明を表示</span>}</div>
+      <div className="ddr-version">資料版 {revision} · 移行元 {sourceVersion} · 全{index.length}資料{Object.keys(props.glossary??{}).length>0&&<span className="ddr-term-hint">点線の用語にマウスを重ねるか、タップすると説明を表示</span>}</div>
     </header>
     <p className="ddr-export-hint">PDFは本文・図解・グラフ。表と計算はExcelで開く。</p>
     {message&&<p role="status" className="ddr-message">{message}</p>}
