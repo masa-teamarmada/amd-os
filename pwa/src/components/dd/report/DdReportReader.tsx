@@ -54,7 +54,7 @@ export function DdReportReader(props:Props) {
     <style>{DD_REPORT_CSS}</style>
     <header className="ddr-header">
       <div className="ddr-header-top"><div className="ddr-kicker">{company} · {chapter.group_label}</div><div className="ddr-controls">
-        {canDownload&&<><button disabled={busy||!prepared} onClick={()=>download('zip',true)} title="本文・図解のPDFと表・数式付きExcelをZIPでダウンロード" className="ddr-button">{prepared?'PDF+excel一括ダウンロード':'PDF更新中…'}</button><button disabled={busy} onClick={()=>download('xlsx',true)} className="ddr-button ddr-button-primary">表・数式付きExcel</button></>}
+        {canDownload&&<button disabled={busy||!prepared} onClick={()=>download('zip',true)} title="本文・図解のPDFと表・数式付きExcelをZIPでダウンロード" className="ddr-button">{prepared?'PDF+excel一括ダウンロード':'PDF更新中…'}</button>}
         {canEdit&&<><button className="ddr-button" onClick={()=>setPanel(panel==='inputs'?null:'inputs')} aria-expanded={panel==='inputs'}>計算条件を編集</button><button className="ddr-button" onClick={()=>setPanel(panel==='text'?null:'text')} aria-expanded={panel==='text'}>本文を編集</button></>}
       </div></div>
 

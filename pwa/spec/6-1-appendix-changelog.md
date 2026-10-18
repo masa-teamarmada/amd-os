@@ -1,3 +1,7 @@
+## 2026-10-18 — DD出力ボタンの統一（v3.163.9）
+
+ヘッダのExcel単独ボタンを削除し、全資料の出力をPDF+excel一括ダウンロードに統一。各表のExcel出力・出力API・権限は維持。spec5-17/manual2-6と両層の変更履歴、共通DESIGN/native handoffを同期。
+
 ## 2026-10-18 — PDF+Excel一括出力（v3.163.8）
 
 単一資料PDFのUIを削除し、PDF+excel一括ダウンロードへ統合。既存の完成PDFと全シートExcelを同じ版・開示条件でZIP化し、取得後の変更を再検証。未完成PDF・権限なし・版/開示条件変更の拒否と、ZIP内2ファイルのバイト一致を回帰検査。spec5-17/2-1、manual2-6/9-3、共通DESIGN/native handoffを同期。
