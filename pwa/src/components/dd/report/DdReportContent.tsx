@@ -4,6 +4,7 @@ import {DdReportRichText} from './DdReportRichText';
 import {DdReportDirectory} from './DdReportDirectory';
 import type {DdReportCell,DdReportChapter,DdReportChapterSummary,DdReportChart,DdReportRow,DdReportGlossary} from '@/lib/dd-report-types';
 import {formatDdReportValue} from '@/lib/dd-report-format';
+import {ddPdfMarker} from '@/lib/dd-report-navigation';
 
 const palette=['#147d92','#193d52','#48a49a','#c99745','#6985aa','#a7b7bf','#566a66','#aa7171'];
 export function ddReportHref(slug:string,sheet:string,index:DdReportChapterSummary[],address?:string) {
@@ -13,10 +14,11 @@ function resolveLink(link:string|undefined,slug:string,index:DdReportChapterSumm
   if(!link)return null;if(/^https?:\/\//i.test(link))return link;
   const m=/^'?([^'!]+)'?!\$?([A-Z]+)\$?(\d+)/.exec(link);return m?ddReportHref(slug,m[1],index,m[2]+m[3]):null;
 }
-function CellValue({cell,slug,index,glossary,allRows,emphasize=false}:{cell:DdReportCell;slug:string;index:DdReportChapterSummary[];glossary?:DdReportGlossary;allRows?:boolean;emphasize?:boolean}) {
+function CellValue({cell,slug,index,glossary,allRows,emphasize=false,chapterSlug}:{cell:DdReportCell;slug:string;index:DdReportChapterSummary[];glossary?:DdReportGlossary;allRows?:boolean;emphasize?:boolean;chapterSlug?:string}) {
   const text=formatDdReportValue(cell.value,cell.format),href=resolveLink(cell.link,slug,index);
+  const target=href?.startsWith('/dd/')?index.find(c=>new URL(href,'https://amd-os-pwa.vercel.app').searchParams.get('chapter')===c.slug):null;
   const content=<DdReportRichText text={text} id={cell.address} slug={slug} glossary={glossary} interactive={!allRows} emphasize={emphasize}/>;
-  return <span id={`cell-${cell.address}`}>{href?<>{content} <a href={href}>参照資料 ↗</a></>:content}</span>;
+  return <span id={`cell-${cell.address}`}>{allRows&&chapterSlug&&<a className="ddr-pdf-anchor" href={ddPdfMarker(slug,chapterSlug,cell.address)} aria-hidden="true">.</a>}{href?<>{content} <a href={href}>{target?`「${target.title==='UE'?'UE（ユニットエコノミクス）':target.title}」`:'出典'} ↗</a></>:content}</span>;
 }
 export function DdReportChartFigure({chart}:{chart:DdReportChart}) {
   const series=chart.series.filter(s=>s.values.length),labels=series.find(s=>s.categories.length)?.categories??[];
@@ -48,18 +50,19 @@ export function DdReportChartFigure({chart}:{chart:DdReportChart}) {
   </figure>;
 }
 
-type ContentProps={chapter:DdReportChapter;slug:string;index:DdReportChapterSummary[];assetUrls?:Record<string,string>;allRows?:boolean;glossary?:DdReportGlossary;canDownload?:boolean;revision?:number;onDownloadExcel?:(href:string)=>void};
-function ReportTable({rows,slug,index,allRows,glossary,pageScroll=false}:{rows:DdReportRow[];slug:string;index:DdReportChapterSummary[];allRows?:boolean;glossary?:DdReportGlossary;pageScroll?:boolean}) {
+type ContentProps={chapter:DdReportChapter;slug:string;index:DdReportChapterSummary[];assetUrls?:Record<string,string>;allRows?:boolean;glossary?:DdReportGlossary;canDownload?:boolean;revision?:number;pdfWorkbookName?:string;onDownloadExcel?:(href:string)=>void};
+function ReportTable({rows,slug,index,allRows,glossary,pageScroll=false,chapterSlug}:{rows:DdReportRow[];slug:string;index:DdReportChapterSummary[];allRows?:boolean;glossary?:DdReportGlossary;pageScroll?:boolean;chapterSlug?:string}) {
   const maxColumns=Math.max(...rows.map(r=>r.cells.length));
   const columns=[...new Set(rows.flatMap(r=>r.cells.map(c=>c.column)))].sort((a,b)=>a-b);
   const weights=columns.map(col=>Math.sqrt(Math.max(8,...rows.flatMap(r=>r.cells.filter(c=>c.column===col).map(c=>Math.min(120,String(c.value??'').length)/Math.max(1,columns.filter(p=>p>=c.column&&p<c.column+c.span).length))))));
-  const table=<div className={`ddr-table-scroll ${maxColumns>16?'ddr-wide':''} ${pageScroll?'ddr-table-page-scroll':''}`} tabIndex={0} aria-label="資料の表"><table>{allRows&&<colgroup>{weights.map((w,i)=><col key={i} style={{width:(100*w/weights.reduce((a,b)=>a+b,0))+'%'}}/>)}</colgroup>}<tbody>{rows.map((r,i)=>{
+  const compact=chapterSlug==='financial-plan'||chapterSlug==='capital-plan';
+  const table=<div className={`ddr-table-scroll ${maxColumns>16?'ddr-wide':''} ${compact?'ddr-financial-table':''} ${pageScroll?'ddr-table-page-scroll':''}`} tabIndex={0} aria-label="資料の表"><table>{allRows&&<colgroup>{weights.map((w,i)=><col key={i} style={{width:(100*w/weights.reduce((a,b)=>a+b,0))+'%'}}/>)}</colgroup>}<tbody>{rows.map((r,i)=>{
     const header=r.cells.every(c=>c.heading)||(i===0&&(maxColumns>16||r.cells.every(c=>typeof c.value==='string'&&c.value.length<90)));
     const cells:ReactNode[]=[];let next=0;
-    for(const c of r.cells){const start=columns.indexOf(c.column);while(next<start){cells.push(<td key={'blank-'+next}/>);next++;}const span=Math.max(1,columns.filter(col=>col>=c.column&&col<c.column+c.span).length);const Tag=header?'th':'td';cells.push(<Tag scope={header?'col':undefined} colSpan={span} key={c.address} className={typeof c.value==='number'?'ddr-number':c.value==='成立'?'ddr-positive':c.value==='不成立'?'ddr-negative':''}><CellValue cell={c} slug={slug} index={index} glossary={glossary} allRows={allRows}/></Tag>);next=start+span;}
-    return <tr key={r.row} className={header?'ddr-table-head':''}>{cells}</tr>;
+    for(const c of r.cells){const start=columns.indexOf(c.column);while(next<start){cells.push(<td key={'blank-'+next}/>);next++;}const span=Math.max(1,columns.filter(col=>col>=c.column&&col<c.column+c.span).length);const Tag=header?'th':'td';cells.push(<Tag scope={header?'col':undefined} colSpan={span} key={c.address} className={typeof c.value==='number'?'ddr-number':c.value==='成立'?'ddr-positive':c.value==='不成立'?'ddr-negative':''}><CellValue cell={c} slug={slug} index={index} glossary={glossary} allRows={allRows} chapterSlug={chapterSlug}/></Tag>);next=start+span;}
+    return <tr key={r.row} data-source-row={r.row} className={header?'ddr-table-head':''}>{cells}</tr>;
   })}</tbody></table></div>;
-  return !allRows&&rows.length>30?<details className="ddr-detail"><summary>明細を表示 · {rows.length}行</summary>{table}</details>:table;
+  return !allRows&&!compact&&rows.length>30?<details className="ddr-detail"><summary>明細を表示 · {rows.length}行</summary>{table}</details>:table;
 }
 function Organization({chapter}:{chapter:DdReportChapter}) {
   const cells=new Map(chapter.body.rows.flatMap(r=>r.cells).map(c=>[c.address,String(c.value)]));
@@ -75,15 +78,15 @@ function Organization({chapter}:{chapter:DdReportChapter}) {
 function EquityDiagram({chapter,slug,index,glossary,allRows}:ContentProps) {
   const cells=new Map(chapter.body.rows.flatMap(r=>r.cells).map(c=>[c.address,c]));
   const phases=[['B',13,15,19,22,26],['G',13,15,19,22,26],['L',13,15,19,22,26],['L',32,34,38,41,45],['G',32,34,38,41,45],['B',32,34,38,41,45]] as const;
-  return <div className="ddr-equity-flow">{phases.map(([col,...rs],i)=><section key={col+rs[0]} className="ddr-phase">
-    {rs.map((r,j)=>{const cell=cells.get(col+r);return cell?j===0?<h3 key={r}><CellValue cell={cell} slug={slug} index={index} glossary={glossary} allRows={allRows} emphasize/></h3>:<div key={r} className={j===2?'ddr-phase-funding':''}><CellValue cell={cell} slug={slug} index={index} glossary={glossary} allRows={allRows} emphasize/></div>:null;})}
+  return <><div className="ddr-equity-flow">{phases.map(([col,...rs],i)=><section key={col+rs[0]} className="ddr-phase">
+    {rs.map((r,j)=>{const cell=cells.get(col+r);return cell?j===0?<h3 key={r}><CellValue cell={cell} slug={slug} index={index} glossary={glossary} allRows={allRows} chapterSlug={chapter.slug}/></h3>:<div key={r} className={j===2?'ddr-phase-funding':''}><CellValue cell={cell} slug={slug} index={index} glossary={glossary} allRows={allRows} emphasize chapterSlug={chapter.slug}/></div>:null;})}
     {i<5&&<span className="ddr-flow-arrow" aria-hidden="true">→</span>}
-  </section>)}</div>;
+  </section>)}</div><div className="ddr-equity-notes">{["B29","K29","B49","K49"].map(a=>{const cell=cells.get(a);return cell?<p key={a}><CellValue cell={cell} slug={slug} index={index} glossary={glossary} allRows={allRows} chapterSlug={chapter.slug}/></p>:null;})}</div></>;
 }
 /** Source cells become prose, comparisons, diagrams and charts. Whitespace-only rows disappear. */
 export function DdReportContent(props:ContentProps) {
-  const {chapter,slug,index,assetUrls,allRows,glossary,canDownload,revision,onDownloadExcel}=props,body=chapter.body;
-  const excelHref=`/api/dd/${encodeURIComponent(slug)}/report/export?format=xlsx&scope=all&sheet=${encodeURIComponent(chapter.source_sheet)}${revision?`&revision=${revision}`:""}`;
+  const {chapter,slug,index,assetUrls,allRows,glossary,canDownload,revision,pdfWorkbookName,onDownloadExcel}=props,body=chapter.body;
+  const excelHref=allRows&&pdfWorkbookName?encodeURI(pdfWorkbookName):`/api/dd/${encodeURIComponent(slug)}/report/export?format=xlsx&scope=all&sheet=${encodeURIComponent(chapter.source_sheet)}${revision?`&revision=${revision}`:""}`;
   let tableNoticeShown=false,tableCount=0;
   if(chapter.slug==='organization')return <Organization chapter={chapter}/>;
   const objects=[...body.objects].sort((a,b)=>a.row-b.row),blocks:ReactNode[]=[];let tableRows:DdReportRow[]=[];let objectIndex=0;
@@ -97,8 +100,8 @@ export function DdReportContent(props:ContentProps) {
   if(metric&&result)blocks.push(<div className="ddr-primary-result" key="primary-result"><div>{metric.label}</div><strong>{typeof result.value==='number'?result.value.toLocaleString('ja-JP',{maximumFractionDigits:1}):String(result.value)}</strong><span>{metric.unit}</span></div>);
   const flush=()=>{if(!tableRows.length)return;
     const pageScroll=chapter.slug==='assumptions'&&tableCount===0;tableCount++;
-    if(allRows&&body.excel?.mode!=='pdf'){if(!tableNoticeShown){blocks.push(<p className="ddr-table-export-note" key="excel-note">表・計算条件はExcelの「{chapter.source_sheet}」シートに収録。 <a href={excelHref}>表をExcelでダウンロード ↗</a></p>);tableNoticeShown=true;}}
-    else blocks.push(<div className="ddr-table-block" key={'table-'+tableRows[0].row}>{canDownload&&body.excel?.mode!=='pdf'&&<div className="ddr-table-tools"><a href={excelHref} download onClick={onDownloadExcel?event=>{event.preventDefault();onDownloadExcel(excelHref);}:undefined}>表をExcelでダウンロード ↗</a></div>}<ReportTable rows={tableRows} slug={slug} index={index} allRows={allRows} glossary={glossary} pageScroll={pageScroll}/></div>);
+    if(allRows&&body.excel?.mode!=='pdf'){if(!tableNoticeShown){blocks.push(<p className="ddr-table-export-note" key="excel-note"><a className="ddr-pdf-anchor" href={ddPdfMarker(slug,chapter.slug)+'#excel-tables'} aria-hidden="true">.</a>表・計算条件は同梱Excelの「{chapter.source_sheet}」シートに収録。 <a href={excelHref}>{pdfWorkbookName?"同梱Excelを開く":"表をExcelでダウンロード"} ↗</a></p>);tableNoticeShown=true;}}
+    else blocks.push(<div className="ddr-table-block" key={'table-'+tableRows[0].row}>{canDownload&&body.excel?.mode!=='pdf'&&<div className="ddr-table-tools"><a href={excelHref} download onClick={onDownloadExcel?event=>{event.preventDefault();onDownloadExcel(excelHref);}:undefined}>表をExcelでダウンロード ↗</a></div>}<ReportTable rows={tableRows} slug={slug} index={index} allRows={allRows} glossary={glossary} pageScroll={pageScroll} chapterSlug={chapter.slug}/></div>);
     tableRows=[];
   };
   const addObjects=(row:number)=>{while(objectIndex<objects.length&&objects[objectIndex].row<=row){flush();const o=objects[objectIndex++];blocks.push(o.kind==='chart'?<DdReportChartFigure key={'object-'+objectIndex} chart={o}/>:<figure className="ddr-image" key={'object-'+objectIndex}>{/* Original approved workbook figures retain their pixels. */}<img loading={allRows?'eager':'lazy'} src={assetUrls?.[o.assetKey]??`/api/dd/${encodeURIComponent(slug)}/report/assets/${o.assetKey}`} alt={o.caption||`${chapter.title}の図解`} />{o.caption&&<figcaption>{o.caption}</figcaption>}</figure>);}};
@@ -106,12 +109,13 @@ export function DdReportContent(props:ContentProps) {
   for(const row of body.rows){
     if(row.row<=2||(chapter.slug==='source-index'&&(row.row<=6||(row.row>=21&&row.row<=62))))continue;
     addObjects(row.row);
+    if(row.calculationDetail){tableRows.push(row);continue;}
     if(chapter.slug==='equity-story'&&row.row>=12&&row.row<=50){if(row.row===12){flush();blocks.push(<EquityDiagram key="equity-diagram" {...props}/>);}continue;}
     const head=row.cells.length===1&&row.cells[0].heading;
-    const prose=row.cells.length===1&&typeof row.cells[0].value==='string'&&row.cells[0].span>=5;
+    const prose=!row.exportTable&&row.cells.length===1&&typeof row.cells[0].value==='string'&&row.cells[0].span>=5;
     const numbered=prose&&String(row.cells[0].value).split('\n');
     if(numbered&&numbered.length>1&&numbered.slice(1).every(line=>/^[①-⑩] .+｜.+/.test(line))){flush();const cell=row.cells[0];blocks.push(<div key={row.row} id={'cell-'+cell.address}><p><DdReportRichText text={numbered[0]} id={cell.address+'-intro'} slug={slug} glossary={glossary} interactive={!allRows} emphasize/></p><ol className="ddr-business-list">{numbered.slice(1).map((line,i)=>{const [name,...description]=line.split('｜');return <li key={i}><strong>{name}</strong><span><DdReportRichText text={description.join('｜')} id={cell.address+'-'+i} slug={slug} glossary={glossary} interactive={!allRows}/></span></li>;})}</ol></div>);continue;}
-    if(head||prose){flush();const cell=row.cells[0];blocks.push(head?<h2 aria-label={String(cell.value)} key={row.row} id={'section-'+row.row}><CellValue cell={cell} slug={slug} index={index} glossary={glossary} allRows={allRows} emphasize/></h2>:<p key={row.row} className={cell.value&&String(cell.value).length<80?'ddr-intro':''}><CellValue cell={cell} slug={slug} index={index} glossary={glossary} allRows={allRows} emphasize/></p>);}
+    if(head||prose){flush();const cell=row.cells[0];blocks.push(head?<h2 aria-label={String(cell.value)} key={row.row} id={'section-'+row.row}><CellValue cell={cell} slug={slug} index={index} glossary={glossary} allRows={allRows} emphasize chapterSlug={chapter.slug}/></h2>:<p key={row.row} className={cell.value&&String(cell.value).length<80?'ddr-intro':''}><CellValue cell={cell} slug={slug} index={index} glossary={glossary} allRows={allRows} emphasize chapterSlug={chapter.slug}/></p>);}
     else {if(allRows&&tableRows.length){const positions=new Set([...tableRows.flatMap(r=>r.cells.map(c=>c.column)),...row.cells.map(c=>c.column)]);if(positions.size>Math.max(row.cells.length,...tableRows.map(r=>r.cells.length))*1.25)flush();}tableRows.push(row);}
     for(const visual of body.visuals?.filter(v=>v.afterRow===row.row)??[]){flush();blocks.push(<DdReportVisual key={'visual-'+visual.afterRow} visual={visual} slug={slug} glossary={glossary} allRows={allRows}/>);}
   }

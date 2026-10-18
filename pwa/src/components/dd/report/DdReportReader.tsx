@@ -14,7 +14,7 @@ export function DdReportReader(props:Props) {
   useEffect(()=>reader.current?installDdGlossaryInteractions(reader.current):undefined,[]);
   const [prepared,setPrepared]=useState(props.pdfReady);
   const [message,setMessage]=useState(''),[busy,setBusy]=useState(false);
-  const ordered=[index.find(c=>c.slug==='source-index')!,...index.filter(c=>c.slug!=='source-index')],position=ordered.findIndex(c=>c.slug===chapter.slug);
+  const ordered=[index.find(c=>c.slug==='source-index')!,...index.filter(c=>c.slug!=='source-index'&&c.slug!=='assumptions'),...index.filter(c=>c.slug==='assumptions')],position=ordered.findIndex(c=>c.slug===chapter.slug);
   const sections=chapter.body.rows.filter(r=>r.cells.length===1&&r.cells[0].heading&&r.row>2);
   useEffect(()=>{
     if(prepared||!canDownload)return;

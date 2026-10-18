@@ -1,3 +1,4 @@
+import {ddReportFilename} from '../src/lib/dd-report-navigation.ts';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
@@ -52,7 +53,7 @@ const pdfBytes=new TextEncoder().encode('%PDF-1.7 prepared fixture'),xlsxBytes=n
 const exportMocks={...mocks,
  'fflate':{zipSync},
  '@/lib/dd-package-core':{hasDdCapability:(a:DdViewerAccess,cap:string)=>a.capabilities.includes(cap as never)},
- '@/lib/dd-report-pdf':{},'node:crypto':{createHash},
+ '@/lib/dd-report-pdf':{readDdPdfIndex:async()=>({})},'@/lib/dd-report-navigation':{ddReportFilename},'node:crypto':{createHash},
  '@/lib/dd-report-output-state':{ddReportOutputState:async(_edition:unknown,_project:unknown,format='pdf')=>{outputStorageReads++;if(format==='pdf')pdfChecks++;return {ready:format==='pdf'?pdfReady:!xlsxMissing,key:`private/${format==='pdf'&&disclosureChanged&&pdfChecks>1?'changed':'all'}.${format}`,prefix:'private',hidden:[]};},queueDdReportPdf:()=>{queued++;}},
  '@/lib/dd-report-output-server':{createDdReportOutput:({format,selected}:{format:string;selected:unknown[]})=>{if(format==='xlsx'){assert.equal(selected.length,38);xlsxGenerated++;return xlsxBytes;}rendered++;throw Error('download must not render bulk PDF');}},
  '@/lib/supabase/admin':{createAdminClient:()=>({storage:{from:()=>({

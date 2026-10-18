@@ -1,6 +1,6 @@
 import type {DdReportValue} from './dd-report-types';
 export function formatDdReportValue(value:DdReportValue,format='General'):string {
-  if(value===null)return '';if(typeof value!=='number')return String(value);
+  if(value===null)return '';if(typeof value!=='number')return String(value).replaceAll('損益・資金繰','資金繰表');
   if(format===';;;')return '';
   const section=format.split(';')[value<0?1:0]||format.split(';')[0];
   if(/^"[^"]*"$/.test(section))return section.slice(1,-1);

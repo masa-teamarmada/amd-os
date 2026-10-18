@@ -1,11 +1,11 @@
 export type DdReportGlossary=Record<string,{definition:string;chapter?:string;sourceLabel?:string;sourceUrl?:string}>;
 export type DdReportValue = string | number | boolean | null;
 export type DdReportCell = { address:string;column:number;span:number;value:DdReportValue;format:string;formula:boolean;heading:boolean;link?:string };
-export type DdReportRow = {row:number;cells:DdReportCell[]};
+export type DdReportRow = {row:number;cells:DdReportCell[];exportTable?:boolean;calculationDetail?:boolean};
 export type DdReportChart = {kind:'chart';row:number;chartType:string;horizontal:boolean;stacked:boolean;title:string;numberFormat?:string;series:{name:string;categories:string[];values:number[];formula?:string|null}[]};
 export type DdReportImage = {kind:'image';row:number;assetKey:string;caption:string};
 export type DdReportVisual={afterRow:number;kind:'flow'|'matrix';title:string;nodes:{title:string;text:string}[]};
-export type DdReportBody = {version:1;excel?:{mode:'model'|'tables'|'pdf';order:number};visuals?:DdReportVisual[];rows:DdReportRow[];objects:(DdReportChart|DdReportImage)[]};
+export type DdReportBody = {version:1;excel?:{mode:'model'|'tables'|'pdf';order:number};linkRedirects?:Record<string,string>;visuals?:DdReportVisual[];rows:DdReportRow[];objects:(DdReportChart|DdReportImage)[]};
 export type DdReportChapter = {id:string;slug:string;title:string;group_label:string;sort_order:number;source_sheet:string;body:DdReportBody;revision:number;updated_at:string};
 export type DdReportChapterSummary = Omit<DdReportChapter,'body'>;
 export type DdReportEdition = {id:string;package_id:string;title:string;source_version:string;source_sha256:string;status:'draft'|'published'|'archived';summary:Record<string,number>;model_storage_path:string;xlsx_storage_path:string;legacy_snapshot_path:string|null;input_overrides:Record<string,DdReportValue>;glossary?:DdReportGlossary;revision:number;created_at:string;updated_at:string};

@@ -21,7 +21,7 @@ const mocks:Record<string,unknown>={
  './dd-report-server':{DD_REPORT_BUCKET:'private',loadDdReportChapterIndex:async()=>Array.from({length:5},(_,i)=>({slug:'chapter-'+i,sort_order:i})),loadDdReportChapter:async(_e:string,slug:string)=>({slug,body:{rows:[],objects:[]}}),loadDdReportModel:async()=>({}),updateDdReportBody:(b:unknown)=>b},
  './dd-report-model':{DdReportCalculator:class {constructor(_m:unknown,o:unknown){seenOverrides=o;}}},
  './dd-report-export':{orderedDdChapters:(x:unknown)=>x,ddReportPdf:async()=>{rendered++;if(changedDuringRender)freshRevision=3;return part;}},
- './dd-report-pdf':{deduplicateDdPdfStreams:()=>{}},
+ './dd-report-pdf':{deduplicateDdPdfStreams:()=>{},finalizeDdPdfNavigation:async()=>({})},
  './workspace-document-html-pdf':{},'./project-partner-disclosure':{redactProjectPartnerNames:(v:unknown)=>v},
 };
 const source=ts.transpileModule(fs.readFileSync(new URL('../src/lib/dd-report-output-server.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;

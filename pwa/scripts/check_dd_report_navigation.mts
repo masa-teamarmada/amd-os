@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import {PDFDocument,PDFName,PDFString,PDFDict,PDFArray,PDFNumber} from 'pdf-lib';
+import {finalizeDdPdfNavigation,readDdPdfIndex} from '../src/lib/dd-report-pdf.ts';
+import {ddPdfMarker,ddReportFilename} from '../src/lib/dd-report-navigation.ts';
+import type {DdReportEdition,DdReportChapterSummary} from '../src/lib/dd-report-types.ts';
+
+const edition={title:'Sample｜DD',revision:7} as DdReportEdition;
+const chapters=[{slug:'business-plan',title:'事業計画',source_sheet:'事業計画'},{slug:'financial-plan',title:'損益・資金繰',source_sheet:'損益・資金繰'}] as DdReportChapterSummary[];
+const doc=await PDFDocument.create();const pages=[doc.addPage(),doc.addPage()];
+function link(page:number,uri:string,y=700){const dict=doc.context.obj({Type:'Annot',Subtype:'Link',Rect:[30,y,200,y+14],A:{S:'URI',URI:PDFString.of(uri)}});pages[page].node.addAnnot(doc.context.register(dict));return dict;}
+link(0,ddPdfMarker('sample','business-plan'));
+link(1,ddPdfMarker('sample','financial-plan'));
+link(1,ddPdfMarker('sample','financial-plan','B50'),500);
+link(1,ddPdfMarker('sample','financial-plan')+'#excel-tables',450);
+const jump=link(0,'https://amd-os-pwa.vercel.app/dd/sample?chapter=financial-plan#cell-B50');
+const table=link(0,'https://amd-os-pwa.vercel.app/dd/sample?chapter=financial-plan#cell-C75');
+const source=link(0,'https://example.com/primary-source');
+const narrative=link(1,'https://amd-os-pwa.vercel.app/dd/sample?chapter=business-plan#cell-B99');
+const companion=link(0,'https://amd-os-pwa.vercel.app/'+encodeURI(ddReportFilename(edition,'xlsx')));
+const index=await finalizeDdPdfNavigation(doc,edition,chapters,'sample');
+assert.equal(index['financial-plan#cell-B50'].page,2);
+assert.equal(index['financial-plan#section-50'].y,514);
+assert.equal(pages[1].node.Annots()?.size(),1,'Only the real narrative link remains after export markers are removed');
+assert(!jump.has(PDFName.of('A')));assert(jump.lookup(PDFName.of('Dest'),PDFArray).get(0)===pages[1].ref);
+assert(!narrative.has(PDFName.of('A')),'Narrative references stay in the PDF even when an exact cell anchor is absent');
+assert.equal(jump.lookup(PDFName.of('Dest'),PDFArray).lookup(3,PDFNumber).asNumber(),514);
+for(const x of [table,companion])assert.equal(x.lookup(PDFName.of('A'),PDFDict).lookup(PDFName.of('URI'),PDFString).decodeText(),encodeURI(ddReportFilename(edition,'xlsx')));
+assert.equal(source.lookup(PDFName.of('A'),PDFDict).lookup(PDFName.of('URI'),PDFString).decodeText(),'https://example.com/primary-source');
+assert(doc.catalog.has(PDFName.of('Outlines')));assert(doc.catalog.has(PDFName.of('Names')));
+assert.deepEqual(await readDdPdfIndex(await doc.save()),index);
+const broken=await PDFDocument.create();broken.addPage();await assert.rejects(()=>finalizeDdPdfNavigation(broken,edition,chapters,'sample'),/参照先が不足/);
+console.log('PASS: precise PDF destinations, section aliases, same-folder Excel references, external sources, bookmarks, page-map round trip, missing chapter rejected');
