@@ -7,6 +7,7 @@ import { DdNavigation } from "./DdNavigation";
 import type { DdPageKey } from "@/lib/dd-pages";
 import { ProjectSurfaceNav } from "@/components/nav/ProjectSurfaceNav";
 import { PageHistoryToolbar } from "@/components/nav/PageHistoryToolbar";
+import { NavigationProgressIndicator } from "@/components/nav/NavigationProgressIndicator";
 import type { ReactNode } from "react";
 import type { DdViewerAccess } from "@/lib/dd-package-core";
 import { getCurrentMemberAccess } from "@/lib/project-workspace";
@@ -24,7 +25,7 @@ export async function DdViewerShell({ access, projectName, pageKey, children, re
     <div className="min-h-screen w-full bg-white text-[#1d1d1f]">
       <ProjectPageTitle projectName={projectName} surface="DD" pageLabel={reportPageLabel??ddPageLabel(pageKey)} />
       <main className="mx-auto max-w-[1600px] space-y-2 px-4 pb-16">
-        <PageHistoryToolbar compact title={<h1 className="min-w-0 flex-1 truncate px-1 text-base font-bold" title={projectName}>{projectName}</h1>} actions={
+        <PageHistoryToolbar compact leading={<NavigationProgressIndicator />} title={<h1 className="min-w-0 flex-1 truncate px-1 text-base font-bold" title={projectName}>{projectName}</h1>} actions={
           <div className="flex shrink-0 gap-2 text-[12px] text-[#6e6e73]">
             {access.principal === "internal_admin" && <Link href={`/project/${encodeURIComponent(access.projectId)}/dd?tab=manage`} className="inline-flex min-h-11 items-center rounded-md border border-[#d2d2d7] px-2 hover:bg-[#f5f5f7] sm:min-h-7">設定</Link>}
             {hasDdCapability(access,"dd.edit") && access.principal !== "internal_admin" && <Link href={`/dd/${encodeURIComponent(access.slug)}/edit`} className="inline-flex min-h-11 items-center rounded-md border border-[#d2d2d7] px-3 sm:min-h-9">掲載項目を編集</Link>}

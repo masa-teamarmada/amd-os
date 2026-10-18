@@ -4,6 +4,7 @@ import { getCurrentMemberAccess } from "@/lib/project-workspace";
 import { resolveSharedWorkspaceAccess } from "@/lib/project-shared-workspace-access";
 import { memberSurfacePermission } from "@/lib/project-surface-permissions";
 import { resolveDdPackageAccess } from "@/lib/dd-access";
+import { loadDdReportEdition, loadDdReportChapterIndex } from "@/lib/dd-report-server";
 import { getSurfaceByPath } from "@/lib/surface-catalog";
 import { allowedProjectPageLabel, deduplicatePageViewers, PAGE_VIEWING_EXPIRY_MS, type PageViewingInput, type PageViewingSnapshot } from "@/lib/page-viewing-core";
 
@@ -26,7 +27,7 @@ export async function resolvePageViewingContext(input: PageViewingInput): Promis
   let label = input.pageLabel;
   let ownHistoryOnly = false;
   const projectMatch = input.pathname.match(/^\/project\/([a-zA-Z0-9_-]+)\/(cockpit|workspace)(\/files)?$/);
-  const ddMatch = input.pathname.match(/^\/dd\/([a-zA-Z0-9_-]+)(?:\/items\/([a-zA-Z0-9_-]+))?$/);
+  const ddMatch = input.pathname.match(/^\/dd\/([a-zA-Z0-9_-]+)(?:\/items\/([a-zA-Z0-9_-]+)|\/(legacy))?$/);
   const ddAdminMatch = input.pathname.match(/^\/project\/([a-zA-Z0-9_-]+)\/dd$/);
   if (projectMatch) {
     const [, projectId, surface, files] = projectMatch;
@@ -61,7 +62,12 @@ export async function resolvePageViewingContext(input: PageViewingInput): Promis
       if (error) throw new Error("page viewer DD item lookup failed");
       if (!item || item.package_id !== access.packageId || item.status !== "active" || (!access.preview && !item.is_published)) return null;
     }
-    label = allowedProjectPageLabel("dd", label, { projectId: access.projectId }) || "";
+    // 新版の資料名は、その人が閲覧できる版の目録で照合する。
+    // 旧版と添付項目は従来のページ名を使う。
+    const edition = !ddMatch[2] && !ddMatch[3] ? await loadDdReportEdition(access) : null;
+    label = edition
+      ? (await loadDdReportChapterIndex(edition.id)).find(chapter => chapter.title === label)?.title ?? ""
+      : allowedProjectPageLabel("dd", label, { projectId: access.projectId }) || "";
     if (!label) return null;
     title = `${access.title}｜DD｜${label}`;
   } else if (ddAdminMatch) {

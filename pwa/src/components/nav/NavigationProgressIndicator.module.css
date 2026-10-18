@@ -1,0 +1,12 @@
+.indicator {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  visibility: hidden;
+}
+
+:global(html[data-amie-navigation-pending="true"]) .indicator {
+  visibility: visible;
+}

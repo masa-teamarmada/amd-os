@@ -71,6 +71,10 @@ try {
   effects[1]();
   assert.equal(intervals.size, 0);
   icons.forEach((icon, index) => assert.deepEqual(icon.attrs, originals[index], "original favicon attributes restored after route commit"));
+  click("https://os.test/dd/sol?chapter=financial-plan");
+  assert.equal(dataset.amieNavigationPending, "true", "新版の章移動でも画面内の回転表示を開始する");
+  effects[1]();
+  assert.equal(dataset.amieNavigationPending, undefined, "本文の切替後に画面内の回転表示も終える");
   events.get("popstate")!(); assert.equal(intervals.size, 1, "back/forward also animate");
   [...timeouts.values()][0](); assert.equal(intervals.size, 0, "cancelled/failed navigation cannot leave a permanent spinner");
   click("https://os.test/dd/sol?tab=team"); events.get("pagehide")!();
