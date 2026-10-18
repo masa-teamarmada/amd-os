@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {PDFDocument,PDFName,PDFString,PDFDict,PDFArray,PDFNumber} from 'pdf-lib';
+import {PDFDocument,PDFName,PDFString,PDFHexString,PDFDict,PDFArray,PDFNumber} from 'pdf-lib';
 import {finalizeDdPdfNavigation,readDdPdfIndex} from '../src/lib/dd-report-pdf.ts';
 import {ddPdfMarker,ddReportFilename} from '../src/lib/dd-report-navigation.ts';
 import type {DdReportEdition,DdReportChapterSummary} from '../src/lib/dd-report-types.ts';
@@ -25,6 +25,7 @@ assert(!jump.has(PDFName.of('A')));assert(jump.lookup(PDFName.of('Dest'),PDFArra
 assert(!narrative.has(PDFName.of('A')),'Narrative references stay in the PDF even when an exact cell anchor is absent');
 assert.equal(jump.lookup(PDFName.of('Dest'),PDFArray).lookup(3,PDFNumber).asNumber(),514);
 for(const x of [table,companion])assert.equal(x.lookup(PDFName.of('A'),PDFDict).lookup(PDFName.of('URI'),PDFString).decodeText(),encodeURI(ddReportFilename(edition,'xlsx')));
+assert(table.lookup(PDFName.of('Contents'),PDFHexString).decodeText().includes('資金繰表'),'PDF annotation names the sheet that actually exists in Excel');
 assert.equal(source.lookup(PDFName.of('A'),PDFDict).lookup(PDFName.of('URI'),PDFString).decodeText(),'https://example.com/primary-source');
 assert(doc.catalog.has(PDFName.of('Outlines')));assert(doc.catalog.has(PDFName.of('Names')));
 assert.deepEqual(await readDdPdfIndex(await doc.save()),index);

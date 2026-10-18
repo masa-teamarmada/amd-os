@@ -100,7 +100,7 @@ export function DdReportContent(props:ContentProps) {
   if(metric&&result)blocks.push(<div className="ddr-primary-result" key="primary-result"><div>{metric.label}</div><strong>{typeof result.value==='number'?result.value.toLocaleString('ja-JP',{maximumFractionDigits:1}):String(result.value)}</strong><span>{metric.unit}</span></div>);
   const flush=()=>{if(!tableRows.length)return;
     const pageScroll=chapter.slug==='assumptions'&&tableCount===0;tableCount++;
-    if(allRows&&body.excel?.mode!=='pdf'){if(!tableNoticeShown){blocks.push(<p className="ddr-table-export-note" key="excel-note"><a className="ddr-pdf-anchor" href={ddPdfMarker(slug,chapter.slug)+'#excel-tables'} aria-hidden="true">.</a>表・計算条件は同梱Excelの「{chapter.source_sheet}」シートに収録。 <a href={excelHref}>{pdfWorkbookName?"同梱Excelを開く":"表をExcelでダウンロード"} ↗</a></p>);tableNoticeShown=true;}}
+    if(allRows&&body.excel?.mode!=='pdf'){if(!tableNoticeShown){blocks.push(<p className="ddr-table-export-note" key="excel-note"><a className="ddr-pdf-anchor" href={ddPdfMarker(slug,chapter.slug)+'#excel-tables'} aria-hidden="true">.</a>表・計算条件は同梱Excelの「{formatDdReportValue(chapter.source_sheet)}」シートに収録。 <a href={excelHref}>{pdfWorkbookName?"同梱Excelを開く":"表をExcelでダウンロード"} ↗</a></p>);tableNoticeShown=true;}}
     else blocks.push(<div className="ddr-table-block" key={'table-'+tableRows[0].row}>{canDownload&&body.excel?.mode!=='pdf'&&<div className="ddr-table-tools"><a href={excelHref} download onClick={onDownloadExcel?event=>{event.preventDefault();onDownloadExcel(excelHref);}:undefined}>表をExcelでダウンロード ↗</a></div>}<ReportTable rows={tableRows} slug={slug} index={index} allRows={allRows} glossary={glossary} pageScroll={pageScroll} chapterSlug={chapter.slug}/></div>);
     tableRows=[];
   };

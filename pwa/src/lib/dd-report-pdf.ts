@@ -37,7 +37,7 @@ export async function finalizeDdPdfNavigation(doc:PDFDocument,edition:DdReportEd
       if(url.hash.startsWith('#cell-')&&!exact&&index[target.slug+'#excel-tables']){
         // The referenced table lives in the companion workbook; its sheet/cell remain explicit.
         action.set(PDFName.of('URI'),PDFString.of(encodeURI(ddReportFilename(edition,'xlsx'))));
-        dict.set(PDFName.of('Contents'),PDFHexString.fromText(`同梱Excel「${target.source_sheet}」!${url.hash.slice(6)}`));
+        dict.set(PDFName.of('Contents'),PDFHexString.fromText(`同梱Excel「${target.source_sheet.replaceAll('損益・資金繰','資金繰表')}」!${url.hash.slice(6)}`));
       }else if(at){dict.delete(PDFName.of('A'));dict.set(PDFName.of('Dest'),destination(at));}
     }else if((url.pathname===`/api/dd/${encodeURIComponent(slug)}/report/export`&&url.searchParams.get('format')==='xlsx')||decodeURIComponent(url.pathname).endsWith('/'+ddReportFilename(edition,'xlsx'))){
       action.set(PDFName.of('URI'),PDFString.of(encodeURI(ddReportFilename(edition,'xlsx'))));
