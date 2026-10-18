@@ -1,5 +1,7 @@
 ## 2026-10-18 — DD資料・数値モデル・PDF/Excel
 
+2026-10-18（v3.163.8）: DDの一括操作は「PDF+excel一括ダウンロード」。完成PDFと同じ版の全シートExcelをZIPで受け取り、Excel単独操作を維持。版・開示条件の更新時は出力せず、PDFを取得時に再生成しない。回帰check_dd_report_access.mts、仕様5-17。
+
 2026-10-18（v3.163.6）: DDリンクはクリック時に対象強調と本文の読み込み表示を出し、同じ移動先の連打を抑止する。上部には共通OSバージョンを表示。リロード中も回転表示、用語のヒントはhover/focusでも開く。仕様5-17/2-1、回帰check_navigation_favicon.mts/check_dd_glossary_interactions.mts。
 
 2026-10-18（v3.163.4）: DD共通ヘッダの画面内遷移表示と、新版の資料別/旧版の閲覧者を維持する。章名は認可済み版の目録で照合。防波堤はtest:page-viewing/check_navigation_favicon.mts、仕様5-17/2-1。

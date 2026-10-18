@@ -41,27 +41,27 @@ export function DdReportReader(props:Props) {
       setMessage(`保存済み。資料版 ${result.revision} に更新済み。`);router.refresh();
     }catch(error){setMessage(error instanceof Error?error.message:'保存できなかった');}finally{setBusy(false);}
   }
-  async function download(format:'pdf'|'xlsx',all=false,href?:string) {
-    setBusy(true);setMessage(format==='pdf'?'PDFをダウンロード中…':'Excelをダウンロード中…');
+  async function download(format:'zip'|'xlsx',all=false,href?:string) {
+    setBusy(true);setMessage(format==='zip'?'PDFとExcelをまとめてダウンロード中…':'Excelをダウンロード中…');
     try {
       const endpoint=href??`/api/dd/${encodeURIComponent(slug)}/report/export?format=${format}&revision=${revision}${all?'&scope=all':`&chapter=${chapter.slug}`}`;
       const r=await fetch(endpoint,{cache:'no-store'});
       if(!r.ok||r.status===202){const data=await r.json().catch(()=>({}));throw new Error(data.error||'出力できなかった');}
-      const url=URL.createObjectURL(await r.blob()),a=document.createElement('a');a.href=url;a.download=`${company}_DD_${format==='pdf'?(all?'本文・図解':chapter.title):'全資料'}_r${revision}.${format}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);setMessage('出力済み。');
+      const url=URL.createObjectURL(await r.blob()),a=document.createElement('a');a.href=url;a.download=`${company}_DD_${format==='zip'?'PDF+Excel':'全資料'}_r${revision}.${format}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);setMessage('出力済み。');
     }catch(error){setMessage(error instanceof Error?error.message:'出力できなかった');}finally{setBusy(false);}
   }
   return <article ref={reader} className="ddr" data-testid="dd-report-reader" data-chapter={chapter.slug}>
     <style>{DD_REPORT_CSS}</style>
     <header className="ddr-header">
       <div className="ddr-header-top"><div className="ddr-kicker">{company} · {chapter.group_label}</div><div className="ddr-controls">
-        {canDownload&&<><button disabled={busy} onClick={()=>download('pdf')} className="ddr-button">この資料をPDF</button>{prepared?<a onClick={event=>{event.preventDefault();if(!busy)void download('pdf',true);}} title="本文・図解・グラフをPDFでダウンロード" className="ddr-button" href={`/api/dd/${encodeURIComponent(slug)}/report/export?format=pdf&scope=all&revision=${revision}`} download>一括PDFをダウンロード</a>:<button disabled className="ddr-button" aria-label="一括PDFを更新中">PDF更新中…</button>}<button disabled={busy} onClick={()=>download('xlsx',true)} className="ddr-button ddr-button-primary">表・数式付きExcel</button></>}
+        {canDownload&&<><button disabled={busy||!prepared} onClick={()=>download('zip',true)} title="本文・図解のPDFと表・数式付きExcelをZIPでダウンロード" className="ddr-button">{prepared?'PDF+excel一括ダウンロード':'PDF更新中…'}</button><button disabled={busy} onClick={()=>download('xlsx',true)} className="ddr-button ddr-button-primary">表・数式付きExcel</button></>}
         {canEdit&&<><button className="ddr-button" onClick={()=>setPanel(panel==='inputs'?null:'inputs')} aria-expanded={panel==='inputs'}>計算条件を編集</button><button className="ddr-button" onClick={()=>setPanel(panel==='text'?null:'text')} aria-expanded={panel==='text'}>本文を編集</button></>}
       </div></div>
 
       <h1>{chapter.title==='UE'?'UE（ユニットエコノミクス）':chapter.title}</h1>
       <div className="ddr-version">資料版 {revision} · 移行元 {sourceVersion} · 全{index.length}資料{Object.keys(props.glossary??{}).length>0&&<span className="ddr-term-hint">点線の用語にマウスを重ねるか、タップすると説明を表示</span>}</div>
     </header>
-    <p className="ddr-export-hint">PDFは本文・図解・グラフ。表と計算はExcelで開く。</p>
+    <p className="ddr-export-hint">PDFとExcelをZIPで一括保存。PDFは本文・図解・グラフ、表と計算はExcelで開く。</p>
     {message&&<p role="status" className="ddr-message">{message}</p>}
     {panel==='inputs'&&<section className="ddr-parameter" aria-label="計算条件を編集"><h3>計算条件</h3><p>保存すると、原価・売上・損益・現金残高・持株比率・IRRを同じ計算モデルで更新する。</p>
       <div className="ddr-controls"><label className="ddr-field">対象資料<select value={inputSheet} onChange={e=>setInputSheet(e.target.value)}>{[...new Set(inputs.map(i=>i.sheet))].map(s=><option key={s}>{s}</option>)}</select></label><label className="ddr-field">条件を探す<input type="search" placeholder="人件費、価格、キャップなど" value={filter} onChange={e=>setFilter(e.target.value)}/></label></div>
