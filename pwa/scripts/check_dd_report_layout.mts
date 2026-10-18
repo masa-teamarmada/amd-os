@@ -32,6 +32,12 @@ const ganttChapter={...chapter,slug:'metal-business',body:{...chapter.body,rows:
 const ganttHtml=renderToStaticMarkup(createElement(DdReportContent,{chapter:ganttChapter,slug:'sample',index:[]}));assert(ganttHtml.includes('ddr-gantt-bar'));for(const r of ganttChapter.body.rows)for(const c of r.cells)assert.equal(ganttHtml.split(`id="cell-${c.address}"`).length-1,1);
 const longChapter={...chapter,slug:'cyanobacteria-cost',body:{...chapter.body,rows:Array.from({length:40},(_,i)=>row(i+10,[[2,'費目'+i],[5,i]]))}};
 assert(!renderToStaticMarkup(createElement(DdReportContent,{chapter:longChapter,slug:'sample',index:[]})).includes('<details'));
+const noteText='原料価格と工程条件の根拠を全て掲載する。'.repeat(15);
+const noteChapter={...chapter,slug:'cyanobacteria-cost',body:{...chapter.body,rows:[row(299,[[2,'費目'],[5,'数量'],[17,'根拠・出所']]),row(300,[[2,'設備'],[5,2],[17,noteText]])]}};
+const noteHtml=renderToStaticMarkup(createElement(DdReportContent,{chapter:noteChapter,slug:'sample',index:[]})),noteGrid=noteHtml.match(/<table>[\s\S]*?<\/table>/)?.[0];
+assert(noteGrid?.includes('cell-B300')&&!noteGrid.includes('cell-Q300'),'Long explanations must not stretch numerical rows');
+assert(noteHtml.includes('ddr-cost-notes')&&noteHtml.includes(noteText)&&!noteHtml.includes('<details'),'Full explanations remain visible immediately after the grid');
+for(const r of noteChapter.body.rows)for(const c of r.cells)assert.equal(noteHtml.split(`id="cell-${c.address}"`).length-1,1);
 console.log('PASS: metadata outside numerical grids, first-column labels, separate annual tables, all cells exactly once, PDF-to-Excel contract, formula-linked funding stack');
 
 if(process.argv[2]){

@@ -60,14 +60,23 @@ export function DdReportChartFigure({chart}:{chart:DdReportChart}) {
 type ContentProps={chapter:DdReportChapter;slug:string;index:DdReportChapterSummary[];assetUrls?:Record<string,string>;allRows?:boolean;glossary?:DdReportGlossary;canDownload?:boolean;revision?:number;pdfWorkbookName?:string;onDownloadExcel?:(href:string)=>void;inputControls?:DdSimulationControls;simulationActive?:boolean};
 function ReportTable({rows,slug,index,allRows,glossary,pageScroll=false,chapterSlug,inputControls}:{rows:DdReportRow[];slug:string;index:DdReportChapterSummary[];allRows?:boolean;glossary?:DdReportGlossary;pageScroll?:boolean;chapterSlug?:string;inputControls?:DdSimulationControls}) {
   if(isDdGantt(rows))return <DdSourceGantt rows={rows} cell={c=><CellValue cell={c} slug={slug} index={index} glossary={glossary} allRows={allRows} chapterSlug={chapterSlug} inputControls={inputControls}/>}/>;
+  if(!allRows&&chapterSlug?.endsWith('-cost')){
+    const noteColumns=[...new Set(rows.flatMap(r=>r.cells.filter(c=>c.column>r.cells[0].column&&typeof c.value==='string'&&c.value.length>150).map(c=>c.column)))].filter(col=>rows.every(r=>r.cells.filter(c=>c.column===col).every(c=>typeof c.value==='string'&&!inputControls?.inputs.some(i=>i.address===c.address))));
+    if(noteColumns.length){
+      const notes=rows.map(r=>({row:r,cells:r.cells.filter(c=>noteColumns.includes(c.column))})).filter(n=>n.cells.length),grid=rows.map(r=>({...r,cells:r.cells.filter(c=>!noteColumns.includes(c.column))}));
+      const value=(c:DdReportCell)=><CellValue cell={c} slug={slug} index={index} glossary={glossary} chapterSlug={chapterSlug} inputControls={inputControls}/>;
+      return <div className="ddr-cost-detail"><ReportTable rows={grid} slug={slug} index={index} glossary={glossary} pageScroll={pageScroll} chapterSlug={chapterSlug} inputControls={inputControls}/><section className="ddr-cost-notes" aria-label="条件・費目ごとの根拠全文"><h3>条件・費目ごとの根拠</h3>{notes.map(({row:r,cells})=><div className="ddr-cost-note" key={r.row}><a href={'#cell-'+r.cells[0].address}>{String(r.cells[0].value)} ↑</a><div>{cells.map(c=><p key={c.address}>{value(c)}</p>)}</div></div>)}</section></div>;
+    }
+  }
   const maxColumns=Math.max(...rows.map(r=>r.cells.length));
   const columns=[...new Set(rows.flatMap(r=>r.cells.map(c=>c.column)))].sort((a,b)=>a-b);
   const weights=columns.map(col=>Math.sqrt(Math.max(8,...rows.flatMap(r=>r.cells.filter(c=>c.column===col).map(c=>Math.min(120,String(c.value??'').length)/Math.max(1,columns.filter(p=>p>=c.column&&p<c.column+c.span).length))))));
   const compact=chapterSlug==='financial-plan'||chapterSlug==='capital-plan';
   const table=<div className={`ddr-table-scroll ${maxColumns>16?'ddr-wide':''} ${compact?'ddr-financial-table':''} ${pageScroll?'ddr-table-page-scroll':''}`} tabIndex={0} aria-label="資料の表"><table>{allRows&&<colgroup>{weights.map((w,i)=><col key={i} style={{width:(100*w/weights.reduce((a,b)=>a+b,0))+'%'}}/>)}</colgroup>}<tbody>{rows.map((r,i)=>{
-    const header=r.cells.every(c=>c.heading)||(i===0&&(maxColumns>16||r.cells.every(c=>typeof c.value==='string'&&c.value.length<90)));
+    const header=r.cells.every(c=>c.heading)||(i===0&&!r.cells.some(c=>inputControls?.inputs.some(i=>i.address===c.address))&&(maxColumns>16||r.cells.every(c=>typeof c.value==='string'&&c.value.length<90)));
     const cells:ReactNode[]=[];let next=0;
     for(const c of r.cells){const start=columns.indexOf(c.column);while(next<start){cells.push(<td key={'blank-'+next}/>);next++;}const span=Math.max(1,columns.filter(col=>col>=c.column&&col<c.column+c.span).length);const Tag=header?'th':'td';cells.push(<Tag scope={header?'col':undefined} colSpan={span} key={c.address} className={typeof c.value==='number'?'ddr-number':c.value==='成立'?'ddr-positive':c.value==='不成立'?'ddr-negative':''}><CellValue cell={c} slug={slug} index={index} glossary={glossary} allRows={allRows} chapterSlug={chapterSlug} inputControls={inputControls}/></Tag>);next=start+span;}
+    if(!allRows&&chapterSlug?.endsWith('-cost'))while(next<columns.length){const col=columns[next],unitLabel=header&&chapterSlug?.endsWith('-cost')?(col===18?'数量単位':col===19?'単価単位':''):'';cells.push(header?<th key={'trailing-'+next}>{unitLabel}</th>:<td key={'trailing-'+next}/>);next++;}
     return <tr key={r.row} data-source-row={r.row} className={header?'ddr-table-head':''}>{cells}</tr>;
   })}</tbody></table></div>;
   return table;
