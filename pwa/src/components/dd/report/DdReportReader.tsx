@@ -38,20 +38,20 @@ export function DdReportReader(props:Props) {
       setMessage(`保存済み。資料版 ${result.revision} に更新済み。`);router.refresh();
     }catch(error){setMessage(error instanceof Error?error.message:'保存できなかった');}finally{setBusy(false);}
   }
-  async function download(format:'pdf'|'xlsx',all=false) {
+  async function download(format:'pdf'|'xlsx',all=false,href?:string) {
     setBusy(true);setMessage(format==='pdf'?'PDFをダウンロード中…':'Excelをダウンロード中…');
     try {
-      const endpoint=`/api/dd/${encodeURIComponent(slug)}/report/export?format=${format}&revision=${revision}${all?'&scope=all':`&chapter=${chapter.slug}`}`;
+      const endpoint=href??`/api/dd/${encodeURIComponent(slug)}/report/export?format=${format}&revision=${revision}${all?'&scope=all':`&chapter=${chapter.slug}`}`;
       const r=await fetch(endpoint,{cache:'no-store'});
       if(!r.ok||r.status===202){const data=await r.json().catch(()=>({}));throw new Error(data.error||'出力できなかった');}
-      const url=URL.createObjectURL(await r.blob()),a=document.createElement('a');a.href=url;a.download=`${company}_DD_${all?'全資料':chapter.title}_r${revision}.${format}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);setMessage('出力済み。');
+      const url=URL.createObjectURL(await r.blob()),a=document.createElement('a');a.href=url;a.download=`${company}_DD_${format==='pdf'?(all?'本文・図解':chapter.title):'全資料'}_r${revision}.${format}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);setMessage('出力済み。');
     }catch(error){setMessage(error instanceof Error?error.message:'出力できなかった');}finally{setBusy(false);}
   }
   return <article className="ddr" data-testid="dd-report-reader" data-chapter={chapter.slug}>
     <style>{DD_REPORT_CSS}</style>
     <header className="ddr-header">
       <div className="ddr-header-top"><div className="ddr-kicker">{company} · {chapter.group_label}</div><div className="ddr-controls">
-        {canDownload&&<><button disabled={busy} onClick={()=>download('pdf')} className="ddr-button">この資料をPDF</button>{prepared?<a title="本文・図解・グラフをPDFでダウンロード" className="ddr-button" href={`/api/dd/${encodeURIComponent(slug)}/report/export?format=pdf&scope=all&revision=${revision}`} download>一括PDFをダウンロード</a>:<button disabled className="ddr-button" aria-label="一括PDFを更新中">PDF更新中…</button>}<button disabled={busy} onClick={()=>download('xlsx',true)} className="ddr-button ddr-button-primary">表・数式付きExcel</button></>}
+        {canDownload&&<><button disabled={busy} onClick={()=>download('pdf')} className="ddr-button">この資料をPDF</button>{prepared?<a onClick={event=>{event.preventDefault();if(!busy)void download('pdf',true);}} title="本文・図解・グラフをPDFでダウンロード" className="ddr-button" href={`/api/dd/${encodeURIComponent(slug)}/report/export?format=pdf&scope=all&revision=${revision}`} download>一括PDFをダウンロード</a>:<button disabled className="ddr-button" aria-label="一括PDFを更新中">PDF更新中…</button>}<button disabled={busy} onClick={()=>download('xlsx',true)} className="ddr-button ddr-button-primary">表・数式付きExcel</button></>}
         {canEdit&&<><button className="ddr-button" onClick={()=>setPanel(panel==='inputs'?null:'inputs')} aria-expanded={panel==='inputs'}>計算条件を編集</button><button className="ddr-button" onClick={()=>setPanel(panel==='text'?null:'text')} aria-expanded={panel==='text'}>本文を編集</button></>}
       </div></div>
 
@@ -67,7 +67,7 @@ export function DdReportReader(props:Props) {
     </section>}
     {panel==='text'&&<section className="ddr-editor"><h3>本文を編集</h3><label className="ddr-field">編集する文章<select value={editAddress} onChange={e=>{setEditAddress(e.target.value);setEditValue(String(textCells.find(c=>c.address===e.target.value)?.value??''));}}><option value="">文章を選択</option>{textCells.map(c=><option value={c.address} key={c.address}>{String(c.value).slice(0,75)}</option>)}</select></label>{editAddress&&<><textarea aria-label="本文" value={editValue} onChange={e=>setEditValue(e.target.value)}/><button className="ddr-button ddr-button-primary" disabled={busy} onClick={()=>save('text')}>本文を保存</button></>}</section>}
     {chapter.slug!=='source-index'&&sections.length>2&&<nav className="ddr-section-nav" aria-label="この資料の目次">{sections.map(r=><a key={r.row} href={'#section-'+r.row}>{String(r.cells[0].value)}</a>)}</nav>}
-    <DdReportContent chapter={chapter} slug={slug} index={index} glossary={props.glossary} canDownload={canDownload} revision={revision}/>
+    <DdReportContent chapter={chapter} slug={slug} index={index} glossary={props.glossary} canDownload={canDownload} revision={revision} onDownloadExcel={href=>{if(!busy)void download('xlsx',true,href);}}/>
     <footer className="ddr-chapter-footer">{position>0?<Link href={`/dd/${slug}?chapter=${ordered[position-1].slug}`}>← {ordered[position-1].title}</Link>:<span/>}{position<ordered.length-1&&<Link href={`/dd/${slug}?chapter=${ordered[position+1].slug}`}>{ordered[position+1].title} →</Link>}</footer>
   </article>;
 }
