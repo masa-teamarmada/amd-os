@@ -8,6 +8,7 @@ import {DD_REPORT_CSS} from '@/components/dd/report/dd-report-style';
 import {DdReportCalculator,ddAddress,ddColumn} from './dd-report-model';
 import type {DdReportChapter,DdReportChapterSummary,DdReportEdition,DdReportModel,DdReportValue} from './dd-report-types';
 import {DD_CONFIDENTIALITY_LABEL,DD_CONFIDENTIALITY_NOTICE,ddEscapeHtml} from './dd-confidentiality';
+import {updateDdFundingChartXml} from './dd-report-funding-chart';
 import {projectDdWorkbook} from './dd-report-workbook';
 
 export function orderedDdChapters<T extends {slug:string;sort_order:number}>(chapters:T[]){return [...chapters].sort((a,b)=>a.slug==='source-index'?-1:b.slug==='source-index'?1:a.slug==='assumptions'?1:b.slug==='assumptions'?-1:a.sort_order-b.sort_order);}
@@ -80,7 +81,7 @@ export function ddReportXlsx(source:Uint8Array,edition:DdReportEdition,model:DdR
     if(/^xl\/drawings\/_rels\/.*\.rels$/.test(path))files[path]=strToU8(strFromU8(files[path]).replace(/<Relationship\b[^>]*Type="[^"]*\/image"[^>]*\/>/g,''));
     if(/^xl\/media\//.test(path))delete files[path];
     if(path.endsWith('.xml')&&strFromU8(files[path].subarray(0,1500)).includes('<c:chartSpace')){
-      files[path]=strToU8(strFromU8(files[path]).replace(/<c:numRef>[\s\S]*?<\/c:numRef>/g,ref=>{
+      files[path]=strToU8(updateDdFundingChartXml(strFromU8(files[path]),calc).replace(/<c:numRef>[\s\S]*?<\/c:numRef>/g,ref=>{
         const f=ref.match(/<c:f>([^<]+)<\/c:f>/)?.[1],m=/^'?([^'!]+)'?!\$?([A-Z]+)\$?(\d+):\$?([A-Z]+)\$?(\d+)$/.exec(f??'');if(!m)return ref;
         const a=ddAddress(m[2]+m[3]),b=ddAddress(m[4]+m[5]),values=[];
         for(let r=a.row;r<=b.row;r++)for(let c=a.col;c<=b.col;c++)values.push(Number(calc.get(m[1],ddColumn(c)+r))||0);

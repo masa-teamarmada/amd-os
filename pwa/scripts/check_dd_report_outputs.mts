@@ -16,7 +16,7 @@ const model=JSON.parse(gunzipSync(await fs.readFile(path.join(folder,process.arg
 const chapters=manifest.chapters.map((c:DdReportChapter)=>({...c,id:c.slug,revision:1,updated_at:new Date().toISOString()})) as DdReportChapter[];
 const edition={title:manifest.title,source_version:manifest.sourceVersion,source_sha256:manifest.sourceSha256,revision:manifest.revision??1,input_overrides:{},glossary:manifest.glossary} as DdReportEdition;
 const projected=chapters.some(c=>c.body.excel), kept=chapters.filter(c=>c.slug==='source-index'||c.body.excel?.mode!=='pdf');
-const out=path.join(folder,'画面・出力検証');await fs.mkdir(out,{recursive:true});
+const out=process.argv.find(a=>a.startsWith('--output='))?.slice('--output='.length)??path.join(folder,'画面・出力検証');await fs.mkdir(out,{recursive:true});
 const assetUrls:Record<string,string>={};for(const a of manifest.assets)assetUrls[a.key]=`data:${a.mime};base64,${(await fs.readFile(path.join(folder,'assets',a.key))).toString('base64')}`;
 for(const slug of ['business-plan','equity-story','organization','production-plan','market','financial-plan']){
   const html=await ddReportHtml({edition,chapters:chapters.filter(c=>c.slug===slug),index:chapters,slug:'sol',assetUrls});if(!projected||chapters.find(c=>c.slug===slug)?.body.excel?.mode!=='pdf'){assert(!html.split('<h1>専門用語の説明')[0].includes('<table'), 'Model tables belong in Excel: '+slug);assert(html.includes('同梱Excel')&&html.includes(encodeURI('_DD_数値計画・一覧表_r')), 'PDF must name and link to companion Excel');}if(slug==='financial-plan'){const visible=html.replace(/<!--[^]*?-->/g,'');assert(visible.includes('同梱Excelの「資金繰表」'));assert(!visible.includes('同梱Excelの「損益・資金繰」'));}await fs.writeFile(path.join(out,slug+'.html'),html);
@@ -25,6 +25,7 @@ const bytes=ddReportXlsx(await fs.readFile(path.join(folder,'source.xlsx')),edit
 const files=unzipSync(bytes);
 for(const [name,content] of Object.entries(files))if(name.endsWith('.xml')||name.endsWith('.rels'))assert.equal(XMLValidator.validate(strFromU8(content)),true,'Valid OpenXML: '+name);
 const original=unzipSync(await fs.readFile(path.join(folder,'source.xlsx')));
+const funding=Object.values(files).map(b=>strFromU8(b)).find(s=>s.includes('ラウンド別の評価額・新規調達額（億円）'));assert(funding);assert(funding.includes('<c:grouping val="stacked"/>'));assert.equal((funding.match(/<c:ser>/g)||[]).length,2);assert(funding.includes('$Z$333:$Z$337')&&funding.includes('$C$98:$C$102'));console.log('PASS: exported funding chart stacks formula-linked pre valuation and funding');
 if(projected){
   const workbook=strFromU8(files['xl/workbook.xml']),names=[...workbook.matchAll(/<sheet\b[^>]*name="([^"]+)"/g)].map(m=>m[1]);
   assert.equal(names.length,20);assert.equal(names[0],'資料一覧');assert(!names.includes('事業計画'));assert(!names.includes('経営陣略歴'));assert(!names.includes('SIER'));
