@@ -10,10 +10,13 @@ import type {DdReportChapter,DdReportChapterSummary,DdReportEdition,DdReportMode
 import {DD_CONFIDENTIALITY_LABEL,DD_CONFIDENTIALITY_NOTICE,ddEscapeHtml} from './dd-confidentiality';
 import {scaleDdJkissSummary} from './dd-report-jkiss-xlsx';
 import {updateDdFundingChartXml} from './dd-report-funding-chart';
+import {mergeDdDevelopmentForWorkbook,splitDdDevelopmentChapters,splitDdDevelopmentIndex} from './dd-report-development-plans';
+import {splitDdDevelopmentWorkbook} from './dd-report-development-xlsx';
 import {projectDdWorkbook} from './dd-report-workbook';
 
 export const orderedDdChapters=orderDdReading;
 export async function ddReportHtml({edition,chapters,index,slug,assetUrls,includeCover=true,includeGlossary=true,glossaryAll=false}:{edition:DdReportEdition;chapters:DdReportChapter[];index:DdReportChapterSummary[];slug:string;assetUrls:Record<string,string>;includeCover?:boolean;includeGlossary?:boolean;glossaryAll?:boolean}) {
+  chapters=splitDdDevelopmentChapters(chapters);index=splitDdDevelopmentIndex(index);
   const ordered=orderedDdChapters(chapters);
   const stream=await renderToReadableStream(<html lang="ja"><head><meta charSet="utf-8"/><base href="https://amd-os-pwa.vercel.app"/><title>{edition.title}</title><style>{DD_REPORT_CSS+`
      .ddr-pdf-anchor{position:absolute;font-size:1px;line-height:1px;color:transparent!important;text-decoration:none!important}.ddr-pdf-heading{color:inherit!important;text-decoration:none!important} body{margin:0;padding:16px;background:white;font-family:'Noto Sans JP Variable',sans-serif} .ddr{font-size:13px}.ddr p{max-width:none}.ddr-chapter{break-before:auto;margin-top:28px}.ddr-table-scroll{max-height:none;overflow:visible}.ddr table{font-size:11px}.ddr-table-scroll{width:100%;min-width:0!important}.ddr table{width:100%;table-layout:fixed}.ddr td,.ddr th{min-width:0!important;padding:4px 6px}.ddr td:first-child,.ddr th:first-child{width:auto!important}.ddr-wide td,.ddr .ddr-number{white-space:normal;overflow-wrap:anywhere}.ddr-equity-flow{grid-template-columns:repeat(2,minmax(0,1fr))}.ddr-phase>div{font-size:12px}.ddr-phase{break-inside:avoid}.ddr-equity-flow>.ddr-phase:nth-child(n){grid-column:auto;grid-row:auto}.ddr-flow-arrow{display:none}.ddr-ue-process,.ddr-source-gantt,.ddr-source-flow{break-inside:avoid;page-break-inside:avoid}.ddr-chart svg{min-width:0}.ddr h2{break-after:avoid}.ddr p{orphans:2;widows:2}.ddr-image img{max-height:840px;width:auto;max-width:100%;object-fit:contain;margin-inline:auto}.ddr-header{padding:4px 0 8px;margin:0 0 12px}.ddr-header h1{font-size:24px}.ddr-header p{margin-bottom:6px}.ddr-directory{columns:2;column-gap:16px}.ddr-directory-priority .ddr-directory-entries{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:16px}.ddr-directory-group{margin-bottom:8px}.ddr-directory-group h3{font-size:11px;line-height:16px;margin:0 0 2px;padding:0 0 2px}.ddr .ddr-directory-item{grid-template-columns:18px 122px minmax(0,1fr);gap:4px;padding:2px 0;line-height:14px}.ddr-directory-title,.ddr-directory-number{font-size:10.5px}.ddr-directory-description{font-size:10px;white-space:normal;overflow:visible;line-height:14px}.ddr-org-scroll{overflow:visible}.ddr-org{padding:0;break-inside:avoid}.ddr-org-node{font-size:11px;line-height:1.4;padding:6px;margin:6px}.ddr-org-lead{margin:0}.ddr-org-stem{height:64px}.ddr-org-advisor{top:6px;left:8px;width:124px;font-size:10px;padding:6px}.ddr-org-advisor:before{left:-9px;width:8px}.ddr-org-dept h3{padding:8px;font-size:12px}.ddr-org>p{font-size:10px;margin-top:12px}.ddr-proof{font-size:10px;color:#526874;padding:0;margin:2px 0 8px;break-after:avoid} tr{break-inside:avoid}
@@ -27,8 +30,9 @@ export async function ddReportHtml({edition,chapters,index,slug,assetUrls,includ
 
 /** Bound each Chromium document so the complete package stays within server memory/time limits. */
 export async function ddReportPdf(args:Parameters<typeof ddReportHtml>[0]&{deferNavigation?:boolean},render:(html:string)=>Promise<Uint8Array>):Promise<Uint8Array>{
+  args={...args,chapters:splitDdDevelopmentChapters(args.chapters),index:splitDdDevelopmentIndex(args.index)};
   const {PDFDocument}=await import('pdf-lib');
-  const chapters=orderedDdChapters(args.chapters),output=await PDFDocument.create();
+  const chapters=orderedDdChapters(splitDdDevelopmentChapters(args.chapters)),output=await PDFDocument.create();
   for(let offset=0;offset<chapters.length;offset+=4){
     const started=Date.now(),part=chapters.slice(offset,offset+4);
     const bytes=await render(await ddReportHtml({...args,chapters:part,includeCover:args.includeCover!==false&&offset===0,includeGlossary:args.includeGlossary!==false&&offset+4>=chapters.length,glossaryAll:args.glossaryAll??args.chapters.length===args.index.length}));
@@ -51,7 +55,8 @@ function xmlCell(original:string,value:DdReportValue,formula:boolean) {
 }
 /** Preserve native formulas, chart objects, validations, styles and Excel data tables. */
 export function ddReportXlsx(source:Uint8Array,edition:DdReportEdition,model:DdReportModel,chapters:DdReportChapter[],redact:(text:string)=>string=(s)=>s,focusSheet?:string,reportHref='https://amd-os-pwa.vercel.app/dd',pdfIndex?:DdPdfIndex) {
-  const files=unzipSync(source),calc=new DdReportCalculator(model,edition.input_overrides),edited=new Map(chapters.map(ch=>[ch.source_sheet,new Map(ch.body.rows.flatMap(r=>r.cells).filter(c=>!c.formula&&typeof c.value==='string').map(c=>[c.address,c.value]))]));
+  chapters=splitDdDevelopmentChapters(chapters);
+  const files=unzipSync(source),calc=new DdReportCalculator(model,edition.input_overrides),edited=new Map(mergeDdDevelopmentForWorkbook(chapters).map(ch=>[ch.source_sheet,new Map(ch.body.rows.flatMap(r=>r.cells).filter(c=>!c.formula&&typeof c.value==='string').map(c=>[c.address,c.value]))]));
   for(const [sheet,data]of Object.entries(model.sheets)){
     let xml=strFromU8(files[data.path]);
     xml=xml.replace(/<(?:[\w.-]+:)?c\b[^>]*?\br="([A-Z]+\d+)"[^>]*?(?:\/>|>[\s\S]*?<\/(?:[\w.-]+:)?c>)/g,(cell,address:string)=>{
@@ -96,13 +101,14 @@ export function ddReportXlsx(source:Uint8Array,edition:DdReportEdition,model:DdR
   files['xl/_rels/workbook.xml.rels']=strToU8(strFromU8(files['xl/_rels/workbook.xml.rels']).replace(/<Relationship\b[^>]*Type="[^"]*\/calcChain"[^>]*\/>/g,''));
   files['[Content_Types].xml']=strToU8(strFromU8(files['[Content_Types].xml']).replace(/<Override\b[^>]*PartName="\/xl\/calcChain.xml"[^>]*\/>/g,''));
   scaleDdJkissSummary(files,model.sheets['資本政策表']?.path);
-  const projected=projectDdWorkbook(files,chapters,model,edition,reportHref,pdfIndex);
+  const projected=projectDdWorkbook(files,mergeDdDevelopmentForWorkbook(chapters),model,edition,reportHref,pdfIndex);
   if(projected){const selected=focusSheet&&projected.includes(focusSheet)?focusSheet:projected[0];for(const name of projected){const p=model.sheets[name].path;files[p]=strToU8(strFromU8(files[p]).replace(/<(?:[\w.-]+:)?sheetView\b[^>]*>/g,view=>view.replace(/\s+tabSelected="[01]"/g,'').replace(/\/?>$/,` tabSelected="${name===selected?'1':'0'}"${view.endsWith('/>')?'/>':'>'}`)));}}
   if(focusSheet){const names=projected??[...strFromU8(files['xl/workbook.xml']).matchAll(/<sheet\b[^>]*name="([^"]+)"/g)].map(m=>m[1].replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&'));const position=names.indexOf(focusSheet);if(position>=0)files['xl/workbook.xml']=strToU8(strFromU8(files['xl/workbook.xml']).replace(/activeTab="\d+"/g,`activeTab="${position}"`));}
   // A harmless custom XML part identifies the same DB revision as PDF without adding a visible sheet.
   // Rename the public sheet after calculation and projection, updating formulas, charts and hyperlinks together.
   for(const path of Object.keys(files))if(path.endsWith('.xml')||path.endsWith('.rels'))files[path]=strToU8(strFromU8(files[path]).replaceAll('損益・資金繰','資金繰表'));
-  files['dd-report-version.json']=strToU8(JSON.stringify({title:edition.title,revision:edition.revision,sourceVersion:edition.source_version,sourceSha256:edition.source_sha256,...(projected?{contents:'numerical-model-and-tables',sheets:projected.map(s=>s==='損益・資金繰'?'資金繰表':s)}:{})}));
+  files['dd-report-version.json']=strToU8(JSON.stringify({title:edition.title,revision:edition.revision,sourceVersion:edition.source_version,sourceSha256:edition.source_sha256,...(projected?{contents:'numerical-model-and-tables',sheets:projected.flatMap(s=>s==='計画詳細'?['事業開発計画','技術開発計画']:[s==='損益・資金繰'?'資金繰表':s])}:{})}));
   const contentTypes=strFromU8(files['[Content_Types].xml']);if(!contentTypes.includes('Extension="json"'))files['[Content_Types].xml']=strToU8(contentTypes.replace('</Types>','<Default Extension="json" ContentType="application/json"/></Types>'));
+  splitDdDevelopmentWorkbook(files,chapters,model,edition,pdfIndex);
   return zipSync(files,{level:6});
 }

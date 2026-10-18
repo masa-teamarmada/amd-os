@@ -9,7 +9,7 @@ export function DdReportNavigation({slug,index,selected}:{slug:string;index:DdRe
   const groups=[...new Set(index.filter(c=>!priority.includes(c.slug)&&c.slug!=='assumptions').map(c=>c.group_label))];
   const link=(c:DdReportChapterSummary)=><Link key={c.slug} href={`/dd/${encodeURIComponent(slug)}?chapter=${c.slug}`} aria-current={selected===c.slug?'page':undefined}>{c.title==='UE'?'UE（ユニットエコノミクス）':c.title}</Link>;
   return <nav className="ddr ddr-nav" aria-label="DDパッケージの資料目録">
-    <label className="sr-only" htmlFor="dd-report-search">資料名を検索</label><input id="dd-report-search" value={query} onChange={e=>setQuery(e.target.value)} type="search" placeholder="38資料から検索"/>
+    <label className="sr-only" htmlFor="dd-report-search">資料名を検索</label><input id="dd-report-search" value={query} onChange={e=>setQuery(e.target.value)} type="search" placeholder={`${index.length}資料から検索`}/>
     <div className="ddr-nav-group">最初に読む</div>{priority.flatMap(key=>index.filter(c=>c.slug===key&&matches(c)).map(link))}
     {groups.map(group=>{const chapters=index.filter(c=>c.group_label===group&&!priority.includes(c.slug)&&c.slug!=='assumptions'&&matches(c));return chapters.length?<div key={group}><div className="ddr-nav-group">{group}</div>{chapters.map(link)}</div>:null;})}
     {index.some(c=>c.slug==='assumptions'&&matches(c))&&<div><div className="ddr-nav-group">計算条件</div>{index.filter(c=>c.slug==='assumptions'&&matches(c)).map(link)}</div>}

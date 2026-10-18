@@ -8,13 +8,17 @@ import {DdReportVisual} from './DdReportVisual';
 import {DdReportRichText} from './DdReportRichText';
 import {DdReportDirectory} from './DdReportDirectory';
 import {DdCapitalFundingFigure,DdInvestorReturnNote} from './DdCapitalFundingFigure';
+import {DdExecutionGantt,DdDevelopmentRoadmap} from './DdExecutionGantt';
+import {DD_REPORT_INTRODUCTIONS} from '@/lib/dd-report-introductions';
+import {ddDevelopmentTarget} from '@/lib/dd-report-development-plans';
+import {ddExecutionTasks} from '@/lib/dd-report-execution-plan';
 import type {DdReportCell,DdReportChapter,DdReportChapterSummary,DdReportChart,DdReportRow,DdReportGlossary} from '@/lib/dd-report-types';
 import {formatDdReportValue} from '@/lib/dd-report-format';
 import {ddPdfMarker} from '@/lib/dd-report-navigation';
 
 const palette=['#147d92','#193d52','#48a49a','#c99745','#6985aa','#a7b7bf','#566a66','#aa7171'];
 export function ddReportHref(slug:string,sheet:string,index:DdReportChapterSummary[],address?:string) {
-  const chapter=index.find(c=>c.source_sheet===sheet);return chapter?`/dd/${encodeURIComponent(slug)}?chapter=${chapter.slug}${address?'#cell-'+address:''}`:null;
+  const chapter=index.find(c=>c.source_sheet===sheet&&(sheet!=='計画詳細'||c.slug===ddDevelopmentTarget(address)))??index.find(c=>c.source_sheet===sheet);return chapter?`/dd/${encodeURIComponent(slug)}?chapter=${chapter.slug}${address?'#cell-'+address:''}`:null;
 }
 function resolveLink(link:string|undefined,slug:string,index:DdReportChapterSummary[]) {
   if(!link)return null;if(/^https?:\/\//i.test(link))return link;
@@ -57,7 +61,7 @@ export function DdReportChartFigure({chart}:{chart:DdReportChart}) {
   </figure>;
 }
 
-type ContentProps={chapter:DdReportChapter;slug:string;index:DdReportChapterSummary[];assetUrls?:Record<string,string>;allRows?:boolean;glossary?:DdReportGlossary;canDownload?:boolean;revision?:number;pdfWorkbookName?:string;onDownloadExcel?:(href:string)=>void;inputControls?:DdSimulationControls;simulationActive?:boolean};
+type ContentProps={chapter:DdReportChapter;slug:string;index:DdReportChapterSummary[];assetUrls?:Record<string,string>;allRows?:boolean;glossary?:DdReportGlossary;canDownload?:boolean;revision?:number;pdfWorkbookName?:string;onDownloadExcel?:(href:string)=>void;inputControls?:DdSimulationControls;simulationActive?:boolean;executionWindow?:number;onExecutionWindowChange?:(index:number)=>void};
 function ReportTable({rows,slug,index,allRows,glossary,pageScroll=false,chapterSlug,inputControls}:{rows:DdReportRow[];slug:string;index:DdReportChapterSummary[];allRows?:boolean;glossary?:DdReportGlossary;pageScroll?:boolean;chapterSlug?:string;inputControls?:DdSimulationControls}) {
   if(isDdGantt(rows))return <DdSourceGantt rows={rows} cell={c=><CellValue cell={c} slug={slug} index={index} glossary={glossary} allRows={allRows} chapterSlug={chapterSlug} inputControls={inputControls}/>}/>;
   if(!allRows&&chapterSlug?.endsWith('-cost')){
@@ -106,8 +110,9 @@ export function DdReportContent(props:ContentProps) {
   const excelHref=allRows&&pdfWorkbookName?encodeURI(pdfWorkbookName):`/api/dd/${encodeURIComponent(slug)}/report/export?format=xlsx&scope=all&sheet=${encodeURIComponent(chapter.source_sheet)}${revision?`&revision=${revision}`:""}`;
   let tableNoticeShown=false,tableCount=0;
   if(chapter.slug==='biographies')return <DdBiographies chapter={chapter} slug={slug} glossary={glossary} allRows={allRows}/>;
-  if(chapter.slug==='organization')return <Organization chapter={chapter}/>;
+  if(chapter.slug==='organization')return <><p className="ddr-page-introduction"><DdReportRichText text={DD_REPORT_INTRODUCTIONS[chapter.slug]} id="page-introduction" slug={slug} glossary={glossary} interactive={!allRows} emphasize/></p><Organization chapter={chapter}/></>;
   const objects=[...body.objects].sort((a,b)=>a.row-b.row),blocks:ReactNode[]=[];let tableRows:DdReportRow[]=[];let objectIndex=0;
+  if(DD_REPORT_INTRODUCTIONS[chapter.slug])blocks.push(<p className="ddr-page-introduction" key="page-introduction"><DdReportRichText text={DD_REPORT_INTRODUCTIONS[chapter.slug]} id="page-introduction" slug={slug} glossary={glossary} interactive={!allRows} emphasize/></p>);
   const primary:Record<string,{address:string;label:string;unit:string}>={
     'cyanobacteria-cost':{address:'E20',label:'出荷する菌体1kgの原価',unit:'円/kg-DCW'},
     'reactor-cost':{address:'E20',label:'SOLの廃液処理直接原価',unit:'円/m³'},
@@ -118,7 +123,8 @@ export function DdReportContent(props:ContentProps) {
   if(metric&&result)blocks.push(<div className="ddr-primary-result" key="primary-result"><div>{metric.label}</div><strong>{typeof result.value==='number'?result.value.toLocaleString('ja-JP',{maximumFractionDigits:1}):String(result.value)}</strong><span>{metric.unit}</span></div>);
   const flush=()=>{if(!tableRows.length)return;
     const pageScroll=chapter.slug==='assumptions'&&tableCount===0;tableCount++;
-    if(allRows&&body.excel?.mode!=='pdf'){if(!tableNoticeShown){blocks.push(<p className="ddr-table-export-note" key="excel-note"><a className="ddr-pdf-anchor" href={ddPdfMarker(slug,chapter.slug)+'#excel-tables'} aria-hidden="true">.</a>表・計算条件は同梱Excelの「{formatDdReportValue(chapter.source_sheet)}」シートに収録。 <a href={excelHref}>{pdfWorkbookName?"同梱Excelを開く":"表をExcelでダウンロード"} ↗</a></p>);tableNoticeShown=true;}}
+    if(chapter.slug.endsWith('-development-plan')&&ddExecutionTasks(tableRows).length){blocks.push(<DdExecutionGantt key="execution-gantt" rows={tableRows} windowIndex={props.executionWindow} onWindowChange={props.onExecutionWindowChange} print={allRows} cell={c=><CellValue cell={c} slug={slug} index={index} glossary={glossary} allRows={allRows} chapterSlug={chapter.slug}/>}/>);}
+    else if(allRows&&body.excel?.mode!=='pdf'){if(!tableNoticeShown){blocks.push(<p className="ddr-table-export-note" key="excel-note"><a className="ddr-pdf-anchor" href={ddPdfMarker(slug,chapter.slug)+'#excel-tables'} aria-hidden="true">.</a>表・計算条件は同梱Excelの「{chapter.slug.endsWith('-development-plan')?chapter.title:formatDdReportValue(chapter.source_sheet)}」シートに収録。 <a href={excelHref}>{pdfWorkbookName?"同梱Excelを開く":"表をExcelでダウンロード"} ↗</a></p>);tableNoticeShown=true;}}
     else blocks.push(<div className="ddr-table-block" key={'table-'+tableRows[0].row}>{canDownload&&body.excel?.mode!=='pdf'&&<div className="ddr-table-tools"><a href={excelHref} download onClick={onDownloadExcel?event=>{event.preventDefault();onDownloadExcel(excelHref);}:undefined}>{simulationActive?'計画値の表をExcelでダウンロード':'表をExcelでダウンロード'} ↗</a></div>}<ReportTable rows={tableRows} slug={slug} index={index} allRows={allRows} glossary={glossary} pageScroll={pageScroll} chapterSlug={chapter.slug} inputControls={inputControls}/></div>);
     tableRows=[];
   };
@@ -134,9 +140,16 @@ export function DdReportContent(props:ContentProps) {
     }
   };
   if(chapter.slug==='source-index')blocks.push(<DdReportDirectory key="directory" index={index} rows={body.rows} slug={slug}/>,<h2 key="overview">事業と資金計画の概要</h2>);
+
   for(const [rowIndex,row] of body.rows.entries()){
     if(row.row<=2||(chapter.slug==='source-index'&&(row.row<=6||(row.row>=21&&row.row<=62))))continue;
     addObjects(row.row);
+    if(chapter.slug.endsWith('-development-plan')&&row.row===12){flush();blocks.push(<DdDevelopmentRoadmap key="development-roadmap" rows={body.rows}/>);continue;}
+    if(chapter.slug.endsWith('-development-plan')&&(row.row>=407&&row.row<=410||row.row>=507&&row.row<=511)){
+      if(row.row===407||row.row===507){flush();const start=row.row,end=start===407?410:511;
+        blocks.push(<div className="ddr-development-workstreams" key="development-workstreams">{body.rows.filter(r=>r.row>=start&&r.row<=end).map((r,i)=>{const c=r.cells[0],[title,...text]=String(c.value).split('｜');return <section key={r.row}><h3><span>{String(i+1).padStart(2,'0')}</span>{title.replace(/^[①-⑩]\s*/, '')}</h3><p><CellValue cell={{...c,value:text.join('｜')}} slug={slug} index={index} glossary={glossary} allRows={allRows} chapterSlug={chapter.slug}/></p></section>;})}</div>);
+      }continue;
+    }
     if(chapter.slug==='unit-economics'&&row.row>=5&&row.row<=11){if(row.row===5){flush();blocks.push(<DdUeProcess key="ue-process" rows={body.rows.filter(r=>r.row>=5&&r.row<=11)} cell={c=><CellValue cell={c} slug={slug} index={index} glossary={glossary} allRows={allRows} chapterSlug={chapter.slug} inputControls={inputControls}/>}/>);}continue;}
     if(chapter.slug==='capital-plan'&&row.row===181&&body.jkiss){flush();blocks.push(<div key="jkiss-summary" id="cell-B181">{allRows&&<a className="ddr-pdf-anchor" href={ddPdfMarker(slug,chapter.slug,'B181')} aria-hidden="true">.</a>}<DdJkissExplanation summary={body.jkiss}/></div>);continue;}
     // Detailed rows stay in Excel/PDF's existing projection; the web still parses their headings and prose.

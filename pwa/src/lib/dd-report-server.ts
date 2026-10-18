@@ -11,6 +11,7 @@ import {DdReportCalculator,ddAddress,ddColumn} from './dd-report-model';
 import type {DdReportAsset,DdReportBody,DdReportChapter,DdReportChapterSummary,DdReportEdition,DdReportModel,DdReportValue} from './dd-report-types';
 import {loadProjectPartnerDisclosure} from './project-partner-disclosure-server';
 import {redactProjectPartnerNames} from './project-partner-disclosure';
+import {DD_DEVELOPMENT_SLUGS,splitDdDevelopmentChapter,splitDdDevelopmentIndex} from './dd-report-development-plans';
 
 export const DD_REPORT_BUCKET='dd-report-files';
 const EDITION_FIELDS='id,package_id,title,source_version,source_sha256,status,summary,model_storage_path,xlsx_storage_path,legacy_snapshot_path,input_overrides,glossary,revision,created_at,updated_at';
@@ -22,10 +23,11 @@ export async function loadDdReportEdition(access:DdViewerAccess):Promise<DdRepor
 }
 export async function loadDdReportChapterIndex(editionId:string):Promise<DdReportChapterSummary[]> {
   const r=await createAdminClient().from('dd_report_chapters').select('id,slug,title,group_label,sort_order,source_sheet,revision,updated_at').eq('edition_id',editionId).order('sort_order');
-  if(r.error)throw new Error('資料目録を読み込めなかった');return r.data as DdReportChapterSummary[];
+  if(r.error)throw new Error('資料目録を読み込めなかった');return splitDdDevelopmentIndex(r.data as DdReportChapterSummary[]);
 }
 export async function loadDdReportChapter(editionId:string,slug:string):Promise<DdReportChapter|null> {
-  const r=await createAdminClient().from('dd_report_chapters').select('id,slug,title,group_label,sort_order,source_sheet,body,revision,updated_at').eq('edition_id',editionId).eq('slug',slug).maybeSingle();
+  const sourceSlug=DD_DEVELOPMENT_SLUGS.includes(slug as typeof DD_DEVELOPMENT_SLUGS[number])?'execution-plan':slug;
+  const r=await createAdminClient().from('dd_report_chapters').select('id,slug,title,group_label,sort_order,source_sheet,body,revision,updated_at').eq('edition_id',editionId).eq('slug',sourceSlug).maybeSingle();
   if(r.error)throw new Error('資料本文を読み込めなかった');if(!r.data)return null;
   const stored=r.data.body as {storagePath?:string;sha256?:string};
   if(stored.storagePath){
@@ -33,7 +35,7 @@ export async function loadDdReportChapter(editionId:string,slug:string):Promise<
     const bytes=Buffer.from(await f.data.arrayBuffer());if(createHash('sha256').update(bytes).digest('hex')!==stored.sha256)throw new Error('資料本文の版が一致しない');
     r.data.body=JSON.parse(gunzipSync(bytes).toString());
   }
-  return r.data as DdReportChapter;
+  return splitDdDevelopmentChapter(r.data as DdReportChapter,slug);
 }
 export async function storeDdReportBody(edition:DdReportEdition,chapter:DdReportChapter):Promise<Record<string,unknown>> {
   const path=edition.model_storage_path.replace(/\/[^/]+$/,'')+`/edited/${chapter.id}-${crypto.randomUUID()}.json.gz`;

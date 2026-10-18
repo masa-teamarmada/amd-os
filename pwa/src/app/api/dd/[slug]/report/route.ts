@@ -41,9 +41,11 @@ export async function POST(request:Request,{params}:{params:Promise<{slug:string
     const chapter=await loadDdReportChapter(edition.id,body.chapter);if(!chapter||chapter.revision!==body.chapterRevision)return NextResponse.json({error:'資料が更新済み。再読込が必要。'},{status:409});
     const model=await loadDdReportModel(edition);
     const cell=chapter.body.rows.filter(r=>r.row>2).flatMap(r=>r.cells).find(c=>c.address===body.address);if(!cell||cell.formula||typeof cell.value!=='string'||cell.span<5||model.inputs.some(i=>i.sheet===chapter.source_sheet&&i.address===cell.address))return denied();
-    const before=cell.value;cell.value=body.value;
-    const storedBody=await storeDdReportBody(edition,chapter);
-    return commit({p_kind:'chapter',p_before:{address:body.address,value:before},p_after:{address:body.address,value:body.value},p_chapter_id:chapter.id,p_chapter_revision:chapter.revision,p_body:storedBody});
+    const canonical=chapter.slug.endsWith('-development-plan')?await loadDdReportChapter(edition.id,'execution-plan'):chapter;if(!canonical||canonical.revision!==chapter.revision)return denied();
+    const canonicalCell=canonical.body.rows.flatMap(r=>r.cells).find(c=>c.address===cell.address);if(!canonicalCell)return denied();
+    const before=canonicalCell.value;canonicalCell.value=body.value;
+    const storedBody=await storeDdReportBody(edition,canonical);
+    return commit({p_kind:'chapter',p_before:{address:body.address,value:before},p_after:{address:body.address,value:body.value},p_chapter_id:canonical.id,p_chapter_revision:canonical.revision,p_body:storedBody});
   }
   return NextResponse.json({error:'操作が未指定。'},{status:400});
 }

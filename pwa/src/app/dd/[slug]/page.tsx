@@ -44,8 +44,8 @@ export default async function DdPackagePage({ params, searchParams }: { params: 
   if(edition&&legacy!=='1'){
     if(tab==='documents')redirect(`/dd/${encodeURIComponent(slug)}/legacy?tab=documents`);
     const index=await loadDdReportChapterIndex(edition.id);
-    const aliases:Record<string,string>={'capital-policy':'capital-plan','monthly-trial':'financial-plan','financial-projection':'financial-plan','cost-model':'unit-economics','poc-list':'poc','business-plan':'business-plan','company':'company','market-research':'market','technical-explanation':'technology'};
-    const selected=chapter??(tab?aliases[tab]??tab:'source-index');
+    const aliases:Record<string,string>={'execution-plan':'business-development-plan','capital-policy':'capital-plan','monthly-trial':'financial-plan','financial-projection':'financial-plan','cost-model':'unit-economics','poc-list':'poc','business-plan':'business-plan','company':'company','market-research':'market','technical-explanation':'technology'};
+    const selected=(chapter==='execution-plan'?'business-development-plan':chapter)??(tab?aliases[tab]??tab:'source-index');
     const raw=await loadDdReportChapter(edition.id,index.some(c=>c.slug===selected)?selected:'source-index');if(!raw)notFound();
     const evaluated=await evaluatedDdReportChapter(edition,raw);
     const report=await redactDdReport(access.projectId,evaluated);

@@ -30,7 +30,7 @@ const original=unzipSync(await fs.readFile(path.join(folder,'source.xlsx')));
 const funding=Object.values(files).map(b=>strFromU8(b)).find(s=>s.includes('ラウンド別の評価額・新規調達額（億円）'));assert(funding);assert(funding.includes('<c:grouping val="stacked"/>'));assert.equal((funding.match(/<c:ser>/g)||[]).length,2);assert(funding.includes('$Z$333:$Z$337')&&funding.includes('$C$98:$C$102'));console.log('PASS: exported funding chart stacks formula-linked pre valuation and funding');
 if(projected){
   const workbook=strFromU8(files['xl/workbook.xml']),names=[...workbook.matchAll(/<sheet\b[^>]*name="([^"]+)"/g)].map(m=>m[1]);
-  assert.equal(names.length,20);assert.equal(names[0],'資料一覧');assert(!names.includes('事業計画'));assert(!names.includes('経営陣略歴'));assert(!names.includes('SIER'));
+  assert.equal(names.length,21);assert(names.includes('事業開発計画')&&names.includes('技術開発計画')&&!names.includes('計画詳細'));assert.equal(names[0],'資料一覧');assert(!names.includes('事業計画'));assert(!names.includes('経営陣略歴'));assert(!names.includes('SIER'));
   assert.deepEqual(names.slice(1,8),['資本政策表','資金繰表','UE','シアノ生産コスト','リアクター処理コスト','金属回収コスト','FAME生産コスト']);
   assert(!Object.keys(files).some(p=>p.startsWith('xl/media/')));
   assert(!strFromU8(files[model.sheets['生産・拠点計画'].path]).includes('最初の進出先はシンガポール'));
@@ -46,7 +46,7 @@ if(projected){
       if(entry.input)assert(cells.has(address),'Preserve input '+chapter.source_sheet+'!'+address);
     }
   }
-  assert(checked>120000);console.log('PASS: numeric workbook, 20 sheets, PDF chapters absent; preserved numerical cells',checked);
+  assert(checked>120000);console.log('PASS: numeric workbook, 21 sheets, PDF chapters absent; preserved numerical cells',checked);
   assert.equal(Object.entries(files).filter(([p,b])=>p.endsWith('.xml')&&strFromU8(b.subarray(0,1500)).includes('<c:chartSpace')).length,30);
   for(const [path,content]of Object.entries(files))if(path.endsWith('.xml'))assert(!/\/\s+hidden="/.test(strFromU8(content)),path+' has valid empty rows');
 }else{

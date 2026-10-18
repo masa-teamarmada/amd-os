@@ -13,6 +13,7 @@ export function DdReportReader(props:Props) {
   const {slug,chapter,index,canDownload,revision}=props,router=useRouter(),company=props.title.split('｜')[0];
   const reader=useRef<HTMLElement>(null);
   const [displayChapter,setDisplayChapter]=useState(chapter),[scenario,setScenario]=useState<Record<string,DdReportValue>>({}),[draft,setDraft]=useState<Record<string,DdReportValue>>({}),[calculating,setCalculating]=useState(false),[simulationMessage,setSimulationMessage]=useState('');
+  const [executionWindow,setExecutionWindow]=useState(0);
   const storageKey=`amie-dd-scenario:${slug}:r${revision}`;
   const preview=async(values:Record<string,DdReportValue>,signal?:AbortSignal)=>{
     const r=await fetch(`/api/dd/${encodeURIComponent(slug)}/report/simulate`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({revision,chapter:chapter.slug,values}),signal});
@@ -70,7 +71,7 @@ export function DdReportReader(props:Props) {
     {((props.inputs?.length??0)>0||Object.keys(scenario).length>0)&&<div className="ddr-simulation-toolbar"><div><strong>試算条件</strong><span> 表の選択肢・数値を変更し、UEと資金繰表への影響を確認できる。</span></div><div>{(props.inputs?.length??0)>0&&<button className="ddr-button ddr-button-primary" disabled={calculating} onClick={()=>void applyScenario()}>{calculating?'試算中…':'この条件で試算'}</button>}<button className="ddr-button" disabled={calculating} onClick={resetScenario}>計画値に戻す</button></div></div>}
     {simulationMessage&&<p className="ddr-simulation-message" role="status">{simulationMessage}</p>}
 
-    <DdReportContent chapter={displayChapter} simulationActive={Object.keys(scenario).length>0} inputControls={{inputs:props.inputs??[],sheet:chapter.source_sheet,values:{...props.overrides,...draft},disabled:calculating,change:(key,value)=>{setDraft(current=>({...current,[key]:value}));setSimulationMessage('条件を変更中。「この条件で試算」で結果を更新する。');}}} slug={slug} index={index} glossary={props.glossary} canDownload={canDownload} revision={revision} onDownloadExcel={href=>{if(!busy)void download('xlsx',true,href);}}/>
+    <DdReportContent chapter={displayChapter} executionWindow={executionWindow} onExecutionWindowChange={setExecutionWindow} simulationActive={Object.keys(scenario).length>0} inputControls={{inputs:props.inputs??[],sheet:chapter.source_sheet,values:{...props.overrides,...draft},disabled:calculating,change:(key,value)=>{setDraft(current=>({...current,[key]:value}));setSimulationMessage('条件を変更中。「この条件で試算」で結果を更新する。');}}} slug={slug} index={index} glossary={props.glossary} canDownload={canDownload} revision={revision} onDownloadExcel={href=>{if(!busy)void download('xlsx',true,href);}}/>
     <footer className="ddr-chapter-footer">{position>0?<Link href={`/dd/${slug}?chapter=${ordered[position-1].slug}`}>← {ordered[position-1].title}</Link>:<span/>}{position<ordered.length-1&&<Link href={`/dd/${slug}?chapter=${ordered[position+1].slug}`}>{ordered[position+1].title} →</Link>}</footer>
   </article>;
 }

@@ -48,7 +48,7 @@ console.log('PASS: metadata outside numerical grids, first-column labels, separa
 if(process.argv[2]){
   const fs=await import('node:fs/promises'),path=await import('node:path');
   const {DD_REPORT_CSS}=await import('../src/components/dd/report/dd-report-style.ts');
-  const manifest=JSON.parse(await fs.readFile(process.argv[2],'utf8')),out=process.argv[3];await fs.mkdir(out,{recursive:true});
+  const manifest=JSON.parse(await fs.readFile(process.argv[2],'utf8')),out=process.argv[3];const {splitDdDevelopmentChapters}=await import('../src/lib/dd-report-development-plans.ts');manifest.chapters=splitDdDevelopmentChapters(manifest.chapters);await fs.mkdir(out,{recursive:true});
   for(const c of manifest.chapters){
 
     if(process.argv[4]){const {gunzipSync}=await import('node:zlib');const {updateDdReportBody}=await import('../src/lib/dd-report-server.ts');const model=JSON.parse(gunzipSync(await fs.readFile(process.argv[4])).toString());c.body=updateDdReportBody(c.body,c.source_sheet,new DdReportCalculator(model));}
