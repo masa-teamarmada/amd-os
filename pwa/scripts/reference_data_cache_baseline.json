@@ -30,7 +30,8 @@
     "src/components/nav/PageViewing.tsx": "可変系。閲覧中の状態を1分ごとに更新し、訪問履歴も増える。現行の画面権限を毎回再検証するPOSTなので参照キャッシュを挟まない。",
     "src/components/workflows/WorkflowWorkspace.tsx": "可変系。押印申請の承認・差戻し・文書変更、メール検知、通知配信と監視の状態を操作直後に読み直す。古い承認を表示して押印判断を誤らせないためno-storeで取得する。",
     "src/lib/project-card-designs-client.ts": "書き込み専用。版の登録・承認・Drive保存先の準備をPOSTする。GETは30秒の共通参照キャッシュ経由。保存後は名刺一覧のキャッシュを破棄する。",
-    "src/lib/project-tech-client.ts": "POST /api/project-tech-graphsの画像保存専用。技術台帳の読取りは既存loadReferenceData経由で、保存後にinvalidateProjectTechを実行する。元画像の閲覧はmember認可を毎回確認する短期限署名routeで、公開URL・署名URLをキャッシュしない。"
+    "src/lib/project-tech-client.ts": "POST /api/project-tech-graphsの画像保存専用。技術台帳の読取りは既存loadReferenceData経由で、保存後にinvalidateProjectTechを実行する。元画像の閲覧はmember認可を毎回確認する短期限署名routeで、公開URL・署名URLをキャッシュしない。",
+    "src/components/dd/report/DdReportReader.tsx": "POST /api/dd/:p/reportは本文・入力条件の保存専用。GET /exportはその時点の資料版・権限・非開示指定を再確認し、監査付きのPDF/Excel生成と60秒署名URLの取得を行う可変系。本文の読取りはサーバ側で認可後に実行し、保存直後はrouter.refreshで再取得する。"
   },
   "allowed": {
     "src/lib/institution-support-programs-client.ts": [
@@ -366,6 +367,10 @@
     ],
     "src/lib/project-tech-client.ts": [
       "/api/project-tech-graphs"
+    ],
+    "src/components/dd/report/DdReportReader.tsx": [
+      "/api/dd/:p/report",
+      "/api/dd/:p/report/export"
     ]
   }
 }
