@@ -1,8 +1,10 @@
+2026-10-19 v3.163.30／DD v2.0.1：組織図の石原裕香・中島純一先生への点線は、各部長と部署を結ぶ縦の実線の中間から左右へ水平に分岐する。両支援カードを分岐の高さへそろえ、OSとPDFで同じ図を用いる。
+
 2026-10-19 v3.163.29：DDの見出し・経歴アイコンを同一形状の静的SVGへ変更。新しい資料版のPDF再生成がサーバー上で完了するよう修正。DD資料版はv2.0.0を維持。
 
 ## 2026-10-19 — DD資料の版と変更履歴（OS v3.163.28／DD v2.0.0）
 
-DD資料の現行版はv2.0.0。アプリのBUILD_VERSION、原本Excelのsource_version、内部のrevisionと独立して、dd_report_editions.document_versionへ保存する。画面の上部でAMD OSの版とDD資料の版を明示し、「変更履歴」を開くと版・日時・変更概要を確認できる。PDF本文・各章、Excel目録・印刷ヘッダ・内部メタデータと、PDF/Excel/ZIPの実際の保存名は同じ資料版を用いる。
+DD資料の現行版はv2.0.1。全面改訂後の初回はv2.0.0。アプリのBUILD_VERSION、原本Excelのsource_version、内部のrevisionと独立して、dd_report_editions.document_versionへ保存する。画面の上部でAMD OSの版とDD資料の版を明示し、「変更履歴」を開くと版・日時・変更概要を確認できる。PDF本文・各章、Excel目録・印刷ヘッダ・内部メタデータと、PDF/Excel/ZIPの実際の保存名は同じ資料版を用いる。
 
 変更履歴は新設dd_report_releasesへ保存する。初回は全面改訂の概要をv2.0.0として登録。資料revisionが進む更新ではDBトリガーがdocument_versionのpatchを1増やし、同じトランザクションで履歴を追加する。OSだけの更新は資料版を維持。major/minorを変える場合は、更新トランザクションでdocument_versionとapp.dd_document_change_summaryを明示する。過去版への巻戻しを拒否する。旧版r表記はdocument_version未登録の資料に限る互換表示。
 
