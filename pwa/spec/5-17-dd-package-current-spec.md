@@ -1,3 +1,5 @@
+2026-10-19 v3.163.29：DDの見出し・経歴アイコンを同一形状の静的SVGへ変更。新しい資料版のPDF再生成がサーバー上で完了するよう修正。DD資料版はv2.0.0を維持。
+
 ## 2026-10-19 — DD資料の版と変更履歴（OS v3.163.28／DD v2.0.0）
 
 DD資料の現行版はv2.0.0。アプリのBUILD_VERSION、原本Excelのsource_version、内部のrevisionと独立して、dd_report_editions.document_versionへ保存する。画面の上部でAMD OSの版とDD資料の版を明示し、「変更履歴」を開くと版・日時・変更概要を確認できる。PDF本文・各章、Excel目録・印刷ヘッダ・内部メタデータと、PDF/Excel/ZIPの実際の保存名は同じ資料版を用いる。
