@@ -32,8 +32,8 @@ export async function DdViewerShell({ access, projectName, pageKey, children, re
         <div>
         <PageHistoryToolbar compact leading={<NavigationProgressIndicator />} title={<h1 className="min-w-0 flex-1 truncate px-1 text-base font-bold" title={projectName}>{projectName}</h1>} actions={
           <div className="flex shrink-0 gap-2 text-[12px] text-[#6e6e73]">
-            {access.principal === "internal_admin" && <Link href={`/project/${encodeURIComponent(access.projectId)}/dd?tab=manage`} className="inline-flex min-h-11 items-center rounded-md border border-[#d2d2d7] px-2 hover:bg-[#f5f5f7] sm:min-h-7">設定</Link>}
-            {hasDdCapability(access,"dd.edit") && access.principal !== "internal_admin" && <Link href={`/dd/${encodeURIComponent(access.slug)}/edit`} className="inline-flex min-h-11 items-center rounded-md border border-[#d2d2d7] px-3 sm:min-h-9">掲載項目を編集</Link>}
+            {access.principal === "internal_admin" && <Link prefetch={false} href={`/project/${encodeURIComponent(access.projectId)}/dd?tab=manage`} className="inline-flex min-h-11 items-center rounded-md border border-[#d2d2d7] px-2 hover:bg-[#f5f5f7] sm:min-h-7">設定</Link>}
+            {hasDdCapability(access,"dd.edit") && access.principal !== "internal_admin" && <Link prefetch={false} href={`/dd/${encodeURIComponent(access.slug)}/edit`} className="inline-flex min-h-11 items-center rounded-md border border-[#d2d2d7] px-3 sm:min-h-9">掲載項目を編集</Link>}
             {access.principal === "workspace_account" && <a href="/auth/logout" className="inline-flex min-h-11 items-center rounded-md border border-[#d2d2d7] px-3 hover:bg-[#f5f5f7] sm:min-h-9">ログアウト</a>}
           </div>
         } />

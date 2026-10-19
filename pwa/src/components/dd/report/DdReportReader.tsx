@@ -84,6 +84,6 @@ export function DdReportReader(props:Props) {
     {simulationMessage&&<p className="ddr-simulation-message" role="status">{simulationMessage}</p>}
 
     <DdReportContent chapter={displayChapter} executionWindow={executionWindow} onExecutionWindowChange={setExecutionWindow} simulationActive={Object.keys(draft).length>0} inputControls={{inputs:props.inputs??[],sheet:chapter.source_sheet,values:{...props.overrides,...draft},disabled:false,change:(key,value)=>{setDraft(current=>({...current,[key]:value}));}}} slug={slug} index={index} glossary={props.glossary} canDownload={canDownload} revision={revision} onDownloadExcel={href=>{if(!busy)void download('xlsx',true,href);}}/>
-    <footer className="ddr-chapter-footer">{position>0?<Link href={`/dd/${slug}?chapter=${ordered[position-1].slug}`}>← {ordered[position-1].title}</Link>:<span/>}{position<ordered.length-1&&<Link href={`/dd/${slug}?chapter=${ordered[position+1].slug}`}>{ordered[position+1].title} →</Link>}</footer>
+    <footer className="ddr-chapter-footer">{position>0?<Link prefetch={false} href={`/dd/${slug}?chapter=${ordered[position-1].slug}`}>← {ordered[position-1].title}</Link>:<span/>}{position<ordered.length-1&&<Link prefetch={false} href={`/dd/${slug}?chapter=${ordered[position+1].slug}`}>{ordered[position+1].title} →</Link>}</footer>
   </article>;
 }
