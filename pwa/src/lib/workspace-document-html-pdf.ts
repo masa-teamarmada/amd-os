@@ -188,6 +188,7 @@ type PdfRenderOptions = {
   args?: string[];
   tagged?: boolean;
   pageWidthPx?: number;
+  pageHeightPx?: number;
   compactPagination?: boolean;
 };
 
@@ -243,7 +244,7 @@ export async function renderWorkspaceDocumentHtmlToPdf(
       }),
       desktopScrollWidthPx: desktopMetrics.scrollWidth,
     });
-    const pdfHeightPx = pdfHeightPxForWidth(pdfWidthPx);
+    const pdfHeightPx = options.pageHeightPx ?? pdfHeightPxForWidth(pdfWidthPx);
 
     await page.setViewport({ width: pdfWidthPx, height: 1600, deviceScaleFactor: 1 });
     // 幅を変えるとメディアクエリで溝が復活し得るので、最終幅でもう一度詰める。

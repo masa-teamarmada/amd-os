@@ -2,6 +2,7 @@ import {Fragment,type ReactNode} from 'react';
 import {DdReportInputValue,type DdSimulationControls} from './DdReportSimulation';
 import {DdBiographies} from './DdBiographies';
 import {DdOrganizationChart} from './DdOrganizationChart';
+import {DdEquityValuationChart} from './DdEquityValuationChart';
 import {DdReportSectionIcon} from './DdReportSectionIcon';
 import {DdSourceFlow,DdSourceGantt,DdUeProcess,isDdGantt} from './DdSourceDiagrams';
 import {DdJkissExplanation} from './DdJkissExplanation';
@@ -89,11 +90,26 @@ function ReportTable({rows,slug,index,allRows,glossary,pageScroll=false,chapterS
 }
 function EquityDiagram({chapter,slug,index,glossary,allRows,inputControls}:ContentProps) {
   const cells=new Map(chapter.body.rows.flatMap(r=>r.cells).map(c=>[c.address,c]));
+  const gap=cells.get('B9');
   const phases=[['B',13,15,19,22,26],['G',13,15,19,22,26],['L',13,15,19,22,26],['L',32,34,38,41,45],['G',32,34,38,41,45],['B',32,34,38,41,45]] as const;
-  return <><div className="ddr-equity-flow">{phases.map(([col,...rs],i)=><section key={col+rs[0]} className="ddr-phase">
-    {rs.map((r,j)=>{const cell=cells.get(col+r);return cell?j===0?<h3 key={r}><CellValue cell={cell} slug={slug} index={index} glossary={glossary} allRows={allRows} chapterSlug={chapter.slug} inputControls={inputControls}/></h3>:<div key={r} className={j===2?'ddr-phase-funding':''}><CellValue cell={cell} slug={slug} index={index} glossary={glossary} allRows={allRows} emphasize chapterSlug={chapter.slug} inputControls={inputControls}/></div>:null;})}
+  const value=(cell:DdReportCell)=><CellValue cell={cell} slug={slug} index={index} glossary={glossary} allRows={allRows} emphasize chapterSlug={chapter.slug} inputControls={inputControls}/>;
+  return <>
+    {gap&&<section className="ddr-phase ddr-phase-gap"><h3>GAPファンド</h3><div>{value(gap)}</div></section>}
+    <p className="ddr-equity-chart-note">前回ポスト＋進捗による評価増＋追加調達＝今回ポスト。金額は各ラウンドの計画値（億円）。各図の縦軸はカード内の金額に合わせる。</p>
+    <div className="ddr-equity-scroll" tabIndex={0} aria-label="シードからIPOまで6ラウンドのカード"><div className="ddr-equity-rounds">
+    {phases.map(([col,...rs],i)=><section key={col+rs[0]} className="ddr-phase" data-phase={i}>
+    {rs.map((r,j)=>{const cell=cells.get(col+r);if(!cell)return null;
+      if(j===0)return <h3 key={r}>{value(cell)}</h3>;
+      const [heading,...lines]=String(cell.value).split('\n');
+      const labelled=j!==2&&lines.length>0;
+      return <div key={r} className={j===2?'ddr-phase-funding':''}>
+        {(labelled||j===2)&&<h4 className="ddr-phase-label">{j===2?'調達条件・金額':heading}</h4>}
+        {j===2&&chapter.body.equityValuations?.[i]&&<DdEquityValuationChart round={chapter.body.equityValuations[i]}/>}
+        {value(labelled?{...cell,value:lines.join('\n')}:cell)}
+      </div>;
+    })}
     {i<5&&<span className="ddr-flow-arrow" aria-hidden="true">→</span>}
-  </section>)}</div><div className="ddr-equity-notes">{["B29","K29","B49","K49"].map(a=>{const cell=cells.get(a);return cell?<p key={a}><CellValue cell={cell} slug={slug} index={index} glossary={glossary} allRows={allRows} chapterSlug={chapter.slug} inputControls={inputControls}/></p>:null;})}</div></>;
+  </section>)}</div></div><div className="ddr-equity-notes">{["B29","K29","B49","K49"].map(a=>{const cell=cells.get(a);return cell?<p key={a}><CellValue cell={cell} slug={slug} index={index} glossary={glossary} allRows={allRows} chapterSlug={chapter.slug} inputControls={inputControls}/></p>:null;})}</div></>;
 }
 /** Source cells become prose, comparisons, diagrams and charts. Whitespace-only rows disappear. */
 export function DdReportContent(props:ContentProps) {
@@ -146,6 +162,7 @@ export function DdReportContent(props:ContentProps) {
     if(chapter.slug==='capital-plan'&&row.row===181&&body.jkiss){flush();blocks.push(<div key="jkiss-summary" id="cell-B181">{allRows&&<a className="ddr-pdf-anchor" href={ddPdfMarker(slug,chapter.slug,'B181')} aria-hidden="true">.</a>}<DdJkissExplanation summary={body.jkiss}/></div>);continue;}
     // Detailed rows stay in Excel/PDF's existing projection; the web still parses their headings and prose.
     if(allRows&&row.calculationDetail){tableRows.push(row);continue;}
+    if(chapter.slug==='equity-story'&&row.cells.length===1&&row.cells[0].address==='B9')continue;
     if(chapter.slug==='equity-story'&&row.row>=12&&row.row<=50){if(row.row===12){flush();blocks.push(<EquityDiagram key="equity-diagram" {...props}/>);}continue;}
     const preceding=tableRows.at(-1);
     if(row.cells.length>1&&row.cells.every(c=>String(c.value).trim()==='→')&&preceding&&preceding.cells.length===row.cells.length+1&&preceding.cells.every(c=>typeof c.value==='string')){

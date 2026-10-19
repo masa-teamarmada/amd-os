@@ -27,7 +27,7 @@ export async function createDdReportOutput({edition,index,selected,slug,hidden,f
   }
   const keys=[...new Set(chapters.flatMap(c=>c.body.objects.flatMap(o=>o.kind==='image'?[o.assetKey]:[])))],assetUrls:Record<string,string>={};
   await Promise.all(keys.map(async assetKey=>{const a=await ddReportAsset(edition.id,assetKey);if(!a)throw new Error('図版が不足している');assetUrls[assetKey]=`data:${a.meta.mime_type};base64,${a.bytes.toString('base64')}`;}));
-  return ddReportPdf({edition,chapters,index,slug,assetUrls,includeCover,includeGlossary,glossaryAll:all,deferNavigation:all&&selected.length<index.length},html=>renderWorkspaceDocumentHtmlToPdf(html,{tagged:false,pageWidthPx:794,compactPagination:true}));
+  return ddReportPdf({edition,chapters,index,slug,assetUrls,includeCover,includeGlossary,glossaryAll:all,deferNavigation:all&&selected.length<index.length},(html,layout)=>renderWorkspaceDocumentHtmlToPdf(html,{tagged:false,pageWidthPx:794,compactPagination:true,...layout}));
 }
 
 const running=new Map<string,Promise<void>>();
