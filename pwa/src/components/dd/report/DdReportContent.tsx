@@ -12,6 +12,7 @@ import {DdReportDirectory} from './DdReportDirectory';
 import {DdCapitalFundingFigure,DdInvestorReturnNote} from './DdCapitalFundingFigure';
 import {DdExecutionGantt,DdDevelopmentRoadmap} from './DdExecutionGantt';
 import {DdDevelopmentDependencies} from './DdReportCompleteness';
+import {DdScaleInvestmentReference} from './DdScaleInvestmentReference';
 import {DD_REPORT_INTRODUCTIONS} from '@/lib/dd-report-introductions';
 import {ddDevelopmentTarget} from '@/lib/dd-report-development-plans';
 import {ddExecutionTasks} from '@/lib/dd-report-execution-plan';
@@ -34,17 +35,17 @@ function CellValue({cell,slug,index,glossary,allRows,emphasize=false,chapterSlug
   const content=<DdReportRichText text={text} id={cell.address} slug={slug} glossary={glossary} interactive={!allRows} emphasize={emphasize}/>;
   return <span id={`cell-${cell.address}`}>{allRows&&chapterSlug&&<a className="ddr-pdf-anchor" href={ddPdfMarker(slug,chapterSlug,cell.address)} aria-hidden="true">.</a>}{href?<>{content} <a href={href}>{target?`「${target.title==='UE'?'UE（ユニットエコノミクス）':target.title}」`:'出典'} ↗</a></>:allRows?content:<DdReportInputValue address={cell.address} controls={inputControls}>{content}</DdReportInputValue>}</span>;
 }
-export function DdReportChartFigure({chart}:{chart:DdReportChart}) {
+export function DdReportChartFigure({chart,compact=false}:{chart:DdReportChart;compact?:boolean}) {
   const series=chart.series.filter(s=>s.values.length),labels=series.find(s=>s.categories.length)?.categories??[];
   if(!series.length)return null;
-  const count=Math.max(...series.map(s=>s.values.length)),width=count>36?1200:count>12?960:count<=6?640:760,height=chart.horizontal?Math.min(280,110+count*28):260,pad={l:90,r:24,t:24,b:72},w=width-pad.l-pad.r,h=height-pad.t-pad.b;
+  const count=Math.max(...series.map(s=>s.values.length)),width=compact?720:count>36?1200:count>12?960:count<=6?640:760,height=chart.horizontal?Math.min(280,110+count*28):compact?176:260,pad=compact?{l:64,r:16,t:16,b:40}:{l:90,r:24,t:24,b:72},w=width-pad.l-pad.r,h=height-pad.t-pad.b;
   const sums=Array.from({length:count},(_,i)=>series.reduce((n,s)=>n+Math.max(0,s.values[i]??0),0));
   const ns=series.flatMap(s=>s.values).filter(Number.isFinite),high=Math.max(1,...ns,...(chart.stacked?sums:[])),low=Math.min(0,...ns),range=(high-low)*1.08;
   const y=(n:number)=>pad.t+(high+(high-low)*.04-n)/range*h;
   const line=chart.chartType==='lineChart'||chart.chartType==='scatterChart';
   const axisNumber=(n:number)=>formatDdReportValue(n,chart.numberFormat??'General');
   const shownLabels=Array.from({length:count},(_,i)=>i).filter(i=>count<=12||i%Math.ceil(count/10)===0||i===count-1);
-  return <figure className="ddr-chart" style={{maxWidth:width+22}}>
+  return <figure className={`ddr-chart${compact?' ddr-chart-compact':''}`} style={{maxWidth:width+22}}>
     <figcaption>{chart.title||'計画の推移'}</figcaption>
     <div className="ddr-chart-scroll"><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={chart.title||'計画の推移'}>
       {Array.from({length:5},(_,i)=>{const n=low+(high-low)*i/4;return chart.horizontal?<g key={i}><line x1={pad.l+i*w/4} x2={pad.l+i*w/4} y1={pad.t} y2={height-pad.b} stroke="#dce5e8"/><text x={pad.l+i*w/4} y={height-32} textAnchor="middle" fontSize="14" fill="#425966">{axisNumber(n)}</text></g>:<g key={i}><line x1={pad.l} x2={width-pad.r} y1={y(n)} y2={y(n)} stroke="#dce5e8"/><text x={pad.l-12} y={y(n)+5} textAnchor="end" fontSize="14" fill="#425966">{axisNumber(n)}</text></g>;})}
@@ -106,10 +107,24 @@ function EquityDiagram({chapter,slug,index,glossary,allRows,inputControls}:Conte
         {(labelled||j===2)&&<h4 className="ddr-phase-label">{j===2?'調達条件・金額':heading}</h4>}
         {j===2&&chapter.body.equityValuations?.[i]&&<DdEquityValuationChart round={chapter.body.equityValuations[i]}/>}
         {value(labelled?{...cell,value:lines.join('\n')}:cell)}
+        {i===5&&j===4&&<p className="ddr-equity-validation">評価額は計画値。各ラウンドの収益倍率・希薄化・投資家収益率を資本政策表で検証する。</p>}
       </div>;
     })}
     {i<5&&<span className="ddr-flow-arrow" aria-hidden="true">→</span>}
-  </section>)}</div></div><div className="ddr-equity-notes">{["B29","K29","B49","K49"].map(a=>{const cell=cells.get(a);return cell?<p key={a}><CellValue cell={cell} slug={slug} index={index} glossary={glossary} allRows={allRows} chapterSlug={chapter.slug} inputControls={inputControls}/></p>:null;})}</div></>;
+  </section>)}</div></div><div className="ddr-equity-notes">{["B29","K29"].map(a=>{const cell=cells.get(a);return cell?<p key={a}><CellValue cell={a==='B29'?{...cell,value:'台数は小型・商用・大型の検収累計。月間処理量は、各装置の検収翌月からの稼働を積み上げる。投資額と到達時の体制・損益は下の比較表で確認できる。'}:cell} slug={slug} index={index} glossary={glossary} allRows={allRows} chapterSlug={chapter.slug} inputControls={inputControls}/></p>:null;})}</div></>;
+}
+function EquityResources({chapter,slug,index,glossary,allRows}:ContentProps){
+  const cells=new Map(chapter.body.rows.flatMap(r=>r.cells).map(c=>[c.address,c]));
+  const stages=['シード','シリーズA','シリーズB','シリーズC','シリーズD','IPO'];
+  const value=(address:string,transform?:(value:string)=>string)=>{const cell=cells.get(address);return cell?<CellValue cell={transform?{...cell,value:transform(String(cell.value))}:cell} slug={slug} index={index} glossary={glossary} allRows={allRows} chapterSlug={chapter.slug}/>:null;};
+  const cols=['D','F','H','J','L','N'];
+  return <figure className="ddr-equity-resources"><figcaption>各ラウンドの投資額・到達時の体制と損益</figcaption><div className="ddr-table-scroll"><table><thead><tr><th>項目</th>{stages.map(s=><th key={s}>{s}</th>)}</tr></thead><tbody>
+    <tr><th>実行期間</th>{cols.map(col=><td key={col}>{(()=>{const c=cells.get(col+'260');return c?valuePeriod(c):null;})()}</td>)}</tr>
+    {['大学委託・研究開発費／億円','設備支払／億円','到達時の雇用／FTE'].map((label,i)=><tr key={label}><th>{label}</th>{[78,98,118,138,158,178].map(row=><td className="ddr-number" key={row}>{value(['B','F','I'][i]+row)}</td>)}</tr>)}
+    {[['到達時の売上／億円',287],['同営業損益／億円',291]].map(([label,row])=><tr key={row}><th>{label}</th>{cols.map(col=><td className="ddr-number" key={col}>{value(col+row)}</td>)}</tr>)}
+    <tr><th>生産拠点</th>{cols.map(col=><td key={col}>{value(col+'276',v=>v.replace(/／雇用[^\n]*/,''))}</td>)}</tr>
+  </tbody></table></div><p className="ddr-equity-resource-note">{value('B300')}</p></figure>;
+  function valuePeriod(cell:DdReportCell){return <CellValue cell={{...cell,value:String(cell.value).split('\n').slice(1).join('\n')}} slug={slug} index={index} glossary={glossary} allRows={allRows} chapterSlug={chapter.slug}/>;}
 }
 /** Source cells become prose, comparisons, diagrams and charts. Whitespace-only rows disappear. */
 export function DdReportContent(props:ContentProps) {
@@ -118,7 +133,7 @@ export function DdReportContent(props:ContentProps) {
   let tableNoticeShown=false,tableCount=0;
   if(chapter.slug==='biographies')return <DdBiographies chapter={chapter} slug={slug} glossary={glossary} allRows={allRows}/>;
   if(chapter.slug==='organization')return <><p className="ddr-page-introduction"><DdReportRichText text={DD_REPORT_INTRODUCTIONS[chapter.slug]} id="page-introduction" slug={slug} glossary={glossary} interactive={!allRows} emphasize/></p><DdOrganizationChart chapter={chapter}/></>;
-  const objects=[...body.objects].sort((a,b)=>a.row-b.row),blocks:ReactNode[]=[];let tableRows:DdReportRow[]=[];let objectIndex=0;
+  const objects=body.objects.filter(o=>!(chapter.slug==='equity-story'&&o.kind==='chart'&&o.title?.startsWith('目標評価額の成長'))).sort((a,b)=>a.row-b.row),blocks:ReactNode[]=[];let tableRows:DdReportRow[]=[];let objectIndex=0;
   if(DD_REPORT_INTRODUCTIONS[chapter.slug])blocks.push(<p className="ddr-page-introduction" key="page-introduction"><DdReportRichText text={DD_REPORT_INTRODUCTIONS[chapter.slug]} id="page-introduction" slug={slug} glossary={glossary} interactive={!allRows} emphasize/></p>);
   const primary:Record<string,{address:string;label:string;unit:string}>={
     'cyanobacteria-cost':{address:'E20',label:'出荷する菌体1kgの原価',unit:'円/kg-DCW'},
@@ -135,7 +150,7 @@ export function DdReportContent(props:ContentProps) {
     else blocks.push(<div className="ddr-table-block" key={'table-'+tableRows[0].row}>{canDownload&&body.excel?.mode!=='pdf'&&<div className="ddr-table-tools"><a href={excelHref} download onClick={onDownloadExcel?event=>{event.preventDefault();onDownloadExcel(excelHref);}:undefined}>{simulationActive?'計画値の表をExcelでダウンロード':'表をExcelでダウンロード'} ↗</a></div>}<ReportTable rows={tableRows} slug={slug} index={index} allRows={allRows} glossary={glossary} pageScroll={pageScroll} chapterSlug={chapter.slug} inputControls={inputControls}/></div>);
     tableRows=[];
   };
-  const renderChart=(o:DdReportChart,key:string)=>chapter.slug==='capital-plan'&&o.row===64?<DdCapitalFundingFigure key={key} chapter={chapter}/>:<Fragment key={key}><DdReportChartFigure chart={o}/>{chapter.slug==='capital-plan'&&o.row===129&&<DdInvestorReturnNote chapter={chapter}/>}</Fragment>;
+  const renderChart=(o:DdReportChart,key:string)=>chapter.slug==='capital-plan'&&o.row===64?<DdCapitalFundingFigure key={key} chapter={chapter}/>:<Fragment key={key}><DdReportChartFigure chart={o} compact={chapter.slug==='equity-story'}/>{chapter.slug==='capital-plan'&&o.row===129&&<DdInvestorReturnNote chapter={chapter}/>}</Fragment>;
   const addObjects=(row:number)=>{
     while(objectIndex<objects.length&&objects[objectIndex].row<=row){
       flush();const o=objects[objectIndex++];
@@ -164,6 +179,10 @@ export function DdReportContent(props:ContentProps) {
     if(allRows&&row.calculationDetail){tableRows.push(row);continue;}
     if(chapter.slug==='equity-story'&&row.cells.length===1&&row.cells[0].address==='B9')continue;
     if(chapter.slug==='equity-story'&&row.row>=12&&row.row<=50){if(row.row===12){flush();blocks.push(<EquityDiagram key="equity-diagram" {...props}/>);}continue;}
+    if(chapter.slug==='equity-story'&&row.row>=67&&row.row<=231){if(row.row===67){flush();blocks.push(<EquityResources key="equity-resources" {...props}/>);}continue;}
+    if(chapter.slug==='equity-story'&&row.row>=257)continue;
+    if(chapter.slug==='equity-story'&&row.row===232){flush();blocks.push(<DdScaleInvestmentReference key="scale-investment-reference"/>);continue;}
+    if(chapter.slug==='equity-story'&&[235,240].includes(row.row))continue;
     const preceding=tableRows.at(-1);
     if(row.cells.length>1&&row.cells.every(c=>String(c.value).trim()==='→')&&preceding&&preceding.cells.length===row.cells.length+1&&preceding.cells.every(c=>typeof c.value==='string')){
       tableRows.pop();flush();blocks.push(<DdSourceFlow key={'flow-'+preceding.row} nodes={preceding} arrows={row} cell={c=><CellValue cell={c} slug={slug} index={index} glossary={glossary} allRows={allRows} chapterSlug={chapter.slug} inputControls={inputControls}/>}/>);continue;

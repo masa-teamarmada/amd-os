@@ -17,6 +17,7 @@ import {evaluatedDdReportChapter,loadDdReportChapter,loadDdReportChapterIndex,lo
 import {DdReportReader} from '@/components/dd/report/DdReportReader';
 import {DdReportNavigation} from '@/components/dd/report/DdReportNavigation';
 import type {DdLiveProjectPage} from '@/lib/dd-project-page-types';
+import {ddReportDownloadEdition,ddReportDownloadRelease} from '@/lib/dd-report-download-policy';
 
 export const dynamic = "force-dynamic";
 export const maxDuration=300;
@@ -50,10 +51,11 @@ export default async function DdPackagePage({ params, searchParams }: { params: 
     const evaluated=await evaluatedDdReportChapter(edition,raw);
     const report=await redactDdReport(access.projectId,evaluated);
     const simulationInputs=['cyanobacteria-cost','reactor-cost','metal-cost','fame-cost','assumptions'].includes(report.slug)?await redactDdReport(access.projectId,(await loadDdReportModel(edition)).inputs.filter(i=>i.sheet===report.source_sheet)):[];
-    const pdfReady=hasDdCapability(access,'dd.download')?(await ddReportOutputState(edition,access.projectId)).ready:false;
-    if(hasDdCapability(access,'dd.download')&&!pdfReady)queueDdReportPdf(edition,access.projectId,slug);
+    const downloadRelease=ddReportDownloadRelease(edition);
+    const pdfReady=hasDdCapability(access,'dd.download')?(await ddReportOutputState(ddReportDownloadEdition(edition),access.projectId)).ready:false;
+    if(hasDdCapability(access,'dd.download')&&!downloadRelease.paused&&!pdfReady)queueDdReportPdf(edition,access.projectId,slug);
     await recordDdAccessEvent(access,'dd_package_viewed',{pageKey:report.slug,contentHash:`${edition.source_sha256}:r${edition.revision}`});
-    return <DdViewerShell access={access} projectName={access.title} pageKey="company" documentVersion={edition.document_version} releases={releases} reportPageLabel={report.title} reportNavigation={<DdReportNavigation slug={slug} index={index} selected={report.slug}/>}><DdReportReader key={`${report.id}:${edition.revision}:${edition.document_version}`} slug={slug} title={edition.title} revision={edition.revision} pdfReady={pdfReady} sourceVersion={edition.source_version} documentVersion={edition.document_version} inputs={simulationInputs} overrides={edition.input_overrides} chapter={report} index={index} canDownload={hasDdCapability(access,'dd.download')} glossary={edition.glossary}/></DdViewerShell>;
+    return <DdViewerShell access={access} projectName={access.title} pageKey="company" documentVersion={edition.document_version} releases={releases} reportPageLabel={report.title} reportNavigation={<DdReportNavigation slug={slug} index={index} selected={report.slug}/>}><DdReportReader key={`${report.id}:${edition.revision}:${edition.document_version}`} slug={slug} title={edition.title} revision={edition.revision} pdfReady={pdfReady} downloadRelease={downloadRelease} sourceVersion={edition.source_version} documentVersion={edition.document_version} inputs={simulationInputs} overrides={edition.input_overrides} chapter={report} index={index} canDownload={hasDdCapability(access,'dd.download')} glossary={edition.glossary}/></DdViewerShell>;
   }
   if (tab === "financial-projection") redirect(`/dd/${encodeURIComponent(access.slug)}${legacy==='1'?'/legacy':''}?tab=monthly-trial`);
   // 認可後、選択された正本ページと監査記録を並行して読む。

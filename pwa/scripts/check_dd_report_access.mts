@@ -51,6 +51,7 @@ let xlsxMissing=false,xlsxGenerated=0,downloads=0,editionChanged=false,disclosur
 let uploadedBundle:Uint8Array|undefined,downloadName:string|undefined;
 const pdfBytes=new TextEncoder().encode('%PDF-1.7 prepared fixture'),xlsxBytes=new Uint8Array([80,75,3,4,10,20,30]);
 const exportMocks={...mocks,
+ '@/lib/dd-report-download-policy':{ddReportExportsPaused:()=>false,ddReportDownloadEdition:(e:unknown)=>e},
  'fflate':{zipSync},
  '@/lib/dd-package-core':{hasDdCapability:(a:DdViewerAccess,cap:string)=>a.capabilities.includes(cap as never)},
  '@/lib/dd-report-pdf':{readDdPdfIndex:async()=>({})},'@/lib/dd-report-navigation':{ddReportFilename,ddReportBundleFilename},'node:crypto':{createHash},

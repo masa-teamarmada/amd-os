@@ -73,6 +73,7 @@ const page=load('../src/app/dd/[slug]/page.tsx',{
  '@/lib/project-surface-access':{canEditProjectSurface:async()=>false},
  '@/lib/dd-report-server':{loadDdReportEdition:async()=>null},
  '@/lib/dd-report-output-state':{ddReportOutputState:async()=>({ready:true}),queueDdReportPdf:()=>{}},
+ '@/lib/dd-report-download-policy':{ddReportDownloadEdition:(e:any)=>e,ddReportDownloadRelease:(e:any)=>({revision:e.revision,documentVersion:e.document_version,paused:false})},
  '@/components/dd/report/DdReportReader':{DdReportReader:()=>null},
  '@/components/dd/report/DdReportNavigation':{DdReportNavigation:()=>null},
 });

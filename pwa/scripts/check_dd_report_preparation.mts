@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
 import {ddReportVersionLabel} from '../src/lib/dd-report-navigation.ts';
+import * as downloadPolicy from '../src/lib/dd-report-download-policy.ts';
 import {PDFDocument} from 'pdf-lib';
 const sample=await PDFDocument.create();sample.addPage([200,200]);const part=await sample.save();
 const store=new Map<string,Uint8Array>(),allKey='private/r2-all.pdf',prefix='private/r2';
@@ -17,6 +18,7 @@ const bucket={
 const db={storage:{from:()=>bucket},from:()=>({select:()=>({eq:()=>({single:async()=>({error:null,data:{...fresh,revision:freshRevision}})})})})};
 const mocks:Record<string,unknown>={
  'server-only':{},'node:crypto':await import('node:crypto'),'pdf-lib':{PDFDocument},
+ './dd-report-download-policy':downloadPolicy,
  './supabase/admin':{createAdminClient:()=>db},
  './dd-report-navigation':{ddReportVersionLabel},
  './dd-report-output-state':{ddReportOutputState:async()=>({prefix,key:changedDisclosure&&rendered?'different.pdf':allKey,hidden:[],ready:store.has(allKey)})},
@@ -28,6 +30,8 @@ const mocks:Record<string,unknown>={
 };
 const source=ts.transpileModule(fs.readFileSync(new URL('../src/lib/dd-report-output-server.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
 const out:Record<string,(...args:unknown[])=>Promise<void>>={};new Function('require','exports',source)((name:string)=>{assert(name in mocks,name);return mocks[name];},out);
+await out.prepareDdReportPdf({...edition,package_id:'b0540a9f-7bde-426c-81a7-8a56a59f5b15'},'project','sol');assert.equal(rendered,0,'Paused SOL view must not render');
+await assert.rejects(()=>out.createDdReportOutput({edition:{...edition,package_id:'b0540a9f-7bde-426c-81a7-8a56a59f5b15'}}),/更新は停止中/);
 await out.prepareDdReportPdf(edition,'project','test');assert.equal(rendered,2);assert(store.has(allKey));assert.deepEqual(seenOverrides,{volume:2});assert(!store.has(prefix+'-building.json'));
 await out.prepareDdReportPdf(edition,'project','test');assert.equal(rendered,2);
 store.delete(allKey);store.delete(prefix+'-part-1.pdf');await out.prepareDdReportPdf(edition,'project','test');assert.equal(rendered,3);assert(store.has(allKey));

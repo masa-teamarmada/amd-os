@@ -12,10 +12,12 @@ import type {DdPdfIndex} from './dd-report-navigation';
 import {renderWorkspaceDocumentHtmlToPdf} from './workspace-document-html-pdf';
 import {redactProjectPartnerNames} from './project-partner-disclosure';
 import type {DdReportChapterSummary,DdReportEdition} from './dd-report-types';
+import {ddReportExportsPaused} from './dd-report-download-policy';
 
 export const DD_PDF_BATCH=4;
 type OutputArgs={edition:DdReportEdition;index:DdReportChapterSummary[];selected:DdReportChapterSummary[];slug:string;hidden:Awaited<ReturnType<typeof ddReportOutputState>>['hidden'];format:'pdf'|'xlsx';includeCover?:boolean;includeGlossary?:boolean;all?:boolean;focusSheet?:string;pdfIndex?:DdPdfIndex};
 export async function createDdReportOutput({edition,index,selected,slug,hidden,format,includeCover=true,includeGlossary=true,all=false,focusSheet,pdfIndex}:OutputArgs) {
+  if(ddReportExportsPaused(edition))throw new Error('DDファイルの更新は停止中。区切りがついてからまとめて更新する。');
   const model=await loadDdReportModel(edition),calc=new DdReportCalculator(model,edition.input_overrides);
   const loaded=await Promise.all(selected.map(c=>loadDdReportChapter(edition.id,c.slug)));
   if(loaded.some(c=>!c))throw new Error('資料本文が不足している');
@@ -32,6 +34,7 @@ export async function createDdReportOutput({edition,index,selected,slug,hidden,f
 
 const running=new Map<string,Promise<void>>();
 export async function prepareDdReportPdf(edition:DdReportEdition,projectId:string,slug:string) {
+  if(ddReportExportsPaused(edition))return;
   const freshEdition=await createAdminClient().from('dd_report_editions').select('*').eq('id',edition.id).single();
   if(freshEdition.error||freshEdition.data.revision!==edition.revision||freshEdition.data.document_version!==edition.document_version||freshEdition.data.status==='archived')return;
   edition=freshEdition.data as DdReportEdition;

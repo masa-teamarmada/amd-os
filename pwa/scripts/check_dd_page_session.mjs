@@ -37,6 +37,7 @@ let access = null, lookups = 0, reads = 0, contentEdit = false;
 const page = load('../src/app/dd/[slug]/page.tsx', {
   'react/jsx-runtime': { jsx: (_type, props) => props, jsxs: (_type, props) => props },
   'next/navigation': navigate,
+  '@/lib/dd-report-download-policy':{ddReportDownloadEdition:e=>e,ddReportDownloadRelease:e=>({revision:e.revision,documentVersion:e.document_version,paused:false})},
   '@/lib/dd-page-session': { requireDdPageSession: guard },
   '@/lib/dd-nda-server': {loadDdNdaContext:async()=>({prompt:'test',promptHash:'hash',version:'test'}),hasDdNdaConfirmation:async()=>true},
  '@/lib/dd-nda':{ddNdaReturnPath:(_slug,value)=>value},

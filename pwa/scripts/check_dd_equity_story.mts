@@ -38,4 +38,13 @@ const bytes=await ddReportPdf({edition:{title:'テスト｜DD',revision:87,docum
 });
 assert.deepEqual(layouts,[null,{pageWidthPx:1588,pageHeightPx:1123},null]);
 const output=await PDFDocument.load(bytes);assert.equal(output.getPageCount(),3);assert(output.getPage(1).getWidth()>output.getPage(1).getHeight());
+const legacyRows=[{row:67,cells:[cell('B67','01 シード 初期3台と共通基盤')]},{row:70,cells:[cell('E70','重複するラウンド別の長文説明')]},{row:208,cells:[cell('B208','07 評価額を支える事業成果と投資家への説明')]},{row:210,cells:[cell('B210','重複する評価額の説明')]},{row:232,cells:[cell('B232','08 参考事例')]},{row:235,cells:[cell('B235','ちとせグループは73億円')]},{row:257,cells:[cell('B257','09 各ラウンドの計画数値と実行期間')]}];
+for(const row of [78,98,118,138,158,178])legacyRows.push({row,cells:['B','F','I'].map(col=>cell(col+row,String(row)))});
+const chart=(title:string)=>({kind:'chart',row:52,title,chartType:'barChart',horizontal:false,stacked:false,series:[{name:'売上高',categories:['FY2027','FY2028'],values:[1,2]}]}) as any;
+chapter.body.rows.push(...legacyRows);chapter.body.objects.push(chart('目標評価額の成長（億円）'),chart('売上・営業損益の成長（億円）'));
+const compactHtml=renderToStaticMarkup(createElement(DdReportContent,{chapter,slug:'sol',index:[]}));
+assert(!compactHtml.includes('目標評価額の成長'));assert(!compactHtml.includes('重複する'));assert(!compactHtml.includes('07 評価額'));assert(!compactHtml.includes('ちとせグループは73億円'));assert(!compactHtml.includes('09 各ラウンド'));
+assert(compactHtml.includes('総事業費 約580億円')&&compactHtml.includes('建設費単独')&&compactHtml.includes('調達総額 73億円'));
+assert(compactHtml.includes('ddr-chart-compact')&&compactHtml.includes('viewBox="0 0 720 176"'));assert(compactHtml.includes('ddr-equity-resources'));assert(compactHtml.includes('収益倍率・希薄化・投資家収益率'));
+for(const row of [78,98,118,138,158,178])for(const col of ['B','F','I'])assert.equal(compactHtml.split(`id="cell-${col+row}"`).length-1,1,'Keep unique budget and headcount values once');
 console.log('PASS: GAP card / six horizontal stages / 24 section headings / preserved cells / model-linked valuation increments / J-KISS separation / landscape equity PDF');

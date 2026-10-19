@@ -7,12 +7,14 @@ import type {DdReportChapter,DdReportChapterSummary,DdReportGlossary,DdReportInp
 import {DdReportContent} from './DdReportContent';
 import {DD_REPORT_CSS} from './dd-report-style';
 import {installDdGlossaryInteractions} from '@/lib/dd-glossary-interactions';
+import type {DdDownloadRelease} from '@/lib/dd-report-download-policy';
 
-type Props={slug:string;title:string;revision:number;sourceVersion:string;documentVersion?:string|null;chapter:DdReportChapter;index:DdReportChapterSummary[];canDownload:boolean;pdfReady:boolean;inputs?:DdReportInput[];overrides?:Record<string,DdReportValue>;glossary?:DdReportGlossary};
+type Props={slug:string;title:string;revision:number;sourceVersion:string;documentVersion?:string|null;downloadRelease?:DdDownloadRelease;chapter:DdReportChapter;index:DdReportChapterSummary[];canDownload:boolean;pdfReady:boolean;inputs?:DdReportInput[];overrides?:Record<string,DdReportValue>;glossary?:DdReportGlossary};
 export function DdReportReader(props:Props) {
   const {slug,chapter,index,canDownload,revision}=props,router=useRouter(),company=props.title.split('｜')[0];
   const reader=useRef<HTMLElement>(null);
-  const versionQuery=props.documentVersion?'&version='+encodeURIComponent(props.documentVersion):'';
+  const downloadRevision=props.downloadRelease?.revision??revision,downloadVersion=props.downloadRelease?.documentVersion??props.documentVersion,exportsPaused=props.downloadRelease?.paused??false;
+  const versionQuery=downloadVersion?'&version='+encodeURIComponent(downloadVersion):'';
   const [displayChapter,setDisplayChapter]=useState(chapter),[scenario,setScenario]=useState<Record<string,DdReportValue>>({}),[draft,setDraft]=useState<Record<string,DdReportValue>>({}),[calculating,setCalculating]=useState(false),[simulationMessage,setSimulationMessage]=useState('');
   const [executionWindow,setExecutionWindow]=useState(0);
   const storageKey=`amie-dd-scenario:${slug}:r${revision}`;
@@ -37,7 +39,7 @@ export function DdReportReader(props:Props) {
   const [message,setMessage]=useState(''),[busy,setBusy]=useState(false);
   const ordered=orderDdReading(index),position=ordered.findIndex(c=>c.slug===chapter.slug);
   useEffect(()=>{
-    if(prepared||!canDownload)return;
+    if(prepared||!canDownload||exportsPaused)return;
     let cancelled=false,timer:ReturnType<typeof setTimeout>;
     const controller=new AbortController();
     async function poll(){
@@ -49,25 +51,27 @@ export function DdReportReader(props:Props) {
       if(!cancelled)timer=setTimeout(poll,5000);
     }
     timer=setTimeout(poll,3000);return()=>{cancelled=true;controller.abort();clearTimeout(timer);};
-  },[prepared,canDownload,slug,revision,router,versionQuery]);
+  },[prepared,canDownload,exportsPaused,slug,revision,router,versionQuery]);
   async function download(format:'zip'|'xlsx',all=false,href?:string) {
     setBusy(true);setMessage(format==='zip'?'PDFとExcelをまとめてダウンロード中…':'Excelをダウンロード中…');
     try {
-      const endpointBase=href??`/api/dd/${encodeURIComponent(slug)}/report/export?format=${format}&revision=${revision}${all?'&scope=all':`&chapter=${chapter.slug}`}`;
-      const endpoint=endpointBase+versionQuery;
+      const endpointUrl=new URL(href??`/api/dd/${encodeURIComponent(slug)}/report/export?format=${format}${all?'&scope=all':`&chapter=${chapter.slug}`}`,window.location.origin);
+      endpointUrl.searchParams.set('revision',String(downloadRevision));if(downloadVersion)endpointUrl.searchParams.set('version',downloadVersion);
+      const endpoint=endpointUrl.pathname+endpointUrl.search;
       const r=await fetch(endpoint,{cache:'no-store'});
       if(!r.ok||r.status===202){const data=await r.json().catch(()=>({}));throw new Error(data.error||'出力できなかった');}
-      const url=URL.createObjectURL(await r.blob()),a=document.createElement('a');a.href=url;a.download=format==='zip'?ddReportBundleFilename({title:props.title,revision,document_version:props.documentVersion}):ddReportFilename({title:props.title,revision,document_version:props.documentVersion},'xlsx');a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);setMessage('出力済み。');
+      const url=URL.createObjectURL(await r.blob()),a=document.createElement('a');a.href=url;a.download=format==='zip'?ddReportBundleFilename({title:props.title,revision:downloadRevision,document_version:downloadVersion}):ddReportFilename({title:props.title,revision:downloadRevision,document_version:downloadVersion},'xlsx');a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);setMessage('出力済み。');
     }catch(error){setMessage(error instanceof Error?error.message:'出力できなかった');}finally{setBusy(false);}
   }
   return <article ref={reader} className="ddr" data-testid="dd-report-reader" data-chapter={chapter.slug}>
     <style>{DD_REPORT_CSS}</style>
     <header className="ddr-header">
       <div className="ddr-header-top"><div className="ddr-kicker">{company} · {chapter.group_label}</div><div className="ddr-controls">
-        {canDownload&&<button disabled={busy||!prepared} onClick={()=>download('zip',true)} title="本文・図解のPDFと表・数式付きExcelをZIPでダウンロード" className="ddr-button">{prepared?(Object.keys(scenario).length?'計画値のPDF+Excel':'PDF+Excel一括ダウンロード'):'PDF更新中…'}</button>}
+        {canDownload&&<button disabled={busy||!prepared} onClick={()=>download('zip',true)} title="本文・図解のPDFと表・数式付きExcelをZIPでダウンロード" className="ddr-button">{prepared?(exportsPaused?`配布版 v${downloadVersion} PDF+Excel`:Object.keys(scenario).length?'計画値のPDF+Excel':'PDF+Excel一括ダウンロード'):exportsPaused?'配布版の更新停止中':'PDF更新中…'}</button>}
       </div></div>
 
       <h1>{chapter.title==='UE'?'UE（ユニットエコノミクス）':chapter.title}</h1>
+      {canDownload&&exportsPaused&&<p className="ddr-export-hint">ダウンロード版：v{downloadVersion}（自動更新停止中）。画面の修正は区切りがついてからまとめて反映。</p>}
     </header>
     {message&&<p role="status" className="ddr-message">{message}</p>}
     {((props.inputs?.length??0)>0||Object.keys(scenario).length>0)&&<div className="ddr-simulation-toolbar"><div><strong>試算条件</strong><span> 表の選択肢・数値を変更し、UEと資金繰表への影響を確認できる。</span></div><div>{(props.inputs?.length??0)>0&&<button className="ddr-button ddr-button-primary" disabled={calculating} onClick={()=>void applyScenario()}>{calculating?'試算中…':'この条件で試算'}</button>}<button className="ddr-button" disabled={calculating} onClick={resetScenario}>計画値に戻す</button></div></div>}
