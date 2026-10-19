@@ -30,6 +30,13 @@ const original=unzipSync(await fs.readFile(path.join(folder,'source.xlsx')));
 const funding=Object.values(files).map(b=>strFromU8(b)).find(s=>s.includes('ラウンド別の評価額・新規調達額（億円）'));assert(funding);assert(funding.includes('<c:grouping val="stacked"/>'));assert.equal((funding.match(/<c:ser>/g)||[]).length,2);assert(funding.includes('$Z$333:$Z$337')&&funding.includes('$C$98:$C$102'));console.log('PASS: exported funding chart stacks formula-linked pre valuation and funding');
 if(projected){
   const workbook=strFromU8(files['xl/workbook.xml']),names=[...workbook.matchAll(/<sheet\b[^>]*name="([^"]+)"/g)].map(m=>m[1]);
+  const {splitDdDevelopmentChapters}=await import('../src/lib/dd-report-development-plans.ts');
+  const technical=splitDdDevelopmentChapters(chapters).find(c=>c.slug==='technical-development-plan')!;
+  const technicalXml=Object.entries(files).filter(([p])=>/^xl\/worksheets\/sheet\d+\.xml$/.test(p)).map(([,b])=>strFromU8(b)).find(s=>(s.match(/<(?:[\w.-]+:)?c\b[^>]*r="B2"[^>]*>[\s\S]*?<\/(?:[\w.-]+:)?c>/)?.[0]??'').includes('>技術開発計画<'))!;
+  assert(technicalXml,'Native technical plan sheet exists');
+  const commercial=technical.body.rows.filter(r=>r.row>=340&&r.row<=361&&r.cells.length>1);assert.equal(commercial.length,12);
+  for(const row of commercial)for(const cell of row.cells){assert(technicalXml.includes('r="'+cell.address+'"'),'Export added commercial cell '+cell.address);assert(technicalXml.includes(ddEscapeHtml(String(cell.value)).replaceAll('損益・資金繰','資金繰表')),'Export full commercial detail '+cell.address);}
+  console.log('PASS: all 9 added commercial execution records / 36 header and detail cells appear in the native technical workbook');
   assert.equal(names.length,21);assert(names.includes('事業開発計画')&&names.includes('技術開発計画')&&!names.includes('計画詳細'));assert.equal(names[0],'資料一覧');assert(!names.includes('事業計画'));assert(!names.includes('経営陣略歴'));assert(!names.includes('SIER'));
   assert.deepEqual(names.slice(1,8),['資本政策表','資金繰表','UE','シアノ生産コスト','リアクター処理コスト','金属回収コスト','FAME生産コスト']);
   assert(!Object.keys(files).some(p=>p.startsWith('xl/media/')));

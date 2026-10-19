@@ -17,7 +17,7 @@ export function splitDdDevelopmentChapter(source:DdReportChapter,slug:string):Dd
   const taskHeading=source.body.rows.find(r=>r.row===160),taskHelp=source.body.rows.find(r=>r.row===163);
   const taskRows=source.body.rows.filter(r=>r.cells.length===6&&r.cells[0].value===group);
   const rest=source.body.rows.filter(r=>technical?r.row>=340&&r.row<=361:r.row>=264&&r.row<=332);
-  return {...source,id:source.id+':'+(technical?1:0),slug,title,sort_order:source.sort_order+(technical?.1:0),body:{...source.body,excel:{mode:'tables',order:source.body.excel?.order??15},objects:[],rows:[...titleRows,...brief,...(section?[change(section,'開発工程の全体像')]:[]),...summary,...kpis,...(taskHeading?[change(taskHeading,'短中期の実行工程')]:[]),...(taskHelp?[change(taskHelp,'各工程の矢羽にマウスを重ねると、担当・先行条件・完了条件を確認できる。表示期間を切り替えて、設立前の準備からIPO後の工程まで確認する。')]:[]),...taskRows,...rest]}};
+  return {...source,id:source.id+':'+(technical?1:0),slug,title,sort_order:source.sort_order+(technical?.1:0),body:{...source.body,excel:{mode:'tables',order:source.body.excel?.order??15},objects:[],rows:[...titleRows,...brief,...(section?[change(section,'開発工程の全体像')]:[]),...summary,...kpis,...(taskHeading?[change(taskHeading,'短中期の実行工程')]:[]),...(taskHelp?[change(taskHelp,'各工程の矢羽にマウスを重ねると、担当・先行条件・完了条件を確認できる。表示期間を切り替えて、設立前の準備からIPO後の工程まで確認する。')]:[]),...taskRows,...rest.map(r=>technical&&r.cells.length>1?{...r,exportTable:true}:r)]}};
 }
 
 /** Native formulas still use 計画詳細. The final Excel projection separates its two sheets. */

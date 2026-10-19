@@ -69,7 +69,11 @@ export function projectDdWorkbook(files:Files,chapters:DdReportChapter[],model:D
     xml=xml.replace(new RegExp('<'+tag+'mergeCell\\b[^>]*\\bref="([A-Z]+\\d+):[^" ]+"[^>]*/>','g'),(m,anchor:string)=>removedCells.has(anchor)?'':m);
     xml=xml.replace(new RegExp('<'+tag+'mergeCells\\b[^>]*>([\\s\\S]*?)</'+tag+'mergeCells>'),(_m,inside:string)=>{const count=[...inside.matchAll(new RegExp('<'+tag+'mergeCell\\b','g'))].length;return count?`<${prefix}mergeCells count="${count}">${inside}</${prefix}mergeCells>`:'';});
     if(exported.size){
-      xml=xml.replace(new RegExp('<'+tag+'row\\b[^>]*?\\br="(\\d+)"[^>]*?(?:\\/>|>[\\s\\S]*?</'+tag+'row>)','g'),(row,r:string)=>exported.get(Number(r))??row);
+      xml=xml.replace(new RegExp('(<'+tag+'sheetData\\b[^>]*>)([\\s\\S]*?)(</'+tag+'sheetData>)'),(_m,open:string,content:string,close:string)=>{
+        const rows=new Map([...content.matchAll(new RegExp('<'+tag+'row\\b[^>]*?\\br="(\\d+)"[^>]*?(?:/>|>[\\s\\S]*?</'+tag+'row>)','g'))].map(m=>[Number(m[1]),m[0]]));
+        for(const [row,body]of exported)rows.set(row,body);
+        return open+[...rows].sort(([a],[b])=>a-b).map(([,body])=>body).join('')+close;
+      });
       xml=xml.replace(new RegExp('<'+tag+'mergeCell\\b[^>]*ref="[A-Z]+(\\d+):[^" ]+"[^>]*/>','g'),(m,r:string)=>exported.has(Number(r))?'':m);
       const merges=c.body.rows.filter(r=>r.exportTable).flatMap(r=>r.cells.filter(c=>c.span>1).map(c=>`<${prefix}mergeCell ref="${c.address}:${letter(c.column+c.span-1)}${r.row}"/>`)).join('');
       if(merges)xml=xml.replace(new RegExp('</'+tag+'mergeCells>'),merges+`</${prefix}mergeCells>`);

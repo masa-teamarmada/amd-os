@@ -9,6 +9,7 @@ import {DdReportRichText} from './DdReportRichText';
 import {DdReportDirectory} from './DdReportDirectory';
 import {DdCapitalFundingFigure,DdInvestorReturnNote} from './DdCapitalFundingFigure';
 import {DdExecutionGantt,DdDevelopmentRoadmap} from './DdExecutionGantt';
+import {DdDevelopmentDependencies,DdCoverageMatrix} from './DdReportCompleteness';
 import {DD_REPORT_INTRODUCTIONS} from '@/lib/dd-report-introductions';
 import {ddDevelopmentTarget} from '@/lib/dd-report-development-plans';
 import {ddExecutionTasks} from '@/lib/dd-report-execution-plan';
@@ -139,6 +140,7 @@ export function DdReportContent(props:ContentProps) {
       }else blocks.push(<figure className="ddr-image" style={{maxWidth:chapter.slug==='sier'?1000:860}} key={'object-'+objectIndex}>{/* Approved source figures retain their pixels. */}<img loading={allRows?'eager':'lazy'} src={assetUrls?.[o.assetKey]??`/api/dd/${encodeURIComponent(slug)}/report/assets/${o.assetKey}`} alt={o.caption||`${chapter.title}の図解`} />{o.caption&&<figcaption>{o.caption}</figcaption>}</figure>);
     }
   };
+  if(chapter.slug==='disclosure-index'&&body.coverage)blocks.push(<DdCoverageMatrix key="coverage" coverage={body.coverage} slug={slug} index={index} allRows={allRows} revision={revision} workbookName={pdfWorkbookName}/>);
   if(chapter.slug==='source-index')blocks.push(<DdReportDirectory key="directory" index={index} rows={body.rows} slug={slug}/>,<h2 key="overview">事業と資金計画の概要</h2>);
 
   for(const [rowIndex,row] of body.rows.entries()){
@@ -146,6 +148,7 @@ export function DdReportContent(props:ContentProps) {
     addObjects(row.row);
     if(chapter.slug.endsWith('-development-plan')&&row.row===12){flush();blocks.push(<DdDevelopmentRoadmap key="development-roadmap" rows={body.rows}/>);continue;}
     if(chapter.slug.endsWith('-development-plan')&&(row.row>=407&&row.row<=410||row.row>=507&&row.row<=511)){
+      if(row.row===507&&body.dependencies){flush();blocks.push(<DdDevelopmentDependencies key="development-dependencies" diagram={body.dependencies}/>);}
       if(row.row===407||row.row===507){flush();const start=row.row,end=start===407?410:511;
         blocks.push(<div className="ddr-development-workstreams" key="development-workstreams">{body.rows.filter(r=>r.row>=start&&r.row<=end).map((r,i)=>{const c=r.cells[0],[title,...text]=String(c.value).split('｜');return <section key={r.row}><h3><span>{String(i+1).padStart(2,'0')}</span>{title.replace(/^[①-⑩]\s*/, '')}</h3><p><CellValue cell={{...c,value:text.join('｜')}} slug={slug} index={index} glossary={glossary} allRows={allRows} chapterSlug={chapter.slug}/></p></section>;})}</div>);
       }continue;
