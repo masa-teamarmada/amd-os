@@ -9,7 +9,7 @@ import {DdReportRichText} from './DdReportRichText';
 import {DdReportDirectory} from './DdReportDirectory';
 import {DdCapitalFundingFigure,DdInvestorReturnNote} from './DdCapitalFundingFigure';
 import {DdExecutionGantt,DdDevelopmentRoadmap} from './DdExecutionGantt';
-import {DdDevelopmentDependencies,DdCoverageMatrix} from './DdReportCompleteness';
+import {DdDevelopmentDependencies} from './DdReportCompleteness';
 import {DD_REPORT_INTRODUCTIONS} from '@/lib/dd-report-introductions';
 import {ddDevelopmentTarget} from '@/lib/dd-report-development-plans';
 import {ddExecutionTasks} from '@/lib/dd-report-execution-plan';
@@ -140,7 +140,6 @@ export function DdReportContent(props:ContentProps) {
       }else blocks.push(<figure className="ddr-image" style={{maxWidth:chapter.slug==='sier'?1000:860}} key={'object-'+objectIndex}>{/* Approved source figures retain their pixels. */}<img loading={allRows?'eager':'lazy'} src={assetUrls?.[o.assetKey]??`/api/dd/${encodeURIComponent(slug)}/report/assets/${o.assetKey}`} alt={o.caption||`${chapter.title}の図解`} />{o.caption&&<figcaption>{o.caption}</figcaption>}</figure>);
     }
   };
-  if(chapter.slug==='disclosure-index'&&body.coverage)blocks.push(<DdCoverageMatrix key="coverage" coverage={body.coverage} slug={slug} index={index} allRows={allRows} revision={revision} workbookName={pdfWorkbookName}/>);
   if(chapter.slug==='source-index')blocks.push(<DdReportDirectory key="directory" index={index} rows={body.rows} slug={slug}/>,<h2 key="overview">事業と資金計画の概要</h2>);
 
   for(const [rowIndex,row] of body.rows.entries()){
