@@ -1,6 +1,7 @@
 import {Fragment,type ReactNode} from 'react';
 import {DdReportInputValue,type DdSimulationControls} from './DdReportSimulation';
 import {DdBiographies} from './DdBiographies';
+import {DdOrganizationChart} from './DdOrganizationChart';
 import {DdReportSectionIcon} from './DdReportSectionIcon';
 import {DdSourceFlow,DdSourceGantt,DdUeProcess,isDdGantt} from './DdSourceDiagrams';
 import {DdJkissExplanation} from './DdJkissExplanation';
@@ -86,17 +87,6 @@ function ReportTable({rows,slug,index,allRows,glossary,pageScroll=false,chapterS
   })}</tbody></table></div>;
   return table;
 }
-function Organization({chapter}:{chapter:DdReportChapter}) {
-  const cells=new Map(chapter.body.rows.flatMap(r=>r.cells).map(c=>[c.address,String(c.value)]));
-  const node=(a:string,cls='')=><div className={`ddr-org-node ${cls}`}>{cells.get(a)}</div>;
-  return <div className="ddr-org-scroll"><div className="ddr-org">
-    <div className="ddr-org-trunk">{node('M6')}{node('M11','ddr-org-ceo')}</div>
-    <div className="ddr-org-branches">
-      <section>{node('E19','ddr-org-lead')}<div className="ddr-org-stem"/><div className="ddr-org-dept"><h3>{cells.get('C27')}</h3>{['D31','D35','D39','D43'].map(a=><div key={a}>{node(a)}</div>)}</div></section>
-      <section>{node('V19','ddr-org-lead')}<div className="ddr-org-stem"><div className="ddr-org-advisor">{cells.get('AE23')}</div></div><div className="ddr-org-dept"><h3>{cells.get('R27')}</h3>{['T31','T35','T39'].map(a=><div key={a}>{node(a)}</div>)}</div></section>
-    </div><p>{cells.get('B50')}</p>{cells.get('B52')&&<p>{cells.get('B52')}</p>}
-  </div></div>;
-}
 function EquityDiagram({chapter,slug,index,glossary,allRows,inputControls}:ContentProps) {
   const cells=new Map(chapter.body.rows.flatMap(r=>r.cells).map(c=>[c.address,c]));
   const phases=[['B',13,15,19,22,26],['G',13,15,19,22,26],['L',13,15,19,22,26],['L',32,34,38,41,45],['G',32,34,38,41,45],['B',32,34,38,41,45]] as const;
@@ -111,7 +101,7 @@ export function DdReportContent(props:ContentProps) {
   const excelHref=allRows&&pdfWorkbookName?encodeURI(pdfWorkbookName):`/api/dd/${encodeURIComponent(slug)}/report/export?format=xlsx&scope=all&sheet=${encodeURIComponent(chapter.source_sheet)}${revision?`&revision=${revision}`:""}`;
   let tableNoticeShown=false,tableCount=0;
   if(chapter.slug==='biographies')return <DdBiographies chapter={chapter} slug={slug} glossary={glossary} allRows={allRows}/>;
-  if(chapter.slug==='organization')return <><p className="ddr-page-introduction"><DdReportRichText text={DD_REPORT_INTRODUCTIONS[chapter.slug]} id="page-introduction" slug={slug} glossary={glossary} interactive={!allRows} emphasize/></p><Organization chapter={chapter}/></>;
+  if(chapter.slug==='organization')return <><p className="ddr-page-introduction"><DdReportRichText text={DD_REPORT_INTRODUCTIONS[chapter.slug]} id="page-introduction" slug={slug} glossary={glossary} interactive={!allRows} emphasize/></p><DdOrganizationChart chapter={chapter}/></>;
   const objects=[...body.objects].sort((a,b)=>a.row-b.row),blocks:ReactNode[]=[];let tableRows:DdReportRow[]=[];let objectIndex=0;
   if(DD_REPORT_INTRODUCTIONS[chapter.slug])blocks.push(<p className="ddr-page-introduction" key="page-introduction"><DdReportRichText text={DD_REPORT_INTRODUCTIONS[chapter.slug]} id="page-introduction" slug={slug} glossary={glossary} interactive={!allRows} emphasize/></p>);
   const primary:Record<string,{address:string;label:string;unit:string}>={
