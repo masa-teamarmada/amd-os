@@ -1,7 +1,20 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import ts from "typescript";
-import { parsePageViewingInput, allowedProjectPageLabel, deduplicatePageViewers } from "../src/lib/page-viewing-core.ts";
+import { parsePageViewingInput, allowedProjectPageLabel, deduplicatePageViewers, shouldSendPageViewing, PAGE_VIEWING_IDLE_MS } from "../src/lib/page-viewing-core.ts";
+
+// 送信条件: 表示中・無操作10分以内・サーバが404を返したページ以外（2026-10-20 Vercel CPU対策）
+const send = { foreground: true, now: 1_000_000, lastActivity: 1_000_000, inputKey: "a", rejectedKey: null as string | null };
+assert.equal(shouldSendPageViewing(send), true);
+assert.equal(shouldSendPageViewing({ ...send, foreground: false }), false, "非表示タブは送らない");
+assert.equal(shouldSendPageViewing({ ...send, lastActivity: send.now - PAGE_VIEWING_IDLE_MS }), true, "10分ちょうどまでは送る");
+assert.equal(shouldSendPageViewing({ ...send, lastActivity: send.now - PAGE_VIEWING_IDLE_MS - 1 }), false, "10分を超えて無操作のタブは送らない");
+assert.equal(shouldSendPageViewing({ ...send, rejectedKey: "a" }), false, "404を返したページへ再送しない");
+assert.equal(shouldSendPageViewing({ ...send, rejectedKey: "b" }), true, "別のページへ移れば送る");
+const viewingClient = readFileSync(new URL("../src/components/nav/PageViewing.tsx", import.meta.url), "utf8");
+assert.match(viewingClient, /shouldSendPageViewing\(/, "送信前に共通の送信条件を通す");
+assert.match(viewingClient, /status === 404\) \{ rejectedKey = /, "404を受けたページを記録して止める");
+assert.match(viewingClient, /PAGE_VIEWING_IDLE_MS\) \{ if \(current\) leave\(\); return; \}/, "無操作のタブは退出を送って止める");
 
 const project = { projectId: "fixture", projectCategory: "dtsu" };
 assert.equal(parsePageViewingInput({ pathname: "https://example.com", pageLabel: "" }), null);

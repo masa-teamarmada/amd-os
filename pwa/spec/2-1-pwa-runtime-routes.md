@@ -305,6 +305,7 @@ migration 212 / 213 / 216〜219 / 258 と対になる contract。212 / 213は202
 共通`PageHistoryToolbar`右上の`PageViewing`に丸い頭文字と人数を表示し、「閲覧中」「閲覧履歴」を切り替える。社内共通枠、共有PJ、DDで共用。印刷・書斎・native専用枠は対象外。ネイティブUIは未移植。
 
 - PJ・領域・選択済みページ名で区別する。`ProjectPageTitle`が`amie-page-selection`を通知。query/hashだけでなく解決済みの表示状態を使い、サーバでproject-formatsのタイプ別ページ、DD目録、外部タブの許可リストを検証する。URL/query/hash、メール、本文、入力、検索語を保存しない。一般画面はpathname単位。マイページ・月初合意・契約・立替・通知・参加PJは本人の名前空間。
+- 2026-10-20（Vercel CPU対策、まさ指示）: サーバが404を返したページ（表示対象外）には同じページの間は再送しない（`rejectedKey`、ページ名かpathnameが変われば再開）。10分（`PAGE_VIEWING_IDLE_MS`）操作のない表示中タブはkeepalive退出を送って更新を止め、pointer/key/wheel/touch/scroll・表示復帰で即時再開する（再開は新visit）。判定は`shouldSendPageViewing`、検査は`test:page-viewing`。
 - `POST /api/page-viewing`は表示中タブだけ1分ごとに更新。初回表示・表示復帰・画面内ページ切替・閲覧情報パネルを開く操作は即時更新。非表示・pagehide・切替・アンマウント時にkeepalive退出。通信断は3分TTL（更新間隔の3倍）。1人の複数タブは1人。8秒timeout、失敗時は古い一覧を消す。200session超は＋表示。document.visibilityState基準であり、視線・読了・実作業時間を判定しない。
 - `GET /api/page-viewing?pathname=...&pageLabel=...&history=1`は読取り専用。POSTは同一Origin、2KiB上限、UUID、単調増加revisionを検証。全応答private/no-store。毎回既存member/個別surface grant/PJ所属/外部membership/DD grantを再検証。DD項目は所属・active・公開を確認。失敗は一律404、未対応専用画面はUIを出さない。権限追加・対人通知なし。
 - `os_page_viewer_sessions`はsession UUIDごとの一時状態、`os_page_viewing_visits`はvisit UUIDごとの永続履歴。service-only RPC `amie_update_page_viewer`は同一transactionで更新、revisionで遅れたheartbeat/leaveを拒否し別actorのsession上書きを拒否。heartbeatでは履歴を増やさない。退出後に戻ると新visit。1日超の一時sessionだけ通常更新時に掃除し、履歴は削除しない。

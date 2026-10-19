@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { History, Users, X } from "lucide-react";
-import { PAGE_VIEWING_REFRESH_MS, PAGE_VIEWING_EXPIRY_MS, type PageViewingInput, type PageViewingSnapshot } from "@/lib/page-viewing-core";
+import { PAGE_VIEWING_REFRESH_MS, PAGE_VIEWING_EXPIRY_MS, PAGE_VIEWING_IDLE_MS, shouldSendPageViewing, type PageViewingInput, type PageViewingSnapshot } from "@/lib/page-viewing-core";
 
 function selectedPage(pathname: string): PageViewingInput | null {
   const dataset = document.documentElement.dataset;
@@ -11,7 +11,7 @@ function selectedPage(pathname: string): PageViewingInput | null {
   return { pathname, pageLabel: dataset.amiePagePath === pathname ? dataset.amiePageLabel ?? "" : "" };
 }
 
-/** Foreground-only presence; hidden tabs send an ordered leave and never poll. */
+/** Foreground-only presence. Hidden or idle (10 min) tabs send an ordered leave and stop polling; a page the server rejected is not polled again. */
 export function PageViewing({ compact = false }: { compact?: boolean } = {}) {
   const pathname = usePathname() ?? "";
   const [snapshot, setSnapshot] = useState<PageViewingSnapshot | null>(null);
@@ -33,6 +33,8 @@ export function PageViewing({ compact = false }: { compact?: boolean } = {}) {
     let inFlight = false;
     let epoch = 0;
     let lastSuccess = 0;
+    let lastActivity = Date.now();
+    let rejectedKey: string | null = null;
     const foreground = () => !document.hidden;
     setSnapshot(null);
     setOpen(false);
@@ -55,7 +57,9 @@ export function PageViewing({ compact = false }: { compact?: boolean } = {}) {
       if (stopped || !foreground()) return;
       const input = selectedPage(pathname);
       if (!input) return;
-      if (current && JSON.stringify(current.input) !== JSON.stringify(input)) leave();
+      const inputKey = JSON.stringify(input);
+      if (current && JSON.stringify(current.input) !== inputKey) leave();
+      if (!shouldSendPageViewing({ foreground: foreground(), now: Date.now(), lastActivity, inputKey, rejectedKey })) return;
       if (!current) current = { input, visitId: crypto.randomUUID() };
       if (inFlight) return;
       inFlight = true;
@@ -64,7 +68,7 @@ export function PageViewing({ compact = false }: { compact?: boolean } = {}) {
       try {
         const response = await send(true, target);
         if (stopped || !foreground() || requestEpoch !== epoch) return;
-        if (response.status === 404) { setUnavailable(true); setSnapshot(null); return; }
+        if (response.status === 404) { rejectedKey = JSON.stringify(target.input); current = null; setUnavailable(true); setSnapshot(null); return; }
         if (!response.ok) throw new Error("page viewing failed");
         const value = await response.json() as PageViewingSnapshot;
         if (stopped || !foreground() || requestEpoch !== epoch) return;
@@ -84,13 +88,21 @@ export function PageViewing({ compact = false }: { compact?: boolean } = {}) {
       }
     };
     refreshRef.current = () => { void refresh(); };
-    const visibility = () => { if (!foreground()) leave(); else void refresh(); };
+    const visibility = () => { if (!foreground()) leave(); else { lastActivity = Date.now(); void refresh(); } };
     const selection = () => { void refresh(); };
+    const activity = () => {
+      const wasIdle = Date.now() - lastActivity > PAGE_VIEWING_IDLE_MS;
+      lastActivity = Date.now();
+      if (wasIdle) void refresh();
+    };
+    const activityEvents = ["pointerdown", "pointermove", "keydown", "wheel", "touchstart", "scroll"] as const;
     const timer = window.setInterval(() => {
       if (Date.now() - lastSuccess > PAGE_VIEWING_EXPIRY_MS) setSnapshot(null);
+      if (Date.now() - lastActivity > PAGE_VIEWING_IDLE_MS) { if (current) leave(); return; }
       void refresh();
     }, PAGE_VIEWING_REFRESH_MS);
     void refresh();
+    for (const name of activityEvents) window.addEventListener(name, activity, { capture: true, passive: true });
     window.addEventListener("amie-page-selection", selection);
     document.addEventListener("visibilitychange", visibility);
     window.addEventListener("pagehide", leave);
@@ -99,6 +111,7 @@ export function PageViewing({ compact = false }: { compact?: boolean } = {}) {
       stopped = true;
       leave();
       window.clearInterval(timer);
+      for (const name of activityEvents) window.removeEventListener(name, activity, { capture: true });
       window.removeEventListener("amie-page-selection", selection);
       document.removeEventListener("visibilitychange", visibility);
       window.removeEventListener("pagehide", leave);

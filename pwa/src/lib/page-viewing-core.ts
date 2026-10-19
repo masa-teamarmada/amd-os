@@ -2,6 +2,11 @@ import { COCKPIT_TAB_FORMATS, WORKSPACE_TAB_FORMATS, PROJECT_PAGE_LABELS, DD_ITE
 
 export const PAGE_VIEWING_REFRESH_MS = 60_000;
 export const PAGE_VIEWING_EXPIRY_MS = 180_000;
+export const PAGE_VIEWING_IDLE_MS = 600_000;
+/** Send only from a visible tab touched within 10 minutes, and never again for a page the server rejected (404). */
+export function shouldSendPageViewing(state: { foreground: boolean; now: number; lastActivity: number; inputKey: string; rejectedKey: string | null }): boolean {
+  return state.foreground && state.now - state.lastActivity <= PAGE_VIEWING_IDLE_MS && state.inputKey !== state.rejectedKey;
+}
 export type PageViewingInput = { pathname: string; pageLabel: string };
 export type PageViewer = { key: string; label: string; self: boolean };
 export type PageVisit = { id: string; label: string; self: boolean; startedAt: string; lastSeenAt: string };
