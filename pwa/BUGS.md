@@ -1,5 +1,19 @@
 # BUGS.md — AMD OS PWA
 
+### [Vercel] 関数のCPU時間が上限4時間の75%（2026-10-19）
+
+- **状態**: 原因を特定。対策は未実施（まさの判断待ち）。Hobbyは上限を超えると原則30日間その機能を使えない（Vercel公式 /docs/plans/hobby「Hobby billing cycle」）。PWAはpage 127件中70件がサーバ側でデータを読み、データの読み書きはAPI route 302件が担うため、超過するとPWAの大半が動かなくなる。
+- **測定値**（10/19 13時 JST、Usage › Fluid Active CPU、直近30日）: チーム合計3h00m/4h、うちamd-os-pwa 2h52m（95.5%）。amd-os-pwaの日別（UTC日）は9/19〜9/29が0.3〜2.3分、9/30が5分、10/3〜10/5が3〜8分、10/6が11m53s、10/8が12m27s、10/9〜10/17が5〜11分、10/18が32m58s、10/19（13時JSTまで）が1m55s。
+- **直近12時間のroute別**（Observability › Functions、10/19 00:50〜12:50 JST、合計約7.5分）: `/dd/[slug]` 211回・3分（P75 786ms/回）、`/api/dd/[slug]/report/simulate` 4回・2分（P75 31秒/回）、`/api/page-viewing` 979回・1分（Supabase往復15K回）、`/api/cron/contract-mail-watch` 151回・23秒、`/api/dd/[slug]/report/export` 52回・23秒、残り全route合計で約45秒。
+- **原因1 DD新版リーダーの表示**: 表示のたびにDdReportCalculator（JSの数式パーサ）で章の全数式を再計算し、大きな表をSSRする（`evaluatedDdReportChapter`）。runtimeログでは1回の画面移動で`/dd/sol`が3〜4回、`/project/p21/{cockpit,workspace,dd}`が各2回同じ秒に走る（章リンクと上部タブの先読みとみられる）。
+- **原因2 DDのPDF作り直し**: PDF未作成の版を閲覧すると、`queueDdReportPdf`が`after()`で全章PDFをChromiumで作る。保存キーは`layout-vN`・revision・伏字設定のハッシュで決まり、`layout-vN`は10/18 12:59〜10/19 12:10の24時間で15回変わった。
+- **原因3 DD試算**: 10/19 02:00導入の`simulate`は、`verifyDdReportCalculation`が資本政策表・損益資金繰・UEの主要セルを依存セルごと再計算し、1回約30秒。外部閲覧者が条件を変えるたびに同じ量を使う。
+- **原因4 常時の呼び出し（10/8導入の2件）**: 閲覧中の人の表示は前面タブごとに毎分送信し、404（表示対象外の画面）を受けた後もタイマーが動き続ける。Observabilityでは夜間も4XXが一定量続いていた。契約メール監視はGAS（165_ContractWorkflowWatch.js）から5分ごと（1日288回、googleapisでGmailを取得）。この2件の導入後、commitが0〜1件の日（10/9、10/11）でも1日約5分を使う。9月は同条件で1〜2分。
+- **10/18の33分**: DD関連26 commitの本番反映と検証、PDF/Excel書き出し、PDF作り直し、試算の試行が同じUTC日に集中した。route別の内訳はHobbyの保存期間（Observability 12時間、runtimeログ1時間）を過ぎて確認できない。v2 usage APIの時刻別関数実行量は10/18 13〜17時・23時と10/19 1時（JST）に偏り、DDのcommit時刻と一致する。
+- **見込み**: 直近30日の窓から1〜2分/日の古い日が抜け、8〜12分/日の新しい日が入るため、合計は1日約7分増える。残り約60分は約1週間（10月下旬）で尽きる。10/18と同じ密度の作業が続けば2〜3日。
+- **対策候補**（未実施）: 閲覧中の人の表示は404で停止・送信間隔の延長・無操作時の停止。DDは計算済み章本文の版別保存と再利用、章リンクの先読み停止、PDF作成を閲覧から切り離して版確定時だけにする、試算の計算範囲の縮小か結果の保存。契約メール監視は間隔の延長かGAS側でのGmail確認。DDの検証はローカルを基本にして本番反映を束ねる。Pro（1人月20ドル）は超過時に停止せず従量課金になる。
+- **Hobbyで使える計測経路**: 日別・時刻別の関数実行量（GB-h）と回数は`GET https://api.vercel.com/v2/usage?teamId=…&projectId=…&type=requests&granularity=hour|day&from=…&to=…`（CLIのトークン）。route別のActive CPUはダッシュボードのObservability › Functions（最大12時間）。日別のActive CPUはUsage › Fluid Active CPUのグラフにhoverすると下の表が日別値になる（日区切りはUTC）。runtimeログは`vercel logs --project amd-os-pwa --environment production --no-branch --json`（1時間分、1回50件、`--until`で遡る）。`vercel metrics`はObservability Plus専用、`vercel usage`はHobbyで404。
+
 ### 2026-10-18 DD閲覧の遷移・閲覧者・操作の修正
 
 - **症状**: 新版の資料で閲覧者が出ない、押下後の応答が見えず連打する、リロードや用語説明の開始が分かりにくい。全体loading導入後は左メニューまで消えた。入口が共通前提になり、最初の表内で縦スクロールを捕捉。出力/限定的な編集操作が重複していた。
