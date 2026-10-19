@@ -14,6 +14,7 @@ import {mergeDdDevelopmentForWorkbook,splitDdDevelopmentChapters,splitDdDevelopm
 import {splitDdDevelopmentWorkbook} from './dd-report-development-xlsx';
 import {projectDdWorkbook} from './dd-report-workbook';
 import {syncDdListValidation} from './dd-report-validation';
+import {ddPatchWorksheetFormula} from './dd-report-xlsx-formulas';
 
 export const orderedDdChapters=orderDdReading;
 export async function ddReportHtml({edition,chapters,index,slug,assetUrls,includeCover=true,includeGlossary=true,glossaryAll=false}:{edition:DdReportEdition;chapters:DdReportChapter[];index:DdReportChapterSummary[];slug:string;assetUrls:Record<string,string>;includeCover?:boolean;includeGlossary?:boolean;glossaryAll?:boolean}) {
@@ -71,7 +72,7 @@ export function ddReportXlsx(source:Uint8Array,edition:DdReportEdition,model:DdR
       let value=edited.get(sheet)?.get(address)??calc.get(sheet,address);
       if(typeof value==='string')value=redact(value);
       const patch=model.formulaPatches?.[`${sheet}!${address}`];
-      const originalCell=patch?cell.replace(/<((?:[\w.-]+:)?f)\b([^>]*?)>[\s\S]*?<\/(?:[\w.-]+:)?f>/,(_f,tag:string,attrs:string)=>`<${tag}${attrs}>${ddEscapeHtml(patch)}</${tag}>`):cell;
+      const originalCell=patch?ddPatchWorksheetFormula(cell,patch):cell;
       return xmlCell(originalCell,value,Boolean(entry.f)||/<(?:[\w.-]+:)?f\b/.test(cell));
     }).replace(/zoomScale="\d+"/g,'zoomScale="100"');
     if(focusSheet)xml=xml.replace(/tabSelected="[01]"/g,`tabSelected="${sheet===focusSheet?'1':'0'}"`);
