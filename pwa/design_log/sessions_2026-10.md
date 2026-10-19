@@ -779,3 +779,15 @@ NDA回帰・従来DD検査成功。8GB指定の型検査・対象lint・project-
 v3.163.8時点の実ボタンZIPはPDF/XLSXの2ファイル、破損なし・数式ありを確認。並行作業で後にExcel分担が変わったので、当時のシート数を現行値へ流用しない。画面画像・ログは/tmpの診断控え、ユーザーDownloadsはそのまま保持。確認タブは閉じ、用語のローカルfixtureサーバは停止済み。スマートフォンはSwift使用というまさの指示後、PWAのスマホ幅検査を追加しない。
 
 終了監査: main/origin/main・本番ac938cd5 / v3.163.13、ahead/behind0/0、競合なし、worktree本体1・local branch mainのみ。別activeチャット「いよぎんC向けDDパッケージ準備」(01a14258-f17e-75c0-bd20-a505cb3bb891)のPDF/Excel参照改善13パスが共有dirty。担当の進行中の実物監査依頼と編集対象を確認し、closeoutスキルの担当返却手順で同チャットへ通知。こちらのstage・commitへ混入させない。担当は監査完了前に検証/仕様同期/保存/正規反映。詳細分類・再判定条件はHANDOFF_DD_VIEWER_20261018.md。終了文書だけをcommit/pushし再buildを作らない。会話の検討材料0件。
+
+## 2026-10-19 DD版管理・組織図・資本政策・出力停止・計算更新の終了記録
+作業種別mixedのうち本節は開発履歴のみ。事業・費用判断はSOL/DD_FUEL_DEDICATED_AND_WASTE_COST_AUDIT_20261019.mdに保存。
+
+| 順 | 採用コード | 変更・新規成果物 | 恒久仕様・操作 |
+|---|---|---|---|
+| 1 | a3a6aefe / v3.163.30 | 組織図の支援線分岐。20261019072151 migrationによるDD文書版・リリース履歴と採番 | spec5-17、manual2-6、両附則 |
+| 2 | 37f51c79 / v3.163.31 | GAPと6カード、評価額積上げ図、章別横PDF、DD v2.0.2/r87。実PDF133頁・Excel21シート・Drive一致 | 同上、SOL/DISTRIBUTION_MATERIALS.md |
+| 3 | 04ae706a、63a9ebe4 / v3.163.32 | 重複節・評価額図削除、成長図縮小。20261019091219 migrationのdownload_snapshot。生成停止時は既存の同版PDF/Excel/ZIPのみ返却し、未生成409。版別認可維持、生成・圧縮・ポーリング停止 | spec5-17、manual2-6、ios/DESIGN、native handoff |
+| 4 | c3068667 / v3.163.33 | DdProcessIllustration.tsxとcheck_dd_process_illustrations.mts追加。4工程絵・2経路図、本文/図/スタイル・テスト更新。Calculator editedCells追加と感度分析伝播。21章原文とモデルを原子的更新、v2.0.4/r89 | spec5-17、manual2-6、BUGS、bzm9-5 |
+
+全体強制再計算案は不採用、変更依存先だけ再計算して既存値を保持。123,695セル・9感度表93セル・エラー0、21章の保存本文ハッシュ一致。DD検査一式・型検査・静的検査・正規配信・本番PC/390px画面を確認。ダウンロードはv2.0.2/r87、生成0・凍結13、実ZIP同一バイト。新環境変数・秘密値・権限・cron追加なし。後続57f65d0bは正本同期のみ。終了時の文書保存では再配信・再生成しない。
