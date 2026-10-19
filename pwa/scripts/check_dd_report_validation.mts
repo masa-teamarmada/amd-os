@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {syncDdListValidation} from '../src/lib/dd-report-validation.ts';
+const original='<dataValidations count="3"><dataValidation type="list" sqref="E6"><formula1>"脂質分泌株,菌体から抽出"</formula1></dataValidation><dataValidation type="list" sqref="I6"><formula1>"出荷待ち,燃料専用"</formula1></dataValidation><dataValidation type="decimal" sqref="E8"><formula1>0</formula1></dataValidation></dataValidations>';
+const result=syncDdListValidation(original,[{sheet:'fuel',address:'E6',label:'共通前提',value:'脂質分泌株',format:'General',options:['脂質分泌株']}]);
+assert(!result.includes('菌体から抽出'));
+assert(result.includes('<formula1>&quot;脂質分泌株&quot;</formula1>'));
+assert(result.includes('<formula1>"出荷待ち,燃料専用"</formula1>'));
+assert(result.includes('<dataValidation type="decimal" sqref="E8"><formula1>0</formula1>'));
+assert.equal(syncDdListValidation(result,[]),result);
+const prefixed='<x:dataValidation type="list" sqref="E6"><x:formula1>"old"</x:formula1></x:dataValidation>';
+assert(syncDdListValidation(prefixed,[{sheet:'fuel',address:'E6',label:'',value:'a&b',format:'General',options:['a&b']}]).includes('<x:formula1>&quot;a&amp;b&quot;</x:formula1>'));
+console.log('PASS: current model choices replace obsolete single-cell Excel lists; unrelated rules and namespace remain intact');

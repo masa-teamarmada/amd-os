@@ -13,6 +13,7 @@ import {updateDdFundingChartXml} from './dd-report-funding-chart';
 import {mergeDdDevelopmentForWorkbook,splitDdDevelopmentChapters,splitDdDevelopmentIndex} from './dd-report-development-plans';
 import {splitDdDevelopmentWorkbook} from './dd-report-development-xlsx';
 import {projectDdWorkbook} from './dd-report-workbook';
+import {syncDdListValidation} from './dd-report-validation';
 
 export const orderedDdChapters=orderDdReading;
 export async function ddReportHtml({edition,chapters,index,slug,assetUrls,includeCover=true,includeGlossary=true,glossaryAll=false}:{edition:DdReportEdition;chapters:DdReportChapter[];index:DdReportChapterSummary[];slug:string;assetUrls:Record<string,string>;includeCover?:boolean;includeGlossary?:boolean;glossaryAll?:boolean}) {
@@ -85,6 +86,7 @@ export function ddReportXlsx(source:Uint8Array,edition:DdReportEdition,model:DdR
       const ids=new Map([...xml.matchAll(/<(?:[\w.-]+:)?hyperlink\b[^>]*\bref="([A-Z]+\d+)"[^>]*\br:id="([^"]+)"[^>]*\/>/g)].flatMap(m=>targets.has(m[1])?[[m[2],targets.get(m[1])!] as const]:[]));
       files[relsPath]=strToU8(strFromU8(files[relsPath]).replace(/<Relationship\b[^>]*\/>/g,rel=>{const target=ids.get(rel.match(/\bId="([^"]+)"/)?.[1]??'');return target?rel.replace(/\bTarget="[^"]*"/,`Target="${ddEscapeHtml(target)}"`):rel;}));
     }
+    xml=syncDdListValidation(xml,model.inputs.filter(input=>input.sheet===sheet));
     files[data.path]=strToU8(xml);
   }
   // PDF/HTML supplies narrative and figures; the projected workbook keeps calculations and detailed lists.
