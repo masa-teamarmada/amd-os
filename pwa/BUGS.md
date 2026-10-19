@@ -1,8 +1,20 @@
 # BUGS.md — AMD OS PWA
 
+### [Supabase] DBのRAM使用率が76%前後（2026-10-20）
+
+- **状態**: 原因を特定。対策は未実施（まさの判断待ち）。
+- **測定値**（10/20 01時 JST）: 管理画面 Settings › Infrastructure で計算資源はNano（`t4g.nano`、メモリ最大0.5GB）。RAM 70%（直近7日の最大73%、CPU 64%、Disk IO 78%）、接続22/60。メトリクス窓口（`/customer/v1/privileged/metrics`）でMemTotal 408.8MiB、MemAvailable 115〜137MiB、スワップ1GiBのうち638〜814MiB使用、計測中のCPU入出力待ち15%。組織はProプランで、同じ画面にMicro（1GB、Nanoと同額 $0.01344/時）への「Free Upgrade」が表示されている。
+- **実害**: 10/18 19:53〜19:58 UTCにpg_cronの起動タイムアウト4回。10/19 09:45 UTCにPostgRESTが35秒間スキーマを読めず、APIの5xxが10/18 19時台14件・10/19 09時台35件。OOM killは起動（4/6）以来0回。
+- **原因1 計算資源**: Postgresの共有メモリ設定270MB（shared_buffers 224MB）が0.4GiBのVMの66%を占め、PostgREST・Auth・Realtime・Storageと同居してスワップへ追い出されている。DBは1,109MiB。
+- **原因2 変更履歴の表の肥大**: `amd_os_data_change_history`が762MB（DB全体の69%、本体530MB＋索引213MB、索引6本の使用は合計87回）。直近24時間の追記約3.35万行のうち2.65万行（79%）は`tally_weekly_effort_entries`。Edge Function `tally-sync`（Tally Mac版が30分ごとに呼ぶ）がPJ・メンバー単位で週次工数を全件DELETEしてから全件INSERTし、変更がなくても毎回履歴が残る（累計挿入43万・削除43万）。
+- **原因3 同じDBに相乗りしている個人アプリ**: リネージュ2Mのボス通知アプリ（`/Users/masa/projects/l2m`、Web版 l2m-boss.vercel.app）が同じプロジェクトを使う。pg_cron `l2m-boss-dispatch-web-push` が30秒ごと（1日2,856回）、Realtimeの変更取得がDB実行時間の23.4%、L2M BossのRPC群が28.5%、API要求の49%（1日約6.4万回）。`claim_due_l2m_boss_notification_jobs`は1回平均168msで約23MiB分のバッファを参照する。
+- **原因4 接続の入れ替わり**: PostgRESTの接続開始が1日4,160回、cronが30秒ごとに新プロセス、セッション1日6,700。1プロセスあたり数MB〜数十MBの私有メモリを使う（SQLからは測れない）。
+- **対策候補**（未実施、まさの判断待ち）: ①計算資源をMicro（1GB、同額）へ変更（再起動で通常2分未満停止）。②`tally-sync`を変更のあった行だけのupsertへ変更し、`tally_weekly_effort_entries`を変更履歴の対象から外す。③変更履歴の高頻度表（tally・L2M）の過去行の削除（取り消し不可、件数と対象を確認してから）。④L2M Bossを別のSupabaseプロジェクトへ移す。
+- **計測経路**: 計算資源とRAM%は管理画面 Settings › Infrastructure。メモリ内訳はメトリクス窓口（Basic認証 `service_role`＋service role key、鍵は表示しない）の`node_memory_*`。DB負荷は`pg_stat_statements`、表の大きさは`pg_total_relation_size`、変更履歴の内訳は`amd_os_data_change_history`の`occurred_at`範囲で`table_name`別に集計（索引あり）。
+
 ### [Vercel] 関数のCPU時間が上限4時間の75%（2026-10-19）
 
-- **状態**: 原因を特定。10/20に対策の一部を本番反映（v3.163.38: 契約メール監視の停止、閲覧中表示の404停止と10分無操作停止。v3.163.39: DDの数値表示形式の使い回し、DDリンクの先読み停止）。試算スイッチの扱いはまさの判断待ち。Hobbyは上限を超えると原則30日間その機能を使えない（Vercel公式 /docs/plans/hobby「Hobby billing cycle」）。PWAはpage 127件中70件がサーバ側でデータを読み、データの読み書きはAPI route 302件が担うため、超過するとPWAの大半が動かなくなる。
+- **状態**: 原因を特定。10/20に対策の一部を本番反映（v3.163.38: 契約メール監視の停止、閲覧中表示の404停止と10分無操作停止。v3.163.39: DDの数値表示形式の使い回し、DDリンクの先読み停止。v3.163.40: PJの領域切替リンクの先読みをhover/focus時だけに変更。v3.163.41: 管理メニュー・全体メニュー・ホームのリンクも同じ方式、ホームのPJカードは先読みなし）。試算スイッチの扱いはまさの判断待ち。Hobbyは上限を超えると原則30日間その機能を使えない（Vercel公式 /docs/plans/hobby「Hobby billing cycle」）。PWAはpage 127件中70件がサーバ側でデータを読み、データの読み書きはAPI route 302件が担うため、超過するとPWAの大半が動かなくなる。
 - **測定値**（10/19 13時 JST、Usage › Fluid Active CPU、直近30日）: チーム合計3h00m/4h、うちamd-os-pwa 2h52m（95.5%）。amd-os-pwaの日別（UTC日）は9/19〜9/29が0.3〜2.3分、9/30が5分、10/3〜10/5が3〜8分、10/6が11m53s、10/8が12m27s、10/9〜10/17が5〜11分、10/18が32m58s、10/19（13時JSTまで）が1m55s。
 - **直近12時間のroute別**（Observability › Functions、10/19 00:50〜12:50 JST、合計約7.5分）: `/dd/[slug]` 211回・3分（P75 786ms/回）、`/api/dd/[slug]/report/simulate` 4回・2分（P75 31秒/回）、`/api/page-viewing` 979回・1分（Supabase往復15K回）、`/api/cron/contract-mail-watch` 151回・23秒、`/api/dd/[slug]/report/export` 52回・23秒、残り全route合計で約45秒。
 - **原因1 DD新版リーダーの表示**: 計画値（`input_overrides`={}）の表示では数式を再計算せず、モデルに保存したExcelの計算済み値を返す（`DdReportCalculator.get`。全38章の評価は手元で合計約0.1秒、資本政策表のJ-KISS集計が最大0.04秒）。表示1回のCPUの主因は大きな表のSSRで、数値の表示形式`formatDdReportValue`が`toLocaleString(locale,options)`で呼ぶたびに数値書式を作り直し、描画時間の約半分を占めた（資金繰表の描画0.50秒、HTML 1.9MB＋章データ3.2MB）。章目次・前後・旧資料のリンクの先読みで、1回の移動で`/dd/sol`が3〜4回描画された。10/20対応: 数値書式を設定ごとに1回作って使い回す（全38章とモデル全セルの約35万通りで旧実装と出力一致、資金繰表の描画0.50→0.15秒、生産・拠点計画0.55→0.10秒）。DDのリンクは`prefetch={false}`。検査`test:dd-render-cost`（deploy前に実行）。
@@ -11,6 +23,7 @@
 - **原因4 常時の呼び出し（10/8導入の2件）**: 閲覧中の人の表示は前面タブごとに毎分送信し、404（表示対象外の画面）を受けた後もタイマーが動き続けた。Observabilityでは夜間も4XXが一定量続いていた。契約メール監視はGAS（165_ContractWorkflowWatch.js）から5分ごと（1日288回、googleapisでGmailを取得）。この2件の導入後、commitが0〜1件の日（10/9、10/11）でも1日約5分を使った。9月は同条件で1〜2分。10/20対応（v3.163.38）: 契約メール監視を停止（GAS trigger削除・受け口撤去、spec5-6）、閲覧中表示は404のページへ再送せず10分無操作で退出して停止（spec2-1）。
 - **10/18の33分**: DD関連26 commitの本番反映と検証、PDF/Excel書き出し、PDF作り直し、試算の試行が同じUTC日に集中した。route別の内訳はHobbyの保存期間（Observability 12時間、runtimeログ1時間）を過ぎて確認できない。v2 usage APIの時刻別関数実行量は10/18 13〜17時・23時と10/19 1時（JST）に偏り、DDのcommit時刻と一致する。
 - **見込み**: 直近30日の窓から1〜2分/日の古い日が抜け、8〜12分/日の新しい日が入るため、合計は1日約7分増える。残り約60分は約1週間（10月下旬）で尽きる。10/18と同じ密度の作業が続けば2〜3日。
+- **原因5 画面遷移リンクの先読み**（10/20の本番確認で発見）: 管理画面1回の表示で左メニュー約19画面を2回ずつ（計38回）、ホーム1回の表示でPJコックピット18画面と機関・シーズ等を先読みし、それぞれサーバで描画していた。ホームのPJカードは新しいタブで開くため先読み結果が使われない。ブラウザ側では多くが503表示だったが、Vercelのログでは関数が200で処理済み。10/20対応（v3.163.40〜41）: `IntentLink`でhover/focus時だけ先読み、PJカードは先読みなし（spec5-10、検査`test:nav-prefetch`）。
 - **残り**: 試算スイッチ（原因3）はまさの判断待ち。DDの検証はローカルを基本にして本番反映を束ねる。Pro（1人月20ドル）は超過時に停止せず従量課金になる。
 - **Hobbyで使える計測経路**: 日別・時刻別の関数実行量（GB-h）と回数は`GET https://api.vercel.com/v2/usage?teamId=…&projectId=…&type=requests&granularity=hour|day&from=…&to=…`（CLIのトークン）。route別のActive CPUはダッシュボードのObservability › Functions（最大12時間）。日別のActive CPUはUsage › Fluid Active CPUのグラフにhoverすると下の表が日別値になる（日区切りはUTC）。runtimeログは`vercel logs --project amd-os-pwa --environment production --no-branch --json`（1時間分、1回50件、`--until`で遡る）。`vercel metrics`はObservability Plus専用、`vercel usage`はHobbyで404。
 

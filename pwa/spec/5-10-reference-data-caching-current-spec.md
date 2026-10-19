@@ -1,5 +1,7 @@
 # 参照系データのキャッシュ仕様（体感速度の既定設計）
 
+2026-10-20 v3.163.41（Vercel CPU対策）: 画面遷移リンクの先読みは表示時に行わず、hover/focusのときだけ行う。共通部品 `src/components/nav/IntentLink.tsx`（`prefetch={false}`＋`router.prefetch`、新しいタブで開くリンクは先読みしない）を管理メニュー・全体メニュー・ホームの指標/機関リンクで使い、PJ領域切替（`ProjectSurfaceNav`）も同じ方式。ホームのPJカード（新しいタブで開く）は`prefetch={false}`。本番で、管理画面1回の表示で左メニュー約19画面を2回ずつ、ホーム1回の表示でPJコックピット18画面を先読みしてサーバ描画していた。検査 `test:nav-prefetch`（deploy前に実行）。参照系データの先読み（`prefetchReferenceData`）は従来どおりhover/focusで行う。
+
 2026-10-15: DDの認可後の参照本文は`dd-reference-cache.ts`で30秒/128件、同時取得集約・失敗破棄・`fresh=1`を実装。開示選択が関わるページは除外し、会社名の非開示指定はキャッシュの後で毎回適用。機密応答をHTTPやクライアントの独自キャッシュへ入れず、入場権限を都度再確認する。計画HTMLは現行参照先/activeを都度確認して資料版別5分/32件。詳細5-17、検査`test:dd-package`。
 
 2026-10-04: ワークスペースの動向・会議は `workspace-meetings-client.ts` から共通キャッシュで読み、PJと期間ごとに30秒だけ再利用する。会議の更新ボタンはforce再取得。サーバは毎回PJ所属を確認しprivate/no-storeで返す。DD初期データは公開判定後にサーバから渡し、汎用APIを呼ばない。

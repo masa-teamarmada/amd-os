@@ -129,6 +129,8 @@ echo "Running critical UI / spec rollback guard ..."
 (cd "$REPO_ROOT/pwa" && npm run test:dd-package)
 # DDの表示形式の使い回しとリンク先読みの停止（2026-10-20 Vercel CPU対策、spec 5-17）
 (cd "$REPO_ROOT/pwa" && npm run test:dd-render-cost)
+# 左メニュー・ホームのカードは表示時に先読みしない（2026-10-20 Vercel CPU対策、spec 5-10）
+(cd "$REPO_ROOT/pwa" && npm run test:nav-prefetch)
 # DDの画像プレビューは縦横を見出しから読む（sharp を本番の関数へ同梱しない。spec 5-2）
 (cd "$REPO_ROOT/pwa" && npm run test:image-dimensions)
 # 反映後の旧版整理が、本番・新しい5版・作成中・取消・失敗・他プロジェクトの版を消さないこと（spec 5-2）

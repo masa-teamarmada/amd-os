@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { IntentLink } from "@/components/nav/IntentLink";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -329,7 +330,7 @@ export function GlobalNav({
     // 192px = 最長ラベル (AMD Protocol / Management) が truncate されない実測の下限。
     // これ以上狭めると英字メニューから「…」で欠け始める。
     <aside className="sticky top-0 z-50 flex h-screen w-[76px] shrink-0 flex-col border-r border-border/60 bg-background/95 px-2 py-3 shadow-[1px_0_0_rgba(0,0,0,0.02)] backdrop-blur lg:w-48 lg:px-3">
-      <Link
+      <IntentLink
         href="/dashboard"
         className="mb-2 flex h-10 shrink-0 items-center justify-center gap-3 rounded-md px-2 text-foreground transition-colors hover:bg-muted lg:justify-start"
         title={`AMD OS / build ${BUILD_VERSION}`}
@@ -342,7 +343,7 @@ export function GlobalNav({
             {BUILD_VERSION}
           </span>
         </div>
-      </Link>
+      </IntentLink>
 
       <nav
         className="min-h-0 flex-1 space-y-2 overflow-y-auto overflow-x-hidden pr-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -368,7 +369,7 @@ export function GlobalNav({
 
       <div className="mt-2 shrink-0 border-t border-border/60 pt-2">
         {userCodeName && (
-          <Link
+          <IntentLink
             href={
               memberId
                 ? `/mypage?memberId=${encodeURIComponent(memberId)}`
@@ -381,7 +382,7 @@ export function GlobalNav({
             <span className="hidden min-w-0 truncate lg:inline">
               {userCodeName}
             </span>
-          </Link>
+          </IntentLink>
         )}
       </div>
     </aside>
@@ -421,7 +422,7 @@ function NavLink({
   const tooltip = item.title ? `${item.label} - ${item.title}` : item.label;
 
   return (
-    <Link
+    <IntentLink
       href={item.href}
       title={tooltip}
       className={cn(
@@ -445,7 +446,7 @@ function NavLink({
           {count}
         </span>
       )}
-    </Link>
+    </IntentLink>
   );
 }
 
@@ -563,22 +564,22 @@ function ModelNavLink({ item, active }: { item: NavItem; active: boolean }) {
             )}
             {status === "ready" && (
               <div className="min-h-0 flex-1 overflow-y-auto">
-                <Link
+                <IntentLink
                   href="/model#current-formulas"
                   className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted"
                   onClick={() => setOpen(false)}
                 >
                   現行モデルの式
-                </Link>
+                </IntentLink>
                 {sections.map((section) => (
-                  <Link
+                  <IntentLink
                     key={section.id}
                     href={`/model#${section.id}`}
                     className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                     onClick={() => setOpen(false)}
                   >
                     <span className="min-w-0 truncate">{section.label}</span>
-                  </Link>
+                  </IntentLink>
                 ))}
               </div>
             )}
@@ -604,7 +605,7 @@ function ModelNavLink({ item, active }: { item: NavItem; active: boolean }) {
         }
       }}
     >
-      <Link
+      <IntentLink
         href={item.href}
         title={item.label}
         aria-haspopup="true"
@@ -618,7 +619,7 @@ function ModelNavLink({ item, active }: { item: NavItem; active: boolean }) {
       >
         <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
         <span className="hidden min-w-0 flex-1 truncate lg:inline">{item.label}</span>
-      </Link>
+      </IntentLink>
       {flyout}
     </div>
   );
@@ -807,7 +808,7 @@ function BoardNavLink({
         }
       }}
     >
-      <Link
+      <IntentLink
         href={item.href}
         title={tooltip}
         aria-haspopup="true"
@@ -823,7 +824,7 @@ function BoardNavLink({
         <span className="hidden min-w-0 flex-1 truncate lg:inline">
           {item.label}
         </span>
-      </Link>
+      </IntentLink>
       {flyout}
     </div>
   );

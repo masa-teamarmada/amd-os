@@ -8,7 +8,7 @@
  * 設計正本: pwa/design/institution_readiness.md
  */
 import { AmieListCategory } from "@/components/ui/amie-list-signals";
-import Link from "next/link";
+import { IntentLink } from "@/components/nav/IntentLink";
 import { computeErs, ersScoreColor, INSTITUTION_TYPE_LABEL, type ErsResult, type ErsInstitution } from "@/lib/ers";
 import type { ErsBundle } from "@/lib/ers-data";
 import { selectPrimaryInstitutionProject, type InstitutionProjectLink } from "@/lib/institution-projects";
@@ -26,12 +26,12 @@ export function InstitutionReadinessList({ bundle }: { bundle: ErsBundle | null 
             苗床レイヤー。AMD Score とは別指標で、機関がベンチャーを生み育てる装置としての整備度を充足率 0–100% で表す。
           </p>
         </div>
-        <Link
+        <IntentLink
           href="/institutions"
           className="text-xs px-3 py-1.5 rounded-md border border-border bg-white hover:bg-muted/40 transition-colors shrink-0"
         >
           一覧・比較 →
-        </Link>
+        </IntentLink>
       </div>
 
       <div className="space-y-2">
@@ -65,7 +65,7 @@ function InstitutionStripe({
   const meta = [display.subtitle, inst.region, inst.description].filter(Boolean).join(" · ");
 
   return (
-    <Link
+    <IntentLink
       href={projectLink ? `/institutions/${inst.institutionId}/cockpit` : `/institutions/${inst.institutionId}`}
       className="relative block rounded-lg border border-border border-l-4 border-l-indigo-500 bg-card overflow-hidden transition-all hover:shadow-md hover:-translate-y-0.5"
     >
@@ -125,7 +125,7 @@ function InstitutionStripe({
           <div className="text-foreground">{result.assessedCriteria}/{result.totalCriteria}</div>
         </div>
       </div>
-    </Link>
+    </IntentLink>
   );
 }
 

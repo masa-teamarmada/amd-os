@@ -17,7 +17,7 @@
  * default client を直接叩かない。ECRとシーズは個別に成否を扱い、片方の障害でもう片方まで
  * 消さない (障害分離)。
  */
-import Link from "next/link";
+import { IntentLink } from "@/components/nav/IntentLink";
 import { AmieListStatus } from "@/components/ui/amie-list-signals";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ArrowRight, Briefcase, Building2, Sprout, type LucideIcon } from "lucide-react";
@@ -282,7 +282,7 @@ function StatStrip({ model }: { model: PortfolioPulseModel }) {
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
       {items.map((item) => (
-        <Link
+        <IntentLink
           key={item.label}
           href={item.href}
           className={`rounded border px-2 py-2 transition-colors hover:bg-[var(--desk-blue-soft)] ${
@@ -298,7 +298,7 @@ function StatStrip({ model }: { model: PortfolioPulseModel }) {
               <span className="text-[11px] font-normal text-[var(--desk-muted)]"> / {item.denom}</span>
             ) : null}
           </div>
-        </Link>
+        </IntentLink>
       ))}
     </div>
   );
@@ -339,10 +339,10 @@ function QueuePanel({
           {title}
           <span className="font-mono text-[11px] font-normal text-[var(--desk-muted)]">{count}</span>
         </div>
-        <Link href={actionHref} className="flex items-center gap-1 text-[11px] font-medium text-[var(--desk-blue)] hover:underline">
+        <IntentLink href={actionHref} className="flex items-center gap-1 text-[11px] font-medium text-[var(--desk-blue)] hover:underline">
           {actionLabel}
           <ArrowRight className="h-3 w-3" aria-hidden="true" />
-        </Link>
+        </IntentLink>
       </div>
       {errored ? (
         <p className="mb-2 rounded border border-[var(--desk-amber)]/40 bg-[var(--desk-amber-soft)] px-2 py-1 text-[11px] text-[var(--desk-amber)]">
@@ -371,7 +371,7 @@ function CandidateRow({
   href: string;
 }) {
   return (
-    <Link
+    <IntentLink
       href={href}
       target={href.startsWith("/project/") ? "_blank" : undefined}
       rel={href.startsWith("/project/") ? "noopener noreferrer" : undefined}
@@ -386,7 +386,7 @@ function CandidateRow({
         <span className="block truncate text-[11px] text-[var(--desk-muted)]">{meta}</span>
       </span>
       <AmieListStatus label={badge} className="shrink-0"/>
-    </Link>
+    </IntentLink>
   );
 }
 

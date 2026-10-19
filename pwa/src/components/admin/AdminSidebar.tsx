@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { IntentLink } from "@/components/nav/IntentLink";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { ArrowLeft, Menu, X } from "lucide-react";
@@ -35,14 +35,14 @@ export function AdminSidebar() {
         >
           <Menu className="h-5 w-5" aria-hidden="true" />
         </button>
-        <Link
+        <IntentLink
           href="/dashboard"
           className="flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           title={`AMD OSへ戻る / build ${BUILD_VERSION}`}
           aria-label="AMD OSへ戻る"
         >
           <ArrowLeft className="h-5 w-5" aria-hidden="true" />
-        </Link>
+        </IntentLink>
       </div>
 
       {mobileOpen && (
@@ -64,7 +64,7 @@ export function AdminSidebar() {
         )}
       >
         <div className="mb-1 flex items-center gap-1">
-          <Link
+          <IntentLink
             href="/dashboard"
             onClick={() => setMobileOpen(false)}
             className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -73,7 +73,7 @@ export function AdminSidebar() {
             <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span className="min-w-0 flex-1 truncate">AMD OS</span>
             <span className="font-mono text-[10px] font-normal text-muted-foreground">{BUILD_VERSION}</span>
-          </Link>
+          </IntentLink>
           <button
             type="button"
             onClick={() => setMobileOpen(false)}
@@ -89,7 +89,7 @@ export function AdminSidebar() {
               {group.label}
             </h2>
             {group.items.map((tab) => (
-              <Link
+              <IntentLink
                 key={tab.href}
                 href={tab.href}
                 onClick={() => setMobileOpen(false)}
@@ -101,7 +101,7 @@ export function AdminSidebar() {
                 )}
               >
                 {tab.label}
-              </Link>
+              </IntentLink>
             ))}
           </div>
         ))}
