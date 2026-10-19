@@ -1,7 +1,8 @@
-import {NextRequest,NextResponse} from 'next/server';
+import {NextRequest,NextResponse,after} from 'next/server';
 import {requireAdmin} from '@/lib/supabase/api-auth';
 import {createAdminClient} from '@/lib/supabase/admin';
 import {workflowActor,verifyWorkflowPdf} from '@/lib/workflow-server';
+import {dispatchWorkflowAlerts} from '@/lib/workflow-alert-dispatch';
 import {readWorkflowDocument} from '@/lib/workflow-document-server';
 import type {WorkflowRequest} from '@/lib/workflows';
 export const runtime='nodejs';export const maxDuration=120;
@@ -40,6 +41,7 @@ const note=typeof body.note==='string'?body.note.trim().slice(0,2000):null;
  if(['approve','release'].includes(action))await verifyWorkflowPdf(request as WorkflowRequest);
  const {data,error:transitionError}=await db.rpc('workflow_transition',{p_actor:actor.member_id,p_request:requestId,p_action:action,p_note:note});
  if(transitionError)throw new Error('この状態では操作できない。文書変更や他の操作がないか最新の状態を確認');
+ after(()=>dispatchWorkflowAlerts().then(()=>undefined,()=>undefined));
  return NextResponse.json({ok:true,request:data});
  }catch(e){return NextResponse.json({ok:false,error:e instanceof Error?e.message:'変更できなかった'},{status:422});}
 }

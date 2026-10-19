@@ -512,6 +512,8 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 
 2026-10-08: 契約メール監視は非LLMの独立経路。GAS `amie_contractWorkflowWatch` が5分ごとにPWA `/api/cron/contract-mail-watch`をBearerで呼ぶ。Gmail履歴を読み、workflow_mail_events/outboxへ採用済み検知を記録、まさ・きよに固定えいみ名義の個別Slack通知。既存D-13 writer・契約正本採用・LLM cron停止を変更しない。検知と押印承認を分離。詳細spec5-6。
 
+2026-10-20: 契約メール監視を停止（まさ指示）。GASの5分triggerを削除し、PWAの`/api/cron/contract-mail-watch`を撤去。押印申請の通知outboxは操作直後と一覧表示時に配信。詳細spec5-6。
+
 ## 2026-10-10 外部開示とSlack保存の修正
 
 Slackの全文保存は、無料ワークスペースの履歴保持を目的とした明示登録に限定する。`project_slack_sources.archive_enabled`と`workspace_shared`は独立した設定で、AMD（armada/teamarmadahq）は双方falseをDB制約で固定。保存先のトリガーも同じ登録・チャンネル・HTTPSドメインを照合する。旧AMD backfillは廃止。取得元不明の行は共有しない。SOLの既存enabled対象だけを初期共有対象にし、他のdisabled対象を有効化しない。

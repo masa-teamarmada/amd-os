@@ -1101,8 +1101,8 @@ PageHistoryToolbarのPageViewing、丸い頭文字と人数、閲覧中／閲覧
 ## 業務フロー・押印承認（2026-10-08）
 
 - `/admin/workflows`、`/admin/kiyo?task=workflows`、契約詳細の「押印申請」。共通WorkflowWorkspace。比較表・50件追加・固定PDF/条件/操作履歴・状態別本人操作。
-- API `/api/workflows`、`/api/workflows/[requestId]`、`/api/cron/contract-mail-watch`。DB workflow_*6表。きよだけ承認、直接クライアント書込みなし。契約メールと申請イベントから2人分通知outboxを作る。
-- 検証: test:contract-workflows、DB rollback試験、test:admin-kiyo、test:critical-ui。正本spec5-6、manual6-7。GAS5分trigger・非LLM。ネイティブ画面未移植。
+- API `/api/workflows`、`/api/workflows/[requestId]`。DB workflow_*6表。きよだけ承認、直接クライアント書込みなし。申請イベントから2人分通知outboxを作り、操作直後と一覧表示時に送る。契約メール監視は2026-10-20停止（GAS trigger削除・`/api/cron/contract-mail-watch`撤去）。検知履歴の表示は維持。
+- 検証: test:contract-workflows、DB rollback試験、test:admin-kiyo、test:critical-ui。正本spec5-6、manual6-7。ネイティブ画面未移植。
 
 ## シーズ×ニーズ
 

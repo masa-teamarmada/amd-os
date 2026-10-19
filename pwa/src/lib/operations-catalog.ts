@@ -328,7 +328,7 @@ function disabledCron({
 }
 
 export const cronOperations: CronOperation[] = [
-  { id: "contract-mail-watch", label: "契約メール監視・押印申請通知", layer: "GAS", cadence: "5分ごと（非LLM）", trigger: "amie_contractWorkflowWatch", defaultParams: "", input: "まさのGmail送受信差分・押印申請イベント", output: "workflow_mail_events / workflow_alert_deliveries・まさときよの個別Slack", run: { type: "gas", functionName: "amie_contractWorkflowWatch", defaultArgs: [] } },
+  { id: "contract-mail-watch", label: "契約メール監視", layer: "GAS", cadence: "停止中（2026-10-20） / 旧頻度: 5分ごと", trigger: "disabled: amie_contractWorkflowWatch", defaultParams: "", input: "まさのGmail送受信差分", output: "workflow_mail_events（停止前の検知履歴のみ）", run: { type: "manual", reason: "2026-10-20 まさの指示で停止。GASの5分ごとの予約は削除済み、PWAの受け口も撤去。押印申請の通知は申請・承認の操作直後と業務フロー画面の表示時に送る。" } },
   disabledCron({
     id: "gas-meeting-hourly",
     label: "MTGサマリ hourly polling",

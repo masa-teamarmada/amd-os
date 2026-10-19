@@ -605,3 +605,5 @@ npm run test:critical-ui
 
 
 2026-10-08: 管理者の業務フロー `/admin/workflows` ときよの押印承認タブを追加。API `/api/workflows` GET/POST、`/api/workflows/[requestId]` GET/POST、Bearer専用GET `/api/cron/contract-mail-watch`。詳細はspec5-6。全クライアント共通の承認権限はDB側で強制。
+
+2026-10-20: 契約メール監視を停止し、Bearer専用GET `/api/cron/contract-mail-watch` を撤去。押印申請の通知は操作直後と一覧表示時に配信。詳細はspec5-6。

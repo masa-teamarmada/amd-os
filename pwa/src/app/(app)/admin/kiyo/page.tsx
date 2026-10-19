@@ -35,7 +35,7 @@ const KIYO_TASKS = [
     label: "メンバー支払",
     description: "支払確認・通知書発行・送付",
   },
-  { id: "workflows", step: "04", label: "押印承認", description: "押印申請・契約メールの監視" },
+  { id: "workflows", step: "04", label: "押印承認", description: "押印申請の承認と締結版の照合" },
 ] as const;
 
 type KiyoTask = (typeof KIYO_TASKS)[number]["id"];

@@ -1,8 +1,9 @@
-import {NextRequest,NextResponse} from 'next/server';
+import {NextRequest,NextResponse,after} from 'next/server';
 import {randomUUID} from 'node:crypto';
 import {requireAdmin} from '@/lib/supabase/api-auth';
 import {createAdminClient} from '@/lib/supabase/admin';
 import {readWorkflowPdf,workflowActor} from '@/lib/workflow-server';
+import {dispatchWorkflowAlerts} from '@/lib/workflow-alert-dispatch';
 export const runtime='nodejs';export const maxDuration=120;
 export async function GET(req:NextRequest) {
  const auth=await requireAdmin();if(!auth.ok)return auth.errorResponse;
@@ -14,6 +15,7 @@ export async function GET(req:NextRequest) {
   const {data,error}=await db.from('contract_documents').select('document_id,contract_id,file_name,version_label,drive_file_id,mime_type,is_latest,document_kind').eq('contract_id',contractId).eq('is_latest',true).not('document_kind','in','(signed,draft)').eq('mime_type','application/pdf');
   if(error)throw error;return NextResponse.json({ok:true,documents:data});
  }
+ after(()=>dispatchWorkflowAlerts().then(()=>undefined,()=>undefined));
  let contracts=db.from('contracts').select('contract_id,contract_title,counterparty_name,contract_type,amd_entity_name,project_id,status,signed_document_id',{count:'exact'}).eq('relationship_scope','amd_contract').eq('registry_status','accepted').not('status','in','(signed,cancelled)').order('last_activity_at',{ascending:false}).limit(100);
  const search=(req.nextUrl.searchParams.get('search')||'').replace(/[%,()\\]/g,'').trim().slice(0,120);
  if(search)contracts=contracts.or(`contract_title.ilike.%${search}%,counterparty_name.ilike.%${search}%`);
@@ -62,6 +64,7 @@ export async function POST(req:NextRequest) {
  if(fixed.hash!==pdf.hash)throw new Error('文書が申請中に変わった。最新版を確認が必要');
  const {data:rid,error:submitError}=await db.rpc('workflow_submit',{p_actor:actor.member_id,p_contract:body.contractId,p_document:doc.document_id,p_purpose:purpose,p_date:body.desiredDate||null,p_source_hash:pdf.hash,p_snapshot_file:copy.data.id,p_snapshot_hash:fixed.hash,p_terms:terms});
  if(submitError)throw new Error(submitError.message.includes('duplicate')?'この契約には進行中の申請がある':'申請対象が変わっているか、申請できない状態。最新の状態を確認');
+ after(()=>dispatchWorkflowAlerts().then(()=>undefined,()=>undefined));
  return NextResponse.json({ok:true,requestId:rid});
  }catch(e){return NextResponse.json({ok:false,error:e instanceof Error?e.message:'申請できなかった'},{status:422});}
 }

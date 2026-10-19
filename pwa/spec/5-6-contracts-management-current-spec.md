@@ -354,13 +354,20 @@ SOLの原本は第11条の個人情報・再委託と第12条の細則準用と�
 
 全クライアント共通DBは `workflow_rules/requests/events/mail_events/alert_deliveries/monitor_state`。migration `20261008183000`、`20261008183500`、`20261008184000` は適用済み。authenticatedはactive adminのRLS SELECTのみ。INSERT/UPDATE/DELETEとRPCはservice_role専用。cookie認証の `/api/workflows` GET/POST と `/api/workflows/[requestId]` GET/POST がメールから本人を特定し、クライアント指定のactorを使わない。service-only RPC `workflow_submit/transition` が本人・承認者・状態・文書条件を重ねて検証する。承認を経ない採用済みAMD契約台帳の手動締結状態更新（証拠なし）もDBで拒否する。実際にOS外で締結された押印版の証拠登録は受け入れ、事後照合と承認を混同しない。
 
-### 契約メール監視・通知
+### 契約メール監視（2026-10-20停止）と押印申請の通知
+
+2026-10-20（まさ指示「契約メールの見張りは完全に停止して。ほぼ使ってないので」）: GASの`amie_contractWorkflowWatch`の5分ごとのtriggerを削除した（runFunc `nav_l2_pruneDuplicateTriggers("amie_contractWorkflowWatch",0)`で1件削除、`amie_contractWorkflowWatchStatus`でtriggerCount 0を確認）。PWAの`/api/cron/contract-mail-watch`とGmail走査（`contract-mail-watch.ts`）を撤去した。停止時点の利用は押印申請1件（取下げ済み）、契約メール検知23件。`workflow_mail_events`と配信記録は停止前の履歴として保持し、業務フロー画面は「契約メールの検知履歴」として表示する。`165_ContractWorkflowWatch.js`はGASに残るがtriggerがないため実行されない。`amie_setupContractWorkflowWatch`は実行しない（実行すると5分ごとのtriggerが再作成され、撤去済みの受け口を呼ぶ）。運用一覧は`run.type=manual`の停止表示。
+
+押印申請イベントの通知outboxは従来どおり（`workflow_rules.contract_seal.enabled=true`、DB triggerが申請イベントからまさ・きよ2人分の行を作る）。配信は`workflow-alert-dispatch.ts`の`dispatchWorkflowAlerts`が行い、申請（`/api/workflows` POST）・承認等の操作（`/api/workflows/[requestId]` POST）の応答後と、業務フロー一覧の取得（`/api/workflows` GET、契約別文書の取得を除く）の応答後に`after()`で未配信・失敗分をまとめて送る。契約条件・文書の変更による失効（superseded）の通知は、次にいずれかの操作か一覧取得が行われたときに送る。送信元・宛先・本文・uncertainの扱いは従来どおり。
+
+以下は停止前（2026-10-08〜10-20）の仕組みの記録。
+
 
 2026-10-16（v3.162.55）: 通知対象には、件名/添付名の具体的な契約文書語（契約書・秘密保持・NDA/MOU・覚書・承諾書・誓約書等）、新本文の同一文にある具体的文書語と送付/修正/添付等、明確な署名/押印依頼・完了表現、または根拠のある既知スレッドのいずれかを要求する。「契約」と「確認/条件」だけでは対象にしない。NDA/MOUの前後は英字以外を境界とし、ファイル名のunderscoreを許す。一斉配信は件名に明確な署名/締結アクションがある場合に限る。
 
 既知スレッド判定は同じmailbox/threadの直近20イベントから、contract_idあり、または過去件名だけでも具体的契約と再判定できるものを要求する。過去に誤検知した行が1件あるだけでは後続を通知しない。メール本文の保存や過去のsent再送は行わない。メール通知の先頭は「【契約メール】」、本文はメールの検知と押印申請の開始方法、リンク名は「OSのメール検知一覧を確認」とする。押印申請イベントの申請別リンク・きよ承認の制約は従来どおり。検査は実メール7件の読取りのみ再分類とtest:contract-workflowsで、無関係4件除外・文書関連3件維持、通知の実送信なしを確認する。
 
-GAS `165_ContractWorkflowWatch.js` の `amie_contractWorkflowWatch` が5分ごとにBearer認証で `/api/cron/contract-mail-watch` を呼ぶ。専用triggerは `amie_setupContractWorkflowWatch` で重複なく1本作る。既存LLM cron停止を解除しない。Google OAuthのGmail接続アカウントをID001まさのメールと照合してから読む。初回は現時点のhistory IDを基準にし、過去メールを遡って通知しない。以後、messageAddedとSENT labelAddedを拾う。draft/spam/trashを除外、本文の新しい部分・件名・添付名の日本語/英語の契約語と署名・押印表現で分類する。引用や署名欄・メルマガ・求人・認証コードを除外する。既知の契約スレッドは短い返信も拾う。ルール判定なので誤検知・見逃しはあり得る。メール送信・相手への返信・自動承認はしない。
+停止前: GAS `165_ContractWorkflowWatch.js` の `amie_contractWorkflowWatch` が5分ごとにBearer認証で `/api/cron/contract-mail-watch` を呼んでいた。専用triggerは `amie_setupContractWorkflowWatch` で重複なく1本作る。既存LLM cron停止を解除しない。Google OAuthのGmail接続アカウントをID001まさのメールと照合してから読む。初回は現時点のhistory IDを基準にし、過去メールを遡って通知しない。以後、messageAddedとSENT labelAddedを拾う。draft/spam/trashを除外、本文の新しい部分・件名・添付名の日本語/英語の契約語と署名・押印表現で分類する。引用や署名欄・メルマガ・求人・認証コードを除外する。既知の契約スレッドは短い返信も拾う。ルール判定なので誤検知・見逃しはあり得る。メール送信・相手への返信・自動承認はしない。
 
 historyのページ・未処理message IDs・次のcheckpointをDB保存し、1回40メールまで。history期限切れは直近成功時刻から1時間重複する固定期間（開始時刻より前は除外）のmessages.listへ切り替え、ページを保持して復旧する。leaseは4分、経過15分で画面に監視未確認表示。受信・送信は別方向。保存はmessage/thread ID、サニタイズ済み件名、方向、種別、日時、原メールURL。本文や添付の内容をDB・Slackに複製しない。
 
