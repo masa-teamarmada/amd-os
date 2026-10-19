@@ -96,7 +96,8 @@ export class DdReportCalculator {
   readonly model:DdReportModel;
   readonly overrides:Record<string,DdReportValue>;
   readonly force:boolean;
-  constructor(model:DdReportModel,overrides:Record<string,DdReportValue>={},force=false) {this.model=model;this.overrides=overrides;this.force=force;}
+  readonly editedCells:ReadonlySet<string>;
+  constructor(model:DdReportModel,overrides:Record<string,DdReportValue>={},force=false,editedCells:ReadonlySet<string>=new Set()) {this.model=model;this.overrides=overrides;this.force=force;this.editedCells=editedCells;}
   private tableAt(sheet:string,address:string) {
     if(!this.dataTableRanges.has(sheet))this.dataTableRanges.set(sheet,(this.model.sheets[sheet]?.dataTables??[]).map(table=>{const [a,b]=table.ref.split(':');return {table,a:ddAddress(a),b:ddAddress(b??a)};}));
     const pos=ddAddress(address);return this.dataTableRanges.get(sheet)?.find(t=>pos.row>=t.a.row&&pos.row<=t.b.row&&pos.col>=t.a.col&&pos.col<=t.b.col);
@@ -111,7 +112,7 @@ export class DdReportCalculator {
     this.references.set(key,found);return found;
   }
   private changed(sheet:string,address:string):boolean {
-    const key=ddCellKey(sheet,address);if(Object.hasOwn(this.overrides,key))return this.overrides[key]!==this.model.sheets[sheet]?.cells[address]?.v;
+    const key=ddCellKey(sheet,address);if(this.editedCells.has(key))return true;if(Object.hasOwn(this.overrides,key))return this.overrides[key]!==this.model.sheets[sheet]?.cells[address]?.v;
     if(this.affected.has(key))return this.affected.get(key)!;
     const cell=this.model.sheets[sheet]?.cells[address];if(!cell?.f||this.checking.has(key))return false;
     this.checking.add(key);let changed=false;
@@ -127,7 +128,7 @@ export class DdReportCalculator {
     address=address.replaceAll('$','');const key=ddCellKey(sheet,address);
     if(Object.hasOwn(this.overrides,key))return this.overrides[key];
     const cell=this.model.sheets[sheet]?.cells[address];if(!cell)return null;
-    if(Object.keys(this.overrides).length){
+    if(Object.keys(this.overrides).length||this.editedCells.size){
       const table=this.tableAt(sheet,address);
       if(table){
         if(this.calculated.has(key))return this.calculated.get(key)!;
@@ -141,10 +142,10 @@ export class DdReportCalculator {
         }else{
           scenario[ddCellKey(sheet,t.r1!)]=this.get(sheet,ddColumn(a.col-1)+pos.row);output=ddColumn(pos.col)+(a.row-1);
         }
-        const result=new DdReportCalculator(this.model,scenario).get(sheet,output);this.calculated.set(key,result);return result;
+        const result=new DdReportCalculator(this.model,scenario,false,this.editedCells).get(sheet,output);this.calculated.set(key,result);return result;
       }
     }
-    if(!cell.f||(!this.force&&(!Object.keys(this.overrides).length||!this.changed(sheet,address))))return cell.v;
+    if(!cell.f||(!this.force&&((!Object.keys(this.overrides).length&&!this.editedCells.size)||!this.changed(sheet,address))))return cell.v;
     if(this.calculated.has(key))return this.calculated.get(key)!;
     if(this.resolving.has(key))return '#CIRC!';
     this.resolving.add(key);this.depth++;
