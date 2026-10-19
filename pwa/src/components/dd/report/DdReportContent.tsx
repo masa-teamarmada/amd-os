@@ -144,7 +144,7 @@ export function DdReportContent(props:ContentProps) {
     'fame-cost':{address:'E20',label:'FAME 1Lの総原価',unit:'円/L'},
   };
   const metric=primary[chapter.slug],result=metric?body.rows.flatMap(r=>r.cells).find(c=>c.address===metric.address):null;
-  if(metric&&result)blocks.push(<div className="ddr-primary-result" key="primary-result"><div>{metric.label}</div><strong>{typeof result.value==='number'?result.value.toLocaleString('ja-JP',{maximumFractionDigits:1}):String(result.value)}</strong><span>{metric.unit}</span></div>);
+  if(metric&&result)blocks.push(<div className="ddr-primary-result" key="primary-result"><div>{metric.label}</div><strong>{typeof result.value==='number'?result.value.toLocaleString('ja-JP',{maximumFractionDigits:0}):String(result.value)}</strong><span>{metric.unit}</span></div>);
   const flush=()=>{if(!tableRows.length)return;
     const pageScroll=chapter.slug==='assumptions'&&tableCount===0;tableCount++;
     if(chapter.slug.endsWith('-development-plan')&&ddExecutionTasks(tableRows).length){blocks.push(<DdExecutionGantt key="execution-gantt" rows={tableRows} windowIndex={props.executionWindow} onWindowChange={props.onExecutionWindowChange} print={allRows} cell={c=><CellValue cell={c} slug={slug} index={index} glossary={glossary} allRows={allRows} chapterSlug={chapter.slug}/>}/>);}
