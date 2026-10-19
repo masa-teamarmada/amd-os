@@ -15,7 +15,7 @@ import {redactProjectPartnerNames} from './project-partner-disclosure';
 import {DD_DEVELOPMENT_SLUGS,splitDdDevelopmentChapter,splitDdDevelopmentIndex} from './dd-report-development-plans';
 
 export const DD_REPORT_BUCKET='dd-report-files';
-const EDITION_FIELDS='id,package_id,title,source_version,document_version,source_sha256,status,summary,model_storage_path,xlsx_storage_path,legacy_snapshot_path,input_overrides,glossary,revision,created_at,updated_at';
+const EDITION_FIELDS='id,package_id,title,source_version,document_version,source_sha256,status,summary,model_storage_path,xlsx_storage_path,legacy_snapshot_path,input_overrides,glossary,download_snapshot,revision,created_at,updated_at';
 export async function loadDdReportEdition(access:DdViewerAccess):Promise<DdReportEdition|null> {
   let query=createAdminClient().from('dd_report_editions').select(EDITION_FIELDS).eq('package_id',access.packageId).neq('status','archived').order('created_at',{ascending:false}).limit(1);
   if(access.principal==='workspace_account')query=query.eq('status','published');

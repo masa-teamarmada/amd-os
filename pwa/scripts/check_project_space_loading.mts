@@ -82,6 +82,7 @@ let allowed=false;let routeReads=0;let audits=0;const modes:string[]=[];
 const page=compile('../src/app/dd/[slug]/page.tsx',{
  '@/lib/dd-report-server':{loadDdReportEdition:async()=>null},
  '@/lib/dd-report-output-state':{ddReportOutputState:async()=>({ready:true}),queueDdReportPdf:()=>{}},
+ '@/lib/dd-report-download-policy':{ddReportDownloadEdition:(e:any)=>e,ddReportDownloadRelease:(e:any)=>({revision:e.revision,documentVersion:e.document_version,paused:false})},
  '@/components/dd/report/DdReportReader':{DdReportReader:()=>null},
  '@/components/dd/report/DdReportNavigation':{DdReportNavigation:()=>null},
  '@/lib/dd-confidentiality-server':{ddContentHash},

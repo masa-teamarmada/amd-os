@@ -128,7 +128,9 @@ function EquityResources({chapter,slug,index,glossary,allRows}:ContentProps){
 }
 /** Source cells become prose, comparisons, diagrams and charts. Whitespace-only rows disappear. */
 export function DdReportContent(props:ContentProps) {
-  const {chapter,slug,index,assetUrls,allRows,glossary,canDownload,revision,pdfWorkbookName,onDownloadExcel,inputControls,simulationActive}=props,body=chapter.body;
+  const {chapter,slug,index,assetUrls,allRows,glossary,canDownload,revision,pdfWorkbookName,onDownloadExcel,inputControls,simulationActive}=props;
+  const productionLink=chapter.slug==='business-plan'?chapter.body.rows.find(r=>r.cells.some(c=>c.address==='B4'&&c.link?.includes('生産・拠点計画'))):undefined;
+  const body=productionLink&&chapter.body.rows.some(r=>r.row===207)?{...chapter.body,rows:chapter.body.rows.filter(r=>r!==productionLink).flatMap(r=>r.row===207?[r,{...productionLink,row:208,cells:productionLink.cells.map(c=>({...c,value:'増産に必要な培養量・敷地・増設時期・候補地は、生産・拠点計画で確認する。'}))}]:[r])}:chapter.body;
   const excelHref=allRows&&pdfWorkbookName?encodeURI(pdfWorkbookName):`/api/dd/${encodeURIComponent(slug)}/report/export?format=xlsx&scope=all&sheet=${encodeURIComponent(chapter.source_sheet)}${revision?`&revision=${revision}`:""}`;
   let tableNoticeShown=false,tableCount=0;
   if(chapter.slug==='biographies')return <DdBiographies chapter={chapter} slug={slug} glossary={glossary} allRows={allRows}/>;

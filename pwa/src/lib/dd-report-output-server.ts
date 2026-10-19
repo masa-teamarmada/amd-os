@@ -36,7 +36,7 @@ const running=new Map<string,Promise<void>>();
 export async function prepareDdReportPdf(edition:DdReportEdition,projectId:string,slug:string) {
   if(ddReportExportsPaused(edition))return;
   const freshEdition=await createAdminClient().from('dd_report_editions').select('*').eq('id',edition.id).single();
-  if(freshEdition.error||freshEdition.data.revision!==edition.revision||freshEdition.data.document_version!==edition.document_version||freshEdition.data.status==='archived')return;
+  if(freshEdition.error||ddReportExportsPaused(freshEdition.data)||freshEdition.data.revision!==edition.revision||freshEdition.data.document_version!==edition.document_version||freshEdition.data.status==='archived')return;
   edition=freshEdition.data as DdReportEdition;
   const state=await ddReportOutputState(edition,projectId);if(state.ready)return;
   const prior=running.get(state.key);if(prior)return prior;
@@ -53,16 +53,16 @@ export async function prepareDdReportPdf(edition:DdReportEdition,projectId:strin
       const index=await loadDdReportChapterIndex(edition.id),ordered=orderedDdChapters(index),batches=Math.ceil(ordered.length/DD_PDF_BATCH),paths:string[]=[];
       for(let batch=0;batch<batches;batch++){
         const key=`${state.prefix}-part-${batch}.pdf`;paths.push(key);if(!(await bucket.info(key)).error)continue;
-        const current=await db.from('dd_report_editions').select('revision,status,document_version').eq('id',edition.id).single();
-        if(current.error||current.data.revision!==edition.revision||current.data.document_version!==edition.document_version||current.data.status==='archived')return;
+        const current=await db.from('dd_report_editions').select('revision,status,document_version,download_snapshot').eq('id',edition.id).single();
+        if(current.error||ddReportExportsPaused(current.data)||current.data.revision!==edition.revision||current.data.document_version!==edition.document_version||current.data.status==='archived')return;
         const bytes=await createDdReportOutput({edition,index,selected:ordered.slice(batch*DD_PDF_BATCH,(batch+1)*DD_PDF_BATCH),slug,hidden:state.hidden,format:'pdf',includeCover:batch===0,includeGlossary:batch===batches-1,all:true});
         const saved=await bucket.upload(key,bytes,{contentType:'application/pdf',upsert:false});if(saved.error&&!/already exists|Duplicate/i.test(saved.error.message))throw saved.error;
       }
       const output=await PDFDocument.create();
       for(const path of paths){const part=await bucket.download(path);if(part.error)throw part.error;const pdf=await PDFDocument.load(await part.data.arrayBuffer());for(const page of await output.copyPages(pdf,pdf.getPageIndices()))output.addPage(page);}
       output.setTitle(edition.title);output.setSubject(`DD ${ddReportVersionLabel(edition)}; revision ${edition.revision}; source ${edition.source_version}; prose and figures`);await finalizeDdPdfNavigation(output,edition,ordered,slug);deduplicateDdPdfStreams(output);
-      const current=await db.from('dd_report_editions').select('revision,status,document_version').eq('id',edition.id).single(),fresh=await ddReportOutputState(edition,projectId);
-      if(current.error||current.data.revision!==edition.revision||current.data.document_version!==edition.document_version||current.data.status==='archived'||fresh.key!==state.key)return;
+      const current=await db.from('dd_report_editions').select('revision,status,document_version,download_snapshot').eq('id',edition.id).single(),fresh=await ddReportOutputState(edition,projectId);
+      if(current.error||ddReportExportsPaused(current.data)||current.data.revision!==edition.revision||current.data.document_version!==edition.document_version||current.data.status==='archived'||fresh.key!==state.key)return;
       const saved=await bucket.upload(state.key,await output.save(),{contentType:'application/pdf',upsert:false});if(saved.error&&!/already exists|Duplicate/i.test(saved.error.message))throw saved.error;
     } finally {await bucket.remove([lease]);}
   })();

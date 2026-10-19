@@ -44,6 +44,11 @@ assert(noteGrid?.includes('cell-B300')&&!noteGrid.includes('cell-Q300'),'Long ex
 assert(noteHtml.includes('ddr-cost-notes')&&noteHtml.includes(noteText)&&!noteHtml.includes('<details'),'Full explanations remain visible immediately after the grid');
 for(const r of noteChapter.body.rows)for(const c of r.cells)assert.equal(noteHtml.split(`id="cell-${c.address}"`).length-1,1);
 console.log('PASS: metadata outside numerical grids, first-column labels, separate annual tables, all cells exactly once, PDF-to-Excel contract, formula-linked funding stack');
+const productionLink=row(4,[[2,'生産量・工場敷地・増設時期・候補地を開く']]);productionLink.cells[0].link="'生産・拠点計画'!B2";
+const business={...chapter,slug:'business-plan',body:{...chapter.body,rows:[productionLink,row(6,[[2,'3事業の概要']]),row(207,[[2,'初期3台の検収後、商用設計と増産へ進む。']]),row(218,[[2,'運営体制']])]}};
+const businessHtml=renderToStaticMarkup(createElement(DdReportContent,{chapter:business,slug:'sample',index:[]}));
+assert(!businessHtml.includes('生産量・工場敷地・増設時期・候補地を開く'));assert(businessHtml.indexOf('id="cell-B4"')>businessHtml.indexOf('id="cell-B207"'));assert(businessHtml.indexOf('id="cell-B4"')<businessHtml.indexOf('id="cell-B218"'));
+assert.equal(businessHtml.split('id="cell-B4"').length-1,1,'Move the production-plan link without duplication');
 
 if(process.argv[2]){
   const fs=await import('node:fs/promises'),path=await import('node:path');

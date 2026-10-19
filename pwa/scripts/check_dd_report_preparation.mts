@@ -30,8 +30,9 @@ const mocks:Record<string,unknown>={
 };
 const source=ts.transpileModule(fs.readFileSync(new URL('../src/lib/dd-report-output-server.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
 const out:Record<string,(...args:unknown[])=>Promise<void>>={};new Function('require','exports',source)((name:string)=>{assert(name in mocks,name);return mocks[name];},out);
-await out.prepareDdReportPdf({...edition,package_id:'b0540a9f-7bde-426c-81a7-8a56a59f5b15'},'project','sol');assert.equal(rendered,0,'Paused SOL view must not render');
-await assert.rejects(()=>out.createDdReportOutput({edition:{...edition,package_id:'b0540a9f-7bde-426c-81a7-8a56a59f5b15'}}),/更新は停止中/);
+const download_snapshot={revision:2,documentVersion:'2.0.0',sourceSha256:'a'.repeat(64),title:'Example',layoutVersion:'layout-v21'};
+await out.prepareDdReportPdf({...edition,download_snapshot},'project','test');assert.equal(rendered,0,'Paused view must not render');
+await assert.rejects(()=>out.createDdReportOutput({edition:{...edition,download_snapshot}}),/更新は停止中/);
 await out.prepareDdReportPdf(edition,'project','test');assert.equal(rendered,2);assert(store.has(allKey));assert.deepEqual(seenOverrides,{volume:2});assert(!store.has(prefix+'-building.json'));
 await out.prepareDdReportPdf(edition,'project','test');assert.equal(rendered,2);
 store.delete(allKey);store.delete(prefix+'-part-1.pdf');await out.prepareDdReportPdf(edition,'project','test');assert.equal(rendered,3);assert(store.has(allKey));
