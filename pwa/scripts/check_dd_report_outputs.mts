@@ -26,6 +26,7 @@ for(const slug of ['business-plan','equity-story','organization','production-pla
 const bytes=ddReportXlsx(await fs.readFile(path.join(folder,'source.xlsx')),edition,model,chapters);await fs.writeFile(path.join(out,'SolvioraX_DD_r1.xlsx'),bytes);
 const files=unzipSync(bytes);
 for(const [name,content] of Object.entries(files))if(name.endsWith('.xml')||name.endsWith('.rels'))assert.equal(XMLValidator.validate(strFromU8(content)),true,'Valid OpenXML: '+name);
+for(const [name,content]of Object.entries(files))if(name.endsWith('.xml')||name.endsWith('.rels'))assert(!/計画詳細(?:&apos;|&#39;|&#x27;|')?!/.test(strFromU8(content)),'No links or formulas address the removed execution sheet: '+name);
 const original=unzipSync(await fs.readFile(path.join(folder,'source.xlsx')));
 const funding=Object.values(files).map(b=>strFromU8(b)).find(s=>s.includes('ラウンド別の評価額・新規調達額（億円）'));assert(funding);assert(funding.includes('<c:grouping val="stacked"/>'));assert.equal((funding.match(/<c:ser>/g)||[]).length,2);assert(funding.includes('$Z$333:$Z$337')&&funding.includes('$C$98:$C$102'));console.log('PASS: exported funding chart stacks formula-linked pre valuation and funding');
 if(projected){

@@ -64,7 +64,7 @@ export function splitDdDevelopmentWorkbook(files:Record<string,Uint8Array>,chapt
   }
   // All saved links follow the new sheet that owns their original record.
   for(const [path,bytes]of Object.entries(files))if(path.endsWith('.xml')||path.endsWith('.rels')){
-    let xml=strFromU8(bytes);xml=xml.replace(/(?:&apos;|')?計画詳細(?:&apos;|')?!(\$?[A-Z]+\$?\d+)/g,(_m,address:string)=>`'${ddDevelopmentTarget(address.replaceAll('$',''))==='technical-development-plan'?'技術開発計画':'事業開発計画'}'!${address}`);
+    let xml=strFromU8(bytes);xml=xml.replace(/(?:&apos;|&#39;|&#x27;|')?計画詳細(?:&apos;|&#39;|&#x27;|')?!(\$?[A-Z]+\$?\d+)/g,(_m,address:string)=>`'${ddDevelopmentTarget(address.replaceAll('$',''))==='technical-development-plan'?'技術開発計画':'事業開発計画'}'!${address}`);
     if(path===model.sheets['資料一覧'].path)xml=xml.replace(/>計画詳細</g,'>事業開発計画<');
     files[path]=strToU8(xml);
   }
