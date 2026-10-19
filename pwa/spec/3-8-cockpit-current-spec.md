@@ -519,6 +519,8 @@ PJ管理に「月次報告書」（`?tab=monthly-reports`）を常設する。�
 
 `CockpitHeader`はPJ名・相手先・状態・分類と領域選択を同じ行に置き、PJメンバー文字列を表示しない。`CockpitView`が既存の`InternalProjectSurfaceNav`をnavigation slotへ渡す。ナビのinline variantは専用行のborder/paddingを除き、PC36px・スマホ44pxの操作高さを維持する。狭い幅では折り返し、横方向へはみ出さない。`hideNavigation`の埋込みでは領域選択を表示しない。リンク先・DD管理権限・ワークスペースの認可と他領域の独立ナビは維持する。
 
+2026-10-20: 領域選択`ProjectSurfaceNav`のリンクは表示時に先読みせず、hover/focusのときだけ他領域を先読みする（表示のたびに他領域のサーバ描画が各2回走っていた。spec5-17）。
+
 ### 2026-10-06 ページ表示の読み込み改善（v3.159.20）
 
 `fetchCockpitFromSupabase`は有効な計画サイクルのMSを200キーずつ・1000行ずつ取得し、所属するMSの進捗・サブ項目・担当・活動をまとめて読む。全PJの進捗をサイクルごとに繰り返し読まない。進捗の順序はMSキー/年月、その他の行も一意キーで安定化し、過去サイクルを含めた同じCockpitDataへ分配する。月報・通知・互換タスクの読み取りは最初の並列取得へ移す。MS関連の読取失敗は例外とし、欠けた状態を正常と表示しない。ブラウザは既存の認証付きSupabase clientとRLSを維持し、テスト時のみreadClientを注入できる。

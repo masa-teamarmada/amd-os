@@ -19,4 +19,9 @@ for(const [name,source] of [['DdReportNavigation',nav],['DdReportReader',reader]
   assert.ok(links.length>0,name);
   for(const link of links)assert.ok(link.includes('prefetch={false}'),`${name} のリンクは先読みしない: ${link.slice(0,80)}`);
 }
+// 3) PJの領域切替（コックピット/ワークスペース/DD）は開くたびに先読みせず、hover/focusだけで先読みする。
+const surfaceNav=read('src/components/nav/ProjectSurfaceNav.tsx');
+assert.match(surfaceNav,/<Link key=\{surface\.key\} href=\{surface\.href\} prefetch=\{false\}/,'領域切替は表示時に先読みしない');
+assert.match(surfaceNav,/onMouseEnter=\{current === surface\.key \? undefined : \(\) => router\.prefetch\(surface\.href\)\}/,'hoverで他領域を先読みする');
+assert.match(surfaceNav,/onFocus=\{current === surface\.key \? undefined : \(\) => router\.prefetch\(surface\.href\)\}/,'focusで他領域を先読みする');
 console.log('DD表示コスト: 表示形式の使い回しと結果一致・リンク先読み停止 PASS');

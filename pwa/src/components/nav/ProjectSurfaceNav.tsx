@@ -3,6 +3,7 @@
 import { Gauge, Users, Files } from "lucide-react";
 import styles from "./ProjectNavigation.module.css";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 type Surface = "cockpit" | "workspace" | "dd";
@@ -15,7 +16,9 @@ type Props = {
 };
 
 // 左メニューの先頭で領域を選ぶ。リンクの表示は権限の根拠にはしない。
+// 開くたびの先読みはせず、hover/focusのときだけ他領域を先読みする（各領域のサーバ描画を毎回2回ずつ走らせていた。2026-10-20）。
 export function ProjectSurfaceNav({ projectId, current, canCockpit = false, canWorkspace = false, ddHref }: Props) {
+  const router = useRouter();
   const base = `/project/${encodeURIComponent(projectId)}`;
   const surfaces = [
     { key: "cockpit", label: "コックピット", icon: Gauge, href: `${base}/cockpit`, visible: canCockpit },
@@ -25,7 +28,9 @@ export function ProjectSurfaceNav({ projectId, current, canCockpit = false, canW
   return (
     <nav aria-label="PJの領域" data-testid="project-surface-navigation" className={styles.surfaces}>
       {surfaces.filter((surface) => surface.visible).map((surface) => (
-        <Link key={surface.key} href={surface.href} aria-current={current === surface.key ? "page" : undefined}
+        <Link key={surface.key} href={surface.href} prefetch={false} aria-current={current === surface.key ? "page" : undefined}
+          onMouseEnter={current === surface.key ? undefined : () => router.prefetch(surface.href)}
+          onFocus={current === surface.key ? undefined : () => router.prefetch(surface.href)}
           className={`${styles.row} ${styles.surface}`}>
           <surface.icon className="h-4 w-4 shrink-0" aria-hidden="true" />{surface.label}
         </Link>

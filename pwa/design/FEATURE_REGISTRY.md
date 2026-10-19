@@ -34,7 +34,7 @@ DDレポート登録済みパッケージは既存URLと閲覧権限で新版を
 
 ## PJの並列の3領域（2026-10-04）
 
-- コックピット・ワークスペース・DDパッケージは共通の `ProjectSurfaceNav` から独立した画面を開く。DDを前2領域の分類・子タブに含めない。
+- コックピット・ワークスペース・DDパッケージは共通の `ProjectSurfaceNav` から独立した画面を開く。DDを前2領域の分類・子タブに含めない。領域リンクは表示時に先読みせず、hover/focusで他領域だけ先読みする（2026-10-20）。
 - DDは `/dd/[slug]`、管理は `/project/[id]/dd?tab=manage`。旧DD子タブURLは独立したDD入口へ送る。管理者には未登録でもDD入口を残す。
 - 入場権限は既存の独立した所属・付与で再検証し、DDの公開設定・閲覧・資料・PDFの操作を維持する。DDの分類・子タブ・本文は他領域と同じ構造、本文は元データと共通の表示部品。
 - 正本: spec/5-17・3-23、manual/2-3・2-6、ios/DESIGN。防波堤: `test:dd-package`・`test:cockpit-navigation`・`test:project-format`。
