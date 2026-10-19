@@ -1,4 +1,5 @@
 
+2026-10-20 v3.163.42：DDエクイティストーリーの評価額グラフをシード参考キャップ・A転換元本の内訳表示へ変更。spec5-17、検査check_dd_equity_valuation_reference.mts。
 2026-10-20 v3.163.41：管理メニュー・全体メニュー・ホームのリンクは表示時に先読みせず、hover/focusのときだけ先読みする（IntentLink）。ホームのPJカードは先読みしない。spec5-10、検査test:nav-prefetch。
 2026-10-20 v3.163.40：PJの領域切替リンク（コックピット・ワークスペース・DD）は表示時に先読みせず、hover/focusのときだけ先読みする。spec5-17、FEATURE_REGISTRY、検査test:dd-render-cost。
 2026-10-20 v3.163.39：DDの数値表示形式を数値書式の使い回しへ変更（出力は約35万通りで一致、資金繰表の描画0.50→0.15秒）。DDのリンクの先読みを停止。spec5-17、検査test:dd-render-cost。

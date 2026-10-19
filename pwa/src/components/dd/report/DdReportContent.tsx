@@ -96,7 +96,7 @@ function EquityDiagram({chapter,slug,index,glossary,allRows,inputControls}:Conte
   const value=(cell:DdReportCell)=><CellValue cell={cell} slug={slug} index={index} glossary={glossary} allRows={allRows} emphasize chapterSlug={chapter.slug} inputControls={inputControls}/>;
   return <>
     {gap&&<section className="ddr-phase ddr-phase-gap"><h3>GAPファンド</h3><div>{value(gap)}</div></section>}
-    <p className="ddr-equity-chart-note">前回ポスト＋進捗による評価増＋追加調達＝今回ポスト。金額は各ラウンドの計画値（億円）。各図の縦軸はカード内の金額に合わせる。</p>
+    <p className="ddr-equity-chart-note">Aは参考キャップ＋進捗による評価増＋シード転換元本＝今回プレ、新規調達を加えて今回ポスト。B以降は前回ポスト＋評価増＋新規調達＝今回ポスト。金額は計画値（億円）。縦軸は各カードの金額に合わせる。</p>
     <div className="ddr-equity-scroll" tabIndex={0} aria-label="シードからIPOまで6ラウンドのカード"><div className="ddr-equity-rounds">
     {phases.map(([col,...rs],i)=><section key={col+rs[0]} className="ddr-phase" data-phase={i}>
     {rs.map((r,j)=>{const cell=cells.get(col+r);if(!cell)return null;
