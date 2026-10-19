@@ -100,6 +100,11 @@ export function ddReportXlsx(source:Uint8Array,edition:DdReportEdition,model:DdR
         const a=ddAddress(m[2]+m[3]),b=ddAddress(m[4]+m[5]),values=[];
         for(let r=a.row;r<=b.row;r++)for(let c=a.col;c<=b.col;c++)values.push(Number(calc.get(m[1],ddColumn(c)+r))||0);
         return ref.replace(/<c:numCache>[\s\S]*?<\/c:numCache>/,`<c:numCache><c:formatCode>General</c:formatCode><c:ptCount val="${values.length}"/>${values.map((v,i)=>`<c:pt idx="${i}"><c:v>${v}</c:v></c:pt>`).join('')}</c:numCache>`);
+      }).replace(/<c:strRef>[\s\S]*?<\/c:strRef>/g,ref=>{
+        const f=ref.match(/<c:f>([^<]+)<\/c:f>/)?.[1],m=/^'?([^'!]+)'?!\$?([A-Z]+)\$?(\d+):\$?([A-Z]+)\$?(\d+)$/.exec(f??'');if(!m)return ref;
+        const a=ddAddress(m[2]+m[3]),b=ddAddress(m[4]+m[5]),values:string[]=[];
+        for(let r=a.row;r<=b.row;r++)for(let c=a.col;c<=b.col;c++)values.push(String(calc.get(m[1],ddColumn(c)+r)??''));
+        return ref.replace(/<c:strCache>[\s\S]*?<\/c:strCache>/,`<c:strCache><c:ptCount val="${values.length}"/>${values.map((text,i)=>`<c:pt idx="${i}"><c:v>${ddEscapeHtml(redact(text))}</c:v></c:pt>`).join('')}</c:strCache>`);
       }));
     }
   }

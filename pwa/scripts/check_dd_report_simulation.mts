@@ -8,7 +8,7 @@ const mocks:Record<string,unknown>={
  '@/lib/dd-access':{resolveDdPackageAccess:async()=>access},
  '@/lib/workspace-mutation-origin':{isSameOriginWorkspaceMutation:(r:Request)=>r.headers.get('origin')==='https://example.test'},
  '@/lib/dd-report-server':{loadDdReportEdition:async()=>edition,loadDdReportModel:async()=>({}),loadDdReportChapter:async(_id:string,slug:string)=>slug===published.slug?published:null,updateDdReportBody:(_b:unknown,_s:string,calc:unknown)=>({calculated:calc}),redactDdReport:async(_pj:string,c:unknown)=>({redacted:c})},
- '@/lib/dd-report-model':{validateDdOverrides:(_m:unknown,v:unknown)=>JSON.stringify(v)==='{"trial":4}',verifyDdReportCalculation:(_m:unknown,v:unknown)=>{if(calculationFails)throw Error('invalid');calculated=v;return v;}},
+ '@/lib/dd-report-model':{validateDdOverrides:(_m:unknown,v:unknown)=>JSON.stringify(v)==='{"trial":4}',DdReportCalculator:class {constructor(_m:unknown,v:unknown){if(calculationFails)throw Error('invalid');calculated=v;}}},
 };
 const source=ts.transpileModule(fs.readFileSync(new URL('../src/app/api/dd/[slug]/report/simulate/route.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
 const out:{POST?:(r:Request,p:unknown)=>Promise<{body:any;status:number}>}={};new Function('require','exports',source)((name:string)=>{assert(name in mocks,'Unexpected dependency / write path: '+name);return mocks[name];},out);

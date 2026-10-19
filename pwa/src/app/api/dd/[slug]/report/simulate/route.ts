@@ -2,7 +2,7 @@ import {NextResponse} from 'next/server';
 import {resolveDdPackageAccess} from '@/lib/dd-access';
 import {isSameOriginWorkspaceMutation} from '@/lib/workspace-mutation-origin';
 import {loadDdReportEdition,loadDdReportModel,loadDdReportChapter,updateDdReportBody,redactDdReport} from '@/lib/dd-report-server';
-import {validateDdOverrides,verifyDdReportCalculation} from '@/lib/dd-report-model';
+import {DdReportCalculator,validateDdOverrides} from '@/lib/dd-report-model';
 export const dynamic='force-dynamic';
 export const maxDuration=300;
 const headers={'Cache-Control':'private, no-store'};
@@ -20,7 +20,7 @@ export async function POST(request:Request,{params}:{params:Promise<{slug:string
   const model=await loadDdReportModel(edition);
   if(!validateDdOverrides(model,body.values))return NextResponse.json({error:'試算条件を確認する。'},{status:400,headers});
   try{
-    const calc=verifyDdReportCalculation(model,{...edition.input_overrides,...body.values});
+    const calc=new DdReportCalculator(model,{...edition.input_overrides,...body.values});
     const evaluated={...chapter,body:updateDdReportBody(chapter.body,chapter.source_sheet,calc)};
     return NextResponse.json({chapter:await redactDdReport(access.projectId,evaluated),revision:edition.revision},{headers});
   }catch(error){return NextResponse.json({error:error instanceof Error?error.message:'試算条件を確認する。'},{status:422,headers});}
