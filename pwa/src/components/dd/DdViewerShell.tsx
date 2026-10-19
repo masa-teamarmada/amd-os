@@ -16,9 +16,11 @@ import { hasDdCapability } from "@/lib/dd-package-core";
 import { resolveSharedWorkspaceAccess } from "@/lib/project-shared-workspace-access";
 import { BUILD_VERSION } from "@/lib/build-info";
 import { DdNavigationFeedback } from "./DdNavigationFeedback";
+import { DdReportReleaseHistory } from './report/DdReportReleaseHistory';
+import type {DdReportRelease} from '@/lib/dd-report-types';
 
 // 見出し・領域選択・分類・ページ・本文。閲覧画面に管理専用の帯を足さない。
-export async function DdViewerShell({ access, projectName, pageKey, children, reportNavigation, legacy=false,reportPageLabel }: { access: DdViewerAccess; projectName: string; pageKey: DdPageKey; children: ReactNode;reportNavigation?:ReactNode;legacy?:boolean;reportPageLabel?:string }) {
+export async function DdViewerShell({ access, projectName, pageKey, children, reportNavigation, legacy=false,reportPageLabel,documentVersion,releases=[] }: { access: DdViewerAccess; projectName: string; pageKey: DdPageKey; children: ReactNode;reportNavigation?:ReactNode;legacy?:boolean;reportPageLabel?:string;documentVersion?:string|null;releases?:DdReportRelease[] }) {
   const homeHref = `/dd/${encodeURIComponent(access.slug)}${reportNavigation ? '?chapter=source-index' : ''}`;
   const member = await getCurrentMemberAccess();
   const canCockpit = member ? !!memberSurfacePermission(member,access.projectId,"cockpit") : false;
@@ -36,6 +38,7 @@ export async function DdViewerShell({ access, projectName, pageKey, children, re
           </div>
         } />
         <p className="font-mono text-[10px] leading-4 text-[#6e6e73] print:hidden" aria-label={`AMD OS バージョン ${BUILD_VERSION}`}>AMD OS {BUILD_VERSION}</p>
+        {documentVersion&&<DdReportReleaseHistory version={documentVersion} releases={releases}/>}
         </div>
         <div className="sticky top-0 z-40 print:static"><DdConfidentialityNotice overlay slug={access.slug} /></div>
         <ProjectSpaceLayout compact navigation={<>

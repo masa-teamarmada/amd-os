@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
+import {ddReportVersionLabel} from '../src/lib/dd-report-navigation.ts';
 import {PDFDocument} from 'pdf-lib';
 const sample=await PDFDocument.create();sample.addPage([200,200]);const part=await sample.save();
 const store=new Map<string,Uint8Array>(),allKey='private/r2-all.pdf',prefix='private/r2';
 let rendered=0,changedDuringRender=false,changedDisclosure=false,freshRevision=2,seenOverrides:unknown;
-const edition={id:'edition',revision:2,status:'published',title:'Example',source_version:'test',input_overrides:{volume:1}};
+const edition={id:'edition',revision:2,document_version:'2.0.0',status:'published',title:'Example',source_version:'test',input_overrides:{volume:1}};
 const fresh={...edition,input_overrides:{volume:2}};
 const bucket={
  info:async(p:string)=>({error:store.has(p)?null:{message:'not found'}}),
@@ -17,6 +18,7 @@ const db={storage:{from:()=>bucket},from:()=>({select:()=>({eq:()=>({single:asyn
 const mocks:Record<string,unknown>={
  'server-only':{},'node:crypto':await import('node:crypto'),'pdf-lib':{PDFDocument},
  './supabase/admin':{createAdminClient:()=>db},
+ './dd-report-navigation':{ddReportVersionLabel},
  './dd-report-output-state':{ddReportOutputState:async()=>({prefix,key:changedDisclosure&&rendered?'different.pdf':allKey,hidden:[],ready:store.has(allKey)})},
  './dd-report-server':{DD_REPORT_BUCKET:'private',loadDdReportChapterIndex:async()=>Array.from({length:5},(_,i)=>({slug:'chapter-'+i,sort_order:i})),loadDdReportChapter:async(_e:string,slug:string)=>({slug,body:{rows:[],objects:[]}}),loadDdReportModel:async()=>({}),updateDdReportBody:(b:unknown)=>b},
  './dd-report-model':{DdReportCalculator:class {constructor(_m:unknown,o:unknown){seenOverrides=o;}}},

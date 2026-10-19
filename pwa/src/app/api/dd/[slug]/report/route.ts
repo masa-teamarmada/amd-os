@@ -17,7 +17,7 @@ export async function GET(request:Request,{params}:{params:Promise<{slug:string}
   if(chapterSlug){const chapter=await loadDdReportChapter(edition.id,chapterSlug);if(!chapter)return denied();await recordDdAccessEvent(access,'dd_package_viewed',{pageKey:chapterSlug,contentHash:`${edition.source_sha256}:r${edition.revision}`});return NextResponse.json({chapter:await redactDdReport(access.projectId,await evaluatedDdReportChapter(edition,chapter)),revision:edition.revision},{headers});}
   const chapters=await loadDdReportChapterIndex(edition.id);
   const model=canEditDdReport(access)?await loadDdReportModel(edition):null;
-  return NextResponse.json({edition:{id:edition.id,title:edition.title,sourceVersion:edition.source_version,revision:edition.revision,status:edition.status,summary:edition.summary},chapters,inputs:model?.inputs??[],overrides:canEditDdReport(access)?edition.input_overrides:{},canEdit:canEditDdReport(access)},{headers});
+  return NextResponse.json({edition:{id:edition.id,title:edition.title,sourceVersion:edition.source_version,documentVersion:edition.document_version,revision:edition.revision,status:edition.status,summary:edition.summary},chapters,inputs:model?.inputs??[],overrides:canEditDdReport(access)?edition.input_overrides:{},canEdit:canEditDdReport(access)},{headers});
 }
 export async function POST(request:Request,{params}:{params:Promise<{slug:string}>}) {
   const {slug}=await params,access=await resolveDdPackageAccess(slug);if(!access||!canEditDdReport(access))return denied();
@@ -29,7 +29,8 @@ export async function POST(request:Request,{params}:{params:Promise<{slug:string
   async function commit(args:Record<string,unknown>){
     const r=await db.rpc('dd_report_commit_change',{p_edition_id:edition!.id,p_expected_revision:edition!.revision,p_actor:access!.principal==='workspace_account'?'':access!.memberId,...args});
     if(r.error){if(r.error.code==='40001')return NextResponse.json({error:'別の更新を検出。画面を再読込してから保存する。'},{status:409});throw r.error;}
-    queueDdReportPdf({...edition!,revision:Number(r.data)},access!.projectId,slug);
+    const committed=await loadDdReportEdition(access!);
+    if(committed)queueDdReportPdf(committed,access!.projectId,slug);
     return NextResponse.json({ok:true,revision:r.data},{headers});
   }
   if(body.action==='inputs'){

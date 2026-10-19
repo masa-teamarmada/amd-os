@@ -13,7 +13,7 @@ import { hasDdCapability, isDdSlug } from "@/lib/dd-package-core";
 import { DD_PAGE_KEYS, type DdPageKey } from "@/lib/dd-pages";
 import { loadDdProjectPage } from "@/lib/dd-project-pages-server";
 import { canEditProjectSurface } from "@/lib/project-surface-access";
-import {evaluatedDdReportChapter,loadDdReportChapter,loadDdReportChapterIndex,loadDdReportEdition,loadDdReportModel,loadDdLegacySnapshot,redactDdReport} from '@/lib/dd-report-server';
+import {evaluatedDdReportChapter,loadDdReportChapter,loadDdReportChapterIndex,loadDdReportEdition,loadDdReportReleases,loadDdReportModel,loadDdLegacySnapshot,redactDdReport} from '@/lib/dd-report-server';
 import {DdReportReader} from '@/components/dd/report/DdReportReader';
 import {DdReportNavigation} from '@/components/dd/report/DdReportNavigation';
 import type {DdLiveProjectPage} from '@/lib/dd-project-page-types';
@@ -43,7 +43,7 @@ export default async function DdPackagePage({ params, searchParams }: { params: 
   if(legacy==='1'&&!edition?.legacy_snapshot_path)notFound();
   if(edition&&legacy!=='1'){
     if(tab==='documents')redirect(`/dd/${encodeURIComponent(slug)}/legacy?tab=documents`);
-    const index=await loadDdReportChapterIndex(edition.id);
+    const [index,releases]=await Promise.all([loadDdReportChapterIndex(edition.id),loadDdReportReleases(access,edition)]);
     const aliases:Record<string,string>={'execution-plan':'business-development-plan','capital-policy':'capital-plan','monthly-trial':'financial-plan','financial-projection':'financial-plan','cost-model':'unit-economics','poc-list':'poc','business-plan':'business-plan','company':'company','market-research':'market','technical-explanation':'technology'};
     const selected=(chapter==='execution-plan'?'business-development-plan':chapter)??(tab?aliases[tab]??tab:'source-index');
     const raw=await loadDdReportChapter(edition.id,index.some(c=>c.slug===selected)?selected:'source-index');if(!raw)notFound();
@@ -53,7 +53,7 @@ export default async function DdPackagePage({ params, searchParams }: { params: 
     const pdfReady=hasDdCapability(access,'dd.download')?(await ddReportOutputState(edition,access.projectId)).ready:false;
     if(hasDdCapability(access,'dd.download')&&!pdfReady)queueDdReportPdf(edition,access.projectId,slug);
     await recordDdAccessEvent(access,'dd_package_viewed',{pageKey:report.slug,contentHash:`${edition.source_sha256}:r${edition.revision}`});
-    return <DdViewerShell access={access} projectName={access.title} pageKey="company" reportPageLabel={report.title} reportNavigation={<DdReportNavigation slug={slug} index={index} selected={report.slug}/>}><DdReportReader key={`${report.id}:${edition.revision}`} slug={slug} title={edition.title} revision={edition.revision} pdfReady={pdfReady} sourceVersion={edition.source_version} inputs={simulationInputs} overrides={edition.input_overrides} chapter={report} index={index} canDownload={hasDdCapability(access,'dd.download')} glossary={edition.glossary}/></DdViewerShell>;
+    return <DdViewerShell access={access} projectName={access.title} pageKey="company" documentVersion={edition.document_version} releases={releases} reportPageLabel={report.title} reportNavigation={<DdReportNavigation slug={slug} index={index} selected={report.slug}/>}><DdReportReader key={`${report.id}:${edition.revision}:${edition.document_version}`} slug={slug} title={edition.title} revision={edition.revision} pdfReady={pdfReady} sourceVersion={edition.source_version} documentVersion={edition.document_version} inputs={simulationInputs} overrides={edition.input_overrides} chapter={report} index={index} canDownload={hasDdCapability(access,'dd.download')} glossary={edition.glossary}/></DdViewerShell>;
   }
   if (tab === "financial-projection") redirect(`/dd/${encodeURIComponent(access.slug)}${legacy==='1'?'/legacy':''}?tab=monthly-trial`);
   // 認可後、選択された正本ページと監査記録を並行して読む。

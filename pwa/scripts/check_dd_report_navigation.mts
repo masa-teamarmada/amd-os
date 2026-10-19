@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
 import {PDFDocument,PDFName,PDFString,PDFHexString,PDFDict,PDFArray,PDFNumber} from 'pdf-lib';
 import {finalizeDdPdfNavigation,readDdPdfIndex} from '../src/lib/dd-report-pdf.ts';
-import {ddPdfMarker,ddReportFilename} from '../src/lib/dd-report-navigation.ts';
+import {ddPdfMarker,ddReportFilename,ddReportVersionLabel,ddReportBundleFilename} from '../src/lib/dd-report-navigation.ts';
 import type {DdReportEdition,DdReportChapterSummary} from '../src/lib/dd-report-types.ts';
 
-const edition={title:'Sample｜DD',revision:7} as DdReportEdition;
+const edition={title:'Sample｜DD',revision:7,document_version:'2.0.0'} as DdReportEdition;
+assert.equal(ddReportVersionLabel(edition),'v2.0.0');
+assert.equal(ddReportFilename(edition,'pdf'),'Sample_DD_本文・図解_v2.0.0.pdf');
+assert.equal(ddReportBundleFilename(edition),'Sample_DD_PDF+Excel_v2.0.0.zip');
+assert.equal(ddReportVersionLabel({revision:7}),'r7');
 const chapters=[{slug:'business-plan',title:'事業計画',source_sheet:'事業計画'},{slug:'financial-plan',title:'損益・資金繰',source_sheet:'損益・資金繰'}] as DdReportChapterSummary[];
 const doc=await PDFDocument.create();const pages=[doc.addPage(),doc.addPage()];
 function link(page:number,uri:string,y=700){const dict=doc.context.obj({Type:'Annot',Subtype:'Link',Rect:[30,y,200,y+14],A:{S:'URI',URI:PDFString.of(uri)}});pages[page].node.addAnnot(doc.context.register(dict));return dict;}

@@ -1,4 +1,4 @@
-import {ddReportFilename} from '../src/lib/dd-report-navigation.ts';
+import {ddReportFilename,ddReportBundleFilename} from '../src/lib/dd-report-navigation.ts';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
@@ -22,7 +22,7 @@ assert.equal(formatDdReportValue(.08,'"キャップ／割引率"'),'キャップ
 assert.equal(formatDdReportValue(0,'#,##0;(#,##0);"—"'),'—');
 assert.equal(formatDdReportValue(45000,'yyyy/mm/dd'),'2023/03/15');
 let access:DdViewerAccess|null=null,editionReads=0,saves=0,calcError=false,queued=0;
-const edition={id:'edition',title:'Example｜DD',source_sha256:'sha',package_id:'package',revision:1,input_overrides:{}},model={inputs:[]};
+const edition={id:'edition',title:'Example｜DD',source_sha256:'sha',package_id:'package',revision:1,document_version:'2.0.0',input_overrides:{}},model={inputs:[]};
 const response={json:(body:unknown,options:{status?:number}={})=>({body,status:options.status??200})};
 const mocks:Record<string,unknown>={
  'next/server':{NextResponse:{...response,redirect:(url:string,options:{status:number})=>({body:{url},...options})}},'@/lib/dd-access':{resolveDdPackageAccess:async()=>access},
@@ -48,16 +48,16 @@ console.log('PASS: DD isolation / edit boundary / CSRF / revisions / failed calc
 // Export rejects access/range/revision errors before touching private output storage.
 let outputStorageReads=0,rendered=0,pdfReady=true;
 let xlsxMissing=false,xlsxGenerated=0,downloads=0,editionChanged=false,disclosureChanged=false,pdfChecks=0;
-let uploadedBundle:Uint8Array|undefined;
+let uploadedBundle:Uint8Array|undefined,downloadName:string|undefined;
 const pdfBytes=new TextEncoder().encode('%PDF-1.7 prepared fixture'),xlsxBytes=new Uint8Array([80,75,3,4,10,20,30]);
 const exportMocks={...mocks,
  'fflate':{zipSync},
  '@/lib/dd-package-core':{hasDdCapability:(a:DdViewerAccess,cap:string)=>a.capabilities.includes(cap as never)},
- '@/lib/dd-report-pdf':{readDdPdfIndex:async()=>({})},'@/lib/dd-report-navigation':{ddReportFilename},'node:crypto':{createHash},
+ '@/lib/dd-report-pdf':{readDdPdfIndex:async()=>({})},'@/lib/dd-report-navigation':{ddReportFilename,ddReportBundleFilename},'node:crypto':{createHash},
  '@/lib/dd-report-output-state':{ddReportOutputState:async(_edition:unknown,_project:unknown,format='pdf')=>{outputStorageReads++;if(format==='pdf')pdfChecks++;return {ready:format==='pdf'?pdfReady:!xlsxMissing,key:`private/${format==='pdf'&&disclosureChanged&&pdfChecks>1?'changed':'all'}.${format}`,prefix:'private',hidden:[]};},queueDdReportPdf:()=>{queued++;}},
  '@/lib/dd-report-output-server':{createDdReportOutput:({format,selected}:{format:string;selected:unknown[]})=>{if(format==='xlsx'){assert.equal(selected.length,38);xlsxGenerated++;return xlsxBytes;}rendered++;throw Error('download must not render bulk PDF');}},
  '@/lib/supabase/admin':{createAdminClient:()=>({storage:{from:()=>({
-   createSignedUrl:async()=>({data:{signedUrl:'https://storage.test/download'},error:null}),
+   createSignedUrl:async(_key:string,_expires:number,options:{download:string})=>{downloadName=options.download;return {data:{signedUrl:'https://storage.test/download'},error:null};},
    info:async()=>({error:xlsxMissing?{message:'missing'}:null}),
    upload:async(key:string,bytes:Uint8Array)=>{if(key.endsWith('.zip'))uploadedBundle=bytes;else xlsxMissing=false;return {error:null};},
    download:async(key:string)=>{downloads++;return {data:new Blob([key.endsWith('.pdf')?pdfBytes:xlsxBytes]),error:null};},
@@ -79,6 +79,7 @@ access=external;assert.equal((await getExport('format=pdf&revision=0&scope=all')
 assert.equal((await getExport('format=pdf&scope=all&prepareBatch=-1')).status,400);
 assert.equal((await getExport('format=pdf&scope=all&prepareBatch=10')).status,400);
 assert.equal((await getExport('format=xlsx&scope=all&prepareBatch=0')).status,400);
+assert.equal((await getExport('format=zip&scope=all&version=1.9.0')).status,409);
 assert.equal(outputStorageReads,0);
 console.log('PASS: export download permission / stale revision / invalid batch boundaries');
 
@@ -92,7 +93,8 @@ pdfReady=true;xlsxMissing=true;downloads=0;pdfChecks=0;
 const bundle=await getExport('format=zip&scope=all&revision=1');
 assert.equal(bundle.status,303);assert.ok(uploadedBundle,'ZIPを既存の非公開ファイル配信へ保存する');
 const archive=unzipSync(uploadedBundle),names=Object.keys(archive);
-assert.equal(names.length,2);assert.ok(names.every(name=>name.includes('_r1.')));
+assert.equal(downloadName,'Example_DD_PDF+Excel_v2.0.0.zip');
+assert.equal(names.length,2);assert.ok(names.every(name=>name.includes('_v2.0.0.')));
 assert.deepEqual(archive[names.find(name=>name.endsWith('.pdf'))!],pdfBytes);
 assert.deepEqual(archive[names.find(name=>name.endsWith('.xlsx'))!],xlsxBytes);
 assert.equal(rendered,0,'一括操作でPDFを再生成しない');assert.equal(xlsxGenerated,1);

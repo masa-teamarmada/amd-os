@@ -1,17 +1,18 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 import Link from 'next/link';
-import {orderDdReading} from '@/lib/dd-report-navigation';
+import {orderDdReading,ddReportFilename,ddReportBundleFilename} from '@/lib/dd-report-navigation';
 import {useRouter} from 'next/navigation';
 import type {DdReportChapter,DdReportChapterSummary,DdReportGlossary,DdReportInput,DdReportValue} from '@/lib/dd-report-types';
 import {DdReportContent} from './DdReportContent';
 import {DD_REPORT_CSS} from './dd-report-style';
 import {installDdGlossaryInteractions} from '@/lib/dd-glossary-interactions';
 
-type Props={slug:string;title:string;revision:number;sourceVersion:string;chapter:DdReportChapter;index:DdReportChapterSummary[];canDownload:boolean;pdfReady:boolean;inputs?:DdReportInput[];overrides?:Record<string,DdReportValue>;glossary?:DdReportGlossary};
+type Props={slug:string;title:string;revision:number;sourceVersion:string;documentVersion?:string|null;chapter:DdReportChapter;index:DdReportChapterSummary[];canDownload:boolean;pdfReady:boolean;inputs?:DdReportInput[];overrides?:Record<string,DdReportValue>;glossary?:DdReportGlossary};
 export function DdReportReader(props:Props) {
   const {slug,chapter,index,canDownload,revision}=props,router=useRouter(),company=props.title.split('｜')[0];
   const reader=useRef<HTMLElement>(null);
+  const versionQuery=props.documentVersion?'&version='+encodeURIComponent(props.documentVersion):'';
   const [displayChapter,setDisplayChapter]=useState(chapter),[scenario,setScenario]=useState<Record<string,DdReportValue>>({}),[draft,setDraft]=useState<Record<string,DdReportValue>>({}),[calculating,setCalculating]=useState(false),[simulationMessage,setSimulationMessage]=useState('');
   const [executionWindow,setExecutionWindow]=useState(0);
   const storageKey=`amie-dd-scenario:${slug}:r${revision}`;
@@ -41,21 +42,22 @@ export function DdReportReader(props:Props) {
     const controller=new AbortController();
     async function poll(){
       try {
-        const r=await fetch(`/api/dd/${encodeURIComponent(slug)}/report/export?format=pdf&scope=all&status=1&revision=${revision}`,{cache:'no-store',signal:controller.signal});
+        const r=await fetch(`/api/dd/${encodeURIComponent(slug)}/report/export?format=pdf&scope=all&status=1&revision=${revision}${versionQuery}`,{cache:'no-store',signal:controller.signal});
         if(r.status===409){router.refresh();return;}
         const data=await r.json();if(r.ok&&data.ready){if(!cancelled)setPrepared(true);return;}
       }catch{if(controller.signal.aborted)return;}
       if(!cancelled)timer=setTimeout(poll,5000);
     }
     timer=setTimeout(poll,3000);return()=>{cancelled=true;controller.abort();clearTimeout(timer);};
-  },[prepared,canDownload,slug,revision,router]);
+  },[prepared,canDownload,slug,revision,router,versionQuery]);
   async function download(format:'zip'|'xlsx',all=false,href?:string) {
     setBusy(true);setMessage(format==='zip'?'PDFとExcelをまとめてダウンロード中…':'Excelをダウンロード中…');
     try {
-      const endpoint=href??`/api/dd/${encodeURIComponent(slug)}/report/export?format=${format}&revision=${revision}${all?'&scope=all':`&chapter=${chapter.slug}`}`;
+      const endpointBase=href??`/api/dd/${encodeURIComponent(slug)}/report/export?format=${format}&revision=${revision}${all?'&scope=all':`&chapter=${chapter.slug}`}`;
+      const endpoint=endpointBase+versionQuery;
       const r=await fetch(endpoint,{cache:'no-store'});
       if(!r.ok||r.status===202){const data=await r.json().catch(()=>({}));throw new Error(data.error||'出力できなかった');}
-      const url=URL.createObjectURL(await r.blob()),a=document.createElement('a');a.href=url;a.download=`${company}_DD_${format==='zip'?'PDF+Excel':'数値計画・一覧表'}_r${revision}.${format}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);setMessage('出力済み。');
+      const url=URL.createObjectURL(await r.blob()),a=document.createElement('a');a.href=url;a.download=format==='zip'?ddReportBundleFilename({title:props.title,revision,document_version:props.documentVersion}):ddReportFilename({title:props.title,revision,document_version:props.documentVersion},'xlsx');a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);setMessage('出力済み。');
     }catch(error){setMessage(error instanceof Error?error.message:'出力できなかった');}finally{setBusy(false);}
   }
   return <article ref={reader} className="ddr" data-testid="dd-report-reader" data-chapter={chapter.slug}>

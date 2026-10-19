@@ -1,7 +1,7 @@
 import {strFromU8,strToU8} from 'fflate';
 import {ddEscapeHtml} from './dd-confidentiality';
 import type {DdReportChapter,DdReportEdition,DdReportModel} from './dd-report-types';
-import {ddPdfLocation,ddReportFilename,type DdPdfIndex} from './dd-report-navigation';
+import {ddPdfLocation,ddReportFilename,ddReportVersionLabel,type DdPdfIndex} from './dd-report-navigation';
 
 type Files=Record<string,Uint8Array>;
 const tag='(?:[\\w.-]+:)?';
@@ -154,7 +154,7 @@ export function projectDdWorkbook(files:Files,chapters:DdReportChapter[],model:D
   const style=(address:string,fallback='0')=>indexXml.match(new RegExp('<'+tag+'c\\b[^>]*r="'+address+'"[^>]*s="(\\d+)"'))?.[1]??fallback;
   const titleStyle=style('B2'),bodyStyle=style('B9'),linkStyle=style('B25',bodyStyle),headStyle=style('B8',titleStyle);
   const textCell=(address:string,value:string,s:string)=>`<c r="${address}" s="${s}" t="inlineStr"><is><t xml:space="preserve">${ddEscapeHtml(value)}</t></is></c>`;
-  const rows=[`<row r="1" ht="8" customHeight="1"/>`,`<row r="2" ht="34" customHeight="1">${textCell('B2',edition.title.split('｜')[0]+' 数値計画・試算・一覧表',titleStyle)}</row>`,`<row r="3" ht="23" customHeight="1">${textCell('B3','資料版 '+edition.revision+' ／ 事業説明・図解・経歴・法規制は同梱PDFとDDサイトで閲覧',bodyStyle)}</row>`,`<row r="5" ht="23" customHeight="1">${textCell('B5','DDサイトを開く',linkStyle)}</row>`,`<row r="7" ht="24" customHeight="1">${textCell('B7','分類',headStyle)+textCell('C7','シート',headStyle)+textCell('D7','内容',headStyle)}</row>`];
+  const rows=[`<row r="1" ht="8" customHeight="1"/>`,`<row r="2" ht="34" customHeight="1">${textCell('B2',edition.title.split('｜')[0]+' 数値計画・試算・一覧表',titleStyle)}</row>`,`<row r="3" ht="23" customHeight="1">${textCell('B3','DD資料 '+ddReportVersionLabel(edition)+' ／ 事業説明・図解・経歴・法規制は同梱PDFとDDサイトで閲覧',bodyStyle)}</row>`,`<row r="5" ht="23" customHeight="1">${textCell('B5','DDサイトを開く',linkStyle)}</row>`,`<row r="7" ht="24" customHeight="1">${textCell('B7','分類',headStyle)+textCell('C7','シート',headStyle)+textCell('D7','内容',headStyle)}</row>`];
   const links=[`<hyperlink ref="B5" r:id="rIdDdSite"/>`];
   let indexRels=`<Relationship Id="rIdDdSite" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${ddEscapeHtml(reportHref)}" TargetMode="External"/>`;
   const pdfLink=(ref:string,chapter?:string)=>{const at=chapter?ddPdfLocation(pdfIndex,chapter):undefined,id='rIdCompanion'+ref;links.push(`<hyperlink ref="${ref}" r:id="${id}"/>`);indexRels+=`<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${ddEscapeHtml(ddReportFilename(edition,'pdf')+(at?'#page='+at.page:''))}" TargetMode="External"/>`;};

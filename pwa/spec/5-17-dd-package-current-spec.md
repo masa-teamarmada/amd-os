@@ -1,3 +1,13 @@
+## 2026-10-19 — DD資料の版と変更履歴（OS v3.163.28／DD v2.0.0）
+
+DD資料の現行版はv2.0.0。アプリのBUILD_VERSION、原本Excelのsource_version、内部のrevisionと独立して、dd_report_editions.document_versionへ保存する。画面の上部でAMD OSの版とDD資料の版を明示し、「変更履歴」を開くと版・日時・変更概要を確認できる。PDF本文・各章、Excel目録・印刷ヘッダ・内部メタデータと、PDF/Excel/ZIPの実際の保存名は同じ資料版を用いる。
+
+変更履歴は新設dd_report_releasesへ保存する。初回は全面改訂の概要をv2.0.0として登録。資料revisionが進む更新ではDBトリガーがdocument_versionのpatchを1増やし、同じトランザクションで履歴を追加する。OSだけの更新は資料版を維持。major/minorを変える場合は、更新トランザクションでdocument_versionとapp.dd_document_change_summaryを明示する。過去版への巻戻しを拒否する。旧版r表記はdocument_version未登録の資料に限る互換表示。
+
+履歴表はRLS有効、anon/authenticated/publicに権限なし。service_roleはSELECT/INSERTのみ。既存DD/NDA認可と当該editionのpackage一致を検証後に、公開用の版・日時・概要だけを返す。詳細な変更前後・actorは既存dd_report_changesに保持。履歴は版×revision別に同時取得を集約し、最大32件のプロセスキャッシュと500件ごとのページ取得を用いる。
+
+DDLは20261019072151_amie_dd_document_versions.sqlと20261019072638_amie_dd_release_log_append_only.sql（適用済み）。内部revision・移行元v1.20・本文・数値モデルは保持。出力キーはlayout-v21＋資料版＋revision＋開示条件。出力の途中で資料版またはrevisionが変われば保存/配信を中断し、画面の古いversion指定へ409を返す。既存の出力権限・準備済みPDF・一括2ファイルZIPを維持する。Swift等の専用UIは未変更、既存ブラウザ入口へ適用。
+
 2026-10-19 組織図を石原先生の指定構成へ更新（v3.163.27 / 資料r85）：CEOが経営企画部長を兼務し、経営企画部の輕部・遠藤・肥塚の3名と技術開発部の開発員A〜Cを同じ個別カードで表示。石原裕香の事業開発・PM支援は経営企画部の外に配置して点線で示す。中島純一先生は非常勤の技術顧問としてCTOから横の点線で示す。実線は指揮命令、点線は助言・支援とし、職務分掌も同じ役割へ更新。OSとPDFは同じSVGと版管理本文を用いる。数値・給与条件・資本政策・権限は維持。出力layout-v20。
 
 2026-10-19 DDの照合表を非掲載・技術給与単価削除（v3.163.26 / 資料r83）：移行監査の四媒体対応表と資料一覧の案内をOS/PDFから削除。監査記録は内部控えに保持し、まさへのチャットで○による掲載確認表を報告する。既存の開示資料の準備状況は「開示資料一覧」として保持。技術開発計画は開発員の人数・役割・工程の要件を掲載し、月額50万円の給与条件を本文から削除。財務モデル・人件費・給与入力は保持。出力layout-v19。

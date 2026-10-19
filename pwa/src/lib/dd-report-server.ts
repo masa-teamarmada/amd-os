@@ -8,18 +8,34 @@ export {canReadDdReport,canEditDdReport} from './dd-report-core';
 import {completeDdReportInputs} from './dd-report-input-metadata';
 import {ddJkissSummary} from './dd-report-jkiss';
 import {DdReportCalculator,ddAddress,ddColumn} from './dd-report-model';
-import type {DdReportAsset,DdReportBody,DdReportChapter,DdReportChapterSummary,DdReportEdition,DdReportModel,DdReportValue} from './dd-report-types';
+import type {DdReportAsset,DdReportBody,DdReportChapter,DdReportChapterSummary,DdReportEdition,DdReportModel,DdReportValue,DdReportRelease} from './dd-report-types';
 import {loadProjectPartnerDisclosure} from './project-partner-disclosure-server';
 import {redactProjectPartnerNames} from './project-partner-disclosure';
 import {DD_DEVELOPMENT_SLUGS,splitDdDevelopmentChapter,splitDdDevelopmentIndex} from './dd-report-development-plans';
 
 export const DD_REPORT_BUCKET='dd-report-files';
-const EDITION_FIELDS='id,package_id,title,source_version,source_sha256,status,summary,model_storage_path,xlsx_storage_path,legacy_snapshot_path,input_overrides,glossary,revision,created_at,updated_at';
+const EDITION_FIELDS='id,package_id,title,source_version,document_version,source_sha256,status,summary,model_storage_path,xlsx_storage_path,legacy_snapshot_path,input_overrides,glossary,revision,created_at,updated_at';
 export async function loadDdReportEdition(access:DdViewerAccess):Promise<DdReportEdition|null> {
   let query=createAdminClient().from('dd_report_editions').select(EDITION_FIELDS).eq('package_id',access.packageId).neq('status','archived').order('created_at',{ascending:false}).limit(1);
   if(access.principal==='workspace_account')query=query.eq('status','published');
   const result=await query.maybeSingle();if(result.error)throw new Error('DDレポートを読み込めなかった');
   const edition=result.data as DdReportEdition|null;return edition&&canReadDdReport(access,edition)?edition:null;
+}
+const releaseCache=new Map<string,Promise<DdReportRelease[]>>();
+export async function loadDdReportReleases(access:DdViewerAccess,edition:DdReportEdition):Promise<DdReportRelease[]> {
+  if(edition.package_id!==access.packageId||!canReadDdReport(access,edition))return [];
+  const key=`${edition.id}:${edition.document_version}:${edition.revision}`;
+  const prior=releaseCache.get(key);if(prior)return prior;
+  if(releaseCache.size>=32)releaseCache.clear();
+  const loading=(async()=>{
+    const rows:DdReportRelease[]=[];
+    for(let from=0;;from+=500){
+      const result=await createAdminClient().from('dd_report_releases').select('document_version,revision,summary,created_at').eq('edition_id',edition.id).order('created_at',{ascending:false}).order('id',{ascending:false}).range(from,from+499);
+      if(result.error)throw new Error('DD資料の変更履歴を読み込めなかった');
+      rows.push(...result.data as DdReportRelease[]);if(result.data.length<500)return rows;
+    }
+  })();
+  releaseCache.set(key,loading);loading.catch(()=>releaseCache.delete(key));return loading;
 }
 export async function loadDdReportChapterIndex(editionId:string):Promise<DdReportChapterSummary[]> {
   const r=await createAdminClient().from('dd_report_chapters').select('id,slug,title,group_label,sort_order,source_sheet,revision,updated_at').eq('edition_id',editionId).order('sort_order');

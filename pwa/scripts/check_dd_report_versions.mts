@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+import {canReadDdReport,canEditDdReport} from '../src/lib/dd-report-core.ts';
+
+const rows=Array.from({length:501},(_,i)=>({document_version:`2.0.${500-i}`,revision:501-i,summary:'更新',created_at:'2026-10-19T07:00:00Z'}));
+let calls=0,fail=false;
+const db={from:(name:string)=>{assert.equal(name,'dd_report_releases');const query={select:(fields:string)=>{assert.equal(fields,'document_version,revision,summary,created_at');return query;},eq:(_key:string,value:string)=>{assert.equal(value,'edition');return query;},order:()=>query,range:async(from:number,to:number)=>{calls++;return fail?{error:{message:'failed'},data:null}:{error:null,data:rows.slice(from,to+1)};}};return query;}};
+const source=ts.transpileModule(fs.readFileSync(new URL('../src/lib/dd-report-server.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+const methods:Record<string,(...args:unknown[])=>Promise<unknown>>={};
+new Function('require','exports',source)((name:string)=>name==='./supabase/admin'?{createAdminClient:()=>db}:name==='./dd-report-core'?{canReadDdReport,canEditDdReport}:{},methods);
+const access={principal:'workspace_account',packageId:'package',capabilities:['dd.view'],preview:false},edition={id:'edition',package_id:'package',status:'published',revision:85,document_version:'2.0.0'};
+const [first,second]=await Promise.all([methods.loadDdReportReleases(access,edition),methods.loadDdReportReleases(access,edition)]);
+assert.equal((first as unknown[]).length,501);assert.equal(first,second);assert.equal(calls,2,'Simultaneous readers share paginated history');
+assert.deepEqual(await methods.loadDdReportReleases({...access,packageId:'other'},edition),[]);assert.equal(calls,2,'A cached result cannot bypass tenant authorization');
+assert.deepEqual(await methods.loadDdReportReleases(access,{...edition,status:'draft'}),[]);assert.equal(calls,2,'External users cannot read a draft release log');
+await methods.loadDdReportReleases(access,{...edition,revision:86,document_version:'2.0.1'});assert.equal(calls,4,'New content version reads new history');
+fail=true;await assert.rejects(()=>methods.loadDdReportReleases(access,{...edition,revision:87,document_version:'2.0.2'}));fail=false;
+assert.equal((await methods.loadDdReportReleases(access,{...edition,revision:87,document_version:'2.0.2'}) as unknown[]).length,501,'A failed read can be retried');
+console.log('PASS: DD release history permission before cache / 501 records / concurrent reads / version refresh / error retry');

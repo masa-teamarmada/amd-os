@@ -1145,3 +1145,10 @@ PWA /seed-needs と左メニューを「市場ニーズ」へ。一市場一行�
 ## 一覧の共通俯瞰表示（2026-10-14）
 
 PWAの業務一覧は`data-amie-list`と共通の分類・状態・増減部品を使用。稼働・進行、確認済み完了、注意、重大、未確認を記号と名称で分離する。PJ台帳は「比較一覧」「すべての設定」で全既存項目と編集を保持。実験一覧は「実験結果」へ改名し、権限のあるデータセルから行内編集へ接続する。正本spec2-7/3-20、manual2-3。意味検証は`check_amie_list_signals.mts`、既存の重要UI・台帳・技術開示検証を維持する。
+
+## DD資料の版・変更履歴（2026-10-19）
+
+- UI: DdReportReleaseHistory。AMD OSと独立したDD資料の版、開閉できる変更履歴。
+- 正本: dd_report_editions.document_version、dd_report_releases。既存の認可後だけ読み出す。
+- 出力: ddReportVersionLabel/ddReportFilename/ddReportBundleFilename。PDF/Excel内、保存名と同梱参照先は同一版。版が変われば出力cacheと競合検査へ反映。
+- 回帰: check_dd_report_navigation / check_dd_report_access / check_dd_report_preparation、spec5-17、manual2-6。
