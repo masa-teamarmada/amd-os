@@ -1,6 +1,6 @@
 # AMD OS macOS 開発用対応台帳
 
-最終更新: 2026-10-03
+最終更新: 2026-10-22
 
 > **現行SPS override（2026-08-18）**: `amdScore` / `amdScoreDetail` / dashboard / cyberspaceのactive routeは`/api/hud/dashboard`の現行SPS DTOだけを読む。完全版組は`sps-ind-tier0-v1 / sps-ind-v1 / q-eval-v2 / rubric-v1.1 / p-ind-v1 / rubric-v1.1+ind-v1`。旧スコアrouteは退役表示へ収束し、`AMDOSRESTClient`が旧3テーブルの読取・更新・追加・upsert・削除を拒否する。下表の旧AMD Score記述は履歴であり非規範。
 
@@ -23,6 +23,7 @@ PWAロゴ正本をプロジェクト内へ同期し、AppIconの各サイズは�
 
 | PWA route（全件） | NativeScreenID | 読取元 | 書込み先 | 権限 | 状態 / 回帰確認 |
 |---|---|---|---|---|---|
+| `/project/[projectId]/cockpit?tab=executive-meeting`, `/project/[projectId]/workspace#executive-meeting`, `/admin/executive-meetings` | 未割当 | PWA専用経営会議API・規程版・議案・投票 | PWA専用admin設定/議案/採決API | 当該PJの登録経営陣、設定はadmin | **Native未移植**。既存動向・会議から分離。専用の権限・規程・採決を移植するまでmacOSに表示しない。PWAもローカル実装・本番未反映 |
 | `/auth/login`, `/auth/callback` | `account` | Supabase Auth + 透過 `AMDLogoMark.imageset` | Supabase OAuth PKCE + PWA共有workspace access DTO | 本人 / PJ限定member | 実装済み。AppIconと同じAMDロゴmarkを白背景に表示。Google callbackはASWebAuthenticationSessionとSwiftUI `onOpenURL`の両方からPKCE sessionへ戻す。PWAと同じAMDメンバー / PJ限定の二入口を持ち、PJ限定時は通常OSではなくworkspaceだけを開く。実認証は未確認 |
 | `/dashboard`, `/mypage` | `today`, `projects` | `projects`, iOS MyPage、認可済み通知配送結果 | 既存PJ安全API | member | 実装済み。PJ一覧と今日の確認件数。通知の直接テーブル取得はしない |
 | `/my-projects`, `/project/[projectId]/workspace` | `myProjects`, `projectWorkspace` | PWA共有 `getCurrentMemberAccess` / `getProjectWorkspaceBundle` DTO | `POST /api/project-workspace/[projectId]/effort` | PJ限定member / portfolio member | **P0 Native 実装済み（テーマタブは未移植）**。参加設定済みPJのみの一覧、週次の予定/実績入力、メンバー別配分、MS、活動件数・source集計、6週推移をSwiftUIで実装。2026-08-26にPWAへ追加、2026-08-31拡張したp19の4テーマ（KR経営改革 / 水素循環PJ / OkuDoor運営 / OkuDoorシステム開発＆運用）、9成果目標の4/2/2/1接続、予定進行と確定進捗の区別、AMD内部のホーム/コックピット導線に加えて、運用タスク/運用マイルストーン/論点・決定/予定成果物/作業間の関連の作成・編集ハブはNative未移植。MTGの新規作成・編集はPWA側でも一時停止中（既存の会議記録の公開範囲ポリシー承認待ち）。PJ限定ユーザーは通常のSupabase table readを使わず共有DTOだけを読む。PWA実データでの確認・書込みは未実施 |

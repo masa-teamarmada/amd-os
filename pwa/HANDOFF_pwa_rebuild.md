@@ -856,3 +856,29 @@ PWA本番は通常deploy.shでmainを1回反映しReady/build-info/実画面を�
 ## 2026-10-18 DD PDF・数値Excelの分担
 
 body.excelでmodel/tables/pdfと出力順を管理。Excelは専用目録＋数値モデル13＋比較一覧6。`dd-report-workbook.ts`が元ブックの入力・数式・固定行列・30グラフ・9感度表を保ち、PDF章と長文を除去。PDF章の小表はPDFへ掲載。キーlayout-v5。未分類の旧版は従来出力を保持。共通バックエンド出力のみの変更で、Swift/iOS/macOS/Androidコード・認可・経済モデルは同じ。
+
+## 2026-10-22 経営会議（ローカル実装）
+
+まさの「ローカルで実装まで」指定に従い、PWAのコックピット/ワークスペース専用ページ、adminの経営陣/規程管理、専用API、migrationをローカルへ作成。本番DB適用・PWA push/deploy・実ユーザーへの付与は未実施。適用前にmigrationのSQLとDB権限、採決の同時操作をローカルDBで確認する。ネイティブ移植は未着手。
+
+画面確認は `cd pwa && npm run dev -- --hostname 127.0.0.1 --port 3187` で起動し、`/preview-executive-meeting/cockpit` と `/preview-executive-meeting/workspace#executive-meeting` を開く。既存のコックピット/ワークスペース部品とナビゲーションで、架空の議案・規程を表示する開発時専用画面。試用操作は開発サーバー内の架空データだけを変え、実PJ・本番DBと無関係。上部の「試用データを初期化」で戻せる。本番ビルドのページ/APIは404。通常の実PJ画面はDB migration適用まで経営会議データを表示できない。
+
+初回の画像ギャラリーはAMD OSの実画面と異なるため廃止。UI監査で、採決の締切ボタンが投票より強く見える点、決議内容が目に入る前に操作へ誘導していた点を修正。投票待ち→議案→決める内容→判断材料→本人の投票の順へ変更し、締切/取消は「議案の管理」に格納。監査記録は `.jez/artifacts/executive-meeting-ui-audit-20261022.md`。
+
+| 仕様変更 | 設計正本 | OSマニュアル | 状態 |
+|---|---|---|---|
+| 経営会議の入口/認可/議案/採決 | spec3-26、3-23、3-24、ios/DESIGN | manual2-3、9-3 | ローカル同期済み、本番未反映 |
+| adminによる経営陣/規程版 | spec3-26、migration20261022163717 | manual2-3、9-3 | ローカル同期済み、本番未反映 |
+| 取締役会 | spec3-26で将来境界を記載 | manual2-3 | 未実装 |
+
+## 2026-10-23 経営会議のユーザー属性と本番DB
+
+社内`members`と外部`workspace_user_accounts`へ`is_executive`（既定false）を追加し、adminの経営会議設定でユーザーごとの属性とPJごとの登録を2段で管理する。本人属性・PJ登録・既存のPJ閲覧権限の3条件で本文とAPIを認可する。属性とPJ登録の変更履歴は別表へ残す。役員属性`is_officer`と報酬には触れない。
+
+共通DBにはmigration `20261022163717_executive_management_meetings.sql` を適用済み。`members`29件、外部account20件の属性は全員false、経営陣登録・議案は0件で開始。RLSは新しい表すべて有効、`authenticated`の直接テーブル権限と採決関数実行権限はなし。通常の`supabase db push --dry-run`は過去のremote/local移行履歴のずれで停止するため、今回のmigrationのみ記録付きで適用し、適用版へローカルファイル名を合わせた。過去版の再実行・履歴修復は行っていない。
+
+| 仕様変更 | 設計正本 | OSマニュアル | 状態 |
+|---|---|---|---|
+| ユーザー属性、PJ登録、閲覧と採決の3条件 | spec3-26、ios/DESIGN、migration20261022163717 | manual2-3、6-2、9-3 | DB適用済み、PWA反映待ち |
+| 将来の取締役会 | spec3-26 | manual2-3 | 未実装 |
+| 理論・BZM/model | 変更なし | 対象外 | 棚卸し済み |

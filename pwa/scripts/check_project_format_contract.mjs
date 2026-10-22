@@ -25,7 +25,7 @@
 // 5. 【タブ】2026-10-03 まさ「全部統一してないとだめ。OSの大原則。あと中身があるときだけ出るタブってなに？」。
 //    コックピットとワークスペースのタブは、PJタイプの定義（COCKPIT_TAB_FORMATS・WORKSPACE_TAB_FORMATS）からしか作らない。
 //    中身の有無（技術台帳の区分・燃料の試算・DDパッケージの有無など）でタブを出し分ける書き方を戻さない。
-//    見る人の役割で出し分けてよいのは ROLE_RESTRICTED_TABS（DDパッケージ＝AMDの管理者）だけ。
+//    見る人の役割で出し分けてよいのは ROLE_RESTRICTED_TABS（経営会議＝当該PJの経営陣）だけ。
 // 6. 事業計画タブは全PJ同じフェーズマトリクスを描き、中身は project_business_plans から読む。PJの定数を画面に持ち込まない。
 
 import { createHash } from "node:crypto";
@@ -210,8 +210,8 @@ for (const [file, source] of [["src/components/cockpit/CockpitView.tsx", cockpit
   const flag = source.match(CONTENT_CONDITIONAL_TAB_FLAGS);
   if (flag) errors.push(`${file}: 中身の有無でタブを出し分けない（${flag[0]}）。タブは全部出し、中身が無いときはタブの中で「未登録」と出す（spec 3-23）。`);
 }
-if (!formatSource.includes('ROLE_RESTRICTED_TABS: Readonly<Record<string, "amd_admin">> = {}')) {
-  errors.push("DDはコックピット・ワークスペースの子タブに置かず、独立した領域で権限を判定する");
+if (!formatSource.includes('ROLE_RESTRICTED_TABS: Readonly<Record<string, "executive">> = { "executive-meeting": "executive" }')) {
+  errors.push("経営会議の閲覧は当該PJの経営陣に制限する。DDは独立した領域のままにする");
 }
 if (!workspaceView.includes("bundle.project.displayName ?? bundle.project.projectName")) {
   errors.push("ワークスペースの題名は全PJ「{表示名} PJワークスペース」。表示名は projects.display_name（無ければ project_name）");

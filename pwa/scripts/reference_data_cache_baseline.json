@@ -31,9 +31,15 @@
     "src/components/workflows/WorkflowWorkspace.tsx": "可変系。押印申請の承認・差戻し・文書変更、メール検知、通知配信と監視の状態を操作直後に読み直す。古い承認を表示して押印判断を誤らせないためno-storeで取得する。",
     "src/lib/project-card-designs-client.ts": "書き込み専用。版の登録・承認・Drive保存先の準備をPOSTする。GETは30秒の共通参照キャッシュ経由。保存後は名刺一覧のキャッシュを破棄する。",
     "src/lib/project-tech-client.ts": "POST /api/project-tech-graphsの画像保存専用。技術台帳の読取りは既存loadReferenceData経由で、保存後にinvalidateProjectTechを実行する。元画像の閲覧はmember認可を毎回確認する短期限署名routeで、公開URL・署名URLをキャッシュしない。",
-    "src/components/dd/report/DdReportReader.tsx": "POST /simulateは読者が編集している試算条件をその都度計算し、現在の資料版・権限・非開示指定を再検証する可変応答。下書き条件に対する計算を参照キャッシュで共用しない。GET /exportは完成済みの資料版・非開示指定と権限を毎回再検証する。"
+    "src/components/dd/report/DdReportReader.tsx": "POST /simulateは読者が編集している試算条件をその都度計算し、現在の資料版・権限・非開示指定を再検証する可変応答。下書き条件に対する計算を参照キャッシュで共用しない。GET /exportは完成済みの資料版・非開示指定と権限を毎回再検証する。",
+    "src/app/preview-executive-meeting/PreviewBanner.tsx": "開発時専用の架空議案を初期化するPOSTだけ。実PJや本番DBを読まず、参照系の取得ではない。",
+    "src/components/admin/ExecutiveMeetingAdminPanel.tsx": "可変系。経営陣属性・PJ登録・規程版は管理操作直後に更新され、付与と解除が閲覧・投票の可否を変える。古い権限一覧を再利用せず毎回no-storeで読む。",
+    "src/components/cockpit/CockpitView.tsx": "可変系。経営会議の入口は本人属性・PJ登録・PJ閲覧資格を毎回照合する。解除後の古い入場資格をキャッシュから表示しない。"
   },
   "allowed": {
+    "src/app/preview-executive-meeting/PreviewBanner.tsx": [
+      "/api/project-executive-meeting/preview"
+    ],
     "src/lib/institution-support-programs-client.ts": [
       "/api/institutions/policies",
       "/api/institutions/support-program-recommendations"
@@ -100,6 +106,9 @@
     ],
     "src/components/admin/AdminChangeHistoryClient.tsx": [
       "/api/admin/change-history"
+    ],
+    "src/components/admin/ExecutiveMeetingAdminPanel.tsx": [
+      "/api/admin/executive-meetings"
     ],
     "src/components/admin/AdminGovernanceClient.tsx": [
       "/api/action-items",
@@ -217,6 +226,9 @@
     ],
     "src/components/cockpit/CockpitProjectControl.tsx": [
       "/api/project/:p/workspace-bundle"
+    ],
+    "src/components/cockpit/CockpitView.tsx": [
+      "/api/project-executive-meeting/:p"
     ],
     "src/components/cockpit/CockpitStrategySignals.tsx": [
       "/api/notifications/feedback",

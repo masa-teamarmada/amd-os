@@ -68,6 +68,7 @@ const CockpitMonthlyModal = dynamic(() => import("./CockpitMonthlyModal").then((
 const CockpitProperNouns = dynamic(() => import("./CockpitProperNouns").then((module) => module.CockpitProperNouns), { loading: ProjectPageLoading });
 const ProjectCardDesigns = dynamic(() => import("@/components/project-card-designs/ProjectCardDesigns").then((module) => module.ProjectCardDesigns), { loading: ProjectPageLoading });
 const CockpitMeetingSummary = dynamic(() => import("./CockpitMeetingSummary").then((module) => module.CockpitMeetingSummary), { loading: ProjectPageLoading });
+const ExecutiveMeetingPanel = dynamic(() => import("@/components/project-executive-meeting/ExecutiveMeetingPanel").then((module) => module.ExecutiveMeetingPanel), { loading: ProjectPageLoading });
 const CockpitSlackMessages = dynamic(() => import("./CockpitSlackMessages").then((module) => module.CockpitSlackMessages), { loading: ProjectPageLoading });
 const CockpitAmdScoreDetailTab = dynamic(() => import("./CockpitAmdScoreDetailTab").then((module) => module.CockpitAmdScoreDetailTab), { loading: ProjectPageLoading });
 const CockpitCompanyOverview = dynamic(() => import("./CockpitCompanyOverview").then((module) => module.CockpitCompanyOverview), { loading: ProjectPageLoading });
@@ -337,10 +338,18 @@ const TAB_BY_WORKSPACE_VIEW: Partial<Record<SxWeeklyControlView, CockpitTab>> = 
 
 export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab, onTabChange, institutionId: providedInstitutionId, hideNavigation = false }: CockpitViewProps) {
   const [localActiveTab, setLocalActiveTab] = useState<CockpitTab>(DEFAULT_COCKPIT_TAB);
+  const [executiveEligibility, setExecutiveEligibility] = useState<{ projectId: string; allowed: boolean } | null>(null);
   const requestedTab = controlledTab ?? localActiveTab;
   const [institutionLookup, setInstitutionLookup] = useState<{ projectId: string; value: string | null } | null>(null);
   const resolvedInstitutionId = providedInstitutionId !== undefined ? providedInstitutionId
     : institutionLookup?.projectId === cockpit.project.projectId ? institutionLookup.value : undefined;
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/project-executive-meeting/${encodeURIComponent(cockpit.project.projectId)}?eligibility=1`, { cache: "no-store" })
+      .then((response) => { if (!cancelled) setExecutiveEligibility({ projectId: cockpit.project.projectId, allowed: response.ok }); })
+      .catch(() => { if (!cancelled) setExecutiveEligibility({ projectId: cockpit.project.projectId, allowed: false }); });
+    return () => { cancelled = true; };
+  }, [cockpit.project.projectId]);
   useEffect(() => {
     if (providedInstitutionId !== undefined) return;
     let cancelled = false;
@@ -470,7 +479,11 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     activity: "沿革",
     dd: "DDパッケージ",
   };
-  const visibleGroups = groups;
+  const canViewExecutiveMeeting = executiveEligibility?.projectId === project.projectId && executiveEligibility.allowed;
+  const visibleGroups = groups.map((group) => ({
+    ...group,
+    children: group.children.filter((tab) => tab !== "executive-meeting" || canViewExecutiveMeeting),
+  })).filter((group) => group.children.length > 0);
   const requestedGroup = cockpitGroupForTabInType(resolvedTab, formatType);
   const activeGroupWithAvailableChildren = visibleGroups.find((group) => group.key === requestedGroup.key) ?? visibleGroups[0];
   // URLが現在のPJでは非表示になるタブを指していても、空画面にせず同じグループの先頭へ落とす。
@@ -674,6 +687,11 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
         <section role="tabpanel" aria-label="動向・会議" className="grid min-w-0 gap-3 lg:grid-cols-2">
           <CockpitStrategySignals signals={strategySignals || []} projectId={project.projectId} />
           <CockpitMeetingSummary projectId={project.projectId} />
+        </section>
+      )}
+      {activeTab === "executive-meeting" && canViewExecutiveMeeting && (
+        <section role="tabpanel" aria-label="経営会議" className="min-w-0">
+          <ExecutiveMeetingPanel key={project.projectId} projectId={project.projectId} />
         </section>
       )}
 

@@ -6,6 +6,7 @@ import { PageHistoryToolbar } from "@/components/nav/PageHistoryToolbar";
 import { SxWeeklyControlDashboard } from "@/components/project-workspace/SxWeeklyControlDashboard";
 import { externalWorkspaceRoleCapabilityLabel } from "@/lib/workspace-capabilities";
 import { resolveDdViewerScope } from "@/lib/dd-access";
+import { resolveExecutiveMeetingViewer } from "@/lib/project-executive-meeting-access";
 
 export default async function SharedWorkspacePage({
   params,
@@ -20,9 +21,10 @@ export default async function SharedWorkspacePage({
   if (!access) notFound();
 
   // 両方の権限は独立に検証する。DD入口の照会を本文取得の後へ直列に積まない。
-  const [bundle, ddScope] = await Promise.all([
+  const [bundle, ddScope, executiveMeetingViewer] = await Promise.all([
     getProjectWorkspaceBundle(projectId, access),
     access.principal === "workspace_account" ? resolveDdViewerScope().catch(() => null) : Promise.resolve(null),
+    resolveExecutiveMeetingViewer(projectId).catch(() => null),
   ]);
   if (!bundle) notFound();
   const ddPackage = ddScope?.packages.find((pkg) => pkg.projectId === projectId);
@@ -38,7 +40,7 @@ export default async function SharedWorkspacePage({
           projectId={projectId}
         />
       )}
-      <SxWeeklyControlDashboard bundle={bundle} access={access} ddHref={ddPackage ? `/dd/${encodeURIComponent(ddPackage.slug)}` : undefined} />
+      <SxWeeklyControlDashboard bundle={bundle} access={access} ddHref={ddPackage ? `/dd/${encodeURIComponent(ddPackage.slug)}` : undefined} canExecutiveMeeting={!!executiveMeetingViewer} />
     </>
   );
 }

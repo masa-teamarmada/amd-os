@@ -123,6 +123,7 @@ const CockpitCapitalPlan = dynamic(() => import("@/components/cockpit/CockpitCap
 const CockpitCapitalPolicy = dynamic(() => import("@/components/cockpit/CockpitCapitalPolicy").then((module) => module.CockpitCapitalPolicy), { loading: ProjectPageLoading });
 const CockpitCompanyOverview = dynamic(() => import("@/components/cockpit/CockpitCompanyOverview").then((module) => module.CockpitCompanyOverview), { loading: ProjectPageLoading });
 const WorkspaceMeetings = dynamic(() => import("./WorkspaceMeetings").then((module) => module.WorkspaceMeetings), { loading: ProjectPageLoading });
+const ExecutiveMeetingPanel = dynamic(() => import("@/components/project-executive-meeting/ExecutiveMeetingPanel").then((module) => module.ExecutiveMeetingPanel), { loading: ProjectPageLoading });
 const CockpitSlackMessages = dynamic(() => import("@/components/cockpit/CockpitSlackMessages").then((module) => module.CockpitSlackMessages), { loading: ProjectPageLoading });
 const CockpitProjectTasks = dynamic(() => import("@/components/cockpit/CockpitProjectTasks").then((module) => module.CockpitProjectTasks), { loading: ProjectPageLoading });
 
@@ -358,10 +359,11 @@ const STAGE_LABEL: Record<StageKey, string> = Object.fromEntries(
 // すべてのPJで、PJ資料室と同じ正本を開く「ドライブ」を加える。既存のアンカー名
 // (#weekly-change / #project-gantt / #partner-ledger / #issue-hypothesis / #input-readiness)
 // は他画面からのリンク互換のためhashとしてそのまま残す。
-export type SxWeeklyControlView = "meetings" | "slack" | "weekly" | "gantt" | "objective-structure" | "partners" | "issues" | "tasks" | "technology" | "poc-list" | "competition" | "business-model" | "business-plan" | "development-issues" | "financial-projection" | "capital-plan" | "company" | "organization-chart" | "employee-register" | "contracts" | "capital-policy" | "cost" | "cost-fuel" | "ip" | "drive" | "dd";
+export type SxWeeklyControlView = "meetings" | "executive-meeting" | "slack" | "weekly" | "gantt" | "objective-structure" | "partners" | "issues" | "tasks" | "technology" | "poc-list" | "competition" | "business-model" | "business-plan" | "development-issues" | "financial-projection" | "capital-plan" | "company" | "organization-chart" | "employee-register" | "contracts" | "capital-policy" | "cost" | "cost-fuel" | "ip" | "drive" | "dd";
 const SX_WEEKLY_VIEW_STORAGE_KEY = "sx-weekly-control-view-v1";
 const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   meetings: "meetings",
+  "executive-meeting": "executive-meeting",
   slack: "slack",
   weekly: "weekly-change",
   gantt: "project-gantt",
@@ -402,6 +404,7 @@ const WORKSPACE_TAB_LABELS: Record<SxWeeklyControlView, string> = {
   gantt: "ガント",
   "objective-structure": "ガント",
   meetings: "動向・会議",
+  "executive-meeting": "経営会議",
   slack: "Slack",
   weekly: "週次差分",
   partners: "関係先",
@@ -439,7 +442,7 @@ function workspaceGroupsForType(type: ProjectFormatType): readonly WorkspaceTabG
   }));
 }
 const EXTERNAL_WORKSPACE_TABS = new Set<SxWeeklyControlView>([
-  "issues", "tasks", "gantt", "meetings", "slack", "partners", "drive",
+  "issues", "tasks", "gantt", "meetings", "executive-meeting", "slack", "partners", "drive",
   "technology", "poc-list", "competition", "business-model", "business-plan", "development-issues", "financial-projection", "capital-plan",
   "cost", "cost-fuel", "ip", "capital-policy", "company", "organization-chart", "employee-register", "contracts",
 ]);
@@ -447,6 +450,7 @@ function viewForHash(hash: string): SxWeeklyControlView | null {
   const normalized = hash.replace(/^#/, "");
   if (!normalized) return null;
   if (normalized === "meetings") return "meetings";
+  if (normalized === "executive-meeting") return "executive-meeting";
   if (normalized === "slack") return "slack";
   if (normalized === "project-gantt") return "gantt";
   if (normalized === "objective-structure") return "gantt";
@@ -4635,6 +4639,7 @@ export function SxWeeklyControlDashboard({
   embedded = false,
   onViewChange,
   ddHref,
+  canExecutiveMeeting = false,
 }: {
   bundle: ProjectWorkspaceBundle;
   access: SxDashboardAccess;
@@ -4646,6 +4651,8 @@ export function SxWeeklyControlDashboard({
   onViewChange?: (view: SxWeeklyControlView) => void;
   /** サーバで独立したDD付与を再確認した外部閲覧者の入口。 */
   ddHref?: string;
+  /** 経営陣台帳とこのPJの閲覧権限をサーバで再照合した結果。 */
+  canExecutiveMeeting?: boolean;
 }) {
   const [management, setManagement] = useState(bundle.sxManagement);
   const [editor, setEditor] = useState<EditorState | null>(null);
@@ -4703,9 +4710,9 @@ export function SxWeeklyControlDashboard({
   const workspaceGroups = useMemo(() => workspaceGroupsForType(formatType).map((group) => ({
     ...group,
     children: group.children
-      .filter((tab) => !externalViewer || EXTERNAL_WORKSPACE_TABS.has(tab.key))
+      .filter((tab) => (tab.key !== "executive-meeting" || canExecutiveMeeting) && (!externalViewer || EXTERNAL_WORKSPACE_TABS.has(tab.key)))
       .map((tab) => ({ ...tab, onHover: () => prefetchProjectPage(bundle.project.projectId, tab.key, externalViewer) })),
-  })).filter((group) => group.children.length > 0), [externalViewer, formatType, bundle.project.projectId]);
+  })).filter((group) => group.children.length > 0), [canExecutiveMeeting, externalViewer, formatType, bundle.project.projectId]);
   const dynamicTabs = useMemo(() => workspaceGroups.flatMap((group) => group.children), [workspaceGroups]);
 
   const externalDefaultView: SxWeeklyControlView = DEFAULT_TABS.workspaceExternal;
@@ -4739,6 +4746,7 @@ export function SxWeeklyControlDashboard({
     const isValidView = (value: unknown): value is SxWeeklyControlView => {
       return (
         value === "meetings" ||
+        value === "executive-meeting" ||
         value === "slack" ||
         value === "weekly" ||
         value === "gantt" ||
@@ -5806,6 +5814,11 @@ export function SxWeeklyControlDashboard({
             <WorkspaceMeetings projectId={bundle.project.projectId} readOnly={externalViewer} />
           </section>
         )}
+        {activeView === "executive-meeting" && canExecutiveMeeting && (
+          <section id="executive-meeting" role="tabpanel" aria-label="経営会議">
+            <ExecutiveMeetingPanel key={bundle.project.projectId} projectId={bundle.project.projectId} />
+          </section>
+        )}
         {activeView === "slack" && (
           <section id="slack" role="tabpanel" aria-label="Slack">
             <CockpitSlackMessages projectId={bundle.project.projectId} />
@@ -5957,7 +5970,7 @@ export function SxWeeklyControlDashboard({
           </div>
         </section>
         )}
-        <footer className={styles.pageFooter}>
+        {activeView !== "executive-meeting" && <footer className={styles.pageFooter}>
           <span>
             基準日 {formatDate(management.asOf)} · 表示値は現行台帳の仮表示
           </span>
@@ -5967,7 +5980,7 @@ export function SxWeeklyControlDashboard({
             計画詳細を既存画面で開く
             <ArrowRight aria-hidden="true" />
           </Link>
-        </footer>
+        </footer>}
         </ProjectSpaceLayout>
       </div>
       {notice && (

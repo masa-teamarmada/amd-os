@@ -127,6 +127,7 @@ codeName セルは admin 用マイページリンクを兼ねる。 コードネ
 | `slack_id` | Slack ユーザー ID (= DM 送信先) |
 | `is_admin` | admin 権限 (= true なら /admin/* / /notifications を開ける) |
 | `is_officer` | 役員フラグ。UI 列名は「役員」。true のメンバーは支払通知書発行対象から除外しつつ、報酬計算上は会社留保 (`companyReserveYen` / `officerReserveYen`) として扱う |
+| `is_executive` | 経営会議の参加資格。社内・外部の各ユーザーに設定し、PJごとの経営陣登録と既存のPJ閲覧権限がそろうと経営会議を開ける。管理者が `/admin/executive-meetings` で変更し、変更履歴を残す。`is_officer` と独立 |
 | `slack_plan` / `google_plan` | Slack / Google Workspace の課金 plan |
 | `google_calendar_status` | `missing` / `error` / `connected` (= calendar.readonly 共有状況) |
 | `google_calendar_checked_at` / `_connected_at` / `_error` | calendar 共有のヘルスチェック |

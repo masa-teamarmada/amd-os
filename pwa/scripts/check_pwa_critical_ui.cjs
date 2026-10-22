@@ -3575,12 +3575,32 @@ expectIncludes("src/components/cockpit/CockpitCapitalPlan.tsx", [
   "<CapitalPlanWorkspace",
 ]);
 expectIncludes("src/lib/project-formats.ts", [
-  '{ group: "company-information-group", tabs: ["company", "organization-chart", "employee-register", "contracts", "capital-policy"] },',
+  '{ group: "company-information-group", tabs: ["company", "organization-chart", "employee-register", "contracts", "capital-policy", "executive-meeting"] },',
 ]);
 expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
   '"company-information-group": COCKPIT_GROUP_LABELS.companyInformation,',
   'company: "会社概要",',
   '"capital-policy": "資金調達履歴",',
+]);
+
+// 経営会議は通常の会議共有を経由しない。画面非表示に加え、API/DBでも経営陣だけを通す。
+expectIncludes("src/lib/project-formats.ts", [
+  '"executive-meeting": "executive"',
+  '"executive-meeting": "経営会議"',
+]);
+expectIncludes("src/components/cockpit/CockpitView.tsx", ["canViewExecutiveMeeting", "<ExecutiveMeetingPanel"]);
+expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", ["canExecutiveMeeting", "<ExecutiveMeetingPanel"]);
+expectIncludes("src/app/api/project-executive-meeting/[projectId]/route.ts", [
+  "resolveExecutiveMeetingViewer(projectId)",
+  "isSameOriginWorkspaceMutation(request)",
+  'db.rpc("project_meeting_cast_vote"',
+]);
+expectNotIncludes("src/app/api/project-executive-meeting/[projectId]/route.ts", ["project_meeting_summaries", "workspace_shared"]);
+expectIncludes("src/lib/project-executive-meeting-access.ts", ["memberSurfacePermission", "project_executive_members", "resolveSharedWorkspaceAccess"]);
+expectIncludes("../ios/supabase/migrations/20261022163717_executive_management_meetings.sql", [
+  "revoke all on public.project_executive_members",
+  "revoke all on function public.project_meeting_cast_vote",
+  "create trigger project_meeting_ballot_immutable",
 ]);
 
 // タブ名の二重管理禁止 (2026-08-29): 資本政策表タブを足したとき、URLの `?tab=` 許可リストを

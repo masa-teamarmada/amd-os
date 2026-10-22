@@ -93,6 +93,7 @@ export const SURFACE_CATALOG: readonly SurfaceDefinition[] = [
   { id: "admin-projects", title: "Admin PJ", navLabel: "PJ台帳", primaryPath: "/admin/projects", domain: "project_execution", lens: "amd_operations", status: "canonical", exact: ["/admin/projects"] },
   { id: "admin-members", title: "Admin メンバー", navLabel: "メンバー", primaryPath: "/admin/members", domain: "organization_access", lens: "amd_operations", status: "canonical", exact: ["/admin/members"] },
   { id: "admin-permissions", title: "Admin 閲覧・編集権限", navLabel: "閲覧・編集権限", primaryPath: "/admin/permissions", domain: "organization_access", lens: "amd_operations", status: "canonical", exact: ["/admin/permissions"] },
+  { id: "admin-executive-meetings", title: "Admin 経営会議の設定", navLabel: "経営会議", primaryPath: "/admin/executive-meetings", domain: "organization_access", lens: "amd_operations", status: "canonical", exact: ["/admin/executive-meetings"] },
   { id: "admin-access", title: "Admin 外部アクセス", navLabel: "外部アクセス", primaryPath: "/admin/access", domain: "organization_access", lens: "amd_operations", status: "canonical", exact: ["/admin/access"] },
   { id: "admin-company", title: "Admin Company", navLabel: "会社情報", primaryPath: "/admin/company", domain: "company_operations", lens: "amd_operations", status: "canonical", exact: ["/admin/company"] },
   { id: "admin-governance", title: "株主・ガバナンス", navLabel: "株主・ガバナンス", primaryPath: "/admin/governance", domain: "company_operations", lens: "amd_operations", status: "canonical", exact: ["/admin/governance"] },

@@ -51,7 +51,7 @@ const COCKPIT_STANDARD_TABS = [
   { group: "progress-group", tabs: ["issues", "tasks", "gantt", "progress", "meetings", "slack", "weekly", "partners"] },
   { group: "business-plan-group", tabs: ["score-detail", "technology", "poc-list", "competition", "business-model", "business-plan", "development-issues", "financial-projection", "capital-plan", "cost-model", "ip"] },
   { group: "project-management-group", tabs: ["overview", "project-contracts", "project-finance", "monthly-reports", "proper-nouns", "card-designs"] },
-  { group: "company-information-group", tabs: ["company", "organization-chart", "employee-register", "contracts", "killer-factors", "capital-policy", "activity"] },
+  { group: "company-information-group", tabs: ["company", "organization-chart", "employee-register", "contracts", "killer-factors", "capital-policy", "activity", "executive-meeting"] },
   { group: "documents-group", tabs: ["documents"] },
 ] as const;
 
@@ -66,7 +66,7 @@ export const COCKPIT_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ grou
     { group: "business-plan-group", tabs: ["poc-list"] },
     { group: "regulations-group", tabs: ["regulations"] },
     { group: "project-management-group", tabs: ["overview", "project-contracts", "project-finance", "monthly-reports", "proper-nouns", "card-designs"] },
-    { group: "company-information-group", tabs: ["company", "organization-chart", "employee-register", "contracts", "killer-factors", "capital-policy", "activity"] },
+    { group: "company-information-group", tabs: ["company", "organization-chart", "employee-register", "contracts", "killer-factors", "capital-policy", "activity", "executive-meeting"] },
     { group: "documents-group", tabs: ["documents"] },
   ],
 };
@@ -75,7 +75,7 @@ export const COCKPIT_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ grou
 const WORKSPACE_STANDARD_TABS = [
   { group: "progress-group", tabs: ["issues", "tasks", "gantt", "meetings", "slack", "weekly", "partners"] },
   { group: "business-plan-group", tabs: ["technology", "poc-list", "competition", "business-model", "business-plan", "development-issues", "financial-projection", "capital-plan", "cost", "ip"] },
-  { group: "company-information-group", tabs: ["company", "organization-chart", "employee-register", "contracts", "capital-policy"] },
+  { group: "company-information-group", tabs: ["company", "organization-chart", "employee-register", "contracts", "capital-policy", "executive-meeting"] },
   { group: "documents-group", tabs: ["drive"] },
 ] as const;
 
@@ -86,13 +86,13 @@ export const WORKSPACE_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ gr
   ecosystem: [
     { group: "progress-group", tabs: ["issues", "tasks", "gantt", "meetings", "slack", "weekly", "partners"] },
     { group: "business-plan-group", tabs: ["poc-list"] },
-    { group: "company-information-group", tabs: ["company", "organization-chart", "employee-register", "contracts", "capital-policy"] },
+    { group: "company-information-group", tabs: ["company", "organization-chart", "employee-register", "contracts", "capital-policy", "executive-meeting"] },
     { group: "documents-group", tabs: ["drive"] },
   ],
 };
 
-/** タブ内の役割制限。DDは並列の領域として独立した権限で判定する。 */
-export const ROLE_RESTRICTED_TABS: Readonly<Record<string, "amd_admin">> = {};
+/** 経営会議はPJごとの経営陣登録を要する。DDは並列の領域として独立した権限で判定する。 */
+export const ROLE_RESTRICTED_TABS: Readonly<Record<string, "executive">> = { "executive-meeting": "executive" };
 
 /** DDも同じページ分類を使う。ページ内では公開を許可された元データだけを表示する。 */
 // 従来の共通ページキー。旧URL・正式版PDFとの互換用。左メニューはDD_ITEM_PAGESを使う。
@@ -183,7 +183,7 @@ export const PROJECT_PAGE_LABELS: Readonly<Record<string, string>> = {
   "related-party-transactions": "関連当事者取引一覧",
   "financial-statements": "決算書",
   "tax-returns": "税務申告書",
-  issues: "ゴールツリー", tasks: "タスク", gantt: "ガント", progress: "MS・月次", meetings: "動向・会議", slack: "Slack", weekly: "週次差分", partners: "関係先",
+  issues: "ゴールツリー", tasks: "タスク", gantt: "ガント", progress: "MS・月次", meetings: "動向・会議", "executive-meeting": "経営会議", slack: "Slack", weekly: "週次差分", partners: "関係先",
   "score-detail": "スコア詳細", technology: "技術", "poc-list": "PoCリスト", competition: "競合比較", "business-model": "ビジネスモデル", "business-plan": "事業計画", "financial-projection": "試算表", "capital-plan": "資本政策表", "cost-model": "コスト試算", cost: "コスト試算", ip: "知財",
   governance: "総会・取締役会・経営会議議事録", "technical-evidence": "技術実証報告書", manufacturing: "製造体制資料", team: "経営陣略歴", contracts: "契約リスト", regulatory: "許認可一覧", disputes: "訴訟一覧", "shareholder-register": "株主名簿", "next-round-term-sheet": "次回ラウンドタームシート",
   documents: "ドライブ", drive: "ドライブ", overview: "PJ概要", "project-contracts": "契約", "project-finance": "収支", "monthly-reports": "月次報告書", "proper-nouns": "固有名詞", "card-designs": "名刺案", company: "会社概要", "killer-factors": "キラー要素", "capital-policy": "資金調達履歴", activity: "沿革", seeds: "シーズ一覧", regulations: "規程一覧",

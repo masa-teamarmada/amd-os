@@ -83,6 +83,7 @@ export const SPEC_SECTIONS: SpecSectionConfig[] = [
       "3-23-project-format-current-spec",
       "3-24-project-surface-pages-current-spec",
       "3-25-project-card-designs-current-spec",
+      "3-26-executive-meeting-current-spec",
     ],
   },
   {
@@ -165,6 +166,7 @@ export const SPEC_CHAPTERS: SpecChapterConfig[] = [
   { slug: "3-23-project-format-current-spec", title: "PJタイプ別の標準フォーマット 仕様", summary: "同じPJタイプは同じタブ・区画・行・グラフで描き、タブは中身の有無にかかわらず全部出す。PJごとの違いはデータだけで出し、新しい数字は標準の行・グラフへ流し込む。定義は鍵付きで、まさの承認なしに変えると本番に出せない。" },
   { slug: "3-24-project-surface-pages-current-spec", title: "3領域の表示ページ", summary: "コックピット・ワークスペース・DDパッケージのページを◯表で比較。PJタイプごとの確定した表示範囲と共通のページ名。" },
   { slug: "3-25-project-card-designs-current-spec", title: "自社名刺案の保存・版管理", summary: "PJ管理と全PJ一覧、版/承認、Drive0_名刺、印刷PDF写し、権限の契約。" },
+  { slug: "3-26-executive-meeting-current-spec", title: "経営会議 仕様", summary: "PJごとの経営陣登録、規程の版、議案と採決、コックピット/ワークスペースの専用認可境界。ローカル実装で本番未反映。" },
   { slug: "3-22-goal-tree-plan", title: "ゴールツリー 設計案", summary: "ツリーの根に到達点、直下にMS、葉にTODOを置き、会議中に枝を増やして会議後にアサインする。TODOのptはMSのptの内訳として配り、予備・見積/確定・回収で配りすぎを防ぐ。骨格はまさ確定、pt分配のルールは確認待ち。" },
   { slug: "4-1-frl-ces-current-spec", title: "FRL CES 実装仕様", summary: "F_character × F_capability の CES 合成、DB列、実装関数、後方互換の現行契約。" },
   { slug: "4-2-amd-score-current-spec", title: "AMD Score 実装仕様", summary: "SPS (シーズ有望度、旧PRS) primary、legacy AMD comparison、DB、route、bottleneck、FRL 境界の契約。" },

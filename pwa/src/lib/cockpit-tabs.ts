@@ -24,6 +24,7 @@ export const COCKPIT_TABS = [
   "issues",
   "tasks",
   "meetings",
+  "executive-meeting",
   "slack",
   "score-detail",
   "technology",
