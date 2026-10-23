@@ -533,7 +533,7 @@ export function MonthlyAgreementExperience({
                   <p
                     className={`${isModal ? "mt-0.5 text-[10px]" : "mt-1 text-xs"} leading-relaxed text-[#6e6e73]`}
                   >
-                    担当内容、予定額に違いがあるときだけ送ってください。
+                    担当内容や予定額の違いを、現在の内容→希望する内容で書いてください。割合の変更は、他の担当者への影響も分かる範囲で。希望額が分からない場合は「金額は要確認」と書いてください。
                     <Hint id="monthly-agreement.revision-request" />
                   </p>
                 </div>
@@ -577,7 +577,7 @@ export function MonthlyAgreementExperience({
                   disabled={!bundle.canRequestRevision}
                   rows={isModal ? 2 : 3}
                   className={`${isModal ? "sm:col-span-2 text-xs" : "min-h-[84px] text-sm"} min-h-12 rounded-md border border-[#d1d1d6] bg-white px-3 py-2 text-[#1d1d1f] outline-none focus:border-[#007aff]`}
-                  placeholder="例: この目標ではなく、登記準備を優先したい"
+                  placeholder="例: ZMPの○○申請の担当割合を65%→100%にしたい。追加する仕事は○○。希望額は要確認。"
                 />
               </div>
               <div

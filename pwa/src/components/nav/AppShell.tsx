@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { MonthlyAgreementGateOverlay } from "@/components/monthly-agreement/MonthlyAgreementGateOverlay";
+import { AdminAgreementRequestNotice } from "@/components/monthly-agreement/AdminAgreementRequestNotice";
 import { CriticalRealtimeNotify } from "@/components/notifications/CriticalRealtimeNotify";
 import { TsukuyomiChatBridge } from "@/components/tsukuyomi/TsukuyomiChatBridge";
 import type { MonthlyWorkAgreementBundle } from "@/lib/monthly-work-agreement-types";
@@ -118,7 +119,7 @@ export function AppShell({
               memberId={memberId}
             />
           )}
-          <main className={`min-w-0 flex-1 ${isProjectScope ? "pb-16 lg:pb-0" : ""}`}><PageHistoryToolbar leading={useGlobalMenu ? <GlobalMenu><GlobalNav userCodeName={userCodeName} isAdmin={isAdmin} memberId={memberId} /></GlobalMenu> : undefined} />{children}</main>
+          <main className={`min-w-0 flex-1 ${isProjectScope ? "pb-16 lg:pb-0" : ""}`}><PageHistoryToolbar leading={useGlobalMenu ? <GlobalMenu><GlobalNav userCodeName={userCodeName} isAdmin={isAdmin} memberId={memberId} /></GlobalMenu> : undefined} />{isAdmin && <AdminAgreementRequestNotice pathname={pathname} />}{children}</main>
         </div>
       )}
       {agreementGateBundle && (

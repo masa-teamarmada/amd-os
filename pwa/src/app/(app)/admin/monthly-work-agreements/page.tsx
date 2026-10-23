@@ -286,6 +286,13 @@ function AdminMonthlyWorkAgreementsContent() {
             <SummaryCard label="未払いストック残" value={formatYen(data.totals.stockYen)} tone={data.totals.stockYen > 0 ? "warn" : "plain"} />
           </section>
 
+          {data.totals.revisionRequests > 0 && (
+            <div role="status" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
+              <span className="font-semibold">未対応の修正要望 {data.totals.revisionRequests}件</span>
+              <span className="ml-2">対象メンバーを先頭に表示中。内容と金額への影響を確認してから対応してください。</span>
+            </div>
+          )}
+
           <div className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2">
             <Search className="size-4 text-muted-foreground" />
             <input
@@ -395,13 +402,15 @@ function AdminMonthlyWorkAgreementsContent() {
                       <RevisionRequestsPanel
                         senderLabel={`${row.member.codeName}（${row.member.memberId}）`}
                         projectNames={Object.fromEntries(row.projects.map((project) => [project.projectId, project.projectName]))}
+                        projectAmounts={Object.fromEntries(row.projects.map((project) => [project.projectId, project.expectedRewardYen]))}
+                        memberAmount={row.expectedRewardYen}
                         requests={row.revisionRequests}
                         onUpdated={handleRevisionRequestUpdated}
                       />
                     )}
                     {row.amountChangeReasonRequirements.length > 0 && (
                       <div className="border-t border-amber-200 bg-amber-50/60 px-3 py-3">
-                        <div className="ml-[316px] max-w-3xl">
+                        <div className="min-w-0">
                           <p className="text-xs font-semibold text-amber-900">予定額が変わった理由</p>
                           <p className="mt-0.5 text-[11px] text-amber-800">
                             OSが要因を説明できたPJは、そのままメンバーが合意できる。ここに書くのは補足だけでいい。
@@ -463,12 +472,16 @@ function SummaryCard({
 function RevisionRequestsPanel({
   senderLabel,
   projectNames,
+  projectAmounts,
+  memberAmount,
   requests,
   onUpdated,
 }: {
   /** 要望を送ったメンバー。カード単体で誰からの要望か読めるように各カードに出す */
   senderLabel: string;
   projectNames: Record<string, string>;
+  projectAmounts: Record<string, number | null>;
+  memberAmount: number;
   requests: MonthlyWorkAgreementRevisionRequest[];
   onUpdated: (updated: MonthlyWorkAgreementRevisionRequest) => void;
 }) {
@@ -479,7 +492,7 @@ function RevisionRequestsPanel({
       data-testid="admin-monthly-agreement-revision-requests"
       className={`border-t px-3 py-3 ${openRequests.length > 0 ? "border-red-200 bg-red-50/60" : "border-border bg-muted/20"}`}
     >
-      <div className="ml-[316px] max-w-3xl">
+      <div className="min-w-0">
         <p className={`text-xs font-semibold ${openRequests.length > 0 ? "text-red-900" : "text-muted-foreground"}`}>
           メンバーからの修正要望
           {openRequests.length > 0 && `（未対応 ${openRequests.length}件 — この稼働月の支払通知書が発行できない状態）`}
@@ -490,6 +503,7 @@ function RevisionRequestsPanel({
               key={request.id}
               senderLabel={senderLabel}
               projectLabel={request.projectId ? `${projectNames[request.projectId] ?? request.projectId}（${request.projectId}）` : "全体"}
+              currentAmount={request.projectId ? projectAmounts[request.projectId] ?? null : memberAmount}
               request={request}
               onUpdated={onUpdated}
             />
@@ -499,6 +513,7 @@ function RevisionRequestsPanel({
               key={request.id}
               senderLabel={senderLabel}
               projectLabel={request.projectId ? `${projectNames[request.projectId] ?? request.projectId}（${request.projectId}）` : "全体"}
+              currentAmount={request.projectId ? projectAmounts[request.projectId] ?? null : memberAmount}
               request={request}
               onUpdated={onUpdated}
             />
@@ -512,11 +527,13 @@ function RevisionRequestsPanel({
 function RevisionRequestCard({
   senderLabel,
   projectLabel,
+  currentAmount,
   request,
   onUpdated,
 }: {
   senderLabel: string;
   projectLabel: string;
+  currentAmount: number | null;
   request: MonthlyWorkAgreementRevisionRequest;
   onUpdated: (updated: MonthlyWorkAgreementRevisionRequest) => void;
 }) {
@@ -543,6 +560,7 @@ function RevisionRequestCard({
         throw new Error(payload.error || "更新できませんでした");
       }
       onUpdated(payload.data);
+      window.dispatchEvent(new Event("monthly-agreement-request-updated"));
       setMessage(status === "open" ? "未対応に戻した。" : "閉じた。支払ゲートのこの blocker は外れる。");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
@@ -552,7 +570,7 @@ function RevisionRequestCard({
   };
 
   return (
-    <div className={`rounded-md border p-3 ${isOpen ? "border-red-200 bg-white" : "border-border bg-background"}`}>
+    <div className={`min-w-0 rounded-md border p-3 ${isOpen ? "border-red-200 bg-white" : "border-border bg-background"}`}>
       <div className="flex flex-wrap items-baseline gap-2 text-[11px]">
         <span
           className={`rounded-full border px-2 py-0.5 font-semibold ${
@@ -575,7 +593,12 @@ function RevisionRequestCard({
           </span>
         )}
       </div>
-      <p className="mt-1.5 whitespace-pre-wrap text-sm text-foreground">{request.body}</p>
+      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 border-y border-border py-2 text-xs">
+        <span>現在表示中の予定額：<strong className="tabular-nums">{formatYen(currentAmount)}</strong></span>
+        {isOpen && <span className="font-semibold text-amber-800">修正後の金額：未確定</span>}
+        <span className="text-muted-foreground">要望の登録・処理だけでは予定額は変わりません。</span>
+      </div>
+      <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">{request.body}</p>
       <label className="mt-2 block">
         <span className="text-[11px] font-semibold text-muted-foreground">対応メモ（任意・メンバーには出さない）</span>
         <textarea

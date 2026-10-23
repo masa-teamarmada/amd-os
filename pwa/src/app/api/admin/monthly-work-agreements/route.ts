@@ -90,8 +90,8 @@ export async function GET(req: NextRequest) {
     }));
     rows.sort((a, b) => {
       const rank = (status: string) => status === "needs_reagreement" ? 0 : status === "pending" ? 1 : 2;
-      return rank(a.status) - rank(b.status)
-        || b.revisionRequestCount - a.revisionRequestCount
+      return b.revisionRequestCount - a.revisionRequestCount
+        || rank(a.status) - rank(b.status)
         || b.reviewRequiredCount - a.reviewRequiredCount
         || a.member.memberId.localeCompare(b.member.memberId);
     });

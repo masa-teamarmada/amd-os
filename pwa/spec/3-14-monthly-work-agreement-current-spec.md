@@ -320,6 +320,7 @@ API route は logged-in user を `members.email` で解決する。本人以外�
 - `未払いストックの流れ` は、月ごとに縦積みカードを増やさず、左に `前月残 / 当月発生 / 支払対象 / 支払 / 月末残`、右に稼働月列を並べる横長マトリクスで表示する。右側に余白を残さず、1つの月を複数行カードとして繰り返さない。狭い画面では横方向だけスクロールを許容する。支払額には税抜と税込を併記し、`支払実績` / `要照合` / `保存済み` / `保護済み` / `予定` の source badge を出し、過去実績・未照合・未来予定を混ぜない。
 - MS別予定報酬は、当月月次予算を当月予定MS消化ptと active member 正規化 share で配分する。`reward_summary_json.members[].breakdown[].payYen` は使わない。
 - 担当内容、予定報酬が違う場合は、合意とは別に修正要望を送信できる。
+- 修正要望の入力案内は、現在の内容から希望する内容への変更、割合変更による他担当者への影響、希望額または「金額は要確認」を書くよう促す。要望の登録自体は計算・合意額を変更しない。
 - 主要な概念には `Hint` を付ける。対象IDは `monthly-agreement.flow` / `monthly-agreement.project-count` / `monthly-agreement.expected-reward` / `monthly-agreement.payout` / `monthly-agreement.stock` / `monthly-agreement.stock-flow` / `monthly-agreement.ms-pt` / `monthly-agreement.ms-link` / `monthly-agreement.revision-request`。
 - 保存テーブル未適用時は保存ボタンを無効化し、migration未適用として表示する。
 
@@ -339,6 +340,7 @@ API route は logged-in user を `members.email` で解決する。本人以外�
 - 各行は `予定報酬` だけでなく `今月支払` と `未払い残` を分けて表示し、stock が今月支払対象ではないことを admin 一覧でも判別できるようにする。`今月支払` は支払条件から見た現金支払月で集計し、`invoice_ym` は請求書発行月として扱う。
 - 各行に open 修正要望数と最新要望時刻を表示する。
 - 各行の下に修正要望の**本文**を出し、`対応済みにする` / `対応しない` / `未対応に戻す` で `status` を動かせる。対応メモは `resolution_note` に保存する (管理者だけが読む)。
+- open要望のあるメンバーを一覧の先頭へ置き、対象月の未対応件数を表の上へ表示する。要望は表の列幅へ合わせて左端から全文表示し、現在のPJ別予定額、open要望の修正後の額が未確定であること、要望登録・処理だけでは予定額が動かないことを本文と分けて示す。管理者がOSを開いたときは、軽量な読取APIで全月のopen件数と最新の対象月を上部に表示し、管理画面へ進める。外部通知・DB書込みは行わない。
   open の要望はその稼働月の支払 gate の blocker なので、閉じる手段がないと支払通知書を出せないまま復旧できなくなる。
   件数だけ表示して本文も解決経路も無かった 2026-08-28 以前の状態へ戻さない。
   ステータスを閉じても snapshot と金額は動かない。条件そのものを直すときは先にPJ側の金額・役割を直す (hash が変わり本人へ再合意が出る)。
