@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type Person = { id: string; name: string; email: string; kind: "member" | "workspace_account"; isExecutive: boolean; status: string };
 type Rule = {
@@ -20,6 +20,13 @@ type ProjectData = {
   roster: Array<{ member_id: string | null; workspace_account_id: string | null; active: boolean; added_at: string; removed_at: string | null }>;
   rules: Rule[];
 };
+type OverviewData = {
+  projects: Array<{ project_id: string; project_name: string }>;
+  members: ProjectData["members"];
+  accounts: ProjectData["accounts"];
+  roster: Array<{ project_id: string; member_id: string | null; workspace_account_id: string | null }>;
+  rules: Array<{ project_id: string; version: number }>;
+};
 type RuleDraft = {
   sourceTitle: string; sourceText: string; clauseReference: string;
   quorumNumerator: string; quorumDenominator: string; quorumStrict: boolean;
@@ -36,16 +43,23 @@ const fieldClass = "mt-1 w-full min-w-0 rounded-md border bg-background px-3 py-
 const buttonClass = "rounded-md border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50";
 
 export function ExecutiveMeetingAdminPanel() {
-  const [projects, setProjects] = useState<Array<{ project_id: string; project_name: string }>>([]);
+  const [overview, setOverview] = useState<OverviewData | null>(null);
   const [projectId, setProjectId] = useState("");
   const [data, setData] = useState<ProjectData | null>(null);
-  const [directory, setDirectory] = useState<Pick<ProjectData, "members" | "accounts"> | null>(null);
   const [personKey, setPersonKey] = useState("");
   const [attributeKey, setAttributeKey] = useState("");
   const [rule, setRule] = useState<RuleDraft>(emptyRule);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const detailsRef = useRef<HTMLDivElement>(null);
+  const scrollToDetails = useRef(false);
+  const loadOverview = useCallback(async () => {
+    const response = await fetch("/api/admin/executive-meetings", { cache: "no-store" });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error ?? "一覧を読み込めない");
+    setOverview(payload as OverviewData);
+  }, []);
   const loadProject = useCallback(async (id: string) => {
     const response = await fetch(`/api/admin/executive-meetings?projectId=${encodeURIComponent(id)}`, { cache: "no-store" });
     const payload = await response.json();
@@ -56,9 +70,9 @@ export function ExecutiveMeetingAdminPanel() {
     let cancelled = false;
     fetch("/api/admin/executive-meetings", { cache: "no-store" }).then(async (response) => {
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error ?? "ユーザーを読み込めない");
-      if (!cancelled) { setProjects(payload.projects ?? []); setDirectory({ members: payload.members ?? [], accounts: payload.accounts ?? [] }); }
-    }).catch((cause) => { if (!cancelled) setError(cause instanceof Error ? cause.message : "ユーザーを読み込めない"); });
+      if (!response.ok) throw new Error(payload.error ?? "一覧を読み込めない");
+      if (!cancelled) setOverview(payload as OverviewData);
+    }).catch((cause) => { if (!cancelled) setError(cause instanceof Error ? cause.message : "一覧を読み込めない"); });
     return () => { cancelled = true; };
   }, []);
   useEffect(() => {
@@ -71,10 +85,31 @@ export function ExecutiveMeetingAdminPanel() {
     }).catch((cause) => { if (!cancelled) setError(cause instanceof Error ? cause.message : "設定を読み込めない"); });
     return () => { cancelled = true; };
   }, [projectId]);
-  const people: Person[] = directory ? [
-    ...directory.members.map((member) => ({ id: member.member_id, name: member.member_name || member.code_name || member.email, email: member.email, kind: "member" as const, isExecutive: member.is_executive, status: member.status })),
-    ...directory.accounts.map((account) => ({ id: account.id, name: account.display_name || account.email, email: account.email, kind: "workspace_account" as const, isExecutive: account.is_executive, status: account.status })),
+  useEffect(() => {
+    if (data && scrollToDetails.current) {
+      scrollToDetails.current = false;
+      detailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [data]);
+  const people: Person[] = overview ? [
+    ...(overview.members ?? []).map((member) => ({ id: member.member_id, name: member.member_name || member.code_name || member.email, email: member.email, kind: "member" as const, isExecutive: member.is_executive, status: member.status })),
+    ...(overview.accounts ?? []).map((account) => ({ id: account.id, name: account.display_name || account.email, email: account.email, kind: "workspace_account" as const, isExecutive: account.is_executive, status: account.status })),
   ] : [];
+  const peopleByKey = new Map(people.map((person) => [`${person.kind}:${person.id}`, person]));
+  const overviewRoster = new Map<string, Person[]>();
+  for (const row of overview?.roster ?? []) {
+    const person = peopleByKey.get(row.member_id ? `member:${row.member_id}` : `workspace_account:${row.workspace_account_id}`);
+    if (!person) continue;
+    const roster = overviewRoster.get(row.project_id) ?? [];
+    roster.push(person);
+    overviewRoster.set(row.project_id, roster);
+  }
+  const currentRules = new Map<string, number>();
+  for (const row of overview?.rules ?? []) currentRules.set(row.project_id, Math.max(currentRules.get(row.project_id) ?? 0, row.version));
+  const listedProjects = [...(overview?.projects ?? [])].sort((left, right) => {
+    const countDifference = (overviewRoster.get(right.project_id)?.length ?? 0) - (overviewRoster.get(left.project_id)?.length ?? 0);
+    return countDifference || left.project_id.localeCompare(right.project_id);
+  });
   const selectedAttributePerson = people.find((person) => `${person.kind}:${person.id}` === attributeKey);
   const activeKeys = new Set((data?.roster ?? []).filter((row) => row.active).map((row) => row.member_id ? `member:${row.member_id}` : `workspace_account:${row.workspace_account_id}`));
   const activePeople = people.filter((person) => activeKeys.has(`${person.kind}:${person.id}`));
@@ -91,12 +126,7 @@ export function ExecutiveMeetingAdminPanel() {
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error ?? "保存できない");
-      if (values.action === "set_attribute") {
-        const response = await fetch("/api/admin/executive-meetings", { cache: "no-store" });
-        const payload = await response.json();
-        if (!response.ok) throw new Error(payload.error ?? "ユーザーを読み込めない");
-        setDirectory({ members: payload.members ?? [], accounts: payload.accounts ?? [] });
-      }
+      await loadOverview();
       if (projectId) await loadProject(projectId);
       setPersonKey("");
       setNotice(values.action === "publish_rule" ? "規程の新しい版を登録した" : values.action === "set_attribute" ? "ユーザーの経営陣属性を更新した" : "このPJの経営陣登録を更新した");
@@ -121,9 +151,41 @@ export function ExecutiveMeetingAdminPanel() {
   return <div className="max-w-[1400px] space-y-5">
     {error && <p role="alert" className="rounded-md border border-destructive/40 px-3 py-2 text-sm text-destructive">{error}</p>}
     {notice && <p role="status" className="rounded-md border border-primary/30 px-3 py-2 text-sm">{notice}</p>}
-    {directory && <section className="rounded-lg border bg-background p-4">
-      <h2 className="font-semibold">1. ユーザーの経営陣属性</h2>
+    <section className="rounded-lg border bg-background p-4" aria-labelledby="executive-projects-heading">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b pb-3">
+        <div>
+          <h2 id="executive-projects-heading" className="text-base font-semibold">PJごとの経営陣</h2>
+          <p className="mt-1 text-sm text-muted-foreground">全PJの登録状況。PJを押すと、そのPJの参加者と規程を編集できる。</p>
+        </div>
+        <div className="flex items-center gap-4 text-sm">
+          {overview && <span className="tabular-nums text-muted-foreground">全{listedProjects.length} PJ</span>}
+          <a href="#executive-attributes" className="font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">経営陣属性を変更</a>
+        </div>
+      </div>
+      {!overview && !error && <p role="status" className="py-6 text-sm text-muted-foreground">PJ一覧を読み込み中…</p>}
+      {overview && <div className="mt-3 overflow-hidden rounded-md border">
+        <div className="hidden grid-cols-[minmax(110px,1fr)_minmax(0,2fr)_minmax(90px,0.65fr)_100px] gap-3 border-b bg-muted/40 px-4 py-2 text-xs font-medium text-muted-foreground sm:grid">
+          <span>PJ</span><span>登録された経営陣</span><span>規程</span><span>操作</span>
+        </div>
+        {listedProjects.length === 0 && <p className="px-4 py-6 text-sm text-muted-foreground">表示できるPJがない。</p>}
+        {listedProjects.map((project) => {
+          const roster = overviewRoster.get(project.project_id) ?? [];
+          const ruleVersion = currentRules.get(project.project_id);
+          return <button key={project.project_id} type="button" aria-pressed={projectId === project.project_id}
+            onClick={() => { if (projectId === project.project_id) { detailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); return; } scrollToDetails.current = true; setProjectId(project.project_id); setData(null); setRule(emptyRule); setPersonKey(""); setError(""); setNotice(""); }}
+            className={`grid w-full gap-1 border-b px-4 py-3 text-left text-sm transition-colors last:border-b-0 hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:grid-cols-[minmax(110px,1fr)_minmax(0,2fr)_minmax(90px,0.65fr)_100px] sm:items-center sm:gap-3 ${projectId === project.project_id ? "bg-accent/70" : ""}`}>
+            <span className="min-w-0 font-medium text-foreground">{project.project_name}<span className="ml-2 text-xs font-normal text-muted-foreground">{project.project_id}</span></span>
+            <span className={`min-w-0 break-words ${roster.length ? "text-foreground" : "text-muted-foreground"}`}>{roster.length ? roster.map((person) => person.name).join("、") : "未登録"}</span>
+            <span className={ruleVersion ? "text-foreground" : "text-muted-foreground"}>{ruleVersion ? `第${ruleVersion}版` : "未登録"}</span>
+            <span className="font-medium text-primary">{projectId === project.project_id ? "設定を表示中" : "設定を開く →"}</span>
+          </button>;
+        })}
+      </div>}
+    </section>
+    {overview && <section id="executive-attributes" className="scroll-mt-4 rounded-lg border bg-background p-4">
+      <h2 className="text-base font-semibold">ユーザーの経営陣属性</h2>
       <p className="mt-1 text-xs text-muted-foreground">全PJに共通する資格。属性を付けた後、対象PJの経営陣へ登録する。属性を外すと、その人の全PJの経営会議アクセスと投票が止まる。</p>
+      <p className="mt-3 text-sm"><span className="text-muted-foreground">現在の登録：</span>{people.filter((person) => person.status === "active" && person.isExecutive).map((person) => person.name).join("、") || "なし"}</p>
       <div className="mt-3 flex flex-wrap items-end gap-2">
         <label className="min-w-[260px] flex-1 text-sm">対象ユーザー
           <select className={fieldClass} value={attributeKey} onChange={(event) => setAttributeKey(event.target.value)}>
@@ -134,15 +196,12 @@ export function ExecutiveMeetingAdminPanel() {
         <button type="button" disabled={!selectedAttributePerson || busy} onClick={() => { if (!selectedAttributePerson) return; const next = !selectedAttributePerson.isExecutive; if (!next && !window.confirm(`${selectedAttributePerson.name}の経営陣属性を外す？ 全PJの経営会議をすぐ開けなくなるよ。`)) return; void post({ action: "set_attribute", kind: selectedAttributePerson.kind, principalId: selectedAttributePerson.id, active: next }); }} className={`${buttonClass} ${selectedAttributePerson?.isExecutive ? "bg-background" : "bg-primary text-primary-foreground"}`}>{selectedAttributePerson?.isExecutive ? "経営陣属性を外す" : "経営陣属性を付ける"}</button>
       </div>
     </section>}
-    <div className="flex flex-wrap items-end gap-3">
-      <label className="min-w-[260px] flex-1 text-sm font-medium">2. PJを選ぶ
-        <select className={fieldClass} value={projectId} onChange={(event) => { setProjectId(event.target.value); setData(null); setRule(emptyRule); setPersonKey(""); setError(""); setNotice(""); }}>
-          <option value="">PJを選ぶ</option>
-          {projects.map((project) => <option key={project.project_id} value={project.project_id}>{project.project_name}（{project.project_id}）</option>)}
-        </select>
-      </label>
-      {data && <span className="text-sm text-muted-foreground">このPJの経営陣 {activePeople.filter((person) => person.isExecutive && person.status === "active").length} 人 · 規程 {data.rules.length} 版</span>}
-    </div>
+    {projectId && <div ref={detailsRef} className="scroll-mt-4 space-y-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b pb-2">
+        <h2 className="text-lg font-semibold">{data?.project.project_name ?? overview?.projects.find((project) => project.project_id === projectId)?.project_name ?? projectId} の設定</h2>
+        {data && <span className="text-sm tabular-nums text-muted-foreground">経営陣 {activePeople.filter((person) => person.isExecutive && person.status === "active").length} 人 · 規程 {data.rules.length} 版</span>}
+      </div>
+      {!data && !error && <p role="status" className="text-sm text-muted-foreground">設定を読み込み中…</p>}
     {data && <>
       <section className="rounded-lg border bg-background p-4">
         <div className="flex flex-wrap items-end justify-between gap-3 border-b pb-3"><div><h2 className="font-semibold">このPJの経営陣</h2><p className="mt-1 text-xs text-muted-foreground">経営陣属性があり、このPJの閲覧権限もある人を登録する。登録後、このPJの経営会議を閲覧・採決できる。</p></div></div>
@@ -180,5 +239,6 @@ export function ExecutiveMeetingAdminPanel() {
         </form>
       </section>
     </>}
+    </div>}
   </div>;
 }

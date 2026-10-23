@@ -14,6 +14,16 @@ async function activeAdminMemberId(email: string): Promise<string | null> {
   return error ? null : data?.member_id ?? null;
 }
 
+async function allPages<Row>(readPage: (offset: number) => Promise<{ data: Row[] | null; error: unknown }>): Promise<Row[]> {
+  const rows: Row[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await readPage(offset);
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if ((data?.length ?? 0) < 1000) return rows;
+  }
+}
+
 export async function GET(request: Request) {
   const auth = await requireAdmin();
   if (!auth.ok) return auth.errorResponse;
@@ -21,13 +31,18 @@ export async function GET(request: Request) {
   const db = createAdminClient();
   const projectId = new URL(request.url).searchParams.get("projectId");
   if (!projectId) {
-    const [projects, members, accounts] = await Promise.all([
-      db.from("projects").select("project_id,project_name,status").order("project_id"),
-      db.from("members").select("member_id,member_name,code_name,email,status,is_executive").order("member_name"),
-      db.from("workspace_user_accounts").select("id,display_name,email,status,is_executive").order("email"),
-    ]);
-    if (projects.error || members.error || accounts.error) return fail(500, "経営会議の設定を読み込めない");
-    return NextResponse.json({ projects: projects.data, members: members.data, accounts: accounts.data }, { headers: noStore });
+    try {
+      const [projects, members, accounts, roster, rules] = await Promise.all([
+        allPages(async (offset) => db.from("projects").select("project_id,project_name,status").order("project_id").range(offset, offset + 999)),
+        allPages(async (offset) => db.from("members").select("member_id,member_name,code_name,email,status,is_executive").order("member_name").order("member_id").range(offset, offset + 999)),
+        allPages(async (offset) => db.from("workspace_user_accounts").select("id,display_name,email,status,is_executive").order("email").order("id").range(offset, offset + 999)),
+        allPages(async (offset) => db.from("project_executive_members").select("project_id,member_id,workspace_account_id").eq("active", true).order("project_id").order("id").range(offset, offset + 999)),
+        allPages(async (offset) => db.from("project_meeting_rule_versions").select("project_id,version").eq("meeting_kind", "management").order("project_id").order("version").range(offset, offset + 999)),
+      ]);
+      return NextResponse.json({ projects, members, accounts, roster, rules }, { headers: noStore });
+    } catch {
+      return fail(500, "経営会議の設定を読み込めない");
+    }
   }
   const [project, members, accounts, roster, rules] = await Promise.all([
     db.from("projects").select("project_id,project_name").eq("project_id", projectId).maybeSingle(),

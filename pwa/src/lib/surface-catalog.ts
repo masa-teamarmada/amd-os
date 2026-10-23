@@ -131,7 +131,7 @@ export const SURFACE_CATALOG: readonly SurfaceDefinition[] = [
 
 export const ADMIN_SURFACE_GROUPS = [
   { label: "納税・カレンダー", surfaceIds: ["admin-payments", "admin-schedule"] },
-  { label: "組織・権限", surfaceIds: ["admin-projects", "admin-members", "admin-permissions", "admin-access", "dd-packages", "admin-company", "admin-governance"] },
+  { label: "組織・権限", surfaceIds: ["admin-projects", "admin-members", "admin-permissions", "admin-executive-meetings", "admin-access", "dd-packages", "admin-company", "admin-governance"] },
   { label: "契約・お金", surfaceIds: ["admin-workflows", "admin-contracts", "admin-kiyo", "admin-cash", "admin-invoices", "admin-payouts", "admin-monthly-agreements", "admin-season-pl", "admin-finance", "admin-project-profitability"] },
   { label: "PJ・実行", surfaceIds: ["management-score", "admin-card-designs", "admin-weekly", "admin-protocols", "admin-ms-overview", "admin-meeting-gaps", "admin-coverage", "admin-ip"] },
   { label: "知識・AI", surfaceIds: ["admin-japanese-culture", "admin-contexts", "admin-management-knowledge", "admin-private-wiki", "admin-tsukuyomi", "admin-prompts"] },
