@@ -1,24 +1,18 @@
-AMD OSのDD閲覧画面の修正を引き継ぐ。作業場所は /Users/masa/projects/AMD/amd-os。作業種別development。まさ受入済みで、今回の画面修正に残作業はない。新しい依頼を受けてから着手する。
+AMD OSの経営会議機能の次回作業を引き継ぐ。作業場所は /Users/masa/projects/AMD/amd-os。まさの新しい依頼が来るまでは、規程の推測登録や取締役会機能の先行実装をしない。
 
 読む順:
 1. /Users/masa/projects/AGENTS.common.md
 2. /Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md
-3. /Users/masa/projects/AMD/amd-os/AGENTS.md と HANDOFF_DD_VIEWER_20261018.md
-4. pwa/manual/1-1-intro.md、pwa/spec/1-3-reconstruction-coverage-audit.md、pwa/spec/5-17-dd-package-current-spec.md、pwa/spec/2-1-pwa-runtime-routes.md
-5. pwa/manual/2-1-member-quick-start.md、2-6-admin-ops.md、pwa/BUGS.mdの2026-10-18 DD節、pwa/design_log/sessions_2026-10.mdのDD終了節
+3. /Users/masa/projects/AMD/amd-os/AGENTS.md、HANDOFF.md
+4. pwa/manual/1-1-intro.md、pwa/spec/1-3-reconstruction-coverage-audit.md、pwa/spec/3-26-executive-meeting-current-spec.md、ios/DESIGN.mdの経営会議節
+5. pwa/manual/2-3-pj-cockpit.mdの経営会議節、pwa/BUGS.mdの経営会議管理画面節、pwa/design/SPEC_GOVERNANCE.md、pwa/design_log/sessions_2026-10.mdの2026-10-23節
 
-状態:
-確認済み製品はmain/origin/main・本番 v3.163.13 / ac938cd5355a3e8eae0d3002f1def37f642e72fb。終了記録だけのcommitはその後になる。再開時にfetch、status、ahead/behind、公開/api/build-infoを取り直す。恒久仕様は上記spec/manual、実装履歴はdesign_log、バグの原因と再発防止はBUGS。チャットや/tmpを発掘する必要はない。
+状態スナップショット:
+経営会議は全PJ共通のPWAで実装済み。コックピット・ワークスペースにだけ入口があり、本人の経営陣属性、PJ閲覧権限、PJ経営陣登録の3条件で閲覧と採決を守る。既存の「動向・会議」やDDへは議案データを流さない。管理画面 /admin/executive-meetings は初期表示で全36PJを一覧にし、登録済みPJを先頭に、経営陣と規程状態を表示する。行を押すとそのPJの編集へ進み、Admin左メニューにも入口がある。SOLの経営陣はまさ・石原先生・杉浦先生。杉浦先生の表示名は本番DBで修正済み。SOL規程は未登録のため採決開始は不可。将来の取締役会決議は未実装で、経営会議の採決を代用しない。
+実装commit e53f4b91 / 本番 v3.163.43 は公開 /api/build-info で一致を確認した。終了記録の文書commitは画面非表示のため、本番SHAよりmainが先行していてもUIコード差はない。再開時にfetch・status・ahead/behind・公開build-infoを確認する。仕様はspec3-26、手順はmanual2-3、履歴はdesign_log、バグと再発防止はBUGS、現況はHANDOFF。PC Chromeの画面監査メモと画像は無視対象の .jez/artifacts/ にある。
 
-完了した挙動:
-DD上部のOS版・資料別閲覧者を表示。リンクを押すと対象がすぐ青くなり、本文だけに回転マークを表示する。読み込み中も左メニューは表示・操作でき、別資料を選び直せる。同一リンクの連打は抑止。dd/loading.tsxによる全体置換は削除済み。リロード開始時も現在の本文で回転表示。用語はマウスオーバーで説明を開く。
-入口は資料一覧、共通前提は左メニュー上部。共通前提の最初の表の縦方向はページ全体でスクロールする。
-ヘッダは「PDF+excel一括ダウンロード」だけ。「この資料をPDF」「表・数式付きExcel」「計算条件を編集」「本文を編集」と編集欄は削除。修正はえいみに伝える運用。編集用モデルを閲覧ページへ渡す処理も削除。既存の更新API・認可は維持。旧ボタンは管理者/社内DD編集者向けで、まさだけに限定していなかった。外部アカウントは編集対象外。
-ZIPは同じ版のPDFとExcelを収録し、取得後にも版・開示条件を再照合する。出力の本文/数値分担は別作業v3.163.12以降の最新spec5-17を優先する。
+次に着手するとき:
+まさが会社の経営会議規程を提示したら、原文と該当条項から定足数・可決条件・締切方法を確認し、管理者画面に新しい規程版として登録する。表現できない規程なら勝手に近似せず、仕様拡張を検討する。初期一覧からSOLを開く実導線、経営陣3人のアクセス、非経営陣の拒否、採決開始・投票・確定、既存「動向・会議」への非流出を確認する。まさから取締役会機能の依頼があれば、その時に招集、資格、利害関係、議決要件と証跡を別に設計する。過去のmigration versionはローカルと本番で不一致があるため、次のDB変更前に現行履歴とschemaを監査し、適用済みDDLを再適用しない。
 
-別の進行中作業:
-共有checkoutに残るPDF/Excel参照改善の13パスは「いよぎんC向けDDパッケージ準備」(01a14258-f17e-75c0-bd20-a505cb3bb891)が担当。activeと現在の実物監査依頼を確認し、closeout手順で担当へ返却済み。対象一覧と保持理由・期限はHANDOFFの表。こちらの終了記録へ混入させず、同担当が監査完了前に検証・仕様同期・commit・正規反映まで担当する。次セッションの最初に同チャットの状態と差分を再確認。新たな依頼がなければその作業を引き取らない。
-
-確認と運用:
-DD/閲覧者/ファビコン/用語hover/出力認可とZIPの回帰検査、型・静的検査、正規反映の全検査が通過。Macの実画面でメニュー保持・読み込み途中の選び直し・完了解除・hover・最終編集欄0を確認。ユーザー指定によりスマートフォンのPWA幅は追加確認しない。スマホはSwiftだけで使用する。Swift専用UI、DB schema、RLS、環境変数、経済モデルは今回変更なし。
-main一本。新branch/worktree・サブエージェントを作らず、共有差分のreset/stash/delete/一括commitをしない。PWA変更時はspec/manual/附則と必要な共通DESIGN・native handoffを同期。反映は AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh で束ね、READY・公開SHA・Mac実画面を確認。終了記録だけは既存の画面非表示判定に従ってpushし、再構築しない。メールや対人通知は送らない。会話の検討材料0件。
+運用:
+main一本。新branch/worktreeやサブエージェントを作らない。共有差分をreset、stash、削除、一括commitしない。全プラットフォームへの影響を見て、画面追加・改名時はios/DESIGN、PWA仕様変更時はspec/manual/附則とnative handoffを同じcommitで同期する。画面を完成として報告する前にPC Chrome実画面でUI/UX監査し、初期状態・視線の流れ・操作後の行き先を説明なしで使えるか確認する。スマホWeb検証はまさが依頼した時だけ。PWA本番反映は変更を束ねて AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh を使い、READY・公開SHA・PC実画面を読む。画面非表示の終了記録は既存のskip CI判定でpushする。メールや対人通知は明示指示なしに送らない。

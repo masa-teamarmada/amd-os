@@ -791,3 +791,9 @@ v3.163.8時点の実ボタンZIPはPDF/XLSXの2ファイル、破損なし・数
 | 4 | c3068667 / v3.163.33 | DdProcessIllustration.tsxとcheck_dd_process_illustrations.mts追加。4工程絵・2経路図、本文/図/スタイル・テスト更新。Calculator editedCells追加と感度分析伝播。21章原文とモデルを原子的更新、v2.0.4/r89 | spec5-17、manual2-6、BUGS、bzm9-5 |
 
 全体強制再計算案は不採用、変更依存先だけ再計算して既存値を保持。123,695セル・9感度表93セル・エラー0、21章の保存本文ハッシュ一致。DD検査一式・型検査・静的検査・正規配信・本番PC/390px画面を確認。ダウンロードはv2.0.2/r87、生成0・凍結13、実ZIP同一バイト。新環境変数・秘密値・権限・cron追加なし。後続57f65d0bは正本同期のみ。終了時の文書保存では再配信・再生成しない。
+
+## 2026-10-23 経営会議の管理画面の初期一覧と終了記録
+
+開発。経営会議本体の恒久仕様は `pwa/spec/3-26-executive-meeting-current-spec.md`、操作は `pwa/manual/2-3-pj-cockpit.md`、全画面境界は `ios/DESIGN.md` に記録済み。今回の最終修正 `e53f4b91` / `v3.163.43` は `/api/admin/executive-meetings` の全PJ・利用者・規程版のページング、`ExecutiveMeetingAdminPanel` の初期全PJ一覧と行から編集への導線、Admin左メニューの入口、build-info更新。新テーブル・カラム・環境変数・RLS変更なし。SOLの経営陣はまさ・石原先生・杉浦先生。杉浦先生のアカウント表示名を本番DBで修正してUIで読み戻し、規程は未登録と確認した。
+
+最初の「プルダウンでPJ選択後に表示」案は実務に合わず破棄。PC Chrome 1419×824で初期一覧・SOL編集・未登録PJ編集をUI/UX監査。型、静的検査、build、正規反映ゲート成功。公開 `/api/build-info` は `e53f4b91` / `v3.163.43`。教訓は `pwa/BUGS.md`、監査の常時ルールは `pwa/design/SPEC_GOVERNANCE.md`。画面確認画像と監査メモはローカル `.jez/artifacts/` の無視対象。会話の検討材料0件。
