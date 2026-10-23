@@ -37,9 +37,9 @@ export function AdminAgreementRequestNotice({ pathname }: { pathname: string }) 
   const href = `/admin/monthly-work-agreements?ym=${encodeURIComponent(summary.latest.ym)}${summary.count === 1 ? `&q=${encodeURIComponent(summary.latest.member_id)}` : ""}`;
 
   return (
-    <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-950">
+    <div role="status" aria-live="polite" className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-950">
       <span className="font-semibold">月初合意の修正要望が未対応：{summary.count}件</span>
-      <span>最新は{month}。内容と金額への影響を確認。</span>
+      <span>最新の対象は{month}。内容と金額への影響を確認。</span>
       <Link href={href} className="font-semibold text-blue-700 underline underline-offset-2 hover:text-blue-900">
         修正要望を確認
       </Link>
