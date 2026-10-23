@@ -189,6 +189,19 @@ export interface MonthlyWorkAgreementProject {
   allocationTotals: MonthlyWorkAgreementProjectAllocationTotals;
 }
 
+/** きよの報酬見通し一覧で、月初合意と同じ図に必要な項目だけを返す。 */
+export type SeasonRewardTrendProject = Pick<MonthlyWorkAgreementProject,
+  "projectId" | "projectName" | "milestones" | "payoutSchedule" | "seasonStartYm" | "seasonEndYm">;
+
+export interface KiyoRewardOutlookResponse {
+  ym: string;
+  members: Array<{
+    memberId: string;
+    codeName: string;
+    projects: SeasonRewardTrendProject[];
+  }>;
+}
+
 /**
  * PJ単位の合意状態。
  *

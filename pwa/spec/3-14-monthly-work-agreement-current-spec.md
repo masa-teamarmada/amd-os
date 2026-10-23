@@ -289,6 +289,8 @@ API route は logged-in user を `members.email` で解決する。本人以外�
 
 #### シーズン報酬の発生・支払区分（2026-09-30）
 
+きよページの `04 報酬見通し` は、本人の月初合意と同じ `SeasonRewardTrend` を対象月のメンバー×PJで並べる。`GET /api/admin/kiyo/reward-outlook?ym=YYYYMM` はadmin限定で、既存の月初合意bundleから図に必要な項目だけを返す。対象メンバーは月初合意の管理一覧と同じ参画条件で取得し、きよ側で報酬を再計算しない。
+
 以下は本節の旧「受け取る額」「MSが始まる月から受け取る額が増える」表記を置き換える。`SeasonRewardTrend` は `sourceYm` の軸で `totalPayYen` の棒を「支払配分額」として描き、その下に `basePayYen` の「発生した報酬」、`carryInYen` の「前月から繰越」、`stockYen` の「翌月へ繰越」、`paymentYm` の「振込予定月」を常時表示する。ホバー不要。0円は¥0、entryなしは—。繰越は残高なので合計しない。将来額は見込み、支払確認は `isActualPaid` のみを使い、過去月を支払済みと推定しない。合計は発生報酬と支払配分を分ける。月列88px以上・行見出し固定・横スクロール。MS期間バーは維持し、本人の参画期間と異なる場合があることを明記する。既存の金額、計算、合意hash、DB/API契約は変更しない。
 
 - 上部に対象月、member、snapshot hash、合意状態を表示する。

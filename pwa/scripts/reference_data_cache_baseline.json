@@ -17,6 +17,7 @@
     "src/components/admin/AdminChangeHistoryClient.tsx": "可変系。OS全体の変更を時系列で追う監査面で、別画面・自動処理・戻す操作によって随時増える。戻す操作の競合判定と戻し済み表示にも直近状態が必要なため、画面表示と操作直後はno-storeで最新を読む。",
     "src/components/cockpit/CockpitProjectControl.tsx": "可変系。週次差分・ガント・関係先・論点仮説はこの画面から直接編集し、他メンバーの更新も当日中に反映される必要がある。PJコックピットの管制4タブとPJワークスペース (/project/[projectId]/workspace) が同じ束を読む (2026-08-28 統合)。4タブは1マウントを共有するのでタブ移動では読み直さない。",
     "src/components/admin/kiyo-money-flow/KiyoMoneyFlowPanel.tsx": "可変系。入金確認・支払記録で当日中に増える集計 (manual/6-11-kiyo-money-flow-spec.md)。サーバ側 (src/lib/finance/kiyo-money-flow.ts) がプロセス内TTL5分で持つのでクライアントは素のfetchでよい。",
+    "src/components/admin/KiyoRewardOutlookPanel.tsx": "可変系。月初合意の報酬・繰越・支払確認・担当MSは当日中の再計算や管理操作で変わる。支払判断に使うため、対象月の変更と更新時にno-storeで最新のbundleを読む。",
     "src/app/(app)/admin/monthly-work-agreements/page.tsx#revision-requests": "可変系。修正要望のステータス更新 (PATCH) と、その直後の状態。open のあいだ支払通知書が発行できないので、古い状態を見せると支払判断を誤らせる (2026-08-28 追加)。",
     "src/components/monthly-agreement/AdminAgreementRequestNotice.tsx": "可変系。未対応の修正要望件数はメンバーの送信と管理者の処理で即時に変わる。支払判断に関わるため画面移動・再表示・処理直後にno-storeで最新件数を読む。",
     "src/lib/governance-client.ts": "参照系。会社概要タブと資本政策表タブが共有するキャッシュ層で、中身は @/lib/reference-data-cache を通している (素の fetch はこの1本だけ。画面側からは fetch しない)。REFERENCE_DATA_ENDPOINTS へ /api/governance を登録すると、guard が配下パスも同じ扱いにするため /api/governance/killer-factors (キラー要素カタログ) と /api/governance/capital-plans (資本政策プラン台帳) の別画面まで巻き込む。それらの移行は別作業なので、登録はせずここへ置く (2026-08-29 追加)。",
@@ -182,6 +183,9 @@
     ],
     "src/components/admin/kiyo-money-flow/KiyoMoneyFlowPanel.tsx": [
       "/api/admin/kiyo/money-flow"
+    ],
+    "src/components/admin/KiyoRewardOutlookPanel.tsx": [
+      "/api/admin/kiyo/reward-outlook"
     ],
     "src/components/business-cards/BusinessCardsClient.tsx": [
       "/api/business-cards",

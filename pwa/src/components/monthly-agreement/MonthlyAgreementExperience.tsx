@@ -23,6 +23,7 @@ import type {
   MonthlyWorkAgreementMilestone,
   MonthlyWorkAgreementProject,
   MonthlyWorkAgreementProjectAgreement,
+  SeasonRewardTrendProject,
 } from "@/lib/monthly-work-agreement-types";
 
 export function currentYmJst() {
@@ -1539,7 +1540,7 @@ function axisMonthLabel(ym: string, previousYm: string | null) {
 }
 
 /** シーズン (plan cycle) の全月。plan cycle が無いPJは支払予定のある月から組み立てる */
-function seasonMonths(project: MonthlyWorkAgreementProject): string[] {
+function seasonMonths(project: SeasonRewardTrendProject): string[] {
   const scheduleYms = project.payoutSchedule.map((entry) => entry.sourceYm).filter(Boolean);
   const start =
     project.seasonStartYm ?? (scheduleYms.length ? scheduleYms.reduce((a, b) => (a < b ? a : b)) : null);
@@ -1560,7 +1561,7 @@ function seasonMonths(project: MonthlyWorkAgreementProject): string[] {
  * 同じ月軸に棒とMSの期間を並べる。まさ 2026-08-29「各MSがどの期間に割り当てられているかも
  * 矢印とかで表示してあげると、ああこのMSが始まるからここから報酬が高くなるんだ、とかも分かりやすい」。
  */
-export function SeasonRewardTrend({ project, ym, compact = false }: { project: MonthlyWorkAgreementProject; ym: string; compact?: boolean }) {
+export function SeasonRewardTrend({ project, ym, compact = false }: { project: SeasonRewardTrendProject; ym: string; compact?: boolean }) {
   const months = seasonMonths(project);
   if (months.length === 0) return null;
 

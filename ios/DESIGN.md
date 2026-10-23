@@ -581,6 +581,10 @@ admin がアクション必要なものを集約する。
 - B: 「1 入ってきたお金 / 2 AMDの財布 / 3 使ったお金」の3ステップ縦カード。行クリックでドリルダウン（人別・月別・科目別など）
 - 集計 API: `GET /api/admin/kiyo/money-flow?period=month|season|all`（server層 `src/lib/finance/kiyo-money-flow.ts`、プロセス内TTL5分）。admin専用（人別報酬を含むため member へ露出しない）
 
+#### 2.6.4.6 きよ 報酬見通し（PWA専用 `/admin/kiyo?task=reward-outlook`、iOS未移植）
+
+対象月に参画中のメンバーとPJを縦に並べ、月初合意の「このシーズンの報酬の見通し」と同じ棒グラフ・MS期間を表示する。`GET /api/admin/kiyo/reward-outlook` はadmin限定で、月初合意の既存計算結果から図に必要な項目だけを返す。
+
 #### 2.6.5 支払通知書作成（PayoutNoticeAdminListView → PayoutNoticePerMemberView）
 
 **🚨 重要：表示ロジック**

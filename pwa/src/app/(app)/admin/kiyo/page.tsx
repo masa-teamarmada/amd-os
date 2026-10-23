@@ -5,6 +5,7 @@ import AdminInvoicesPage from "@/app/(app)/admin/invoices/page";
 import AdminPayoutsPage from "@/app/(app)/admin/payouts/page";
 import { ReimburseWorkspace } from "@/app/(app)/reimburse/page";
 import { KiyoMoneyFlowPanel } from "@/components/admin/kiyo-money-flow/KiyoMoneyFlowPanel";
+import { KiyoRewardOutlookPanel } from "@/components/admin/KiyoRewardOutlookPanel";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +36,8 @@ const KIYO_TASKS = [
     label: "メンバー支払",
     description: "支払確認・通知書発行・送付",
   },
-  { id: "workflows", step: "04", label: "押印承認", description: "押印申請の承認と締結版の照合" },
+  { id: "reward-outlook", step: "04", label: "報酬見通し", description: "全メンバーのシーズン推移" },
+  { id: "workflows", step: "05", label: "押印承認", description: "押印申請の承認と締結版の照合" },
 ] as const;
 
 type KiyoTask = (typeof KIYO_TASKS)[number]["id"];
@@ -66,7 +68,7 @@ export default async function AdminKiyoPage({
         <div
           role="tablist"
           aria-label="きよの業務"
-          className="flex overflow-x-auto sm:grid sm:grid-cols-5 sm:overflow-visible"
+          className="flex overflow-x-auto lg:grid lg:grid-cols-6 lg:overflow-visible"
         >
           {KIYO_TASKS.map((task, index) => {
             const selected = task.id === activeTask;
@@ -80,7 +82,7 @@ export default async function AdminKiyoPage({
                 aria-current={selected ? "page" : undefined}
                 aria-controls={`kiyo-panel-${task.id}`}
                 className={cn(
-                  "flex min-h-11 w-[168px] shrink-0 flex-col justify-center gap-0.5 rounded-none border border-border px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-full",
+                  "flex min-h-11 w-[168px] shrink-0 flex-col justify-center gap-0.5 rounded-none border border-border px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:w-full",
                   index > 0 && "-ml-px",
                   selected
                     ? "relative z-10 -mb-px border-t-2 border-t-foreground border-b-background bg-background"
@@ -110,6 +112,7 @@ export default async function AdminKiyoPage({
           {activeTask === "reimbursements" ? <ReimburseWorkspace embedded /> : null}
           {activeTask === "invoices" ? <AdminInvoicesPage embedded /> : null}
           {activeTask === "payouts" ? <AdminPayoutsPage embedded /> : null}
+          {activeTask === "reward-outlook" ? <KiyoRewardOutlookPanel /> : null}
         </section>
       </div>
     </div>

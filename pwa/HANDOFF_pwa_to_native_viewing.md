@@ -151,3 +151,4 @@ PWA v3.162.52はユーザー×DDの既存監査記録でNDA回答を判定し、
 
 2026-10-18（PWA DD v3.163.13）: 新版DD閲覧画面の計算条件・本文の編集ボタンとパネルを削除。閲覧ページから編集用データの受け渡しも廃止し、変更依頼はえいみ経由。Native専用UI・DB・認可・理論は変更なし。spec5-17/manual2-6と両層の変更履歴は同期済み。
 2026-10-23（月初合意の修正要望）：PWA管理画面は未対応要望を先頭に表示し、現在のPJ別予定額と修正後未確定を本文と分けて表示する。OS内の管理者画面上部には全月の未対応総件数・月別件数と各月への導線を追加。既存要望・計算・支払条件・共通DBの変更なし。macOS `adminMonthlyAgreements` とiOS管理画面へ移植する場合は、`spec/3-14-monthly-work-agreement-current-spec.md` の表示・未対応導線を参照。
+2026-10-23（きよ報酬見通し）：PWA `/admin/kiyo?task=reward-outlook` に、対象月に参画中の全メンバー×PJのシーズン報酬グラフを追加。月初合意の `SeasonRewardTrend` と既存bundleを再利用。共通DB・報酬計算式・ネイティブ画面の変更なし。移植時は `ios/DESIGN.md` と `pwa/spec/3-14-monthly-work-agreement-current-spec.md` を参照。
