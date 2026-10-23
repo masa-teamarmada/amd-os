@@ -86,9 +86,15 @@ export default function AdminMonthlyWorkAgreementsPage() {
         </div>
       }
     >
-      <AdminMonthlyWorkAgreementsContent />
+      <AdminMonthlyWorkAgreementsKeyedContent />
     </Suspense>
   );
+}
+
+function AdminMonthlyWorkAgreementsKeyedContent() {
+  const searchParams = useSearchParams();
+  // 同じ管理画面内の月別リンクでも、URLの月と絞り込みを読み直す。
+  return <AdminMonthlyWorkAgreementsContent key={JSON.stringify([searchParams.get("ym"), searchParams.get("q")])} />;
 }
 
 function AdminMonthlyWorkAgreementsContent() {
