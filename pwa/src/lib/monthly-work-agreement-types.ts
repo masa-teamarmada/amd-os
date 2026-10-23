@@ -357,6 +357,13 @@ export interface AdminMonthlyWorkAgreementRow {
    * (2026-08-28: 支払通知書が発行できない原因調査で判明)。
    */
   revisionRequests: MonthlyWorkAgreementRevisionRequest[];
+  /** 修正要望の対象PJで、本人が現在担当しているMSと全担当者の設定値。判断材料専用。 */
+  revisionProjectContext: Record<string, Array<{
+    milestoneId: string;
+    title: string;
+    taskDescription: string | null;
+    assignments: Array<{ memberId: string; codeName: string; sharePct: number }>;
+  }>>;
   projectCount: number;
   reviewRequiredCount: number;
   /** 合意額 = この稼働月として払う額 (過去の未払いの返済分を含む) */

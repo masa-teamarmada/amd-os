@@ -1,6 +1,7 @@
 "use client";
 
 import { AmieListStatus } from "@/components/ui/amie-list-signals";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   MsOverviewPlanCycle,
@@ -2008,6 +2009,7 @@ function ProjectCycleGroup({
 // ---- ルート --------------------------------------------------------------
 
 export function AdminMsOverviewClient() {
+  const targetProjectId = useSearchParams().get("projectId");
   const [cycles, setCycles] = useState<MsOverviewPlanCycle[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
@@ -2088,7 +2090,7 @@ export function AdminMsOverviewClient() {
           projectId={group.projectId}
           projectName={group.projectName}
           cycles={group.cycles}
-          openByDefault={idx === 0}
+          openByDefault={targetProjectId ? group.projectId === targetProjectId : idx === 0}
           onSaved={handleSaved}
         />
       ))}

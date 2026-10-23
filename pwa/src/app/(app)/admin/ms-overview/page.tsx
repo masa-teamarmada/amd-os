@@ -1,4 +1,5 @@
 import { AdminMsOverviewClient } from "@/components/admin/AdminMsOverviewClient";
+import { Suspense } from "react";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,9 @@ export default function AdminMsOverviewPage() {
         比べて妥当か」「メンバー間の担当量がおかしくないか」を画面で並べて判断するための設計レビュー画面。
         実消化 (progress) は読まない。設計値そのものを、報酬計算と同じ丸め順で見せる。
       </p>
-      <AdminMsOverviewClient />
+      <Suspense fallback={<p className="text-sm text-muted-foreground">読み込み中…</p>}>
+        <AdminMsOverviewClient />
+      </Suspense>
     </div>
   );
 }

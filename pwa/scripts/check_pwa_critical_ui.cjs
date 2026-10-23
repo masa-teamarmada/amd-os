@@ -3168,7 +3168,9 @@ expectPattern(
     // 合意ボタンの隣にPJ単位の修正要望を置く
     /onClick=\{\(\) => onAgree\(project\.projectId\)\}[\s\S]{0,3500}このPJの内容が違う/,
     // 状態 → PJ単位の必須確認 → 参考情報 の順
-    /data-testid="monthly-agreement-status"[\s\S]{0,3000}<RequiredChecksSection[\s\S]{0,12000}参考情報/,
+    /data-testid="monthly-agreement-status"[\s\S]{0,3000}<RequiredChecksSection[\s\S]{0,18000}参考情報/,
+    // 修正要望はMS・割合・追加業務・金額の希望を分けて受ける
+    /担当割合を変えるMS（任意）[\s\S]{0,5000}MSにない追加の仕事（任意）[\s\S]{0,3000}金額についての希望/,
     // PJブロックの中は 担当する仕事(01) → 受け取る額(02) → PJ全員の配分(03) の順
     /data-testid="monthly-agreement-project-block"[\s\S]{0,3000}<SectionNumberBadge number="01"[\s\S]{0,3000}<SectionNumberBadge number="02"[\s\S]{0,3000}<SectionNumberBadge number="03"[\s\S]{0,1500}<ProjectAllocationTable[\s\S]{0,1500}<SeasonRewardTrend[\s\S]{0,4000}data-testid="monthly-agreement-agree-button"/,
     // 変更点はそのPJの合意ボタンより前に出す

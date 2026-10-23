@@ -35,6 +35,21 @@ export async function GET(req: NextRequest) {
     const bundles = await Promise.all(
       memberIds.map((memberId) => buildMonthlyWorkAgreementBundle(admin, { ym, memberId })),
     );
+    const openMilestoneIds = Array.from(new Set(bundles.flatMap((bundle) => {
+      const openProjectIds = new Set(bundle.revisionRequests.filter((request) => request.status === "open").map((request) => request.projectId));
+      return bundle.snapshot.projects.filter((project) => openProjectIds.has(project.projectId))
+        .flatMap((project) => project.milestones.map((milestone) => milestone.milestoneId));
+    })));
+    const { data: responsibilityData, error: responsibilityError } = openMilestoneIds.length
+      ? await admin.from("milestone_responsibility").select("milestone_id, member_id, share").in("milestone_id", openMilestoneIds)
+      : { data: [], error: null };
+    if (responsibilityError) throw responsibilityError;
+    const assignmentsByMilestone = new Map<string, Array<{ member_id: string; share: number }>>();
+    for (const row of responsibilityData ?? []) {
+      const list = assignmentsByMilestone.get(row.milestone_id) ?? [];
+      list.push({ member_id: row.member_id, share: Number(row.share) });
+      assignmentsByMilestone.set(row.milestone_id, list);
+    }
     const rows = bundles.map((bundle) => ({
       member: bundle.member,
       status: bundle.status,
@@ -62,6 +77,21 @@ export async function GET(req: NextRequest) {
         const openRank = (status: string) => (status === "open" ? 0 : 1);
         return openRank(a.status) - openRank(b.status) || b.createdAt.localeCompare(a.createdAt);
       }),
+      revisionProjectContext: Object.fromEntries(bundle.snapshot.projects
+        .filter((project) => bundle.revisionRequests.some((request) => request.status === "open" && request.projectId === project.projectId))
+        .map((project) => {
+          const codeNameById = new Map(project.memberAllocations.map((allocation) => [allocation.memberId, allocation.codeName]));
+          return [project.projectId, project.milestones.map((milestone) => ({
+            milestoneId: milestone.milestoneId,
+            title: milestone.title,
+            taskDescription: milestone.taskDescription,
+            assignments: (assignmentsByMilestone.get(milestone.milestoneId) ?? []).map((assignment) => ({
+              memberId: assignment.member_id,
+              codeName: codeNameById.get(assignment.member_id) ?? assignment.member_id,
+              sharePct: Math.round(assignment.share * 10000) / 100,
+            })),
+          }))] as const;
+        })),
       projectCount: bundle.snapshot.totals.projectCount,
       reviewRequiredCount: bundle.snapshot.totals.reviewRequiredCount,
       expectedRewardYen: bundle.snapshot.totals.expectedRewardYen,

@@ -22,6 +22,19 @@ function requestTypeLabel(requestType: string) {
   return REQUEST_TYPE_LABEL[requestType] ?? requestType;
 }
 
+function legacyRequestSignals(body: string) {
+  if (body.startsWith("対象PJ：")) return null;
+  const share = body.match(/(\d+(?:\.\d+)?)\s*[%％]\s*(?:→|⇒|->)\s*(\d+(?:\.\d+)?)\s*[%％]/);
+  const unlistedWork = /MSにない|MSに載っていない|MS未登録/.test(body);
+  if (!share && !unlistedWork) return null;
+  return { share: share ? `${share[1]}％ → ${share[2]}％` : null, unlistedWork };
+}
+
+function requestMilestones(body: string, milestones: AdminMonthlyWorkAgreementResponse["rows"][number]["revisionProjectContext"][string]) {
+  const normalizedBody = body.replace(/[\s・\-]/g, "").toLowerCase();
+  return milestones.filter((milestone) => normalizedBody.includes(milestone.title.replace(/[\s・\-]/g, "").toLowerCase()));
+}
+
 function formatDateTime(value: string | null) {
   if (!value) return "";
   const date = new Date(value);
@@ -409,6 +422,7 @@ function AdminMonthlyWorkAgreementsContent() {
                         senderLabel={`${row.member.codeName}（${row.member.memberId}）`}
                         projectNames={Object.fromEntries(row.projects.map((project) => [project.projectId, project.projectName]))}
                         projectAmounts={Object.fromEntries(row.projects.map((project) => [project.projectId, project.expectedRewardYen]))}
+                        projectContext={row.revisionProjectContext}
                         memberAmount={row.expectedRewardYen}
                         requests={row.revisionRequests}
                         onUpdated={handleRevisionRequestUpdated}
@@ -479,6 +493,7 @@ function RevisionRequestsPanel({
   senderLabel,
   projectNames,
   projectAmounts,
+  projectContext,
   memberAmount,
   requests,
   onUpdated,
@@ -487,6 +502,7 @@ function RevisionRequestsPanel({
   senderLabel: string;
   projectNames: Record<string, string>;
   projectAmounts: Record<string, number | null>;
+  projectContext: AdminMonthlyWorkAgreementResponse["rows"][number]["revisionProjectContext"];
   memberAmount: number;
   requests: MonthlyWorkAgreementRevisionRequest[];
   onUpdated: (updated: MonthlyWorkAgreementRevisionRequest) => void;
@@ -510,6 +526,7 @@ function RevisionRequestsPanel({
               senderLabel={senderLabel}
               projectLabel={request.projectId ? `${projectNames[request.projectId] ?? request.projectId}（${request.projectId}）` : "全体"}
               currentAmount={request.projectId ? projectAmounts[request.projectId] ?? null : memberAmount}
+              milestones={request.projectId ? projectContext[request.projectId] ?? [] : []}
               request={request}
               onUpdated={onUpdated}
             />
@@ -520,6 +537,7 @@ function RevisionRequestsPanel({
               senderLabel={senderLabel}
               projectLabel={request.projectId ? `${projectNames[request.projectId] ?? request.projectId}（${request.projectId}）` : "全体"}
               currentAmount={request.projectId ? projectAmounts[request.projectId] ?? null : memberAmount}
+              milestones={request.projectId ? projectContext[request.projectId] ?? [] : []}
               request={request}
               onUpdated={onUpdated}
             />
@@ -534,12 +552,14 @@ function RevisionRequestCard({
   senderLabel,
   projectLabel,
   currentAmount,
+  milestones,
   request,
   onUpdated,
 }: {
   senderLabel: string;
   projectLabel: string;
   currentAmount: number | null;
+  milestones: AdminMonthlyWorkAgreementResponse["rows"][number]["revisionProjectContext"][string];
   request: MonthlyWorkAgreementRevisionRequest;
   onUpdated: (updated: MonthlyWorkAgreementRevisionRequest) => void;
 }) {
@@ -547,6 +567,8 @@ function RevisionRequestCard({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const isOpen = request.status === "open";
+  const legacySignals = legacyRequestSignals(request.body);
+  const mentionedMilestones = requestMilestones(request.body, milestones);
 
   const patch = async (status: "resolved" | "rejected" | "open") => {
     setSaving(true);
@@ -605,6 +627,32 @@ function RevisionRequestCard({
         <span className="text-muted-foreground">要望の登録・処理だけでは予定額は変わりません。</span>
       </div>
       <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">{request.body}</p>
+      {isOpen && legacySignals && (
+        <div className="mt-2 flex flex-wrap gap-2 text-xs">
+          {legacySignals.share && <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 font-semibold text-amber-950">申告された担当割合：{legacySignals.share}</span>}
+          {legacySignals.unlistedWork && <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 font-semibold text-amber-950">MSにない追加業務の申告あり</span>}
+        </div>
+      )}
+      {isOpen && mentionedMilestones.length > 0 && (
+        <div className="mt-3 rounded-md border border-sky-200 bg-sky-50/60 px-3 py-2 text-xs text-sky-950">
+          <p className="font-semibold">要望に該当する現在のMS設定</p>
+          <div className="mt-1.5 grid gap-1.5">
+            {mentionedMilestones.map((milestone) => (
+              <div key={milestone.milestoneId} className="min-w-0 border-t border-sky-100 pt-1.5 first:border-0 first:pt-0">
+                <p className="font-medium break-words">{milestone.title}</p>
+                <p className="mt-0.5 text-sky-900">{milestone.assignments.map((assignment) => `${assignment.codeName} ${assignment.sharePct}％`).join(" / ") || "担当割合の設定なし"}</p>
+                {milestone.taskDescription && <p className="mt-0.5 break-words text-sky-800">担当メモ：{milestone.taskDescription}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {isOpen && request.projectId && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-muted-foreground">MSを編集し、保存前の報酬検算で影響額を確認</span>
+          <Link href={`/admin/ms-overview?projectId=${encodeURIComponent(request.projectId)}`} className="font-semibold text-blue-700 underline underline-offset-2">MS一覧を開く</Link>
+        </div>
+      )}
       <label className="mt-2 block">
         <span className="text-[11px] font-semibold text-muted-foreground">対応メモ（任意・メンバーには出さない）</span>
         <textarea

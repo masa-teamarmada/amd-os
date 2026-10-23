@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { Hint } from "@/components/ui/Hint";
+import type { AgreementRevisionAmountChoice } from "@/lib/monthly-agreement-revision-proposal";
 import type {
   ExpectedRewardChangeExplanation,
   MonthlyAgreementAmountChangeReason,
@@ -147,7 +148,12 @@ export function MonthlyAgreementExperience({
   const [loading, setLoading] = useState(!initialBundle);
   const [savingProjectId, setSavingProjectId] = useState<string | null>(null);
   const [requestSaving, setRequestSaving] = useState(false);
-  const [requestBody, setRequestBody] = useState("");
+  const [requestMilestoneId, setRequestMilestoneId] = useState("");
+  const [requestSharePct, setRequestSharePct] = useState("");
+  const [requestAdditionalWork, setRequestAdditionalWork] = useState("");
+  const [requestAmountChoice, setRequestAmountChoice] = useState<AgreementRevisionAmountChoice>("recalculate");
+  const [requestAmountYen, setRequestAmountYen] = useState("");
+  const [requestDetail, setRequestDetail] = useState("");
   const [requestProjectId, setRequestProjectId] = useState("");
   const [requestType, setRequestType] = useState("scope_or_goal");
   const [revisionOpen, setRevisionOpen] = useState(false);
@@ -254,7 +260,14 @@ export function MonthlyAgreementExperience({
           memberId: bundle.member.memberId,
           projectId: requestProjectId || null,
           requestType,
-          body: requestBody,
+          proposal: {
+            milestoneId: requestMilestoneId || null,
+            requestedSharePct: requestMilestoneId && requestSharePct !== "" ? Number(requestSharePct) : null,
+            additionalWork: requestAdditionalWork,
+            amountChoice: requestAmountChoice,
+            requestedAmountYen: requestAmountChoice === "specific" && requestAmountYen !== "" ? Number(requestAmountYen) : null,
+            detail: requestDetail,
+          },
         }),
       });
       const payload = (await res.json().catch(() => ({}))) as {
@@ -266,8 +279,12 @@ export function MonthlyAgreementExperience({
         throw new Error(payload.error || `保存に失敗 (${res.status})`);
       }
       setBundle(payload.bundle);
-      setRequestBody("");
-      setRequestProjectId("");
+      setRequestMilestoneId("");
+      setRequestSharePct("");
+      setRequestAdditionalWork("");
+      setRequestAmountChoice("recalculate");
+      setRequestAmountYen("");
+      setRequestDetail("");
       setRequestType("scope_or_goal");
       setRevisionOpen(true);
       setRequestMessage("送信しました。管理側で確認します。");
@@ -441,6 +458,7 @@ export function MonthlyAgreementExperience({
           onRequestRevision={(projectId, type) => {
             setRequestProjectId(projectId);
             setRequestType(type);
+            setRequestAmountChoice(type === "reward" ? "specific" : "recalculate");
             setRequestMessage(null);
             setRevisionOpen(true);
           }}
@@ -502,6 +520,7 @@ export function MonthlyAgreementExperience({
               aria-controls="monthly-agreement-revision-panel"
               onClick={() => {
                 setRequestMessage(null);
+                if (!requestProjectId) setRequestProjectId(bundle.snapshot.projects[0]?.projectId ?? "");
                 setRevisionOpen((open) => !open);
               }}
               disabled={!bundle.canRequestRevision}
@@ -534,7 +553,7 @@ export function MonthlyAgreementExperience({
                   <p
                     className={`${isModal ? "mt-0.5 text-[10px]" : "mt-1 text-xs"} leading-relaxed text-[#6e6e73]`}
                   >
-                    担当内容や予定額の違いを、現在の内容→希望する内容で書いてください。割合の変更は、他の担当者への影響も分かる範囲で。希望額が分からない場合は「金額は要確認」と書いてください。
+                    変更するMSと割合、追加する仕事、金額についての希望を分けて入力してください。管理側が変更後の支払額を検算します。
                     <Hint id="monthly-agreement.revision-request" />
                   </p>
                 </div>
@@ -546,40 +565,89 @@ export function MonthlyAgreementExperience({
                   閉じる
                 </button>
               </div>
-              <div
-                className={`${isModal ? "mt-2 grid gap-1.5 sm:grid-cols-2" : "mt-3 grid gap-2 sm:grid-cols-[160px_180px_minmax(0,1fr)]"}`}
-              >
-                <select
-                  value={requestType}
-                  onChange={(event) => setRequestType(event.target.value)}
-                  disabled={!bundle.canRequestRevision}
-                  className={`${isModal ? "h-8 py-1 text-xs" : "py-2 text-sm"} min-w-0 rounded-md border border-[#d1d1d6] bg-white px-2 text-[#1d1d1f]`}
-                >
-                  <option value="scope_or_goal">担当内容</option>
-                  <option value="reward">予定額</option>
-                  <option value="other">その他</option>
-                </select>
+              <div className={`mt-3 grid gap-3 ${isModal ? "sm:grid-cols-2" : "sm:grid-cols-2"}`}>
+                <label className="grid min-w-0 gap-1 text-xs font-semibold text-[#3c3c43]">
+                  対象PJ
                 <select
                   value={requestProjectId}
-                  onChange={(event) => setRequestProjectId(event.target.value)}
+                  onChange={(event) => {
+                    setRequestProjectId(event.target.value);
+                    setRequestMilestoneId("");
+                    setRequestSharePct("");
+                  }}
                   disabled={!bundle.canRequestRevision}
-                  className={`${isModal ? "h-8 py-1 text-xs" : "py-2 text-sm"} min-w-0 rounded-md border border-[#d1d1d6] bg-white px-2 text-[#1d1d1f]`}
+                  className="min-h-10 min-w-0 rounded-md border border-[#d1d1d6] bg-white px-2 text-sm text-[#1d1d1f]"
                 >
-                  <option value="">全体</option>
+                  <option value="">対象PJを選択</option>
                   {bundle.snapshot.projects.map((project) => (
                     <option key={project.projectId} value={project.projectId}>
                       {project.projectName}
                     </option>
                   ))}
                 </select>
+                </label>
+                <div className="min-w-0 rounded-md border border-[#e5e5e7] bg-[#f5f5f7] px-3 py-2 text-xs">
+                  現在の合意予定額：<strong>{formatYen(bundle.snapshot.projects.find((project) => project.projectId === requestProjectId)?.expectedRewardYen)}</strong>
+                </div>
+                <label className="grid min-w-0 gap-1 text-xs font-semibold text-[#3c3c43]">
+                  担当割合を変えるMS（任意）
+                  <select
+                    value={requestMilestoneId}
+                    onChange={(event) => {
+                      setRequestMilestoneId(event.target.value);
+                      setRequestSharePct("");
+                    }}
+                    disabled={!requestProjectId}
+                    className="min-h-10 min-w-0 rounded-md border border-[#d1d1d6] bg-white px-2 text-sm text-[#1d1d1f]"
+                  >
+                    <option value="">変更しない</option>
+                    {bundle.snapshot.projects.find((project) => project.projectId === requestProjectId)?.milestones.map((ms) => (
+                      <option key={ms.milestoneId} value={ms.milestoneId}>{ms.title}（現在 {ms.plannedShare == null ? "未設定" : `${Math.round(ms.plannedShare * 100)}％`}）</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid min-w-0 gap-1 text-xs font-semibold text-[#3c3c43]">
+                  希望する担当割合
+                  <div className="flex items-center gap-2">
+                    <input type="number" min="0" max="100" step="1" inputMode="numeric" value={requestSharePct}
+                      onChange={(event) => setRequestSharePct(event.target.value)} disabled={!requestMilestoneId}
+                      className="min-h-10 min-w-0 w-28 rounded-md border border-[#d1d1d6] bg-white px-3 text-sm text-[#1d1d1f]" />
+                    <span>％</span>
+                  </div>
+                </label>
+                <label className="grid min-w-0 gap-1 text-xs font-semibold text-[#3c3c43] sm:col-span-2">
+                  MSにない追加の仕事（任意）
                 <textarea
-                  value={requestBody}
-                  onChange={(event) => setRequestBody(event.target.value)}
+                  value={requestAdditionalWork}
+                  onChange={(event) => setRequestAdditionalWork(event.target.value)}
                   disabled={!bundle.canRequestRevision}
                   rows={isModal ? 2 : 3}
-                  className={`${isModal ? "sm:col-span-2 text-xs" : "min-h-[84px] text-sm"} min-h-12 rounded-md border border-[#d1d1d6] bg-white px-3 py-2 text-[#1d1d1f] outline-none focus:border-[#007aff]`}
-                  placeholder="例: ZMPの○○申請の担当割合を65%→100%にしたい。追加する仕事は○○。希望額は要確認。"
+                  className="min-h-12 rounded-md border border-[#d1d1d6] bg-white px-3 py-2 text-sm font-normal text-[#1d1d1f] outline-none focus:border-[#007aff]"
+                  placeholder="例: OkuDoor商品開発用の補助金申請を担当する"
                 />
+                </label>
+                <label className="grid min-w-0 gap-1 text-xs font-semibold text-[#3c3c43]">
+                  金額についての希望
+                  <select value={requestAmountChoice} onChange={(event) => setRequestAmountChoice(event.target.value as AgreementRevisionAmountChoice)}
+                    className="min-h-10 min-w-0 rounded-md border border-[#d1d1d6] bg-white px-2 text-sm text-[#1d1d1f]">
+                    <option value="recalculate">変更を反映した計算結果を確認したい</option>
+                    <option value="unchanged">現行額のままでよい</option>
+                    <option value="specific">希望額を指定する</option>
+                  </select>
+                </label>
+                {requestAmountChoice === "specific" && (
+                  <label className="grid min-w-0 gap-1 text-xs font-semibold text-[#3c3c43]">
+                    希望する合意予定額（円）
+                    <input type="number" min="0" step="1" inputMode="numeric" value={requestAmountYen}
+                      onChange={(event) => setRequestAmountYen(event.target.value)}
+                      className="min-h-10 min-w-0 rounded-md border border-[#d1d1d6] bg-white px-3 text-sm text-[#1d1d1f]" />
+                  </label>
+                )}
+                <label className="grid min-w-0 gap-1 text-xs font-semibold text-[#3c3c43] sm:col-span-2">
+                  その他の修正・根拠（任意）
+                  <textarea value={requestDetail} onChange={(event) => setRequestDetail(event.target.value)} rows={2}
+                    className="min-h-12 rounded-md border border-[#d1d1d6] bg-white px-3 py-2 text-sm font-normal text-[#1d1d1f] outline-none focus:border-[#007aff]" />
+                </label>
               </div>
               <div
                 className={`${isModal ? "mt-2" : "mt-3"} flex flex-wrap items-center justify-between gap-2`}
@@ -595,7 +663,10 @@ export function MonthlyAgreementExperience({
                   disabled={
                     requestSaving ||
                     !bundle.canRequestRevision ||
-                    requestBody.trim().length < 4
+                    !requestProjectId ||
+                    (!requestMilestoneId && requestAdditionalWork.trim().length < 8 && requestDetail.trim().length < 8 && requestAmountChoice !== "specific") ||
+                    (requestMilestoneId && requestSharePct === "") ||
+                    (requestAmountChoice === "specific" && requestAmountYen === "")
                   }
                   className={`${isModal ? "h-8 px-3 text-xs" : "px-3 py-2 text-xs"} inline-flex items-center justify-center gap-1.5 rounded-md border border-[#d1d1d6] bg-white font-semibold text-[#1d1d1f] disabled:cursor-not-allowed disabled:opacity-50`}
                 >

@@ -251,7 +251,7 @@ PJ単位の行の `snapshot_json` は、`projectScopedSnapshot()` でそのPJだ
 |---|---|
 | `ym` / `member_id` / `project_id` | 修正要望の対象。`project_id` が null の場合は全体 |
 | `request_type` | `scope_or_goal` / `reward` / `condition` / `other` |
-| `body` | 本人が書いた修正要望 |
+| `body` | 本人が書いた修正要望。PWAからは対象PJ・MSの現行→希望割合・追加業務・金額希望をサーバーで検証し、人が読める行形式で生成する。既存自由文とmacOSからの旧形式は保持 |
 | `status` | `open` / `resolved` / `rejected` |
 | `snapshot_hash` | 要望送信時に本人が見ていた current hash |
 | `resolved_at` / `resolved_by` / `resolution_note` | admin/PM 側の処理結果 |
@@ -322,7 +322,7 @@ API route は logged-in user を `members.email` で解決する。本人以外�
 - `未払いストックの流れ` は、月ごとに縦積みカードを増やさず、左に `前月残 / 当月発生 / 支払対象 / 支払 / 月末残`、右に稼働月列を並べる横長マトリクスで表示する。右側に余白を残さず、1つの月を複数行カードとして繰り返さない。狭い画面では横方向だけスクロールを許容する。支払額には税抜と税込を併記し、`支払実績` / `要照合` / `保存済み` / `保護済み` / `予定` の source badge を出し、過去実績・未照合・未来予定を混ぜない。
 - MS別予定報酬は、当月月次予算を当月予定MS消化ptと active member 正規化 share で配分する。`reward_summary_json.members[].breakdown[].payYen` は使わない。
 - 担当内容、予定報酬が違う場合は、合意とは別に修正要望を送信できる。
-- 修正要望の入力案内は、現在の内容から希望する内容への変更、割合変更による他担当者への影響、希望額または「金額は要確認」を書くよう促す。要望の登録自体は計算・合意額を変更しない。
+- PWAの修正要望は対象PJを必須にし、現在の予定額を表示する。担当割合変更は本人の既存MSを選び、現行値と希望値を別に記録する。追加業務、金額についての希望（現行額維持・再計算後に確認・希望額指定）、その他の根拠を欄ごとに受ける。サーバーは現在snapshotと照合してMSと現行割合を確かめ、人が読める本文を生成する。旧自由文APIはmacOS互換のため残す。登録だけで計算・合意額を変更しない。
 - 主要な概念には `Hint` を付ける。対象IDは `monthly-agreement.flow` / `monthly-agreement.project-count` / `monthly-agreement.expected-reward` / `monthly-agreement.payout` / `monthly-agreement.stock` / `monthly-agreement.stock-flow` / `monthly-agreement.ms-pt` / `monthly-agreement.ms-link` / `monthly-agreement.revision-request`。
 - 保存テーブル未適用時は保存ボタンを無効化し、migration未適用として表示する。
 
@@ -337,6 +337,7 @@ API route は logged-in user を `members.email` で解決する。本人以外�
 
 - 対象月、対象メンバー数、合意済み、未合意、条件更新あり、修正要望数、今月支払合計、今月末未払い残合計を表示する。合意済み / 未合意 / 条件更新ありの主数値は **member×PJ 単位の件数** で出し、該当メンバー数を補足に添える。合意はPJごとに成立するので、残件は member 数では追えない。
 - 各行に、その member のPJ別合意状態をバッジで並べる (`{PJ名} 合意済み / 未合意 / 条件更新あり`)。PJ名の羅列だけに戻さない。どのPJが未合意かが分からないと、支払が止まっている原因にたどり着けない。
+- 未対応の修正要望には、対象PJの現在のMS・全担当者の担当割合・本人の担当メモを現行データから添える。旧自由文から明示された割合変更とMS未登録業務も表示する。管理者はMS一覧の保存前報酬検算へ進み、金額と他メンバーへの影響を確認してから修正・再合意する。要望の状態変更だけで金額を動かさない。
 - 対象月は日本語表記のプルダウンから選ぶ。2026年6月以前を選んだときは、月初合意の導入前・移行月であり、合意保存も未合意による支払い停止も不要だと一覧上部に明示する。
 - member / PJ / status で検索できる。
 - 各行は `予定報酬` だけでなく `今月支払` と `未払い残` を分けて表示し、stock が今月支払対象ではないことを admin 一覧でも判別できるようにする。`今月支払` は支払条件から見た現金支払月で集計し、`invoice_ym` は請求書発行月として扱う。
