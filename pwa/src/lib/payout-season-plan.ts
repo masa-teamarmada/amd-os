@@ -147,7 +147,11 @@ export function buildPayoutSeasonPlan(input: {
       add(cell(expense.ym), expense.kind === "other" ? "other" : "reimbursement", expense.amountYen);
     }
     return row;
-  }).sort((a, b) => Number(!a.planId) - Number(!b.planId) || a.projectName.localeCompare(b.projectName, "ja"));
+  }).sort((a, b) => {
+    const currentPay = (row: SeasonProjectPlan) => (row.cells[paymentYm]?.regularPay ?? 0) + (row.cells[paymentYm]?.extraPay ?? 0);
+    const income = (row: SeasonProjectPlan) => Object.values(row.cells).reduce((total, cell) => total + (cell.income ?? 0) + (cell.extraIncome ?? 0), 0);
+    return Number(!a.planId) - Number(!b.planId) || currentPay(b) - currentPay(a) || income(b) - income(a) || a.projectName.localeCompare(b.projectName, "ja");
+  });
   const bounds = projects.flatMap((project) => Object.keys(project.cells));
   const months = seasonMonths([paymentYm, ...bounds].sort()[0], [paymentYm, ...bounds].sort().at(-1)!);
   for (const row of projects) {

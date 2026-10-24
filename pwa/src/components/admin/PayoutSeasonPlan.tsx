@@ -36,6 +36,11 @@ export function PayoutSeasonPlanView({ ym, plan: current, loading = false, error
 }) {
   const [full, setFull] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const wrapper = scrollRef.current;
+    const column = wrapper?.querySelector<HTMLElement>(`[data-payment-column="${ym}"]`);
+    if (wrapper && column) wrapper.scrollTo({ left: Math.max(0, column.offsetLeft - 360), behavior: "instant" });
+  }, [current?.paymentYm, ym]);
   const shown = full ? metrics : metrics.filter(([key]) => ["net", "regularPay", "debt"].includes(key));
   const pending = current?.projects.filter((row) => !row.planId || SEASON_METRICS.some(([metric]) => row.totals[metric] == null)).length ?? 0;
   const styles = (value: number | null, metric: SeasonMetric) => value == null ? "text-muted-foreground" : value < 0 && (metric === "net" || metric === "cumulative") ? "text-red-700 font-semibold" : metric === "debt" && value > 0 ? "text-amber-800" : "text-foreground";
@@ -75,7 +80,7 @@ export function PayoutSeasonPlanView({ ym, plan: current, loading = false, error
     </div>
     <div aria-live="polite" className="flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
       {loading && <span className="text-muted-foreground">収支予定を読込中…</span>}
-      {current && <><span>{current.projects.filter((row) => row.planId).length} PJにシーズン設定</span><span className={pending ? "text-amber-800" : "text-muted-foreground"}>未設定・未計算 {pending} PJ</span><span>設定済みPJの期末未払報酬 {valueLabel(current.totals.debt)}{current.totals.debt == null ? "" : "円"}</span></>}
+      {current && <><span>{current.projects.filter((row) => row.planId).length} PJにシーズン設定</span><span className={pending ? "text-amber-800" : "text-muted-foreground"}>未設定・未計算 {pending} PJ</span><span>設定済みPJの期末未払報酬 {current.totals.debt == null ? "未計算" : `${number.format(current.totals.debt)}円`}</span></>}
     </div>
     {error ? <div role="alert" className="border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950">{error}<button type="button" onClick={onReload} className="ml-3 underline">収支予定を再読込</button></div> : current ? <>
       <div ref={scrollRef} role="region" aria-label="全PJのシーズン月別収支表" tabIndex={0} className="max-h-[560px] overflow-auto border border-border focus-visible:outline-2 focus-visible:outline-sky-600">
@@ -101,7 +106,7 @@ export function PayoutSeasonPlanView({ ym, plan: current, loading = false, error
               {index === 0 && <th rowSpan={shown.length} scope="rowgroup" className="sticky left-0 z-20 border-b border-r border-border bg-background px-2 py-1 text-left align-top">
                 <Link href={`/project/${project.projectId}/cockpit`} className="font-semibold text-sky-800 hover:underline">{project.projectName}</Link>
                 <div className="mt-1 font-mono text-[10px] font-normal text-muted-foreground">{ymLabel(project.startYm!)}<br />〜{ymLabel(project.endYm!)}</div>
-                <div className="mt-2 text-[10px] font-normal text-muted-foreground">今回報酬<div className="font-mono text-foreground">{valueLabel(rewardTotal(project, false))}</div>今後報酬<div className="font-mono text-foreground">{valueLabel(rewardTotal(project, true))}</div></div>
+                {full && <div className="mt-2 text-[10px] font-normal text-muted-foreground">今回報酬<div className="font-mono text-foreground">{valueLabel(rewardTotal(project, false))}</div>今後報酬<div className="font-mono text-foreground">{valueLabel(rewardTotal(project, true))}</div></div>}
                 {project.missingMonths.length > 0 && <div className="mt-1 font-normal text-amber-800" title={project.missingMonths.map(ymLabel).join("、")}>未計算 {project.missingMonths.length}月</div>}
                 {project.notes.map((note) => <div key={note} className="mt-1 text-[10px] font-normal text-muted-foreground">{note}</div>)}
               </th>}
@@ -113,6 +118,6 @@ export function PayoutSeasonPlanView({ ym, plan: current, loading = false, error
         </table>
       </div>
       <p className="text-[11px] text-muted-foreground">「—」は0円、「未計算」は金額未確認。未計算を含む合計も未計算と表示。未払報酬は期末残高を表示し、月ごとの残高を足さない。会社共通費・期首資金は財務で確認。</p>
-    </> : <div className="h-32 border border-border bg-muted/20 p-3 text-xs text-muted-foreground">全PJのシーズン開始から最終支払月までを読み込んでいます…</div>}
+    </> : <div className="h-[560px] border border-border bg-muted/20 p-3 text-xs text-muted-foreground">全PJのシーズン開始から最終支払月までを読み込んでいます…</div>}
   </section>;
 }

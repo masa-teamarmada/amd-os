@@ -1950,6 +1950,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
     );
   }, [expectedEntries, memberMap, memberRecordMap, payoutExcludedMemberIds, noticeMap, payoutMap, reimbursementsByMember]);
 
+  const payableMemberRows = memberRows.filter((row) => !row.noticeExcluded && row.totalPay + row.reimbursementYen > 0);
   const grandTotal = memberRows.reduce((sum, row) => sum + row.totalPay, 0);
   const regularBaseTotal = memberRows.reduce((sum, row) => sum + row.regularBasePay, 0);
   const extraBaseTotal = memberRows.reduce((sum, row) => sum + row.extraBasePay, 0);
@@ -2576,7 +2577,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
 
       <div className="flex flex-wrap gap-x-5 gap-y-1 border-y border-border bg-muted/20 px-2 py-2 text-xs tabular-nums" aria-live="polite">
         <span>発行対象 <strong>{memberRows.filter((row) => !row.noticeExcluded && row.totalPay + row.reimbursementYen > 0).length}人</strong></span>
-        <span>合意の要確認 <strong>{agreementBlockedMemberIds.size}人</strong></span>
+        <span>合意の要確認 <strong>{agreementGate ? `${agreementBlockedMemberIds.size}人` : "確認中"}</strong></span>
         <span>PDF作成済み <strong>{memberRows.filter((row) => row.notice?.pdf_url).length}人</strong></span>
         <span>送付済み <strong>{memberRows.filter((row) => row.notice?.sent_at).length}人</strong></span>
         <span className="ml-auto">今回の通知総額 <strong className="font-mono">{fmtFlowYen(memberRows.reduce((sum, row) => sum + Math.round(row.totalPay * 1.1) + row.reimbursementYen, 0))}</strong> <span className="text-muted-foreground">税込・立替込み</span></span>
@@ -2654,14 +2655,14 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {memberRows.length === 0 ? (
+              {payableMemberRows.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
                     この支払月のメンバー支払予定はまだ出ていない。対象cycleがあるのに空なら、報酬キャッシュ再計算を実行してください。
                   </td>
                 </tr>
               ) : (
-                memberRows.map((row) => (
+                payableMemberRows.map((row) => (
                   <tr key={row.memberId} className="align-top hover:bg-muted/20">
                       <td className="px-3 py-2">
                           <div className="font-semibold">{row.memberName}</div>
@@ -2752,8 +2753,10 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                       {agreementBlockedMemberIds.has(row.memberId) && <Link href={`/admin/monthly-work-agreements?ym=${row.entries[0]?.ym ?? ym}&q=${row.memberId}`} className="block text-amber-800 underline">月初合意を確認</Link>}
                       {row.noticeProfileStale && <span className="block text-amber-800">宛先情報が変更 · 再作成</span>}
                       {!memberRecordMap.get(row.memberId)?.email && <Link href="/admin/members" className="block text-amber-800 underline">送付先メール未登録</Link>}
+                      {!memberRecordMap.get(row.memberId)?.member_address?.trim() && <Link href="/admin/members" className="block text-amber-800 underline">宛先住所未登録</Link>}
                       {!row.isSaved && <span className="block text-amber-800">最新額で作成 · 保存額 {fmtYen(row.savedTotal)}</span>}
-                      {!agreementBlockedMemberIds.has(row.memberId) && !row.noticeProfileStale && row.isSaved && memberRecordMap.get(row.memberId)?.email && <span className="text-muted-foreground">追加の確認なし</span>}
+                      {!agreementGate && <span className="block text-muted-foreground">合意状況を確認中</span>}
+                      {agreementGate && !agreementBlockedMemberIds.has(row.memberId) && !row.noticeProfileStale && row.isSaved && memberRecordMap.get(row.memberId)?.email && memberRecordMap.get(row.memberId)?.member_address?.trim() && <span className="text-muted-foreground">追加の確認なし</span>}
                     </td>
                     <td className="px-3 py-2 text-right">
                       <div className="font-semibold">税抜 {fmtYen(row.totalPay)}</div>
@@ -3006,7 +3009,8 @@ function PayoutAgreementGatePanel({
   overrideReason: string;
   onOverrideReasonChange: (value: string) => void;
 }) {
-  if (!gate || gate.totalTargets === 0) return null;
+  if (!gate) return <p role="status" className="border border-border bg-muted/20 p-2 text-xs text-muted-foreground">月初合意・修正要望を確認中…</p>;
+  if (gate.totalTargets === 0) return <p className="text-xs text-muted-foreground">この支払月に月初合意の確認が必要な明細はありません。</p>;
   const blockers = gate.blockers ?? [];
   const blocked = blockers.length > 0;
   const tone = blocked ? "border-red-300 bg-red-50" : "border-emerald-300 bg-emerald-50";

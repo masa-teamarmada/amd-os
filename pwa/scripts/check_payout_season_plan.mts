@@ -43,4 +43,7 @@ assert.equal(choosePayoutSeason([plan, { ...plan, plan_cycle_id: "draft", status
 const unconfigured = buildPayoutSeasonPlan({ ...base, projects: [...base.projects, { ...project, project_id: "no-season", project_name: "未設定PJ" }] });
 assert.equal(unconfigured.projects.length, 2, "今月支払がなくても全PJを残す");
 assert.equal(unconfigured.projects.find((item) => item.projectId === "no-season")?.planId, null);
+const zeroProject = { ...project, project_id: "zero", project_name: "AAA 支払なしPJ" };
+const ordered = buildPayoutSeasonPlan({ ...base, projects: [zeroProject, project], plans: [{ ...plan, project_id: "zero", plan_cycle_id: "zero-plan" }, plan], cycles: [...cycles, ...cycles.map((cycle) => ({ ...cycle, project_id: "zero", reward_summary_json: { members: [] } }))] });
+assert.equal(ordered.projects[0].projectId, project.project_id, "今回支払のあるPJを0円のPJより先に表示する");
 console.log("支払通知書のシーズン収支: 月の区別・全期間・外部支払・立替・未計算・期末残高の検証に合格");
