@@ -15,9 +15,10 @@ function getRecentYms(n = 6): string[] {
   return result;
 }
 
-export default async function AdminPayoutsPage({ embedded = false }: { embedded?: boolean } = {}) {
-  const currentYm = getRecentYms(1)[0];
-  const ymOptions = getRecentYms(12);
+export default async function AdminPayoutsPage({ embedded = false, searchParams }: { embedded?: boolean; searchParams?: Promise<{ ym?: string }> } = {}) {
+  const requestedYm = (await searchParams)?.ym;
+  const currentYm = requestedYm && /^\d{4}(0[1-9]|1[0-2])$/.test(requestedYm) ? requestedYm : getRecentYms(1)[0];
+  const ymOptions = [...new Set([currentYm, ...getRecentYms(12)])];
   let initialData: Awaited<ReturnType<typeof loadTargetData>> | null = null;
 
   try {
@@ -30,16 +31,15 @@ export default async function AdminPayoutsPage({ embedded = false }: { embedded?
     <div>
       {embedded ? (
         <p className="mb-2 text-xs leading-relaxed text-muted-foreground">
-          支払月ベースで報酬確定済みcycleを集約 — {currentYm}。支払明細とメンバー別通知額を保存する。
+          全PJのシーズン収支を確認し、今回の支払通知書を作成・送付する。
         </p>
       ) : (
         <>
           <div className="flex items-baseline gap-3 mb-1">
             <h1 className="text-lg font-semibold">支払通知書</h1>
-            <span className="text-sm text-muted-foreground">支払月 {currentYm}</span>
           </div>
           <p className="text-xs text-muted-foreground mb-4">
-            支払月ベースで報酬確定済みcycleを集約し、支払明細とメンバー別通知額を保存する。
+            シーズンの月別収支 → 発行前確認 → メンバー別の作成・送付。
           </p>
         </>
       )}

@@ -36,7 +36,8 @@
     "src/components/dd/report/DdReportReader.tsx": "POST /simulateは読者が編集している試算条件をその都度計算し、現在の資料版・権限・非開示指定を再検証する可変応答。下書き条件に対する計算を参照キャッシュで共用しない。GET /exportは完成済みの資料版・非開示指定と権限を毎回再検証する。",
     "src/app/preview-executive-meeting/PreviewBanner.tsx": "開発時専用の架空議案を初期化するPOSTだけ。実PJや本番DBを読まず、参照系の取得ではない。",
     "src/components/admin/ExecutiveMeetingAdminPanel.tsx": "可変系。経営陣属性・PJ登録・規程版は管理操作直後に更新され、付与と解除が閲覧・投票の可否を変える。古い権限一覧を再利用せず毎回no-storeで読む。",
-    "src/components/cockpit/CockpitView.tsx": "可変系。経営会議の入口は本人属性・PJ登録・PJ閲覧資格を毎回照合する。解除後の古い入場資格をキャッシュから表示しない。"
+    "src/components/cockpit/CockpitView.tsx": "可変系。経営会議の入口は本人属性・PJ登録・PJ閲覧資格を毎回照合する。解除後の古い入場資格をキャッシュから表示しない。",
+    "src/components/admin/PayoutSeasonPlan.tsx": "可変系。報酬再計算、立替承認、通知書の採用明細、契約・シーズン・支出台帳の更新が支払判断に影響する。支払月変更と支払データ再取得後に管理者認可付きno-storeで読む。"
   },
   "allowed": {
     "src/app/preview-executive-meeting/PreviewBanner.tsx": [
@@ -392,6 +393,9 @@
       "/api/dd/:p/report",
       "/api/dd/:p/report/export",
       "/api/dd/:p/report/simulate"
+    ],
+    "src/components/admin/PayoutSeasonPlan.tsx": [
+      "/api/admin/payouts/season-plan"
     ]
   }
 }

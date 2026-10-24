@@ -33,7 +33,7 @@
 | AMD Score / FRL | `4-1`, `4-2` | `partial` | alpha retrofit UI、XRL revision API、Triple Helix recompute の詳細。現行SPS、BZM 2.0、BZM 2.1のDB/API/UI境界は4-2へ記録済み。BZM 2.2は12 PJ×103パラメータのrepo内artifactをread-only APIからPJ score detail最上段へ投影し、J/P/Q/S、実数代入、gate別の通過・停止分岐、保存しない方針比較、各イベントの試算上の選択、根拠資料への導線を表示する。イベントと登録方針はM0から計算地平までの一本の横時間軸へ置き、その直下に同じ月列の `project_pl_monthly` とBZM経済CFを表示する。計算入力、実行可能性・経営判断、103項目監査台帳は表示階層を分ける。根拠付き意思決定履歴、将来判断台帳、日付変更に伴う完全な再計算、DB、SPS primary registryには未接続。条件付き確率の校正、因果識別、行動被覆、共有資源制約、独立複数評価者、重み・符号化・集約方式の感度分析は未実施 |
 | ECR | `4-3` | `partial` | 制度比較seedと投入手順、2026-07-29の主張境界は反映済み。rubric は `/bzm/9-4` 依存で、ECR 8軸rubricのPWA seed同期、自前ストック・実効サービス・流量成果の三層化、独立複数評価者、成果妥当性検証は未実装 |
 | 外部workspace / 研究機関 / SU | `1-4`, `1-5`, `2-1`, `2-2`, `2-3`, `4-3` | `partial` | organization tenant、capability、共同作業・判断、大学向けPJ面、外部公開版、資料revision、旧Project Share退役readback |
-| Admin / Finance / Reward | 未移行 | `not yet` | manual 6章・7章、`reward-summary.ts`、GAS payout PDF の spec 化 |
+| Admin / Finance / Reward | `3-27`（支払通知書） | `partial` | 支払通知書の月別収支・発行工程は移行済み。報酬計算とPDF様式はmanual 6章・7章、`reward-summary.ts`、GASに依存 |
 | DD資料・計算・旧版・出力 | `5-17` | `rebuildable` | 初期移行の原本Excelはprivate Storage。本文schema、認可、RPC、計算/出力/検証を記述 |
 | 市場ニーズ・関連リンク | `5-19` | `rebuildable` | 一市場一行・出典・国内世界/年別規模順位・確度・直接シーズ・補助図/構想・RLS/競合/JSON整合・検査 |
 | Atlas / Seeds / VC / Scholar | 未移行 | `not yet` | manual 4-1/4-2/5章、design `atlas.md` / `seeds.md` / `vc_list.md` の spec 化 |

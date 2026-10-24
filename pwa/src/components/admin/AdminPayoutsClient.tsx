@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { CockpitMonthlyModal } from "@/components/cockpit/CockpitMonthlyModal";
 import { MemberPayoutBreakdownModal } from "@/components/admin/MemberPayoutBreakdownModal";
+import { PayoutSeasonPlan } from "@/components/admin/PayoutSeasonPlan";
 import { fetchCockpitFromSupabase, type CockpitData } from "@/lib/supabase-data";
 import { expandExtraRevenueCash, type ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
 import { basePayoutCapYen, contractBackedClientAmount } from "@/lib/contract-money";
@@ -603,6 +604,13 @@ function fmtRequestedAt(iso: string | null | undefined): string {
   return Number.isNaN(date.getTime())
     ? iso
     : date.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function payoutPlannedDate(ym: string) {
+  const date = new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(4, 6)), 0));
+  if (date.getUTCDay() === 6) date.setUTCDate(date.getUTCDate() - 1);
+  else if (date.getUTCDay() === 0) date.setUTCDate(date.getUTCDate() - 2);
+  return `${date.getUTCFullYear()}/${date.getUTCMonth() + 1}/${date.getUTCDate()}`;
 }
 
 function fmtYm(ym: string) {
@@ -2465,99 +2473,22 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
   ]);
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1">
-          <span className="text-[11px] text-muted-foreground">支払月</span>
-          <select
-            value={ym}
-            onChange={(event) => setYm(event.target.value)}
-            disabled={loading || noticeSavingMemberId != null}
-            className="h-9 rounded-md border border-border bg-background px-2 text-[12px] font-mono"
-          >
-            {ymOptions.map((option) => (
-              <option key={option} value={option}>
-                {fmtYm(option)}
-              </option>
-            ))}
+    <div className="min-w-0 space-y-4">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border pb-2 text-xs">
+        <label className="flex items-center gap-2 font-medium">支払月
+          <select value={ym} onChange={(event) => { const nextYm = event.target.value; setYm(nextYm); const url = new URL(window.location.href); url.searchParams.set("ym", nextYm); window.history.replaceState(null, "", url); }} disabled={loading || noticeSavingMemberId != null} className="h-8 border border-border bg-background px-2 font-mono focus-visible:outline-2 focus-visible:outline-sky-600">
+            {ymOptions.map((option) => <option key={option} value={option}>{fmtYm(option)}</option>)}
           </select>
         </label>
-
-        <button
-          type="button"
-          onClick={() => loadForYm(ym)}
-          disabled={loading || noticeSavingMemberId != null}
-          className="h-9 rounded-md border border-border bg-background px-3 text-[12px] hover:bg-muted/40 disabled:opacity-50"
-        >
-          {loading ? "読込中..." : "再読込"}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => loadForYm(ym, { refreshRewards: true })}
-          disabled={loading || noticeSavingMemberId != null}
-          title="billing_cycles.reward_summary_json を再計算してキャッシュを更新する"
-          className="h-9 rounded-md border border-border bg-background px-3 text-[12px] hover:bg-muted/40 disabled:opacity-50"
-        >
-          報酬キャッシュ再計算
-        </button>
-
-        {snapshotSyncBlocked && (
-          <span
-            title={snapshotSyncStatusTitle}
-            className="inline-flex h-9 items-center rounded-md border border-red-200 bg-red-50 px-3 text-[12px] font-medium text-red-800"
-          >
-            同期できない
-          </span>
-        )}
-
-        <button
-          type="button"
-          onClick={sendPaymentNudges}
-          disabled={loading || noticeSavingMemberId != null || paymentNudgeSending || bulkPdfMode != null}
-          className="h-9 rounded-md border border-border bg-background px-3 text-[12px] hover:bg-muted/40 disabled:opacity-50"
-        >
-          {paymentNudgeSending ? "nudge送信中..." : "入金確認nudge"}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => saveThenRunBulkIssue()}
-          disabled={saveAndIssueDisabled}
-          title={saveAndIssueTitle}
-          className="h-9 rounded-md border border-emerald-300 bg-emerald-50 px-3 text-[12px] text-emerald-900 hover:bg-emerald-100 disabled:opacity-50"
-        >
-          {bulkPdfMode === "issue" ? "本番PDF発行中..." : "全員分PDF一括発行"}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => runBulkPdf(true)}
-          disabled={bulkPdfBaseDisabled}
-          title={bulkPreviewTitle}
-          className="h-9 rounded-md border border-border bg-background px-3 text-[12px] hover:bg-muted/40 disabled:opacity-50"
-        >
-          {bulkPdfMode === "preview" ? "確認用PDF生成中..." : "確認用PDF生成"}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            if (!window.confirm("全員分の支払通知書PDFを、最新DBの住所・宛名・登録番号で強制再生成する (= 差分検出を無視)。\n金額が変わってなくてもメンバー台帳の修正やラベル変更を反映したい時用。\n進める?")) return;
-            void saveThenRunBulkIssue({ force: true });
-          }}
-          disabled={saveAndIssueDisabled}
-          title={forceBulkIssueTitle}
-          className="h-9 rounded-md border border-amber-300 bg-amber-50 px-3 text-[12px] text-amber-900 hover:bg-amber-100 disabled:opacity-50"
-        >
-          {bulkPdfMode === "issue" ? "強制再発行中..." : "強制再発行 (全員)"}
-        </button>
-
-        <div className="ml-auto flex flex-wrap items-center gap-3 text-[12px]">
-          <span className="text-muted-foreground">{hint}</span>
-          <span className="font-semibold">合計 {fmtYen(grandTotal)}</span>
-        </div>
+        <button type="button" onClick={() => loadForYm(ym)} disabled={loading || noticeSavingMemberId != null} className="h-8 border border-border px-3 hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-sky-600 disabled:opacity-50">{loading ? "読込中…" : "再読込"}</button>
+        <nav aria-label="支払通知書の作業順" className="ml-2 flex gap-3 text-[11px] text-sky-700">
+          <a href="#payout-season-plan" className="underline underline-offset-2">01 シーズン収支</a>
+          <a href="#payout-checks" className="underline underline-offset-2">02 発行前確認</a>
+          <a href="#payout-members" className="underline underline-offset-2">03 作成・送付</a>
+        </nav>
+        <span className="ml-auto text-[11px] text-muted-foreground">支払予定日 {payoutPlannedDate(ym)} · PDF上の支払予定日</span>
       </div>
+      <PayoutSeasonPlan ym={ym} refreshToken={data} onOpenMonthly={(projectId, sourceYm, label) => { void openMonthlyModal(projectId, sourceYm, label); }} />
 
       {actionError && (
         <div
@@ -2638,27 +2569,25 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
         </div>
       )}
 
-      <PayoutAgreementGatePanel
-        gate={agreementGate}
-        overrideReason={agreementOverrideReason}
-        onOverrideReasonChange={setAgreementOverrideReason}
-      />
+      <section id="payout-checks" className="scroll-mt-4 space-y-2">
+        <h2 className="text-sm font-semibold">02 発行前の確認</h2>
+        <PayoutAgreementGatePanel gate={agreementGate} overrideReason={agreementOverrideReason} onOverrideReasonChange={setAgreementOverrideReason} />
+      </section>
 
-      <div className="grid gap-2 md:grid-cols-6">
-        <SummaryBox label="対象cycle" value={`${data?.cycles.length ?? 0}件`} sub={`${rewardCycleCount}件に報酬明細あり`} />
-        <SummaryBox label="報酬明細" value={`${expectedEntries.length}件`} sub="税抜ベース" />
-        <SummaryBox label="支払メンバー" value={`${memberRows.length}人`} sub={`通知額 ${data?.notices.length ?? 0}件`} />
-        <SummaryBox label="本契約発生" value={fmtYen(regularBaseTotal)} sub="regular MS" />
-        <SummaryBox label="別財布発生" value={fmtYen(extraBaseTotal)} sub="cap_extra MS" />
-        <SummaryBox label="支払総額" value={fmtYen(grandTotal)} sub={`支払月 ${fmtYm(ym)}`} />
+      <div className="flex flex-wrap gap-x-5 gap-y-1 border-y border-border bg-muted/20 px-2 py-2 text-xs tabular-nums" aria-live="polite">
+        <span>発行対象 <strong>{memberRows.filter((row) => !row.noticeExcluded && row.totalPay + row.reimbursementYen > 0).length}人</strong></span>
+        <span>合意の要確認 <strong>{agreementBlockedMemberIds.size}人</strong></span>
+        <span>PDF作成済み <strong>{memberRows.filter((row) => row.notice?.pdf_url).length}人</strong></span>
+        <span>送付済み <strong>{memberRows.filter((row) => row.notice?.sent_at).length}人</strong></span>
+        <span className="ml-auto">今回の通知総額 <strong className="font-mono">{fmtFlowYen(memberRows.reduce((sum, row) => sum + Math.round(row.totalPay * 1.1) + row.reimbursementYen, 0))}</strong> <span className="text-muted-foreground">税込・立替込み</span></span>
       </div>
 
-      <section className="space-y-3">
+      <section id="payout-members" className="scroll-mt-4 space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 className="text-[13px] font-semibold">メンバー別支払</h2>
+            <h2 className="text-sm font-semibold">03 メンバー別支払・作成・送付</h2>
             <span className="text-[11px] text-muted-foreground">
-              支払額は税抜をDB保存し、支払通知書PDFで消費税10%を上乗せ
+              今回払う報酬・立替と、書類の状態を確認して作成・送付する
             </span>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
@@ -2675,10 +2604,14 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
               onClick={() => saveThenRunBulkIssue()}
               disabled={saveAndIssueDisabled}
               title={saveAndIssueTitle}
-              className="h-8 rounded-md border border-emerald-300 bg-emerald-50 px-3 text-[11px] font-medium text-emerald-900 hover:bg-emerald-100 disabled:opacity-50"
+              className="h-8 border border-sky-700 bg-sky-700 px-3 text-[11px] font-medium text-white hover:bg-sky-800 focus-visible:outline-2 focus-visible:outline-sky-600 disabled:opacity-50"
             >
               {bulkPdfMode === "issue" ? "発行中..." : "全員分PDF一括発行"}
             </button>
+            <details className="relative">
+              <summary className="flex h-8 cursor-pointer items-center border border-border px-3 text-[11px] hover:bg-muted/40">再計算・再作成</summary>
+              <div className="absolute right-0 top-full z-30 mt-1 flex min-w-48 flex-col gap-1 border border-border bg-background p-2">
+                <button type="button" onClick={() => loadForYm(ym, { refreshRewards: true })} disabled={loading || noticeSavingMemberId != null} className="h-8 border border-border px-2 text-left text-[11px] hover:bg-muted/40 disabled:opacity-50">報酬キャッシュ再計算</button>
             <button
               type="button"
               onClick={() => runBulkPdf(true)}
@@ -2700,25 +2633,18 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
             >
               {bulkPdfMode === "issue" ? "再発行中..." : "強制再発行"}
             </button>
+              </div>
+            </details>
           </div>
         </div>
-        <div className="flex flex-wrap gap-x-4 gap-y-1 rounded-md border border-border bg-muted/25 px-3 py-2 text-[11px] text-muted-foreground">
-          <span>
-            <span className="font-medium text-foreground">バックグラウンド同期:</span>{" "}
-            夜間の先回り生成で最新計算額を税抜同期し、正式PDFまで作成。画面を開くだけでは保存しない。
-          </span>
-          <span>
-            <span className="font-medium text-foreground">一括発行:</span>{" "}
-            全員分の正式PDFを作成し、通知番号とPDF URLを保存。送付は別操作。
-          </span>
-        </div>
+        <p className="text-[11px] text-muted-foreground">全員分PDF一括発行で正式PDFを作成。内容を確認してから、各行の「送付」で宛先・本文・添付を確認する。</p>
         <div className="overflow-hidden rounded-lg border border-border">
           <table data-amie-list="records" className="w-full text-[12px]">
             <thead className="border-b border-border bg-muted/40">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">メンバー</th>
                 <th className="px-3 py-2 text-left font-medium">内訳</th>
-                <th className="px-3 py-2 text-right font-medium">保存済</th>
+                <th className="px-3 py-2 text-left font-medium">確認事項</th>
                 <th className="px-3 py-2 text-right font-medium">
                   <span className="block">支払額</span>
                   <span className="block text-[10px] font-normal text-muted-foreground">税抜 / 税込</span>
@@ -2798,16 +2724,6 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                               <span className="font-medium">{project?.project_name ?? entry.projectId}</span>
                                 <span className="font-mono text-muted-foreground">{fmtYm(entry.ym)}</span>
                                 <span className="text-muted-foreground">{fmtPt(entry.earnedPt)}</span>
-                                  <span className="text-muted-foreground">base {fmtYen(entry.basePay)}</span>
-                                  {entry.regularBasePay > 0 ? (
-                                    <span className="text-emerald-700">本契約 {fmtYen(entry.regularBasePay)}</span>
-                                  ) : null}
-                                  {entry.extraBasePay > 0 ? (
-                                    <span className="text-indigo-700">別財布 {fmtYen(entry.extraBasePay)}</span>
-                                  ) : null}
-                                  {entry.bonusPt > 0 ? (
-                                    <span className="text-muted-foreground">bonus {fmtYen(entry.bonusPt)}</span>
-                                ) : null}
                                 {entry.payoutAmountOverride ? (
                                   <span
                                     className="rounded border border-sky-200 bg-sky-50 px-1 text-sky-900"
@@ -2832,11 +2748,12 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                         })}
                       </div>
                     </td>
-                    <td className="px-3 py-2 text-right">
-                      <div className={row.isSaved ? "font-semibold text-emerald-700" : "font-semibold text-amber-700"}>
-                        税抜 {fmtYen(row.savedTotal)}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground">税込 {fmtTaxIncludedYen(row.savedTotal)}</div>
+                    <td className="px-3 py-2 text-[11px]">
+                      {agreementBlockedMemberIds.has(row.memberId) && <Link href={`/admin/monthly-work-agreements?ym=${row.entries[0]?.ym ?? ym}&q=${row.memberId}`} className="block text-amber-800 underline">月初合意を確認</Link>}
+                      {row.noticeProfileStale && <span className="block text-amber-800">宛先情報が変更 · 再作成</span>}
+                      {!memberRecordMap.get(row.memberId)?.email && <Link href="/admin/members" className="block text-amber-800 underline">送付先メール未登録</Link>}
+                      {!row.isSaved && <span className="block text-amber-800">最新額で作成 · 保存額 {fmtYen(row.savedTotal)}</span>}
+                      {!agreementBlockedMemberIds.has(row.memberId) && !row.noticeProfileStale && row.isSaved && memberRecordMap.get(row.memberId)?.email && <span className="text-muted-foreground">追加の確認なし</span>}
                     </td>
                     <td className="px-3 py-2 text-right">
                       <div className="font-semibold">税抜 {fmtYen(row.totalPay)}</div>
@@ -2854,6 +2771,8 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                       <NoticeBadge
                         notice={row.notice}
                         expectedTotal={row.totalPay}
+                        expectedReimbursement={row.reimbursementYen}
+                        profileStale={row.noticeProfileStale}
                         excluded={row.noticeExcluded}
                       />
                     </td>
@@ -2883,6 +2802,9 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
         </div>
       </section>
 
+      <details className="border-t border-border pt-2">
+        <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground">支払額の補足・報酬債務台帳・対象の稼働月</summary>
+        <div className="mt-3 space-y-3">
       <RewardDebtLedgerPanel
         rows={rewardDebtLedgerRows}
         paymentYm={ym}
@@ -2894,12 +2816,6 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
         totals={budgetAuditTotals}
         financeGroups={projectFinanceGroups}
         onOpenMonthly={(item) => openMonthlyModal(item.projectId, item.ym, `${item.projectName} ${fmtYm(item.ym)}`)}
-      />
-
-      <ProjectMonthlyFinanceTable
-        months={forecastMonths}
-        rows={projectMonthlyFinanceRows}
-        onOpenMonthly={(cell) => openMonthlyModal(cell.projectId, cell.ym, `${cell.projectName} ${fmtYm(cell.ym)}`)}
       />
 
       <MemberMonthlyPayoutMatrix
@@ -2923,7 +2839,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                 <th className="px-3 py-2 text-left font-medium">PJ</th>
                 <th className="px-3 py-2 text-left font-medium">稼働月</th>
                 <th className="px-3 py-2 text-left font-medium">支払月</th>
-                <th className="px-3 py-2 text-left font-medium">status</th>
+                <th className="px-3 py-2 text-left font-medium">状態</th>
                 <th className="px-3 py-2 text-right font-medium">報酬額</th>
                 <th className="px-3 py-2 text-right font-medium">保存</th>
               </tr>
@@ -2992,6 +2908,9 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
           </table>
         </div>
       </section>
+
+        </div>
+      </details>
 
       {modalTarget && modalLoading && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 backdrop-blur-sm">
@@ -3100,7 +3019,7 @@ function PayoutAgreementGatePanel({
     <section className={`rounded-lg border p-3 ${tone}`}>
       <div className="flex flex-wrap items-start gap-3">
         <div>
-          <h2 className={`text-[13px] font-semibold ${textTone}`}>月初合意支払ゲート</h2>
+          <h2 className={`text-[13px] font-semibold ${textTone}`}>月初合意・修正要望</h2>
           {migrationBypassOnly ? (
             <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
               <span>対象支払行 {requiredRows.length}</span>
@@ -3109,15 +3028,15 @@ function PayoutAgreementGatePanel({
             </div>
           ) : (
             <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
-              <span>required {gate.requiredCount}</span>
-              <span>agreed {gate.agreedCount}</span>
-              <span>not required {gate.notRequiredCount}</span>
-              <span>blocker {gate.blockedCount}</span>
+              <span>合意対象 {gate.requiredCount}</span>
+              <span>合意済み {gate.agreedCount}</span>
+              <span>対象外 {gate.notRequiredCount}</span>
+              <span>要確認 {gate.blockedCount}</span>
             </div>
           )}
         </div>
         <span className={`ml-auto rounded border px-2 py-1 text-[11px] ${blocked ? "border-red-300 bg-background text-red-800" : "border-emerald-300 bg-background text-emerald-800"}`}>
-          {blocked ? "支払停止" : "支払可能"}
+          {blocked ? `要確認 ${blockers.length}件 · 対象者ごとに確認` : "合意の確認完了"}
         </span>
       </div>
 
@@ -3132,11 +3051,11 @@ function PayoutAgreementGatePanel({
           <table data-amie-list="records" className="w-full text-[11px]">
             <thead className="border-b border-border/60 bg-muted/30">
               <tr>
-                <th className="px-2 py-1.5 text-left font-medium">member</th>
+                <th className="px-2 py-1.5 text-left font-medium">メンバー</th>
                 <th className="px-2 py-1.5 text-left font-medium">PJ</th>
                 <th className="px-2 py-1.5 text-left font-medium">稼働月</th>
-                <th className="px-2 py-1.5 text-left font-medium">status</th>
-                <th className="px-2 py-1.5 text-left font-medium">reason</th>
+                <th className="px-2 py-1.5 text-left font-medium">状態</th>
+                <th className="px-2 py-1.5 text-left font-medium">確認内容</th>
                 <th className="px-2 py-1.5 text-right font-medium">
                   <span className="block">支払額</span>
                   <span className="block text-[10px] font-normal text-muted-foreground">税抜 / 税込</span>
@@ -3144,7 +3063,7 @@ function PayoutAgreementGatePanel({
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
-              {shownRows.slice(0, 12).map((row) => (
+              {shownRows.map((row) => (
                 <Fragment key={row.key}>
                 <tr>
                   <td className="px-2 py-1.5">
@@ -3204,8 +3123,10 @@ function PayoutAgreementGatePanel({
       )}
 
       {blocked && (
-        <label className="mt-3 block space-y-1">
-          <span className="text-[11px] font-medium text-red-950">admin override reason (任意)</span>
+        <details className="mt-2 border-t border-border/60 pt-2">
+          <summary className="cursor-pointer text-[11px] font-medium">例外発行の事情メモ（任意）</summary>
+          <label className="mt-2 block space-y-1">
+          <span className="sr-only">例外発行の事情メモ（任意）</span>
           <textarea
             value={overrideReason}
             onChange={(event) => onOverrideReasonChange(event.target.value)}
@@ -3214,9 +3135,10 @@ function PayoutAgreementGatePanel({
             className="w-full rounded-md border border-red-200 bg-background px-2 py-1.5 text-[12px] outline-none focus:border-red-400"
           />
           <span className="block text-[10px] text-red-900/70">
-            発行・送付ボタンを押したときの確認ダイアログに、この理由が初期値として入る。空のままでも確認ダイアログから実行でき、その場合は既定の文言で残る。override は server-side で actor / reason / member / PJ / 支払月 / 稼働月を監査ログに残す。
+            発行・送付の確認画面へ引き継ぐメモ。実行者と事情は履歴に残る。
           </span>
-        </label>
+          </label>
+        </details>
       )}
     </section>
   );
@@ -3269,11 +3191,11 @@ function AgreementOverrideConfirmModal({
             <table data-amie-list="records" className="w-full text-[11px]">
               <thead className="border-b border-border/60 bg-muted/30">
                 <tr>
-                  <th className="px-2 py-1.5 text-left font-medium">member</th>
+                  <th className="px-2 py-1.5 text-left font-medium">メンバー</th>
                   <th className="px-2 py-1.5 text-left font-medium">PJ</th>
                   <th className="px-2 py-1.5 text-left font-medium">稼働月</th>
-                  <th className="px-2 py-1.5 text-left font-medium">status</th>
-                  <th className="px-2 py-1.5 text-left font-medium">reason</th>
+                  <th className="px-2 py-1.5 text-left font-medium">状態</th>
+                  <th className="px-2 py-1.5 text-left font-medium">確認内容</th>
                   <th className="px-2 py-1.5 text-right font-medium">
                     <span className="block">支払額</span>
                     <span className="block text-[10px] font-normal text-muted-foreground">税抜 / 税込</span>
@@ -4303,15 +4225,16 @@ function PayoutNoticeActions({
   }
 
   const blocked = disabled || issuing || sendPreparing;
-  const canIssuePdf = !blocked && row.totalPay > 0;
-  const canPreviewPdf = !blocked && row.totalPay > 0;
+  const canIssuePdf = !blocked && row.totalPay + row.reimbursementYen > 0;
+  const canPreviewPdf = !blocked && row.totalPay + row.reimbursementYen > 0;
   const isSent = Boolean(row.notice?.sent_at);
   const canClearSent = !blocked && isSent;
   const savedNoticeTotal = Math.round(numberValue(row.notice?.total_yen));
-  const totalMismatch = savedNoticeTotal > 0 && savedNoticeTotal !== Math.round(row.totalPay);
-  const hasPdf = Boolean(row.notice?.pdf_url) && row.isSaved && !totalMismatch && !String(row.notice?.notice_no || "").startsWith("PREVIEW-");
+  const totalMismatch = savedNoticeTotal !== Math.round(row.totalPay);
+  const reimbursementMismatch = Boolean(row.notice) && Math.round(numberValue(row.notice?.reimbursement_yen)) !== row.reimbursementYen;
+  const hasPdf = Boolean(row.notice?.pdf_url) && row.isSaved && !totalMismatch && !reimbursementMismatch && !String(row.notice?.notice_no || "").startsWith("PREVIEW-");
   const canConfirmPdf = canPreviewPdf && hasPdf && !row.noticeProfileStale;
-  const canOpenSendModal = !blocked && row.totalPay > 0 && !isSent && hasPdf && !row.noticeProfileStale;
+  const canOpenSendModal = !blocked && row.totalPay + row.reimbursementYen > 0 && !isSent && hasPdf && !row.noticeProfileStale;
   const issueTitle = agreementBlocked
     ? "このメンバーは月初合意が未完了。押すと確認ダイアログが出て、はいを押したら発行する"
     : row.isSaved
@@ -4330,8 +4253,8 @@ function PayoutNoticeActions({
     ? "このメンバーは月初合意が未完了。押すと確認ダイアログが出て、はいを押したらメール本文の確認画面へ進む"
     : row.noticeProfileStale
       ? "メンバー台帳がPDF生成後に更新されています。先に支払通知書発行で正式PDFを作り直してください"
-      : totalMismatch
-        ? "支払額がPDF生成後に変わっています。先に支払通知書発行で正式PDFを作り直してください"
+      : totalMismatch || reimbursementMismatch
+        ? "報酬または立替精算がPDF生成後に変わっています。先に支払通知書発行で正式PDFを作り直してください"
         : hasPdf
           ? "保存済み正式PDFとメール本文を確認する"
           : "送信用の正式PDFがありません。先に支払通知書発行を実行してください";
@@ -4346,7 +4269,7 @@ function PayoutNoticeActions({
           title={issueTitle}
           className="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted/40 disabled:opacity-50"
         >
-          {issuing ? "発行中..." : "支払通知書発行"}
+          {issuing ? "作成中…" : row.notice?.pdf_url ? "再作成" : "支払通知書発行"}
         </button>
         <button
           type="button"
@@ -4387,11 +4310,7 @@ function PayoutNoticeActions({
       {row.noticeProfileStale && (
         <div className="text-right text-[10px] text-amber-700">メンバー台帳更新後の再発行が必要</div>
       )}
-      {row.isSaved && !isSent && (
-        <div className="max-w-[260px] text-right text-[10px] leading-snug text-muted-foreground">
-          送付は保存済み正式PDFが最新の時だけ確認画面を開く。確認後の送信は keiri@ から実メール送信し、Bccに masa / kyoko、成功時に送付済み化。
-        </div>
-      )}
+
     </div>
   );
 }
@@ -4615,10 +4534,14 @@ function PaidBadge({ notice }: { notice: PayoutNotice }) {
 function NoticeBadge({
   notice,
   expectedTotal,
+  expectedReimbursement = 0,
+  profileStale = false,
   excluded,
 }: {
   notice: PayoutNotice | null;
   expectedTotal: number;
+  expectedReimbursement?: number;
+  profileStale?: boolean;
   excluded: boolean;
 }) {
   if (excluded) {
@@ -4630,7 +4553,7 @@ function NoticeBadge({
   }
 
   const savedTotal = Number(notice.total_yen ?? 0);
-  const differs = savedTotal > 0 && Math.round(savedTotal) !== Math.round(expectedTotal);
+  const differs = Math.round(savedTotal) !== Math.round(expectedTotal) || Math.round(numberValue(notice.reimbursement_yen)) !== Math.round(expectedReimbursement);
   const generatedLabel = fmtRelativeTime(notice.last_generated_at);
   if (notice.sent_at) {
     return (
@@ -4655,8 +4578,8 @@ function NoticeBadge({
 
   return (
     <div className="space-y-0.5">
-      <span className={`rounded px-1.5 py-0.5 text-[10px] ${differs ? "bg-amber-100 text-amber-800" : "bg-blue-100 text-blue-800"}`}>
-        {notice.notice_no || notice.pdf_url ? "発行準備中" : "金額保存"}
+      <span className={`rounded px-1.5 py-0.5 text-[10px] ${differs || profileStale ? "bg-amber-100 text-amber-800" : "bg-blue-100 text-blue-800"}`}>
+        {differs || profileStale ? "再作成が必要" : notice.pdf_url ? "作成済み・未送付" : "未作成"}
       </span>
       {notice.notice_no && <div className="font-mono text-[10px] text-muted-foreground">{notice.notice_no}</div>}
       <div className="text-[10px] text-muted-foreground">{fmtYen(savedTotal)}</div>

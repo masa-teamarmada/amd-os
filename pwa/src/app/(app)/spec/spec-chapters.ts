@@ -84,6 +84,7 @@ export const SPEC_SECTIONS: SpecSectionConfig[] = [
       "3-24-project-surface-pages-current-spec",
       "3-25-project-card-designs-current-spec",
       "3-26-executive-meeting-current-spec",
+      "3-27-payout-notice-current-spec",
     ],
   },
   {
@@ -130,6 +131,7 @@ export const SPEC_SECTIONS: SpecSectionConfig[] = [
 ];
 
 export const SPEC_CHAPTERS: SpecChapterConfig[] = [
+  { slug: "3-27-payout-notice-current-spec", title: "支払通知書・シーズン月別収支", summary: "全PJのシーズン月別収支、発行前確認、メンバー別のPDF作成・確認・送付。" },
   { slug: "1-1-overview", title: "設計書について", summary: "確定仕様の正本。manual / spec / bzm の 3 層体系と、OS 画面で正本管理する理由。" },
   { slug: "1-2-document-layer-migration-map", title: "ドキュメント3層移行マップ", summary: "manual / design / bzm / spec の重複・衝突、移行優先順位、章単位の移行ゲート。" },
   { slug: "1-3-reconstruction-coverage-audit", title: "再構築カバレッジ監査", summary: "設計書だけで current OS を再構築できるかを領域別に評価し、不足と確認済み実装を明示。" },

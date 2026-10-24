@@ -467,9 +467,11 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 ## /admin/payouts
 
-目的: 支払月単位で、対象cycleの報酬確認、PJ別収支確認、支払データ同期状態、支払通知書発行、入金確認nudgeを一画面で運用する。
+目的: 全PJのシーズン月別収支を確認し、対象支払月の合意確認、メンバー別支払、支払通知書の作成・PDF確認・送付を上から進める。正本はspec/3-27。
 
 必須機能:
+
+- 2026-10-24の工程順: 全PJのシーズン月別収支を最上段、合意・修正要望、メンバー別支払と一括発行の順。`PayoutSeasonPlan` と管理者GET `/api/admin/payouts/season-plan` はread-only。固定3列・固定月見出し・今回支払月・未設定・未計算・期末残高を表示する。旧4つの先12か月PJ表はこの全期間表へ置換。台帳・検算・先12か月メンバー予定は補足欄へ置き、再計算・確認用PDF・強制再発行はメニューにまとめる。入金催促は請求・入金管理で扱う。下記の旧表に関する計算定義は互換参考で、現在の配置はspec3-27を優先する。
 
 - 支払月選択: `ym=YYYYMM` でメンバー支払月を選び、稼働月 `billing_cycles.ym` を `/admin/projects` の `projects.payment_due_rule` / `payment_due_day` で集約する。`billing_cycles.invoice_ym` はクライアント請求月なので、メンバー支払月判定には使わない。
 - 高速初期表示: 通常GETは `billing_cycles.reward_summary_json` の報酬キャッシュを読むだけにする。毎回 `syncRewardSummariesForBillingCycles()` を再計算しない。先12か月の capped 投影 (`forecastCapped`) も `forecastCycles.reward_summary_json` から集計し、画面を開いただけで全PJの `computeForwardCappedMemberCosts()` を走らせない。
@@ -490,7 +492,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - メンバー別支払の税区分: `メンバー別支払` / 月初合意 gate / 先12か月メンバー別支払予定の詳細で、`支払額` は税抜と税込を併記する。DB (`monthly_reward_payout.total_pay` / `payout_notices.total_yen`) は税抜を保存し、GAS PDF生成時に消費税10%を上乗せする。
 - 支払通知書発行: `メンバー別支払` は admin/payouts の主作業表なので、サマリ直下・報酬債務台帳より上に置く。「メンバー別支払」行に `支払通知書発行` / `PDF確認` / `送付` の3操作を置き、見出しにも `全員分PDF一括発行` / `確認用PDF生成` / `強制再発行` を置く。行の `PDF確認` は保存済み正式PDFを開くだけで、PDF生成は行わない。PDF未生成またはメンバー台帳更新後で古い場合は先に `支払通知書発行` / `強制再発行` で正式PDFを作り直す。`確認用PDF生成` は `PREVIEW-...` の確認用PDFを作るが、`payout_notices` には保存しない。`payout-notice-prebuild` は支払データ同期後に正式PDFを事前生成する。正式な個別 `支払通知書発行` と全員分PDF一括発行は、サーバー側で最新計算額を同期し、その後 DB を再読込して最新の `members.contractor_name` / `member_address` / `invoice_registration_number` を使ってから `payout_notices.notice_no` / `pdf_url` を保存する。`強制再発行` は金額差分が無くても最新メンバー台帳と現行テンプレートで作り直す。一括PDF生成で失敗または強制再発行なのに未送付PDFが未再生成になった場合は `ok: false` として画面に失敗を出す。`送付` はPDF生成・再生成を行わず、保存済み正式PDFが最新DBと一致し、確認用PDFではなく、未送付である場合だけ確認モーダルを開く。確認モーダルの `はい・送信` は保存済み正式PDFを添付して `keiri@team-armada.jp` から実メール送信し、成功後に `sent_at` を保存する。PDF URLの手入力欄は置かない。
 - 支払通知書PDFフォーマット: 正本は `gas/064_PayoutFreeeNotice.js` の `payoutBuildNoticePdfBlob_`。2026-04改善版の白地・青アクセント・正本ロゴ画像フォーマットを維持する。admin/payouts の支払額 (`monthly_reward_payout.total_pay` / `payout_notices.total_yen`) は税抜として扱い、PDF上で消費税10%を上乗せして「お支払金額」「合計（税込）」に表示する。宛先は `members.contractor_name` (= 未設定時は `member_name` / `code_name`) と `members.member_address`、メンバー側インボイス登録番号は `members.invoice_registration_number` を使い、PDF上のラベルは宛先側・発行者側とも `登録番号` とする。発行者側の値には AMD のインボイス登録番号 (`T7021001064067`) を表示する。必須要素は、中央青見出し `支払通知書`、青ライン、右上右寄せの `作成日` / `通知書番号`、右端に揃えた公式ロゴ画像 (`PAYOUT_LOGO_FILE_ID` / `PAYOUT_LOGOTYPE_FILE_ID`) と会社名・住所・`登録番号`、「お支払金額」サマリbox、青ヘッダ明細表 (`摘要` / `数量` / `単価` / `金額`)、右寄せ合計 (`小計（税抜）` / `消費税（10%）` / `合計（税込）`)、`支払予定日` / `支払方法` / `備考`。PDFには振込先欄を出さない。旧GASの黒罫線フォーマット、テキストで作った `team ARMADA` ロゴ、PDF URL手入力欄へ戻さない。
-- 入金確認nudge: `payment-confirm-nudges` を手動実行でき、Slack DMの `/payment-confirm` とつながる。
+- 入金確認nudgeは請求・入金管理へ分離。支払通知書の主作業に催促ボタンを置かない。
 - 月次モーダル導線: cycle明細やPJ収支表の稼働月から `CockpitMonthlyModal` を開き、報酬根拠に戻れる。
 
 回帰防止:
