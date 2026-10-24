@@ -608,4 +608,4 @@ npm run test:critical-ui
 
 2026-10-20: 契約メール監視を停止し、Bearer専用GET `/api/cron/contract-mail-watch` を撤去。押印申請の通知は操作直後と一覧表示時に配信。詳細はspec5-6。
 
-2026-10-24：`/admin/payouts` ときよ埋込はspec3-27の工程順へ改訂。シーズン月別収支表を上段へ常設し、固定列・月見出し・未計算・未設定を表示。再計算等はメニュー、台帳等は補足欄へ。管理者読取API `/api/admin/payouts/season-plan` を追加。
+2026-10-24：`/admin/payouts` ときよ埋込はspec3-27の工程順へ改訂。シーズン月別収支表を上段へ常設し、固定列・月見出し・未計算・未設定を表示。報酬支払は各PJ内のメンバーごとの月額・シーズン計を表示し、報酬中心表示でも全個人行を保持する。再計算等はメニュー、台帳等は補足欄へ。管理者読取API `/api/admin/payouts/season-plan` を追加。

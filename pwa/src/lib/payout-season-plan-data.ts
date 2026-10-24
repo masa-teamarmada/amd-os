@@ -22,7 +22,7 @@ export async function loadPayoutSeasonPlan(paymentYm: string) {
     read<SeasonProject>("projects", "project_id,project_name,status,fee_type,fee_amount,start_ym,end_ym,contract_terms_json,payment_due_rule,payment_due_day,invoice_send_deadline_rule", "project_id"),
     read<SeasonPlan>("value_plan_cycles", "project_id,plan_cycle_id,status,period_start_ym,period_end_ym", "plan_cycle_id"),
     read<SeasonBilling>("billing_cycles", "project_id,ym,invoice_ym,status,budget_reported_amount,reward_summary_json,invoice_issued_at,invoice_sent_at", "id"),
-    read<SeasonMember & { email: string | null }>("members", "member_id,email,is_officer,exclude_from_payout_notice", "member_id"),
+    read<SeasonMember & { email: string | null }>("members", "member_id,code_name,member_name,email,is_officer,exclude_from_payout_notice", "member_id"),
     read<ExtraRevenueSourceRow>("billing_cycles", "project_id,ym,invoice_ym,extra_revenue_json", "id"),
     read<ReimbursementRow>("reimbursements", "reimbursement_id,project_id,project_name,date,category,description,amount,status,created_by,admin_approved_at", "reimbursement_id"),
     read<ReimbursementNoticeRow>("payout_notices", "member_id,ym,reimbursement_ids", "member_id,ym"),

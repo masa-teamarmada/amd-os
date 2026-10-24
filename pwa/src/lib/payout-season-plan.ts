@@ -18,7 +18,7 @@ export type SeasonBilling = {
   budget_reported_amount?: number | string | null; reward_summary_json: unknown;
   invoice_issued_at?: string | null; invoice_sent_at?: string | null;
 };
-export type SeasonMember = { member_id: string; is_officer?: boolean | null; exclude_from_payout_notice?: boolean | null };
+export type SeasonMember = { member_id: string; code_name?: string | null; member_name?: string | null; is_officer?: boolean | null; exclude_from_payout_notice?: boolean | null };
 export type SeasonExpense = { projectId: string | null; ym: string; amountYen: number | null; kind: "reimbursement" | "other" };
 export const SEASON_METRICS = [
   ["income", "入金予定 · 本契約", "flow"],
@@ -33,11 +33,17 @@ export const SEASON_METRICS = [
 ] as const;
 export type SeasonMetric = typeof SEASON_METRICS[number][0];
 export type SeasonCell = Record<SeasonMetric, number | null>;
+export type SeasonPaymentCell = Pick<SeasonCell, "regularPay" | "extraPay">;
+export type SeasonMemberPayment = {
+  memberId: string; memberName: string;
+  cells: Record<string, SeasonPaymentCell>; totals: SeasonPaymentCell;
+};
 export type SeasonProjectPlan = {
   projectId: string; projectName: string; status: string | null;
   planId: string | null; planStatus: string | null;
   startYm: string | null; endYm: string | null;
   cells: Record<string, SeasonCell>; totals: SeasonCell;
+  memberPayments: SeasonMemberPayment[];
   missingMonths: string[]; notes: string[];
 };
 export type PayoutSeasonPlan = {
@@ -95,12 +101,14 @@ export function buildPayoutSeasonPlan(input: {
       projectId: project.project_id, projectName: project.project_name, status: project.status,
       planId: plan?.plan_cycle_id ?? null, planStatus: plan?.status ?? null,
       startYm: plan?.period_start_ym ?? null, endYm: plan?.period_end_ym ?? null,
-      cells: {}, totals: blank(), missingMonths: [], notes: [],
+      cells: {}, totals: blank(), memberPayments: [], missingMonths: [], notes: [],
     };
     if (!plan) { row.notes.push("シーズン未設定"); return row; }
     if (plan.status === "draft") row.notes.push("シーズンは検討中");
     if (plan.period_end_ym < paymentYm) row.notes.push("直近の終了シーズン");
     const cell = (ym: string) => row.cells[ym] ??= blank();
+    const memberPayments = new Map<string, SeasonMemberPayment>();
+    const missingPaymentMonths = new Set<string>();
     for (const ym of seasonMonths(plan.period_start_ym, plan.period_end_ym)) {
       const cycle = cycleMap.get(`${project.project_id}:${ym}`);
       const source = cycle ?? { project_id: project.project_id, ym, invoice_ym: null, status: null, reward_summary_json: null };
@@ -110,6 +118,7 @@ export function buildPayoutSeasonPlan(input: {
       const summary = record(cycle?.reward_summary_json);
       if (!Array.isArray(summary?.members)) {
         row.missingMonths.push(ym);
+        missingPaymentMonths.add(payoutYm);
         cell(payoutYm).regularPay = null;
         cell(payoutYm).extraPay = null;
         cell(ym).debt = null;
@@ -120,19 +129,38 @@ export function buildPayoutSeasonPlan(input: {
         if (!member) continue;
         const id = String(member.memberId ?? member.member_id ?? "");
         const profile = members.get(id);
+        if (profile?.is_officer || profile?.exclude_from_payout_notice) continue;
+        const memberId = id || "unidentified";
+        let payment = memberPayments.get(memberId);
+        if (!payment) {
+          payment = {
+            memberId,
+            memberName: profile ? profile.code_name?.trim() || profile.member_name?.trim() || id : `${id || "メンバー"}（対象者未確認）`,
+            cells: {}, totals: { regularPay: 0, extraPay: 0 },
+          };
+          memberPayments.set(memberId, payment);
+        }
+        const memberCell = payment.cells[payoutYm] ??= { regularPay: 0, extraPay: 0 };
         if (!profile) {
           cell(payoutYm).regularPay = null; cell(payoutYm).extraPay = null; cell(ym).debt = null;
+          memberCell.regularPay = null; memberCell.extraPay = null;
           if (!row.notes.includes("報酬の対象者を確認")) row.notes.push("報酬の対象者を確認");
           continue;
         }
-        if (profile.is_officer || profile.exclude_from_payout_notice) continue;
         const total = amount(member.totalPay ?? member.total_pay);
         const extra = amount(member.extraPaidYen ?? member.extra_paid_yen);
         const regular = member.regularPaidYen ?? member.regular_paid_yen;
-        add(cell(payoutYm), "regularPay", regular == null ? Math.max(0, total - extra) : amount(regular));
+        const regularPay = regular == null ? Math.max(0, total - extra) : amount(regular);
+        add(cell(payoutYm), "regularPay", regularPay);
         add(cell(payoutYm), "extraPay", extra);
+        memberCell.regularPay = sum([memberCell.regularPay, regularPay]);
+        memberCell.extraPay = sum([memberCell.extraPay, extra]);
         add(cell(ym), "debt", amount(member.stockYen ?? member.stock_yen ?? member.deferredYen ?? member.deferred_yen));
       }
+    }
+    row.memberPayments = [...memberPayments.values()];
+    for (const payment of row.memberPayments) {
+      for (const month of missingPaymentMonths) payment.cells[month] = { regularPay: null, extraPay: null };
     }
     const extraRows = input.extraRevenueRows.filter((source) => source.project_id === project.project_id).map((source) => ({ ...source, extra_revenue_json: (source.extra_revenue_json ?? []).filter((entry) => {
       const start = entry.period_start_ym ?? String(source.ym);
@@ -168,6 +196,15 @@ export function buildPayoutSeasonPlan(input: {
       row.totals[metric] = kind === "flow" ? sum(months.map((month) => row.cells[month][metric]))
         : metric === "debt" ? row.cells[row.endYm!]?.debt ?? null : cumulative;
     }
+    for (const payment of row.memberPayments) {
+      for (const month of months) payment.cells[month] ??= { regularPay: 0, extraPay: 0 };
+      payment.totals = {
+        regularPay: sum(months.map((month) => payment.cells[month].regularPay)),
+        extraPay: sum(months.map((month) => payment.cells[month].extraPay)),
+      };
+    }
+    const paymentAmount = (cell: SeasonPaymentCell) => (cell.regularPay ?? 0) + (cell.extraPay ?? 0);
+    row.memberPayments.sort((a, b) => paymentAmount(b.cells[paymentYm]) - paymentAmount(a.cells[paymentYm]) || paymentAmount(b.totals) - paymentAmount(a.totals) || a.memberName.localeCompare(b.memberName, "ja") || a.memberId.localeCompare(b.memberId));
   }
   const totalCells = Object.fromEntries(months.map((month) => [month, Object.fromEntries(SEASON_METRICS.map(([metric]) => [metric, sum(projects.filter((row) => row.planId).map((row) => row.cells[month][metric]))])) as SeasonCell]));
   const totals = Object.fromEntries(SEASON_METRICS.map(([metric]) => [metric, sum(projects.filter((row) => row.planId).map((row) => row.totals[metric]))])) as SeasonCell;

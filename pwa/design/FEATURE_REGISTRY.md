@@ -471,7 +471,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 必須機能:
 
-- 2026-10-24の工程順: 全PJのシーズン月別収支を最上段、合意・修正要望、メンバー別支払と一括発行の順。`PayoutSeasonPlan` と管理者GET `/api/admin/payouts/season-plan` はread-only。固定3列・固定月見出し・今回支払月・未設定・未計算・期末残高を表示する。旧4つの先12か月PJ表はこの全期間表へ置換。台帳・検算・先12か月メンバー予定は補足欄へ置き、再計算・確認用PDF・強制再発行はメニューにまとめる。入金催促は請求・入金管理で扱う。下記の旧表に関する計算定義は互換参考で、現在の配置はspec3-27を優先する。
+- 2026-10-24の工程順: 全PJのシーズン月別収支を最上段、合意・修正要望、メンバー別支払と一括発行の順。`PayoutSeasonPlan` と管理者GET `/api/admin/payouts/season-plan` はread-only。固定3列・固定月見出し・今回支払月・未設定・未計算・期末残高を表示する。報酬支払は各PJ内のメンバーごとの月額・シーズン計を表示し、報酬中心表示でも全個人行を保持する。旧4つの先12か月PJ表はこの全期間表へ置換。台帳・検算・先12か月メンバー予定は補足欄へ置き、再計算・確認用PDF・強制再発行はメニューにまとめる。入金催促は請求・入金管理で扱う。下記の旧表に関する計算定義は互換参考で、現在の配置はspec3-27を優先する。
 
 - 支払月選択: `ym=YYYYMM` でメンバー支払月を選び、稼働月 `billing_cycles.ym` を `/admin/projects` の `projects.payment_due_rule` / `payment_due_day` で集約する。`billing_cycles.invoice_ym` はクライアント請求月なので、メンバー支払月判定には使わない。
 - 高速初期表示: 通常GETは `billing_cycles.reward_summary_json` の報酬キャッシュを読むだけにする。毎回 `syncRewardSummariesForBillingCycles()` を再計算しない。先12か月の capped 投影 (`forecastCapped`) も `forecastCycles.reward_summary_json` から集計し、画面を開いただけで全PJの `computeForwardCappedMemberCosts()` を走らせない。

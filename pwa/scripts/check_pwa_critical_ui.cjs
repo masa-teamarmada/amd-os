@@ -4880,6 +4880,6 @@ expectIncludes("src/components/cockpit/AmieTechDisclosure.tsx", ["秘密度とDD
 expectIncludes("src/components/cockpit/AmieTechDisclosureMark.tsx", ['private:"DD非掲載"', "data-amie-sensitivity"]);
 
 // 支払通知書の工程と全シーズン収支は、旧12か月表から置換した必須導線。
-expectIncludes("src/components/admin/PayoutSeasonPlan.tsx", ["01 全PJのシーズン収支予定", "payout-season-matrix", "sticky left-0", "sticky left-[104px]", "sticky left-[248px]", "data-payment-column", "支払月へ", "未計算", "シーズン未設定", "設定済みPJ計"]);
+expectIncludes("src/components/admin/PayoutSeasonPlan.tsx", ["01 全PJのシーズン収支予定", "payout-season-matrix", "sticky left-0", "sticky left-[104px]", "sticky left-[248px]", "data-payment-column", "支払月へ", "未計算", "シーズン未設定", "設定済みPJ計", "memberPayments.map", "data-payout-member", "費目・メンバー", "報酬中心にする", "paymentBreakdown"]);
 expectIncludes("src/app/api/admin/payouts/season-plan/route.ts", ["requireAdmin", "loadPayoutSeasonPlan", "private, no-store"]);
 expectIncludes("src/lib/payout-season-plan.ts", ["choosePayoutSeason", "clientReceiptYmForCycle", "memberPayoutYmForCycle", "expandExtraRevenueCash", "row.cells[row.endYm!]?.debt", "row.missingMonths.push(ym)"]);
