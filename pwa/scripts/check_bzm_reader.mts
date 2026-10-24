@@ -472,7 +472,20 @@ function strayDollars(text: string): number {
 {
   const ids = READER_LIBRARY.map((book) => book.id);
   assert.equal(new Set(ids).size, ids.length, "本の id が重複している");
-  assert.deepEqual(ids, ["bzm30-textbook", "book-a", "bzm22-textbook", "bzm-course", "p1-paper", "p1-supplement"]);
+  assert.deepEqual(ids, [
+    "bzm30-textbook",
+    "practice-book",
+    "book-a",
+    "bzm22-textbook",
+    "bzm-course",
+    "p1-paper",
+    "p1-supplement",
+  ]);
+  const byId = (id: string) => {
+    const book = READER_LIBRARY.find((b) => b.id === id);
+    assert.ok(book, `棚に ${id} が無い`);
+    return book;
+  };
 
   for (const book of READER_LIBRARY) {
     const slugs = book.chapters.map((chapter) => chapter.slug);
@@ -495,21 +508,30 @@ function strayDollars(text: string): number {
   assert.equal(bzm30.chapters[3].plannedTitle, "第3章　案件パラメータと事前分布");
   assert.equal(bzm30.chapters[15].plannedTitle, "付録 — 記号一覧、用語、参考文献");
 
-  const bzm22 = READER_LIBRARY[2];
+  const practice = byId("practice-book");
+  assert.equal(practice.chapters.length, 13);
+  assert.equal(practice.chapters[0].slug, "practice-book-introduction");
+  assert.equal(practice.chapters[1].slug, "practice-book-meet");
+  assert.equal(practice.chapters[1].plannedTitle, "第1章　技術を理解して会う");
+  assert.equal(practice.chapters[3].plannedTitle, "第3章　ラウンドテーブルを組む");
+  assert.equal(practice.chapters.at(-1)?.plannedTitle, "おわりに　主体の立場を、仕組みとして用意する");
+  assert.ok(practice.chapters.every((chapter) => chapter.plannedTitle), "practice-book の章に予定の題が無い");
+
+  const bzm22 = byId("bzm22-textbook");
   assert.equal(bzm22.chapters.at(-1)?.plannedTitle, "第III部 — 文脈と限界");
-  assert.deepEqual(READER_LIBRARY[3].chapters.map((chapter) => chapter.slug), [
+  assert.deepEqual(byId("bzm-course").chapters.map((chapter) => chapter.slug), [
     "course-bzm-foundations-index",
     "course-bzm-foundations-s00",
     "course-bzm-foundations-s01",
   ]);
-  assert.deepEqual(READER_LIBRARY[4].chapters, [{ slug: "paper", file: "PAPER_P1_DRAFT_V2.md", split: "h1" }]);
+  assert.deepEqual(byId("p1-paper").chapters, [{ slug: "paper", file: "PAPER_P1_DRAFT_V2.md", split: "h1" }]);
   assert.deepEqual(
-    READER_LIBRARY[5].chapters.map((chapter) => [chapter.slug, chapter.file]),
+    byId("p1-supplement").chapters.map((chapter) => [chapter.slug, chapter.file]),
     ["a", "b", "c", "d", "e", "f", "g"].map((l) => [`sm-${l}`, `sm_v2/SM-${l.toUpperCase()}.md`]),
   );
   assert.deepEqual(
     READER_LIBRARY.map((book) => book.lang),
-    ["ja", "ja", "ja", "ja", "en", "en"],
+    ["ja", "ja", "ja", "ja", "ja", "en", "en"],
   );
 
   // 実在する章ファイルは存在し、存在しないのは manifest が未執筆と知っているものだけ
@@ -564,7 +586,7 @@ function strayDollars(text: string): number {
   const p6 = preprocessReaderMarkdown(chapter6, {
     file: "book-a-ch-6.md",
     bookId: "book-a",
-    bookChapterSlugs: READER_LIBRARY[1].chapters.map((c) => c.slug),
+    bookChapterSlugs: (READER_LIBRARY.find((b) => b.id === "book-a")?.chapters ?? []).map((c) => c.slug),
   });
   assert.ok(!/\[!CAUTION\]/.test(p6.markdown) && p6.markdown.includes("**注意**"), "Book A 第5章の警告が落ちている");
 

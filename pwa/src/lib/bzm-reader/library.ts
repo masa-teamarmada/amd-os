@@ -32,6 +32,28 @@ const bzm30Chapters: ReaderChapterManifest[] = BZM30_CHAPTERS.map(({ name, plann
   return { slug, file: `${slug}.md`, plannedTitle };
 });
 
+/** 実戦の本。章立ての正本は bzm/PRACTICE_BOOK_PLAN.md §2。未執筆の章は plannedTitle で目次に出す */
+const PRACTICE_BOOK_CHAPTERS: Array<{ name: string; plannedTitle: string }> = [
+  { name: "introduction", plannedTitle: "序章　この本の使い方" },
+  { name: "meet", plannedTitle: "第1章　技術を理解して会う" },
+  { name: "position", plannedTitle: "第2章　立場をつくる" },
+  { name: "roundtable", plannedTitle: "第3章　ラウンドテーブルを組む" },
+  { name: "stakeholder-map", plannedTitle: "第4章　決める人と期限の表をつくる" },
+  { name: "consensus", plannedTitle: "第5章　合意をつくる" },
+  { name: "funding-path", plannedTitle: "第6章　お金の道筋をつくる" },
+  { name: "success-size", plannedTitle: "第7章　成功の大きさを決める" },
+  { name: "incorporation", plannedTitle: "第8章　会社にする" },
+  { name: "handover", plannedTitle: "第9章　渡す" },
+  { name: "records", plannedTitle: "第10章　毎月記録して測る" },
+  { name: "appendix", plannedTitle: "付録　道具集" },
+  { name: "afterword", plannedTitle: "おわりに　主体の立場を、仕組みとして用意する" },
+];
+
+const practiceBookChapters: ReaderChapterManifest[] = PRACTICE_BOOK_CHAPTERS.map(({ name, plannedTitle }) => {
+  const slug = `practice-book-${name}`;
+  return { slug, file: `${slug}.md`, plannedTitle };
+});
+
 /** Book A の章。BZM_PARTS の key "book-a" の並びと BZM_CHAPTERS の題をそのまま使う（章の追加で二重管理にしない） */
 function buildBookAChapters(): ReaderChapterManifest[] {
   const part = BZM_PARTS.find((p) => p.key === "book-a");
@@ -85,6 +107,16 @@ export const READER_LIBRARY: ReaderBookManifest[] = [
     // 白文字を載せる色帯。#027fdc は白との比が 4.14:1 で足りないので 5.8:1 の濃さにする
     accent: "#0366b8",
     chapters: bzm30Chapters,
+  },
+  {
+    id: "practice-book",
+    title: "実戦の本（仮題）",
+    description: "研究者と会えたところから、会社にして渡すまでを段階ごとの手順で書く実務書の下書き",
+    kind: "book",
+    lang: "ja",
+    // 白文字を載せる色帯。白との比 7.5:1
+    accent: "#9b2c2c",
+    chapters: practiceBookChapters,
   },
   {
     id: "book-a",

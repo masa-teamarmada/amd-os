@@ -7,6 +7,7 @@
 
 export type ReaderBookId =
   | "bzm30-textbook"
+  | "practice-book"
   | "book-a"
   | "bzm22-textbook"
   | "bzm-course"
