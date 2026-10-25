@@ -1,3 +1,5 @@
+2026-10-25 v3.163.53（書斎）：「実戦の本（仮題）」第2章 `bzm/practice-book-position.md` に「決断の怖さ」の節を追加。
+
 2026-10-25 v3.163.52（書斎）：「実戦の本（仮題）」第2章 `bzm/practice-book-position.md` の原稿を追加。棚と章立ては変更なし。
 
 2026-10-24 v3.163.51（書斎）：棚に「実戦の本（仮題）」（`practice-book`）をBZM 3.0教科書の次に追加。章立ては `bzm/PRACTICE_BOOK_PLAN.md` §2 の13本で、第1章 `bzm/practice-book-meet.md` を読める。spec5-18 §4、design/bzm_reader.md §3、検査 test:bzm-reader の棚の並びを更新。
