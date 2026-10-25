@@ -1,5 +1,7 @@
 # SPEC — AMD OS PWA
 
+2026-10-25: 書斎は専用ディレクトリ `/Users/masa/projects/bookshelf-armada`、専用GitHubリポジトリ・Vercelプロジェクト `bookshelf-armada` に独立。書斎の更新はAMD OSを更新しない。書斎の現行実装は専用リポジトリの `DESIGN.md`、OS側の入口はspec5-18/manual2-10を参照。
+
 2026-10-18（v3.163.0）: DDレポートは既存`/dd/[slug]`の認可を維持してHTML本文・計算モデル・PDF/Excel出力を提供する。旧本文は`legacy`に保存。現行仕様・テーブル・変更履歴・再構築と検証は`../spec/5-17-dd-package-current-spec.md`、URLは`../spec/2-1-pwa-runtime-routes.md`。
 
 

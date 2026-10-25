@@ -294,3 +294,7 @@ Functions Storageは保持中のFunction bundleの容量。BlobやFast Origin Tr
 - 保持の見込みは最大6版前後で、1版約119MBなら1GB未満。
 
 根拠: https://vercel.com/docs/deployment-storage / https://vercel.com/docs/deployment-retention
+
+## 書斎の独立更新（2026-10-25）
+
+書斎は `/Users/masa/projects/bookshelf-armada` / `masa-teamarmada/bookshelf-armada` / Vercel `bookshelf-armada` が正本。書斎の本や読書機能は専用リポジトリの更新手順を使う。AMD OSのmainへ混ぜない。AMD OSの既存 `/bzm` にも反映する必要がある場合は、別のOS変更として扱う。アドレス `https://bookshelf-armada.vercel.app` は専用プロジェクトへ移し、OSの本番アドレスは維持する。仕様5-18、使い方manual2-10。

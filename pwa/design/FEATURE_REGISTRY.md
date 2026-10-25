@@ -229,7 +229,18 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 ## /bzm/read — 書斎（2026-10-03、build v3.150.0。2026-10-04 に専用アプリ化、build v3.153.0。同日午後に別のアドレスへ、build v3.154.0）
 
-目的: 執筆途中の本と論文を、Kindle のように1ページずつめくって通読する。原稿の正本は従来どおりリポジトリ直下の `bzm/*.md` で、書斎は読むだけで原稿を書き換えない。書斎は AMD OS とは別のアドレス `https://bookshelf-armada.vercel.app` で開く別アプリとして、ホーム画面や Dock に単独で入れられる。サーバのプログラム（同じ Vercel project `amd-os-pwa`）と Supabase は AMD OS と共通で、費用は増えない（2026-10-04、まさ「書斎は、OSの中に入れずに別アプリにしてほしい」「AMD OSアプリの中に包含されちゃってる。使いにくい。やっぱり別アプリに分けてほしい」）。詳細は設計正本 [`bzm_reader.md`](bzm_reader.md) と `/spec/5-18-bzm-reader-current-spec`。
+## 2026-10-25 — 書斎の独立更新（現行）
+
+書斎の正本は専用ディレクトリ `/Users/masa/projects/bookshelf-armada` と、非公開リポジトリ `masa-teamarmada/bookshelf-armada`。
+Vercelの公開先は専用プロジェクト `bookshelf-armada`。AMD OSの `amd-os-pwa` とは別のGit連携・公開物を使い、書斎の更新でOSを更新しない。
+アドレス `https://bookshelf-armada.vercel.app`、manifestのid、章のURL、読書位置・しおり・設定の保存キーは引き継ぐ。
+原稿・図は専用リポジトリの `bzm/`、棚と章は `src/lib/bzm-reader/library.ts` を変更し、同リポジトリで検査・mainへのpush・本番確認を行う。
+ログインの本人確認とactiveな管理者の照合だけ既存のSupabaseを使う。書斎は管理者キー、OS業務処理、DB書込み、定期処理を持たない。
+AMD OS内の `/bzm/read` は従来どおり書斎へ送る。OSの `/bzm` 用の原稿と移行前の実装は既存画面用の写しとして保持する。
+以後の書斎の正本仕様は専用リポジトリの `DESIGN.md`、更新手順は `README.md`。以下は移行前の実装資料。書斎の新しい本文や機能は専用リポジトリで変更する。
+
+
+目的: 執筆途中の本と論文を、Kindle のように1ページずつめくって通読する。書斎の原稿の正本は専用リポジトリ `bookshelf-armada` の `bzm/` で、書斎は読むだけで原稿を書き換えない。書斎は AMD OS とは別のアドレス `https://bookshelf-armada.vercel.app` で開く別アプリとして、ホーム画面や Dock に単独で入れられる。公開先は専用Vercel project `bookshelf-armada` で、Supabaseの本人確認と管理者照合だけAMD OSと共通（2026-10-04、まさ「書斎は、OSの中に入れずに別アプリにしてほしい」「AMD OSアプリの中に包含されちゃってる。使いにくい。やっぱり別アプリに分けてほしい」）。詳細は設計正本 [`bzm_reader.md`](bzm_reader.md) と `/spec/5-18-bzm-reader-current-spec`。
 
 必須機能:
 
@@ -252,7 +263,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 別の章を押した直後の表示（2026-10-04。押すのは「導入」か見出し）: 別の章の「導入」か見出しを押したら、新しい章が届くまでのあいだ、目次ではその章を「開いている章」として見出しつきで強調し、行の右（矢印の左）に「開いています…」を出す（いまの章は閉じる）。本文には、画面の最上部の細い進行の帯（`.bzr-progress`）と、本文を少し薄くする表示（濃さ 6 割）を出す。状態は `ReaderView` の外側が `openingSlug` として持ち、届いたこと（`chapter.slug` が変わったこと）は、effect の中の setState ではなく、描画の中で前の章のキーと比べて解く。
 - 章の先読み（2026-10-04）: 章のページは動的で `loading.js` が無く、既定の先読み（auto）は実質なにも運ばない。そこで章のページ全体を先に取る完全な先読み（`router.prefetch(href, { kind: PrefetchKind.FULL })`、部品は `src/components/bzm-reader/chapter-prefetch.ts`）を使う。目次の章の行（開閉のボタン）と、見出しと「導入」の行に、ポインタが乗ったとき（80ms 待つ。離れたら取り消す）、フォーカスが来たとき（120ms 待つ）、触り始めたときに、その章を先読みする。章の行を押して見出しの一覧を開いたときも先読みする（「導入」の行だけは、リンクと同じ `?at=start` つきの URL を先読みする）。いまの章の最初の割り付けが済み、ブラウザが空いたとき（`requestIdleCallback`、無ければ 1500ms 後）に、次の章（`?at=start`）と前の章（`?at=end`）を先読みする（先読みの鍵は pathname と search で `#` を含まないので、めくって移るときの URL と同じ URL を先読みする）。`navigator.connection.saveData` が真の端末では自動の先読みをしない。持ち時間は Next.js の `staleTimes.static`（既定 5 分、同梱文書 `staleTimes.md`。本番と同じ作りの確認用アプリで、270 秒後は使われ、330 秒後は取り直しになることを確かめた）。5 分を過ぎた分は、章の終わり近く・始まり近くで次の章・前の章を取り直す。
 - 章と節の区切り（2026-10-04）: h1 が「序章」「第N章」「付録」（古い形の `BZM x.y教科書 ` と ` — `、古い形の序も可）で始まる章は、ラベル（小さな色つき）と題（本文の 1.75 倍）に分けた章の扉（`h1.bzr-door`）にして、下に罫線と広い余白を置く。h2（本文の 1.4 倍、上の余白が広く、題の下に罫線）と h3（1.15 倍）が `1.1`、`1.1.1`、`0.1.1`、`A.2`（古い形の `1.` も）のような番号で始まるときは、番号を `--bzr-accent` の色で分ける。分け方は純関数（`src/lib/bzm-reader/heading-parts.ts`）。ページ表示では、扉のある章の最初の節（最初の h2）を `break-before: column` で新しいページから始め、章の最初のページに扉だけを載せる（見開きでは扉が左、最初の節が右。縦スクロールでは区切らない。扉の無い論文・補足資料・講座は続けて流す）。白の `--bzr-accent` は `#0267b2`（白との比 5.86:1）で、文字の色はどのテーマも背景との比が 4.5:1 以上。
-- 別のアドレスの専用アプリ（2026-10-04、build v3.154.0）: 書斎は `https://bookshelf-armada.vercel.app`（`src/lib/bzm-reader/hosts.ts` の `SHOSAI_HOST`）で開く別アプリで、AMD OS のアドレスは `https://amd-os-pwa.vercel.app`（`AMD_OS_HOST`）。アドレス（オリジン）が違うので、AMD OS をインストールした端末でも書斎は AMD OS の窓に取り込まれない。サーバのプログラム（同じ Vercel project `amd-os-pwa`、同じ deploy）、ログインの仕組み、Supabase は共通で、1回の deploy で両方のアドレスが更新される。
+- 別のアドレスの専用アプリ（2026-10-04、build v3.154.0）: 書斎は `https://bookshelf-armada.vercel.app`（`src/lib/bzm-reader/hosts.ts` の `SHOSAI_HOST`）で開く別アプリで、AMD OS のアドレスは `https://amd-os-pwa.vercel.app`（`AMD_OS_HOST`）。アドレス（オリジン）が違うので、AMD OS をインストールした端末でも書斎は AMD OS の窓に取り込まれない。書斎のプログラムと公開手順は専用リポジトリ・専用Vercel project `bookshelf-armada` に独立し、それぞれ別々に更新される。ログインの本人確認と管理者照合だけSupabaseを共用する。
   - ログイン画面（v3.154.1）: 書斎のアドレスで開いた `/auth/login` は、`auth/login/layout.tsx` が Host ヘッダで判定し、見出し「書斎」と「AMDメンバーとしてログイン」だけを出す。題・manifest・`appleWebApp` も書斎のもの。
   - 振り分け: `middleware.ts` が `readerHostRedirect` を、ログインの判定（`updateSession`）より前に呼び、307（一時的）で送る。書斎のアドレスでは、`/` を `/bzm/read`（棚）へ送り、`/bzm/read` 配下（書斎の画面）、`/api/bzm-reader/` 配下（図の API）、`/auth` 配下（ログイン）、`/api/build-info` はそのまま出し、それ以外のパスは AMD OS のアドレスの同じパスと query へ送る（原稿の章間リンクで別の本の章 `/bzm/<slug>` は AMD OS の教科書の画面で開く。管理者でない人が `/dashboard` へ戻されたときも AMD OS へ）。AMD OS のアドレスで `/bzm/read` 配下を開いたときは、書斎のアドレスの同じパスと query へ送る（古いブックマークや、AMD OS の中から開いたときも書斎アプリ側へ移る）。上の2つ以外のアドレス（プレビューの deploy、手元の開発）は振り分けない。
   - `public/manifest-shosai.json`: `name`・`short_name` 「書斎」、`id`・`start_url` は `/bzm/read`、`scope` は `/`（書斎のアドレスは書斎だけを出すので、ログイン画面もアプリの範囲に入る）、`display` は `standalone`、`background_color`・`theme_color` は `#ffffff`、アイコンは書斎専用の `/icons/shosai-*`（まさ提供の本の絵。192・512 の通常と maskable、apple-touch-icon 180、favicon 48。書斎の layout とログイン画面の layout も同じ絵を出す）、向きは固定しない。`read/layout.tsx` が書斎の配下でだけ manifest を `/manifest-shosai.json` に差し替え、`appleWebApp`（capable、title「書斎」、statusBarStyle default）と `themeColor #ffffff` を出し、ページの題を「書斎」（章ページは「章の題 - 本の題」）にして「- AMD OS」を付けない。`middleware.ts` の matcher の除外に `manifest-shosai\\.json` を入れる（除外しないと manifest の取得がログイン画面への 307 になり、インストールが壊れる）。
