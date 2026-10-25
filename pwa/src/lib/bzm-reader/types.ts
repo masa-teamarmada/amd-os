@@ -8,6 +8,7 @@
 export type ReaderBookId =
   | "bzm30-textbook"
   | "practice-book"
+  | "cyano-textbook"
   | "book-a"
   | "bzm22-textbook"
   | "bzm-course"

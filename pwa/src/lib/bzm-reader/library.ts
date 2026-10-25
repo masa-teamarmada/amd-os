@@ -54,6 +54,38 @@ const practiceBookChapters: ReaderChapterManifest[] = PRACTICE_BOOK_CHAPTERS.map
   return { slug, file: `${slug}.md`, plannedTitle };
 });
 
+/**
+ * シアノバクテリア入門（SOL）。章立ての正本は SOL の作業フォルダの構成案 v2.1
+ * （/Users/masa/projects/AMD/SOL/work/amie_cyano_textbook_20261025/構成案.md）。
+ * 原稿はそこで書き、書斎で読む章だけを bzm/cyano-textbook-<名前>.md に書き出す。未執筆の章は plannedTitle で目次に出す
+ */
+const CYANO_TEXTBOOK_CHAPTERS: Array<{ name: string; plannedTitle: string }> = [
+  { name: "introduction", plannedTitle: "はじめに" },
+  { name: "origin", plannedTitle: "第1章　シアノバクテリアの出現と年代の決め方" },
+  { name: "oxygen", plannedTitle: "第2章　酸素がもたらした地球環境の変化" },
+  { name: "chloroplast", plannedTitle: "第3章　葉緑体の起源と細胞内共生" },
+  { name: "cell", plannedTitle: "第4章　細菌としての分類と細胞のつくり" },
+  { name: "habitat", plannedTitle: "第5章　生息域と人との関わり" },
+  { name: "chemistry", plannedTitle: "第6章　細胞の中の化学" },
+  { name: "genes", plannedTitle: "第7章　遺伝子とたんぱく質" },
+  { name: "photosynthesis", plannedTitle: "第8章　光合成のしくみ" },
+  { name: "growth", plannedTitle: "第9章　栄養、増殖、蓄えのしくみ" },
+  { name: "thermophile", plannedTitle: "第10章　高温で生きるしくみ" },
+  { name: "metals", plannedTitle: "第11章　細胞にとっての金属" },
+  { name: "metal-uptake", plannedTitle: "第12章　金属を取り込むしくみ" },
+  { name: "dye", plannedTitle: "第13章　色素を分解するしくみ" },
+  { name: "fuel", plannedTitle: "第14章　燃料のもとを作るしくみ" },
+  { name: "genetic-engineering", plannedTitle: "第15章　遺伝子組換えの方法と利用の規制" },
+  { name: "cultivation", plannedTitle: "第16章　大量培養の技術とエネルギーの収支" },
+  { name: "sol", plannedTitle: "第17章　世界の研究の中のSOLの技術" },
+  { name: "appendix", plannedTitle: "付録　用語集、年表、章ごとの文献一覧" },
+];
+
+const cyanoTextbookChapters: ReaderChapterManifest[] = CYANO_TEXTBOOK_CHAPTERS.map(({ name, plannedTitle }) => {
+  const slug = `cyano-textbook-${name}`;
+  return { slug, file: `${slug}.md`, plannedTitle };
+});
+
 /** Book A の章。BZM_PARTS の key "book-a" の並びと BZM_CHAPTERS の題をそのまま使う（章の追加で二重管理にしない） */
 function buildBookAChapters(): ReaderChapterManifest[] {
   const part = BZM_PARTS.find((p) => p.key === "book-a");
@@ -117,6 +149,16 @@ export const READER_LIBRARY: ReaderBookManifest[] = [
     // 白文字を載せる色帯。白との比 7.5:1
     accent: "#9b2c2c",
     chapters: practiceBookChapters,
+  },
+  {
+    id: "cyano-textbook",
+    title: "シアノバクテリア入門",
+    description: "地球の歴史から、金属の取り込み、色素の分解、燃料のもとを作るしくみまでを論文に基づいて書くSOLの教材の下書き",
+    kind: "textbook",
+    lang: "ja",
+    // 白文字を載せる色帯。SOL の水色 #35B9D0 と同じ色合いを濃くしたもの。白との比 6.78:1
+    accent: "#0d6475",
+    chapters: cyanoTextbookChapters,
   },
   {
     id: "book-a",

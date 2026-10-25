@@ -475,6 +475,7 @@ function strayDollars(text: string): number {
   assert.deepEqual(ids, [
     "bzm30-textbook",
     "practice-book",
+    "cyano-textbook",
     "book-a",
     "bzm22-textbook",
     "bzm-course",
@@ -517,6 +518,23 @@ function strayDollars(text: string): number {
   assert.equal(practice.chapters.at(-1)?.plannedTitle, "おわりに　主体の立場を、仕組みとして用意する");
   assert.ok(practice.chapters.every((chapter) => chapter.plannedTitle), "practice-book の章に予定の題が無い");
 
+  // シアノバクテリア入門。章立ては SOL の構成案 v2.1（はじめに、第1〜17章、付録）
+  const cyano = byId("cyano-textbook");
+  assert.equal(cyano.kind, "textbook");
+  assert.equal(cyano.chapters.length, 19);
+  assert.equal(cyano.chapters[0].slug, "cyano-textbook-introduction");
+  assert.equal(cyano.chapters[1].slug, "cyano-textbook-origin");
+  assert.equal(cyano.chapters[1].plannedTitle, "第1章　シアノバクテリアの出現と年代の決め方");
+  assert.equal(cyano.chapters[12].plannedTitle, "第12章　金属を取り込むしくみ");
+  assert.equal(cyano.chapters[13].plannedTitle, "第13章　色素を分解するしくみ");
+  assert.equal(cyano.chapters[14].plannedTitle, "第14章　燃料のもとを作るしくみ");
+  assert.equal(cyano.chapters.at(-1)?.plannedTitle, "付録　用語集、年表、章ごとの文献一覧");
+  assert.ok(cyano.chapters.every((chapter) => chapter.plannedTitle), "cyano-textbook の章に予定の題が無い");
+  assert.ok(
+    cyano.chapters.every((chapter) => !/[—・]/.test(chapter.plannedTitle ?? "")),
+    "cyano-textbook の章の題にダッシュか中黒がある",
+  );
+
   const bzm22 = byId("bzm22-textbook");
   assert.equal(bzm22.chapters.at(-1)?.plannedTitle, "第III部 — 文脈と限界");
   assert.deepEqual(byId("bzm-course").chapters.map((chapter) => chapter.slug), [
@@ -531,7 +549,7 @@ function strayDollars(text: string): number {
   );
   assert.deepEqual(
     READER_LIBRARY.map((book) => book.lang),
-    ["ja", "ja", "ja", "ja", "ja", "en", "en"],
+    ["ja", "ja", "ja", "ja", "ja", "ja", "en", "en"],
   );
 
   // 実在する章ファイルは存在し、存在しないのは manifest が未執筆と知っているものだけ
