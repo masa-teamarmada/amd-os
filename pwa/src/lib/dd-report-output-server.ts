@@ -1,18 +1,18 @@
 import 'server-only';
 import {createHash,randomUUID} from 'node:crypto';
 import {PDFDocument} from 'pdf-lib';
-import {createAdminClient} from './supabase/admin';
-import {ddReportOutputState} from './dd-report-output-state';
-import {DD_REPORT_BUCKET,ddReportAsset,loadDdReportChapter,loadDdReportChapterIndex,loadDdReportModel,updateDdReportBody} from './dd-report-server';
-import {DdReportCalculator} from './dd-report-model';
+import {createAdminClient} from './supabase/admin.ts';
+import {ddReportOutputState} from './dd-report-output-state.ts';
+import {DD_REPORT_BUCKET,hydrateDdReportChangeLog,ddReportAsset,loadDdReportChapter,loadDdReportChapterIndex,loadDdReportModel,updateDdReportBody} from './dd-report-server.ts';
+import {DdReportCalculator} from './dd-report-model.ts';
 import {ddReportPdf,ddReportXlsx,orderedDdChapters} from './dd-report-export';
-import {deduplicateDdPdfStreams,finalizeDdPdfNavigation} from './dd-report-pdf';
-import {ddReportVersionLabel} from './dd-report-navigation';
-import type {DdPdfIndex} from './dd-report-navigation';
-import {renderWorkspaceDocumentHtmlToPdf} from './workspace-document-html-pdf';
-import {redactProjectPartnerNames} from './project-partner-disclosure';
-import type {DdReportChapterSummary,DdReportEdition} from './dd-report-types';
-import {ddReportExportsPaused} from './dd-report-download-policy';
+import {deduplicateDdPdfStreams,finalizeDdPdfNavigation} from './dd-report-pdf.ts';
+import {ddReportVersionLabel} from './dd-report-navigation.ts';
+import type {DdPdfIndex} from './dd-report-navigation.ts';
+import {renderWorkspaceDocumentHtmlToPdf} from './workspace-document-html-pdf.ts';
+import {redactProjectPartnerNames} from './project-partner-disclosure.ts';
+import type {DdReportChapterSummary,DdReportEdition} from './dd-report-types.ts';
+import {ddReportExportsPaused} from './dd-report-download-policy.ts';
 
 export const DD_PDF_BATCH=4;
 type OutputArgs={edition:DdReportEdition;index:DdReportChapterSummary[];selected:DdReportChapterSummary[];slug:string;hidden:Awaited<ReturnType<typeof ddReportOutputState>>['hidden'];format:'pdf'|'xlsx';includeCover?:boolean;includeGlossary?:boolean;all?:boolean;focusSheet?:string;pdfIndex?:DdPdfIndex};
@@ -21,7 +21,8 @@ export async function createDdReportOutput({edition,index,selected,slug,hidden,f
   const model=await loadDdReportModel(edition),calc=new DdReportCalculator(model,edition.input_overrides);
   const loaded=await Promise.all(selected.map(c=>loadDdReportChapter(edition.id,c.slug)));
   if(loaded.some(c=>!c))throw new Error('資料本文が不足している');
-  const chapters=redactProjectPartnerNames(loaded.map(c=>({...c!,body:updateDdReportBody(c!.body,c!.source_sheet,calc)})),hidden);
+  const hydrated=await Promise.all(loaded.map(c=>hydrateDdReportChangeLog(edition,{...c!,body:updateDdReportBody(c!.body,c!.source_sheet,calc)})));
+  const chapters=redactProjectPartnerNames(hydrated,hidden);
   if(format==='xlsx'){
     const source=await createAdminClient().storage.from(DD_REPORT_BUCKET).download(edition.xlsx_storage_path);if(source.error)throw new Error('Excelを読み込めなかった');
     const bytes=new Uint8Array(await source.data.arrayBuffer());if(createHash('sha256').update(bytes).digest('hex')!==edition.source_sha256)throw new Error('Excel原本の版が一致しない');

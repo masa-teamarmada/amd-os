@@ -69,7 +69,7 @@ export function SpacePermissionsAdminPanel() {
     } else {
      const existing=data.ddGrants.find(g=>g.package_id===pkg!.id&&g.user_account_id===account!.id);
      if(existing&&!['active','invited'].includes(existing.status)) throw new Error('停止・失効した権限は、外部アクセス画面で明示的に再開する。');
-     const capabilities=['dd.view',...(existing?.capabilities.includes('dd.download')?['dd.download']:[]),...(permission==='edit'?['dd.edit']:[])];
+     const capabilities=['dd.view','dd.download',...(permission==='edit'?['dd.edit']:[])];
      await send('/api/admin/dd',existing?{action:'update_grant',grantId:existing.id,capabilities}:{action:'create_grant',packageId:pkg!.id,email:account.email,capabilities,createAccount:false});
     }
    }

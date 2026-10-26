@@ -1,4 +1,9 @@
 "use client";
+import {canonicalMenuConfiguration} from '../../lib/project-canonical-pages';
+import {completeCockpitReportGroups} from "../../lib/project-report-menu";
+import {useProjectReportCatalog} from "../../lib/use-project-report-catalog";
+
+import {ProjectCanonicalPage} from "../project-space/ProjectCanonicalPage";
 
 import { ProjectPageTitle } from "@/components/nav/PageTitleSetter";
 import { ProjectDevelopmentIssues } from "@/components/project-workspace/ProjectDevelopmentIssues";
@@ -439,7 +444,8 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
 
   // グループと所属タブはPJタイプの標準フォーマット（src/lib/project-formats.ts、鍵付き）が正本。
   // ここではラベルと、見る人の役割による出し分け（DDパッケージ＝AMDの管理者）だけを足す。
-  const groups = cockpitGroupsForType(formatType);
+  const reportCatalog = useProjectReportCatalog(project.projectId,"cockpit");
+  const groups = completeCockpitReportGroups(cockpitGroupsForType(formatType),reportCatalog.index,project.projectId);
   const hasScoreDetailTab = groups.some((group) => group.children.includes("score-detail"));
   const tabLabel: Partial<Record<CockpitTab, string>> = {
     progress: "MS・月次",
@@ -484,16 +490,16 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     ...group,
     children: group.children.filter((tab) => tab !== "executive-meeting" || canViewExecutiveMeeting),
   })).filter((group) => group.children.length > 0);
-  const requestedGroup = cockpitGroupForTabInType(resolvedTab, formatType);
+  const requestedGroup = visibleGroups.find(group => group.children.includes(resolvedTab)) ?? cockpitGroupForTabInType(resolvedTab, formatType);
   const activeGroupWithAvailableChildren = visibleGroups.find((group) => group.key === requestedGroup.key) ?? visibleGroups[0];
   // URLが現在のPJでは非表示になるタブを指していても、空画面にせず同じグループの先頭へ落とす。
-  const activeTab = activeGroupWithAvailableChildren?.children.includes(resolvedTab)
+  const activeTab = resolvedTab.startsWith("report:") ? resolvedTab : activeGroupWithAvailableChildren?.children.includes(resolvedTab)
     ? resolvedTab
     : activeGroupWithAvailableChildren?.children[0] ?? DEFAULT_COCKPIT_TAB;
   const workspaceView = WORKSPACE_VIEW_BY_TAB[activeTab];
   const tabItem = (key: CockpitTab) => ({
     key,
-    label: PROJECT_PAGE_LABELS[key] ?? tabLabel[key] ?? key,
+    label: canonicalMenuConfiguration(project.projectId,reportCatalog.index.map(c=>c.slug)).pageLabels[key] ?? PROJECT_PAGE_LABELS[key] ?? tabLabel[key] ?? reportCatalog.index.find(chapter=>key===`report:${chapter.slug}`)?.title ?? key,
     onHover: key === "score-detail" ? () => prefetchProjectOrg(project.projectId)
       : key === "poc-list" ? () => prefetchProjectPocList(project.projectId)
       : key === "technology" || key === "competition" || key === "business-model" ? () => prefetchProjectTech(project.projectId)
@@ -570,7 +576,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       data-cockpit-project-kind={formatType === "ecosystem" ? "institution" : "standard"}
       data-project-format-type={formatType}
     >
-      {!hideNavigation && <ProjectPageTitle projectName={project.projectName} surface="コックピット" pageLabel={PROJECT_PAGE_LABELS[activeTab] ?? tabLabel[activeTab] ?? activeTab} />}
+      {!hideNavigation && <ProjectPageTitle projectName={project.projectName} surface="コックピット" pageLabel={canonicalMenuConfiguration(project.projectId,reportCatalog.index.map(c=>c.slug)).pageLabels[activeTab] ?? PROJECT_PAGE_LABELS[activeTab] ?? tabLabel[activeTab] ?? activeTab} />}
       {/* [A] Project Header (full width) */}
       <CockpitHeader project={project} />
 
@@ -585,6 +591,8 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
           activeGroup={activeGroupWithAvailableChildren?.key} activePage={activeTab}
           onGroup={(key) => selectGroup(key as CockpitGroupKey)} onPage={(key) => selectTab(key as CockpitTab)} />
       </> : undefined}>
+      {reportCatalog.error&&<p role="alert" className="text-sm text-amber-800">{reportCatalog.error}</p>}
+      <ProjectCanonicalPage projectId={project.projectId} page={activeTab} surface="cockpit" initialChapter={requestedTab === "cost-fuel" ? "fame-cost" : undefined}>
       {activeTab === "progress" && (
         <>
       {/* メインボード: 通常は 2 カラム。凍結/再開バッジがある時だけ 3 カラム目を出す。 */}
@@ -912,6 +920,8 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
           <CockpitAmdContributions projectId={project.projectId} />
         </section>
       )}
+
+      </ProjectCanonicalPage>
 
       {/* ===== Monthly Modal ===== */}
       {modalYm && (

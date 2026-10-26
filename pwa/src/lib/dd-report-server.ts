@@ -1,30 +1,39 @@
 import 'server-only';
+import {withDdReportChangeLog} from './dd-report-change-log.ts';
 import {gunzipSync,gzipSync} from 'node:zlib';
 import {createHash} from 'node:crypto';
-import {createAdminClient} from './supabase/admin';
-import type {DdViewerAccess} from './dd-package-core';
-import {canReadDdReport} from './dd-report-core';
-export {canReadDdReport,canEditDdReport} from './dd-report-core';
-import {completeDdReportInputs} from './dd-report-input-metadata';
-import {ddJkissSummary} from './dd-report-jkiss';
-import {ddEquityValuations} from './dd-report-valuations';
-import {DdReportCalculator,ddAddress,ddColumn} from './dd-report-model';
-import type {DdReportAsset,DdReportBody,DdReportChapter,DdReportChapterSummary,DdReportEdition,DdReportModel,DdReportValue,DdReportRelease} from './dd-report-types';
-import {loadProjectPartnerDisclosure} from './project-partner-disclosure-server';
-import {redactProjectPartnerNames} from './project-partner-disclosure';
-import {DD_DEVELOPMENT_SLUGS,splitDdDevelopmentChapter,splitDdDevelopmentIndex} from './dd-report-development-plans';
+import {createAdminClient} from './supabase/admin.ts';
+import type {DdViewerAccess} from './dd-package-core.ts';
+import {canReadDdReport} from './dd-report-core.ts';
+export {canReadDdReport,canEditDdReport} from './dd-report-core.ts';
+import {completeDdReportInputs} from './dd-report-input-metadata.ts';
+import {ddJkissSummary} from './dd-report-jkiss.ts';
+import {ddEquityValuations} from './dd-report-valuations.ts';
+import {DdReportCalculator,ddAddress,ddColumn} from './dd-report-model.ts';
+import type {DdReportAsset,DdReportBody,DdReportChapter,DdReportChapterSummary,DdReportEdition,DdReportModel,DdReportValue,DdReportRelease} from './dd-report-types.ts';
+import {loadProjectPartnerDisclosure} from './project-partner-disclosure-server.ts';
+import {redactProjectPartnerNames} from './project-partner-disclosure.ts';
+import {DD_DEVELOPMENT_SLUGS,splitDdDevelopmentChapter,splitDdDevelopmentIndex} from './dd-report-development-plans.ts';
 
 export const DD_REPORT_BUCKET='dd-report-files';
 const EDITION_FIELDS='id,package_id,title,source_version,document_version,source_sha256,status,summary,model_storage_path,xlsx_storage_path,legacy_snapshot_path,input_overrides,glossary,download_snapshot,revision,created_at,updated_at';
 export async function loadDdReportEdition(access:DdViewerAccess):Promise<DdReportEdition|null> {
-  let query=createAdminClient().from('dd_report_editions').select(EDITION_FIELDS).eq('package_id',access.packageId).neq('status','archived').order('created_at',{ascending:false}).limit(1);
-  if(access.principal==='workspace_account')query=query.eq('status','published');
-  const result=await query.maybeSingle();if(result.error)throw new Error('DDレポートを読み込めなかった');
-  const edition=result.data as DdReportEdition|null;return edition&&canReadDdReport(access,edition)?edition:null;
+  const edition=await loadProjectReportEdition(access.packageId,access.principal!=='workspace_account');
+  return edition&&canReadDdReport(access,edition)?edition:null;
+}
+/** 呼出側で当該PJ・ページの閲覧を認可した後に使う。本文は同じ版から取得する。 */
+export async function loadProjectReportEdition(packageId:string,includeDrafts:boolean):Promise<DdReportEdition|null> {
+  let query=createAdminClient().from('dd_report_editions').select(EDITION_FIELDS).eq('package_id',packageId).neq('status','archived').order('created_at',{ascending:false}).limit(1);
+  if(!includeDrafts)query=query.eq('status','published');
+  const result=await query.maybeSingle();if(result.error)throw new Error('共通本文の版を読み込めなかった');
+  return result.data as DdReportEdition|null;
 }
 const releaseCache=new Map<string,Promise<DdReportRelease[]>>();
 export async function loadDdReportReleases(access:DdViewerAccess,edition:DdReportEdition):Promise<DdReportRelease[]> {
   if(edition.package_id!==access.packageId||!canReadDdReport(access,edition))return [];
+  return loadDdReportReleaseRows(edition);
+}
+async function loadDdReportReleaseRows(edition:DdReportEdition):Promise<DdReportRelease[]> {
   const key=`${edition.id}:${edition.document_version}:${edition.revision}`;
   const prior=releaseCache.get(key);if(prior)return prior;
   if(releaseCache.size>=32)releaseCache.clear();
@@ -37,6 +46,10 @@ export async function loadDdReportReleases(access:DdViewerAccess,edition:DdRepor
     }
   })();
   releaseCache.set(key,loading);loading.catch(()=>releaseCache.delete(key));return loading;
+}
+/** Call only with an edition already authorized by the DD page/output flow. */
+export async function hydrateDdReportChangeLog(edition:DdReportEdition,chapter:DdReportChapter){
+  return chapter.body.changeLog?withDdReportChangeLog(chapter,edition,await loadDdReportReleaseRows(edition)):chapter;
 }
 export async function loadDdReportChapterIndex(editionId:string):Promise<DdReportChapterSummary[]> {
   const r=await createAdminClient().from('dd_report_chapters').select('id,slug,title,group_label,sort_order,source_sheet,revision,updated_at').eq('edition_id',editionId).order('sort_order');
@@ -77,7 +90,7 @@ export async function loadDdLegacySnapshot(edition:DdReportEdition):Promise<{pag
   const r=await createAdminClient().storage.from(DD_REPORT_BUCKET).download(edition.legacy_snapshot_path);if(r.error)throw new Error('旧DDの控えを読み込めなかった');return JSON.parse(await r.data.text());
 }
 export function updateDdReportBody(body:DdReportBody,sheet:string,calc:DdReportCalculator):DdReportBody {
-  return {...body,...(sheet==='資本政策表'?{jkiss:ddJkissSummary(calc)}:{}),...(sheet==='エクイティストーリー'?{equityValuations:ddEquityValuations((s,a)=>calc.get(s,a))}:{}),rows:body.rows.map(row=>({...row,cells:row.cells.map(cell=>cell.formula||Object.hasOwn(calc.overrides,`${sheet}!${cell.address}`)||calc.isDataTableCell(sheet,cell.address)?{...cell,value:calc.get(sheet,cell.address)}:cell)})),objects:body.objects.map(object=>{
+  return {...body,...(sheet==='資本政策表'?{jkiss:ddJkissSummary(calc)}:{}),...(sheet==='エクイティストーリー'?{equityValuations:ddEquityValuations((s,a)=>calc.get(s,a))}:{}),rows:body.rows.map(row=>({...row,cells:row.cells.map(cell=>{const origin=cell.valueSource??{sheet,address:cell.address};return cell.formula||Object.hasOwn(calc.overrides,`${origin.sheet}!${origin.address}`)||calc.isDataTableCell(origin.sheet,origin.address)?{...cell,value:calc.get(origin.sheet,origin.address)}:cell;})})),objects:body.objects.map(object=>{
     if(object.kind!=='chart')return object;
     return {...object,series:object.series.map(series=>{
       const ref=/^'?([^'!]+)'?!\$?([A-Z]+)\$?(\d+):\$?([A-Z]+)\$?(\d+)$/.exec(series.formula||'');if(!ref)return series;
@@ -88,7 +101,7 @@ export function updateDdReportBody(body:DdReportBody,sheet:string,calc:DdReportC
 }
 export async function evaluatedDdReportChapter(edition:DdReportEdition,chapter:DdReportChapter,overrides:Record<string,DdReportValue>=edition.input_overrides) {
   const model=await loadDdReportModel(edition),calc=new DdReportCalculator(model,overrides);
-  return {...chapter,body:updateDdReportBody(chapter.body,chapter.source_sheet,calc)};
+  return hydrateDdReportChangeLog(edition,{...chapter,body:updateDdReportBody(chapter.body,chapter.source_sheet,calc)});
 }
 export async function redactDdReport<T>(projectId:string,value:T):Promise<T> {
   return redactProjectPartnerNames(value,await loadProjectPartnerDisclosure(createAdminClient(),projectId));

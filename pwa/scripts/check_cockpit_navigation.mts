@@ -118,7 +118,7 @@ assert.match(pageMenuSource, /hidden={!open}/, "each group can collapse independ
 assert.match(pageMenuSource, /hasChildren \? setExpanded/, "group disclosure does not navigate");
 assert.match(pageMenuSource, /aria-controls=/, "disclosure identifies its child list");
 assert.match(pageMenuSource, /onMouseEnter={page.onHover}/, "reference data prefetch remains attached to page entries");
-assert.match(cockpitViewSource, /const groups = cockpitGroupsForType\(formatType\);/, "groups come from the PJ type format");
+assert.match(cockpitViewSource, /const groups = completeCockpitReportGroups\(cockpitGroupsForType\(formatType\),reportCatalog.index,project.projectId\);/, "groups come from the PJ type format");
 
 const kuteSeedsSource = fs.readFileSync(
   new URL("../src/components/cockpit/CockpitKuteSeeds.tsx", import.meta.url),

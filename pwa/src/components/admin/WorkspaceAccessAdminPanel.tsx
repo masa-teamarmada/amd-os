@@ -26,6 +26,8 @@ const enabled = (status: string) => status === "active" || status === "invited";
 const statusLabel = (status: string) => ({ active: "利用中", invited: "初回ログイン待ち", suspended: "停止中", revoked: "取消済み" }[status] || status);
 const roleLabel = (role: string) => ({ readonly: "閲覧のみ", contributor: "参加者", manager: "管理担当", owner: "管理担当", member: "メンバー" }[role] || role);
 
+const assignmentRoleLabel = (assignment: Assignment) => assignment.place.kind === "dd" ? `閲覧・ダウンロード${assignment.capabilities?.includes("dd.edit") ? "・掲載項目の編集" : ""}` : roleLabel(assignment.role);
+
 export function WorkspaceAccessAdminPanel() {
   const [data, setData] = useState<Data | null>(null);
   const [query, setQuery] = useState("");
@@ -120,7 +122,7 @@ export function WorkspaceAccessAdminPanel() {
         <div className="col-start-1 row-start-1 min-w-0"><div className="flex min-w-0 items-center gap-2"><p className="truncate text-xs font-medium" title={a.display_name || a.email}>{a.display_name || "名前未登録"}</p><AmieListStatus value={a.status} label={statusLabel(a.status)}/></div><p className="mt-0.5 break-all text-xs text-muted-foreground">{a.email}</p></div>
         <div className="col-span-2 col-start-1 row-start-2 flex flex-wrap items-center gap-1 md:col-span-1 md:col-start-2 md:row-start-1">
           {assignments(a.id).filter(s => enabled(s.status)).map(s => <div key={s.id} className="flex min-w-0 flex-wrap items-center gap-1">
-            <AmieListCategory value={s.place.kind} title={`${s.place.label} · ${roleLabel(s.role)}`}>{s.place.label} · {roleLabel(s.role)}</AmieListCategory>
+            <AmieListCategory value={s.place.kind} title={`${s.place.label} · ${assignmentRoleLabel(s)}`}>{s.place.label} · {assignmentRoleLabel(s)}</AmieListCategory>
             {s.expiresAt && Date.parse(s.expiresAt) <= Date.now() ? <AmieListStatus label="期限切れ" tone="warning"/> : !s.place.available ? <AmieListStatus label="非公開"/> : null}
           </div>)}
           {!assignments(a.id).some(s => enabled(s.status)) && <span className="text-xs text-muted-foreground">閲覧できる場所なし</span>}
@@ -149,7 +151,7 @@ export function WorkspaceAccessAdminPanel() {
             <div className="flex flex-wrap items-center gap-2">
               <select aria-label={`${a.place.label}の状態`} className={input} value={enabled(a.status) ? "allowed" : "stopped"} disabled={busy || current.status === "suspended"} onChange={e => void changeAssignment(a, { status: e.target.value === "allowed" ? (current.status === "active" ? "active" : "invited") : "revoked" })}><option value="allowed">許可</option><option value="stopped">停止</option></select>
               {a.place.kind !== "dd" && <select aria-label={`${a.place.label}の権限`} className={input} value={a.role} disabled={busy} onChange={e => void changeAssignment(a, { role: e.target.value })}><option value="readonly">閲覧のみ</option>{a.place.kind === "project" ? <><option value="contributor">参加者</option><option value="manager">管理担当</option></> : <><option value="member">メンバー</option><option value="owner">管理担当</option></>}</select>}
-              {a.place.kind === "dd" && <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={a.capabilities?.includes("dd.download") || false} disabled={busy} onChange={e => void changeAssignment(a, { capabilities: e.target.checked ? ["dd.view", "dd.download"] : ["dd.view"] })} />ダウンロードも許可</label>}
+              {a.place.kind === "dd" && <span className="text-xs text-muted-foreground">閲覧・資料のダウンロード</span>}
             </div>
             {!a.place.available && <p className="text-xs text-amber-700">この場所は非公開。公開するまで本人は開けない。</p>}
             {a.expiresAt && <p className="text-xs text-muted-foreground">期限：{new Date(a.expiresAt).toLocaleString("ja-JP")}{Date.parse(a.expiresAt) <= Date.now() ? "（期限切れ）" : ""}</p>}

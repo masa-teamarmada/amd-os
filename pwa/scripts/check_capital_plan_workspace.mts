@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const filePath = path.join(__dirname, "..", "src", "components", "cockpit", "CapitalPlanWorkspace.tsx");
-const src = fs.readFileSync(filePath, "utf8");
+const src = fs.readFileSync(filePath, "utf8").replace('from "../src/components/cockpit/CapitalPlanMatrix"', 'from "./CapitalPlanMatrix"');
 const matrixFilePath = path.join(__dirname, "..", "src", "components", "cockpit", "CapitalPlanMatrix.tsx");
 const matrixSrc = fs.readFileSync(matrixFilePath, "utf8");
 

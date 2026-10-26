@@ -10,6 +10,7 @@ import {
   DD_PACKAGE_STATUS_LABEL,
   DD_SECTIONS,
   normalizeDdUnverifiedNotes,
+  normalizeDdCapabilities,
   type DdGrantStatus,
   type DdItemKind,
   type DdPackageStatus,
@@ -678,7 +679,6 @@ function AddItemForm({
 function GrantsSection({ state, pending, run }: { state: DdAdminState; pending: boolean; run: RunAction }) {
   const [email, setEmail] = useState("");
   const [organization, setOrganization] = useState("");
-  const [download, setDownload] = useState(false);
   const [expiresAt, setExpiresAt] = useState("");
   const [createAccount, setCreateAccount] = useState(false);
   const statusActions: Array<{ status: DdGrantStatus; label: string; confirm?: string }> = [
@@ -691,7 +691,7 @@ function GrantsSection({ state, pending, run }: { state: DdAdminState; pending: 
       <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[#1d1d1f] pb-1">
         <h2 className="text-[15px] font-semibold">閲覧権限（招待・停止・失効）</h2>
         <span className="text-[11px] text-[#6e6e73]">
-          DDの閲覧権限はワークスペースやコックピットへの入場を含まない。付与してもメールは送られない（本人がログイン画面でメールアドレスを入れるとリンクが届く）。
+          閲覧を許可した人は、公開された資料をダウンロードできる。DDの閲覧権限はワークスペースやコックピットへの入場を含まない。付与してもメールは送られない（本人がログイン画面でメールアドレスを入れるとリンクが届く）。
         </span>
       </div>
       {state.grants.length === 0 ? (
@@ -719,24 +719,7 @@ function GrantsSection({ state, pending, run }: { state: DdAdminState; pending: 
                   </td>
                   <td className="px-2 py-2">{DD_GRANT_STATUS_LABEL[grant.status]}</td>
                   <td className="px-2 py-2">
-                    {grant.capabilities.map((capability) => DD_CAPABILITY_LABEL[capability]).join("・")}
-                    <button
-                      type="button"
-                      disabled={pending}
-                      onClick={() =>
-                        run(
-                          {
-                            action: "update_grant",
-                            grantId: grant.id,
-                            capabilities: grant.capabilities.includes("dd.download") ? ["dd.view"] : ["dd.view", "dd.download"],
-                          },
-                          "できる操作を変えた",
-                        )
-                      }
-                      className="ml-2 rounded border border-[#d2d2d7] px-1.5 py-0.5 text-[11px] hover:bg-[#f5f5f7]"
-                    >
-                      {grant.capabilities.includes("dd.download") ? "ダウンロードを外す" : "ダウンロードを許可"}
-                    </button>
+                    {normalizeDdCapabilities(grant.capabilities).map((capability) => DD_CAPABILITY_LABEL[capability]).join("・")}
                   </td>
                   <td className="px-2 py-2">{grant.expiresAt ? formatDdDate(grant.expiresAt) : "なし"}</td>
                   <td className="px-2 py-2">
@@ -771,7 +754,7 @@ function GrantsSection({ state, pending, run }: { state: DdAdminState; pending: 
               packageId: state.package.id,
               email,
               organizationName: organization,
-              capabilities: download ? ["dd.view", "dd.download"] : ["dd.view"],
+              capabilities: ["dd.view", "dd.download"],
               expiresAt: expiresAt || null,
               createAccount,
             },
@@ -792,10 +775,6 @@ function GrantsSection({ state, pending, run }: { state: DdAdminState; pending: 
         <label className="flex flex-col gap-1">
           <span className="text-[#6e6e73]">期限（任意）</span>
           <input type="date" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} className="min-h-9 rounded border border-[#d2d2d7] px-2" />
-        </label>
-        <label className="flex items-center gap-1.5 self-center">
-          <input type="checkbox" checked={download} onChange={(event) => setDownload(event.target.checked)} />
-          添付のダウンロードも許可
         </label>
         <label className="flex items-center gap-1.5 self-center">
           <input type="checkbox" checked={createAccount} onChange={(event) => setCreateAccount(event.target.checked)} />

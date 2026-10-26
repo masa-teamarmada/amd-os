@@ -13,7 +13,8 @@
  * 2026-10-03: どのタブを出すかはPJタイプごとの標準フォーマット（src/lib/project-formats.ts、鍵付き）が正本。
  * ここはタブの名前の一覧と、旧URLの読み替えだけを持つ。
  */
-import { COCKPIT_TAB_FORMATS, DEFAULT_TABS, type ProjectFormatType } from "./project-formats.ts";
+import { COCKPIT_TAB_FORMATS, DEFAULT_TABS, PROJECT_REPORT_CATALOG_VISIBILITY, type ProjectFormatType } from "./project-formats.ts";
+import {canonicalMenuConfiguration} from './project-canonical-pages.ts';
 
 export const COCKPIT_TABS = [
   "progress",
@@ -61,7 +62,7 @@ export const COCKPIT_TABS = [
   "dd",
 ] as const;
 
-export type CockpitTab = (typeof COCKPIT_TABS)[number];
+export type CockpitTab = (typeof COCKPIT_TABS)[number] | `report:${string}`;
 
 /**
  * 既定タブ。URL に `?tab=` を付けないのはこれだけ。全PJ同じ（src/lib/project-formats.ts の DEFAULT_TABS）。
@@ -78,6 +79,7 @@ export const NON_DEFAULT_COCKPIT_TABS: readonly string[] = COCKPIT_TABS.filter(
 export type CockpitGroupKey =
   | "progress-group"
   | "business-plan-group"
+  | "technology-group"
   | "documents-group"
   | "project-management-group"
   | "company-information-group"
@@ -106,6 +108,7 @@ export const COCKPIT_GROUP_LABELS = {
 const GROUP_LABEL_BY_KEY: Record<CockpitGroupKey, string> = {
   "progress-group": COCKPIT_GROUP_LABELS.progress,
   "business-plan-group": COCKPIT_GROUP_LABELS.businessPlan,
+  "technology-group": "技術と実証",
   "documents-group": COCKPIT_GROUP_LABELS.documents,
   "project-management-group": COCKPIT_GROUP_LABELS.projectManagement,
   "company-information-group": COCKPIT_GROUP_LABELS.companyInformation,
@@ -118,12 +121,22 @@ const GROUP_LABEL_BY_KEY: Record<CockpitGroupKey, string> = {
  * PJタイプごとのタブの並び。正本は src/lib/project-formats.ts の COCKPIT_TAB_FORMATS（鍵付き）。
  * データの有無ではタブを出し分けない（2026-10-03 まさ「全部統一してないとだめ。OSの大原則」）。
  */
-export function cockpitGroupsForType(type: ProjectFormatType): readonly CockpitGroup[] {
-  return COCKPIT_TAB_FORMATS[type].map((group) => ({
+export function cockpitGroupsForType(type: ProjectFormatType, projectId?: string): readonly CockpitGroup[] {
+  const groups: CockpitGroup[] = COCKPIT_TAB_FORMATS[type].map((group) => ({
     key: group.group as CockpitGroupKey,
     label: GROUP_LABEL_BY_KEY[group.group as CockpitGroupKey],
     children: group.tabs as readonly CockpitTab[],
   }));
+  return applyCanonicalCockpitMenu(groups,projectId);
+}
+export function applyCanonicalCockpitMenu(groups:readonly CockpitGroup[],projectId?:string,chapters:readonly string[]=[]):readonly CockpitGroup[]{
+  const menu=canonicalMenuConfiguration(projectId,chapters);if(!menu.technicalTabs.length)return groups;
+  const technical = new Set(menu.technicalTabs);
+  const existing=groups.find(group=>group.key==='technology-group');
+  const children=[...new Set([...menu.technicalTabs.filter(key=>groups.some(group=>group.children.includes(key as CockpitTab))),...(existing?.children??[]).filter(key=>!technical.has(key))])] as CockpitTab[];
+  const result=groups.filter(group=>group.key!=='technology-group').map(group=>({...group,children:group.children.filter(key=>!technical.has(key))}));
+  const after=result.findIndex(group=>group.key==='business-plan-group');
+  result.splice(after<0?result.length:after+1,0,{key:'technology-group',label:menu.technicalLabel,children});return result;
 }
 
 /** 旧URLのタブ名。今のタブへ読み替える（共有済みのリンクを壊さない）。 */
@@ -137,6 +150,7 @@ const TAB_ALIASES: Partial<Record<CockpitTab, CockpitTab>> = {
 /** URLのタブを、このPJタイプの形にあるタブへ解決する。形に無いタブは既定タブへ落とす。 */
 export function resolveCockpitTabForType(tab: CockpitTab, type: ProjectFormatType): CockpitTab {
   const aliased = TAB_ALIASES[tab] ?? tab;
+  if(aliased.startsWith("report:")&&PROJECT_REPORT_CATALOG_VISIBILITY.cockpit==="all")return aliased;
   return COCKPIT_TAB_FORMATS[type].some((group) => group.tabs.includes(aliased)) ? aliased : DEFAULT_COCKPIT_TAB;
 }
 

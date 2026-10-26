@@ -1,4 +1,6 @@
 "use client";
+import {useCanonicalCapitalTemplate} from "../project-space/ProjectCanonicalContext";
+import {capitalPlanFromReport} from "../../lib/project-capital-plan-from-report";
 
 // 資本政策の編集ワークスペース。編集内容はそのまま保存済みプランとして扱われ、
 // deriveCapitalPlan があらゆる編集の直後に必ず全体へ再適用する唯一の計算経路となる。
@@ -186,6 +188,7 @@ function scaleEditableValue(ev: EditableValue | undefined, factor: number): Edit
 // ---------------------------------------------------------------------------
 
 export default function CapitalPlanWorkspace({ projectId, projectName, companyOverviewData, initialData, readOnly = false }: CapitalPlanWorkspaceProps) {
+  const canonicalTemplate=useCanonicalCapitalTemplate();
   const [plans, setPlans] = useState<PlanRow[]>([]);
   const [versions, setVersions] = useState<VersionRow[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
@@ -516,8 +519,11 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
   }
 
   function createStandardIpoPlan() {
-    const doc = createStandardIpoCapitalPlanDocument();
-    void createPlan("IPOまでの標準プラン", doc, "create_standard");
+    if(canonicalTemplate===null){setError("最新計画の読込みを待ってから作成する。");return;}
+    try {
+      const doc = canonicalTemplate ? capitalPlanFromReport(canonicalTemplate.chapter,canonicalTemplate.documentVersion) : createStandardIpoCapitalPlanDocument();
+      void createPlan(canonicalTemplate ? `DD v${canonicalTemplate.documentVersion}に基づく比較案` : "IPOまでの標準プラン", doc, "create_standard");
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "最新計画の条件の検証が必要。"); }
   }
 
   function createPlanFromConfirmedHistory() {

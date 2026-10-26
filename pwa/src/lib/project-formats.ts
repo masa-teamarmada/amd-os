@@ -74,7 +74,7 @@ export const COCKPIT_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ grou
 /** PJワークスペース（PJメンバーと共有する面）のタブ。コックピットと同じく、タイプごとに全タブを出す。 */
 const WORKSPACE_STANDARD_TABS = [
   { group: "progress-group", tabs: ["issues", "tasks", "gantt", "meetings", "slack", "weekly", "partners"] },
-  { group: "business-plan-group", tabs: ["technology", "poc-list", "competition", "business-model", "business-plan", "development-issues", "financial-projection", "capital-plan", "cost", "ip"] },
+  { group: "business-plan-group", tabs: ["technology", "report:technical-development-plan", "poc-list", "competition", "business-model", "report:business-development-plan", "business-plan", "development-issues", "financial-projection", "capital-plan", "cost", "ip"] },
   { group: "company-information-group", tabs: ["company", "organization-chart", "employee-register", "contracts", "capital-policy", "executive-meeting"] },
   { group: "documents-group", tabs: ["drive"] },
 ] as const;
@@ -98,7 +98,7 @@ export const ROLE_RESTRICTED_TABS: Readonly<Record<string, "executive">> = { "ex
 // 従来の共通ページキー。旧URL・正式版PDFとの互換用。左メニューはDD_ITEM_PAGESを使う。
 export const DD_TAB_FORMAT = [
   { group: "progress-group", tabs: ["gantt", "partners"] },
-  { group: "business-plan-group", tabs: ["technology", "poc-list", "competition", "business-model", "business-plan", "development-issues", "financial-projection", "capital-plan", "cost-model", "ip"] },
+  { group: "business-plan-group", tabs: ["technology", "report:technical-development-plan", "poc-list", "competition", "business-model", "report:business-development-plan", "business-plan", "development-issues", "financial-projection", "capital-plan", "cost-model", "ip"] },
   { group: "company-information-group", tabs: ["company", "capital-policy", "activity"] },
   { group: "documents-group", tabs: ["documents"] },
 ] as const;
@@ -183,6 +183,7 @@ export const PROJECT_PAGE_LABELS: Readonly<Record<string, string>> = {
   "related-party-transactions": "関連当事者取引一覧",
   "financial-statements": "決算書",
   "tax-returns": "税務申告書",
+  "report:business-development-plan": "顧客開拓・事業化", "report:technical-development-plan": "研究開発・実証",
   issues: "ゴールツリー", tasks: "タスク", gantt: "ガント", progress: "MS・月次", meetings: "動向・会議", "executive-meeting": "経営会議", slack: "Slack", weekly: "週次差分", partners: "関係先",
   "score-detail": "スコア詳細", technology: "技術", "poc-list": "PoCリスト", competition: "競合比較", "business-model": "ビジネスモデル", "business-plan": "事業計画", "financial-projection": "試算表", "capital-plan": "資本政策表", "cost-model": "コスト試算", cost: "コスト試算", ip: "知財",
   governance: "総会・取締役会・経営会議議事録", "technical-evidence": "技術実証報告書", manufacturing: "製造体制資料", team: "経営陣略歴", contracts: "契約リスト", regulatory: "許認可一覧", disputes: "訴訟一覧", "shareholder-register": "株主名簿", "next-round-term-sheet": "次回ラウンドタームシート",
@@ -489,3 +490,6 @@ export const ORGANIZATION_CHART_FORMAT = {
   departmentCount: 3,
   departmentLevels: ["部門名", "部署・チーム名", "担当・役職名"],
 } as const;
+
+/** 登録済み資料の一覧。コックピットは全ページを表示し、他スペースはページごとの設定を使う。 */
+export const PROJECT_REPORT_CATALOG_VISIBILITY={cockpit:"all",workspace:"configured",dd:"configured"} as const;

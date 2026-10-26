@@ -1,4 +1,4 @@
-import type {DdEquityValuation} from './dd-report-types';
+import type {DdEquityValuation} from './dd-report-types.ts';
 
 /** Values use the capital plan's existing cells and units (JPY 100 million). */
 export function ddEquityValuations(read:(sheet:string,address:string)=>unknown):DdEquityValuation[]{

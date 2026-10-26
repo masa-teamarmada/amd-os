@@ -3388,7 +3388,7 @@ expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
   "ledgerTabsPresent(",
 ]);
 expectIncludes("src/lib/project-formats.ts", [
-  '{ group: "business-plan-group", tabs: ["technology", "poc-list", "competition", "business-model", "business-plan", "development-issues", "financial-projection", "capital-plan", "cost", "ip"] },',
+  '{ group: "business-plan-group", tabs: ["technology", "report:technical-development-plan", "poc-list", "competition", "business-model", "report:business-development-plan", "business-plan", "development-issues", "financial-projection", "capital-plan", "cost", "ip"] },',
 ]);
 expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
   'technology: "技術",',
@@ -3615,7 +3615,7 @@ expectIncludes("../ios/supabase/migrations/20261022163717_executive_management_m
 expectIncludes("src/lib/cockpit-tabs.ts", [
   "export const COCKPIT_TABS = [",
   '"capital-policy"',
-  "export type CockpitTab = (typeof COCKPIT_TABS)[number];",
+  "export type CockpitTab = (typeof COCKPIT_TABS)[number] | `report:${string}`;",
   "export const NON_DEFAULT_COCKPIT_TABS",
   "export const COCKPIT_GROUP_LABELS",
   'progress: "進捗管理"',

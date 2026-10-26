@@ -28,7 +28,7 @@ for (const [domain, page] of [["競合比較", "competition"], ["ビジネスモ
 }
 const canonical = (tab: string) => tab === "cost" ? "cost-model" : tab === "drive" ? "documents" : tab;
 const dd = new Set<string>(DD_PAGE_KEYS);
-assert.equal(dd.size, 45, "41資料と既存の4ページURL");
+assert.equal(dd.size, 47, "資料と共通ページの47 URL");
 assert.equal(DD_ITEM_PAGES.length, 41);
 assert.equal(ddPageLabel("founding-background"), "創業の背景と社会課題");
 assert.ok(isDdEmptyPageKey("founding-background"));
@@ -72,7 +72,7 @@ assert.throws(() => ddPageForItem("project_page", null, "project_page:slack"));
 assert.equal(PROJECT_PAGE_LABELS.activity, "沿革");
 assert.equal(dd.has("list"), false);
 const allCockpit = new Set(Object.values(COCKPIT_TAB_FORMATS).flatMap(groups => groups.flatMap(g => [...g.tabs])));
-for (const key of dd) assert.ok((allCockpit.has(key) || ["short-term-plan", "long-term-plan", "monthly-trial", "next-round-overview"].includes(key) || isDdEmptyPageKey(key)) && PROJECT_PAGE_LABELS[key], `${key}は共通ページまたは新しい資料区分`);
+for (const key of dd) assert.ok((allCockpit.has(key) || /^report:[a-z0-9]+(?:-[a-z0-9]+)*$/.test(key) || ["short-term-plan", "long-term-plan", "monthly-trial", "next-round-overview"].includes(key) || isDdEmptyPageKey(key)) && PROJECT_PAGE_LABELS[key], `${key}は共通ページまたは新しい資料区分`);
 for (const formats of [COCKPIT_TAB_FORMATS, WORKSPACE_TAB_FORMATS]) {
   for (const groups of Object.values(formats)) {
     assert.ok(groups.findIndex(group => group.group === "documents-group") > groups.findIndex(group => group.group === "company-information-group"));

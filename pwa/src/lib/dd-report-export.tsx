@@ -12,7 +12,7 @@ import {scaleDdJkissSummary} from './dd-report-jkiss-xlsx';
 import {updateDdFundingChartXml} from './dd-report-funding-chart';
 import {mergeDdDevelopmentForWorkbook,splitDdDevelopmentChapters,splitDdDevelopmentIndex} from './dd-report-development-plans';
 import {splitDdDevelopmentWorkbook} from './dd-report-development-xlsx';
-import {projectDdWorkbook} from './dd-report-workbook';
+import {projectDdWorkbook,appendDdExecutionWorkbook} from './dd-report-workbook';
 import {syncDdListValidation} from './dd-report-validation';
 import {ddPatchWorksheetFormula} from './dd-report-xlsx-formulas';
 
@@ -64,7 +64,7 @@ function xmlCell(original:string,value:DdReportValue,formula:boolean) {
 /** Preserve native formulas, chart objects, validations, styles and Excel data tables. */
 export function ddReportXlsx(source:Uint8Array,edition:DdReportEdition,model:DdReportModel,chapters:DdReportChapter[],redact:(text:string)=>string=(s)=>s,focusSheet?:string,reportHref='https://amd-os-pwa.vercel.app/dd',pdfIndex?:DdPdfIndex) {
   chapters=splitDdDevelopmentChapters(chapters);
-  const files=unzipSync(source),calc=new DdReportCalculator(model,edition.input_overrides),edited=new Map(mergeDdDevelopmentForWorkbook(chapters).map(ch=>[ch.source_sheet,new Map(ch.body.rows.flatMap(r=>r.cells).filter(c=>!c.formula&&typeof c.value==='string').map(c=>[c.address,c.value]))]));
+  const files=unzipSync(source),calc=new DdReportCalculator(model,edition.input_overrides),edited=new Map(mergeDdDevelopmentForWorkbook(chapters).map(ch=>[ch.source_sheet,new Map(ch.body.rows.flatMap(r=>r.cells).filter(c=>!c.formula&&typeof c.value==='string'&&c.value!=='条件付き成立').map(c=>[c.address,c.value]))]));
   for(const [sheet,data]of Object.entries(model.sheets)){
     let xml=strFromU8(files[data.path]);
     xml=xml.replace(/<(?:[\w.-]+:)?c\b[^>]*?\br="([A-Z]+\d+)"[^>]*?(?:\/>|>[\s\S]*?<\/(?:[\w.-]+:)?c>)/g,(cell,address:string)=>{
@@ -72,8 +72,9 @@ export function ddReportXlsx(source:Uint8Array,edition:DdReportEdition,model:DdR
       let value=edited.get(sheet)?.get(address)??calc.get(sheet,address);
       if(typeof value==='string')value=redact(value);
       const patch=model.formulaPatches?.[`${sheet}!${address}`];
-      const originalCell=patch?ddPatchWorksheetFormula(cell,patch):cell;
-      return xmlCell(originalCell,value,Boolean(entry.f)||/<(?:[\w.-]+:)?f\b/.test(cell));
+      const removedFormula=patch==='';
+      const originalCell=removedFormula?cell.replace(/<(?:[\w.-]+:)?f\b[^>]*(?:\/>|>[\s\S]*?<\/(?:[\w.-]+:)?f>)/g,''):patch?ddPatchWorksheetFormula(cell,patch):cell;
+      return xmlCell(originalCell,value,!removedFormula&&(Boolean(entry.f)||/<(?:[\w.-]+:)?f\b/.test(cell)));
     }).replace(/zoomScale="\d+"/g,'zoomScale="100"');
     if(focusSheet)xml=xml.replace(/tabSelected="[01]"/g,`tabSelected="${sheet===focusSheet?'1':'0'}"`);
     // Source files can already contain a print notice; replace it, never append a duplicate element.
@@ -117,6 +118,13 @@ export function ddReportXlsx(source:Uint8Array,edition:DdReportEdition,model:DdR
   scaleDdJkissSummary(files,model.sheets['資本政策表']?.path);
   const projected=projectDdWorkbook(files,mergeDdDevelopmentForWorkbook(chapters),model,edition,reportHref,pdfIndex);
   if(projected){const selected=focusSheet&&projected.includes(focusSheet)?focusSheet:projected[0];for(const name of projected){const p=model.sheets[name].path;files[p]=strToU8(strFromU8(files[p]).replace(/<(?:[\w.-]+:)?sheetView\b[^>]*>/g,view=>view.replace(/\s+tabSelected="[01]"/g,'').replace(/\/?>$/,` tabSelected="${name===selected?'1':'0'}"${view.endsWith('/>')?'/>':'>'}`)));}}
+  const ue=chapters.find(c=>c.slug==='unit-economics');
+  if(ue&&model.sheets[ue.source_sheet]){const file=model.sheets[ue.source_sheet].path;let xml=strFromU8(files[file]);
+    const cells=new Map(ue.body.rows.flatMap(r=>r.cells).map(c=>[c.address,c]));
+    const values:Record<string,string>={K17:'表示条件の採算',N17:'事業化の判定',N19:String(cells.get('K19')?.value??''),N20:String(cells.get('K20')?.value??''),N21:String(cells.get('K21')?.value??'')};
+    for(const [address,value] of Object.entries(values)){const prefix=xml.match(/<([\w.-]+:)?worksheet\b/)?.[1]??'',cell=`<${prefix}c r="${address}" t="inlineStr"><${prefix}is><${prefix}t>${ddEscapeHtml(value)}</${prefix}t></${prefix}is></${prefix}c>`,row=address.replace(/^[A-Z]+/,'');const re=new RegExp('<'+prefix+'c\\b[^>]*?\\br="'+address+'"[^>]*?(?:\\/>|>[\\s\\S]*?</'+prefix+'c>)');
+      if(re.test(xml))xml=xml.replace(re,cell);else xml=xml.replace(new RegExp('(<'+prefix+'row\\b[^>]*\\br="'+row+'"[^>]*>[\\s\\S]*?)(</'+prefix+'row>)'),(_m,open:string,close:string)=>open+cell+close);
+    }files[file]=strToU8(xml);}
   if(focusSheet){const names=projected??[...strFromU8(files['xl/workbook.xml']).matchAll(/<sheet\b[^>]*name="([^"]+)"/g)].map(m=>m[1].replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&'));const position=names.indexOf(focusSheet);if(position>=0)files['xl/workbook.xml']=strToU8(strFromU8(files['xl/workbook.xml']).replace(/activeTab="\d+"/g,`activeTab="${position}"`));}
   // A harmless custom XML part identifies the same DB revision as PDF without adding a visible sheet.
   // Rename the public sheet after calculation and projection, updating formulas, charts and hyperlinks together.
@@ -124,5 +132,11 @@ export function ddReportXlsx(source:Uint8Array,edition:DdReportEdition,model:DdR
   files['dd-report-version.json']=strToU8(JSON.stringify({title:edition.title,documentVersion:edition.document_version??null,revision:edition.revision,sourceVersion:edition.source_version,sourceSha256:edition.source_sha256,...(projected?{contents:'numerical-model-and-tables',sheets:projected.flatMap(s=>s==='計画詳細'?['事業開発計画','技術開発計画']:[s==='損益・資金繰'?'資金繰表':s])}:{})}));
   const contentTypes=strFromU8(files['[Content_Types].xml']);if(!contentTypes.includes('Extension="json"'))files['[Content_Types].xml']=strToU8(contentTypes.replace('</Types>','<Default Extension="json" ContentType="application/json"/></Types>'));
   splitDdDevelopmentWorkbook(files,chapters,model,edition,pdfIndex);
+  const dailySheets=appendDdExecutionWorkbook(files,chapters,edition,redact);
+  if(dailySheets.length){const meta=JSON.parse(strFromU8(files['dd-report-version.json']));meta.sheets=[...(meta.sheets??[]),...dailySheets];files['dd-report-version.json']=strToU8(JSON.stringify(meta));}
+  // Translate displayed labels and quoted formula text together; references and identifiers stay intact.
+  const wording=(s:string)=>s.split(/(https?:\/\/[^\s<>]+)/g).map(part=>part.startsWith('http')?part:part.replaceAll('原価','コスト')).join('');
+  const xmlText=(s:string)=>s.replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');
+  for(const name of Object.keys(files))if(name.endsWith('.xml'))files[name]=strToU8(strFromU8(files[name]).replace(/(<(?:[\w.-]+:)?([\w.-]+)\b[^>]*>)([^<]*)(<\/(?:[\w.-]+:)?\2>)/g,(_all,open:string,tag:string,text:string,close:string)=>open+(['f','formula1','formula2','definedName'].includes(tag)?ddEscapeHtml(xmlText(text).replace(/"(?:[^"]|"")*"/g,literal=>wording(literal))):wording(text))+close));
   return zipSync(files,{level:6});
 }

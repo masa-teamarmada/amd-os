@@ -63,6 +63,9 @@ lookupFailed=true;await assert.rejects(server.hasDdNdaConfirmation(access),/look
 // 実ページ: gateが閉じている間、本文データも通常の閲覧記録も作らない。
 let confirmed=false,reads=0,contextReads=0;
 const page=load('../src/app/dd/[slug]/page.tsx',{
+ '@/components/project-space/ProjectCanonicalPage':{ProjectCanonicalPage:()=>null},
+ '@/lib/project-canonical-pages':{canonicalPageForChapter:()=>null},
+ '@/lib/project-canonical-page-server':{loadProjectCanonicalPage:async()=>{throw new Error('Unauthorized report read');}},
  'react/jsx-runtime':{jsx:(component:any,props:any)=>({component,props}),jsxs:(component:any,props:any)=>({component,props})},
  'next/navigation':{notFound:()=>{throw new Error('not found')},redirect:()=>{throw new Error('redirect')}},
  '@/components/dd/DdEntryGate':{DdEntryGate:'gate'},'@/lib/dd-nda':wording,'@/lib/dd-nda-server':{loadDdNdaContext:async()=>{contextReads++;return current},hasDdNdaConfirmation:async()=>confirmed},

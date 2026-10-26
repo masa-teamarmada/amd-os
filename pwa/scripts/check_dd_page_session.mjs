@@ -35,6 +35,9 @@ await assert.rejects(guard('//outside.example'), (error) => error.location === '
 
 let access = null, lookups = 0, reads = 0, contentEdit = false;
 const page = load('../src/app/dd/[slug]/page.tsx', {
+  '@/components/project-space/ProjectCanonicalPage':{ProjectCanonicalPage:()=>null},
+  '@/lib/project-canonical-pages':{canonicalPageForChapter:()=>null},
+  '@/lib/project-canonical-page-server':{loadProjectCanonicalPage:async()=>{throw new Error('Unauthorized report read');}},
   'react/jsx-runtime': { jsx: (_type, props) => props, jsxs: (_type, props) => props },
   'next/navigation': navigate,
   '@/lib/dd-report-download-policy':{ddReportDownloadEdition:e=>e,ddReportDownloadRelease:e=>({revision:e.revision,documentVersion:e.document_version,paused:false})},

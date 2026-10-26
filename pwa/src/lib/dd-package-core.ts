@@ -5,7 +5,8 @@
 //   - 入れる領域 … コックピット / ワークスペース / DD の3つ。DDへ入れる根拠は dd_package_grants の行だけで、
 //     project_access_memberships（ワークスペース）や institution_workspace_memberships（機関）とは独立。
 //     DDの付与はワークスペースへ入る根拠にならず、ワークスペースの所属もDDへ入る根拠にならない。
-//   - できる操作 … 付与行の capabilities（dd.view / dd.download）。領域に入れても操作は付与された分だけ。
+//   - できる操作 … dd.view は同じ開示範囲の閲覧・ダウンロードを含む。dd.edit は掲載項目の編集。
+//     dd.download は旧データ・APIとの互換用。閲覧付与から必ず導出し、個別の許可設定にはしない。
 //
 // ここで固定する規則（弱めるときは pwa/spec/5-17-dd-package-current-spec.md を先に直す）:
 //   - アカウントが active で、Supabase 認証と紐付いていて、cookie のメールと一致するときだけ解決する
@@ -102,13 +103,14 @@ export const DD_PACKAGE_STATUS_LABEL: Record<DdPackageStatus, string> = {
 export const DD_CAPABILITY_LABEL: Record<DdCapability, string> = {
   "dd.view": "閲覧",
   "dd.edit": "掲載項目の編集",
-  "dd.download": "添付資料のダウンロード",
+  "dd.download": "資料のダウンロード",
 };
 
-/** 付与行に保存された capabilities を既知の値だけへ絞る。順序は DD_CAPABILITIES に揃える。 */
+/** 既知の操作へ絞り、閲覧に含まれるダウンロードを補う。順序は DD_CAPABILITIES に揃える。 */
 export function normalizeDdCapabilities(raw: unknown): DdCapability[] {
   if (!Array.isArray(raw)) return [];
   const values = new Set(raw.filter((value): value is string => typeof value === "string"));
+  if (values.has("dd.view")) values.add("dd.download");
   return DD_CAPABILITIES.filter((capability) => values.has(capability));
 }
 
@@ -240,6 +242,7 @@ export type DdViewerAccess =
     };
 
 export function hasDdCapability(access: Pick<DdViewerAccess, "capabilities">, capability: DdCapability): boolean {
+  if (capability === "dd.download") return access.capabilities.includes("dd.view");
   return access.capabilities.includes(capability);
 }
 

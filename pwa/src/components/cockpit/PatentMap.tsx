@@ -43,9 +43,15 @@ function clip(s: string, n = 10) {
 export function PatentMap({
   assets,
   onSelect,
+  assessmentDisplay = "recorded",
+  importanceDisplay = "uniform",
+  print = false,
 }: {
   assets: IpAsset[];
   onSelect: (asset: IpAsset) => void;
+  assessmentDisplay?: "recorded" | "explicit";
+  importanceDisplay?: "uniform" | "assessed";
+  print?: boolean;
 }) {
   const [view, setView] = useState<MapView>("breadth");
   const [hidden, setHidden] = useState<IpRelation[]>([]);
@@ -63,6 +69,12 @@ export function PatentMap({
 
   if (assets.length === 0) return null;
 
+  const explicitAssessment = assessmentDisplay === "explicit";
+  const assessedCount = assets.filter(a => a.claim_breadth != null).length;
+  const importanceAssessed = importanceDisplay === "assessed";
+  const assessmentNote = `色 = 立場。権利範囲 ${assessedCount}/${assets.length}件を評価。${importanceAssessed?"点の大きさ = SOLとの関係に基づく重要度（1〜5）。":"点の大きさは統一（重要度未評価）。"}`;
+  if (print) return <section className="ddr-ip-common-print" data-testid="cockpit-ip-patent-map"><h2>🗺️ 特許マップ</h2><div className="ddr-ip-common-print-legend">{RELATION_ORDER.filter(r=>assets.some(a=>a.relation===r)).map(r=><span key={r}><i style={{color:RELATION_META[r].hex}}>●</i> {RELATION_META[r].short}</span>)}</div>{(Object.keys(VIEW_LABEL) as MapView[]).map(v=><section className="ddr-ip-print-view" data-map-view={v} key={v}><h3>{VIEW_LABEL[v]}</h3>{v==="applicant"?<ApplicantMatrix assets={assets} domains={domains} onSelect={onSelect} explicitAssessment={explicitAssessment} print/>:<Scatter view={v} assets={assets} domains={domains} onSelect={onSelect} onHover={()=>{}} hover={null} explicitAssessment={explicitAssessment} importanceAssessed={importanceAssessed} print/>}</section>)}<p>{explicitAssessment?assessmentNote:"色 = 立場、大きさ = 重要度 (1-5)。"}</p></section>;
+
   const toggleRelation = (r: IpRelation) =>
     setHidden((prev) => (prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]));
 
@@ -75,6 +87,7 @@ export function PatentMap({
             <button
               key={v}
               type="button"
+              aria-pressed={explicitAssessment ? view === v : undefined}
               onClick={() => setView(v)}
               className={`rounded border px-2 py-0.5 text-[10px] ${
                 view === v ? "border-foreground bg-foreground text-background" : "border-border bg-background text-muted-foreground hover:bg-muted"
@@ -89,6 +102,7 @@ export function PatentMap({
               <button
                 key={r}
                 type="button"
+                aria-pressed={explicitAssessment ? !off : undefined}
                 onClick={() => toggleRelation(r)}
                 title={off ? "表示する" : "非表示にする"}
                 className={`flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] ${off ? "border-border bg-background text-muted-foreground/50" : "border-border bg-background text-foreground"}`}
@@ -105,15 +119,15 @@ export function PatentMap({
         {shown.length === 0 ? (
           <p className="text-[11px] text-muted-foreground">表示する立場がすべて非表示になっている。</p>
         ) : view === "applicant" ? (
-          <ApplicantMatrix assets={shown} domains={domains} onSelect={onSelect} />
+          <ApplicantMatrix assets={shown} domains={domains} onSelect={onSelect} explicitAssessment={explicitAssessment} />
         ) : (
-          <Scatter view={view} assets={shown} domains={domains} onSelect={onSelect} onHover={setHover} hover={hover} />
+          <Scatter view={view} assets={shown} domains={domains} onSelect={onSelect} onHover={setHover} hover={hover} explicitAssessment={explicitAssessment} importanceAssessed={importanceAssessed} />
         )}
         <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
-          色 = 立場、大きさ = 重要度 (1-5)。
-          {view === "breadth" && " 上に行くほど権利範囲が広い = 回避が難しい。右上に赤 (障害特許) がある技術区分は before zero の要注意ゾーン。"}
-          {view === "timeline" && " 横軸は出願年。大学の基本特許より後ろに自社出願が並んでいるかを見る。"}
-          {view === "applicant" && " 誰がどの技術区分を押さえているかの件数マトリクス。セルをクリックすると先頭の1件を開く。"}
+          {explicitAssessment ? assessmentNote : "色 = 立場、大きさ = 重要度 (1-5)。"}
+          {!explicitAssessment && view === "breadth" && " 上に行くほど権利範囲が広い = 回避が難しい。右上に赤 (障害特許) がある技術区分は before zero の要注意ゾーン。"}
+          {view === "timeline" && (explicitAssessment ? " 横軸は出願年。大学と他者の出願時期を技術区分別に比較する。" : " 横軸は出願年。大学の基本特許より後ろに自社出願が並んでいるかを見る。")}
+          {view === "applicant" && (explicitAssessment ? " 技術区分別の掲載出願・代表公報数。共同出願人も個別に計上。セルから先頭の1件を開く。" : " 誰がどの技術区分を押さえているかの件数マトリクス。セルをクリックすると先頭の1件を開く。")}
         </p>
       </div>
     </section>
@@ -121,7 +135,7 @@ export function PatentMap({
 }
 
 function Scatter({
-  view, assets, domains, onSelect, onHover, hover,
+  view, assets, domains, onSelect, onHover, hover, explicitAssessment = false, importanceAssessed = false, print = false,
 }: {
   view: "breadth" | "timeline";
   assets: IpAsset[];
@@ -129,8 +143,11 @@ function Scatter({
   onSelect: (a: IpAsset) => void;
   onHover: (a: IpAsset | null) => void;
   hover: IpAsset | null;
+  importanceAssessed?: boolean;
+  explicitAssessment?: boolean;
+  print?: boolean;
 }) {
-  const W = 560;
+  const W = explicitAssessment ? Math.max(560, 96 + domains.length * (print ? 72 : 112)) : 560;
   const padL = 84;
   const padR = 12;
   const padT = 10;
@@ -143,7 +160,8 @@ function Scatter({
 
   // breadth: X=技術区分(カテゴリ) / Y=claim_breadth 1-5
   // timeline: X=出願年(数値)   / Y=技術区分(カテゴリ)
-  const yCats = view === "breadth" ? [5, 4, 3, 2, 1].map(String) : domains;
+  const hasUnassessed = explicitAssessment && assets.some(a=>a.claim_breadth == null);
+  const yCats = view === "breadth" ? [...[5, 4, 3, 2, 1].map(String), ...(hasUnassessed?["未評価"]:[])] : domains;
   const xCats = view === "breadth" ? domains : null;
   const rowH = view === "breadth" ? 26 : 22;
   const H = padT + padB + Math.max(1, yCats.length) * rowH;
@@ -161,6 +179,7 @@ function Scatter({
   };
   const yOf = (a: IpAsset, idxInCell: number) => {
     if (view === "breadth") {
+      if (explicitAssessment && a.claim_breadth == null) return padT + rowH * (yCats.length - 0.5);
       const b = a.claim_breadth ?? 3;
       const i = [5, 4, 3, 2, 1].indexOf(b);
       return padT + rowH * ((i < 0 ? 2 : i) + 0.5) + (Math.floor(idxInCell / 5) % 3 - 1) * 5;
@@ -169,13 +188,18 @@ function Scatter({
     return padT + rowH * (i + 0.5) + (Math.floor(idxInCell / 5) % 3 - 1) * 4;
   };
 
+  const cellKey = (a: IpAsset) => view === "breadth" ? `${domainOf(a)}|${explicitAssessment && a.claim_breadth == null ? "?" : a.claim_breadth ?? 3}` : `${yearOf(a) ?? "?"}|${domainOf(a)}`;
+  const totals = new Map<string, number>();
+  if (explicitAssessment) assets.forEach(a=>totals.set(cellKey(a),(totals.get(cellKey(a))??0)+1));
   // 同じセルに落ちる点を数えてジッタさせる
   const cellCount = new Map<string, number>();
   const placed = assets.map((a) => {
-    const key = view === "breadth" ? `${domainOf(a)}|${a.claim_breadth ?? 3}` : `${yearOf(a) ?? "?"}|${domainOf(a)}`;
+    const key = cellKey(a);
     const idx = cellCount.get(key) ?? 0;
     cellCount.set(key, idx + 1);
-    return { a, cx: xOf(a, idx), cy: yOf(a, idx) };
+    const centered = (idx - ((totals.get(key)??1)-1)/2)*13;
+    const cx = explicitAssessment ? xOf(a, 2) + centered : xOf(a, idx);
+    return { a, cx, cy: yOf(a, explicitAssessment ? 2 : idx) };
   });
 
   const xTicks = xCats
@@ -193,14 +217,14 @@ function Scatter({
         width={W}
         height={H}
         className="h-auto max-w-full"
-        role="img"
+        role={explicitAssessment && !print ? "group" : "img"}
         aria-label="特許マップ"
       >
         {yCats.map((c, i) => (
           <g key={`row-${c}`}>
             <line x1={padL} x2={W - padR} y1={padT + rowH * (i + 1)} y2={padT + rowH * (i + 1)} stroke="currentColor" className="text-border" strokeWidth={1} />
             <text x={padL - 6} y={padT + rowH * (i + 0.5) + 3} textAnchor="end" className="fill-muted-foreground" fontSize={9}>
-              {view === "breadth" ? `${c} ${["", "極狭", "狭い", "中", "広い", "極広"][Number(c)]}` : clip(c, 12)}
+              {view === "breadth" ? c === "未評価" ? c : `${c} ${["", "極狭", "狭い", "中", "広い", "極広"][Number(c)]}` : clip(c, 12)}
             </text>
           </g>
         ))}
@@ -218,7 +242,7 @@ function Scatter({
             key={a.ip_asset_id}
             cx={cx}
             cy={cy}
-            r={2.5 + (a.importance ?? 3) * 0.9}
+            r={explicitAssessment ? importanceAssessed ? 3+(a.importance??3)*0.6 : 5.2 : 2.5 + (a.importance ?? 3) * 0.9}
             fill={RELATION_META[a.relation].hex}
             fillOpacity={hover && hover.ip_asset_id !== a.ip_asset_id ? 0.25 : 0.72}
             stroke={RELATION_META[a.relation].hex}
@@ -226,7 +250,13 @@ function Scatter({
             className="cursor-pointer"
             onMouseEnter={() => onHover(a)}
             onMouseLeave={() => onHover(null)}
-            onClick={() => onSelect(a)}
+            onClick={print ? undefined : () => onSelect(a)}
+            role={explicitAssessment && !print ? "button" : undefined}
+            tabIndex={explicitAssessment && !print ? 0 : undefined}
+            aria-label={explicitAssessment && !print ? `特許の詳細：${a.title}` : undefined}
+            onFocus={explicitAssessment && !print ? () => onHover(a) : undefined}
+            onBlur={explicitAssessment && !print ? () => onHover(null) : undefined}
+            onKeyDown={explicitAssessment && !print ? event => {if(event.key === "Enter" || event.key === " "){event.preventDefault();onSelect(a);}} : undefined}
           >
             <title>{`${a.title} / ${RELATION_META[a.relation].label}${a.applicants?.[0] ? ` / ${a.applicants[0]}` : ""}`}</title>
           </circle>
@@ -244,14 +274,16 @@ function Scatter({
 }
 
 function ApplicantMatrix({
-  assets, domains, onSelect,
+  assets, domains, onSelect, explicitAssessment = false, print = false,
 }: {
   assets: IpAsset[];
   domains: string[];
   onSelect: (a: IpAsset) => void;
+  explicitAssessment?: boolean;
+  print?: boolean;
 }) {
-  const applicants = Array.from(new Set(assets.map(applicantOf))).sort((a, b) => a.localeCompare(b, "ja"));
-  const cell = (ap: string, dm: string) => assets.filter((a) => applicantOf(a) === ap && domainOf(a) === dm);
+  const applicants = Array.from(new Set(explicitAssessment ? assets.flatMap(a=>a.applicants?.length?a.applicants:["出願人不明"]) : assets.map(applicantOf))).sort((a, b) => a.localeCompare(b, "ja"));
+  const cell = (ap: string, dm: string) => assets.filter((a) => (explicitAssessment ? a.applicants?.length ? a.applicants.includes(ap) : ap === "出願人不明" : applicantOf(a) === ap) && domainOf(a) === dm);
   const max = Math.max(1, ...applicants.flatMap((ap) => domains.map((dm) => cell(ap, dm).length)));
 
   return (
@@ -277,7 +309,11 @@ function ApplicantMatrix({
                     key={d}
                     className={`border border-border px-1.5 py-0.5 text-center tabular-nums ${list.length ? "cursor-pointer" : "text-muted-foreground/40"}`}
                     style={hex ? { background: `${hex}${Math.round(24 + (list.length / max) * 96).toString(16).padStart(2, "0")}` } : undefined}
-                    onClick={() => list.length && onSelect(list[0])}
+                    onClick={print ? undefined : () => list.length && onSelect(list[0])}
+                    role={explicitAssessment && !print && list.length ? "button" : undefined}
+                    tabIndex={explicitAssessment && !print && list.length ? 0 : undefined}
+                    aria-label={explicitAssessment && !print && list.length ? `${ap}・${d}：${list.length}件` : undefined}
+                    onKeyDown={explicitAssessment && !print && list.length ? event => {if(event.key === "Enter" || event.key === " "){event.preventDefault();onSelect(list[0]);}} : undefined}
                     title={list.map((a) => a.title).join(" / ")}
                   >{list.length || "・"}</td>
                 );

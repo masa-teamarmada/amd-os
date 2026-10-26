@@ -1,7 +1,7 @@
 import {strFromU8,strToU8} from 'fflate';
-import {ddEscapeHtml} from './dd-confidentiality';
-import type {DdReportChapter,DdReportEdition,DdReportModel} from './dd-report-types';
-import {ddPdfLocation,ddReportFilename,ddReportVersionLabel,type DdPdfIndex} from './dd-report-navigation';
+import {ddEscapeHtml} from './dd-confidentiality.ts';
+import type {DdReportChapter,DdReportEdition,DdReportModel} from './dd-report-types.ts';
+import {ddLegacyIpDestination,ddPdfLocation,ddReportFilename,ddReportVersionLabel,type DdPdfIndex} from './dd-report-navigation.ts';
 
 type Files=Record<string,Uint8Array>;
 const tag='(?:[\\w.-]+:)?';
@@ -117,8 +117,12 @@ export function projectDdWorkbook(files:Files,chapters:DdReportChapter[],model:D
     }
     xml=xml.replace(new RegExp('<'+tag+'hyperlink\\b[^>]*/>','g'),link=>{
       if(removedCells.has(attr(link,'ref').split(':')[0]))return '';
-      const location=attr(link,'location'),sheet=location.match(/^'?([^'!]+)'?!/)?.[1],target=removed.find(r=>r.source_sheet===sheet);if(!target)return link;
-      const at=ddPdfLocation(pdfIndex,target.slug,location.match(/!\$?([A-Z]+)\$?(\d+)/)?.slice(1).join(''));
+      const authored=c.body.rows.flatMap(r=>r.cells).find(cell=>cell.address===attr(link,'ref'))?.link;
+      if(authored&&!/^https?:\/\//i.test(authored))link=link.replace(/location="[^"]*"/,`location="${ddEscapeHtml(authored)}"`);
+      const location=attr(link,'location'),sheet=location.match(/^'?([^'!]+)'?!/)?.[1],address=location.match(/!\$?([A-Z]+)\$?(\d+)/)?.slice(1).join('');
+      const relocated=sheet==='知財・契約'?ddLegacyIpDestination(address):null;
+      const target=(relocated?removed.find(r=>r.slug===relocated.chapter):undefined)??removed.find(r=>r.source_sheet===sheet);if(!target)return link;
+      const at=ddPdfLocation(pdfIndex,target.slug,relocated?.address??address);
       const href=at?ddReportFilename(edition,'pdf')+'#page='+at.page:reportHref+'?chapter='+target.slug;
       const id='rIdDdPdf'+(++linkNo);relationshipXml=relationshipXml.replace('</Relationships>',`<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${ddEscapeHtml(href)}" TargetMode="External"/></Relationships>`);
       return link.replace(/\s+(?:location|r:id|xmlns:r|tooltip)="[^"]*"/g,'').replace(/\/>$/,` xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="${id}"${at?` tooltip="同梱PDF ${at.page}ページ：${ddEscapeHtml(target.title)}"`:''}/>`);
@@ -158,7 +162,7 @@ export function projectDdWorkbook(files:Files,chapters:DdReportChapter[],model:D
   const links=[`<hyperlink ref="B5" r:id="rIdDdSite"/>`];
   let indexRels=`<Relationship Id="rIdDdSite" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${ddEscapeHtml(reportHref)}" TargetMode="External"/>`;
   const pdfLink=(ref:string,chapter?:string)=>{const at=chapter?ddPdfLocation(pdfIndex,chapter):undefined,id='rIdCompanion'+ref;links.push(`<hyperlink ref="${ref}" r:id="${id}"/>`);indexRels+=`<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${ddEscapeHtml(ddReportFilename(edition,'pdf')+(at?'#page='+at.page:''))}" TargetMode="External"/>`;};
-  const descriptions:Record<string,string>={'capital-plan':'ラウンド評価額・J-KISS転換・株数・持株比率・IRR','financial-plan':'月次の売上・原価・利益・入出金・現金残高','unit-economics':'4工程の単位原価・顧客の費用削減・採算判定','cyanobacteria-cost':'培養方式・生産量・菌体1kg-DCW当たり原価','reactor-cost':'処理方式・処理量・廃液1m³当たり原価','metal-cost':'元素別の価格・回収率・金属1kg当たり原価','fame-cost':'製造方式・収量・FAME 1L当たり原価','production-plan':'生産能力・必要面積・拠点別人員・設備費用','assumptions':'調達条件・人件費・設備・生産・原価の共通入力','commercial-assumptions':'装置台数・料金・継続供給・販売原価の月次計算','equipment-costs':'設備・初期費用・投資時期・減価償却','cash-details':'月次の入出金・費目別支払・現金増減','fuel-development':'初期研究項目・設備・人件費と支払配分','poc':'実廃液・処理結果・進捗の一覧','partners':'顧客候補・協業先・投資家の分類と進展','execution-plan':'事業開発・技術開発の工程表と年度別KPI','business-development-plan':'顧客・契約・採用・調達の工程ガント、担当と年度KPI','gap-fund':'申請時の到達目標とKPIの達成状況','competition':'競合・代替プロセスの比較','market':'市場規模・需要・顧客費用の調査データ'};
+  const descriptions:Record<string,string>={'capital-plan':'ラウンド評価額・J-KISS転換・株数・持株比率・IRR','financial-plan':'月次の売上・原価・利益・入出金・現金残高','unit-economics':'4工程の単位原価・顧客の費用削減・採算判定','cyanobacteria-cost':'培養方式・生産量・菌体1kg-DCW当たり原価','reactor-cost':'処理方式・処理量・廃液1m³当たり原価','metal-cost':'元素別の価格・回収率・金属1kg当たり原価','fame-cost':'製造方式・収量・FAME 1L当たり原価','production-plan':'生産能力・必要面積・拠点別人員・設備費用','assumptions':'調達条件・人件費・設備・生産・原価の共通入力','commercial-assumptions':'装置台数・料金・継続供給・販売原価の月次計算','equipment-costs':'設備・初期費用・投資時期・減価償却','cash-details':'月次の入出金・費目別支払・現金増減','fuel-development':'初期研究項目・設備・人件費と支払配分','poc':'実廃液・処理結果・進捗の一覧','partners':'顧客候補・協業先・投資家の分類と進展','execution-plan':'事業開発・技術開発の工程表と年度別KPI','business-development-plan':'顧客・契約・設備会社・採用・増産と事業化の判断条件','gap-fund':'申請時の到達目標とKPIの達成状況','competition':'競合・代替プロセスの比較','market':'市場規模・需要・顧客費用の調査データ'};
   rows.splice(3,0,'<row r="4" ht="8" customHeight="1"/>');rows.splice(5,0,'<row r="6" ht="8" customHeight="1"/>');
   selected.forEach((c,i)=>{const r=i+8,at=ddPdfLocation(pdfIndex,c.slug),titleCell=[...destinations.get(c.source_sheet)!.visible].filter(([,p])=>p.row<=2).sort((a,b)=>b[1].row-a[1].row||a[1].col-b[1].col)[0]?.[0]??'B2';rows.push(`<row r="${r}" ht="25" customHeight="1">${textCell('B'+r,c.group_label,bodyStyle)+textCell('C'+r,c.source_sheet,linkStyle)+textCell('D'+r,descriptions[c.slug]??(c.body.excel?.mode==='model'?'入力条件と計算結果':'比較・進捗・調査の一覧表'),bodyStyle)+textCell('E'+r,at?'p. '+at.page:'本文PDF',linkStyle)}</row>`);links.push(`<hyperlink ref="C${r}" location="${ddEscapeHtml("'"+c.source_sheet.replaceAll("'","''")+"'!"+titleCell)}"/>`);pdfLink('E'+r,c.slug);});
   rows[3]=`<row r="4" ht="23" customHeight="1">${textCell('B4','同梱の本文・図解PDFを開く',linkStyle)}</row>`;pdfLink('B4');
@@ -177,4 +181,31 @@ export function projectDdWorkbook(files:Files,chapters:DdReportChapter[],model:D
   files['[Content_Types].xml']=strToU8(strFromU8(files['[Content_Types].xml']).replace(/<Override\b[^>]*\/>/g,o=>files[attr(o,'PartName').replace(/^\//,'')]?o:''));
   if(files['docProps/app.xml'])files['docProps/app.xml']=strToU8(strFromU8(files['docProps/app.xml']).replace(/(<HeadingPairs>[\s\S]*?<vt:i4>)\d+(<\/vt:i4>)/,(_m,b:string,e:string)=>b+ordered.length+e).replace(/<TitlesOfParts>[\s\S]*?<\/TitlesOfParts>/,`<TitlesOfParts><vt:vector size="${ordered.length}" baseType="lpstr">${ordered.map(n=>`<vt:lpstr>${ddEscapeHtml(n)}</vt:lpstr>`).join('')}</vt:vector></TitlesOfParts>`));
   return ordered;
+}
+
+/** Preserve the original numerical workbook while including every dated task and allocation. */
+export function appendDdExecutionWorkbook(files:Files,chapters:DdReportChapter[],edition:DdReportEdition,redact:(s:string)=>string){
+  const plan=chapters.find(c=>c.body.executionPlan?.data)?.body.executionPlan?.data;if(!plan)return [];
+  const byId=new Map(plan.tasks.map(t=>[t.id,t]));
+  const people=(id:string)=>plan.people[id]?.label??id;
+  const tables:[string,(string|number)[][],number[]][]=[
+    ['日次実行計画',[['ID','分類','開始日','終了日','作業','責任担当','完了条件','実施条件','先行作業ID','上位工程ID'],...[...plan.tasks].sort((a,b)=>a.start.localeCompare(b.start)||a.end.localeCompare(b.end)||a.id.localeCompare(b.id)).map(t=>[t.id,t.category,t.start,t.end,t.title,people(t.owner),t.deliverable,t.condition,t.depends.join('、'),t.parentId??''])],[23,22,14,14,60,28,60,55,32,25]],
+    ['日次担当工数',[['実行日','作業ID','作業','担当','時間'],...[...plan.allocations].sort((a,b)=>a.date.localeCompare(b.date)||a.task.localeCompare(b.task)||a.person.localeCompare(b.person)).map(a=>[a.date,a.task,byId.get(a.task)?.title??a.task,people(a.person),a.hours])],[15,25,65,35,14]],
+  ];
+  const decode=(s:string)=>strFromU8(files[s]);let styles=decode('xl/styles.xml');
+  const fonts=styles.match(/<fonts\b[^>]*count="(\d+)"[^>]*>([\s\S]*?)<\/fonts>/)!;
+  const font=Number(fonts[1]),firstFont=fonts[2].match(/<font\b[^>]*>[\s\S]*?<\/font>/)![0].replace(/<b\b[^>]*\/>/g,'').replace(/<color\b[^>]*\/>/g,'').replace('</font>','<b/><color rgb="FF253239"/></font>');
+  styles=styles.replace(fonts[0],fonts[0].replace(/count="\d+"/,`count="${font+1}"`).replace('</fonts>',firstFont+'</fonts>'));
+  const xfs=styles.match(/<cellXfs\b[^>]*count="(\d+)"[^>]*>/)!,bodyStyle=Number(xfs[1]),headStyle=bodyStyle+1;
+  styles=styles.replace(xfs[0],xfs[0].replace(/count="\d+"/,`count="${bodyStyle+2}"`)).replace('</cellXfs>',`<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="${font}" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf></cellXfs>`);files['xl/styles.xml']=strToU8(styles);
+  for(const [name,data,widths] of tables){
+    let wb=decode('xl/workbook.xml'),rels=decode('xl/_rels/workbook.xml.rels');const id=Math.max(0,...[...wb.matchAll(/\bsheetId="(\d+)"/g)].map(m=>Number(m[1])))+1,path=`xl/worksheets/daily-${id}.xml`,rid=`amieDaily${id}`,last=letter(widths.length);
+    const rows=[[name+' · DD '+ddReportVersionLabel(edition)],...data].map((row,i)=>`<row r="${i+1}" ht="${i<2?28:Math.min(409,Math.max(30,...row.map((v,j)=>String(v).split('\n').reduce((n,line)=>n+Math.max(1,Math.ceil([...line].reduce((s,c)=>s+(c.charCodeAt(0)>255?2:1),0)/(widths[j]-2))),0)*15+8)))}" customHeight="1">${row.map((value,j)=>{const at=letter(j+1)+(i+1),s=i<2?headStyle:bodyStyle;return typeof value==='number'?`<c r="${at}" s="${s}"><v>${value}</v></c>`:`<c r="${at}" s="${s}" t="inlineStr"><is><t xml:space="preserve">${ddEscapeHtml(redact(value))}</t></is></c>`;}).join('')}</row>`).join('');
+    files[path]=strToU8(`<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:${last}${data.length+1}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${rows}</sheetData><autoFilter ref="A2:${last}${data.length+1}"/><mergeCells count="1"><mergeCell ref="A1:${last}1"/></mergeCells><pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/><headerFooter><oddHeader>&amp;C&amp;BCONFIDENTIAL · DD ${ddReportVersionLabel(edition)}</oddHeader></headerFooter></worksheet>`);
+    wb=wb.replace(/(<\/(?:[\w.-]+:)?sheets>)/,`<sheet name="${ddEscapeHtml(name)}" sheetId="${id}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="${rid}"/>$1`);files['xl/workbook.xml']=strToU8(wb);
+    files['xl/_rels/workbook.xml.rels']=strToU8(rels.replace('</Relationships>',`<Relationship Id="${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/daily-${id}.xml"/></Relationships>`));
+    files['[Content_Types].xml']=strToU8(decode('[Content_Types].xml').replace('</Types>',`<Override PartName="/${path}" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`));
+  }
+  if(files['docProps/app.xml']){const names=[...decode('xl/workbook.xml').matchAll(/<(?:[\w.-]+:)?sheet\b[^>]*name="([^"]+)"/g)].map(m=>m[1]);files['docProps/app.xml']=strToU8(decode('docProps/app.xml').replace(/(<HeadingPairs>[\s\S]*?<vt:i4>)\d+(<\/vt:i4>)/,(_m,b:string,e:string)=>b+names.length+e).replace(/<TitlesOfParts>[\s\S]*?<\/TitlesOfParts>/,`<TitlesOfParts><vt:vector size="${names.length}" baseType="lpstr">${names.map(n=>`<vt:lpstr>${n}</vt:lpstr>`).join('')}</vt:vector></TitlesOfParts>`));}
+  return tables.map(([name])=>name);
 }

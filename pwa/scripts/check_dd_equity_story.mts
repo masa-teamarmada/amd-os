@@ -26,8 +26,9 @@ const chapter={id:'equity',slug:'equity-story',title:'エクイティストー�
 for(const allRows of [false,true]){
   const html=renderToStaticMarkup(createElement(DdReportContent,{chapter,slug:'sol',index:[],allRows}));
   assert(html.indexOf('GAPファンド</h3>')>=0&&html.indexOf('GAPファンド</h3>')<html.indexOf('id="cell-B13"'),'GAP card precedes the six financing cards');
-  assert.equal((html.match(/data-phase="/g)||[]).length,6);assert.equal((html.match(/class="ddr-valuation-chart"/g)||[]).length,6);
-  assert.equal((html.match(/<h4 class="ddr-phase-label">/g)||[]).length,24);
+  assert.equal((html.match(/data-phase="/g)||[]).length,24);assert.equal(new Set([...html.matchAll(/data-phase="(\d+)"/g)].map(m=>m[1])).size,6);assert.equal((html.match(/class="ddr-valuation-chart"/g)||[]).length,6);
+  assert.equal((html.match(/<h4 class="ddr-phase-label">/g)||[]).length,0);
+  for(const label of ['投資家へ示す成果','調達条件・金額','この資金で実現する成果','次の評価額を支える理由'])assert.equal(html.split('<th scope="row">'+label+'</th>').length-1,1);
   for(const c of cells)assert.equal(html.split(`id="cell-${c.address}"`).length-1,1,`Keep one source anchor: ${c.address}`);
   for(let i=0;i<6;i++)for(const text of ['既存の成果','既存の計画','既存の根拠'])assert(html.includes(text+i));
 }

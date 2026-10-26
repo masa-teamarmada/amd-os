@@ -1,4 +1,4 @@
-import type {DdReportEdition} from './dd-report-types';
+import type {DdReportEdition} from './dd-report-types.ts';
 
 export type DdPdfLocation={page:number;x:number;y:number};
 export type DdPdfIndex=Record<string,DdPdfLocation>;
@@ -20,5 +20,12 @@ export function ddPdfLocation(index:DdPdfIndex|undefined,chapter:string,address?
   return index?.[chapter+(address?'#cell-'+address:'')]??index?.[chapter];
 }
 
-export const DD_READING_PRIORITY=['source-index','business-plan','equity-story','capital-plan','financial-plan','unit-economics','production-plan'];
-export function orderDdReading<T extends {slug:string;sort_order:number}>(chapters:T[]){const rank=(c:T)=>c.slug==='assumptions'?1e6:DD_READING_PRIORITY.includes(c.slug)?DD_READING_PRIORITY.indexOf(c.slug):100+c.sort_order;return [...chapters].sort((a,b)=>rank(a)-rank(b));}
+export const DD_READING_PRIORITY=['source-index','business-plan','daily-execution-plan','equity-story','capital-plan','financial-plan','unit-economics','production-plan','progress'];
+export function orderDdReading<T extends {slug:string;sort_order:number}>(chapters:T[]){const rank=(c:T)=>c.slug==='change-log'?1e6+1:c.slug==='assumptions'?1e6:DD_READING_PRIORITY.includes(c.slug)?DD_READING_PRIORITY.indexOf(c.slug):100+c.sort_order;return [...chapters].sort((a,b)=>rank(a)-rank(b));}
+
+/** Preserve saved links to contract rows from the former combined page. */
+export function ddLegacyIpDestination(address?:string):{chapter:string;address:string}|null{
+  const row=Number(address?.match(/\d+/)?.[0]);
+  if(row===36)return {chapter:'ip-contracts',address:'B13'};
+  return row>=19?{chapter:'contracts',address:address!}:null;
+}

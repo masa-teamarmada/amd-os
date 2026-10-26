@@ -1,4 +1,7 @@
 "use client";
+import {useProjectReportCatalog} from '../../lib/use-project-report-catalog';
+import {isProjectReportPageKey,canonicalMenuConfiguration} from '../../lib/project-canonical-pages';
+import {ProjectCanonicalPage} from "../project-space/ProjectCanonicalPage";
 import dynamic from "next/dynamic";
 import { ProjectPageTitle } from "@/components/nav/PageTitleSetter";
 import { ProjectPageLoading } from "@/components/project-space/ProjectPageLoading";
@@ -359,7 +362,7 @@ const STAGE_LABEL: Record<StageKey, string> = Object.fromEntries(
 // すべてのPJで、PJ資料室と同じ正本を開く「ドライブ」を加える。既存のアンカー名
 // (#weekly-change / #project-gantt / #partner-ledger / #issue-hypothesis / #input-readiness)
 // は他画面からのリンク互換のためhashとしてそのまま残す。
-export type SxWeeklyControlView = "meetings" | "executive-meeting" | "slack" | "weekly" | "gantt" | "objective-structure" | "partners" | "issues" | "tasks" | "technology" | "poc-list" | "competition" | "business-model" | "business-plan" | "development-issues" | "financial-projection" | "capital-plan" | "company" | "organization-chart" | "employee-register" | "contracts" | "capital-policy" | "cost" | "cost-fuel" | "ip" | "drive" | "dd";
+export type SxWeeklyControlView = "meetings" | "executive-meeting" | "slack" | "weekly" | "gantt" | "objective-structure" | "partners" | "issues" | "tasks" | "technology" | "poc-list" | "competition" | "business-model" | "business-plan" | "development-issues" | "financial-projection" | "capital-plan" | "company" | "organization-chart" | "employee-register" | "contracts" | "capital-policy" | "cost" | "cost-fuel" | "ip" | "drive" | "dd" | `report:${string}`;
 const SX_WEEKLY_VIEW_STORAGE_KEY = "sx-weekly-control-view-v1";
 const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   meetings: "meetings",
@@ -391,7 +394,7 @@ const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   dd: "dd-package",
 };
 
-type WorkspaceGroupKey = "progress-group" | "business-plan-group" | "documents-group" | "company-information-group" | "dd-group";
+type WorkspaceGroupKey = "technology-group" | "progress-group" | "business-plan-group" | "documents-group" | "company-information-group" | "dd-group";
 type WorkspaceTab = { key: SxWeeklyControlView; label: string };
 type WorkspaceTabGroup = { key: WorkspaceGroupKey; label: string; children: readonly WorkspaceTab[] };
 // タブの並びはPJタイプごとの標準フォーマット（src/lib/project-formats.ts の WORKSPACE_TAB_FORMATS、鍵付き）が正本。
@@ -430,18 +433,28 @@ const WORKSPACE_TAB_LABELS: Record<SxWeeklyControlView, string> = {
 const WORKSPACE_GROUP_LABELS: Record<WorkspaceGroupKey, string> = {
   "progress-group": COCKPIT_GROUP_LABELS.progress,
   "business-plan-group": COCKPIT_GROUP_LABELS.businessPlan,
+  "technology-group": "技術と実証",
   "documents-group": COCKPIT_GROUP_LABELS.documents,
   "company-information-group": COCKPIT_GROUP_LABELS.companyInformation,
   "dd-group": COCKPIT_GROUP_LABELS.dd,
 };
-function workspaceGroupsForType(type: ProjectFormatType): readonly WorkspaceTabGroup[] {
-  return WORKSPACE_TAB_FORMATS[type].map((group) => ({
+function workspaceGroupsForType(type: ProjectFormatType, projectId?: string,chapters:readonly string[]=[]): readonly WorkspaceTabGroup[] {
+  const menu=canonicalMenuConfiguration(projectId,chapters);
+  const groups = WORKSPACE_TAB_FORMATS[type].map((group) => ({
     key: group.group as WorkspaceGroupKey,
     label: WORKSPACE_GROUP_LABELS[group.group as WorkspaceGroupKey],
-    children: group.tabs.map((tab) => ({ key: tab as SxWeeklyControlView, label: PROJECT_PAGE_LABELS[tab] ?? WORKSPACE_TAB_LABELS[tab as SxWeeklyControlView] })),
+    children: group.tabs.map((tab) => ({ key: tab as SxWeeklyControlView, label: menu.pageLabels[tab] ?? PROJECT_PAGE_LABELS[tab] ?? WORKSPACE_TAB_LABELS[tab as SxWeeklyControlView] ?? tab })),
   }));
+  if (!menu.technicalTabs.length) return groups;
+  const keys = menu.technicalTabs as readonly SxWeeklyControlView[];
+  const technical = keys.flatMap(key => groups.flatMap(group => group.children.filter(tab => tab.key === key)));
+  return groups.flatMap(group => group.key === "business-plan-group" ? [
+    {...group, children: group.children.filter(tab => !keys.includes(tab.key))},
+    {key: "technology-group" as WorkspaceGroupKey, label: menu.technicalLabel, children: technical},
+  ] : [group]);
 }
 const EXTERNAL_WORKSPACE_TABS = new Set<SxWeeklyControlView>([
+  "report:business-development-plan", "report:technical-development-plan",
   "issues", "tasks", "gantt", "meetings", "executive-meeting", "slack", "partners", "drive",
   "technology", "poc-list", "competition", "business-model", "business-plan", "development-issues", "financial-projection", "capital-plan",
   "cost", "cost-fuel", "ip", "capital-policy", "company", "organization-chart", "employee-register", "contracts",
@@ -449,6 +462,7 @@ const EXTERNAL_WORKSPACE_TABS = new Set<SxWeeklyControlView>([
 function viewForHash(hash: string): SxWeeklyControlView | null {
   const normalized = hash.replace(/^#/, "");
   if (!normalized) return null;
+  if (isProjectReportPageKey(normalized)) return normalized;
   if (normalized === "meetings") return "meetings";
   if (normalized === "executive-meeting") return "executive-meeting";
   if (normalized === "slack") return "slack";
@@ -4707,12 +4721,13 @@ export function SxWeeklyControlDashboard({
   // PJタイプ（大学発SU・新規事業・研究機関エコシステム・AMD本体）の標準フォーマットでタブを並べる。
   const formatType = projectFormatTypeOf({ projectId: bundle.project.projectId, projectCategory: bundle.project.projectCategory });
   // DDは分類の子タブに含めず、領域の選択で独立して開く。
-  const workspaceGroups = useMemo(() => workspaceGroupsForType(formatType).map((group) => ({
+  const reportCatalog=useProjectReportCatalog(bundle.project.projectId,'workspace');
+  const workspaceGroups = useMemo(() => workspaceGroupsForType(formatType, bundle.project.projectId,reportCatalog.index.map(c=>c.slug)).map((group) => ({
     ...group,
     children: group.children
-      .filter((tab) => (tab.key !== "executive-meeting" || canExecutiveMeeting) && (!externalViewer || EXTERNAL_WORKSPACE_TABS.has(tab.key)))
+      .filter((tab) => (tab.key !== "executive-meeting" || canExecutiveMeeting) && (!externalViewer || EXTERNAL_WORKSPACE_TABS.has(tab.key) || isProjectReportPageKey(tab.key)))
       .map((tab) => ({ ...tab, onHover: () => prefetchProjectPage(bundle.project.projectId, tab.key, externalViewer) })),
-  })).filter((group) => group.children.length > 0), [canExecutiveMeeting, externalViewer, formatType, bundle.project.projectId]);
+  })).filter((group) => group.children.length > 0), [canExecutiveMeeting, externalViewer, formatType, bundle.project.projectId,reportCatalog.index]);
   const dynamicTabs = useMemo(() => workspaceGroups.flatMap((group) => group.children), [workspaceGroups]);
 
   const externalDefaultView: SxWeeklyControlView = DEFAULT_TABS.workspaceExternal;
@@ -4790,7 +4805,7 @@ export function SxWeeklyControlDashboard({
     onViewChange?.(resolved);
     if (embedded) return;
     window.localStorage.setItem(SX_WEEKLY_VIEW_STORAGE_KEY, resolved);
-    window.history.replaceState(null, "", `#${SX_WEEKLY_VIEW_HASH[resolved]}`);
+    window.history.replaceState(null, "", `#${SX_WEEKLY_VIEW_HASH[resolved]??resolved}`);
   }
 
   const activeWorkspaceGroup = workspaceGroups.find((group) => group.children.some((tab) => tab.key === activeView)) ?? workspaceGroups[0];
@@ -5501,6 +5516,7 @@ export function SxWeeklyControlDashboard({
             onGroup={(key) => selectWorkspaceGroup(key as WorkspaceGroupKey)} onPage={(key) => selectWorkspaceTab(key as SxWeeklyControlView)} />
         </> : undefined}>
 
+        <ProjectCanonicalPage projectId={bundle.project.projectId} page={activeView} surface={embedded ? "cockpit" : "workspace"} initialChapter={activeView === "cost-fuel" || costInitialRenderer === "fuel" ? "fame-cost" : undefined}>
         {/* 管制帯は週次差分タブ専用 (2026-08-09 まさ #11「週次差分以外のタブに管制のやつ入れないで」)。 */}
         {activeView === "weekly" && (
         <section
@@ -5970,6 +5986,7 @@ export function SxWeeklyControlDashboard({
           </div>
         </section>
         )}
+        </ProjectCanonicalPage>
         {activeView !== "executive-meeting" && <footer className={styles.pageFooter}>
           <span>
             基準日 {formatDate(management.asOf)} · 表示値は現行台帳の仮表示

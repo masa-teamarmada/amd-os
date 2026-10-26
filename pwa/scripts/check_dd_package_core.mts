@@ -42,7 +42,7 @@ assert.deepEqual(
   const scope = buildDdViewerScope(ACCOUNT, "investor@example.com", [grant()], NOW);
   assert.ok(scope, "有効な付与と公開中のパッケージなら入れる");
   assert.equal(scope.packages.length, 1);
-  assert.deepEqual(scope.packages[0].capabilities, ["dd.view"]);
+  assert.deepEqual(scope.packages[0].capabilities, ["dd.view", "dd.download"], "既存の閲覧付与でも配布資料をダウンロードできる");
   assert.equal(scope.packages[0].projectId, "p21");
 }
 // アカウントの状態・紐付け・メール不一致は閉じる
@@ -77,7 +77,10 @@ assert.equal(buildDdViewerScope(ACCOUNT, "investor@example.com", [grant({ capabi
   assert.deepEqual(scope.packages[0].capabilities, ["dd.view", "dd.download"], "既知の操作だけを残す");
   assert.ok(hasDdCapability(scope.packages[0], "dd.download"));
 }
-assert.deepEqual(normalizeDdCapabilities(["x", "dd.view", "dd.view"]), ["dd.view"]);
+assert.deepEqual(normalizeDdCapabilities(["x", "dd.view", "dd.view"]), ["dd.view", "dd.download"]);
+assert(hasDdCapability({capabilities:["dd.view"]},"dd.download"),"内部・外部の閲覧付与はダウンロードを含む");
+assert(!hasDdCapability({capabilities:["dd.download"]},"dd.download"),"閲覧付与なしの旧フラグだけではダウンロードできない");
+assert(!hasDdCapability({capabilities:["dd.view"]},"dd.edit"),"閲覧で編集権限は増えない");
 
 // --- ログインリンクを送ってよいか ---------------------------------------------
 assert.equal(hasLoginEligibleDdGrant([{ status: "invited", capabilities: ["dd.view"], expires_at: null, package: { status: "open" } }], NOW), true);

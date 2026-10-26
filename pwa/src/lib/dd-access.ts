@@ -131,7 +131,7 @@ async function resolveDdPackagePermission(slug: string): Promise<DdViewerAccess 
     if (pkg && permission && pkg.status !== "closed" && (pkg.status === "open" || permission === "edit")) return {
       principal: "internal_member", memberId: member.memberId, email: member.email,
       packageId: pkg.id, slug: pkg.slug, projectId: pkg.project_id, title: pkg.title,
-      packageStatus: pkg.status, capabilities: permission === "edit" ? ["dd.view", "dd.download", "dd.edit"] : ["dd.view"], preview: false,
+      packageStatus: pkg.status, capabilities: permission === "edit" ? ["dd.view", "dd.download", "dd.edit"] : ["dd.view", "dd.download"], preview: false,
     };
   }
 

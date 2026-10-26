@@ -5,7 +5,7 @@ import ts from 'typescript';
 import {zipSync,unzipSync} from 'fflate';
 import {createHash} from 'node:crypto';
 import {canReadDdReport,canEditDdReport} from '../src/lib/dd-report-core.ts';
-import type {DdViewerAccess} from '../src/lib/dd-package-core.ts';
+import {hasDdCapability,type DdViewerAccess} from '../src/lib/dd-package-core.ts';
 import {formatDdReportValue} from '../src/lib/dd-report-model.ts';
 const external:DdViewerAccess={principal:'workspace_account',packageId:'package',capabilities:['dd.view','dd.download'],accountId:'viewer',email:'viewer@example.test',grantId:'grant',slug:'known',projectId:'project',title:'test',packageStatus:'open',preview:false};
 assert(canReadDdReport(external,{package_id:'package',status:'published'}));
@@ -53,7 +53,7 @@ const pdfBytes=new TextEncoder().encode('%PDF-1.7 prepared fixture'),xlsxBytes=n
 const exportMocks={...mocks,
  '@/lib/dd-report-download-policy':{ddReportExportsPaused:()=>false,ddReportDownloadEdition:(e:unknown)=>e},
  'fflate':{zipSync},
- '@/lib/dd-package-core':{hasDdCapability:(a:DdViewerAccess,cap:string)=>a.capabilities.includes(cap as never)},
+ '@/lib/dd-package-core':{hasDdCapability},
  '@/lib/dd-report-pdf':{readDdPdfIndex:async()=>({})},'@/lib/dd-report-navigation':{ddReportFilename,ddReportBundleFilename},'node:crypto':{createHash},
  '@/lib/dd-report-output-state':{ddReportOutputState:async(_edition:unknown,_project:unknown,format='pdf')=>{outputStorageReads++;if(format==='pdf')pdfChecks++;return {ready:format==='pdf'?pdfReady:!xlsxMissing,key:`private/${format==='pdf'&&disclosureChanged&&pdfChecks>1?'changed':'all'}.${format}`,prefix:'private',hidden:[]};},queueDdReportPdf:()=>{queued++;}},
  '@/lib/dd-report-output-server':{createDdReportOutput:({format,selected}:{format:string;selected:unknown[]})=>{if(format==='xlsx'){assert.equal(selected.length,38);xlsxGenerated++;return xlsxBytes;}rendered++;throw Error('download must not render bulk PDF');}},
@@ -74,7 +74,7 @@ new Function('require','exports',exportSource)((name:string)=>{assert(name in ex
 const getExport=(query:string)=>exported.GET(new Request('https://example.test/api/dd/known/report/export?'+query),params);
 access=null;assert.equal((await getExport('format=pdf&scope=all')).status,404);
 assert.equal((await getExport('format=zip&scope=all')).status,404);
-access={...external,capabilities:['dd.view']};assert.equal((await getExport('format=pdf&scope=all')).status,404);
+access={...external,capabilities:[]};assert.equal((await getExport('format=pdf&scope=all')).status,404);
 assert.equal((await getExport('format=zip&scope=all')).status,404);
 access=external;assert.equal((await getExport('format=pdf&revision=0&scope=all')).status,409);
 assert.equal((await getExport('format=pdf&scope=all&prepareBatch=-1')).status,400);
@@ -83,6 +83,13 @@ assert.equal((await getExport('format=xlsx&scope=all&prepareBatch=0')).status,40
 assert.equal((await getExport('format=zip&scope=all&version=1.9.0')).status,409);
 assert.equal(outputStorageReads,0);
 console.log('PASS: export download permission / stale revision / invalid batch boundaries');
+
+access={...external,capabilities:['dd.view']};
+assert.equal((await getExport('format=pdf&scope=all&revision=1')).status,303,'閲覧付与だけの既存招待でもPDFを取得できる');
+assert.equal((await getExport('format=xlsx&scope=all&revision=1')).status,303,'閲覧付与だけの既存招待でもExcelを取得できる');
+assert.equal((await getExport('format=zip&scope=all&revision=1')).status,303,'閲覧付与だけの既存招待でもPDF+Excelを取得できる');
+assert.equal(rendered,0);assert.equal(xlsxGenerated,0);downloads=0;pdfChecks=0;
+console.log('PASS: legacy view-only grant downloads PDF / Excel / ZIP without regeneration');
 
 pdfReady=true;assert.equal((await getExport('format=pdf&scope=all&revision=1')).status,303);assert.equal(rendered,0);
 pdfReady=false;const queuedBefore=queued;assert.equal((await getExport('format=pdf&scope=all&revision=1')).status,409);assert.equal(rendered,0);assert.equal(queued,queuedBefore);

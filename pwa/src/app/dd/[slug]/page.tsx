@@ -1,3 +1,6 @@
+import {ProjectCanonicalPage} from '@/components/project-space/ProjectCanonicalPage';
+import {canonicalPageForChapter} from '@/lib/project-canonical-pages';
+import {loadProjectCanonicalPage} from '@/lib/project-canonical-page-server';
 import {ddReportOutputState,queueDdReportPdf} from '@/lib/dd-report-output-state';
 import { DdEntryGate } from "@/components/dd/DdEntryGate";
 import { loadDdNdaContext, hasDdNdaConfirmation } from "@/lib/dd-nda-server";
@@ -55,7 +58,9 @@ export default async function DdPackagePage({ params, searchParams }: { params: 
     const pdfReady=hasDdCapability(access,'dd.download')?(await ddReportOutputState(ddReportDownloadEdition(edition),access.projectId)).ready:false;
     if(hasDdCapability(access,'dd.download')&&!downloadRelease.paused&&!pdfReady)queueDdReportPdf(edition,access.projectId,slug);
     await recordDdAccessEvent(access,'dd_package_viewed',{pageKey:report.slug,contentHash:`${edition.source_sha256}:r${edition.revision}`});
-    return <DdViewerShell access={access} projectName={access.title} pageKey="company" documentVersion={edition.document_version} releases={releases} reportPageLabel={report.title} reportNavigation={<DdReportNavigation slug={slug} index={index} selected={report.slug}/>}><DdReportReader key={`${report.id}:${edition.revision}:${edition.document_version}`} slug={slug} title={edition.title} revision={edition.revision} pdfReady={pdfReady} downloadRelease={downloadRelease} sourceVersion={edition.source_version} documentVersion={edition.document_version} inputs={simulationInputs} overrides={edition.input_overrides} chapter={report} index={index} canDownload={hasDdCapability(access,'dd.download')} glossary={edition.glossary}/></DdViewerShell>;
+    const commonPage=canonicalPageForChapter(report.slug);
+    const commonData=commonPage?await loadProjectCanonicalPage({projectId:access.projectId,surface:'dd',external:access.principal==='workspace_account',canEdit:false,actorId:access.principal==='workspace_account'?undefined:access.memberId,dd:access},commonPage):null;
+    return <DdViewerShell access={access} projectName={access.title} pageKey="company" documentVersion={edition.document_version} releases={releases} reportPageLabel={report.title} reportNavigation={<DdReportNavigation slug={slug} index={index} selected={report.slug}/>}>{commonPage&&commonData?<ProjectCanonicalPage projectId={access.projectId} page={commonPage} surface="dd" slug={slug} initialData={commonData} initialChapter={report.slug} pdfReady={pdfReady}/>:<DdReportReader key={`${report.id}:${edition.revision}:${edition.document_version}`} slug={slug} title={edition.title} revision={edition.revision} pdfReady={pdfReady} downloadRelease={downloadRelease} sourceVersion={edition.source_version} documentVersion={edition.document_version} inputs={simulationInputs} overrides={edition.input_overrides} chapter={report} index={index} canDownload={hasDdCapability(access,'dd.download')} glossary={edition.glossary}/>}</DdViewerShell>;
   }
   if (tab === "financial-projection") redirect(`/dd/${encodeURIComponent(access.slug)}${legacy==='1'?'/legacy':''}?tab=monthly-trial`);
   // 認可後、選択された正本ページと監査記録を並行して読む。

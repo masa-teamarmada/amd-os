@@ -1,4 +1,5 @@
 "use client";
+import {isProjectReportPageKey} from '@/lib/project-canonical-pages';
 
 import { useEffect, useState } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -17,7 +18,7 @@ import { type CockpitData } from "@/lib/supabase-data";
 const NON_DEFAULT_TABS = NON_DEFAULT_COCKPIT_TABS;
 
 function isNonDefaultTab(value: string | null): value is Exclude<CockpitTab, "progress"> {
-  return NON_DEFAULT_TABS.includes(value ?? "");
+  return NON_DEFAULT_TABS.includes(value ?? "") || isProjectReportPageKey(value ?? "");
 }
 
 interface CockpitLoadState {
