@@ -111,6 +111,7 @@ console.log('project space loading: cycle scope/chunking/pagination/history/erro
 const locations: string[] = []; let routeNavigations = 0;
 const search = new URLSearchParams('tab=company&ym=202609&meeting=m1');
 const clientPage = compile('../src/app/(app)/project/[projectId]/cockpit/page.tsx', {
+  '@/lib/project-canonical-pages':{isProjectReportPageKey:(key:string)=>/^report:[a-z0-9]+(?:-[a-z0-9]+)*$/.test(key)},
   'react/jsx-runtime': {jsx,jsxs},
   react: {useEffect:()=>{},useState:()=>[{projectId:'p21',cockpit:{tasks:[]},error:null},()=>{}]},
   'next/navigation': {useParams:()=>({projectId:'p21'}),usePathname:()=>'/project/p21/cockpit',useSearchParams:()=>search,useRouter:()=>({replace:()=>{routeNavigations++}})},
