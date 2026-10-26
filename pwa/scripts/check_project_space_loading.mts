@@ -80,6 +80,9 @@ liveReads.length=0;await dd.loadDdPackageView(access);assert.deepEqual(liveReads
 // Route still revalidates admission before any data/audit access, on every tab.
 let allowed=false;let routeReads=0;let audits=0;const modes:string[]=[];
 const page=compile('../src/app/dd/[slug]/page.tsx',{
+ '@/components/project-space/ProjectCanonicalPage':{ProjectCanonicalPage:()=>null},
+ '@/lib/project-canonical-pages':{canonicalPageForChapter:()=>null},
+ '@/lib/project-canonical-page-server':{loadProjectCanonicalPage:async()=>{throw new Error('Unauthorized report read');}},
  '@/lib/dd-report-server':{loadDdReportEdition:async()=>null},
  '@/lib/dd-report-output-state':{ddReportOutputState:async()=>({ready:true}),queueDdReportPdf:()=>{}},
  '@/lib/dd-report-download-policy':{ddReportDownloadEdition:(e:any)=>e,ddReportDownloadRelease:(e:any)=>({revision:e.revision,documentVersion:e.document_version,paused:false})},
