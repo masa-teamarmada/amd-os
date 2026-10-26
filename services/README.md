@@ -12,6 +12,7 @@ AMD OS モノレポの中で、`pwa/` / `ios/` / `macos/` / `android/` / `gas/` 
 | dir | 役割 |
 |---|---|
 | `project-share/` | 汎用「Project Share」機能とPJ別パイロットインスタンス。詳細は [`project-share/README.md`](project-share/README.md) |
+| `amie-local-ai/` | Windows内だけで資料検索・出典付き回答を行う無料のローカルAI試用環境。独立起動し、共有DB・本番PWAへ接続しない。詳細は [`amie-local-ai/README.md`](amie-local-ai/README.md) |
 
 ## 共通ルール
 
