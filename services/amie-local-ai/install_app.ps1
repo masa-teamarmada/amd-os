@@ -1,4 +1,4 @@
-param([switch]$AutoStart)
+param([switch]$AutoStart, [string]$SolEnvFile)
 $ErrorActionPreference = 'Stop'
 $serviceSource = $PSScriptRoot
 $serviceRoot = Join-Path $env:LOCALAPPDATA 'AMDOS\amie-local-ai'
@@ -10,7 +10,12 @@ New-Item -ItemType Directory -Path $serviceApp -Force | Out-Null
 $serviceSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
 & icacls.exe $serviceRoot /inheritance:r /grant:r "*${serviceSid}:(OI)(CI)F" '*S-1-5-18:(OI)(CI)F' | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Could not protect the local data directory.' }
-foreach ($serviceFile in @('server.py','start.py','setup_runtime.py','index.html')) {
+if ($SolEnvFile) {
+    $serviceEnvPath = (Resolve-Path -LiteralPath $SolEnvFile).Path
+    if ([IO.Path]::GetFileName($serviceEnvPath) -notin @('.env.local','.env.production.local')) { throw 'Unexpected credential file.' }
+    @{ sol_env_file = $serviceEnvPath } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $serviceRoot 'connectors.json') -Encoding UTF8
+}
+foreach ($serviceFile in @('server.py','start.py','setup_runtime.py','index.html','import_sol.py')) {
     Copy-Item -LiteralPath (Join-Path $serviceSource $serviceFile) -Destination (Join-Path $serviceApp $serviceFile) -Force
 }
 New-Item -ItemType Directory -Path (Join-Path $serviceApp 'prompts') -Force | Out-Null

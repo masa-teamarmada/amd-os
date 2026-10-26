@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import argparse
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from datetime import datetime, timezone
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -11,6 +11,8 @@ from pathlib import Path
 import re
 import secrets
 import sqlite3
+import subprocess
+import sys
 import threading
 import unicodedata
 import urllib.error
@@ -45,14 +47,18 @@ class Store:
             db.executescript("""
                 PRAGMA journal_mode=WAL;
                 CREATE TABLE IF NOT EXISTS documents (
-                    id TEXT PRIMARY KEY, name TEXT NOT NULL, body TEXT NOT NULL, created TEXT NOT NULL);
+                    id TEXT PRIMARY KEY, name TEXT NOT NULL, body TEXT NOT NULL, created TEXT NOT NULL,
+                    source_date TEXT NOT NULL DEFAULT '');
                 CREATE TABLE IF NOT EXISTS chunks (
                     id INTEGER PRIMARY KEY, document_id TEXT NOT NULL, body TEXT NOT NULL,
                     first_line INTEGER NOT NULL, last_line INTEGER NOT NULL);
                 CREATE VIRTUAL TABLE IF NOT EXISTS search USING fts5(chunk_id UNINDEXED, terms);
                 CREATE TABLE IF NOT EXISTS prompts (
                     version INTEGER PRIMARY KEY, body TEXT NOT NULL, created TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS import_state (id INTEGER PRIMARY KEY CHECK(id=1), receipt TEXT NOT NULL);
             """)
+            if "source_date" not in {row[1] for row in db.execute("PRAGMA table_info(documents)")}:
+                db.execute("ALTER TABLE documents ADD COLUMN source_date TEXT NOT NULL DEFAULT ''")
             if not db.execute("SELECT 1 FROM prompts LIMIT 1").fetchone():
                 db.execute("INSERT INTO prompts VALUES (1, ?, ?)", (
                     (APP / "prompts/grounded-answer-v1.txt").read_text(encoding="utf-8"), self.now()))
@@ -71,7 +77,7 @@ class Store:
         finally:
             db.close()
 
-    def add(self, name, text):
+    def add(self, name, text, connection=None):
         if not isinstance(name, str) or not isinstance(text, str):
             raise ValueError("ファイル名と本文を確認してね。")
         if Path(name).name != name or any(c in name for c in "\\/\x00\r\n") or len(name) > 160:
@@ -82,12 +88,14 @@ class Store:
         if not text.strip() or len(text) > MAX_TEXT or "\x00" in text:
             raise ValueError("本文は空でない50万文字以内のテキストにしてね。")
         document_id = hashlib.sha256((name + "\0" + text).encode()).hexdigest()
-        with self.db() as db:
+        with (nullcontext(connection) if connection is not None else self.db()) as db:
             if db.execute("SELECT 1 FROM documents WHERE id=?", (document_id,)).fetchone():
                 return document_id
             if db.execute("SELECT count(*) FROM documents").fetchone()[0] >= 500:
                 raise ValueError("試用版の上限は500資料。不要な資料を削除してね。")
-            db.execute("INSERT INTO documents VALUES (?, ?, ?, ?)", (document_id, name, text, self.now()))
+            source_date = re.search(r"\d{4}-\d{2}-\d{2}", name) if name.startswith("SOL-") else None
+            db.execute("INSERT INTO documents(id,name,body,created,source_date) VALUES (?,?,?,?,?)",
+                       (document_id, name, text, self.now(), source_date[0] if source_date else ""))
             for start in range(0, len(text), 880):
                 body = text[start:start + 1000]
                 first_line = text.count("\n", 0, start) + 1
@@ -96,6 +104,23 @@ class Store:
                                     (document_id, body, first_line, last_line))
                 db.execute("INSERT INTO search(chunk_id,terms) VALUES (?,?)", (cursor.lastrowid, " ".join(tokens(body))))
         return document_id
+
+    def replace_snapshot(self, documents, receipt):
+        """Replace a dedicated workspace atomically, including records removed at source."""
+        if receipt.get("complete") is not True:
+            raise ValueError("取得が完了した資料だけを置換できるよ。")
+        with self.db() as db:
+            db.execute("DELETE FROM search")
+            db.execute("DELETE FROM chunks")
+            db.execute("DELETE FROM documents")
+            for name, text in documents:
+                self.add(name, text, connection=db)
+            db.execute("INSERT OR REPLACE INTO import_state VALUES (1,?)", (json.dumps(receipt, ensure_ascii=False),))
+
+    def snapshot(self):
+        with self.db() as db:
+            row = db.execute("SELECT receipt FROM import_state WHERE id=1").fetchone()
+            return json.loads(row[0]) if row else None
 
     def documents(self):
         with self.db() as db:
@@ -121,11 +146,17 @@ class Store:
             return []
         query = " OR ".join('"' + item + '"' for item in query_tokens)
         with self.db() as db:
+            managed = db.execute("SELECT 1 FROM documents WHERE name LIKE 'SOL-%' LIMIT 1").fetchone()
+            kind = next((label for label in ("会議", "工程", "課題", "対応") if label in question), None) if managed else None
+            recent = bool(re.search(r"最近|直近|最新|今月|現時点|現在|今の", question))
+            kind_clause = " AND d.name LIKE ?" if kind else ""
+            ordering = "d.source_date DESC,rank,c.id" if recent else "rank,c.id"
+            parameters = [query] + ([f"SOL-{kind}-%"] if kind else []) + [limit]
             rows = db.execute("""
                 SELECT c.id,c.document_id,c.body,c.first_line,c.last_line,d.name,bm25(search) AS rank
                 FROM search JOIN chunks c ON c.id=search.chunk_id JOIN documents d ON d.id=c.document_id
-                WHERE search MATCH ? ORDER BY rank,c.id LIMIT ?
-            """, (query, limit)).fetchall()
+                WHERE search MATCH ?
+            """ + kind_clause + " ORDER BY " + ordering + " LIMIT ?", parameters).fetchall()
             return [dict(row) for row in rows]
 
     def prompt(self):
@@ -199,9 +230,11 @@ class AppServer(ThreadingHTTPServer):
     def __init__(self, port, store, model=None):
         super().__init__(("127.0.0.1", port), Handler)
         self.store = store
+        self.stores = {"demo": store, "sol": Store(store.path.parent / "sol")}
         self.model = model or LocalModel()
         self.token = secrets.token_urlsafe(32)
         self.inference_lock = threading.Lock()
+        self.refresh_lock = threading.Lock()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -209,6 +242,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def log_message(self, *_args):
         pass  # Do not log questions, document bodies, names, URLs, or model answers.
+
+    def workspace(self):
+        name = self.headers.get("X-Amie-Workspace", "demo")
+        if name not in self.server.stores:
+            raise ValueError("対象の資料を選んでね。")
+        return name, self.server.stores[name]
 
     def send(self, status, data, content_type="application/json; charset=utf-8", nonce=None):
         body = data if isinstance(data, bytes) else json.dumps(data, ensure_ascii=False).encode()
@@ -246,14 +285,16 @@ class Handler(BaseHTTPRequestHandler):
                 html = html.replace("__NONCE__", nonce).replace("__TOKEN__", self.server.token)
                 return self.send(200, html.encode(), "text/html; charset=utf-8", nonce)
             if path.path == "/api/status":
+                workspace, store = self.workspace()
                 return self.send(200, {"model_ready": self.server.model.ready(), "model": MODEL,
-                    "mode": "local-only", "cloud_fallback": False, "automatic_sync": False})
+                    "mode": "local-only", "cloud_fallback": False, "automatic_sync": False,
+                    "workspace": workspace, "snapshot": store.snapshot()})
             if path.path == "/api/documents":
-                return self.send(200, {"documents": self.server.store.documents()})
+                return self.send(200, {"documents": self.workspace()[1].documents()})
             if path.path == "/api/document":
-                return self.send(200, self.server.store.document(urllib.parse.parse_qs(path.query).get("id", [""])[0]))
+                return self.send(200, self.workspace()[1].document(urllib.parse.parse_qs(path.query).get("id", [""])[0]))
             if path.path == "/api/prompt":
-                return self.send(200, self.server.store.prompt())
+                return self.send(200, self.workspace()[1].prompt())
             return self.send(404, {"error": "見つからないよ。"})
         except ValueError as error:
             return self.send(400, {"error": str(error)})
@@ -270,28 +311,57 @@ class Handler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length))
             if not isinstance(payload, dict):
                 raise ValueError("入力を確認してね。")
+            workspace, store = self.workspace()
+            if self.path == "/api/refresh-sol":
+                if workspace != "sol":
+                    raise ValueError("対象にSOLを選んでね。")
+                from setup_runtime import runtime_root
+                configuration = runtime_root() / "connectors.json"
+                if not configuration.exists():
+                    raise ValueError("SOLの読取り接続が未設定だよ。")
+                config = json.loads(configuration.read_text(encoding="utf-8-sig"))
+                env_file = Path(config.get("sol_env_file", ""))
+                if not env_file.is_file() or env_file.name not in {".env.local", ".env.production.local"}:
+                    raise ValueError("SOLの読取り設定を確認してね。")
+                if not self.server.refresh_lock.acquire(blocking=False):
+                    return self.send(429, {"error": "SOL情報を取得中だよ。少し待ってね。"})
+                try:
+                    flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+                    result = subprocess.run([sys.executable, str(APP / "import_sol.py"), "--env-file", str(env_file)],
+                        capture_output=True, timeout=180, creationflags=flags)
+                    if result.returncode:
+                        raise RuntimeError("SOL情報を取得できなかったよ。前回の資料を保持しているよ。")
+                    return self.send(200, {"snapshot": store.snapshot()})
+                except subprocess.TimeoutExpired as error:
+                    raise RuntimeError("SOL情報の取得が時間内に終わらなかったよ。少し待って試してね。") from error
+                finally:
+                    self.server.refresh_lock.release()
             if self.path == "/api/documents":
-                document_id = self.server.store.add(payload.get("name"), payload.get("text"))
+                if workspace != "demo":
+                    return self.send(403, {"error": "SOLは取得済みOS情報の読取り専用だよ。"})
+                document_id = store.add(payload.get("name"), payload.get("text"))
                 return self.send(200, {"id": document_id})
             if self.path == "/api/delete":
+                if workspace != "demo":
+                    return self.send(403, {"error": "SOLは取得済みOS情報の読取り専用だよ。"})
                 if not isinstance(payload.get("id"), str):
                     raise ValueError("資料を選んでね。")
-                self.server.store.delete(payload["id"])
+                store.delete(payload["id"])
                 return self.send(200, {"deleted": True})
             if self.path == "/api/prompt":
-                self.server.store.save_prompt(payload.get("body"))
+                store.save_prompt(payload.get("body"))
                 return self.send(200, {"saved": True})
             if self.path == "/api/ask":
                 question = payload.get("question")
                 if not isinstance(question, str) or not 2 <= len(question.strip()) <= 1500:
                     raise ValueError("質問は2〜1500文字にしてね。")
-                sources = self.server.store.find(question)
+                sources = store.find(question)
                 if not sources:
                     return self.send(200, {"answer": "関連する資料が見つからなかったよ。資料を追加してね。", "sources": []})
                 if not self.server.inference_lock.acquire(blocking=False):
                     return self.send(429, {"error": "別の質問を処理中だよ。少し待って試してね。"})
                 try:
-                    result = self.server.model.answer(question, sources, self.server.store.prompt()["body"])
+                    result = self.server.model.answer(question, sources, store.prompt()["body"])
                     return self.send(200, result)
                 finally:
                     self.server.inference_lock.release()

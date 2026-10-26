@@ -45,6 +45,26 @@ class LocalWorkspaceTests(unittest.TestCase):
         with self.store.db() as db:
             self.assertEqual(db.execute("SELECT count(*) FROM prompts").fetchone()[0], 2)
 
+    def test_snapshot_rollback_and_verified_empty_snapshot_removes_stale_data(self):
+        self.store.add("old.txt", "青空の既存資料")
+        with self.assertRaises(ValueError):
+            self.store.replace_snapshot([("new.txt", "青空の新資料"), ("invalid.pdf", "binary")], {"complete": True})
+        self.assertEqual([row["name"] for row in self.store.documents()], ["old.txt"])
+        with self.assertRaises(ValueError):
+            self.store.replace_snapshot([], {"complete": False})
+        self.store.replace_snapshot([], {"complete": True})
+        self.assertEqual(self.store.documents(), [])
+        self.assertEqual(self.store.find("青空"), [])
+
+    def test_latest_meeting_uses_source_date_and_excludes_other_kinds(self):
+        for name, body in [("SOL-会議-2026-09-01-a.txt", "会議での決定。古い情報。"),
+                           ("SOL-会議-2026-10-20-b.txt", "会議での決定。新しい情報。"),
+                           ("SOL-課題-2026-10-26-c.txt", "会議の課題に関する別の情報。")]:
+            self.store.add(name, body)
+        found = self.store.find("直近の会議での決定")
+        self.assertEqual(found[0]["name"], "SOL-会議-2026-10-20-b.txt")
+        self.assertTrue(all("SOL-会議-" in row["name"] for row in found))
+
     def test_paths_binary_and_unsupported_documents_are_rejected(self):
         for name, body in [("../secret.txt", "hello"), ("C:\\private.txt", "hello"), ("doc.pdf", "hello"),
                            ("doc.txt", "binary\0data"), ("doc.txt", " ")]:
@@ -92,6 +112,16 @@ class LocalWorkspaceTests(unittest.TestCase):
             self.assertEqual(status, 200)
             self.assertEqual(json.loads(body)["sources"], [])
             self.assertEqual(request("POST", "/api/ask", ["bad"], auth)[0], 400)
+            self.store.add("demo.txt", "架空の青空資料")
+            app.stores["sol"].add("SOL-会議-2026-10-20-a.txt", "SOL専用の架空検証資料")
+            sol_auth = {**auth, "X-Amie-Workspace": "sol"}
+            sol_documents = json.loads(request("GET", "/api/documents", headers=sol_auth)[2])["documents"]
+            self.assertEqual(len(sol_documents), 1)
+            self.assertNotEqual(sol_documents[0]["name"], "demo.txt")
+            self.assertEqual(request("GET", "/api/document?id=" + self.store.documents()[0]["id"], headers=sol_auth)[0], 400)
+            self.assertEqual(request("POST", "/api/delete", {"id": sol_documents[0]["id"]}, sol_auth)[0], 403)
+            self.assertEqual(request("POST", "/api/documents", {"name": "bad.txt", "text": "test"}, sol_auth)[0], 403)
+            self.assertEqual(request("GET", "/api/documents", headers={**auth, "X-Amie-Workspace": "../other"})[0], 400)
         finally:
             app.shutdown()
             worker.join(timeout=3)
