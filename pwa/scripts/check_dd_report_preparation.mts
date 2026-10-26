@@ -29,7 +29,7 @@ const mocks:Record<string,unknown>={
  './workspace-document-html-pdf':{},'./project-partner-disclosure':{redactProjectPartnerNames:(v:unknown)=>v},
 };
 const source=ts.transpileModule(fs.readFileSync(new URL('../src/lib/dd-report-output-server.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
-const out:Record<string,(...args:unknown[])=>Promise<void>>={};new Function('require','exports',source)((name:string)=>{const key=name.startsWith('../src/lib')?'./'+name.slice(6):name;assert(key in mocks,name);return mocks[key];},out);
+const out:Record<string,(...args:unknown[])=>Promise<void>>={};new Function('require','exports',source)((name:string)=>{const key=(name.startsWith('../src/lib')?'./'+name.slice(6):name).replace(/\.ts$/, '');assert(key in mocks,name);return mocks[key];},out);
 const download_snapshot={revision:2,documentVersion:'2.0.0',sourceSha256:'a'.repeat(64),title:'Example',layoutVersion:'layout-v21'};
 await out.prepareDdReportPdf({...edition,download_snapshot},'project','test');assert.equal(rendered,0,'Paused view must not render');
 await assert.rejects(()=>out.createDdReportOutput({edition:{...edition,download_snapshot}}),/更新は停止中/);
