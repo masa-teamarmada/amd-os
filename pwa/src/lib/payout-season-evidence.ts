@@ -7,10 +7,12 @@ export type SeasonMsEvidence = { msKey: string; title: string; pool: string; ear
 export type SeasonMemberEvidence = {
   memberId: string; memberName: string; cashYen: Amount; internalYen: Amount; accruedYen: Amount;
   closingUnfundedYen: Amount; savedAdjustmentYen: Amount; breakdown: SeasonMsEvidence[];
+  externalUnpaidYen: Amount; internalUnfundedYen: Amount;
 };
 export type SeasonMonthEvidence = {
   ym: string; budgetYen: Amount; accruedYen: Amount; cashYen: Amount; internalYen: Amount;
   closingUnfundedYen: Amount; cumulativeRemainingYen: Amount; members: SeasonMemberEvidence[];
+  externalUnpaidYen: Amount; internalUnfundedYen: Amount;
 };
 export type SeasonAllocationEvidence = {
   regularPointBasis: number; regularAllocatedPt: Amount; extraAllocatedPt: Amount;
@@ -68,13 +70,14 @@ export function buildSeasonAllocationEvidence(plan: SeasonPlan, cycles: SeasonBi
         if (!annual.memberNames.includes(name)) annual.memberNames.push(name);
         milestones.set(key, annual);
       }
-      members.push({ memberId: id, memberName: name, cashYen: cash, internalYen: funded, accruedYen: accrued, closingUnfundedYen: stock, savedAdjustmentYen: adjustment, breakdown });
+      members.push({ memberId: id, memberName: name, cashYen: cash, internalYen: funded, accruedYen: accrued, closingUnfundedYen: stock, externalUnpaidYen: internal ? 0 : stock, internalUnfundedYen: internal ? stock : 0, savedAdjustmentYen: adjustment, breakdown });
     }
-    const total = (key: "cashYen" | "internalYen" | "accruedYen" | "closingUnfundedYen") => rows ? sum(members.map((m) => m[key])) : null;
+    const total = (key: "cashYen" | "internalYen" | "accruedYen" | "closingUnfundedYen" | "externalUnpaidYen" | "internalUnfundedYen") => rows ? sum(members.map((m) => m[key])) : null;
     const cash = total("cashYen"), funded = total("internalYen"), stock = total("closingUnfundedYen");
     cumulativeBudget = sum([cumulativeBudget, budget]); cumulativeFunded = sum([cumulativeFunded, cash, funded]);
     const used = sum([cumulativeFunded, stock]);
     return { ym, budgetYen: budget, accruedYen: total("accruedYen"), cashYen: cash, internalYen: funded, closingUnfundedYen: stock,
+      externalUnpaidYen: total("externalUnpaidYen"), internalUnfundedYen: total("internalUnfundedYen"),
       cumulativeRemainingYen: cumulativeBudget == null || used == null ? null : cumulativeBudget - used, members };
   });
   const annualMs = [...milestones.values()].sort((a, b) => b.earnedYen - a.earnedYen || a.msKey.localeCompare(b.msKey));

@@ -4,13 +4,16 @@ import { buildSeasonAllocationEvidence, type SeasonAllocationEvidence } from "./
 
 export type PayoutSnapshot = { project_id: string; ym: string; member_id: string; total_pay: number | string | null };
 export type SeasonAllocationMember = {
-  memberId: string; memberName: string; cashYen: number; internalYen: number; closingUnfundedYen: number; totalYen: number;
+  memberId: string; memberName: string; cashYen: number; internalYen: number; closingUnfundedYen: number; externalUnpaidYen: number; internalUnfundedYen: number; totalYen: number;
 };
 export type SeasonAllocation = {
   regularBudgetYen: number | null; extraBudgetYen: number | null; budgetYen: number | null;
   cashYen: number | null; internalYen: number | null; closingUnfundedYen: number | null;
   committedYen: number | null; remainingYen: number | null;
-  status: "within_budget" | "deficit" | "unknown";
+  externalUnpaidYen: number | null; internalUnfundedYen: number | null;
+  cashCommittedYen: number | null; cashBudgetRemainingYen: number | null;
+  paymentStatus: "within_budget" | "over_budget" | "unknown";
+  status: "within_budget" | "overallocated" | "unknown";
   members: SeasonAllocationMember[]; issues: string[];
   evidence: SeasonAllocationEvidence;
 };
@@ -84,8 +87,10 @@ export function buildSeasonAllocation(plan: SeasonPlan, cycles: SeasonBilling[],
       if (cash == null || funded == null || stock == null) { issues.add(`${ym}の配分額が未確認`); continue; }
       extraPayYen += money(internal ? m.extraCompanyReserveYen ?? 0 : m.extraPaidYen ?? m.extra_paid_yen ?? 0) ?? 0;
       attributedInternal += funded;
-      const row = allocations.get(id) ?? { memberId: id, memberName: profile.code_name?.trim() || profile.member_name?.trim() || id, cashYen: 0, internalYen: 0, closingUnfundedYen: 0, totalYen: 0 };
+      const row = allocations.get(id) ?? { memberId: id, memberName: profile.code_name?.trim() || profile.member_name?.trim() || id, cashYen: 0, internalYen: 0, closingUnfundedYen: 0, externalUnpaidYen: 0, internalUnfundedYen: 0, totalYen: 0 };
       row.cashYen += cash; row.internalYen += funded; row.closingUnfundedYen += stock;
+      row.externalUnpaidYen += internal ? 0 : stock;
+      row.internalUnfundedYen += internal ? stock : 0;
       row.totalYen = row.cashYen + row.internalYen + row.closingUnfundedYen;
       allocations.set(id, row);
     }
@@ -94,11 +99,16 @@ export function buildSeasonAllocation(plan: SeasonPlan, cycles: SeasonBilling[],
   if (extraPayYen > 0 && extraBudgetYen === 0) issues.add("別財布報酬の予算が未設定");
   const members = [...allocations.values()].sort((a, b) => Number(a.internalYen > 0) - Number(b.internalYen > 0) || b.totalYen - a.totalYen || a.memberId.localeCompare(b.memberId));
   const complete = issues.size === 0;
-  const sum = (key: "cashYen" | "internalYen" | "closingUnfundedYen" | "totalYen") => complete ? members.reduce((a, m) => a + m[key], 0) : null;
+  const sum = (key: "cashYen" | "internalYen" | "closingUnfundedYen" | "externalUnpaidYen" | "internalUnfundedYen" | "totalYen") => complete ? members.reduce((a, m) => a + m[key], 0) : null;
   const budgetYen = regularBudgetYen == null ? null : regularBudgetYen + extraBudgetYen;
   const committedYen = sum("totalYen");
   const remainingYen = complete && budgetYen != null && committedYen != null ? budgetYen - committedYen : null;
+  const cashYen = sum("cashYen"), externalUnpaidYen = sum("externalUnpaidYen");
+  const cashCommittedYen = cashYen == null || externalUnpaidYen == null ? null : cashYen + externalUnpaidYen;
+  const cashBudgetRemainingYen = complete && budgetYen != null && cashCommittedYen != null ? budgetYen - cashCommittedYen : null;
   return { regularBudgetYen, extraBudgetYen, budgetYen, cashYen: sum("cashYen"), internalYen: sum("internalYen"), closingUnfundedYen: sum("closingUnfundedYen"), committedYen, remainingYen,
-    status: remainingYen == null ? "unknown" : remainingYen < 0 ? "deficit" : "within_budget", members: complete ? members : [], issues: [...issues],
+    externalUnpaidYen, internalUnfundedYen: sum("internalUnfundedYen"), cashCommittedYen, cashBudgetRemainingYen,
+    paymentStatus: cashBudgetRemainingYen == null ? "unknown" : cashBudgetRemainingYen < 0 ? "over_budget" : "within_budget",
+    status: remainingYen == null ? "unknown" : remainingYen < 0 ? "overallocated" : "within_budget", members: complete ? members : [], issues: [...issues],
     evidence: buildSeasonAllocationEvidence(plan, cycles, profiles, months, committedYen, budgetYen) };
 }

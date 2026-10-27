@@ -28,6 +28,11 @@ assert.equal(actual.members.length, 6, "振込4人と内部配賦2人の全員�
 assert.equal(actual.cashYen, 290, "入金済み・報酬支払済みマーカー未設定の月も、保存済み支払額100円を採用する");
 assert.equal(actual.internalYen, 150, "内部配賦を落として予算内に見せない");
 assert.equal(actual.closingUnfundedYen, 12, "期末の外部未払7円と内部未充当5円を1回だけ計上する");
+assert.equal(actual.externalUnpaidYen, 7);
+assert.equal(actual.internalUnfundedYen, 5);
+assert.equal(actual.cashCommittedYen, 297, "支払額は現金290円と外部未払7円。社内未充当は加えない");
+assert.equal(actual.cashBudgetRemainingYen, 503);
+assert.equal(actual.paymentStatus, "within_budget");
 assert.equal(actual.committedYen, 452);
 assert.equal(actual.budgetYen, 800, "登録された本契約と別財布の報酬原資だけを足す");
 assert.equal(actual.remainingYen, 348);
@@ -36,7 +41,9 @@ assert.equal(actual.members.reduce((sum, m) => sum + m.totalYen, 0), actual.comm
 const matrix = buildPayoutSeasonPlan({ paymentYm: "202607", projects: [{ project_id: "fixture", project_name: "検証", status: "active", payment_due_rule: "next_month_end", payment_due_day: null }], plans: [plan], cycles: overlaid, members: profiles, extraRevenueRows: [] });
 assert.equal(matrix.projects[0].totals.regularPay, actual.cashYen, "月別表と年間表の振込対象額が一致する。is_officerだけで除外しない");
 assert.equal(buildSeasonAllocation({ ...plan, budget_yen: 100 }, overlaid, profiles, months).remainingYen, -202);
-assert.equal(buildSeasonAllocation({ ...plan, budget_yen: 100 }, overlaid, profiles, months).status, "deficit");
+assert.equal(buildSeasonAllocation({ ...plan, budget_yen: 100 }, overlaid, profiles, months).status, "overallocated");
+assert.equal(buildSeasonAllocation({ ...plan, budget_yen: 100 }, overlaid, profiles, months).paymentStatus, "over_budget", "外部支払そのものの原資超過を検出する");
+assert.equal(buildSeasonAllocation({ ...plan, budget_yen: 140 }, overlaid, profiles, months).cashBudgetRemainingYen, -7, "振込が原資内でも外部未払を含めて超過を検出する");
 assert.equal(buildSeasonAllocation({ ...plan, budget_yen: null }, overlaid, profiles, months).status, "unknown", "予算未設定を0円や赤字なしにしない");
 assert.equal(buildSeasonAllocation(plan, overlaid.slice(1), profiles, months).remainingYen, null, "欠損月を0円で埋めない");
 assert.equal(buildSeasonAllocation(plan, overlaid, profiles.slice(1), months).remainingYen, null, "メンバー不明の配分で赤字なしにしない");
@@ -64,6 +71,13 @@ const causeCycles: SeasonBilling[] = months.map((ym, index) => ({ project_id: "f
 }));
 const cause = buildSeasonAllocation(causePlan, causeCycles, causeProfiles, months);
 assert.equal(cause.remainingYen, -200);
+assert.equal(cause.status, "overallocated", "非現金の社内配分超過は配分設計の状態");
+assert.equal(cause.paymentStatus, "within_budget", "社内配分しかないPJを現金支払の原資超過にしない");
+assert.equal(cause.cashCommittedYen, 0);
+assert.equal(cause.externalUnpaidYen, 0);
+assert.equal(cause.internalUnfundedYen, 200);
+assert.equal(cause.internalYen, 2000, "支払判定の区別によって社内の割当を削らない");
+assert.equal(cause.committedYen, 2200);
 assert.equal(cause.evidence.regularPointBasis, 20);
 assert.equal(cause.evidence.regularAllocatedPt, 22);
 assert.equal(cause.evidence.milestones.find(m => m.msKey === "shared")?.earnedPt, 20, "担当者が複数でもMS消化ptを二重計上しない");
@@ -72,4 +86,4 @@ assert.equal(cause.evidence.unexplainedYen, 0, "MS発生額から配分計への
 assert.equal(cause.evidence.msDifferenceYen, 0);
 assert.deepEqual(cause.evidence.monthly.map(m => m.cumulativeRemainingYen), [100, -200], "不足が現れる稼働月と、早い月の余力を表示する");
 assert.equal(cause.evidence.monthly[1].members.reduce((sum, m) => sum + m.closingUnfundedYen!, 0), 200);
-console.log("年間報酬予算: 保存済み支払・全6人・内部配賦・期末残高・赤字・未確認・帰属訂正の照合に合格");
+console.log("年間報酬予算: 支払原資超過と非現金配分超過の分離・全員配分・期末残高・帰属訂正の照合に合格");

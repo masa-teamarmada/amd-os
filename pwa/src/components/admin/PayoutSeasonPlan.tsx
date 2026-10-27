@@ -104,7 +104,7 @@ export function PayoutSeasonPlanView({ ym, plan: current, loading = false, error
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
         <span>売上・報酬は税抜、立替は実費。青い列は今回の支払月。未払報酬は稼働月末の残高。</span>
         <span>報酬はメンバー別。本契約＋別財布を表示し、金額にマウスを乗せると内訳を確認できる。</span>
-        <span>月別表の差引＝入金予定−報酬支払−立替−登録済み追加支出。年間の赤字判定は上の報酬予算表で確認。</span>
+        <span>月別表の差引＝入金予定−報酬支払−立替−登録済み追加支出。支払原資と配分の超過は上の報酬予算表で確認。</span>
       </div>
       <div ref={scrollRef} role="region" aria-label="全PJのシーズン月別収支表" tabIndex={0} className="max-h-[560px] overflow-auto border border-border focus-visible:outline-2 focus-visible:outline-sky-600">
         <table data-amie-list="matrix" data-testid="payout-season-matrix" className="w-max min-w-full table-fixed border-separate border-spacing-0 text-[11px] leading-4">
