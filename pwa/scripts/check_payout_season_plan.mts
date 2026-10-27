@@ -10,7 +10,7 @@ const cycles: SeasonBilling[] = ["202601", "202602", "202603"].map((ym, index) =
     { memberId: "excluded", totalPay: 900, stockYen: 900 },
   ] },
 }));
-const base = { paymentYm: "202602", projects: [project], plans: [plan], cycles, members: [{ member_id: "external", code_name: "かる", member_name: "正式名" }, { member_id: "officer", is_officer: true }, { member_id: "excluded", exclude_from_payout_notice: true }], extraRevenueRows: [] };
+const base = { paymentYm: "202602", projects: [project], plans: [plan], cycles, members: [{ member_id: "external", code_name: "かる", member_name: "正式名" }, { member_id: "officer", is_officer: true, exclude_from_payout_notice: true }, { member_id: "excluded", exclude_from_payout_notice: true }], extraRevenueRows: [] };
 const actual = buildPayoutSeasonPlan(base);
 const row = actual.projects[0];
 assert.equal(row.cells["202602"].regularPay, 500, "支払月はPJ支払条件から決める");

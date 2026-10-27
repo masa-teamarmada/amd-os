@@ -298,3 +298,8 @@ Functions Storageは保持中のFunction bundleの容量。BlobやFast Origin Tr
 ## 書斎の独立更新（2026-10-25）
 
 書斎は `/Users/masa/projects/bookshelf-armada` / `masa-teamarmada/bookshelf-armada` / Vercel `bookshelf-armada` が正本。書斎の本や読書機能は専用リポジトリの更新手順を使う。AMD OSのmainへ混ぜない。AMD OSの既存 `/bzm` にも反映する必要がある場合は、別のOS変更として扱う。アドレス `https://bookshelf-armada.vercel.app` は専用プロジェクトへ移し、OSの本番アドレスは維持する。仕様5-18、使い方manual2-10。
+
+
+### 2026-10-27 全体ビルドの型検査メモリ
+
+`npm run build` は `NODE_OPTIONS=--max-old-space-size=8192 next build` を使う。既定約4GiBでは全体型検査がヒープ上限で停止することを実測したため、Nextの型検査を維持したままビルドプロセスと子workerの上限を8GiBへ設定する。実行時の関数・利用者の画面処理・報酬計算・環境の秘密値は変更しない。

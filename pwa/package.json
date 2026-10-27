@@ -5,7 +5,7 @@
   "scripts": {
     "test:project-cost-comparison": "node --experimental-strip-types scripts/check_project_cost_comparison.mts",
     "dev": "next dev",
-    "build": "next build",
+    "build": "NODE_OPTIONS=--max-old-space-size=8192 next build",
     "postbuild": "node scripts/check_function_bundle_storage.mjs",
     "test:function-bundles": "node scripts/check_function_bundle_storage.mjs",
     "test:image-dimensions": "node --experimental-strip-types scripts/check_image_dimensions.mts",
@@ -235,7 +235,7 @@
     "test:tech-disclosure": "node --experimental-strip-types --import ./scripts/register_server_only_stub.mjs --import ./scripts/register_ts_aliases.mjs --import ./scripts/register_relative_ts.mjs scripts/check_amie_tech_disclosure.mts",
     "test:card-designs-access": "node --experimental-strip-types scripts/check_amie_card_access.mjs",
     "test:effluent-ledger": "node --experimental-strip-types --import ./scripts/register_server_only_stub.mjs --import ./scripts/register_relative_ts.mjs scripts/check_amie_effluent_ledger.mts && node --experimental-strip-types --import ./scripts/register_relative_ts.mjs scripts/check_amie_poc_list.mts",
-    "test:payout-season-plan": "node --experimental-strip-types --import ./scripts/register_relative_ts.mjs --import ./scripts/register_ts_aliases.mjs scripts/check_payout_season_plan.mts"
+    "test:payout-season-plan": "node --experimental-strip-types --import ./scripts/register_relative_ts.mjs --import ./scripts/register_ts_aliases.mjs scripts/check_payout_season_plan.mts && node --experimental-strip-types --import ./scripts/register_relative_ts.mjs --import ./scripts/register_ts_aliases.mjs scripts/check_payout_season_allocation.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",

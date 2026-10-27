@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Fragment, useEffect, useRef, useState } from "react";
+import { PayoutSeasonBudget } from "./PayoutSeasonBudget";
 import { SEASON_METRICS, type PayoutSeasonPlan as Plan, type SeasonCell, type SeasonMetric, type SeasonProjectPlan, type SeasonMemberPayment, type SeasonPaymentCell } from "@/lib/payout-season-plan";
 
 const number = new Intl.NumberFormat("ja-JP");
@@ -86,21 +87,25 @@ export function PayoutSeasonPlanView({ ym, plan: current, loading = false, error
       <h2 id="payout-season-plan-title" className="text-sm font-semibold">01 全PJのシーズン収支予定</h2>
       {current && <span className="text-xs text-muted-foreground">{current.projects.length} PJ · {ymLabel(current.months[0])}〜{ymLabel(current.months.at(-1)!)} · 円</span>}
       <div className="ml-auto flex items-center gap-1 text-xs">
-        <button type="button" onClick={() => setFull(!full)} aria-pressed={full} className="h-7 border border-border px-2 hover:bg-muted focus-visible:outline-2 focus-visible:outline-sky-600">{full ? "報酬中心にする" : "収支明細も表示"}</button>
-        <button type="button" onClick={jumpToPayment} className="h-7 border border-border px-2 hover:bg-muted focus-visible:outline-2 focus-visible:outline-sky-600">支払月へ</button>
         <Link href="/admin/season-pl" className="px-2 text-sky-700 underline underline-offset-2">シーズン予実</Link>
       </div>
-    </div>
-    <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-      <span>売上・報酬は税抜、立替は実費。青い列は今回の支払月。未払報酬は稼働月末の残高。</span>
-      <span>報酬はメンバー別。本契約＋別財布を表示し、金額にマウスを乗せると内訳を確認できる。</span>
-      <span>差引＝入金予定−報酬支払−立替−登録済み追加支出。</span>
     </div>
     <div aria-live="polite" className="flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
       {loading && <span className="text-muted-foreground">収支予定を読込中…</span>}
       {current && <><span>{current.projects.filter((row) => row.planId).length} PJにシーズン設定</span><span className={pending ? "text-amber-800" : "text-muted-foreground"}>未設定・未計算 {pending} PJ</span><span>設定済みPJの期末未払報酬 {current.totals.debt == null ? "未計算" : `${number.format(current.totals.debt)}円`}</span></>}
     </div>
     {error ? <div role="alert" className="border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950">{error}<button type="button" onClick={onReload} className="ml-3 underline">収支予定を再読込</button></div> : current ? <>
+      <PayoutSeasonBudget projects={current.projects} onOpenMonthly={onOpenMonthly} />
+      <div className="flex flex-wrap items-center gap-2 pt-2 text-xs">
+        <h3 className="mr-auto font-semibold">入出金の月別予定</h3>
+        <button type="button" onClick={() => setFull(!full)} aria-pressed={full} className="h-7 border border-border px-2 hover:bg-muted focus-visible:outline-2 focus-visible:outline-sky-600">{full ? "報酬中心にする" : "収支明細も表示"}</button>
+        <button type="button" onClick={jumpToPayment} className="h-7 border border-border px-2 hover:bg-muted focus-visible:outline-2 focus-visible:outline-sky-600">支払月へ</button>
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+        <span>売上・報酬は税抜、立替は実費。青い列は今回の支払月。未払報酬は稼働月末の残高。</span>
+        <span>報酬はメンバー別。本契約＋別財布を表示し、金額にマウスを乗せると内訳を確認できる。</span>
+        <span>月別表の差引＝入金予定−報酬支払−立替−登録済み追加支出。年間の赤字判定は上の報酬予算表で確認。</span>
+      </div>
       <div ref={scrollRef} role="region" aria-label="全PJのシーズン月別収支表" tabIndex={0} className="max-h-[560px] overflow-auto border border-border focus-visible:outline-2 focus-visible:outline-sky-600">
         <table data-amie-list="matrix" data-testid="payout-season-matrix" className="w-max min-w-full table-fixed border-separate border-spacing-0 text-[11px] leading-4">
           <colgroup><col style={{ width: 104 }} /><col style={{ width: 144 }} /><col style={{ width: 104 }} />{current.months.map((month) => <col key={month} style={{ width: 88 }} />)}</colgroup>
