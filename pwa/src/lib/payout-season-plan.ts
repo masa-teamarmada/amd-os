@@ -38,7 +38,7 @@ export const SEASON_METRICS = [
 ] as const;
 export type SeasonMetric = typeof SEASON_METRICS[number][0];
 export type SeasonCell = Record<SeasonMetric, number | null>;
-export type SeasonPaymentCell = Pick<SeasonCell, "regularPay" | "extraPay">;
+export type SeasonPaymentCell = Pick<SeasonCell, "regularPay" | "extraPay"> & { sourceYms?: string[] };
 export type SeasonMemberPayment = {
   memberId: string; memberName: string;
   cells: Record<string, SeasonPaymentCell>; totals: SeasonPaymentCell;
@@ -148,6 +148,7 @@ export function buildPayoutSeasonPlan(input: {
           memberPayments.set(memberId, payment);
         }
         const memberCell = payment.cells[payoutYm] ??= { regularPay: 0, extraPay: 0 };
+        memberCell.sourceYms = [...new Set([...(memberCell.sourceYms ?? []), ym])];
         if (!profile || member.payoutSnapshotAmountUnknown || member.payoutSnapshotSplitUnknown) {
           cell(payoutYm).regularPay = null; cell(payoutYm).extraPay = null; cell(ym).debt = null;
           memberCell.regularPay = null; memberCell.extraPay = null;

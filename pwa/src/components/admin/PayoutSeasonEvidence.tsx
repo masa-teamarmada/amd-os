@@ -23,8 +23,8 @@ export function PayoutSeasonEvidence({ project, onOpenMonthly, openRequested = f
     ["切上げ加算", e.roundingYen], ["控除", e.offsetsYen == null ? null : -e.offsetsYen],
     ["その他の未照合差分", e.unexplainedYen],
   ] as const;
-  return <details ref={evidenceRef} key={project.projectId} open={openRequested || a.status === "overallocated" || a.paymentStatus === "over_budget"} className="scroll-mt-20 border border-border" data-testid="payout-season-evidence">
-    <summary className={`cursor-pointer px-3 py-2 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-sky-600 ${a.paymentStatus === "over_budget" ? "bg-red-50 text-red-800 dark:bg-red-950/30 dark:text-red-300" : a.status === "overallocated" ? "bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200" : "bg-muted/30"}`}>予算と配分の根拠を確認 · MS別／月別／メンバー別</summary>
+  return <details ref={evidenceRef} key={project.projectId} open={openRequested || a.paymentStatus === "over_budget"} className="scroll-mt-20 border border-border" data-testid="payout-season-evidence">
+    <summary className={`cursor-pointer px-3 py-2 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-sky-600 ${a.paymentStatus === "over_budget" ? "bg-red-50 text-red-800 dark:bg-red-950/30 dark:text-red-300" : "bg-muted/30"}`}>報酬原資の計算根拠 · ポイント換算を含む</summary>
     <div className="space-y-3 p-3 text-xs">
       <div className="space-y-1 leading-relaxed">
         <p><strong>振込＋外部未払 {yen(a.cashCommittedYen)}</strong>。期末の社内配分未充当 {yen(a.internalUnfundedYen)}。{a.cashCommittedYen === 0 ? "報酬の現金支払・外部未払は0円。" : ""}</p>

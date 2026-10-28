@@ -246,7 +246,7 @@ function settle(regular: number, extra: number, regularCap: number, extraCap: nu
     { totalCapYen: regularCap + extraCap, regularCapYen: regularCap, extraCapYen: extraCap }, new Map(), new Map(), {},
     { sourceYm: "202612", settleSmallBalance: true, roundPayoutUp, companyReserveMemberIds: new Set(reserve ? ["A"] : []) });
 }
-for (const residual of [1, 99, 100, 4651, 10000, 10001]) {
+for (const residual of [1, 99, 100, 1000, 4651, 10000, 10001]) {
   const r = settle(50000 + residual, 0, 50000, 0);
   const m = r.members[0];
   check(`少額残高の境界 ${residual}`, residual <= 10000

@@ -17,6 +17,18 @@ export type SeasonAllocation = {
   members: SeasonAllocationMember[]; issues: string[];
   evidence: SeasonAllocationEvidence;
 };
+
+/** Payment-page projection. Preserve existing allocations when deriving the payee budget. */
+export function buildSeasonPayoutView(allocation: SeasonAllocation) {
+  const reserved = allocation.internalYen == null || allocation.internalUnfundedYen == null ? null : allocation.internalYen + allocation.internalUnfundedYen;
+  const budgetYen = allocation.budgetYen == null || reserved == null ? null : Math.max(0, allocation.budgetYen - reserved);
+  const totalYen = allocation.cashCommittedYen;
+  return {
+    budgetYen, totalYen,
+    remainingYen: budgetYen == null || totalYen == null ? null : budgetYen - totalYen,
+    members: allocation.members.filter((m) => m.cashYen > 0 || m.externalUnpaidYen > 0),
+  };
+}
 function record(value: unknown): Record<string, unknown> | null {
   return value != null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }

@@ -24,7 +24,7 @@ assert.equal(actual.months[0], "202601", "シーズン前半を省略しない")
 assert.equal(actual.months.at(-1), "202606", "最終入金・支払まで表示する");
 assert.equal(row.memberPayments.length, 1, "役員・通知対象外の個人行を作らない");
 assert.equal(row.memberPayments[0].memberName, "かる", "既存の作成一覧と同じコードネームを使う");
-assert.deepEqual(row.memberPayments[0].cells["202602"], { regularPay: 500, extraPay: 100 }, "個人行も支払月に本契約・別財布を保持する");
+assert.deepEqual(row.memberPayments[0].cells["202602"], { regularPay: 500, extraPay: 100, sourceYms: ["202601"] }, "個人行も支払月に本契約・別財布と対応する稼働月を保持する");
 assert.deepEqual(row.memberPayments[0].totals, { regularPay: 1500, extraPay: 300 });
 
 const missing = buildPayoutSeasonPlan({ ...base, cycles: cycles.filter((cycle) => cycle.ym !== "202602") });
@@ -52,7 +52,7 @@ const multiple = buildPayoutSeasonPlan({
 });
 const multipleProject = multiple.projects[0];
 assert.deepEqual(multipleProject.memberPayments.map((member) => member.memberName), ["かる", "2人目"]);
-assert.deepEqual(multipleProject.memberPayments[1].cells["202602"], { regularPay: 200, extraPay: 50 }, "別財布は個人の支払額へ一度だけ加える");
+assert.deepEqual(multipleProject.memberPayments[1].cells["202602"], { regularPay: 200, extraPay: 50, sourceYms: ["202601"] }, "別財布は個人の支払額へ一度だけ加える");
 for (const month of multiple.months) {
   for (const metric of ["regularPay", "extraPay"] as const) {
     assert.equal(multipleProject.memberPayments.reduce((total, member) => total + member.cells[month][metric]!, 0), multipleProject.cells[month][metric], "各月の個人額合計が既存PJ報酬と一致する");

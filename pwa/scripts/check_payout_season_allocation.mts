@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { applyPayoutSnapshotsToCycles, buildSeasonAllocation } from "../src/lib/payout-season-allocation.ts";
+import { applyPayoutSnapshotsToCycles, buildSeasonAllocation, buildSeasonPayoutView } from "../src/lib/payout-season-allocation.ts";
 import { buildPayoutSeasonPlan, type SeasonBilling } from "../src/lib/payout-season-plan.ts";
 import { applyLegacyPayoutAmountOverridesToCycles } from "../src/lib/payout-amount-overrides.ts";
 
@@ -38,8 +38,14 @@ assert.equal(actual.budgetYen, 800, "登録された本契約と別財布の報�
 assert.equal(actual.remainingYen, 348);
 assert.equal(actual.status, "within_budget");
 assert.equal(actual.members.reduce((sum, m) => sum + m.totalYen, 0), actual.committedYen);
+const payable = buildSeasonPayoutView(actual);
+assert.equal(payable.members.length, 4, "支払額の表には振込対象者だけを表示する");
+assert.equal(payable.budgetYen, 645, "既存の社内割当150円と未充当5円を確保した支払用原資");
+assert.equal(payable.totalYen, 297);
+assert.equal(payable.remainingYen, 348, "表示を簡潔にしても既存の割当を追加支払へ開放しない");
 const matrix = buildPayoutSeasonPlan({ paymentYm: "202607", projects: [{ project_id: "fixture", project_name: "検証", status: "active", payment_due_rule: "next_month_end", payment_due_day: null }], plans: [plan], cycles: overlaid, members: profiles, extraRevenueRows: [] });
 assert.equal(matrix.projects[0].totals.regularPay, actual.cashYen, "月別表と年間表の振込対象額が一致する。is_officerだけで除外しない");
+assert.deepEqual(matrix.projects[0].memberPayments[0].cells["202607"].sourceYms, ["202606"], "7月振込の理由は6月稼働分へ進む");
 assert.equal(buildSeasonAllocation({ ...plan, budget_yen: 100 }, overlaid, profiles, months).remainingYen, -202);
 assert.equal(buildSeasonAllocation({ ...plan, budget_yen: 100 }, overlaid, profiles, months).status, "overallocated");
 assert.equal(buildSeasonAllocation({ ...plan, budget_yen: 100 }, overlaid, profiles, months).paymentStatus, "over_budget", "外部支払そのものの原資超過を検出する");
@@ -78,6 +84,10 @@ assert.equal(cause.externalUnpaidYen, 0);
 assert.equal(cause.internalUnfundedYen, 200);
 assert.equal(cause.internalYen, 2000, "支払判定の区別によって社内の割当を削らない");
 assert.equal(cause.committedYen, 2200);
+assert.equal(buildSeasonPayoutView(cause).members.length, 0);
+assert.equal(buildSeasonPayoutView(cause).budgetYen, 0);
+assert.equal(buildSeasonPayoutView(cause).remainingYen, 0, "非現金だけの配分超過を支払不足と表示しない");
+assert.equal(buildSeasonPayoutView(buildSeasonAllocation(plan, overlaid.slice(1), profiles, months)).budgetYen, null, "未計算の原資を推測しない");
 assert.equal(cause.evidence.regularPointBasis, 20);
 assert.equal(cause.evidence.regularAllocatedPt, 22);
 assert.equal(cause.evidence.milestones.find(m => m.msKey === "shared")?.earnedPt, 20, "担当者が複数でもMS消化ptを二重計上しない");

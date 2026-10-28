@@ -73,12 +73,13 @@ export function PayoutSeasonPlanView({ ym, plan: current, loading = false, error
     const { metric } = row;
     return current!.months.map((month) => {
       const payment = row.member?.cells[month] ?? cells[month];
+      const sourceYms = row.member?.cells[month]?.sourceYms ?? [];
       const value = row.combinePay ? paymentTotal(payment) : cells[month][metric];
       const outsideDebt = metric === "debt" && project?.startYm != null && (month < project.startYm || month > project.endYm!);
       const label = outsideDebt ? "対象期間外" : value == null ? "報酬計算または支出額が未確認" : `${number.format(value)}円`;
       const classes = `border-b border-r border-border/60 px-2 py-1 text-right font-mono tabular-nums ${styles(value, metric)} ${month === ym ? "bg-sky-50 dark:bg-sky-950/40" : ""}`;
       return <td key={month} data-payout-month={month} className={classes} title={`${project?.projectName ?? "全PJ合計"} / ${row.label} / ${ymLabel(month)} / ${label}${row.combinePay ? `（${paymentBreakdown(payment)}）` : ""}`}>
-        {project && metric === "debt" && !outsideDebt ? <button type="button" className="w-full text-right underline decoration-border underline-offset-2 hover:text-sky-700 focus-visible:outline-2 focus-visible:outline-sky-600" onClick={() => onOpenMonthly(project.projectId, month, `${project.projectName} ${ymLabel(month)}`)} aria-label={`${project.projectName} ${ymLabel(month)}の報酬根拠を見る`}>{valueLabel(value)}</button> : outsideDebt ? "·" : valueLabel(value)}
+        {project && row.member && value != null && value > 0 && sourceYms.length === 1 ? <button type="button" className="w-full text-right underline decoration-border underline-offset-2 hover:text-sky-700 focus-visible:outline-2 focus-visible:outline-sky-600" onClick={() => onOpenMonthly(project.projectId, sourceYms[0], `${project.projectName} ${ymLabel(sourceYms[0])}稼働分`)} aria-label={`${project.projectName} ${row.member.memberName} ${ymLabel(month)}支払の根拠を見る`}>{valueLabel(value)}</button> : project && metric === "debt" && !outsideDebt ? <button type="button" className="w-full text-right underline decoration-border underline-offset-2 hover:text-sky-700 focus-visible:outline-2 focus-visible:outline-sky-600" onClick={() => onOpenMonthly(project.projectId, month, `${project.projectName} ${ymLabel(month)}`)} aria-label={`${project.projectName} ${ymLabel(month)}の報酬根拠を見る`}>{valueLabel(value)}</button> : outsideDebt ? "·" : valueLabel(value)}
       </td>;
     });
   }
@@ -103,7 +104,7 @@ export function PayoutSeasonPlanView({ ym, plan: current, loading = false, error
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
         <span>売上・報酬は税抜、立替は実費。青い列は今回の支払月。未払報酬は稼働月末の残高。</span>
-        <span>報酬はメンバー別。本契約＋別財布を表示し、金額にマウスを乗せると内訳を確認できる。</span>
+        <span>報酬は振込対象者別。本契約＋別財布を表示。金額を押すと、対応する稼働月の繰越・丸めを含む根拠を確認できる。</span>
         <span>月別表の差引＝入金予定−報酬支払−立替−登録済み追加支出。支払原資と配分の超過は上の報酬予算表で確認。</span>
       </div>
       <div ref={scrollRef} role="region" aria-label="全PJのシーズン月別収支表" tabIndex={0} className="max-h-[560px] overflow-auto border border-border focus-visible:outline-2 focus-visible:outline-sky-600">
