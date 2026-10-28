@@ -13,7 +13,6 @@ import {
   regularPoolAmounts,
   resolvePayoutSourceSpan,
   payoutLineDescription,
-  payoutRemainingText,
   payoutTargetText,
   ymPeriodLabel,
   ymSpanLabel,
@@ -38,7 +37,6 @@ function span(rows: Record<string, RegularPoolAmounts>, sourceYm: string, floorY
   assert.equal(result.endYm, "202607");
   assert.equal(ymSpanLabel(result.startYm, result.endYm), "7月稼働分");
   assert.equal(payoutTargetText(result), "対象：2026年7月の稼働");
-  assert.equal(payoutRemainingText(result), "", "未払いが無い月は3行目を出さない");
 }
 
 // 2. 本契約に繰越があれば、繰越が 0 になる月まで遡る
@@ -72,8 +70,6 @@ function span(rows: Record<string, RegularPoolAmounts>, sourceYm: string, floorY
   assert.equal(june.startYm, "202604");
   assert.deepEqual(june.paidMonths, [{ ym: "202604", paidYen: 87185, startedBefore: false, completed: false }]);
   assert.equal(payoutTargetText(june), "対象：2026年4月の稼働");
-  // 稼働月だけだと4月の報酬が87,185円で全部に見えるので、未払い残高を添える (まさ確定 2026-10-03)
-  assert.equal(payoutRemainingText(june), "未払い残高 272,964円（税抜、翌月以降にお支払いします）");
 
   // 4月の残り 32,708円 + 5月の 54,670円
   const july = span(rows, "202607");
@@ -178,26 +174,21 @@ function span(rows: Record<string, RegularPoolAmounts>, sourceYm: string, floorY
   assert.equal(ymPeriodLabel("202604", "202604"), "2026年4月");
 }
 
-// 9. 未払い残高の行を出さない指定 (まさ確定 2026-10-28)。
-// /admin/payouts の「未払い残高（3行目）を出さない」チェックは route 側で remaining_text を
-// 空にするだけなので、GAS は空文字の行を落とす既存挙動のまま使える。2行目の稼働月は消さない。
+// 9. 摘要の3行目 (未払い残高) は 2026-10-28 に廃止 (まさ確定)。復活させない。
+// かつては「未払い残高 272,964円（税抜、翌月以降にお支払いします）」を3行目に出していた。
+// 摘要は「支払月の1行目」と「対象の稼働月の2行目」の2行まで。
 {
+  const mod = await import("../src/lib/payout-source-span.ts");
+  assert.ok(!("payoutRemainingText" in mod), "payoutRemainingText を復活させない");
   const rows = {
     "202604": { carryIn: 0, grossDue: 119893, stock: 119893 },
     "202605": { carryIn: 119893, grossDue: 239786, stock: 239786 },
     "202606": { carryIn: 239786, grossDue: 360149, stock: 272964 },
   };
   const june = span(rows, "202606");
-  // 既定は3行目あり
-  assert.equal(payoutRemainingText(june), "未払い残高 272,964円（税抜、翌月以降にお支払いします）");
-  // 落としたい回は route 側で "" を渡す = 3行目が出ない
-  const omitted = true;
-  assert.equal(omitted ? "" : payoutRemainingText(june), "");
-  // 2行目は落とさない
+  // 未払いが残っていても、出すのは2行目の稼働月まで
+  assert.ok(june.stockYen > 0, "この月は未払いが残っている");
   assert.equal(payoutTargetText(june), "対象：2026年4月の稼働");
-  // 残りが無い月は、指定の有無にかかわらず元から空
-  const settled = span({ "202606": { carryIn: 0, grossDue: 100000, stock: 0 } }, "202606");
-  assert.equal(payoutRemainingText(settled), "");
 }
 
 console.log("payout source span: ok");

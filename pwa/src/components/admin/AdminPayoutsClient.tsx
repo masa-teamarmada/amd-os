@@ -1516,9 +1516,6 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
   const [paymentNudgeSending, setPaymentNudgeSending] = useState(false);
   const [bulkPdfMode, setBulkPdfMode] = useState<"issue" | "preview" | null>(null);
   const [bulkPdfResult, setBulkPdfResult] = useState<BulkNoticeSummary | null>(null);
-  // 摘要の3行目 (未払い残高) を出さずに発行するかどうか。既定は出す (= 2026-10-03 の確定仕様)。
-  // この回の発行だけに効く一時指定で、DBには保存しない (まさ確定 2026-10-28)。
-  const [omitRemainingBalance, setOmitRemainingBalance] = useState(false);
   /**
    * 発行・送付が止まった理由。ツールバー右端の hint は小さすぎて気づけず、
    * 「PDFタブが開いて閉じただけで何も起きない」ように見えていたので赤バナーで出す (2026-08-28)。
@@ -2147,7 +2144,6 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
           action: "issue_notice_pdf",
           ym,
           memberId: row.memberId,
-          omitRemainingBalance: omitRemainingBalance || undefined,
           agreementOverrideReason: overrideReason || undefined,
         }),
       });
@@ -2366,7 +2362,6 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
           action: previewOnly ? "bulk_preview_notice_pdf" : "bulk_issue_notice_pdf",
           ym,
           force: options.force === true,
-          omitRemainingBalance: omitRemainingBalance || undefined,
           agreementOverrideReason: overrideReason || undefined,
         }),
       });
@@ -2644,25 +2639,6 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
           </div>
         </div>
         <p className="text-[11px] text-muted-foreground">全員分PDF一括発行で正式PDFを作成。内容を確認してから、各行の「送付」で宛先・本文・添付を確認する。</p>
-        <label className="flex items-start gap-2 text-[11px] text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={omitRemainingBalance}
-            onChange={(event) => setOmitRemainingBalance(event.target.checked)}
-            disabled={bulkPdfMode != null || noticeSavingMemberId != null}
-            className="mt-0.5"
-          />
-          <span>
-            摘要の<span className="font-medium text-foreground">未払い残高（3行目）を出さない</span>
-            でPDFを作る。チェックした状態で発行した回だけ効く（保存されない）。
-            2行目の「対象：◯年◯月の稼働」は残るので、仕入明細書に要る取引期間は消えない。
-            {omitRemainingBalance ? (
-              <span className="ml-1 font-medium text-amber-700">
-                ON のあいだは、金額が変わっていない未送付PDFも作り直す。
-              </span>
-            ) : null}
-          </span>
-        </label>
         <div className="overflow-hidden rounded-lg border border-border">
           <table data-amie-list="records" className="w-full text-[12px]">
             <thead className="border-b border-border bg-muted/40">
