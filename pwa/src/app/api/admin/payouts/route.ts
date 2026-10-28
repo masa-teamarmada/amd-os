@@ -245,6 +245,7 @@ export type GenerateNoticeResult = {
     | "total_yen_changed"
     | "member_profile_changed"
     | "template_version_changed"
+    | "summary_option_changed"
     | "sent_protected"
     | "agreement_gate"
     | "snapshot_sync_blocked";
@@ -897,6 +898,9 @@ function noticeSourceProfileIsStale(existing: PayoutNoticeRow, sourceUpdatedAt: 
  *
  * - previewOnly: 確認用 PDF は毎回新規生成 (= notice_no も PREVIEW-... 固定で DB保存もしない)
  * - force: 強制再生成
+ * - omitRemainingBalance: 摘要の3行目を落とす指定。金額は変わらないので total_yen 比較では
+ *   差分にならない。指定されたまま no_change でスキップすると、3行目が残った古いPDFが
+ *   そのまま送られるので、この指定があるときは必ず作り直す (まさ確定 2026-10-28)
  * - 既存 pdf_url が無い / notice_no が PREVIEW-... / total_yen が変わっている
  *   / member 台帳が PDF 生成後に更新された / 未送付PDFのテンプレートが古い → 再生成
  * - それ以外 → スキップ
@@ -910,6 +914,7 @@ export function shouldRegenerateNotice(
     sourceUpdatedAt?: string | null;
     expectedReimbursementYen?: number;
     expectedReimbursementIds?: string[];
+    omitRemainingBalance?: boolean;
   } = {}
 ): { regenerate: boolean; reason: GenerateNoticeResult["reason"] } {
   if (existing && !options.previewOnly && textValue(existing.sent_at)) {
@@ -917,6 +922,7 @@ export function shouldRegenerateNotice(
   }
   if (options.force) return { regenerate: true, reason: "force" };
   if (options.previewOnly) return { regenerate: true, reason: "preview_always_regen" };
+  if (options.omitRemainingBalance) return { regenerate: true, reason: "summary_option_changed" };
   if (!existing) return { regenerate: true, reason: "no_existing" };
   if (!textValue(existing.pdf_url)) return { regenerate: true, reason: "no_pdf_url" };
   if (noticeNoIsPreview(existing.notice_no)) return { regenerate: true, reason: "preview_notice_no" };
@@ -951,6 +957,7 @@ export function shouldRegenerateNotice(
  *   (= 明示再生成では金額差分がなくても住所・宛名・登録番号を最新化する)
  * - previewOnly=true なら DB upsert を行わず、確認用 PDF URL だけ返す
  * - force=false (デフォルト) の場合は差分検出でスキップ可
+ * - omitRemainingBalance=true なら摘要の3行目 (未払い残高) を出さない
  */
 export async function generateNoticePdfForMember(
   db: SupabaseClient,
@@ -961,11 +968,14 @@ export async function generateNoticePdfForMember(
     force?: boolean;
     /** 一括生成で事前に予約した通知書番号。並列採番の重複を避けるために使う */
     noticeNoOverride?: string;
+    /** 摘要の3行目 (未払い残高) を出さない。仕入明細書として使わない月の控えめ版 */
+    omitRemainingBalance?: boolean;
   }
 ): Promise<GenerateNoticeResult> {
   const { memberId } = options;
   const previewOnly = Boolean(options.previewOnly);
   const force = Boolean(options.force);
+  const omitRemainingBalance = Boolean(options.omitRemainingBalance);
   const ym = data.ym;
 
   const member = findMember(memberId, data.members);
@@ -985,7 +995,9 @@ export async function generateNoticePdfForMember(
     db,
     baseEntries.map((entry) => ({ projectId: entry.project_id, sourceYm: entry.ym, memberId })),
   );
-  // 摘要は支払月で書き、2行目に今回の支払が当たる稼働月、3行目に未払い残高を添える (まさ確定 2026-10-03)
+  // 摘要は支払月で書き、2行目に今回の支払が当たる稼働月、3行目に未払い残高を添える (まさ確定 2026-10-03)。
+  // omitRemainingBalance が立っている回だけ3行目を落とす (まさ確定 2026-10-28)。2行目の稼働月は残す
+  // ので、仕入明細書に要る取引期間は消えない。
   const entries = baseEntries.map((entry) => {
     const span = sourceSpans.get(`${entry.project_id}:${entry.ym}:${memberId}`);
     const description = payoutLineDescription(entry.project_name, ym);
@@ -1002,7 +1014,7 @@ export async function generateNoticePdfForMember(
       ...entry,
       description,
       target_text: payoutTargetText(span),
-      remaining_text: payoutRemainingText(span),
+      remaining_text: omitRemainingBalance ? "" : payoutRemainingText(span),
       source_span: span,
     };
   });
@@ -1036,6 +1048,7 @@ export async function generateNoticePdfForMember(
     sourceUpdatedAt: member.updated_at,
     expectedReimbursementYen: reimbursementYen,
     expectedReimbursementIds: reimbursements.map((row) => row.reimbursementId),
+    omitRemainingBalance,
   });
   if (!decision.regenerate && existing) {
     return {
@@ -1244,6 +1257,8 @@ export async function generateNoticePdfBulk(
     previewOnly?: boolean;
     force?: boolean;
     concurrency?: number;
+    /** 摘要の3行目 (未払い残高) を出さない */
+    omitRemainingBalance?: boolean;
   }
 ): Promise<GenerateNoticeResult[]> {
   const concurrency = Math.max(1, Math.min(8, options.concurrency ?? BULK_NOTICE_CONCURRENCY));
@@ -1260,6 +1275,7 @@ export async function generateNoticePdfBulk(
         previewOnly: options.previewOnly,
         force: options.force,
         noticeNoOverride: reservedNoticeNos.get(memberId),
+        omitRemainingBalance: options.omitRemainingBalance,
       });
       results.push(result);
     }
@@ -2047,6 +2063,7 @@ export async function PATCH(req: NextRequest) {
         memberId,
         previewOnly,
         force: true,
+        omitRemainingBalance: boolValue(body.omitRemainingBalance),
       });
 
       if (result.status === "failed") {
@@ -2157,6 +2174,7 @@ export async function PATCH(req: NextRequest) {
         previewOnly,
         force,
         concurrency: BULK_NOTICE_CONCURRENCY,
+        omitRemainingBalance: boolValue(body.omitRemainingBalance),
       });
       const agreementBlockedResults: GenerateNoticeResult[] = [...agreementBlockedMemberIds]
         .filter((memberId) => targetMemberIds.includes(memberId))
