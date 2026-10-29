@@ -475,7 +475,10 @@ function renderInline(text: string): React.ReactNode {
 // ─── 業務遂行レポート見出し文の自動生成 ─────────────────────────────────
 function leadParagraph(data: PrintData): string {
   const { project, contract, ym } = data;
-  const client = project.clientName || project.projectName;
+  if (!project.clientName) {
+    return `本書は、${project.projectName}の${formatYm(ym)}における活動・判断・課題を記録する社内月次報告書である。`;
+  }
+  const client = project.clientName;
   const subj = contract.title ? `「${contract.title}」` : `本業務 (${project.projectName})`;
   const periodPart = contract.periodStart && contract.periodEnd
     ? ` (履行期間: ${contract.periodStart} 〜 ${contract.periodEnd})`
@@ -551,12 +554,13 @@ function xrlAxisMeta(k: "trl" | "brl" | "grl" | "srl" | "hrl"): { label: string;
 function CoverPage({ data }: { data: PrintData }) {
   const { project, contract, ym, report } = data;
   const isFinal = (report?.status === "fixed" || report?.status === "final") && !!report?.fixedAt;
+  const hasClient = Boolean(project.clientName);
 
   // 契約識別ライン (契約番号 / 入札番号 のうち入ってるものを並べる。見積書番号は対外報告には不要)
   const idItems: Array<{ label: string; value: string }> = [];
-  if (contract.amdContractNo) idItems.push({ label: "AMD契約番号", value: contract.amdContractNo });
-  if (contract.contractNo) idItems.push({ label: "契約番号", value: contract.contractNo });
-  if (contract.bidNo) idItems.push({ label: "入札番号", value: contract.bidNo });
+  if (hasClient && contract.amdContractNo) idItems.push({ label: "AMD契約番号", value: contract.amdContractNo });
+  if (hasClient && contract.contractNo) idItems.push({ label: "契約番号", value: contract.contractNo });
+  if (hasClient && contract.bidNo) idItems.push({ label: "入札番号", value: contract.bidNo });
 
   return (
     <div className="sheet cover-sheet">
@@ -569,8 +573,8 @@ function CoverPage({ data }: { data: PrintData }) {
         <div className="cover-title-block">
           <div className="cover-eyebrow">REPORTING PERIOD</div>
           <div className="cover-ym">{formatYm(ym)}</div>
-          <div className="cover-project">{contract.title || project.projectName}</div>
-          <div className="cover-client">提出先: {project.clientName || "—"}</div>
+          <div className="cover-project">{hasClient ? contract.title || project.projectName : project.projectName}</div>
+          <div className="cover-client">{hasClient ? `提出先: ${project.clientName}` : "社内用"}</div>
         </div>
 
         {idItems.length > 0 && (
