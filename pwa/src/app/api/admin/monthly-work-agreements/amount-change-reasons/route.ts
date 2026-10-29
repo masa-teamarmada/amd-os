@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
 import {
@@ -8,6 +8,7 @@ import {
   resolveMemberForEmail,
 } from "@/lib/monthly-work-agreement";
 import type { MonthlyAgreementAmountChangeReason } from "@/lib/monthly-work-agreement-types";
+import { queueAndScheduleAgreementHandoff } from "@/lib/monthly-agreement-handoff-server";
 
 const REASON_MIN_LENGTH = 8;
 
@@ -178,7 +179,10 @@ export async function POST(req: NextRequest) {
       savedRow = data as Record<string, unknown>;
     }
 
-    return NextResponse.json({ ok: true, data: toAmountChangeReason(savedRow!) });
+    const handoff = await queueAndScheduleAgreementHandoff(admin, {
+      kind: "reagreement_requested", ym, memberId, projectIds: [projectId],
+    }, after);
+    return NextResponse.json({ ok: true, data: toAmountChangeReason(savedRow!), handoff });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : String(err) },

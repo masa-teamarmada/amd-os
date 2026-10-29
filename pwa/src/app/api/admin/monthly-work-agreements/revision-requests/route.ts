@@ -10,7 +10,7 @@
  *   PATCH { requestId, status, note }     open → resolved / rejected、または open へ戻す
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
 import {
@@ -19,6 +19,7 @@ import {
   resolveMemberForEmail,
 } from "@/lib/monthly-work-agreement";
 import type { MonthlyWorkAgreementRevisionRequest } from "@/lib/monthly-work-agreement-types";
+import { queueAndScheduleAgreementHandoff } from "@/lib/monthly-agreement-handoff-server";
 
 const REQUEST_SELECT =
   "id, ym, member_id, project_id, request_type, body, status, snapshot_hash, created_at, resolved_at, resolved_by, resolution_note";
@@ -150,7 +151,12 @@ export async function PATCH(req: NextRequest) {
     }
     if (!data) return NextResponse.json({ ok: false, error: `request not found: ${requestId}` }, { status: 404 });
 
-    return NextResponse.json({ ok: true, data: toRevisionRequest(data as Record<string, unknown>) });
+    const request = toRevisionRequest(data as Record<string, unknown>);
+    const handoff = status === "resolved" ? await queueAndScheduleAgreementHandoff(admin, {
+      kind: "reagreement_requested", ym: request.ym, memberId: request.memberId,
+      ...(request.projectId ? { projectIds: [request.projectId] } : {}),
+    }, after) : { state: "nothing_to_send" as const, count: 0 };
+    return NextResponse.json({ ok: true, data: request, handoff });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : String(err) },

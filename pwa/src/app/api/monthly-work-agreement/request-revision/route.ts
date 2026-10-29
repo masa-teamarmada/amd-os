@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth } from "@/lib/supabase/api-auth";
 import { formatAgreementRevisionProposal, type AgreementRevisionProposal } from "@/lib/monthly-agreement-revision-proposal";
+import { queueAndScheduleAgreementHandoff } from "@/lib/monthly-agreement-handoff-server";
 import {
   buildMonthlyWorkAgreementBundle,
   currentYmJst,
@@ -86,7 +87,7 @@ export async function POST(req: NextRequest) {
       requestType = (body.proposal as AgreementRevisionProposal).amountChoice === "specific" ? "reward" : "scope_or_goal";
     }
 
-    const { error: insertError } = await admin.from("member_monthly_work_agreement_requests").insert({
+    const { data: inserted, error: insertError } = await admin.from("member_monthly_work_agreement_requests").insert({
       ym,
       member_id: memberId,
       project_id: projectId,
@@ -94,7 +95,7 @@ export async function POST(req: NextRequest) {
       body: requestBody,
       status: "open",
       snapshot_hash: bundle.currentHash,
-    });
+    }).select("id").single();
     if (insertError) throw insertError;
 
     const refreshed = await buildMonthlyWorkAgreementBundle(admin, {
@@ -102,7 +103,10 @@ export async function POST(req: NextRequest) {
       memberId,
       viewerMemberId: actor.memberId,
     });
-    return NextResponse.json({ ok: true, bundle: refreshed });
+    const handoff = await queueAndScheduleAgreementHandoff(admin, {
+      kind: "revision_requested", ym, memberId, requestIds: [inserted.id],
+    }, after, refreshed);
+    return NextResponse.json({ ok: true, bundle: refreshed, handoff });
   } catch (err) {
     const status = isMissingMonthlyAgreementRequestTableError(err) ? 503 : 500;
     return NextResponse.json(
