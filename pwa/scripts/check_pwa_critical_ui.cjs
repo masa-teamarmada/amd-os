@@ -4085,8 +4085,8 @@ expectIncludes("src/lib/payout-source-span.ts", [
   "export function regularPoolAmounts(",
   "export function resolvePayoutSourceSpan(",
   "別財布 (cap_extra) は含まない",
-  // 摘要は支払月で書き、2行目に今回の支払が当たる稼働月を添える (まさ確定 2026-10-03)。
-  // 3行目の未払い残高は 2026-10-28 に廃止 (まさ確定)
+  // 摘要は支払月で書き、2行目に今回の支払が対象とする月次精算 (sourceYm) を添える
+  // (まさ確定 2026-10-03、2026-10-29 に確定表示へ変更)。3行目の未払い残高は 2026-10-28 に廃止 (まさ確定)
   "function allocatePaidMonths(",
   "export function payoutLineDescription(",
   "export function payoutTargetText(",

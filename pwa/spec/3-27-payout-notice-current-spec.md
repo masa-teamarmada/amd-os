@@ -53,6 +53,16 @@
 
 詳細な既存発行契約・PDF様式は [manual 6-5](../manual/6-5-admin-payouts-reward-notice-spec.md) を参照。
 
+### PDF摘要の対象月
+
+PDF明細の摘要1行目は支払月、2行目は今回の支払が対象とする月次精算 (`sourceYm`) を年つきで書く。例は「対象：2026年7月の月次精算」。`PayoutSourceSpan.startYm < endYm` のとき「（繰越分を含む）」を添える。`paidMonths` は古い発生月から支払うと仮定した内訳表示用の情報であり、PDFの対象月には使わない。詳細は manual 6-5 の明細の摘要節、検査は `npm run test:payout-source-span`。
+
+### 保存済みPDFの閲覧
+
+`GET /api/admin/payouts/pdf?ym=YYYYMM&memberId=...` は `requireAdmin` の認可後に `payout_notices` の該当行を読み、保存済み `pdf_url` のDriveファイルを既存のGoogle連携で取得する。クライアントが渡せるのは年月とメンバー番号で、保存先はDBで解決する。正規のDrive URL、本人・支払月に対応するファイル名、PDF形式、4MiB以下のサイズと読戻しバイトを検査し、`application/pdf`・`inline`・`private, no-store` で返す。エラーも保存しない。Google認証画面への転送や共有権限の変更は行わない。
+
+「PDF確認」、通知欄の送付済み・未送付PDFリンク、既存PDFを開く操作、発行直後の別タブ、送付前の添付PDF確認をこの閲覧経路へ統一する。発行直後と送付前確認は要求時点の年月・メンバーを保持する。DBの保存先・報酬計算・発行・送付は従来の契約を維持する。認可とPDFバイトの検査は `test:payout-notice-pdf-access` を反映前に実行する。
+
 ## 検証
 
 `test:payout-season-plan` は入金月と支払月、シーズン全期間、通知対象外の分類、未払残高の非合算、未計算伝播、0円、立替の一度だけの控除、未設定PJ、draft優先順位と年間配分検証を行う。`check_payout_month_selection.mts` は日本時間20日/21日の初期表示切替、年越し、URL指定月の選択維持を検査する。`test:critical-ui` は工程順・表・既存の発行操作を、`test:reference-data-cache` は可変系のno-store取得を検査する。

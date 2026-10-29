@@ -181,9 +181,9 @@ export async function GET(req: NextRequest) {
       .select("plan_cycle_id,status,period_start_ym,period_end_ym,total_points,budget_yen")
       .eq("project_id", projectId)
       .order("period_start_ym", { ascending: false }),
-    // 契約特定情報: signed/effective を優先、なければ最新の terms
+    // 月次報告の業務契約候補。NDA 等を選ばないよう、取得後に用途と提出先で絞る。
     db.from("contracts")
-      .select("contract_id,contract_title,counterparty_name,contract_type,status,effective_date,expiration_date,contract_value_yen,canonical_title")
+      .select("contract_id,contract_title,counterparty_name,contract_type,project_contract_scope,status,effective_date,expiration_date,contract_value_yen,canonical_title")
       .eq("project_id", projectId)
       .in("status", ["signed", "active", "effective"])
       .order("effective_date", { ascending: false, nullsFirst: false }),
@@ -245,20 +245,22 @@ export async function GET(req: NextRequest) {
         .in("ym", [ymStr, prevYmStr])
     : { data: [] };
   const currProgressMap = new Map(
-    ((progressRes.data || []) as Array<{ milestone_key: string; ym: string; progress_pct: number; note: string | null; source: string | null }>)
+    ((progressRes.data || []) as Array<{ milestone_key: string; ym: string; progress_pct: number | null; note: string | null; source: string | null }>)
       .filter((p) => p.ym === ymStr)
       .map((p) => [p.milestone_key, p])
   );
   const prevProgressMap = new Map(
-    ((progressRes.data || []) as Array<{ milestone_key: string; ym: string; progress_pct: number }>)
+    ((progressRes.data || []) as Array<{ milestone_key: string; ym: string; progress_pct: number | null }>)
       .filter((p) => p.ym === prevYmStr)
       .map((p) => [p.milestone_key, p.progress_pct])
   );
 
   const milestones = projectMilestones.map((m) => {
     const p = currProgressMap.get(m.milestone_id);
-    const prevPct = Number(prevProgressMap.get(m.milestone_id) || 0);
-    const currPct = Math.round(Number(p?.progress_pct || 0));
+    const hasCurrentProgress = p?.progress_pct != null;
+    const hasPrevProgress = prevProgressMap.get(m.milestone_id) != null;
+    const prevPct = Number(prevProgressMap.get(m.milestone_id) ?? 0);
+    const currPct = Math.round(Number(p?.progress_pct ?? 0));
     return {
       milestoneId: m.milestone_id,
       title: m.title,
@@ -270,6 +272,8 @@ export async function GET(req: NextRequest) {
       progressPct: currPct,
       prevProgressPct: Math.round(prevPct),
       deltaPct: currPct - Math.round(prevPct),
+      hasCurrentProgress,
+      hasPrevProgress,
       note: p?.note || null,
       source: p?.source || null,
     };
@@ -324,10 +328,25 @@ export async function GET(req: NextRequest) {
   // 業務契約特定情報
   const signedContracts = (contractsRes.data || []) as Array<{
     contract_id: string; contract_title: string; counterparty_name: string | null;
-    contract_type: string; status: string; effective_date: string | null;
+    contract_type: string; project_contract_scope: string | null; status: string; effective_date: string | null;
     expiration_date: string | null; contract_value_yen: number | null; canonical_title: string | null;
   }>;
-  const primaryContract = signedContracts[0] || null;
+  const normalizeParty = (name: string | null) => (name || "").replace(/[\s\u3000]/g, "");
+  const clientName = normalizeParty(proj.client_name);
+  const isClientContract = (counterparty: string | null) => {
+    const party = normalizeParty(counterparty);
+    return !!clientName && !!party && (party === clientName || party.includes(clientName) || clientName.includes(party));
+  };
+  const serviceContracts = signedContracts.filter((contract) =>
+    ["contract", "outsourcing", "order"].includes(contract.contract_type)
+    && (!contract.effective_date || contract.effective_date <= ymEnd)
+    && (!contract.expiration_date || contract.expiration_date >= ymStart)
+  );
+  const primaryContract =
+    serviceContracts.find((contract) => contract.project_contract_scope === "studio_service" && isClientContract(contract.counterparty_name))
+    || serviceContracts.find((contract) => contract.project_contract_scope === "studio_service")
+    || serviceContracts.find((contract) => contract.project_contract_scope === "unclassified" && isClientContract(contract.counterparty_name))
+    || null;
 
   // contract_terms の最新 (applied) からも契約番号・見積書番号を拾う
   const termsRes = await db.from("contract_terms")
@@ -336,7 +355,8 @@ export async function GET(req: NextRequest) {
     .eq("status", "applied")
     .order("period_start", { ascending: false, nullsFirst: false })
     .limit(5);
-  const primaryTerm = ((termsRes.data || []) as Array<{ contract_id: string | null; contract_no: string | null; quote_no: string | null; contract_title: string | null; counterparty_name: string | null; period_start: string | null; period_end: string | null; amount_tax_incl: number | null }>)[0] || null;
+  const primaryTerm = ((termsRes.data || []) as Array<{ contract_id: string | null; contract_no: string | null; quote_no: string | null; contract_title: string | null; counterparty_name: string | null; period_start: string | null; period_end: string | null; amount_tax_incl: number | null }>)
+    .find((term) => !!primaryContract && term.contract_id === primaryContract.contract_id) || null;
 
   const contractIdentification = {
     contractId: primaryContract?.contract_id || primaryTerm?.contract_id || null,
@@ -568,8 +588,9 @@ export async function GET(req: NextRequest) {
 
   const overallPct = (() => {
     const counted = milestones.filter((m) => (m.tag || "").toLowerCase() !== "buffer");
+    if (counted.length === 0 || counted.some((m) => !m.hasCurrentProgress)) return null;
     const totalPt = counted.reduce((s, m) => s + m.points, 0);
-    if (totalPt <= 0) return 0;
+    if (totalPt <= 0) return null;
     const weighted = counted.reduce((s, m) => s + m.progressPct * m.points, 0) / totalPt;
     return Math.round(weighted);
   })();
@@ -590,7 +611,7 @@ export async function GET(req: NextRequest) {
   // RAG (3軸: スケジュール / コスト / リスク)
   const rag = {
     schedule: (() => {
-      if (expectedPct === null) return "n/a";
+      if (expectedPct === null || overallPct === null) return "n/a";
       const diff = expectedPct - overallPct;
       if (diff <= 5) return "green";
       if (diff <= 20) return "amber";
