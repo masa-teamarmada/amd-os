@@ -2,6 +2,14 @@
 
 > **この章は何か**: メンバーが月初に OS 上で当月の遂行対象、予定到達点、予定報酬を確認し、合意 snapshot を残すフローの current contract。
 
+## 修正要望・再合意・完了の通知引き継ぎ（2026-10-29、ローカル実装・送信保留）
+
+- 対象イベントは本人による修正要望の保存、管理者による要望の対応済み化または金額変更理由の保存、本人によるPJ別合意の新規保存。順に、activeな管理者全員、本人、本人以外のactiveな管理者全員へ、既存のえいみ固定Slack送信経路で知らせる。既存合意の再POSTは完了イベントにしない。
+- 修正要望は個別request id、再合意と合意完了は `ym × member × PJ × terms hash × recipient` を安定キーにする。送信待ち・送信中・送信済み・明示失敗・結果不明・条件変更による取消を既存 `billing_log` の `action=monthly_agreement_handoff` に保存する。新規schemaは不要。送信直前に現行bundleを再構築し、open要望、再合意可否、合意状態、現行termsを照合する。古い待ち行は取り消す。
+- 送信処理はPostgresの状態条件付き更新で1件だけclaimする。送信結果不明、または4分を超えた送信中は `uncertain` にし、自動再送しない。明示的なSlack拒否は `failed` として最大3回まで再試行し、それを超えた行は `needs_attention` にして後続の待ち行を塞がない。操作直後はNext `after()`、残った待ち行は毎日03:05の既存 `payout-reward-cache-refresh` の終了後に3件まで処理する。全メンバー走査や履歴の一括通知、新しいcronは追加しない。
+- 再合意案内は現在の税抜合意額、前回額との差、支払予定月、現在snapshotに紐付いた変更理由またはOSの説明を示す。完了案内は合意済み額と管理者の支払通知書入口を示すが、入金や発行の確認が終わったとは書かない。通知は契約額・報酬キャッシュ・正式通知書・振込を変更しない。
+- `AMIE_MONTHLY_AGREEMENT_NOTIFICATIONS_ENABLED=1` のときだけ待ち行作成と外部送信を有効にする。無効時は追加DB読取・通知待ち行・送信を行わない。既存のしん202610の変更はイベント発生済みなので自動遡及しない。`scripts/preview_monthly_agreement_handoff.mts` は指定した本人/月/PJの送信文面を読取り専用で確認する。後日1件だけ送る場合は同scriptの `--send` と明示的な `AMD_OS_MONTHLY_AGREEMENT_NOTIFY_APPROVED=1` が必要で、再合意依頼・単一PJ・本人1宛だけに制限する。現在はまさの「追加反映・通知・振込なし」の条件により無効のまま保持する。
+
 ## Current Truth
 
 ### 全PJ共通の支払丸め・少額清算（2026-10-02）
@@ -12,7 +20,7 @@
 - 任意JSON項目 `smallBalanceSettlementYen` は前倒し元本、`roundingTopUpYen` と通常/別財布別の同項目は会社負担の加算。`grossDue + roundingTopUp = paid + stock` を守る。pt、発生報酬、契約予算、バッファを変更しない。`finalCapTopUpYen=0` を維持し、最終月の不足全額補填とは分ける。
 - 確定額保護はcycleのreward_paid_at/payout_notice_uploaded_at/payment_confirmed_atに加え、monthly_reward_payoutの保存済み行、対象メンバー/支払月の正式通知書を照合する。1件でも該当する月はsnapshotを保持。通知書はPJ支払条件で計算した支払月と照合し、通知内の他PJを誤って書き換えないよう月全体を保護する。
 - 将来月を計算するときも、保護された過去月のsnapshotにある未払残高・未使用枠・相殺繰越を起点にする。保護snapshot欠落は停止し、再計算で埋めない。保存直前にも保護状態を再取得し、更新時刻比較と保護列条件を付けて競合時は停止。
-- 毎日03:05 JSTの既存payout-reward-cache-refreshが全PJの当月から11か月先と前月の対象を選び、共通syncRewardSummaryForCycleを呼ぶ。保護列も取得する。将来月にも同じ規則が適用され、PJ別手作業は不要。初回の一括反映/照合も `scripts/refresh_common_payout_policy.mts` から同じ関数を呼び、別計算を持たない。既定GETのみ、--applyは本番SHA一致後、--verify-onlyは保存値照合のみ。監査はbilling_log。通知・振込・合意書更新は行わない。
+- 毎日03:05 JSTの既存payout-reward-cache-refreshが全PJの当月から11か月先と前月の対象を選び、共通syncRewardSummaryForCycleを呼ぶ。保護列も取得する。将来月にも同じ規則が適用され、PJ別手作業は不要。初回の一括反映/照合も `scripts/refresh_common_payout_policy.mts` から同じ関数を呼び、別計算を持たない。既定GETのみ、--applyは本番SHA一致後、--verify-onlyは保存値照合のみ。監査はbilling_log。報酬キャッシュ更新自体は通知・振込・合意書更新を行わない。上記の月初合意通知を有効にした場合に限り、既存通知待ち行の配信処理をこのcronの終了後に実行する。
 - 月別画面は既存の発生報酬/支払配分/繰越/振込予定月と切上げ加算の表示を使う。保存支払がcacheと不一致ならcacheの加算を流用しない。terms hashに加算を含めない。
 - 検査: 全PJ同条件同結果、1/99/100/4651/10000/10001円、二財布、0円cap、非現金、保護snapshot不変、保護残高の翌月引継ぎ、通知/支払明細不変、保存値照合。BZM/modelは支払実務の丸め・支払時期のみで変更しない。
 

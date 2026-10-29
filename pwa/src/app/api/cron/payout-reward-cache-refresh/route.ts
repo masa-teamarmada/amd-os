@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   candidateSourceYmsForPaymentYm,
@@ -121,6 +121,12 @@ export async function GET(req: NextRequest) {
 
   try {
     const result = await refreshPayoutRewardCache(paymentYms);
+    if (process.env.AMIE_MONTHLY_AGREEMENT_NOTIFICATIONS_ENABLED === "1") {
+      after(async () => { try {
+        const { dispatchAgreementHandoffs } = await import("@/lib/monthly-agreement-handoff-server");
+        await dispatchAgreementHandoffs(createAdminClient(), true);
+      } catch { /* leave durable jobs for the next run */ } });
+    }
     return NextResponse.json({ ok: true, baseYm, lookaheadMonths, ...result });
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, { status: 500 });
