@@ -41,7 +41,7 @@ description: Claude Code Routines の Fable 5 で動かす AMD OS 月次処理�
 1. JST の今日が25日か確認する。25日でなければ、M-1〜M-3を一切実行せず短いスキップ要約だけで終了する。
 2. 対象月を当月 `YYYYMM` とする。提出版の `ym` は `YYYY-MM` に変換する。月次報告書の対象期間は、社内版・提出版とも対象月の1日〜末日とする。末日は暦から計算し、30日・31日・2月28日／うるう年29日に対応する。生成日・作成日・証跡の確認日とは分け、25日に生成しても対象期間を25日で切らない。本文には生成時点で確認済みの実績だけを記載し、未実施の予定を実績化しない。26日〜末日の実績は当月分の追補対象とし、翌月分へ移さない。既存の確定稿は自動上書きせず、必要な追補は既存の編集・保存経路で行う。
 3. コネクターと環境変数を確認する。欠落を「データなし」と扱わない。
-4. DB write は承認済み非LLM helperと一時 outboxだけを使う。Supabase connector、SQL、RESTの直接 writeは禁止する。
+4. M-1の保存は承認済み非LLM helperと一時outboxを使う。クラウドでは `prepare_monthly_report_connector_sql.mjs` が検査・生成したSQLファイルを、既存Supabase connectorの `execute_sql` へ変更せず渡す。LLMが保存SQLを自作・修正することは禁止。ローカルの既存service-key保存helperも維持する。
 5. 一時 outbox は `mktemp -d` で作る。`/Users/masa/...` のローカル固定パスを前提にしない。
 
 ## Phase A: M-1 月次報告書
@@ -113,9 +113,9 @@ errors: <短い理由。raw本文や秘密情報は含めない>
 - M-2をM-1より先に実行する。
 - forceなしで既存 final を上書きする。
 - 非Fableモデル、CLI、従量課金API、subagent、workflowへ処理を逃がす。
-- Supabase connector、SQL、RESTで直接 writeする。
+- 検査helperが生成していないSQL、LLMで変更したSQL、RESTで直接writeする。M-1の検査済みSQLの既存connector実行だけを許可する。
 - D系、W-1、H-1、deploy、git push、DDL、migration、ローカルautomation変更をこのroutineで行う。
 
 ### 2026-09-26 保存環境の事前検査
 
-生成前に、承認済み保存helperで使うSupabase URL・保存認証、証跡API認証が実行環境に設定されていることを値を表示せず検査する。欠けていれば設定不備として失敗を報告し、outboxだけを保存完了に数えない。旧ローカル`amd-os-l2m1-monthly-report`（28〜31日03時）は無効化し、25日のクラウドroutineへ一本化する。
+2026-10-29改訂: クラウドのM-1は既存Supabase connectorの読み取りと `execute_sql`、Node/Python、リポジトリの検査helperを事前確認する。connector認証があればSupabase URL・service key・CRON_SECRETの環境変数をM-1の前提にしない。品質validatorも環境変数なしで起動できる。Notionが未認証なら既存Gmail/Driveの議事メモで一次ソースを確認し、取得不能を活動なしと扱わない。CRON_SECRETは証跡APIを実際に使う場合だけ、service keyはローカル保存helperを選んだ場合だけ必要。M-2/M-3の保存経路は従来どおり個別判定し、その不備でM-1を未着手に戻さない。保存後の再読込照合がなければ未完了。旧ローカルScheduled Taskは復活させない。
