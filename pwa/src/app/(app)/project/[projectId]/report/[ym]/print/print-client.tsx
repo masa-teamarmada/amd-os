@@ -47,6 +47,7 @@ interface MsRow {
   periodStartYm: string | null; targetYm: string | null;
   successCriteria: string | null;
   progressPct: number; prevProgressPct: number; deltaPct: number;
+  hasCurrentProgress: boolean; hasPrevProgress: boolean;
   note: string | null; source: string | null;
 }
 interface ResponsibilityRow {
@@ -138,7 +139,7 @@ interface PrintData {
   contract: ContractInfo;
   milestones: MsRow[];
   responsibilities: ResponsibilityRow[];
-  overallPct: number;
+  overallPct: number | null;
   expectedPct: number | null;
   rag: { schedule: Rag; cost: Rag; risk: Rag };
   planCycle: {
@@ -634,8 +635,9 @@ function ExecSummary({ data }: { data: PrintData }) {
     if (data.achievementSignals.length > 0) lines.push(`主要成果: ${data.achievementSignals[0].title}`);
     const body = reportBodyForPrint(data);
     if (body) {
-      const firstPara = body.split(/\n\n/)[0].replace(/^#+\s*/, "");
-      if (firstPara && firstPara.length < 200) lines.push(firstPara);
+      const firstPara = body.replace(/^(?:#{1,6}[^\n]*\n\s*)+/, "").split(/\n\s*\n/)[0].trim();
+      const firstSentence = firstPara.match(/^[^。]+。/)?.[0] || firstPara;
+      if (firstSentence && firstSentence.length < 200) lines.push(firstSentence);
     }
     if (data.riskSignals.length > 0) lines.push(`要注意: ${data.riskSignals[0].title}`);
     return lines.slice(0, 3);
@@ -663,7 +665,7 @@ function ExecSummary({ data }: { data: PrintData }) {
           <div className="rag-card" style={{ background: scheduleR.bg, color: scheduleR.color }}>
             <div className="rag-axis">SCHEDULE</div>
             <div className="rag-label">{scheduleR.label}</div>
-            <div className="rag-meta">{overallPct}% (期待 {expectedPct ?? "—"}%)</div>
+            <div className="rag-meta">{overallPct === null ? "進捗未記録" : `${overallPct}%`} (期待 {expectedPct ?? "—"}%)</div>
           </div>
           <div className="rag-card" style={{ background: riskR.bg, color: riskR.color }}>
             <div className="rag-axis">RISK</div>
@@ -850,10 +852,10 @@ function ProgressSection({
                         ? `${m.periodStartYm.slice(0, 4)}.${m.periodStartYm.slice(4)} – ${m.targetYm.slice(0, 4)}.${m.targetYm.slice(4)}`
                         : "—"}
                     </td>
-                    <td className="num-cell">{m.prevProgressPct}%</td>
-                    <td className="num-cell" style={{ fontWeight: 700 }}>{m.progressPct}%</td>
-                    <td className={`num-cell ${m.deltaPct > 0 ? "delta-up" : m.deltaPct < 0 ? "delta-dn" : ""}`}>
-                      {m.deltaPct > 0 ? `+${m.deltaPct}` : m.deltaPct}
+                    <td className="num-cell">{m.hasPrevProgress ? `${m.prevProgressPct}%` : "—"}</td>
+                    <td className="num-cell" style={{ fontWeight: 700 }}>{m.hasCurrentProgress ? `${m.progressPct}%` : "未記録"}</td>
+                    <td className={`num-cell ${m.hasCurrentProgress && m.hasPrevProgress ? m.deltaPct > 0 ? "delta-up" : m.deltaPct < 0 ? "delta-dn" : "" : ""}`}>
+                      {m.hasCurrentProgress && m.hasPrevProgress ? m.deltaPct > 0 ? `+${m.deltaPct}` : m.deltaPct : "—"}
                     </td>
                   </tr>
                 ))}
@@ -1048,7 +1050,7 @@ function GanttSection({ data }: { data: PrintData }) {
                   fill="#0a1628" />
                 <text x={barEnd + 4} y={y + rowH / 2 + 3} fontSize="7"
                   fill="#475569" fontFamily="JetBrains Mono, monospace">
-                  {m.progressPct}%
+                  {m.hasCurrentProgress ? `${m.progressPct}%` : "未記録"}
                 </text>
               </g>
             );

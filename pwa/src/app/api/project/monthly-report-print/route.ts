@@ -245,20 +245,22 @@ export async function GET(req: NextRequest) {
         .in("ym", [ymStr, prevYmStr])
     : { data: [] };
   const currProgressMap = new Map(
-    ((progressRes.data || []) as Array<{ milestone_key: string; ym: string; progress_pct: number; note: string | null; source: string | null }>)
+    ((progressRes.data || []) as Array<{ milestone_key: string; ym: string; progress_pct: number | null; note: string | null; source: string | null }>)
       .filter((p) => p.ym === ymStr)
       .map((p) => [p.milestone_key, p])
   );
   const prevProgressMap = new Map(
-    ((progressRes.data || []) as Array<{ milestone_key: string; ym: string; progress_pct: number }>)
+    ((progressRes.data || []) as Array<{ milestone_key: string; ym: string; progress_pct: number | null }>)
       .filter((p) => p.ym === prevYmStr)
       .map((p) => [p.milestone_key, p.progress_pct])
   );
 
   const milestones = projectMilestones.map((m) => {
     const p = currProgressMap.get(m.milestone_id);
-    const prevPct = Number(prevProgressMap.get(m.milestone_id) || 0);
-    const currPct = Math.round(Number(p?.progress_pct || 0));
+    const hasCurrentProgress = p?.progress_pct != null;
+    const hasPrevProgress = prevProgressMap.get(m.milestone_id) != null;
+    const prevPct = Number(prevProgressMap.get(m.milestone_id) ?? 0);
+    const currPct = Math.round(Number(p?.progress_pct ?? 0));
     return {
       milestoneId: m.milestone_id,
       title: m.title,
@@ -270,6 +272,8 @@ export async function GET(req: NextRequest) {
       progressPct: currPct,
       prevProgressPct: Math.round(prevPct),
       deltaPct: currPct - Math.round(prevPct),
+      hasCurrentProgress,
+      hasPrevProgress,
       note: p?.note || null,
       source: p?.source || null,
     };
@@ -584,8 +588,9 @@ export async function GET(req: NextRequest) {
 
   const overallPct = (() => {
     const counted = milestones.filter((m) => (m.tag || "").toLowerCase() !== "buffer");
+    if (counted.length === 0 || counted.some((m) => !m.hasCurrentProgress)) return null;
     const totalPt = counted.reduce((s, m) => s + m.points, 0);
-    if (totalPt <= 0) return 0;
+    if (totalPt <= 0) return null;
     const weighted = counted.reduce((s, m) => s + m.progressPct * m.points, 0) / totalPt;
     return Math.round(weighted);
   })();
@@ -606,7 +611,7 @@ export async function GET(req: NextRequest) {
   // RAG (3軸: スケジュール / コスト / リスク)
   const rag = {
     schedule: (() => {
-      if (expectedPct === null) return "n/a";
+      if (expectedPct === null || overallPct === null) return "n/a";
       const diff = expectedPct - overallPct;
       if (diff <= 5) return "green";
       if (diff <= 20) return "amber";
