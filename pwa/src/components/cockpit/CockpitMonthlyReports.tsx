@@ -14,7 +14,7 @@ export function CockpitMonthlyReports({ projectId, currentYm }: { projectId: str
   const [state, setState] = useState<{ projectId: string; reports: ReportMonth[]; loading: boolean; error: string | null }>({ projectId, reports: peekMonthlyReports(projectId) ?? [], loading: true, error: null });
   const [defaultYm] = useState(getDefaultMonthlyReportYm);
   const [selectedYm, setSelectedYm] = useState(defaultYm);
-  const [template, setTemplate] = useState<"internal" | "submission">("submission");
+  const [manualTemplate, setManualTemplate] = useState<"internal" | "submission" | null>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [retry, setRetry] = useState(0);
   useEffect(() => {
@@ -36,6 +36,7 @@ export function CockpitMonthlyReports({ projectId, currentYm }: { projectId: str
   const reports = current ? state.reports : [];
   const months = [...new Set([currentYm, defaultYm, ...reports.map((report) => report.ym)])].sort().reverse();
   const selected = reports.find((report) => report.ym === selectedYm);
+  const template = manualTemplate ?? (selected?.hasSubmission ? "submission" : selected?.internalStatus ? "internal" : "submission");
   const available = template === "internal" ? Boolean(selected?.internalStatus) : Boolean(selected?.hasSubmission);
   const href = `/project/${encodeURIComponent(projectId)}/report/${selectedYm}/print?template=${template}`;
   const monthKeys = months.join(",");
@@ -44,7 +45,7 @@ export function CockpitMonthlyReports({ projectId, currentYm }: { projectId: str
       if (event.origin !== window.location.origin || event.source !== frameRef.current?.contentWindow) return;
       if (event.data?.type === "monthly-report:select" && monthKeys.split(",").includes(event.data.ym) && ["internal", "submission"].includes(event.data.template)) {
         setSelectedYm(event.data.ym);
-        setTemplate(event.data.template);
+        setManualTemplate(event.data.template);
       }
       if (event.data?.type === "monthly-report:refresh") {
         invalidateMonthlyReports(projectId);
@@ -58,7 +59,7 @@ export function CockpitMonthlyReports({ projectId, currentYm }: { projectId: str
     <section role="tabpanel" aria-label="月次報告書" className="min-w-0 space-y-2">
       {(!available || state.loading || state.error) && <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-2">
         <h2 className="mr-1 text-sm font-semibold">月次報告書</h2>
-        <MonthlyReportSelectors months={months} ym={selectedYm} template={template} onChange={(ym, kind) => { setSelectedYm(ym); setTemplate(kind); }} />
+        <MonthlyReportSelectors months={months} ym={selectedYm} template={template} onChange={(ym, kind) => { setSelectedYm(ym); if (kind !== template) setManualTemplate(kind); }} />
         <Button variant="ghost" className="ml-auto h-9 max-sm:h-11" onClick={() => { invalidateMonthlyReports(projectId); setRetry((value) => value + 1); }}>更新</Button>
       </div>}
       <div className="overflow-hidden rounded-lg border border-border bg-background">
