@@ -305,6 +305,13 @@ await check("repeated GET stays read-only", async () => {
   assert.equal(dbWriteAttempted, false);
 });
 
+const viewerSource = fs.readFileSync(
+  new URL("../src/components/admin/AdminPayoutsClient.tsx", import.meta.url),
+  "utf8",
+);
+assert.doesNotMatch(viewerSource, /href=\{(?:notice\.pdf_url|preview\.pdfUrl)\}/, "PDF viewer links must not navigate directly to Drive");
+assert.match(viewerSource, /payoutNoticePdfViewUrl\(state\.ym, preview\.memberId\)/, "mail attachment preview uses captured payment month");
+
 if (failures > 0) {
   console.error(`FAIL: ${failures} check(s) failed`);
   process.exit(1);

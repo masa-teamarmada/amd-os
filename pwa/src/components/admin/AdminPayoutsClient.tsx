@@ -543,6 +543,7 @@ type NoticeMailPreview = {
 
 type NoticeMailModalState = {
   row: MemberPayoutRow;
+  ym: string;
   preview: NoticeMailPreview;
   editedBody: string;
   editing: boolean;
@@ -2241,6 +2242,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
       }
       setNoticeMailModal({
         row,
+        ym,
         preview: payload.preview,
         editedBody: payload.preview.body,
         editing: false,
@@ -4389,12 +4391,12 @@ function PayoutNoticeMailModal({
             <div className="text-muted-foreground">添付</div>
             <div className="text-[11px]">
               <a
-                href={preview.pdfUrl}
+                href={payoutNoticePdfViewUrl(state.ym, preview.memberId)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-blue-700 underline"
               >
-                支払通知書PDF (Drive)
+                支払通知書PDF
               </a>
               <span className="ml-2 text-muted-foreground">fileId: {preview.pdfDriveFileId.slice(0, 8)}...</span>
               <span className="ml-2 text-muted-foreground">合計 {fmtYen(preview.totalYen)}</span>

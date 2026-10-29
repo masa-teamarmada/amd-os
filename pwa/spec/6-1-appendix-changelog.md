@@ -1,3 +1,5 @@
+2026-10-29 v3.163.74（支払通知書）：NoticeMailModalStateへ確認要求時のymを保持し、添付PDFのhrefを共通の閲覧専用APIへ変更。Drive直リンクの復活を実行検査で検出する。spec3-27/manual6-5と同期。
+
 2026-10-29 v3.163.73（支払通知書）：管理者専用GET /api/admin/payouts/pdfを追加。DBで保存先を解決し、既存Google連携でPDFを読取り、保存先・ファイル識別・形式・サイズ・バイトを検査してprivate/no-storeで返す。全閲覧リンクを同経路へ統一。認可・失敗・繰返し読取・バイト保持の実行検査をdeploy.shへ追加。spec3-27/manual6-5と同期。
 
 2026-10-29 v3.163.72（支払通知書）：`payout-source-span.ts` の `payoutTargetText` を、`paidMonths` 割り戻しによる稼働月ラベルから `span.endYm`（sourceYm）の月次精算ラベルへ変更。繰越の有無は `startYm<endYm` で判定し、あれば「（繰越分を含む）」を添える。`PAYOUT_NOTICE_PDF_TEMPLATE_UPDATED_AT` を更新して未送付PDFを再生成対象にする。内部の繰越遡り・FIFO割り戻し・計算は変更なし。spec3-27、manual6-5、check_payout_source_span.mtsを同期。
