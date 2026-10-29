@@ -268,8 +268,22 @@ node pwa/scripts/ms_progress_review_tool.mjs upsert-monthly-reports-external --f
 - 提出版を社内版列へ保存する。
 - validatorや禁止語検査を迂回する。
 - outbox作成だけでDB反映済みと報告する。
-- Supabase connector、SQL、RESTで直接writeする。
+- 検査helperが生成していないSQL、LLMで変更したSQL、RESTで直接writeする。クラウドM-1は検査済みSQLを既存Supabase connectorで実行する。
 - 非Fableモデル、CLI、従量課金API、subagent、workflowを使う。
+
+### 2026-10-29 クラウドM-1の保存手順
+
+クラウドではservice keyを配らず、既存Supabase connectorを通信経路にする。Phase 4・6の検査は環境変数なしで起動する。社内版/提出版の保存では、ローカル用 `upsert-monthly-reports*` の代わりに次を使う。
+
+```bash
+node pwa/scripts/prepare_monthly_report_connector_sql.mjs --file "$OUTBOX" --out "$VALIDATED_SQL"
+```
+
+helperは社内版品質、提出版の同一PJ・直前月書式、禁止語を検査し、本文とhashを含むSQLファイルを生成する。提出版には `reference_project_id`、`reference_ym`、`reference_body_md` を必須とし、DB原本なら `reference_source="database"`、実提出Drive原本なら従来の出典URLを付ける。同じoutboxに社内版がない場合、再取得した当月社内finalの `internal_content_md5` が必要。
+
+`ok=true` のときだけSQLファイル全文をReadし、既存Supabase connectorの `execute_sql` へそのまま渡す。SQLをLLMで再構成・追記・省略しない。SQLは対象PJの現行scope/status、社内版hash、DB前月版hashをトランザクション内で再確認する。既存当月行はdraftも含めて上書きせず、本文不一致なら修復対象として報告する。force/strict=false/初回書式seedは拒否する。保存結果の `content_matches=true`、本文長、hash、status、生成時刻を確認し、connectorで対象行を再読込する。PDFは保存済み提出本文から生成する。
+
+定期実行は従来どおり25日限定。まさが対象月の復旧を明示した対話内の手動実行は、その月だけ日付判定を外せる。予定の変更や既存稿の上書き許可を兼ねない。
 
 ### 2026-09-26 実提出版とDB参照の差異
 

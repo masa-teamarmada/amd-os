@@ -797,3 +797,12 @@ v3.163.8時点の実ボタンZIPはPDF/XLSXの2ファイル、破損なし・数
 開発。経営会議本体の恒久仕様は `pwa/spec/3-26-executive-meeting-current-spec.md`、操作は `pwa/manual/2-3-pj-cockpit.md`、全画面境界は `ios/DESIGN.md` に記録済み。今回の最終修正 `e53f4b91` / `v3.163.43` は `/api/admin/executive-meetings` の全PJ・利用者・規程版のページング、`ExecutiveMeetingAdminPanel` の初期全PJ一覧と行から編集への導線、Admin左メニューの入口、build-info更新。新テーブル・カラム・環境変数・RLS変更なし。SOLの経営陣はまさ・石原先生・杉浦先生。杉浦先生のアカウント表示名を本番DBで修正してUIで読み戻し、規程は未登録と確認した。
 
 最初の「プルダウンでPJ選択後に表示」案は実務に合わず破棄。PC Chrome 1419×824で初期一覧・SOL編集・未登録PJ編集をUI/UX監査。型、静的検査、build、正規反映ゲート成功。公開 `/api/build-info` は `e53f4b91` / `v3.163.43`。教訓は `pwa/BUGS.md`、監査の常時ルールは `pwa/design/SPEC_GOVERNANCE.md`。画面確認画像と監査メモはローカル `.jez/artifacts/` の無視対象。会話の検討材料0件。
+
+## 2026-10-29 10月月次報告書の生成前停止を復旧
+
+10/25のクラウドroutineをChromeで調査。Fable/日付判定は通過したが保存用環境変数が無くblocked_envで終了し、provider上は成功だった。対象9PJの社内版0件・対象4PJの提出版0件をDB確認。既存Supabase連携に認証があるため、秘密値を追加せず非LLM品質検査・SQL生成helperで新規行だけ保存する経路を追加。品質validatorは起動時のDB設定依存を外した。既存の報酬合意10件は稼働中チャット「月初合意の修正依頼を明確化」（01a16818-7541-72a3-86d8-04c92c4e8375）に帰属するため保全。回帰検査と本番DBのROLLBACK内SQL実行が成功し、検証用行の永続化なし。報告書本文は既存Fable環境で生成中。
+
+| 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
+|---|---|---|---|
+| M-1クラウド保存・起動前検査・readback | spec3-2、L2_DATA、M系SKILL | manual8-3 | 同期済み |
+| 画面・共有DB・評価モデル | 変更なし | 対象外 | ネイティブ引継ぎ記録済み |

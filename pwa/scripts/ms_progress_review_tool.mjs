@@ -34,8 +34,8 @@ loadEnv(path.join(ROOT, ".env.production.local"));
 const DEFAULT_MAX_SNAPSHOT_AGE_HOURS = positiveNumber(process.env.AMD_OS_MAX_SNAPSHOT_AGE_HOURS, 48);
 const DEFAULT_REQUEST_TIMEOUT_MS = positiveNumber(process.env.AMD_OS_HELPER_TIMEOUT_MS, 15000);
 
-const SUPABASE_URL = env("NEXT_PUBLIC_SUPABASE_URL");
-const SERVICE_KEY = env("SUPABASE_SERVICE_ROLE_KEY");
+// Offline quality checks must work in Code Routines that authenticate through
+// the existing Supabase connector instead of service-key environment variables.
 const PWA_BASE_URL = process.env.PWA_BASE_URL || "https://amd-os-pwa.vercel.app";
 const GAS_BASE_URL = process.env.NEXT_PUBLIC_GAS_WEBAPP_URL || "";
 const GAS_API_KEY = process.env.NEXT_PUBLIC_GAS_API_KEY || "";
@@ -45,11 +45,6 @@ const STATIC_HOSTS = {
   "nbnhrhybjslbawdukvvk.supabase.co": ["104.18.38.10", "172.64.149.246"],
   "amd-os-pwa.vercel.app": ["64.29.17.3"],
 };
-
-const supabaseHost = new URL(SUPABASE_URL).host;
-if (!STATIC_HOSTS[supabaseHost]) {
-  STATIC_HOSTS[supabaseHost] = ["104.18.38.10", "172.64.149.246"];
-}
 
 function loadEnv(file) {
   if (!fs.existsSync(file)) return;
@@ -141,13 +136,17 @@ function requestJson(url, { method = "GET", headers = {}, body = undefined, redi
 
 function rest(table, query = "") {
   const sep = query ? `?${query}` : "";
-  return `${SUPABASE_URL}/rest/v1/${table}${sep}`;
+  const supabaseUrl = env("NEXT_PUBLIC_SUPABASE_URL");
+  const host = new URL(supabaseUrl).host;
+  if (!STATIC_HOSTS[host]) STATIC_HOSTS[host] = ["104.18.38.10", "172.64.149.246"];
+  return `${supabaseUrl}/rest/v1/${table}${sep}`;
 }
 
 function restHeaders(extra = {}) {
+  const serviceKey = env("SUPABASE_SERVICE_ROLE_KEY");
   return {
-    apikey: SERVICE_KEY,
-    authorization: `Bearer ${SERVICE_KEY}`,
+    apikey: serviceKey,
+    authorization: `Bearer ${serviceKey}`,
     ...extra,
   };
 }
@@ -2787,7 +2786,11 @@ async function main() {
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 }
 
-main().catch((e) => {
-  console.error(JSON.stringify({ ok: false, error: e.message, stack: e.stack }, null, 2));
-  process.exit(1);
-});
+export { validateMonthlyReportContent, validateExternalMonthlyReportContent, stripStandaloneHorizontalRules };
+
+if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
+  main().catch((e) => {
+    console.error(JSON.stringify({ ok: false, error: e.message, stack: e.stack }, null, 2));
+    process.exit(1);
+  });
+}

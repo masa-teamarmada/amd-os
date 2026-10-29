@@ -319,3 +319,14 @@ PDF描画はサーバーに存在しないHiragino/Meiryo等の指定を同梱No
 ### 2026-10-06 一覧の初期対象月
 
 月次報告書タブを開いたときの対象月は、日本時間1〜24日は前月、25日0:00以降は当月とする。`getDefaultMonthlyReportYm`が端末のタイムゾーンに依存せず計算し、1月は前年12月へ戻る。対象月が未生成でも他月へフォールバックしない。対象月・暦上の当月・既存月を選択肢へ残し、利用者が選んだ月は読み込みや更新で既定値へ戻さない。明示した月を開く印刷URL・月次カードの対象月と、25日16:00の生成予定は変更しない。
+
+
+### 2026-10-29 クラウド保存認証の不整合とM-1復旧
+
+10/25 16:05のClaude routineはFable 5と25日判定には合格したが、保存helperが起動時に要求するSupabase URL/service keyとCRON_SECRETがクラウド環境になく、M-1本文生成前に停止した。Supabase connectorは利用可能だった。provider上の「成功」は会話終了であり、報告書保存の証明ではない。10/29確認時点でactive対象9PJの202610社内版、対象4PJの2026-10提出版はいずれも0件。
+
+M-1クラウド保存は `scripts/prepare_monthly_report_connector_sql.mjs` → 既存Supabase connector `execute_sql` → readbackを正規経路に追加する。helperはLLMを呼ばず、秘密値・ネットワークを必要としない。共通品質validatorを再利用し、提出版の前月同一PJ書式と禁止語も検査する。検査合格時だけデータを安全に引用したSQLファイルを生成し、LLMはSQLを変更しない。既存REST helperの認証チェックはDBアクセス時へ移し、validator単体は接続情報なしで動作する。
+
+SQLは新規当月行だけをINSERTし、既存行はdraft/final/提出版すべてを保全する。scope/statusを保存直前に確認し、既存保存処理と同じPJ/月advisory lockを取得する。提出版は保存社内finalのMD5一致、DB前月版を使った場合は前月本文のMD5一致を必須とし、実提出Drive原本は同一PJ/前月/出典URLを検査する。既存履歴トリガーを維持し、生成元を `helper:monthly-report-connector` と記録する。force、品質検査迂回、初回書式の自動承認は受け付けない。
+
+保存後に対象ごとの `content_matches`・文字数・MD5・status・generated_atを照合し、改めてDBを読み戻す。既存本文が候補と異なる場合は成功に数えない。M-2/M-3の保存不備はM-1の生成前提にしない。定期スケジュールとFable 5・非従量課金の境界は維持する。明示された月の対話内復旧だけ25日判定を外せる。回帰検査は `node pwa/scripts/test_monthly_report_connector_sql.mjs` と既存月報品質検査。

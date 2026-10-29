@@ -146,6 +146,8 @@ echo "Running critical UI / spec rollback guard ..."
 (cd "$REPO_ROOT/pwa" && npm run test:payout-reimbursements)
 (cd "$REPO_ROOT/pwa" && npm run test:payment-month-usage)
 (cd "$REPO_ROOT/pwa" && npm run test:monthly-agreement-diff)
+(cd "$REPO_ROOT/pwa" && npm run test:monthly-report-quality)
+(cd "$REPO_ROOT/pwa" && npm run test:monthly-report-connector)
 (cd "$REPO_ROOT/pwa" && npm run test:zmp-task-focus)
 (cd "$REPO_ROOT/pwa" && npm run test:h1-automation-safety)
 
