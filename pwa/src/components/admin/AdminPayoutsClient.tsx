@@ -2481,6 +2481,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
             {ymOptions.map((option) => <option key={option} value={option}>{fmtYm(option)}</option>)}
           </select>
         </label>
+        <span className="text-[11px] text-muted-foreground">稼働月とは別。翌月以降の支払予定もここで選ぶ</span>
         <button type="button" onClick={() => loadForYm(ym)} disabled={loading || noticeSavingMemberId != null} className="h-8 border border-border px-3 hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-sky-600 disabled:opacity-50">{loading ? "読込中…" : "再読込"}</button>
         <nav aria-label="支払通知書の作業順" className="ml-2 flex gap-3 text-[11px] text-sky-700">
           <a href="#payout-season-plan" className="underline underline-offset-2">01 シーズン収支</a>

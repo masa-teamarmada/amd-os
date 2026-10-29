@@ -3,11 +3,11 @@ import { loadTargetData } from "@/app/api/admin/payouts/route";
 
 export const dynamic = "force-dynamic";
 
-function getRecentYms(n = 6): string[] {
+function getRecentYms(n = 6, startOffset = 0): string[] {
   const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
   const result: string[] = [];
   for (let i = 0; i < n; i++) {
-    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + startOffset - i, 1));
     const y = d.getUTCFullYear();
     const m = String(d.getUTCMonth() + 1).padStart(2, "0");
     result.push(`${y}${m}`);
@@ -18,7 +18,8 @@ function getRecentYms(n = 6): string[] {
 export default async function AdminPayoutsPage({ embedded = false, searchParams }: { embedded?: boolean; searchParams?: Promise<{ ym?: string }> } = {}) {
   const requestedYm = (await searchParams)?.ym;
   const currentYm = requestedYm && /^\d{4}(0[1-9]|1[0-2])$/.test(requestedYm) ? requestedYm : getRecentYms(1)[0];
-  const ymOptions = [...new Set([currentYm, ...getRecentYms(12)])];
+  // 稼働月の報酬は翌月以降に払う。予定月を選べないと、合意後の額を画面で確認できない。
+  const ymOptions = [...new Set([currentYm, ...getRecentYms(14, 2)])];
   let initialData: Awaited<ReturnType<typeof loadTargetData>> | null = null;
 
   try {
