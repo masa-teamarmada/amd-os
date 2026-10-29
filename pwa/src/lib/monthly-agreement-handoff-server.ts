@@ -9,6 +9,16 @@ export const agreementNoticeDeliveryEnabled = () => process.env.AMIE_MONTHLY_AGR
 export type AgreementHandoffTarget = { ym: string; memberId: string; projectIds?: string[]; requestIds?: string[]; kind: AgreementNoticeKind };
 type QueueResult = { state: "held" | "queued" | "nothing_to_send" | "failed"; jobs: AgreementNotice[]; errorCode?: string };
 
+/** A release must name every permitted event. No scope, no external delivery. */
+export function agreementNoticeScopeAllows(input: Pick<AgreementNotice, "kind" | "ym" | "memberId" | "projectId"> & Partial<Pick<AgreementNotice, "recipientMemberId">>): boolean {
+  if (!agreementNoticeDeliveryEnabled()) return false;
+  const prefix = [input.kind, input.ym, input.memberId, input.projectId].join(":") + ":";
+  const scopes = (process.env.AMIE_MONTHLY_AGREEMENT_NOTIFICATIONS_SCOPE || "").split(",").map(s => s.trim());
+  return input.recipientMemberId
+    ? scopes.includes(prefix + input.recipientMemberId)
+    : scopes.some(scope => scope.startsWith(prefix) && /^ID\d+$/.test(scope.slice(prefix.length)));
+}
+
 export async function prepareAgreementHandoff(db: SupabaseClient, target: AgreementHandoffTarget, knownBundle?: MonthlyWorkAgreementBundle): Promise<AgreementNotice[]> {
   if (knownBundle && (knownBundle.ym !== target.ym || knownBundle.member.memberId !== target.memberId)) throw new Error("agreement_handoff_bundle_mismatch");
   const [bundle, admins] = await Promise.all([
@@ -24,12 +34,14 @@ export async function queueAgreementHandoff(db: SupabaseClient, target: Agreemen
   try {
     const jobs = await prepareAgreementHandoff(db, target, knownBundle);
     if (!enabled) return { state: "held", jobs };
-    for (const job of jobs) {
+    const scopedJobs = jobs.filter(agreementNoticeScopeAllows);
+    if (jobs.length && !scopedJobs.length) return { state: "held", jobs: [] };
+    for (const job of scopedJobs) {
       const record: AgreementNoticeRecord = { job, state: "pending" };
       const { error } = await db.from("billing_log").insert({ id: job.id, project_id: job.projectId, ym: job.ym, action: ACTION, actor: "amie_monthly_agreement_handoff", detail: record });
       if (error && error.code !== "23505") throw new Error("agreement_handoff_queue_failed");
     }
-    return { state: jobs.length ? "queued" : "nothing_to_send", jobs };
+    return { state: scopedJobs.length ? "queued" : "nothing_to_send", jobs: scopedJobs };
   } catch { return { state: "failed", jobs: [], errorCode: "agreement_handoff_preparation_failed" }; }
 }
 
@@ -41,7 +53,9 @@ export async function queueAndScheduleAgreementHandoff(
   knownBundle?: MonthlyWorkAgreementBundle,
 ): Promise<{ state: QueueResult["state"]; count: number; errorCode?: string }> {
   if (!agreementNoticeDeliveryEnabled()) return { state: "held", count: 0 };
-  const queued = await queueAgreementHandoff(db, target, true, knownBundle);
+  const scopedProjectIds = target.projectIds?.filter(projectId => agreementNoticeScopeAllows({ ...target, projectId }));
+  if (!scopedProjectIds?.length) return { state: "held", count: 0 };
+  const queued = await queueAgreementHandoff(db, { ...target, projectIds: scopedProjectIds }, true, knownBundle);
   if (queued.state === "queued" && queued.jobs.length) {
     schedule(async () => { try { await dispatchAgreementHandoffs(db, true, queued.jobs.map(j => j.id)); } catch { /* durable outbox remains for the daily retry */ } });
   }
@@ -106,7 +120,7 @@ async function sendViaExistingAmieSender(db: SupabaseClient, job: AgreementNotic
 /** Retries only existing, bounded outbox rows. It never discovers every member or creates historical notices. */
 export async function dispatchAgreementHandoffs(db: SupabaseClient, enabled = agreementNoticeDeliveryEnabled(), onlyIds?: string[]): Promise<AgreementNoticeOutcome[]> {
   if (!enabled) return [];
-  let query = db.from("billing_log").select("id,detail").eq("action", ACTION).in("detail->>state", ["pending", "failed", "sending"]).order("created_at").limit(3);
+  let query = db.from("billing_log").select("id,detail").eq("action", ACTION).in("detail->>state", ["pending", "failed", "sending"]).order("created_at").limit(50);
   if (onlyIds) query = query.in("id", onlyIds);
   const { data: rows, error } = await query;
   if (error) throw new Error("agreement_handoff_outbox_read_failed");
@@ -116,6 +130,8 @@ export async function dispatchAgreementHandoffs(db: SupabaseClient, enabled = ag
   for (const row of rows || []) {
     const record = row.detail as AgreementNoticeRecord;
     const job = record.job;
+    if (!agreementNoticeScopeAllows(job)) continue;
+    if (results.length >= 3) break;
     try {
       const cacheKey = `${job.ym}:${job.memberId}`;
       let bundle = bundles.get(cacheKey);

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { deliverAgreementNotice, planAgreementNotices, type AgreementNotice, type AgreementNoticeLedger, type AgreementNoticeState } from "../src/lib/monthly-agreement-handoff.ts";
-import { queueAndScheduleAgreementHandoff } from "../src/lib/monthly-agreement-handoff-server.ts";
+import { agreementNoticeScopeAllows, queueAndScheduleAgreementHandoff } from "../src/lib/monthly-agreement-handoff-server.ts";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MonthlyWorkAgreementBundle, MonthlyWorkAgreementProject } from "../src/lib/monthly-work-agreement-types.ts";
 
@@ -34,12 +34,31 @@ const bundle = {
 
 const admins = ["ID001", "ID002"];
 const originalSwitch = process.env.AMIE_MONTHLY_AGREEMENT_NOTIFICATIONS_ENABLED;
+const originalScope = process.env.AMIE_MONTHLY_AGREEMENT_NOTIFICATIONS_SCOPE;
 delete process.env.AMIE_MONTHLY_AGREEMENT_NOTIFICATIONS_ENABLED;
 const held = await queueAndScheduleAgreementHandoff(new Proxy({}, { get() { throw new Error("held mode must not read DB"); } }) as SupabaseClient,
   { ym: "202610", memberId: "ID026", kind: "reagreement_requested", projectIds: ["p19"] },
   () => { throw new Error("held mode must not schedule"); });
 assert.deepEqual(held, { state: "held", count: 0 });
 if (originalSwitch !== undefined) process.env.AMIE_MONTHLY_AGREEMENT_NOTIFICATIONS_ENABLED = originalSwitch;
+process.env.AMIE_MONTHLY_AGREEMENT_NOTIFICATIONS_ENABLED = "1";
+delete process.env.AMIE_MONTHLY_AGREEMENT_NOTIFICATIONS_SCOPE;
+assert.equal(agreementNoticeScopeAllows({ kind: "agreement_completed", ym: "202610", memberId: "ID004", projectId: "p19" }), false);
+process.env.AMIE_MONTHLY_AGREEMENT_NOTIFICATIONS_SCOPE = "agreement_completed:202610:ID004:p19:ID001,agreement_completed:202610:ID004:p19:ID002";
+assert.equal(agreementNoticeScopeAllows({ kind: "agreement_completed", ym: "202610", memberId: "ID004", projectId: "p19" }), true);
+assert.equal(agreementNoticeScopeAllows({ kind: "agreement_completed", ym: "202610", memberId: "ID004", projectId: "p19", recipientMemberId: "ID001" }), true);
+assert.equal(agreementNoticeScopeAllows({ kind: "agreement_completed", ym: "202610", memberId: "ID004", projectId: "p19", recipientMemberId: "ID002" }), true);
+assert.equal(agreementNoticeScopeAllows({ kind: "agreement_completed", ym: "202610", memberId: "ID004", projectId: "p19", recipientMemberId: "ID003" }), false);
+assert.equal(agreementNoticeScopeAllows({ kind: "reagreement_requested", ym: "202610", memberId: "ID004", projectId: "p19" }), false);
+assert.equal(agreementNoticeScopeAllows({ kind: "agreement_completed", ym: "202610", memberId: "ID026", projectId: "p19" }), false);
+assert.equal(agreementNoticeScopeAllows({ kind: "agreement_completed", ym: "202611", memberId: "ID004", projectId: "p19" }), false);
+assert.deepEqual(await queueAndScheduleAgreementHandoff(new Proxy({}, { get() { throw new Error("out-of-scope event must not read DB"); } }) as SupabaseClient,
+  { ym: "202610", memberId: "ID026", kind: "agreement_completed", projectIds: ["p19"] },
+  () => { throw new Error("out-of-scope event must not schedule"); }), { state: "held", count: 0 });
+if (originalSwitch === undefined) delete process.env.AMIE_MONTHLY_AGREEMENT_NOTIFICATIONS_ENABLED;
+else process.env.AMIE_MONTHLY_AGREEMENT_NOTIFICATIONS_ENABLED = originalSwitch;
+if (originalScope === undefined) delete process.env.AMIE_MONTHLY_AGREEMENT_NOTIFICATIONS_SCOPE;
+else process.env.AMIE_MONTHLY_AGREEMENT_NOTIFICATIONS_SCOPE = originalScope;
 const requests = planAgreementNotices(bundle, "reagreement_requested", admins, ["p19"]);
 assert.equal(requests.length, 1);
 assert.equal(requests[0].recipientMemberId, "ID026");
@@ -63,6 +82,13 @@ assert.deepEqual(completions.map(j => j.recipientMemberId), admins);
 assert.match(completions[0].text, /55,200円/);
 assert.match(completions[0].text, /入金状況と発行条件を確認/);
 assert.ok(!completions[0].text.includes("振込を実行"));
+const kouAgreed = { ...agreed, member: { memberId: "ID004", codeName: "こう" }, snapshot: { ...agreed.snapshot,
+  member: { memberId: "ID004", codeName: "こう" }, projects: [project("p19", 19500)] } } as MonthlyWorkAgreementBundle;
+const kouCompletions = planAgreementNotices(kouAgreed, "agreement_completed", admins, ["p19"]);
+assert.deepEqual(kouCompletions.map(j => j.recipientMemberId), admins);
+assert.equal(kouCompletions.length, 2);
+assert.match(kouCompletions[0].text, /こうの合意が完了/);
+assert.match(kouCompletions[0].text, /19,500円/);
 
 const states = new Map<string, AgreementNoticeState>();
 let claims = 0;
