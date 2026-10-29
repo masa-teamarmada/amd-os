@@ -1422,7 +1422,7 @@ export function MonthlyReportPrintClient({ data, embedded = false }: { data: Pri
           }
           @top-right {
             content: "取扱注意 / Confidential"; padding-right: 14mm; text-align: right;
-            font-family: 'Work Sans', sans-serif; font-size: 8pt; color: #b91c1c; letter-spacing: 0.1em;
+            font-family: 'Noto Sans JP', sans-serif; font-size: 8pt; color: #b91c1c; letter-spacing: 0.1em;
             vertical-align: middle;
           }
           @bottom-left { content: none; }
@@ -1434,7 +1434,7 @@ export function MonthlyReportPrintClient({ data, embedded = false }: { data: Pri
         @page {
           size: A4 portrait; margin: 14mm 14mm 18mm 14mm;
           @top-left { content: "${headerLabel}"; font-family: 'Noto Sans JP', sans-serif; font-size: 8pt; color: #475569; }
-          @top-right { content: "取扱注意 / Confidential"; font-family: 'Work Sans', sans-serif; font-size: 8pt; color: #b91c1c; letter-spacing: 0.1em; }
+          @top-right { content: "取扱注意 / Confidential"; font-family: 'Noto Sans JP', sans-serif; font-size: 8pt; color: #b91c1c; letter-spacing: 0.1em; }
           @bottom-left { content: "© 2026 Team ARMADA Inc."; font-family: 'Work Sans', sans-serif; font-size: 8pt; color: #64748b; }
           @bottom-center { content: counter(page) " / " counter(pages); font-family: 'JetBrains Mono', monospace; font-size: 8pt; color: #64748b; }
         }

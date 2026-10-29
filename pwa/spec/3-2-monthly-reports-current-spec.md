@@ -313,6 +313,7 @@ ZMP（p19）もSOL・CX・KUTEと同じく `monthly_report_scope=internal_and_ex
 PDF保存記録の更新は `monthly_report_pdf_record` RPC（正本migration: `ios/supabase/migrations/20261004172000_monthly_report_pdf_record.sql`）へ全文・PJ・月・版・Drive IDをPOST bodyで渡す。SQL内で本文一致を条件にPDF参照だけを更新し、既存本文保存RPCと同じadvisory lockを使う。admin/service_roleに限定し、本文・編集履歴には書き込まない。長い日本語本文をPostgRESTのURL filterへ入れない。
 
 PDF描画はサーバーに存在しないHiragino/Meiryo等の指定を同梱Noto Sans JPへ置換し、400/700のfont faceを実本文の文字列で明示loadしてから出力する。フォントが読めない場合はPDFを保存しない。画面の組版指定は維持する。
+ページ上端の「取扱注意 / Confidential」も日本語を含むためNoto Sans JPで描画する。
 
 社内版の表紙は印刷時に画面用18mm paddingを無効化し、@pageの余白だけを使う。表紙本文・確定情報を同じページに収める。
 
@@ -332,4 +333,6 @@ SQLは新規当月行だけをINSERTし、既存行はdraft/final/提出版す�
 保存後に対象ごとの `content_matches`・文字数・MD5・status・generated_atを照合し、改めてDBを読み戻す。既存本文が候補と異なる場合は成功に数えない。M-2/M-3の保存不備はM-1の生成前提にしない。定期スケジュールとFable 5・非従量課金の境界は維持する。明示された月の対話内復旧だけ25日判定を外せる。回帰検査は `node pwa/scripts/test_monthly_report_connector_sql.mjs` と既存月報品質検査。
 
 コックピットの月次タブは、対象月に提出版が保存済みなら提出版、社内版だけ保存済みなら社内版を初期表示する。どちらも未保存なら従来の未生成表示とし、利用者が種類を選んだ後は手動選択を優先する。社内版の保存後に初期表示だけが未生成の提出版を指す誤認を防ぐ。
-社内版本文を印刷ビューへ組版する際、`projects.client_name` が未設定なら表紙はPJ名と「社内用」を表示し、契約識別番号を出さない。導入文は社内月次報告書として記述し、同じPJにある別の業務委託契約をこの月報の締結根拠にしない。提出先があるPJの契約表示は従来どおり。
+社内版本文を印刷ビューへ組版する際、`projects.client_name` が未設定なら表紙はPJ名と「社内用」を表示し、契約識別番号を出さない。導入文は社内月次報告書として記述し、同じPJにある別の業務委託契約をこの月報の締結根拠にしない。提出先があるPJでは対象月に有効な業務契約を選び、`studio_service` を優先する。分類前の契約は委託元名が一致する業務契約だけを候補にし、NDA・投資契約・別の関係先の契約を表紙へ流さない。`contract_terms` の番号・期間・金額は選んだ契約IDにひもづく行だけを使う。
+
+M-1は会議要約などのL2入力だけで成果を確定しない。当月の`project_documents`、`workspace_documents`、PJのDriveフォルダ、およびPJ固有の成果物・配布記録を独立に棚卸しし、主要成果物の制作・公開・検証と社内版/提出版の記載を突き合わせてから保存する。L2のcoverageが十分でもこの照合を省略しない。提出版には委託元に共有可能な事実のみ記載し、資料作成と提出・配布を混同しない。
