@@ -1,22 +1,13 @@
 /**
- * 支払通知書の明細に書く「稼働月の範囲」。
+ * 本契約の繰越範囲と、支払通知書の摘要を組み立てる。
  *
- * 繰越があると、その支払には当月の発生分だけでなく過去月の未払い分も乗る。当月だけを
- * 「6月稼働分」と書くと、実際には4月から積み上がった分を払っているのに1か月分に見える
- * (まさ指摘 2026-08-28: かるの 2026年8月支払は 4〜6月の発生分)。
+ * 摘要1行目は「SOL 業務委託料（10月お支払分）」、2行目は精算対象月を
+ * 「対象：2026年7月の月次精算」と書く。同じplan cycle内に本契約の繰越が
+ * あれば「（繰越分を含む）」を添える。摘要はこの2行まで。
  *
- * 範囲に入れるのは**本契約 (regular) の繰越だけ**。別財布 (cap_extra) は支払条件が本契約と
- * 別 (ZMP の OkuDoor 開発は完了月に一括: manual/7-1 の別財布節) なので、その積立を本契約の
- * 未払いと混ぜない。混ぜると、本契約を毎月満額払っていても別財布の積立だけで
- * 「5〜7月稼働分・残りは翌月以降お支払いします」と書いてしまう (まさ指摘 2026-08-28: ZMP)。
- *
- * 明細の摘要は「SOL 業務委託料（10月お支払分）」と支払月で書き、2行目に「対象：2026年4〜5月の稼働」と
- * **今回の支払が当たる稼働月**を添える。繰越の範囲全体を書くと「4〜6月稼働分 87,185円」になり、
- * 4月の発生分にも届かない額が3か月分の支払に見える (まさ指摘 2026-10-02: ちこの 2026年9月支払)。
- * 当て方は /admin/payouts の内訳モーダルと同じ「古い稼働月の発生分から順に払う」仮定。
- *
- * 摘要は2行まで。かつて3行目に「未払い残高 ◯◯円（税抜、翌月以降にお支払いします）」を
- * 出していたが 2026-10-28 に廃止した (まさ確定)。復活させない。
+ * 本契約 (regular) の繰越だけを追跡する。別財布 (cap_extra) は支払条件が別であり、
+ * regularPoolAmounts で分離する。paidMonths は古い発生月から支払うと仮定した
+ * 内訳モーダルの表示情報。実際の発生月別の充当記録ではなく、PDFの対象月には使わない。
  *
  * 検査: npm run test:payout-source-span
  */
@@ -201,16 +192,11 @@ export function payoutLineDescription(projectName: string, paymentYm: string): s
   return `${projectName} 業務委託料（${month}）`;
 }
 
-/**
- * 摘要の2行目に添える対象の稼働月。支払通知書を仕入明細書として使うには取引の期間が要るため、
- * 支払月だけにせず、今回の支払が当たる稼働月 (古い月から順に払う仮定) を年つきで書く。
- * 「の一部」「の残り」は付けない。
- */
+/** 摘要2行目。精算対象月に、同じplan cycle内の本契約の繰越の有無を添える。 */
 export function payoutTargetText(span: PayoutSourceSpan): string {
-  const months = span.paidMonths ?? [];
-  const first = months.length > 0 ? months[0].ym : span.endYm;
-  const last = months.length > 0 ? months[months.length - 1].ym : span.endYm;
-  return `対象：${ymPeriodLabel(first, last)}の稼働`;
+  const hasCarryOver = YM_RE.test(span.startYm) && YM_RE.test(span.endYm) && span.startYm < span.endYm;
+  const month = ymPeriodLabel(span.endYm, span.endYm);
+  return hasCarryOver ? `対象：${month}の月次精算（繰越分を含む）` : `対象：${month}の月次精算`;
 }
 
 /** 年つきの月の範囲。「2026年4月」「2026年4〜5月」「2025年12月〜2026年1月」 */

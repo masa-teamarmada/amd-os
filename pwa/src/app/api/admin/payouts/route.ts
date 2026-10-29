@@ -45,8 +45,8 @@ const YM_RE = /^[0-9]{6}$/;
 // 一括PDF生成時の並列度。GAS payoutCreatePwaNoticePdf のスループットに配慮して 3 で固定。
 // 上げすぎると Apps Script 側の同時実行制限 (project あたり 30) や freee 連携待ちで詰まる。
 const BULK_NOTICE_CONCURRENCY = 3;
-// 2026-10-28: 摘要の3行目 (未払い残高) を廃止 (まさ確定)。2行目の稼働月までにする。未送付PDFを作り直させる
-const PAYOUT_NOTICE_PDF_TEMPLATE_UPDATED_AT = "2026-10-28T11:30:00.000Z";
+// 2026-10-29: 摘要2行目を、割り戻しの仮定による稼働月表示から確定済みの月次精算対象表示へ変更。未送付PDFを作り直させる
+const PAYOUT_NOTICE_PDF_TEMPLATE_UPDATED_AT = "2026-10-29T10:50:00.000Z";
 
 type BillingCycleRow = {
   project_id: string;
@@ -978,15 +978,12 @@ export async function generateNoticePdfForMember(
   }
 
   const baseEntries = expectedNoticeEntriesForMember(memberId, data);
-  // 明細の稼働月は、繰越の鎖を遡った範囲で書く。当月だけを書くと、4月から積み上がった分を
-  // 払っているのに「6月稼働分」に見える (まさ指摘 2026-08-28)。
+  // 本契約の繰越情報を読み、精算月と繰越の有無をPDFの摘要へ渡す。
   const sourceSpans = await loadPayoutSourceSpans(
     db,
     baseEntries.map((entry) => ({ projectId: entry.project_id, sourceYm: entry.ym, memberId })),
   );
-  // 摘要は支払月で書き、2行目に今回の支払が当たる稼働月を添える (まさ確定 2026-10-03)。
-  // 3行目の未払い残高は 2026-10-28 に廃止 (まさ確定)。2行目の稼働月は残すので、登録番号を
-  // 両者とも載せた支払通知書を仕入明細書として使う場合に要る取引期間は消えない。
+  // 摘要1行目は支払月、2行目は sourceYm の月次精算。繰越があればその旨を添える。
   const entries = baseEntries.map((entry) => {
     const span = sourceSpans.get(`${entry.project_id}:${entry.ym}:${memberId}`);
     const description = payoutLineDescription(entry.project_name, ym);
@@ -994,7 +991,7 @@ export async function generateNoticePdfForMember(
       return {
         ...entry,
         description,
-        target_text: `対象：${ymPeriodLabel(entry.ym, entry.ym)}の稼働`,
+        target_text: `対象：${ymPeriodLabel(entry.ym, entry.ym)}の月次精算`,
         source_span: null as PayoutSourceSpan | null,
       };
     }

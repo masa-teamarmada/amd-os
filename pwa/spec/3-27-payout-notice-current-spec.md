@@ -53,6 +53,10 @@
 
 詳細な既存発行契約・PDF様式は [manual 6-5](../manual/6-5-admin-payouts-reward-notice-spec.md) を参照。
 
+### PDF摘要の対象月
+
+PDF明細の摘要1行目は支払月、2行目は今回の支払が対象とする月次精算 (`sourceYm`) を年つきで書く。例は「対象：2026年7月の月次精算」。`PayoutSourceSpan.startYm < endYm` のとき「（繰越分を含む）」を添える。`paidMonths` は古い発生月から支払うと仮定した内訳表示用の情報であり、PDFの対象月には使わない。詳細は manual 6-5 の明細の摘要節、検査は `npm run test:payout-source-span`。
+
 ## 検証
 
 `test:payout-season-plan` は入金月と支払月、シーズン全期間、通知対象外の分類、未払残高の非合算、未計算伝播、0円、立替の一度だけの控除、未設定PJ、draft優先順位と年間配分検証を行う。`test:critical-ui` は工程順・表・既存の発行操作を、`test:reference-data-cache` は可変系のno-store取得を検査する。
