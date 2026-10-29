@@ -809,3 +809,9 @@ v3.163.8時点の実ボタンZIPはPDF/XLSXの2ファイル、破損なし・数
 
 同日16:24 JSTまでに、Fable 5 の既存routineから202610の社内版9PJを検査・保存し、各行の `status=final`、文字数、MD5、生成時刻を本番DBで確認した。PC Chromeでは社内版があっても月次タブ初期値「提出版」が未生成を表示したため、保存済み版を初期表示し手動選択を優先する修正を追加。提出版の生成・照合は継続中で、社内版の保存完了とは分けて扱う。
 本番v3.163.68で初期表示をPC Chromeで確認。点検でAMD社内版の表紙・導入文が同PJの別契約「業務委託契約書 小野間瑞季 2」を誤って月報根拠として表示することを発見。提出先未設定PJの社内版に限り、PJ名・社内用の表示と契約根拠を断定しない導入文へ修正（v3.163.69）。
+
+同日、本番DBの202610社内版は対象9PJすべて `status=final`、提出版はp21 SOLとp25 KUTEの2PJを保存し、本文MD5・文字数・禁止語検査を再読込した。p20 CXは10月の委託契約を確認できず、提出版候補は検査のみで未保存。p19 ZMPは同PJの前月提出書式がなく初回seed承認待ちのため未生成。10月末日までの未到来実績は追補対象と記載し、実施済みと扱わない。
+
+SOL/KUTE提出版PDFは正本の `generate_monthly_report.py` とPJ別CSSから生成した3頁/4頁を全ページ確認した。Drive既存PJ階層の `261029_月次報告書` に配置したSOLファイルID `1qOtDUSItTQgoe08XjR7slfb2MvjsV1ae`（128234B、MD5 `7eb4760dfc857a24523a37c0d6de522e`）、KUTEファイルID `1ntosbd08suQxYFRfuCH8tyr5v4bS-lAR`（129626B、MD5 `79c501b0cc45fcfead309bb6371bf5b7`）をDriveから再取得し、生成済みファイルとバイト一致した。既存RPC `monthly_report_pdf_record` を本文MD5条件付きで実行し、両 `pdf_drive_url` を本番DBで再読込。今回はOSのPDF APIを経由していないため、OS内private Storage/workspace_documentsへのPDF登録は未実施。共有権限・通知・対外提出は変更していない。
+
+本番 `v3.163.69` / `58f00d95` の公開SHA一致、PC ChromeのSOL/KUTEコックピットで「2026年10月 提出版」「保存済み」を確認。社内版9件のDB保存とUI表示修正は完了。原本checkoutには別作業由来の保留commitがあるため本作業のpushはorigin/main起点の専用cloneから行い、その保留commitを送っていない。
