@@ -11,6 +11,7 @@ import { expandExtraRevenueCash, type ExtraRevenueSourceRow } from "@/lib/financ
 import { basePayoutCapYen, contractBackedClientAmount } from "@/lib/contract-money";
 import { memberPayoutYmForCycle } from "@/lib/payment-groups";
 import type { AppliedPayoutAmountOverride } from "@/lib/payout-amount-overrides";
+import { payoutNoticePdfViewUrl } from "@/lib/finance/payout-notice-pdf-url";
 
 type Member = {
   member_id: string;
@@ -2120,7 +2121,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
 
   function issueNoticePdf(row: MemberPayoutRow, options: { forceReissue?: boolean } = {}) {
     if (row.notice?.pdf_url && !options.forceReissue) {
-      openPdfUrl(row.notice.pdf_url);
+      openPdfUrl(payoutNoticePdfViewUrl(row.notice.ym, row.memberId));
       return;
     }
     requestAgreementConfirm({
@@ -2133,6 +2134,9 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
 
   async function runIssueNoticePdf(row: MemberPayoutRow, overrideReason: string) {
     const pdfWindow = openPdfPlaceholderWindow();
+    // 発行中にまさが支払月を切り替えても、開いた時点で要求した月・メンバーのPDFを出す
+    const requestedYm = ym;
+    const requestedMemberId = row.memberId;
     setNoticeSavingMemberId(row.memberId);
     setActionError(null);
     setHint("支払通知書PDFを発行中...");
@@ -2142,8 +2146,8 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "issue_notice_pdf",
-          ym,
-          memberId: row.memberId,
+          ym: requestedYm,
+          memberId: requestedMemberId,
           agreementOverrideReason: overrideReason || undefined,
         }),
       });
@@ -2159,7 +2163,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
       if (!payload.issuedNotice?.pdfUrl) {
         throw new Error("支払通知書PDFのURLが返ってこなかった");
       }
-      showGeneratedPdf(pdfWindow, payload.issuedNotice.pdfUrl);
+      showGeneratedPdf(pdfWindow, payoutNoticePdfViewUrl(requestedYm, requestedMemberId));
       setHint(`${row.memberName} の支払通知書PDFを発行した`);
     } catch (err) {
       closePdfPlaceholder(pdfWindow);
@@ -2773,6 +2777,8 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                     <td className="px-3 py-2">
                       <NoticeBadge
                         notice={row.notice}
+                        ym={row.notice?.ym ?? ym}
+                        memberId={row.memberId}
                         expectedTotal={row.totalPay}
                         expectedReimbursement={row.reimbursementYen}
                         profileStale={row.noticeProfileStale}
@@ -4277,7 +4283,7 @@ function PayoutNoticeActions({
         </button>
         <button
           type="button"
-          onClick={() => onOpenPdf(row.notice?.pdf_url)}
+          onClick={() => onOpenPdf(hasPdf && row.notice ? payoutNoticePdfViewUrl(row.notice.ym, row.memberId) : null)}
           disabled={!canConfirmPdf}
           title={pdfTitle}
           className="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted/40 disabled:opacity-50"
@@ -4537,12 +4543,16 @@ function PaidBadge({ notice }: { notice: PayoutNotice }) {
 
 function NoticeBadge({
   notice,
+  ym,
+  memberId,
   expectedTotal,
   expectedReimbursement = 0,
   profileStale = false,
   excluded,
 }: {
   notice: PayoutNotice | null;
+  ym: string;
+  memberId: string;
   expectedTotal: number;
   expectedReimbursement?: number;
   profileStale?: boolean;
@@ -4567,7 +4577,7 @@ function NoticeBadge({
         <div className="text-[10px] text-muted-foreground">{fmtYen(savedTotal)}</div>
         <PaidBadge notice={notice} />
         {notice.pdf_url && (
-          <a href={notice.pdf_url} target="_blank" rel="noreferrer" className="text-[10px] text-blue-700 underline underline-offset-2">
+          <a href={payoutNoticePdfViewUrl(ym, memberId)} target="_blank" rel="noreferrer" className="text-[10px] text-blue-700 underline underline-offset-2">
             PDF
           </a>
         )}
@@ -4588,7 +4598,7 @@ function NoticeBadge({
       {notice.notice_no && <div className="font-mono text-[10px] text-muted-foreground">{notice.notice_no}</div>}
       <div className="text-[10px] text-muted-foreground">{fmtYen(savedTotal)}</div>
       {notice.pdf_url && (
-        <a href={notice.pdf_url} target="_blank" rel="noreferrer" className="text-[10px] text-blue-700 underline underline-offset-2">
+        <a href={payoutNoticePdfViewUrl(ym, memberId)} target="_blank" rel="noreferrer" className="text-[10px] text-blue-700 underline underline-offset-2">
           PDF
         </a>
       )}
