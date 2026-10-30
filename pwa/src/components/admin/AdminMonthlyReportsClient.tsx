@@ -67,10 +67,16 @@ export function AdminMonthlyReportsClient({ ym, currentMonth, monthOptions, rows
     if (missingOnly && row.internalState !== "missing" && row.submissionState !== "missing" && row.internalState !== "draft") return false;
     return !normalizedQuery || `${row.projectId} ${row.projectName} ${row.clientName ?? ""}`.toLocaleLowerCase("ja-JP").includes(normalizedQuery);
   });
-  const selectedRow = rows.find((row) => row.projectId === selection?.projectId) ?? null;
-  const selectedState = selectedRow && selection ? stateFor(selectedRow, selection.kind) : null;
+  const fallbackRow = visibleRows[0] ?? null;
+  const visibleSelection = selection && visibleRows.some((row) => row.projectId === selection.projectId)
+    ? selection
+    : fallbackRow
+      ? { projectId: fallbackRow.projectId, kind: fallbackRow.submissionState === "missing" ? "submission" as const : "internal" as const }
+      : null;
+  const selectedRow = visibleRows.find((row) => row.projectId === visibleSelection?.projectId) ?? null;
+  const selectedState = selectedRow && visibleSelection ? stateFor(selectedRow, visibleSelection.kind) : null;
   const selectedReady = selectedState === "ready" || selectedState === "draft";
-  const selectedHref = selection ? reportHref(selection.projectId, ym, selection.kind) : null;
+  const selectedHref = visibleSelection ? reportHref(visibleSelection.projectId, ym, visibleSelection.kind) : null;
   const summary = {
     internalReady: rows.filter((row) => row.internalState === "ready").length,
     internalTarget: rows.filter((row) => row.internalState === "ready" || row.internalState === "draft" || row.internalState === "missing").length,
@@ -116,7 +122,7 @@ export function AdminMonthlyReportsClient({ ym, currentMonth, monthOptions, rows
         </div>
         <p className="text-xs text-muted-foreground">{visibleRows.length} PJを表示。版を押すと右側に本文が開く。</p>
         {visibleRows.length === 0 ? <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">該当するPJはありません。</p> : <div className="space-y-2">
-          {visibleRows.map((row) => <article key={row.projectId} className={cn("rounded-xl border bg-background p-3 transition-colors", selection?.projectId === row.projectId ? "border-primary/50 shadow-sm" : "border-border")}>
+          {visibleRows.map((row) => <article key={row.projectId} className={cn("rounded-xl border bg-background p-3 transition-colors", visibleSelection?.projectId === row.projectId ? "border-primary/50 shadow-sm" : "border-border")}>
             <div className="mb-3 flex min-w-0 items-baseline gap-2">
               <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{row.projectId}</span>
               <h2 className="min-w-0 truncate text-sm font-semibold text-foreground" title={row.projectName}>{row.projectName}</h2>
@@ -125,7 +131,7 @@ export function AdminMonthlyReportsClient({ ym, currentMonth, monthOptions, rows
             <div className="grid grid-cols-2 gap-2">
               {(["internal", "submission"] as const).map((kind) => {
                 const state = stateFor(row, kind);
-                const active = selection?.projectId === row.projectId && selection.kind === kind;
+                const active = visibleSelection?.projectId === row.projectId && visibleSelection.kind === kind;
                 const updated = dateLabel(kind === "internal" ? row.internalUpdatedAt : row.submissionUpdatedAt);
                 return <button key={kind} type="button" onClick={() => setSelection({ projectId: row.projectId, kind })} aria-pressed={active} className={cn("min-w-0 rounded-lg border px-3 py-2 text-left transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", active ? "border-primary bg-primary/5" : "border-border bg-muted/20")}>
                   <span className="block text-xs font-medium text-muted-foreground">{kind === "internal" ? "社内版" : "提出版"}</span>
@@ -143,12 +149,12 @@ export function AdminMonthlyReportsClient({ ym, currentMonth, monthOptions, rows
           <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
             <div className="min-w-0">
               <p className="text-xs text-muted-foreground">{monthLabel(ym)}の報告書</p>
-              <h2 className="truncate text-base font-semibold text-foreground">{selectedRow ? `${selectedRow.projectName} · ${selection?.kind === "internal" ? "社内版" : "提出版"}` : "報告書を選択"}</h2>
+              <h2 className="truncate text-base font-semibold text-foreground">{selectedRow ? `${selectedRow.projectName} · ${visibleSelection?.kind === "internal" ? "社内版" : "提出版"}` : "報告書を選択"}</h2>
             </div>
             {selectedReady && selectedHref && <a href={selectedHref} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center gap-1 rounded-md border border-input px-3 text-xs font-medium text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">別画面で開く<ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" /></a>}
           </div>
           {selectedReady && selectedHref
-            ? <iframe key={selectedHref} src={`${selectedHref}&embedded=1`} title={`${selectedRow?.projectName ?? ""} ${selection?.kind === "internal" ? "社内版" : "提出版"} 月次報告書`} className="h-[76vh] min-h-[580px] w-full border-0 bg-white" />
+            ? <iframe key={selectedHref} src={`${selectedHref}&embedded=1`} title={`${selectedRow?.projectName ?? ""} ${visibleSelection?.kind === "internal" ? "社内版" : "提出版"} 月次報告書`} className="h-[76vh] min-h-[580px] w-full border-0 bg-white" />
             : <div className="flex min-h-[580px] flex-col items-center justify-center gap-3 px-6 text-center"><FileText className="h-8 w-8 text-muted-foreground/60" aria-hidden="true" /><p className="text-sm font-medium text-foreground">{selectedState === "missing" ? "この版は未作成です。" : selectedState === "not_applicable" ? "この月は対象外です。" : selectedState === "not_recorded" ? "この月の記録はありません。" : "左の一覧から報告書を選択してください。"}</p></div>}
         </div>
       </section>
