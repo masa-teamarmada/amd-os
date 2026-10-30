@@ -4885,4 +4885,5 @@ expectIncludes("src/lib/payout-season-plan.ts", ["choosePayoutSeason", "clientRe
 // Admin月次一覧は全PJの二種類の状態と同画面プレビューを維持する。
 expectIncludes("src/lib/surface-catalog.ts", ["admin-monthly-reports", "月次報告書", "/admin/monthly-reports"]);
 expectIncludes("src/app/(app)/admin/monthly-reports/page.tsx", ["monthly_reports", "monthly_reports_external", "monthly_report_scope", "currentMonth", "AdminMonthlyReportsClient"]);
-expectIncludes("src/components/admin/AdminMonthlyReportsClient.tsx", ["admin-monthly-report-project", "admin-monthly-report-kind", "admin-monthly-report-ym", "社内版", "提出版", "未作成", "対象外", "要確認のみ", "iframe", "別画面で開く"]);
+expectIncludes("src/components/admin/AdminMonthlyReportsClient.tsx", ["admin-monthly-report-ym", "aria-pressed={active}", "社内版", "提出版", "未作成", "対象外", "要確認のみ", "iframe", "別画面で開く"]);
+expectNotIncludes("src/components/admin/AdminMonthlyReportsClient.tsx", ["admin-monthly-report-project", "admin-monthly-report-kind"]);
