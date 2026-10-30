@@ -13,7 +13,7 @@ import { MonthlyReportPrintClient } from "./print-client";
 
 interface Params {
   params: Promise<{ projectId: string; ym: string }>;
-  searchParams: Promise<{ template?: string; embedded?: string; version?: string }>;
+  searchParams: Promise<{ template?: string; embedded?: string; adminPreview?: string; version?: string }>;
 }
 
 async function fetchPrintData(projectId: string, ym: string, template: string, version?: string) {
@@ -32,7 +32,7 @@ async function fetchPrintData(projectId: string, ym: string, template: string, v
 
 export default async function MonthlyReportPrintPage({ params, searchParams }: Params) {
   const { projectId, ym } = await params;
-  const { template: rawTemplate, embedded, version } = await searchParams;
+  const { template: rawTemplate, embedded, adminPreview, version } = await searchParams;
   const template = rawTemplate || "internal";
   const auth = await requireAdmin();
   if (!auth.ok) return <div className="p-8 text-sm">この月次報告書を表示する権限がありません。</div>;
@@ -42,5 +42,5 @@ export default async function MonthlyReportPrintPage({ params, searchParams }: P
   const data = await fetchPrintData(projectId, ym, template, version);
   if (!data?.ok) notFound();
 
-  return <MonthlyReportPrintClient key={`${projectId}:${ym}:${template}:${version || "final"}`} data={data} embedded={embedded === "1"} />;
+  return <MonthlyReportPrintClient key={`${projectId}:${ym}:${template}:${version || "final"}`} data={data} embedded={embedded === "1"} overviewPreview={embedded === "1" && adminPreview === "1"} />;
 }

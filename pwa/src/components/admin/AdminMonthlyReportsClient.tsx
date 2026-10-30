@@ -141,7 +141,7 @@ export function AdminMonthlyReportsClient({ ym, currentMonth, monthOptions, rows
             {selectedReady && selectedHref && <a href={selectedHref} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center gap-1 rounded-md border border-input px-3 text-xs font-medium text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">別画面で開く<ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" /></a>}
           </div>
           {selectedReady && selectedHref
-            ? <iframe key={selectedHref} src={`${selectedHref}&embedded=1`} title={`${selectedRow?.projectName ?? ""} ${visibleSelection?.kind === "internal" ? "社内版" : "提出版"} 月次報告書`} className="h-[76vh] min-h-[580px] w-full border-0 bg-white" />
+            ? <iframe key={selectedHref} src={`${selectedHref}&embedded=1&adminPreview=1`} title={`${selectedRow?.projectName ?? ""} ${visibleSelection?.kind === "internal" ? "社内版" : "提出版"} 月次報告書`} className="h-[76vh] min-h-[580px] w-full border-0 bg-white" />
             : <div className="flex min-h-[580px] flex-col items-center justify-center gap-3 px-6 text-center"><FileText className="h-8 w-8 text-muted-foreground/60" aria-hidden="true" /><p className="text-sm font-medium text-foreground">{selectedState === "missing" ? "この版は未作成です。" : selectedState === "not_applicable" ? "この月は対象外です。" : selectedState === "not_recorded" ? "この月の記録はありません。" : "左の一覧から報告書を選択してください。"}</p></div>}
         </div>
       </section>

@@ -1264,7 +1264,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 // ─── メインビュー ──────────────────────────────────────────────────────
-export function MonthlyReportPrintClient({ data, embedded = false }: { data: PrintData; embedded?: boolean }) {
+export function MonthlyReportPrintClient({ data, embedded = false, overviewPreview = false }: { data: PrintData; embedded?: boolean; overviewPreview?: boolean }) {
   const router = useRouter();
   const headerLabel = useMemo(() => {
     const client = data.project.clientName || "—";
@@ -1300,12 +1300,13 @@ export function MonthlyReportPrintClient({ data, embedded = false }: { data: Pri
   }), [data, fullSource]);
   const hasUnsavedChanges = reportBody !== savedBody;
   useEffect(() => {
+    if (overviewPreview) return;
     let active = true;
     loadMonthlyReports(data.project.projectId).then((reports) => {
       if (active) setMonths([...new Set([data.ym, new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit" }).format(new Date()).replace("-", ""), ...reports.map((report) => report.ym)])].sort().reverse());
     }).catch(() => {});
     return () => { active = false; };
-  }, [data.project.projectId, data.ym]);
+  }, [data.project.projectId, data.ym, overviewPreview]);
   function switchReport(ym: string, template: "internal" | "submission") {
     if (hasUnsavedChanges && !window.confirm("保存していない変更を破棄して切り替える？")) return;
     if (embedded) window.parent.postMessage({ type: "monthly-report:select", ym, template }, window.location.origin);
@@ -1825,7 +1826,7 @@ export function MonthlyReportPrintClient({ data, embedded = false }: { data: Pri
 
       <style dangerouslySetInnerHTML={{ __html: submissionLayoutCss }} />
       <div className={`print-root ${data.isSubmission ? "submission-flow" : ""}`}>
-        <div className="toolbar no-print">
+        {!overviewPreview && <div className="toolbar no-print">
           <h2 className="toolbar-title">月次報告書</h2>
           <MonthlyReportSelectors months={months} ym={data.ym} template={data.isSubmission ? "submission" : "internal"} disabled={saving || finalizing} onChange={switchReport} />
           <span className="toolbar-status">{hasUnsavedChanges ? "未保存" : "保存済み"}</span>
@@ -1858,11 +1859,11 @@ export function MonthlyReportPrintClient({ data, embedded = false }: { data: Pri
           </div>
           {notice && <span className="toolbar-notice" role="status">{notice}</span>}
           {error && <span className="toolbar-error" role="alert">{error}</span>}
-        </div>
+        </div>}
 
 
 
-        {editMode && (
+        {!overviewPreview && editMode && (
           <div className="report-review-note no-print">
             {data.isSubmission
               ? "直したい見出し・段落・表を押すと、その場所だけ編集できる。全体の本文を探し直す必要はないよ。"
@@ -1883,12 +1884,12 @@ export function MonthlyReportPrintClient({ data, embedded = false }: { data: Pri
             <AppendixSection data={previewData} />
           </>
         )}
-        <MonthlyReportHistoryPanel
+        {!overviewPreview && <MonthlyReportHistoryPanel
           projectId={data.project.projectId}
           ym={data.ym}
           currentKind={data.isSubmission ? "external" : "internal"}
           refreshToken={historyRefreshToken}
-        />
+        />}
       </div>
     </>
   );
