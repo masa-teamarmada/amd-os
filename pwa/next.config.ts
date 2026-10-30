@@ -216,6 +216,7 @@ const nextConfig: NextConfig = {
     // 動的解決されるため自動tracingに乗らず、明示しないと /var/task に無くPDF生成が
     // 全滅する (2026-08-03 本番ログで確認)。
     "/api/monthly-report/{pdf,manual-update,external-manual-update}": ["./node_modules/@fontsource-variable/noto-sans-jp/**", "./node_modules/@sparticuz/chromium/bin/**"],
+    "/api/admin/monthly-reports/download": ["./node_modules/@fontsource-variable/noto-sans-jp/**", "./node_modules/@sparticuz/chromium/bin/**"],
     "/api/report/fix": ["./node_modules/@fontsource-variable/noto-sans-jp/**", "./node_modules/@sparticuz/chromium/bin/**"],
     "/api/workspace-documents/*/pdf": [
       "./node_modules/@fontsource-variable/noto-sans-jp/**",

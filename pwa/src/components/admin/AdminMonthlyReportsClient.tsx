@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, FileText, RefreshCw } from "lucide-react";
+import { ArrowUpRight, Download, FileText, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type ReportState = "ready" | "draft" | "missing" | "not_applicable" | "not_recorded";
@@ -61,6 +61,8 @@ export function AdminMonthlyReportsClient({ ym, currentMonth, monthOptions, rows
   const firstReady = rows.flatMap((row) => (["submission", "internal"] as const).filter((kind) => stateFor(row, kind) === "ready").map((kind) => ({ projectId: row.projectId, kind })))[0];
   const [selection, setSelection] = useState<Selection | null>(firstReady ?? null);
   const [missingOnly, setMissingOnly] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const visibleRows = missingOnly
     ? rows.filter((row) => row.internalState === "missing" || row.internalState === "draft" || row.submissionState === "missing")
     : rows;
@@ -84,6 +86,35 @@ export function AdminMonthlyReportsClient({ ym, currentMonth, monthOptions, rows
     submissionTarget: rows.filter((row) => row.submissionState === "ready" || row.submissionState === "missing").length,
     missing: rows.filter((row) => row.internalState === "missing" || row.internalState === "draft" || row.submissionState === "missing").length,
   };
+
+  async function downloadSelected() {
+    if (!visibleSelection || !selectedReady || downloading) return;
+    setDownloading(true);
+    setDownloadError(null);
+    try {
+      const params = new URLSearchParams({ projectId: visibleSelection.projectId, ym, kind: visibleSelection.kind });
+      const response = await fetch(`/api/admin/monthly-reports/download?${params}`, { cache: "no-store" });
+      if (!response.ok) {
+        const result = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(result?.error || "PDFをダウンロードできませんでした。");
+      }
+      const blob = await response.blob();
+      if (blob.type !== "application/pdf") throw new Error("PDFをダウンロードできませんでした。");
+      const fileName = `月次業務報告書_${monthLabel(ym)}_チームアルマダ.pdf`;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (error) {
+      setDownloadError(error instanceof Error ? error.message : "PDFをダウンロードできませんでした。");
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   return <main className="mx-auto max-w-[1600px] space-y-4" aria-busy={isPending}>
     <header className="flex flex-wrap items-end justify-between gap-3">
@@ -124,7 +155,7 @@ export function AdminMonthlyReportsClient({ ym, currentMonth, monthOptions, rows
             const state = stateFor(row, kind);
             const active = visibleSelection?.projectId === row.projectId && visibleSelection.kind === kind;
             const updated = dateLabel(kind === "internal" ? row.internalUpdatedAt : row.submissionUpdatedAt);
-            return <button key={kind} type="button" onClick={() => setSelection({ projectId: row.projectId, kind })} aria-pressed={active} aria-label={`${row.projectName} ${kind === "internal" ? "社内版" : "提出版"} ${STATE_LABEL[state]}${updated ? ` ${updated}更新` : ""}`} title={updated ? `${STATE_LABEL[state]}・${updated}更新` : STATE_LABEL[state]} className={cn("h-7 rounded-md border px-1 text-center text-xs font-medium transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", STATE_TONE[state], active && "ring-1 ring-primary")}>
+            return <button key={kind} type="button" onClick={() => { setSelection({ projectId: row.projectId, kind }); setDownloadError(null); }} aria-pressed={active} aria-label={`${row.projectName} ${kind === "internal" ? "社内版" : "提出版"} ${STATE_LABEL[state]}${updated ? ` ${updated}更新` : ""}`} title={updated ? `${STATE_LABEL[state]}・${updated}更新` : STATE_LABEL[state]} className={cn("h-7 rounded-md border px-1 text-center text-xs font-medium transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", STATE_TONE[state], active && "ring-1 ring-primary")}>
               {STATE_LABEL[state]}
             </button>;
           })}
@@ -138,8 +169,12 @@ export function AdminMonthlyReportsClient({ ym, currentMonth, monthOptions, rows
               <p className="text-xs text-muted-foreground">{monthLabel(ym)}の報告書{selectedUpdated && selectedReady ? ` · ${selectedUpdated}更新` : ""}</p>
               <h2 className="truncate text-base font-semibold text-foreground">{selectedRow ? `${selectedRow.projectName} · ${visibleSelection?.kind === "internal" ? "社内版" : "提出版"}` : "報告書を選択"}</h2>
             </div>
-            {selectedReady && selectedHref && <a href={selectedHref} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center gap-1 rounded-md border border-input px-3 text-xs font-medium text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">別画面で開く<ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" /></a>}
+            {selectedReady && selectedHref && <div className="flex items-center gap-2">
+              <button type="button" onClick={() => void downloadSelected()} disabled={downloading} className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-wait disabled:opacity-60"><Download className="h-3.5 w-3.5" aria-hidden="true" />{downloading ? "PDFを作成中…" : "PDFをダウンロード"}</button>
+              <a href={selectedHref} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center gap-1 rounded-md border border-input px-3 text-xs font-medium text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">別画面で開く<ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" /></a>
+            </div>}
           </div>
+          {downloadError && <p role="alert" className="border-b border-rose-200 bg-rose-50 px-4 py-2 text-xs text-rose-800">{downloadError}</p>}
           {selectedReady && selectedHref
             ? <iframe key={selectedHref} src={`${selectedHref}&embedded=1&adminPreview=1`} title={`${selectedRow?.projectName ?? ""} ${visibleSelection?.kind === "internal" ? "社内版" : "提出版"} 月次報告書`} className="h-[76vh] min-h-[580px] w-full border-0 bg-white" />
             : <div className="flex min-h-[580px] flex-col items-center justify-center gap-3 px-6 text-center"><FileText className="h-8 w-8 text-muted-foreground/60" aria-hidden="true" /><p className="text-sm font-medium text-foreground">{selectedState === "missing" ? "この版は未作成です。" : selectedState === "not_applicable" ? "この月は対象外です。" : selectedState === "not_recorded" ? "この月の記録はありません。" : "左の一覧から報告書を選択してください。"}</p></div>}

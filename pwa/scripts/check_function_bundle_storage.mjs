@@ -21,7 +21,7 @@ function check(route, limitMb, required = [], forbidden = []) {
 check("api/macos/document/route", 40, ["manual/1-1-intro.md", "spec/1-1-overview.md", "../bzm/bzm-3-0-textbook-coefficients.md"], ["/pwa/output/", "/pwa/design/", "/pwa/design_log/", "/pwa/scripts/", "/bzm/pilot/"]);
 check("(app)/model/page", 50, ["../model/CURRENT.json", "../model/LOCK.json"], ["/bzm/pilot/"]);
 for (const route of ["history", "edit-by-tsukuyomi"]) check(`api/monthly-report/${route}/route`, 8, [], ["/@sparticuz/chromium/bin/", "/@fontsource-variable/noto-sans-jp/"]);
-for (const route of ["api/monthly-report/pdf/route", "api/monthly-report/manual-update/route", "api/monthly-report/external-manual-update/route", "api/report/fix/route", "api/workspace-documents/[documentId]/pdf/route"]) {
+for (const route of ["api/monthly-report/pdf/route", "api/monthly-report/manual-update/route", "api/monthly-report/external-manual-update/route", "api/admin/monthly-reports/download/route", "api/report/fix/route", "api/workspace-documents/[documentId]/pdf/route"]) {
   check(route, 120, ["node_modules/@sparticuz/chromium/bin/chromium.br", "node_modules/@fontsource-variable/noto-sans-jp/wght.css"]);
   assert(filesFor(route).some(file => /noto-sans-jp\/files\/.*\.woff2$/.test(file)), `${route}: missing Japanese font files`);
 }
