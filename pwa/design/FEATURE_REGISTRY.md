@@ -12,7 +12,7 @@ DDレポート登録済みパッケージは既存URLと閲覧権限で新版を
 
 ## Admin 月次報告書一覧（2026-10-30）
 
-- Admin左メニュー「PJ・実行」→`/admin/monthly-reports` から全PJの社内版・提出版の状態を月別に確認し、選んだ版の本文を同じ画面で開ける。検索と要確認のみの絞込みを持つ。
+- Admin左メニュー「PJ・実行」→`/admin/monthly-reports` から全PJの社内版・提出版の状態を月別に確認し、選んだ版の本文を同じ画面で開ける。左上でPJ・版・対象月を選び、1行1PJの状態一覧と「要確認のみ」の絞込みを持つ。
 - 現行対象月は `projects.monthly_report_scope` とPJ状態で対象を数え、過去月は保存済みの実記録を表示する。CXの2026年10月以降の提出版は対象外、9月の提出版は閲覧可能。
 - 本文正本は `monthly_reports` / `monthly_reports_external`。管理者認証はadmin layoutと印刷routeで維持し、一覧は読取専用。防波堤は `test:critical-ui`。仕様はspec3-2、使い方はmanual2-6。
 

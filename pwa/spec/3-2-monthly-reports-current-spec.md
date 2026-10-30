@@ -278,7 +278,7 @@ scope は `/admin/projects` の「月報 scope」列でまさが編集可能。
 
 ### 2026-10-30 Admin月次報告書一覧
 
-管理者専用 `/admin/monthly-reports` は対象月を選び、対象PJの社内版・提出版の保存状態を一画面で読む。左のPJ一覧で版を選ぶと右側に既存の印刷帳票を埋め込み、別画面でも開ける。対象月の件数は現行 `projects.monthly_report_scope` と active/sales 状態で判定し、過去月は保存済みの実記録を表示する。未作成・下書き・対象外・記録なしを分ける。本文の正本は既存の `monthly_reports` と `monthly_reports_external` のままで、一覧から保存・生成はしない。管理者権限は `/admin` layout と既存印刷routeの両方で検証する。
+管理者専用 `/admin/monthly-reports` は左の同じ操作面でPJ・版・対象月を選び、対象PJの社内版・提出版の保存状態を一画面で読む。PJ一覧は1行1PJ、社内版・提出版の2列とし、通常の対象9PJを一覧内スクロールなしで表示する。状態セルの選択でも右側の既存印刷帳票を切り替え、別画面でも開ける。更新日時は選択中の本文見出しと状態セルの補足に表示し、行の高さを増やさない。「要確認のみ」は未作成・下書きのPJを表示する。対象月の件数は現行 `projects.monthly_report_scope` と active/sales 状態で判定し、過去月は保存済みの実記録を表示する。未作成・下書き・対象外・記録なしを分ける。本文の正本は既存の `monthly_reports` と `monthly_reports_external` のままで、一覧から保存・生成はしない。管理者権限は `/admin` layout と既存印刷routeの両方で検証する。
 
 CXのNIMS委託契約は2026年9月30日終了。2026年10月からPJ scope は `internal_only` とし、9月までの提出版は履歴として表示する。新たな提出契約が確定した時点で対象設定を見直す。
 
