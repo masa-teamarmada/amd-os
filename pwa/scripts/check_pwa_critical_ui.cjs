@@ -4881,3 +4881,8 @@ expectIncludes("src/components/cockpit/AmieTechDisclosureMark.tsx", ['private:"D
 expectIncludes("src/components/admin/PayoutSeasonPlan.tsx", ["01 全PJのシーズン収支予定", "payout-season-matrix", "sticky left-0", "sticky left-[104px]", "sticky left-[248px]", "data-payment-column", "支払月へ", "未計算", "シーズン未設定", "設定済みPJ計", "memberPayments.map", "data-payout-member", "費目・メンバー", "報酬中心にする", "paymentBreakdown"]);
 expectIncludes("src/app/api/admin/payouts/season-plan/route.ts", ["requireAdmin", "loadPayoutSeasonPlan", "private, no-store"]);
 expectIncludes("src/lib/payout-season-plan.ts", ["choosePayoutSeason", "clientReceiptYmForCycle", "memberPayoutYmForCycle", "expandExtraRevenueCash", "row.cells[row.endYm!]?.debt", "row.missingMonths.push(ym)"]);
+
+// Admin月次一覧は全PJの二種類の状態と同画面プレビューを維持する。
+expectIncludes("src/lib/surface-catalog.ts", ["admin-monthly-reports", "月次報告書", "/admin/monthly-reports"]);
+expectIncludes("src/app/(app)/admin/monthly-reports/page.tsx", ["monthly_reports", "monthly_reports_external", "monthly_report_scope", "currentMonth", "AdminMonthlyReportsClient"]);
+expectIncludes("src/components/admin/AdminMonthlyReportsClient.tsx", ["社内版", "提出版", "未作成", "対象外", "要確認のみ", "iframe", "別画面で開く"]);

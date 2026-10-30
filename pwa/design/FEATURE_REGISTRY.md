@@ -10,6 +10,12 @@ DDレポート登録済みパッケージは既存URLと閲覧権限で新版を
 
 # PWA Feature Registry
 
+## Admin 月次報告書一覧（2026-10-30）
+
+- Admin左メニュー「PJ・実行」→`/admin/monthly-reports` から全PJの社内版・提出版の状態を月別に確認し、選んだ版の本文を同じ画面で開ける。検索と要確認のみの絞込みを持つ。
+- 現行対象月は `projects.monthly_report_scope` とPJ状態で対象を数え、過去月は保存済みの実記録を表示する。CXの2026年10月以降の提出版は対象外、9月の提出版は閲覧可能。
+- 本文正本は `monthly_reports` / `monthly_reports_external`。管理者認証はadmin layoutと印刷routeで維持し、一覧は読取専用。防波堤は `test:critical-ui`。仕様はspec3-2、使い方はmanual2-6。
+
 ## 共通「実験・評価」の比較・集計・原画像
 
 技術トピックのpresentation.kind=effluent_ledgerから、入手元・成分・処理前後・状態・出典・原画像を開く。AmieEffluentLedger、amie-effluent-experiments、project_tech_entries.experiment、/api/project-tech-graphs。廃液追加・編集・画像保存・種類照合済み完了集計を保持し、関係先の退役した排液列を復元しない。guard: test:effluent-ledger/tech-disclosure。仕様3-20/3-16、manual2-3。

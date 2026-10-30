@@ -269,12 +269,18 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 
 | scope | PJ | 動作 |
 |---|---|---|
-| `internal_and_external` | p25 KUTE / p21 SX / p20 CX (NIMS) | 内部保存版 + 対外提出版 + PDF 生成 |
-| `internal_only` | p00 AMD / p07 LST / p10 SE / p19 ZMP / p24 CLG / p26 VasculaX | 内部保存版のみ生成、対外版と PDF は skip |
+| `internal_and_external` | p25 KUTE / p21 SOL / p19 ZMP | 内部保存版 + 対外提出版。ZMPの初回提出書式は承認済みseedが必要 |
+| `internal_only` | p00 AMD / p07 LST / p10 SE / p20 CX（2026年10月以降）/ p24 CLG / p26 VasculaX | 内部保存版のみ生成。CXのNIMS提出版は2026年9月分で終了し、保存済みの過去月版は残す |
 | `none` | p06 CTB | routine 対象外 |
 
 scope は `/admin/projects` の「月報 scope」列でまさが編集可能。
 
+
+### 2026-10-30 Admin月次報告書一覧
+
+管理者専用 `/admin/monthly-reports` は対象月を選び、対象PJの社内版・提出版の保存状態を一画面で読む。左のPJ一覧で版を選ぶと右側に既存の印刷帳票を埋め込み、別画面でも開ける。対象月の件数は現行 `projects.monthly_report_scope` と active/sales 状態で判定し、過去月は保存済みの実記録を表示する。未作成・下書き・対象外・記録なしを分ける。本文の正本は既存の `monthly_reports` と `monthly_reports_external` のままで、一覧から保存・生成はしない。管理者権限は `/admin` layout と既存印刷routeの両方で検証する。
+
+CXのNIMS委託契約は2026年9月30日終了。2026年10月からPJ scope は `internal_only` とし、9月までの提出版は履歴として表示する。新たな提出契約が確定した時点で対象設定を見直す。
 
 ### 2026-09-26 月次報告書の一覧
 
@@ -290,7 +296,7 @@ DBの前月版が提出後の修正を含まない場合、同じPJ・直前月�
 
 提出版には当月の実施・確認済みの判断・現在の状態を記載し、予定専用章は設けない。前月原本に「来月以降の予定」「来月の予定」「今後の予定」「次月の予定」がある場合、その章の見出しと所属表だけを比較対象から除外する。残る見出し・表・固定行・末尾定型文の一致は引き続き必須。前月原本自体は改変しない。
 
-ZMP（p19）もSOL・CX・KUTEと同じく `monthly_report_scope=internal_and_external` を対象設定とする。設定変更は非LLM helper `update-projects` の許可フィールドで行い、値は既存の3種類のみ許可する。初回の提出版書式は人が承認したseedを使う。DBスキーマとネイティブ画面は変更しない。
+ZMP（p19）はSOL・KUTEと同じく `monthly_report_scope=internal_and_external` を対象設定とする。CX（p20）はNIMS契約が2026年9月末で終了したため、2026年10月から `internal_only` とする。設定変更は非LLM helper `update-projects` の許可フィールドで行い、値は既存の3種類のみ許可する。初回の提出版書式は人が承認したseedを使う。DBスキーマとネイティブ画面は変更しない。
 
 ### 2026-09-26 前月書式の復元と視覚検収
 

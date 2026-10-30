@@ -178,7 +178,7 @@ export const MANUAL_CHAPTERS: ManualChapterConfig[] = [
   { slug: "2-3-pj-cockpit", title: "PJ コックピットの見方", summary: "PJ Status、MS 進捗、経営ハイライト、Slackの会話、月次カード、コスト試算タブ、スコア詳細タブの《組織》の読み方。", topics: ["cockpit", "decision", "monthly"], screens: ["/project/{projectId}/cockpit"] },
   { slug: "2-4-amd-cockpit", title: "AMD 全体コックピットの見方", summary: "p00、Management Score、提案前の論点整理の使い方。", topics: ["start", "decision"], screens: ["/project/p00/cockpit"] },
   { slug: "2-5-research-assets-quick-start", title: "探索系アセットの使い方", summary: "Atlas、Seeds、PoC、VC、Scholar をまず触るための入口。", topics: ["discovery", "start"], screens: ["/atlas", "/seeds", "/poc", "/vcs", "/scholar"] },
-  { slug: "2-6-admin-ops", title: "admin月次オペ早見表", summary: "支払、請求書発行、立替、報告書確認、入金確認、経営ノウハウ台帳の入口。", topics: ["monthly", "admin"], screens: ["/admin/invoices", "/admin/payouts", "/admin/management-knowledge"] },
+  { slug: "2-6-admin-ops", title: "admin月次オペ早見表", summary: "支払、請求書発行、立替、報告書確認、入金確認、経営ノウハウ台帳の入口。", topics: ["monthly", "admin"], screens: ["/admin/monthly-reports", "/admin/invoices", "/admin/payouts", "/admin/management-knowledge"] },
   { slug: "2-7-task-management", title: "タスク管理（廃止済み）", summary: "/tasks 画面と agent helper は廃止済み。tasks table / API は H-1 と cockpit 互換のため残す。", topics: ["system"], tables: ["tasks"] },
   { slug: "2-8-business-cards", title: "名刺をPJの関係資産にする", summary: "スマホ撮影、OCR確認、複数PJ紐づけ、人物knowledge反映の使い方。", topics: ["start", "knowledge"], screens: ["/business-cards"], tables: ["business_cards", "business_card_project_links", "project_knowledge"] },
   { slug: "2-9-question-tree", title: "ゴールツリーの使い方", summary: "到達点からMS・論点・仮説・TODOへ分解して進める画面。未承認の承認、どれか1つで解ける論点の指定、対応待ち・要見直しの論点の確認、閉じ方。", topics: ["question", "decision", "planning"], screens: ["/project/{projectId}/workspace"] },

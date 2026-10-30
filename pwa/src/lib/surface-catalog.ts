@@ -109,6 +109,7 @@ export const SURFACE_CATALOG: readonly SurfaceDefinition[] = [
   { id: "admin-season-pl", title: "シーズン予実", navLabel: "シーズン予実", primaryPath: "/admin/season-pl", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/admin/season-pl"] },
   { id: "admin-finance", title: "Admin Finance", navLabel: "財務", primaryPath: "/admin/finance", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/admin/finance"] },
   { id: "admin-project-profitability", title: "PJ別 利益構造", navLabel: "PJ別利益構造", primaryPath: "/admin/project-profitability", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/admin/project-profitability"] },
+  { id: "admin-monthly-reports", title: "月次報告書", navLabel: "月次報告書", primaryPath: "/admin/monthly-reports", domain: "project_execution", lens: "amd_operations", status: "canonical", exact: ["/admin/monthly-reports"] },
   { id: "admin-weekly", title: "週次活動", navLabel: "週次活動", primaryPath: "/admin/weekly", domain: "project_execution", lens: "amd_operations", status: "projection", exact: ["/admin/weekly"] },
   { id: "admin-protocols", title: "AMD Protocol", navLabel: "AMD Protocol", primaryPath: "/admin/protocols", domain: "decision_review", lens: "amd_operations", status: "canonical", exact: ["/admin/protocols"] },
   { id: "admin-ms-overview", title: "MS一覧", navLabel: "MS一覧", primaryPath: "/admin/ms-overview", domain: "project_execution", lens: "amd_operations", status: "projection", exact: ["/admin/ms-overview"] },
@@ -133,7 +134,7 @@ export const ADMIN_SURFACE_GROUPS = [
   { label: "納税・カレンダー", surfaceIds: ["admin-payments", "admin-schedule"] },
   { label: "組織・権限", surfaceIds: ["admin-projects", "admin-members", "admin-permissions", "admin-executive-meetings", "admin-access", "dd-packages", "admin-company", "admin-governance"] },
   { label: "契約・お金", surfaceIds: ["admin-workflows", "admin-contracts", "admin-kiyo", "admin-cash", "admin-invoices", "admin-payouts", "admin-monthly-agreements", "admin-season-pl", "admin-finance", "admin-project-profitability"] },
-  { label: "PJ・実行", surfaceIds: ["management-score", "admin-card-designs", "admin-weekly", "admin-protocols", "admin-ms-overview", "admin-meeting-gaps", "admin-coverage", "admin-ip"] },
+  { label: "PJ・実行", surfaceIds: ["management-score", "admin-card-designs", "admin-monthly-reports", "admin-weekly", "admin-protocols", "admin-ms-overview", "admin-meeting-gaps", "admin-coverage", "admin-ip"] },
   { label: "知識・AI", surfaceIds: ["admin-japanese-culture", "admin-contexts", "admin-management-knowledge", "admin-private-wiki", "admin-tsukuyomi", "admin-prompts"] },
   { label: "運用", surfaceIds: ["admin-change-history", "admin-settings"] },
 ] as const;
