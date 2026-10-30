@@ -27,7 +27,7 @@ const STATE_LABEL: Record<ReportState, string> = {
   not_recorded: "記録なし",
 };
 const STATE_TONE: Record<ReportState, string> = {
-  ready: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  ready: "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20",
   draft: "border-amber-200 bg-amber-50 text-amber-800",
   missing: "border-rose-200 bg-rose-50 text-rose-800",
   not_applicable: "border-border bg-muted/50 text-muted-foreground",
@@ -50,16 +50,17 @@ function reportHref(projectId: string, ym: string, kind: ReportKind) {
   return `/project/${encodeURIComponent(projectId)}/report/${ym}/print?template=${kind}`;
 }
 
-export function AdminMonthlyReportsClient({ ym, currentMonth, monthOptions, rows }: {
+export function AdminMonthlyReportsClient({ ym, currentMonth, monthOptions, rows, initialSelection = null }: {
   ym: string;
   currentMonth: boolean;
   monthOptions: string[];
   rows: MonthlyReportOverviewRow[];
+  initialSelection?: Selection | null;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const firstReady = rows.flatMap((row) => (["submission", "internal"] as const).filter((kind) => stateFor(row, kind) === "ready").map((kind) => ({ projectId: row.projectId, kind })))[0];
-  const [selection, setSelection] = useState<Selection | null>(firstReady ?? null);
+  const [selection, setSelection] = useState<Selection | null>(initialSelection ?? firstReady ?? null);
   const [missingOnly, setMissingOnly] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
@@ -130,7 +131,11 @@ export function AdminMonthlyReportsClient({ ym, currentMonth, monthOptions, rows
 
     <div className="flex flex-wrap items-center gap-2 border-y border-border py-2 text-sm">
       <label className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground" htmlFor="admin-monthly-report-ym">対象月
-        <select id="admin-monthly-report-ym" value={ym} onChange={(event) => startTransition(() => router.push(`/admin/monthly-reports?ym=${event.target.value}`))} className="h-9 w-36 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <select id="admin-monthly-report-ym" value={ym} onChange={(event) => {
+          const query = new URLSearchParams({ym: event.target.value});
+          if (visibleSelection) { query.set("projectId", visibleSelection.projectId); query.set("kind", visibleSelection.kind); }
+          startTransition(() => router.push(`/admin/monthly-reports?${query}`));
+        }} className="h-9 w-36 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           {monthOptions.map((option) => <option key={option} value={option}>{monthLabel(option)}</option>)}
         </select>
       </label>
@@ -155,8 +160,9 @@ export function AdminMonthlyReportsClient({ ym, currentMonth, monthOptions, rows
             const state = stateFor(row, kind);
             const active = visibleSelection?.projectId === row.projectId && visibleSelection.kind === kind;
             const updated = dateLabel(kind === "internal" ? row.internalUpdatedAt : row.submissionUpdatedAt);
-            return <button key={kind} type="button" onClick={() => { setSelection({ projectId: row.projectId, kind }); setDownloadError(null); }} aria-pressed={active} aria-label={`${row.projectName} ${kind === "internal" ? "社内版" : "提出版"} ${STATE_LABEL[state]}${updated ? ` ${updated}更新` : ""}`} title={updated ? `${STATE_LABEL[state]}・${updated}更新` : STATE_LABEL[state]} className={cn("h-7 rounded-md border px-1 text-center text-xs font-medium transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", STATE_TONE[state], active && "ring-1 ring-primary")}>
-              {STATE_LABEL[state]}
+            const kindLabel = kind === "internal" ? "社内版" : "提出版";
+            return <button key={kind} type="button" onClick={() => { setSelection({ projectId: row.projectId, kind }); setDownloadError(null); }} aria-pressed={active} aria-label={`${row.projectName} ${kindLabel} ${STATE_LABEL[state]}${state === "ready" ? "を開く" : ""}${updated ? ` ${updated}更新` : ""}`} title={updated ? `${STATE_LABEL[state]}・${updated}更新` : STATE_LABEL[state]} className={cn("inline-flex h-7 cursor-pointer items-center justify-center gap-1 rounded-md border px-1 text-center text-xs font-medium transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", STATE_TONE[state], active && "ring-1 ring-primary")}>
+              {state === "ready" ? <><FileText className="h-3.5 w-3.5" aria-hidden="true" />{kindLabel}</> : STATE_LABEL[state]}
             </button>;
           })}
         </div>)}

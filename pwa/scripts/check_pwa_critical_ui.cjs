@@ -4886,6 +4886,9 @@ expectIncludes("src/lib/payout-season-plan.ts", ["choosePayoutSeason", "clientRe
 expectIncludes("src/lib/surface-catalog.ts", ["admin-monthly-reports", "月次報告書", "/admin/monthly-reports"]);
 expectIncludes("src/app/(app)/admin/monthly-reports/page.tsx", ["monthly_reports", "monthly_reports_external", "monthly_report_scope", "currentMonth", "AdminMonthlyReportsClient"]);
 expectIncludes("src/components/admin/AdminMonthlyReportsClient.tsx", ["admin-monthly-report-ym", "aria-pressed={active}", "adminPreview=1", "社内版", "提出版", "未作成", "対象外", "要確認のみ", "iframe", "別画面で開く", "PDFをダウンロード", "月次業務報告書_", "チームアルマダ.pdf"]);
+expectIncludes("src/components/admin/AdminMonthlyReportsClient.tsx", ["state === \"ready\" ? <>", "{kindLabel}", "initialSelection ?? firstReady", "projectId", "kind"]);
+expectIncludes("src/components/cockpit/CockpitMonthlyReports.tsx", ["canViewAdminMonthlyReports", "全PJの月次報告書・PDFダウンロード", "/admin/monthly-reports?ym="]);
+expectIncludes("src/app/api/project-surface/cockpit/[projectId]/route.ts", ["canViewAdminMonthlyReports: member.isAdmin"]);
 expectIncludes("src/app/api/admin/monthly-reports/download/route.ts", ["requireAdmin()", "renderMonthlyReportPdf", "private, no-store", "Content-Disposition", "月次業務報告書_", "チームアルマダ.pdf"]);
 expectNotIncludes("src/components/admin/AdminMonthlyReportsClient.tsx", ["admin-monthly-report-project", "admin-monthly-report-kind"]);
 expectIncludes("src/app/(app)/project/[projectId]/report/[ym]/print/page.tsx", ["adminPreview === \"1\"", "overviewPreview={embedded === \"1\""]);

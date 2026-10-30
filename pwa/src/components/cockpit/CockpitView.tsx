@@ -249,6 +249,7 @@ interface CockpitViewProps {
   initialModalYm?: string | null;
   activeTab?: CockpitTab;
   onTabChange?: (tab: CockpitTab) => void;
+  canViewAdminMonthlyReports?: boolean;
   /** 研究機関ページから埋め込む場合は、正本で解決済みの機関IDを渡す。 */
   institutionId?: string | null;
   /** 研究機関専用ページ側のタブと二重表示しないための埋め込みモード。 */
@@ -341,7 +342,7 @@ const TAB_BY_WORKSPACE_VIEW: Partial<Record<SxWeeklyControlView, CockpitTab>> = 
   drive: "documents",
 };
 
-export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab, onTabChange, institutionId: providedInstitutionId, hideNavigation = false }: CockpitViewProps) {
+export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab, onTabChange, canViewAdminMonthlyReports = false, institutionId: providedInstitutionId, hideNavigation = false }: CockpitViewProps) {
   const [localActiveTab, setLocalActiveTab] = useState<CockpitTab>(DEFAULT_COCKPIT_TAB);
   const [executiveEligibility, setExecutiveEligibility] = useState<{ projectId: string; allowed: boolean } | null>(null);
   const requestedTab = controlledTab ?? localActiveTab;
@@ -856,7 +857,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
               まだ決まっていないこと・最近の重要な動き）の9項目（2026-10-04 まさ確定「1で進めて」）。
               事業の一言は会社情報 > 会社概要「事業の概要」へ移した。XRL進捗はスコア詳細タブ。 */}
       {activeTab === "monthly-reports" && (
-        <CockpitMonthlyReports key={project.projectId} projectId={project.projectId} currentYm={currentYm} />
+        <CockpitMonthlyReports key={project.projectId} projectId={project.projectId} currentYm={currentYm} canViewAdminMonthlyReports={canViewAdminMonthlyReports} />
       )}
 
       {activeTab === "overview" && (

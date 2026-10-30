@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { MonthlyReportSelectors } from "./MonthlyReportSelectors";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { getDefaultMonthlyReportYm } from "@/lib/monthly-report-default-month";
 
 import { loadMonthlyReports, peekMonthlyReports, invalidateMonthlyReports, type ReportMonth } from "@/lib/monthly-reports-client";
@@ -10,7 +12,7 @@ export { prefetchMonthlyReports } from "@/lib/monthly-reports-client";
 
 function monthLabel(ym: string) { return `${ym.slice(0, 4)}年${Number(ym.slice(4))}月`; }
 
-export function CockpitMonthlyReports({ projectId, currentYm }: { projectId: string; currentYm: string }) {
+export function CockpitMonthlyReports({ projectId, currentYm, canViewAdminMonthlyReports = false }: { projectId: string; currentYm: string; canViewAdminMonthlyReports?: boolean }) {
   const [state, setState] = useState<{ projectId: string; reports: ReportMonth[]; loading: boolean; error: string | null }>({ projectId, reports: peekMonthlyReports(projectId) ?? [], loading: true, error: null });
   const [defaultYm] = useState(getDefaultMonthlyReportYm);
   const [selectedYm, setSelectedYm] = useState(defaultYm);
@@ -57,6 +59,11 @@ export function CockpitMonthlyReports({ projectId, currentYm }: { projectId: str
   }, [projectId, monthKeys]);
   return (
     <section role="tabpanel" aria-label="月次報告書" className="min-w-0 space-y-2">
+      {canViewAdminMonthlyReports && <div className="flex justify-end">
+        <Link href={`/admin/monthly-reports?ym=${selectedYm}&projectId=${encodeURIComponent(projectId)}&kind=${template}`} className="inline-flex h-9 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-primary hover:bg-primary/5 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          全PJの月次報告書・PDFダウンロード<ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </Link>
+      </div>}
       {(!available || state.loading || state.error) && <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-2">
         <h2 className="mr-1 text-sm font-semibold">月次報告書</h2>
         <MonthlyReportSelectors months={months} ym={selectedYm} template={template} onChange={(ym, kind) => { setSelectedYm(ym); if (kind !== template) setManualTemplate(kind); }} />

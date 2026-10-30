@@ -141,6 +141,7 @@ export interface PlanCycleBundle {
 }
 
 export interface CockpitData {
+  canViewAdminMonthlyReports?: boolean;
   project: {
     projectId: string;
 	    projectName: string;

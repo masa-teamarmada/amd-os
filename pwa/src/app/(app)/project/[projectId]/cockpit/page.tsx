@@ -131,6 +131,7 @@ export default function CockpitPage() {
   return (
     <CockpitView
       cockpit={cockpit}
+      canViewAdminMonthlyReports={cockpit.canViewAdminMonthlyReports === true}
       tasks={cockpit.tasks || []}
       initialModalYm={meetingParam ? null : ymParam}
       activeTab={activeTab}

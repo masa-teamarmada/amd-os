@@ -39,10 +39,10 @@ function monthOptions(defaultYm: string, selectedYm: string): string[] {
 }
 
 export default async function AdminMonthlyReportsPage({ searchParams }: {
-  searchParams: Promise<{ ym?: string }>;
+  searchParams: Promise<{ ym?: string; projectId?: string; kind?: string }>;
 }) {
   const defaultYm = getDefaultMonthlyReportYm();
-  const requestedYm = (await searchParams).ym;
+  const {ym: requestedYm, projectId: requestedProjectId, kind: requestedKind} = await searchParams;
   const ym = requestedYm && /^\d{4}(0[1-9]|1[0-2])$/.test(requestedYm) ? requestedYm : defaultYm;
   const externalYm = `${ym.slice(0, 4)}-${ym.slice(4)}`;
   const db = await createClient();
@@ -90,5 +90,9 @@ export default async function AdminMonthlyReportsPage({ searchParams }: {
       };
     });
 
-  return <AdminMonthlyReportsClient key={ym} ym={ym} currentMonth={currentMonth} monthOptions={monthOptions(defaultYm, ym)} rows={rows} />;
+  let initialSelection: {projectId: string; kind: "internal" | "submission"} | null = null;
+  if (requestedProjectId && (requestedKind === "internal" || requestedKind === "submission") && rows.some((row) => row.projectId === requestedProjectId)) {
+    initialSelection = {projectId: requestedProjectId, kind: requestedKind};
+  }
+  return <AdminMonthlyReportsClient key={`${ym}:${initialSelection?.projectId ?? ""}:${initialSelection?.kind ?? ""}`} ym={ym} currentMonth={currentMonth} monthOptions={monthOptions(defaultYm, ym)} rows={rows} initialSelection={initialSelection} />;
 }
