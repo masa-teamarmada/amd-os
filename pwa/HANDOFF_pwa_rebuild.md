@@ -915,3 +915,4 @@ body.excelでmodel/tables/pdfと出力順を管理。Excelは専用目録＋数�
 | 履歴 | spec/6-1 | manual/9-3 | ローカル同期済み |
 | 他プラットフォーム | 既存APIの応答に任意のhandoff状態を追加 | 対象外 | iOS/macOS UI・DB schema変更なし |
 | 理論・評価式 | bzm/model | 対象外 | 変更なし |
+2026-10-30 closeout: v3.163.76 / 280f6c39 is on main, origin/main, and production. Desktop Chrome confirmed /admin/payouts defaults to November on October 30 and Shin ID026 shows 55,200 yen before tax for November payment. Formal PDF remains unissued. Previous Vercel deployment stop was lifted.

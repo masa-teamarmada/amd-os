@@ -18,3 +18,10 @@ AMD OSのDD表示改善の引き継ぎ。作業場所は /Users/masa/projects/AM
 
 運用:
 main一本、新branch/worktree・サブエージェントは作らない。既存差分を保ち、対象ファイルだけ保存する。DD認可は毎回、NDA回答の継続は本人×package、キャッシュは認可後の対象本文だけ。実ユーザーのNDA申告は代行しない。表示確認はPC Chrome。製品仕様を変えた時はspec/manual/附則・ios/DESIGN・必要なnative handoffを同期する。SOL DDの明示反映時は専用manifestの元ハッシュと現行を照合して束ね、正規deploy.sh後に公開SHAと画面を確認する。今回は終了文書のみでDB・DD配布物・アプリ公開の更新はしていない。
+2026-10-30 AMD OS payout handoff. Read /Users/masa/projects/AGENTS.common.md, /Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md, AGENTS.md, pwa/manual/1-1-intro.md, pwa/spec/1-3-reconstruction-coverage-audit.md, pwa/HANDOFF_pwa_rebuild.md, relevant payout spec/manual, and pwa/BUGS.md in that order.
+
+State: main and origin/main at 280f6c39, production v3.163.76. On 2026-10-30, desktop Chrome confirmed /admin/payouts without a month query defaults to 2026/11, and Shin ID026 shows 55,200 yen before tax (60,720 yen with tax) for November payment. The formal PDF has not been issued. The prior Vercel deployment stop has been lifted.
+
+Next: Take Masa's next concrete request, verify current DB/UI and canonical specs, and implement promptly. Do not infer permission for new external notifications or transfers. SOL DD retains its explicit local-preview and deployment boundary in /Users/masa/projects/AMD/SOL/DD_LOCAL_PREVIEW.md.
+
+Rules: main only, stage named files, sync spec/manual/changelog for PWA behavior changes, verify desktop Chrome and live build-info. Use AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh for normal PWA production deployment. Do not run smartphone Web checks unless requested.
