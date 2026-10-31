@@ -8,6 +8,7 @@ import {
   resolveCockpitTabForType,
 } from "../src/lib/cockpit-tabs.ts";
 import { PROJECT_FORMAT_TYPES, projectFormatTypeOf, WORKSPACE_TAB_FORMATS, DD_TAB_FORMAT } from "../src/lib/project-formats.ts";
+import { governanceMeetingKind } from "../src/lib/governance-meeting-kind.ts";
 
 // タブの並びはPJタイプ（大学発SU・新規事業・研究機関エコシステム・AMD本体）ごとに1つ。
 // 同じタイプのPJは、データの有無にかかわらず同じタブを持つ（2026-10-03 まさ「全部統一してないとだめ。OSの大原則」、spec 3-23）。
@@ -28,7 +29,15 @@ for (const type of TYPES) {
   assert.equal(resolveCockpitTabForType("killer-factors", type), "killer-factors", `${type}: catalog has its own URL`);
   assert.equal(cockpitGroupForTabInType("killer-factors", type).label, "会社情報");
   assert.ok(!WORKSPACE_TAB_FORMATS[type].some(group => group.tabs.includes("killer-factors")), `${type}: internal catalog page must not be shared`);
+  for (const page of ["shareholder-meeting", "board-meeting", "executive-meeting"] as const) {
+    assert.equal(resolveCockpitTabForType(page, type), page, `${type}: ${page} must have a direct cockpit URL`);
+    assert.equal(cockpitGroupForTabInType(page, type).label, "会社情報");
+    assert.ok(WORKSPACE_TAB_FORMATS[type].some(group => group.tabs.includes(page)), `${type}: ${page} must exist in workspace`);
+  }
 }
+for (const type of ["agm", "egm", "shareholder_written", "shareholder_written_resolution", "株主総会（書面決議）"]) assert.equal(governanceMeetingKind(type), "shareholder");
+for (const type of ["board", "board_written", "board_written_resolution", "director_decision", "取締役決定（署名未確認）", "取締役決定（確認書・署名未確認）"]) assert.equal(governanceMeetingKind(type), "board");
+assert.equal(governanceMeetingKind("unknown"), null);
 assert.ok(!DD_TAB_FORMAT.some(group => (group.tabs as readonly string[]).includes("killer-factors")), "DD must not expose the catalog page");
 
 const STANDARD_GROUPS = ["進捗管理", "事業計画", "PJ管理", "会社情報", "ドライブ"];

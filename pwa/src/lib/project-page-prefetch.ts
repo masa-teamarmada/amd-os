@@ -13,7 +13,7 @@ export function prefetchProjectPage(projectId: string, page: string, sharedView 
   switch (page) {
     case "poc-list": prefetchProjectPocList(projectId, sharedView); break;
     case "company": prefetchBusinessSummary(projectId); prefetchGovernance(projectId); break;
-    case "capital-policy": prefetchGovernance(projectId); break;
+    case "capital-policy": case "shareholder-meeting": case "board-meeting": prefetchGovernance(projectId); break;
     case "technology": case "competition": case "business-model": prefetchProjectTech(projectId); break;
     case "business-plan": prefetchProjectBusinessPlan(projectId); break;
     case "cost": case "cost-model": case "cost-fuel": prefetchProjectCostModel(projectId); prefetchProjectFuelCostModel(projectId); break;

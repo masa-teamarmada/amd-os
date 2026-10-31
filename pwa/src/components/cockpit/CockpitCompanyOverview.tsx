@@ -31,7 +31,6 @@ import type { BusinessSummaryResponse } from "@/lib/project-overview";
 import { CompanyBusinessSummarySection } from "@/components/cockpit/CompanyBusinessSummarySection";
 import { loadGovernance, peekGovernance, saveGovernanceEntity } from "@/lib/governance-client";
 import {
-  EmptyState,
   Field,
   NativeSelect,
   Section,
@@ -43,7 +42,7 @@ import {
   textOrNull,
 } from "@/components/cockpit/company-overview-ui";
 
-type DialogKind = "profile" | "financial" | "meeting" | null;
+type DialogKind = "profile" | "financial" | null;
 
 const EMPTY_DATA: CompanyOverviewData = {
   profile: null,
@@ -62,25 +61,10 @@ const LEGAL_STATUS = [
   { value: "liquidating", label: "清算中" },
   { value: "closed", label: "清算済み" },
 ];
-const MEETING_TYPES = [
-  { value: "agm", label: "定時株主総会" },
-  { value: "egm", label: "臨時株主総会" },
-  { value: "board", label: "取締役会" },
-  { value: "board_written", label: "取締役会（書面決議）" },
-  { value: "shareholder_written", label: "株主総会（書面決議）" },
-];
 
 function compactCorporateNumber(value: string | null | undefined) {
   if (!value) return "未入力";
   return value.replace(/^(\d)(\d{4})(\d{4})(\d{4})$/, "$1-$2-$3-$4");
-}
-
-function meetingLabel(value: string | null | undefined) {
-  return MEETING_TYPES.find((option) => option.value === value)?.label || value || "種別未入力";
-}
-
-function sourceHref(attachment: { url?: string; webViewLink?: string; web_view_link?: string }) {
-  return attachment.url || attachment.webViewLink || attachment.web_view_link || "";
 }
 
 export function CockpitCompanyOverview({
@@ -226,19 +210,6 @@ export function CockpitCompanyOverview({
     }));
   }
 
-  async function saveMeeting(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const resolutions = String(form.get("resolutions") || "").split("\n").map((title) => title.trim()).filter(Boolean).map((title) => ({ title, result: "unknown" }));
-    const attachmentName = textOrNull(form.get("attachment_name"));
-    const attachmentUrl = textOrNull(form.get("attachment_url"));
-    await save("総会・役会情報", () => post("meeting", {
-      project_id: projectId, meeting_type: form.get("meeting_type"), meeting_date: textOrNull(form.get("meeting_date")),
-      location: textOrNull(form.get("location")), agenda_summary: textOrNull(form.get("agenda_summary")), resolutions_json: resolutions,
-      amd_response: form.get("amd_response"), attachments_json: attachmentUrl ? [{ name: attachmentName || "関連資料", url: attachmentUrl }] : [],
-      source_ref: textOrNull(form.get("source_ref")), notes: textOrNull(form.get("notes")),
-    }));
-  }
 
   async function exportPdf() {
     if (!exportRef.current) return;
@@ -290,7 +261,7 @@ export function CockpitCompanyOverview({
       <div className="flex flex-wrap items-start gap-3 rounded-2xl border border-slate-200 bg-slate-950 px-4 py-4 text-white sm:px-5">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2"><Building2 className="size-4 text-slate-300" /><h1 className="text-base font-semibold tracking-tight">{data.profile?.legal_name || projectName}</h1></div>
-          <p className="mt-1 text-xs leading-5 text-slate-300">会社情報・資本政策・機関決定・決算</p>
+          <p className="mt-1 text-xs leading-5 text-slate-300">会社情報・資本政策・決算</p>
         </div>
         <div className="flex flex-wrap gap-2" data-html2canvas-ignore="true">
           <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" disabled={!canDownload} onClick={() => void downloadCompanyOverviewXlsx(projectName, data, confidential).catch(cause => setError(cause instanceof Error ? cause.message : "Excelを作成できなかった。"))}><FileSpreadsheet />会社概要Excel</Button>
@@ -326,10 +297,6 @@ export function CockpitCompanyOverview({
         </>}
 
         <div className="grid gap-4 xl:grid-cols-2">
-          {(!incorporationPlan || data.meetings.length > 0) && <Section title="総会・取締役会" action={readOnly ? undefined : <Button variant="outline" className="h-11" onClick={() => setDialog("meeting")}><Plus />開催情報</Button>}>
-            {data.meetings.length === 0 ? <EmptyState>開催記録未登録</EmptyState> : <div className="divide-y divide-slate-100">{data.meetings.map((meeting) => <div key={meeting.id} className="px-4 py-4 sm:px-5"><div className="flex flex-wrap items-center gap-2"><span className="text-xs font-semibold tabular-nums text-slate-900">{formatDate(meeting.meeting_date)}</span><span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] text-slate-600">{meetingLabel(meeting.meeting_type)}</span>{meeting.amd_response && <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] text-emerald-700">AMD: {meeting.amd_response}</span>}</div>{meeting.agenda_summary && <p className="mt-2 text-xs leading-5 text-slate-600">{meeting.agenda_summary}</p>}{meeting.resolutions_json?.length ? <ul className="mt-2 list-disc space-y-1 pl-4 text-[11px] text-slate-500">{meeting.resolutions_json.map((resolution, index) => <li key={index}>{resolution.title}</li>)}</ul> : null}{meeting.attachments_json?.length ? <div className="mt-3 flex flex-wrap gap-2">{meeting.attachments_json.map((attachment, index) => sourceHref(attachment) ? <a key={index} href={sourceHref(attachment)} target="_blank" rel="noopener noreferrer" className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] text-slate-700 hover:bg-slate-50 hover:underline">資料: {attachment.name || index + 1}</a> : null)}</div> : null}</div>)}</div>}
-          </Section>}
-
           <Section title="年度決算" action={readOnly ? undefined : <Button variant="outline" className="h-11" onClick={() => setDialog("financial")}><Plus />決算</Button>}>
             {data.financialPeriods.length === 0 ? <div className="px-4 py-3 text-[13px] leading-6 text-slate-700">{incorporationPlan ? `初年度：${incorporationPlan.firstFiscalPeriod}（予定）` : "年度決算未登録"}</div> : <div className="overflow-x-auto"><table data-amie-list="records" className="w-full min-w-[620px] text-xs"><thead className="bg-slate-50 text-[11px] text-slate-500"><tr><th className="px-4 py-3 text-left font-medium">年度</th><th className="px-3 py-3 text-left font-medium">状態</th><th className="px-3 py-3 text-right font-medium">売上高</th><th className="px-3 py-3 text-right font-medium">営業利益</th><th className="px-3 py-3 text-right font-medium">純利益</th><th className="px-4 py-3 text-right font-medium">純資産</th></tr></thead><tbody className="divide-y divide-slate-100">{data.financialPeriods.map((period) => <tr key={period.id}><td className="px-4 py-3 font-semibold tabular-nums text-slate-900">{period.fiscal_year}</td><td className="px-3 py-3 text-slate-600">{statusLabel(period.statement_status)}</td><td className="px-3 py-3 text-right tabular-nums">{formatYen(period.revenue_yen)}</td><td className={`px-3 py-3 text-right tabular-nums ${Number(period.operating_income_yen) < 0 ? "text-rose-600" : ""}`}>{formatYen(period.operating_income_yen)}</td><td className={`px-3 py-3 text-right tabular-nums ${Number(period.net_income_yen) < 0 ? "text-rose-600" : ""}`}>{formatYen(period.net_income_yen)}</td><td className="px-4 py-3 text-right tabular-nums">{formatYen(period.net_assets_yen)}</td></tr>)}</tbody></table></div>}
           </Section>
@@ -371,13 +338,6 @@ export function CockpitCompanyOverview({
         <div className="sm:col-span-3"><Field label="メモ" name="notes"><Textarea id="notes" name="notes" /></Field></div>
       </div><DialogFooter><Button type="button" variant="outline" className="h-11" onClick={() => setDialog(null)}>閉じる</Button><Button type="submit" className="h-11" disabled={saving}>保存</Button></DialogFooter></form></DialogContent></Dialog>
 
-      <Dialog open={dialog === "meeting"} onOpenChange={(open) => !open && setDialog(null)}><DialogContent className="max-h-[90vh] overflow-y-auto sm:!max-w-2xl"><form onSubmit={(event) => void saveMeeting(event)}><DialogHeader><DialogTitle>総会・取締役会を追加</DialogTitle><DialogDescription>招集・決議・AMDの対応・資料を、同じ開催記録へまとめるよ。</DialogDescription></DialogHeader><div className="my-5 grid gap-4 sm:grid-cols-2">
-        <Field label="種別"><NativeSelect name="meeting_type" defaultValue="board" options={MEETING_TYPES} /></Field><Field label="開催日" name="meeting_date"><Input id="meeting_date" name="meeting_date" required className="h-11" /></Field>
-        <Field label="場所・方法" name="location"><Input id="location" name="location" placeholder="オンライン / 本店 / 書面" className="h-11" /></Field><Field label="AMD対応"><NativeSelect name="amd_response" defaultValue="none" options={[{ value: "none", label: "未対応" }, { value: "attended", label: "出席" }, { value: "proxy", label: "委任状提出" }, { value: "consented", label: "事前承諾" }, { value: "abstained", label: "棄権" }]} /></Field>
-        <div className="sm:col-span-2"><Field label="議題概要" name="agenda_summary"><Textarea id="agenda_summary" name="agenda_summary" /></Field></div><div className="sm:col-span-2"><Field label="決議（1行1件）" name="resolutions"><Textarea id="resolutions" name="resolutions" /></Field></div>
-        <Field label="資料名" name="attachment_name"><Input id="attachment_name" name="attachment_name" className="h-11" /></Field><Field label="資料URL" name="attachment_url"><Input id="attachment_url" name="attachment_url" inputMode="url" className="h-11" /></Field>
-        <Field label="確認元" name="source_ref"><Input id="source_ref" name="source_ref" className="h-11" /></Field><Field label="メモ" name="notes"><Input id="notes" name="notes" className="h-11" /></Field>
-      </div><DialogFooter><Button type="button" variant="outline" className="h-11" onClick={() => setDialog(null)}>閉じる</Button><Button type="submit" className="h-11" disabled={saving}>追加</Button></DialogFooter></form></DialogContent></Dialog>
     </div>
   );
 }

@@ -3581,7 +3581,7 @@ expectIncludes("src/components/cockpit/CockpitCapitalPlan.tsx", [
   "<CapitalPlanWorkspace",
 ]);
 expectIncludes("src/lib/project-formats.ts", [
-  '{ group: "company-information-group", tabs: ["company", "organization-chart", "employee-register", "contracts", "capital-policy", "executive-meeting"] },',
+  '{ group: "company-information-group", tabs: ["company", "organization-chart", "employee-register", "contracts", "capital-policy", "shareholder-meeting", "board-meeting", "executive-meeting"] },',
 ]);
 expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
   '"company-information-group": COCKPIT_GROUP_LABELS.companyInformation,',
@@ -3589,7 +3589,7 @@ expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", 
   '"capital-policy": "資金調達履歴",',
 ]);
 
-// 経営会議は通常の会議共有を経由しない。画面非表示に加え、API/DBでも経営陣だけを通す。
+// 経営会議は通常の会議共有を経由しない。本文はAPI/DBで経営陣だけを通す。
 expectIncludes("src/lib/project-formats.ts", [
   '"executive-meeting": "executive"',
   '"executive-meeting": "経営会議"',

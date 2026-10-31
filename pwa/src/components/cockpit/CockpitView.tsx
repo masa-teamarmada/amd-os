@@ -74,6 +74,7 @@ const CockpitProperNouns = dynamic(() => import("./CockpitProperNouns").then((mo
 const ProjectCardDesigns = dynamic(() => import("@/components/project-card-designs/ProjectCardDesigns").then((module) => module.ProjectCardDesigns), { loading: ProjectPageLoading });
 const CockpitMeetingSummary = dynamic(() => import("./CockpitMeetingSummary").then((module) => module.CockpitMeetingSummary), { loading: ProjectPageLoading });
 const ExecutiveMeetingPanel = dynamic(() => import("@/components/project-executive-meeting/ExecutiveMeetingPanel").then((module) => module.ExecutiveMeetingPanel), { loading: ProjectPageLoading });
+const ProjectGovernanceMeetingPage = dynamic(() => import("./ProjectGovernanceMeetingPage").then((module) => module.ProjectGovernanceMeetingPage), { loading: ProjectPageLoading });
 const CockpitSlackMessages = dynamic(() => import("./CockpitSlackMessages").then((module) => module.CockpitSlackMessages), { loading: ProjectPageLoading });
 const CockpitAmdScoreDetailTab = dynamic(() => import("./CockpitAmdScoreDetailTab").then((module) => module.CockpitAmdScoreDetailTab), { loading: ProjectPageLoading });
 const CockpitCompanyOverview = dynamic(() => import("./CockpitCompanyOverview").then((module) => module.CockpitCompanyOverview), { loading: ProjectPageLoading });
@@ -478,6 +479,8 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     "card-designs": "名刺案",
     "capital-policy": "資金調達履歴",
     company: "会社概要",
+    "shareholder-meeting": "株主総会",
+    "board-meeting": "取締役会",
     "development-issues": "開発課題",
   "organization-chart": "組織図",
     "employee-register": "従業員名簿",
@@ -487,10 +490,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     dd: "DDパッケージ",
   };
   const canViewExecutiveMeeting = executiveEligibility?.projectId === project.projectId && executiveEligibility.allowed;
-  const visibleGroups = groups.map((group) => ({
-    ...group,
-    children: group.children.filter((tab) => tab !== "executive-meeting" || canViewExecutiveMeeting),
-  })).filter((group) => group.children.length > 0);
+  const visibleGroups = groups;
   const requestedGroup = visibleGroups.find(group => group.children.includes(resolvedTab)) ?? cockpitGroupForTabInType(resolvedTab, formatType);
   const activeGroupWithAvailableChildren = visibleGroups.find((group) => group.key === requestedGroup.key) ?? visibleGroups[0];
   // URLが現在のPJでは非表示になるタブを指していても、空画面にせず同じグループの先頭へ落とす。
@@ -508,6 +508,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       : key === "cost-model" ? () => { prefetchProjectCostModel(project.projectId); prefetchProjectFuelCostModel(project.projectId); }
       : key === "monthly-reports" ? () => prefetchMonthlyReports(project.projectId)
       : key === "capital-policy" ? () => prefetchGovernance(project.projectId)
+      : key === "shareholder-meeting" || key === "board-meeting" ? () => prefetchGovernance(project.projectId)
       : key === "company" ? () => { prefetchGovernance(project.projectId); prefetchBusinessSummary(project.projectId); }
       : key === "overview" ? () => { prefetchProjectOverview(project.projectId); prefetchQuestionTree(project.projectId); prefetchSeasonBudget(project.projectId); }
       : undefined,
@@ -698,9 +699,12 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
           <CockpitMeetingSummary projectId={project.projectId} />
         </section>
       )}
-      {activeTab === "executive-meeting" && canViewExecutiveMeeting && (
+      {activeTab === "shareholder-meeting" && <section role="tabpanel" aria-label="株主総会" className="min-w-0"><ProjectGovernanceMeetingPage key={`${project.projectId}-shareholder`} projectId={project.projectId} kind="shareholder" /></section>}
+      {activeTab === "board-meeting" && <section role="tabpanel" aria-label="取締役会" className="min-w-0"><ProjectGovernanceMeetingPage key={`${project.projectId}-board`} projectId={project.projectId} kind="board" /></section>}
+      {activeTab === "executive-meeting" && (
         <section role="tabpanel" aria-label="経営会議" className="min-w-0">
-          <ExecutiveMeetingPanel key={project.projectId} projectId={project.projectId} />
+          {canViewExecutiveMeeting ? <ExecutiveMeetingPanel key={project.projectId} projectId={project.projectId} />
+            : <div className="rounded-2xl border border-slate-200 bg-white px-5 py-8"><h1 className="text-lg font-semibold text-slate-950">経営会議</h1><p className="mt-3 text-sm text-slate-600">{executiveEligibility?.projectId === project.projectId ? "このPJの経営陣登録がないため、議案と採決を表示できません。" : "閲覧資格を確認中…"}</p></div>}
         </section>
       )}
 

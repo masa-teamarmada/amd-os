@@ -4,9 +4,9 @@
 
 ## 入口と閲覧
 
-- 全PJタイプのコックピット `?tab=executive-meeting` とワークスペース `#executive-meeting` の会社情報に同じ本文を置く。DDには置かない。
+- 全PJタイプのコックピット `?tab=executive-meeting` とワークスペース `#executive-meeting` の会社情報に同じ本文を置く。社内画面では経営陣未登録のPJにも入口を常設し、本文に資格不足を表示する。外部ワークスペースでは資格者だけに入口を表示する。DDには置かない（2026-10-31更新）。
 - 入場条件は、ユーザー本人の`is_executive=true`、当該PJのコックピットまたはワークスペースの既存閲覧権限、`project_executive_members.active=true`の本人登録の3条件。AMD管理者であっても両方の経営陣資格がなければ見られない。外部workspace accountは当該PJのactiveな直接所属も要する。社内`members`と外部`workspace_user_accounts`が独立して属性を持つ。既定値はfalse。
-- ナビの非表示に加え、専用APIのGET/POSTは毎回本人・PJ・経営陣登録を照合する。認可できないときは本文もPJ存在も返さない。`no-store`。直接のDB権限は anon/authenticated に付けない。
+- 専用APIのGET/POSTは毎回本人・PJ・経営陣登録を照合する。認可できないときは議案本文もPJ存在も返さない。`no-store`。直接のDB権限は anon/authenticated に付けない。社内画面の資格不足表示はAPIの議案データを含まない。
 - `project_meeting_summaries`、既存「動向・会議」、共有記録、DDの議事録、`workspace_shared` のいずれにも新しいデータを流さない。これらの既存機能には別のデータがあり、新ページの閲覧資格を代用しない。
 
 ## 管理者が登録するもの

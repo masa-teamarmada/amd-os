@@ -125,6 +125,7 @@ const CockpitFinancialProjection = dynamic(() => import("@/components/cockpit/Co
 const CockpitCapitalPlan = dynamic(() => import("@/components/cockpit/CockpitCapitalPlan").then((module) => module.CockpitCapitalPlan), { loading: ProjectPageLoading });
 const CockpitCapitalPolicy = dynamic(() => import("@/components/cockpit/CockpitCapitalPolicy").then((module) => module.CockpitCapitalPolicy), { loading: ProjectPageLoading });
 const CockpitCompanyOverview = dynamic(() => import("@/components/cockpit/CockpitCompanyOverview").then((module) => module.CockpitCompanyOverview), { loading: ProjectPageLoading });
+const ProjectGovernanceMeetingPage = dynamic(() => import("@/components/cockpit/ProjectGovernanceMeetingPage").then((module) => module.ProjectGovernanceMeetingPage), { loading: ProjectPageLoading });
 const WorkspaceMeetings = dynamic(() => import("./WorkspaceMeetings").then((module) => module.WorkspaceMeetings), { loading: ProjectPageLoading });
 const ExecutiveMeetingPanel = dynamic(() => import("@/components/project-executive-meeting/ExecutiveMeetingPanel").then((module) => module.ExecutiveMeetingPanel), { loading: ProjectPageLoading });
 const CockpitSlackMessages = dynamic(() => import("@/components/cockpit/CockpitSlackMessages").then((module) => module.CockpitSlackMessages), { loading: ProjectPageLoading });
@@ -362,10 +363,12 @@ const STAGE_LABEL: Record<StageKey, string> = Object.fromEntries(
 // すべてのPJで、PJ資料室と同じ正本を開く「ドライブ」を加える。既存のアンカー名
 // (#weekly-change / #project-gantt / #partner-ledger / #issue-hypothesis / #input-readiness)
 // は他画面からのリンク互換のためhashとしてそのまま残す。
-export type SxWeeklyControlView = "meetings" | "executive-meeting" | "slack" | "weekly" | "gantt" | "objective-structure" | "partners" | "issues" | "tasks" | "technology" | "poc-list" | "competition" | "business-model" | "business-plan" | "development-issues" | "financial-projection" | "capital-plan" | "company" | "organization-chart" | "employee-register" | "contracts" | "capital-policy" | "cost" | "cost-fuel" | "ip" | "drive" | "dd" | `report:${string}`;
+export type SxWeeklyControlView = "meetings" | "shareholder-meeting" | "board-meeting" | "executive-meeting" | "slack" | "weekly" | "gantt" | "objective-structure" | "partners" | "issues" | "tasks" | "technology" | "poc-list" | "competition" | "business-model" | "business-plan" | "development-issues" | "financial-projection" | "capital-plan" | "company" | "organization-chart" | "employee-register" | "contracts" | "capital-policy" | "cost" | "cost-fuel" | "ip" | "drive" | "dd" | `report:${string}`;
 const SX_WEEKLY_VIEW_STORAGE_KEY = "sx-weekly-control-view-v1";
 const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   meetings: "meetings",
+  "shareholder-meeting": "shareholder-meeting",
+  "board-meeting": "board-meeting",
   "executive-meeting": "executive-meeting",
   slack: "slack",
   weekly: "weekly-change",
@@ -407,6 +410,8 @@ const WORKSPACE_TAB_LABELS: Record<SxWeeklyControlView, string> = {
   gantt: "ガント",
   "objective-structure": "ガント",
   meetings: "動向・会議",
+  "shareholder-meeting": "株主総会",
+  "board-meeting": "取締役会",
   "executive-meeting": "経営会議",
   slack: "Slack",
   weekly: "週次差分",
@@ -455,7 +460,7 @@ function workspaceGroupsForType(type: ProjectFormatType, projectId?: string,chap
 }
 const EXTERNAL_WORKSPACE_TABS = new Set<SxWeeklyControlView>([
   "report:business-development-plan", "report:technical-development-plan",
-  "issues", "tasks", "gantt", "meetings", "executive-meeting", "slack", "partners", "drive",
+  "issues", "tasks", "gantt", "meetings", "shareholder-meeting", "board-meeting", "executive-meeting", "slack", "partners", "drive",
   "technology", "poc-list", "competition", "business-model", "business-plan", "development-issues", "financial-projection", "capital-plan",
   "cost", "cost-fuel", "ip", "capital-policy", "company", "organization-chart", "employee-register", "contracts",
 ]);
@@ -464,6 +469,8 @@ function viewForHash(hash: string): SxWeeklyControlView | null {
   if (!normalized) return null;
   if (isProjectReportPageKey(normalized)) return normalized;
   if (normalized === "meetings") return "meetings";
+  if (normalized === "shareholder-meeting") return "shareholder-meeting";
+  if (normalized === "board-meeting") return "board-meeting";
   if (normalized === "executive-meeting") return "executive-meeting";
   if (normalized === "slack") return "slack";
   if (normalized === "project-gantt") return "gantt";
@@ -4725,7 +4732,7 @@ export function SxWeeklyControlDashboard({
   const workspaceGroups = useMemo(() => workspaceGroupsForType(formatType, bundle.project.projectId,reportCatalog.index.map(c=>c.slug)).map((group) => ({
     ...group,
     children: group.children
-      .filter((tab) => (tab.key !== "executive-meeting" || canExecutiveMeeting) && (!externalViewer || EXTERNAL_WORKSPACE_TABS.has(tab.key) || isProjectReportPageKey(tab.key)))
+      .filter((tab) => (tab.key !== "executive-meeting" || !externalViewer || canExecutiveMeeting) && (!externalViewer || EXTERNAL_WORKSPACE_TABS.has(tab.key) || isProjectReportPageKey(tab.key)))
       .map((tab) => ({ ...tab, onHover: () => prefetchProjectPage(bundle.project.projectId, tab.key, externalViewer) })),
   })).filter((group) => group.children.length > 0), [canExecutiveMeeting, externalViewer, formatType, bundle.project.projectId,reportCatalog.index]);
   const dynamicTabs = useMemo(() => workspaceGroups.flatMap((group) => group.children), [workspaceGroups]);
@@ -4761,6 +4768,8 @@ export function SxWeeklyControlDashboard({
     const isValidView = (value: unknown): value is SxWeeklyControlView => {
       return (
         value === "meetings" ||
+        value === "shareholder-meeting" ||
+        value === "board-meeting" ||
         value === "executive-meeting" ||
         value === "slack" ||
         value === "weekly" ||
@@ -5830,9 +5839,12 @@ export function SxWeeklyControlDashboard({
             <WorkspaceMeetings projectId={bundle.project.projectId} readOnly={externalViewer} />
           </section>
         )}
-        {activeView === "executive-meeting" && canExecutiveMeeting && (
+        {activeView === "shareholder-meeting" && <section id="shareholder-meeting" role="tabpanel" aria-label="株主総会"><ProjectGovernanceMeetingPage key={`${bundle.project.projectId}-shareholder`} projectId={bundle.project.projectId} kind="shareholder" readOnly={externalViewer} /></section>}
+        {activeView === "board-meeting" && <section id="board-meeting" role="tabpanel" aria-label="取締役会"><ProjectGovernanceMeetingPage key={`${bundle.project.projectId}-board`} projectId={bundle.project.projectId} kind="board" readOnly={externalViewer} /></section>}
+        {activeView === "executive-meeting" && (
           <section id="executive-meeting" role="tabpanel" aria-label="経営会議">
-            <ExecutiveMeetingPanel key={bundle.project.projectId} projectId={bundle.project.projectId} />
+            {canExecutiveMeeting ? <ExecutiveMeetingPanel key={bundle.project.projectId} projectId={bundle.project.projectId} />
+              : <div className="rounded-2xl border border-slate-200 bg-white px-5 py-8"><h2 className="text-lg font-semibold text-slate-950">経営会議</h2><p className="mt-3 text-sm text-slate-600">このPJの経営陣登録がないため、議案と採決を表示できません。</p></div>}
           </section>
         )}
         {activeView === "slack" && (
