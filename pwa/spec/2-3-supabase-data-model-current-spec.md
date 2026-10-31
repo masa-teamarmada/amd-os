@@ -59,6 +59,7 @@
 - `bzm_theory_edges`: 有向エッジを `(from_node_id, relation_type, to_node_id)` 一意で保存する。9 relation を許可し、`raises` の到達先はAPIとDB triggerの両方でactiveな `question` に限定する。
 - `bzm_theory_node_memos`: ノードの内側へ積む記録。`node_id` (FK, `ON DELETE CASCADE`)、`memo_type` (`supports`/`challenges`/`refutes`/`raises`/`tests`)、`body` (trim後1〜2000文字、DB CHECK) を持つ。ノードでもエッジでもなく、追加してもノード数・エッジ数は変わらない。migration `214_bzm_theory_node_memos.sql` が空テーブルとして追加。
 - authenticated member は active ノード、active ノード間エッジ、active ノードに属するメモを読む。書き込みは `public.is_admin()` とAPIの `requireAdmin()` の両方で制限する (ノード・エッジ・メモの3テーブル共通)。
+- 2026-10-31 に理論マップの画面と API を撤去した。3表は記録として残し、読み書きする画面は無い。
 - migration `203_bzm_theory_editor.sql` はschema/RLSと旧21ノード / 34関係seedの履歴。migration `208_bzm_theory_map_user_authored_reset.sql` がedge→nodeの順で全seed行を削除し、0件から本人が育てる現在値にする。日常運用の正本はDBだけで、Markdownは自動読込しない検証・復元用履歴資産。
 - UIからノードを直接削除しない。エッジ解除はID指定、ノード作成と初回エッジの片側失敗は補償削除する。メモ追加 (`create_memo`) はノード作成・エッジ作成とは独立した経路で、ノードもエッジも作らない。
 

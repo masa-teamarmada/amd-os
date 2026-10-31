@@ -28,7 +28,7 @@ SXの設立前月次表示では、個別の売上・売上原価・粗利・人
 
 日常の確認・入力は PJ cockpit の **スコア詳細** に集約する。正規URLは `/project/{projectId}/cockpit?tab=score-detail`。SPS、R_net、FRL、XRL の根拠とチェックリストを同じタブで確認し、旧 `/venture-map/amd-score/{projectId}` は互換URLとして cockpit へ自動転送する。
 
-> 実装者向けの確定仕様は [/spec/4-2-amd-score-current-spec](/spec/4-2-amd-score-current-spec)。理論導出は `/bzm`、日常画面での読み方はこの章に置く。
+> 実装者向けの確定仕様は [/spec/4-2-amd-score-current-spec](/spec/4-2-amd-score-current-spec)。理論導出は書斎の教科書、日常画面での読み方はこの章に置く。
 
 > **2026-07-29 主張境界（当時の運用版＝旧9軸SPSについての記録）**: 当時の運用版SPSは診断指数であり、企業価値、期待事業価値、成功確率、生存確率を表す検証済みモデルではない。0〜9点は順序尺度として扱い、点数差・点数比・`alpha`に経済的な間隔や弾力性の意味があるとはみなさない。SPS順位と律速表示だけでGO、NO_GO、投資額、投入人月を決めない。改訂要件は [`BZM_2_0_REVISION_REQUIREMENTS.md`](../bzm/BZM_2_0_REVISION_REQUIREMENTS.md) を参照する。
 >

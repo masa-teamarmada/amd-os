@@ -3811,195 +3811,32 @@ expectIncludes("scripts/migrations/175_lst_cap_table_history.sql", [
   "in_kind_contribution",
 ]);
 
-// `/bzm/public/**` は通常の会員BZMとは別の公開原稿。middlewareと(app) shellの
-// どちらかだけを外すと再びログイン画面に戻るため、二つの境界を同時に保護する。
-expectIncludes("src/lib/supabase/middleware.ts", [
-  "const isPublicBzmManuscript",
-  "!isPublicBzmManuscript",
-]);
-expectIncludes("src/app/(app)/layout.tsx", [
-  'pathname === "/bzm/public"',
-  "return <>{children}</>;",
-]);
-
-// 書斎 `/bzm/read` (2026-10-03、設計正本 design/bzm_reader.md): 未投稿の論文と匿名化前の草稿を
-// 並べるため管理者だけが開ける。読書画面は外枠(AppShell)を外した全画面で、外す判定・管理者限定の
-// layout・左ナビの入口・本番同梱の指定・検査の登録のどれかが欠けると、画面が開けない、
-// 会員全員に見える、本番だけ原稿を読めない、のいずれかになる。
-// 外す判定は client の AppShell（usePathname）に置く。サーバの layout は画面遷移で再描画されず、
-// 棚から Link で読書画面へ移ったとき（と逆）に外枠の有無が古いままになるため。
-// 管理者の判定は layout・3つの page・generateMetadata のすべてから requireReaderAdmin で呼ぶ。
-expectIncludes("src/components/nav/AppShell.tsx", ["isBzmReaderRoute"]);
-expectNotIncludes("src/app/(app)/layout.tsx", ["isBzmReaderRoute"]);
-expectIncludes("src/lib/bzm-reader/require-reader-admin.ts", ["isAdmin", 'redirect("/dashboard")']);
-for (const file of [
-  "src/app/(app)/bzm/read/layout.tsx",
-  "src/app/(app)/bzm/read/page.tsx",
-  "src/app/(app)/bzm/read/[book]/page.tsx",
-  "src/app/(app)/bzm/read/[book]/[chapter]/page.tsx",
+// 本・論文・理論マップは OS に表示しない（2026-10-31 まさ「止めて」「理論マップも削除していいよ」）。
+// 原稿の正本は書斎（別アプリ・別リポジトリ）にあり、OS の /bzm 配下は middleware が認証より前に書斎の本棚へ送る。
+// 画面・API・左ナビの入口・外枠を外す判定・公開原稿の認証の例外のどれかを戻すと、古い写しを OS から読めてしまう。
+// 振り分けの規則そのものは check_bzm_redirects.mts（deploy.sh の test:bzm-redirects）が確かめる。
+for (const retired of [
+  "src/app/(app)/bzm",
+  "src/app/api/bzm",
+  "src/app/api/bzm-reader",
+  "src/components/bzm-reader",
+  "src/components/bzm/BzmSideNav.tsx",
+  "src/components/bzm/BzmTheoryMapView.tsx",
+  "src/lib/bzm-theory-store.ts",
 ]) {
-  expectIncludes(file, ["requireReaderAdmin()"]);
+  if (fs.existsSync(path.join(root, retired))) {
+    throw new Error(`${retired} が復活している（OS では本・論文・理論マップを表示しない）`);
+  }
 }
-// 書斎は AMD OS とは別の専用アプリ（2026-10-04）。左ナビには入口を置かず、専用の manifest で単独インストールする。
-// 外枠を外す判定が棚 /bzm/read まで含むこと、manifest が middleware の認証を素通りすること、
-// 書斎の配下でだけ manifest を差し替えることのどれかが欠けると、インストールできない、棚だけ左ナビが出る、のいずれかになる。
-expectNotIncludes("src/components/nav/GlobalNav.tsx", ['"/bzm/read"']);
-expectIncludes("src/components/nav/AppShell.tsx", [
-  "const BZM_READER_ROUTE = /^\\/bzm\\/read(?:\\/[^/]+){0,2}\\/?$/;",
-]);
-expectIncludes("public/manifest-shosai.json", ['"start_url": "/bzm/read"', '"scope": "/"', '"display": "standalone"']);
-expectIncludes("public/manifest-shosai.json", ['"/icons/shosai-512.png"', '"/icons/shosai-512-maskable.png"']);
-expectIncludes("src/app/(app)/bzm/read/layout.tsx", ['"/icons/shosai-apple-180.png"']);
-expectIncludes("src/app/auth/login/layout.tsx", ['"/icons/shosai-apple-180.png"']);
-expectIncludes("src/middleware.ts", ["manifest-shosai\\\\.json"]);
-// 書斎は別のアドレスで開く別アプリ。アドレスの振り分けはログインの判定より前に置く（bzm_reader.md §2.1）
-expectIncludes("src/middleware.ts", ["readerHostRedirect(request.nextUrl", "NextResponse.redirect(hostRedirect, 307)"]);
-expectIncludes("src/lib/bzm-reader/hosts.ts", ['SHOSAI_HOST = "bookshelf-armada.vercel.app"', 'AMD_OS_HOST = "amd-os-pwa.vercel.app"']);
-// 書斎のアドレスのログイン画面は「書斎」として出す（題・manifest・見出し・内部ログインだけ）
-expectIncludes("src/app/auth/login/layout.tsx", ["isShosaiHost(h.get(\"host\"))", 'manifest: "/manifest-shosai.json"', "<LoginAppProvider app={app}>"]);
-expectIncludes("src/app/auth/login/page.tsx", ["useLoginApp()", 'loginApp === "shosai"']);
-expectIncludes("src/app/(app)/bzm/read/layout.tsx", ['manifest: "/manifest-shosai.json"']);
-expectIncludes("src/lib/surface-catalog.ts", ['id: "bzm-reader"']);
-// /bzm の章ページに原稿の HTML コメント（執筆メモ）を出さない。BzmMarkdown は生の HTML を描かず文字として出すため（2026-10-03）
-expectIncludes("src/app/(app)/bzm/bzm-data.ts", ["export function stripHtmlComments", "return stripHtmlComments(source);"]);
-// BZM 3.0 教科書を /bzm の左ナビ最上位の部に置く
-expectIncludes("src/app/(app)/bzm/bzm-chapters.ts", ['key: "bzm-3-0-textbook"', '"bzm-3-0-textbook-appendix"']);
-// 書斎の本文と図は outputFileTracingIncludes で同梱する。動的セグメントのキーは `*` で書く（2026-10-17）。
-// 実際に同梱されたかは build 後の check_function_bundle_storage.mjs が実 trace で確かめる。
-expectIncludes("next.config.ts", [
-  '"/bzm/read/*/*/page"',
-  '"/api/bzm-reader/asset/*/route"',
-  // 図(SVG)の CSP は全体の設定に上書きされるため、この path にだけ後から当てて上書きする。
-  'source: "/api/bzm-reader/asset/:path*"',
-  "bzmReaderAssetSecurityHeaders",
-]);
-expectIncludes("package.json", ["test:bzm-reader"]);
-expectIncludes("src/components/bzm-reader/ReaderView.tsx", [
-  'aria-label="目次"',
-  'aria-label="文字の設定"',
-  // 左の目次の列（画面 1100px 以上で常設、開閉は toc-open に保存）と、本文の領域の幅での見開き判定（2026-10-04、設計 §6.4）
-  "<ReaderTocColumn",
-  "amd-os.bzm-reader.toc-open",
-]);
-expectIncludes("src/components/bzm-reader/ReaderTocColumn.tsx", ['data-bzr-toc-col="true"', "ReaderTocContent"]);
-expectIncludes("src/components/bzm-reader/reader-shell.css", [".bzr-toc-col {", "--bzr-toc-w", ".bzr-gutter::after"]);
-// 書斎の目次（2026-10-04、設計 §6.4）: 章の題を押して新しい章のサーバ描画が届くまで 3〜4 秒待っていた。
-// (1) 本の全章の見出しを最初から持ち（bookHeadings）、各章の行ぜんたいが 1 つの開閉のボタン（aria-expanded、44px 以上）で、画面遷移なしに見出しを開閉する。
-//     章の行は開閉だけで本文へ移らない（2026-10-06）。章の最初の文章（導入）は、見出しの一覧の先頭の「導入」の項目から開く。
-// (2) 別の章の「導入」か見出しを押したら、その章を目次で即座に「開いている章」にして「開いています…」を出し、画面の最上部に進行の帯を出して本文を薄くする。
-//     届いた（章が替わった）ことは effect の中の setState ではなく、描画の中で前の章と比べて解く。
-// (3) 章の先読みは完全な先読み（PrefetchKind.FULL。既定の auto は、loading.js の無い動的なページでは実質なにも運ばない）。
-//     ポインタ・フォーカス・タッチの意図で始め、今の章の最初の割り付けが済んでブラウザが空いたら前後の章を先読みする（データセーバーでは自動の先読みをしない）。
-//     めくって移る URL（?at=start / ?at=end）と同じ URL を先読みする（先読みの鍵は pathname と search）。
-expectIncludes("src/lib/bzm-reader/load.ts", ["bookHeadings: loaded.headingsBySlug"]);
-expectIncludes("src/lib/bzm-reader/types.ts", ["bookHeadings: Record<string, ReaderHeading[]>;", "export function readerHeadingHref("]);
-expectIncludes("src/app/(app)/bzm/read/[book]/[chapter]/page.tsx", ["bookHeadings"]);
-expectIncludes("src/components/bzm-reader/ReaderPanels.tsx", [
-  'cn("bzr-toc-item", "bzr-toc-toggle"',
-  "aria-expanded={expanded}",
-  "の見出しを${expanded ? \"閉じる\" : \"開く\"}",
-  "readerHeadingHref(book.id, chapter.slug, h.id)",
-  "bookHeadings[chapter.slug]",
-  "開いています…",
-  "onPointerEnter",
-  "onPointerDown",
-  "onFocus",
-  "prefetchChapterFull(router, href)",
-]);
-expectNotIncludes("src/components/bzm-reader/ReaderPanels.tsx", ["router.prefetch(readerChapterHref("]);
-// 章の行は、見出しの一覧を開閉するだけのボタン。この範囲（章の行ここから〜ここまで）に、本文へ移るリンクや遷移を置かない
-// （置くと、章の最初の文章が「折りたたむ側」の行に紛れ、開閉と遷移が 1 つの押下に混ざる）。開閉の処理（toggleChapter）も遷移しない。
-expectSegmentNotIncludes(
-  "src/components/bzm-reader/ReaderPanels.tsx",
-  "{/* 章の行（開閉のボタン）ここから",
-  "{/* 章の行ここまで */}",
-  ["<Link", "href=", "router.push", "onJumpChapterStart", "onOpenChapter", "openClick("],
-);
-expectSegmentNotIncludes(
-  "src/components/bzm-reader/ReaderPanels.tsx",
-  "const toggleChapter = (slug: string) => {",
-  "// パネルを開いたとき",
-  ["router.push", "onOpenChapter", "onJumpChapterStart"],
-);
-expectPattern("src/components/bzm-reader/ReaderPanels.tsx", [
-  // 章の行は、type="button" のボタンで、aria-expanded を持ち、押すと toggleChapter（開閉）を呼ぶ
-  /章の行（開閉のボタン）ここから[\s\S]*?<button\s+type="button"[\s\S]*?aria-expanded=\{expanded\}[\s\S]*?onClick=\{\(\) => toggleChapter\(chapter\.slug\)\}[\s\S]*?章の行ここまで/,
-  // 「導入」の項目は、見出しの一覧の先頭（見出しの list.map より前）。いまの章は同じ画面の中で章の最初へ、別の章は ?at=start で最初のページから開く
-  /showIntro \? \([\s\S]*?onClick=\{onJumpChapterStart\}[\s\S]*?導入[\s\S]*?readerChapterHref\(book\.id, chapter\.slug, "start"\)[\s\S]*?導入[\s\S]*?\{list\.map\(/,
-]);
-expectIncludes("src/components/bzm-reader/ReaderPanels.tsx", [
-  "readerShowsIntro(chapter, list.length)",
-  'data-intro="true"',
-  "introActive",
-  "onClick={openClick(chapter.slug)}",
-  "{...intentProps(chapter.slug, \"start\")}",
-]);
-// 目次の「導入」の有無は章ごとに持つ（hasIntro。前処理後の本文で、章の題から最初の節までに本文があるか）。
-// 読んでいるページが最初の節より前のときは、目次の「導入」を今いる場所として強調する（introActive）
-expectIncludes("src/lib/bzm-reader/types.ts", ["hasIntro: boolean;", "export function readerShowsIntro("]);
-expectIncludes("src/lib/bzm-reader/preprocess.ts", ["export function chapterHasIntro("]);
-expectIncludes("src/lib/bzm-reader/load.ts", [
-  "hasIntro: chapterHasIntro(markdown)",
-  "hasIntro: chapterHasIntro(section.markdown)",
-  "hasIntro: false",
-]);
-expectIncludes("src/components/bzm-reader/ReaderView.tsx", [
-  "readerShowsIntro(chapter, headings.length)",
-  "introActive={introActive}",
-]);
-expectIncludes("src/components/bzm-reader/ReaderTocColumn.tsx", ["introActive"]);
-expectIncludes("src/components/bzm-reader/chapter-prefetch.ts", [
-  'import { PrefetchKind } from "next/dist/client/components/router-reducer/router-reducer-types";',
-  "router.prefetch(href, { kind: PrefetchKind.FULL })",
-  "requestIdleCallback",
-  "IDLE_FALLBACK_MS = 1500",
-  "saveData === true",
-  "export function useIdlePrefetch(",
-]);
-expectIncludes("src/components/bzm-reader/ReaderView.tsx", [
-  "useIdlePrefetch(router, nextHref, measured, nearEnd)",
-  "useIdlePrefetch(router, prevHref, measured, nearStart)",
-  'readerChapterHref(book.id, nextSlug, "start")',
-  'readerChapterHref(book.id, prevSlug, "end")',
-  "setOpeningSlug(null)",
-  "data-opening",
-  'className="bzr-progress"',
-]);
-// 解除を effect の中の setState にしない（描画の中で前の章と比べる）
-expectNotIncludes("src/components/bzm-reader/ReaderView.tsx", ["useEffect(() => {\n    setOpeningSlug"]);
-expectIncludes("src/components/bzm-reader/reader-shell.css", [
-  ".bzr-toc-toggle {",
-  ".bzr-toc-chevron {",
-  ".bzr-toc-row > .bzr-toc-opening {",
-  ".bzr-toc-row.is-opening",
-  ".bzr-progress {",
-  '.bzr-root[data-opening="true"] .bzr-viewport',
-]);
-// 目次で押せる部品（章の行のボタンと、見出し・「導入」の項目）は高さ 44px 以上
-expectPattern("src/components/bzm-reader/reader-shell.css", [
-  /\.bzr-toc-item \{[^}]*min-height: 44px;[^}]*\}/,
-  /\.bzr-toc-sub-item \{[^}]*min-height: 44px;[^}]*\}/,
-]);
-// 章と節の区切り（2026-10-04、設計 §5）: 章の扉（ラベルと大きな題）、節番号の色分け、ページ表示では扉のある章の最初の節（最初の h2）を新しいページから始める。
-// 縦スクロール表示では区切らない（data-layout="page" の中だけ）。文字の色は reader.css の変数が 4.5:1 以上（check_bzm_reader.mts が読む）。
-expectIncludes("src/components/bzm-reader/ReaderMarkdown.tsx", [
-  "splitChapterHeading",
-  "splitSectionNumber",
-  'className="bzr-door"',
-  'className="bzr-door-label"',
-  'className="bzr-sec-num"',
-]);
-expectIncludes("src/components/bzm-reader/reader.css", [
-  ".bzr-content h1.bzr-door {",
-  ".bzr-content .bzr-door-label {",
-  ".bzr-content .bzr-sec-num {",
-  '.bzr-root[data-layout="page"] .bzr-content:has(> h1.bzr-door) > h2:first-of-type {',
-  "-webkit-column-break-before: always;",
-  "break-before: column;",
-]);
-expectPattern("src/components/bzm-reader/reader.css", [
-  /\[data-layout="page"\] \.bzr-content:has\(> h1\.bzr-door\) > h2:first-of-type \{[^}]*break-before: column;[^}]*\}/,
-]);
+expectNotIncludes("src/components/nav/GlobalNav.tsx", ['href: "/bzm']);
+expectNotIncludes("src/components/nav/AppShell.tsx", ["BZM_READER_ROUTE"]);
+expectNotIncludes("src/lib/supabase/middleware.ts", ["isPublicBzmManuscript"]);
+expectNotIncludes("src/app/(app)/layout.tsx", ['pathname === "/bzm/public"']);
+expectNotIncludes("src/app/api/macos/document/route.ts", ['"bzm-public"', "bzmContentDir"]);
+expectIncludes("src/middleware.ts", ["readerHostRedirect("]);
+expectIncludes("src/lib/bzm-reader/hosts.ts", ['SHOSAI_HOST = "bookshelf-armada.vercel.app"', 'AMD_OS_HOST = "amd-os-pwa.vercel.app"', "export function isRetiredBzmPath("]);
+expectIncludes("package.json", ["test:bzm-redirects"]);
+expectNotIncludes("package.json", ["test:bzm-reader", "test:bzm-theory-graph", "test:bzm-theory-editor"]);
 
 // 通知 action contract (2026-07-24): 開催履歴候補は、採用前には正本を増やさず、
 // 追加先・追加内容・外部操作を伴わない結果を明示してから同一feedback APIで反映する。
@@ -4644,80 +4481,6 @@ expectNotIncludes("src/components/cockpit/CockpitSoilSeeds.tsx", [
   "RadarChart",
   "ScatterChart",
 ]);
-
-// BZM 2.0 理論マップ (2026-08-02): 即時下書き (Canvas単一描画)・即時接続とマップ内編集で
-// 育てる論証台帳。ノード=理論要素・エッジ=関係・メモ=選択ノード内側の記録という概念分離
-// (直前の「1メモ=1ノード+1エッジ」誤仕様は撤回)。成長操作は「メモを追加」1本化 (draft node
-// を作らず bzm_theory_node_memos だけへ書く)。同日の右台帳撤去で、常設の選択ノード読取り
-// ウィンドウ (summary/source/body プレビュー、カバレッジ警告、メモ一覧、接続ノード一覧、行内
-// 削除ボタン) は廃止し、マップを右の予約列なしに全幅化した。ノード詳細の読み書きは既存の
-// マップ内編集オーバーレイに一本化し、選択ノードの操作帯 (編集・メモを追加・Cmd/Ctrl接続) だけ残す。
-expectIncludes("src/components/bzm/BzmSideNav.tsx", [
-  "/bzm/map",
-  "理論マップ (論証台帳)",
-]);
-expectIncludes("src/components/bzm/BzmTheoryMapView.tsx", [
-  'id="bzm-map-search"',
-  'aria-label="マップ表示に切り替え"',
-  'aria-label="一覧表示に切り替え"',
-  "onBackgroundClick",
-  "onNodeDragEnd",
-  "onLinkClick",
-  "event.metaKey || event.ctrlKey",
-  "⌘＋次のノードで即接続",
-  'data-bzm-map-workspace="true"',
-  "KIND_COLOR",
-  "createDirectEdge",
-  "parseTheoryMapEdgeDto",
-  "openDraftComposer",
-  "openMemoComposer",
-  "screen2GraphCoords",
-  "setPendingEdge(optimisticEdge)",
-  "clippedLinkPoints",
-  "linkCanvasObject={drawClippedLink}",
-  'data-bzm-map-overlay-host="composer"',
-  "メモを追加",
-  "ここから、まさの理論マップが始まる",
-]);
-expectNotIncludes("src/components/bzm/BzmTheoryMapView.tsx", [
-  "nearestDistance",
-  "fillText(KIND_",
-  "drawStatusRing",
-  "色 = ステータス",
-  "data-bzm-draft-node",
-  "draftVisual",
-  "関連メモ",
-  "openGrowComposer",
-  "relationRoleDefaults",
-  "MemoList",
-  "ConnectedNodesList",
-  "data-bzm-edge-row-delete",
-  "<BzmMarkdown",
-  "_380px]",
-  "カバレッジの欠落",
-]);
-expectIncludes("src/components/bzm/BzmTheoryComposerDialog.tsx", [
-  'data-bzm-map-panel="composer"',
-  'data-bzm-map-overlay="composer"',
-  'aria-modal="false"',
-  "下書きノードをマップに作成済み",
-  "onDraftChange(state.draftId, form)",
-  "MEMO_TYPE_OPTIONS",
-  '"create_memo"',
-  "parseTheoryMapMemoDto",
-]);
-expectNotIncludes("src/components/bzm/BzmTheoryComposerDialog.tsx", [
-  'type: "connect"',
-  'mode === "connect"',
-  "既存ノードとつなぐ",
-  '"support" | "challenge" | "question"',
-  "RELATION_ROLE_OPTIONS",
-  "relationRoleDefaults",
-  "relationDirection",
-  "deriveNoteTitle",
-  "接続のプレビュー",
-]);
-expectIncludes("package.json", ["test:bzm-theory-graph"]);
 
 // SX関係先・論点の低摩擦入力 (2026-08-09): 排液調達は明示boolを行内PATCH、
 // 論点は種類/期限を一覧で見せ、議論の進捗は上書きせず追記履歴として保存する。

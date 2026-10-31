@@ -33,16 +33,15 @@ for (const stillPresent of [
   'label: "マイページ"',
   'label: "通知"',
   'label: "立替"',
-  // 「教科書」は 2026-10-31 に外した。本と論文の正本は書斎（別アプリ）へ移り、OS では表示しない（まさ「止めて」）。
-  // 資料グループには、OS に残す理論マップが入る。
-  'label: "理論マップ"',
   'label: "マニュアル"',
 ]) {
   assert.match(globalNav, new RegExp(stillPresent.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 }
-// 本と論文は書斎へ移したので、OS のメニューに教科書の入口を戻さない（2026-10-31）
+// 本・論文の正本は書斎（別アプリ）にあり、OS では本・論文・理論マップを表示しない（2026-10-31 まさ「止めて」「理論マップも削除していいよ」）。
+// メニューに教科書と理論マップの入口を戻さない。
 assert.doesNotMatch(globalNav, /label: "教科書"/);
-assert.match(globalNav, /label: "理論マップ"[\s\S]*?href: "\/bzm\/map"/);
+assert.doesNotMatch(globalNav, /label: "理論マップ"/);
+assert.doesNotMatch(globalNav, /href: "\/bzm/);
 
 // 3. /dashboard は研究機関・シーズの全件表を直接持たず (= 正本は /institutions /seeds)、
 //    PortfolioPulse 経由でのみ読む。PJ運用の全件は #pj-operations アンカーへ実接続する。

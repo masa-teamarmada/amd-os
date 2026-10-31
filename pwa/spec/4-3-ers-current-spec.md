@@ -268,4 +268,4 @@ Supabase import なしの純粋関数群。ECR と SPS を独立に as-of 整列
 
 ## 再構築可能性チェック
 
-この章で ECR の DB、fetch、upsert API、admin gate、制度比較seedの投入手順、および土壌×シーズタブのDB・データ層・UI契約は再構築できる。まだ不足しているのは ECR 8 軸 rubric の PWA seed と `/bzm` からの同期方法。
+この章で ECR の DB、fetch、upsert API、admin gate、制度比較seedの投入手順、および土壌×シーズタブのDB・データ層・UI契約は再構築できる。まだ不足しているのは ECR 8 軸 rubric の PWA seed と書斎の教科書からの同期方法。

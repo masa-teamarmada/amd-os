@@ -1927,12 +1927,9 @@ function DeepLinkForL2({ n }: { n: Notification }) {
           </a>
         );
       }
+      // 原稿の正本は書斎（別アプリ）へ移り、OS には追記先の章が無い（2026-10-31）。追記先は未決なので、章名だけを出す。
       const slug = textFromUnknown(meta.target_bzm_slug) || "8-1-amd-os-operations";
-      return (
-        <a className="text-blue-600 hover:underline" href={`/bzm/${encodeURIComponent(slug)}`}>
-          /bzm/{slug} (承認後に local applier が追記)
-        </a>
-      );
+      return <span>書斎の原稿 {slug}（OS からの追記は止めている）</span>;
     }
     case "contract_signals":
       return (
@@ -2202,7 +2199,7 @@ function textbookPracticeKindLabel(practiceKind: string): string {
 }
 
 function textbookAppendTargetText(slug: string, section: string, practiceKind: string): string {
-  const target = slug ? `/bzm/${slug}` : "BZMの該当章";
+  const target = slug ? `書斎の原稿 ${slug}` : "BZMの該当章";
   const sectionText = section || textbookPracticeKindLabel(practiceKind);
   if (practiceKind === "decision_branch") {
     return `${target} / ${sectionText}\n「分岐点」はAMDプロトコル本文の疑問文ではなく、BZM側で“判断の条件・材料・結果を再利用可能に残す”ための分類。`;

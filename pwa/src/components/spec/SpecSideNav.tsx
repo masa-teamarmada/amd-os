@@ -11,7 +11,7 @@ export interface SpecSideNavGroup {
 }
 
 /**
- * 設計書 (/spec) の左サイドバー目次 (= bzm の BzmSideNav 相当)。
+ * 設計書 (/spec) の左サイドバー目次。
  * SPEC_SECTIONS でグループ化し、現在表示中の章をハイライトする。
  */
 export function SpecSideNav({

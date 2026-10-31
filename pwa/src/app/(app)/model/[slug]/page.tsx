@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { BzmMarkdown } from "@/components/bzm/BzmMarkdown";
 import { ModelSideNav, type ModelSideNavGroup } from "@/components/model/ModelSideNav";
-import { BZM_SLUG_ALIASES } from "../../bzm/bzm-chapters";
 import { buildModelSideNavGroups, getModelMarkdownSource, loadModelCurrent } from "../model-data";
 
 /**
@@ -12,11 +11,18 @@ import { buildModelSideNavGroups, getModelMarkdownSource, loadModelCurrent } fro
  * BzmMarkdown (= 表・数式・見出しアンカー対応 renderer) で描画する。
  * admin 限定 (= model/layout.tsx)。
  */
+/** 旧 SPS 2.0 の slug から現行文書へのリダイレクト（もとは教科書の章一覧が持っていた対応表） */
+const MODEL_SLUG_ALIASES: Record<string, string> = {
+  "sps-2-0-reachability-model": "sps-current-reachability-model",
+  "sps-2-0-domain-definition": "sps-current-domain-definition",
+  "sps-2-0-measurability-gate": "sps-current-measurability-gate",
+};
+
 export default async function ModelDocPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const decoded = decodeURIComponent(slug);
 
-  const aliasTarget = BZM_SLUG_ALIASES[decoded];
+  const aliasTarget = MODEL_SLUG_ALIASES[decoded];
   if (aliasTarget) {
     redirect(`/model/${aliasTarget}`);
   }

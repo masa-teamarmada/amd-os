@@ -18,7 +18,7 @@
 #   2-b. 参照系データのキャッシュ契約 (test:reference-data-cache)
 #   2-b'. PJタイプ別の標準フォーマット契約 (test:project-format。定義の鍵とPJ番号の名指しのラチェット)
 #   2-b''. 特定のPJだけの処理を戻さない (test:no-project-special-cases。コード・自動処理の指示書・Mac/iPhone アプリ)
-#   2-b2. 書斎 /bzm/read の前処理・棚・進み具合 (test:bzm-reader)
+#   2-b2. /bzm 配下を書斎へ送る振り分けと、本・論文・理論マップの画面を OS に戻さないこと (test:bzm-redirects)
 #   2-c. /model/formulas の正本ポインタ (test:model-formula-canon)
 #   3. rollback guard (deploy-version-guard.cjs)
 #   4. git push origin main → Vercel 自動 build 発火
@@ -118,7 +118,7 @@ echo "Running critical UI / spec rollback guard ..."
 (cd "$REPO_ROOT/pwa" && npm run test:no-project-special-cases)
 # PJ概要の9項目と、事業の一言の入口（会社概要だけ）。spec 3-23 §9。
 (cd "$REPO_ROOT/pwa" && npm run test:project-overview)
-(cd "$REPO_ROOT/pwa" && npm run test:bzm-reader)
+(cd "$REPO_ROOT/pwa" && npm run test:bzm-redirects)
 (cd "$REPO_ROOT/pwa" && npm run test:llm-spend-gate)
 (cd "$REPO_ROOT/pwa" && npm run test:meeting-backfill-ledger)
 (cd "$REPO_ROOT/pwa" && npm run test:meeting-narrative-gate)

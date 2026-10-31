@@ -24,13 +24,8 @@ type AppShellProps = {
   projectNavItems: ProjectNavItem[];
 };
 
-// 書斎（/bzm/read の棚、/bzm/read/<本>、/bzm/read/<本>/<章>）。AMD OS とは別の専用アプリとして開くため、
-// 棚も読書画面も外枠（左ナビ・通知・チャット・月初合意）を外す。layout はソフトナビゲーションで再描画されないので、
-// 外す判定はサーバの layout ではなく、遷移のたびに更新される usePathname で行う。
-const BZM_READER_ROUTE = /^\/bzm\/read(?:\/[^/]+){0,2}\/?$/;
-
 function shouldSkipMonthlyAgreementGate(pathname: string) {
-  return BZM_READER_ROUTE.test(pathname) || pathname.startsWith("/monthly-agreement") || pathname.startsWith("/native") || /^\/project\/[^/]+\/(?:workspace|weekly-control|navigation)(?:\/|$)/.test(pathname);
+  return pathname.startsWith("/monthly-agreement") || pathname.startsWith("/native") || /^\/project\/[^/]+\/(?:workspace|weekly-control|navigation)(?:\/|$)/.test(pathname);
 }
 
 // 月初合意ゲートは (app)/layout.tsx の SSR では計算しない。
@@ -83,7 +78,6 @@ export function AppShell({
 }: AppShellProps) {
   const pathname = usePathname() ?? "";
   const isNativeShell = pathname.startsWith("/native");
-  const isBzmReaderRoute = BZM_READER_ROUTE.test(pathname);
   const isAdminRoute = pathname.startsWith("/admin");
   const isWorkspaceRoute = /^\/project\/[^/]+\/(?:workspace|weekly-control|navigation)(?:\/|$)/.test(pathname);
   const useEmbeddedShellOnly = isNativeShell || isWorkspaceRoute;
@@ -92,12 +86,6 @@ export function AppShell({
   const agreementGateBundle = useMonthlyAgreementGateBundle(isProjectScope ? null : memberId, pathname);
 
   if (isNativeShell) {
-    return <main className="flex-1">{children}</main>;
-  }
-
-  // 書斎は専用アプリ。左ナビと常駐UI（通知・チャット）を載せると、ページ送りの幅と集中を奪う。
-  // 認証とPJ判定は (app)/layout.tsx で済んでおり、管理者の絞り込みは read 配下の requireReaderAdmin が行う。
-  if (isBzmReaderRoute) {
     return <main className="flex-1">{children}</main>;
   }
 

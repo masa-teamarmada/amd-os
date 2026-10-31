@@ -54,8 +54,6 @@ export async function updateSession(request: NextRequest) {
   const isPublicMeetingArtifact = pathname.startsWith("/shared/");
   const isLocalExecutivePreview = process.env.NODE_ENV === "development"
     && pathname.startsWith("/preview-executive-meeting/");
-  // `/bzm/public/**` は公開原稿。通常の `/bzm/**` は引き続き会員限定にする。
-  const isPublicBzmManuscript = pathname === "/bzm/public" || pathname.startsWith("/bzm/public/");
   const hasProjectWorkspaceSession = request.cookies.has(PROJECT_WORKSPACE_SESSION_COOKIE);
   const hasWorkspaceAccountSession = request.cookies.has(WORKSPACE_SESSION_COOKIE)
     && isWorkspaceSessionAllowedPath(pathname);
@@ -95,7 +93,6 @@ export async function updateSession(request: NextRequest) {
     !pathname.startsWith("/api/") &&
     !isPublicMeetingArtifact &&
     !isLocalExecutivePreview &&
-    !isPublicBzmManuscript &&
     pathname !== "/"
   ) {
     const url = request.nextUrl.clone();

@@ -18,7 +18,8 @@ function check(route, limitMb, required = [], forbidden = []) {
   for (const fragment of forbidden) assert(!files.some(file => file.includes(fragment)), `${route}: unrelated ${fragment} was bundled`);
   console.log(`${route}: ${(bytes / 1e6).toFixed(2)} MB`);
 }
-check("api/macos/document/route", 40, ["manual/1-1-intro.md", "spec/1-1-overview.md", "../bzm/bzm-3-0-textbook-coefficients.md"], ["/pwa/output/", "/pwa/design/", "/pwa/design_log/", "/pwa/scripts/", "/bzm/pilot/"]);
+// 本・論文の原稿は書斎へ移り、macOS の文書 API はマニュアルと設計書だけを返す（2026-10-31）。bzm/ を同梱しない。
+check("api/macos/document/route", 40, ["manual/1-1-intro.md", "spec/1-1-overview.md"], ["/pwa/output/", "/pwa/design/", "/pwa/design_log/", "/pwa/scripts/", "/bzm/"]);
 check("(app)/model/page", 50, ["../model/CURRENT.json", "../model/LOCK.json"], ["/bzm/pilot/"]);
 for (const route of ["history", "edit-by-tsukuyomi"]) check(`api/monthly-report/${route}/route`, 8, [], ["/@sparticuz/chromium/bin/", "/@fontsource-variable/noto-sans-jp/"]);
 for (const route of ["api/monthly-report/pdf/route", "api/monthly-report/manual-update/route", "api/monthly-report/external-manual-update/route", "api/admin/monthly-reports/download/route", "api/report/fix/route", "api/workspace-documents/[documentId]/pdf/route"]) {
@@ -26,7 +27,7 @@ for (const route of ["api/monthly-report/pdf/route", "api/monthly-report/manual-
   assert(filesFor(route).some(file => /noto-sans-jp\/files\/.*\.woff2$/.test(file)), `${route}: missing Japanese font files`);
 }
 
-// 2026-10-17: 教科書・モデル正本を実行時に読む route は、読む可能性のある本文を全部持つこと。
+// 2026-10-17: モデル正本と、モデルが参照する bzm/ の設計文書を実行時に読む route は、読む可能性のある本文を全部持つこと。
 // 読み手の fs 呼び出しは turbopackIgnore で自動追跡を止め、next.config.ts の outputFileTracingIncludes
 // だけで同梱している。書き漏れは本番だけ ENOENT（ページの「準備中」や 404）になるので、ここで止める。
 function filesUnder(dir, pattern) {
@@ -47,11 +48,9 @@ function requireAll(route, dir, pattern) {
   const missing = filesUnder(dir, pattern).filter(file => !files.has(file));
   assert(missing.length === 0, `${route}: ${dir} の ${missing.length} 件が同梱されていない（例: ${path.relative(root, missing[0] ?? "")}）。next.config.ts の outputFileTracingIncludes を確認する`);
 }
-const bzmReaders = ["(app)/bzm/[slug]/page", "(app)/bzm/map/page", "(app)/bzm/public/[slug]/page", "(app)/bzm/read/page", "(app)/bzm/read/[book]/page", "(app)/bzm/read/[book]/[chapter]/page", "api/bzm/theory-map/route", "api/macos/document/route"];
 const modelReaders = ["(app)/model/page", "(app)/model/[slug]/page", "(app)/model/formulas/page", "api/model/bzm30/route", "api/model/sections/route", "api/project/[projectId]/org/route"];
-for (const route of [...bzmReaders, ...modelReaders]) requireAll(route, "../bzm", /\.md$/);
+for (const route of modelReaders) requireAll(route, "../bzm", /\.md$/);
 for (const route of modelReaders) requireAll(route, "../model", /\.(md|json)$/);
-requireAll("api/bzm-reader/asset/[...path]/route", "../bzm", /\.(png|jpe?g|svg|webp|gif)$/i);
 for (const dir of ["manual", "spec"]) requireAll("api/macos/document/route", dir, /\.md$/);
 
 // 2026-10-17: 全 route の実 trace を走査し、本番の関数に入れてはいけない物を止める。
@@ -67,7 +66,7 @@ const FORBIDDEN_EVERYWHERE = [
   ["/pwa/scripts/", "検査・移行の道具"],
   ["/pwa/scheduled-tasks/", "定期タスクの指示書"],
   ["/pwa/proposals/", "提案書の原稿"],
-  ["/pwa/public/bzm/", "書斎の公開画像（CDN から配る）"],
+  ["/pwa/public/bzm/", "本の図（CDN から配る）"],
   ["/pwa/tsconfig.tsbuildinfo", "型検査の中間ファイル"],
 ];
 const traces = [];

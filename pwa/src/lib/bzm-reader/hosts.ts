@@ -1,15 +1,13 @@
 /**
  * 書斎を AMD OS とは別のアドレスで開くための振り分け（middleware から呼ぶ純関数）。
  *
- * 書斎は同じサーバ・同じ Supabase のまま、別のアドレス（SHOSAI_HOST）で別アプリとして開く。
- * アドレス（オリジン）が違えば、AMD OS をインストールしていても書斎は AMD OS の窓に取り込まれず、
- * ホーム画面や Dock に独立したアプリとして入る。
- * - 書斎のアドレスでは、書斎の画面・図の API・ログインだけを出す。`/` は棚へ。それ以外は AMD OS のアドレスへ送る。
- * - AMD OS のアドレスで書斎（/bzm/read 配下）を開いたら、書斎のアドレスへ送る。
- * - AMD OS のアドレスで、表示を止めた本の画面（教科書の章・その入口・旧ナラティブ版）を開いたら、書斎の本棚へ送る。
- *   本と論文の正本は書斎へ移したので、OS では表示しない。理論マップ /bzm/map は OS に残す（2026-10-31 まさ「止めて」）。
+ * 書斎は専用の Vercel プロジェクト（SHOSAI_HOST）で動く別アプリ。本・論文・教科書の原稿の正本も書斎にある。
+ * - AMD OS のアドレスで書斎（/bzm/read 配下）を開いたら、同じパスのまま書斎のアドレスへ送る。
+ * - AMD OS のアドレスで、それ以外の /bzm 配下（教科書の入口・章、旧ナラティブ版、理論マップ）を開いたら、書斎の本棚へ送る。
+ *   OS では本と論文と理論マップを表示しない（2026-10-31 まさ「止めて」「理論マップも削除していいよ」）。
+ * - 書斎のアドレスでは、書斎の画面とログインだけを出す。`/` は棚へ。それ以外は AMD OS のアドレスへ送る。
  * - 上の2つ以外のアドレス（プレビュー、手元の開発）は振り分けない。
- * 設計正本: pwa/design/bzm_reader.md §2.1
+ * 書斎側の正本仕様は書斎のリポジトリの DESIGN.md。OS 側の振り分けは spec 2-1 に記す。
  */
 
 export const SHOSAI_HOST = "bookshelf-armada.vercel.app";
@@ -29,22 +27,16 @@ function isReaderPath(pathname: string): boolean {
   return pathname === "/bzm/read" || pathname.startsWith("/bzm/read/");
 }
 
-/**
- * OS 上の表示を止めた本の画面。教科書の入口 /bzm、教科書の章 /bzm/{slug}、旧ナラティブ版 /bzm/public 配下。
- * 理論マップ /bzm/map と書斎 /bzm/read は含めない（前者は OS に残し、後者は isReaderPath が扱う）。
- */
-export function isRetiredBookPath(pathname: string): boolean {
-  if (pathname === "/bzm" || pathname === "/bzm/") return true;
-  if (pathname === "/bzm/public" || pathname.startsWith("/bzm/public/")) return true;
-  const m = /^\/bzm\/([^/]+)\/?$/.exec(pathname);
-  return !!m && m[1] !== "map" && m[1] !== "read";
+/** OS 上の表示をやめた /bzm 配下。書斎 /bzm/read は含めない（isReaderPath が扱う） */
+export function isRetiredBzmPath(pathname: string): boolean {
+  if (isReaderPath(pathname)) return false;
+  return pathname === "/bzm" || pathname.startsWith("/bzm/");
 }
 
 /** 書斎のアドレスで出してよいパス。ログイン（/auth/*）は書斎のアドレスのまま通し、ログイン後は書斎へ戻る */
 export function isShosaiHostPath(pathname: string): boolean {
   return (
     isReaderPath(pathname) ||
-    pathname.startsWith("/api/bzm-reader/") ||
     pathname === "/auth" ||
     pathname.startsWith("/auth/") ||
     pathname === "/api/build-info"
@@ -66,9 +58,9 @@ export function readerHostRedirect(url: URL, host: string | null): string | null
   if (h === AMD_OS_HOST && isReaderPath(path)) {
     return `https://${SHOSAI_HOST}${path}${url.search}`;
   }
-  // 表示を止めた本の画面は、どの章から来ても書斎の本棚へ。書斎の本棚は書斎自身が表示するので、
+  // 表示をやめた /bzm 配下は、どこから来ても書斎の本棚へ。書斎の本棚は書斎自身が表示するので、
   // 書斎の旧章リンク（/bzm/{slug} を OS へ送る）と往復しない。
-  if (h === AMD_OS_HOST && isRetiredBookPath(path)) {
+  if (h === AMD_OS_HOST && isRetiredBzmPath(path)) {
     return `https://${SHOSAI_HOST}/bzm/read`;
   }
   return null;

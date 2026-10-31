@@ -1,5 +1,9 @@
 # 書斎（/bzm/read）— 執筆途中の本と論文を読む画面
 
+## 2026-10-31 — OS からの撤去
+
+AMD OS は本・論文・教科書・理論マップを表示しない。`(app)/bzm` の画面、書斎の旧実装、図の API、`amd-os/bzm/` の原稿の写しを削除した。`/bzm` 配下は middleware が書斎へ送る（spec 2-1）。書斎の仕様は専用リポジトリの `DESIGN.md`。以下は記録。
+
 ## 2026-10-25 — 書斎の独立更新（現行）
 
 書斎の正本は専用ディレクトリ `/Users/masa/projects/bookshelf-armada` と、非公開リポジトリ `masa-teamarmada/bookshelf-armada`。

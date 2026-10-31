@@ -185,7 +185,6 @@ npx --yes @google/clasp@latest deploy \
 |---|---|---|
 | `/manual` | `pwa/manual/*.md` | `pwa/src/app/(app)/manual/manual-chapters.ts` |
 | `/spec` | `pwa/spec/*.md` | `pwa/src/app/(app)/spec/spec-chapters.ts` |
-| `/bzm` | `pwa/bzm/*.md` | `pwa/src/app/(app)/bzm/bzm-chapters.ts` |
 
 章を増やしたら、本文 md と metadata を同じ commit で更新する。UI route は auth / admin gate の対象が違うので、移植時に visibility を混同しない。
 
@@ -298,6 +297,10 @@ Functions Storageは保持中のFunction bundleの容量。BlobやFast Origin Tr
 ## 書斎の独立更新（2026-10-25）
 
 書斎は `/Users/masa/projects/bookshelf-armada` / `masa-teamarmada/bookshelf-armada` / Vercel `bookshelf-armada` が正本。書斎の本や読書機能は専用リポジトリの更新手順を使う。AMD OSのmainへ混ぜない。AMD OSの既存 `/bzm` にも反映する必要がある場合は、別のOS変更として扱う。アドレス `https://bookshelf-armada.vercel.app` は専用プロジェクトへ移し、OSの本番アドレスは維持する。仕様5-18、使い方manual2-10。
+
+## OS からの本・論文・理論マップの撤去（2026-10-31）
+
+本・論文・教科書の原稿の正本は書斎の専用リポジトリだけに置く。AMD OS の `/bzm` 画面（教科書の入口と章、旧ナラティブ版 `/bzm/public`、書斎の旧実装、理論マップ `/bzm/map`）と、`amd-os/bzm/` の原稿・論文・教科書の写しを削除した。`/bzm` 配下は middleware が書斎へ送る（spec 2-1）。`amd-os/bzm/` に残すのは、モデルの画面と数式の正本が読む設計文書（`model/CURRENT.json` と `model/LOCK.json` が指すものを含む）、採点の設計記録、`pilot/`（BZM 2.2 の試算データ）、`runs/`（シーズ評価の作業記録）。macOS の文書 API は `manual` と `spec` だけを返す。理論マップの記録は DB の `bzm_theory_nodes` / `bzm_theory_edges` / `bzm_theory_node_memos` に残している。旧仕様 5-18（書斎）と 2-6（理論マップ）、マニュアル 2-10（書斎）は削除した。
 
 
 ### 2026-10-27 全体ビルドの型検査メモリ

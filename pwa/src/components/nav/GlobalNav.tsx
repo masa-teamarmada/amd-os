@@ -305,8 +305,6 @@ export function GlobalNav({
         label: "資料",
         items: [
           { label: "モデル", href: "/model", icon: FunctionSquare, adminOnly: true },
-          // 本・論文は書斎（別アプリ）へ移したので、OS には理論マップだけを残す（2026-10-31 まさ「止めて」）
-          { label: "理論マップ", href: "/bzm/map", icon: Network },
           { label: "マニュアル", href: "/manual", icon: BookOpen },
           // 会社の記録 (メンバー / 沿革 / メディア掲載 / 写真) の全件面。
           // ホームには直近だけを出し、全部見るときはここへ来る。

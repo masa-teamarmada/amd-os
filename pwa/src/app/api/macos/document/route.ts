@@ -1,23 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
-import {
-  BZM_CHAPTERS,
-  BZM_PARTS,
-  getBzmChapterLevel,
-  getBzmChapterStatus,
-  sortBzmSlugs,
-} from "@/app/(app)/bzm/bzm-chapters";
-import {
-  PUBLIC_MANUSCRIPT_CHAPTERS,
-  PUBLIC_MANUSCRIPT_PARTS,
-} from "@/app/(app)/bzm/public/public-manuscript";
 import { getSpecBookChapters, getSpecChapters, normalizeSpecMarkdownSource } from "@/app/(app)/spec/spec-data";
 import { SPEC_SECTIONS } from "@/app/(app)/spec/spec-chapters";
-import { bzmContentDir, bzmPublicManuscriptDir } from "@/lib/bzm-content-dir";
 import { requireAuth } from "@/lib/supabase/api-auth";
 
-type DocumentKind = "manual" | "spec" | "bzm" | "bzm-public";
+// 本・論文の原稿（旧 bzm / bzm-public）は書斎（別アプリ）へ移し、OS では返さない（2026-10-31）。
+type DocumentKind = "manual" | "spec";
 
 type NativeDocumentChapter = {
   slug: string;
@@ -32,13 +21,8 @@ type NativeDocumentChapter = {
   available: boolean;
 };
 
-/**
- * manual / spec は pwa 配下、bzm はモノレポのルート直下 (`amd-os/bzm/`)。
- * bzm の位置は @/lib/bzm-content-dir が唯一の正解を持つ。
- */
+/** manual / spec は pwa 配下。 */
 function documentDirectory(kind: DocumentKind): string {
-  if (kind === "bzm") return bzmContentDir();
-  if (kind === "bzm-public") return bzmPublicManuscriptDir();
   // Keep filesystem tracing bounded to these two document folders. A dynamic
   // `kind` path makes the build tracer include unrelated files across pwa/.
   if (kind === "manual") return path.join(process.cwd(), "manual");
@@ -46,7 +30,7 @@ function documentDirectory(kind: DocumentKind): string {
 }
 
 function isKind(value: string | null): value is DocumentKind {
-  return value === "manual" || value === "spec" || value === "bzm" || value === "bzm-public";
+  return value === "manual" || value === "spec";
 }
 
 function safeSlug(value: string | null): string | null {
@@ -84,85 +68,23 @@ function chapterMeta(kind: DocumentKind, availableSlugs: string[]): NativeDocume
     });
   }
 
-  if (kind === "bzm") {
-    const groups = new Map(
-      BZM_PARTS.flatMap((part) => part.slugs.map((slug) => [slug, part] as const)),
-    );
-    const configured = new Map(BZM_CHAPTERS.map((chapter) => [chapter.slug, chapter]));
-    return sortBzmSlugs(Array.from(new Set([...BZM_CHAPTERS.map((chapter) => chapter.slug), ...availableSlugs]))).map((slug) => {
-      const chapter = configured.get(slug);
-      const group = groups.get(slug);
-      return {
-        slug,
-        title: chapter?.title ?? slug,
-        summary: chapter?.summary,
-        group_key: group?.key,
-        group_label: group?.label,
-        group_description: group?.description,
-        status: getBzmChapterStatus(slug),
-        level: getBzmChapterLevel(slug),
-        available: available.has(slug),
-      };
-    });
-  }
-
-  if (kind === "bzm-public") {
-    const groups = new Map(
-      PUBLIC_MANUSCRIPT_PARTS.flatMap((part) =>
-        part.chapters.map((chapter) => [chapter.slug, part] as const),
-      ),
-    );
-    return PUBLIC_MANUSCRIPT_CHAPTERS.map((chapter) => {
-      const group = groups.get(chapter.slug);
-      return {
-        slug: chapter.slug,
-        title: chapter.title,
-        number: chapter.number,
-        group_key: group?.key,
-        group_label: group?.label,
-        available: available.has(chapter.slug),
-      };
-    });
-  }
-
   return availableSlugs.map((slug) => ({ slug, title: slug, available: true }));
-}
-
-function bzmPendingSource(slug: string) {
-  const chapter = BZM_CHAPTERS.find((item) => item.slug === slug);
-  if (!chapter) return null;
-  return [
-    `# ${chapter.title}`,
-    "",
-    "> **このセクションは執筆待機中です。**",
-    ">",
-    "> 完成済みの章から順に本文が追加されます。左の章一覧から、完成済みまたは執筆中の章を選べます。",
-    "",
-    "## セクション概要",
-    "",
-    chapter.summary,
-  ].join("\n");
 }
 
 /**
  * Native macOS の読書画面が PWA と同じ markdown 正本を読む bridge。
- * `bzm-public` だけはPWAと同様に公開、他はログイン済みBearer/cookieのままにする。
+ * どちらもログイン済みBearer/cookieのまま、設計書は管理者だけに返す。
  */
 export async function GET(req: NextRequest) {
   const kindParam = req.nextUrl.searchParams.get("kind");
   if (!isKind(kindParam)) {
-    return NextResponse.json({ ok: false, error: "kind must be manual, spec, bzm, or bzm-public" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "kind must be manual or spec" }, { status: 400 });
   }
 
-  // `/bzm/public` is intentionally readable without a session in the PWA.
-  // Keep that boundary identical for the native reader; every other document
-  // family remains behind the same member/admin authentication as the PWA.
-  const auth = kindParam === "bzm-public" ? null : await requireAuth();
-  if (auth && !auth.ok) return auth.errorResponse;
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.errorResponse;
 
   if (kindParam === "spec") {
-    // `spec` cannot reach this point without a valid member session above.
-    if (!auth?.ok) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     const { data: member, error } = await auth.supabase
       .from("members")
       .select("is_admin")
@@ -178,7 +100,7 @@ export async function GET(req: NextRequest) {
   }
 
   const chapters = fs.readdirSync(/*turbopackIgnore: true*/ directory)
-    .filter((name) => name.endsWith(".md") && (kindParam !== "bzm" || !/^[A-Z]/.test(name)))
+    .filter((name) => name.endsWith(".md"))
     .map((name) => name.replace(/\.md$/, ""))
     .sort();
   const meta = chapterMeta(kindParam, chapters);
@@ -187,13 +109,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, kind: kindParam, chapters, chapter_meta: meta });
   }
 
-  const isBzmPendingChapter = kindParam === "bzm" && !chapters.includes(slug) && bzmPendingSource(slug) != null;
-  if (!chapters.includes(slug) && !isBzmPendingChapter) {
+  if (!chapters.includes(slug)) {
     return NextResponse.json({ ok: false, error: "document not found" }, { status: 404 });
   }
-  const rawContent = isBzmPendingChapter
-    ? bzmPendingSource(slug)!
-    : fs.readFileSync(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ directory, `${slug}.md`), "utf8");
+  const rawContent = fs.readFileSync(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ directory, `${slug}.md`), "utf8");
   const specChapter = kindParam === "spec"
     ? getSpecBookChapters(getSpecChapters()).find((chapter) => chapter.slug === slug)
     : null;
@@ -206,6 +125,6 @@ export async function GET(req: NextRequest) {
     content,
     chapters,
     chapter_meta: meta,
-    is_stub: isBzmPendingChapter,
+    is_stub: false,
   });
 }

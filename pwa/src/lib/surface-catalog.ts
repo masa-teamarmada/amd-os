@@ -65,10 +65,6 @@ export const SURFACE_CATALOG: readonly SurfaceDefinition[] = [
   { id: "atlas-admin", title: "Atlas Admin", domain: "knowledge_documents", lens: "amd_operations", status: "projection", prefixes: ["/atlas/admin"] },
   { id: "atlas", title: "Atlas", primaryPath: "/atlas", domain: "knowledge_documents", lens: "knowledge", status: "canonical", exact: ["/atlas"] },
   { id: "knowledge-map", title: "AMD Materials", primaryPath: "/knowledge-map", domain: "knowledge_documents", lens: "knowledge", status: "canonical", prefixes: ["/knowledge-map"] },
-  { id: "bzm-map", title: "BZM 理論マップ", domain: "knowledge_documents", lens: "knowledge", status: "canonical", exact: ["/bzm/map"] },
-  // 具体的な route を先に書く規則: `bzm` の prefix "/bzm" より前に置く
-  { id: "bzm-reader", title: "書斎", primaryPath: "/bzm/read", domain: "knowledge_documents", lens: "knowledge", status: "canonical", prefixes: ["/bzm/read"] },
-  { id: "bzm", title: "BZM 2.0", primaryPath: "/bzm", domain: "knowledge_documents", lens: "knowledge", status: "canonical", prefixes: ["/bzm"] },
   { id: "model", title: "モデル", primaryPath: "/model", domain: "platform", lens: "knowledge", status: "canonical", prefixes: ["/model"] },
   { id: "spec", title: "設計書", primaryPath: "/spec", domain: "platform", lens: "knowledge", status: "canonical", prefixes: ["/spec"] },
   { id: "manual", title: "マニュアル", primaryPath: "/manual", domain: "platform", lens: "knowledge", status: "canonical", prefixes: ["/manual"] },

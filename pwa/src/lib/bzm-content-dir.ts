@@ -2,9 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * BZM (教科書 / 一般書原稿) の md はモノレポのルート直下 `amd-os/bzm/` に置く。
+ * モデル・採点の設計文書の md はモノレポのルート直下 `amd-os/bzm/` に置く。
+ * 本・論文・教科書の原稿の正本は書斎のリポジトリへ移り、OS の bzm/ には置かない（2026-10-31）。
+ * OS が読むのは、モデルの画面と数式の正本が参照する文書（model/CURRENT.json と model/LOCK.json が指すもの）。
  *
- * 執筆物であって PWA の実装ではないので pwa/ の中には置かない (2026-08-22 まさ確定)。
+ * PWA の実装ではないので pwa/ の中には置かない (2026-08-22 まさ確定)。
  * bzm 側は Next.js を一切意識せず、OS が「このフォルダの md を読みに行く」だけにする。
  * ディレクトリ解決をここ 1 箇所に集約しているのはそのため。散らすと移設のたびに漏れる。
  *
@@ -28,9 +30,4 @@ export function bzmContentDir(): string {
   }
   // 見つからない場合も想定パスを返す。呼び出し側は existsSync で分岐している。
   return path.resolve(/*turbopackIgnore: true*/ process.cwd(), "..", "bzm");
-}
-
-/** 一般書の公開原稿 (`bzm/public-manuscript/`) */
-export function bzmPublicManuscriptDir(): string {
-  return path.join(/*turbopackIgnore: true*/ bzmContentDir(), "public-manuscript");
 }

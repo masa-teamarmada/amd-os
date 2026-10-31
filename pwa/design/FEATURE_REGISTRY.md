@@ -208,90 +208,19 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - global `TsukuyomiChatBridge` は従来どおり invisible event bridge のまま。`Mascot.tsx` を `(app)/layout.tsx` に戻さない。
 - マニュアル章の追加・削除・構成変更は `pwa/src/app/(app)/manual/manual-chapters.ts` と `pwa/design/os_manual.md`、必要なら `pwa/manual/9-3-appendix-changelog.md` を同じ作業単位で更新する。
 
-## /bzm/map — BZM 2.0 理論マップ (2026-07-30 追加、2026-08-01 本人作成へリセット、2026-08-02 ノード内メモ概念修正・小型閲覧インスペクタ化・座標永続化・小窓外クリック閉じ、build v3.55.3)
+## /bzm 配下 — 本・論文・教科書・理論マップ（2026-10-31 撤去）
 
-目的: BZM 2.0 の主張・概念・測定・決定・文献・未解決論点を9関係で結び、自分の理解からノードとエッジを育てる**論証台帳**。「真理マップ」ではなく、ノード数・接続数は真偽・確信度を表さない。ノード=理論要素、エッジ=理論要素同士の関係、メモ=選択ノードの内側へ積む記録で、この3者は別概念であり、メモを追加してもノード・エッジは増えない。
-
-必須機能:
-
-- source of truth: `bzm_theory_nodes` / `bzm_theory_edges` / `bzm_theory_node_memos` の3テーブルだけ。migration 208で旧seedを全削除し、0件からまさ本人が育てる。migration 214が`bzm_theory_node_memos`を空で追加。Markdown 21ノード / 34関係とmigration 203のseedは検証・復元用履歴で、ランタイムへ自動表示しない。
-- write contract: member read、admin write (3テーブル共通)。API `/api/bzm/theory-map` は認証後だけ管理クライアントを使い、RLSも `is_admin()` writeを強制。ノード保存、Cmd/Ctrl二点目の即時接続、確認済み接続解除、選択ノードへのメモ追加だけを書き、通知・外部送信・自動保存はしない。
-- create: マップ空白クリックで、地図を覆わない予約区画の作成panelを開く。desktopは地図右、mobileは地図下。マップ外に作成ボタンを置かない。別文献や別理論要素をグラフへ加える場合だけこの経路を使う。新規作成ではkindを問わず、基本項目の「参考リンク（任意）」からURL・DOI・書誌情報・OS内参照を`source_ref`へ保存できる。リンク値はマップ上や常設UIへ表示しない。
-- memo: 選択ノードの操作帯にある「メモを追加」1ボタンから、draft nodeを作らずマップ内オーバーレイでメモ本文→役割 (`supports`/`challenges`/`refutes`/`raises`/`tests`) の2項目だけを書き、`POST { action: "create_memo" }` で `bzm_theory_node_memos` へ1行追加する。ノードもエッジも作らず、nodes/edges件数表示は不変。保存後もボタンは残り同じノードへ何件でも追加できる。
-- connect/edit: 通常クリックはノードの**閲覧**小窓を開き、`編集する`を押して初めてフォームへ入る。通常ドラッグは位置変更だけで、終了時に`position_x`/`position_y`を保存する。nullの旧座標は決定的な散在fallback表示だけを行い、閲覧時にDBを更新しない。`Cmd+click`（他OSは`Ctrl+click`）で2ノードを順に選び、2点目で `1点目 → 2点目` を即時保存する。relationは1点目選択後の小さな待ち帯で選べ、初期値は `supports`。「つなぐ」ボタンや接続panelは出さない。
-- ノード削除 (2026-08-02 追加、build v3.54.8): 管理者はノードを削除できるが、物理DELETEではなく `bzm_theory_nodes.archived_at` を設定するrecoverable soft-deleteで、store関数 `archiveNode` が担う。API は認証済み管理者の `DELETE /api/bzm/theory-map?nodeId=<id>` から呼び、`edgeId`/`nodeId` は片方だけを受け両方/両方なしは400。active ノードだけを対象にし `updated_by` を記録する。UIは`BzmTheoryComposerDialog`のeditモードfooter左に44px hit targetの控えめなvermilion削除ボタン (desktop=`Trash2`+「削除」、狭幅=icon主体+`aria-label`) を置き、押すと同じオーバーレイ内でノード名・接続件数・メモ件数・影響説明を示す削除確認へ切り替える (中央モーダル・三点メニューは作らない)。「編集へ戻る」でフォーム未保存値を保持し、即時削除はしない。削除成功後はnode・incident edges・node memos・positionをUI stateから除き、選択とcomposerを閉じて成功通知する。エッジ削除の入口は線クリックだけで、`DELETE /api/bzm/theory-map?edgeId=<id>` を呼ぶ (2026-08-02 の右台帳撤去で、旧「接続しているノード」一覧の行内44px削除ボタンは廃止)。
-- 選択ノード台帳の撤去・全幅化 (2026-08-02 追加、build v3.54.15): 右側に常設していた選択ノードの読取りウィンドウ (summary/source_ref/body表示、カバレッジの欠落警告、メモ一覧、接続しているノード一覧、行内エッジ削除ボタン) を全廃した。desktopのマップは固定幅の予約列 (旧 `lg:grid-cols-[minmax(0,1fr)_380px]`) を持たず、利用可能な横幅いっぱいに広がる。ノードの読み書きは、通常クリックで開くマップ内編集オーバーレイ (title/summary/kind/layer/status/source_ref/body_md をフォーム編集) と、選択ノード下の操作帯 (「編集」「メモを追加」ボタン、`Cmd`/`Ctrl` 接続) の2つに一本化した。エッジの読み取り一覧・カバレッジ欠落警告・メモの常設一覧は他画面へ移設せず、機能として廃止した。
-- 小型インスペクタ (build v3.55.3): 作成・閲覧・編集はマップ内の同一小窓。既存ノードはまず表示モードで、本文とメモのLaTeXをKaTeXとして組版し、メモの改行を保持する。`編集する`でだけフォームへ切り替える。ヘッダーのグリップで小窓を動かせるが、実ブラウザ可視帯の外へは出ない。閉じる×は置かず、**小窓そのもの以外**（マップ空白、フィルタ、ページ余白、別ノード）を押すと閉じる。別ノードの通常クリックは、そのまま対象ノードへの切替を続ける。小窓内の入力・ボタン・ヘッダードラッグは閉じない。小窓は小さい文字・短いcontrol・内部スクロールで密度を保つ。
-- map 表示: `react-force-graph-2d` ( `next/dynamic({ssr:false})` ) による力学グラフ。ノード塗り色は kind、形もkindの非色情報、半径は接続本数、layer ごとの列分けと同一 layer 内の縦分散を持つ。statusは一覧表示・編集オーバーレイの文字ラベルへ退避し、ノード外周に点線・破線を重ねない。中心略字は表示しない。
-- list 表示: フィルタ通過ノードを kind/layer/status バッジ + 接続本数付きで一覧する。スマホでは list を初期表示する。行クリックはそのノードの編集オーバーレイを開く。
-- フィルタ・検索: id/title/summary/source_ref 全文検索、layer・status・relation type のトグルフィルタ、フィルタ解除ボタン。検索と layer/status は map/list へ作用し、relation type は map のエッジだけを絞る。
-- 詳細契約: `/spec/2-6-bzm-theory-map-current-spec`。
+OS では本・論文・教科書・理論マップを表示しない（2026-10-31 まさ「止めて」「理論マップも削除していいよ」）。
+原稿の正本は書斎の専用リポジトリ `/Users/masa/projects/bookshelf-armada`（`masa-teamarmada/bookshelf-armada`、Vercel `bookshelf-armada`）。
+`/bzm` 配下は `src/middleware.ts` が認証より前に `src/lib/bzm-reader/hosts.ts` の `readerHostRedirect` を呼び、`/bzm/read` 配下は書斎の同じパスへ、それ以外は書斎の本棚へ送る。
+`amd-os/bzm/` には、モデルの画面と数式の正本が読む設計文書・採点の設計記録・`pilot/`・`runs/` だけを残す（`bzm/README.md`）。
+理論マップの記録は DB の `bzm_theory_nodes` / `bzm_theory_edges` / `bzm_theory_node_memos` に残し、読み書きする画面と API は無い。
 
 回帰防止:
 
-- `/bzm/map` route、editor API/components、DB store、migration、snapshot parser、2本のvalidatorを消す変更は、`FEATURE_REGISTRY.md`、`/spec/2-1`、`/spec/2-2`、`/spec/2-3`、`/spec/2-6`、`pwa/bzm/9-5-appendix-changelog.md` を同時に更新する。
-- 画面・validator に真偽判定・統合スコア・合成指標を追加しない。件数・接続数を経営判断や評価軸の代わりに使わない。
-- メモ追加を「1メモ=1ノード+1エッジ」を作る経路へ戻さない (2026-08-02 に撤回した誤仕様)。メモは `bzm_theory_node_memos` だけへ書く。
-- ノード削除を物理DELETEへ戻さない。`archived_at` によるrecoverable soft-deleteを維持し、確認画面 (ノード名・接続件数・メモ件数・影響説明) を経ずに即時削除するUIを作らない。
-- 常設の選択ノード台帳 (右側読み取りウィンドウ、固定幅予約列、カバレッジ欠落警告、常設メモ一覧、常設接続ノード一覧、行内エッジ削除ボタン) を復活させない (2026-08-02 撤去)。ノードの読み書きはマップ内編集オーバーレイと選択ノード操作帯 (編集・メモを追加・Cmd/Ctrl接続) に一本化し、地図はマップ/一覧いずれの表示でも右の固定幅予約列を持たない。
-
-## /bzm/read — 書斎（2026-10-03、build v3.150.0。2026-10-04 に専用アプリ化、build v3.153.0。同日午後に別のアドレスへ、build v3.154.0）
-
-## 2026-10-25 — 書斎の独立更新（現行）
-
-書斎の正本は専用ディレクトリ `/Users/masa/projects/bookshelf-armada` と、非公開リポジトリ `masa-teamarmada/bookshelf-armada`。
-Vercelの公開先は専用プロジェクト `bookshelf-armada`。AMD OSの `amd-os-pwa` とは別のGit連携・公開物を使い、書斎の更新でOSを更新しない。
-アドレス `https://bookshelf-armada.vercel.app`、manifestのid、章のURL、読書位置・しおり・設定の保存キーは引き継ぐ。
-原稿・図は専用リポジトリの `bzm/`、棚と章は `src/lib/bzm-reader/library.ts` を変更し、同リポジトリで検査・mainへのpush・本番確認を行う。
-ログインの本人確認とactiveな管理者の照合だけ既存のSupabaseを使う。書斎は管理者キー、OS業務処理、DB書込み、定期処理を持たない。
-AMD OS内の `/bzm/read` は従来どおり書斎へ送る。OSの `/bzm` 用の原稿と移行前の実装は既存画面用の写しとして保持する。
-以後の書斎の正本仕様は専用リポジトリの `DESIGN.md`、更新手順は `README.md`。以下は移行前の実装資料。書斎の新しい本文や機能は専用リポジトリで変更する。
-
-
-目的: 執筆途中の本と論文を、Kindle のように1ページずつめくって通読する。書斎の原稿の正本は専用リポジトリ `bookshelf-armada` の `bzm/` で、書斎は読むだけで原稿を書き換えない。書斎は AMD OS とは別のアドレス `https://bookshelf-armada.vercel.app` で開く別アプリとして、ホーム画面や Dock に単独で入れられる。公開先は専用Vercel project `bookshelf-armada` で、Supabaseの本人確認と管理者照合だけAMD OSと共通（2026-10-04、まさ「書斎は、OSの中に入れずに別アプリにしてほしい」「AMD OSアプリの中に包含されちゃってる。使いにくい。やっぱり別アプリに分けてほしい」）。詳細は設計正本 [`bzm_reader.md`](bzm_reader.md) と `/spec/5-18-bzm-reader-current-spec`。
-
-必須機能:
-
-- 公開範囲: 管理者（`members.is_admin`）だけ。管理者の判定は `src/lib/bzm-reader/require-reader-admin.ts` の `requireReaderAdmin()`（`getCurrentMemberAccess` の `isAdmin`。管理者でなければ `/dashboard`、会員でなければ `/auth/login` へ戻す）で、`read/layout.tsx`、3つの page、章ページの `generateMetadata` のすべてから呼ぶ（layout は画面遷移で再描画されず、他の segment を止めないため、layout だけに置かない）。棚に未投稿の論文と匿名化前の草稿が並ぶため、`/bzm`（会員全員が読める）とは別に絞る。`/bzm/public` の公開例外に入れない。
-- 棚（`/bzm/read`）: 書斎アプリの入口で、外枠（左ナビ・通知・チャット・月初合意ゲート）を持たない。上に「書斎」の見出し、白い背景、幅の上限 1200px、iPhone の画面端（safe-area）の余白を、`read/page.tsx` が自前で持つ。`src/lib/bzm-reader/library.ts` に固定で持つ6冊（BZM 3.0教科書、ディープテック起業の経営学、BZM 2.2教科書、BZM 批判的基礎講座、第1論文、第1論文 補足資料）を、この順で本ごとのカードに出す。カードは書けた章の数（「N章中M章を執筆済み」）、総文字数、通読の目安時間、この端末での読書位置（「前回: 章の題・本全体 N%」と進み具合の細い帯）を持つ。BZM 3.0教科書の色帯は `#0366b8`（白文字との比 4.5:1 以上）。主ボタンは、この端末に位置があれば「続きから読む」（その章へ直接）、無ければ「最初から読む」（最初の書けている章へ直接）。位置があるときだけ、2つ目のボタン「最初から読む」（最初の書けている章を `?at=start` で先頭のページから）を出す。棚には章の一覧（旧「章を選ぶ」）を置かない。章は読書画面の左の目次で選ぶ（まさ「目次も設置したのに『章を選ぶ』は要らなくない？いるとしたら『続きから読む』じゃね？」2026-10-04、v3.154.3）。原稿の並びはファイル名の規則から自動で拾わない（台帳 md と草稿メモが混ざるため）。
-- 続きから開く（`/bzm/read/[book]`）: この端末に残った読書位置の章へ移る。無ければ最初の書けている章。棚の主ボタンは章へ直接リンクするので、通常はこの入口を通らない（URL を直接開いたときの入口）。書けた章が1つも無い本は「執筆済みの章なし」と「書斎へ戻る」を出す。
-- 読書画面（`/bzm/read/[book]/[chapter]`）: 外枠（AppShell）を外した全画面。外す判定は `src/components/nav/AppShell.tsx` の `isBzmReaderRoute`（`usePathname` と正規表現 `BZM_READER_ROUTE` = `^\/bzm\/read(?:\/[^/]+){0,2}\/?$`。棚・続きから開く・読書画面の3つすべてに合う）で、画面内リンクで移っても外枠が外れる（サーバの layout はソフトナビゲーションで再描画されないため、判定をクライアントに置く。`(app)/layout.tsx` には置かない）。1ページずつのページ表示（既定）と縦に流すスクロール表示、広い画面での見開き（本文の領域の幅が 1100px 以上のとき。左右のページの間は本文の領域の幅の 7%、72〜120px で、中央に細い仕切りの線を引く。1ページ表示の間は 48px）。段数が変わる割り直しは、段数の記録つきで、ブロック番号と `fraction` から戻る。右・左 3 割の押下、スワイプ、矢印キー、PageUp/PageDown、ホイール・トラックパッド（ページ表示）でめくり、中央の押下と Escape で上下の帯を出し入れする。章の端でさらにめくると前後の書けている章へ移る。本の最初・最後でさらにめくると、画面下に「本の最初」「本の最後」を短く出す。帯のボタンをポインタで押したあとも、続けて Space などでめくれる。
-- 未執筆の章（`/bzm/read/<本>/<未執筆の章>` を直接開いたとき）: 「この章は未執筆」と、「最初の書けている章へ」「書斎へ戻る」を出す。読書画面は出さない。
-- 読書画面のボタン: 「書斎へ戻る」「目次」「しおり」「文字の設定」。押せる大きさは 44px 以上。パネル（目次・しおり・文字の設定）の閉じるボタンも 44px で、名前は「閉じる」。目次は未執筆の章を灰色で出して押せなくする。高さ 500px 未満の画面（スマホの横向きなど）は、本文の上下の余白を詰める。
-- 文字の設定: 文字の大きさ・行間・余白・書体・背景（白 / セピア / 黒）・表示（ページ / スクロール）・見開き・執筆メモの出し分け。設定は全書籍で共通。
-- 位置の記憶: 読書位置・しおり・設定は端末ごとの `localStorage` に残し、端末をまたいで同期しない（同期には DB の表が要る。まさの判断待ち）。読書位置はブロック番号とブロック内の位置（`fraction`）で持ち、長いブロックの途中のページにも戻る。スクロール表示の復元は、上端のブロックの判定と戻す位置を同じ許容値で決め、1つ前のブロックへずれない。しおりは、しおりのブロックがいまの画面に含まれ、`fraction` が最も近いもので「挟んでいる」と判定する。背景色だけは Cookie（`amd-os.bzm-reader.theme`）にも書き、再読み込みの最初の描画から正しい背景で出す（白い光りの防止）。`localStorage` と Cookie が使えなくても画面は動く。
-- 文字数: 目安。空白・改行・見出しの `#`・表の区切り行を除き、リンクは表示文字だけ、図は1字、数式は1件1字で数える。進み具合（％）と通読の目安時間はこの文字数から出す。
-- 原稿の前処理: 先頭の YAML、HTML コメント（執筆メモ）、見出し属性、論文の引用番号と文献一覧、図のパス、章間リンク、callout を、描画の前に純関数で整える。同じ文字の見出しは2件目以降に `{#id-2}` を付け、目次の id と描画の id を一致させる。論文を章に割った本では、`load.ts` が文献一覧の章から番号→書誌を作り、他の章の引用を `/bzm/read/<book>/references#ref-N "書誌"` の番号ごとのリンクに書き換える（押すと文献一覧の章のその文献のページが開く）。数式は先に退避して KaTeX で組む（規則は `protect-math.ts`。インラインは既存の `BzmMarkdown` と同じで、改行は可、空行はまたがない、`\$` は数式にしない）。
-- 表: 列が5つ以上は横スクロールの囲み（セルの最小幅 6em）、4つ以下は囲みなしで本文の幅に収め、段をまたいで割れる。罫線の色は `--bzr-table-line`、図の背面は `--bzr-figure-bg`（黒の背景だけ白地）。
-- 図の API: `GET /api/bzm-reader/asset/[...path]` は管理者だけ。`bzm/` の外へ出るパス（`..`、絶対パス）と、png / jpg / jpeg / svg / webp / gif 以外を拒む。全体の CSP に上書きされないよう、`next.config.ts` の `headers()` がこの path 専用のヘッダ（`nosniff`、`X-Frame-Options: SAMEORIGIN`、`Referrer-Policy: no-referrer`、`Content-Security-Policy: default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox`）を当てる。
-- 本番で原稿を読むための同梱とヘッダ: `next.config.ts` の `outputFileTracingIncludes` に書斎の3ページと図の API を足す（動的な fs 読みは自動追跡に乗らず、本番だけ ENOENT になる前例がある）。図の API の専用ヘッダも `next.config.ts`（`bzmReaderAssetSecurityHeaders`）に置く。
-- 左の目次の列（2026-10-04、build v3.153.0）: 画面が 1100px 以上のとき、読書画面の左に目次の列を常設する（幅 `min(280px, 22vw)`、部品は `src/components/bzm-reader/ReaderTocColumn.tsx`）。目次としおりのタブを持ち、いま読んでいるページに当たる見出し（最初の節より前の、章の扉と導入のページでは「導入」）を強調する。開閉は上の帯の「目次」か、列の「目次を閉じる」。状態は端末ごとの `localStorage` `amd-os.bzm-reader.toc-open`（既定は開）。列を開いているぶん本文の領域が狭くなり、見開きの判定は列を除いた幅で行う（およそ 1380px 以上で列を開いたまま見開き。1100〜1380px 前後は列を閉じたときだけ見開き）。設定パネルの「見開き」の補足は、列を閉じれば効く広さのとき「左の目次を閉じると有効」と出る。1100px 未満は、目次のボタンで横から出るパネル。
-- 目次の全章の見出しと開閉（2026-10-04）: 目次を押して別の章の見出しが出るまで 3〜4 秒かかっていたため、目次が本の全章の見出しを最初から持つ。章のページ（`getReaderChapterContent`）が `bookHeadings`（章の slug → 見出し。書けている章だけ。本 1 冊で数百件、JSON 約 18KB）を返し、`ReaderView` から目次（`ReaderPanels.tsx` の `ReaderTocContent`）へ渡す。各章の行は、題と開閉の矢印を含む行ぜんたいが 1 つのボタン（`.bzr-toc-toggle`、`aria-expanded`、読み上げの名前は「『章の題』の見出しを開く」「…を閉じる」、高さ 44px 以上）で、押すと画面遷移なしに見出しの一覧を開閉する。章の行は開閉だけで、押しても本文へは移らない（2026-10-06）。いまの章は最初から開いている。別の章の見出しは `Link`（`readerHeadingHref(本, 章, 見出しid)` = `readerChapterHref(本, 章)` + `#` + 見出しの id）で、押すとその章の該当見出しのページから開く。
-- 目次の「導入」（2026-10-06）: 章の題（h1）と最初の節のあいだにある文章（章の扉に載る導入の段落、本章の到達目標など）は、折りたたむ側の章の行に紛れさせず、見出しの一覧の先頭の項目「導入」として開く。置くのは `ReaderChapterInfo.hasIntro`（`types.ts`）が true の章で、`load.ts` が前処理後の本文から `chapterHasIntro`（`preprocess.ts`、純関数）で求める。最初の h1 から、目次に載る最初の見出し（h2。h2 より先に h3 が来る原稿、たとえば h2 の無い補足資料 SM-A〜G は、その h3）までに、空白以外の本文がある章で、h1 のすぐ後に節が来る章には置かない。見出しが 1 つも無い章は、導入の本文が空でも「導入」だけを置く（`readerShowsIntro`。章の最初へ移る入口を残すため）。押すと、いまの章なら同じ画面の中で章の最初のページへ、別の章なら `?at=start` で最初のページから開く（「開いています…」と進行の帯は見出しと同じ）。読んでいるページが最初の節より前のあいだは今いる場所として強調し（`ReaderView` が `introActive` を渡す）、最初の節に入れば節や項を強調する。「導入」の URL は `?at=start` つきなので、その行では同じ URL を先読みする。
-- 別の章を押した直後の表示（2026-10-04。押すのは「導入」か見出し）: 別の章の「導入」か見出しを押したら、新しい章が届くまでのあいだ、目次ではその章を「開いている章」として見出しつきで強調し、行の右（矢印の左）に「開いています…」を出す（いまの章は閉じる）。本文には、画面の最上部の細い進行の帯（`.bzr-progress`）と、本文を少し薄くする表示（濃さ 6 割）を出す。状態は `ReaderView` の外側が `openingSlug` として持ち、届いたこと（`chapter.slug` が変わったこと）は、effect の中の setState ではなく、描画の中で前の章のキーと比べて解く。
-- 章の先読み（2026-10-04）: 章のページは動的で `loading.js` が無く、既定の先読み（auto）は実質なにも運ばない。そこで章のページ全体を先に取る完全な先読み（`router.prefetch(href, { kind: PrefetchKind.FULL })`、部品は `src/components/bzm-reader/chapter-prefetch.ts`）を使う。目次の章の行（開閉のボタン）と、見出しと「導入」の行に、ポインタが乗ったとき（80ms 待つ。離れたら取り消す）、フォーカスが来たとき（120ms 待つ）、触り始めたときに、その章を先読みする。章の行を押して見出しの一覧を開いたときも先読みする（「導入」の行だけは、リンクと同じ `?at=start` つきの URL を先読みする）。いまの章の最初の割り付けが済み、ブラウザが空いたとき（`requestIdleCallback`、無ければ 1500ms 後）に、次の章（`?at=start`）と前の章（`?at=end`）を先読みする（先読みの鍵は pathname と search で `#` を含まないので、めくって移るときの URL と同じ URL を先読みする）。`navigator.connection.saveData` が真の端末では自動の先読みをしない。持ち時間は Next.js の `staleTimes.static`（既定 5 分、同梱文書 `staleTimes.md`。本番と同じ作りの確認用アプリで、270 秒後は使われ、330 秒後は取り直しになることを確かめた）。5 分を過ぎた分は、章の終わり近く・始まり近くで次の章・前の章を取り直す。
-- 章と節の区切り（2026-10-04）: h1 が「序章」「第N章」「付録」（古い形の `BZM x.y教科書 ` と ` — `、古い形の序も可）で始まる章は、ラベル（小さな色つき）と題（本文の 1.75 倍）に分けた章の扉（`h1.bzr-door`）にして、下に罫線と広い余白を置く。h2（本文の 1.4 倍、上の余白が広く、題の下に罫線）と h3（1.15 倍）が `1.1`、`1.1.1`、`0.1.1`、`A.2`（古い形の `1.` も）のような番号で始まるときは、番号を `--bzr-accent` の色で分ける。分け方は純関数（`src/lib/bzm-reader/heading-parts.ts`）。ページ表示では、扉のある章の最初の節（最初の h2）を `break-before: column` で新しいページから始め、章の最初のページに扉だけを載せる（見開きでは扉が左、最初の節が右。縦スクロールでは区切らない。扉の無い論文・補足資料・講座は続けて流す）。白の `--bzr-accent` は `#0267b2`（白との比 5.86:1）で、文字の色はどのテーマも背景との比が 4.5:1 以上。
-- 別のアドレスの専用アプリ（2026-10-04、build v3.154.0）: 書斎は `https://bookshelf-armada.vercel.app`（`src/lib/bzm-reader/hosts.ts` の `SHOSAI_HOST`）で開く別アプリで、AMD OS のアドレスは `https://amd-os-pwa.vercel.app`（`AMD_OS_HOST`）。アドレス（オリジン）が違うので、AMD OS をインストールした端末でも書斎は AMD OS の窓に取り込まれない。書斎のプログラムと公開手順は専用リポジトリ・専用Vercel project `bookshelf-armada` に独立し、それぞれ別々に更新される。ログインの本人確認と管理者照合だけSupabaseを共用する。
-  - ログイン画面（v3.154.1）: 書斎のアドレスで開いた `/auth/login` は、`auth/login/layout.tsx` が Host ヘッダで判定し、見出し「書斎」と「AMDメンバーとしてログイン」だけを出す。題・manifest・`appleWebApp` も書斎のもの。
-  - 振り分け: `middleware.ts` が `readerHostRedirect` を、ログインの判定（`updateSession`）より前に呼び、307（一時的）で送る。書斎のアドレスでは、`/` を `/bzm/read`（棚）へ送り、`/bzm/read` 配下（書斎の画面）、`/api/bzm-reader/` 配下（図の API）、`/auth` 配下（ログイン）、`/api/build-info` はそのまま出し、それ以外のパスは AMD OS のアドレスの同じパスと query へ送る（原稿の章間リンクで別の本の章 `/bzm/<slug>` は AMD OS の教科書の画面で開く。管理者でない人が `/dashboard` へ戻されたときも AMD OS へ）。AMD OS のアドレスで `/bzm/read` 配下を開いたときは、書斎のアドレスの同じパスと query へ送る（古いブックマークや、AMD OS の中から開いたときも書斎アプリ側へ移る）。上の2つ以外のアドレス（プレビューの deploy、手元の開発）は振り分けない。
-  - `public/manifest-shosai.json`: `name`・`short_name` 「書斎」、`id`・`start_url` は `/bzm/read`、`scope` は `/`（書斎のアドレスは書斎だけを出すので、ログイン画面もアプリの範囲に入る）、`display` は `standalone`、`background_color`・`theme_color` は `#ffffff`、アイコンは書斎専用の `/icons/shosai-*`（まさ提供の本の絵。192・512 の通常と maskable、apple-touch-icon 180、favicon 48。書斎の layout とログイン画面の layout も同じ絵を出す）、向きは固定しない。`read/layout.tsx` が書斎の配下でだけ manifest を `/manifest-shosai.json` に差し替え、`appleWebApp`（capable、title「書斎」、statusBarStyle default）と `themeColor #ffffff` を出し、ページの題を「書斎」（章ページは「章の題 - 本の題」）にして「- AMD OS」を付けない。`middleware.ts` の matcher の除外に `manifest-shosai\\.json` を入れる（除外しないと manifest の取得がログイン画面への 307 になり、インストールが壊れる）。
-  - コードの外の設定: Vercel project `amd-os-pwa` の Domains に `bookshelf-armada.vercel.app`（本番に割り当て）、Supabase の Authentication の URL Configuration の Redirect URLs に `https://bookshelf-armada.vercel.app/**`（ログイン後に書斎のアドレスの `/auth/callback` へ戻るため）。
-  - AMD OS の左ナビ（`GlobalNav.tsx`）には書斎の項目を置かない。`surface-catalog.ts` の `bzm-reader`（`prefixes: ["/bzm/read"]`）は `bzm` より前に残す。入口は書斎のアドレスか、インストールした「書斎」アプリ。
-  - ログイン: 書斎のアドレスはクッキーが AMD OS とは別なので、書斎アプリでは初回に1回ログインする（Google）。未ログインで開くと書斎のアドレスの `/auth/login?next=/bzm/read…` に送られ、ログイン後は書斎のアドレスの元の書斎の画面へ戻る。管理者限定（`requireReaderAdmin()`）は変わらない。
-  - インストール: iPhone は Safari で `https://bookshelf-armada.vercel.app` を開き、ログインして棚が出てから、共有ボタンの「ホーム画面に追加」。Mac の Chrome は同じアドレスを開き、アドレスバー右端のインストールのアイコン、またはメニュー（︙）の「キャスト、保存、共有」の「ページをアプリとしてインストール」。AMD OS のアドレスから入れた「書斎」がある場合は、消して入れ直す（AMD OS のアドレスの書斎は、開くと書斎のアドレスへ移る）。
-  - 範囲外のリンク: 原稿の章間リンクで、同じ本でない章は `/bzm/<slug>`（教科書の作業画面）へ飛ぶ。書斎のアドレスにこのパスは無いので AMD OS のアドレスへ送られ、別のアドレスなので書斎アプリの範囲の外の画面として開く。
-- BZM 3.0教科書の序の題は「序 — このモデルは何を測るのか」（2026-10-04 に改題。`library.ts` の `plannedTitle`、`bzm-chapters.ts`）。
-
-回帰防止:
-
-- `npm run test:bzm-reader`（`scripts/check_bzm_reader.mts`、deploy 前ゲート）が前処理の各規則、見出しの連番、論文の引用の書き換え、数式の退避、文字数の数え方、棚の本と章の重複なし、Book A の章が `BZM_PARTS` と一致すること、BZM 3.0教科書の16本の並びと序・第3章・付録の題、未執筆の章の返し方、`ReaderMarkdown` を描いたときの目次と見出しの id の一致、表の囲みの種類、端末内保存、書斎のアドレスの振り分け（`readerHostRedirect`。末尾の節。書斎のアドレスの `/` が棚へ、書斎の画面・図の API・ログインはそのまま、それ以外と `/bzm/readme` は AMD OS のアドレスへ、大文字・ポート付きの Host、AMD OS のアドレスは `/bzm/read` 配下だけを書斎のアドレスへ、プレビューと手元の開発は振り分けない）を検査する。
-- `npm run test:critical-ui` が、管理者の判定（`require-reader-admin.ts` の `isAdmin` と `redirect("/dashboard")`、layout と3つの page の `requireReaderAdmin()`）、外枠を外す判定 `isBzmReaderRoute` が `AppShell.tsx` にあり `(app)/layout.tsx` に無いこと、`BZM_READER_ROUTE` が棚を含む3画面に合う正規表現（`/^\/bzm\/read(?:\/[^/]+){0,2}\/?$/`）であること、左ナビ（`GlobalNav.tsx`）に `"/bzm/read"` が無いこと（書斎の項目を置かない）、専用アプリの部品（`public/manifest-shosai.json` の `"start_url": "/bzm/read"`・`"scope": "/"`・`"display": "standalone"`、`middleware.ts` の `manifest-shosai\\.json` の除外、`read/layout.tsx` の `manifest: "/manifest-shosai.json"`）、アドレスの振り分け（`middleware.ts` が `readerHostRedirect(request.nextUrl` を呼び `NextResponse.redirect(hostRedirect, 307)` で送ること、`hosts.ts` の `SHOSAI_HOST = "bookshelf-armada.vercel.app"` と `AMD_OS_HOST = "amd-os-pwa.vercel.app"`）、`surface-catalog` の `bzm-reader`、同梱指定、図の API の専用ヘッダ、`test:bzm-reader` の登録、読書画面の「目次」「文字の設定」ボタン、左の目次の列（`ReaderView.tsx` の `<ReaderTocColumn` と `amd-os.bzm-reader.toc-open`、`ReaderTocColumn.tsx` の `data-bzr-toc-col="true"` と `ReaderTocContent`、`reader-shell.css` の `.bzr-toc-col {`・`--bzr-toc-w`・`.bzr-gutter::after`）を確認する。manifest・middleware・layout のどれかが欠けると、インストールできない、棚だけ左ナビが出る、書斎が AMD OS の窓に取り込まれる、のいずれかになる。
-- 目次の全章の見出し・開閉・先読みと、章と節の区切りの検査（2026-10-04）: `npm run test:bzm-reader` が、章の扉の分け方（`splitChapterHeading`）と節番号の分け方（`splitSectionNumber`）の入出力（新旧の形、該当しない文字）、`bookHeadings` が書けている全章を持ち各章の `headings` と一致すること、目次の「導入」の判定（`chapterHasIntro` の入出力。h1 の後に段落、h1 のすぐ後に h2、h1 が無い、コードブロックの中の `#`、h2 より先に h3 が来る原稿、節が無い章。実原稿では BZM 3.0教科書の序章と第1章が導入ありで、全章で `hasIntro` が本文の判定と一致）、扉と節番号の描画（見出しの id が分ける前の文字から作られ目次の id と一致、BZM 3.0教科書の全章が新旧どちらの形でも扉になる）、文字の色と背景の比が3つのテーマで 4.5:1 以上であることを確かめる。`npm run test:critical-ui` が、目次の章の行が開閉のボタン（`aria-expanded`）で本文へ移るリンクや遷移を持たないこと、「導入」の項目（見出しの一覧の先頭、`hasIntro`・`readerShowsIntro`・`chapterHasIntro`・`introActive` の配線、いまの章は章の最初へ、別の章は `?at=start`）、目次で押せる部品の高さが 44px 以上であること、完全な先読みの呼び出し（`PrefetchKind.FULL`）、前後の章の URL、押した直後の表示を描画の中で解くこと、扉のある章の最初の h2 の改ページ CSS（`break-before: column;` と `-webkit-column-break-before: always;`、`[data-layout="page"]` の中だけ）を確認する。
-- 書斎を会員全員に広げる、読書位置をサーバへ送る、原稿を書斎から書き換える、図の API で `bzm/` の外を配る変更は、設計正本・`/spec/5-18`・この節を同時に更新し、まさの判断を得てから行う。
-- 書斎の専用アプリの構成（左ナビの項目、外枠の判定、`scope`、manifest の差し替え、middleware の除外と振り分け）を変える変更は、設計正本（§2.1）・`/spec/5-18`・`/spec/2-1`・`/spec/2-2`・この節・`pwa/manual/2-10-bzm-reader.md` を同時に更新する。
-- 書斎のアドレスを変えるときは、`hosts.ts` の `SHOSAI_HOST`、Vercel の Domains、Supabase の Redirect URLs を同時に変える。1つでも欠けると、振り分けが外れる、アドレスが届かない、ログイン後に戻れない、のいずれかになる。インストール済みの書斎は、アドレスが変わると別のアプリとして扱われるので入れ直す。
-- 画面の文言に会話調の語尾（「だよ」「してね」など）を入れない。`check_pwa_critical_ui.cjs` が `src/` 全体で止める。
-- iOS / macOS / Android のネイティブ画面は未移植（`macos/PARITY.md`、`ios/DESIGN.md`）。iOS の `TextbookReaderView`（縦書き）とは別の画面である。
+- `(app)/bzm` の画面、`/api/bzm/**`、`/api/bzm-reader/**`、`components/bzm-reader`、左ナビの `/bzm` の入口を OS に戻さない。`check_bzm_redirects.mts`（deploy.sh の `test:bzm-redirects`）と `check_pwa_critical_ui.cjs` が止める。
+- 本・論文の原稿を `amd-os/bzm/` に置かない。書く・直すのは書斎のリポジトリ。
+- 移行前の書斎と理論マップの実装記録は git の履歴（2026-10-31 の撤去の commit より前）と `pwa/design/bzm_reader.md` にある。
 
 ## /knowledge-map
 

@@ -20,7 +20,7 @@ export default async function SpecIndexPage() {
         <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
           AMD OS の確定した実装仕様の正本。画面 / route / API / cron / DB / 状態遷移 / 判断ロジックが
           どう動き・どう作られているかを集約します。数式・理論は{" "}
-          <Link href="/bzm" className="text-indigo-600 underline hover:opacity-80">テキストブック</Link>、
+          <Link href="/model" className="text-indigo-600 underline hover:opacity-80">モデル</Link>、
           使い方は{" "}
           <Link href="/manual" className="text-indigo-600 underline hover:opacity-80">マニュアル</Link>
           へ。admin 限定。
