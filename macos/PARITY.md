@@ -62,9 +62,7 @@ PWAロゴ正本をプロジェクト内へ同期し、AppIconの各サイズは�
 | `/admin/weekly` | `adminWeekly` | `member_activities`, reward cache | `/api/admin/weekly` GET | admin | 実装済み。PWA同一の26週移動、PJ×member活動/報酬matrix、source URL、member mypage native遷移を実装。認証済み実データ読取は未確認 |
 | `/manual`, `/manual/[slug]` | `manual` | PWA manual markdown | manual Q&A API（read-only） | member | 実装済み。PWAと同じ章順/番号、テーマ、全章本文検索、章本文・manual内リンク、前後章、ページ限定つくよみを実装。実データ読取は未確認 |
 | `/spec`, `/spec/[slug]` | `spec`, `specDetail` | PWA spec Markdown正本 | read-only document bridge | admin | 実装済み。PWA同一のsection/番号/章group、本文、前後章を表示し、Native入口とbridgeの双方でnonadminを拒否。認証済み実読取は未確認 |
-| `/bzm`, `/bzm/[slug]`, `/bzm/public`, `/bzm/public/[slug]` | `bzm`, `bzmDetail`, `bzmPublic`, `bzmPublicDetail` | bundled BZM Markdown正本 | read-only document bridge | 通常版member / 公開版public | 実装済み。通常版はmember境界を維持し、章/part/未着手stub/前後章をNative表示。公開版はPWA・Macとも未ログインで公開原稿のpart/章/前後章を読める。実読取は未確認 |
-| `/bzm/read` | 未割当 | 書斎の棚（2026-10-03 PWA追加。2026-10-04 に PWA は別アドレス `https://bookshelf-armada.vercel.app` の別アプリ（`manifest-shosai.json`、scope は `/`）になり、棚も外枠なし。PWAの左ナビに書斎の項目は無い。AMD OS のアドレスの `/bzm/read` 配下は書斎のアドレスへ送る）。管理者限定で、執筆途中の本と論文6冊をカードで並べる。読むだけで原稿は書き換えない | なし（PWAは `bzm/*.md` を読む。DB の表は使わない） | なし | admin | **Native未移植**。PWAの書斎 `/spec/5-18-bzm-reader-current-spec` を正本とし、iOS の `TextbookReaderView`（縦書き）とは別の画面。移植するときは管理者の境界と、端末ごとの読書位置を持たせる |
-| `/bzm/read/[book]`, `/bzm/read/[book]/[chapter]` | 未割当 | 書斎の続きから開く・読書画面（2026-10-03 PWA追加。2026-10-04 に PWA は左に目次の列（1100px 以上）を常設し、見開きの左右のページの間を広げた）。外枠なしの全画面で、ページ送り、目次・しおり・文字の設定、端末ごとの読書位置を持つ | `GET /api/bzm-reader/asset/[...path]`（図、admin のみ） | 端末ごとの `localStorage`（位置・しおり・設定。サーバへ送らない） | admin | **Native未移植**。縦書きの `TextbookReaderView` とは別に、PWAは横書きのページ送り。端末をまたぐ同期は PWA 側も未実装（DB の表が要る、まさの判断待ち） |
+| `/bzm`, `/bzm/**` | なし | なし | なし | なし | 2026-10-31 撤去。PWA は本・論文・理論マップを表示せず、`/bzm` 配下を書斎（別アプリ）へ送る。Native の BZM 画面4つ（`bzm`、`bzmDetail`、`bzmPublic`、`bzmPublicDetail`）と文書 API の `bzm` / `bzm-public` も撤去 |
 | `/japanese-culture-map`, `/admin/japanese-culture-map` | `adminCultureMap` | active `jp_culture_items` | read-only | admin | 実装済み。旧routeはPWA同様admin文化マップへ収束し、一般Explore navから除外。カテゴリtree・都道府県→市区町村geography・詳細（画像/link）を表示。認証済み実読取は未確認 |
 | `/proactive` | `proactive` | `proactive_todos`の`attention_state='approved' AND attention_type IN ('decision','masa_action')`、`projects` | done/block/dismissは既存`/api/proactive-todos/[id]/resolve`、reopenはPWA同一RLS PATCH | admin | 実装済み。未対応・ブロック中はCodex審査済みのまさ判断/本人行動だけ。`due_basis='explicit'`だけを期限超過・red扱いし、MTG prepはOSへ複製しない。履歴tab、解決操作、PJ cockpit deep linkは維持 |
 
@@ -118,7 +116,7 @@ PWAロゴ正本をプロジェクト内へ同期し、AppIconの各サイズは�
 | `ProposalInboxView`, `ProposalComposeSheet`, `ProposalThreadView` | `adminHome`, `today` | 旧iOS固有。現行PWA routeなし |
 | `TsukuyomiLearningsView`, `TsukuyomiView` | `adminHome`, `manual` | 旧iOS固有。現行PWAの `adminTsukuyomi` / manual Native実装を正本とする |
 | `SettingsView`, `PayoutInfoEditView` | `account` | 旧iOS画面名。現行PWA account Native実装を正本とする |
-| `TextbookReaderView` | `bzm` | 旧iOS画面名。現行PWA BZM document reader Native実装を正本とする |
+| `TextbookReaderView` | なし | 旧iOS画面名。2026-10-31 に BZM の読書画面を撤去したため、対応する Native 画面はない |
 | `ScoreDetailWebView` | `amdScore` | 旧iOS WebViewは移植しない。現行PWA score detailのSwiftUI実装を正本とする |
 
 ## 4. 権限・書込み境界

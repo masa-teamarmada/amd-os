@@ -292,7 +292,7 @@ private struct AMDOSDocumentView: View {
     @ViewBuilder
     private var documentSidebar: some View {
         AMDOSSectionCard("章一覧", systemImage: "list.bullet.indent") {
-            Text("PWAと同じ章の構成・順序・状態を表示。未着手のBZM章もここから開ける。")
+            Text("PWAと同じ章の構成・順序・状態を表示。")
                 .font(.caption)
                 .foregroundStyle(AMDOSDesign.muted)
             ScrollView {
@@ -875,7 +875,3 @@ struct AMDOSManualDetailView: View {
 }
 struct AMDOSSpecView: View { let initialSlug: String?; @StateObject private var store = AMDOSReferenceStore(); var body: some View { AMDOSDocumentView(store: store, eyebrow: "SPEC", title: "仕様書", kind: "spec", initialSlug: initialSlug, initialTopic: nil) } }
 struct AMDOSSpecDetailView: View { let initialSlug: String?; @StateObject private var store = AMDOSReferenceStore(); var body: some View { AMDOSDocumentView(store: store, eyebrow: "SPEC DETAIL", title: "仕様書本文", kind: "spec", initialSlug: initialSlug, initialTopic: nil) } }
-struct AMDOSBZMView: View { let initialSlug: String?; @StateObject private var store = AMDOSReferenceStore(); var body: some View { AMDOSDocumentView(store: store, eyebrow: "BZM", title: "Before Zero", kind: "bzm", initialSlug: initialSlug ?? "preface", initialTopic: nil) } }
-struct AMDOSBZMDetailView: View { let initialSlug: String?; @StateObject private var store = AMDOSReferenceStore(); var body: some View { AMDOSDocumentView(store: store, eyebrow: "BZM DETAIL", title: "Before Zero本文", kind: "bzm", initialSlug: initialSlug ?? "preface", initialTopic: nil) } }
-struct AMDOSBZMPublicView: View { let initialSlug: String?; @StateObject private var store = AMDOSReferenceStore(); var body: some View { AMDOSDocumentView(store: store, eyebrow: "BZM PUBLIC", title: "Before Zero公開版", kind: "bzm-public", initialSlug: initialSlug ?? "00-prologue", initialTopic: nil) } }
-struct AMDOSBZMPublicDetailView: View { let initialSlug: String?; @StateObject private var store = AMDOSReferenceStore(); var body: some View { AMDOSDocumentView(store: store, eyebrow: "BZM PUBLIC DETAIL", title: "Before Zero公開本文", kind: "bzm-public", initialSlug: initialSlug ?? "00-prologue", initialTopic: nil) } }

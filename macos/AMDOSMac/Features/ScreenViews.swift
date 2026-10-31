@@ -172,10 +172,6 @@ struct AMDOSScreenView: View {
             case .manualDetail: AMDOSManualDetailView(initialSlug: selectedDocumentSlug)
             case .spec: AMDOSSpecView(initialSlug: selectedDocumentSlug)
             case .specDetail: AMDOSSpecDetailView(initialSlug: selectedDocumentSlug)
-            case .bzm: AMDOSBZMView(initialSlug: selectedDocumentSlug)
-            case .bzmDetail: AMDOSBZMDetailView(initialSlug: selectedDocumentSlug)
-            case .bzmPublic: AMDOSBZMPublicView(initialSlug: selectedDocumentSlug)
-            case .bzmPublicDetail: AMDOSBZMPublicDetailView(initialSlug: selectedDocumentSlug)
             case .account: AMDOSAccountView()
             case .paymentConfirm: AMDOSPaymentConfirmView(token: selectedPaymentConfirmationToken)
             }

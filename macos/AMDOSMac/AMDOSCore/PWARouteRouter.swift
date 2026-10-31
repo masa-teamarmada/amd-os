@@ -54,7 +54,7 @@ struct AMDOSPWAPathRoute: Hashable, Sendable {
              .adminWeekly:
             return .admin
         case .manual,
-             .manualDetail, .spec, .specDetail, .bzm, .bzmDetail, .bzmPublic, .bzmPublicDetail,
+             .manualDetail, .spec, .specDetail,
              .account:
             return .settings
         case .today, .mypage, .projects, .myProjects, .projectWorkspace, .projectCockpit, .projectConfig, .projectReportPrint,
@@ -178,10 +178,6 @@ enum AMDOSPWAPathRouter {
         case let values where values.count == 2 && values[0] == "manual": return AMDOSPWAPathRoute(screen: .manualDetail, documentSlug: values[1])
         case ["spec"]: return AMDOSPWAPathRoute(screen: .spec)
         case let values where values.count == 2 && values[0] == "spec": return AMDOSPWAPathRoute(screen: .specDetail, documentSlug: values[1])
-        case ["bzm"]: return AMDOSPWAPathRoute(screen: .bzm)
-        case ["bzm", "public"]: return AMDOSPWAPathRoute(screen: .bzmPublic)
-        case let values where values.count == 3 && values[0] == "bzm" && values[1] == "public": return AMDOSPWAPathRoute(screen: .bzmPublicDetail, documentSlug: values[2])
-        case let values where values.count == 2 && values[0] == "bzm": return AMDOSPWAPathRoute(screen: .bzmDetail, documentSlug: values[1])
 
 
         case ["admin"]: return AMDOSPWAPathRoute(screen: .adminHome)

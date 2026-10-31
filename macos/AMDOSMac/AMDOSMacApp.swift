@@ -44,10 +44,6 @@ struct AMDOSRootView: View {
                 // PWAの`/payment-confirm`は(app)配下ではなく、署名済みtokenを
                 // 認可境界にする公開フォーム。Googleログインを強制しない。
                 AMDOSPaymentConfirmView(token: paymentConfirmationRoute.paymentConfirmationToken)
-            } else if let publicBzmRoute = pendingPublicBzmRoute {
-                // PWAの`/bzm/public/**`も公開ルート。本文はログインなしで読めるため、
-                // Macでもログイン画面に戻さず同じ公開Markdown bridgeを開く。
-                AMDOSBZMPublicDetailView(initialSlug: publicBzmRoute.documentSlug)
             } else {
                 AMDOSLoginView()
             }
@@ -65,12 +61,6 @@ struct AMDOSRootView: View {
     private var pendingPaymentConfirmationRoute: AMDOSPWAPathRoute? {
         guard workspace.pendingRoute?.screen == .paymentConfirm else { return nil }
         return workspace.pendingRoute
-    }
-
-    private var pendingPublicBzmRoute: AMDOSPWAPathRoute? {
-        guard let route = workspace.pendingRoute,
-              route.screen == .bzmPublic || route.screen == .bzmPublicDetail else { return nil }
-        return route
     }
 
 }

@@ -55,10 +55,10 @@
 | `(app)/atlas/macrotrends/page.tsx` | `/atlas/macrotrends` | `atlasDivergence` (PWA redirect) | 未確認 |
 | `(app)/atlas/map/page.tsx` | `/atlas/map` | `atlasMap` | 未確認 |
 | `(app)/business-cards/page.tsx` | `/business-cards` | `businessCards` | 未確認 |
-| `(app)/bzm/page.tsx` | `/bzm` | `bzm` | 実装済み（member gate、PWA Markdown正本のchapter/part/未着手stub/前後章。Native静的確認、実読取未確認） |
-| `(app)/bzm/[slug]/page.tsx` | `/bzm/[slug]` | `bzmDetail` | 実装済み（同じchapter本文とslug deep link。Native静的確認、実読取未確認） |
-| `(app)/bzm/public/page.tsx` | `/bzm/public` | `bzmPublic` | 実装済み（PWA/Macとも未ログイン可。公開原稿のpart/章へ収束、Native静的確認） |
-| `(app)/bzm/public/[slug]/page.tsx` | `/bzm/public/[slug]` | `bzmPublicDetail` | 実装済み（未ログインのslug deep link、公開Markdown本文と前後章。Native静的確認） |
+| `(app)/bzm/page.tsx` | `/bzm` | `bzm` | 2026-10-31 撤去（PWA の /bzm 配下は書斎へ転送。Native 画面と文書 API の bzm 系も撤去） |
+| `(app)/bzm/[slug]/page.tsx` | `/bzm/[slug]` | `bzmDetail` | 2026-10-31 撤去（PWA の /bzm 配下は書斎へ転送。Native 画面と文書 API の bzm 系も撤去） |
+| `(app)/bzm/public/page.tsx` | `/bzm/public` | `bzmPublic` | 2026-10-31 撤去（PWA の /bzm 配下は書斎へ転送。Native 画面と文書 API の bzm 系も撤去） |
+| `(app)/bzm/public/[slug]/page.tsx` | `/bzm/public/[slug]` | `bzmPublicDetail` | 2026-10-31 撤去（PWA の /bzm 配下は書斎へ転送。Native 画面と文書 API の bzm 系も撤去） |
 | `(app)/company/page.tsx` | `/company` | `company` | 未確認 |
 | `(app)/contracts/page.tsx` | `/contracts` | `adminContracts` (PWA redirect) | 未確認 |
 | `(app)/dashboard/page.tsx` | `/dashboard` | `today` | 未確認 |
@@ -181,8 +181,8 @@
 | `/admin/weekly` | `adminWeekly` | `member_weekly`活動・`billing_cycles`月次報酬 / admin | read-only `/api/admin/weekly?weekStart=` | 実装済み（PWA同一の週移動、活動/PJ/メンバー/報酬集計、PJ × メンバーmatrix、source URL） | 確認済み（Bearer GET 200、11 member / 7 PJ / 72 activity / 6 reward、2026-07-18） |
 | `/manual`, `/manual/[slug]` | `manual`, `manualDetail` | PWA manual markdown / member | manual Q&A API | 実装済み（章順/番号、テーマ、全章本文検索、本文/内リンク、前後章、Q&A） | 実データ読取は未確認 |
 | `/spec`, `/spec/[slug]` | `spec`, `specDetail` | PWA spec Markdown / admin | read-only document bridge（bridgeも`is_admin`確認） | 実装済み（section/番号/章group/本文/前後章、Native gate） | Native静的確認。認証済み実読取は未確認 |
-| `/bzm`, `/bzm/[slug]` | `bzm`, `bzmDetail` | bundled BZM Markdown / member | read-only document bridge | 実装済み（chapter/part/未着手stub/本文/前後章） | Native静的確認。認証済み実読取は未確認 |
-| `/bzm/public`, `/bzm/public/[slug]` | `bzmPublic`, `bzmPublicDetail` | public BZM Markdown / public | 未ログインread-only document bridge | 実装済み（PWA middleware・app shell・Mac rootの全てで公開境界を保持） | Native静的確認。公開実読取は未確認 |
+| `/bzm`, `/bzm/[slug]` | `bzm`, `bzmDetail` | bundled BZM Markdown / member | read-only document bridge | 実装済み（chapter/part/未着手stub/本文/前後章） | 2026-10-31 撤去（PWA の /bzm 配下は書斎へ転送。Native 画面と文書 API の bzm 系も撤去） |
+| `/bzm/public`, `/bzm/public/[slug]` | `bzmPublic`, `bzmPublicDetail` | public BZM Markdown / public | 未ログインread-only document bridge | 実装済み（PWA middleware・app shell・Mac rootの全てで公開境界を保持） | 2026-10-31 撤去（PWA の /bzm 配下は書斎へ転送。Native 画面と文書 API の bzm 系も撤去） |
 | `/proactive` | `proactive` | proactive_todos / admin | done/block/dismiss=`POST /api/proactive-todos/[id]/resolve`、reopen=PWA同一RLS PATCH | 実装済み（4 tab、detail、期限/種別、cockpit deep link） | Native静的確認。認証済み実書込みは未確認 |
 
 ## API surface

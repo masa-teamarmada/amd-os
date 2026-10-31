@@ -102,7 +102,7 @@ enum AMDOSScreenID: String, CaseIterable, Identifiable, Hashable, Sendable {
     case adminHome, adminCompany, adminContexts, adminInvoices, adminBilling, adminFinance, adminPayouts, adminContracts, adminMembers, adminGovernance
     case adminCoverageGaps, adminIP, adminCultureMap, adminMonthlyAgreements, adminPrivateWiki, adminManagementKnowledge, adminProjects, adminPrompts, adminProtocols
     case adminSchedule, adminMsOverview, adminSeasonPL, adminSettings, adminTsukuyomi, adminWeekly
-    case manual, manualDetail, spec, specDetail, bzm, bzmDetail, bzmPublic, bzmPublicDetail, account, paymentConfirm
+    case manual, manualDetail, spec, specDetail, account, paymentConfirm
 
     var id: String { rawValue }
 }

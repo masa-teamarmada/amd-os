@@ -82,10 +82,6 @@ enum AMDOSParityCatalog {
         case .manualDetail: return "マニュアル本文"
         case .spec: return "仕様書"
         case .specDetail: return "仕様書本文"
-        case .bzm: return "BZM"
-        case .bzmDetail: return "BZM本文"
-        case .bzmPublic: return "BZM公開版"
-        case .bzmPublicDetail: return "BZM公開本文"
         case .account: return "アカウント"
         case .paymentConfirm: return "入金確認"
         }
@@ -137,7 +133,6 @@ enum AMDOSParityCatalog {
         case .adminWeekly: return "calendar.badge.clock"
         case .manual, .manualDetail: return "book.closed.fill"
         case .spec, .specDetail: return "doc.badge.gearshape"
-        case .bzm, .bzmDetail, .bzmPublic, .bzmPublicDetail: return "text.book.closed.fill"
         case .account: return "person.crop.circle"
         case .paymentConfirm: return "yensign.circle.fill"
         }
@@ -161,7 +156,7 @@ enum AMDOSParityCatalog {
         case .admin:
             return isAdmin ? [.adminHome, .adminCompany, .adminContexts, .adminInvoices, .adminFinance, .adminPayouts, .adminContracts, .adminMembers, .adminGovernance, .adminCoverageGaps, .adminIP, .adminCultureMap, .adminMonthlyAgreements, .adminPrivateWiki, .adminManagementKnowledge, .adminProjects, .adminPrompts, .adminProtocols, .adminSchedule, .adminMsOverview, .adminSeasonPL, .adminSettings, .adminTsukuyomi, .adminWeekly] : []
         case .settings:
-            return [.manual, .spec, .bzm, .bzmPublic, .account]
+            return [.manual, .spec, .account]
         }
     }
 }
