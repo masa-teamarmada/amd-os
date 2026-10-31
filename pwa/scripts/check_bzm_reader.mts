@@ -1088,8 +1088,15 @@ function strayDollars(text: string): number {
   // AMD OS のアドレス: 書斎だけを書斎のアドレスへ。他は触らない
   assert.equal(readerHostRedirect(at(`https://${AMD_OS_HOST}/bzm/read/book-a?x=1`), AMD_OS_HOST), `https://${SHOSAI_HOST}/bzm/read/book-a?x=1`);
   assert.equal(readerHostRedirect(at(`https://${AMD_OS_HOST}/bzm/read`), AMD_OS_HOST), `https://${SHOSAI_HOST}/bzm/read`);
-  assert.equal(readerHostRedirect(at(`https://${AMD_OS_HOST}/bzm`), AMD_OS_HOST), null);
-  assert.equal(readerHostRedirect(at(`https://${AMD_OS_HOST}/bzm/readme`), AMD_OS_HOST), null);
+  // 表示を止めた本の画面（教科書の入口・章・旧ナラティブ版）は書斎の本棚へ。理論マップは OS に残す（2026-10-31）
+  assert.equal(readerHostRedirect(at(`https://${AMD_OS_HOST}/bzm`), AMD_OS_HOST), `https://${SHOSAI_HOST}/bzm/read`);
+  assert.equal(readerHostRedirect(at(`https://${AMD_OS_HOST}/bzm/`), AMD_OS_HOST), `https://${SHOSAI_HOST}/bzm/read`);
+  assert.equal(readerHostRedirect(at(`https://${AMD_OS_HOST}/bzm/book-a-ch-1?x=1`), AMD_OS_HOST), `https://${SHOSAI_HOST}/bzm/read`);
+  assert.equal(readerHostRedirect(at(`https://${AMD_OS_HOST}/bzm/readme`), AMD_OS_HOST), `https://${SHOSAI_HOST}/bzm/read`);
+  assert.equal(readerHostRedirect(at(`https://${AMD_OS_HOST}/bzm/public`), AMD_OS_HOST), `https://${SHOSAI_HOST}/bzm/read`);
+  assert.equal(readerHostRedirect(at(`https://${AMD_OS_HOST}/bzm/public/00-prologue`), AMD_OS_HOST), `https://${SHOSAI_HOST}/bzm/read`);
+  assert.equal(readerHostRedirect(at(`https://${AMD_OS_HOST}/bzm/map`), AMD_OS_HOST), null);
+  assert.equal(readerHostRedirect(at(`https://${AMD_OS_HOST}/bzm/map/`), AMD_OS_HOST), null);
   assert.equal(readerHostRedirect(at(`https://${AMD_OS_HOST}/dashboard`), AMD_OS_HOST), null);
   // その他のアドレス（プレビュー、手元の開発）は振り分けない
   assert.equal(readerHostRedirect(at("http://localhost:3000/bzm/read"), "localhost:3000"), null);
