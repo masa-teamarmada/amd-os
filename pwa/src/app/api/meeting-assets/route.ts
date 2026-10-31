@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { getGoogleAuthAsync } from "@/lib/sources/google";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
+import { governanceDriveFolderForTitle } from "@/lib/governance-drive-folder";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -382,8 +383,12 @@ export async function POST(req: Request) {
   try {
     const folderName = meetingFolderName(String(meeting.meeting_date || ""), String(meeting.title || ""));
     let meetingFolder: Awaited<ReturnType<typeof ensureMeetingFolder>>;
+    const categoryName = governanceDriveFolderForTitle(String(meeting.title || ""));
     try {
-      meetingFolder = await ensureMeetingFolder(projectFolder.folderId, folderName);
+      const parentId = categoryName
+        ? (await ensureMeetingFolder(projectFolder.folderId, categoryName)).id
+        : projectFolder.folderId;
+      meetingFolder = await ensureMeetingFolder(parentId, folderName);
     } catch (error) {
       return NextResponse.json({ ok: false, error: googleDriveWriteError(error) }, { status: 502 });
     }
@@ -417,7 +422,7 @@ export async function POST(req: Request) {
         drive_folder_name: folderName,
         drive_folder_web_view_link: meetingFolder.webViewLink,
         web_view_link: uploaded.webViewLink,
-        folder_display_path: `PJフォルダ / ${folderName}`,
+        folder_display_path: `PJフォルダ / ${categoryName ? `${categoryName} / ` : ""}${folderName}`,
         file_name: file.name || safeName,
         media_type: uploaded.mimeType || validation.mediaType,
         file_size_bytes: Number(uploaded.size || file.size) || file.size,

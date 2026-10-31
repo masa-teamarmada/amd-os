@@ -7,6 +7,7 @@ import { getGoogleAuthAsync } from "@/lib/sources/google";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { gateGovernanceHistoryCandidate } from "@/lib/governance-candidate-gate";
+import { governanceDriveFolderForType } from "@/lib/governance-drive-folder";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -394,7 +395,9 @@ async function prepareAttachments(params: {
   }
 
   const folderName = governanceFolderName(params.item, params.row);
-  const folder = await ensureGovernanceFolder(projectFolder.folderId, folderName);
+  const categoryName = governanceDriveFolderForType(params.row.meeting_type || "");
+  const categoryFolder = await ensureGovernanceFolder(projectFolder.folderId, categoryName);
+  const folder = await ensureGovernanceFolder(categoryFolder.id, folderName);
   const normalized: Record<string, unknown>[] = [];
 
   for (const attachment of raw) {
@@ -429,7 +432,7 @@ async function prepareAttachments(params: {
       drive_folder_id: folder.id,
       drive_folder_name: folderName,
       drive_folder_web_view_link: folder.webViewLink,
-      folder_display_path: `PJフォルダ / ${folderName}`,
+      folder_display_path: `PJフォルダ / ${categoryName} / ${folderName}`,
     });
   }
 

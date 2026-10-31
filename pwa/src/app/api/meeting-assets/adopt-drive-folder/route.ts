@@ -1,7 +1,7 @@
 /**
  * POST /api/meeting-assets/adopt-drive-folder
  *
- * すでに Drive の `PJフォルダ / YYMMDD_…` に置かれている会議資料を、
+ * すでに Drive のPJフォルダ（日付別、または0_会議種別の下の日付別）に置かれている会議資料を、
  * アップロードし直さずに `meeting_assets` へ取り込む (adopt) route。
  *
  * 既存の `POST /api/meeting-assets` は「ブラウザから選んだファイルを Drive へ上げて行を作る」だけなので、
@@ -17,6 +17,7 @@ import { google } from "googleapis";
 import { NextRequest, NextResponse } from "next/server";
 import { enforceAutomationRouteBudget } from "@/lib/automation-route-budget";
 import { getGoogleAuthAsync } from "@/lib/sources/google";
+import { governanceDriveFolderForTitle } from "@/lib/governance-drive-folder";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -76,23 +77,30 @@ async function authorize(req: NextRequest): Promise<{ ok: true; createdBy: strin
  * 会議タイトルとフォルダ名は一致しないことのほうが多い (例: title=`CLG 取締役会` / folder=`260729_取締役会`)
  * ので、日付 token だけで引き当てて `_prep` を落とす。
  */
-async function findMeetingFolders(projectDriveFolderId: string, datePrefix: string) {
+async function findMeetingFolders(projectDriveFolderId: string, datePrefix: string, title: string) {
   const auth = await getGoogleAuthAsync();
   if (!auth) throw new Error("Google Drive credential が未設定です");
   const drive = google.drive({ version: "v3", auth });
 
-  const res = await drive.files.list({
-    q: `'${driveQueryLiteral(projectDriveFolderId)}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-    fields: "files(id,name,webViewLink)",
-    pageSize: 200,
+  const listChildren = async (parentId: string) => (await drive.files.list({
+    q: `'${driveQueryLiteral(parentId)}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+    fields: "nextPageToken,files(id,name,webViewLink)",
+    pageSize: 1000,
     supportsAllDrives: true,
     includeItemsFromAllDrives: true,
-  });
+  })).data.files ?? [];
+  const rootFolders = await listChildren(projectDriveFolderId);
+  const categoryName = governanceDriveFolderForTitle(title);
+  const category = categoryName ? rootFolders.find((f) => f.name === categoryName) : null;
+  const nestedFolders = category?.id ? await listChildren(category.id) : [];
 
-  return (res.data.files ?? [])
+  return [
+    ...rootFolders.map((f) => ({ ...f, folderDisplayPath: `PJフォルダ / ${f.name}` })),
+    ...nestedFolders.map((f) => ({ ...f, folderDisplayPath: `PJフォルダ / ${categoryName} / ${f.name}` })),
+  ]
     .filter((f) => typeof f.name === "string" && f.name.startsWith(datePrefix))
     .filter((f) => !String(f.name).endsWith(PREP_FOLDER_SUFFIX))
-    .map((f) => ({ id: String(f.id), name: String(f.name), webViewLink: f.webViewLink ?? null }));
+    .map((f) => ({ id: String(f.id), name: String(f.name), webViewLink: f.webViewLink ?? null, folderDisplayPath: f.folderDisplayPath }));
 }
 
 async function listFolderFiles(folderId: string): Promise<AdoptCandidate[]> {
@@ -177,7 +185,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "会議日が未確定なのでDriveフォルダを特定できないよ" }, { status: 400 });
   }
 
-  let folders: Array<{ id: string; name: string; webViewLink: string | null }>;
+  let folders: Array<{ id: string; name: string; webViewLink: string | null; folderDisplayPath: string }>;
   try {
     if (explicitFolderId) {
       const auth = await getGoogleAuthAsync();
@@ -185,15 +193,25 @@ export async function POST(req: NextRequest) {
       const drive = google.drive({ version: "v3", auth });
       const got = await drive.files.get({
         fileId: explicitFolderId,
-        fields: "id,name,webViewLink,mimeType",
+        fields: "id,name,webViewLink,mimeType,parents",
         supportsAllDrives: true,
       });
       if (got.data.mimeType !== "application/vnd.google-apps.folder") {
         return NextResponse.json({ ok: false, error: "drive_folder_id がフォルダじゃないよ" }, { status: 400 });
       }
-      folders = [{ id: String(got.data.id), name: String(got.data.name || ""), webViewLink: got.data.webViewLink ?? null }];
+      const parentId = got.data.parents?.[0];
+      let categoryName: string | null = null;
+      if (parentId && parentId !== projectDriveFolderId) {
+        const parent = await drive.files.get({ fileId: parentId, fields: "name,parents", supportsAllDrives: true });
+        if (parent.data.parents?.includes(projectDriveFolderId) && /^0_(経営会議|取締役会|株主総会)$/.test(parent.data.name || "")) {
+          categoryName = parent.data.name || null;
+        }
+      }
+      const folderName = String(got.data.name || "");
+      folders = [{ id: String(got.data.id), name: folderName, webViewLink: got.data.webViewLink ?? null,
+        folderDisplayPath: `PJフォルダ / ${categoryName ? `${categoryName} / ` : ""}${folderName}` }];
     } else {
-      folders = await findMeetingFolders(projectDriveFolderId, datePrefix);
+      folders = await findMeetingFolders(projectDriveFolderId, datePrefix, String(meeting.title || ""));
     }
   } catch (error) {
     return NextResponse.json(
@@ -265,7 +283,7 @@ export async function POST(req: NextRequest) {
         drive_folder_name: folder.name,
         drive_folder_web_view_link: folder.webViewLink ?? `https://drive.google.com/drive/folders/${folder.id}`,
         web_view_link: file.webViewLink,
-        folder_display_path: `PJフォルダ / ${folder.name}`,
+        folder_display_path: folder.folderDisplayPath,
         file_name: file.fileName,
         media_type: file.mediaType,
         file_size_bytes: file.fileSizeBytes,

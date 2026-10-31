@@ -1,3 +1,5 @@
+2026-10-31 v3.165.1（会議資料のDrive保存先）：Drive保存先を登録した23PJに3種の専用folderを作成（稼働中3PJのPJ rootも作成し、既存rootの稼働中1PJ・営業中1PJと合わせて5PJの保存先を登録）。MTGカード添付とガバナンス抽出のDrive writerを種別folder配下へ変更し、既存資料の取り込みは旧PJ直下と新しい種別folder直下を検索する。既存の会議folder 33件の親を変更し、`meeting_assets.folder_display_path` 36件を更新。決議レコード添付22件は新しい保存先へ複製してリンクを更新。画面仕様は3-23、運用はmanual2-3、会議資料の仕様は3-3に記録。
+
 2026-10-31（BZM・書斎・理論マップ）：本・論文・教科書の原稿の正本を書斎の専用リポジトリだけにし、OS から表示と写しを撤去。左ナビの「教科書」を外し（v3.163.78）、続いて `/bzm` の画面（教科書の入口と章、旧ナラティブ版 `/bzm/public`、書斎の旧実装 `/bzm/read`、理論マップ `/bzm/map`）と `/api/bzm/theory-map`・`/api/bzm-reader/asset` を削除。`/bzm` 配下は middleware が認証より前に書斎へ送る（`/bzm/read` 配下は同じパス、それ以外は本棚。spec 2-1）。`amd-os/bzm/` から原稿・論文・教科書・作業メモと `theory-graph/` を削除し、モデルの画面と数式の正本が読む設計文書・採点の設計記録・`pilot/`・`runs/` を残した。macOS の文書 API は manual と spec だけを返し、macOS アプリの BZM のメニューを外した。理論マップの記録は DB の3表に残す。旧仕様 5-18（書斎）・2-6（理論マップ）を削除。検査は `test:bzm-reader`・`test:bzm-theory-graph`・`test:bzm-theory-editor` を廃止し、`test:bzm-redirects` を deploy.sh に置いた。まさ「止めて」「理論マップも削除していいよ」。
 
 2026-10-30（月次報告書）：各PJの月次報告書タブからAdmin全PJ一覧へ、対象月・PJ・版を指定して移動する。保存済みセルの表示を版名へ変更。管理者だけに導線を表示し、閲覧者の集計単位は維持。仕様3-2、manual2-3/2-6。

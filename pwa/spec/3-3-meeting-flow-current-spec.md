@@ -197,7 +197,7 @@ H-1 が該当 Notion 議事録ページを特定できた場合、本文取得�
 | output | 用途 |
 |---|---|
 | `project_meeting_summaries` | MTG narrative / decided / progress / next_actions / risks |
-| `meeting_assets` | MTGカードの添付。手動添付とDrive既存資料の取り込みの2経路。実体はDriveの `PJフォルダ / YYMMDD_会議名`、旧実体はprivate Storage |
+| `meeting_assets` | MTGカードの添付。手動添付とDrive既存資料の取り込みの2経路。実体はDriveの `PJフォルダ / YYMMDD_会議名`。経営会議・取締役会・株主総会は `PJフォルダ / 0_会議種別 / YYMMDD_会議名`、旧実体はprivate Storage |
 | `meeting_notifications` | 旧 iOS APNs / 通知互換 |
 | `tsukuyomi_nudge_queue` or cockpit TODO | TODO の cockpit 反映 |
 | Calendar event | `+<PJ>` prefix の作業枠 |
@@ -210,14 +210,14 @@ H-1 が該当 Notion 議事録ページを特定できた場合、本文取得�
 
 | 経路 | route | 使いどころ |
 |---|---|---|
-| 手動アップロード | `POST /api/meeting-assets` | ブラウザで選んだファイル / ペースト画像 / 画面キャプチャを Drive の `PJフォルダ / YYMMDD_会議名` へ上げて行を作る |
+| 手動アップロード | `POST /api/meeting-assets` | ブラウザで選んだファイル / ペースト画像 / 画面キャプチャを Drive の会議folderへ上げて行を作る。3つの会議種別は対応する `0_` folderの下に置く |
 | Drive既存資料の取り込み | `POST /api/meeting-assets/adopt-drive-folder` | すでに Drive にある資料を、上げ直さず `drive_file_id` で紐づけるだけ |
 
 取り込み route の約束:
 
 - 認証は `calendar-sync` と同じ。`Authorization: Bearer <WORKFLOW_SECRET or CRON_SECRET>`、または admin session。
 - `dry_run` は既定 `true`。実際に行を作るのは `"dry_run": false` を明示したときだけ。
-- フォルダは `meeting_date` の `YYMMDD` で PJフォルダ直下を前方一致で探す。**会議タイトルとフォルダ名の一致は要求しない** (`title=CLG 取締役会` / `folder=260729_取締役会` は普通に起きる)。`drive_folder_id` を渡せばそのフォルダを直接使う。
+- フォルダは `meeting_date` の `YYMMDD` で PJフォルダ直下と、タイトルが経営会議・取締役会・株主総会なら対応する `0_` folder直下を前方一致で探す。**会議タイトルとフォルダ名の一致は要求しない** (`title=CLG 取締役会` / `folder=260729_取締役会` は普通に起きる)。`drive_folder_id` を渡せばそのフォルダを直接使う。
 - 末尾が `_prep` のフォルダは対象外。W-Prep worker の下書き置き場であり、本カードの添付にしない。
 - 追加専用。既存行の上書き・削除はしない。`drive_file_id` が既に `meeting_assets` にあればスキップし、別MTGが持っている場合は `owned_by:<meeting_id>` として報告する。
 - Docs / Sheets / Slides は `alt=media` で落とせないため、`/api/meeting-assets/file/<assetId>` は Drive の閲覧画面へ redirect する。
