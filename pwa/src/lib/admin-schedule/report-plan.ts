@@ -9,6 +9,12 @@ import type { JsonRecord } from "./types.ts";
 
 export type MonthlyReportRule = { mode: "day" | "month"; day?: number; nextMonth?: boolean };
 
+// The CX commission ended after September 2026. Bound only this verified
+// contract; another CX contract or another project needs its own evidence.
+export function reportMonthAllowed(contractId: unknown, reportYm: string): boolean {
+  return String(contractId ?? "") !== "69c9db30-e132-4108-8aba-b40cd251fa75" || reportYm <= "202609";
+}
+
 export type MonthlyReportSchedulePlan =
   | { kind: "none"; rawRuleText: string | null; rule: null }
   | { kind: "expanded"; rawRuleText: string | null; rule: MonthlyReportRule }

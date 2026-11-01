@@ -255,6 +255,8 @@ hashが変わった場合は、適用条件、期限式、年度別日付への�
 
 ### 月次報告と年次報告
 
+CXの旧NIMS業務委託（contract_id `69c9db30-e132-4108-8aba-b40cd251fa75`）の月次報告は2026年9月分まで生成する。10月以降はこの契約から生成しない。既存の9月分以前は保持し、別契約にはこの境界を適用しない。
+
 報告義務は、`contracts.operational_terms_json`、`contract_terms.extracted_terms_json`、`projects.contract_terms_json`の順に、契約IDを保ったまま解決する。
 
 `monthly_report_required=true`でも、`各月末`や`翌月10日`のように実日付へ解決できる契約だけを月次展開する。

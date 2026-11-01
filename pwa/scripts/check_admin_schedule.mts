@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { addDays, adjustToNextBusinessDay, dateAtDay, nextMonthDay, nextMonthEnd, rollingScheduleWindow, scheduleGenerationRange, ymFromDate } from "../src/lib/admin-schedule/date.ts";
 import { deadlineForReportYm, planMonthlyReportSchedule } from "../src/lib/admin-schedule/report-plan.ts";
+import { buildTimedEventPlans } from "../../ios/supabase/functions/admin-schedule-calendar-sync/schedule.ts";
 import {
   notificationStateLabel,
   scheduleKey,
@@ -32,6 +33,8 @@ import {
   addInternalPrepMilestones,
   canonicalShareholderMeetingForYear,
   generateShareholderMeeting,
+  generateReports,
+  persistGeneratedOccurrences,
   INTERNAL_PREP_SPECS,
   paymentObligationEventKind,
   SHAREHOLDER_MEETING_FLOW,
@@ -83,6 +86,55 @@ if (invoiceLinkedMonthlyPlan.kind === "contract_gap") {
 const unspecifiedMonthlyPlan = planMonthlyReportSchedule({ monthlyReportRequired: true, monthlyReportSubmissionDeadline: "指定なし" }, "202601");
 assert.equal(unspecifiedMonthlyPlan.kind, "contract_gap");
 assert.equal(deadlineForReportYm("202602", { mode: "day", day: 31 }), null, "an invalid calendar day becomes a contract-level gap, not a month row");
+
+const cxOldContract = {
+  contract_id: "69c9db30-e132-4108-8aba-b40cd251fa75", project_id: "p20",
+  relationship_scope: "amd_contract", registry_status: "accepted", is_current_for_project: true,
+  operational_terms_json: { monthlyReportRequired: true, monthlyReportSubmissionDeadline: "各月末" },
+};
+const reportRows = (contract: Record<string, unknown>) => generateReports(
+  [contract], [{ project_id: "p20", project_name: "CX" }], [], [], [], "2026-06-01", "2026-12-31",
+).filter((row) => row.event_kind === "monthly_report_submission");
+const cxRows = reportRows(cxOldContract);
+assert.ok(cxRows.some((row) => row.period_key === "202609"), "the final contract month remains");
+assert.ok(cxRows.every((row) => String(row.period_key) <= "202609"), "the old CX contract produces no reports after September");
+assert.ok(reportRows({ ...cxOldContract, contract_id: "new-contract" }).some((row) => row.period_key === "202610"), "other contracts are unchanged");
+const completedSeptember = generateReports(
+  [cxOldContract], [{ project_id: "p20", project_name: "CX" }], [], [],
+  [{ project_id: "p20", ym: "202609", status: "fixed", report_id: "report-9" }], "2026-06-01", "2026-12-31",
+).find((row) => row.period_key === "202609");
+assert.equal(completedSeptember?.lifecycle_status, "completed", "existing completed history remains completed");
+const nextMonthContract = { ...cxOldContract, operational_terms_json: { monthlyReportRequired: true, monthlyReportSubmissionDeadline: "翌月5日" } };
+const septemberDueLater = reportRows(nextMonthContract).find((row) => row.period_key === "202609");
+assert.equal(septemberDueLater?.due_on, "2026-10-05", "a September report remains even when due after contract expiry");
+
+// Exercise two persistence passes against an in-memory representation of current rows.
+const persisted: Record<string, unknown>[] = [
+  { ...reportRows({ ...cxOldContract, contract_id: "other" }).find((row) => row.period_key === "202610"), occurrence_id: "stale", occurrence_key: "project:report:monthly:p20:202610", current_version: true },
+];
+let nextId = 0;
+const fakeDb = { from: () => ({
+  select: () => ({ eq: (_field: string, value: boolean) => ({ limit: async () => ({ data: persisted.filter((row) => row.current_version === value), error: null }) }) }),
+  update: (values: Record<string, unknown>) => ({ eq: async (_field: string, id: unknown) => { const row = persisted.find((item) => item.occurrence_id === id); if (row) Object.assign(row, values); return { error: null }; } }),
+  insert: async (values: Record<string, unknown>) => { persisted.push({ ...values, occurrence_id: `new-${++nextId}` }); return { error: null }; },
+}) };
+const firstPass = await persistGeneratedOccurrences(fakeDb, cxRows, "2026-06-01", "2026-12-31");
+const secondPass = await persistGeneratedOccurrences(fakeDb, reportRows(cxOldContract), "2026-06-01", "2026-12-31");
+assert.equal(firstPass.superseded, 1, "the stale October occurrence is retained as superseded history");
+assert.equal(secondPass.inserted, 0, "repeat generation inserts no duplicate rows");
+assert.equal(secondPass.superseded, 0, "repeat generation does not restore or supersede again");
+assert.equal(persisted.find((row) => row.occurrence_id === "stale")?.current_version, false);
+assert.ok(persisted.some((row) => row.period_key === "202609" && row.current_version === true));
+assert.ok(!persisted.some((row) => row.period_key === "202610" && row.current_version === true));
+const syncPlan = () => buildTimedEventPlans(persisted.filter((row) => row.current_version === true && typeof row.due_on === "string").map((row) => ({
+  occurrence_key: String(row.occurrence_key), title: String(row.title), due_on: String(row.due_on),
+  category: String(row.category), source_kind: String(row.source_kind), project_id: String(row.project_id),
+})));
+const firstSync = syncPlan();
+const secondSync = syncPlan();
+assert.deepEqual(secondSync, firstSync, "repeated calendar planning stays stable");
+assert.ok(firstSync.some((row) => row.occurrence_key.endsWith(":202609")));
+assert.ok(!firstSync.some((row) => row.occurrence_key.endsWith(":202610")), "stale October cannot reappear in the desired calendar plan");
 
 assert.deepEqual(CALENDAR_WEEKDAYS, ["月", "火", "水", "木", "金", "土", "日"]);
 assert.equal(mondayIndex(2026, 1), 3, "2026-01-01 is Thursday in a Monday-first grid");

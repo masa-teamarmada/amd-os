@@ -35,7 +35,7 @@ import {
   isEligibleTaxSocialObligation,
   isScheduleActionItem,
 } from "./predicates.ts";
-import { deadlineForReportYm, planMonthlyReportSchedule, reportRule } from "./report-plan.ts";
+import { deadlineForReportYm, planMonthlyReportSchedule, reportMonthAllowed, reportRule } from "./report-plan.ts";
 import { AMD_COMPANY_PROJECT_ID } from "../project-formats.ts";
 export {
   isAcceptedAmdContract,
@@ -1007,7 +1007,7 @@ function generateContracts(
   return rows.filter((row) => dateInRange(row.due_on, from, to) || ymInRange(row.due_ym, from, to) || row.lifecycle_status === "needs_source");
 }
 
-function generateReports(
+export function generateReports(
   contracts: RawRow[],
   projects: RawRow[],
   projectMembers: RawRow[],
@@ -1038,6 +1038,7 @@ function generateReports(
     let unresolvedMonths = 0;
     if (reportPlan.kind === "expanded") {
       for (const reportYm of targetMonths) {
+        if (!reportMonthAllowed(contract.contract_id ?? contract.id, reportYm)) continue;
         const report = reportByKey.get(`${projectId}:${reportYm}`) ?? null;
         const dueOn = deadlineForReportYm(reportYm, reportPlan.rule);
         if (!dueOn) {
@@ -1439,7 +1440,7 @@ function dedupeOccurrences(rows: GeneratedOccurrence[]): GeneratedOccurrence[] {
   });
 }
 
-async function persistGeneratedOccurrences(
+export async function persistGeneratedOccurrences(
   db: ScheduleDb,
   generated: GeneratedOccurrence[],
   from: string,
