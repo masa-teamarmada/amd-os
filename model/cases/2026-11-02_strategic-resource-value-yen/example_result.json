@@ -1,0 +1,42 @@
+{
+  "status": "synthetic_example_verified",
+  "units": "million_JPY",
+  "rate": 0.1,
+  "annual_net_cash_per_customer": 1,
+  "annual_revenue_per_customer": 2,
+  "first_contract_pv": 3.790786769408448,
+  "follow_on_pv_before": 1.6279879721894979,
+  "follow_on_pv_after": 2.537078881280407,
+  "bundle_before": 6.5119518887579915,
+  "bundle_after": 34.23573334477333,
+  "bundle_increment": 27.723781456015338,
+  "shapley_increment": {
+    "technology": 7.272727272727272,
+    "reference": 20.451054183288065
+  },
+  "y_before": 106.51195188875799,
+  "y_after": 84.23573334477334,
+  "y_increment": -22.276218543984655,
+  "break_even_candidates": 77.23097562287202,
+  "minimum_integer_candidates": 78,
+  "separate_growth_option_before": 20.0,
+  "separate_growth_option_after": 60.0,
+  "y_before_with_growth_option": 126.51195188875799,
+  "y_after_with_growth_option": 144.23573334477334,
+  "y_increment_with_growth_option": 17.723781456015345,
+  "arithmetic_checks": {
+    "contributions_sum_to_bundle_increment": true,
+    "cash_and_resource_reconcile": true,
+    "77_candidates_not_break_even": true,
+    "78_candidates_break_even": true,
+    "after_value_matches_explicit_dated_cash_flows": true
+  },
+  "not_implemented_checks": [
+    "production_Y_invariant_to_runway_only_change",
+    "production_Y_invariant_to_X_label_only_change",
+    "reject_duplicate_cash_flow_ids",
+    "joint_capacity_and_correlated_scenario_validation",
+    "missing_inputs_are_not_zero",
+    "receivable_cash_debt_and_option_reclassification"
+  ]
+}
