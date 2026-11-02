@@ -1,0 +1,59 @@
+{
+  "status": "synthetic_consistency_checks_only",
+  "checks": {
+    "exercise_transfers_existing_option_value": true,
+    "cash_one_yen_normalization": true,
+    "borrowing_at_par_net_identity": true,
+    "complementarity_retained_in_bundle": true,
+    "allocation_matches_bundle": true,
+    "exclusive_uses_are_not_added": true,
+    "renaming_the_same_receipt_does_not_increase_value": true,
+    "nonanticipatory_policy_excludes_foresight": true,
+    "valuable_information_can_justify_an_experiment": true,
+    "unfavorable_signal_can_lower_realized_value": true,
+    "funding_opportunity_values_net_investment_not_raise_principal": true,
+    "sol_gap_direct_budget": true,
+    "sol_gap_indirect_budget": true,
+    "sol_gap_total_budget": true,
+    "unknown_current_grant_and_y_remain_unknown": true
+  },
+  "passed": 15,
+  "total": 15,
+  "examples": {
+    "option_exercise": {
+      "before_yen": 150000000,
+      "after_yen": 150000000,
+      "policy_gain_over_lapse_yen": 50000000
+    },
+    "complementarity": {
+      "joint_yen": 10000000,
+      "technology_allocation_yen": 5000000.0,
+      "reference_allocation_yen": 5000000.0
+    },
+    "information": {
+      "before_signal_yen": 30000000.0,
+      "free_signal_yen": 50000000.0,
+      "after_experiment_cost_yen": 45000000.0
+    },
+    "funding_opportunity": {
+      "conditional_before_yen": 16000000.0,
+      "conditional_after_yen": 48000000.0,
+      "change_yen": 32000000.0
+    },
+    "sol_gap_budget_only": {
+      "direct_yen": 59998000,
+      "indirect_yen": 17999400,
+      "total_yen": 77997400,
+      "remaining_yen": null,
+      "current_resource_value_yen": null
+    }
+  },
+  "not_validated": [
+    "empirical SOL resource values",
+    "causal effects",
+    "probability calibration",
+    "valuation baseline",
+    "common continuation-financing premise",
+    "cash-timing and legal-label invariance in a future production evaluator"
+  ]
+}
