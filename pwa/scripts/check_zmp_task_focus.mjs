@@ -2,12 +2,13 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   hasEffectiveActionOwner,
   isActionAssignmentMissing,
 } from "../src/lib/question-tree-assignment.ts";
 
-const repo = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../..");
+const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const tasks = fs.readFileSync(path.join(repo, "pwa/src/components/cockpit/CockpitProjectTasks.tsx"), "utf8");
 const workspace = fs.readFileSync(path.join(repo, "pwa/src/components/project-workspace/SxWeeklyControlDashboard.tsx"), "utf8");
 const cockpit = fs.readFileSync(path.join(repo, "pwa/src/components/cockpit/CockpitView.tsx"), "utf8");
