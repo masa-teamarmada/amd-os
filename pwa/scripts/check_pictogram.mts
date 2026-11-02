@@ -19,7 +19,7 @@ import {
 } from "../src/lib/pictogram.ts";
 
 const pwaDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const read = (rel: string) => fs.readFileSync(path.join(pwaDir, rel), "utf8");
+const read = (rel: string) => fs.readFileSync(path.join(pwaDir, rel), "utf8").replace(/\r\n/g, "\n");
 
 function parseOk(source: unknown) {
   const r = parsePictogram(typeof source === "string" ? source : JSON.stringify(source));
