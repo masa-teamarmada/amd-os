@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import {
   validateMonthlyReportContent,
   validateExternalMonthlyReportContent,
@@ -158,7 +159,7 @@ LEFT JOIN public.monthly_reports_external e ON e.project_id=r->>'project_id' AND
   return { sql, reports: rows.map((r) => ({ kind: r.kind, project_id: r.project_id, ym: r.ym, content_length: r.content.length, content_md5: md5(r.content) })) };
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     const args = process.argv.slice(2);
     const file = args[args.indexOf("--file") + 1];
