@@ -67,6 +67,7 @@ async function main() {
   const channelId = getArg("--channel").trim();
   const textArg = getArg("--text");
   const fileArg = getArg("--file");
+  const blocksArg = getArg("--blocks-json");
 
   if (!channelId) {
     usage();
@@ -88,6 +89,12 @@ async function main() {
     throw new Error("message is empty");
   }
 
+  let blocks;
+  if (blocksArg) {
+    blocks = JSON.parse(blocksArg);
+    if (!Array.isArray(blocks)) throw new Error("--blocks-json must be a JSON array");
+  }
+
   const env = parseEnvFile(envPath);
   const gasUrl = env.NEXT_PUBLIC_GAS_WEBAPP_URL;
   const authKey = env.NEXT_PUBLIC_GAS_API_KEY || env.PWA_API_KEY || env.CRON_SECRET;
@@ -98,7 +105,7 @@ async function main() {
   const endpoint = `${gasUrl}?mode=pwaApi&key=${encodeURIComponent(authKey)}&action=runFunc`;
   const body = JSON.stringify({
     fn: EIMI_POST_FUNCTION,
-    args: [channelId, { text: message }],
+    args: [channelId, { text: message, blocks }],
   });
 
   const res = await fetch(endpoint, {

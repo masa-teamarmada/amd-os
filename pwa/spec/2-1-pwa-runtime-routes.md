@@ -2,6 +2,8 @@
 
 # PWA ランタイム / ルート仕様
 
+2026-11-02: AION2認証通知の確認ボタンを追加。`POST/GET /api/aion2/alerts` はローカル監視の `create` / `activate` / `expire` / `cancel` と状態照会を `CRON_SECRET` Bearerで受け、service role専用の `aion2_verification_alerts` へ記録する。`POST /api/slack/interactive` の `aion2_confirm` はSlack署名とまさ本人のDMを検証し、期限内の `pending` だけ `acknowledged` にする。30秒後に `expire` が原子的に期限切れを確定した場合だけローカル監視が検知時のAION2を終了する。詳細は [aion2_verification_alerts.md](../design/aion2_verification_alerts.md)。
+
 2026-10-18（v3.163.8）: DD report/exportのformat=zipは、同じ版・開示条件の完成PDFと全シートExcelを含む2ファイル入りZIPを返す。既存のDD/NDA/出力認可を維持し、資料取得後にも版・開示条件を再検証。仕様5-17。
 
 2026-10-18（v3.163.6）: DDからのリンク移動はcapture時に対象を強調して本文に読み込み中を表示。同じ移動先の重複クリックを抑止し、完了・離脱・30秒で解除。新旧DDの共通枠へ適用。仕様5-17。

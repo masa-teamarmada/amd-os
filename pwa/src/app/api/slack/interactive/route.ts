@@ -170,7 +170,7 @@ async function replyInThread(
   }
 }
 
-type SlackAction = { action_id?: string; value?: string };
+type SlackAction = { action_id?: string; value?: string; action_ts?: string };
 type SlackPayload = {
   type?: string;
   state?: unknown;
@@ -179,6 +179,40 @@ type SlackPayload = {
   channel?: { id?: string };
   message?: { ts?: string };
 };
+
+const AION2_ALERT_TABLE = "aion2_verification_alerts";
+const AION2_ALERT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+async function handleAion2Confirmation(payload: SlackPayload, actionValue: string, actionTs: string): Promise<string> {
+  // Only Masa's direct message can acknowledge a local game shutdown timer.
+  if (payload.user?.id !== "U04PJK178JV" || payload.channel?.id !== "D0AMLE6S4KA") {
+    return "この確認ボタンはまさ本人のDMからだけ押せるよ。";
+  }
+  const id = actionValue.trim();
+  if (!AION2_ALERT_ID.test(id)) return "確認対象を読み取れなかったよ。";
+  const clickedSeconds = Number(actionTs);
+  const clickedAt = Number.isFinite(clickedSeconds) && clickedSeconds > 0
+    ? new Date(clickedSeconds * 1000).toISOString()
+    : new Date().toISOString();
+  const now = new Date().toISOString();
+  const db = createAdminClient();
+  const { data, error } = await db.from(AION2_ALERT_TABLE)
+    .update({ status: "acknowledged", acknowledged_at: clickedAt, finalized_at: now })
+    .eq("id", id)
+    .eq("status", "pending")
+    .or(`deadline_at.is.null,deadline_at.gte.${clickedAt}`)
+    .select("id")
+    .maybeSingle();
+  if (error) throw error;
+  if (data) return "確認したよ。AION2の自動終了を止めたよ。";
+  const { data: state, error: readError } = await db.from(AION2_ALERT_TABLE)
+    .select("status")
+    .eq("id", id)
+    .maybeSingle();
+  if (readError) throw readError;
+  if (state?.status === "acknowledged") return "確認済みだよ。";
+  return "この確認ボタンの期限は過ぎているよ。AION2の状態を見てね。";
+}
 
 async function handleReimbursement(
   client: WebClient | null,
@@ -375,6 +409,18 @@ export async function POST(req: NextRequest) {
   const actionId = String(action.action_id ?? "").trim();
   const actionValue = String(action.value ?? "");
   if (!actionId) return new NextResponse("", { status: 200 });
+
+  if (actionId === "aion2_confirm") {
+    try {
+      const result = await handleAion2Confirmation(payload, actionValue, String(action.action_ts ?? ""));
+      const client = slackClient();
+      after(() => replyInThread(client, String(payload.channel?.id ?? ""), String(payload.message?.ts ?? ""), result));
+      return new NextResponse("", { status: 200 });
+    } catch (error) {
+      console.error("[aion2-confirm]", error);
+      return new NextResponse("confirmation unavailable", { status: 503 });
+    }
+  }
 
   const dedupeKey = [
     payload.user?.id ?? "",
