@@ -24,8 +24,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
-const PWA_ROOT = path.resolve(new URL("..", import.meta.url).pathname);
+const PWA_ROOT = fileURLToPath(new URL("..", import.meta.url));
 const SRC_DIR = path.join(PWA_ROOT, "src");
 const BASELINE_FILE = path.join(PWA_ROOT, "scripts", "llm_spend_gate_baseline.json");
 const GATE_FILE = "src/lib/anthropic-client.ts";
