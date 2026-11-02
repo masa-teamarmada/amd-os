@@ -12,12 +12,13 @@ import { resolveMonthlyReportReference } from "./monthly-report-reference.mjs";
 import https from "node:https";
 import dns from "node:dns";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
 import os from "node:os";
 import { resolveTextbookInsightRouting } from "./textbook_insight_routing.mjs";
 import { buildExternalResearchIdentity, canonicalizeResearchUrl } from "./external_research_identity.mjs";
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const AUTOMATION_DIR = path.join(process.env.CODEX_HOME || path.join(os.homedir(), ".codex"), "automations", "amd-os-ms");
 const DEFAULT_OS_SNAPSHOT = path.join(AUTOMATION_DIR, "snapshots", "os-latest.json");
 const DEFAULT_OUTBOX_DIR = path.join(AUTOMATION_DIR, "outbox");
@@ -2788,7 +2789,7 @@ async function main() {
 
 export { validateMonthlyReportContent, validateExternalMonthlyReportContent, stripStandaloneHorizontalRules };
 
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch((e) => {
     console.error(JSON.stringify({ ok: false, error: e.message, stack: e.stack }, null, 2));
     process.exit(1);
