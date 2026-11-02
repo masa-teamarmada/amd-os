@@ -17,6 +17,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { AMD_REVENUE_KINDS, PROJECT_OVERVIEW_GROUPS, PROJECT_OVERVIEW_SECTIONS } from "../src/lib/project-formats.ts";
 import {
   normalizeRevenueStreams,
@@ -30,7 +31,7 @@ import {
 } from "../src/lib/project-overview.ts";
 import type { ProposalNode, QuestionNode } from "../src/lib/question-tree-types.ts";
 
-const ROOT = path.resolve(new URL("..", import.meta.url).pathname);
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), "utf8");
 const exists = (rel: string) => fs.existsSync(path.join(ROOT, rel));
 let passed = 0;
