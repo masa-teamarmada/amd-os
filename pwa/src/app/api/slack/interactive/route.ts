@@ -186,10 +186,10 @@ const AION2_ALERT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]
 async function handleAion2Confirmation(payload: SlackPayload, actionValue: string, actionTs: string): Promise<string> {
   // Only Masa's direct message can acknowledge a local game shutdown timer.
   if (payload.user?.id !== "U04PJK178JV" || payload.channel?.id !== "D0AMLE6S4KA") {
-    return "この確認ボタンはまさ本人のDMからだけ押せるよ。";
+    return "この確認ボタンはまさ本人のDMからのみ使用できます。";
   }
   const id = actionValue.trim();
-  if (!AION2_ALERT_ID.test(id)) return "確認対象を読み取れなかったよ。";
+  if (!AION2_ALERT_ID.test(id)) return "確認対象を読み取れませんでした。";
   const clickedSeconds = Number(actionTs);
   const clickedAt = Number.isFinite(clickedSeconds) && clickedSeconds > 0
     ? new Date(clickedSeconds * 1000).toISOString()
@@ -204,14 +204,14 @@ async function handleAion2Confirmation(payload: SlackPayload, actionValue: strin
     .select("id")
     .maybeSingle();
   if (error) throw error;
-  if (data) return "確認したよ。AION2の自動終了を止めたよ。";
+  if (data) return "確認を受け付けました。AION2の自動終了を停止しました。";
   const { data: state, error: readError } = await db.from(AION2_ALERT_TABLE)
     .select("status")
     .eq("id", id)
     .maybeSingle();
   if (readError) throw readError;
-  if (state?.status === "acknowledged") return "確認済みだよ。";
-  return "この確認ボタンの期限は過ぎているよ。AION2の状態を見てね。";
+  if (state?.status === "acknowledged") return "確認済みです。";
+  return "確認期限が過ぎています。AION2の状態を確認してください。";
 }
 
 async function handleReimbursement(
