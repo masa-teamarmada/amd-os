@@ -28,7 +28,8 @@ function previousMonth(ym) {
 function checkJargon(body) {
   const script = path.join(import.meta.dirname, "strip_internal_jargon.py");
   const check = "import importlib.util,json,sys; s=importlib.util.spec_from_file_location('jargon',sys.argv[1]); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); h,w=m.check(sys.stdin.read()); print(json.dumps({'hard':h,'soft':w}))";
-  const result = JSON.parse(execFileSync("python3", ["-c", check, script], { input: body, encoding: "utf8" }));
+  const python = process.platform === "win32" ? "python" : "python3";
+  const result = JSON.parse(execFileSync(python, ["-c", check, script], { input: body, encoding: "utf8" }));
   if (result.hard.length) throw new Error(`External report jargon check failed: ${result.hard.map((r) => r.label).join(", ")}`);
   return { status: result.soft.length ? "warning" : "clean", findings: result.soft };
 }
