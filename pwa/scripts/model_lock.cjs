@@ -42,8 +42,9 @@ function ok(msg) {
 }
 
 function sha256File(absPath) {
-  const buf = fs.readFileSync(absPath);
-  return crypto.createHash("sha256").update(buf).digest("hex");
+  // Git may check out these locked text files with CRLF on Windows.
+  const text = fs.readFileSync(absPath, "utf8").replace(/\r\n/g, "\n");
+  return crypto.createHash("sha256").update(text, "utf8").digest("hex");
 }
 
 function escapeRegExp(s) {
