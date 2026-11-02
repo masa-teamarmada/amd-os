@@ -41,7 +41,7 @@ const FORMAT_FILE = "src/lib/project-formats.ts";
 
 const errors = [];
 const rel = (file) => path.relative(pwaDir, file).split(path.sep).join("/");
-const read = (relative) => readFileSync(path.join(pwaDir, relative), "utf8");
+const read = (relative) => readFileSync(path.join(pwaDir, relative), "utf8").replace(/\r\n/g, "\n");
 
 // --- 1. 鍵 -------------------------------------------------------------------------
 const lock = JSON.parse(readFileSync(LOCK_PATH, "utf8"));
