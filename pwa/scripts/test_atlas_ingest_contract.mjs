@@ -7,9 +7,10 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 
 const execFileAsync = promisify(execFile);
-const PWA_DIR = path.resolve(new URL("..", import.meta.url).pathname);
+const PWA_DIR = fileURLToPath(new URL("..", import.meta.url));
 const TOOL = path.join(PWA_DIR, "scripts/atlas_signal_review_tool.mjs");
 const ROUTE = path.join(PWA_DIR, "src/app/api/atlas/signals-ingest/route.ts");
 

@@ -14,13 +14,14 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { evaluateItemCalc } from "../src/lib/cost-item-calc.ts";
 import { computeItemsCost, itemsVolumeCases } from "../src/lib/project-cost-items-engine.ts";
 import { costFormatBreakdown, costFormatEngineOf, costFormatInputGroups, costFormatStatus } from "../src/lib/project-cost-format.ts";
 import { COST_BREAKDOWN_ROWS, COST_FORMAT_SECTIONS } from "../src/lib/project-formats.ts";
 import type { CostModelBundle } from "../src/lib/project-cost-model.ts";
 
-const ROOT = path.resolve(new URL("..", import.meta.url).pathname);
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), "utf8");
 const fixture = (name: string) => JSON.parse(read(`scripts/__fixtures__/${name}`)) as CostModelBundle;
 let passed = 0;
