@@ -15,7 +15,7 @@ import {useProjectReportCatalog} from '../../lib/use-project-report-catalog';
 import type {ProjectSurface} from '@/lib/project-surface-permissions';
 import type {ProjectPageRuntime} from '../../lib/project-page-runtime-types';
 const hashes:Record<string,string>={issues:'issue-hypothesis',weekly:'weekly-change',gantt:'project-gantt',partners:'partner-ledger',company:'company-overview',ip:'project-ip',documents:'project-drive'};
-const fromHashes:Record<string,string>={...Object.fromEntries(Object.entries(hashes).map(([id,hash])=>[hash,id])),'input-readiness':'weekly','project-tasks':'tasks','cost-model':'cost-model','cost-fuel':'cost-model'};
+const fromHashes:Record<string,string>={...Object.fromEntries(Object.entries(hashes).map(([id,hash])=>[hash,id])),'input-readiness':'weekly','project-tasks':'tasks','cost-model':'cost-model','cost-fuel':'cost-model','cost-model-fuel':'cost-model'};
 type Props={projectId:string;projectName:string;projectCategory?:string;surface:ProjectSurface;slug?:string;initialPage?:string;initialChapter?:string;initialRuntime?:ProjectPageRuntime;initialModalYm?:string|null;canExecutiveMeeting?:boolean;canWorkspace?:boolean;external?:boolean;ddHref?:string;embedded?:boolean;onPageChange?:(page:ProjectPageId)=>void};
 export function ProjectSurfaceView({projectId,projectName,projectCategory,surface,slug='sol',initialPage,initialChapter,initialRuntime,initialModalYm,canExecutiveMeeting,canWorkspace,external=false,ddHref,embedded=false,onPageChange}:Props){
  const [eligibility,setEligibility]=useState<{projectId:string;allowed:boolean}|null>(null);
@@ -26,9 +26,9 @@ export function ProjectSurfaceView({projectId,projectName,projectCategory,surfac
  const groups=useMemo(()=>projectSurfacePageGroups(surface,projectFormatTypeOf({projectId,projectCategory}),index,executive,external),[surface,projectId,projectCategory,index,executive,external]);
  const defaultId=surface==='dd'?'report:source-index':surface==='workspace'&&!external?'weekly':DEFAULT_TABS.cockpit;
  const resolve=()=>projectPageId((surface==='dd'?projectPageForChapter(query.get('chapter')??initialChapter??'source-index'):query.get('tab')??initialPage??defaultId))??projectPageId(defaultId)!;
- const [selected,setSelected]=useState<ProjectPageId>(resolve);
- useEffect(()=>{const read=()=>{const hash=window.location.hash.slice(1),candidate=surface==='workspace'?projectPageId(fromHashes[hash]??hash):resolve();if(candidate)setSelected(candidate);};read();window.addEventListener('hashchange',read);window.addEventListener('popstate',read);return()=>{window.removeEventListener('hashchange',read);window.removeEventListener('popstate',read);};},[surface,query,initialPage]);
- const requestedChapter=query.get('chapter')??initialChapter??(query.get('tab')==='cost-fuel'?'fame-cost':undefined);
+ const [selected,setSelected]=useState<ProjectPageId>(resolve),[legacyFuel,setLegacyFuel]=useState(false);
+ useEffect(()=>{const read=()=>{const hash=window.location.hash.slice(1);setLegacyFuel(hash==='cost-model-fuel');const candidate=surface==='workspace'?projectPageId(fromHashes[hash]??hash):resolve();if(candidate)setSelected(candidate);};read();window.addEventListener('hashchange',read);window.addEventListener('popstate',read);return()=>{window.removeEventListener('hashchange',read);window.removeEventListener('popstate',read);};},[surface,query,initialPage]);
+ const requestedChapter=query.get('chapter')??initialChapter??(query.get('tab')==='cost-fuel'||legacyFuel?'fame-cost':undefined);
  const active=projectSurfaceShowsPage(selected,groups)?selected:groups.flatMap(g=>g.children).find(c=>c.key===defaultId)?.key??groups[0]?.children[0]?.key??selected;
  const group=groups.find(g=>g.children.some(c=>c.key===active)),label=group?.children.find(c=>c.key===active)?.label??active;
  const navigate=useCallback((raw:string)=>{const id=projectPageId(raw);if(!id||!projectSurfaceShowsPage(id,groups))return;setSelected(id);onPageChange?.(id);window.history.replaceState(null,'',projectPageLocation(window.location.href,surface,id,index,defaultId));},[groups,onPageChange,surface,index,defaultId]);

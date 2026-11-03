@@ -129,8 +129,7 @@ check("画面は定義の区画をすべて描き、入口はデータの形で�
   // 燃料の試算もこの入口の中の切り替えで読む（2026-10-03 まさ「全部統一してないとだめ」）。入口に渡す追加の指定
   // （旧アドレスから燃料を先に選ぶ・DDでは燃料を別の区画で出す）は許す。
   for (const [file, mount] of [
-    ["src/components/cockpit/CockpitView.tsx", "<CockpitCostTab projectId={project.projectId}"],
-    ["src/components/project-workspace/SxWeeklyControlDashboard.tsx", "<CockpitCostTab projectId={bundle.project.projectId} allowEdit={false}"],
+    ["src/components/project-pages/ProjectOperationsPage.tsx", "<CockpitCostTab initialData="],
     ["src/components/dd/DdLiveBodies.tsx", "<CockpitCostTab projectId={data.projectId} allowEdit={false}"],
   ] as const) {
     assert.ok(read(file).includes(mount), `${file} はコスト試算タブを CockpitCostTab で描く`);

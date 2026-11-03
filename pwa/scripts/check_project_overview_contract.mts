@@ -195,7 +195,7 @@ check("画面は定義の9項目を全部描き、読み込み層を通す。コ
     assert.ok(view.includes(loader), `${loader} を通す`);
   }
   assert.doesNotMatch(view, /fetch\(/, "画面から素の fetch をしない（spec 5-10）");
-  const cockpit = read("src/components/cockpit/CockpitView.tsx");
+  const cockpit = read("src/components/project-pages/ProjectOperationsPage.tsx");
   assert.ok(cockpit.includes("<ProjectOverviewFormat key={project.projectId} project={project} onSelectTab={selectTab} />"), "PJ概要タブはこの画面を描く");
   assert.doesNotMatch(cockpit, /sections="identity"/, "旧い見出し（事業の一言のマージ付き）を PJ概要に描かない");
   assert.ok(read("src/components/cockpit/CockpitCompanyOverview.tsx").includes("<CompanyBusinessSummarySection"), "会社概要に事業の概要を描く");

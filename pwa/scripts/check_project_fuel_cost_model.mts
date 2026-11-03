@@ -287,9 +287,12 @@ check("コスト試算は全PJ常設の1タブで、燃料の試算はタブの�
   assert.match(formats, /"capital-plan", "cost", "ip"/, "ワークスペースも1タブ");
   const tabs = read("src/lib/cockpit-tabs.ts");
   assert.match(tabs, /"cost-fuel": "cost-model"/, "旧 ?tab=cost-fuel はコスト試算タブを開く");
-  const view = read("src/components/cockpit/CockpitView.tsx");
+  const view = read("src/components/project-pages/ProjectOperationsPage.tsx");
   assert.ok(!/hasFuelCost/.test(view), "燃料の試算の有無でタブを出し分けない");
-  assert.match(view, /<CockpitCostTab projectId=\{project\.projectId\} initialRenderer=\{requestedTab === "cost-fuel" \? "fuel" : undefined\} \/>/);
+  assert.match(view, /<CockpitCostTab initialData=/);
+  assert.match(view, /allowEdit=\{canEdit\}/, "同じ本人の編集資格を使う");
+  assert.match(view, /initialRenderer=\{requestedTab === "cost-fuel" \? "fuel" : undefined\}/);
+
   const costTab = read("src/components/cockpit/CockpitCostTab.tsx");
   assert.match(costTab, /loadProjectFuelCostModel\(projectId\)/);
   assert.match(costTab, /<CockpitFuelCostModel projectId=\{projectId\} allowEdit=\{allowEdit\} initialData=\{initialData\?\.fuel\} effluentSupply=\{effluentSupply\}/);
@@ -302,11 +305,11 @@ check("コスト試算は全PJ常設の1タブで、燃料の試算はタブの�
   const tech = read("src/components/cockpit/CockpitTechnology.tsx");
   assert.ok(!/CockpitFuelCostModel|コスト試算（燃料）|cost-fuel/.test(tech), "技術タブにコスト試算（燃料）を置かない");
   // ワークスペースも同じ1タブ。保存させない。旧アドレス #cost-model-fuel は燃料の試算を選んだ状態で開く
-  const workspace = read("src/components/project-workspace/SxWeeklyControlDashboard.tsx");
-  assert.ok(!/hasFuelCost/.test(workspace), "燃料の試算の有無でタブを出し分けない");
-  assert.match(workspace, /<CockpitCostTab projectId=\{bundle\.project\.projectId\} allowEdit=\{false\}/, "ワークスペースでは保存させない");
-  assert.match(workspace, /if \(normalized === "cost-model-fuel"\) return "cost-fuel";/);
-  assert.match(workspace, /if \(candidate === "cost-fuel"\) setCostInitialRenderer\("fuel"\);/);
+  const surface = read("src/components/project-pages/ProjectSurfaceView.tsx");
+  assert.ok(!/hasFuelCost/.test(surface), "燃料の試算の有無でタブを出し分けない");
+  assert.match(surface, /'cost-model-fuel':'cost-model'/, "旧ワークスペースURLも共通コストページへ進む");
+  assert.match(surface, /query.get\('tab'\)==='cost-fuel'\|\|legacyFuel\?'fame-cost'/, "旧燃料URLは燃料の本文を選ぶ");
+
 });
 
 check("燃料のシミュレーターの画面の約束（排水処理のコスト試算タブと同じ形）", () => {
