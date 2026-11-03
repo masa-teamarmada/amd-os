@@ -23,7 +23,7 @@ export function ProjectSurfaceView({projectId,projectName,projectCategory,surfac
  useEffect(()=>{if(canExecutiveMeeting!==undefined)return;const abort=new AbortController();void fetch('/api/project-executive-meeting/'+encodeURIComponent(projectId)+'?eligibility=1',{signal:abort.signal}).then(r=>setEligibility({projectId,allowed:r.ok})).catch(()=>{});return()=>abort.abort();},[projectId,canExecutiveMeeting]);
  const query=useSearchParams(),catalog=useProjectReportCatalog(projectId,surface);
  const index=catalog.index.length?catalog.index:initialRuntime?.report?.index??[];
- const groups=useMemo(()=>projectSurfacePageGroups(surface,projectFormatTypeOf({projectId,projectCategory}),index,executive),[surface,projectId,projectCategory,index,executive]);
+ const groups=useMemo(()=>projectSurfacePageGroups(surface,projectFormatTypeOf({projectId,projectCategory}),index,executive,external),[surface,projectId,projectCategory,index,executive,external]);
  const defaultId=surface==='dd'?'report:source-index':surface==='workspace'&&!external?'weekly':DEFAULT_TABS.cockpit;
  const resolve=()=>projectPageId((surface==='dd'?projectPageForChapter(query.get('chapter')??initialChapter??'source-index'):query.get('tab')??initialPage??defaultId))??projectPageId(defaultId)!;
  const [selected,setSelected]=useState<ProjectPageId>(resolve);

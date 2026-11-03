@@ -11,7 +11,7 @@ export async function projectSurfaceEntry(projectId:string,surface:ProjectSurfac
  const access=await resolveCanonicalPageAccess(projectId,surface,slug);if(!access)return null;
  const actor=await projectPageActor(access);
  const [source,executive]=await Promise.all([projectPageSource(projectId,actor),resolveExecutiveMeetingViewer(projectId)]);
- const groups=projectSurfacePageGroups(surface,projectFormatTypeOf({projectId,projectCategory:source.identity.project_category}),source.index,Boolean(executive));
+ const groups=projectSurfacePageGroups(surface,projectFormatTypeOf({projectId,projectCategory:source.identity.project_category}),source.index,Boolean(executive),actor.external);
  const candidate=projectPageId(requested??(surface==='cockpit'?DEFAULT_TABS.cockpit:surface==='workspace'?(actor.external?'issues':'weekly'):'report:source-index'));
  const pageId=candidate&&projectSurfaceShowsPage(candidate,groups)?candidate:groups[0]?.children[0]?.key;
  if(!pageId)return null;

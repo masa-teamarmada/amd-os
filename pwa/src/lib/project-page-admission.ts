@@ -12,7 +12,7 @@ export async function admitProjectPage(projectId:string,surface:ProjectSurface,r
  const actor=await projectPageActor(access),source=await projectPageSource(projectId,actor);
  const type=projectFormatTypeOf({projectId,projectCategory:source.identity.project_category});
  const executive=pageId==='executive-meeting'?Boolean(await resolveExecutiveMeetingViewer(projectId)):false;
- const groups=projectSurfacePageGroups(surface,type,source.index,executive);
+ const groups=projectSurfacePageGroups(surface,type,source.index,executive,actor.external);
  if(!projectSurfaceShowsPage(pageId,groups))return null;
  return {pageId,actor,source};
 }
