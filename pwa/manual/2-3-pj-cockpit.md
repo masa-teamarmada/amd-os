@@ -395,6 +395,8 @@ PJ cockpit の進捗管理タブでは、今期 MS リストの直下・月次�
 - 通常の PJ コックピットでは、MTGサマリ一覧を小さな枠内でスクロールさせない。カードが増えたときは一覧全体を縦に伸ばし、コックピット全体のページスクロールで読む
 - 開催済み議事録を開いた時に出す会議前準備メモは、手動で作った準備メモまたは prep worker の成果がある場合だけ表示する。カレンダー同期だけで作られた薄い予定テンプレートは、会議後に `MTG準備情報` として残さない
 - H-1 routine は今後60日の確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡し、前回議事録がまだ無いPJでも `source_kinds='upcoming'` の予定MTGカードを作る。recurring series はシリーズごとに次回1枚だけを表示し、同じ定例が複数カードとして並ばないようにする
+- **添付資料は2経路で入る。** (1) 画面からファイルを選んで上げる。(2) 会議日の `YYMMDD` で始まる Drive フォルダに人が直接置いた資料を、上げ直さずに `drive_file_id` で紐づける（`POST /api/meeting-assets/adopt-drive-folder`。L6 の会議処理が開催済みMTGの保存と同じ回で呼ぶ）。(2) があるので、取締役会資料をいつもどおり Drive の日付フォルダへ置けば、次の処理で自動的にカードへ並ぶ。フォルダ名と会議名がずれていても会議日で拾う。末尾 `_prep` の準備用フォルダは対象外。詳細は spec 3-3
+- 会議を開かずに書面で決めた取締役会は、`written-resolution:<pj>:<YYYYMMDD>` の `meeting_id` でカードにする。開催時刻を持たないので日付だけ表示する
 - 一覧カードの短い説明は `summary_short`。詳細モーダルは `narrative_md` があればそれを主表示する
 - 詳細モーダルで `narrative_md` (= H-1の MTG サマリ抽出 routine が、そのMTGに参加していなかったメンバーでも背景・議論の流れ・決定/未決・次の一手を理解できる構成に書き直したもの) を主表示
 - 詳細モーダルの Markdown 本文に active AMDメンバーの `members.code_name` が standalone mention として出る場合、`/mypage?memberId=<members.member_id>` へ自動リンクする。これは admin が OS 内本文からメンバー詳細へ移動するための導線で、既存の Markdown link / code / pre は維持する。短い code_name が `しかるべき` や `こうして` のような長い語へ埋まっている場合はリンクしない
