@@ -1,0 +1,182 @@
+{
+  "status": "conditional_sensitivity_not_empirical_valuation",
+  "conclusion": "Investment ranking is not established as stable by the available SOL inputs.",
+  "scenario_counts": {
+    "full": 1944,
+    "two_units": 1296,
+    "staged": 648
+  },
+  "simple_cost_timing_cases": [
+    {
+      "development_yen": 71421779,
+      "timing": "first",
+      "pv_cost_yen": 68641017.30361141,
+      "required_benefit_at_completion_yen": 78563956.9
+    },
+    {
+      "development_yen": 71421779,
+      "timing": "uniform",
+      "pv_cost_yen": 65475546.12817773,
+      "required_benefit_at_completion_yen": 74940876.25865468
+    },
+    {
+      "development_yen": 71421779,
+      "timing": "last",
+      "pv_cost_yen": 62400924.82146491,
+      "required_benefit_at_completion_yen": 71421779.0
+    },
+    {
+      "development_yen": 81421779,
+      "timing": "first",
+      "pv_cost_yen": 78251673.64187084,
+      "required_benefit_at_completion_yen": 89563956.9
+    },
+    {
+      "development_yen": 81421779,
+      "timing": "uniform",
+      "pv_cost_yen": 74642994.35544434,
+      "required_benefit_at_completion_yen": 85433596.7296268
+    },
+    {
+      "development_yen": 81421779,
+      "timing": "last",
+      "pv_cost_yen": 71137885.12897348,
+      "required_benefit_at_completion_yen": 81421779.0
+    }
+  ],
+  "full_threshold_min": {
+    "development_yen": 71421779,
+    "timing": "last",
+    "delay_months": 0,
+    "retention_share": 0,
+    "outside_option_yen": 0,
+    "fee_share": 0,
+    "affected_share": 0,
+    "life_regime": "movable",
+    "threshold_benefit_yen": 71421779.0,
+    "margins_yen": {
+      "50000000": -18716123.28392206,
+      "75000000": 3126277.4848493636,
+      "100000000": 24968678.25362079,
+      "125000000": 46811079.02239221,
+      "150000000": 68653479.79116364
+    }
+  },
+  "full_threshold_max": {
+    "development_yen": 81421779,
+    "timing": "first",
+    "delay_months": 4,
+    "retention_share": 1,
+    "outside_option_yen": 30000000,
+    "fee_share": 0.02,
+    "affected_share": 1,
+    "life_regime": "fixed_60months",
+    "threshold_benefit_yen": 139638835.03223014,
+    "margins_yen": {
+      "50000000": -71856615.23850286,
+      "75000000": -51816022.56104716,
+      "100000000": -31775429.883591443,
+      "125000000": -11734837.206135735,
+      "150000000": 8305755.471319959
+    }
+  },
+  "full_margins_by_hypothetical_benefit": {
+    "50000000": {
+      "min": -71856615.23850286,
+      "max": -18716123.28392206
+    },
+    "75000000": {
+      "min": -51816022.56104716,
+      "max": 3126277.4848493636
+    },
+    "100000000": {
+      "min": -31775429.883591443,
+      "max": 24968678.25362079
+    },
+    "125000000": {
+      "min": -11734837.206135735,
+      "max": 46811079.02239221
+    },
+    "150000000": {
+      "min": 8305755.471319959,
+      "max": 68653479.79116364
+    }
+  },
+  "two_unit_examples": {
+    "same_end_no_lost_residual": 4630588.962979542,
+    "four_month_overrun_full_team_no_other_loss": -1279623.5932007506,
+    "same_end_full_independent_equipment_residual": -174739.20615017135,
+    "four_month_half_team_100m_affected": -1056625.4245396974,
+    "four_month_half_team_100m_fixed_expiry": -5531749.680373473
+  },
+  "two_unit_grid_range_yen": [
+    -13991140.952194018,
+    4849012.970667256
+  ],
+  "staged_examples": {
+    "stop25_no_delay_no_residual_fee500k": 2360402.871864267,
+    "stop10_delay4_no_residual_fee500k": -1646914.5998064668,
+    "stop25_delay4_half_failed_residual_fee500k": -890010.2524899808
+  },
+  "staged_grid_range_yen": [
+    -11500364.1989693,
+    5410321.394803534
+  ],
+  "budget_scope_cases": [
+    {
+      "development_yen": 71421779,
+      "development_pv_yen": 65475546.12817773,
+      "other_pv_yen": 63677860.786670655,
+      "whole_base_nominal_yen": 142246779,
+      "whole_base_pv_yen": 129153406.91484839,
+      "whole_base_required_benefit_at_completion_yen": 147824188.6985037,
+      "whole_if_all_retests_required_benefit_yen": 154824188.69850373
+    },
+    {
+      "development_yen": 81421779,
+      "development_pv_yen": 74642994.35544434,
+      "other_pv_yen": 63677860.786670655,
+      "whole_base_nominal_yen": 152246779,
+      "whole_base_pv_yen": 138320855.142115,
+      "whole_base_required_benefit_at_completion_yen": 158316909.16947585,
+      "whole_if_all_retests_required_benefit_yen": 165316909.16947585
+    }
+  ],
+  "delay_value_weights": {
+    "movable": {
+      "0": 1.0,
+      "2": 0.9842404717097668,
+      "4": 0.9687293061514642
+    },
+    "fixed_60months": {
+      "0": 1.0,
+      "2": 0.9584267613852296,
+      "4": 0.9175086974005255
+    }
+  },
+  "checks": {
+    "source_salary_reconciles": true,
+    "budget_low_reconciles": true,
+    "budget_high_reconciles": true,
+    "two_units_nominal_saving": true,
+    "four_extra_months_nominal_salary": true,
+    "source_allocation_low_reconciles": true,
+    "source_allocation_high_reconciles": true,
+    "common_anchor_cancels_in_pairwise_difference": true,
+    "scope_reconciliation_same_cashflows": true,
+    "minimal_friction_is_a_condition_not_funding_income": true,
+    "large_common_cost_cancels": true,
+    "free_signal_without_delay_never_worse": true,
+    "stage_rank_can_reverse": true,
+    "two_unit_rank_can_reverse": true,
+    "unobserved_resource_values_remain_unobserved": true,
+    "positive_common_seed_chance_preserves_sign_without_preentry_cost": true,
+    "marginal_salary_only_for_overrun": true,
+    "fixed_expiry_loses_at_least_as_much_as_movable_life": true,
+    "fixed_expiry_zero_delay_matches": true
+  },
+  "passed": 19,
+  "current_y_yen": null,
+  "benefit_value_yen": null,
+  "robustness_domain": "Only the explicitly registered grid. No probability or complete uncertainty set is claimed."
+}

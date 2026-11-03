@@ -1,0 +1,151 @@
+{
+  "evaluation_date": "2026-11-03",
+  "evaluation_month": "2026-11",
+  "rate_status": "会話で認めた比較用の暫定年10%",
+  "discount_rate": 0.1,
+  "observed_current_y_yen": null,
+  "observed_benefit_value_yen": null,
+  "sources": [
+    {
+      "name": "全体概要v4.24",
+      "local_index": "/Users/masa/projects/AMD/SOL/INVESTOR_OVERVIEW.md",
+      "information_date": "2026-11-01",
+      "revision_date": "2026-11-02",
+      "status": "計画比較案・対価未合意",
+      "sha256_of_local_index": "2f220c6fc5f14de769b65382f6d9c75cac89456cfecd0cd047e3ec044fef3542"
+    },
+    {
+      "name": "開発工数・購入物v0.7",
+      "path": "/Users/masa/Library/CloudStorage/GoogleDrive-masa@team-armada.jp/共有ドライブ/ARMADA/p21_sol/261101_開発業務と必要工数の試算/制作元/投資判断_v0.7/KPI別開発と戦略余力_v0.7.json",
+      "sha256": "a834791e3bf511c04f00cf43f5e2e8ec37cbd56fb5d0d6955fc417e038bfaf9b",
+      "status": "予算・工数・購入物の仮定。発注未採用"
+    }
+  ],
+  "planning_inputs": {
+    "base_development_yen": 61971779,
+    "old_license_yen": 550000,
+    "new_license_cash_yen": [
+      10000000,
+      20000000
+    ],
+    "development_cash_yen": [
+      71421779,
+      81421779
+    ],
+    "ten_l_four_units_yen": 11000000,
+    "two_unit_avoided_purchase_yen": 5500000,
+    "two_unit_extra_cash_range_yen": [
+      500000,
+      750000,
+      1000000
+    ],
+    "monthly_three_people_yen": 1725000,
+    "thirteen_month_salary_yen": 22425000,
+    "other_sales_supply_operations_yen": 70825000,
+    "retest_reserve_yen": 7000000,
+    "liquidity_reserve_yen": 10203221,
+    "additional_experiment_duration_days": 120,
+    "additional_team_hours": 98.5
+  },
+  "stress_inputs": {
+    "status": "以下は見積・確率推定ではなく、判定反転点を調べる条件。格子の頻度を確率としない。",
+    "payment_timings": [
+      "first",
+      "uniform",
+      "last"
+    ],
+    "delay_months": [
+      0,
+      2,
+      4
+    ],
+    "retention_shares": [
+      0,
+      0.5,
+      1
+    ],
+    "outside_option_at_completion_yen": [
+      0,
+      10000000,
+      30000000
+    ],
+    "additional_execution_fee_shares": [
+      0,
+      0.02
+    ],
+    "affected_benefit_shares": [
+      0,
+      0.5,
+      1
+    ],
+    "benefit_at_completion_yen": [
+      50000000,
+      75000000,
+      100000000,
+      125000000,
+      150000000
+    ],
+    "common_anchor_value_at_completion_yen": [
+      0,
+      10000000,
+      30000000
+    ],
+    "two_unit_residual_shares": [
+      0,
+      0.25,
+      0.5,
+      1
+    ],
+    "two_unit_affected_value_yen": [
+      0,
+      50000000,
+      100000000
+    ],
+    "purchase_months": [
+      5,
+      17
+    ],
+    "stop_chances": [
+      0,
+      0.1,
+      0.25,
+      0.5
+    ],
+    "stage_good_value_yen": [
+      50000000,
+      100000000,
+      150000000
+    ],
+    "stage_failed_residual_shares": [
+      0,
+      0.5,
+      1
+    ],
+    "stage_extra_fees_yen": [
+      0,
+      500000,
+      1000000
+    ],
+    "life_regimes": [
+      "movable",
+      "fixed_60months"
+    ],
+    "life_regime_note": "同じ60か月の月次収益を後ろ倒しできる場合と、2028年4月から60か月の収益期限を固定する場合。実際の権利期間・収益分布の推定ではない。GAPの期間は延長しない。"
+  },
+  "boundary_conditions": {
+    "seed": "条件付きの開発採否はシード・利用権が整った着手時点。設立前の取得機会は、継続を条件とするシード成立見込みと着手前追加支出を別途評価。",
+    "continuation": "資源利用主体は評価上存続。権利の期限、維持費、後続の成長調達審査は元の条件を保持。",
+    "financing": "資本金・借入元本は営業便益へ加算しない。年10%に加えて通常の利息を重ねない。追加取引実費のみ別入力。",
+    "scope": "開発のみのBは販売・供給・会社運営の追加費用を控除済みであること。事業一式では当該費用を明示的に一度控除。",
+    "delay": "追加120試験日は最大約4か月の全体遅延を意味しない。完了日への波及は0/2/4か月の感度。"
+  },
+  "benchmark_contract": {
+    "primary": "同用途・同時点の新規参入PJ。SOL固有資源は初期保有せず、一般に取得できる資源は有償取得。",
+    "alternative_paths": [
+      "大学からの有償取得",
+      "代替技術の調達"
+    ],
+    "reference_value_yen": null,
+    "investment_comparator": "既存研究資源を実利用条件で保持し、保留・代替利用する方針。便益のゼロは計算条件であり実額認定ではない。"
+  }
+}
