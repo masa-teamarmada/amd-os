@@ -6,7 +6,7 @@ export function pocEditableEntries(projectId: string, display: ProjectPocListDat
   if (!editor?.canEdit || editor.audience !== "internal") return {};
   const sources = new Map(editor.entries.map(entry => [entry.tech_entry_id, entry]));
   return Object.fromEntries(display.entries.flatMap(entry => {
-    const id = editor.editEntryIds?.[entry.tech_entry_id];
+    const id = editor.editEntryIds?.[entry.tech_entry_id] ?? (display.audience === "internal" ? entry.tech_entry_id : undefined);
     const source = id ? sources.get(id) : undefined;
     return source && entry.project_id === projectId && source.project_id === projectId && source.tech_topic_id === entry.tech_topic_id
       ? [[entry.tech_entry_id, source]] : [];

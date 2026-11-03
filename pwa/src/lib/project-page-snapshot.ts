@@ -1,0 +1,14 @@
+import {projectRecordAccess} from './project-record-access';
+import type {DdLiveProjectPage} from '@/lib/dd-project-page-types';
+import type {ProjectPageRuntime} from './project-page-runtime-types';
+import {projectPageId} from './project-page-registry';
+/** 保存済みの版も、同じ操作本体へデータとして渡す。表示部品を複製しない。 */
+export function projectRecordSnapshot(original:DdLiveProjectPage,canDownload=false,canEdit=false):ProjectPageRuntime{
+ const data=projectRecordAccess(original,canEdit)!;
+ const project={projectId:data.projectId,projectName:data.projectName,displayName:data.projectName,projectCategory:'dtsu',status:'active',clientName:null};
+ const management='management' in data?data.management:{"asOf":"","horizonMonths":[],"objectives":[],"objective":null,"outcomes":[],"kpis":[],"dependencies":[],"scheduleDependencies":[],"dag":{"valid":true,"cycles":[],"criticalPath":[],"blockedMilestoneIds":[],"waitingMilestoneIds":[]},"judgment":{"key":"","label":"","reasons":[],"decisionQueue":[],"nextDeadline":"","lastVerifiedAt":"","completenessPct":0,"staleCount":0,"overdueCount":0,"criticalUnknownCount":0,"blockedCount":0,"provisionalDateCount":0,"dagValid":true,"criticalPathSlugs":[]},"tracks":[],"milestones":[],"tasks":[],"issues":[],"hypotheses":[],"evidence":[],"validationRuns":[],"decisions":[],"actions":[],"partners":[],"partnerCommitments":[],"partnerInteractions":[],"partnerRoles":[],"partnerWorkItems":[],"technicalTests":[],"fundingSnapshots":[],"organizationRoles":[],"raci":[],"capacity":[],"history":[],"fieldAudit":[],"canManage":false,"hasData":false};
+ const workspace={...{"project":null,"currentWeekStart":"","currentMonth":"","memberCount":0,"evidenceCount":0,"effort":{"plannedHours":0,"actualHours":0,"calendarHours":0,"enteredHours":0,"tallyDevelopmentHours":0,"tallyMeetingHours":0,"tallyTotalHours":0,"tallySyncedAt":null,"categories":{"basic":0,"applied":0,"development":0,"su":0,"coordination":0},"hasEntries":false,"links":[]},"members":[],"milestones":[],"themes":[],"allMeetings":[],"evidenceByMonth":[],"evidenceBySource":[],"weeklyTrend":[],"sxManagement":null},project,sxManagement:management};
+ const cockpit={project,currentYm:new Date().toISOString().slice(0,7).replace('-',''),billingCycles:[],planCycle:null,milestones:[],progress:[],reports:[],members:[],nudges:[],tasks:[],subItems:[],responsibilities:[],memberMap:{},pastPlanCycles:[],msActivities:[],memberActivities:[],strategySignals:[],msChangeHistory:[],seasonFinance:null};
+ const viewer={memberId:'snapshot',codeName:'',displayName:'閲覧者',email:'',calendarStatus:'',scope:'project',isAdmin:false,projects:[{projectId:data.projectId,projectName:data.projectName}],canManage:canEdit};
+ return {pageId:projectPageId(data.page)??data.page,projectId:data.projectId,projectName:data.projectName,report:null,operations:{recordAudience:"shared",cockpit,workspace,viewer,record:data,canEdit,canDownload}} as unknown as ProjectPageRuntime;
+}

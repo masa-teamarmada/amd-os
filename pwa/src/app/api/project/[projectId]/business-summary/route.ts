@@ -1,3 +1,4 @@
+import {loadProjectBusinessSummary} from "@/lib/project-business-summary-server";
 import { canEditProjectSurface, requireProjectContentEditor } from "@/lib/project-surface-access";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -23,22 +24,6 @@ function nowMs(): number {
 
 type Db = ReturnType<typeof createAdminClient>;
 
-async function loadBusinessSummary(db: Db, projectId: string): Promise<BusinessSummary | null> {
-  const { data, error } = await db
-    .from("project_business_summaries")
-    .select("summary, detail, updated_at, updated_by_email")
-    .eq("project_id", projectId)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!data) return null;
-  return {
-    summary: (data.summary as string | null) ?? null,
-    detail: (data.detail as string | null) ?? null,
-    updatedAt: (data.updated_at as string | null) ?? null,
-    updatedBy: (data.updated_by_email as string | null) ?? null,
-  };
-}
-
 /** 同じPJへ同時に来た読み込みは1本へ束ねる（single-flight、spec 5-10）。 */
 const inflight = new Map<string, Promise<BusinessSummary | null>>();
 
@@ -47,7 +32,7 @@ async function cachedBusinessSummary(db: Db, projectId: string): Promise<Busines
   if (cached && nowMs() - cached.storedAt < CACHE_TTL_MS) return cached.business;
   const pending = inflight.get(projectId);
   if (pending) return pending;
-  const request = loadBusinessSummary(db, projectId)
+  const request = loadProjectBusinessSummary(db, projectId)
     .then((business) => {
       cache.set(projectId, { storedAt: nowMs(), business });
       return business;
@@ -113,7 +98,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ projectId: st
   if (error) return NextResponse.json({ ok: false, error: `事業の概要を保存できない: ${error.message}` }, { status: 500 });
 
   try {
-    const business = await loadBusinessSummary(db, projectId);
+    const business = await loadProjectBusinessSummary(db, projectId);
     cache.set(projectId, { storedAt: nowMs(), business });
     const response: BusinessSummaryResponse = { ok: true, business, viewer: { canEdit: true } };
     return NextResponse.json(response);

@@ -28,6 +28,7 @@
 //    見る人の役割で出し分けてよいのは ROLE_RESTRICTED_TABS（経営会議＝当該PJの経営陣）だけ。
 // 6. 事業計画タブは全PJ同じフェーズマトリクスを描き、中身は project_business_plans から読む。PJの定数を画面に持ち込まない。
 
+import {execFileSync} from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
@@ -70,6 +71,7 @@ if (lock.sha256 !== actualHash) {
 // --- 2. PJ番号の名指しのラチェット ------------------------------------------------
 const SCOPE_DIRS = [
   "src/components/cockpit",
+  "src/components/project-pages",
   "src/components/project-workspace",
   "src/components/dd",
   "src/app/(app)/project",
@@ -186,8 +188,7 @@ if (!costView.includes("COST_SUMMARY_ITEMS.map(") || !costView.includes("COST_IN
   errors.push("ProjectCostFormat は要約の欄（COST_SUMMARY_ITEMS）と前提の並べ方（COST_INPUT_BLOCKS）を定義の順に描く");
 }
 for (const [file, mount] of [
-  ["src/components/cockpit/CockpitView.tsx", "<CockpitCostTab "],
-  ["src/components/project-workspace/SxWeeklyControlDashboard.tsx", "<CockpitCostTab "],
+  ["src/components/project-pages/ProjectOperationsPage.tsx", "<CockpitCostTab "],
   ["src/components/dd/DdLiveBodies.tsx", "<CockpitCostTab "],
 ]) {
   const source = read(file);
@@ -199,11 +200,12 @@ for (const [file, mount] of [
 // --- 5. タブはPJタイプの定義からだけ作る ------------------------------------------
 const CONTENT_CONDITIONAL_TAB_FLAGS = /\b(?:hasCompetition|hasBusinessModel|hasFuelCost|hasDd|hasInstitutionSeedsTab|ledgerTabsPresent)\b/;
 const cockpitView = stripComments(read("src/components/cockpit/CockpitView.tsx"));
-if (!cockpitView.includes("cockpitGroupsForType(formatType)") || !cockpitView.includes("resolveCockpitTabForType(requestedTab, formatType)")) {
+const visibilityView=read("src/lib/project-page-visibility.ts");
+if (!visibilityView.includes("COCKPIT_TAB_FORMATS[type]")) {
   errors.push("CockpitView.tsx のタブは、PJタイプの定義（cockpitGroupsForType / resolveCockpitTabForType）からだけ作る");
 }
 const workspaceView = stripComments(read("src/components/project-workspace/SxWeeklyControlDashboard.tsx"));
-if (!workspaceView.includes("WORKSPACE_TAB_FORMATS[type]")) {
+if (!visibilityView.includes("WORKSPACE_TAB_FORMATS[type]")) {
   errors.push("SxWeeklyControlDashboard.tsx のタブは、PJタイプの定義（WORKSPACE_TAB_FORMATS）からだけ作る");
 }
 for (const [file, source] of [["src/components/cockpit/CockpitView.tsx", cockpitView], ["src/components/project-workspace/SxWeeklyControlDashboard.tsx", workspaceView]]) {
@@ -213,7 +215,7 @@ for (const [file, source] of [["src/components/cockpit/CockpitView.tsx", cockpit
 if (!formatSource.includes('ROLE_RESTRICTED_TABS: Readonly<Record<string, "executive">> = { "executive-meeting": "executive" }')) {
   errors.push("経営会議の閲覧は当該PJの経営陣に制限する。DDは独立した領域のままにする");
 }
-if (!workspaceView.includes("bundle.project.displayName ?? bundle.project.projectName")) {
+if (!read("src/lib/project-page-server.ts").includes("identity.display_name||current.identity.project_name")&&!read("src/lib/project-page-server.ts").includes("current.identity.display_name||current.identity.project_name")) {
   errors.push("ワークスペースの題名は全PJ「{表示名} PJワークスペース」。表示名は projects.display_name（無ければ project_name）");
 }
 
@@ -236,5 +238,11 @@ if (errors.length > 0) {
   for (const error of errors) console.error(`- ${error}`);
   process.exit(1);
 }
+execFileSync(process.execPath,["--experimental-strip-types",path.join(scriptDir,"check_project_page_ownership.mts")],{stdio:"inherit"});
+execFileSync(process.execPath,["--experimental-strip-types",path.join(scriptDir,"check_project_page_policy.mts")],{stdio:"inherit"});
 const named = Object.values(counts).reduce((sum, count) => sum + count, 0);
 console.log(`標準フォーマット契約 OK（定義は承認済みの版・PJ番号の名指し ${named} 件は baseline 内・タブはPJタイプの定義から・試算表は標準フォーマットのみ・コスト試算は入口がデータの形で選ぶ・事業計画はデータから）`);
+
+execFileSync(process.execPath,["--experimental-strip-types","scripts/check_page_title_ownership.mts"],{stdio:"inherit"});
+
+execFileSync(process.execPath,["--experimental-strip-types","scripts/check_project_page_actions.mts"],{stdio:"inherit"});

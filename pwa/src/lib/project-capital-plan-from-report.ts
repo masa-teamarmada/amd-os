@@ -1,6 +1,6 @@
 import type {DdReportChapter} from './dd-report-types.ts';
-import type {CapitalEvent,Holder,EventAllocation} from './capital-plan.ts';
-import type {StandardIpoCapitalPlanDocument} from './capital-plan-presets.ts';
+import type {CapitalEvent,Holder,EventAllocation} from '@/lib/capital-plan';
+import type {StandardIpoCapitalPlanDocument} from '@/lib/capital-plan-presets';
 /** DDの計算済み株数・価格を比較案の初期値にする。元のプランと確定台帳は保持する。 */
 export function capitalPlanFromReport(chapter:DdReportChapter,version:string):StandardIpoCapitalPlanDocument{
   const cells=new Map(chapter.body.rows.flatMap(row=>row.cells).map(cell=>[cell.address,cell.value]));

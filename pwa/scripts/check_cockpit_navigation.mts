@@ -114,12 +114,12 @@ assert.equal(resolveCockpitTabForType("objective-structure", "ecosystem"), "gant
 assert.equal(resolveCockpitTabForType("cost-fuel", "su"), "cost-model", "旧 ?tab=cost-fuel はコスト試算タブを開く");
 
 const cockpitViewSource = fs.readFileSync(
-  new URL("../src/components/cockpit/CockpitView.tsx", import.meta.url),
+  new URL("../src/components/project-pages/ProjectSurfaceView.tsx", import.meta.url),
   "utf8",
 );
 const pageMenuSource = fs.readFileSync(new URL("../src/components/nav/ProjectPageMenu.tsx", import.meta.url), "utf8");
 assert.match(cockpitViewSource, /<ProjectSpaceLayout/, "cockpit uses the shared left menu layout");
-assert.match(cockpitViewSource, /children: group.children.map\(tabItem\)/, "all canonical child pages and prefetch handlers reach the shared menu");
+assert.match(cockpitViewSource, /groups={groups}/, "all canonical child pages and prefetch handlers reach the shared menu");
 const navCss = fs.readFileSync(new URL("../src/components/nav/ProjectNavigation.module.css", import.meta.url), "utf8");
 assert.match(navCss, /min-height: 44px/, "touch targets remain at least 44px");
 assert.match(navCss, /min-height: 36px/, "desktop navigation uses a compact density");
@@ -127,7 +127,7 @@ assert.match(pageMenuSource, /hidden={!open}/, "each group can collapse independ
 assert.match(pageMenuSource, /hasChildren \? setExpanded/, "group disclosure does not navigate");
 assert.match(pageMenuSource, /aria-controls=/, "disclosure identifies its child list");
 assert.match(pageMenuSource, /onMouseEnter={page.onHover}/, "reference data prefetch remains attached to page entries");
-assert.match(cockpitViewSource, /const groups = completeCockpitReportGroups\(cockpitGroupsForType\(formatType\),reportCatalog.index,project.projectId\);/, "groups come from the PJ type format");
+assert.match(cockpitViewSource, /projectSurfacePageGroups\(surface,projectFormatTypeOf\(/, "groups come from the PJ type format");
 
 const kuteSeedsSource = fs.readFileSync(
   new URL("../src/components/cockpit/CockpitKuteSeeds.tsx", import.meta.url),

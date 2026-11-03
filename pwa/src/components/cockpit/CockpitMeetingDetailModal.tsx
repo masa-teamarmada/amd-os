@@ -13,6 +13,7 @@ import { MarkdownView } from "./MarkdownView";
 import { MeetingAssetsPanel } from "./MeetingAssetsPanel";
 
 interface Props {
+  shareHref?:string;
   readOnly?: boolean;
   meeting: ProjectMeetingSummary | null;
   prepMeeting?: ProjectMeetingSummary | null;
@@ -69,7 +70,7 @@ function notionTranscriptLink(meeting: ProjectMeetingSummary): { href: string; l
   return null;
 }
 
-export function CockpitMeetingDetailModal({ readOnly = false, meeting, prepMeeting = null, open, onOpenChange, onMeetingUpdated }: Props) {
+export function CockpitMeetingDetailModal({ shareHref, readOnly = false, meeting, prepMeeting = null, open, onOpenChange, onMeetingUpdated }: Props) {
   const meetingId = meeting?.meetingId ?? null;
   const [editing, setEditing] = useState(false);
   const [shareNote, setShareNote] = useState<string | null>(null);
@@ -137,7 +138,7 @@ export function CockpitMeetingDetailModal({ readOnly = false, meeting, prepMeeti
 
   async function copyShareUrl() {
     try {
-      await writeClipboardText(buildMeetingShareUrl(currentMeeting));
+      await writeClipboardText(shareHref?new URL(shareHref,window.location.origin).href:buildMeetingShareUrl(currentMeeting));
       setTemporaryShareNote("共有URLをコピーしたよ");
     } catch {
       setTemporaryShareNote("コピーできなかった");

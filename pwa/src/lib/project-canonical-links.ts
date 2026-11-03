@@ -1,5 +1,5 @@
 import {canonicalPageForChapter} from './project-canonical-pages.ts';
-import type {ProjectSurface} from './project-surface-permissions.ts';
+import type {ProjectSurface} from '@/lib/project-surface-permissions';
 export type CanonicalReportNavigation={projectId:string;surface:ProjectSurface;chapters?:readonly string[]};
 const hashes:Record<string,string>={gantt:'project-gantt',partners:'partner-ledger',technology:'technology','poc-list':'poc-list',competition:'competition','business-model':'business-model','business-plan':'business-plan','development-issues':'development-issues','financial-projection':'financial-projection','capital-plan':'capital-plan','cost-model':'cost-model',ip:'project-ip',company:'company-overview','organization-chart':'organization-chart',contracts:'contracts'};
 /** 同じスペースにある参照先は、そのスペースの既存ページで開く。 */

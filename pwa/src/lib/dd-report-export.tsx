@@ -1,20 +1,20 @@
 import 'server-only';
-import {deduplicateDdPdfStreams,finalizeDdPdfNavigation} from './dd-report-pdf';
+import {deduplicateDdPdfStreams,finalizeDdPdfNavigation} from '@/lib/dd-report-pdf';
 import {ddPdfMarker,ddReportFilename,ddReportVersionLabel,orderDdReading,type DdPdfIndex} from './dd-report-navigation';
 import {renderToReadableStream} from 'react-dom/server.edge';
 import {strFromU8,strToU8,unzipSync,zipSync} from 'fflate';
 import {DdReportContent} from '@/components/dd/report/DdReportContent';
 import {DD_REPORT_CSS} from '@/components/dd/report/dd-report-style';
-import {DdReportCalculator,ddAddress,ddColumn} from './dd-report-model';
+import {DdReportCalculator,ddAddress,ddColumn} from '@/lib/dd-report-model';
 import type {DdReportChapter,DdReportChapterSummary,DdReportEdition,DdReportModel,DdReportValue} from './dd-report-types';
-import {DD_CONFIDENTIALITY_LABEL,DD_CONFIDENTIALITY_NOTICE,ddEscapeHtml} from './dd-confidentiality';
-import {scaleDdJkissSummary} from './dd-report-jkiss-xlsx';
-import {updateDdFundingChartXml} from './dd-report-funding-chart';
+import {DD_CONFIDENTIALITY_LABEL,DD_CONFIDENTIALITY_NOTICE,ddEscapeHtml} from '@/lib/dd-confidentiality';
+import {scaleDdJkissSummary} from '@/lib/dd-report-jkiss-xlsx';
+import {updateDdFundingChartXml} from '@/lib/dd-report-funding-chart';
 import {mergeDdDevelopmentForWorkbook,splitDdDevelopmentChapters,splitDdDevelopmentIndex} from './dd-report-development-plans';
-import {splitDdDevelopmentWorkbook} from './dd-report-development-xlsx';
+import {splitDdDevelopmentWorkbook} from '@/lib/dd-report-development-xlsx';
 import {projectDdWorkbook,appendDdExecutionWorkbook} from './dd-report-workbook';
-import {syncDdListValidation} from './dd-report-validation';
-import {ddPatchWorksheetFormula} from './dd-report-xlsx-formulas';
+import {syncDdListValidation} from '@/lib/dd-report-validation';
+import {ddPatchWorksheetFormula} from '@/lib/dd-report-xlsx-formulas';
 
 export const orderedDdChapters=orderDdReading;
 export async function ddReportHtml({edition,chapters,index,slug,assetUrls,includeCover=true,includeGlossary=true,glossaryAll=false}:{edition:DdReportEdition;chapters:DdReportChapter[];index:DdReportChapterSummary[];slug:string;assetUrls:Record<string,string>;includeCover?:boolean;includeGlossary?:boolean;glossaryAll?:boolean}) {

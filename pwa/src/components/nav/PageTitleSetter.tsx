@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
+import { claimPageTitle, ownsPageTitle } from "@/lib/page-title-ownership";
 import { surfaceTitleForPath } from "@/lib/surface-catalog";
 
 // 詳細名は認可済みの本文が持つ。外枠でURLからPJ名を推測しない。
@@ -17,18 +18,21 @@ export function PageTitleSetter({ title, pageLabel = "" }: { title?: string; pag
 
   useEffect(() => {
     if (!enabled) return;
-    document.documentElement.dataset.amiePagePath = pathname;
-    document.documentElement.dataset.amiePageLabel = pageLabel;
-    window.dispatchEvent(new Event("amie-page-selection"));
+    const owner = Symbol("page-title");
     let printing = false;
     const updateTitle = () => {
-      if (printing) return;
+      if (printing || !ownsPageTitle(document,owner)) return;
       const nextTitle = document.visibilityState === "visible" ? `▶ ${baseTitle}` : baseTitle;
       if (document.title !== nextTitle) document.title = nextTitle;
     };
     const beforePrint = () => { printing = true; };
     const afterPrint = () => { printing = false; updateTitle(); };
-    updateTitle();
+    const releaseTitle = claimPageTitle(document,owner,() => {
+      document.documentElement.dataset.amiePagePath = pathname;
+      document.documentElement.dataset.amiePageLabel = pageLabel;
+      window.dispatchEvent(new Event("amie-page-selection"));
+      updateTitle();
+    },title === undefined ? 0 : 1);
     document.addEventListener("visibilitychange", updateTitle);
     window.addEventListener("pageshow", updateTitle);
     window.addEventListener("beforeprint", beforePrint);
@@ -38,6 +42,7 @@ export function PageTitleSetter({ title, pageLabel = "" }: { title?: string; pag
     observer.observe(document.head, { childList: true, subtree: true, characterData: true });
     return () => {
       observer.disconnect();
+      releaseTitle();
       document.removeEventListener("visibilitychange", updateTitle);
       window.removeEventListener("pageshow", updateTitle);
       window.removeEventListener("beforeprint", beforePrint);

@@ -7,7 +7,12 @@ const { execFileSync } = require("node:child_process");
 const root = path.resolve(__dirname, "..");
 
 function read(rel) {
-  return fs.readFileSync(path.join(root, rel), "utf8").replace(/\r\n/g, "\n");
+  // Existing behavioral anchors follow the implementation after the shared-page move.
+  const owners = {
+    "src/components/cockpit/CockpitView.tsx": ["src/components/project-pages/ProjectOperationsPage.tsx", "src/components/project-pages/ProjectSurfaceView.tsx", "src/components/project-pages/ProjectOperationsPage.tsx", "src/lib/project-formats.ts", "src/lib/project-page-visibility.ts", "src/lib/project-page-registry.ts"],
+    "src/components/project-workspace/SxWeeklyControlDashboard.tsx": ["src/components/project-pages/ProjectControlPage.tsx", "src/components/project-pages/ProjectSurfaceView.tsx", "src/components/project-pages/ProjectOperationsPage.tsx", "src/lib/project-formats.ts", "src/lib/project-page-visibility.ts", "src/lib/project-page-registry.ts"],
+  };
+  return (owners[rel] || [rel]).map(file => fs.readFileSync(path.join(root, file), "utf8").replace(/\r\n/g, "\n")).join("\n");
 }
 
 function expectIncludes(rel, needles) {
@@ -176,7 +181,7 @@ expectIncludes(
     // だけのtargeted editor（fieldKeys）を開く。開く前にplan/detail editorを閉じ、モーダルは
     // 常に1つだけにする。
     // 題名は全PJ「{表示名} PJワークスペース」（2026-10-03 spec 3-23）。SolvioraX は projects.display_name のデータ。
-    "`${bundle.project.displayName ?? bundle.project.projectName} PJワークスペース`",
+    '{projectName} PJ{surfaceLabel}',
     "PARTNER_NEXT_ACTION_FIELD_KEYS",
     "edit_commitment",
     'resource: "commitment"',
@@ -386,14 +391,14 @@ expectIncludes("src/lib/project-workspace.ts", [
 expectIncludes(
   "src/app/(shared-workspace)/project/[projectId]/workspace/page.tsx",
   [
-    "resolveSharedWorkspaceAccess",
-    "SxWeeklyControlDashboard",
-    "getProjectWorkspaceBundle",
-    'access.principal === "workspace_account"',
+    "projectSurfaceEntry",
+    "ProjectSurfaceView",
+    'entry.actor.viewer',
+    "viewer.principal==='workspace_account'",
     "notFound()",
     "SharedWorkspaceScopeRibbon",
     "externalWorkspaceRoleCapabilityLabel",
-  '<SxWeeklyControlDashboard bundle={bundle} access={access}',
+  '<ProjectSurfaceView projectId={projectId}',
   ],
 );
 
@@ -677,9 +682,9 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   'aria-label="契約"',
   'aria-label="収支"',
   'aria-label="沿革"',
-  '<CockpitGrants projectId={project.projectId} />',
-  '<Bzm22AcquisitionLedger projectId={project.projectId} />',
-  '<CockpitAmdContributions projectId={project.projectId} />',
+  '<CockpitGrants initialGrants=',
+  '<Bzm22AcquisitionLedger initialPayload=',
+  '<CockpitAmdContributions initialPayload=',
 ]);
 expectPattern("src/components/cockpit/CockpitView.tsx", [
   // PJ概要、契約、収支の判断材料を混ぜない。PJ概要は全PJ共通の9項目（2026-10-04 まさ確定、spec 3-23 §9）
@@ -707,9 +712,9 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   'tasks: "タスク"',
 ]);
 expectIncludes("src/components/cockpit/CockpitProjectControl.tsx", [
-  "SxWeeklyControlDashboard",
+  "ProjectControlPage",
   "embedded",
-  "/workspace-bundle",
+  "runtime.operations.workspace",
 ]);
 expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
   // 埋め込み時は外 (CockpitView のタブ列) が表示タブを決め、自前のヘッダ・タブ列は出さない
@@ -729,8 +734,8 @@ expectNotIncludes("src/app/api/project/[projectId]/workspace-bundle/route.ts", [
 ]);
 // 外向けの共有ワークスペースは別ルートのまま残す (統合したのは AMD 側だけ)。
 expectIncludes("src/app/(shared-workspace)/project/[projectId]/workspace/page.tsx", [
-  "resolveSharedWorkspaceAccess",
-  "SxWeeklyControlDashboard",
+  "projectSurfaceEntry",
+  "ProjectSurfaceView",
 ]);
 // PJ概要タブの ?tab=overview は、2026-08-29 から COCKPIT_TABS 由来の一覧で受け付ける
 // (page.tsx にタブ名を書き写さない)。タブ一覧の正本に "overview" が残っていることを見る。
@@ -2294,10 +2299,10 @@ expectIncludes("src/components/cockpit/pl-monthly-client.ts", [
   "invalidatePlMonthlyCache",
 ]);
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
-  "<CockpitFinancialProjection projectId={project.projectId} />",
+  "<CockpitFinancialProjection initialData=",
 ]);
 expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
-  "<CockpitFinancialProjection projectId={bundle.project.projectId} />",
+  "<CockpitFinancialProjection initialData=",
 ]);
 expectNotIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   "BZM 2.2 暫定主表示",
@@ -3378,7 +3383,7 @@ expectIncludes("src/components/cockpit/CockpitTechnology.tsx", [
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   'competition: "競合比較"',
   'aria-label="競合比較"',
-  '<CockpitTechnology projectId={project.projectId} mode="competition" />',
+  'projectId={project.projectId} mode="competition"',
 ]);
 // タブの並びはPJタイプごとの標準フォーマット（鍵付き）が正本。中身の有無やPJ番号でタブを出し分けない（spec 3-23）。
 expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
@@ -3399,7 +3404,7 @@ expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", 
   '"capital-plan": "資本政策表",',
   'cost: "コスト試算",',
   "WORKSPACE_TAB_FORMATS[type]",
-  '<CockpitTechnology sharedView={externalViewer} projectId={bundle.project.projectId} mode="competition" />',
+  'projectId={project.projectId} mode="competition"',
 ]);
 // ビジネスモデルタブ (2026-09-14 まさ「そもそも本来はOSに置くべき資料だと思う。…事業計画グループの中に「ビジネスモデル」っていうタブを新たに追加して、その中に入れておくのはどう？」)。
 // 技術台帳の区分「ビジネスモデル」だけを技術タブと同じ部品で出し、技術タブ・競合比較からはその区分を外す。区分「ビジネスモデル」のトピックを持つPJだけに出す。
@@ -3412,12 +3417,12 @@ expectIncludes("src/lib/project-tech.ts", [
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   '"business-model": "ビジネスモデル"',
   'aria-label="ビジネスモデル"',
-  '<CockpitTechnology projectId={project.projectId} mode="business-model" />',
-  'key === "technology" || key === "competition" || key === "business-model" ? () => prefetchProjectTech(project.projectId)',
+  'projectId={project.projectId} mode="business-model"',
+  'projectSurfacePageGroups(surface,projectFormatTypeOf(',
 ]);
 expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
-  '<CockpitTechnology sharedView={externalViewer} projectId={bundle.project.projectId} mode="business-model" />',
-  'if (normalized === "business-model") return "business-model";',
+  'projectId={project.projectId} mode="business-model"',
+  'projectPageId(raw)',
 ]);
 expectNotIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
   'tab.key !== "competition" || hasCompetition',
@@ -3584,7 +3589,7 @@ expectIncludes("src/lib/project-formats.ts", [
   '{ group: "company-information-group", tabs: ["company", "organization-chart", "employee-register", "contracts", "capital-policy", "shareholder-meeting", "board-meeting", "executive-meeting"] },',
 ]);
 expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
-  '"company-information-group": COCKPIT_GROUP_LABELS.companyInformation,',
+  '"company-information-group"',
   'company: "会社概要",',
   '"capital-policy": "資金調達履歴",',
 ]);
@@ -3635,10 +3640,10 @@ expectIncludes("src/lib/project-formats.ts", [
 expectNotIncludes("src/lib/cockpit-tabs.ts", ['"themes"']);
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   '<ProjectSpaceLayout',
-  '<ProjectPageMenu label="コックピット分類" testPrefix="cockpit"',
+  '<ProjectPageMenu label="ページの分類" testPrefix={surface}',
   'data-cockpit-project-kind={formatType === "ecosystem" ? "institution" : "standard"}',
   "data-project-format-type={formatType}",
-  'children: group.children.map(tabItem)',
+  'groups={groups}',
 
 ]);
 expectIncludes("src/lib/cockpit-tabs.ts", [
@@ -3651,14 +3656,14 @@ expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", 
   // 2026-09-11: ガントが読むのは project_management_tasks ではなく、ゴールツリーの
   // TODO（project_actions）になった（spec 3-22 §5）。左列が木であることを守る。
   'mode="gantt"',
-  '!embedded && (',
+  '!embedded&&',
 ]);
 expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
   'themes: "themes"',
   'key: "themes"',
 ]);
 expectIncludes("src/app/(app)/project/[projectId]/cockpit/page.tsx", [
-  "const NON_DEFAULT_TABS = NON_DEFAULT_COCKPIT_TABS;",
+  "projectSurfaceEntry(projectId,'cockpit',query.tab)",
 ]);
 expectNotIncludes("src/app/(app)/project/[projectId]/cockpit/page.tsx", [
   '"business-plan", "cost-model"',
@@ -3667,7 +3672,7 @@ expectNotIncludes("src/app/(app)/project/[projectId]/cockpit/page.tsx", [
 // 資金調達履歴タブ: 会社概要から独立した確定履歴の結線と、
 // 縦積み100%グラフ / ラウンド一覧 / 株式イベント追加導線を保護する。
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
-  'const CockpitCapitalPolicy = dynamic(() => import("./CockpitCapitalPolicy").then((module) => module.CockpitCapitalPolicy)',
+  'const CockpitCapitalPolicy = dynamic(() => import("@/components/cockpit/CockpitCapitalPolicy").then((module) => module.CockpitCapitalPolicy)',
   '"capital-policy": "資金調達履歴"',
   "<CockpitCapitalPolicy",
 ]);
@@ -4066,8 +4071,8 @@ expectIncludes(
   [
     // 2026-08-08: 「hydration停止」の正体は検証側の背面タブ (rAF停止で
     // streaming revealが保留されるだけ) と判明。タブ化を再適用しアサーションも復元。
-    "partners: \"partner-ledger\"",
-    '<ProjectPageMenu label="PJワークスペースの分類"',
+    "partners:'partner-ledger'",
+    '<ProjectPageMenu label="ページの分類"',
     "onManagementChange={setManagement}",
     'kind: "create_partner"',
     'kind: "create_partner_work_item"',

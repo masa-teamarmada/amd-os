@@ -1,4 +1,5 @@
 "use client";
+import {useProjectPageRefresh} from "@/components/project-pages/ProjectPageContext";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { COST_FORMAT_SECTIONS } from "@/lib/project-formats";
@@ -54,6 +55,7 @@ const caseMemory = new Map<string, string>();
 const sectionLabel = (key: (typeof COST_FORMAT_SECTIONS)[number]["key"]) => COST_FORMAT_SECTIONS.find((s) => s.key === key)?.label ?? key;
 
 export function ProjectCostFormat({ projectId, allowEdit = true, initialData }: Props) {
+  const refreshPage=useProjectPageRefresh();
   const cached = initialData ?? peekProjectCostModel(projectId);
   const [bundle, setBundle] = useState<CostModelBundle | null>(cached?.bundle ?? null);
   const [canEdit, setCanEdit] = useState(!!cached?.canEdit && allowEdit);
@@ -88,7 +90,9 @@ export function ProjectCostFormat({ projectId, allowEdit = true, initialData }: 
   const load = useCallback(
     async (force = false) => {
       try {
-        const res = initialData ?? await loadProjectCostModel(projectId, { force });
+        const record=force&&refreshPage?(await refreshPage()).operations.record:null;
+      if(force&&refreshPage&&(!record||!("costs" in record)))throw new Error("管理記録を読み込めなかった");
+        const res = record&&"costs" in record?record.costs.main : initialData&&!force?initialData:await loadProjectCostModel(projectId, { force });
         setCanEdit(res.canEdit && allowEdit);
         if (!res.bundle) return setState("empty");
         const next = res.bundle;
@@ -100,7 +104,7 @@ export function ProjectCostFormat({ projectId, allowEdit = true, initialData }: 
         setState("error");
       }
     },
-    [projectId, allowEdit, setDraft, initialData]
+    [projectId, allowEdit, setDraft, initialData, refreshPage]
   );
 
   useEffect(() => {

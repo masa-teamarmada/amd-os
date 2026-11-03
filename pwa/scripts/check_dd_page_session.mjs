@@ -35,7 +35,10 @@ await assert.rejects(guard('//outside.example'), (error) => error.location === '
 
 let access = null, lookups = 0, reads = 0, contentEdit = false;
 const page = load('../src/app/dd/[slug]/page.tsx', {
-  '@/components/project-space/ProjectCanonicalPage':{ProjectCanonicalPage:()=>null},
+  '@/lib/project-page-server':{projectPageSource:async()=>{throw new Error('Unexpected shared source read in legacy fixture');},readProjectPage:async()=>{throw new Error('Unexpected shared page read in legacy fixture');}},
+ '@/lib/project-page-registry':{projectPageForChapter:()=>null},
+ '@/components/project-pages/ProjectSurfaceView':{ProjectSurfaceView:()=>null},
+ '@/components/project-space/ProjectCanonicalPage':{ProjectCanonicalPage:()=>null},
   '@/lib/project-canonical-pages':{canonicalPageForChapter:()=>null},
   '@/lib/project-canonical-page-server':{loadProjectCanonicalPage:async()=>{throw new Error('Unauthorized report read');}},
   'react/jsx-runtime': { jsx: (_type, props) => props, jsxs: (_type, props) => props },

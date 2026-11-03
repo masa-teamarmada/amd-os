@@ -1,4 +1,5 @@
 "use client";
+import {useProjectPageRefresh} from "@/components/project-pages/ProjectPageContext";
 import { DdConfidentialityNotice } from "@/components/dd/DdConfidentialityNotice";
 import { normalizeHtml2CanvasColors } from "@/lib/html2canvas-colors";
 
@@ -84,6 +85,7 @@ export function CockpitCompanyOverview({
   canDownload?: boolean;
   confidential?: boolean;
 }) {
+  const refreshPage=useProjectPageRefresh();
   const [data, setData] = useState<CompanyOverviewData>(() => initialData ?? peekGovernance(projectId) ?? EMPTY_DATA);
   const [loading, setLoading] = useState(initialData === undefined);
   const [error, setError] = useState("");
@@ -95,17 +97,18 @@ export function CockpitCompanyOverview({
   const exportRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
-    if (initialData) return;
     setLoading(true);
     setError("");
     try {
-      setData(await loadGovernance(projectId));
+      const record=refreshPage?(await refreshPage()).operations.record:null;
+      if(refreshPage&&(!record||!("governance" in record)))throw new Error("管理記録を読み込めなかった");
+      setData(record&&"governance" in record?record.governance:await loadGovernance(projectId));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "会社概要を読み込めなかったよ");
     } finally {
       setLoading(false);
     }
-  }, [projectId, initialData]);
+  }, [projectId, refreshPage]);
 
   useEffect(() => { if (initialData === undefined) void load(); }, [load, initialData]);
 
@@ -266,12 +269,7 @@ export function CockpitCompanyOverview({
         <div className="flex flex-wrap gap-2" data-html2canvas-ignore="true">
           <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" disabled={!canDownload} onClick={() => void downloadCompanyOverviewXlsx(projectName, data, confidential).catch(cause => setError(cause instanceof Error ? cause.message : "Excelを作成できなかった。"))}><FileSpreadsheet />会社概要Excel</Button>
           <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" onClick={() => void exportPdf()} disabled={exportingPdf || !canDownload}>{exportingPdf ? <Loader2 className="animate-spin" /> : <Download />}PDF</Button>
-          <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" onClick={() => {
-            if (!initialData) { void load(); return; }
-            const url = new URL(window.location.href);
-            if (url.pathname.startsWith("/dd/")) url.searchParams.set("fresh", "1");
-            window.location.assign(url.href);
-          }}><RefreshCw />更新</Button>
+          <Button variant="outline" className="h-11 border-slate-600 bg-slate-900 text-white hover:bg-slate-800 hover:text-white" onClick={() => void load()}><RefreshCw />更新</Button>
         </div>
       </div>
 

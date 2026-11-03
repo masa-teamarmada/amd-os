@@ -22,3 +22,10 @@ export const previewWorkspace = {
     tracks: [], milestones: [], tasks: [], issues: [], hypotheses: [], evidence: [], validationRuns: [], decisions: [], actions: [], partners: [], partnerCommitments: [], partnerInteractions: [], partnerRoles: [], partnerWorkItems: [], technicalTests: [], fundingSnapshots: [], organizationRoles: [], raci: [], capacity: [], history: [], fieldAudit: [], canManage: false, hasData: false,
   },
 } as ProjectWorkspaceBundle;
+
+
+// 表示確認も本体へデータを渡す。個別の本文や取得処理は持たない。
+export function previewPageRuntime():import("@/lib/project-page-runtime-types").ProjectPageRuntime{
+ const projectId=previewCockpit.project.projectId;
+ return {pageId:"executive-meeting",projectId,projectName:previewCockpit.project.projectName,report:null,operations:{loaded:true,cockpit:previewCockpit,workspace:previewWorkspace,viewer:{memberId:"preview-member",codeName:"表示確認",displayName:"表示確認",email:"",calendarStatus:"",scope:"portfolio",isAdmin:false,projects:[{projectId,projectName:previewCockpit.project.projectName}]},canEdit:false}};
+}

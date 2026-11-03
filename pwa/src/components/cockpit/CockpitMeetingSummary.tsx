@@ -1,4 +1,5 @@
 "use client";
+import {useOptionalProjectPageEnvironment} from "@/components/project-pages/ProjectPageContext";
 
 import { AmieListCategory, AmieListStatus } from "@/components/ui/amie-list-signals";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -17,6 +18,7 @@ import { CockpitMeetingDetailModal } from "./CockpitMeetingDetailModal";
 interface Props {
   projectId: string;
   sharedWorkspace?: boolean;
+  limitedRecords?:boolean;
   readOnly?: boolean;
 }
 
@@ -104,7 +106,9 @@ function groupByYm(items: ProjectMeetingSummary[]): MeetingGroup[] {
     .sort((a, b) => b.ym.localeCompare(a.ym));
 }
 
-export function CockpitMeetingSummary({ projectId, sharedWorkspace = false, readOnly = false }: Props) {
+export function CockpitMeetingSummary({ projectId, sharedWorkspace = false, limitedRecords, readOnly = false }: Props) {
+  const pageEnvironment=useOptionalProjectPageEnvironment();
+  const sharedOnly=limitedRecords??sharedWorkspace;
   const [recentItems, setRecentItems] = useState<ProjectMeetingSummary[]>([]);
   const [olderItems, setOlderItems] = useState<ProjectMeetingSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -116,9 +120,9 @@ export function CockpitMeetingSummary({ projectId, sharedWorkspace = false, read
 
   const [loadError, setLoadError] = useState<string | null>(null);
   const loadMeetings = useCallback(async (id: string, options: {sinceDate?: string; force?: boolean}) => {
-    if (!sharedWorkspace) return fetchProjectMeetingSummaries(id, options);
+    if (!sharedOnly) return fetchProjectMeetingSummaries(id, options);
     return (await loadWorkspaceMeetings(id, options)).meetings;
-  }, [sharedWorkspace]);
+  }, [sharedOnly]);
   const sinceDate = useMemo(() => todayMinus365IsoDate(), []);
   // /project/[id]/cockpit?meeting=<meeting_id> で開いた場合、対象 meeting の詳細モーダルを auto-open
   const searchParams = useSearchParams();
@@ -196,6 +200,7 @@ export function CockpitMeetingSummary({ projectId, sharedWorkspace = false, read
   }, [deepLinkMeetingId, loading, recentItems, olderItems, olderLoaded, olderLoading, projectId, sinceDate, selectedMeeting, loadMeetings]);
 
   function meetingUrl(meetingId: string): string {
+    if(pageEnvironment){const url=new URL(pageEnvironment.location("meetings"),window.location.origin);url.searchParams.set("meeting",meetingId);url.searchParams.delete("ym");url.searchParams.delete("step");return url.pathname+url.search+url.hash;}
     const params = new URLSearchParams(searchParams.toString());
     params.set("meeting", meetingId);
     // cockpit には月次系 modal も query で開く導線があるため、MTG詳細リンクでは単一 modal 状態に寄せる。
@@ -218,6 +223,7 @@ export function CockpitMeetingSummary({ projectId, sharedWorkspace = false, read
   const closeSelectedMeeting = () => {
     setSelectedMeeting(null);
     if (deepLinkMeetingId) {
+      if(pageEnvironment){const url=new URL(pageEnvironment.location("meetings"),window.location.origin);url.searchParams.delete("meeting");router.replace(url.pathname+url.search+url.hash,{scroll:false});return;}
       // ?meeting= 以外のクエリは保持しつつ meeting だけ remove
       const params = new URLSearchParams(searchParams.toString());
       params.delete("meeting");
@@ -387,6 +393,7 @@ export function CockpitMeetingSummary({ projectId, sharedWorkspace = false, read
       )}
 
       <CockpitMeetingDetailModal
+        shareHref={selectedMeeting?meetingUrl(selectedMeeting.meetingId):undefined}
         readOnly={readOnly}
         meeting={selectedMeeting}
         prepMeeting={selectedPrepMeeting}

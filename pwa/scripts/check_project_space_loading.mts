@@ -7,7 +7,14 @@ import { DD_NOTICE_HASH, ddContentHash } from '../src/lib/dd-confidentiality-ser
 function compile(file: string, mocks: Record<string, unknown>) {
   const exports: Record<string, any> = {};
   const code = ts.transpileModule(readFileSync(new URL(file, import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
-  new Function('require', 'exports', code)((name: string) => { assert.ok(name in mocks, name); return mocks[name]; }, exports);
+  const canonical=(value:string,base:string|URL)=>new URL(value,base).href.replace(/\.(?:tsx?|jsx?)$/, '');
+  const sourceUrl=new URL(file,import.meta.url);
+  new Function('require', 'exports', code)((name: string) => {
+    if(name in mocks)return mocks[name];
+    const target=name.startsWith('@/')?canonical('../src/'+name.slice(2),import.meta.url):name.startsWith('.')?canonical(name,sourceUrl):null;
+    const key=target?Object.keys(mocks).find(key=>key.startsWith('.')&&canonical(key,import.meta.url)===target):undefined;
+    assert.ok(key,name);return mocks[key!];
+  }, exports);
   return exports;
 }
 type Row = Record<string, any>;
@@ -80,9 +87,10 @@ liveReads.length=0;await dd.loadDdPackageView(access);assert.deepEqual(liveReads
 // Route still revalidates admission before any data/audit access, on every tab.
 let allowed=false;let routeReads=0;let audits=0;const modes:string[]=[];
 const page=compile('../src/app/dd/[slug]/page.tsx',{
- '@/components/project-space/ProjectCanonicalPage':{ProjectCanonicalPage:()=>null},
- '@/lib/project-canonical-pages':{canonicalPageForChapter:()=>null},
- '@/lib/project-canonical-page-server':{loadProjectCanonicalPage:async()=>{throw new Error('Unauthorized report read');}},
+ '@/lib/project-canonical-page-server':{projectPageActor:async()=>({})},
+ '@/lib/project-page-server':{projectPageSource:async()=>{routeReads++;return {}},readProjectPage:async()=>{routeReads++;return {}}},
+ '@/lib/project-page-registry':{projectPageForChapter:(value:string)=>value},
+ '@/components/project-pages/ProjectSurfaceView':{ProjectSurfaceView:()=>null},
  '@/lib/dd-report-server':{loadDdReportEdition:async()=>null},
  '@/lib/dd-report-output-state':{ddReportOutputState:async()=>({ready:true}),queueDdReportPdf:()=>{}},
  '@/lib/dd-report-download-policy':{ddReportDownloadEdition:(e:any)=>e,ddReportDownloadRelease:(e:any)=>({revision:e.revision,documentVersion:e.document_version,paused:false})},
@@ -107,23 +115,27 @@ allowed=true;await page.default(props('company'));await page.default(props('docu
 allowed=false;await assert.rejects(page.default(props('company')),/not found/);assert.equal(audits,2,'revocation stops the next page request before data or audit');
 console.log('project space loading: cycle scope/chunking/pagination/history/error, DD selective loading/full compatibility/fresh authorization/audit OK');
 
-// A tab is an in-page view: preserve deep-link params without requesting the RSC route again.
-const locations: string[] = []; let routeNavigations = 0;
-const search = new URLSearchParams('tab=company&ym=202609&meeting=m1');
-const clientPage = compile('../src/app/(app)/project/[projectId]/cockpit/page.tsx', {
-  '@/lib/project-canonical-pages':{isProjectReportPageKey:(key:string)=>/^report:[a-z0-9]+(?:-[a-z0-9]+)*$/.test(key)},
-  'react/jsx-runtime': {jsx,jsxs},
-  react: {useEffect:()=>{},useState:()=>[{projectId:'p21',cockpit:{tasks:[]},error:null},()=>{}]},
-  'next/navigation': {useParams:()=>({projectId:'p21'}),usePathname:()=>'/project/p21/cockpit',useSearchParams:()=>search,useRouter:()=>({replace:()=>{routeNavigations++}})},
-  '@/components/cockpit/CockpitView': {CockpitView:()=>null},
-  '@/lib/cockpit-tabs': {DEFAULT_COCKPIT_TAB:'issues',NON_DEFAULT_COCKPIT_TABS:['company','contracts']},
-  '@/lib/project-page-prefetch': {},'@/lib/supabase-data': {},
+// タブの移動規則は１つ。本文取得は共通入口へ委譲し、古いクライアント専用取得を戻さない。
+const location=compile('../src/lib/project-page-location.ts',{
+ './project-page-registry.ts':{projectPageForChapter:(slug:string)=>slug==='unit-economics'?'cost-model':'report:'+slug},
 });
-Object.defineProperty(globalThis, 'window', {configurable:true,value:{history:{replaceState:(_:unknown,_title:string,url:string)=>locations.push(url)}}});
-try {
-  const rendered=clientPage.default();rendered.props.onTabChange('contracts');rendered.props.onTabChange('issues');
-  assert.equal(locations[0],'/project/p21/cockpit?tab=contracts&ym=202609&meeting=m1');
-  assert.equal(locations[1],'/project/p21/cockpit?ym=202609&meeting=m1');
-  assert.equal(routeNavigations,0,'switching an admitted PJ tab does not wait for a new server navigation');
-} finally { delete (globalThis as Record<string,unknown>).window; }
-console.log('cockpit tab navigation: native history, preserved modal/deep-link params, default-tab normalization, no RSC navigation OK');
+const current='http://localhost/project/p21/cockpit?tab=company&ym=202609&meeting=m1';
+assert.equal(location.projectPageLocation(current,'cockpit','contracts',[],'issues'),'/project/p21/cockpit?tab=contracts&ym=202609&meeting=m1');
+assert.equal(location.projectPageLocation(current,'cockpit','issues',[],'issues'),'/project/p21/cockpit?ym=202609&meeting=m1');
+assert.equal(location.projectPageLocation('http://localhost/project/p21/workspace?ym=202609','workspace','partners',[],'weekly'),'/project/p21/workspace?ym=202609#partner-ledger');
+assert.equal(location.projectPageLocation('http://localhost/dd/sol?viewer=external','dd','cost-model',[{slug:'unit-economics'}],'report:source-index'),'/dd/sol?viewer=external&chapter=unit-economics');
+let entryAllowed=false,entryReads=0;
+const sharedRuntime={pageId:'contracts',projectName:'display',operations:{},report:null};
+const clientPage=compile('../src/app/(app)/project/[projectId]/cockpit/page.tsx',{
+ 'react/jsx-runtime':{jsx,jsxs},
+ 'next/navigation':{notFound:()=>{throw new Error('not found')},redirect:()=>{throw new Error('redirect')}},
+ '@/components/project-pages/ProjectSurfaceView':{ProjectSurfaceView:()=>null},
+ '@/lib/project-surface-entry':{projectSurfaceEntry:async()=>{entryReads++;return entryAllowed?{runtime:sharedRuntime,source:{identity:{project_category:'dtsu'},slug:'sol'},executive:false}:null}},
+});
+const routeProps={params:Promise.resolve({projectId:'p21'}),searchParams:Promise.resolve({tab:'contracts',ym:'202609',meeting:'m1'})};
+await assert.rejects(clientPage.default(routeProps),/not found/);
+entryAllowed=true;const rendered=await clientPage.default(routeProps);
+assert.equal(rendered.props.initialRuntime,sharedRuntime);
+assert.equal(rendered.props.initialModalYm,null,'会議を指定したときは月次モーダルと二重起動しない');
+assert.equal(entryReads,2);
+console.log('single page entry/navigation: authorization, shared runtime, modal/deep-link params, all three URL forms OK');

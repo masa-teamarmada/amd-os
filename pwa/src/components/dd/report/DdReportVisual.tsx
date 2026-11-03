@@ -1,6 +1,6 @@
 import type {DdReportVisual as Visual,DdReportGlossary} from '@/lib/dd-report-types';
 import {DdReportRichText} from './DdReportRichText';
-import {DdProcessIllustration,ddProcessIllustrationKind} from './DdProcessIllustration';
+import {DdProcessIllustration,ddProcessIllustrationKind} from '@/components/dd/report/DdProcessIllustration';
 
 
 function monthIndex(month:string){const [y,m]=month.split('-').map(Number);return y*12+m-1;}

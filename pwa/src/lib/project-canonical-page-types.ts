@@ -1,6 +1,6 @@
-import type {DdLiveProjectPage} from './dd-project-page-types.ts';
+import type {DdLiveProjectPage} from '@/lib/dd-project-page-types';
 import type {DdReportChapter,DdReportChapterSummary,DdReportGlossary,DdReportInput,DdReportValue} from './dd-report-types.ts';
-import type {DdDownloadRelease} from './dd-report-download-policy.ts';
+import type {DdDownloadRelease} from '@/lib/dd-report-download-policy';
 import type {ProjectCanonicalPageKey} from './project-canonical-pages.ts';
 export type ProjectCanonicalPageData={
   projectId:string;page:ProjectCanonicalPageKey;projectName:string;slug:string;

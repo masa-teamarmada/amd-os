@@ -1,18 +1,18 @@
 import 'server-only';
 import {createHash,randomUUID} from 'node:crypto';
 import {PDFDocument} from 'pdf-lib';
-import {createAdminClient} from './supabase/admin.ts';
-import {ddReportOutputState} from './dd-report-output-state.ts';
+import {createAdminClient} from '@/lib/supabase/admin';
+import {ddReportOutputState} from '@/lib/dd-report-output-state';
 import {DD_REPORT_BUCKET,hydrateDdReportChangeLog,ddReportAsset,loadDdReportChapter,loadDdReportChapterIndex,loadDdReportModel,updateDdReportBody} from './dd-report-server.ts';
-import {DdReportCalculator} from './dd-report-model.ts';
+import {DdReportCalculator} from '@/lib/dd-report-model';
 import {ddReportPdf,ddReportXlsx,orderedDdChapters} from './dd-report-export';
-import {deduplicateDdPdfStreams,finalizeDdPdfNavigation} from './dd-report-pdf.ts';
+import {deduplicateDdPdfStreams,finalizeDdPdfNavigation} from '@/lib/dd-report-pdf';
 import {ddReportVersionLabel} from './dd-report-navigation.ts';
 import type {DdPdfIndex} from './dd-report-navigation.ts';
-import {renderWorkspaceDocumentHtmlToPdf} from './workspace-document-html-pdf.ts';
-import {redactProjectPartnerNames} from './project-partner-disclosure.ts';
+import {renderWorkspaceDocumentHtmlToPdf} from '@/lib/workspace-document-html-pdf';
+import {redactProjectPartnerNames} from '@/lib/project-partner-disclosure';
 import type {DdReportChapterSummary,DdReportEdition} from './dd-report-types.ts';
-import {ddReportExportsPaused} from './dd-report-download-policy.ts';
+import {ddReportExportsPaused} from '@/lib/dd-report-download-policy';
 
 export const DD_PDF_BATCH=4;
 type OutputArgs={edition:DdReportEdition;index:DdReportChapterSummary[];selected:DdReportChapterSummary[];slug:string;hidden:Awaited<ReturnType<typeof ddReportOutputState>>['hidden'];format:'pdf'|'xlsx';includeCover?:boolean;includeGlossary?:boolean;all?:boolean;focusSheet?:string;pdfIndex?:DdPdfIndex};

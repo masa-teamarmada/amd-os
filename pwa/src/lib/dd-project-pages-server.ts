@@ -1,124 +1,17 @@
-import { loadProjectManagementMinutes } from "./project-management-minutes-server";
-import { loadProjectManagementBiographies } from "./project-management-biographies-server";
-import { loadProjectProductDescription } from "./project-product-description-server";
-import { loadProjectFoundingBackground } from "./project-founding-background-server";
-import { loadProjectOrganizationChart } from "./project-organization-chart-server";
-import { loadProjectGovernance } from "./project-governance-server";
-import "server-only";
-import { redactProjectPartnerNames } from "./project-partner-disclosure";
-import { loadProjectPartnerDisclosure } from "./project-partner-disclosure-server";
-import { loadProjectMarketResearch } from "./project-market-research-server";
-import { loadShortTermPlanHtml, loadLongTermPlanHtml } from "./project-short-term-plan-server";
-import { loadProjectTechnicalEvidence } from "./project-technical-evidence-server";
-import { loadProjectDevelopmentIssues } from "./project-development-issues-server";
-import { loadProjectContractList } from "./project-contract-list-server";
-import { createAdminClient } from "./supabase/admin";
-import { buildDagHealth } from "./project-management-logic";
-import { getQuestionTreeBundle } from "./question-tree";
-import { getSxManagementBundle, computeSxJudgment } from "./sx-management";
-import { loadProjectBusinessPlan } from "./project-business-plan-server";
-import { normalizeBzm22AcquisitionRow } from "./bzm-2-2-acquisitions";
-import { buildAmdContributionsPayload, normalizeActivityRow, normalizeMeetingRow, type AmdContributionItem } from "./amd-contributions";
-import { projectFormatTypeOf } from "./project-formats";
-import { DD_PAGE_KEYS, isDdEmptyPageKey } from "./dd-pages";
-import { loadProjectPocList } from "./project-poc-list-server";
-import { loadProjectTechData } from "./project-tech-server";
-import { loadProjectFinancePage } from "./project-finance-page-server";
-import { loadCapitalPlanPage } from "./project-capital-plan-server";
-import { loadCostModelBundle } from "@/app/api/project-cost-model/route";
-import type { DdLiveProjectPage } from "./dd-project-page-types";
-import type { IpPortfolioBundle } from "@/components/cockpit/CockpitIpPortfolio";
-import type { Grant } from "@/components/cockpit/CockpitGrants";
-import { createDdReferenceCache } from "./dd-reference-cache";
-
-const pageCache = createDdReferenceCache<DdLiveProjectPage>();
-// 開示選択・共有済み判定・資料の有効状態が関わる本文は毎回読む。
-const uncachedPages = new Set(["poc-list", "technology", "competition", "business-model", "technical-evidence", "contracts", "governance", "partners", "activity", "gantt", "short-term-plan", "long-term-plan"]);
-
-/** 呼び出す前に当該DDへの入場権限を確認する。ページは共通定義の全内容を読む。 */
-export async function loadDdProjectPage(projectId: string, page: string, fresh = false): Promise<DdLiveProjectPage> {
-  if (!DD_PAGE_KEYS.includes(page) || page === "documents") throw new Error("Unsupported DD page");
-  const [content, hidden] = await Promise.all([
-    uncachedPages.has(page) ? loadDdProjectPageContent(projectId, page) : pageCache.load(JSON.stringify([projectId, page]), () => loadDdProjectPageContent(projectId, page), fresh),
-    loadProjectPartnerDisclosure(createAdminClient(), projectId),
-  ]);
-  return redactProjectPartnerNames(content, hidden);
-}
-
-async function loadDdProjectPageContent(projectId: string, page: string): Promise<DdLiveProjectPage> {
-  const db = createAdminClient();
-  const identity = await db.from("projects").select("project_name,display_name,project_category").eq("project_id", projectId).single();
-  if (identity.error) throw new Error(identity.error.message);
-  const base = { kind: "project_page" as const, projectId, projectName: identity.data.display_name || identity.data.project_name };
-  if (page === "poc-list") return { ...base, page, poc: await loadProjectPocList(db, projectId, "dd") };
-  if (page === "technical-evidence") return { ...base, page, empty: true, technicalEvidence: await loadProjectTechnicalEvidence(db, projectId) };
-  if (page === "development-issues") return { ...base, page, issues: await loadProjectDevelopmentIssues(db, projectId) };
-  if (page === "market-research") return { ...base, page, empty: true, marketResearch: await loadProjectMarketResearch(db, projectId) };
-  if (page === "contracts") return { ...base, page, contracts: await loadProjectContractList(db, projectId, true, false) };
-  if (page === "team") return { ...base, page, empty: true, biographies: await loadProjectManagementBiographies(db, projectId) };
-  if (page === "product-description") return { ...base, page, empty: true, productDescription: await loadProjectProductDescription(db, projectId) };
-  if (page === "founding-background") return { ...base, page, empty: true, foundingBackground: await loadProjectFoundingBackground(db, projectId) };
-  if (page === "governance") return { ...base, page, empty: true, managementMinutes: await loadProjectManagementMinutes(db, projectId, true) };
-  if (isDdEmptyPageKey(page)) return { ...base, page, empty: true, ...(page === "organization-chart" ? { organizationChart: await loadProjectOrganizationChart(db, projectId) } : {}) };
-  if (page === "technology" || page === "competition" || page === "business-model") return { ...base, page, tech: await loadProjectTechData(db, projectId, false, "dd", page) };
-  if (page === "financial-projection" || page === "monthly-trial") return { ...base, page, finance: await loadProjectFinancePage(db, projectId) };
-  if (page === "capital-plan" || page === "next-round-overview") return { ...base, page, capital: await loadCapitalPlanPage(db, projectId) };
-  if (page === "cost-model") {
-    const [main, fuel] = await Promise.all([loadCostModelBundle(projectId, "default"), loadCostModelBundle(projectId, "fuel")]);
-    return { ...base, page, costs: { main: { canEdit: false, bundle: main }, fuel: { canEdit: false, bundle: fuel } } };
-  }
-  if (page === "short-term-plan") {
-    const html = await loadShortTermPlanHtml(db, projectId);
-    return { ...base, page, available: Boolean(html), html };
-  }
-  if (page === "gantt") return { ...base, page, tree: await getQuestionTreeBundle(projectId, false, false) };
-  if (page === "partners") {
-    const all = await getSxManagementBundle(projectId, false);
-    // 関係先ページに使わない内部判断・週次差分・監査・資金スナップショットは送らない。
-    const management = { ...all, horizonMonths: [], objectives: [], objective: null, outcomes: [], kpis: [], dependencies: [], scheduleDependencies: [],
-      dag: buildDagHealth([], [], all.asOf), judgment: computeSxJudgment([], [], [], all.asOf),
-      tracks: [], issues: [], hypotheses: [], evidence: [], validationRuns: [], decisions: [], actions: [], tasks: [],
-      partnerInteractions: [], partnerRoles: [], technicalTests: [], fundingSnapshots: [], organizationRoles: [], raci: [], capacity: [], history: [], fieldAudit: [], canManage: false };
-    return { ...base, page, management: redactProjectPartnerNames(management, all.partners) };
-  }
-  if (page === "long-term-plan") {
-    const html = await loadLongTermPlanHtml(db, projectId);
-    return { ...base, page, available: Boolean(html), html, plan: html ? null : await loadProjectBusinessPlan(projectId) };
-  }
-  if (page === "business-plan") return { ...base, page, plan: await loadProjectBusinessPlan(projectId) };
-  if (page === "company" || page === "capital-policy") {
-    // キラー要素の状態・根拠・集計は社内コックピット専用。DDでは取得もしない。
-    const [governance, business] = await Promise.all([
-      loadProjectGovernance(db, projectId),
-      page === "company" ? db.from("project_business_summaries").select("summary,detail,updated_at").eq("project_id", projectId).maybeSingle() : Promise.resolve({ data: null, error: null }),
-    ]);
-    if (business.error) throw new Error(business.error.message);
-    return { ...base, page, governance, businessSummary: {ok: true, business: business.data ? {summary:business.data.summary, detail:business.data.detail, updatedAt:business.data.updated_at, updatedBy:null} : null, viewer:{canEdit:false}} };
-  }
-  if (page === "ip") {
-    const [assets, deadlines, events] = await Promise.all([
-      db.from("project_ip_assets").select("*").eq("project_id", projectId).order("importance", {ascending:false}).order("application_date", {ascending:false,nullsFirst:false}),
-      db.from("project_ip_deadlines").select("*").eq("project_id", projectId).order("due_on"),
-      db.from("project_ip_events").select("*").eq("project_id", projectId).order("event_date", {ascending:false}),
-    ]);
-    const error = [assets, deadlines, events].find(r=>r.error)?.error;
-    if (error) throw new Error(error.message);
-    const ids = (assets.data ?? []).map(a=>a.ip_asset_id);
-    const rights = ids.length ? await db.from("project_ip_rights").select("*").in("ip_asset_id", ids) : {data:[],error:null};
-    if (rights.error) throw new Error(rights.error.message);
-    return { ...base, page, portfolio: { canEdit:false, assets:assets.data??[], deadlines:deadlines.data??[], events:events.data??[], rights:rights.data??[] } as IpPortfolioBundle };
-  }
-  const [grants, acquisitions, activities, meetings, members] = await Promise.all([
-    db.from("project_grants").select("id,grant_name,agency,grant_type,amount_yen,disbursed_yen,status,is_current,adopted_date,period_start_ym,period_end_ym").eq("project_id",projectId).order("is_current",{ascending:false}).order("adopted_date",{ascending:false,nullsFirst:false}),
-    db.from("project_bzm_2_2_acquisitions").select("*").eq("project_id",projectId).eq("status","active").order("occurred_on",{ascending:false}).order("created_at",{ascending:false}),
-    db.from("member_activities").select("id,member_id,ym,source,title,content_preview,item_date,extracted_at").eq("project_id",projectId).eq("workspace_shared",true).order("item_date",{ascending:false,nullsFirst:false}).limit(400),
-    db.from("project_meeting_summaries").select("meeting_id,ym,meeting_date,title,summary_short,decided,source_kinds").eq("project_id",projectId).eq("workspace_shared",true).lte("meeting_date",new Date().toISOString().slice(0,10)).order("meeting_date",{ascending:false}).limit(400),
-    db.from("members").select("member_id,code_name"),
-  ]);
-  const error = [grants,acquisitions,activities,meetings,members].find(r=>r.error)?.error;
-  if (error) throw new Error(error.message);
-  const names = new Map((members.data??[]).map(r=>[r.member_id,r.code_name||r.member_id]));
-  const items = [...(activities.data??[]).map(r=>normalizeActivityRow(r,id=>names.get(id)||id)), ...(meetings.data??[]).filter(r=>r.source_kinds!=="upcoming").map(r=>normalizeMeetingRow(r))].filter((item):item is AmdContributionItem=>item!==null);
-  const rows = (acquisitions.data??[]).map(normalizeBzm22AcquisitionRow);
-  return { ...base, page:"activity", grants:(grants.data ?? []).map(row=>({...row,notes:null})) as Grant[], acquisitions:{projectId,displayOnly:rows.every(r=>r.numericBinding==="display_only"),acquisitions:rows}, contributions:buildAmdContributionsPayload({projectId,items,truncated:(activities.data??[]).length>=400||(meetings.data??[]).length>=400}), showAcquisitions:["su","new_business"].includes(projectFormatTypeOf({projectId,projectCategory:identity.data.project_category})) };
+import 'server-only';
+import {createDdReferenceCache} from './dd-reference-cache';
+import type {DdLiveProjectPage} from './dd-project-page-types';
+const pageCache=createDdReferenceCache<DdLiveProjectPage>();
+const uncachedPages=new Set(["poc-list","technology","technical-evidence","contracts","governance","partners","activity","short-term-plan","long-term-plan"]);
+import {DD_PAGE_KEYS} from '@/lib/dd-pages';
+import {loadProjectPageRecord} from './project-page-record-server';
+import {redactProjectPartnerNames} from '@/lib/project-partner-disclosure';
+import {loadProjectPartnerDisclosure} from '@/lib/project-partner-disclosure-server';
+import {createAdminClient} from '@/lib/supabase/admin';
+/** 旧保存版・配布物の取得互換口。呼出元が入場を確認済み。元のDD開示範囲で共通取得へ委譲する。 */
+export async function loadDdProjectPage(projectId:string,page:string,fresh=false){
+ if(!DD_PAGE_KEYS.includes(page)||page==='documents')throw new Error('Unsupported DD page');
+ const content=await pageCache.load(JSON.stringify([projectId, page]),()=>loadProjectPageRecord(projectId,page,{external:true,canEditRecords:false,disclosures:{workspace:false,dd:true}}),fresh||uncachedPages.has(page));
+ const hidden=await loadProjectPartnerDisclosure(createAdminClient(), projectId);
+ return redactProjectPartnerNames(content, hidden);
 }

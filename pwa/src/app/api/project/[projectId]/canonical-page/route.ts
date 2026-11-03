@@ -39,7 +39,7 @@ export async function POST(request:Request,{params}:{params:Promise<{projectId:s
     if(body.revision!==edition.revision)return Response.json({error:'資料が更新されたので再読み込みが必要。'},{status:409,headers});
     const model=await loadDdReportModel(edition);if(!validateDdOverrides(model,body.values))return Response.json({error:'入力値が指定された候補・範囲と一致しない。'},{status:422,headers});
     if(body.action==='save-inputs'){
-      if(!canSaveCanonicalInputs(ctx.access,ctx.page))return denied();
+      if(!await canSaveCanonicalInputs(ctx.access,ctx.page))return denied();
       const index=await loadDdReportChapterIndex(edition.id),sheets=new Set(index.filter(chapter=>(canonicalPageDefinition(ctx.page,projectId).chapters as readonly string[]).includes(chapter.slug)).map(chapter=>chapter.source_sheet));
       const allowed=new Set(model.inputs.filter(input=>sheets.has(input.sheet)).map(input=>`${input.sheet}!${input.address}`));
       if(!Object.keys(body.values).every(key=>allowed.has(key)))return denied();

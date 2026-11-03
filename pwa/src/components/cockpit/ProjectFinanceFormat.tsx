@@ -1,4 +1,5 @@
 "use client";
+import {useProjectPageRefresh} from "@/components/project-pages/ProjectPageContext";
 
 /**
  * 試算表タブの標準フォーマット。大学発SU・新規事業・顧問の全PJで、同じ区画を同じ順に描く
@@ -1016,6 +1017,7 @@ export function FinanceFormatView({
  * 標準フォーマットへ流し込んで描く。全PJで同じ部品・同じ読み方。
  */
 export function ProjectFinanceFormat({ projectId, initialData, readOnly = false, monthlyOnly = false }: { projectId: string; initialData?: ProjectFinancePageData; readOnly?: boolean; monthlyOnly?: boolean }) {
+  const refreshPage=useProjectPageRefresh();
   const [plRows, setPlRows] = useState(() => initialData ? initialData.plRows : getCachedPlMonthly(projectId));
   const [cashRows, setCashRows] = useState(() => initialData ? initialData.cashRows : getCachedFinanceCashflow(projectId));
   const [capitalPlan, setCapitalPlan] = useState(() => initialData ? initialData.capitalPlan : getCachedFinanceCapitalPlan(projectId));
@@ -1041,6 +1043,7 @@ export function ProjectFinanceFormat({ projectId, initialData, readOnly = false,
   }, [projectId, initialData]);
 
   const reloadPl = async () => {
+    if(refreshPage){const record=(await refreshPage()).operations.record;if(!record||!("finance" in record))throw new Error("財務情報を読み込めなかった");const data=record.finance;setPlRows(data.plRows);setCashRows(data.cashRows);setCapitalPlan(data.capitalPlan);setGrants(data.grants);setPilot(data.pilot);setFoundedAt(data.foundedAt);return;}
     const rows = await loadPlMonthly(projectId);
     setPlRows(rows);
   };

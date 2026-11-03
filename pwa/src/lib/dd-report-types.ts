@@ -1,4 +1,4 @@
-import type {DdJkissSummary} from './dd-report-jkiss.ts';
+import type {DdJkissSummary} from '@/lib/dd-report-jkiss';
 export type DdReportGlossary=Record<string,{definition:string;chapter?:string;sourceLabel?:string;sourceUrl?:string}>;
 export type DdReportValue = string | number | boolean | null;
 export type DdReportCell = { prose?:{replaceFirstParagraph?:string;append?:string};address:string;column:number;span:number;value:DdReportValue;format:string;formula:boolean;heading:boolean;valueSource?:{sheet:string;address:string};highlights?:string[];link?:string };

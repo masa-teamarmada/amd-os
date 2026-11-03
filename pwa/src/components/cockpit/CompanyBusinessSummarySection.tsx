@@ -21,7 +21,8 @@ import type { BusinessSummaryResponse } from "@/lib/project-overview";
 const RULE = "技術、製品、用途、顧客および事業の背景を記載。";
 
 export function CompanyBusinessSummarySection({ projectId, readOnly = false, initialData }: { projectId: string; readOnly?: boolean; initialData?: BusinessSummaryResponse }) {
-  const [data, setData] = useState<BusinessSummaryResponse | null>(() => initialData ?? peekBusinessSummary(projectId) ?? null);
+  const [loaded,setLoaded]=useState<{source?:BusinessSummaryResponse;value:BusinessSummaryResponse|null}>(()=>({source:initialData,value:initialData??peekBusinessSummary(projectId)??null}));
+  const data=loaded.source===initialData?loaded.value:initialData??peekBusinessSummary(projectId)??null;
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(false);
 
@@ -29,7 +30,7 @@ export function CompanyBusinessSummarySection({ projectId, readOnly = false, ini
     if (initialData) return;
     let cancelled = false;
     loadBusinessSummary(projectId)
-      .then((value) => !cancelled && setData(value))
+      .then((value) => !cancelled && setLoaded({source:initialData,value}))
       .catch((cause) => !cancelled && setError(cause instanceof Error ? cause.message : "事業概要を取得できません。"));
     return () => {
       cancelled = true;
@@ -67,7 +68,7 @@ export function CompanyBusinessSummarySection({ projectId, readOnly = false, ini
           initialDetail={business?.detail ?? ""}
           onClose={() => setEditing(false)}
           onSave={async (input) => {
-            setData(await saveBusinessSummary(projectId, input));
+            setLoaded({source:initialData,value:await saveBusinessSummary(projectId,input)});
             setEditing(false);
           }}
         />

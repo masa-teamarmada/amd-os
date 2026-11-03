@@ -1,4 +1,5 @@
 "use client";
+import {useProjectPageRefresh} from "@/components/project-pages/ProjectPageContext";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CULTURE_LIGHT_CHOICES, cultureLightOf } from "@/lib/project-cost-light";
@@ -107,6 +108,7 @@ export function readEffluentWorkingSelection(projectId: string, saved: CostModel
 }
 
 export function CockpitCostModel({ projectId, allowEdit = true, initialData }: Props) {
+  const refreshPage=useProjectPageRefresh();
   const cached = initialData ?? peekProjectCostModel(projectId);
   const [bundle, setBundle] = useState<CostModelBundle | null>(cached?.bundle ?? null);
   const [canEdit, setCanEdit] = useState(!!cached?.canEdit && allowEdit);
@@ -144,7 +146,9 @@ export function CockpitCostModel({ projectId, allowEdit = true, initialData }: P
   const load = useCallback(
     async (force = false) => {
       try {
-        const res = initialData ?? await loadProjectCostModel(projectId, { force });
+        const record=force&&refreshPage?(await refreshPage()).operations.record:null;
+      if(force&&refreshPage&&(!record||!("costs" in record)))throw new Error("管理記録を読み込めなかった");
+        const res = record&&"costs" in record?record.costs.main : initialData&&!force?initialData:await loadProjectCostModel(projectId, { force });
         setCanEdit(res.canEdit && allowEdit);
         if (!res.bundle) return setState("empty");
         const next = res.bundle;
@@ -156,7 +160,7 @@ export function CockpitCostModel({ projectId, allowEdit = true, initialData }: P
         setState("error");
       }
     },
-    [projectId, allowEdit, setDraft, initialData]
+    [projectId, allowEdit, setDraft, initialData, refreshPage]
   );
 
   // 初回だけ読む。キャッシュが温まっていれば即描画される。

@@ -1,4 +1,5 @@
 "use client";
+import {useProjectPageRefresh} from "@/components/project-pages/ProjectPageContext";
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -15,30 +16,35 @@ export function ProjectPocList({ projectId, initialData, sharedView = false, ena
   enableEditing?: boolean;
 }) {
   const router = useRouter();
-  const [loaded, setLoaded] = useState<{ projectId: string; data: ProjectPocListData } | null>(null);
+  const refreshPage=useProjectPageRefresh();
+  const [loaded, setLoaded] = useState<{ projectId: string; data: ProjectPocListData; source?: ProjectPocListData } | null>(null);
   const [error, setError] = useState<{ projectId: string; message: string } | null>(null);
   const load = useCallback(async (force = false) => {
     if (initialData && !enableEditing) return;
     try {
       setError(null);
-      const data = await loadProjectPocList(projectId, initialData ? false : sharedView, force);
-      setLoaded({ projectId, data });
-      if (force && initialData) router.refresh();
+      const record=force&&refreshPage?(await refreshPage()).operations.record:null;
+      if(force&&refreshPage&&(!record||!("poc" in record)))throw new Error("管理記録を読み込めなかった");
+      const data=record&&"poc" in record?record.poc:await loadProjectPocList(projectId, initialData ? false : sharedView, force);
+      setLoaded({ projectId, data, source: initialData });
+      if (force && initialData && !refreshPage) router.refresh();
     } catch (e) {
       setError({ projectId, message: e instanceof Error ? e.message : "読込エラー" });
     }
-  }, [projectId, initialData, sharedView, enableEditing, router]);
+  }, [projectId, initialData, sharedView, enableEditing, router, refreshPage]);
   useEffect(() => {
+    if (initialData?.audience === "internal") return;
     if (initialData && !enableEditing) return;
     let cancelled = false;
     loadProjectPocList(projectId, initialData ? false : sharedView)
-      .then(data => { if (!cancelled) setLoaded({ projectId, data }); })
+      .then(data => { if (!cancelled) setLoaded({ projectId, data, source: initialData }); })
       .catch(e => { if (!cancelled) setError({ projectId, message: e instanceof Error ? e.message : "読込エラー" }); });
     return () => { cancelled = true; };
   }, [projectId, sharedView, initialData, enableEditing]);
 
-  const data = initialData ?? (loaded?.projectId === projectId ? loaded.data : peekProjectPocList(projectId, sharedView) ?? null);
-  const editor = loaded?.projectId === projectId ? loaded.data : null;
+  const current = loaded?.projectId === projectId && loaded.source === initialData ? loaded.data : null;
+  const data = initialData?.audience === "internal" ? current ?? initialData : initialData ?? current ?? peekProjectPocList(projectId, sharedView) ?? null;
+  const editor = current ?? (initialData?.audience === "internal" ? initialData : null);
   const editableEntries = initialData ? pocEditableEntries(projectId, initialData, enableEditing ? editor : null) : undefined;
   const canEdit = initialData ? Object.keys(editableEntries ?? {}).length > 0 : data?.canEdit === true;
   const message = error?.projectId === projectId ? error.message : "";

@@ -1,0 +1,38 @@
+'use client';
+import {useCallback,useEffect,useMemo,useState} from 'react';
+import {useSearchParams} from 'next/navigation';
+import {ProjectPageMenu} from '@/components/nav/ProjectPageMenu';
+import {ProjectSpaceLayout} from '@/components/nav/ProjectSpaceLayout';
+import {ProjectPageTitle} from '@/components/nav/PageTitleSetter';
+import {InternalProjectSurfaceNav,ProjectSurfaceNav} from '@/components/nav/ProjectSurfaceNav';
+import {ProjectPageBody} from './ProjectPageBody';
+import {ProjectPageEnvironmentContext} from './ProjectPageContext';
+import {projectPageId,projectPageForChapter,type ProjectPageId} from '../../lib/project-page-registry';
+import {projectSurfacePageGroups,projectSurfaceShowsPage} from '../../lib/project-page-visibility';
+import {projectPageLocation} from '../../lib/project-page-location';
+import {projectFormatTypeOf,DEFAULT_TABS} from '../../lib/project-formats';
+import {useProjectReportCatalog} from '../../lib/use-project-report-catalog';
+import type {ProjectSurface} from '@/lib/project-surface-permissions';
+import type {ProjectPageRuntime} from '../../lib/project-page-runtime-types';
+const hashes:Record<string,string>={issues:'issue-hypothesis',weekly:'weekly-change',gantt:'project-gantt',partners:'partner-ledger',company:'company-overview',ip:'project-ip',documents:'project-drive'};
+const fromHashes:Record<string,string>={...Object.fromEntries(Object.entries(hashes).map(([id,hash])=>[hash,id])),'input-readiness':'weekly','project-tasks':'tasks','cost-model':'cost-model','cost-fuel':'cost-model'};
+type Props={projectId:string;projectName:string;projectCategory?:string;surface:ProjectSurface;slug?:string;initialPage?:string;initialChapter?:string;initialRuntime?:ProjectPageRuntime;initialModalYm?:string|null;canExecutiveMeeting?:boolean;canWorkspace?:boolean;external?:boolean;ddHref?:string;embedded?:boolean;onPageChange?:(page:ProjectPageId)=>void};
+export function ProjectSurfaceView({projectId,projectName,projectCategory,surface,slug='sol',initialPage,initialChapter,initialRuntime,initialModalYm,canExecutiveMeeting,canWorkspace,external=false,ddHref,embedded=false,onPageChange}:Props){
+ const [eligibility,setEligibility]=useState<{projectId:string;allowed:boolean}|null>(null);
+ const executive=canExecutiveMeeting??(eligibility?.projectId===projectId&&eligibility.allowed);
+ useEffect(()=>{if(canExecutiveMeeting!==undefined)return;const abort=new AbortController();void fetch('/api/project-executive-meeting/'+encodeURIComponent(projectId)+'?eligibility=1',{signal:abort.signal}).then(r=>setEligibility({projectId,allowed:r.ok})).catch(()=>{});return()=>abort.abort();},[projectId,canExecutiveMeeting]);
+ const query=useSearchParams(),catalog=useProjectReportCatalog(projectId,surface);
+ const index=catalog.index.length?catalog.index:initialRuntime?.report?.index??[];
+ const groups=useMemo(()=>projectSurfacePageGroups(surface,projectFormatTypeOf({projectId,projectCategory}),index,executive),[surface,projectId,projectCategory,index,executive]);
+ const defaultId=surface==='dd'?'report:source-index':surface==='workspace'&&!external?'weekly':DEFAULT_TABS.cockpit;
+ const resolve=()=>projectPageId((surface==='dd'?projectPageForChapter(query.get('chapter')??initialChapter??'source-index'):query.get('tab')??initialPage??defaultId))??projectPageId(defaultId)!;
+ const [selected,setSelected]=useState<ProjectPageId>(resolve);
+ useEffect(()=>{const read=()=>{const hash=window.location.hash.slice(1),candidate=surface==='workspace'?projectPageId(fromHashes[hash]??hash):resolve();if(candidate)setSelected(candidate);};read();window.addEventListener('hashchange',read);window.addEventListener('popstate',read);return()=>{window.removeEventListener('hashchange',read);window.removeEventListener('popstate',read);};},[surface,query,initialPage]);
+ const requestedChapter=query.get('chapter')??initialChapter??(query.get('tab')==='cost-fuel'?'fame-cost':undefined);
+ const active=projectSurfaceShowsPage(selected,groups)?selected:groups.flatMap(g=>g.children).find(c=>c.key===defaultId)?.key??groups[0]?.children[0]?.key??selected;
+ const group=groups.find(g=>g.children.some(c=>c.key===active)),label=group?.children.find(c=>c.key===active)?.label??active;
+ const navigate=useCallback((raw:string)=>{const id=projectPageId(raw);if(!id||!projectSurfaceShowsPage(id,groups))return;setSelected(id);onPageChange?.(id);window.history.replaceState(null,'',projectPageLocation(window.location.href,surface,id,index,defaultId));},[groups,onPageChange,surface,index,defaultId]);
+ const environment=useMemo(()=>({endpoint:(id:string)=>`/api/project/${encodeURIComponent(projectId)}/page-runtime?${new URLSearchParams({pageId:id,surface,slug,...(query.get('viewer')?{viewer:query.get('viewer')!}:{})})}`,reportEndpoint:(id:string)=>`/api/project/${encodeURIComponent(projectId)}/canonical-page?${new URLSearchParams({page:id,surface,slug,...(query.get('viewer')?{viewer:query.get('viewer')!}:{})})}`,navigation:{projectId,surface,chapters:index.map(c=>c.slug)},location:(id:string)=>projectPageLocation(window.location.href,surface,id,index,defaultId),navigate}),[projectId,surface,slug,index,query,navigate,defaultId]);
+ const surfaceLabel=surface==='cockpit'?'コックピット':surface==='workspace'?'ワークスペース':'DD';
+ return <ProjectPageEnvironmentContext.Provider value={environment}>{!embedded&&<ProjectPageTitle projectName={projectName} surface={surfaceLabel} pageLabel={label}/>}{!embedded&&surface!=='dd'&&<header className="px-4 pt-2"><h1 className="text-base font-bold">{projectName} PJ{surfaceLabel}</h1></header>}<ProjectSpaceLayout navigation={!embedded?<>{external?<ProjectSurfaceNav projectId={projectId} current={surface} canWorkspace={canWorkspace??surface==='workspace'} ddHref={ddHref}/>:<InternalProjectSurfaceNav projectId={projectId} current={surface}/>}<ProjectPageMenu label="ページの分類" testPrefix={surface} groups={groups} activeGroup={group?.key} activePage={active} onGroup={key=>{const first=groups.find(g=>g.key===key)?.children[0];if(first)navigate(first.key);}} onPage={navigate}/></>:undefined}>{catalog.error&&<p role="alert" className="text-sm text-red-700">{catalog.error}</p>}<ProjectPageBody key={projectId+':'+active} projectId={projectId} pageId={active} initialRuntime={initialRuntime?.pageId===active?initialRuntime:undefined} initialChapter={requestedChapter} initialModalYm={initialModalYm}/></ProjectSpaceLayout></ProjectPageEnvironmentContext.Provider>;
+}

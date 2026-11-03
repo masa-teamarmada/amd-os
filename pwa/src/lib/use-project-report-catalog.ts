@@ -1,9 +1,9 @@
 'use client';
 import {useEffect,useState} from 'react';
-import {loadReferenceData,peekReferenceData} from './reference-data-cache.ts';
+import {loadReferenceData,peekReferenceData} from '@/lib/reference-data-cache';
 import {canonicalReportPath} from './project-canonical-pages.ts';
 import type {DdReportChapterSummary} from './dd-report-types.ts';
-import type {ProjectSurface} from './project-surface-permissions.ts';
+import type {ProjectSurface} from '@/lib/project-surface-permissions';
 
 export function useProjectReportCatalog(projectId:string,surface:ProjectSurface){
   const key=`canonical-report-catalog:${projectId}:${surface}`;

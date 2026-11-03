@@ -1,5 +1,5 @@
 import {strFromU8,strToU8} from 'fflate';
-import {ddEscapeHtml} from './dd-confidentiality.ts';
+import {ddEscapeHtml} from '@/lib/dd-confidentiality';
 import type {DdReportChapter,DdReportEdition,DdReportModel} from './dd-report-types.ts';
 import {ddLegacyIpDestination,ddPdfLocation,ddReportFilename,ddReportVersionLabel,type DdPdfIndex} from './dd-report-navigation.ts';
 
@@ -199,7 +199,7 @@ export function appendDdExecutionWorkbook(files:Files,chapters:DdReportChapter[]
   const xfs=styles.match(/<cellXfs\b[^>]*count="(\d+)"[^>]*>/)!,bodyStyle=Number(xfs[1]),headStyle=bodyStyle+1;
   styles=styles.replace(xfs[0],xfs[0].replace(/count="\d+"/,`count="${bodyStyle+2}"`)).replace('</cellXfs>',`<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="${font}" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf></cellXfs>`);files['xl/styles.xml']=strToU8(styles);
   for(const [name,data,widths] of tables){
-    let wb=decode('xl/workbook.xml'),rels=decode('xl/_rels/workbook.xml.rels');const id=Math.max(0,...[...wb.matchAll(/\bsheetId="(\d+)"/g)].map(m=>Number(m[1])))+1,path=`xl/worksheets/daily-${id}.xml`,rid=`amieDaily${id}`,last=letter(widths.length);
+    let wb=decode('xl/workbook.xml');const rels=decode('xl/_rels/workbook.xml.rels');const id=Math.max(0,...[...wb.matchAll(/\bsheetId="(\d+)"/g)].map(m=>Number(m[1])))+1,path=`xl/worksheets/daily-${id}.xml`,rid=`amieDaily${id}`,last=letter(widths.length);
     const rows=[[name+' · DD '+ddReportVersionLabel(edition)],...data].map((row,i)=>`<row r="${i+1}" ht="${i<2?28:Math.min(409,Math.max(30,...row.map((v,j)=>String(v).split('\n').reduce((n,line)=>n+Math.max(1,Math.ceil([...line].reduce((s,c)=>s+(c.charCodeAt(0)>255?2:1),0)/(widths[j]-2))),0)*15+8)))}" customHeight="1">${row.map((value,j)=>{const at=letter(j+1)+(i+1),s=i<2?headStyle:bodyStyle;return typeof value==='number'?`<c r="${at}" s="${s}"><v>${value}</v></c>`:`<c r="${at}" s="${s}" t="inlineStr"><is><t xml:space="preserve">${ddEscapeHtml(redact(value))}</t></is></c>`;}).join('')}</row>`).join('');
     files[path]=strToU8(`<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:${last}${data.length+1}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${rows}</sheetData><autoFilter ref="A2:${last}${data.length+1}"/><mergeCells count="1"><mergeCell ref="A1:${last}1"/></mergeCells><pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/><headerFooter><oddHeader>&amp;C&amp;BCONFIDENTIAL · DD ${ddReportVersionLabel(edition)}</oddHeader></headerFooter></worksheet>`);
     wb=wb.replace(/(<\/(?:[\w.-]+:)?sheets>)/,`<sheet name="${ddEscapeHtml(name)}" sheetId="${id}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="${rid}"/>$1`);files['xl/workbook.xml']=strToU8(wb);

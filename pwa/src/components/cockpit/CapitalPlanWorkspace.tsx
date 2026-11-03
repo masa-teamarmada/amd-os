@@ -1,4 +1,5 @@
 "use client";
+import {useProjectPageRefresh} from "@/components/project-pages/ProjectPageContext";
 import {useCanonicalCapitalTemplate} from "../project-space/ProjectCanonicalContext";
 import {capitalPlanFromReport} from "../../lib/project-capital-plan-from-report";
 
@@ -33,7 +34,7 @@ import {
 } from "@/lib/capital-plan-presets";
 import type { CompanyOverviewData } from "@/lib/company-overview";
 import { capitalPlanIssueAction } from "@/lib/capital-plan-issue-action";
-import { CapitalPlanMatrix } from "./CapitalPlanMatrix";
+import { CapitalPlanMatrix } from "@/components/cockpit/CapitalPlanMatrix";
 
 // ---------------------------------------------------------------------------
 // Types mirroring the API rows
@@ -188,6 +189,7 @@ function scaleEditableValue(ev: EditableValue | undefined, factor: number): Edit
 // ---------------------------------------------------------------------------
 
 export default function CapitalPlanWorkspace({ projectId, projectName, companyOverviewData, initialData, readOnly = false }: CapitalPlanWorkspaceProps) {
+  const refreshPage=useProjectPageRefresh();
   const canonicalTemplate=useCanonicalCapitalTemplate();
   const [plans, setPlans] = useState<PlanRow[]>([]);
   const [versions, setVersions] = useState<VersionRow[]>([]);
@@ -246,11 +248,14 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
   dirtyRef.current = dirty;
 
   const loadPlans = useCallback(
-    async (preferPlanId?: string) => {
+    async (preferPlanId?: string, fromSnapshot=false) => {
       setLoading(true);
       setError(null);
       try {
-        const json = initialData ? { ok: true, error: undefined, ...initialData } : await (await fetch(`/api/governance/capital-plans?projectId=${encodeURIComponent(projectId)}`)).json();
+        const record=!fromSnapshot&&refreshPage?(await refreshPage()).operations.record:null;
+      if(!fromSnapshot&&refreshPage&&(!record||!("capital" in record)))throw new Error("管理記録を読み込めなかった");
+        const source=record&&"capital" in record?record.capital:fromSnapshot?initialData:undefined;
+        const json = source ? {ok:true,error:undefined,...source}:await (await fetch(`/api/governance/capital-plans?projectId=${encodeURIComponent(projectId)}`)).json();
         if (!json.ok) throw new Error(json.error ?? "読み込みに失敗しました");
         const nextPlans: PlanRow[] = json.plans ?? [];
         setPlans(nextPlans);
@@ -269,7 +274,7 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
         setLoading(false);
       }
     },
-    [projectId, initialData],
+    [projectId, initialData, refreshPage],
   );
 
   function selectPlan(row: PlanRow) {
@@ -304,7 +309,7 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
   }
 
   useEffect(() => {
-    void loadPlans();
+    void loadPlans(selectedPlanIdRef.current??undefined,true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, initialData]);
 

@@ -1,4 +1,5 @@
 "use client";
+import {useProjectPageRefresh} from "@/components/project-pages/ProjectPageContext";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CO2_FLUE_GAS_ROLE, WASTE_HEAT_ROLE, WASTE_MEDIUM_ROLE, flueGasOn, wasteHeatOn, wasteMediumOn, type CostModelBundle } from "@/lib/project-cost-model";
@@ -100,6 +101,7 @@ export function formatFuelDraftValue(change: Pick<DraftChange, "field">, value: 
 }
 
 export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData, effluentSupply, onOpenEffluent }: Props) {
+  const refreshPage=useProjectPageRefresh();
   const cached = initialData ?? peekProjectFuelCostModel(projectId);
   const [bundle, setBundle] = useState<CostModelBundle | null>(cached?.bundle ?? null);
   const [canEdit, setCanEdit] = useState(!!cached?.canEdit && allowEdit);
@@ -137,7 +139,9 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData,
   const load = useCallback(
     async (force = false) => {
       try {
-        const res = initialData ?? await loadProjectFuelCostModel(projectId, { force });
+        const record=force&&refreshPage?(await refreshPage()).operations.record:null;
+      if(force&&refreshPage&&(!record||!("costs" in record)))throw new Error("管理記録を読み込めなかった");
+        const res = record&&"costs" in record?record.costs.fuel : initialData&&!force?initialData:await loadProjectFuelCostModel(projectId, { force });
         setCanEdit(res.canEdit && allowEdit);
         if (!res.bundle || !isFuelModel(res.bundle.model)) return setState("empty");
         const next = res.bundle;
@@ -149,7 +153,7 @@ export function CockpitFuelCostModel({ projectId, allowEdit = true, initialData,
         setState("error");
       }
     },
-    [projectId, allowEdit, setDraft, initialData]
+    [projectId, allowEdit, setDraft, initialData, refreshPage]
   );
 
   useEffect(() => {

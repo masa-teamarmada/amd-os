@@ -1,5 +1,5 @@
 'use client';
-import {formatDdReportValue} from '../../../lib/dd-report-format';
+import {formatDdReportValue} from '@/lib/dd-report-format';
 import {canonicalChapterHref,type CanonicalReportNavigation} from '../../../lib/project-canonical-links';
 import {useEffect,useRef,useState} from 'react';
 import Link from 'next/link';

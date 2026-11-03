@@ -37,6 +37,9 @@ const changed={...entries[0],value_text:"更新した結論"};
 assert.equal(projectPocListData("p21",[topic],[changed],"dd").entries[0].value_text,"更新した結論","掲載済み行の訂正は同じ元データから即反映");
 const published=projectPocListData("p21",[topic],entries,"dd");
 const editor=projectPocListData("p21",[topic],entries,"internal",true);
+const internalEditSources=pocEditableEntries("p21",editor,editor);
+assert.equal(Object.keys(internalEditSources).length,49,"共通ページへ取得済みの社内正本を渡しても全セルを編集できる");
+for(const entry of entries)assert.equal(internalEditSources[entry.tech_entry_id],entry);
 const editSources=pocEditableEntries("p21",published,editor);
 assert.equal(Object.keys(editSources).length,49);
 for (const [i,entry] of published.entries.entries()) {
@@ -56,14 +59,11 @@ assert.equal(DD_ITEM_PAGES.filter(p=>p.key==="poc-list").length,1);assert.equal(
 const read=(f:string)=>readFileSync(f,"utf8");
 assert.match(read("src/components/cockpit/CockpitTechnology.tsx"),/techLedgerTabOf\(t\) === mode && !amieIsEffluentTopic\(t\)/);
 assert.match(read("src/components/cockpit/CockpitTechnology.tsx"),/window.location.replace/);
-assert.match(read("src/components/dd/DdProjectPageBody.tsx"),/initialData=\{data.poc\}/);
-assert.match(read("src/components/dd/DdProjectPageBody.tsx"),/enableEditing=\{canEditPocList\}/);
-for(const route of ["src/app/dd/[slug]/page.tsx","src/app/dd/[slug]/items/[itemId]/page.tsx"]){
- const source=read(route);
- assert.match(source,/access.principal !== "workspace_account" && hasDdCapability\(access, "dd.edit"\)/);
- assert.match(source,/canEditProjectSurface\(access.projectId, "cockpit"\).*canEditProjectSurface\(access.projectId, "workspace"\)/);
- assert.match(source,/canEditPocList=\{canEditPocList\}/);
-}
+assert.match(read("src/components/dd/DdProjectPageBody.tsx"),/ProjectRecordSnapshot/);
+assert.match(read("src/components/project-pages/ProjectOperationsPage.tsx"),/initialData=\{record&&"poc" in record\?record.poc:undefined\}/);
+assert.match(read("src/components/project-pages/ProjectOperationsPage.tsx"),/enableEditing=\{canEdit\}/);
+assert.match(read("src/app/dd/[slug]/page.tsx"),/ProjectSurfaceView/);
+assert.match(read("src/app/dd/[slug]/items/[itemId]/page.tsx"),/canEditPocList=\{canEditPocList\}/);
 assert.match(read("src/components/project-workspace/ProjectPocList.tsx"),/router.refresh\(\)/,"DD保存後も開示範囲で最新の値を読み戻す");
 assert.match(read("src/app/api/project-poc-list/route.ts"),/hasSharedWorkspaceProjectReadAccess\(projectId\)/);
 assert.match(read("scripts/migrations/508_amie_poc_list_dd_page.sql"),/'project_page:poc-list'/);

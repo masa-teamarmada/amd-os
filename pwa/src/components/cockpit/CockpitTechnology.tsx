@@ -1,4 +1,6 @@
 "use client";
+import {legacyPocListLocation} from "@/lib/project-page-location";
+import {useOptionalProjectPageEnvironment,useProjectPageRefresh} from "@/components/project-pages/ProjectPageContext";
 
 import { AmieListCategory } from "@/components/ui/amie-list-signals";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -1205,6 +1207,8 @@ interface Props {
 }
 
 export function CockpitTechnology({ projectId, mode = "technology", initialData, sharedView = false }: Props) {
+  const refreshPage=useProjectPageRefresh();
+  const pageEnvironment=useOptionalProjectPageEnvironment();
   const [secretLevel, setSecretLevel] = useState<AmieTechLevel | "all">("all");
   const competition = mode === "competition";
   const businessModel = mode === "business-model";
@@ -1214,9 +1218,10 @@ export function CockpitTechnology({ projectId, mode = "technology", initialData,
   const viewParam = competition ? COMPETITION_VIEW_PARAM : businessModel ? BUSINESS_MODEL_VIEW_PARAM : TECH_VIEW_PARAM;
   // 読み込み済みの PJ を state に持ち、PJ を切り替えた直後に前のPJのデータを出さない
   // (cockpit/page.tsx と同じ流儀)。キャッシュ済みなら peek で即描画する。
-  const [loaded, setLoaded] = useState<{ projectId: string; data: ProjectTechResponse | null }>(() => ({
+  const [loaded, setLoaded] = useState<{ projectId: string; data: ProjectTechResponse | null; source?: ProjectTechResponse }>(() => ({
     projectId,
     data: initialData ?? (sharedView ? null : peekProjectTech(projectId)) ?? null,
+    source: initialData,
   }));
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -1240,31 +1245,27 @@ export function CockpitTechnology({ projectId, mode = "technology", initialData,
 
   const reload = useCallback(
     (force = false) =>
-      (initialData ? Promise.resolve(initialData) : loadProjectTech(projectId, { force, sharedView }))
+      (initialData && !force ? Promise.resolve(initialData) : refreshPage?refreshPage().then(runtime=>{const record=runtime.operations.record;if(!record||!("tech" in record))throw new Error("技術情報を読み込めなかった");return record.tech;}):loadProjectTech(projectId, { force, sharedView }))
         .then((d) => {
-          setLoaded({ projectId, data: d });
+          setLoaded({ projectId, data: d, source: initialData });
           return d;
         })
         .catch((e) => {
           setError(e instanceof Error ? e.message : "読み込みに失敗");
           return null;
         }),
-    [projectId, initialData, sharedView]
+    [projectId, initialData, sharedView, refreshPage]
   );
 
   useEffect(() => {
     if (!initialData) void reload();
   }, [projectId, reload, initialData]);
 
-  const rawData = initialData ?? (loaded.projectId === projectId ? loaded.data : (sharedView ? null : peekProjectTech(projectId)) ?? null);
+  const rawData = (loaded.projectId === projectId && loaded.source === initialData ? loaded.data : null) ?? initialData ?? (sharedView ? null : peekProjectTech(projectId)) ?? null;
   useEffect(() => {
     if (mode !== "technology" || !urlView || !rawData?.topics.some(t => t.tech_topic_id === urlView && amieIsEffluentTopic(t))) return;
-    const url = new URL(window.location.href);
-    url.searchParams.delete("tech");
-    if (url.pathname.endsWith("/cockpit")) url.searchParams.set("tab", "poc-list");
-    else url.hash = "poc-list";
-    window.location.replace(url.toString());
-  }, [mode, urlView, rawData]);
+    if(pageEnvironment)pageEnvironment.navigate("poc-list");else window.location.replace(legacyPocListLocation(window.location.href));
+  }, [mode, urlView, rawData,pageEnvironment]);
   // 技術タブは区分「競合比較」「ビジネスモデル」を除き、それぞれのタブはその区分だけを出す。未整理の断片は技術タブだけ。
   const data = useMemo<ProjectTechResponse | null>(() => {
     if (!rawData) return null;

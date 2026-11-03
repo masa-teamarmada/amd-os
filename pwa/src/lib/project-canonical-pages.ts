@@ -1,4 +1,4 @@
-import type {ProjectSurface} from './project-surface-permissions.ts';
+import type {ProjectSurface} from '@/lib/project-surface-permissions';
 import {COCKPIT_TAB_FORMATS,WORKSPACE_TAB_FORMATS,PROJECT_REPORT_CATALOG_VISIBILITY,type ProjectFormatType} from './project-formats.ts';
 
 /** 本文と計算の採用元。スペース別の本文を追加しない。入口と操作認可は呼出側が管理する。 */

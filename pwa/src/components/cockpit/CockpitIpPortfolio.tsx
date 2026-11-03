@@ -1,4 +1,5 @@
 "use client";
+import {useProjectPageRefresh} from "@/components/project-pages/ProjectPageContext";
 
 /**
  * CockpitIpPortfolio — PJ コックピット「知財」タブ本体 (まさ依頼 2026-08-21)。
@@ -88,6 +89,7 @@ function Chip({ meta }: { meta: { txt: string; cls: string } }) {
 }
 
 export function CockpitIpPortfolio({ projectId, initialData }: { projectId: string; initialData?: IpPortfolioBundle }) {
+  const refreshPage=useProjectPageRefresh();
   const [data, setData] = useState<IpPortfolioBundle | null>(initialData ?? null);
   const [loading, setLoading] = useState(initialData === undefined);
   const [error, setError] = useState<string | null>(null);
@@ -97,8 +99,9 @@ export function CockpitIpPortfolio({ projectId, initialData }: { projectId: stri
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await fetch(`/api/project-ip?projectId=${encodeURIComponent(projectId)}`);
-      const j = await r.json();
+      const record=refreshPage?(await refreshPage()).operations.record:null;
+      if(refreshPage&&(!record||!("portfolio" in record)))throw new Error("管理記録を読み込めなかった");
+      const j = record&&"portfolio" in record?{ok:true,...record.portfolio}:await (await fetch(`/api/project-ip?projectId=${encodeURIComponent(projectId)}`)).json();
       if (!j?.ok) throw new Error(j?.error || "読み込みに失敗した");
       setData({ canEdit: !!j.canEdit, assets: j.assets ?? [], deadlines: j.deadlines ?? [], rights: j.rights ?? [], events: j.events ?? [] });
       setError(null);
@@ -107,7 +110,7 @@ export function CockpitIpPortfolio({ projectId, initialData }: { projectId: stri
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [projectId,refreshPage]);
 
   useEffect(() => { if (!initialData) void load(); }, [load, initialData]);
 

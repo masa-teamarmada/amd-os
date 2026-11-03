@@ -2,7 +2,7 @@
 import {ddEmphasize} from './DdReportRichText';
 import {useEffect,useId,useMemo,useRef,useState} from 'react';
 import {PatentMap} from '../../cockpit/PatentMap';
-import type {IpAsset} from '../../../lib/project-ip';
+import type {IpAsset} from '@/lib/project-ip';
 import type {DdIpLandscape as Landscape,DdIpLandscapeEntry,DdIpMapAsset} from '../../../lib/dd-report-types';
 
 const IMPORTANCE_LABELS=['','参考','低','中','高','中核'];

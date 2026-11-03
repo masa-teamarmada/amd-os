@@ -1,3 +1,7 @@
+import {projectPageActor} from '@/lib/project-canonical-page-server';
+import {projectPageSource,readProjectPage} from '@/lib/project-page-server';
+import {projectPageForChapter} from '@/lib/project-page-registry';
+import {ProjectSurfaceView} from '@/components/project-pages/ProjectSurfaceView';
 import {ProjectCanonicalPage} from '@/components/project-space/ProjectCanonicalPage';
 import {canonicalPageForChapter} from '@/lib/project-canonical-pages';
 import {loadProjectCanonicalPage} from '@/lib/project-canonical-page-server';
@@ -47,20 +51,15 @@ export default async function DdPackagePage({ params, searchParams }: { params: 
   if(legacy==='1'&&!edition?.legacy_snapshot_path)notFound();
   if(edition&&legacy!=='1'){
     if(tab==='documents')redirect(`/dd/${encodeURIComponent(slug)}/legacy?tab=documents`);
-    const [index,releases]=await Promise.all([loadDdReportChapterIndex(edition.id),loadDdReportReleases(access,edition)]);
-    const aliases:Record<string,string>={'execution-plan':'business-development-plan','capital-policy':'capital-plan','monthly-trial':'financial-plan','financial-projection':'financial-plan','cost-model':'unit-economics','poc-list':'poc','business-plan':'business-plan','company':'company','market-research':'market','technical-explanation':'technology'};
-    const selected=(chapter==='execution-plan'?'business-development-plan':chapter)??(tab?aliases[tab]??tab:'source-index');
-    const raw=await loadDdReportChapter(edition.id,index.some(c=>c.slug===selected)?selected:'source-index');if(!raw)notFound();
-    const evaluated=await evaluatedDdReportChapter(edition,raw);
-    const report=await redactDdReport(access.projectId,evaluated);
-    const simulationInputs=['cyanobacteria-cost','reactor-cost','metal-cost','fame-cost','assumptions'].includes(report.slug)?await redactDdReport(access.projectId,(await loadDdReportModel(edition)).inputs.filter(i=>i.sheet===report.source_sheet)):[];
-    const downloadRelease=ddReportDownloadRelease(edition);
-    const pdfReady=hasDdCapability(access,'dd.download')?(await ddReportOutputState(ddReportDownloadEdition(edition),access.projectId)).ready:false;
-    if(hasDdCapability(access,'dd.download')&&!downloadRelease.paused&&!pdfReady)queueDdReportPdf(edition,access.projectId,slug);
-    await recordDdAccessEvent(access,'dd_package_viewed',{pageKey:report.slug,contentHash:`${edition.source_sha256}:r${edition.revision}`});
-    const commonPage=canonicalPageForChapter(report.slug);
-    const commonData=commonPage?await loadProjectCanonicalPage({projectId:access.projectId,surface:'dd',external:access.principal==='workspace_account',canEdit:false,actorId:access.principal==='workspace_account'?undefined:access.memberId,dd:access},commonPage):null;
-    return <DdViewerShell access={access} projectName={access.title} pageKey="company" documentVersion={edition.document_version} releases={releases} reportPageLabel={report.title} reportNavigation={<DdReportNavigation slug={slug} index={index} selected={report.slug}/>}>{commonPage&&commonData?<ProjectCanonicalPage projectId={access.projectId} page={commonPage} surface="dd" slug={slug} initialData={commonData} initialChapter={report.slug} pdfReady={pdfReady}/>:<DdReportReader key={`${report.id}:${edition.revision}:${edition.document_version}`} slug={slug} title={edition.title} revision={edition.revision} pdfReady={pdfReady} downloadRelease={downloadRelease} sourceVersion={edition.source_version} documentVersion={edition.document_version} inputs={simulationInputs} overrides={edition.input_overrides} chapter={report} index={index} canDownload={hasDdCapability(access,'dd.download')} glossary={edition.glossary}/>}</DdViewerShell>;
+    const actor=await projectPageActor({projectId:access.projectId,surface:'dd',external:access.principal==='workspace_account',canEdit:hasDdCapability(access,'dd.edit'),actorId:access.principal==='workspace_account'?undefined:access.memberId,dd:access});
+    const source=await projectPageSource(access.projectId,actor);if(!source.edition)notFound();
+    const aliases:Record<string,string>={'execution-plan':'business-development-plan','capital-policy':'capital-plan','monthly-trial':'financial-plan','financial-projection':'financial-plan','cost-model':'unit-economics','poc-list':'poc','market-research':'market','technical-explanation':'technology'};
+    const selected=chapter??(tab?aliases[tab]??tab:'source-index');
+    const chosen=source.index.find(c=>c.slug===selected)??source.index.find(c=>c.slug==='source-index');if(!chosen)notFound();
+    const runtime=await readProjectPage(access.projectId,projectPageForChapter(chosen.slug),actor,source);
+    const releases=await loadDdReportReleases(access,source.edition);
+    await recordDdAccessEvent(access,'dd_package_viewed',{pageKey:chosen.slug,contentHash:`${source.edition.source_sha256}:r${source.edition.revision}`});
+    return <DdViewerShell unifiedPage access={access} projectName={access.title} pageKey="company" documentVersion={source.edition.document_version} releases={releases} reportPageLabel={chosen.title}><ProjectSurfaceView projectId={access.projectId} projectName={access.title} projectCategory={source.identity.project_category??undefined} surface="dd" slug={slug} external={actor.external} canWorkspace={actor.disclosures.workspace} initialPage={runtime.pageId} initialChapter={chosen.slug} initialRuntime={runtime}/></DdViewerShell>;
   }
   if (tab === "financial-projection") redirect(`/dd/${encodeURIComponent(access.slug)}${legacy==='1'?'/legacy':''}?tab=monthly-trial`);
   // 認可後、選択された正本ページと監査記録を並行して読む。
