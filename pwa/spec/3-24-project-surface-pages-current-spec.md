@@ -319,3 +319,16 @@ SOLの技術課題は共通章 `development-issues`（技術と実証、技術�
 2026-11-03 v3.165.4／DD v2.29.1/r155：本人の本番反映指示により、ローカル本文と単一ページの改修を公開対象へ採用。最近の株主総会・取締役会の入口と月報の管理者向け導線を共通本体で保持。DDの個別付与・NDA・原記録の編集資格を毎回確認し、本文・数値モデル・履歴・配布版を同じ版へ切り替える。既存モデルの計算値、他PJのデータと公開設定は保持。
 
 2026-11-03 v3.165.5：DDの共通資料目録にも、入場済みパッケージのslugを渡す。目録の参照キャッシュはPJ・領域・パッケージで分け、初期表示と目録の権限対象を一致させる。本文と配布版はv2.29.1/r155。
+
+
+## 戦略余力ページ（2026-11-03）
+
+3スペースの「事業計画」へ `strategic-resources`（戦略余力）を常設する。全PJタイプで同じ登録・本文を使い、未登録は「試算未登録」。コックピットは `?tab=strategic-resources`、ワークスペースは `#strategic-resources`、DDは `?tab=strategic-resources`。DDレポート章の有無にかかわらず同じ共通本体へ渡す。
+
+- 本文は `ProjectPageBody` → `ProjectStrategicResources`、取得は `readProjectPage` → `loadProjectStrategicResources`。各入口は従来のスペース入場認可・DDの公開/個別付与/NDA確認を通る。
+- 保存元は `project_config` のPJ限定 `strategic_resources_v1`。version=1、asOf、revision、scenario、discountRate、developmentAchievement、assumptions、sources、cases、baseline、evidenceを持つJSON文字列。ケースはstrength/利用対価/日付順points（保有資金、将来正味価値、総額、長期成立見込み、調達・支出・入金・割引戻し・情報再評価・費用減の内訳）。各点でF+W=Y、有限値、率、時間軸を検査し、明示項目だけを返す。取得失敗・不正形式は503、未登録はnull。
+- 認可後に専用キーだけを取得し、PJ単位で5分の参照キャッシュを使用する。権限はキャッシュせず毎回既存入口で確認する。編集・自動採用・通知処理は追加しない。
+- 初期表示は情報係数の基準・利用対価2条件の中間。控えめ/基準/強めと利用対価を登録済みケース内で切り替える。現在/シリーズA/増分、FとWの積上げ、同じ事業見込みを維持した比較線、6変化の日時・原因・増分を表示。成果行を選ぶと内訳と成果の効果を確認できる。
+- SOLの2026-11-03 v0.2試算を登録。現在2.8233億円、条件付きのシリーズA着金後14.4778億円。年10%、開発最終達成100%、長期事業見込み5%から良い成果により11.1153%、シード2億/シリーズA3億。情報係数は未校正の仮定として表示。既存BZM正本の定義・承認・LOCKは変更しない。
+- 画面への追加指示を承認記録としてフォーマットの鍵に追記。新規DB/権限の変更、既存DD本文・正式PDFの再発行は行わない。本ページはWebの登録試算として同じデータを共有する。
+- 再現用ケースは `model/cases/2026-11-03_sol-strategic-resource-timeline/`。初回投入は `scripts/import_project_strategic_resources.mts`（既定review、1PJ1キー、既存別版は停止、apply後SHA読戻し）。数値保存・調達/情報の内訳・12入口・URLは `check_project_strategic_resources.mts` で検査する。

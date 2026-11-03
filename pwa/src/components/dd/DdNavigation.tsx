@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useId, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { DD_ITEM_PAGES, DD_NAVIGATION_GROUPS } from "@/lib/project-formats";
+import {PROJECT_ANALYSIS_PAGES} from '@/lib/project-page-registry';
 import type { DdPageKey } from "@/lib/dd-pages";
 import styles from "@/components/nav/ProjectNavigation.module.css";
 
@@ -20,6 +21,7 @@ export function DdNavigation({ slug, pageKey,legacy=false }: { slug: string; pag
   const searching = Boolean(query.trim());
   const matches = (label: string) => label.toLocaleLowerCase("ja").includes(query.trim().toLocaleLowerCase("ja"));
   const count = DD_ITEM_PAGES.filter((item) => matches(item.label)).length;
+  const analyses = legacy ? [] : Object.entries(PROJECT_ANALYSIS_PAGES).filter(([, page]) => matches(page.label));
   return <nav aria-label="DDパッケージの資料目録" data-testid="dd-item-navigation" className={`${styles.menu} ${styles.dd}`}>
     {legacy&&<Link href={`/dd/${encodeURIComponent(slug)}`} className={styles.row}>新版DDパッケージへ →</Link>}
     <div className={styles.searchWrap}>
@@ -29,7 +31,7 @@ export function DdNavigation({ slug, pageKey,legacy=false }: { slug: string; pag
     <div className={styles.items}>
       {DD_NAVIGATION_GROUPS.filter((group) => group.key !== "disclosure").map((group) => {
         const items = group.pages.flatMap((key) => DD_ITEM_PAGES.filter((item) => item.key === key && matches(item.label)));
-        if (!items.length) return null;
+        if (!items.length && !(group.key === 'business' && analyses.length)) return null;
         const expanded = searching || !closedGroups.includes(group.key);
         const Chevron = expanded ? ChevronDown : ChevronRight;
         const groupId = `${id}-${group.key}`;
@@ -39,14 +41,15 @@ export function DdNavigation({ slug, pageKey,legacy=false }: { slug: string; pag
           </button>
           <div id={groupId} hidden={!expanded} className={styles.children}>
             {items.map((item) => <Link key={item.key} href={`${base}?tab=${item.key}`} aria-current={pageKey === item.key ? "page" : undefined} className={styles.row}>{item.label}</Link>)}
+            {group.key === 'business' && analyses.map(([key, page]) => <Link key={key} href={`${base}?tab=${key}`} aria-current={pageKey === key ? 'page' : undefined} className={styles.row}>{page.label}</Link>)}
           </div>
         </div>;
       })}
-      {count === 0 && <p className="px-3 py-4 text-sm text-[#6e6e73]">該当する資料はありません</p>}
+      {count + analyses.length === 0 && <p className="px-3 py-4 text-sm text-[#6e6e73]">該当する資料はありません</p>}
     </div>
     <div className={styles.ddDisclosure}>
       <Link href={`${base}?tab=documents`} aria-current={pageKey === "documents" ? "page" : undefined} className={styles.row}>開示資料一覧</Link>
     </div>
-    <p aria-live="polite" className={styles.count}>{query.trim() ? `${count} / ` : ""}{DD_ITEM_PAGES.length}資料</p>
+    <p aria-live="polite" className={styles.count}>{query.trim() ? `${count + analyses.length} / ` : ""}{DD_ITEM_PAGES.length + (legacy ? 0 : Object.keys(PROJECT_ANALYSIS_PAGES).length)}資料</p>
   </nav>;
 }

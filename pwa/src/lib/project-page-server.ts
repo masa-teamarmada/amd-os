@@ -1,4 +1,5 @@
 import 'server-only';
+import {loadProjectStrategicResources} from './project-strategic-resources-server';
 import {resolveExecutiveMeetingViewer} from './project-executive-meeting-access';
 import {ddReportOutputState,queueDdReportPdf} from '@/lib/dd-report-output-state';
 import {ddReportDownloadEdition} from '@/lib/dd-report-download-policy';
@@ -47,10 +48,11 @@ export async function readProjectPage(projectId:string,pageId:ProjectPageId,acto
  const loadOperations=includeOperations||!definition.chapters.length;
  const control=loadOperations&&['weekly','gantt','partners','issues'].includes(definition.operation??'');
  const needsCockpit=loadOperations&&['progress','overview','project-contracts','project-finance','monthly-reports','score-detail','tasks'].includes(definition.operation??'');
- const [report,cockpit,workspace]=await Promise.all([
+ const [report,cockpit,workspace,strategicResources]=await Promise.all([
   readProjectReportPage(projectId,pageId,actor,current,loadOperations&&pageId!=='partners'),
   actor.external||!needsCockpit?Promise.resolve(emptyCockpit(current)):fetchCockpitFromSupabase(projectId,createAdminClient()),
   control?(actor.external&&!actor.disclosures.workspace?readDdOnlyWorkspace(projectId,current,actor):getProjectWorkspaceBundle(projectId,actor.workspaceAccess)):Promise.resolve(undefined),
+  pageId==='strategic-resources'?loadProjectStrategicResources(projectId):Promise.resolve(undefined),
  ]);
  cockpit.canViewAdminMonthlyReports = 'isAdmin' in actor.viewer && actor.viewer.isAdmin === true;
  const canExecutiveMeeting = pageId === 'executive-meeting' ? Boolean(await resolveExecutiveMeetingViewer(projectId)) : false;
@@ -59,7 +61,7 @@ export async function readProjectPage(projectId:string,pageId:ProjectPageId,acto
  const record=pageId==='partners'&&workspace?{kind:'project_page' as const,page:'partners' as const,projectId,projectName:current.identity.display_name||current.identity.project_name,management:workspace.sxManagement}:report?.records??(loadOperations&&pageId==='capital-policy'?await loadProjectPageRecord(projectId,'capital-policy',actor):null);
  if(report)report.records=record;
  const recordWorkspace=record&&'tree' in record?projectRecordSnapshot(record).operations.workspace:undefined;
- return {pageId,projectId,projectName:current.identity.display_name||current.identity.project_name,pdfReady:output?.ready??false,report,operations:{canExecutiveMeeting,recordAudience:actor.external?"shared":"internal",loaded:loadOperations,cockpit,workspace:workspace??recordWorkspace,viewer:actor.viewer,record,canEdit:actor.canEditRecords,canDownload:actor.canDownload}};
+ return {pageId,projectId,projectName:current.identity.display_name||current.identity.project_name,strategicResources,pdfReady:output?.ready??false,report,operations:{canExecutiveMeeting,recordAudience:actor.external?"shared":"internal",loaded:loadOperations,cockpit,workspace:workspace??recordWorkspace,viewer:actor.viewer,record,canEdit:actor.canEditRecords,canDownload:actor.canDownload}};
 }
 
 async function readDdOnlyWorkspace(projectId:string,source:Awaited<ReturnType<typeof projectPageSource>>,actor:ProjectPageActor){

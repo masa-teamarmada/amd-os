@@ -14,6 +14,7 @@ export function projectSurfacePageGroups(surface:ProjectSurface,type:ProjectForm
  };
  if(surface!=='dd')for(const group of (surface==='cockpit'?COCKPIT_TAB_FORMATS[type]:WORKSPACE_TAB_FORMATS[type]))
   for(const raw of group.tabs){const id=projectPageId(raw);if(id)add(group.group,id);}
+ if(surface==='dd')add('business-plan-group','strategic-resources');
  if(surface==='cockpit'||surface==='dd')for(const chapter of index){
   const id=projectPageForChapter(chapter.slug),group=/技術|実証/.test(chapter.group_label)?'technology-group':/会社|体制/.test(chapter.group_label)?'company-information-group':'business-plan-group';add(group,id,id.startsWith('report:')?chapter.title:undefined);
  }

@@ -1,0 +1,22 @@
+{
+  "source": "p21_sol/261103_戦略余力の理論と試算/制作/成果確認を含む推移_v0.2",
+  "inputsSha256": "f109a7beecfec16ccb8ed5a46b3998e716b7abd2d8d31e952471d9da7b26bac0",
+  "resultsSha256": "a46e5edc61cb6f3e40b8a8910f0d3f1bfce65293897120fc23efb39a294de7ba",
+  "checks": {
+    "start_values_preserved": true,
+    "f_plus_w_equals_y": true,
+    "all_changes_accounted": true,
+    "funding_not_revalued_as_evidence": true,
+    "no_cash_on_information": true,
+    "favourable_updates_monotonic": true,
+    "posterior_expectation_matches_prior": true,
+    "probabilities_valid": true,
+    "cost_saving_balanced_across_observations": true,
+    "information_preserves_linear_expectation_or_adds_option_value": true,
+    "original_reference_reproduced": true,
+    "initial_customer_receipts_once": true,
+    "same_evidence_does_not_gain_twice": true,
+    "cash_nonnegative": true,
+    "remaining_retry_saving_positive": true
+  }
+}

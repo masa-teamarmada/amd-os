@@ -10,6 +10,7 @@ import type {ProjectPageRuntime} from '../../lib/project-page-runtime-types';
 import {ProjectPageLoading} from '@/components/project-space/ProjectPageLoading';
 import {CanonicalCapitalTemplateContext} from '../project-space/ProjectCanonicalContext';
 import {ProjectPageRuntimeContext,ProjectPageRefreshContext,useProjectPageEnvironment} from './ProjectPageContext';
+const ProjectStrategicResources=dynamic(()=>import('./ProjectStrategicResources').then(m=>m.ProjectStrategicResources),{loading:ProjectPageLoading});
 const ProjectOperationsPage=dynamic(()=>import('./ProjectOperationsPage').then(m=>m.ProjectOperationsPage),{loading:ProjectPageLoading});
 const DdReportReader=dynamic(()=>import('../dd/report/DdReportReader').then(m=>m.DdReportReader),{loading:ProjectPageLoading});
 
@@ -58,6 +59,7 @@ export function ProjectPageBody({projectId,pageId:requestedId,initialRuntime,ini
   function selectChapter(slug:string){setChapterId(slug);const url=new URL(window.location.href);url.searchParams.set('chapter',slug);window.history.replaceState(null,'',url.pathname+url.search+url.hash);}
   function chapterButton(item:NonNullable<typeof report>['chapters'][number],label=item.title){return <button type="button" key={item.slug} aria-pressed={chapter?.slug===item.slug} onClick={()=>selectChapter(item.slug)} className={`min-h-9 rounded-md border px-2 py-1 text-xs hover:bg-[#f5f5f7] ${chapter?.slug===item.slug?'border-[#35B9D0] bg-[#ecf8fa] font-semibold':'border-[#e5e5e7]'}`}>{label}</button>;}
   return <ProjectPageRuntimeContext.Provider value={runtime}><ProjectPageRefreshContext.Provider value={refreshPage}><div className="min-w-0 space-y-2" data-project-page-id={pageId} data-page-owner="shared" data-canonical-page={pageId} data-canonical-revision={report?.edition.revision}>
+    {pageId==='strategic-resources'&&<ProjectStrategicResources data={runtime.strategicResources??null}/>}
     {state.error&&<p role="alert" className="rounded border border-[#F2A21B] p-3 text-sm">{state.error}<button type="button" className="ml-3 underline" onClick={()=>setAttempt(n=>n+1)}>再読込</button></p>}
     {report&&<div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 border-b border-[#e5e5e7] text-[13px]">
       {hasOperations&&<div role="tablist" aria-label="本文と管理記録" className="flex flex-wrap gap-1">

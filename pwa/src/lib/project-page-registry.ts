@@ -9,7 +9,8 @@ export const PROJECT_OPERATION_PAGE_IDS = [
   'seeds','regulations',
 ] as const;
 export type ProjectOperationPageId = typeof PROJECT_OPERATION_PAGE_IDS[number];
-export type ProjectPageId = keyof typeof PROJECT_CANONICAL_PAGES | ProjectOperationPageId | `report:${string}`;
+export const PROJECT_ANALYSIS_PAGES = {'strategic-resources': {label: '戦略余力'}} as const;
+export type ProjectPageId = keyof typeof PROJECT_CANONICAL_PAGES | keyof typeof PROJECT_ANALYSIS_PAGES | ProjectOperationPageId | `report:${string}`;
 export type ProjectPageDefinition = {
   id:ProjectPageId; label:string; chapters:readonly string[]; operation:ProjectOperationPageId|string|null;
 };
@@ -25,7 +26,7 @@ export function projectPageId(value:string):ProjectPageId|null {
   const alias=aliases[value]??value;
   const fromChapter=chapterPages.get(alias);
   if(fromChapter)return fromChapter;
-  if(Object.hasOwn(PROJECT_CANONICAL_PAGES,alias)||operationSet.has(alias))return alias as ProjectPageId;
+  if(Object.hasOwn(PROJECT_CANONICAL_PAGES,alias)||Object.hasOwn(PROJECT_ANALYSIS_PAGES,alias)||operationSet.has(alias))return alias as ProjectPageId;
   if(isProjectReportPageKey(alias))return chapterPages.get(alias.slice(7))??alias;
   return null;
 }
@@ -34,6 +35,7 @@ export function projectPageForChapter(chapter:string):ProjectPageId {
 }
 export function projectPageDefinition(value:string):ProjectPageDefinition|null {
   const id=projectPageId(value);if(!id)return null;
+  if(Object.hasOwn(PROJECT_ANALYSIS_PAGES,id))return {id,label:PROJECT_ANALYSIS_PAGES[id as keyof typeof PROJECT_ANALYSIS_PAGES].label,chapters:[],operation:null};
   if(Object.hasOwn(PROJECT_CANONICAL_PAGES,id)){
     const definition=PROJECT_CANONICAL_PAGES[id as keyof typeof PROJECT_CANONICAL_PAGES];
     return {id,label:PROJECT_PAGE_LABELS[id]??definition.label,chapters:definition.chapters,operation:definition.records};

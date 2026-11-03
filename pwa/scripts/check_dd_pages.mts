@@ -28,7 +28,9 @@ for (const [domain, page] of [["競合比較", "competition"], ["ビジネスモ
 }
 const canonical = (tab: string) => tab === "cost" ? "cost-model" : tab === "drive" ? "documents" : tab;
 const dd = new Set<string>(DD_PAGE_KEYS);
-assert.equal(dd.size, 47, "資料と共通ページの47 URL");
+assert.equal(dd.size, 48, "資料・共通ページと戦略余力の48 URL");
+assert.ok(dd.has("strategic-resources"));
+assert.equal(ddPageLabel("strategic-resources"), "戦略余力");
 assert.equal(DD_ITEM_PAGES.length, 41);
 assert.equal(ddPageLabel("founding-background"), "創業の背景と社会課題");
 assert.ok(isDdEmptyPageKey("founding-background"));

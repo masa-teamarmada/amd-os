@@ -5,7 +5,7 @@ export function projectPageLocation(current:string,surface:ProjectSurface,id:str
  const url=new URL(current);if(id==='poc-list')url.searchParams.delete('tech');url.searchParams.delete('records');url.searchParams.delete('chapter');
  if(surface==='cockpit'){if(id===defaultId)url.searchParams.delete('tab');else url.searchParams.set('tab',id);}
  else if(surface==='workspace')url.hash=PROJECT_PAGE_HASHES[id]??id;
- else{const chapter=chapters.find(c=>projectPageForChapter(c.slug)===id);if(chapter)url.searchParams.set('chapter',chapter.slug);}
+ else{url.searchParams.delete('tab');const chapter=chapters.find(c=>projectPageForChapter(c.slug)===id);if(chapter)url.searchParams.set('chapter',chapter.slug);else url.searchParams.set('tab',id);}
  return url.pathname+url.search+url.hash;
 }
 

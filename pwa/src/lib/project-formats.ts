@@ -49,7 +49,7 @@ export function projectFormatTypeOf(project: { projectId: string; projectCategor
  */
 const COCKPIT_STANDARD_TABS = [
   { group: "progress-group", tabs: ["issues", "tasks", "gantt", "progress", "meetings", "slack", "weekly", "partners"] },
-  { group: "business-plan-group", tabs: ["score-detail", "technology", "poc-list", "competition", "business-model", "business-plan", "development-issues", "financial-projection", "capital-plan", "cost-model", "ip"] },
+  { group: "business-plan-group", tabs: ["score-detail", "technology", "poc-list", "competition", "business-model", "business-plan", "development-issues", "financial-projection", "strategic-resources", "capital-plan", "cost-model", "ip"] },
   { group: "project-management-group", tabs: ["overview", "project-contracts", "project-finance", "monthly-reports", "proper-nouns", "card-designs"] },
   { group: "company-information-group", tabs: ["company", "organization-chart", "employee-register", "contracts", "killer-factors", "capital-policy", "activity", "shareholder-meeting", "board-meeting", "executive-meeting"] },
   { group: "documents-group", tabs: ["documents"] },
@@ -63,7 +63,7 @@ export const COCKPIT_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ grou
   ecosystem: [
     { group: "progress-group", tabs: ["issues", "tasks", "gantt", "progress", "meetings", "slack", "weekly", "partners"] },
     { group: "seeds-group", tabs: ["seeds"] },
-    { group: "business-plan-group", tabs: ["poc-list"] },
+    { group: "business-plan-group", tabs: ["poc-list", "strategic-resources"] },
     { group: "regulations-group", tabs: ["regulations"] },
     { group: "project-management-group", tabs: ["overview", "project-contracts", "project-finance", "monthly-reports", "proper-nouns", "card-designs"] },
     { group: "company-information-group", tabs: ["company", "organization-chart", "employee-register", "contracts", "killer-factors", "capital-policy", "activity", "shareholder-meeting", "board-meeting", "executive-meeting"] },
@@ -74,7 +74,7 @@ export const COCKPIT_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ grou
 /** PJワークスペース（PJメンバーと共有する面）のタブ。コックピットと同じく、タイプごとに全タブを出す。 */
 const WORKSPACE_STANDARD_TABS = [
   { group: "progress-group", tabs: ["issues", "tasks", "gantt", "meetings", "slack", "weekly", "partners"] },
-  { group: "business-plan-group", tabs: ["technology", "report:technical-development-plan", "poc-list", "competition", "business-model", "report:business-development-plan", "business-plan", "development-issues", "financial-projection", "capital-plan", "cost", "ip"] },
+  { group: "business-plan-group", tabs: ["technology", "report:technical-development-plan", "poc-list", "competition", "business-model", "report:business-development-plan", "business-plan", "development-issues", "financial-projection", "strategic-resources", "capital-plan", "cost", "ip"] },
   { group: "company-information-group", tabs: ["company", "organization-chart", "employee-register", "contracts", "capital-policy", "shareholder-meeting", "board-meeting", "executive-meeting"] },
   { group: "documents-group", tabs: ["drive"] },
 ] as const;
@@ -85,7 +85,7 @@ export const WORKSPACE_TAB_FORMATS: Record<ProjectFormatType, ReadonlyArray<{ gr
   amd: WORKSPACE_STANDARD_TABS,
   ecosystem: [
     { group: "progress-group", tabs: ["issues", "tasks", "gantt", "meetings", "slack", "weekly", "partners"] },
-    { group: "business-plan-group", tabs: ["poc-list"] },
+    { group: "business-plan-group", tabs: ["poc-list", "strategic-resources"] },
     { group: "company-information-group", tabs: ["company", "organization-chart", "employee-register", "contracts", "capital-policy", "shareholder-meeting", "board-meeting", "executive-meeting"] },
     { group: "documents-group", tabs: ["drive"] },
   ],
@@ -98,7 +98,7 @@ export const ROLE_RESTRICTED_TABS: Readonly<Record<string, "executive">> = { "ex
 // 従来の共通ページキー。旧URL・正式版PDFとの互換用。左メニューはDD_ITEM_PAGESを使う。
 export const DD_TAB_FORMAT = [
   { group: "progress-group", tabs: ["gantt", "partners"] },
-  { group: "business-plan-group", tabs: ["technology", "report:technical-development-plan", "poc-list", "competition", "business-model", "report:business-development-plan", "business-plan", "development-issues", "financial-projection", "capital-plan", "cost-model", "ip"] },
+  { group: "business-plan-group", tabs: ["technology", "report:technical-development-plan", "poc-list", "competition", "business-model", "report:business-development-plan", "business-plan", "development-issues", "financial-projection", "strategic-resources", "capital-plan", "cost-model", "ip"] },
   { group: "company-information-group", tabs: ["company", "capital-policy", "activity"] },
   { group: "documents-group", tabs: ["documents"] },
 ] as const;
@@ -161,6 +161,7 @@ export const DD_NAVIGATION_GROUPS = [
 
 /** 3領域のページ名。ワークスペースの旧キー cost/drive は同じページへ対応する。 */
 export const PROJECT_PAGE_LABELS: Readonly<Record<string, string>> = {
+  "strategic-resources": "戦略余力",
   "founding-background": "創業の背景と社会課題",
   "development-issues": "開発課題",
   "short-term-plan": "短期計画",

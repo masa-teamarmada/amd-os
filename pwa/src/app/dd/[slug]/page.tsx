@@ -49,17 +49,19 @@ export default async function DdPackagePage({ params, searchParams }: { params: 
 
   const edition=await loadDdReportEdition(access);
   if(legacy==='1'&&!edition?.legacy_snapshot_path)notFound();
-  if(edition&&legacy!=='1'){
+  if((edition||tab==='strategic-resources')&&legacy!=='1'){
     if(tab==='documents')redirect(`/dd/${encodeURIComponent(slug)}/legacy?tab=documents`);
     const actor=await projectPageActor({projectId:access.projectId,surface:'dd',external:access.principal==='workspace_account',canEdit:hasDdCapability(access,'dd.edit'),actorId:access.principal==='workspace_account'?undefined:access.memberId,dd:access});
-    const source=await projectPageSource(access.projectId,actor);if(!source.edition)notFound();
+    const source=await projectPageSource(access.projectId,actor);
+    const nativePage=tab==='strategic-resources'?'strategic-resources':null;
+    if(!source.edition&&!nativePage)notFound();
     const aliases:Record<string,string>={'execution-plan':'business-development-plan','capital-policy':'capital-plan','monthly-trial':'financial-plan','financial-projection':'financial-plan','cost-model':'unit-economics','poc-list':'poc','market-research':'market','technical-explanation':'technology'};
     const selected=chapter??(tab?aliases[tab]??tab:'source-index');
-    const chosen=source.index.find(c=>c.slug===selected)??source.index.find(c=>c.slug==='source-index');if(!chosen)notFound();
-    const runtime=await readProjectPage(access.projectId,projectPageForChapter(chosen.slug),actor,source);
-    const releases=await loadDdReportReleases(access,source.edition);
-    await recordDdAccessEvent(access,'dd_package_viewed',{pageKey:chosen.slug,contentHash:`${source.edition.source_sha256}:r${source.edition.revision}`});
-    return <DdViewerShell unifiedPage access={access} projectName={access.title} pageKey="company" documentVersion={source.edition.document_version} releases={releases} reportPageLabel={chosen.title}><ProjectSurfaceView projectId={access.projectId} projectName={access.title} projectCategory={source.identity.project_category??undefined} surface="dd" slug={slug} external={actor.external} canWorkspace={actor.disclosures.workspace} initialPage={runtime.pageId} initialChapter={chosen.slug} initialRuntime={runtime}/></DdViewerShell>;
+    const chosen=source.index.find(c=>c.slug===selected)??source.index.find(c=>c.slug==='source-index');if(!chosen&&!nativePage)notFound();
+    const runtime=await readProjectPage(access.projectId,nativePage??projectPageForChapter(chosen!.slug),actor,source);
+    const releases=source.edition?await loadDdReportReleases(access,source.edition):[];
+    await recordDdAccessEvent(access,'dd_package_viewed',{pageKey:nativePage??chosen!.slug,contentHash:nativePage?ddContentHash(runtime.strategicResources):`${source.edition!.source_sha256}:r${source.edition!.revision}`});
+    return <DdViewerShell unifiedPage access={access} projectName={access.title} pageKey="company" documentVersion={source.edition?.document_version} releases={releases} reportPageLabel={nativePage?'戦略余力':chosen!.title}><ProjectSurfaceView projectId={access.projectId} projectName={access.title} projectCategory={source.identity.project_category??undefined} surface="dd" slug={slug} external={actor.external} canWorkspace={actor.disclosures.workspace} initialPage={runtime.pageId} initialChapter={nativePage?undefined:chosen!.slug} initialRuntime={runtime}/></DdViewerShell>;
   }
   if (tab === "financial-projection") redirect(`/dd/${encodeURIComponent(access.slug)}${legacy==='1'?'/legacy':''}?tab=monthly-trial`);
   // 認可後、選択された正本ページと監査記録を並行して読む。

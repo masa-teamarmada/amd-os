@@ -25,7 +25,7 @@ export function ProjectSurfaceView({projectId,projectName,projectCategory,surfac
  const index=catalog.index.length?catalog.index:initialRuntime?.report?.index??[];
  const groups=useMemo(()=>projectSurfacePageGroups(surface,projectFormatTypeOf({projectId,projectCategory}),index,executive,external),[surface,projectId,projectCategory,index,executive,external]);
  const defaultId=surface==='dd'?'report:source-index':surface==='workspace'&&!external?'weekly':DEFAULT_TABS.cockpit;
- const resolve=()=>projectPageId((surface==='dd'?projectPageForChapter(query.get('chapter')??initialChapter??'source-index'):query.get('tab')??initialPage??defaultId))??projectPageId(defaultId)!;
+ const resolve=()=>projectPageId((surface==='dd'?(query.get('tab')==='strategic-resources'?'strategic-resources':projectPageForChapter(query.get('chapter')??initialChapter??'source-index')):query.get('tab')??initialPage??defaultId))??projectPageId(defaultId)!;
  const [selected,setSelected]=useState<ProjectPageId>(resolve),[legacyFuel,setLegacyFuel]=useState(false);
  useEffect(()=>{const read=()=>{const hash=window.location.hash.slice(1);setLegacyFuel(hash==='cost-model-fuel');const candidate=surface==='workspace'?projectPageId(fromHashes[hash]??hash):resolve();if(candidate)setSelected(candidate);};read();window.addEventListener('hashchange',read);window.addEventListener('popstate',read);return()=>{window.removeEventListener('hashchange',read);window.removeEventListener('popstate',read);};},[surface,query,initialPage]);
  const requestedChapter=query.get('chapter')??initialChapter??(query.get('tab')==='cost-fuel'||legacyFuel?'fame-cost':undefined);
