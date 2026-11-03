@@ -57,3 +57,6 @@ assert.match(read("src/components/dd/DdViewerShell.tsx"),/!unifiedPage\s*&&\s*<P
 assert.deepEqual(failures,[]);
 console.log(JSON.stringify({passed:true,pageBodies:1,recordOwners:1,shells:shells.length,registeredChapterAliases:chapters.length,method:'入口→唯一のページ本体・取得処理への所有関係を検査。ページ同士の比較はしない。'}));
 
+
+assert.match(read("src/components/project-pages/ProjectSurfaceView.tsx"),/useProjectReportCatalog\(projectId,surface,slug\)/,"DDの目録も認可対象のslugを引き継ぐ");
+assert.match(read("src/lib/use-project-report-catalog.ts"),/canonicalReportPath\(projectId,surface,'business-plan',slug\)/,"DDの目録要求からパッケージ指定を落とさない");

@@ -21,7 +21,7 @@ export function ProjectSurfaceView({projectId,projectName,projectCategory,surfac
  const [eligibility,setEligibility]=useState<{projectId:string;allowed:boolean}|null>(null);
  const executive=canExecutiveMeeting??(eligibility?.projectId===projectId&&eligibility.allowed);
  useEffect(()=>{if(canExecutiveMeeting!==undefined)return;const abort=new AbortController();void fetch('/api/project-executive-meeting/'+encodeURIComponent(projectId)+'?eligibility=1',{signal:abort.signal}).then(r=>setEligibility({projectId,allowed:r.ok})).catch(()=>{});return()=>abort.abort();},[projectId,canExecutiveMeeting]);
- const query=useSearchParams(),catalog=useProjectReportCatalog(projectId,surface);
+ const query=useSearchParams(),catalog=useProjectReportCatalog(projectId,surface,slug);
  const index=catalog.index.length?catalog.index:initialRuntime?.report?.index??[];
  const groups=useMemo(()=>projectSurfacePageGroups(surface,projectFormatTypeOf({projectId,projectCategory}),index,executive,external),[surface,projectId,projectCategory,index,executive,external]);
  const defaultId=surface==='dd'?'report:source-index':surface==='workspace'&&!external?'weekly':DEFAULT_TABS.cockpit;
