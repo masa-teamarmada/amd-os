@@ -1,5 +1,7 @@
 # PWAからiOSへの引き継ぎ
 
+2026-11-04 v3.165.8：PWAのみ、計画線の値をmodelCashBalanceへ保持し、実績接続残高cashBalanceと分離。再計算前後の表示を統一。共通DBの金額・schema変更なし。
+
 ## 2026-11-04 Management月次試算表
 
 共通DBのos_live_monthly_pl/os-live-currentをengine v2で再計算。法人受取、保存済み外部報酬の支払月、融資台帳、給与手取り・カード等と社保の現金予算を反映。追加の現金内訳はnet_cash_flow.payloadにmemberCashPayment/operatingCashPayment/socialInsuranceCashPaymentとして格納。PWAの計算入力cashPlansと未確定支払の表示はNative未移植。DB schemaと既存列は変更なし。Swift/macOS/Androidの画面・実機確認は未実施。正本manual4-5とdesign/management_score.md。

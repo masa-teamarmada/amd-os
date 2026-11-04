@@ -1,5 +1,7 @@
 # Management Score (= バイタルサイン) / Finance Simulation 仕様
 
+2026-11-04 表示補足：灰色の計画線は実績接続前のモデル残高、青い見込み線と表の残高は10月末実績から接続した残高を使う。ベースライン再計算でも双方の定義を保持する。
+
 AMD Management Score は、AMD 全社 (= `p00`) の経営状態を月次で見る 0-100 のスコア。PJ / SU の価値・成熟度を見る [4-3 章 AMD Score](4-3-amd-score-spec.md) とは別物。
 
 > **UI 表記 (2026-05-25 まさ #71 確定)**: 「AMD Management Score」と「AMD Score」が紛らわしいため、`/dashboard` 等の UI 上では Management Score を **「バイタルサイン (VS)」** と表記する。本仕様 md・DB テーブル名 (= `amd_management_score_snapshots` 等)・`/management-score` ページ内タイトルは引き続き「AMD Management Score」のまま (= 文脈で明確、内部 ID として安定)。「バイタルサイン」は医療由来の Vital Signs メタファー (= 経営の脈拍・体力)。

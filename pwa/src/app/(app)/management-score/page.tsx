@@ -1908,6 +1908,7 @@ function buildLiveGasSimulationResult(
       payoutNoticeNetTotal: actual?.payoutNoticeNetTotal ?? 0,
       payoutNoticeSentNetTotal: actual?.payoutNoticeSentNetTotal ?? 0,
       cashBalance: row.cashBalance,
+      modelCashBalance: row.cashBalance,
       actualCashBalance: actual?.actualCashBalance ?? null,
       runway: row.runway,
       loanDisbursement: row.loanDisbursement,

@@ -103,6 +103,8 @@ export type GasMonthlyRow = {
   payoutNoticeNetTotal: number;
   payoutNoticeSentNetTotal: number;
   cashBalance: number;
+  /** 実績接続前の計画残高。表と意思決定用のcashBalanceから分離する。 */
+  modelCashBalance?: number;
   actualCashBalance: number | null;
   runway: number;
   loanDisbursement: number;
@@ -370,8 +372,8 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
         labels,
         datasets: [
           {
-            label: "当初計画残高",
-            data: rows.map((row) => row.cashBalance),
+            label: "計画残高（実績接続前）",
+            data: rows.map((row) => row.modelCashBalance ?? row.cashBalance),
             borderColor: "#7b8794",
             backgroundColor: "rgba(123,135,148,0.05)",
             borderDash: [5, 3],
@@ -435,7 +437,7 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
         },
         scales: {
           y: {
-            ...symmetricCashAxis(rows.flatMap((row, index) => [row.cashBalance, row.actualCashBalance, cashProjection.data[index]])),
+            ...symmetricCashAxis(rows.flatMap((row, index) => [row.modelCashBalance ?? row.cashBalance, row.actualCashBalance, cashProjection.data[index]])),
             position: "left",
             grid: { color: (context) => context.tick.value === 0 ? "rgba(70,80,95,0.55)" : "rgba(70,80,95,0.10)" },
             ticks: {
@@ -664,6 +666,7 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
           font-size: 14px;
         }
         .btn-sim {
+          height: 40px;
           background: #27ae60;
           color: #fff;
           padding: 10px 24px;
@@ -685,6 +688,7 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
           color: #777;
           background: #f5f5f5;
         }
+        .scenario-select { height: 40px; }
         .sim-status {
           color: #555;
           font-size: 12px;
@@ -1067,7 +1071,7 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
               </div>
             </div>
             <div className="projection-item">
-              <div className="projection-label">当初計画差分</div>
+                <div className="projection-label">実績との残高差</div>
               <div
                 className={`projection-value ${
                   (cashProjection.anchor?.variance ?? 0) < 0
