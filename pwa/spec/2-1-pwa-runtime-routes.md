@@ -1,5 +1,12 @@
 2026-10-18（v3.163.11）: DDのroute loadingを廃止し、遷移中は直前の認可済み画面を保持する。左メニューは表示・操作を維持し、本文内の共通遷移表示で読み込みを示す。URL別の認証・NDA・付与検証は従来どおり毎回実行。仕様5-17。
 
+## 全社月次試算表とAdmin閲覧順（2026-11-04）
+
+- `/admin/monthly-trial-balance`: 管理者かつ`scope=portfolio`をページの財務取得前に確認する専用画面。Managementから月次財務ブロックを移設し、`CompanyManagementScreen`を共用する。計算式・金額・保存先は既存どおり。通常左ナビ、Admin、Managementから開ける。
+- `GET /api/admin/navigation-usage`: 認証なし401、管理者・portfolio以外403。サーバで導出した`member:<memberId>`だけを、service_roleで`amie_admin_page_visit_counts`へ渡す。クライアントからactorや対象pathを受け取らない。`ADMIN_SURFACE_GROUPS`の許可URLとその子pathだけを集計し、最長一致のメニューに1回だけ加算する。返却は`{usage:{[href]:{visitCount,lastVisitedAt}},scope:"self"}`。他者の履歴・actor識別子は返さない。private/no-store、取得エラー503。
+- 正本は既存`os_page_viewing_visits`（2026-10-08以降）。visit行を数え、heartbeat更新は重複加算しない。RPCはservice_roleだけ実行可。migration `20261104100247`は本番適用済み。新規閲覧追跡・個人設定の保存は追加しない。
+- Adminは入場時に1回取得、10秒で中断して分類順へ戻す。再読込で再試行。閲覧数降順、同数は最新閲覧順、完全同数は定義順。0件は「閲覧履歴なし」に従来分類で表示し、検索中・全件0件時は展開する。画面内の移動で並べ替え直さない。
+
 # PWA ランタイム / ルート仕様
 
 2026-11-02: AION2認証通知の確認ボタンを追加。`POST/GET /api/aion2/alerts` はローカル監視の `create` / `activate` / `expire` / `cancel` と状態照会を `CRON_SECRET` Bearerで受け、service role専用の `aion2_verification_alerts` へ記録する。`POST /api/slack/interactive` の `aion2_confirm` はSlack署名とまさ本人のDMを検証し、期限内の `pending` だけ `acknowledged` にする。30秒後に `expire` が原子的に期限切れを確定した場合だけローカル監視が検知時のAION2を終了する。詳細は [aion2_verification_alerts.md](../design/aion2_verification_alerts.md)。

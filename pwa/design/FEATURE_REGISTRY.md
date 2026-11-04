@@ -1114,3 +1114,9 @@ PWAの業務一覧は`data-amie-list`と共通の分類・状態・増減部品�
 - 正本: dd_report_editions.document_version、dd_report_releases。既存の認可後だけ読み出す。
 - 出力: ddReportVersionLabel/ddReportFilename/ddReportBundleFilename。PDF/Excel内、保存名と同梱参照先は同一版。版が変われば出力cacheと競合検査へ反映。
 - 回帰: check_dd_report_navigation / check_dd_report_access / check_dd_report_preparation、spec5-17、manual2-6。
+
+## 月次試算表とAdmin閲覧順（2026-11-04）
+
+- `/admin/monthly-trial-balance`は管理者・portfolio限定。Managementの月次試算とPJ別収支を同じ計算で表示し、通常左ナビ・Admin・Managementから直接開ける。
+- Adminは既存の本人閲覧数で降順、同数は最近の閲覧順。記録のない項目は「閲覧履歴なし」で従来分類を保持。ページ名・分類名の検索、取得失敗時の全項目表示と再試行、移動中の順序固定を残す。
+- 正本: spec2-1・2-7、manual2-6・4-5、`CompanyManagementScreen`、`admin-navigation-usage.ts`、API `/api/admin/navigation-usage`。検査: `test:admin-navigation-usage`、`test:critical-ui`、`test:surface-catalog-contract`、`test:live-monthly-cash`。

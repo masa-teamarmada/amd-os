@@ -36,7 +36,7 @@ const MEMBER_PAYOUT_FILES = [
 /** 入金月を使ってよい理由が明確なもの */
 const EXCEPTIONS: Record<string, string> = {
   "src/lib/payment-groups.ts": "入金確認グループそのものを組む場所",
-  "src/app/(app)/management-score/page.tsx": "入金予定・入金実績の資金繰り表。報酬側は memberPayoutYmForCycle を使う",
+  "src/components/management-score/CompanyManagementScreen.tsx": "入金予定・入金実績の資金繰り表。報酬側は memberPayoutYmForCycle を使う",
 };
 
 const CLIENT_FN = "clientReceiptYmForCycle";

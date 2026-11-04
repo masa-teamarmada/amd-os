@@ -492,7 +492,7 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
           scenarioId: scenarioId || null,
           persist: false,
           version: "interactive-preview",
-          sourceRef: "/management-score",
+          sourceRef: "/admin/monthly-trial-balance",
         }),
       });
       const json = (await res.json()) as SimulateResponse;

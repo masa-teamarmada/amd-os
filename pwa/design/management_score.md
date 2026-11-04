@@ -1,5 +1,9 @@
 # AMD Management Score — 経営状況スコア設計
 
+## 月次試算表の独立ページ（2026-11-04）
+
+全社の月次試算表の正本URLは `/admin/monthly-trial-balance`。既存Managementの資金推移・月次予実・前提入力・実績鮮度・PJ別先12か月表・差分メモを同じ計算・データのまま移設する。Managementには入口とバイタルサイン・経営シグナル評価を残す。描画本体は `CompanyManagementScreen` の view で分岐し、両routeで予算・実績の取得・計算を共有する。専用routeはデータ取得前に管理者かつportfolioを確認する。通常左ナビとAdminの契約・お金に登録する。
+
 作成: 2026-05-18
 正本ステータス: 初版設計。実装時はこの md と同じ commit で migration / UI / cron を更新する。
 

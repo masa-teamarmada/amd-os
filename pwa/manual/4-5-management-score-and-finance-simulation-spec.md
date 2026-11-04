@@ -1,4 +1,4 @@
-# Management Score (= バイタルサイン) / Finance Simulation 仕様
+# バイタルサインと月次試算表
 
 2026-11-04 表示補足：灰色の計画線は実績接続前のモデル残高、青い見込み線と表の残高は10月末実績から接続した残高を使う。ベースライン再計算でも双方の定義を保持する。
 
@@ -28,7 +28,8 @@ AMD Management Score は、AMD 全社 (= `p00`) の経営状態を月次で見�
 | 画面 | 役割 |
 |---|---|
 | `/project/p00/cockpit` | 会社全体 cockpit。上部 hero にバイタルサイン total + 5 軸時系列を表示する。`/dashboard` 上部のバイタルサイン枠クリック先 |
-| `/management-score` | バイタルサイン詳細画面。score history、5 軸 mini trend、runway / cash / 予実、evidence drilldown、GAS 月次試算表移植ビュー、経営シグナル評価、差分メモを見る。`/dashboard` ではバイタルサイン枠右上の詳細リンクから開く |
+| `/management-score` | バイタルサイン詳細画面。score history、5 軸 mini trend、runway / cash / 予実、evidence drilldown、経営シグナル評価を見る。月次試算表への入口を置く。`/dashboard` ではバイタルサイン枠右上の詳細リンクから開く |
+| `/admin/monthly-trial-balance` | 全社の月次試算表。資金推移、月次予実、税金・支払の前提、実績の更新状況、PJ別先12か月収支、差分メモを表示。管理者・portfolio限定 |
 | `/admin/settings` | raw data 収集 / score 計算 operation の稼働状態を見る。2026-05-25 時点では UI からの Run Now は止め、対象月を明示して Codex automation 側で実行する |
 
 `/project/p00/cockpit` の hero は `amd_management_score_snapshots` を直接読み、横軸 `ym`、縦軸 0-100 の折れ線で `total_score` と 5 軸を重ねる。詳細は `/management-score` へ誘導する。
@@ -45,8 +46,14 @@ AMD Management Score は、AMD 全社 (= `p00`) の経営状態を月次で見�
 | 上げ要因 / 下げ要因 | evidence を axis 別 × impact 順 (= drilldown) | `amd_management_score_evidence` |
 | スコア推移 | 最大 25 ヶ月の total bar + 5 軸 table | `amd_management_score_snapshots` |
 | 5 軸 mini trend | 先手力 / 財務 / 継続 / 新規 / 方向の小型折れ線 | `amd_management_score_snapshots` |
-| GAS 月次試算表ビュー | cash balance、cash inflow/outflow、PJ 売上、固定費、税金、runway。各月は 予算 / 実績 / 差分 の3列で読む | `company_budget_actual_monthly`, `company_budget_inputs`, `company_budget_simulation_runs` |
 | 経営シグナル評価 | 月次試算表の予実から、先3か月見込み、費用抑制、追加獲得目標、予実乖離原因、意思決定アラートを月末Codex評価として残す。最新月は展開、過去月は折りたたみ | `company_management_signal_reviews`, `company_budget_actual_monthly`, `billing_cycles`, `payout_notices` |
+| 月次試算表への入口 | `/admin/monthly-trial-balance` を開く。以下の月次試算表・差分メモは専用ページへ移設 | — |
+
+`/admin/monthly-trial-balance` の財務ブロック：
+
+| ブロック | 内容 | 主な table |
+|---|---|---|
+| 月次試算表 | cash balance、cash inflow/outflow、PJ 売上、固定費、税金、runway。各月は 予算 / 実績 / 差分 の3列で読む | `company_budget_actual_monthly`, `company_budget_inputs`, `company_budget_simulation_runs` |
 | 差分メモ | 予実差分の理由・確認状態 | `company_budget_variance_notes` |
 
 **対象月は「未来月を除外」**:画面は `score.ym <= currentYmJST()` で filter し、 5/26 に「6月」の半端 snapshot を表示しない (= まさ #76 確定)。

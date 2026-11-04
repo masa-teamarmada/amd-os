@@ -10,6 +10,7 @@
   ],
   "generatedAt": "2026-08-23",
   "reasons": {
+    "src/components/admin/AdminSidebar.tsx": "可変系。本人のページ閲覧行は画面を開くたびに増える。Admin入場時と明示再読込で現在の閲覧回数を本人認可付きno-storeで読み、入場中は順序を固定する。別ユーザーや前回入場の並びを共用しない。",
     "src/components/admin/AdminMonthlyReportsClient.tsx": "PDFの取得専用。選択中のPJ・版・対象月の現行本文をクリック時にPDFへ描画し、管理者権限と本文の存在を毎回検証する。保存済み参照データの再表示ではなく、毎回新しいバイトを返すためキャッシュしない。",
     "src/app/(app)/project/[projectId]/report/[ym]/print/print-client.tsx": "書き込み専用。POST /api/report/fixは社内版確定、POST /api/monthly-report/pdfはPDFの両ドライブ配置の再試行で、参照系の読取りではない。保存済み月一覧はmonthly-reports-clientの既存キャッシュ経路を使用する。",
     "src/lib/institution-support-programs-client.ts": "書き込み専用。支援プログラム比較のセル保存 (POST /api/institutions/policies) にしか使わない。推奨 (論点) の保存 (POST /api/institutions/support-program-recommendations) も同じ。読み取りは同じファイルのキャッシュ経由 (/api/institutions/support-programs) で、保存直後に invalidateInstitutionSupportPrograms() を通して読み直す (2026-09-05 追加)。",
@@ -42,6 +43,7 @@
     "src/components/project-pages/ProjectControlPage.tsx": "可変系。論点・TODO・関係先の操作直後に現在値を読み直す既存処理。SxWeeklyControlDashboardから共通本体へ移動。"
   },
   "allowed": {
+    "src/components/admin/AdminSidebar.tsx": ["/api/admin/navigation-usage"],
     "src/components/admin/AdminMonthlyReportsClient.tsx": [
       "/api/admin/monthly-reports/download"
     ],

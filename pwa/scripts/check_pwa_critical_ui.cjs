@@ -2059,7 +2059,9 @@ expectIncludes("design/FEATURE_REGISTRY.md", [
   "保存済み正式PDFが最新DBと一致",
 ]);
 
-expectIncludes("src/app/(app)/management-score/page.tsx", [
+expectIncludes("src/app/(app)/management-score/page.tsx", ["CompanyManagementScreen", 'view="management"']);
+expectIncludes("src/app/(app)/admin/monthly-trial-balance/page.tsx", ["getCurrentMemberAccess", "isAdmin", 'view="monthly-trial-balance"']);
+expectIncludes("src/components/management-score/CompanyManagementScreen.tsx", [
   "PJ別 先12か月 キャッシュ支払",
   "PJ別 先12か月 会社留保",
   "PJ別 先12か月 報酬債務",

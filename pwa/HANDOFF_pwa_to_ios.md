@@ -1,5 +1,15 @@
 # PWAからiOSへの引き継ぎ
 
+## 2026-11-04 月次試算表の独立とAdmin閲覧順
+
+PWA専用route `/admin/monthly-trial-balance`へManagementの財務ブロックを移設。通常左メニューとManagementに入口あり。Adminは`/api/admin/navigation-usage`で本人の既存閲覧行を集計し、多い順・検索・履歴なしの分類表示へ変更。RPC migration `20261104100247`適用済み、再適用不要。仕様はspec2-1・2-7、manual2-6・4-5。Swift/iOS・macOS・Androidの画面は未移植、今回は実装・実機確認の対象外。
+
+| 新仕様 | 設計正本 | マニュアル章 | 状態 |
+|---|---|---|---|
+| 独立した全社月次試算表と入口 | ios/DESIGN、spec2-1、design/management_score | manual4-5・2-6 | PWA反映対象、Native未移植 |
+| 本人の閲覧回数順・検索・履歴なし | spec2-1・2-7、FEATURE_REGISTRY | manual2-6 | PWA反映対象、Native未移植 |
+| モデル・理論 | 金額・計算式を維持 | BZM更新対象外 | 移設と閲覧集計のみ |
+
 2026-11-04 v3.165.8：PWAのみ、計画線の値をmodelCashBalanceへ保持し、実績接続残高cashBalanceと分離。再計算前後の表示を統一。共通DBの金額・schema変更なし。
 
 ## 2026-11-04 Management月次試算表

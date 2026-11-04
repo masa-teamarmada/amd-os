@@ -23,6 +23,7 @@ PWAロゴ正本をプロジェクト内へ同期し、AppIconの各サイズは�
 
 | PWA route（全件） | NativeScreenID | 読取元 | 書込み先 | 権限 | 状態 / 回帰確認 |
 |---|---|---|---|---|---|
+| `/admin/monthly-trial-balance` / Admin閲覧順 | 未割当 | 既存全社予実・資金試算、本人閲覧集計API | 既存の試算API | admin・portfolio | **Native未移植**。PWAは月次試算表をManagementから独立、本人閲覧数順・検索・履歴なしの分類表示を追加。金額・計算式は共通のまま |
 | `/admin/monthly-reports` | 未割当 | PWA管理者用の `projects`、`monthly_reports`、`monthly_reports_external` と既存印刷route | なし（読取専用） | admin | **Native未移植**。月別・PJ別の社内版/提出版と本文プレビューはPWAで確認する。CXの2026年10月以降提出版は対象外、9月以前の保存版は保持 |
 | `/project/[projectId]/cockpit?tab=executive-meeting`, `/project/[projectId]/workspace#executive-meeting`, `/admin/executive-meetings` | 未割当 | PWA専用経営会議API・規程版・議案・投票 | PWA専用admin設定/議案/採決API | 当該PJの登録経営陣、設定はadmin | **Native未移植**。既存動向・会議から分離。専用の権限・規程・採決を移植するまでmacOSに表示しない。PWAもローカル実装・本番未反映 |
 | `/auth/login`, `/auth/callback` | `account` | Supabase Auth + 透過 `AMDLogoMark.imageset` | Supabase OAuth PKCE + PWA共有workspace access DTO | 本人 / PJ限定member | 実装済み。AppIconと同じAMDロゴmarkを白背景に表示。Google callbackはASWebAuthenticationSessionとSwiftUI `onOpenURL`の両方からPKCE sessionへ戻す。PWAと同じAMDメンバー / PJ限定の二入口を持ち、PJ限定時は通常OSではなくworkspaceだけを開く。実認証は未確認 |
