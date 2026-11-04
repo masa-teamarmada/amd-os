@@ -24,6 +24,7 @@ export const GOVERNANCE_MEETING_TYPES = {
 } as const;
 
 export function governanceMeetingLabel(meetingType: string | null | undefined): string {
+  const alias = ({ board_written_resolution: "board_written", shareholder_written_resolution: "shareholder_written" } as Record<string, string>)[meetingType ?? ""];
   return [...GOVERNANCE_MEETING_TYPES.shareholder, ...GOVERNANCE_MEETING_TYPES.board]
-    .find((option) => option.value === meetingType)?.label ?? meetingType ?? "種別未入力";
+    .find((option) => option.value === (alias || meetingType))?.label ?? meetingType ?? "種別未入力";
 }

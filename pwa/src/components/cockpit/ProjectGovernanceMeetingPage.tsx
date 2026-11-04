@@ -1,15 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { AlertTriangle, Loader2, Plus, RefreshCw } from "lucide-react";
+import { Fragment, useCallback, useEffect, useId, useState, type FormEvent } from "react";
+import { AlertTriangle, ChevronDown, ChevronUp, FileText, Loader2, Plus, RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { EmptyState, Field, NativeSelect, Section, formatDate, textOrNull } from "@/components/cockpit/company-overview-ui";
+import { Field, textOrNull } from "@/components/cockpit/company-overview-ui";
+import { AmieListCategory, AmieListStatus } from "@/components/ui/amie-list-signals";
 import { loadGovernance, peekGovernance, saveGovernanceEntity } from "@/lib/governance-client";
 import { GOVERNANCE_MEETING_TYPES, governanceMeetingKind, governanceMeetingLabel, type GovernanceMeetingKind } from "@/lib/governance-meeting-kind";
 import type { CompanyMeeting, CompanyOverviewData } from "@/lib/company-overview";
+import { filterGovernanceMeetings, governanceMeetingDateLabel, governanceMeetingResults, governanceMeetingYear, governanceResponseLabel, governanceResultLabel, governanceResultTone } from "@/lib/governance-meeting-presentation";
+import styles from "./ProjectGovernanceMeetingPage.module.css";
 
 const PAGE_LABEL = { shareholder: "株主総会", board: "取締役会" } as const;
 const RESULTS = [
@@ -32,34 +35,46 @@ function sourceHref(attachment: { url?: string; webViewLink?: string; web_view_l
 }
 
 function MeetingRecord({ meeting }: { meeting: CompanyMeeting }) {
+  const [expanded, setExpanded] = useState(false);
+  const detailId = useId();
   const resolutions = meeting.resolutions_json ?? [];
   const attachments = (meeting.attachments_json ?? []).filter((attachment) => sourceHref(attachment));
-  return <article className="px-4 py-5 sm:px-5" data-governance-meeting-id={meeting.id}>
-    <div className="flex flex-wrap items-center gap-2">
-      <time className="text-sm font-semibold tabular-nums text-slate-950" dateTime={meeting.meeting_date ?? undefined}>{formatDate(meeting.meeting_date ?? meeting.meeting_ym)}</time>
-      <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700">{governanceMeetingLabel(meeting.meeting_type)}</span>
-    </div>
-    {meeting.agenda_summary && <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">{meeting.agenda_summary}</p>}
-    {meeting.location && <p className="mt-2 text-xs text-slate-500">場所・方法：{meeting.location}</p>}
-    {meeting.amd_response && meeting.amd_response !== "none" && <p className="mt-2 text-xs text-slate-500">AMDの対応：{meeting.amd_response}</p>}
-    <div className="mt-4">
-      <h3 className="text-xs font-semibold text-slate-700">決議事項</h3>
-      {resolutions.length ? <ol className="mt-2 space-y-2">
-        {resolutions.map((resolution, index) => <li key={`${index}-${resolution.title ?? ""}`} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5">
-          <p className="whitespace-pre-wrap text-sm leading-6 text-slate-900">{resolution.title || "議案名未登録"}</p>
-          <p className="mt-1 text-xs text-slate-600">結果：{resolution.result || "未確認"}</p>
-        </li>)}
-      </ol> : <p className="mt-2 text-sm text-slate-500">決議事項未登録</p>}
-    </div>
-    {attachments.length > 0 && <div className="mt-4 flex flex-wrap gap-2" aria-label="資料">
-      {attachments.map((attachment, index) => <a key={`${index}-${sourceHref(attachment)}`} href={sourceHref(attachment)} target="_blank" rel="noopener noreferrer" className="max-w-full break-all rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 hover:underline">{attachment.name || `資料${index + 1}`}</a>)}
-    </div>}
-    {(meeting.notes || meeting.source_ref) && <details className="mt-4 text-xs text-slate-600">
-      <summary className="w-fit cursor-pointer font-medium text-slate-700">確認内容・注記</summary>
-      {meeting.notes && <p className="mt-2 whitespace-pre-wrap leading-5">{meeting.notes}</p>}
-      {meeting.source_ref && <p className="mt-2 break-all leading-5">確認元：{meeting.source_ref}</p>}
-    </details>}
-  </article>;
+  const results = governanceMeetingResults(meeting);
+  const date = governanceMeetingDateLabel(meeting);
+  const label = governanceMeetingLabel(meeting.meeting_type);
+  const category = label.startsWith("取締役決定") ? "取締役決定" : label;
+  const agenda = meeting.agenda_summary || resolutions[0]?.title || "議題未登録";
+  return <Fragment>
+    <tr className={styles.record} data-expanded={expanded} data-governance-meeting-id={meeting.id}>
+      <td><time className={styles.date} dateTime={meeting.meeting_date ?? undefined}>{date}</time><AmieListCategory value={category} title={label} className={styles.kind}>{category}</AmieListCategory></td>
+      <td><button type="button" className={styles.agendaButton} aria-expanded={expanded} aria-controls={detailId} onClick={() => setExpanded(!expanded)} title={agenda}><span className={styles.summary}>{agenda}</span></button></td>
+      <td><div className={styles.result}><AmieListStatus label={results[0] || "未登録"} tone={governanceResultTone(results[0] || "")} />{results.length > 1 && <span className={styles.more} title={results.join(" / ")}>+{results.length - 1}</span>}</div><span className={styles.resolutionCount}>決議 {resolutions.length}件</span></td>
+      <td>{attachments.length ? <button type="button" className={styles.rowButton} aria-label={`${date}の資料 ${attachments.length}件`} aria-expanded={expanded} aria-controls={detailId} onClick={() => setExpanded(!expanded)}><FileText aria-hidden="true" />{attachments.length}件</button> : <span className={styles.muted}>未登録</span>}</td>
+      <td><button type="button" className={styles.rowButton} aria-label={`${date}の詳細を${expanded ? "閉じる" : "開く"}`} aria-expanded={expanded} aria-controls={detailId} onClick={() => setExpanded(!expanded)}>{expanded ? "閉じる" : "詳細"}{expanded ? <ChevronUp aria-hidden="true" /> : <ChevronDown aria-hidden="true" />}</button></td>
+    </tr>
+    <tr id={detailId} hidden={!expanded}><td colSpan={5} className={styles.detailCell}><div className={styles.detail}>
+      <div className={styles.detailTop}>
+        <p>種別：{label}</p>
+        {meeting.location && <p>場所・方法：{meeting.location}</p>}
+        {meeting.amd_response && meeting.amd_response !== "none" && <p>AMDの対応：{governanceResponseLabel(meeting.amd_response)}</p>}
+      </div>
+      {meeting.agenda_summary && <p className={styles.fullSummary}>{meeting.agenda_summary}</p>}
+      <h3>決議事項</h3>
+      {resolutions.length ? <table className={styles.resolutions} aria-label={`${date}の決議事項`}>
+        <colgroup><col className={styles.resolutionNumber} /><col /><col className={styles.resolutionResult} /></colgroup>
+        <thead><tr><th scope="col">No.</th><th scope="col">議案</th><th scope="col">結果</th></tr></thead>
+        <tbody>{resolutions.map((resolution, index) => <tr key={index}><td className={styles.resolutionNumber}>{index + 1}</td><td>{resolution.title || "議案名未登録"}</td><td><AmieListStatus label={governanceResultLabel(resolution.result || "")} title={resolution.result || "未確認"} tone={governanceResultTone(resolution.result || "")} className={styles.fullResult} /></td></tr>)}</tbody>
+      </table> : <p className={styles.muted}>決議事項未登録</p>}
+      <div className={styles.files}><h3>資料{attachments.length > 0 && ` ${attachments.length}件`}</h3>
+        {attachments.length ? <ul className={styles.fileList}>{attachments.map((attachment, index) => <li key={index}><a href={sourceHref(attachment)} target="_blank" rel="noopener noreferrer"><FileText aria-hidden="true" /><span>{attachment.name || `資料${index + 1}`}</span></a></li>)}</ul> : <p className={styles.muted}>資料未登録</p>}
+      </div>
+      {(meeting.notes || meeting.source_ref) && <details className={styles.notes}>
+        <summary>確認内容・注記</summary>
+        {meeting.notes && <p>{meeting.notes}</p>}
+        {meeting.source_ref && <p>確認元：{meeting.source_ref}</p>}
+      </details>}
+    </div></td></tr>
+  </Fragment>;
 }
 
 export function ProjectGovernanceMeetingPage({ projectId, kind, readOnly = false }: {
@@ -73,6 +88,8 @@ export function ProjectGovernanceMeetingPage({ projectId, kind, readOnly = false
   const [notice, setNotice] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [query, setQuery] = useState("");
+  const [year, setYear] = useState("");
   const label = PAGE_LABEL[kind];
 
   const load = useCallback(async (force = false) => {
@@ -86,6 +103,8 @@ export function ProjectGovernanceMeetingPage({ projectId, kind, readOnly = false
 
   const meetings = (data?.meetings ?? []).filter((meeting) => governanceMeetingKind(meeting.meeting_type) === kind);
   const unknownCount = (data?.meetings ?? []).filter((meeting) => governanceMeetingKind(meeting.meeting_type) === null).length;
+  const visibleMeetings = filterGovernanceMeetings(meetings, query, year);
+  const years = [...new Set(meetings.map(governanceMeetingYear).filter(Boolean))].sort().reverse();
 
   async function saveMeeting(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -115,39 +134,49 @@ export function ProjectGovernanceMeetingPage({ projectId, kind, readOnly = false
     finally { setSaving(false); }
   }
 
-  return <div className="min-w-0 space-y-4" data-testid={`${kind}-meeting-page`}>
-    <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4 sm:px-5">
-      <div className="min-w-0 flex-1"><h1 className="text-lg font-semibold text-slate-950">{label}</h1><p className="mt-1 text-xs text-slate-500">記録 {meetings.length}件</p></div>
-      <div className="flex flex-wrap gap-2">
-        <Button variant="outline" className="h-10" onClick={() => void load(true)} disabled={loading}><RefreshCw className={loading ? "animate-spin" : ""} />更新</Button>
-        {!readOnly && <Button className="h-10" onClick={() => setDialogOpen(true)}><Plus />記録を追加</Button>}
+  return <div className={`min-w-0 ${styles.page}`} data-testid={`${kind}-meeting-page`}>
+    <div className={styles.header}>
+      <div className={styles.titleGroup}><h2 className={styles.title}>{label}</h2><span className={styles.count}>{data ? `${meetings.length}件` : ""}</span></div>
+      <div className={styles.actions}>
+        <Button variant="outline" className="h-9" onClick={() => void load(true)} disabled={loading} aria-label={`${label}の記録を更新`}><RefreshCw aria-hidden="true" className={loading ? "animate-spin" : ""} />更新</Button>
+        {!readOnly && <Button className="h-9" onClick={() => { setError(""); setDialogOpen(true); }}><Plus aria-hidden="true" />記録を追加</Button>}
       </div>
     </div>
-    {kind === "board" && data?.profile?.has_board === false && <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">会社概要の機関設計：取締役会非設置。取締役決定の資料は種別を区別して掲載。</p>}
-    {unknownCount > 0 && <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">種別未判定の機関記録：{unknownCount}件。登録種別を確認してください。</p>}
-    {error && <div role="alert" className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"><AlertTriangle className="size-4 shrink-0" />{error}</div>}
-    {notice && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</div>}
-    <Section title={`${label}の記録`}>
-      {loading && !data ? <div className="flex min-h-36 items-center justify-center gap-2 text-sm text-slate-500"><Loader2 className="size-4 animate-spin" />読み込み中…</div>
-        : meetings.length ? <div className="divide-y divide-slate-200">{meetings.map((meeting) => <MeetingRecord key={meeting.id} meeting={meeting} />)}</div>
-        : <EmptyState>{label}の記録は未登録</EmptyState>}
-    </Section>
-    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}><DialogContent className="max-h-[90vh] overflow-y-auto sm:!max-w-2xl">
+    {unknownCount > 0 && <p className={styles.info}>種別未判定：{unknownCount}件</p>}
+    {error && !dialogOpen && <div role="alert" className={styles.error}><AlertTriangle aria-hidden="true" className="size-4 shrink-0 text-rose-700" />{error}</div>}
+    {notice && <div role="status" className={styles.info}>{notice}</div>}
+    <div className={styles.toolbar}>
+      <div className={styles.search}><Search aria-hidden="true" /><Input type="search" name="meeting_search" aria-label="議題・決議・資料を検索" placeholder="議題・決議・資料を検索" value={query} onChange={(event) => setQuery(event.target.value)} /></div>
+      <select className={styles.select} aria-label="記録の年" value={year} onChange={(event) => setYear(event.target.value)}><option value="">すべての年</option>{years.map((value) => <option key={value} value={value}>{value}年</option>)}</select>
+      {(query || year) && <Button variant="ghost" className="h-9" onClick={() => { setQuery(""); setYear(""); }}>絞り込みを解除</Button>}
+      <span className={styles.filteredCount} role="status">{query || year ? `${visibleMeetings.length} / ${meetings.length}件` : "日付の新しい順"}</span>
+    </div>
+    <div className={styles.tableWrap} aria-busy={loading}>
+      {loading && !data ? <div className={`${styles.empty} flex items-center justify-center gap-2`} role="status"><Loader2 aria-hidden="true" className="size-4 animate-spin" />読み込み中…</div>
+        : error && !data ? <div className={styles.empty}>記録を取得できませんでした。更新から再試行できます。</div>
+        : meetings.length ? <table className={styles.table} data-amie-list="records" aria-label={`${label}の記録`}>
+          <colgroup><col className={styles.dateColumn} /><col /><col className={styles.resultColumn} /><col className={styles.filesColumn} /><col className={styles.detailColumn} /></colgroup>
+          <thead><tr><th scope="col">日付・種別</th><th scope="col">議題</th><th scope="col">決議結果</th><th scope="col">資料</th><th scope="col"><span className="sr-only">詳細</span></th></tr></thead>
+          <tbody>{visibleMeetings.length ? visibleMeetings.map((meeting) => <MeetingRecord key={meeting.id} meeting={meeting} />) : <tr><td colSpan={5}><div className={styles.empty}>条件に一致する記録はありません</div></td></tr>}</tbody>
+        </table> : <div className={styles.empty}>{label}の記録は未登録</div>}
+    </div>
+    <Dialog open={dialogOpen} onOpenChange={(open) => { if (!saving) setDialogOpen(open); }}><DialogContent className="max-h-[90vh] overflow-y-auto sm:!max-w-3xl" showCloseButton={false}>
       <form onSubmit={(event) => void saveMeeting(event)}><DialogHeader><DialogTitle>{label}の記録を追加</DialogTitle><DialogDescription>確認した結果と元資料を入力</DialogDescription></DialogHeader>
-        <div className="my-5 grid gap-4 sm:grid-cols-2">
-          <Field label="種別"><NativeSelect key={kind} name="meeting_type" defaultValue={GOVERNANCE_MEETING_TYPES[kind][0].value} options={[...GOVERNANCE_MEETING_TYPES[kind]]} /></Field>
-          <Field label="決定日" name="meeting_date"><Input id="meeting_date" name="meeting_date" type="date" required className="h-11" /></Field>
-          <Field label="場所・方法" name="location"><Input id="location" name="location" placeholder="本店 / 書面" className="h-11" /></Field>
-          <Field label="結果"><NativeSelect name="result" defaultValue="未確認" options={RESULTS} /></Field>
-          <Field label="AMD対応"><NativeSelect name="amd_response" defaultValue="none" options={AMD_RESPONSES} /></Field>
+        {error && <div role="alert" className="mt-3 text-sm text-rose-700">{error}</div>}
+        <div className={styles.formSection}>
+          <Field label="種別" name="meeting_type"><select id="meeting_type" name="meeting_type" defaultValue={GOVERNANCE_MEETING_TYPES[kind][0].value} className={`${styles.select} ${styles.formSelect}`}>{GOVERNANCE_MEETING_TYPES[kind].map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></Field>
+          <Field label="決定日" name="meeting_date"><Input id="meeting_date" name="meeting_date" type="date" required className="h-10" /></Field>
+          <Field label="場所・方法" name="location"><Input id="location" name="location" placeholder="本店 / 書面" className="h-10" /></Field>
+          <Field label="結果" name="result"><select id="result" name="result" defaultValue="未確認" className={`${styles.select} ${styles.formSelect}`}>{RESULTS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></Field>
+          <Field label="AMD対応" name="amd_response"><select id="amd_response" name="amd_response" defaultValue="none" className={`${styles.select} ${styles.formSelect}`}>{AMD_RESPONSES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></Field>
+          <Field label="確認元" name="source_ref"><Input id="source_ref" name="source_ref" className="h-10" /></Field>
           <div className="sm:col-span-2"><Field label="議題概要" name="agenda_summary"><Textarea id="agenda_summary" name="agenda_summary" /></Field></div>
           <div className="sm:col-span-2"><Field label="決議事項（1行1件）" name="resolutions"><Textarea id="resolutions" name="resolutions" /></Field></div>
-          <Field label="資料名" name="attachment_name"><Input id="attachment_name" name="attachment_name" className="h-11" /></Field>
-          <Field label="資料のアドレス" name="attachment_url"><Input id="attachment_url" name="attachment_url" type="url" className="h-11" /></Field>
-          <Field label="確認元" name="source_ref"><Input id="source_ref" name="source_ref" className="h-11" /></Field>
-          <Field label="注記" name="notes"><Input id="notes" name="notes" className="h-11" /></Field>
+          <Field label="資料名" name="attachment_name"><Input id="attachment_name" name="attachment_name" className="h-10" /></Field>
+          <Field label="資料のアドレス" name="attachment_url"><Input id="attachment_url" name="attachment_url" type="url" className="h-10" /></Field>
+          <div className="sm:col-span-2"><Field label="注記" name="notes"><Input id="notes" name="notes" className="h-10" /></Field></div>
         </div>
-        <DialogFooter><Button type="button" variant="outline" className="h-11" onClick={() => setDialogOpen(false)}>閉じる</Button><Button type="submit" className="h-11" disabled={saving}>{saving && <Loader2 className="size-4 animate-spin" />}保存</Button></DialogFooter>
+        <DialogFooter><Button type="button" variant="outline" className="h-10" onClick={() => setDialogOpen(false)} disabled={saving}>閉じる</Button><Button type="submit" className="h-10" disabled={saving}>{saving && <Loader2 aria-hidden="true" className="size-4 animate-spin" />}保存</Button></DialogFooter>
       </form>
     </DialogContent></Dialog>
   </div>;

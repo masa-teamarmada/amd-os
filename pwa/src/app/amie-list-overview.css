@@ -2,6 +2,8 @@
 [data-amie-list] { font-variant-numeric: tabular-nums; color: var(--amd-muted); }
 [data-amie-list] > thead { background: var(--amd-surface-muted); color: #546375; }
 [data-amie-list] > thead > tr > th { font-weight: 500; font-size: 12px; }
+[data-amie-list="records"] > thead { background: var(--amd-action-soft); }
+[data-amie-list="records"] > thead > tr > th { color: var(--amd-action-strong); border-bottom: 1px solid var(--amd-action-line); }
 [data-amie-list="records"] > tbody > tr > :is(td,th):not([colspan]) { height:44px; padding-block: 8px; border-bottom: 1px solid #e5eaf0; vertical-align: middle; }
 [data-amie-list="records"] > tbody > tr > :is(td,th):first-child { color: var(--amd-ink); font-weight: 500; }
 [data-amie-list="records"] > tbody > tr:hover { background-color: #f0f6fc; }
