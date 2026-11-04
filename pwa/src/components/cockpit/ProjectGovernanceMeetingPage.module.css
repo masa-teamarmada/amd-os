@@ -19,6 +19,7 @@
 .resultColumn { width: 176px; }
 .filesColumn { width: 88px; }
 .detailColumn { width: 76px; }
+.record { cursor: pointer; }
 .record[data-expanded="true"] { background: var(--amd-action-soft); }
 .date { display: block; color: var(--amd-ink); font-size: 14px; line-height: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .page .kind { margin-top: 4px; font-size: 12px; line-height: 18px; }

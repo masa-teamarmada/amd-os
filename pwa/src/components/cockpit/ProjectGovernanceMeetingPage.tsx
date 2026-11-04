@@ -46,7 +46,13 @@ function MeetingRecord({ meeting }: { meeting: CompanyMeeting }) {
   const category = label.startsWith("取締役決定") ? "取締役決定" : label;
   const agenda = meeting.agenda_summary || resolutions[0]?.title || "議題未登録";
   return <Fragment>
-    <tr className={styles.record} data-expanded={expanded} data-governance-meeting-id={meeting.id}>
+    <tr className={styles.record} data-expanded={expanded} data-governance-meeting-id={meeting.id} onClick={(event) => {
+      // Native buttons handle their own activation, including Enter and Space.
+      if (event.target instanceof Element && event.target.closest("button, a, input, select, textarea, summary, [role='button']")) return;
+      const selection = window.getSelection();
+      if (selection && !selection.isCollapsed && event.currentTarget.contains(selection.anchorNode)) return;
+      setExpanded((current) => !current);
+    }}>
       <td><time className={styles.date} dateTime={meeting.meeting_date ?? undefined}>{date}</time><AmieListCategory value={category} title={label} className={styles.kind}>{category}</AmieListCategory></td>
       <td><button type="button" className={styles.agendaButton} aria-expanded={expanded} aria-controls={detailId} onClick={() => setExpanded(!expanded)} title={agenda}><span className={styles.summary}>{agenda}</span></button></td>
       <td><div className={styles.result}><AmieListStatus label={results[0] || "未登録"} tone={governanceResultTone(results[0] || "")} />{results.length > 1 && <span className={styles.more} title={results.join(" / ")}>+{results.length - 1}</span>}</div><span className={styles.resolutionCount}>決議 {resolutions.length}件</span></td>
