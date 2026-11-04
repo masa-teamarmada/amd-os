@@ -1042,3 +1042,7 @@ PWAの3スペースに「事業計画」→「戦略余力」を常設。共通p
 ## 全社の月次試算表・Admin閲覧順（2026-11-04）
 
 PWAに「月次試算表」`/admin/monthly-trial-balance`を追加。Managementから月次予実・資金推移・前提・実績更新状況・PJ別収支・差分メモを移設し、Managementには直接リンクを残す。通常左メニューにも固定入口を置く。管理者かつportfolio限定。Adminメニューは既存の本人閲覧履歴から回数降順、同数は最近の閲覧順で並べる。記録のないページは下段で分類別に開閉し、ページ名・分類名で検索できる。共有DBの金額・計算式は変更なし。閲覧集計用service_role専用RPCとindexのmigration `20261104100247`適用済み。Swift/iOS・macOS・Androidの独立ページとナビ順は未移植。
+
+## ManagementのAdmin移設（2026-11-04）
+
+PWAのManagement（画面名「経営状況」）を `/admin/management-score` へ移す。通常左メニューからManagementを外し、Adminの独立項目に置く。月次試算表とのページ内の相互リンクは削除。旧URLは新URLへ転送。移設前後の本人閲覧回数は新しいAdmin項目に合算。管理者・portfolio限定、既存の評価式・数値・DB履歴は維持。Nativeの画面構成・ナビは未移植。

@@ -59,7 +59,7 @@ function ManagementScoreCard({ score, history }: { score: DashboardManagementSco
         <h2 className="text-sm font-semibold">
           バイタルサイン <span className="text-[10px] font-mono text-muted-foreground ml-0.5">(VS)</span>
         </h2>
-        <Link href="/management-score" className="pointer-events-auto text-[10px] text-muted-foreground hover:text-foreground hover:underline ml-auto">
+        <Link href="/admin/management-score" className="pointer-events-auto text-[10px] text-muted-foreground hover:text-foreground hover:underline ml-auto">
           詳細 →
         </Link>
       </div>

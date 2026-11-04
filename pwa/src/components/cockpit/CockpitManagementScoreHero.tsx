@@ -143,7 +143,7 @@ export function CockpitManagementScoreHero() {
     return (
       <section className="rounded-xl border border-[#e5e5e7] bg-white px-4 py-6 text-[12px] text-[#86868b]">
         AMD Management Score の snapshot がまだありません。
-        <Link href="/management-score" className="ml-2 text-[#007aff] hover:underline">/management-score</Link>
+        <Link href="/admin/management-score" className="ml-2 text-[#007aff] hover:underline">経営状況</Link>
         で初回 snapshot を生成してください。
       </section>
     );
@@ -158,7 +158,7 @@ export function CockpitManagementScoreHero() {
         </span>
         <div className="flex-1" />
         <Link
-          href="/management-score"
+          href="/admin/management-score"
           className="text-[11px] text-[#007aff] hover:underline"
         >
           詳細 →

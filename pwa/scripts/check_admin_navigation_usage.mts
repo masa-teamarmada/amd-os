@@ -33,4 +33,10 @@ const definition=getSurfaceById("admin-monthly-trial-balance");
 assert.equal(definition?.title,"月次試算表");
 assert.equal(definition?.primaryPath,"/admin/monthly-trial-balance");
 assert.ok(ADMIN_SURFACE_GROUPS.some(group=>(group.surfaceIds as readonly string[]).includes("admin-monthly-trial-balance")),"独立ページが管理メニューから開ける");
+assert.equal(getSurfaceById("management-score")?.primaryPath,"/admin/management-score");
+const movedUsage = summarizeAdminVisits([
+  { pathname: "/management-score", visit_count: 7, last_visited_at: "2026-11-01T00:00:00Z" },
+  { pathname: "/admin/management-score", visit_count: 2, last_visited_at: "2026-11-04T00:00:00Z" },
+], ["/admin/management-score"]);
+assert.deepEqual(movedUsage, { "/admin/management-score": { visitCount: 9, lastVisitedAt: "2026-11-04T00:00:00Z" } }, "移設前後の閲覧を一つのAdminメニューへ合計する");
 console.log("admin navigation usage: frequency, ties, nested pages, search, empty history and monthly route passed");

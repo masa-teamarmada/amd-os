@@ -4,7 +4,7 @@
 
 AMD Management Score は、AMD 全社 (= `p00`) の経営状態を月次で見る 0-100 のスコア。PJ / SU の価値・成熟度を見る [4-3 章 AMD Score](4-3-amd-score-spec.md) とは別物。
 
-> **UI 表記 (2026-05-25 まさ #71 確定)**: 「AMD Management Score」と「AMD Score」が紛らわしいため、`/dashboard` 等の UI 上では Management Score を **「バイタルサイン (VS)」** と表記する。本仕様 md・DB テーブル名 (= `amd_management_score_snapshots` 等)・`/management-score` ページ内タイトルは引き続き「AMD Management Score」のまま (= 文脈で明確、内部 ID として安定)。「バイタルサイン」は医療由来の Vital Signs メタファー (= 経営の脈拍・体力)。
+> **UI 表記 (2026-05-25 まさ #71 確定)**: 「AMD Management Score」と「AMD Score」が紛らわしいため、`/dashboard` 等の UI 上では Management Score を **「バイタルサイン (VS)」** と表記する。DBテーブル名（`amd_management_score_snapshots`等）は維持する。`/admin/management-score`の画面見出しは「経営状況」、Adminメニューの項目名は「Management」。「バイタルサイン」は医療由来の Vital Signs メタファー (= 経営の脈拍・体力)。
 
 > **計算ロジック (2026-05-26 まさ #82 v4 確定)**: 単純加重平均では「先手力崩壊 = 即経営危機」のような不可逆構造を表現できないため、 v4 で **加算 + 不可逆閾値 + 動的重み + 死亡判定** の混合方式に切り替える。v1 (= 加重平均のみ) → v4 の経緯は [05.x](9-1-decisions-and-history.md) を見る。
 
@@ -13,7 +13,7 @@ AMD Management Score は、AMD 全社 (= `p00`) の経営状態を月次で見�
 | スコア | 対象 | 主な問い | 主な画面 |
 |---|---|---|---|
 | AMD Score | PJ / SU | この PJ は Macrotrend に乗り、XRL / FRL が整っているか | 各 PJ cockpit, `/venture-map/amd-score` |
-| AMD Management Score (= バイタルサイン) | AMD 全社 | 今月の AMD は経営状態として良くなったか、どこへ介入すべきか | `/project/p00/cockpit`, `/management-score` |
+| AMD Management Score (= バイタルサイン) | AMD 全社 | 今月の AMD は経営状態として良くなったか、どこへ介入すべきか | `/project/p00/cockpit`, `/admin/management-score` |
 
 バイタルサインは「良い点数を出す」ためではなく、次の問いに答えるために使う。
 
@@ -28,13 +28,13 @@ AMD Management Score は、AMD 全社 (= `p00`) の経営状態を月次で見�
 | 画面 | 役割 |
 |---|---|
 | `/project/p00/cockpit` | 会社全体 cockpit。上部 hero にバイタルサイン total + 5 軸時系列を表示する。`/dashboard` 上部のバイタルサイン枠クリック先 |
-| `/management-score` | バイタルサイン詳細画面。score history、5 軸 mini trend、runway / cash / 予実、evidence drilldown、経営シグナル評価を見る。月次試算表への入口を置く。`/dashboard` ではバイタルサイン枠右上の詳細リンクから開く |
+| `/admin/management-score` | バイタルサイン詳細画面。score history、5 軸 mini trend、runway / cash / 予実、evidence drilldown、経営シグナル評価を見る。Adminメニューの「Management」から開く。月次試算表とは別のページ。`/dashboard` ではバイタルサイン枠右上の詳細リンクから開く |
 | `/admin/monthly-trial-balance` | 全社の月次試算表。資金推移、月次予実、税金・支払の前提、実績の更新状況、PJ別先12か月収支、差分メモを表示。管理者・portfolio限定 |
 | `/admin/settings` | raw data 収集 / score 計算 operation の稼働状態を見る。2026-05-25 時点では UI からの Run Now は止め、対象月を明示して Codex automation 側で実行する |
 
-`/project/p00/cockpit` の hero は `amd_management_score_snapshots` を直接読み、横軸 `ym`、縦軸 0-100 の折れ線で `total_score` と 5 軸を重ねる。詳細は `/management-score` へ誘導する。
+`/project/p00/cockpit` の hero は `amd_management_score_snapshots` を直接読み、横軸 `ym`、縦軸 0-100 の折れ線で `total_score` と 5 軸を重ねる。詳細は `/admin/management-score` へ誘導する。
 
-`/management-score` は次を表示する。
+`/admin/management-score` は次を表示する。
 
 | ブロック | 内容 | 主な table |
 |---|---|---|
@@ -47,7 +47,6 @@ AMD Management Score は、AMD 全社 (= `p00`) の経営状態を月次で見�
 | スコア推移 | 最大 25 ヶ月の total bar + 5 軸 table | `amd_management_score_snapshots` |
 | 5 軸 mini trend | 先手力 / 財務 / 継続 / 新規 / 方向の小型折れ線 | `amd_management_score_snapshots` |
 | 経営シグナル評価 | 月次試算表の予実から、先3か月見込み、費用抑制、追加獲得目標、予実乖離原因、意思決定アラートを月末Codex評価として残す。最新月は展開、過去月は折りたたみ | `company_management_signal_reviews`, `company_budget_actual_monthly`, `billing_cycles`, `payout_notices` |
-| 月次試算表への入口 | `/admin/monthly-trial-balance` を開く。以下の月次試算表・差分メモは専用ページへ移設 | — |
 
 `/admin/monthly-trial-balance` の財務ブロック：
 
@@ -71,7 +70,7 @@ flowchart TD
   G --> H["amd_management_score_snapshots"]
   G --> I["amd_management_score_evidence"]
   H --> J["p00 cockpit hero"]
-  H --> K["/management-score"]
+  H --> K["/admin/management-score"]
   I --> L["evidence drilldown (= 上げ要因 / 下げ要因)"]
   H --> M["卒業検出 (= 4-6 章) へ"]
 ```
@@ -424,7 +423,7 @@ direction_score =
 | `confidence` | 判定信頼度 / 根拠の確からしさ |
 | `payload` | 後から drilldown するための補助 JSON |
 
-`/management-score` の **「上げ要因 / 下げ要因」セクション**に impact 順で表示される。 各カードは「軸 chip / evidence_kind / impact / 判定信頼度 / summary / source_ref / 詳細 (= payload 展開)」を表示する。 軸タブで filter 可能。
+`/admin/management-score` の **「上げ要因 / 下げ要因」セクション**に impact 順で表示される。 各カードは「軸 chip / evidence_kind / impact / 判定信頼度 / summary / source_ref / 詳細 (= payload 展開)」を表示する。 軸タブで filter 可能。
 
 evidence summary の書き方ガイド (= v4):
 
@@ -479,12 +478,12 @@ Finance Simulation は、会社 PL / cash runway を月次で試算する経営�
 | └ 試算表を手で回し直す | `npx tsx pwa/scripts/refresh-live-monthly-pl.mts` | `projects` / `billing_cycles` / `company_finance_recurring_items` を触った直後に、cron を待たずに `company_budget_monthly` を材料化し直す。入金が売上に見合っているかを PJ×月 で確認するなら `npx tsx pwa/scripts/diagnose-cash-inflow.mts`（読み取り専用） |
 | └ 将来月の外部支払は台帳へ明示する (横引きは2026-08-27に廃止) | `billing_cycles.reward_summary_json` | **旧実装 (`carryForwardExternalByPj`) は廃止した**。「契約が続くのに報酬プランが無い月」へ直近3ヶ月の外部支払中央値を伸ばす仕組みで、契約期間を1か月延ばしただけで将来の原価が勝手に生えた。PJ統合や契約更新のたびに試算表が動くため、まさ確定 2026-08-27「この仕組みをやめたらいいんじゃないかな。やめて額が変わっちゃうところは、個別でデータを入れて変わらないようにすればいい」で撤去。現在の売上原価は `billing_cycles.reward_summary_json` に入っている値だけを使う。将来月に外部支払を見込むなら、その月の `externalRegularPayoutCapYen` / `externalExtraPayoutCapYen` へ明示的に入れる (支払わない月は 0 のまま)。撤去時に額が変わる唯一の PJ だった p19 ZMP の 202701〜202803 (月¥137,280) は、同額を `manualForecast` 付きで台帳へ書き込んで数字を保った |
 | └ 見込み売上は親PJの `billing_cycles` に持つ (2026-08-27に統合済み) | `billing_cycles.budget_reported_amount` | 旧: p32 NewCo業務委託 / p33 CX再開 / p34 PSI Step2新規 を独立PJとして立て、`projects.fee_amount` で将来売上を持たせていた。**2026-08-27 まさ指摘「ひとつのシーズはひとつのPJにまとめないと明らかにおかしなことになる」で、それぞれ親PJへ統合し3本とも削除した**: p32→**p21 SX** (2027-05〜 月¥600,000)、p33→**p20 CX** (2027-01〜 月¥274,000)。**p34 PSI Step2新規はPJへ入れず、`company_budget_inputs` の臨時収入 (`spot`) へ移した** (2027-04〜2028-03 月¥400,000、`source_id='sp-psi-step2-YYYYMM'`)。「香川大下川 or 愛媛大中島 のどちらか1つ」は来年度の会社の収入見込みを出すための仮定であって、どのPJの売上になるかは決まっていない。まさ指摘 2026-08-27「ステップ２をどっちか１つって言ったのは、来年度のAMDの収入見込を計算するためだよ。それをPJ情報として入れること自体が間違ってる」。**採択先が決まったらこの spot を消して、そのPJの `billing_cycles` へ移す**。spot は営業外の臨時収入なので売上高には計上されず、経常利益とキャッシュにだけ入る (年間¥4,800,000)。p21 と p26 は `fee_type` を `monthly_fixed`/null から **`variable`** へ変え、`end_ym` を外して月別金額を `billing_cycles.budget_reported_amount` で持つ形にした (1PJが料金体系を1組しか持てない制約は、variable + 月別台帳で回避する)。p21 の既存 202606〜202703 は元から `budget_reported_amount` に月¥1,048,000 が入っていたのでそのまま引き継いだ。**原価は 0 のまま** (まさ確定 2026-08-17「Aだな。多分おれ1人で対応するし。メンバーに払う余裕がない」、および 2026-08-27「原価は０のままにしておいて。今のところは」)。統合前後で会社全体の27ヶ月の売上 ¥53,014,535 と外部支払 ¥5,610,758 が1円も動かないことを `scripts/pj_merge_snapshot.mts` で検証済み (before/after スナップショットは `scripts/__snapshots__/pj_merge_20260827/`) |
-| 別財布（別契約）売上 | 全 PJ の `billing_cycles.extra_revenue_json` (= migration 142) を `projectRevenues[].extraRevenue` / `extraRevenueCash` に注入 | ⚠️ 本契約 (定額/変動) とは**別枠**の受託売上。fee_type を問わず全 PJ から読む。エンジンで売上計・粗利・消費税に加算し、キャッシュ入金は別途 `extraRevenueCash` で入金月の CF・残高に加算する。原価は同じ月の `/admin/payouts` capped 外部支払予定から読むため、自動原価率 (`rateMember` / `rateCloser`) は通さない (= 二重計上防止)。**計上方式**: エントリに `period_start_ym`〜`period_end_ym` があれば**PL計上だけ開発期間で月次按分**し (総額÷期間月数、端数は最終月寄せ)、キャッシュ入金はその期間を使わない。entry の実入金月 (`payment_received_ym` / `payment_received_at`) を最優先し、未確認なら既存 `invoice_ym`、次に `billing_date` 月 + PJ 支払サイト (`payment_due_rule` / `payment_due_day`, null は翌月末) で予測月を解決して、総額を一括で乗せる。共通 lib `src/lib/finance/extra-revenue.ts` の `expandExtraRevenue` (PL) と `expandExtraRevenueCash` (cash) を `/management-score` の live builder、`/admin/payouts`、PJ cockpit、MS予算検算で共用する。エンジンの `extraRevenueForYm` は PL ym 一致額、`extraRevenueCashForYm` は入金 ym 一致額をそれぞれ合算する。期間指定が無いエントリは `billing_cycles.ym` へ一括計上 (後方互換)。実例: OkuDoor システム開発 ¥2,000,000 税抜 (p19, INV-0000000305, 2026-03-31 一括請求 / 開発期間 202605〜202610 を6ヶ月按分 ≒ ¥333,333/月・最終月¥333,335、現金予測は翌月末条件から 202604 に¥2,000,000。実入金の記録が入ればその月を優先する。葛飾ロードへ定額¥30万/月とは別財布の受託)。収支表では PJ名に `🔵別財布込` が付く |
+| 別財布（別契約）売上 | 全 PJ の `billing_cycles.extra_revenue_json` (= migration 142) を `projectRevenues[].extraRevenue` / `extraRevenueCash` に注入 | ⚠️ 本契約 (定額/変動) とは**別枠**の受託売上。fee_type を問わず全 PJ から読む。エンジンで売上計・粗利・消費税に加算し、キャッシュ入金は別途 `extraRevenueCash` で入金月の CF・残高に加算する。原価は同じ月の `/admin/payouts` capped 外部支払予定から読むため、自動原価率 (`rateMember` / `rateCloser`) は通さない (= 二重計上防止)。**計上方式**: エントリに `period_start_ym`〜`period_end_ym` があれば**PL計上だけ開発期間で月次按分**し (総額÷期間月数、端数は最終月寄せ)、キャッシュ入金はその期間を使わない。entry の実入金月 (`payment_received_ym` / `payment_received_at`) を最優先し、未確認なら既存 `invoice_ym`、次に `billing_date` 月 + PJ 支払サイト (`payment_due_rule` / `payment_due_day`, null は翌月末) で予測月を解決して、総額を一括で乗せる。共通 lib `src/lib/finance/extra-revenue.ts` の `expandExtraRevenue` (PL) と `expandExtraRevenueCash` (cash) を `/admin/management-score` の live builder、`/admin/payouts`、PJ cockpit、MS予算検算で共用する。エンジンの `extraRevenueForYm` は PL ym 一致額、`extraRevenueCashForYm` は入金 ym 一致額をそれぞれ合算する。期間指定が無いエントリは `billing_cycles.ym` へ一括計上 (後方互換)。実例: OkuDoor システム開発 ¥2,000,000 税抜 (p19, INV-0000000305, 2026-03-31 一括請求 / 開発期間 202605〜202610 を6ヶ月按分 ≒ ¥333,333/月・最終月¥333,335、現金予測は翌月末条件から 202604 に¥2,000,000。実入金の記録が入ればその月を優先する。葛飾ロードへ定額¥30万/月とは別財布の受託)。収支表では PJ名に `🔵別財布込` が付く |
 | パラメータ / 融資 / スポット | 旧 `company_budget_inputs` から流用 | 繰越欠損 / 前期消費税 / 社保率 / 各種率、および OS にライブテーブルが無い融資 (`loan`)・臨時収支 (`spot`) は当面 snapshot 値を再利用。ただし融資予定は**実行済み、または実行日・返済開始が現実に確定したものだけ**を入れる。予算線は「計画・確定済み前提」を残し、実績線は freee / 入出金の実額で別管理する。未実績の古い借入予定を fallback に残すと `loanDisbursement` が cash balance を過大にする一方、実行済み融資を予算から消すと cash balance がありえないマイナスになる。2026-06-18 時点で `loan01` (商工中金 500万円、`disbursementYm=202601`) は freee `wallet_txns` によって 2026-01-19 の融資実行と PayPay銀行への 500万円入金を確認済みのため、予算入力に残す |
 
 ### live 売上原価は `/admin/payouts` の capped 外部支払を使う
 
-`/management-score` の月次試算表は「会社の現在の支払予定と残高」を見る画面なので、売上原価は `/admin/payouts` と同じ capped 外部支払予定を使う。`billing_cycles.reward_summary_json` の `externalRegularPayoutCapYen + externalExtraPayoutCapYen` を PJ/月の `externalMemberCost` として注入し、画面の「売上原価」と `cost_member` はその合計に一致させる。
+`/admin/management-score` の月次試算表は「会社の現在の支払予定と残高」を見る画面なので、売上原価は `/admin/payouts` と同じ capped 外部支払予定を使う。`billing_cycles.reward_summary_json` の `externalRegularPayoutCapYen + externalExtraPayoutCapYen` を PJ/月の `externalMemberCost` として注入し、画面の「売上原価」と `cost_member` はその合計に一致させる。
 
 会社留保・役員留保・報酬債務・旧GASの `rateCloser` 5% は、銀行から外へ出る支払ではない。live builder は `rateCloser=0` とし、payouts に存在しない理論原価を `cost_closer` に出さない。報酬キャッシュが無い PJ/月、または支払対象メンバーがいない PJ/月は 0 円を明示して、エンジンの `revenue × rateMember` フォールバックへ落とさない。
 
@@ -495,11 +494,11 @@ uncapped 報酬は MS 進捗・pt単価・設計上の報酬需要を監査す�
 MS の pt 消化は**必ず期間の月数で按分**する (まとめ達成禁止、[7-1 章](7-1-reward-calc-spec.md) の按分ルール参照)。これは `/admin/payouts` の capped 支払予定を作る前段の報酬計算と、下部の MS 月割監査表示で使う。月次試算表の原価自体は、その計算結果を capped 外部支払に平準化した payouts キャッシュを読む。
 
 > **別財布売上は実装済み (2026-06-16 / 2026-06-18 キャッシュ分離)**: ZMP (p19) の OkuDoor システム開発のような本契約外の受託売上は、`billing_cycles.extra_revenue_json` に構造化し、live builder が `projectRevenues[].extraRevenue` として PL 按分額、`projectRevenues[].extraRevenueCash` として入金予定額を注入する。エンジンは PL では売上計・粗利・消費税に、キャッシュでは入金月の CF に加算する。原価はこの別財布売上にも自動率を通さず、同じ月の payouts capped 外部支払から読む。
-> ✅ **収支系3系統に反映済み (2026-06-18, v0.27.7 / 2026-07-17 更新)**: PJ収支を出す画面は少なくとも3系統ある — (A) `/management-score` 月次収支シミュレータ (`buildLiveMonthlyPlInputs`→エンジン)、(B) `/admin/payouts`「先12か月 PJ収支」表 (`AdminPayoutsClient.tsx`)、(C) `/management-score` 下部の「PJ別 先12か月収支」表 (`management-score/page.tsx` の `ProjectMonthlyFinanceTable`)。按分ロジックは共通 lib `src/lib/finance/extra-revenue.ts` (`expandExtraRevenue`) に集約し、支払予定/原価は `billing_cycles.reward_summary_json` の capped 外部支払を正本にする。**finance の数字を変えたら必ず `/management-score` の月次収支シミュレータ、`/management-score` 下部PJ別表、`/admin/payouts` の3系統で確認すること**。
+> ✅ **収支系3系統に反映済み (2026-06-18, v0.27.7 / 2026-07-17 更新)**: PJ収支を出す画面は少なくとも3系統ある — (A) `/admin/management-score` 月次収支シミュレータ (`buildLiveMonthlyPlInputs`→エンジン)、(B) `/admin/payouts`「先12か月 PJ収支」表 (`AdminPayoutsClient.tsx`)、(C) `/admin/management-score` 下部の「PJ別 先12か月収支」表 (`management-score/page.tsx` の `ProjectMonthlyFinanceTable`)。按分ロジックは共通 lib `src/lib/finance/extra-revenue.ts` (`expandExtraRevenue`) に集約し、支払予定/原価は `billing_cycles.reward_summary_json` の capped 外部支払を正本にする。**finance の数字を変えたら必ず `/admin/management-score` の月次収支シミュレータ、`/admin/management-score` 下部PJ別表、`/admin/payouts` の3系統で確認すること**。
 
-> ✅ **(B)(C) の先12か月表を目的別4表へ分解 (2026-06-19, v0.28.13)**: `/admin/payouts` と `/management-score` 下部の先12か月表は、`キャッシュ支払` / `会社留保` / `報酬債務` / `cap超過チェック` に分ける。会社留保は支出ではなく `cap/売上枠 - 外部支払` で見る。報酬債務は月末残高なので、12か月分を合計せず、各月残・ピーク・最終月残で見る。cap超過チェックだけが `報酬需要 - cap/売上枠` を見る。`computeForwardCappedMemberCosts` は `cappedRegularYen` / `cappedExtraYen` に加えて `cappedRegularExternalYen` / `cappedExtraExternalYen` / `regularCompanyReserveYen` / `extraCompanyReserveYen` / gross due / carry over を返す。
+> ✅ **(B)(C) の先12か月表を目的別4表へ分解 (2026-06-19, v0.28.13)**: `/admin/payouts` と `/admin/management-score` 下部の先12か月表は、`キャッシュ支払` / `会社留保` / `報酬債務` / `cap超過チェック` に分ける。会社留保は支出ではなく `cap/売上枠 - 外部支払` で見る。報酬債務は月末残高なので、12か月分を合計せず、各月残・ピーク・最終月残で見る。cap超過チェックだけが `報酬需要 - cap/売上枠` を見る。`computeForwardCappedMemberCosts` は `cappedRegularYen` / `cappedExtraYen` に加えて `cappedRegularExternalYen` / `cappedExtraExternalYen` / `regularCompanyReserveYen` / `extraCompanyReserveYen` / gross due / carry over を返す。
 
-> ✅ **(C) も capped + 別財布に同期 (2026-06-18, v0.27.7 / 2026-06-19 更新)**: (C) `/management-score` 下部表も支払予定を出す表なので、(B) と同じく `computeForwardCappedMemberCosts` の capped を使う。`forecastCapped` が計算済みなら 0 も正値として扱い、plan期間内だけ本契約cap fallbackを許す。2026-06-19 v0.28.13 以降、最終表示は合算収支や財布残の1表ではなく、`キャッシュ支払` / `会社留保` / `報酬債務` / `cap超過チェック` の4表を正本にする。`budgetYen + extraRevenueYen - forecastPayoutYen` を主表示に戻さない。
+> ✅ **(C) も capped + 別財布に同期 (2026-06-18, v0.27.7 / 2026-06-19 更新)**: (C) `/admin/management-score` 下部表も支払予定を出す表なので、(B) と同じく `computeForwardCappedMemberCosts` の capped を使う。`forecastCapped` が計算済みなら 0 も正値として扱い、plan期間内だけ本契約cap fallbackを許す。2026-06-19 v0.28.13 以降、最終表示は合算収支や財布残の1表ではなく、`キャッシュ支払` / `会社留保` / `報酬債務` / `cap超過チェック` の4表を正本にする。`budgetYen + extraRevenueYen - forecastPayoutYen` を主表示に戻さない。
 
 > ✅ **(C) で MS 月割ptも確認する (2026-06-18, v0.27.8)**: 同じ表は「収支」だけでなく、各PJのMSが12か月予測上でプロラタに散っているかを確認する監査面でもある。各 PJ × ym セルに `MS月割 +{pt}pt / {N}MS` を表示し、`value_milestones.period_start_ym`〜`target_ym` と `ms-schedule-shared.ts` のアンカー方式で、その月の単月消化ptを計算する。非確定 `milestone_monthly_progress` は正本にせず、PM locked source があるMSだけ `PM確定` と表示する。`期間未設定` が出るMSは、プロラタ計算に必要な期間入力が欠けているので、MS台帳の `period_start_ym` / `target_ym` を直す。これにより「支払予定がなぜこの月に出るか」と「MS消化が月末一括でなく月割りになっているか」を同じ12か月横軸で確認できる。
 
@@ -602,14 +601,14 @@ raw が partial / failed のまま score を作ると、最新実績と古い sn
 
 ### evidence drilldown UI (= EvidencePanel)
 
-`/management-score` の「上げ要因 / 下げ要因」 セクションは `amd_management_score_evidence` を impact 順で 2 カラム表示。 軸タブ (= 全て / 先手 / 財務 / 継続 / 新規 / 方向) で filter 可能、 「詳細」 ボタンで payload JSON 展開。 v4 では evidence の `summary` は自然文で書く (= まさ #80 で機械的 `signal_key` 表示を廃止)。 例:
+`/admin/management-score` の「上げ要因 / 下げ要因」 セクションは `amd_management_score_evidence` を impact 順で 2 カラム表示。 軸タブ (= 全て / 先手 / 財務 / 継続 / 新規 / 方向) で filter 可能、 「詳細」 ボタンで payload JSON 展開。 v4 では evidence の `summary` は自然文で書く (= まさ #80 で機械的 `signal_key` 表示を廃止)。 例:
 
 - 「シーズ候補「非麻薬性オピオイド鎮痛薬」 (観察中, AMD評価 3/5)」 ← 良
 - 「seed:investigating: 非麻薬性オピオイド鎮痛薬」 ← 廃止 (= 機械的)
 
 ### 軸別の変動理由 UI (= 2026-06-01 追加)
 
-`/management-score` の score cards 直下に **各軸の変動理由** を表示する。目的は、まさが「新規 推移がなぜ急に下がったのか」「どの根拠を見れば次の一手に繋がるのか」を、DB名を知らなくても追えるようにすること。
+`/admin/management-score` の score cards 直下に **各軸の変動理由** を表示する。目的は、まさが「新規 推移がなぜ急に下がったのか」「どの根拠を見れば次の一手に繋がるのか」を、DB名を知らなくても追えるようにすること。
 
 1軸ごとに `<details>` で展開でき、以下を表示する。
 
@@ -650,7 +649,7 @@ EvidencePanel の上部に「**まさえいMTG で確定したシグナル**」 
 
 ### 鮮度 guard / pre-month snapshot 除外 (= 2026-06-01 追加)
 
-`/management-score` は、当月 `ym` の snapshot でも `created_at` / `updated_at` がその月の 1 日 00:00 JST より前なら **pre-month snapshot** とみなし、最新の経営バイタル扱いから外す。
+`/admin/management-score` は、当月 `ym` の snapshot でも `created_at` / `updated_at` がその月の 1 日 00:00 JST より前なら **pre-month snapshot** とみなし、最新の経営バイタル扱いから外す。
 
 例: `ym=202606` の snapshot が `2026-05-26` に作られている場合、6 月の材料ではなく 5 月時点の未来月試算なので、6 月の最新スコアとしては表示しない。画面には「当月スコアの鮮度警告」として、除外した snapshot の対象月と材料時点を出す。
 
@@ -673,7 +672,7 @@ DB分類として、`project_strategy_signals` に `signal_scope` / `applies_to_
 
 ### 予実管理・先3か月キャッシュ判断 (= 2026-06-01 追加)
 
-`/management-score` は、GAS月次試算表の予算行だけでなく、月次試算表そのものを予実管理表として表示する。行の中心構造は、各項目を1行に保ち、各月の配下に `予算` / `実績` / `差分 (= 実績 - 予算)` の3列を左から並べる。横スクロールは許容し、同じ月の中で予算・実績・差分を横並び比較できることを優先する。
+`/admin/management-score` は、GAS月次試算表の予算行だけでなく、月次試算表そのものを予実管理表として表示する。行の中心構造は、各項目を1行に保ち、各月の配下に `予算` / `実績` / `差分 (= 実績 - 予算)` の3列を左から並べる。横スクロールは許容し、同じ月の中で予算・実績・差分を横並び比較できることを優先する。
 
 | 見るもの | 正本 | UI上の扱い |
 |---|---|---|
@@ -693,7 +692,7 @@ DB分類として、`project_strategy_signals` に `signal_scope` / `applies_to_
 
 ### 現預金アンカー (= 残高予測の起点、2026-08-16 確定)
 
-正本は [`src/lib/finance/cash-anchor.ts`](../src/lib/finance/cash-anchor.ts)。永続化 (`live-monthly-pl-budget.ts`)、`/management-score` の live 組み立て (`page.tsx` の `buildLiveGasSimulationResult`)、chart 描画 (`GasMonthlySimulationPanel.tsx`) の3経路が同じ関数を使う。以前は3箇所に同じロジックが写経されていた。
+正本は [`src/lib/finance/cash-anchor.ts`](../src/lib/finance/cash-anchor.ts)。永続化 (`live-monthly-pl-budget.ts`)、`/admin/management-score` の live 組み立て (`page.tsx` の `buildLiveGasSimulationResult`)、chart 描画 (`GasMonthlySimulationPanel.tsx`) の3経路が同じ関数を使う。以前は3箇所に同じロジックが写経されていた。
 
 - **アンカーは「締まった月」= 当月より前の最新の実績月に限定する** (`kind: "settled_month_end"`)。アンカー月の残高は freee 実残高そのもの、以降は `+= 月次CF` で前進計算する。
 - **当月をアンカーにしてはいけない**。`company_actual_monthly` の `category='cash_balance'` は freee 口座取引から日次で取り込まれる (`source_ref=freee:wallet_txns_balance:YYYYMM`) ため、当月行は「月中のある日の残高」であって月末残高ではない。ここで打ち切るとアンカー月の `netCashFlow` を丸ごと捨てることになり、その月にこれから出ていく支払い (支払義務・消費税納付・役員報酬など) が全部消えて現預金が過大に出る。
@@ -744,7 +743,7 @@ flowchart LR
 
 上の運用試算表 (`GasMonthlySimulationPanel`, 18 ヶ月 / freee 実績連動 / 積み上げ) とは**独立**の、中期経営計画 KPI を目標値に固定して原価・固定費を整合させるトップダウン長期モデル。近未来のキャッシュ管理には一切影響しない (共存)。
 
-### 見え方 (= `/management-score` ページ下部)
+### 見え方 (= `/admin/management-score` ページ下部)
 
 - コンポーネント: [`pwa/src/components/management-score/LongRangeProjectionPanel.tsx`](../src/components/management-score/LongRangeProjectionPanel.tsx)
 - 4 KPI カード: FY2035 売上 / FY2035 FCF / 累積 FCF (10 年) / FY2035 期末キャッシュ

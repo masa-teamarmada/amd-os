@@ -115,7 +115,7 @@ export function FreeeConnectionStatusCard() {
           </p>
         </div>
         <Link
-          href="/management-score"
+          href="/admin/monthly-trial-balance"
           className="ml-auto inline-flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground hover:underline"
         >
           月次試算表 <ArrowRight className="h-3 w-3" />

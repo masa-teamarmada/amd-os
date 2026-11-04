@@ -84,7 +84,7 @@ export const SURFACE_CATALOG: readonly SurfaceDefinition[] = [
   { id: "company", title: "Company", primaryPath: "/company", domain: "company_operations", lens: "amd_operations", status: "canonical", exact: ["/company"] },
   { id: "contracts-member", title: "契約", primaryPath: "/contracts", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/contracts"] },
   { id: "reimburse", title: "立替", primaryPath: "/reimburse", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/reimburse"] },
-  { id: "management-score", title: "Management Score", navLabel: "経営指標", primaryPath: "/management-score", domain: "company_operations", lens: "amd_operations", status: "canonical", prefixes: ["/management-score"] },
+  { id: "management-score", title: "経営状況", navLabel: "Management", primaryPath: "/admin/management-score", domain: "company_operations", lens: "amd_operations", status: "canonical", exact: ["/management-score"], prefixes: ["/admin/management-score"] },
   { id: "admin-monthly-trial-balance", title: "月次試算表", navLabel: "月次試算表", primaryPath: "/admin/monthly-trial-balance", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/admin/monthly-trial-balance"] },
 
   { id: "admin-projects", title: "Admin PJ", navLabel: "PJ台帳", primaryPath: "/admin/projects", domain: "project_execution", lens: "amd_operations", status: "canonical", exact: ["/admin/projects"] },

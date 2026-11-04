@@ -461,7 +461,7 @@ expectIncludes("src/components/dashboard/FreeeConnectionStatusCard.tsx", [
   "/api/dashboard/freee-connection-status",
   "P/L同期",
   "口座残高同期",
-  "/management-score",
+  "/admin/monthly-trial-balance",
 ]);
 
 expectIncludes("src/app/api/dashboard/freee-connection-status/route.ts", [
@@ -2059,7 +2059,10 @@ expectIncludes("design/FEATURE_REGISTRY.md", [
   "保存済み正式PDFが最新DBと一致",
 ]);
 
-expectIncludes("src/app/(app)/management-score/page.tsx", ["CompanyManagementScreen", 'view="management"']);
+expectIncludes("src/app/(app)/management-score/page.tsx", ["redirect", '"/admin/management-score"']);
+expectIncludes("src/app/(app)/admin/management-score/page.tsx", ["getCurrentMemberAccess", "isAdmin", 'view="management"']);
+expectNotIncludes("src/components/nav/GlobalNav.tsx", ['label: "Management"', 'href: "/management-score"']);
+expectNotIncludes("src/components/management-score/CompanyManagementScreen.tsx", ['href="/management-score"', 'href="/admin/management-score"', 'href="/admin/monthly-trial-balance"']);
 expectIncludes("src/app/(app)/admin/monthly-trial-balance/page.tsx", ["getCurrentMemberAccess", "isAdmin", 'view="monthly-trial-balance"']);
 expectIncludes("src/components/management-score/CompanyManagementScreen.tsx", [
   "PJ別 先12か月 キャッシュ支払",

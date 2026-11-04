@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ReactNode } from "react";
@@ -2750,7 +2749,6 @@ export async function CompanyManagementScreen({ view = "management" }: { view?: 
       <div className="mx-auto max-w-7xl space-y-5">
         <header className="flex items-center justify-between gap-4">
           <h1 className="text-2xl font-semibold tracking-normal">月次試算表</h1>
-          <Link href="/management-score" className="text-sm text-muted-foreground underline-offset-4 hover:underline">経営状況</Link>
         </header>
         {monthlyFinanceError && <p role="alert" className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">一部の実績を取得できないため、更新状況の確認が必要。</p>}
         <GasMonthlySimulationPanel result={gasSimulationResult} inputs={gasSimulationInputs} />
@@ -2767,7 +2765,7 @@ export async function CompanyManagementScreen({ view = "management" }: { view?: 
 
   return (
     <div className="min-h-[calc(100vh-2.75rem)] bg-background">
-      <div className="mx-auto max-w-7xl px-6 py-6 space-y-5">
+      <div className="mx-auto max-w-7xl space-y-5">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-xs font-medium text-muted-foreground">AMD Management Score</p>
@@ -2791,12 +2789,6 @@ export async function CompanyManagementScreen({ view = "management" }: { view?: 
             <span>計算 {latestRun ? new Date(latestRun.ran_at).toLocaleString("ja-JP") : materialTime ? materialTime.toLocaleString("ja-JP") : "-"}</span>
           </div>
         </div>
-
-        <Link href="/admin/monthly-trial-balance" className="flex items-center justify-between rounded-md border bg-card px-4 py-3 text-sm font-semibold transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          月次試算表<span aria-hidden="true">→</span>
-        </Link>
-
-
 
         {excludedCurrentSnapshot && (
           <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-950">

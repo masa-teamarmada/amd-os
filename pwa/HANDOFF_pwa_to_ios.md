@@ -20,3 +20,13 @@ PWA専用route `/admin/monthly-trial-balance`へManagementの財務ブロック�
 ## 2026-11-03 戦略余力
 
 PWAに共通ページstrategic-resourcesを追加。仕様pwa/spec/3-24、型pwa/src/lib/project-strategic-resources.ts。既存page-runtimeの認可後にstrategicResourcesを返す。SOL登録試算は評価日2026-11-03/v0.2。3条件×利用対価2条件、数値の中間は金額内訳の平均。Swift・macOS専用画面の実装と端末確認は未実施。
+
+## 2026-11-04 ManagementのAdmin移設
+
+PWAの正本は `/admin/management-score`。通常左メニューのManagement項目を削除し、月次試算表との相互リンクも削除。AdminのManagementと月次試算表は独立ページ。本人の旧URL閲覧数は新項目に合算、DB更新なし。仕様spec2-1・2-7、使い方manual2-6・4-5、全画面正本ios/DESIGNと同期。Swift/iOS・macOS・Androidは未移植、今回は実装対象外。
+
+| 新仕様 | 設計正本 | マニュアル章 | 状態 |
+|---|---|---|---|
+| ManagementのAdmin移設・相互リンク削除 | spec2-1・2-7、ios/DESIGN | manual2-6・4-5 | PWA反映対象、Native未移植 |
+| 閲覧回数の旧URL合算 | spec2-1、admin-navigation-usage | manual2-6 | PWA反映対象、DB書換えなし |
+| 理論・数式 | 既存値を維持 | BZM更新対象外 | ナビとURLの変更のみ |

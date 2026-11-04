@@ -3,12 +3,19 @@ export type AdminPageUsage = { visitCount: number; lastVisitedAt: string | null 
 export type AdminNavigationUsage = Record<string, AdminPageUsage>;
 export type AdminVisitAggregate = { pathname: string; visit_count: number | string; last_visited_at: string | null };
 
+/** 移設前の本人閲覧回数も新しいメニューへ引き継ぐ。 */
+export const ADMIN_NAVIGATION_PATH_ALIASES: Readonly<Record<string, string>> = {
+  "/management-score": "/admin/management-score",
+};
+
 /** 詳細ページの履歴は最も具体的なメニューへ一度だけ集計する。 */
 export function summarizeAdminVisits(rows: AdminVisitAggregate[], paths: readonly string[]): AdminNavigationUsage {
   const result: AdminNavigationUsage = Object.fromEntries(paths.map((path) => [path, { visitCount: 0, lastVisitedAt: null }]));
   const longestFirst = [...paths].sort((a, b) => b.length - a.length);
   for (const row of rows) {
-    const path = longestFirst.find((path) => row.pathname === path || row.pathname.startsWith(`${path}/`));
+    const alias = Object.entries(ADMIN_NAVIGATION_PATH_ALIASES).find(([from]) => row.pathname === from || row.pathname.startsWith(`${from}/`));
+    const pathname = alias ? alias[1] + row.pathname.slice(alias[0].length) : row.pathname;
+    const path = longestFirst.find((path) => pathname === path || pathname.startsWith(`${path}/`));
     const count = Number(row.visit_count);
     if (!path || !Number.isSafeInteger(count) || count < 0) continue;
     const entry = result[path];

@@ -2,7 +2,7 @@
 
 ## 全社月次試算表とAdmin閲覧順（2026-11-04）
 
-- `/admin/monthly-trial-balance`: 管理者かつ`scope=portfolio`をページの財務取得前に確認する専用画面。Managementから月次財務ブロックを移設し、`CompanyManagementScreen`を共用する。計算式・金額・保存先は既存どおり。通常左ナビ、Admin、Managementから開ける。
+- `/admin/monthly-trial-balance`: 管理者かつ`scope=portfolio`をページの財務取得前に確認する専用画面。Managementから月次財務ブロックを移設し、`CompanyManagementScreen`を共用する。計算式・金額・保存先は既存どおり。通常左ナビとAdminから開ける。Managementとは別ページとし、相互リンクは置かない。
 - `GET /api/admin/navigation-usage`: 認証なし401、管理者・portfolio以外403。サーバで導出した`member:<memberId>`だけを、service_roleで`amie_admin_page_visit_counts`へ渡す。クライアントからactorや対象pathを受け取らない。`ADMIN_SURFACE_GROUPS`の許可URLとその子pathだけを集計し、最長一致のメニューに1回だけ加算する。返却は`{usage:{[href]:{visitCount,lastVisitedAt}},scope:"self"}`。他者の履歴・actor識別子は返さない。private/no-store、取得エラー503。
 - 正本は既存`os_page_viewing_visits`（2026-10-08以降）。visit行を数え、heartbeat更新は重複加算しない。RPCはservice_roleだけ実行可。migration `20261104100247`は本番適用済み。新規閲覧追跡・個人設定の保存は追加しない。
 - Adminは入場時に1回取得、10秒で中断して分類順へ戻す。再読込で再試行。閲覧数降順、同数は最新閲覧順、完全同数は定義順。0件は「閲覧履歴なし」に従来分類で表示し、検索中・全件0件時は展開する。画面内の移動で並べ替え直さない。
@@ -166,7 +166,8 @@ DDのトップ、旧掲載項目、編集のページ入口は、内部memberま
 | `/admin/change-history` | OS全体のデータ変更履歴。adminだけが実行者・日時・PJ/対象・人が読める変更要約を密な台帳で確認する。同一transaction等の安全な連続行は件数にまとめ、詳細で元の各履歴と変更前後・戻す操作を確認できる |
 | `/notifications` | L2 candidate / feedback の採否 |
 | `/proactive` | admin 限定の先手 TODO リスト。`proactive_todos` の open / blocked / done / dismissed を期限順に確認し、完了・ブロック・関係ないの3ボタンで処理する |
-| `/management-score` | AMD Management Score |
+| `/admin/management-score` | AdminのManagement（経営状況）。管理者・portfolio限定 |
+| `/management-score` | `/admin/management-score`へ移動する旧URL互換入口 |
 | `/institutions` / `/institutions/*` | ECR / 研究機関評価 |
 
 ## API / cron の境界
@@ -329,3 +330,9 @@ Slackの全文保存は、無料ワークスペースの履歴保持を目的と
 検証: `test:external-disclosure`、DBの匿名/外部/内部権限照合、既知削除箇所の残件数、監査トリガー復旧、SOLログ247件保持。個人評価の本文・秘密値を検証ログや公開文書へ保存しない。
 
 2026-10-24：管理者限定GET `/api/admin/payouts/season-plan?ym=YYYYMM` を追加。全PJのシーズン月別収支をno-storeで読む。書込み・報酬再計算・発行・送信なし。詳細はspec3-27。
+
+## ManagementのAdmin移設（2026-11-04）
+
+正本URLは `/admin/management-score`。ページのデータ取得前に管理者・portfolioを照合し、Admin shellで既存の経営状況を表示する。通常左メニューからManagementを外し、Adminの「PJ・実行」にManagementとして登録する。月次試算表とは独立したページとし、両ページ内の相互リンクを削除。ダッシュボードとバイタルサインの詳細は新URLへ進み、freee連携の「月次試算表」は専用ページへ進む。旧URLは新URLへ転送し、画面を重複させない。
+
+本人の閲覧順は `ADMIN_NAVIGATION_PATH_ALIASES` により `/management-score` の履歴を `/admin/management-score` へ合算。集計RPCの許可pathに、有効なメニューに対応する旧URLだけを加え、返却キーは新URLだけとする。DBの履歴行・集計関数・認可・金額・評価式は変更しない。

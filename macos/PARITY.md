@@ -154,3 +154,7 @@ iOS/macOS/Androidのファイル登録と矢印UIは未移植。共通DB/認可�
 
 
 2026-10-12: 自社名刺案 `/project/[projectId]/cockpit?tab=card-designs`、全PJ `/admin/card-designs` はPWA先行・macOS専用画面未移植。共通DB適用済み。spec3-25参照。
+
+## 2026-11-04 ManagementのAdmin移設
+
+PWA `/admin/management-score`（旧 `/management-score` の互換転送）とAdmin内のManagement項目はNative未移植。月次試算表との相互リンクを削除し、両者を別ページとして表示。本人の旧URL閲覧数を新項目へ合算するPWAナビも未移植。既存のNative対応表の行は保持する。

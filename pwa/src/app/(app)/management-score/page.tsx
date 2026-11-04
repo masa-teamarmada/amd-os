@@ -1,7 +1,7 @@
-import { CompanyManagementScreen } from "@/components/management-score/CompanyManagementScreen";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default function ManagementScorePage() {
-  return <CompanyManagementScreen view="management" />;
+  redirect("/admin/management-score");
 }

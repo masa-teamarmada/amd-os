@@ -1117,6 +1117,6 @@ PWAの業務一覧は`data-amie-list`と共通の分類・状態・増減部品�
 
 ## 月次試算表とAdmin閲覧順（2026-11-04）
 
-- `/admin/monthly-trial-balance`は管理者・portfolio限定。Managementの月次試算とPJ別収支を同じ計算で表示し、通常左ナビ・Admin・Managementから直接開ける。
+- `/admin/monthly-trial-balance`は管理者・portfolio限定。Managementの月次試算とPJ別収支を同じ計算で表示し、通常左ナビ・Adminから直接開ける。ManagementはAdminの別項目で、ページ内の相互リンクは置かない。
 - Adminは既存の本人閲覧数で降順、同数は最近の閲覧順。記録のない項目は「閲覧履歴なし」で従来分類を保持。ページ名・分類名の検索、取得失敗時の全項目表示と再試行、移動中の順序固定を残す。
 - 正本: spec2-1・2-7、manual2-6・4-5、`CompanyManagementScreen`、`admin-navigation-usage.ts`、API `/api/admin/navigation-usage`。検査: `test:admin-navigation-usage`、`test:critical-ui`、`test:surface-catalog-contract`、`test:live-monthly-cash`。
