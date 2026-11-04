@@ -408,7 +408,7 @@ export default function AtlasPage() {
         <section className="space-y-2">
           <button
             onClick={() => setShowOrphans(!showOrphans)}
-            className="text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors flex items-center gap-1"
+            className="w-full text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors flex items-center gap-1"
           >
             未紐付けシグナル ({orphanSignals.length}) <span>{showOrphans ? "▲" : "▼"}</span>
           </button>

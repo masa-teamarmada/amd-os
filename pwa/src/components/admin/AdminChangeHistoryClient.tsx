@@ -166,7 +166,7 @@ function HistoryGroup({
 
   return (
     <li className="min-w-0 py-1.5">
-      <div className="grid min-w-0 gap-1.5 lg:grid-cols-[150px_minmax(0,1fr)_auto] lg:items-start lg:gap-4">
+      <div data-amie-disclosure-surface className="grid min-w-0 gap-1.5 lg:grid-cols-[150px_minmax(0,1fr)_auto] lg:items-start lg:gap-4">
         <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
           <Clock3 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           <div className="min-w-0">
@@ -196,7 +196,7 @@ function HistoryGroup({
           {group.rows.length === 1 && (group.rows[0].undo_supported || group.rows[0].undo_of_history_id || group.rows[0].undone_by_history_id) && (
             <UndoButton row={group.rows[0]} onUndo={onUndo} undoing={undoingId === group.rows[0].id} />
           )}
-          <button type="button" aria-expanded={expanded} aria-controls={`change-history-details-${group.id}`} onClick={onToggle} className="inline-flex min-h-11 items-center gap-1 rounded-md px-2 text-xs font-semibold text-sky-800 transition-colors hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 sm:min-h-9">
+          <button data-amie-disclosure-trigger type="button" aria-expanded={expanded} aria-controls={`change-history-details-${group.id}`} onClick={onToggle} className="inline-flex min-h-11 items-center gap-1 rounded-md px-2 text-xs font-semibold text-sky-800 transition-colors hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 sm:min-h-9">
             <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
             {expanded ? "詳細を閉じる" : detailsLabel}
           </button>

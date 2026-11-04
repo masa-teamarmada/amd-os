@@ -202,7 +202,7 @@ function MessageRow({ item, grouped }: { item: SlackMessageItem; grouped: boolea
             <button
               type="button"
               onClick={() => setOpenReplies((prev) => !prev)}
-              className="text-[11.5px] font-medium text-[#007aff] hover:underline"
+              className="w-full text-left text-[11.5px] font-medium text-[#007aff] hover:underline"
             >
               {openReplies ? "返信を閉じる" : `${item.replies.length}件の返信`}
             </button>

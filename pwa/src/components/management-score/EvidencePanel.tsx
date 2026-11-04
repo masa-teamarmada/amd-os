@@ -75,7 +75,7 @@ function EvidenceCard({ row }: { row: EvidenceRow }) {
   const positive = row.impact >= 0;
   const hasPayload = row.payload && Object.keys(row.payload).length > 0;
   return (
-    <div className="rounded-md border bg-card px-3 py-2.5">
+    <div data-amie-disclosure-surface={hasPayload ? true : undefined} className="rounded-md border bg-card px-3 py-2.5">
       <div className="flex items-center gap-2 text-xs">
         <span className={`inline-flex h-5 items-center rounded-full border px-2 text-[11px] font-medium ${axisTone(row.axis)}`}>
           {axisLabel(row.axis)}
@@ -96,7 +96,7 @@ function EvidenceCard({ row }: { row: EvidenceRow }) {
       )}
       {hasPayload && (
         <div className="mt-1">
-          <button
+          <button data-amie-disclosure-trigger aria-expanded={open}
             type="button"
             onClick={() => setOpen((v) => !v)}
             className="text-[11px] text-muted-foreground hover:text-foreground"
@@ -104,7 +104,7 @@ function EvidenceCard({ row }: { row: EvidenceRow }) {
             {open ? "閉じる" : "詳細"}
           </button>
           {open && (
-            <pre className="mt-1 max-h-48 overflow-auto rounded bg-muted/40 p-2 text-[11px] leading-snug text-muted-foreground">
+            <pre data-amie-disclosure-content className="mt-1 max-h-48 overflow-auto rounded bg-muted/40 p-2 text-[11px] leading-snug text-muted-foreground">
               {JSON.stringify(row.payload, null, 2)}
             </pre>
           )}

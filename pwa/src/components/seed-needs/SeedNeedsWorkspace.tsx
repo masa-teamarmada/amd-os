@@ -527,13 +527,13 @@ export function SeedNeedsWorkspace() {
                     <tbody>
                       {filtered.map((row) => (
                         <Fragment key={row.key}>
-                          <tr
+                          <tr data-amie-disclosure-surface
                             className={
                               expanded === row.key ? styles.selectedRow : ""
                             }
                           >
                             <td>
-                              <button
+                              <button type="button" data-amie-disclosure-trigger
                                 className={styles.rowToggle}
                                 onClick={() =>
                                   setExpanded(

@@ -795,8 +795,8 @@ export function FinanceFormatView({
                   {/* 追加の内訳 */}
                   {dataset && dataset.extraRows.length > 0 ? (
                     <>
-                      <div className="sticky left-0 z-30 border-b border-r border-slate-300 bg-white px-2 py-0.5">
-                        <button type="button" aria-expanded={showExtras} onClick={() => setShowExtras((open) => !open)} className="text-left text-[9px] font-semibold leading-4 text-[#285b6b] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6d8a96]">
+                      <div data-amie-disclosure-surface className="sticky left-0 z-30 border-b border-r border-slate-300 bg-white px-2 py-0.5">
+                        <button data-amie-disclosure-trigger type="button" aria-expanded={showExtras} onClick={() => setShowExtras((open) => !open)} className="text-left text-[9px] font-semibold leading-4 text-[#285b6b] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6d8a96]">
                           {showExtras ? "−" : "+"} 元データの内訳（{dataset.extraRows.length}行）
                         </button>
                       </div>

@@ -515,8 +515,8 @@ function GanttRow({
 
   return (
     <div className={c.row}>
-      <div className="grid min-h-[54px]" style={{ gridTemplateColumns }}>
-        <button
+      <div data-amie-disclosure-surface className="grid min-h-[54px]" style={{ gridTemplateColumns }}>
+        <button data-amie-disclosure-trigger
           type="button"
           onClick={() => setExpanded((value) => !value)}
           aria-expanded={expanded}

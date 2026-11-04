@@ -162,8 +162,8 @@ export function InstitutionSupportProfile({ institutionId }: { institutionId: st
       )}
 
       {bundle && extraItems.length > 0 && (
-        <div>
-          <button
+        <div data-amie-disclosure-surface>
+          <button data-amie-disclosure-trigger
             type="button"
             onClick={() => setShowDetails((value) => !value)}
             className="text-xs font-semibold text-indigo-700 hover:underline"
@@ -172,7 +172,7 @@ export function InstitutionSupportProfile({ institutionId }: { institutionId: st
             {showDetails ? "制度整備の詳細を閉じる" : `制度整備の詳細（${extraItems.length}項目）を見る`}
           </button>
           {showDetails && (
-            <dl className="mt-2 grid gap-x-4 gap-y-1 rounded border border-border p-3 md:grid-cols-2">
+            <dl data-amie-disclosure-content className="mt-2 grid gap-x-4 gap-y-1 rounded border border-border p-3 md:grid-cols-2">
               {extraItems.map((item) => {
                 const cell = extra.get(item.policyItemId);
                 const status = cell?.status ?? "unknown";

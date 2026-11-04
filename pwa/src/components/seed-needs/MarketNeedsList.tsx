@@ -330,12 +330,12 @@ export function MarketNeedsList({
               const size = marketSizeFor(m, scope, year);
               const source = m.sources?.[0];
               return (
-                <tr
+                <tr data-amie-disclosure-surface
                   key={m.id}
                   className={selected === m.id ? styles.selectedRow : ""}
                 >
                   <td>
-                    <button
+                    <button type="button" data-amie-disclosure-trigger
                       className={list.needTitle}
                       aria-expanded={selected === m.id}
                       aria-controls="market-need-detail"

@@ -84,9 +84,9 @@
     "test:reward-participation-period": "node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_reward_participation_period.mts",
     "test:next-period-ui": "node scripts/check_next_period_ms_period_ui.cjs",
     "test:workspace-email-attempts": "node --experimental-strip-types scripts/check_workspace_email_attempts.mjs && node --experimental-strip-types scripts/check_workspace_email_code.mjs",
-    "test:critical-ui": "node scripts/check_pwa_critical_ui.cjs && node --experimental-strip-types scripts/check_cockpit_navigation.mts && node scripts/check_ui_design_code.mjs && node scripts/check_question_tree_task_review_contract.mjs && node --experimental-strip-types scripts/check_pictogram.mts && node --experimental-strip-types scripts/check_admin_navigation_usage.mts",
+    "test:critical-ui": "node scripts/check_pwa_critical_ui.cjs && node --experimental-strip-types scripts/check_cockpit_navigation.mts && node scripts/check_ui_design_code.mjs && node scripts/check_question_tree_task_review_contract.mjs && node --experimental-strip-types scripts/check_pictogram.mts && node --experimental-strip-types scripts/check_admin_navigation_usage.mts && npm run test:disclosure-surface",
     "test:cockpit-navigation": "node --experimental-strip-types scripts/check_cockpit_navigation.mts",
-    "test:ui-design-code": "node scripts/check_ui_design_code.mjs && node --experimental-strip-types scripts/check_amie_list_signals.mts",
+    "test:ui-design-code": "node scripts/check_ui_design_code.mjs && node --experimental-strip-types scripts/check_amie_list_signals.mts && npm run test:disclosure-surface",
     "test:reference-data-cache": "node scripts/check_reference_data_cache_contract.mjs",
     "test:project-format": "node scripts/check_project_format_contract.mjs && node --experimental-strip-types scripts/check_business_plan_comparison.mts && node --experimental-strip-types scripts/check_project_strategic_resources.mts",
     "test:project-overview": "node --experimental-strip-types scripts/check_project_overview_contract.mts",
@@ -238,7 +238,8 @@
     "test:tech-disclosure": "node --experimental-strip-types --import ./scripts/register_server_only_stub.mjs --import ./scripts/register_ts_aliases.mjs --import ./scripts/register_relative_ts.mjs scripts/check_amie_tech_disclosure.mts",
     "test:card-designs-access": "node --experimental-strip-types scripts/check_amie_card_access.mjs",
     "test:effluent-ledger": "node --experimental-strip-types --import ./scripts/register_server_only_stub.mjs --import ./scripts/register_relative_ts.mjs scripts/check_amie_effluent_ledger.mts && node --experimental-strip-types --import ./scripts/register_relative_ts.mjs scripts/check_amie_poc_list.mts",
-    "test:payout-season-plan": "node --experimental-strip-types --import ./scripts/register_relative_ts.mjs --import ./scripts/register_ts_aliases.mjs scripts/check_payout_season_plan.mts && node --experimental-strip-types --import ./scripts/register_relative_ts.mjs --import ./scripts/register_ts_aliases.mjs scripts/check_payout_season_allocation.mts"
+    "test:payout-season-plan": "node --experimental-strip-types --import ./scripts/register_relative_ts.mjs --import ./scripts/register_ts_aliases.mjs scripts/check_payout_season_plan.mts && node --experimental-strip-types --import ./scripts/register_relative_ts.mjs --import ./scripts/register_ts_aliases.mjs scripts/check_payout_season_allocation.mts",
+    "test:disclosure-surface": "node --experimental-strip-types scripts/check_disclosure_surface.mts && node scripts/check_disclosure_registration.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",
@@ -294,6 +295,7 @@
     "@vercel/blob": "^2.6.1",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
+    "linkedom": "0.18.15",
     "playwright": "^1.60.0",
     "tailwindcss": "^4",
     "typescript": "^5"

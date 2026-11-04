@@ -180,7 +180,7 @@ function NotificationRow({
   };
 
   return (
-    <li
+    <li data-amie-disclosure-surface={item.body && needsReadMore(item.body) ? true : undefined}
       className={`border rounded p-3 ${
         priority === "critical"
           ? "border-red-300 bg-red-50/70"
@@ -217,13 +217,13 @@ function NotificationRow({
           <div className="font-medium text-sm">{item.title}</div>
           {item.body && (
             <>
-              <p className={`mt-1 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground ${
+              <p data-amie-disclosure-content={expanded ? true : undefined} className={`mt-1 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground ${
                 needsReadMore(item.body) && !expanded ? "line-clamp-3" : ""
               }`}>
                 {item.body}
               </p>
               {needsReadMore(item.body) && (
-                <button
+                <button data-amie-disclosure-trigger aria-expanded={expanded}
                   type="button"
                   onClick={() => setExpanded((v) => !v)}
                   className="mt-1 rounded text-[11px] font-medium text-primary underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -233,7 +233,7 @@ function NotificationRow({
               )}
             </>
           )}
-          <dl className="mt-3 space-y-2 rounded-md border border-border bg-muted/35 p-3 text-xs leading-relaxed">
+          <dl data-amie-disclosure-content className="mt-3 space-y-2 rounded-md border border-border bg-muted/35 p-3 text-xs leading-relaxed">
             {actionInfo.whyNow && <ActionDetailRow label="いま出た理由">{actionInfo.whyNow}</ActionDetailRow>}
             <ActionDetailRow label="まさがやること">{actionInfo.actionRequired}</ActionDetailRow>
             <ActionDetailRow label="開く場所">

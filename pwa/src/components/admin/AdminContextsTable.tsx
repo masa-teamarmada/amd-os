@@ -251,8 +251,8 @@ export function AdminContextsTable({ contexts: initial }: Props) {
           return (
             <div key={r.id} className={`${isEditing ? "bg-blue-50/30" : ""}`}>
               {/* Row header */}
-              <div className="flex items-start gap-3 px-4 py-3">
-                <button
+              <div data-amie-disclosure-surface className="flex items-start gap-3 px-4 py-3">
+                <button data-amie-disclosure-trigger type="button" aria-expanded={isExpanded} aria-label={`${r.context_id}の詳細を開閉`}
                   onClick={() => setExpandedId(isExpanded ? null : r.id)}
                   className="text-[10px] text-muted-foreground shrink-0 mt-0.5 transition-transform"
                   style={{ transform: isExpanded ? "rotate(90deg)" : "none" }}

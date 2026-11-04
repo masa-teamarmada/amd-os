@@ -1868,8 +1868,8 @@ function PlanCycleBlock({
                   <MsRow key={ms.milestoneId} ms={ms} maxPoints={maxMilestonePoints} />
                 ))}
                 {historyMs.length > 0 && (
-                  <div className="mt-2">
-                    <button
+                  <div data-amie-disclosure-surface className="mt-2">
+                    <button data-amie-disclosure-trigger aria-expanded={showHistory}
                       type="button"
                       onClick={() => setShowHistory((prev) => !prev)}
                       className="text-[11px] text-muted-foreground hover:text-foreground py-1"
@@ -1877,7 +1877,7 @@ function PlanCycleBlock({
                       {showHistory ? "▾" : "▸"} 過去分 ({historyMs.length}件) {showHistory ? "を隠す" : "を表示"}
                     </button>
                     {showHistory && (
-                      <div className="opacity-70">
+                      <div data-amie-disclosure-content className="opacity-70">
                         {historyMs.map((ms) => (
                           <MsRow key={ms.milestoneId} ms={ms} maxPoints={maxMilestonePoints} />
                         ))}
@@ -1980,8 +1980,8 @@ function ProjectCycleGroup({
     <div className="space-y-2" data-pj={projectId} data-pj-name={projectName}>
       <PlanCycleBlock cycle={current} openByDefault={openByDefault} onSaved={onSaved} />
       {past.length > 0 && (
-        <div className="pl-3">
-          <button
+        <div data-amie-disclosure-surface className="pl-3">
+          <button data-amie-disclosure-trigger aria-expanded={showPastSeasons}
             type="button"
             onClick={() => setShowPastSeasons((prev) => !prev)}
             className="text-[11px] text-muted-foreground hover:text-foreground py-1"
@@ -1989,7 +1989,7 @@ function ProjectCycleGroup({
             {showPastSeasons ? "▾" : "▸"} 過去シーズン ({past.length}件) {showPastSeasons ? "を隠す" : "を表示"}
           </button>
           {showPastSeasons && (
-            <div className="space-y-2 opacity-80">
+            <div data-amie-disclosure-content className="space-y-2 opacity-80">
               {past.map((cycle) => (
                 <PlanCycleBlock
                   key={cycle.planCycleId}

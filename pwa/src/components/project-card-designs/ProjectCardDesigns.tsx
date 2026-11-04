@@ -284,7 +284,7 @@ export function ProjectCardDesigns({
                 {visible.map((card) => {
                   const version = cardLatest(card);
                   return (
-                    <tr
+                    <tr data-amie-disclosure-surface
                       key={card.design_id}
                       className={
                         card.design_id === d?.design_id ? styles.selected : ""
@@ -325,7 +325,7 @@ export function ProjectCardDesigns({
                         </span>
                       </td>
                       <td>
-                        <button
+                        <button type="button" data-amie-disclosure-trigger
                           aria-expanded={card.design_id === d?.design_id}
                           onClick={() => {
                             setSelected(card.design_id);

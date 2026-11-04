@@ -183,8 +183,8 @@ export function AdminPromptsClient({
               const isOpen = expandedCtx === c.contextId;
               const preview = (c.systemPrompt || "").slice(0, 140);
               return (
-                <div key={c.contextId} className="border border-border rounded-lg p-3 bg-background">
-                  <button
+                <div data-amie-disclosure-surface key={c.contextId} className="border border-border rounded-lg p-3 bg-background">
+                  <button data-amie-disclosure-trigger type="button" aria-expanded={isOpen}
                     onClick={() => setExpandedCtx(isOpen ? null : c.contextId)}
                     className="w-full text-left"
                   >
@@ -205,7 +205,7 @@ export function AdminPromptsClient({
                     )}
                   </button>
                   {isOpen && (
-                    <pre className="text-[11px] bg-muted/30 p-2 rounded mt-2 whitespace-pre-wrap max-h-80 overflow-y-auto font-mono">
+                    <pre data-amie-disclosure-content className="text-[11px] bg-muted/30 p-2 rounded mt-2 whitespace-pre-wrap max-h-80 overflow-y-auto font-mono">
                       {c.systemPrompt}
                     </pre>
                   )}

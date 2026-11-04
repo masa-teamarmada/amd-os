@@ -14,6 +14,7 @@ import { GlobalNav } from "./GlobalNav";
 import { PageTitleSetter } from "./PageTitleSetter";
 import { PageHistoryToolbar } from "./PageHistoryToolbar";
 import { ProjectWorkspaceNav } from "./ProjectWorkspaceNav";
+import { appDisclosureScope, handleDisclosureSurfaceClick } from "@/lib/disclosure-surface";
 
 type AppShellProps = {
   children: ReactNode;
@@ -84,6 +85,10 @@ export function AppShell({
   const useGlobalMenu = accessScope !== "project" && (pathname === "/dashboard" || /^\/project\/[^/]+\/cockpit(?:\/|$)/.test(pathname) || /^\/institutions\/[^/]+\/cockpit(?:\/|$)/.test(pathname));
   const isProjectScope = accessScope === "project";
   const agreementGateBundle = useMonthlyAgreementGateBundle(isProjectScope ? null : memberId, pathname);
+  const disclosureProps = appDisclosureScope(pathname) ? {
+    "data-amie-disclosure-scope": "app",
+    onClickCapture: handleDisclosureSurfaceClick,
+  } : {};
 
   if (isNativeShell) {
     return <main className="flex-1">{children}</main>;
@@ -93,7 +98,7 @@ export function AppShell({
     <>
       <PageTitleSetter />
       {useEmbeddedShellOnly ? (
-        <main className="flex-1"><PageHistoryToolbar />{children}</main>
+        <main {...disclosureProps} className="flex-1"><PageHistoryToolbar />{children}</main>
       ) : (
         <div className="flex min-h-screen bg-background text-foreground">
           {useGlobalMenu ? null : isProjectScope ? (
@@ -107,7 +112,7 @@ export function AppShell({
               memberId={memberId}
             />
           )}
-          <main className={`min-w-0 flex-1 ${isProjectScope ? "pb-16 lg:pb-0" : ""}`}><PageHistoryToolbar leading={useGlobalMenu ? <GlobalMenu><GlobalNav userCodeName={userCodeName} isAdmin={isAdmin} memberId={memberId} /></GlobalMenu> : undefined} />{isAdmin && <AdminAgreementRequestNotice pathname={pathname} />}{children}</main>
+          <main {...disclosureProps} className={`min-w-0 flex-1 ${isProjectScope ? "pb-16 lg:pb-0" : ""}`}><PageHistoryToolbar leading={useGlobalMenu ? <GlobalMenu><GlobalNav userCodeName={userCodeName} isAdmin={isAdmin} memberId={memberId} /></GlobalMenu> : undefined} />{isAdmin && <AdminAgreementRequestNotice pathname={pathname} />}{children}</main>
         </div>
       )}
       {agreementGateBundle && (

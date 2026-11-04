@@ -1007,9 +1007,9 @@ export function CapitalPlanMatrix({
               return (
                 <Fragment key={holder.id}>
                   <tr data-holder-row="fd-ratio" className="border-b border-slate-200 hover:bg-slate-50/60 dark:border-slate-800 dark:hover:bg-slate-900/40">
-                    <th scope="row" className="sticky left-0 z-10 bg-white px-1.5 py-1 text-left text-[11px] text-slate-700 dark:bg-slate-950 dark:text-slate-300">
+                    <th data-amie-disclosure-surface scope="row" className="sticky left-0 z-10 bg-white px-1.5 py-1 text-left text-[11px] text-slate-700 dark:bg-slate-950 dark:text-slate-300">
                       <div className="flex min-h-8 items-center gap-1">
-                        <button
+                        <button data-amie-disclosure-trigger
                           type="button"
                           aria-expanded={expanded}
                           aria-label={`${holder.name} の出資額と株数の内訳を${expanded ? '閉じる' : '開く'}`}

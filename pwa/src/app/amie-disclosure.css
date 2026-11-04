@@ -1,0 +1,20 @@
+/* Application cards only. Investor DD and print views retain their own presentation. */
+@media screen {
+  body:has([data-amie-disclosure-scope="app"]) details > summary {
+    min-width: 100%;
+    cursor: pointer;
+  }
+  body:has([data-amie-disclosure-scope="app"]) details:not([open]) {
+    cursor: pointer;
+  }
+  body:has([data-amie-disclosure-scope="app"]) [data-amie-disclosure-surface] {
+    cursor: pointer;
+  }
+  body:has([data-amie-disclosure-scope="app"]) [data-amie-disclosure-content] {
+    cursor: auto;
+  }
+  body:has([data-amie-disclosure-scope="app"]) [data-amie-disclosure-surface]:focus-within {
+    outline: 2px solid var(--amd-action-line);
+    outline-offset: -2px;
+  }
+}

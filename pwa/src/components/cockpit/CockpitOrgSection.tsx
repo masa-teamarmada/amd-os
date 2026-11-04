@@ -312,10 +312,10 @@ function PeopleBlock({ members, roleSlots }: { members: OrgMember[]; roleSlots: 
 
   return (
     <div className="min-w-0 rounded border border-border bg-background/60 p-2">
-      <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+      <div data-amie-disclosure-surface={past.length ? true : undefined} className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
         <h4 className="text-[11px] font-semibold">メンバー</h4>
         {past.length > 0 ? (
-          <button
+          <button data-amie-disclosure-trigger aria-expanded={showInactive}
             type="button"
             onClick={() => setShowInactive((v) => !v)}
             className="text-[10px] text-indigo-600 underline hover:opacity-80"

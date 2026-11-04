@@ -829,7 +829,7 @@ export function CockpitProjectTasks({ projectId }: Props) {
         <div className="flex flex-col gap-2">
           <button
             type="button"
-            className="flex items-baseline gap-2 self-start"
+            className="flex w-full items-baseline gap-2 self-start text-left"
             onClick={() => setShowDone((value) => !value)}
           >
             <span

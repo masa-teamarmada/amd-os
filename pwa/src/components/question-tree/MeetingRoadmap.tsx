@@ -60,9 +60,9 @@ export function MeetingRoadmap({ roadmap, roots, actions, canManage, onSave, asO
     </div>
   );
   const renderWork = (item: RoadmapWorkItem, depth = 1): ReactNode => <Fragment key={`${item.kind}-${item.id}`}>
-    <div className={styles.row} data-work-kind={item.kind} data-work-id={item.id} data-start={item.range?.start} data-end={item.range?.end}>
+    <div data-amie-disclosure-surface={item.children.length ? true : undefined} className={styles.row} data-work-kind={item.kind} data-work-id={item.id} data-start={item.range?.start} data-end={item.range?.end}>
       <div className={styles.lead} style={{ paddingLeft: 12 + Math.min(depth, 4) * 16 }}>
-        {item.children.length > 0 ? <button type="button" className={styles.toggle} aria-label={`${item.title}の子タスク`} aria-expanded={expanded.has(item.id)} onClick={() => toggle(item.id)}>{expanded.has(item.id) ? "▾" : "▸"}</button> : <span className={styles.toggleSpace} />}
+        {item.children.length > 0 ? <button data-amie-disclosure-trigger type="button" className={styles.toggle} aria-label={`${item.title}の子タスク`} aria-expanded={expanded.has(item.id)} onClick={() => toggle(item.id)}>{expanded.has(item.id) ? "▾" : "▸"}</button> : <span className={styles.toggleSpace} />}
         <div className={styles.label}>
           <button type="button" className={styles.title} onClick={() => onSelect(item.kind === "task" ? "action" : "question", item.id)}>{item.title}</button>
           <span className={styles.meta}>{item.kind === "milestone" ? "MS" : "タスク"} · {dateLabel(item.range)}</span>
@@ -99,9 +99,9 @@ export function MeetingRoadmap({ roadmap, roots, actions, canManage, onSave, asO
           {roadmap.groups.map(group => <section key={group.id} data-roadmap-group={group.id}>
             <div className={styles.groupHeading}><strong>{group.title}</strong><span>{group.owner}</span></div>
             {work.phases.filter(phase => phase.group === group.id).map(phase => <Fragment key={phase.id}>
-              <div className={styles.row} data-phase-row={phase.id}>
+              <div data-amie-disclosure-surface className={styles.row} data-phase-row={phase.id}>
                 <div className={styles.lead}>
-                  <button type="button" className={styles.toggle} aria-label={`${phase.title}の詳細`} aria-expanded={expanded.has(phase.id)} data-roadmap-phase={phase.id} data-start={phase.range?.start} data-end={phase.range?.end} onClick={() => toggle(phase.id)}>{expanded.has(phase.id) ? "▾" : "▸"}</button>
+                  <button data-amie-disclosure-trigger type="button" className={styles.toggle} aria-label={`${phase.title}の詳細`} aria-expanded={expanded.has(phase.id)} data-roadmap-phase={phase.id} data-start={phase.range?.start} data-end={phase.range?.end} onClick={() => toggle(phase.id)}>{expanded.has(phase.id) ? "▾" : "▸"}</button>
                   <div className={styles.label}>
                     <button type="button" className={styles.title} onClick={() => toggle(phase.id)} aria-expanded={expanded.has(phase.id)}>{phase.title}</button>
                     <span className={styles.meta}>{dateLabel(phase.range)}{!phase.items.length ? " · 計画" : ""}</span>
