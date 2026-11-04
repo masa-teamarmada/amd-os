@@ -15,7 +15,7 @@ import {
 
 export const LIVE_MONTHLY_PL_SOURCE = "os_live_monthly_pl";
 export const LIVE_MONTHLY_PL_VERSION = "os-live-current";
-export const LIVE_MONTHLY_PL_ENGINE_VERSION = "os-live-monthly-pl-v1";
+export const LIVE_MONTHLY_PL_ENGINE_VERSION = "os-live-monthly-pl-v2";
 
 type BudgetInputRow = {
   input_kind: BudgetInputKind;
@@ -47,7 +47,7 @@ function payloads(rows: BudgetInputRow[], kind: BudgetInputKind): Record<string,
     .map((row) => row.payload as Record<string, unknown>);
 }
 
-function buildFallbackInputs(rows: BudgetInputRow[]): MonthlyPlInputs | null {
+export function buildFallbackInputs(rows: BudgetInputRow[]): MonthlyPlInputs | null {
   const params = rows.find((row) => row.input_kind === "params" && row.payload)?.payload;
   if (!params) return null;
   return {
@@ -61,6 +61,18 @@ function buildFallbackInputs(rows: BudgetInputRow[]): MonthlyPlInputs | null {
     spots: payloads(rows, "spot") as unknown as MonthlyPlInputs["spots"],
     scenarios: payloads(rows, "scenario") as unknown as MonthlyPlInputs["scenarios"],
   };
+}
+
+/** 明示登録の臨時収支は版をまたいで継続する。同じsource_idは最新の1件だけ。 */
+export function selectMonthlyFallbackRows<T extends {input_kind: string; source_id: string | null; version: string | null; payload: Record<string, unknown> | null}>(rows: T[]): T[] {
+  const version = rows.find((row) => row.input_kind === "params" && row.payload)?.version;
+  const seenSpots = new Set<string>();
+  return rows.filter((row) => {
+    if (row.input_kind !== "spot") return !version || row.version === version;
+    const key = row.source_id ?? String(row.payload?.spotId ?? "");
+    if (!key || seenSpots.has(key)) return false;
+    seenSpots.add(key); return true;
+  });
 }
 
 function numericPayloadValue(payload: Record<string, unknown>, key: string): number {
@@ -135,7 +147,7 @@ async function applyLatestActualCashAnchor(
   return { result: { ...result, rows }, anchor };
 }
 
-async function loadFallbackInputRows(supabase: SupabaseClient): Promise<{
+export async function loadFallbackInputRows(supabase: SupabaseClient): Promise<{
   rows: BudgetInputRow[];
   version: string | null;
 }> {
@@ -151,7 +163,7 @@ async function loadFallbackInputRows(supabase: SupabaseClient): Promise<{
   const paramsRow = allRows.find((row) => row.input_kind === "params" && row.payload);
   const version = paramsRow?.version ?? null;
   return {
-    rows: version ? allRows.filter((row) => row.version === version) : allRows,
+    rows: selectMonthlyFallbackRows(allRows),
     version,
   };
 }
@@ -193,7 +205,7 @@ export async function refreshLiveMonthlyPlBudget(
       source: LIVE_MONTHLY_PL_SOURCE,
       source_ref: sourceRef,
       engine_version: LIVE_MONTHLY_PL_ENGINE_VERSION,
-      params: { ...result.params, cashAnchor },
+      params: { ...result.params, cashAnchor, cashPlans: live.inputs.cashPlans, warnings: live.warnings },
     })
     .select("id")
     .single();

@@ -7,6 +7,11 @@ import {
 } from "@/lib/finance/extra-revenue";
 import { isWithinContractPeriod } from "@/lib/contract-money";
 import { computePaymentYmByRule } from "@/lib/payment-rules";
+import { memberPayoutYmForCycle } from "@/lib/payment-groups";
+import { applyPayoutSnapshotsToCycles, type PayoutSnapshot } from "@/lib/payout-season-allocation";
+import { applyLegacyPayoutAmountOverridesToCycles, type PayoutAmountOverrideEventRow } from "@/lib/payout-amount-overrides";
+import { isNonCashAllocationMember } from "@/lib/reward-finance-summary";
+import { loadLiveCashPlans } from "./live-monthly-cash-plan.ts";
 import {
   obligationToMonthlyInput,
   type CompanyPaymentObligation,
@@ -36,7 +41,8 @@ import type {
  * - 固定費: company_finance_recurring_items (status='active')
  * - 売上原価: `/admin/payouts` の capped 外部支払キャッシュを projectRevenues[].externalMemberCost に注入
  *                (注入された PJ/月はエンジンの revenue×rateMember を使わず、payouts の支払予定に一致させる)
- * - パラメータ / 融資 / スポット: OS にライブテーブルが無いので snapshot から流用 (fallback* 引数)
+ * - 融資: loans / loan_events。支払キャッシュは稼働月と分離する。
+ * - パラメータ / スポット: 登録済み snapshot から流用 (fallback* 引数)
  *
  * persistForecast は互換引数。payouts 正本化後、月次PL側は報酬キャッシュを書き換えず読むだけにする。
  */
@@ -48,6 +54,7 @@ type ProjectRow = {
   project_name: string | null;
   status: string | null;
   fee_type: string | null;
+  fee_payee?: string | null;
   fee_amount: number | string | null;
   start_ym: string | null;
   end_ym: string | null;
@@ -66,6 +73,7 @@ type BillingRow = {
   invoice_issued_at?: string | null;
   invoice_sent_at?: string | null;
   reward_summary_json?: unknown;
+  status?: string | null;
 };
 
 type ExtraRevenueRow = {
@@ -92,6 +100,8 @@ type MemberRow = {
   member_id: string;
   is_officer: boolean | null;
   exclude_from_payout_notice: boolean | null;
+  member_name: string | null;
+  code_name: string | null;
 };
 
 type PayoutCost = {
@@ -140,7 +150,7 @@ function rewardMemberId(member: Record<string, unknown>): string {
   return String(member.memberId ?? member.member_id ?? "").trim();
 }
 
-function payoutCostFromRewardSummary(
+export function payoutCostFromRewardSummary(
   summaryValue: unknown,
   memberById: Map<string, MemberRow>
 ): PayoutCost | null {
@@ -154,7 +164,7 @@ function payoutCostFromRewardSummary(
     hasExplicitNumber(summary.regularCompanyReserveYen) ||
     hasExplicitNumber(summary.extraCompanyReserveYen);
 
-  if (hasTopLevelExternal || hasTopLevelReserve) {
+  if (rewardSummaryMembers(summary).length === 0 && (hasTopLevelExternal || hasTopLevelReserve)) {
     return {
       externalYen: num(summary.externalRegularPayoutCapYen) + num(summary.externalExtraPayoutCapYen),
       companyReserveYen: num(summary.regularCompanyReserveYen) + num(summary.extraCompanyReserveYen),
@@ -169,6 +179,7 @@ function payoutCostFromRewardSummary(
     const isOfficer = memberRow?.is_officer === true;
     const isExcluded =
       memberRow?.exclude_from_payout_notice === true ||
+      isNonCashAllocationMember(member) ||
       boolValue(member.payoutExcluded ?? member.payout_excluded);
     const extraPaidYen = num(member.extraPaidYen ?? member.extra_paid_yen);
     const totalPay = num(member.totalPay ?? member.total_pay);
@@ -304,6 +315,7 @@ export interface BuildLiveInputsOptions {
   fallbackScenarios?: MonthlyPlScenarioOverride[];
   /** 旧互換引数。payouts 正本化後、ここでは報酬キャッシュを書き換えない */
   persistForecast?: boolean;
+  now?: Date;
 }
 
 export interface BuildLiveInputsResult {
@@ -334,7 +346,7 @@ export async function buildLiveMonthlyPlInputs(
   const [projectsRes, recurringRes, obligationsRes, membersRes] = await Promise.all([
     supabase
       .from("projects")
-      .select("project_id, project_name, status, fee_type, fee_amount, start_ym, end_ym, freeze_from_ym, payment_due_rule, payment_due_day, invoice_send_deadline_rule")
+      .select("project_id, project_name, status, fee_type, fee_payee, fee_amount, start_ym, end_ym, freeze_from_ym, payment_due_rule, payment_due_day, invoice_send_deadline_rule")
       .limit(500),
     supabase
       .from("company_finance_recurring_items")
@@ -350,7 +362,7 @@ export async function buildLiveMonthlyPlInputs(
       .limit(2000),
     supabase
       .from("members")
-      .select("member_id, is_officer, exclude_from_payout_notice")
+      .select("member_id, member_name, code_name, is_officer, exclude_from_payout_notice")
       .limit(500),
   ]);
   if (projectsRes.error) throw projectsRes.error;
@@ -358,11 +370,17 @@ export async function buildLiveMonthlyPlInputs(
   if (obligationsRes.error) throw obligationsRes.error;
   if (membersRes.error) throw membersRes.error;
 
-  const projects = (projectsRes.data ?? []) as ProjectRow[];
+  const allProjects = (projectsRes.data ?? []) as ProjectRow[];
+  const projects = allProjects.filter((project) => project.fee_payee !== "masa_personal");
   const recurringItems = (recurringRes.data ?? []) as RecurringItemRow[];
   const memberById = new Map(((membersRes.data ?? []) as MemberRow[]).map((member) => [member.member_id, member]));
-  const paymentObligations = ((obligationsRes.data ?? []) as CompanyPaymentObligation[])
-    .map(obligationToMonthlyInput)
+  const paymentObligations = ((obligationsRes.data ?? []) as Array<CompanyPaymentObligation & {reviewed_at?: string | null}>)
+    .map((row) => {
+      const input = obligationToMonthlyInput(row.source_kind === "gmail" && !row.reviewed_at
+      ? {...row, amount_yen: null, amount_status: "unknown", status: "needs_review", title: `未確認のメール候補：${row.title}`}
+      : row);
+      return input ? {...input, payrollWithholding: ["withholding_income_tax_special", "withholding_income_tax_monthly", "resident_tax_special_collection"].includes(String(row.payload?.ruleKey ?? ""))} : null;
+    })
     .filter((row): row is NonNullable<typeof row> => row !== null);
   const projectById = new Map(projects.map((project) => [project.project_id, project]));
 
@@ -413,6 +431,7 @@ export async function buildLiveMonthlyPlInputs(
       .lte("ym", endYmStr)
       .limit(2000);
     if (billingRes.error) throw billingRes.error;
+    const variableRevenue = new Map<string, number>();
     for (const row of (billingRes.data ?? []) as BillingRow[]) {
       const project = projectById.get(row.project_id);
       if (!isProjectBudgetActive(project, row.ym)) continue;
@@ -420,13 +439,11 @@ export async function buildLiveMonthlyPlInputs(
       const budgetYen = num(row.budget_yen);
       // 売上 = reported (あれば) / なければ budget_yen を 0.65 で割り戻し
       const revenue = reported > 0 ? reported : budgetYen > 0 ? Math.round(budgetYen / REWARD_RATE) : 0;
-      if (revenue <= 0) continue;
-      projectRevenues.push({
-        projectId: row.project_id,
-        ym: Number(row.ym),
-        monthlyRevenue: revenue,
-        memo: reported > 0 ? "billing_cycles.budget_reported_amount" : "billing_cycles.budget_yen/0.65",
-      });
+      variableRevenue.set(`${row.project_id}_${row.ym}`, revenue);
+    }
+    // 変動売上は登録月だけ。最後の正の金額が未登録月へ横引きされるのを止める。
+    for (const projectId of variableProjectIds) for (const ym of ymRange(startYmStr, endYmStr)) {
+      projectRevenues.push({ projectId, ym: Number(ym), monthlyRevenue: variableRevenue.get(`${projectId}_${ym}`) ?? 0, memo: "当月の請求サイクルに登録された変動売上（未登録は0）" });
     }
   }
 
@@ -564,20 +581,32 @@ export async function buildLiveMonthlyPlInputs(
   // reward cache が無い PJ/月は「支払予定なし」として 0 円を明示し、自動原価に戻さない。
   const forwardMemberCostByPjYm = new Map<string, number>();
   const payoutCostByPjYm = new Map<string, PayoutCost>();
-  const payoutProjectIds = projectsList.map((project) => project.projectId);
+  const payoutProjectIds = projects.map((project) => project.project_id);
+  const memberCashByYm = new Map<string, number>();
   if (payoutProjectIds.length > 0) {
-    const payoutRes = await supabase
+    const lookbackYm = addMonths(startYmStr, -6);
+    const [payoutRes, snapshotsRes, overridesRes] = await Promise.all([supabase
       .from("billing_cycles")
-      .select("project_id, ym, reward_summary_json")
+      .select("project_id, ym, invoice_ym, invoice_issued_at, invoice_sent_at, status, reward_summary_json")
       .in("project_id", payoutProjectIds)
-      .gte("ym", startYmStr)
+      .gte("ym", lookbackYm)
       .lte("ym", endYmStr)
-      .limit(5000);
-    if (payoutRes.error) throw payoutRes.error;
-    for (const row of (payoutRes.data ?? []) as BillingRow[]) {
+      .limit(1000),
+      supabase.from("monthly_reward_payout").select("project_id,ym,member_id,total_pay").gte("ym",lookbackYm).lte("ym",endYmStr).limit(1000),
+      supabase.from("legacy_reward_payout_amount_override_events").select("id,project_id,source_ym,member_id,action,amount_yen,reason,authorized_by,created_at").gte("source_ym",lookbackYm).lte("source_ym","202606").limit(1000),
+    ]);
+    for (const response of [payoutRes,snapshotsRes,overridesRes]) {
+      if (response.error) throw response.error;
+      if (response.data?.length === 1000) throw new Error("報酬正本の読取上限に達したため試算を停止");
+    }
+    const rawCycles = (payoutRes.data ?? []) as Array<BillingRow & {invoice_ym: string | null; status: string | null; reward_summary_json: unknown}>;
+    const cycles = applyLegacyPayoutAmountOverridesToCycles(applyPayoutSnapshotsToCycles(rawCycles, (snapshotsRes.data ?? []) as PayoutSnapshot[]), (overridesRes.data ?? []) as PayoutAmountOverrideEventRow[]);
+    for (const row of cycles) {
       const cost = payoutCostFromRewardSummary(row.reward_summary_json, memberById);
       if (!cost) continue;
       payoutCostByPjYm.set(`${row.project_id}_${row.ym}`, cost);
+      const paymentYm = memberPayoutYmForCycle(row, projectById.get(row.project_id));
+      memberCashByYm.set(paymentYm, (memberCashByYm.get(paymentYm) ?? 0) + Math.round(cost.externalYen * 1.1));
     }
   }
 
@@ -595,7 +624,7 @@ export async function buildLiveMonthlyPlInputs(
   for (const project of projectsList) {
     const sourceProject = projectById.get(project.projectId);
     for (const ym of ymRange(startYmStr, endYmStr)) {
-      if (!isProjectBudgetActive(sourceProject, ym)) continue;
+      if (!isProjectBudgetActive(sourceProject, ym) && !payoutCostByPjYm.has(`${project.projectId}_${ym}`)) continue;
       const key = `${project.projectId}_${ym}`;
       const cost = payoutCostByPjYm.get(key);
       const externalMemberCost = cost?.externalYen ?? 0;
@@ -619,6 +648,19 @@ export async function buildLiveMonthlyPlInputs(
       }
     }
   }
+  const liveCash = await loadLiveCashPlans(supabase, ymRange(startYmStr, endYmStr), recurringItems, [...memberById.values()], (obligationsRes.data ?? []) as CompanyPaymentObligation[], options.now);
+  warnings.push(...liveCash.warnings);
+  const withholding = ((obligationsRes.data ?? []) as CompanyPaymentObligation[]).filter((row) => row.payload?.ruleKey === "withholding_income_tax_special" && row.amount_status === "estimated" && String(row.expected_payment_ym) >= new Intl.DateTimeFormat("sv-SE", {timeZone:"Asia/Tokyo",year:"numeric",month:"2-digit"}).format(options.now ?? new Date()).replace("-", "")).sort((a,b) => String(a.expected_payment_ym).localeCompare(String(b.expected_payment_ym)))[0];
+  if (withholding) warnings.push(`源泉所得税は${String(withholding.expected_payment_ym).slice(0,4)}年${Number(String(withholding.expected_payment_ym).slice(4))}月に${num(withholding.amount_yen).toLocaleString("ja-JP")}円の見込みを計上。給与実績の未入力月は直近実績で補完しているため、申告前に金額の確認が必要。`);
+  for (const plan of liveCash.cashPlans) {
+    plan.memberPaymentYen = memberCashByYm.get(String(plan.ym)) ?? 0;
+    if (!liveCash.hasLiveLoans) {
+      delete plan.bankLoanPaymentYen; delete plan.bankLoanInterestYen; delete plan.loanDisbursementYen;
+    }
+  }
+  const unknownObligations = paymentObligations.filter((row) => row.amountStatus === "unknown" && String(row.expectedPaymentYm) >= new Intl.DateTimeFormat("sv-SE", {timeZone:"Asia/Tokyo",year:"numeric",month:"2-digit"}).format(options.now ?? new Date()).replace("-", ""));
+  if (unknownObligations.length) warnings.push(`金額未確定・未確認の支払候補${unknownObligations.length}件は残高から未控除：${unknownObligations.map((row) => `${row.expectedPaymentYm} ${row.title}`).join("、")}。確定後は残高が下がる可能性あり。`);
+  warnings.push("将来の変動売上・外部報酬は登録済みの月額だけを反映。未登録月は0円のため、追加受注・追加稼働は別途更新が必要。納税額は試算で申告確定額ではない。");
   const inputs: MonthlyPlInputs = {
     params: {
       ...fallbackParams,
@@ -631,8 +673,9 @@ export async function buildLiveMonthlyPlInputs(
     projects: projectsList,
     fixedCosts,
     recurringCashOutflows,
+    cashPlans: liveCash.cashPlans,
     projectRevenues,
-    loans: options.fallbackLoans ?? [],
+    loans: liveCash.hasLiveLoans ? [] : options.fallbackLoans ?? [],
     spots: options.fallbackSpots ?? [],
     paymentObligations,
     scenarios: options.fallbackScenarios ?? [],

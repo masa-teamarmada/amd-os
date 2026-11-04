@@ -13,7 +13,7 @@ import { AlertTriangle, CheckCircle2, CircleGauge, ShieldAlert } from "lucide-re
 import { runMonthlyPlSimulation, type MonthlyPlInputs } from "@/lib/finance/monthly-pl-simulation";
 import { buildLiveMonthlyPlInputs } from "@/lib/finance/live-monthly-pl-inputs";
 import { buildLongRangeProjection, type LongRangeTarget } from "@/lib/finance/longrange-projection";
-import { LIVE_MONTHLY_PL_VERSION } from "@/lib/finance/live-monthly-pl-budget";
+import { LIVE_MONTHLY_PL_VERSION, selectMonthlyFallbackRows } from "@/lib/finance/live-monthly-pl-budget";
 import { expandExtraRevenueCash, type ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
 import { clientReceiptYmForCycle, memberPayoutYmForCycle } from "@/lib/payment-groups";
 import { computeForwardCappedMemberCosts } from "@/lib/reward-summary";
@@ -173,6 +173,7 @@ type ManagementScoreSourceRunRow = {
 };
 
 type PaymentProjectRow = {
+  fee_payee?: string | null;
   project_id: string;
   project_name: string;
   client_name: string | null;
@@ -1830,11 +1831,13 @@ function buildGasSimulationResult(
 }
 
 function buildMonthlyPlInputs(inputRows: BudgetInputRow[]): MonthlyPlInputs | null {
+  const latestParams = inputRows.find((row) => row.input_kind === "params" && row.payload);
+  const selectedRows = selectMonthlyFallbackRows(inputRows);
   const payloads = (kind: string): Record<string, unknown>[] =>
-    inputRows
+    selectedRows
       .filter((row) => row.input_kind === kind && row.payload)
       .map((row) => row.payload as Record<string, unknown>);
-  const params = inputRows.find((row) => row.input_kind === "params" && row.payload)?.payload;
+  const params = latestParams?.payload;
   if (!params) return null;
   return {
     params: params as unknown as MonthlyPlInputs["params"],
@@ -1913,6 +1916,9 @@ function buildLiveGasSimulationResult(
       spotExpense: row.spotExpense,
       cashInflow: row.cashInflow,
       cashOutflow: row.cashOutflow,
+      memberCashPayment: row.memberCashPayment,
+      operatingCashPayment: row.operatingCashPayment,
+      socialInsuranceCashPayment: row.socialInsuranceCashPayment,
       actualCashInflow: actual?.actualCashInflow ?? 0,
       actualCashOutflow: actual?.actualCashOutflow ?? 0,
       hasTransactionCashActual: actual?.hasTransactionCashActual ?? false,
@@ -2173,7 +2179,7 @@ export default async function ManagementScorePage() {
     safeSelect<PaymentProjectRow[]>(() =>
       supabase
         .from("projects")
-        .select("project_id,project_name,client_name,status,fee_type,fee_amount,start_ym,end_ym,freee_partner_id,payment_due_rule,payment_due_day,invoice_send_deadline_rule")
+        .select("project_id,project_name,client_name,status,fee_type,fee_payee,fee_amount,start_ym,end_ym,freee_partner_id,payment_due_rule,payment_due_day,invoice_send_deadline_rule")
         .limit(500)
     ),
     safeSelect<PaymentMemberRow[]>(() =>
@@ -2221,13 +2227,14 @@ export default async function ManagementScorePage() {
         .limit(2000)
     ),
   ]);
-  const paymentProjects = paymentProjectsRes.data ?? [];
+  const paymentProjects = (paymentProjectsRes.data ?? []).filter((project) => project.fee_payee !== "masa_personal");
+  const companyProjectIds = new Set(paymentProjects.map((project) => project.project_id));
   const paymentMembers = paymentMembersRes.data ?? [];
   const paymentProjectMembers = paymentProjectMembersRes.data ?? [];
-  const billingCycles = billingCyclesRes.data ?? [];
+  const billingCycles = (billingCyclesRes.data ?? []).filter((cycle) => companyProjectIds.has(cycle.project_id));
   const paymentPlanCycles = paymentPlanCyclesRes.data ?? [];
   const payoutNotices = payoutNoticesRes.data ?? [];
-  const extraRevenueRows = extraRevenueRowsRes.data ?? [];
+  const extraRevenueRows = (extraRevenueRowsRes.data ?? []).filter((row) => companyProjectIds.has(row.project_id));
   const planCycleIds = paymentPlanCycles.map((plan) => plan.plan_cycle_id).filter((id): id is string => Boolean(id));
   const milestonesRes = planCycleIds.length > 0
     ? await safeSelect<PaymentMilestoneRow[]>(() =>
@@ -2333,8 +2340,10 @@ export default async function ManagementScorePage() {
       });
       gasSimulationInputs = live.inputs;
       gasSimulationResult = buildLiveGasSimulationResult(live.inputs, snapshotSimulationResult);
+      gasSimulationResult.warnings = live.warnings;
     } catch (err) {
       console.error("[management-score] live PL inputs build failed, falling back to snapshot", err);
+      gasSimulationResult = { ...snapshotSimulationResult, warnings: ["最新の収支予定を取得できないため保存済みの試算を表示中。資金判断前に再読込が必要。"] };
     }
   }
 
@@ -2574,7 +2583,7 @@ export default async function ManagementScorePage() {
           </div>
           <div className="mt-3 grid gap-2 md:grid-cols-3 xl:grid-cols-6">
             <FreshnessFact
-              label="予算入力"
+              label="過年度の試算条件"
               value={formatDateTime(budgetInputLatestAt)}
               detail={`version ${budgetInputVersion}`}
             />
@@ -2820,7 +2829,7 @@ export default async function ManagementScorePage() {
 
           <div className="grid gap-3 border-t px-4 py-3 lg:grid-cols-[0.75fr_1.25fr]">
             <div className="rounded-md border bg-background px-3 py-3">
-              <div className="text-xs font-semibold">5月実績の読み分け</div>
+              <div className="text-xs font-semibold">{pastActualYm.slice(0,4)}年{Number(pastActualYm.slice(4))}月実績</div>
               <dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-xs">
                 <dt className="text-muted-foreground">freee PL 売上</dt>
                 <dd className="font-medium tabular-nums">{yen(pastActual.actualRevenue)}</dd>

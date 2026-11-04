@@ -160,6 +160,8 @@ export interface MonthlyPlSpot {
 }
 
 export interface MonthlyPlPaymentObligation {
+  /** 給与手取りに控除済み。現金予算を使う月は発生月の戻しを重ねない。 */
+  payrollWithholding?: boolean;
   obligationId: string;
   title: string;
   category: string;
@@ -190,6 +192,20 @@ export interface MonthlyPlInputs {
   recurringCashOutflows?: MonthlyPlRecurringCashOutflow[];
   spots?: MonthlyPlSpot[];
   paymentObligations?: MonthlyPlPaymentObligation[];
+  /** 支払月の税込キャッシュ。損益の発生月・税抜コストとは別に持つ。 */
+  cashPlans?: MonthlyPlCashPlan[];
+}
+
+export interface MonthlyPlCashPlan {
+  ym: number;
+  memberPaymentYen?: number;
+  operatingPaymentYen?: number;
+  socialInsurancePaymentYen?: number;
+  bankLoanPaymentYen?: number;
+  bankLoanInterestYen?: number;
+  loanDisbursementYen?: number;
+  sourceYm?: string;
+  memo?: string;
 }
 
 export interface MonthlyPlProjectDetail {
@@ -231,6 +247,9 @@ export interface MonthlyPlRow {
   spotExpense: number;
   cashInflow: number;
   cashOutflow: number;
+  memberCashPayment?: number;
+  operatingCashPayment?: number;
+  socialInsuranceCashPayment?: number;
   pjDetails: MonthlyPlProjectDetail[];
   fixedCostDetails: MonthlyPlFixedCostDetail[];
   obligationDetails: MonthlyPlPaymentObligation[];
@@ -478,7 +497,7 @@ function contractRevenueCashForYm(
   return total;
 }
 
-function calcLoanSchedule(loan: MonthlyPlLoan): LoanScheduleRow[] {
+export function calcLoanSchedule(loan: MonthlyPlLoan): LoanScheduleRow[] {
   const principal = numberOr(loan.principal);
   const monthlyRate = numberOr(loan.annualRate) / 12;
   const payments = Math.max(1, Math.floor(numberOr(loan.totalPayments, 1)));
@@ -681,6 +700,7 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
 
   for (let i = 0; i < months; i++) {
     const month = ym % 100;
+    const cashPlan = rawInputs.cashPlans?.find((plan) => plan.ym === ym);
 
     if (month === fyStart && i > 0) {
       lastFyCtaxAnnual = fyCtaxAccum;
@@ -716,7 +736,7 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
       // rateMember/rateCloser は通さない (= 自動原価の二重計上を防ぐ)。
       const pjExtra = extraRevenueForYm(pj.projectId, ym, projectRevenues);
       const pjRev = projectRevenueForYm(pj, ym, projectRevenues);
-      if (pjRev === 0 && pjExtra === 0) {
+      if (pjRev === 0 && pjExtra === 0 && !resolveExternalMemberCost(pj.projectId, ym, projectRevenues)) {
         pjDetails.push({ projectId: pj.projectId, revenue: 0, cashRevenue, externalMember: 0, internalMember: 0 });
         continue;
       }
@@ -789,6 +809,8 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
         loanInterest += current.interest;
       }
     }
+    if (cashPlan?.bankLoanPaymentYen != null) loanPayment = cashPlan.bankLoanPaymentYen;
+    if (cashPlan?.bankLoanInterestYen != null) loanInterest = cashPlan.bankLoanInterestYen;
     for (const outflow of recurringCashOutflows) {
       if (outflow.kind === "loan_payment" && isActive(ym, outflow.startYm, outflow.endYm)) {
         loanPayment += outflow.monthlyAmount;
@@ -799,6 +821,7 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
     for (const loan of loans) {
       if (loan.disbursementYm === ym) loanDisbursement += loan.principal;
     }
+    if (cashPlan?.loanDisbursementYen != null) loanDisbursement = cashPlan.loanDisbursementYen;
 
     let spotIncome = 0;
     let spotExpense = 0;
@@ -831,11 +854,15 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
     );
     const obligationPaymentTotal = obligationDetails.reduce((sum, obligation) => sum + numberOr(obligation.amountYen), 0);
     const obligationPaymentAdditive = obligationDetails.reduce(
-      (sum, obligation) => sum + (obligation.cashflowTreatment === "additive" ? numberOr(obligation.amountYen) : 0),
+      (sum, obligation) => sum + (obligation.cashflowTreatment === "additive"
+        && !(cashPlan?.socialInsurancePaymentYen != null && obligation.category === "social_insurance")
+        ? numberOr(obligation.amountYen) : 0),
       0
     );
     const obligationCashTimingOffset = paymentObligations
       .filter((obligation) => obligation.status !== "paid" && obligation.status !== "cancelled")
+      .filter((obligation) => !(cashPlan?.socialInsurancePaymentYen != null && obligation.category === "social_insurance"))
+      .filter((obligation) => !(cashPlan?.operatingPaymentYen != null && obligation.payrollWithholding))
       .flatMap((obligation) => obligation.originCashOffsets ?? [])
       .filter((offset) => offset.ym === ym)
       .reduce((sum, offset) => sum + numberOr(offset.amountYen), 0);
@@ -889,19 +916,20 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
 
     const taxIncomeFlow = Math.round(monthlyBilledRevenue * 1.1) + Math.round(annualMarchFlush * 1.1)
       + Math.round(spotTaxableIncome * 1.1) + (spotIncome - spotTaxableIncome);
-    const taxMemberFlow = Math.round(costMember * 1.1);
+    const taxMemberFlow = cashPlan?.memberPaymentYen ?? Math.round(costMember * 1.1);
     const taxCloserExtFlow = Math.round(closerExternalTotal * 1.1);
     const taxFixedFlow = Math.round(taxableFixedCost * 1.1);
     const exemptFixedCost = fixedCostTotal - taxableFixedCost;
+    const operatingCashPayment = cashPlan?.operatingPaymentYen ?? taxFixedFlow + exemptFixedCost;
+    const socialInsuranceCashPayment = cashPlan?.socialInsurancePaymentYen ?? socialIns;
     const spotExpenseFlow = Math.round(spotTaxableExpense * 1.1) + (spotExpense - spotTaxableExpense);
 
     const netCashFlow = taxIncomeFlow
       + loanDisbursement
       - taxMemberFlow
       - taxCloserExtFlow
-      - taxFixedFlow
-      - exemptFixedCost
-      - socialIns
+      - operatingCashPayment
+      - socialInsuranceCashPayment
       - spotExpenseFlow
       - loanPayment
       - ctaxPayment
@@ -937,7 +965,7 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
     const confirmedGrossInflow = Math.round(confirmedRevenue * 1.1)
       - Math.round(confirmedMemberCost * 1.1)
       - Math.round(confirmedCloserExt * 1.1);
-    const monthlyBurn = Math.max(0, fixedCostTotal + socialIns + loanPayment + obligationPaymentAdditive - obligationCashTimingOffset);
+    const monthlyBurn = Math.max(0, operatingCashPayment + socialInsuranceCashPayment + loanPayment + obligationPaymentAdditive - obligationCashTimingOffset);
     const netBurn = monthlyBurn - confirmedGrossInflow;
     const runway = netBurn > 0 ? Math.round((cash / netBurn) * 10) / 10 : 999;
 
@@ -964,7 +992,10 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
       spotIncome,
       spotExpense,
       cashInflow: taxIncomeFlow + loanDisbursement + (ctaxPayment < 0 ? Math.abs(ctaxPayment) : 0),
-      cashOutflow: Math.max(0, taxMemberFlow + taxCloserExtFlow + taxFixedFlow + exemptFixedCost + socialIns + spotExpenseFlow + loanPayment + (ctaxPayment > 0 ? ctaxPayment : 0) + corpTaxPayment + obligationPaymentAdditive - obligationCashTimingOffset),
+      cashOutflow: Math.max(0, taxMemberFlow + taxCloserExtFlow + operatingCashPayment + socialInsuranceCashPayment + spotExpenseFlow + loanPayment + (ctaxPayment > 0 ? ctaxPayment : 0) + corpTaxPayment + obligationPaymentAdditive - obligationCashTimingOffset),
+      memberCashPayment: taxMemberFlow,
+      operatingCashPayment,
+      socialInsuranceCashPayment,
       pjDetails,
       fixedCostDetails,
       obligationDetails,
@@ -1016,6 +1047,9 @@ export function toCompanyBudgetMonthlyRows(result: MonthlyPlSimulationResult): C
     rows.push(companyRow(row, "net_cash_flow", row.netCashFlow, {
       cashInflow: row.cashInflow,
       cashOutflow: row.cashOutflow,
+      memberCashPayment: row.memberCashPayment,
+      operatingCashPayment: row.operatingCashPayment,
+      socialInsuranceCashPayment: row.socialInsuranceCashPayment,
       loanDisbursement: row.loanDisbursement,
       spotIncome: row.spotIncome,
       spotExpense: row.spotExpense,

@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "test:live-monthly-cash": "node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_live_monthly_cash.mts",
     "test:project-cost-comparison": "node --experimental-strip-types scripts/check_project_cost_comparison.mts",
     "dev": "next dev",
     "build": "NODE_OPTIONS=--max-old-space-size=8192 next build",

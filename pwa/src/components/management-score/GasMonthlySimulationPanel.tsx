@@ -16,6 +16,7 @@ import {
   Tooltip,
 } from "chart.js";
 import type { MonthlyPlInputs, MonthlyPlSimulationResult } from "@/lib/finance/monthly-pl-simulation";
+import { symmetricCashAxis, cashExpenseParts } from "@/lib/finance/cash-chart-domain";
 import {
   projectCashFromAnchor,
   resolveCashAnchor,
@@ -110,6 +111,9 @@ export type GasMonthlyRow = {
   spotExpense: number;
   cashInflow: number;
   cashOutflow: number;
+  memberCashPayment?: number;
+  operatingCashPayment?: number;
+  socialInsuranceCashPayment?: number;
   actualCashInflow: number;
   actualCashOutflow: number;
   hasTransactionCashActual: boolean;
@@ -140,6 +144,7 @@ export type GasSimulationResult = {
   rows: GasMonthlyRow[];
   projectList: GasProjectListItem[];
   cashAnchor?: GasCashAnchorMeta | null;
+  warnings?: string[];
 };
 
 type SimulateResponse = {
@@ -343,14 +348,16 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
     const avgProfit = rows.length ? Math.round(totalProfit / rows.length) : 0;
     const avgCf = rows.length ? Math.round(totalCf / rows.length) : 0;
     const last = rows[rows.length - 1] ?? null;
+    const currentYm = Number(new Intl.DateTimeFormat("sv-SE", {timeZone:"Asia/Tokyo",year:"numeric",month:"2-digit"}).format(new Date()).replace("-", ""));
+    const currentIndex = rows.findIndex((row) => row.ym === currentYm);
     return {
       avgRev,
       avgProfit,
       avgCf,
       cash: cashProjection.finalCash ?? last?.cashBalance ?? 0,
-      runway: rows[0]?.runway ?? null,
+      currentCash: currentIndex >= 0 ? cashProjection.data[currentIndex] ?? rows[currentIndex].cashBalance : null,
     };
-  }, [cashProjection.finalCash, rows]);
+  }, [cashProjection.finalCash, cashProjection.data, rows]);
 
   useEffect(() => {
     if (!canvasRef.current || rows.length === 0) return;
@@ -406,17 +413,17 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
             barPercentage: 0.6,
             order: 4,
           },
-          {
-            label: "支出",
-            data: rows.map((row) => -(row.cashOutflow || 0)),
-            type: "bar",
-            backgroundColor: "rgba(192,57,43,0.3)",
+          ...["報酬支払", "給与・カード等", "社会保険料", "借入返済", "納税", "その他支出"].map((label,index) => ({
+            label,
+            data: rows.map((row) => -cashExpenseParts(row)[index]),
+            type: "bar" as const,
+            backgroundColor: ["#c26a5a", "#dba899", "#bd8f67", "#9c9da5", "#9e3d3c", "#d8c7bd"][index],
             borderWidth: 0,
             yAxisID: "cf",
             stack: "cf",
             barPercentage: 0.6,
             order: 4,
-          },
+          })),
         ],
       },
       options: {
@@ -428,7 +435,9 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
         },
         scales: {
           y: {
+            ...symmetricCashAxis(rows.flatMap((row, index) => [row.cashBalance, row.actualCashBalance, cashProjection.data[index]])),
             position: "left",
+            grid: { color: (context) => context.tick.value === 0 ? "rgba(70,80,95,0.55)" : "rgba(70,80,95,0.10)" },
             ticks: {
               callback(value) {
                 return `${(Number(value) / 10000).toFixed(0)}万`;
@@ -437,6 +446,7 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
             },
           },
           cf: {
+            ...symmetricCashAxis(rows.flatMap((row) => [row.cashInflow, row.cashOutflow])),
             position: "right",
             stacked: true,
             grid: { drawOnChartArea: false },
@@ -716,7 +726,7 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
           min-width: 0;
         }
         .chart-frame {
-          height: 220px;
+          height: 280px;
         }
         .projection-strip {
           display: grid;
@@ -1019,6 +1029,13 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
         <span className="sim-status">{simStatus || (!inputs ? "入力データなし" : "")}</span>
       </div>
 
+      {Boolean(result.warnings?.length) && <details className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-950" open>
+        <summary className="cursor-pointer font-semibold">試算の前提・未確定の支払</summary>
+        <ul className="mt-2 list-disc space-y-1 pl-4">
+          {result.warnings!.map((warning) => <li key={warning}>{warning}</li>)}
+        </ul>
+      </details>}
+
       <div className="sim-top-row">
         <div className="kpi-col">
           <div className="kpi">
@@ -1034,8 +1051,8 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
             <div className={`value ${kpis.cash < 0 ? "negative" : ""}`}>{kpiYen(kpis.cash)}</div>
           </div>
           <div className="kpi">
-            <div className="label">現在のランウェイ</div>
-            <div className="value">{kpis.runway == null ? "-" : `${kpis.runway}ヶ月`}</div>
+            <div className="label">当月末見込み残高</div>
+            <div className={`value ${kpis.currentCash != null && kpis.currentCash < 0 ? "negative" : ""}`}>{kpis.currentCash == null ? "-" : kpiYen(kpis.currentCash)}</div>
           </div>
         </div>
         <div className="chart-wrap">
@@ -1266,6 +1283,11 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
               );
             })}
 
+            {rows.some((row) => row.memberCashPayment != null) && <>
+              {detailRow("報酬支払（税込・支払月）", (row) => row.memberCashPayment ?? Math.round(row.costMember * 1.1))}
+              {detailRow("給与手取り・カード・会費等（支払）", (row) => row.operatingCashPayment ?? row.fixedCost)}
+              {detailRow("社会保険料（支払月・本人分含む）", (row) => row.socialInsuranceCashPayment ?? row.socialIns)}
+            </>}
             {[
               { label: "社保", key: "socialIns" as const, actualKey: "actualSocialIns" as const },
               { label: "臨時収入", key: "spotIncome" as const, actualKey: "actualSpotIncome" as const },
