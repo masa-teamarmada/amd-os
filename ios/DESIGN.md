@@ -1046,3 +1046,5 @@ PWAに「月次試算表」`/admin/monthly-trial-balance`を追加。Management�
 ## ManagementのAdmin移設（2026-11-04）
 
 PWAのManagement（画面名「経営状況」）を `/admin/management-score` へ移す。通常左メニューからManagementを外し、Adminの独立項目に置く。月次試算表とのページ内の相互リンクは削除。旧URLは新URLへ転送。移設前後の本人閲覧回数は新しいAdmin項目に合算。管理者・portfolio限定、既存の評価式・数値・DB履歴は維持。Nativeの画面構成・ナビは未移植。
+
+2026-11-04（PWA機関決定の詳細）：取締役会・株主総会の行内詳細は白地にし、決議事項と件数・本文・結果を冒頭の主領域へ配置。資料は右側の補助欄、概要・場所・確認元・注記は末尾の「記録情報」へ集約。データ・認可は維持。Swift画面は未変更。

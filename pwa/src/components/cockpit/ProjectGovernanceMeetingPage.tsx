@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useId, useState, type FormEvent } from "react";
-import { AlertTriangle, ChevronDown, ChevronUp, FileText, Loader2, Plus, RefreshCw, Search } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp, FileCheck2, FileText, Loader2, Plus, RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,7 @@ function sourceHref(attachment: { url?: string; webViewLink?: string; web_view_l
 function MeetingRecord({ meeting }: { meeting: CompanyMeeting }) {
   const [expanded, setExpanded] = useState(false);
   const detailId = useId();
+  const resolutionHeadingId = `${detailId}-resolutions`;
   const resolutions = meeting.resolutions_json ?? [];
   const attachments = (meeting.attachments_json ?? []).filter((attachment) => sourceHref(attachment));
   const results = governanceMeetingResults(meeting);
@@ -53,26 +54,30 @@ function MeetingRecord({ meeting }: { meeting: CompanyMeeting }) {
       <td><button type="button" className={styles.rowButton} aria-label={`${date}の詳細を${expanded ? "閉じる" : "開く"}`} aria-expanded={expanded} aria-controls={detailId} onClick={() => setExpanded(!expanded)}>{expanded ? "閉じる" : "詳細"}{expanded ? <ChevronUp aria-hidden="true" /> : <ChevronDown aria-hidden="true" />}</button></td>
     </tr>
     <tr id={detailId} hidden={!expanded}><td colSpan={5} className={styles.detailCell}><div className={styles.detail}>
-      <div className={styles.detailTop}>
-        <p>種別：{label}</p>
-        {meeting.location && <p>場所・方法：{meeting.location}</p>}
-        {meeting.amd_response && meeting.amd_response !== "none" && <p>AMDの対応：{governanceResponseLabel(meeting.amd_response)}</p>}
-      </div>
-      {meeting.agenda_summary && <p className={styles.fullSummary}>{meeting.agenda_summary}</p>}
-      <h3>決議事項</h3>
+      <div className={styles.detailGrid}>
+      <section className={styles.resolutionSection} aria-labelledby={resolutionHeadingId}>
+      <div className={styles.resolutionHeading}><FileCheck2 aria-hidden="true" /><h3 id={resolutionHeadingId}>決議事項</h3><span>{resolutions.length}件</span></div>
       {resolutions.length ? <table className={styles.resolutions} aria-label={`${date}の決議事項`}>
         <colgroup><col className={styles.resolutionNumber} /><col /><col className={styles.resolutionResult} /></colgroup>
         <thead><tr><th scope="col">No.</th><th scope="col">議案</th><th scope="col">結果</th></tr></thead>
-        <tbody>{resolutions.map((resolution, index) => <tr key={index}><td className={styles.resolutionNumber}>{index + 1}</td><td>{resolution.title || "議案名未登録"}</td><td><AmieListStatus label={governanceResultLabel(resolution.result || "")} title={resolution.result || "未確認"} tone={governanceResultTone(resolution.result || "")} className={styles.fullResult} /></td></tr>)}</tbody>
+        <tbody>{resolutions.map((resolution, index) => <tr key={index}><td className={styles.resolutionNumber}><span className={styles.resolutionIndex}>{index + 1}</span></td><td className={styles.resolutionTitle}>{resolution.title || "議案名未登録"}</td><td><AmieListStatus label={governanceResultLabel(resolution.result || "")} title={resolution.result || "未確認"} tone={governanceResultTone(resolution.result || "")} className={styles.fullResult} /></td></tr>)}</tbody>
       </table> : <p className={styles.muted}>決議事項未登録</p>}
-      <div className={styles.files}><h3>資料{attachments.length > 0 && ` ${attachments.length}件`}</h3>
+      </section>
+      <aside className={styles.files} aria-label={`${date}の関連資料`}><h3>資料{attachments.length > 0 && ` ${attachments.length}件`}</h3>
         {attachments.length ? <ul className={styles.fileList}>{attachments.map((attachment, index) => <li key={index}><a href={sourceHref(attachment)} target="_blank" rel="noopener noreferrer"><FileText aria-hidden="true" /><span>{attachment.name || `資料${index + 1}`}</span></a></li>)}</ul> : <p className={styles.muted}>資料未登録</p>}
+      </aside>
       </div>
-      {(meeting.notes || meeting.source_ref) && <details className={styles.notes}>
-        <summary>確認内容・注記</summary>
+      <details className={styles.notes}>
+        <summary>記録情報</summary>
+        <div className={styles.detailTop}>
+          <p>種別：{label}</p>
+          {meeting.location && <p>場所・方法：{meeting.location}</p>}
+          {meeting.amd_response && meeting.amd_response !== "none" && <p>AMDの対応：{governanceResponseLabel(meeting.amd_response)}</p>}
+        </div>
+        {meeting.agenda_summary && <p>{meeting.agenda_summary}</p>}
         {meeting.notes && <p>{meeting.notes}</p>}
         {meeting.source_ref && <p>確認元：{meeting.source_ref}</p>}
-      </details>}
+      </details>
     </div></td></tr>
   </Fragment>;
 }

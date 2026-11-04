@@ -1,5 +1,7 @@
 2026-10-31 v3.165.1（会議資料のDrive保存先）：Drive保存先を登録した23PJに3種の専用folderを作成（稼働中3PJのPJ rootも作成し、既存rootの稼働中1PJ・営業中1PJと合わせて5PJの保存先を登録）。MTGカード添付とガバナンス抽出のDrive writerを種別folder配下へ変更し、既存資料の取り込みは旧PJ直下と新しい種別folder直下を検索する。既存の会議folder 33件の親を変更し、`meeting_assets.folder_display_path` 36件を更新。決議レコード添付22件は新しい保存先へ複製してリンクを更新。画面仕様は3-23、運用はmanual2-3、会議資料の仕様は3-3に記録。
 
+2026-11-04 20:05（機関決定の詳細）：ProjectGovernanceMeetingPageの詳細を白地・決議主領域・資料補助欄・記録情報の開閉部へ変更。本文15px中太字、青い見出しと選択罫線。データ・認可は維持。仕様3-23。
+
 2026-11-04 v3.165.8：GasMonthlyRow.modelCashBalanceに実績接続前の値を保持。計画線とY軸範囲はこの値を参照し、cashBalanceは表と見込み用の接続値を維持。インタラクティブ再計算の生モデル値とも一致。
 
 2026-11-04（Management月次試算表）：live engine v2。fee_payee、月別変動売上の明示0、保存済み報酬・旧制度合意と支払月の共通関数、cashPlansによるPL/CF分離、融資台帳、社保の支払月と二重計上防止。登録済みspotはsource_id単位で最新版を保持。新規回帰検査test:live-monthly-cash。正本design/management_score.md、manual4-5。
