@@ -3,6 +3,8 @@ export const metadata: Metadata = { title: { absolute: "Admin PJ - AMD OS" } };
 
 import { createClient } from "@/lib/supabase/server";
 import { AdminProjectsTable, type ProjectRow } from "@/components/admin/AdminProjectsTable";
+import { projectContractPeriodState } from "@/lib/contract-period-state";
+import { todayJst } from "@/lib/admin-schedule/date";
 import type { LaneWeight } from "@/lib/aspi-lanes";
 import {
   observeWeeklySlackReportDelivery,
@@ -19,6 +21,19 @@ export default async function AdminProjectsPage() {
     .order("project_name");
 
   const projectIds = (pjData ?? []).map((project) => project.project_id as string);
+  const { data: contractPeriodRows, error: contractPeriodError } = await supabase
+    .from("contracts")
+    .select("project_id,status,contract_type,relationship_scope,registry_status,effective_date,expiration_date,renewal_type")
+    .eq("relationship_scope", "amd_contract")
+    .eq("registry_status", "accepted")
+    .limit(5000);
+  const contractsByProject = new Map<string, NonNullable<typeof contractPeriodRows>>();
+  for (const contract of contractPeriodRows ?? []) {
+    const rows = contractsByProject.get(contract.project_id) ?? [];
+    rows.push(contract);
+    contractsByProject.set(contract.project_id, rows);
+  }
+  const today = todayJst();
   const [weeklySlackReportSettingsResult, slackEvidenceResult] = await Promise.all([
     supabase
       .from("settings")
@@ -108,6 +123,7 @@ export default async function AdminProjectsPage() {
 	      project_name: p.project_name,
 	      client_name: p.client_name ?? null,
 	      status: p.status,
+      contract_period_state: contractPeriodError ? "unavailable" : projectContractPeriodState(contractsByProject.get(p.project_id) ?? [], today),
 	      project_category: p.project_category ?? "dtsu",
 	      slack_channel_id: p.slack_channel_id ?? null,
       slack_channel_not_required: !!p.slack_channel_not_required,

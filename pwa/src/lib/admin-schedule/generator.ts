@@ -35,8 +35,9 @@ import {
   isEligibleTaxSocialObligation,
   isScheduleActionItem,
 } from "./predicates.ts";
-import { deadlineForReportYm, planMonthlyReportSchedule, reportMonthAllowed, reportRule } from "./report-plan.ts";
+import { deadlineForReportYm, planMonthlyReportSchedule, reportContractPeriodGap, reportMonthAllowed, reportRule } from "./report-plan.ts";
 import { AMD_COMPANY_PROJECT_ID } from "../project-formats.ts";
+import { isOperationalContractType } from "../contract-period-state.ts";
 export {
   isAcceptedAmdContract,
   isContractSigningExpected,
@@ -358,7 +359,10 @@ function readDeadlineDay(value: unknown): number | null {
 function projectTerms(project: RawRow, contract: RawRow | null): JsonRecord {
   const projectTerms = record(project.contract_terms_json);
   const contractTerms = record(contract?.operational_terms_json);
-  return { ...project, ...projectTerms, ...contractTerms };
+  const snapshotMatches = projectTerms.currentContractId
+    ? projectTerms.currentContractId === contract?.contract_id
+    : contract?.is_current_for_project === true;
+  return { ...project, ...(snapshotMatches ? projectTerms : {}), ...contractTerms };
 }
 
 function contractAmount(contract: RawRow, terms: JsonRecord): number | null {
@@ -1017,70 +1021,82 @@ export function generateReports(
   to: string,
 ): GeneratedOccurrence[] {
   const rows: GeneratedOccurrence[] = [];
-  const currentContracts = contracts.filter(isCurrentAmdContract);
-  const contractByProject = new Map<string, RawRow>();
-  for (const contract of currentContracts) {
+  const reportContracts = contracts.filter((contract) => isAcceptedAmdContract(contract)
+    && contract.status === "signed"
+    && isOperationalContractType(contract.contract_type)
+    && (isCurrentAmdContract(contract) || (isIsoDate(contract.effective_date) && isIsoDate(contract.expiration_date))))
+    .sort((a, b) => String(b.effective_date ?? "").localeCompare(String(a.effective_date ?? "")));
+  const contractsByProject = new Map<string, RawRow[]>();
+  for (const contract of reportContracts) {
     const projectId = text(contract.project_id);
-    if (projectId && !contractByProject.has(projectId)) contractByProject.set(projectId, contract);
+    if (!projectId) continue;
+    const rows = contractsByProject.get(projectId) ?? [];
+    rows.push(contract);
+    contractsByProject.set(projectId, rows);
   }
   const reportByKey = new Map(monthlyReports.map((report) => [`${report.project_id}:${String(report.ym ?? "").replace("-", "")}`, report]));
   const targetMonths = monthsInRange(addMonthsYm(from.slice(0, 7).replace("-", ""), -1).replace(/^(\d{4})(\d{2})$/, "$1-$2-01"), to);
   for (const project of projects) {
     const projectId = text(project.project_id);
     if (!projectId) continue;
-    const contract = contractByProject.get(projectId) ?? null;
-    if (!contract) continue;
-    const terms = projectTerms(project, contract);
-    const reportPlan = planMonthlyReportSchedule(terms);
-    if (reportPlan.kind === "none") continue;
+    const reportConfigs = (contractsByProject.get(projectId) ?? []).map((contract) => {
+      const terms = projectTerms(project, contract);
+      return { contract, terms, reportPlan: planMonthlyReportSchedule(terms), periodGap: reportContractPeriodGap(contract), unresolvedMonths: 0 };
+    }).filter((config) => config.reportPlan.kind !== "none");
+    if (!reportConfigs.length) continue;
+    const { contract, terms } = reportConfigs[0];
     const ownerMemberId = projectOwnerId(projectId, project, contract, projectMembers, members);
     const ownerMissing = !ownerMemberId ? "報告提出担当者が正本に未設定" : null;
-    let unresolvedMonths = 0;
-    if (reportPlan.kind === "expanded") {
-      for (const reportYm of targetMonths) {
-        if (!reportMonthAllowed(contract, reportYm)) continue;
-        const report = reportByKey.get(`${projectId}:${reportYm}`) ?? null;
-        const dueOn = deadlineForReportYm(reportYm, reportPlan.rule);
-        if (!dueOn) {
-          unresolvedMonths += 1;
-          continue;
-        }
-        const completed = reportCompletion(report);
-        rows.push(occurrence({
-          key: `project:report:monthly:${projectId}:${reportYm}`,
-          source: "contract_terms",
-          sourceId: String(contract.contract_id ?? contract.id),
-          sourceHash: sourceHash("monthly_report", { project, contract, reportYm, rule: reportPlan.rule }),
-          scope: "project",
-          category: "report",
-          eventKind: "monthly_report_submission",
-          title: `${projectLabel(project, projectId)} / 月次報告提出（${reportYm.slice(0, 4)}年${Number(reportYm.slice(4, 6))}月分）`,
-          periodKey: reportYm,
-          dueOn,
-          dueYm: ymFromDate(dueOn),
-          datePrecision: "day",
-          dateKind: "契約上の提出期限",
-          amountStatus: "not_applicable",
-          amountRole: "informational",
-          projectId,
-          ownerMemberId,
-          sourceRefs: [
-            { kind: "contract", ref: contract.contract_id ?? contract.id },
-            { kind: "monthly_report", ref: report?.report_id ?? report?.id ?? `${projectId}:${reportYm}` },
-          ],
-          resolutionHref: `/admin/contracts?projectId=${encodeURIComponent(projectId)}`,
-          lifecycleStatus: completed ? "completed" : ownerMissing ? "needs_source" : "open",
-          missingReason: ownerMissing,
-          sourceObservedAt: text(report?.updated_at ?? contract.updated_at),
-          metadata: { reportYm, contractId: contract.contract_id ?? contract.id, reportId: report?.report_id ?? report?.id ?? null },
-        }));
+    for (const reportYm of targetMonths) {
+      const selected = reportConfigs.find((config) => config.reportPlan.kind === "expanded" && !config.periodGap && reportMonthAllowed(config.contract, reportYm));
+      if (!selected || selected.reportPlan.kind !== "expanded") continue;
+      const { contract, reportPlan } = selected;
+      const monthlyOwnerMemberId = projectOwnerId(projectId, project, contract, projectMembers, members);
+      const ownerMissing = !monthlyOwnerMemberId ? "報告提出担当者が正本に未設定" : null;
+      const report = reportByKey.get(`${projectId}:${reportYm}`) ?? null;
+      const dueOn = deadlineForReportYm(reportYm, reportPlan.rule);
+      if (!dueOn) {
+        selected.unresolvedMonths += 1;
+        continue;
       }
+      const completed = reportCompletion(report);
+      rows.push(occurrence({
+        key: `project:report:monthly:${projectId}:${reportYm}`,
+        source: "contract_terms",
+        sourceId: String(contract.contract_id ?? contract.id),
+        sourceHash: sourceHash("monthly_report", { project, contract, reportYm, rule: reportPlan.rule }),
+        scope: "project",
+        category: "report",
+        eventKind: "monthly_report_submission",
+        title: `${projectLabel(project, projectId)} / 月次報告提出（${reportYm.slice(0, 4)}年${Number(reportYm.slice(4, 6))}月分）`,
+        periodKey: reportYm,
+        dueOn,
+        dueYm: ymFromDate(dueOn),
+        datePrecision: "day",
+        dateKind: "契約上の提出期限",
+        amountStatus: "not_applicable",
+        amountRole: "informational",
+        projectId,
+        ownerMemberId: monthlyOwnerMemberId,
+        sourceRefs: [
+          { kind: "contract", ref: contract.contract_id ?? contract.id },
+          { kind: "monthly_report", ref: report?.report_id ?? report?.id ?? `${projectId}:${reportYm}` },
+        ],
+        resolutionHref: `/admin/contracts?projectId=${encodeURIComponent(projectId)}`,
+        lifecycleStatus: completed ? "completed" : ownerMissing ? "needs_source" : "open",
+        missingReason: ownerMissing,
+        sourceObservedAt: text(report?.updated_at ?? contract.updated_at),
+        metadata: { reportYm, contractId: contract.contract_id ?? contract.id, reportId: report?.report_id ?? report?.id ?? null },
+      }));
     }
 
-    if (reportPlan.kind === "contract_gap" || unresolvedMonths > 0) {
-      const missingReasonBase = reportPlan.kind === "contract_gap"
+    for (const { contract, reportPlan, periodGap, unresolvedMonths } of reportConfigs) {
+      if (reportPlan.kind === "none" || !(reportPlan.kind === "contract_gap" || periodGap || unresolvedMonths > 0)) continue;
+      const gapOwnerMemberId = projectOwnerId(projectId, project, contract, projectMembers, members);
+      const ownerMissing = !gapOwnerMemberId ? "報告提出担当者が正本に未設定" : null;
+      const missingReasonBase = periodGap ?? (reportPlan.kind === "contract_gap"
         ? reportPlan.missingReason
-        : "契約上の月次報告義務はあるが、一部の月をカレンダー日付へ解決できない";
+        : "契約上の月次報告義務はあるが、一部の月をカレンダー日付へ解決できない");
       const missingReason = ownerMissing ? `${missingReasonBase}。${ownerMissing}` : missingReasonBase;
       rows.push(occurrence({
         key: `project:report:deadline-missing:${projectId}:${contract.contract_id ?? contract.id}`,
@@ -1104,7 +1120,7 @@ export function generateReports(
         amountStatus: "not_applicable",
         amountRole: "informational",
         projectId,
-        ownerMemberId,
+        ownerMemberId: gapOwnerMemberId,
         sourceRefs: [{ kind: "contract", ref: contract.contract_id ?? contract.id }],
         resolutionHref: `/admin/contracts?projectId=${encodeURIComponent(projectId)}`,
         lifecycleStatus: "needs_source",

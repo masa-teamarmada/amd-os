@@ -3,6 +3,7 @@
 import { AmieListStatus, AmieListCategory, AmieListOverview } from "@/components/ui/amie-list-signals";
 
 import { useEffect, useMemo, useState, type PointerEvent as ReactPointerEvent } from "react";
+import Link from "next/link";
 import { AdminProjectMembersModal } from "./AdminProjectMembersModal";
 import { EmailsEditModal } from "./EmailsEditModal";
 import { FreeePartnerPicker } from "./FreeePartnerPicker";
@@ -10,6 +11,7 @@ import { LaneBadges, LaneEditor } from "@/components/lanes/LaneBadges";
 import type { LaneWeight } from "@/lib/aspi-lanes";
 import { DEFAULT_PAYMENT_DUE_RULE, PAYMENT_DUE_RULE_OPTIONS, paymentDueRuleLabel } from "@/lib/payment-rules";
 import { canDeliverWeeklySlackReport } from "@/lib/weekly-slack-report";
+import { CONTRACT_PERIOD_LABEL, type ContractPeriodState } from "@/lib/contract-period-state";
 
 // 2026-05-11: browser auth client 直接 supabase.from("projects").update は
 // RLS で UPDATE が anon / authenticated を弾く回帰が再発したため、
@@ -24,6 +26,7 @@ export interface ProjectRow {
   project_name: string;
   client_name: string | null;
   status: string;
+  contract_period_state: ContractPeriodState;
   project_category: ProjectCategory;
   slack_channel_id: string | null;
   /** trueならSlackを使わない意図的な未設定。 */
@@ -824,12 +827,13 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
 
       {/* Table */}
       <div className="max-h-[calc(100vh-9rem)] overflow-auto border border-border rounded-lg">
-        <table data-amie-list="records" data-amie-columns={amieColumns} className="text-[12px] border-collapse" style={{ minWidth: amieColumns === "overview" ? "920px" : `${2712 + weeklyReportColumnWidth}px` }}>
+        <table data-amie-list="records" data-amie-columns={amieColumns} className="text-[12px] border-collapse" style={{ minWidth: amieColumns === "overview" ? "1040px" : `${2824 + weeklyReportColumnWidth}px` }}>
           <thead className="sticky top-0 z-30">
             <tr className="bg-muted text-muted-foreground">
               <th className="text-left px-3 py-2 font-medium sticky left-0 z-40 bg-muted w-14">PJID</th>
               <th className="text-left px-3 py-2 font-medium sticky left-14 z-40 bg-muted w-32 border-r border-border">PJ名</th>
               <th className="text-left px-3 py-2 font-medium w-24">Status</th>
+              <th className="text-left px-3 py-2 font-medium w-28">業務契約</th>
               <th className="text-left px-3 py-2 font-medium w-32">分類</th>
               <th className="text-left px-3 py-2 font-medium w-44">Lane (ASPI)</th>
               <th className="text-left px-3 py-2 font-medium w-72 min-w-72">メンバー</th>
@@ -949,6 +953,12 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                       </div>
 	                    ) : <StatusBadge status={p.status} />}
 	                  </td>
+
+                  <td className="px-3 py-2" title="PJの伴走状態とは別に、AMD当事者の業務契約の期間から判定">
+                    <Link href={`/admin/contracts?projectId=${encodeURIComponent(p.project_id)}&view=terms`} className="inline-flex rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500" aria-label={`${p.project_name}の契約条件を開く`}>
+                      <AmieListStatus label={CONTRACT_PERIOD_LABEL[p.contract_period_state]} tone={p.contract_period_state === "in_effect" ? "progress" : p.contract_period_state === "renewal_review" || p.contract_period_state === "period_unknown" ? "warning" : "neutral"} />
+                    </Link>
+                  </td>
 
 	                  {/* project_category */}
 	                  <td className={cellCls("project_category")} onClick={enterCell("project_category")}>

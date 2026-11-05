@@ -18,6 +18,7 @@ URL: `/admin/projects`。 全 PJ 台帳を編集する admin 専用画面。
 | project_name | 表示名 |
 | project_category | `dtsu` / `new_business` / `ecosystem` / `advisor` chip |
 | status | `draft` / `active` / `sales` / `ended` / `frozen` / `lost` chip |
+| 業務契約 | AMD当事者の業務契約の締結状態と開始日・終了日から計算した期間状態。PJの伴走状態とは独立。NDAだけでは契約中としない |
 | lane | `project_ventures.lane` (= ASPI 8 domain 単一指定) |
 | lanes | `project_ventures.lanes` JSONB (= 複数 lane weighted) |
 | outcome_pattern | `project_ventures.outcome_pattern` |
@@ -37,7 +38,7 @@ URL: `/admin/projects`。 全 PJ 台帳を編集する admin 専用画面。
 
 `thead` は `sticky top-0 z-30` で固定 (= まさ #15 確定 2026-05-24)、 大量 PJ で下スクロールしてもヘッダーが見える。
 
-### `projects.status` (= 契約・営業状態)
+### `projects.status` (= PJの伴走・営業状態)
 
 `projects.project_category` (= AMD OS 上の扱い / 事業モデル) と別軸。
 
@@ -46,7 +47,7 @@ URL: `/admin/projects`。 全 PJ 台帳を編集する admin 専用画面。
 | `draft` | gray | 台帳作成済だが契約・稼働・営業状態が固まってない | 通常運用には入れない |
 | `active` | emerald | AMD が伴走中の PJ | cockpit / 月次確認 / 請求 / MS 進捗の標準対象 |
 | `sales` | blue | 商談・受注前・提案中 | 台帳や資料生成に載せるが、 契約後に個別確認 |
-| `ended` | gray | AMD の伴走・契約終了 | 履歴。 新規月次確認は出さない |
+| `ended` | gray | AMD の伴走終了 | 履歴。 新規月次確認は出さない |
 | `frozen` | amber | 明示的に休止中 | 新規月次確認停止。 `freeze_from_ym` / `restart_expected_ym` 併用可 |
 | `lost` | red | 失注 / 破談 / 契約化しなかった | 支払原資なし、 個別合意ベース |
 

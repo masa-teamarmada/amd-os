@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CONTRACT_STATUSES, type ContractStatus } from "@/lib/contracts";
+import { contractPeriodState } from "@/lib/contract-period-state";
 import {
   consolidateContractRecords,
   resolveConfidentiality,
@@ -612,7 +613,7 @@ function contractReviewItems(contract: LedgerContract, project: Project | undefi
   return items;
 }
 
-export function ContractsClient({ initialContractId = "" }: { initialContractId?: string } = {}) {
+export function ContractsClient({ initialContractId = "", initialProjectId = "", initialView = "basic", today }: { initialContractId?: string; initialProjectId?: string; initialView?: "basic" | "terms" | "all"; today: string }) {
   const [contracts, setContracts] = useState<ContractRow[]>([]);
   const [documents, setDocuments] = useState<ContractDocument[]>([]);
   const [signals, setSignals] = useState<ContractSignal[]>([]);
@@ -624,8 +625,8 @@ export function ContractsClient({ initialContractId = "" }: { initialContractId?
   const [createOpen, setCreateOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ledger");
-  const [projectFilter, setProjectFilter] = useState("");
-  const [projectActivityFilter, setProjectActivityFilter] = useState<ProjectActivityFilter>("active");
+  const [projectFilter, setProjectFilter] = useState(initialProjectId);
+  const [projectActivityFilter, setProjectActivityFilter] = useState<ProjectActivityFilter>(initialProjectId ? "all" : "active");
   const [sortMode, setSortMode] = useState<ContractSortMode>("signing_desc");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -1224,9 +1225,10 @@ export function ContractsClient({ initialContractId = "" }: { initialContractId?
           </div>
 
           <ContractLedgerTable
-            rows={filteredContracts.map(contract => contractTableRow(contract, projectById.get(contract.project_id), rowDocuments(contract, docsByContract)))}
+            rows={filteredContracts.map(contract => contractTableRow(contract, projectById.get(contract.project_id), rowDocuments(contract, docsByContract), today))}
             loading={loading}
             onOpen={setSelectedId}
+            initialView={initialView}
           />
 
         </section>
@@ -1357,7 +1359,7 @@ function tableAmount(value: unknown, prefix = "") {
   return `${prefix}${Number(value).toLocaleString("ja-JP")}円`;
 }
 
-export function contractTableRow(contract: LedgerContract, project: Project | undefined, documents: ContractDocument[]): ContractTableRow {
+export function contractTableRow(contract: LedgerContract, project: Project | undefined, documents: ContractDocument[], today: string): ContractTableRow {
   const period = resolveContractPeriod(contract, project);
   const terms = effectiveContractTerms(contract, project);
   const signature = resolveSignatureProof(contract, documents);
@@ -1377,6 +1379,7 @@ export function contractTableRow(contract: LedgerContract, project: Project | un
     counterparty: contract.counterparty_name || "未確認",
     type: contractTypeLabel(contract.contract_type),
     status: STATUS_LABEL[contract.status],
+    periodState: contractPeriodState(contract, today),
     signature: signature.label,
     signatureTone: signature.state,
     signedDate: contract.signed_at ? dateOnly(contract.signed_at) : "未確認",

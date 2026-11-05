@@ -14,9 +14,18 @@ export type MonthlyReportRule = { mode: "day" | "month"; day?: number; nextMonth
 export function reportMonthAllowed(contract: JsonRecord, reportYm: string): boolean {
   const start = text(contract.effective_date);
   const end = text(contract.expiration_date);
-  if (start && /^\d{4}-\d{2}-\d{2}$/.test(start) && reportYm < start.slice(0, 4) + start.slice(5, 7)) return false;
-  if (end && /^\d{4}-\d{2}-\d{2}$/.test(end) && reportYm > end.slice(0, 4) + end.slice(5, 7)) return false;
-  return true;
+  if (!start || !end || !/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end) || start > end) return false;
+  return reportYm >= start.slice(0, 4) + start.slice(5, 7)
+    && reportYm <= end.slice(0, 4) + end.slice(5, 7);
+}
+
+export function reportContractPeriodGap(contract: JsonRecord): string | null {
+  const start = text(contract.effective_date);
+  const end = text(contract.expiration_date);
+  if (!start || !/^\d{4}-\d{2}-\d{2}$/.test(start)) return "契約上の月次報告義務はあるが、契約開始日が未確認";
+  if (!end || !/^\d{4}-\d{2}-\d{2}$/.test(end)) return "契約上の月次報告義務はあるが、契約終了日が未確認";
+  if (start > end) return "契約上の月次報告義務はあるが、契約終了日が開始日より前";
+  return null;
 }
 
 export type MonthlyReportSchedulePlan =

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { addDays, adjustToNextBusinessDay, dateAtDay, nextMonthDay, nextMonthEnd, rollingScheduleWindow, scheduleGenerationRange, ymFromDate } from "../src/lib/admin-schedule/date.ts";
 import { deadlineForReportYm, planMonthlyReportSchedule } from "../src/lib/admin-schedule/report-plan.ts";
+import { contractPeriodState, projectContractPeriodState } from "../src/lib/contract-period-state.ts";
 import { buildTimedEventPlans } from "../../ios/supabase/functions/admin-schedule-calendar-sync/schedule.ts";
 import {
   notificationStateLabel,
@@ -91,6 +92,7 @@ assert.equal(deadlineForReportYm("202602", { mode: "day", day: 31 }), null, "an 
 
 const cxOldContract = {
   contract_id: "69c9db30-e132-4108-8aba-b40cd251fa75", project_id: "p20",
+  status: "signed", contract_type: "outsourcing",
   relationship_scope: "amd_contract", registry_status: "accepted", is_current_for_project: true,
   effective_date: "2026-06-26", expiration_date: "2026-09-30",
   operational_terms_json: { monthlyReportRequired: true, monthlyReportSubmissionDeadline: "各月末" },
@@ -102,7 +104,28 @@ const cxRows = reportRows(cxOldContract);
 assert.ok(cxRows.some((row) => row.period_key === "202609"), "the final contract month remains");
 assert.ok(cxRows.every((row) => String(row.period_key) <= "202609"), "the old CX contract produces no reports after September");
 assert.ok(reportRows({ ...cxOldContract, contract_id: "new-contract" }).every((row) => String(row.period_key) <= "202609"), "contract dates also bound other contracts");
-assert.ok(reportRows({ ...cxOldContract, contract_id: "new-contract", effective_date: null, expiration_date: null }).some((row) => row.period_key === "202610"), "undated contracts retain the monthly rule");
+assert.equal(reportRows({ ...cxOldContract, contract_id: "new-contract", expiration_date: null }).length, 0, "unknown contract end never creates unbounded monthly reminders");
+assert.ok(generateReports([{ ...cxOldContract, expiration_date: null }], [{ project_id: "p20", project_name: "CX" }], [], [], [], "2026-06-01", "2026-12-31").some((row) => row.event_kind === "report_deadline_missing" && /契約終了日/.test(String(row.missing_reason))), "unknown contract end creates one review item");
+assert.equal(contractPeriodState(cxOldContract, "2026-09-30"), "in_effect");
+assert.equal(contractPeriodState(cxOldContract, "2026-10-01"), "ended");
+assert.equal(contractPeriodState({ ...cxOldContract, expiration_date: null }, "2026-11-05"), "period_unknown");
+assert.equal(contractPeriodState({ ...cxOldContract, effective_date: "2026-12-01", expiration_date: "2027-03-31" }, "2026-11-05"), "not_started");
+assert.equal(contractPeriodState({ ...cxOldContract, renewal_type: "満了前に更新拒絶通知がなければ1年間自動更新" }, "2026-11-05"), "renewal_review");
+assert.equal(contractPeriodState({ ...cxOldContract, renewal_type: "固定期間。自動更新・更新手続の条項なし" }, "2026-11-05"), "ended");
+assert.equal(projectContractPeriodState([cxOldContract], "2026-11-05"), "ended", "CX is ended while the project itself may remain active");
+assert.equal(projectContractPeriodState([{ ...cxOldContract, contract_type: "nda" }], "2026-11-05"), "no_contract", "an NDA does not extend the service contract");
+assert.equal(projectContractPeriodState([{ ...cxOldContract, contract_type: "investment" }], "2026-11-05"), "no_contract", "an investment contract does not extend the service contract");
+assert.equal(reportRows({ ...cxOldContract, status: "drafting" }).length, 0, "unsigned contracts cannot create monthly submission reminders");
+assert.equal(reportRows({ ...cxOldContract, contract_type: "nda" }).length, 0, "an NDA cannot inherit the project's report rule");
+assert.equal(reportRows({ ...cxOldContract, contract_type: "investment" }).length, 0, "an investment contract cannot inherit the project's report rule");
+assert.equal(reportRows({ ...cxOldContract, renewal_type: "更新拒絶通知がなければ1年間自動更新" }).length, cxRows.length, "an unverified renewal does not extend monthly reminders past the registered end");
+const renewedContract = { ...cxOldContract, contract_id: "renewed", effective_date: "2026-10-01", expiration_date: "2026-12-31", is_current_for_project: true };
+const reportsAcrossContracts = generateReports(
+  [{ ...cxOldContract, is_current_for_project: false }, renewedContract],
+  [{ project_id: "p20", project_name: "CX" }], [], [], [], "2026-09-01", "2026-12-31",
+).filter((row) => row.event_kind === "monthly_report_submission");
+assert.equal(reportsAcrossContracts.find((row) => row.period_key === "202609")?.source_id, cxOldContract.contract_id, "an expired previous contract still supplies its last report month");
+assert.equal(reportsAcrossContracts.find((row) => row.period_key === "202610")?.source_id, renewedContract.contract_id, "the following month uses the new signed contract");
 const nimsPaidActivityContract = {
   ...cxOldContract, contract_id: "nims-mou", project_id: "p28", effective_date: "2026-04-01", expiration_date: "2027-03-31",
   operational_terms_json: { monthlyReportSubmissionRule: "有償活動時に要提出", monthlyReportSubmissionDeadline: "翌月5日まで" },
@@ -308,12 +331,12 @@ assert.match(generator, /generateContracts\(contracts, projects, projectMembers,
 assert.match(generator, /projectOwnerId\(projectId, project \?\? \{\}, contract, projectMembers, members\)/);
 assert.match(generator, /isContractSigningExpected\(contract\)/);
 assert.match(generator, /const current = isCurrentAmdContract\(contract\)/);
-assert.match(generator, /const currentContracts = contracts\.filter\(isCurrentAmdContract\)/);
+assert.match(generator, /const reportContracts = contracts\.filter\(\(contract\) => isAcceptedAmdContract\(contract\)/);
 assert.doesNotMatch(generator, /is_current_for_project !== false/);
 assert.match(generator, /planMonthlyReportSchedule\(terms\)/);
 assert.match(generator, /eventKind: "report_deadline_missing"/);
-assert.match(generator, /if \(!dueOn\) \{\s*unresolvedMonths \+= 1;\s*continue;/m);
-assert.match(generator, /if \(reportPlan\.kind === "contract_gap" \|\| unresolvedMonths > 0\)/);
+assert.match(generator, /if \(!dueOn\) \{\s*selected\.unresolvedMonths \+= 1;\s*continue;/m);
+assert.match(generator, /reportPlan\.kind === "contract_gap" \|\| periodGap \|\| unresolvedMonths > 0/);
 assert.doesNotMatch(generator, /db\.from\("billing_cycles"\)/);
 assert.doesNotMatch(generator, /generateBilling\(/);
 assert.doesNotMatch(generator, /source: "billing_cycles"/);
