@@ -17,7 +17,7 @@
 
 | table | purpose |
 |---|---|
-| `contracts` | 1契約の正規ID、AMD当事者確認、予定枠、現在status、相手先、関連PJ、契約期間、実務条件、PJ現行契約フラグ、予兆confidence、nudge閾値 |
+| `contracts` | 1契約の正規ID、AMD当事者確認、締結工程status、履行状態`execution_status`と凍結開始月、相手先、関連PJ、契約期間、実務条件、PJ現行契約フラグ、予兆confidence、nudge閾値 |
 | `contract_documents` | Drive file metadata による version history。本文/ファイル本体はDB保存しない |
 | `contract_signals` | 5生データから検知した契約予兆候補。raw本文ではなく短いsnippetとsource refだけ保存 |
 | `contract_terms` | 契約書・見積・発注書などから抽出した金額/期間/相手先候補。`candidate/pending` は review queue であり、`applied` まで projects/billing_cycles へ反映しない |
@@ -45,11 +45,11 @@ status:
 
 | 表示項目 | 列 |
 |---|---|
-| 基本情報（初期表示） | PJ、契約名、相手先、種別、状態、期間状態、押印証跡、締結日、開始日、終了日、契約額、月額、支払条件、契約書、確認事項 |
-| 実務条件 | PJ、契約名、相手先、期間状態、更新条件、更新通知期限、契約額、月額、支払条件、税・源泉、業務範囲・目的、成果物、検収、立替・実費、報告義務、知財帰属、利用権、秘密保持、再委託、独占・競業、解除条件、責任・賠償、準拠法・管轄、担当、PJ現行、契約書、確認事項 |
+| 基本情報（初期表示） | PJ、契約名、相手先、種別、締結工程、契約状態、押印証跡、締結日、開始日、終了日、契約額、月額、支払条件、契約書、確認事項 |
+| 実務条件 | PJ、契約名、相手先、契約状態、更新条件、更新通知期限、契約額、月額、支払条件、税・源泉、業務範囲・目的、成果物、検収、立替・実費、報告義務、知財帰属、利用権、秘密保持、再委託、独占・競業、解除条件、責任・賠償、準拠法・管轄、担当、PJ現行、契約書、確認事項 |
 | 全項目 | 上記を統合した33列 |
 
-`状態`は締結作業の進行を示す。`期間状態`は契約自身の開始日・終了日と更新条件から当日判定し、`契約期間内`、`契約終了`、`開始前`、`更新要確認`、`期間未確認`、`未締結`を表示する。終了日を過ぎた自動更新条項付き契約は更新の事実を台帳で確認するまで`更新要確認`とする。PJの伴走状態とは別に扱い、PJ台帳の比較一覧にはAMD当事者の業務契約を集約した`業務契約`列を出す。列の表示から`/admin/contracts?projectId=<PJID>&view=terms`へ移動し、対象PJに絞った実務条件を初期表示する。秘密保持契約だけで業務契約を`契約期間内`とは表示しない。CXはPJが稼働中でも、NIMS業務契約W2026004905の終了日2026-09-30により`契約終了`と表示する。CTBは契約期間内でも2026年5月からPJ凍結中のため、PJ台帳では`凍結`と`契約期間内`を併記する。DBに期間状態の重複列は設けない。
+`締結工程`は押印までの記録を示す。`契約状態`は契約自身の開始日・終了日・更新条件と`execution_status`から当日判定し、`契約凍結`、`契約期間内`、`契約終了`、`開始前`、`更新要確認`、`期間未確認`、`未締結`を表示する。`contracts.execution_status='frozen'`と`execution_frozen_from_ym`は契約ごとの実務上の停止を表し、締結証跡の`status='signed'`や原本の`expiration_date`は変更しない。終了日を過ぎた自動更新条項付き契約は更新の事実を台帳で確認するまで`更新要確認`とする。PJの伴走状態とは別に扱い、PJ台帳の比較一覧にはAMD当事者の業務契約を集約した`契約状態`列を出す。列の表示から`/admin/contracts?projectId=<PJID>&view=terms`へ移動し、対象PJに絞った実務条件を初期表示する。秘密保持契約だけで業務契約を`契約期間内`とは表示しない。CXはPJが稼働中でも、NIMS業務契約W2026004905の終了日2026-09-30により`契約終了`と表示する。CTBは2026年5月からPJと契約の双方を凍結し、PJ台帳で`凍結`と`契約凍結`を併記する。期間状態の重複列は設けない。
 
 表は本文の利用可能幅を使い、専用領域内で横スクロールする。高さは最大70vh。見出しを上端に固定し、640px以上はPJ（112px）と契約名（260px）を左端に固定、640px未満は契約名を120px幅で固定する。狭い画面でもカードへ切り替えない。各セルは最大2行で、全文はtitleと契約詳細から確認できる。金額は右揃え。未知の金額は「未確認」、確認済み0は「0円」。締結日は実際の `signed_at` だけを表示し、ソートの代替日付を締結日の回答に使わない。開始/終了は対象契約の期間だけを使い、PJ期間を確定契約期間に代用しない。
 
@@ -98,7 +98,7 @@ Drive backfill では、契約書そのものに見える PDF / Doc / xlsx / sig
 | `/api/contracts` | GET | no | 契約、documents、signals、terms、nudges、projects、Drive保存先設定を返す |
 | `/api/contracts` | POST | yes | admin が例外的に契約予定枠を作る。通常はD-13候補やDrive文書候補からレビューして採用する |
 | `/api/contracts` | PATCH | yes | 複数の既存記録へ同じ `canonical_contract_id` を一括設定する |
-| `/api/contracts/[contractId]` | PATCH | yes | 現在status、AMD当事者確認、PJ現行指定、契約期間、更新、実務条件、担当、メモなどを更新 |
+| `/api/contracts/[contractId]` | PATCH | yes | 締結工程status、履行状態と凍結開始月・根拠、AMD当事者確認、PJ現行指定、契約期間、更新、実務条件、担当、メモなどを更新 |
 | `/api/contracts/documents` | POST | yes | 既存Drive link/file idをmetadata登録。`document_kind='signed'` なら契約を `signed` にする |
 | `/api/contracts/signal-dry-run` | GET | no | 5生データから契約予兆候補を生成。DB writeなし |
 | `/api/contracts/nudges/dry-run` | GET | no | 押印版未保存かつ閾値超過のSlack nudge候補を生成。Slack送信なし |

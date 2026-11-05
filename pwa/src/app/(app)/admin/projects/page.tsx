@@ -23,7 +23,7 @@ export default async function AdminProjectsPage() {
   const projectIds = (pjData ?? []).map((project) => project.project_id as string);
   const { data: contractPeriodRows, error: contractPeriodError } = await supabase
     .from("contracts")
-    .select("project_id,status,contract_type,relationship_scope,registry_status,effective_date,expiration_date,renewal_type")
+    .select("project_id,status,contract_type,relationship_scope,registry_status,effective_date,expiration_date,renewal_type,execution_status,execution_frozen_from_ym")
     .eq("relationship_scope", "amd_contract")
     .eq("registry_status", "accepted")
     .limit(5000);

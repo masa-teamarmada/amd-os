@@ -55,6 +55,22 @@ export async function PATCH(
     }
   }
 
+  if ("execution_status" in body || "executionStatus" in body) {
+    const executionStatus = text(body.execution_status ?? body.executionStatus, 20);
+    const frozenFromYm = text(body.execution_frozen_from_ym ?? body.executionFrozenFromYm, 20);
+    if (executionStatus !== "standard" && executionStatus !== "frozen") {
+      return NextResponse.json({ ok: false, error: "invalid execution status" }, { status: 400 });
+    }
+    if (executionStatus === "frozen" && !/^\d{4}(0[1-9]|1[0-2])$/.test(frozenFromYm)) {
+      return NextResponse.json({ ok: false, error: "凍結開始月はYYYYMMで入力" }, { status: 400 });
+    }
+    patch.execution_status = executionStatus;
+    patch.execution_frozen_from_ym = executionStatus === "frozen" ? frozenFromYm : null;
+  }
+  if ("execution_status_note" in body || "executionStatusNote" in body) {
+    patch.execution_status_note = optionalText(body.execution_status_note ?? body.executionStatusNote, 1000);
+  }
+
   const fields: Array<[string, string, number]> = [
     ["contract_title", "contractTitle", 240],
     ["canonical_title", "canonicalTitle", 240],

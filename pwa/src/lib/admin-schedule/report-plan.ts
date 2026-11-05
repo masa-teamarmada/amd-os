@@ -15,6 +15,8 @@ export function reportMonthAllowed(contract: JsonRecord, reportYm: string): bool
   const start = text(contract.effective_date);
   const end = text(contract.expiration_date);
   if (!start || !end || !/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end) || start > end) return false;
+  const frozenFrom = text(contract.execution_frozen_from_ym) ?? "";
+  if (contract.execution_status === "frozen" && /^\d{4}(0[1-9]|1[0-2])$/.test(frozenFrom) && reportYm >= frozenFrom) return false;
   return reportYm >= start.slice(0, 4) + start.slice(5, 7)
     && reportYm <= end.slice(0, 4) + end.slice(5, 7);
 }

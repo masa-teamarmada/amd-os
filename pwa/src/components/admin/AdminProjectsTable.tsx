@@ -841,7 +841,7 @@ export function AdminProjectsTable({ projects: initialProjects, asOfYm }: Props)
               <th className="text-left px-3 py-2 font-medium sticky left-0 z-40 bg-muted w-14">PJID</th>
               <th className="text-left px-3 py-2 font-medium sticky left-14 z-40 bg-muted w-32 border-r border-border">PJ名</th>
               <th className="text-left px-3 py-2 font-medium w-24">PJ状態</th>
-              <th className="text-left px-3 py-2 font-medium w-28">業務契約</th>
+              <th className="text-left px-3 py-2 font-medium w-28">契約状態</th>
               <th className="text-left px-3 py-2 font-medium w-32">分類</th>
               <th className="text-left px-3 py-2 font-medium w-44">Lane (ASPI)</th>
               <th className="text-left px-3 py-2 font-medium w-72 min-w-72">メンバー</th>
@@ -962,9 +962,9 @@ export function AdminProjectsTable({ projects: initialProjects, asOfYm }: Props)
 	                    ) : <StatusBadge status={effectiveProjectStatus(p,asOfYm)} title={effectiveProjectStatus(p,asOfYm) === "frozen" && p.status === "active" ? `${p.freeze_from_ym?.slice(0, 4)}年${Number(p.freeze_from_ym?.slice(4, 6))}月から凍結` : undefined} />}
 	                  </td>
 
-                  <td className="px-3 py-2" title="PJの伴走状態とは別に、AMD当事者の業務契約の期間から判定">
+                  <td className="px-3 py-2" title="PJの伴走状態とは別に、AMD当事者の業務契約の期間と凍結状態から判定">
                     <Link href={`/admin/contracts?projectId=${encodeURIComponent(p.project_id)}&view=terms`} className="inline-flex rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500" aria-label={`${p.project_name}の契約条件を開く`}>
-                      <AmieListStatus label={CONTRACT_PERIOD_LABEL[p.contract_period_state]} tone={p.contract_period_state === "in_effect" ? "progress" : p.contract_period_state === "renewal_review" || p.contract_period_state === "period_unknown" ? "warning" : "neutral"} />
+                      <AmieListStatus label={CONTRACT_PERIOD_LABEL[p.contract_period_state]} tone={p.contract_period_state === "in_effect" ? "progress" : p.contract_period_state === "frozen" || p.contract_period_state === "renewal_review" || p.contract_period_state === "period_unknown" ? "warning" : "neutral"} />
                     </Link>
                   </td>
 

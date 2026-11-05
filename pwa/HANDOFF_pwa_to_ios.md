@@ -11,6 +11,10 @@ PWAのAMD OS変更履歴を「対象名・変更項目・変更前→変更後�
 
 # PWAからiOSへの引き継ぎ
 
+## 2026-11-05 契約凍結の独立状態
+
+共通DBの適用済みmigration `20261105122042`で`contracts.execution_status`（`standard` / `frozen`）、`execution_frozen_from_ym`、`execution_status_note`を追加。CTBの契約`82b57da5-a2ab-508e-afbe-58ac9b8cb9cb`は202605から`frozen`。締結証跡`status=signed`と原本満了日2027-02-13は保持。PWAのPJ台帳・契約一覧は`契約凍結`と表示し、Admin月次報告は凍結開始月以降を生成しない。Swift/iOS・macOS・Androidの専用UIは未移植。仕様はpwa/spec/5-6・5-9、操作はpwa/manual/2-6・6-7。
+
 ## 2026-11-05 CTBの凍結表示と契約期間の名称
 
 PWAの`/admin/projects`は`projects.status=active`でも現在月が`freeze_from_ym`以降ならPJ状態を`凍結`と表示し、件数・絞り込みも合わせる。契約期間状態`in_effect`の表示名は`契約期間内`。CTBは2026年5月からPJ凍結、契約原本の満了日は2027年2月13日。契約終了への変更・DB schema変更はない。Swift/iOS・macOS・Androidの専用UIは未移植。仕様はpwa/spec/5-6、操作はpwa/manual/2-6・6-2・6-7。

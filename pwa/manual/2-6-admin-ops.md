@@ -280,8 +280,8 @@ URL: `/admin/projects`
 #### status と凍結期間の使い分け
 
 - `status` は PJ の大きな状態ラベル。`active` / `sales` / `ended` / `lost` のような伴走・営業フェーズを表す。契約の期間状態は別列で見る。
-- `freeze_from_ym` / `restart_expected_ym` は **期間つきの休止オーバーレイ**。たとえば「契約は継続してるが 202605 から一時停止」のように、`status='active'` のまま月次確認だけ止めたい時に使う。
-- PJ台帳の比較一覧・状態件数・状態絞り込みは、`active`でも当月が`freeze_from_ym`以降なら`凍結`として扱う。契約列の`契約期間内`は契約書の有効期間を示す。CTBは2026年5月から凍結中で、契約書の当初満了日は2027年2月13日。
+- `freeze_from_ym` / `restart_expected_ym` は **期間つきの休止オーバーレイ**。契約書の期間内でも、業務を202605から停止する場合などに使う。
+- PJ台帳の比較一覧・状態件数・状態絞り込みは、`active`でも当月が`freeze_from_ym`以降なら`凍結`として扱う。契約列は別軸で、CTBは`契約凍結`。契約書の当初満了日は2027年2月13日で、終了に書き換えない。
 - 複数回の凍結 / 再開履歴は `project_freeze_periods` が正本。`projects.freeze_from_ym` / `restart_expected_ym` は現在表示用キャッシュ。
 - 新しく凍結・再開を扱う実装では、`projects.status='frozen'` だけで判断せず、`project_freeze_periods` と現在 ym も見る。
 

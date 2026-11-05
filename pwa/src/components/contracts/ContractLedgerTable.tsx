@@ -54,8 +54,8 @@ const COLUMNS: Column[] = [
   { key: "title", label: "契約名", width: 260 },
   { key: "counterparty", label: "相手先", width: 220 },
   { key: "type", label: "種別", width: 96 },
-  { key: "status", label: "状態", width: 120 },
-  { key: "periodState", label: "期間状態", width: 112 },
+  { key: "status", label: "締結工程", width: 120 },
+  { key: "periodState", label: "契約状態", width: 112 },
   { key: "signature", label: "押印証跡", width: 104 },
   { key: "signedDate", label: "締結日", width: 112 },
   { key: "startDate", label: "開始日", width: 112 },
@@ -120,7 +120,7 @@ export function ContractLedgerTable({ rows, onOpen, loading = false, initialView
                     : column.key === "document" && row.document ? <a href={row.document.url} target="_blank" rel="noreferrer" title={row.document.label} className="flex min-h-11 items-center text-sky-800 underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"><span className="line-clamp-2">{row.document.label}</span></a>
                       : column.key === "type" ? <AmieListCategory value={value} title={value} className={`line-clamp-2 break-words ${color}`}/>
                       : column.key === "status" ? <AmieListStatus label={value}/>
-                      : column.key === "periodState" ? <AmieListStatus label={CONTRACT_PERIOD_LABEL[row.periodState]} tone={row.periodState === "in_effect" ? "progress" : row.periodState === "renewal_review" || row.periodState === "period_unknown" ? "warning" : "neutral"}/>
+                      : column.key === "periodState" ? <AmieListStatus label={CONTRACT_PERIOD_LABEL[row.periodState]} tone={row.periodState === "in_effect" ? "progress" : row.periodState === "frozen" || row.periodState === "renewal_review" || row.periodState === "period_unknown" ? "warning" : "neutral"}/>
                       : column.key === "signature" ? <AmieListStatus label={value} tone={row.signatureTone === "complete" ? "complete" : row.signatureTone === "needs_proof" ? "warning" : "neutral"}/>
                       : column.key === "review" && row.reviewCount > 0 ? <AmieListStatus label={value} tone="warning"/>
                       : <span title={value} className={`line-clamp-2 break-words ${color}`}>{value}</span>}

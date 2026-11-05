@@ -1044,11 +1044,15 @@ export function generateReports(
       return { contract, terms, reportPlan: planMonthlyReportSchedule(terms), periodGap: reportContractPeriodGap(contract), unresolvedMonths: 0 };
     }).filter((config) => config.reportPlan.kind !== "none");
     if (!reportConfigs.length) continue;
+    const monthlyConfigs = reportConfigs.filter((config) => (
+      config.contract.execution_status !== "frozen"
+      || targetMonths.some((reportYm) => reportYm < String(config.contract.execution_frozen_from_ym ?? ""))
+    ));
     const { contract, terms } = reportConfigs[0];
     const ownerMemberId = projectOwnerId(projectId, project, contract, projectMembers, members);
     const ownerMissing = !ownerMemberId ? "報告提出担当者が正本に未設定" : null;
     for (const reportYm of targetMonths) {
-      const selected = reportConfigs.find((config) => config.reportPlan.kind === "expanded" && !config.periodGap && reportMonthAllowed(config.contract, reportYm));
+      const selected = monthlyConfigs.find((config) => config.reportPlan.kind === "expanded" && !config.periodGap && reportMonthAllowed(config.contract, reportYm));
       if (!selected || selected.reportPlan.kind !== "expanded") continue;
       const { contract, reportPlan } = selected;
       const monthlyOwnerMemberId = projectOwnerId(projectId, project, contract, projectMembers, members);
@@ -1090,7 +1094,7 @@ export function generateReports(
       }));
     }
 
-    for (const { contract, reportPlan, periodGap, unresolvedMonths } of reportConfigs) {
+    for (const { contract, reportPlan, periodGap, unresolvedMonths } of monthlyConfigs) {
       if (reportPlan.kind === "none" || !(reportPlan.kind === "contract_gap" || periodGap || unresolvedMonths > 0)) continue;
       const gapOwnerMemberId = projectOwnerId(projectId, project, contract, projectMembers, members);
       const ownerMissing = !gapOwnerMemberId ? "報告提出担当者が正本に未設定" : null;

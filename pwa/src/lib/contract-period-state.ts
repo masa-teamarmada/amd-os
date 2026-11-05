@@ -1,4 +1,4 @@
-export type ContractPeriodState = "in_effect" | "ended" | "not_started" | "renewal_review" | "period_unknown" | "not_signed" | "no_contract" | "unavailable";
+export type ContractPeriodState = "in_effect" | "frozen" | "ended" | "not_started" | "renewal_review" | "period_unknown" | "not_signed" | "no_contract" | "unavailable";
 
 export type ContractPeriodSource = {
   status?: unknown;
@@ -8,6 +8,8 @@ export type ContractPeriodSource = {
   contract_type?: unknown;
   relationship_scope?: unknown;
   registry_status?: unknown;
+  execution_status?: unknown;
+  execution_frozen_from_ym?: unknown;
 };
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -33,7 +35,13 @@ export function contractPeriodState(contract: ContractPeriodSource, today: strin
   const end = date(contract.expiration_date);
   if (!start || !end || start > end || !date(today)) return "period_unknown";
   if (today < start) return "not_started";
-  if (today <= end) return "in_effect";
+  if (today <= end) {
+    const frozenFrom = String(contract.execution_frozen_from_ym ?? "");
+    return contract.execution_status === "frozen" && /^\d{4}(0[1-9]|1[0-2])$/.test(frozenFrom)
+      && today.slice(0, 4) + today.slice(5, 7) >= frozenFrom
+      ? "frozen"
+      : "in_effect";
+  }
   return automaticRenewal(contract.renewal_type) ? "renewal_review" : "ended";
 }
 
@@ -49,7 +57,7 @@ export function projectContractPeriodState(contracts: ContractPeriodSource[], to
   const signed = relevant.filter((contract) => contract.status === "signed");
   if (!signed.length) return "not_signed";
   const states = signed.map((contract) => contractPeriodState(contract, today));
-  for (const state of ["in_effect", "renewal_review", "not_started", "period_unknown", "ended"] as const) {
+  for (const state of ["in_effect", "frozen", "renewal_review", "not_started", "period_unknown", "ended"] as const) {
     if (states.includes(state)) return state;
   }
   return "period_unknown";
@@ -57,6 +65,7 @@ export function projectContractPeriodState(contracts: ContractPeriodSource[], to
 
 export const CONTRACT_PERIOD_LABEL: Record<ContractPeriodState, string> = {
   in_effect: "契約期間内",
+  frozen: "契約凍結",
   ended: "契約終了",
   not_started: "開始前",
   renewal_review: "更新要確認",

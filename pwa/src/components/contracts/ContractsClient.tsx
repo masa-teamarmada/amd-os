@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CONTRACT_STATUSES, type ContractStatus } from "@/lib/contracts";
-import { contractPeriodState } from "@/lib/contract-period-state";
+import { CONTRACT_PERIOD_LABEL, contractPeriodState } from "@/lib/contract-period-state";
 import {
   consolidateContractRecords,
   resolveConfidentiality,
@@ -74,6 +74,9 @@ type ContractRow = {
   counterparty_name: string | null;
   contract_type: string;
   status: ContractStatus;
+  execution_status: "standard" | "frozen";
+  execution_frozen_from_ym: string | null;
+  execution_status_note: string | null;
   registry_status: "candidate" | "accepted" | "evidence_only" | "rejected";
   relationship_scope: ContractRelationshipScope;
   is_current_for_project: boolean;
@@ -311,6 +314,9 @@ const BLANK_DOCUMENT = {
 };
 
 const BLANK_CONTRACT_EDIT = {
+  executionStatus: "standard" as "standard" | "frozen",
+  executionFrozenFromYm: "",
+  executionStatusNote: "",
   canonicalTitle: "",
   counterpartyName: "",
   contractType: "contract",
@@ -772,6 +778,9 @@ export function ContractsClient({ initialContractId = "", initialProjectId = "",
     const terms = effectiveContractTerms(selected, projectById.get(selected.project_id));
     const selectedExpense = expenseSummary(terms);
     setContractEdit({
+      executionStatus: selected.execution_status || "standard",
+      executionFrozenFromYm: selected.execution_frozen_from_ym || "",
+      executionStatusNote: selected.execution_status_note || "",
       canonicalTitle: contractTitle(selected),
       counterpartyName: selected.counterparty_name || "",
       contractType: selected.contract_type || "contract",
@@ -972,6 +981,9 @@ export function ContractsClient({ initialContractId = "", initialProjectId = "",
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          execution_status: contractEdit.executionStatus,
+          execution_frozen_from_ym: contractEdit.executionFrozenFromYm || null,
+          execution_status_note: contractEdit.executionStatusNote || null,
           canonical_contract_id: selected.contract_id,
           canonical_title: contractEdit.canonicalTitle,
           counterparty_name: contractEdit.counterpartyName,
@@ -1273,6 +1285,7 @@ export function ContractsClient({ initialContractId = "", initialProjectId = "",
       <CreateContractDialog open={createOpen} onOpenChange={setCreateOpen} projects={projects} value={newContract} onChange={setNewContract} onSubmit={createContract} saving={saving} />
 
       <ContractDetailDialog
+        today={today}
         contract={selected}
         project={selectedProject}
         documents={selectedDocuments}
@@ -1449,7 +1462,8 @@ function CreateContractDialog({ open, onOpenChange, projects, value, onChange, o
   );
 }
 
-function ContractDetailDialog({ contract, project, documents, signals, linkedTerms, unlinkedTerms, nudges, driveDestination, edit, setEdit, newDocument, setNewDocument, saving, onOpenChange, onStatusChange, onSave, onAddDocument }: {
+function ContractDetailDialog({ today, contract, project, documents, signals, linkedTerms, unlinkedTerms, nudges, driveDestination, edit, setEdit, newDocument, setNewDocument, saving, onOpenChange, onStatusChange, onSave, onAddDocument }: {
+  today: string;
   contract: LedgerContract | null;
   project?: Project;
   documents: ContractDocument[];
@@ -1470,6 +1484,7 @@ function ContractDetailDialog({ contract, project, documents, signals, linkedTer
 }) {
   if (!contract) return null;
   const period = resolveContractPeriod(contract, project);
+  const contractState = contractPeriodState(contract, today);
   const terms = effectiveContractTerms(contract, project);
   const expense = expenseSummary(terms);
   const signature = resolveSignatureProof(contract, documents);
@@ -1486,6 +1501,7 @@ function ContractDetailDialog({ contract, project, documents, signals, linkedTer
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline">{contract.project_id} {project?.project_name || "PJ未設定"}</Badge>
                 <Badge variant="outline">{contractTypeLabel(contract.contract_type)}</Badge>
+                {contractState === "frozen" && <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800">契約凍結</Badge>}
                 {reviewItems.length > 0 && <ReviewBadge items={reviewItems} />}
                 {signature.state === "needs_proof" && <Badge variant="outline" className="border-rose-200 bg-rose-50 text-rose-700"><AlertCircle className="h-3 w-3" />押印証跡を確認</Badge>}
               </div>
@@ -1493,7 +1509,7 @@ function ContractDetailDialog({ contract, project, documents, signals, linkedTer
               <DialogDescription className="mt-1">{contract.counterparty_name || "相手先未設定"} / 最新記録 {compactDate(contract.latest_record_at)}</DialogDescription>
             </div>
             <label className="shrink-0 text-xs font-medium text-slate-500">
-              現在状態
+              締結工程
               <select value={contract.status} onChange={(event) => onStatusChange(event.target.value as ContractStatus)} disabled={saving} className="mt-1 block h-8 rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-900">
                 {CONTRACT_STATUSES.map((status) => <option key={status} value={status}>{STATUS_LABEL[status]}</option>)}
               </select>
@@ -1510,9 +1526,10 @@ function ContractDetailDialog({ contract, project, documents, signals, linkedTer
           </TabsList>
 
           <TabsContent value="answers" className="min-h-0 overflow-y-auto p-4 sm:p-5">
-            <div className="grid gap-x-5 gap-y-3 border-y border-slate-200 bg-slate-50 px-3 py-3 text-sm md:grid-cols-3">
+            <div className="grid gap-x-5 gap-y-3 border-y border-slate-200 bg-slate-50 px-3 py-3 text-sm md:grid-cols-2 xl:grid-cols-4">
               <FactRow label="契約当事者" value={`${contract.amd_entity_name || "株式会社チームアルマダ"} × ${contract.counterparty_name || "相手先未設定"}`} note={joinedTerms([contract.amd_party_role, contract.party_confirmation_note], "当事者確認の根拠未登録")} />
-              <FactRow label="現在状態・押印" value={`${STATUS_LABEL[contract.status]} / ${signature.label}`} note={signature.note} />
+              <FactRow label="契約状態" value={CONTRACT_PERIOD_LABEL[contractState]} note={contract.execution_status_note || (contract.execution_frozen_from_ym ? `${contract.execution_frozen_from_ym}から凍結` : "契約書の期間と履行状態から判定")} />
+              <FactRow label="締結状態・押印" value={`${STATUS_LABEL[contract.status]} / ${signature.label}`} note={signature.note} />
               <FactRow label="PJコックピット" value={contract.is_current_for_project ? "現行契約として表示" : "現行契約に未指定"} note={contract.relationship_scope === "amd_contract" ? "AMD当事者契約" : "主台帳の対象外"} />
             </div>
 
@@ -1564,6 +1581,9 @@ function ContractDetailDialog({ contract, project, documents, signals, linkedTer
             <details className="mt-6 rounded-md border border-slate-200 bg-slate-50">
                 <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-slate-800">契約条件を編集</summary>
                 <form onSubmit={onSave} className="grid gap-3 border-t border-slate-200 bg-white p-4 md:grid-cols-2 xl:grid-cols-3">
+                  <Field label="契約状態"><select value={edit.executionStatus} onChange={(event) => setEdit({ ...edit, executionStatus: event.target.value as "standard" | "frozen", executionFrozenFromYm: event.target.value === "frozen" ? edit.executionFrozenFromYm : "" })} className={CONTROL_CLASS}><option value="standard">契約書の期間で判定</option><option value="frozen">契約凍結</option></select></Field>
+                  {edit.executionStatus === "frozen" && <Field label="凍結開始月"><input value={edit.executionFrozenFromYm} onChange={(event) => setEdit({ ...edit, executionFrozenFromYm: event.target.value })} className={CONTROL_CLASS} inputMode="numeric" pattern="[0-9]{6}" placeholder="YYYYMM" required /></Field>}
+                  <Field label="契約状態の根拠" className="sm:col-span-2"><input value={edit.executionStatusNote} onChange={(event) => setEdit({ ...edit, executionStatusNote: event.target.value })} className={CONTROL_CLASS} /></Field>
                   <Field label="契約名" className="sm:col-span-2"><input value={edit.canonicalTitle} onChange={(event) => setEdit({ ...edit, canonicalTitle: event.target.value })} className={CONTROL_CLASS} /></Field>
                   <Field label="相手先"><input value={edit.counterpartyName} onChange={(event) => setEdit({ ...edit, counterpartyName: event.target.value })} className={CONTROL_CLASS} /></Field>
                   <Field label="種別"><select value={edit.contractType} onChange={(event) => setEdit({ ...edit, contractType: event.target.value })} className={CONTROL_CLASS}>{Object.entries(CONTRACT_TYPE_LABEL).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></Field>

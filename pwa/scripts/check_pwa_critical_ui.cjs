@@ -635,7 +635,7 @@ expectIncludes("src/components/contracts/ContractsClient.tsx", [
 // AMD台帳は幅にかかわらずHTML表。項目別の列と固定列を失わない。
 expectIncludes("src/components/contracts/ContractLedgerTable.tsx", [
   "<table", "<thead", "<tbody", 'scope="col"',
-  'label: "相手先"', 'label: "状態"', 'label: "押印証跡"',
+  'label: "相手先"', 'label: "締結工程"', 'label: "契約状態"', 'label: "押印証跡"',
   'label: "締結日"', 'label: "開始日"', 'label: "終了日"',
   'label: "契約額"', 'label: "月額"', 'label: "支払条件"',
   'label: "基本情報"', 'label: "実務条件"', 'label: "全項目"',

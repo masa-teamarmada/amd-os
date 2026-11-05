@@ -18,7 +18,7 @@ URL: `/admin/projects`。 全 PJ 台帳を編集する admin 専用画面。
 | project_name | 表示名 |
 | project_category | `dtsu` / `new_business` / `ecosystem` / `advisor` chip |
 | status | PJ状態のchip。`projects.status='active'`でも、当月が`freeze_from_ym`以降なら一覧・件数・絞り込みでは`凍結`と表示する。セル編集では保存済みの`projects.status`を扱う |
-| 業務契約 | AMD当事者の業務契約の締結状態と開始日・終了日から計算した期間状態。期間内は`契約期間内`と表示する。PJの凍結状態とは独立。NDAだけでは期間内としない |
+| 契約状態 | AMD当事者の業務契約の締結状態、契約書の開始日・終了日、契約自身の`execution_status`から計算する。契約凍結中は`契約凍結`と表示する。PJの凍結状態とは独立。NDAだけでは期間内としない |
 | lane | `project_ventures.lane` (= ASPI 8 domain 単一指定) |
 | lanes | `project_ventures.lanes` JSONB (= 複数 lane weighted) |
 | outcome_pattern | `project_ventures.outcome_pattern` |

@@ -108,6 +108,22 @@ assert.equal(reportRows({ ...cxOldContract, contract_id: "new-contract", expirat
 assert.ok(generateReports([{ ...cxOldContract, expiration_date: null }], [{ project_id: "p20", project_name: "CX" }], [], [], [], "2026-06-01", "2026-12-31").some((row) => row.event_kind === "report_deadline_missing" && /契約終了日/.test(String(row.missing_reason))), "unknown contract end creates one review item");
 assert.equal(contractPeriodState(cxOldContract, "2026-09-30"), "in_effect");
 assert.equal(contractPeriodState(cxOldContract, "2026-10-01"), "ended");
+const frozenContract = {
+  ...cxOldContract,
+  project_id: "p06",
+  effective_date: "2026-04-01",
+  expiration_date: "2027-02-13",
+  execution_status: "frozen",
+  execution_frozen_from_ym: "202605",
+};
+assert.equal(contractPeriodState(frozenContract, "2026-04-30"), "in_effect");
+assert.equal(contractPeriodState(frozenContract, "2026-11-05"), "frozen");
+assert.equal(contractPeriodState(frozenContract, "2027-02-14"), "ended");
+assert.equal(projectContractPeriodState([frozenContract], "2026-11-05"), "frozen");
+const frozenReportRows = generateReports(
+  [frozenContract], [{ project_id: "p06", project_name: "CTB" }], [], [], [], "2026-04-01", "2026-12-31",
+).filter((row) => row.event_kind === "monthly_report_submission");
+assert.deepEqual(frozenReportRows.map((row) => row.period_key), ["202604"], "the freeze removes May and later report months while retaining April");
 assert.equal(contractPeriodState({ ...cxOldContract, expiration_date: null }, "2026-11-05"), "period_unknown");
 assert.equal(contractPeriodState({ ...cxOldContract, effective_date: "2026-12-01", expiration_date: "2027-03-31" }, "2026-11-05"), "not_started");
 assert.equal(contractPeriodState({ ...cxOldContract, renewal_type: "満了前に更新拒絶通知がなければ1年間自動更新" }, "2026-11-05"), "renewal_review");
