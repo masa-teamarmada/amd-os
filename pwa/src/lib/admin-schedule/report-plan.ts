@@ -9,10 +9,14 @@ import type { JsonRecord } from "./types.ts";
 
 export type MonthlyReportRule = { mode: "day" | "month"; day?: number; nextMonth?: boolean };
 
-// The CX commission ended after September 2026. Bound only this verified
-// contract; another CX contract or another project needs its own evidence.
-export function reportMonthAllowed(contractId: unknown, reportYm: string): boolean {
-  return String(contractId ?? "") !== "69c9db30-e132-4108-8aba-b40cd251fa75" || reportYm <= "202609";
+// Report months follow the term of the contract that supplies the report rule.
+// A deadline in the following month does not extend the activity month.
+export function reportMonthAllowed(contract: JsonRecord, reportYm: string): boolean {
+  const start = text(contract.effective_date);
+  const end = text(contract.expiration_date);
+  if (start && /^\d{4}-\d{2}-\d{2}$/.test(start) && reportYm < start.slice(0, 4) + start.slice(5, 7)) return false;
+  if (end && /^\d{4}-\d{2}-\d{2}$/.test(end) && reportYm > end.slice(0, 4) + end.slice(5, 7)) return false;
+  return true;
 }
 
 export type MonthlyReportSchedulePlan =
@@ -93,6 +97,12 @@ export function deadlineForReportYm(reportYm: string, rule: MonthlyReportRule): 
 export function planMonthlyReportSchedule(terms: JsonRecord, sampleYm = "202601"): MonthlyReportSchedulePlan {
   const rule = reportRule(terms);
   const rawRuleText = monthlyReportRuleText(terms);
+  const submissionCondition = text(terms.monthlyReportSubmissionRule ?? terms.monthly_report_submission_rule);
+  // A report required only when paid work occurs is not a monthly obligation.
+  // It needs an activity-specific source before a dated occurrence can exist.
+  if (submissionCondition && /有償.*活動時|個別.*(活動|業務)時/.test(submissionCondition)) {
+    return { kind: "none", rawRuleText, rule: null };
+  }
   const required = isRequired(monthlyReportRequirementValue(terms)) || Boolean(rule);
   if (!required) return { kind: "none", rawRuleText, rule: null };
   if (rule && deadlineForReportYm(sampleYm, rule)) return { kind: "expanded", rawRuleText, rule };

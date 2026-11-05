@@ -11,6 +11,10 @@ PWAのAMD OS変更履歴を「対象名・変更項目・変更前→変更後�
 
 # PWAからiOSへの引き継ぎ
 
+## 2026-11-05 管理カレンダーの報告期限
+
+PWAの月次報告予定は契約の開始月・終了月で区切る。NIMS連携覚書の「有償活動時に提出」は月ごとの定期義務として生成しない。共通DBのschemaは変更しない。Swift/iOS・macOS・Androidに管理カレンダーの専用画面はないため、Native画面変更と端末検証は今回の対象外。仕様はpwa/spec/5-9、操作はpwa/manual/2-6。
+
 ## 2026-11-04 月次試算表の独立とAdmin閲覧順
 
 PWA専用route `/admin/monthly-trial-balance`へManagementの財務ブロックを移設。通常左メニューとManagementに入口あり。Adminは`/api/admin/navigation-usage`で本人の既存閲覧行を集計し、多い順・検索・履歴なしの分類表示へ変更。RPC migration `20261104100247`適用済み、再適用不要。仕様はspec2-1・2-7、manual2-6・4-5。Swift/iOS・macOS・Androidの画面は未移植、今回は実装・実機確認の対象外。

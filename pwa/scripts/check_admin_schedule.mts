@@ -85,11 +85,14 @@ if (invoiceLinkedMonthlyPlan.kind === "contract_gap") {
 }
 const unspecifiedMonthlyPlan = planMonthlyReportSchedule({ monthlyReportRequired: true, monthlyReportSubmissionDeadline: "指定なし" }, "202601");
 assert.equal(unspecifiedMonthlyPlan.kind, "contract_gap");
+const paidActivityPlan = planMonthlyReportSchedule({ monthly_report_required: false, monthlyReportSubmissionRule: "有償活動時に要提出", monthlyReportSubmissionDeadline: "翌月5日まで" });
+assert.equal(paidActivityPlan.kind, "none", "a conditional paid-activity report is not expanded every month");
 assert.equal(deadlineForReportYm("202602", { mode: "day", day: 31 }), null, "an invalid calendar day becomes a contract-level gap, not a month row");
 
 const cxOldContract = {
   contract_id: "69c9db30-e132-4108-8aba-b40cd251fa75", project_id: "p20",
   relationship_scope: "amd_contract", registry_status: "accepted", is_current_for_project: true,
+  effective_date: "2026-06-26", expiration_date: "2026-09-30",
   operational_terms_json: { monthlyReportRequired: true, monthlyReportSubmissionDeadline: "各月末" },
 };
 const reportRows = (contract: Record<string, unknown>) => generateReports(
@@ -98,7 +101,13 @@ const reportRows = (contract: Record<string, unknown>) => generateReports(
 const cxRows = reportRows(cxOldContract);
 assert.ok(cxRows.some((row) => row.period_key === "202609"), "the final contract month remains");
 assert.ok(cxRows.every((row) => String(row.period_key) <= "202609"), "the old CX contract produces no reports after September");
-assert.ok(reportRows({ ...cxOldContract, contract_id: "new-contract" }).some((row) => row.period_key === "202610"), "other contracts are unchanged");
+assert.ok(reportRows({ ...cxOldContract, contract_id: "new-contract" }).every((row) => String(row.period_key) <= "202609"), "contract dates also bound other contracts");
+assert.ok(reportRows({ ...cxOldContract, contract_id: "new-contract", effective_date: null, expiration_date: null }).some((row) => row.period_key === "202610"), "undated contracts retain the monthly rule");
+const nimsPaidActivityContract = {
+  ...cxOldContract, contract_id: "nims-mou", project_id: "p28", effective_date: "2026-04-01", expiration_date: "2027-03-31",
+  operational_terms_json: { monthlyReportSubmissionRule: "有償活動時に要提出", monthlyReportSubmissionDeadline: "翌月5日まで" },
+};
+assert.equal(generateReports([nimsPaidActivityContract], [{ project_id: "p28", project_name: "NIMS", monthly_report_required: false, monthly_report_scope: "none" }], [], [], [], "2026-01-01", "2028-12-31").filter((row) => row.event_kind === "monthly_report_submission").length, 0, "NIMS conditional reports never become a recurring monthly obligation");
 const completedSeptember = generateReports(
   [cxOldContract], [{ project_id: "p20", project_name: "CX" }], [], [],
   [{ project_id: "p20", ym: "202609", status: "fixed", report_id: "report-9" }], "2026-06-01", "2026-12-31",

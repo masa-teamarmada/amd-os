@@ -1038,7 +1038,7 @@ export function generateReports(
     let unresolvedMonths = 0;
     if (reportPlan.kind === "expanded") {
       for (const reportYm of targetMonths) {
-        if (!reportMonthAllowed(contract.contract_id ?? contract.id, reportYm)) continue;
+        if (!reportMonthAllowed(contract, reportYm)) continue;
         const report = reportByKey.get(`${projectId}:${reportYm}`) ?? null;
         const dueOn = deadlineForReportYm(reportYm, reportPlan.rule);
         if (!dueOn) {
