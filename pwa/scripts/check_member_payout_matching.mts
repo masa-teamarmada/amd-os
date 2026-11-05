@@ -13,6 +13,7 @@
 
 import {
   buildSettlements,
+  expectedNoticePaymentYen,
   extractTransferName,
   mergeOutflows,
   normalizeName,
@@ -125,6 +126,112 @@ const feeTxn = mergeOutflows({
 });
 const feeResult = buildSettlements({ outflows: feeTxn, members, notices, aliases: [{ alias: "チコ", member_id: "ID007" }] });
 check("振込手数料ぶんの差は同じ支払として扱う", feeResult.settlements[0]?.amountMatch === "within_transfer_fee", feeResult.settlements[0]?.amountMatch);
+
+// --- 立替込み通知書の実支払と、同額が続く月の照合 --------------------------
+const abikoNotices: SettlementNoticeRow[] = [
+  { member_id: "ID009", ym: "202606", total_yen: 39_585 },
+  { member_id: "ID009", ym: "202609", total_yen: 40_170 },
+  { member_id: "ID009", ym: "202608", total_yen: 40_170, reimbursement_yen: 990 },
+];
+check("立替には二重に税を乗せず通知書の振込額を出す", expectedNoticePaymentYen(abikoNotices[2]) === 45_177);
+const abikoOutflows = mergeOutflows({
+  deals: [],
+  walletTxns: [
+    { id: 40, date: "2026-08-31", entry_side: "expense", amount: 45_177, description: "振込 アビコ メイ" },
+    { id: 41, date: "2026-09-30", entry_side: "expense", amount: 44_187, description: "振込 アビコ メイ" },
+  ],
+  partnerNames: new Map(),
+});
+const abikoResult = buildSettlements({
+  outflows: abikoOutflows,
+  members: [...members, { member_id: "ID009", member_name: "安孫子 芽生", contractor_name: "安孫子 芽生" }],
+  notices: abikoNotices,
+  aliases: [{ alias: "アビコメイ", member_id: "ID009" }],
+});
+const augustTransfer = abikoResult.settlements.find((row) => row.amountYen === 45_177);
+const septemberTransfer = abikoResult.settlements.find((row) => row.amountYen === 44_187);
+check("8月の立替込み振込を8月通知書へ結ぶ", augustTransfer?.noticeYm === "202608" && augustTransfer.amountMatch === "exact", augustTransfer);
+check("9月の報酬のみの振込を9月通知書へ結ぶ", septemberTransfer?.noticeYm === "202609" && septemberTransfer.amountMatch === "exact", septemberTransfer);
+
+const karubeNotice: SettlementNoticeRow = { member_id: "ID003", ym: "202609", total_yen: 145_575, reimbursement_yen: 82_500 };
+check("8万2500円の立替込み振込額", expectedNoticePaymentYen(karubeNotice) === 242_633);
+const karubeReimbResult = buildSettlements({
+  outflows: mergeOutflows({
+    deals: [],
+    walletTxns: [{ id: 42, date: "2026-09-30", entry_side: "expense", amount: 242_633, description: "振込 カルベ タクマ" }],
+    partnerNames: new Map(),
+  }),
+  members,
+  notices: [karubeNotice],
+  aliases: [{ alias: "カルベタクマ", member_id: "ID003" }],
+});
+check("立替込みの振込を不一致にしない", karubeReimbResult.settlements[0]?.noticeYm === "202609" && karubeReimbResult.settlements[0]?.amountMatch === "exact", karubeReimbResult.settlements[0]);
+
+const repeatedNotices: SettlementNoticeRow[] = [
+  { member_id: "ID013", ym: "202609", total_yen: 40_000 },
+  { member_id: "ID013", ym: "202608", total_yen: 40_000 },
+];
+const repeatedResult = buildSettlements({
+  outflows: mergeOutflows({
+    deals: [],
+    walletTxns: [
+      { id: 43, date: "2026-08-31", entry_side: "expense", amount: 44_000, description: "振込 サカモト カズコ" },
+      { id: 44, date: "2026-09-30", entry_side: "expense", amount: 44_000, description: "振込 サカモト カズコ" },
+    ],
+    partnerNames: new Map(),
+  }),
+  members,
+  notices: repeatedNotices,
+  aliases: [{ alias: "サカモトカズコ", member_id: "ID013" }],
+});
+check("同額の通知書が続いても8月の振込は8月へ", repeatedResult.settlements.find((row) => row.paidOn === "2026-08-31")?.noticeYm === "202608", repeatedResult.settlements);
+check("同額の通知書が続いても9月の振込は9月へ", repeatedResult.settlements.find((row) => row.paidOn === "2026-09-30")?.noticeYm === "202609", repeatedResult.settlements);
+const noMatchResult = buildSettlements({
+  outflows: mergeOutflows({
+    deals: [],
+    walletTxns: [{ id: 45, date: "2026-09-15", entry_side: "expense", amount: 123_456, description: "振込 サカモト カズコ" }],
+    partnerNames: new Map(),
+  }),
+  members,
+  notices: repeatedNotices,
+  aliases: [{ alias: "サカモトカズコ", member_id: "ID013" }],
+});
+check("金額の根拠がない振込を近い月へ誤紐付けしない", noMatchResult.settlements[0]?.noticeYm === null && noMatchResult.settlements[0]?.amountMatch === "no_notice", noMatchResult.settlements[0]);
+
+const threeMonthNotices: SettlementNoticeRow[] = [
+  { member_id: "ID008", ym: "202609", total_yen: 8_190 },
+  { member_id: "ID008", ym: "202608", total_yen: 8_190 },
+  { member_id: "ID008", ym: "202606", total_yen: 8_190 },
+];
+const threeMonthResult = buildSettlements({
+  outflows: mergeOutflows({
+    deals: [],
+    walletTxns: [
+      { id: 46, date: "2026-06-30", entry_side: "expense", amount: 9_009, description: "振込 ウメモト リユウジ" },
+      { id: 47, date: "2026-08-31", entry_side: "expense", amount: 9_009, description: "振込 ウメモト リユウジ" },
+      { id: 48, date: "2026-09-30", entry_side: "expense", amount: 9_009, description: "振込 ウメモト リユウジ" },
+    ],
+    partnerNames: new Map(),
+  }),
+  members: [...members, { member_id: "ID008", member_name: "梅本 隆司", contractor_name: "うめちよプロダクション" }],
+  notices: threeMonthNotices,
+  aliases: [{ alias: "ウメモトリユウジ", member_id: "ID008" }],
+});
+for (const ym of ["202606", "202608", "202609"]) {
+  const row = threeMonthResult.settlements.find((item) => item.paidOn === `${ym.slice(0, 4)}-${ym.slice(4, 6)}-30` || item.paidOn === `${ym.slice(0, 4)}-${ym.slice(4, 6)}-31`);
+  check(`同額が3か月続いても ${ym} の振込は同じ支払月へ`, row?.noticeYm === ym && row.amountMatch === "exact", row);
+}
+const ambiguousResult = buildSettlements({
+  outflows: mergeOutflows({
+    deals: [],
+    walletTxns: [{ id: 49, date: "2026-09-15", entry_side: "expense", amount: 44_000, description: "振込 サカモト カズコ" }],
+    partnerNames: new Map(),
+  }),
+  members,
+  notices: repeatedNotices,
+  aliases: [{ alias: "サカモトカズコ", member_id: "ID013" }],
+});
+check("同額・等距離で支払月を決め打ちしない", ambiguousResult.settlements[0]?.noticeYm === null, ambiguousResult.settlements[0]);
 
 if (failures > 0) {
   console.error(`member payout matching contract: ${failures} 件 失敗`);

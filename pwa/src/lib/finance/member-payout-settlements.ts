@@ -11,7 +11,7 @@
  * 誰宛の支払かを決める手がかりは3つ。上から順に強い。
  *   1. `partner_name`  freee の取引に付いた取引先名 (漢字)。旧字体を吸収して氏名・屋号と照合する
  *   2. `transfer_alias` 口座明細の振込名義 (カタカナ)。過去に確定した振込から学習済みのもの
- *   3. `notice_amount` 支払通知書の税込額と1円単位で一致する振込。ここで確定したら、
+ *   3. `notice_amount` 報酬税込額 + 立替実費と1円単位で一致する振込。ここで確定したら、
  *                      その振込名義を 2 のエイリアスとして学習し、次からは金額が違っても拾える
  *
  * ここは検知と台帳化だけを行う。報酬計算 (`reward-summary.ts`) の未払い残や、報酬債務の控除
@@ -86,7 +86,7 @@ export async function loadSettlementInputs(db: SupabaseLike): Promise<{
 }> {
   const [membersRes, noticesRes, aliasesRes] = await Promise.all([
     db.from("members").select("member_id, code_name, member_name, contractor_name"),
-    db.from("payout_notices").select("member_id, ym, notice_no, total_yen, sent_at, paid_on"),
+    db.from("payout_notices").select("member_id, ym, notice_no, total_yen, reimbursement_yen, sent_at, paid_on"),
     db.from("member_bank_transfer_aliases").select("alias, member_id"),
   ]);
   if (membersRes.error) throw membersRes.error;

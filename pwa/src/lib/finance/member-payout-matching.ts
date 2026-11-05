@@ -36,6 +36,7 @@ export type SettlementNoticeRow = {
   ym: string;
   notice_no?: string | null;
   total_yen?: number | null;
+  reimbursement_yen?: number | null;
   sent_at?: string | null;
   paid_on?: string | null;
 };
@@ -153,9 +154,14 @@ export function matchMemberByName(
   return best ? { memberId: best.memberId, reason: best.reason } : null;
 }
 
+export function expectedNoticePaymentYen(notice: SettlementNoticeRow): number {
+  // 報酬にだけ消費税を加え、立替は実費のまま合算する。
+  return taxIncludedYen(yen(notice.total_yen)) + yen(notice.reimbursement_yen);
+}
+
 function classifyAmount(amountYen: number, notice: SettlementNoticeRow | null): SettlementRow["amountMatch"] {
   if (!notice) return "no_notice";
-  const expected = taxIncludedYen(yen(notice.total_yen));
+  const expected = expectedNoticePaymentYen(notice);
   const diff = expected - amountYen;
   if (Math.abs(diff) <= 3) return "exact";
   if (diff > 0 && diff <= TRANSFER_FEE_TOLERANCE_YEN) return "within_transfer_fee";
@@ -184,11 +190,24 @@ function pickNoticeForMember(
   const inWindow = notices.filter(
     (notice) => daysBetween(paidOn, noticeAnchorDate(notice.ym)) <= NOTICE_MATCH_WINDOW_DAYS
   );
-  const exact = inWindow.find((notice) => classifyAmount(amountYen, notice) === "exact");
-  if (exact) return exact;
-  const nearly = inWindow.find((notice) => classifyAmount(amountYen, notice) === "within_transfer_fee");
-  if (nearly) return nearly;
-  return inWindow.sort((a, b) => a.ym.localeCompare(b.ym))[0] ?? null;
+  // 同額の通知書が複数ある場合も、振込日に最も近い支払月へ結び付ける。
+  // 距離まで同じなら根拠不足として紐付けない。
+  const closest = (candidates: SettlementNoticeRow[]): SettlementNoticeRow | null => {
+    const ranked = candidates
+      .map((notice) => ({ notice, distance: daysBetween(paidOn, noticeAnchorDate(notice.ym)) }))
+      .sort((a, b) => a.distance - b.distance);
+    if (ranked.length > 1 && ranked[0].distance === ranked[1].distance) return null;
+    return ranked[0]?.notice ?? null;
+  };
+  const exact = inWindow.filter((notice) => classifyAmount(amountYen, notice) === "exact");
+  if (exact.length > 0) return closest(exact);
+  const nearly = inWindow.filter((notice) => classifyAmount(amountYen, notice) === "within_transfer_fee");
+  if (nearly.length > 0) {
+    const smallestFee = Math.min(...nearly.map((notice) => expectedNoticePaymentYen(notice) - amountYen));
+    return closest(nearly.filter((notice) => expectedNoticePaymentYen(notice) - amountYen === smallestFee));
+  }
+  // 金額に対応がない振込を、近い月というだけで通知書へ紐付けない。
+  return null;
 }
 
 function confidenceOf(
@@ -292,7 +311,7 @@ export function mergeOutflows(input: {
  *
  * freee には経費の立替精算やカード決済も同じ取引先名 (メンバー本人) で載る。摘要に本人の名前が
  * 出るだけで報酬の支払いに数えると、喫茶店の 3,440 円まで「支払った」ことになってしまう。
- * 数えるのは、口座からの振込か、支払通知書の税込額と1円単位で一致する支出だけにする。
+ * 数えるのは、口座からの振込か、支払通知書の報酬税込額 + 立替実費と1円単位で一致する支出だけにする。
  */
 function isRewardPayoutOutflow(outflow: RawOutflow, transferName: string | null, noticeExactHit: boolean): boolean {
   if (transferName) return true;
@@ -340,7 +359,7 @@ export function buildSettlements(input: {
       if (noticeHit) {
         memberId = noticeHit.member_id;
         method = "notice_amount";
-        reason = `支払通知書 ${noticeHit.ym} の税込額と1円単位で一致`;
+        reason = `支払通知書 ${noticeHit.ym} の支払予定額（報酬税込＋立替実費）と1円単位で一致`;
         if (transferName && !aliasMap.has(transferName)) {
           aliasMap.set(transferName, noticeHit.member_id);
           learnedAliases.push({
