@@ -13,9 +13,11 @@ import {
 import {
   type ChangeHistoryOperation,
   type ChangeHistoryRow,
-  displayFieldValue,
+  rowFieldValue,
+  targetLabel,
   fieldLabel,
   fieldsFor,
+  isRecordField,
   groupHistoryRows,
   recordKey,
   searchableText,
@@ -54,14 +56,17 @@ function formatDate(value: string, withSeconds = false) {
 }
 
 function DiffValues({ row }: { row: HistoryRow }) {
-  const fields = fieldsFor(row);
-  const shown = fields.slice(0, 8);
+  const fields = fieldsFor(row).filter((field) => !isRecordField(field) || ["revision", "report_revision", "schedule_revision", "version"].includes(field));
+  const shown = fields;
   if (shown.length === 0) {
     return <p className="text-xs text-muted-foreground">差分値なし</p>;
   }
 
   return (
     <div className="grid gap-px overflow-hidden rounded-md border border-border/70 bg-border/70">
+      <div className="grid grid-cols-[140px_minmax(0,1fr)_minmax(0,1fr)] bg-muted/40 text-[11px] font-semibold text-muted-foreground">
+        <span className="px-3 py-2">変更項目</span><span className="px-3 py-2">変更前</span><span className="px-3 py-2">変更後</span>
+      </div>
       {shown.map((field) => (
         <div
           key={field}
@@ -71,27 +76,13 @@ function DiffValues({ row }: { row: HistoryRow }) {
             {fieldLabel(field)}
           </div>
           <div className="grid min-w-0 gap-1 px-2.5 py-1.5 text-xs sm:grid-cols-[minmax(0,1fr)_20px_minmax(0,1fr)] sm:items-start">
-            {row.operation === "insert" ? (
-              <span className="min-w-0 break-words text-emerald-800 sm:col-span-3">
-                {displayFieldValue(field, row.after_values[field])}
-              </span>
-            ) : row.operation === "delete" ? (
-              <span className="min-w-0 break-words text-rose-800 line-through sm:col-span-3">
-                {displayFieldValue(field, row.before_values[field])}
-              </span>
-            ) : (
-              <>
-                <span className="min-w-0 break-words text-muted-foreground">
-                  {displayFieldValue(field, row.before_values[field], { compareWith: row.after_values[field] })}
-                </span>
-                <span className="text-center text-sky-600" aria-hidden="true">
-                  →
-                </span>
-                <span className="min-w-0 break-words font-medium text-foreground">
-                  {displayFieldValue(field, row.after_values[field], { compareWith: row.before_values[field] })}
-                </span>
-              </>
-            )}
+            <span className="min-w-0 whitespace-pre-wrap break-words text-muted-foreground">
+              {row.operation === "insert" ? "登録なし" : rowFieldValue(row, field, row.before_values[field], row.after_values[field])}
+            </span>
+            <span className="text-center text-sky-600" aria-hidden="true">→</span>
+            <span className="min-w-0 whitespace-pre-wrap break-words font-medium text-foreground">
+              {row.operation === "delete" ? "削除" : rowFieldValue(row, field, row.after_values[field], row.before_values[field])}
+            </span>
           </div>
         </div>
       ))}
@@ -165,7 +156,7 @@ function HistoryGroup({
   const detailsLabel = group.rows.length === 1 ? "詳細を展開" : `${group.rows.length}件の詳細を展開`;
 
   return (
-    <li className="min-w-0 py-1.5">
+    <li className="min-w-0 py-3">
       <div data-amie-disclosure-surface className="grid min-w-0 gap-1.5 lg:grid-cols-[150px_minmax(0,1fr)_auto] lg:items-start lg:gap-4">
         <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
           <Clock3 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -186,10 +177,10 @@ function HistoryGroup({
                 {group.rows.length}件
               </span>
             )}
-            <span className="min-w-0 break-words text-xs leading-4 text-foreground">{group.summary}</span>
+            <span className="min-w-0 break-words text-[13px] font-medium leading-5 text-foreground">{group.summary}</span>
           </div>
           <p className="mt-0.5 min-w-0 break-words text-[11px] text-muted-foreground">
-            {group.target} · {tableLabel(group.table_name)}
+            {group.rows.length > 1 ? group.target : tableLabel(group.table_name)}{group.rows.some((row) => row.entity_label_source === "current") ? " · 対象名は現在の台帳から表示" : ""}
           </p>
         </div>
         <div className="flex min-w-0 items-center justify-end gap-1">
@@ -208,13 +199,21 @@ function HistoryGroup({
             <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
               <div className="min-w-0 text-[11px] text-muted-foreground">
                 <time dateTime={row.occurred_at}>{formatDate(row.occurred_at, true)}</time>
-                <span className="mx-1">·</span>
-                <span className="break-all font-mono">{recordKey(row.record_pk)}</span>
+                <span className="ml-2 text-foreground">{targetLabel(row)}</span>
               </div>
-              <UndoButton row={row} onUndo={onUndo} undoing={undoingId === row.id} />
+              {group.rows.length > 1 && <UndoButton row={row} onUndo={onUndo} undoing={undoingId === row.id} />}
             </div>
-            <p className="mt-1 break-words text-xs font-medium text-foreground">{summaryForRow(row)}</p>
-            <DiffValues row={row} />
+            <div className="mt-2"><DiffValues row={row} /></div>
+            <details className="mt-2 text-[11px] text-muted-foreground">
+              <summary className="w-fit cursor-pointer rounded px-1 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">記録情報</summary>
+              <dl className="mt-1 grid min-w-0 grid-cols-[80px_minmax(0,1fr)] gap-x-3 gap-y-1 rounded border border-border/60 bg-muted/20 p-3">
+                <dt>対象の番号</dt><dd className="break-all font-mono">{recordKey(row.record_pk)}</dd>
+                <dt>保存先</dt><dd className="break-all font-mono">{row.table_name}</dd>
+                <dt>実行者の記録</dt><dd className="break-all">{row.actor_label}</dd>
+                <dt>履歴番号</dt><dd className="break-all font-mono">{row.id}</dd>
+              </dl>
+              <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap break-all rounded border border-border/60 bg-muted/20 p-3">{JSON.stringify({ 変更前: row.before_values, 変更後: row.after_values }, null, 2)}</pre>
+            </details>
           </div>
         ))}
       </div>}
@@ -258,7 +257,7 @@ export function AdminChangeHistoryClient() {
 
   const undo = useCallback(async (row: HistoryRow) => {
     if (!row.undo_supported || row.undo_of_history_id || row.undone_by_history_id) return;
-    if (!window.confirm(`${tableLabel(row.table_name)}の変更を戻す？\n\n現在値が履歴の変更後と一致する場合だけ実行する。戻し操作も新しい履歴として残る。`)) return;
+    if (!window.confirm(`${summaryForRow(row)}\n\nこの変更を戻す？\n\n現在値が履歴の変更後と一致する場合だけ実行する。戻し操作も新しい履歴として残る。`)) return;
     setUndoingId(row.id);
     setError(null);
     setMessage(null);
@@ -316,7 +315,7 @@ export function AdminChangeHistoryClient() {
           </div>
         </div>
         <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">
-          誰が、いつ、どのPJの何をどう変えたかを、変更要約で確認する。日時はすべて日本時間。元の差分と戻す操作は詳細に保管している。
+          日時は日本時間。元の差分と記録情報は、各履歴の詳細で確認できる。
         </p>
       </header>
 

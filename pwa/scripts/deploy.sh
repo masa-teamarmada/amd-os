@@ -153,6 +153,8 @@ echo "Running critical UI / spec rollback guard ..."
 (cd "$REPO_ROOT/pwa" && npm run test:h1-automation-safety)
 (cd "$REPO_ROOT/pwa" && npm run test:governance-drive-folder)
 
+(cd "$REPO_ROOT/pwa" && npm run test:data-change-history)
+
 echo "Running deploy rollback guard ..."
 node "$SCRIPT_DIR/deploy-version-guard.cjs" --target production --app-url "$APP_URL" --repo-root "$REPO_ROOT"
 

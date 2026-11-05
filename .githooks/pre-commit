@@ -66,4 +66,9 @@ if [ "$touches_pwa_src" -eq 1 ]; then
   node "$REPO_ROOT/pwa/scripts/check_pwa_critical_ui.cjs"
 fi
 
+# 履歴の表示名・要約形式を、保存先や画面の変更と同じcommitで点検する。
+if printf '%s\n' "$staged_files" | grep -Eq '^(ios/supabase/migrations/|pwa/src/(lib/change-history|app/api/admin/change-history|components/admin/AdminChangeHistory)|pwa/scripts/check_change_history)'; then
+  (cd "$REPO_ROOT/pwa" && npm run test:data-change-history)
+fi
+
 exit 0

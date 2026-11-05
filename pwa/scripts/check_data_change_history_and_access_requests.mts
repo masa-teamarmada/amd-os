@@ -9,13 +9,14 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const pwaRoot = path.resolve(scriptDir, "..");
 const repoRoot = path.resolve(pwaRoot, "..");
 
-const [migration, emailStart, slackInteractive, historyApi, historyUi, accessUi] = await Promise.all([
+const [migration, emailStart, slackInteractive, historyApi, historyUi, accessUi, historyContext] = await Promise.all([
   readFile(path.join(repoRoot, "ios/supabase/migrations/20260916223000_os_data_change_history_and_workspace_access_requests.sql"), "utf8"),
   readFile(path.join(pwaRoot, "src/app/api/auth/email-start/route.ts"), "utf8"),
   readFile(path.join(pwaRoot, "src/app/api/slack/interactive/route.ts"), "utf8"),
   readFile(path.join(pwaRoot, "src/app/api/admin/change-history/route.ts"), "utf8"),
   readFile(path.join(pwaRoot, "src/components/admin/AdminChangeHistoryClient.tsx"), "utf8"),
   readFile(path.join(pwaRoot, "src/components/admin/WorkspaceAccessAdminPanel.tsx"), "utf8"),
+  readFile(path.join(pwaRoot, "src/lib/change-history-context.ts"), "utf8"),
 ]);
 
 assert.deepEqual(workspaceAccessRequestTarget("/workspace/ehime"), {
@@ -66,7 +67,7 @@ assert.equal(groupHistoryRows([
   { ...presentationRow("auto-1", 21), actor_label: "OS自動処理", actor_source: "service_role", occurred_at: "2026-09-17T00:00:03.000Z" },
   { ...presentationRow("auto-2", 22), actor_label: "OS自動処理", actor_source: "service_role", occurred_at: "2026-09-17T00:00:00.000Z" },
 ]).length, 2, "時間が離れた自動処理は混ぜない");
-assert.match(summaryForRow({ ...presentationRow("task-1", 12), operation: "insert", after_values: { project_id: "p19", title: "新しいタスク" } }), /PJタスク「新しいタスク」を追加/, "追加対象の識別名を要約する");
+assert.match(summaryForRow({ ...presentationRow("task-1", 12), operation: "insert", after_values: { project_id: "p19", title: "新しいタスク" } }), /PJタスク「p19 · 新しいタスク」を追加/, "追加対象の識別名を要約する");
 
 const memberRow = (id: string, occurred_at: string, before: string, after: string) => ({
   ...presentationRow(id, 30, { member_id: id }),
@@ -125,10 +126,10 @@ assert.match(historyApi, /count: "planned"/, "全件の正確なCOUNTで先頭�
 assert.match(historyApi, /hasMore: Boolean\(nextPage\.data\?\.length\)/, "概数からページ有無を決めず実在する次の履歴で判定する");
 assert.match(historyUi, /totalIsEstimated \? "約"/, "統計上の概数を実件数として見せない");
 assert.match(historyApi, /PAGE_SIZE = 1000/, "同じ自動処理を狭いraw pageで分断しない");
-assert.match(historyApi, /from\("projects"\)/, "PJの表示名を台帳へ解決する");
-assert.match(historyApi, /from\("members"\)/, "メンバーの表示名を台帳から解決する");
-assert.match(historyApi, /select\("id,member_id,member_name,code_name"\)/, "メンバー表示名の解決でemailを取得しない");
-assert.match(historyApi, /\.in\("id",/, "履歴のrecord_pkに保存されたメンバーUUIDから表示名を解決する");
+assert.match(historyApi, /enrichChangeHistory/, "対象名の解決を共通処理へ委譲する");
+assert.match(historyContext, /nameFor/, "保存時点の名前と現在の台帳名を解決する");
+assert.match(historyContext, /select\("user_id,username"\)/, "ボス管理アカウントの内部メールを利用者名へ解決する");
+assert.doesNotMatch(historyContext, /select\([^)]*email/, "対象名の解決でメールアドレスを取得しない");
 
 assert.match(migration, /CREATE TABLE IF NOT EXISTS public\.workspace_access_requests/, "アクセス要求tableを作る");
 assert.match(migration, /workspace_claim_access_request_notification/, "Slack通知をatomic claimする");
@@ -156,7 +157,7 @@ assert.match(historyUi, /aria-expanded/, "詳細の開閉状態をアクセシ�
 assert.match(historyUi, /このページ.*操作.*対象/, "件数を人向けの文言で表示する");
 assert.match(historyUi, /row\.before_values\[field\]/, "変更前を表示する");
 assert.match(historyUi, /row\.after_values\[field\]/, "変更後を表示する");
-assert.match(historyUi, /compareWith: row\.after_values\[field\]/, "変更前後の日時表示に比較対象を渡す");
+assert.match(historyUi, /rowFieldValue\(row, field, row\.before_values\[field\], row\.after_values\[field\]\)/, "変更前後の日時表示に比較対象を渡す");
 assert.match(historyUi, /この変更を戻す/, "履歴行から戻し操作を実行できる");
 assert.match(historyUi, /現在値が履歴の変更後と一致する場合だけ/, "戻し操作の確認で安全条件を明示する");
 assert.match(historyUi, /戻し済み/, "戻し済み履歴を表示する");

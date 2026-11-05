@@ -1,3 +1,5 @@
+import catalog from "./change-history-catalog.json" with { type: "json" };
+
 export type ChangeHistoryOperation = "insert" | "update" | "delete";
 
 export type ChangeHistoryRow = {
@@ -18,6 +20,10 @@ export type ChangeHistoryRow = {
   undone_by_history_id: string | null;
   undone_at: string | null;
   transaction_id: number;
+  record_context?: { before?: Record<string, unknown>; after?: Record<string, unknown> };
+  reference_labels?: Record<string, string>;
+  actor_display_label?: string;
+  entity_label_source?: "recorded" | "current" | "unavailable";
   project_label?: string | null;
   entity_label?: string | null;
 };
@@ -40,86 +46,21 @@ export type ChangeHistoryGroup = {
   grouping: "single" | "transaction" | "automatic_batch";
 };
 
-const TABLE_LABELS: Record<string, string> = {
-  projects: "PJ台帳",
-  members: "メンバー台帳",
-  project_members: "PJメンバー",
-  project_management_tasks: "PJタスク",
-  project_questions: "論点",
-  project_question_actions: "TODO",
-  project_meeting_summaries: "会議記録",
-  project_management_field_audit: "PJ変更記録",
-  workspace_documents: "ワークスペース資料",
-  institution_workspace_memberships: "研究機関ワークスペース権限",
-  project_access_memberships: "個別PJ権限",
-  workspace_user_accounts: "外部アカウント",
-  value_milestones: "マイルストーン",
-  milestone_monthly_progress: "月次進捗",
-  project_actions: "PJアクション",
-  company_schedule_occurrences: "管理予定",
-  company_payment_obligations: "支払予定",
-};
-
-const FIELD_LABELS: Record<string, string> = {
-  title: "タスク名",
-  task_name: "タスク名",
-  status: "状態",
-  progress_pct: "進捗",
-  date_certainty: "日付確度",
-  date_precision: "日付確度",
-  deadline_precision: "期限精度",
-  owner_label: "担当",
-  owner_member_id: "担当者",
-  last_login_at: "最終ログイン",
-  last_verified_at: "最終確認",
-  version: "版",
-  updated_by: "更新者",
-  created_by: "作成者",
-  name: "名称",
-  project_name: "PJ名",
-  code_name: "コード名",
-  planned_start: "予定開始",
-  planned_end: "予定終了",
-  start_date: "開始日",
-  end_date: "終了日",
-  actual_end: "完了日",
-  next_deliverable: "次の成果物",
-  blocker: "阻害要因",
-  completion_criteria: "完了条件",
-  forecast_end: "見込み完了日",
-  forecast_change_reason: "見込み変更理由",
-  goal: "目的",
-  track: "区分",
-  confidence: "確度",
-  sort_order: "表示順",
-  source_kind: "入力元",
-  milestone_id: "マイルストーン",
-  description: "内容",
-  source_ref: "根拠",
-  email: "メールアドレス",
-  role: "権限",
-  active: "有効",
-  is_admin: "管理者",
-  field_name: "項目",
-  old_value: "変更前",
-  new_value: "変更後",
-  project_id: "PJ",
-  entity_id: "対象",
-  current_version: "現行版",
-  generation_state: "生成状態",
-  generated_at: "生成日時",
-  last_seen_at: "最終確認日時",
-  lifecycle_status: "有効状態",
-  superseded_at: "旧版化日時",
-  source_observed_at: "元データ確認日時",
-  source_fingerprint: "元データ識別子",
-  amount_yen: "金額",
-  due_on: "期日",
-  due_ym: "対象月",
-  category: "分類",
-};
+const TABLE_LABELS: Record<string, string> = Object.fromEntries(Object.entries(catalog.tables).map(([key, value]) => [key, value.label]));
+const FIELD_LABELS: Record<string, string> = catalog.fields;
 
 const VALUE_LABELS: Record<string, string> = {
+  ...catalog.values,
+  pending: "待機中", queued: "待機中", processing: "処理中", running: "実行中", claimed: "処理中",
+  sent: "送信済み", delivered: "配信済み", failed: "失敗", skipped: "見送り", suppressed: "通知抑止",
+  retry: "再試行待ち", expired: "期限切れ", draft: "下書き", ready: "準備完了", paused: "休止中",
+  rejected: "却下", accepted: "採用済み", reviewed: "確認済み", needs_review: "確認待ち",
+  manual: "手動", automatic: "自動", automation: "自動処理", system: "システム", user: "利用者",
+  readonly: "閲覧のみ", editor: "編集者", admin: "管理者", owner: "管理責任者",
+  insert: "追加", update: "変更", delete: "削除", service_role: "OS自動処理",
+  true: "はい", false: "いいえ", enabled: "有効", disabled: "無効", yes: "はい", no: "いいえ",
+  baseline: "基準時刻", report: "報告", reported: "報告済み", discord: "Discord", app: "アプリ",
+  active: "有効",
   tentative: "仮",
   confirmed: "確定",
   uncertain: "不確定",
@@ -131,7 +72,6 @@ const VALUE_LABELS: Record<string, string> = {
   completed: "完了",
   done: "完了",
   blocked: "停止中",
-  active: "有効",
   inactive: "無効",
   invited: "招待中",
   suspended: "停止",
@@ -145,11 +85,11 @@ const VALUE_LABELS: Record<string, string> = {
 };
 
 export function tableLabel(table: string) {
-  return TABLE_LABELS[table] ?? table;
+  return TABLE_LABELS[table] ?? "追加されたデータ（表示名未登録）";
 }
 
 export function fieldLabel(field: string) {
-  return FIELD_LABELS[field] ?? field.replaceAll("_", " ");
+  return FIELD_LABELS[field] ?? "追加された項目（表示名未登録）";
 }
 
 export function displayValue(value: unknown, maxLength = 80): string {
@@ -157,7 +97,7 @@ export function displayValue(value: unknown, maxLength = 80): string {
   if (value === undefined) return "—";
   if (typeof value === "boolean") return value ? "はい" : "いいえ";
   if (typeof value === "string") {
-    const label = VALUE_LABELS[value] ?? value;
+    const label = isOpaqueValue(value) ? "参照先の名称未記録" : value.replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/gi, "参照先の番号");
     return label.length > maxLength ? `${label.slice(0, maxLength)}…` : label || "空欄";
   }
   if (typeof value === "number") return new Intl.NumberFormat("ja-JP").format(value);
@@ -233,45 +173,97 @@ export function formatAuditDateTime(value: unknown, options: { includeSeconds?: 
   return options.includeMilliseconds ? `${base}.${String(date.getMilliseconds()).padStart(3, "0")}` : base;
 }
 
+export function historyContext(row: ChangeHistoryRow) {
+  return row.record_context?.[row.operation === "delete" ? "before" : "after"] ?? {};
+}
+
 function values(row: ChangeHistoryRow) {
-  return row.operation === "delete" ? row.before_values : row.after_values;
+  return { ...historyContext(row), ...(row.operation === "delete" ? row.before_values : row.after_values) };
 }
 
 function projectKey(row: ChangeHistoryRow) {
-  const value = values(row);
-  return value.project_id ?? row.record_pk.project_id ?? null;
+  return values(row).project_id ?? row.record_pk.project_id ?? null;
+}
+
+export function isOpaqueValue(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(value) || /^[0-9a-f]{32,}$/i.test(value);
+}
+
+export function actorLabel(row: ChangeHistoryRow) {
+  if (row.actor_display_label) return row.actor_display_label;
+  if (/@accounts\.l2m\.invalid$/.test(row.actor_label)) return "ボス管理の利用者（名前未取得）";
+  return isOpaqueValue(row.actor_label) ? "実行者の名前未記録" : row.actor_label;
 }
 
 export function targetLabel(row: ChangeHistoryRow) {
   const value = values(row);
   const project = row.project_label || value.project_id || row.record_pk.project_id;
-  const entity = value.entity_id || row.record_pk.entity_id;
-  const field = value.field_name;
-  return [project ? String(project) : null, row.entity_label || (entity ? `対象 ${displayValue(entity, 28)}` : null), field ? `項目 ${fieldLabel(String(field))}` : null]
-    .filter(Boolean)
-    .join(" · ") || recordKey(row.record_pk);
+  const name = row.entity_label || ["title", "name", "display_name", "member_name", "project_name", "task_name", "item_title", "title_snapshot", "short_name", "code_name"]
+    .map((field) => value[field]).find((v) => typeof v === "string" && v.trim() && !isOpaqueValue(v));
+  const period = value.week_start || value.ym;
+  return [project ? displayValue(project, 100) : null, name ? displayValue(name, 160) : null,
+    period ? `対象：${displayFieldValue(value.week_start ? "week_start" : "ym", period)}` : null]
+    .filter(Boolean).join(" · ") || `${tableLabel(row.table_name)}（対象名の記録なし）`;
 }
 
+/** 原値は「記録情報」に限定する。 */
 export function recordKey(recordPk: Record<string, unknown>) {
   const entries = Object.entries(recordPk);
   if (entries.length === 0) return "行ID未取得";
-  return entries.map(([key, value]) => `${key}: ${displayValue(value, 40)}`).join(" / ");
+  return entries.map(([key, value]) => `${key}: ${String(value)}`).join(" / ");
 }
 
 function changedFields(row: ChangeHistoryRow) {
-  if (row.operation === "update") return row.changed_fields;
-  return Object.keys(values(row)).filter((key) => !["created_at", "updated_at"].includes(key));
+  return row.operation === "update" ? row.changed_fields : Object.keys(row.operation === "delete" ? row.before_values : row.after_values)
+    .filter((key) => !["created_at", "updated_at"].includes(key));
 }
 
-export function displayFieldValue(field: string, value: unknown, options: DisplayFieldValueOptions = {}) {
-  if (isDateField(field, value)) {
-    const renderedDate = formatAuditDateTime(value, {
-      includeMilliseconds: needsMilliseconds(value, options.compareWith),
-    });
-    if (renderedDate) return renderedDate;
+export function isRecordField(field: string) {
+  return /^(id|revision|report_revision|schedule_revision|version|transaction_id|source_fingerprint|source_dedupe_key)$/.test(field)
+    || /(_hash|_sha256|_fingerprint|_token|_ciphertext)$/.test(field);
+}
+
+export function displayFieldValue(field: string, value: unknown, options: DisplayFieldValueOptions = {}): string {
+  if (isDateField(field, value) || (typeof value === "string" && isDateOnlyValue(value))) {
+    const rendered = formatAuditDateTime(value, { includeMilliseconds: needsMilliseconds(value, options.compareWith) });
+    if (rendered) return rendered;
   }
-  const rendered = displayValue(value);
-  return field === "progress_pct" && value !== null && value !== undefined ? `${rendered}%` : rendered;
+  if (Array.isArray(value)) return value.length ? value.map((v) => displayFieldValue(field, v)).join("、") : "なし";
+  if (value && typeof value === "object") {
+    return Object.entries(value).map(([key, v]) => `${fieldLabel(key)}：${displayFieldValue(key, v)}`).join(" ／ ") || "なし";
+  }
+  if (typeof value === "string") {
+    if (field === "field_name") return fieldLabel(value);
+    if (field === "table_name") return tableLabel(value);
+    if (catalog.enumFields.includes(field) || /(^|_)(status|state|role|kind|type)$/.test(field)) {
+      return VALUE_LABELS[value] ?? (/^[a-z]+(?:_[a-z0-9]+)+$/.test(value) ? "新しい値（表示名未登録）" : displayValue(value, 600));
+    }
+  }
+  const rendered = displayValue(value, 600);
+  return field === "progress_pct" && value != null ? `${rendered}%` : rendered;
+}
+
+export function rowFieldValue(row: ChangeHistoryRow, field: string, value: unknown, compareWith?: unknown) {
+  return row.reference_labels?.[`${field}:${String(value)}`] ?? displayFieldValue(field, value, { compareWith });
+}
+
+function subject(row: ChangeHistoryRow) {
+  const name = targetLabel(row);
+  return name === `${tableLabel(row.table_name)}（対象名の記録なし）` ? name : `${tableLabel(row.table_name)}「${name}」`;
+}
+
+function priorityFields(row: ChangeHistoryRow) {
+  const fields = changedFields(row);
+  const priority = ["status", "title", "name", "progress_pct", "next_spawn_at", "accepted_report_id", "scheduled_for", "planned_end", "due_on", "amount_yen"];
+  return [...fields].sort((a, b) => {
+    const score = (f: string) => isRecordField(f) || /^(metadata|payload|raw_meta)/.test(f) ? 1000 : priority.includes(f) ? priority.indexOf(f) : /(_at|_id)$/.test(f) ? 100 : 50;
+    return score(a) - score(b);
+  });
+}
+
+function changeText(row: ChangeHistoryRow, field: string) {
+  const short = (value: string) => value.length > 100 ? `${value.slice(0, 100)}…` : value;
+  return `${fieldLabel(field)}: ${short(rowFieldValue(row, field, row.before_values[field], row.after_values[field]))} → ${short(rowFieldValue(row, field, row.after_values[field], row.before_values[field]))}`;
 }
 
 function memberId(row: ChangeHistoryRow) {
@@ -317,25 +309,19 @@ function memberLastLoginSummary(rows: ChangeHistoryRow[]) {
 }
 
 function batchSummary(rows: ChangeHistoryRow[]) {
-  if (rows.length > 0 && rows.every(isMemberLastLoginRow)) return memberLastLoginSummary(rows);
+  if (rows.every(isMemberLastLoginRow)) return memberLastLoginSummary(rows);
   const first = rows[0];
-  const projectKeys = new Set(rows.map(projectKey));
-  const value = values(first);
-  const project = projectKeys.size === 1 ? first.project_label || value.project_id || first.record_pk.project_id : null;
-  const prefix = project ? `${String(project)} ` : "";
-  const counts = rows.reduce<Record<ChangeHistoryOperation, number>>((result, row) => {
-    result[row.operation] += 1;
-    return result;
-  }, { insert: 0, update: 0, delete: 0 });
-  const parts = [
-    counts.insert ? `追加${counts.insert}` : null,
-    counts.update ? `変更${counts.update}` : null,
-    counts.delete ? `削除${counts.delete}` : null,
-  ].filter(Boolean);
-  const action = parts.length === 1
-    ? first.operation === "insert" ? "追加" : first.operation === "delete" ? "削除" : "変更"
-    : `一括処理（${parts.join("・")}）`;
-  return `${prefix}${tableLabel(first.table_name)}を${rows.length}件${action}`;
+  const action = first.operation === "insert" ? "追加" : first.operation === "delete" ? "削除" : "変更";
+  if (first.operation !== "update") return `${tableLabel(first.table_name)}を${rows.length}件${action}`;
+  // 同じ処理でも内容が異なる場合は、差分の種類と件数を必ず残す。
+  const patterns = new Map<string, number>();
+  for (const row of rows) {
+    const fields = priorityFields(row);
+    const text = fields.slice(0, 2).map((f) => changeText(row, f)).join(" ／ ") + (fields.length > 2 ? ` ほか${fields.length - 2}項目` : "");
+    patterns.set(text || "変更項目の記録なし", (patterns.get(text || "変更項目の記録なし") ?? 0) + 1);
+  }
+  const changes = [...patterns].slice(0, 3).map(([text, count]) => `${text}（${count}件）`).join(" ／ ");
+  return `${tableLabel(first.table_name)}を${rows.length}件変更：${changes}${patterns.size > 3 ? ` ／ ほか${patterns.size - 3}種類の変更` : ""}`;
 }
 
 const AUTOMATIC_BATCH_MAX_GAP_MS = 1_000;
@@ -352,27 +338,14 @@ export function summaryForRow(row: ChangeHistoryRow) {
     return `メンバー「${memberSubject(row)}」の最終ログイン：${displayFieldValue("last_login_at", before, { compareWith: after })} → ${displayFieldValue("last_login_at", after, { compareWith: before })}`;
   }
   const value = values(row);
-  const project = row.project_label || value.project_id || row.record_pk.project_id;
-  const prefix = project ? `${String(project)} ` : "";
-  const subject = row.entity_label
-    ? `${tableLabel(row.table_name)}「${displayValue(row.entity_label, 60)}」`
-    : tableLabel(row.table_name);
   if (row.table_name === "project_management_field_audit") {
     const field = value.field_name ? fieldLabel(String(value.field_name)) : "項目";
-    return `${prefix}${field}: ${displayValue(value.old_value)} → ${displayValue(value.new_value)}`;
+    return `${targetLabel(row)} ${field}: ${displayFieldValue(String(value.field_name ?? ""), value.old_value)} → ${displayFieldValue(String(value.field_name ?? ""), value.new_value)}`;
   }
-  const fields = changedFields(row);
-  const first = fields[0];
-  if (row.operation === "update" && first) {
-    const changes = fields.slice(0, 2).map((field) => `${fieldLabel(field)}: ${displayFieldValue(field, row.before_values[field])} → ${displayFieldValue(field, row.after_values[field])}`);
-    const more = fields.length > changes.length ? ` ほか${fields.length - changes.length}項目` : "";
-    return `${prefix}${subject} ${changes.join(" ／ ")}${more}`;
-  }
-  const action = row.operation === "insert" ? "追加" : "削除";
-  const nameField = ["title", "name", "project_name", "code_name", "task_name"].find((field) => value[field] !== undefined && value[field] !== null && value[field] !== "");
-  if (nameField) return `${prefix}${tableLabel(row.table_name)}「${displayValue(value[nameField], 60)}」を${action}`;
-  const field = first ? fieldLabel(first) : tableLabel(row.table_name);
-  return `${prefix}${subject}を${action}（${field}）`;
+  if (row.operation !== "update") return `${subject(row)}を${row.operation === "insert" ? "追加" : "削除"}`;
+  const fields = priorityFields(row);
+  const changes = fields.slice(0, 2).map((field) => changeText(row, field));
+  return `${subject(row)} ${changes.join(" ／ ") || "変更項目の記録なし"}${fields.length > 2 ? ` ほか${fields.length - 2}項目` : ""}`;
 }
 
 export function groupHistoryRows(rows: ChangeHistoryRow[]): ChangeHistoryGroup[] {
@@ -385,7 +358,8 @@ export function groupHistoryRows(rows: ChangeHistoryRow[]): ChangeHistoryGroup[]
       && previousMemberId === currentMemberId;
     const sameTransaction = previous
       && previous.transaction_id === row.transaction_id
-      && previous.actor_label === row.actor_label
+      && previous.actor_label === actorLabel(row)
+      && previous.rows[0].actor_id === row.actor_id
       && previous.table_name === row.table_name
       && previous.rows[0].operation === row.operation
       && projectKey(previous.rows[0]) === projectKey(row)
@@ -397,7 +371,8 @@ export function groupHistoryRows(rows: ChangeHistoryRow[]): ChangeHistoryGroup[]
       && previousRow
       && previousRow.actor_source === "service_role"
       && row.actor_source === "service_role"
-      && previous.actor_label === row.actor_label
+      && previous.actor_label === actorLabel(row)
+      && previous.rows[0].actor_id === row.actor_id
       && previous.table_name === row.table_name
       && previous.rows[0].operation === row.operation
       && projectKey(previous.rows[0]) === projectKey(row)
@@ -412,7 +387,10 @@ export function groupHistoryRows(rows: ChangeHistoryRow[]): ChangeHistoryGroup[]
       previous.last_occurred_at = row.occurred_at;
       previous.summary = batchSummary(previous.rows);
       previous.grouping = sameAutomaticBatch ? "automatic_batch" : "transaction";
-      previous.target = sameAutomaticBatch ? "同じ自動処理として集約" : "同じ一括処理として集約";
+      const targets = [...new Set(previous.rows.map(targetLabel))];
+      const parts = targets[0].split(" / ");
+      while (parts.length && !targets.every((target) => target === parts.join(" / ") || target.startsWith(`${parts.join(" / ")} / `))) parts.pop();
+      previous.target = parts.length ? parts.join(" / ") : targets.slice(0, 2).join(" ／ ") + (targets.length > 2 ? ` ほか${targets.length - 2}対象` : "");
       continue;
     }
     groups.push({
@@ -420,7 +398,7 @@ export function groupHistoryRows(rows: ChangeHistoryRow[]): ChangeHistoryGroup[]
       rows: [row],
       occurred_at: row.occurred_at,
       last_occurred_at: row.occurred_at,
-      actor_label: row.actor_label,
+      actor_label: actorLabel(row),
       actor_source: row.actor_source,
       table_name: row.table_name,
       transaction_id: row.transaction_id,
@@ -434,11 +412,11 @@ export function groupHistoryRows(rows: ChangeHistoryRow[]): ChangeHistoryGroup[]
 
 export function searchableText(row: ChangeHistoryRow) {
   return [
-    summaryForRow(row), targetLabel(row), row.table_name, tableLabel(row.table_name), row.actor_label,
+    summaryForRow(row), targetLabel(row), row.table_name, tableLabel(row.table_name), row.actor_label, actorLabel(row),
     ...row.changed_fields.map(fieldLabel), recordKey(row.record_pk),
   ].join(" ").toLowerCase();
 }
 
 export function fieldsFor(row: ChangeHistoryRow) {
-  return changedFields(row);
+  return priorityFields(row);
 }

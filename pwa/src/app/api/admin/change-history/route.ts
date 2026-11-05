@@ -1,3 +1,5 @@
+import { enrichChangeHistory } from "@/lib/change-history-context";
+import type { ChangeHistoryRow } from "@/lib/change-history-presentation";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
@@ -43,7 +45,7 @@ export async function GET(request: Request) {
   let query = db
     .from("amd_os_data_change_history")
     .select(
-      "id,occurred_at,table_name,operation,record_pk,actor_id,actor_label,actor_source,changed_fields,before_values,after_values,undo_supported,undo_block_reason,undo_of_history_id,transaction_id",
+      "id,occurred_at,table_name,operation,record_pk,record_context,actor_id,actor_label,actor_source,changed_fields,before_values,after_values,undo_supported,undo_block_reason,undo_of_history_id,transaction_id",
       { count: "planned" },
     )
     .order("occurred_at", { ascending: false })
@@ -95,99 +97,14 @@ export async function GET(request: Request) {
     }
   }
 
-  const entityMetadata = new Map<string, { label: string; projectId: string | null }>();
-  const memberMetadata = new Map<string, { label: string }>();
-  const memberRecordIds = historyRows
-    .filter((row) => row.table_name === "members")
-    .map((row) => row.record_pk?.id)
-    .filter((value): value is string => Boolean(value));
-  if (memberRecordIds.length > 0) {
-    const { data: members, error: membersError } = await db
-      .from("members")
-      .select("id,member_id,member_name,code_name")
-      .in("id", [...new Set(memberRecordIds)]);
-    if (membersError) {
-      console.error("[admin/change-history] member labels load failed:", membersError.message);
-    } else {
-      for (const member of (members ?? []) as Array<{ id: string; member_id: string; member_name: string | null; code_name: string | null }>) {
-        const memberName = member.member_name?.trim();
-        const codeName = member.code_name?.trim();
-        const subject = memberName && codeName && memberName !== codeName
-          ? `${memberName}（${codeName} / ${member.member_id}）`
-          : `${memberName || codeName || "氏名未登録"}（${member.member_id}）`;
-        memberMetadata.set(member.id, { label: subject });
-        memberMetadata.set(member.member_id, { label: subject });
-      }
-    }
-  }
-  const taskIds = historyRows
-    .filter((row) => row.table_name === "project_management_tasks")
-    .map((row) => row.record_pk?.id)
-    .filter((value): value is string => typeof value === "string");
-  const actionIds = historyRows
-    .filter((row) => row.table_name === "project_actions")
-    .map((row) => row.record_pk?.id)
-    .filter((value): value is string => typeof value === "string");
-  const [taskResult, actionResult] = await Promise.all([
-    taskIds.length > 0
-      ? db.from("project_management_tasks").select("id,title,project_id").in("id", [...new Set(taskIds)])
-      : Promise.resolve({ data: [], error: null }),
-    actionIds.length > 0
-      ? db.from("project_actions").select("id,title,project_id").in("id", [...new Set(actionIds)])
-      : Promise.resolve({ data: [], error: null }),
-  ]);
-  if (taskResult.error || actionResult.error) {
-    console.error("[admin/change-history] entity labels load failed:", taskResult.error?.message ?? actionResult.error?.message);
-  }
-  for (const task of (taskResult.data ?? []) as Array<{ id: string; title: string | null; project_id: string | null }>) {
-    if (task.title) entityMetadata.set(`project_management_tasks:${task.id}`, { label: task.title, projectId: task.project_id });
-  }
-  for (const action of (actionResult.data ?? []) as Array<{ id: string; title: string | null; project_id: string | null }>) {
-    if (action.title) entityMetadata.set(`project_actions:${action.id}`, { label: action.title, projectId: action.project_id });
-  }
-
-  const projectIds = [...new Set(historyRows.flatMap((row) => {
-    const values = [row.record_pk, row.before_values, row.after_values];
-    const recordId = typeof row.record_pk?.id === "string" ? row.record_pk.id : null;
-    const entityProjectId = recordId ? entityMetadata.get(`${row.table_name}:${recordId}`)?.projectId : null;
-    return [...values.flatMap((value) => value?.project_id), entityProjectId].filter((value): value is string => typeof value === "string");
-  }))];
-  const projectLabels = new Map<string, string>();
-  if (projectIds.length > 0) {
-    const { data: projects, error: projectsError } = await db
-      .from("projects")
-      .select("project_id,project_name")
-      .in("project_id", projectIds);
-    if (projectsError) {
-      console.error("[admin/change-history] project labels load failed:", projectsError.message);
-    } else {
-      for (const project of (projects ?? []) as Array<{ project_id: string; project_name: string | null }>) {
-        projectLabels.set(project.project_id, `${project.project_id}${project.project_name ? ` ${project.project_name}` : ""}`);
-      }
-    }
-  }
-
+  const labeledRows = await enrichChangeHistory(db, historyRows as ChangeHistoryRow[]);
   return NextResponse.json({
     ok: true,
-    rows: historyRows.map((row) => {
-      const recordId = typeof row.record_pk?.id === "string" ? row.record_pk.id : null;
-      const entity = recordId ? entityMetadata.get(`${row.table_name}:${recordId}`) : null;
-      const projectId = [row.record_pk, row.before_values, row.after_values]
-        .map((value) => value?.project_id)
-        .find((value): value is string => typeof value === "string") ?? entity?.projectId;
-      const memberId = row.table_name === "members"
-        ? [row.record_pk?.id, row.record_pk?.member_id, row.before_values?.member_id, row.after_values?.member_id]
-          .find((value): value is string => typeof value === "string" && value.length > 0)
-        : null;
-      const memberLabel = memberId ? memberMetadata.get(memberId)?.label : null;
-      return {
-        ...row,
-        project_label: projectId ? projectLabels.get(projectId) ?? null : null,
-        entity_label: memberLabel ?? entity?.label ?? null,
-        undone_by_history_id: undoneByHistoryId.get(row.id)?.id ?? null,
-        undone_at: undoneByHistoryId.get(row.id)?.occurred_at ?? null,
-      };
-    }),
+    rows: labeledRows.map((row) => ({
+      ...row,
+      undone_by_history_id: undoneByHistoryId.get(row.id)?.id ?? null,
+      undone_at: undoneByHistoryId.get(row.id)?.occurred_at ?? null,
+    })),
     page,
     pageSize: PAGE_SIZE,
     total: count,

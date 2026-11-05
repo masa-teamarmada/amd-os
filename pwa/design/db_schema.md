@@ -227,6 +227,7 @@ PRIMARY KEY: `id`
 | 16 | `undo_block_reason` | `text` | NULL | `` |
 | 17 | `undo_of_history_id` | `uuid` | NULL | `` |
 | 18 | `transaction_id` | `int8` | NOT NULL | `txid_current()` |
+| 19 | `record_context` | `jsonb` | NOT NULL | `'{}'::jsonb` |
 
 ## amd_score_alpha
 
