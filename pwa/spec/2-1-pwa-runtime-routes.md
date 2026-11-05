@@ -163,7 +163,7 @@ DDのトップ、旧掲載項目、編集のページ入口は、内部memberま
 | `/admin/japanese-culture-map` | 日本文化マップ。`jp_culture_items` の active 行を、admin layout gate 内でマインドマップ / 日本地図として読む。旧 `/japanese-culture-map` はこの route へ redirect |
 | `/admin/management-knowledge` | 経営ノウハウ。事業化ルート、座組、価格、資金、法務論点などの再利用カードを保存する admin-only 台帳 |
 | `/admin/private-wiki` | 裏wiki。人物単位の趣味・関係性メモを PJ 別に保存する admin-only 台帳 |
-| `/admin/change-history` | 管理者用のデータ変更履歴。対象名・変更項目・変更前→変更後を日本語で表示。一括処理にも差分と件数を表示し、全項目・戻す操作・内部の記録情報を詳細で確認する。保存時点の対象名はDB triggerで記録し、現在の台帳名の使用は明記する。形式・保存・追加漏れ検査の正本はspec5-2「データ変更履歴の表示・保存契約」 |
+| `/admin/change-history` | 管理者用のAMD OSデータ変更履歴。L2M専用データは対象外。対象名・変更項目・変更前→変更後を日本語で表示。一括処理にも差分と件数を表示し、全項目・戻す操作・内部の記録情報を詳細で確認する。保存時点の対象名はDB triggerで記録し、現在の台帳名の使用は明記する。形式・保存・追加漏れ検査の正本はspec5-2「データ変更履歴の表示・保存契約」 |
 | `/notifications` | L2 candidate / feedback の採否 |
 | `/proactive` | admin 限定の先手 TODO リスト。`proactive_todos` の open / blocked / done / dismissed を期限順に確認し、完了・ブロック・関係ないの3ボタンで処理する |
 | `/admin/management-score` | AdminのManagement（経営状況）。管理者・portfolio限定 |

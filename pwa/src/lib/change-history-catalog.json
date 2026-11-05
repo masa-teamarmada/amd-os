@@ -434,130 +434,6 @@
       ],
       "references": {}
     },
-    "boss_baseline_occurrences": {
-      "label": "ボスの基準出現予定",
-      "key": [
-        "id"
-      ],
-      "context": [
-        "id",
-        "spawn_at",
-        "server_boss_id"
-      ],
-      "references": {
-        "server_boss_id": {
-          "table": "server_bosses",
-          "key": "id"
-        }
-      }
-    },
-    "boss_catalog": {
-      "label": "ボス一覧",
-      "key": [
-        "id"
-      ],
-      "context": [
-        "id",
-        "display_name",
-        "short_name"
-      ],
-      "references": {}
-    },
-    "boss_notification_jobs": {
-      "label": "ボス出現の通知予約",
-      "key": [
-        "id"
-      ],
-      "context": [
-        "id",
-        "scheduled_for",
-        "lead_minutes",
-        "game_server_id",
-        "server_boss_id",
-        "baseline_occurrence_id",
-        "report_occurrence_id"
-      ],
-      "references": {
-        "server_boss_id": {
-          "table": "server_bosses",
-          "key": "id"
-        },
-        "baseline_occurrence_id": {
-          "table": "boss_baseline_occurrences",
-          "key": "id"
-        },
-        "report_occurrence_id": {
-          "table": "boss_report_occurrences",
-          "key": "id"
-        },
-        "game_server_id": {
-          "table": "game_servers",
-          "key": "id"
-        }
-      }
-    },
-    "boss_report_occurrences": {
-      "label": "報告に基づくボス出現予定",
-      "key": [
-        "id"
-      ],
-      "context": [
-        "id",
-        "spawn_at",
-        "server_boss_id",
-        "accepted_report_id"
-      ],
-      "references": {
-        "accepted_report_id": {
-          "table": "boss_reports",
-          "key": "id"
-        },
-        "server_boss_id": {
-          "table": "server_bosses",
-          "key": "id"
-        }
-      }
-    },
-    "boss_reports": {
-      "label": "ボス討伐報告",
-      "key": [
-        "id"
-      ],
-      "context": [
-        "id",
-        "killed_at",
-        "game_server_id",
-        "server_boss_id"
-      ],
-      "references": {
-        "game_server_id": {
-          "table": "game_servers",
-          "key": "id"
-        }
-      }
-    },
-    "boss_schedules": {
-      "label": "ボスの次回出現予定",
-      "key": [
-        "server_boss_id"
-      ],
-      "context": [
-        "server_boss_id",
-        "next_spawn_at",
-        "game_server_id",
-        "accepted_report_id"
-      ],
-      "references": {
-        "game_server_id": {
-          "table": "game_servers",
-          "key": "id"
-        },
-        "accepted_report_id": {
-          "table": "boss_reports",
-          "key": "id"
-        }
-      }
-    },
     "business_card_project_links": {
       "label": "名刺とPJの対応",
       "key": [
@@ -1412,22 +1288,6 @@
         }
       }
     },
-    "discord_sources": {
-      "label": "Discordの取得元",
-      "key": [
-        "id"
-      ],
-      "context": [
-        "id",
-        "game_server_id"
-      ],
-      "references": {
-        "game_server_id": {
-          "table": "game_servers",
-          "key": "id"
-        }
-      }
-    },
     "eimi_slack_usage_log": {
       "label": "えいみのSlack利用量",
       "key": [
@@ -1517,18 +1377,6 @@
       "context": [
         "id",
         "project_id"
-      ],
-      "references": {}
-    },
-    "game_servers": {
-      "label": "ゲームサーバー",
-      "key": [
-        "id"
-      ],
-      "context": [
-        "id",
-        "display_name",
-        "world_name"
       ],
       "references": {}
     },
@@ -1983,27 +1831,6 @@
       ],
       "references": {}
     },
-    "l2m_boss_auth_attempts": {
-      "label": "ボス管理のログイン試行",
-      "key": [
-        "attempt_key"
-      ],
-      "context": [
-        "attempt_key"
-      ],
-      "references": {}
-    },
-    "l2m_boss_pin_accounts": {
-      "label": "ボス管理の利用アカウント",
-      "key": [
-        "user_id"
-      ],
-      "context": [
-        "user_id",
-        "username"
-      ],
-      "references": {}
-    },
     "lane_suggestions": {
       "label": "事業領域の提案",
       "key": [
@@ -2282,51 +2109,6 @@
         }
       }
     },
-    "member_boss_notification_settings": {
-      "label": "ボス通知の個人設定",
-      "key": [
-        "user_id"
-      ],
-      "context": [
-        "user_id"
-      ],
-      "references": {}
-    },
-    "member_boss_preferences": {
-      "label": "ボス別の個人設定",
-      "key": [
-        "id"
-      ],
-      "context": [
-        "id",
-        "user_id",
-        "game_server_id",
-        "server_boss_id"
-      ],
-      "references": {
-        "game_server_id": {
-          "table": "game_servers",
-          "key": "id"
-        }
-      }
-    },
-    "member_boss_server_visibility": {
-      "label": "ボス管理の表示サーバー",
-      "key": [
-        "game_server_id",
-        "user_id"
-      ],
-      "context": [
-        "game_server_id",
-        "user_id"
-      ],
-      "references": {
-        "game_server_id": {
-          "table": "game_servers",
-          "key": "id"
-        }
-      }
-    },
     "member_knowledge": {
       "label": "メンバーの知識",
       "key": [
@@ -2443,23 +2225,6 @@
         "milestone_id"
       ],
       "references": {}
-    },
-    "member_notification_preferences": {
-      "label": "通知の個人設定",
-      "key": [
-        "game_server_id",
-        "user_id"
-      ],
-      "context": [
-        "game_server_id",
-        "user_id"
-      ],
-      "references": {
-        "game_server_id": {
-          "table": "game_servers",
-          "key": "id"
-        }
-      }
     },
     "member_payout_settlements": {
       "label": "メンバーへの支払確定",
@@ -2878,27 +2643,6 @@
         "project_id"
       ],
       "references": {}
-    },
-    "notification_deliveries": {
-      "label": "通知の配信記録",
-      "key": [
-        "id"
-      ],
-      "context": [
-        "id",
-        "subscription_id",
-        "job_id"
-      ],
-      "references": {
-        "subscription_id": {
-          "table": "web_push_subscriptions",
-          "key": "id"
-        },
-        "job_id": {
-          "table": "boss_notification_jobs",
-          "key": "id"
-        }
-      }
     },
     "observation_log": {
       "label": "外部動向の観測",
@@ -5426,23 +5170,6 @@
       ],
       "references": {}
     },
-    "push_devices": {
-      "label": "通知先端末",
-      "key": [
-        "id"
-      ],
-      "context": [
-        "id",
-        "user_id",
-        "game_server_id"
-      ],
-      "references": {
-        "game_server_id": {
-          "table": "game_servers",
-          "key": "id"
-        }
-      }
-    },
     "reimbursements": {
       "label": "立替精算",
       "key": [
@@ -5731,60 +5458,6 @@
         "amd_owner_member_id": {
           "table": "members",
           "key": "member_id"
-        }
-      }
-    },
-    "server_bosses": {
-      "label": "サーバー別のボス設定",
-      "key": [
-        "id"
-      ],
-      "context": [
-        "id",
-        "game_server_id",
-        "boss_id"
-      ],
-      "references": {
-        "boss_id": {
-          "table": "boss_catalog",
-          "key": "id"
-        },
-        "game_server_id": {
-          "table": "game_servers",
-          "key": "id"
-        }
-      }
-    },
-    "server_invites": {
-      "label": "サーバーへの招待",
-      "key": [
-        "id"
-      ],
-      "context": [
-        "id",
-        "game_server_id"
-      ],
-      "references": {
-        "game_server_id": {
-          "table": "game_servers",
-          "key": "id"
-        }
-      }
-    },
-    "server_memberships": {
-      "label": "サーバーの所属",
-      "key": [
-        "id"
-      ],
-      "context": [
-        "id",
-        "user_id",
-        "game_server_id"
-      ],
-      "references": {
-        "game_server_id": {
-          "table": "game_servers",
-          "key": "id"
         }
       }
     },
@@ -6292,23 +5965,6 @@
         "amd_rating_updated_by": {
           "table": "members",
           "key": "member_id"
-        }
-      }
-    },
-    "web_push_subscriptions": {
-      "label": "ブラウザ通知の登録",
-      "key": [
-        "id"
-      ],
-      "context": [
-        "id",
-        "user_id",
-        "game_server_id"
-      ],
-      "references": {
-        "game_server_id": {
-          "table": "game_servers",
-          "key": "id"
         }
       }
     },

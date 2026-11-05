@@ -191,7 +191,6 @@ export function isOpaqueValue(value: string) {
 
 export function actorLabel(row: ChangeHistoryRow) {
   if (row.actor_display_label) return row.actor_display_label;
-  if (/@accounts\.l2m\.invalid$/.test(row.actor_label)) return "ボス管理の利用者（名前未取得）";
   return isOpaqueValue(row.actor_label) ? "実行者の名前未記録" : row.actor_label;
 }
 

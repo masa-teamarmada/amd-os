@@ -1,0 +1,22 @@
+[
+  "boss_baseline_occurrences",
+  "boss_catalog",
+  "boss_notification_jobs",
+  "boss_report_occurrences",
+  "boss_reports",
+  "boss_schedules",
+  "discord_sources",
+  "game_servers",
+  "l2m_boss_auth_attempts",
+  "l2m_boss_pin_accounts",
+  "member_boss_notification_settings",
+  "member_boss_preferences",
+  "member_boss_server_visibility",
+  "member_notification_preferences",
+  "notification_deliveries",
+  "push_devices",
+  "server_bosses",
+  "server_invites",
+  "server_memberships",
+  "web_push_subscriptions"
+]

@@ -18,6 +18,7 @@ const [migration, emailStart, slackInteractive, historyApi, historyUi, accessUi,
   readFile(path.join(pwaRoot, "src/components/admin/WorkspaceAccessAdminPanel.tsx"), "utf8"),
   readFile(path.join(pwaRoot, "src/lib/change-history-context.ts"), "utf8"),
 ]);
+const l2mExcluded = JSON.parse(await readFile(path.join(pwaRoot, "src/lib/change-history-excluded-tables.json"), "utf8")) as string[];
 
 assert.deepEqual(workspaceAccessRequestTarget("/workspace/ehime"), {
   targetKind: "institution",
@@ -127,8 +128,10 @@ assert.match(historyApi, /hasMore: Boolean\(nextPage\.data\?\.length\)/, "概数
 assert.match(historyUi, /totalIsEstimated \? "約"/, "統計上の概数を実件数として見せない");
 assert.match(historyApi, /PAGE_SIZE = 1000/, "同じ自動処理を狭いraw pageで分断しない");
 assert.match(historyApi, /enrichChangeHistory/, "対象名の解決を共通処理へ委譲する");
+assert.doesNotMatch(historyApi, /EXCLUDED_TABLE_FILTER|change-history-excluded-tables/, "L2M混入を画面側で隠さない");
+assert.ok(l2mExcluded.includes("boss_notification_jobs") && l2mExcluded.includes("game_servers"), "L2Mの主要台帳を監査対象から除外する");
 assert.match(historyContext, /nameFor/, "保存時点の名前と現在の台帳名を解決する");
-assert.match(historyContext, /select\("user_id,username"\)/, "ボス管理アカウントの内部メールを利用者名へ解決する");
+assert.doesNotMatch(historyContext, /l2m_boss_pin_accounts|game_servers|boss_catalog/, "AMD OS履歴の名称解決からL2M参照を除外する");
 assert.doesNotMatch(historyContext, /select\([^)]*email/, "対象名の解決でメールアドレスを取得しない");
 
 assert.match(migration, /CREATE TABLE IF NOT EXISTS public\.workspace_access_requests/, "アクセス要求tableを作る");

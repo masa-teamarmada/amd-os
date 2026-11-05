@@ -53,9 +53,6 @@ export async function enrichChangeHistory(db: SupabaseClient, rows: ChangeHistor
     // 一部の旧台帳には外部キー制約が無い。
     if (value.project_id) enqueue("projects", { project_id: value.project_id });
     if (value.member_id) enqueue("members", { member_id: value.member_id });
-    if (value.server_boss_id) enqueue("server_bosses", { id: value.server_boss_id });
-    if (value.game_server_id) enqueue("game_servers", { id: value.game_server_id });
-    if (value.boss_id) enqueue("boss_catalog", { id: value.boss_id });
   };
   for (const row of rows) {
     enqueue(row.table_name, row.record_pk);
@@ -102,7 +99,6 @@ export async function enrichChangeHistory(db: SupabaseClient, rows: ChangeHistor
     if (ref) return { table: ref.table, value: find(ref.table, { [ref.key]: value[field] }) };
     const legacy: Record<string, [string, string]> = {
       project_id: ["projects", "project_id"], member_id: ["members", "member_id"],
-      server_boss_id: ["server_bosses", "id"], game_server_id: ["game_servers", "id"], boss_id: ["boss_catalog", "id"],
     };
     const target = legacy[field];
     return target ? { table: target[0], value: find(target[0], { [target[1]]: value[field] }) } : null;
@@ -112,26 +108,20 @@ export async function enrichChangeHistory(db: SupabaseClient, rows: ChangeHistor
     if (direct) return direct;
     const parts: string[] = [];
     if (depth < 2) {
-      for (const field of ["game_server_id", "server_boss_id", "boss_id", "member_id", "project_id", "document_id", "milestone_id", "seed_id", "institution_id"]) {
+      for (const field of ["member_id", "project_id", "document_id", "milestone_id", "seed_id", "institution_id"]) {
         if (value[field] == null) continue;
         const ref = reference(table, value, field);
         const label = ref?.value ? describe(ref.table, ref.value, depth + 1) : null;
         if (label && !parts.some((part) => part === label || part.includes(label))) parts.push(label);
       }
     }
-    for (const field of ["killed_at", "scheduled_for", "spawn_at", "week_start", "ym"]) {
+    for (const field of ["scheduled_for", "week_start", "ym"]) {
       if (value[field] != null) parts.push(displayFieldValue(field, value[field]));
     }
-    if (value.lead_minutes != null) parts.push(`出現${value.lead_minutes}分前`);
     return parts.length ? parts.join(" / ") : null;
   };
 
   const actorIds = [...new Set(rows.map((row) => row.actor_id).filter((v): v is string => Boolean(v)))];
-  const pinNames = new Map<string, string>();
-  for (const part of chunks(actorIds.filter((id) => /^[0-9a-f-]{36}$/i.test(id)))) {
-    const { data } = await db.from("l2m_boss_pin_accounts").select("user_id,username").in("user_id", part);
-    for (const actor of data ?? []) if (actor.username) pinNames.set(actor.user_id, actor.username);
-  }
   const memberActorIds = actorIds.filter((id) => !isOpaqueValue(id));
   const memberNames = new Map<string, string>();
   for (const part of chunks(memberActorIds)) {
@@ -158,7 +148,7 @@ export async function enrichChangeHistory(db: SupabaseClient, rows: ChangeHistor
     }
     return {
       ...row,
-      actor_display_label: pinNames.get(row.actor_id ?? "") || memberNames.get(row.actor_id ?? "") || undefined,
+      actor_display_label: memberNames.get(row.actor_id ?? "") || undefined,
       entity_label: entityLabel,
       entity_label_source: recordedName ? "recorded" as const : current ? "current" as const : "unavailable" as const,
       project_label: project ? `${value.project_id} ${nameFor(project) ?? ""}`.trim() : null,

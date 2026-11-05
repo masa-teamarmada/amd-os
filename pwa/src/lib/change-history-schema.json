@@ -409,73 +409,6 @@
     "detail",
     "created_at"
   ],
-  "boss_baseline_occurrences": [
-    "id",
-    "server_boss_id",
-    "baseline_at",
-    "spawn_at",
-    "revision"
-  ],
-  "boss_catalog": [
-    "id",
-    "display_name",
-    "short_name",
-    "default_respawn_seconds",
-    "default_cycle_verified",
-    "created_at",
-    "updated_at",
-    "default_initial_spawn_delay_hours"
-  ],
-  "boss_notification_jobs": [
-    "id",
-    "game_server_id",
-    "server_boss_id",
-    "schedule_revision",
-    "lead_minutes",
-    "scheduled_for",
-    "event_id",
-    "status",
-    "attempt_count",
-    "claimed_at",
-    "completed_at",
-    "last_error_code",
-    "created_at",
-    "baseline_occurrence_id",
-    "report_occurrence_id"
-  ],
-  "boss_report_occurrences": [
-    "id",
-    "server_boss_id",
-    "accepted_report_id",
-    "spawn_at",
-    "revision"
-  ],
-  "boss_reports": [
-    "id",
-    "game_server_id",
-    "server_boss_id",
-    "killed_at",
-    "received_at",
-    "submitted_by",
-    "input_source",
-    "source_dedupe_key",
-    "status",
-    "resolved_by",
-    "resolved_at",
-    "resolution_code",
-    "created_at",
-    "updated_at",
-    "input_method"
-  ],
-  "boss_schedules": [
-    "server_boss_id",
-    "game_server_id",
-    "accepted_report_id",
-    "next_spawn_at",
-    "missed_cycles",
-    "revision",
-    "updated_at"
-  ],
   "business_card_project_links": [
     "business_card_id",
     "project_id",
@@ -1469,16 +1402,6 @@
     "created_at",
     "updated_at"
   ],
-  "discord_sources": [
-    "id",
-    "game_server_id",
-    "guild_id_hash",
-    "channel_id_hash",
-    "is_enabled",
-    "last_processed_at",
-    "created_at",
-    "updated_at"
-  ],
   "eimi_slack_usage_log": [
     "id",
     "created_at",
@@ -1584,21 +1507,6 @@
     "source_meta",
     "created_at",
     "updated_at"
-  ],
-  "game_servers": [
-    "id",
-    "slug",
-    "display_name",
-    "time_zone",
-    "is_active",
-    "created_at",
-    "updated_at",
-    "revision",
-    "maintenance_ended_at",
-    "server_reset_at",
-    "world_name",
-    "official_server_id",
-    "maintenance_started_at"
   ],
   "guardrail_cards": [
     "card_id",
@@ -1978,16 +1886,6 @@
     "attention_reviewed_at",
     "attention_reviewed_by"
   ],
-  "l2m_boss_auth_attempts": [
-    "attempt_key",
-    "window_start",
-    "attempts"
-  ],
-  "l2m_boss_pin_accounts": [
-    "user_id",
-    "username",
-    "created_at"
-  ],
   "lane_suggestions": [
     "id",
     "project_id",
@@ -2273,29 +2171,6 @@
     "learned_from",
     "learned_at"
   ],
-  "member_boss_notification_settings": [
-    "user_id",
-    "notifications_enabled",
-    "three_minutes_enabled",
-    "one_minute_enabled",
-    "updated_at"
-  ],
-  "member_boss_preferences": [
-    "id",
-    "game_server_id",
-    "user_id",
-    "server_boss_id",
-    "notify_enabled",
-    "personal_spawn_probability",
-    "created_at",
-    "updated_at"
-  ],
-  "member_boss_server_visibility": [
-    "game_server_id",
-    "user_id",
-    "is_selected",
-    "updated_at"
-  ],
   "member_knowledge": [
     "id",
     "code_name",
@@ -2375,15 +2250,6 @@
     "source_note",
     "generated_at",
     "learned_addendum"
-  ],
-  "member_notification_preferences": [
-    "game_server_id",
-    "user_id",
-    "notifications_enabled",
-    "three_minutes_enabled",
-    "one_minute_enabled",
-    "created_at",
-    "updated_at"
   ],
   "member_payout_settlements": [
     "id",
@@ -2744,16 +2610,6 @@
     "tags",
     "created_at",
     "updated_at"
-  ],
-  "notification_deliveries": [
-    "id",
-    "job_id",
-    "subscription_id",
-    "attempt_number",
-    "outcome",
-    "response_status",
-    "error_code",
-    "attempted_at"
   ],
   "observation_log": [
     "id",
@@ -5120,20 +4976,6 @@
     "is_universal",
     "kind"
   ],
-  "push_devices": [
-    "id",
-    "game_server_id",
-    "user_id",
-    "token_ciphertext",
-    "notification_preferences",
-    "last_seen_at",
-    "revoked_at",
-    "created_at",
-    "updated_at",
-    "installation_id",
-    "app_kind",
-    "platform"
-  ],
   "reimbursements": [
     "reimbursement_id",
     "project_id",
@@ -5485,44 +5327,6 @@
     "company_note",
     "management_team_note",
     "referral_note"
-  ],
-  "server_bosses": [
-    "id",
-    "game_server_id",
-    "boss_id",
-    "respawn_seconds",
-    "cycle_verified",
-    "is_enabled",
-    "created_at",
-    "updated_at",
-    "boss_kind",
-    "initial_spawn_delay_hours",
-    "reset_baseline_enabled",
-    "report_revision"
-  ],
-  "server_invites": [
-    "id",
-    "game_server_id",
-    "token_hash",
-    "requested_role",
-    "expires_at",
-    "max_uses",
-    "used_count",
-    "issued_by",
-    "revoked_at",
-    "created_at"
-  ],
-  "server_memberships": [
-    "id",
-    "game_server_id",
-    "user_id",
-    "role",
-    "status",
-    "discord_user_hash",
-    "approved_at",
-    "revoked_at",
-    "created_at",
-    "updated_at"
   ],
   "settings": [
     "id",
@@ -6015,21 +5819,6 @@
     "investment_history_collected_at",
     "investment_history_model",
     "investment_history_candidate_count"
-  ],
-  "web_push_subscriptions": [
-    "id",
-    "game_server_id",
-    "user_id",
-    "installation_id",
-    "endpoint_hash",
-    "subscription_ciphertext",
-    "three_minutes_enabled",
-    "one_minute_enabled",
-    "last_seen_at",
-    "revoked_at",
-    "created_at",
-    "updated_at",
-    "last_test_at"
   ],
   "workspace_access_audit_logs": [
     "id",
