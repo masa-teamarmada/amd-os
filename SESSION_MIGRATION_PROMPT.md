@@ -1,19 +1,19 @@
-AMD OSのデータ変更履歴を引き継ぐ。作業場所は /Users/masa/projects/AMD/amd-os。pwa/をセッションのcwdにしない。
+AMD OSのPWA「取締役会と開閉カードの視認性改善」を引き継ぐ。作業場所は /Users/masa/projects/AMD/amd-os。pwa/をセッションのcwdにしない。まさには毎回、確認対象ページの直リンクを返す。
 
 読む順:
 1. /Users/masa/projects/AGENTS.common.md
 2. /Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md
-3. /Users/masa/projects/AMD/amd-os/AGENTS.md と /Users/masa/projects/AMD/amd-os/HANDOFF_CHANGE_HISTORY.md
-4. pwa/manual/1-1-intro.md、pwa/spec/1-3-reconstruction-coverage-audit.md
-5. pwa/spec/5-2-development-operations-current-spec.md「データ変更履歴の表示・保存契約」、pwa/spec/2-1-pwa-runtime-routes.md、ios/DESIGN.md
-6. pwa/manual/2-6-admin-ops.md「データ変更履歴」、pwa/BUGS.md、pwa/design_log/sessions_2026-11.md
+3. /Users/masa/projects/AMD/amd-os/AGENTS.md と /Users/masa/projects/AMD/amd-os/HANDOFF_DISCLOSURE_UI.md。ルートのHANDOFF.mdは別件の経営会議管理画面の引き継ぎなので、このUI作業の正本として上書きしない。
+4. pwa/manual/1-1-intro.md と pwa/spec/1-3-reconstruction-coverage-audit.md
+5. pwa/spec/3-23-project-format-current-spec.md「機関決定の比較一覧」と pwa/spec/2-7-ui-design-code-current-spec.md「開閉カードの操作」
+6. pwa/manual/2-3-pj-cockpit.md「株主総会・取締役会」と pwa/manual/2-1-member-quick-start.md「カードの開閉」、ios/DESIGN.md、pwa/BUGS.md、pwa/design_log/sessions_2026-11.md
 
-状態:
-2026-11-05にAMD OS変更履歴へL2M専用データが混入した問題を修正した。実装commitは57fcfea48。L2M専用20表の監査を止め、混入履歴226,744件を履歴DBから削除し、新規表の監査を明示登録制にした。画面/API側のL2M非表示フィルターはない。L2M本体データは変更していない。migration 20261105015441/20261105021010/20261105021635は本番適用済みで再適用しない。DBでL2M履歴0件・有効なL2M監査trigger0件を確認。本番v3.165.16の変更履歴画面をPCのAMD OS Chromeアプリで開き、AMD OS履歴が表示されることを確認した。
-その後、別作業でmainは進行。引き継ぎ着手時はmain/origin/main=a1adb5c13、作業ツリーclean。現行本番版は未確認。正本は上記spec/manual、実装履歴はdesign_log、再発防止はBUGS。`cd /Users/masa/projects/AMD/amd-os/pwa && npm run test:data-change-history`は今回成功。
+状態スナップショット（2026-11-05引き継ぎ着手時）:
+まさの指摘「会社概要の機関設計…などの不要な表記」「決議事項が目立たない」「トグルの中身が薄いグレー」「文字ではなくカード全体を押したい」「開閉するカードはホバーで全体を薄青に」をPWA UIへ反映した。機関決定の行内詳細は白地で青い「決議事項」を主領域に置き、資料は補助欄へ。機関決定一覧は行全体、通常の開閉カードは見出し行と周囲の余白で開閉し、PCホバーでは操作面全体が淡青になる。本文・資料リンク・入力・編集・文字選択・キーボード操作は守る。実装commitはa5636bc95、49707a2ca、d7a562341、0eeb9b1c4、9c3d84c96。最後のUI版v3.165.17は当時本番SHA一致とPC Chrome実画面で確認済み。
+引き継ぎ着手時のmain/origin/mainは21a53d2c5でclean、本体worktree1・ローカルbranch mainのみ。公開 /api/build-info はv3.165.18、SHA a1adb5c13で、UI版を含む後続版。最新のGit・本番状態は次セッション開始時に再確認する。正本は上記spec/manual、開発履歴はdesign_log、今回の引き継ぎはHANDOFF_DISCLOSURE_UI.md。スクリーンショット素材は元チャット添付、対象ページの直リンクは https://amd-os-pwa.vercel.app/project/p00/cockpit?tab=board-meeting 。
 
 次の作業:
-今回依頼分に残作業はない。新たな混入が報告されたら、画面で隠さず、DBの対象行と監査triggerの所属を調べ、原因を修正して誤記録を履歴本体から除去する。新しいAMD OS表を追加する場合は監査対象台帳・表示台帳・回帰検査を同じ変更で更新する。
+この依頼分に残作業はない。新しい表示フィードバックが来たら、まさの指摘のニュアンスを保持し、まず対象URLをPC Chromeの実画面で再現する。取締役会だけでなく株主総会・通常業務画面の他の開閉カードにも同じクリック範囲とホバー契約が成り立つかを見る。決議結果の意味色、未確認・署名待ち等の原記録の意味、資料リンクと編集ボタンの独立操作を崩さない。変更後は対象ページへの直リンクと、本番反映まで確認した範囲を別々に報告する。
 
 運用:
-main一本。既存の他作業の差分を戻さず、新規branch/worktreeを作らない。変更前とpush前にfetchして同期を確認。PWAを変更したらPC Chromeで表示確認し、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`をリポジトリルートから実行してpush・本番buildまで確認する。スマホWeb確認は依頼時のみ。iOSを変更する場合はbuildに加えて実機install/launchまで確認する。履歴の大量行を全件展開する重いSQLは避け、対象表・期間・索引で絞る。
+main一本。既存の別作業のdirtyを戻さず、対象ファイルだけを明示stageする。変更前・push前にfetchして同期確認。PWA画面を変えたらspec・OS manual・ios/DESIGNの該当箇所を同期し、PC Chromeで表示確認。依頼されていないスマホWeb、Swift、DD、DBへ変更を広げない。PWAの本番反映はリポジトリルートから AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh を使い、buildと公開 /api/build-info のSHAを確認する。main pushだけを本番確認と呼ばない。終了時はhandoffとcloseoutの各ゲートを通す。
