@@ -56,7 +56,7 @@ export function projectContractPeriodState(contracts: ContractPeriodSource[], to
 }
 
 export const CONTRACT_PERIOD_LABEL: Record<ContractPeriodState, string> = {
-  in_effect: "契約中",
+  in_effect: "契約期間内",
   ended: "契約終了",
   not_started: "開始前",
   renewal_review: "更新要確認",

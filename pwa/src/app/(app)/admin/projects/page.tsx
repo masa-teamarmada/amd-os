@@ -176,7 +176,7 @@ export default async function AdminProjectsPage() {
       <p className="text-xs text-muted-foreground mb-3">
         PJ情報の一覧。請求先・Slack・週次レポート配信・Drive・メール・PL/PM/クローザー・ステータス・支払期日等を変更できます。
       </p>
-      <AdminProjectsTable projects={projects} />
+      <AdminProjectsTable projects={projects} asOfYm={today.slice(0, 4) + today.slice(5, 7)} />
     </div>
   );
 }

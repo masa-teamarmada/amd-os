@@ -1,6 +1,7 @@
 "use client";
 
 import { AmieListStatus, AmieListCategory, AmieListOverview } from "@/components/ui/amie-list-signals";
+import { amieListStatus } from "@/lib/amie-list-signals";
 
 import { useEffect, useMemo, useState, type PointerEvent as ReactPointerEvent } from "react";
 import Link from "next/link";
@@ -155,8 +156,14 @@ const PROJECT_CATEGORY_OPTIONS: Array<{ value: ProjectCategory; label: string; n
   { value: "advisor", label: "Advisor", note: "社外役員/顧問" },
 ];
 
-function StatusBadge({ status }: { status: string }) {
-  return <AmieListStatus value={status}/>;
+function StatusBadge({ status, title }: { status: string; title?: string }) {
+  return <AmieListStatus value={status} title={title}/>;
+}
+
+function effectiveProjectStatus(project: ProjectRow, asOfYm: string): string {
+  return project.status === "active" && project.freeze_from_ym && project.freeze_from_ym <= asOfYm
+    ? "frozen"
+    : project.status;
 }
 
 function fmtYen(value: number | string | null | undefined) {
@@ -303,6 +310,7 @@ function ProjectCategoryBadge({ value }: { value: string | null | undefined }) {
 
 interface Props {
   projects: ProjectRow[];
+  asOfYm: string;
 }
 
 type GovernanceWatchField = "governance_watch_shareholder_meetings" | "governance_watch_board_meetings";
@@ -358,7 +366,7 @@ type EditVals = {
   work_content: string;
 };
 
-export function AdminProjectsTable({ projects: initialProjects }: Props) {
+export function AdminProjectsTable({ projects: initialProjects, asOfYm }: Props) {
   const [projects, setProjects] = useState<ProjectRow[]>(initialProjects);
   const [amieColumns, setAmieColumns] = useState<"overview"|"settings">("overview");
   const [filterStatus, setFilterStatus] = useState("");
@@ -422,7 +430,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
 
   const filtered = useMemo(() => {
     return projects.filter((p) => {
-      if (filterStatus && p.status !== filterStatus) return false;
+      if (filterStatus && effectiveProjectStatus(p, asOfYm) !== filterStatus) return false;
       if (filterQ) {
         const q = filterQ.toLowerCase();
         if (
@@ -433,7 +441,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
       }
       return true;
     });
-  }, [projects, filterStatus, filterQ]);
+  }, [projects, filterStatus, filterQ, asOfYm]);
 
   // セル単位編集に移行 (まさ要望、2026-05-07):
   // editingCell = `${rowId}:${fieldGroup}` 形式。クリックされたセルだけが編集モードになる。
@@ -787,18 +795,18 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
 
   return (
     <div>
-      <AmieListOverview items={[{label:"稼働中",count:projects.filter(p=>p.status==="active").length,tone:"progress"},{label:"営業中",count:projects.filter(p=>p.status==="sales").length,tone:"progress"},{label:"下書き",count:projects.filter(p=>p.status==="draft").length},{label:"終了・凍結",count:projects.filter(p=>["ended","frozen"].includes(p.status)).length}]}/>
+      <AmieListOverview items={[{label:"稼働中",count:projects.filter(p=>effectiveProjectStatus(p,asOfYm)==="active").length,tone:"progress"},{label:"営業中",count:projects.filter(p=>effectiveProjectStatus(p,asOfYm)==="sales").length,tone:"progress"},{label:"下書き",count:projects.filter(p=>effectiveProjectStatus(p,asOfYm)==="draft").length},{label:"凍結",count:projects.filter(p=>effectiveProjectStatus(p,asOfYm)==="frozen").length},{label:"終了",count:projects.filter(p=>effectiveProjectStatus(p,asOfYm)==="ended").length}]}/>
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-3 items-end">
         <div className="flex flex-col gap-0.5">
-          <span className="text-[11px] text-muted-foreground">Status</span>
+          <span className="text-[11px] text-muted-foreground">PJ状態</span>
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
             className="border border-border rounded px-2 py-1 text-[12px] bg-background"
           >
             <option value="">（全て）</option>
-            {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+            {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{amieListStatus(s).label}</option>)}
           </select>
         </div>
         <div className="flex flex-col gap-0.5">
@@ -832,7 +840,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
             <tr className="bg-muted text-muted-foreground">
               <th className="text-left px-3 py-2 font-medium sticky left-0 z-40 bg-muted w-14">PJID</th>
               <th className="text-left px-3 py-2 font-medium sticky left-14 z-40 bg-muted w-32 border-r border-border">PJ名</th>
-              <th className="text-left px-3 py-2 font-medium w-24">Status</th>
+              <th className="text-left px-3 py-2 font-medium w-24">PJ状態</th>
               <th className="text-left px-3 py-2 font-medium w-28">業務契約</th>
               <th className="text-left px-3 py-2 font-medium w-32">分類</th>
               <th className="text-left px-3 py-2 font-medium w-44">Lane (ASPI)</th>
@@ -937,7 +945,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                     ) : (
                       <span className="truncate block">{p.project_name}</span>
                     )}
-                    <div className="mt-1 flex flex-wrap gap-1 md:hidden"><StatusBadge status={p.status}/><ProjectCategoryBadge value={p.project_category}/></div>
+                    <div className="mt-1 flex flex-wrap gap-1 md:hidden"><StatusBadge status={effectiveProjectStatus(p,asOfYm)}/><ProjectCategoryBadge value={p.project_category}/></div>
                   </td>
 
                   {/* status */}
@@ -951,7 +959,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                         </select>
                         {cellActions("status")}
                       </div>
-	                    ) : <StatusBadge status={p.status} />}
+	                    ) : <StatusBadge status={effectiveProjectStatus(p,asOfYm)} title={effectiveProjectStatus(p,asOfYm) === "frozen" && p.status === "active" ? `${p.freeze_from_ym?.slice(0, 4)}年${Number(p.freeze_from_ym?.slice(4, 6))}月から凍結` : undefined} />}
 	                  </td>
 
                   <td className="px-3 py-2" title="PJの伴走状態とは別に、AMD当事者の業務契約の期間から判定">

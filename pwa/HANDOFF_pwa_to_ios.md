@@ -11,6 +11,10 @@ PWAのAMD OS変更履歴を「対象名・変更項目・変更前→変更後�
 
 # PWAからiOSへの引き継ぎ
 
+## 2026-11-05 CTBの凍結表示と契約期間の名称
+
+PWAの`/admin/projects`は`projects.status=active`でも現在月が`freeze_from_ym`以降ならPJ状態を`凍結`と表示し、件数・絞り込みも合わせる。契約期間状態`in_effect`の表示名は`契約期間内`。CTBは2026年5月からPJ凍結、契約原本の満了日は2027年2月13日。契約終了への変更・DB schema変更はない。Swift/iOS・macOS・Androidの専用UIは未移植。仕様はpwa/spec/5-6、操作はpwa/manual/2-6・6-2・6-7。
+
 ## 2026-11-05 契約期間状態と月報予定
 
 PWAの`/admin/projects`にPJ伴走状態と別の`業務契約`列、`/admin/contracts`に契約ごとの`期間状態`列を追加。採用済みAMD当事者契約の締結状態、開始・終了日、更新条件から当日計算し、CXはPJ稼働中・NIMS業務契約終了と表示する。月報予定は締結済み業務契約の確定した開始・終了月だけ生成し、期間不明は1件の確認項目とする。共通DB schemaと契約原本は変更なし。Swift/iOS・macOS・Androidの専用画面は未移植。正本はpwa/spec/5-6・5-9、操作はpwa/manual/2-6・6-7。
