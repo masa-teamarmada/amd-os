@@ -1,4 +1,4 @@
-AMD OSの請求書における立替税率保持の反映確認を再開する。作業場所は`/Users/masa/projects/AMD/amd-os`。`pwa/`をセッションのcwdにしない。
+AMD OSの請求書における立替税率保持の本番反映を再開する。作業場所は `/Users/masa/projects/AMD/amd-os`。`pwa/` をセッションcwdにしない。
 
 読む順:
 
@@ -12,20 +12,22 @@ AMD OSの請求書における立替税率保持の反映確認を再開する�
 状態:
 
 - 承認済み立替は申請時の0%・8%・10%を請求書の明細・概算へ明細単位で引き継ぐ。未設定だけ10%に補完し、その他の税率はfreee発行前に拒否する。
-- PWAの編集・発行モーダル、Edge Function、iOS `InvoiceStepView` を同じ計算規則に更新済み。DB migration・環境変数は変更していない。
-- `npm --prefix pwa run test:admin-kiyo`、`test:member-payout-matching`、`test:critical-ui`、`tsc --noEmit`は成功。Next.jsローカルproduction buildは実行環境がポートbindを禁止するため、ソース外のTurbopackエラーで停止。iOSはSwiftPM診断キャッシュとCoreDeviceサービスが保護・隔離され、ここではコンパイルと実機installを完了できていない。
-- 反映前に`git fetch origin`、`git rebase origin/main`を行う。`b0234a711`は`origin/main`の`02425ec90`とpatch-equivalentなため、重複が残らないことを確認する。
+- PWA編集・発行モーダル、`issue-invoice` Edge Function、iOS `InvoiceStepView` とiOSの立替取得queryを更新済み。DB migration・環境変数は変更していない。
+- `test:admin-kiyo`、`test:member-payout-matching`、`test:critical-ui`、対象eslint、`npx tsc --noEmit` は成功。iOS Debug / iphoneos署名付きbuildも成功。
+- 実機install / launchだけはCoreDeviceService初期化タイムアウトで未完了。Next.js local production buildは管理環境のport bind / Google Fonts名前解決制限で未完了。
+- GitHub現行mainは `02425ec90`。反映予定差分は `/tmp/amd-os-closeout-git.RG4REe/git` のmainで現行mainへrebase済み。元checkoutの `.git` は管理sandboxでindex書込みを拒否され、古いlocal commit列のまま。
+- この終了セッションはGitHubとSupabaseのwrite connectorが承認必須かつ承認不可設定だったため、push、Vercel本番反映、Edge Function反映を完了できなかった。
 
 次タスク:
 
-1. 未記録のiOS対応、仕様同期、版数、引き継ぎを対象ファイルだけ明示stageしてcommitする。
-2. rebase後に正規deploy scriptでPWAを反映し、`https://amd-os-pwa.vercel.app/api/build-info`で今回のSHAを確認する。
-3. `issue-invoice` Edge FunctionをPWAとは別に正規経路で反映し、関数の読戻しをする。
-4. 通常のmacOS環境でiOSをbuildし、接続済み実機へinstall・launchして請求書画面の税額表示を確認する。
+1. `git fetch origin` し、mainが `02425ec90` のままならrebase済みtemp Gitのmainをpushする。進んでいれば再rebaseしてからpushする。
+2. `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` で本番を監視し、`https://amd-os-pwa.vercel.app/api/build-info` のSHA一致を確認する。
+3. `issue-invoice` Edge Functionを別途deployし、関数本文を読戻す。
+4. CoreDeviceServiceが使える通常環境でmasaiPhoneへinstall・launchし、請求書の税額概算表示を確認する。
 
 運用:
 
-- main一本。作業前とpush直前にfetchし、対象ファイルだけを明示stageする。`git add .`は使わない。
-- PWAの仕様変更はmanual・spec・FEATURE_REGISTRY・開発履歴へ同じ変更で反映する。画面確認はPC Chromeで行う。
+- main一本。push前にfetchし、対象ファイルだけ明示stageする。`git add .` は使わない。
+- PWAの仕様変更はmanual・spec・FEATURE_REGISTRY・開発履歴へ同じ変更で反映する。
 - migrationは再適用しない。Edge FunctionはPWAとは別に反映・確認する。
-- 本番完了は`/api/build-info`と対象画面、必要な関数ログの読戻しで判断する。
+- 本番完了はVercel Ready、`/api/build-info`、Edge Function読戻し、実機install / launchで判断する。
