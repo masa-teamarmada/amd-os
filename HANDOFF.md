@@ -8,24 +8,21 @@
 ## 現在地
 
 - 承認済み立替は、申請時の0%・8%・10%を請求書の明細と概算へ明細単位で引き継ぐ。未設定だけ10%に補完し、その他の税率はfreee発行前に拒否する。
-- PWAの立替編集・請求書発行モーダル、共通 `issue-invoice` Edge Function、iOS `InvoiceStepView`、iOSの立替取得queryを同じ規則へ揃えた。
-- DB migration・環境変数の変更はない。
-- `main` のHEADは `d9c40aaf0`。請求書関連のローカル差分4コミットがあり、`origin/main` のローカル参照は `02425ec90`。作業ツリーはclean、worktreeはmainの1つだけ。
-- `b0234a711` 相当の支払照合変更は既に `origin/main` に含まれるため、重複していない。
+- PWAの立替編集・請求書発行モーダル、iPhoneの請求書画面、iPhoneの立替取得query、共通の請求書発行処理のソースを同じ規則へ揃えた。DB migration・環境変数の変更はない。
+- 実装差分はGitHubの `main` へ反映済み。PWA本番は `e606cf1bd` で `READY` を確認済み。この引き継ぎだけの後続commitはPWAを再buildしない。
+- 共通の請求書発行処理はソースだけが更新済みで、本番への反映は未完了。ここが反映されるまで、freeeへ渡す立替税率は旧版のまま。
 
-## 検証
+## 今回の確認
 
-- 既存記録上、`test:admin-kiyo`、`test:member-payout-matching`、`test:critical-ui`、対象eslint、`npx tsc --noEmit` は成功。
-- iOS Debug / iphoneos署名付きbuild: `BUILD SUCCEEDED`。
-- 実機install / launch: `devicectl` がCoreDeviceService初期化タイムアウトとなり未完了。
-- Next.js local production build: 管理環境のport bind / Google Fonts名前解決制限で未完了。closeout時のfocused checkは無出力のまま停止したため、再開時に実行し直す。
+- PWAの管理画面・支払照合・重要画面の回帰検査、型検査はこのセッションで成功。
+- iPhoneのシミュレーターbuildと実機接続は、この管理環境でCoreSimulator/CoreDeviceとSwiftPM cacheへの書込みが拒否され未確認。通常のMac環境で再実行する。
+- 本番の版情報URLは、この管理環境が閲覧承認を出せず未確認。PWAの本番配布記録は `e606cf1bd` でREADY。
 
-## 未解決と最初の次アクション
+## 次の最初の作業
 
-1. `git fetch origin` 後、リモートが変わっていなければ `main` の4コミットをpushする。変わっていれば先にrebaseしてからpushする。
-2. `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` でVercel本番を監視し、`/api/build-info` のSHA一致を確認する。
-3. `issue-invoice` Edge Functionを別途deployし、0%・8%・10%の変換と想定外税率拒否を読戻す。PWA反映だけで関数反映済みとは扱わない。
-4. CoreDeviceServiceが使える通常環境でmasaiPhoneへinstall・launchし、請求書の「消費税（概算）」表示を確認する。
+1. 通常のMac環境で `issue-invoice` を本番へ反映し、配布済み関数の本文で0%・8%・10%と想定外税率の拒否を読戻す。請求書の新規発行は行わない。
+2. PWA本番の版情報が `e606cf1bd` を返すことを確認する。
+3. masaiPhoneへinstall・launchし、請求書画面の「消費税（概算）」が立替ごとの税率を反映することを確認する。
 
 ## 参照先
 
