@@ -4,8 +4,8 @@ AMD OSの請求書における立替税率保持の本番反映を完了する�
 
 1. `/Users/masa/projects/AGENTS.common.md`
 2. `/Users/masa/.codex/memories/MEMORY.md`
-3. `/Users/masa/projects/AMD/amd-os/AGENTS.md`
-4. `/Users/masa/projects/AMD/amd-os/HANDOFF.md`
+3. `/Users/masa/projects/AMD/amd-os/HANDOFF.md`
+4. `/Users/masa/projects/AMD/amd-os/AGENTS.md`
 5. `pwa/manual/1-1-intro.md`、`pwa/spec/1-3-reconstruction-coverage-audit.md`
 6. `ios/DESIGN.md`、`pwa/design/FEATURE_REGISTRY.md`、`pwa/manual/6-3-invoice-and-billing-routine-spec.md`
 7. `pwa/BUGS.md`、`pwa/design_log/sessions_2026-11.md`
