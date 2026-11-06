@@ -262,6 +262,10 @@ Deno.serve(async (req) => {
 
     // 立替を明細行に追加
     for (const r of reimbItems) {
+      const taxRatePercent = Math.round((r.tax_rate ?? 0.1) * 100);
+      if (taxRatePercent !== 0 && taxRatePercent !== 8 && taxRatePercent !== 10) {
+        throw new Error(`立替の税率が不正です: ${r.tax_rate}`);
+      }
       const dateStr = (r.date ?? "").replace(/^\d{4}-/, "").replace(/-/g, "/");
       const desc = `【立替】${r.category ?? ""} ${r.description ?? ""}`.trim();
       lines.push({
@@ -269,7 +273,7 @@ Deno.serve(async (req) => {
         description: desc,
         quantity: 1,
         unit_price: String(r.amount ?? 0),
-        tax_rate: Math.round((r.tax_rate ?? 0.1) * 100) === 8 ? 8 : 10,
+        tax_rate: taxRatePercent,
         reduced_tax_rate: false,
         withholding: false,
       });

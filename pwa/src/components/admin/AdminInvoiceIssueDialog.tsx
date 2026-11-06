@@ -379,8 +379,12 @@ export function AdminInvoiceIssueDialog({ projectId, ym, open, onClose, onIssued
     preview && preview.reimbursementCount > 0 && preview.expenseReimbursementAllowed === null,
   );
 
-  const taxEstimate = Math.round((netTotal + reimbYen) * 0.1);
-  const grossTotal = Math.round((netTotal + reimbYen) * 1.1);
+  const reimbursementTaxEstimate = (preview?.reimbItems ?? []).reduce(
+    (sum, item) => sum + Math.round(Number(item.amount ?? 0) * (item.tax_rate ?? 0.1)),
+    0,
+  );
+  const taxEstimate = Math.round(netTotal * 0.1) + reimbursementTaxEstimate;
+  const grossTotal = netTotal + reimbYen + taxEstimate;
 
   function updateBaseLine(id: string, patch: Partial<EditableLine>) {
     setBaseLines((prev) => prev.map((line) => line.id === id ? { ...line, ...patch } : line));

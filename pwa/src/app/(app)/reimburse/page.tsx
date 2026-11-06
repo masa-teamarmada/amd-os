@@ -241,7 +241,7 @@ export function ReimburseWorkspace({ embedded = false }: { embedded?: boolean })
       date: item.date.slice(0, 10),
       category: normalizeCategory(item.category),
       amount: String(item.transport_trip === "round" ? Math.round(item.amount / 2) : Math.round(item.amount)),
-      taxRate: String(item.tax_rate || 0.1),
+      taxRate: String(item.tax_rate ?? 0.1),
       description: item.description || "",
       transportMode: normalizeTransportMode(item.transport_mode),
       transportFrom: item.transport_from || "",
