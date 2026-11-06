@@ -229,7 +229,11 @@ actor SupabaseService {
             let amount: Double?
             let date: String?
             let category: String?
-            enum CodingKeys: String, CodingKey { case description, amount, date, category }
+            let taxRate: Double?
+            enum CodingKeys: String, CodingKey {
+                case description, amount, date, category
+                case taxRate = "tax_rate"
+            }
         }
 
         let nextMonthStart = nextMonthStartDate(ym: ym)
@@ -247,7 +251,7 @@ actor SupabaseService {
             .execute().value
         async let reimbResult: [ReimbRow] = client.database
             .from("reimbursements")
-            .select("description, amount, date, category")
+            .select("description, amount, date, category, tax_rate")
             .eq("project_id", value: projectId)
             .eq("status", value: "approved")
             .gte("date", value: "\(ym.prefix(4))-\(ym.suffix(2))-01")

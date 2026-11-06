@@ -43,6 +43,7 @@ const iosInvoiceModels = fs.readFileSync(new URL("../../ios/AMDOS/Core/Models/Ro
 const iosSupabaseService = fs.readFileSync(new URL("../../ios/AMDOS/Core/Services/SupabaseService.swift", import.meta.url), "utf8");
 assert.match(reimbursementPage, /taxRate: String\(item\.tax_rate \?\? 0\.1\)/, "立替編集で 0% を 10% に戻さない");
 assert.match(iosInvoiceModels, /let taxRate: Double\?/, "iOS請求書プレビューが立替税率を持つ");
+assert.match(iosSupabaseService, /\.select\("description, amount, date, category, tax_rate"\)/, "iOS請求書プレビューが立替税率を取得する");
 assert.match(iosSupabaseService, /taxRate: r\.taxRate/, "iOS請求書プレビューへ立替税率を渡す");
 assert.match(iosInvoiceStep, /private var reimbursementTaxYen: Double/, "iOS請求書が立替税額を明細ごとに計算する");
 assert.match(iosInvoiceStep, /item\.taxRate \?\? 0\.1/, "iOS請求書で未設定の立替税率だけ10%に補完する");
