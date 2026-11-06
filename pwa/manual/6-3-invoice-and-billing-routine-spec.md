@@ -135,7 +135,7 @@ GAS `gas-main/007_FreeeInvoiceFlow.js` が freee API への発行を担当。
 ]
 ```
 
-`section='base'` は基本明細行、`section='adjustment'` は値引き等の調整行。`type='text'` の行は金額なしのメモ行として freee へ渡す。承認済み立替は `invoice_base_lines_json` へ保存せず、発行時に `issue-invoice` が `reimbursements` から自動で明細追加する。備考は `invoiceRemark` として発行時に freee `invoice_note` へ渡す。
+`section='base'` は基本明細行、`section='adjustment'` は値引き等の調整行。`type='text'` の行は金額なしのメモ行として freee へ渡す。承認済み立替は `invoice_base_lines_json` へ保存せず、発行時に `issue-invoice` が `reimbursements` から自動で明細追加する。立替の税率は申請時の `tax_rate` を使い、0%・8%・10%をそのまま freee 明細と概算税込額へ反映する。税率が未設定の既存申請だけ10%を補完し、それ以外の税率は外部発行前に停止する。備考は `invoiceRemark` として発行時に freee `invoice_note` へ渡す。
 
 立替の税率は申請時の `tax_rate` を正本にする。0%（非課税）、8%、10%だけをfreee明細へ渡し、未設定だけ10%として扱う。編集画面で0%を10%へ戻さず、発行前の概算税込額も基本明細の10%と立替明細ごとの税率を分けて計算する。想定外の税率は発行前に止める。
 

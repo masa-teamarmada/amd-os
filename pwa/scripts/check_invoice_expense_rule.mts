@@ -38,7 +38,15 @@ assert.match(migration, /v_expense_allowed AND v_pending_count > 0/, "上乗せ�
 
 // 立替の非課税は、編集・請求書明細・概算のすべてで 0% のまま扱う。
 const reimbursementPage = fs.readFileSync(new URL("../src/app/(app)/reimburse/page.tsx", import.meta.url), "utf8");
+const iosInvoiceStep = fs.readFileSync(new URL("../../ios/AMDOS/Features/Routine/InvoiceStepView.swift", import.meta.url), "utf8");
+const iosInvoiceModels = fs.readFileSync(new URL("../../ios/AMDOS/Core/Models/RoutineModels.swift", import.meta.url), "utf8");
+const iosSupabaseService = fs.readFileSync(new URL("../../ios/AMDOS/Core/Services/SupabaseService.swift", import.meta.url), "utf8");
 assert.match(reimbursementPage, /taxRate: String\(item\.tax_rate \?\? 0\.1\)/, "立替編集で 0% を 10% に戻さない");
+assert.match(iosInvoiceModels, /let taxRate: Double\?/, "iOS請求書プレビューが立替税率を持つ");
+assert.match(iosSupabaseService, /taxRate: r\.taxRate/, "iOS請求書プレビューへ立替税率を渡す");
+assert.match(iosInvoiceStep, /private var reimbursementTaxYen: Double/, "iOS請求書が立替税額を明細ごとに計算する");
+assert.match(iosInvoiceStep, /item\.taxRate \?\? 0\.1/, "iOS請求書で未設定の立替税率だけ10%に補完する");
+assert.match(iosInvoiceStep, /Text\("消費税（概算）"\)/, "iOS請求書の税額表示を税率別の概算として示す");
 
 const rateExpression = edge.match(/const taxRatePercent = ([^;]+);/ )?.[1];
 assert.ok(rateExpression, "freee 明細の税率変換がある");

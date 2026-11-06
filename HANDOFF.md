@@ -1,28 +1,28 @@
-# HANDOFF — 経営会議の管理画面
+# HANDOFF - 請求書の立替税率
 
-- 更新: 2026-10-23 JST
+- 更新: 2026-11-06 JST
 - 作業種別: development
-- 正本: `pwa/spec/3-26-executive-meeting-current-spec.md`、利用手順: `pwa/manual/2-3-pj-cockpit.md`「経営会議」
+- 正本: `ios/DESIGN.md`、`pwa/design/FEATURE_REGISTRY.md`、利用手順: `pwa/manual/6-3-invoice-and-billing-routine-spec.md`
 
 ## 現在地
 
-- 全PJ共通の経営会議ページと議案・採決はPWAに実装済み。コックピットとワークスペースだけに置き、経営陣属性・PJ閲覧権限・PJ経営陣登録を毎回照合する。既存「動向・会議」へのデータ流出経路を作らない。
-- 管理者画面 `/admin/executive-meetings` は最初から全36PJを一覧表示。登録済みPJを先頭にし、登録済み経営陣と規程の有無を行に表示する。行を押すと編集欄へ進む。Admin左メニューにも入口を追加済み。
-- SOLの経営陣は、まさ・石原先生・杉浦先生の3人。杉浦先生のアカウント表示名を本番DBで修正し、画面で読み戻した。SOLの経営会議規程は未登録のため、議案の下書きは可能だが採決開始は不可。
-- 画面変更はPC Chromeで1419×824の実画面をUI/UX監査し、一覧・SOL編集・未登録PJ編集を確認。型、静的検査、build、正規反映ゲートを通過。
-- 実装commit `e53f4b91`、本番 `v3.163.43`。2026-10-23時点で公開 `/api/build-info` のSHA一致、`main=origin/main`、dirtyなし、worktree本体1、ローカルbranchはmainのみ。終了記録の文書commit後は画面非表示変更として本番SHAより先行しうる。
+- 請求書へ上乗せする承認済み立替は、申請時の0%・8%・10%を明細単位で保持する。税率未設定の旧申請だけ10%を補完し、それ以外の税率はfreee発行前に止める。0%を偽値として10%へ置換しない。
+- PWAの立替編集、請求書発行モーダルの税額概算、共通 `issue-invoice` Edge Function、iOS `InvoiceStepView` を同じ規則へ揃えた。iOSプレビューにも `tax_rate` を渡し、表示は固定の「消費税（10%）」ではなく「消費税（概算）」にした。
+- DB migration・環境変数の変更はない。`check_invoice_expense_rule.mts` はPWA、Edge Function、iOSの0%・8%・10%の扱いを静的に検査する。
+- `test:admin-kiyo`、`test:member-payout-matching`、`test:critical-ui`、TypeScript型検査は成功。Next.jsのローカルproduction buildは実行環境のポートbind禁止で停止した。iOSは既存依存を使ってもSwiftPMの診断キャッシュが保護領域へ書けず、実機/シミュレーターのCoreDeviceサービスも利用不可のため、ここではコンパイル・実機インストールを完了できていない。
 
 ## 未解決と最初の次アクション
 
-- 各会社の経営会議規程の原文・定足数・可決条件・締切方法は未登録。次にまさが対象会社の規程を渡したら、原文と条項を確認して管理者画面に版として登録し、その規程に沿う採決を確認する。条件を推測して登録しない。
-- 将来の取締役会決議は未実装。同じ画面内へ追加する方針だが、招集・資格・利害関係・議決要件を別途設計する。現行の経営会議の採決を取締役会決議として扱わない。
-- 過去のmigration履歴にはローカルと本番のversion不一致がある。今回の終了作業でDDL再適用や履歴repairはしない。新たなDB変更前には現行履歴・schemaを再監査する。
+1. この終了作業で、未記録のiOS対応・仕様同期・版数・引き継ぎを明示stageしてcommitする。
+2. `git fetch origin`、`git rebase origin/main` を実行する。`b0234a711` は `origin/main` の `02425ec90` とpatch-equivalentなので、rebase後に重複していないことを確認する。
+3. `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` でPWAを反映し、`/api/build-info` のSHA一致を確認する。続けて `issue-invoice` Edge Functionを正規経路で反映・読戻しする。PWA反映だけで関数反映済みとは扱わない。
+4. 通常のmacOS環境でiOSをbuildし、接続済み実機へinstall・launchして請求書画面の税額表示を確認する。
 
 ## 参照先
 
-- 実装仕様: `pwa/spec/3-26-executive-meeting-current-spec.md`
-- 操作と権限: `pwa/manual/2-3-pj-cockpit.md`「経営会議」
-- 全画面正本: `ios/DESIGN.md`
-- 回帰の教訓: `pwa/BUGS.md`「経営会議の管理画面」
-- 実装履歴: `pwa/design_log/sessions_2026-10.md`
-- ネイティブへの境界: `pwa/HANDOFF_pwa_to_native_viewing.md`
+- 全画面仕様: `ios/DESIGN.md`
+- 請求・立替の手順: `pwa/manual/6-3-invoice-and-billing-routine-spec.md`
+- 請求書画面仕様: `pwa/design/FEATURE_REGISTRY.md`
+- 再発防止メモ: `pwa/BUGS.md`
+- 開発履歴: `pwa/design_log/sessions_2026-11.md`
+- Android向け差分: `ios/HANDOFF_ios_to_android.md`

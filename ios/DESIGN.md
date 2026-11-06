@@ -445,7 +445,7 @@ PJ一覧 + 各PJの当月ステップ進捗バー。
 - 入力完了 → `submitBudgetReport` で `billing_cycles.status = "reported"`
 
 #### 2.2.4 InvoiceStepView
-freee連携で請求書発行・送付。詳細仕様は本画面のコードコメント参照。CTBは「翌月見積書」もここで生成。
+freee連携で請求書発行・送付。基本明細と調整行は10%、承認済み立替は申請時の0%・8%・10%を明細単位で使い、合計の消費税はそれぞれを分けて概算表示する。未設定の立替税率だけ10%を補完する。CTBは「翌月見積書」もここで生成。
 
 #### 2.2.5 MeetingStepView
 Google Calendar に月次MTG枠を作成、参加者に招待を飛ばす。`schedule-meeting` Edge Function を叩く。
@@ -465,7 +465,7 @@ Google Calendar に月次MTG枠を作成、参加者に招待を飛ばす。`sch
 | `ReimburseListView` | 自分が関係する立替申請一覧（提出済 / 承認待ち / 支払済） |
 | `ReimburseFormView` | 新規申請フォーム（PJ選択、金額、内容、領収書画像） |
 
-データ: `reimbursements` テーブル。ステータス: `submitted` → `pmApproved` → `paid`。
+データ: `reimbursements` テーブル。ステータス: `submitted` → `pmApproved` → `paid`。税率は0%（非課税）・8%・10%を選べ、編集時も保存済みの0%を未設定として10%に戻さない。未設定だけ10%を初期値にする。
 
 ---
 

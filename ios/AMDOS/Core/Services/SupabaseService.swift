@@ -300,7 +300,13 @@ actor SupabaseService {
         }
 
         let reimbItems = reimbs.map { r in
-            InvoiceReimbItem(description: r.description, amount: r.amount, date: r.date, category: r.category)
+            InvoiceReimbItem(
+                description: r.description,
+                amount: r.amount,
+                date: r.date,
+                category: r.category,
+                taxRate: r.taxRate
+            )
         }
         let reimbYen = reimbs.reduce(0.0) { $0 + ($1.amount ?? 0) }
 

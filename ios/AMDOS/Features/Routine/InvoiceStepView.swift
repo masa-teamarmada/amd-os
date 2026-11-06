@@ -71,6 +71,20 @@ struct InvoiceStepView: View {
         editableLines.filter { $0.lineType == .item }.reduce(0) { $0 + $1.subtotal }
     }
 
+    private var reimbursementTaxYen: Double {
+        reimbItems.reduce(0) { total, item in
+            total + ((item.amount ?? 0) * (item.taxRate ?? 0.1)).rounded()
+        }
+    }
+
+    private var taxEstimateYen: Double {
+        (gross * 0.1).rounded() + reimbursementTaxYen
+    }
+
+    private var totalWithTaxYen: Double {
+        gross + reimbYen + taxEstimateYen
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -318,14 +332,14 @@ struct InvoiceStepView: View {
                 }
             }
             HStack {
-                Text("消費税（10%）").foregroundStyle(.secondary)
+                Text("消費税（概算）").foregroundStyle(.secondary)
                 Spacer()
-                Text("¥\(formatYen((gross + reimbYen) * 0.1))").fontDesign(.monospaced)
+                Text("¥\(formatYen(taxEstimateYen))").fontDesign(.monospaced)
             }
             HStack {
                 Text("合計（税込）").fontWeight(.semibold)
                 Spacer()
-                Text("¥\(formatYen((gross + reimbYen) * 1.1))")
+                Text("¥\(formatYen(totalWithTaxYen))")
                     .fontWeight(.semibold)
                     .foregroundColor(Color.accentColor)
             }

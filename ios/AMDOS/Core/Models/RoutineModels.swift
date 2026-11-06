@@ -748,6 +748,12 @@ struct InvoiceReimbItem: Decodable {
     let amount: Double?
     let date: String?
     let category: String?
+    let taxRate: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case description, amount, date, category
+        case taxRate = "tax_rate"
+    }
 }
 
 struct IssueInvoiceResult: Decodable {
