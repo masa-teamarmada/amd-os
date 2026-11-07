@@ -3,14 +3,23 @@ AMD OSの「ZMP 2026年6月稼働分の事前合意額」を再開する。新�
 読む順:
 
 1. `/Users/masa/projects/AGENTS.common.md`
-2. `/Users/masa/projects/AMD/amd-os/AGENTS.md`
-3. `/Users/masa/projects/AMD/amd-os/HANDOFF_ZMP_202606_PAYOUT_AGREEMENT_20261107.md`
-4. `pwa/manual/1-1-intro.md`、`pwa/spec/1-3-reconstruction-coverage-audit.md`
-5. `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`
-6. `pwa/manual/7-1-reward-calc-spec.md`
-7. `pwa/spec/3-27-payout-notice-current-spec.md`
-8. `pwa/BUGS.md` の `[finance/reward] 旧制度の事前合意額を支払通知書だけへ固定する経路がなかった`
-9. `pwa/scripts/migrations/199_legacy_reward_payout_amount_override_events.sql`
+2. `/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md`
+3. `/Users/masa/projects/AMD/amd-os/AGENTS.md`
+4. `/Users/masa/projects/AMD/amd-os/HANDOFF_ZMP_202606_PAYOUT_AGREEMENT_20261107.md`
+5. `pwa/manual/1-1-intro.md`、`pwa/spec/1-3-reconstruction-coverage-audit.md`
+6. `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`
+7. `pwa/manual/7-1-reward-calc-spec.md`
+8. `pwa/spec/3-27-payout-notice-current-spec.md`
+9. `pwa/BUGS.md` の `[finance/reward] 旧制度の事前合意額を支払通知書だけへ固定する経路がなかった`
+10. `pwa/scripts/migrations/199_legacy_reward_payout_amount_override_events.sql`
+
+状態スナップショット:
+
+- 2026-11-07のcloseout時点で、作業checkoutは`main`一本、`origin/main`と一致、dirty・conflict・untrackedなし。
+- 今回追加したのは、この案件専用のHANDOFFと引っ越しプロンプトだけ。製品コード、DB、PDF、外部送信は変更していない。
+- closeout docsは`[skip ci]`でpush済み。今回のcloseoutによるPWA build / deployはない。
+- ルートの`HANDOFF.md`と`SESSION_MIGRATION_PROMPT.md`は別の未完了案件（請求書の立替税率）が使用中なので、意図的に上書きしていない。
+- 実装・DB event・運用仕様の所在は、上のHANDOFFの「証跡」に集約している。
 
 確定状態:
 
