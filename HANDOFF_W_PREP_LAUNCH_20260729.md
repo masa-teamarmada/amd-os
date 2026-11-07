@@ -14,8 +14,8 @@
 
 ## Git状態
 
-- `main` HEAD `2b813db63` は `origin/main` と一致。
-- このhandoff作成前は未コミット・未追跡差分なし。今回のhandoffファイルだけをcommitしてpushする。
+- `main` は `origin/main` と一致。
+- handoff作成前は未コミット・未追跡差分なし。今回のhandoffファイルだけをcommitしてpush済み。
 - 本作業はプロダクト変更・デプロイ対象ではない。main impactはhandoff記録のみ。
 
 ## 未解決

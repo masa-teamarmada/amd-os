@@ -15,7 +15,7 @@ AMD OSのW-Prep Launchを継続する。作業場所は `/Users/masa/projects/AM
 
 - 直近runではCalendarの拡張7日窓を直接照合し、5件のupcomingカードを補完して、12件のvisible prep threadを作成・改名・ピン留め・DB session保存した。
 - 最終readbackは `ready=1`、`preparing=12`、`claiming=0`、session id未保存=0。PJ不明の4件は保留であり、推測で無関係PJへ入れていない。
-- Gitは `main` / `origin/main` が `2b813db63` で一致。本handoff作成分だけをcommit・pushする。デプロイは不要。
+- Gitは `main` / `origin/main` が一致。handoff記録はcommit・push済み。デプロイは不要。
 - 現行のroot `HANDOFF.md` と `SESSION_MIGRATION_PROMPT.md` は請求書反映作業のため、この運用作業には使わない。
 
 次タスク:
