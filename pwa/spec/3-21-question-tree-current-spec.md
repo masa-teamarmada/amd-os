@@ -107,7 +107,7 @@
 | `from_action_id` | どのTODOの結果か。外部由来ならNULL |
 | 監査列 | |
 
-由来は `source_label` / `source_url` で持ち、`origin_kind` 列は持たない。追加経路（`POST /api/project/[projectId]/question-tree`）が `origin_kind` を書くのは論点とTODOだけ（`ORIGIN_KIND_RESOURCES`）。分かったことも、画面以外からの追加は `review_state='proposed'` で入り、承認・却下は `proposal_accept` / `proposal_reject`（`kind: "finding"`）。追加経路が書く列が表に実在することは `npm run test:question-tree-task-review` が migration の定義と照合する（2026-11-10、表に無い `origin_kind` を書いて追加が全件失敗していた）。
+由来は `source_label` / `source_url` で持ち、`origin_kind` 列は持たない。追加経路（`POST /api/project/[projectId]/question-tree`）が `origin_kind` を書くのは論点とTODOだけ（`ORIGIN_KIND_RESOURCES`）。分かったことも、画面以外からの追加は `review_state='proposed'` で入り、承認・却下は `proposal_accept` / `proposal_reject`（`kind: "finding"`）。未承認の分かったことは木の行にならないため、承認したら入る論点（`project_question_findings` の線、無ければ `proposed_question_id`）の行に `分かったこと 未承認N` の印を出し、押すと論点の詳細が開く。詳細の「分かったこと」一覧では未承認の行を琥珀色で示し、下の段に `未承認` の印と `承認` / `却下` を置く。最終確認日などの導出には未承認を含めない。追加経路が書く列が表に実在することは `npm run test:question-tree-task-review` が migration の定義と照合する（2026-11-10、表に無い `origin_kind` を書いて追加が全件失敗していた）。
 
 ### つなぎ
 

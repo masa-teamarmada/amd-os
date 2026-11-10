@@ -1,3 +1,5 @@
+2026-11-10 v3.165.23（未承認の分かったこと）：question-tree束が review_state='proposed' の分かったことを捨てており、承認・却下の操作面が無かった。FindingNode に isProposed を足し、未承認も線または proposed_question_id で論点へ仮に繋いで返す。導出（latestVerifiedAt）からは除外。QuestionTreeView の論点行に未承認件数の印、詳細の分かったこと一覧に未承認表示と承認・却下（proposal_accept/reject kind=finding）を追加。test:question-tree-task-review に表示経路の検査を追加。DB変更なし。spec3-21。
+
 2026-11-10 v3.165.22（分かったことの追加）：question-tree APIのPOSTが全種類へ `origin_kind` を書き、列の無い `project_findings` の追加が400で失敗していた。`ORIGIN_KIND_RESOURCES`（question・action）だけへ書くよう修正。`test:question-tree-task-review` に、追加で書く列とmigration上の `project_findings` 定義の照合を追加。DB変更なし。spec3-21。
 
 2026-11-05（変更履歴）：AMD OS対象の表示名・列名・制約値・参照先を共通処理で解決。record_contextに変更前後の対象名を保存するmigration 20261105012202を適用済み。L2M専用20表の監査をmigration 20261105015441で停止し、migration 20261105021010で誤混入した過去記録226,744件を履歴本体から削除。migration 20261105021635で新表の自動監査を止め、AMD OS表の明示登録へ変更。画面側は保存済み履歴を表示する。旧AMD OS履歴は変更せず新形式で表示。pre-commit/prebuild/deployで回帰・表示名不足を検査。正本5-2、route2-1。

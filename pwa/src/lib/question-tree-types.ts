@@ -165,6 +165,8 @@ export type FindingNode = {
   fromActionId: string | null;
   lastVerifiedAt: string;
   questionIds: string[];
+  /** 画面以外から入って、まさの承認を待っている（review_state='proposed'）。 */
+  isProposed: boolean;
 };
 
 /** つくよみが拾ったまま、人がまだ見ていないもの。ツリーへはつながず別枠で出す。 */

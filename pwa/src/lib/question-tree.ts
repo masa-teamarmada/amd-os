@@ -176,7 +176,7 @@ function mapAction(
   };
 }
 
-function mapFinding(row: RawRow, questionIds: string[]): FindingNode {
+function mapFinding(row: RawRow, questionIds: string[], isProposed = false): FindingNode {
   return {
     id: str(row, "id"),
     projectId: str(row, "project_id"),
@@ -189,6 +189,7 @@ function mapFinding(row: RawRow, questionIds: string[]): FindingNode {
     fromActionId: nullableStr(row, "from_action_id"),
     lastVerifiedAt: str(row, "last_verified_at", todayIso()),
     questionIds,
+    isProposed,
   };
 }
 
@@ -214,7 +215,10 @@ function decorate(
 
   let latest = node.lastVerifiedAt;
   for (const action of node.actions) latest = later(latest, action.lastVerifiedAt);
-  for (const finding of node.findings) latest = later(latest, finding.lastVerifiedAt);
+  for (const finding of node.findings) {
+    if (finding.isProposed) continue;
+    latest = later(latest, finding.lastVerifiedAt);
+  }
   for (const child of node.children) latest = later(latest, child.latestVerifiedAt);
   node.latestVerifiedAt = latest;
 
@@ -531,7 +535,12 @@ export async function getQuestionTreeBundle(
    * 承認前は線が無いので、提案が持っている「戻り先」で仮に繋いで描く。
    */
   const actionRows = allActionRows;
-  const findingRows = allFindingRows.filter((row) => !isProposed(row));
+  /**
+   * 未承認の分かったことも、承認したら入る論点の詳細に出す（2026-11-10）。
+   * 出さないと承認ボタンがどこにも無く、えいみが入れた分かったことを承認できない。
+   * 最終確認日などの導出には入れない。
+   */
+  const findingRows = allFindingRows;
   const qaRows = (qaRes.data || []) as unknown as RawRow[];
   const qfRows = (qfRes.data || []) as unknown as RawRow[];
   const depRows = (depRes.data || []) as unknown as RawRow[];
@@ -596,15 +605,26 @@ export async function getQuestionTreeBundle(
 
   const questionIdsByFinding = new Map<string, string[]>();
   const findingIdsByQuestion = new Map<string, string[]>();
+  // 未承認は線をまだ持たないことがあるので、戻り先で仮に繋ぐ（TODOと同じ）。
+  for (const row of allFindingRows) {
+    if (!isProposed(row)) continue;
+    const questionId = nullableStr(row, "proposed_question_id");
+    if (!questionId) continue;
+    const findingId = str(row, "id");
+    questionIdsByFinding.set(findingId, [...(questionIdsByFinding.get(findingId) || []), questionId]);
+    findingIdsByQuestion.set(questionId, [...(findingIdsByQuestion.get(questionId) || []), findingId]);
+  }
   for (const row of qfRows) {
     const questionId = str(row, "question_id");
     const findingId = str(row, "finding_id");
     questionIdsByFinding.set(findingId, [...(questionIdsByFinding.get(findingId) || []), questionId]);
     findingIdsByQuestion.set(questionId, [...(findingIdsByQuestion.get(questionId) || []), findingId]);
   }
+  for (const [key, list] of questionIdsByFinding) questionIdsByFinding.set(key, [...new Set(list)]);
+  for (const [key, list] of findingIdsByQuestion) findingIdsByQuestion.set(key, [...new Set(list)]);
 
   const findings = findingRows.map((row) =>
-    mapFinding(row, questionIdsByFinding.get(str(row, "id")) || []),
+    mapFinding(row, questionIdsByFinding.get(str(row, "id")) || [], isProposed(row)),
   );
   const findingById = new Map(findings.map((finding) => [finding.id, finding]));
 

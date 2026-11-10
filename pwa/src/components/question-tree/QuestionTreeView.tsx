@@ -128,6 +128,10 @@ function fmtDate(value: string | null): string {
 }
 
 /** ツリーの中で目立たせる問い。手を打つべきものだけに絞る。 */
+function proposedFindingCount(node: QuestionNode): number {
+  return node.findings.filter((finding) => finding.isProposed).length;
+}
+
 function needsAttention(node: QuestionNode): boolean {
   return (
     node.status === "open" &&
@@ -1469,12 +1473,19 @@ export function QuestionTreeView({
             <div className={styles.subHead}>分かったこと（{action.findings.length}）</div>
             <div className={styles.itemList}>
               {action.findings.map((finding) => (
-                <div className={styles.item} key={finding.id}>
+                <div
+                  className={styles.item}
+                  key={finding.id}
+                  data-proposed={finding.isProposed ? "true" : undefined}
+                >
                   <span className={styles.itemKind}>{FINDING_KIND_LABEL[finding.findingKind]}</span>
                   <span className={styles.itemTitle}>{finding.summary}</span>
                   <span className={styles.meta}>{finding.sourceLabel}</span>
                   <span className={styles.meta}>{fmtDate(finding.observedOn)}</span>
                   <span className={styles.meta}>{finding.confidence}</span>
+                  {finding.isProposed && (
+                    <span className={styles.itemProposal}>{renderProposedControls("finding", finding.id)}</span>
+                  )}
                 </div>
               ))}
             </div>
@@ -1555,7 +1566,11 @@ export function QuestionTreeView({
             <div className={styles.subHead}>分かったこと（{node.findings.length}）</div>
             <div className={styles.itemList}>
               {node.findings.map((finding) => (
-                <div className={styles.item} key={finding.id}>
+                <div
+                  className={styles.item}
+                  key={finding.id}
+                  data-proposed={finding.isProposed ? "true" : undefined}
+                >
                   <span className={styles.itemKind}>{FINDING_KIND_LABEL[finding.findingKind]}</span>
                   <span className={styles.itemTitle} title={finding.summary}>
                     {finding.summary}
@@ -1563,6 +1578,9 @@ export function QuestionTreeView({
                   <span className={styles.meta}>{finding.sourceLabel}</span>
                   <span className={styles.meta}>{fmtDate(finding.observedOn)}</span>
                   <span className={styles.meta}>{finding.confidence}</span>
+                  {finding.isProposed && (
+                    <span className={styles.itemProposal}>{renderProposedControls("finding", finding.id)}</span>
+                  )}
                 </div>
               ))}
             </div>
@@ -1936,7 +1954,7 @@ export function QuestionTreeView({
    * （まさ確定 2026-09-12「ツリーの中に未承認として目立たせて表示して」）。
    * 送り先は POST 側のハンドラ。PATCH へ投げると 400 になる。
    */
-  const renderProposedControls = (kind: "question" | "action", id: string) => (
+  const renderProposedControls = (kind: "question" | "action" | "finding", id: string) => (
     <>
       <span className={styles.chip} data-kind="proposed">
         未承認
@@ -2195,6 +2213,22 @@ export function QuestionTreeView({
               </span>
             )}
             {node.isProposed && renderProposedControls("question", node.id)}
+            {/* 未承認の分かったことは木の行にならないので、持ち主の論点に件数で出す。
+                押すと論点の詳細が開き、その場で承認・却下できる（2026-11-10）。 */}
+            {proposedFindingCount(node) > 0 && (
+              <button
+                type="button"
+                className={styles.chip}
+                data-kind="proposed"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  select("question", node.id);
+                }}
+                title="未承認の分かったことがある。押すと詳細で承認・却下できる"
+              >
+                分かったこと 未承認{proposedFindingCount(node)}
+              </button>
+            )}
             {/* ptはここに出さない。ツリーとガントは外部メンバーも見る面で、
                 報酬に直結する数字を置けない（まさ 2026-09-11）。
                 ptを並べて比べるのはMS・月次タブ。ここではTODOの数だけ出す。 */}

@@ -66,4 +66,11 @@ if (!findingColumns.has("origin_kind")) {
   requireText(route, "if (ORIGIN_KIND_RESOURCES.includes(resource)) {\n        insert.origin_kind", "origin_kind guarded write");
 }
 
+// 未承認の分かったことを承認できる場所があること（2026-11-10。追加は通っても画面に出ず、承認できなかった）。
+const treeView = read("src/components/question-tree/QuestionTreeView.tsx");
+const treeLib = read("src/lib/question-tree.ts");
+requireText(treeView, 'renderProposedControls("finding", finding.id)', "proposed finding approval in question detail");
+requireText(treeView, "分かったこと 未承認", "proposed finding marker on question row");
+forbidText(treeLib, "allFindingRows.filter((row) => !isProposed(row))", "question-tree bundle");
+
 console.log("question-tree standalone task review contract: OK");
