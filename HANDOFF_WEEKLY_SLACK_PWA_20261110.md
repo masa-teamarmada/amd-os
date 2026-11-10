@@ -31,6 +31,6 @@
 ## リポジトリ状態
 
 - 今回のcloseoutでコード・DB・環境変数は変更していない。利用手順、実装仕様、事故記録、引き継ぎだけを更新した。
-- 本体チェックアウトには別作業の未コミット変更 `HANDOFF_GOAL_TREE_2026-09-13.md` と `SESSION_MIGRATION_PROMPT_GOAL_TREE_2026-09-13.md` がある。この引き継ぎとは別所有なので混ぜない。
+- closeout完了時点の本体チェックアウトは `main`、未コミット差分なし、`origin/main` と同期済み。
 
 参照: `pwa/design_log/sessions_2026-09.md` の「2026-09-17 PJ別週次 Slack レポートの設定と実投稿の分離」。
