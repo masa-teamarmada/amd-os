@@ -1,3 +1,5 @@
+2026-11-10（PJ週次Slackレポート）：内部向けの週次レポートを社外参加者がいる共有チャンネルへ送らない運用をspec5-3へ追加。現行判定は設定値・チャンネル有無だけを読み、外部共有状態や参加者所属は自動判定しないため、adminの許可前確認と `enabled=false` を現行の停止手段とする。コード・DB変更なし。
+
 2026-11-10 v3.165.23（未承認の分かったこと）：question-tree束が review_state='proposed' の分かったことを捨てており、承認・却下の操作面が無かった。FindingNode に isProposed を足し、未承認も線または proposed_question_id で論点へ仮に繋いで返す。導出（latestVerifiedAt）からは除外。QuestionTreeView の論点行に未承認件数の印、詳細の分かったこと一覧に未承認表示と承認・却下（proposal_accept/reject kind=finding）を追加。test:question-tree-task-review に表示経路の検査を追加。DB変更なし。spec3-21。
 
 2026-11-10 v3.165.22（分かったことの追加）：question-tree APIのPOSTが全種類へ `origin_kind` を書き、列の無い `project_findings` の追加が400で失敗していた。`ORIGIN_KIND_RESOURCES`（question・action）だけへ書くよう修正。`test:question-tree-task-review` に、追加で書く列とmigration上の `project_findings` 定義の照合を追加。DB変更なし。spec3-21。

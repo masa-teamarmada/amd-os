@@ -92,6 +92,7 @@ SKILL 正本は `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (
 - 週次レポートの正規入口はPWAの `GET /api/automation/weekly-slack-report` と `POST /api/automation/weekly-slack-report`。GETはLLM実行前の許可PJ一覧、または`projectId`ごとの根拠束を返す。POSTは本文と`projectId`だけを受け、PWAが投稿直前に設定と宛先をreadbackしてSlack APIへ直接送る。宛先チャンネルはGETで外へ渡さない。
 - 停止後10日間は取り込済みの投稿が残りうるため、設定が停止で直近証跡がある行は「実投稿: 前回あり」と表示する。これは停止前の履歴であり、配信中とは表示しない。
 - 送信を許可できるのは、`projects.slack_channel_id` があり、`slack_channel_not_required=false` のPJだけ。
+- 送信先はチームアルマダ内部のSlackチャンネルに限定する。社外参加者がいる共有チャンネルは `weekly_slack_report.{project_id}.enabled=false` を維持する。現行の送信判定はチャンネルの外部共有状態や参加者所属を自動取得しないため、adminが許可をONにする前に対象チャンネルの参加者を確認する。
 - Codexの定期処理はGETの許可対象だけをLLMへ渡す。個別根拠のGETと本文POSTも同じ設定を読み直すため、途中で停止へ変わったPJは生成も投稿もしない。PWAの送信入口はLLMプロバイダのキーを持たない。
 - `true` は送信を許可するだけで、停止している旧GAS senderやschedulerを起動しない。旧 `gas-external-research` のGemini週次トリガーは停止し、PWA経路以外を正規送信元にしない。
 

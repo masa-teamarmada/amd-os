@@ -19,6 +19,7 @@ admin 以外は `notFound()` で見えない。
 
 - 正本は `settings.weekly_slack_report.{project_id}.enabled`。PJ行を固定で列挙せず、新規PJを含め、設定行が無い場合は `false`（停止）。
 - Slackチャンネルが設定済みのPJだけ、「週次配信を許可」を選べる。`チャンネルなし`またはチャンネル未設定のPJは配信許可にできない。
+- 週次レポートはチームアルマダ内部のSlackチャンネルだけへ送る。取引先・支援先など社外の人が参加する共有チャンネルでは「週次配信を許可」をOFFにする。現行のPWAはチャンネルIDだけでは参加者の社内外を自動判定しないため、許可をONにするadminが参加者を確認する。
 - 保存はadmin専用のPJ台帳更新経路を通す。PWAの週次レポート入口は、LLM実行前に `GET /api/automation/weekly-slack-report` で許可PJだけを返す。個別の根拠は同じ入口へ `projectId` を付けて読み、許可が外れていれば根拠も返さない。本文は `POST /api/automation/weekly-slack-report` で渡し、PWAが投稿直前に同じ設定と宛先を読み直してSlack APIへ直接送る。画面は設定と別に、Slack生データから「実投稿: 配信中」（直近10日以内の週次レポートを検出）、「実投稿: 前回あり」（停止前の証跡）、「実投稿: 直近未検出」、「実投稿: 未判定」を出す。PJ名・チャンネル名の固定リストは使わない。実投稿が見つからなくても停止とは断定しない。
 - 実投稿の観測元は `source_cache(source='slack')`。毎朝の取り込みは、`project_slack_sources` またはPJ台帳にSlackチャンネルを持つ全PJを対象に、bot投稿を含めて保存する。Slack取込の証跡がないPJは未判定とする。
 - レポート本文を作るのはCodexの定期処理であり、PWAの送信入口はLLMキーを持たない。旧GASのGemini定期処理は停止し、PWAの許可対象外ではLLM生成もSlack投稿も行わない。`true` は送信を許可するだけで、停止している送信処理を勝手に起動しない。
