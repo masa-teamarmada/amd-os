@@ -1,57 +1,56 @@
-# Handoff - H-1 Background Operations
+# H-1 バックグラウンド運用 引き継ぎ
 
-Last updated: 2026-07-22 JST
-Target: `/Users/masa/projects/AMD/amd-os`
-Topic: H-1 MTG抽出とH-1レビューを、Codexの可視タスクを増やさずに実行する運用
+- 更新: 2026-11-10 JST
+- 仕事種別: development
+- 対象: H-1 MTG抽出、予定カード、Notion議事録メタデータ補完
+- 状態: 恒久仕様と実装はmainに存在するが、定期実行は2026-10-15以降停止中
 
-## Current Truth
+## 現在地
 
-- Accepted commit: `80b1278e fix(h1): run hourly workers without visible tasks`。現行mainの祖先に含まれる。
-- 旧Codex automation `amd-os-l6-meeting-flow` と `amd-os-h-1-meeting-reviewer` はどちらも `PAUSED`。再開しない。
-- H-1とreviewerはMac LaunchAgentから `codex exec --ephemeral` で実行する。H-1は毎時15分、reviewerは毎時45分に起動し、実行対象外の時間帯や候補なしなら早期終了する。
-- 実行中の可視H-1/reviewer taskは0件。state DBに残る `AMD OS L2差分レビュー` 23件は2026-05のarchive済み履歴で、現行runnerは作成していない。
-- 2026-07-22 15:15 JSTの確認では、両LaunchAgentは待機中、直近exit codeは0、各完了markerは1件、H-1/reviewerのバックグラウンドprocessは0件だった。
-- productionはH-1変更を含む `v3.47.13 / b4e66414 / main / dirty=false` まで確認済み。以降の別レーンcommitに伴うproduction SHAは、次の作業開始時に再取得する。
+- H-1はMac LaunchAgentから `codex exec --ephemeral` を起動し、可視タスクを作らずに処理する。旧Codex automationは再開しない。
+- Notion議事録の `eventId` / `PJ` / メンバー / `日付` 空欄は、本文を読まず、全履歴を25件ずつ巡回する。最大8ページを走査し、次回カーソルを保存する。末尾到達時は周回数を増やして先頭へ戻る。
+- 空欄値だけを補完し、既存値は上書きしない。メンバーは既存relationを保持した和集合だけ。Calendar・PJ・AMDメンバーを一意に照合できない項目は書かない。書込み後は同じページを再取得して確認する。
+- 2026-08-19にCLI側Notion OAuthを完了し、CLI接続とH-1本体の成功、25件走査、次回カーソル保存を確認した。
+- 2026-10-14 21:15 JSTまで定期実行は成功。全履歴巡回は30周まで進み、最後の正常runは空欄候補25件を確認して補完0件だった。
+- 2026-10-15 09:15 JST以降は定期実行が連続失敗。2026-11-10 09:15 JST時点で安全状態は連続失敗39回、最後のreportは2026-10-14のまま。
+- 現行の失敗診断ファイルは `exit=1` だけで、原因行が空。原因は未確認。認証切れ、CLI起動、モデル指定、runner内部失敗を推測で決めない。
+- `run_state` には古い `background.lock.stale.*` が多数残る。削除前に、実行中processがないことと再発原因を通常Mac環境で確認する。
 
-## Design
+## 次回の最初の作業
 
-- 入口は軽い候補gateに固定する。候補なしでは本文抽出、横断探索、ブラウザ確認、fixture、可視thread操作を行わない。
-- runner環境変数では、thread作成・検索・送信・改題・pin・archive・watchdogをすべて禁止する。
-- raw本文を含み得る標準出力は一時ファイルだけへ出し、runner終了時に削除する。永続ログには状態だけを残す。
-- sanitized reportと台帳を確定した後にcompletion markerを書く。CLIがreport確定後に非0で終わっても、markerがあれば失敗扱いで重複起動しない。
-- visible prepはW-Prep専任。H-1/reviewerはprep threadを作らない。
+1. 通常のMac環境でGitを最新化し、`main` と `origin/main`、未送信記録、共有checkoutの未保存ファイルを確認する。
+2. LaunchAgentの登録名をplistから確認し、state / runs / last exit codeを読む。実行中H-1 processと現在のlockを確認する。
+3. `codex mcp list` でNotionが `OAuth` になっていることを確認し、本文を読まない `--probe` を1回だけ実行する。
+4. probeが失敗したら、raw本文を残さず、CLIの終了理由を診断ファイルへ確実に残すようrunnerを直す。空の診断を成功扱いしない。
+5. probe成功後にH-1を1回だけ実行し、report作成、失敗数のリセット、Notion巡回カーソル更新を読み戻す。
+6. 古いlock退避フォルダは、実行中processがないことと再発防止を確認してから、安全な個別対象として整理する。
 
-## Files
+## 固定ルール
 
-- `scripts/run-h1-background.sh`
-- `scripts/run-h1-reviewer-background.sh`
-- `scripts/h1-background-runner-prompt.md`
-- `scripts/h1-reviewer-background-runner-prompt.md`
-- `scripts/launchagents/jp.teamarmada.amd-os-h1-background.plist`
-- `scripts/launchagents/jp.teamarmada.amd-os-h1-reviewer-background.plist`
-- `pwa/scripts/h1_background_candidate_gate.mjs`
-- `pwa/scripts/h1_reviewer_candidate_gate.mjs`
-- `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md`
-- `pwa/scheduled-tasks/amd-os-l6-meeting-reviewer/SKILL.md`
-- `pwa/scheduled-tasks/README.md`
+- 可視thread、prep thread、日次まとめthreadをH-1から作らない。visible prepはW-Prep専任。
+- 会議候補0件でもNotionメタデータ空欄scanを行ってから終了を判定する。
+- Notion空欄scanだけのrunでは議事録本文、メール本文、Drive本文、Slack本文を読まない。
+- raw本文、URL、秘密値、個人情報を永続ログ、report、handoffへ残さない。
+- candidate / prepared / applied / readback_verified / skipped / failedを分ける。補完0件は正常。
+- 失敗時はNotion巡回カーソルを進めない。
+- まさの判断や操作が不要な更新・変更なしではOS通知を作らない。
 
-## Next Action
+## 正本と実装
 
-機能変更は不要。次にH-1/reviewerを調査・変更する時は、まず旧automationがPAUSEDであること、LaunchAgentの直近exit code、completion marker、未archiveの可視task数をread-onlyで確認する。可視taskが再発していた場合は、threadを増やさず、作成経路を特定してからその経路だけを止める。
+- 現行仕様: `pwa/spec/3-3-meeting-flow-current-spec.md`
+- 利用・運用: `pwa/manual/8-3-l2-extraction-routines-spec.md`
+- 詳細設計: `pwa/design/meeting_summaries.md`
+- 候補gate: `pwa/scripts/h1_background_candidate_gate.mjs`
+- Notion補完契約: `pwa/scripts/h1_notion_metadata_contract.mjs`
+- runner: `scripts/run-h1-background.sh`
+- runner指示: `scripts/h1-background-runner-prompt.md`
+- 回帰検査: `pwa/scripts/check_h1_background_contract.mjs`、`pwa/scripts/check_h1_notion_metadata_contract.mjs`
+- 不具合記録: `pwa/BUGS.md`
+- 再開文: `SESSION_MIGRATION_PROMPT_H1_BACKGROUND.md`
 
-## Guardrails
+## リポジトリ状態
 
-- `set_thread_archived` を定期実行の後始末に使わない。可視threadをそもそも作らない。
-- 任意の時間しきい値で実行中workerを打ち切らない。候補gate、対象境界、report確定markerで終了を制御する。
-- runnerの標準出力、source本文、URL、secretを永続ログやhandoffへ残さない。
-- root `HANDOFF.md` は現在KUTE lane、root `SESSION_MIGRATION_PROMPT.md` はBook A laneの正本。H-1作業では上書きしない。
-- shared checkoutの他worker差分はstage、revert、整形しない。
-
-## Closeout Snapshot
-
-- branch: `main`
-- accepted H-1 commit: `80b1278e`
-- worktree: root 1件のみ
-- local branch: `main`のみ
-- H-1 own dirty: 0件
-- shared checkout: 別laneの未commit差分が残るため、repo全体は `do not archive`
+- この引き継ぎ、不具合記録、再開文は2026-11-10のcloseoutでmainへ記録する。
+- 次回は作業前に `git fetch origin --prune` を行い、mainと共有先の一致、未送信記録、未保存ファイルを確認する。
+- H-1以外の未保存ファイルは、所有する作業ごとに扱う。このH-1引き継ぎを更新するために編集・削除・stageしない。
+- このH-1 closeoutで新しいbranch / worktreeは作っていない。
