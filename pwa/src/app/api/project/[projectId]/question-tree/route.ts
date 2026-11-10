@@ -90,6 +90,13 @@ const REQUIRED_ON_CREATE: Record<Resource, string[]> = {
 /** リンクは実体を持たないので論理削除しない。 */
 const SOFT_DELETABLE: Resource[] = ["question", "action", "finding"];
 
+/**
+ * 由来（origin_kind）の列を持つ種類。分かったこと（project_findings）は由来を
+ * source_label / source_url で持ち、origin_kind 列が無い（spec 3-21「分かったこと」）。
+ * ここに無い種類へ origin_kind を書くと、追加が丸ごと失敗する（2026-11-10 発覚）。
+ */
+const ORIGIN_KIND_RESOURCES: Resource[] = ["question", "action"];
+
 /** pt は小数1桁。負は入れない（3-22 §6 原則6）。 */
 const PT_FIELDS = new Set(["estimated_pt"]);
 
@@ -521,7 +528,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
        * 入れたものは提案として置き、まさが承認するまでツリーに出ない。
        */
       const fromScreen = request.headers.get("x-amd-os-actor") === "screen";
-      insert.origin_kind = insert.origin_kind ?? (fromScreen ? "manual" : "automation");
+      if (ORIGIN_KIND_RESOURCES.includes(resource)) {
+        insert.origin_kind = insert.origin_kind ?? (fromScreen ? "manual" : "automation");
+      }
       insert.review_state = fromScreen ? "accepted" : "proposed";
       if (!fromScreen && !insert.proposal_reason) {
         insert.proposal_reason = "えいみが入れた。まさの承認を待っている";

@@ -107,6 +107,8 @@
 | `from_action_id` | どのTODOの結果か。外部由来ならNULL |
 | 監査列 | |
 
+由来は `source_label` / `source_url` で持ち、`origin_kind` 列は持たない。追加経路（`POST /api/project/[projectId]/question-tree`）が `origin_kind` を書くのは論点とTODOだけ（`ORIGIN_KIND_RESOURCES`）。分かったことも、画面以外からの追加は `review_state='proposed'` で入り、承認・却下は `proposal_accept` / `proposal_reject`（`kind: "finding"`）。追加経路が書く列が表に実在することは `npm run test:question-tree-task-review` が migration の定義と照合する（2026-11-10、表に無い `origin_kind` を書いて追加が全件失敗していた）。
+
 ### つなぎ
 
 | テーブル | 内容 |
