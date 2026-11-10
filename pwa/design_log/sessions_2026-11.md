@@ -28,3 +28,11 @@ commit `99bcd56b1`をmainへpushし、`deploy.sh`で本番SHA一致を確認。�
 ## 2026-11-06 請求書の立替税率
 
 立替を含む請求書で、非課税0%を10%へ戻してしまう経路を修正した。立替編集は0%を保持し、請求書発行時は0%・8%・10%だけをfreee明細へ渡す。未設定は既存どおり10%に補完し、想定外の税率は外部発行前に停止する。PWAとiOSの発行モーダルは、基本明細10%と立替ごとの税率を分けて概算税込額を表示する。`check_invoice_expense_rule.mts`に0%・8%・10%と概算の回帰検査を追加した。DB migration・環境変数は変更なし。操作manual6-3、画面仕様FEATURE_REGISTRY、変更履歴manual9-3/spec6-1、Android向け注意はios/HANDOFF_ios_to_androidへ同期。
+
+## 2026-11-10 ゴールツリーの分かったこと
+
+Rejuvidaの記録反映中、えいみがquestion-tree APIで分かったことを提案として入れると400（`Could not find the 'origin_kind' column of 'project_findings'`）。POSTが論理削除対象の全種類へ `origin_kind` を書いていたため、画面からの追加も同じく失敗していた。本番の `project_findings` は `review_state`・`proposal_reason`・`proposed_question_id`・監査列を持ち、`origin_kind` だけが無いことをREST読取りで確認。`6eef6522f`（v3.165.22）で `ORIGIN_KIND_RESOURCES`（question・action）だけへ書くよう修正し、`test:question-tree-task-review` にmigration上の表定義と追加時に書く列の照合を追加（修正前のrouteでは失敗、修正後は成功を確認）。
+
+修正後、提案として入った分かったことが束の組み立てで捨てられ、画面に承認・却下の操作面が無いことが判明。`8f14d083a`（v3.165.23）で `FindingNode.isProposed` を追加し、未承認も線または `proposed_question_id` で論点へ仮に繋いで返す（最終確認日の導出からは除外）。論点行に「分かったこと 未承認N」の印、論点詳細の分かったこと一覧に琥珀色の未承認行と承認・却下を追加。仕様spec3-21、操作manual2-9、変更履歴manual9-3/spec6-1に同期。DB変更・環境変数・定期処理なし。
+
+型検査0件、ゴールツリー状態31通り、重要UI検査が成功。2回とも `deploy.sh` で本番SHA一致を確認。本番でRejuvidaの11/9の分かったことを提案として追加し、PC Chrome（幅1456px）で論点行の印・詳細の未承認表示と承認・却下ボタンを確認。承認・却下は押していない（まさの判断待ち）。スマホ幅は、Chromeのウィンドウ幅を変更できず未確認。
