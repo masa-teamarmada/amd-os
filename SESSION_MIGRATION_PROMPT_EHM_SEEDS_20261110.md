@@ -18,9 +18,10 @@ AMD OSの愛媛大学EHMシーズ記録を引き継ぐ。作業場所は `/Users
 - 澤崎シーズの補助金履歴には「NEDO NEP 開拓コース／採択」が1件ある。採択年度・金額・実施期間は根拠がないため空欄。
 - `p30 EHM` は正式PJとして `active`。左メニュー「ホーム」のPJ候補へ自動表示する。
 - 議事録・Slack・Teamsの取り込みでは、本文要約だけで終えず、助成金は `seed_funding`、接触は `seed_contact_log`、ニュース・論文・特許は `seed_news`、PJ化は `seed_projects` または `institution_projects` へ保存する。根拠にない値は埋めない。
-- 実装commitは `9ecf9a835`、`5f88fa8c0`、`0d37e11e5`、`b51921ff9`。2026-11-10時点のローカルmain `69a3f5bff` に全件含まれる。
+- 実装commitは `9ecf9a835`、`5f88fa8c0`、`0d37e11e5`、`b51921ff9`。2026-11-10のcloseout時点のmainに全件含まれる。
 - 2026-08-18時点ではDB読戻し、PWA本番反映、PC画面での「ホーム→EHM」と澤崎シーズの補助金履歴を確認済み。
-- 2026-11-10の閉鎖時は、GitHubへの再取得が名前解決失敗、本番DB読戻しが管理環境の承認制約で未確認。ローカルHEADと手元の `origin/main` は一致。
+- closeout記録は `e1f4c013a` でmainへ反映し、GitHubの `origin/main` へのpush成功まで確認した。
+- 2026-11-10の閉鎖時点では、本番DB読戻しが管理環境の承認制約で未確認。
 
 次タスク:
 
