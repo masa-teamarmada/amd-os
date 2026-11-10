@@ -18,7 +18,7 @@
 
 ## 状態スナップショット（2026-11-10 確認）
 
-- 作業場所: `/Users/masa/projects/AMD/amd-os`。`main` 一本、HEAD `923fb71ba`、`origin/main` と一致、未push・未記録変更・競合なし。
+- 作業場所: `/Users/masa/projects/AMD/amd-os`。`main` 一本。closeout時点で `origin/main` と一致し、未push・未記録変更・競合なし。
 - 本番: `v3.165.23`（`8f14d083a`）。GitHubの `main` にある後続1件は画面に出ない開発記録なので、本番との製品差分はない。このセッションの作業（v3.104.1、v3.110.0〜v3.115.0）はすべて取り込み済み。
 - 当時使った使い捨てのclean cloneは消えている。再現には新しく clone する。
 - 承認フローは稼働中。未承認TODOは p07 45件・p30 35件・SX 30件・p20 13件・p00 10件・p19 6件・p33 3件・p25 2件。未承認の論点/MSは p07 40件・SX 12件・p19 1件・p20 1件。
