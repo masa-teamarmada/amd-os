@@ -26,9 +26,9 @@ AMD OSの請求書における立替税率保持の本番反映を完了する�
 4. `https://amd-os-pwa.vercel.app/api/build-info` が `e606cf1bd` を返すことを確認する。
 5. masaiPhoneへinstall・launchし、請求書画面の「消費税（概算）」が立替ごとの税率を反映することを確認する。
 
-運用:
+守ること:
 
-- main一本。push前にfetchし、対象ファイルだけ明示stageする。`git add .` は使わない。
+- main一本。新しいbranchや作業ツリーを作らない。対象ファイルだけを明示して記録し、`git add .`は使わない。
 - PWAの仕様変更はmanual・spec・FEATURE_REGISTRY・開発履歴へ同じ変更で反映する。
 - migrationは再適用しない。Edge FunctionはPWAとは別に反映・確認する。
 - 本番完了はVercel READY、`/api/build-info`、Edge Function読戻し、実機install / launchで判断する。
