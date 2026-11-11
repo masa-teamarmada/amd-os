@@ -262,8 +262,8 @@ function buildParams(cfg) {
     'ビジネス側1〜2名と家賃・社会保険・顧問料を含む。会社化がスコアを下げることがあるのはここが効くため', ['s^f']));
   out.push(P(G.CASH, 'restrictedWaste', null, '使途制限で充当できない割合', fmtPct(cfg.restrictedWaste), 'C', '6.I-9-2',
     '公的資金は充てられる支出が限定される。その充当できない分', ['s^r']));
-  out.push(P(G.CASH, 'preIncAdvMult', null, '会社化前・資金がほぼ無いあいだの前進の速さ', `${cfg.preIncAdvMult.toFixed(2)} 倍（支出は ${cfg.preIncBurnMult.toFixed(0)}）`, 'C', '5.2',
-    '会社化前は資金切れという終端を持たない。資金がほぼ無いあいだは前進が遅くなり、支出は大学の基盤で回る。公的資金が入れば元の速度に戻る', ['p^adv']));
+  out.push(P(G.CASH, 'preIncAdv', null, '会社化前・資金がほぼ無いあいだの前進', `T1・T2 は ${cfg.preIncAdvResearch} 倍、ほかのゲートは ${cfg.preIncAdvOther} 倍（受託の契約中は ${cfg.preIncAdvContract} 倍。支出は ${cfg.preIncBurnMult.toFixed(0)}）`, '規約', '5.2',
+    '会社化前は資金切れという終端を持たない。資金がほぼ無いあいだは、研究の範囲のゲートだけが進み、事業化に使える資金が要るゲートは前進しない。支出は大学の基盤で回る。公的資金に採択されると、これらのゲートの前進が始まる', ['p^adv']));
   out.push(P(G.CASH, 'rDef', 'r', '自走力の既定', Object.entries(cfg.rDef).map(([t, v]) => `${t}: ${fmtMan(v)}／月`).join(' / '), 'C', '6.I-9-1',
     '工数を全部割いたときに案件へ残る額（直接費を引いた後の粗利）。売上ではない。案件ごとの調査が入ったら上書きする', ['s^f']));
   out.push(P(G.CASH, 'rPostMult', null, '会社化後の自走力の倍率', `${cfg.rPostMult.toFixed(1)} 倍`, 'C', '6.I-9-1',

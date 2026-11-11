@@ -101,8 +101,12 @@ const CFG = {
   uLeftDef: 0,       // 未着手の用途がどれだけ残るか（0〜1）。用途1本の Tier 0 では 0
 
   // 会社化前は、資金は前進の速度を変えるだけで、資金切れという終端を持たない（#2026-08-29-1）。
-  // 資金がほぼ無いあいだは前進が遅れ、支出は大学の基盤で回る。証拠の陳腐化と消失は効き続ける。
-  preIncAdvMult: 0.35,   // 会社化前・資金がほぼ無いあいだ（残高が最低格子）の前進の速さ
+  // 資金がほぼ無いあいだ（残高が最低格子）は、次に越えるゲートの種類で前進を分ける（#2026-11-11-1）。
+  // T1・T2 は研究室の研究として進む。ほかのゲートは事業化に使える資金が要るので前進しない。受託の契約中は進む。
+  // 支出は大学の基盤で回る。証拠の陳腐化と消失は効き続ける。較正する係数ではなく、規約。
+  preIncAdvResearch: 1,   // T1・T2
+  preIncAdvContract: 1,   // T1・T2 以外で、受託の契約中
+  preIncAdvOther: 0,      // T1・T2 以外で、受託の契約が無い
   preIncBurnMult: 0,     // 同・支出は引かない（研究室の維持は大学の基盤で回る）
 
   // 無風期間 t_q（外から見えるポジティブな動きが出ていない月数）→ 申し出到来率の乗数 m_q（#2026-08-29-1）。
@@ -515,6 +519,7 @@ function runOne(type, reg, cfg, theta, init) {
   // 位置ごとの静的な情報
   const posRole = new Int8Array(P), posNext = new Int32Array(P), posHead = new Int32Array(P);
   const posPass = new Float64Array(P), posStage = new Int32Array(P), posIsM4 = new Int8Array(P);
+  const posIsResearch = new Int8Array(P);
   for (let p = 0; p < P; p++) {
     const q = B.pos[p];
     posRole[p] = q.role === 'hazard' ? 1 : (q.reviewEnd ? 2 : 0);
@@ -523,6 +528,7 @@ function runOne(type, reg, cfg, theta, init) {
     posPass[p] = q.pass !== undefined ? q.pass : 1.0;
     posStage[p] = B.stageAt[p];
     posIsM4[p] = (q.gate === 'M4') ? 1 : 0;
+    posIsResearch[p] = (q.gate === 'T1' || q.gate === 'T2') ? 1 : 0;
   }
 
   // 資金の格子への配分（分岐なしで書き込む）
@@ -604,7 +610,8 @@ function runOne(type, reg, cfg, theta, init) {
                 let pn, wP, dn, reached = false;
                 if (role === 1) {
                   let pa2 = (X === 1) ? advBaseX : advBase;
-                  if (si === 1 && I === 0) pa2 *= cfg.preIncAdvMult;   // 会社化前・資金がほぼ無いあいだは前進が遅い
+                  // 会社化前・資金がほぼ無いあいだ: T1・T2 は進み、ほかは受託の契約中だけ進む（#2026-11-11-1）
+                  if (si === 1 && I === 0) pa2 *= (posIsResearch[p] === 1 ? cfg.preIncAdvResearch : (X === 1 ? cfg.preIncAdvContract : cfg.preIncAdvOther));
                   if (posIsM4[p] === 1 && Rb > 0) pa2 = 0;
                   const pass = posPass[p], pStall = cfg.stallShare * pa2;
                   if (pb === 0) { pn = posNext[p]; wP = wX * pa2 * pass; dn = 0; reached = pn >= P; }
