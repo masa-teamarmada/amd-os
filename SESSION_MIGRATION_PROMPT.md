@@ -42,3 +42,14 @@ AMD OS全体最適化を、2026-11-10の現行状態から再開する。作業�
 - LLMは意味づけと候補化に使い、保存のたびの同期や正本間コピーには使わない。同期は決定論的な変更履歴と識別子で行う。
 - main一本。新しいbranchや作業ツリーを作らない。対象ファイルだけを明示して記録し、`git add .`は使わない。
 - PWAはPCのChromeで確認する。まさはスマホではSwift版を使うため、依頼がない限りスマホWeb確認や追加実装は行わない。
+
+
+## 契約フローの再開文（2026-11-12）
+
+AMD OSの契約フローを再開する。作業場所は /Users/masa/projects/AMD/amd-os。
+
+読む順: /Users/masa/projects/AGENTS.common.md → /Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md → HANDOFF_CONTRACT_WORKFLOW.md → AGENTS.md → pwa/spec/5-6-contracts-management-current-spec.md → pwa/manual/6-7-contracts-management-spec.md → pwa/BUGS.md。
+
+2026-11-12の確認では、製品の main と本番 v3.165.23 は b8dcfe4ce で一致。Word/PDF下書き、ファイル選択・ドロップ、版履歴、矢印付き6段階は 0bd15180 で反映済み。実案件の矢印表示は確認済み。独立デザイナー監査と新経路の実Drive保存は未確認。前回の画面証跡は /Users/masa/.codex/visualizations/2026/10/08/01a11a36-1046-7ea0-a1d8-37c5ba39efa9/workflow-evidence-v3/review.md。
+
+まさは一旦休止を指定。再開指示が来たら、まず最新の本番・仕様と保存検証の既存記録を照合する。まだ未確認なら、登録を許可された案件・文書で、PCのChromeからWord下書きの登録→管理部門の契約フォルダの実ファイル→版履歴を確認する。本番の試験契約を捏造しない。承認対象は固定した最終PDF、承認はきよ、押印と締結版照合は別工程。契約メール監視は10月20日に停止済みで、再開しない。適用済みの移行は再実行せず、製品修正が必要ならmainの正規反映手順を使う。
