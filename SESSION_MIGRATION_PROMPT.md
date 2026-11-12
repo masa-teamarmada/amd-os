@@ -53,3 +53,17 @@ AMD OSの契約フローを再開する。作業場所は /Users/masa/projects/A
 2026-11-12の確認では、製品の main と本番 v3.165.23 は b8dcfe4ce で一致。Word/PDF下書き、ファイル選択・ドロップ、版履歴、矢印付き6段階は 0bd15180 で反映済み。実案件の矢印表示は確認済み。独立デザイナー監査と新経路の実Drive保存は未確認。前回の画面証跡は /Users/masa/.codex/visualizations/2026/10/08/01a11a36-1046-7ea0-a1d8-37c5ba39efa9/workflow-evidence-v3/review.md。
 
 まさは一旦休止を指定。再開指示が来たら、まず最新の本番・仕様と保存検証の既存記録を照合する。まだ未確認なら、登録を許可された案件・文書で、PCのChromeからWord下書きの登録→管理部門の契約フォルダの実ファイル→版履歴を確認する。本番の試験契約を捏造しない。承認対象は固定した最終PDF、承認はきよ、押印と締結版照合は別工程。契約メール監視は10月20日に停止済みで、再開しない。適用済みの移行は再実行せず、製品修正が必要ならmainの正規反映手順を使う。
+
+## SOL外部開示の再開用（2026-11-12）
+
+```text
+作業場所は /Users/masa/projects/AMD/amd-os。次の順で読む。
+1. /Users/masa/projects/AGENTS.common.md
+2. /Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md
+3. /Users/masa/projects/AMD/amd-os/HANDOFF_SOL_EXTERNAL_DISCLOSURE_20261112.md
+4. 上の引き継ぎが指す開示仕様・マニュアル、最後に pwa/BUGS.md
+
+10月の修正はmainと本番へ反映済み。11月12日の本番はv3.165.23、b8dcfe4ceで、記録前の手元mainと一致。検証資料の場所は引き継ぎに記載。未完の実装はない。
+再開依頼があれば、最新main・本番・対象の権限を先に照合する。目的は無料のSOL側Slackの履歴保全。AMD社内Slackの保存や共有を戻さず、会議・活動は公開確認済みだけを表示する。削除した人物評価や元の文言を復元しない。
+SOL DDの修正は /Users/masa/projects/AMD/SOL/DD_LOCAL_PREVIEW.md の専用環境で行い、まさの明示指示まで本番・配布物・出力ジョブを更新しない。Webの表示確認はPCのChromeで行う。
+```
