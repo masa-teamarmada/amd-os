@@ -4347,9 +4347,13 @@ expectIncludes("src/components/question-tree/QuestionTreeView.tsx", [
   "ancestorsOf",
   "needsAttention",
   // 詳細の各項目は押すとその場で直せる (まさ 2026-09-10「それぞれの枠のクリックで
-  // 編集できるようにして」)。導出値だけは押せない。
+  // 編集できるようにして」)。
   "renderInline",
-  "状態（自動）",
+  // 2026-11-14 まさ確定: ゴールツリーの詳細は論点もTODOも種類・詳細・分かったことだけ。
+  // 担当・期限・状態（自動）などは出さない（「時間軸はいれたくない」「複雑にしないで」）。
+  // 日程と担当はガントのTODOの詳細（renderActionDetailBody）で扱う。
+  "renderActionTreeBody",
+  'if (mode !== "gantt") return renderActionTreeBody(action);',
   // やることも押せば詳細が開き、その場で直せる (まさ 2026-09-10「『確かめる』って
   // 書いてあるところはモーダルが出ないけど…何の編集もできないのは困る」)。
   "renderActionDetailBody",

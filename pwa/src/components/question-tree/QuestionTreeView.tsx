@@ -105,13 +105,6 @@ function buildMonthTicks(domain: GanttDomain): { key: string; label: string; lef
   return ticks;
 }
 
-const CONFIDENCE_LABEL: Record<string, string> = {
-  high: "高い",
-  medium: "ふつう",
-  low: "低い",
-  unknown: "未評価",
-};
-
 /**
  * textarea を中身の高さへ合わせる。読んでいるときと編集中で欄の大きさが変わると、
  * 押した瞬間に画面が動いて混乱する（まさ 2026-09-10「入力状態になると欄の大きさが
@@ -688,7 +681,6 @@ export function QuestionTreeView({
         fields: {
           title: text("title"),
           question_kind: "goal",
-          due_date: text("due_date"),
           background: text("background"),
         },
       });
@@ -731,8 +723,8 @@ export function QuestionTreeView({
               fields: {
                 title: text("title"),
                 action_kind: childKind,
-                owner_label: text("owner_label") || "担当未確認",
-                planned_end: text("due_date"),
+                // ゴールツリーでは担当・期限を聞かない（まさ確定 2026-11-14）。既定値だけ入れる。
+                owner_label: "担当未確認",
                 detail: text("detail"),
                 origin_question_id: node.id,
               },
@@ -759,8 +751,8 @@ export function QuestionTreeView({
             parent_id: node.id,
             title: text("title"),
             question_kind: questionKind,
-            owner_label: text("owner_label") || "担当未確認",
-            due_date: text("due_date"),
+            owner_label: "担当未確認",
+            background: text("detail"),
             origin_question_id: node.id,
           },
         });
@@ -1391,8 +1383,61 @@ export function QuestionTreeView({
     );
   };
 
+  /**
+   * ゴールツリーで開くTODOの詳細。論点の詳細と同じ形（種類・詳細・分かったこと）にする。
+   * ゴールツリーは論点を整理する面で、担当・日程・進み具合は置かない（まさ確定 2026-11-14）。
+   * 日程と担当はガントのタブで扱う。
+   */
+  const renderActionTreeBody = (action: ActionNode) => (
+    <div className={styles.panelBody}>
+      <div className={styles.detailGrid}>
+        {renderInline("action", action.id, "種類", "action_kind", action.actionKind, action.actionKind === "measure" ? "確かめる" : "作業", "select", [
+          { value: "measure", label: "確かめる（測る / 調べる / 聞く）" },
+          { value: "work", label: "作業（決まったことを実行する）" },
+        ])}
+      </div>
+
+      {renderInline("action", action.id, "詳細", "detail", action.detail, action.detail ?? "", "multiline")}
+
+      {action.findings.length > 0 && (
+        <div>
+          <div className={styles.subHead}>分かったこと（{action.findings.length}）</div>
+          <div className={styles.itemList}>
+            {action.findings.map((finding) => (
+              <div
+                className={styles.item}
+                data-compact="true"
+                key={finding.id}
+                data-proposed={finding.isProposed ? "true" : undefined}
+              >
+                <span className={styles.itemKind}>{FINDING_KIND_LABEL[finding.findingKind]}</span>
+                <span className={styles.itemTitle}>{finding.summary}</span>
+                <span className={styles.meta}>{finding.sourceLabel}</span>
+                {finding.isProposed && (
+                  <span className={styles.itemProposal}>{renderProposedControls("finding", finding.id)}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {error && <p className={styles.notice}>{error}</p>}
+
+      <div className={styles.actions}>
+        {renderDeleteAction(
+          "action",
+          action.id,
+          action.children.length > 0,
+          "下位のTODOがあるため削除できません。先に移動または削除してください",
+        )}
+      </div>
+    </div>
+  );
+
   const renderActionDetailBody = (action: ActionNode) => {
-    const summary = mode === "gantt" ? roadmapParents.get(action.id) : undefined;
+    if (mode !== "gantt") return renderActionTreeBody(action);
+    const summary = roadmapParents.get(action.id);
     const owners = action.questionIds
       .map((id) => questionById.get(id))
       .filter((item): item is QuestionNode => Boolean(item));
@@ -1503,19 +1548,10 @@ export function QuestionTreeView({
       .filter((item): item is QuestionNode => Boolean(item));
     return (
       <div className={styles.panelBody}>
+        {/* ゴールツリーは論点を整理する面。担当・期限・更新日・確からしさは置かない
+            （まさ確定 2026-11-14「時間軸はいれたくない」「複雑にしないで」）。 */}
+        {(node.questionKind !== "goal" || node.children.length > 0) && (
         <div className={styles.detailGrid}>
-          <div className={styles.field}>
-            <span>状態（自動）</span>
-            <b>{QUESTION_STATE_LABEL[node.state]}</b>
-          </div>
-          {renderInline("question", node.id, "担当", "owner_label", node.ownerLabel, node.ownerLabel)}
-          {renderInline("question", node.id, "期限", "due_date", node.dueDate, node.dueDate ? fmtDate(node.dueDate) : "期限なし", "date")}
-          {renderInline("question", node.id, "確からしさ", "confidence", node.confidence, CONFIDENCE_LABEL[node.confidence], "select", [
-            { value: "high", label: "高い" },
-            { value: "medium", label: "ふつう" },
-            { value: "low", label: "低い" },
-            { value: "unknown", label: "未評価" },
-          ])}
           {/* MSにするかどうかは人が決める。置き場所は縛らない
               （まさ確定 2026-09-12）。到達点だけは根の1本なので種類を変えさせない。 */}
           {node.questionKind !== "goal" &&
@@ -1532,25 +1568,15 @@ export function QuestionTreeView({
               { value: "all", label: CHILDREN_LOGIC_LABEL.all },
               { value: "any", label: CHILDREN_LOGIC_LABEL.any },
             ])}
-          <div className={styles.field}>
-            <span>次の期限（自動）</span>
-            <b>{fmtDate(node.nextDueDate)}</b>
-          </div>
-          <div className={styles.field}>
-            <span>最終更新（自動）</span>
-            <b>
-              {fmtDate(node.latestVerifiedAt)}
-              {node.isStale ? "（更新切れ）" : ""}
-            </b>
-          </div>
         </div>
+        )}
 
 
         {node.status === "answered" &&
           renderInline(
             "question",
             node.id,
-            `答え${node.answeredOn ? `（${fmtDate(node.answeredOn)}${node.answeredBy ? ` / ${node.answeredBy}` : ""}）` : ""}`,
+            "答え",
             "answer",
             node.answer,
             node.answer ?? "",
@@ -1559,7 +1585,7 @@ export function QuestionTreeView({
         {node.status === "dropped" &&
           renderInline("question", node.id, "取り下げた理由", "drop_reason", node.dropReason, node.dropReason ?? "", "multiline")}
 
-        {renderInline("question", node.id, "背景・前提", "background", node.background, node.background ?? "", "multiline")}
+        {renderInline("question", node.id, "詳細", "background", node.background, node.background ?? "", "multiline")}
 
         {node.findings.length > 0 && (
           <div>
@@ -1568,6 +1594,7 @@ export function QuestionTreeView({
               {node.findings.map((finding) => (
                 <div
                   className={styles.item}
+                  data-compact="true"
                   key={finding.id}
                   data-proposed={finding.isProposed ? "true" : undefined}
                 >
@@ -1576,8 +1603,6 @@ export function QuestionTreeView({
                     {finding.summary}
                   </span>
                   <span className={styles.meta}>{finding.sourceLabel}</span>
-                  <span className={styles.meta}>{fmtDate(finding.observedOn)}</span>
-                  <span className={styles.meta}>{finding.confidence}</span>
                   {finding.isProposed && (
                     <span className={styles.itemProposal}>{renderProposedControls("finding", finding.id)}</span>
                   )}
@@ -1592,11 +1617,9 @@ export function QuestionTreeView({
             <div className={styles.subHead}>この問いから生まれたもの（{derived.length}）</div>
             <div className={styles.itemList}>
               {derived.map((item) => (
-                <div className={styles.item} key={item.id}>
+                <div className={styles.item} data-compact="true" key={item.id}>
                   <span className={styles.itemKind}>問い</span>
                   <span className={styles.itemTitle}>{item.title}</span>
-                  <span className={styles.meta}>{item.ownerLabel}</span>
-                  <span className={styles.meta}>{fmtDate(item.nextDueDate)}</span>
                   <span className={styles.meta}>{QUESTION_STATE_LABEL[item.state]}</span>
                 </div>
               ))}
@@ -1683,18 +1706,8 @@ export function QuestionTreeView({
                   内容
                   <input name="title" required placeholder="〜は成立するか / 〜を測る" />
                 </label>
-                <div className={styles.formRow}>
-                  <label>
-                    担当
-                    <input name="owner_label" placeholder="担当未確認" />
-                  </label>
-                  <label>
-                    期限
-                    <input name="due_date" type="date" />
-                  </label>
-                </div>
                 <label>
-                  補足（TODOなら方法・条件）
+                  詳細
                   <textarea name="detail" placeholder="必要なら書く" />
                 </label>
               </>
@@ -2074,12 +2087,12 @@ export function QuestionTreeView({
               {action.actionKind === "measure" ? "確かめる" : "作業"}
             </span>
             {action.isProposed && renderProposedControls("action", action.id)}
-            {action.isUnassigned && !action.isProposed && (
+            {mode === "gantt" && action.isUnassigned && !action.isProposed && (
               <span className={styles.chip} data-kind="unassigned">
                 未アサイン
               </span>
             )}
-            <span className={styles.flagDot} data-flag={action.isOverdue ? "overdue" : undefined} />
+            <span className={styles.flagDot} data-flag={mode === "gantt" && action.isOverdue ? "overdue" : undefined} />
           </div>
           {mode === "gantt" ? (
             renderActionLane(action)
@@ -2087,10 +2100,6 @@ export function QuestionTreeView({
             <>
               <span className={styles.state} data-state="action">
                 {ACTION_STATUS_LABEL[action.status]}
-              </span>
-              <span className={styles.meta}>{ownerText(action)}</span>
-              <span className={styles.meta} data-alert={action.isOverdue ? "true" : undefined}>
-                {action.plannedEnd ? fmtDate(action.plannedEnd) : "期限なし"}
               </span>
             </>
           )}
@@ -2236,7 +2245,7 @@ export function QuestionTreeView({
               node.todoCount > 0 && (
                 <span className={styles.chip} data-kind="rollup">
                   TODO {node.todoCount}
-                  {node.unassignedCount > 0 ? `（未${node.unassignedCount}）` : ""}
+                  {mode === "gantt" && node.unassignedCount > 0 ? `（未${node.unassignedCount}）` : ""}
                 </span>
               )}
             {/* 状態は縦棒でなく丸で示す。縦棒は罫線と重なって読みにくい
@@ -2248,12 +2257,9 @@ export function QuestionTreeView({
             renderRollupLane(node)
           ) : (
             <>
+              {/* 担当と期限の列は置かない。ゴールツリーは論点を整理する面（まさ確定 2026-11-14）。 */}
               <span className={styles.state} data-state={node.state}>
                 {QUESTION_STATE_LABEL[node.state]}
-              </span>
-              <span className={styles.meta}>{node.ownerLabel}</span>
-              <span className={styles.meta} data-alert={node.isOverdue ? "true" : undefined}>
-                {node.nextDueDate ? fmtDate(node.nextDueDate) : "期限なし"}
               </span>
             </>
           )}
@@ -2306,10 +2312,13 @@ export function QuestionTreeView({
             <span className={styles.stat} data-tone="bad">
               要見直し<b>{counts.deadBranch}</b>
             </span>
+            {/* 期限と担当の集計はガントだけに出す。ゴールツリーは論点を整理する面（まさ確定 2026-11-14）。 */}
+            {mode === "gantt" && (
             <span className={styles.stat} data-tone={counts.overdue > 0 ? "bad" : undefined}>
               期限超過<b>{counts.overdue}</b>
             </span>
-            {/* アサインはツリーの上で行う（3-22 §4）。件数から最初の未アサイン行へ移す。 */}
+            )}
+            {mode === "gantt" && (
             <button
               type="button"
               className={styles.stat}
@@ -2325,6 +2334,7 @@ export function QuestionTreeView({
             >
               未アサイン<b>{counts.unassignedActions}</b>
             </button>
+            )}
             <span className={styles.stat}>
               完了<b>{counts.answered}</b>
             </span>
@@ -2359,14 +2369,8 @@ export function QuestionTreeView({
                       placeholder="2027年4月1日にNewCoを設立し事業を開始している"
                     />
                   </label>
-                  <div className={styles.formRow}>
-                    <label>
-                      期日
-                      <input name="due_date" type="date" />
-                    </label>
-                  </div>
                   <label>
-                    背景（任意）
+                    詳細（任意）
                     <textarea name="background" placeholder="なぜこれが到達点なのか" />
                   </label>
                   <div className={styles.formActions}>
@@ -2449,8 +2453,7 @@ export function QuestionTreeView({
             <div className={styles.sectionHead}>
               <h2>日程未設定</h2>
               <span>
-                {undatedActions.length}件。ここで日程を付けると上のガントに並ぶ。担当と見積ptは
-                ゴールツリータブで付ける
+                {undatedActions.length}件。ここで日程を付けると上のガントに並ぶ。担当はタイトルを押して開く詳細で付ける
               </span>
             </div>
             <div className={styles.undated}>
@@ -2464,11 +2467,11 @@ export function QuestionTreeView({
                   >
                     {action.title}
                   </button>
-                  {/* 担当と見積ptはここで付けない。アサインはゴールツリーの上で行う
-                      （まさ確定 2026-09-11、3-22 §4）。ここは日程だけ。
+                  {/* 担当はこの行では付けない。タイトルから開く詳細で付ける。ゴールツリーは
+                      論点を整理する面で担当を出さない（まさ確定 2026-11-14）。ここは日程だけ。
                       すでに決まっている担当は、誰の仕事かが分かるように読み取りで出す。 */}
                   <span className={styles.undatedOwnerText}>
-                    {action.owners.length > 0 ? ownerText(action) : "担当はツリーで"}
+                    {action.owners.length > 0 ? ownerText(action) : "担当未設定"}
                   </span>
                   <input
                     className={styles.undatedInput}
@@ -2533,8 +2536,19 @@ export function QuestionTreeView({
                 <div className={styles.panelTitle}>
                   <div className={styles.panelEyebrow}>
                     {/* どの論点の下の話なのかを、開いた先でも見失わないようにする */}
-                    {selectedNode &&
-                      ancestorsOf(selectedNode).map((ancestor) => (
+                    {/* TODOも論点と同じ見出しにする。親の論点までの道を出す
+                        （まさ 2026-11-14「モーダルが2種類あるのはなぜ」）。 */}
+                    {(selectedNode
+                      ? ancestorsOf(selectedNode)
+                      : selectedAction
+                        ? (() => {
+                            const parent = selectedAction.questionIds
+                              .map((id) => questionById.get(id))
+                              .find((item): item is QuestionNode => Boolean(item));
+                            return parent ? [...ancestorsOf(parent), parent] : [];
+                          })()
+                        : []
+                    ).map((ancestor) => (
                         <button
                           type="button"
                           className={styles.crumb}
