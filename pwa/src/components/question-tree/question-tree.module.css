@@ -286,7 +286,7 @@ button.stat:disabled { cursor: default; }
   padding: 13px 16px; border-bottom: 1px solid var(--line);
   background: var(--sheet); border-radius: 12px 12px 0 0;
 }
-.panelTitle { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.panelTitle { display: flex; flex: 1; flex-direction: column; gap: 5px; min-width: 0; }
 .panelTitle h3 { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.5; }
 
 /* 見出しはその場で直す。読んでいる状態でも押せることが分かるように、
@@ -320,7 +320,8 @@ button.stat:disabled { cursor: default; }
 .panelBody {
   padding: 12px 16px 16px; display: flex; flex-direction: column; gap: 11px; overflow-y: auto;
 }
-.detailGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
+/* 項目が1つ2つでも欄を横いっぱいに伸ばさない（auto-fill。2026-11-14）。 */
+.detailGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
 .field { display: flex; flex-direction: column; gap: 2px; }
 .field > span { font-size: 10px; font-weight: 700; color: var(--quiet); }
 .field > b { padding: 5px 8px; }
