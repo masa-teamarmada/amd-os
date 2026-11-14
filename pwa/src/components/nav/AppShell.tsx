@@ -13,6 +13,7 @@ import { GlobalMenu } from "./GlobalMenu";
 import { GlobalNav } from "./GlobalNav";
 import { PageTitleSetter } from "./PageTitleSetter";
 import { PageHistoryToolbar } from "./PageHistoryToolbar";
+import { BUILD_VERSION } from "@/lib/build-info";
 import { ProjectWorkspaceNav } from "./ProjectWorkspaceNav";
 import { appDisclosureScope, handleDisclosureSurfaceClick } from "@/lib/disclosure-surface";
 
@@ -94,11 +95,14 @@ export function AppShell({
     return <main className="flex-1">{children}</main>;
   }
 
+  // 左メニューを出さない画面でも、反映された版を上部バーで確かめられるようにする（2026-11-14 まさ「バージョンがUIで出てこない」）。
+  const versionBadge = <span data-testid="build-version" title="AMD OS の版" className="shrink-0 pl-2 font-mono text-[11px] text-[#8b93a1]">{BUILD_VERSION}</span>;
+
   return (
     <>
       <PageTitleSetter />
       {useEmbeddedShellOnly ? (
-        <main {...disclosureProps} className="flex-1"><PageHistoryToolbar />{children}</main>
+        <main {...disclosureProps} className="flex-1"><PageHistoryToolbar actions={versionBadge} />{children}</main>
       ) : (
         <div className="flex min-h-screen bg-background text-foreground">
           {useGlobalMenu ? null : isProjectScope ? (
@@ -112,7 +116,7 @@ export function AppShell({
               memberId={memberId}
             />
           )}
-          <main {...disclosureProps} className={`min-w-0 flex-1 ${isProjectScope ? "pb-16 lg:pb-0" : ""}`}><PageHistoryToolbar leading={useGlobalMenu ? <GlobalMenu><GlobalNav userCodeName={userCodeName} isAdmin={isAdmin} memberId={memberId} /></GlobalMenu> : undefined} />{isAdmin && <AdminAgreementRequestNotice pathname={pathname} />}{children}</main>
+          <main {...disclosureProps} className={`min-w-0 flex-1 ${isProjectScope ? "pb-16 lg:pb-0" : ""}`}><PageHistoryToolbar leading={useGlobalMenu ? <GlobalMenu><GlobalNav userCodeName={userCodeName} isAdmin={isAdmin} memberId={memberId} /></GlobalMenu> : undefined} actions={useGlobalMenu ? versionBadge : undefined} />{isAdmin && <AdminAgreementRequestNotice pathname={pathname} />}{children}</main>
         </div>
       )}
       {agreementGateBundle && (

@@ -70,7 +70,7 @@ promote で戻せるのは、反映後の旧版整理で残る直近5版と本�
 | minor | 本物の新機能、新画面、新DB table |
 | major | 大きな仕様変更、architecture刷新 |
 
-迷ったら patch。画面左上の version 表示で、まさが Service Worker / CDN cache の切り替わりを確認する。
+迷ったら patch。画面の version 表示で、まさが Service Worker / CDN cache の切り替わりを確認する。左メニューを出す画面は左上、左メニューを「≡」へたたむ画面（ダッシュボード・PJコックピット・機関コックピット）とワークスペースは上部バーの右端に出す（2026-11-14 まさ「バージョンがUIで出てこない」）。
 
 ## Public build stamp
 

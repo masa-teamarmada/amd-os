@@ -1485,6 +1485,15 @@ expectIncludes("src/app/(app)/manual/manual-chapters.ts", [
   '"project_strategy_signals"',
 ]);
 
+// 左メニューを「≡」へたたむ画面とワークスペースでも、上部バーで版を確かめられること
+// （2026-11-14 まさ「バージョンがUIで出てこない」）。
+expectIncludes("src/components/nav/AppShell.tsx", [
+  'import { BUILD_VERSION } from "@/lib/build-info";',
+  'data-testid="build-version"',
+  "<PageHistoryToolbar actions={versionBadge} />",
+  "actions={useGlobalMenu ? versionBadge : undefined}",
+]);
+
 expectIncludes("src/components/admin/AdminSidebar.tsx", [
   "ADMIN_SURFACE_GROUPS",
   "getSurfaceById",
