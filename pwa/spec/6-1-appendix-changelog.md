@@ -177,6 +177,8 @@ DDの画面内へ共通遷移状態の回転表示を追加。閲覧者APIを認
 
 # 附則（設計書変更履歴）
 
+| 2026-11-14 JST | 6-9 法人支払義務 | 期限超過の督促が未確認状態で止まる不具合 | `notificationStage` が `status='needs_review'` を納期限の判定より先に見ていたため、期限を過ぎても段階が `needs-review` に固定され、`company_payment_obligation_notifications` のexact-onceがそのまま恒久的な沈黙になっていた。納期限を過ぎているものは金額・期日が未確認でも `overdue-N-days` / `overdue-week-N` を先に返すよう順序を変更。期限前の未確認は従来どおり確認依頼を1回。`check_payment_obligations.mts` に回帰検査3件 | 2026-09-15を最後に2か月間、労働保険料（127日超過）と社会保険料8月・9月分の督促が1通も送られていなかったため | まさ・えいみ |
+
 2026-10-17（v3.162.69）: 反映後の旧版整理を追加。deploy.shが本番の切り替わりを確かめた後、READYの新しい順5版と本番版を残して古い版を消す（アドレス付き・作成中・取消・失敗は対象外、Recently Deletedから30日間復元可）。test:deployment-cleanupをdeploy.shへ追加。画面・DB不変。spec5-2/manual9-2。
 
 2026-10-17（v3.162.68）: Functions Storage対策。DD画像の縦横読みをsharpから見出し読み（image-dimensions.ts）へ置換。教科書・モデル正本の読み手の自動追跡をturbopackIgnoreで止め、本文をoutputFileTracingIncludesで明示。postbuildで本文を読む15 routeの全件同梱と全routeの禁止物を検査。ローカル見積りで1デプロイ約178MB→約115MB。画面・DB不変。spec5-2/manual9-2。

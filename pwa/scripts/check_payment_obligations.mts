@@ -383,6 +383,22 @@ assert.deepEqual(
   { scheduleKey: "2026-07-10", stage: "overdue-week-8" },
 );
 assert.equal(shouldSendNudgeOnStage("overdue-week-7"), true);
+
+// 金額や期日が未確認でも、納期限を過ぎていれば超過の段階になる。
+// 未確認のまま固定されると、同じ段階を二度送らない仕組みが督促そのものを止める。
+assert.deepEqual(
+  notificationStage({ status: "needs_review", due_date: "2026-07-10", due_date_precision: "day", expected_payment_ym: "202607", amount_status: "unknown" }, "2026-11-14"),
+  { scheduleKey: "2026-07-10", stage: "overdue-week-18" },
+);
+assert.deepEqual(
+  notificationStage({ status: "needs_review", due_date: "2026-09-30", due_date_precision: "day", expected_payment_ym: "202609", amount_status: "estimated" }, "2026-10-05"),
+  { scheduleKey: "2026-09-30", stage: "overdue-5-days" },
+);
+// 期限前の未確認は、これまでどおり確認依頼を1回だけ送る。
+assert.deepEqual(
+  notificationStage({ status: "needs_review", due_date: "2026-11-30", due_date_precision: "day", expected_payment_ym: "202611", amount_status: "estimated" }, "2026-11-14"),
+  { scheduleKey: "2026-11-30", stage: "needs-review" },
+);
 assert.equal(shouldSendNudgeOnStage("7-days-before"), true, "期限前の段階はそのまま送る");
 assert.equal(shouldSendNudgeOnStage("needs-review"), true);
 

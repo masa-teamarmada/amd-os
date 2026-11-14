@@ -226,6 +226,19 @@ export function notificationStage(
   today = currentDateJst()
 ): { scheduleKey: string; stage: string } | null {
   if (obligation.status === "paid" || obligation.status === "cancelled") return null;
+  // 納期限を過ぎているものは、金額や期日が未確認でも超過の段階として扱う。
+  // 未確認を先に判定すると段階が `needs-review` に固定され、同じ段階を二度送らない仕組みが
+  // そのまま「最初の1回だけ送って、あとは何か月放置されても黙る」になる。
+  // 2026-09-15以降、労働保険料と社会保険料が未確認のまま期限を過ぎ、督促が2か月止まった。
+  if (obligation.due_date_precision === "day" && obligation.due_date) {
+    const dueMs = Date.parse(`${obligation.due_date}T00:00:00+09:00`);
+    const todayMs = Date.parse(`${today}T00:00:00+09:00`);
+    const overdueDays = Math.round((todayMs - dueMs) / 86400000);
+    if (overdueDays > 0) {
+      if (overdueDays <= 14) return { scheduleKey: obligation.due_date, stage: `overdue-${overdueDays}-days` };
+      return { scheduleKey: obligation.due_date, stage: `overdue-week-${Math.floor(overdueDays / 7)}` };
+    }
+  }
   if (obligation.status === "needs_review" || obligation.amount_status === "unknown" || obligation.due_date_precision === "unknown") {
     return { scheduleKey: obligation.due_date ?? obligation.expected_payment_ym ?? "unknown", stage: "needs-review" };
   }
