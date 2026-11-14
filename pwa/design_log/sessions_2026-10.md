@@ -830,3 +830,18 @@ SOL/KUTE提出版PDFは正本の `generate_monthly_report.py` とPJ別CSSから�
 月末残高の取り込みを `from=202601&to=202610` で本番実行し、PC Chrome で本番画面（ライト・ダーク、ホバーの内訳、表）を確認。2026-10-13 時点の借入差引後の残高は 9月末 −450万、1月末見込み −400万。
 
 捨てた案: 明細の足し上げで月末残高を出す（きよのシートに 2025-10-31 ごろ約115万円の出金漏れがあり、以降の残高が銀行より多く出る）。経営スコアの予算シミュレーションを見込みに使う（予算の売上前提で毎月50万円以上増え、実績と逆向き）。直近3か月の平均（9月の一度きりの200万円が毎月に乗る）。教訓は `pwa/BUGS.md` に2件。
+
+## 2026-10-04 特定のPJだけの処理の撤去（v3.157.0・v3.158.0、migration 475〜477）
+
+依頼: まさ「（実験ダッシュボードを）消して」「どれか特定のPJだけの処理は実装しないで。使える機能なら全PJに適用して。OSはあくまでシステムとして開発してるので、特定のPJだけの特例を入れたらシステムにならない。」
+
+- v3.157.0（b33733b2）: 実験ダッシュボード 3D Lab・Glass Cube・HUD Wall と /mock、設計メモ2枚、Mac アプリの3画面を削除。本番で /dashboard-cyber-hud-wall が 404 を確認。
+- v3.158.0（f583c88e）: PJ番号・PJ名で分ける処理を撤去し、PJごとの違いを DB の設定へ。
+  - migration 475: projects.task_point_review_from_ym（SOL=202610）・legacy_task_ledger_read_only（ZMP=true）・project_management_milestones.gate_kind（SOLの口頭合意2件=oral_agreement、点のMSの CHECK の例外を gate_kind に）・共通の accept_project_task_pt（anon/authenticated の実行権を外した）・guard_read_only_legacy_task_ledger・別名3件（葛飾水素循環・SolvioraX・VSX）。
+  - migration 476: projects.external_research_topics（指示書の7PJの表を移した。管理画面「PJ一覧」で編集）。
+  - migration 477（5ded5284）: 橋渡しの accept_sx_task_pt を削除。
+  - 会議の取り込み（finalize・automation-context・H-1/D-6 指示書）を全PJへ。タスクptは設定を読む形。前提条件のMSは gate_kind（MSの編集に「MSの種類」）。ガントのレーンは柱の形だけ（isStandardFold）。カレンダーの別名は project_knowledge の alias。契約の相手先は PJ の取引先名で判定。会社は AMD_COMPANY_PROJECT_ID。公開の会議資料は /shared/<PJ>/（旧 /kute/ は 308 転送）。
+  - 未使用の SOL・KUTE 専用部品（sx-business-plan・sx-monthly-finance-plan・sx-funding-timing・CockpitKuteRegulations・連絡先取り込み API ほか）と Mac アプリの KUTE 固定ロードマップを削除。next.config の HUD 埋め込みヘッダも削除。
+  - 検査 test:no-project-special-cases（scripts/check_no_project_special_cases.mjs）を deploy に追加。正本は spec 3-23 §6。
+- 確認: tsc・lint・本番ビルド・critical-ui ほか関連検査、macOS ビルド成功。本番で automation-context（CX 200・未登録PJ 404）、タスクpt検収の可否（SOL=可・CX=不可）、PJ一覧の新しい欄、/kute/ の転送を確認。
+- 捨てた案: 一度きりの連絡先取り込み API を全PJ対応に直す → 使われておらずPJ略称表・人名をコードに持っていたので削除した。
