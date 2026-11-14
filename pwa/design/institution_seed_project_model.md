@@ -138,20 +138,16 @@ migration 212で新設する7テーブルが認可の正本になる。
 ### 6.3 愛媛のスコープ
 
 - **p30（愛媛大学エコシステム構築PJ）**: `ehime` ワークスペースのPJ範囲へ `shared_surface='summary'` で登録する。機関ワークスペース上ではPJのサマリだけを見せ、詳細ワークスペースは共有しない。
-- **p31（ZEO = ゼオライト / ナトリウムイオン二次電池材料テーマ）**: migration 269（2026-08-13適用）で `seed_projects` 経由でPJ化し、`ehime` のPJ範囲へ `shared_surface='summary'` で登録した。EHM OSの第2テーマ（`/Users/masa/projects/AMD/ehm-os/EHM_OS_DESIGN_DRAFT_20260813.md` 論点2-A）。PJ詳細面 `/project/p31/workspace` は p21 と同じく `project_access_memberships` の個別許可制。シーズ側の `researcher_name`（現登録: 野村信福教授）は未確認の不一致（まさ発言では中島先生のテーマ）が残るため書き換えていない。
+- **p31（ZEO = ゼオライト / ナトリウムイオン二次電池材料テーマ）**: migration 269（2026-08-13適用）で `seed_projects` 経由でPJ化し、`ehime` のPJ範囲へ `shared_surface='summary'` で登録した。EHM OSの第2テーマ（`/Users/masa/projects/AMD/ehm-os/EHM_OS_DESIGN_DRAFT_20260813.md` 論点2-A）。PJ詳細面 `/project/p31/workspace` は p21 と同じく `project_access_memberships` の個別許可制。シーズの代表研究者は migration 278（2026-08-14）で `中島 純一` へ訂正済み。まさ確定「実際にステップ2に申請するのは中島先生」により、代表研究者はステップ2申請の主体で置く。野村信福教授の寄与は `seeds.internal_notes` に残している。中島先生の職位は未確認のため `researcher_title` は空。
 - **p21**: 機関ワークスペースのPJ範囲に含めない。p21の詳細ワークスペースへは、`project_access_memberships` で個別に許可された人だけが入る。
 - シーズ範囲は機関段階かPJ化済みかで絞り込まない。`inst_ehime` に紐づくシーズを現時点の全件登録する。機関ワークスペースからの可視性と、PJ個別ワークスペースの共有可否は別軸だから。
 - 公開一覧に載るのは現時点で `ehime` の1件だけ。表示名は migration 272 で `EHM OS（愛媛大学）` に変更した（契約書に載る商品名と画面の名乗りを一致させる。slug・認可・中身は不変）。
 
-### 6.3.1 業務デスク（機関キーパーソンの業務ポートフォリオ台帳）
+### 6.3.1 機関キーパーソンの業務ポートフォリオ（p30の共有ワークスペースで持つ）
 
-EHM OS設計たたき台（2026-08-13 まさ承認）の論点11-A。機関側キーパーソン（愛媛では石原先生）の業務ポートフォリオを、AMDが代理管理する「業務デスク」として機関ワークスペース配下に持つ。migration 270（スキーマ）/ 271（愛媛29件の初期データ）で本番適用済み。
+石原先生の産連業務29件は、**PJの共有ワークスペース `/project/p30/workspace`**（SOLのp21と同じ型）で管理する。柱は石原先生の6領域、業務はタスク、未決事項は論点として入っている。詳細は `/Users/masa/projects/AMD/ehm-os/EHM_OS_DESIGN_DRAFT_20260813.md` の §3.0 と、`FEATURE_REGISTRY.md` の `/project/p30/workspace` の節。
 
-- テーブルは `workspace_work_cases`（業務ケース台帳）+ `workspace_work_case_deadlines`（締切 1:N）。`institution_workspaces` 配下の汎用構造で、石原先生専用にしない。
-- 入力憲法どおり本人には入力させない。行はAMDが既存資料（Excel/Notion/会議メモ）から代理登録し、`data_status`（unconfirmed / confirmed / stale）で本人確認の状態を分ける。初期29件は `石原_業務一覧_研究開発OS用_1.xlsx`（2026-06末版スナップショット）由来で全件 unconfirmed。
-- 締切は `due_precision`（day / month / vague）を持ち、月しか分からない期日を確定日に丸めない。期日経過かつ未確認は「期日経過・状況未確認」であり「遅延」と断定しない（SX関係先台帳と同じ規律）。
-- `priority_wave`: 1=締切駆動（申請・論文・イベント工程）、2=定常運営、3=UA室横断支援。巻き取りの段階を表す。
-- RLSは212の7テーブルと同じ default-deny（`is_admin()` + service_role のみ）。外部（本人）への表示面は、外部専用DTOを設計してから別途開ける。当面はAMD内部の `/institutions/[institutionId]/desk` で運用する。
+> **撤回済み（2026-08-13 同日）**: 当初は機関ワークスペース配下に専用画面「業務デスク」（`/institutions/[institutionId]/desk`）と専用テーブル `workspace_work_cases` / `workspace_work_case_deadlines` を作った（migration 270/271）。まさの指摘「SXワークスペースと同じコンテンツを石原先生用に作る方がよくない?」により、独自UIを作らず既存の共有ワークスペースへ一本化した。**画面とデータアクセス層は削除済み、テーブルは参照コードなしで残置**。新しい機関のキーパーソン業務を載せるときも、専用画面を作らずPJの共有ワークスペースを使う。
 
 ### 6.4 認証の流れ
 
