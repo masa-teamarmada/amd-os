@@ -542,6 +542,14 @@
 - **対応内容**: `l6_prep_scope_coverage_gate.cjs` と4 fixtureを追加した。必須source 7種、各論点のsource/relevance/disposition、先送りの理由・owner・再確認日、対象外の根拠、二次影響review、全体スケジュールの全topic包含を検査し、`silent_omission`等が1件でもあればreadyをblockする。W-Prepは初回共有資料と通常Notion draftを作らず、5項目のopening prep briefで相談を始める仕様へ変更した。Notion AI Meeting Notes context append-onlyは初回必須を維持し、資料はまさの明示write後だけHTMLで作る。ソースに無い論点を否定文で資料へ持ち込むことも禁止した。
 - **再発防止策**: 「過去を読んだ」を完了条件にせず、未完了論点が今回に含まれた、owner/再確認日付きで後続へ送られた、根拠付きで対象外になった、のいずれかを固定gateで証明する。「全体」と呼ぶ工程表は主要成果物だけでなく二次影響topicを含む。初回readyは資料完成ではなく、論点継続性と相談開始点がそろった状態とする。
 
+### [finance/monthly-pl] 現預金の起点に当月の「月中」残高を使い、残高見込みが約158万円過大に出た (2026-08-16)
+
+- **状態**: クローズ (2026-08-16 — build `v3.78.6`、`554919d8`。`refreshLiveMonthlyPlBudget` を実行して本番の `company_budget_monthly` で数値確認済み)
+- **症状**: `/management-score` の月次試算表を2026-08-16に読むと、2026-08の現預金が 2,606,287円 (= freee口座の2026-08-15時点の実残高) になり、そこから2026-09以降が前進計算されて2027-03末が 3,781,084円と出た。2026-08の月次CFはモデル上▲1,190,358円で、8月は入金 (SX 1,152,967円) が済み支払い (支払義務 2,557,579円、消費税納付 405,200円、役員報酬等) がこれからのタイミング。月末が確定している2026-07末の実残高 2,214,797円を起点にすると2027-03末は 2,199,236円で、**約158万円の過大**。この過大値のまま2026-08-16のBZSFセッションで「2026-08〜2027-03に月14.7万円ずつ積み立てられる (計117万円)」という誤った資金繰り結論を出しかけた (正しくは同期間の月次CF合計が▲15,561円で積立余地ゼロ)
+- **原因**: `src/lib/finance/live-monthly-pl-budget.ts` の `applyLatestActualCashAnchor()` が `company_actual_monthly` の `category='cash_balance'` から**最新月1件**を取り、その月の `cashBalance` を実残高で置き換えて**その月の `netCashFlow` を丸ごと捨てて**いた。アンカー月が締まった月なら正しいが、当月行は freee 口座取引から日次で取り込まれる (`source_ref=freee:wallet_txns_balance:YYYYMM`) ため常に「月中のある日の残高」であり、当月が必ずアンカーに選ばれる。結果、その月にこれから出ていく支払いが全部消えた。同じアンカーロジックが `app/(app)/management-score/page.tsx` の `buildLiveGasSimulationResult` と `components/management-score/GasMonthlySimulationPanel.tsx` の `buildActualConnectedCashProjection` にも写経されており、**3経路が同じ欠陥を持っていた**
+- **対応内容**: アンカー解決を新規 `src/lib/finance/cash-anchor.ts` へ単一正本化し、3経路をこれに置換した。既定は「当月より前の最新の実績月」= `kind:"settled_month_end"` で、アンカー月は実残高そのもの、以降は `+= netCashFlow` で前進計算する。締まった月の実績が1件も無いときだけ当月残高へフォールバックして `kind:"in_month_balance"` を立て、画面は警告注記を出す。シミュレータの chart 下に起点の as-of (「現預金の起点は2026年7月末の実残高 ¥2,214,797 (freee・月末確定)」+ 当月口座残高と freee 取込時刻) を常時表示し、アンカー内容を `company_budget_simulation_runs.params.cashAnchor` に記録して後から追えるようにした。エンジン `monthly-pl-simulation.ts` は無改修。仕様は `manual/4-5` の「現預金アンカー」節
+- **再発防止策**: **実績データを使う前に「その期間は締まっているか」を必ず判定する。** 日次で取り込まれる残高・取引系は、当月行が月末値でないことを前提に扱う。アンカーのように「ある月から先の全部を決める」起点は、どの月を起点にしたかを画面と run 記録の両方へ出し、まさが数字を読む時点で as-of が分かる状態にする。同じ計算が複数経路に写経されていると片方だけ直して残りが生き残るため、起点の決定ロジックは lib 1枚に集約して全経路がそこを通るようにする
+
 ### [finance/monthly-pl] 台帳が部分的にあるPJだけ将来月の入金が0になり、資金ショートを誤検知した (2026-08-16)
 
 - **状態**: クローズ (2026-08-16 — build `v3.78.7`、`refresh-live-monthly-pl` で材料化し直して本番数値確認済み)。原価側の楽観バイアスは**未解決**として下記に残す。
