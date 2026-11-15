@@ -1,3 +1,5 @@
+2026-11-14 v3.165.24〜27（ゴールツリーの詳細を論点とTODOで同じ形へ）：まさ確定「論点整理のためのツリーなので時間軸はいれたくない」。QuestionTreeView の詳細を、論点・TODOとも 種類・詳細・分かったこと だけにした（TODOは `renderActionTreeBody`、ガントのTODOだけ従来の `renderActionDetailBody`）。論点の担当・期限・確からしさ・次の期限・最終更新、TODOの状態・担当・担当メモ・期限・着手予定・完了日・完了条件・完了の証跡・詰まっていること、ツリー行の担当・期限の列、ヘッダーの期限超過・未アサイン件数（ガントのみ）、「子を追加」「到達点を追加」の担当・期限欄を画面から外した。DB列・ガント・タスクタブ・割り振りAPIは変更なし。TODOの見出しの上に論点までのパンくずを出す。v3.165.26で、全体メニューを「≡」へたたむ画面（ダッシュボード・PJ・機関コックピット）とワークスペースの上部バー右端に版（BUILD_VERSION）を出し、`check_pwa_critical_ui.cjs` に版表示の検査を追加。DB変更なし。spec3-21・3-22・5-2、manual2-9。
+
 2026-11-10（PJ週次Slackレポート）：内部向けの週次レポートを社外参加者がいる共有チャンネルへ送らない運用をspec5-3へ追加。現行判定は設定値・チャンネル有無だけを読み、外部共有状態や参加者所属は自動判定しないため、adminの許可前確認と `enabled=false` を現行の停止手段とする。コード・DB変更なし。
 
 2026-11-10 v3.165.23（未承認の分かったこと）：question-tree束が review_state='proposed' の分かったことを捨てており、承認・却下の操作面が無かった。FindingNode に isProposed を足し、未承認も線または proposed_question_id で論点へ仮に繋いで返す。導出（latestVerifiedAt）からは除外。QuestionTreeView の論点行に未承認件数の印、詳細の分かったこと一覧に未承認表示と承認・却下（proposal_accept/reject kind=finding）を追加。test:question-tree-task-review に表示経路の検査を追加。DB変更なし。spec3-21。

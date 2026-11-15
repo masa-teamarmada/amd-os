@@ -68,3 +68,16 @@ Rejuvidaの記録反映中、えいみがquestion-tree APIで分かったこと�
 - **`BUGS.md` にこの不具合のエントリが無いまま閉じられていた**ので今回追記した（8月のログは「詳細は BUGS.md の該当エントリ」と書いていたが、実際には同日の別件＝台帳切れによる入金0のエントリしか無かった）。症状・原因・3経路の写経・再発防止を 2026-08-16 の節として追加。
 - `src/lib/finance/cash-anchor.ts` は現在 `live-monthly-pl-budget.ts` / `management-score/page.tsx` / `GasMonthlySimulationPanel.tsx` に加えて `CompanyManagementScreen.tsx` と `kiyo-money-flow.ts` からも参照されており、起点の決定は1枚に集約されたまま保たれている。
 - 未コミットだった `src/components/question-tree/question-tree.module.css`（11/14 14:09）は**別セッションの作業なので触っていない**。中身は 11/14 の `9a43ce911`「詳細の見出しの早い折り返しと、種類の欄の横伸びを直す」の**打ち消し**（`.panelTitle` の `flex: 1` を外し、`.detailGrid` を `auto-fill` から `auto-fit` へ戻して当日のコメントを削除）。**内容を確認せずに commit すると 11/14 の修正が退行する**ので、ゴールツリー詳細UIを触ったセッション（または まさ）の判断待ち。
+
+## 2026-11-14 ゴールツリーの詳細を簡素化し、版を上部バーへ出した
+
+- まさの指摘: ゴールツリーの論点とTODOでモーダルが2種類ある（TODOは担当・着手予定・完了日・完了条件・完了の証跡・詰まっていること付き）。「論点整理のためのツリーなので時間軸はいれたくない。タイトルが出て、押すと詳細が見えるだけでいい。複雑にしないで」。
+- 原因: `renderActionDetailBody`（TODO）と `renderDetailBody`（論点）が別の欄構成だった。TODOの欄は日程・担当を管理していたころのまま。
+- 変更（`QuestionTreeView.tsx`、`question-tree.module.css`）: 論点は 種類・子の扱い・詳細（`background`）・答え・取り下げた理由・分かったこと・派生した問い。TODOは `renderActionTreeBody`（種類・詳細・分かったこと・消す）。ガント（`mode="gantt"`）のTODOだけ従来の詳細。ツリー行の担当・期限の列、期限超過・未アサイン件数、「子を追加」「到達点を追加」の担当・期限欄は外した（作成時は `owner_label='担当未確認'`、期限空で保存）。TODOのパンくずは対応する論点までの道。
+- 捨てた案: ガントにも同じ簡素なカードを適用する案。ガントは日程を直す面なので従来の詳細を残した。
+- 版の表示: ダッシュボード・PJコックピット・機関コックピットは全体メニューを「≡」へたたむため、版が `GlobalNav`（メニューの中）にしか出ていなかった。ワークスペースは左メニューが無い。`AppShell.tsx` の上部バー右端に `versionBadge` を出すようにし、`check_pwa_critical_ui.cjs` に検査を足した。
+- 固定点検 `check_pwa_critical_ui.cjs` の「状態（自動）」を必須にしていた箇所を、新しい形（`renderActionTreeBody`）の検査へ差し替えた。
+- 版: v3.165.23 → 24（詳細の簡素化）→ 25（見出しの早い折り返し・種類欄の横伸び）→ 26（別セッションの納付督促の修正）→ 27（版表示）。本番で論点・TODOの詳細と右上の版を確認した。
+- 共有checkoutに自分の未コミット変更が残っていたため `deploy.sh` が止まり、使い捨てのclean cloneから反映した。反映後、共有checkoutの `question-tree.module.css` に、見出し修正を打ち消す向きの差分が残った（別セッションが11-15の記録で「別セッションの作業」として触れずにいたもの）。実際は今回のセッションの片付け残りで、まさの許可を得て元に戻した。教訓は `BUGS.md`。
+- 未解決: 到達点・論点・MSの期限（`due_date`）と担当メモを画面から付ける場所が無くなった（値はDBに残る）。引き継ぎは `HANDOFF_GOAL_TREE_2026-09-13.md`。
+
