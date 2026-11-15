@@ -845,3 +845,13 @@ SOL/KUTE提出版PDFは正本の `generate_monthly_report.py` とPJ別CSSから�
   - 検査 test:no-project-special-cases（scripts/check_no_project_special_cases.mjs）を deploy に追加。正本は spec 3-23 §6。
 - 確認: tsc・lint・本番ビルド・critical-ui ほか関連検査、macOS ビルド成功。本番で automation-context（CX 200・未登録PJ 404）、タスクpt検収の可否（SOL=可・CX=不可）、PJ一覧の新しい欄、/kute/ の転送を確認。
 - 捨てた案: 一度きりの連絡先取り込み API を全PJ対応に直す → 使われておらずPJ略称表・人名をコードに持っていたので削除した。
+
+## 2026-10-02 支払ゲートで修正要望の本文を読めるようにする（v3.147.6、記録は 2026-11-15）
+
+依頼: まさ「月初合意のところで修正要望が届いてる。けどここを見てもどういう要望なのかが見れない。ここで見れないのはUX悪すぎる。」
+
+- e708a5250: 支払通知書の「月初合意支払ゲート」で、修正要望中の行の直下に要望の種類・受付日時・本文を出す。右端の「月初合意の管理画面で対応する」から `/admin/monthly-work-agreements?ym=<稼働月>&q=<member_id>` を開く。管理一覧は `?q=` を検索の初期値にする。ゲート行に `requestType` / `requestBody` を追加（`monthly-work-agreement-payout-gate.ts`）。理由文の「open 修正要望」を「未対応の修正要望」へ。ゲートの判定・合意hash・金額は変更なし。
+- 正本: manual 6-5、spec 3-14、両附則（同じ commit で更新済み）。
+- 確認: 型検査0件。ローカルの開発サーバー＋本番データ（読み取りのみ）で /admin/payouts?ym=202610 のゲートと、?q=ID026 でしんだけに絞られる管理一覧を実寸確認。`deploy.sh` 経由で本番 v3.147.6 / git_sha e708a525 を確認し、管理者のChromeの本番画面で本文表示を確認。
+- 捨てた案: 正規フォルダを最新へ追従させる自作スクリプト（sync-root-checkout.sh）。ローカルでの追従操作が自動の安全判定で止められ、未反映のまま破棄した。同じ問題は 2026-10-03 に別セッションが `scripts/root-checkout-sync.py` で解決（BUGS 参照）。
+- 退避: 追従前の作りかけ35件・未送信の記録3件の写しを `.git/amie-leftovers/20261002-root-sync/` と ref `refs/amie-backup/20261002-root-head` に残している（削除はまさの承認後）。
