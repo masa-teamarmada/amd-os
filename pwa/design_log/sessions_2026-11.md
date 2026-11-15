@@ -57,4 +57,4 @@ Rejuvidaの記録反映中、えいみがquestion-tree APIで分かったこと�
 - 2026-08-16 の現預金アンカー修正 (`554919d8` / build `v3.78.6`) のセッションが開いたまま3か月放置されていたので閉じた。コード・manual 4-5・附則9-3・8月のセッションログはいずれも当時 main へ入っており、今回の製品変更はない。
 - **`BUGS.md` にこの不具合のエントリが無いまま閉じられていた**ので今回追記した（8月のログは「詳細は BUGS.md の該当エントリ」と書いていたが、実際には同日の別件＝台帳切れによる入金0のエントリしか無かった）。症状・原因・3経路の写経・再発防止を 2026-08-16 の節として追加。
 - `src/lib/finance/cash-anchor.ts` は現在 `live-monthly-pl-budget.ts` / `management-score/page.tsx` / `GasMonthlySimulationPanel.tsx` に加えて `CompanyManagementScreen.tsx` と `kiyo-money-flow.ts` からも参照されており、起点の決定は1枚に集約されたまま保たれている。
-- 未コミットだった `src/components/question-tree/question-tree.module.css`（11/14 14:09、2行の差分）は**別セッションの作業なので触っていない**。
+- 未コミットだった `src/components/question-tree/question-tree.module.css`（11/14 14:09）は**別セッションの作業なので触っていない**。中身は 11/14 の `9a43ce911`「詳細の見出しの早い折り返しと、種類の欄の横伸びを直す」の**打ち消し**（`.panelTitle` の `flex: 1` を外し、`.detailGrid` を `auto-fill` から `auto-fit` へ戻して当日のコメントを削除）。**内容を確認せずに commit すると 11/14 の修正が退行する**ので、ゴールツリー詳細UIを触ったセッション（または まさ）の判断待ち。
