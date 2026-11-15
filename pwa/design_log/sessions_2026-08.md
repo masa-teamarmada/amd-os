@@ -3248,3 +3248,25 @@ GitHubへの再取得と現在の本番DB読戻しは、管理環境のネット
 まさへ投げた未回答の質問は、月の労働時間を160時間で置いていいか、tally の月42時間が実感と合うか、
 役員報酬以外に会社がまさ個人へ払っているものがあるか、の3点。
 再開手順は `HANDOFF_PROJECT_PROFITABILITY_20260830.md`、仕様は `pwa/spec/5-14-project-profitability-current-spec.md` の冒頭。
+
+## 2026-08-16 SX関係先リストのスプレッドシート書き出し（migration 281）
+
+> 記録は 2026-11-15 の handoff 時に追記。作業と本番反映は 2026-08-16（commit `65a38298` / `021e6fd1` / `f4987566`）。
+
+まさ「スプシ版の関係先リストを、いよぎんメンバーが見たがってる。OSの現状データをスプシに反映して。フォーマットもOSに合わせて」。共有リンクを渡し済みのため、既存スプレッドシート（同じURL）へ書く必要があった。
+
+- **書き出しAPI** `GET /api/admin/sx-partner-sheet-export`（`pwa/src/app/api/admin/sx-partner-sheet-export/route.ts`）。管理用シークレットで認証。OSの関係先リスト（p21）を、既存スプレッドシートの先頭タブへ全置換する。列は PWA の `PARTNER_LEDGER_COLUMNS` に合わせ、次回面談・排液・接点の経緯だけ絞り込みできるよう列へ展開した。段階・活動状態・分類・確度のラベルは `sx-partner-progress.ts` から引く。
+- **パラメータ**: `spreadsheetId`（必須）、`tab`（既定「関係先リスト（AMD OS 同期）」）、`audience=external|internal`（既定 external は VC分類と excludeSlugs を落とす）、`excludeSlugs`（既定 `smbc,ewir-candidate-a`）、`dryRun=1`、`renameTab`/`renameTabTo`。
+- **外部面向けの加工**: `value_note` の「（日付 えいみ判断）」を除く。期限が無い行は OS 画面と同じく空欄。長文は省略せず全文を出す。
+- **結果**: 66件（OS 72件から VC4件・SMBC・EWIR候補機関Aを除外）。旧「進捗一覧」は「旧_進捗一覧（2026-08-05時点）」へ改名、中身は残した。
+- **migration 281**: メイトの `next_meeting_prep` が経緯の生文だったため `next_meeting_goal`/`next_meeting_prep` へ書き分け。住友金属鉱山の `next_meeting_on` を 2027-08-25 → 2026-08-25 へ訂正（日付の当否は未確認）。現在値一致のときだけ更新する冪等な書き方。
+- **認証の事情**: 既存スプレッドシートへ書けるGoogle認証は本番の環境変数だけ。ローカルの clasp は再認証が必要（`invalid_rapt`）、Vercelから取得した値は書き込みに使えなかった。そのため書き出しをAPIとして本番へ載せた。
+
+### 検証
+- 型検査と lint を通した。本番反映後、`dryRun=1` で件数66と除外6件を確認し、実書き込み後に `inspect-sheet` でタブ構成（新タブ先頭・旧タブ改名）と先頭行を読み戻した。外部ブラウザでシートの見出し行結合と行の見え方を確認した。
+- migration 281 は `apply_ddl.py` で適用し、2行を読み戻して値を確認、書き出しを再実行してシートへの反映を確認した。
+
+### 残したこと
+- 旧タブ（内部メモを含む）が同じファイルに残る。共有前の扱いはまさ未回答（`SX/HANDOFF_PARTNER_LIST_SHEET.md`）。
+- 書き出しは手動実行。OSの更新は自動ではシートへ反映されない。
+- OSマニュアル: 対象外（管理者向けの一回運用API。利用者向けの画面・仕様の変更なし。既存の `inspect-sheet` / `restore-from-sheet` も未登録）。
