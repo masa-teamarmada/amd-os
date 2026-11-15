@@ -3298,3 +3298,27 @@ GitHubへの再取得と現在の本番DB読戻しは、管理環境のネット
 ### 見つけたバグ
 
 `pwa/BUGS.md` の「[モデル] 確率の質量が月ごとに増幅する」「[モデル] 支出を止めた状態を資本自立と誤判定」に記録した。
+
+## 2026-08-14〜15 / 獲得台帳をスコア詳細から進捗タブへ移し、AMDの貢献記録を新設（2026-11-15 closeout追記）
+
+開発セッション。まさの指示は3つ。(1) スコア詳細に「これまでのPJ活動で得てきたもの」を置く（第1段は表示だけで点数に入れない）、(2) 台帳は進捗タブ側にあるべき、(3) AMDがそのPJへ行ってきた貢献のコーナーを進捗タブ最下部へ。
+
+| 成果物 | 場所 |
+|---|---|
+| 獲得台帳の表（migration 277） | `project_bzm_2_2_acquisitions`。合計列を持たず、`bound` にするなら `bound_target` 必須 |
+| 通知で「重要情報として保存」を押すと台帳へ1行増える写像 | `src/lib/bzm-2-2-acquisition-from-evidence.ts` と `notifications/feedback/route.ts` |
+| AMDの貢献記録 | `src/components/cockpit/CockpitAmdContributions.tsx` / `src/lib/amd-contributions.ts` / `src/lib/amd-contributions-client.ts` / `GET /api/project/[projectId]/amd-contributions`。専用テーブルなし |
+| 仕様 | `spec/4-6`（台帳）、`spec/4-7`（貢献記録・新設）、`spec/3-18` §9-12、`FEATURE_REGISTRY` の進捗タブ末尾の節 |
+| 回帰テスト | `test:bzm-2-2-acquisition-from-evidence`、`test:amd-contributions`、`test:critical-ui` のアンカー追加 |
+| 報告の書き方の規範 | `/Users/masa/projects/AGENTS.common.md`「まさへの報告の書き方」（まさ指示 2026-08-23） |
+
+### 設計判断
+- 最初に「リストにすると件数を足してしまう」と反対したが、まさに「並べて、2.2の式へ入れる必要がある」と退けられた。台帳が計算に効く唯一の経路は「どの制約が 不明/違反 から 充足 へ動いたか」で、件数ではない。第1段は表示専用、第2段で `closed_constraints` を σ_j へ写す。
+- 抽出由来の行は、閉じた条件・消費・行動の増減を空のまま残す。機械的に埋めると「未取得」が「無し」に見える。
+- 貢献記録に専用テーブルと手入力欄を作らない。作った瞬間に人が書く欄になる。
+
+### 試して直したもの
+- 貢献記録が参照系キャッシュの検査に落ちた。検査が「作れと言った client 層」自身を違反扱いしていたので、登録済みの client 層を除外した（`check_reference_data_cache_contract.mjs`）。
+
+### 状態
+本番反映済み。第2段（σ_j への写像と `bound`）は未着手。台帳は本番DBで0件（まさが通知で採用するまで増えない）。
