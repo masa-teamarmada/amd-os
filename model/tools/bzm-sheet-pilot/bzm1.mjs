@@ -176,13 +176,13 @@ export function evaluateAt(P, month, { gates = {}, pendingGate = null } = {}) {
   } else { ({ W, I } = valuesAt(P, month)); cash = cashAt(P, month); }
   return { cash, future: W, total: cash + W, ind: I, restricted: P.restricted };
 }
-function downAt(P, t) {
+export function downAt(P, t) {
   const { K, D, licP, licI } = pieces(P); const l = P.l[t];
   return { total: cashAt(P, t - 1) + P.flowsDown[t] * MAN + l * disc(6, K) * licP, ind: l * disc(6, D) * licI };
 }
 
 /** 教科書の通し事例の推移（表 14.1 / 14.2）。events: [{month, changes:[{path,to}]}]。全節目を越える経路。 */
-export function trajectory(P0, events) {
+export function trajectory(P0, events, { keepInputs = false } = {}) {
   const P = structuredClone(P0); const byMonth = new Map();
   for (const e of events) { if (P.milestones.includes(e.month)) throw new PilotError('event_on_gate_month', String(e.month)); byMonth.set(e.month, e.changes); }
   const gates = {}; const rows = []; const gateInfo = [];
@@ -192,7 +192,7 @@ export function trajectory(P0, events) {
       const before = evaluateAt(P, t, { gates, pendingGate: t }); const dn = downAt(P, t);
       gates[t] = true; const after = evaluateAt(P, t, { gates });
       rows.push({ month: t, kind: '節目', before: before.total, after: after.total, icvBefore: before.ind, icvAfter: after.ind });
-      gateInfo.push({ month: t, cash: after.cash, future: after.future, total: after.total, ind: after.ind, downTotal: dn.total, downInd: dn.ind, p: P.p[t] });
+      gateInfo.push({ month: t, cash: after.cash, future: after.future, total: after.total, ind: after.ind, downTotal: dn.total, downInd: dn.ind, p: P.p[t], ...(keepInputs ? { inputs: structuredClone(P), gatesBefore: gateInfo.map((g) => g.month) } : {}) });
     } else if (byMonth.has(t)) {
       const before = evaluateAt(P, t, { gates });
       for (const c of byMonth.get(t)) setPath(P, c.path, c.to);
@@ -387,16 +387,21 @@ export function validateEntry(e) {
     if (c.kind === 'estimate' && !(sameStr(c.estimate?.by) && sameStr(c.estimate?.rationale) && (e.teaching === true ? true : !HUMAN_BAD.test(c.estimate.by)))) bad(`estimate:${c.path}`);
   }
   if (e.gate && !(Number.isInteger(e.gate.month) && typeof e.gate.passed === 'boolean')) bad('gate');
-  if (e.gate && e.gate.passed === false) throw new PilotError('gate_failure_not_supported', e.eventId);
+  // 不成立は、観測した結果（achieved:false）と実際の資料の根拠があるときだけ受け付ける。無ければ従来どおり止める
+  if (e.gate && e.gate.passed === false && e.observation?.achieved !== false) throw new PilotError('gate_failure_not_supported', e.eventId);
   if (e.observation && !(sameStr(e.observation.event) && typeof e.observation.achieved === 'boolean')) bad('observation');
   const nativeOk = sameStr(e.source?.docId) && sameStr(e.source?.revision) && sameStr(e.source?.quote) && e.source.quote.length <= 400;
+  if (e.gate && e.gate.passed === false) {
+    if (!nativeOk) throw new PilotError('gate_failure_not_supported', e.eventId);
+    if (e.inputChanges.length || e.pool) bad('failure_entry_must_not_change_inputs');
+  }
   if (e.teaching === true) {
     if (!(e.source?.fixture === true && sameStr(e.source.citation))) bad('source');
     // 教材の入力に、実際の資料の根拠を併記できる（併記するなら3点そろえる）。併記しなければ従来の教材明細
     if (['docId', 'revision', 'quote'].some((k) => e.source[k] !== undefined) && !nativeOk) bad('source_native');
   } else if (!nativeOk) bad('source');
   if (e.candidateId !== undefined && !(sameStr(e.candidateId) && nativeOk)) bad('candidateId');
-  if (e.teaching !== true && e.gate && !(e.observation?.achieved === true)) bad('gate_observed_result');   // 節目の通過は観測した結果を明記する
+  if (e.teaching !== true && e.gate && !(e.observation?.achieved === e.gate.passed)) bad('gate_observed_result');   // 節目の通過は観測した結果を明記する
   if (e.pool?.retired !== undefined && !Array.isArray(e.pool.retired)) bad('pool_retired');
   if (e.pool) { if (e.inputChanges.some((c) => e.pool.quantities?.some((q) => q.path === c.path))) bad('pool_overlap'); buildPool(e.pool); }
   return e;
@@ -487,13 +492,18 @@ function eligibility(e, asOfDay, docs, ctx = {}) {
 }
 
 function applyEntries(P0, entries) {
-  const P = structuredClone(P0); const gates = {}; let pool = null; let pooled = new Set();
+  const P = structuredClone(P0); const gates = {}; let pool = null; let pooled = new Set(); let failure = null;
   const sorted = [...entries].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.eventId < b.eventId ? -1 : 1));
   for (const e of sorted) {
+    if (failure) {   // 不成立の後に、同じ分岐で節目の通過・入力の変更・分布を足さない（追記は continuation の手順で行う）
+      if (e.gate || e.pool || e.inputChanges.length) throw new PilotError('entry_after_failed_gate', e.eventId);
+      continue;
+    }
     if (e.gate) {
       const m = e.gate.month;
       if (!P.milestones.includes(m)) throw new PilotError('gate_unknown', String(m));
       for (const ms of P.milestones) if (ms < m && !gates[ms]) throw new PilotError('gate_out_of_order', String(m));
+      if (e.gate.passed === false) { failure = { entry: e, month: m, gatesPassed: P.milestones.filter((x) => x < m) }; continue; }
       gates[m] = true;
     }
     for (const c of e.inputChanges) {
@@ -514,10 +524,24 @@ function applyEntries(P0, entries) {
       pool = { entryId: e.eventId, ...np }; pooled = new Set(pool.quantities.map((q) => q.path));
     }
   }
-  return { P, gates, pool };
+  return { P, gates, pool, failure };
 }
-const evalState = (P0, entries, month, pending = null) => {
-  const { P, gates, pool } = applyEntries(P0, entries);
+/** 不成立の登録明細から、分岐を開く（資料の根拠は明細の出所）。 */
+function openFromFailure(P, failure) {
+  const e = failure.entry; const rv = e.review?.reviewedAt;
+  return openFailedContinuation(P, { gate: { month: failure.month, passed: false }, gatesPassed: failure.gatesPassed, date: e.date, recordedAt: rv && rv > e.date ? rv : e.date,
+    evidence: { docId: e.source.docId, revision: e.source.revision, quote: e.source.quote } });
+}
+const truncateContinuation = (s, n) => ({ ...s, steps: s.steps.slice(0, n), head: n ? s.steps[n - 1].hash : stepHash(null, s.failure) });
+const evalState = (P0, entries, month, pending = null, cont = null) => {
+  const { P, gates, pool, failure } = applyEntries(P0, entries);
+  if (failure) {
+    if (pool) throw new PilotError('failed_continuation_pool_unsupported', '不成立の評価は固定入力1組だけ。分布を含む継続は未対応');
+    const s = cont ?? openFromFailure(P, failure);
+    const c = evaluateContinuation(P, s, month);
+    return { P, pool: null, failure, cont: s, result: { n: 1, icv: c.icv, rnpv: c.rnpv, cash: c.cash, future: c.rnpv - c.cash, restricted: P.restricted,
+      quantiles: { status: 'uncalculated', reason: 'failed_branch_fixed_input' }, method: { approximate: false, kind: 'fixed_input' }, continuation: c } };
+  }
   const result = ensemble(P, pool ? pool.draws : [{ weight: 1, values: {} }], month, { gates, pendingGate: pending });
   result.method = pool ? pool.method : { approximate: false, kind: 'fixed_input' };   // 分位点が節点からの数値計算かどうか
   return { P, pool, result };
@@ -547,7 +571,7 @@ export function plan(input) {
   const st = prev ? JSON.parse(JSON.stringify(prev)) : emptyState();
   if (st.baseHash && st.baseHash !== baseHash) throw new PilotError('base_changed');
   const asOfDay = dayOf(asOf); const month = monthsBetween(P0.evaluationDate, asOfDay);
-  if (month < 0 || month > P0.horizon) throw new PilotError('month_out_of_range', String(month));
+  if (month < 0) throw new PilotError('month_out_of_range', String(month));   // 通常の予測の上限は、不成立が確定した後の継続評価では適用しない（下で再検査）
   const lastSnap = st.snapshots[st.snapshots.length - 1] || null;
   if (lastSnap && asOf < lastSnap.asOf) throw new PilotError('asOf_before_last_snapshot');
   const docMap = new Map((docs || []).map((d) => [d.id, d]));
@@ -594,30 +618,70 @@ export function plan(input) {
       if (!pe || !leaves.length || leaves.some((lp) => !qs.has(lp))) throw new PilotError('base_uncertain_unpooled', p);
     }
   }
-  const key = sha256(canon({ baseHash, month, ids: allEntries.map((e) => e.eventId).sort(), h: allEntries.map(entryHash).sort(), mv: EVAL_MODEL_VERSION }));
+  // 不成立の分岐: 登録簿の不成立明細から開き、呼び出し側の追記（continuation か continuationSteps）を資料・日付・鎖で検証する
+  const hasFailure = allEntries.some((e) => e.gate && e.gate.passed === false);
+  if (month > P0.horizon && !hasFailure) throw new PilotError('month_out_of_range', String(month));
+  if ((input.continuation !== undefined || input.continuationSteps !== undefined) && !hasFailure) throw new PilotError('continuation_without_failure');
+  let branch = null;
+  if (hasFailure) {
+    const ap = applyEntries(P0, allEntries);
+    if (ap.pool) throw new PilotError('failed_continuation_pool_unsupported', '不成立の評価は固定入力1組だけ。分布を含む継続は未対応');
+    if (input.continuation !== undefined && input.continuationSteps !== undefined) throw new PilotError('continuation_input_ambiguous');
+    const opened = openFromFailure(ap.P, ap.failure);
+    let s = opened;
+    if (input.continuation !== undefined) {
+      s = input.continuation; verifyContinuation(ap.P, s);
+      if (canon(s.failure) !== canon(opened.failure)) throw new PilotError('continuation_not_bound_to_failure');
+      // 呼び出し側が鎖を再計算して作れる値に頼らず、各手順を開いた状態から順に追記し直して同一かを確かめる
+      let rebuilt = opened;
+      for (const x of s.steps) rebuilt = appendContinuationStep(ap.P, rebuilt, x);
+      if (canon(rebuilt) !== canon(s)) throw new PilotError('continuation_not_canonical');
+    } else if (input.continuationSteps !== undefined) {
+      if (!Array.isArray(input.continuationSteps)) throw new PilotError('continuation_steps_invalid');
+      for (const x of input.continuationSteps) s = appendContinuationStep(ap.P, s, x);
+    }
+    const old = st.failedBranch;   // 前回までの鎖は先頭から一致していること（追記のみ）。根拠の検査より先に行う
+    if (old && (old.openHead !== opened.head || old.chain.length > s.steps.length || old.chain.some((h, i) => s.steps[i].hash !== h))) throw new PilotError('continuation_not_append_only');
+    const checked = old ? old.chain.length : 0;   // 受理済みの手順の根拠は、確定した鎖の一致で足りる。新しい手順だけ最新の資料と照合する
+    s.steps.forEach((x, i) => {
+      if (x.date > asOfDay || x.recordedAt > asOfDay) throw new PilotError('continuation_future_step', x.id);   // 記録日より後の事実は入れない
+      if (i < checked) return;
+      const d = docMap.get(x.evidence.docId);
+      if (!d || d.revision !== x.evidence.revision || !paragraphOf(d.text, x.evidence.quote)) throw new PilotError('continuation_evidence_unbound', x.id);
+    });
+    branch = { state: s, openHead: opened.head, prevCount: old ? old.chain.length : 0 };
+    st.failedBranch = { month: ap.failure.month, openHead: opened.head, chain: s.steps.map((x) => x.hash), head: s.head };
+  }
+  const key = sha256(canon({ baseHash, month, ids: allEntries.map((e) => e.eventId).sort(), h: allEntries.map(entryHash).sort(), mv: EVAL_MODEL_VERSION, ...(branch ? { cont: branch.state.head } : {}) }));
   const requests = []; const evalRows = []; const regRows = []; const fcRows = [];
   let evaluation = null; const version = st.seq + 1;
   if (st.lastKey !== key) {
-    const cur = evalState(P0, allEntries, month);
+    const cur = evalState(P0, allEntries, month, null, branch?.state ?? null);
     // 同月・更新前: 前の入力のまま同じ月に評価。新しい節目が当月なら、その節目の成否を反映する前の値。
     let before = 'unavailable';
-    if (lastSnap) {
+    if (lastSnap && !(month > P0.horizon && !prevEntries.some((e) => e.gate && e.gate.passed === false))) {
       const pg = newly.find((e) => e.gate && e.gate.month === month)?.gate.month ?? null;
-      try { before = evalState(P0, prevEntries, month, pg).result; } catch (er) { if (er.code !== 'gate_not_confirmed') throw er; }
+      const prevFailed = prevEntries.some((e) => e.gate && e.gate.passed === false);
+      try { before = evalState(P0, prevEntries, month, pg, prevFailed && branch ? truncateContinuation(branch.state, branch.prevCount) : null).result; }
+      catch (er) { if (er.code !== 'gate_not_confirmed' && !prevFailed) throw er; }
     }
     const r = cur.result;
-    const classification = !lastSnap ? 'initial' : !newly.length ? 'time_passage' : newly.some((e) => e.gate) ? 'gate_passage'
+    const classification = !lastSnap ? 'initial' : !newly.length ? (branch && branch.state.steps.length > branch.prevCount ? 'continuation_update' : 'time_passage')
+      : newly.some((e) => e.gate && e.gate.passed === false) ? 'gate_failure' : newly.some((e) => e.gate) ? 'gate_passage'
       : newly.every((e) => e.inputChanges.length && e.inputChanges.every((c) => c.kind === 'estimate') || e.pool) ? 'estimate_update'
         : newly.every((e) => e.inputChanges.length && e.inputChanges.every((c) => c.kind === 'observation')) ? 'observation_update' : 'mixed_update';
-    const inputHash = sha256(canon({ P: cur.P, pool: cur.pool?.hash ?? null, month }));
+    const fb = cur.failure ? r.continuation : null;
+    const inputHash = sha256(canon({ P: cur.P, pool: cur.pool?.hash ?? null, month, ...(cur.failure ? { cont: cur.cont.head } : {}) }));
     const srcLabel = (e) => (e.teaching ? `教材: ${e.source.citation}${e.source.docId ? ` / ${e.source.docId}@${e.source.revision}` : ''}` : `${e.source.docId}@${e.source.revision}`);
     const docsUsed = [...new Set(allEntries.map(srcLabel))];
     const inputJson = canon({ month, inputs: cur.P, pool: cur.pool ? { entryId: cur.pool.entryId, id: cur.pool.id, hash: cur.pool.hash, n: cur.pool.draws.length, keptInitial: cur.pool.keptInitial,
-      summaries: Object.fromEntries(Object.entries(cur.pool.summaries).map(([p, s]) => [p, { unit: s.unit, initialMixed: s.initialMixed, mixed: s.mixed }])), method: cur.pool.method } : null });
+      summaries: Object.fromEntries(Object.entries(cur.pool.summaries).map(([p, s]) => [p, { unit: s.unit, initialMixed: s.initialMixed, mixed: s.mixed }])), method: cur.pool.method } : null,
+      ...(cur.failure ? { failedBranch: { failure: cur.cont.failure, steps: cur.cont.steps, head: cur.cont.head } } : {}) });
     const teachingPaths = base.provenance.filter((it) => it.teaching).flatMap((it) => it.paths);
     const meta = canon({ evalModel: EVAL_MODEL_VERSION, bookReference: BOOK_REFERENCE, evaluatorWeights: cur.pool ? 'equal(0.5,0.5)' : 'none(fixed input)', provenance: base.provenance,
       selectedModel: { label: teachingPaths.length ? '教材モデル（textbook_fixture）を選択' : '教材モデルなし', teachingPaths },
-      quantiles: r.quantiles.status, numericalMethod: r.method, scope: '決定木 §9.5 / 13 / 14（月次の全体シミュレーションではない）' });
+      quantiles: r.quantiles.status, numericalMethod: r.method,
+      ...(fb ? { failedBranch: { version: FAILED_CONT_VERSION, failureMonth: fb.failureMonth, stage: fb.stage, head: fb.head, steps: fb.steps } } : {}), scope: '決定木 §9.5 / 13 / 14（月次の全体シミュレーションではない）' });
     if (inputJson.length > MAX_CELL || meta.length > MAX_CELL) throw new PilotError('snapshot_too_large');
     // 差分は生の値で計算し、丸めるのはシートに書くときだけ
     const dI = lastSnap ? round(r.icv - lastSnap.icv) : '', dR = lastSnap ? round(r.rnpv - lastSnap.rnpv) : '';
@@ -645,6 +709,7 @@ export function plan(input) {
     st.seq = version; st.lastKey = key; st.baseHash = baseHash;
     evaluation = { version, month, classification, icv: r.icv, rnpv: r.rnpv, cash: r.cash, future: r.future, restricted: r.restricted, quantiles: r.quantiles,
       method: r.method, bookReference: BOOK_REFERENCE,
+      ...(fb ? { failedBranch: { stage: fb.stage, failureMonth: fb.failureMonth, signMonth: fb.signMonth ?? null, expensePV: fb.expensePV, remainingExpenses: fb.remainingExpenses, steps: fb.steps, head: fb.head } } : {}),
       before: before === 'unavailable' ? before : { icv: before.icv, rnpv: before.rnpv }, prior: lastSnap ? { icv: lastSnap.icv, rnpv: lastSnap.rnpv, version: lastSnap.version } : null };
   }
   const snap = st.snapshots[st.snapshots.length - 1] || null;
@@ -700,10 +765,247 @@ export function plan(input) {
 
 export const init1 = (input) => init(input, { tabs: TAB_NAMES1, headers: HEADERS1 });
 
+// ───────────────────────────────────────────────────────── 節目の不成立後の継続（下書き分岐）
+// 範囲: 第9章の固定の決定木は、不成立で節目の列を閉じる（月次の再試行は第7章 R2 の話で、ここでは扱わない）。
+//   この分岐は、観測した不成立（passed:false）の後に、署名前 / 署名済み / ライセンスなし を、日付つきの追記だけで進める。
+//   月次の全体エンジン（plan）には接続しない。純関数だけを出す。将来に実現する資金は入れない（recordedAt 以前の事実のみ）。
+//   不成立後の評価額は downAt（式 14.1 の不成立側）と同じ式で、割引は署名までの 1 回だけ、実際の自由資金は 1 回だけ数える。
+
+export const FAILED_CONT_VERSION = 'bzm1.0-failed-continuation/1';
+export const FAILED_CONT_STATE_V = 'bzm1-failed-cont-1';
+const WAIT_MONTHS = 6;   // 不成立から署名までの月数（downAt の disc(6, ·) と同じ）
+const CONT_UPDATE_PATHS = new Set(['upfront', 'qk', 'lag', 'royrate', 'netshare', 'sales', 'purchase', 'labor', 'tax', 'ramp',
+  'rates.private', 'rates.industrial', 'rates.hazard']);
+const STEP_TYPES = ['input_update', 'expense_plan', 'expense_paid', 'expense_cancelled', 'signed', 'no_license'];
+const REALIZED = new Set(['expense_paid', 'signed']);
+const sumBy = (xs, f) => xs.reduce((a, x) => a + f(x), 0);
+
+function checkEvidence(ev, where) {
+  const ok = sameStr(ev?.docId) && sameStr(ev?.revision) && sameStr(ev?.quote) && ev.quote.length <= 400;
+  if (!ok) throw new PilotError('continuation_evidence_missing', where);
+  if (PLANNED_RE.test(ev.quote)) throw new PilotError('planned_not_actual', where);
+  return { docId: ev.docId, revision: ev.revision, quote: ev.quote };
+}
+function checkGatesPassed(P, m, gatesPassed) {
+  if (!P.milestones.includes(m)) throw new PilotError('gate_unknown', String(m));
+  const gp = new Set(gatesPassed ?? []);
+  for (const ms of P.milestones) {
+    if (ms < m && !gp.has(ms)) throw new PilotError('gate_out_of_order', String(m));
+    if (ms >= m && gp.has(ms)) throw new PilotError('gate_already_passed', String(ms));
+  }
+  return [...gp].sort((a, b) => a - b);
+}
+/** 不成立の月の、署名前評価（式 14.1 の不成立側）。downAt と同じ値。rNPV と ICV は億円。 */
+export function failureValue(P, month, gatesPassed) {
+  checkGatesPassed(P, month, gatesPassed);
+  const d = downAt(P, month);
+  return { month, rnpv: d.total, icv: d.ind, cash: cashAt(P, month - 1) + P.flowsDown[month] * MAN, licenseProbability: P.l[month], signMonth: month + WAIT_MONTHS };
+}
+/** UI 用: ある節目の通過側と不成立側を並べる。通過側は出資を含む。ordered は表示順（rNPV, ICV）。 */
+export function compareGateOutcomes(P, month, gatesPassed) {
+  const gp = checkGatesPassed(P, month, gatesPassed);
+  const gates = Object.fromEntries(gp.map((m) => [m, true]));
+  const before = evaluateAt(P, month, { gates, pendingGate: month });
+  const upGates = { ...gates, [month]: true };
+  const up = evaluateAt(P, month, { gates: upGates });
+  const down = failureValue(P, month, gp);
+  const p = P.p[month];
+  return { month, p, before: { rnpv: before.total, icv: before.ind },
+    up: { rnpv: up.total, icv: up.ind, cash: up.cash }, down: { rnpv: down.rnpv, icv: down.icv, cash: down.cash },
+    ordered: { up: [up.total, up.ind], down: [down.rnpv, down.icv] },
+    expected: { rnpv: p * up.total + (1 - p) * down.rnpv, icv: p * up.ind + (1 - p) * down.icv } };
+}
+/** UI 用: 全節目の比較（各節目は、それ以前をすべて通過した条件）。 */
+export function compareAllGates(P) {
+  return P.milestones.map((m) => compareGateOutcomes(P, m, P.milestones.filter((x) => x < m)));
+}
+/** UI 用: 不成立後に追記できる手順と、その条件。 */
+export function continuationOptions(P, state, month) {
+  const st = state?.steps ?? [];
+  const has = (t) => st.some((s) => s.type === t);
+  const closed = has('no_license'); const signed = has('signed');
+  const unpaid = unresolvedExpenses(st);
+  return [
+    { type: 'expense_plan', available: !closed, needs: ['expenses[{id,month,amountMan,label}]', 'evidence'] },
+    { type: 'expense_paid', available: !closed && unpaid.length > 0, needs: ['expenseId', 'amountMan', 'evidence'], candidates: unpaid.map((e) => e.id) },
+    { type: 'expense_cancelled', available: !closed && unpaid.length > 0, needs: ['expenseId', 'evidence'], candidates: unpaid.map((e) => e.id) },
+    { type: 'input_update', available: !closed, needs: ['changes[{path,to,unit}]', 'kind=observation', 'evidence'], paths: [...CONT_UPDATE_PATHS, `l.${state?.failure?.month ?? month}`] },
+    { type: 'signed', available: !closed && !signed, needs: ['upfrontMan', 'evidence'] },
+    { type: 'no_license', available: !closed && !signed, needs: ['evidence'] },
+  ];
+}
+function unresolvedExpenses(steps) {
+  const m = new Map();
+  for (const s of steps) {
+    if (s.type === 'expense_plan') for (const e of s.expenses) m.set(e.id, { ...e, status: 'planned' });
+    else if (s.type === 'expense_paid' && s.expenseId && m.has(s.expenseId)) m.get(s.expenseId).status = 'paid';
+    else if (s.type === 'expense_cancelled') m.get(s.expenseId).status = 'cancelled';
+  }
+  return [...m.values()].filter((e) => e.status === 'planned');
+}
+
+const stepHash = (prevHash, body) => sha256(canon({ prevHash, body }));
+/** 観測した不成立から分岐を開く。passed:false の明示と、実際の根拠が要る。通過済みの節目も明示する。 */
+export function openFailedContinuation(P, { gate, gatesPassed, date, recordedAt, evidence } = {}) {
+  if (!gate || gate.passed !== false || !Number.isInteger(gate.month)) throw new PilotError('continuation_requires_observed_failure');
+  const gp = checkGatesPassed(P, gate.month, gatesPassed);
+  if (!isDate(date) || !isDate(recordedAt) || date > recordedAt) throw new PilotError('continuation_date_invalid');
+  const month = monthsBetween(P.evaluationDate, date);
+  if (month !== gate.month) throw new PilotError('failure_month_mismatch', `${month} != ${gate.month}`);
+  const ev = checkEvidence(evidence, 'failure');
+  const failure = { month: gate.month, date, recordedAt, gatesPassed: gp, evidence: ev, inputHash: sha256(canon(P)) };
+  return { v: FAILED_CONT_STATE_V, version: FAILED_CONT_VERSION, failure, steps: [], head: stepHash(null, failure) };
+}
+
+function checkStep(P, state, step) {
+  const f = state.failure; const bad = (c, d) => { throw new PilotError(c, d ?? step?.id ?? '?'); };
+  if (state.v !== FAILED_CONT_STATE_V) bad('continuation_state_invalid');
+  if (sha256(canon(P)) !== f.inputHash) bad('continuation_input_changed');
+  if (!step || !sameStr(step.id) || !STEP_TYPES.includes(step.type)) bad('continuation_step_invalid');
+  if (state.steps.some((s) => s.id === step.id)) bad('continuation_step_duplicate');
+  if (!isDate(step.date) || !isDate(step.recordedAt) || step.date > step.recordedAt) bad('continuation_date_invalid');
+  const month = monthsBetween(P.evaluationDate, step.date);
+  if (month < f.month) bad('continuation_before_failure');
+  const last = state.steps[state.steps.length - 1];
+  if (last && (step.date < last.date || step.recordedAt < last.recordedAt)) bad('continuation_out_of_order');   // 追記のみ・日付は戻さない
+  if (step.recordedAt < f.recordedAt) bad('continuation_out_of_order');
+  if (step.type !== 'expense_cancelled' && state.steps.some((s) => s.type === 'no_license')) bad('continuation_closed');   // 閉じた後は、未払い支出の取消だけ追記できる
+  const ev = checkEvidence(step.evidence, step.id);
+  const body = { id: step.id, type: step.type, date: step.date, recordedAt: step.recordedAt, month, evidence: ev };
+  const planned = new Map(); for (const e of unresolvedExpenses(state.steps)) planned.set(e.id, e);
+  const known = new Map(); for (const s of state.steps) if (s.type === 'expense_plan') for (const e of s.expenses) known.set(e.id, e);
+  switch (step.type) {
+    case 'input_update': {
+      if (step.kind !== 'observation') bad('estimate_requires_pool');
+      if (!Array.isArray(step.changes) || !step.changes.length) bad('continuation_changes_missing');
+      body.kind = 'observation';
+      body.changes = step.changes.map((c) => {
+        if (!(CONT_UPDATE_PATHS.has(c.path) || c.path === `l.${f.month}`)) bad('continuation_path_not_allowed', c.path);
+        if (c.unit !== unitOf(c.path)) bad('unit_mismatch', c.path);
+        checkValue(c.path, c.to);
+        return { path: c.path, to: c.to, unit: c.unit };
+      });
+      if (state.steps.some((s) => s.type === 'signed') && body.changes.some((c) => c.path.startsWith('l.'))) bad('license_probability_after_signature');
+      break;
+    }
+    case 'expense_plan': {
+      if (!Array.isArray(step.expenses) || !step.expenses.length) bad('continuation_expenses_missing');
+      if (state.steps.some((s) => s.type === 'signed')) bad('plan_after_signature_requires_new_step');
+      const ids = new Set();
+      body.expenses = step.expenses.map((e) => {
+        if (!sameStr(e.id) || known.has(e.id) || ids.has(e.id) || !sameStr(e.label)) bad('expense_invalid', e?.id);
+        if (!Number.isInteger(e.month) || e.month <= month || !(typeof e.amountMan === 'number' && Number.isFinite(e.amountMan) && e.amountMan >= 0)) bad('expense_invalid', e.id);
+        ids.add(e.id);
+        return { id: e.id, month: e.month, amountMan: e.amountMan, label: e.label };
+      });
+      break;
+    }
+    case 'expense_paid': {
+      const e = planned.get(step.expenseId);
+      if (!e) bad('expense_not_planned', String(step.expenseId));
+      if (!(typeof step.amountMan === 'number' && Number.isFinite(step.amountMan) && step.amountMan >= 0)) bad('expense_invalid', step.id);
+      body.expenseId = e.id; body.amountMan = step.amountMan;   // 計画の金額は書き換えない。実際の額を別に持つ
+      break;
+    }
+    case 'expense_cancelled': {
+      if (!planned.has(step.expenseId)) bad('expense_not_planned', String(step.expenseId));
+      body.expenseId = step.expenseId;
+      break;
+    }
+    case 'signed': {
+      if (state.steps.some((s) => s.type === 'signed')) bad('continuation_already_signed');
+      if (month <= f.month) bad('signature_not_after_failure');
+      if (!(typeof step.upfrontMan === 'number' && Number.isFinite(step.upfrontMan) && step.upfrontMan >= 0)) bad('upfront_missing');   // 署名の一時金を推定で作らない
+      body.upfrontMan = step.upfrontMan;
+      break;
+    }
+    case 'no_license': break;
+    default: bad('continuation_step_invalid');
+  }
+  return { body, month };
+}
+/** 追記。既存の手順は変えない。返す状態は新しいオブジェクト。 */
+export function appendContinuationStep(P, state, step) {
+  const { body, month } = checkStep(P, state, step);
+  const hash = stepHash(state.head, body);
+  return { ...state, steps: [...state.steps, { ...body, month, prevHash: state.head, hash }], head: hash };
+}
+/** 追記の鎖を検証する（途中の書き換え・削除を検知）。 */
+export function verifyContinuation(P, state) {
+  if (state?.v !== FAILED_CONT_STATE_V) throw new PilotError('continuation_state_invalid');
+  let h = stepHash(null, state.failure);
+  for (const s of state.steps) {
+    const { prevHash, hash, ...body } = s;
+    if (prevHash !== h || stepHash(h, body) !== hash) throw new PilotError('continuation_chain_broken', s.id);
+    h = hash;
+  }
+  if (h !== state.head) throw new PilotError('continuation_chain_broken', 'head');
+  if (sha256(canon(P)) !== state.failure.inputHash) throw new PilotError('continuation_input_changed');
+  return true;
+}
+
+/** 説明用の署名待ち支出の評価日現在価値（億円）。各月の支出を割引率 K で t 月へ割り引く。 */
+export function expenseScheduleValue(P, expenses, t = 0) {
+  return sumBy(expenses, (e) => (e.amountMan * MAN) * disc(e.month - t, P.rates.private));
+}
+/** 署名待ちの資金の推移（万円）。支出のあと・一時金の前後の残高。資金の不足は負の残高。 */
+export function waitingBalances({ initialCashMan, expenses, upfront }) {
+  if (typeof initialCashMan !== 'number' || !Number.isFinite(initialCashMan)) throw new PilotError('missing_input', 'initialCashMan');
+  let bal = initialCashMan; const rows = [];
+  for (const e of [...expenses].sort((a, b) => a.month - b.month)) {
+    const inc = upfront && upfront.month === e.month ? upfront.amountMan : 0;
+    bal -= e.amountMan;
+    rows.push({ month: e.month, expenseMan: e.amountMan, upfrontMan: inc, beforeUpfront: bal, afterUpfront: bal + inc });
+    bal += inc;
+  }
+  const total = sumBy(expenses, (e) => e.amountMan);
+  return { rows, totalMan: total, bridgeMan: upfront ? total - initialCashMan : null, endMan: bal };
+}
+
+/** 月 t の評価。steps のうち month<=t の事実だけを使い、将来に実現する資金は入れない。 */
+export function evaluateContinuation(P0, state, month) {
+  verifyContinuation(P0, state);
+  const f = state.failure; const t = month;
+  if (!Number.isInteger(t) || t < f.month) throw new PilotError('month_out_of_range', String(t));
+  const used = state.steps.filter((s) => s.month <= t);
+  const P = structuredClone(P0);
+  for (const s of used) if (s.type === 'input_update') for (const c of s.changes) setPath(P, c.path, c.to, c.unit);
+  const exp = new Map(); let cash = cashAt(P0, f.month - 1) + P0.flowsDown[f.month] * MAN;   // 不成立月の実際の自由資金（1 回だけ）
+  let signed = null; let closed = null;
+  for (const s of used) {
+    if (s.type === 'expense_plan') for (const e of s.expenses) exp.set(e.id, { ...e, status: 'planned' });
+    else if (s.type === 'expense_paid') { cash -= s.amountMan * MAN; exp.get(s.expenseId).status = 'paid'; }
+    else if (s.type === 'expense_cancelled') exp.get(s.expenseId).status = 'cancelled';
+    else if (s.type === 'signed') { signed = s; cash += s.upfrontMan * MAN; }
+    else if (s.type === 'no_license') closed = s;
+  }
+  const remaining = [...exp.values()].filter((e) => e.status === 'planned');
+  const overdue = remaining.find((e) => e.month <= t);
+  if (overdue) throw new PilotError('expense_unconfirmed', overdue.id);   // 月が来た支出は、支払か取消の事実が要る
+  const K = P.rates.private; const D = P.rates.industrial; const { licP, licI } = pieces(P); const l = P.l[f.month];
+  const pv = expenseScheduleValue(P, remaining, t);
+  const base = { month: t, failureMonth: f.month, cash, expensePV: pv, remainingExpenses: remaining.map((e) => e.id), steps: used.length, head: state.head };
+  if (closed) {
+    if (remaining.length) throw new PilotError('expenses_pending_after_close', remaining[0].id);   // 閉じた後の未払い支出は、取消の事実を追記してから
+    return { ...base, stage: 'no_license', rnpv: cash, icv: 0, license: null };
+  }
+  if (signed) {
+    const end = signed.month + P.lag;
+    if (t > end) throw new PilotError('beyond_explicit_horizon', String(t));   // 量産契約後の収入は明示の入力がなければ作らない
+    const roy = P.qk * stream(P, P.royrate * P.sales, K) * disc(end - t, K);
+    const { G } = pieces(P);
+    return { ...base, stage: 'signed', signMonth: signed.month, rnpv: cash + roy - pv, icv: P.qk * G * disc(end - t, D), license: { royalty: roy, upfrontReceivedMan: signed.upfrontMan } };
+  }
+  const S = f.month + WAIT_MONTHS;
+  if (t > S) throw new PilotError('signature_overdue', String(t));   // 署名か不成立の事実が無いまま署名予定月を過ぎたら止める
+  const lic = l * disc(S - t, K) * licP;
+  return { ...base, stage: 'before_signature', signMonth: S, rnpv: cash + lic - l * pv, icv: l * disc(S - t, D) * licI, license: { probability: l, valueAtSignature: licP } };
+}
+
 // ───────────────────────────────────────────────────────── CLI 用
 
 /** 教科書の推移を、登録簿の教材明細（review が adopt のもの）から再計算して表 14.1 / 14.2 の形で返す。 */
-export function replay(input) {
+export function replay(input, opts) {
   const P0 = normalizeInputs(input.base.inputs); checkProvenance(input.base.provenance, P0);
   const events = [];
   for (const e of input.registry) {
@@ -713,7 +1015,7 @@ export function replay(input) {
     if (e.gate) continue;
     events.push({ month: monthsBetween(P0.evaluationDate, e.date), changes: e.inputChanges.map((c) => ({ path: c.path, to: c.to })) });
   }
-  return trajectory(P0, events);
+  return trajectory(P0, events, opts);
 }
 export const replayCli = (input) => replay(input);
 
