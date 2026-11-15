@@ -1,0 +1,49 @@
+{
+  "_note": "教科書 BZM 1.0 の通し事例（§9.5 / 第14章）。全値は教材の固定入力。評価者の実名はなく、教材の仮定として明示する。spreadsheetId・tabs・asOf は plan 実行時に read の結果と --as-of で与える。",
+  "base": {
+    "inputs": {
+      "evaluationDate": "2026-01-01",
+      "milestones": [8, 15, 27, 39],
+      "cash0": 0.0,
+      "restricted": 0.0,
+      "rates": { "private": 0.10, "industrial": 0.02, "hazard": 0.05 },
+      "p": { "8": 0.62, "15": 0.74, "27": 0.82, "39": 0.80 },
+      "l": { "8": 0.0, "15": 0.45, "27": 0.75, "39": 0.90 },
+      "flowsDown": { "8": 0.0, "15": 15.0, "27": -273.0, "39": -378.0 },
+      "financing": { "15": 1.2 },
+      "sales": 60.0, "purchase": 20.0, "labor": 28.0, "tax": 0.30, "ramp": 12,
+      "upfront": 0.5, "qk": 0.60, "lag": 24, "royrate": 0.03, "netshare": 0.70,
+      "flowsMonthly": [
+        { "from": 1, "to": 7, "value": 0 },
+        { "from": 8, "to": 14, "value": 15 },
+        { "from": 15, "to": 18, "value": -123 },
+        { "from": 19, "to": 19, "value": -155.4 },
+        { "from": 20, "to": 26, "value": -273 },
+        { "from": 27, "to": 38, "value": -138 },
+        { "from": 39, "to": 39, "value": -378 }
+      ]
+    },
+    "provenance": [
+      {
+        "paths": ["evaluationDate", "milestones", "cash0", "restricted", "rates", "p", "l", "flowsDown", "financing", "sales", "purchase", "labor", "tax", "ramp", "upfront", "qk", "lag", "royrate", "netshare", "A"],
+        "kind": "estimate", "basis": "textbook_fixture", "teaching": true,
+        "citation": "BZM 1.0 教科書 §9.5.1 / 第14章 通し事例の固定入力（金額は仮の値、単位は億円・万円/月）"
+      }
+    ]
+  },
+  "registry": [
+    { "eventId": "G-08", "date": "2026-09-01", "type": null, "teaching": true, "summary": "実環境と実規模の検証を通過", "sourceTag": "文書", "contractParty": null, "targets": ["観測状態"], "changeText": "節目8か月を通過（通過直前の確率 0.55、初期値は 0.62）", "recordedBy": "教科書の通し事例", "gate": { "month": 8, "passed": true }, "inputChanges": [], "source": { "fixture": true, "citation": "BZM 1.0 教科書 §14.2 表14.1" }, "review": { "decision": "adopt", "basis": "textbook_fixture", "teaching": true } },
+    { "eventId": "G-15", "date": "2027-04-01", "type": null, "teaching": true, "summary": "有償の試験の完了、会社化、出資1.2億円", "sourceTag": "文書", "contractParty": null, "targets": ["観測状態", "資金調達の機会"], "changeText": "節目15か月を通過（通過直前の確率 0.78、初期値は 0.74）。出資1.2億円は基準入力の financing.15", "recordedBy": "教科書の通し事例", "gate": { "month": 15, "passed": true }, "inputChanges": [], "source": { "fixture": true, "citation": "BZM 1.0 教科書 §14.2 表14.1" }, "review": { "decision": "adopt", "basis": "textbook_fixture", "teaching": true } },
+    { "eventId": "G-27", "date": "2028-04-01", "type": null, "teaching": true, "summary": "量産条件の提示", "sourceTag": "文書", "contractParty": null, "targets": ["観測状態"], "changeText": "節目27か月を通過", "recordedBy": "教科書の通し事例", "gate": { "month": 27, "passed": true }, "inputChanges": [], "source": { "fixture": true, "citation": "BZM 1.0 教科書 §14.2 表14.1" }, "review": { "decision": "adopt", "basis": "textbook_fixture", "teaching": true } },
+    { "eventId": "G-39", "date": "2029-04-01", "type": null, "teaching": true, "summary": "量産契約", "sourceTag": "文書", "contractParty": null, "targets": ["観測状態"], "changeText": "節目39か月を通過", "recordedBy": "教科書の通し事例", "gate": { "month": 39, "passed": true }, "inputChanges": [], "source": { "fixture": true, "citation": "BZM 1.0 教科書 §14.2 表14.1" }, "review": { "decision": "adopt", "basis": "textbook_fixture", "teaching": true } },
+    { "eventId": "E-03", "date": "2026-04-01", "type": null, "teaching": true, "summary": "二社目の需要家が試験の実施に合意", "sourceTag": "文書", "contractParty": null, "targets": ["プロジェクトパラメータ"], "changeText": "有償の試験へ進む確率 0.74→0.78", "recordedBy": "教科書の通し事例", "inputChanges": [ { "path": "p.15", "to": 0.78, "unit": "確率", "kind": "estimate", "estimate": { "by": "教科書の通し事例", "rationale": "支払上限の証拠（関心が二社）" } } ], "source": { "fixture": true, "citation": "BZM 1.0 教科書 §14 出来事3か月" }, "review": { "decision": "adopt", "basis": "textbook_fixture", "teaching": true } },
+    { "eventId": "E-05", "date": "2026-06-01", "type": null, "teaching": true, "summary": "中間の測定で、大型化したときの歩留まりが目標を下回る", "sourceTag": "文書", "contractParty": null, "targets": ["プロジェクトパラメータ"], "changeText": "実環境の検証を越える確率 0.62→0.55", "recordedBy": "教科書の通し事例", "inputChanges": [ { "path": "p.8", "to": 0.55, "unit": "確率", "kind": "estimate", "estimate": { "by": "教科書の通し事例", "rationale": "技術の核の成立の見込み" } } ], "source": { "fixture": true, "citation": "BZM 1.0 教科書 §14 出来事5か月" }, "review": { "decision": "adopt", "basis": "textbook_fixture", "teaching": true } },
+    { "eventId": "E-09", "date": "2026-10-01", "type": null, "teaching": true, "summary": "共同出願の同意が成立", "sourceTag": "文書", "contractParty": null, "targets": ["プロジェクトパラメータ"], "changeText": "不成立のあとライセンスになる確率 0.45→0.52、0.75→0.80", "recordedBy": "教科書の通し事例", "inputChanges": [ { "path": "l.15", "to": 0.52, "unit": "確率", "kind": "estimate", "estimate": { "by": "教科書の通し事例", "rationale": "権利と承認の残件、専有可能性" } }, { "path": "l.27", "to": 0.80, "unit": "確率", "kind": "estimate", "estimate": { "by": "教科書の通し事例", "rationale": "権利と承認の残件、専有可能性" } } ], "source": { "fixture": true, "citation": "BZM 1.0 教科書 §14 出来事9か月" }, "review": { "decision": "adopt", "basis": "textbook_fixture", "teaching": true } },
+    { "eventId": "E-11", "date": "2026-12-01", "type": null, "teaching": true, "summary": "主原料の第二の供給元の確保が難しいと判明", "sourceTag": "文書", "contractParty": null, "targets": ["プロジェクトパラメータ"], "changeText": "購入費の見込み 年20→21.5億円", "recordedBy": "教科書の通し事例", "inputChanges": [ { "path": "purchase", "to": 21.5, "unit": "億円/年", "kind": "estimate", "estimate": { "by": "教科書の通し事例", "rationale": "量産原価の下限" } } ], "source": { "fixture": true, "citation": "BZM 1.0 教科書 §14 出来事11か月" }, "review": { "decision": "adopt", "basis": "textbook_fixture", "teaching": true } },
+    { "eventId": "E-18", "date": "2027-07-01", "type": null, "teaching": true, "summary": "育成条件の改良で不良率が下がる", "sourceTag": "文書", "contractParty": null, "targets": ["プロジェクトパラメータ"], "changeText": "購入費の見込み 年21.5→19.5億円", "recordedBy": "教科書の通し事例", "inputChanges": [ { "path": "purchase", "to": 19.5, "unit": "億円/年", "kind": "estimate", "estimate": { "by": "教科書の通し事例", "rationale": "量産原価の下限" } } ], "source": { "fixture": true, "citation": "BZM 1.0 教科書 §14 出来事18か月" }, "review": { "decision": "adopt", "basis": "textbook_fixture", "teaching": true } },
+    { "eventId": "E-21", "date": "2027-10-01", "type": null, "teaching": true, "summary": "需要家と共同開発契約を締結", "sourceTag": "文書", "contractParty": null, "targets": ["プロジェクトパラメータ"], "changeText": "量産条件の提示に至る確率 0.82→0.88", "recordedBy": "教科書の通し事例", "inputChanges": [ { "path": "p.27", "to": 0.88, "unit": "確率", "kind": "estimate", "estimate": { "by": "教科書の通し事例", "rationale": "受託契約、需要家との関係" } } ], "source": { "fixture": true, "citation": "BZM 1.0 教科書 §14 出来事21か月" }, "review": { "decision": "adopt", "basis": "textbook_fixture", "teaching": true } },
+    { "eventId": "E-24", "date": "2028-01-01", "type": null, "teaching": true, "summary": "競合の特許出願が公開され、請求の範囲が一部重なる", "sourceTag": "文書", "contractParty": null, "targets": ["プロジェクトパラメータ"], "changeText": "量産契約に至る確率 0.80→0.75、ライセンスになる確率 0.80→0.72、0.90→0.84", "recordedBy": "教科書の通し事例", "inputChanges": [ { "path": "p.39", "to": 0.75, "unit": "確率", "kind": "estimate", "estimate": { "by": "教科書の通し事例", "rationale": "専有可能性" } }, { "path": "l.27", "to": 0.72, "unit": "確率", "kind": "estimate", "estimate": { "by": "教科書の通し事例", "rationale": "専有可能性" } }, { "path": "l.39", "to": 0.84, "unit": "確率", "kind": "estimate", "estimate": { "by": "教科書の通し事例", "rationale": "専有可能性" } } ], "source": { "fixture": true, "citation": "BZM 1.0 教科書 §14 出来事24か月" }, "review": { "decision": "adopt", "basis": "textbook_fixture", "teaching": true } },
+    { "eventId": "E-31", "date": "2028-08-01", "type": null, "teaching": true, "summary": "二社目の需要家から有償の試験を受注", "sourceTag": "文書", "contractParty": null, "targets": ["プロジェクトパラメータ"], "changeText": "売上の見込み 年60→63億円、購入費 20.475億円、人件費 28.7億円、量産契約に至る確率 0.75→0.80", "recordedBy": "教科書の通し事例", "inputChanges": [ { "path": "sales", "to": 63.0, "unit": "億円/年", "kind": "estimate", "estimate": { "by": "教科書の通し事例", "rationale": "支払上限の証拠の階級、数量" } }, { "path": "purchase", "to": 20.475, "unit": "億円/年", "kind": "estimate", "estimate": { "by": "教科書の通し事例", "rationale": "売上増に伴う購入費" } }, { "path": "labor", "to": 28.7, "unit": "億円/年", "kind": "estimate", "estimate": { "by": "教科書の通し事例", "rationale": "売上増に伴う人件費" } }, { "path": "p.39", "to": 0.80, "unit": "確率", "kind": "estimate", "estimate": { "by": "教科書の通し事例", "rationale": "支払上限の証拠の階級、数量" } } ], "source": { "fixture": true, "citation": "BZM 1.0 教科書 §14 出来事31か月" }, "review": { "decision": "adopt", "basis": "textbook_fixture", "teaching": true } },
+    { "eventId": "E-35", "date": "2028-12-01", "type": null, "teaching": true, "summary": "需要家の量産ラインの立ち上げ計画が延びる", "sourceTag": "文書", "contractParty": null, "targets": ["プロジェクトパラメータ"], "changeText": "満額の稼働まで 12→18か月", "recordedBy": "教科書の通し事例", "inputChanges": [ { "path": "ramp", "to": 18, "unit": "月", "kind": "estimate", "estimate": { "by": "教科書の通し事例", "rationale": "稼働の立ち上がり" } } ], "source": { "fixture": true, "citation": "BZM 1.0 教科書 §14 出来事35か月" }, "review": { "decision": "adopt", "basis": "textbook_fixture", "teaching": true } }
+  ]
+}

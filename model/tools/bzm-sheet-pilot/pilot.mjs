@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { BOOK_RESPONSE_JSON_SCHEMA, BOOK_EXTRACTOR_VERSION, validateBookCandidates } from './book-observation.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const TOOLS_DIR = path.resolve(HERE, '..');         // model/tools
@@ -132,7 +133,10 @@ export const RESPONSE_JSON_SCHEMA = {
   },
 };
 
-async function callGemini({ apiKey, model, prompt, fetchImpl, timeoutMs }) {
+// 生成パラメータ（版登録に記録する。キー・本文は含まない）
+const GEN_PARAMS = { maxOutputTokens: 4096, responseMimeType: 'application/json', thinkingLevel: 'minimal' };
+
+async function callGemini({ apiKey, model, prompt, fetchImpl, timeoutMs, schema = RESPONSE_JSON_SCHEMA }) {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), timeoutMs);
   try {
@@ -142,9 +146,9 @@ async function callGemini({ apiKey, model, prompt, fetchImpl, timeoutMs }) {
         headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 4096, responseMimeType: 'application/json',
-            responseJsonSchema: RESPONSE_JSON_SCHEMA,
-            thinkingConfig: { thinkingLevel: 'minimal' } },
+          generationConfig: { maxOutputTokens: GEN_PARAMS.maxOutputTokens, responseMimeType: GEN_PARAMS.responseMimeType,
+            responseJsonSchema: schema,
+            thinkingConfig: { thinkingLevel: GEN_PARAMS.thinkingLevel } },
         }),
       });
     if (!res.ok) return { status: 'http_error', httpStatus: res.status };
@@ -244,6 +248,71 @@ export async function extract(input, opts = {}) {
   return result;
 }
 
+// 書籍の24種の抽出（既定の extract コマンド）。同じ段落版は再抽出しない。版登録用に extraction を返す（キー・資料本文は含めない）。
+export async function extractBook(input, opts = {}) {
+  const { doc, state = null } = input || {};
+  if (!doc || ![doc.id, doc.title, doc.revision, doc.text].every((v) => typeof v === 'string')) throw new PilotError('bad_doc');
+  if (state && state.docId !== doc.id) throw new PilotError('state_doc_mismatch');
+  const fetchImpl = opts.fetchImpl || globalThis.fetch;
+  const apiKey = opts.apiKey !== undefined ? opts.apiKey : process.env.GEMINI_API_KEY;
+  const model = input.model || 'gemini-3.1-flash-lite';
+  const promptPath = opts.promptPath || path.join(HERE, 'book-observation-prompt.md');
+
+  const paras = splitParagraphs(doc.text).map((text, i) => ({ text, hash: sha256(text), position: i + 1 }));   // position: 資料内の段落の通し番号（1始まり）
+  const counts = {}; const uniq = [];
+  for (const p of paras) { if (!counts[p.hash]) uniq.push(p); counts[p.hash] = (counts[p.hash] || 0) + 1; }
+  const prevCounts = state?.paragraphs || {};
+  // 別の抽出器（旧版など）の抽出済み印は引き継がない
+  const extractedSet = state?.extractor === BOOK_EXTRACTOR_VERSION ? { ...(state.extracted || {}) } : {};
+  const added = uniq.filter((p) => counts[p.hash] > (prevCounts[p.hash] || 0)).map((p) => ({ hash: p.hash, count: counts[p.hash] }));
+  const removed = Object.keys(prevCounts).filter((h) => (counts[h] || 0) < prevCounts[h])
+    .map((h) => ({ hash: h, removedCount: prevCounts[h] - (counts[h] || 0) }));
+
+  const pending = uniq.filter((p) => !extractedSet[p.hash]);
+  const packed = []; let bytes = 0;
+  for (const p of pending) {
+    const b = Buffer.byteLength(p.text, 'utf8');
+    if (bytes + b > MAX_BYTES) continue;
+    bytes += b; packed.push({ ...p, label: `P${packed.length + 1}`, bytes: b });
+  }
+  const docMeta = { id: doc.id, title: doc.title, revision: doc.revision };
+  const promptRaw = readFileSync(promptPath, 'utf8');
+  const extraction = { extractor: BOOK_EXTRACTOR_VERSION, model, promptSha256: sha256(promptRaw),
+    schemaSha256: sha256(canon(BOOK_RESPONSE_JSON_SCHEMA)), generation: { ...GEN_PARAMS },
+    requestedBlocks: packed.map((p) => ({ label: p.label, position: p.position, hash: p.hash, bytes: p.bytes })) };
+  const result = { doc: docMeta, delta: { added, removed, pending: pending.length, sent: packed.length, deferred: pending.length - packed.length },
+    candidates: [], rejected: {}, usage: null, llm: { status: 'skipped' }, extraction, snapshot: null };
+
+  if (packed.length && apiKey) {
+    const prompt = renderPrompt(promptPath, packed);
+    const r = await callGemini({ apiKey, model, prompt, fetchImpl, timeoutMs: opts.timeoutMs || 30000, schema: BOOK_RESPONSE_JSON_SCHEMA });
+    result.llm = { status: r.status, ...(r.httpStatus ? { httpStatus: r.httpStatus } : {}) };
+    const u = r.usageMetadata;
+    if (u) {
+      const inTok = u.promptTokenCount || 0, outTok = u.candidatesTokenCount || 0, thTok = u.thoughtsTokenCount || 0;
+      const rates = input.rates;
+      result.usage = { model, inputTokens: inTok, outputTokens: outTok, thoughtTokens: thTok, totalTokens: u.totalTokenCount || inTok + outTok + thTok,
+        costUsd: rates && Number.isFinite(rates.input) && Number.isFinite(rates.output)
+          ? (inTok * rates.input + (outTok + thTok) * rates.output) / 1e6 : null };
+    }
+    if (r.status === 'ok') {
+      let parsed;
+      try { parsed = JSON.parse(r.text); } catch { result.llm.status = 'parse_failed'; }
+      if (parsed !== undefined) {
+        const list = Array.isArray(parsed) ? parsed : parsed?.candidates;
+        if (!Array.isArray(list)) result.llm.status = 'parse_failed';
+        else {
+          result.candidates = validateBookCandidates(list, new Map(packed.map((p) => [p.label, p])), docMeta, result.rejected);
+          for (const p of packed) extractedSet[p.hash] = 1;
+        }
+      }
+    }
+  } else if (packed.length) result.llm = { status: 'no_api_key' };
+
+  result.snapshot = { docId: doc.id, revision: doc.revision, paragraphs: counts, extracted: extractedSet, extractor: BOOK_EXTRACTOR_VERSION };
+  return result;
+}
+
 // ───────────────────────────────────────────────────────── plan
 
 const emptyState = () => ({ v: 1, seq: 0, doc: null, inputs: {}, adopted: {}, forecasts: {}, actuals: {}, evalKeys: [], lastEval: null });
@@ -268,6 +337,7 @@ export async function plan(input, opts = {}) {
   if (!base || !['F1', 'F2', 'F3', 'F4'].includes(base.type) || !['REG0', 'REG1', 'REG2'].includes(base.reg) || typeof base.gate !== 'string') throw new PilotError('bad_base');
   if (!Array.isArray(approved) || approved.some((a) => typeof a !== 'string')) throw new PilotError('bad_approved');
 
+  if (prev && prev.v !== 1) throw new PilotError('not_legacy_state');   // 新版(BZM 1.0)の状態は旧 plan で扱わない
   const st = prev ? JSON.parse(JSON.stringify(prev)) : emptyState();
   const prevHash = stateHash(prev);
   const exCands = new Map((ex?.candidates || []).map((c) => [c.id, c]));
@@ -428,8 +498,10 @@ function collectParagraphs(content, out) {
 }
 
 export async function readSheetInfo(spreadsheetId, { token, fetchImpl }) {
-  const meta = await gfetch(`${SHEETS}/${spreadsheetId}?fields=properties.title,sheets.properties(sheetId,title)`, token, fetchImpl);
-  const sheets = meta.sheets.map((s) => ({ sheetId: s.properties.sheetId, title: s.properties.title }));
+  const meta = await gfetch(`${SHEETS}/${spreadsheetId}?fields=properties.title,sheets.properties(sheetId,title,gridProperties(columnCount,rowCount))`, token, fetchImpl);
+  // 列数・行数が応答に無い場合（接続層の簡易版・モック）は Google の新規シート既定（26列・1000行）とみなす
+  const sheets = meta.sheets.map((s) => ({ sheetId: s.properties.sheetId, title: s.properties.title,
+    columnCount: s.properties.gridProperties?.columnCount ?? 26, rowCount: s.properties.gridProperties?.rowCount ?? 1000 }));
   const tabs = Object.fromEntries(sheets.map((s) => [s.title, s.sheetId]));
   let state = null;
   if (tabs[TAB_NAMES.log] !== undefined) {
@@ -439,7 +511,10 @@ export async function readSheetInfo(spreadsheetId, { token, fetchImpl }) {
   }
   let empty = false;
   if (sheets.length === 1) {
-    const v = await gfetch(`${SHEETS}/${spreadsheetId}/values/${A1(sheets[0].title, 'A1:Z50')}`, token, fetchImpl);
+    // 範囲はシートの実寸内に収める（実寸外を指定すると Sheets が拒否する）。全列を対象にして、Z列より右の入力も見落とさない
+    let n = sheets[0].columnCount, col = '';
+    for (; n > 0; n = Math.floor((n - 1) / 26)) col = String.fromCharCode(65 + ((n - 1) % 26)) + col;
+    const v = await gfetch(`${SHEETS}/${spreadsheetId}/values/${A1(sheets[0].title, `A1:${col || 'A'}${Math.min(50, sheets[0].rowCount)}`)}`, token, fetchImpl);
     empty = !(v.values || []).some((row) => row.some((x) => String(x).trim()));
   }
   return { spreadsheetId, title: meta.properties.title, sheets, tabs, empty, state };
@@ -456,26 +531,37 @@ export async function read({ docId, spreadsheetId }, { token, fetchImpl = global
   return out;
 }
 
-export function init(input) {
+// layout を渡すと、別の 4 タブ構成（新版 bzm1.mjs）を同じ処理で初期化できる。キー eval と log は必須。
+export function init(input, layout = { tabs: TAB_NAMES, headers: HEADERS }) {
   const sh = input?.sheet;
   if (!sh || !Array.isArray(sh.sheets)) throw new PilotError('bad_sheet_info');
   if (!sh.empty || sh.sheets.length !== 1) throw new PilotError('not_empty_initial_file');   // 非空・複数タブは初期化しない
   const first = sh.sheets[0];
-  const names = Object.values(TAB_NAMES);
+  const T = layout.tabs;
+  const names = Object.values(T);
   const used = new Set([first.sheetId]);
   let next = 1001; const ids = {};
   for (const n of names) {
-    if (n === TAB_NAMES.eval) { ids[n] = first.sheetId; continue; }
+    if (n === T.eval) { ids[n] = first.sheetId; continue; }
     while (used.has(next)) next++;
     ids[n] = next; used.add(next);
   }
   const requests = [];
-  if (first.title !== TAB_NAMES.eval) requests.push({ updateSheetProperties: { properties: { sheetId: first.sheetId, title: TAB_NAMES.eval }, fields: 'title' } });
-  for (const n of names) if (n !== TAB_NAMES.eval) requests.push({ addSheet: { properties: { sheetId: ids[n], title: n } } });
+  // 見出しの列数が列数の既定（26）を超えるタブは、見出しを書く前に列を足す（縮めない）
+  const need = {};
+  for (const k of Object.keys(T)) need[T[k]] = Math.max(layout.headers[k].length, T[k] === T.log ? 2 : 0);
+  if (first.title !== T.eval) requests.push({ updateSheetProperties: { properties: { sheetId: first.sheetId, title: T.eval }, fields: 'title' } });
+  const firstCols = first.columnCount ?? 26;
+  if (need[T.eval] > firstCols) requests.push({ updateSheetProperties: { properties: { sheetId: first.sheetId, gridProperties: { columnCount: need[T.eval] } }, fields: 'gridProperties.columnCount' } });
+  for (const n of names) if (n !== T.eval) {
+    const properties = { sheetId: ids[n], title: n };
+    if ((need[n] || 0) > 26) properties.gridProperties = { columnCount: need[n] };
+    requests.push({ addSheet: { properties } });
+  }
   const hdr = (n, row) => ({ updateCells: { start: { sheetId: ids[n], rowIndex: 0, columnIndex: 0 },
     rows: [{ values: row.map(cell) }], fields: 'userEnteredValue' } });
-  requests.push(hdr(TAB_NAMES.eval, HEADERS.eval), hdr(TAB_NAMES.obs, HEADERS.obs), hdr(TAB_NAMES.fc, HEADERS.fc), hdr(TAB_NAMES.log, HEADERS.log));
-  requests.push({ updateCells: { start: { sheetId: ids[TAB_NAMES.log], rowIndex: 1, columnIndex: 0 },
+  for (const k of Object.keys(T)) requests.push(hdr(T[k], layout.headers[k]));
+  requests.push({ updateCells: { start: { sheetId: ids[T.log], rowIndex: 1, columnIndex: 0 },
     rows: [{ values: [cell('状態(JSON)')] }], fields: 'userEnteredValue' } });
   return { kind: 'init', spreadsheetId: sh.spreadsheetId, prevStateHash: 'null', tabs: ids, requests };
 }
@@ -493,6 +579,9 @@ export async function apply(p, { spreadsheetId, doApply, token, fetchImpl = glob
   return { applied: true, replies: (res.replies || []).length };
 }
 
+// 新版(bzm1.mjs)が共有する部品
+export { sha256, canon, stateHash, isDate, isIso, cell, appendReq, round, dayOf, PLANNED_RE };
+
 // ───────────────────────────────────────────────────────── CLI
 
 function argOf(args, name) { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; }
@@ -502,12 +591,19 @@ async function main() {
   const [cmd, ...args] = process.argv.slice(2);
   const token = process.env.GOOGLE_ACCESS_TOKEN;
   let out;
-  if (cmd === 'extract') out = await extract(readStdin(), { promptPath: argOf(args, '--prompt') });
-  else if (cmd === 'plan') out = await plan(readStdin());
+  // 既定の plan / init / replay は BZM 1.0 版（bzm1.mjs）。旧版（BZM 3.0 内部版）は legacy- 付きの明示コマンドだけ。
+  if (cmd === 'extract') out = await extractBook(readStdin(), { promptPath: argOf(args, '--prompt') });
+  else if (cmd === 'legacy-extract') out = await extract(readStdin(), { promptPath: argOf(args, '--prompt') });
+  else if (cmd === 'legacy-plan') out = await plan(readStdin());
+  else if (cmd === 'legacy-init') out = init(readStdin());
+  else if (cmd === 'plan' || cmd === 'init' || cmd === 'replay') {
+    const m = await import('./bzm1.mjs');
+    out = cmd === 'plan' ? m.planCli(readStdin(), { readFile: argOf(args, '--read'), asOf: argOf(args, '--as-of') })
+      : cmd === 'init' ? m.init1(readStdin()) : m.replayCli(readStdin());
+  }
   else if (cmd === 'read') out = await read({ docId: argOf(args, '--doc'), spreadsheetId: argOf(args, '--sheet') }, { token });
-  else if (cmd === 'init') out = init(readStdin());
   else if (cmd === 'apply') out = await apply(readStdin(), { spreadsheetId: argOf(args, '--spreadsheet'), doApply: args.includes('--apply'), token });
-  else throw new PilotError('usage', 'extract | plan | read | init | apply');
+  else throw new PilotError('usage', 'extract | init | plan | replay | read | apply | legacy-extract | legacy-plan | legacy-init');
   process.stdout.write(`${JSON.stringify(out, null, 2)}\n`);
 }
 
