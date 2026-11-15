@@ -222,6 +222,21 @@ test('予測: 事後の上書き不可・結果は別行・二重記録と事前
     actual: { forecastId: fid, candidateId: byCat('trial_result'), outcome: 'no' } }), /outcome_mismatch/);
 });
 
+test('新規予測の期限は記録日(JST暦日)より後のみ。同日・過去は拒否、翌日は可、固定済みの再実行は可', async () => {
+  const text = [P1, P2, P3].join('\n\n');
+  const ex = await extract({ doc: doc(text), state: null }, { apiKey: 'k', fetchImpl: fakeFetch(RAW, []) });
+  const ids = ex.candidates.filter((c) => c.status === 'actual').map((c) => c.id);
+  const fc = { question: '期限の境界', probability: 0.5, deadline: '2026-11-02', criterion: '基準', event: '出来事' };
+  const asOf = '2026-11-01T16:00:00Z';   // JSTでは 11/02 01:00
+  await assert.rejects(run(ex, null, { approved: ids, asOf, forecast: fc }), /forecast_deadline_not_future/);
+  await assert.rejects(run(ex, null, { approved: ids, asOf, forecast: { ...fc, deadline: '2026-10-01' } }), /forecast_deadline_not_future/);
+  const ok = await run(ex, null, { approved: ids, asOf, forecast: { ...fc, deadline: '2026-11-03' } });
+  assert.ok(ok.summary.forecastSaved);
+  // 固定済みと同じ予測を、期限が過ぎた後に再実行しても拒否されない
+  const again = await run(ex, ok.state, { asOf: '2026-11-05T00:00:00Z', forecast: { ...fc, deadline: '2026-11-03' } });
+  assert.equal(again.summary.forecastSaved, null);
+});
+
 test('予測・実績が無くても動く／init は非空ファイルを拒否する', async () => {
   const ex = await extract({ doc: doc(P1), state: null }, { apiKey: 'k', fetchImpl: fakeFetch([RAW[0]], []) });
   const p = await run(ex, null, { approved: [ex.candidates[0].id], asOf: '2026-11-01T00:00:00Z' });

@@ -298,6 +298,13 @@ export async function plan(input, opts = {}) {
   }
   if (ex?.snapshot) st.doc = ex.snapshot;
 
+  // 新規の予測は期限が記録日(JST暦日)より後でなければ拒否する。固定済みの同一予測の再実行は対象外。評価計算より前に検証する
+  if (forecast) {
+    validateForecast(forecast);
+    const fid = `fc-${sha256([forecast.question, forecast.deadline, forecast.event].join('\u0001')).slice(0, 10)}`;
+    if (!st.forecasts[fid] && !(forecast.deadline > dayOf(asOf))) throw new PilotError('forecast_deadline_not_future', fid);
+  }
+
   // 評価（採用済み入力が揃い、かつ同じ版が未記録のときだけ）
   const inp = st.inputs;
   let evaluation = null;
