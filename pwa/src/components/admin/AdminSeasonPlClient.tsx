@@ -97,16 +97,16 @@ function SeasonPlList({
               <td className="px-3 py-2">
                 <div className="font-medium">{row.projectName}</div>
                 <div className="text-[11px] text-muted-foreground">
-                  {fmtYm(row.periodStartYm)}–{fmtYm(row.periodEndYm)} · {row.totalPoints}pt · {row.status}
+                  {fmtYm(row.periodStartYm)}–{fmtYm(row.periodEndYm)} · {row.fixedMonthlyFromYm ? `固定月額 ${fmtYm(row.fixedMonthlyFromYm)}〜` : `${row.totalPoints}pt`} · {row.status}
                 </div>
               </td>
               <td className="px-3 py-2 text-right tabular-nums">{fmtYen(row.invoiceTotalYen)}</td>
               <td className="px-3 py-2 text-right tabular-nums">{fmtYen(row.bufferTotalYen)}</td>
               <td className="px-3 py-2 text-right tabular-nums">{fmtYen(row.memberBudgetYen)}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{fmtYen(row.ptUnitYen)}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{row.fixedMonthlyFromYm ? "—" : fmtYen(row.ptUnitYen)}</td>
               <td className="px-3 py-2 text-center">{row.closes ? "✓" : <span className="text-red-500 font-bold">✗</span>}</td>
               <td className="px-3 py-2 text-center">
-                {row.ptFullyAssigned ? "✓" : <span className="text-red-500 font-bold" title="未割当pt">{fmtPt(row.unassignedPt)}pt</span>}
+                {row.fixedMonthlyFromYm ? "—" : row.ptFullyAssigned ? "✓" : <span className="text-red-500 font-bold" title="未割当pt">{fmtPt(row.unassignedPt)}pt</span>}
               </td>
               <td className="px-3 py-2 text-center">
                 {row.budgetMatchesMonthlyCaps ? "✓" : <span className="text-red-500 font-bold" title="原資≠Σ月cap">{fmtSignedYen(row.budgetVsMonthlyCapsDeltaYen)}</span>}
@@ -135,7 +135,7 @@ function Row({ label, value, strong, sub }: { label: string; value: string; stro
   );
 }
 
-function MemberRow({ m }: { m: SeasonPlMember }) {
+function MemberRow({ m, fixedMonthly }: { m: SeasonPlMember; fixedMonthly: boolean }) {
   const converged = Math.abs(m.convergenceDeltaYen) <= 5;
   return (
     <tr className="border-t border-border">
@@ -148,21 +148,21 @@ function MemberRow({ m }: { m: SeasonPlMember }) {
         </Link>
         {m.isOfficer ? <span className="ml-1.5 text-[10px] rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 px-1 py-0.5">役員=会社留保</span> : null}
       </td>
-      <td className="px-3 py-2 text-right tabular-nums">
+      {!fixedMonthly && <td className="px-3 py-2 text-right tabular-nums">
         {fmtPt(m.earnedPt)}
         {m.extraEarnedPt > 0 ? <span className="ml-1 text-[10px] text-sky-500">別{fmtPt(m.extraEarnedPt)}</span> : null}
-      </td>
-      <td className="px-3 py-2 text-right tabular-nums">
+      </td>}
+      {!fixedMonthly && <td className="px-3 py-2 text-right tabular-nums">
         {fmtYen(m.budgetShareYen)}
         {m.extraBudgetShareYen > 0 ? <div className="text-[10px] text-sky-500">うち別財布 {fmtYen(m.extraBudgetShareYen)}</div> : null}
-      </td>
+      </td>}
       <td className="px-3 py-2 text-right tabular-nums">{fmtYen(m.paidYen)}</td>
       <td className="px-3 py-2 text-right tabular-nums">{fmtYen(m.finalStockYen)}</td>
-      <td className="px-3 py-2 text-right tabular-nums">
+      {!fixedMonthly && <td className="px-3 py-2 text-right tabular-nums">
         <span className={converged ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 font-semibold"}>
           {fmtSignedYen(m.convergenceDeltaYen)}
         </span>
-      </td>
+      </td>}
     </tr>
   );
 }
@@ -188,14 +188,18 @@ function SeasonPlDetail({ pl, onBack }: { pl: SeasonPl; onBack: () => void }) {
       {/* 検算サマリ */}
       <div className="flex flex-wrap gap-2">
         <CheckBadge ok={c.closes} label={`閉じ検算${c.closes ? "" : ` (差${fmtSignedYen(c.closeDeltaYen)})`}`} />
-        <CheckBadge
+        {!pl.fixedMonthlyFromYm && <CheckBadge
           ok={c.ptFullyAssigned}
           label={`未割当pt${c.ptFullyAssigned ? "" : ` ${fmtPt(c.unassignedPt)}pt${c.unownedMilestones.length > 0 ? ` +担当無${c.unownedMilestones.length}` : ""}`}`}
-        />
+        />}
         <CheckBadge ok={c.budgetMatchesMonthlyCaps} label={`原資=Σ月cap${c.budgetMatchesMonthlyCaps ? "" : ` (差${fmtSignedYen(c.budgetVsMonthlyCapsDeltaYen)})`}`} />
-        <CheckBadge ok={c.ptUnitConsistent} label={`pt単価${c.ptUnitConsistent ? "" : ` (期待${fmtYen(c.ptUnitExpected)})`}`} />
+        {!pl.fixedMonthlyFromYm && <CheckBadge ok={c.ptUnitConsistent} label={`pt単価${c.ptUnitConsistent ? "" : ` (期待${fmtYen(c.ptUnitExpected)})`}`} />}
         <CheckBadge ok={c.officerStockConverges} label={`役員stock収束${c.officerStockConverges ? "" : ` (残${fmtYen(c.officerFinalStockYen)})`}`} />
       </div>
+
+      {pl.fixedMonthlyFromYm && <p className="rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-100">
+        {fmtYm(pl.fixedMonthlyFromYm)}以降はメンバーの稼働報酬を固定月額で計算。MSのptは報酬計算に使わない。下の累計支払には切替前の月も含む。
+      </p>}
 
       <div className="grid gap-5 md:grid-cols-2">
         {/* ① 収入 */}
@@ -236,7 +240,7 @@ function SeasonPlDetail({ pl, onBack }: { pl: SeasonPl; onBack: () => void }) {
       </div>
 
       {/* pt メタ */}
-      <section className="rounded-lg border border-border p-4">
+      {!pl.fixedMonthlyFromYm && <section className="rounded-lg border border-border p-4">
         <h3 className="text-sm font-semibold mb-2">pt 単価 / 消化</h3>
         <div className="grid gap-x-8 gap-y-1 sm:grid-cols-3">
           <Row label="総pt (pt単価分母)" value={`${fmtPt(pl.totalPoints)}pt`} />
@@ -263,15 +267,16 @@ function SeasonPlDetail({ pl, onBack }: { pl: SeasonPl; onBack: () => void }) {
             担当者未設定で pt が宙吊りの MS: {c.unownedMilestones.join(", ")}
           </p>
         ) : null}
-      </section>
+      </section>}
 
       {/* ③ メンバー別 pt 比予実 */}
       <section className="rounded-lg border border-border">
         <div className="px-4 pt-3 pb-2">
-          <h3 className="text-sm font-semibold">③ メンバー別 (pt比 予算 vs 実績)</h3>
+          <h3 className="text-sm font-semibold">③ メンバー別 {pl.fixedMonthlyFromYm ? "シーズン累計" : "(pt比 予算 vs 実績)"}</h3>
           <p className="text-[11px] text-muted-foreground">
-            予算取り分 = 獲得pt × pt単価。差 = (実支払 + 未払い残) − 予算取り分。最終的に 0 が正 (= pt比に収束)。
-            役員は「会社留保」、非役員は「現金支払」。
+            {pl.fixedMonthlyFromYm
+              ? "切替前の月と固定月額の月を合わせた累計。支払対象外メンバーは非現金配賦、支払対象メンバーは現金支払。"
+              : "予算取り分 = 獲得pt × pt単価。差 = (実支払 + 未払い残) − 予算取り分。最終的に 0 が正 (= pt比に収束)。役員は「会社留保」、非役員は「現金支払」。"}
           </p>
         </div>
         <div className="overflow-x-auto">
@@ -279,35 +284,35 @@ function SeasonPlDetail({ pl, onBack }: { pl: SeasonPl; onBack: () => void }) {
             <thead className="bg-muted/50 text-xs text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 text-left">メンバー</th>
-                <th className="px-3 py-2 text-right">獲得pt</th>
-                <th className="px-3 py-2 text-right">予算取り分</th>
+                {!pl.fixedMonthlyFromYm && <th className="px-3 py-2 text-right">獲得pt</th>}
+                {!pl.fixedMonthlyFromYm && <th className="px-3 py-2 text-right">予算取り分</th>}
                 <th className="px-3 py-2 text-right">実支払 累計</th>
                 <th className="px-3 py-2 text-right">最終 未払い残</th>
-                <th className="px-3 py-2 text-right">差 (収束)</th>
+                {!pl.fixedMonthlyFromYm && <th className="px-3 py-2 text-right">差 (収束)</th>}
               </tr>
             </thead>
             <tbody>
               {pl.members.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-3 py-4 text-center text-muted-foreground text-xs">
+                  <td colSpan={pl.fixedMonthlyFromYm ? 3 : 6} className="px-3 py-4 text-center text-muted-foreground text-xs">
                     メンバー報酬データなし (MS進捗 / 担当比率 未設定)
                   </td>
                 </tr>
               ) : (
-                pl.members.map((m) => <MemberRow key={m.memberId} m={m} />)
+                pl.members.map((m) => <MemberRow key={m.memberId} m={m} fixedMonthly={Boolean(pl.fixedMonthlyFromYm)} />)
               )}
             </tbody>
             {pl.members.length > 0 ? (
               <tfoot className="border-t-2 border-border text-xs font-medium">
                 <tr>
                   <td className="px-3 py-2">合計</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{fmtPt(pl.earnedPtSum)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{fmtYen(pl.members.reduce((s, m) => s + m.budgetShareYen, 0))}</td>
+                  {!pl.fixedMonthlyFromYm && <td className="px-3 py-2 text-right tabular-nums">{fmtPt(pl.earnedPtSum)}</td>}
+                  {!pl.fixedMonthlyFromYm && <td className="px-3 py-2 text-right tabular-nums">{fmtYen(pl.members.reduce((s, m) => s + m.budgetShareYen, 0))}</td>}
                   <td className="px-3 py-2 text-right tabular-nums">{fmtYen(pl.paidSumYen)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{fmtYen(pl.finalStockSumYen)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">
+                  {!pl.fixedMonthlyFromYm && <td className="px-3 py-2 text-right tabular-nums">
                     {fmtSignedYen(pl.members.reduce((s, m) => s + m.convergenceDeltaYen, 0))}
-                  </td>
+                  </td>}
                 </tr>
               </tfoot>
             ) : null}

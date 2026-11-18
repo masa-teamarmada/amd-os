@@ -193,6 +193,8 @@ export type SeasonPl = {
   periodStartYm: string;
   periodEndYm: string;
   cycleMonths: number;
+  /** 途中から固定月額へ切り替えた月。pt比の収束検算は全期間へ適用しない。 */
+  fixedMonthlyFromYm?: string | null;
 
   // ① 収入
   /** 請求額 (税抜・シーズン合計, 契約期間内の billing 月を集約) */
@@ -414,6 +416,8 @@ export function computeSeasonPl({
 }): SeasonPl {
   const billingsByYm = new Map<string, BillingInput>(billings.map((row) => [row.ym, row]));
   const cycleMonths = cycleMonthsRange(planCycle);
+  const fixedMonthlyFromYm = fixedMonthlyPolicy && cycleMonths.some((ym) => ym >= fixedMonthlyPolicy.effective_from_ym)
+    ? fixedMonthlyPolicy.effective_from_ym : null;
 
   // 報酬の現金支払 / 非現金配賦 (会社留保) の区分は is_officer ではなく
   // exclude_from_payout_notice を正本とする (まさ確定 2026-07-29)。
@@ -644,6 +648,7 @@ export function computeSeasonPl({
     periodStartYm: planCycle.period_start_ym,
     periodEndYm: planCycle.period_end_ym,
     cycleMonths: cycleMonths.length,
+    fixedMonthlyFromYm,
 
     invoiceTotalYen,
     invoiceConfirmedYen,
@@ -681,6 +686,7 @@ export type SeasonPlListRow = {
   status: string;
   periodStartYm: string;
   periodEndYm: string;
+  fixedMonthlyFromYm?: string | null;
   invoiceTotalYen: number;
   bufferTotalYen: number;
   memberBudgetYen: number;
@@ -702,9 +708,9 @@ export function toListRow(pl: SeasonPl): SeasonPlListRow {
   const c = pl.checks;
   const hasWarning =
     !c.closes ||
-    !c.ptFullyAssigned ||
+    (!pl.fixedMonthlyFromYm && !c.ptFullyAssigned) ||
     !c.budgetMatchesMonthlyCaps ||
-    !c.ptUnitConsistent ||
+    (!pl.fixedMonthlyFromYm && !c.ptUnitConsistent) ||
     !c.officerStockConverges;
   return {
     planCycleId: pl.planCycleId,
@@ -714,6 +720,7 @@ export function toListRow(pl: SeasonPl): SeasonPlListRow {
     status: pl.status,
     periodStartYm: pl.periodStartYm,
     periodEndYm: pl.periodEndYm,
+    fixedMonthlyFromYm: pl.fixedMonthlyFromYm,
     invoiceTotalYen: pl.invoiceTotalYen,
     bufferTotalYen: pl.bufferTotalYen,
     memberBudgetYen: pl.memberBudgetYen,

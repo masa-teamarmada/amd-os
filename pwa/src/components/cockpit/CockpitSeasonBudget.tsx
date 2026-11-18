@@ -111,6 +111,7 @@ function Metric({ label, value, note }: { label: string; value: string; note?: s
 
 function SeasonCard({ season }: { season: SeasonBudgetSeason }) {
   const checks = season.checks;
+  const fixedMonthly = Boolean(season.fixedMonthlyFromYm);
   // メンバー原資をどこまで使ったか。
   // 支払済み = 現金で出た分、社内配賦 = 支払対象外メンバーへ割り当てた分 (現金は出ない)、
   // 未払い残 = 発生済みでまだ払えていない分、未消化 = まだ誰の取り分にもなっていない残り。
@@ -146,11 +147,11 @@ function SeasonCard({ season }: { season: SeasonBudgetSeason }) {
         <div className="flex flex-wrap gap-1.5">
           <CheckBadge ok={checks.closes} label="請求額と内訳が一致" />
           <CheckBadge ok={checks.budgetMatchesMonthlyCaps} label="原資と月枠の合計が一致" />
-          <CheckBadge
+          {!fixedMonthly && <CheckBadge
             ok={checks.ptFullyAssigned}
             tone="note"
             label={checks.ptFullyAssigned ? "pt割当済み" : `未割当 ${checks.unassignedPt}pt`}
-          />
+          />}
           <CheckBadge ok={checks.officerStockConverges} label="対象外メンバーの繰越が収束" />
         </div>
       </div>
@@ -170,22 +171,24 @@ function SeasonCard({ season }: { season: SeasonBudgetSeason }) {
           メンバー原資 {fmtYen(season.memberBudgetYen)} の消化
         </p>
         <p className="mt-0.5 text-[11px] text-[#8e8e93]">
-          MSの消化ptに応じて各メンバーの取り分が決まる。月々の支払枠に収まらない分は未払い残として翌月へ回る。
+          {fixedMonthly
+            ? `${ymLabel(season.fixedMonthlyFromYm!)}以降の稼働報酬は固定月額。MSのptは報酬計算に使わない。切替前の月も累計に含む。`
+            : "MSの消化ptに応じて各メンバーの取り分が決まる。月々の支払枠に収まらない分は未払い残として翌月へ回る。"}
         </p>
         <ConsumptionBar consumed={consumedParts} remainingYen={remainingYen} total={season.memberBudgetYen} />
       </div>
 
       <div className="mt-4 flex flex-wrap gap-y-3 border-t border-[#e5e5e7] pt-3">
         <Metric label="入金確認済み" value={fmtYen(season.invoiceConfirmedYen)} note={`請求の ${fmtPct(season.invoiceConfirmedYen, season.invoiceTotalYen)}`} />
-        <Metric label="pt単価 (本契約)" value={fmtYen(season.regularPtUnitYen)} note={checks.ptUnitConsistent ? "契約と整合" : `想定 ${fmtYen(checks.ptUnitExpected)}`} />
-        <Metric label="消化pt" value={`${Math.round(season.earnedPtSum * 100) / 100} / ${season.totalPoints}pt`} note={`MS設定 ${season.msPointsSum}pt`} />
-        {season.extraPoolBudgetYen > 0 && (
+        {!fixedMonthly && <Metric label="pt単価 (本契約)" value={fmtYen(season.regularPtUnitYen)} note={checks.ptUnitConsistent ? "契約と整合" : `想定 ${fmtYen(checks.ptUnitExpected)}`} />}
+        {!fixedMonthly && <Metric label="消化pt" value={`${Math.round(season.earnedPtSum * 100) / 100} / ${season.totalPoints}pt`} note={`MS設定 ${season.msPointsSum}pt`} />}
+        {!fixedMonthly && season.extraPoolBudgetYen > 0 && (
           <Metric label="別財布の原資" value={fmtYen(season.extraPoolBudgetYen)} note={`別契約分・${season.extraPointsSum}pt`} />
         )}
         <Metric label="シーズン末の未払い残" value={fmtYen(season.finalStockSumYen)} note={season.finalStockSumYen > 0 ? "0で閉じるのが正" : "0で閉じる見込み"} />
       </div>
 
-      {season.membersVisible && season.members.length > 0 && (
+      {season.membersVisible && season.members.length > 0 && !fixedMonthly && (
         <div className="mt-4 overflow-x-auto border-t border-[#e5e5e7] pt-3">
           <p className="mb-2 text-[12px] font-semibold text-[#1d1d1f]">メンバー別（pt比の取り分と実績）</p>
           <table data-amie-list="matrix" className="w-full min-w-[560px] text-[11px]">
@@ -226,6 +229,25 @@ function SeasonCard({ season }: { season: SeasonBudgetSeason }) {
           <p className="mt-1.5 text-[10px] text-[#8e8e93]">
             「差」は（配賦済み＋未払い残）−（pt比の取り分）。期中はずれるのが正常で、シーズン最終月に0へ収束する。
           </p>
+        </div>
+      )}
+      {season.membersVisible && season.members.length > 0 && fixedMonthly && (
+        <div className="mt-4 overflow-x-auto border-t border-[#e5e5e7] pt-3">
+          <p className="mb-2 text-[12px] font-semibold text-[#1d1d1f]">メンバー別 シーズン累計</p>
+          <table data-amie-list="matrix" className="w-full text-[11px]">
+            <thead className="border-b border-[#e5e5e7] text-[#8e8e93]"><tr>
+              <th className="px-2 py-1.5 text-left font-medium">メンバー</th>
+              <th className="px-2 py-1.5 text-right font-medium">配賦済み</th>
+              <th className="px-2 py-1.5 text-right font-medium">未払い残</th>
+            </tr></thead>
+            <tbody className="divide-y divide-[#f2f2f5]">{season.members.map((member) => (
+              <tr key={member.memberId}>
+                <td className="px-2 py-1.5 font-medium text-[#1d1d1f]">{member.memberName}</td>
+                <td className="px-2 py-1.5 text-right tabular-nums">{fmtYen(member.paidYen)}</td>
+                <td className="px-2 py-1.5 text-right tabular-nums">{fmtYen(member.finalStockYen)}</td>
+              </tr>
+            ))}</tbody>
+          </table>
         </div>
       )}
     </div>
