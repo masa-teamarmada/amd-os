@@ -1907,6 +1907,7 @@ async function computeRewardSummaryForCycle(
     if (!saved || !Array.isArray(saved.members)) throw new Error(`${projectId}:${ym}: protected reward snapshot missing`);
     return { ok: true, projectId, ym, rewardSummary: saved, skippedReason: "payout_protected", billing, project };
   }
+  const fixedMonthlyPolicy = await loadFixedMonthlyRewardPolicy(db, projectId, ym);
   const planCycleBase = choosePlanCycle((planCyclesRes.data ?? []) as PlanCycleRow[], ym);
   const planCycle = planCycleBase && options.scenario?.planCycleId === planCycleBase.plan_cycle_id
     ? { ...planCycleBase, total_points: options.scenario.totalPoints ?? planCycleBase.total_points }
@@ -1929,19 +1930,19 @@ async function computeRewardSummaryForCycle(
     if (milestonesRes.error) throw milestonesRes.error;
     milestones = ((milestonesRes.data ?? []) as MilestoneRow[]).filter((ms) => String(ms.goal_level || "").toLowerCase() !== "monthly");
   }
-  if (milestones.length === 0) {
+  if (milestones.length === 0 && !fixedMonthlyPolicy) {
     const emptySummary = emptyRewardSummaryForCycle(projectId, ym, planCycle.plan_cycle_id);
     return { ok: true, projectId, ym, rewardSummary: emptySummary, skippedReason: "milestones_not_found", billing, project };
   }
 
   const milestoneIds = milestones.map((ms) => ms.milestone_id);
   const [progressRes, billingRangeRes, projectMembersRes] = await Promise.all([
-    db
+    milestoneIds.length ? db
       .from("milestone_monthly_progress")
       .select("milestone_key, ym, progress_pct, consumed_pt, source")
       .in("milestone_key", milestoneIds)
       .lte("ym", ym)
-      .order("ym", { ascending: true }),
+      .order("ym", { ascending: true }) : Promise.resolve({ data: [], error: null }),
     db
       .from("billing_cycles")
       .select(REWARD_CYCLE_SELECT)
@@ -1964,10 +1965,10 @@ async function computeRewardSummaryForCycle(
     const activeMilestoneIds = new Set(milestoneIds);
     responsibilities = options.scenario.responsibilities.filter((row) => activeMilestoneIds.has(row.milestone_id));
   } else {
-    const responsibilitiesRes = await db
+    const responsibilitiesRes = milestoneIds.length ? await db
       .from("milestone_responsibility")
       .select("milestone_id, member_id, share")
-      .in("milestone_id", milestoneIds);
+      .in("milestone_id", milestoneIds) : { data: [], error: null };
     if (responsibilitiesRes.error) throw responsibilitiesRes.error;
     responsibilities = (responsibilitiesRes.data ?? []) as ResponsibilityRow[];
   }
@@ -1981,7 +1982,7 @@ async function computeRewardSummaryForCycle(
   let taskLedger: TaskPointLedger | undefined;
   // タスクptの検収を始めたPJ（projects.task_point_review_from_ym）だけ、その月以降は検収ptで払う。
   const taskPointFromYm = taskPointReviewFromYmOf(projectRes.data as { task_point_review_from_ym?: unknown } | null);
-  if (taskPointFromYm && isTaskPointReviewOpen(taskPointFromYm, ym) && !options.scenario) {
+  if (milestoneIds.length && taskPointFromYm && isTaskPointReviewOpen(taskPointFromYm, ym) && !options.scenario) {
     taskLedger = await loadTaskPointLedger(db, projectId, new Set(milestoneIds), taskPointFromYm);
     markNewTaskMilestones(taskLedger, milestones);
   }
@@ -2014,7 +2015,7 @@ async function computeRewardSummaryForCycle(
         : await loadRewardLiabilityOffsetsByYm(db, projectId, planCycle.plan_cycle_id, planCycle.period_start_ym, ym)
     ),
     taskLedger,
-    fixedMonthlyPolicy: await loadFixedMonthlyRewardPolicy(db, projectId, ym),
+    fixedMonthlyPolicy,
     planCycle,
     project,
   });
