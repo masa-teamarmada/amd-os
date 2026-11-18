@@ -6229,6 +6229,24 @@
       "key": [],
       "context": [],
       "references": {}
+    },
+    "project_fixed_monthly_rewards": {
+      "label": "PJメンバー固定月額",
+      "key": [
+        "project_id",
+        "effective_from_ym"
+      ],
+      "context": [
+        "project_id",
+        "effective_from_ym",
+        "member_amounts_json"
+      ],
+      "references": {
+        "project_id": {
+          "table": "projects",
+          "key": "project_id"
+        }
+      }
     }
   },
   "fields": {
@@ -8523,7 +8541,9 @@
     "xrl_notes": "成熟度メモ",
     "ym_key": "対象月識別子",
     "published_publication_id": "公開した版",
-    "content_erasure": "記録内容の削除"
+    "content_erasure": "記録内容の削除",
+    "effective_from_ym": "適用開始月",
+    "member_amounts_json": "メンバー別月額"
   },
   "values": {
     "a": "A",

@@ -223,6 +223,25 @@ type ResponsibilityRow = {
   share?: number | string | null;
 };
 
+export type FixedMonthlyRewardPolicy = {
+  effective_from_ym: string;
+  member_amounts_json: Record<string, number>;
+};
+
+export async function loadFixedMonthlyRewardPolicy(
+  db: SupabaseLike, projectId: string, throughYm: string
+): Promise<FixedMonthlyRewardPolicy | null> {
+  const res = await db.from("project_fixed_monthly_rewards")
+    .select("effective_from_ym, member_amounts_json")
+    .eq("project_id", projectId)
+    .lte("effective_from_ym", throughYm)
+    .order("effective_from_ym", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (res.error) throw res.error;
+  return (res.data ?? null) as FixedMonthlyRewardPolicy | null;
+}
+
 export type RewardScenarioOverride = {
   planCycleId: string;
   milestones: MilestoneRow[];
@@ -1433,6 +1452,7 @@ export function buildRewardSummaryUncapped({
   project,
   extraPoolBudgetYen,
   taskLedger,
+  fixedMonthlyPolicy,
 }: {
   ym: string;
   milestones: MilestoneRow[];
@@ -1447,7 +1467,20 @@ export function buildRewardSummaryUncapped({
   /** 別財布 (cap_extra) プールの総原資。extra pt単価の独立導出に使う (deriveRewardUnits 参照)。 */
   extraPoolBudgetYen?: number;
   taskLedger?: TaskPointLedger;
+  fixedMonthlyPolicy?: FixedMonthlyRewardPolicy | null;
 }): RewardSummary | null {
+  if (fixedMonthlyPolicy && ym >= fixedMonthlyPolicy.effective_from_ym) {
+    const members = Object.entries(fixedMonthlyPolicy.member_amounts_json)
+      .map(([memberId, rawAmount]) => ({ memberId, amount: Math.round(Number(rawAmount)) }))
+      .filter(({ memberId, amount }) => memberId && Number.isFinite(amount) && amount > 0)
+      .map(({ memberId, amount }) => ({
+        memberId, memberName: memberMap[memberId] || memberId,
+        earnedPt: 0, regularEarnedPt: 0, extraEarnedPt: 0,
+        basePay: amount, regularBasePay: amount, extraBasePay: 0,
+        bonusPt: 0, totalPay: amount, breakdown: [],
+      }));
+    return { ptUnit: 0, regularPtUnit: 0, totalPaySum: members.reduce((sum, member) => sum + member.totalPay, 0), members };
+  }
   if (milestones.length === 0 || (responsibilities.length === 0 && !taskLedger?.accepted.length)) return null;
 
   const prevYm = prevYmStr(ym);
@@ -1594,6 +1627,7 @@ export function buildRewardSummary({
   project,
   liabilityOffsetsByYm,
   taskLedger,
+  fixedMonthlyPolicy,
 }: {
   ym: string;
   milestones: MilestoneRow[];
@@ -1610,6 +1644,7 @@ export function buildRewardSummary({
   project: ProjectRow | null;
   liabilityOffsetsByYm?: RewardLiabilityOffsetsByYm;
   taskLedger?: TaskPointLedger;
+  fixedMonthlyPolicy?: FixedMonthlyRewardPolicy | null;
 }): RewardSummary | null {
   const regularCarryStock = new Map<string, number>();
   const extraCarryStock = new Map<string, number>();
@@ -1677,6 +1712,7 @@ export function buildRewardSummary({
       project,
       extraPoolBudgetYen,
       taskLedger,
+      fixedMonthlyPolicy,
     }) ||
       buildCarryOnlyReward(memberMap, regularCarryStock, extraCarryStock, unitsForMonth.regularPtUnit, unitsForMonth.extraPtUnit) ||
       buildLiabilityOnlyReward(memberMap, liabilityOnlyMemberIds, unitsForMonth.regularPtUnit, unitsForMonth.extraPtUnit);
@@ -1978,6 +2014,7 @@ async function computeRewardSummaryForCycle(
         : await loadRewardLiabilityOffsetsByYm(db, projectId, planCycle.plan_cycle_id, planCycle.period_start_ym, ym)
     ),
     taskLedger,
+    fixedMonthlyPolicy: await loadFixedMonthlyRewardPolicy(db, projectId, ym),
     planCycle,
     project,
   });
@@ -2154,6 +2191,7 @@ export async function computeForwardUncappedMemberCosts(
   const responsibilities = (responsibilitiesRes.data ?? []) as ResponsibilityRow[];
   const billingByYm = new Map(((billingRangeRes.data ?? []) as BillingRow[]).map((row) => [row.ym, row]));
   const extraPoolBudgetYen = sumExtraPoolBudgetYen(billingByYm) ?? undefined;
+  const fixedMonthlyPolicy = await loadFixedMonthlyRewardPolicy(db, projectId, planCycle.period_end_ym);
 
   const months: ForwardUncappedMonth[] = [];
   for (const ym of fullMonths) {
@@ -2171,6 +2209,7 @@ export async function computeForwardUncappedMemberCosts(
       planCycle,
       project,
       extraPoolBudgetYen,
+      fixedMonthlyPolicy,
     });
     const uncappedTotalYen = summary
       ? summary.members.reduce((sum, m) => sum + (m.totalPay || 0), 0)
@@ -2364,6 +2403,7 @@ export async function computeForwardCappedMemberCosts(
     planCycle.period_start_ym,
     planCycle.period_end_ym
   );
+  const fixedMonthlyPolicy = await loadFixedMonthlyRewardPolicy(db, projectId, planCycle.period_end_ym);
 
   const months: ForwardCappedMonth[] = [];
   for (const ym of fullMonths) {
@@ -2385,6 +2425,7 @@ export async function computeForwardCappedMemberCosts(
       planCycle,
       project,
       liabilityOffsetsByYm,
+      fixedMonthlyPolicy,
     });
     const members = summary?.members ?? [];
     // payoutExcluded は companyReserveMemberIds (= exclude_from_payout_notice) メンバーの

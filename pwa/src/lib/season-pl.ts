@@ -21,6 +21,7 @@
 
 import {
   buildRewardSummary,
+  type FixedMonthlyRewardPolicy,
   type RewardSummary,
 } from "@/lib/reward-summary";
 import { contractBackedClientAmount } from "@/lib/contract-money";
@@ -341,6 +342,7 @@ function buildMonthlySummaries({
   payoutExcludedMemberIds,
   memberMap,
   billingsByYm,
+  fixedMonthlyPolicy,
 }: {
   planCycle: PlanCycleInput;
   project: ProjectInput | null;
@@ -353,6 +355,7 @@ function buildMonthlySummaries({
   payoutExcludedMemberIds: Set<string>;
   memberMap: Record<string, string>;
   billingsByYm: Map<string, BillingInput>;
+  fixedMonthlyPolicy?: FixedMonthlyRewardPolicy | null;
 }): Map<string, RewardSummary> {
   const byYm = new Map<string, RewardSummary>();
   // buildRewardSummary は reward-summary.ts の Row 型を期待する。形は互換 (列名一致) なので
@@ -375,6 +378,7 @@ function buildMonthlySummaries({
       billingsByYm: rsBillingsByYm,
       planCycle: planCycle as Parameters<typeof buildRewardSummary>[0]["planCycle"],
       project: project as Parameters<typeof buildRewardSummary>[0]["project"],
+      fixedMonthlyPolicy,
     });
     if (summary) byYm.set(ym, summary);
   }
@@ -394,6 +398,7 @@ export function computeSeasonPl({
   members,
   activeMemberIds,
   projectMembers,
+  fixedMonthlyPolicy,
 }: {
   planCycle: PlanCycleInput;
   project: ProjectInput | null;
@@ -405,6 +410,7 @@ export function computeSeasonPl({
   /** project_members.is_active=true のメンバー集合。未指定なら全員 active 扱い */
   activeMemberIds?: Set<string>;
   projectMembers?: ProjectParticipationRow[];
+  fixedMonthlyPolicy?: FixedMonthlyRewardPolicy | null;
 }): SeasonPl {
   const billingsByYm = new Map<string, BillingInput>(billings.map((row) => [row.ym, row]));
   const cycleMonths = cycleMonthsRange(planCycle);
@@ -484,6 +490,7 @@ export function computeSeasonPl({
     payoutExcludedMemberIds,
     memberMap,
     billingsByYm,
+    fixedMonthlyPolicy,
   });
 
   // buildRewardSummary(ym) の member.earnedPt / totalPay / companyReserveYen は「その単月分」。

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
+import { loadFixedMonthlyRewardPolicy } from "@/lib/reward-summary";
 import {
   computeSeasonPl,
   toListRow,
@@ -123,6 +124,7 @@ export async function computeForPlanCycle(db: SupabaseClient, planCycle: PlanCyc
     members,
     activeMemberIds,
     projectMembers: projectMembersRes.data ?? [],
+    fixedMonthlyPolicy: await loadFixedMonthlyRewardPolicy(db, projectId, planCycle.period_end_ym),
   });
 }
 

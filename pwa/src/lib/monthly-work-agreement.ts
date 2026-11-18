@@ -1101,6 +1101,19 @@ export async function buildMonthlyWorkAgreementBundle(
   if (allocationMembersRes.error) throw allocationMembersRes.error;
   if (allocationPayoutRes.error) throw allocationPayoutRes.error;
 
+  const fixedRewardsRes = projectIds.length
+    ? await supabase.from("project_fixed_monthly_rewards")
+        .select("project_id, effective_from_ym, member_amounts_json")
+        .in("project_id", projectIds)
+        .lte("effective_from_ym", ym)
+        .order("effective_from_ym", { ascending: true })
+    : { data: [], error: null };
+  if (fixedRewardsRes.error) throw fixedRewardsRes.error;
+  const fixedRewardsByProject = new Map<string, Record<string, number>>();
+  for (const row of (fixedRewardsRes.data ?? []) as Array<{ project_id: string; member_amounts_json: Record<string, number> }>) {
+    fixedRewardsByProject.set(row.project_id, row.member_amounts_json);
+  }
+
   const allocationMemberById = new Map(
     ((allocationMembersRes.data ?? []) as Array<JsonRecord>).map((row) => [row.member_id as string, row]),
   );
@@ -1117,6 +1130,9 @@ export async function buildMonthlyWorkAgreementBundle(
     .filter((membership) => projectMap.has(membership.project_id as string))
     .map((membership): MonthlyWorkAgreementProject | null => {
       const projectId = membership.project_id as string;
+      const fixedMonthlyAmount = fixedRewardsByProject.get(projectId)?.[params.memberId];
+      const hasFixedMonthlyReward = fixedRewardsByProject.has(projectId);
+      if (hasFixedMonthlyReward && !(fixedMonthlyAmount && fixedMonthlyAmount > 0)) return null;
       const project = projectMap.get(projectId)!;
       const cycle = cyclesByProject.get(projectId);
       const rewardMember = rewardSummaryMember(cycle, params.memberId);
@@ -1214,7 +1230,7 @@ export async function buildMonthlyWorkAgreementBundle(
         if (plannedShare <= 0 && normalizedShare <= 0) continue;
         const monthly = monthlyConsumedByMs.get(milestoneId) ?? { progressPct: null, monthlyProgressPct: null, consumedPt: 0 };
         const earnedPt = Math.round(monthly.consumedPt * normalizedShare * 100) / 100;
-        const expectedRewardYen =
+        const expectedRewardYen = hasFixedMonthlyReward ? null :
           agreementBudgetYen == null || projectEarnedPt <= 0
             ? null
             : Math.round((agreementBudgetYen * earnedPt) / projectEarnedPt);
@@ -1233,7 +1249,7 @@ export async function buildMonthlyWorkAgreementBundle(
           expectedRewardYen,
           earnedPt,
           conditions: [],
-          state: monthly.progressPct == null || agreementBudgetYen == null ? "review_required" : "ready",
+          state: hasFixedMonthlyReward || (monthly.progressPct != null && agreementBudgetYen != null) ? "ready" : "review_required",
         });
       }
 
@@ -1260,7 +1276,9 @@ export async function buildMonthlyWorkAgreementBundle(
 
       const sortedMilestones = roleMilestones.sort((a, b) => a.milestoneId.localeCompare(b.milestoneId));
       // 当月のMS消化から発生する額。合意額そのものではなく、内訳として見せる数字。
-      const currentMonthAccrualYen = sortedMilestones.some((ms) => ms.expectedRewardYen == null)
+      const currentMonthAccrualYen = hasFixedMonthlyReward
+        ? (fixedMonthlyAmount ?? 0)
+        : sortedMilestones.some((ms) => ms.expectedRewardYen == null)
         ? null
         : sortedMilestones.reduce((sum, ms) => sum + (ms.expectedRewardYen ?? 0), 0);
       // 合意する額 = この稼働月として実際に払う額。過去の未払いの返済分を含み、月次の支払枠を通した後の値。

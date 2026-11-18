@@ -6006,5 +6006,13 @@
   ],
   "disclosure_erasure": [
     "content_erasure"
+  ],
+  "project_fixed_monthly_rewards": [
+    "project_id",
+    "effective_from_ym",
+    "member_amounts_json",
+    "reason",
+    "confirmed_by",
+    "created_at"
   ]
 }
