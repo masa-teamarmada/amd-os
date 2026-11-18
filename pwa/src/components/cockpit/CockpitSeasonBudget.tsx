@@ -124,7 +124,9 @@ function SeasonCard({ season }: { season: SeasonBudgetSeason }) {
   // メンバー別が見えない (非admin) ときは内訳を出さず、消化合計だけ見せる
   const consumedYen = season.paidSumYen;
   const stockYen = season.finalStockSumYen;
-  const remainingYen = Math.max(0, season.memberBudgetYen - consumedYen - stockYen);
+  // 別財布から出た配賦も消化に含むので、分母にも別財布の原資を含める。
+  const totalMemberPoolYen = season.memberBudgetYen + season.extraPoolBudgetYen;
+  const remainingYen = Math.max(0, totalMemberPoolYen - consumedYen - stockYen);
   // 棒に塗るのは消化した分だけ。未消化は棒の地色のまま残す。
   const consumedParts: BarPart[] = season.membersVisible
     ? [
@@ -168,21 +170,24 @@ function SeasonCard({ season }: { season: SeasonBudgetSeason }) {
 
       <div className="mt-3">
         <p className="text-[12px] font-semibold text-[#1d1d1f]">
-          メンバー原資 {fmtYen(season.memberBudgetYen)} の消化
+          メンバー原資 {fmtYen(totalMemberPoolYen)} の消化
         </p>
+        {season.extraPoolBudgetYen > 0 && <p className="mt-0.5 text-[11px] text-[#8e8e93]">
+          通常原資 {fmtYen(season.memberBudgetYen)} ＋ 別契約の原資 {fmtYen(season.extraPoolBudgetYen)}（上の請求額には別契約分を含まない）
+        </p>}
         <p className="mt-0.5 text-[11px] text-[#8e8e93]">
           {fixedMonthly
             ? `${ymLabel(season.fixedMonthlyFromYm!)}以降の稼働報酬は固定月額。MSのptは報酬計算に使わない。切替前の月も累計に含む。`
             : "MSの消化ptに応じて各メンバーの取り分が決まる。月々の支払枠に収まらない分は未払い残として翌月へ回る。"}
         </p>
-        <ConsumptionBar consumed={consumedParts} remainingYen={remainingYen} total={season.memberBudgetYen} />
+        <ConsumptionBar consumed={consumedParts} remainingYen={remainingYen} total={totalMemberPoolYen} />
       </div>
 
       <div className="mt-4 flex flex-wrap gap-y-3 border-t border-[#e5e5e7] pt-3">
         <Metric label="入金確認済み" value={fmtYen(season.invoiceConfirmedYen)} note={`請求の ${fmtPct(season.invoiceConfirmedYen, season.invoiceTotalYen)}`} />
         {!fixedMonthly && <Metric label="pt単価 (本契約)" value={fmtYen(season.regularPtUnitYen)} note={checks.ptUnitConsistent ? "契約と整合" : `想定 ${fmtYen(checks.ptUnitExpected)}`} />}
         {!fixedMonthly && <Metric label="消化pt" value={`${Math.round(season.earnedPtSum * 100) / 100} / ${season.totalPoints}pt`} note={`MS設定 ${season.msPointsSum}pt`} />}
-        {!fixedMonthly && season.extraPoolBudgetYen > 0 && (
+        {season.extraPoolBudgetYen > 0 && (
           <Metric label="別財布の原資" value={fmtYen(season.extraPoolBudgetYen)} note={`別契約分・${season.extraPointsSum}pt`} />
         )}
         <Metric label="シーズン末の未払い残" value={fmtYen(season.finalStockSumYen)} note={season.finalStockSumYen > 0 ? "0で閉じるのが正" : "0で閉じる見込み"} />
