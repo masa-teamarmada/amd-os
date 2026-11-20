@@ -81,3 +81,29 @@ Rejuvidaの記録反映中、えいみがquestion-tree APIで分かったこと�
 - 共有checkoutに自分の未コミット変更が残っていたため `deploy.sh` が止まり、使い捨てのclean cloneから反映した。反映後、共有checkoutの `question-tree.module.css` に、見出し修正を打ち消す向きの差分が残った（別セッションが11-15の記録で「別セッションの作業」として触れずにいたもの）。実際は今回のセッションの片付け残りで、まさの許可を得て元に戻した。教訓は `BUGS.md`。
 - 未解決: 到達点・論点・MSの期限（`due_date`）と担当メモを画面から付ける場所が無くなった（値はDBに残る）。引き継ぎは `HANDOFF_GOAL_TREE_2026-09-13.md`。
 
+
+
+## 2026-11-20 SOL契約条件の終了記録
+
+開発の終了記録。2026-10-08に実装・公開した契約論点表示babde9f8fの保存先と反映状態を確認した。恒久仕様はspec5-6・cockpit・FEATURE_REGISTRY・ios/DESIGN、使い方はmanual6-7、附則はmanual9-3・spec6-1に存在する。今回新しい製品仕様、DB、環境変数、権限、外部送信は追加していない。
+
+当時の変更19ファイルの棚卸し:
+
+| 分類 | 対象 | 記録先 |
+|---|---|---|
+| 新規表示部品 | src/components/cockpit/ContractOperationalChecks.tsx | spec5-6、cockpit、ios/DESIGN |
+| 新規パーサー | src/lib/contract-operational-checks.ts | spec5-6 |
+| 表示・型 | CockpitProjectOverview.tsx、project-contract-terms.ts | spec5-6、manual6-7 |
+| 新規検査・検査登録 | scripts/check_contract_operational_checks.mts、scripts/check_pwa_critical_ui.cjs、package.json | spec5-6、FEATURE_REGISTRY |
+| 新規限定データ更新 | scripts/migrations/492_sol_contract_operational_checks_20261008.sql、493_sol_contract_reference_rule_check_20261008.sql | spec5-6、今回の専用引き継ぎ |
+| 版表示 | src/lib/build-info.ts（当時v3.161.26） | 今回の専用引き継ぎ |
+| 利用説明・附則 | manual/6-7、manual/9-3、spec/5-6、spec/6-1 | 各既存正本 |
+| 画面正本・導線・引き継ぎ | design/cockpit.md、design/FEATURE_REGISTRY.md、pwa/HANDOFF_pwa_rebuild.md、ios/DESIGN.md、ios/HANDOFF_ios_to_pwa.md | 各既存正本 |
+
+migration492・493は10月に適用・読戻し済み。論点以外の既存条件不変とPJ側の写しを当時確認した。今回再適用していない。大学との別NDA・添付仕様書・準用細則の適用版・承認権限者等は10月時点の未確認として維持。元情報を原本で確かめる必要があり、見積書を請負契約と取り違えない。本文抽出できないスキャンPDFは原本の各ページを目視した記録を根拠にした。新たな法律判断や契約合意は発生していない。
+
+11月20日の検証: 元実装が現行mainの祖先、本番/api/build-infoがv3.165.28 / 3f182e8864ec624a1e81466ea83f9ea0cee3945d / main / dirty=falseを返し、記録前のmain・origin/mainと一致。test:contract-operational-checks成功。原本URL、未知状態、実部品描画、開閉、契約間の分離を再検証。全体ビルド・ブラウザ・DB・Nativeは今回は再実行していない。画面を変えない引き継ぎ記録だけのため再公開は不要。
+
+今回の専用文書はルートHANDOFF_SOL_CONTRACT_TERMS.md、SESSION_MIGRATION_PROMPT_SOL_CONTRACT_TERMS.md。共通SESSION_MIGRATION_PROMPT.mdには他件を保持して同文追記し、専用引き継ぎへの入口を保存した。既存pwa/HANDOFF_pwa_rebuild.mdの10月8日の仕様同期記録は維持。新仕様なしのためマニュアル追記は対象外、既存の同期表を専用引き継ぎに再掲。10月の一時的な確認用サーバーは当時停止済み。今回プロセスを起動していない。
+
+作業前のmain/origin/mainは3f182e886、未送信・取り込み待ち0、競合0、ローカル枝mainのみ、作業ツリー本体1つ。既存未追跡S01_富士山_日本語.mdは本件に属さない記事原稿。所有者未特定の別作業として保持・保存対象外。保全担当と次の処理条件は専用引き継ぎに記載。会話の検討材料: 0件。
