@@ -1,3 +1,9 @@
+## 2026-11-21 クローズの再開文
+
+次の共有作業は `SESSION_MIGRATION_PROMPT_CLOSEOUT_20261121.md` を先に読む。作業場所は `/Users/masa/projects/AMD/amd-os`。`main` と `origin/main` は `791a9b0e9` で一致している。未追跡 `S01_富士山_日本語.md` は別セッションの原稿で、担当と正本が未確定のため本文を変更・削除・一括保存しない。
+
+---
+
 AMD OS全体最適化を、2026-11-10の現行状態から再開する。作業場所は `/Users/masa/projects/AMD/amd-os`。`pwa/` をセッションの作業場所にしない。
 
 読む順:
