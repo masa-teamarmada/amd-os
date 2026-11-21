@@ -1,3 +1,9 @@
+## 会社資金繰りの再開文（2026-11-21）
+
+次の共有作業が会社資金繰りなら、先に `SESSION_MIGRATION_PROMPT_COMPANY_CASHFLOW_20261121.md` を読む。詳細正本は `docs/strategy/2026-10-24-company-cashflow-review.md`、状態の要約は `HANDOFF_COMPANY_CASHFLOW_20261121.md`。これは読み取り確認のみで、カード・報酬・会計・外部連絡を変更していない。未追跡の `S01_富士山_日本語.md` は別作業の原稿なので触れない。
+
+---
+
 ## 2026-11-21 クローズの再開文
 
 次の共有作業は `SESSION_MIGRATION_PROMPT_CLOSEOUT_20261121.md` を先に読む。作業場所は `/Users/masa/projects/AMD/amd-os`。`main` と `origin/main` は同期している。未追跡 `S01_富士山_日本語.md` は別セッションの原稿で、担当と正本が未確定のため本文を変更・削除・一括保存しない。
