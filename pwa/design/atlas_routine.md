@@ -169,7 +169,8 @@ automation は原則:
 
 ### 受け口が封鎖中のときの再送抑制 (2026-09-04)
 
-- 背景: 2026-07-01 に PWA の background Anthropic 呼び出しが封鎖され、`/api/atlas/signals-ingest` は `{ ok: true, disabled: true }` を返すようになった。applier は「封鎖解除まで outbox に残す」設計だったため、LaunchAgent (5 分間隔) が溜まった outbox 全件 (最大 62 件、各 ~10KB) を毎回再送し続け、約 17,000 req/日で Vercel Hobby の Fast Origin Transfer (10GB/30 日) と Function Invocations を食い潰した。最後に取り込みが成功したのは 2026-07-08。
+- 背景: 2026-07-01 に PWA の background Anthropic 呼び出しが封鎖され、`/api/atlas/signals-ingest` は `{ ok: true, disabled: true }` を返すようになった。applier は「封鎖解除まで outbox に残す」設計だったため、LaunchAgent (5 分間隔) が溜まった outbox 全件 (最大 62 件、各 ~10KB) を毎回再送し続け、約 17,000 req/日で Vercel Hobby の Fast Origin Transfer (10GB/30 日) と Function Invocations を食い潰した。
+- 2026-07-08 は「受け口が 200 を返した最後の日」であり、`atlas_signals` に保存された最後ではない。DB 実測 (2026-09-04 調査) では最終 `submitted_at` が `2026-06-30T23:21Z` (= 2026-07-01 08:21 JST) で、封鎖後の `{ ok: true, disabled: true }` を sender が成功と解釈したため、7/2〜7/8 の 10 file (raw signal 110 件) は `amd-atlas/applied/` に移動済みのまま DB 未保存になっている。復旧対象は `paused-20260904/` の 62 file だけでなく、この applied 側 10 file も含む (合計 72 file / 804 件、空白は 7/2〜9/3 の 64 日)。
 - `apply-outbox-dir` は 1 run の中で `disabled` または retryable (一時ネットワーク断 / 5xx) を 1 件受けたら、残りのファイルは送らずに終了する (`skipped` に件数を出す)。
 - `disabled` を受けた run は `/Users/masa/.codex/automations/amd-atlas/ingest-cooldown.json` に 6 時間の cooldown を書く。cooldown 中の run は通信せず `errorKind: "ingest_cooldown"` で exit `75` を返す。成功した run は cooldown を消す。
 - 事故時に溜まっていた 62 件は `amd-atlas/paused-20260904/` (55 件) と `amd-atlas-2/paused-20260904/` (7 件) に退避してある。取り込みを再開する判断が出たら、この 2 フォルダから `outbox/` へ戻せば順に投入される。
@@ -181,6 +182,7 @@ automation は原則:
 - enrichment は raw 保存後の別系統の明示的な処理だけが行う。enrichment が失敗しても raw row は消さず、outbox sender を再送させない。
 - sender は `408/425/429/5xx` とネットワーク失敗を retryable とし、1 run で最初の1 fileだけを送って停止する。retryable/disabled は指数バックオフの cooldown 中、HTTP request を一切出さない。`400/401/403` は `failed/` に隔離し、再送しない。
 - 62 file（raw signal 694件）は現在も `paused-20260904/` に隔離したまま。復旧は quality・重複・年齢を事前確認した上で、明示承認を得た限定再投入に限る。
+- raw ingest は `status=inbox` で保存するだけなので、再投入しても `/atlas` の story / theme は増えない。さらに AMD Score の Triple Helix 観測量 P / R は `atlas_signals.status='accepted'` だけを数えるため、人の inbox 仕分け (2026-05 以降停止、未処理 725 件) を再開しない限り再投入だけでは観測量は回復しない。継続判断の材料は [HANDOFF_ATLAS_CONTINUATION_20261121.md](../../HANDOFF_ATLAS_CONTINUATION_20261121.md)。
 
 ## Claude Routine 登録手順 (旧案)
 

@@ -417,3 +417,11 @@ GAS は main へ push しても反映されず、`clasp push` と `clasp deploy 
 - 原因: 検査cloneの依存がfilesystem root外だった。代替bundlerは本番と生成する型検査契約も異なるため、依存配置の問題を解決しないまま切替えると別の失敗を混ぜる。メモリ不足とアプリの型不整合は別に扱う。
 - 対応: 自分のsymlinkだけ移し、clone内部へ同じ版の依存をコピー。NODE_OPTIONS=--max-old-space-size=8192で通常npm run buildを成功させ、postbuild容量ゲート・正規deploy.sh・本番SHA・Chrome/DBの60秒更新を確認。共有checkoutの依存・本番設定・別機能を変更しなかった。
 - 再発防止: 独立cloneは依存もroot内部に揃え、本番と同じ方式で検査する。bundler代替の失敗を根拠に無関係な既存exportを修正しない。対象参照: pwa/BUGS.mdの2026-10-06 symlink事故、pwa/design_log/sessions_2026-10.mdの閲覧更新記録。
+
+
+## 2026-07-01 受け口が「成功」を返すだけで保存せず、送信側が済み扱いで片付けた（2026-09-04 調査で判明）
+
+- 症状: Atlas の外部シグナルが 2026-07-01 朝から `atlas_signals` に入っていないのに、送信側の記録では 2026-07-08 まで成功していた。設計正本にも「最後に取り込みが成功したのは 2026-07-08」と書かれ、復旧対象を 7/9 以降の 62 file と見積もっていた。
+- 原因: 2026-07-01 の background Anthropic 封鎖で `/api/atlas/signals-ingest` が `{ ok: true, disabled: true }` を返すようになった。HTTP 200 かつ `ok: true` なので、sender は保存されたと解釈して outbox を `applied/` へ移した。7/2〜7/8 の 10 file（raw signal 110 件）はこの経路で DB 未保存のまま「済み」になった。
+- 対応: DB の最終 `submitted_at` を実測して保存の最後が 2026-07-01 08:21 JST であることを確定し、`applied/` の 7 月分 11 file を数え直して未保存 10 file / 110 件を特定。復旧対象を 62 file / 694 件 → 72 file / 804 件（空白 7/2〜9/3 の 64 日）へ訂正し、`pwa/design/atlas_routine.md` に追記した。元ファイルは全部残っていたので復旧可能。
+- 再発防止: 受け口が機能停止を返すときに 200 と `ok: true` を使わない。無効化・スキップは送信側が成功と区別できる応答にする（現行の受け口は raw insert 成功後だけ正常 ACK を返す形に作り直し済み = commit 2669e85a）。保存件数の主張は送信側のログではなく保存先テーブルの最終更新で裏取りする。「成功した最後の日」と「保存された最後の日」を同じ言葉で書かない。
