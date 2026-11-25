@@ -6,6 +6,7 @@ export CODEX_HOME="/Users/masa/.codex"
 export H1_BACKGROUND_RUNNER=1
 
 REPO_DIR="${AMD_OS_AUTOMATION_REPO_DIR:-/Users/masa/projects/AMD/amd-os}"
+source "${REPO_DIR}/scripts/h1-codex-runtime.sh"
 AUTOMATION_DIR="${CODEX_HOME}/automations/amd-os-l6-meeting-flow"
 PROMPT_FILE="${REPO_DIR}/scripts/h1-background-runner-prompt.md"
 LOG_DIR="${AUTOMATION_DIR}/logs"
@@ -81,7 +82,7 @@ fi
 
 {
   print -- "[$(date '+%F %T %Z')] h1 background runner start mode=${MODE:-scheduled}"
-  if H1_BACKGROUND_RUN_ID="${timestamp}" node "${REPO_DIR}/pwa/scripts/run_bounded_command.mjs" --timeout-seconds 900 -- codex exec --ephemeral -m gpt-5.5 -C "${WORK_DIR}" --skip-git-repo-check -s danger-full-access -o "${last_message_file}" "${prompt}" >"${transcript_file}" 2>&1; then
+  if H1_BACKGROUND_RUN_ID="${timestamp}" node "${REPO_DIR}/pwa/scripts/run_bounded_command.mjs" --timeout-seconds 900 -- "${H1_CODEX_BIN}" exec --ephemeral -m "${H1_CODEX_MODEL}" -C "${WORK_DIR}" --skip-git-repo-check -s danger-full-access -o "${last_message_file}" "${prompt}" >"${transcript_file}" 2>&1; then
     [[ "${MODE}" == "--probe" ]] || node "${REPO_DIR}/pwa/scripts/h1_runner_safety.mjs" success "${SAFETY_STATE_FILE}"
     print -- "[$(date '+%F %T %Z')] h1 background runner done"
   else
