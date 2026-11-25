@@ -8,6 +8,21 @@
 
 # BUGS.md — AMD OS PWA
 
+### [会議カード] 自動作成が2026-10-15から全PJで止まっていた（2026-11-25記録）
+
+- **症状**: 10/15以降、どのPJでも開催済み会議のカード（`project_meeting_summaries`）と予定カード（`upcoming:`）がほとんど作られなかった。LiSTieの取締役会の議事録を入れる作業で、p07のカードが10/14で途切れていたことから発覚。
+- **原因**: launchdの `jp.teamarmada.amd-os-h1-background`（`scripts/run-h1-background.sh`）と見直し側（`run-h1-reviewer-background.sh`）が `codex exec -m gpt-5.5` を固定していた。ChatGPTアカウントのCodexで gpt-5.5 が使えなくなり（`model_not_in_accessible_catalog`）、毎回約20秒で exit=1（62回連続）。PATH上のnpm版codex 0.139は新しいモデルも受け付けず、失敗の診断ファイルも空だった（エラーがERROR/WARNの行の形式でなかった）。
+- **対応内容**: `scripts/h1-codex-runtime.sh` を足し、ChatGPTアプリ同梱のcodex（0.171）と gpt-6.1-sol を既定にした（`H1_CODEX_BIN` / `H1_CODEX_MODEL` で上書き可）。`--probe` で疎通を確かめ、`--force` で本番runを流した。見直し側の実行コピー（`~/.codex/automations/amd-os-runtime/scripts/`）も同じ内容にした。p07の抜け7件は Notion の記録から backfill API で作成した。
+- **残り**: p07以外のPJの10/15〜11/24の抜けは未作成。予定カードが作られていないため、議事録欠損台帳（45日の検出窓）も拾えない。
+- **再発防止策**: runnerが連続で失敗したら、モデルや実行ファイルを疑ってまず `--probe` を流す。Codex のモデル名をスクリプトに直書きせず、`h1-codex-runtime.sh` の1か所で決める。
+
+### [PJコックピット] 「動向・会議」の経営ハイライトが全PJで0件になった（2026-11-03〜11-25）
+
+- **症状**: 経営ハイライトに「まだシグナルなし」「0件」と出た。p07はDBに200件近くあった。
+- **原因**: 2026-11-03 `3f91719d6`（共有ページ化）で、`project-page-server.ts` の `needsCockpit`（cockpitを読む画面の一覧）に `meetings` が入らず、空のcockpitが渡っていた。
+- **対応内容**: 一覧に `meetings` を戻し（`1f61565dd`、v3.165.28で本番反映）、`check_pwa_critical_ui.cjs` に、外れたら落ちる検査を足した。本番でp07の198件の表示を確認。
+- **再発防止策**: 画面ごとの読み込み対象を一覧で絞るときは、その画面が描くコンポーネントの全propsの出どころを確かめる。
+
 ### [画面の共通部] 全体メニューを「≡」へたたんだとき、版の表示がメニューの中へ隠れた (2026-10-06、2026-11-14記録)
 
 - **症状**: まさが「バージョンがUIで出てこない」と指摘した。反映が済んだかを版の表示で確かめる運用（spec 5-2）が、ダッシュボード・PJコックピット・機関コックピットとワークスペースで使えなかった。
