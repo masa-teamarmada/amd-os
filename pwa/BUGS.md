@@ -13,7 +13,7 @@
 - **症状**: 10/15以降、どのPJでも開催済み会議のカード（`project_meeting_summaries`）と予定カード（`upcoming:`）がほとんど作られなかった。LiSTieの取締役会の議事録を入れる作業で、p07のカードが10/14で途切れていたことから発覚。
 - **原因**: launchdの `jp.teamarmada.amd-os-h1-background`（`scripts/run-h1-background.sh`）と見直し側（`run-h1-reviewer-background.sh`）が `codex exec -m gpt-5.5` を固定していた。ChatGPTアカウントのCodexで gpt-5.5 が使えなくなり（`model_not_in_accessible_catalog`）、毎回約20秒で exit=1（62回連続）。PATH上のnpm版codex 0.139は新しいモデルも受け付けず、失敗の診断ファイルも空だった（エラーがERROR/WARNの行の形式でなかった）。
 - **対応内容**: `scripts/h1-codex-runtime.sh` を足し、ChatGPTアプリ同梱のcodex（0.171）と gpt-6.1-sol を既定にした（`H1_CODEX_BIN` / `H1_CODEX_MODEL` で上書き可）。`--probe` で疎通を確かめ、`--force` で本番runを流した。見直し側の実行コピー（`~/.codex/automations/amd-os-runtime/scripts/`）も同じ内容にした。p07の抜け7件は Notion の記録から backfill API で作成した。
-- **残り**: p07以外のPJの10/15〜11/24の抜けは未作成。予定カードが作られていないため、議事録欠損台帳（45日の検出窓）も拾えない。
+- **抜けの穴埋め（2026-11-25）**: 予定カードが作られていないため、議事録欠損台帳（45日の検出窓）は拾えない。Calendarの10/15〜11/24の予定202件を、calendar-sync の `matchProject` と同じ規則でPJへ振り分け、確定版の無い開催済み会議40件のうち、Notionに同じ日の記録がある20件（p21 8、p19 5、p25 4、p26・p28・p33 各1）を backfill API で作成した。残り20件は移動・イベント・懇親の予定か、Notionに記録が無い会議（ZeMA定例 10/28・11/11、CX Internal MTG 11/2、BNV定例 10/20 など）。
 - **再発防止策**: runnerが連続で失敗したら、モデルや実行ファイルを疑ってまず `--probe` を流す。Codex のモデル名をスクリプトに直書きせず、`h1-codex-runtime.sh` の1か所で決める。
 
 ### [PJコックピット] 「動向・会議」の経営ハイライトが全PJで0件になった（2026-11-03〜11-25）
