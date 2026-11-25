@@ -47,7 +47,8 @@ export async function readProjectPage(projectId:string,pageId:ProjectPageId,acto
  const current=source??await projectPageSource(projectId,actor),definition=projectPageDefinition(pageId);if(!definition)throw new Error('ページ未登録');
  const loadOperations=includeOperations||!definition.chapters.length;
  const control=loadOperations&&['weekly','gantt','partners','issues'].includes(definition.operation??'');
- const needsCockpit=loadOperations&&['progress','overview','project-contracts','project-finance','monthly-reports','score-detail','tasks'].includes(definition.operation??'');
+ // meetings: 「動向・会議」の経営ハイライトが cockpit.strategySignals を読む。外すと全PJで0件表示になる（2026-11-03〜11-25 に発生）
+ const needsCockpit=loadOperations&&['progress','overview','project-contracts','project-finance','monthly-reports','score-detail','tasks','meetings'].includes(definition.operation??'');
  const [report,cockpit,workspace,strategicResources]=await Promise.all([
   readProjectReportPage(projectId,pageId,actor,current,loadOperations&&pageId!=='partners'),
   actor.external||!needsCockpit?Promise.resolve(emptyCockpit(current)):fetchCockpitFromSupabase(projectId,createAdminClient()),

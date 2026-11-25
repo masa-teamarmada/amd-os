@@ -4679,3 +4679,7 @@ expectIncludes("src/app/api/admin/monthly-reports/download/route.ts", ["requireA
 expectNotIncludes("src/components/admin/AdminMonthlyReportsClient.tsx", ["admin-monthly-report-project", "admin-monthly-report-kind"]);
 expectIncludes("src/app/(app)/project/[projectId]/report/[ym]/print/page.tsx", ["adminPreview === \"1\"", "overviewPreview={embedded === \"1\""]);
 expectIncludes("src/app/(app)/project/[projectId]/report/[ym]/print/print-client.tsx", ["!overviewPreview && <div className=\"toolbar no-print\">", "!overviewPreview && <MonthlyReportHistoryPanel"]);
+
+// 「動向・会議」の経営ハイライトは cockpit.strategySignals を読む。meetings を読み込み対象から外すと全PJで0件表示になる（2026-11-03〜11-25 に発生）。
+expectPattern("src/lib/project-page-server.ts", [/const needsCockpit=[^\n]*'meetings'/]);
+expectIncludes("src/components/project-pages/ProjectOperationsPage.tsx", ['activeTab === "meetings"', "<CockpitStrategySignals signals={strategySignals || []}"]);
