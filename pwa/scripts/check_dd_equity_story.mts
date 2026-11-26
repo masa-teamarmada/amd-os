@@ -62,3 +62,22 @@ const directoryHtml=renderToStaticMarkup(createElement(DdReportContent,{chapter:
 assert(directoryHtml.includes('chapter=business-plan')&&directoryHtml.includes('chapter=equity-story')&&directoryHtml.includes('大学発の事業計画の検討初稿'));
 assert(!directoryHtml.includes('SolvioraX')&&!directoryHtml.includes('計算条件</h3>'));
 console.log('PASS: direct document chapters and menu for a draft edition');
+
+const inputs:readonly [number,number,number,number,number]=[10,11,12,13,14];
+const comparisonRows=inputs.map((row,i)=>({row,cells:[
+ {...cell('B'+row,'項目'),column:2,span:1},
+ ...['C','D','E'].map((col,j)=>({...cell(col+row,(i===0?['プレシード','シリーズA','拡張ラウンド'][j]:'作物別の有償検証\n受注と保守の実績')),column:j+3,span:1})),
+]}));
+const comparable={...authored,body:{...authored.body,rows:comparisonRows,equityComparison:{rows:inputs,valuationNote:'数値は普通株式の調達案。'},equityValuations:[
+ {name:'プレシード',pre:6,funding:1.5,post:7.5,previousPost:null,progress:null,cap:null},
+ {name:'シリーズA',pre:9.2,funding:2.3,post:11.5,previousPost:7.5,progress:1.7,cap:null},
+ {name:'拡張ラウンド',pre:13.5,funding:1.5,post:15,previousPost:11.5,progress:2,cap:null},
+]}} satisfies DdReportChapter;
+for(const allRows of [false,true]){
+ const html=renderToStaticMarkup(createElement(DdReportContent,{chapter:comparable,slug:'example',index:[],allRows}));
+ assert.equal((html.match(/class="ddr-valuation-chart"/g)||[]).length,3);
+ assert.equal((html.match(/data-phase="/g)||[]).length,12);
+ assert(html.includes('前回ポスト 7.5億円')&&html.includes('進捗で評価増 1.7億円')&&html.includes('今回ポスト 11.5億円'));
+ assert(html.includes('作物別の有償検証')&&html.includes('受注と保守の実績')&&!html.includes('J-KISS'));
+}
+console.log('PASS: authored rounds use the shared matrix and valuation charts, in print and on screen');

@@ -137,23 +137,25 @@ function ReportTable({rows,slug,index,allRows,glossary,pageScroll=false,chapterS
 }
 function EquityDiagram({chapter,slug,index,glossary,allRows,inputControls,navigation}:ContentProps) {
   const cells=new Map(chapter.body.rows.flatMap(r=>r.cells).map(c=>[c.address,c]));
-  const gap=cells.get('B9');
-  const phases=[['B',13,15,19,22,26],['G',13,15,19,22,26],['L',13,15,19,22,26],['L',32,34,38,41,45],['G',32,34,38,41,45],['B',32,34,38,41,45]] as const;
+  const comparison=chapter.body.equityComparison;
+  const gap=comparison?undefined:cells.get('B9');
+  const legacyPhases=[['B',13,15,19,22,26],['G',13,15,19,22,26],['L',13,15,19,22,26],['L',32,34,38,41,45],['G',32,34,38,41,45],['B',32,34,38,41,45]] as const;
+  const phases=comparison?(chapter.body.rows.find(row=>row.row===comparison.rows[0])?.cells.slice(1)??[]).map(cell=>[cell.address.replace(/\d+$/,''),...comparison.rows] as const):legacyPhases;
   const value=(cell:DdReportCell)=><CellValue navigation={navigation} cell={cell} slug={slug} index={index} glossary={glossary} allRows={allRows} emphasize chapterSlug={chapter.slug} inputControls={inputControls}/>;
   const fields=[{index:1,label:'投資家へ示す成果'},{index:2,label:'調達条件・金額'},{index:3,label:'この資金で実現する成果'},{index:4,label:'次の評価額を支える理由'}];
   return <>
     {gap&&<section className="ddr-phase ddr-phase-gap"><h3>GAPファンド</h3><div>{value(gap)}</div></section>}
-    <p className="ddr-equity-chart-note">Aは参考キャップ＋進捗による評価増＋シード転換元本＝今回プレ、新規調達を加えて今回ポスト。B以降は前回ポスト＋評価増＋新規調達＝今回ポスト。金額は計画値（億円）。縦軸は各ラウンドの金額に合わせる。</p>
-    <div className="ddr-equity-scroll" tabIndex={0} aria-label="シードからIPOまでのラウンド比較"><table className="ddr-equity-matrix">
+    <p className="ddr-equity-chart-note">{comparison?.valuationNote??'Aは参考キャップ＋進捗による評価増＋シード転換元本＝今回プレ、新規調達を加えて今回ポスト。B以降は前回ポスト＋評価増＋新規調達＝今回ポスト。金額は計画値（億円）。縦軸は各ラウンドの金額に合わせる。'}</p>
+    <div className="ddr-equity-scroll" tabIndex={0} aria-label={comparison?"ラウンド比較":"シードからIPOまでのラウンド比較"}><table className="ddr-equity-matrix" style={comparison?{minWidth:154+phases.length*242}:undefined}>
       <colgroup><col className="ddr-equity-label-column"/>{phases.map((_,i)=><col key={i}/>)}</colgroup>
       <thead><tr><th scope="col">比較項目</th>{phases.map(([col,row])=>{const cell=cells.get(col+row);return <th scope="col" key={col+row}>{cell&&value(cell)}</th>;})}</tr></thead>
-      <tbody>{fields.map(field=><tr key={field.index}><th scope="row">{field.label}</th>{phases.map(([col,...rs],i)=>{const cell=cells.get(col+rs[field.index]);if(!cell)return <td key={i}>—</td>;const lines=String(cell.value).split('\n');const display=field.index!==2&&lines.length>1?{...cell,value:lines.slice(1).join('\n')}:cell;return <td key={i} data-phase={i}>
+      <tbody>{fields.map(field=><tr key={field.index}><th scope="row">{field.label}</th>{phases.map(([col,...rs],i)=>{const cell=cells.get(col+rs[field.index]);if(!cell)return <td key={i}>—</td>;const lines=String(cell.value).split('\n');const display=!comparison&&field.index!==2&&lines.length>1?{...cell,value:lines.slice(1).join('\n')}:cell;return <td key={i} data-phase={i}>
         {field.index===2&&chapter.body.equityValuations?.[i]&&<DdEquityValuationChart round={chapter.body.equityValuations[i]}/>}
         {value(display)}
-        {i===5&&field.index===4&&<p className="ddr-equity-validation">評価額は計画値。収益倍率・希薄化・投資家収益率は資本政策表で確認できる。</p>}
+        {!comparison&&i===5&&field.index===4&&<p className="ddr-equity-validation">評価額は計画値。収益倍率・希薄化・投資家収益率は資本政策表で確認できる。</p>}
       </td>;})}</tr>)}</tbody>
     </table></div>
-    <div className="ddr-equity-notes">{["B29","K29"].map(a=>{const cell=cells.get(a);return cell?<p key={a}><CellValue navigation={navigation} cell={a==='B29'?{...cell,value:'台数は小型・商用・大型の検収累計。月間処理量は各装置の検収翌月から積み上げる。投資額と到達時の体制・損益は下の比較表で確認できる。'}:cell} slug={slug} index={index} glossary={glossary} allRows={allRows} chapterSlug={chapter.slug} inputControls={inputControls}/></p>:null;})}</div>
+    {!comparison&&<div className="ddr-equity-notes">{["B29","K29"].map(a=>{const cell=cells.get(a);return cell?<p key={a}><CellValue navigation={navigation} cell={a==='B29'?{...cell,value:'台数は小型・商用・大型の検収累計。月間処理量は各装置の検収翌月から積み上げる。投資額と到達時の体制・損益は下の比較表で確認できる。'}:cell} slug={slug} index={index} glossary={glossary} allRows={allRows} chapterSlug={chapter.slug} inputControls={inputControls}/></p>:null;})}</div>}
   </>;
 }
 function EquityResources({chapter,slug,index,glossary,allRows,navigation}:ContentProps){
@@ -244,6 +246,10 @@ export function DdReportContent(props:ContentProps) {
     if(chapter.slug==='capital-plan'&&row.row===181&&body.jkiss){flush();blocks.push(<div key="jkiss-summary" id="cell-B181">{allRows&&<a className="ddr-pdf-anchor" href={ddPdfMarker(slug,chapter.slug,'B181')} aria-hidden="true">.</a>}<DdJkissExplanation summary={body.jkiss}/></div>);continue;}
     // Detailed rows stay in Excel/PDF's existing projection; the web still parses their headings and prose.
     if(allRows&&row.calculationDetail){tableRows.push(row);continue;}
+    if(body.equityComparison?.rows.includes(row.row)){
+      if(row.row===body.equityComparison.rows[0]){flush();blocks.push(<EquityDiagram key="equity-comparison" {...props}/>);}
+      continue;
+    }
     if(legacyEquity&&row.cells.length===1&&row.cells[0].address==='B9')continue;
     if(legacyEquity&&row.row>=12&&row.row<=50){if(row.row===12){flush();blocks.push(<EquityDiagram key="equity-diagram" {...props}/>);}continue;}
     if(legacyEquity&&row.row>=67&&row.row<=231){if(row.row===67){flush();blocks.push(<EquityResources key="equity-resources" {...props}/>);}continue;}
