@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { buildPayoutSeasonPlan, choosePayoutSeason, type SeasonBilling, type SeasonProject } from "../src/lib/payout-season-plan.ts";
+import { buildPayoutSeasonPlan, choosePayoutSeason, recordedNoticePaymentYm, type SeasonBilling, type SeasonProject } from "../src/lib/payout-season-plan.ts";
 
 const project: SeasonProject = { project_id: "test-a", project_name: "検証PJ", status: "active", fee_type: "monthly_fixed", fee_amount: 1000, start_ym: "202601", end_ym: "202603", payment_due_rule: "next_month_end", payment_due_day: null };
 const plan = { project_id: project.project_id, plan_cycle_id: "test-season", status: "active", period_start_ym: "202601", period_end_ym: "202603" };
@@ -75,3 +75,42 @@ const zeroProject = { ...project, project_id: "zero", project_name: "AAA 支払�
 const ordered = buildPayoutSeasonPlan({ ...base, projects: [zeroProject, project], plans: [{ ...plan, project_id: "zero", plan_cycle_id: "zero-plan" }, plan], cycles: [...cycles, ...cycles.map((cycle) => ({ ...cycle, project_id: "zero", reward_summary_json: { members: [] } }))] });
 assert.equal(ordered.projects[0].projectId, project.project_id, "今回支払のあるPJを0円のPJより先に表示する");
 console.log("支払通知書のシーズン収支: 月の区別・全期間・外部支払・立替・未計算・期末残高の検証に合格");
+
+// Cash dates override the projection, while contractual member timing and source months remain intact.
+const cashCycles = cycles.map((cycle, i) => ({ ...cycle, payment_confirmed_at: i === 0 ? "2026-03-02T00:00:00+00:00" : null }));
+const paidNotice = { member_id: "external", ym: "202602", total_yen: 600, paid_on: "2026-01-30", paid_amount_yen: 660, reimbursement_yen: 0 };
+const cash = buildPayoutSeasonPlan({ ...base, cycles: cashCycles, paymentNotices: [paidNotice] });
+assert.equal(cash.projects[0].cells["202603"].income, 1000, "確認済み入金は予定の6月から実際の3月へ移す");
+assert.equal(cash.projects[0].cells["202606"].income, 2000, "移動した入金を予定月にも重ねない");
+assert.equal(cash.projects[0].memberPayments[0].cells["202601"].regularPay, 500, "翌月予定の報酬を支払済みの1月に表示する");
+assert.equal(cash.projects[0].memberPayments[0].cells["202602"].regularPay, 0, "支払済み報酬を予定月へ残さない");
+assert.deepEqual(cash.projects[0].memberPayments[0].cells["202601"].sourceYms, ["202601"]);
+assert.equal(cash.projects[0].totals.regularPay, row.totals.regularPay, "実績月への移動でシーズン報酬を増減させない");
+assert.equal(cash.projects[0].totals.income, row.totals.income);
+assert.equal(cash.projects[0].totals.debt, row.totals.debt, "月末未払残は稼働月の残高を保つ");
+for (const notice of [
+  { ...paidNotice, paid_on: null },
+  { ...paidNotice, paid_amount_yen: null },
+  { ...paidNotice, paid_amount_yen: 659 },
+  { ...paidNotice, total_yen: 601 },
+]) {
+  const pending = buildPayoutSeasonPlan({ ...base, paymentNotices: [notice] });
+  assert.equal(pending.projects[0].cells["202602"].regularPay, 500, "支払日・金額の照合が不足した通知書は予定を維持する");
+}
+const secondProject = { ...project, project_id: "test-b", project_name: "検証PJ2" };
+const combined = buildPayoutSeasonPlan({ ...base,
+  projects: [project, secondProject], plans: [plan, { ...plan, project_id: "test-b", plan_cycle_id: "season-b" }],
+  cycles: [...cycles, ...cycles.map((cycle) => ({ ...cycle, project_id: "test-b" }))],
+  paymentNotices: [{ ...paidNotice, total_yen: 1200, paid_amount_yen: 1320 }],
+});
+assert.equal(combined.totalCells["202601"].regularPay, 1000, "複数PJを合算した通知書は全PJの税抜総額を照合してまとめて移す");
+assert.equal(combined.totalCells["202602"].regularPay, 0);
+const partialNotice = buildPayoutSeasonPlan({ ...base,
+  projects: [project, secondProject], plans: [plan, { ...plan, project_id: "test-b", plan_cycle_id: "season-b" }],
+  cycles: [...cycles, ...cycles.map((cycle) => ({ ...cycle, project_id: "test-b" }))], paymentNotices: [paidNotice],
+});
+assert.equal(partialNotice.totalCells["202602"].regularPay, 1000, "合算対象の一部だけで通知額が一致しても移さない");
+
+assert.equal(recordedNoticePaymentYm({ ...paidNotice, reimbursement_yen: 123, paid_amount_yen: 783 }), "202601", "立替実費を税込報酬に加えた出金を照合する");
+assert.equal(recordedNoticePaymentYm({ ...paidNotice, reimbursement_yen: 123, paid_amount_yen: 795 }), null, "立替に消費税を重ねた額は実支払とみなさない");
+assert.equal(recordedNoticePaymentYm({ ...paidNotice, paid_on: "2026-13-30" }), null);

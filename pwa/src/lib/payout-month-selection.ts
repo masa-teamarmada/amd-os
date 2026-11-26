@@ -20,3 +20,8 @@ export function selectablePayoutPaymentYms(selectedYm: string, now = new Date())
   }
   return [...new Set(options)];
 }
+
+/** 月別入出金表は、選択した支払月の前月から比較できる位置で開く。 */
+export function payoutSeasonFocusYm(paymentYm: string): string {
+  return yearMonth(Number(paymentYm.slice(0, 4)), Number(paymentYm.slice(4, 6)) - 2);
+}

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { PayoutSeasonBudget } from "./PayoutSeasonBudget";
+import { payoutSeasonFocusYm } from "@/lib/payout-month-selection";
 import { SEASON_METRICS, type PayoutSeasonPlan as Plan, type SeasonCell, type SeasonMetric, type SeasonProjectPlan, type SeasonMemberPayment, type SeasonPaymentCell } from "@/lib/payout-season-plan";
 
 const number = new Intl.NumberFormat("ja-JP");
@@ -15,7 +16,18 @@ function paymentTotal(cell: SeasonPaymentCell) {
 }
 function paymentBreakdown(cell: SeasonPaymentCell) {
   const yen = (value: number | null) => value == null ? "未計算" : `${number.format(value)}円`;
-  return `本契約 ${yen(cell.regularPay)} · 別財布 ${yen(cell.extraPay)}`;
+  return `本契約 ${yen(cell.regularPay)} · 別財布 ${yen(cell.extraPay)}${cell.paidDates?.length ? ` · 支払日 ${cell.paidDates.join("、")}` : ""}`;
+}
+
+/** Align the previous month after the actual sticky columns, regardless of page offsets. */
+function scrollToPaymentContext(wrapper: HTMLDivElement, paymentYm: string) {
+  const column = wrapper.querySelector<HTMLElement>(`[data-payment-column="${payoutSeasonFocusYm(paymentYm)}"]`)
+    ?? wrapper.querySelector<HTMLElement>("[data-payment-column]");
+  const fixedColumn = wrapper.querySelector<HTMLElement>("thead th:nth-child(3)");
+  if (column && fixedColumn) {
+    const left = wrapper.scrollLeft + column.getBoundingClientRect().left - fixedColumn.getBoundingClientRect().right;
+    wrapper.scrollTo({ left: Math.max(0, left), behavior: "instant" });
+  }
 }
 
 export function PayoutSeasonPlan({ ym, refreshToken, onOpenMonthly }: {
@@ -47,8 +59,7 @@ export function PayoutSeasonPlanView({ ym, plan: current, loading = false, error
   const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const wrapper = scrollRef.current;
-    const column = wrapper?.querySelector<HTMLElement>(`[data-payment-column="${ym}"]`);
-    if (wrapper && column) wrapper.scrollTo({ left: Math.max(0, column.offsetLeft - 360), behavior: "instant" });
+    if (wrapper) scrollToPaymentContext(wrapper, ym);
   }, [current?.paymentYm, ym]);
   const shown: MatrixRow[] = metrics.filter(([key]) => key !== "extraPay" && (full || ["net", "regularPay", "debt"].includes(key))).map(([metric, label]) => ({ key: metric, metric, label: metric === "regularPay" ? "報酬支払計" : label, combinePay: metric === "regularPay" }));
   const aggregateRows = shown.filter(({ metric }) => ["income", "regularPay", "net", "debt"].includes(metric));
@@ -66,8 +77,7 @@ export function PayoutSeasonPlanView({ ym, plan: current, loading = false, error
   };
   function jumpToPayment() {
     const wrapper = scrollRef.current;
-    const column = wrapper?.querySelector<HTMLElement>(`[data-payment-column="${ym}"]`);
-    if (wrapper && column) wrapper.scrollTo({ left: Math.max(0, column.offsetLeft - 360), behavior: "instant" });
+    if (wrapper) scrollToPaymentContext(wrapper, ym);
   }
   function numericCells(cells: Record<string, SeasonCell>, row: MatrixRow, project?: SeasonProjectPlan) {
     const { metric } = row;
@@ -77,8 +87,9 @@ export function PayoutSeasonPlanView({ ym, plan: current, loading = false, error
       const value = row.combinePay ? paymentTotal(payment) : cells[month][metric];
       const outsideDebt = metric === "debt" && project?.startYm != null && (month < project.startYm || month > project.endYm!);
       const label = outsideDebt ? "対象期間外" : value == null ? "報酬計算または支出額が未確認" : `${number.format(value)}円`;
+      const incomeSources = metric === "income" ? (project ? project.incomeSources?.[month] : current!.projects.flatMap((p) => (p.incomeSources?.[month] ?? []).map((source) => `${p.projectName} ${source}`))) : null;
       const classes = `border-b border-r border-border/60 px-2 py-1 text-right font-mono tabular-nums ${styles(value, metric)} ${month === ym ? "bg-sky-50 dark:bg-sky-950/40" : ""}`;
-      return <td key={month} data-payout-month={month} className={classes} title={`${project?.projectName ?? "全PJ合計"} / ${row.label} / ${ymLabel(month)} / ${label}${row.combinePay ? `（${paymentBreakdown(payment)}）` : ""}`}>
+      return <td key={month} data-payout-month={month} className={classes} title={`${project?.projectName ?? "全PJ合計"} / ${row.label} / ${ymLabel(month)} / ${label}${row.combinePay ? `（${paymentBreakdown(payment)}）` : ""}${incomeSources?.length ? `\n${incomeSources.join("\n")}` : ""}`}>
         {project && row.member && value != null && value > 0 && sourceYms.length === 1 ? <button type="button" className="w-full text-right underline decoration-border underline-offset-2 hover:text-sky-700 focus-visible:outline-2 focus-visible:outline-sky-600" onClick={() => onOpenMonthly(project.projectId, sourceYms[0], `${project.projectName} ${ymLabel(sourceYms[0])}稼働分`)} aria-label={`${project.projectName} ${row.member.memberName} ${ymLabel(month)}支払の根拠を見る`}>{valueLabel(value)}</button> : project && metric === "debt" && !outsideDebt ? <button type="button" className="w-full text-right underline decoration-border underline-offset-2 hover:text-sky-700 focus-visible:outline-2 focus-visible:outline-sky-600" onClick={() => onOpenMonthly(project.projectId, month, `${project.projectName} ${ymLabel(month)}`)} aria-label={`${project.projectName} ${ymLabel(month)}の報酬根拠を見る`}>{valueLabel(value)}</button> : outsideDebt ? "·" : valueLabel(value)}
       </td>;
     });
@@ -103,7 +114,7 @@ export function PayoutSeasonPlanView({ ym, plan: current, loading = false, error
         <button type="button" onClick={jumpToPayment} className="h-7 border border-border px-2 hover:bg-muted focus-visible:outline-2 focus-visible:outline-sky-600">支払月へ</button>
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-        <span>売上・報酬は税抜、立替は実費。青い列は今回の支払月。未払報酬は稼働月末の残高。</span>
+        <span>売上・報酬は税抜、立替は実費。入出金確認済みは実績月、未確認分は予定月。青い列は今回の支払月。未払報酬は稼働月末の残高。</span>
         <span>報酬は振込対象者別。本契約＋別財布を表示。金額を押すと、対応する稼働月の繰越・丸めを含む根拠を確認できる。</span>
         <span>月別表の差引＝入金予定−報酬支払−立替−登録済み追加支出。支払原資と配分の超過は上の報酬予算表で確認。</span>
       </div>

@@ -57,3 +57,7 @@ PWAの正本は `/admin/management-score`。通常左メニューのManagement�
 | ManagementのAdmin移設・相互リンク削除 | spec2-1・2-7、ios/DESIGN | manual2-6・4-5 | PWA反映対象、Native未移植 |
 | 閲覧回数の旧URL合算 | spec2-1、admin-navigation-usage | manual2-6 | PWA反映対象、DB書換えなし |
 | 理論・数式 | 既存値を維持 | BZM更新対象外 | ナビとURLの変更のみ |
+
+## 2026-11-26 支払通知書の月別予定
+
+PWA月別表は選択支払月の前月から表示する。入金確認日と、通知額・全PJ報酬額が照合済みの実支払日を優先し、未確認分は予定月へ残す。表示専用の変更でDB・共通の支払条件計算・通知書は変更なし。Swift側は今回対象外。正本はspec3-27「実績月による月別入出金」。
