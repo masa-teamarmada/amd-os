@@ -1,3 +1,4 @@
+import type {CSSProperties} from 'react';
 import type {DdReportVisual as Visual,DdReportGlossary} from '@/lib/dd-report-types';
 import {DdReportRichText} from './DdReportRichText';
 import {DdProcessIllustration,ddProcessIllustrationKind} from '@/components/dd/report/DdProcessIllustration';
@@ -5,12 +6,23 @@ import {DdProcessIllustration,ddProcessIllustrationKind} from '@/components/dd/r
 
 function monthIndex(month:string){const [y,m]=month.split('-').map(Number);return y*12+m-1;}
 function DdPlanTimeline({visual,slug,glossary,allRows}:{visual:Visual;slug:string;glossary?:DdReportGlossary;allRows?:boolean}) {
-  const time=visual.timeline!;const start=monthIndex(time.start),end=monthIndex(time.end),total=end-start+1,prelude=5;
+  const time=visual.timeline!;
+  const authoredAxis=Boolean(time.ticks?.length);
+  const start=monthIndex(time.start),end=monthIndex(time.end),total=end-start+1,prelude=authoredAxis?0:5;
   const column=(month:string)=>2+prelude+monthIndex(month)-start;
-  const ticks=[{month:'2027-04',label:'2027年4月'},{month:'2027-10',label:'10月'},{month:'2028-04',label:'2028年4月'},{month:'2028-10',label:'10月'},{month:'2029-02',label:'2029年2月'}];
-  return <div className="ddr-plan-timeline-scroll"><figure className={`ddr-plan-timeline${allRows?' ddr-plan-timeline-print':''}`} aria-label={visual.title}>
-    <figcaption>{visual.title}</figcaption><div className="ddr-plan-timeline-axis"><span>時期</span><span className="ddr-plan-prelude">設立前<br/>〜2027年3月</span>{ticks.filter(t=>monthIndex(t.month)>=start&&monthIndex(t.month)<=end).map((t,i)=><span key={t.month} className={`ddr-plan-tick${i===ticks.length-1?' ddr-plan-last':''}`} style={{gridColumn:`${column(t.month)} / span 3`}}>{t.label}</span>)}</div>
-    {time.lanes.map((lane,li)=><div key={lane} className="ddr-plan-timeline-lane" role="group" aria-label={lane}><h3>{lane}</h3>{visual.nodes.filter(n=>n.period?.lane===li).map((n,ni)=>{
+  const ticks=authoredAxis?time.ticks!:[{month:'2027-04',label:'2027年4月'},{month:'2027-10',label:'10月'},{month:'2028-04',label:'2028年4月'},{month:'2028-10',label:'10月'},{month:'2029-02',label:'2029年2月'}];
+  return <div className="ddr-plan-timeline-scroll"><figure className={`ddr-plan-timeline${allRows?' ddr-plan-timeline-print':''}`} aria-label={visual.title} data-authored-axis={authoredAxis||undefined} style={authoredAxis?{'--ddr-plan-months':total} as CSSProperties:undefined}>
+    <figcaption>{visual.title}</figcaption>
+    <div className="ddr-plan-timeline-axis">
+      <span>時期</span>
+      {!authoredAxis&&<span className="ddr-plan-prelude">設立前<br/>〜2027年3月</span>}
+      {ticks.filter(t=>monthIndex(t.month)>=start&&monthIndex(t.month)<=end).map((t,i)=>{
+        const last=i===ticks.length-1;
+        const col=column(t.month);
+        return <span key={t.month} className={`ddr-plan-tick${last?' ddr-plan-last':''}`} style={{gridColumn:authoredAxis?`${col} / ${Math.min(col+3,2+total)}`:`${col} / span 3`}}>{t.label}</span>;
+      })}
+    </div>
+    {time.lanes.map((lane,li)=><div key={lane} className="ddr-plan-timeline-lane" role="group" aria-label={lane}><h3>{lane}</h3>{visual.nodes.filter(n=>n.period?.lane===li&&(!authoredAxis||n.period.start)).map((n,ni)=>{
       const p=n.period!,first=p.start?column(p.start):2,last=p.contentEnd?column(p.contentEnd)+1:p.start?(p.end?column(p.end)+1:column(p.start)+1):2+prelude;
       const periodSpan=p.start?(p.end?monthIndex(p.end)-monthIndex(p.start)+1:1):prelude;
       return <article key={n.title} className="ddr-plan-timeline-item" data-point={p.point||undefined} data-start={p.start??'prelude'} data-end={p.end??p.start??'2027-03'} style={{gridColumn:`${first} / ${Math.min(last,2+prelude+total)}`}}><div className="ddr-plan-period" style={{width:`${100*periodSpan/(last-first)}%`}}/><div className="ddr-plan-timeline-date">{p.label}</div><strong>{n.title}</strong><div className="ddr-plan-timeline-text"><DdReportRichText text={n.text} id={`timeline-${visual.afterRow}-${li}-${ni}`} slug={slug} glossary={glossary} interactive={!allRows} emphasize/></div></article>;

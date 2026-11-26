@@ -69,13 +69,15 @@ export function DdReportChartFigure({chart,compact=false,narrow=false}:{chart:Dd
   const ns=series.flatMap(s=>s.values).filter(Number.isFinite),high=Math.max(1,...ns,...(chart.stacked?sums:[])),low=Math.min(0,...ns),range=(high-low)*1.08;
   const y=(n:number)=>pad.t+(high+(high-low)*.04-n)/range*h;
   const line=chart.chartType==='lineChart'||chart.chartType==='scatterChart';
+  const xFor=(i:number)=>pad.l+(line&&!chart.centerCategories?i/(count-1||1):(i+.5)/count)*w;
   const axisNumber=(n:number)=>formatDdReportValue(n,chart.numberFormat??'General');
   const shownLabels=Array.from({length:count},(_,i)=>i).filter(i=>count<=12||i%Math.ceil(count/(narrow?5:10))===0||i===count-1);
   return <figure className={`ddr-chart${compact?' ddr-chart-compact':''}`} style={{maxWidth:width+22}}>
     <figcaption>{chart.title||'計画の推移'}</figcaption>{chart.readingNote&&<p className="ddr-figure-reading">{chart.readingNote}</p>}
     <div className="ddr-chart-scroll"><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={chart.title||'計画の推移'}>
       {Array.from({length:5},(_,i)=>{const n=low+(high-low)*i/4;return chart.horizontal?<g key={i}><line x1={pad.l+i*w/4} x2={pad.l+i*w/4} y1={pad.t} y2={height-pad.b} stroke="#dce5e8"/><text x={pad.l+i*w/4} y={height-32} textAnchor="middle" fontSize="14" fill="#425966">{axisNumber(n)}</text></g>:<g key={i}><line x1={pad.l} x2={width-pad.r} y1={y(n)} y2={y(n)} stroke="#dce5e8"/><text x={pad.l-12} y={y(n)+5} textAnchor="end" fontSize="14" fill="#425966">{axisNumber(n)}</text></g>;})}
-      {line?series.map((s,j)=><polyline key={j} fill="none" stroke={palette[j%palette.length]} strokeWidth="3" points={s.values.map((v,i)=>`${pad.l+(i/(count-1||1))*w},${y(v)}`).join(' ')}/>):chart.horizontal?series.map((s,j)=><g key={j}>{s.values.map((v,i)=>{
+      {chart.zeroLine&&!chart.horizontal&&<line x1={pad.l} x2={width-pad.r} y1={y(0)} y2={y(0)} stroke="#849ca7" strokeWidth="1.5"/>}
+      {line?series.map((s,j)=><polyline key={j} fill="none" stroke={palette[j%palette.length]} strokeWidth="3" strokeDasharray={s.lineStyle==='dotted'?'2 5':s.lineStyle==='dashed'?'9 5':undefined} points={s.values.map((v,i)=>`${xFor(i)},${y(v)}`).join(' ')}/>):chart.horizontal?series.map((s,j)=><g key={j}>{s.values.map((v,i)=>{
         const start=chart.stacked?series.slice(0,j).reduce((n,p)=>n+(p.values[i]??0),0):0;
         const barH=Math.min(64,h/count/(chart.stacked?1:series.length)*.72),yy=pad.t+(i+.5)*h/count+(chart.stacked?0:(j-(series.length-1)/2)*barH);
         return <rect key={i} x={pad.l+start/(high||1)*w} y={yy-barH/2} width={Math.max(0,v/(high||1)*w)} height={barH} fill={palette[j%palette.length]}/>;
@@ -85,9 +87,9 @@ export function DdReportChartFigure({chart,compact=false,narrow=false}:{chart:Dd
         const xx=pad.l+(i+.5)*w/count+(chart.stacked?0:(j-(series.length-1)/2)*barW);
         return <rect key={i} x={xx-barW/2} y={y(Math.max(start+v,start))} width={Math.max(.7,barW)} height={Math.max(.7,Math.abs(y(start+v)-y(start)))} fill={palette[j%palette.length]}/>;
       })}</g>)}
-      {chart.horizontal?shownLabels.map(i=><text key={i} x={pad.l-12} y={pad.t+(i+.5)*h/count+5} textAnchor="end" fontSize="12">{String(labels[i]||i+1).replace(/^(20\d{2})\.0$/,'$1')}</text>):shownLabels.map(i=><text key={i} x={pad.l+(line?i/(count-1||1):(i+.5)/count)*w} y={height-32} textAnchor={narrow?(i===0?'start':i===count-1?'end':'middle'):'middle'} fontSize={narrow?11:13} fill="#425966">{String(labels[i]||i+1).replace(/^(20\d{2})\.0$/,'$1')}</text>)}
+      {chart.horizontal?shownLabels.map(i=><text key={i} x={pad.l-12} y={pad.t+(i+.5)*h/count+5} textAnchor="end" fontSize="12">{String(labels[i]||i+1).replace(/^(20\d{2})\.0$/,'$1')}</text>):shownLabels.map(i=><text key={i} x={xFor(i)} y={height-32} textAnchor={narrow?(i===0?'start':i===count-1?'end':'middle'):'middle'} fontSize={narrow?11:13} fill="#425966">{String(labels[i]||i+1).replace(/^(20\d{2})\.0$/,'$1')}</text>)}
     </svg></div>
-    <div className="ddr-legend">{series.map((s,i)=><span key={i}><i style={{background:palette[i%palette.length]}}/>{s.name||`系列${i+1}`}</span>)}</div>
+    <div className="ddr-legend">{series.map((s,i)=><span key={i}><i data-line-style={s.lineStyle} style={s.lineStyle?{color:palette[i%palette.length]}:{background:palette[i%palette.length]}}/>{s.name||`系列${i+1}`}</span>)}</div>
   </figure>;
 }
 
@@ -188,7 +190,11 @@ export function DdReportContent(props:ContentProps) {
   let tableNoticeShown=false,tableCount=0;
   if(chapter.slug==='biographies')return <>{introduction}<DdBiographies chapter={chapter} slug={slug} glossary={glossary} allRows={allRows}/></>;
   if(chapter.slug==='organization')return <>{introduction}<DdOrganizationChart chapter={chapter}/></>;
-  const financeCharts=!documentLayout&&chapter.slug==='business-plan'?body.objects.filter((o):o is DdReportChart=>o.kind==='chart'&&o.row===231):[];
+  const financeLayout=chapter.slug==='business-plan'
+    ? body.businessFinance??(!documentLayout?{copyRows:[226,252] as const,chartRow:231}:undefined)
+    : undefined;
+  const financeCharts=financeLayout?body.objects.filter((o):o is DdReportChart=>o.kind==='chart'&&o.row===financeLayout.chartRow):[];
+  const financeCopy=financeLayout?body.rows.filter(r=>r.row>=financeLayout.copyRows[0]&&r.row<=financeLayout.copyRows[1]):[];
   const objects=body.objects.filter(o=>!financeCharts.includes(o as DdReportChart)&&!(legacyEquity&&o.kind==='chart'&&o.title?.startsWith('目標評価額の成長'))&&!(chapter.slug==='unit-economics'&&o.kind==='chart'&&o.title?.startsWith('シアノ生産'))).sort((a,b)=>a.row-b.row),blocks:ReactNode[]=[];let tableRows:DdReportRow[]=[];let objectIndex=0;
   blocks.push(<Fragment key="page-introduction">{introduction}</Fragment>);
   const primary:Record<string,{address:string;label:string;unit:string}>={
@@ -221,8 +227,8 @@ export function DdReportContent(props:ContentProps) {
 
   for(const [rowIndex,row] of body.rows.entries()){
     if(row.row<=2||(!documentLayout&&chapter.slug==='source-index'&&(row.row<=6||(row.row>=21&&row.row<=62))))continue;
-    if(financeCharts.length&&row.row>=226&&row.row<=252){
-      if(row.row===226){flush();blocks.push(<section key="finance-summary" className="ddr-finance-layout" aria-label="収益・資金計画の説明と推移"><div className="ddr-finance-copy">{body.rows.filter(r=>r.row>=226&&r.row<=252).flatMap(r=>r.cells.map(c=><p key={c.address}><CellValue navigation={navigation} cell={c} slug={slug} index={index} glossary={glossary} allRows={allRows} emphasize chapterSlug={chapter.slug} inputControls={inputControls}/></p>))}</div><div className="ddr-finance-charts">{financeCharts.map((c,i)=><DdReportChartFigure key={i} chart={c} narrow/>)}</div></section>);}
+    if(financeCharts.length&&financeCopy.includes(row)){
+      if(row===financeCopy[0]){flush();blocks.push(<section key="finance-summary" className="ddr-finance-layout" aria-label="収益・資金計画の説明と推移"><div className="ddr-finance-copy">{financeCopy.flatMap(r=>r.cells.map(c=><p key={c.address}><CellValue navigation={navigation} cell={c} slug={slug} index={index} glossary={glossary} allRows={allRows} emphasize chapterSlug={chapter.slug} inputControls={inputControls}/></p>))}</div><div className="ddr-finance-charts">{financeCharts.map((c,i)=><DdReportChartFigure key={i} chart={c} narrow/>)}</div></section>);}
       continue;
     }
     addObjects(row.row);

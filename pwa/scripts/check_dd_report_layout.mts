@@ -50,6 +50,25 @@ const businessHtml=renderToStaticMarkup(createElement(DdReportContent,{chapter:b
 assert(!businessHtml.includes('生産量・工場敷地・増設時期・候補地を開く'));assert(businessHtml.indexOf('id="cell-B4"')>businessHtml.indexOf('id="cell-B207"'));assert(businessHtml.indexOf('id="cell-B4"')<businessHtml.indexOf('id="cell-B218"'));
 assert.equal(businessHtml.split('id="cell-B4"').length-1,1,'Move the production-plan link without duplication');
 
+const authoredHeading=row(10,[[2,'設立までの12か月',13]]);
+authoredHeading.cells[0].heading=true;
+const authoredBusiness:DdReportChapter={...business,body:{
+  version:1,layout:'document',rows:[authoredHeading,row(11,[[2,'設立後の資金計画',13]]),row(12,[[2,'計画の根拠',13]])],
+  businessFinance:{copyRows:[11,11],chartRow:11},
+  objects:[{kind:'chart',row:11,chartType:'lineChart',title:'期末現金',horizontal:false,stacked:false,zeroLine:true,
+    series:[{name:'残高',categories:['Y1','Y2'],values:[-5,10],lineStyle:'dashed'}]}],
+  visuals:[{afterRow:10,kind:'matrix',title:'計画工程',timeline:{start:'2026-12',end:'2027-05',lanes:['実証'],
+    ticks:[{month:'2026-12',label:'2026年12月'},{month:'2027-05',label:'2027年5月'}]},
+    nodes:[{title:'圃場実証',text:'',period:{lane:0,start:'2027-03',end:'2027-05',label:'M4–M6'}}]}],
+}};
+const authoredHtml=renderToStaticMarkup(createElement(DdReportContent,{chapter:authoredBusiness,slug:'sample',index:[]}));
+assert.match(authoredHtml,/data-authored-axis="true"[^>]+--ddr-plan-months:6/);
+assert(authoredHtml.includes('2026年12月')&&authoredHtml.includes('2027年5月')&&!authoredHtml.includes('〜2027年3月'));
+assert(authoredHtml.includes('data-start="2027-03" data-end="2027-05"'));
+assert.match(authoredHtml,/class="ddr-finance-layout"[\s\S]*id="cell-B11"[\s\S]*class="ddr-finance-charts"[\s\S]*stroke-dasharray="9 5"/);
+assert.equal(authoredHtml.split('id="cell-B11"').length-1,1);
+assert.equal(authoredHtml.split('aria-label="期末現金"').length-1,1);
+
 if(process.argv[2]){
   const fs=await import('node:fs/promises'),path=await import('node:path');
   const {DD_REPORT_CSS}=await import('../src/components/dd/report/dd-report-style.ts');
