@@ -173,19 +173,21 @@ function EquityResources({chapter,slug,index,glossary,allRows,navigation}:Conten
 export function DdReportContent(props:ContentProps) {
   if(props.slug==='sol')props={...props,chapter:solCostChapter(props.chapter)};
   const {chapter,slug,index,assetUrls,allRows,glossary,canDownload,revision,pdfWorkbookName,onDownloadExcel,inputControls,simulationActive,navigation}=props;
-  const introduction=<DdPageIntroduction chapterSlug={chapter.slug} slug={slug} glossary={glossary} allRows={allRows} navigation={navigation}/>;
+  const documentLayout=chapter.body.layout==='document';
+  const legacyEquity=!documentLayout&&chapter.slug==='equity-story';
+  const introduction=documentLayout?null:<DdPageIntroduction chapterSlug={chapter.slug} slug={slug} glossary={glossary} allRows={allRows} navigation={navigation}/>;
   if(chapter.body.executionPlan?.data&&allRows){const data=chapter.body.executionPlan.data;return <>{introduction}<p>日次作業{data.tasks.length.toLocaleString('ja-JP')}項目と担当工数{data.allocations.length.toLocaleString('ja-JP')}件の全明細を、同梱Excelの「日次実行計画」「日次担当工数」に収録する。開始日・終了日・責任担当・完了条件・依存関係と、日付別の担当時間を掲載する。</p><h2>初期３台の主な工程</h2>{chapter.body.rows.filter(r=>r.row>=4).map(r=><p key={r.row}><strong>{String(r.cells[0].value)}　{String(r.cells[1].value)}</strong><br/>{String(r.cells[2].value)} ／ {String(r.cells[3].value)}</p>)}</>;}
   if(chapter.body.executionPlan?.data&&!allRows)return <>{introduction}<DdDailyExecutionPlan data={chapter.body.executionPlan.data}/></>;
   if(chapter.body.changeLog)return <DdReportChangeLog data={chapter.body.changeLog} slug={slug}/>;
   if(chapter.body.progress)return <DdProgressOverview navigation={navigation} data={chapter.body.progress} slug={slug} index={index} print={allRows}/>;
-  const productionLink=chapter.slug==='business-plan'?chapter.body.rows.find(r=>r.cells.some(c=>c.address==='B4'&&c.link?.includes('生産・拠点計画'))):undefined;
+  const productionLink=!documentLayout&&chapter.slug==='business-plan'?chapter.body.rows.find(r=>r.cells.some(c=>c.address==='B4'&&c.link?.includes('生産・拠点計画'))):undefined;
   const body=productionLink&&chapter.body.rows.some(r=>r.row===207)?{...chapter.body,rows:chapter.body.rows.filter(r=>r!==productionLink).flatMap(r=>r.row===207?[r,{...productionLink,row:208,cells:productionLink.cells.map(c=>({...c,value:'増産に必要な培養量・敷地・増設時期・候補地は、生産・拠点計画に示す。'}))}]:[r])}:chapter.body;
   const excelHref=allRows&&pdfWorkbookName?encodeURI(pdfWorkbookName):`/api/dd/${encodeURIComponent(slug)}/report/export?format=xlsx&scope=all&sheet=${encodeURIComponent(chapter.source_sheet)}${revision?`&revision=${revision}`:""}`;
   let tableNoticeShown=false,tableCount=0;
   if(chapter.slug==='biographies')return <>{introduction}<DdBiographies chapter={chapter} slug={slug} glossary={glossary} allRows={allRows}/></>;
   if(chapter.slug==='organization')return <>{introduction}<DdOrganizationChart chapter={chapter}/></>;
-  const financeCharts=chapter.slug==='business-plan'?body.objects.filter((o):o is DdReportChart=>o.kind==='chart'&&o.row===231):[];
-  const objects=body.objects.filter(o=>!financeCharts.includes(o as DdReportChart)&&!(chapter.slug==='equity-story'&&o.kind==='chart'&&o.title?.startsWith('目標評価額の成長'))&&!(chapter.slug==='unit-economics'&&o.kind==='chart'&&o.title?.startsWith('シアノ生産'))).sort((a,b)=>a.row-b.row),blocks:ReactNode[]=[];let tableRows:DdReportRow[]=[];let objectIndex=0;
+  const financeCharts=!documentLayout&&chapter.slug==='business-plan'?body.objects.filter((o):o is DdReportChart=>o.kind==='chart'&&o.row===231):[];
+  const objects=body.objects.filter(o=>!financeCharts.includes(o as DdReportChart)&&!(legacyEquity&&o.kind==='chart'&&o.title?.startsWith('目標評価額の成長'))&&!(chapter.slug==='unit-economics'&&o.kind==='chart'&&o.title?.startsWith('シアノ生産'))).sort((a,b)=>a.row-b.row),blocks:ReactNode[]=[];let tableRows:DdReportRow[]=[];let objectIndex=0;
   blocks.push(<Fragment key="page-introduction">{introduction}</Fragment>);
   const primary:Record<string,{address:string;label:string;unit:string}>={
     'cyanobacteria-cost':{address:'E20',label:'出荷する菌体1kgの原価',unit:'円/kg-DCW'},
@@ -216,7 +218,7 @@ export function DdReportContent(props:ContentProps) {
   if(chapter.slug==='source-index')blocks.push(<DdReportDirectory key="directory" index={index} rows={body.rows} slug={slug}/>,<h2 key="overview">事業と資金計画の概要</h2>);
 
   for(const [rowIndex,row] of body.rows.entries()){
-    if(row.row<=2||(chapter.slug==='source-index'&&(row.row<=6||(row.row>=21&&row.row<=62))))continue;
+    if(row.row<=2||(!documentLayout&&chapter.slug==='source-index'&&(row.row<=6||(row.row>=21&&row.row<=62))))continue;
     if(financeCharts.length&&row.row>=226&&row.row<=252){
       if(row.row===226){flush();blocks.push(<section key="finance-summary" className="ddr-finance-layout" aria-label="収益・資金計画の説明と推移"><div className="ddr-finance-copy">{body.rows.filter(r=>r.row>=226&&r.row<=252).flatMap(r=>r.cells.map(c=><p key={c.address}><CellValue navigation={navigation} cell={c} slug={slug} index={index} glossary={glossary} allRows={allRows} emphasize chapterSlug={chapter.slug} inputControls={inputControls}/></p>))}</div><div className="ddr-finance-charts">{financeCharts.map((c,i)=><DdReportChartFigure key={i} chart={c} narrow/>)}</div></section>);}
       continue;
@@ -242,12 +244,12 @@ export function DdReportContent(props:ContentProps) {
     if(chapter.slug==='capital-plan'&&row.row===181&&body.jkiss){flush();blocks.push(<div key="jkiss-summary" id="cell-B181">{allRows&&<a className="ddr-pdf-anchor" href={ddPdfMarker(slug,chapter.slug,'B181')} aria-hidden="true">.</a>}<DdJkissExplanation summary={body.jkiss}/></div>);continue;}
     // Detailed rows stay in Excel/PDF's existing projection; the web still parses their headings and prose.
     if(allRows&&row.calculationDetail){tableRows.push(row);continue;}
-    if(chapter.slug==='equity-story'&&row.cells.length===1&&row.cells[0].address==='B9')continue;
-    if(chapter.slug==='equity-story'&&row.row>=12&&row.row<=50){if(row.row===12){flush();blocks.push(<EquityDiagram key="equity-diagram" {...props}/>);}continue;}
-    if(chapter.slug==='equity-story'&&row.row>=67&&row.row<=231){if(row.row===67){flush();blocks.push(<EquityResources key="equity-resources" {...props}/>);}continue;}
-    if(chapter.slug==='equity-story'&&row.row>=257)continue;
-    if(chapter.slug==='equity-story'&&row.row===232){flush();blocks.push(<DdScaleInvestmentReference key="scale-investment-reference"/>);continue;}
-    if(chapter.slug==='equity-story'&&[235,240].includes(row.row))continue;
+    if(legacyEquity&&row.cells.length===1&&row.cells[0].address==='B9')continue;
+    if(legacyEquity&&row.row>=12&&row.row<=50){if(row.row===12){flush();blocks.push(<EquityDiagram key="equity-diagram" {...props}/>);}continue;}
+    if(legacyEquity&&row.row>=67&&row.row<=231){if(row.row===67){flush();blocks.push(<EquityResources key="equity-resources" {...props}/>);}continue;}
+    if(legacyEquity&&row.row>=257)continue;
+    if(legacyEquity&&row.row===232){flush();blocks.push(<DdScaleInvestmentReference key="scale-investment-reference"/>);continue;}
+    if(legacyEquity&&[235,240].includes(row.row))continue;
     const preceding=tableRows.at(-1);
     if(row.cells.length>1&&row.cells.every(c=>String(c.value).trim()==='→')&&preceding&&preceding.cells.length===row.cells.length+1&&preceding.cells.every(c=>typeof c.value==='string')){
       tableRows.pop();flush();blocks.push(<DdSourceFlow key={'flow-'+preceding.row} nodes={preceding} arrows={row} cell={c=><CellValue navigation={navigation} cell={c} slug={slug} index={index} glossary={glossary} allRows={allRows} chapterSlug={chapter.slug} inputControls={inputControls}/>}/>);continue;

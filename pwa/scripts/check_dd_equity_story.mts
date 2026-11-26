@@ -49,3 +49,16 @@ assert(compactHtml.includes('総事業費 約580億円')&&compactHtml.includes('
 assert(compactHtml.includes('ddr-chart-compact')&&compactHtml.includes('viewBox="0 0 720 176"'));assert(compactHtml.includes('ddr-equity-resources'));assert(compactHtml.includes('収益倍率・希薄化・投資家収益率'));
 for(const row of [78,98,118,138,158,178])for(const col of ['B','F','I'])assert.equal(compactHtml.split(`id="cell-${col+row}"`).length-1,1,'Keep unique budget and headcount values once');
 console.log('PASS: GAP card / six horizontal stages / 24 section headings / preserved cells / model-linked valuation increments / J-KISS separation / landscape equity PDF');
+
+const authoredRows=[{row:12,cells:[{...cell('B12','設立前検証'),heading:true}]},{row:67,cells:[{...cell('B67','次の評価額を支える理由'),heading:true}]},{row:257,cells:[cell('B257','茶の有償発注と専任CEOの就任意思')]}];
+const authored={...chapter,body:{version:1,layout:'document',rows:authoredRows,objects:[]}} satisfies DdReportChapter;
+for(const allRows of [false,true]){
+ const html=renderToStaticMarkup(createElement(DdReportContent,{chapter:authored,slug:'example',index:[],allRows}));
+ for(const row of authoredRows)assert(html.includes(String(row.cells[0].value)));
+ assert(!html.includes('J-KISS')&&!html.includes('ちとせ')&&!html.includes('販売用1〜3号機')&&!html.includes('ddr-equity-matrix'));
+}
+const authoredDirectory={...basic('source-index'),body:{version:1,layout:'document',rows:[{row:3,cells:[cell('B3','大学発の事業計画の検討初稿')]}],objects:[]}} satisfies DdReportChapter;
+const directoryHtml=renderToStaticMarkup(createElement(DdReportContent,{chapter:authoredDirectory,slug:'example',index:[authoredDirectory,{...basic('business-plan'),title:'事業計画'},authored]}));
+assert(directoryHtml.includes('chapter=business-plan')&&directoryHtml.includes('chapter=equity-story')&&directoryHtml.includes('大学発の事業計画の検討初稿'));
+assert(!directoryHtml.includes('SolvioraX')&&!directoryHtml.includes('計算条件</h3>'));
+console.log('PASS: direct document chapters and menu for a draft edition');

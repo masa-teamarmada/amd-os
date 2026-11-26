@@ -30,7 +30,9 @@ export async function readProjectReportPage(projectId:string,pageId:ProjectPageI
  const definition=projectPageDefinition(pageId);if(!definition)throw new Error('ページ未登録');
  const current=source??await projectPageSource(projectId,actor),{edition,index}=current;
  if(!edition||!definition.chapters.length)return null;
- if(!definition.chapters.every(slug=>index.some(c=>c.slug===slug)))throw new Error('共通ページの本文が不足している');
+ const registered=definition.chapters.filter(slug=>index.some(c=>c.slug===slug));
+ if(!registered.length&&definition.operation)return null;
+ if(registered.length!==definition.chapters.length)throw new Error('共通ページの本文が不足している');
  const [chapters,model,records]=await Promise.all([
   Promise.all(definition.chapters.map(async slug=>{const raw=await loadDdReportChapter(edition.id,slug);if(!raw)throw new Error('本文を読み込めなかった');return evaluatedDdReportChapter(edition,raw);})),
   loadDdReportModel(edition),

@@ -90,7 +90,7 @@ export async function loadDdLegacySnapshot(edition:DdReportEdition):Promise<{pag
   const r=await createAdminClient().storage.from(DD_REPORT_BUCKET).download(edition.legacy_snapshot_path);if(r.error)throw new Error('旧DDの控えを読み込めなかった');return JSON.parse(await r.data.text());
 }
 export function updateDdReportBody(body:DdReportBody,sheet:string,calc:DdReportCalculator):DdReportBody {
-  return {...body,...(sheet==='資本政策表'?{jkiss:ddJkissSummary(calc)}:{}),...(sheet==='エクイティストーリー'?{equityValuations:ddEquityValuations((s,a)=>calc.get(s,a))}:{}),rows:body.rows.map(row=>({...row,cells:row.cells.map(cell=>{const origin=cell.valueSource??{sheet,address:cell.address};return cell.formula||Object.hasOwn(calc.overrides,`${origin.sheet}!${origin.address}`)||calc.isDataTableCell(origin.sheet,origin.address)?{...cell,value:calc.get(origin.sheet,origin.address)}:cell;})})),objects:body.objects.map(object=>{
+  return {...body,...(sheet==='資本政策表'?{jkiss:ddJkissSummary(calc)}:{}),...(body.layout!=='document'&&sheet==='エクイティストーリー'?{equityValuations:ddEquityValuations((s,a)=>calc.get(s,a))}:{}),rows:body.rows.map(row=>({...row,cells:row.cells.map(cell=>{const origin=cell.valueSource??{sheet,address:cell.address};return cell.formula||Object.hasOwn(calc.overrides,`${origin.sheet}!${origin.address}`)||calc.isDataTableCell(origin.sheet,origin.address)?{...cell,value:calc.get(origin.sheet,origin.address)}:cell;})})),objects:body.objects.map(object=>{
     if(object.kind!=='chart')return object;
     return {...object,series:object.series.map(series=>{
       const ref=/^'?([^'!]+)'?!\$?([A-Z]+)\$?(\d+):\$?([A-Z]+)\$?(\d+)$/.exec(series.formula||'');if(!ref)return series;
