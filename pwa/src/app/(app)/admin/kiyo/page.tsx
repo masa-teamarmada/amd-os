@@ -50,7 +50,7 @@ function resolveTask(value: string | string[] | undefined): KiyoTask {
 export default async function AdminKiyoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ task?: string | string[] }>;
+  searchParams: Promise<{ task?: string | string[]; ym?: string | string[] }>;
 }) {
   const params = await searchParams;
   const activeTask = resolveTask(params.task);
@@ -111,7 +111,7 @@ export default async function AdminKiyoPage({
           {activeTask === "money-flow" ? <KiyoMoneyFlowPanel /> : null}
           {activeTask === "reimbursements" ? <ReimburseWorkspace embedded /> : null}
           {activeTask === "invoices" ? <AdminInvoicesPage embedded /> : null}
-          {activeTask === "payouts" ? <AdminPayoutsPage embedded /> : null}
+          {activeTask === "payouts" ? <AdminPayoutsPage embedded searchParams={Promise.resolve({ ym: Array.isArray(params.ym) ? params.ym[0] : params.ym })} /> : null}
           {activeTask === "reward-outlook" ? <KiyoRewardOutlookPanel /> : null}
         </section>
       </div>

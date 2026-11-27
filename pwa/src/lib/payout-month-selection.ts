@@ -5,10 +5,10 @@ function yearMonth(year: number, zeroBasedMonth: number): string {
   return `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-/** 20日までは当月、21日からは翌月の支払準備を最初に見せる。判定は日本時間。 */
+/** 支払通知書は日本時間の当月を最初に見せる。翌月以降は月選択で確認する。 */
 export function defaultPayoutPaymentYm(now = new Date()): string {
   const jst = new Date(now.getTime() + JST_OFFSET_MS);
-  return yearMonth(jst.getUTCFullYear(), jst.getUTCMonth() + (jst.getUTCDate() > 20 ? 1 : 0));
+  return yearMonth(jst.getUTCFullYear(), jst.getUTCMonth());
 }
 
 /** 先2か月と過去11か月を選べるようにし、URLで指定された月は必ず残す。 */
