@@ -106,9 +106,11 @@ flowchart TD
 
 MS / PlanCycle が未設定の PJ は報酬計算対象外。支払が必要な場合は、先にMS / PlanCycle / responsibility を作る。
 
-例外は、ポイント制移行前の旧制度月 (`source_ym <= 202606`) について、当時すでに事前合意していた税抜額を復元する場合だけ。`legacy_reward_payout_amount_override_events` に、PJ・稼働月・メンバー・税抜額・理由・承認者を append-only event として残し、対象ごとの最新 `set` / `clear` を支払スナップショットと支払通知書PDFにだけ適用する。通常月へ使えないよう DB とコードの両方で `202606` 上限を持つ。
+ポイント制移行前の旧制度月 (`source_ym <= 202606`) で当時の事前合意額を復元する場合は、`legacy_reward_payout_amount_override_events` に記録する。旧制度の台帳は通常月へ使えないよう DB とコードの両方で `202606` 上限を持つ。
 
-この固定額は `billing_cycles.reward_summary_json`、MS、pt、share、`stockYen`、`carryInYen`、`reward_member_liability_offsets` へ書き戻さない。したがって翌月以降の報酬計算・繰越・控除を動かさない。画面では隠れた上書きにせず、明細内に `事前合意額：通常 X円 → 固定 Y円` と理由・承認者を表示する。固定額が0円なら `monthly_reward_payout.total_pay=0` を監査スナップショットとして残す一方、未送付の旧PDFは削除し、新しい0円通知書は発行しない。送付済みPDFは従来どおり上書きしない。
+2026年7月以降の稼働月で、まさが個別の支払通知額を明示確定した場合は、`member_payout_amount_confirmation_events` に支払月・PJ・稼働月・メンバー・税抜額・理由・承認者を追記する。対象ごとの最新の `set` / `clear` を発行前の金額、支払スナップショット、シーズン収支予定、月次試算表へ適用する。画面の明細には `今回の確定額：計算値 X円 → Y円` と理由・承認者を表示する。2026年11月支払分のZMPは、あび40,200円、うめ0円をまさが確定した。あび・うめの未納品の追加開発分は今回の通知額から外し、確認待ちの金額を台帳の監査情報に残す。こう19,500円、しんの送付済み55,200円、SOLのかる134,838円・ちこ87,727円は維持する。
+
+いずれの確定額も `billing_cycles.reward_summary_json`、MS、pt、share、`stockYen`、`carryInYen`、`reward_member_liability_offsets` へ書き戻さず、翌月以降の報酬計算・繰越・控除を動かさない。固定額が0円なら `monthly_reward_payout.total_pay=0` を監査スナップショットとして残す一方、未送付の旧PDFは削除し、新しい0円通知書は発行しない。送付済みPDFは従来どおり上書きしない。旧制度額の明細は `事前合意額：計算値 X円 → Y円` と表示する。
 
 ### 2. メンバー別支払額確認
 

@@ -13,10 +13,15 @@ export type PayoutAmountOverrideEventRow = {
   created_at: string;
 };
 
+export type ConfirmedPayoutAmountEventRow = PayoutAmountOverrideEventRow & {
+  payment_ym: string;
+  metadata_json?: Record<string, unknown> | null;
+};
+
 export type AppliedPayoutAmountOverride = {
   eventId: string;
   eventKey: string | null;
-  kind: "legacy_prior_agreement";
+  kind: "legacy_prior_agreement" | "confirmed_payment_amount";
   amountYen: number;
   calculatedTotalPayYen: number;
   reason: string;
@@ -78,12 +83,13 @@ export function latestLegacyPayoutOverrideEvents(
 
 function appliedOverride(
   row: PayoutAmountOverrideEventRow,
-  calculatedTotalPayYen: number
+  calculatedTotalPayYen: number,
+  kind: AppliedPayoutAmountOverride["kind"] = "legacy_prior_agreement"
 ): AppliedPayoutAmountOverride {
   return {
     eventId: String(row.id),
     eventKey: text(row.event_key) || null,
-    kind: "legacy_prior_agreement",
+    kind,
     amountYen: yen(row.amount_yen),
     calculatedTotalPayYen,
     reason: text(row.reason),
@@ -100,7 +106,23 @@ export function applyLegacyPayoutAmountOverridesToCycles<T extends OverrideAware
   cycles: T[],
   rows: PayoutAmountOverrideEventRow[]
 ): T[] {
-  const latest = latestLegacyPayoutOverrideEvents(rows);
+  return applyPayoutAmountOverridesToCycles(cycles, rows, []);
+}
+
+/** 確定した通知額だけを反映し、報酬の発生・未払残・翌月への繰越は変更しない。 */
+export function applyPayoutAmountOverridesToCycles<T extends OverrideAwareBillingCycle>(
+  cycles: T[],
+  legacyRows: PayoutAmountOverrideEventRow[],
+  confirmedRows: ConfirmedPayoutAmountEventRow[]
+): T[] {
+  const latest = new Map<string, PayoutAmountOverrideEventRow>(latestLegacyPayoutOverrideEvents(legacyRows));
+  const confirmedKeys = new Set<string>();
+  for (const row of orderedOverrideEvents(confirmedRows)) {
+    if (!/^\d{6}$/.test(row.source_ym) || row.source_ym < "202607") continue;
+    const key = overrideKey(row.project_id, row.source_ym, row.member_id);
+    latest.set(key, row);
+    confirmedKeys.add(key);
+  }
   if (latest.size === 0) return cycles;
 
   return cycles.map((cycle) => {
@@ -114,6 +136,7 @@ export function applyLegacyPayoutAmountOverridesToCycles<T extends OverrideAware
     const overrideByMember = new Map(relevant.map((row) => [row.member_id, row]));
     const seenMemberIds = new Set<string>();
     let appliedCount = 0;
+    let confirmedAppliedCount = 0;
 
     const members = rawMembers.map((value) => {
       const member = record(value);
@@ -127,12 +150,14 @@ export function applyLegacyPayoutAmountOverridesToCycles<T extends OverrideAware
       const calculatedTotalPayYen = yen(member.totalPay ?? member.total_pay);
       const amountYen = yen(row.amount_yen);
       appliedCount += 1;
+      const confirmed = confirmedKeys.has(overrideKey(cycle.project_id, cycle.ym, memberId));
+      if (confirmed) confirmedAppliedCount += 1;
       return {
         ...member,
         totalPay: amountYen,
         regularPaidYen: amountYen,
         extraPaidYen: 0,
-        payoutAmountOverride: appliedOverride(row, calculatedTotalPayYen),
+        payoutAmountOverride: appliedOverride(row, calculatedTotalPayYen, confirmed ? "confirmed_payment_amount" : "legacy_prior_agreement"),
       };
     });
 
@@ -140,6 +165,8 @@ export function applyLegacyPayoutAmountOverridesToCycles<T extends OverrideAware
       if (row.action !== "set" || seenMemberIds.has(row.member_id)) continue;
       const amountYen = yen(row.amount_yen);
       appliedCount += 1;
+      const confirmed = confirmedKeys.has(overrideKey(cycle.project_id, cycle.ym, row.member_id));
+      if (confirmed) confirmedAppliedCount += 1;
       members.push({
         memberId: row.member_id,
         earnedPt: 0,
@@ -157,7 +184,7 @@ export function applyLegacyPayoutAmountOverridesToCycles<T extends OverrideAware
         grossDueYen: 0,
         regularGrossDueYen: 0,
         extraGrossDueYen: 0,
-        payoutAmountOverride: appliedOverride(row, 0),
+        payoutAmountOverride: appliedOverride(row, 0, confirmed ? "confirmed_payment_amount" : "legacy_prior_agreement"),
       });
     }
 
@@ -167,6 +194,9 @@ export function applyLegacyPayoutAmountOverridesToCycles<T extends OverrideAware
       return sum + yen(member?.totalPay ?? member?.total_pay);
     }, 0);
     const meta = record(summary.meta) ?? {};
+    const external = members.filter((value) => !record(value)?.payoutExcluded);
+    const externalRegularYen = external.reduce((sum, value) => sum + yen(record(value)?.regularPaidYen), 0);
+    const externalExtraYen = external.reduce((sum, value) => sum + yen(record(value)?.extraPaidYen), 0);
 
     return {
       ...cycle,
@@ -174,6 +204,11 @@ export function applyLegacyPayoutAmountOverridesToCycles<T extends OverrideAware
         ...summary,
         members,
         totalPaySum,
+        ...(confirmedAppliedCount > 0 ? {
+          externalRegularPayoutCapYen: externalRegularYen,
+          externalExtraPayoutCapYen: externalExtraYen,
+          externalPayoutCapYen: externalRegularYen + externalExtraYen,
+        } : {}),
         meta: {
           ...meta,
           payoutAmountOverridesApplied: appliedCount,

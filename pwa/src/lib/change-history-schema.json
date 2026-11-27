@@ -2134,6 +2134,20 @@
     "updated_at",
     "read_at"
   ],
+  "member_payout_amount_confirmation_events": [
+    "id",
+    "event_key",
+    "project_id",
+    "source_ym",
+    "payment_ym",
+    "member_id",
+    "action",
+    "amount_yen",
+    "reason",
+    "authorized_by",
+    "metadata_json",
+    "created_at"
+  ],
   "member_activities": [
     "id",
     "member_id",

@@ -1898,7 +1898,8 @@ expectIncludes("src/app/api/admin/payouts/route.ts", [
   "最新 DB 正本",
   "金額差分が無くても",
   "legacy_reward_payout_amount_override_events",
-  "applyLegacyPayoutAmountOverridesToCycles",
+  "member_payout_amount_confirmation_events",
+  "applyPayoutAmountOverridesToCycles",
 ]);
 
 expectNotIncludes("src/app/api/admin/payouts/route.ts", [
@@ -1918,7 +1919,9 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
   "skipInitialFetchRef",
   "payoutDataHint",
   "gateOnly",
-  "事前合意額：通常",
+  "今回の確定額",
+  "0円・発行なし",
+  "今回追加 0円",
   "payoutAmountOverride",
   "fmtFlowYen(entry.payoutAmountOverride.amountYen)",
 ]);

@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { applyLegacyPayoutAmountOverridesToCycles, type PayoutAmountOverrideEventRow } from "@/lib/payout-amount-overrides";
+import { applyPayoutAmountOverridesToCycles, type ConfirmedPayoutAmountEventRow, type PayoutAmountOverrideEventRow } from "@/lib/payout-amount-overrides";
 import { selectPayableReimbursements, type ReimbursementRow, type ReimbursementNoticeRow } from "@/lib/finance/payout-reimbursements";
 import { buildPayoutSeasonPlan, recordedNoticePaymentYm, seasonMonths, shiftSeasonMonth, type SeasonProject, type SeasonPlan, type SeasonBilling, type SeasonMember, type SeasonExpense, type SeasonPaymentNotice } from "@/lib/payout-season-plan";
 import type { ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
@@ -19,7 +19,7 @@ export async function loadPayoutSeasonPlan(paymentYm: string) {
       if (data.length < 1000) return rows;
     }
   }
-  const [projects, plans, rawCycles, members, extraRevenueRows, reimbursements, notices, overrides, obligations, snapshots] = await Promise.all([
+  const [projects, plans, rawCycles, members, extraRevenueRows, reimbursements, notices, overrides, confirmedAmounts, obligations, snapshots] = await Promise.all([
     read<SeasonProject>("projects", "project_id,project_name,status,fee_type,fee_amount,start_ym,end_ym,contract_terms_json,payment_due_rule,payment_due_day,invoice_send_deadline_rule", "project_id"),
     read<SeasonPlan>("value_plan_cycles", "project_id,plan_cycle_id,status,period_start_ym,period_end_ym,budget_yen", "plan_cycle_id"),
     read<SeasonBilling>("billing_cycles", "project_id,ym,invoice_ym,status,budget_reported_amount,reward_summary_json,invoice_issued_at,invoice_sent_at,payment_confirmed_at,extra_budget_yen,budget_yen", "id"),
@@ -28,6 +28,7 @@ export async function loadPayoutSeasonPlan(paymentYm: string) {
     read<ReimbursementRow>("reimbursements", "reimbursement_id,project_id,project_name,date,category,description,amount,status,created_by,admin_approved_at", "reimbursement_id"),
     read<ReimbursementNoticeRow & SeasonPaymentNotice>("payout_notices", "member_id,ym,reimbursement_ids,total_yen,paid_on,paid_amount_yen,reimbursement_yen", "member_id,ym"),
     read<PayoutAmountOverrideEventRow>("legacy_reward_payout_amount_override_events", "id,project_id,source_ym,member_id,action,amount_yen,reason,authorized_by,created_at", "id"),
+    read<ConfirmedPayoutAmountEventRow>("member_payout_amount_confirmation_events", "id,event_key,project_id,source_ym,payment_ym,member_id,action,amount_yen,reason,authorized_by,created_at", "id"),
     read<{ amount_yen: number | null; amount_status: string; due_date: string | null; expected_payment_ym: string | null; status: string; cashflow_treatment: string; source_kind: string; category: string; payload: Record<string, unknown> }>("company_payment_obligations", "amount_yen,amount_status,due_date,expected_payment_ym,status,cashflow_treatment,source_kind,category,payload", "id"),
     read<PayoutSnapshot>("monthly_reward_payout", "project_id,ym,member_id,total_pay", "id"),
   ]);
@@ -67,7 +68,7 @@ export async function loadPayoutSeasonPlan(paymentYm: string) {
     expenses.push({ projectId, ym, amountYen: obligation.amount_status === "unknown" ? null : obligation.amount_yen, kind: "other" });
   }
   return {
-    ...buildPayoutSeasonPlan({ paymentYm, projects, plans, cycles: applyLegacyPayoutAmountOverridesToCycles(applyPayoutSnapshotsToCycles(rawCycles, snapshots), overrides), members, extraRevenueRows, expenses, paymentNotices: notices }),
+    ...buildPayoutSeasonPlan({ paymentYm, projects, plans, cycles: applyPayoutAmountOverridesToCycles(applyPayoutSnapshotsToCycles(rawCycles, snapshots), overrides, confirmedAmounts), members, extraRevenueRows, expenses, paymentNotices: notices }),
     unallocatedExpenses,
   };
 }

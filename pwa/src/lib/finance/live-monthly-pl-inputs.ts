@@ -9,7 +9,7 @@ import { isWithinContractPeriod } from "@/lib/contract-money";
 import { computePaymentYmByRule } from "@/lib/payment-rules";
 import { memberPayoutYmForCycle } from "@/lib/payment-groups";
 import { applyPayoutSnapshotsToCycles, type PayoutSnapshot } from "@/lib/payout-season-allocation";
-import { applyLegacyPayoutAmountOverridesToCycles, type PayoutAmountOverrideEventRow } from "@/lib/payout-amount-overrides";
+import { applyPayoutAmountOverridesToCycles, type ConfirmedPayoutAmountEventRow, type PayoutAmountOverrideEventRow } from "@/lib/payout-amount-overrides";
 import { isNonCashAllocationMember } from "@/lib/reward-finance-summary";
 import { loadLiveCashPlans } from "./live-monthly-cash-plan.ts";
 import {
@@ -585,7 +585,7 @@ export async function buildLiveMonthlyPlInputs(
   const memberCashByYm = new Map<string, number>();
   if (payoutProjectIds.length > 0) {
     const lookbackYm = addMonths(startYmStr, -6);
-    const [payoutRes, snapshotsRes, overridesRes] = await Promise.all([supabase
+    const [payoutRes, snapshotsRes, overridesRes, confirmedAmountsRes] = await Promise.all([supabase
       .from("billing_cycles")
       .select("project_id, ym, invoice_ym, invoice_issued_at, invoice_sent_at, status, reward_summary_json")
       .in("project_id", payoutProjectIds)
@@ -594,13 +594,14 @@ export async function buildLiveMonthlyPlInputs(
       .limit(1000),
       supabase.from("monthly_reward_payout").select("project_id,ym,member_id,total_pay").gte("ym",lookbackYm).lte("ym",endYmStr).limit(1000),
       supabase.from("legacy_reward_payout_amount_override_events").select("id,project_id,source_ym,member_id,action,amount_yen,reason,authorized_by,created_at").gte("source_ym",lookbackYm).lte("source_ym","202606").limit(1000),
+      supabase.from("member_payout_amount_confirmation_events").select("id,event_key,project_id,source_ym,payment_ym,member_id,action,amount_yen,reason,authorized_by,created_at").gte("source_ym",lookbackYm).lte("source_ym",endYmStr).limit(1000),
     ]);
-    for (const response of [payoutRes,snapshotsRes,overridesRes]) {
+    for (const response of [payoutRes,snapshotsRes,overridesRes,confirmedAmountsRes]) {
       if (response.error) throw response.error;
       if (response.data?.length === 1000) throw new Error("報酬正本の読取上限に達したため試算を停止");
     }
     const rawCycles = (payoutRes.data ?? []) as Array<BillingRow & {invoice_ym: string | null; status: string | null; reward_summary_json: unknown}>;
-    const cycles = applyLegacyPayoutAmountOverridesToCycles(applyPayoutSnapshotsToCycles(rawCycles, (snapshotsRes.data ?? []) as PayoutSnapshot[]), (overridesRes.data ?? []) as PayoutAmountOverrideEventRow[]);
+    const cycles = applyPayoutAmountOverridesToCycles(applyPayoutSnapshotsToCycles(rawCycles, (snapshotsRes.data ?? []) as PayoutSnapshot[]), (overridesRes.data ?? []) as PayoutAmountOverrideEventRow[], (confirmedAmountsRes.data ?? []) as ConfirmedPayoutAmountEventRow[]);
     for (const row of cycles) {
       const cost = payoutCostFromRewardSummary(row.reward_summary_json, memberById);
       if (!cost) continue;

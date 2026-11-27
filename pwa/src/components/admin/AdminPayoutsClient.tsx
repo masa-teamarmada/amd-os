@@ -1952,7 +1952,10 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
     );
   }, [expectedEntries, memberMap, memberRecordMap, payoutExcludedMemberIds, noticeMap, payoutMap, reimbursementsByMember]);
 
-  const payableMemberRows = memberRows.filter((row) => !row.noticeExcluded && row.totalPay + row.reimbursementYen > 0);
+  const payableMemberRows = memberRows.filter((row) => !row.noticeExcluded && (
+    row.totalPay + row.reimbursementYen > 0 ||
+    row.entries.some((entry) => entry.payoutAmountOverride?.kind === "confirmed_payment_amount")
+  ));
   const grandTotal = memberRows.reduce((sum, row) => sum + row.totalPay, 0);
   const regularBaseTotal = memberRows.reduce((sum, row) => sum + row.regularBasePay, 0);
   const extraBaseTotal = memberRows.reduce((sum, row) => sum + row.extraBasePay, 0);
@@ -2737,7 +2740,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                                     className="rounded border border-sky-200 bg-sky-50 px-1 text-sky-900"
                                     title={`${entry.payoutAmountOverride.reason} / 承認: ${entry.payoutAmountOverride.authorizedBy}`}
                                   >
-                                    事前合意額：通常 {fmtFlowYen(entry.payoutAmountOverride.calculatedTotalPayYen)} → 固定 {fmtFlowYen(entry.payoutAmountOverride.amountYen)}
+                                    {entry.payoutAmountOverride.kind === "confirmed_payment_amount" ? "今回の確定額" : "事前合意額"}：計算値 {fmtFlowYen(entry.payoutAmountOverride.calculatedTotalPayYen)} → {fmtFlowYen(entry.payoutAmountOverride.amountYen)}
                                   </span>
                                 ) : null}
                                 {entry.carryInYen > 0 ? (
@@ -2768,6 +2771,9 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                     <td className="px-3 py-2 text-right">
                       <div className="font-semibold">税抜 {fmtYen(row.totalPay)}</div>
                       <div className="text-[10px] text-muted-foreground">税込 {fmtTaxIncludedYen(row.totalPay)}</div>
+                      {row.notice?.paid_on && Math.abs(numberValue(row.notice.paid_amount_yen) - (Math.round(row.totalPay * 1.1) + row.reimbursementYen)) <= 3 && (
+                        <div className="text-[10px] text-emerald-700">今回追加 0円</div>
+                      )}
                       {row.reimbursementYen > 0 && (
                         <>
                           <div className="text-[10px] text-violet-700">＋立替 {fmtYen(row.reimbursementYen)}</div>
@@ -2778,7 +2784,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                       )}
                     </td>
                     <td className="px-3 py-2">
-                      <NoticeBadge
+                      {row.totalPay + row.reimbursementYen === 0 ? <span className="text-[11px] text-muted-foreground">0円・発行なし</span> : <NoticeBadge
                         notice={row.notice}
                         ym={row.notice?.ym ?? ym}
                         memberId={row.memberId}
@@ -2786,10 +2792,10 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                         expectedReimbursement={row.reimbursementYen}
                         profileStale={row.noticeProfileStale}
                         excluded={row.noticeExcluded}
-                      />
+                      />}
                     </td>
                     <td className="px-3 py-2">
-                      <PayoutNoticeActions
+                      {row.totalPay + row.reimbursementYen === 0 ? <span className="text-[11px] text-muted-foreground">発行なし</span> : <PayoutNoticeActions
                         row={row}
                         disabled={
                           loading ||
@@ -2804,7 +2810,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                         onOpenPdf={openPdfUrl}
                         onUpdateNoticeSent={updateNoticeSent}
                         onOpenSendMailModal={openNoticeMailModal}
-                      />
+                      />}
                     </td>
                   </tr>
                 ))

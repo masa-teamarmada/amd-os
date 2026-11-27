@@ -2055,6 +2055,28 @@
         }
       }
     },
+    "member_payout_amount_confirmation_events": {
+      "label": "支払通知額の確定記録",
+      "key": [
+        "id"
+      ],
+      "context": [
+        "id",
+        "project_id",
+        "member_id",
+        "payment_ym"
+      ],
+      "references": {
+        "project_id": {
+          "table": "projects",
+          "key": "project_id"
+        },
+        "member_id": {
+          "table": "members",
+          "key": "member_id"
+        }
+      }
+    },
     "member_activities": {
       "label": "メンバーの活動",
       "key": [

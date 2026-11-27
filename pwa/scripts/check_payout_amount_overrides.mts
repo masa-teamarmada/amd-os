@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import {
   applyLegacyPayoutAmountOverridesToCycles,
+  applyPayoutAmountOverridesToCycles,
   latestLegacyPayoutOverrideEvents,
+  type ConfirmedPayoutAmountEventRow,
   type PayoutAmountOverrideEventRow,
 } from "../src/lib/payout-amount-overrides.ts";
 
@@ -107,5 +109,36 @@ const missingMemberEvent: PayoutAmountOverrideEventRow = {
 const withMissingMember = applyLegacyPayoutAmountOverridesToCycles([originalCycle], [missingMemberEvent]);
 const addedMembers = (withMissingMember[0].reward_summary_json as { members: Array<Record<string, unknown>> }).members;
 assert.equal(addedMembers.find((member) => member.memberId === "ID026")?.totalPay, 55_000);
+
+const octoberCycle = {
+  project_id: "p19",
+  ym: "202610",
+  reward_summary_json: {
+    totalPaySum: 576_000,
+    externalRegularPayoutCapYen: 176_000,
+    externalExtraPayoutCapYen: 400_000,
+    members: [
+      { memberId: "ID009", totalPay: 264_000, regularPaidYen: 64_000, extraPaidYen: 200_000, stockYen: 0 },
+      { memberId: "ID008", totalPay: 237_300, regularPaidYen: 37_300, extraPaidYen: 200_000, stockYen: 0 },
+      { memberId: "ID004", totalPay: 19_500, regularPaidYen: 19_500, extraPaidYen: 0, stockYen: 0 },
+      { memberId: "ID026", totalPay: 55_200, regularPaidYen: 55_200, extraPaidYen: 0, stockYen: 0 },
+    ],
+  },
+};
+const confirmed: ConfirmedPayoutAmountEventRow[] = [
+  { id: 1, event_key: "abi", project_id: "p19", source_ym: "202610", payment_ym: "202611", member_id: "ID009", action: "set", amount_yen: 40_200, reason: "前回支払額で確定", authorized_by: "masa", created_at: "2026-11-27T00:00:00Z" },
+  { id: 2, event_key: "ume", project_id: "p19", source_ym: "202610", payment_ym: "202611", member_id: "ID008", action: "set", amount_yen: 0, reason: "稼働なし", authorized_by: "masa", created_at: "2026-11-27T00:00:01Z" },
+];
+const confirmedCycle = applyPayoutAmountOverridesToCycles([octoberCycle], [], confirmed)[0];
+const confirmedSummary = confirmedCycle.reward_summary_json as Record<string, unknown>;
+const confirmedMembers = confirmedSummary.members as Array<Record<string, unknown>>;
+assert.equal(confirmedMembers.find((member) => member.memberId === "ID009")?.totalPay, 40_200);
+assert.equal(confirmedMembers.find((member) => member.memberId === "ID008")?.totalPay, 0);
+assert.equal(confirmedMembers.find((member) => member.memberId === "ID004")?.totalPay, 19_500);
+assert.equal(confirmedMembers.find((member) => member.memberId === "ID026")?.totalPay, 55_200);
+assert.equal(confirmedSummary.externalRegularPayoutCapYen, 114_900);
+assert.equal(confirmedSummary.externalExtraPayoutCapYen, 0);
+assert.equal((octoberCycle.reward_summary_json.members[0] as Record<string, unknown>).totalPay, 264_000, "報酬計算の正本は書き換えない");
+assert.equal((confirmedMembers[0].payoutAmountOverride as Record<string, unknown>).kind, "confirmed_payment_amount");
 
 console.log("payout amount override tests passed");

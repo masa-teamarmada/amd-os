@@ -24,8 +24,9 @@ import {
 } from "@/lib/finance/payout-reimbursements";
 import type { ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
 import {
-  applyLegacyPayoutAmountOverridesToCycles,
+  applyPayoutAmountOverridesToCycles,
   type AppliedPayoutAmountOverride,
+  type ConfirmedPayoutAmountEventRow,
   type PayoutAmountOverrideEventRow,
 } from "@/lib/payout-amount-overrides";
 import {
@@ -1386,7 +1387,7 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
     }
   }
   let cycles = [...cycleMap.values()].sort(cycleSort);
-  const forecastCycles = ((forecastCyclesRes.data ?? []) as BillingCycleRow[]).sort(cycleSort);
+  let forecastCycles = ((forecastCyclesRes.data ?? []) as BillingCycleRow[]).sort(cycleSort);
   const forecastPaymentCycleMap = new Map<string, BillingCycleRow>();
   for (const row of (forecastPaymentCandidateCyclesRes.data ?? []) as BillingCycleRow[]) {
     const project = projectMap.get(row.project_id);
@@ -1428,7 +1429,7 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
   const sourceYms = [...new Set(cycles.map((cycle) => cycle.ym))];
   const projectIds = [...new Set(cycles.map((cycle) => cycle.project_id))];
 
-  const [payoutsRes, noticesRes, extraRevenueRes, payoutAmountOverridesRes] = await Promise.all([
+  const [payoutsRes, noticesRes, extraRevenueRes, payoutAmountOverridesRes, confirmedAmountsRes] = await Promise.all([
     sourceYms.length > 0 && projectIds.length > 0
       ? db
           .from("monthly_reward_payout")
@@ -1453,16 +1454,24 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
           .in("project_id", projectIds)
           .order("id", { ascending: true })
       : Promise.resolve({ data: [], error: null }),
+    db
+      .from("member_payout_amount_confirmation_events")
+      .select("id, event_key, project_id, source_ym, payment_ym, member_id, action, amount_yen, reason, authorized_by, metadata_json, created_at")
+      .in("source_ym", [...new Set([...sourceYms, ...forecastPaymentSourceYms])])
+      .order("id", { ascending: true }),
   ]);
 
   if (payoutsRes.error) throw payoutsRes.error;
   if (noticesRes.error) throw noticesRes.error;
   if (extraRevenueRes.error) throw extraRevenueRes.error;
   if (payoutAmountOverridesRes.error) throw payoutAmountOverridesRes.error;
+  if (confirmedAmountsRes.error) throw confirmedAmountsRes.error;
 
   const payoutAmountOverrides = (payoutAmountOverridesRes.data ?? []) as PayoutAmountOverrideEventRow[];
-  cycles = applyLegacyPayoutAmountOverridesToCycles(cycles, payoutAmountOverrides);
-  forecastPaymentCycles = applyLegacyPayoutAmountOverridesToCycles(forecastPaymentCycles, payoutAmountOverrides);
+  const confirmedAmounts = (confirmedAmountsRes.data ?? []) as ConfirmedPayoutAmountEventRow[];
+  cycles = applyPayoutAmountOverridesToCycles(cycles, payoutAmountOverrides, confirmedAmounts);
+  forecastCycles = applyPayoutAmountOverridesToCycles(forecastCycles, payoutAmountOverrides, confirmedAmounts);
+  forecastPaymentCycles = applyPayoutAmountOverridesToCycles(forecastPaymentCycles, payoutAmountOverrides, confirmedAmounts);
 
   // 将来月の capped 使用額は通常GETでも再計算せず、日次/手動 refresh で作られた
   // billing_cycles.reward_summary_json から集計する。画面を開いただけで重い
