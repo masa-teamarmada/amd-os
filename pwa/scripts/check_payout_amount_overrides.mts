@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { applyPayoutSnapshotsToCycles, buildSeasonAllocation } from "../src/lib/payout-season-allocation.ts";
 import {
   applyLegacyPayoutAmountOverridesToCycles,
   applyPayoutAmountOverridesToCycles,
@@ -140,5 +141,28 @@ assert.equal(confirmedSummary.externalRegularPayoutCapYen, 114_900);
 assert.equal(confirmedSummary.externalExtraPayoutCapYen, 0);
 assert.equal((octoberCycle.reward_summary_json.members[0] as Record<string, unknown>).totalPay, 264_000, "報酬計算の正本は書き換えない");
 assert.equal((confirmedMembers[0].payoutAmountOverride as Record<string, unknown>).kind, "confirmed_payment_amount");
+
+const seasonCycle = { ...octoberCycle, invoice_ym: null, status: "allocation_confirmed", budget_yen: 300_000, extra_budget_yen: 400_000 };
+const saved = applyPayoutSnapshotsToCycles([seasonCycle], [
+  { project_id: "p19", ym: "202610", member_id: "ID009", total_pay: 40_200 },
+  { project_id: "p19", ym: "202610", member_id: "ID008", total_pay: 0 },
+]);
+const savedConfirmed = applyPayoutAmountOverridesToCycles(saved, [], confirmed);
+const savedMembers = (savedConfirmed[0].reward_summary_json as { members: Array<Record<string, unknown>> }).members;
+assert.equal(savedMembers.find((member) => member.memberId === "ID009")?.payoutSnapshotSplitUnknown, false, "保存額が明示確定額と一致すれば別財布内訳の未確認を解消する");
+assert.equal(savedMembers.find((member) => member.memberId === "ID008")?.payoutSnapshotSplitUnknown, false);
+const allocation = buildSeasonAllocation(
+  { project_id: "p19", plan_cycle_id: "season", status: "active", period_start_ym: "202610", period_end_ym: "202610", budget_yen: 300_000 },
+  savedConfirmed,
+  ["ID009", "ID008", "ID004", "ID026"].map((member_id) => ({ member_id, code_name: member_id, exclude_from_payout_notice: false })),
+  ["202610"],
+);
+assert.equal(allocation.status, "within_budget", "保存明細と確定額が一致する月をシーズン表で未計算にしない");
+assert.equal(allocation.cashYen, 114_900);
+
+const mismatched = applyPayoutAmountOverridesToCycles(applyPayoutSnapshotsToCycles([seasonCycle], [
+  { project_id: "p19", ym: "202610", member_id: "ID009", total_pay: 50_000 },
+]), [], confirmed)[0];
+assert.equal((mismatched.reward_summary_json as { members: Array<Record<string, unknown>> }).members[0].payoutSnapshotSplitUnknown, true, "保存額と確定額が食い違うときは未確認を残す");
 
 console.log("payout amount override tests passed");

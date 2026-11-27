@@ -152,11 +152,16 @@ export function applyPayoutAmountOverridesToCycles<T extends OverrideAwareBillin
       appliedCount += 1;
       const confirmed = confirmedKeys.has(overrideKey(cycle.project_id, cycle.ym, memberId));
       if (confirmed) confirmedAppliedCount += 1;
+      const snapshotMatchesConfirmation = confirmed
+        && member.payoutSnapshotCalculatedTotalYen !== undefined
+        && member.payoutSnapshotAmountUnknown === false
+        && calculatedTotalPayYen === amountYen;
       return {
         ...member,
         totalPay: amountYen,
         regularPaidYen: amountYen,
         extraPaidYen: 0,
+        ...(snapshotMatchesConfirmation ? { payoutSnapshotSplitUnknown: false } : {}),
         payoutAmountOverride: appliedOverride(row, calculatedTotalPayYen, confirmed ? "confirmed_payment_amount" : "legacy_prior_agreement"),
       };
     });
