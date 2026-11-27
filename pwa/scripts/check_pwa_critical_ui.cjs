@@ -1921,7 +1921,8 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
   "gateOnly",
   "今回の確定額",
   "0円・発行なし",
-  "今回追加 0円",
+  "今回支払",
+  "今回の追加支払予定",
   "payoutAmountOverride",
   "fmtFlowYen(entry.payoutAmountOverride.amountYen)",
 ]);

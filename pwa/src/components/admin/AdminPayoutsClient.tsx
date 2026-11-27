@@ -486,6 +486,12 @@ type MemberPayoutRow = {
   isSaved: boolean;
 };
 
+function remainingPaymentYen(row: MemberPayoutRow): number {
+  const grossYen = Math.round(row.totalPay * 1.1) + row.reimbursementYen;
+  const alreadyPaidYen = row.notice?.paid_on ? Math.round(numberValue(row.notice.paid_amount_yen)) : 0;
+  return Math.max(0, grossYen - alreadyPaidYen);
+}
+
 type MemberMonthlyPayoutProjectLine = PayoutEntry & {
   projectName: string;
 };
@@ -2586,11 +2592,11 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
       </section>
 
       <div className="flex flex-wrap gap-x-5 gap-y-1 border-y border-border bg-muted/20 px-2 py-2 text-xs tabular-nums" aria-live="polite">
-        <span>発行対象 <strong>{memberRows.filter((row) => !row.noticeExcluded && row.totalPay + row.reimbursementYen > 0).length}人</strong></span>
+        <span>今回の支払対象 <strong>{memberRows.filter((row) => !row.noticeExcluded && remainingPaymentYen(row) > 0).length}人</strong></span>
         <span>合意の要確認 <strong>{agreementGate ? `${agreementBlockedMemberIds.size}人` : "確認中"}</strong></span>
         <span>PDF作成済み <strong>{memberRows.filter((row) => row.notice?.pdf_url).length}人</strong></span>
         <span>送付済み <strong>{memberRows.filter((row) => row.notice?.sent_at).length}人</strong></span>
-        <span className="ml-auto">今回の通知総額 <strong className="font-mono">{fmtFlowYen(memberRows.reduce((sum, row) => sum + Math.round(row.totalPay * 1.1) + row.reimbursementYen, 0))}</strong> <span className="text-muted-foreground">税込・立替込み</span></span>
+        <span className="ml-auto">今回の追加支払予定 <strong className="font-mono">{fmtFlowYen(memberRows.filter((row) => !row.noticeExcluded).reduce((sum, row) => sum + remainingPaymentYen(row), 0))}</strong> <span className="text-muted-foreground">税込・立替込み</span></span>
       </div>
 
       <section id="payout-members" className="scroll-mt-4 space-y-2">
@@ -2746,8 +2752,8 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                                 {entry.carryInYen > 0 ? (
                                   <span className="text-sky-700">繰越 {fmtYen(entry.carryInYen)}</span>
                                 ) : null}
-                                  <span className="font-medium">支払 税抜 {fmtYen(entry.totalPay)}</span>
-                              <span className="text-muted-foreground">税込 {fmtTaxIncludedYen(entry.totalPay)}</span>
+                                  <span className="font-medium">{row.notice?.paid_on ? "支払済みの通知額" : "支払"} 税抜 {fmtFlowYen(entry.totalPay)}</span>
+                              <span className="text-muted-foreground">税込 {fmtFlowYen(Math.round(entry.totalPay * 1.1))}</span>
                                 {entry.stockYen > 0 ? (
                                   <span className="text-amber-700">未払い残 {fmtYen(entry.stockYen)}</span>
                                 ) : null}
@@ -2769,10 +2775,16 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                       {agreementGate && !agreementBlockedMemberIds.has(row.memberId) && !row.noticeProfileStale && row.isSaved && memberRecordMap.get(row.memberId)?.email && memberRecordMap.get(row.memberId)?.member_address?.trim() && <span className="text-muted-foreground">追加の確認なし</span>}
                     </td>
                     <td className="px-3 py-2 text-right">
-                      <div className="font-semibold">税抜 {fmtYen(row.totalPay)}</div>
-                      <div className="text-[10px] text-muted-foreground">税込 {fmtTaxIncludedYen(row.totalPay)}</div>
-                      {row.notice?.paid_on && Math.abs(numberValue(row.notice.paid_amount_yen) - (Math.round(row.totalPay * 1.1) + row.reimbursementYen)) <= 3 && (
-                        <div className="text-[10px] text-emerald-700">今回追加 0円</div>
+                      {row.notice?.paid_on && remainingPaymentYen(row) === 0 ? (
+                        <>
+                          <div className="font-semibold">今回支払 {fmtFlowYen(0)}</div>
+                          <div className="text-[10px] text-emerald-700">支払済みの通知額 税抜 {fmtFlowYen(row.totalPay)} · 税込 {fmtFlowYen(Math.round(row.totalPay * 1.1))}</div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="font-semibold">税抜 {fmtFlowYen(row.totalPay)}</div>
+                          <div className="text-[10px] text-muted-foreground">税込 {fmtFlowYen(Math.round(row.totalPay * 1.1))}</div>
+                        </>
                       )}
                       {row.reimbursementYen > 0 && (
                         <>
