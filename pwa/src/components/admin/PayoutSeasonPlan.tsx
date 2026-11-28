@@ -136,8 +136,8 @@ export function PayoutSeasonPlanView({ ym, plan: current, loading = false, error
               return <tr key={`all:${metric}`} className="bg-muted/30 font-semibold">
               {index === 0 && <th rowSpan={aggregateRows.length} scope="rowgroup" className="sticky left-0 z-20 border-b border-r border-border bg-muted px-2 py-1 text-left align-top">設定済みPJ計</th>}
               <th scope="row" className="sticky left-[104px] z-20 border-b border-r border-border bg-muted px-2 py-1 text-left">{label}</th>
-              <td className={`sticky left-[248px] z-20 border-b border-r border-border bg-muted px-2 py-1 text-right font-mono ${styles(total, metric)}`} title={row.combinePay ? paymentBreakdown(current.totals) : "設定済みPJの期間合計"}>{isBalance(metric) ? null : valueLabel(total)}</td>
-              <td className={`sticky left-[352px] z-20 border-b border-r border-border bg-muted px-2 py-1 text-right font-mono ${styles(total, metric)}`} title={metric === "debt" ? "各PJのシーズン末残高の合計" : "最終月末の残高"}>{isBalance(metric) ? valueLabel(total) : null}</td>
+              <td className={`sticky left-[248px] z-20 border-b border-r border-border bg-muted px-2 py-1 text-right font-mono ${styles(total, metric)}`} title={isBalance(metric) ? undefined : row.combinePay ? paymentBreakdown(current.totals) : "設定済みPJの期間合計"}>{isBalance(metric) ? null : valueLabel(total)}</td>
+              <td className={`sticky left-[352px] z-20 border-b border-r border-border bg-muted px-2 py-1 text-right font-mono ${styles(total, metric)}`} title={isBalance(metric) ? metric === "debt" ? "各PJのシーズン末残高の合計" : "最終月末の残高" : undefined}>{isBalance(metric) ? valueLabel(total) : null}</td>
               {numericCells(current.totalCells, row)}
             </tr>; })}
             {current.projects.map((project) => !project.planId ? <tr key={project.projectId}>
@@ -155,8 +155,8 @@ export function PayoutSeasonPlanView({ ym, plan: current, loading = false, error
                 {project.notes.map((note) => <div key={note} className="mt-1 text-[10px] font-normal text-muted-foreground">{note}</div>)}
               </th>}
               <th scope="row" title={row.member ? `${row.member.memberName} / ${row.member.memberId}` : label} className={`sticky left-[104px] z-20 border-b border-r border-border px-2 py-1 text-left font-normal ${metric === "net" ? "bg-muted font-semibold" : "bg-background"}`}><span className="block max-w-[128px] truncate">{label}</span></th>
-              <td title={row.combinePay ? paymentBreakdown(row.member?.totals ?? project.totals) : "表示期間の合計"} className={`sticky left-[248px] z-20 border-b border-r border-border bg-muted px-2 py-1 text-right font-mono font-medium ${styles(total, metric)}`}>{isBalance(metric) ? null : valueLabel(total)}</td>
-              <td title={metric === "debt" ? `${ymLabel(project.endYm!)}末の残高` : `${ymLabel(current.months.at(-1)!)}末の残高`} className={`sticky left-[352px] z-20 border-b border-r border-border bg-muted px-2 py-1 text-right font-mono font-medium ${styles(total, metric)}`}>{isBalance(metric) ? valueLabel(total) : null}</td>
+              <td title={isBalance(metric) ? undefined : row.combinePay ? paymentBreakdown(row.member?.totals ?? project.totals) : "表示期間の合計"} className={`sticky left-[248px] z-20 border-b border-r border-border bg-muted px-2 py-1 text-right font-mono font-medium ${styles(total, metric)}`}>{isBalance(metric) ? null : valueLabel(total)}</td>
+              <td title={isBalance(metric) ? metric === "debt" ? `${ymLabel(project.endYm!)}末の残高` : `${ymLabel(current.months.at(-1)!)}末の残高` : undefined} className={`sticky left-[352px] z-20 border-b border-r border-border bg-muted px-2 py-1 text-right font-mono font-medium ${styles(total, metric)}`}>{isBalance(metric) ? valueLabel(total) : null}</td>
               {numericCells(project.cells, row, project)}
             </tr>; })}</Fragment>)}
           </tbody>
