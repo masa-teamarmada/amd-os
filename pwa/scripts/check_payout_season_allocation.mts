@@ -45,7 +45,7 @@ assert.equal(payable.totalYen, 297);
 assert.equal(payable.remainingYen, 348, "表示を簡潔にしても既存の割当を追加支払へ開放しない");
 const matrix = buildPayoutSeasonPlan({ paymentYm: "202607", projects: [{ project_id: "fixture", project_name: "検証", status: "active", payment_due_rule: "next_month_end", payment_due_day: null }], plans: [plan], cycles: overlaid, members: profiles, extraRevenueRows: [] });
 assert.equal(matrix.projects[0].totals.regularPay, actual.cashYen, "月別表と年間表の振込対象額が一致する。is_officerだけで除外しない");
-assert.deepEqual(matrix.projects[0].memberPayments[0].cells["202607"].sourceYms, ["202606"], "7月振込の理由は6月稼働分へ進む");
+assert.deepEqual(matrix.projects[0].memberPayments.find((member) => member.memberId === "a")?.cells["202606"].sourceYms, ["202606"], "月別収支の報酬根拠は同じ稼働月へ進む");
 assert.equal(buildSeasonAllocation({ ...plan, budget_yen: 100 }, overlaid, profiles, months).remainingYen, -202);
 assert.equal(buildSeasonAllocation({ ...plan, budget_yen: 100 }, overlaid, profiles, months).status, "overallocated");
 assert.equal(buildSeasonAllocation({ ...plan, budget_yen: 100 }, overlaid, profiles, months).paymentStatus, "over_budget", "外部支払そのものの原資超過を検出する");

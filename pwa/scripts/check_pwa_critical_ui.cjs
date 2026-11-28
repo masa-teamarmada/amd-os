@@ -4668,9 +4668,9 @@ expectIncludes("src/components/cockpit/AmieTechDisclosure.tsx", ["秘密度とDD
 expectIncludes("src/components/cockpit/AmieTechDisclosureMark.tsx", ['private:"DD非掲載"', "data-amie-sensitivity"]);
 
 // 支払通知書の工程と全シーズン収支は、旧12か月表から置換した必須導線。
-expectIncludes("src/components/admin/PayoutSeasonPlan.tsx", ["01 全PJのシーズン収支予定", "payout-season-matrix", "sticky left-0", "sticky left-[104px]", "sticky left-[248px]", "data-payment-column", "支払月へ", "未計算", "シーズン未設定", "設定済みPJ計", "memberPayments.map", "data-payout-member", "費目・メンバー", "報酬中心にする", "paymentBreakdown"]);
+expectIncludes("src/components/admin/PayoutSeasonPlan.tsx", ["01 全PJのシーズン収支予定", "月別収支（稼働月）", "payout-season-matrix", "sticky left-0", "sticky left-[104px]", "sticky left-[248px]", "sticky left-[352px]", "期間計", "最終残高", "data-payment-column", "選択月へ", "未計算", "シーズン未設定", "設定済みPJ計", "memberPayments.map", "data-payout-member", "費目・メンバー", "報酬中心にする", "paymentBreakdown"]);
 expectIncludes("src/app/api/admin/payouts/season-plan/route.ts", ["requireAdmin", "loadPayoutSeasonPlan", "private, no-store"]);
-expectIncludes("src/lib/payout-season-plan.ts", ["choosePayoutSeason", "clientReceiptYmForCycle", "memberPayoutYmForCycle", "expandExtraRevenueCash", "row.cells[row.endYm!]?.debt", "row.missingMonths.push(ym)"]);
+expectIncludes("src/lib/payout-season-plan.ts", ["choosePayoutSeason", "memberPayoutYmForCycle", "expandExtraRevenue", "add(cell(ym), \"income\", income)", "row.cells[row.endYm!]?.debt", "row.missingMonths.push(ym)"]);
 
 // Admin月次一覧は全PJの二種類の状態と同画面プレビューを維持する。
 expectIncludes("src/lib/surface-catalog.ts", ["admin-monthly-reports", "月次報告書", "/admin/monthly-reports"]);

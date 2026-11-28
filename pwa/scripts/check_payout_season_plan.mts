@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { buildPayoutSeasonPlan, choosePayoutSeason, recordedNoticePaymentYm, type SeasonBilling, type SeasonProject } from "../src/lib/payout-season-plan.ts";
+import { buildPayoutSeasonPlan, choosePayoutSeason, type SeasonBilling, type SeasonProject } from "../src/lib/payout-season-plan.ts";
 
 const project: SeasonProject = { project_id: "test-a", project_name: "検証PJ", status: "active", fee_type: "monthly_fixed", fee_amount: 1000, start_ym: "202601", end_ym: "202603", payment_due_rule: "next_month_end", payment_due_day: null };
 const plan = { project_id: project.project_id, plan_cycle_id: "test-season", status: "active", period_start_ym: "202601", period_end_ym: "202603" };
@@ -13,25 +13,27 @@ const cycles: SeasonBilling[] = ["202601", "202602", "202603"].map((ym, index) =
 const base = { paymentYm: "202602", projects: [project], plans: [plan], cycles, members: [{ member_id: "external", code_name: "かる", member_name: "正式名" }, { member_id: "officer", is_officer: true, exclude_from_payout_notice: true }, { member_id: "excluded", exclude_from_payout_notice: true }], extraRevenueRows: [] };
 const actual = buildPayoutSeasonPlan(base);
 const row = actual.projects[0];
-assert.equal(row.cells["202602"].regularPay, 500, "支払月はPJ支払条件から決める");
-assert.equal(row.cells["202606"].regularPay, 0, "請求月をメンバー支払月へ流用しない");
-assert.equal(row.cells["202606"].income, 3000, "本契約入金は請求月を反映する");
+assert.equal(row.cells["202602"].regularPay, 500, "報酬は稼働月へ置く");
+assert.equal(row.cells["202606"]?.regularPay, undefined, "請求・支払月へ報酬を動かさない");
+assert.equal(row.cells["202601"].income, 1000);
+assert.equal(row.cells["202602"].income, 1000);
+assert.equal(row.cells["202603"].income, 1000, "本契約売上は稼働月へ置く");
 assert.equal(row.totals.regularPay, 1500, "役員・通知対象外を外部支払に混ぜない");
 assert.equal(row.totals.extraPay, 300);
 assert.equal(row.totals.debt, 50, "未払残高を月間合算しない");
 assert.equal(row.totals.net, 1200);
 assert.equal(actual.months[0], "202601", "シーズン前半を省略しない");
-assert.equal(actual.months.at(-1), "202606", "最終入金・支払まで表示する");
+assert.equal(actual.months.at(-1), "202603", "シーズン最終稼働月まで表示する");
 assert.equal(row.memberPayments.length, 1, "役員・通知対象外の個人行を作らない");
 assert.equal(row.memberPayments[0].memberName, "かる", "既存の作成一覧と同じコードネームを使う");
-assert.deepEqual(row.memberPayments[0].cells["202602"], { regularPay: 500, extraPay: 100, sourceYms: ["202601"] }, "個人行も支払月に本契約・別財布と対応する稼働月を保持する");
+assert.deepEqual(row.memberPayments[0].cells["202601"], { regularPay: 500, extraPay: 100, sourceYms: ["202601"] }, "個人行は稼働月に本契約・別財布を保持する");
 assert.deepEqual(row.memberPayments[0].totals, { regularPay: 1500, extraPay: 300 });
 
 const missing = buildPayoutSeasonPlan({ ...base, cycles: cycles.filter((cycle) => cycle.ym !== "202602") });
-assert.equal(missing.projects[0].cells["202603"].regularPay, null, "未計算を予算や0円で埋めない");
+assert.equal(missing.projects[0].cells["202602"].regularPay, null, "未計算を予算や0円で埋めない");
 assert.equal(missing.projects[0].totals.net, null, "未計算がある収支合計を安全扱いしない");
 assert.deepEqual(missing.projects[0].missingMonths, ["202602"]);
-assert.deepEqual(missing.projects[0].memberPayments[0].cells["202603"], { regularPay: null, extraPay: null }, "欠損月は個人の支払も未計算");
+assert.deepEqual(missing.projects[0].memberPayments[0].cells["202602"], { regularPay: null, extraPay: null }, "欠損月は個人の報酬も未計算");
 assert.equal(missing.projects[0].memberPayments[0].totals.regularPay, null);
 const zero = buildPayoutSeasonPlan({ ...base, cycles: cycles.map((cycle) => ({ ...cycle, reward_summary_json: { members: [] } })) });
 assert.equal(zero.projects[0].totals.regularPay, 0, "0円の計算済みキャッシュは0円");
@@ -52,14 +54,14 @@ const multiple = buildPayoutSeasonPlan({
 });
 const multipleProject = multiple.projects[0];
 assert.deepEqual(multipleProject.memberPayments.map((member) => member.memberName), ["かる", "2人目"]);
-assert.deepEqual(multipleProject.memberPayments[1].cells["202602"], { regularPay: 200, extraPay: 50, sourceYms: ["202601"] }, "別財布は個人の支払額へ一度だけ加える");
+assert.deepEqual(multipleProject.memberPayments[1].cells["202601"], { regularPay: 200, extraPay: 50, sourceYms: ["202601"] }, "別財布は個人の報酬へ一度だけ加える");
 for (const month of multiple.months) {
   for (const metric of ["regularPay", "extraPay"] as const) {
     assert.equal(multipleProject.memberPayments.reduce((total, member) => total + member.cells[month][metric]!, 0), multipleProject.cells[month][metric], "各月の個人額合計が既存PJ報酬と一致する");
   }
 }
 const noWorkMonth = buildPayoutSeasonPlan({ ...base, cycles: cycles.map((cycle) => cycle.ym === "202602" ? { ...cycle, reward_summary_json: { members: [] } } : cycle) });
-assert.deepEqual(noWorkMonth.projects[0].memberPayments[0].cells["202603"], { regularPay: 0, extraPay: 0 }, "計算済みで参加のない月は個人額も0円");
+assert.deepEqual(noWorkMonth.projects[0].memberPayments[0].cells["202602"], { regularPay: 0, extraPay: 0 }, "計算済みで参加のない月は個人額も0円");
 
 const expenses = buildPayoutSeasonPlan({ ...base, expenses: [{ projectId: project.project_id, ym: "202602", amountYen: 101, kind: "reimbursement" }, { projectId: project.project_id, ym: "202603", amountYen: 99, kind: "other" }] });
 assert.equal(expenses.projects[0].totals.net, 1000, "立替実費と追加支出を一度だけ控除する");
@@ -74,43 +76,8 @@ assert.equal(unconfigured.projects.find((item) => item.projectId === "no-season"
 const zeroProject = { ...project, project_id: "zero", project_name: "AAA 支払なしPJ" };
 const ordered = buildPayoutSeasonPlan({ ...base, projects: [zeroProject, project], plans: [{ ...plan, project_id: "zero", plan_cycle_id: "zero-plan" }, plan], cycles: [...cycles, ...cycles.map((cycle) => ({ ...cycle, project_id: "zero", reward_summary_json: { members: [] } }))] });
 assert.equal(ordered.projects[0].projectId, project.project_id, "今回支払のあるPJを0円のPJより先に表示する");
-console.log("支払通知書のシーズン収支: 月の区別・全期間・外部支払・立替・未計算・期末残高の検証に合格");
-
-// Cash dates override the projection, while contractual member timing and source months remain intact.
-const cashCycles = cycles.map((cycle, i) => ({ ...cycle, payment_confirmed_at: i === 0 ? "2026-03-02T00:00:00+00:00" : null }));
-const paidNotice = { member_id: "external", ym: "202602", total_yen: 600, paid_on: "2026-01-30", paid_amount_yen: 660, reimbursement_yen: 0 };
-const cash = buildPayoutSeasonPlan({ ...base, cycles: cashCycles, paymentNotices: [paidNotice] });
-assert.equal(cash.projects[0].cells["202603"].income, 1000, "確認済み入金は予定の6月から実際の3月へ移す");
-assert.equal(cash.projects[0].cells["202606"].income, 2000, "移動した入金を予定月にも重ねない");
-assert.equal(cash.projects[0].memberPayments[0].cells["202601"].regularPay, 500, "翌月予定の報酬を支払済みの1月に表示する");
-assert.equal(cash.projects[0].memberPayments[0].cells["202602"].regularPay, 0, "支払済み報酬を予定月へ残さない");
-assert.deepEqual(cash.projects[0].memberPayments[0].cells["202601"].sourceYms, ["202601"]);
-assert.equal(cash.projects[0].totals.regularPay, row.totals.regularPay, "実績月への移動でシーズン報酬を増減させない");
-assert.equal(cash.projects[0].totals.income, row.totals.income);
-assert.equal(cash.projects[0].totals.debt, row.totals.debt, "月末未払残は稼働月の残高を保つ");
-for (const notice of [
-  { ...paidNotice, paid_on: null },
-  { ...paidNotice, paid_amount_yen: null },
-  { ...paidNotice, paid_amount_yen: 659 },
-  { ...paidNotice, total_yen: 601 },
-]) {
-  const pending = buildPayoutSeasonPlan({ ...base, paymentNotices: [notice] });
-  assert.equal(pending.projects[0].cells["202602"].regularPay, 500, "支払日・金額の照合が不足した通知書は予定を維持する");
-}
-const secondProject = { ...project, project_id: "test-b", project_name: "検証PJ2" };
-const combined = buildPayoutSeasonPlan({ ...base,
-  projects: [project, secondProject], plans: [plan, { ...plan, project_id: "test-b", plan_cycle_id: "season-b" }],
-  cycles: [...cycles, ...cycles.map((cycle) => ({ ...cycle, project_id: "test-b" }))],
-  paymentNotices: [{ ...paidNotice, total_yen: 1200, paid_amount_yen: 1320 }],
-});
-assert.equal(combined.totalCells["202601"].regularPay, 1000, "複数PJを合算した通知書は全PJの税抜総額を照合してまとめて移す");
-assert.equal(combined.totalCells["202602"].regularPay, 0);
-const partialNotice = buildPayoutSeasonPlan({ ...base,
-  projects: [project, secondProject], plans: [plan, { ...plan, project_id: "test-b", plan_cycle_id: "season-b" }],
-  cycles: [...cycles, ...cycles.map((cycle) => ({ ...cycle, project_id: "test-b" }))], paymentNotices: [paidNotice],
-});
-assert.equal(partialNotice.totalCells["202602"].regularPay, 1000, "合算対象の一部だけで通知額が一致しても移さない");
-
-assert.equal(recordedNoticePaymentYm({ ...paidNotice, reimbursement_yen: 123, paid_amount_yen: 783 }), "202601", "立替実費を税込報酬に加えた出金を照合する");
-assert.equal(recordedNoticePaymentYm({ ...paidNotice, reimbursement_yen: 123, paid_amount_yen: 795 }), null, "立替に消費税を重ねた額は実支払とみなさない");
-assert.equal(recordedNoticePaymentYm({ ...paidNotice, paid_on: "2026-13-30" }), null);
+const cashDates = buildPayoutSeasonPlan({ ...base, cycles: cycles.map((cycle, index) => ({ ...cycle, payment_confirmed_at: index === 0 ? "2026-03-02T00:00:00+00:00" : null })) });
+assert.deepEqual(cashDates.projects[0].cells, row.cells, "入金確認日が変わっても稼働月の収支は変えない");
+const extraRevenue = buildPayoutSeasonPlan({ ...base, extraRevenueRows: [{ project_id: project.project_id, ym: "202601", extra_revenue_json: [{ amount_tax_excl: 300, period_start_ym: "202601", period_end_ym: "202603", payment_received_ym: "202606" }] }] });
+assert.deepEqual(["202601", "202602", "202603"].map((ym) => extraRevenue.projects[0].cells[ym].extraIncome), [100, 100, 100], "別契約売上は入金月ではなく稼働期間へ按分する");
+console.log("支払通知書のシーズン収支: 稼働月の売上・報酬・別契約按分・未計算・期末残高の検証に合格");

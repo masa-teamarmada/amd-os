@@ -9,6 +9,7 @@ import { SEASON_METRICS, type PayoutSeasonPlan as Plan, type SeasonCell, type Se
 const number = new Intl.NumberFormat("ja-JP");
 function ymLabel(ym: string) { return `${ym.slice(0, 4)}/${ym.slice(4)}`; }
 function valueLabel(value: number | null) { return value == null ? "未計算" : value === 0 ? "—" : number.format(value); }
+function isBalance(metric: SeasonMetric) { return metric === "cumulative" || metric === "debt"; }
 const metrics = SEASON_METRICS;
 type MatrixRow = { key: string; metric: SeasonMetric; label: string; combinePay?: boolean; member?: SeasonMemberPayment };
 function paymentTotal(cell: SeasonPaymentCell) {
@@ -16,14 +17,14 @@ function paymentTotal(cell: SeasonPaymentCell) {
 }
 function paymentBreakdown(cell: SeasonPaymentCell) {
   const yen = (value: number | null) => value == null ? "未計算" : `${number.format(value)}円`;
-  return `本契約 ${yen(cell.regularPay)} · 別財布 ${yen(cell.extraPay)}${cell.paidDates?.length ? ` · 支払日 ${cell.paidDates.join("、")}` : ""}`;
+  return `本契約 ${yen(cell.regularPay)} · 別財布 ${yen(cell.extraPay)}`;
 }
 
 /** Align the previous month after the actual sticky columns, regardless of page offsets. */
 function scrollToPaymentContext(wrapper: HTMLDivElement, paymentYm: string) {
   const column = wrapper.querySelector<HTMLElement>(`[data-payment-column="${payoutSeasonFocusYm(paymentYm)}"]`)
     ?? wrapper.querySelector<HTMLElement>("[data-payment-column]");
-  const fixedColumn = wrapper.querySelector<HTMLElement>("thead th:nth-child(3)");
+  const fixedColumn = wrapper.querySelector<HTMLElement>("thead th:nth-child(4)");
   if (column && fixedColumn) {
     const left = wrapper.scrollLeft + column.getBoundingClientRect().left - fixedColumn.getBoundingClientRect().right;
     wrapper.scrollTo({ left: Math.max(0, left), behavior: "instant" });
@@ -61,7 +62,7 @@ export function PayoutSeasonPlanView({ ym, plan: current, loading = false, error
     const wrapper = scrollRef.current;
     if (wrapper) scrollToPaymentContext(wrapper, ym);
   }, [current?.paymentYm, ym]);
-  const shown: MatrixRow[] = metrics.filter(([key]) => key !== "extraPay" && (full || ["net", "regularPay", "debt"].includes(key))).map(([metric, label]) => ({ key: metric, metric, label: metric === "regularPay" ? "報酬支払計" : label, combinePay: metric === "regularPay" }));
+  const shown: MatrixRow[] = metrics.filter(([key]) => key !== "extraPay" && (full || ["net", "regularPay", "debt"].includes(key))).map(([metric, label]) => ({ key: metric, metric, label: metric === "regularPay" ? "メンバー報酬計" : label, combinePay: metric === "regularPay" }));
   const aggregateRows = shown.filter(({ metric }) => ["income", "regularPay", "net", "debt"].includes(metric));
   function projectRows(project: SeasonProjectPlan): MatrixRow[] {
     return shown.flatMap((row) => row.metric !== "regularPay" ? [row] : project.memberPayments.length ? project.memberPayments.map((member) => ({ ...row, key: `member:${member.memberId}`, label: `報酬 · ${member.memberName}`, member })) : [{ ...row, label: project.missingMonths.length ? "報酬 · メンバー未計算" : "報酬 · 対象者なし" }]);
@@ -87,9 +88,8 @@ export function PayoutSeasonPlanView({ ym, plan: current, loading = false, error
       const value = row.combinePay ? paymentTotal(payment) : cells[month][metric];
       const outsideDebt = metric === "debt" && project?.startYm != null && (month < project.startYm || month > project.endYm!);
       const label = outsideDebt ? "対象期間外" : value == null ? "報酬計算または支出額が未確認" : `${number.format(value)}円`;
-      const incomeSources = metric === "income" ? (project ? project.incomeSources?.[month] : current!.projects.flatMap((p) => (p.incomeSources?.[month] ?? []).map((source) => `${p.projectName} ${source}`))) : null;
       const classes = `border-b border-r border-border/60 px-2 py-1 text-right font-mono tabular-nums ${styles(value, metric)} ${month === ym ? "bg-sky-50 dark:bg-sky-950/40" : ""}`;
-      return <td key={month} data-payout-month={month} className={classes} title={`${project?.projectName ?? "全PJ合計"} / ${row.label} / ${ymLabel(month)} / ${label}${row.combinePay ? `（${paymentBreakdown(payment)}）` : ""}${incomeSources?.length ? `\n${incomeSources.join("\n")}` : ""}`}>
+      return <td key={month} data-payout-month={month} className={classes} title={`${project?.projectName ?? "全PJ合計"} / ${row.label} / ${ymLabel(month)}稼働月 / ${label}${row.combinePay ? `（${paymentBreakdown(payment)}）` : ""}`}>
         {project && row.member && value != null && value > 0 && sourceYms.length === 1 ? <button type="button" className="w-full text-right underline decoration-border underline-offset-2 hover:text-sky-700 focus-visible:outline-2 focus-visible:outline-sky-600" onClick={() => onOpenMonthly(project.projectId, sourceYms[0], `${project.projectName} ${ymLabel(sourceYms[0])}稼働分`)} aria-label={`${project.projectName} ${row.member.memberName} ${ymLabel(month)}支払の根拠を見る`}>{valueLabel(value)}</button> : project && metric === "debt" && !outsideDebt ? <button type="button" className="w-full text-right underline decoration-border underline-offset-2 hover:text-sky-700 focus-visible:outline-2 focus-visible:outline-sky-600" onClick={() => onOpenMonthly(project.projectId, month, `${project.projectName} ${ymLabel(month)}`)} aria-label={`${project.projectName} ${ymLabel(month)}の報酬根拠を見る`}>{valueLabel(value)}</button> : outsideDebt ? "·" : valueLabel(value)}
       </td>;
     });
@@ -109,22 +109,24 @@ export function PayoutSeasonPlanView({ ym, plan: current, loading = false, error
     {error ? <div role="alert" className="border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950">{error}<button type="button" onClick={onReload} className="ml-3 underline">収支予定を再読込</button></div> : current ? <>
       <PayoutSeasonBudget projects={current.projects} onOpenMonthly={onOpenMonthly} />
       <div className="flex flex-wrap items-center gap-2 pt-2 text-xs">
-        <h3 className="mr-auto font-semibold">入出金の月別予定</h3>
+        <h3 className="mr-auto font-semibold">月別収支（稼働月）</h3>
         <button type="button" onClick={() => setFull(!full)} aria-pressed={full} className="h-7 border border-border px-2 hover:bg-muted focus-visible:outline-2 focus-visible:outline-sky-600">{full ? "報酬中心にする" : "収支明細も表示"}</button>
-        <button type="button" onClick={jumpToPayment} className="h-7 border border-border px-2 hover:bg-muted focus-visible:outline-2 focus-visible:outline-sky-600">支払月へ</button>
+        <button type="button" onClick={jumpToPayment} className="h-7 border border-border px-2 hover:bg-muted focus-visible:outline-2 focus-visible:outline-sky-600">選択月へ</button>
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-        <span>売上・報酬は税抜、立替は実費。入出金確認済みは実績月、未確認分は予定月。青い列は今回の支払月。未払報酬は稼働月末の残高。</span>
+        <span>売上と報酬は稼働月に表示（税抜）。別契約の売上は対象期間に月割り。入金日・振込日では月を動かさない。青い列は選択月。</span>
         <span>報酬は振込対象者別。本契約＋別財布を表示。金額を押すと、対応する稼働月の繰越・丸めを含む根拠を確認できる。</span>
-        <span>月別表の差引＝入金予定−報酬支払−立替−登録済み追加支出。支払原資と配分の超過は上の報酬予算表で確認。</span>
+        <span>差引＝売上−メンバー報酬−立替経費−登録済み追加支出。立替経費は利用月、追加支出は登録された予定月。支払原資と配分の超過は上の報酬予算表で確認。</span>
+        <span>「期間計」は表示月の収支合計。「最終残高」は累計収支なら表の最終月末、未払報酬なら各PJのシーズン最終月末の残高。月ごとの残高は足さない。</span>
       </div>
       <div ref={scrollRef} role="region" aria-label="全PJのシーズン月別収支表" tabIndex={0} className="max-h-[560px] overflow-auto border border-border focus-visible:outline-2 focus-visible:outline-sky-600">
         <table data-amie-list="matrix" data-testid="payout-season-matrix" className="w-max min-w-full table-fixed border-separate border-spacing-0 text-[11px] leading-4">
-          <colgroup><col style={{ width: 104 }} /><col style={{ width: 144 }} /><col style={{ width: 104 }} />{current.months.map((month) => <col key={month} style={{ width: 88 }} />)}</colgroup>
+          <colgroup><col style={{ width: 104 }} /><col style={{ width: 144 }} /><col style={{ width: 104 }} /><col style={{ width: 104 }} />{current.months.map((month) => <col key={month} style={{ width: 88 }} />)}</colgroup>
           <thead><tr>
             <th scope="col" className="sticky left-0 top-0 z-40 border-b border-r border-border bg-muted px-2 py-2 text-left">PJ・シーズン</th>
             <th scope="col" className="sticky left-[104px] top-0 z-40 border-b border-r border-border bg-muted px-2 py-2 text-left">費目・メンバー</th>
-            <th scope="col" className="sticky left-[248px] top-0 z-40 border-b border-r border-border bg-muted px-2 py-2 text-right">計／期末残</th>
+            <th scope="col" className="sticky left-[248px] top-0 z-40 border-b border-r border-border bg-muted px-2 py-2 text-right">期間計</th>
+            <th scope="col" className="sticky left-[352px] top-0 z-40 border-b border-r border-border bg-muted px-2 py-2 text-right">最終残高</th>
             {current.months.map((month) => <th key={month} data-payment-column={month} scope="col" aria-current={month === ym ? "date" : undefined} className={`sticky top-0 z-30 border-b border-r border-border px-2 py-2 text-right font-mono ${month === ym ? "bg-sky-100 font-bold text-sky-950 dark:bg-sky-900 dark:text-sky-50" : "bg-muted"}`}>{ymLabel(month)}</th>)}
           </tr></thead>
           <tbody>
@@ -134,12 +136,13 @@ export function PayoutSeasonPlanView({ ym, plan: current, loading = false, error
               return <tr key={`all:${metric}`} className="bg-muted/30 font-semibold">
               {index === 0 && <th rowSpan={aggregateRows.length} scope="rowgroup" className="sticky left-0 z-20 border-b border-r border-border bg-muted px-2 py-1 text-left align-top">設定済みPJ計</th>}
               <th scope="row" className="sticky left-[104px] z-20 border-b border-r border-border bg-muted px-2 py-1 text-left">{label}</th>
-              <td className={`sticky left-[248px] z-20 border-b border-r border-border bg-muted px-2 py-1 text-right font-mono ${styles(total, metric)}`} title={metric === "debt" ? "各PJのシーズン末残高の合計" : row.combinePay ? paymentBreakdown(current.totals) : "選択した各PJのシーズン合計"}>{valueLabel(total)}</td>
+              <td className={`sticky left-[248px] z-20 border-b border-r border-border bg-muted px-2 py-1 text-right font-mono ${styles(total, metric)}`} title={row.combinePay ? paymentBreakdown(current.totals) : "設定済みPJの期間合計"}>{isBalance(metric) ? null : valueLabel(total)}</td>
+              <td className={`sticky left-[352px] z-20 border-b border-r border-border bg-muted px-2 py-1 text-right font-mono ${styles(total, metric)}`} title={metric === "debt" ? "各PJのシーズン末残高の合計" : "最終月末の残高"}>{isBalance(metric) ? valueLabel(total) : null}</td>
               {numericCells(current.totalCells, row)}
             </tr>; })}
             {current.projects.map((project) => !project.planId ? <tr key={project.projectId}>
               <th scope="row" className="sticky left-0 z-20 border-b border-r border-border bg-background px-2 py-1 text-left">{project.projectName}</th>
-              <td colSpan={current.months.length + 2} className="border-b border-border px-2 py-1 text-muted-foreground">シーズン未設定 · <Link href={`/project/${project.projectId}/cockpit`} className="text-sky-700 underline">PJで条件を確認</Link></td>
+              <td colSpan={current.months.length + 3} className="border-b border-border px-2 py-1 text-muted-foreground">シーズン未設定 · <Link href={`/project/${project.projectId}/cockpit`} className="text-sky-700 underline">PJで条件を確認</Link></td>
             </tr> : <Fragment key={project.projectId}>{projectRows(project).map((row, index, rows) => {
               const { metric, label } = row;
               const total = rowTotal(project, row);
@@ -147,18 +150,19 @@ export function PayoutSeasonPlanView({ ym, plan: current, loading = false, error
               {index === 0 && <th rowSpan={rows.length} scope="rowgroup" className="sticky left-0 z-20 border-b border-r border-border bg-background px-2 py-1 text-left align-top">
                 <Link href={`/project/${project.projectId}/cockpit`} className="font-semibold text-sky-800 hover:underline">{project.projectName}</Link>
                 <div className="mt-1 font-mono text-[10px] font-normal text-muted-foreground">{ymLabel(project.startYm!)}<br />〜{ymLabel(project.endYm!)}</div>
-                {full && <div className="mt-2 text-[10px] font-normal text-muted-foreground">今回報酬<div className="font-mono text-foreground">{valueLabel(rewardTotal(project, false))}</div>今後報酬<div className="font-mono text-foreground">{valueLabel(rewardTotal(project, true))}</div></div>}
+                {full && <div className="mt-2 text-[10px] font-normal text-muted-foreground">選択月の報酬<div className="font-mono text-foreground">{valueLabel(rewardTotal(project, false))}</div>以降の報酬<div className="font-mono text-foreground">{valueLabel(rewardTotal(project, true))}</div></div>}
                 {project.missingMonths.length > 0 && <div className="mt-1 font-normal text-amber-800" title={project.missingMonths.map(ymLabel).join("、")}>未計算 {project.missingMonths.length}月</div>}
                 {project.notes.map((note) => <div key={note} className="mt-1 text-[10px] font-normal text-muted-foreground">{note}</div>)}
               </th>}
               <th scope="row" title={row.member ? `${row.member.memberName} / ${row.member.memberId}` : label} className={`sticky left-[104px] z-20 border-b border-r border-border px-2 py-1 text-left font-normal ${metric === "net" ? "bg-muted font-semibold" : "bg-background"}`}><span className="block max-w-[128px] truncate">{label}</span></th>
-              <td title={row.combinePay ? paymentBreakdown(row.member?.totals ?? project.totals) : metric === "debt" || metric === "cumulative" ? `${ymLabel(project.endYm!)}末の残高` : "対象シーズンの合計"} className={`sticky left-[248px] z-20 border-b border-r border-border bg-muted px-2 py-1 text-right font-mono font-medium ${styles(total, metric)}`}>{valueLabel(total)}</td>
+              <td title={row.combinePay ? paymentBreakdown(row.member?.totals ?? project.totals) : "表示期間の合計"} className={`sticky left-[248px] z-20 border-b border-r border-border bg-muted px-2 py-1 text-right font-mono font-medium ${styles(total, metric)}`}>{isBalance(metric) ? null : valueLabel(total)}</td>
+              <td title={metric === "debt" ? `${ymLabel(project.endYm!)}末の残高` : `${ymLabel(current.months.at(-1)!)}末の残高`} className={`sticky left-[352px] z-20 border-b border-r border-border bg-muted px-2 py-1 text-right font-mono font-medium ${styles(total, metric)}`}>{isBalance(metric) ? valueLabel(total) : null}</td>
               {numericCells(project.cells, row, project)}
             </tr>; })}</Fragment>)}
           </tbody>
         </table>
       </div>
-      <p className="text-[11px] text-muted-foreground">「—」は0円、「未計算」は金額未確認。未計算を含む合計も未計算と表示。未払報酬は期末残高を表示し、月ごとの残高を足さない。会社共通費・期首資金は財務で確認。</p>
+      <p className="text-[11px] text-muted-foreground">「—」は0円、「未計算」は金額未確認。未計算を含む合計も未計算と表示。会社共通費・期首資金は財務で確認。</p>
     </> : <div className="h-[560px] border border-border bg-muted/20 p-3 text-xs text-muted-foreground">全PJのシーズン開始から最終支払月までを読み込んでいます…</div>}
   </section>;
 }

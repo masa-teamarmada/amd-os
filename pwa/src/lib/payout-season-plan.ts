@@ -1,6 +1,6 @@
 import { contractBackedClientAmount, isYm } from "./contract-money.ts";
-import { clientReceiptYmForCycle, memberPayoutYmForCycle } from "./payment-groups.ts";
-import { expandExtraRevenueCash, type ExtraRevenueSourceRow } from "./finance/extra-revenue.ts";
+import { memberPayoutYmForCycle } from "./payment-groups.ts";
+import { expandExtraRevenue, type ExtraRevenueSourceRow } from "./finance/extra-revenue.ts";
 import { buildSeasonAllocation, type SeasonAllocation } from "./payout-season-allocation.ts";
 import { isNonCashAllocationMember } from "./reward-finance-summary.ts";
 
@@ -25,18 +25,13 @@ export type SeasonBilling = {
   budget_yen?: number | string | null;
 };
 export type SeasonMember = { member_id: string; code_name?: string | null; member_name?: string | null; is_officer?: boolean | null; exclude_from_payout_notice?: boolean | null };
-export type SeasonPaymentNotice = {
-  member_id: string; ym: string; total_yen: number | string | null;
-  paid_on: string | null; paid_amount_yen: number | string | null;
-  reimbursement_yen: number | string | null;
-};
 export type SeasonExpense = { projectId: string | null; ym: string; amountYen: number | null; kind: "reimbursement" | "other" };
 export const SEASON_METRICS = [
-  ["income", "入金予定 · 本契約", "flow"],
-  ["extraIncome", "入金予定 · 別契約", "flow"],
-  ["regularPay", "報酬支払 · 本契約", "flow"],
-  ["extraPay", "報酬支払 · 別財布", "flow"],
-  ["reimbursement", "立替精算 · 実費", "flow"],
+  ["income", "売上 · 本契約", "flow"],
+  ["extraIncome", "売上 · 別契約", "flow"],
+  ["regularPay", "報酬 · 本契約", "flow"],
+  ["extraPay", "報酬 · 別財布", "flow"],
+  ["reimbursement", "立替経費 · 実費", "flow"],
   ["other", "登録済み追加支出", "flow"],
   ["net", "差引収支", "flow"],
   ["cumulative", "累計収支", "balance"],
@@ -44,7 +39,7 @@ export const SEASON_METRICS = [
 ] as const;
 export type SeasonMetric = typeof SEASON_METRICS[number][0];
 export type SeasonCell = Record<SeasonMetric, number | null>;
-export type SeasonPaymentCell = Pick<SeasonCell, "regularPay" | "extraPay"> & { sourceYms?: string[]; paidDates?: string[] };
+export type SeasonPaymentCell = Pick<SeasonCell, "regularPay" | "extraPay"> & { sourceYms?: string[] };
 export type SeasonMemberPayment = {
   memberId: string; memberName: string;
   cells: Record<string, SeasonPaymentCell>; totals: SeasonPaymentCell;
@@ -56,7 +51,6 @@ export type SeasonProjectPlan = {
   cells: Record<string, SeasonCell>; totals: SeasonCell;
   memberPayments: SeasonMemberPayment[];
   missingMonths: string[]; notes: string[];
-  incomeSources?: Record<string, string[]>;
   allocation: SeasonAllocation | null;
 };
 export type PayoutSeasonPlan = {
@@ -98,63 +92,13 @@ export function choosePayoutSeason(plans: SeasonPlan[], project: SeasonProject, 
     .sort((a, b) => Number(a.status === "draft") - Number(b.status === "draft") || b.period_start_ym.localeCompare(a.period_start_ym) || a.plan_cycle_id.localeCompare(b.plan_cycle_id))[0] ?? null;
 }
 
-/** Recorded dates belong to cash flow; the contractual member due month stays unchanged. */
-function recordedMonth(date: string | null | undefined): string | null {
-  const match = /^(\d{4})-(0[1-9]|1[0-2])-\d{2}(?:T|$)/.exec(date ?? "");
-  return match ? `${match[1]}${match[2]}` : null;
-}
-
-/** Exact gross amount reconciliation prevents a sent/generated PDF from becoming a cash receipt. */
-export function recordedNoticePaymentYm(notice: SeasonPaymentNotice): string | null {
-  const month = recordedMonth(notice.paid_on);
-  if (!month || notice.total_yen == null || notice.paid_amount_yen == null) return null;
-  const net = Number(notice.total_yen);
-  if (!Number.isFinite(net) || net < 0) return null;
-  return Math.round(net * 1.1) + amount(notice.reimbursement_yen) === Number(notice.paid_amount_yen) ? month : null;
-}
-
-/** A notice can cover multiple projects. Move them together only when the complete net total reconciles. */
-function recordedPaymentMonths(input: {
-  cycles: SeasonBilling[]; projects: SeasonProject[]; members: SeasonMember[]; paymentNotices?: SeasonPaymentNotice[];
-}): Map<string, string> {
-  const projects = new Map(input.projects.map((p) => [p.project_id, p]));
-  const members = new Map(input.members.map((m) => [m.member_id, m]));
-  const totals = new Map<string, number | null>();
-  for (const cycle of input.cycles) {
-    const ym = memberPayoutYmForCycle(cycle, projects.get(cycle.project_id));
-    const summary = record(cycle.reward_summary_json);
-    if (!Array.isArray(summary?.members)) continue;
-    for (const raw of summary.members) {
-      const member = record(raw);
-      if (!member) continue;
-      const id = String(member.memberId ?? member.member_id ?? "");
-      const profile = members.get(id);
-      if (!profile || profile.exclude_from_payout_notice || isNonCashAllocationMember(member)) continue;
-      const key = `${id}:${ym}`;
-      const total = member.totalPay ?? member.total_pay;
-      const valid = total != null && Number.isFinite(Number(total)) && !member.payoutSnapshotAmountUnknown && !member.payoutSnapshotSplitUnknown;
-      totals.set(key, sum([totals.has(key) ? totals.get(key)! : 0, valid ? amount(total) : null]));
-    }
-  }
-  const months = new Map<string, string>();
-  for (const notice of input.paymentNotices ?? []) {
-    const key = `${notice.member_id}:${notice.ym}`;
-    const month = recordedNoticePaymentYm(notice);
-    const net = totals.get(key);
-    if (!month || net == null || net !== Number(notice.total_yen)) continue;
-    months.set(key, month);
-  }
-  return months;
-}
-
-/** Read-only projection. Missing reward caches stay unknown; balances are never added across months. */
+/** Read-only work-month projection. Payment and receipt dates do not move monthly revenue or costs. */
 export function buildPayoutSeasonPlan(input: {
   paymentYm: string; projects: SeasonProject[]; plans: SeasonPlan[];
   cycles: SeasonBilling[]; members: SeasonMember[];
-  extraRevenueRows: ExtraRevenueSourceRow[]; expenses?: SeasonExpense[]; paymentNotices?: SeasonPaymentNotice[];
+  extraRevenueRows: ExtraRevenueSourceRow[]; expenses?: SeasonExpense[];
 }): PayoutSeasonPlan {
   const { paymentYm } = input;
-  const paidMonths = recordedPaymentMonths(input);
   const members = new Map(input.members.map((member) => [member.member_id, member]));
   const cycleMap = new Map(input.cycles.map((cycle) => [`${cycle.project_id}:${cycle.ym}`, cycle]));
   const selected = input.projects.map((project) => ({ project, plan: choosePayoutSeason(input.plans, project, paymentYm) }))
@@ -164,7 +108,7 @@ export function buildPayoutSeasonPlan(input: {
       projectId: project.project_id, projectName: project.project_name, status: project.status,
       planId: plan?.plan_cycle_id ?? null, planStatus: plan?.status ?? null,
       startYm: plan?.period_start_ym ?? null, endYm: plan?.period_end_ym ?? null,
-      cells: {}, totals: blank(), memberPayments: [], missingMonths: [], notes: [], allocation: null, incomeSources: {},
+      cells: {}, totals: blank(), memberPayments: [], missingMonths: [], notes: [], allocation: null,
     };
     if (!plan) { row.notes.push("シーズン未設定"); return row; }
     row.allocation = buildSeasonAllocation(plan, input.cycles, input.members, seasonMonths(plan.period_start_ym, plan.period_end_ym));
@@ -172,21 +116,18 @@ export function buildPayoutSeasonPlan(input: {
     if (plan.period_end_ym < paymentYm) row.notes.push("直近の終了シーズン");
     const cell = (ym: string) => row.cells[ym] ??= blank();
     const memberPayments = new Map<string, SeasonMemberPayment>();
-    const missingPaymentMonths = new Set<string>();
+    const missingRewardMonths = new Set<string>();
     for (const ym of seasonMonths(plan.period_start_ym, plan.period_end_ym)) {
       const cycle = cycleMap.get(`${project.project_id}:${ym}`);
       const source = cycle ?? { project_id: project.project_id, ym, invoice_ym: null, status: null, reward_summary_json: null };
-      const receiptYm = recordedMonth(source.payment_confirmed_at) ?? clientReceiptYmForCycle(source, project);
-      const payoutYm = memberPayoutYmForCycle(source, project);
       const income = contractBackedClientAmount({ ym, project, reportedAmount: cycle?.budget_reported_amount, cycleStatus: cycle?.status, hasInvoiceEvidence: Boolean(cycle?.invoice_issued_at) });
-      add(cell(receiptYm), "income", income);
-      if (income > 0) (row.incomeSources![receiptYm] ??= []).push(`${ym.slice(0, 4)}/${ym.slice(4)}稼働分 ${income.toLocaleString("ja-JP")}円 · ${recordedMonth(source.payment_confirmed_at) ? `${source.payment_confirmed_at!.slice(0, 10)}入金確認済み` : "入金予定"}`);
+      add(cell(ym), "income", income);
       const summary = record(cycle?.reward_summary_json);
       if (!Array.isArray(summary?.members)) {
         row.missingMonths.push(ym);
-        missingPaymentMonths.add(payoutYm);
-        cell(payoutYm).regularPay = null;
-        cell(payoutYm).extraPay = null;
+        missingRewardMonths.add(ym);
+        cell(ym).regularPay = null;
+        cell(ym).extraPay = null;
         cell(ym).debt = null;
         continue;
       }
@@ -206,15 +147,10 @@ export function buildPayoutSeasonPlan(input: {
           };
           memberPayments.set(memberId, payment);
         }
-        const cashYm = paidMonths.get(`${id}:${payoutYm}`) ?? payoutYm;
-        const memberCell = payment.cells[cashYm] ??= { regularPay: 0, extraPay: 0 };
+        const memberCell = payment.cells[ym] ??= { regularPay: 0, extraPay: 0 };
         memberCell.sourceYms = [...new Set([...(memberCell.sourceYms ?? []), ym])];
-        if (paidMonths.has(`${id}:${payoutYm}`)) {
-          const date = input.paymentNotices!.find((notice) => notice.member_id === id && notice.ym === payoutYm)!.paid_on!;
-          memberCell.paidDates = [...new Set([...(memberCell.paidDates ?? []), date])];
-        }
         if (!profile || member.payoutSnapshotAmountUnknown || member.payoutSnapshotSplitUnknown) {
-          cell(cashYm).regularPay = null; cell(cashYm).extraPay = null; cell(ym).debt = null;
+          cell(ym).regularPay = null; cell(ym).extraPay = null; cell(ym).debt = null;
           memberCell.regularPay = null; memberCell.extraPay = null;
           const note = !profile ? "報酬の対象者を確認" : "保存済み支払額・原資内訳を確認";
           if (!row.notes.includes(note)) row.notes.push(note);
@@ -224,8 +160,8 @@ export function buildPayoutSeasonPlan(input: {
         const extra = amount(member.extraPaidYen ?? member.extra_paid_yen);
         const regular = member.regularPaidYen ?? member.regular_paid_yen;
         const regularPay = regular == null ? Math.max(0, total - extra) : amount(regular);
-        add(cell(cashYm), "regularPay", regularPay);
-        add(cell(cashYm), "extraPay", extra);
+        add(cell(ym), "regularPay", regularPay);
+        add(cell(ym), "extraPay", extra);
         memberCell.regularPay = sum([memberCell.regularPay, regularPay]);
         memberCell.extraPay = sum([memberCell.extraPay, extra]);
         add(cell(ym), "debt", amount(member.stockYen ?? member.stock_yen ?? member.deferredYen ?? member.deferred_yen));
@@ -233,18 +169,17 @@ export function buildPayoutSeasonPlan(input: {
     }
     row.memberPayments = [...memberPayments.values()];
     for (const payment of row.memberPayments) {
-      for (const month of missingPaymentMonths) payment.cells[month] = { regularPay: null, extraPay: null };
+      for (const month of missingRewardMonths) payment.cells[month] = { regularPay: null, extraPay: null };
     }
     const extraRows = input.extraRevenueRows.filter((source) => source.project_id === project.project_id).map((source) => ({ ...source, extra_revenue_json: (source.extra_revenue_json ?? []).filter((entry) => {
       const start = entry.period_start_ym ?? String(source.ym);
       const end = entry.period_end_ym ?? start;
       return start <= plan.period_end_ym && end >= plan.period_start_ym;
     }) }));
-    for (const extra of expandExtraRevenueCash(extraRows, { paymentTermsByProjectId: new Map([[project.project_id, project]]) })) add(cell(String(extra.ym)), "extraIncome", extra.amount);
+    for (const extra of expandExtraRevenue(extraRows, { minYm: Number(plan.period_start_ym), maxYm: Number(plan.period_end_ym) })) add(cell(String(extra.ym)), "extraIncome", extra.amount);
     for (const expense of input.expenses ?? []) {
       if (expense.projectId !== project.project_id) continue;
-      const end = memberPayoutYmForCycle({ ym: plan.period_end_ym, invoice_ym: null }, project);
-      if (expense.ym < plan.period_start_ym || expense.ym > end) continue;
+      if (expense.ym < plan.period_start_ym || expense.ym > plan.period_end_ym) continue;
       add(cell(expense.ym), expense.kind === "other" ? "other" : "reimbursement", expense.amountYen);
     }
     return row;
