@@ -13,11 +13,11 @@ function isBalance(metric: SeasonMetric) { return metric === "cumulative" || met
 const metrics = SEASON_METRICS;
 type MatrixRow = { key: string; metric: SeasonMetric; label: string; combinePay?: boolean; member?: SeasonMemberPayment };
 function paymentTotal(cell: SeasonPaymentCell) {
-  return cell.regularPay == null || cell.extraPay == null ? null : cell.regularPay + cell.extraPay;
+  return cell.regularAccrued == null || cell.extraAccrued == null ? null : cell.regularAccrued + cell.extraAccrued;
 }
 function paymentBreakdown(cell: SeasonPaymentCell) {
   const yen = (value: number | null) => value == null ? "未計算" : `${number.format(value)}円`;
-  return `本契約 ${yen(cell.regularPay)} · 別財布 ${yen(cell.extraPay)}`;
+  return `発生報酬：本契約 ${yen(cell.regularAccrued)} · 別財布 ${yen(cell.extraAccrued)}`;
 }
 
 /** Align the previous month after the actual sticky columns, regardless of page offsets. */
@@ -62,10 +62,10 @@ export function PayoutSeasonPlanView({ ym, plan: current, loading = false, error
     const wrapper = scrollRef.current;
     if (wrapper) scrollToPaymentContext(wrapper, ym);
   }, [current?.paymentYm, ym]);
-  const shown: MatrixRow[] = metrics.filter(([key]) => key !== "extraPay" && (full || ["net", "regularPay", "debt"].includes(key))).map(([metric, label]) => ({ key: metric, metric, label: metric === "regularPay" ? "メンバー報酬計" : label, combinePay: metric === "regularPay" }));
-  const aggregateRows = shown.filter(({ metric }) => ["income", "regularPay", "net", "debt"].includes(metric));
+  const shown: MatrixRow[] = metrics.filter(([key]) => key !== "extraAccrued" && (full || ["net", "regularAccrued", "debt"].includes(key))).map(([metric, label]) => ({ key: metric, metric, label: metric === "regularAccrued" ? "発生報酬計" : label, combinePay: metric === "regularAccrued" }));
+  const aggregateRows = shown.filter(({ metric }) => ["income", "regularAccrued", "net", "debt"].includes(metric));
   function projectRows(project: SeasonProjectPlan): MatrixRow[] {
-    return shown.flatMap((row) => row.metric !== "regularPay" ? [row] : project.memberPayments.length ? project.memberPayments.map((member) => ({ ...row, key: `member:${member.memberId}`, label: `報酬 · ${member.memberName}`, member })) : [{ ...row, label: project.missingMonths.length ? "報酬 · メンバー未計算" : "報酬 · 対象者なし" }]);
+    return shown.flatMap((row) => row.metric !== "regularAccrued" ? [row] : project.memberPayments.length ? project.memberPayments.map((member) => ({ ...row, key: `member:${member.memberId}`, label: `発生 · ${member.memberName}`, member })) : [{ ...row, label: project.missingMonths.length ? "発生 · メンバー未計算" : "発生 · 対象者なし" }]);
   }
   function rowTotal(project: SeasonProjectPlan, row: MatrixRow) {
     return row.member ? paymentTotal(row.member.totals) : row.combinePay ? paymentTotal(project.totals) : project.totals[row.metric];
@@ -73,7 +73,7 @@ export function PayoutSeasonPlanView({ ym, plan: current, loading = false, error
   const pending = current?.projects.filter((row) => !row.planId || SEASON_METRICS.some(([metric]) => row.totals[metric] == null)).length ?? 0;
   const styles = (value: number | null, metric: SeasonMetric) => value == null ? "text-muted-foreground" : value < 0 && (metric === "net" || metric === "cumulative") ? "text-red-700 font-semibold" : metric === "debt" && value > 0 ? "text-amber-800" : "text-foreground";
   const rewardTotal = (project: SeasonProjectPlan, future: boolean) => {
-    const values = current!.months.filter((month) => future ? month > ym : month === ym).flatMap((month) => [project.cells[month].regularPay, project.cells[month].extraPay]);
+    const values = current!.months.filter((month) => future ? month > ym : month === ym).flatMap((month) => [project.cells[month].regularAccrued, project.cells[month].extraAccrued]);
     return values.some((value) => value == null) ? null : values.reduce<number>((total, value) => total + (value ?? 0), 0);
   };
   function jumpToPayment() {
@@ -88,9 +88,9 @@ export function PayoutSeasonPlanView({ ym, plan: current, loading = false, error
       const value = row.combinePay ? paymentTotal(payment) : cells[month][metric];
       const outsideDebt = metric === "debt" && project?.startYm != null && (month < project.startYm || month > project.endYm!);
       const label = outsideDebt ? "対象期間外" : value == null ? "報酬計算または支出額が未確認" : `${number.format(value)}円`;
-      const classes = `border-b border-r border-border/60 px-2 py-1 text-right font-mono tabular-nums ${styles(value, metric)} ${month === ym ? "bg-sky-50 dark:bg-sky-950/40" : ""}`;
+      const classes = `border-b border-r border-border/60 px-2 py-1 text-right font-mono tabular-nums ${styles(value, metric)}`;
       return <td key={month} data-payout-month={month} className={classes} title={`${project?.projectName ?? "全PJ合計"} / ${row.label} / ${ymLabel(month)}稼働月 / ${label}${row.combinePay ? `（${paymentBreakdown(payment)}）` : ""}`}>
-        {project && row.member && value != null && value > 0 && sourceYms.length === 1 ? <button type="button" className="w-full text-right underline decoration-border underline-offset-2 hover:text-sky-700 focus-visible:outline-2 focus-visible:outline-sky-600" onClick={() => onOpenMonthly(project.projectId, sourceYms[0], `${project.projectName} ${ymLabel(sourceYms[0])}稼働分`)} aria-label={`${project.projectName} ${row.member.memberName} ${ymLabel(month)}支払の根拠を見る`}>{valueLabel(value)}</button> : project && metric === "debt" && !outsideDebt ? <button type="button" className="w-full text-right underline decoration-border underline-offset-2 hover:text-sky-700 focus-visible:outline-2 focus-visible:outline-sky-600" onClick={() => onOpenMonthly(project.projectId, month, `${project.projectName} ${ymLabel(month)}`)} aria-label={`${project.projectName} ${ymLabel(month)}の報酬根拠を見る`}>{valueLabel(value)}</button> : outsideDebt ? "·" : valueLabel(value)}
+        {project && row.member && value != null && value > 0 && sourceYms.length === 1 ? <button type="button" className="w-full text-right underline decoration-border underline-offset-2 hover:text-sky-700 focus-visible:outline-2 focus-visible:outline-sky-600" onClick={() => onOpenMonthly(project.projectId, sourceYms[0], `${project.projectName} ${ymLabel(sourceYms[0])}稼働分`)} aria-label={`${project.projectName} ${row.member.memberName} ${ymLabel(month)}発生報酬の根拠を見る`}>{valueLabel(value)}</button> : project && metric === "debt" && !outsideDebt ? <button type="button" className="w-full text-right underline decoration-border underline-offset-2 hover:text-sky-700 focus-visible:outline-2 focus-visible:outline-sky-600" onClick={() => onOpenMonthly(project.projectId, month, `${project.projectName} ${ymLabel(month)}`)} aria-label={`${project.projectName} ${ymLabel(month)}の報酬根拠を見る`}>{valueLabel(value)}</button> : outsideDebt ? "·" : valueLabel(value)}
       </td>;
     });
   }
@@ -111,11 +111,11 @@ export function PayoutSeasonPlanView({ ym, plan: current, loading = false, error
       <div className="flex flex-wrap items-center gap-2 pt-2 text-xs">
         <h3 className="mr-auto font-semibold">月別収支（稼働月）</h3>
         <button type="button" onClick={() => setFull(!full)} aria-pressed={full} className="h-7 border border-border px-2 hover:bg-muted focus-visible:outline-2 focus-visible:outline-sky-600">{full ? "報酬中心にする" : "収支明細も表示"}</button>
-        <button type="button" onClick={jumpToPayment} className="h-7 border border-border px-2 hover:bg-muted focus-visible:outline-2 focus-visible:outline-sky-600">選択月へ</button>
+        <button type="button" onClick={jumpToPayment} className="h-7 border border-border px-2 hover:bg-muted focus-visible:outline-2 focus-visible:outline-sky-600">今月の稼働へ</button>
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-        <span>売上と報酬は稼働月に表示（税抜）。別契約の売上は対象期間に月割り。入金日・振込日では月を動かさない。青い列は選択月。</span>
-        <span>報酬は振込対象者別。本契約＋別財布を表示。金額を押すと、対応する稼働月の繰越・丸めを含む根拠を確認できる。</span>
+        <span>売上と発生報酬は稼働月に表示（税抜）。別契約の売上は対象期間に月割り。入金日・振込日では月を動かさない。</span>
+        <span>発生報酬は振込対象者別。本契約＋別財布を表示。支払通知書の配分額と支払時の端数加算は上の年間支払表と03で確認。</span>
         <span>差引＝売上−メンバー報酬−立替経費−登録済み追加支出。立替経費は利用月、追加支出は登録された予定月。支払原資と配分の超過は上の報酬予算表で確認。</span>
         <span>「期間計」は表示月の収支合計。「最終残高」は累計収支なら表の最終月末、未払報酬なら各PJのシーズン最終月末の残高。月ごとの残高は足さない。</span>
       </div>
@@ -127,7 +127,7 @@ export function PayoutSeasonPlanView({ ym, plan: current, loading = false, error
             <th scope="col" className="sticky left-[104px] top-0 z-40 border-b border-r border-border bg-muted px-2 py-2 text-left">費目・メンバー</th>
             <th scope="col" className="sticky left-[248px] top-0 z-40 border-b border-r border-border bg-muted px-2 py-2 text-right">期間計</th>
             <th scope="col" className="sticky left-[352px] top-0 z-40 border-b border-r border-border bg-muted px-2 py-2 text-right">最終残高</th>
-            {current.months.map((month) => <th key={month} data-payment-column={month} scope="col" aria-current={month === ym ? "date" : undefined} className={`sticky top-0 z-30 border-b border-r border-border px-2 py-2 text-right font-mono ${month === ym ? "bg-sky-100 font-bold text-sky-950 dark:bg-sky-900 dark:text-sky-50" : "bg-muted"}`}>{ymLabel(month)}</th>)}
+            {current.months.map((month) => <th key={month} data-payment-column={month} scope="col" className="sticky top-0 z-30 border-b border-r border-border bg-muted px-2 py-2 text-right font-mono">{ymLabel(month)}</th>)}
           </tr></thead>
           <tbody>
             {aggregateRows.map((row, index) => {
@@ -150,7 +150,7 @@ export function PayoutSeasonPlanView({ ym, plan: current, loading = false, error
               {index === 0 && <th rowSpan={rows.length} scope="rowgroup" className="sticky left-0 z-20 border-b border-r border-border bg-background px-2 py-1 text-left align-top">
                 <Link href={`/project/${project.projectId}/cockpit`} className="font-semibold text-sky-800 hover:underline">{project.projectName}</Link>
                 <div className="mt-1 font-mono text-[10px] font-normal text-muted-foreground">{ymLabel(project.startYm!)}<br />〜{ymLabel(project.endYm!)}</div>
-                {full && <div className="mt-2 text-[10px] font-normal text-muted-foreground">選択月の報酬<div className="font-mono text-foreground">{valueLabel(rewardTotal(project, false))}</div>以降の報酬<div className="font-mono text-foreground">{valueLabel(rewardTotal(project, true))}</div></div>}
+                {full && <div className="mt-2 text-[10px] font-normal text-muted-foreground">今月の発生報酬<div className="font-mono text-foreground">{valueLabel(rewardTotal(project, false))}</div>以降の発生報酬<div className="font-mono text-foreground">{valueLabel(rewardTotal(project, true))}</div></div>}
                 {project.missingMonths.length > 0 && <div className="mt-1 font-normal text-amber-800" title={project.missingMonths.map(ymLabel).join("、")}>未計算 {project.missingMonths.length}月</div>}
                 {project.notes.map((note) => <div key={note} className="mt-1 text-[10px] font-normal text-muted-foreground">{note}</div>)}
               </th>}

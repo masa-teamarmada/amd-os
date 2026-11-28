@@ -18,7 +18,7 @@ async function read(table: string, columns: string, order: string) {
   }
 }
 const paymentYm = process.argv[2] ?? "202612";
-const [plan, cycles, snapshots, profiles, projects, reimbursements, obligations, overrides, confirmations, policies] = await Promise.all([
+const [plan, cycles, snapshots, profiles, projects, reimbursements, obligations, policies] = await Promise.all([
   loadPayoutSeasonPlan(paymentYm),
   read("billing_cycles", "project_id,ym,invoice_ym,status,budget_reported_amount,reward_summary_json,invoice_issued_at,invoice_sent_at,payment_confirmed_at,extra_revenue_json", "id"),
   read("monthly_reward_payout", "project_id,ym,member_id,total_pay", "id"),
@@ -26,35 +26,18 @@ const [plan, cycles, snapshots, profiles, projects, reimbursements, obligations,
   read("projects", "project_id,project_name,status,fee_type,fee_amount,start_ym,end_ym,contract_terms_json,payment_due_rule,payment_due_day,invoice_send_deadline_rule", "project_id"),
   read("reimbursements", "reimbursement_id,project_id,date,admin_approved_at,status,amount", "reimbursement_id"),
   read("company_payment_obligations", "amount_yen,amount_status,due_date,expected_payment_ym,status,cashflow_treatment,source_kind,category,payload", "id"),
-  read("legacy_reward_payout_amount_override_events", "project_id,source_ym,member_id,action,amount_yen", "id"),
-  read("member_payout_amount_confirmation_events", "project_id,source_ym,member_id,action,amount_yen", "id"),
   read("project_fixed_monthly_rewards", "project_id,effective_from_ym,member_amounts_json", "effective_from_ym"),
 ]);
 const profile = new Map(profiles.map(m => [m.member_id, m]));
 const projectMap = new Map(projects.map(p => [p.project_id, p]));
-const saved = new Map(snapshots.map(s => [`${s.project_id}:${s.ym}:${s.member_id}`, s.total_pay]));
-const legacy = new Map<string, any>();
-for (const o of overrides) legacy.set(`${o.project_id}:${o.source_ym}:${o.member_id}`, o);
-const confirmed = new Map<string, any>();
-for (const event of confirmations) confirmed.set(`${event.project_id}:${event.source_ym}:${event.member_id}`, event);
-// A saved detail may add a payee absent from the original calculation cache.
-for (const c of cycles) {
-  if (!Array.isArray(c.reward_summary_json?.members)) continue;
-  for (const detail of snapshots.filter(s => s.project_id === c.project_id && s.ym === c.ym)) {
-    if (!c.reward_summary_json.members.some((m: any) => (m.memberId ?? m.member_id) === detail.member_id)) c.reward_summary_json.members.push({ memberId: detail.member_id, totalPay: 0, stockYen: 0 });
-  }
-}
-const key = (c: any, id: string) => `${c.project_id}:${c.ym}:${id}`;
-function paid(c: any, m: any) {
-  const id = m.memberId ?? m.member_id;
-  const confirmation = confirmed.get(key(c, id));
-  if (confirmation?.action === "set") return { regular: Math.round(Number(confirmation.amount_yen)), extra: 0 };
-  const override = legacy.get(key(c, id));
-  if (override?.action === "set") return { regular: Math.round(Number(override.amount_yen)), extra: 0 };
-  const total = Math.round(saved.has(key(c, id)) ? Number(saved.get(key(c, id))) : Number(m.totalPay ?? m.total_pay ?? 0));
-  const extra = Math.round(Number(m.extraPaidYen ?? m.extra_paid_yen ?? 0));
-  if (extra > total || (extra > 0 && total !== Math.round(Number(m.totalPay ?? m.total_pay)))) return null;
-  return { regular: total - extra, extra };
+function accrued(m: any) {
+  const total = m.basePay ?? m.base_pay;
+  const extra = m.extraBasePay ?? m.extra_base_pay ?? 0;
+  const regular = m.regularBasePay ?? m.regular_base_pay ?? (total == null ? null : Number(total) - Number(extra));
+  assert.ok(regular != null && Number.isFinite(Number(regular)) && Number(regular) >= 0, "本契約の発生報酬が未確認");
+  assert.ok(Number.isFinite(Number(extra)) && Number(extra) >= 0, "別財布の発生報酬が未確認");
+  if (total != null) assert.equal(Math.round(Number(regular)) + Math.round(Number(extra)), Math.round(Number(total)), "発生報酬の内訳不一致");
+  return { regular: Math.round(Number(regular)), extra: Math.round(Number(extra)) };
 }
 let checks = 0;
 function equal(actual: unknown, expected: unknown, label: string) { assert.equal(actual, expected, label); checks++; }
@@ -70,9 +53,8 @@ for (const row of plan.projects.filter(p => p.planId)) {
       const id = m.memberId ?? m.member_id;
       if (!profile.has(id) || profile.get(id).exclude_from_payout_notice || isNonCashAllocationMember(m)) continue;
       stock += Math.round(Number(m.stockYen ?? m.stock_yen ?? m.deferredYen ?? m.deferred_yen ?? 0));
-      const p = paid(c, m);
-      assert.ok(p, `${key(c,id)}: 原資内訳は要確認`);
-      for (const [metric, value] of [["regularPay", p.regular], ["extraPay", p.extra]] as const) {
+      const p = accrued(m);
+      for (const [metric, value] of [["regularAccrued", p.regular], ["extraAccrued", p.extra]] as const) {
         const k = `${id}:${c.ym}:${metric}`;
         amounts.set(k, (amounts.get(k) ?? 0) + value);
       }
@@ -86,7 +68,7 @@ for (const row of plan.projects.filter(p => p.planId)) {
     equal(cell.income, income.get(month) ?? 0, `${row.projectName} ${month}: 本契約入金`);
     equal(cell.extraIncome, extra.filter(e => String(e.ym) === month).reduce((s,e) => s+e.amount,0), `${row.projectName} ${month}: 別契約入金`);
     equal(cell.debt, debt.get(month) ?? 0, `${row.projectName} ${month}: 稼働月末残高`);
-    for (const metric of ["regularPay", "extraPay"] as const) {
+    for (const metric of ["regularAccrued", "extraAccrued"] as const) {
       for (const m of row.memberPayments) equal(m.cells[month][metric], amounts.get(`${m.memberId}:${month}:${metric}`) ?? 0, `${row.projectName} ${month} ${m.memberName}: ${metric}`);
       equal(cell[metric], row.memberPayments.reduce((s,m) => s + (m.cells[month][metric] ?? 0),0), `${row.projectName} ${month}: 個人合計`);
     }
@@ -94,7 +76,7 @@ for (const row of plan.projects.filter(p => p.planId)) {
     equal(cell.reimbursement, actualReimbursement, `${row.projectName} ${month}: 利用月の立替経費`);
     const other = obligations.filter(o => o.status !== "cancelled" && o.cashflow_treatment === "additive" && !["payout_notice","reimbursement"].includes(o.source_kind) && !["reward","reimbursement"].includes(o.category) && (o.payload?.project_id ?? o.payload?.projectId) === row.projectId && (o.expected_payment_ym ?? o.due_date?.slice(0,7).replace("-","")) === month);
     equal(cell.other, other.reduce((s,o) => s + Number(o.amount_yen ?? 0),0), `${row.projectName} ${month}: 追加支出`);
-    const net = cell.income! + cell.extraIncome! - cell.regularPay! - cell.extraPay! - cell.reimbursement! - cell.other!;
+    const net = cell.income! + cell.extraIncome! - cell.regularAccrued! - cell.extraAccrued! - cell.reimbursement! - cell.other!;
     cumulative += net;
     equal(cell.net, net, `${row.projectName} ${month}: 差引`);
     equal(cell.cumulative, cumulative, `${row.projectName} ${month}: 累計`);

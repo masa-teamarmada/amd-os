@@ -14,7 +14,7 @@ const cycles: SeasonBilling[] = months.map((ym, index) => ({
   // Client receipt protection without reward_paid_at must never make this month disappear.
   payment_confirmed_at: "2026-07-01T00:00:00Z", reward_paid_at: null,
   reward_summary_json: { companyReserveYen: 75, members: [
-    ...["a", "b", "c", "d"].map((memberId, i) => ({ memberId, totalPay: (i + 1) * 10, stockYen: memberId === "a" ? (index ? 7 : 999) : 0 })),
+    ...["a", "b", "c", "d"].map((memberId, i) => ({ memberId, basePay: (i + 1) * 20, totalPay: (i + 1) * 10, stockYen: memberId === "a" ? (index ? 7 : 999) : 0 })),
     { memberId: "internal-a", totalPay: 0, companyReserveYen: 50, payoutExcluded: true, stockYen: index ? 5 : 999, companyReserveUnfundedYen: index ? 5 : 999 },
     { memberId: "internal-b", totalPay: 0, companyReserveYen: 25, payoutExcluded: true, stockYen: 0 },
   ] },
@@ -44,7 +44,7 @@ assert.equal(payable.budgetYen, 645, "既存の社内割当150円と未充当5�
 assert.equal(payable.totalYen, 297);
 assert.equal(payable.remainingYen, 348, "表示を簡潔にしても既存の割当を追加支払へ開放しない");
 const matrix = buildPayoutSeasonPlan({ paymentYm: "202607", projects: [{ project_id: "fixture", project_name: "検証", status: "active", payment_due_rule: "next_month_end", payment_due_day: null }], plans: [plan], cycles: overlaid, members: profiles, extraRevenueRows: [] });
-assert.equal(matrix.projects[0].totals.regularPay, actual.cashYen, "月別表と年間表の振込対象額が一致する。is_officerだけで除外しない");
+assert.equal(matrix.projects[0].totals.regularAccrued, 400, "月別収支は振込額290円ではなく稼働月の発生報酬を計上する。is_officerだけで除外しない");
 assert.deepEqual(matrix.projects[0].memberPayments.find((member) => member.memberId === "a")?.cells["202606"].sourceYms, ["202606"], "月別収支の報酬根拠は同じ稼働月へ進む");
 assert.equal(buildSeasonAllocation({ ...plan, budget_yen: 100 }, overlaid, profiles, months).remainingYen, -202);
 assert.equal(buildSeasonAllocation({ ...plan, budget_yen: 100 }, overlaid, profiles, months).status, "overallocated");

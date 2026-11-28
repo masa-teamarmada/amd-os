@@ -2654,7 +2654,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
             </details>
           </div>
         </div>
-        <p className="text-[11px] text-muted-foreground">全員分PDF一括発行で正式PDFを作成。内容を確認してから、各行の「送付」で宛先・本文・添付を確認する。</p>
+        <p className="text-[11px] text-muted-foreground">各明細の稼働月と発生報酬は01の月別収支に対応する。支払額には以前の未払分の分割支払や端数加算が含まれる。全員分PDF一括発行で正式PDFを作成し、内容を確認してから各行の「送付」へ進む。</p>
         <div className="overflow-hidden rounded-lg border border-border">
           <table data-amie-list="records" className="w-full text-[12px]">
             <thead className="border-b border-border bg-muted/40">
@@ -2685,8 +2685,8 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                           <div className="font-mono text-[10px] text-muted-foreground">{row.memberId}</div>
                           {(row.regularBasePay > 0 || row.extraBasePay > 0) && (
                             <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
-                              {row.regularBasePay > 0 && <span className="rounded bg-emerald-100 px-1 text-emerald-800">本契約 {fmtYen(row.regularBasePay)}</span>}
-                              {row.extraBasePay > 0 && <span className="rounded bg-indigo-100 px-1 text-indigo-800">別財布 {fmtYen(row.extraBasePay)}</span>}
+                              {row.regularBasePay > 0 && <span className="rounded bg-emerald-100 px-1 text-emerald-800">発生 · 本契約 {fmtYen(row.regularBasePay)}</span>}
+                              {row.extraBasePay > 0 && <span className="rounded bg-indigo-100 px-1 text-indigo-800">発生 · 別財布 {fmtYen(row.extraBasePay)}</span>}
                             </div>
                           )}
                         {row.reimbursementYen > 0 && (
@@ -2741,6 +2741,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                               <span className="font-medium">{project?.project_name ?? entry.projectId}</span>
                                 <span className="font-mono text-muted-foreground">{fmtYm(entry.ym)}</span>
                                 <span className="text-muted-foreground">{fmtPt(entry.earnedPt)}</span>
+                                <span className="text-muted-foreground">発生 {fmtYen(entry.basePay)}</span>
                                 {entry.payoutAmountOverride ? (
                                   <span
                                     className="rounded border border-sky-200 bg-sky-50 px-1 text-sky-900"
